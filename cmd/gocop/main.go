@@ -18,6 +18,7 @@ import (
 	"gocop/internal/config"
 	"gocop/internal/db"
 	"gocop/internal/importer/bp16"
+	"gocop/internal/importer/csvlevels"
 	"gocop/internal/ledger"
 	"gocop/internal/peers"
 	"gocop/internal/repository"
@@ -43,6 +44,10 @@ func main() {
 	importBP16 := flag.Bool("import-bp16", false, "Uvezi očitanja vodostaja iz Directus evidencije VGI Baranja i završi")
 	bp16Dir := flag.String("bp16-dir", "", "Uvoz iz ranije skinutih JSON datoteka umjesto iz Directusa")
 	directusEnv := flag.String("directus-env", "", "Datoteka s DIRECTUS_URL i DIRECTUS_TOKEN (zadano ~/.config/gocop/directus.env)")
+	csvFile := flag.String("tablica", "", "Tablica dnevnih vodostaja (CSV): stupci su postaje, redci datumi")
+	csvHour := flag.Int("tablica-sat", 7, "Sat jutarnjeg očitanja u tablici")
+	csvOrigin := flag.String("tablica-izvor", "", "Odakle tablica potječe, npr. \"COP Osijek — dnevna tablica\"")
+	csvWrite := flag.Bool("upisi", false, "Bez ove zastavice uvoz samo izvještava, ništa ne upisuje")
 	flag.Parse()
 
 	// baza se mora znati prije datoteke, jer datoteka živi uz bazu
@@ -192,6 +197,37 @@ func main() {
 	moduleRepo := repository.NewModuleRepository(database, recorder)
 	moduleService := service.NewModuleService(moduleRepo)
 	readingService := service.NewReadingService(readingRepo, stationRepo, structureRepo, sectionService, userService)
+
+	// Uvoz tablice vodostaja. Bez -upisi je samo izvješće: koje su postaje
+	// prepoznate, koliko bi zapisa bilo novo i gdje se izvori ne slažu.
+	if *csvFile != "" {
+		rep, err := csvlevels.Run(context.Background(), csvlevels.Options{
+			Path: *csvFile, Hour: *csvHour, Origin: *csvOrigin, DryRun: !*csvWrite, Log: log.Printf,
+			Deps: csvlevels.Deps{Readings: readingRepo, Stations: stationRepo, Structures: structureRepo},
+		})
+		if err != nil {
+			log.Fatalf("Tablica vodostaja: %v", err)
+		}
+		log.Printf("Tablica vodostaja: %s", rep.Summary())
+		for _, c := range rep.Matched {
+			log.Printf("  stupac %-28q → %-28s %6d očitanja", c.Header, c.Name, c.Values)
+		}
+		for _, u := range rep.Unmatched {
+			log.Printf("  NIJE PREPOZNATO: %q — nema takve letve u registru", u)
+		}
+		for _, a := range rep.Ambiguous {
+			log.Printf("  DVOZNAČNO: %q — više letvi nosi taj naziv", a)
+		}
+		for _, d := range rep.Differs {
+			log.Printf("  RAZLIKA: %s %s — u bazi %d cm (%s%s), u tablici %d cm",
+				d.Gauge, d.Day.Format("02.01.2006."), d.Have, d.HaveAt.Format("15:04"),
+				map[bool]string{true: "", false: ", " + d.From}[d.From == ""], d.New)
+		}
+		if rep.DryRun {
+			log.Printf("Ništa nije upisano. Kad odlučite koji je izvor mjerodavan, dodajte -upisi.")
+		}
+		return
+	}
 
 	// Uvoz iz Directusa je zaseban način rada: uveze i završi
 	if *importBP16 {
