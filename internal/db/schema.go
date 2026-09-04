@@ -322,6 +322,19 @@ func InitSchema(database *sql.DB) error {
 		`CREATE INDEX IF NOT EXISTS idx_readings_structure_time ON readings(structure_id, measured_at DESC);`,
 		`CREATE INDEX IF NOT EXISTS idx_readings_source_ref ON readings(source_ref);`,
 
+		// Vidljivost modula: pravilo po ulozi i iznimka po računu
+		`CREATE TABLE IF NOT EXISTS role_modules (
+			role TEXT PRIMARY KEY,
+			modules TEXT NOT NULL DEFAULT '',
+			updated_at DATETIME NOT NULL
+		);`,
+		`CREATE TABLE IF NOT EXISTS user_modules (
+			user_id TEXT PRIMARY KEY,
+			shown TEXT NOT NULL DEFAULT '',
+			hidden TEXT NOT NULL DEFAULT '',
+			updated_at DATETIME NOT NULL
+		);`,
+
 		`CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);`,
 		`CREATE INDEX IF NOT EXISTS idx_duties_user ON duties(user_id);`,
 		`CREATE INDEX IF NOT EXISTS idx_duties_sector ON duties(sector_id);`,

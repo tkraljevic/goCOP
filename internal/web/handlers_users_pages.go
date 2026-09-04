@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"gocop/internal/models"
+	"gocop/internal/service"
 
 	"github.com/google/uuid"
 )
@@ -68,10 +69,28 @@ type UserPageData struct {
 	Sectors []models.Sector
 	Areas   []models.Area
 
+	ModuleRows []ModuleOverrideRow // vidljivost modula za ovaj račun (samo globalni administrator)
+
 	SuccessMessage string
 	ErrorMessage   string
 	ActiveNav      string
 	ViewAsBanner
+}
+
+// ModuleOverrideRow je jedan modul na stranici djelatnika: što uloga daje i
+// je li administrator napravio iznimku
+type ModuleOverrideRow struct {
+	ID       string
+	Label    string
+	Desc     string
+	ByRole   bool   // vidi po ulozi
+	Override string // "", "show" ili "hide"
+	Visible  bool   // stvarno stanje
+}
+
+// SetModuleService daje rukovatelju vidljivost modula
+func (h *UsersHandler) SetModuleService(modules *service.ModuleService) {
+	h.moduleService = modules
 }
 
 // SetPageTemplates daje rukovatelju predloške stranica
@@ -127,6 +146,9 @@ func (h *UsersHandler) ShowUser(w http.ResponseWriter, r *http.Request) {
 	}
 	data.User = u
 	data.IsSelf = data.CurrentUser != nil && data.CurrentUser.ID == u.ID
+	if h.moduleService != nil && data.Permissions != nil && data.Permissions.IsGlobalAdmin && !u.IsGlobalAdmin {
+		data.ModuleRows = h.moduleRows(r, u)
+	}
 
 	if err := h.tmplDetail.ExecuteTemplate(w, "user_detail.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -199,4 +221,54 @@ func (h *UsersHandler) ShowProfile(w http.ResponseWriter, r *http.Request) {
 	if err := h.tmplProfile.ExecuteTemplate(w, "profile.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// moduleRows slaže vidljivost modula za račun: što daje uloga, što je iznimka
+func (h *UsersHandler) moduleRows(r *http.Request, u *models.User) []ModuleOverrideRow {
+	ctx := r.Context()
+	byRole, _ := h.moduleService.Visibility(ctx, &models.User{ID: u.ID, Duties: u.Duties}, nil)
+	override, _ := h.moduleService.UserOverride(ctx, u.ID.String())
+	var rows []ModuleOverrideRow
+	for _, m := range models.Modules {
+		row := ModuleOverrideRow{ID: m.ID, Label: m.Label, Desc: m.Desc, ByRole: byRole[m.ID]}
+		row.Visible = row.ByRole
+		if override != nil {
+			for _, s := range override.Shown {
+				if s == m.ID {
+					row.Override, row.Visible = "show", true
+				}
+			}
+			for _, s := range override.Hidden {
+				if s == m.ID {
+					row.Override, row.Visible = "hide", false
+				}
+			}
+		}
+		rows = append(rows, row)
+	}
+	return rows
+}
+
+// HandleUserModules sprema iznimke računa: za svaki modul "", "show" ili "hide"
+func (h *UsersHandler) HandleUserModules(w http.ResponseWriter, r *http.Request) {
+	perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
+	u, ok := h.loadUser(r)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	var shown, hidden []string
+	for _, m := range models.Modules {
+		switch r.FormValue("mod_" + m.ID) {
+		case "show":
+			shown = append(shown, m.ID)
+		case "hide":
+			hidden = append(hidden, m.ID)
+		}
+	}
+	if err := h.moduleService.SetUserOverride(r.Context(), perms, u.ID.String(), shown, hidden); err != nil {
+		redirectWith(w, r, "/users/"+u.ID.String(), "error", err.Error())
+		return
+	}
+	redirectWith(w, r, "/users/"+u.ID.String(), "success", "Vidljivost modula za ovaj račun je spremljena.")
 }

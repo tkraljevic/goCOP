@@ -30,6 +30,8 @@ type FieldPageData struct {
 	Duty        *models.Duty
 	Percent     int
 	Remaining   int
+	NextURL     string // prva letva koja danas još nije očitana
+	NextName    string
 
 	SuccessMessage string
 	ErrorMessage   string
@@ -59,6 +61,12 @@ func (h *FieldHandler) ShowField(w http.ResponseWriter, r *http.Request) {
 	if fo.Total > 0 {
 		data.Percent = fo.Done * 100 / fo.Total
 		data.Remaining = fo.Total - fo.Done
+	}
+	for _, g := range fo.Mine {
+		if !g.DoneToday {
+			data.NextURL, data.NextName = g.NewURL+"&back=/teren", g.Name
+			break
+		}
 	}
 	if err := h.tmpl.ExecuteTemplate(w, "teren.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

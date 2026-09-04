@@ -53,7 +53,7 @@ func noviCvor(t *testing.T, nodeID string) *cvor {
 func TestUvedeniDjelatnikNijeSePrijavio(t *testing.T) {
 	n := noviCvor(t, "cvor-a")
 
-	u, err := n.repo.GetUserByUsername("tomislav")
+	u, err := n.repo.GetUserByUsername("tkraljevic")
 	if err != nil || u == nil {
 		t.Fatalf("korisnik nije dohvaćen: %v", err)
 	}
@@ -75,11 +75,11 @@ func TestUvedeniDjelatnikNijeSePrijavio(t *testing.T) {
 func TestPrijavaPomicRacunUAktivan(t *testing.T) {
 	n := noviCvor(t, "cvor-a")
 
-	if _, _, err := n.auth.Login("tomislav", "gocop2026", "127.0.0.1", "test"); err != nil {
+	if _, _, err := n.auth.Login("tkraljevic", "gocop2026", "127.0.0.1", "test"); err != nil {
 		t.Fatalf("prijava nije uspjela: %v", err)
 	}
 
-	u, _ := n.repo.GetUserByUsername("tomislav")
+	u, _ := n.repo.GetUserByUsername("tkraljevic")
 	if u.LastLoginAt == nil {
 		t.Fatal("prijava nije zabilježena")
 	}
@@ -92,11 +92,11 @@ func TestPrijavaPomicRacunUAktivan(t *testing.T) {
 func TestVisePrijavaIstiDanPiseJednuVerziju(t *testing.T) {
 	n := noviCvor(t, "cvor-a")
 
-	u, _ := n.repo.GetUserByUsername("tomislav")
+	u, _ := n.repo.GetUserByUsername("tkraljevic")
 	before := versionCount(t, n.rec, u.ID.String())
 
 	for i := 0; i < 3; i++ {
-		if _, _, err := n.auth.Login("tomislav", "gocop2026", "127.0.0.1", "test"); err != nil {
+		if _, _, err := n.auth.Login("tkraljevic", "gocop2026", "127.0.0.1", "test"); err != nil {
 			t.Fatalf("prijava %d nije uspjela: %v", i+1, err)
 		}
 	}
@@ -118,7 +118,7 @@ func TestVisePrijavaIstiDanPiseJednuVerziju(t *testing.T) {
 func TestFiltarStanjaRacunaDijeliPopisBezPreklapanja(t *testing.T) {
 	n := noviCvor(t, "cvor-a")
 
-	if _, _, err := n.auth.Login("tomislav", "gocop2026", "127.0.0.1", "test"); err != nil {
+	if _, _, err := n.auth.Login("tkraljevic", "gocop2026", "127.0.0.1", "test"); err != nil {
 		t.Fatalf("prijava: %v", err)
 	}
 	iskljucen, _ := n.repo.GetUserByUsername("admin")
@@ -136,7 +136,7 @@ func TestFiltarStanjaRacunaDijeliPopisBezPreklapanja(t *testing.T) {
 		t.Errorf("tri stanja daju %d+%d+%d, a svih djelatnika je %d",
 			len(aktivni), len(neprijavljeni), len(neaktivni), len(svi))
 	}
-	if len(aktivni) != 1 || aktivni[0].Username != "tomislav" {
+	if len(aktivni) != 1 || aktivni[0].Username != "tkraljevic" {
 		t.Errorf("aktivan mora biti samo prijavljeni korisnik, dobiveno %d", len(aktivni))
 	}
 	if len(neaktivni) != 1 || neaktivni[0].Username != "admin" {
@@ -156,7 +156,7 @@ func TestLozinkaPutujeNaDrugiCvor(t *testing.T) {
 	a := noviCvor(t, "cvor-a")
 	b := noviCvor(t, "cvor-b")
 
-	u, _ := a.repo.GetUserByUsername("tomislav")
+	u, _ := a.repo.GetUserByUsername("tkraljevic")
 	hash, err := a.auth.HashPassword("nova-lozinka-2026")
 	if err != nil {
 		t.Fatal(err)
@@ -179,7 +179,7 @@ func TestLozinkaPutujeNaDrugiCvor(t *testing.T) {
 		t.Fatalf("primjena verzija: %v", err)
 	}
 
-	naB, err := b.repo.GetUserByUsername("tomislav")
+	naB, err := b.repo.GetUserByUsername("tkraljevic")
 	if err != nil || naB == nil {
 		t.Fatalf("korisnik na drugom čvoru: %v", err)
 	}
