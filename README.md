@@ -250,15 +250,9 @@ prije nego što uđe u program, a odgovornost za njega je isključivo ljudska.
 
 ## 9. Suradnici i doprinosi
 
-Program nastaje uz pomoć kolega iz Hrvatskih voda. Popis raste kako se
-posao širi.
-
-- **Petar Završki, mag. ing. aedif.** — prvotno prikupio kontakte
-  zaposlenika koji su bili dostupni u bazi; iz toga je nastao registar
-  djelatnika.
-- **Marko Stević, mag. ing. aedif.** — digitalizira dnevnike obrane od
-  poplava Centra obrane od poplava Osijek od 2005. godine; ti dnevnici su
-  povijesna građa za modul dnevnika i rješenja.
+Program nastaje uz pomoć kolega iz Hrvatskih voda i sudionika obrane od
+poplava. Tko je što pridonio — uključujući unos podataka za Baranju u
+aplikaciju app.bp16.xyz — piše u datoteci [`ZAHVALE.md`](ZAHVALE.md).
 
 ### Evidencija VGI Baranja (app.bp16.xyz)
 
