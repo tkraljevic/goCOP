@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"sync/atomic"
 	"time"
 
 	"gocop/internal/ledger"
@@ -20,6 +21,57 @@ import (
 // Za svaki zapis primjenjuje se samo ako je primljena verzija ujedno
 // najnovija koju ovaj čvor drži. Starija verzija koja stigne zaobilazno
 // ostaje u povijesti, ali ne vraća površinu unatrag.
+// ReadingHistoryPolicy kaže koliko povijesti očitanja ovaj čvor drži.
+// Months je razdoblje koje se drži za sve letve (0 = sve, bez ograničenja),
+// a Followed su letve čiju povijest čvor drži u cijelosti — obično onih
+// nekoliko koje čovjeka za tim računalom zaista zanimaju.
+//
+// Ograda vrijedi samo za ono što stiže razmjenom. Što čvor sam upiše ili
+// uveze, ostaje kod njega bez obzira na razdoblje.
+type ReadingHistoryPolicy struct {
+	Months   int
+	Followed map[string]bool
+}
+
+var readingPolicy atomic.Pointer[ReadingHistoryPolicy]
+
+// SetReadingHistoryPolicy postavlja politiku ovog čvora
+func SetReadingHistoryPolicy(p ReadingHistoryPolicy) {
+	readingPolicy.Store(&p)
+}
+
+// KeepReadingVersion javlja hoće li čvor uopće zadržati primljeno očitanje.
+// Koristi je i sloj razmjene, prije upisa u knjigu, pa odbačeno očitanje ne
+// zauzima mjesto ni u knjizi ni na površini.
+func KeepReadingVersion(payload []byte) bool {
+	p := readingPolicy.Load()
+	if p == nil || p.Months <= 0 {
+		return true
+	}
+	var rd struct {
+		MeasuredAt  time.Time `json:"measured_at"`
+		StationID   string    `json:"station_id"`
+		StructureID string    `json:"structure_id"`
+	}
+	if err := json.Unmarshal(payload, &rd); err != nil || rd.MeasuredAt.IsZero() {
+		return true
+	}
+	if rd.MeasuredAt.After(time.Now().AddDate(0, -p.Months, 0)) {
+		return true
+	}
+	key := (models.Reading{StationID: rd.StationID, StructureID: rd.StructureID}).GaugeKey()
+	return p.Followed[key]
+}
+
+// KeepVersion javlja želi li čvor primljenu verziju; ograda za sada vrijedi
+// samo za očitanja, sve ostalo je maleno i drže ga svi čvorovi
+func KeepVersion(v ledger.Version) bool {
+	if v.Entity != EntityReadings {
+		return true
+	}
+	return KeepReadingVersion(v.Payload)
+}
+
 func ApplyVersions(ctx context.Context, db *sql.DB, rec *ledger.Recorder, versions []ledger.Version) error {
 	// zadnja primljena verzija po zapisu — ostale su već u povijesti
 	latestReceived := map[string]ledger.Version{}
@@ -131,6 +183,9 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		return err
 
 	case EntityReadings:
+		if !KeepReadingVersion(v.Payload) {
+			return nil // izvan razdoblja koje ovaj čvor drži
+		}
 		var rd models.Reading
 		if err := json.Unmarshal(v.Payload, &rd); err != nil {
 			return err

@@ -133,6 +133,24 @@ func main() {
 	// Knjiga verzija: svaki upis ostavlja verziju u ime ovog čvora
 	recorder := ledger.New(database, *nodeID)
 
+	// Koliko povijesti očitanja ovaj čvor prima razmjenom
+	followRepo := repository.NewFollowRepository(database)
+	applyReadingPolicy := func() {
+		followed, err := followRepo.Keys(context.Background())
+		if err != nil {
+			log.Printf("Vodostaji: praćene letve nisu pročitane: %v", err)
+			followed = map[string]bool{}
+		}
+		repository.SetReadingHistoryPolicy(repository.ReadingHistoryPolicy{
+			Months: cfg.Readings.HistoryMonths, Followed: followed,
+		})
+		if cfg.Readings.HistoryMonths > 0 {
+			log.Printf("Vodostaji: razmjenom se preuzimaju očitanja zadnjih %d mjeseci, a za %d praćenih letvi cijela povijest",
+				cfg.Readings.HistoryMonths, len(followed))
+		}
+	}
+	applyReadingPolicy()
+
 	// Jednokratni popravci podataka koji moraju ostaviti verziju u knjizi
 	if err := repository.RunFixups(context.Background(), database, recorder); err != nil {
 		log.Fatalf("Popravci podataka nisu uspjeli: %v", err)
@@ -149,6 +167,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Kritična greška (mreža čvora): %v", err)
 	}
+	peersService.Accept(repository.KeepVersion)
 	peersService.OnApplied(func(ctx context.Context, versions []ledger.Version) error {
 		return repository.ApplyVersions(ctx, database, recorder, versions)
 	})
@@ -210,7 +229,8 @@ func main() {
 	}()
 
 	// 5. Inicijalizacija web poslužitelja s ugrađenim embed.FS resursima
-	server, err := web.NewServer(*addr, authService, userService, sectionService, territoryService, stationService, watercourseService, structureService, readingService, moduleService, supportContact(cfg), peersService, recorder, sseBroker)
+	server, err := web.NewServer(*addr, authService, userService, sectionService, territoryService, stationService, watercourseService, structureService, readingService, moduleService, supportContact(cfg),
+		followRepo, applyReadingPolicy, peersService, recorder, sseBroker)
 	if err != nil {
 		log.Fatalf("Greška pri inicijalizaciji web poslužitelja: %v", err)
 	}
