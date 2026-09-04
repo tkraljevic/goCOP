@@ -200,11 +200,13 @@ jedinice. Dvoje ovdje namjerno nema:
 
 - **imenik djelatnika** — osobni podaci; čita se iz `data/imenik.json` uz
   bazu, samo pri prvom punjenju čvora;
-- **očitanja vodostaja** — dio podataka dolazi od Državnog
-  hidrometeorološkog zavoda, koji ih s Hrvatskim vodama dijeli po ugovoru o
-  uzajamnom korištenju, pa se ne objavljuju. Povijest vodostaja stoji samo
-  na čvorovima Hrvatskih voda; program je zna uvesti iz datoteke uz bazu i
-  razmijeniti s drugim čvorovima mreže, ali je ne nosi u sebi.
+- **očitanja vodostaja** — mjerenja Hrvatskih voda, koja na letvama
+  očitavaju vodočuvari i strojari. Povijest vodostaja stoji samo na
+  čvorovima Hrvatskih voda; program je zna uvesti iz datoteke uz bazu i
+  razmijeniti s drugim čvorovima mreže, ali je ne nosi u sebi. Isto vrijedi
+  za mjerenja Državnog hidrometeorološkog zavoda, ako se poslije uključe:
+  Hrvatske vode ih koriste po ugovoru o uzajamnom korištenju i ne
+  objavljuju ih.
 
 Zbog toga svaki uvoz očitanja ide iz datoteke koja stoji uz bazu, nikad iz
 `internal/db`, jer se sve odande ugrađuje u program. Test to i provjerava.
