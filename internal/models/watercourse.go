@@ -1,5 +1,7 @@
 package models
 
+import "strings"
+
 import "fmt"
 
 // Watercourse je vodno tijelo iz službenog registra.
@@ -46,7 +48,7 @@ func (w Watercourse) OriginLabel() string {
 	case WatercourseOriginDecree:
 		return "Odluka o popisu voda I. reda"
 	case WatercourseOriginEncyclopedia:
-		return "Enciklopedija"
+		return "Wikipedija (CC BY-SA 4.0)"
 	case WatercourseOriginDocumentation:
 		return "Dokumentacija dionica"
 	case WatercourseOriginManual:
@@ -54,6 +56,15 @@ func (w Watercourse) OriginLabel() string {
 	default:
 		return "—"
 	}
+}
+
+// WikiURL vraća poveznicu na članak hrvatske Wikipedije iz kojeg potječu
+// opisni podaci, ako ih ima — obveza navođenja izvora po CC BY-SA 4.0
+func (w Watercourse) WikiURL() string {
+	if w.WikiSlug == "" {
+		return ""
+	}
+	return "https://hr.wikipedia.org/wiki/" + strings.ReplaceAll(w.OfficialName, " ", "_")
 }
 
 // IsFirstOrder govori je li vodno tijelo na popisu voda I. reda

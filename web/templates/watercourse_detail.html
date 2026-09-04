@@ -43,6 +43,13 @@
     {{if .Water.Subcategory}}<div><dt>Skupina u Odluci</dt><dd>{{.Water.Subcategory}}</dd></div>{{end}}
     <div><dt>Šifra</dt><dd style="font-family:ui-monospace, monospace; font-weight:500;">{{.Water.Code}}</dd></div>
   </dl>
+  {{if .Water.WikiSlug}}
+  <p class="form-help" style="margin-top:0.75rem;">
+    Opisni podaci (duljina, porječje, protok, izvor, ušće) potječu iz članka na hrvatskoj Wikipediji:
+    <a href="{{.Water.WikiURL}}" target="_blank" rel="noopener">{{.Water.OfficialName}}</a>,
+    suradnici Wikipedije, licenca <a href="https://creativecommons.org/licenses/by-sa/4.0/deed.hr" target="_blank" rel="noopener">CC BY-SA 4.0</a>.
+  </p>
+  {{end}}
   {{if and (not .Water.LengthKm) (not .Water.Mouth) (not .Water.Source)}}
   <p class="page-desc" style="margin-top:0.5rem;">Za ovu vodu nema opisnih podataka; zapis postoji zato što se na nju veže dionica ili postaja.</p>
   {{end}}

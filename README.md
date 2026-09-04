@@ -179,4 +179,15 @@ posao širi.
 
 ## Licenca
 
-Otvoreni kod; licenca će biti odabrana prije prve beta verzije.
+goCOP je otvoreni, neprofitni projekt namijenjen Hrvatskim vodama i drugim
+vodoprivrednim organizacijama kojima je primjenjiv. Program je licenciran
+pod European Union Public Licence, verzija 1.2 (EUPL-1.2). Tekst licence
+je u datoteci `LICENSE`; sve jezične inačice EUPL-a, uključujući hrvatsku,
+jednako su vjerodostojne.
+
+Nositelj autorskih prava na program: Hrvatske vode.
+Program je osmislio i izgradio Tomislav Kraljević; to navođenje je uvjet
+korištenja i ostaje u svakoj izvedenici.
+
+Podaci i grafički znakovi ugrađeni u program imaju vlastito podrijetlo i
+prava, opisana u datoteci `NOTICE`.
