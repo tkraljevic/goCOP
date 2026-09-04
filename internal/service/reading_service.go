@@ -350,8 +350,9 @@ func (s *ReadingService) FieldOverview(ctx context.Context, perms *models.UserPe
 		for id := range perms.AdminAreas {
 			seen[id] = true
 		}
+		// Izbor područja: svoja područja s dužnosti; tko vodi sektor, sva područja sektora
 		for _, a := range allAreas {
-			if seen[a.ID] || perms.AllowedSectors[a.SectorID] || perms.AdminSectors[a.SectorID] {
+			if seen[a.ID] || perms.AdminSectors[a.SectorID] {
 				fo.Areas = append(fo.Areas, a)
 			}
 		}

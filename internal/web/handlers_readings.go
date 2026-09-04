@@ -96,6 +96,7 @@ type ReadingFormData struct {
 	IsEdit      bool
 	IsPump      bool
 	IsSluice    bool
+	IsField     bool   // terencu je način uvijek ručno, pa ga obrazac ne pita
 	LocalValue  string // vrijednost za datetime-local
 	Sources     []string
 	States      []string
@@ -459,6 +460,7 @@ func (h *ReadingsHandler) ShowForm(w http.ResponseWriter, r *http.Request) {
 	} else if latest, err := h.readingService.List(ctx, repository.ReadingFilter{StationID: data.Station.ID.String(), Limit: 1}); err == nil && len(latest) > 0 {
 		data.Latest = &latest[0]
 	}
+	data.IsField = u != nil && u.IsFieldUser()
 	data.LocalValue = rd.MeasuredAt.In(models.Zagreb).Format("2006-01-02T15:04")
 
 	if err := h.tmplForm.ExecuteTemplate(w, "reading_form.html", data); err != nil {

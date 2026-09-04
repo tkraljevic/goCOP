@@ -8,7 +8,7 @@
     <h1 class="page-title">{{icon "map-pin"}} Teren</h1>
     <p class="page-desc">
       {{if .CurrentUser}}{{.CurrentUser.FullName}}{{end}}{{if .Duty}} · {{.Duty.Role.Label}}{{end}}
-      {{if .Overview.Area}} · BP {{.Overview.Area.ID}}: {{.Overview.Area.Name}}{{end}} · {{.Today}}
+      {{if .Overview.Area}} · BP {{.Overview.Area.ID}}{{end}} · {{.Today}}
     </p>
   </div>
 </div>
@@ -30,8 +30,13 @@
   <h2>{{icon "ruler"}} Moje letve <span class="reg-chip">{{.Overview.Done}} od {{.Overview.Total}} danas</span></h2>
   <div class="field-progress">
     <div class="field-bar"><span style="width:{{.Percent}}%"></span></div>
-    <span class="reading-meta">{{if eq .Overview.Done .Overview.Total}}sve očitano{{else}}još {{.Remaining}} u obilasku{{end}}</span>
+    <span class="reading-meta">{{if eq .Overview.Done .Overview.Total}}{{icon "check"}} sve očitano{{else}}još {{.Remaining}} u obilasku{{end}}</span>
   </div>
+  {{if .NextURL}}
+  <a href="{{.NextURL}}" class="btn btn-primary" style="width:100%; min-height:48px; margin-bottom:0.75rem;">
+    {{icon "arrow-right"}} Nastavi obilazak: {{.NextName}}
+  </a>
+  {{end}}
   <div class="field-list">
     {{range .Overview.Mine}}
     <a class="field-item {{if .DoneToday}}done{{end}}" href="{{.NewURL}}&back=/teren">

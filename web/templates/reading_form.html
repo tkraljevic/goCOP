@@ -71,6 +71,9 @@
       <input type="datetime-local" id="measured_at" name="measured_at" class="form-control" value="{{.LocalValue}}" required>
       <div class="form-help">Zadano je sad; promijenite kad upisujete naknadno.</div>
     </div>
+    {{if .IsField}}
+    <input type="hidden" name="source" value="{{if .Reading.Source}}{{.Reading.Source}}{{else}}RUČNO{{end}}">
+    {{else}}
     <div class="form-group">
       <label class="form-label" for="source">Način</label>
       <select id="source" name="source" class="form-control">
@@ -78,6 +81,7 @@
         {{if eq .Reading.Source "UVOZ"}}<option value="UVOZ" selected>uvoz</option>{{end}}
       </select>
     </div>
+    {{end}}
   </div>
 
   <div class="form-row">

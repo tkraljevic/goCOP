@@ -18,9 +18,9 @@ func prijavi(t *testing.T, n *cvor, username string) *models.Session {
 
 func TestAdminGledaTudimOcimaIVidiNjegoveOvlasti(t *testing.T) {
 	n := noviCvor(t, "cvor-a")
-	sess := prijavi(t, n, "tomislav")
+	sess := prijavi(t, n, "tkraljevic")
 
-	admin, _ := n.repo.GetUserByUsername("tomislav")
+	admin, _ := n.repo.GetUserByUsername("tkraljevic")
 	adminPerms, _ := n.auth.PermissionsFor(admin.ID)
 	if !adminPerms.IsGlobalAdmin {
 		t.Fatal("test traži globalnog administratora")
@@ -62,9 +62,9 @@ func TestAdminGledaTudimOcimaIVidiNjegoveOvlasti(t *testing.T) {
 // nepreuzet, inače bi testiranje samo od sebe prljalo popis.
 func TestPregledNeOstavljaTragNaTudemRacunu(t *testing.T) {
 	n := noviCvor(t, "cvor-a")
-	sess := prijavi(t, n, "tomislav")
+	sess := prijavi(t, n, "tkraljevic")
 
-	admin, _ := n.repo.GetUserByUsername("tomislav")
+	admin, _ := n.repo.GetUserByUsername("tkraljevic")
 	adminPerms, _ := n.auth.PermissionsFor(admin.ID)
 	meta := vodocuvar(t, n)
 
@@ -97,8 +97,8 @@ func TestObicniDjelatnikNeMozeGledatiTudimOcima(t *testing.T) {
 		t.Skip("odabrani djelatnik je administrator")
 	}
 
-	admin, _ := n.repo.GetUserByUsername("tomislav")
-	sess := prijavi(t, n, "tomislav")
+	admin, _ := n.repo.GetUserByUsername("tkraljevic")
+	sess := prijavi(t, n, "tkraljevic")
 	if err := n.auth.StartViewingAs(sess.ID, metaPerms, admin.ID); err == nil {
 		t.Error("djelatnik bez administratorskih ovlasti pokrenuo je tuđi pregled")
 	}
@@ -108,9 +108,9 @@ func TestObicniDjelatnikNeMozeGledatiTudimOcima(t *testing.T) {
 // oduzeto usred pregleda, pogled se odmah zatvara.
 func TestOduzimanjeAdministratorstvaZatvaraPregled(t *testing.T) {
 	n := noviCvor(t, "cvor-a")
-	sess := prijavi(t, n, "tomislav")
+	sess := prijavi(t, n, "tkraljevic")
 
-	admin, _ := n.repo.GetUserByUsername("tomislav")
+	admin, _ := n.repo.GetUserByUsername("tkraljevic")
 	adminPerms, _ := n.auth.PermissionsFor(admin.ID)
 	meta := vodocuvar(t, n)
 	if err := n.auth.StartViewingAs(sess.ID, adminPerms, meta.ID); err != nil {

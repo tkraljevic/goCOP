@@ -36,11 +36,12 @@
           </div>
           {{end}}
           <a href="/" class="nav-link {{if eq .ActiveNav "dashboard"}}active{{end}}">{{icon "house"}} Početna</a>
-          <a href="/teren" class="nav-link {{if eq .ActiveNav "teren"}}active{{end}}">{{icon "map-pin"}} Teren</a>
-          <a href="/readings" class="nav-link {{if eq .ActiveNav "readings"}}active{{end}}">{{icon "activity"}} Vodostaji</a>
-          <a href="/users" class="nav-link {{if eq .ActiveNav "users"}}active{{end}}">{{icon "users"}} Djelatnici</a>
+          {{if .Sees "teren"}}<a href="/teren" class="nav-link {{if eq .ActiveNav "teren"}}active{{end}}">{{icon "map-pin"}} Teren</a>{{end}}
+          {{if .Sees "vodostaji"}}<a href="/readings" class="nav-link {{if eq .ActiveNav "readings"}}active{{end}}">{{icon "activity"}} Vodostaji</a>{{end}}
+          {{if .Sees "djelatnici"}}<a href="/users" class="nav-link {{if eq .ActiveNav "users"}}active{{end}}">{{icon "users"}} Djelatnici</a>{{end}}
 
           <!-- Registri su sami po sebi skupina, pa ne troše mjesto u traci -->
+          {{if .Sees "registri"}}
           <div class="nav-group">
             <button type="button" class="nav-link nav-group-btn
                 {{if or (eq .ActiveNav "sections") (eq .ActiveNav "territories") (eq .ActiveNav "stations") (eq .ActiveNav "watercourses") (eq .ActiveNav "structures")}}active{{end}}"
@@ -65,11 +66,13 @@
               </a>
             </div>
           </div>
+          {{end}}
           {{if .CurrentUser}}
           <div class="nav-mobile-actions">
             <a href="/profile" class="nav-link {{if eq .ActiveNav "profile"}}active{{end}}">{{icon "user"}} Moj profil</a>
             <a href="/profile#lozinka" class="nav-link">{{icon "key-round"}} Lozinka</a>
-            <a href="/settings" class="nav-link {{if eq .ActiveNav "settings"}}active{{end}}">{{icon "settings"}} Postavke</a>
+            {{if .Sees "postavke"}}<a href="/settings" class="nav-link {{if eq .ActiveNav "settings"}}active{{end}}">{{icon "settings"}} Postavke</a>{{end}}
+            {{if .Admin}}<a href="/moduli" class="nav-link {{if eq .ActiveNav "moduli"}}active{{end}}">{{icon "eye"}} Moduli</a>{{end}}
             <form action="/logout" method="POST"><button type="submit" class="nav-link">{{icon "log-out"}} Odjava</button></form>          </div>
           {{end}}
         </nav>
@@ -89,7 +92,8 @@
           </div>
           <a href="/profile" class="btn btn-secondary btn-sm">{{icon "user"}} Moj profil</a>
           <a href="/profile#lozinka" class="btn btn-secondary btn-sm">{{icon "key-round"}} Lozinka</a>
-          <a href="/settings" class="btn btn-secondary btn-sm {{if eq .ActiveNav "settings"}}active{{end}}" title="Postavke čvora i sinkronizacije">{{icon "settings"}} Postavke</a>
+          {{if .Sees "postavke"}}<a href="/settings" class="btn btn-secondary btn-sm {{if eq .ActiveNav "settings"}}active{{end}}" title="Postavke čvora i sinkronizacije">{{icon "settings"}} Postavke</a>{{end}}
+          {{if .Admin}}<a href="/moduli" class="btn btn-secondary btn-sm {{if eq .ActiveNav "moduli"}}active{{end}}" title="Što koja uloga vidi">{{icon "eye"}} Moduli</a>{{end}}
           <form action="/logout" method="POST" style="display:inline;">
             <button type="submit" class="btn btn-secondary btn-sm" title="Odjavi se">{{icon "log-out"}} Odjava</button>
           </form>
