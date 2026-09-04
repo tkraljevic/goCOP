@@ -1,0 +1,7 @@
+data/
+gocop
+*.db
+*.db-shm
+*.db-wal
+node-key
+network-key

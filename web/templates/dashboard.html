@@ -1,0 +1,290 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Početna / Centar obrane od poplava{{end}}
+
+{{define "content"}}
+<div class="dashboard-container">
+  <!-- Hero operativno zaglavlje -->
+  <div class="dashboard-hero">
+    <div class="hero-main">
+      <div class="hero-badge">
+        <span class="pulse-dot"></span> Središnji operativni sustav · Hrvatske vode
+      </div>
+      <h1 class="hero-title">Centar obrane od poplava</h1>
+      <p class="hero-subtitle">
+        Središnja platforma za upravljanje, koordinaciju snaga, branjenih područja i objekata obrane od poplava u Republici Hrvatskoj.
+      </p>
+    </div>
+    <div class="hero-user-card">
+      <div class="user-greeting">Prijavljeni djelatnik:</div>
+      <div class="user-name-large">{{.CurrentUser.FullName}}</div>
+      <div class="user-role-tag">{{roleLabel .CurrentUser.PrimaryRole}}</div>
+      <div class="user-org-text">{{icon "building-2"}} {{.CurrentUser.OrgName}}</div>
+      <div class="user-card-actions">
+        <a href="/profile" class="btn btn-secondary btn-sm">{{icon "user"}} Moj profil</a>
+        <a href="/users" class="btn btn-primary btn-sm">{{icon "users"}} Imenik djelatnika</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPI brojači -->
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-icon-wrap primary">{{icon "users"}} </div>
+      <div class="kpi-data">
+        <div class="kpi-number">{{.Stats.TotalUsers}}</div>
+        <div class="kpi-label">Djelatnika i sudionika</div>
+      </div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-icon-wrap success">{{icon "shield"}} </div>
+      <div class="kpi-data">
+        <div class="kpi-number">{{.Stats.TotalDuties}}</div>
+        <div class="kpi-label">Aktivnih funkcija i zaduženja</div>
+      </div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-icon-wrap info">{{icon "waves"}} </div>
+      <div class="kpi-data">
+        <div class="kpi-number">{{.Stats.TotalAreas}}</div>
+        <div class="kpi-label">Branjenih područja (1–34)</div>
+      </div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-icon-wrap warning">{{icon "building-2"}} </div>
+      <div class="kpi-data">
+        <div class="kpi-number">{{.Stats.TotalSectors}}</div>
+        <div class="kpi-label">Sektora i Direkcija</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mreža operativnih kartica -->
+  <div class="section-title-wrap">
+    <h2 class="section-title">Operativni moduli i evidencije</h2>
+    <p class="section-desc">Odaberite modul za pregled, administraciju i operativno rukovođenje na terenu</p>
+  </div>
+
+  <div class="dashboard-cards-grid">
+    <!-- KARTICA 1: Djelatnici i sudionici obrane od poplava (GLAVNA KARTICA) -->
+    <div class="dash-card featured">
+      <div class="dash-card-header">
+        <div class="dash-card-icon-box primary">{{icon "users"}} </div>
+        <span class="dash-status-pill success">● AKTIVAN MODUL</span>
+      </div>
+      <div class="dash-card-body">
+        <h3 class="dash-card-title">Djelatnici i sudionici obrane od poplava</h3>
+        <p class="dash-card-desc">
+          Središnji imenik i operativni raspored svih osoba uključenih u sustav obrane od poplava Hrvatskih voda:
+        </p>
+        <ul class="dash-card-list">
+          <li><strong>Rukovoditelji obrane od poplava:</strong> Glavni rukovoditelj, zamjenici, rukovoditelji sektora i branjenih područja</li>
+          <li><strong>Centri obrane od poplava:</strong> Voditelji i zamjenici COP-a te dežurni operateri</li>
+          <li><strong>Terensko osoblje:</strong> Vodočuvari, strojari crpnih stanica, rukovatelji ustavnih objekata</li>
+          <li><strong>Ugovori i partneri:</strong> Ovlaštenici za praćenje ugovora programa usluga A2 i A3 te licencirane tvrtke</li>
+        </ul>
+
+        <div class="quick-filters-box">
+          <span class="quick-filters-label">Brzi filtri:</span>
+          <a href="/users?sector=B" class="quick-filter-link">{{icon "building-2"}} Sektor B</a>
+          <a href="/users?sector=DIREKCIJA" class="quick-filter-link">{{icon "landmark"}} Direkcija</a>
+          <a href="/users?role=WATER_GUARD" class="quick-filter-link">{{icon "waves"}} Vodočuvari</a>
+          <a href="/users?role=MACHINIST" class="quick-filter-link">{{icon "tractor"}} Strojari</a>
+        </div>
+      </div>
+      <div class="dash-card-footer">
+        <a href="/users" class="btn btn-primary dash-btn">
+          <span>Otvori imenik i zaduženja</span>
+          <span class="arrow">{{icon "arrow-right"}} </span>
+        </a>
+      </div>
+    </div>
+
+    <!-- KARTICA 2: Branjena područja i dionice -->
+    <div class="dash-card">
+      <div class="dash-card-header">
+        <div class="dash-card-icon-box info">{{icon "waves"}} </div>
+        <span class="dash-status-pill info">34 PODRUČJA</span>
+      </div>
+      <div class="dash-card-body">
+        <h3 class="dash-card-title">Branjena područja i dionice</h3>
+        <p class="dash-card-desc">
+          Teritorijalni ustroj obrane od poplava s 465 dionica vodotoka, stacionažama i pripadajućim VGI ispostavama.
+        </p>
+        <ul class="dash-card-list">
+          <li><strong>34 branjena područja</strong> razvrstana kroz 6 sektora (A–F)</li>
+          <li><strong>465 štićenih dionica</strong> uz rijeke Savu, Dravu, Dunav, Muru, Kupu, Neretvu i bujice</li>
+          <li>Prikaz dodijeljenih vodočuvara i strojara po čitavom branjenom području</li>
+        </ul>
+      </div>
+      <div class="dash-card-footer">
+        <a href="/sections" class="btn btn-secondary dash-btn">
+          <span>Pregled dionica i objekata</span>
+          <span class="arrow">{{icon "arrow-right"}} </span>
+        </a>
+      </div>
+    </div>
+
+    <!-- KARTICA 3: Teritorijalne jedinice: Županije, gradovi i općine -->
+    <div class="dash-card">
+      <div class="dash-card-header">
+        <div class="dash-card-icon-box" style="background:var(--tint-purple-bg); color:var(--tint-purple-fg);">{{icon "landmark"}} </div>
+        <span class="dash-status-pill success" style="background:var(--tint-purple-bg); color:var(--tint-purple-fg);">21 ŽUPANIJA</span>
+      </div>
+      <div class="dash-card-body">
+        <h3 class="dash-card-title">Teritorijalne jedinice RH (Županije, gradovi, općine)</h3>
+        <p class="dash-card-desc">
+          Službeni administrativni ustroj Republike Hrvatske s 21 županijom, 125 gradova, 429 općina i 6.724 naselja povezan s dionicama.
+        </p>
+        <ul class="dash-card-list">
+          <li><strong>Županije:</strong> Župani i županice, sjedišta, površina, stanovništvo i službeni kontakti</li>
+          <li><strong>Gradovi i općine:</strong> Gradonačelnici i općinski načelnici, tipovi samouprave</li>
+          <li><strong>Naselja i štićene dionice:</strong> Evidencija ugroženih naselja po dionicama vodotoka</li>
+          <li><strong>Interaktivno povezivanje:</strong> Odabir županije {{icon "arrow-right"}} grad/općina {{icon "arrow-right"}} naselja na dionicama</li>
+        </ul>
+      </div>
+      <div class="dash-card-footer">
+        <a href="/territories" class="btn btn-secondary dash-btn">
+          <span>Registar teritorijalnih jedinica</span>
+          <span class="arrow">{{icon "arrow-right"}} </span>
+        </a>
+      </div>
+    </div>
+
+    <!-- KARTICA 4: Centri obrane od poplava (COP i PCOP) -->
+    <div class="dash-card">
+      <div class="dash-card-header">
+        <div class="dash-card-icon-box warning">{{icon "building-2"}} </div>
+        <span class="dash-status-pill warning">GCOP + 6 COP</span>
+      </div>
+      <div class="dash-card-body">
+        <h3 class="dash-card-title">Centri obrane od poplava (COP i PCOP)</h3>
+        <p class="dash-card-desc">
+          Glavni centar obrane od poplava (GCOP Zagreb) i regionalni centri po sektorima s kontaktima i dežurstvima.
+        </p>
+        <ul class="dash-card-list">
+          <li><strong>GCOP RH:</strong> Zagreb (Ulica grada Vukovara 220, 01/6151-778)</li>
+          <li><strong>COP A:</strong> Varaždin · <strong>COP B:</strong> Osijek · <strong>COP C:</strong> Zagreb/Hruščica</li>
+          <li><strong>COP D:</strong> Slavonski Brod · <strong>COP E:</strong> Rijeka · <strong>COP F:</strong> Split</li>
+          <li>Podcentri obrane od poplava (PCOP) pri ispostavama</li>
+        </ul>
+      </div>
+      <div class="dash-card-footer">
+        <a href="/users?sector=DIREKCIJA" class="btn btn-secondary dash-btn">
+          <span>Prikaži centre i dežurstva</span>
+          <span class="arrow">{{icon "arrow-right"}} </span>
+        </a>
+      </div>
+    </div>
+
+    <!-- KARTICA 4: Vodomjerne postaje -->
+    <div class="dash-card">
+      <div class="dash-card-header">
+        <div class="dash-card-icon-box danger">{{icon "ruler"}} </div>
+        <span class="dash-status-pill default">{{.Stats.TotalStations}} POSTAJA</span>
+      </div>
+      <div class="dash-card-body">
+        <h3 class="dash-card-title">Vodomjerne postaje</h3>
+        <p class="dash-card-desc">
+          Registar mjerodavnih vodomjera s kotom nule i pragovima obrane od poplava.
+          Ista postaja mjerodavna je za više dionica.
+        </p>
+        <ul class="dash-card-list">
+          <li><strong>Pragovi obrane:</strong> Pripremno stanje, redovna i izvanredna obrana, izvanredno stanje</li>
+          <li><strong>Kota nule:</strong> Vodi se u starom i novom visinskom sustavu, bez preračuna</li>
+          <li><strong>Mjerodavnost:</strong> {{.Stats.StationLinks}} veza s {{.Stats.TotalSections}} štićenih dionica</li>
+          <li><strong>Uređivanje:</strong> Unos, izmjena i brisanje postaja te pridruživanje dionicama</li>
+        </ul>
+      </div>
+      <div class="dash-card-footer">
+        <a href="/stations" class="btn btn-secondary dash-btn">
+          <span>Registar vodomjernih postaja</span>
+          <span class="arrow">{{icon "arrow-right"}} </span>
+        </a>
+      </div>
+    </div>
+
+    <!-- KARTICA 5: Vodotoci -->
+    <div class="dash-card">
+      <div class="dash-card-header">
+        <div class="dash-card-icon-box">{{icon "waves"}} </div>
+        <span class="dash-status-pill default">{{.Stats.TotalWatercourses}} VODNIH TIJELA</span>
+      </div>
+      <div class="dash-card-body">
+        <h3 class="dash-card-title">Vodotoci i vodna tijela</h3>
+        <p class="dash-card-desc">
+          Registar prema Odluci o popisu voda I. reda (NN 79/2010), dopunjen vodama
+          koje na tom popisu nisu, a štite se.
+        </p>
+        <ul class="dash-card-list">
+          <li><strong>Pravna kategorija:</strong> Međudržavne vode, druge veće vode i kanali, bujične vode</li>
+          <li><strong>Podaci o vodi:</strong> Duljina, porječje, prosječni protok, izvor i ušće</li>
+          <li><strong>Povezanost:</strong> Dionice i vodomjerne postaje vežu se na vodno tijelo</li>
+          <li><strong>Uređivanje:</strong> Unos, izmjena i brisanje te međusobno pridruživanje</li>
+        </ul>
+      </div>
+      <div class="dash-card-footer">
+        <a href="/watercourses" class="btn btn-secondary dash-btn">
+          <span>Registar vodotoka</span>
+          <span class="arrow">{{icon "arrow-right"}} </span>
+        </a>
+      </div>
+    </div>
+
+    <!-- KARTICA 6: Dnevnik događaja i operativni nalozi -->
+    <div class="dash-card">
+      <div class="dash-card-header">
+        <div class="dash-card-icon-box secondary">{{icon "clipboard-list"}} </div>
+        <span class="dash-status-pill default">EVIDENCIJA</span>
+      </div>
+      <div class="dash-card-body">
+        <h3 class="dash-card-title">Dnevnik događaja i operativni nalozi</h3>
+        <p class="dash-card-desc">
+          Službeno vođenje operativnog dnevnika obrane od poplava, evidentiranje mjera i terenskih zapovijedi.
+        </p>
+        <ul class="dash-card-list">
+          <li>Kronološka evidencija proglašenja i prestanka stupnjeva obrane</li>
+          <li>Izdavanje operativnih naloga vodočuvarima i ugovornim izvođačima</li>
+          <li>Evidencija rada crpnih stanica, prepumpavanja i privremenih pregrada</li>
+          <li>Koordinacija s Ravnateljstvom civilne zaštite i stožerima CZ</li>
+        </ul>
+      </div>
+      <div class="dash-card-footer">
+        <button type="button" class="btn btn-secondary dash-btn" onclick="alert('Modul operativnog dnevnika u pripremi.')">
+          <span>Operativni dnevnik</span>
+          <span class="arrow">{{icon "arrow-right"}} </span>
+        </button>
+      </div>
+    </div>
+
+    <!-- KARTICA 6: Programi usluga A2/A3 i licencirane tvrtke -->
+    <div class="dash-card">
+      <div class="dash-card-header">
+        <div class="dash-card-icon-box teal">{{icon "tractor"}} </div>
+        <span class="dash-status-pill default">UGOVORI</span>
+      </div>
+      <div class="dash-card-body">
+        <h3 class="dash-card-title">Programi usluga A2/A3 i licencirane tvrtke</h3>
+        <p class="dash-card-desc">
+          Evidencija ovlaštenika Hrvatskih voda za praćenje ugovora te resursa licenciranih vodoprivrednih tvrtki.
+        </p>
+        <ul class="dash-card-list">
+          <li><strong>Program A2:</strong> Preventivni radovi i tekuće održavanje vodnih građevina</li>
+          <li><strong>Program A3:</strong> Intervencijski radovi u uvjetima aktivne obrane od poplava</li>
+          <li>Licencirane vodoprivrede po slivovima (Vodogradnja, Hidroing, Tegra, Brodska Posavina...)</li>
+          <li>Evidencija raspoloživih strojeva, crpki i vreća s pijeskom</li>
+        </ul>
+      </div>
+      <div class="dash-card-footer">
+        <a href="/users?role=CONTRACTOR_LEADER" class="btn btn-secondary dash-btn">
+          <span>Pregled licenciranih izvođača</span>
+          <span class="arrow">{{icon "arrow-right"}} </span>
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+{{end}}

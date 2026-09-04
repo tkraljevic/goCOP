@@ -1,0 +1,100 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Novo zaduženje{{end}}
+
+{{define "content"}}
+<div class="breadcrumb"><a href="/users">Djelatnici</a> › <a href="/users/{{.User.ID}}">{{.User.FullName}}</a> › Novo zaduženje</div>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "shield"}} Zaduženje za {{.User.FullName}}</h1>
+    <p class="page-desc">Stalna funkcija ili privremena ispomoć. Iz zaduženja se izvodi što osoba vidi i što smije.</p>
+  </div>
+</div>
+
+{{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
+
+<form class="form-page" method="POST" action="/users/duty/add">
+  <input type="hidden" name="user_id" value="{{.User.ID}}">
+
+  <div class="form-group">
+    <label class="form-label" for="title">Naziv funkcije ili dužnosti *</label>
+    <input type="text" id="title" name="title" class="form-control" required placeholder="npr. Voditelj COP Osijek, Rukovoditelj BP 19, Rukovoditelj dionica A.19.1 – A.19.4">
+  </div>
+
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="role">Uloga *</label>
+      <select id="role" name="role" class="form-control" required>
+        {{range .Roles}}<option value="{{.Value}}" {{if eq .Value "OPERATOR"}}selected{{end}}>{{.Label}}</option>{{end}}
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="scope_type">Opseg *</label>
+      <select id="scope_type" name="scope_type" class="form-control" required>
+        {{range .Scopes}}<option value="{{.Value}}" {{if eq .Value "AREA"}}selected{{end}}>{{.Label}}</option>{{end}}
+      </select>
+    </div>
+  </div>
+
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="sector_id">Sektor</label>
+      <select id="sector_id" name="sector_id" class="form-control" onchange="filterAreas(this.value)">
+        <option value="">— odaberi sektor —</option>
+        {{range .Sectors}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="area_id">Branjeno područje</label>
+      <select id="area_id" name="area_id" class="form-control">
+        <option value="">— odaberi područje —</option>
+        {{range .Areas}}<option value="{{.ID}}" data-sector="{{.SectorID}}">{{.ID}}: {{.Name}}</option>{{end}}
+      </select>
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label class="form-label" for="section_codes">Dionice</label>
+    <input type="text" id="section_codes" name="section_codes" class="form-control" placeholder="npr. A.19.8, A.19.9, A.19.10">
+    <div class="form-help">Samo kad je opseg „Dionice“: šifre odvojene zarezom.</div>
+  </div>
+
+  <div class="form-group" style="display:flex; flex-direction:column; gap:0.25rem;">
+    <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.9rem; min-height:40px;">
+      <input type="checkbox" name="is_primary" value="1"> Primarna funkcija (prikazuje se uz ime)
+    </label>
+    <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.9rem; min-height:40px;">
+      <input type="checkbox" name="is_temporary" value="1" onchange="document.getElementById('temp-fields').hidden = !this.checked"> Privremena ispomoć
+    </label>
+  </div>
+
+  <div id="temp-fields" class="form-row" hidden>
+    <div class="form-group">
+      <label class="form-label" for="reason">Razlog ispomoći</label>
+      <input type="text" id="reason" name="reason" class="form-control" placeholder="npr. Hitna ispomoć obrani na Savi">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="expires_at">Vrijedi do</label>
+      <input type="date" id="expires_at" name="expires_at" class="form-control">
+    </div>
+  </div>
+
+  <div class="form-actions">
+    <a href="/users/{{.User.ID}}" class="btn btn-secondary">Odustani</a>
+    <button type="submit" class="btn btn-primary">Dodaj zaduženje</button>
+  </div>
+</form>
+
+<script>
+function filterAreas(sector) {
+  const sel = document.getElementById('area_id');
+  for (const o of sel.options) {
+    if (!o.value) continue;
+    const show = !sector || o.dataset.sector === sector;
+    o.hidden = !show;
+    if (o.selected && !show) sel.value = '';
+  }
+}
+</script>
+{{end}}

@@ -1,0 +1,313 @@
+{{define "content"}}
+<style>
+  .territory-filter-form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0.85rem;
+    align-items: flex-end;
+  }
+  @media (min-width: 1024px) {
+    .territory-filter-form {
+      grid-template-columns: 2fr 1.5fr 2.5fr auto;
+    }
+  }
+
+  .munis-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.15rem;
+  }
+
+  .muni-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.15rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .muni-card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    transform: translateY(-2px);
+  }
+
+  @media (max-width: 640px) {
+    .munis-cards-grid {
+      grid-template-columns: 1fr;
+      gap: 0.85rem;
+    }
+    .muni-card {
+      padding: 1rem;
+    }
+  }
+</style>
+
+<div class="territories-page">
+  <!-- Header stranice -->
+  <div class="page-header" style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
+    <div>
+      <h1 class="page-title" style="font-size: 1.75rem; font-weight: 700; color: var(--secondary); margin-bottom: 0.25rem;">
+        {{icon "landmark"}} Teritorijalne jedinice Republike Hrvatske
+      </h1>
+      <p class="page-subtitle" style="color: var(--text-muted); font-size: 0.9375rem;">
+        Službeni registar županija, gradova, općina i naselja povezan sa sustavom obrane od poplava
+      </p>
+    </div>
+
+    {{if .Permissions.IsGlobalAdmin}}
+    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+      <a href="/territories/counties/new" class="btn btn-secondary btn-sm">
+        {{icon "plus"}} Nova županija
+      </a>
+      <a href="/territories/municipalities/new{{if .SelectedCountyID}}?county_id={{.SelectedCountyID}}{{end}}" class="btn btn-primary btn-sm">
+        {{icon "plus"}} Novi grad / općina
+      </a>
+    </div>
+    {{end}}
+  </div>
+
+  <!-- KPI brojači -->
+  <div class="kpi-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+    <div class="kpi-card" style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; display: flex; align-items: center; gap: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+      <div style="font-size: 2.25rem; background: #eff6ff; width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; border-radius: 8px;">{{icon "landmark"}} </div>
+      <div>
+        <div style="font-size: 1.5rem; font-weight: 700; color: var(--secondary);">{{.TotalCounties}}</div>
+        <div style="font-size: 0.8125rem; color: var(--text-muted); font-weight: 500;">Županija (20 + Zagreb)</div>
+      </div>
+    </div>
+
+    <div class="kpi-card" style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; display: flex; align-items: center; gap: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+      <div style="font-size: 2.25rem; background: #f0fdf4; width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; border-radius: 8px;">{{icon "building"}} </div>
+      <div>
+        <div style="font-size: 1.5rem; font-weight: 700; color: #16a34a;">{{.TotalCities}}</div>
+        <div style="font-size: 0.8125rem; color: var(--text-muted); font-weight: 500;">Gradova</div>
+      </div>
+    </div>
+
+    <div class="kpi-card" style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; display: flex; align-items: center; gap: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+      <div style="font-size: 2.25rem; background: #fefce8; width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; border-radius: 8px;">{{icon "house"}} </div>
+      <div>
+        <div style="font-size: 1.5rem; font-weight: 700; color: #ca8a04;">429</div>
+        <div style="font-size: 0.8125rem; color: var(--text-muted); font-weight: 500;">Općina</div>
+      </div>
+    </div>
+
+    <div class="kpi-card" style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; display: flex; align-items: center; gap: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+      <div style="font-size: 2.25rem; background: #fdf2f8; width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; border-radius: 8px;">{{icon "house"}} </div>
+      <div>
+        <div style="font-size: 1.5rem; font-weight: 700; color: #db2777;">6.724</div>
+        <div style="font-size: 0.8125rem; color: var(--text-muted); font-weight: 500;">Naselja</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Traka s filtrima i tabovima -->
+  <div class="card" style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 1.5rem; padding: 1.25rem;">
+    <!-- Tabovi -->
+    <div class="tabs-nav" style="display: flex; gap: 0.5rem; border-bottom: 1px solid var(--border); padding-bottom: 1rem; margin-bottom: 1.25rem;">
+      <a href="/territories?tab=counties" class="btn btn-sm {{if eq .ActiveTab "counties"}}btn-primary{{else}}btn-secondary{{end}}">
+        {{icon "landmark"}} Županije ({{.TotalCounties}})
+      </a>
+      <a href="/territories?tab=municipalities" class="btn btn-sm {{if eq .ActiveTab "municipalities"}}btn-primary{{else}}btn-secondary{{end}}">
+        {{icon "building"}} Gradovi i općine ({{.TotalMunis}})
+      </a>
+    </div>
+
+    <!-- Filtri (za tab Gradovi i općine) -->
+    <form id="territory-filter-form" class="territory-filter-form" method="GET" action="/territories">
+      <input type="hidden" name="tab" value="municipalities">
+
+      <div class="form-group" style="margin-bottom: 0;">
+        <label class="form-label" for="filter-county">Županija</label>
+        <select id="filter-county" name="county_id" class="form-control" onchange="this.form.submit()">
+          <option value="">Sve županije (21)</option>
+          {{range .Counties}}
+          <option value="{{.ID}}" {{if eq $.SelectedCountyID .ID}}selected{{end}}>{{.Name}}</option>
+          {{end}}
+        </select>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 0;">
+        <label class="form-label" for="filter-type">Tip jedinice</label>
+        <select id="filter-type" name="type" class="form-control" onchange="this.form.submit()">
+          <option value="">Svi tipovi (Gradovi i Općine)</option>
+          <option value="GRAD" {{if eq .SelectedType "GRAD"}}selected{{end}}>Samo gradovi</option>
+          <option value="OPCINA" {{if eq .SelectedType "OPCINA"}}selected{{end}}>Samo općine</option>
+        </select>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 0;">
+        <label class="form-label" for="search-muni">Pretraga (naziv, čelnik ili poštanski broj)</label>
+        <input type="text" id="search-muni" name="q" class="form-control" placeholder="Upišite grad, općinu, čelnika ili poštanski broj (npr. Penava, Radić, 31000)..." value="{{.SearchQuery}}">
+      </div>
+
+      <div style="display: flex; gap: 0.5rem;">
+        <button type="submit" class="btn btn-primary btn-sm">Traži</button>
+        {{if or .SelectedCountyID .SelectedType .SearchQuery}}
+        <a href="/territories?tab={{.ActiveTab}}" class="btn btn-secondary btn-sm" title="Očisti filtre">Poništi</a>
+        {{end}}
+      </div>
+    </form>
+  </div>
+
+  <!-- SADRŽAJ TAB 1: ŽUPANIJE -->
+  {{if eq .ActiveTab "counties"}}
+  <div class="counties-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 1.25rem;">
+    {{range .Counties}}
+    <div class="card county-card" style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
+      <div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+          <span class="badge" style="background: var(--primary-light); color: var(--primary); font-weight: 700; font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 4px;">{{.Code}}</span>
+          <span style="font-size: 0.8125rem; color: var(--text-muted); font-weight: 500;">Sjedište: <strong>{{.Seat}}</strong></span>
+        </div>
+
+        <h3 style="font-size: 1.125rem; font-weight: 700; color: var(--secondary); margin-bottom: 0.75rem;">
+          {{.Name}}
+        </h3>
+
+        <div style="display: flex; flex-direction: column; gap: 0.4rem; font-size: 0.875rem; margin-bottom: 1rem;">
+          <div>
+            {{icon "user"}} <strong>Župan/ica:</strong> {{if .Prefect}}{{.Prefect}}{{else}}<span style="color:var(--text-muted);">-</span>{{end}}
+          </div>
+          <div>
+            {{icon "ruler"}} <strong>Površina:</strong> {{if gt .AreaSqKm 0}}{{.AreaSqKm}} km²{{else}}<span style="color:var(--text-muted);">-</span>{{end}}
+            &nbsp;·&nbsp;
+            {{icon "users"}} <strong>Stanovništvo:</strong> {{if gt .Population 0}}{{.Population}}{{else}}<span style="color:var(--text-muted);">-</span>{{end}}
+          </div>
+          {{if .Email}}
+          <div style="word-break: break-all;">
+            {{icon "mail"}} <a href="mailto:{{.Email}}" style="color: var(--primary); text-decoration: none;">{{.Email}}</a>
+          </div>
+          {{end}}
+          {{if .Phone}}
+          <div>
+            {{icon "phone"}} <a href="tel:{{.Phone}}" style="color: var(--text-muted); text-decoration: none;">{{.Phone}}</a>
+          </div>
+          {{end}}
+        </div>
+      </div>
+
+      <div style="border-top: 1px solid var(--border); padding-top: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          {{if $.Permissions.IsGlobalAdmin}}
+          <a href="/territories/counties/{{.ID}}/edit" class="btn btn-secondary btn-sm" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;" >
+            {{icon "pencil"}} Uredi
+          </a>
+          {{end}}
+        </div>
+        <a href="/territories?tab=municipalities&county_id={{.ID}}" class="btn btn-secondary btn-sm" style="font-size: 0.8125rem;">
+          Prikaži gradove i općine {{icon "arrow-right"}}         </a>
+      </div>
+    </div>
+    {{end}}
+  </div>
+  {{end}}
+
+  <!-- SADRŽAJ TAB 2: GRADOVI I OPĆINE -->
+  {{if eq .ActiveTab "municipalities"}}
+  <div style="margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+    <div style="font-size: 0.9375rem; color: var(--text-muted);">
+      Gradova i općina: <strong>{{.Pager.Total}}</strong>
+    </div>
+
+  </div>
+
+  {{if eq (len .Municipalities) 0}}
+  <div class="card" style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 3rem 1.5rem; text-align: center; color: var(--text-muted);">
+    <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">{{icon "search"}} </div>
+    <div style="font-size: 1.125rem; font-weight: 600; color: var(--secondary); margin-bottom: 0.25rem;">Nema rezultata</div>
+    <div>Nije pronađen niti jedan grad ili općina prema odabranim kriterijima.</div>
+  </div>
+  {{else}}
+
+  {{template "pager" .Pager}}
+  <div id="munis-cards-view" class="munis-cards-grid">
+    {{range .Municipalities}}
+    <div class="muni-card">
+      <div>
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.6rem; gap: 0.5rem;">
+          <div style="display: flex; gap: 0.35rem; align-items: center; flex-wrap: wrap;">
+            {{if eq .Type "GRAD"}}
+            <span class="badge" style="background: var(--primary-light); color: var(--primary); font-weight: 700; font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 4px;">
+              {{icon "building"}} GRAD
+            </span>
+            {{else}}
+            <span class="badge" style="background: #f0fdf4; color: #15803d; font-weight: 700; font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 4px;">
+              {{icon "house"}} OPĆINA
+            </span>
+            {{end}}
+            {{if .PostalCode}}
+            <span class="badge" style="background: var(--bg-subtle); color: var(--text-secondary); font-size: 0.75rem; font-family: monospace; padding: 0.2rem 0.45rem; border-radius: 4px; border: 1px solid var(--border-strong); font-weight: 600;">
+              {{icon "mailbox"}} {{.PostalCode}}
+            </span>
+            {{end}}
+          </div>
+          <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 500; text-align: right; line-height: 1.2;">
+            {{icon "landmark"}} {{.CountyName}}
+          </span>
+        </div>
+
+        <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--secondary); margin: 0 0 0.75rem 0;">
+          {{.Name}}
+        </h3>
+
+        <div style="display: flex; flex-direction: column; gap: 0.45rem; font-size: 0.875rem; margin-bottom: 1.1rem;">
+          <div style="display: flex; align-items: center; gap: 0.35rem; color: var(--text);">
+            <span>{{icon "user"}} </span> 
+            <strong>{{.HeadTitle}}:</strong> 
+            {{if .HeadName}}
+            <span style="font-weight: 600; color: var(--secondary);">{{.HeadName}}</span>
+            {{else}}
+            <span style="color:var(--text-muted); font-style: italic;">Nije navedeno</span>
+            {{end}}
+          </div>
+          <div style="display: flex; gap: 0.85rem; align-items: center; flex-wrap: wrap; background: var(--bg-subtle); padding: 0.45rem 0.65rem; border-radius: 6px; border: 1px solid var(--bg-subtle);">
+            <div>
+              {{icon "ruler"}} <strong>Površina:</strong> 
+              {{if gt .AreaSqKm 0.0}}
+              <span style="font-weight: 600;">{{printf "%.1f" .AreaSqKm}} km²</span>
+              {{else}}
+              <span style="color:var(--text-muted);">-</span>
+              {{end}}
+            </div>
+            <div>
+              {{icon "users"}} <strong>Stanovništvo:</strong> 
+              {{if gt .Population 0}}
+              <span style="font-weight: 600; color: var(--secondary);">{{.Population}}</span>
+              {{else}}
+              <span style="color:var(--text-muted);">-</span>
+              {{end}}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="border-top: 1px solid var(--border); padding-top: 0.75rem; display: flex; justify-content: space-between; align-items: center; margin-top: auto;">
+        <a href="/territories/municipalities/{{.ID}}" class="btn btn-secondary btn-sm"  style="font-size: 0.8125rem; padding: 0.3rem 0.65rem;">
+          {{icon "house"}} Naselja
+        </a>
+        {{if $.Permissions.IsGlobalAdmin}}
+        <div style="display: flex; gap: 0.35rem;">
+          <a href="/territories/municipalities/{{.ID}}/edit" class="btn btn-secondary btn-sm" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;"  title="Uredi grad/općinu">
+            {{icon "pencil"}}           </a>
+          <form action="/territories/municipality/delete" method="POST" onsubmit="return confirm('Jeste li sigurni da želite obrisati jedinicu {{.Name}} i sva njena naselja?');" style="display: inline;">
+            <input type="hidden" name="id" value="{{.ID}}">
+            <input type="hidden" name="county_id" value="{{.CountyID}}">
+            <button type="submit" class="btn btn-sm" style="background: var(--danger-bg); color: var(--danger); border: none; padding: 0.25rem 0.5rem; font-size: 0.75rem; border-radius: 4px; cursor: pointer;" title="Obriši grad/općinu">
+              {{icon "trash"}}             </button>
+          </form>
+        </div>
+        {{end}}
+      </div>
+    </div>
+    {{end}}
+  </div>
+
+  {{template "pager" .Pager}}
+  {{end}}
+  {{end}}
+</div>
+{{end}}

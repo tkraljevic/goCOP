@@ -1,0 +1,100 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — {{.User.FullName}}{{end}}
+
+{{define "content"}}
+<div class="breadcrumb"><a href="/users">Djelatnici</a> › {{.User.FullName}}</div>
+
+<div class="detail-head">
+  <div>
+    <h1 class="page-title">{{icon "user"}} {{.User.FullName}}{{if .User.Title}} <small style="font-size:0.6em; color:var(--text-muted);">{{.User.Title}}</small>{{end}}</h1>
+    <p class="page-desc">
+      @{{.User.Username}} · {{orgLabel .User.OrgType}}{{if .User.OrgName}} · {{.User.OrgName}}{{end}}
+      {{$state := .User.AccountState}}
+      · <span class="badge {{$state.BadgeClass}}">{{$state.Label}}</span>
+      {{if .User.LastLoginAt}}<span class="page-desc" style="display:inline;">· zadnja prijava {{.User.LastLoginAt.Format "02.01.2006"}}</span>{{end}}
+      {{if .User.IsGlobalAdmin}} · <span class="badge badge-area-admin">globalni administrator</span>{{end}}
+    </p>
+  </div>
+  <div class="detail-actions">
+    {{if .IsSelf}}
+    <a href="/profile" class="btn btn-secondary">{{icon "pencil"}} Moj profil</a>
+    {{else if .CanManage}}
+    <a href="/users/{{.User.ID}}/edit" class="btn btn-secondary">{{icon "pencil"}} Uredi</a>
+    {{end}}
+    {{if .CanManage}}
+    <a href="/users/{{.User.ID}}/duties/new" class="btn btn-secondary">{{icon "plus"}} Zaduženje</a>
+    {{end}}
+    {{if and (not .IsSelf) .Permissions.IsGlobalAdmin}}
+    <form method="POST" action="/view-as/{{.User.ID}}">
+      <button type="submit" class="btn btn-secondary" title="Vidi program onako kako ga vidi {{.User.FullName}}">{{icon "eye"}} Pregled</button>
+    </form>
+    {{end}}
+  </div>
+</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
+
+<section class="detail-section" style="margin-top:0;">
+  <h2>{{icon "phone"}} Kontakti</h2>
+  <div class="reg-card" style="padding:1rem;">
+    <dl class="reg-facts" style="font-size:0.9rem;">
+      <div><dt>Mobitel</dt><dd>{{if .User.MobilePhone}}<a href="tel:{{.User.MobilePhone}}">{{.User.MobilePhone}}</a>{{else}}<span style="color:var(--text-muted); font-weight:500;">—</span>{{end}}</dd></div>
+      <div><dt>Fiksni</dt><dd>{{if .User.Phone}}<a href="tel:{{.User.Phone}}">{{.User.Phone}}</a>{{else}}<span style="color:var(--text-muted); font-weight:500;">—</span>{{end}}</dd></div>
+      <div><dt>Lokal</dt><dd>{{if .User.ShortPhone}}{{.User.ShortPhone}}{{else}}<span style="color:var(--text-muted); font-weight:500;">—</span>{{end}}</dd></div>
+      <div><dt>E-pošta</dt><dd style="overflow-wrap:anywhere;">{{if .User.Email}}<a href="mailto:{{.User.Email}}">{{.User.Email}}</a>{{else}}<span style="color:var(--text-muted); font-weight:500;">—</span>{{end}}</dd></div>
+    </dl>
+  </div>
+</section>
+
+<section class="detail-section">
+  <h2>{{icon "shield"}} Funkcije i zaduženja <span class="reg-chip">{{len .User.Duties}}</span></h2>
+  <div class="reg-list">
+    {{range .User.Duties}}
+    <article class="reg-card" style="padding:0.875rem 1rem; gap:0.4rem;">
+      <div class="reg-card-head">
+        <div>
+          <div class="reg-card-title" style="font-size:0.95rem;">{{.Title}}</div>
+          <div class="reg-card-sub">
+            {{if .SectorID}}Sektor {{derefString .SectorID}}{{end}}
+            {{if .AreaID}} · BP {{derefInt .AreaID}}{{if not .SectionCodes}} (sve dionice){{end}}{{end}}
+            {{if eq .ScopeType "ALL"}}Cijela Republika Hrvatska{{end}}
+          </div>
+        </div>
+        <span class="badge {{if .IsTemporary}}badge-ispomoc{{else}}badge-area-admin{{end}}">{{if .IsTemporary}}{{icon "zap"}} Ispomoć{{else}}{{roleLabel .Role}}{{end}}</span>
+      </div>
+      {{if .SectionCodes}}<div style="font-size:0.85rem;">Dionice: <strong>{{.SectionCodes}}</strong></div>{{end}}
+      {{if .Reason}}<div class="form-help">{{.Reason}}</div>{{end}}
+      <div class="reg-card-foot">
+        {{if .IsPrimary}}<span class="reg-chip">primarna</span>{{end}}
+        {{if .ExpiresAt}}<span class="reg-chip">do {{formatDateShort .ExpiresAt}}</span>{{end}}
+        {{if $.CanManage}}
+        <form method="POST" action="/users/duty/revoke" style="margin:0; margin-left:auto;"
+              onsubmit="return confirm('Opozvati zaduženje „{{.Title}}“? Zapis ostaje u povijesti.')">
+          <input type="hidden" name="duty_id" value="{{.ID}}">
+          <input type="hidden" name="user_id" value="{{$.User.ID}}">
+          <button type="submit" class="btn btn-sm btn-link" style="padding:0; color:var(--text-muted);">Opozovi</button>
+        </form>
+        {{end}}
+      </div>
+    </article>
+    {{else}}
+    <div class="reg-empty">Nema aktivnih zaduženja.</div>
+    {{end}}
+  </div>
+</section>
+
+{{if and .CanManage (not .IsSelf)}}
+<section class="detail-section">
+  <h2 style="color:var(--danger);">{{icon "trash"}} Brisanje profila</h2>
+  <div class="reg-card" style="padding:1rem; border-color:var(--danger-border);">
+    <p style="margin:0 0 0.75rem; font-size:0.9rem;">Profil nestaje s popisa i sa svih dionica, a u povijesti zapisa ostaje. Ako je osoba samo privremeno izvan službe, radije isključite prijavu u uređivanju profila.</p>
+    <form method="POST" action="/users/delete" onsubmit="return confirm('Obrisati profil djelatnika {{.User.FullName}}?')">
+      <input type="hidden" name="user_id" value="{{.User.ID}}">
+      <button type="submit" class="btn btn-sm" style="background:var(--danger-bg); color:var(--danger); border-color:var(--danger-border); min-height:40px;">{{icon "trash"}} Obriši profil</button>
+    </form>
+  </div>
+</section>
+{{end}}
+{{end}}

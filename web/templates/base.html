@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{block "title" .}}goCOP — Centar obrane od poplava{{end}}</title>
+  <meta name="color-scheme" content="light dark">
+  <script>
+    // Tema iz prethodnog izbora, prije prvog crtanja, da stranica ne bljesne
+    (function () { try { var t = localStorage.getItem('gocop-theme'); if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t); } catch (e) {} })();
+  </script>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <script src="/static/js/app.js" defer></script>
+</head>
+<body>
+  <!-- Navigacija -->
+  <header class="navbar">
+    <div class="nav-container">
+      <div class="nav-left" style="display:flex; align-items:center; gap:1.75rem;">
+        <a href="/" class="brand">
+          <img src="/static/img/hv-mark.svg" alt="" class="brand-mark">
+          <div>
+            <span class="brand-org">Hrvatske vode</span>
+            <span class="brand-title">Centar obrane od poplava</span>
+          </div>
+        </a>
+
+        <button type="button" class="nav-toggle" aria-label="Izbornik" aria-expanded="false"
+                onclick="toggleMainNav()">{{icon "menu"}} </button>
+
+        <nav class="main-nav" id="main-nav">
+          {{if .CurrentUser}}
+          <div class="nav-mobile-user">
+            <span class="user-name">{{.CurrentUser.FullName}}</span>
+            <span class="user-role-label">{{roleLabel .CurrentUser.PrimaryRole}}</span>
+          </div>
+          {{end}}
+          <a href="/" class="nav-link {{if eq .ActiveNav "dashboard"}}active{{end}}">{{icon "house"}} Početna</a>
+          <a href="/users" class="nav-link {{if eq .ActiveNav "users"}}active{{end}}">{{icon "users"}} Djelatnici</a>
+
+          <!-- Registri su sami po sebi skupina, pa ne troše mjesto u traci -->
+          <div class="nav-group">
+            <button type="button" class="nav-link nav-group-btn
+                {{if or (eq .ActiveNav "sections") (eq .ActiveNav "territories") (eq .ActiveNav "stations") (eq .ActiveNav "watercourses")}}active{{end}}"
+                aria-haspopup="true" aria-expanded="false" onclick="toggleNavGroup(event)">
+              {{icon "book-open"}} Registri <span class="nav-caret">▾</span>
+            </button>
+            <div class="nav-dropdown">
+              <a href="/sections" class="nav-dropdown-item {{if eq .ActiveNav "sections"}}active{{end}}">
+                {{icon "waves"}} Branjena područja i dionice
+              </a>
+              <a href="/territories" class="nav-dropdown-item {{if eq .ActiveNav "territories"}}active{{end}}">
+                {{icon "landmark"}} Teritorijalne jedinice
+              </a>
+              <a href="/stations" class="nav-dropdown-item {{if eq .ActiveNav "stations"}}active{{end}}">
+                {{icon "ruler"}} Vodomjerne postaje
+              </a>
+              <a href="/watercourses" class="nav-dropdown-item {{if eq .ActiveNav "watercourses"}}active{{end}}">
+                {{icon "droplet"}} Vodotoci i vodna tijela
+              </a>
+            </div>
+          </div>
+          {{if .CurrentUser}}
+          <div class="nav-mobile-actions">
+            <a href="/profile" class="nav-link {{if eq .ActiveNav "profile"}}active{{end}}">{{icon "user"}} Moj profil</a>
+            <a href="/profile#lozinka" class="nav-link">{{icon "key-round"}} Lozinka</a>
+            <a href="/settings" class="nav-link {{if eq .ActiveNav "settings"}}active{{end}}">{{icon "settings"}} Postavke</a>
+            <form action="/logout" method="POST"><button type="submit" class="nav-link">{{icon "log-out"}} Odjava</button></form>          </div>
+          {{end}}
+        </nav>
+        <button type="button" class="theme-toggle" onclick="toggleTheme()" title="Svijetla ili tamna tema" aria-label="Svijetla ili tamna tema">
+          <svg class="icon icon-sun" aria-hidden="true"><use href="/static/img/icons.svg#sun"/></svg>
+          <svg class="icon icon-moon" aria-hidden="true"><use href="/static/img/icons.svg#moon"/></svg>
+        </button>
+      </div>
+
+      <div class="nav-actions">
+        <!-- Informacije o prijavljenom korisniku -->
+        {{if .CurrentUser}}
+        <div class="user-profile">
+          <div class="user-info-text">
+            <span class="user-name">{{.CurrentUser.FullName}}</span>
+            <span class="user-role-label">{{roleLabel .CurrentUser.PrimaryRole}} · {{.CurrentUser.OrgName}}</span>
+          </div>
+          <a href="/profile" class="btn btn-secondary btn-sm">{{icon "user"}} Moj profil</a>
+          <a href="/profile#lozinka" class="btn btn-secondary btn-sm">{{icon "key-round"}} Lozinka</a>
+          <a href="/settings" class="btn btn-secondary btn-sm {{if eq .ActiveNav "settings"}}active{{end}}" title="Postavke čvora i sinkronizacije">{{icon "settings"}} Postavke</a>
+          <form action="/logout" method="POST" style="display:inline;">
+            <button type="submit" class="btn btn-secondary btn-sm" title="Odjavi se">{{icon "log-out"}} Odjava</button>
+          </form>
+        </div>
+        {{end}}
+      </div>
+    </div>
+  </header>
+
+  <!-- Glavni sadržaj -->
+  {{if .Viewing}}
+  <div class="viewas-bar" role="status">
+    <span class="viewas-eye">{{icon "eye"}} </span>
+    <span class="viewas-text">
+      Gledaš program očima djelatnika <strong>{{.ViewedName}}</strong>{{if .ViewedTitle}} ({{.ViewedTitle}}){{end}}.
+      Prijavljen je <strong>{{.RealName}}</strong>. U ovom pogledu program samo čita.
+    </span>
+    <form method="POST" action="/view-as/stop" class="viewas-form">
+      <input type="hidden" name="back" value="/users">
+      <button type="submit" class="viewas-back">Vrati se sebi</button>
+    </form>
+  </div>
+  {{end}}
+
+  <main class="main-content{{if .Viewing}} main-content-viewing{{end}}">
+    {{if and .CurrentUser .CurrentUser.MustChangePassword}}
+    <div style="background:var(--tint-amber-bg); border:1px solid var(--tint-amber-bg); border-left:4px solid var(--warning); color:var(--tint-amber-fg); padding:0.875rem 1.25rem; border-radius:8px; margin-bottom:1.5rem; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.75rem; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+      <div style="display:flex; align-items:center; gap:0.75rem;">
+        <span style="font-size:1.5rem;">{{icon "triangle-alert"}} </span>
+        <div>
+          <strong style="font-size:0.9375rem;">Upozorenje: Prijavljeni ste s početnom zadanom lozinkom</strong><br>
+          <span style="font-size:0.8125rem; color:#b45309;">Radi sigurnosti vašeg računa i operativnih podataka, molimo vas da odmah postavite vlastitu lozinku.</span>
+        </div>
+      </div>
+      <a href="/profile#lozinka" class="btn btn-sm"  style="background:#f59e0b; color:white; border:none; font-weight:600; padding:0.5rem 1rem; border-radius:6px; cursor:pointer;">
+        {{icon "key-round"}} Promijeni lozinku
+      </a>
+    </div>
+    {{end}}
+
+    {{if .SuccessMessage}}
+    <div class="alert alert-success">{{.SuccessMessage}}</div>
+    {{end}}
+
+    {{if .ErrorMessage}}
+    <div class="alert alert-danger">{{.ErrorMessage}}</div>
+    {{end}}
+
+    {{block "content" .}}{{end}}
+  </main>
+
+  <div id="toast-container" class="toast-container"></div>
+  <script>
+    // Izbornik: hamburger na uskim ekranima, padajuća skupina registara
+    function toggleTheme() {
+      var h = document.documentElement;
+      var cur = h.getAttribute('data-theme') ||
+        (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      var next = cur === 'dark' ? 'light' : 'dark';
+      h.setAttribute('data-theme', next);
+      try { localStorage.setItem('gocop-theme', next); } catch (e) {}
+    }
+
+    function toggleMainNav() {
+      const nav = document.getElementById('main-nav');
+      const btn = document.querySelector('.nav-toggle');
+      const open = nav.classList.toggle('open');
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+
+    function toggleNavGroup(event) {
+      event.stopPropagation();
+      const group = event.currentTarget.closest('.nav-group');
+      const open = group.classList.toggle('open');
+      event.currentTarget.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+
+    // Klik izvan izbornika ga zatvara
+    document.addEventListener('click', () => {
+      document.querySelectorAll('.nav-group.open').forEach(g => {
+        g.classList.remove('open');
+        const btn = g.querySelector('.nav-group-btn');
+        if (btn) btn.setAttribute('aria-expanded', 'false');
+      });
+    });
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        document.querySelectorAll('.nav-group.open').forEach(g => g.classList.remove('open'));
+        document.getElementById('main-nav')?.classList.remove('open');
+      }
+    });
+  </script>
+</body>
+</html>
+
+{{/* Listanje popisa — zajedničko svim registrima. Prima Pager. */}}
+{{define "pager"}}
+{{if gt .Total 0}}
+<nav class="pager" aria-label="Listanje">
+  <span class="pager-count">{{.From}}–{{.To}} od {{.Total}}</span>
+  {{if .Multi}}
+  <div class="pager-links">
+    {{if .HasPrev}}<a href="{{.URL .Prev}}" rel="prev" aria-label="Prethodna stranica">‹</a>{{else}}<span class="disabled">‹</span>{{end}}
+    {{range .Numbers}}
+      {{if eq . 0}}<span class="gap">…</span>
+      {{else if eq . $.Page}}<span class="current" aria-current="page">{{.}}</span>
+      {{else}}<a class="num" href="{{$.URL .}}">{{.}}</a>{{end}}
+    {{end}}
+    {{if .HasNext}}<a href="{{.URL .Next}}" rel="next" aria-label="Sljedeća stranica">›</a>{{else}}<span class="disabled">›</span>{{end}}
+  </div>
+  {{end}}
+</nav>
+{{end}}
+{{end}}
