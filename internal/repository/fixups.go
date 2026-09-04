@@ -27,6 +27,7 @@ var fixups = []fixup{
 	{"titule-bez-organizacije-2026-09", fixupTitles},
 	{"korisnicko-ime-tkraljevic-2026-09", fixupAuthorUsername},
 	{"kontakti-autor-i-admin-2026-09", fixupContacts},
+	{"admin-alias-eposta-2026-09", fixupAdminEmail},
 }
 
 // RunFixups izvodi popravke koji na ovom čvoru još nisu izvedeni
@@ -153,6 +154,38 @@ func fixupAuthorUsername(ctx context.Context, tx *sql.Tx, rec *ledger.Recorder) 
 	return 1, nil
 }
 
+// adminAliasEmail je adresa rezervnog računa "admin". Nije copos@voda.hr:
+// ta adresa nije sandučić nego popis svih sudionika obrane od poplava, pa
+// bi poruka upućena administratoru otišla svima. Dok se administratorski
+// računi ne dodijele informatičarima i COP-ovima na njihove službene
+// adrese, rezervni račun drži održavatelj programa.
+const adminAliasEmail = "tomislav.kraljevic@voda.hr"
+
+// fixupAdminEmail mijenja adresu rezervnog računa "admin" na čvorovima koji
+// su ranije dobili copos@voda.hr
+func fixupAdminEmail(ctx context.Context, tx *sql.Tx, rec *ledger.Recorder) (int, error) {
+	var id, email string
+	err := tx.QueryRowContext(ctx, `SELECT id, email FROM users WHERE username = 'admin'`).Scan(&id, &email)
+	if err == sql.ErrNoRows || (err == nil && email == adminAliasEmail) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE users SET email = ?, updated_at = ? WHERE id = ?`,
+		adminAliasEmail, time.Now().UTC(), id); err != nil {
+		return 0, err
+	}
+	saved, err := getUserTx(ctx, tx, id)
+	if err != nil {
+		return 0, err
+	}
+	if _, err := rec.Record(ctx, tx, EntityUsers, id, versionOfUser(saved)); err != nil {
+		return 0, err
+	}
+	return 1, nil
+}
+
 // fixupContacts vraća službene kontakte na dva računa prvog čvora:
 // autoru, kojem su pri probama ostali izmišljeni brojevi, i aliasu "admin",
 // koji je pri prvom punjenju baze dobio autorove osobne brojeve umjesto
@@ -161,7 +194,7 @@ func fixupContacts(ctx context.Context, tx *sql.Tx, rec *ledger.Recorder) (int, 
 	type contact struct{ phone, mobile, short, email string }
 	want := map[string]contact{
 		"tkraljevic": {"031-252-852", "099-267-9587", "2442", "tomislav.kraljevic@voda.hr"},
-		"admin":      {"031/252-802", "", "2802", "copos@voda.hr"},
+		"admin":      {"031/252-802", "", "2802", adminAliasEmail},
 	}
 	changed := 0
 	for username, c := range want {
