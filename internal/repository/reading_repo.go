@@ -323,17 +323,40 @@ func (r *ReadingRepository) ImportBatch(ctx context.Context, readings []models.R
 	return inserted, nil
 }
 
-// Stats vraća ukupan broj očitanja i raspon vremena
+// Stats vraća ukupan broj očitanja i raspon vremena.
+//
+// MIN i MAX vraćaju vrijeme kao tekst, jer se u agregatu gubi tip stupca, pa
+// se čita kao niz i pretvara ovdje. Prije se pokušavalo čitati kao vrijeme i
+// tiho je otpadalo, zbog čega pregled vodostaja nije znao kad je zadnje
+// očitanje.
 func (r *ReadingRepository) Stats(ctx context.Context) (total int, first, last time.Time, err error) {
-	var f, l sql.NullTime
+	var f, l sql.NullString
 	err = r.db.QueryRowContext(ctx, `SELECT COUNT(*), MIN(measured_at), MAX(measured_at) FROM readings`).Scan(&total, &f, &l)
+	if err != nil {
+		return
+	}
 	if f.Valid {
-		first = f.Time
+		first, _ = parseDBTime(f.String)
 	}
 	if l.Valid {
-		last = l.Time
+		last, _ = parseDBTime(l.String)
 	}
 	return
+}
+
+// parseDBTime čita vrijeme kakvo SQLite vrati iz agregata
+func parseDBTime(s string) (time.Time, bool) {
+	for _, layout := range []string{
+		time.RFC3339Nano, time.RFC3339,
+		"2006-01-02 15:04:05.999999999 -0700 MST",
+		"2006-01-02 15:04:05.999999999-07:00",
+		"2006-01-02 15:04:05",
+	} {
+		if t, err := time.Parse(layout, s); err == nil {
+			return t, true
+		}
+	}
+	return time.Time{}, false
 }
 
 // GaugeHabit je koliko je puta i u koje doba dana osoba očitavala jednu letvu
@@ -372,4 +395,88 @@ func (r *ReadingRepository) HabitsFor(ctx context.Context, userID, observer stri
 		out[key] = h
 	}
 	return out, rows.Err()
+}
+
+// ListForGauges vraća očitanja zadanih letvi u razdoblju. Uvoz tablice time
+// uspoređuje dan po dan: tablica centra nosi fiksnih sedam sati, a očitanja
+// s terena stvarno vrijeme, pa se isti jutarnji vodostaj ne prepoznaje po
+// trenutku nego po danu.
+func (r *ReadingRepository) ListForGauges(ctx context.Context, stationIDs, structureIDs []string, from, to time.Time) ([]models.Reading, error) {
+	if len(stationIDs) == 0 && len(structureIDs) == 0 {
+		return nil, nil
+	}
+	var where []string
+	var args []any
+	add := func(col string, vals []string) {
+		if len(vals) == 0 {
+			return
+		}
+		where = append(where, col+" IN (?"+strings.Repeat(", ?", len(vals)-1)+")")
+		for _, v := range vals {
+			args = append(args, v)
+		}
+	}
+	add("station_id", stationIDs)
+	add("structure_id", structureIDs)
+	q := "SELECT " + readingColumns + " FROM readings WHERE (" + strings.Join(where, " OR ") + ")"
+	if !from.IsZero() {
+		q += " AND measured_at >= ?"
+		args = append(args, from.UTC())
+	}
+	if !to.IsZero() {
+		q += " AND measured_at <= ?"
+		args = append(args, to.UTC())
+	}
+	rows, err := r.db.QueryContext(ctx, q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []models.Reading
+	for rows.Next() {
+		rd, err := scanReading(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, rd)
+	}
+	return out, rows.Err()
+}
+
+// LevelsByID vraća vodostaje zadanih očitanja koja već postoje. Uvoz time
+// razlikuje ono što je novo od onoga što je već zapisano, i vidi gdje se
+// dva izvora ne slažu o istom jutru.
+func (r *ReadingRepository) LevelsByID(ctx context.Context, ids []string) (map[string]*int, error) {
+	out := map[string]*int{}
+	const chunk = 500
+	for start := 0; start < len(ids); start += chunk {
+		end := start + chunk
+		if end > len(ids) {
+			end = len(ids)
+		}
+		part := ids[start:end]
+		args := make([]any, len(part))
+		for i, id := range part {
+			args[i] = id
+		}
+		q := `SELECT id, level_cm FROM readings WHERE id IN (?` + strings.Repeat(", ?", len(part)-1) + `)`
+		rows, err := r.db.QueryContext(ctx, q, args...)
+		if err != nil {
+			return nil, err
+		}
+		for rows.Next() {
+			var id string
+			var level sql.NullInt64
+			if err := rows.Scan(&id, &level); err != nil {
+				rows.Close()
+				return nil, err
+			}
+			out[id] = nullInt(level)
+		}
+		rows.Close()
+		if err := rows.Err(); err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
 }
