@@ -192,6 +192,23 @@ ima trinaest godina povijesti vodostaja:
   Mirko Lazar, Damir Lešković, Željko Marijanov, Adam Matijević,
   Marko Rajčević, Dražen Sabljak, Friedrich Seitz, Marko Šašlin, Ante Ursić
 
+## Podaci koji nisu u repozitoriju
+
+Uz program u repozitoriju stoje registri koji su javni: dionice, branjena
+područja, vodomjerne postaje s pragovima obrane, vodotoci i teritorijalne
+jedinice. Dvoje ovdje namjerno nema:
+
+- **imenik djelatnika** — osobni podaci; čita se iz `data/imenik.json` uz
+  bazu, samo pri prvom punjenju čvora;
+- **očitanja vodostaja** — dio podataka dolazi od Državnog
+  hidrometeorološkog zavoda, koji ih s Hrvatskim vodama dijeli po ugovoru o
+  uzajamnom korištenju, pa se ne objavljuju. Povijest vodostaja stoji samo
+  na čvorovima Hrvatskih voda; program je zna uvesti iz datoteke uz bazu i
+  razmijeniti s drugim čvorovima mreže, ali je ne nosi u sebi.
+
+Zbog toga svaki uvoz očitanja ide iz datoteke koja stoji uz bazu, nikad iz
+`internal/db`, jer se sve odande ugrađuje u program. Test to i provjerava.
+
 ## Licenca
 
 goCOP je otvoreni, neprofitni projekt namijenjen Hrvatskim vodama i drugim
