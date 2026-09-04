@@ -322,6 +322,15 @@ func InitSchema(database *sql.DB) error {
 		`CREATE INDEX IF NOT EXISTS idx_readings_structure_time ON readings(structure_id, measured_at DESC);`,
 		`CREATE INDEX IF NOT EXISTS idx_readings_source_ref ON readings(source_ref);`,
 
+		// Letve čiju povijest ovaj čvor drži u cijelosti. Tablica je LOKALNA:
+		// ne sinkronizira se, jer je odluka o mjestu na disku stvar ovog
+		// računala, a ne mreže.
+		`CREATE TABLE IF NOT EXISTS reading_follows (
+			gauge_key TEXT PRIMARY KEY,
+			name TEXT NOT NULL DEFAULT '',
+			created_at DATETIME NOT NULL
+		);`,
+
 		// Vidljivost modula: pravilo po ulozi i iznimka po računu
 		`CREATE TABLE IF NOT EXISTS role_modules (
 			role TEXT PRIMARY KEY,

@@ -16,6 +16,17 @@
   </div>
   <div class="detail-actions">
     {{if .CanRecord}}<a href="{{.NewURL}}" class="btn btn-primary">{{icon "plus"}} Upiši očitanje</a>{{end}}
+    {{if .Permissions.IsGlobalAdmin}}
+    <form method="POST" action="/readings/follow" style="margin:0;">
+      <input type="hidden" name="gauge_key" value="{{.GaugeKey}}">
+      <input type="hidden" name="name" value="{{.GaugeName}}">
+      <input type="hidden" name="back" value="/readings/{{if .Structure}}structure/{{.Structure.ID}}{{else}}station/{{.Station.ID}}{{end}}">
+      <input type="hidden" name="follow" value="{{if .Followed}}0{{else}}1{{end}}">
+      <button type="submit" class="btn btn-secondary" title="Drži li ovo računalo cijelu povijest ove letve">
+        {{icon "download"}} {{if .Followed}}Ne čuvaj povijest{{else}}Čuvaj povijest{{end}}
+      </button>
+    </form>
+    {{end}}
   </div>
 </div>
 
@@ -81,7 +92,7 @@
 {{end}}
 
 <section class="detail-section">
-  <h2>{{icon "history"}} Očitanja <span class="reg-chip">{{.Count}}</span></h2>
+  <h2>{{icon "history"}} Očitanja <span class="reg-chip">{{.Count}}</span>{{if .Followed}} <span class="reg-chip">{{icon "download"}} povijest se čuva</span>{{end}}</h2>
   {{if .Years}}
   <form method="GET" action="" style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; margin-bottom:0.75rem;">
     <label class="filter-label" for="year" style="margin:0;">Godina</label>
