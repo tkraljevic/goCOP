@@ -62,7 +62,7 @@
           <h3 class="reg-card-title">{{.Name}}</h3>
           <div class="reg-card-sub">{{.Sub}}</div>
         </div>
-        {{if and .Latest (ne .Phase.Label "Pragovi nisu određeni")}}<span class="badge {{.Phase.BadgeClass}}">{{.Phase.Label}}</span>{{end}}
+        {{if and .Latest .Phase.InForce}}<span class="badge {{.Phase.BadgeClass}}">{{.Phase.Label}}</span>{{end}}
       </div>
       {{if .Latest}}
       <div style="display:flex; align-items:baseline; gap:0.75rem; flex-wrap:wrap; margin-top:0.35rem;">
@@ -77,8 +77,7 @@
         {{if .Latest.Level2Cm}}<span class="reading-meta">nizvodno <strong>{{intOf .Latest.Level2Cm}} cm</strong></span>{{end}}
       </div>
       <div class="reading-meta" style="margin-top:0.25rem;">
-        <span class="{{if .Stale}}reading-stale{{end}}">{{ago .Latest.MeasuredAt}}</span>
-        · {{formatDate .Latest.LocalTime}}
+        <span class="{{if .Stale}}reading-stale{{end}}" title="{{formatDate .Latest.LocalTime}}">{{ago .Latest.MeasuredAt}}</span>
         {{if .Latest.StructureState}} · {{.Latest.StateLabel}}{{end}}
         {{if .Latest.Gate}} · zapornica {{.Latest.GateLabel}}{{end}}
         {{if .Latest.Observer}} · {{.Latest.Observer}}{{end}}
