@@ -22,6 +22,7 @@ type SectionsHandler struct {
 	userService      *service.UserService
 	stationService   *service.StationService
 	territoryService *service.TerritoryService
+	structureService *service.StructureService
 	tmpl             *template.Template // popis
 	tmplDetail       *template.Template // jedna dionica
 	tmplForm         *template.Template // obrazac

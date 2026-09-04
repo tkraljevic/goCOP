@@ -1,6 +1,8 @@
 package main
 
 import (
+	_ "time/tzdata"
+
 	"context"
 	"flag"
 	"fmt"
@@ -14,6 +16,7 @@ import (
 
 	"gocop/internal/config"
 	"gocop/internal/db"
+	"gocop/internal/importer/bp16"
 	"gocop/internal/ledger"
 	"gocop/internal/peers"
 	"gocop/internal/repository"
@@ -36,6 +39,9 @@ func main() {
 	pairPortFlag := flag.Int("pair-port", -1, "Port uparivanja")
 	discoveryPortFlag := flag.Int("discovery-port", -1, "UDP port pronalaženja na lokalnoj mreži (0 isključuje)")
 	autoSyncFlag := flag.String("auto-sync", "", "Razmak automatske sinkronizacije, npr. 5m (0 isključuje)")
+	importBP16 := flag.Bool("import-bp16", false, "Uvezi očitanja vodostaja iz Directus evidencije VGI Baranja i završi")
+	bp16Dir := flag.String("bp16-dir", "", "Uvoz iz ranije skinutih JSON datoteka umjesto iz Directusa")
+	directusEnv := flag.String("directus-env", "", "Datoteka s DIRECTUS_URL i DIRECTUS_TOKEN (zadano ~/.config/gocop/directus.env)")
 	flag.Parse()
 
 	// baza se mora znati prije datoteke, jer datoteka živi uz bazu
@@ -160,6 +166,37 @@ func main() {
 	stationService := service.NewStationService(stationRepo, sectionService, sseBroker)
 	watercourseRepo := repository.NewWatercourseRepository(database, recorder)
 	watercourseService := service.NewWatercourseService(watercourseRepo)
+	structureRepo := repository.NewStructureRepository(database, recorder)
+	structureService := service.NewStructureService(structureRepo)
+	readingRepo := repository.NewReadingRepository(database, recorder)
+	readingService := service.NewReadingService(readingRepo, stationRepo, structureRepo, sectionService)
+
+	// Uvoz iz Directusa je zaseban način rada: uveze i završi
+	if *importBP16 {
+		var src bp16.Source
+		if *bp16Dir != "" {
+			src = bp16.DirSource{Dir: *bp16Dir}
+		} else {
+			envPath := *directusEnv
+			if envPath == "" {
+				home, _ := os.UserHomeDir()
+				envPath = filepath.Join(home, ".config", "gocop", "directus.env")
+			}
+			httpSrc, err := bp16.LoadEnv(envPath)
+			if err != nil {
+				log.Fatalf("Uvoz BP16: %v", err)
+			}
+			src = httpSrc
+		}
+		rep, err := bp16.Run(context.Background(), src, bp16.Deps{
+			Readings: readingRepo, Stations: stationRepo, Structures: structureRepo, Log: log.Printf,
+		})
+		if err != nil {
+			log.Fatalf("Uvoz BP16 nije uspio: %v (do greške %s)", err, rep.Summary())
+		}
+		log.Printf("Uvoz BP16 gotov: %s", rep.Summary())
+		return
+	}
 
 	// Čišćenje starih sesija periodički
 	go func() {
@@ -170,7 +207,7 @@ func main() {
 	}()
 
 	// 5. Inicijalizacija web poslužitelja s ugrađenim embed.FS resursima
-	server, err := web.NewServer(*addr, authService, userService, sectionService, territoryService, stationService, watercourseService, peersService, recorder, sseBroker)
+	server, err := web.NewServer(*addr, authService, userService, sectionService, territoryService, stationService, watercourseService, structureService, readingService, peersService, recorder, sseBroker)
 	if err != nil {
 		log.Fatalf("Greška pri inicijalizaciji web poslužitelja: %v", err)
 	}

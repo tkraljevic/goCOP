@@ -22,6 +22,7 @@ type SectionPageData struct {
 	CanEdit     bool
 
 	Stations          []models.Station          // mjerodavni vodomjeri iz registra
+	RegistryObjects   []models.Structure        // objekti iz registra objekata
 	Criteria          []models.GaugeItem        // ostali kriteriji iz dokumentacije
 	Territories       []models.SectionTerritory // pridružene teritorijalne jedinice
 	Counties          []models.County           // za obrazac pridruživanja
@@ -38,6 +39,11 @@ type SectionPageData struct {
 	ErrorMessage   string
 	ActiveNav      string
 	ViewAsBanner
+}
+
+// SetStructureService daje rukovatelju registar objekata
+func (h *SectionsHandler) SetStructureService(structures *service.StructureService) {
+	h.structureService = structures
 }
 
 // SetPageTemplates daje rukovatelju predloške stranica i servise koje one trebaju
@@ -95,6 +101,11 @@ func (h *SectionsHandler) ShowSection(w http.ResponseWriter, r *http.Request) {
 					}
 				}
 			}
+		}
+	}
+	if h.structureService != nil {
+		if objs, err := h.structureService.ListForSection(ctx, sec.Code); err == nil {
+			data.RegistryObjects = objs
 		}
 	}
 	if h.territoryService != nil {

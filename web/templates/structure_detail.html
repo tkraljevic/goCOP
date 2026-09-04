@@ -1,0 +1,114 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — {{.Structure.Name}}{{end}}
+
+{{define "content"}}
+<div class="breadcrumb"><a href="/structures">Objekti</a> › <a href="/structures?area={{.Structure.AreaID}}">BP {{.Structure.AreaID}}</a> › {{.Structure.Name}}</div>
+
+<div class="detail-head">
+  <div>
+    <h1 class="page-title">{{icon "construction"}} {{.Structure.Name}}</h1>
+    <p class="page-desc">
+      {{.Structure.KindLabel}} · Sektor {{.Structure.SectorID}} · BP {{.Structure.AreaID}}{{if .Structure.AreaName}}: {{.Structure.AreaName}}{{end}}
+      · {{.Structure.OriginLabel}}
+    </p>
+  </div>
+  <div class="detail-actions">
+    <a href="/readings/new?structure={{.Structure.ID}}" class="btn btn-primary">{{icon "plus"}} Upiši očitanje</a>
+    <a href="/readings/structure/{{.Structure.ID}}" class="btn btn-secondary">{{icon "activity"}} Vodostaji</a>
+  {{if .CanEdit}}
+    <a href="/structures/{{.Structure.ID}}/edit" class="btn btn-secondary">{{icon "pencil"}} Uredi</a>
+    <form method="POST" action="/structures/delete" onsubmit="return confirm('Obrisati objekt „{{.Structure.Name}}“ iz registra? Zapis ostaje u povijesti.')">
+      <input type="hidden" name="id" value="{{.Structure.ID}}">
+      <button type="submit" class="btn btn-sm" style="background:var(--danger-bg); color:var(--danger); border-color:var(--danger-border); min-height:40px;">{{icon "trash"}} Obriši</button>
+    </form>
+  {{end}}
+  </div>
+</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
+
+<section class="detail-section" style="margin-top:0;">
+  <h2>{{icon "gauge"}} Podaci objekta</h2>
+  <div class="reg-card" style="padding:1rem;">
+    <dl class="reg-facts" style="font-size:0.9rem;">
+      <div><dt>Kota „0“ letve</dt><dd>{{if .Structure.ZeroDatum}}{{derefFloat .Structure.ZeroDatum 2}} m ({{.Structure.ZeroDatumSystem}}){{else}}<span style="color:var(--text-muted); font-weight:500;">nije upisana</span>{{end}}</dd></div>
+      {{if .Structure.IsPumpingStation}}
+      <div><dt>Kapacitet</dt><dd>{{if .Structure.CapacityText}}{{.Structure.CapacityText}} m³/s{{else}}<span style="color:var(--text-muted); font-weight:500;">—</span>{{end}}</dd></div>
+      <div><dt>Vodostaj uključenja</dt><dd>{{if .Structure.StartText}}{{.Structure.StartText}} cm{{else}}<span style="color:var(--text-muted); font-weight:500;">—</span>{{end}}</dd></div>
+      <div><dt>Vodostaj zaustavljanja</dt><dd>{{if .Structure.StopText}}{{.Structure.StopText}} cm{{else}}<span style="color:var(--text-muted); font-weight:500;">—</span>{{end}}</dd></div>
+      {{end}}
+      <div><dt>Šifra</dt><dd style="font-family:ui-monospace, monospace; font-weight:500;">{{.Structure.Code}}</dd></div>
+      {{if .Structure.Latitude}}<div><dt>Položaj</dt><dd class="mono">{{derefFloat .Structure.Latitude 5}}, {{derefFloat .Structure.Longitude 5}}</dd></div>{{end}}
+    </dl>
+    {{if .Structure.Notes}}<p style="font-size:0.85rem; margin:0.75rem 0 0;">{{.Structure.Notes}}</p>{{end}}
+    {{if .Structure.IsPumpingStation}}
+    <p class="form-help" style="margin-top:0.75rem;">Vodostaji pogona su na letvi objekta. Kad dođu očitanja, program iz njih javlja treba li stanicu pokrenuti ili zaustaviti.</p>
+    {{end}}
+  </div>
+</section>
+
+<section class="detail-section">
+  <h2>{{icon "ruler"}} Vodomjer na objektu</h2>
+  {{if .Station}}
+  <div class="reg-list">
+    <article class="reg-card">
+      <a class="reg-card-link" href="/stations/{{.Station.ID}}">
+        <div class="reg-card-head">
+          <div>
+            <h3 class="reg-card-title">{{.Station.Name}}</h3>
+            <div class="reg-card-sub">{{if .Station.HasWatercourse}}{{.Station.Watercourse}}{{end}}{{if .Station.Stationing}} · {{.Station.Stationing}}{{end}}</div>
+          </div>
+        </div>
+        <dl class="reg-facts">
+          <div><dt>P</dt><dd><span class="threshold-pill prep">{{.Station.Prep.Label}}</span></dd></div>
+          <div><dt>R</dt><dd><span class="threshold-pill regular">{{.Station.Regular.Label}}</span></dd></div>
+          <div><dt>I</dt><dd><span class="threshold-pill emerg">{{.Station.Emergency.Label}}</span></dd></div>
+          <div><dt>IS</dt><dd><span class="threshold-pill crit">{{.Station.State.Label}}</span></dd></div>
+        </dl>
+      </a>
+    </article>
+  </div>
+  {{else}}
+  <div class="reg-empty">Objekt nema pridružen vodomjer. Pridružuje se u uređivanju objekta.</div>
+  {{end}}
+</section>
+
+<section class="detail-section">
+  <h2>{{icon "file-text"}} Dionice <span class="reg-chip">{{len .Sections}}</span></h2>
+  <div class="reg-list">
+    {{range .Sections}}
+    <article class="reg-card">
+      <a class="reg-card-link" href="/sections/{{.Code}}" style="padding-bottom:0.5rem;">
+        <div class="reg-card-head">
+          <div>
+            <h3 class="reg-card-title">{{.Code}}</h3>
+            <div class="reg-card-sub">{{.SectorName}}{{if .AreaName}} · {{.AreaName}}{{end}}</div>
+          </div>
+          {{if .Bank}}<span class="badge badge-inactive">{{bankLabel .Bank}}</span>{{end}}
+        </div>
+        <p style="font-size:0.8rem; margin:0;">{{.Description}}</p>
+      </a>
+      {{if $.CanEdit}}
+      <form method="POST" action="/structures/{{$.Structure.ID}}/unlink" style="margin:0; padding:0 1rem 0.75rem;" onsubmit="return confirm('Ukloniti vezu s dionicom {{.Code}}?')">
+        <input type="hidden" name="section_code" value="{{.Code}}">
+        <button type="submit" class="btn btn-sm btn-link" style="padding:0; color:var(--text-muted);">Ukloni vezu</button>
+      </form>
+      {{end}}
+    </article>
+    {{else}}
+    <div class="reg-empty">Objekt nije vezan ni na jednu dionicu.</div>
+    {{end}}
+  </div>
+  {{if .CanEdit}}
+  <form method="POST" action="/structures/{{.Structure.ID}}/link" style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:flex-end; margin-top:0.25rem;">
+    <div class="form-group" style="flex:1; min-width:12rem; margin:0;">
+      <label class="form-label" for="section_code">Veži na dionicu (šifra)</label>
+      <input type="text" id="section_code" name="section_code" class="form-control" placeholder="npr. B.16.4" required autocomplete="off" style="font-family:ui-monospace, monospace;">
+    </div>
+    <button type="submit" class="btn btn-secondary" style="min-height:40px;">{{icon "link"}} Veži</button>
+  </form>
+  {{end}}
+</section>
+{{end}}

@@ -108,7 +108,7 @@
         <div class="reg-card-head">
           <div>
             <h3 class="reg-card-title">{{.Name}}</h3>
-            <div class="reg-card-sub">{{if .HasWatercourse}}{{.Watercourse}}{{end}}{{if .Stationing}} · {{.Stationing}}{{end}}{{if .ZeroDatum}} · „0" {{derefFloat .ZeroDatum 2}} m{{end}}</div>
+            <div class="reg-card-sub">{{if .HasWatercourse}}{{.Watercourse}}{{end}}{{if .Stationing}} · {{.Stationing}}{{end}}{{if .ZeroDatum}} · „0“ {{derefFloat .ZeroDatum 2}} m{{end}}</div>
           </div>
           {{if .NeedsReview}}<span class="badge badge-inactive" title="{{.ReviewNote}}">{{icon "triangle-alert"}} </span>{{end}}
         </div>
@@ -168,7 +168,29 @@
 </section>
 
 <section class="detail-section">
-  <h2>{{icon "construction"}} Objekti na dionici <span class="reg-chip">{{len .Section.Structures}}</span></h2>
+  <h2>{{icon "construction"}} Objekti na dionici <span class="reg-chip">{{add (len .RegistryObjects) (len .Section.Structures)}}</span></h2>
+  {{if .RegistryObjects}}
+  <div class="reg-list" style="margin-bottom:0.75rem;">
+    {{range .RegistryObjects}}
+    <article class="reg-card">
+      <a class="reg-card-link" href="/structures/{{.ID}}">
+        <div class="reg-card-head">
+          <div>
+            <h3 class="reg-card-title">{{.Name}}</h3>
+            <div class="reg-card-sub">{{.KindLabel}} · iz registra objekata</div>
+          </div>
+        </div>
+        <dl class="reg-facts">
+          {{if .ZeroDatum}}<div><dt>Kota „0“</dt><dd>{{derefFloat .ZeroDatum 2}} m</dd></div>{{end}}
+          {{if .CapacityText}}<div><dt>Kapacitet</dt><dd>{{.CapacityText}} m³/s</dd></div>{{end}}
+          {{if .StartText}}<div><dt>Uključenje</dt><dd>{{.StartText}} cm</dd></div>{{end}}
+        </dl>
+      </a>
+    </article>
+    {{end}}
+  </div>
+  {{end}}
+  {{if .Section.Structures}}<p class="form-help" style="margin:0 0 0.5rem;">Iz dokumentacije dionice:</p>{{end}}
   <div class="reg-list">
     {{range .Section.Structures}}
     <article class="reg-card" style="padding:0.75rem 1rem; gap:0.2rem;">
@@ -176,7 +198,7 @@
       <div style="font-size:0.9rem;">{{.Name}}</div>
     </article>
     {{else}}
-    <div class="reg-empty">Dokumentacija ne navodi objekte na ovoj dionici.</div>
+    {{if not .RegistryObjects}}<div class="reg-empty">Dokumentacija ne navodi objekte na ovoj dionici.</div>{{end}}
     {{end}}
   </div>
 </section>

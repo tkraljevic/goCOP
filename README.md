@@ -177,6 +177,21 @@ posao širi.
   poplava Centra obrane od poplava Osijek od 2005. godine; ti dnevnici su
   povijesna građa za modul dnevnika i rješenja.
 
+### Evidencija VGI Baranja (app.bp16.xyz)
+
+Očitanja vodostaja te stanja crpnih stanica i ustava branjenog područja 16
+(Baranja) od 2013. do 2026. uvezena su iz evidencije koju je Tomislav
+Kraljević vodio na privatnom poslužitelju (app.bp16.xyz) i koju je VGI
+Baranja punila svako jutro. Zahvaljujući tim ljudima goCOP od prvog dana
+ima trinaest godina povijesti vodostaja:
+
+- **unos u evidenciju:** Ivana Bukić, Krunoslav Ćosić, Maja Ivančić Bukić,
+  Matej Krstić, Izabela Rukavina
+- **očitanja na terenu:** Marko Blagus, Željko Brdar, Igor Čulin,
+  Matej Drventić, Ivica Golubov, Vlatko Hostić, Igor Ivančić, Janoš Kištot,
+  Mirko Lazar, Damir Lešković, Željko Marijanov, Adam Matijević,
+  Marko Rajčević, Dražen Sabljak, Friedrich Seitz, Marko Šašlin, Ante Ursić
+
 ## Licenca
 
 goCOP je otvoreni, neprofitni projekt namijenjen Hrvatskim vodama i drugim

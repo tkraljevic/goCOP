@@ -1,0 +1,106 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — {{if .IsEdit}}Uređivanje očitanja{{else}}Novo očitanje{{end}}{{end}}
+
+{{define "content"}}
+<div class="breadcrumb"><a href="/readings">Vodostaji</a> › <a href="{{.BackURL}}">{{.GaugeName}}</a> › {{if .IsEdit}}Uređivanje{{else}}Novo očitanje{{end}}</div>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "activity"}} {{.GaugeName}}</h1>
+    <p class="page-desc">{{.GaugeSub}}{{if .Latest}} · zadnje {{if .Latest.LevelCm}}<strong>{{intOf .Latest.LevelCm}} cm</strong>{{else}}bez vodostaja{{end}} {{ago .Latest.MeasuredAt}}{{end}}</p>
+  </div>
+</div>
+
+{{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
+
+<form class="form-page" method="POST" action="{{if .IsEdit}}/readings/update{{else}}/readings/create{{end}}">
+  {{if .IsEdit}}<input type="hidden" name="id" value="{{.Reading.ID}}">{{end}}
+  <input type="hidden" name="station_id" value="{{.Reading.StationID}}">
+  <input type="hidden" name="structure_id" value="{{.Reading.StructureID}}">
+
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="level_cm">{{if .IsSluice}}Uzvodni vodostaj (cm){{else}}Vodostaj (cm){{end}}</label>
+      <input type="text" inputmode="numeric" pattern="-?[0-9]*" id="level_cm" name="level_cm" class="form-control level-input"
+             value="{{if .Reading.LevelCm}}{{intOf .Reading.LevelCm}}{{end}}" placeholder="0" {{if not .IsEdit}}autofocus{{end}}>
+    </div>
+    {{if .IsSluice}}
+    <div class="form-group">
+      <label class="form-label" for="level2_cm">Nizvodni vodostaj (cm)</label>
+      <input type="text" inputmode="numeric" pattern="-?[0-9]*" id="level2_cm" name="level2_cm" class="form-control level-input"
+             value="{{if .Reading.Level2Cm}}{{intOf .Reading.Level2Cm}}{{end}}" placeholder="0">
+    </div>
+    {{end}}
+  </div>
+
+  {{if .IsSluice}}
+  <div class="form-group">
+    <label class="form-label" for="gate">Zapornica</label>
+    <select id="gate" name="gate" class="form-control">
+      <option value="">— nije zapisano —</option>
+      {{range .Gates}}<option value="{{.}}" {{if eq . $.Reading.Gate}}selected{{end}}>{{gateLabel .}}</option>{{end}}
+    </select>
+  </div>
+  {{end}}
+
+  {{if .IsPump}}
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="structure_state">Stanje crpne stanice</label>
+      <select id="structure_state" name="structure_state" class="form-control">
+        <option value="">— nije zapisano —</option>
+        {{range .States}}<option value="{{.}}" {{if eq . $.Reading.StructureState}}selected{{end}}>{{structureState .}}</option>{{end}}
+      </select>
+    </div>
+  </div>
+  <details {{if .Reading.HasAgHours}}open{{end}} style="margin-bottom:1rem;">
+    <summary class="form-label" style="cursor:pointer;">Sati rada agregata</summary>
+    <div class="form-row" style="margin-top:0.5rem;">
+      <div class="form-group"><label class="form-label" for="ag_hours_1">Agregat 1 (h)</label><input type="text" inputmode="numeric" id="ag_hours_1" name="ag_hours_1" class="form-control" value="{{if .Reading.AgHours1}}{{intOf .Reading.AgHours1}}{{end}}"></div>
+      <div class="form-group"><label class="form-label" for="ag_hours_2">Agregat 2 (h)</label><input type="text" inputmode="numeric" id="ag_hours_2" name="ag_hours_2" class="form-control" value="{{if .Reading.AgHours2}}{{intOf .Reading.AgHours2}}{{end}}"></div>
+      <div class="form-group"><label class="form-label" for="ag_hours_3">Agregat 3 (h)</label><input type="text" inputmode="numeric" id="ag_hours_3" name="ag_hours_3" class="form-control" value="{{if .Reading.AgHours3}}{{intOf .Reading.AgHours3}}{{end}}"></div>
+    </div>
+  </details>
+  {{end}}
+
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="measured_at">Vrijeme očitanja</label>
+      <input type="datetime-local" id="measured_at" name="measured_at" class="form-control" value="{{.LocalValue}}" required>
+      <div class="form-help">Zadano je sad; promijenite kad upisujete naknadno.</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="source">Način</label>
+      <select id="source" name="source" class="form-control">
+        {{range .Sources}}{{if ne . "UVOZ"}}<option value="{{.}}" {{if eq . $.Reading.Source}}selected{{end}}>{{readingSource .}}</option>{{end}}{{end}}
+        {{if eq .Reading.Source "UVOZ"}}<option value="UVOZ" selected>uvoz</option>{{end}}
+      </select>
+    </div>
+  </div>
+
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="observer">Očitao</label>
+      <input type="text" id="observer" name="observer" class="form-control" value="{{.Reading.Observer}}" placeholder="{{if .CurrentUser}}{{.CurrentUser.FullName}}{{end}}" autocomplete="off">
+      <div class="form-help">Prazno znači prijavljeni korisnik.</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="note">Napomena</label>
+      <textarea id="note" name="note" class="form-control" rows="2" placeholder="npr. letva oštećena, procjena">{{.Reading.Note}}</textarea>
+    </div>
+  </div>
+
+  <div class="form-actions">
+    <a href="{{.BackURL}}" class="btn btn-secondary">Odustani</a>
+    <button type="submit" class="btn btn-primary">{{if .IsEdit}}Spremi izmjene{{else}}Upiši očitanje{{end}}</button>
+  </div>
+</form>
+
+{{if .IsEdit}}
+<form method="POST" action="/readings/delete" style="margin-top:1rem;" onsubmit="return confirm('Obrisati ovo očitanje? Zapis ostaje u povijesti.')">
+  <input type="hidden" name="id" value="{{.Reading.ID}}">
+  <button type="submit" class="btn btn-sm" style="background:var(--danger-bg); color:var(--danger); border-color:var(--danger-border); min-height:40px;">{{icon "trash"}} Obriši očitanje</button>
+</form>
+{{end}}
+{{end}}
