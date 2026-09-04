@@ -2222,7 +2222,10 @@ textarea {
 .reading-row .when { font-variant-numeric: tabular-nums; color: var(--text-secondary); font-size: 0.85rem; white-space: nowrap; }
 .reading-row .value { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text-strong); white-space: nowrap; }
 .reading-row .extra { grid-column: 1 / -1; font-size: 0.8rem; color: var(--text-secondary); }
-@media (max-width: 480px) { .reading-row { grid-template-columns: 6rem 1fr auto; padding: 0.55rem 0.75rem; } }
+@media (max-width: 560px) {
+  .reading-row { grid-template-columns: 1fr auto; padding: 0.55rem 0.75rem; }
+  .reading-row .when { grid-column: 1 / -1; }
+}
 .chart svg { width: 100%; height: auto; display: block; }
 .chart .line { fill: none; stroke: var(--primary); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
 .chart .area { fill: var(--tint-blue-bg); }

@@ -270,6 +270,13 @@ func (p DefensePhase) Label() string {
 	case PhasePrep:
 		return "Pripremno stanje"
 	default:
-		return "Redovno stanje"
+		// Ispod pripremnog stanja nema mjera obrane. Zakon poznaje četiri
+		// faze — pripremno stanje, redovnu i izvanrednu obranu i izvanredno
+		// stanje — pa ovo nije peta, nego njihov izostanak.
+		return "bez mjera obrane"
 	}
 }
+
+// InForce javlja je li na snazi neka od četiriju faza obrane. Vodostaj ispod
+// pripremnog stanja i postaja bez pragova nisu faza, pa ih sučelje ne ističe.
+func (p DefensePhase) InForce() bool { return p.Severity() > 0 }

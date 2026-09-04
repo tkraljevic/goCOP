@@ -30,7 +30,7 @@
         {{if .Latest.LevelCm}}{{intOf .Latest.LevelCm}}<small>cm</small>{{else}}<span style="font-size:1rem; color:var(--text-muted); font-weight:500;">nije očitan</span>{{end}}
       </div>
       {{if .Latest.Level2Cm}}<span class="reading-meta">nizvodno <strong>{{intOf .Latest.Level2Cm}} cm</strong></span>{{end}}
-      {{if ne .Latest.Phase.Label "Pragovi nisu određeni"}}<span class="badge {{.Latest.Phase.BadgeClass}}">{{.Latest.Phase.Label}}</span>{{end}}
+      {{if .Latest.Phase.InForce}}<span class="badge {{.Latest.Phase.BadgeClass}}">{{.Latest.Phase.Label}}</span>{{end}}
     </div>
     <div class="reading-meta" style="margin-top:0.35rem;">
       zadnje očitanje {{ago .Latest.MeasuredAt}} · {{formatDate .Latest.LocalTime}}
@@ -97,7 +97,7 @@
       <span class="value">
         {{if .LevelCm}}{{intOf .LevelCm}} cm{{else}}<span style="color:var(--text-muted); font-weight:500;">—</span>{{end}}
         {{if .Level2Cm}}<span class="reading-meta"> / {{intOf .Level2Cm}} cm nizvodno</span>{{end}}
-        {{if ne .Phase.Label "Pragovi nisu određeni"}}<span class="badge {{.Phase.BadgeClass}}" style="margin-left:0.4rem; font-size:0.7rem;">{{.Phase.Label}}</span>{{end}}
+        {{if .Phase.InForce}}<span class="badge {{.Phase.BadgeClass}}" style="margin-left:0.4rem; font-size:0.7rem;">{{.Phase.Label}}</span>{{end}}
       </span>
       <span>{{if $.CanEdit}}<a href="/readings/edit/{{.ID}}" class="btn btn-sm btn-link" style="padding:0; color:var(--text-muted);">{{icon "pencil"}}</a>{{end}}</span>
       {{if or .StructureState .Gate .Observer .Note .HasAgHours (ne .Source "RUČNO") .OriginLabel}}

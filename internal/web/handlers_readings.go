@@ -254,10 +254,6 @@ func (h *ReadingsHandler) ShowHistory(w http.ResponseWriter, r *http.Request) {
 		data.ErrorMessage = err.Error()
 	}
 	data.Count = len(all)
-	if len(all) > 0 {
-		latest := all[0]
-		data.Latest = &latest
-	}
 
 	// Pragovi vodomjera: postaja svoje, objekt od pridruženog vodomjera
 	thresholdStation := station
@@ -268,6 +264,12 @@ func (h *ReadingsHandler) ShowHistory(w http.ResponseWriter, r *http.Request) {
 	}
 	for i := range all {
 		all[i].Phase = h.readingService.PhaseFor(thresholdStation, all[i].LevelCm)
+	}
+	// Zadnje očitanje se uzima tek kad su faze izračunate, inače zaglavlje
+	// stranice ne zna je li koja faza obrane na snazi
+	if len(all) > 0 {
+		latest := all[0]
+		data.Latest = &latest
 	}
 
 	years := map[int]bool{}
