@@ -228,6 +228,29 @@ func (u *User) PrimaryDuty() *Duty {
 	return nil
 }
 
+// IsField javlja je li uloga terenska: ti ljudi očitavaju letve i vode
+// dnevnik, pa im program nakon prijave otvara terenski pogled
+func (r Role) IsField() bool {
+	switch r {
+	case RoleWaterGuard, RoleMachinist, RoleFacilityOperator, RoleCrewLeader, RoleFieldWorker:
+		return true
+	}
+	return false
+}
+
+// IsFieldUser javlja radi li korisnik na terenu (bilo koja aktivna terenska dužnost)
+func (u *User) IsFieldUser() bool {
+	if u == nil || u.IsGlobalAdmin {
+		return false
+	}
+	for _, d := range u.Duties {
+		if d.IsActive && d.Role.IsField() {
+			return true
+		}
+	}
+	return false
+}
+
 // PrimaryRole vraća najvišu ulogu korisnika
 func (u *User) PrimaryRole() Role {
 	if u.IsGlobalAdmin {

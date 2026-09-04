@@ -335,3 +335,41 @@ func (r *ReadingRepository) Stats(ctx context.Context) (total int, first, last t
 	}
 	return
 }
+
+// GaugeHabit je koliko je puta i u koje doba dana osoba očitavala jednu letvu
+type GaugeHabit struct {
+	Count    int
+	UsualMin int // prosječna minuta u danu (hrvatsko vrijeme)
+}
+
+// HabitsFor vraća letve koje je osoba očitavala od zadanog trenutka: ili je
+// upisala kao korisnik goCOP-a, ili je zapisana kao očitavač (uvezeni zapisi)
+func (r *ReadingRepository) HabitsFor(ctx context.Context, userID, observer string, since time.Time) (map[string]GaugeHabit, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT station_id, structure_id, measured_at FROM readings
+		WHERE measured_at >= ? AND ((user_id != '' AND user_id = ?) OR (observer != '' AND observer = ?))`,
+		since.UTC(), userID, observer)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	sum := map[string]int{}
+	out := map[string]GaugeHabit{}
+	for rows.Next() {
+		var st, obj string
+		var at time.Time
+		if err := rows.Scan(&st, &obj, &at); err != nil {
+			return nil, err
+		}
+		key := (models.Reading{StationID: st, StructureID: obj}).GaugeKey()
+		lt := at.In(models.Zagreb)
+		h := out[key]
+		h.Count++
+		sum[key] += lt.Hour()*60 + lt.Minute()
+		out[key] = h
+	}
+	for key, h := range out {
+		h.UsualMin = sum[key] / h.Count
+		out[key] = h
+	}
+	return out, rows.Err()
+}
