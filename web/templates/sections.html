@@ -1,0 +1,203 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Branjena područja i dionice{{end}}
+
+{{define "content"}}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "waves"}} Branjena područja i dionice</h1>
+    <p class="page-desc">Registar 465 štićenih dionica, nasipa, crpnih stanica, ustavnih objekata i mjerodavnih vodomjera</p>
+  </div>
+  {{if .CanCreateAny}}
+  <a href="/sections/new" class="btn btn-primary">{{icon "plus"}} Nova dionica</a>
+  {{end}}
+</div>
+
+<!-- Traka za pretraživanje i filtriranje -->
+<div class="filter-card">
+  <form id="sections-filter-form" action="/sections" method="GET">
+    <!-- Prvi red: Pretraga i gumbi -->
+    <div class="search-bar-row">
+      <div class="search-input-wrapper">
+        <span class="search-icon">{{icon "search"}} </span>
+        <input 
+          type="text" 
+          name="q" 
+          value="{{.SearchQuery}}" 
+          placeholder="Pretraži po šifri (npr. B.15.1), rijeci (Sava, Vuka), objektu (CS Teča), vodomjeru ili naselju..." 
+          class="search-input"
+          id="search-input"
+        >
+        {{if .SearchQuery}}
+        <button type="button" class="search-clear-btn" onclick="clearSearch()" title="Očisti pretragu">&times;</button>
+        {{end}}
+      </div>
+      <button type="submit" class="btn btn-primary">Pretraži</button>
+      {{if or .SelectedSector .SelectedArea .SearchQuery}}
+      <a href="/sections" class="btn btn-secondary">{{icon "x"}} Poništi filtre</a>
+      {{end}}
+    </div>
+
+    <!-- Drugi red: Filtri po sektorima i područjima -->
+    <div class="filters-row" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
+      <div class="filter-group">
+        <label for="sector-select" class="filter-label">{{icon "building-2"}} Sektor (VGO)</label>
+        <select id="sector-select" name="sector" class="filter-select" onchange="onSectorChange()">
+          <option value="">Svi sektori (A–F)</option>
+          {{range .Sectors}}
+          {{if ne .ID "DIREKCIJA"}}
+          <option value="{{.ID}}" {{if eq $.SelectedSector .ID}}selected{{end}}>{{.Name}}</option>
+          {{end}}
+          {{end}}
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label for="area-select" class="filter-label">{{icon "waves"}} Branjeno područje</label>
+        <select id="area-select" name="area" class="filter-select" onchange="document.getElementById('sections-filter-form').submit()">
+          <option value="">Sva branjena područja (1–34)</option>
+          {{range .Areas}}
+          <option value="{{.ID}}" {{if eq $.SelectedArea .ID}}selected{{end}}>{{.ID}}: {{.Name}}</option>
+          {{end}}
+        </select>
+      </div>
+    </div>
+  </form>
+
+  <!-- Prikaz aktivnih filtara i brojača -->
+  <div class="active-filters-bar">
+    <div class="active-pills-wrap">
+      {{if .SelectedSector}}
+      <span class="filter-pill">
+        {{icon "building-2"}} Sektor: <strong>{{.SelectedSector}}</strong>
+        <a href="javascript:removeFilter('sector')" class="pill-remove">&times;</a>
+      </span>
+      {{end}}
+
+      {{if .SelectedArea}}
+      <span class="filter-pill">
+        {{icon "waves"}} Područje: <strong>{{.SelectedArea}}</strong>
+        <a href="javascript:removeFilter('area')" class="pill-remove">&times;</a>
+      </span>
+      {{end}}
+
+      {{if .SearchQuery}}
+      <span class="filter-pill">
+        {{icon "search"}} "{{.SearchQuery}}"
+        <a href="javascript:removeFilter('q')" class="pill-remove">&times;</a>
+      </span>
+      {{end}}
+    </div>
+
+    <div class="filter-count">
+      Dionica: <strong>{{.Pager.Total}}</strong>
+    </div>
+  </div>
+</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
+
+{{template "pager" .Pager}}
+
+<!-- Popis dionica -->
+<div class="sections-grid">
+  {{if eq (len .Sections) 0}}
+  <div style="grid-column: 1 / -1; text-align: center; padding: 3rem; background: var(--surface); border: 1px solid var(--border); border-radius: 12px;">
+    <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">{{icon "search"}} </div>
+    <h3>Nije pronađena niti jedna dionica</h3>
+    <p style="color: var(--text-muted); font-size: 0.875rem;">Pokušajte promijeniti filtre ili upišite drugi pojam za pretragu.</p>
+    <a href="/sections" class="btn btn-secondary btn-sm" style="margin-top: 1rem;">Poništi sve filtre</a>
+  </div>
+  {{end}}
+
+  {{range .Sections}}
+  <div class="section-card" id="card-{{.Code}}">
+    <div class="section-card-top">
+      <div class="section-code-badge">{{.Code}}</div>
+      <div class="section-sector-tag">Sektor {{.SectorID}} · BP {{.AreaID}}</div>
+    </div>
+
+    <div class="section-card-content">
+      <div class="section-watercourse-title">{{.Description}}</div>
+      {{if or .WatercourseName .Bank .RkmFrom}}
+      <div class="section-area-sub" style="display:flex; gap:0.6rem; flex-wrap:wrap;">
+        {{if .WatercourseName}}<span>{{icon "droplet"}} {{.WatercourseName}}</span>{{end}}
+        {{if .Bank}}<span>{{bankLabel .Bank}}</span>{{end}}
+        {{if .RkmFrom}}<span class="mono">rkm {{derefFloat .RkmFrom 3}} – {{derefFloat .RkmTo 3}}</span>{{end}}
+      </div>
+      {{end}}
+      {{if .AreaName}}
+      <div class="section-area-sub">{{.AreaName}}</div>
+      {{end}}
+
+      {{if .ProtectedArea}}
+      <div class="section-protected-text" title="{{.ProtectedArea}}">
+        {{icon "house"}} {{renderMarkdown .ProtectedArea}}
+      </div>
+      {{end}}
+
+      <!-- Značke s brojem objekata, nasipa i vodomjera -->
+      <div class="section-stats-row">
+        <span class="stat-badge {{if gt (len .Structures) 0}}has-items{{end}}" title="Objekti na dionici">
+          {{icon "construction"}} {{len .Structures}} objekata
+        </span>
+        <span class="stat-badge {{if gt (len .Embankments) 0}}has-items{{end}}" title="Nasipi">
+          {{icon "shield"}} {{len .Embankments}} nasipa
+        </span>
+        <span class="stat-badge {{if gt (len .Gauges) 0}}has-items{{end}}" title="Mjerodavni vodomjeri">
+          {{icon "chart-column"}} {{len .Gauges}} vodomjera
+        </span>
+      </div>
+    </div>
+
+    <div class="section-card-actions">
+      <a href="/sections/{{.Code}}" class="btn btn-secondary btn-sm" style="flex: 1; justify-content:center;">
+        {{icon "eye"}} Detalji dionice
+      </a>
+      {{if .CanEdit}}
+      <a href="/sections/{{.Code}}/edit" class="btn btn-secondary btn-sm" title="Uredi podatke dionice">{{icon "pencil"}} </a>
+      {{end}}
+    </div>
+  </div>
+  {{end}}
+</div>
+
+{{template "pager" .Pager}}
+
+<script>
+
+function onSectorChange() {
+  const form = document.getElementById('sections-filter-form');
+  const areaSelect = document.getElementById('area-select');
+  if (areaSelect) {
+    areaSelect.value = '';
+  }
+  form.submit();
+}
+
+function clearSearch() {
+  const searchInput = document.getElementById('search-input');
+  if (searchInput) {
+    searchInput.value = '';
+    document.getElementById('sections-filter-form').submit();
+  }
+}
+
+function removeFilter(type) {
+  if (type === 'sector') {
+    const s = document.getElementById('sector-select');
+    if (s) s.value = '';
+    const a = document.getElementById('area-select');
+    if (a) a.value = '';
+  } else if (type === 'area') {
+    const a = document.getElementById('area-select');
+    if (a) a.value = '';
+  } else if (type === 'q') {
+    const q = document.getElementById('search-input');
+    if (q) q.value = '';
+  }
+  document.getElementById('sections-filter-form').submit();
+}
+</script>
+{{end}}

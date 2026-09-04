@@ -1,0 +1,103 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — {{if .IsEdit}}Uređivanje vodnog tijela{{else}}Novo vodno tijelo{{end}}{{end}}
+
+{{define "content"}}
+<div class="breadcrumb">
+  <a href="/watercourses">Vodotoci</a>
+  {{if .IsEdit}} › <a href="/watercourses/{{.Water.Code}}">{{.Water.Name}}</a> › Uređivanje{{else}} › Novo vodno tijelo{{end}}
+</div>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{if .IsEdit}}{{icon "pencil"}} {{.Water.Name}}{{else}}{{icon "waves"}} Novo vodno tijelo{{end}}</h1>
+    <p class="page-desc">
+      {{if .IsEdit}}Podrijetlo zapisa: {{.Water.OriginLabel}}. Svaka izmjena ostaje u povijesti zapisa.
+      {{else}}Voda koje nema u Odluci, a štiti se — potok, kanal ili retencija iz dokumentacije dionice.{{end}}
+    </p>
+  </div>
+</div>
+
+{{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
+
+<form class="form-page" method="POST" action="{{if .IsEdit}}/api/watercourses/update{{else}}/api/watercourses/create{{end}}">
+  {{if .IsEdit}}<input type="hidden" name="code" value="{{.Water.Code}}">{{end}}
+  <input type="hidden" name="subcategory" value="{{.Water.Subcategory}}">
+  <input type="hidden" name="wiki_slug" value="{{.Water.WikiSlug}}">
+
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="official_name">Službeni naziv *</label>
+      <input type="text" id="official_name" name="official_name" class="form-control" required
+             value="{{.Water.OfficialName}}" placeholder="npr. potok Karašica (Baranja)" autocomplete="off">
+      <div class="form-help">Kako stoji u Odluci ili dokumentaciji, s vrstom vode.</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="name">Naziv bez vrste</label>
+      <input type="text" id="name" name="name" class="form-control"
+             value="{{.Water.Name}}" placeholder="Karašica (Baranja)" autocomplete="off">
+      <div class="form-help">Prazno znači isto kao službeni naziv.</div>
+    </div>
+  </div>
+
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="kind">Vrsta</label>
+      <select id="kind" name="kind" class="form-control">
+        <option value="">—</option>
+        {{range .Kinds}}<option value="{{.}}" {{if eq . $.Water.Kind}}selected{{end}}>{{.}}</option>{{end}}
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="category">Pravna kategorija</label>
+      <select id="category" name="category" class="form-control">
+        <option value="">Nije voda I. reda</option>
+        <option value="MEĐUDRŽAVNE VODE" {{if eq .Water.Category "MEĐUDRŽAVNE VODE"}}selected{{end}}>Međudržavne vode</option>
+        <option value="PRIOBALNE VODE" {{if eq .Water.Category "PRIOBALNE VODE"}}selected{{end}}>Priobalne vode</option>
+        <option value="DRUGE VEĆE VODE I KANALI" {{if eq .Water.Category "DRUGE VEĆE VODE I KANALI"}}selected{{end}}>Druge veće vode i kanali</option>
+        <option value="BUJIČNE VODE VEĆE SNAGE" {{if eq .Water.Category "BUJIČNE VODE VEĆE SNAGE"}}selected{{end}}>Bujične vode veće snage</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="length_km">Duljina (km)</label>
+      <input type="text" inputmode="decimal" id="length_km" name="length_km" class="form-control"
+             value="{{if .Water.LengthKm}}{{derefFloat .Water.LengthKm 1}}{{end}}" placeholder="133">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="basin_km2">Porječje (km²)</label>
+      <input type="text" inputmode="decimal" id="basin_km2" name="basin_km2" class="form-control"
+             value="{{if .Water.BasinKm2}}{{derefFloat .Water.BasinKm2 0}}{{end}}" placeholder="596">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="avg_flow_m3s">Prosječni protok (m³/s)</label>
+      <input type="text" inputmode="decimal" id="avg_flow_m3s" name="avg_flow_m3s" class="form-control"
+             value="{{if .Water.AvgFlowM3S}}{{derefFloat .Water.AvgFlowM3S 1}}{{end}}" placeholder="620">
+    </div>
+  </div>
+
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="source">Izvor</label>
+      <input type="text" id="source" name="source" class="form-control" value="{{.Water.Source}}">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="mouth">Ušće</label>
+      <input type="text" id="mouth" name="mouth" class="form-control" value="{{.Water.Mouth}}">
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label class="form-label" for="flows_into">Ulijeva se u</label>
+    <input type="text" id="flows_into" name="flows_into" class="form-control"
+           value="{{.Water.FlowsInto}}" placeholder="Drava ⤴ Dunav → Crno more">
+  </div>
+
+  <div class="form-actions">
+    <a href="{{if .IsEdit}}/watercourses/{{.Water.Code}}{{else}}/watercourses{{end}}" class="btn btn-secondary">Odustani</a>
+    <button type="submit" class="btn btn-primary">{{if .IsEdit}}Spremi izmjene{{else}}Upiši u registar{{end}}</button>
+  </div>
+</form>
+{{end}}

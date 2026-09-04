@@ -1,0 +1,104 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — {{.Water.Name}}{{end}}
+
+{{define "content"}}
+<div class="breadcrumb"><a href="/watercourses">Vodotoci</a> › {{.Water.Name}}</div>
+
+<div class="detail-head">
+  <div>
+    <h1 class="page-title">{{icon "waves"}} {{.Water.Name}}</h1>
+    <p class="page-desc">
+      {{if ne .Water.OfficialName .Water.Name}}{{.Water.OfficialName}} · {{end}}
+      {{if .Water.Kind}}{{.Water.Kind}} · {{end}}
+      {{if .Water.IsFirstOrder}}<span class="badge badge-active" title="{{.Water.Category}}">{{.Water.CategoryLabel}}</span>{{else}}{{.Water.CategoryLabel}}{{end}}
+      · {{.Water.OriginLabel}}
+    </p>
+  </div>
+  {{if .Permissions.IsGlobalAdmin}}
+  <div class="detail-actions">
+    <a href="/watercourses/{{.Water.Code}}/edit" class="btn btn-secondary">{{icon "pencil"}} Uredi</a>
+    {{if eq (add .Water.SectionCount .Water.StationCount) 0}}
+    <form method="POST" action="/api/watercourses/delete"
+          onsubmit="return confirm('Obrisati vodno tijelo „{{.Water.Name}}“ iz registra? Zapis ostaje u povijesti.')">
+      <input type="hidden" name="code" value="{{.Water.Code}}">
+      <button type="submit" class="btn btn-sm" style="background:var(--danger-bg); color:var(--danger); border-color:var(--danger-border); min-height:40px;">{{icon "trash"}} Obriši</button>
+    </form>
+    {{end}}
+  </div>
+  {{end}}
+</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
+
+<div class="reg-card" style="padding:1rem;">
+  <dl class="reg-facts" style="font-size:0.85rem;">
+    {{if .Water.LengthKm}}<div><dt>Duljina</dt><dd>{{derefFloat .Water.LengthKm 1}} km</dd></div>{{end}}
+    {{if .Water.BasinKm2}}<div><dt>Porječje</dt><dd>{{derefFloat .Water.BasinKm2 0}} km²</dd></div>{{end}}
+    {{if .Water.AvgFlowM3S}}<div><dt>Prosječni protok</dt><dd>{{derefFloat .Water.AvgFlowM3S 1}} m³/s</dd></div>{{end}}
+    {{if .Water.Source}}<div><dt>Izvor</dt><dd>{{.Water.Source}}</dd></div>{{end}}
+    {{if .Water.Mouth}}<div><dt>Ušće</dt><dd>{{.Water.Mouth}}</dd></div>{{end}}
+    {{if .Water.FlowsInto}}<div><dt>Ulijeva se u</dt><dd>{{.Water.FlowsInto}}</dd></div>{{end}}
+    {{if .Water.Subcategory}}<div><dt>Skupina u Odluci</dt><dd>{{.Water.Subcategory}}</dd></div>{{end}}
+    <div><dt>Šifra</dt><dd style="font-family:ui-monospace, monospace; font-weight:500;">{{.Water.Code}}</dd></div>
+  </dl>
+  {{if and (not .Water.LengthKm) (not .Water.Mouth) (not .Water.Source)}}
+  <p class="page-desc" style="margin-top:0.5rem;">Za ovu vodu nema opisnih podataka; zapis postoji zato što se na nju veže dionica ili postaja.</p>
+  {{end}}
+</div>
+
+<section class="detail-section">
+  <h2>{{icon "file-text"}} Štićene dionice <span class="reg-chip">{{len .Sections}}</span></h2>
+  <div class="reg-list">
+    {{range .Sections}}
+    <article class="reg-card">
+      <a class="reg-card-link" href="/sections?q={{.Code}}">
+        <div class="reg-card-head">
+          <div>
+            <h3 class="reg-card-title">{{.Code}}</h3>
+            <div class="reg-card-sub">{{.SectorName}}{{if .AreaName}} · {{.AreaName}}{{end}}</div>
+          </div>
+          {{if .Bank}}<span class="badge badge-inactive">{{bankLabel .Bank}}</span>{{end}}
+        </div>
+        <p style="font-size:0.8rem; margin:0; color:var(--text);">{{.Description}}</p>
+        {{if .RkmFrom}}
+        <div class="reg-card-foot"><span class="reg-chip">rkm {{derefFloat .RkmFrom 3}}{{if .RkmTo}} – {{derefFloat .RkmTo 3}}{{end}}</span></div>
+        {{end}}
+      </a>
+    </article>
+    {{else}}
+    <div class="reg-empty">Nijedna dionica nije vezana na ovu vodu.</div>
+    {{end}}
+  </div>
+</section>
+
+<section class="detail-section">
+  <h2>{{icon "ruler"}} Vodomjerne postaje <span class="reg-chip">{{len .Stations}}</span></h2>
+  <div class="reg-list">
+    {{range .Stations}}
+    <article class="reg-card">
+      <a class="reg-card-link" href="/stations?q={{.Name}}">
+        <div class="reg-card-head">
+          <div>
+            <h3 class="reg-card-title">{{.Name}}</h3>
+            <div class="reg-card-sub">{{if .Stationing}}{{.Stationing}}{{else}}{{.WaterArea}}{{end}}</div>
+          </div>
+          {{if .NeedsReview}}<span class="badge badge-inactive" title="{{.ReviewNote}}">{{icon "triangle-alert"}} pregled</span>{{end}}
+        </div>
+        {{if .HasUsableThresholds}}
+        <dl class="reg-facts">
+          {{if .Prep.Cm}}<div><dt>Pripremno</dt><dd>{{derefInt .Prep.Cm}} cm</dd></div>{{end}}
+          {{if .Regular.Cm}}<div><dt>Redovna</dt><dd>{{derefInt .Regular.Cm}} cm</dd></div>{{end}}
+          {{if .Emergency.Cm}}<div><dt>Izvanredna</dt><dd>{{derefInt .Emergency.Cm}} cm</dd></div>{{end}}
+          {{if .State.Cm}}<div><dt>Izv. stanje</dt><dd>{{derefInt .State.Cm}} cm</dd></div>{{end}}
+        </dl>
+        {{end}}
+      </a>
+    </article>
+    {{else}}
+    <div class="reg-empty">Nijedna postaja nije vezana na ovu vodu.</div>
+    {{end}}
+  </div>
+</section>
+{{end}}

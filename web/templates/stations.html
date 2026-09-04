@@ -1,0 +1,112 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Vodomjerne postaje{{end}}
+
+{{define "content"}}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "ruler"}} Vodomjerne postaje</h1>
+    <p class="page-desc">
+      Registar mjerodavnih vodomjera s kotom nule i pragovima obrane od poplava.
+      Postaje se na dionice dodaju iz modula dionica — isti vodomjer mjerodavan je za više dionica.
+    </p>
+  </div>
+  {{if .Permissions.IsGlobalAdmin}}
+  <a href="/stations/new" class="btn btn-primary">{{icon "plus"}} Nova postaja</a>
+  {{end}}
+</div>
+
+<div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1.25rem;">
+  <span class="stat-badge has-items">{{icon "ruler"}} {{.TotalStations}} postaja u registru</span>
+  <span class="stat-badge has-items">{{icon "link"}} {{.SectionLinks}} veza s dionicama</span>
+  <span class="stat-badge {{if gt .NeedsReview 0}}has-items{{end}}">{{icon "triangle-alert"}} {{.NeedsReview}} traži pregled pragova</span>
+  <span class="stat-badge {{if gt .WithoutWatercourse 0}}has-items{{end}}">{{icon "waves"}} {{.WithoutWatercourse}} bez utvrđenog vodotoka</span>
+</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
+
+<div class="filter-card">
+  <form action="/stations" method="GET">
+    <div class="search-bar-row">
+      <div class="search-input-wrapper">
+        <span class="search-icon">{{icon "search"}} </span>
+        <input type="search" name="q" value="{{.SearchQuery}}" class="search-input"
+               placeholder="Naziv vodomjera (Županja, Crnac, Ustava Trebež)…" autocomplete="off">
+      </div>
+      <button type="submit" class="btn btn-primary">Pretraži</button>
+      {{if or .SearchQuery .SelectedRiver .OnlyNeedsReview}}
+      <a href="/stations" class="btn btn-secondary">{{icon "x"}} </a>
+      {{end}}
+    </div>
+
+    <div class="filters-row" style="grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));">
+      <div class="filter-group">
+        <label for="watercourse-select" class="filter-label">{{icon "waves"}} Vodotok</label>
+        <select id="watercourse-select" name="watercourse" class="filter-select" onchange="this.form.submit()">
+          <option value="">Svi vodotoci</option>
+          {{range .Watercourses}}
+          <option value="{{.}}" {{if eq . $.SelectedRiver}}selected{{end}}>{{.}}</option>
+          {{end}}
+        </select>
+      </div>
+      <div class="filter-group">
+        <label class="filter-label">{{icon "triangle-alert"}} Pregled</label>
+        <label style="display:flex; align-items:center; gap:.5rem; padding-top:.4rem; min-height:44px;">
+          <input type="checkbox" name="review" value="1" {{if .OnlyNeedsReview}}checked{{end}} onchange="this.form.submit()">
+          Samo postaje bez pragova u centimetrima
+        </label>
+      </div>
+    </div>
+  </form>
+</div>
+
+{{template "pager" .Pager}}
+
+<div class="reg-list">
+  {{range .Stations}}
+  <article class="reg-card">
+    <a class="reg-card-link" href="/stations/{{.ID}}">
+      <div class="reg-card-head">
+        <div>
+          <h3 class="reg-card-title">{{.Name}}</h3>
+          <div class="reg-card-sub">
+            {{if .HasWatercourse}}{{.Watercourse}}{{else}}<span title="Dokumentacija ne kaže na kojoj vodi vodomjer stoji">vodotok nije određen</span>{{end}}
+            {{if .Stationing}} · {{.Stationing}}{{end}}
+          </div>
+        </div>
+        {{if .NeedsReview}}<span class="badge badge-inactive" title="{{.ReviewNote}}">{{icon "triangle-alert"}} pregled</span>{{end}}
+      </div>
+
+      <dl class="reg-facts">
+        <div><dt>Pripremno</dt><dd><span class="threshold-pill prep">{{.Prep.Label}}</span></dd></div>
+        <div><dt>Redovna</dt><dd><span class="threshold-pill regular">{{.Regular.Label}}</span></dd></div>
+        <div><dt>Izvanredna</dt><dd><span class="threshold-pill emerg">{{.Emergency.Label}}</span></dd></div>
+        <div><dt>Izv. stanje</dt><dd><span class="threshold-pill crit">{{.State.Label}}</span></dd></div>
+      </dl>
+
+      <div class="reg-card-foot">
+        <span class="reg-chip {{if eq (len .SectionCodes) 0}}empty{{end}}" title="{{range .SectionCodes}}{{.}} {{end}}">{{icon "file-text"}} {{dionice (len .SectionCodes)}}</span>
+        {{if .ZeroDatum}}<span class="reg-chip">„0" {{derefFloat .ZeroDatum 2}} m</span>{{end}}
+        {{if .Record.Cm}}<span class="reg-chip" title="Najviši zabilježeni vodostaj">max {{.Record.Label}}</span>{{end}}
+      </div>
+    </a>
+  </article>
+  {{else}}
+  <div class="reg-empty">Nijedna postaja ne odgovara zadanim filtrima.</div>
+  {{end}}
+</div>
+
+{{template "pager" .Pager}}
+
+<div class="page-desc">
+  <p style="margin:0 0 0.4rem;">
+    <strong>Vodotok</strong> je voda na kojoj vodomjer stoji. To nije isto što i vode za koje je postaja
+    mjerodavna — Batina stoji na Dunavu, a mjerodavna je i za dionice potoka Karašice na ušću.
+  </p>
+  <p style="margin:0;">
+    <strong>Kote nule</strong> preuzete iz dokumentacije su u visinskom sustavu Trst.
+    Kota u sustavu HVRS71 tek se mjeri, upisuje se ručno i ne izvodi se preračunom iz stare.
+  </p>
+</div>
+{{end}}

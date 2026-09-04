@@ -1,0 +1,269 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Dionica {{.Section.Code}}{{end}}
+
+{{define "content"}}
+<div class="breadcrumb">
+  <a href="/sections">Branjena područja i dionice</a>
+  {{if .Section.AreaID}} › <a href="/sections?sector={{.Section.SectorID}}&area={{.Section.AreaID}}">BP {{.Section.AreaID}}</a>{{end}}
+  › {{.Section.Code}}
+</div>
+
+<div class="detail-head">
+  <div>
+    <h1 class="page-title"><span class="section-code-badge" style="font-size:1.05rem; vertical-align:middle;">{{.Section.Code}}</span></h1>
+    <p class="page-desc">
+      Sektor {{.Section.SectorID}}{{if .Section.SectorName}} — {{.Section.SectorName}}{{end}}
+      {{if .Section.AreaName}} · BP {{.Section.AreaID}}: {{.Section.AreaName}}{{end}}
+    </p>
+  </div>
+  {{if .CanEdit}}
+  <div class="detail-actions">
+    <a href="/sections/{{.Section.Code}}/edit" class="btn btn-secondary">{{icon "pencil"}} Uredi</a>
+  </div>
+  {{end}}
+</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
+
+<section class="detail-section" style="margin-top:0;">
+  <h2>{{icon "waves"}} Vodotok i stacionaža</h2>
+  <div class="reg-card" style="padding:1rem;">
+    <p style="margin:0 0 0.5rem; font-size:0.95rem; font-weight:500;">{{.Section.Description}}</p>
+    <dl class="reg-facts">
+      {{if .Section.WatercourseName}}<div><dt>Voda u registru</dt><dd>{{if .Section.WatercourseCode}}<a href="/watercourses/{{.Section.WatercourseCode}}" style="color:var(--primary);">{{.Section.WatercourseName}}</a>{{else}}{{.Section.WatercourseName}}{{end}}</dd></div>{{end}}
+      {{if .Section.Bank}}<div><dt>Obala</dt><dd>{{bankLabel .Section.Bank}}</dd></div>{{end}}
+      {{if .Section.RkmFrom}}<div><dt>Stacionaža</dt><dd class="mono">rkm {{derefFloat .Section.RkmFrom 3}}{{if .Section.RkmTo}} – {{derefFloat .Section.RkmTo 3}}{{end}}</dd></div>{{end}}
+    </dl>
+    {{if not .Section.WatercourseName}}
+    <p class="form-help" style="margin-top:0.5rem;">Dionica još nije vezana na registar vodotoka.</p>
+    {{end}}
+  </div>
+</section>
+
+<section class="detail-section">
+  <h2>{{icon "house"}} Ugroženo područje</h2>
+  <div class="reg-card" style="padding:1rem;">
+    {{if .Section.ProtectedArea}}
+    <div style="font-size:0.9rem; line-height:1.55;">{{renderMarkdown .Section.ProtectedArea}}</div>
+    {{else}}
+    <p class="page-desc" style="margin:0;">Ugroženo područje još nije određeno.</p>
+    {{end}}
+
+    <div style="margin-top:0.75rem; display:flex; flex-wrap:wrap; gap:0.375rem; align-items:center;">
+      {{range .Territories}}
+      <span class="reg-chip" style="gap:0.4rem;">
+        {{if .SettlementName}}{{.SettlementName}} <small style="font-weight:500; color:var(--text-muted);">({{.MunicipalityName}})</small>{{else}}{{.MunicipalityType}} {{.MunicipalityName}}{{end}}
+        {{if $.CanEdit}}
+        <form method="POST" action="/api/sections/{{$.Section.Code}}/territories/remove" style="margin:0; display:inline;"
+              onsubmit="return confirm('Ukloniti s dionice?')">
+          <input type="hidden" name="id" value="{{.ID}}">
+          <button type="submit" title="Ukloni" style="background:none; border:none; cursor:pointer; color:var(--text-muted); padding:0 0.1rem; font-size:0.9rem; line-height:1;">&times;</button>
+        </form>
+        {{end}}
+      </span>
+      {{else}}
+      <span class="page-desc">Nijedna teritorijalna jedinica iz službenog registra nije pridružena.</span>
+      {{end}}
+    </div>
+
+    {{if .CanEdit}}
+    <details style="margin-top:0.875rem;">
+      <summary class="btn btn-secondary btn-sm" style="display:inline-flex; cursor:pointer;">{{icon "plus"}} Pridruži županiju, općinu ili naselja</summary>
+      <form method="POST" action="/api/sections/{{.Section.Code}}/territories/add" id="territory-form"
+            style="margin-top:0.75rem; display:grid; gap:0.75rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));">
+        <div class="form-group" style="margin:0;">
+          <label class="form-label" for="terr-county">1. Županija *</label>
+          <select id="terr-county" name="county_id" class="form-control" required onchange="loadMunicipalities(this.value)">
+            <option value="">Odaberi županiju…</option>
+            {{range .Counties}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+          </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label class="form-label" for="terr-muni">2. Grad ili općina *</label>
+          <select id="terr-muni" name="municipality_id" class="form-control" required disabled onchange="loadSettlements(this.value)">
+            <option value="">Najprije odaberite županiju</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin:0; grid-column: 1 / -1;" id="terr-settlements-group" hidden>
+          <label class="form-label">3. Naselja <small style="font-weight:400; color:var(--text-muted);">(ništa odabrano = cijela općina)</small></label>
+          <div id="terr-settlements" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap:0.3rem; max-height:14rem; overflow-y:auto; border:1px solid var(--border); border-radius:var(--radius); padding:0.5rem; font-size:0.85rem;"></div>
+        </div>
+        <div style="grid-column: 1 / -1; display:flex; justify-content:flex-end;">
+          <button type="submit" class="btn btn-primary btn-sm" style="min-height:40px;">Spremi na dionicu</button>
+        </div>
+      </form>
+    </details>
+    {{end}}
+  </div>
+</section>
+
+<section class="detail-section">
+  <h2>{{icon "chart-column"}} Mjerodavni vodomjeri <span class="reg-chip">{{len .Stations}}</span></h2>
+  <div class="reg-list">
+    {{range .Stations}}
+    <article class="reg-card">
+      <a class="reg-card-link" href="/stations/{{.ID}}" style="padding-bottom:0.5rem;">
+        <div class="reg-card-head">
+          <div>
+            <h3 class="reg-card-title">{{.Name}}</h3>
+            <div class="reg-card-sub">{{if .HasWatercourse}}{{.Watercourse}}{{end}}{{if .Stationing}} · {{.Stationing}}{{end}}{{if .ZeroDatum}} · „0" {{derefFloat .ZeroDatum 2}} m{{end}}</div>
+          </div>
+          {{if .NeedsReview}}<span class="badge badge-inactive" title="{{.ReviewNote}}">{{icon "triangle-alert"}} </span>{{end}}
+        </div>
+        <dl class="reg-facts">
+          <div><dt>P</dt><dd><span class="threshold-pill prep">{{.Prep.Label}}</span></dd></div>
+          <div><dt>R</dt><dd><span class="threshold-pill regular">{{.Regular.Label}}</span></dd></div>
+          <div><dt>I</dt><dd><span class="threshold-pill emerg">{{.Emergency.Label}}</span></dd></div>
+          <div><dt>IS</dt><dd><span class="threshold-pill crit">{{.State.Label}}</span></dd></div>
+          <div><dt>M</dt><dd><span class="threshold-pill record">{{.Record.Label}}</span></dd></div>
+        </dl>
+      </a>
+      {{if $.CanEdit}}
+      <form method="POST" action="/api/sections/{{$.Section.Code}}/stations/remove" style="margin:0; padding:0 1rem 0.75rem;"
+            onsubmit="return confirm('Ukloniti vodomjer {{.Name}} s dionice {{$.Section.Code}}? Postaja ostaje u registru.')">
+        <input type="hidden" name="station_id" value="{{.ID}}">
+        <button type="submit" class="btn btn-sm btn-link" style="padding:0; color:var(--text-muted);">Ukloni s dionice</button>
+      </form>
+      {{end}}
+    </article>
+    {{else}}
+    <div class="reg-empty">Dionica nema mjerodavnog vodomjera iz registra.</div>
+    {{end}}
+  </div>
+
+  {{if .CanEdit}}
+  <form method="POST" action="/api/sections/{{.Section.Code}}/stations/add" style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:flex-end; margin-top:0.25rem;">
+    <div class="form-group" style="flex:1; min-width:14rem; margin:0;">
+      <label class="form-label" for="add-station">Dodaj vodomjer iz registra postaja</label>
+      <select id="add-station" name="station_id" class="form-control" required>
+        <option value="">Odaberi postaju…</option>
+        {{range .AvailableStations}}<option value="{{.ID}}">{{.Name}}{{if .HasWatercourse}} · {{.Watercourse}}{{end}}</option>{{end}}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-secondary" style="min-height:40px;">{{icon "plus"}} Dodaj</button>
+  </form>
+  <p class="form-help">Isti vodomjer može biti mjerodavan za više dionica. Uklanjanje s dionice ne briše postaju iz registra.</p>
+  {{end}}
+
+  {{if .Criteria}}
+  <h3 style="font-size:0.9rem; margin:1rem 0 0.5rem; color:var(--text-muted);">Ostali kriteriji iz dokumentacije dionice</h3>
+  <div class="reg-list">
+    {{range .Criteria}}
+    <article class="reg-card" style="padding:0.875rem 1rem;">
+      <div class="reg-card-title" style="font-size:0.9rem;">{{.StationName}}</div>
+      <dl class="reg-facts" style="margin-top:0.5rem;">
+        {{if .PrepCm}}<div><dt>P</dt><dd>{{.PrepCm}}</dd></div>{{end}}
+        {{if .RegularCm}}<div><dt>R</dt><dd>{{.RegularCm}}</dd></div>{{end}}
+        {{if .EmergCm}}<div><dt>I</dt><dd>{{.EmergCm}}</dd></div>{{end}}
+        {{if .CriticalCm}}<div><dt>IS</dt><dd>{{.CriticalCm}}</dd></div>{{end}}
+        {{if .RecordCm}}<div><dt>M</dt><dd>{{.RecordCm}}</dd></div>{{end}}
+      </dl>
+      {{if .Notes}}<p class="form-help" style="margin-top:0.4rem;">{{.Notes}}</p>{{end}}
+    </article>
+    {{end}}
+  </div>
+  {{end}}
+</section>
+
+<section class="detail-section">
+  <h2>{{icon "construction"}} Objekti na dionici <span class="reg-chip">{{len .Section.Structures}}</span></h2>
+  <div class="reg-list">
+    {{range .Section.Structures}}
+    <article class="reg-card" style="padding:0.75rem 1rem; gap:0.2rem;">
+      {{if .Station}}<div class="mono" style="font-size:0.75rem; color:var(--text-muted);">{{.Station}}</div>{{end}}
+      <div style="font-size:0.9rem;">{{.Name}}</div>
+    </article>
+    {{else}}
+    <div class="reg-empty">Dokumentacija ne navodi objekte na ovoj dionici.</div>
+    {{end}}
+  </div>
+</section>
+
+<section class="detail-section">
+  <h2>{{icon "shield"}} Nasipi <span class="reg-chip">{{len .Section.Embankments}}</span></h2>
+  <div class="reg-list">
+    {{range .Section.Embankments}}
+    <article class="reg-card" style="padding:0.75rem 1rem; gap:0.2rem;">
+      <div style="font-size:0.9rem; font-weight:600;">{{.Name}}</div>
+      {{if .Data}}<div class="mono" style="font-size:0.75rem; color:var(--text-muted);">{{.Data}}</div>{{end}}
+    </article>
+    {{else}}
+    <div class="reg-empty">Dokumentacija ne navodi nasipe na ovoj dionici.</div>
+    {{end}}
+  </div>
+</section>
+
+<section class="detail-section">
+  <h2>{{icon "users"}} Zaduženi djelatnici <span class="reg-chip">{{len .Section.Personnel}}</span></h2>
+  <div class="reg-list">
+    {{range .Section.Personnel}}
+    <article class="reg-card" style="padding:0.875rem 1rem; gap:0.35rem;">
+      <div class="reg-card-head">
+        <div>
+          <div class="reg-card-title" style="font-size:0.95rem;">{{.FullName}}{{if .Title}} <small style="font-weight:400; color:var(--text-muted);">{{.Title}}</small>{{end}}</div>
+          <div class="reg-card-sub">{{.DutyTitle}}{{if .OrgName}} · {{.OrgName}}{{end}}</div>
+        </div>
+        <span class="badge badge-area-admin">{{.RoleLabel}}</span>
+      </div>
+      <div style="display:flex; flex-wrap:wrap; gap:0.75rem; font-size:0.85rem;">
+        {{if .MobilePhone}}<a href="tel:{{.MobilePhone}}" style="color:var(--primary); font-weight:600; text-decoration:none;">{{icon "smartphone"}} {{.MobilePhone}}</a>{{end}}
+        {{if .Phone}}<a href="tel:{{.Phone}}" style="color:var(--text); text-decoration:none;">{{icon "phone"}} {{.Phone}}</a>{{end}}
+        {{if .Email}}<a href="mailto:{{.Email}}" style="color:var(--text-muted); text-decoration:none;">{{icon "mail"}} {{.Email}}</a>{{end}}
+      </div>
+    </article>
+    {{else}}
+    <div class="reg-empty">Nitko nije zadužen za ovu dionicu.</div>
+    {{end}}
+  </div>
+</section>
+
+{{if .Section.Notes}}
+<section class="detail-section">
+  <h2>{{icon "notebook-pen"}} Operativne napomene</h2>
+  <div class="reg-card" style="padding:1rem; font-size:0.9rem; white-space:pre-wrap;">{{.Section.Notes}}</div>
+</section>
+{{end}}
+
+{{if .CanEdit}}
+<script>
+// Pridruživanje teritorija: općine i naselja ovise o odabranoj županiji, pa
+// se pune iz registra tek nakon odabira. Sam obrazac se šalje obično.
+async function loadMunicipalities(countyId) {
+  const muni = document.getElementById('terr-muni');
+  const group = document.getElementById('terr-settlements-group');
+  group.hidden = true;
+  muni.innerHTML = '<option value="">Učitavam…</option>';
+  muni.disabled = true;
+  if (!countyId) { muni.innerHTML = '<option value="">Najprije odaberite županiju</option>'; return; }
+  try {
+    const res = await fetch('/api/counties/' + countyId + '/municipalities');
+    const data = await res.json();
+    const list = data.municipalities || data.data || data;
+    muni.innerHTML = '<option value="">Odaberi grad ili općinu…</option>' +
+      list.map(m => `<option value="${m.id}">${m.type ? m.type + ' ' : ''}${m.name}</option>`).join('');
+    muni.disabled = false;
+  } catch (e) {
+    muni.innerHTML = '<option value="">Greška pri učitavanju</option>';
+  }
+}
+
+async function loadSettlements(muniId) {
+  const group = document.getElementById('terr-settlements-group');
+  const box = document.getElementById('terr-settlements');
+  if (!muniId) { group.hidden = true; return; }
+  try {
+    const res = await fetch('/api/municipalities/' + muniId + '/settlements');
+    const data = await res.json();
+    const list = data.settlements || data.data || data;
+    box.innerHTML = list.map(s =>
+      `<label style="display:flex; gap:0.4rem; align-items:center;"><input type="checkbox" name="settlement_ids" value="${s.id}"> ${s.name}</label>`).join('');
+    group.hidden = list.length === 0;
+  } catch (e) {
+    group.hidden = true;
+  }
+}
+</script>
+{{end}}
+{{end}}
