@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"gocop/internal/ledger"
+
+	"github.com/google/uuid"
 )
 
 // Popravci podataka koji se izvode jednom, a mijenjaju sinkronizirane
@@ -28,6 +30,7 @@ var fixups = []fixup{
 	{"korisnicko-ime-tkraljevic-2026-09", fixupAuthorUsername},
 	{"kontakti-autor-i-admin-2026-09", fixupContacts},
 	{"admin-alias-eposta-2026-09", fixupAdminEmail},
+	{"novo-virje-jedna-letva-2026-09", fixupNovoVirje},
 }
 
 // RunFixups izvodi popravke koji na ovom čvoru još nisu izvedeni
@@ -225,5 +228,113 @@ func fixupContacts(ctx context.Context, tx *sql.Tx, rec *ledger.Recorder) (int, 
 		}
 		changed++
 	}
+	return changed, nil
+}
+
+// fixupNovoVirje spaja "Novo Virje" i "Novo Virje-skela" u jedan zapis.
+// To je ista letva na Dravi na rkm 200,60: dokumentacija je u sektoru A
+// zove skelom, a u sektoru B bez toga, pa je pri čitanju nastala dvojnica s
+// istim pragovima i istim zabilježenim maksimumom. Dionice obiju zapisa
+// prelaze na preživjeli, a dvojnica se briše.
+func fixupNovoVirje(ctx context.Context, tx *sql.Tx, rec *ledger.Recorder) (int, error) {
+	var keepID, dropID, voda, vodaSifra, izvor string
+	err := tx.QueryRowContext(ctx, `SELECT id FROM stations WHERE code = 'novo-virje'`).Scan(&keepID)
+	if err == sql.ErrNoRows {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	err = tx.QueryRowContext(ctx,
+		`SELECT id, watercourse, watercourse_code, source_name FROM stations WHERE code = 'novo-virje-skela'`).
+		Scan(&dropID, &voda, &vodaSifra, &izvor)
+	if err == sql.ErrNoRows {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+
+	// dionice dvojnice prelaze na preživjeli zapis
+	rows, err := tx.QueryContext(ctx, `SELECT section_code FROM section_stations WHERE station_id = ?`, dropID)
+	if err != nil {
+		return 0, err
+	}
+	var sections []string
+	for rows.Next() {
+		var code string
+		if err := rows.Scan(&code); err != nil {
+			rows.Close()
+			return 0, err
+		}
+		sections = append(sections, code)
+	}
+	rows.Close()
+
+	changed := 0
+	keepUUID, err := uuid.Parse(keepID)
+	if err != nil {
+		return 0, err
+	}
+	for _, code := range sections {
+		linkID, err := uuid.NewV7()
+		if err != nil {
+			return changed, err
+		}
+		res, err := tx.ExecContext(ctx, `INSERT INTO section_stations (id, section_code, station_id, created_at)
+			VALUES (?, ?, ?, ?) ON CONFLICT(section_code, station_id) DO NOTHING`,
+			linkID.String(), code, keepID, time.Now().UTC())
+		if err != nil {
+			return changed, err
+		}
+		if n, _ := res.RowsAffected(); n > 0 {
+			if _, err := rec.Record(ctx, tx, EntitySectionStations, sectionStationKey(code, keepUUID),
+				map[string]string{"id": linkID.String(), "section_code": code, "station_id": keepID}); err != nil {
+				return changed, err
+			}
+			changed++
+		}
+		dropUUID, err := uuid.Parse(dropID)
+		if err != nil {
+			return changed, err
+		}
+		if _, err := rec.Archive(ctx, tx, EntitySectionStations, sectionStationKey(code, dropUUID),
+			map[string]string{"section_code": code, "station_id": dropID}); err != nil {
+			return changed, err
+		}
+	}
+
+	// voda je bila upisana samo na dvojnici
+	if _, err := tx.ExecContext(ctx, `UPDATE stations SET
+			watercourse = CASE WHEN watercourse = '' THEN ? ELSE watercourse END,
+			watercourse_code = CASE WHEN watercourse_code = '' THEN ? ELSE watercourse_code END,
+			notes = TRIM(notes || CASE WHEN notes = '' THEN '' ELSE ' ' END || 'U dokumentaciji sektora A vodi se kao „Novo Virje-skela“; ista letva.'),
+			updated_at = ?
+		WHERE id = ?`, voda, vodaSifra, time.Now().UTC(), keepID); err != nil {
+		return changed, err
+	}
+	saved, err := getStationTx(ctx, tx, keepID)
+	if err != nil {
+		return changed, err
+	}
+	if _, err := rec.Record(ctx, tx, EntityStations, keepID, saved); err != nil {
+		return changed, err
+	}
+	changed++
+
+	dropped, err := getStationTx(ctx, tx, dropID)
+	if err != nil {
+		return changed, err
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM section_stations WHERE station_id = ?`, dropID); err != nil {
+		return changed, err
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM stations WHERE id = ?`, dropID); err != nil {
+		return changed, err
+	}
+	if _, err := rec.Archive(ctx, tx, EntityStations, dropID, dropped); err != nil {
+		return changed, err
+	}
+	changed++
 	return changed, nil
 }
