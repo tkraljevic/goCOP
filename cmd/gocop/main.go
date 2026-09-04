@@ -169,7 +169,7 @@ func main() {
 	structureRepo := repository.NewStructureRepository(database, recorder)
 	structureService := service.NewStructureService(structureRepo)
 	readingRepo := repository.NewReadingRepository(database, recorder)
-	readingService := service.NewReadingService(readingRepo, stationRepo, structureRepo, sectionService)
+	readingService := service.NewReadingService(readingRepo, stationRepo, structureRepo, sectionService, userService)
 
 	// Uvoz iz Directusa je zaseban način rada: uveze i završi
 	if *importBP16 {

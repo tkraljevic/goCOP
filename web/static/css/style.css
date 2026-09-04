@@ -2239,3 +2239,18 @@ textarea {
 .chart .thr-label.regular { fill: var(--tint-orange-fg); }
 .chart .thr-label.emerg, .chart .thr-label.crit { fill: var(--danger); }
 .level-input { font-size: 1.75rem; font-weight: 700; text-align: center; letter-spacing: 0.02em; min-height: 3.5rem; font-variant-numeric: tabular-nums; }
+
+/* Teren: obilazak letvi */
+.field-progress { display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap; margin:0 0 1rem; }
+.field-bar { flex:1 1 10rem; height:0.6rem; border-radius:999px; background:var(--bg-subtle); border:1px solid var(--border); overflow:hidden; }
+.field-bar > span { display:block; height:100%; background:var(--success); }
+.field-list { display:flex; flex-direction:column; gap:0.5rem; }
+.field-item { display:grid; grid-template-columns: 1fr auto; gap:0.25rem 0.75rem; align-items:center; padding:0.75rem 0.9rem; background:var(--surface); border:1px solid var(--border); border-radius:4px; text-decoration:none; color:inherit; }
+.field-item.done { border-color: var(--success); }
+.field-item .name { font-weight:600; color:var(--text-strong); }
+.field-item .sub { font-size:0.8rem; color:var(--text-secondary); }
+.field-item .last { font-size:0.85rem; color:var(--text-secondary); font-variant-numeric: tabular-nums; }
+.field-item .last strong { color:var(--text-strong); font-size:1.05rem; }
+.field-item .act { grid-row: 1 / span 3; display:inline-flex; align-items:center; justify-content:center; min-width:5.5rem; min-height:48px; padding:0 1rem; border-radius:4px; font-weight:600; white-space:nowrap; }
+.field-item .act.todo { background:var(--primary); color:var(--primary-contrast); }
+.field-item .act.ok { background:var(--success-bg); color:var(--success); }

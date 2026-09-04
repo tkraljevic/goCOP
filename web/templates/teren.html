@@ -1,0 +1,75 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Teren{{end}}
+
+{{define "content"}}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "map-pin"}} Teren</h1>
+    <p class="page-desc">
+      {{if .CurrentUser}}{{.CurrentUser.FullName}}{{end}}{{if .Duty}} · {{.Duty.Role.Label}}{{end}}
+      {{if .Overview.Area}} · BP {{.Overview.Area.ID}}: {{.Overview.Area.Name}}{{end}} · {{.Today}}
+    </p>
+  </div>
+</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
+
+{{if gt (len .Overview.Areas) 1}}
+<form method="GET" action="/teren" style="margin-bottom:1rem;">
+  <label class="filter-label" for="area">Branjeno područje</label>
+  <select id="area" name="area" class="filter-select" onchange="this.form.submit()">
+    {{range .Overview.Areas}}<option value="{{.ID}}" {{if and $.Overview.Area (eq .ID $.Overview.Area.ID)}}selected{{end}}>{{.ID}}: {{.Name}}</option>{{end}}
+  </select>
+</form>
+{{end}}
+
+{{if .Overview.Mine}}
+<section class="detail-section" style="margin-top:0;">
+  <h2>{{icon "ruler"}} Moje letve <span class="reg-chip">{{.Overview.Done}} od {{.Overview.Total}} danas</span></h2>
+  <div class="field-progress">
+    <div class="field-bar"><span style="width:{{.Percent}}%"></span></div>
+    <span class="reading-meta">{{if eq .Overview.Done .Overview.Total}}sve očitano{{else}}još {{.Remaining}} u obilasku{{end}}</span>
+  </div>
+  <div class="field-list">
+    {{range .Overview.Mine}}
+    <a class="field-item {{if .DoneToday}}done{{end}}" href="{{.NewURL}}&back=/teren">
+      <span class="name">{{.Name}}</span>
+      <span class="act {{if .DoneToday}}ok{{else}}todo{{end}}">{{if .DoneToday}}{{icon "check"}} danas{{else}}{{icon "plus"}} Upiši{{end}}</span>
+      <span class="sub">{{.Sub}}{{with .UsualTime}} · obično oko {{.}}{{end}}</span>
+      <span class="last">
+        {{if .Latest}}{{if .Latest.LevelCm}}<strong>{{intOf .Latest.LevelCm}} cm</strong>{{else}}bez vodostaja{{end}} · {{ago .Latest.MeasuredAt}}
+        {{if .Latest.StructureState}} · {{.Latest.StateLabel}}{{end}}{{if .Latest.Gate}} · zapornica {{.Latest.GateLabel}}{{end}}
+        {{else}}još nema očitanja{{end}}
+      </span>
+    </a>
+    {{end}}
+  </div>
+</section>
+{{else}}
+<section class="detail-section" style="margin-top:0;">
+  <div class="reg-empty">Još nema letvi koje obično očitavate. Kad upišete prvo očitanje, letva ostaje ovdje na vrhu.</div>
+</section>
+{{end}}
+
+<section class="detail-section">
+  <h2>{{icon "activity"}} {{if .Overview.Mine}}Ostale letve područja{{else}}Letve područja{{end}} <span class="reg-chip">{{len .Overview.Others}}</span></h2>
+  {{if .Overview.Others}}
+  <div class="field-list">
+    {{range .Overview.Others}}
+    <a class="field-item {{if .DoneToday}}done{{end}}" href="{{.NewURL}}&back=/teren">
+      <span class="name">{{.Name}}</span>
+      <span class="act {{if .DoneToday}}ok{{else}}todo{{end}}">{{if .DoneToday}}{{icon "check"}} danas{{else}}{{icon "plus"}} Upiši{{end}}</span>
+      <span class="sub">{{.Sub}}</span>
+      <span class="last">{{if .Latest}}{{if .Latest.LevelCm}}<strong>{{intOf .Latest.LevelCm}} cm</strong>{{else}}bez vodostaja{{end}} · {{ago .Latest.MeasuredAt}}{{else}}još nema očitanja{{end}}</span>
+    </a>
+    {{end}}
+  </div>
+  {{else}}
+  <div class="reg-empty">Područje nema letvi u registrima.</div>
+  {{end}}
+</section>
+
+<p class="page-desc"><a href="/readings">Svi vodostaji</a> · zadnje očitanje svake letve i povijest.</p>
+{{end}}

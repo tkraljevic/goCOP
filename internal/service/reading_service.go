@@ -23,11 +23,12 @@ type ReadingService struct {
 	stationRepo    *repository.StationRepository
 	structureRepo  *repository.StructureRepository
 	sectionService *SectionService
+	userService    *UserService
 }
 
 func NewReadingService(repo *repository.ReadingRepository, stations *repository.StationRepository,
-	structures *repository.StructureRepository, sections *SectionService) *ReadingService {
-	return &ReadingService{repo: repo, stationRepo: stations, structureRepo: structures, sectionService: sections}
+	structures *repository.StructureRepository, sections *SectionService, users *UserService) *ReadingService {
+	return &ReadingService{repo: repo, stationRepo: stations, structureRepo: structures, sectionService: sections, userService: users}
 }
 
 func (s *ReadingService) Get(ctx context.Context, id uuid.UUID) (*models.Reading, error) {
@@ -313,4 +314,115 @@ func (s *ReadingService) PhaseFor(station *models.Station, level *int) models.De
 		return models.PhaseUnknown
 	}
 	return station.CalculateDefensePhase(*level)
+}
+
+// FieldOverview je terenski pogled jedne osobe: letve koje obično očitava,
+// ostale letve njezina područja i što je danas već obavljeno
+type FieldOverview struct {
+	Area   *models.Area
+	Areas  []models.Area // područja koja osoba smije birati (više dužnosti ili administrator)
+	Mine   []models.GaugeSummary
+	Others []models.GaugeSummary
+	Done   int
+	Total  int
+}
+
+// FieldOverview slaže terenski pogled. Područje: zadano iz upita, inače
+// prvo područje s dužnosti osobe. "Moje letve" su one koje je osoba
+// očitavala u zadnjih 90 dana, poredane po uobičajenom vremenu obilaska.
+func (s *ReadingService) FieldOverview(ctx context.Context, perms *models.UserPermissions, u *models.User, areaID int) (*FieldOverview, error) {
+	fo := &FieldOverview{}
+	allAreas, err := s.userService.ListAreas("")
+	if err != nil {
+		return nil, err
+	}
+	areaByID := map[int]models.Area{}
+	for _, a := range allAreas {
+		areaByID[a.ID] = a
+	}
+	if perms != nil && perms.IsGlobalAdmin {
+		fo.Areas = allAreas
+	} else if perms != nil {
+		seen := map[int]bool{}
+		for id := range perms.AllowedAreas {
+			seen[id] = true
+		}
+		for id := range perms.AdminAreas {
+			seen[id] = true
+		}
+		for _, a := range allAreas {
+			if seen[a.ID] || perms.AllowedSectors[a.SectorID] || perms.AdminSectors[a.SectorID] {
+				fo.Areas = append(fo.Areas, a)
+			}
+		}
+	}
+	if areaID == 0 && u != nil {
+		if pd := u.PrimaryDuty(); pd != nil && pd.AreaID != nil {
+			areaID = *pd.AreaID
+		}
+	}
+	if areaID == 0 && len(fo.Areas) > 0 {
+		areaID = fo.Areas[0].ID
+	}
+	if a, ok := areaByID[areaID]; ok {
+		fo.Area = &a
+	}
+
+	all, err := s.Overview(ctx)
+	if err != nil {
+		return nil, err
+	}
+	// Letve područja: objekti područja i postaje mjerodavne za njegove dionice
+	inArea := map[string]bool{}
+	if areaID > 0 {
+		secs, _ := s.sectionService.ListSections("", areaID, "")
+		for _, sec := range secs {
+			sts, _ := s.stationRepo.GetStationsForSection(ctx, sec.Code)
+			for _, st := range sts {
+				inArea["station:"+st.ID.String()] = true
+			}
+		}
+	}
+	var habits map[string]repository.GaugeHabit
+	if u != nil {
+		habits, _ = s.repo.HabitsFor(ctx, u.ID.String(), u.FullName, time.Now().AddDate(0, 0, -90))
+	}
+	today := time.Now().In(models.Zagreb).Format("2006-01-02")
+	for _, g := range all {
+		if g.StructureID != "" && g.AreaID == areaID {
+			inArea[g.Key] = true
+		}
+		h, mine := habits[g.Key]
+		if !mine && !inArea[g.Key] {
+			continue
+		}
+		if g.Latest != nil && g.Latest.LocalTime().Format("2006-01-02") == today {
+			g.DoneToday = true
+		}
+		if mine {
+			g.Habit, g.UsualMin = h.Count, h.UsualMin
+			fo.Mine = append(fo.Mine, g)
+		} else {
+			fo.Others = append(fo.Others, g)
+		}
+	}
+	sort.SliceStable(fo.Mine, func(i, j int) bool {
+		if fo.Mine[i].UsualMin != fo.Mine[j].UsualMin {
+			return fo.Mine[i].UsualMin < fo.Mine[j].UsualMin
+		}
+		return fo.Mine[i].Name < fo.Mine[j].Name
+	})
+	sort.SliceStable(fo.Others, func(i, j int) bool {
+		if (fo.Others[i].Count > 0) != (fo.Others[j].Count > 0) {
+			return fo.Others[i].Count > 0
+		}
+		return fo.Others[i].Name < fo.Others[j].Name
+	})
+	for _, g := range fo.Mine {
+		fo.Total++
+		if g.DoneToday {
+			fo.Done++
+		}
+	}
+	return fo, nil
 }

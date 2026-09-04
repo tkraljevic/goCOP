@@ -18,6 +18,7 @@
   {{if .IsEdit}}<input type="hidden" name="id" value="{{.Reading.ID}}">{{end}}
   <input type="hidden" name="station_id" value="{{.Reading.StationID}}">
   <input type="hidden" name="structure_id" value="{{.Reading.StructureID}}">
+  <input type="hidden" name="back" value="{{.BackURL}}">
 
   <div class="form-row">
     <div class="form-group">
