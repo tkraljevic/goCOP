@@ -7,11 +7,12 @@ import (
 	"testing"
 )
 
-// Očitanja vodostaja ne smiju ući u program. Dio ih dolazi od Državnog
-// hidrometeorološkog zavoda i Hrvatske vode ih koriste po ugovoru o
-// uzajamnom korištenju, pa se ne objavljuju u javnom repozitoriju ni u
-// binarnoj datoteci. Očitanja žive samo u bazama čvorova Hrvatskih voda:
-// upisuju se s terena ili uvoze naredbom iz datoteke uz bazu, kao imenik.
+// Očitanja vodostaja ne smiju ući u program. To su mjerenja Hrvatskih voda,
+// koja na letvama očitavaju vodočuvari i strojari, i ne objavljuju se u
+// javnom repozitoriju ni u binarnoj datoteci. Isto vrijedi za mjerenja
+// DHMZ-a, koja Hrvatske vode koriste po ugovoru o uzajamnom korištenju.
+// Očitanja žive samo u bazama čvorova: upisuju se s terena ili uvoze
+// naredbom iz datoteke uz bazu, kao imenik.
 //
 // Ovaj test čuva to pravilo: sve u internal/db se ugrađuje u program.
 func TestUgradeniPodaciNemajuOcitanja(t *testing.T) {
