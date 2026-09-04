@@ -18,7 +18,27 @@ type AuthHandler struct {
 	authService *service.AuthService
 	tmpl        *template.Template
 	limiter     *loginLimiter
+	support     SupportContact
 }
+
+// SupportContact je kontakt za pomoć oko prijave; svaki čvor ima svoj, jer
+// program pokriva cijelu Hrvatsku, a dežurni operater je uvijek operater
+// jednog centra
+type SupportContact struct {
+	Name        string
+	Phone       string
+	PhoneLink   string
+	Email       string
+	Center      string
+	CenterPhone string
+	CenterLink  string
+}
+
+// HasPerson javlja ima li čvor upisanu osobu za pomoć oko prijave
+func (s SupportContact) HasPerson() bool { return s.Name != "" && (s.Phone != "" || s.Email != "") }
+
+// HasCenter javlja treba li prikazati redak o dežurnom operateru
+func (s SupportContact) HasCenter() bool { return s.Center != "" && s.CenterPhone != "" }
 
 func NewAuthHandler(authService *service.AuthService, tmpl *template.Template) *AuthHandler {
 	return &AuthHandler{
@@ -31,7 +51,11 @@ func NewAuthHandler(authService *service.AuthService, tmpl *template.Template) *
 type LoginPageData struct {
 	Error   string
 	Success string
+	Support SupportContact
 }
+
+// SetSupport daje rukovatelju kontakt ovog čvora
+func (h *AuthHandler) SetSupport(c SupportContact) { h.support = c }
 
 // ShowLogin prikazuje formu za prijavu
 func (h *AuthHandler) ShowLogin(w http.ResponseWriter, r *http.Request) {
@@ -45,14 +69,13 @@ func (h *AuthHandler) ShowLogin(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	data := LoginPageData{}
-	h.tmpl.ExecuteTemplate(w, "login.html", data)
+	h.tmpl.ExecuteTemplate(w, "login.html", LoginPageData{Support: h.support})
 }
 
 // HandleLogin obrađuje unos korisničkog imena i lozinke
 func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		h.tmpl.ExecuteTemplate(w, "login.html", LoginPageData{Error: "Neispravan zahtjev"})
+		h.tmpl.ExecuteTemplate(w, "login.html", LoginPageData{Error: "Neispravan zahtjev", Support: h.support})
 		return
 	}
 
@@ -67,7 +90,8 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		minutes := int(wait.Minutes()) + 1
 		w.WriteHeader(http.StatusTooManyRequests)
 		h.tmpl.ExecuteTemplate(w, "login.html", LoginPageData{
-			Error: fmt.Sprintf("Previše neuspjelih pokušaja prijave. Pokušajte ponovno za %d min.", minutes)})
+			Support: h.support,
+			Error:   fmt.Sprintf("Previše neuspjelih pokušaja prijave. Pokušajte ponovno za %d min.", minutes)})
 		return
 	}
 
@@ -78,7 +102,7 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		if err == service.ErrAccountInactive {
 			errMsg = "Korisnički račun je privremeno deaktiviran"
 		}
-		h.tmpl.ExecuteTemplate(w, "login.html", LoginPageData{Error: errMsg})
+		h.tmpl.ExecuteTemplate(w, "login.html", LoginPageData{Error: errMsg, Support: h.support})
 		return
 	}
 	h.limiter.Reset(keys...)
