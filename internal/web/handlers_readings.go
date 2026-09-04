@@ -118,6 +118,7 @@ type Chart struct {
 	YTicks        []ChartTick
 	XTicks        []ChartTick
 	Thresholds    []ChartLine
+	Bands         []ChartBand
 	From, To      time.Time
 	Min, Max      int
 }
@@ -131,6 +132,13 @@ type ChartPoint struct {
 type ChartTick struct {
 	Pos   float64
 	Label string
+}
+
+// ChartBand je pojas jedne faze obrane: od njezina praga do sljedećega.
+// Pojas govori koliko je vode do sljedeće mjere bolje nego sama crta.
+type ChartBand struct {
+	Y, H  float64
+	Class string
 }
 
 type ChartLine struct {
@@ -281,6 +289,9 @@ func (h *ReadingsHandler) ShowHistory(w http.ResponseWriter, r *http.Request) {
 	}
 	sort.Sort(sort.Reverse(sort.IntSlice(data.Years)))
 	data.Year, _ = strconv.Atoi(r.URL.Query().Get("year"))
+	if data.Year > 0 && !years[data.Year] {
+		data.Year = 0 // godina bez ijednog očitanja: prikaži sve, da filtar i popis govore isto
+	}
 	shown := all
 	if data.Year > 0 {
 		shown = shown[:0:0]
@@ -377,14 +388,36 @@ func buildChart(readings []models.Reading, station *models.Station, limitRecent 
 		c.XTicks = append(c.XTicks, ChartTick{Pos: xOf(t), Label: t.In(models.Zagreb).Format(layout)})
 	}
 	if station != nil {
+		type level struct {
+			cm    int
+			label string
+			class string
+		}
+		var levels []level
 		for _, l := range []struct {
 			t     models.Threshold
 			label string
 			class string
 		}{{station.Prep, "P", "prep"}, {station.Regular, "R", "regular"}, {station.Emergency, "I", "emerg"}, {station.State, "IS", "crit"}} {
-			if l.t.IsUsable() && *l.t.Cm >= c.Min && *l.t.Cm <= c.Max {
-				c.Thresholds = append(c.Thresholds, ChartLine{Y: yOf(*l.t.Cm), Label: l.label, Class: l.class})
+			if l.t.IsUsable() {
+				levels = append(levels, level{*l.t.Cm, l.label, l.class})
 			}
+		}
+		sort.Slice(levels, func(i, j int) bool { return levels[i].cm < levels[j].cm })
+		for i, l := range levels {
+			if l.cm >= c.Min && l.cm <= c.Max {
+				c.Thresholds = append(c.Thresholds, ChartLine{Y: yOf(l.cm), Label: l.label, Class: l.class})
+			}
+			// Pojas te faze traje do sljedećeg praga, a zadnji do vrha grafa
+			top := c.Max
+			if i+1 < len(levels) {
+				top = levels[i+1].cm
+			}
+			lo, hi := max(l.cm, c.Min), min(top, c.Max)
+			if hi <= lo {
+				continue
+			}
+			c.Bands = append(c.Bands, ChartBand{Y: yOf(hi), H: yOf(lo) - yOf(hi), Class: l.class})
 		}
 	}
 	return c
