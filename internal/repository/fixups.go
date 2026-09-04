@@ -9,7 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"gocop/internal/db"
 	"gocop/internal/ledger"
+	"gocop/internal/models"
 
 	"github.com/google/uuid"
 )
@@ -31,6 +33,7 @@ var fixups = []fixup{
 	{"kontakti-autor-i-admin-2026-09", fixupContacts},
 	{"admin-alias-eposta-2026-09", fixupAdminEmail},
 	{"novo-virje-jedna-letva-2026-09", fixupNovoVirje},
+	{"uzvodne-postaje-i-kote-2026-09", fixupUpstreamStations},
 }
 
 // RunFixups izvodi popravke koji na ovom čvoru još nisu izvedeni
@@ -337,4 +340,220 @@ func fixupNovoVirje(ctx context.Context, tx *sql.Tx, rec *ledger.Recorder) (int,
 	}
 	changed++
 	return changed, nil
+}
+
+// Postaje koje centar prati u svojoj tablici, a nema ih u Privitku kao
+// mjerodavne, pa ih registar nije imao: uzvodne strane postaje na Muri,
+// Dravi i Dunavu te Donji Miholjac.
+//
+// Kote nule dunavskih postaja vođene su nad Baltikom, kako piše u zaglavlju
+// tablice (m n.B.m. + 0,675 = m n.J.m.). Naše i alpske postaje su u Trstu.
+// Zato svaka postaja nosi svoj visinski sustav umjesto da se brojka
+// prepravlja; preračun bez zapisanog sustava je najbrži put do krive kote.
+type upstreamStation struct {
+	code, name, watercourse, stationing string
+	zero                                float64
+	system                              string
+	prep, regular, emerg, state         int
+	recordCm, minCm                     int
+	country                             string
+	record                              string // zapis maksimuma iz Privitka, kad ga ima
+}
+
+var upstreamStations = []upstreamStation{
+	{code: "gornja-radgona", name: "Gornja Radgona (SI)", watercourse: "Mura", stationing: "rkm 108,50", zero: 202.34, system: "TRST", recordCm: 472, minCm: 90, country: "Slovenija"},
+	{code: "lavamund", name: "Lavamünd (AT)", watercourse: "Drava", stationing: "rkm 455,80", system: "TRST", country: "Austrija"},
+	{code: "donji-miholjac", name: "Donji Miholjac", watercourse: "Drava", stationing: "rkm 80,60", zero: 88.570, system: "TRST",
+		prep: 300, regular: 400, emerg: 480, state: 500, recordCm: 538, minCm: -145, record: "+538 (22.07.1972.)"},
+	{code: "bratislava", name: "Bratislava (SK)", watercourse: "Dunav", stationing: "rkm 1872,0", zero: 129.08, system: "BALTIK", regular: 650, emerg: 750, state: 850, recordCm: 1032, minCm: 106, country: "Slovačka"},
+	{code: "komarno", name: "Komárno (SK)", watercourse: "Dunav", stationing: "rkm 1770,0", zero: 104.56, system: "BALTIK", regular: 600, emerg: 640, state: 710, recordCm: 888, minCm: 22, country: "Slovačka"},
+	{code: "esztergom", name: "Esztergom (HU)", watercourse: "Dunav", stationing: "rkm 1718,5", zero: 101.64, system: "BALTIK", regular: 500, emerg: 600, state: 650, recordCm: 813, minCm: -21, country: "Mađarska"},
+	{code: "budapest", name: "Budapest (HU)", watercourse: "Dunav", stationing: "rkm 1646,5", zero: 95.65, system: "BALTIK", regular: 620, emerg: 700, state: 800, recordCm: 891, minCm: 33, country: "Mađarska"},
+	{code: "dunafoldvar", name: "Dunaföldvár (HU)", watercourse: "Dunav", stationing: "rkm 1560,6", zero: 89.58, system: "BALTIK", regular: 600, emerg: 750, state: 850, recordCm: 721, minCm: -199, country: "Mađarska"},
+	{code: "baja", name: "Baja (HU)", watercourse: "Dunav", stationing: "rkm 1478,7", zero: 81.72, system: "BALTIK", regular: 700, emerg: 800, state: 900, recordCm: 989, minCm: 27, country: "Mađarska"},
+	{code: "mohacs", name: "Mohács (HU)", watercourse: "Dunav", stationing: "rkm 1446,9", zero: 79.88, system: "BALTIK", regular: 700, emerg: 850, state: 950, recordCm: 984, minCm: 50, country: "Mađarska"},
+	{code: "bezdan", name: "Bezdan (RS)", watercourse: "Dunav", stationing: "rkm 1425,6", zero: 80.64, system: "BALTIK", regular: 550, emerg: 700, recordCm: 776, minCm: -146, country: "Srbija"},
+	{code: "apatin", name: "Apatin (RS)", watercourse: "Dunav", stationing: "rkm 1401,9", zero: 78.84, system: "BALTIK", regular: 600, emerg: 750, recordCm: 825, minCm: -118, country: "Srbija"},
+	{code: "bogojevo", name: "Bogojevo (RS)", watercourse: "Dunav", stationing: "rkm 1367,3", zero: 77.46, system: "BALTIK", regular: 600, emerg: 700, recordCm: 817, minCm: -86, country: "Srbija"},
+}
+
+// Kote nule iz tablice centra za postaje koje ih u registru nisu imale.
+// Ondje gdje ih registar već ima, brojke se poklapaju do zadnje znamenke,
+// pa se postojeće ne diraju.
+var missingZeroDatums = map[string]float64{
+	"mursko-sredisce": 156.29, "botovo": 121.55, "novo-virje": 108.87, "terezino-polje": 100.67,
+	"vrbovka": 93.21, "moslavina": 90.94, "belisce": 83.99, "osijek": 81.48, "batina": 80.45,
+	"tikves": 79.33, "aljmas": 78.08, "dalj": 75.20, "vukovar": 76.19, "ilok": 73.97,
+}
+
+func intOrNull(v int) any {
+	if v == 0 {
+		return nil
+	}
+	return v
+}
+
+func floatOrNull(v float64) any {
+	if v == 0 {
+		return nil
+	}
+	return v
+}
+
+// fixupUpstreamStations otvara uzvodne postaje i popunjava kote nule.
+// Pragove postojećih postaja ne dira: mjerodavan je Privitak, a tablica
+// centra zna nositi zastario podatak.
+func fixupUpstreamStations(ctx context.Context, tx *sql.Tx, rec *ledger.Recorder) (int, error) {
+	changed := 0
+	now := time.Now().UTC()
+	for _, u := range upstreamStations {
+		var id string
+		var zero sql.NullFloat64
+		var prep sql.NullInt64
+		err := tx.QueryRowContext(ctx, `SELECT id, zero_datum, prep_cm FROM stations WHERE code = ?`, u.code).Scan(&id, &zero, &prep)
+		switch {
+		case err == sql.ErrNoRows:
+			id = db.StableID("station", u.code).String()
+			napomena := "Uzvodna postaja koju Centar obrane od poplava prati radi najave vodnog vala."
+			if u.country != "" {
+				napomena = u.country + ". " + napomena
+			}
+			if u.minCm != 0 {
+				napomena += fmt.Sprintf(" Najniži zabilježeni vodostaj %d cm.", u.minCm)
+			}
+			zapisMax := u.record
+			if zapisMax == "" && u.recordCm != 0 {
+				zapisMax = fmt.Sprintf("+%d", u.recordCm)
+			}
+			if _, err := tx.ExecContext(ctx, `INSERT INTO stations
+				(id, code, name, watercourse, watercourse_source, water_area, stationing,
+				 zero_datum, zero_datum_system, zero_datum_new_system,
+				 prep_cm, prep_raw, regular_cm, regular_raw, emergency_cm, emergency_raw, state_cm, state_raw,
+				 record_cm, record_raw, notes, source_name, needs_review, review_note, created_at, updated_at,
+				 watercourse_code)
+				VALUES (?, ?, ?, ?, ?, '', ?, ?, ?, 'HVRS71', ?, '', ?, '', ?, '', ?, '', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				id, u.code, u.name, u.watercourse, models.WatercourseFromOperator, u.stationing,
+				floatOrNull(u.zero), u.system,
+				intOrNull(u.prep), intOrNull(u.regular), intOrNull(u.emerg), intOrNull(u.state),
+				intOrNull(u.recordCm), zapisMax, napomena, u.name,
+				boolAsInt(u.prep == 0 && u.regular == 0), reviewNote(u),
+				now, now, watercourseCodeFor(u.watercourse)); err != nil {
+				return changed, fmt.Errorf("postaja %s: %w", u.code, err)
+			}
+		case err != nil:
+			return changed, err
+		default:
+			// postoji: dopuni samo ono čega nema
+			if zero.Valid && prep.Valid {
+				continue
+			}
+			if _, err := tx.ExecContext(ctx, `UPDATE stations SET
+					zero_datum = COALESCE(zero_datum, ?), zero_datum_system = CASE WHEN zero_datum IS NULL THEN ? ELSE zero_datum_system END,
+					prep_cm = COALESCE(prep_cm, ?), regular_cm = COALESCE(regular_cm, ?),
+					emergency_cm = COALESCE(emergency_cm, ?), state_cm = COALESCE(state_cm, ?),
+					record_cm = COALESCE(record_cm, ?), updated_at = ?
+				WHERE id = ?`, floatOrNull(u.zero), u.system,
+				intOrNull(u.prep), intOrNull(u.regular), intOrNull(u.emerg), intOrNull(u.state), intOrNull(u.recordCm),
+				now, id); err != nil {
+				return changed, err
+			}
+		}
+		saved, err := getStationTx(ctx, tx, id)
+		if err != nil {
+			return changed, err
+		}
+		if _, err := rec.Record(ctx, tx, EntityStations, id, saved); err != nil {
+			return changed, err
+		}
+		changed++
+	}
+
+	// kote nule postaja koje ih nisu imale
+	for code, zero := range missingZeroDatums {
+		var id string
+		var have sql.NullFloat64
+		err := tx.QueryRowContext(ctx, `SELECT id, zero_datum FROM stations WHERE code = ?`, code).Scan(&id, &have)
+		if err == sql.ErrNoRows {
+			continue
+		}
+		if err != nil {
+			return changed, err
+		}
+		if have.Valid {
+			continue
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE stations SET zero_datum = ?, zero_datum_system = 'TRST', updated_at = ? WHERE id = ?`,
+			zero, now, id); err != nil {
+			return changed, err
+		}
+		saved, err := getStationTx(ctx, tx, id)
+		if err != nil {
+			return changed, err
+		}
+		if _, err := rec.Record(ctx, tx, EntityStations, id, saved); err != nil {
+			return changed, err
+		}
+		changed++
+	}
+
+	// Privitak za B.34.14 ima dva dijela: od Svetog Đurađa do mosta Donji
+	// Miholjac mjerodavan je vodomjer Donji Miholjac, a odande do Dravice
+	// Moslavina. Registar je imao samo drugi dio, pa je i vodomjer bio jedan.
+	var miholjacID string
+	if err := tx.QueryRowContext(ctx, `SELECT id FROM stations WHERE code = 'donji-miholjac'`).Scan(&miholjacID); err == nil {
+		var postoji int
+		if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM sections WHERE code = 'B.34.14'`).Scan(&postoji); err != nil {
+			return changed, err
+		}
+		if postoji > 0 {
+			linkID, err := uuid.NewV7()
+			if err != nil {
+				return changed, err
+			}
+			res, err := tx.ExecContext(ctx, `INSERT INTO section_stations (id, section_code, station_id, created_at)
+				VALUES (?, 'B.34.14', ?, ?) ON CONFLICT(section_code, station_id) DO NOTHING`, linkID.String(), miholjacID, now)
+			if err != nil {
+				return changed, err
+			}
+			if n, _ := res.RowsAffected(); n > 0 {
+				stationUUID, err := uuid.Parse(miholjacID)
+				if err != nil {
+					return changed, err
+				}
+				if _, err := rec.Record(ctx, tx, EntitySectionStations, sectionStationKey("B.34.14", stationUUID),
+					map[string]string{"id": linkID.String(), "section_code": "B.34.14", "station_id": miholjacID}); err != nil {
+					return changed, err
+				}
+				changed++
+			}
+		}
+	}
+	return changed, nil
+}
+
+func boolAsInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
+
+func reviewNote(u upstreamStation) string {
+	if u.prep == 0 && u.regular == 0 {
+		return "uzvodna postaja bez pragova obrane u tablici centra"
+	}
+	return ""
+}
+
+// watercourseCodeFor veže uzvodnu postaju na vodu iz registra kad je ime očito
+func watercourseCodeFor(name string) string {
+	switch name {
+	case "Dunav":
+		return "rijeka-dunav"
+	case "Drava":
+		return "rijeka-drava"
+	case "Mura":
+		return "rijeka-mura"
+	}
+	return ""
 }
