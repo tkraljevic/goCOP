@@ -42,17 +42,22 @@ PODACI UGRAĐENI U PROGRAM (internal/db/*.json)
 
 PODACI KOJI SE UVOZE U BAZU ČVORA (nisu dio programa)
   OČITANJA VODOSTAJA NISU U OVOM REPOZITORIJU NITI U PROGRAMU.
-  Žive samo u bazama čvorova Hrvatskih voda. Dio podataka potječe od
-  Državnog hidrometeorološkog zavoda, koji ih s Hrvatskim vodama dijeli po
-  ugovoru o uzajamnom korištenju (zajednički uređaji i mjerenja); ti se
-  podaci ne objavljuju javno niti dijele dalje bez dopuštenja izvora.
+  Žive samo u bazama čvorova Hrvatskih voda. Sva očitanja koja program
+  danas prikazuje vlastita su mjerenja Hrvatskih voda: očitali su ih
+  vodočuvari i strojari na letvama i upisali u evidenciju.
+  Ako se poslije uključe mjerenja Državnog hidrometeorološkog zavoda, koja
+  Hrvatske vode koriste po ugovoru o uzajamnom korištenju (zajednički
+  uređaji i mjerenja), ni ona se ne objavljuju javno niti dijele dalje bez
+  dopuštenja izvora.
   Program zna uvesti i prikazati očitanja, ali ih ne nosi sa sobom.
   Očitanja vodostaja BP 16, 2013.–2026.
     Izvor:   ista evidencija VGI Baranja; uvoz pokreće operater
              (gocop -import-bp16), zapisi nose podrijetlo DIRECTUS_BP16
     Status:  podaci Hrvatskih voda; imena očitavača ostaju u bazi čvora
   Povijesni i automatski vodostaji (u pripremi)
-    Izvor:   službeni izvori Hrvatskih voda i DHMZ-a
+    Izvor:   službene evidencije Hrvatskih voda; automatske postaje, a
+             kasnije možda i mjerenja DHMZ-a po ugovoru o uzajamnom
+             korištenju
     Status:  uvoze se iz datoteka uz bazu, kao imenik; nikad u repozitorij
   Imenik djelatnika
     NIJE ugrađen u program ni u repozitorij. Čita se iz data/imenik.json uz

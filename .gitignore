@@ -19,10 +19,10 @@ pairing-port
 network-key
 **/network-key
 
-# Očitanja vodostaja nikad u repozitorij. Dio podataka dolazi od Državnog
-# hidrometeorološkog zavoda, koji ih s Hrvatskim vodama dijeli po ugovoru o
-# uzajamnom korištenju (zajednički uređaji i mjerenja), pa se ne objavljuju.
-# Očitanja žive u bazama čvorova; uvoze se iz datoteka uz bazu.
+# Očitanja vodostaja nikad u repozitorij. To su mjerenja Hrvatskih voda,
+# koja na letvama očitavaju vodočuvari i strojari, a kasnije možda i
+# mjerenja DHMZ-a po ugovoru o uzajamnom korištenju. Ni jedno ni drugo ne
+# ide javno: očitanja žive u bazama čvorova i uvoze se iz datoteka uz bazu.
 vodostaji/
 ocitanja/
 *vodostaji*.json
