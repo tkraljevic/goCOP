@@ -1,0 +1,54 @@
+goCOP — Centar obrane od poplava
+Napomene o pravima: program, podaci i grafički znakovi
+
+PROGRAM
+  Licenca:            European Union Public Licence v. 1.2 (EUPL-1.2), vidi LICENSE
+                      (hrvatska inačica: LICENSE_hr.txt; sve jezične inačice su
+                      jednako vjerodostojne)
+  Nositelj prava:     Hrvatske vode
+  Autor:              Tomislav Kraljević — osmislio i izgradio program.
+                      Ovo navođenje je uvjet korištenja i ostaje u svakoj
+                      izvedenici (EUPL-1.2, čl. 5, obveza navođenja autora).
+  Sinkronizacija:     github.com/tkraljevic/syncnet — MIT,
+                      © Tomislav Kraljević i Mario Kraljević
+
+PODACI UGRAĐENI U PROGRAM (internal/db/*.json)
+  Dionice, vodomjerne postaje, pragovi obrane, nasipi i objekti
+    Izvor:   Privitak 1 "Teritorijalne jedinice za izravnu provedbu mjera
+             obrane od poplava" (Hrvatske vode, ožujak 2018., izmjena
+             veljača 2022.), dio Glavnog provedbenog plana obrane od poplava
+    Status:  javno objavljeno na mrežnim stranicama Hrvatskih voda;
+             nositelj podataka Hrvatske vode
+  Vode I. reda
+    Izvor:   Odluka o popisu voda I. reda, Narodne novine 79/2010
+    Status:  službeni akt; službeni tekstovi iz područja zakonodavstva nisu
+             predmet autorskog prava (Zakon o autorskom pravu i srodnim pravima)
+  Opisni podaci o vodotocima (duljina, porječje, protok, izvor, ušće)
+    Izvor:   hrvatska Wikipedija, hr.wikipedia.org — pojedinačni članci o
+             vodotocima; zapisi su u programu označeni podrijetlom
+             "Wikipedija" i vežu na izvorni članak
+    Licenca: Creative Commons Imenovanje–Dijeli pod istim uvjetima 4.0
+             (CC BY-SA 4.0), https://creativecommons.org/licenses/by-sa/4.0/deed.hr
+             Autori: suradnici Wikipedije. Ti se podaci dalje dijele pod
+             istim uvjetima.
+  Županije, gradovi, općine i naselja
+    Izvor:   službeni registar teritorijalnih jedinica Republike Hrvatske
+    Status:  javni podatak
+  Imenik djelatnika
+    NIJE ugrađen u program ni u repozitorij. Čita se iz data/imenik.json uz
+    bazu, samo pri prvom punjenju prvog čvora. Osobni podaci djelatnika
+    ostaju unutar Hrvatskih voda.
+
+GRAFIČKI ZNAKOVI
+  Znak u zaglavlju (web/static/img/hv-mark.svg): vlastiti privremeni motiv
+    valova, EUPL-1.2 kao i program. NIJE službeni znak Hrvatskih voda.
+  Naziv "Hrvatske vode" i službeni znak Hrvatskih voda pripadaju Hrvatskim
+    vodama; njihova uporaba u izvedenicama traži njihovo dopuštenje.
+  Ikone (web/static/img/icons.svg): Lucide, ISC licenca,
+    © Lucide Icons and Contributors — vidi web/static/img/LICENSE-lucide.txt;
+    simbol "waves" je vlastiti, u istom stilu.
+
+OVISNOSTI (Go moduli, permisivne licence spojive s EUPL-1.2)
+  modernc.org/sqlite (BSD-3), github.com/google/uuid (BSD-3),
+  github.com/pelletier/go-toml/v2 (MIT), github.com/yuin/goldmark (MIT),
+  golang.org/x/crypto (BSD-3) — pune licence u modulima.
