@@ -45,6 +45,7 @@
       <span class="threshold-pill regular">R {{.Station.Regular.Label}}</span>
       <span class="threshold-pill emerg">I {{.Station.Emergency.Label}}</span>
       <span class="threshold-pill crit">IS {{.Station.State.Label}}</span>
+      {{if .Station.Record.Label}}<span class="threshold-pill record" title="najviši zabilježeni vodostaj">MAX {{.Station.Record.Label}}</span>{{end}}
     </div>
     {{end}}
   </div>
@@ -60,6 +61,7 @@
       <line class="grid" x1="44" x2="{{$.Chart.Width}}" y1="{{printf "%.1f" .Pos}}" y2="{{printf "%.1f" .Pos}}"/>
       <text class="tick" x="40" y="{{printf "%.1f" .Pos}}" text-anchor="end" dominant-baseline="middle">{{.Label}}</text>
       {{end}}
+      {{range .Chart.Bands}}<rect class="band {{.Class}}" x="44" y="{{printf "%.1f" .Y}}" width="{{$.Chart.Width}}" height="{{printf "%.1f" .H}}"/>{{end}}
       <path class="area" d="{{.Chart.Area}}"/>
       {{range .Chart.Thresholds}}
       <line class="thr {{.Class}}" x1="44" x2="{{$.Chart.Width}}" y1="{{printf "%.1f" .Y}}" y2="{{printf "%.1f" .Y}}"/>

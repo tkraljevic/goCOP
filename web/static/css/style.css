@@ -25,11 +25,11 @@
   --accent-light: #e6f7ee;
   --secondary: #173e74;
   --bg: #f4f4f4;
-  --bg-subtle: var(--bg-subtle);
+  --bg-subtle: #eceef1;
   --surface: #ffffff;
   --border: #dcdfe4;
   --border-strong: #c8c8c8;
-  --danger-border: var(--danger-border);
+  --danger-border: #f5c2c2;
   color-scheme: light;
   --text: #242a32;
   --text-muted: #717171;
@@ -38,7 +38,7 @@
   --warning: #d97706;
   --warning-bg: #fef3c7;
   --danger: #dc2626;
-  --danger-bg: var(--danger-bg);
+  --danger-bg: #fdeaea;
   --radius: 4px;
   --shadow: 0 1px 2px 0 rgb(13 39 74 / 0.06), 0 1px 3px -1px rgb(13 39 74 / 0.08);
   --shadow-lg: 0 10px 15px -3px rgb(13 39 74 / 0.10), 0 4px 6px -4px rgb(13 39 74 / 0.08);
@@ -2233,6 +2233,11 @@ textarea {
 .chart .dot.last { fill: var(--secondary, var(--primary)); r: 4; }
 .chart .grid { stroke: var(--border); stroke-width: 1; }
 .chart .tick { font-size: 10px; fill: var(--text-secondary); font-family: inherit; }
+/* Pojasevi faza obrane; prozirne boje rade i na svijetloj i na tamnoj temi */
+.chart .band.prep { fill: rgba(234, 179, 8, 0.16); }
+.chart .band.regular { fill: rgba(249, 115, 22, 0.20); }
+.chart .band.emerg { fill: rgba(239, 68, 68, 0.22); }
+.chart .band.crit { fill: rgba(220, 38, 38, 0.34); }
 .chart .thr { stroke-dasharray: 4 3; stroke-width: 1.5; }
 .chart .thr.prep { stroke: var(--tint-yellow-fg); }
 .chart .thr.regular { stroke: var(--tint-orange-fg); }
