@@ -47,6 +47,7 @@ func main() {
 	csvFile := flag.String("tablica", "", "Tablica dnevnih vodostaja (CSV): stupci su postaje, redci datumi")
 	csvHour := flag.Int("tablica-sat", 7, "Sat jutarnjeg očitanja u tablici")
 	csvOrigin := flag.String("tablica-izvor", "", "Odakle tablica potječe, npr. \"COP Osijek — dnevna tablica\"")
+	csvSkip := flag.String("tablica-preskoci", "", "Stupci koje ne uvozimo, odvojeni zarezom (npr. protoci)")
 	csvWrite := flag.Bool("upisi", false, "Bez ove zastavice uvoz samo izvještava, ništa ne upisuje")
 	flag.Parse()
 
@@ -203,6 +204,7 @@ func main() {
 	if *csvFile != "" {
 		rep, err := csvlevels.Run(context.Background(), csvlevels.Options{
 			Path: *csvFile, Hour: *csvHour, Origin: *csvOrigin, DryRun: !*csvWrite, Log: log.Printf,
+			Skip: splitList(*csvSkip),
 			Deps: csvlevels.Deps{Readings: readingRepo, Stations: stationRepo, Structures: structureRepo},
 		})
 		if err != nil {
@@ -211,6 +213,9 @@ func main() {
 		log.Printf("Tablica vodostaja: %s", rep.Summary())
 		for _, c := range rep.Matched {
 			log.Printf("  stupac %-28q → %-28s %6d očitanja", c.Header, c.Name, c.Values)
+		}
+		for _, sk := range rep.Skipped2 {
+			log.Printf("  preskočeno na zahtjev: %q", sk)
 		}
 		for _, u := range rep.Unmatched {
 			log.Printf("  NIJE PREPOZNATO: %q — nema takve letve u registru", u)
@@ -352,4 +357,15 @@ func supportContact(cfg config.Config) web.SupportContact {
 		Email: cfg.Support.Email, Center: cfg.Support.Center,
 		CenterPhone: cfg.Support.CenterPhone, CenterLink: tel(cfg.Support.CenterPhone),
 	}
+}
+
+// splitList čita popis odvojen zarezom iz zastavice
+func splitList(s string) []string {
+	var out []string
+	for _, p := range strings.Split(s, ",") {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }
