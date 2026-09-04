@@ -34,13 +34,14 @@ import (
 
 // Options su postavke jednog uvoza
 type Options struct {
-	Path     string   // datoteka
-	Hour     int      // sat očitanja (zadano 7)
-	Minute   int      // minuta očitanja
-	Origin   string   // odakle tablica potječe, za trag u zapisu
-	Source   string   // način: UVOZ kad se ne zna je li ručno ili automatski
-	DryRun   bool     // samo pokaži što bi se dogodilo
-	Skip     []string // stupci koje namjerno preskačemo (npr. protoci)
+	Path     string            // datoteka
+	Hour     int               // sat očitanja (zadano 7)
+	Minute   int               // minuta očitanja
+	Origin   string            // odakle tablica potječe, za trag u zapisu
+	Source   string            // način: UVOZ kad se ne zna je li ručno ili automatski
+	DryRun   bool              // samo pokaži što bi se dogodilo
+	Skip     []string          // stupci koje namjerno preskačemo (npr. protoci)
+	Aliases  map[string]string // stupac → šifra letve, kad naziv nije dovoljan
 	Log      func(string, ...any)
 	Deps     Deps
 	MaxShown int // koliko primjera razlika ispisati
@@ -145,6 +146,16 @@ func Run(ctx context.Context, o Options) (Report, error) {
 			continue
 		}
 		found, ambiguous := gauges.match(name)
+		if found == nil {
+			if code := alias(o.Aliases, name); code != "" {
+				found = gauges.byCode[code]
+				ambiguous = false
+				if found == nil {
+					rep.Unmatched = append(rep.Unmatched, name+" (šifra "+code+" nije u registru)")
+					continue
+				}
+			}
+		}
 		switch {
 		case ambiguous:
 			rep.Ambiguous = append(rep.Ambiguous, name)
@@ -319,16 +330,47 @@ type gauge struct {
 
 type gaugeIndex struct {
 	byName map[string][]gauge
+	byCode map[string]*gauge
+}
+
+// columnAliases su kratice kojima tablica Centra obrane od poplava imenuje
+// stupce. Nazivi su tamo skraćeni do neprepoznatljivosti ("dMiholjac"), pa
+// se vežu popisom umjesto pogađanjem.
+var columnAliases = map[string]string{
+	"gradgona":   "gornja-radgona",
+	"msredisce":  "mursko-sredisce",
+	"nvirje":     "novo-virje",
+	"tpolje":     "terezino-polje",
+	"dmiholjac":  "donji-miholjac",
+	"lavamund g": "lavamund",
+	"ter polje":  "terezino-polje",
+	"n virje":    "novo-virje",
+	"d miholjac": "donji-miholjac",
+	"m sredisce": "mursko-sredisce",
+	"g radgona":  "gornja-radgona",
+}
+
+// alias traži šifru letve za stupac: prvo u popisu koji je zadao operater,
+// pa u ugrađenom popisu kratica
+func alias(zadane map[string]string, header string) string {
+	k := normalize(header)
+	for h, code := range zadane {
+		if normalize(h) == k {
+			return code
+		}
+	}
+	return columnAliases[k]
 }
 
 func loadGauges(ctx context.Context, d Deps) (*gaugeIndex, error) {
-	idx := &gaugeIndex{byName: map[string][]gauge{}}
+	idx := &gaugeIndex{byName: map[string][]gauge{}, byCode: map[string]*gauge{}}
 	stations, err := d.Stations.ListStations(ctx, "", "", false)
 	if err != nil {
 		return nil, err
 	}
 	for _, st := range stations {
 		g := gauge{name: st.Name, key: "station:" + st.ID.String()}
+		idx.byCode[st.Code] = &gauge{name: st.Name, key: g.key}
 		idx.add(st.Name, g)
 		idx.add(st.Code, g)
 		if st.Watercourse != "" {
@@ -342,6 +384,9 @@ func loadGauges(ctx context.Context, d Deps) (*gaugeIndex, error) {
 	}
 	for _, s := range structures {
 		g := gauge{name: s.Name, key: "structure:" + s.ID.String(), stationID: s.StationID}
+		if _, ima := idx.byCode[s.Code]; !ima {
+			idx.byCode[s.Code] = &gauge{name: s.Name, key: g.key}
+		}
 		idx.add(s.Name, g)
 		idx.add(s.Code, g)
 	}

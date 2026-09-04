@@ -48,6 +48,7 @@ func main() {
 	csvHour := flag.Int("tablica-sat", 7, "Sat jutarnjeg očitanja u tablici")
 	csvOrigin := flag.String("tablica-izvor", "", "Odakle tablica potječe, npr. \"COP Osijek — dnevna tablica\"")
 	csvSkip := flag.String("tablica-preskoci", "", "Stupci koje ne uvozimo, odvojeni zarezom (npr. protoci)")
+	csvLinks := flag.String("tablica-veze", "", "Ručno vezivanje stupaca na letve: \"stupac=sifra,stupac=sifra\"")
 	csvWrite := flag.Bool("upisi", false, "Bez ove zastavice uvoz samo izvještava, ništa ne upisuje")
 	flag.Parse()
 
@@ -204,7 +205,7 @@ func main() {
 	if *csvFile != "" {
 		rep, err := csvlevels.Run(context.Background(), csvlevels.Options{
 			Path: *csvFile, Hour: *csvHour, Origin: *csvOrigin, DryRun: !*csvWrite, Log: log.Printf,
-			Skip: splitList(*csvSkip),
+			Skip: splitList(*csvSkip), Aliases: splitPairs(*csvLinks),
 			Deps: csvlevels.Deps{Readings: readingRepo, Stations: stationRepo, Structures: structureRepo},
 		})
 		if err != nil {
@@ -365,6 +366,17 @@ func splitList(s string) []string {
 	for _, p := range strings.Split(s, ",") {
 		if p = strings.TrimSpace(p); p != "" {
 			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// splitPairs čita "stupac=sifra,stupac=sifra" iz zastavice
+func splitPairs(s string) map[string]string {
+	out := map[string]string{}
+	for _, p := range splitList(s) {
+		if k, v, ok := strings.Cut(p, "="); ok {
+			out[strings.TrimSpace(k)] = strings.TrimSpace(v)
 		}
 	}
 	return out
