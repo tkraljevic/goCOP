@@ -1,0 +1,258 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Postavke{{end}}
+
+{{define "content"}}
+<style>
+  /* Postavke su prvi ekran rađen mobile-first: kartice u jednom stupcu,
+     radnje u redu koji se lomi, bez tablica. */
+  .cards { display: flex; flex-direction: column; gap: 1rem; max-width: 760px; }
+  .card { background: var(--surface); border: 1px solid var(--border, var(--border)); border-radius: 10px; padding: 1rem 1.1rem; }
+  .card h2 { font-size: 1.05rem; margin: 0 0 0.6rem; }
+  .card .desc { font-size: 0.82rem; color: var(--text-muted); margin: 0 0 0.75rem; }
+  .kv { display: grid; grid-template-columns: max-content 1fr; gap: 0.35rem 1rem; font-size: 0.9rem; }
+  .kv dt { color: var(--text-muted); }
+  .kv dd { margin: 0; word-break: break-all; }
+  .actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem; }
+  .peer { border-top: 1px solid var(--border, #e6ebf0); padding: 0.75rem 0; }
+  .peer:first-of-type { border-top: 0; }
+  .peer-head { display: flex; justify-content: space-between; gap: 0.75rem; align-items: baseline; flex-wrap: wrap; }
+  .peer-name { font-weight: 600; }
+  .peer-meta { font-size: 0.78rem; color: var(--text-muted); }
+  .sas { font-family: "SFMono-Regular", Menlo, monospace; font-size: 2.2rem; letter-spacing: 0.25em; text-align: center; padding: 0.5rem 0; }
+  .muted { color: var(--text-muted); font-size: 0.85rem; }
+  .ok { color: #2e7d5b; } .err { color: #b23a2e; }
+  @media (min-width: 900px) { .cards { max-width: 980px; display: grid; grid-template-columns: 1fr 1fr; align-items: start; } .card.wide { grid-column: 1 / -1; } }
+</style>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "settings"}} Postavke</h1>
+    <p class="page-desc">Ovaj čvor, poznati čvorovi, uparivanje i sinkronizacija. Svaki čvor je punopravna kopija — nijedan nije jedini.</p>
+  </div>
+</div>
+
+{{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
+
+<div class="cards">
+
+  <div class="card">
+    <h2>Ovaj čvor</h2>
+    <dl class="kv">
+      <dt>Naziv</dt><dd>{{.NodeName}}</dd>
+      <dt>Identifikator</dt><dd class="mono">{{.NodeID}}</dd>
+      <dt>Javni ključ</dt><dd class="mono" style="font-size:0.75rem;">{{.NodePublicKey}}</dd>
+      <dt>Verzija</dt><dd>{{if .NodeVersion}}{{.NodeVersion}}{{else}}razvojna{{end}} · shema {{.SchemaVersion}}</dd>
+      <dt>Portovi</dt><dd>razmjena {{.Ports.Exchange}} · uparivanje {{.Ports.Pair}} · pronalaženje {{.Ports.Discovery}}</dd>
+    </dl>
+    <p class="muted" style="margin-top:0.6rem;">Ključ čvora leži uz bazu, ne u njoj — kopija baze ne nasljeđuje identitet stroja.</p>
+  </div>
+
+  <div class="card">
+    <h2>Knjiga verzija</h2>
+    <p class="desc">Svaka izmjena je nova verzija iznad prethodne; ništa se ne briše. Ovo je ono što se razmjenjuje.</p>
+    <dl class="kv">
+      <dt>Ukupno</dt><dd><b>{{.TotalVersions}}</b> verzija</dd>
+      {{range $entity, $n := .VersionCounts}}
+      <dt>{{$entity}}</dt><dd>{{$n}}</dd>
+      {{end}}
+    </dl>
+  </div>
+
+  <div class="card wide">
+    <h2>Mreža</h2>
+    {{if .Network}}
+    <p class="desc">Čvorovi si vjeruju samo unutar iste mreže. Članstvo je potpis ključa mreže nad ključem čvora; provjerava se pri svakoj razmjeni. Druga organizacija s istim programom ima drugi ključ — i time ništa zajedničko s nama.</p>
+    <dl class="kv">
+      <dt>Naziv</dt><dd><b>{{.Network.Name}}</b></dd>
+      <dt>Ključ mreže</dt><dd class="mono" style="font-size:0.75rem;">{{.Network.PublicKey}}</dd>
+      <dt>Ovaj čvor</dt><dd>{{if .Network.CanAdmit}}<span class="badge badge-active">drži ključ mreže — može primati članove</span>{{else}}član{{end}} · od {{formatDate .Network.JoinedAt}}</dd>
+    </dl>
+    <div style="margin-top:0.75rem;">
+      {{range .Members}}
+      <div class="peer">
+        <div class="peer-head">
+          <span class="peer-name">{{.DeviceID}}{{if .IsSelf}} <span class="muted">(ovaj čvor)</span>{{end}}
+            {{if .Valid}}<span class="badge badge-active">član</span>{{else}}<span class="badge badge-inactive" title="{{.Problem}}">nevažeće</span>{{end}}</span>
+          <span class="peer-meta">primio {{.IssuedBy}} · vrijedi do {{formatDate .ExpiresAt}}</span>
+        </div>
+        {{if and $.Permissions.IsGlobalAdmin (not .IsSelf)}}
+        <div class="actions"><button type="button" class="btn btn-sm btn-link" onclick="revokeMember('{{.DeviceID}}')">Opozovi članstvo</button></div>
+        {{end}}
+      </div>
+      {{end}}
+    </div>
+    {{else}}
+    <p class="desc">Ovaj čvor još nije ni u jednoj mreži. Bez mreže nema razmjene: nitko mu ne vjeruje i on ne vjeruje nikome.</p>
+    <p class="desc">Dva puta unutra: <b>osnovati mrežu</b> (ovaj čvor dobiva ključ mreže i prima ostale) ili <b>biti primljen</b> — upariti se s čvorom koji drži ključ mreže; članstvo stiže s uparivanjem.</p>
+    {{if .Permissions.IsGlobalAdmin}}
+    <div class="actions">
+      <input type="text" id="network-name" class="form-control" placeholder="naziv mreže, npr. Hrvatske vode" style="max-width:300px;">
+      <button type="button" class="btn btn-primary" onclick="createNetwork()">Osnuj mrežu</button>
+    </div>
+    {{end}}
+    {{end}}
+  </div>
+
+  {{if .Permissions.IsGlobalAdmin}}
+  <div class="card wide">
+    <h2>Uparivanje</h2>
+    <p class="desc">Dva čvora se upare tako da oba pokažu isti šesteroznamenkasti kod i oba ga čovjek potvrdi. Nakon toga se sinkroniziraju bez nadzora.</p>
+    <div id="pair-box">
+      <div class="actions">
+        <button type="button" class="btn btn-primary" onclick="pairListen()">Čekaj drugi čvor</button>
+        <input type="text" id="pair-addr" class="form-control" placeholder="adresa čvora, npr. 192.168.1.20" style="max-width:260px;">
+        <button type="button" class="btn btn-secondary" onclick="pairDial()">Nazovi čvor</button>
+      </div>
+      <p id="pair-status" class="muted" style="margin-top:0.6rem;"></p>
+      <div id="pair-pending" style="display:none;">
+        <p style="margin:0.5rem 0 0;">Čvor <b id="pair-peer-name"></b> (<span id="pair-peer-id" class="mono"></span>) traži uparivanje. Usporedite kod na oba ekrana:</p>
+        <div class="sas" id="pair-sas"></div>
+        <div class="actions">
+          <button type="button" class="btn btn-primary" onclick="pairConfirm(true)">Kod se podudara — upari</button>
+          <button type="button" class="btn btn-secondary" onclick="pairConfirm(false)">Odbij</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  {{end}}
+
+  <div class="card wide">
+    <h2>Poznati čvorovi</h2>
+    <p class="desc">Čvorovi s kojima se ovaj sinkronizira. Adresa se mijenja, ključ ne. Čvorovi s domenom označeni su kao stalno izloženi.</p>
+    <div class="actions" style="margin:0 0 0.5rem;">
+      <button type="button" class="btn btn-secondary" onclick="discover()">Pretraži lokalnu mrežu</button>
+      {{if .Permissions.IsGlobalAdmin}}<button type="button" class="btn btn-primary" onclick="syncNow('all')">Sinkroniziraj sa svima</button>{{end}}
+    </div>
+    <div id="discover-results"></div>
+    <div id="peer-list">
+      {{range .Peers}}
+      <div class="peer" id="peer-{{.NodeID}}">
+        <div class="peer-head">
+          <span class="peer-name">{{if .Name}}{{.Name}}{{else}}{{.NodeID}}{{end}}
+            {{if .IsBootstrap}}<span class="badge badge-active">stalno izložen</span>{{end}}</span>
+          <span class="peer-meta mono">{{.NodeID}}</span>
+        </div>
+        <div class="peer-meta">
+          adrese: {{if .Addresses}}{{range .Addresses}}<span class="mono">{{.}}</span> {{end}}{{else}}—{{end}}
+          {{if .LastSync}} · zadnji sync {{formatDate (derefTime .LastSync)}}{{end}}
+          {{if .LastSyncNote}} · {{.LastSyncNote}}{{end}}
+        </div>
+        {{if $.Permissions.IsGlobalAdmin}}
+        <div class="actions">
+          <button type="button" class="btn btn-sm btn-primary" onclick="syncNow('{{.NodeID}}')">Sinkroniziraj</button>
+          <button type="button" class="btn btn-sm btn-secondary" onclick="setBootstrap('{{.NodeID}}', {{if .IsBootstrap}}false{{else}}true{{end}})">
+            {{if .IsBootstrap}}Nije više stalno izložen{{else}}Označi kao stalno izložen{{end}}</button>
+          <button type="button" class="btn btn-sm btn-link" onclick="forgetPeer('{{.NodeID}}', '{{.Name}}')">Zaboravi</button>
+        </div>
+        {{end}}
+      </div>
+      {{else}}
+      <p class="muted">Još nema poznatih čvorova. Uparite prvi ili pretražite lokalnu mrežu.</p>
+      {{end}}
+    </div>
+  </div>
+
+</div>
+
+<script>
+const api = (url, body) => fetch(url, {
+  method: body === undefined ? 'GET' : 'POST',
+  headers: {'Content-Type': 'application/json'},
+  body: body === undefined ? undefined : JSON.stringify(body)
+}).then(async r => { if (!r.ok) throw new Error(await r.text()); return r.json(); });
+
+let pairPoll = null;
+
+function showPairStatus(st) {
+  const box = document.getElementById('pair-status');
+  const pending = document.getElementById('pair-pending');
+  if (!box) return;
+  if (st.error) { box.innerHTML = '<span class="err">' + st.error + '</span>'; }
+  else if (st.waiting) { box.textContent = 'Čeka se da drugi čvor nazove ovaj (port ' + {{.Ports.Pair}} + ')…'; }
+  else if (!st.pending) { box.textContent = ''; }
+  if (st.pending) {
+    pending.style.display = 'block';
+    document.getElementById('pair-peer-name').textContent = st.peer.name || '';
+    document.getElementById('pair-peer-id').textContent = st.peer.deviceId || '';
+    document.getElementById('pair-sas').textContent = st.sas;
+    box.textContent = '';
+  } else {
+    pending.style.display = 'none';
+  }
+  if ((st.waiting || st.pending) && !pairPoll) {
+    pairPoll = setInterval(async () => { try { showPairStatus(await api('/api/peers/pair/status')); } catch (e) {} }, 1500);
+  }
+  if (!st.waiting && !st.pending && pairPoll) { clearInterval(pairPoll); pairPoll = null; }
+}
+
+async function pairListen() { try { showPairStatus(await api('/api/peers/pair/listen', {})); } catch (e) { alert(e.message); } }
+async function pairDial() {
+  const addr = document.getElementById('pair-addr').value.trim();
+  if (!addr) { alert('Upišite adresu čvora.'); return; }
+  try { showPairStatus(await api('/api/peers/pair/dial', {addr})); } catch (e) { alert(e.message); }
+}
+async function pairConfirm(approved) {
+  try {
+    const r = await api('/api/peers/pair/confirm', {approved});
+    alert(r.message || (r.paired ? 'Čvor je uparen.' : 'Uparivanje odbijeno.'));
+    location.reload();
+  } catch (e) { alert(e.message); }
+}
+
+async function createNetwork() {
+  const name = document.getElementById('network-name').value.trim();
+  if (!name) { alert('Upišite naziv mreže.'); return; }
+  if (!confirm('Osnovati mrežu "' + name + '"? Ovaj čvor dobiva ključ mreže — čuvajte datoteku data/network-key.')) return;
+  try { await api('/api/network/create', {name}); location.reload(); } catch (e) { alert(e.message); }
+}
+
+async function revokeMember(node) {
+  if (!confirm('Opozvati članstvo čvora "' + node + '"? Od tada mu nitko u mreži ne odgovara na razmjenu. Potvrda ostaje u povijesti.')) return;
+  try { await api('/api/network/members/' + encodeURIComponent(node) + '/revoke', {}); location.reload(); } catch (e) { alert(e.message); }
+}
+
+async function discover() {
+  const box = document.getElementById('discover-results');
+  box.innerHTML = '<p class="muted">Pretraživanje…</p>';
+  try {
+    const r = await api('/api/peers/discover');
+    if (!r.found.length) { box.innerHTML = '<p class="muted">Na lokalnoj mreži nije nađen nijedan goCOP čvor.</p>'; return; }
+    box.innerHTML = r.found.map(f => `
+      <div class="peer">
+        <div class="peer-head"><span class="peer-name">${f.name || f.deviceId}</span><span class="peer-meta mono">${f.addr}</span></div>
+        <div class="peer-meta">${f.known ? 'poznat čvor' : 'nepoznat čvor'}${f.pairPort ? ' · čeka uparivanje' : ''}</div>
+        <div class="actions">
+          ${f.known ? `<button class="btn btn-sm btn-primary" onclick="syncNow('${f.deviceId}')">Sinkroniziraj</button>`
+                    : `<button class="btn btn-sm btn-primary" onclick="document.getElementById('pair-addr').value='${f.addr}'; pairDial()">Upari</button>`}
+        </div>
+      </div>`).join('');
+  } catch (e) { box.innerHTML = '<p class="err">' + e.message + '</p>'; }
+}
+
+async function syncNow(node) {
+  try {
+    const r = await api('/api/peers/' + encodeURIComponent(node) + '/sync', {});
+    if (r.results) {
+      alert(Object.entries(r.results).map(([k, v]) => k + ': ' + v).join('\n') || 'Nema poznatih čvorova.');
+    } else {
+      alert('Sinkronizirano: primljeno ' + r.applied + ', poslano ' + r.sent + '.');
+    }
+    location.reload();
+  } catch (e) { alert('Sinkronizacija nije uspjela: ' + e.message); }
+}
+
+async function setBootstrap(node, bootstrap) {
+  try { await api('/api/peers/' + encodeURIComponent(node) + '/bootstrap', {bootstrap}); location.reload(); }
+  catch (e) { alert(e.message); }
+}
+
+async function forgetPeer(node, name) {
+  if (!confirm('Zaboraviti čvor "' + (name || node) + '"? Ostaje u povijesti i može se ponovno upariti.')) return;
+  try { await api('/api/peers/' + encodeURIComponent(node) + '/forget', {}); location.reload(); }
+  catch (e) { alert(e.message); }
+}
+
+api('/api/peers/pair/status').then(showPairStatus).catch(() => {});
+</script>
+{{end}}

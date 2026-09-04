@@ -1,0 +1,83 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Moj profil{{end}}
+
+{{define "content"}}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "user"}} Moj profil</h1>
+    <p class="page-desc">{{.User.FullName}} · @{{.User.Username}} · {{roleLabel .User.PrimaryRole}}{{if .User.OrgName}} · {{.User.OrgName}}{{end}}</p>
+  </div>
+  <div class="detail-actions">
+    <a href="/users/{{.User.ID}}" class="btn btn-secondary">{{icon "shield"}} Moja zaduženja</a>
+  </div>
+</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
+
+<section class="detail-section" style="margin-top:0;">
+  <h2>{{icon "phone"}} Kontakti</h2>
+  <form class="form-page" method="POST" action="/profile/update">
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="full_name">Ime i prezime *</label>
+        <input type="text" id="full_name" name="full_name" class="form-control" required value="{{.User.FullName}}">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="title">Titula</label>
+        <input type="text" id="title" name="title" class="form-control" value="{{.User.Title}}" placeholder="npr. dipl. ing. građ.">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="mobile_phone">Mobitel</label>
+        <input type="tel" id="mobile_phone" name="mobile_phone" class="form-control" value="{{.User.MobilePhone}}" placeholder="099-000-0000">
+        <div class="form-help">Broj na koji vas kolege zovu s terena.</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="phone">Fiksni telefon</label>
+        <input type="tel" id="phone" name="phone" class="form-control" value="{{.User.Phone}}" placeholder="031 252 802">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="short_phone">Lokal</label>
+        <input type="text" id="short_phone" name="short_phone" class="form-control" inputmode="numeric" value="{{.User.ShortPhone}}" placeholder="2802">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="email">E-pošta</label>
+      <input type="email" id="email" name="email" class="form-control" value="{{.User.Email}}" placeholder="ime.prezime@voda.hr">
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">Spremi kontakte</button>
+    </div>
+  </form>
+</section>
+
+<section class="detail-section" id="lozinka">
+  <h2>{{icon "key-round"}} Lozinka</h2>
+  {{if .User.MustChangePassword}}
+  <div class="alert alert-warning">Prijavljeni ste sa zadanom lozinkom. Dok je ne promijenite, ostatak programa je zatvoren: postavite vlastitu lozinku ovdje.</div>
+  {{end}}
+  <form class="form-page" method="POST" action="/profile/change-password">
+    <div class="form-group">
+      <label class="form-label" for="current_password">Trenutna lozinka *</label>
+      <input type="password" id="current_password" name="current_password" class="form-control" required autocomplete="current-password">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="new_password">Nova lozinka *</label>
+        <input type="password" id="new_password" name="new_password" class="form-control" required minlength="6" autocomplete="new-password">
+        <div class="form-help">Najmanje 6 znakova.</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="confirm_password">Ponovite novu lozinku *</label>
+        <input type="password" id="confirm_password" name="confirm_password" class="form-control" required minlength="6" autocomplete="new-password">
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">Promijeni lozinku</button>
+    </div>
+  </form>
+</section>
+{{end}}

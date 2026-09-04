@@ -1,0 +1,114 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Vodotoci{{end}}
+
+{{define "content"}}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "waves"}} Vodotoci</h1>
+    <p class="page-desc">
+      Registar vodnih tijela prema Odluci o popisu voda I. reda (NN 79/2010), dopunjen
+      vodama koje na tom popisu nisu. Dionice i vodomjerne postaje vežu se na ovaj registar.
+    </p>
+  </div>
+  {{if .Permissions.IsGlobalAdmin}}
+  <a href="/watercourses/new" class="btn btn-primary">{{icon "plus"}} Novo vodno tijelo</a>
+  {{end}}
+</div>
+
+<div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1.25rem;">
+  <span class="stat-badge has-items">{{icon "waves"}} {{.Total}} vodnih tijela</span>
+  <span class="stat-badge has-items">{{icon "scale"}} {{.FirstOrder}} na popisu voda I. reda</span>
+  <span class="stat-badge has-items">{{icon "link"}} {{.Used}} s dionicom ili postajom</span>
+  <span class="stat-badge {{if gt .UnlinkedSections 0}}has-items{{end}}">{{icon "file-text"}} {{.UnlinkedSections}} dionica bez veze</span>
+  <span class="stat-badge {{if gt .UnlinkedStations 0}}has-items{{end}}">{{icon "ruler"}} {{.UnlinkedStations}} postaja bez veze</span>
+</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
+
+<div class="filter-card">
+  <form action="/watercourses" method="GET">
+    <div class="search-bar-row">
+      <div class="search-input-wrapper">
+        <span class="search-icon">{{icon "search"}} </span>
+        <input type="search" name="q" value="{{.SearchQuery}}" class="search-input"
+               placeholder="Naziv vode (Sava, Karašica, Bosut)…" autocomplete="off">
+      </div>
+      <button type="submit" class="btn btn-primary">Pretraži</button>
+      {{if or .SearchQuery .SelectedCategory .OnlyUsed}}
+      <a href="/watercourses" class="btn btn-secondary">{{icon "x"}} </a>
+      {{end}}
+    </div>
+
+    <div class="filters-row" style="grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));">
+      <div class="filter-group">
+        <label for="category-select" class="filter-label">{{icon "scale"}} Pravna kategorija</label>
+        <select id="category-select" name="category" class="filter-select" onchange="this.form.submit()">
+          <option value="">Sve kategorije</option>
+          {{range .Categories}}
+          <option value="{{.}}" {{if eq . $.SelectedCategory}}selected{{end}}>{{.}}</option>
+          {{end}}
+          <option value="NIJE_I_REDA" {{if eq "NIJE_I_REDA" .SelectedCategory}}selected{{end}}>Nije voda I. reda</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label class="filter-label">{{icon "link"}} Upotreba</label>
+        <label style="display:flex; align-items:center; gap:.5rem; padding-top:.4rem; min-height:44px;">
+          <input type="checkbox" name="used" value="1" {{if .OnlyUsed}}checked{{end}} onchange="this.form.submit()">
+          Samo vode koje imaju dionicu ili postaju
+        </label>
+      </div>
+    </div>
+  </form>
+</div>
+
+{{template "pager" .Pager}}
+
+<div class="reg-list">
+  {{range .Watercourses}}
+  <article class="reg-card">
+    <a class="reg-card-link" href="/watercourses/{{.Code}}">
+      <div class="reg-card-head">
+        <div>
+          <h3 class="reg-card-title">{{.Name}}</h3>
+          <div class="reg-card-sub">
+            {{if ne .OfficialName .Name}}{{.OfficialName}}{{else if .Kind}}{{.Kind}}{{end}}
+          </div>
+        </div>
+        {{if .IsFirstOrder}}
+          <span class="badge badge-active" title="{{.Category}}">{{.CategoryLabel}}</span>
+        {{else}}
+          <span class="badge badge-inactive">{{.CategoryLabel}}</span>
+        {{end}}
+      </div>
+
+      {{if or .LengthKm .BasinKm2 .AvgFlowM3S .Mouth}}
+      <dl class="reg-facts">
+        {{if .LengthKm}}<div><dt>Duljina</dt><dd>{{derefFloat .LengthKm 0}} km</dd></div>{{end}}
+        {{if .BasinKm2}}<div><dt>Porječje</dt><dd>{{derefFloat .BasinKm2 0}} km²</dd></div>{{end}}
+        {{if .AvgFlowM3S}}<div><dt>Protok</dt><dd>{{derefFloat .AvgFlowM3S 0}} m³/s</dd></div>{{end}}
+        {{if .Mouth}}<div><dt>Ušće</dt><dd>{{.Mouth}}</dd></div>{{end}}
+      </dl>
+      {{end}}
+
+      <div class="reg-card-foot">
+        <span class="reg-chip {{if eq .SectionCount 0}}empty{{end}}">{{icon "file-text"}} {{dionice .SectionCount}}</span>
+        <span class="reg-chip {{if eq .StationCount 0}}empty{{end}}">{{icon "ruler"}} {{postaje .StationCount}}</span>
+        <span class="reg-origin">{{.OriginLabel}}</span>
+      </div>
+    </a>
+  </article>
+  {{else}}
+  <div class="reg-empty">Nijedno vodno tijelo ne odgovara zadanim filtrima.</div>
+  {{end}}
+</div>
+
+{{template "pager" .Pager}}
+
+<p class="page-desc">
+  Vode istog imena su različita vodna tijela — <em>potok Karašica (Baranja)</em> nije
+  <em>rijeka Karašica (miholjačka)</em>. Kad naziv iz dokumentacije dionice odgovara objema,
+  veza se ne postavlja, pa dionica ostaje bez veze dok se ne razriješi ručno.
+</p>
+{{end}}

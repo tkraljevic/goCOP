@@ -1,0 +1,123 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — {{.Station.Name}}{{end}}
+
+{{define "content"}}
+<div class="breadcrumb"><a href="/stations">Vodomjerne postaje</a> › {{.Station.Name}}</div>
+
+<div class="detail-head">
+  <div>
+    <h1 class="page-title">{{icon "ruler"}} {{.Station.Name}}</h1>
+    <p class="page-desc">
+      {{if .Station.HasWatercourse}}{{.Station.Watercourse}}{{else}}vodotok nije određen{{end}}
+      {{if .Station.Stationing}} · {{.Station.Stationing}}{{end}}
+      {{if .Station.WaterArea}} · {{.Station.WaterArea}}{{end}}
+      {{if .Station.NeedsReview}} · <span class="badge badge-inactive" title="{{.Station.ReviewNote}}">{{icon "triangle-alert"}} traži pregled pragova</span>{{end}}
+    </p>
+  </div>
+  {{if .CanEdit}}
+  <div class="detail-actions">
+    <a href="/stations/{{.Station.ID}}/edit" class="btn btn-secondary">{{icon "pencil"}} Uredi</a>
+    {{if .Permissions.IsGlobalAdmin}}
+    <form method="POST" action="/api/stations/delete"
+          onsubmit="return confirm('Obrisati postaju „{{.Station.Name}}“ iz registra?{{if .Station.SectionCodes}} Mjerodavna je za {{dionice (len .Station.SectionCodes)}} i nestat će sa svih.{{end}} Zapis ostaje u povijesti.')">
+      <input type="hidden" name="station_id" value="{{.Station.ID}}">
+      <button type="submit" class="btn btn-sm" style="background:var(--danger-bg); color:var(--danger); border-color:var(--danger-border); min-height:40px;">{{icon "trash"}} Obriši</button>
+    </form>
+    {{end}}
+  </div>
+  {{end}}
+</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
+{{if .Station.NeedsReview}}<div class="alert alert-warning">{{.Station.ReviewNote}}</div>{{end}}
+
+<section class="detail-section" style="margin-top:0;">
+  <h2>{{icon "gauge"}} Pragovi obrane od poplava</h2>
+  <div class="reg-card" style="padding:1rem;">
+    <dl class="reg-facts" style="font-size:0.9rem;">
+      <div><dt>Pripremno stanje</dt><dd><span class="threshold-pill prep">{{.Station.Prep.Label}}</span></dd></div>
+      <div><dt>Redovna obrana</dt><dd><span class="threshold-pill regular">{{.Station.Regular.Label}}</span></dd></div>
+      <div><dt>Izvanredna obrana</dt><dd><span class="threshold-pill emerg">{{.Station.Emergency.Label}}</span></dd></div>
+      <div><dt>Izvanredno stanje</dt><dd><span class="threshold-pill crit">{{.Station.State.Label}}</span></dd></div>
+      <div><dt>Najviši zabilježeni</dt><dd><span class="threshold-pill record">{{.Station.Record.Label}}</span></dd></div>
+    </dl>
+    <p class="page-desc" style="margin-top:0.75rem;">
+      {{if .Station.HasUsableThresholds}}Pragovi u centimetrima ulaze u automatski izračun stupnja obrane.
+      {{else}}Nijedan prag nije u centimetrima, pa se stupanj obrane za ovu postaju ne računa automatski.{{end}}
+    </p>
+  </div>
+</section>
+
+<section class="detail-section">
+  <h2>{{icon "ruler"}} Kota nule vodomjera</h2>
+  <div class="reg-card" style="padding:1rem;">
+    <dl class="reg-facts" style="font-size:0.9rem;">
+      <div><dt>Trst (stari sustav)</dt><dd>{{if .Station.ZeroDatum}}{{derefFloat .Station.ZeroDatum 2}} m{{else}}<span style="color:var(--text-muted); font-weight:500;">nije upisana</span>{{end}}</dd></div>
+      <div><dt>HVRS71 (novi sustav)</dt><dd>{{if .Station.HasNewZeroDatum}}{{derefFloat .Station.ZeroDatumNew 2}} m{{else}}<span style="color:var(--text-muted); font-weight:500;">tek se mjeri</span>{{end}}</dd></div>
+      {{if .Station.Code}}<div><dt>Šifra</dt><dd style="font-family:ui-monospace, monospace; font-weight:500;">{{.Station.Code}}</dd></div>{{end}}
+    </dl>
+    {{if .Station.Notes}}<p style="font-size:0.85rem; margin:0.75rem 0 0;">{{.Station.Notes}}</p>{{end}}
+  </div>
+</section>
+
+<section class="detail-section">
+  <h2>{{icon "waves"}} Vodotok na kojem postaja stoji</h2>
+  <div class="reg-card" style="padding:1rem;">
+    <p style="margin:0 0 0.5rem; font-size:0.9rem;">
+      {{if .Station.HasWatercourse}}
+        <strong>{{.Station.Watercourse}}</strong>
+        <span class="page-desc" style="display:inline;">·
+          {{if eq .Station.WatercourseSource "NAZIV"}}iz naziva vodomjera
+          {{else if eq .Station.WatercourseSource "STACIONAŽA"}}iz stacionaže
+          {{else if eq .Station.WatercourseSource "DIONICE"}}izvedeno iz dionica
+          {{else if eq .Station.WatercourseSource "OPERATER"}}potvrdio operater
+          {{else}}{{.Station.WatercourseSource}}{{end}}
+        </span>
+        {{if .Station.WatercourseCode}}· <a href="/watercourses/{{.Station.WatercourseCode}}" style="color:var(--primary);">u registru</a>{{end}}
+      {{else}}
+        <span style="color:var(--text-muted);">Nije određen. Dokumentacija dionica govori za što je postaja mjerodavna, ne gdje stoji.</span>
+      {{end}}
+    </p>
+    {{if .CanEdit}}
+    <form method="POST" action="/api/stations/watercourse" style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:flex-end;">
+      <input type="hidden" name="station_id" value="{{.Station.ID}}">
+      <div class="form-group" style="flex:1; min-width:14rem; margin:0;">
+        <label class="form-label" for="watercourse_code">Pridruži iz registra vodotoka</label>
+        <select id="watercourse_code" name="watercourse_code" class="form-control">
+          <option value="">— ukloni vodotok —</option>
+          {{range .WaterRegistry}}
+          <option value="{{.Code}}" {{if eq .Code $.Station.WatercourseCode}}selected{{end}}>{{.OfficialName}}</option>
+          {{end}}
+        </select>
+      </div>
+      <button type="submit" class="btn btn-secondary" style="min-height:40px;">Spremi vodotok</button>
+    </form>
+    <p class="form-help">Ručni odabir nadjačava strojno utvrđivanje i bilježi se kao potvrda operatera.</p>
+    {{end}}
+  </div>
+</section>
+
+<section class="detail-section">
+  <h2>{{icon "file-text"}} Mjerodavna za dionice <span class="reg-chip">{{len .Sections}}</span></h2>
+  <div class="reg-list">
+    {{range .Sections}}
+    <article class="reg-card">
+      <a class="reg-card-link" href="/sections?q={{.Code}}">
+        <div class="reg-card-head">
+          <div>
+            <h3 class="reg-card-title">{{.Code}}</h3>
+            <div class="reg-card-sub">{{.SectorName}}{{if .AreaName}} · {{.AreaName}}{{end}}</div>
+          </div>
+          {{if .Bank}}<span class="badge badge-inactive">{{bankLabel .Bank}}</span>{{end}}
+        </div>
+        <p style="font-size:0.8rem; margin:0;">{{.Description}}</p>
+      </a>
+    </article>
+    {{else}}
+    <div class="reg-empty">Postaja još nije dodijeljena nijednoj dionici. Dodaje se iz modula dionica.</div>
+    {{end}}
+  </div>
+</section>
+{{end}}
