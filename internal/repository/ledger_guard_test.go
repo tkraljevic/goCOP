@@ -13,7 +13,8 @@ import (
 // bez ijednog poziva Recordera — repozitorij koji zaobiđe knjigu ne prolazi.
 func TestUpisiUSinkroniziraneTabliceIduKrozRecorder(t *testing.T) {
 	synced := []string{"stations", "section_stations", "sections", "watercourses",
-		"counties", "municipalities", "settlements", "section_territories", "users", "duties"}
+		"counties", "municipalities", "settlements", "section_territories", "users", "duties",
+		"structures", "section_structures", "readings"}
 
 	files, err := filepath.Glob("*.go")
 	if err != nil {

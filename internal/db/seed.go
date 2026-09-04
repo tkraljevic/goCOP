@@ -484,5 +484,10 @@ func SeedInitialData(database *sql.DB) error {
 		return err
 	}
 
+	// 10. Registar objekata: crpne stanice i ustave, za sad iz evidencije Baranje
+	if err := seedStructures(database); err != nil {
+		return err
+	}
+
 	return nil
 }

@@ -34,6 +34,17 @@ PODACI UGRAĐENI U PROGRAM (internal/db/*.json)
   Županije, gradovi, općine i naselja
     Izvor:   službeni registar teritorijalnih jedinica Republike Hrvatske
     Status:  javni podatak
+  Objekti branjenog područja 16 (internal/db/objekti_bp16.json)
+    Izvor:   evidencija VGI Baranja (app.bp16.xyz), koju je Tomislav
+             Kraljević vodio na privatnom poslužitelju 2013.–2026., a punili
+             su je djelatnici VGI Baranja (popis u README, poglavlje 9)
+    Status:  podaci Hrvatskih voda
+
+PODACI KOJI SE UVOZE U BAZU ČVORA (nisu dio programa)
+  Očitanja vodostaja BP 16, 2013.–2026.
+    Izvor:   ista evidencija VGI Baranja; uvoz pokreće operater
+             (gocop -import-bp16), zapisi nose podrijetlo DIRECTUS_BP16
+    Status:  podaci Hrvatskih voda; imena očitavača ostaju u bazi čvora
   Imenik djelatnika
     NIJE ugrađen u program ni u repozitorij. Čita se iz data/imenik.json uz
     bazu, samo pri prvom punjenju prvog čvora. Osobni podaci djelatnika

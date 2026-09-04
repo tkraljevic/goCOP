@@ -36,12 +36,13 @@
           </div>
           {{end}}
           <a href="/" class="nav-link {{if eq .ActiveNav "dashboard"}}active{{end}}">{{icon "house"}} Početna</a>
+          <a href="/readings" class="nav-link {{if eq .ActiveNav "readings"}}active{{end}}">{{icon "activity"}} Vodostaji</a>
           <a href="/users" class="nav-link {{if eq .ActiveNav "users"}}active{{end}}">{{icon "users"}} Djelatnici</a>
 
           <!-- Registri su sami po sebi skupina, pa ne troše mjesto u traci -->
           <div class="nav-group">
             <button type="button" class="nav-link nav-group-btn
-                {{if or (eq .ActiveNav "sections") (eq .ActiveNav "territories") (eq .ActiveNav "stations") (eq .ActiveNav "watercourses")}}active{{end}}"
+                {{if or (eq .ActiveNav "sections") (eq .ActiveNav "territories") (eq .ActiveNav "stations") (eq .ActiveNav "watercourses") (eq .ActiveNav "structures")}}active{{end}}"
                 aria-haspopup="true" aria-expanded="false" onclick="toggleNavGroup(event)">
               {{icon "book-open"}} Registri <span class="nav-caret">▾</span>
             </button>
@@ -54,6 +55,9 @@
               </a>
               <a href="/stations" class="nav-dropdown-item {{if eq .ActiveNav "stations"}}active{{end}}">
                 {{icon "ruler"}} Vodomjerne postaje
+              </a>
+              <a href="/structures" class="nav-dropdown-item {{if eq .ActiveNav "structures"}}active{{end}}">
+                {{icon "construction"}} Objekti
               </a>
               <a href="/watercourses" class="nav-dropdown-item {{if eq .ActiveNav "watercourses"}}active{{end}}">
                 {{icon "droplet"}} Vodotoci i vodna tijela

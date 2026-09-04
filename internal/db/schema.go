@@ -259,7 +259,68 @@ func InitSchema(database *sql.DB) error {
 			created_at DATETIME NOT NULL
 		);`,
 
-		// Očitanja vodostaja (water_levels) dolaze zasebno, uz uvoz vodostaja.
+		// Hidrotehnički objekti: crpne stanice, ustave, sifoni... Zaseban zapis s
+		// vlastitim podacima, na koji se vežu očitanja i dnevnik rada.
+		`CREATE TABLE IF NOT EXISTS structures (
+			id TEXT PRIMARY KEY,
+			code TEXT UNIQUE NOT NULL,
+			name TEXT NOT NULL,
+			kind TEXT NOT NULL,
+			sector_id TEXT NOT NULL REFERENCES sectors(id),
+			area_id INTEGER NOT NULL REFERENCES areas(id),
+			watercourse_code TEXT NOT NULL DEFAULT '',
+			station_id TEXT NOT NULL DEFAULT '',
+			zero_datum REAL,
+			zero_datum_system TEXT NOT NULL DEFAULT '',
+			capacity_text TEXT NOT NULL DEFAULT '',
+			start_cm INTEGER,
+			start_text TEXT NOT NULL DEFAULT '',
+			stop_cm INTEGER,
+			stop_text TEXT NOT NULL DEFAULT '',
+			notes TEXT NOT NULL DEFAULT '',
+			origin TEXT NOT NULL DEFAULT '',
+			latitude REAL,
+			longitude REAL,
+			created_at DATETIME NOT NULL,
+			updated_at DATETIME NOT NULL
+		);`,
+
+		`CREATE TABLE IF NOT EXISTS section_structures (
+			id TEXT PRIMARY KEY,
+			section_code TEXT NOT NULL REFERENCES sections(code) ON DELETE CASCADE,
+			structure_id TEXT NOT NULL REFERENCES structures(id) ON DELETE CASCADE,
+			created_at DATETIME NOT NULL,
+			UNIQUE(section_code, structure_id)
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_structures_area ON structures(area_id);`,
+		`CREATE INDEX IF NOT EXISTS idx_section_structures_section ON section_structures(section_code);`,
+
+		// Očitanja vodostaja: jedan tok za letve postaja i objekata.
+		// Letva je ili postaja (station_id) ili objekt (structure_id).
+		`CREATE TABLE IF NOT EXISTS readings (
+			id TEXT PRIMARY KEY,
+			station_id TEXT NOT NULL DEFAULT '',
+			structure_id TEXT NOT NULL DEFAULT '',
+			measured_at DATETIME NOT NULL,
+			level_cm INTEGER,
+			level2_cm INTEGER,
+			source TEXT NOT NULL DEFAULT 'RUČNO',
+			origin TEXT NOT NULL DEFAULT '',
+			source_ref TEXT NOT NULL DEFAULT '',
+			observer TEXT NOT NULL DEFAULT '',
+			user_id TEXT NOT NULL DEFAULT '',
+			structure_state TEXT NOT NULL DEFAULT '',
+			gate TEXT NOT NULL DEFAULT '',
+			ag_hours_1 INTEGER,
+			ag_hours_2 INTEGER,
+			ag_hours_3 INTEGER,
+			note TEXT NOT NULL DEFAULT '',
+			created_at DATETIME NOT NULL,
+			updated_at DATETIME NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_readings_station_time ON readings(station_id, measured_at DESC);`,
+		`CREATE INDEX IF NOT EXISTS idx_readings_structure_time ON readings(structure_id, measured_at DESC);`,
+		`CREATE INDEX IF NOT EXISTS idx_readings_source_ref ON readings(source_ref);`,
 
 		`CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);`,
 		`CREATE INDEX IF NOT EXISTS idx_duties_user ON duties(user_id);`,

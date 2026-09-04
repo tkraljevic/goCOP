@@ -1,0 +1,106 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — {{if .IsEdit}}Uređivanje objekta{{else}}Novi objekt{{end}}{{end}}
+
+{{define "content"}}
+<div class="breadcrumb">
+  <a href="/structures">Objekti</a>
+  {{if .IsEdit}} › <a href="/structures/{{.Structure.ID}}">{{.Structure.Name}}</a> › Uređivanje{{else}} › Novi objekt{{end}}
+</div>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{if .IsEdit}}{{icon "pencil"}} {{.Structure.Name}}{{else}}{{icon "construction"}} Novi objekt{{end}}</h1>
+    <p class="page-desc">Crpna stanica, ustava, sifon ili pregrada s podacima koje traži pogon. Svaka izmjena ostaje u povijesti zapisa.</p>
+  </div>
+</div>
+
+{{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
+
+<form class="form-page" method="POST" action="{{if .IsEdit}}/structures/update{{else}}/structures/create{{end}}">
+  {{if .IsEdit}}<input type="hidden" name="id" value="{{.Structure.ID}}"><input type="hidden" name="code" value="{{.Structure.Code}}">{{end}}
+  <input type="hidden" name="zero_datum_system" value="{{if .Structure.ZeroDatumSystem}}{{.Structure.ZeroDatumSystem}}{{else}}TRST{{end}}">
+
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="name">Naziv *</label>
+      <input type="text" id="name" name="name" class="form-control" required value="{{.Structure.Name}}" placeholder="npr. CS Draž, Ustava Bilje" autocomplete="off">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="kind">Vrsta *</label>
+      <select id="kind" name="kind" class="form-control" required onchange="document.getElementById('pump-fields').hidden = this.value !== 'CRPNA_STANICA'">
+        {{range .Kinds}}<option value="{{.}}" {{if eq . $.Structure.Kind}}selected{{end}}>{{structureKind .}}</option>{{end}}
+      </select>
+    </div>
+  </div>
+
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="area_id">Branjeno područje *</label>
+      <select id="area_id" name="area_id" class="form-control" required>
+        <option value="">Odaberi područje…</option>
+        {{range .Areas}}<option value="{{.ID}}" {{if eq .ID $.Structure.AreaID}}selected{{end}}>{{.ID}}: {{.Name}} (Sektor {{.SectorID}})</option>{{end}}
+      </select>
+      <div class="form-help">Sektor slijedi iz područja.</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="station_id">Vodomjer na objektu</label>
+      <select id="station_id" name="station_id" class="form-control">
+        <option value="">— nema —</option>
+        {{range .Stations}}<option value="{{.ID}}" {{if eq .ID.String $.Structure.StationID}}selected{{end}}>{{.Name}}{{if .HasWatercourse}} · {{.Watercourse}}{{end}}</option>{{end}}
+      </select>
+    </div>
+  </div>
+
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="zero_datum">Kota „0“ letve (m n. m., Trst)</label>
+      <input type="text" inputmode="decimal" id="zero_datum" name="zero_datum" class="form-control" value="{{if .Structure.ZeroDatum}}{{derefFloat .Structure.ZeroDatum 2}}{{end}}" placeholder="82,06">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="watercourse_code">Voda (šifra iz registra)</label>
+      <input type="text" id="watercourse_code" name="watercourse_code" class="form-control" value="{{.Structure.WatercourseCode}}" placeholder="npr. rijeka-drava" autocomplete="off">
+    </div>
+  </div>
+
+  <div id="pump-fields" {{if not .Structure.IsPumpingStation}}hidden{{end}}>
+    <h3 style="font-size:0.9rem; margin:1rem 0 0.5rem;">Pogon crpne stanice</h3>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="capacity_text">Kapacitet (m³/s)</label>
+        <input type="text" id="capacity_text" name="capacity_text" class="form-control" value="{{.Structure.CapacityText}}" placeholder="npr. 2x2,5">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="start">Vodostaj uključenja (cm)</label>
+        <input type="text" inputmode="numeric" id="start" name="start" class="form-control" value="{{.Structure.StartText}}" placeholder="npr. 190">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="stop">Vodostaj zaustavljanja (cm)</label>
+        <input type="text" inputmode="numeric" id="stop" name="stop" class="form-control" value="{{.Structure.StopText}}" placeholder="npr. 90">
+      </div>
+    </div>
+    <div class="form-help">Jedan broj ulazi u izračun; zapis poput „76 (90)“ ili „od -20 do 200“ čuva se kao tekst.</div>
+  </div>
+
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="latitude">Zemljopisna širina</label>
+      <input type="text" inputmode="decimal" id="latitude" name="latitude" class="form-control" value="{{if .Structure.Latitude}}{{derefFloat .Structure.Latitude 5}}{{end}}" placeholder="45,6xxxx">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="longitude">Zemljopisna dužina</label>
+      <input type="text" inputmode="decimal" id="longitude" name="longitude" class="form-control" value="{{if .Structure.Longitude}}{{derefFloat .Structure.Longitude 5}}{{end}}" placeholder="18,6xxxx">
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label class="form-label" for="notes">Napomena</label>
+    <textarea id="notes" name="notes" class="form-control" rows="2">{{.Structure.Notes}}</textarea>
+  </div>
+
+  <div class="form-actions">
+    <a href="{{if .IsEdit}}/structures/{{.Structure.ID}}{{else}}/structures{{end}}" class="btn btn-secondary">Odustani</a>
+    <button type="submit" class="btn btn-primary">{{if .IsEdit}}Spremi izmjene{{else}}Upiši u registar{{end}}</button>
+  </div>
+</form>
+{{end}}
