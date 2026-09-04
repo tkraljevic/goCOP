@@ -263,7 +263,7 @@ func SeedInitialData(database *sql.DB) error {
 			_, _ = insertUserStmt.Exec(
 				adminAliasID.String(), "admin", hashStr, "Administrator Sustava", "admin", 1,
 				"HRVATSKE_VODE", "Centar obrane od poplava",
-				"N/A", "", "", "copos@voda.hr",
+				"N/A", "", "N/A", "admin@example.invalid",
 				now, now,
 			)
 			dAdmin := StableID("duty", "admin|0")
