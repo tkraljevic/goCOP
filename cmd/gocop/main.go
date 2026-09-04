@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -209,7 +210,7 @@ func main() {
 	}()
 
 	// 5. Inicijalizacija web poslužitelja s ugrađenim embed.FS resursima
-	server, err := web.NewServer(*addr, authService, userService, sectionService, territoryService, stationService, watercourseService, structureService, readingService, moduleService, peersService, recorder, sseBroker)
+	server, err := web.NewServer(*addr, authService, userService, sectionService, territoryService, stationService, watercourseService, structureService, readingService, moduleService, supportContact(cfg), peersService, recorder, sseBroker)
 	if err != nil {
 		log.Fatalf("Greška pri inicijalizaciji web poslužitelja: %v", err)
 	}
@@ -271,4 +272,28 @@ func main() {
 	fmt.Println("\nZaustavljanje goCOP poslužitelja...")
 	time.Sleep(500 * time.Millisecond)
 	fmt.Println("goCOP poslužitelj ugašen.")
+}
+
+// supportContact prenosi kontakt iz postavki čvora na stranicu prijave
+func supportContact(cfg config.Config) web.SupportContact {
+	tel := func(s string) string {
+		digits := strings.Map(func(r rune) rune {
+			if r >= '0' && r <= '9' {
+				return r
+			}
+			return -1
+		}, s)
+		if strings.HasPrefix(digits, "0") {
+			return "+385" + digits[1:]
+		}
+		if digits == "" {
+			return ""
+		}
+		return "+" + digits
+	}
+	return web.SupportContact{
+		Name: cfg.Support.Name, Phone: cfg.Support.Phone, PhoneLink: tel(cfg.Support.Phone),
+		Email: cfg.Support.Email, Center: cfg.Support.Center,
+		CenterPhone: cfg.Support.CenterPhone, CenterLink: tel(cfg.Support.CenterPhone),
+	}
 }
