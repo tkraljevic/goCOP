@@ -31,6 +31,14 @@ type Config struct {
 		Name string `toml:"name" comment:"Naziv koji vide drugi čvorovi pri uparivanju. Prazno = ime računala."`
 	} `toml:"node"`
 
+	Support struct {
+		Name        string `toml:"ime" comment:"Tko na ovom čvoru pomaže oko prijave i početne lozinke."`
+		Phone       string `toml:"mobitel" comment:"Broj na kojem je ta osoba dostupna. Prazno = ne prikazuje se."`
+		Email       string `toml:"eposta" comment:"E-pošta te osobe. Upišite osobni sandučić, ne zajedničku adresu\ncentra: te adrese su popisi za raspačavanje i poruka odlazi svim\nsudionicima obrane od poplava."`
+		Center      string `toml:"centar" comment:"Centar obrane od poplava ovog čvora, npr. \"COP Osijek\".\nPrazno = redak o dežurnom operateru se ne prikazuje."`
+		CenterPhone string `toml:"centar_telefon" comment:"Telefon tog centra; na njemu se javlja dežurni operater\nza vrijeme obrane od poplava."`
+	} `toml:"kontakt" comment:"Kontakt koji stoji na stranici prijave. Svaki čvor upisuje svoj:\nprogram vrijedi za cijelu Hrvatsku, pa Osijek nije zadano za sve."`
+
 	Sync struct {
 		ExchangePort  int      `toml:"exchange_port" comment:"Port razmjene verzija s drugim čvorovima. 0 isključuje razmjenu."`
 		PairPort      int      `toml:"pair_port" comment:"Port uparivanja (samo dok uparivanje traje)."`
@@ -46,6 +54,9 @@ func Default() Config {
 	c.Addr = ":80"
 	c.DB = "data/gocop.db"
 	c.Node.ID = "gocop-cvor"
+	c.Support.Name = "Tomislav Kraljević"
+	c.Support.Phone = "099 267 9587"
+	c.Support.Email = "tomislav.kraljevic@voda.hr"
 	c.Sync.ExchangePort = 4710
 	c.Sync.PairPort = 4711
 	c.Sync.DiscoveryPort = 4712

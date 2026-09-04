@@ -91,12 +91,15 @@
       </form>
 
       <div class="login-hint">
-        Prijavljujete se korisničkim imenom iz imenika Hrvatskih voda. Početnu lozinku i pomoć oko prijave
-        daje Centar obrane od poplava Osijek:<br>
-        <strong>Tomislav Kraljević</strong> · <a href="tel:+385992679587">099 267 9587</a> ·
-        <a href="mailto:tomislav.kraljevic@voda.hr">tomislav.kraljevic@voda.hr</a><br>
-        <span style="color:var(--text-secondary);">Za vrijeme obrane od poplava javlja se i dežurni operater
-        COP-a Osijek na <a href="tel:+38531252802">031 252 802</a>.</span>
+        Prijavljujete se korisničkim imenom iz imenika Hrvatskih voda.
+        {{if .Support.HasPerson}}Početnu lozinku i pomoć oko prijave daje:<br>
+        <strong>{{.Support.Name}}</strong>{{if .Support.Phone}} · <a href="tel:{{.Support.PhoneLink}}">{{.Support.Phone}}</a>{{end}}{{if .Support.Email}} ·
+        <a href="mailto:{{.Support.Email}}">{{.Support.Email}}</a>{{end}}
+        {{else}}Početnu lozinku i pomoć oko prijave daje administrator vašeg Centra obrane od poplava.{{end}}
+        {{if .Support.HasCenter}}<br>
+        <span style="color:var(--text-secondary);">{{.Support.Center}} ·
+        <a href="tel:{{.Support.CenterLink}}">{{.Support.CenterPhone}}</a> — na taj se broj za vrijeme
+        obrane od poplava javlja dežurni operater.</span>{{end}}
       </div>
     </div>
   </div>

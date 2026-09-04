@@ -46,6 +46,7 @@ type Server struct {
 	structureService   *service.StructureService
 	readingService     *service.ReadingService
 	moduleService      *service.ModuleService
+	support            SupportContact
 	peersService       *peers.Service
 	recorder           *ledger.Recorder
 	sseBroker          *service.SSEBroker
@@ -64,6 +65,7 @@ func NewServer(
 	structureService *service.StructureService,
 	readingService *service.ReadingService,
 	moduleService *service.ModuleService,
+	support SupportContact,
 	peersService *peers.Service,
 	recorder *ledger.Recorder,
 	sseBroker *service.SSEBroker,
@@ -224,6 +226,7 @@ func NewServer(
 		structureService:   structureService,
 		readingService:     readingService,
 		moduleService:      moduleService,
+		support:            support,
 		peersService:       peersService,
 		recorder:           recorder,
 		sseBroker:          sseBroker,
@@ -237,6 +240,7 @@ func NewServer(
 
 func (s *Server) setupRoutes() {
 	authH := NewAuthHandler(s.authService, s.templates["login.html"])
+	authH.SetSupport(s.support)
 	usersH := NewUsersHandler(s.userService, s.templates["users.html"])
 	usersH.SetPageTemplates(s.templates["user_detail.html"], s.templates["user_form.html"], s.templates["duty_form.html"], s.templates["profile.html"])
 	dashH := NewDashboardHandler(s.userService, s.templates["dashboard.html"])
