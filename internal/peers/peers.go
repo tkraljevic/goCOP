@@ -124,6 +124,11 @@ type Service struct {
 	// onApplied osvježava površinu iz primljenih verzija; zna ga sloj
 	// koji zna entitete (repository.ApplyVersions)
 	onApplied func(ctx context.Context, versions []ledger.Version) error
+
+	// accept propušta ono što ovaj čvor uopće želi držati. Terenski uređaj
+	// ne treba stoljeće očitanja svih letvi u zemlji, pa ono što ovdje
+	// otpadne ne ulazi ni u knjigu ni na površinu.
+	accept func(ledger.Version) bool
 }
 
 func NewService(db *sql.DB, rec *ledger.Recorder, node *Node, ports Ports) (*Service, error) {
@@ -622,12 +627,21 @@ func (s *Service) exchange(ctx context.Context, c *syncnet.Conn, initiator bool)
 	}
 	sent = len(delta)
 
-	applied, err = s.rec.Apply(ctx, incoming.Versions)
+	wanted := incoming.Versions
+	if s.accept != nil {
+		wanted = wanted[:0:0]
+		for _, v := range incoming.Versions {
+			if s.accept(v) {
+				wanted = append(wanted, v)
+			}
+		}
+	}
+	applied, err = s.rec.Apply(ctx, wanted)
 	if err != nil {
 		return 0, 0, err
 	}
 	if applied > 0 && s.onApplied != nil {
-		if err := s.onApplied(ctx, incoming.Versions); err != nil {
+		if err := s.onApplied(ctx, wanted); err != nil {
 			log.Printf("sinkronizacija: verzije primljene, ali površina nije osvježena: %v", err)
 		}
 	}
@@ -649,6 +663,11 @@ func (s *Service) exchange(ctx context.Context, c *syncnet.Conn, initiator bool)
 // knjigu — osvježavanje površine zna sloj koji zna entitete
 func (s *Service) OnApplied(fn func(ctx context.Context, versions []ledger.Version) error) {
 	s.onApplied = fn
+}
+
+// Accept postavlja što ovaj čvor prima razmjenom. Bez toga prima sve.
+func (s *Service) Accept(fn func(ledger.Version) bool) {
+	s.accept = fn
 }
 
 func (s *Service) noteSync(ctx context.Context, peer *Peer, c *syncnet.Conn, applied, sent int, err error) {

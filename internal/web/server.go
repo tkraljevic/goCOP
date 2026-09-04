@@ -17,6 +17,7 @@ import (
 	"gocop/internal/ledger"
 	"gocop/internal/models"
 	"gocop/internal/peers"
+	"gocop/internal/repository"
 	"gocop/internal/service"
 	webassets "gocop/web"
 
@@ -47,6 +48,8 @@ type Server struct {
 	readingService     *service.ReadingService
 	moduleService      *service.ModuleService
 	support            SupportContact
+	followRepo         *repository.FollowRepository
+	onFollowChange     func()
 	peersService       *peers.Service
 	recorder           *ledger.Recorder
 	sseBroker          *service.SSEBroker
@@ -66,6 +69,8 @@ func NewServer(
 	readingService *service.ReadingService,
 	moduleService *service.ModuleService,
 	support SupportContact,
+	followRepo *repository.FollowRepository,
+	onFollowChange func(),
 	peersService *peers.Service,
 	recorder *ledger.Recorder,
 	sseBroker *service.SSEBroker,
@@ -227,6 +232,8 @@ func NewServer(
 		readingService:     readingService,
 		moduleService:      moduleService,
 		support:            support,
+		followRepo:         followRepo,
+		onFollowChange:     onFollowChange,
 		peersService:       peersService,
 		recorder:           recorder,
 		sseBroker:          sseBroker,
@@ -263,6 +270,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /teren", s.authMiddleware(http.HandlerFunc(fieldH.ShowField)))
 	readingsH := NewReadingsHandler(s.readingService, s.stationService, s.structureService, s.userService,
 		s.templates["readings.html"], s.templates["reading_history.html"], s.templates["reading_form.html"])
+	readingsH.SetFollow(s.followRepo, s.onFollowChange)
 	watercoursesH.SetPageTemplates(s.templates["watercourse_detail.html"], s.templates["watercourse_form.html"], s.stationService)
 	settingsH := NewSettingsHandler(s.peersService, s.recorder, s.templates["settings.html"])
 	sseH := NewSSEHandler(s.sseBroker)
@@ -361,6 +369,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /readings/create", s.authMiddleware(http.HandlerFunc(readingsH.HandleCreate)))
 	s.mux.Handle("POST /readings/update", s.authMiddleware(http.HandlerFunc(readingsH.HandleUpdate)))
 	s.mux.Handle("POST /readings/delete", s.authMiddleware(http.HandlerFunc(readingsH.HandleDelete)))
+	s.mux.Handle("POST /readings/follow", s.authMiddleware(http.HandlerFunc(readingsH.HandleFollow)))
 	s.mux.Handle("GET /structures/new", s.authMiddleware(http.HandlerFunc(structuresH.ShowStructureForm)))
 	s.mux.Handle("GET /structures/{id}", s.authMiddleware(http.HandlerFunc(structuresH.ShowStructure)))
 	s.mux.Handle("GET /structures/{id}/edit", s.authMiddleware(http.HandlerFunc(structuresH.ShowStructureForm)))

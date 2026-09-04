@@ -30,6 +30,13 @@ type ReadingsHandler struct {
 	tmplOverview     *template.Template
 	tmplHistory      *template.Template
 	tmplForm         *template.Template
+	followRepo       *repository.FollowRepository
+	onFollowChange   func()
+}
+
+// SetFollow daje rukovatelju popis letvi čiju povijest ovaj čvor drži
+func (h *ReadingsHandler) SetFollow(repo *repository.FollowRepository, onChange func()) {
+	h.followRepo, h.onFollowChange = repo, onChange
 }
 
 func NewReadingsHandler(readings *service.ReadingService, stations *service.StationService,
@@ -76,6 +83,8 @@ type ReadingHistoryData struct {
 	Chart       *Chart
 	CanRecord   bool
 	CanEdit     bool
+	Followed    bool // čvor drži cijelu povijest ove letve
+	GaugeKey    string
 	Pager       Pager
 
 	SuccessMessage string
@@ -246,6 +255,16 @@ func (h *ReadingsHandler) ShowHistory(w http.ResponseWriter, r *http.Request) {
 		ActiveNav: "readings", ViewAsBanner: viewBanner(r),
 	}
 	data.GaugeName, data.GaugeSub = gaugeNames(station, structure)
+	if structure != nil {
+		data.GaugeKey = "structure:" + structure.ID.String()
+	} else {
+		data.GaugeKey = "station:" + station.ID.String()
+	}
+	if h.followRepo != nil {
+		if keys, err := h.followRepo.Keys(ctx); err == nil {
+			data.Followed = keys[data.GaugeKey]
+		}
+	}
 	f := repository.ReadingFilter{}
 	if structure != nil {
 		f.StructureID = structure.ID.String()
@@ -611,4 +630,39 @@ func (h *ReadingsHandler) HandleDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	redirectWith(w, r, deleted.GaugeURL(), "success", "Očitanje je obrisano; zapis ostaje u povijesti.")
+}
+
+// HandleFollow uključuje ili isključuje čuvanje cijele povijesti jedne letve
+// na ovom čvoru. Odluka je lokalna: druga računala ostaju kakva jesu.
+func (h *ReadingsHandler) HandleFollow(w http.ResponseWriter, r *http.Request) {
+	perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
+	if perms == nil || !perms.IsGlobalAdmin {
+		http.Error(w, "Što čvor drži na disku određuje administrator", http.StatusForbidden)
+		return
+	}
+	if h.followRepo == nil {
+		http.Error(w, "Praćenje letvi nije dostupno", http.StatusInternalServerError)
+		return
+	}
+	key := strings.TrimSpace(r.FormValue("gauge_key"))
+	name := strings.TrimSpace(r.FormValue("name"))
+	back := r.FormValue("back")
+	if !strings.HasPrefix(back, "/") || strings.HasPrefix(back, "//") {
+		back = "/readings"
+	}
+	var err error
+	var msg string
+	if r.FormValue("follow") == "1" {
+		err, msg = h.followRepo.Add(r.Context(), key, name), "Ovaj čvor od sada čuva cijelu povijest letve "+name+"."
+	} else {
+		err, msg = h.followRepo.Remove(r.Context(), key), "Ovaj čvor više ne dovlači stariju povijest letve "+name+"; već preuzeta očitanja ostaju."
+	}
+	if err != nil {
+		redirectWith(w, r, back, "error", err.Error())
+		return
+	}
+	if h.onFollowChange != nil {
+		h.onFollowChange()
+	}
+	redirectWith(w, r, back, "success", msg)
 }
