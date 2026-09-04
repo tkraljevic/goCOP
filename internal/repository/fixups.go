@@ -25,6 +25,8 @@ type fixup struct {
 
 var fixups = []fixup{
 	{"titule-bez-organizacije-2026-09", fixupTitles},
+	{"korisnicko-ime-tkraljevic-2026-09", fixupAuthorUsername},
+	{"kontakti-autor-i-admin-2026-09", fixupContacts},
 }
 
 // RunFixups izvodi popravke koji na ovom čvoru još nisu izvedeni
@@ -116,4 +118,79 @@ func fixupTitles(ctx context.Context, tx *sql.Tx, rec *ledger.Recorder) (int, er
 		}
 	}
 	return len(todo), nil
+}
+
+// fixupAuthorUsername: račun autora dobiva korisničko ime po istom pravilu
+// kao i svi ostali (početno slovo imena + prezime); "tomislav" je bio
+// ostatak prvih dana razvoja
+func fixupAuthorUsername(ctx context.Context, tx *sql.Tx, rec *ledger.Recorder) (int, error) {
+	var id string
+	err := tx.QueryRowContext(ctx, `SELECT id FROM users WHERE username = 'tomislav'`).Scan(&id)
+	if err == sql.ErrNoRows {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	var taken int
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM users WHERE username = 'tkraljevic'`).Scan(&taken); err != nil {
+		return 0, err
+	}
+	if taken > 0 {
+		return 0, nil
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE users SET username = 'tkraljevic', updated_at = ? WHERE id = ?`,
+		time.Now().UTC(), id); err != nil {
+		return 0, err
+	}
+	saved, err := getUserTx(ctx, tx, id)
+	if err != nil {
+		return 0, err
+	}
+	if _, err := rec.Record(ctx, tx, EntityUsers, id, versionOfUser(saved)); err != nil {
+		return 0, err
+	}
+	return 1, nil
+}
+
+// fixupContacts vraća službene kontakte na dva računa prvog čvora:
+// autoru, kojem su pri probama ostali izmišljeni brojevi, i aliasu "admin",
+// koji je pri prvom punjenju baze dobio autorove osobne brojeve umjesto
+// službenog kontakta Centra obrane od poplava.
+func fixupContacts(ctx context.Context, tx *sql.Tx, rec *ledger.Recorder) (int, error) {
+	type contact struct{ phone, mobile, short, email string }
+	want := map[string]contact{
+		"tkraljevic": {"031-252-852", "099-267-9587", "2442", "tomislav.kraljevic@voda.hr"},
+		"admin":      {"031/252-802", "", "2802", "copos@voda.hr"},
+	}
+	changed := 0
+	for username, c := range want {
+		var id, phone, mobile, short, email string
+		err := tx.QueryRowContext(ctx,
+			`SELECT id, phone, mobile_phone, short_phone, email FROM users WHERE username = ?`, username).
+			Scan(&id, &phone, &mobile, &short, &email)
+		if err == sql.ErrNoRows {
+			continue
+		}
+		if err != nil {
+			return changed, err
+		}
+		if phone == c.phone && mobile == c.mobile && short == c.short && email == c.email {
+			continue
+		}
+		if _, err := tx.ExecContext(ctx,
+			`UPDATE users SET phone = ?, mobile_phone = ?, short_phone = ?, email = ?, updated_at = ? WHERE id = ?`,
+			c.phone, c.mobile, c.short, c.email, time.Now().UTC(), id); err != nil {
+			return changed, err
+		}
+		saved, err := getUserTx(ctx, tx, id)
+		if err != nil {
+			return changed, err
+		}
+		if _, err := rec.Record(ctx, tx, EntityUsers, id, versionOfUser(saved)); err != nil {
+			return changed, err
+		}
+		changed++
+	}
+	return changed, nil
 }

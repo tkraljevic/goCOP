@@ -85,6 +85,32 @@
   </div>
 </section>
 
+{{if .ModuleRows}}
+<section class="detail-section">
+  <h2>{{icon "eye"}} Moduli koje račun vidi</h2>
+  <form method="POST" action="/users/{{.User.ID}}/modules" class="reg-card" style="padding:1rem;">
+    <p class="form-help" style="margin:0 0 0.75rem;">„Kao uloga“ slijedi pravilo za uloge (Postavke → Moduli). Iznimka vrijedi samo za ovaj račun i ne mijenja prava upisa.</p>
+    <div class="reg-facts" style="grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));">
+      {{range .ModuleRows}}
+      <div>
+        <dt>{{.Label}} <span class="reg-chip {{if not .Visible}}empty{{end}}">{{if .Visible}}vidi{{else}}ne vidi{{end}}</span></dt>
+        <dd>
+          <select name="mod_{{.ID}}" class="form-control" style="font-weight:500;">
+            <option value="" {{if eq .Override ""}}selected{{end}}>kao uloga ({{if .ByRole}}vidi{{else}}ne vidi{{end}})</option>
+            <option value="show" {{if eq .Override "show"}}selected{{end}}>prikaži</option>
+            <option value="hide" {{if eq .Override "hide"}}selected{{end}}>sakrij</option>
+          </select>
+        </dd>
+      </div>
+      {{end}}
+    </div>
+    <div class="form-actions" style="margin-top:0.75rem;">
+      <button type="submit" class="btn btn-primary">Spremi vidljivost</button>
+    </div>
+  </form>
+</section>
+{{end}}
+
 {{if and .CanManage (not .IsSelf)}}
 <section class="detail-section">
   <h2 style="color:var(--danger);">{{icon "trash"}} Brisanje profila</h2>

@@ -106,7 +106,7 @@ func TestSectionPermissionsMarioAndTomislav(t *testing.T) {
 	tomislav, err := userRepo.GetUserByUsername("tkraljevic")
 	if err != nil || tomislav == nil {
 		// Ako je tomislav admin račun
-		tomislav, err = userRepo.GetUserByUsername("tomislav")
+		tomislav, err = userRepo.GetUserByUsername("tkraljevic")
 		if err != nil || tomislav == nil {
 			t.Fatalf("Korisnik tomislav nije pronađen: %v", err)
 		}

@@ -110,6 +110,26 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 			w.LengthKm, w.BasinKm2, w.AvgFlowM3S, w.Source, w.Mouth, w.FlowsInto)
 		return err
 
+	case EntityRoleModules:
+		var rm models.RoleModules
+		if err := json.Unmarshal(v.Payload, &rm); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, `INSERT INTO role_modules (role, modules, updated_at) VALUES (?, ?, ?)
+			ON CONFLICT(role) DO UPDATE SET modules = excluded.modules, updated_at = excluded.updated_at`,
+			rm.Role, models.JoinModules(rm.Modules), rm.UpdatedAt)
+		return err
+
+	case EntityUserModules:
+		var um models.UserModules
+		if err := json.Unmarshal(v.Payload, &um); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, `INSERT INTO user_modules (user_id, shown, hidden, updated_at) VALUES (?, ?, ?, ?)
+			ON CONFLICT(user_id) DO UPDATE SET shown = excluded.shown, hidden = excluded.hidden, updated_at = excluded.updated_at`,
+			um.UserID, models.JoinModules(um.Shown), models.JoinModules(um.Hidden), um.UpdatedAt)
+		return err
+
 	case EntityReadings:
 		var rd models.Reading
 		if err := json.Unmarshal(v.Payload, &rd); err != nil {
@@ -369,6 +389,10 @@ func removeFromSurface(ctx context.Context, tx *sql.Tx, v ledger.Version) error 
 		stmt = `DELETE FROM sections WHERE code = ?`
 	case EntityWatercourses:
 		stmt = `DELETE FROM watercourses WHERE code = ?`
+	case EntityRoleModules:
+		stmt = `DELETE FROM role_modules WHERE role = ?`
+	case EntityUserModules:
+		stmt = `DELETE FROM user_modules WHERE user_id = ?`
 	case EntityReadings:
 		stmt = `DELETE FROM readings WHERE id = ?`
 	case EntityStructures:

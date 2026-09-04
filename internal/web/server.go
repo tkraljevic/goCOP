@@ -32,6 +32,7 @@ const (
 	contextKeyRealUsr contextKey = "real_user"  // prijavljeni administrator
 	contextKeyViewing contextKey = "viewing_as" // gleda li se tuđim očima
 	contextKeySession contextKey = "session_id"
+	contextKeyModules contextKey = "modules"
 )
 
 type Server struct {
@@ -44,6 +45,7 @@ type Server struct {
 	watercourseService *service.WatercourseService
 	structureService   *service.StructureService
 	readingService     *service.ReadingService
+	moduleService      *service.ModuleService
 	peersService       *peers.Service
 	recorder           *ledger.Recorder
 	sseBroker          *service.SSEBroker
@@ -61,6 +63,7 @@ func NewServer(
 	watercourseService *service.WatercourseService,
 	structureService *service.StructureService,
 	readingService *service.ReadingService,
+	moduleService *service.ModuleService,
 	peersService *peers.Service,
 	recorder *ledger.Recorder,
 	sseBroker *service.SSEBroker,
@@ -195,7 +198,7 @@ func NewServer(
 	templates := make(map[string]*template.Template)
 
 	// Predlošci koji proširuju base.html
-	for _, page := range []string{"dashboard.html", "users.html", "user_detail.html", "user_form.html", "duty_form.html", "profile.html", "sections.html", "section_detail.html", "section_form.html", "territories.html", "county_form.html", "municipality_form.html", "municipality_detail.html", "stations.html", "station_detail.html", "station_form.html", "watercourses.html", "watercourse_detail.html", "watercourse_form.html", "structures.html", "structure_detail.html", "structure_form.html", "readings.html", "reading_history.html", "reading_form.html", "teren.html", "settings.html"} {
+	for _, page := range []string{"dashboard.html", "users.html", "user_detail.html", "user_form.html", "duty_form.html", "profile.html", "sections.html", "section_detail.html", "section_form.html", "territories.html", "county_form.html", "municipality_form.html", "municipality_detail.html", "stations.html", "station_detail.html", "station_form.html", "watercourses.html", "watercourse_detail.html", "watercourse_form.html", "structures.html", "structure_detail.html", "structure_form.html", "readings.html", "reading_history.html", "reading_form.html", "teren.html", "moduli.html", "settings.html"} {
 		t, err := template.New("base.html").Funcs(tmplFuncs).ParseFS(templatesFS, "base.html", page)
 		if err != nil {
 			return nil, fmt.Errorf("greška pri parsiranju predloška %s: %w", page, err)
@@ -220,6 +223,7 @@ func NewServer(
 		watercourseService: watercourseService,
 		structureService:   structureService,
 		readingService:     readingService,
+		moduleService:      moduleService,
 		peersService:       peersService,
 		recorder:           recorder,
 		sseBroker:          sseBroker,
@@ -246,6 +250,11 @@ func (s *Server) setupRoutes() {
 	structuresH := NewStructuresHandler(s.structureService, s.stationService, s.sectionService, s.userService,
 		s.templates["structures.html"], s.templates["structure_detail.html"], s.templates["structure_form.html"])
 	sectionsH.SetStructureService(s.structureService)
+	modulesH := NewModulesHandler(s.moduleService, s.templates["moduli.html"])
+	s.mux.Handle("GET /moduli", s.authMiddleware(http.HandlerFunc(modulesH.ShowMatrix)))
+	s.mux.Handle("POST /moduli/save", s.authMiddleware(http.HandlerFunc(modulesH.HandleSave)))
+	usersH.SetModuleService(s.moduleService)
+	s.mux.Handle("POST /users/{id}/modules", s.authMiddleware(http.HandlerFunc(usersH.HandleUserModules)))
 	fieldH := NewFieldHandler(s.readingService, s.templates["teren.html"])
 	s.mux.Handle("GET /teren", s.authMiddleware(http.HandlerFunc(fieldH.ShowField)))
 	readingsH := NewReadingsHandler(s.readingService, s.stationService, s.structureService, s.userService,
@@ -424,7 +433,20 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
+		// Moduli: što račun vidi. Skriveni modul ne otvara se ni izravnom
+		// adresom; pri pregledu tuđim očima vrijedi tuđi skup.
+		visible, err := s.moduleService.Visibility(r.Context(), view.User, view.Perms)
+		if err != nil {
+			http.Error(w, "Greška pri čitanju vidljivosti modula: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if mod := moduleForPath(r.URL.Path); mod != "" && !visible.Sees(mod) {
+			http.Error(w, "Modul „"+models.ModuleLabel(mod)+"“ nije uključen za vaš račun. Ako vam treba, javite se administratoru.", http.StatusForbidden)
+			return
+		}
+
 		ctx := context.WithValue(r.Context(), contextKeyUser, view.User)
+		ctx = context.WithValue(ctx, contextKeyModules, visible)
 		ctx = context.WithValue(ctx, contextKeyPerms, view.Perms)
 		ctx = context.WithValue(ctx, contextKeyRealUsr, view.RealUser)
 		ctx = context.WithValue(ctx, contextKeyViewing, view.Viewing)
@@ -432,6 +454,32 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+// modulePaths preslikava početak putanje na modul; što nije navedeno
+// (početna, profil, pregled tuđim očima, statika) otvoreno je svima
+var modulePaths = []struct{ prefix, module string }{
+	{"/teren", models.ModuleField},
+	{"/readings", models.ModuleReadings},
+	{"/sections", models.ModuleRegisters}, {"/stations", models.ModuleRegisters},
+	{"/structures", models.ModuleRegisters}, {"/watercourses", models.ModuleRegisters},
+	{"/territories", models.ModuleRegisters},
+	{"/api/sections", models.ModuleRegisters}, {"/api/stations", models.ModuleRegisters},
+	{"/api/watercourses", models.ModuleRegisters}, {"/api/settlements", models.ModuleRegisters},
+	{"/api/counties", models.ModuleRegisters}, {"/api/municipalities", models.ModuleRegisters},
+	{"/api/areas", models.ModuleRegisters},
+	{"/users", models.ModuleUsers},
+	{"/settings", models.ModuleSettings}, {"/api/peers", models.ModuleSettings},
+	{"/api/network", models.ModuleSettings}, {"/api/history", models.ModuleSettings},
+}
+
+func moduleForPath(path string) string {
+	for _, mp := range modulePaths {
+		if path == mp.prefix || strings.HasPrefix(path, mp.prefix+"/") {
+			return mp.module
+		}
+	}
+	return ""
 }
 
 // readOnlyRequest javlja smije li zahtjev proći dok se gleda tuđim očima:

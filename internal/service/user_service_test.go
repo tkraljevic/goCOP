@@ -47,7 +47,7 @@ func setupTestServices(t *testing.T) (*service.UserService, *service.AuthService
 func TestSeedAdminProvjera(t *testing.T) {
 	_, authService, _, userRepo := setupTestServices(t)
 
-	admin, err := userRepo.GetUserByUsername("tomislav")
+	admin, err := userRepo.GetUserByUsername("tkraljevic")
 	if err != nil {
 		t.Fatalf("Greška pri dohvatu admina: %v", err)
 	}
@@ -115,7 +115,7 @@ func TestDynamicAddDutyOnTheFly(t *testing.T) {
 	sseChan := sseBroker.Subscribe()
 	defer sseBroker.Unsubscribe(sseChan)
 
-	admin, _ := userRepo.GetUserByUsername("tomislav")
+	admin, _ := userRepo.GetUserByUsername("tkraljevic")
 	adminPerms, _ := userRepo.GetUserPermissions(admin.ID)
 
 	sectorB := "B"
@@ -208,7 +208,7 @@ func TestSearchUsers(t *testing.T) {
 	}
 	foundTomislav := false
 	for _, u := range results {
-		if u.Username == "tomislav" {
+		if u.Username == "tkraljevic" {
 			foundTomislav = true
 			break
 		}
@@ -228,7 +228,7 @@ func TestSearchUsers(t *testing.T) {
 
 	// Pretraga po broju mobitela
 	// pretraga po broju telefona: broj se uzima iz zapisa, ne piše se u test
-	tomislavZaBroj, _ := userRepo.GetUserByUsername("tomislav")
+	tomislavZaBroj, _ := userRepo.GetUserByUsername("tkraljevic")
 	phoneResults, err := userService.ListUsers("", 0, "", tomislavZaBroj.MobilePhone, "")
 	if err != nil {
 		t.Fatalf("Greška pri pretrazi po mobitelu: %v", err)
@@ -238,7 +238,7 @@ func TestSearchUsers(t *testing.T) {
 	}
 	foundTomislavPhone := false
 	for _, u := range phoneResults {
-		if u.Username == "tomislav" {
+		if u.Username == "tkraljevic" {
 			foundTomislavPhone = true
 			break
 		}
@@ -252,7 +252,7 @@ func TestSearchUsers(t *testing.T) {
 func TestDeleteUser(t *testing.T) {
 	userService, _, _, userRepo := setupTestServices(t)
 
-	admin, _ := userRepo.GetUserByUsername("tomislav")
+	admin, _ := userRepo.GetUserByUsername("tkraljevic")
 	adminPerms, _ := userRepo.GetUserPermissions(admin.ID)
 
 	// Pokušaj brisanja samoga sebe mora vratiti grešku
@@ -302,7 +302,7 @@ func TestChangePassword(t *testing.T) {
 	_, authService, _, userRepo := setupTestServices(t)
 
 	// 1. Dohvat korisnika nakon početnog seeda
-	user, err := userRepo.GetUserByUsername("tomislav")
+	user, err := userRepo.GetUserByUsername("tkraljevic")
 	if err != nil || user == nil {
 		t.Fatalf("Greška pri dohvatu korisnika: %v", err)
 	}
@@ -313,7 +313,7 @@ func TestChangePassword(t *testing.T) {
 	}
 
 	// 2. Prijava s početnom lozinkom mora uspjeti
-	_, loggedUser, err := authService.Login("tomislav", "gocop2026", "127.0.0.1", "test-agent")
+	_, loggedUser, err := authService.Login("tkraljevic", "gocop2026", "127.0.0.1", "test-agent")
 	if err != nil || loggedUser == nil {
 		t.Fatalf("Prijava s početnom lozinkom 'gocop2026' nije uspjela: %v", err)
 	}
@@ -346,13 +346,13 @@ func TestChangePassword(t *testing.T) {
 	}
 
 	// 7. Stara lozinka više ne smije prolaziti
-	_, _, err = authService.Login("tomislav", "gocop2026", "127.0.0.1", "test-agent")
+	_, _, err = authService.Login("tkraljevic", "gocop2026", "127.0.0.1", "test-agent")
 	if err == nil {
 		t.Error("Stara lozinka ne smije vrijediti nakon promjene")
 	}
 
 	// 8. Nova lozinka mora uspješno prijaviti korisnika
-	_, _, err = authService.Login("tomislav", "mojaNovaSigurnaLozinka", "127.0.0.1", "test-agent")
+	_, _, err = authService.Login("tkraljevic", "mojaNovaSigurnaLozinka", "127.0.0.1", "test-agent")
 	if err != nil {
 		t.Fatalf("Prijava s novom lozinkom nije uspjela: %v", err)
 	}
@@ -393,7 +393,7 @@ func TestRegularUserCanEditOwnProfileNotOthersOrDuties(t *testing.T) {
 	}
 
 	// 2. Korisnik NE SMIJE moći uređivati tuđi profil (npr. Tomislava Kraljevića)
-	otherUser, _ := userRepo.GetUserByUsername("tomislav")
+	otherUser, _ := userRepo.GetUserByUsername("tkraljevic")
 	_, err = userService.UpdateUser(userPerms, service.UpdateUserRequest{
 		ID:          otherUser.ID,
 		Username:    otherUser.Username,

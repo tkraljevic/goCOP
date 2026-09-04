@@ -169,6 +169,8 @@ func main() {
 	structureRepo := repository.NewStructureRepository(database, recorder)
 	structureService := service.NewStructureService(structureRepo)
 	readingRepo := repository.NewReadingRepository(database, recorder)
+	moduleRepo := repository.NewModuleRepository(database, recorder)
+	moduleService := service.NewModuleService(moduleRepo)
 	readingService := service.NewReadingService(readingRepo, stationRepo, structureRepo, sectionService, userService)
 
 	// Uvoz iz Directusa je zaseban način rada: uveze i završi
@@ -207,7 +209,7 @@ func main() {
 	}()
 
 	// 5. Inicijalizacija web poslužitelja s ugrađenim embed.FS resursima
-	server, err := web.NewServer(*addr, authService, userService, sectionService, territoryService, stationService, watercourseService, structureService, readingService, peersService, recorder, sseBroker)
+	server, err := web.NewServer(*addr, authService, userService, sectionService, territoryService, stationService, watercourseService, structureService, readingService, moduleService, peersService, recorder, sseBroker)
 	if err != nil {
 		log.Fatalf("Greška pri inicijalizaciji web poslužitelja: %v", err)
 	}
@@ -249,7 +251,7 @@ func main() {
 
 	go func() {
 		log.Printf("Poslužitelj spreman na http://localhost%s", *addr)
-		log.Printf("Prijavite se s računom 'tomislav' ili 'admin' (lozinka: gocop2026)")
+		log.Printf("Prijava korisničkim imenom iz imenika; početna lozinka se mijenja pri prvoj prijavi")
 		err := server.Start()
 		if err != nil && err != http.ErrServerClosed && *addr == ":80" {
 			// Port 80 na Linuxu i macOS-u traži administratorska prava; radije

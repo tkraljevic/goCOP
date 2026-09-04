@@ -1,0 +1,51 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Moduli po ulogama{{end}}
+
+{{define "content"}}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "eye"}} Moduli po ulogama</h1>
+    <p class="page-desc">
+      Što koja uloga vidi u izborniku i smije otvoriti. Ovo je vidljivost, ne pravo upisa: što tko smije
+      upisati i dalje određuju dužnosti (sektor, područje, dionica). Iznimka za pojedini račun radi se na
+      stranici djelatnika. Globalni administrator uvijek vidi sve. Pravila vrijede na svim čvorovima.
+    </p>
+  </div>
+</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
+
+<form method="POST" action="/moduli/save">
+  <div class="reg-card" style="padding:0; overflow-x:auto;">
+    <table class="module-matrix">
+      <thead>
+        <tr>
+          <th>Uloga</th>
+          {{range .Modules}}<th title="{{.Desc}}">{{.Label}}</th>{{end}}
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Rows}}
+        <tr>
+          <th scope="row">{{.Label}}{{if .Custom}} <span class="reg-chip" title="administrator je promijenio zadano">prilagođeno</span>{{end}}</th>
+          {{$row := .}}
+          {{range $.Modules}}
+          <td><label><input type="checkbox" name="m" value="{{$row.Role}}:{{.ID}}" {{if index $row.Modules .ID}}checked{{end}}><span class="sr-only">{{.Label}}</span></label></td>
+          {{end}}
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+  <div class="form-actions" style="margin-top:1rem;">
+    <a href="/settings" class="btn btn-secondary">Odustani</a>
+    <button type="submit" class="btn btn-primary">Spremi pravila</button>
+  </div>
+</form>
+
+<p class="page-desc" style="margin-top:1rem;">
+  {{range .Modules}}<strong>{{.Label}}</strong>: {{.Desc}}. {{end}}
+</p>
+{{end}}

@@ -16,12 +16,13 @@ import (
 )
 
 type UsersHandler struct {
-	userService *service.UserService
-	tmpl        *template.Template // popis
-	tmplDetail  *template.Template // jedan djelatnik
-	tmplForm    *template.Template // obrazac
-	tmplDuty    *template.Template // zaduženje
-	tmplProfile *template.Template // vlastiti profil
+	userService   *service.UserService
+	moduleService *service.ModuleService
+	tmpl          *template.Template // popis
+	tmplDetail    *template.Template // jedan djelatnik
+	tmplForm      *template.Template // obrazac
+	tmplDuty      *template.Template // zaduženje
+	tmplProfile   *template.Template // vlastiti profil
 }
 
 func NewUsersHandler(userService *service.UserService, tmpl *template.Template) *UsersHandler {
