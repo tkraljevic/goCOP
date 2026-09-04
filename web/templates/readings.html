@@ -1,0 +1,104 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Vodostaji{{end}}
+
+{{define "content"}}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "activity"}} Vodostaji</h1>
+    <p class="page-desc">
+      Zadnje očitanje na svakoj letvi: vodomjerne postaje i objekti. Očitanje se upisuje s telefona na nasipu,
+      a program iz pragova postaje predlaže fazu obrane.
+    </p>
+  </div>
+</div>
+
+<div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1.25rem;">
+  <span class="stat-badge has-items">{{icon "ruler"}} {{.WithReadings}} letvi s očitanjima</span>
+  <span class="stat-badge has-items">{{icon "history"}} {{.TotalCount}} očitanja</span>
+  {{if not .LastAt.IsZero}}<span class="stat-badge">{{icon "clock"}} zadnje {{ago .LastAt}}</span>{{end}}
+</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
+
+<div class="filter-card">
+  <form action="/readings" method="GET">
+    <div class="search-bar-row">
+      <div class="search-input-wrapper">
+        <span class="search-icon">{{icon "search"}}</span>
+        <input type="search" name="q" value="{{.SearchQuery}}" class="search-input" placeholder="Letva (Batina, CS Draž, ustava Bilje)…" autocomplete="off">
+      </div>
+      <button type="submit" class="btn btn-primary">Pretraži</button>
+      {{if or .SearchQuery .SelectedArea .ShowAll}}<a href="/readings" class="btn btn-secondary">{{icon "x"}}</a>{{end}}
+    </div>
+    <div class="filters-row" style="grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));">
+      <div class="filter-group">
+        <label class="filter-label" for="area">{{icon "waves"}} Branjeno područje (objekti)</label>
+        <select id="area" name="area" class="filter-select" onchange="this.form.submit()">
+          <option value="">Sva područja</option>
+          {{range .Areas}}<option value="{{.ID}}" {{if eq $.SelectedArea .ID}}selected{{end}}>{{.ID}}: {{.Name}}</option>{{end}}
+        </select>
+      </div>
+      <div class="filter-group">
+        <label class="filter-label" for="all">{{icon "eye"}} Prikaz</label>
+        <select id="all" name="all" class="filter-select" onchange="this.form.submit()">
+          <option value="" {{if not .ShowAll}}selected{{end}}>Samo letve s očitanjima</option>
+          <option value="1" {{if .ShowAll}}selected{{end}}>Sve letve iz registara ({{.TotalGauges}})</option>
+        </select>
+      </div>
+    </div>
+  </form>
+</div>
+
+{{template "pager" .Pager}}
+
+<div class="reg-list">
+  {{range .Gauges}}
+  <article class="reg-card">
+    <a class="reg-card-link" href="{{.URL}}" style="padding-bottom:0.5rem;">
+      <div class="reg-card-head">
+        <div>
+          <h3 class="reg-card-title">{{.Name}}</h3>
+          <div class="reg-card-sub">{{.Sub}}</div>
+        </div>
+        {{if and .Latest (ne .Phase.Label "Pragovi nisu određeni")}}<span class="badge {{.Phase.BadgeClass}}">{{.Phase.Label}}</span>{{end}}
+      </div>
+      {{if .Latest}}
+      <div style="display:flex; align-items:baseline; gap:0.75rem; flex-wrap:wrap; margin-top:0.35rem;">
+        <div class="reading-value">
+          {{if .Latest.LevelCm}}{{intOf .Latest.LevelCm}}<small>cm</small>{{else if .Latest.Level2Cm}}<span style="color:var(--text-muted)">—</span>{{else}}<span style="font-size:1rem; color:var(--text-muted); font-weight:500;">nije očitan</span>{{end}}
+        </div>
+        {{with .Trend}}
+          {{if gt (intOf .) 0}}<span class="reading-trend up">{{icon "trending-up"}} +{{intOf .}}</span>
+          {{else if lt (intOf .) 0}}<span class="reading-trend down">{{icon "trending-down"}} {{intOf .}}</span>
+          {{else}}<span class="reading-trend flat">{{icon "minus"}} 0</span>{{end}}
+        {{end}}
+        {{if .Latest.Level2Cm}}<span class="reading-meta">nizvodno <strong>{{intOf .Latest.Level2Cm}} cm</strong></span>{{end}}
+      </div>
+      <div class="reading-meta" style="margin-top:0.25rem;">
+        <span class="{{if .Stale}}reading-stale{{end}}">{{ago .Latest.MeasuredAt}}</span>
+        · {{formatDate .Latest.LocalTime}}
+        {{if .Latest.StructureState}} · {{.Latest.StateLabel}}{{end}}
+        {{if .Latest.Gate}} · zapornica {{.Latest.GateLabel}}{{end}}
+        {{if .Latest.Observer}} · {{.Latest.Observer}}{{end}}
+      </div>
+      {{else}}
+      <div class="reading-meta" style="margin-top:0.35rem; color:var(--text-muted);">Još nema očitanja.</div>
+      {{end}}
+      <div class="reg-card-foot">
+        <span class="reg-chip {{if eq .Count 0}}empty{{end}}">{{icon "history"}} {{.Count}} očitanja</span>
+        {{if .Latest}}<span class="reg-origin">{{.Latest.SourceLabel}}{{with .Latest.OriginLabel}} · {{.}}{{end}}</span>{{end}}
+      </div>
+    </a>
+    <div style="padding:0 1rem 0.85rem;">
+      <a href="{{.NewURL}}" class="btn btn-secondary btn-sm" style="min-height:40px;">{{icon "plus"}} Upiši očitanje</a>
+    </div>
+  </article>
+  {{else}}
+  <div class="reg-empty">Nijedna letva ne odgovara zadanim filtrima.</div>
+  {{end}}
+</div>
+
+{{template "pager" .Pager}}
+{{end}}

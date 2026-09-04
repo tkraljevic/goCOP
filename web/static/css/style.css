@@ -2206,3 +2206,36 @@ textarea {
 /* Kartice modula na početnoj: tekst popisa mora ostati čitljiv i u tamnoj temi */
 .dash-card li, .dash-card p { color: var(--text-secondary); }
 .dash-card li strong { color: var(--text); }
+
+
+/* Vodostaji: očitanja i graf */
+.reading-value { font-size: 2rem; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1.1; color: var(--text-strong); }
+.reading-value small { font-size: 0.9rem; font-weight: 600; color: var(--text-secondary); margin-left: 0.15rem; }
+.reading-trend { display: inline-flex; align-items: center; gap: 0.2rem; font-size: 0.85rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.reading-trend.up { color: var(--danger); }
+.reading-trend.down { color: var(--success); }
+.reading-trend.flat { color: var(--text-muted); }
+.reading-meta { font-size: 0.8rem; color: var(--text-secondary); }
+.reading-stale { color: var(--tint-orange-fg); font-weight: 600; }
+.reading-row { display: grid; grid-template-columns: 7.5rem 1fr auto; gap: 0.25rem 0.75rem; align-items: baseline; padding: 0.6rem 0.9rem; border-top: 1px solid var(--border); font-size: 0.9rem; }
+.reading-row:first-child { border-top: 0; }
+.reading-row .when { font-variant-numeric: tabular-nums; color: var(--text-secondary); font-size: 0.85rem; white-space: nowrap; }
+.reading-row .value { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text-strong); white-space: nowrap; }
+.reading-row .extra { grid-column: 1 / -1; font-size: 0.8rem; color: var(--text-secondary); }
+@media (max-width: 480px) { .reading-row { grid-template-columns: 6rem 1fr auto; padding: 0.55rem 0.75rem; } }
+.chart svg { width: 100%; height: auto; display: block; }
+.chart .line { fill: none; stroke: var(--primary); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.chart .area { fill: var(--tint-blue-bg); }
+.chart .dot { fill: var(--primary); }
+.chart .dot.last { fill: var(--secondary, var(--primary)); r: 4; }
+.chart .grid { stroke: var(--border); stroke-width: 1; }
+.chart .tick { font-size: 10px; fill: var(--text-secondary); font-family: inherit; }
+.chart .thr { stroke-dasharray: 4 3; stroke-width: 1.5; }
+.chart .thr.prep { stroke: var(--tint-yellow-fg); }
+.chart .thr.regular { stroke: var(--tint-orange-fg); }
+.chart .thr.emerg, .chart .thr.crit { stroke: var(--danger); }
+.chart .thr-label { font-size: 10px; font-weight: 700; font-family: inherit; }
+.chart .thr-label.prep { fill: var(--tint-yellow-fg); }
+.chart .thr-label.regular { fill: var(--tint-orange-fg); }
+.chart .thr-label.emerg, .chart .thr-label.crit { fill: var(--danger); }
+.level-input { font-size: 1.75rem; font-weight: 700; text-align: center; letter-spacing: 0.02em; min-height: 3.5rem; font-variant-numeric: tabular-nums; }

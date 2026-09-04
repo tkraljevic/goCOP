@@ -110,6 +110,65 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 			w.LengthKm, w.BasinKm2, w.AvgFlowM3S, w.Source, w.Mouth, w.FlowsInto)
 		return err
 
+	case EntityReadings:
+		var rd models.Reading
+		if err := json.Unmarshal(v.Payload, &rd); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, `
+			INSERT INTO readings (`+readingColumns+`)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			ON CONFLICT(id) DO UPDATE SET
+				station_id = excluded.station_id, structure_id = excluded.structure_id, measured_at = excluded.measured_at,
+				level_cm = excluded.level_cm, level2_cm = excluded.level2_cm, source = excluded.source, origin = excluded.origin,
+				source_ref = excluded.source_ref, observer = excluded.observer, user_id = excluded.user_id,
+				structure_state = excluded.structure_state, gate = excluded.gate, ag_hours_1 = excluded.ag_hours_1,
+				ag_hours_2 = excluded.ag_hours_2, ag_hours_3 = excluded.ag_hours_3, note = excluded.note,
+				updated_at = excluded.updated_at
+		`, readingArgs(&rd)...)
+		return err
+
+	case EntityStructures:
+		var st models.Structure
+		if err := json.Unmarshal(v.Payload, &st); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, `
+			INSERT INTO structures (id, code, name, kind, sector_id, area_id, watercourse_code, station_id,
+				zero_datum, zero_datum_system, capacity_text, start_cm, start_text, stop_cm, stop_text,
+				notes, origin, latitude, longitude, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			ON CONFLICT(id) DO UPDATE SET
+				code = excluded.code, name = excluded.name, kind = excluded.kind, sector_id = excluded.sector_id,
+				area_id = excluded.area_id, watercourse_code = excluded.watercourse_code, station_id = excluded.station_id,
+				zero_datum = excluded.zero_datum, zero_datum_system = excluded.zero_datum_system,
+				capacity_text = excluded.capacity_text, start_cm = excluded.start_cm, start_text = excluded.start_text,
+				stop_cm = excluded.stop_cm, stop_text = excluded.stop_text, notes = excluded.notes, origin = excluded.origin,
+				latitude = excluded.latitude, longitude = excluded.longitude, updated_at = excluded.updated_at
+		`, st.ID.String(), st.Code, st.Name, st.Kind, st.SectorID, st.AreaID, st.WatercourseCode, st.StationID,
+			st.ZeroDatum, st.ZeroDatumSystem, st.CapacityText, st.StartCm, st.StartText, st.StopCm, st.StopText,
+			st.Notes, st.Origin, st.Latitude, st.Longitude, st.CreatedAt, st.UpdatedAt)
+		return err
+
+	case EntitySectionStructures:
+		var link struct {
+			ID          string `json:"id"`
+			SectionCode string `json:"section_code"`
+			StructureID string `json:"structure_id"`
+		}
+		if err := json.Unmarshal(v.Payload, &link); err != nil {
+			return err
+		}
+		if link.ID == "" {
+			link.ID = v.VersionID
+		}
+		_, err := tx.ExecContext(ctx, `
+			INSERT INTO section_structures (id, section_code, structure_id, created_at)
+			VALUES (?, ?, ?, ?)
+			ON CONFLICT(section_code, structure_id) DO NOTHING
+		`, link.ID, link.SectionCode, link.StructureID, v.CreatedAt)
+		return err
+
 	case EntityUsers:
 		var uv userVersion
 		if err := json.Unmarshal(v.Payload, &uv); err != nil {
@@ -310,6 +369,12 @@ func removeFromSurface(ctx context.Context, tx *sql.Tx, v ledger.Version) error 
 		stmt = `DELETE FROM sections WHERE code = ?`
 	case EntityWatercourses:
 		stmt = `DELETE FROM watercourses WHERE code = ?`
+	case EntityReadings:
+		stmt = `DELETE FROM readings WHERE id = ?`
+	case EntityStructures:
+		stmt = `DELETE FROM structures WHERE id = ?`
+	case EntitySectionStructures:
+		stmt = `DELETE FROM section_structures WHERE id = ?`
 	case EntityUsers:
 		stmt = `DELETE FROM users WHERE id = ?`
 	case EntityDuties:

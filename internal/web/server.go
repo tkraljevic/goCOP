@@ -42,6 +42,8 @@ type Server struct {
 	territoryService   *service.TerritoryService
 	stationService     *service.StationService
 	watercourseService *service.WatercourseService
+	structureService   *service.StructureService
+	readingService     *service.ReadingService
 	peersService       *peers.Service
 	recorder           *ledger.Recorder
 	sseBroker          *service.SSEBroker
@@ -57,6 +59,8 @@ func NewServer(
 	territoryService *service.TerritoryService,
 	stationService *service.StationService,
 	watercourseService *service.WatercourseService,
+	structureService *service.StructureService,
+	readingService *service.ReadingService,
 	peersService *peers.Service,
 	recorder *ledger.Recorder,
 	sseBroker *service.SSEBroker,
@@ -139,7 +143,19 @@ func NewServer(
 				return fmt.Sprintf("%d dionica", n)
 			}
 		},
-		"add": func(a, b int) int { return a + b },
+		"add":            func(a, b int) int { return a + b },
+		"structureKind":  models.StructureKindLabel,
+		"readingSource":  models.ReadingSourceLabel,
+		"structureState": models.StructureStateLabel,
+		"gateLabel":      models.GateLabel,
+		"localTime":      func(t time.Time) time.Time { return t.In(models.Zagreb) },
+		"intOf": func(i *int) int {
+			if i == nil {
+				return 0
+			}
+			return *i
+		},
+		"ago": humanAgo,
 		// icon crta ikonu iz ugrađenog SVG sprajta (Lucide, ISC). Ikone su
 		// dio binarne datoteke, pa izgledaju isto na svakom uređaju i rade
 		// bez mreže — emoji su se crtali drukčije na svakom sustavu.
@@ -179,7 +195,7 @@ func NewServer(
 	templates := make(map[string]*template.Template)
 
 	// Predlošci koji proširuju base.html
-	for _, page := range []string{"dashboard.html", "users.html", "user_detail.html", "user_form.html", "duty_form.html", "profile.html", "sections.html", "section_detail.html", "section_form.html", "territories.html", "county_form.html", "municipality_form.html", "municipality_detail.html", "stations.html", "station_detail.html", "station_form.html", "watercourses.html", "watercourse_detail.html", "watercourse_form.html", "settings.html"} {
+	for _, page := range []string{"dashboard.html", "users.html", "user_detail.html", "user_form.html", "duty_form.html", "profile.html", "sections.html", "section_detail.html", "section_form.html", "territories.html", "county_form.html", "municipality_form.html", "municipality_detail.html", "stations.html", "station_detail.html", "station_form.html", "watercourses.html", "watercourse_detail.html", "watercourse_form.html", "structures.html", "structure_detail.html", "structure_form.html", "readings.html", "reading_history.html", "reading_form.html", "settings.html"} {
 		t, err := template.New("base.html").Funcs(tmplFuncs).ParseFS(templatesFS, "base.html", page)
 		if err != nil {
 			return nil, fmt.Errorf("greška pri parsiranju predloška %s: %w", page, err)
@@ -202,6 +218,8 @@ func NewServer(
 		territoryService:   territoryService,
 		stationService:     stationService,
 		watercourseService: watercourseService,
+		structureService:   structureService,
+		readingService:     readingService,
 		peersService:       peersService,
 		recorder:           recorder,
 		sseBroker:          sseBroker,
@@ -225,6 +243,11 @@ func (s *Server) setupRoutes() {
 	stationsH := NewStationsHandler(s.stationService, s.templates["stations.html"])
 	stationsH.SetPageTemplates(s.templates["station_detail.html"], s.templates["station_form.html"], s.sectionService, s.watercourseService)
 	watercoursesH := NewWatercoursesHandler(s.watercourseService, s.sectionService, s.templates["watercourses.html"])
+	structuresH := NewStructuresHandler(s.structureService, s.stationService, s.sectionService, s.userService,
+		s.templates["structures.html"], s.templates["structure_detail.html"], s.templates["structure_form.html"])
+	sectionsH.SetStructureService(s.structureService)
+	readingsH := NewReadingsHandler(s.readingService, s.stationService, s.structureService, s.userService,
+		s.templates["readings.html"], s.templates["reading_history.html"], s.templates["reading_form.html"])
 	watercoursesH.SetPageTemplates(s.templates["watercourse_detail.html"], s.templates["watercourse_form.html"], s.stationService)
 	settingsH := NewSettingsHandler(s.peersService, s.recorder, s.templates["settings.html"])
 	sseH := NewSSEHandler(s.sseBroker)
@@ -314,6 +337,23 @@ func (s *Server) setupRoutes() {
 
 	// Registar vodnih tijela
 	s.mux.Handle("GET /watercourses", s.authMiddleware(http.HandlerFunc(watercoursesH.ShowWatercourses)))
+	s.mux.Handle("GET /structures", s.authMiddleware(http.HandlerFunc(structuresH.ShowStructures)))
+	s.mux.Handle("GET /readings", s.authMiddleware(http.HandlerFunc(readingsH.ShowOverview)))
+	s.mux.Handle("GET /readings/new", s.authMiddleware(http.HandlerFunc(readingsH.ShowForm)))
+	s.mux.Handle("GET /readings/edit/{id}", s.authMiddleware(http.HandlerFunc(readingsH.ShowForm)))
+	s.mux.Handle("GET /readings/station/{id}", s.authMiddleware(http.HandlerFunc(readingsH.ShowHistory)))
+	s.mux.Handle("GET /readings/structure/{id}", s.authMiddleware(http.HandlerFunc(readingsH.ShowHistory)))
+	s.mux.Handle("POST /readings/create", s.authMiddleware(http.HandlerFunc(readingsH.HandleCreate)))
+	s.mux.Handle("POST /readings/update", s.authMiddleware(http.HandlerFunc(readingsH.HandleUpdate)))
+	s.mux.Handle("POST /readings/delete", s.authMiddleware(http.HandlerFunc(readingsH.HandleDelete)))
+	s.mux.Handle("GET /structures/new", s.authMiddleware(http.HandlerFunc(structuresH.ShowStructureForm)))
+	s.mux.Handle("GET /structures/{id}", s.authMiddleware(http.HandlerFunc(structuresH.ShowStructure)))
+	s.mux.Handle("GET /structures/{id}/edit", s.authMiddleware(http.HandlerFunc(structuresH.ShowStructureForm)))
+	s.mux.Handle("POST /structures/create", s.authMiddleware(http.HandlerFunc(structuresH.HandleCreate)))
+	s.mux.Handle("POST /structures/update", s.authMiddleware(http.HandlerFunc(structuresH.HandleUpdate)))
+	s.mux.Handle("POST /structures/delete", s.authMiddleware(http.HandlerFunc(structuresH.HandleDelete)))
+	s.mux.Handle("POST /structures/{id}/link", s.authMiddleware(http.HandlerFunc(structuresH.HandleLink)))
+	s.mux.Handle("POST /structures/{id}/unlink", s.authMiddleware(http.HandlerFunc(structuresH.HandleUnlink)))
 	s.mux.Handle("GET /watercourses/new", s.authMiddleware(http.HandlerFunc(watercoursesH.ShowWatercourseForm)))
 	s.mux.Handle("GET /watercourses/{code}", s.authMiddleware(http.HandlerFunc(watercoursesH.ShowWatercourse)))
 	s.mux.Handle("GET /watercourses/{code}/edit", s.authMiddleware(http.HandlerFunc(watercoursesH.ShowWatercourseForm)))

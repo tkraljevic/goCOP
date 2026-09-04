@@ -133,5 +133,9 @@ func wantsPage(r *http.Request) bool {
 func redirectWith(w http.ResponseWriter, r *http.Request, path, key, msg string) {
 	q := url.Values{}
 	q.Set(key, msg)
-	http.Redirect(w, r, path+"?"+q.Encode(), http.StatusSeeOther)
+	sep := "?"
+	if strings.Contains(path, "?") {
+		sep = "&"
+	}
+	http.Redirect(w, r, path+sep+q.Encode(), http.StatusSeeOther)
 }

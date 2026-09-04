@@ -15,8 +15,10 @@
       {{if .Station.NeedsReview}} · <span class="badge badge-inactive" title="{{.Station.ReviewNote}}">{{icon "triangle-alert"}} traži pregled pragova</span>{{end}}
     </p>
   </div>
-  {{if .CanEdit}}
   <div class="detail-actions">
+    <a href="/readings/new?station={{.Station.ID}}" class="btn btn-primary">{{icon "plus"}} Upiši očitanje</a>
+    <a href="/readings/station/{{.Station.ID}}" class="btn btn-secondary">{{icon "activity"}} Vodostaji</a>
+  {{if .CanEdit}}
     <a href="/stations/{{.Station.ID}}/edit" class="btn btn-secondary">{{icon "pencil"}} Uredi</a>
     {{if .Permissions.IsGlobalAdmin}}
     <form method="POST" action="/api/stations/delete"
@@ -25,8 +27,8 @@
       <button type="submit" class="btn btn-sm" style="background:var(--danger-bg); color:var(--danger); border-color:var(--danger-border); min-height:40px;">{{icon "trash"}} Obriši</button>
     </form>
     {{end}}
-  </div>
   {{end}}
+  </div>
 </div>
 
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}

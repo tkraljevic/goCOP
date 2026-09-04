@@ -197,6 +197,19 @@ func (r *StationRepository) attachSectionCodes(ctx context.Context, stations []m
 	return rows.Err()
 }
 
+// GetStationByCode vraća postaju po šifri ili nil
+func (r *StationRepository) GetStationByCode(ctx context.Context, code string) (*models.Station, error) {
+	st, err := scanStation(r.db.QueryRowContext(ctx, "SELECT "+stationColumns+" FROM stations s WHERE s.code = ?", code))
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	st.SectionCodes, _ = r.GetSectionCodesForStation(ctx, st.ID)
+	return &st, nil
+}
+
 // GetStationByID dohvaća jednu postaju s pripadajućim dionicama
 func (r *StationRepository) GetStationByID(ctx context.Context, id uuid.UUID) (*models.Station, error) {
 	row := r.db.QueryRowContext(ctx, `SELECT `+stationColumns+` FROM stations s WHERE s.id = ?`, id.String())
