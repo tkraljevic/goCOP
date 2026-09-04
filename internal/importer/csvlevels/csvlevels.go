@@ -34,12 +34,13 @@ import (
 
 // Options su postavke jednog uvoza
 type Options struct {
-	Path     string // datoteka
-	Hour     int    // sat očitanja (zadano 7)
-	Minute   int    // minuta očitanja
-	Origin   string // odakle tablica potječe, za trag u zapisu
-	Source   string // način: UVOZ kad se ne zna je li ručno ili automatski
-	DryRun   bool   // samo pokaži što bi se dogodilo
+	Path     string   // datoteka
+	Hour     int      // sat očitanja (zadano 7)
+	Minute   int      // minuta očitanja
+	Origin   string   // odakle tablica potječe, za trag u zapisu
+	Source   string   // način: UVOZ kad se ne zna je li ručno ili automatski
+	DryRun   bool     // samo pokaži što bi se dogodilo
+	Skip     []string // stupci koje namjerno preskačemo (npr. protoci)
 	Log      func(string, ...any)
 	Deps     Deps
 	MaxShown int // koliko primjera razlika ispisati
@@ -66,6 +67,7 @@ type Report struct {
 	Matched   []Column
 	Unmatched []string
 	Ambiguous []string
+	Skipped2  []string // namjerno preskočeni stupci
 	Inserted  int
 	Skipped   int // isti dan na istoj letvi već postoji
 	Conflicts int // ... i vrijednost se razlikuje
@@ -136,6 +138,10 @@ func Run(ctx context.Context, o Options) (Report, error) {
 	for i := 1; i < len(header); i++ {
 		name := strings.TrimSpace(header[i])
 		if name == "" {
+			continue
+		}
+		if skipped(o.Skip, name) {
+			rep.Skipped2 = append(rep.Skipped2, name)
 			continue
 		}
 		found, ambiguous := gauges.match(name)
@@ -270,6 +276,19 @@ func Run(ctx context.Context, o Options) (Report, error) {
 		o.logf("Uvoz tablice: upisano %d od %d", rep.Inserted, len(fresh))
 	}
 	return rep, nil
+}
+
+// skipped javlja je li stupac na popisu onih koje namjerno ne uvozimo.
+// Tablica centra uz vodostaje nosi i srednje dnevne protoke u kubnim
+// metrima u sekundi; oni nisu centimetri i ne smiju završiti kao vodostaj.
+func skipped(list []string, header string) bool {
+	k := normalize(header)
+	for _, s := range list {
+		if normalize(s) == k {
+			return true
+		}
+	}
+	return false
 }
 
 func ids(rs []models.Reading) []string {
