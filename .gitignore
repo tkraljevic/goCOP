@@ -18,3 +18,15 @@ node-key
 pairing-port
 network-key
 **/network-key
+
+# Očitanja vodostaja nikad u repozitorij. Dio podataka dolazi od Državnog
+# hidrometeorološkog zavoda, koji ih s Hrvatskim vodama dijeli po ugovoru o
+# uzajamnom korištenju (zajednički uređaji i mjerenja), pa se ne objavljuju.
+# Očitanja žive u bazama čvorova; uvoze se iz datoteka uz bazu.
+vodostaji/
+ocitanja/
+*vodostaji*.json
+*vodostaji*.csv
+*ocitanja*.json
+*ocitanja*.csv
+*.xlsx
