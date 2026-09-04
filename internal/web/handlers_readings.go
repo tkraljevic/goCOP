@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"math"
 	"net/http"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -446,6 +447,9 @@ func (h *ReadingsHandler) ShowForm(w http.ResponseWriter, r *http.Request) {
 	data.Reading = rd
 	data.GaugeName, data.GaugeSub = gaugeNames(data.Station, data.Structure)
 	data.BackURL = rd.GaugeURL()
+	if back := r.URL.Query().Get("back"); strings.HasPrefix(back, "/") && !strings.HasPrefix(back, "//") {
+		data.BackURL = back
+	}
 	if data.Structure != nil {
 		data.IsPump = data.Structure.IsPumpingStation()
 		data.IsSluice = data.Structure.Kind == models.StructureKindSluice
@@ -529,10 +533,14 @@ func (h *ReadingsHandler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.readingService.Create(r.Context(), perms, rd); err != nil {
-		redirectWith(w, r, "/readings/new?station="+rd.StationID+"&structure="+rd.StructureID, "error", err.Error())
+		redirectWith(w, r, "/readings/new?station="+rd.StationID+"&structure="+rd.StructureID+"&back="+url.QueryEscape(r.FormValue("back")), "error", err.Error())
 		return
 	}
-	redirectWith(w, r, rd.GaugeURL(), "success", "Očitanje je upisano.")
+	target := rd.GaugeURL()
+	if back := r.FormValue("back"); strings.HasPrefix(back, "/") && !strings.HasPrefix(back, "//") {
+		target = back
+	}
+	redirectWith(w, r, target, "success", "Očitanje je upisano.")
 }
 
 func (h *ReadingsHandler) HandleUpdate(w http.ResponseWriter, r *http.Request) {

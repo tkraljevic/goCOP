@@ -1,6 +1,7 @@
 package models
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -200,6 +201,19 @@ type GaugeSummary struct {
 	Previous    *Reading
 	Phase       DefensePhase
 	Count       int
+
+	// Za terenski pogled
+	DoneToday bool // zadnje očitanje je od danas
+	Habit     int  // koliko je puta ova osoba očitala letvu u zadnjih 90 dana
+	UsualMin  int  // uobičajeno vrijeme očitanja, minuta u danu (za redoslijed obilaska)
+}
+
+// UsualTime je uobičajeno vrijeme očitanja kao "07:25"
+func (g GaugeSummary) UsualTime() string {
+	if g.Habit == 0 {
+		return ""
+	}
+	return fmt.Sprintf("%02d:%02d", g.UsualMin/60, g.UsualMin%60)
 }
 
 // Trend je promjena vodostaja prema prethodnom očitanju u cm; nil kad nema usporedbe

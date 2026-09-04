@@ -98,6 +98,11 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/profile?force=1#lozinka", http.StatusSeeOther)
 		return
 	}
+	// Ljudi s terena idu ravno na svoje letve
+	if user != nil && user.IsFieldUser() {
+		http.Redirect(w, r, "/teren", http.StatusSeeOther)
+		return
+	}
 	http.Redirect(w, r, "/users", http.StatusSeeOther)
 }
 
