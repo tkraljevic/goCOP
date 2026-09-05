@@ -476,6 +476,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /api/peers/{node}/sync", s.authMiddleware(http.HandlerFunc(settingsH.HandleSyncNow)))
 	s.mux.Handle("POST /api/peers/{node}/forget", s.authMiddleware(http.HandlerFunc(settingsH.HandleForgetPeer)))
 	s.mux.Handle("POST /api/peers/{node}/bootstrap", s.authMiddleware(http.HandlerFunc(settingsH.HandleSetBootstrap)))
+	s.mux.Handle("POST /api/peers/{node}/adrese", s.authMiddleware(http.HandlerFunc(settingsH.HandlePublicAddress)))
 	s.mux.Handle("GET /api/history/{entity}/{id}", s.authMiddleware(http.HandlerFunc(settingsH.HandleHistory)))
 	s.mux.Handle("POST /api/network/create", s.authMiddleware(http.HandlerFunc(settingsH.HandleCreateNetwork)))
 	s.mux.Handle("GET /api/network/members", s.authMiddleware(http.HandlerFunc(settingsH.HandleMembers)))
