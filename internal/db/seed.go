@@ -50,6 +50,7 @@ type seedUser struct {
 	Phone         string     `json:"phone"`
 	MobilePhone   string     `json:"mobile_phone"`
 	ShortPhone    string     `json:"short_phone"`
+	ShortMobile   string     `json:"short_mobile"`
 	Email         string     `json:"email"`
 	IsGlobalAdmin bool       `json:"is_global_admin"`
 	Duties        []seedDuty `json:"duties"`
@@ -98,9 +99,9 @@ func SeedInitialData(database *sql.DB) error {
 		insertUserStmt, err := tx.Prepare(`
 			INSERT INTO users (
 				id, username, password_hash, full_name, title, is_global_admin,
-				must_change_password, org_type, org_name, phone, mobile_phone, short_phone, email,
+				must_change_password, org_type, org_name, phone, mobile_phone, short_phone, short_mobile, email,
 				is_active, created_at, updated_at
-			) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+			) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
 		`)
 		if err != nil {
 			return err
@@ -132,7 +133,7 @@ func SeedInitialData(database *sql.DB) error {
 
 			_, err = insertUserStmt.Exec(
 				uIDStr, u.Username, hashStr, u.FullName, u.Title, adminFlag,
-				u.OrgType, u.OrgName, u.Phone, u.MobilePhone, u.ShortPhone, u.Email,
+				u.OrgType, u.OrgName, u.Phone, u.MobilePhone, u.ShortPhone, u.ShortMobile, u.Email,
 				now, now,
 			)
 			if err != nil {

@@ -37,7 +37,7 @@ type rowQuerier interface {
 // userColumns su stupci matičnog računa u stalnom redoslijedu. Jedan popis za
 // sva čitanja: stupac dodan tablici ne može promaknuti jednom od njih.
 const userColumns = `id, username, password_hash, full_name, title, is_global_admin,
-	must_change_password, org_type, org_name, phone, mobile_phone, short_phone, email,
+	must_change_password, org_type, org_name, phone, mobile_phone, short_phone, short_mobile, email,
 	is_active, last_login_at, created_at, updated_at`
 
 // userColumnsOf vraća isti popis s prefiksom tablice, za upite sa spajanjem
@@ -57,13 +57,13 @@ type rowScanner interface {
 func scanUser(row rowScanner) (models.User, error) {
 	var u models.User
 	var idStr, orgType string
-	var title, orgName, phone, mobile, short, email sql.NullString
+	var title, orgName, phone, mobile, short, shortMobile, email sql.NullString
 	var isAdmin, mustChange, isActive int
 	var lastLogin sql.NullTime
 
 	err := row.Scan(
 		&idStr, &u.Username, &u.PasswordHash, &u.FullName, &title, &isAdmin,
-		&mustChange, &orgType, &orgName, &phone, &mobile, &short, &email,
+		&mustChange, &orgType, &orgName, &phone, &mobile, &short, &shortMobile, &email,
 		&isActive, &lastLogin, &u.CreatedAt, &u.UpdatedAt)
 	if err != nil {
 		return u, err
@@ -71,6 +71,7 @@ func scanUser(row rowScanner) (models.User, error) {
 	u.ID, _ = uuid.Parse(idStr)
 	u.Title, u.OrgName, u.Phone = title.String, orgName.String, phone.String
 	u.MobilePhone, u.ShortPhone, u.Email = mobile.String, short.String, email.String
+	u.ShortMobile = shortMobile.String
 	u.OrgType = models.OrgType(orgType)
 	u.IsGlobalAdmin, u.MustChangePassword, u.IsActive = isAdmin != 0, mustChange != 0, isActive != 0
 	if lastLogin.Valid {
@@ -263,11 +264,12 @@ func (r *UserRepository) ListUsers(sectorID string, areaID int, role, search, st
 			u.phone LIKE ? OR
 			u.mobile_phone LIKE ? OR
 			u.short_phone LIKE ? OR
+			u.short_mobile LIKE ? OR
 			u.email LIKE ? OR
 			d.title LIKE ? OR
 			d.section_codes LIKE ?
 		)`
-		for i := 0; i < 10; i++ {
+		for i := 0; i < 11; i++ {
 			args = append(args, searchLike)
 		}
 	}
@@ -332,12 +334,12 @@ func (r *UserRepository) CreateUser(u *models.User, initialDuty *models.Duty) er
 	_, err = tx.Exec(`
 		INSERT INTO users (
 			id, username, password_hash, full_name, title, is_global_admin,
-			must_change_password, org_type, org_name, phone, mobile_phone, short_phone, email,
+			must_change_password, org_type, org_name, phone, mobile_phone, short_phone, short_mobile, email,
 			is_active, created_at, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`,
 		u.ID.String(), u.Username, u.PasswordHash, u.FullName, u.Title, isAdminInt,
-		mustChangeInt, string(u.OrgType), u.OrgName, u.Phone, u.MobilePhone, u.ShortPhone, u.Email,
+		mustChangeInt, string(u.OrgType), u.OrgName, u.Phone, u.MobilePhone, u.ShortPhone, u.ShortMobile, u.Email,
 		isActiveInt, u.CreatedAt, u.UpdatedAt,
 	)
 	if err != nil {
@@ -409,26 +411,26 @@ func (r *UserRepository) UpdateUser(u *models.User) error {
 			UPDATE users SET
 				username = ?, password_hash = ?, full_name = ?, title = ?,
 				is_global_admin = ?, org_type = ?, org_name = ?, phone = ?,
-				mobile_phone = ?, short_phone = ?, email = ?, is_active = ?, updated_at = ?
+				mobile_phone = ?, short_phone = ?, short_mobile = ?, email = ?, is_active = ?, updated_at = ?
 			WHERE id = ?
 		`
 		args = []any{
 			u.Username, u.PasswordHash, u.FullName, u.Title,
 			isAdminInt, string(u.OrgType), u.OrgName, u.Phone,
-			u.MobilePhone, u.ShortPhone, u.Email, isActiveInt, u.UpdatedAt, u.ID.String(),
+			u.MobilePhone, u.ShortPhone, u.ShortMobile, u.Email, isActiveInt, u.UpdatedAt, u.ID.String(),
 		}
 	} else {
 		query = `
 			UPDATE users SET
 				username = ?, full_name = ?, title = ?,
 				is_global_admin = ?, org_type = ?, org_name = ?, phone = ?,
-				mobile_phone = ?, short_phone = ?, email = ?, is_active = ?, updated_at = ?
+				mobile_phone = ?, short_phone = ?, short_mobile = ?, email = ?, is_active = ?, updated_at = ?
 			WHERE id = ?
 		`
 		args = []any{
 			u.Username, u.FullName, u.Title,
 			isAdminInt, string(u.OrgType), u.OrgName, u.Phone,
-			u.MobilePhone, u.ShortPhone, u.Email, isActiveInt, u.UpdatedAt, u.ID.String(),
+			u.MobilePhone, u.ShortPhone, u.ShortMobile, u.Email, isActiveInt, u.UpdatedAt, u.ID.String(),
 		}
 	}
 

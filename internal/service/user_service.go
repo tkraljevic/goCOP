@@ -44,6 +44,7 @@ type CreateUserRequest struct {
 	Phone         string
 	MobilePhone   string
 	ShortPhone    string
+	ShortMobile   string
 	Email         string
 	// Inicijalna funkcija / zaduženje
 	DutyTitle    string
@@ -108,6 +109,7 @@ func (s *UserService) CreateUser(actor *models.UserPermissions, req CreateUserRe
 		Phone:         req.Phone,
 		MobilePhone:   req.MobilePhone,
 		ShortPhone:    req.ShortPhone,
+		ShortMobile:   req.ShortMobile,
 		Email:         req.Email,
 		IsActive:      true,
 	}
@@ -154,6 +156,7 @@ type UpdateUserRequest struct {
 	Phone         string
 	MobilePhone   string
 	ShortPhone    string
+	ShortMobile   string
 	Email         string
 	IsActive      bool
 }
@@ -209,6 +212,7 @@ func (s *UserService) UpdateUser(actor *models.UserPermissions, req UpdateUserRe
 	target.Phone = req.Phone
 	target.MobilePhone = req.MobilePhone
 	target.ShortPhone = req.ShortPhone
+	target.ShortMobile = req.ShortMobile
 	target.Email = req.Email
 	target.IsActive = req.IsActive
 
