@@ -3,6 +3,7 @@ package web
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"html"
@@ -54,6 +55,8 @@ type Server struct {
 	followRepo         *repository.FollowRepository
 	onFollowChange     func()
 	peersService       *peers.Service
+	db                 *sql.DB
+	dbPath             string
 	recorder           *ledger.Recorder
 	sseBroker          *service.SSEBroker
 	templates          map[string]*template.Template
@@ -116,9 +119,10 @@ func NewServer(
 			}
 			return template.JS(data)
 		},
-		"bankLabel": hydro.BankLabel,
-		"muniType":  models.MunicipalityTypeLabel,
-		"km":        models.FormatKm,
+		"bankLabel":  hydro.BankLabel,
+		"muniType":   models.MunicipalityTypeLabel,
+		"humanBytes": humanBytes,
+		"km":         models.FormatKm,
 		"derefTime": func(t *time.Time) time.Time {
 			if t == nil {
 				return time.Time{}
@@ -220,7 +224,7 @@ func NewServer(
 
 	// Predlošci koji proširuju base.html
 	for _, page := range []string{"dashboard.html", "registri.html", "users.html", "user_detail.html", "user_form.html", "duty_form.html", "profile.html", "sections.html", "section_detail.html", "section_form.html", "territories.html", "county_form.html", "municipality_form.html", "municipality_detail.html", "stations.html", "station_detail.html", "station_form.html", "watercourses.html", "watercourse_detail.html", "watercourse_form.html", "structures.html", "structure_detail.html", "structure_form.html", "readings.html", "reading_history.html", "reading_form.html", "teren.html", "moduli.html", "settings.html", "odrzavanje.html", "organizacija.html", "sector_form.html", "area_form.html",
-		"administracija.html", "uvozi.html", "sinkronizacija.html", "pretplate.html",
+		"administracija.html", "uvozi.html", "sinkronizacija.html", "pretplate.html", "baza.html",
 		"dnevnici.html", "dnevnik_form.html", "dnevnik.html", "dnevnik_list.html"} {
 		t, err := template.New("base.html").Funcs(tmplFuncs).ParseFS(templatesFS, "base.html", page)
 		if err != nil {
@@ -472,6 +476,14 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /pretplate/ukloni", s.authMiddleware(http.HandlerFunc(subsH.HandleRemove)))
 	s.mux.Handle("POST /pretplate/obrisi", s.authMiddleware(http.HandlerFunc(subsH.HandlePurge)))
 
+	// Održavanje baze: brojke, sažimanje, VACUUM, izvoz i uvoz kanala
+	dbH := NewDBMaintHandler(func() *sql.DB { return s.db }, s.recorder, s.peersService, func() string { return s.dbPath }, s.templates["baza.html"])
+	s.mux.Handle("GET /administracija/baza", s.authMiddleware(http.HandlerFunc(dbH.ShowMaintenance)))
+	s.mux.Handle("POST /administracija/baza/sazmi", s.authMiddleware(http.HandlerFunc(dbH.HandleCompact)))
+	s.mux.Handle("POST /administracija/baza/vacuum", s.authMiddleware(http.HandlerFunc(dbH.HandleVacuum)))
+	s.mux.Handle("GET /administracija/baza/izvoz", s.authMiddleware(http.HandlerFunc(dbH.HandleExport)))
+	s.mux.Handle("POST /administracija/baza/uvoz", s.authMiddleware(http.HandlerFunc(dbH.HandleImport)))
+
 	// Nadzorna ploča sinkronizacije
 	syncH := NewSyncHandler(s.peersService, s.templates["sinkronizacija.html"])
 	s.mux.Handle("GET /sinkronizacija", s.authMiddleware(http.HandlerFunc(syncH.ShowDashboard)))
@@ -604,6 +616,11 @@ func (s *Server) Start() error {
 }
 
 // SetAddr mijenja adresu prije (ponovnog) pokretanja — za pad s porta 80 na 8080
+// SetDatabase daje poslužitelju bazu i njezinu putanju, za održavanje
+func (s *Server) SetDatabase(db *sql.DB, path string) {
+	s.db, s.dbPath = db, path
+}
+
 func (s *Server) SetAddr(addr string) {
 	s.addr = addr
 }

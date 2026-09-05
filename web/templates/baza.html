@@ -1,0 +1,126 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Održavanje baze{{end}}
+
+{{define "content"}}
+<div class="breadcrumb"><a href="/administracija">Administracija</a> › Održavanje baze</div>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "history"}} Održavanje baze</h1>
+    <p class="page-desc">
+      Koliko je baza velika i od čega, sažimanje knjige verzija, povrat prostora na disku, te izvoz i uvoz
+      kanala u datoteku. Ništa ovdje ne dira zadnje stanje zapisa; briše se samo povijest izmjena i prostor.
+    </p>
+  </div>
+</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
+
+<div class="reg-card" style="padding:1rem;">
+  <dl class="reg-facts">
+    <div><dt>Datoteka</dt><dd class="mono" style="overflow-wrap:anywhere;">{{.DBPath}}</dd></div>
+    <div><dt>Na disku</dt><dd>{{humanBytes .SizeBytes}}{{if .WALBytes}} + WAL {{humanBytes .WALBytes}}{{end}}</dd></div>
+    <div><dt>Verzija u knjizi</dt><dd>{{.Stats.Versions}}</dd></div>
+    <div><dt>Zapisa</dt><dd>{{.Stats.Records}}</dd></div>
+    <div><dt>Spomenika</dt><dd>{{.Stats.Tombstones}}</dd></div>
+    <div><dt>Najstarija verzija</dt><dd>{{if .Stats.Oldest}}{{.Stats.Oldest.Format "02.01.2006"}}{{else}}—{{end}}</dd></div>
+    <div><dt>Očitanja</dt><dd>{{.Readings}}</dd></div>
+    <div><dt>Dnevnika</dt><dd>{{.Journals}}</dd></div>
+    <div><dt>Sesija</dt><dd>{{.Sessions}}</dd></div>
+  </dl>
+  {{if .Stats.ByEntity}}
+  <div class="reading-meta" style="margin-top:0.5rem;">Po vrsti: {{range $k, $v := .Stats.ByEntity}}<span class="reg-chip">{{$k}} {{$v}}</span> {{end}}</div>
+  {{end}}
+</div>
+
+<section class="detail-section">
+  <h2>{{icon "trash"}} Sažimanje knjige</h2>
+  <p class="page-desc">
+    Svaki zapis zadržava svoju zadnju verziju, a obrisani zapisi svoj nadgrobni spomenik, da ih zakašnjeli čvor
+    ne vrati. Starije verzije istog zapisa služe samo povijesti izmjena; sažimanje ih briše kad su starije od
+    zadanog roka. Razmjena s drugim čvorovima to ne osjeti.
+  </p>
+  <form method="GET" action="/administracija/baza" class="form-page" style="display:flex; gap:0.5rem; align-items:flex-end; flex-wrap:wrap;">
+    <div class="form-group" style="margin:0;">
+      <label class="form-label" for="days">Ostavi povijest zadnjih (dana)</label>
+      <input type="text" inputmode="numeric" id="days" name="days" class="form-control" value="{{.KeepDays}}" style="max-width:8rem;">
+    </div>
+    <button type="submit" class="btn btn-secondary">Preračunaj</button>
+  </form>
+  <p style="margin:0.75rem 0;">Uz rok od <b>{{.KeepDays}}</b> dana sažimanje bi obrisalo <b>{{.Compactable}}</b> verzija.</p>
+  {{if .Permissions.IsGlobalAdmin}}
+  <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+    <form method="POST" action="/administracija/baza/sazmi" onsubmit="return confirm('Obrisati {{.Compactable}} starijih verzija? Zadnje verzije i spomenici ostaju; povijest izmjena starija od {{.KeepDays}} dana nestaje s ovog čvora.')">
+      <input type="hidden" name="days" value="{{.KeepDays}}">
+      <button type="submit" class="btn btn-primary" {{if not .Compactable}}disabled{{end}}>{{icon "trash"}} Sažmi knjigu</button>
+    </form>
+    <form method="POST" action="/administracija/baza/vacuum" onsubmit="return confirm('Sažeti datoteku na disku? Traje ovisno o veličini, program za to vrijeme radi sporije.')">
+      <button type="submit" class="btn btn-secondary">{{icon "refresh-cw"}} Vrati prostor na disku (VACUUM)</button>
+    </form>
+  </div>
+  <div class="form-help">Obrisani redci oslobađaju prostor unutar datoteke; VACUUM ga vraća operacijskom sustavu.</div>
+  {{end}}
+</section>
+
+<section class="detail-section">
+  <h2>{{icon "download"}} Izvoz kanala u datoteku</h2>
+  <p class="page-desc">
+    Godina jednog područja odloži se u zasebnu datoteku: arhiva na disku, prijenos štapićem na računalo bez
+    mreže, ili prostor na laptopu. Datoteka nosi knjigu verzija tih kanala i uvozi se u bilo koji čvor.
+  </p>
+  {{if .Channels}}
+  <form method="GET" action="/administracija/baza/izvoz" class="form-page" style="display:flex; gap:0.5rem; align-items:flex-end; flex-wrap:wrap;">
+    <div class="form-group" style="margin:0;">
+      <label class="form-label" for="kind">Što</label>
+      <select id="kind" name="kind" class="form-control">
+        <option value="">Očitanja i dnevnici</option>
+        <option value="ocitanja">Očitanja</option>
+        <option value="dnevnici">Dnevnici</option>
+      </select>
+    </div>
+    <div class="form-group" style="margin:0;">
+      <label class="form-label" for="area">Branjeno područje</label>
+      <input type="text" inputmode="numeric" id="area" name="area" class="form-control" placeholder="npr. 16 (prazno = sva)" style="max-width:10rem;">
+    </div>
+    <div class="form-group" style="margin:0;">
+      <label class="form-label" for="year">Godina</label>
+      <input type="text" inputmode="numeric" id="year" name="year" class="form-control" placeholder="npr. 2024 (prazno = sve)" style="max-width:10rem;">
+    </div>
+    <button type="submit" class="btn btn-primary">{{icon "download"}} Izvezi</button>
+  </form>
+  <div class="table-card" style="margin-top:0.75rem;"><div class="table-responsive">
+    <table class="data-table">
+      <thead><tr><th>Vrsta</th><th>BP</th><th>Godina</th><th>Verzija</th><th>Pretplata</th></tr></thead>
+      <tbody>
+      {{range .Channels}}
+      <tr>
+        <td>{{if eq .Kind "ocitanja"}}Očitanja{{else if eq .Kind "dnevnici"}}Dnevnici{{else}}{{.Kind}}{{end}}</td>
+        <td class="mono">{{.AreaID}}</td><td class="mono">{{.Year}}</td><td class="mono">{{.Versions}}</td>
+        <td>{{if .Wanted}}<span class="badge badge-active">prati se</span>{{else}}<span class="badge badge-inactive">ne prati se</span>{{end}}</td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div></div>
+  {{else}}
+  <div class="reg-empty">Ovaj čvor još ne drži nijedan kanal očitanja ni dnevnika.</div>
+  {{end}}
+</section>
+
+<section class="detail-section">
+  <h2>{{icon "file-text"}} Uvoz iz datoteke</h2>
+  <p class="page-desc">
+    Arhiva izvezena s bilo kojeg čvora. Uvoz radi kao razmjena: verzije koje ovaj čvor nema uđu u knjigu, a
+    zapisi se osvježe iz najnovijih. Ponovljeni uvoz iste datoteke ne mijenja ništa.
+  </p>
+  <form method="POST" action="/administracija/baza/uvoz" enctype="multipart/form-data" class="form-page" style="display:flex; gap:0.5rem; align-items:flex-end; flex-wrap:wrap;">
+    <div class="form-group" style="margin:0;">
+      <label class="form-label" for="archive">Datoteka (.db)</label>
+      <input type="file" id="archive" name="archive" class="form-control" accept=".db,.sqlite,application/vnd.sqlite3" required>
+    </div>
+    <button type="submit" class="btn btn-primary">{{icon "download"}} Uvezi</button>
+  </form>
+</section>
+{{end}}

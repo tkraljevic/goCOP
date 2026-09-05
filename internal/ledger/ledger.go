@@ -402,3 +402,82 @@ func (r *Recorder) Delta(ctx context.Context, theirs map[string]string, wants fu
 	}
 	return out, nil
 }
+
+// ---------- održavanje knjige ----------
+
+// Compact sažima knjigu: svaki zapis zadržava zadnju verziju, a arhivirani
+// zapisi svoj nadgrobni spomenik; starije verzije istog zapisa, nastale
+// prije zadanog trenutka, brišu se. Razmjena to ne osjeti: granica je
+// najveći version_id po autoru i kanalu, a njega sažimanje ne dira. Čvor
+// koji je dugo šutio može staru verziju poslati natrag; ona uđe u knjigu
+// kao povijest, ne dira površinu, i nestane pri sljedećem sažimanju.
+func (r *Recorder) Compact(ctx context.Context, olderThan time.Time) (int64, error) {
+	res, err := r.db.ExecContext(ctx, `
+		DELETE FROM record_versions
+		WHERE created_at < ?
+		  AND version_id <> (SELECT MAX(v.version_id) FROM record_versions v
+		                     WHERE v.entity = record_versions.entity AND v.entity_id = record_versions.entity_id)
+	`, olderThan.UTC())
+	if err != nil {
+		return 0, fmt.Errorf("sažimanje knjige: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	return n, nil
+}
+
+// Compactable broji verzije koje bi Compact obrisao, za pregled prije radnje
+func (r *Recorder) Compactable(ctx context.Context, olderThan time.Time) (int, error) {
+	var n int
+	err := r.db.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM record_versions
+		WHERE created_at < ?
+		  AND version_id <> (SELECT MAX(v.version_id) FROM record_versions v
+		                     WHERE v.entity = record_versions.entity AND v.entity_id = record_versions.entity_id)
+	`, olderThan.UTC()).Scan(&n)
+	return n, err
+}
+
+// InChannels vraća sve verzije zadanih kanala, redom nastanka — za izvoz u datoteku
+func (r *Recorder) InChannels(ctx context.Context, channels []string) ([]Version, error) {
+	var out []Version
+	for _, ch := range channels {
+		batch, err := r.query(ctx, `SELECT `+columns+` FROM record_versions WHERE channel = ? ORDER BY version_id ASC`, ch)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, batch...)
+	}
+	return out, nil
+}
+
+// Stats su brojke knjige za stranicu održavanja
+type Stats struct {
+	Versions   int            `json:"versions"`
+	Records    int            `json:"records"`    // različitih zapisa
+	Tombstones int            `json:"tombstones"` // zapisa uklonjenih s površine
+	Oldest     *time.Time     `json:"oldest,omitempty"`
+	ByEntity   map[string]int `json:"by_entity"`
+}
+
+// Stats broji verzije, zapise i spomenike
+func (r *Recorder) Stats(ctx context.Context) (Stats, error) {
+	st := Stats{ByEntity: map[string]int{}}
+	if err := r.db.QueryRowContext(ctx, `SELECT COUNT(*), COUNT(DISTINCT entity || '|' || entity_id) FROM record_versions`).Scan(&st.Versions, &st.Records); err != nil {
+		return st, err
+	}
+	if err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM record_versions a WHERE archived = 1
+		AND version_id = (SELECT MAX(version_id) FROM record_versions b WHERE b.entity = a.entity AND b.entity_id = a.entity_id)`).Scan(&st.Tombstones); err != nil {
+		return st, err
+	}
+	var oldest sql.NullTime
+	if err := r.db.QueryRowContext(ctx, `SELECT MIN(created_at) FROM record_versions`).Scan(&oldest); err == nil && oldest.Valid {
+		t := oldest.Time.UTC()
+		st.Oldest = &t
+	}
+	counts, err := r.Count(ctx)
+	if err != nil {
+		return st, err
+	}
+	st.ByEntity = counts
+	return st, nil
+}
