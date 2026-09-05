@@ -1,5 +1,7 @@
 package models
 
+import "strings"
+
 // Sector predstavlja jedan od 6 vodnogospodarskih sektora (VGO)
 type Sector struct {
 	ID        string `json:"id"`         // A, B, C, D, E, F
@@ -50,6 +52,7 @@ type GaugeItem struct {
 	CriticalCm  string `json:"critical_cm"`  // Izvanredno stanje (IS) npr. "+680"
 	RecordCm    string `json:"record_cm"`    // Najviši ikad (M) npr. "+769 (26.06.1965.)"
 	Notes       string `json:"notes"`        // Napomena
+	FromText    bool   `json:"-"`            // pročitan iz proznog retka, ne iz tablice (samo pri prijepisu)
 }
 
 // Section predstavlja potpunu štićenu dionicu u sustavu obrane od poplava
@@ -73,13 +76,120 @@ type Section struct {
 	Structures    []StructureItem  `json:"structures"`
 	Gauges        []GaugeItem      `json:"gauges"`
 	Notes         string           `json:"notes"`
-	CreatedAt     string           `json:"created_at"`
-	UpdatedAt     string           `json:"updated_at"`
+
+	// Parts je građa dionice kakva je u Privitku: poddionice, u svakoj redci,
+	// u svakom retku nasipi, objekti, ugroženo područje i vodomjeri. Ravna
+	// polja iznad su unije preko svih redaka i ostaju radi popisa i pretrage;
+	// tko treba znati na kojem je nasipu "km 0+304", čita odavde.
+	Parts     []SectionPart `json:"parts,omitempty"`
+	CreatedAt string        `json:"created_at"`
+	UpdatedAt string        `json:"updated_at"`
 
 	// Dodatna polja za prikaz
 	AreaName   string           `json:"area_name,omitempty"`
 	SectorName string           `json:"sector_name,omitempty"`
 	Personnel  []SectionOfficer `json:"personnel,omitempty"`
+}
+
+// SectionPart je poddionica: jedna ćelija stupca "Vodotok" u Privitku, s
+// obalom i stacionažom, i redci koji joj pripadaju
+type SectionPart struct {
+	Description     string       `json:"description"`
+	WatercourseCode string       `json:"watercourse_code,omitempty"` // voda ove poddionice; dionica s više poddionica zna imati više voda
+	Bank            string       `json:"bank,omitempty"`
+	RkmFrom         *float64     `json:"rkm_from,omitempty"`
+	RkmTo           *float64     `json:"rkm_to,omitempty"`
+	Rows            []SectionRow `json:"rows"`
+}
+
+// SectionRow je jedan redak tablice Privitka: nasipi tog retka, objekti tog
+// retka (stacionirani po nasipu, rijeci, potoku ili kanalu), ugroženo
+// područje tog retka i vodomjeri tog retka
+type SectionRow struct {
+	Embankments   []EmbankmentItem `json:"embankments,omitempty"`
+	Objects       []DocObject      `json:"objects,omitempty"`
+	ProtectedArea string           `json:"protected_area,omitempty"`
+	Gauges        []GaugeItem      `json:"gauges,omitempty"`
+	// Unaligned označava da se stupci izvorne tablice u wikiju nisu poravnali
+	// (colspan), pa raspored polja u retku može biti kriv; traži ručnu provjeru
+	Unaligned bool `json:"unaligned,omitempty"`
+}
+
+// DocObject je objekt iz dokumentacije dionice s vrstom stacionaže
+type DocObject struct {
+	Kind       string `json:"kind,omitempty"` // rkm (rijeka), km (nasip), pkm (potok), kkm (kanal), prazno
+	Stationing string `json:"stationing,omitempty"`
+	Name       string `json:"name"`
+}
+
+// KindLabel kaže po čemu se objekt stacionira
+func (o DocObject) KindLabel() string {
+	switch o.Kind {
+	case "rkm":
+		return "po rijeci"
+	case "km":
+		return "po nasipu"
+	case "pkm":
+		return "po potoku"
+	case "kkm":
+		return "po kanalu"
+	}
+	return ""
+}
+
+// Gauges su mjerodavni vodomjeri poddionice: unija po redcima, bez ponavljanja.
+// Redci iste poddionice gotovo uvijek dijele vodomjer, pa se prikazuje jednom.
+func (p SectionPart) Gauges() []GaugeItem {
+	var out []GaugeItem
+	seen := map[string]bool{}
+	for _, r := range p.Rows {
+		for _, g := range r.Gauges {
+			k := g.StationName + "|" + g.PrepCm + "|" + g.RegularCm
+			if !seen[k] {
+				seen[k] = true
+				out = append(out, g)
+			}
+		}
+	}
+	return out
+}
+
+// Unaligned javlja ima li poddionica redak s neporavnanim stupcima
+func (p SectionPart) Unaligned() bool {
+	for _, r := range p.Rows {
+		if r.Unaligned {
+			return true
+		}
+	}
+	return false
+}
+
+// HasParts javlja ima li dionica strukturirani prijepis
+func (s Section) HasParts() bool { return len(s.Parts) > 0 }
+
+// IsGauge javlja je li zapis pravi vodomjer s pragovima u centimetrima, a ne
+// mjerilo druge vrste: kota na mostu u metrima nadmorske visine, pravilnik
+// retencije, uputa "prema prognozi". Takva mjerila vrijede za ljude na
+// dionici, ali se iz njih ne stvara vodomjerna postaja.
+func (g GaugeItem) IsGauge() bool {
+	name := strings.TrimSpace(g.StationName)
+	if name == "" || len(name) > 70 {
+		return false
+	}
+	for _, p := range []string{"R:", "P =", "P=", "Prema ", "V na brani", "Po pravilniku", "upravljanje"} {
+		if strings.HasPrefix(name, p) {
+			return false
+		}
+	}
+	// bar jedan prag mora biti u centimetrima: broj s predznakom ili bez, bez "m.n.m"
+	for _, v := range []string{g.PrepCm, g.RegularCm, g.EmergCm, g.CriticalCm} {
+		v = strings.TrimSpace(v)
+		if v == "" || strings.Contains(strings.ToLower(v), "m.n.m") || strings.Contains(strings.ToLower(v), "n.j.m") {
+			continue
+		}
+		return true
+	}
+	return false
 }
 
 // SectionOfficer predstavlja djelatnika zaduženog za dionicu ili pripadajuće branjeno područje

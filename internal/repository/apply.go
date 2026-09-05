@@ -517,18 +517,22 @@ func upsertSection(ctx context.Context, tx *sql.Tx, s models.Section) error {
 	embJSON, _ := json.Marshal(s.Embankments)
 	strJSON, _ := json.Marshal(s.Structures)
 	gagJSON, _ := json.Marshal(s.Gauges)
+	partsJSON, _ := json.Marshal(s.Parts)
+	if s.Parts == nil {
+		partsJSON = []byte("[]")
+	}
 	_, err := tx.ExecContext(ctx, `
 		INSERT INTO sections (
 			code, area_id, sector_id, description, watercourse_code, bank, rkm_from, rkm_to,
-			protected_area, embankments, structures, gauges, notes, created_at, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			protected_area, embankments, structures, gauges, notes, created_at, updated_at, parts
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(code) DO UPDATE SET
 			area_id = excluded.area_id, sector_id = excluded.sector_id, description = excluded.description,
 			watercourse_code = excluded.watercourse_code, bank = excluded.bank, rkm_from = excluded.rkm_from,
 			rkm_to = excluded.rkm_to, protected_area = excluded.protected_area, embankments = excluded.embankments,
 			structures = excluded.structures, gauges = excluded.gauges, notes = excluded.notes,
-			updated_at = excluded.updated_at
+			updated_at = excluded.updated_at, parts = excluded.parts
 	`, s.Code, s.AreaID, s.SectorID, s.Description, s.WatercourseCode, s.Bank, s.RkmFrom, s.RkmTo,
-		s.ProtectedArea, string(embJSON), string(strJSON), string(gagJSON), s.Notes, s.CreatedAt, s.UpdatedAt)
+		s.ProtectedArea, string(embJSON), string(strJSON), string(gagJSON), s.Notes, s.CreatedAt, s.UpdatedAt, string(partsJSON))
 	return err
 }

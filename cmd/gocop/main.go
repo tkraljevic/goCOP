@@ -158,6 +158,9 @@ func main() {
 	}
 	applyReadingPolicy()
 
+	// Popravci koji dionice usklađuju s ugrađenim prijepisom trebaju ga vidjeti
+	repository.SectionSource = db.EmbeddedSections
+
 	// Jednokratni popravci podataka koji moraju ostaviti verziju u knjizi
 	if err := repository.RunFixups(context.Background(), database, recorder); err != nil {
 		log.Fatalf("Popravci podataka nisu uspjeli: %v", err)
