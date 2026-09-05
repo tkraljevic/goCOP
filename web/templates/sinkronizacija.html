@@ -101,7 +101,7 @@ function render(st) {
       <td>${s.last_ok ? s.applied + ' / ' + s.sent + '<br><span class="muted">' + (s.duration_ms >= 1000 ? (s.duration_ms / 1000).toFixed(1) + ' s' : s.duration_ms + ' ms') + '</span>' : '—'}</td>
       <td>${s.last_ok ? (p.backlog ? p.backlog + ' verzija' : 'ništa') + '<div class="bar"><i style="width:' + pct + '%"></i></div>' : '—'}</td>
       <td class="muted mono">${(p.addresses || []).map(esc).join('<br>') || '—'}</td>
-      <td>${IS_ADMIN ? '<button class="btn btn-sm btn-secondary" onclick="syncOne(\\'' + esc(p.node_id) + '\\')">Razmijeni</button>' : ''}</td>
+      <td>${IS_ADMIN ? '<button class="btn btn-sm btn-secondary" data-node="' + esc(p.node_id) + '" onclick="syncOne(this.dataset.node)">Razmijeni</button>' : ''}</td>
     </tr>`;
   });
   $('peers').querySelector('tbody').innerHTML = rows.join('') || '<tr><td colspan="8" class="muted">Nema poznatih računala.</td></tr>';
