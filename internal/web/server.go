@@ -220,7 +220,7 @@ func NewServer(
 
 	// Predlošci koji proširuju base.html
 	for _, page := range []string{"dashboard.html", "registri.html", "users.html", "user_detail.html", "user_form.html", "duty_form.html", "profile.html", "sections.html", "section_detail.html", "section_form.html", "territories.html", "county_form.html", "municipality_form.html", "municipality_detail.html", "stations.html", "station_detail.html", "station_form.html", "watercourses.html", "watercourse_detail.html", "watercourse_form.html", "structures.html", "structure_detail.html", "structure_form.html", "readings.html", "reading_history.html", "reading_form.html", "teren.html", "moduli.html", "settings.html", "odrzavanje.html", "organizacija.html", "sector_form.html", "area_form.html",
-		"administracija.html", "uvozi.html",
+		"administracija.html", "uvozi.html", "sinkronizacija.html",
 		"dnevnici.html", "dnevnik_form.html", "dnevnik.html", "dnevnik_list.html"} {
 		t, err := template.New("base.html").Funcs(tmplFuncs).ParseFS(templatesFS, "base.html", page)
 		if err != nil {
@@ -361,7 +361,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /registri", s.authMiddleware(http.HandlerFunc(dashH.ShowRegisters)))
 
 	// Administracija: ulazna stranica i sve što radi samo administrator
-	adminH := NewAdminHandler(s.orgService, s.userService, s.templates["administracija.html"], s.templates["uvozi.html"])
+	adminH := NewAdminHandler(s.orgService, s.userService, s.peersService, s.templates["administracija.html"], s.templates["uvozi.html"])
 	s.mux.Handle("GET /administracija", s.authMiddleware(http.HandlerFunc(adminH.ShowAdmin)))
 	s.mux.Handle("GET /administracija/uvozi", s.authMiddleware(http.HandlerFunc(adminH.ShowImports)))
 
@@ -465,6 +465,12 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /api/watercourses/delete", s.authMiddleware(http.HandlerFunc(watercoursesH.HandleDeleteWatercourseAPI)))
 	s.mux.Handle("POST /api/stations/watercourse", s.authMiddleware(http.HandlerFunc(watercoursesH.HandleAssignStationWatercourseAPI)))
 
+	// Nadzorna ploča sinkronizacije
+	syncH := NewSyncHandler(s.peersService, s.templates["sinkronizacija.html"])
+	s.mux.Handle("GET /sinkronizacija", s.authMiddleware(http.HandlerFunc(syncH.ShowDashboard)))
+	s.mux.Handle("GET /api/sync/status", s.authMiddleware(http.HandlerFunc(syncH.HandleStatus)))
+	s.mux.Handle("POST /api/sync/all", s.authMiddleware(http.HandlerFunc(syncH.HandleSyncAll)))
+
 	// Postavke: čvor, uparivanje, pronalaženje, sinkronizacija, povijest
 	s.mux.Handle("GET /settings", s.authMiddleware(http.HandlerFunc(settingsH.ShowSettings)))
 	s.mux.Handle("GET /api/peers/pair/status", s.authMiddleware(http.HandlerFunc(settingsH.HandlePairStatus)))
@@ -561,6 +567,7 @@ var modulePaths = []struct{ prefix, module string }{
 	{"/api/areas", models.ModuleRegisters},
 	{"/users", models.ModuleUsers},
 	{"/administracija", models.ModuleAdmin}, {"/organizacija", models.ModuleAdmin},
+	{"/sinkronizacija", models.ModuleAdmin}, {"/api/sync", models.ModuleAdmin},
 	{"/moduli", models.ModuleAdmin}, {"/settings", models.ModuleAdmin},
 	{"/api/peers", models.ModuleAdmin}, {"/api/network", models.ModuleAdmin},
 	{"/api/history", models.ModuleAdmin},
