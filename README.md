@@ -149,7 +149,7 @@ između računala koja sudjeluju u testu. Portovi se mijenjaju u `gocop.toml`.
 
 - Dva do tri računala u istoj lokalnoj mreži, unutar mreže Hrvatskih voda,
   bez izlaganja na internet.
-- Jedan administrator upravlja uparivanjem (⚙️ Postavke) i lozinkama.
+- Jedan administrator upravlja uparivanjem (Administracija → Čvor i mreža) i lozinkama.
 - Provjeriti SHA-256 preuzetog izdanja prema `SHA256SUMS` uz izdanje.
 - Program pokretati kao običan korisnik, iz vlastite mape.
 
@@ -164,8 +164,10 @@ Prvo pokretanje stvori praznu bazu i račun `admin` s početnom lozinkom
 koja se mijenja pri prvoj prijavi, te zapiše `data/gocop.toml`. Prvi korak
 u programu je registar Organizacija obrane: sektori, pa branjena područja. Ako uz bazu stoje datoteke registara i imenika,
 učita i njih. Otvoriti `http://localhost` (ili `http://localhost:8080`).
-Postavke čvora, uparivanje i sinkronizacija su pod **⚙️ Postavke** u
-korisničkom izborniku. Na stranici prijave stoji kontakt glavnog
+Sve što radi samo administrator stoji u modulu **Administracija**: ustroj
+obrane (sektori i branjena područja), moduli i ovlasti, čvor, mreža i
+sinkronizacija te pregled uvoza podataka. Vidi ga zadano samo globalni
+administrator. Na stranici prijave stoji kontakt glavnog
 administratora iz registra (mobitel, e-pošta) i centar iz postavki čvora.
 
 `gocop.toml` — adresa web sučelja, putanja baze, identifikator i naziv

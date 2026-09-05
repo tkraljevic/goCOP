@@ -40,6 +40,7 @@
           {{if .Sees "vodostaji"}}<a href="/readings" class="nav-link {{if eq .ActiveNav "readings"}}active{{end}}">{{icon "activity"}} Vodostaji</a>{{end}}
           {{if .Sees "dnevnici"}}<a href="/dnevnici" class="nav-link {{if eq .ActiveNav "journals"}}active{{end}}">{{icon "notebook"}} Dnevnici</a>{{end}}
           {{if .Sees "djelatnici"}}<a href="/users" class="nav-link {{if eq .ActiveNav "users"}}active{{end}}">{{icon "users"}} Djelatnici</a>{{end}}
+          {{if .Sees "administracija"}}<a href="/administracija" class="nav-link {{if or (eq .ActiveNav "admin") (eq .ActiveNav "settings") (eq .ActiveNav "moduli") (eq .ActiveNav "organizacija")}}active{{end}}">{{icon "settings"}} Administracija</a>{{end}}
 
           <!-- Registri su sami po sebi skupina, pa ne troše mjesto u traci -->
           {{if .Sees "registri"}}
@@ -75,8 +76,6 @@
           <div class="nav-mobile-actions">
             <a href="/profile" class="nav-link {{if eq .ActiveNav "profile"}}active{{end}}">{{icon "user"}} Moj profil</a>
             <a href="/profile#lozinka" class="nav-link">{{icon "key-round"}} Lozinka</a>
-            {{if .Sees "postavke"}}<a href="/settings" class="nav-link {{if eq .ActiveNav "settings"}}active{{end}}">{{icon "settings"}} Postavke</a>{{end}}
-            {{if .Admin}}<a href="/moduli" class="nav-link {{if eq .ActiveNav "moduli"}}active{{end}}">{{icon "eye"}} Moduli</a>{{end}}
             <form action="/logout" method="POST"><button type="submit" class="nav-link">{{icon "log-out"}} Odjava</button></form>          </div>
           {{end}}
         </nav>
@@ -96,8 +95,6 @@
           </div>
           <a href="/profile" class="btn btn-secondary btn-sm">{{icon "user"}} Moj profil</a>
           <a href="/profile#lozinka" class="btn btn-secondary btn-sm">{{icon "key-round"}} Lozinka</a>
-          {{if .Sees "postavke"}}<a href="/settings" class="btn btn-secondary btn-sm {{if eq .ActiveNav "settings"}}active{{end}}" title="Postavke čvora i sinkronizacije">{{icon "settings"}} Postavke</a>{{end}}
-          {{if .Admin}}<a href="/moduli" class="btn btn-secondary btn-sm {{if eq .ActiveNav "moduli"}}active{{end}}" title="Što koja uloga vidi">{{icon "eye"}} Moduli</a>{{end}}
           <form action="/logout" method="POST" style="display:inline;">
             <button type="submit" class="btn btn-secondary btn-sm" title="Odjavi se">{{icon "log-out"}} Odjava</button>
           </form>

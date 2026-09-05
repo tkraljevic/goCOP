@@ -1,0 +1,79 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Uvozi podataka{{end}}
+
+{{define "content"}}
+<div class="breadcrumb"><a href="/administracija">Administracija</a> › Uvozi podataka</div>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "download"}} Uvozi podataka</h1>
+    <p class="page-desc">
+      Program ne nosi podatke u sebi. U prazan čvor ulaze na tri načina: razmjenom s uparenim čvorom,
+      ručnim upisom, ili uvozom iz datoteke. Uvoz treba samo prvom čvoru u mreži — ostali podatke dobiju sinkronizacijom.
+    </p>
+  </div>
+</div>
+
+<section class="detail-section">
+  <h2>{{icon "radio-tower"}} Od drugog čvora</h2>
+  <p class="page-desc">
+    Najjednostavniji put: uparite ovaj čvor s onim koji podatke već ima i pustite razmjenu. Registri, djelatnici,
+    dionice i dnevnici stižu sami, a povijest očitanja onoliko koliko ovaj čvor drži.
+  </p>
+  <a href="/settings" class="btn btn-secondary">{{icon "link"}} Uparivanje i sinkronizacija</a>
+</section>
+
+<section class="detail-section">
+  <h2>{{icon "file-text"}} Registri i imenik uz bazu</h2>
+  <p class="page-desc">
+    Datoteke se stave u mapu <span class="mono">data/</span> uz bazu i pročitaju se pri prvom pokretanju praznog čvora.
+    Kasnije se ne čitaju, da ne bi pregazile ono što su ljudi u međuvremenu upisali.
+  </p>
+  <div class="table-card"><div class="table-responsive">
+    <table class="data-table">
+      <thead><tr><th>Datoteka</th><th>Što nosi</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">organizacija.json</td><td>sektori i branjena područja</td></tr>
+        <tr><td class="mono">sections.json</td><td>dionice s poddionicama, vodomjerima i pragovima, objektima, nasipima i branama</td></tr>
+        <tr><td class="mono">watercourses.json</td><td>vodotoci i vodna tijela</td></tr>
+        <tr><td class="mono">territories.json</td><td>županije, gradovi, općine i naselja</td></tr>
+        <tr><td class="mono">section_territories.json</td><td>ugrožena područja dionica</td></tr>
+        <tr><td class="mono">objekti_bp16.json</td><td>objekti jednog branjenog područja</td></tr>
+        <tr><td class="mono">imenik.json</td><td>djelatnici i njihova zaduženja (osobni podaci)</td></tr>
+      </tbody>
+    </table>
+  </div></div>
+  <p class="page-desc" style="margin-top:0.5rem;">
+    Datoteke nisu dio programa. Tko ih nema, upisuje ustroj i registre ručno.
+  </p>
+</section>
+
+<section class="detail-section">
+  <h2>{{icon "wrench"}} Ugovor o održavanju (A.02)</h2>
+  <p class="page-desc">
+    Radna knjiga iz Excel dodatka Hrvatskih voda. Uvoz daje popis lokacija izvršenja usluga po branjenom području
+    i stavke radova bez cijena. Pozicije plana i cjenici se ne uvoze jer se mijenjaju sa svakim okvirnim sporazumom.
+    Prije upisa vidite izvješće: što je prepoznato u registru, što bi bilo novo, gdje treba ručna veza.
+  </p>
+  <a href="/odrzavanje" class="btn btn-secondary">{{icon "wrench"}} Otvori Održavanje i učitaj ugovor</a>
+</section>
+
+<section class="detail-section">
+  <h2>{{icon "activity"}} Očitanja vodostaja</h2>
+  <p class="page-desc">
+    Mjerenja se ne objavljuju ni s programom ni u repozitoriju; uvoze se iz datoteke uz bazu, naredbom u terminalu.
+    Bez zastavice <span class="mono">-upisi</span> svaki uvoz samo izvještava, ništa ne mijenja.
+  </p>
+  <div class="table-card"><div class="table-responsive">
+    <table class="data-table">
+      <thead><tr><th>Naredba</th><th>Što radi</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">gocop -tablica dnevni.csv</td><td>dnevna tablica vodostaja: stupci su postaje, redci datumi</td></tr>
+        <tr><td class="mono">gocop -import-bp16</td><td>očitanja i stanja objekata iz ranije evidencije branjenog područja</td></tr>
+        <tr><td class="mono">gocop -import-bp16-dnevnici</td><td>evidencije radova kao rekonstruirani dnevnici, uz napomenu na svakom listu</td></tr>
+      </tbody>
+    </table>
+  </div></div>
+</section>
+{{end}}
