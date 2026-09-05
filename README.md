@@ -149,7 +149,10 @@ između računala koja sudjeluju u testu. Portovi se mijenjaju u `gocop.toml`.
 
 - Dva do tri računala u istoj lokalnoj mreži, unutar mreže Hrvatskih voda,
   bez izlaganja na internet.
-- Jedan administrator upravlja uparivanjem (Administracija → Čvor i mreža) i lozinkama.
+- Jedan administrator osniva mrežu i drži njezin ključ (Administracija →
+  Čvor i mreža); on prima nova računala i upravlja lozinkama. Svoje
+  računalo uparuje svatko sam: na svježem računalu čarobnjak stoji na
+  stranici prijave, a prijavljenima u profilu.
 - Provjeriti SHA-256 preuzetog izdanja prema `SHA256SUMS` uz izdanje.
 - Program pokretati kao običan korisnik, iz vlastite mape.
 
@@ -164,6 +167,13 @@ Prvo pokretanje stvori praznu bazu i račun `admin` s početnom lozinkom
 koja se mijenja pri prvoj prijavi, te zapiše `data/gocop.toml`. Prvi korak
 u programu je registar Organizacija obrane: sektori, pa branjena područja. Ako uz bazu stoje datoteke registara i imenika,
 učita i njih. Otvoriti `http://localhost` (ili `http://localhost:8080`).
+Novo računalo prvo treba povezati s uredom. Dok u njemu nema djelatnika,
+stranica prijave nudi čarobnjak **Poveži ovo računalo s uredom**: pronaći
+ured u lokalnoj mreži ili upisati adresu, usporediti kod s osobom u uredu,
+preuzeti podatke. Kad stigne imenik, osoba se prijavljuje svojim računom;
+čarobnjak bez prijave tada se zatvara, a prijavljenima ostaje u profilu za
+dodatna računala i ručnu razmjenu.
+
 Sve što radi samo administrator stoji u modulu **Administracija**: ustroj
 obrane (sektori i branjena područja), moduli i ovlasti, čvor, mreža i
 sinkronizacija te pregled uvoza podataka. Vidi ga zadano samo globalni
