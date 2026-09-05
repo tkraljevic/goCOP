@@ -225,6 +225,20 @@ func InitSchema(database *sql.DB) error {
 			UNIQUE(section_code, station_id)
 		);`,
 
+		// Stanje razmjene s pojedinim čvorom: odnos ovog čvora s tim, ostaje
+		// lokalno i ne putuje (vidi peers.SyncState)
+		`CREATE TABLE IF NOT EXISTS peer_sync (
+			node_id TEXT PRIMARY KEY,
+			their_frontier TEXT NOT NULL DEFAULT '{}',
+			last_attempt DATETIME,
+			last_ok DATETIME,
+			last_error TEXT NOT NULL DEFAULT '',
+			applied INTEGER NOT NULL DEFAULT 0,
+			sent INTEGER NOT NULL DEFAULT 0,
+			duration_ms INTEGER NOT NULL DEFAULT 0,
+			fails INTEGER NOT NULL DEFAULT 0
+		);`,
+
 		// Poznati čvorovi. Identitet čvora je njegov javni ključ; adresa je
 		// promjenjiva. Popis se sinkronizira kao i sve drugo.
 		`CREATE TABLE IF NOT EXISTS peers (

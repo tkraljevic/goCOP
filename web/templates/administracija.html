@@ -56,6 +56,18 @@
 
     <div class="dash-card">
       <div class="dash-card-header">
+        <div class="dash-card-icon-box {{if .SyncAlerts}}danger{{else}}info{{end}}">{{icon "activity"}}</div>
+        <span class="dash-status-pill {{if .SyncAlerts}}warning{{else}}info{{end}}">{{.SyncOnline}} / {{.SyncTotal}} NA MREŽI</span>
+      </div>
+      <div class="dash-card-body">
+        <h2 class="dash-card-title">Sinkronizacija</h2>
+        <p class="dash-card-desc">{{if .SyncAlerts}}{{.SyncAlerts}} upozorenja: nešto ne štima.{{else}}Tko je na mreži, s kim je zadnja razmjena uspjela i tko zaostaje.{{end}}</p>
+      </div>
+      <div class="dash-card-footer"><a href="/sinkronizacija" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
+    </div>
+
+    <div class="dash-card">
+      <div class="dash-card-header">
         <div class="dash-card-icon-box teal">{{icon "radio-tower"}}</div>
         <span class="dash-status-pill default">P2P</span>
       </div>

@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"gocop/internal/models"
+	"gocop/internal/peers"
 	"gocop/internal/service"
 )
 
@@ -16,12 +17,13 @@ import (
 type AdminHandler struct {
 	org        *service.OrgService
 	users      *service.UserService
+	peers      *peers.Service
 	tmplAdmin  *template.Template
 	tmplImport *template.Template
 }
 
-func NewAdminHandler(org *service.OrgService, users *service.UserService, admin, imports *template.Template) *AdminHandler {
-	return &AdminHandler{org: org, users: users, tmplAdmin: admin, tmplImport: imports}
+func NewAdminHandler(org *service.OrgService, users *service.UserService, peersSvc *peers.Service, admin, imports *template.Template) *AdminHandler {
+	return &AdminHandler{org: org, users: users, peers: peersSvc, tmplAdmin: admin, tmplImport: imports}
 }
 
 // AdminPageData je ulazna stranica administracije sa stanjem ustroja
@@ -35,6 +37,8 @@ type AdminPageData struct {
 	Locked    int // računi koji čekaju promjenu lozinke
 	Inactive  int
 	NoContact bool // administrator nema kontakt, pa ga stranica prijave ne pokazuje
+
+	SyncOnline, SyncTotal, SyncAlerts int // sažetak sinkronizacije za karticu
 
 	SuccessMessage string
 	ErrorMessage   string
@@ -77,6 +81,9 @@ func (h *AdminHandler) ShowAdmin(w http.ResponseWriter, r *http.Request) {
 	}
 	if _, _, _, ok := h.users.GlobalAdminContact(); !ok {
 		data.NoContact = true
+	}
+	if st, err := h.peers.Status(ctx, false); err == nil {
+		data.SyncOnline, data.SyncTotal, data.SyncAlerts = st.Online, st.Total, len(st.Alerts)
 	}
 
 	if err := h.tmplAdmin.ExecuteTemplate(w, "administracija.html", data); err != nil {
