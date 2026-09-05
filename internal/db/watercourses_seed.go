@@ -2,18 +2,14 @@ package db
 
 import (
 	"database/sql"
-	_ "embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
-	"strings"
 
 	"gocop/internal/hydro"
 	"gocop/internal/models"
 )
-
-//go:embed watercourses.json
-var watercoursesJSON []byte
 
 // Registar vodnih tijela dolazi iz Odluke o popisu voda I. reda (NN 79/2010),
 // dopunjen enciklopedijskim podacima. Dionice i postaje vežu se na njega po
@@ -47,8 +43,15 @@ func seedWatercourses(database *sql.DB) error {
 	}
 
 	if count == 0 {
+		raw, err := readDataFile("watercourses.json")
+		if errors.Is(err, ErrNoDataFile) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
 		var waters []seedWatercourse
-		if err := json.Unmarshal(watercoursesJSON, &waters); err != nil {
+		if err := json.Unmarshal(raw, &waters); err != nil {
 			return fmt.Errorf("greška pri čitanju watercourses.json: %w", err)
 		}
 
@@ -86,8 +89,7 @@ func seedWatercourses(database *sql.DB) error {
 		}
 		log.Printf("Registar vodnih tijela: %d voda", len(waters))
 	}
-
-	return linkWatercourses(database)
+	return nil
 }
 
 // watercourseIndex gradi kazalo naziv → sve vode tog imena
@@ -141,136 +143,11 @@ func linkWatercourses(database *sql.DB) error {
 		return err
 	}
 
-	type sectionRow struct{ code, desc, areaText string }
-	var sections []sectionRow
-
-	rows, err := database.Query(`
-		SELECT s.code, s.description,
-		       COALESCE(a.name, '') || ' ' || COALESCE(a.vgi_name, '') || ' ' || COALESCE(a.subcenter, '')
-		FROM sections s
-		LEFT JOIN areas a ON a.id = s.area_id
-		WHERE s.watercourse_code = ''
-	`)
-	if err != nil {
-		return err
-	}
-	for rows.Next() {
-		var r sectionRow
-		if err := rows.Scan(&r.code, &r.desc, &r.areaText); err != nil {
-			rows.Close()
-			return err
-		}
-		sections = append(sections, r)
-	}
-	rows.Close()
-
 	tx, err := database.Begin()
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
-
-	insertWater, err := tx.Prepare(`
-		INSERT INTO watercourses (code, official_name, name, kind, category, subcategory, wiki_slug, origin)
-		VALUES (?, ?, ?, ?, '', '', '', ?)
-		ON CONFLICT(code) DO NOTHING
-	`)
-	if err != nil {
-		return err
-	}
-	defer insertWater.Close()
-
-	linkedSections, addedWaters := 0, 0
-
-	for _, sec := range sections {
-		name, kind := hydro.ParseWatercourseWithKind(sec.desc)
-		if strings.TrimSpace(name) == "" {
-			continue
-		}
-
-		code := hydro.ResolveWatercourse(index, name, kind, sec.areaText)
-
-		if code == "" && len(index[hydro.WatercourseKey(name)]) == 0 {
-			// Voda postoji u dokumentaciji, ali ne i u Odluci — upiši je
-			official := strings.TrimSpace(kind + " " + name)
-			code = hydro.WatercourseCode(official)
-			if _, err := insertWater.Exec(code, official, name, kind, models.WatercourseOriginDocumentation); err != nil {
-				return fmt.Errorf("greška pri unosu vodnog tijela %q iz dokumentacije: %w", official, err)
-			}
-			index[hydro.WatercourseKey(name)] = []hydro.Candidate{{Code: code, Kind: kind}}
-			addedWaters++
-		}
-
-		if code == "" {
-			continue
-		}
-		if _, err := tx.Exec(`UPDATE sections SET watercourse_code = ? WHERE code = ?`, code, sec.code); err != nil {
-			return fmt.Errorf("greška pri vezanju dionice %s: %w", sec.code, err)
-		}
-		linkedSections++
-	}
-
-	// Poddionice — dionica s više poddionica zna teći uz više voda (potok i
-	// njegove retencije). Svaka poddionica dobiva svoju vodu; što dokumentacija
-	// spominje, a Odluka nema, upisuje se kao i gore.
-	partRows, err := tx.Query(`SELECT s.code, s.parts,
-		COALESCE(a.name, '') || ' ' || COALESCE(a.vgi_name, '') || ' ' || COALESCE(a.subcenter, '')
-		FROM sections s LEFT JOIN areas a ON a.id = s.area_id
-		WHERE s.parts <> '' AND s.parts <> '[]' AND s.parts LIKE '%"description"%' AND s.parts NOT LIKE '%"watercourse_code"%'`)
-	if err != nil {
-		return err
-	}
-	type partUpdate struct {
-		code  string
-		parts []models.SectionPart
-	}
-	var partUpdates []partUpdate
-	for partRows.Next() {
-		var code, raw, areaText string
-		if err := partRows.Scan(&code, &raw, &areaText); err != nil {
-			partRows.Close()
-			return err
-		}
-		var parts []models.SectionPart
-		if err := json.Unmarshal([]byte(raw), &parts); err != nil {
-			continue
-		}
-		changed := false
-		for i := range parts {
-			if parts[i].WatercourseCode != "" {
-				continue
-			}
-			name, kind := hydro.ParseWatercourseWithKind(parts[i].Description)
-			if strings.TrimSpace(name) == "" {
-				continue
-			}
-			code := hydro.ResolveWatercourse(index, name, kind, areaText)
-			if code == "" && len(index[hydro.WatercourseKey(name)]) == 0 {
-				official := strings.TrimSpace(kind + " " + name)
-				code = hydro.WatercourseCode(official)
-				if _, err := insertWater.Exec(code, official, name, kind, models.WatercourseOriginDocumentation); err != nil {
-					partRows.Close()
-					return fmt.Errorf("greška pri unosu vodnog tijela %q iz poddionice: %w", official, err)
-				}
-				index[hydro.WatercourseKey(name)] = []hydro.Candidate{{Code: code, Kind: kind}}
-				addedWaters++
-			}
-			if code != "" {
-				parts[i].WatercourseCode = code
-				changed = true
-			}
-		}
-		if changed {
-			partUpdates = append(partUpdates, partUpdate{code, parts})
-		}
-	}
-	partRows.Close()
-	for _, u := range partUpdates {
-		raw, _ := json.Marshal(u.parts)
-		if _, err := tx.Exec(`UPDATE sections SET parts = ? WHERE code = ?`, string(raw), u.code); err != nil {
-			return fmt.Errorf("greška pri vezanju poddionica %s: %w", u.code, err)
-		}
-	}
 
 	// Postaje — vodotok postaje utvrđen je ranije, iz naziva ili stacionaže.
 	// Branjeno područje postaje uzima se s dionica kojima je mjerodavna.
@@ -345,9 +222,8 @@ func linkWatercourses(database *sql.DB) error {
 		return err
 	}
 
-	if linkedSections+len(stationLinks)+addedWaters+int(inferredCount) > 0 {
-		log.Printf("Vezano na registar vodnih tijela: %d dionica, %d postaja izravno + %d izvedeno iz dionica (%d voda dodano iz dokumentacije)",
-			linkedSections, len(stationLinks), inferredCount, addedWaters)
+	if len(stationLinks)+int(inferredCount) > 0 {
+		log.Printf("Postaje vezane na registar vodnih tijela: %d izravno + %d izvedeno iz dionica", len(stationLinks), inferredCount)
 	}
 
 	return nil

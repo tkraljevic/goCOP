@@ -55,15 +55,15 @@ func TestSeedNaSvjezojBaziDajePoznateBrojke(t *testing.T) {
 		want  int
 	}{
 		{"dionica", `SELECT COUNT(*) FROM sections`, 465},
-		{"vodomjernih postaja", `SELECT COUNT(*) FROM stations`, 246},
-		{"veza postaja–dionica", `SELECT COUNT(*) FROM section_stations`, 472},
+		{"vodomjernih postaja", `SELECT COUNT(*) FROM stations`, 255},
+		{"veza postaja–dionica", `SELECT COUNT(*) FROM section_stations`, 481},
 		{"vodnih tijela", `SELECT COUNT(*) FROM watercourses`, 495},
 		{"vodnih tijela iz Odluke", `SELECT COUNT(*) FROM watercourses WHERE origin = 'ODLUKA'`, 367},
 		{"dionica s vodom", `SELECT COUNT(*) FROM sections WHERE watercourse_code <> ''`, 464},
-		{"postaja s vodom", `SELECT COUNT(*) FROM stations WHERE watercourse_code <> ''`, 218},
+		{"postaja s vodom", `SELECT COUNT(*) FROM stations WHERE watercourse_code <> ''`, 227},
 		{"dionica s obalom", `SELECT COUNT(*) FROM sections WHERE bank <> ''`, 384},
 		{"dionica s rasponom stacionaže", `SELECT COUNT(*) FROM sections WHERE rkm_from IS NOT NULL`, 378},
-		{"postaja s kotom u sustavu Trst", `SELECT COUNT(*) FROM stations WHERE zero_datum_system = 'TRST'`, 246},
+		{"postaja s kotom u sustavu Trst", `SELECT COUNT(*) FROM stations WHERE zero_datum_system = 'TRST'`, 255},
 		{"postaja s izmjerenom HVRS71 kotom", `SELECT COUNT(*) FROM stations WHERE zero_datum_new IS NOT NULL`, 0},
 	}
 

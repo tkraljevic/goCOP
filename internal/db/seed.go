@@ -1,14 +1,14 @@
 package db
 
 import (
+	"context"
 	"database/sql"
-	_ "embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"gocop/internal/models"
 	"log"
 	"os"
-	"path/filepath"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -22,26 +22,14 @@ import (
 var ImenikPath = "data/imenik.json"
 
 // UseRepoImenik traži imenik u mapi data/ repozitorija (za testove koji
-// rade na stvarnim ljudima) i javlja je li nađen
+// rade na stvarnim ljudima) i javlja je li nađen; usput postavlja i mapu registara
 func UseRepoImenik() bool {
-	for _, up := range []string{"", "..", "../..", "../../.."} {
-		candidate := filepath.Join(up, "data", "imenik.json")
-		if _, err := os.Stat(candidate); err == nil {
-			ImenikPath = candidate
-			return true
-		}
+	if !UseRepoData() {
+		return false
 	}
-	return false
+	_, err := os.Stat(ImenikPath)
+	return err == nil
 }
-
-//go:embed sections.json
-var sectionsJSON []byte
-
-//go:embed territories.json
-var territoriesJSON []byte
-
-//go:embed section_territories.json
-var sectionTerritoriesJSON []byte
 
 type seedDuty struct {
 	Title        string  `json:"title"`
@@ -67,103 +55,12 @@ type seedUser struct {
 	Duties        []seedDuty `json:"duties"`
 }
 
-// SeedInitialData unosi sektore, branjena područja, stvarne voditelje COP-ova i dužnosti
+// SeedInitialData puni praznu bazu: organizaciju i registre iz datoteka uz bazu kad ih ima, te račun admin
 func SeedInitialData(database *sql.DB) error {
-	// 1. Sektori i Direkcija
-	sectors := []struct {
-		id, name, vgoName, centerCop, address, phone, email string
-	}{
-		{"DIREKCIJA", "Direkcija Zagreb (za područje čitave RH)", "Hrvatske vode, Direkcija Zagreb", "Glavni centar obrane od poplava (GCOP)", "Ulica grada Vukovara 220, 10000 Zagreb", "01/6151-778", "GCOPRH@voda.hr"},
-		{"A", "Sektor A — Mura i gornja Drava", "VGO za Muru i gornju Dravu, Varaždin", "COP Varaždin", "Međimurska 26 b, 42000 Varaždin", "042/404-000", "COP.A@voda.hr"},
-		{"B", "Sektor B — Dunav i donja Drava", "VGO za Dunav i donju Dravu, Osijek", "COP Osijek", "Splavarska 2a, 31000 Osijek", "031/252-802", "copos@voda.hr"},
-		{"C", "Sektor C — Gornja Sava", "VGO za gornju Savu, Zagreb", "COP Zagreb", "Terenski ured Hruščica, Savska 100", "01/2773-002", "GCOPRH@voda.hr"},
-		{"D", "Sektor D — Srednja i donja Sava", "VGO za srednju i donju Savu, Slavonski Brod", "COP Slavonski Brod", "Šetalište braće Radića 22, Slavonski Brod", "035/386-304", "copsb@voda.hr"},
-		{"E", "Sektor E — Sjeverni Jadran", "VGO za slivove sjevernog Jadrana, Rijeka", "COP Rijeka", "Đure Šporera 3, 51000 Rijeka", "051/317-018", "COP.E@voda.hr"},
-		{"F", "Sektor F — Južni Jadran", "VGO za slivove južnog Jadrana, Split", "COP Split", "Vukovarska 35, 21000 Split", "021/309-477", "copst@voda.hr"},
-	}
-
-	for _, s := range sectors {
-		_, err := database.Exec(`
-			INSERT INTO sectors (id, name, vgo_name, center_cop, address, phone, email)
-			VALUES (?, ?, ?, ?, ?, ?, ?)
-			ON CONFLICT(id) DO UPDATE SET
-				name = excluded.name,
-				vgo_name = excluded.vgo_name,
-				center_cop = excluded.center_cop,
-				address = excluded.address,
-				phone = excluded.phone,
-				email = excluded.email;
-		`, s.id, s.name, s.vgoName, s.centerCop, s.address, s.phone, s.email)
-		if err != nil {
-			return fmt.Errorf("greška pri unosu sektora %s: %w", s.id, err)
-		}
-	}
-
-	// 2. Branjena područja 1-34 s ugovornim pravnim osobama
-	areas := []struct {
-		id         int
-		sectorID   string
-		name       string
-		vgiName    string
-		subcenter  string
-		contractor string
-	}{
-		// Sektor D
-		{1, "D", "Mali sliv Biđ-Bosut", "VGI Biđ-Bosut, Vinkovci", "Podcentar Vinkovci", "Vinkovački vodovod i kanalizacija d.o.o."},
-		{2, "D", "Mali sliv Brodska Posavina", "VGI Brodska Posavina, Slavonski Brod", "Podcentar Slavonski Brod", "Brodska Posavina d.d."},
-		{3, "D", "Mali sliv Orljava-Londža", "VGI Orljava-Londža, Požega", "Podcentar Požega", "Presoflex gradnja d.o.o."},
-		{4, "D", "Mali sliv Šumetlica-Crnac", "VGI Šumetlica-Crnac, Nova Gradiška", "Podcentar Nova Gradiška", "Vodoprivreda Nova Gradiška d.d."},
-		{5, "D", "Mali sliv Subocka-Strug", "VGI Subocka-Strug, Novska", "Podcentar Novska", "Vodoprivreda Novska d.o.o."},
-		{6, "D", "Mali sliv Ilova-Pakra", "VGI Ilova-Pakra, Daruvar", "Podcentar Daruvar", "Vodoprivreda Daruvar d.d."},
-		{7, "D", "Mali sliv Česma-Glogovnica", "VGI Česma-Glogovnica, Bjelovar", "Podcentar Bjelovar", "Vodoprivreda Čazma d.d."},
-		{9, "D", "Mali sliv Lonja-Trebež", "VGI Lonja-Trebež, Kutina", "Podcentar Kutina", "Vodoprivreda Lonja-Zelina d.d."},
-		{10, "D", "Mali sliv Banovina", "VGI Banovina, Sisak", "Podcentar Sisak", "Vodoprivreda Sisak d.d."},
-		{11, "D", "Mali sliv Kupa", "VGI Kupa, Karlovac", "Podcentar Karlovac", "Vodoprivreda Karlovac d.d."},
-		// Sektor C
-		{8, "C", "Mali sliv Zelina-Lonja", "VGI Zelina-Lonja, Dugo Selo", "Podcentar Dugo Selo", "Vodoprivreda Zagreb d.d."},
-		{12, "C", "Mali sliv Krapina-Sutla", "VGI Krapina-Sutla, Zabok", "Podcentar Zabok", "Vodoprivreda Zagorje d.o.o."},
-		{13, "C", "Zagrebačko Prisavlje — južni dio", "VGI Zagreb", "Podcentar Zagreb Jug", "Vodoprivreda Zagreb d.d."},
-		{14, "C", "Zagrebačko Prisavlje — središnji dio", "VGI Zagreb", "Podcentar Zagreb Centar", "Vodoprivreda Zagreb d.d."},
-		// Sektor B
-		{15, "B", "Mali sliv Vuka", "VGI Vuka, Osijek", "Podcentar Osijek", "Vodogradnja d.d. Osijek"},
-		{16, "B", "Mali sliv Baranja", "VGI Baranja, Darda", "Podcentar Darda", "Vodogradnja d.d. Osijek"},
-		{17, "B", "Mali sliv Karašica-Vučica", "VGI Karašica-Vučica, Donji Miholjac", "Podcentar Donji Miholjac", "Karašica-Vučica d.d."},
-		{18, "B", "Mali sliv Županijski kanal", "VGI Županijski kanal, Virovitica", "Podcentar Virovitica", "Karašica-Vučica d.d."},
-		{34, "B", "Međudržavne rijeke Drava i Dunav", "VGO Osijek", "COP Osijek", "Vodogradnja d.d. Osijek"},
-		// Sektor A
-		{19, "A", "Mali sliv Bistra", "VGI Bistra, Đurđevac", "Podcentar Đurđevac", "Bistra d.o.o. Đurđevac"},
-		{20, "A", "Mali sliv Plitvica-Bednja", "VGI Plitvica-Bednja, Varaždin", "Podcentar Varaždin", "Hidroing d.d. Varaždin"},
-		{21, "A", "Mali sliv Trnava", "VGI Trnava, Čakovec", "Podcentar Čakovec", "Tegra d.o.o. Čakovec"},
-		{33, "A", "Međudržavne rijeke Mura i Drava", "VGO Varaždin", "COP Varaždin", "Hidroing d.d. Varaždin"},
-		// Sektor E
-		{22, "E", "Mali slivovi Mirna-Dragonja i Raša-Boljunčica", "VGI Istra, Pula", "Podcentar Pula", "Vodoprivreda Pula d.o.o."},
-		{23, "E", "Kvarnersko primorje i otoci", "VGI Rijeka", "Podcentar Rijeka", "Vodogradnja Rijeka d.o.o."},
-		{24, "E", "Mali sliv Gorski kotar", "VGI Gorski kotar, Delnice", "Podcentar Delnice", "Vodogradnja Rijeka d.o.o."},
-		{25, "E", "Mali sliv Lika", "VGI Lika, Gospić", "Podcentar Gospić", "Vodoprivreda Gospić d.o.o."},
-		// Sektor F
-		{26, "F", "Zrmanja - Zadarsko primorje", "VGI Zadar", "Podcentar Zadar", "Vodoinstalacija Zadar d.o.o."},
-		{27, "F", "Krka - Šibensko primorje", "VGI Šibenik", "Podcentar Šibenik", "Vodoprivreda Šibenik d.o.o."},
-		{28, "F", "Mali sliv Cetina", "VGI Cetina, Sinj", "Podcentar Sinj", "Vodoprivreda Split d.d."},
-		{29, "F", "Srednjodalmatinsko primorje i otoci", "VGI Split", "Podcentar Split", "Vodoprivreda Split d.d."},
-		{30, "F", "Mali sliv Matica", "VGI Vrgorac", "Podcentar Vrgorac", "Vodoprivreda Vrgorac d.o.o."},
-		{31, "F", "Mali sliv Vrljika", "VGI Imotski", "Podcentar Imotski", "Vodoprivreda Vrgorac d.o.o."},
-		{32, "F", "Neretva - Korčula i Dubrovačko primorje", "VGI Opuzen", "Podcentar Opuzen", "Neretvanski sliv d.o.o."},
-	}
-
-	for _, a := range areas {
-		_, err := database.Exec(`
-			INSERT INTO areas (id, sector_id, name, vgi_name, subcenter, contractor_name)
-			VALUES (?, ?, ?, ?, ?, ?)
-			ON CONFLICT(id) DO UPDATE SET
-				sector_id = excluded.sector_id,
-				name = excluded.name,
-				vgi_name = excluded.vgi_name,
-				subcenter = excluded.subcenter,
-				contractor_name = excluded.contractor_name;
-		`, a.id, a.sectorID, a.name, a.vgiName, a.subcenter, a.contractor)
-		if err != nil {
-			return fmt.Errorf("greška pri unosu branjenog područja %d: %w", a.id, err)
-		}
+	// 1. Organizacija: sektori i branjena područja. Program ih ne zna sam;
+	// stvara ih globalni administrator ili se učitaju uz bazu pri prvom punjenju.
+	if err := seedOrganization(database); err != nil {
+		return err
 	}
 
 	// 3. Početni korisnici s višestrukim funkcijama
@@ -278,61 +175,27 @@ func SeedInitialData(database *sql.DB) error {
 		}
 	}
 
-	// 4. Početne štićene dionice (465 dionica iz teritorijalnih jedinica)
+	// 4. Početne štićene dionice iz prijepisa Privitka uz bazu
 	var sectionCount int
 	if err := database.QueryRow("SELECT COUNT(*) FROM sections").Scan(&sectionCount); err == nil && sectionCount == 0 {
-		var rawSections []struct {
-			Code          string `json:"code"`
-			AreaID        int    `json:"area_id"`
-			SectorID      string `json:"sector_id"`
-			Watercourse   string `json:"watercourse"`
-			ProtectedArea string `json:"protected_area"`
-			Embankments   any    `json:"embankments"`
-			Structures    any    `json:"structures"`
-			Gauges        any    `json:"gauges"`
-			Notes         string `json:"notes"`
-			Parts         any    `json:"parts"`
+		sections, err := LoadSections()
+		if err != nil {
+			return err
 		}
-		if err := json.Unmarshal(sectionsJSON, &rawSections); err != nil {
-			return fmt.Errorf("greška pri čitanju sections.json: %w", err)
+		if sections == nil {
+			log.Printf("Dionice: %s nije nađen — registri stižu sinkronizacijom s drugim čvorom", DataFile("sections.json"))
 		}
-
 		tx, err := database.Begin()
 		if err != nil {
 			return err
 		}
 		defer tx.Rollback()
-
-		insertSecStmt, err := tx.Prepare(`
-			INSERT INTO sections (
-				code, area_id, sector_id, description, protected_area,
-				embankments, structures, gauges, notes, created_at, updated_at, parts
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		`)
-		if err != nil {
-			return err
-		}
-		defer insertSecStmt.Close()
-
-		now := time.Now().UTC().Format(time.RFC3339)
-		for _, s := range rawSections {
-			embJSON, _ := json.Marshal(s.Embankments)
-			strJSON, _ := json.Marshal(s.Structures)
-			gagJSON, _ := json.Marshal(s.Gauges)
-			partsJSON, _ := json.Marshal(s.Parts)
-			if s.Parts == nil {
-				partsJSON = []byte("[]")
-			}
-
-			_, err = insertSecStmt.Exec(
-				s.Code, s.AreaID, s.SectorID, s.Watercourse, s.ProtectedArea,
-				string(embJSON), string(strJSON), string(gagJSON), s.Notes, now, now, string(partsJSON),
-			)
-			if err != nil {
-				return fmt.Errorf("greška pri unosu dionice %s: %w", s.Code, err)
+		ctx := context.Background()
+		for i := range sections {
+			if err := WriteSection(ctx, tx, &sections[i]); err != nil {
+				return err
 			}
 		}
-
 		if err := tx.Commit(); err != nil {
 			return err
 		}
@@ -371,7 +234,13 @@ func SeedInitialData(database *sql.DB) error {
 				} `json:"settlements"`
 			} `json:"municipalities"`
 		}
-		if err := json.Unmarshal(territoriesJSON, &rawCounties); err != nil {
+		raw, err := readDataFile("territories.json")
+		if errors.Is(err, ErrNoDataFile) {
+			raw = []byte("[]")
+		} else if err != nil {
+			return err
+		}
+		if err := json.Unmarshal(raw, &rawCounties); err != nil {
 			return fmt.Errorf("greška pri čitanju territories.json: %w", err)
 		}
 
@@ -445,7 +314,11 @@ func SeedInitialData(database *sql.DB) error {
 			SettlementID   *int   `json:"settlement_id"`
 			CreatedAt      string `json:"created_at"`
 		}
-		if err := json.Unmarshal(sectionTerritoriesJSON, &rawSecTerrs); err == nil && len(rawSecTerrs) > 0 {
+		raw, err := readDataFile("section_territories.json")
+		if err != nil && !errors.Is(err, ErrNoDataFile) {
+			return err
+		}
+		if err := json.Unmarshal(raw, &rawSecTerrs); err == nil && len(rawSecTerrs) > 0 {
 			tx, err := database.Begin()
 			if err != nil {
 				return err
@@ -480,50 +353,97 @@ func SeedInitialData(database *sql.DB) error {
 		return err
 	}
 
-	// 8. Registar vodnih tijela i veze dionica i postaja na njega
+	// 8. Registar vodnih tijela
 	if err := seedWatercourses(database); err != nil {
 		return err
 	}
 
-	// 9. Obala i raspon stacionaže dionica, pročitani iz opisa
-	if err := structureSections(database); err != nil {
+	// 9. Poddionice na registre: vode, postaje, teritorij, nasipi i brane;
+	// iz toga se obnavljaju kazala veza
+	if err := LinkAllSections(context.Background(), database); err != nil {
 		return err
 	}
 
-	// 10. Registar objekata: crpne stanice i ustave, za sad iz evidencije Baranje
+	// 10. Postaje na registar voda: iz naziva, a gdje ga nema, iz dionica
+	// kojima je postaja mjerodavna
+	if err := linkWatercourses(database); err != nil {
+		return err
+	}
+
+	// 11. Registar objekata: crpne stanice i ustave, za sad iz evidencije
+	// Baranje; vodomjer objekta traži se među postajama dionica područja
 	if err := seedStructures(database); err != nil {
+		return err
+	}
+
+	// 12. Objekti s poddionica na registar objekata, sad kad ga ima
+	if err := LinkAllSections(context.Background(), database); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-// EmbeddedSections vraća ugrađeni prijepis dionica kao modele. Služi
-// popravcima koji postojeće dionice usklađuju s novijim prijepisom, jer
-// punjenje pri prvom pokretanju već postojeće retke ne dira.
-func EmbeddedSections() ([]models.Section, error) {
-	var raw []struct {
-		Code          string                  `json:"code"`
-		AreaID        int                     `json:"area_id"`
-		SectorID      string                  `json:"sector_id"`
-		Watercourse   string                  `json:"watercourse"`
-		ProtectedArea string                  `json:"protected_area"`
-		Embankments   []models.EmbankmentItem `json:"embankments"`
-		Structures    []models.StructureItem  `json:"structures"`
-		Gauges        []models.GaugeItem      `json:"gauges"`
-		Notes         string                  `json:"notes"`
-		Parts         []models.SectionPart    `json:"parts"`
+// LoadSections čita prijepis dionica uz bazu (data/sections.json). Služi
+// punjenju i popravcima koji postojeće dionice usklađuju s novijim prijepisom.
+// Kad datoteke nema, vraća nil bez greške: čvor tada dionice dobiva sinkronizacijom.
+func LoadSections() ([]models.Section, error) {
+	raw, err := readDataFile("sections.json")
+	if errors.Is(err, ErrNoDataFile) {
+		return nil, nil
 	}
-	if err := json.Unmarshal(sectionsJSON, &raw); err != nil {
+	if err != nil {
 		return nil, err
 	}
-	out := make([]models.Section, 0, len(raw))
-	for _, r := range raw {
-		out = append(out, models.Section{
-			Code: r.Code, AreaID: r.AreaID, SectorID: r.SectorID, Description: r.Watercourse,
-			ProtectedArea: r.ProtectedArea, Embankments: r.Embankments, Structures: r.Structures,
-			Gauges: r.Gauges, Notes: r.Notes, Parts: r.Parts,
-		})
+	var out []models.Section
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil, fmt.Errorf("greška pri čitanju %s: %w", DataFile("sections.json"), err)
 	}
 	return out, nil
+}
+
+// seedOrganization učita sektore i branjena područja iz data/organizacija.json
+// u praznu bazu. Bez datoteke tablice ostaju prazne, a organizaciju upisuje
+// globalni administrator u registru Organizacija.
+func seedOrganization(database *sql.DB) error {
+	var n int
+	if err := database.QueryRow("SELECT COUNT(*) FROM sectors").Scan(&n); err != nil || n > 0 {
+		return err
+	}
+	raw, err := readDataFile("organizacija.json")
+	if errors.Is(err, ErrNoDataFile) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	var org struct {
+		Sectors []models.Sector `json:"sectors"`
+		Areas   []models.Area   `json:"areas"`
+	}
+	if err := json.Unmarshal(raw, &org); err != nil {
+		return fmt.Errorf("greška pri čitanju %s: %w", DataFile("organizacija.json"), err)
+	}
+	tx, err := database.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for _, s := range org.Sectors {
+		if _, err := tx.Exec(`INSERT INTO sectors (id, name, vgo_name, center_cop, address, phone, email) VALUES (?, ?, ?, ?, ?, ?, ?)
+			ON CONFLICT(id) DO NOTHING`, s.ID, s.Name, s.VgoName, s.CenterCop, s.Address, s.Phone, s.Email); err != nil {
+			return fmt.Errorf("sektor %s: %w", s.ID, err)
+		}
+	}
+	for _, a := range org.Areas {
+		if _, err := tx.Exec(`INSERT INTO areas (id, sector_id, name, vgi_name, subcenter, contractor_name) VALUES (?, ?, ?, ?, ?, ?)
+			ON CONFLICT(id) DO NOTHING`, a.ID, a.SectorID, a.Name, a.VgiName, a.Subcenter, a.ContractorName); err != nil {
+			return fmt.Errorf("branjeno područje %d: %w", a.ID, err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	log.Printf("Organizacija: %d sektora i %d branjenih područja iz %s", len(org.Sectors), len(org.Areas), DataFile("organizacija.json"))
+	return nil
 }

@@ -1,8 +1,10 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"gocop/internal/models"
@@ -90,62 +92,87 @@ func (s *SectionService) CanCreateSectionInArea(perms *models.UserPermissions, s
 	return false
 }
 
-// CreateSection stvara novu dionicu ako korisnik ima odgovarajuće ovlasti
-func (s *SectionService) CreateSection(perms *models.UserPermissions, sec *models.Section) error {
-	if sec == nil || strings.TrimSpace(sec.Code) == "" || sec.AreaID <= 0 || strings.TrimSpace(sec.SectorID) == "" {
+// SaveSection upisuje novu ili izmijenjenu dionicu s poddionicama. Nova
+// traži pravo pisanja u području, postojeća pravo uređivanja te dionice.
+func (s *SectionService) SaveSection(ctx context.Context, perms *models.UserPermissions, sec *models.Section, isNew bool) error {
+	if sec == nil {
 		return ErrInvalidSection
 	}
-
-	if !s.CanCreateSectionInArea(perms, sec.SectorID, sec.AreaID) {
-		return ErrUnauthorized
-	}
-
-	// Provjeri postoji li već dionica s istom šifrom
-	existing, _ := s.sectionRepo.GetSectionByCode(sec.Code)
-	if existing != nil {
-		return fmt.Errorf("dionica sa šifrom '%s' već postoji", sec.Code)
-	}
-
-	if err := s.sectionRepo.CreateSection(sec); err != nil {
-		return err
-	}
-
-	s.sse.Broadcast("section_created", fmt.Sprintf("Dodana nova dionica: %s", sec.Code), sec.Code)
-	return nil
-}
-
-// UpdateSection ažurira dionicu ako korisnik ima odgovarajuće ovlasti
-func (s *SectionService) UpdateSection(perms *models.UserPermissions, sec *models.Section) error {
-	if sec == nil || strings.TrimSpace(sec.Code) == "" {
+	sec.Code = strings.ToUpper(strings.TrimSpace(sec.Code))
+	if sec.Code == "" || sec.AreaID <= 0 {
 		return ErrInvalidSection
 	}
-
+	if !reSectionCode.MatchString(sec.Code) {
+		return fmt.Errorf("šifra dionice ima oblik SEKTOR.PODRUČJE.BROJ, npr. B.15.5")
+	}
 	existing, err := s.sectionRepo.GetSectionByCode(sec.Code)
 	if err != nil {
 		return err
 	}
-	if existing == nil {
-		return ErrSectionNotFound
+	if isNew {
+		if existing != nil {
+			return fmt.Errorf("dionica sa šifrom '%s' već postoji", sec.Code)
+		}
+		// sektor nosi prvi dio šifre; područje ga mora potvrditi pri upisu
+		if sec.SectorID == "" {
+			sec.SectorID = strings.ToUpper(sec.Code[:strings.Index(sec.Code, ".")])
+		}
+		if !s.CanCreateSectionInArea(perms, sec.SectorID, sec.AreaID) {
+			return ErrUnauthorized
+		}
+	} else {
+		if existing == nil {
+			return ErrSectionNotFound
+		}
+		if !s.CanEditSection(perms, existing) {
+			return ErrUnauthorized
+		}
+		sec.AreaID, sec.SectorID = existing.AreaID, existing.SectorID
 	}
-
-	// Provjera ovlasti na postojećoj dionici
-	if !s.CanEditSection(perms, existing) {
-		return ErrUnauthorized
-	}
-
-	if err := s.sectionRepo.UpdateSection(sec); err != nil {
+	if err := validateParts(sec); err != nil {
 		return err
 	}
-
-	s.sse.Broadcast("section_updated", fmt.Sprintf("Ažurirana dionica: %s", sec.Code), sec.Code)
+	if err := s.sectionRepo.SaveSection(ctx, sec); err != nil {
+		return err
+	}
+	if isNew {
+		s.sse.Broadcast("section_created", fmt.Sprintf("Dodana nova dionica: %s", sec.Code), sec.Code)
+	} else {
+		s.sse.Broadcast("section_updated", fmt.Sprintf("Ažurirana dionica: %s", sec.Code), sec.Code)
+	}
 	return nil
 }
 
-// UpdateProtectedArea ažurira tekst ugroženog područja za dionicu
-func (s *SectionService) UpdateProtectedArea(code string, text string) error {
-	if err := s.sectionRepo.UpdateProtectedArea(code, text); err != nil {
-		return err
+var reSectionCode = regexp.MustCompile(`^[A-F]\.\d{1,2}\.\d{1,3}$`)
+
+// validateParts provjerava poddionice: bar jedna, svaka s vodom ili opisom,
+// raspon uređen od manje prema većoj stacionaži
+func validateParts(sec *models.Section) error {
+	if len(sec.Parts) == 0 {
+		return fmt.Errorf("dionica mora imati bar jednu poddionicu")
 	}
-	s.sse.Broadcast("section_updated", fmt.Sprintf("Ažurirano ugroženo područje za dionicu: %s", code), code)
+	for i := range sec.Parts {
+		p := &sec.Parts[i]
+		p.Seq = i + 1
+		if strings.TrimSpace(p.WatercourseCode) == "" && strings.TrimSpace(p.Description) == "" {
+			return fmt.Errorf("poddionica %d nema vodotok", i+1)
+		}
+		if p.KmFrom != nil && p.KmTo != nil && *p.KmFrom > *p.KmTo {
+			*p.KmFrom, *p.KmTo = *p.KmTo, *p.KmFrom
+		}
+		if p.Bank != "" && p.Bank != "L" && p.Bank != "D" && p.Bank != "LD" {
+			return fmt.Errorf("poddionica %d: obala je L, D ili LD", i+1)
+		}
+		for j := range p.Objects {
+			if strings.TrimSpace(p.Objects[j].Name) == "" && p.Objects[j].StructureID == "" {
+				return fmt.Errorf("poddionica %d: objekt bez naziva", i+1)
+			}
+		}
+		for j := range p.Embankments {
+			if strings.TrimSpace(p.Embankments[j].Name) == "" && p.Embankments[j].StructureID == "" {
+				return fmt.Errorf("poddionica %d: nasip bez naziva", i+1)
+			}
+		}
+	}
 	return nil
 }

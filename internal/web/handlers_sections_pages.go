@@ -1,10 +1,13 @@
 package web
 
 import (
+	"encoding/json"
 	"html/template"
 	"net/http"
+	"strconv"
 	"strings"
 
+	"gocop/internal/hydro"
 	"gocop/internal/models"
 	"gocop/internal/service"
 )
@@ -14,26 +17,35 @@ import (
 // teritorij, objekti, nasipi i ljudi — pa joj puna stranica pripada više
 // nego ijednom drugom registru.
 
+// PartView je poddionica s razriješenim vezama za prikaz
+type PartView struct {
+	models.SectionPart
+	Stations    []models.Station
+	Territories []models.SectionTerritory
+	Criteria    []models.GaugeItem // zapisi iz dokumentacije koji nisu postaje
+}
+
 // SectionPageData je stranica jedne dionice ili njezina obrasca
 type SectionPageData struct {
 	CurrentUser *models.User
 	Permissions *models.UserPermissions
 	Section     models.Section
+	Parts       []PartView
 	CanEdit     bool
 
-	Stations          []models.Station          // mjerodavni vodomjeri iz registra
-	RegistryObjects   []models.Structure        // objekti iz registra objekata
-	Criteria          []models.GaugeItem        // ostali kriteriji iz dokumentacije
-	Territories       []models.SectionTerritory // pridružene teritorijalne jedinice
-	Counties          []models.County           // za obrazac pridruživanja
-	AvailableStations []models.Station          // postaje koje još nisu na dionici
-
 	// obrazac
-	Sectors             []models.Sector
-	Areas               []models.Area
-	IsEdit              bool
-	DescriptionMain     string // opis bez stacionaže
-	DescriptionChainage string // stacionaža, ako je izdvojena
+	Sectors         []models.Sector
+	Areas           []models.Area
+	IsEdit          bool
+	Watercourses    []models.Watercourse
+	Stations        []models.Station
+	Structures      []models.Structure // objekti područja koji nisu nasipi
+	Embankments     []models.Structure // nasipi i brane područja
+	Counties        []models.County
+	StationingKinds []string
+	Banks           []struct{ Code, Label string }
+	SectionJSON     template.JS // dionica za obrazac
+	TerritoryLabels template.JS // ključ → naziv, za čipove u obrascu
 
 	SuccessMessage string
 	ErrorMessage   string
@@ -44,6 +56,11 @@ type SectionPageData struct {
 // SetStructureService daje rukovatelju registar objekata
 func (h *SectionsHandler) SetStructureService(structures *service.StructureService) {
 	h.structureService = structures
+}
+
+// SetWatercourseService daje rukovatelju registar voda
+func (h *SectionsHandler) SetWatercourseService(waters *service.WatercourseService) {
+	h.watercourseService = waters
 }
 
 // SetPageTemplates daje rukovatelju predloške stranica i servise koje one trebaju
@@ -60,12 +77,10 @@ func (h *SectionsHandler) pageData(r *http.Request) SectionPageData {
 	currUser, _ := ctx.Value(contextKeyUser).(*models.User)
 	perms, _ := ctx.Value(contextKeyPerms).(*models.UserPermissions)
 	return SectionPageData{
-		CurrentUser:    currUser,
-		Permissions:    perms,
-		SuccessMessage: r.URL.Query().Get("success"),
-		ErrorMessage:   r.URL.Query().Get("error"),
-		ActiveNav:      "sections",
-		ViewAsBanner:   viewBanner(r),
+		CurrentUser: currUser, Permissions: perms,
+		SuccessMessage: r.URL.Query().Get("success"), ErrorMessage: r.URL.Query().Get("error"),
+		ActiveNav: "sections", ViewAsBanner: viewBanner(r),
+		StationingKinds: hydro.StationingKinds, Banks: models.Banks,
 	}
 }
 
@@ -82,41 +97,41 @@ func (h *SectionsHandler) ShowSection(w http.ResponseWriter, r *http.Request) {
 	data.Section = *sec
 	data.CanEdit = h.sectionService.CanEditSection(data.Permissions, sec)
 
+	// registri koje poddionice spominju, dohvaćeni jednom
+	stationByID := map[string]models.Station{}
 	if h.stationService != nil {
 		if st, err := h.stationService.GetSectionStations(ctx, sec.Code); err == nil {
-			data.Stations = st
-		}
-		if crit, err := h.stationService.GetSectionGaugeCriteria(ctx, sec.Code); err == nil {
-			data.Criteria = crit
-		}
-		if data.CanEdit {
-			onSection := map[string]bool{}
-			for _, st := range data.Stations {
-				onSection[st.ID.String()] = true
-			}
-			if all, err := h.stationService.ListStations(ctx, "", "", false); err == nil {
-				for _, st := range all {
-					if !onSection[st.ID.String()] {
-						data.AvailableStations = append(data.AvailableStations, st)
-					}
-				}
+			for _, s := range st {
+				stationByID[s.ID.String()] = s
 			}
 		}
 	}
-	if h.structureService != nil {
-		if objs, err := h.structureService.ListForSection(ctx, sec.Code); err == nil {
-			data.RegistryObjects = objs
-		}
-	}
+	terrByKey := map[string]models.SectionTerritory{}
 	if h.territoryService != nil {
 		if terr, err := h.territoryService.GetSectionTerritories(ctx, sec.Code); err == nil {
-			data.Territories = terr
-		}
-		if data.CanEdit {
-			if counties, err := h.territoryService.ListCounties(ctx); err == nil {
-				data.Counties = counties
+			for _, t := range terr {
+				terrByKey[models.PartTerritory{CountyID: t.CountyID, MunicipalityID: t.MunicipalityID, SettlementID: t.SettlementID}.Key()] = t
 			}
 		}
+	}
+	for _, p := range sec.Parts {
+		v := PartView{SectionPart: p}
+		for _, id := range p.StationIDs {
+			if s, ok := stationByID[id]; ok {
+				v.Stations = append(v.Stations, s)
+			}
+		}
+		for _, t := range p.Territories {
+			if x, ok := terrByKey[t.Key()]; ok {
+				v.Territories = append(v.Territories, x)
+			}
+		}
+		for _, g := range p.Gauges {
+			if !g.IsGauge() || !coveredBy(v.Stations, g) {
+				v.Criteria = append(v.Criteria, g)
+			}
+		}
+		data.Parts = append(data.Parts, v)
 	}
 
 	if err := h.tmplDetail.ExecuteTemplate(w, "section_detail.html", data); err != nil {
@@ -124,8 +139,24 @@ func (h *SectionsHandler) ShowSection(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// coveredBy javlja je li vodomjer iz dokumentacije već prikazan kao postaja
+func coveredBy(stations []models.Station, g models.GaugeItem) bool {
+	name, _ := hydro.ParseStationName(g.StationName)
+	key := hydro.StationKey(name)
+	if key == "" {
+		key = hydro.StationKey(g.StationName)
+	}
+	for _, s := range stations {
+		if hydro.StationKey(s.Name) == key || strings.EqualFold(strings.TrimSpace(s.SourceName), strings.TrimSpace(g.StationName)) {
+			return true
+		}
+	}
+	return false
+}
+
 // ShowSectionForm prikazuje obrazac za novu dionicu ili izmjenu postojeće
 func (h *SectionsHandler) ShowSectionForm(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	data := h.pageData(r)
 
 	if code := strings.TrimSpace(r.PathValue("code")); code != "" {
@@ -140,7 +171,6 @@ func (h *SectionsHandler) ShowSectionForm(w http.ResponseWriter, r *http.Request
 		}
 		data.Section = *sec
 		data.IsEdit = true
-		data.DescriptionMain, data.DescriptionChainage = splitChainage(sec.Description)
 	} else {
 		perms := data.Permissions
 		canCreate := perms != nil && (perms.IsGlobalAdmin || len(perms.AdminSectors) > 0 ||
@@ -149,37 +179,55 @@ func (h *SectionsHandler) ShowSectionForm(w http.ResponseWriter, r *http.Request
 			http.Error(w, "Nemate pravo dodavati dionice", http.StatusForbidden)
 			return
 		}
+		data.Section = models.Section{Parts: []models.SectionPart{{Seq: 1}}}
+		if a, _ := strconv.Atoi(r.URL.Query().Get("area")); a > 0 {
+			data.Section.AreaID = a
+		}
 		data.Sectors, _ = h.userService.ListSectors()
-		data.Areas, _ = h.userService.ListAreas("")
+	}
+	data.Areas, _ = h.userService.ListAreas("")
+
+	if h.watercourseService != nil {
+		data.Watercourses, _ = h.watercourseService.ListWatercourses(ctx, "", "", false)
+	}
+	if h.stationService != nil {
+		data.Stations, _ = h.stationService.ListStations(ctx, "", "", false)
+	}
+	if h.structureService != nil && data.Section.AreaID > 0 {
+		if all, err := h.structureService.List(ctx, "", data.Section.AreaID, "", ""); err == nil {
+			for _, s := range all {
+				if s.Kind == models.StructureKindEmbankment || s.Kind == models.StructureKindDam {
+					data.Embankments = append(data.Embankments, s)
+				} else {
+					data.Structures = append(data.Structures, s)
+				}
+			}
+		}
+	}
+	if h.territoryService != nil {
+		data.Counties, _ = h.territoryService.ListCounties(ctx)
+		labels := map[string]string{}
+		if data.IsEdit {
+			if terr, err := h.territoryService.GetSectionTerritories(ctx, data.Section.Code); err == nil {
+				for _, t := range terr {
+					key := models.PartTerritory{CountyID: t.CountyID, MunicipalityID: t.MunicipalityID, SettlementID: t.SettlementID}.Key()
+					if t.SettlementName != "" {
+						labels[key] = t.SettlementName + " (" + t.MunicipalityName + ")"
+					} else {
+						labels[key] = strings.TrimSpace(models.MunicipalityTypeLabel(t.MunicipalityType) + " " + t.MunicipalityName)
+					}
+				}
+			}
+		}
+		if b, err := json.Marshal(labels); err == nil {
+			data.TerritoryLabels = template.JS(b)
+		}
+	}
+	if b, err := json.Marshal(data.Section); err == nil {
+		data.SectionJSON = template.JS(b)
 	}
 
 	if err := h.tmplForm.ExecuteTemplate(w, "section_form.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
-}
-
-// splitChainage odvaja stacionažu od ostatka opisa dionice: obrazac je nudi
-// kao zasebno polje, a u zapis se vraća spojena istim pravilom kao pri upisu.
-// Stacionaža počinje prvim dijelom koji nosi kilometražu (rkm, km, pkm, kkm)
-// i teče do kraja, pa i duljina u zagradi iza nje ostaje uz nju.
-func splitChainage(description string) (main, chainage string) {
-	parts := strings.Split(description, ";")
-	start := -1
-	for i, part := range parts {
-		lower := strings.ToLower(strings.TrimSpace(part))
-		for _, prefix := range []string{"rkm", "pkm", "kkm", "km ", "km+", "stac"} {
-			if strings.HasPrefix(lower, prefix) {
-				start = i
-				break
-			}
-		}
-		if start >= 0 {
-			break
-		}
-	}
-	if start <= 0 {
-		return strings.TrimSpace(description), ""
-	}
-	return strings.TrimSpace(strings.Join(parts[:start], ";")),
-		strings.TrimSpace(strings.Join(parts[start:], ";"))
 }

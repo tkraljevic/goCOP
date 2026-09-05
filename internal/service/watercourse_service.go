@@ -100,30 +100,6 @@ func (s *WatercourseService) DeleteWatercourse(ctx context.Context, perms *model
 	return s.repo.DeleteWatercourse(ctx, code)
 }
 
-// SetSectionWatercourse pridružuje vodno tijelo dionici.
-// Smije ga postaviti onaj tko smije uređivati dionicu.
-func (s *WatercourseService) SetSectionWatercourse(ctx context.Context, perms *models.UserPermissions, sectionCode, watercourseCode string, sectionService *SectionService) error {
-	sec, err := sectionService.GetSectionWithDetails(sectionCode)
-	if err != nil {
-		return err
-	}
-	if !sectionService.CanEditSection(perms, sec) {
-		return fmt.Errorf("nemate ovlasti za izmjenu vodotoka dionice %s", sectionCode)
-	}
-
-	if watercourseCode != "" {
-		water, err := s.repo.GetWatercourse(ctx, watercourseCode)
-		if err != nil {
-			return err
-		}
-		if water == nil {
-			return fmt.Errorf("vodno tijelo %q ne postoji u registru", watercourseCode)
-		}
-	}
-
-	return s.repo.SetSectionWatercourse(ctx, sectionCode, watercourseCode)
-}
-
 // SetStationWatercourse pridružuje vodno tijelo postaji.
 //
 // Ručno pridruživanje nadjačava strojno utvrđivanje i tako se i bilježi —

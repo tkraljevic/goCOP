@@ -25,6 +25,7 @@ type WatercoursePageData struct {
 	Sections       []models.Section
 	Stations       []models.Station
 	Kinds          []string
+	Maintenance    []models.MaintainedWater // popisi lokacija u kojima se voda održava
 	IsEdit         bool
 	SuccessMessage string
 	ErrorMessage   string
@@ -34,6 +35,11 @@ type WatercoursePageData struct {
 
 // watercourseKinds su vrste voda koje obrazac nudi
 var watercourseKinds = []string{"rijeka", "potok", "kanal", "prokop", "jezero", "akumulacija", "retencija", "rukavac", "bujica"}
+
+// SetMaintenanceService daje rukovatelju pristup popisu održavanih voda
+func (h *WatercoursesHandler) SetMaintenanceService(m *service.MaintenanceService) {
+	h.maintenanceService = m
+}
 
 // SetPageTemplates daje rukovatelju predloške stranica pojedine vode i obrasca
 func (h *WatercoursesHandler) SetPageTemplates(detail, form *template.Template, stations *service.StationService) {
@@ -91,6 +97,10 @@ func (h *WatercoursesHandler) ShowWatercourse(w http.ResponseWriter, r *http.Req
 		}
 	}
 
+	if h.maintenanceService != nil {
+		data.Maintenance, _ = h.maintenanceService.WatersFor(ctx, water.Code, "")
+	}
+
 	if err := h.tmplDetail.ExecuteTemplate(w, "watercourse_detail.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -133,9 +143,14 @@ func wantsPage(r *http.Request) bool {
 func redirectWith(w http.ResponseWriter, r *http.Request, path, key, msg string) {
 	q := url.Values{}
 	q.Set(key, msg)
+	// sidro ostaje na kraju: upit ide prije njega
+	path, fragment, _ := strings.Cut(path, "#")
+	if fragment != "" {
+		fragment = "#" + fragment
+	}
 	sep := "?"
 	if strings.Contains(path, "?") {
 		sep = "&"
 	}
-	http.Redirect(w, r, path+sep+q.Encode(), http.StatusSeeOther)
+	http.Redirect(w, r, path+sep+q.Encode()+fragment, http.StatusSeeOther)
 }

@@ -15,12 +15,22 @@ func TestObjektiBaranjeVezaniNaVodomjereIDionice(t *testing.T) {
 	if err := InitSchema(database); err != nil {
 		t.Fatal(err)
 	}
+	if !UseRepoData() {
+		t.Skip("data/ s registrima nije dostupan — registri stoje izvan repozitorija")
+	}
 	if err := SeedInitialData(database); err != nil {
 		t.Fatal(err)
 	}
 
-	if n := count(t, database, `SELECT COUNT(*) FROM structures`); n != 26 {
+	const evidencija = `SELECT COUNT(*) FROM structures WHERE kind NOT IN ('NASIP', 'BRANA')`
+	if n := count(t, database, evidencija); n != 26 {
 		t.Errorf("objekata = %d, očekivano 26 (12 crpnih stanica + 14 ustava)", n)
+	}
+	if n := count(t, database, `SELECT COUNT(*) FROM structures WHERE kind IN ('NASIP', 'BRANA') AND origin = 'DOKUMENTACIJA'`); n < 300 {
+		t.Errorf("nasipa i brana iz dokumentacije dionica = %d, očekivano više od 300", n)
+	}
+	if n := count(t, database, `SELECT COUNT(*) FROM structures WHERE kind = 'BRANA' AND name LIKE 'Brana retencije%'`); n < 6 {
+		t.Errorf("brana nazvanih po retenciji = %d, očekivano bar 6 (B.18.2)", n)
 	}
 	if n := count(t, database, `SELECT COUNT(*) FROM structures WHERE kind = 'CRPNA_STANICA'`); n != 12 {
 		t.Errorf("crpnih stanica = %d, očekivano 12", n)
@@ -49,7 +59,10 @@ func TestObjektiBaranjeVezaniNaVodomjereIDionice(t *testing.T) {
 	if err := SeedInitialData(database); err != nil {
 		t.Fatal(err)
 	}
-	if n := count(t, database, `SELECT COUNT(*) FROM structures`); n != 26 {
+	if n := count(t, database, evidencija); n != 26 {
 		t.Errorf("nakon drugog punjenja objekata = %d", n)
+	}
+	if n := count(t, database, `SELECT COUNT(*) FROM structures WHERE kind IN ('NASIP', 'BRANA')`); n != count(t, database, `SELECT COUNT(DISTINCT structure_id) FROM section_structures ss JOIN structures s ON s.id = ss.structure_id WHERE s.kind IN ('NASIP', 'BRANA')`) {
+		t.Errorf("nasipa bez poddionice ima nakon drugog punjenja: %d", n)
 	}
 }

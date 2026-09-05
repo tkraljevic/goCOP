@@ -2,8 +2,8 @@ package db
 
 import (
 	"database/sql"
-	_ "embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"strings"
@@ -13,10 +13,6 @@ import (
 // Objekti iz evidencije VGI Baranja (crpne stanice i ustave s kotom nule,
 // kapacitetom i vodostajima pogona). Prvo punjenje registra objekata; ostala
 // područja se pune iz dokumentacije i ručno.
-//
-//go:embed objekti_bp16.json
-var structuresJSON []byte
-
 type seedStructure struct {
 	Code         string   `json:"code"`
 	Name         string   `json:"name"`
@@ -36,8 +32,15 @@ type seedStructure struct {
 // i dionice istog područja po nazivu. Ne piše verzije: sjeme je isto na
 // svakom čvoru (identitet iz šifre), pa nema što putovati.
 func seedStructures(database *sql.DB) error {
+	raw, err := readDataFile("objekti_bp16.json")
+	if errors.Is(err, ErrNoDataFile) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
 	var items []seedStructure
-	if err := json.Unmarshal(structuresJSON, &items); err != nil {
+	if err := json.Unmarshal(raw, &items); err != nil {
 		return fmt.Errorf("greška pri čitanju objekti_bp16.json: %w", err)
 	}
 
@@ -48,7 +51,7 @@ func seedStructures(database *sql.DB) error {
 	defer tx.Rollback()
 
 	now := time.Now().UTC()
-	added, linkedStations, linkedSections := 0, 0, 0
+	added, linkedStations := 0, 0
 	for _, it := range items {
 		id := StableID("structure", it.Code).String()
 
@@ -78,20 +81,12 @@ func seedStructures(database *sql.DB) error {
 		}
 		added++
 
-		for _, code := range matchSections(tx, it) {
-			linkID := StableID("section_structure", code+"|"+id).String()
-			if _, err := tx.Exec(`INSERT OR IGNORE INTO section_structures (id, section_code, structure_id, created_at) VALUES (?, ?, ?, ?)`,
-				linkID, code, id, now); err != nil {
-				return err
-			}
-			linkedSections++
-		}
 	}
 	if err := tx.Commit(); err != nil {
 		return err
 	}
 	if added > 0 {
-		log.Printf("Registar objekata: %d objekata (BP16), %d s vodomjerom, %d veza s dionicama", added, linkedStations, linkedSections)
+		log.Printf("Registar objekata: %d objekata (BP16), %d s vodomjerom", added, linkedStations)
 	}
 	return nil
 }
@@ -120,27 +115,6 @@ func matchStation(tx *sql.Tx, it seedStructure) string {
 		}
 	}
 	return ""
-}
-
-// matchSections vraća šifre dionica istog područja čiji opis spominje objekt
-func matchSections(tx *sql.Tx, it seedStructure) []string {
-	rows, err := tx.Query(`SELECT code, description FROM sections WHERE area_id = ?`, it.AreaID)
-	if err != nil {
-		return nil
-	}
-	defer rows.Close()
-	want := normalizeName(it.Name)
-	var codes []string
-	for rows.Next() {
-		var code, desc string
-		if rows.Scan(&code, &desc) != nil {
-			continue
-		}
-		if strings.Contains(normalizeName(desc), want) {
-			codes = append(codes, code)
-		}
-	}
-	return codes
 }
 
 func normalizeName(s string) string {

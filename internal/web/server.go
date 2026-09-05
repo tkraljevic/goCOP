@@ -47,6 +47,9 @@ type Server struct {
 	structureService   *service.StructureService
 	readingService     *service.ReadingService
 	moduleService      *service.ModuleService
+	maintenanceService *service.MaintenanceService
+	journalService     *service.JournalService
+	orgService         *service.OrgService
 	support            SupportContact
 	followRepo         *repository.FollowRepository
 	onFollowChange     func()
@@ -68,6 +71,9 @@ func NewServer(
 	structureService *service.StructureService,
 	readingService *service.ReadingService,
 	moduleService *service.ModuleService,
+	maintenanceService *service.MaintenanceService,
+	journalService *service.JournalService,
+	orgService *service.OrgService,
 	support SupportContact,
 	followRepo *repository.FollowRepository,
 	onFollowChange func(),
@@ -111,6 +117,8 @@ func NewServer(
 			return template.JS(data)
 		},
 		"bankLabel": hydro.BankLabel,
+		"muniType":  models.MunicipalityTypeLabel,
+		"km":        models.FormatKm,
 		"derefTime": func(t *time.Time) time.Time {
 			if t == nil {
 				return time.Time{}
@@ -165,7 +173,13 @@ func NewServer(
 			}
 			return *i
 		},
-		"ago": humanAgo,
+		"ago":             humanAgo,
+		"journalKind":     models.JournalKindLabel,
+		"maintenanceKind": models.MaintenanceKindLabel,
+		"entryKind":       models.EntryKindLabel,
+		"ratingLabel":     models.RatingLabel,
+		"countsText":      models.CountsText,
+		"now":             func() time.Time { return time.Now().In(models.Zagreb) },
 		// icon crta ikonu iz ugrađenog SVG sprajta (Lucide, ISC). Ikone su
 		// dio binarne datoteke, pa izgledaju isto na svakom uređaju i rade
 		// bez mreže — emoji su se crtali drukčije na svakom sustavu.
@@ -205,7 +219,8 @@ func NewServer(
 	templates := make(map[string]*template.Template)
 
 	// Predlošci koji proširuju base.html
-	for _, page := range []string{"dashboard.html", "users.html", "user_detail.html", "user_form.html", "duty_form.html", "profile.html", "sections.html", "section_detail.html", "section_form.html", "territories.html", "county_form.html", "municipality_form.html", "municipality_detail.html", "stations.html", "station_detail.html", "station_form.html", "watercourses.html", "watercourse_detail.html", "watercourse_form.html", "structures.html", "structure_detail.html", "structure_form.html", "readings.html", "reading_history.html", "reading_form.html", "teren.html", "moduli.html", "settings.html"} {
+	for _, page := range []string{"dashboard.html", "registri.html", "users.html", "user_detail.html", "user_form.html", "duty_form.html", "profile.html", "sections.html", "section_detail.html", "section_form.html", "territories.html", "county_form.html", "municipality_form.html", "municipality_detail.html", "stations.html", "station_detail.html", "station_form.html", "watercourses.html", "watercourse_detail.html", "watercourse_form.html", "structures.html", "structure_detail.html", "structure_form.html", "readings.html", "reading_history.html", "reading_form.html", "teren.html", "moduli.html", "settings.html", "odrzavanje.html", "organizacija.html", "sector_form.html", "area_form.html",
+		"dnevnici.html", "dnevnik_form.html", "dnevnik.html", "dnevnik_list.html"} {
 		t, err := template.New("base.html").Funcs(tmplFuncs).ParseFS(templatesFS, "base.html", page)
 		if err != nil {
 			return nil, fmt.Errorf("greška pri parsiranju predloška %s: %w", page, err)
@@ -213,12 +228,14 @@ func NewServer(
 		templates[page] = t
 	}
 
-	// Samostalna stranica za prijavu
-	loginTmpl, err := template.New("login.html").Funcs(tmplFuncs).ParseFS(templatesFS, "login.html")
-	if err != nil {
-		return nil, fmt.Errorf("greška pri parsiranju predloška login.html: %w", err)
+	// Samostalne stranice: prijava i ispis dnevnika
+	for _, page := range []string{"login.html", "dnevnik_ispis.html"} {
+		t, err := template.New(page).Funcs(tmplFuncs).ParseFS(templatesFS, page)
+		if err != nil {
+			return nil, fmt.Errorf("greška pri parsiranju predloška %s: %w", page, err)
+		}
+		templates[page] = t
 	}
-	templates["login.html"] = loginTmpl
 
 	s := &Server{
 		addr:               addr,
@@ -229,6 +246,9 @@ func NewServer(
 		stationService:     stationService,
 		watercourseService: watercourseService,
 		structureService:   structureService,
+		maintenanceService: maintenanceService,
+		journalService:     journalService,
+		orgService:         orgService,
 		readingService:     readingService,
 		moduleService:      moduleService,
 		support:            support,
@@ -248,9 +268,10 @@ func NewServer(
 func (s *Server) setupRoutes() {
 	authH := NewAuthHandler(s.authService, s.templates["login.html"])
 	authH.SetSupport(s.support)
+	authH.SetAdminContact(s.userService.GlobalAdminContact)
 	usersH := NewUsersHandler(s.userService, s.templates["users.html"])
 	usersH.SetPageTemplates(s.templates["user_detail.html"], s.templates["user_form.html"], s.templates["duty_form.html"], s.templates["profile.html"])
-	dashH := NewDashboardHandler(s.userService, s.templates["dashboard.html"])
+	dashH := NewDashboardHandler(s.userService, s.templates["dashboard.html"], s.templates["registri.html"])
 	sectionsH := NewSectionsHandler(s.sectionService, s.userService, s.templates["sections.html"])
 	sectionsH.SetPageTemplates(s.templates["section_detail.html"], s.templates["section_form.html"], s.stationService, s.territoryService)
 	territoriesH := NewTerritoriesHandler(s.territoryService, s.templates["territories.html"])
@@ -261,17 +282,46 @@ func (s *Server) setupRoutes() {
 	structuresH := NewStructuresHandler(s.structureService, s.stationService, s.sectionService, s.userService,
 		s.templates["structures.html"], s.templates["structure_detail.html"], s.templates["structure_form.html"])
 	sectionsH.SetStructureService(s.structureService)
+	sectionsH.SetWatercourseService(s.watercourseService)
 	modulesH := NewModulesHandler(s.moduleService, s.templates["moduli.html"])
 	s.mux.Handle("GET /moduli", s.authMiddleware(http.HandlerFunc(modulesH.ShowMatrix)))
 	s.mux.Handle("POST /moduli/save", s.authMiddleware(http.HandlerFunc(modulesH.HandleSave)))
 	usersH.SetModuleService(s.moduleService)
 	s.mux.Handle("POST /users/{id}/modules", s.authMiddleware(http.HandlerFunc(usersH.HandleUserModules)))
-	fieldH := NewFieldHandler(s.readingService, s.templates["teren.html"])
+	fieldH := NewFieldHandler(s.readingService, s.userService, s.templates["teren.html"])
 	s.mux.Handle("GET /teren", s.authMiddleware(http.HandlerFunc(fieldH.ShowField)))
 	readingsH := NewReadingsHandler(s.readingService, s.stationService, s.structureService, s.userService,
 		s.templates["readings.html"], s.templates["reading_history.html"], s.templates["reading_form.html"])
 	readingsH.SetFollow(s.followRepo, s.onFollowChange)
 	watercoursesH.SetPageTemplates(s.templates["watercourse_detail.html"], s.templates["watercourse_form.html"], s.stationService)
+	watercoursesH.SetMaintenanceService(s.maintenanceService)
+	maintenanceH := NewMaintenanceHandler(s.maintenanceService, s.userService, s.watercourseService, s.structureService, s.templates["odrzavanje.html"])
+	s.mux.Handle("GET /odrzavanje", s.authMiddleware(http.HandlerFunc(maintenanceH.ShowMaintenance)))
+	s.mux.Handle("POST /odrzavanje/stavke", s.authMiddleware(http.HandlerFunc(maintenanceH.HandleSaveItem)))
+	s.mux.Handle("POST /odrzavanje/stavke/{id}", s.authMiddleware(http.HandlerFunc(maintenanceH.HandleSaveItem)))
+	s.mux.Handle("POST /odrzavanje/stavke/{id}/delete", s.authMiddleware(http.HandlerFunc(maintenanceH.HandleDeleteItem)))
+	s.mux.Handle("POST /odrzavanje/lokacije/{id}/veza", s.authMiddleware(http.HandlerFunc(maintenanceH.HandleLinkWater)))
+	s.mux.Handle("POST /odrzavanje/lokacije/{id}/delete", s.authMiddleware(http.HandlerFunc(maintenanceH.HandleDeleteWater)))
+	s.mux.Handle("POST /odrzavanje/lokacije", s.authMiddleware(http.HandlerFunc(maintenanceH.HandleAddWater)))
+	s.mux.Handle("POST /odrzavanje/uvoz", s.authMiddleware(http.HandlerFunc(maintenanceH.HandleImportUpload)))
+	s.mux.Handle("POST /odrzavanje/uvoz/upisi", s.authMiddleware(http.HandlerFunc(maintenanceH.HandleImportWrite)))
+	journalsH := NewJournalsHandler(s.journalService, s.userService, s.maintenanceService, s.sectionService, s.stationService,
+		s.templates["dnevnici.html"], s.templates["dnevnik_form.html"], s.templates["dnevnik.html"], s.templates["dnevnik_list.html"], s.templates["dnevnik_ispis.html"])
+	s.mux.Handle("GET /dnevnici", s.authMiddleware(http.HandlerFunc(journalsH.ShowJournals)))
+	s.mux.Handle("GET /dnevnici/new", s.authMiddleware(http.HandlerFunc(journalsH.ShowJournalForm)))
+	s.mux.Handle("POST /dnevnici", s.authMiddleware(http.HandlerFunc(journalsH.HandleSaveJournal)))
+	s.mux.Handle("GET /dnevnici/{id}", s.authMiddleware(http.HandlerFunc(journalsH.ShowJournal)))
+	s.mux.Handle("GET /dnevnici/{id}/edit", s.authMiddleware(http.HandlerFunc(journalsH.ShowJournalForm)))
+	s.mux.Handle("POST /dnevnici/{id}", s.authMiddleware(http.HandlerFunc(journalsH.HandleSaveJournal)))
+	s.mux.Handle("GET /dnevnici/{id}/ispis", s.authMiddleware(http.HandlerFunc(journalsH.ShowPrint)))
+	s.mux.Handle("POST /dnevnici/{id}/listovi", s.authMiddleware(http.HandlerFunc(journalsH.HandleOpenSheet)))
+	s.mux.Handle("GET /dnevnici/{id}/listovi/{sheet}", s.authMiddleware(http.HandlerFunc(journalsH.ShowSheet)))
+	s.mux.Handle("POST /dnevnici/{id}/listovi/{sheet}/uvjeti", s.authMiddleware(http.HandlerFunc(journalsH.HandleSheetConditions)))
+	s.mux.Handle("POST /dnevnici/{id}/listovi/{sheet}/vrijeme", s.authMiddleware(http.HandlerFunc(journalsH.HandleSheetWeather)))
+	s.mux.Handle("POST /dnevnici/{id}/listovi/{sheet}/potvrdi", s.authMiddleware(http.HandlerFunc(journalsH.HandleConfirmSheet)))
+	s.mux.Handle("POST /dnevnici/{id}/listovi/{sheet}/upisi", s.authMiddleware(http.HandlerFunc(journalsH.HandleAddEntry)))
+	s.mux.Handle("POST /dnevnici/{id}/upisi/{entry}/storno", s.authMiddleware(http.HandlerFunc(journalsH.HandleVoidEntry)))
+	s.mux.Handle("POST /dnevnici/{id}/upisi/{entry}/stanje", s.authMiddleware(http.HandlerFunc(journalsH.HandleTaskStatus)))
 	settingsH := NewSettingsHandler(s.peersService, s.recorder, s.templates["settings.html"])
 	sseH := NewSSEHandler(s.sseBroker)
 
@@ -295,6 +345,19 @@ func (s *Server) setupRoutes() {
 	// Zaštićene rute (zahtijevaju prijavu)
 	s.mux.Handle("GET /{$}", s.authMiddleware(http.HandlerFunc(dashH.ShowDashboard)))
 	s.mux.Handle("GET /dashboard", s.authMiddleware(http.HandlerFunc(dashH.ShowDashboard)))
+	s.mux.Handle("GET /registri", s.authMiddleware(http.HandlerFunc(dashH.ShowRegisters)))
+
+	// Organizacija obrane: sektori i branjena područja
+	orgH := NewOrgHandler(s.orgService, s.templates["organizacija.html"], s.templates["sector_form.html"], s.templates["area_form.html"])
+	s.mux.Handle("GET /organizacija", s.authMiddleware(http.HandlerFunc(orgH.ShowOrganization)))
+	s.mux.Handle("GET /organizacija/sektori/new", s.authMiddleware(http.HandlerFunc(orgH.ShowSectorForm)))
+	s.mux.Handle("GET /organizacija/sektori/{id}/edit", s.authMiddleware(http.HandlerFunc(orgH.ShowSectorForm)))
+	s.mux.Handle("POST /organizacija/sektori/save", s.authMiddleware(http.HandlerFunc(orgH.HandleSaveSector)))
+	s.mux.Handle("POST /organizacija/sektori/delete", s.authMiddleware(http.HandlerFunc(orgH.HandleDeleteSector)))
+	s.mux.Handle("GET /organizacija/podrucja/new", s.authMiddleware(http.HandlerFunc(orgH.ShowAreaForm)))
+	s.mux.Handle("GET /organizacija/podrucja/{id}/edit", s.authMiddleware(http.HandlerFunc(orgH.ShowAreaForm)))
+	s.mux.Handle("POST /organizacija/podrucja/save", s.authMiddleware(http.HandlerFunc(orgH.HandleSaveArea)))
+	s.mux.Handle("POST /organizacija/podrucja/delete", s.authMiddleware(http.HandlerFunc(orgH.HandleDeleteArea)))
 
 	s.mux.Handle("GET /users", s.authMiddleware(http.HandlerFunc(usersH.ShowUsers)))
 	s.mux.Handle("GET /users/new", s.authMiddleware(http.HandlerFunc(usersH.ShowUserForm)))
@@ -334,8 +397,6 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /api/counties/{countyID}/municipalities", s.authMiddleware(http.HandlerFunc(territoriesH.HandleGetMunicipalitiesAPI)))
 	s.mux.Handle("GET /api/municipalities/{municipalityID}/settlements", s.authMiddleware(http.HandlerFunc(territoriesH.HandleGetSettlementsAPI)))
 	s.mux.Handle("GET /api/sections/{code}/territories", s.authMiddleware(http.HandlerFunc(territoriesH.HandleGetSectionTerritoriesAPI)))
-	s.mux.Handle("POST /api/sections/{code}/territories/add", s.authMiddleware(http.HandlerFunc(territoriesH.HandleAddSectionTerritoryAPI)))
-	s.mux.Handle("POST /api/sections/{code}/territories/remove", s.authMiddleware(http.HandlerFunc(territoriesH.HandleRemoveSectionTerritoryAPI)))
 
 	// Upravljanje jedinicama (CRUD)
 	s.mux.Handle("POST /territories/county/create", s.authMiddleware(http.HandlerFunc(territoriesH.HandleCreateCounty)))
@@ -376,8 +437,6 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /structures/create", s.authMiddleware(http.HandlerFunc(structuresH.HandleCreate)))
 	s.mux.Handle("POST /structures/update", s.authMiddleware(http.HandlerFunc(structuresH.HandleUpdate)))
 	s.mux.Handle("POST /structures/delete", s.authMiddleware(http.HandlerFunc(structuresH.HandleDelete)))
-	s.mux.Handle("POST /structures/{id}/link", s.authMiddleware(http.HandlerFunc(structuresH.HandleLink)))
-	s.mux.Handle("POST /structures/{id}/unlink", s.authMiddleware(http.HandlerFunc(structuresH.HandleUnlink)))
 	s.mux.Handle("GET /watercourses/new", s.authMiddleware(http.HandlerFunc(watercoursesH.ShowWatercourseForm)))
 	s.mux.Handle("GET /watercourses/{code}", s.authMiddleware(http.HandlerFunc(watercoursesH.ShowWatercourse)))
 	s.mux.Handle("GET /watercourses/{code}/edit", s.authMiddleware(http.HandlerFunc(watercoursesH.ShowWatercourseForm)))
@@ -385,7 +444,6 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /api/watercourses/create", s.authMiddleware(http.HandlerFunc(watercoursesH.HandleCreateWatercourseAPI)))
 	s.mux.Handle("POST /api/watercourses/update", s.authMiddleware(http.HandlerFunc(watercoursesH.HandleUpdateWatercourseAPI)))
 	s.mux.Handle("POST /api/watercourses/delete", s.authMiddleware(http.HandlerFunc(watercoursesH.HandleDeleteWatercourseAPI)))
-	s.mux.Handle("POST /api/sections/{code}/watercourse", s.authMiddleware(http.HandlerFunc(watercoursesH.HandleAssignSectionWatercourseAPI)))
 	s.mux.Handle("POST /api/stations/watercourse", s.authMiddleware(http.HandlerFunc(watercoursesH.HandleAssignStationWatercourseAPI)))
 
 	// Postavke: čvor, uparivanje, pronalaženje, sinkronizacija, povijest
@@ -406,8 +464,6 @@ func (s *Server) setupRoutes() {
 
 	// Mjerodavni vodomjeri dionice
 	s.mux.Handle("GET /api/sections/{code}/stations", s.authMiddleware(http.HandlerFunc(stationsH.HandleGetSectionStationsAPI)))
-	s.mux.Handle("POST /api/sections/{code}/stations/add", s.authMiddleware(http.HandlerFunc(stationsH.HandleAddSectionStationAPI)))
-	s.mux.Handle("POST /api/sections/{code}/stations/remove", s.authMiddleware(http.HandlerFunc(stationsH.HandleRemoveSectionStationAPI)))
 }
 
 // authMiddleware provjerava sesijski kolačić i postavlja korisnika u context
@@ -474,9 +530,11 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 var modulePaths = []struct{ prefix, module string }{
 	{"/teren", models.ModuleField},
 	{"/readings", models.ModuleReadings},
+	{"/registri", models.ModuleRegisters}, {"/organizacija", models.ModuleRegisters},
 	{"/sections", models.ModuleRegisters}, {"/stations", models.ModuleRegisters},
 	{"/structures", models.ModuleRegisters}, {"/watercourses", models.ModuleRegisters},
-	{"/territories", models.ModuleRegisters},
+	{"/territories", models.ModuleRegisters}, {"/odrzavanje", models.ModuleRegisters},
+	{"/dnevnici", models.ModuleJournals},
 	{"/api/sections", models.ModuleRegisters}, {"/api/stations", models.ModuleRegisters},
 	{"/api/watercourses", models.ModuleRegisters}, {"/api/settlements", models.ModuleRegisters},
 	{"/api/counties", models.ModuleRegisters}, {"/api/municipalities", models.ModuleRegisters},

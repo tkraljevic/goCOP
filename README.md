@@ -1,9 +1,11 @@
 # goCOP — Centar obrane od poplava
 
 Operativni program za obranu od poplava Hrvatskih voda: registri štićenih
-dionica, vodomjernih postaja i vodnih tijela, djelatnici i zaduženja,
-teritorijalne jedinice. Radi i bez interneta; kopije na različitim
-računalima se same usklađuju.
+dionica, vodomjernih postaja, vodnih tijela i objekata, djelatnici i
+zaduženja, teritorijalne jedinice, očitanja vodostaja i građevinski
+dnevnici. Radi i bez interneta; kopije na različitim računalima se same
+usklađuju. Repozitorij nosi program i praznu shemu baze; podatke unosi ili
+uvozi organizacija koja program koristi.
 
 > **Status: alfa (0.0.x), za testiranje i daljnji razvoj.** Nije za
 > operativnu upotrebu. Sve se još mijenja.
@@ -16,12 +18,40 @@ prva računala. Kaže što program radi na računalu i mreži, što ne radi, i
 
 ## Što već radi
 
-- **Registri:** 465 štićenih dionica, 245 vodomjernih postaja, 442 vodna
-  tijela, teritorijalne jedinice te djelatnici i njihova zaduženja. Registri
-  imaju pretraživanje, detalje, unos i uređivanje, uz ovlasti prema području
-  odgovornosti.
-- **Povezani podaci:** dionice su povezane s mjerodavnim vodomjerima,
-  vodotocima i pripadajućim županijama, gradovima, općinama i naseljima.
+- **Registri:** štićene dionice, vodomjerne postaje s pragovima obrane,
+  vodna tijela, objekti (crpne stanice, ustave, sifoni, nasipi, brane),
+  teritorijalne jedinice te djelatnici i njihova zaduženja. Registri imaju
+  pretraživanje, detalje, unos i uređivanje, uz ovlasti prema području
+  odgovornosti. Program dolazi prazan.
+- **Organizacija obrane:** sektori (vodnogospodarski odjeli s centrom
+  obrane) i branjena područja (mali slivovi s ispostavom) upisuju se prvi,
+  jer se na njih vežu ovlasti, dionice i zaduženja. Upisuje ih globalni
+  administrator; program ih ne zna sam.
+- **Dionica i poddionice:** dionica se sastoji od poddionica, a poddionica
+  je jedna voda iz registra s jednim obuhvatom: stacionaža (rkm, pkm, bkm,
+  kkm, po nasipu nkm) od–do, obala, obuhvat riječima, duljina. Na poddionici
+  se biraju ugroženo područje (grad, općina ili naselje), mjerodavni
+  vodomjeri, objekti (crpne stanice, ustave i sifoni vezani na registar
+  objekata; mostovi i propusti kao slobodni redak) te nasipi i brane iz
+  registra objekata s odsjecima. Brane nose naziv retencije ili akumulacije
+  koju zatvaraju. Opis dionice slaže se iz poddionica, uz mogućnost ručnog
+  opisa. Kazala veza (postaja–dionica, objekt–dionica, teritorij–dionica)
+  izvode se iz poddionica i ne razmjenjuju se zasebno.
+- **Održavanje:** popis lokacija izvršenja usluga po branjenom području
+  (što se održava iz programa A.02 i pod kojom kategorijom: red vode,
+  skupina, vrsta) i stavke radova bez cijena, koje operateri dopunjuju.
+  Popis se uvozi iz ugovora o održavanju (na stranici Održavanje ili
+  zastavicom `-ugovor`) ili dopunjuje ručno; pozicije plana i cjenici se ne
+  uvoze jer se mijenjaju sa svakim okvirnim sporazumom.
+- **Građevinski dnevnici:** dnevnik održavanja A.02 i A.03 po branjenom
+  području i dnevnik obrane od poplava po dionici. Naslovnica (izvođač,
+  voditelj usluga, ovlaštenik ili nadzorni inženjer, akti), za svaki dan
+  list s uvjetima (vremenske prilike s Open-Meteo dok ima interneta,
+  vodostaji iz očitanja, ocjena uvjeta, osoblje i strojevi) i upisi: rad
+  izvođača, napomene, nalozi s rokom i ocjene nadzora. Upisi nose redni broj
+  bez rupa i ne brišu se nego storniraju; list potvrđuju izvođač i nadzor,
+  a ispisuje se u obliku obrasca. Izvođač (voditelj usluga / poslovođa) vidi
+  samo dnevnike.
 - **Rad bez interneta:** cijeli program, sučelje i podaci rade lokalno;
   sučelje je prilagođeno i radu na mobitelu.
 - **Usklađivanje računala:** čvorovi se pronalaze u lokalnoj mreži, ručno
@@ -47,6 +77,11 @@ prva računala. Kaže što program radi na računalu i mreži, što ne radi, i
   | `gocop.db` (+ `-wal`, `-shm`) | SQLite baza — svi podaci |
   | `gocop.toml` | postavke, s komentarima; program je zapiše pri prvom pokretanju |
   | `node-key` | privatni ključ ovog računala (Ed25519), prava 0600 |
+  | `network-key` | ključ mreže, kod čvora koji ju je osnovao |
+
+  U istu mapu administrator može staviti datoteke registara i imenika
+  (`*.json`); program ih pročita samo pri prvom punjenju prazne baze
+  (poglavlje „Podaci koji nisu u repozitoriju”).
 
 - **Uklanjanje:** obrisati mapu. Ne ostaje ništa.
 - **Platforme izdanja:** Windows x64, Linux x64, macOS Apple Silicon.
@@ -78,8 +113,9 @@ između računala koja sudjeluju u testu. Portovi se mijenjaju u `gocop.toml`.
 - **Podaci su na računalu**, u jednoj SQLite datoteci. Ne šalju se nikamo
   osim na uparena računala.
 - **Osobni podaci.** Registar djelatnika sadrži imena, funkcije, telefone i
-  e-mail adrese djelatnika Hrvatskih voda i sudionika obrane od poplava —
-  iz službenog imenika COP-ova. Tretirati mapu `data/` kao takvu.
+  e-mail adrese djelatnika i sudionika obrane od poplava, kako ih
+  organizacija unese ili uveze iz svog imenika. Tretirati mapu `data/` kao
+  takvu.
 - **Lozinke** se čuvaju kao bcrypt hash. Sesija je HttpOnly kolačić,
   SameSite Lax, traje do isteka ili odjave.
 - **Zadana lozinka mora se promijeniti.** Do tada račun može otvoriti samo
@@ -106,8 +142,8 @@ između računala koja sudjeluju u testu. Portovi se mijenjaju u `gocop.toml`.
 2. **Nema CSRF tokena** za obrasce i druge zahtjeve koji mijenjaju podatke.
 3. **Pronalaženje preko interneta** (stalno izložena računala s domenom)
    još ne radi — samo lokalna mreža i ručni upis adrese.
-4. **Podaci su testni.** Registri su iz službene dokumentacije, ali sve što
-   se unese u alfi može se izgubiti pri promjeni sheme između verzija.
+4. **Shema se još mijenja.** Sve što se unese u alfi može se izgubiti pri
+   promjeni sheme između verzija.
 
 ## 5. Preporuka za prva računala
 
@@ -124,16 +160,35 @@ gocop.exe            (Windows)
 ./gocop              (Linux, macOS)
 ```
 
-Prvo pokretanje napuni bazu iz ugrađene dokumentacije (nekoliko sekundi)
-i zapiše `data/gocop.toml`. Otvoriti `http://localhost` (ili
-`http://localhost:8080`). Postavke čvora, uparivanje i sinkronizacija su pod
-**⚙️ Postavke** u korisničkom izborniku.
+Prvo pokretanje stvori praznu bazu i račun `admin` s početnom lozinkom
+koja se mijenja pri prvoj prijavi, te zapiše `data/gocop.toml`. Prvi korak
+u programu je registar Organizacija obrane: sektori, pa branjena područja. Ako uz bazu stoje datoteke registara i imenika,
+učita i njih. Otvoriti `http://localhost` (ili `http://localhost:8080`).
+Postavke čvora, uparivanje i sinkronizacija su pod **⚙️ Postavke** u
+korisničkom izborniku. Na stranici prijave stoji kontakt glavnog
+administratora iz registra (mobitel, e-pošta) i centar iz postavki čvora.
 
 `gocop.toml` — adresa web sučelja, putanja baze, identifikator i naziv
 računala, portovi, razmak automatske sinkronizacije, stalno izložene
 domene. Zastavice na naredbenom retku (`-addr`, `-db`, `-node`, `-name`,
 `-sync-port`, `-pair-port`, `-discovery-port`, `-auto-sync`, `-config`)
 imaju prednost pred datotekom.
+
+Uvoz evidencija radova iz vanjske evidencije kao **rekonstruiranih**
+dnevnika: `gocop -import-bp16-dnevnici` (bez `-upisi` samo izvješće). Po
+programu i godini nastaje jedan dnevnik, listovi se slažu po danu i po šest
+izvođačevih upisa, a prvi upis na svakom listu i oznaka dnevnika kažu da je
+to rekonstrukcija: stvarni listovi vođeni su izvan aplikacije i ovjereni
+potpisima, pa ih ovi ne zamjenjuju.
+
+Uvoz ugovora o održavanju (radna knjiga iz Excel dodatka Hrvatskih voda,
+program A.02): `gocop -ugovor <datoteka.xlsx>` ispiše izvješće — koje su
+lokacije prepoznate u registru, koje bi bile nove, gdje treba ručna veza
+(`-ugovor-veze "naziv iz popisa=sifra"`). Upis tek uz `-upisi`;
+`-ugovor-sve-stavke` uz korištene stavke upiše i cijeli ponudbeni
+troškovnik (opisi i jedinice, bez cijena). Ponovni uvoz istog ili
+sljedećeg ugovora ne udvostručuje: postojeće lokacije i stavke ostaju kako
+jesu.
 
 ## 7. Verzije
 
@@ -155,10 +210,9 @@ go test ./...
 Sinkronizacijski transport (ključevi, uparivanje, TLS razmjena, LAN
 pronalaženje) je zasebna biblioteka
 [syncnet](https://github.com/tkraljevic/syncnet), zajednička s projektom
-goEMM. Registri se pune iz Privitka 1 (Teritorijalne jedinice za izravnu
-provedbu mjera obrane od poplava, HV 2018./2022.) i Odluke o popisu voda
-I. reda (NN 79/2010). Kote nule vodomjera su u sustavu Trst; HVRS71 kote
-se tek mjere.
+goEMM. Kote nule vodomjera vode se u sustavu Trst, a HVRS71 kote zasebno.
+Testovi koji trebaju stvarne registre i imenik preskaču se kad tih datoteka
+nema u mapi `data/`.
 
 Program razvija Tomislav Kraljević, uz pomoć kolega iz Hrvatskih voda.
 Kao i uređivač koda i drugi razvojni alati, u radu se koriste i alati
@@ -179,11 +233,12 @@ posao širi.
 
 ### Evidencija VGI Baranja (app.bp16.xyz)
 
-Očitanja vodostaja te stanja crpnih stanica i ustava branjenog područja 16
-(Baranja) od 2013. do 2026. uvezena su iz evidencije koju je Tomislav
-Kraljević vodio na privatnom poslužitelju (app.bp16.xyz) i koju je VGI
-Baranja punila svako jutro. Zahvaljujući tim ljudima goCOP od prvog dana
-ima trinaest godina povijesti vodostaja:
+Uvoz očitanja vodostaja te stanja crpnih stanica i ustava branjenog
+područja 16 (Baranja) od 2013. do 2026. nastao je iz evidencije koju je
+Tomislav Kraljević vodio na privatnom poslužitelju (app.bp16.xyz) i koju je
+VGI Baranja punila svako jutro. Ti podaci nisu dio programa; uvoze se na
+čvorove Hrvatskih voda. Zahvala ljudima koji su ih trinaest godina
+prikupljali:
 
 - **unos u evidenciju:** Ivana Bukić, Krunoslav Ćosić, Maja Ivančić Bukić,
   Matej Krstić, Izabela Rukavina
@@ -194,10 +249,22 @@ ima trinaest godina povijesti vodostaja:
 
 ## Podaci koji nisu u repozitoriju
 
-Uz program u repozitoriju stoje registri koji su javni: dionice, branjena
-područja, vodomjerne postaje s pragovima obrane, vodotoci i teritorijalne
-jedinice. Dvoje ovdje namjerno nema:
+Repozitorij nosi program i shemu baze, bez podataka, i tako ostaje: baza
+napunjena podacima Hrvatskih voda nikad ne ide u repozitorij, ni kad su ti
+podaci javno objavljeni. Sve stoji uz bazu, u mapi `data/`, i čita se
+samo pri prvom punjenju prvog čvora u mreži; svaki sljedeći čvor podatke
+dobiva sinkronizacijom. Zaseban, izmišljen testni
+skup podataka može jednom stajati uz izdanje za isprobavanje.
 
+- **organizacija** — `organizacija.json` (sektori i branjena područja),
+  ako se ne upisuju ručno;
+- **registri** — `sections.json` (dionice s poddionicama, vodomjerima i
+  pragovima, objektima, nasipima i branama; prijepis Privitka 1 Glavnog
+  provedbenog plana obrane od poplava nastaje alatom `cmd/prijepis-dionica`),
+  `watercourses.json` (vode I. reda iz Odluke o popisu voda I. reda, NN
+  79/2010, i opisni podaci iz Wikipedije), `territories.json` i
+  `section_territories.json` (županije, gradovi, općine, naselja i njihove
+  veze na dionice), `objekti_bp16.json` (objekti Baranje iz evidencije VGI);
 - **imenik djelatnika** — osobni podaci; čita se iz `data/imenik.json` uz
   bazu, samo pri prvom punjenju čvora;
 - **očitanja vodostaja** — mjerenja Hrvatskih voda, koja na letvama
@@ -208,8 +275,9 @@ jedinice. Dvoje ovdje namjerno nema:
   Hrvatske vode ih koriste po ugovoru o uzajamnom korištenju i ne
   objavljuju ih.
 
-Zbog toga svaki uvoz očitanja ide iz datoteke koja stoji uz bazu, nikad iz
-`internal/db`, jer se sve odande ugrađuje u program. Test to i provjerava.
+Zbog toga svaki uvoz ide iz datoteke koja stoji uz bazu, nikad iz
+`internal/db`, jer se sve odande ugrađuje u program. Test to i provjerava:
+u `internal/db` ne smije biti nijedna podatkovna datoteka.
 
 ## Licenca
 
@@ -223,5 +291,5 @@ Nositelj autorskih prava na program: Hrvatske vode.
 Program je osmislio i izgradio Tomislav Kraljević; to navođenje je uvjet
 korištenja i ostaje u svakoj izvedenici.
 
-Podaci i grafički znakovi ugrađeni u program imaju vlastito podrijetlo i
-prava, opisana u datoteci `NOTICE`.
+Grafički znakovi ugrađeni u program i podaci koje program čita uz bazu
+imaju vlastito podrijetlo i prava, opisana u datoteci `NOTICE`.

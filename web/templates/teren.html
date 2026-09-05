@@ -16,14 +16,23 @@
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
 
-{{if gt (len .Overview.Areas) 1}}
 <form method="GET" action="/teren" style="margin-bottom:1rem;">
-  <label class="filter-label" for="area">Branjeno područje</label>
-  <select id="area" name="area" class="filter-select" onchange="this.form.submit()">
-    {{range .Overview.Areas}}<option value="{{.ID}}" {{if and $.Overview.Area (eq .ID $.Overview.Area.ID)}}selected{{end}}>{{.ID}}: {{.Name}}</option>{{end}}
-  </select>
+  <div class="filters-row" style="grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));">
+    <div class="filter-group">
+      <label class="filter-label" for="sector">{{icon "building-2"}} Sektor</label>
+      <select id="sector" name="sector" class="filter-select" onchange="document.getElementById('area').value=''; this.form.submit()">
+        <option value="">Svi sektori</option>
+        {{range .Sectors}}<option value="{{.ID}}" {{if eq $.SelectedSector .ID}}selected{{end}}>{{.Name}}</option>{{end}}
+      </select>
+    </div>
+    <div class="filter-group">
+      <label class="filter-label" for="area">{{icon "waves"}} Branjeno područje</label>
+      <select id="area" name="area" class="filter-select" onchange="this.form.submit()">
+        {{range .Overview.Areas}}<option value="{{.ID}}" {{if and $.Overview.Area (eq .ID $.Overview.Area.ID)}}selected{{end}}>{{.ID}}: {{.Name}}</option>{{end}}
+      </select>
+    </div>
+  </div>
 </form>
-{{end}}
 
 {{if .Overview.Mine}}
 <section class="detail-section" style="margin-top:0;">

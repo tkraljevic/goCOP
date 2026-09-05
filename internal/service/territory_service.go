@@ -4,12 +4,9 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	"gocop/internal/models"
 	"gocop/internal/repository"
-
-	"github.com/google/uuid"
 )
 
 type TerritoryService struct {
@@ -57,86 +54,6 @@ func (s *TerritoryService) ListSettlements(ctx context.Context, municipalityID i
 
 func (s *TerritoryService) GetSectionTerritories(ctx context.Context, sectionCode string) ([]models.SectionTerritory, error) {
 	return s.territoryRepo.GetSectionTerritories(ctx, sectionCode)
-}
-
-func (s *TerritoryService) AddSectionTerritories(
-	ctx context.Context,
-	perms *models.UserPermissions,
-	sectionCode string,
-	countyID int,
-	municipalityID int,
-	settlementIDs []int,
-) error {
-	sec, err := s.sectionService.GetSectionWithDetails(sectionCode)
-	if err != nil {
-		return err
-	}
-	if !s.sectionService.CanEditSection(perms, sec) {
-		return fmt.Errorf("nemate ovlasti za dodavanje ugroženih područja na dionicu %s", sectionCode)
-	}
-
-	if countyID <= 0 || municipalityID <= 0 {
-		return fmt.Errorf("županija i grad/općina su obavezna polja")
-	}
-
-	// Ako nije odabrano pojedinačno naselje, dodaje se cijela općina/grad.
-	// I tada se tekst ugroženog područja mora osvježiti — raniji povratak
-	// ovdje ostavljao je dionicu s pridruženom općinom, a bez teksta.
-	if len(settlementIDs) == 0 {
-		item := &models.SectionTerritory{
-			ID:             uuid.New().String(),
-			SectionCode:    sectionCode,
-			CountyID:       countyID,
-			MunicipalityID: municipalityID,
-			SettlementID:   nil,
-			CreatedAt:      time.Now(),
-		}
-		if err := s.territoryRepo.AddSectionTerritory(ctx, item); err != nil {
-			return err
-		}
-		_, _ = s.SyncSectionProtectedArea(ctx, sectionCode)
-		return nil
-	}
-
-	// Dodavanje odabranih naselja
-	for _, sid := range settlementIDs {
-		val := sid
-		item := &models.SectionTerritory{
-			ID:             uuid.New().String(),
-			SectionCode:    sectionCode,
-			CountyID:       countyID,
-			MunicipalityID: municipalityID,
-			SettlementID:   &val,
-			CreatedAt:      time.Now(),
-		}
-		if err := s.territoryRepo.AddSectionTerritory(ctx, item); err != nil {
-			return err
-		}
-	}
-
-	// Automatski sinkroniziraj i generiraj ažurirani tekst ugroženog područja
-	_, _ = s.SyncSectionProtectedArea(ctx, sectionCode)
-
-	return nil
-}
-
-func (s *TerritoryService) RemoveSectionTerritory(ctx context.Context, perms *models.UserPermissions, id string, sectionCode string) error {
-	sec, err := s.sectionService.GetSectionWithDetails(sectionCode)
-	if err != nil {
-		return err
-	}
-	if !s.sectionService.CanEditSection(perms, sec) {
-		return fmt.Errorf("nemate ovlasti za uklanjanje ugroženog područja s dionice %s", sectionCode)
-	}
-
-	if err := s.territoryRepo.RemoveSectionTerritory(ctx, id); err != nil {
-		return err
-	}
-
-	// Automatski sinkroniziraj i generiraj ažurirani tekst ugroženog područja
-	_, _ = s.SyncSectionProtectedArea(ctx, sectionCode)
-
-	return nil
 }
 
 // GenerateProtectedAreaText generira formatirani tekst ugroženih područja prema povezanim jedinicama
@@ -212,28 +129,8 @@ func GenerateProtectedAreaText(territories []models.SectionTerritory) string {
 	return strings.Join(countyBlocks, "; ")
 }
 
-// SyncSectionProtectedArea sinkronizira tekst ugroženog područja dionice prema relacijama iz baze
-func (s *TerritoryService) SyncSectionProtectedArea(ctx context.Context, sectionCode string) (string, error) {
-	territories, err := s.territoryRepo.GetSectionTerritories(ctx, sectionCode)
-	if err != nil {
-		return "", err
-	}
-	text := GenerateProtectedAreaText(territories)
-	if err := s.sectionService.UpdateProtectedArea(sectionCode, text); err != nil {
-		return "", err
-	}
-	return text, nil
-}
-
 func (s *TerritoryService) GetTerritoryCounts(ctx context.Context) (int, int, int, error) {
 	return s.territoryRepo.GetTerritoryCounts(ctx)
-}
-
-// Helper to sync multiple affected sections
-func (s *TerritoryService) syncAffectedSections(ctx context.Context, codes []string) {
-	for _, code := range codes {
-		_, _ = s.SyncSectionProtectedArea(ctx, code)
-	}
 }
 
 // CreateCounty dodaje novu županiju
@@ -259,7 +156,7 @@ func (s *TerritoryService) UpdateCounty(ctx context.Context, perms *models.UserP
 		return err
 	}
 	affected, _ := s.territoryRepo.GetSectionsAffectedByTerritory(ctx, c.ID, 0, 0)
-	s.syncAffectedSections(ctx, affected)
+	_ = affected // tekst ugroženog područja slijedi iz poddionica, ne treba ga usklađivati
 	return nil
 }
 
@@ -272,7 +169,7 @@ func (s *TerritoryService) DeleteCounty(ctx context.Context, perms *models.UserP
 	if err := s.territoryRepo.DeleteCounty(ctx, id); err != nil {
 		return err
 	}
-	s.syncAffectedSections(ctx, affected)
+	_ = affected // tekst ugroženog područja slijedi iz poddionica, ne treba ga usklađivati
 	return nil
 }
 
@@ -310,7 +207,7 @@ func (s *TerritoryService) UpdateMunicipality(ctx context.Context, perms *models
 		return err
 	}
 	affected, _ := s.territoryRepo.GetSectionsAffectedByTerritory(ctx, 0, m.ID, 0)
-	s.syncAffectedSections(ctx, affected)
+	_ = affected // tekst ugroženog područja slijedi iz poddionica, ne treba ga usklađivati
 	return nil
 }
 
@@ -323,7 +220,7 @@ func (s *TerritoryService) DeleteMunicipality(ctx context.Context, perms *models
 	if err := s.territoryRepo.DeleteMunicipality(ctx, id); err != nil {
 		return err
 	}
-	s.syncAffectedSections(ctx, affected)
+	_ = affected // tekst ugroženog područja slijedi iz poddionica, ne treba ga usklađivati
 	return nil
 }
 
@@ -353,7 +250,7 @@ func (s *TerritoryService) UpdateSettlement(ctx context.Context, perms *models.U
 		return err
 	}
 	affected, _ := s.territoryRepo.GetSectionsAffectedByTerritory(ctx, 0, 0, sModel.ID)
-	s.syncAffectedSections(ctx, affected)
+	_ = affected // tekst ugroženog područja slijedi iz poddionica, ne treba ga usklađivati
 	return nil
 }
 
@@ -366,6 +263,6 @@ func (s *TerritoryService) DeleteSettlement(ctx context.Context, perms *models.U
 	if err := s.territoryRepo.DeleteSettlement(ctx, id); err != nil {
 		return err
 	}
-	s.syncAffectedSections(ctx, affected)
+	_ = affected // tekst ugroženog područja slijedi iz poddionica, ne treba ga usklađivati
 	return nil
 }

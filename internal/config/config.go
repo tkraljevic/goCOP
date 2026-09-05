@@ -32,12 +32,9 @@ type Config struct {
 	} `toml:"node"`
 
 	Support struct {
-		Name        string `toml:"ime" comment:"Tko na ovom čvoru pomaže oko prijave i početne lozinke."`
-		Phone       string `toml:"mobitel" comment:"Broj na kojem je ta osoba dostupna. Prazno = ne prikazuje se."`
-		Email       string `toml:"eposta" comment:"E-pošta te osobe. Upišite osobni sandučić, ne zajedničku adresu\ncentra: te adrese su popisi za raspačavanje i poruka odlazi svim\nsudionicima obrane od poplava."`
 		Center      string `toml:"centar" comment:"Centar obrane od poplava ovog čvora, npr. \"COP Osijek\".\nPrazno = redak o dežurnom operateru se ne prikazuje."`
 		CenterPhone string `toml:"centar_telefon" comment:"Telefon tog centra; na njemu se javlja dežurni operater\nza vrijeme obrane od poplava."`
-	} `toml:"kontakt" comment:"Kontakt koji stoji na stranici prijave. Svaki čvor upisuje svoj:\nprogram vrijedi za cijelu Hrvatsku, pa Osijek nije zadano za sve."`
+	} `toml:"kontakt" comment:"Centar koji stoji na stranici prijave. Svaki čvor upisuje svoj:\nprogram vrijedi za cijelu Hrvatsku, pa Osijek nije zadano za sve.\nOsobu za pomoć oko prijave program uzima iz registra: glavnog\nadministratora s upisanim mobitelom ili e-poštom."`
 
 	Readings struct {
 		HistoryMonths int `toml:"povijest_mjeseci" comment:"Koliko mjeseci očitanja ovaj čvor drži iz razmjene s drugima.\n0 = sve. Na terenskom uređaju stavite 12: povijest od stotinjak\ngodina ne stane na telefon, a na nasipu ne treba. Ograda ne dira\nočitanja koja čvor sam upiše ili uveze."`
@@ -58,9 +55,6 @@ func Default() Config {
 	c.Addr = ":80"
 	c.DB = "data/gocop.db"
 	c.Node.ID = "gocop-cvor"
-	c.Support.Name = "Tomislav Kraljević"
-	c.Support.Phone = "099 267 9587"
-	c.Support.Email = "tomislav.kraljevic@voda.hr"
 	c.Sync.ExchangePort = 4710
 	c.Sync.PairPort = 4711
 	c.Sync.DiscoveryPort = 4712

@@ -49,7 +49,7 @@ func (s HTTPSource) Items(ctx context.Context, collection string) ([]json.RawMes
 	var out []json.RawMessage
 	for offset := 0; ; offset += page {
 		u := strings.TrimRight(s.URL, "/") + "/items/" + url.PathEscape(collection) +
-			"?limit=" + strconv.Itoa(page) + "&offset=" + strconv.Itoa(offset) + "&sort=id"
+			"?limit=" + strconv.Itoa(page) + "&offset=" + strconv.Itoa(offset) + "&sort=" + url.QueryEscape(primaryKey(collection))
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 		if err != nil {
 			return nil, err
@@ -79,6 +79,18 @@ func (s HTTPSource) Items(ctx context.Context, collection string) ([]json.RawMes
 			return out, nil
 		}
 	}
+}
+
+// primaryKey je stupac po kojem se zbirka listа; većina ih ima "id", a
+// tablice stavki vlastiti ključ
+func primaryKey(collection string) string {
+	switch collection {
+	case "a02_stavke", "a03_stavke":
+		return "id_stavke"
+	case "evidencije_obilaska":
+		return "id_obilasci"
+	}
+	return "id"
 }
 
 // DirSource čita ranije skinute datoteke <dir>/<zbirka>.json (za probu i rad bez mreže)

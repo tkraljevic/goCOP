@@ -1,0 +1,251 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Održavanje{{end}}
+
+{{define "content"}}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "wrench"}} Održavanje</h1>
+    <p class="page-desc">
+      Što se u branjenom području održava iz programa A.02 i pod kojom kategorijom, te stavke radova po kojima
+      se vodi dnevnik održavanja. Popis lokacija dolazi iz ugovora o održavanju; stavke se dopunjuju ovdje.
+    </p>
+  </div>
+</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
+
+<div class="filter-card">
+  <form action="/odrzavanje" method="GET">
+    <div class="filters-row" style="grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));">
+      <div class="filter-group">
+        <label class="filter-label" for="area">{{icon "waves"}} Branjeno područje</label>
+        <select id="area" name="area" class="filter-select" onchange="this.form.submit()">
+          {{range .Areas}}<option value="{{.ID}}" {{if and $.Area (eq $.Area.ID .ID)}}selected{{end}}>{{.ID}}: {{.Name}}</option>{{end}}
+        </select>
+      </div>
+    </div>
+  </form>
+</div>
+
+{{if .Area}}
+<div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1.25rem;">
+  <span class="stat-badge has-items">{{icon "droplet"}} {{.WaterCount}} lokacija u popisu</span>
+  {{if .Unlinked}}<span class="stat-badge">{{icon "triangle-alert"}} {{.Unlinked}} bez veze na registar</span>{{end}}
+  <span class="stat-badge has-items">{{icon "list"}} {{len .Items}} stavki radova</span>
+  {{if .InactiveItems}}<a class="stat-badge" href="/odrzavanje?area={{.Area.ID}}{{if not .ShowAll}}&sve=1{{end}}#stavke">{{if .ShowAll}}sakrij isključene{{else}}+ {{.InactiveItems}} isključenih{{end}}</a>{{end}}
+</div>
+
+<section class="detail-section" style="margin-top:0;">
+  <h2>{{icon "droplet"}} Popis lokacija izvršenja usluga</h2>
+  {{if not .Groups}}
+  <div class="reg-empty">
+    Za ovo područje popis još nije uvezen. Uvozi se iz ugovora o održavanju A.02 naredbom
+    <code>gocop -ugovor &lt;datoteka.xlsx&gt;</code> (bez <code>-upisi</code> samo izvješće).
+  </div>
+  {{end}}
+  {{range .Groups}}
+  <h3 style="margin:1.25rem 0 0.5rem; font-size:1rem;">{{.Label}}</h3>
+  {{range .Kinds}}
+  <div class="table-card" style="margin-bottom:0.75rem;">
+    <div style="padding:0.6rem 1rem; display:flex; justify-content:space-between; gap:0.5rem; flex-wrap:wrap; align-items:baseline; border-bottom:1px solid var(--border);">
+      <strong style="font-size:0.9rem;">{{.Label}}</strong>
+      {{if .PlanPosition}}<span class="reg-chip" title="Pozicija plana izvedena iz reda, skupine i vrste">{{.PlanPosition}}</span>{{end}}
+    </div>
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead><tr><th style="width:4rem;">Br.</th><th>Lokacija</th><th>U registru</th>{{if $.CanEdit}}<th></th>{{end}}</tr></thead>
+        <tbody>
+        {{range .Waters}}
+        <tr>
+          <td style="color:var(--text-muted);">{{.Seq}}</td>
+          <td>{{.Name}}</td>
+          <td>
+            {{if .WatercourseCode}}
+              <a href="/watercourses/{{.WatercourseCode}}">{{icon "droplet"}} {{.WaterName}}</a>
+            {{else if .StructureID}}
+              <a href="/structures/{{.StructureID}}">{{icon "construction"}} {{.WaterName}}</a>
+            {{else if $.CanEdit}}
+              <form method="POST" action="/odrzavanje/lokacije/{{.ID}}/veza" style="display:flex; gap:0.35rem; flex-wrap:wrap; align-items:center;">
+                <input type="hidden" name="area" value="{{$.Area.ID}}">
+                <input type="text" name="target" list="registar-sifre" class="form-control" style="min-width:14rem;" placeholder="šifra vode ili objekta" autocomplete="off">
+                <button type="submit" class="btn btn-sm btn-secondary">Veži</button>
+              </form>
+            {{else}}
+              <span class="reg-chip empty">{{icon "triangle-alert"}} bez veze</span>
+            {{end}}
+          </td>
+          {{if $.CanEdit}}
+          <td style="text-align:right; white-space:nowrap;">
+            {{if or .WatercourseCode .StructureID}}
+            <form method="POST" action="/odrzavanje/lokacije/{{.ID}}/veza" style="display:inline;" onsubmit="return confirm('Ukloniti vezu na registar? Lokacija ostaje u popisu.')">
+              <input type="hidden" name="area" value="{{$.Area.ID}}"><input type="hidden" name="target" value="">
+              <button type="submit" class="btn btn-sm btn-secondary" title="Ukloni vezu">{{icon "x"}}</button>
+            </form>
+            {{end}}
+            <form method="POST" action="/odrzavanje/lokacije/{{.ID}}/delete" style="display:inline;" onsubmit="return confirm('Ukloniti „{{.Name}}“ iz popisa lokacija? Zapis ostaje u povijesti.')">
+              <input type="hidden" name="area" value="{{$.Area.ID}}">
+              <button type="submit" class="btn btn-sm" style="background:var(--danger-bg); color:var(--danger); border-color:var(--danger-border);" title="Ukloni iz popisa">{{icon "trash"}}</button>
+            </form>
+          </td>
+          {{end}}
+        </tr>
+        {{end}}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {{end}}
+  {{end}}
+  {{if .Candidates}}
+  <datalist id="registar-sifre">
+    {{range .Candidates}}<option value="{{.Code}}">{{.OfficialName}}{{if .Kind}} ({{.Kind}}){{end}}</option>{{end}}
+    {{range .Embankments}}<option value="{{.Code}}">{{.Name}} (nasip)</option>{{end}}
+  </datalist>
+  {{end}}
+
+  {{if .CanEdit}}
+  <details id="nova-lokacija" class="reg-card" style="padding:1rem; margin-top:1rem;" {{if .ErrorMessage}}open{{end}}>
+    <summary style="cursor:pointer; font-weight:600;">{{icon "plus"}} Dodaj lokaciju ručno</summary>
+    <form method="POST" action="/odrzavanje/lokacije" style="display:grid; gap:0.75rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); align-items:end; margin-top:0.75rem;">
+      <input type="hidden" name="area" value="{{.Area.ID}}">
+      <div class="form-group" style="margin:0; grid-column: span 2;"><label class="form-label" for="ml-name">Naziv iz popisa *</label><input type="text" id="ml-name" name="name" class="form-control" required placeholder="Kanal Remetin"></div>
+      <div class="form-group" style="margin:0;"><label class="form-label" for="ml-seq">Redni broj</label><input type="text" id="ml-seq" name="seq" class="form-control" placeholder="4.2."></div>
+      <div class="form-group" style="margin:0;"><label class="form-label" for="ml-program">Program *</label>
+        <select id="ml-program" name="program" class="form-control" required>
+          <option value="A.02">A.02 — vode I. i II. reda</option><option value="A.03">A.03 — kanali III. i IV. reda</option>
+        </select></div>
+      <div class="form-group" style="margin:0;"><label class="form-label" for="ml-order">Red vode *</label>
+        <select id="ml-order" name="order" class="form-control" required onchange="document.getElementById('ml-group').disabled = this.value !== 'I'; document.getElementById('ml-program').value = (this.value === 'III' || this.value === 'IV') ? 'A.03' : 'A.02'">
+          <option value="I">Vode I. reda</option><option value="II" selected>Vode II. reda</option><option value="III">Vode III. reda</option><option value="IV">Vode IV. reda</option>
+        </select></div>
+      <div class="form-group" style="margin:0;"><label class="form-label" for="ml-group">Skupina (I. red)</label>
+        <select id="ml-group" name="group" class="form-control" disabled>
+          <option value="MEĐUDRŽAVNE">Međudržavne vode</option><option value="OSTALE DRŽAVNE">Ostale državne vode</option>
+        </select></div>
+      <div class="form-group" style="margin:0;"><label class="form-label" for="ml-kind">Vrsta *</label>
+        <select id="ml-kind" name="kind" class="form-control" required>
+          {{range .Kinds}}<option value="{{.}}" {{if eq . "MELIORACIJSKA"}}selected{{end}}>{{maintenanceKind .}}</option>{{end}}
+        </select></div>
+      <div class="form-group" style="margin:0;"><label class="form-label" for="ml-target">Šifra vode ili objekta</label><input type="text" id="ml-target" name="target" list="registar-sifre" class="form-control" placeholder="po želji" autocomplete="off"></div>
+      <button type="submit" class="btn btn-primary">{{icon "plus"}} Dodaj u popis</button>
+    </form>
+  </details>
+
+  <details id="uvoz" class="reg-card" style="padding:1rem; margin-top:0.75rem;" {{if .ImportReport}}open{{end}}>
+    <summary style="cursor:pointer; font-weight:600;">{{icon "download"}} Uvezi iz ugovora o održavanju (xlsx)</summary>
+    <p class="form-help" style="margin:0.5rem 0;">
+      Radna knjiga koju je napravio Excel dodatak Hrvatskih voda (list TROŠKOVNIK i LOKACIJE_BP_NN). Prvo se prikaže
+      izvješće: što je u registru prepoznato, što bi bilo novo i gdje treba ručna veza. Upis tek na potvrdu.
+      Pozicije plana i cjenici se ne uvoze.
+    </p>
+    <form method="POST" action="/odrzavanje/uvoz" enctype="multipart/form-data" style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+      <input type="hidden" name="area" value="{{.Area.ID}}">
+      <input type="file" name="file" accept=".xlsx" required class="form-control" style="max-width:24rem;">
+      <button type="submit" class="btn btn-secondary">{{icon "search"}} Pročitaj i prikaži izvješće</button>
+    </form>
+
+    {{if .ImportReport}}
+    {{$rep := .ImportReport}}
+    <form method="POST" action="/odrzavanje/uvoz/upisi" style="margin-top:1rem;">
+      <input type="hidden" name="area" value="{{.Area.ID}}">
+      <input type="hidden" name="token" value="{{.ImportToken}}">
+      <input type="hidden" name="filename" value="{{.ImportFile}}">
+      <div class="alert alert-success" style="margin-bottom:0.75rem;">
+        {{.ImportFile}} — BP {{$rep.Area}}: {{len $rep.Locations}} lokacija ({{$rep.Existing}} u registru, {{$rep.Created}} novih,
+        {{$rep.Suggested}} s prijedlogom, {{$rep.Ambiguous}} dvoznačnih), {{$rep.ItemsTotal}} stavki radova ({{$rep.ItemsNew}} novih, {{$rep.ItemsExisting}} već upisanih).
+      </div>
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead><tr><th>Br.</th><th>Lokacija iz ugovora</th><th>Ishod</th><th>U registru / veza</th></tr></thead>
+          <tbody>
+          {{range $rep.Locations}}
+          <tr>
+            <td style="color:var(--text-muted);">{{.Location.Seq}}</td>
+            <td>{{.Location.Name}}{{if .Structure}} <span class="reg-chip">nasip</span>{{end}}</td>
+            <td>
+              {{if eq .Status "postoji"}}<span class="badge badge-active">postoji</span>
+              {{else if eq .Status "novo"}}<span class="badge badge-pending">novo u registru</span>
+              {{else}}<span class="badge badge-inactive">{{.Status}}</span>{{end}}
+            </td>
+            <td>
+              {{if eq .Status "postoji"}}{{.Display}} <span style="color:var(--text-muted); font-size:0.8rem;">({{.Code}})</span>
+              {{else if eq .Status "novo"}}<span style="color:var(--text-muted); font-size:0.85rem;">dodaje se kao {{if .Structure}}objekt (nasip){{else}}voda{{end}}</span>
+              {{else}}
+                <input type="text" name="veza:{{.Location.Name}}" list="registar-sifre" class="form-control" style="min-width:12rem;" placeholder="šifra iz registra" autocomplete="off">
+                <div style="font-size:0.78rem; color:var(--text-muted); margin-top:0.25rem;">{{range $i, $o := .Options}}{{if $i}}; {{end}}{{$o}}{{end}}</div>
+              {{end}}
+            </td>
+          </tr>
+          {{end}}
+          </tbody>
+        </table>
+      </div>
+      <div class="form-actions" style="margin-top:0.75rem; display:flex; gap:0.5rem; flex-wrap:wrap;">
+        <button type="submit" class="btn btn-primary" onclick="return confirm('Upisati popis lokacija i stavke radova iz ugovora u područje {{.Area.ID}}?')">{{icon "check"}} Upiši u registar</button>
+        <span class="form-help">Lokacije bez veze ostaju u popisu pod nazivom iz ugovora; vežu se kasnije.</span>
+      </div>
+    </form>
+    {{end}}
+  </details>
+  {{end}}
+</section>
+
+<section class="detail-section" id="stavke">
+  <h2>{{icon "list"}} Stavke radova <span class="reg-chip">{{len .Items}}</span></h2>
+  <p class="page-desc">
+    Opis i jedinica mjere, bez cijena. Oznaka je broj stavke iz okvirnog sporazuma kad postoji;
+    stavke koje dodate ovdje mogu biti i bez oznake. Isključena stavka ostaje u povijesti, ali se ne nudi u dnevniku.
+  </p>
+  <div class="table-card">
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead><tr><th style="width:5rem;">Oznaka</th><th>Opis</th><th style="width:5rem;">Jed.</th><th>Podrijetlo</th>{{if .CanEdit}}<th></th>{{end}}</tr></thead>
+        <tbody>
+        {{range .Items}}
+        <tr {{if not .Active}}style="opacity:0.55;"{{end}}>
+          {{if $.CanEdit}}
+          <form method="POST" action="/odrzavanje/stavke/{{.ID}}" id="stavka-{{.ID}}"></form>
+          <td><input form="stavka-{{.ID}}" type="text" name="number" value="{{.Number}}" class="form-control" style="width:5rem;"></td>
+          <td><input form="stavka-{{.ID}}" type="text" name="description" value="{{.Description}}" class="form-control" required style="min-width:18rem; width:100%;"></td>
+          <td><input form="stavka-{{.ID}}" type="text" name="unit" value="{{.Unit}}" class="form-control" required style="width:5rem;"></td>
+          <td style="white-space:nowrap; color:var(--text-muted); font-size:0.8rem;">{{.OriginLabel}}{{if not .Active}} · isključena{{end}}</td>
+          <td style="text-align:right; white-space:nowrap;">
+            <input form="stavka-{{.ID}}" type="hidden" name="area" value="{{$.Area.ID}}">
+            <input form="stavka-{{.ID}}" type="hidden" name="sort_order" value="{{.SortOrder}}">
+            <input form="stavka-{{.ID}}" type="hidden" name="active" value="{{if .Active}}1{{else}}0{{end}}">
+            <button form="stavka-{{.ID}}" type="submit" class="btn btn-sm btn-secondary" title="Spremi izmjene">{{icon "check"}}</button>
+            <button form="stavka-{{.ID}}" type="submit" name="active" value="{{if .Active}}0{{else}}1{{end}}" class="btn btn-sm btn-secondary" title="{{if .Active}}Isključi{{else}}Uključi{{end}}">{{if .Active}}{{icon "eye-off"}}{{else}}{{icon "eye"}}{{end}}</button>
+            <form method="POST" action="/odrzavanje/stavke/{{.ID}}/delete" style="display:inline;" onsubmit="return confirm('Obrisati stavku „{{.ShortDescription}}“? Zapis ostaje u povijesti.')">
+              <input type="hidden" name="area" value="{{$.Area.ID}}">
+              <button type="submit" class="btn btn-sm" style="background:var(--danger-bg); color:var(--danger); border-color:var(--danger-border);" title="Obriši">{{icon "trash"}}</button>
+            </form>
+          </td>
+          {{else}}
+          <td style="color:var(--text-muted);">{{.Number}}</td>
+          <td>{{.Description}}</td>
+          <td>{{.Unit}}</td>
+          <td style="white-space:nowrap; color:var(--text-muted); font-size:0.8rem;">{{.OriginLabel}}{{if not .Active}} · isključena{{end}}</td>
+          {{end}}
+        </tr>
+        {{else}}
+        <tr><td colspan="5" class="reg-empty" style="text-align:center;">Za ovo područje još nema stavki radova.</td></tr>
+        {{end}}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {{if .CanEdit}}
+  <form method="POST" action="/odrzavanje/stavke" class="reg-card" style="padding:1rem; margin-top:1rem; display:grid; gap:0.75rem; grid-template-columns: 6rem minmax(12rem, 1fr) 6rem auto; align-items:end;">
+    <input type="hidden" name="area" value="{{.Area.ID}}">
+    <div class="form-group" style="margin:0;"><label class="form-label" for="new-number">Oznaka</label><input type="text" id="new-number" name="number" class="form-control" placeholder="225" autocomplete="off"></div>
+    <div class="form-group" style="margin:0;"><label class="form-label" for="new-desc">Opis stavke *</label><input type="text" id="new-desc" name="description" class="form-control" required placeholder="npr. Ručno košenje trave na kosim površinama"></div>
+    <div class="form-group" style="margin:0;"><label class="form-label" for="new-unit">Jedinica *</label><input type="text" id="new-unit" name="unit" class="form-control" required placeholder="m2" autocomplete="off"></div>
+    <button type="submit" class="btn btn-primary">{{icon "plus"}} Dodaj stavku</button>
+  </form>
+  {{end}}
+</section>
+{{end}}
+{{end}}

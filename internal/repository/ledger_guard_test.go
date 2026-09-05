@@ -12,9 +12,12 @@ import (
 // Test čita izvorni kod repozitorija i pada ako datoteka mijenja neku od njih
 // bez ijednog poziva Recordera — repozitorij koji zaobiđe knjigu ne prolazi.
 func TestUpisiUSinkroniziraneTabliceIduKrozRecorder(t *testing.T) {
-	synced := []string{"stations", "section_stations", "sections", "watercourses",
-		"counties", "municipalities", "settlements", "section_territories", "users", "duties",
-		"structures", "section_structures", "readings", "role_modules", "user_modules"}
+	// section_stations, section_structures i section_territories su kazala
+	// izvedena iz dionice i ne putuju zasebno
+	synced := []string{"sectors", "areas", "stations", "sections", "watercourses",
+		"counties", "municipalities", "settlements", "users", "duties",
+		"structures", "readings", "role_modules", "user_modules",
+		"maintained_waters", "work_items", "journals", "journal_sheets", "journal_entries"}
 
 	files, err := filepath.Glob("*.go")
 	if err != nil {

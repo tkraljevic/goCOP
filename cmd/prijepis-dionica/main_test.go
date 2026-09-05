@@ -3,17 +3,20 @@ package main
 import (
 	"strings"
 	"testing"
+
+	"gocop/internal/hydro"
 )
 
-// Uzorak građen po B.34.14 iz wikija: dvije poddionice, u prvoj tri retka
-// (Panjik I, Panjik II, Donji Miholjac–Sveti Đurađ), u drugoj tri; objekti
-// po nasipu i po rijeci; vodomjer u proznom obliku i u tablici.
+// Uzorak građen po B.34.14 iz wikija: ista voda u dva retka (Panjik I i II)
+// pa druga voda; objekti po nasipu i po rijeci; vodomjer u proznom obliku i
+// u tablici. Druga dionica: potok, objekt bez stacionaže, mjerilo u metrima.
 const uzorak = `
 # Branjeno područje 34
 
 ## Dionica B.34.14.
 
 **Ukupna duljina dionice:** 31,100 km
+**Ukupno nasipa:** 5,552 km nasipa
 
 ### Vodotok
 
@@ -67,7 +70,7 @@ r. Drava, d.o.; Cestovni most Donji Miholjac – Dravica; rkm 77+920 - 104+000; 
 
 | Stacionaža | Objekt |
 |---|---|
-| km 3+650 | ustava Hobođ II, b.c.p. Ø 100 |
+| km 3+650 | l.o., ustava Hobođ II, b.c.p. Ø 100 |
 | rkm 88+240 | ušće Spojni k. Karašica-Drava |
 
 ### Nasipi
@@ -101,6 +104,10 @@ p. Karašica, l.o.; nešto; pkm 0+000 - 5+000; (5,000 km)
 | pkm 1+200 | most |
 |  | preljev: 149,50 m n.J.m. |
 
+### Nasipi
+
+Na ovoj dionici ne postoje nasipi!
+
 ### Vodomjeri i kriteriji
 
 Molve, cestovni most, km 0+720; R: 117,63 m.n.m; I: 117,88 m.n.m; Redovna obrana kada vodostaj dostiže 0,55 m ispod ploče
@@ -115,84 +122,69 @@ func TestPrijepisPoddionica(t *testing.T) {
 	if s.Code != "B.34.14" || s.SectorID != "B" || s.AreaID != 34 {
 		t.Errorf("šifra/sektor/područje: %s %s %d", s.Code, s.SectorID, s.AreaID)
 	}
+	if s.LengthKm == nil || *s.LengthKm != 31.1 || s.EmbankmentKm == nil || *s.EmbankmentKm != 5.552 {
+		t.Errorf("ukupne duljine: %v %v", s.LengthKm, s.EmbankmentKm)
+	}
+	// ista voda u dva retka = jedna poddionica s dva nasipa; druga voda = druga poddionica
 	if len(s.Parts) != 2 {
 		t.Fatalf("poddionica %d, očekivane 2", len(s.Parts))
 	}
-	if n := len(s.Parts[0].Rows); n != 2 {
-		t.Errorf("prva poddionica ima %d retka, očekivana 2", n)
+	p0 := s.Parts[0]
+	if p0.Seq != 1 || p0.Bank != "D" || p0.StationingKind != hydro.StationingRiver || p0.KmFrom == nil || *p0.KmFrom != 72.9 || *p0.KmTo != 77.92 {
+		t.Errorf("prva poddionica: %+v", p0)
 	}
-	if s.Parts[0].Bank != "D" || s.Parts[0].RkmFrom == nil || *s.Parts[0].RkmFrom != 72.9 {
-		t.Errorf("obala/stacionaža prve poddionice: %s %v", s.Parts[0].Bank, s.Parts[0].RkmFrom)
+	if p0.Extent != "Sveti Đurađ – cestovni most Donji Miholjac" || p0.LengthKm == nil || *p0.LengthKm != 5.02 {
+		t.Errorf("obuhvat i duljina: %q %v", p0.Extent, p0.LengthKm)
 	}
-
-	// objekt zna na kojem je nasipu: prvi redak, km po nasipu Panjik I
-	r0 := s.Parts[0].Rows[0]
-	if len(r0.Embankments) != 1 || r0.Embankments[0].Name != "Nasip Panjik I" {
-		t.Errorf("nasip prvog retka: %+v", r0.Embankments)
+	if len(p0.Embankments) != 2 || p0.Embankments[0].Name != "Nasip Panjik I" || p0.Embankments[1].Name != "Nasip Panjik II" {
+		t.Errorf("nasipi prve poddionice: %+v", p0.Embankments)
 	}
-	if len(r0.Objects) != 1 || r0.Objects[0].Kind != "km" || r0.Objects[0].Stationing != "km 0+195" {
-		t.Errorf("objekt prvog retka: %+v", r0.Objects)
+	e := p0.Embankments[0]
+	if e.WaterKind != "rkm" || e.WaterFrom == nil || *e.WaterFrom != 72.9 || e.EmbFrom == nil || *e.EmbTo != 0.27 || e.LengthKm == nil || *e.LengthKm != 0.27 {
+		t.Errorf("odsjek nasipa: %+v", e)
 	}
-	// drugi redak nema objekata, ali ima svoj nasip
-	if r1 := s.Parts[0].Rows[1]; len(r1.Objects) != 0 || r1.Embankments[0].Name != "Nasip Panjik II" {
-		t.Errorf("drugi redak: %+v", r1)
+	// objekt po nasipu zna na kojem je nasipu
+	if len(p0.Objects) != 1 || p0.Objects[0].StationingKind != hydro.StationingEmbankment || p0.Objects[0].OnEmbankment != "Nasip Panjik I" || p0.Objects[0].Stationing == nil || *p0.Objects[0].Stationing != 0.195 {
+		t.Errorf("objekt prve poddionice: %+v", p0.Objects)
 	}
-	// druga poddionica: objekt po rijeci i po nasipu
-	r2 := s.Parts[1].Rows[0]
-	kinds := map[string]string{}
-	for _, o := range r2.Objects {
-		kinds[o.Stationing] = o.Kind
+	// vodomjer isti u oba retka: jednom
+	if len(p0.Gauges) != 1 || !strings.HasPrefix(p0.Gauges[0].StationName, "Donji Miholjac") || p0.Gauges[0].CriticalCm != "+500" {
+		t.Errorf("vodomjeri prve poddionice: %+v", p0.Gauges)
 	}
-	if kinds["km 3+650"] != "km" || kinds["rkm 88+240"] != "rkm" {
-		t.Errorf("vrste stacionaže: %v", kinds)
+	if p0.ProtectedText != "**Osječko-baranjska**; Donji Miholjac: Sveti Đurađ, (D. Miholjac)" {
+		t.Errorf("ugroženo: %q", p0.ProtectedText)
 	}
 
-	// vodomjeri: prozni oblik i tablični, oba pročitana, po retku
-	g0 := r0.Gauges
-	if len(g0) != 1 || !strings.HasPrefix(g0[0].StationName, "Donji Miholjac") || g0[0].PrepCm != "+300" ||
-		g0[0].CriticalCm != "+500" || g0[0].RecordCm != "+538 (22.07.1972.)" {
-		t.Errorf("prozni vodomjer: %+v", g0)
+	p1 := s.Parts[1]
+	if p1.Seq != 2 || len(p1.Objects) != 2 || len(p1.Embankments) != 1 {
+		t.Fatalf("druga poddionica: %+v", p1)
 	}
-	if g := r2.Gauges; len(g) != 1 || !strings.HasPrefix(g[0].StationName, "Moslavina") || g[0].RegularCm != "+420" {
-		t.Errorf("tablični vodomjer: %+v", g)
+	if o := p1.Objects[0]; o.Bank != "L" || o.Name != "ustava Hobođ II, b.c.p. Ø 100" || o.StationingKind != "nkm" || o.OnEmbankment != "Nasip Zabara-Hobođ" {
+		t.Errorf("objekt s obalom: %+v", o)
 	}
-
-	// ravna polja su unije: oba vodomjera, svi nasipi, svi objekti, ugroženo spojeno
-	names := []string{}
-	for _, g := range s.Gauges {
-		names = append(names, strings.SplitN(g.StationName, " ", 2)[0])
+	if o := p1.Objects[1]; o.StationingKind != "rkm" || o.Stationing == nil || *o.Stationing != 88.24 || o.OnEmbankment != "" {
+		t.Errorf("objekt po rijeci: %+v", o)
 	}
-	if strings.Join(names, ",") != "Donji,Moslavina" {
-		t.Errorf("unija vodomjera: %v", names)
+	if len(p1.Gauges) != 1 || !strings.HasPrefix(p1.Gauges[0].StationName, "Moslavina") || p1.Gauges[0].RegularCm != "+420" {
+		t.Errorf("tablični vodomjer: %+v", p1.Gauges)
 	}
-	if len(s.Embankments) != 3 || len(s.Structures) != 3 {
-		t.Errorf("unije: nasipa %d, objekata %d", len(s.Embankments), len(s.Structures))
-	}
-	if !strings.Contains(s.Watercourse, "Sveti Đurađ") || !strings.Contains(s.Watercourse, "Dravica") {
-		t.Errorf("opis mora nositi obje poddionice: %s", s.Watercourse)
-	}
-	want := "**Osječko-baranjska**; Donji Miholjac: Sveti Đurađ, (D. Miholjac); Viljevo: Viljevo, Ivanovo, Blanje"
-	if s.ProtectedArea != want {
-		t.Errorf("ugroženo područje:\n  dobiveno  %s\n  očekivano %s", s.ProtectedArea, want)
+	if !strings.Contains(s.Description, "Sveti Đurađ") || !strings.Contains(s.Description, "Dravica") {
+		t.Errorf("opis mora nositi obje poddionice: %s", s.Description)
 	}
 
-	// dionica s potokom, objektom bez stacionaže i vodomjerom u metrima
+	// potok, objekt bez stacionaže, kota na mostu u metrima je mjerilo
+	// (postaja s kotom), a ne uputa
 	k := secs[1]
-	if k.Parts[0].Rows[0].Objects[0].Kind != "pkm" || k.Parts[0].Rows[0].Objects[1].Kind != "" {
-		t.Errorf("pkm i prazna stacionaža: %+v", k.Parts[0].Rows[0].Objects)
+	if len(k.Parts) != 1 || k.Parts[0].StationingKind != hydro.StationingStream {
+		t.Fatalf("potok: %+v", k.Parts)
 	}
-	// mjerilo u metrima nadmorske visine ostaje u retku poddionice, ali ne ide
-	// u ravnu uniju iz koje punjenje stvara postaje
-	if g := k.Parts[0].Rows[0].Gauges; len(g) != 1 || g[0].StationName != "Molve, cestovni most, km 0+720" || g[0].RegularCm != "117,63 m.n.m" {
-		t.Errorf("mjerilo u retku: %+v", g)
+	if objs := k.Parts[0].Objects; len(objs) != 2 || objs[0].StationingKind != "pkm" || objs[1].StationingKind != "" || objs[1].Stationing != nil {
+		t.Errorf("pkm i prazna stacionaža: %+v", objs)
 	}
-	if len(k.Gauges) != 0 {
-		t.Errorf("mjerilo u metrima ne smije u uniju vodomjera: %+v", k.Gauges)
+	if g := k.Parts[0].Gauges; len(g) != 1 || g[0].StationName != "Molve, cestovni most, km 0+720" || !g[0].IsGauge() {
+		t.Errorf("kota na mostu je mjerilo vodostaja: %+v", g)
 	}
-}
-
-func TestPrirodniRedoslijedSifri(t *testing.T) {
-	if !sectionLess("B.34.2", "B.34.14") || sectionLess("B.34.14", "B.34.2") || !sectionLess("A.1.1", "B.1.1") {
-		t.Error("šifre se ne slažu prirodno")
+	if len(k.Parts[0].Embankments) != 0 {
+		t.Errorf("'ne postoje nasipi' nije nasip: %+v", k.Parts[0].Embankments)
 	}
 }

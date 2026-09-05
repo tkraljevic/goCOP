@@ -6,13 +6,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"time"
 
+	"gocop/internal/db"
 	"gocop/internal/ledger"
 	"gocop/internal/models"
 )
 
-// EntitySections je naziv entiteta u knjizi verzija
+// EntitySections je naziv entiteta u knjizi verzija. Dionica je jedan
+// dokument s poddionicama; kazala veza (postaje, objekti, teritorij) izvode
+// se iz njega i ne putuju zasebno.
 const EntitySections = "sections"
 
 type SectionRepository struct {
@@ -25,55 +27,36 @@ func NewSectionRepository(db *sql.DB, rec *ledger.Recorder) *SectionRepository {
 }
 
 const sectionSelect = `
-	SELECT s.code, s.area_id, s.sector_id, s.description, s.protected_area,
-	       s.embankments, s.structures, s.gauges, s.notes, s.created_at, s.updated_at,
+	SELECT s.code, s.area_id, s.sector_id, s.description, s.description_custom, s.length_km, s.embankment_km,
+	       s.notes, s.parts, s.created_at, s.updated_at,
 	       COALESCE(a.name, '') as area_name, COALESCE(sec.name, '') as sector_name,
-	       s.watercourse_code, COALESCE(w.name, '') as watercourse_name,
-	       s.bank, s.rkm_from, s.rkm_to, s.parts
+	       s.watercourse_code, COALESCE(w.name, '') as watercourse_name
 	FROM sections s
 	LEFT JOIN areas a ON s.area_id = a.id
 	LEFT JOIN sectors sec ON s.sector_id = sec.id
 	LEFT JOIN watercourses w ON w.code = s.watercourse_code
 `
 
-// scanSection čita jedan redak dionice s pripadajućim JSON blokovima
+// scanSection čita jedan redak dionice s poddionicama
 func scanSection(scanner interface{ Scan(...any) error }) (models.Section, error) {
 	var sec models.Section
-	var embJSON, strJSON, gagJSON, partsJSON sql.NullString
-	var protArea, notes sql.NullString
-	var rkmFrom, rkmTo sql.NullFloat64
-
+	var partsJSON, notes sql.NullString
+	var custom int
 	err := scanner.Scan(
-		&sec.Code, &sec.AreaID, &sec.SectorID, &sec.Description, &protArea,
-		&embJSON, &strJSON, &gagJSON, &notes, &sec.CreatedAt, &sec.UpdatedAt,
-		&sec.AreaName, &sec.SectorName,
-		&sec.WatercourseCode, &sec.WatercourseName, &sec.Bank, &rkmFrom, &rkmTo,
-		&partsJSON,
+		&sec.Code, &sec.AreaID, &sec.SectorID, &sec.Description, &custom, &sec.LengthKm, &sec.EmbankmentKm,
+		&notes, &partsJSON, &sec.CreatedAt, &sec.UpdatedAt,
+		&sec.AreaName, &sec.SectorName, &sec.WatercourseCode, &sec.WatercourseName,
 	)
 	if err != nil {
 		return sec, err
 	}
-
-	if protArea.Valid {
-		sec.ProtectedArea = protArea.String
-	}
-	if notes.Valid {
-		sec.Notes = notes.String
-	}
-	sec.RkmFrom = nullFloatPtr(rkmFrom)
-	sec.RkmTo = nullFloatPtr(rkmTo)
-
-	if embJSON.Valid && embJSON.String != "" {
-		_ = json.Unmarshal([]byte(embJSON.String), &sec.Embankments)
-	}
-	if strJSON.Valid && strJSON.String != "" {
-		_ = json.Unmarshal([]byte(strJSON.String), &sec.Structures)
-	}
-	if gagJSON.Valid && gagJSON.String != "" {
-		_ = json.Unmarshal([]byte(gagJSON.String), &sec.Gauges)
-	}
+	sec.DescriptionCustom = custom != 0
+	sec.Notes = notes.String
 	if partsJSON.Valid && partsJSON.String != "" {
 		_ = json.Unmarshal([]byte(partsJSON.String), &sec.Parts)
+	}
+	if sec.Parts == nil {
+		sec.Parts = []models.SectionPart{}
 	}
 	return sec, nil
 }
@@ -100,18 +83,9 @@ func (r *SectionRepository) ListSections(sectorID string, areaID int, search str
 	}
 	if s := strings.TrimSpace(search); s != "" {
 		like := "%" + s + "%"
-		query += ` AND (
-			s.code LIKE ? OR
-			s.description LIKE ? OR
-			w.name LIKE ? OR
-			s.protected_area LIKE ? OR
-			s.structures LIKE ? OR
-			s.gauges LIKE ? OR
-			s.notes LIKE ?
-		)`
-		args = append(args, like, like, like, like, like, like, like)
+		query += ` AND (s.code LIKE ? OR s.description LIKE ? OR w.name LIKE ? OR s.protected_area LIKE ? OR s.parts LIKE ? OR s.notes LIKE ?)`
+		args = append(args, like, like, like, like, like, like)
 	}
-
 	query += " ORDER BY s.sector_id ASC, s.area_id ASC, s.code ASC"
 
 	rows, err := r.db.Query(query, args...)
@@ -128,7 +102,6 @@ func (r *SectionRepository) ListSections(sectorID string, areaID int, search str
 		}
 		sections = append(sections, sec)
 	}
-
 	return sections, nil
 }
 
@@ -141,76 +114,71 @@ func (r *SectionRepository) GetSectionByCode(code string) (*models.Section, erro
 	if err != nil {
 		return nil, fmt.Errorf("greška pri dohvatu dionice %s: %w", code, err)
 	}
+	r.decorate(&sec)
 	return &sec, nil
 }
 
-// CreateSection stvara novu dionicu u branjenom području
-func (r *SectionRepository) CreateSection(s *models.Section) error {
-	ctx := context.Background()
-	now := time.Now().UTC().Format(time.RFC3339)
-	s.CreatedAt = now
-	s.UpdatedAt = now
-
-	embJSON, _ := json.Marshal(s.Embankments)
-	strJSON, _ := json.Marshal(s.Structures)
-	gagJSON, _ := json.Marshal(s.Gauges)
-
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
+// decorate puni nazive iz registara uz poddionice: vode, objekte
+func (r *SectionRepository) decorate(sec *models.Section) {
+	for i := range sec.Parts {
+		p := &sec.Parts[i]
+		if p.WatercourseCode != "" {
+			r.db.QueryRow(`SELECT official_name FROM watercourses WHERE code = ?`, p.WatercourseCode).Scan(&p.WatercourseName)
+		}
+		for j := range p.Objects {
+			if id := p.Objects[j].StructureID; id != "" {
+				r.db.QueryRow(`SELECT name, kind FROM structures WHERE id = ?`, id).Scan(&p.Objects[j].StructureName, &p.Objects[j].StructureKind)
+			}
+		}
+		for j := range p.Embankments {
+			if id := p.Embankments[j].StructureID; id != "" {
+				r.db.QueryRow(`SELECT kind FROM structures WHERE id = ?`, id).Scan(&p.Embankments[j].StructureKind)
+			}
+		}
 	}
-	defer tx.Rollback()
-
-	_, err = tx.ExecContext(ctx, `
-		INSERT INTO sections (
-			code, area_id, sector_id, description, watercourse_code, bank, rkm_from, rkm_to,
-			protected_area, embankments, structures, gauges, notes, created_at, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, s.Code, s.AreaID, s.SectorID, s.Description, s.WatercourseCode, s.Bank, s.RkmFrom, s.RkmTo,
-		s.ProtectedArea, string(embJSON), string(strJSON), string(gagJSON), s.Notes, now, now,
-	)
-	if err != nil {
-		return fmt.Errorf("greška pri spremanju nove dionice %s: %w", s.Code, err)
-	}
-
-	saved, err := getSectionTx(ctx, tx, s.Code)
-	if err != nil {
-		return err
-	}
-	if _, err := r.rec.Record(ctx, tx, EntitySections, s.Code, saved); err != nil {
-		return err
-	}
-	return tx.Commit()
 }
 
-// UpdateSection ažurira postojeću dionicu
-func (r *SectionRepository) UpdateSection(s *models.Section) error {
-	ctx := context.Background()
-	now := time.Now().UTC().Format(time.RFC3339)
-	s.UpdatedAt = now
-
-	embJSON, _ := json.Marshal(s.Embankments)
-	strJSON, _ := json.Marshal(s.Structures)
-	gagJSON, _ := json.Marshal(s.Gauges)
-
+// SaveSection upisuje novu ili izmijenjenu dionicu s poddionicama, obnavlja
+// kazala i bilježi verziju. Sektor slijedi iz područja.
+func (r *SectionRepository) SaveSection(ctx context.Context, s *models.Section) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
 
-	_, err = tx.ExecContext(ctx, `
-		UPDATE sections
-		SET description = ?, bank = ?, rkm_from = ?, rkm_to = ?, protected_area = ?,
-		    embankments = ?, structures = ?, gauges = ?, notes = ?, updated_at = ?
-		WHERE code = ?
-	`, s.Description, s.Bank, s.RkmFrom, s.RkmTo, s.ProtectedArea,
-		string(embJSON), string(strJSON), string(gagJSON), s.Notes, now, s.Code,
-	)
-	if err != nil {
-		return fmt.Errorf("greška pri ažuriranju dionice %s: %w", s.Code, err)
+	if s.SectorID == "" {
+		if err := tx.QueryRowContext(ctx, `SELECT sector_id FROM areas WHERE id = ?`, s.AreaID).Scan(&s.SectorID); err != nil {
+			return fmt.Errorf("branjeno područje %d ne postoji", s.AreaID)
+		}
 	}
-
+	if cur, err := getSectionTx(ctx, tx, s.Code); err == nil {
+		s.CreatedAt = cur.CreatedAt
+	} else if err != sql.ErrNoRows {
+		return err
+	}
+	// objekti po nazivu na registar; nasip ili brana koje registar nema upisuje se u njega
+	linker, err := db.NewLinker(ctx, tx)
+	if err != nil {
+		return err
+	}
+	linker.Origin = "RUČNI_UNOS"
+	if err := linker.LinkRegistries(ctx, s); err != nil {
+		return err
+	}
+	for _, id := range linker.Created {
+		st, err := getStructureTx(ctx, tx, id)
+		if err != nil {
+			return err
+		}
+		if _, err := r.rec.Record(ctx, tx, EntityStructures, id, st); err != nil {
+			return err
+		}
+	}
+	s.UpdatedAt = "" // vlastiti upis nosi sadašnje vrijeme
+	if err := db.WriteSection(ctx, tx, s); err != nil {
+		return err
+	}
 	saved, err := getSectionTx(ctx, tx, s.Code)
 	if err != nil {
 		return err
@@ -234,8 +202,8 @@ func (r *SectionRepository) GetSectionPersonnel(code string, areaID int, sectorI
 		      (d.area_id = ? AND d.role IN ('WATER_GUARD', 'MACHINIST', 'AREA_LEADER', 'AREA_DEPUTY', 'CONTRACT_OFFICER_A2', 'CONTRACT_OFFICER_A3', 'SERVICE_LEADER_FOREMAN')) OR
 		      (d.sector_id = ? AND d.role IN ('SECTOR_LEADER', 'SECTOR_DEPUTY', 'COP_LEADER', 'COP_DEPUTY'))
 		  )
-		ORDER BY 
-			CASE 
+		ORDER BY
+			CASE
 				WHEN d.section_codes LIKE ? THEN 1
 				WHEN d.role IN ('AREA_LEADER', 'AREA_DEPUTY') THEN 2
 				WHEN d.role IN ('WATER_GUARD', 'MACHINIST') THEN 3
@@ -256,61 +224,13 @@ func (r *SectionRepository) GetSectionPersonnel(code string, areaID int, sectorI
 		var o models.SectionOfficer
 		var roleStr string
 		var title, phone, mob, email, org sql.NullString
-
-		err := rows.Scan(
-			&o.UserID, &o.FullName, &title, &o.DutyTitle, &roleStr,
-			&phone, &mob, &email, &org,
-		)
-		if err != nil {
+		if err := rows.Scan(&o.UserID, &o.FullName, &title, &o.DutyTitle, &roleStr, &phone, &mob, &email, &org); err != nil {
 			return nil, err
 		}
-
-		if title.Valid {
-			o.Title = title.String
-		}
-		if phone.Valid {
-			o.Phone = phone.String
-		}
-		if mob.Valid {
-			o.MobilePhone = mob.String
-		}
-		if email.Valid {
-			o.Email = email.String
-		}
-		if org.Valid {
-			o.OrgName = org.String
-		}
-
+		o.Title, o.Phone, o.MobilePhone, o.Email, o.OrgName = title.String, phone.String, mob.String, email.String, org.String
 		o.Role = roleStr
 		o.RoleLabel = models.Role(roleStr).Label()
-
 		officers = append(officers, o)
 	}
-
 	return officers, nil
-}
-
-// UpdateProtectedArea ažurira tekst ugroženog područja dionice
-func (r *SectionRepository) UpdateProtectedArea(code string, text string) error {
-	ctx := context.Background()
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
-	if _, err := tx.ExecContext(ctx,
-		`UPDATE sections SET protected_area = ?, updated_at = ? WHERE code = ?`,
-		text, time.Now().UTC().Format(time.RFC3339), code); err != nil {
-		return fmt.Errorf("greška pri ažuriranju ugroženog područja za dionicu %s: %w", code, err)
-	}
-
-	saved, err := getSectionTx(ctx, tx, code)
-	if err != nil {
-		return err
-	}
-	if _, err := r.rec.Record(ctx, tx, EntitySections, code, saved); err != nil {
-		return err
-	}
-	return tx.Commit()
 }

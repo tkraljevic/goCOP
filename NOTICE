@@ -12,7 +12,10 @@ PROGRAM
   Sinkronizacija:     github.com/tkraljevic/syncnet — MIT,
                       © Tomislav Kraljević i Mario Kraljević
 
-PODACI UGRAĐENI U PROGRAM (internal/db/*.json)
+PODACI KOJI SE ČITAJU UZ BAZU (data/*.json)
+  Nisu dio programa ni repozitorija; učitavaju se pri prvom punjenju prvog
+  čvora, a ostali ih čvorovi dobivaju sinkronizacijom. Repozitorij nosi
+  program i shemu baze.
   Dionice, vodomjerne postaje, pragovi obrane, nasipi i objekti
     Izvor:   Privitak 1 "Teritorijalne jedinice za izravnu provedbu mjera
              obrane od poplava" (Hrvatske vode, ožujak 2018., izmjena
@@ -34,7 +37,7 @@ PODACI UGRAĐENI U PROGRAM (internal/db/*.json)
   Županije, gradovi, općine i naselja
     Izvor:   službeni registar teritorijalnih jedinica Republike Hrvatske
     Status:  javni podatak
-  Objekti branjenog područja 16 (internal/db/objekti_bp16.json)
+  Objekti branjenog područja 16 (data/objekti_bp16.json)
     Izvor:   evidencija VGI Baranja (app.bp16.xyz), koju je Tomislav
              Kraljević vodio na privatnom poslužitelju 2013.–2026., a punili
              su je djelatnici VGI Baranja (popis u README, poglavlje 9)

@@ -1,0 +1,57 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Registri{{end}}
+
+{{define "content"}}
+<div class="dashboard-container">
+  <div class="section-title-wrap">
+    <div class="breadcrumb"><a href="/">Početna</a> › Registri</div>
+    <h1 class="page-title">{{icon "book-open"}} Registri</h1>
+    <p class="section-desc">Odaberite evidenciju koju želite pregledati ili urediti.</p>
+  </div>
+
+  <div class="dashboard-cards-grid">
+    <div class="dash-card">
+      <div class="dash-card-header"><div class="dash-card-icon-box primary">{{icon "building"}}</div><span class="dash-status-pill default">USTROJ</span></div>
+      <div class="dash-card-body"><h2 class="dash-card-title">Organizacija obrane</h2><p class="dash-card-desc">Sektori s centrima obrane i branjena područja s ispostavama; na njih se veže sve ostalo.</p></div>
+      <div class="dash-card-footer"><a href="/organizacija" class="btn btn-secondary dash-btn"><span>Otvori registar</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
+    </div>
+
+    <div class="dash-card">
+      <div class="dash-card-header"><div class="dash-card-icon-box info">{{icon "waves"}}</div><span class="dash-status-pill info">DIONICE</span></div>
+      <div class="dash-card-body"><h2 class="dash-card-title">Branjena područja i dionice</h2><p class="dash-card-desc">Teritorijalni ustroj obrane od poplava, dionice, stacionaže i zadužene osobe.</p></div>
+      <div class="dash-card-footer"><a href="/sections" class="btn btn-secondary dash-btn"><span>Otvori registar</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
+    </div>
+
+    <div class="dash-card">
+      <div class="dash-card-header"><div class="dash-card-icon-box primary">{{icon "landmark"}}</div><span class="dash-status-pill default">RH</span></div>
+      <div class="dash-card-body"><h2 class="dash-card-title">Teritorijalne jedinice</h2><p class="dash-card-desc">Županije, gradovi, općine i naselja povezana sa štićenim dionicama.</p></div>
+      <div class="dash-card-footer"><a href="/territories" class="btn btn-secondary dash-btn"><span>Otvori registar</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
+    </div>
+
+    <div class="dash-card">
+      <div class="dash-card-header"><div class="dash-card-icon-box danger">{{icon "ruler"}}</div><span class="dash-status-pill default">MJERENJA</span></div>
+      <div class="dash-card-body"><h2 class="dash-card-title">Vodomjerne postaje</h2><p class="dash-card-desc">Mjerodavni vodomjeri, kote nule, pragovi obrane i veze s dionicama.</p></div>
+      <div class="dash-card-footer"><a href="/stations" class="btn btn-secondary dash-btn"><span>Otvori registar</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
+    </div>
+
+    <div class="dash-card">
+      <div class="dash-card-header"><div class="dash-card-icon-box warning">{{icon "construction"}}</div><span class="dash-status-pill warning">OBJEKTI</span></div>
+      <div class="dash-card-body"><h2 class="dash-card-title">Objekti</h2><p class="dash-card-desc">Crpne stanice, ustave i drugi objekti obrane od poplava.</p></div>
+      <div class="dash-card-footer"><a href="/structures" class="btn btn-secondary dash-btn"><span>Otvori registar</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
+    </div>
+
+    <div class="dash-card">
+      <div class="dash-card-header"><div class="dash-card-icon-box info">{{icon "droplet"}}</div><span class="dash-status-pill info">VODE</span></div>
+      <div class="dash-card-body"><h2 class="dash-card-title">Vodotoci i vodna tijela</h2><p class="dash-card-desc">Vode I. reda i ostala vodna tijela povezana s dionicama i postajama.</p></div>
+      <div class="dash-card-footer"><a href="/watercourses" class="btn btn-secondary dash-btn"><span>Otvori registar</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
+    </div>
+
+    <div class="dash-card">
+      <div class="dash-card-header"><div class="dash-card-icon-box teal">{{icon "wrench"}}</div><span class="dash-status-pill default">A.02 / A.03</span></div>
+      <div class="dash-card-body"><h2 class="dash-card-title">Održavanje</h2><p class="dash-card-desc">Lokacije izvršenja usluga i stavke radova za vođenje dnevnika održavanja.</p></div>
+      <div class="dash-card-footer"><a href="/odrzavanje" class="btn btn-secondary dash-btn"><span>Otvori registar</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
+    </div>
+  </div>
+</div>
+{{end}}

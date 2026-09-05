@@ -9,8 +9,15 @@ import (
 )
 
 func TestRegistarVodnihTijelaJeCjelovit(t *testing.T) {
+	if !UseRepoData() {
+		t.Skip("data/ s registrima nije dostupan — registri stoje izvan repozitorija")
+	}
+	raw, err := readDataFile("watercourses.json")
+	if err != nil {
+		t.Fatalf("watercourses.json se ne može pročitati: %v", err)
+	}
 	var waters []seedWatercourse
-	if err := json.Unmarshal(watercoursesJSON, &waters); err != nil {
+	if err := json.Unmarshal(raw, &waters); err != nil {
 		t.Fatalf("watercourses.json se ne može pročitati: %v", err)
 	}
 

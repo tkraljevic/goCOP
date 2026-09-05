@@ -48,18 +48,20 @@ func NewReadingsHandler(readings *service.ReadingService, stations *service.Stat
 const readingsPerPage = 30
 
 type ReadingsOverviewData struct {
-	CurrentUser  *models.User
-	Permissions  *models.UserPermissions
-	Gauges       []models.GaugeSummary
-	Areas        []models.Area
-	SelectedArea int
-	SearchQuery  string
-	ShowAll      bool
-	WithReadings int
-	TotalGauges  int
-	TotalCount   int
-	LastAt       time.Time
-	Pager        Pager
+	CurrentUser    *models.User
+	Permissions    *models.UserPermissions
+	Gauges         []models.GaugeSummary
+	Sectors        []models.Sector
+	Areas          []models.Area
+	SelectedSector string
+	SelectedArea   int
+	SearchQuery    string
+	ShowAll        bool
+	WithReadings   int
+	TotalGauges    int
+	TotalCount     int
+	LastAt         time.Time
+	Pager          Pager
 
 	SuccessMessage string
 	ErrorMessage   string
@@ -167,12 +169,28 @@ func (h *ReadingsHandler) ShowOverview(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	u, perms := h.base(r)
 	q := r.URL.Query()
+	sectorID := strings.TrimSpace(q.Get("sector"))
 	areaID, _ := strconv.Atoi(q.Get("area"))
 	data := ReadingsOverviewData{
-		CurrentUser: u, Permissions: perms, SelectedArea: areaID,
+		CurrentUser: u, Permissions: perms, SelectedSector: sectorID, SelectedArea: areaID,
 		SearchQuery: strings.TrimSpace(q.Get("q")), ShowAll: q.Get("all") == "1",
 		SuccessMessage: q.Get("success"), ErrorMessage: q.Get("error"),
 		ActiveNav: "readings", ViewAsBanner: viewBanner(r),
+	}
+	data.Sectors, _ = h.userService.ListSectors()
+	data.Areas, _ = h.userService.ListAreas(sectorID)
+	if areaID > 0 {
+		valid := false
+		for _, area := range data.Areas {
+			if area.ID == areaID {
+				valid = true
+				break
+			}
+		}
+		if !valid {
+			areaID = 0
+			data.SelectedArea = 0
+		}
 	}
 	all, err := h.readingService.Overview(ctx)
 	if err != nil {
@@ -188,7 +206,10 @@ func (h *ReadingsHandler) ShowOverview(w http.ResponseWriter, r *http.Request) {
 		if !data.ShowAll && g.Count == 0 {
 			continue
 		}
-		if areaID > 0 && g.AreaID != areaID && g.StructureID != "" {
+		if sectorID != "" && !gaugeInSector(g, sectorID) {
+			continue
+		}
+		if areaID > 0 && !gaugeInArea(g, areaID) {
 			continue
 		}
 		if needle != "" && !strings.Contains(strings.ToLower(g.Name+" "+g.Sub), needle) {
@@ -198,11 +219,33 @@ func (h *ReadingsHandler) ShowOverview(w http.ResponseWriter, r *http.Request) {
 	}
 	data.Gauges, data.Pager = paginate(shown, r, registryPerPage)
 	data.TotalCount, _, data.LastAt, _ = h.readingService.Stats(ctx)
-	data.Areas, _ = h.userService.ListAreas("")
-
 	if err := h.tmplOverview.ExecuteTemplate(w, "readings.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+func gaugeInSector(g models.GaugeSummary, sectorID string) bool {
+	if g.StructureID != "" {
+		return g.SectorID == sectorID
+	}
+	for _, id := range g.SectorIDs {
+		if id == sectorID {
+			return true
+		}
+	}
+	return false
+}
+
+func gaugeInArea(g models.GaugeSummary, areaID int) bool {
+	if g.StructureID != "" {
+		return g.AreaID == areaID
+	}
+	for _, id := range g.AreaIDs {
+		if id == areaID {
+			return true
+		}
+	}
+	return false
 }
 
 // gauge učitava letvu iz putanje ili upita: postaju ili objekt
