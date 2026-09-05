@@ -177,7 +177,10 @@ dodatna računala i ručnu razmjenu.
 Sve što radi samo administrator stoji u modulu **Administracija**: ustroj
 obrane (sektori i branjena područja), moduli i ovlasti, čvor, mreža i
 sinkronizacija te pregled uvoza podataka. Vidi ga zadano samo globalni
-administrator. Na stranici prijave stoji kontakt glavnog
+administrator. Nadzorna ploča **Sinkronizacija** pokazuje tko je na mreži,
+koliko računala odgovara, s kim je zadnja razmjena uspjela, tko zaostaje i
+što ne štima; razmjena ide s više čvorova istodobno, a čvorovi koji redom
+šute zovu se sve rjeđe. Na stranici prijave stoji kontakt glavnog
 administratora iz registra (mobitel, e-pošta) i centar iz postavki čvora.
 
 `gocop.toml` — adresa web sučelja, putanja baze, identifikator i naziv

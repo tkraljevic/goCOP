@@ -129,6 +129,15 @@ type Service struct {
 	// ne treba stoljeće očitanja svih letvi u zemlji, pa ono što ovdje
 	// otpadne ne ulazi ni u knjigu ni na površinu.
 	accept func(ledger.Version) bool
+
+	every  time.Duration // razmak automatske sinkronizacije (0 = isključena)
+	autoOn bool
+}
+
+func (s *Service) autoSync() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.autoOn
 }
 
 func NewService(db *sql.DB, rec *ledger.Recorder, node *Node, ports Ports) (*Service, error) {
@@ -583,8 +592,9 @@ func (s *Service) Serve(ctx context.Context) error {
 	return syncnet.ServeExchange(ctx, s.node.key, Protocol, s.ports.Exchange, s.trusted, func(c *syncnet.Conn) {
 		defer c.Close()
 		peer, _ := s.peerByKey(ctx, c.PeerKey)
-		applied, sent, err := s.exchange(ctx, c, false)
-		s.noteSync(ctx, peer, c, applied, sent, err)
+		started := time.Now()
+		applied, sent, theirs, err := s.exchange(ctx, c, false)
+		s.noteSync(ctx, peer, c, syncOutcome{applied: applied, sent: sent, frontier: theirs, took: time.Since(started), err: err})
 	})
 }
 
@@ -626,21 +636,23 @@ func (s *Service) SyncWith(ctx context.Context, nodeID string) (applied, sent in
 			lastErr = err
 			continue
 		}
-		applied, sent, err = s.exchange(ctx, conn, true)
+		started := time.Now()
+		var theirs map[string]string
+		applied, sent, theirs, err = s.exchange(ctx, conn, true)
 		conn.Close()
-		s.noteSync(ctx, peer, conn, applied, sent, err)
+		s.noteSync(ctx, peer, conn, syncOutcome{applied: applied, sent: sent, frontier: theirs, took: time.Since(started), err: err})
 		return applied, sent, err
 	}
-	s.noteSync(ctx, peer, nil, 0, 0, lastErr)
+	s.noteSync(ctx, peer, nil, syncOutcome{err: lastErr})
 	return 0, 0, fmt.Errorf("čvor %s nije dostupan ni na jednoj adresi: %v", nodeID, lastErr)
 }
 
 // exchange je jedan razgovor: frontier ↔ frontier, delta ↔ delta, done ↔ done.
 // Onaj tko je nazvao (initiator) prvi šalje; obje strane rade isto.
-func (s *Service) exchange(ctx context.Context, c *syncnet.Conn, initiator bool) (applied, sent int, err error) {
+func (s *Service) exchange(ctx context.Context, c *syncnet.Conn, initiator bool) (applied, sent int, theirFrontier map[string]string, err error) {
 	mine, err := s.rec.Frontier(ctx)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, nil, err
 	}
 
 	send := func(kind string, v any) error {
@@ -668,38 +680,38 @@ func (s *Service) exchange(ctx context.Context, c *syncnet.Conn, initiator bool)
 	var theirs frontierMsg
 	if initiator {
 		if err := send(kindFrontier, frontierMsg{mine}); err != nil {
-			return 0, 0, err
+			return 0, 0, theirs.Frontier, err
 		}
 		if err := expect(kindFrontier, &theirs); err != nil {
-			return 0, 0, err
+			return 0, 0, theirs.Frontier, err
 		}
 	} else {
 		if err := expect(kindFrontier, &theirs); err != nil {
-			return 0, 0, err
+			return 0, 0, theirs.Frontier, err
 		}
 		if err := send(kindFrontier, frontierMsg{mine}); err != nil {
-			return 0, 0, err
+			return 0, 0, theirs.Frontier, err
 		}
 	}
 
 	delta, err := s.rec.Delta(ctx, theirs.Frontier, 5000)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, theirs.Frontier, err
 	}
 	var incoming deltaMsg
 	if initiator {
 		if err := send(kindDelta, deltaMsg{delta}); err != nil {
-			return 0, 0, err
+			return 0, 0, theirs.Frontier, err
 		}
 		if err := expect(kindDelta, &incoming); err != nil {
-			return 0, 0, err
+			return 0, 0, theirs.Frontier, err
 		}
 	} else {
 		if err := expect(kindDelta, &incoming); err != nil {
-			return 0, 0, err
+			return 0, 0, theirs.Frontier, err
 		}
 		if err := send(kindDelta, deltaMsg{delta}); err != nil {
-			return 0, 0, err
+			return 0, 0, theirs.Frontier, err
 		}
 	}
 	sent = len(delta)
@@ -715,7 +727,7 @@ func (s *Service) exchange(ctx context.Context, c *syncnet.Conn, initiator bool)
 	}
 	applied, err = s.rec.Apply(ctx, wanted)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, theirs.Frontier, err
 	}
 	if applied > 0 && s.onApplied != nil {
 		if err := s.onApplied(ctx, wanted); err != nil {
@@ -726,14 +738,14 @@ func (s *Service) exchange(ctx context.Context, c *syncnet.Conn, initiator bool)
 	var theirDone doneMsg
 	if initiator {
 		if err := send(kindDone, doneMsg{applied}); err != nil {
-			return applied, sent, err
+			return applied, sent, theirs.Frontier, err
 		}
 		_ = expect(kindDone, &theirDone)
 	} else {
 		_ = expect(kindDone, &theirDone)
 		_ = send(kindDone, doneMsg{applied})
 	}
-	return applied, sent, nil
+	return applied, sent, theirs.Frontier, nil
 }
 
 // OnApplied postavlja što se radi s primljenim verzijama nakon upisa u
@@ -747,10 +759,12 @@ func (s *Service) Accept(fn func(ledger.Version) bool) {
 	s.accept = fn
 }
 
-func (s *Service) noteSync(ctx context.Context, peer *Peer, c *syncnet.Conn, applied, sent int, err error) {
+func (s *Service) noteSync(ctx context.Context, peer *Peer, c *syncnet.Conn, o syncOutcome) {
 	if peer == nil {
 		return
 	}
+	applied, sent, err := o.applied, o.sent, o.err
+	s.recordSyncState(ctx, peer.NodeID, o)
 	// Razmjena je mogla donijeti noviji zapis tog čvora (adrese, izloženost);
 	// bilješka ide na svjež red, inače bi stara kopija iz memorije pregazila
 	// primljeno i kao nova verzija otputovala natrag.
@@ -779,21 +793,11 @@ func (s *Service) noteSync(ctx context.Context, peer *Peer, c *syncnet.Conn, app
 
 // SyncAll obavi razmjenu sa svakim poznatim čvorom; vraća sažetak po čvoru
 func (s *Service) SyncAll(ctx context.Context) map[string]string {
-	out := map[string]string{}
 	peersList, err := s.ListPeers(ctx)
 	if err != nil {
-		out["*"] = err.Error()
-		return out
+		return map[string]string{"*": err.Error()}
 	}
-	for _, p := range peersList {
-		applied, sent, err := s.SyncWith(ctx, p.NodeID)
-		if err != nil {
-			out[p.NodeID] = "greška: " + err.Error()
-			continue
-		}
-		out[p.NodeID] = fmt.Sprintf("primljeno %d, poslano %d", applied, sent)
-	}
-	return out
+	return s.syncPeers(ctx, peersList)
 }
 
 // RunAutoSync povremeno sinkronizira sa svim poznatim čvorovima
@@ -801,6 +805,9 @@ func (s *Service) RunAutoSync(ctx context.Context, every time.Duration) {
 	if every <= 0 {
 		return
 	}
+	s.mu.Lock()
+	s.every, s.autoOn = every, true
+	s.mu.Unlock()
 	t := time.NewTicker(every)
 	defer t.Stop()
 	for {
@@ -808,7 +815,7 @@ func (s *Service) RunAutoSync(ctx context.Context, every time.Duration) {
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			for node, note := range s.SyncAll(ctx) {
+			for node, note := range s.SyncDue(ctx) {
 				log.Printf("sinkronizacija s %s: %s", node, note)
 			}
 		}

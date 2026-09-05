@@ -1,0 +1,134 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Sinkronizacija{{end}}
+
+{{define "content"}}
+<style>
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem; margin-bottom: 1rem; }
+  .tile { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 0.8rem 1rem; }
+  .tile .n { font-size: 1.6rem; font-weight: 700; line-height: 1.1; }
+  .tile .l { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+  .tile.good .n { color: #2e7d5b; } .tile.bad .n { color: #b23a2e; }
+  .dot { display: inline-block; width: 0.6rem; height: 0.6rem; border-radius: 50%; margin-right: 0.35rem; vertical-align: middle; }
+  .dot.online { background: #2e7d5b; } .dot.offline { background: #b23a2e; } .dot.never { background: #9aa4b2; }
+  .muted { color: var(--text-muted); font-size: 0.85rem; }
+  .err { color: #b23a2e; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; margin-top: 0.3rem; }
+  .bar > i { display: block; height: 100%; background: #2e7d5b; }
+</style>
+
+<div class="breadcrumb"><a href="/administracija">Administracija</a> › Sinkronizacija</div>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "activity"}} Sinkronizacija</h1>
+    <p class="page-desc">Tko je na mreži, koliko računala odgovara, s kim je zadnja razmjena uspjela i tko zaostaje. Osvježava se samo, svakih 20 sekundi.</p>
+  </div>
+  {{if .Permissions.IsGlobalAdmin}}
+  <div class="detail-actions">
+    <button type="button" class="btn btn-primary" id="sync-all" onclick="syncAll()">{{icon "refresh-cw"}} Sinkroniziraj sa svima</button>
+    <button type="button" class="btn btn-secondary" onclick="refresh(true)">{{icon "search"}} Pretraži lokalnu mrežu</button>
+  </div>
+  {{end}}
+</div>
+
+{{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
+
+<div id="alerts"></div>
+
+<div class="tiles">
+  <div class="tile" id="t-online"><div class="n">–</div><div class="l">na mreži sada</div></div>
+  <div class="tile" id="t-total"><div class="n">–</div><div class="l">poznatih računala</div></div>
+  <div class="tile" id="t-versions"><div class="n">–</div><div class="l">verzija u knjizi</div></div>
+  <div class="tile" id="t-last"><div class="n">–</div><div class="l">zadnja uspješna razmjena</div></div>
+  <div class="tile" id="t-auto"><div class="n">–</div><div class="l">automatski razmak</div></div>
+</div>
+
+<div class="table-card"><div class="table-responsive">
+  <table class="data-table" id="peers">
+    <thead><tr><th>Računalo</th><th>Stanje</th><th>Član</th><th>Zadnja razmjena</th><th>Primljeno / poslano</th><th>Zaostaje</th><th>Adrese</th><th></th></tr></thead>
+    <tbody><tr><td colspan="8" class="muted">Učitavanje…</td></tr></tbody>
+  </table>
+</div></div>
+
+<div id="lan" style="margin-top:1rem;"></div>
+<p class="muted" id="stamp" style="margin-top:0.5rem;"></p>
+
+<script>
+const IS_ADMIN = {{if .Permissions.IsGlobalAdmin}}true{{else}}false{{end}};
+const api = (url, body) => fetch(url, {
+  method: body === undefined ? 'GET' : 'POST',
+  headers: {'Content-Type': 'application/json'},
+  body: body === undefined ? undefined : JSON.stringify(body)
+}).then(async r => { if (!r.ok) throw new Error(await r.text()); return r.json(); });
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function when(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso), diff = (Date.now() - d.getTime()) / 1000;
+  const abs = d.toLocaleString('hr-HR', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'});
+  if (diff < 60) return 'upravo';
+  if (diff < 3600) return Math.round(diff / 60) + ' min · ' + abs;
+  if (diff < 86400) return Math.round(diff / 3600) + ' h · ' + abs;
+  return abs;
+}
+function fmtEvery(sec) { if (!sec) return 'isključeno'; if (sec % 3600 === 0) return (sec / 3600) + ' h'; if (sec % 60 === 0) return (sec / 60) + ' min'; return sec + ' s'; }
+
+function render(st) {
+  $('t-online').querySelector('.n').textContent = st.online;
+  $('t-online').className = 'tile ' + (st.total && st.online === 0 ? 'bad' : (st.online ? 'good' : ''));
+  $('t-total').querySelector('.n').textContent = st.total;
+  $('t-versions').querySelector('.n').textContent = st.versions.toLocaleString('hr-HR');
+  $('t-last').querySelector('.n').textContent = when(st.last_ok);
+  $('t-last').querySelector('.n').style.fontSize = '1.05rem';
+  $('t-auto').querySelector('.n').textContent = st.auto_sync ? fmtEvery(st.interval_sec) : 'isključeno';
+  $('t-auto').className = 'tile ' + (st.auto_sync ? '' : 'bad');
+
+  $('alerts').innerHTML = (st.alerts || []).map(a => '<div class="alert alert-warning">' + esc(a) + '</div>').join('');
+
+  const label = {online: 'na mreži', offline: 'ne odgovara', never: 'još nikad'};
+  const rows = (st.peers || []).map(p => {
+    const s = p.state || {};
+    const name = esc(p.name || p.node_id);
+    const total = st.versions || 1;
+    const pct = Math.max(0, Math.min(100, Math.round(100 * (1 - (p.backlog || 0) / total))));
+    return `<tr>
+      <td><b>${name}</b>${p.is_bootstrap ? ' <span class="reg-chip">domenski</span>' : ''}<br><span class="muted mono">${esc(p.node_id)}</span></td>
+      <td><span class="dot ${p.reachability}"></span>${label[p.reachability] || p.reachability}${s.fails ? '<br><span class="muted">' + s.fails + '× zaredom bez odgovora</span>' : ''}</td>
+      <td>${p.member ? '<span class="badge badge-active">član</span>' : '<span class="badge badge-inactive" title="' + esc(p.member_problem) + '">nije</span>'}</td>
+      <td>${when(s.last_ok)}${s.last_error ? '<br><span class="err">' + esc(s.last_error) + '</span>' : ''}${s.last_attempt && s.last_attempt !== s.last_ok ? '<br><span class="muted">pokušaj ' + when(s.last_attempt) + '</span>' : ''}</td>
+      <td>${s.last_ok ? s.applied + ' / ' + s.sent + '<br><span class="muted">' + (s.duration_ms >= 1000 ? (s.duration_ms / 1000).toFixed(1) + ' s' : s.duration_ms + ' ms') + '</span>' : '—'}</td>
+      <td>${s.last_ok ? (p.backlog ? p.backlog + ' verzija' : 'ništa') + '<div class="bar"><i style="width:' + pct + '%"></i></div>' : '—'}</td>
+      <td class="muted mono">${(p.addresses || []).map(esc).join('<br>') || '—'}</td>
+      <td>${IS_ADMIN ? '<button class="btn btn-sm btn-secondary" onclick="syncOne(\\'' + esc(p.node_id) + '\\')">Razmijeni</button>' : ''}</td>
+    </tr>`;
+  });
+  $('peers').querySelector('tbody').innerHTML = rows.join('') || '<tr><td colspan="8" class="muted">Nema poznatih računala.</td></tr>';
+
+  if (st.lan) {
+    $('lan').innerHTML = '<h2 style="font-size:1rem;">Lokalna mreža sada</h2>' + (st.lan.length
+      ? st.lan.map(f => `<div class="muted"><span class="dot online"></span><b>${esc(f.name || f.deviceId)}</b> <span class="mono">${esc(f.addr)}</span>${f.known ? '' : ' · nepoznato računalo, nije upareno'}</div>`).join('')
+      : '<div class="muted">Nijedno goCOP računalo ne javlja se u lokalnoj mreži.</div>');
+  }
+  $('stamp').textContent = 'Stanje od ' + new Date(st.generated_at).toLocaleTimeString('hr-HR');
+}
+
+async function refresh(lan) {
+  try { render(await api('/api/sync/status' + (lan ? '?lan=1' : ''))); }
+  catch (e) { $('alerts').innerHTML = '<div class="alert alert-danger">' + esc(e.message) + '</div>'; }
+}
+async function syncAll() {
+  const b = $('sync-all'); b.disabled = true; b.textContent = 'Razmjena u tijeku…';
+  try { const r = await api('/api/sync/all', {}); render(r.status); }
+  catch (e) { alert(e.message); }
+  b.disabled = false; b.innerHTML = 'Sinkroniziraj sa svima';
+}
+async function syncOne(node) {
+  try { await api('/api/peers/' + encodeURIComponent(node) + '/sync', {}); } catch (e) { alert(e.message); }
+  refresh(false);
+}
+refresh(false);
+setInterval(() => refresh(false), 20000);
+</script>
+{{end}}
