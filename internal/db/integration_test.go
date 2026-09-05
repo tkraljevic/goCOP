@@ -41,6 +41,11 @@ func count(t *testing.T, database *sql.DB, query string, args ...any) int {
 	return n
 }
 
+// Brojke od 5.9.2026., nakon prijepisa dionica s poddionicama: Donji Miholjac
+// je vraćen kao vodomjer B.34.14 (postaja i veza više), vode poddionica ulaze
+// u registar (devet potoka i kanala retencija), a opis dionice s više
+// poddionica počinje prvom pa se obala i stacionaža čitaju iz više dionica.
+
 func TestSeedNaSvjezojBaziDajePoznateBrojke(t *testing.T) {
 	database := freshDatabase(t)
 
@@ -50,15 +55,15 @@ func TestSeedNaSvjezojBaziDajePoznateBrojke(t *testing.T) {
 		want  int
 	}{
 		{"dionica", `SELECT COUNT(*) FROM sections`, 465},
-		{"vodomjernih postaja", `SELECT COUNT(*) FROM stations`, 245},
-		{"veza postaja–dionica", `SELECT COUNT(*) FROM section_stations`, 471},
-		{"vodnih tijela", `SELECT COUNT(*) FROM watercourses`, 486},
+		{"vodomjernih postaja", `SELECT COUNT(*) FROM stations`, 246},
+		{"veza postaja–dionica", `SELECT COUNT(*) FROM section_stations`, 472},
+		{"vodnih tijela", `SELECT COUNT(*) FROM watercourses`, 495},
 		{"vodnih tijela iz Odluke", `SELECT COUNT(*) FROM watercourses WHERE origin = 'ODLUKA'`, 367},
 		{"dionica s vodom", `SELECT COUNT(*) FROM sections WHERE watercourse_code <> ''`, 464},
 		{"postaja s vodom", `SELECT COUNT(*) FROM stations WHERE watercourse_code <> ''`, 218},
-		{"dionica s obalom", `SELECT COUNT(*) FROM sections WHERE bank <> ''`, 375},
-		{"dionica s rasponom stacionaže", `SELECT COUNT(*) FROM sections WHERE rkm_from IS NOT NULL`, 377},
-		{"postaja s kotom u sustavu Trst", `SELECT COUNT(*) FROM stations WHERE zero_datum_system = 'TRST'`, 245},
+		{"dionica s obalom", `SELECT COUNT(*) FROM sections WHERE bank <> ''`, 384},
+		{"dionica s rasponom stacionaže", `SELECT COUNT(*) FROM sections WHERE rkm_from IS NOT NULL`, 378},
+		{"postaja s kotom u sustavu Trst", `SELECT COUNT(*) FROM stations WHERE zero_datum_system = 'TRST'`, 246},
 		{"postaja s izmjerenom HVRS71 kotom", `SELECT COUNT(*) FROM stations WHERE zero_datum_new IS NOT NULL`, 0},
 	}
 

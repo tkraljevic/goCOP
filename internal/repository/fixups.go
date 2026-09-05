@@ -9,7 +9,10 @@ import (
 	"strings"
 	"time"
 
+	"encoding/json"
+
 	"gocop/internal/db"
+	"gocop/internal/hydro"
 	"gocop/internal/ledger"
 	"gocop/internal/models"
 
@@ -34,6 +37,7 @@ var fixups = []fixup{
 	{"admin-alias-eposta-2026-09", fixupAdminEmail},
 	{"novo-virje-jedna-letva-2026-09", fixupNovoVirje},
 	{"uzvodne-postaje-i-kote-2026-09", fixupUpstreamStations},
+	{"dionice-poddionice-2026-09", fixupSectionParts},
 }
 
 // RunFixups izvodi popravke koji na ovom čvoru još nisu izvedeni
@@ -556,4 +560,77 @@ func watercourseCodeFor(name string) string {
 		return "rijeka-mura"
 	}
 	return ""
+}
+
+// SectionSource daje ugrađeni prijepis dionica; postavlja ga paket db pri
+// pokretanju, jer repozitorij ne smije uvoziti ugrađene podatke izravno
+var SectionSource func() ([]models.Section, error)
+
+// fixupSectionParts upisuje građu iz Privitka (poddionice, redci, objekti po
+// nasipu) u dionice koje su punjene starim, spljoštenim prijepisom. Uz građu
+// obnavlja i ravna polja koja su iz nje izvedena, jer je stari prijepis od
+// više redaka uzimao samo zadnji: opis, ugroženo područje, vodomjere.
+// Operativne napomene i ručno upisane vode se ne diraju.
+func fixupSectionParts(ctx context.Context, tx *sql.Tx, rec *ledger.Recorder) (int, error) {
+	if SectionSource == nil {
+		return 0, nil
+	}
+	sections, err := SectionSource()
+	if err != nil {
+		return 0, err
+	}
+	changed := 0
+	for _, src := range sections {
+		if len(src.Parts) == 0 {
+			continue
+		}
+		cur, err := getSectionTx(ctx, tx, src.Code)
+		if err == sql.ErrNoRows {
+			continue
+		}
+		if err != nil {
+			return changed, err
+		}
+		// Voda poddionice upisuje punjenje pri svakom startu, a ugrađeni
+		// prijepis je ne nosi; da je popravak ne izbriše, zadržava se ona
+		// koja već stoji uz poddionicu s istim opisom.
+		for i := range src.Parts {
+			for _, have := range cur.Parts {
+				if have.Description == src.Parts[i].Description && have.WatercourseCode != "" {
+					src.Parts[i].WatercourseCode = have.WatercourseCode
+					break
+				}
+			}
+		}
+		newParts, _ := json.Marshal(src.Parts)
+		oldParts, _ := json.Marshal(cur.Parts)
+		if string(newParts) == string(oldParts) {
+			continue
+		}
+		emb, _ := json.Marshal(src.Embankments)
+		str, _ := json.Marshal(src.Structures)
+		gag, _ := json.Marshal(src.Gauges)
+		d := hydro.ParseSectionDescription(src.Description)
+		var from, to any
+		if d.HasRange {
+			from, to = d.RkmFrom, d.RkmTo
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE sections SET
+				parts = ?, description = ?, protected_area = ?, embankments = ?, structures = ?, gauges = ?,
+				bank = ?, rkm_from = ?, rkm_to = ?, updated_at = ?
+			WHERE code = ?`,
+			string(newParts), src.Description, src.ProtectedArea, string(emb), string(str), string(gag),
+			d.Bank, from, to, time.Now().UTC().Format(time.RFC3339), src.Code); err != nil {
+			return changed, fmt.Errorf("dionica %s: %w", src.Code, err)
+		}
+		saved, err := getSectionTx(ctx, tx, src.Code)
+		if err != nil {
+			return changed, err
+		}
+		if _, err := rec.Record(ctx, tx, EntitySections, src.Code, saved); err != nil {
+			return changed, err
+		}
+		changed++
+	}
+	return changed, nil
 }

@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"gocop/internal/models"
 	"log"
 	"os"
 	"path/filepath"
@@ -290,6 +291,7 @@ func SeedInitialData(database *sql.DB) error {
 			Structures    any    `json:"structures"`
 			Gauges        any    `json:"gauges"`
 			Notes         string `json:"notes"`
+			Parts         any    `json:"parts"`
 		}
 		if err := json.Unmarshal(sectionsJSON, &rawSections); err != nil {
 			return fmt.Errorf("greška pri čitanju sections.json: %w", err)
@@ -304,8 +306,8 @@ func SeedInitialData(database *sql.DB) error {
 		insertSecStmt, err := tx.Prepare(`
 			INSERT INTO sections (
 				code, area_id, sector_id, description, protected_area,
-				embankments, structures, gauges, notes, created_at, updated_at
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				embankments, structures, gauges, notes, created_at, updated_at, parts
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`)
 		if err != nil {
 			return err
@@ -317,10 +319,14 @@ func SeedInitialData(database *sql.DB) error {
 			embJSON, _ := json.Marshal(s.Embankments)
 			strJSON, _ := json.Marshal(s.Structures)
 			gagJSON, _ := json.Marshal(s.Gauges)
+			partsJSON, _ := json.Marshal(s.Parts)
+			if s.Parts == nil {
+				partsJSON = []byte("[]")
+			}
 
 			_, err = insertSecStmt.Exec(
 				s.Code, s.AreaID, s.SectorID, s.Watercourse, s.ProtectedArea,
-				string(embJSON), string(strJSON), string(gagJSON), s.Notes, now, now,
+				string(embJSON), string(strJSON), string(gagJSON), s.Notes, now, now, string(partsJSON),
 			)
 			if err != nil {
 				return fmt.Errorf("greška pri unosu dionice %s: %w", s.Code, err)
@@ -490,4 +496,34 @@ func SeedInitialData(database *sql.DB) error {
 	}
 
 	return nil
+}
+
+// EmbeddedSections vraća ugrađeni prijepis dionica kao modele. Služi
+// popravcima koji postojeće dionice usklađuju s novijim prijepisom, jer
+// punjenje pri prvom pokretanju već postojeće retke ne dira.
+func EmbeddedSections() ([]models.Section, error) {
+	var raw []struct {
+		Code          string                  `json:"code"`
+		AreaID        int                     `json:"area_id"`
+		SectorID      string                  `json:"sector_id"`
+		Watercourse   string                  `json:"watercourse"`
+		ProtectedArea string                  `json:"protected_area"`
+		Embankments   []models.EmbankmentItem `json:"embankments"`
+		Structures    []models.StructureItem  `json:"structures"`
+		Gauges        []models.GaugeItem      `json:"gauges"`
+		Notes         string                  `json:"notes"`
+		Parts         []models.SectionPart    `json:"parts"`
+	}
+	if err := json.Unmarshal(sectionsJSON, &raw); err != nil {
+		return nil, err
+	}
+	out := make([]models.Section, 0, len(raw))
+	for _, r := range raw {
+		out = append(out, models.Section{
+			Code: r.Code, AreaID: r.AreaID, SectorID: r.SectorID, Description: r.Watercourse,
+			ProtectedArea: r.ProtectedArea, Embankments: r.Embankments, Structures: r.Structures,
+			Gauges: r.Gauges, Notes: r.Notes, Parts: r.Parts,
+		})
+	}
+	return out, nil
 }
