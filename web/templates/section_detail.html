@@ -193,7 +193,7 @@
       <span class="part-ordinal">{{add $pi 1}}</span>
       <div>
         <div class="part-desc">{{$p.Description}}</div>
-        {{if $p.Bank}}<div class="reading-meta">{{bankLabel $p.Bank}}{{if $p.RkmFrom}} · rkm {{derefFloat $p.RkmFrom 3}} – {{derefFloat $p.RkmTo 3}}{{end}}</div>{{end}}
+        {{if or $p.Bank $p.RkmFrom}}<div class="reading-meta">{{if $p.Bank}}{{bankLabel $p.Bank}}{{end}}{{if $p.RkmFrom}}{{if $p.Bank}} · {{end}}km {{derefFloat $p.RkmFrom 3}} – {{derefFloat $p.RkmTo 3}}{{end}}</div>{{end}}
       </div>
     </div>
     {{if $p.Unaligned}}<div class="alert alert-warning" style="margin:0.5rem 0;">{{icon "triangle-alert"}} Stupci izvorne tablice ovdje se nisu poravnali pri prijepisu; provjeriti prema Privitku.</div>{{end}}
