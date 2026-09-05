@@ -144,10 +144,12 @@ func (s *Service) Ports() Ports { return s.ports }
 
 // ---------- poznati čvorovi ----------
 
+// ListPeers vraća druge čvorove. Vlastiti zapis (kad ga razmjena vrati)
+// nije partner za razmjenu, pa se ne navodi; do njega vodi SelfPeer.
 func (s *Service) ListPeers(ctx context.Context) ([]Peer, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT node_id, name, public_key, addresses, is_bootstrap, last_seen, last_sync, last_sync_note, created_at
-		FROM peers ORDER BY is_bootstrap DESC, name COLLATE NOCASE`)
+		FROM peers WHERE node_id <> ? ORDER BY is_bootstrap DESC, name COLLATE NOCASE`, s.node.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -162,6 +164,81 @@ func (s *Service) ListPeers(ctx context.Context) ([]Peer, error) {
 		out = append(out, p)
 	}
 	return out, rows.Err()
+}
+
+// SelfPeer je zapis ovog čvora kakav putuje drugima: identitet iz ključa,
+// javne adrese i izloženost iz baze kad su upisane. Njime ured objavljuje
+// domenu na kojoj ga svi mogu naći.
+func (s *Service) SelfPeer(ctx context.Context) (Peer, error) {
+	self := Peer{NodeID: s.node.ID, Name: s.node.Name, PublicKey: s.node.PublicKey(), Addresses: []string{}}
+	stored, err := s.GetPeer(ctx, s.node.ID)
+	if err != nil {
+		return self, err
+	}
+	if stored != nil {
+		self.Addresses, self.IsBootstrap, self.CreatedAt = stored.Addresses, stored.IsBootstrap, stored.CreatedAt
+	}
+	return self, nil
+}
+
+// PublicAddress dodaje ili miče javnu adresu čvora (domenu ili IP s portom
+// razmjene) i označava ga stalno izloženim dok ima bar jednu. Vrijedi i za
+// ovaj čvor: tako ured objavi svoju domenu, a zapis stigne svima razmjenom.
+func (s *Service) PublicAddress(ctx context.Context, nodeID, add, remove string) (*Peer, error) {
+	var p Peer
+	if nodeID == s.node.ID {
+		self, err := s.SelfPeer(ctx)
+		if err != nil {
+			return nil, err
+		}
+		p = self
+	} else {
+		known, err := s.GetPeer(ctx, nodeID)
+		if err != nil {
+			return nil, err
+		}
+		if known == nil {
+			return nil, fmt.Errorf("čvor %s nije poznat — prvo ga uparite", nodeID)
+		}
+		p = *known
+	}
+	add, remove = strings.TrimSpace(add), strings.TrimSpace(remove)
+	if add != "" {
+		if strings.ContainsAny(add, " /\\") {
+			return nil, fmt.Errorf("adresa je domena ili IP, po želji s portom: npr. cop-osijek.com ili 10.0.0.5:4710")
+		}
+		p.Addresses = dedupe(append(p.Addresses, withPort(add, s.exchangePortOf(p))))
+	}
+	if remove != "" {
+		var keep []string
+		for _, a := range p.Addresses {
+			host, _, splitErr := net.SplitHostPort(a)
+			if a == remove || (splitErr == nil && host == remove) {
+				continue
+			}
+			keep = append(keep, a)
+		}
+		p.Addresses = dedupe(keep)
+	}
+	p.IsBootstrap = len(p.Addresses) > 0 && (p.IsBootstrap || add != "")
+	if err := s.SavePeer(ctx, p); err != nil {
+		return nil, err
+	}
+	return &p, nil
+}
+
+// exchangePortOf je port razmjene čvora za adresu bez porta: vlastiti port
+// za ovaj čvor, port iz već poznate adrese za tuđi, inače zadani
+func (s *Service) exchangePortOf(p Peer) string {
+	if p.NodeID == s.node.ID {
+		return fmt.Sprint(s.ports.Exchange)
+	}
+	for _, a := range p.Addresses {
+		if _, port, err := net.SplitHostPort(a); err == nil && port != "" {
+			return port
+		}
+	}
+	return fmt.Sprint(DefaultExchangePort)
 }
 
 func (s *Service) GetPeer(ctx context.Context, nodeID string) (*Peer, error) {
@@ -673,6 +750,12 @@ func (s *Service) Accept(fn func(ledger.Version) bool) {
 func (s *Service) noteSync(ctx context.Context, peer *Peer, c *syncnet.Conn, applied, sent int, err error) {
 	if peer == nil {
 		return
+	}
+	// Razmjena je mogla donijeti noviji zapis tog čvora (adrese, izloženost);
+	// bilješka ide na svjež red, inače bi stara kopija iz memorije pregazila
+	// primljeno i kao nova verzija otputovala natrag.
+	if fresh, getErr := s.GetPeer(ctx, peer.NodeID); getErr == nil && fresh != nil {
+		peer = fresh
 	}
 	now := time.Now().UTC()
 	peer.LastSeen = &now

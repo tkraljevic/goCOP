@@ -35,6 +35,7 @@ type SettingsPageData struct {
 	SchemaVersion  int
 	Ports          peers.Ports
 	Peers          []peers.Peer
+	Self           peers.Peer // vlastiti zapis: javne adrese koje putuju drugima
 	Network        *peers.Network
 	Members        []peers.Member
 	VersionCounts  map[string]int
@@ -69,6 +70,7 @@ func (h *SettingsHandler) ShowSettings(w http.ResponseWriter, r *http.Request) {
 	} else {
 		data.ErrorMessage = err.Error()
 	}
+	data.Self, _ = h.peers.SelfPeer(ctx)
 	data.Network = h.peers.NetworkInfo()
 	if members, err := h.peers.ListMembers(ctx); err == nil {
 		data.Members = members
@@ -242,6 +244,29 @@ func (h *SettingsHandler) HandleForgetPeer(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	writeJSON(w, map[string]any{"success": true})
+}
+
+// HandlePublicAddress dodaje ili miče javnu adresu čvora (domenski čvor);
+// za ovaj čvor time ured objavljuje gdje ga se nalazi
+func (h *SettingsHandler) HandlePublicAddress(w http.ResponseWriter, r *http.Request) {
+	if err := requireAdmin(r); err != nil {
+		http.Error(w, err.Error(), http.StatusForbidden)
+		return
+	}
+	var req struct {
+		Add    string `json:"add"`
+		Remove string `json:"remove"`
+	}
+	if err := decodeBody(r, &req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	p, err := h.peers.PublicAddress(r.Context(), r.PathValue("node"), req.Add, req.Remove)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, map[string]any{"success": true, "peer": p})
 }
 
 // HandleSetBootstrap označava čvor kao stalno izložen (domena) ili to skida

@@ -51,6 +51,32 @@
   </div>
 
   <div class="card">
+    <h2>Domenski čvorovi</h2>
+    <p class="desc">Čvor sa stalnom adresom (domena ili javni IP) dostupan je i izvan lokalne mreže: preko njega se ostali usklađuju kad nisu u istoj zgradi. Adresa putuje razmjenom, pa je dovoljno upisati je jednom, na bilo kojem čvoru.</p>
+    <div class="peer">
+      <div class="peer-head"><span class="peer-name">{{.Self.Name}} <span class="muted">(ovaj čvor)</span></span>{{if .Self.IsBootstrap}}<span class="badge badge-active">stalno izložen</span>{{end}}</div>
+      <div class="peer-meta">{{if .Self.Addresses}}{{range .Self.Addresses}}<span class="mono">{{.}}</span>{{if $.Permissions.IsGlobalAdmin}} <button type="button" class="btn btn-sm btn-link" onclick="removeAddress('{{$.NodeID}}', '{{.}}')" title="Makni adresu">×</button>{{end}} {{end}}{{else}}bez javne adrese — dostupan samo u lokalnoj mreži{{end}}</div>
+    </div>
+    {{range .Peers}}{{if .IsBootstrap}}
+    <div class="peer">
+      <div class="peer-head"><span class="peer-name">{{if .Name}}{{.Name}}{{else}}{{.NodeID}}{{end}}</span><span class="badge badge-active">stalno izložen</span></div>
+      {{$peer := .}}<div class="peer-meta">{{range .Addresses}}<span class="mono">{{.}}</span>{{if $.Permissions.IsGlobalAdmin}} <button type="button" class="btn btn-sm btn-link" onclick="removeAddress('{{$peer.NodeID}}', '{{.}}')" title="Makni adresu">×</button>{{end}} {{end}}</div>
+    </div>
+    {{end}}{{end}}
+    {{if .Permissions.IsGlobalAdmin}}
+    <div class="actions" style="margin-top:0.75rem;">
+      <select id="addr-node" class="form-control" style="max-width:220px;">
+        <option value="{{.NodeID}}">{{.Self.Name}} (ovaj čvor)</option>
+        {{range .Peers}}<option value="{{.NodeID}}">{{if .Name}}{{.Name}}{{else}}{{.NodeID}}{{end}}</option>{{end}}
+      </select>
+      <input type="text" id="addr-new" class="form-control" placeholder="domena ili IP, npr. cop-osijek.com" style="max-width:260px;">
+      <button type="button" class="btn btn-primary" onclick="addAddress()">Dodaj adresu</button>
+    </div>
+    <p class="muted" style="margin-top:0.4rem;">Bez porta uzima se port razmjene {{.Ports.Exchange}}. Tunel ili vatrozid moraju taj port propustiti do čvora.</p>
+    {{end}}
+  </div>
+
+  <div class="card">
     <h2>Knjiga verzija</h2>
     <p class="desc">Svaka izmjena je nova verzija iznad prethodne; ništa se ne briše. Ovo je ono što se razmjenjuje.</p>
     <dl class="kv">
@@ -242,6 +268,20 @@ async function syncNow(node) {
     }
     location.reload();
   } catch (e) { alert('Sinkronizacija nije uspjela: ' + e.message); }
+}
+
+async function addAddress() {
+  const node = document.getElementById('addr-node').value;
+  const add = document.getElementById('addr-new').value.trim();
+  if (!add) { alert('Upišite domenu ili IP adresu.'); return; }
+  try { await api('/api/peers/' + encodeURIComponent(node) + '/adrese', {add}); location.reload(); }
+  catch (e) { alert(e.message); }
+}
+
+async function removeAddress(node, remove) {
+  if (!confirm('Maknuti adresu ' + remove + '?')) return;
+  try { await api('/api/peers/' + encodeURIComponent(node) + '/adrese', {remove}); location.reload(); }
+  catch (e) { alert(e.message); }
 }
 
 async function setBootstrap(node, bootstrap) {
