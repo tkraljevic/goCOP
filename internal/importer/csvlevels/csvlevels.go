@@ -302,14 +302,6 @@ func skipped(list []string, header string) bool {
 	return false
 }
 
-func ids(rs []models.Reading) []string {
-	out := make([]string, 0, len(rs))
-	for _, r := range rs {
-		out = append(out, r.ID.String())
-	}
-	return out
-}
-
 func gaugeName(cols map[int]*Column, rd models.Reading) string {
 	key := rd.GaugeKey()
 	for _, c := range cols {

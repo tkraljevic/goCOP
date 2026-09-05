@@ -196,6 +196,8 @@ type GaugeSummary struct {
 	StructureID string
 	SectorID    string
 	AreaID      int
+	SectorIDs   []string // postaja može biti mjerodavna za više područja
+	AreaIDs     []int
 	Kind        string // vrsta objekta ili "POSTAJA"
 	Latest      *Reading
 	Previous    *Reading

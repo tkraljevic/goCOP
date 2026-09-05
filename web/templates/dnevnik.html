@@ -1,0 +1,104 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — {{.Journal.DisplayTitle}}{{end}}
+
+{{define "content"}}
+<div class="breadcrumb"><a href="/dnevnici?area={{.Area.ID}}">Dnevnici</a> › {{.Journal.DisplayTitle}}</div>
+
+<div class="detail-head">
+  <div>
+    <h1 class="page-title">{{icon "notebook"}} {{.Journal.DisplayTitle}}</h1>
+    <p class="page-desc">{{.Journal.KindLabel}} · {{.Journal.Year}}. · BP {{.Area.ID}}: {{.Area.Name}}{{if .Journal.SectionCode}} · dionica {{.Journal.SectionCode}}{{end}}</p>
+  </div>
+  <div class="detail-actions">
+    <a href="/dnevnici/{{.Journal.ID}}/ispis" class="btn btn-secondary" target="_blank">{{icon "printer"}} Ispis</a>
+    {{if .CanManage}}<a href="/dnevnici/{{.Journal.ID}}/edit" class="btn btn-secondary">{{icon "pencil"}} Naslovnica</a>{{end}}
+  </div>
+</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
+{{if .Journal.Reconstruction}}<div class="alert alert-danger">{{icon "triangle-alert"}} <strong>Rekonstrukcija.</strong> {{.Journal.Notes}}</div>{{end}}
+
+<div class="reg-card" style="padding:1rem;">
+  <dl class="reg-facts" style="font-size:0.85rem;">
+    {{if .Journal.Contractor}}<div><dt>Izvođač</dt><dd>{{.Journal.Contractor}}</dd></div>{{end}}
+    {{if .Journal.ContractorLead}}<div><dt>Voditelj usluga</dt><dd>{{.Journal.ContractorLead}}</dd></div>{{end}}
+    {{if .Journal.Supervisor}}<div><dt>{{if .Journal.IsDefense}}Nadzorni inženjer{{else}}Ovlaštenik{{end}}</dt><dd>{{.Journal.Supervisor}}</dd></div>{{end}}
+    {{if .Journal.SupervisorDeputy}}<div><dt>Zamjenik</dt><dd>{{.Journal.SupervisorDeputy}}</dd></div>{{end}}
+    {{if .Journal.Contract}}<div><dt>Ugovor</dt><dd>{{.Journal.Contract}}</dd></div>{{end}}
+    {{if .Journal.StartedAt}}<div><dt>Početak</dt><dd>{{.Journal.StartedAt.Format "02.01.2006."}}</dd></div>{{end}}
+    {{if .Journal.EndedAt}}<div><dt>Završetak</dt><dd>{{.Journal.EndedAt.Format "02.01.2006."}}</dd></div>{{end}}
+  </dl>
+  {{if and (not .Journal.Contractor) .CanManage}}<p class="page-desc" style="margin-top:0.5rem;">Naslovnica je prazna: upišite izvođača i nadzor.</p>{{end}}
+</div>
+
+{{if .CanWrite}}
+<form method="POST" action="/dnevnici/{{.Journal.ID}}/listovi" class="reg-card" style="padding:1rem; margin-top:1rem; display:flex; gap:0.75rem; flex-wrap:wrap; align-items:end;">
+  <div class="form-group" style="margin:0;">
+    <label class="form-label" for="date">Dan</label>
+    <input type="date" id="date" name="date" class="form-control" value="{{.Today}}" required>
+  </div>
+  <div class="form-group" style="margin:0;">
+    <label class="form-label" for="label">Ekipa / gradilište (kad ih je više u danu)</label>
+    <input type="text" id="label" name="label" class="form-control" placeholder="npr. košnja, bager">
+  </div>
+  <button type="submit" class="btn btn-primary">{{icon "plus"}} Novi list</button>
+  <span class="form-help">Svaka ekipa istog dana dobiva svoj list, kao u tiskanom dnevniku. Novi list preuzima osoblje i strojeve s prethodnog.</span>
+</form>
+{{end}}
+
+{{if .Gaps}}
+<div class="alert alert-danger" style="margin-top:1rem;">
+  {{icon "triangle-alert"}} U nizu rednih brojeva upisa nedostaju: {{range $i, $n := .Gaps}}{{if $i}}, {{end}}{{$n}}{{end}}. Upisi se ne brišu nego storniraju, pa ovo treba provjeriti.
+</div>
+{{end}}
+
+{{if .OpenTasks}}
+<section class="detail-section">
+  <h2>{{icon "triangle-alert"}} Otvoreni nalozi <span class="reg-chip">{{len .OpenTasks}}</span></h2>
+  <div class="table-card"><div class="table-responsive">
+    <table class="data-table">
+      <thead><tr><th>Br.</th><th>Dan</th><th>Gdje</th><th>Nalog</th><th>Rok</th><th>Zadao</th></tr></thead>
+      <tbody>
+      {{range .OpenTasks}}
+      <tr>
+        <td>{{.Number}}</td>
+        <td><a href="/dnevnici/{{$.Journal.ID}}/listovi/{{.SheetID}}">{{.Date.Format "02.01.2006."}}</a></td>
+        <td>{{.Where}}</td>
+        <td>{{.Text}}</td>
+        <td>{{if .DueDate}}{{.DueDate.Format "02.01.2006."}}{{if .IsOverdue now}} <span class="badge badge-pending">rok prošao</span>{{end}}{{end}}</td>
+        <td>{{.UserName}}</td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div></div>
+</section>
+{{end}}
+
+<section class="detail-section">
+  <h2>{{icon "file-text"}} Listovi dnevnika <span class="reg-chip">{{len .Sheets}}</span></h2>
+  <div class="table-card"><div class="table-responsive">
+    <table class="data-table">
+      <thead><tr><th>List</th><th>Dan</th><th>Uvjeti</th><th>Upisa</th><th>Potvrde</th></tr></thead>
+      <tbody>
+      {{range .Sheets}}
+      <tr>
+        <td><a href="/dnevnici/{{$.Journal.ID}}/listovi/{{.ID}}"><strong>{{.Number}}</strong></a></td>
+        <td><a href="/dnevnici/{{$.Journal.ID}}/listovi/{{.ID}}">{{.Date.Format "02.01.2006."}}</a>{{if .Label}} <span class="reg-chip">{{.Label}}</span>{{end}}</td>
+        <td style="color:var(--text-muted); font-size:0.85rem;">{{.Conditions}}{{if .Rating}} · {{.RatingLabel}}{{end}}</td>
+        <td>{{.EntryCount}}</td>
+        <td style="white-space:nowrap;">
+          <span class="reg-chip {{if not .ContractorConfirmedAt}}empty{{end}}" title="{{.ContractorConfirmedBy}}">izvođač</span>
+          <span class="reg-chip {{if not .SupervisorConfirmedAt}}empty{{end}}" title="{{.SupervisorConfirmedBy}}">nadzor</span>
+        </td>
+      </tr>
+      {{else}}
+      <tr><td colspan="5" class="reg-empty" style="text-align:center;">Još nema nijednog lista.</td></tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div></div>
+</section>
+{{end}}

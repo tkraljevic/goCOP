@@ -1,0 +1,133 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — {{if .IsEdit}}Naslovnica dnevnika{{else}}Novi dnevnik{{end}}{{end}}
+
+{{define "content"}}
+<div class="breadcrumb"><a href="/dnevnici{{if .Area}}?area={{.Area.ID}}{{end}}">Dnevnici</a> › {{if .IsEdit}}<a href="/dnevnici/{{.Journal.ID}}">{{.Journal.DisplayTitle}}</a> › Naslovnica{{else}}Novi dnevnik{{end}}</div>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "notebook"}} {{if .IsEdit}}Naslovnica dnevnika{{else}}Novi dnevnik{{end}}</h1>
+    <p class="page-desc">Naslovnica građevinskog dnevnika: tko izvodi, tko nadzire i po kojem aktu. {{if .Area}}Branjeno područje {{.Area.ID}}: {{.Area.Name}}.{{end}}</p>
+  </div>
+</div>
+
+{{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
+
+<form class="form-page" method="POST" action="{{if .IsEdit}}/dnevnici/{{.Journal.ID}}{{else}}/dnevnici{{end}}">
+  <input type="hidden" name="area" value="{{.Journal.AreaID}}">
+
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="kind">Vrsta dnevnika *</label>
+      <select id="kind" name="kind" class="form-control" required onchange="document.getElementById('obrana').hidden = this.value !== 'OBRANA'">
+        {{range .Kinds}}<option value="{{.}}" {{if eq $.Journal.Kind .}}selected{{end}}>{{journalKind .}}</option>{{end}}
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="year">Godina *</label>
+      <input type="number" id="year" name="year" class="form-control" required value="{{.Journal.Year}}" min="2000" max="2100">
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label class="form-label" for="title">Naziv radova</label>
+    <input type="text" id="title" name="title" class="form-control" value="{{.Journal.Title}}" placeholder="npr. A.02. Kanali I. i II. reda">
+  </div>
+  <div class="form-group">
+    <label class="form-label" for="contract">Ugovor (klasa, urbroj, datum)</label>
+    <input type="text" id="contract" name="contract" class="form-control" value="{{.Journal.Contract}}" placeholder="Klasa: 325-01/22-09/187, UrBr: …, od 28.01.2023.">
+  </div>
+
+  <div id="obrana" {{if not .Journal.IsDefense}}hidden{{end}}>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="section_code">Dionica (obrana) *</label>
+        <input type="text" id="section_code" name="section_code" class="form-control" list="dionice" value="{{.Journal.SectionCode}}" placeholder="B.34.3" autocomplete="off">
+        <datalist id="dionice">{{range .Sections}}<option value="{{.Code}}">{{.Description}}</option>{{end}}</datalist>
+      </div>
+    </div>
+  </div>
+
+  <h2 style="font-size:1rem; margin:1.25rem 0 0.5rem;">Izvođač</h2>
+  <div class="form-group">
+    <label class="form-label" for="contractor">Naziv i sjedište izvođača</label>
+    <input type="text" id="contractor" name="contractor" class="form-control" value="{{.Journal.Contractor}}" placeholder="Odvodnja d.d. Darda, Sv. Ivana Krstitelja 115, 31326 Darda">
+  </div>
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="contractor_lead">Voditelj usluga / osoba koja vodi izvođenje</label>
+      <input type="text" id="contractor_lead" name="contractor_lead" class="form-control" value="{{.Journal.ContractorLead}}">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="contractor_lead_act">Akt o imenovanju</label>
+      <input type="text" id="contractor_lead_act" name="contractor_lead_act" class="form-control" value="{{.Journal.ContractorLeadAct}}" placeholder="Odluka br. 025/2-2023. od 13.02.2023.">
+    </div>
+  </div>
+
+  <h2 style="font-size:1rem; margin:1.25rem 0 0.5rem;">Stručni nadzor</h2>
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="supervisor">{{if .Journal.IsDefense}}Nadzorni inženjer (rukovoditelj dionice){{else}}Ovlaštenik za praćenje ugovora{{end}}</label>
+      <input type="text" id="supervisor" name="supervisor" class="form-control" value="{{.Journal.Supervisor}}">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="supervisor_act">Akt o imenovanju</label>
+      <input type="text" id="supervisor_act" name="supervisor_act" class="form-control" value="{{.Journal.SupervisorAct}}">
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="supervisor_deputy">Zamjenik ovlaštenika</label>
+      <input type="text" id="supervisor_deputy" name="supervisor_deputy" class="form-control" value="{{.Journal.SupervisorDeputy}}">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="chief_supervisor">Glavni nadzorni inženjer</label>
+      <input type="text" id="chief_supervisor" name="chief_supervisor" class="form-control" value="{{.Journal.ChiefSupervisor}}">
+    </div>
+  </div>
+  <div class="form-group">
+    <label class="form-label" for="investor">Investitor</label>
+    <input type="text" id="investor" name="investor" class="form-control" value="{{.Journal.Investor}}">
+  </div>
+
+  <h2 style="font-size:1rem; margin:1.25rem 0 0.5rem;">Razdoblje i list</h2>
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="started_at">Početak</label>
+      <input type="date" id="started_at" name="started_at" class="form-control" value="{{if .Journal.StartedAt}}{{.Journal.StartedAt.Format "2006-01-02"}}{{end}}">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="ended_at">Završetak</label>
+      <input type="date" id="ended_at" name="ended_at" class="form-control" value="{{if .Journal.EndedAt}}{{.Journal.EndedAt.Format "2006-01-02"}}{{end}}">
+    </div>
+  </div>
+  <div class="form-group">
+    <label class="form-label" for="gauges">Vodostaji na listu — šifre postaja, odvojene zarezom</label>
+    <input type="text" id="gauges" name="gauges" class="form-control" value="{{.Journal.Gauges}}" list="postaje" placeholder="belisce, osijek, batina" autocomplete="off">
+    <datalist id="postaje">{{range .Stations}}<option value="{{.Code}}">{{if .Watercourse}}{{.Watercourse}} - {{end}}{{.Name}}</option>{{end}}</datalist>
+    <p class="form-help">List svaki dan sam upiše zadnje očitanje tih postaja.</p>
+  </div>
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="latitude">Zemljopisna širina</label>
+      <input type="text" id="latitude" name="latitude" class="form-control" inputmode="decimal" value="{{if .Journal.Latitude}}{{derefFloat .Journal.Latitude 4}}{{end}}" placeholder="45.55">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="longitude">Zemljopisna dužina</label>
+      <input type="text" id="longitude" name="longitude" class="form-control" inputmode="decimal" value="{{if .Journal.Longitude}}{{derefFloat .Journal.Longitude 4}}{{end}}" placeholder="18.69">
+    </div>
+  </div>
+  <p class="form-help">S koordinatama list sam povlači vremenske prilike (temperatura, vjetar, tlak, oborine) s Open-Meteo dok ima interneta; bez njih se upisuju ručno.</p>
+
+  <div class="form-group">
+    <label class="form-label" for="notes">Napomena</label>
+    <textarea id="notes" name="notes" class="form-control" rows="2">{{.Journal.Notes}}</textarea>
+  </div>
+
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">{{icon "check"}} Spremi naslovnicu</button>
+    <a href="{{if .IsEdit}}/dnevnici/{{.Journal.ID}}{{else}}/dnevnici{{if .Area}}?area={{.Area.ID}}{{end}}{{end}}" class="btn btn-secondary">Odustani</a>
+  </div>
+</form>
+{{end}}

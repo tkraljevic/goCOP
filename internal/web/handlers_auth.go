@@ -15,15 +15,17 @@ import (
 )
 
 type AuthHandler struct {
-	authService *service.AuthService
-	tmpl        *template.Template
-	limiter     *loginLimiter
-	support     SupportContact
+	authService  *service.AuthService
+	tmpl         *template.Template
+	limiter      *loginLimiter
+	support      SupportContact
+	adminContact func() (name, phone, email string, ok bool)
 }
 
-// SupportContact je kontakt za pomoć oko prijave; svaki čvor ima svoj, jer
-// program pokriva cijelu Hrvatsku, a dežurni operater je uvijek operater
-// jednog centra
+// SupportContact je kontakt za pomoć oko prijave. Osoba je glavni
+// administrator iz registra djelatnika, pa se mijenja s njim; centar i
+// njegov telefon su postavke čvora, jer program pokriva cijelu Hrvatsku, a
+// dežurni operater je uvijek operater jednog centra
 type SupportContact struct {
 	Name        string
 	Phone       string
@@ -54,28 +56,62 @@ type LoginPageData struct {
 	Support SupportContact
 }
 
-// SetSupport daje rukovatelju kontakt ovog čvora
+// SetSupport daje rukovatelju kontakt centra ovog čvora
 func (h *AuthHandler) SetSupport(c SupportContact) { h.support = c }
+
+// SetAdminContact daje rukovatelju izvor kontakta glavnog administratora
+func (h *AuthHandler) SetAdminContact(f func() (name, phone, email string, ok bool)) {
+	h.adminContact = f
+}
+
+// supportNow slaže kontakt za stranicu prijave: osoba iz registra u ovom
+// trenutku, centar iz postavki
+func (h *AuthHandler) supportNow() SupportContact {
+	c := h.support
+	if h.adminContact != nil {
+		if name, phone, email, ok := h.adminContact(); ok {
+			c.Name, c.Phone, c.PhoneLink, c.Email = name, phone, TelLink(phone), email
+		}
+	}
+	return c
+}
+
+// TelLink pretvara telefon kako ga ljudi pišu u oblik za poveznicu tel:
+func TelLink(s string) string {
+	digits := strings.Map(func(r rune) rune {
+		if r >= '0' && r <= '9' {
+			return r
+		}
+		return -1
+	}, s)
+	if digits == "" {
+		return ""
+	}
+	if strings.HasPrefix(digits, "0") {
+		return "+385" + digits[1:]
+	}
+	return "+" + digits
+}
 
 // ShowLogin prikazuje formu za prijavu
 func (h *AuthHandler) ShowLogin(w http.ResponseWriter, r *http.Request) {
-	// Ako je već prijavljen, preusmjeri na /users
+	// Ako je već prijavljen, preusmjeri na početnu stranicu
 	if cookie, err := r.Cookie("gocop_session"); err == nil {
 		if sessionID, err := uuid.Parse(cookie.Value); err == nil {
 			if _, _, err := h.authService.AuthenticateSession(sessionID); err == nil {
-				http.Redirect(w, r, "/users", http.StatusSeeOther)
+				http.Redirect(w, r, "/", http.StatusSeeOther)
 				return
 			}
 		}
 	}
 
-	h.tmpl.ExecuteTemplate(w, "login.html", LoginPageData{Support: h.support})
+	h.tmpl.ExecuteTemplate(w, "login.html", LoginPageData{Support: h.supportNow()})
 }
 
 // HandleLogin obrađuje unos korisničkog imena i lozinke
 func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		h.tmpl.ExecuteTemplate(w, "login.html", LoginPageData{Error: "Neispravan zahtjev", Support: h.support})
+		h.tmpl.ExecuteTemplate(w, "login.html", LoginPageData{Error: "Neispravan zahtjev", Support: h.supportNow()})
 		return
 	}
 
@@ -102,7 +138,7 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		if err == service.ErrAccountInactive {
 			errMsg = "Korisnički račun je privremeno deaktiviran"
 		}
-		h.tmpl.ExecuteTemplate(w, "login.html", LoginPageData{Error: errMsg, Support: h.support})
+		h.tmpl.ExecuteTemplate(w, "login.html", LoginPageData{Error: errMsg, Support: h.supportNow()})
 		return
 	}
 	h.limiter.Reset(keys...)
@@ -122,12 +158,9 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/profile?force=1#lozinka", http.StatusSeeOther)
 		return
 	}
-	// Ljudi s terena idu ravno na svoje letve
-	if user != nil && user.IsFieldUser() {
-		http.Redirect(w, r, "/teren", http.StatusSeeOther)
-		return
-	}
-	http.Redirect(w, r, "/users", http.StatusSeeOther)
+	// Nakon prijave svi prvo dolaze na početnu stranicu; ona prikazuje sadržaj
+	// prilagođen ulozi korisnika i odatle vodi u pojedine module.
+	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
 // HandleLogout odjavljuje korisnika i briše kolačić

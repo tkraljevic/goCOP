@@ -243,35 +243,6 @@ func (r *WatercourseRepository) CountUsage(ctx context.Context, code string) (se
 	return sections, stations, nil
 }
 
-// SetSectionWatercourse pridružuje vodno tijelo dionici.
-// Prazna šifra uklanja vezu.
-func (r *WatercourseRepository) SetSectionWatercourse(ctx context.Context, sectionCode, watercourseCode string) error {
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
-	res, err := tx.ExecContext(ctx,
-		`UPDATE sections SET watercourse_code = ?, updated_at = ? WHERE code = ?`,
-		watercourseCode, time.Now().UTC().Format(time.RFC3339), sectionCode)
-	if err != nil {
-		return fmt.Errorf("greška pri pridruživanju vodotoka dionici %s: %w", sectionCode, err)
-	}
-	if affected, _ := res.RowsAffected(); affected == 0 {
-		return fmt.Errorf("dionica %s nije pronađena", sectionCode)
-	}
-
-	saved, err := getSectionTx(ctx, tx, sectionCode)
-	if err != nil {
-		return err
-	}
-	if _, err := r.rec.Record(ctx, tx, EntitySections, sectionCode, saved); err != nil {
-		return err
-	}
-	return tx.Commit()
-}
-
 // SetStationWatercourse pridružuje vodno tijelo postaji i upisuje naziv vode
 // te naznaku da je vodotok potvrđen ručno
 func (r *WatercourseRepository) SetStationWatercourse(ctx context.Context, stationID, watercourseCode, waterName, sourceLabel string) error {

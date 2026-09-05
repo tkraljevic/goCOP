@@ -1,6 +1,9 @@
 package models
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 // Sector predstavlja jedan od 6 vodnogospodarskih sektora (VGO)
 type Sector struct {
@@ -15,11 +18,12 @@ type Sector struct {
 
 // Area predstavlja branjeno područje (mali sliv / VGI)
 type Area struct {
-	ID        int    `json:"id"`        // 1 do 34
-	SectorID  string `json:"sector_id"` // A do F
-	Name      string `json:"name"`      // npr. "Mali sliv Vuka", "Mali sliv Bistra"
-	VgiName   string `json:"vgi_name"`  // npr. "VGI Vuka, Osijek"
-	Subcenter string `json:"subcenter"` // npr. "Podcentar Osijek"
+	ID             int    `json:"id"`                        // 1 do 34
+	SectorID       string `json:"sector_id"`                 // A do F
+	Name           string `json:"name"`                      // npr. "Mali sliv Vuka", "Mali sliv Bistra"
+	VgiName        string `json:"vgi_name"`                  // npr. "VGI Vuka, Osijek"
+	Subcenter      string `json:"subcenter"`                 // npr. "Podcentar Osijek"
+	ContractorName string `json:"contractor_name,omitempty"` // ugovorna pravna osoba za obranu
 }
 
 // SectionInfo predstavlja sažeti opis dionice
@@ -31,19 +35,10 @@ type SectionInfo struct {
 	Description string `json:"description"` // opis dionice
 }
 
-// EmbankmentItem predstavlja nasip na dionici
-type EmbankmentItem struct {
-	Name string `json:"name"` // npr. "Usporni nasip uz l.o. r. Vuke"
-	Data string `json:"data"` // npr. "rkm 0+235 - 0+855; km 0+000 - 0+620; (0,620 km)"
-}
-
-// StructureItem predstavlja hidrotehnički ili infrastrukturni objekt na dionici
-type StructureItem struct {
-	Station string `json:"station"` // npr. "rkm 1+825", "km 2+650"
-	Name    string `json:"name"`    // npr. "l.o., CS Adica; Q = 0,50 m3/s", "most u Vukovaru"
-}
-
-// GaugeItem predstavlja mjerodavni vodomjer s pragovima obrane od poplava
+// GaugeItem je mjerodavni vodomjer kako stoji u dokumentaciji: naziv i pragovi
+// kao tekst. Iz njega punjenje izvodi postaju u registru; sam tekst ostaje uz
+// poddionicu kao izvorni zapis i kao kriterij koji nije vodomjer (kota na
+// mostu, pravilnik retencije).
 type GaugeItem struct {
 	StationName string `json:"station_name"` // npr. "Vukovar , rkm 1.333,45 (76,19)"
 	PrepCm      string `json:"prep_cm"`      // Pripremno stanje (P) npr. "+530"
@@ -55,125 +50,399 @@ type GaugeItem struct {
 	FromText    bool   `json:"-"`            // pročitan iz proznog retka, ne iz tablice (samo pri prijepisu)
 }
 
-// Section predstavlja potpunu štićenu dionicu u sustavu obrane od poplava
+// Section je štićena dionica: šifra i područje, a sve ostalo živi u
+// poddionicama. Dionica s jednim vodotokom ima jednu poddionicu; ista je
+// građa za sve, pa nema ravnih polja koja bi ponavljala poddionicu.
+//
+// Stupci description, watercourse_code, bank, rkm_from i rkm_to u tablici su
+// izvedeni iz prve poddionice radi popisa i pretrage; pišu se pri svakom
+// upisu i nitko ih ne uređuje zasebno.
 type Section struct {
-	Code     string `json:"code"`      // npr. "B.15.1" (Primarni ključ)
+	Code     string `json:"code"`      // npr. "B.15.1" (primarni ključ)
 	AreaID   int    `json:"area_id"`   // npr. 15
-	SectorID string `json:"sector_id"` // npr. "B"
-	// Description je izvorni opis dionice iz dokumentacije — voda, obala,
-	// obuhvat i stacionaža u jednom retku. Ostaje kao tekst; ono što je u
-	// njemu strukturirano živi u poljima ispod i tamo se čita.
-	Description string `json:"description"` // npr. "rijeka Sava, l.o.; granica - most...; rkm 212+080 - 230+700"
+	SectorID string `json:"sector_id"` // izveden iz područja
 
-	WatercourseCode string   `json:"watercourse_code"`   // veza na registar vodnih tijela
-	WatercourseName string   `json:"watercourse_name"`   // naziv vode iz registra, za prikaz
-	Bank            string   `json:"bank"`               // L, D, LD ili prazno
-	RkmFrom         *float64 `json:"rkm_from,omitempty"` // početak raspona stacionaže, km
-	RkmTo           *float64 `json:"rkm_to,omitempty"`   // kraj raspona stacionaže, km
+	// Opis se slaže iz poddionica; kad ga netko prepiše rukom, ostaje njegov
+	Description       string `json:"description"`
+	DescriptionCustom bool   `json:"description_custom"`
 
-	ProtectedArea string           `json:"protected_area"` // Ugroženo područje (općine i naselja)
-	Embankments   []EmbankmentItem `json:"embankments"`
-	Structures    []StructureItem  `json:"structures"`
-	Gauges        []GaugeItem      `json:"gauges"`
-	Notes         string           `json:"notes"`
+	LengthKm     *float64 `json:"length_km,omitempty"`     // ukupna duljina dionice
+	EmbankmentKm *float64 `json:"embankment_km,omitempty"` // ukupno nasipa
 
-	// Parts je građa dionice kakva je u Privitku: poddionice, u svakoj redci,
-	// u svakom retku nasipi, objekti, ugroženo područje i vodomjeri. Ravna
-	// polja iznad su unije preko svih redaka i ostaju radi popisa i pretrage;
-	// tko treba znati na kojem je nasipu "km 0+304", čita odavde.
-	Parts     []SectionPart `json:"parts,omitempty"`
-	CreatedAt string        `json:"created_at"`
-	UpdatedAt string        `json:"updated_at"`
+	Parts []SectionPart `json:"parts"`
+	Notes string        `json:"notes"`
 
-	// Dodatna polja za prikaz
-	AreaName   string           `json:"area_name,omitempty"`
-	SectorName string           `json:"sector_name,omitempty"`
-	Personnel  []SectionOfficer `json:"personnel,omitempty"`
+	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at"`
+
+	// Izvedeno pri čitanju
+	WatercourseCode string           `json:"watercourse_code,omitempty"` // voda prve poddionice
+	WatercourseName string           `json:"watercourse_name,omitempty"`
+	AreaName        string           `json:"area_name,omitempty"`
+	SectorName      string           `json:"sector_name,omitempty"`
+	Personnel       []SectionOfficer `json:"personnel,omitempty"`
 }
 
-// SectionPart je poddionica: jedna ćelija stupca "Vodotok" u Privitku, s
-// obalom i stacionažom, i redci koji joj pripadaju
+// SectionPart je poddionica: jedna voda s jednim obuhvatom, i sve što se na
+// tom obuhvatu štiti — ugroženo područje, mjerodavni vodomjeri, objekti i
+// nasipi. Ista voda u dva retka Privitka (lijevi pa desni nasip) jedna je
+// poddionica s dva nasipa.
 type SectionPart struct {
-	Description     string       `json:"description"`
-	WatercourseCode string       `json:"watercourse_code,omitempty"` // voda ove poddionice; dionica s više poddionica zna imati više voda
-	Bank            string       `json:"bank,omitempty"`
-	RkmFrom         *float64     `json:"rkm_from,omitempty"`
-	RkmTo           *float64     `json:"rkm_to,omitempty"`
-	Rows            []SectionRow `json:"rows"`
+	Seq             int      `json:"seq"`                        // redni broj u dionici, od 1
+	WatercourseCode string   `json:"watercourse_code,omitempty"` // voda iz registra
+	WatercourseName string   `json:"watercourse_name,omitempty"` // izvedeno pri čitanju
+	StationingKind  string   `json:"stationing_kind,omitempty"`  // rkm, pkm, bkm, kkm
+	KmFrom          *float64 `json:"km_from,omitempty"`
+	KmTo            *float64 `json:"km_to,omitempty"`
+	Bank            string   `json:"bank,omitempty"` // L, D, LD
+	Extent          string   `json:"extent,omitempty"`
+	LengthKm        *float64 `json:"length_km,omitempty"`
+
+	// Izvorni tekst iz dokumentacije, kad poddionica iz nje potječe
+	Description   string `json:"description,omitempty"`
+	ProtectedText string `json:"protected_text,omitempty"`
+	Unaligned     bool   `json:"unaligned,omitempty"` // stupci Privitka nisu se poravnali pri prijepisu
+
+	Territories []PartTerritory  `json:"territories,omitempty"`
+	StationIDs  []string         `json:"station_ids,omitempty"`
+	Gauges      []GaugeItem      `json:"gauges,omitempty"` // izvorni zapis vodomjera i kriterija
+	Objects     []PartObject     `json:"objects,omitempty"`
+	Embankments []PartEmbankment `json:"embankments,omitempty"`
 }
 
-// SectionRow je jedan redak tablice Privitka: nasipi tog retka, objekti tog
-// retka (stacionirani po nasipu, rijeci, potoku ili kanalu), ugroženo
-// područje tog retka i vodomjeri tog retka
-type SectionRow struct {
-	Embankments   []EmbankmentItem `json:"embankments,omitempty"`
-	Objects       []DocObject      `json:"objects,omitempty"`
-	ProtectedArea string           `json:"protected_area,omitempty"`
-	Gauges        []GaugeItem      `json:"gauges,omitempty"`
-	// Unaligned označava da se stupci izvorne tablice u wikiju nisu poravnali
-	// (colspan), pa raspored polja u retku može biti kriv; traži ručnu provjeru
-	Unaligned bool `json:"unaligned,omitempty"`
+// PartTerritory je ugroženo naselje, općina ili grad poddionice
+type PartTerritory struct {
+	CountyID       int  `json:"county_id"`
+	MunicipalityID int  `json:"municipality_id"`
+	SettlementID   *int `json:"settlement_id,omitempty"`
 }
 
-// DocObject je objekt iz dokumentacije dionice s vrstom stacionaže
-type DocObject struct {
-	Kind       string `json:"kind,omitempty"` // rkm (rijeka), km (nasip), pkm (potok), kkm (kanal), prazno
-	Stationing string `json:"stationing,omitempty"`
-	Name       string `json:"name"`
+// PartObject je objekt na poddionici: naš objekt iz registra (crpna stanica,
+// ustava, sifon) vezan je preko StructureID; mostovi i propusti tuđi su i
+// ostaju samo redak s nazivom.
+type PartObject struct {
+	StructureID    string   `json:"structure_id,omitempty"`
+	Bank           string   `json:"bank,omitempty"`
+	StationingKind string   `json:"stationing_kind,omitempty"` // rkm, pkm, bkm, kkm, nkm
+	Stationing     *float64 `json:"stationing,omitempty"`      // km
+	StationingText string   `json:"stationing_text,omitempty"` // kako je zapisano: "rkm 1+825"
+	Name           string   `json:"name"`
+	OnEmbankment   string   `json:"on_embankment,omitempty"` // naziv nasipa po kojem je stacioniran
+
+	// Izvedeno pri čitanju
+	StructureName string `json:"-"`
+	StructureKind string `json:"-"`
 }
 
-// KindLabel kaže po čemu se objekt stacionira
-func (o DocObject) KindLabel() string {
-	switch o.Kind {
-	case "rkm":
-		return "po rijeci"
-	case "km":
-		return "po nasipu"
-	case "pkm":
-		return "po potoku"
-	case "kkm":
-		return "po kanalu"
+// PartEmbankment je nasip ili brana na poddionici: građevina je u registru
+// objekata, a ovdje stoji njezin odsjek na ovom obuhvatu
+type PartEmbankment struct {
+	StructureID string   `json:"structure_id,omitempty"`
+	Name        string   `json:"name"` // naziv iz dokumentacije, i kad je vezan
+	WaterKind   string   `json:"water_kind,omitempty"`
+	WaterFrom   *float64 `json:"water_from,omitempty"` // uz vodu
+	WaterTo     *float64 `json:"water_to,omitempty"`
+	EmbFrom     *float64 `json:"emb_from,omitempty"` // po nasipu
+	EmbTo       *float64 `json:"emb_to,omitempty"`
+	LengthKm    *float64 `json:"length_km,omitempty"`
+	Data        string   `json:"data,omitempty"` // izvorni zapis
+
+	// Izvedeno pri čitanju
+	StructureKind string `json:"-"`
+}
+
+// Oznake obale za obrazac
+var Banks = []struct{ Code, Label string }{{"L", "lijeva obala"}, {"D", "desna obala"}, {"LD", "obje obale"}}
+
+// FirstPart vraća prvu poddionicu, ili praznu kad ih nema
+func (s Section) FirstPart() SectionPart {
+	if len(s.Parts) > 0 {
+		return s.Parts[0]
 	}
-	return ""
+	return SectionPart{}
 }
 
-// Gauges su mjerodavni vodomjeri poddionice: unija po redcima, bez ponavljanja.
-// Redci iste poddionice gotovo uvijek dijele vodomjer, pa se prikazuje jednom.
-func (p SectionPart) Gauges() []GaugeItem {
-	var out []GaugeItem
+// Bank je obala prve poddionice, za popise
+func (s Section) Bank() string { return s.FirstPart().Bank }
+
+// RkmFrom i RkmTo su raspon prve poddionice, za popise
+func (s Section) RkmFrom() *float64 { return s.FirstPart().KmFrom }
+func (s Section) RkmTo() *float64   { return s.FirstPart().KmTo }
+
+// Length je ukupna duljina: upisana, ili zbroj poddionica
+func (s Section) Length() float64 {
+	if s.LengthKm != nil {
+		return *s.LengthKm
+	}
+	sum := 0.0
+	for _, p := range s.Parts {
+		sum += p.Length()
+	}
+	return sum
+}
+
+// EmbankmentLength je ukupno nasipa: upisano, ili zbroj odsjeka
+func (s Section) EmbankmentLength() float64 {
+	if s.EmbankmentKm != nil {
+		return *s.EmbankmentKm
+	}
+	sum := 0.0
+	for _, p := range s.Parts {
+		for _, e := range p.Embankments {
+			if e.LengthKm != nil {
+				sum += *e.LengthKm
+			}
+		}
+	}
+	return sum
+}
+
+// ComposeDescription slaže opis iz poddionica, kako ga i Privitak piše:
+// voda, obala; obuhvat; stacionaža; (duljina). Više poddionica odvaja se točkom.
+func (s Section) ComposeDescription() string {
+	var parts []string
+	for _, p := range s.Parts {
+		parts = append(parts, p.Compose())
+	}
+	out := strings.Join(parts, " · ")
+	if len(s.Parts) > 1 && s.Length() > 0 {
+		out += fmt.Sprintf(" (%s km ukupno)", fmtKm(s.Length()))
+	}
+	return out
+}
+
+// EffectiveDescription je opis kakav se prikazuje: ručni kad postoji, inače
+// složeni. Složeni se pri upisu sprema s nazivima voda, pa ima prednost pred
+// slaganjem iz poddionica koje nazive još nisu dobile.
+func (s Section) EffectiveDescription() string {
+	if strings.TrimSpace(s.Description) != "" {
+		return s.Description
+	}
+	return s.ComposeDescription()
+}
+
+// AllStationIDs su vodomjeri svih poddionica, bez ponavljanja
+func (s Section) AllStationIDs() []string {
+	var out []string
 	seen := map[string]bool{}
-	for _, r := range p.Rows {
-		for _, g := range r.Gauges {
-			k := g.StationName + "|" + g.PrepCm + "|" + g.RegularCm
-			if !seen[k] {
-				seen[k] = true
-				out = append(out, g)
+	for _, p := range s.Parts {
+		for _, id := range p.StationIDs {
+			if id != "" && !seen[id] {
+				seen[id] = true
+				out = append(out, id)
 			}
 		}
 	}
 	return out
 }
 
-// Unaligned javlja ima li poddionica redak s neporavnanim stupcima
-func (p SectionPart) Unaligned() bool {
-	for _, r := range p.Rows {
-		if r.Unaligned {
+// AllStructureIDs su objekti i nasipi iz registra na svim poddionicama
+func (s Section) AllStructureIDs() []string {
+	var out []string
+	seen := map[string]bool{}
+	add := func(id string) {
+		if id != "" && !seen[id] {
+			seen[id] = true
+			out = append(out, id)
+		}
+	}
+	for _, p := range s.Parts {
+		for _, o := range p.Objects {
+			add(o.StructureID)
+		}
+		for _, e := range p.Embankments {
+			add(e.StructureID)
+		}
+	}
+	return out
+}
+
+// AllTerritories su ugrožena područja svih poddionica, bez ponavljanja
+func (s Section) AllTerritories() []PartTerritory {
+	var out []PartTerritory
+	seen := map[string]bool{}
+	for _, p := range s.Parts {
+		for _, t := range p.Territories {
+			k := t.Key()
+			if !seen[k] {
+				seen[k] = true
+				out = append(out, t)
+			}
+		}
+	}
+	return out
+}
+
+// Key jednoznačno označava teritorij
+func (t PartTerritory) Key() string {
+	if t.SettlementID != nil {
+		return fmt.Sprintf("%d/%d/%d", t.CountyID, t.MunicipalityID, *t.SettlementID)
+	}
+	return fmt.Sprintf("%d/%d", t.CountyID, t.MunicipalityID)
+}
+
+// ProtectedSummary spaja ugroženo područje svih poddionica, za popise
+func (s Section) ProtectedSummary() string {
+	var out []string
+	seen := map[string]bool{}
+	for _, p := range s.Parts {
+		if t := strings.TrimSpace(p.ProtectedText); t != "" && !seen[t] {
+			seen[t] = true
+			out = append(out, t)
+		}
+	}
+	return strings.Join(out, "; ")
+}
+
+// ObjectCount, EmbankmentCount i GaugeCount broje kroz sve poddionice
+func (s Section) ObjectCount() int {
+	n := 0
+	for _, p := range s.Parts {
+		n += len(p.Objects)
+	}
+	return n
+}
+
+func (s Section) EmbankmentCount() int {
+	n := 0
+	for _, p := range s.Parts {
+		n += len(p.Embankments)
+	}
+	return n
+}
+
+func (s Section) GaugeCount() int { return len(s.AllStationIDs()) }
+
+// Unaligned javlja ima li dionica poddionicu s neporavnanim stupcima
+func (s Section) Unaligned() bool {
+	for _, p := range s.Parts {
+		if p.Unaligned {
 			return true
 		}
 	}
 	return false
 }
 
-// HasParts javlja ima li dionica strukturirani prijepis
-func (s Section) HasParts() bool { return len(s.Parts) > 0 }
+// Length je duljina poddionice: upisana, ili iz raspona
+func (p SectionPart) Length() float64 {
+	if p.LengthKm != nil {
+		return *p.LengthKm
+	}
+	if p.KmFrom != nil && p.KmTo != nil {
+		d := *p.KmTo - *p.KmFrom
+		if d < 0 {
+			d = -d
+		}
+		return d
+	}
+	return 0
+}
 
-// IsGauge javlja je li zapis pravi vodomjer s pragovima u centimetrima, a ne
-// mjerilo druge vrste: kota na mostu u metrima nadmorske visine, pravilnik
-// retencije, uputa "prema prognozi". Takva mjerila vrijede za ljude na
-// dionici, ali se iz njih ne stvara vodomjerna postaja.
+// Compose slaže opis poddionice kako ga Privitak piše
+func (p SectionPart) Compose() string {
+	var segs []string
+	head := p.WatercourseName
+	if head == "" {
+		head = p.WatercourseCode
+	}
+	if b := BankShort(p.Bank); b != "" {
+		head += ", " + b
+	}
+	if head != "" {
+		segs = append(segs, head)
+	}
+	if p.Extent != "" {
+		segs = append(segs, p.Extent)
+	}
+	if p.KmFrom != nil && p.KmTo != nil {
+		segs = append(segs, fmt.Sprintf("%s %s - %s", p.StationingKind, fmtStationing(*p.KmFrom), fmtStationing(*p.KmTo)))
+	}
+	if l := p.Length(); l > 0 {
+		segs = append(segs, fmt.Sprintf("(%s km)", fmtKm(l)))
+	}
+	if len(segs) == 0 {
+		return p.Description
+	}
+	return strings.Join(segs, "; ")
+}
+
+// BankShort vraća obalu kako je Privitak krati
+func BankShort(bank string) string {
+	switch bank {
+	case "L":
+		return "l.o."
+	case "D":
+		return "d.o."
+	case "LD":
+		return "l.o. i d.o."
+	}
+	return ""
+}
+
+// RangeLabel vraća raspon stacionaže poddionice za prikaz: "pkm 0+000 – 32+490"
+func (p SectionPart) RangeLabel() string {
+	if p.KmFrom == nil || p.KmTo == nil {
+		return ""
+	}
+	return strings.TrimSpace(p.StationingKind + " " + fmtStationing(*p.KmFrom) + " – " + fmtStationing(*p.KmTo))
+}
+
+// fmtStationing piše kilometre kao "12+450"
+func fmtStationing(km float64) string {
+	whole := int(km)
+	m := int((km-float64(whole))*1000 + 0.5)
+	if m >= 1000 {
+		whole++
+		m -= 1000
+	}
+	return fmt.Sprintf("%d+%03d", whole, m)
+}
+
+// FormatKm piše kilometre s tri decimale i zarezom, kako ih dokumentacija piše
+func FormatKm(km float64) string { return fmtKm(km) }
+
+// fmtKm piše kilometre s tri decimale i zarezom, kako ih dokumentacija piše
+func fmtKm(km float64) string {
+	return strings.Replace(fmt.Sprintf("%.3f", km), ".", ",", 1)
+}
+
+// Stationing vraća stacionažu objekta za prikaz
+func (o PartObject) StationingLabel() string {
+	if o.StationingText != "" {
+		return o.StationingText
+	}
+	if o.Stationing != nil {
+		return strings.TrimSpace(o.StationingKind + " " + fmtStationing(*o.Stationing))
+	}
+	return ""
+}
+
+// Range vraća odsjek nasipa za prikaz
+func (e PartEmbankment) Range() string {
+	var segs []string
+	if e.WaterFrom != nil && e.WaterTo != nil {
+		segs = append(segs, fmt.Sprintf("%s %s - %s", e.WaterKind, fmtStationing(*e.WaterFrom), fmtStationing(*e.WaterTo)))
+	}
+	if e.EmbFrom != nil && e.EmbTo != nil {
+		segs = append(segs, fmt.Sprintf("nkm %s - %s", fmtStationing(*e.EmbFrom), fmtStationing(*e.EmbTo)))
+	}
+	if e.LengthKm != nil {
+		segs = append(segs, fmt.Sprintf("(%s km)", fmtKm(*e.LengthKm)))
+	}
+	if len(segs) == 0 {
+		return e.Data
+	}
+	return strings.Join(segs, "; ")
+}
+
+// IsGauge javlja je li zapis mjerilo vodostaja (letva, kota na mostu ili
+// brani), a ne uputa: pravilnik retencije, "prema prognozi", pravilo
+// upravljanja. Upute vrijede za ljude na dionici, ali se iz njih ne stvara
+// vodomjerna postaja; što je mjerilo, a nema ni stacionažu ni prag, odbacuje
+// punjenje registra postaja.
 func (g GaugeItem) IsGauge() bool {
 	name := strings.TrimSpace(g.StationName)
-	if name == "" || len(name) > 70 {
+	if name == "" {
 		return false
 	}
 	for _, p := range []string{"R:", "P =", "P=", "Prema ", "V na brani", "Po pravilniku", "upravljanje"} {
@@ -181,15 +450,7 @@ func (g GaugeItem) IsGauge() bool {
 			return false
 		}
 	}
-	// bar jedan prag mora biti u centimetrima: broj s predznakom ili bez, bez "m.n.m"
-	for _, v := range []string{g.PrepCm, g.RegularCm, g.EmergCm, g.CriticalCm} {
-		v = strings.TrimSpace(v)
-		if v == "" || strings.Contains(strings.ToLower(v), "m.n.m") || strings.Contains(strings.ToLower(v), "n.j.m") {
-			continue
-		}
-		return true
-	}
-	return false
+	return true
 }
 
 // SectionOfficer predstavlja djelatnika zaduženog za dionicu ili pripadajuće branjeno područje

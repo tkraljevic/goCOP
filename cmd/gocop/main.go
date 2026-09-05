@@ -19,6 +19,7 @@ import (
 	"gocop/internal/db"
 	"gocop/internal/importer/bp16"
 	"gocop/internal/importer/csvlevels"
+	"gocop/internal/importer/ugovor"
 	"gocop/internal/ledger"
 	"gocop/internal/peers"
 	"gocop/internal/repository"
@@ -42,6 +43,7 @@ func main() {
 	discoveryPortFlag := flag.Int("discovery-port", -1, "UDP port pronalaženja na lokalnoj mreži (0 isključuje)")
 	autoSyncFlag := flag.String("auto-sync", "", "Razmak automatske sinkronizacije, npr. 5m (0 isključuje)")
 	importBP16 := flag.Bool("import-bp16", false, "Uvezi očitanja vodostaja iz Directus evidencije VGI Baranja i završi")
+	importBP16Journals := flag.Bool("import-bp16-dnevnici", false, "Uvezi evidencije radova A.02 i A.03 iz Directusa kao rekonstruirane dnevnike (bez -upisi samo izvješće)")
 	bp16Dir := flag.String("bp16-dir", "", "Uvoz iz ranije skinutih JSON datoteka umjesto iz Directusa")
 	directusEnv := flag.String("directus-env", "", "Datoteka s DIRECTUS_URL i DIRECTUS_TOKEN (zadano ~/.config/gocop/directus.env)")
 	csvFile := flag.String("tablica", "", "Tablica dnevnih vodostaja (CSV): stupci su postaje, redci datumi")
@@ -50,6 +52,9 @@ func main() {
 	csvSkip := flag.String("tablica-preskoci", "", "Stupci koje ne uvozimo, odvojeni zarezom (npr. protoci)")
 	csvLinks := flag.String("tablica-veze", "", "Ručno vezivanje stupaca na letve: \"stupac=sifra,stupac=sifra\"")
 	csvWrite := flag.Bool("upisi", false, "Bez ove zastavice uvoz samo izvještava, ništa ne upisuje")
+	contractFile := flag.String("ugovor", "", "Ugovor o održavanju A.02 (xlsx iz dodatka Hrvatskih voda): uvozi popis lokacija i stavke radova")
+	contractLinks := flag.String("ugovor-veze", "", "Ručno vezivanje lokacija na registar: \"naziv iz popisa=sifra,naziv=sifra\"")
+	contractAllItems := flag.Bool("ugovor-sve-stavke", false, "Uz stavke koje ugovor koristi upisati i cijeli ponudbeni troškovnik (opisi i jedinice, bez cijena)")
 	flag.Parse()
 
 	// baza se mora znati prije datoteke, jer datoteka živi uz bazu
@@ -130,8 +135,9 @@ func main() {
 	}
 
 	// 3. Popunjavanje početnih podataka (Sektori A-F, Branjena područja 1-34, Globalni admin Tomislav Kraljević)
-	// Imenik djelatnika stoji uz bazu, izvan programa (osobni podaci)
-	db.ImenikPath = filepath.Join(filepath.Dir(*dbPath), "imenik.json")
+	// Registri i imenik stoje uz bazu, izvan programa; čitaju se samo pri prvom punjenju
+	db.DataDir = filepath.Dir(*dbPath)
+	db.ImenikPath = db.DataFile("imenik.json")
 	if err := db.SeedInitialData(database); err != nil {
 		log.Fatalf("Greška pri unosu početnih podataka: %v", err)
 	}
@@ -157,9 +163,6 @@ func main() {
 		}
 	}
 	applyReadingPolicy()
-
-	// Popravci koji dionice usklađuju s ugrađenim prijepisom trebaju ga vidjeti
-	repository.SectionSource = db.EmbeddedSections
 
 	// Jednokratni popravci podataka koji moraju ostaviti verziju u knjizi
 	if err := repository.RunFixups(context.Background(), database, recorder); err != nil {
@@ -192,6 +195,7 @@ func main() {
 	sectionService := service.NewSectionService(sectionRepo, sseBroker)
 	territoryRepo := repository.NewTerritoryRepository(database, recorder)
 	territoryService := service.NewTerritoryService(territoryRepo, sectionService)
+	orgService := service.NewOrgService(repository.NewOrgRepository(database, recorder), sseBroker)
 	stationRepo := repository.NewStationRepository(database, recorder)
 	stationService := service.NewStationService(stationRepo, sectionService, sseBroker)
 	watercourseRepo := repository.NewWatercourseRepository(database, recorder)
@@ -202,6 +206,10 @@ func main() {
 	moduleRepo := repository.NewModuleRepository(database, recorder)
 	moduleService := service.NewModuleService(moduleRepo)
 	readingService := service.NewReadingService(readingRepo, stationRepo, structureRepo, sectionService, userService)
+	maintenanceRepo := repository.NewMaintenanceRepository(database, recorder)
+	maintenanceService := service.NewMaintenanceService(maintenanceRepo, watercourseRepo, structureRepo)
+	journalRepo := repository.NewJournalRepository(database, recorder)
+	journalService := service.NewJournalService(journalRepo, stationRepo, readingRepo)
 
 	// Uvoz tablice vodostaja. Bez -upisi je samo izvješće: koje su postaje
 	// prepoznate, koliko bi zapisa bilo novo i gdje se izvori ne slažu.
@@ -238,8 +246,49 @@ func main() {
 		return
 	}
 
+	// Uvoz ugovora o održavanju: popis lokacija s kategorijom i stavke radova.
+	// Bez -upisi samo izvješće: što je prepoznato, što bi bilo novo, gdje treba ruka.
+	if *contractFile != "" {
+		areas, err := userService.ListAreas("")
+		if err != nil {
+			log.Fatalf("Ugovor: %v", err)
+		}
+		rep, err := ugovor.Run(context.Background(), ugovor.Options{
+			Path: *contractFile, DryRun: !*csvWrite, Aliases: splitPairs(*contractLinks), AllItems: *contractAllItems, Log: log.Printf,
+			Deps: ugovor.Deps{
+				Waters: watercourseRepo, Structures: structureRepo,
+				Maintenance: maintenanceRepo, Areas: areas,
+			},
+		})
+		if err != nil {
+			log.Fatalf("Ugovor: %v", err)
+		}
+		log.Printf("Ugovor: %s", rep.Summary())
+		for _, m := range rep.Locations {
+			what := "voda"
+			if m.Structure {
+				what = "nasip"
+			}
+			switch m.Status {
+			case "postoji":
+				log.Printf("  %-10s %-6s %-45q → %s (%s)", m.Status, m.Location.Seq, m.Location.Name, m.Display, m.Code)
+			case "novo":
+				log.Printf("  %-10s %-6s %-45q → %s se dodaje u registar", "NOVO", m.Location.Seq, m.Location.Name, what)
+			default:
+				log.Printf("  %-10s %-6s %-45q → %s", strings.ToUpper(m.Status), m.Location.Seq, m.Location.Name, strings.Join(m.Options, "; "))
+			}
+		}
+		if rep.Suggested+rep.Ambiguous > 0 {
+			log.Printf("Prijedloge i dvoznačne lokacije vežite zastavicom -ugovor-veze \"naziv=sifra\"; bez toga ostaju u popisu bez veze na registar.")
+		}
+		if rep.DryRun {
+			log.Printf("Ništa nije upisano. Kad je popis u redu, dodajte -upisi.")
+		}
+		return
+	}
+
 	// Uvoz iz Directusa je zaseban način rada: uveze i završi
-	if *importBP16 {
+	if *importBP16 || *importBP16Journals {
 		var src bp16.Source
 		if *bp16Dir != "" {
 			src = bp16.DirSource{Dir: *bp16Dir}
@@ -254,6 +303,33 @@ func main() {
 				log.Fatalf("Uvoz BP16: %v", err)
 			}
 			src = httpSrc
+		}
+		if *importBP16Journals {
+			areas, err := userService.ListAreas("")
+			if err != nil {
+				log.Fatalf("Uvoz dnevnika: %v", err)
+			}
+			rep, err := bp16.RunJournals(context.Background(), src, bp16.JournalDeps{
+				Journals: journalRepo, Maintenance: maintenanceRepo, Waters: watercourseRepo, Structures: structureRepo,
+				Areas: areas, AreaID: 16, DryRun: !*csvWrite, Log: log.Printf,
+			})
+			if err != nil {
+				log.Fatalf("Uvoz dnevnika nije uspio: %v (do greške %s)", err, rep.Summary())
+			}
+			log.Printf("Uvoz dnevnika: %s", rep.Summary())
+			for _, l := range rep.NewLocations {
+				log.Printf("  nova lokacija: %s", l)
+			}
+			for k, n := range rep.PerYear {
+				log.Printf("  %s: %d upisa", k, n)
+			}
+			if rep.NoUser > 0 {
+				log.Printf("  upisa bez poznatog upisivača: %d", rep.NoUser)
+			}
+			if rep.DryRun {
+				log.Printf("Ništa nije upisano. Dodajte -upisi za upis rekonstruiranih dnevnika.")
+			}
+			return
 		}
 		rep, err := bp16.Run(context.Background(), src, bp16.Deps{
 			Readings: readingRepo, Stations: stationRepo, Structures: structureRepo, Log: log.Printf,
@@ -274,7 +350,7 @@ func main() {
 	}()
 
 	// 5. Inicijalizacija web poslužitelja s ugrađenim embed.FS resursima
-	server, err := web.NewServer(*addr, authService, userService, sectionService, territoryService, stationService, watercourseService, structureService, readingService, moduleService, supportContact(cfg),
+	server, err := web.NewServer(*addr, authService, userService, sectionService, territoryService, stationService, watercourseService, structureService, readingService, moduleService, maintenanceService, journalService, orgService, supportContact(cfg),
 		followRepo, applyReadingPolicy, peersService, recorder, sseBroker)
 	if err != nil {
 		log.Fatalf("Greška pri inicijalizaciji web poslužitelja: %v", err)
@@ -341,25 +417,8 @@ func main() {
 
 // supportContact prenosi kontakt iz postavki čvora na stranicu prijave
 func supportContact(cfg config.Config) web.SupportContact {
-	tel := func(s string) string {
-		digits := strings.Map(func(r rune) rune {
-			if r >= '0' && r <= '9' {
-				return r
-			}
-			return -1
-		}, s)
-		if strings.HasPrefix(digits, "0") {
-			return "+385" + digits[1:]
-		}
-		if digits == "" {
-			return ""
-		}
-		return "+" + digits
-	}
 	return web.SupportContact{
-		Name: cfg.Support.Name, Phone: cfg.Support.Phone, PhoneLink: tel(cfg.Support.Phone),
-		Email: cfg.Support.Email, Center: cfg.Support.Center,
-		CenterPhone: cfg.Support.CenterPhone, CenterLink: tel(cfg.Support.CenterPhone),
+		Center: cfg.Support.Center, CenterPhone: cfg.Support.CenterPhone, CenterLink: web.TelLink(cfg.Support.CenterPhone),
 	}
 }
 

@@ -67,7 +67,7 @@ func (s *StationService) GetSectionGaugeCriteria(ctx context.Context, sectionCod
 	if err != nil {
 		return nil, err
 	}
-	if section == nil || len(section.Gauges) == 0 {
+	if section == nil {
 		return nil, nil
 	}
 
@@ -77,9 +77,11 @@ func (s *StationService) GetSectionGaugeCriteria(ctx context.Context, sectionCod
 	}
 
 	var criteria []models.GaugeItem
-	for _, gauge := range section.Gauges {
-		if !coveredByStation(gauge.StationName, stations) {
-			criteria = append(criteria, gauge)
+	for _, p := range section.Parts {
+		for _, gauge := range p.Gauges {
+			if !coveredByStation(gauge.StationName, stations) {
+				criteria = append(criteria, gauge)
+			}
 		}
 	}
 
@@ -120,57 +122,6 @@ func (s *StationService) canEditSection(perms *models.UserPermissions, sectionCo
 	return nil
 }
 
-// AddSectionStations proglašava postojeće postaje mjerodavnima za dionicu
-func (s *StationService) AddSectionStations(ctx context.Context, perms *models.UserPermissions, sectionCode string, stationIDs []uuid.UUID) error {
-	if err := s.canEditSection(perms, sectionCode); err != nil {
-		return err
-	}
-	if len(stationIDs) == 0 {
-		return fmt.Errorf("nije odabrana nijedna vodomjerna postaja")
-	}
-
-	for _, id := range stationIDs {
-		station, err := s.stationRepo.GetStationByID(ctx, id)
-		if err != nil {
-			return err
-		}
-		if station == nil {
-			return fmt.Errorf("vodomjerna postaja %s ne postoji u registru", id)
-		}
-		if err := s.stationRepo.LinkStationToSection(ctx, sectionCode, id); err != nil {
-			return err
-		}
-	}
-
-	s.broadcastSectionChange(sectionCode, len(stationIDs), "dodani")
-	return nil
-}
-
-// RemoveSectionStation uklanja postaju s popisa mjerodavnih vodomjera dionice.
-// Postaja ostaje u registru jer je mjerodavna i za druge dionice.
-func (s *StationService) RemoveSectionStation(ctx context.Context, perms *models.UserPermissions, sectionCode string, stationID uuid.UUID) error {
-	if err := s.canEditSection(perms, sectionCode); err != nil {
-		return err
-	}
-	if err := s.stationRepo.UnlinkStationFromSection(ctx, sectionCode, stationID); err != nil {
-		return err
-	}
-
-	s.broadcastSectionChange(sectionCode, 1, "uklonjen")
-	return nil
-}
-
-func (s *StationService) broadcastSectionChange(sectionCode string, count int, action string) {
-	if s.sseBroker == nil {
-		return
-	}
-	s.sseBroker.Broadcast(
-		"stations",
-		fmt.Sprintf("Mjerodavni vodomjeri dionice %s: %d %s", sectionCode, count, action),
-		map[string]any{"section_code": sectionCode, "count": count, "action": action},
-	)
-}
-
 // CreateStation upisuje novu vodomjernu postaju u registar i, kad je zadana
 // dionica, odmah je proglašava njezinim mjerodavnim vodomjerom
 func (s *StationService) CreateStation(ctx context.Context, perms *models.UserPermissions, station *models.Station, sectionCode string) error {
@@ -197,13 +148,7 @@ func (s *StationService) CreateStation(ctx context.Context, perms *models.UserPe
 		return err
 	}
 
-	if sectionCode != "" {
-		if err := s.stationRepo.LinkStationToSection(ctx, sectionCode, station.ID); err != nil {
-			return err
-		}
-		s.broadcastSectionChange(sectionCode, 1, "dodani")
-	}
-
+	// Mjerodavnost za dionicu upisuje se u poddionici na obrascu dionice
 	return nil
 }
 

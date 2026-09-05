@@ -12,54 +12,58 @@
   <div>
     <h1 class="page-title">{{if .IsEdit}}{{icon "pencil"}} Dionica {{.Section.Code}}{{else}}{{icon "plus"}} Nova štićena dionica{{end}}</h1>
     <p class="page-desc">
-      {{if .IsEdit}}Sektor {{.Section.SectorID}} · BP {{.Section.AreaID}}{{if .Section.AreaName}}: {{.Section.AreaName}}{{end}}. Svaka izmjena ostaje u povijesti zapisa.
-      {{else}}Ugroženo područje i mjerodavni vodomjeri dodaju se na stranici dionice nakon upisa.{{end}}
+      Dionica ima jednu ili više poddionica. Poddionica je jedna voda s jednim obuhvatom: na njoj se biraju ugroženo
+      područje, mjerodavni vodomjeri, objekti te nasipi i brane iz registra. Svaka izmjena ostaje u povijesti zapisa.
     </p>
   </div>
 </div>
 
 {{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
 
-<form class="form-page" method="POST" action="{{if .IsEdit}}/sections/update{{else}}/sections/create{{end}}">
+<form class="form-page" method="POST" action="{{if .IsEdit}}/sections/update{{else}}/sections/create{{end}}" id="section-form" onsubmit="return collectParts()">
+  <input type="hidden" name="parts_json" id="parts_json">
   {{if .IsEdit}}
   <input type="hidden" name="code" value="{{.Section.Code}}">
+  <input type="hidden" name="area_id" value="{{.Section.AreaID}}">
   {{else}}
   <div class="form-row">
     <div class="form-group">
-      <label class="form-label" for="sector_id">Sektor *</label>
-      <select id="sector_id" name="sector_id" class="form-control" required onchange="filterAreas(this.value)">
-        <option value="">Odaberi sektor…</option>
-        {{range .Sectors}}{{if ne .ID "DIREKCIJA"}}<option value="{{.ID}}">{{.Name}}</option>{{end}}{{end}}
+      <label class="form-label" for="area_id">Branjeno područje *</label>
+      <select id="area_id" name="area_id" class="form-control" required onchange="areaChanged()">
+        <option value="">Odaberi područje…</option>
+        {{range .Areas}}<option value="{{.ID}}" data-sector="{{.SectorID}}" {{if eq $.Section.AreaID .ID}}selected{{end}}>{{.ID}}: {{.Name}} (sektor {{.SectorID}})</option>{{end}}
       </select>
     </div>
     <div class="form-group">
-      <label class="form-label" for="area_id">Branjeno područje *</label>
-      <select id="area_id" name="area_id" class="form-control" required>
-        <option value="">Odaberi područje…</option>
-        {{range .Areas}}<option value="{{.ID}}" data-sector="{{.SectorID}}">{{.ID}}: {{.Name}}</option>{{end}}
-      </select>
+      <label class="form-label" for="code">Šifra dionice *</label>
+      <input type="text" id="code" name="code" class="form-control" required placeholder="npr. B.15.5" autocomplete="off" style="font-family:ui-monospace, monospace;">
+      <div class="form-help">Sektor.područje.broj — sektor slijedi iz područja.</div>
     </div>
-  </div>
-  <div class="form-group">
-    <label class="form-label" for="code">Šifra dionice *</label>
-    <input type="text" id="code" name="code" class="form-control" required placeholder="npr. B.15.5 ili D.1.13" autocomplete="off" style="font-family:ui-monospace, monospace;">
   </div>
   {{end}}
 
-  <div class="form-group">
-    <label class="form-label" for="watercourse_name">{{icon "waves"}} Vodotok, obala i obuhvat *</label>
-    <textarea id="watercourse_name" name="watercourse_name" class="form-control" rows="3" required
-              placeholder="npr. r. Vuka, l.o. i d.o.; Ušće u r. Dunav – granica županija">{{.DescriptionMain}}</textarea>
-    <div class="form-help">Kako stoji u dokumentaciji: voda, obala (l.o., d.o.), granice obuhvata.</div>
-  </div>
+  <div id="parts"></div>
+  <button type="button" class="btn btn-secondary" onclick="addPart()">{{icon "plus"}} Dodaj poddionicu</button>
 
-  <div class="form-group">
-    <label class="form-label" for="watercourse_chainage">{{icon "ruler"}} Stacionaža (rkm / km)</label>
-    <input type="text" id="watercourse_chainage" name="watercourse_chainage" class="form-control"
-           value="{{.DescriptionChainage}}" placeholder="npr. rkm 0+000 - 36+900 (36,900 km)" autocomplete="off">
-    <div class="form-help">Obala i raspon stacionaže čitaju se iz teksta istim pravilom kao iz dokumentacije.</div>
+  <h2 style="font-size:1rem; margin:1.5rem 0 0.5rem;">Dionica ukupno</h2>
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="length_km">Ukupna duljina (km)</label>
+      <input type="text" inputmode="decimal" id="length_km" name="length_km" class="form-control" value="{{if .Section.LengthKm}}{{derefFloat .Section.LengthKm 3}}{{end}}" placeholder="zbroj poddionica">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="embankment_km">Ukupno nasipa (km)</label>
+      <input type="text" inputmode="decimal" id="embankment_km" name="embankment_km" class="form-control" value="{{if .Section.EmbankmentKm}}{{derefFloat .Section.EmbankmentKm 3}}{{end}}" placeholder="zbroj odsjeka">
+    </div>
   </div>
-
+  <div class="form-group">
+    <label class="form-label" for="description">Opis dionice</label>
+    <textarea id="description" name="description" class="form-control" rows="2" {{if not .Section.DescriptionCustom}}readonly{{end}}>{{.Section.EffectiveDescription}}</textarea>
+    <label style="display:flex; gap:0.4rem; align-items:center; font-size:0.85rem; margin-top:0.35rem;">
+      <input type="checkbox" name="description_custom" value="1" {{if .Section.DescriptionCustom}}checked{{end}} onchange="document.getElementById('description').readOnly = !this.checked; if(!this.checked) refreshDescription()">
+      Upisujem opis sam (inače se slaže iz poddionica)
+    </label>
+  </div>
   <div class="form-group">
     <label class="form-label" for="notes">Operativne napomene</label>
     <textarea id="notes" name="notes" class="form-control" rows="3">{{.Section.Notes}}</textarea>
@@ -71,20 +75,267 @@
   </div>
 </form>
 
-{{if not .IsEdit}}
+<template id="tpl-part">
+  <section class="reg-card part-edit" style="padding:1rem; margin-bottom:1rem;">
+    <div class="part-head" style="justify-content:space-between;">
+      <div style="display:flex; align-items:center; gap:0.5rem;"><span class="part-ordinal" data-role="ordinal">1</span><strong>Poddionica</strong></div>
+      <button type="button" class="btn btn-sm btn-secondary" data-role="remove">{{icon "trash"}} Ukloni poddionicu</button>
+    </div>
+    <div class="form-row" style="margin-top:0.75rem;">
+      <div class="form-group">
+        <label class="form-label">Vodotok *</label>
+        <select class="form-control" data-field="watercourse_code"><option value="">— odaberi vodu —</option></select>
+        <div class="form-help">Nema je? <a href="/watercourses/new" target="_blank">Dodaj u registar voda</a>, pa osvježi obrazac.</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Obala</label>
+        <select class="form-control" data-field="bank"><option value="">—</option>{{range .Banks}}<option value="{{.Code}}">{{.Label}}</option>{{end}}</select>
+      </div>
+    </div>
+    <div class="form-row" style="grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));">
+      <div class="form-group"><label class="form-label">Stacionaža po</label>
+        <select class="form-control" data-field="stationing_kind"><option value="">—</option>{{range .StationingKinds}}<option value="{{.}}">{{.}}</option>{{end}}</select></div>
+      <div class="form-group"><label class="form-label">Od (km)</label><input type="text" class="form-control mono" data-field="km_from" placeholder="0+000" oninput="lengthFrom(this)"></div>
+      <div class="form-group"><label class="form-label">Do (km)</label><input type="text" class="form-control mono" data-field="km_to" placeholder="12+450" oninput="lengthFrom(this)"></div>
+      <div class="form-group"><label class="form-label">Duljina (km)</label><input type="text" class="form-control" data-field="length_km" placeholder="iz raspona"></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Obuhvat (od – do, riječima)</label>
+      <input type="text" class="form-control" data-field="extent" placeholder="ustava Vrbica – ušće u r. Vrbicu">
+    </div>
+    <div class="form-help" data-role="description" hidden></div>
+
+    <details open class="part-block">
+      <summary class="part-label" style="cursor:pointer;">{{icon "house"}} Ugroženo područje <span class="reg-chip" data-role="terr-count">0</span></summary>
+      <div data-role="terr-chips" style="display:flex; flex-wrap:wrap; gap:0.35rem; margin:0.5rem 0;"></div>
+      <div class="form-row" style="grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); align-items:end;">
+        <div class="form-group" style="margin:0;"><label class="form-label">Županija</label>
+          <select class="form-control" data-role="county" onchange="loadMunicipalities(this)"><option value="">—</option>{{range .Counties}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select></div>
+        <div class="form-group" style="margin:0;"><label class="form-label">Grad ili općina</label>
+          <select class="form-control" data-role="muni" disabled onchange="loadSettlements(this)"><option value="">—</option></select></div>
+        <button type="button" class="btn btn-sm btn-secondary" data-role="terr-add" disabled onclick="addTerritory(this)">{{icon "plus"}} Dodaj</button>
+      </div>
+      <div data-role="settlements" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap:0.3rem; margin-top:0.5rem; font-size:0.85rem;" hidden></div>
+      <div class="form-help">Bez odabranih naselja dodaje se cijela općina ili grad.</div>
+      <div class="reading-meta" data-role="protected-text" hidden></div>
+    </details>
+
+    <details open class="part-block">
+      <summary class="part-label" style="cursor:pointer;">{{icon "chart-column"}} Mjerodavni vodomjeri <span class="reg-chip" data-role="st-count">0</span></summary>
+      <div data-role="st-chips" style="display:flex; flex-wrap:wrap; gap:0.35rem; margin:0.5rem 0;"></div>
+      <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+        <input type="text" class="form-control" data-role="st-input" list="stations-list" placeholder="naziv postaje iz registra" style="max-width:20rem;" autocomplete="off">
+        <button type="button" class="btn btn-sm btn-secondary" onclick="addStation(this)">{{icon "plus"}} Dodaj</button>
+      </div>
+      <div class="reading-meta" data-role="gauges-text" hidden></div>
+    </details>
+
+    <details open class="part-block">
+      <summary class="part-label" style="cursor:pointer;">{{icon "shield"}} Nasipi i brane <span class="reg-chip" data-role="emb-count">0</span></summary>
+      <div data-role="emb-rows"></div>
+      <button type="button" class="btn btn-sm btn-secondary" onclick="addEmbankment(this)">{{icon "plus"}} Dodaj nasip ili branu</button>
+    </details>
+
+    <details open class="part-block">
+      <summary class="part-label" style="cursor:pointer;">{{icon "construction"}} Objekti <span class="reg-chip" data-role="obj-count">0</span></summary>
+      <div class="form-help">Naši objekti (crpne stanice, ustave, sifoni) vežu se na registar; mostovi i propusti ostaju samo redak.</div>
+      <div data-role="obj-rows"></div>
+      <button type="button" class="btn btn-sm btn-secondary" onclick="addObject(this)">{{icon "plus"}} Dodaj objekt</button>
+    </details>
+  </section>
+</template>
+
+<template id="tpl-emb">
+  <div class="emb-row" style="display:grid; gap:0.4rem; grid-template-columns: minmax(12rem, 2fr) repeat(4, minmax(5rem, 1fr)) minmax(5rem,1fr) auto; align-items:end; margin-bottom:0.4rem;">
+    <div><label class="form-label" style="font-size:0.7rem;">Nasip / brana iz registra ili novi naziv</label>
+      <input type="text" class="form-control" data-field="name" list="embankments-list" placeholder="Lijevi nasip …" autocomplete="off"><input type="hidden" data-field="structure_id"></div>
+    <div><label class="form-label" style="font-size:0.7rem;">Uz vodu od</label><input type="text" class="form-control mono" data-field="water_from" placeholder="0+235"></div>
+    <div><label class="form-label" style="font-size:0.7rem;">do</label><input type="text" class="form-control mono" data-field="water_to" placeholder="0+855"></div>
+    <div><label class="form-label" style="font-size:0.7rem;">Po nasipu od</label><input type="text" class="form-control mono" data-field="emb_from" placeholder="0+000"></div>
+    <div><label class="form-label" style="font-size:0.7rem;">do</label><input type="text" class="form-control mono" data-field="emb_to" placeholder="0+620"></div>
+    <div><label class="form-label" style="font-size:0.7rem;">km</label><input type="text" class="form-control" data-field="length_km" placeholder="0,620"></div>
+    <button type="button" class="btn btn-sm btn-secondary" onclick="this.closest('.emb-row').remove()" title="Ukloni">{{icon "x"}}</button>
+  </div>
+</template>
+
+<template id="tpl-obj">
+  <div class="obj-row" style="display:grid; gap:0.4rem; grid-template-columns: 6rem 5rem 7rem minmax(12rem, 2fr) minmax(8rem, 1fr) auto; align-items:end; margin-bottom:0.4rem;">
+    <div><label class="form-label" style="font-size:0.7rem;">Obala</label><select class="form-control" data-field="bank"><option value="">—</option>{{range .Banks}}<option value="{{.Code}}">{{.Code}}</option>{{end}}</select></div>
+    <div><label class="form-label" style="font-size:0.7rem;">Po</label><select class="form-control" data-field="stationing_kind"><option value="">—</option>{{range .StationingKinds}}<option value="{{.}}">{{.}}</option>{{end}}</select></div>
+    <div><label class="form-label" style="font-size:0.7rem;">Stacionaža</label><input type="text" class="form-control mono" data-field="stationing_text" placeholder="1+825"></div>
+    <div><label class="form-label" style="font-size:0.7rem;">Objekt (registar ili naziv)</label><input type="text" class="form-control" data-field="name" list="structures-list" placeholder="most, ušće, CS Adica…" autocomplete="off"><input type="hidden" data-field="structure_id"></div>
+    <div><label class="form-label" style="font-size:0.7rem;">Na nasipu</label><input type="text" class="form-control" data-field="on_embankment" placeholder="po želji"></div>
+    <button type="button" class="btn btn-sm btn-secondary" onclick="this.closest('.obj-row').remove()" title="Ukloni">{{icon "x"}}</button>
+  </div>
+</template>
+
+<datalist id="stations-list">{{range .Stations}}<option value="{{.Name}}{{if .HasWatercourse}} · {{.Watercourse}}{{end}}">{{end}}</datalist>
+<datalist id="structures-list">{{range .Structures}}<option value="{{.Name}}">{{.KindLabel}}</option>{{end}}</datalist>
+<datalist id="embankments-list">{{range .Embankments}}<option value="{{.Name}}">{{.KindLabel}}</option>{{end}}</datalist>
+
 <script>
-// Popis područja je cijeli, pa obrazac radi i bez skripte; skripta samo sakrije tuđa
-function filterAreas(sector) {
-  const sel = document.getElementById('area_id');
-  let keep = false;
-  for (const o of sel.options) {
-    if (!o.value) continue;
-    const show = !sector || o.dataset.sector === sector;
-    o.hidden = !show;
-    if (o.selected && !show) sel.value = '';
-    keep = keep || show;
-  }
+// Obrazac slaže poddionice u JSON kakav program vodi. Registri su preneseni
+// kao popisi; odabir po nazivu prevodi se u šifru ili identitet.
+const SECTION = {{.SectionJSON}};
+const TERR_LABELS = {{.TerritoryLabels}};
+const WATERS = [{{range .Watercourses}}{code:{{.Code}}, name:{{.OfficialName}}, kind:{{.Kind}}},{{end}}];
+const STATIONS = [{{range .Stations}}{id:{{.ID.String}}, name:{{.Name}}, label:{{.Name}}{{if .HasWatercourse}} + " · " + {{.Watercourse}}{{end}}},{{end}}];
+const STRUCTURES = [{{range .Structures}}{id:{{.ID.String}}, name:{{.Name}}},{{end}}];
+const EMBANKMENTS = [{{range .Embankments}}{id:{{.ID.String}}, name:{{.Name}}},{{end}}];
+
+function kmOf(text) {
+  const t = (text || '').trim().replace(',', '.');
+  if (!t) return null;
+  if (t.includes('+')) { const [k, m] = t.split('+'); const v = parseFloat(k) + parseFloat(m || 0) / 1000; return isNaN(v) ? null : v; }
+  const v = parseFloat(t); return isNaN(v) ? null : v;
 }
+function kmText(v) { if (v === null || v === undefined) return ''; const w = Math.floor(v); const m = Math.round((v - w) * 1000); return w + '+' + String(m).padStart(3, '0'); }
+function num(v) { if (v === null || v === undefined) return ''; return String(v).replace('.', ','); }
+
+function addPart(p) {
+  p = p || {};
+  const box = document.getElementById('parts');
+  const el = document.getElementById('tpl-part').content.firstElementChild.cloneNode(true);
+  el.dataset.stations = JSON.stringify(p.station_ids || []);
+  el.dataset.territories = JSON.stringify(p.territories || []);
+  el.dataset.description = p.description || '';
+  el.dataset.protected = p.protected_text || '';
+  el.dataset.gauges = JSON.stringify(p.gauges || []);
+  el.dataset.unaligned = p.unaligned ? '1' : '';
+  const wsel = el.querySelector('[data-field=watercourse_code]');
+  for (const w of WATERS) { const o = document.createElement('option'); o.value = w.code; o.textContent = w.name + (w.kind ? ' (' + w.kind + ')' : ''); wsel.appendChild(o); }
+  wsel.value = p.watercourse_code || '';
+  el.querySelector('[data-field=bank]').value = p.bank || '';
+  el.querySelector('[data-field=stationing_kind]').value = p.stationing_kind || '';
+  el.querySelector('[data-field=km_from]').value = p.km_from != null ? kmText(p.km_from) : '';
+  el.querySelector('[data-field=km_to]').value = p.km_to != null ? kmText(p.km_to) : '';
+  el.querySelector('[data-field=length_km]').value = p.length_km != null ? num(p.length_km) : '';
+  el.querySelector('[data-field=extent]').value = p.extent || '';
+  if (p.length_km == null) lengthFrom(el);
+  if (p.description) { const d = el.querySelector('[data-role=description]'); d.textContent = 'Dokumentacija: ' + p.description; d.hidden = false; }
+  if (p.protected_text) { const d = el.querySelector('[data-role=protected-text]'); d.textContent = 'Dokumentacija: ' + p.protected_text; d.hidden = false; }
+  if (p.gauges && p.gauges.length) { const d = el.querySelector('[data-role=gauges-text]'); d.textContent = 'Dokumentacija: ' + p.gauges.map(g => g.station_name).join('; '); d.hidden = false; }
+  el.querySelector('[data-role=remove]').onclick = () => { if (confirm('Ukloniti ovu poddionicu sa svime što nosi?')) { el.remove(); renumber(); refreshDescription(); } };
+  for (const e of (p.embankments || [])) addEmbankment(el, e);
+  for (const o of (p.objects || [])) addObject(el, o);
+  box.appendChild(el);
+  renderChips(el);
+  renumber();
+}
+function partOf(btn) { return btn.closest ? btn.closest('.part-edit') : btn; }
+function renumber() { document.querySelectorAll('#parts .part-edit').forEach((el, i) => el.querySelector('[data-role=ordinal]').textContent = i + 1); }
+function lengthFrom(input) {
+  const el = partOf(input); const a = kmOf(el.querySelector('[data-field=km_from]').value), b = kmOf(el.querySelector('[data-field=km_to]').value);
+  const len = el.querySelector('[data-field=length_km]');
+  if (a !== null && b !== null && (!len.dataset.manual)) len.value = num(Math.abs(b - a).toFixed(3));
+}
+function renderChips(el) {
+  const st = JSON.parse(el.dataset.stations); const sc = el.querySelector('[data-role=st-chips]'); sc.innerHTML = '';
+  for (const id of st) { const s = STATIONS.find(x => x.id === id); const c = document.createElement('span'); c.className = 'reg-chip'; c.innerHTML = (s ? s.label : id) + ' <button type="button" title="Ukloni" style="border:0;background:none;cursor:pointer;">&times;</button>'; c.querySelector('button').onclick = () => { el.dataset.stations = JSON.stringify(JSON.parse(el.dataset.stations).filter(x => x !== id)); renderChips(el); }; sc.appendChild(c); }
+  el.querySelector('[data-role=st-count]').textContent = st.length;
+  const tr = JSON.parse(el.dataset.territories); const tc = el.querySelector('[data-role=terr-chips]'); tc.innerHTML = '';
+  for (const t of tr) { const key = t.settlement_id ? t.county_id + '/' + t.municipality_id + '/' + t.settlement_id : t.county_id + '/' + t.municipality_id; const c = document.createElement('span'); c.className = 'reg-chip'; c.innerHTML = (TERR_LABELS[key] || t.label || key) + ' <button type="button" title="Ukloni" style="border:0;background:none;cursor:pointer;">&times;</button>'; c.querySelector('button').onclick = () => { el.dataset.territories = JSON.stringify(JSON.parse(el.dataset.territories).filter(x => x !== t)); renderChips(el); }; tc.appendChild(c); }
+  el.querySelector('[data-role=terr-count]').textContent = tr.length;
+  el.querySelector('[data-role=emb-count]').textContent = el.querySelectorAll('.emb-row').length;
+  el.querySelector('[data-role=obj-count]').textContent = el.querySelectorAll('.obj-row').length;
+}
+function addStation(btn) {
+  const el = partOf(btn); const input = el.querySelector('[data-role=st-input]'); const v = input.value.trim();
+  const s = STATIONS.find(x => x.label === v || x.name === v); if (!s) { alert('Postaja nije u registru: ' + v); return; }
+  const st = JSON.parse(el.dataset.stations); if (!st.includes(s.id)) st.push(s.id); el.dataset.stations = JSON.stringify(st); input.value = ''; renderChips(el);
+}
+async function loadMunicipalities(sel) {
+  const el = partOf(sel); const muni = el.querySelector('[data-role=muni]'); const box = el.querySelector('[data-role=settlements]'); box.hidden = true; box.innerHTML = '';
+  muni.innerHTML = '<option value="">—</option>'; muni.disabled = true; el.querySelector('[data-role=terr-add]').disabled = true;
+  if (!sel.value) return;
+  const res = await fetch('/api/counties/' + sel.value + '/municipalities'); const data = await res.json(); const list = data.municipalities || data.data || data;
+  for (const m of list) { const o = document.createElement('option'); o.value = m.id; o.textContent = (m.type ? m.type + ' ' : '') + m.name; muni.appendChild(o); }
+  muni.disabled = false;
+}
+async function loadSettlements(sel) {
+  const el = partOf(sel); const box = el.querySelector('[data-role=settlements]'); box.innerHTML = ''; box.hidden = true; el.querySelector('[data-role=terr-add]').disabled = !sel.value;
+  if (!sel.value) return;
+  const res = await fetch('/api/municipalities/' + sel.value + '/settlements'); const data = await res.json(); const list = data.settlements || data.data || data;
+  for (const s of list) { const l = document.createElement('label'); l.style.cssText = 'display:flex;gap:0.4rem;align-items:center;'; l.innerHTML = '<input type="checkbox" value="' + s.id + '" data-name="' + s.name.replace(/"/g, '&quot;') + '"> ' + s.name; box.appendChild(l); }
+  box.hidden = list.length === 0;
+}
+function addTerritory(btn) {
+  const el = partOf(btn); const county = el.querySelector('[data-role=county]'); const muni = el.querySelector('[data-role=muni]');
+  if (!county.value || !muni.value) return;
+  const cid = parseInt(county.value), mid = parseInt(muni.value); const muniLabel = muni.options[muni.selectedIndex].textContent;
+  const checked = [...el.querySelectorAll('[data-role=settlements] input:checked')];
+  const tr = JSON.parse(el.dataset.territories);
+  const push = (t, label) => { const key = t.settlement_id ? cid + '/' + mid + '/' + t.settlement_id : cid + '/' + mid; if (!tr.some(x => (x.settlement_id ? x.county_id + '/' + x.municipality_id + '/' + x.settlement_id : x.county_id + '/' + x.municipality_id) === key)) { TERR_LABELS[key] = label; tr.push(t); } };
+  if (checked.length === 0) push({county_id: cid, municipality_id: mid}, muniLabel);
+  for (const c of checked) push({county_id: cid, municipality_id: mid, settlement_id: parseInt(c.value)}, c.dataset.name + ' (' + muniLabel.replace(/^(Grad|Općina)\s+/, '') + ')');
+  el.dataset.territories = JSON.stringify(tr); el.querySelectorAll('[data-role=settlements] input').forEach(i => i.checked = false); renderChips(el);
+}
+function addEmbankment(btn, e) {
+  const el = partOf(btn); e = e || {}; const row = document.getElementById('tpl-emb').content.firstElementChild.cloneNode(true);
+  row.querySelector('[data-field=name]').value = e.name || ''; row.querySelector('[data-field=structure_id]').value = e.structure_id || '';
+  row.querySelector('[data-field=water_from]').value = e.water_from != null ? kmText(e.water_from) : ''; row.querySelector('[data-field=water_to]').value = e.water_to != null ? kmText(e.water_to) : '';
+  row.querySelector('[data-field=emb_from]').value = e.emb_from != null ? kmText(e.emb_from) : ''; row.querySelector('[data-field=emb_to]').value = e.emb_to != null ? kmText(e.emb_to) : '';
+  row.querySelector('[data-field=length_km]').value = e.length_km != null ? num(e.length_km) : ''; row.dataset.waterKind = e.water_kind || ''; row.dataset.data = e.data || '';
+  el.querySelector('[data-role=emb-rows]').appendChild(row); renderChips(el);
+}
+function addObject(btn, o) {
+  const el = partOf(btn); o = o || {}; const row = document.getElementById('tpl-obj').content.firstElementChild.cloneNode(true);
+  row.querySelector('[data-field=bank]').value = o.bank || ''; row.querySelector('[data-field=stationing_kind]').value = o.stationing_kind || '';
+  row.querySelector('[data-field=stationing_text]').value = o.stationing_text || (o.stationing != null ? kmText(o.stationing) : '');
+  row.querySelector('[data-field=name]').value = o.name || ''; row.querySelector('[data-field=structure_id]').value = o.structure_id || '';
+  row.querySelector('[data-field=on_embankment]').value = o.on_embankment || '';
+  el.querySelector('[data-role=obj-rows]').appendChild(row); renderChips(el);
+}
+function refreshDescription() {
+  const d = document.getElementById('description'); if (!d.readOnly) return;
+  const parts = [...document.querySelectorAll('#parts .part-edit')].map(el => {
+    const w = WATERS.find(x => x.code === el.querySelector('[data-field=watercourse_code]').value); const bank = el.querySelector('[data-field=bank]').value;
+    const segs = []; let head = w ? w.name : ''; if (bank) head += ', ' + {L: 'l.o.', D: 'd.o.', LD: 'l.o. i d.o.'}[bank]; if (head) segs.push(head);
+    const ex = el.querySelector('[data-field=extent]').value.trim(); if (ex) segs.push(ex);
+    const a = el.querySelector('[data-field=km_from]').value.trim(), b = el.querySelector('[data-field=km_to]').value.trim(), k = el.querySelector('[data-field=stationing_kind]').value;
+    if (a && b) segs.push((k ? k + ' ' : '') + a + ' - ' + b);
+    const len = el.querySelector('[data-field=length_km]').value.trim(); if (len) segs.push('(' + len + ' km)');
+    return segs.join('; ');
+  });
+  d.value = parts.join(' · ');
+}
+function collectParts() {
+  const parts = [...document.querySelectorAll('#parts .part-edit')].map((el, i) => {
+    const v = f => el.querySelector('[data-field=' + f + ']').value.trim();
+    const p = { seq: i + 1, watercourse_code: v('watercourse_code'), bank: v('bank'), stationing_kind: v('stationing_kind'), extent: v('extent'),
+      description: el.dataset.description, protected_text: el.dataset.protected, unaligned: el.dataset.unaligned === '1',
+      gauges: JSON.parse(el.dataset.gauges), station_ids: JSON.parse(el.dataset.stations), territories: JSON.parse(el.dataset.territories), embankments: [], objects: [] };
+    const a = kmOf(v('km_from')), b = kmOf(v('km_to')), l = kmOf(v('length_km'));
+    if (a !== null) p.km_from = a; if (b !== null) p.km_to = b; if (l !== null) p.length_km = l;
+    if (!p.watercourse_code && !p.description) { alert('Poddionica ' + (i + 1) + ' nema vodotok.'); throw new Error('bez vode'); }
+    for (const row of el.querySelectorAll('.emb-row')) {
+      const g = f => row.querySelector('[data-field=' + f + ']').value.trim(); const name = g('name'); if (!name) continue;
+      const known = EMBANKMENTS.find(x => x.name === name);
+      const e = { name: name, structure_id: known ? known.id : (g('structure_id') || ''), water_kind: row.dataset.waterKind || p.stationing_kind, data: row.dataset.data || '' };
+      const wf = kmOf(g('water_from')), wt = kmOf(g('water_to')), ef = kmOf(g('emb_from')), et = kmOf(g('emb_to')), lk = kmOf(g('length_km'));
+      if (wf !== null) e.water_from = wf; if (wt !== null) e.water_to = wt; if (ef !== null) e.emb_from = ef; if (et !== null) e.emb_to = et; if (lk !== null) e.length_km = lk;
+      p.embankments.push(e);
+    }
+    for (const row of el.querySelectorAll('.obj-row')) {
+      const g = f => row.querySelector('[data-field=' + f + ']').value.trim(); const name = g('name'); if (!name) continue;
+      const known = STRUCTURES.find(x => x.name === name);
+      const o = { name: name, structure_id: known ? known.id : (g('structure_id') || ''), bank: g('bank'), stationing_kind: g('stationing_kind'), stationing_text: g('stationing_text'), on_embankment: g('on_embankment') };
+      const st = kmOf(g('stationing_text')); if (st !== null) o.stationing = st;
+      if (o.stationing_text && !o.stationing_kind) o.stationing_kind = p.stationing_kind;
+      if (o.stationing_text && o.stationing_kind && !/^[a-z]/.test(o.stationing_text)) o.stationing_text = o.stationing_kind + ' ' + o.stationing_text;
+      p.objects.push(o);
+    }
+    return p;
+  });
+  if (parts.length === 0) { alert('Dionica mora imati bar jednu poddionicu.'); return false; }
+  document.getElementById('parts_json').value = JSON.stringify(parts);
+  refreshDescription();
+  return true;
+}
+function areaChanged() { /* objekti i nasipi područja učitaju se nakon prvog upisa dionice */ }
+document.addEventListener('input', e => { if (e.target.closest && e.target.closest('#parts')) { if (e.target.dataset.field === 'length_km') e.target.dataset.manual = '1'; refreshDescription(); } });
+document.addEventListener('change', e => { if (e.target.closest && e.target.closest('#parts')) refreshDescription(); });
+(SECTION.parts && SECTION.parts.length ? SECTION.parts : [{}]).forEach(p => addPart(p));
+refreshDescription();
 </script>
-{{end}}
 {{end}}

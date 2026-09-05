@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+<meta charset="utf-8">
+<title>Građevinski dnevnik — {{.Journal.DisplayTitle}}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { color-scheme: light; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 11pt; color: #000; background: #fff; margin: 0; padding: 12mm; }
+  .toolbar { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 1rem; }
+  .toolbar button, .toolbar a { font: inherit; padding: 0.4rem 0.8rem; }
+  .sheet { page-break-after: always; break-after: page; max-width: 190mm; margin: 0 auto 2rem; }
+  .sheet:last-child { page-break-after: auto; break-after: auto; }
+  table { border-collapse: collapse; width: 100%; }
+  .head td { border: 1px solid #000; padding: 3px 6px; vertical-align: top; }
+  .head .lbl { font-size: 8pt; font-style: italic; color: #333; width: 34%; }
+  .title { font-weight: bold; font-size: 14pt; text-align: center; }
+  .num { font-family: "Courier New", monospace; font-weight: bold; background: #d9ead3; text-align: right; }
+  .sec { font-size: 8pt; font-style: italic; text-align: center; margin: 6px 0 2px; }
+  .entries th { border-bottom: 2px solid #000; font-size: 8pt; text-align: left; padding: 2px 4px; }
+  .entries td { border-bottom: 1px solid #ccc; padding: 4px; vertical-align: top; font-size: 9.5pt; }
+  .entries td.id { font-size: 7.5pt; color: #666; width: 3.5em; }
+  .entries td.sig { font-size: 7.5pt; color: #444; font-style: italic; width: 12em; }
+  .void { text-decoration: line-through; color: #777; }
+  .sign { display: flex; justify-content: space-between; margin-top: 3rem; font-size: 9pt; }
+  .sign div { width: 45%; border-top: 1px solid #000; padding-top: 2px; }
+  @media print { .toolbar { display: none; } body { padding: 0; } }
+</style>
+</head>
+<body>
+<div class="toolbar">
+  <button onclick="window.print()">Ispis</button>
+  <form method="GET" style="display:flex; gap:0.4rem; align-items:center;">
+    <label>od <input type="date" name="od" value="{{.From}}"></label>
+    <label>do <input type="date" name="do" value="{{.To}}"></label>
+    <button type="submit">Prikaži</button>
+  </form>
+  <span>{{len .PrintSheets}} listova</span>
+</div>
+
+{{define "ispis-upis"}}
+    <tr class="{{if .Voided}}void{{end}}">
+      <td class="id">{{.Number}}</td>
+      <td style="font-size:8pt;">{{.KindLabel}}{{if .IsTask}}<br>{{.StatusLabel}}{{if .DueDate}}, rok {{.DueDate.Format "02.01.2006."}}{{end}}{{end}}</td>
+      <td><strong>{{.LocationName}}{{if not .LocationName}}{{.SectionCode}}{{end}}</strong>{{if .Place}}<br>{{.Place}}{{end}}</td>
+      <td>{{if .WorkItemText}}{{.WorkItemText}}{{if .Text}}<br>{{end}}{{end}}{{.Text}}{{if .Hours}} ({{derefFloat .Hours 1}} h){{end}}{{if .Voided}}<br><em>STORNO ({{.VoidedBy}}): {{.VoidReason}}</em>{{end}}</td>
+      <td class="sig">{{.UserName}}<br>{{(localTime .CreatedAt).Format "02.01.06. u 15:04"}}</td>
+    </tr>
+{{end}}
+{{range .PrintSheets}}
+<div class="sheet">
+  {{if $.Journal.Reconstruction}}<div style="border:2px solid #b00; color:#b00; padding:4px 8px; margin-bottom:6px; font-size:9pt; font-weight:bold;">REKONSTRUKCIJA — primjer iz starije evidencije; ovjereni listovi dnevnika postoje zasebno i ovaj ih ne zamjenjuje.</div>{{end}}
+  <table class="head">
+    <tr>
+      <td rowspan="2" class="title" style="width:34%;">GRAĐEVINSKI<br>DNEVNIK</td>
+      <td class="lbl" style="text-align:right; width:33%;">List dnevnika:</td>
+      <td class="num">{{.Sheet.Number}}</td>
+    </tr>
+    <tr><td class="lbl" style="text-align:right;">Nadnevak upisa:</td><td class="num">{{.Sheet.Date.Format "02.01.2006."}}{{if .Sheet.Label}} <span style="font-weight:normal; font-size:8pt;">({{.Sheet.Label}})</span>{{end}}</td></tr>
+    <tr><td class="lbl">Naziv i sjedište izvođača</td><td colspan="2">{{$.Journal.Contractor}}</td></tr>
+    <tr><td class="lbl">Naziv građevine / dijela građevine / radova / usluga</td><td colspan="2">{{$.Journal.Title}}{{if $.Journal.SectionCode}} — dionica {{$.Journal.SectionCode}}{{end}}</td></tr>
+  </table>
+
+  <div class="sec">uvjeti</div>
+  <table class="head">
+    <tr><td class="lbl">HIDRO-METEOROLOŠKI UVJETI</td><td>{{.Sheet.Conditions}}</td></tr>
+    <tr><td class="lbl">TRENUTNE VREMENSKE PRILIKE</td><td>{{.Sheet.WeatherText}}</td></tr>
+    <tr><td class="lbl">VODOSTAJI</td><td>{{.Sheet.WaterLevels}}</td></tr>
+    <tr><td class="lbl">UVJETI SVEUKUPNO</td><td>{{if .Sheet.Rating}}{{.Sheet.RatingLabel}}{{end}}{{if .Sheet.RatingNote}} — {{.Sheet.RatingNote}}{{end}}</td></tr>
+  </table>
+
+  <div class="sec">stručna osposobljenost i tehnička opremljenost izvođača</div>
+  <table class="head">
+    <tr><td class="lbl">STRUKTURA OSOBLJA</td><td>{{countsText .Sheet.Staff}}</td></tr>
+    <tr><td class="lbl">STRUKTURA STROJEVA, ALATA I OPREME</td><td>{{countsText .Sheet.Machines}}</td></tr>
+  </table>
+
+  <div class="sec">Upis i potpis osoba koje vode građevinski dnevnik</div>
+  <table class="entries">
+    <thead><tr><th>Br.</th><th>Vrsta</th><th>Voda / lokacija</th><th>Upis</th><th>Potpisuje</th></tr></thead>
+    <tbody>
+    {{range .Entries}}{{if not .IsSupervisor}}{{template "ispis-upis" .}}{{end}}{{end}}
+    </tbody>
+  </table>
+
+  <div class="sec">Upis i potpis nadzornog inženjera i drugih ovlaštenih osoba</div>
+  <table class="entries">
+    <thead><tr><th>Br.</th><th>Vrsta</th><th>Voda / lokacija</th><th>Upis</th><th>Potpisuje</th></tr></thead>
+    <tbody>
+    {{$n := 0}}{{range .Entries}}{{if .IsSupervisor}}{{$n = 1}}{{template "ispis-upis" .}}{{end}}{{end}}
+    {{if eq $n 0}}<tr><td colspan="5" style="height:2.2em;"></td></tr><tr><td colspan="5" style="height:2.2em;"></td></tr>{{end}}
+    </tbody>
+  </table>
+
+  <div class="sign">
+    <div>Voditelj usluga: {{$.Journal.ContractorLead}}{{if .Sheet.ContractorConfirmedAt}}<br>potvrdio {{.Sheet.ContractorConfirmedBy}}, {{(localTime .Sheet.ContractorConfirmedAt).Format "02.01.2006. 15:04"}}{{end}}<br><span style="font-size:7.5pt;">nadnevak i potpis</span></div>
+    <div style="text-align:right;">{{if $.Journal.IsDefense}}Nadzorni inženjer{{else}}Ovlaštenik za praćenje Ugovora{{end}}: {{$.Journal.Supervisor}}{{if .Sheet.SupervisorConfirmedAt}}<br>potvrdio {{.Sheet.SupervisorConfirmedBy}}, {{(localTime .Sheet.SupervisorConfirmedAt).Format "02.01.2006. 15:04"}}{{end}}<br><span style="font-size:7.5pt;">nadnevak i potpis</span></div>
+  </div>
+</div>
+{{else}}
+<p>U zadanom razdoblju nema listova.</p>
+{{end}}
+</body>
+</html>

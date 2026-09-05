@@ -1,0 +1,94 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Organizacija obrane{{end}}
+
+{{define "content"}}
+<div class="breadcrumb"><a href="/registri">Registri</a> › Organizacija obrane</div>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "building"}} Organizacija obrane</h1>
+    <p class="page-desc">
+      Sektori (vodnogospodarski odjeli sa centrom obrane od poplava) i njihova branjena područja
+      (mali slivovi s vodnogospodarskom ispostavom). Na njih se vežu ovlasti, dionice i zaduženja,
+      pa se na novom čvoru upisuju prvi.
+    </p>
+  </div>
+  {{if and .Permissions .Permissions.IsGlobalAdmin}}
+  <div class="detail-actions">
+    <a href="/organizacija/sektori/new" class="btn btn-primary">{{icon "plus"}} Novi sektor</a>
+  </div>
+  {{end}}
+</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
+
+{{if not .Sectors}}
+<div class="reg-empty" style="padding:2rem;">
+  Još nema nijednog sektora. {{if and .Permissions .Permissions.IsGlobalAdmin}}Počnite sektorom, pa mu dodajte branjena područja.{{else}}Upisuje ih globalni administrator.{{end}}
+</div>
+{{end}}
+
+{{range .Sectors}}
+<section class="detail-section">
+  <div class="detail-head" style="align-items:flex-start;">
+    <div>
+      <h2 style="margin:0;"><span class="section-code-badge">{{.ID}}</span> {{.Name}}</h2>
+      <div class="reading-meta" style="margin-top:0.25rem;">
+        {{.VgoName}}{{if .CenterCop}} · {{.CenterCop}}{{end}}{{if .Address}} · {{.Address}}{{end}}
+        {{if .Phone}} · <a href="tel:{{.Phone}}">{{.Phone}}</a>{{end}}{{if .Email}} · <a href="mailto:{{.Email}}">{{.Email}}</a>{{end}}
+      </div>
+    </div>
+    {{if and $.Permissions $.Permissions.IsGlobalAdmin}}
+    <div class="detail-actions" style="display:flex; gap:0.4rem; flex-wrap:wrap;">
+      <a href="/organizacija/podrucja/new?sector={{.ID}}" class="btn btn-sm btn-secondary">{{icon "plus"}} Branjeno područje</a>
+      <a href="/organizacija/sektori/{{.ID}}/edit" class="btn btn-sm btn-secondary">{{icon "pencil"}} Uredi</a>
+      {{if not .Areas}}
+      <form method="POST" action="/organizacija/sektori/delete" onsubmit="return confirm('Obrisati sektor {{.ID}}?')" style="display:inline;">
+        <input type="hidden" name="id" value="{{.ID}}"><button type="submit" class="btn btn-sm btn-secondary">{{icon "trash"}} Obriši</button>
+      </form>
+      {{end}}
+    </div>
+    {{end}}
+  </div>
+
+  {{if .Areas}}
+  <div class="table-card" style="margin-top:0.75rem;"><div class="table-responsive">
+    <table class="data-table">
+      <thead><tr><th>BP</th><th>Naziv</th><th>VGI</th><th>Podcentar</th><th>Ugovorni izvođač</th>{{if and $.Permissions $.Permissions.IsGlobalAdmin}}<th></th>{{end}}</tr></thead>
+      <tbody>
+      {{range .Areas}}
+      <tr>
+        <td class="mono">{{.ID}}</td>
+        <td><a href="/sections?sector={{.SectorID}}&area={{.ID}}" style="color:var(--primary); font-weight:600;">{{.Name}}</a></td>
+        <td>{{.VgiName}}</td>
+        <td>{{.Subcenter}}</td>
+        <td class="reading-meta">{{.ContractorName}}</td>
+        {{if and $.Permissions $.Permissions.IsGlobalAdmin}}
+        <td style="white-space:nowrap; text-align:right;">
+          <a href="/organizacija/podrucja/{{.ID}}/edit" class="btn btn-sm btn-secondary">{{icon "pencil"}}</a>
+          <form method="POST" action="/organizacija/podrucja/delete" onsubmit="return confirm('Obrisati branjeno područje {{.ID}}: {{.Name}}?')" style="display:inline;">
+            <input type="hidden" name="id" value="{{.ID}}"><button type="submit" class="btn btn-sm btn-secondary" title="Obriši">{{icon "trash"}}</button>
+          </form>
+        </td>
+        {{end}}
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div></div>
+  {{else}}
+  <div class="reg-empty" style="margin-top:0.5rem;">Sektor još nema branjenih područja.</div>
+  {{end}}
+</section>
+{{end}}
+
+{{if .Orphans}}
+<section class="detail-section">
+  <h2>{{icon "triangle-alert"}} Branjena područja bez sektora</h2>
+  <p class="page-desc">Sektor tih područja ne postoji na ovom čvoru; upišite sektor s istom oznakom ili ih premjestite.</p>
+  <ul>{{range .Orphans}}<li>BP {{.ID}} {{.Name}} (sektor {{.SectorID}}) — <a href="/organizacija/podrucja/{{.ID}}/edit">uredi</a></li>{{end}}</ul>
+</section>
+{{end}}
+{{end}}

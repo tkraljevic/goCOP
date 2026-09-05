@@ -1,8 +1,7 @@
-// prijepis-dionica iz wikija (VodaAI-LLM-WIKI) stvara internal/db/sections.json
-// vjerno građi Privitka 1: dionica je tablica čiji je redak jedna cjelina —
-// vodotok, nasipi tog retka, objekti tog retka, ugroženo područje tog retka i
-// mjerodavni vodomjeri tog retka. Uzastopni redci s istim vodotokom čine
-// poddionicu.
+// prijepis-dionica iz wikija (VodaAI-LLM-WIKI) stvara data/sections.json, prijepis dionica uz bazu
+// u građi kakvu program vodi: dionica → poddionice, a u poddionici objekti,
+// nasipi, ugroženo područje i vodomjeri. Redak Privitka je jedan nasip;
+// uzastopni redci iste vode (lijevi pa desni nasip) čine jednu poddionicu.
 //
 // Alat je u repozitoriju da se prijepis može ponoviti kad se Privitak
 // promijeni, a ne da ga netko opet radi rukom i opet nešto izgubi.
@@ -25,24 +24,9 @@ import (
 	"gocop/internal/models"
 )
 
-// sectionOut je zapis u sections.json: stara ravna polja ostaju kao izvedene
-// unije (čitaju ih punjenje postaja i registar objekata), a parts nosi građu.
-type sectionOut struct {
-	Code          string                  `json:"code"`
-	AreaID        int                     `json:"area_id"`
-	SectorID      string                  `json:"sector_id"`
-	Watercourse   string                  `json:"watercourse"`
-	ProtectedArea string                  `json:"protected_area"`
-	Embankments   []models.EmbankmentItem `json:"embankments"`
-	Structures    []models.StructureItem  `json:"structures"`
-	Gauges        []models.GaugeItem      `json:"gauges"`
-	Notes         string                  `json:"notes"`
-	Parts         []models.SectionPart    `json:"parts"`
-}
-
 func main() {
 	wiki := flag.String("wiki", "", "mapa s podrucje-*.md datotekama iz wikija")
-	out := flag.String("out", "internal/db/sections.json", "gdje zapisati prijepis")
+	out := flag.String("out", "data/sections.json", "gdje zapisati prijepis")
 	flag.Parse()
 	if *wiki == "" {
 		log.Fatal("zadajte -wiki mapu")
@@ -53,24 +37,23 @@ func main() {
 	}
 	sort.Strings(files)
 
-	var all []sectionOut
+	var all []models.Section
 	stats := map[string]int{}
 	for _, f := range files {
 		raw, err := os.ReadFile(f)
 		if err != nil {
 			log.Fatal(err)
 		}
-		secs := parseFile(string(raw))
-		for _, s := range secs {
+		for _, s := range parseFile(string(raw)) {
 			all = append(all, s)
 			stats["dionica"]++
 			for _, p := range s.Parts {
 				stats["poddionica"]++
-				stats["redaka"] += len(p.Rows)
-				for _, r := range p.Rows {
-					if r.Unaligned {
-						stats["neporavnano"]++
-					}
+				stats["objekata"] += len(p.Objects)
+				stats["nasipa"] += len(p.Embankments)
+				stats["vodomjera"] += len(p.Gauges)
+				if p.Unaligned {
+					stats["neporavnano"]++
 				}
 			}
 		}
@@ -87,13 +70,13 @@ func main() {
 	if err := os.WriteFile(*out, append(data, '\n'), 0o644); err != nil {
 		log.Fatal(err)
 	}
-	log.Printf("zapisano %s: %d dionica, %d poddionica, %d redaka, %d redaka s upozorenjem o poravnanju",
-		*out, stats["dionica"], stats["poddionica"], stats["redaka"], stats["neporavnano"])
+	log.Printf("zapisano %s: %d dionica, %d poddionica, %d objekata, %d nasipa, %d vodomjera, %d poddionica s upozorenjem o poravnanju",
+		*out, stats["dionica"], stats["poddionica"], stats["objekata"], stats["nasipa"], stats["vodomjera"], stats["neporavnano"])
 }
 
 // parseFile čita jednu datoteku područja i vraća njezine dionice
-func parseFile(text string) []sectionOut {
-	var out []sectionOut
+func parseFile(text string) []models.Section {
+	var out []models.Section
 	blocks := strings.Split(text, "\n## Dionica ")
 	for _, b := range blocks[1:] {
 		nl := strings.IndexByte(b, '\n')
@@ -101,23 +84,39 @@ func parseFile(text string) []sectionOut {
 			continue
 		}
 		code := strings.TrimSuffix(strings.TrimSpace(b[:nl]), ".")
-		body := b[nl:]
-		sec := parseSection(code, body)
-		out = append(out, sec)
+		out = append(out, parseSection(code, b[nl:]))
 	}
 	return out
 }
 
-// row je jedan redak tablice Privitka dok se skuplja
+// row je jedan redak tablice Privitka dok se skuplja: voda i što uz nju stoji
 type row struct {
-	vodotok string
-	rowData models.SectionRow
+	vodotok     string
+	embankments []models.PartEmbankment
+	objects     []models.PartObject
+	protected   string
+	gauges      []models.GaugeItem
 }
 
-func parseSection(code, body string) sectionOut {
-	sec := sectionOut{Code: code, Notes: ""}
+var (
+	reTotalLength = regexp.MustCompile(`\*\*Ukupna duljina dionice:\*\*\s*([\d.,]+)\s*km`)
+	reTotalEmb    = regexp.MustCompile(`\*\*Ukupno nasipa:\*\*\s*([\d.,]+)\s*km`)
+)
+
+func parseSection(code, body string) models.Section {
+	sec := models.Section{Code: code}
 	sec.SectorID, sec.AreaID = sectorAndArea(code)
 	unaligned := strings.Contains(body, "colspan")
+	if m := reTotalLength.FindStringSubmatch(body); m != nil {
+		if v, ok := hydro.ParseKm(m[1]); ok {
+			sec.LengthKm = &v
+		}
+	}
+	if m := reTotalEmb.FindStringSubmatch(body); m != nil {
+		if v, ok := hydro.ParseKm(m[1]); ok {
+			sec.EmbankmentKm = &v
+		}
+	}
 
 	var rows []row
 	var cur *row
@@ -134,20 +133,16 @@ func parseSection(code, body string) sectionOut {
 		case "Vodotok":
 			rows = append(rows, row{vodotok: strings.Join(strings.Fields(content), " ")})
 			cur = &rows[len(rows)-1]
-			cur.rowData.Unaligned = unaligned
 		case "Objekti na dionici":
 			if cur == nil {
 				continue
 			}
 			for _, cells := range tableRows(content, "stacion") {
-				st := cells[0]
 				name := ""
 				if len(cells) > 1 {
 					name = cells[1]
 				}
-				cur.rowData.Objects = append(cur.rowData.Objects, models.DocObject{
-					Kind: stationingKind(st), Stationing: st, Name: name,
-				})
+				cur.objects = append(cur.objects, parseObject(cells[0], name))
 			}
 		case "Nasipi":
 			if cur == nil {
@@ -158,91 +153,160 @@ func parseSection(code, body string) sectionOut {
 				if len(cells) > 1 {
 					data = cells[1]
 				}
-				cur.rowData.Embankments = append(cur.rowData.Embankments, models.EmbankmentItem{Name: cells[0], Data: data})
+				cur.embankments = append(cur.embankments, parseEmbankment(cells[0], data))
 			}
 		case "Ugroženo područje":
 			if cur == nil {
 				continue
 			}
-			cur.rowData.ProtectedArea = protectedText(content)
+			cur.protected = protectedText(content)
 		case "Vodomjeri i kriteriji":
 			if cur == nil {
 				continue
 			}
-			cur.rowData.Gauges = append(cur.rowData.Gauges, parseGauges(content)...)
+			cur.gauges = append(cur.gauges, parseGauges(content)...)
 		}
 	}
 
-	// poddionice: uzastopni redci s istim vodotokom
+	// poddionice: uzastopni redci iste vode se spajaju; objekt po nasipu
+	// pamti nasip svog retka kad je redak imao točno jedan
 	for _, r := range rows {
+		for i := range r.embankments {
+			distinctDamName(&r.embankments[i], r.vodotok)
+		}
+		for i := range r.objects {
+			if r.objects[i].StationingKind == hydro.StationingEmbankment && len(r.embankments) == 1 {
+				r.objects[i].OnEmbankment = r.embankments[0].Name
+			}
+		}
 		if n := len(sec.Parts); n > 0 && sec.Parts[n-1].Description == r.vodotok {
-			sec.Parts[n-1].Rows = append(sec.Parts[n-1].Rows, r.rowData)
+			p := &sec.Parts[n-1]
+			p.Embankments = append(p.Embankments, r.embankments...)
+			p.Objects = append(p.Objects, r.objects...)
+			p.Gauges = mergeGauges(p.Gauges, r.gauges)
+			p.ProtectedText = mergeProtected(p.ProtectedText, r.protected)
 			continue
 		}
-		p := models.SectionPart{Description: r.vodotok, Rows: []models.SectionRow{r.rowData}}
 		d := hydro.ParseSectionDescription(r.vodotok)
-		p.Bank = d.Bank
+		p := models.SectionPart{
+			Seq: len(sec.Parts) + 1, Description: r.vodotok, Bank: d.Bank, StationingKind: d.Kind, Extent: d.Extent,
+			ProtectedText: r.protected, Unaligned: unaligned,
+			Embankments: r.embankments, Objects: r.objects, Gauges: mergeGauges(nil, r.gauges),
+		}
 		if d.HasRange {
 			from, to := d.RkmFrom, d.RkmTo
-			p.RkmFrom, p.RkmTo = &from, &to
+			p.KmFrom, p.KmTo = &from, &to
+		}
+		if d.LengthKm > 0 {
+			l := d.LengthKm
+			p.LengthKm = &l
 		}
 		sec.Parts = append(sec.Parts, p)
-	}
-
-	// ravna polja kao unije, redom pojavljivanja
-	var descs []string
-	seenEmb, seenObj, seenGauge := map[string]bool{}, map[string]bool{}, map[string]bool{}
-	prot := newProtectedMerge()
-	for _, p := range sec.Parts {
-		descs = append(descs, p.Description)
-		for _, r := range p.Rows {
-			for _, e := range r.Embankments {
-				k := e.Name + "|" + e.Data
-				if !seenEmb[k] {
-					seenEmb[k] = true
-					sec.Embankments = append(sec.Embankments, e)
-				}
-			}
-			for _, o := range r.Objects {
-				k := o.Stationing + "|" + o.Name
-				if !seenObj[k] {
-					seenObj[k] = true
-					sec.Structures = append(sec.Structures, models.StructureItem{Station: o.Stationing, Name: o.Name})
-				}
-			}
-			for _, g := range r.Gauges {
-				// U ravnu uniju ide što je i dosad išlo — svaki redak tablice
-				// vodomjera — te prozni zapisi s pragovima P/R/I/IS, koje je
-				// stari prijepis gubio. Prozna mjerila druge vrste (kota na
-				// mostu u metrima, pravilnik retencije) ostaju samo u retku
-				// poddionice, da punjenje iz njih ne stvara postaje.
-				if g.FromText && !g.IsGauge() {
-					continue
-				}
-				k := g.StationName + "|" + g.PrepCm + "|" + g.RegularCm + "|" + g.EmergCm + "|" + g.CriticalCm
-				if !seenGauge[k] {
-					seenGauge[k] = true
-					sec.Gauges = append(sec.Gauges, g)
-				}
-			}
-			prot.add(r.ProtectedArea)
-		}
-	}
-	sec.Watercourse = strings.Join(descs, " | ")
-	sec.ProtectedArea = prot.String()
-	if sec.Embankments == nil {
-		sec.Embankments = []models.EmbankmentItem{}
-	}
-	if sec.Structures == nil {
-		sec.Structures = []models.StructureItem{}
-	}
-	if sec.Gauges == nil {
-		sec.Gauges = []models.GaugeItem{}
 	}
 	if sec.Parts == nil {
 		sec.Parts = []models.SectionPart{}
 	}
+	var descs []string
+	for _, p := range sec.Parts {
+		descs = append(descs, p.Description)
+	}
+	sec.Description = strings.Join(descs, " · ")
 	return sec
+}
+
+var reRetention = regexp.MustCompile(`(?i)\b(retencij[ae]|akumulacij[ae]|jezer[oa])\s+([^;,()]+)`)
+
+// distinctDamName daje generičkoj brani ime njezine retencije ili
+// akumulacije: šest retencija jednog potoka ima šest "nasutih homogenih
+// zemljanih brana", a u registru su to različite građevine. Vrsta brane iz
+// dokumentacije seli u podatke nasipa.
+func distinctDamName(e *models.PartEmbankment, vodotok string) {
+	low := strings.ToLower(e.Name)
+	if !strings.Contains(low, "brana") {
+		return
+	}
+	m := reRetention.FindStringSubmatch(vodotok)
+	if m == nil {
+		return
+	}
+	what := strings.TrimSpace(m[2])
+	if what == "" || strings.Contains(low, strings.ToLower(what)) {
+		return
+	}
+	kind := strings.ToLower(m[1])
+	switch {
+	case strings.HasPrefix(kind, "akumul"):
+		kind = "akumulacije"
+	case strings.HasPrefix(kind, "jezer"):
+		kind = "jezera"
+	default:
+		kind = "retencije"
+	}
+	if e.Data != "" {
+		e.Data = strings.TrimSpace(e.Name) + "; " + e.Data
+	} else {
+		e.Data = strings.TrimSpace(e.Name)
+	}
+	e.Name = fmt.Sprintf("Brana %s %s", kind, what)
+}
+
+// parseObject čita objekt iz stacionaže i naziva: vrstu i kilometražu iz
+// stacionaže, obalu s početka naziva
+func parseObject(stationing, name string) models.PartObject {
+	o := models.PartObject{StationingText: strings.TrimSpace(stationing)}
+	o.Bank, o.Name = hydro.ParseObjectBank(name)
+	if m := kindRe.FindStringSubmatch(o.StationingText); m != nil {
+		o.StationingKind = hydro.NormalizeStationingKind(m[1])
+	}
+	if km, ok := hydro.ParseStationingKm(o.StationingText); ok {
+		o.Stationing = &km
+	} else if km, ok := hydro.ParseKm(o.StationingText); ok && strings.Contains(o.StationingText, "+") {
+		o.Stationing = &km
+	}
+	return o
+}
+
+// parseEmbankment čita nasip: naziv i odsjek uz vodu i po nasipu
+func parseEmbankment(name, data string) models.PartEmbankment {
+	e := models.PartEmbankment{Name: strings.TrimSpace(name), Data: strings.TrimSpace(data)}
+	d := hydro.ParseEmbankmentData(data)
+	if d.HasWater {
+		from, to := d.WaterFrom, d.WaterTo
+		e.WaterKind, e.WaterFrom, e.WaterTo = d.WaterKind, &from, &to
+	}
+	if d.HasEmb {
+		from, to := d.EmbFrom, d.EmbTo
+		e.EmbFrom, e.EmbTo = &from, &to
+	}
+	if d.LengthKm > 0 {
+		l := d.LengthKm
+		e.LengthKm = &l
+	}
+	return e
+}
+
+// mergeGauges dodaje vodomjere bez ponavljanja
+func mergeGauges(have, add []models.GaugeItem) []models.GaugeItem {
+	seen := map[string]bool{}
+	for _, g := range have {
+		seen[g.StationName+"|"+g.PrepCm+"|"+g.RegularCm+"|"+g.EmergCm+"|"+g.CriticalCm] = true
+	}
+	for _, g := range add {
+		k := g.StationName + "|" + g.PrepCm + "|" + g.RegularCm + "|" + g.EmergCm + "|" + g.CriticalCm
+		if !seen[k] {
+			seen[k] = true
+			have = append(have, g)
+		}
+	}
+	return have
+}
+
+// mergeProtected spaja ugrožena područja dvaju redaka iste vode
+func mergeProtected(a, b string) string {
+	p := newProtectedMerge()
+	p.add(a)
+	p.add(b)
+	return p.String()
 }
 
 // sectorAndArea iz šifre "B.34.14" čita sektor B i područje 34
@@ -280,16 +344,6 @@ func tableRows(content, headerWord string) [][]string {
 }
 
 var kindRe = regexp.MustCompile(`^([a-zA-Z]+)\s*[\d]`)
-
-// stationingKind čita po čemu se objekt stacionira: rkm rijeke, km nasipa,
-// pkm potoka, kkm kanala; prazno kad stacionaže nema (dijelovi brane)
-func stationingKind(st string) string {
-	m := kindRe.FindStringSubmatch(strings.TrimSpace(st))
-	if m == nil {
-		return ""
-	}
-	return strings.ToLower(m[1])
-}
 
 var (
 	gaugeLineRe = regexp.MustCompile(`^(.+?);\s*P\s*=\s*([^;]+);\s*R\s*=\s*([^;]+);\s*I\s*=\s*([^;]+);\s*IS\s*=\s*([^;]+?)(?:;\s*M\s*=\s*(.+))?$`)
@@ -340,7 +394,7 @@ func parseGauges(content string) []models.GaugeItem {
 }
 
 // protectedText pretvara popis "- **Županija**\n  - Općina: naselja" u
-// "**Županija**; Općina: naselja", kako je prijepis i dosad zapisivao
+// "**Županija**; Općina: naselja"
 func protectedText(content string) string {
 	var parts []string
 	for _, line := range strings.Split(content, "\n") {
@@ -408,22 +462,4 @@ func contains(list []string, s string) bool {
 		}
 	}
 	return false
-}
-
-// sectionLess slaže šifre prirodno: B.34.2 prije B.34.14
-func sectionLess(a, b string) bool {
-	pa, pb := strings.Split(a, "."), strings.Split(b, ".")
-	for i := 0; i < len(pa) && i < len(pb); i++ {
-		if pa[i] == pb[i] {
-			continue
-		}
-		var na, nb int
-		_, ea := fmt.Sscanf(pa[i], "%d", &na)
-		_, eb := fmt.Sscanf(pb[i], "%d", &nb)
-		if ea == nil && eb == nil {
-			return na < nb
-		}
-		return pa[i] < pb[i]
-	}
-	return len(pa) < len(pb)
 }

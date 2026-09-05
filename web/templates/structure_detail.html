@@ -90,25 +90,11 @@
         </div>
         <p style="font-size:0.8rem; margin:0;">{{.Description}}</p>
       </a>
-      {{if $.CanEdit}}
-      <form method="POST" action="/structures/{{$.Structure.ID}}/unlink" style="margin:0; padding:0 1rem 0.75rem;" onsubmit="return confirm('Ukloniti vezu s dionicom {{.Code}}?')">
-        <input type="hidden" name="section_code" value="{{.Code}}">
-        <button type="submit" class="btn btn-sm btn-link" style="padding:0; color:var(--text-muted);">Ukloni vezu</button>
-      </form>
-      {{end}}
     </article>
     {{else}}
     <div class="reg-empty">Objekt nije vezan ni na jednu dionicu.</div>
     {{end}}
   </div>
-  {{if .CanEdit}}
-  <form method="POST" action="/structures/{{.Structure.ID}}/link" style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:flex-end; margin-top:0.25rem;">
-    <div class="form-group" style="flex:1; min-width:12rem; margin:0;">
-      <label class="form-label" for="section_code">Veži na dionicu (šifra)</label>
-      <input type="text" id="section_code" name="section_code" class="form-control" placeholder="npr. B.16.4" required autocomplete="off" style="font-family:ui-monospace, monospace;">
-    </div>
-    <button type="submit" class="btn btn-secondary" style="min-height:40px;">{{icon "link"}} Veži</button>
-  </form>
-  {{end}}
+  <p class="form-help">Objekt se na dionicu veže u obrascu dionice, u poddionici na kojoj stoji.</p>
 </section>
 {{end}}

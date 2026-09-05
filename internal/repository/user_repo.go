@@ -660,6 +660,23 @@ func (r *UserRepository) GetUserPermissions(userID uuid.UUID) (*models.UserPermi
 }
 
 // ListSectors vraća sve sektore
+// GlobalAdminContact vraća ime, telefon i e-poštu glavnog administratora
+// koji ima bar jedan kontakt; on na stranici prijave pomaže oko prijave i
+// početne lozinke. Prednost ima onaj s mobitelom i e-poštom, pa najstariji račun.
+func (r *UserRepository) GlobalAdminContact() (name, phone, email string, ok bool) {
+	err := r.db.QueryRow(`
+		SELECT full_name, CASE WHEN mobile_phone <> '' THEN mobile_phone ELSE phone END, email
+		FROM users
+		WHERE is_global_admin = 1 AND is_active = 1
+		  AND (mobile_phone <> '' OR phone <> '' OR email <> '')
+		ORDER BY (mobile_phone <> '') DESC, (email <> '') DESC, created_at ASC
+		LIMIT 1`).Scan(&name, &phone, &email)
+	if err != nil {
+		return "", "", "", false
+	}
+	return name, phone, email, true
+}
+
 func (r *UserRepository) ListSectors() ([]models.Sector, error) {
 	rows, err := r.db.Query("SELECT id, name, vgo_name, center_cop, address, phone, email FROM sectors ORDER BY CASE WHEN id = 'DIREKCIJA' THEN 0 ELSE 1 END, id ASC")
 	if err != nil {
@@ -680,7 +697,7 @@ func (r *UserRepository) ListSectors() ([]models.Sector, error) {
 
 // ListAreas vraća branjena područja
 func (r *UserRepository) ListAreas(sectorID string) ([]models.Area, error) {
-	query := "SELECT id, sector_id, name, vgi_name, subcenter FROM areas"
+	query := "SELECT id, sector_id, name, vgi_name, subcenter, COALESCE(contractor_name, '') FROM areas"
 	var args []any
 	if sectorID != "" {
 		query += " WHERE sector_id = ?"
@@ -697,7 +714,7 @@ func (r *UserRepository) ListAreas(sectorID string) ([]models.Area, error) {
 	var areas []models.Area
 	for rows.Next() {
 		var a models.Area
-		if err := rows.Scan(&a.ID, &a.SectorID, &a.Name, &a.VgiName, &a.Subcenter); err != nil {
+		if err := rows.Scan(&a.ID, &a.SectorID, &a.Name, &a.VgiName, &a.Subcenter, &a.ContractorName); err != nil {
 			return nil, err
 		}
 		areas = append(areas, a)

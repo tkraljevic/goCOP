@@ -156,18 +156,6 @@ const (
 	ZeroDatumSystemNew = "HVRS71"
 )
 
-// ZeroDatumSystemLabel vraća naziv visinskog sustava za prikaz
-func ZeroDatumSystemLabel(system string) string {
-	switch system {
-	case ZeroDatumSystemOld, "STARI":
-		return "Trst"
-	case ZeroDatumSystemNew, "NOVI":
-		return "HVRS71"
-	default:
-		return system
-	}
-}
-
 // Odakle je utvrđena voda na kojoj postaja stoji. Vodotok se upisuje samo kad ga
 // dokumentacija tvrdi; kad je neodređen, ostaje prazan umjesto da se pogodi iz
 // dionice, jer dionica govori za što je postaja mjerodavna, a ne gdje stoji.

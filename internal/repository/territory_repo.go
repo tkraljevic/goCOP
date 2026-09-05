@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 
 	"gocop/internal/ledger"
 	"gocop/internal/models"
@@ -71,37 +70,11 @@ func getSettlementTx(ctx context.Context, q rowQuerier, id int) (models.Settleme
 	return st, nil
 }
 
-func getSectionTerritoryTx(ctx context.Context, q rowQuerier, id string) (models.SectionTerritory, error) {
-	var st models.SectionTerritory
-	var settlement sql.NullInt64
-	err := q.QueryRowContext(ctx, `SELECT id, section_code, county_id, municipality_id, settlement_id, created_at FROM section_territories WHERE id = ?`, id).
-		Scan(&st.ID, &st.SectionCode, &st.CountyID, &st.MunicipalityID, &settlement, &st.CreatedAt)
-	if err != nil {
-		return st, err
-	}
-	if settlement.Valid {
-		v := int(settlement.Int64)
-		st.SettlementID = &v
-	}
-	return st, nil
-}
-
-// archiveSectionTerritories arhivira veze dionica koje nestaju s brisanjem jedinice
+// archiveSectionTerritories briše kazalo veza dionica s jedinicom koja
+// nestaje; kazalo je izvedeno iz poddionica, pa se ne arhivira zasebno
 func (r *TerritoryRepository) archiveSectionTerritories(ctx context.Context, tx *sql.Tx, where string, arg any) error {
-	ids, err := idsOf(ctx, tx, "SELECT id FROM section_territories WHERE "+where, arg)
-	if err != nil {
-		return err
-	}
-	for _, id := range ids {
-		link, err := getSectionTerritoryTx(ctx, tx, id)
-		if err != nil {
-			return err
-		}
-		if _, err := r.rec.Archive(ctx, tx, EntitySectionTerritories, id, link); err != nil {
-			return err
-		}
-	}
-	return nil
+	_, err := tx.ExecContext(ctx, "DELETE FROM section_territories WHERE "+where, arg)
+	return err
 }
 
 // ListCounties vraća sve županije sortirane po redoslijedu/nazivu
@@ -306,51 +279,6 @@ func (r *TerritoryRepository) GetSectionTerritories(ctx context.Context, section
 		list = append(list, item)
 	}
 	return list, nil
-}
-
-// AddSectionTerritory dodaje novu vezu dionica <-> naselje/općina
-func (r *TerritoryRepository) AddSectionTerritory(ctx context.Context, item *models.SectionTerritory) error {
-	if item.CreatedAt.IsZero() {
-		item.CreatedAt = time.Now()
-	}
-
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
-	if _, err := tx.ExecContext(ctx, `
-		INSERT INTO section_territories (id, section_code, county_id, municipality_id, settlement_id, created_at)
-		VALUES (?, ?, ?, ?, ?, ?)
-	`, item.ID, item.SectionCode, item.CountyID, item.MunicipalityID, item.SettlementID, item.CreatedAt); err != nil {
-		return fmt.Errorf("greška pri dodavanju teritorija na dionicu: %w", err)
-	}
-	if _, err := r.rec.Record(ctx, tx, EntitySectionTerritories, item.ID, item); err != nil {
-		return err
-	}
-	return tx.Commit()
-}
-
-// RemoveSectionTerritory uklanja vezu dionica <-> naselje/općina
-func (r *TerritoryRepository) RemoveSectionTerritory(ctx context.Context, id string) error {
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
-	link, err := getSectionTerritoryTx(ctx, tx, id)
-	if err != nil && err != sql.ErrNoRows {
-		return err
-	}
-	if _, err := tx.ExecContext(ctx, "DELETE FROM section_territories WHERE id = ?", id); err != nil {
-		return fmt.Errorf("greška pri brisanju veze teritorija %s: %w", id, err)
-	}
-	if _, err := r.rec.Archive(ctx, tx, EntitySectionTerritories, id, link); err != nil {
-		return err
-	}
-	return tx.Commit()
 }
 
 // GetTerritoryCounts vraća ukupan broj županija, gradova/općina i naselja

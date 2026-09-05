@@ -1,7 +1,6 @@
 package db
 
 import (
-	"encoding/json"
 	"strings"
 	"testing"
 
@@ -13,11 +12,14 @@ import (
 
 func loadSections(t *testing.T) []seedSectionGauges {
 	t.Helper()
-	var sections []seedSectionGauges
-	if err := json.Unmarshal(sectionsJSON, &sections); err != nil {
+	if !UseRepoData() {
+		t.Skip("data/sections.json nije dostupan — registri stoje izvan repozitorija")
+	}
+	embedded, err := LoadSections()
+	if err != nil {
 		t.Fatalf("sections.json se ne može pročitati: %v", err)
 	}
-	return sections
+	return gaugesFromSections(embedded)
 }
 
 // TestBuildStationDraftsNaStvarnimPodacima provjerava parser na cijeloj

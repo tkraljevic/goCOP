@@ -60,11 +60,6 @@ func New(db *sql.DB, nodeID string) *Recorder {
 	return &Recorder{db: db, nodeID: nodeID}
 }
 
-// NodeID vraća čvor u čije ime Recorder piše
-func (r *Recorder) NodeID() string {
-	return r.nodeID
-}
-
 var ErrNoVersion = errors.New("zapis nema nijednu verziju")
 
 // Record upisuje novu verziju zapisa i vraća njezin identifikator.
@@ -140,31 +135,6 @@ func (r *Recorder) History(ctx context.Context, entity, entityID string) ([]Vers
 		WHERE entity = ? AND entity_id = ?
 		ORDER BY version_id DESC
 	`, entity, entityID)
-}
-
-// Get vraća jednu verziju po identifikatoru
-func (r *Recorder) Get(ctx context.Context, versionID string) (*Version, error) {
-	versions, err := r.query(ctx, `SELECT `+columns+` FROM record_versions WHERE version_id = ?`, versionID)
-	if err != nil {
-		return nil, err
-	}
-	if len(versions) == 0 {
-		return nil, ErrNoVersion
-	}
-	return &versions[0], nil
-}
-
-// Since vraća verzije novije od zadane, redom nastanka — to je ono što se
-// šalje drugom čvoru. Prazan afterVersionID znači sve od početka.
-func (r *Recorder) Since(ctx context.Context, afterVersionID string, limit int) ([]Version, error) {
-	if limit <= 0 {
-		limit = 1000
-	}
-	return r.query(ctx, `
-		SELECT `+columns+` FROM record_versions
-		WHERE version_id > ?
-		ORDER BY version_id ASC LIMIT ?
-	`, afterVersionID, limit)
 }
 
 // Apply prima verzije s drugog čvora i upisuje one koje ovaj čvor nema.
@@ -281,6 +251,19 @@ func (r *Recorder) Frontier(ctx context.Context) (map[string]string, error) {
 		out[node] = max
 	}
 	return out, rows.Err()
+}
+
+// Since vraća verzije novije od zadane, redom nastanka — to je ono što se
+// šalje drugom čvoru. Prazan afterVersionID znači sve od početka.
+func (r *Recorder) Since(ctx context.Context, afterVersionID string, limit int) ([]Version, error) {
+	if limit <= 0 {
+		limit = 1000
+	}
+	return r.query(ctx, `
+		SELECT `+columns+` FROM record_versions
+		WHERE version_id > ?
+		ORDER BY version_id ASC LIMIT ?
+	`, afterVersionID, limit)
 }
 
 // SinceByNode vraća verzije jednog autora novije od zadane, redom nastanka

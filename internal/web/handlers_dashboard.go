@@ -10,14 +10,33 @@ import (
 )
 
 type DashboardHandler struct {
-	userService *service.UserService
-	tmpl        *template.Template
+	userService  *service.UserService
+	tmpl         *template.Template
+	registriTmpl *template.Template
 }
 
-func NewDashboardHandler(userService *service.UserService, tmpl *template.Template) *DashboardHandler {
+func NewDashboardHandler(userService *service.UserService, tmpl, registriTmpl *template.Template) *DashboardHandler {
 	return &DashboardHandler{
-		userService: userService,
-		tmpl:        tmpl,
+		userService:  userService,
+		tmpl:         tmpl,
+		registriTmpl: registriTmpl,
+	}
+}
+
+// ShowRegisters prikazuje ulaznu stranicu za registre dostupne korisniku.
+func (h *DashboardHandler) ShowRegisters(w http.ResponseWriter, r *http.Request) {
+	user, _ := r.Context().Value(contextKeyUser).(*models.User)
+	perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
+	data := DashboardViewData{
+		CurrentUser:  user,
+		Perms:        perms,
+		ActiveNav:    "registers",
+		ViewAsBanner: viewBanner(r),
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := h.registriTmpl.ExecuteTemplate(w, "registri.html", data); err != nil {
+		http.Error(w, "Greška pri renderiranju registara: "+err.Error(), http.StatusInternalServerError)
 	}
 }
 

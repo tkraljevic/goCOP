@@ -276,48 +276,6 @@ func (h *StructuresHandler) HandleDelete(w http.ResponseWriter, r *http.Request)
 	redirectWith(w, r, "/structures", "success", "Objekt je obrisan iz registra; zapis ostaje u povijesti.")
 }
 
-// HandleLink veže objekt na dionicu; HandleUnlink skida vezu
-func (h *StructuresHandler) HandleLink(w http.ResponseWriter, r *http.Request) {
-	h.link(w, r, true)
-}
-
-func (h *StructuresHandler) HandleUnlink(w http.ResponseWriter, r *http.Request) {
-	h.link(w, r, false)
-}
-
-func (h *StructuresHandler) link(w http.ResponseWriter, r *http.Request, add bool) {
-	_, perms := h.base(r)
-	id, err := uuid.Parse(r.PathValue("id"))
-	if err != nil {
-		http.NotFound(w, r)
-		return
-	}
-	code := strings.TrimSpace(r.FormValue("section_code"))
-	back := "/structures/" + id.String()
-	if code == "" {
-		redirectWith(w, r, back, "error", "Šifra dionice je obavezna")
-		return
-	}
-	if add {
-		if sec, err := h.sectionService.GetSectionWithDetails(code); err != nil || sec == nil {
-			redirectWith(w, r, back, "error", "Dionica "+code+" ne postoji")
-			return
-		}
-		err = h.structureService.LinkSection(r.Context(), perms, code, id)
-	} else {
-		err = h.structureService.UnlinkSection(r.Context(), perms, code, id)
-	}
-	if err != nil {
-		redirectWith(w, r, back, "error", err.Error())
-		return
-	}
-	if add {
-		redirectWith(w, r, back, "success", "Objekt je vezan na dionicu "+code+".")
-		return
-	}
-	redirectWith(w, r, back, "success", "Veza s dionicom "+code+" je uklonjena.")
-}
-
 // fillSector popunjava sektor iz područja kad obrazac šalje samo područje
 func (h *StructuresHandler) fillSector(st *models.Structure) {
 	if st.SectorID != "" || st.AreaID == 0 {

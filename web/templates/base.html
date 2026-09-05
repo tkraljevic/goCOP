@@ -38,13 +38,14 @@
           <a href="/" class="nav-link {{if eq .ActiveNav "dashboard"}}active{{end}}">{{icon "house"}} Početna</a>
           {{if .Sees "teren"}}<a href="/teren" class="nav-link {{if eq .ActiveNav "teren"}}active{{end}}">{{icon "map-pin"}} Teren</a>{{end}}
           {{if .Sees "vodostaji"}}<a href="/readings" class="nav-link {{if eq .ActiveNav "readings"}}active{{end}}">{{icon "activity"}} Vodostaji</a>{{end}}
+          {{if .Sees "dnevnici"}}<a href="/dnevnici" class="nav-link {{if eq .ActiveNav "journals"}}active{{end}}">{{icon "notebook"}} Dnevnici</a>{{end}}
           {{if .Sees "djelatnici"}}<a href="/users" class="nav-link {{if eq .ActiveNav "users"}}active{{end}}">{{icon "users"}} Djelatnici</a>{{end}}
 
           <!-- Registri su sami po sebi skupina, pa ne troše mjesto u traci -->
           {{if .Sees "registri"}}
           <div class="nav-group">
             <button type="button" class="nav-link nav-group-btn
-                {{if or (eq .ActiveNav "sections") (eq .ActiveNav "territories") (eq .ActiveNav "stations") (eq .ActiveNav "watercourses") (eq .ActiveNav "structures")}}active{{end}}"
+                {{if or (eq .ActiveNav "registers") (eq .ActiveNav "sections") (eq .ActiveNav "territories") (eq .ActiveNav "stations") (eq .ActiveNav "watercourses") (eq .ActiveNav "structures") (eq .ActiveNav "maintenance")}}active{{end}}"
                 aria-haspopup="true" aria-expanded="false" onclick="toggleNavGroup(event)">
               {{icon "book-open"}} Registri <span class="nav-caret">▾</span>
             </button>
@@ -63,6 +64,9 @@
               </a>
               <a href="/watercourses" class="nav-dropdown-item {{if eq .ActiveNav "watercourses"}}active{{end}}">
                 {{icon "droplet"}} Vodotoci i vodna tijela
+              </a>
+              <a href="/odrzavanje" class="nav-dropdown-item {{if eq .ActiveNav "maintenance"}}active{{end}}">
+                {{icon "wrench"}} Održavanje
               </a>
             </div>
           </div>

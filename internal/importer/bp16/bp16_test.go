@@ -26,7 +26,9 @@ func writeJSON(t *testing.T, dir, name string, v any) {
 }
 
 func TestUvozBP16(t *testing.T) {
-	db.UseRepoImenik()
+	if !db.UseRepoData() {
+		t.Skip("data/ s registrima nije dostupan — registri stoje izvan repozitorija")
+	}
 	database, err := db.OpenDB(filepath.Join(t.TempDir(), "uvoz.db"))
 	if err != nil {
 		t.Fatal(err)
