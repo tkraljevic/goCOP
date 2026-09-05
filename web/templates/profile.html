@@ -40,13 +40,17 @@
         <input type="text" id="short_mobile" name="short_mobile" class="form-control" inputmode="numeric" value="{{.User.ShortMobile}}" placeholder="5163">
         <div class="form-help">Kratki broj mobitela u zatvorenoj mreži.</div>
       </div>
+    </div>
+    <div class="form-row">
       <div class="form-group">
         <label class="form-label" for="phone">Fiksni telefon</label>
         <input type="tel" id="phone" name="phone" class="form-control" value="{{.User.Phone}}" placeholder="031 252 802">
+        <div class="form-help">Telefon u uredu, s pozivnim brojem.</div>
       </div>
       <div class="form-group">
         <label class="form-label" for="short_phone">Lokal</label>
         <input type="text" id="short_phone" name="short_phone" class="form-control" inputmode="numeric" value="{{.User.ShortPhone}}" placeholder="2802">
+        <div class="form-help">Skraćeni broj uredskog telefona u zatvorenoj mreži.</div>
       </div>
     </div>
     <div class="form-group">

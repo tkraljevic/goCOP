@@ -153,9 +153,9 @@ type User struct {
 	MustChangePassword bool       `json:"must_change_password"`
 	OrgType            OrgType    `json:"org_type"`
 	OrgName            string     `json:"org_name"`     // npr. "VGO Osijek, Splavarska 2a", "Bistra d.o.o."
-	Phone              string     `json:"phone"`        // Fiksni telefon (npr. 031/252-802)
+	Phone              string     `json:"phone"`        // Telefon u uredu, s pozivnim brojem (npr. 031/252-802)
 	MobilePhone        string     `json:"mobile_phone"` // Broj mobitela (npr. 099-000-0000)
-	ShortPhone         string     `json:"short_phone"`  // Skraćeni lokal iz Imenika (npr. 2802)
+	ShortPhone         string     `json:"short_phone"`  // Lokal: skraćeni broj uredskog telefona u mreži (npr. 2802)
 	ShortMobile        string     `json:"short_mobile"` // Skraćeni broj mobitela u zatvorenoj mreži (npr. 5163)
 	Email              string     `json:"email"`
 	IsActive           bool       `json:"is_active"`               // Smije li se osoba prijaviti — odluka administratora, a ne trag korištenja
