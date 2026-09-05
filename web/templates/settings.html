@@ -1,6 +1,6 @@
 {{template "base.html" .}}
 
-{{define "title"}}goCOP — Postavke{{end}}
+{{define "title"}}goCOP — Čvor i mreža{{end}}
 
 {{define "content"}}
 <style>
@@ -25,9 +25,11 @@
   @media (min-width: 900px) { .cards { max-width: 980px; display: grid; grid-template-columns: 1fr 1fr; align-items: start; } .card.wide { grid-column: 1 / -1; } }
 </style>
 
+<div class="breadcrumb"><a href="/administracija">Administracija</a> › Čvor i mreža</div>
+
 <div class="page-header">
   <div>
-    <h1 class="page-title">{{icon "settings"}} Postavke</h1>
+    <h1 class="page-title">{{icon "radio-tower"}} Čvor, mreža i sinkronizacija</h1>
     <p class="page-desc">Ovaj čvor, poznati čvorovi, uparivanje i sinkronizacija. Svaki čvor je punopravna kopija — nijedan nije jedini.</p>
   </div>
 </div>

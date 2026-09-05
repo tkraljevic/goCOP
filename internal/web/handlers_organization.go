@@ -54,7 +54,7 @@ func (h *OrgHandler) pageData(r *http.Request) OrgPageData {
 	return OrgPageData{
 		CurrentUser: currUser, Permissions: perms,
 		SuccessMessage: r.URL.Query().Get("success"), ErrorMessage: r.URL.Query().Get("error"),
-		ActiveNav: "registri", ViewAsBanner: viewBanner(r),
+		ActiveNav: "organizacija", ViewAsBanner: viewBanner(r),
 	}
 }
 
