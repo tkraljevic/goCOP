@@ -132,6 +132,7 @@ func (h *UsersHandler) HandleCreateUser(w http.ResponseWriter, r *http.Request) 
 		Phone:         r.FormValue("phone"),
 		MobilePhone:   r.FormValue("mobile_phone"),
 		ShortPhone:    r.FormValue("short_phone"),
+		ShortMobile:   r.FormValue("short_mobile"),
 		Email:         r.FormValue("email"),
 		DutyTitle:     r.FormValue("duty_title"),
 		Role:          models.Role(r.FormValue("role")),
@@ -179,6 +180,7 @@ func (h *UsersHandler) HandleUpdateUser(w http.ResponseWriter, r *http.Request) 
 		Phone:         r.FormValue("phone"),
 		MobilePhone:   r.FormValue("mobile_phone"),
 		ShortPhone:    r.FormValue("short_phone"),
+		ShortMobile:   r.FormValue("short_mobile"),
 		Email:         r.FormValue("email"),
 		IsActive:      isActive,
 	}
@@ -221,6 +223,7 @@ func (h *UsersHandler) HandleUpdateProfile(w http.ResponseWriter, r *http.Reques
 		Phone:         r.FormValue("phone"),
 		MobilePhone:   r.FormValue("mobile_phone"),
 		ShortPhone:    r.FormValue("short_phone"),
+		ShortMobile:   r.FormValue("short_mobile"),
 		Email:         r.FormValue("email"),
 		IsActive:      perms.User.IsActive,
 	}

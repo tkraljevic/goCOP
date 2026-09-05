@@ -42,6 +42,7 @@ func InitSchema(database *sql.DB) error {
 			phone TEXT,
 			mobile_phone TEXT,
 			short_phone TEXT,
+			short_mobile TEXT,
 			email TEXT,
 			is_active INTEGER NOT NULL DEFAULT 1,
 			last_login_at DATETIME,
@@ -556,6 +557,7 @@ func migrateSchema(database *sql.DB) error {
 		{"users", "last_login_at", "DATETIME"},
 		{"sessions", "viewing_as", "TEXT"},
 		{"sections", "parts", "TEXT NOT NULL DEFAULT '[]'"},
+		{"users", "short_mobile", "TEXT"},
 	}
 
 	// Vrijednosti koje su promijenile ime nakon što su upisane
