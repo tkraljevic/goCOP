@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Uparivanje | goCOP — Hrvatske vode</title>
+  <meta name="color-scheme" content="light dark">
+  <script>(function () { try { var t = localStorage.getItem('gocop-theme'); if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t); } catch (e) {} })();</script>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <style>
+    .wrap { min-height: 100vh; display: flex; align-items: flex-start; justify-content: center; padding: 1rem; background: linear-gradient(160deg, #0d274a 0%, #173e74 60%, #1f5aa6 100%); }
+    .box { background: var(--surface); border-radius: 12px; padding: 1.5rem; width: 100%; max-width: 560px; box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.3); margin-top: 2rem; }
+    .brand { display: flex; align-items: center; gap: 0.6rem; color: var(--primary); font-weight: 700; font-size: 0.8rem; letter-spacing: 0.16em; text-transform: uppercase; margin-bottom: 1rem; }
+    .brand img { width: 36px; height: 36px; }
+    h1 { font-size: 1.25rem; margin: 0 0 0.25rem; }
+    .sub { font-size: 0.85rem; color: var(--text-muted); margin: 0 0 1rem; }
+    .steps { display: grid; gap: 0.75rem; }
+    .step { border: 1px solid var(--border); border-radius: 10px; padding: 0.9rem 1rem; opacity: 0.55; }
+    .step.on { opacity: 1; border-color: var(--primary); }
+    .step.done { opacity: 0.8; border-color: #2e7d5b; }
+    .step h2 { font-size: 0.95rem; margin: 0 0 0.35rem; display: flex; align-items: center; gap: 0.5rem; }
+    .num { display: inline-flex; width: 1.6rem; height: 1.6rem; border-radius: 50%; background: var(--primary); color: #fff; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700; }
+    .done .num { background: #2e7d5b; }
+    .desc { font-size: 0.82rem; color: var(--text-muted); margin: 0 0 0.6rem; }
+    .actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+    .sas { font-family: "SFMono-Regular", Menlo, monospace; font-size: 2.4rem; letter-spacing: 0.25em; text-align: center; padding: 0.5rem 0; }
+    .muted { color: var(--text-muted); font-size: 0.85rem; }
+    .err { color: #b23a2e; font-size: 0.85rem; }
+    .ok { color: #2e7d5b; }
+    .peer { border-top: 1px solid var(--border); padding: 0.5rem 0; display: flex; justify-content: space-between; gap: 0.5rem; align-items: center; flex-wrap: wrap; font-size: 0.9rem; }
+    .me { font-size: 0.8rem; color: var(--text-muted); margin-top: 1rem; border-top: 1px dashed var(--border-strong); padding-top: 0.6rem; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="box">
+    <div class="brand"><img src="/static/img/hv-mark.svg" alt="">Hrvatske vode · goCOP</div>
+    <h1>Poveži ovo računalo s uredom</h1>
+    <p class="sub">
+      {{if .InNetwork}}Ovo računalo je član mreže <b>{{.Network}}</b>. Ovdje ga možete upariti s još jednim računalom ili odmah pokrenuti razmjenu podataka.
+      {{else}}Ovo računalo još nije u mreži. Dok se ne upari s uredom, u njemu nema ni djelatnika ni registara.
+      Za uparivanje treba osoba i na drugoj strani: oba ekrana pokažu isti kod i oboje ga potvrde.{{end}}
+    </p>
+
+    <div class="steps">
+      <div class="step on" id="step-find">
+        <h2><span class="num">1</span> Pronađi drugo računalo</h2>
+        <p class="desc">Ako ste u istoj lokalnoj mreži, program ga sam nađe. Inače upišite adresu koju vam kaže osoba u uredu, ili pričekajte da ured nazove ovo računalo.</p>
+        <div class="actions">
+          <button type="button" class="btn btn-primary" onclick="discover()">Pretraži lokalnu mrežu</button>
+          <input type="text" id="addr" class="form-control" placeholder="adresa, npr. 192.168.1.20" style="max-width:220px;">
+          <button type="button" class="btn btn-secondary" onclick="dial()">Nazovi</button>
+          <button type="button" class="btn btn-secondary" onclick="listen()">Čekaj poziv ureda</button>
+        </div>
+        <div id="found"></div>
+        <p id="status" class="muted" style="margin:0.5rem 0 0;"></p>
+      </div>
+
+      <div class="step" id="step-code">
+        <h2><span class="num">2</span> Usporedi kod</h2>
+        <p class="desc">Isti kod mora pisati i na drugom ekranu. Ako se razlikuje, netko se ubacio između: odbijte.</p>
+        <div id="pending" style="display:none;">
+          <p style="margin:0;">Računalo <b id="peer-name"></b> <span class="muted mono" id="peer-id"></span></p>
+          <div class="sas" id="sas"></div>
+          <div class="actions">
+            <button type="button" class="btn btn-primary" onclick="confirmPair(true)">Kod se podudara — upari</button>
+            <button type="button" class="btn btn-secondary" onclick="confirmPair(false)">Odbij</button>
+          </div>
+        </div>
+        <p id="code-result" class="muted" style="margin:0;"></p>
+      </div>
+
+      <div class="step {{if .InNetwork}}on{{end}}" id="step-sync">
+        <h2><span class="num">3</span> Preuzmi podatke</h2>
+        <p class="desc">Razmjena s uparenim računalima donosi djelatnike, registre i dnevnike. Prvi put može potrajati koju minutu.</p>
+        <div class="actions">
+          <button type="button" class="btn btn-primary" id="sync-btn" onclick="sync()" {{if not .InNetwork}}disabled{{end}}>Sinkroniziraj</button>
+        </div>
+        <p id="sync-result" class="muted" style="margin:0.5rem 0 0;"></p>
+        {{if .Peers}}<div style="margin-top:0.5rem;">{{range .Peers}}<div class="peer"><span>{{if .Name}}{{.Name}}{{else}}{{.NodeID}}{{end}}</span><span class="muted">{{if .LastSync}}zadnja razmjena {{.LastSync.Format "02.01.2006 15:04"}}{{else}}još bez razmjene{{end}}</span></div>{{end}}</div>{{end}}
+      </div>
+    </div>
+
+    <div class="actions" style="margin-top:1rem;">
+      {{if .User}}<a href="/profile" class="btn btn-secondary">Natrag na profil</a>{{else}}<a href="/login" class="btn btn-secondary" id="login-link">Na prijavu</a>{{end}}
+    </div>
+
+    <div class="me">
+      Ovo računalo: <b>{{.NodeName}}</b> <span class="mono">{{.NodeID}}</span> · uparivanje na portu {{.PairPort}}.
+      Tako ga vidi osoba na drugoj strani.
+    </div>
+  </div>
+</div>
+
+<script>
+const api = (url, body) => fetch(url, {
+  method: body === undefined ? 'GET' : 'POST',
+  headers: {'Content-Type': 'application/json'},
+  body: body === undefined ? undefined : JSON.stringify(body)
+}).then(async r => { if (!r.ok) throw new Error(await r.text()); return r.json(); });
+
+let poll = null;
+const $ = id => document.getElementById(id);
+function on(id, cls) { const el = $(id); el.classList.remove('on', 'done'); if (cls) el.classList.add(cls); }
+
+function show(st) {
+  const status = $('status');
+  if (st.error) { status.innerHTML = '<span class="err">' + st.error + '</span>'; }
+  else if (st.waiting) { status.textContent = 'Čeka se da ured nazove ovo računalo…'; }
+  else if (!st.pending) { status.textContent = ''; }
+  if (st.pending) {
+    on('step-find', 'done'); on('step-code', 'on');
+    $('pending').style.display = 'block';
+    $('peer-name').textContent = st.peer.name || '';
+    $('peer-id').textContent = st.peer.deviceId || '';
+    $('sas').textContent = st.sas;
+  } else {
+    $('pending').style.display = 'none';
+  }
+  if (st.in_network) { $('sync-btn').disabled = false; if (!st.pending) on('step-sync', 'on'); }
+  if ((st.waiting || st.pending) && !poll) {
+    poll = setInterval(async () => { try { show(await api('/api/uparivanje/status')); } catch (e) {} }, 1500);
+  }
+  if (!st.waiting && !st.pending && poll) { clearInterval(poll); poll = null; }
+}
+
+async function listen() { try { show(await api('/api/uparivanje/listen', {})); } catch (e) { $('status').innerHTML = '<span class="err">' + e.message + '</span>'; } }
+async function dial(addr) {
+  addr = addr || $('addr').value.trim();
+  if (!addr) { $('status').textContent = 'Upišite adresu računala.'; return; }
+  $('status').textContent = 'Zovem ' + addr + '…';
+  try { show(await api('/api/uparivanje/dial', {addr})); } catch (e) { $('status').innerHTML = '<span class="err">' + e.message + '</span>'; }
+}
+async function confirmPair(approved) {
+  try {
+    const r = await api('/api/uparivanje/confirm', {approved});
+    $('pending').style.display = 'none';
+    if (r.paired) {
+      on('step-code', 'done'); on('step-sync', 'on');
+      $('code-result').innerHTML = '<span class="ok">' + (r.message || 'Računala su uparena.') + '</span>';
+      $('sync-btn').disabled = false;
+    } else {
+      on('step-code', ''); on('step-find', 'on');
+      $('code-result').innerHTML = '<span class="err">' + (r.message || 'Uparivanje odbijeno.') + '</span>';
+    }
+  } catch (e) { $('code-result').innerHTML = '<span class="err">' + e.message + '</span>'; }
+}
+async function discover() {
+  const box = $('found');
+  box.innerHTML = '<p class="muted">Pretraživanje…</p>';
+  try {
+    const r = await api('/api/uparivanje/discover');
+    if (!r.found.length) { box.innerHTML = '<p class="muted">U lokalnoj mreži nije nađeno nijedno goCOP računalo. Upišite adresu ili pričekajte poziv.</p>'; return; }
+    box.innerHTML = r.found.map(f => `
+      <div class="peer">
+        <span><b>${f.name || f.deviceId}</b> <span class="muted mono">${f.addr}</span>${f.known ? ' <span class="muted">· već upareno</span>' : ''}</span>
+        ${f.known ? '' : `<button class="btn btn-sm btn-primary" onclick="dial('${f.addr}')">Upari</button>`}
+      </div>`).join('');
+  } catch (e) { box.innerHTML = '<p class="err">' + e.message + '</p>'; }
+}
+async function sync() {
+  const out = $('sync-result');
+  $('sync-btn').disabled = true;
+  out.textContent = 'Razmjena u tijeku…';
+  try {
+    const r = await api('/api/uparivanje/sync', {});
+    const lines = Object.entries(r.results || {}).map(([k, v]) => k + ': ' + v);
+    out.innerHTML = '<span class="ok">' + (lines.join('<br>') || 'Nema uparenih računala.') + '</span>';
+    on('step-sync', 'done');
+    if (!r.fresh && $('login-link')) { out.innerHTML += '<br>Djelatnici su stigli. Prijavite se svojim računom.'; $('login-link').classList.replace('btn-secondary', 'btn-primary'); }
+  } catch (e) { out.innerHTML = '<span class="err">' + e.message + '</span>'; }
+  $('sync-btn').disabled = false;
+}
+api('/api/uparivanje/status').then(show).catch(() => {});
+</script>
+</body>
+</html>
