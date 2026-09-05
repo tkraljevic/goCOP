@@ -29,7 +29,7 @@ const sectionSelect = `
 	       s.embankments, s.structures, s.gauges, s.notes, s.created_at, s.updated_at,
 	       COALESCE(a.name, '') as area_name, COALESCE(sec.name, '') as sector_name,
 	       s.watercourse_code, COALESCE(w.name, '') as watercourse_name,
-	       s.bank, s.rkm_from, s.rkm_to
+	       s.bank, s.rkm_from, s.rkm_to, s.parts
 	FROM sections s
 	LEFT JOIN areas a ON s.area_id = a.id
 	LEFT JOIN sectors sec ON s.sector_id = sec.id
@@ -39,7 +39,7 @@ const sectionSelect = `
 // scanSection čita jedan redak dionice s pripadajućim JSON blokovima
 func scanSection(scanner interface{ Scan(...any) error }) (models.Section, error) {
 	var sec models.Section
-	var embJSON, strJSON, gagJSON sql.NullString
+	var embJSON, strJSON, gagJSON, partsJSON sql.NullString
 	var protArea, notes sql.NullString
 	var rkmFrom, rkmTo sql.NullFloat64
 
@@ -48,6 +48,7 @@ func scanSection(scanner interface{ Scan(...any) error }) (models.Section, error
 		&embJSON, &strJSON, &gagJSON, &notes, &sec.CreatedAt, &sec.UpdatedAt,
 		&sec.AreaName, &sec.SectorName,
 		&sec.WatercourseCode, &sec.WatercourseName, &sec.Bank, &rkmFrom, &rkmTo,
+		&partsJSON,
 	)
 	if err != nil {
 		return sec, err
@@ -70,6 +71,9 @@ func scanSection(scanner interface{ Scan(...any) error }) (models.Section, error
 	}
 	if gagJSON.Valid && gagJSON.String != "" {
 		_ = json.Unmarshal([]byte(gagJSON.String), &sec.Gauges)
+	}
+	if partsJSON.Valid && partsJSON.String != "" {
+		_ = json.Unmarshal([]byte(partsJSON.String), &sec.Parts)
 	}
 	return sec, nil
 }

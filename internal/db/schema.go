@@ -423,6 +423,7 @@ func migrateSchema(database *sql.DB) error {
 		{"watercourses", "origin", "TEXT NOT NULL DEFAULT ''"},
 		{"users", "last_login_at", "DATETIME"},
 		{"sessions", "viewing_as", "TEXT"},
+		{"sections", "parts", "TEXT NOT NULL DEFAULT '[]'"},
 	}
 
 	// Vrijednosti koje su promijenile ime nakon što su upisane

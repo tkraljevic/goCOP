@@ -167,6 +167,70 @@
   {{end}}
 </section>
 
+{{if .Section.HasParts}}
+<section class="detail-section">
+  <h2>{{icon "shield"}} Nasipi i objekti <span class="reg-chip">{{len .Section.Parts}} {{if eq (len .Section.Parts) 1}}poddionica{{else}}poddionice{{end}}</span></h2>
+  {{if .RegistryObjects}}
+  <p class="form-help" style="margin:0 0 0.5rem;">Iz registra objekata:</p>
+  <div class="reg-list" style="margin-bottom:1rem;">
+    {{range .RegistryObjects}}
+    <article class="reg-card">
+      <a class="reg-card-link" href="/structures/{{.ID}}">
+        <div class="reg-card-head">
+          <div>
+            <h3 class="reg-card-title">{{.Name}}</h3>
+            <div class="reg-card-sub">{{.KindLabel}}</div>
+          </div>
+        </div>
+      </a>
+    </article>
+    {{end}}
+  </div>
+  {{end}}
+  {{range $pi, $p := .Section.Parts}}
+  <div class="part">
+    <div class="part-head">
+      <span class="part-ordinal">{{add $pi 1}}</span>
+      <div>
+        <div class="part-desc">{{$p.Description}}</div>
+        {{if $p.Bank}}<div class="reading-meta">{{bankLabel $p.Bank}}{{if $p.RkmFrom}} · rkm {{derefFloat $p.RkmFrom 3}} – {{derefFloat $p.RkmTo 3}}{{end}}</div>{{end}}
+      </div>
+    </div>
+    {{if $p.Unaligned}}<div class="alert alert-warning" style="margin:0.5rem 0;">{{icon "triangle-alert"}} Stupci izvorne tablice ovdje se nisu poravnali pri prijepisu; provjeriti prema Privitku.</div>{{end}}
+    {{with $p.Gauges}}
+    <div class="part-gauges">
+      {{range .}}
+      <div class="part-gauge">{{icon "ruler"}} <strong>{{.StationName}}</strong>
+        {{if or .PrepCm .RegularCm .EmergCm .CriticalCm}}<span class="reading-meta">{{if .PrepCm}}P {{.PrepCm}}{{end}}{{if .RegularCm}} · R {{.RegularCm}}{{end}}{{if .EmergCm}} · I {{.EmergCm}}{{end}}{{if .CriticalCm}} · IS {{.CriticalCm}}{{end}}{{if .RecordCm}} · M {{.RecordCm}}{{end}}</span>{{end}}
+        {{if .Notes}}<span class="reading-meta"> · {{.Notes}}</span>{{end}}
+      </div>
+      {{end}}
+    </div>
+    {{end}}
+    {{range $p.Rows}}
+    <article class="reg-card part-row">
+      {{if .Embankments}}
+      <div class="part-block">
+        {{range .Embankments}}
+        <div class="part-emb"><strong>{{.Name}}</strong>{{if .Data}} <span class="mono">{{.Data}}</span>{{end}}</div>
+        {{end}}
+      </div>
+      {{end}}
+      {{if .Objects}}
+      <div class="part-block">
+        <div class="part-label">Objekti{{if eq (len .Embankments) 1}} na nasipu{{end}}</div>
+        <ul class="part-objects">
+          {{range .Objects}}<li>{{if .Stationing}}<span class="mono">{{.Stationing}}</span>{{if .KindLabel}} <span class="reading-meta">{{.KindLabel}}</span>{{end}} · {{end}}{{.Name}}</li>{{end}}
+        </ul>
+      </div>
+      {{end}}
+      {{if .ProtectedArea}}<div class="part-block reading-meta">{{icon "house"}} {{renderMarkdown .ProtectedArea}}</div>{{end}}
+    </article>
+    {{end}}
+  </div>
+  {{end}}
+</section>
+{{else}}
 <section class="detail-section">
   <h2>{{icon "construction"}} Objekti na dionici <span class="reg-chip">{{add (len .RegistryObjects) (len .Section.Structures)}}</span></h2>
   {{if .RegistryObjects}}
@@ -216,6 +280,8 @@
     {{end}}
   </div>
 </section>
+
+{{end}}
 
 <section class="detail-section">
   <h2>{{icon "users"}} Zaduženi djelatnici <span class="reg-chip">{{len .Section.Personnel}}</span></h2>
