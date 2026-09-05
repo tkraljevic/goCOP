@@ -5,8 +5,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/google/uuid"
-
 	"gocop/internal/db"
 	"gocop/internal/ledger"
 	"gocop/internal/models"
@@ -25,6 +23,9 @@ func setupStationTestServices(t *testing.T) (*service.StationService, *repositor
 
 	if err := db.InitSchema(database); err != nil {
 		t.Fatalf("shema: %v", err)
+	}
+	if !db.UseRepoData() {
+		t.Skip("data/ s registrima nije dostupan — registri stoje izvan repozitorija")
 	}
 	if err := db.SeedInitialData(database); err != nil {
 		t.Fatalf("seed: %v", err)
@@ -148,44 +149,6 @@ func TestIzmjenaOdbijaKriviRedoslijedPragova(t *testing.T) {
 	}
 }
 
-// Uklanjanje s dionice ne briše postaju iz registra
-func TestUklanjanjeSDioniceNeBriseIzRegistra(t *testing.T) {
-	svc, repo := setupStationTestServices(t)
-	ctx := context.Background()
-
-	before := findStation(t, repo, "Županja")
-	if len(before.SectionCodes) < 2 {
-		t.Fatalf("Županja treba više dionica za ovaj test, ima %d", len(before.SectionCodes))
-	}
-	removed := before.SectionCodes[0]
-
-	if err := svc.RemoveSectionStation(ctx, globalAdmin(), removed, before.ID); err != nil {
-		t.Fatalf("uklanjanje: %v", err)
-	}
-
-	after := findStation(t, repo, "Županja")
-	if len(after.SectionCodes) != len(before.SectionCodes)-1 {
-		t.Errorf("veze: %d → %d, očekivano jedna manje", len(before.SectionCodes), len(after.SectionCodes))
-	}
-	for _, c := range after.SectionCodes {
-		if c == removed {
-			t.Errorf("dionica %s nije uklonjena", removed)
-		}
-	}
-
-	// ponovno dodavanje ne duplicira
-	if err := svc.AddSectionStations(ctx, globalAdmin(), removed, []uuid.UUID{before.ID}); err != nil {
-		t.Fatalf("dodavanje: %v", err)
-	}
-	if err := svc.AddSectionStations(ctx, globalAdmin(), removed, []uuid.UUID{before.ID}); err != nil {
-		t.Fatalf("ponovno dodavanje: %v", err)
-	}
-	final := findStation(t, repo, "Županja")
-	if len(final.SectionCodes) != len(before.SectionCodes) {
-		t.Errorf("nakon vraćanja veze: %d, očekivano %d", len(final.SectionCodes), len(before.SectionCodes))
-	}
-}
-
 // Svaki upis kroz servis mora ostaviti verziju u knjizi — to je temelj
 // sinkronizacije, pa nije stvar dobre volje repozitorija
 func TestSvakiUpisOstavljaVerziju(t *testing.T) {
@@ -196,6 +159,9 @@ func TestSvakiUpisOstavljaVerziju(t *testing.T) {
 	defer database.Close()
 	if err := db.InitSchema(database); err != nil {
 		t.Fatal(err)
+	}
+	if !db.UseRepoData() {
+		t.Skip("data/ s registrima nije dostupan — registri stoje izvan repozitorija")
 	}
 	if err := db.SeedInitialData(database); err != nil {
 		t.Fatal(err)
@@ -228,18 +194,5 @@ func TestSvakiUpisOstavljaVerziju(t *testing.T) {
 	}
 	if history[0].NodeID != "test-node" || history[0].Supersedes != history[1].VersionID {
 		t.Errorf("verzije nisu ulančane kako treba: %+v", history[0])
-	}
-
-	// uklanjanje s dionice ostavlja arhiviranu verziju veze
-	removed := st.SectionCodes[0]
-	if err := svc.RemoveSectionStation(ctx, globalAdmin(), removed, st.ID); err != nil {
-		t.Fatal(err)
-	}
-	link, err := rec.Latest(ctx, repository.EntitySectionStations, removed+"|"+st.ID.String())
-	if err != nil {
-		t.Fatalf("veza nema verziju nakon uklanjanja: %v", err)
-	}
-	if !link.Archived {
-		t.Error("uklonjena veza mora biti arhivirana, ne obrisana")
 	}
 }

@@ -31,6 +31,7 @@ type node struct {
 	svc      *peers.Service
 	rec      *ledger.Recorder
 	stations *repository.StationRepository
+	sections *repository.SectionRepository
 }
 
 func startNode(t *testing.T, ctx context.Context, id string) *node {
@@ -44,6 +45,9 @@ func startNode(t *testing.T, ctx context.Context, id string) *node {
 	t.Cleanup(func() { database.Close() })
 	if err := db.InitSchema(database); err != nil {
 		t.Fatal(err)
+	}
+	if !db.UseRepoData() {
+		t.Skip("data/sections.json nije dostupan — registri stoje izvan repozitorija")
 	}
 	if err := db.SeedInitialData(database); err != nil {
 		t.Fatal(err)
@@ -64,7 +68,9 @@ func startNode(t *testing.T, ctx context.Context, id string) *node {
 	})
 	go svc.Serve(ctx)
 
-	return &node{id: id, svc: svc, rec: rec, stations: repository.NewStationRepository(database, rec)}
+	return &node{id: id, svc: svc, rec: rec,
+		stations: repository.NewStationRepository(database, rec),
+		sections: repository.NewSectionRepository(database, rec)}
 }
 
 // pair upari dva čvora kao što bi to dva čovjeka učinila: jedan čeka,
@@ -254,7 +260,8 @@ func TestNeupareniCvorNeDobivaRazmjenu(t *testing.T) {
 	}
 }
 
-// Arhiviranje putuje: veza uklonjena na jednom čvoru nestaje i na drugom
+// Uklanjanje putuje: vodomjer maknut s poddionice na jednom čvoru nestaje
+// iz izvedene veze i na drugom
 func TestArhiviranjePutujeMedjuCvorovima(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
@@ -272,7 +279,20 @@ func TestArhiviranjePutujeMedjuCvorovima(t *testing.T) {
 		}
 	}
 	removed := st.SectionCodes[0]
-	if err := a.stations.UnlinkStationFromSection(ctx, removed, st.ID); err != nil {
+	sec, err := a.sections.GetSectionByCode(removed)
+	if err != nil || sec == nil {
+		t.Fatalf("dionica %s: %v", removed, err)
+	}
+	for i := range sec.Parts {
+		var keep []string
+		for _, id := range sec.Parts[i].StationIDs {
+			if id != st.ID.String() {
+				keep = append(keep, id)
+			}
+		}
+		sec.Parts[i].StationIDs = keep
+	}
+	if err := a.sections.SaveSection(ctx, sec); err != nil {
 		t.Fatal(err)
 	}
 	if _, _, err := b.svc.SyncWith(ctx, a.id); err != nil {

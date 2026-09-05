@@ -51,13 +51,14 @@ const (
 	StructureKindSiphon         = "SIFON"
 	StructureKindWeir           = "PREGRADA"
 	StructureKindEmbankment     = "NASIP"
+	StructureKindDam            = "BRANA"
 	StructureKindOther          = "OSTALO"
 )
 
 // StructureKinds su vrste redom kojim ih obrazac nudi
 var StructureKinds = []string{
 	StructureKindPumpingStation, StructureKindSluice, StructureKindSiphon,
-	StructureKindWeir, StructureKindEmbankment, StructureKindOther,
+	StructureKindWeir, StructureKindEmbankment, StructureKindDam, StructureKindOther,
 }
 
 // KindLabel je naziv vrste u sučelju
@@ -75,6 +76,8 @@ func StructureKindLabel(kind string) string {
 		return "pregrada"
 	case StructureKindEmbankment:
 		return "nasip"
+	case StructureKindDam:
+		return "brana"
 	}
 	return "objekt"
 }
@@ -88,9 +91,15 @@ func (s Structure) OriginLabel() string {
 		return "Dokumentacija dionica"
 	case "RUČNI_UNOS":
 		return "Ručni unos"
+	case StructureOriginContract:
+		return "Ugovor o održavanju (A.02)"
 	}
 	return s.Origin
 }
+
+// StructureOriginContract označava objekt koji je u registar ušao iz popisa
+// lokacija ugovora o održavanju
+const StructureOriginContract = "UGOVOR"
 
 // IsPumpingStation javlja nosi li objekt podatke o pogonu (uključenje, zaustavljanje)
 func (s Structure) IsPumpingStation() bool { return s.Kind == StructureKindPumpingStation }

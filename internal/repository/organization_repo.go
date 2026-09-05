@@ -1,0 +1,221 @@
+package repository
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+	"strconv"
+
+	"gocop/internal/ledger"
+	"gocop/internal/models"
+)
+
+// Organizacija obrane: sektori (VGO s centrom obrane) i branjena područja
+// (mali slivovi s VGI). Program ih ne nosi u sebi; upisuje ih globalni
+// administrator, a svaki upis ostavlja verziju u knjizi pa stiže na ostale
+// čvorove. Na njih se vežu ovlasti, dionice i zaduženja, pa se brišu samo
+// dok ih ništa ne koristi.
+
+// EntitySectors i EntityAreas su nazivi entiteta u knjizi verzija
+const (
+	EntitySectors = "sectors"
+	EntityAreas   = "areas"
+)
+
+type OrgRepository struct {
+	db  *sql.DB
+	rec *ledger.Recorder
+}
+
+func NewOrgRepository(db *sql.DB, rec *ledger.Recorder) *OrgRepository {
+	return &OrgRepository{db: db, rec: rec}
+}
+
+type rowScannerOrg interface {
+	Scan(dest ...any) error
+}
+
+func scanSector(row rowScannerOrg) (models.Sector, error) {
+	var s models.Sector
+	var address, phone, email sql.NullString
+	err := row.Scan(&s.ID, &s.Name, &s.VgoName, &s.CenterCop, &address, &phone, &email)
+	s.Address, s.Phone, s.Email = address.String, phone.String, email.String
+	return s, err
+}
+
+func scanArea(row rowScannerOrg) (models.Area, error) {
+	var a models.Area
+	var sub, contractor sql.NullString
+	err := row.Scan(&a.ID, &a.SectorID, &a.Name, &a.VgiName, &sub, &contractor)
+	a.Subcenter, a.ContractorName = sub.String, contractor.String
+	return a, err
+}
+
+const sectorSelect = `SELECT id, name, vgo_name, center_cop, address, phone, email FROM sectors`
+const areaSelect = `SELECT id, sector_id, name, vgi_name, subcenter, contractor_name FROM areas`
+
+// ListSectors vraća sektore; Direkcija prva, ostali po oznaci
+func (r *OrgRepository) ListSectors(ctx context.Context) ([]models.Sector, error) {
+	rows, err := r.db.QueryContext(ctx, sectorSelect+` ORDER BY CASE WHEN id = 'DIREKCIJA' THEN 0 ELSE 1 END, id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []models.Sector
+	for rows.Next() {
+		s, err := scanSector(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, s)
+	}
+	return out, rows.Err()
+}
+
+// GetSector vraća sektor ili nil kad ga nema
+func (r *OrgRepository) GetSector(ctx context.Context, id string) (*models.Sector, error) {
+	s, err := scanSector(r.db.QueryRowContext(ctx, sectorSelect+` WHERE id = ?`, id))
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &s, nil
+}
+
+// SaveSector upisuje novi ili izmijenjeni sektor i bilježi verziju
+func (r *OrgRepository) SaveSector(ctx context.Context, s *models.Sector) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO sectors (id, name, vgo_name, center_cop, address, phone, email)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(id) DO UPDATE SET name = excluded.name, vgo_name = excluded.vgo_name,
+			center_cop = excluded.center_cop, address = excluded.address, phone = excluded.phone, email = excluded.email`,
+		s.ID, s.Name, s.VgoName, s.CenterCop, s.Address, s.Phone, s.Email); err != nil {
+		return fmt.Errorf("upis sektora %s: %w", s.ID, err)
+	}
+	if _, err := r.rec.Record(ctx, tx, EntitySectors, s.ID, s); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// SectorInUse javlja koliko se branjenih područja, dionica i zaduženja veže na sektor
+func (r *OrgRepository) SectorInUse(ctx context.Context, id string) (int, error) {
+	var n int
+	err := r.db.QueryRowContext(ctx, `
+		SELECT (SELECT COUNT(*) FROM areas WHERE sector_id = ?)
+		     + (SELECT COUNT(*) FROM sections WHERE sector_id = ?)
+		     + (SELECT COUNT(*) FROM duties WHERE sector_id = ?)`, id, id, id).Scan(&n)
+	return n, err
+}
+
+// DeleteSector uklanja sektor s površine; u knjizi ostaje arhiviran
+func (r *OrgRepository) DeleteSector(ctx context.Context, id string) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	current, err := scanSector(tx.QueryRowContext(ctx, sectorSelect+` WHERE id = ?`, id))
+	if err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM sectors WHERE id = ?`, id); err != nil {
+		return fmt.Errorf("brisanje sektora %s: %w", id, err)
+	}
+	if _, err := r.rec.Archive(ctx, tx, EntitySectors, id, current); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// ListAreas vraća branjena područja, po želji jednog sektora, po broju
+func (r *OrgRepository) ListAreas(ctx context.Context, sectorID string) ([]models.Area, error) {
+	query, args := areaSelect, []any{}
+	if sectorID != "" {
+		query += ` WHERE sector_id = ?`
+		args = append(args, sectorID)
+	}
+	rows, err := r.db.QueryContext(ctx, query+` ORDER BY id`, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []models.Area
+	for rows.Next() {
+		a, err := scanArea(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	return out, rows.Err()
+}
+
+// GetArea vraća branjeno područje ili nil kad ga nema
+func (r *OrgRepository) GetArea(ctx context.Context, id int) (*models.Area, error) {
+	a, err := scanArea(r.db.QueryRowContext(ctx, areaSelect+` WHERE id = ?`, id))
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &a, nil
+}
+
+// SaveArea upisuje novo ili izmijenjeno branjeno područje i bilježi verziju
+func (r *OrgRepository) SaveArea(ctx context.Context, a *models.Area) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO areas (id, sector_id, name, vgi_name, subcenter, contractor_name)
+		VALUES (?, ?, ?, ?, ?, ?)
+		ON CONFLICT(id) DO UPDATE SET sector_id = excluded.sector_id, name = excluded.name,
+			vgi_name = excluded.vgi_name, subcenter = excluded.subcenter, contractor_name = excluded.contractor_name`,
+		a.ID, a.SectorID, a.Name, a.VgiName, a.Subcenter, a.ContractorName); err != nil {
+		return fmt.Errorf("upis branjenog područja %d: %w", a.ID, err)
+	}
+	if _, err := r.rec.Record(ctx, tx, EntityAreas, strconv.Itoa(a.ID), a); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// AreaInUse javlja koliko se dionica i zaduženja veže na branjeno područje
+func (r *OrgRepository) AreaInUse(ctx context.Context, id int) (int, error) {
+	var n int
+	err := r.db.QueryRowContext(ctx, `
+		SELECT (SELECT COUNT(*) FROM sections WHERE area_id = ?)
+		     + (SELECT COUNT(*) FROM duties WHERE area_id = ?)`, id, id).Scan(&n)
+	return n, err
+}
+
+// DeleteArea uklanja branjeno područje s površine; u knjizi ostaje arhivirano
+func (r *OrgRepository) DeleteArea(ctx context.Context, id int) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	current, err := scanArea(tx.QueryRowContext(ctx, areaSelect+` WHERE id = ?`, id))
+	if err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM areas WHERE id = ?`, id); err != nil {
+		return fmt.Errorf("brisanje branjenog područja %d: %w", id, err)
+	}
+	if _, err := r.rec.Archive(ctx, tx, EntityAreas, strconv.Itoa(id), current); err != nil {
+		return err
+	}
+	return tx.Commit()
+}

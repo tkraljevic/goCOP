@@ -119,34 +119,35 @@
     </div>
 
     <div class="section-card-content">
-      <div class="section-watercourse-title">{{.Description}}</div>
+      <div class="section-watercourse-title">{{.EffectiveDescription}}</div>
       {{if or .WatercourseName .Bank .RkmFrom}}
       <div class="section-area-sub" style="display:flex; gap:0.6rem; flex-wrap:wrap;">
         {{if .WatercourseName}}<span>{{icon "droplet"}} {{.WatercourseName}}</span>{{end}}
         {{if .Bank}}<span>{{bankLabel .Bank}}</span>{{end}}
-        {{if .RkmFrom}}<span class="mono">rkm {{derefFloat .RkmFrom 3}} – {{derefFloat .RkmTo 3}}</span>{{end}}
+        {{with .FirstPart.RangeLabel}}<span class="mono">{{.}}</span>{{end}}
       </div>
       {{end}}
       {{if .AreaName}}
       <div class="section-area-sub">{{.AreaName}}</div>
       {{end}}
 
-      {{if .ProtectedArea}}
-      <div class="section-protected-text" title="{{.ProtectedArea}}">
-        {{icon "house"}} {{renderMarkdown .ProtectedArea}}
+      {{with .ProtectedSummary}}
+      <div class="section-protected-text" title="{{.}}">
+        {{icon "house"}} {{renderMarkdown .}}
       </div>
       {{end}}
 
       <!-- Značke s brojem objekata, nasipa i vodomjera -->
       <div class="section-stats-row">
-        <span class="stat-badge {{if gt (len .Structures) 0}}has-items{{end}}" title="Objekti na dionici">
-          {{icon "construction"}} {{len .Structures}} objekata
+        {{if gt (len .Parts) 1}}<span class="stat-badge has-items" title="Poddionice">{{len .Parts}} poddionice</span>{{end}}
+        <span class="stat-badge {{if gt .ObjectCount 0}}has-items{{end}}" title="Objekti na dionici">
+          {{icon "construction"}} {{.ObjectCount}} objekata
         </span>
-        <span class="stat-badge {{if gt (len .Embankments) 0}}has-items{{end}}" title="Nasipi">
-          {{icon "shield"}} {{len .Embankments}} nasipa
+        <span class="stat-badge {{if gt .EmbankmentCount 0}}has-items{{end}}" title="Nasipi i brane">
+          {{icon "shield"}} {{.EmbankmentCount}} nasipa
         </span>
-        <span class="stat-badge {{if gt (len .Gauges) 0}}has-items{{end}}" title="Mjerodavni vodomjeri">
-          {{icon "chart-column"}} {{len .Gauges}} vodomjera
+        <span class="stat-badge {{if gt .GaugeCount 0}}has-items{{end}}" title="Mjerodavni vodomjeri">
+          {{icon "chart-column"}} {{.GaugeCount}} vodomjera
         </span>
       </div>
     </div>

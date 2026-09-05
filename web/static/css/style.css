@@ -2288,3 +2288,20 @@ textarea {
 .part-gauge { font-size: 0.9rem; }
 .part-gauges { margin: 0 0 0.5rem 2.5rem; font-size: 0.9rem; }
 .part-gauges .part-gauge + .part-gauge { margin-top: 0.15rem; }
+
+/* Dnevnik: struktura osoblja i strojeva — mreža sitnih brojčanih polja */
+.counts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+  gap: 0.35rem 0.75rem;
+  margin-top: 0.5rem;
+}
+.counts-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+}
+.counts-item input { padding: 0.35rem 0.5rem; min-height: 0; font-size: 0.85rem; }
+.counts-item input[type="text"] { flex: 1; min-width: 0; }
+.counts-item input[type="number"] { width: 4.5rem; flex: none; }

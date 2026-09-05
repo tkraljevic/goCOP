@@ -160,25 +160,6 @@ func (r *StructureRepository) GetByCode(ctx context.Context, code string) (*mode
 	return &s, nil
 }
 
-// ListForSection vraća objekte vezane na dionicu
-func (r *StructureRepository) ListForSection(ctx context.Context, sectionCode string) ([]models.Structure, error) {
-	rows, err := r.db.QueryContext(ctx, "SELECT "+structureColumns+` FROM structures
-		WHERE id IN (SELECT structure_id FROM section_structures WHERE section_code = ?) ORDER BY kind, name`, sectionCode)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var out []models.Structure
-	for rows.Next() {
-		s, err := scanStructure(rows)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, s)
-	}
-	return out, rows.Err()
-}
-
 // CreateStructure upisuje objekt i njegovu verziju
 func (r *StructureRepository) CreateStructure(ctx context.Context, s *models.Structure) error {
 	if s.ID == uuid.Nil {
@@ -254,14 +235,10 @@ func (r *StructureRepository) DeleteStructure(ctx context.Context, id uuid.UUID)
 	if err != nil {
 		return err
 	}
-	links, err := r.linksTx(ctx, tx, id.String())
-	if err != nil {
+	// kazalo veza s dionicama je izvedeno; poddionice koje su na objekt
+	// pokazivale zadržavaju naziv, a veza nestaje
+	if _, err := tx.ExecContext(ctx, `DELETE FROM section_structures WHERE structure_id = ?`, id.String()); err != nil {
 		return err
-	}
-	for _, code := range links {
-		if err := r.unlinkTx(ctx, tx, code, id.String()); err != nil {
-			return err
-		}
 	}
 	if _, err := tx.ExecContext(ctx, `DELETE FROM structures WHERE id = ?`, id.String()); err != nil {
 		return err
@@ -272,98 +249,9 @@ func (r *StructureRepository) DeleteStructure(ctx context.Context, id uuid.UUID)
 	return tx.Commit()
 }
 
-func (r *StructureRepository) linksTx(ctx context.Context, tx *sql.Tx, structureID string) ([]string, error) {
-	rows, err := tx.QueryContext(ctx, `SELECT section_code FROM section_structures WHERE structure_id = ?`, structureID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var codes []string
-	for rows.Next() {
-		var c string
-		if err := rows.Scan(&c); err != nil {
-			return nil, err
-		}
-		codes = append(codes, c)
-	}
-	return codes, rows.Err()
-}
-
 type sectionStructureLink struct {
 	ID          string    `json:"id"`
 	SectionCode string    `json:"section_code"`
 	StructureID string    `json:"structure_id"`
 	CreatedAt   time.Time `json:"created_at"`
-}
-
-func sectionStructureKey(sectionCode, structureID string) string {
-	return sectionCode + "|" + structureID
-}
-
-// LinkSection veže objekt na dionicu (bez učinka ako veza već postoji)
-func (r *StructureRepository) LinkSection(ctx context.Context, sectionCode string, structureID uuid.UUID) error {
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-	if err := r.linkTx(ctx, tx, sectionCode, structureID.String()); err != nil {
-		return err
-	}
-	return tx.Commit()
-}
-
-func (r *StructureRepository) linkTx(ctx context.Context, tx *sql.Tx, sectionCode, structureID string) error {
-	var n int
-	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM section_structures WHERE section_code = ? AND structure_id = ?`,
-		sectionCode, structureID).Scan(&n); err != nil {
-		return err
-	}
-	if n > 0 {
-		return nil
-	}
-	// identitet veze slijedi iz para, pa je isti na svakom čvoru
-	link := sectionStructureLink{ID: stableLinkID("section_structure", sectionStructureKey(sectionCode, structureID)),
-		SectionCode: sectionCode, StructureID: structureID, CreatedAt: time.Now().UTC()}
-	if _, err := tx.ExecContext(ctx, `INSERT INTO section_structures (id, section_code, structure_id, created_at) VALUES (?, ?, ?, ?)`,
-		link.ID, link.SectionCode, link.StructureID, link.CreatedAt); err != nil {
-		return fmt.Errorf("greška pri vezanju objekta na dionicu: %w", err)
-	}
-	_, err := r.rec.Record(ctx, tx, EntitySectionStructures, link.ID, link)
-	return err
-}
-
-// UnlinkSection skida objekt s dionice; objekt ostaje u registru
-func (r *StructureRepository) UnlinkSection(ctx context.Context, sectionCode string, structureID uuid.UUID) error {
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-	if err := r.unlinkTx(ctx, tx, sectionCode, structureID.String()); err != nil {
-		return err
-	}
-	return tx.Commit()
-}
-
-func (r *StructureRepository) unlinkTx(ctx context.Context, tx *sql.Tx, sectionCode, structureID string) error {
-	var link sectionStructureLink
-	err := tx.QueryRowContext(ctx, `SELECT id, section_code, structure_id, created_at FROM section_structures WHERE section_code = ? AND structure_id = ?`,
-		sectionCode, structureID).Scan(&link.ID, &link.SectionCode, &link.StructureID, &link.CreatedAt)
-	if err == sql.ErrNoRows {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	if _, err := tx.ExecContext(ctx, `DELETE FROM section_structures WHERE id = ?`, link.ID); err != nil {
-		return err
-	}
-	_, err = r.rec.Archive(ctx, tx, EntitySectionStructures, link.ID, link)
-	return err
-}
-
-// stableLinkID izvodi isti identifikator veze na svakom čvoru iz njezina para
-func stableLinkID(kind, key string) string {
-	return uuid.NewSHA1(uuid.NameSpaceURL, []byte("https://github.com/tkraljevic/goCOP/"+kind+"/"+key)).String()
 }

@@ -14,6 +14,7 @@ type WatercoursesHandler struct {
 	watercourseService *service.WatercourseService
 	sectionService     *service.SectionService
 	stationService     *service.StationService
+	maintenanceService *service.MaintenanceService
 	tmpl               *template.Template // popis
 	tmplDetail         *template.Template // jedna voda
 	tmplForm           *template.Template // obrazac
@@ -259,31 +260,6 @@ func (h *WatercoursesHandler) HandleDeleteWatercourseAPI(w http.ResponseWriter, 
 		return
 	}
 	writeJSON(w, map[string]any{"success": true})
-}
-
-// HandleAssignSectionWatercourseAPI pridružuje vodno tijelo dionici
-func (h *WatercoursesHandler) HandleAssignSectionWatercourseAPI(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	perms, _ := ctx.Value(contextKeyPerms).(*models.UserPermissions)
-
-	code := r.PathValue("code")
-	if code == "" {
-		http.Error(w, "Šifra dionice je obavezna", http.StatusBadRequest)
-		return
-	}
-
-	form, err := decodeWatercourseForm(r)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	if err := h.watercourseService.SetSectionWatercourse(ctx, perms, code, strings.TrimSpace(form.Code), h.sectionService); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	writeJSON(w, map[string]any{"success": true, "section_code": code, "watercourse_code": form.Code})
 }
 
 // HandleAssignStationWatercourseAPI pridružuje vodno tijelo vodomjernoj postaji

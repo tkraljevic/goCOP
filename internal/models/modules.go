@@ -21,6 +21,7 @@ const (
 	ModuleField     = "teren"
 	ModuleReadings  = "vodostaji"
 	ModuleRegisters = "registri"
+	ModuleJournals  = "dnevnici"
 	ModuleUsers     = "djelatnici"
 	ModuleSettings  = "postavke"
 )
@@ -29,7 +30,8 @@ const (
 var Modules = []Module{
 	{ModuleField, "Teren", "letve koje osoba obilazi i upis očitanja na jedan dodir"},
 	{ModuleReadings, "Vodostaji", "zadnja očitanja svih letvi, povijest i graf"},
-	{ModuleRegisters, "Registri", "dionice, područja, postaje, objekti, vodotoci"},
+	{ModuleJournals, "Dnevnici", "građevinski dnevnici održavanja i obrane: listovi, upisi, nalozi"},
+	{ModuleRegisters, "Registri", "dionice, područja, postaje, objekti, vodotoci, održavanje"},
 	{ModuleUsers, "Djelatnici", "imenik, dužnosti i ovlasti"},
 	{ModuleSettings, "Postavke", "čvor, mreža, uparivanje, moduli"},
 }
@@ -58,17 +60,20 @@ func IsModule(id string) bool {
 func DefaultModules(r Role) []string {
 	switch {
 	case r == RoleGlobalAdmin:
-		return []string{ModuleField, ModuleReadings, ModuleRegisters, ModuleUsers, ModuleSettings}
+		return []string{ModuleField, ModuleReadings, ModuleJournals, ModuleRegisters, ModuleUsers, ModuleSettings}
+	case r == RoleServiceLeaderForeman:
+		// izvođač: početni pregled terena i vlastiti dnevnici
+		return []string{ModuleField, ModuleJournals}
 	case r.IsField():
 		return []string{ModuleField, ModuleReadings}
 	case r == RoleViewer:
-		return []string{ModuleReadings, ModuleRegisters}
+		return []string{ModuleField, ModuleReadings, ModuleRegisters}
 	case r == RoleCopLeader || r == RoleCopDeputy || r == RoleAreaAdmin ||
 		r == RoleNationalLeader || r == RoleNationalDeputy:
-		return []string{ModuleField, ModuleReadings, ModuleRegisters, ModuleUsers, ModuleSettings}
+		return []string{ModuleField, ModuleReadings, ModuleJournals, ModuleRegisters, ModuleUsers, ModuleSettings}
 	}
 	// rukovoditelji sektora, područja i dionica, operateri, ovlaštenici
-	return []string{ModuleField, ModuleReadings, ModuleRegisters, ModuleUsers}
+	return []string{ModuleField, ModuleReadings, ModuleJournals, ModuleRegisters, ModuleUsers}
 }
 
 // RoleModules je pravilo vidljivosti za jednu ulogu; putuje među čvorovima

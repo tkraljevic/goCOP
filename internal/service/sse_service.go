@@ -71,10 +71,3 @@ func (b *SSEBroker) Broadcast(eventType string, message string, payload any) {
 		}
 	}
 }
-
-// ActiveClientsCount vraća broj trenutno povezanih online klijenata
-func (b *SSEBroker) ActiveClientsCount() int {
-	b.mu.RLock()
-	defer b.mu.RUnlock()
-	return len(b.clients)
-}

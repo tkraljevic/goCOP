@@ -55,6 +55,31 @@
   {{end}}
 </div>
 
+{{if .Maintenance}}
+<section class="detail-section">
+  <h2>{{icon "wrench"}} Održavanje</h2>
+  <div class="reg-list">
+    {{range .Maintenance}}
+    <article class="reg-card">
+      <a class="reg-card-link" href="/odrzavanje?area={{.AreaID}}">
+        <div class="reg-card-head">
+          <div>
+            <h3 class="reg-card-title">{{.OrderLabel}}</h3>
+            <div class="reg-card-sub">{{.KindLabel}} · BP {{.AreaID}}</div>
+          </div>
+          {{if .PlanPosition}}<span class="badge badge-inactive" title="Pozicija plana A.02">{{.PlanPosition}}</span>{{end}}
+        </div>
+        <div class="reg-card-foot">
+          <span class="reg-chip">{{icon "list"}} u popisu kao „{{.Name}}“ ({{.Seq}})</span>
+          <span class="reg-origin">{{.Source}}</span>
+        </div>
+      </a>
+    </article>
+    {{end}}
+  </div>
+</section>
+{{end}}
+
 <section class="detail-section">
   <h2>{{icon "file-text"}} Štićene dionice <span class="reg-chip">{{len .Sections}}</span></h2>
   <div class="reg-list">

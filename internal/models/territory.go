@@ -1,6 +1,9 @@
 package models
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 // County predstavlja županiju (20 županija + Grad Zagreb)
 type County struct {
@@ -51,4 +54,15 @@ type SectionTerritory struct {
 	MunicipalityType string    `json:"municipality_type,omitempty"`
 	SettlementName   string    `json:"settlement_name,omitempty"`
 	CreatedAt        time.Time `json:"created_at"`
+}
+
+// MunicipalityTypeLabel piše vrstu jedinice kako se piše u tekstu: Grad, Općina
+func MunicipalityTypeLabel(t string) string {
+	switch strings.ToUpper(strings.TrimSpace(t)) {
+	case "GRAD":
+		return "Grad"
+	case "OPCINA", "OPĆINA":
+		return "Općina"
+	}
+	return t
 }

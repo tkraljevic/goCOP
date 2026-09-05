@@ -30,10 +30,6 @@ func (s *StructureService) Get(ctx context.Context, id uuid.UUID) (*models.Struc
 	return s.repo.GetStructure(ctx, id)
 }
 
-func (s *StructureService) ListForSection(ctx context.Context, sectionCode string) ([]models.Structure, error) {
-	return s.repo.ListForSection(ctx, sectionCode)
-}
-
 // CanEdit: globalni administrator, administrator sektora ili područja u
 // kojem objekt stoji, ili tko smije pisati po tom sektoru ili području
 func (s *StructureService) CanEdit(perms *models.UserPermissions, st *models.Structure) bool {
@@ -133,34 +129,6 @@ func (s *StructureService) Delete(ctx context.Context, perms *models.UserPermiss
 		return errors.New("nemate pravo brisati ovaj objekt")
 	}
 	return s.repo.DeleteStructure(ctx, id)
-}
-
-func (s *StructureService) LinkSection(ctx context.Context, perms *models.UserPermissions, sectionCode string, id uuid.UUID) error {
-	current, err := s.repo.GetStructure(ctx, id)
-	if err != nil {
-		return err
-	}
-	if current == nil {
-		return errors.New("objekt nije pronađen")
-	}
-	if !s.CanEdit(perms, current) {
-		return errors.New("nemate pravo vezati ovaj objekt")
-	}
-	return s.repo.LinkSection(ctx, strings.TrimSpace(sectionCode), id)
-}
-
-func (s *StructureService) UnlinkSection(ctx context.Context, perms *models.UserPermissions, sectionCode string, id uuid.UUID) error {
-	current, err := s.repo.GetStructure(ctx, id)
-	if err != nil {
-		return err
-	}
-	if current == nil {
-		return errors.New("objekt nije pronađen")
-	}
-	if !s.CanEdit(perms, current) {
-		return errors.New("nemate pravo odvezati ovaj objekt")
-	}
-	return s.repo.UnlinkSection(ctx, strings.TrimSpace(sectionCode), id)
 }
 
 var nonSlug = regexp.MustCompile(`[^a-z0-9]+`)

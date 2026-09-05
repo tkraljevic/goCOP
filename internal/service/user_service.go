@@ -352,6 +352,11 @@ func (s *UserService) GetUserByID(id uuid.UUID) (*models.User, error) {
 	return s.userRepo.GetUserByID(id)
 }
 
+// GlobalAdminContact je kontakt glavnog administratora za stranicu prijave
+func (s *UserService) GlobalAdminContact() (name, phone, email string, ok bool) {
+	return s.userRepo.GlobalAdminContact()
+}
+
 func (s *UserService) ListSectors() ([]models.Sector, error) {
 	return s.userRepo.ListSectors()
 }

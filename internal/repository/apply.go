@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"gocop/internal/db"
 	"gocop/internal/ledger"
 	"gocop/internal/models"
 )
@@ -117,25 +118,6 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		}
 		return upsertStation(ctx, tx, st)
 
-	case EntitySectionStations:
-		var link struct {
-			ID          string `json:"id"`
-			SectionCode string `json:"section_code"`
-			StationID   string `json:"station_id"`
-		}
-		if err := json.Unmarshal(v.Payload, &link); err != nil {
-			return err
-		}
-		if link.ID == "" {
-			link.ID = v.VersionID
-		}
-		_, err := tx.ExecContext(ctx, `
-			INSERT INTO section_stations (id, section_code, station_id, created_at)
-			VALUES (?, ?, ?, ?)
-			ON CONFLICT(section_code, station_id) DO NOTHING
-		`, link.ID, link.SectionCode, link.StationID, v.CreatedAt)
-		return err
-
 	case EntitySections:
 		var sec models.Section
 		if err := json.Unmarshal(v.Payload, &sec); err != nil {
@@ -160,6 +142,62 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 				flows_into = excluded.flows_into
 		`, w.Code, w.OfficialName, w.Name, w.Kind, w.Category, w.Subcategory, w.WikiSlug, w.Origin,
 			w.LengthKm, w.BasinKm2, w.AvgFlowM3S, w.Source, w.Mouth, w.FlowsInto)
+		return err
+
+	case EntityMaintainedWaters:
+		var m models.MaintainedWater
+		if err := json.Unmarshal(v.Payload, &m); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, `
+			INSERT INTO maintained_waters (id, area_id, program, watercourse_code, structure_id, name, seq, water_order, water_group,
+				kind, source, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			ON CONFLICT(id) DO UPDATE SET
+				area_id = excluded.area_id, program = excluded.program, watercourse_code = excluded.watercourse_code, structure_id = excluded.structure_id,
+				name = excluded.name, seq = excluded.seq, water_order = excluded.water_order, water_group = excluded.water_group,
+				kind = excluded.kind, source = excluded.source, updated_at = excluded.updated_at`,
+			m.ID, m.AreaID, m.ProgramOf(), m.WatercourseCode, m.StructureID, m.Name, m.Seq, m.Order, m.Group,
+			m.Kind, m.Source, m.CreatedAt, m.UpdatedAt)
+		return err
+
+	case EntityWorkItems:
+		var w models.WorkItem
+		if err := json.Unmarshal(v.Payload, &w); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, `
+			INSERT INTO work_items (`+workItemColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			ON CONFLICT(id) DO UPDATE SET
+				area_id = excluded.area_id, number = excluded.number, description = excluded.description, unit = excluded.unit,
+				active = excluded.active, sort_order = excluded.sort_order, origin = excluded.origin, source = excluded.source,
+				updated_at = excluded.updated_at`,
+			w.ID, w.AreaID, w.Number, w.Description, w.Unit, boolInt(w.Active), w.SortOrder, w.Origin, w.Source,
+			w.CreatedAt, w.UpdatedAt)
+		return err
+
+	case EntityJournals:
+		var j models.Journal
+		if err := json.Unmarshal(v.Payload, &j); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, journalUpsert, journalArgs(&j)...)
+		return err
+
+	case EntityJournalSheets:
+		var s models.JournalSheet
+		if err := json.Unmarshal(v.Payload, &s); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, sheetUpsert, sheetArgs(&s)...)
+		return err
+
+	case EntityJournalEntries:
+		var e models.JournalEntry
+		if err := json.Unmarshal(v.Payload, &e); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, entryUpsert, entryArgs(&e)...)
 		return err
 
 	case EntityRoleModules:
@@ -225,25 +263,6 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 			st.Notes, st.Origin, st.Latitude, st.Longitude, st.CreatedAt, st.UpdatedAt)
 		return err
 
-	case EntitySectionStructures:
-		var link struct {
-			ID          string `json:"id"`
-			SectionCode string `json:"section_code"`
-			StructureID string `json:"structure_id"`
-		}
-		if err := json.Unmarshal(v.Payload, &link); err != nil {
-			return err
-		}
-		if link.ID == "" {
-			link.ID = v.VersionID
-		}
-		_, err := tx.ExecContext(ctx, `
-			INSERT INTO section_structures (id, section_code, structure_id, created_at)
-			VALUES (?, ?, ?, ?)
-			ON CONFLICT(section_code, structure_id) DO NOTHING
-		`, link.ID, link.SectionCode, link.StructureID, v.CreatedAt)
-		return err
-
 	case EntityUsers:
 		var uv userVersion
 		if err := json.Unmarshal(v.Payload, &uv); err != nil {
@@ -305,6 +324,32 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 			d.CreatedAt, d.ExpiresAt, boolToInt(d.IsActive))
 		return err
 
+	case EntitySectors:
+		var sec models.Sector
+		if err := json.Unmarshal(v.Payload, &sec); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, `
+			INSERT INTO sectors (id, name, vgo_name, center_cop, address, phone, email)
+			VALUES (?, ?, ?, ?, ?, ?, ?)
+			ON CONFLICT(id) DO UPDATE SET name = excluded.name, vgo_name = excluded.vgo_name,
+				center_cop = excluded.center_cop, address = excluded.address, phone = excluded.phone, email = excluded.email
+		`, sec.ID, sec.Name, sec.VgoName, sec.CenterCop, sec.Address, sec.Phone, sec.Email)
+		return err
+
+	case EntityAreas:
+		var a models.Area
+		if err := json.Unmarshal(v.Payload, &a); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, `
+			INSERT INTO areas (id, sector_id, name, vgi_name, subcenter, contractor_name)
+			VALUES (?, ?, ?, ?, ?, ?)
+			ON CONFLICT(id) DO UPDATE SET sector_id = excluded.sector_id, name = excluded.name,
+				vgi_name = excluded.vgi_name, subcenter = excluded.subcenter, contractor_name = excluded.contractor_name
+		`, a.ID, a.SectorID, a.Name, a.VgiName, a.Subcenter, a.ContractorName)
+		return err
+
 	case EntityCounties:
 		var c models.County
 		if err := json.Unmarshal(v.Payload, &c); err != nil {
@@ -346,23 +391,6 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 				municipality_id = excluded.municipality_id, county_id = excluded.county_id, name = excluded.name,
 				postal_code = excluded.postal_code, population = excluded.population
 		`, st.ID, st.MunicipalityID, st.CountyID, st.Name, st.PostalCode, st.Population)
-		return err
-
-	case EntitySectionTerritories:
-		var st models.SectionTerritory
-		if err := json.Unmarshal(v.Payload, &st); err != nil {
-			return err
-		}
-		if st.CreatedAt.IsZero() {
-			st.CreatedAt = v.CreatedAt
-		}
-		_, err := tx.ExecContext(ctx, `
-			INSERT INTO section_territories (id, section_code, county_id, municipality_id, settlement_id, created_at)
-			VALUES (?, ?, ?, ?, ?, ?)
-			ON CONFLICT(id) DO UPDATE SET
-				section_code = excluded.section_code, county_id = excluded.county_id,
-				municipality_id = excluded.municipality_id, settlement_id = excluded.settlement_id
-		`, st.ID, st.SectionCode, st.CountyID, st.MunicipalityID, st.SettlementID, st.CreatedAt)
 		return err
 
 	case "memberships":
@@ -430,16 +458,6 @@ func removeFromSurface(ctx context.Context, tx *sql.Tx, v ledger.Version) error 
 	switch v.Entity {
 	case EntityStations:
 		stmt = `DELETE FROM stations WHERE id = ?`
-	case EntitySectionStations:
-		var link struct {
-			SectionCode string `json:"section_code"`
-			StationID   string `json:"station_id"`
-		}
-		if err := json.Unmarshal(v.Payload, &link); err != nil {
-			return err
-		}
-		_, err := tx.ExecContext(ctx, `DELETE FROM section_stations WHERE section_code = ? AND station_id = ?`, link.SectionCode, link.StationID)
-		return err
 	case EntitySections:
 		stmt = `DELETE FROM sections WHERE code = ?`
 	case EntityWatercourses:
@@ -450,14 +468,27 @@ func removeFromSurface(ctx context.Context, tx *sql.Tx, v ledger.Version) error 
 		stmt = `DELETE FROM user_modules WHERE user_id = ?`
 	case EntityReadings:
 		stmt = `DELETE FROM readings WHERE id = ?`
+	case EntityJournals:
+		stmt = `DELETE FROM journals WHERE id = ?`
+	case EntityJournalSheets:
+		stmt = `DELETE FROM journal_sheets WHERE id = ?`
+	case EntityJournalEntries:
+		stmt = `DELETE FROM journal_entries WHERE id = ?`
+	case EntityMaintainedWaters:
+		stmt = `DELETE FROM maintained_waters WHERE id = ?`
+	case EntityWorkItems:
+		stmt = `DELETE FROM work_items WHERE id = ?`
 	case EntityStructures:
 		stmt = `DELETE FROM structures WHERE id = ?`
-	case EntitySectionStructures:
-		stmt = `DELETE FROM section_structures WHERE id = ?`
 	case EntityUsers:
 		stmt = `DELETE FROM users WHERE id = ?`
 	case EntityDuties:
 		stmt = `DELETE FROM duties WHERE id = ?`
+	case EntitySectors:
+		stmt = `DELETE FROM sectors WHERE id = ?`
+	case EntityAreas:
+		stmt = `DELETE FROM areas WHERE id = ?`
+		arg, _ = strconv.Atoi(v.EntityID)
 	case EntityCounties:
 		stmt = `DELETE FROM counties WHERE id = ?`
 		arg, _ = strconv.Atoi(v.EntityID)
@@ -467,8 +498,6 @@ func removeFromSurface(ctx context.Context, tx *sql.Tx, v ledger.Version) error 
 	case EntitySettlements:
 		stmt = `DELETE FROM settlements WHERE id = ?`
 		arg, _ = strconv.Atoi(v.EntityID)
-	case EntitySectionTerritories:
-		stmt = `DELETE FROM section_territories WHERE id = ?`
 	case "peers":
 		stmt = `DELETE FROM peers WHERE node_id = ?`
 	case "memberships":
@@ -514,25 +543,6 @@ func upsertStation(ctx context.Context, tx *sql.Tx, st models.Station) error {
 }
 
 func upsertSection(ctx context.Context, tx *sql.Tx, s models.Section) error {
-	embJSON, _ := json.Marshal(s.Embankments)
-	strJSON, _ := json.Marshal(s.Structures)
-	gagJSON, _ := json.Marshal(s.Gauges)
-	partsJSON, _ := json.Marshal(s.Parts)
-	if s.Parts == nil {
-		partsJSON = []byte("[]")
-	}
-	_, err := tx.ExecContext(ctx, `
-		INSERT INTO sections (
-			code, area_id, sector_id, description, watercourse_code, bank, rkm_from, rkm_to,
-			protected_area, embankments, structures, gauges, notes, created_at, updated_at, parts
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT(code) DO UPDATE SET
-			area_id = excluded.area_id, sector_id = excluded.sector_id, description = excluded.description,
-			watercourse_code = excluded.watercourse_code, bank = excluded.bank, rkm_from = excluded.rkm_from,
-			rkm_to = excluded.rkm_to, protected_area = excluded.protected_area, embankments = excluded.embankments,
-			structures = excluded.structures, gauges = excluded.gauges, notes = excluded.notes,
-			updated_at = excluded.updated_at, parts = excluded.parts
-	`, s.Code, s.AreaID, s.SectorID, s.Description, s.WatercourseCode, s.Bank, s.RkmFrom, s.RkmTo,
-		s.ProtectedArea, string(embJSON), string(strJSON), string(gagJSON), s.Notes, s.CreatedAt, s.UpdatedAt, string(partsJSON))
-	return err
+	// dionica stiže kao cijeli dokument; kazala veza se iz njega obnavljaju
+	return db.WriteSection(ctx, tx, &s)
 }

@@ -1,6 +1,7 @@
 package service_test
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
 
@@ -141,47 +142,69 @@ func TestSectionPermissionsMarioAndTomislav(t *testing.T) {
 	}
 }
 
-// TestCreateAndEditSectionWorkflow provjerava kreiranje nove dionice i njezino ažuriranje
+// TestCreateAndEditSectionWorkflow provjerava upis nove dionice s poddionicom i njezinu izmjenu
 func TestCreateAndEditSectionWorkflow(t *testing.T) {
 	sectionService, _, _, _, userRepo := setupSectionTestServices(t)
+	ctx := context.Background()
 
 	mario, _ := userRepo.GetUserByUsername("mspajic")
 	marioPerms, _ := userRepo.GetUserPermissions(mario.ID)
 
+	from, to := 3.2, 7.45
 	newSec := &models.Section{
-		Code:          "B.15.99",
-		AreaID:        15,
-		SectorID:      "B",
-		Description:   "rijeka Vuka, nova pokusna dionica",
-		ProtectedArea: "Općina Ernestinovo",
-		Notes:         "Privremena dionica za testiranje",
+		Code: "B.15.99", AreaID: 15,
+		Notes: "Privremena dionica za testiranje",
+		Parts: []models.SectionPart{{
+			WatercourseCode: "vuka", Bank: "L", StationingKind: "rkm", KmFrom: &from, KmTo: &to,
+			Extent:      "most u Ernestinovu – ušće Bobutovca",
+			Territories: []models.PartTerritory{{CountyID: 14, MunicipalityID: 1}},
+			Objects:     []models.PartObject{{Name: "most u Ernestinovu", Bank: "L", StationingKind: "rkm", Stationing: &from}},
+		}},
 	}
 
 	// Mario stvara novu dionicu u Sektoru B
-	err := sectionService.CreateSection(marioPerms, newSec)
-	if err != nil {
+	if err := sectionService.SaveSection(ctx, marioPerms, newSec, true); err != nil {
 		t.Fatalf("Greška pri stvaranju dionice od strane ovlaštenog korisnika: %v", err)
 	}
 
-	// Provjera dohvata
 	fetched, err := sectionService.GetSectionWithDetails("B.15.99")
 	if err != nil || fetched == nil {
 		t.Fatalf("Nova dionica B.15.99 nije pronađena u bazi: %v", err)
 	}
-
-	if fetched.Description != "rijeka Vuka, nova pokusna dionica" {
-		t.Errorf("Očekivan vodotok 'rijeka Vuka, nova pokusna dionica', dobiveno: %s", fetched.Description)
+	if fetched.SectorID != "B" {
+		t.Errorf("sektor slijedi iz područja: očekivan B, dobiveno %q", fetched.SectorID)
+	}
+	if len(fetched.Parts) != 1 || fetched.Parts[0].WatercourseCode != "vuka" {
+		t.Fatalf("poddionica nije sačuvana: %+v", fetched.Parts)
+	}
+	if fetched.Parts[0].Length() < 4.24 || fetched.Parts[0].Length() > 4.26 {
+		t.Errorf("duljina poddionice iz raspona: %.3f, očekivano 4,250", fetched.Parts[0].Length())
+	}
+	if fetched.EffectiveDescription() == "" || fetched.WatercourseCode != "vuka" {
+		t.Errorf("izvedeni opis i voda dionice: %q / %q", fetched.EffectiveDescription(), fetched.WatercourseCode)
+	}
+	if fetched.ObjectCount() != 1 {
+		t.Errorf("objekata na dionici: %d, očekivan 1", fetched.ObjectCount())
 	}
 
-	// Ažuriranje dionice
+	// izmjena: napomena i druga poddionica
 	fetched.Notes = "Ažurirana operativna napomena"
-	err = sectionService.UpdateSection(marioPerms, fetched)
-	if err != nil {
+	fetched.Parts = append(fetched.Parts, models.SectionPart{WatercourseCode: "vuka", Bank: "D", Extent: "desna obala uz naselje"})
+	if err := sectionService.SaveSection(ctx, marioPerms, fetched, false); err != nil {
 		t.Fatalf("Greška pri ažuriranju dionice: %v", err)
 	}
 
 	updated, _ := sectionService.GetSectionWithDetails("B.15.99")
 	if updated.Notes != "Ažurirana operativna napomena" {
 		t.Errorf("Očekivana nova napomena, dobiveno: %s", updated.Notes)
+	}
+	if len(updated.Parts) != 2 || updated.Parts[1].Seq != 2 {
+		t.Errorf("druga poddionica nije upisana: %+v", updated.Parts)
+	}
+
+	// bez poddionice nema dionice
+	bare := &models.Section{Code: "B.15.98", AreaID: 15}
+	if err := sectionService.SaveSection(ctx, marioPerms, bare, true); err == nil {
+		t.Error("dionica bez poddionice je prošla")
 	}
 }

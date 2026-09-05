@@ -238,6 +238,10 @@ func (s *ReadingService) Overview(ctx context.Context) ([]models.GaugeSummary, e
 	if err != nil {
 		return nil, err
 	}
+	stationSectors, stationAreas, err := s.stationRepo.StationScopes(ctx)
+	if err != nil {
+		return nil, err
+	}
 	structures, err := s.structureRepo.ListStructures(ctx, "", 0, "", "")
 	if err != nil {
 		return nil, err
@@ -248,6 +252,7 @@ func (s *ReadingService) Overview(ctx context.Context) ([]models.GaugeSummary, e
 		g := models.GaugeSummary{
 			Key: "station:" + st.ID.String(), Name: st.Name, URL: "/readings/station/" + st.ID.String(),
 			NewURL: "/readings/new?station=" + st.ID.String(), StationID: st.ID.String(), Kind: "POSTAJA",
+			SectorIDs: stationSectors[st.ID.String()], AreaIDs: stationAreas[st.ID.String()],
 		}
 		g.Sub = strings.TrimSpace(strings.Trim(st.Watercourse+" · "+st.Stationing, " ·"))
 		fill(&g, latest, counts)

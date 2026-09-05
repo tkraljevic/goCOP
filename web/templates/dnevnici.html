@@ -1,0 +1,65 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Dnevnici{{end}}
+
+{{define "content"}}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "notebook"}} Građevinski dnevnici</h1>
+    <p class="page-desc">
+      Dnevnik održavanja (A.02 vode I. i II. reda, A.03 kanali III. i IV. reda) vodi izvođač svaki dan, a nadzire ga
+      ovlaštenik za praćenje ugovora. Dnevnik obrane od poplava vodi se po dionici dok traju mjere, a nadzire ga rukovoditelj.
+    </p>
+  </div>
+  {{if and .Area .CanManage}}
+  <a href="/dnevnici/new?area={{.Area.ID}}" class="btn btn-primary">{{icon "plus"}} Novi dnevnik</a>
+  {{end}}
+</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
+
+{{if gt (len .Areas) 1}}
+<div class="filter-card">
+  <form action="/dnevnici" method="GET">
+    <div class="filters-row" style="grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));">
+      <div class="filter-group">
+        <label class="filter-label" for="area">{{icon "waves"}} Branjeno područje</label>
+        <select id="area" name="area" class="filter-select" onchange="this.form.submit()">
+          {{range .Areas}}<option value="{{.ID}}" {{if and $.Area (eq $.Area.ID .ID)}}selected{{end}}>{{.ID}}: {{.Name}}</option>{{end}}
+        </select>
+      </div>
+    </div>
+  </form>
+</div>
+{{end}}
+
+<div class="reg-list">
+  {{range .Journals}}
+  <article class="reg-card">
+    <a class="reg-card-link" href="/dnevnici/{{.ID}}">
+      <div class="reg-card-head">
+        <div>
+          <h3 class="reg-card-title">{{.DisplayTitle}}</h3>
+          <div class="reg-card-sub">{{.KindLabel}} · {{.Year}}.{{if .SectionCode}} · dionica {{.SectionCode}}{{end}}</div>
+        </div>
+        <span>{{if .Reconstruction}}<span class="badge badge-inactive" title="Upisi preneseni iz starije evidencije radi primjera; ovjereni listovi postoje zasebno">rekonstrukcija</span> {{end}}{{if .OpenTasks}}<span class="badge badge-pending">{{.OpenTasks}} otvorenih naloga</span>{{end}}</span>
+      </div>
+      <dl class="reg-facts">
+        {{if .Contractor}}<div><dt>Izvođač</dt><dd>{{.Contractor}}</dd></div>{{end}}
+        {{if .ContractorLead}}<div><dt>Voditelj usluga</dt><dd>{{.ContractorLead}}</dd></div>{{end}}
+        {{if .Supervisor}}<div><dt>Nadzor</dt><dd>{{.Supervisor}}</dd></div>{{end}}
+      </dl>
+      <div class="reg-card-foot">
+        <span class="reg-chip {{if eq .SheetCount 0}}empty{{end}}">{{icon "file-text"}} {{.SheetCount}} listova</span>
+        {{if .LastSheetOn}}<span class="reg-chip">{{icon "history"}} zadnji list {{.LastSheetOn}}</span>{{end}}
+      </div>
+    </a>
+  </article>
+  {{else}}
+  <div class="reg-empty">
+    {{if .Area}}U području {{.Area.Name}} još nema dnevnika.{{if .CanManage}} Otvorite ga gumbom „Novi dnevnik“ i popunite naslovnicu.{{end}}{{else}}Nema područja.{{end}}
+  </div>
+  {{end}}
+</div>
+{{end}}

@@ -15,7 +15,9 @@ import (
 
 func pripremi(t *testing.T) (Deps, *repository.ReadingRepository) {
 	t.Helper()
-	db.UseRepoImenik()
+	if !db.UseRepoData() {
+		t.Skip("data/ s registrima nije dostupan — registri stoje izvan repozitorija")
+	}
 	database, err := db.OpenDB(filepath.Join(t.TempDir(), "tablica.db"))
 	if err != nil {
 		t.Fatal(err)

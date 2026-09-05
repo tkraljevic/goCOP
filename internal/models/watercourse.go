@@ -40,6 +40,7 @@ const (
 	WatercourseOriginEncyclopedia  = "ENCIKLOPEDIJA" // enciklopedijski članak
 	WatercourseOriginDocumentation = "DOKUMENTACIJA" // dokumentacija štićenih dionica
 	WatercourseOriginManual        = "RUČNI_UNOS"    // unio operater
+	WatercourseOriginContract      = "UGOVOR"        // popis lokacija iz ugovora o održavanju (A.02)
 )
 
 // OriginLabel vraća podrijetlo zapisa u obliku za prikaz
@@ -53,6 +54,8 @@ func (w Watercourse) OriginLabel() string {
 		return "Dokumentacija dionica"
 	case WatercourseOriginManual:
 		return "Ručni unos"
+	case WatercourseOriginContract:
+		return "Ugovor o održavanju (A.02)"
 	default:
 		return "—"
 	}

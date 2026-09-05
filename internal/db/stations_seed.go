@@ -2,13 +2,13 @@ package db
 
 import (
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
 	"time"
 
 	"gocop/internal/hydro"
+	"gocop/internal/models"
 )
 
 // Ovaj dio seeda izvodi registar vodomjernih postaja iz dokumentacije dionica
@@ -30,10 +30,31 @@ type seedGauge struct {
 	Notes       string `json:"notes"`
 }
 
+// seedSectionGauges su vodomjeri jedne dionice sakupljeni iz svih poddionica
 type seedSectionGauges struct {
-	Code        string      `json:"code"`
-	Description string      `json:"watercourse"` // u dokumentu je to cijeli opis dionice
-	Gauges      []seedGauge `json:"gauges"`
+	Code        string
+	Description string
+	Gauges      []seedGauge
+}
+
+// gaugesFromSections skuplja vodomjere iz poddionica ugrađenog prijepisa;
+// mjerila koja nisu vodomjeri (kota u metrima, pravilnik) ostaju uz poddionicu
+func gaugesFromSections(sections []models.Section) []seedSectionGauges {
+	var out []seedSectionGauges
+	for _, s := range sections {
+		g := seedSectionGauges{Code: s.Code, Description: s.Description}
+		for _, p := range s.Parts {
+			for _, x := range p.Gauges {
+				if !x.IsGauge() {
+					continue
+				}
+				g.Gauges = append(g.Gauges, seedGauge{StationName: x.StationName, PrepCm: x.PrepCm, RegularCm: x.RegularCm,
+					EmergCm: x.EmergCm, CriticalCm: x.CriticalCm, RecordCm: x.RecordCm, Notes: x.Notes})
+			}
+		}
+		out = append(out, g)
+	}
+	return out
 }
 
 // stationDraft je postaja u izradi, prije upisa u bazu
@@ -192,10 +213,11 @@ func seedStations(database *sql.DB) error {
 		return nil
 	}
 
-	var sections []seedSectionGauges
-	if err := json.Unmarshal(sectionsJSON, &sections); err != nil {
-		return fmt.Errorf("greška pri čitanju vodomjera iz sections.json: %w", err)
+	embedded, err := LoadSections()
+	if err != nil {
+		return err
 	}
+	sections := gaugesFromSections(embedded)
 
 	drafts, skipped := buildStationDrafts(sections)
 	if len(drafts) == 0 {
@@ -226,18 +248,7 @@ func seedStations(database *sql.DB) error {
 	}
 	defer insertStation.Close()
 
-	insertLink, err := tx.Prepare(`
-		INSERT INTO section_stations (id, section_code, station_id, created_at)
-		VALUES (?, ?, ?, ?)
-		ON CONFLICT(section_code, station_id) DO NOTHING
-	`)
-	if err != nil {
-		return err
-	}
-	defer insertLink.Close()
-
 	now := time.Now().UTC()
-	links := 0
 
 	for _, d := range drafts {
 		// isti identitet postaje na svakom čvoru — slijedi iz šifre
@@ -259,27 +270,14 @@ func seedStations(database *sql.DB) error {
 		if err != nil {
 			return fmt.Errorf("greška pri unosu vodomjerne postaje %s: %w", d.Name, err)
 		}
-
-		for _, sectionCode := range d.SectionCodes {
-			linkID := StableID("section_station", sectionCode+"|"+stationID.String())
-			res, err := insertLink.Exec(linkID.String(), sectionCode, stationID.String(), now)
-			if err != nil {
-				return fmt.Errorf("greška pri povezivanju vodomjera %s s dionicom %s: %w", d.Name, sectionCode, err)
-			}
-			// Isti vodomjer ponegdje je na istoj dionici naveden dvaput —
-			// broji se stvarno upisana veza, ne pokušaj upisa.
-			if affected, _ := res.RowsAffected(); affected > 0 {
-				links++
-			}
-		}
 	}
 
 	if err := tx.Commit(); err != nil {
 		return err
 	}
 
-	log.Printf("Vodomjerne postaje: %d postaja, %d veza s dionicama, %d zapisa preskočeno (nisu vodomjeri)",
-		len(drafts), links, len(skipped))
+	log.Printf("Vodomjerne postaje: %d postaja iz dokumentacije dionica, %d zapisa preskočeno (nisu vodomjeri)",
+		len(drafts), len(skipped))
 
 	return nil
 }

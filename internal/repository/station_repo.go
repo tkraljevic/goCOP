@@ -277,6 +277,27 @@ func (r *StationRepository) GetStationsForSection(ctx context.Context, sectionCo
 	return stations, rows.Err()
 }
 
+// StationScopes vraća sektore i branjena područja kojima je postaja mjerodavna.
+func (r *StationRepository) StationScopes(ctx context.Context) (map[string][]string, map[string][]int, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT DISTINCT ss.station_id, s.sector_id, s.area_id
+		FROM section_stations ss JOIN sections s ON s.code = ss.section_code`)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer rows.Close()
+	sectors, areas := map[string][]string{}, map[string][]int{}
+	for rows.Next() {
+		var stationID, sectorID string
+		var areaID int
+		if err := rows.Scan(&stationID, &sectorID, &areaID); err != nil {
+			return nil, nil, err
+		}
+		sectors[stationID] = append(sectors[stationID], sectorID)
+		areas[stationID] = append(areas[stationID], areaID)
+	}
+	return sectors, areas, rows.Err()
+}
+
 // CreateStation upisuje novu vodomjernu postaju u registar
 func (r *StationRepository) CreateStation(ctx context.Context, st *models.Station) error {
 	if st.ID == uuid.Nil {
@@ -420,63 +441,6 @@ func (r *StationRepository) DeleteStation(ctx context.Context, id uuid.UUID) err
 	}
 	if _, err := r.rec.Archive(ctx, tx, EntityStations, id.String(), current); err != nil {
 		return err
-	}
-	return tx.Commit()
-}
-
-// LinkStationToSection proglašava postaju mjerodavnom za dionicu.
-// Ponovno dodavanje iste veze nije greška i ne ostavlja novu verziju.
-func (r *StationRepository) LinkStationToSection(ctx context.Context, sectionCode string, stationID uuid.UUID) error {
-	linkID, err := uuid.NewV7()
-	if err != nil {
-		return err
-	}
-
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
-	res, err := tx.ExecContext(ctx, `
-		INSERT INTO section_stations (id, section_code, station_id, created_at)
-		VALUES (?, ?, ?, ?)
-		ON CONFLICT(section_code, station_id) DO NOTHING
-	`, linkID.String(), sectionCode, stationID.String(), time.Now().UTC())
-	if err != nil {
-		return fmt.Errorf("greška pri dodavanju vodomjera na dionicu %s: %w", sectionCode, err)
-	}
-
-	if n, _ := res.RowsAffected(); n > 0 {
-		if _, err := r.rec.Record(ctx, tx, EntitySectionStations, sectionStationKey(sectionCode, stationID),
-			map[string]string{"id": linkID.String(), "section_code": sectionCode, "station_id": stationID.String()}); err != nil {
-			return err
-		}
-	}
-	return tx.Commit()
-}
-
-// UnlinkStationFromSection uklanja postaju s popisa mjerodavnih vodomjera dionice.
-// Sama postaja ostaje u registru jer je mjerodavna i za druge dionice.
-func (r *StationRepository) UnlinkStationFromSection(ctx context.Context, sectionCode string, stationID uuid.UUID) error {
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
-	res, err := tx.ExecContext(ctx, `
-		DELETE FROM section_stations WHERE section_code = ? AND station_id = ?
-	`, sectionCode, stationID.String())
-	if err != nil {
-		return fmt.Errorf("greška pri uklanjanju vodomjera s dionice %s: %w", sectionCode, err)
-	}
-
-	if n, _ := res.RowsAffected(); n > 0 {
-		if _, err := r.rec.Archive(ctx, tx, EntitySectionStations, sectionStationKey(sectionCode, stationID),
-			map[string]string{"section_code": sectionCode, "station_id": stationID.String()}); err != nil {
-			return err
-		}
 	}
 	return tx.Commit()
 }
