@@ -8,6 +8,8 @@ import (
 	"sort"
 	"sync"
 	"time"
+
+	"gocop/internal/ledger"
 )
 
 // Stanje sinkronizacije po čvoru. Za razliku od zapisa čvora (koji putuje),
@@ -178,6 +180,17 @@ func (s *Service) SyncDue(ctx context.Context) map[string]string {
 
 // ---------- nadzorna ploča ----------
 
+// wantsOf ograđuje zaostatak na kanale koje drugi čvor uopće drži: što
+// nema u granici, nije ni pretplaćen, pa mu ne nedostaje
+func (ps PeerStatus) wantsOf() func(string) bool {
+	held := map[string]bool{}
+	for key := range ps.State.Frontier {
+		_, ch := ledger.SplitFrontierKey(key)
+		held[ch] = true
+	}
+	return func(channel string) bool { return channel == "" || held[channel] }
+}
+
 // PeerStatus je jedan čvor na nadzornoj ploči
 type PeerStatus struct {
 	Peer
@@ -250,7 +263,7 @@ func (s *Service) Status(ctx context.Context, lan bool) (*Status, error) {
 			ps.Reachability = "offline"
 		}
 		if len(ps.State.Frontier) > 0 {
-			if delta, err := s.rec.Delta(ctx, ps.State.Frontier, 5000); err == nil {
+			if delta, err := s.rec.Delta(ctx, ps.State.Frontier, ps.wantsOf(), 5000); err == nil {
 				ps.Backlog = len(delta)
 			}
 		}

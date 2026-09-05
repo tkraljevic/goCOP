@@ -2,6 +2,7 @@ package peers_test
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"net"
 	"path/filepath"
@@ -28,6 +29,7 @@ func freePort(t *testing.T) int {
 // node je jedan goCOP čvor u testu: vlastita baza, ključ, portovi
 type node struct {
 	id       string
+	db       *sql.DB
 	svc      *peers.Service
 	rec      *ledger.Recorder
 	stations *repository.StationRepository
@@ -68,7 +70,7 @@ func startNode(t *testing.T, ctx context.Context, id string) *node {
 	})
 	go svc.Serve(ctx)
 
-	return &node{id: id, svc: svc, rec: rec,
+	return &node{id: id, db: database, svc: svc, rec: rec,
 		stations: repository.NewStationRepository(database, rec),
 		sections: repository.NewSectionRepository(database, rec)}
 }

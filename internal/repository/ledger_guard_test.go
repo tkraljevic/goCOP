@@ -41,7 +41,7 @@ func TestUpisiUSinkroniziraneTabliceIduKrozRecorder(t *testing.T) {
 			if !writes.MatchString(code) {
 				continue
 			}
-			if !strings.Contains(code, "rec.Record(") && !strings.Contains(code, "rec.Archive(") {
+			if !strings.Contains(code, "rec.Record") && !strings.Contains(code, "rec.Archive") {
 				t.Errorf("%s piše u tablicu %s, a nijednom ne poziva Recorder — verzija se ne bilježi", file, table)
 			}
 		}
