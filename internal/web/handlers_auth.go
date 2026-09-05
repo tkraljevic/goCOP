@@ -20,6 +20,7 @@ type AuthHandler struct {
 	limiter      *loginLimiter
 	support      SupportContact
 	adminContact func() (name, phone, email string, ok bool)
+	fresh        func() bool // čvor bez djelatnika: prijava nudi uparivanje s uredom
 }
 
 // SupportContact je kontakt za pomoć oko prijave. Osoba je glavni
@@ -54,10 +55,16 @@ type LoginPageData struct {
 	Error   string
 	Success string
 	Support SupportContact
+	Fresh   bool // računalo još nema djelatnike, pa mu treba uparivanje
 }
 
 // SetSupport daje rukovatelju kontakt centra ovog čvora
 func (h *AuthHandler) SetSupport(c SupportContact) { h.support = c }
+
+// SetFresh daje rukovatelju provjeru je li čvor svjež (bez djelatnika)
+func (h *AuthHandler) SetFresh(f func() bool) { h.fresh = f }
+
+func (h *AuthHandler) isFresh() bool { return h.fresh != nil && h.fresh() }
 
 // SetAdminContact daje rukovatelju izvor kontakta glavnog administratora
 func (h *AuthHandler) SetAdminContact(f func() (name, phone, email string, ok bool)) {
@@ -105,13 +112,13 @@ func (h *AuthHandler) ShowLogin(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	h.tmpl.ExecuteTemplate(w, "login.html", LoginPageData{Support: h.supportNow()})
+	h.tmpl.ExecuteTemplate(w, "login.html", LoginPageData{Support: h.supportNow(), Fresh: h.isFresh()})
 }
 
 // HandleLogin obrađuje unos korisničkog imena i lozinke
 func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		h.tmpl.ExecuteTemplate(w, "login.html", LoginPageData{Error: "Neispravan zahtjev", Support: h.supportNow()})
+		h.tmpl.ExecuteTemplate(w, "login.html", LoginPageData{Error: "Neispravan zahtjev", Support: h.supportNow(), Fresh: h.isFresh()})
 		return
 	}
 
@@ -138,7 +145,7 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		if err == service.ErrAccountInactive {
 			errMsg = "Korisnički račun je privremeno deaktiviran"
 		}
-		h.tmpl.ExecuteTemplate(w, "login.html", LoginPageData{Error: errMsg, Support: h.supportNow()})
+		h.tmpl.ExecuteTemplate(w, "login.html", LoginPageData{Error: errMsg, Support: h.supportNow(), Fresh: h.isFresh()})
 		return
 	}
 	h.limiter.Reset(keys...)

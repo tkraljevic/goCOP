@@ -230,7 +230,7 @@ func NewServer(
 	}
 
 	// Samostalne stranice: prijava i ispis dnevnika
-	for _, page := range []string{"login.html", "dnevnik_ispis.html"} {
+	for _, page := range []string{"login.html", "dnevnik_ispis.html", "uparivanje.html"} {
 		t, err := template.New(page).Funcs(tmplFuncs).ParseFS(templatesFS, page)
 		if err != nil {
 			return nil, fmt.Errorf("greška pri parsiranju predloška %s: %w", page, err)
@@ -331,6 +331,18 @@ func (s *Server) setupRoutes() {
 	if err == nil {
 		s.mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticFS))))
 	}
+
+	// Uparivanje: prijavljenima uvijek, neprijavljenima dok je čvor svjež
+	pairH := NewPairHandler(s.peersService, s.authService, s.userService, s.templates["uparivanje.html"])
+	authH.SetFresh(pairH.Fresh)
+	s.mux.Handle("GET /uparivanje", pairH.Gate(http.HandlerFunc(pairH.ShowWizard)))
+	s.mux.Handle("GET /api/uparivanje/status", pairH.Gate(http.HandlerFunc(pairH.HandleStatus)))
+	s.mux.Handle("POST /api/uparivanje/listen", pairH.Gate(http.HandlerFunc(pairH.HandleListen)))
+	s.mux.Handle("POST /api/uparivanje/stop", pairH.Gate(http.HandlerFunc(pairH.HandleStop)))
+	s.mux.Handle("POST /api/uparivanje/dial", pairH.Gate(http.HandlerFunc(pairH.HandleDial)))
+	s.mux.Handle("POST /api/uparivanje/confirm", pairH.Gate(http.HandlerFunc(pairH.HandleConfirm)))
+	s.mux.Handle("GET /api/uparivanje/discover", pairH.Gate(http.HandlerFunc(pairH.HandleDiscover)))
+	s.mux.Handle("POST /api/uparivanje/sync", pairH.Gate(http.HandlerFunc(pairH.HandleSync)))
 
 	// Javne rute za prijavu
 	s.mux.HandleFunc("GET /login", authH.ShowLogin)

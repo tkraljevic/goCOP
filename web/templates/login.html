@@ -76,6 +76,13 @@
       <div class="alert alert-danger">{{.Error}}</div>
       {{end}}
 
+      {{if .Fresh}}
+      <div class="alert alert-warning" style="margin-bottom:1rem;">
+        Ovo računalo još nije povezano s uredom, pa u njemu nema djelatnika.
+        <a href="/uparivanje" style="font-weight:600;">Poveži ga s uredom</a>, pa se prijavite svojim računom.
+      </div>
+      {{end}}
+
       <form action="/login" method="POST">
         <div class="form-group" style="margin-bottom: 1rem;">
           <label class="form-label" for="username">Korisničko ime</label>
