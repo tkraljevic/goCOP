@@ -202,6 +202,11 @@ func (s *AuthService) StopViewingAs(sessionID uuid.UUID) error {
 	return s.sessionRepo.SetViewingAs(sessionID, nil)
 }
 
+// EndAllSessions gasi sve otvorene sesije jedne osobe
+func (s *AuthService) EndAllSessions(userID uuid.UUID) error {
+	return s.sessionRepo.DeleteSessionsForUser(userID)
+}
+
 // ChangePassword provjerava trenutnu lozinku i postavlja novu lozinku
 func (s *AuthService) ChangePassword(userID uuid.UUID, currentPassword, newPassword string) error {
 	u, err := s.userRepo.GetUserByID(userID)

@@ -71,6 +71,11 @@ type UserPageData struct {
 
 	ModuleRows []ModuleOverrideRow // vidljivost modula za ovaj račun (samo globalni administrator)
 
+	// Privremena lozinka nakon poništavanja: pokazuje se jednom, na stranici
+	// koja slijedi odmah iza radnje. Ne ide u adresu ni u poruku o uspjehu,
+	// da ne ostane u povijesti preglednika.
+	TempPassword string
+
 	SuccessMessage string
 	ErrorMessage   string
 	ActiveNav      string
@@ -136,14 +141,37 @@ func (h *UsersHandler) loadUser(r *http.Request) (*models.User, bool) {
 	return u, true
 }
 
-// ShowUser prikazuje jednog djelatnika s kontaktima i zaduženjima
-func (h *UsersHandler) ShowUser(w http.ResponseWriter, r *http.Request) {
-	data := h.pageData(r)
+// HandleResetPassword daje osobi privremenu lozinku i pokaže je
+// administratoru koji će je pročitati preko telefona. Otvorene sesije te
+// osobe se gase, a ona pri prijavi mora postaviti svoju lozinku.
+func (h *UsersHandler) HandleResetPassword(w http.ResponseWriter, r *http.Request) {
+	perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
 	u, ok := h.loadUser(r)
 	if !ok {
 		http.NotFound(w, r)
 		return
 	}
+	updated, temp, err := h.userService.ResetPassword(perms, u.ID)
+	if err != nil {
+		redirectWith(w, r, "/users/"+u.ID.String(), "error", err.Error())
+		return
+	}
+	h.showUser(w, r, updated, temp)
+}
+
+// ShowUser prikazuje jednog djelatnika s kontaktima i zaduženjima
+func (h *UsersHandler) ShowUser(w http.ResponseWriter, r *http.Request) {
+	u, ok := h.loadUser(r)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	h.showUser(w, r, u, "")
+}
+
+func (h *UsersHandler) showUser(w http.ResponseWriter, r *http.Request, u *models.User, tempPassword string) {
+	data := h.pageData(r)
+	data.TempPassword = tempPassword
 	data.User = u
 	data.IsSelf = data.CurrentUser != nil && data.CurrentUser.ID == u.ID
 	if h.moduleService != nil && data.Permissions != nil && data.Permissions.IsGlobalAdmin && !u.IsGlobalAdmin {

@@ -87,6 +87,17 @@ func (r *SessionRepository) DeleteSession(id uuid.UUID) error {
 	return err
 }
 
+// DeleteSessionsForUser gasi sve sesije jedne osobe (poništena lozinka,
+// izgubljen uređaj). Sesija je jedini trag prijave, pa se briše lokalno na
+// svakom čvoru — ne putuje razmjenom.
+func (r *SessionRepository) DeleteSessionsForUser(userID uuid.UUID) error {
+	_, err := r.db.Exec("DELETE FROM sessions WHERE user_id = ?", userID.String())
+	if err != nil {
+		return fmt.Errorf("greška pri gašenju sesija korisnika: %w", err)
+	}
+	return nil
+}
+
 // CleanExpiredSessions čisti istekle sesije
 func (r *SessionRepository) CleanExpiredSessions() error {
 	_, err := r.db.Exec("DELETE FROM sessions WHERE expires_at <= CURRENT_TIMESTAMP")

@@ -25,6 +25,11 @@
     {{if .CanManage}}
     <a href="/users/{{.User.ID}}/duties/new" class="btn btn-secondary">{{icon "plus"}} Zaduženje</a>
     {{end}}
+    {{if and (not .IsSelf) .CanManage}}
+    <form method="POST" action="/users/{{.User.ID}}/reset-password" onsubmit="return confirm('Poništiti lozinku i dati {{.User.FullName}} privremenu? Otvorene prijave te osobe se gase.')">
+      <button type="submit" class="btn btn-secondary" title="Za osobu koja je zaboravila lozinku">{{icon "key-round"}} Poništi lozinku</button>
+    </form>
+    {{end}}
     {{if and (not .IsSelf) .Permissions.IsGlobalAdmin}}
     <form method="POST" action="/view-as/{{.User.ID}}">
       <button type="submit" class="btn btn-secondary" title="Vidi program onako kako ga vidi {{.User.FullName}}">{{icon "eye"}} Pregled</button>
@@ -33,6 +38,14 @@
   </div>
 </div>
 
+{{if .TempPassword}}
+<div class="alert alert-success" style="display:block;">
+  <strong>{{icon "key-round"}} Privremena lozinka za {{.User.FullName}}</strong>
+  <div style="font-family:ui-monospace, monospace; font-size:1.35rem; font-weight:700; letter-spacing:0.02em; margin:0.5rem 0; user-select:all;">{{.TempPassword}}</div>
+  Pročitajte je toj osobi. Prikazuje se samo sada; program je više ne zna, pamti samo njezin sažetak.
+  Pri prijavi mora postaviti svoju lozinku, a dotadašnje prijave te osobe su ugašene.
+</div>
+{{end}}
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
 
