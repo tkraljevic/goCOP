@@ -220,7 +220,7 @@ func NewServer(
 
 	// Predlošci koji proširuju base.html
 	for _, page := range []string{"dashboard.html", "registri.html", "users.html", "user_detail.html", "user_form.html", "duty_form.html", "profile.html", "sections.html", "section_detail.html", "section_form.html", "territories.html", "county_form.html", "municipality_form.html", "municipality_detail.html", "stations.html", "station_detail.html", "station_form.html", "watercourses.html", "watercourse_detail.html", "watercourse_form.html", "structures.html", "structure_detail.html", "structure_form.html", "readings.html", "reading_history.html", "reading_form.html", "teren.html", "moduli.html", "settings.html", "odrzavanje.html", "organizacija.html", "sector_form.html", "area_form.html",
-		"administracija.html", "uvozi.html", "sinkronizacija.html",
+		"administracija.html", "uvozi.html", "sinkronizacija.html", "pretplate.html",
 		"dnevnici.html", "dnevnik_form.html", "dnevnik.html", "dnevnik_list.html"} {
 		t, err := template.New("base.html").Funcs(tmplFuncs).ParseFS(templatesFS, "base.html", page)
 		if err != nil {
@@ -464,6 +464,13 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /api/watercourses/update", s.authMiddleware(http.HandlerFunc(watercoursesH.HandleUpdateWatercourseAPI)))
 	s.mux.Handle("POST /api/watercourses/delete", s.authMiddleware(http.HandlerFunc(watercoursesH.HandleDeleteWatercourseAPI)))
 	s.mux.Handle("POST /api/stations/watercourse", s.authMiddleware(http.HandlerFunc(watercoursesH.HandleAssignStationWatercourseAPI)))
+
+	// Što ovo računalo prati: pretplate na kanale, za svakog prijavljenog
+	subsH := NewSubscriptionsHandler(s.peersService, s.orgService, s.templates["pretplate.html"])
+	s.mux.Handle("GET /pretplate", s.authMiddleware(http.HandlerFunc(subsH.ShowSubscriptions)))
+	s.mux.Handle("POST /pretplate/dodaj", s.authMiddleware(http.HandlerFunc(subsH.HandleAdd)))
+	s.mux.Handle("POST /pretplate/ukloni", s.authMiddleware(http.HandlerFunc(subsH.HandleRemove)))
+	s.mux.Handle("POST /pretplate/obrisi", s.authMiddleware(http.HandlerFunc(subsH.HandlePurge)))
 
 	// Nadzorna ploča sinkronizacije
 	syncH := NewSyncHandler(s.peersService, s.templates["sinkronizacija.html"])

@@ -130,8 +130,9 @@ type Service struct {
 	// otpadne ne ulazi ni u knjigu ni na površinu.
 	accept func(ledger.Version) bool
 
-	every  time.Duration // razmak automatske sinkronizacije (0 = isključena)
-	autoOn bool
+	every    time.Duration // razmak automatske sinkronizacije (0 = isključena)
+	autoOn   bool
+	wantsAll bool // prati sve kanale (uredski čvor)
 }
 
 func (s *Service) autoSync() bool {
@@ -577,6 +578,7 @@ const (
 
 type frontierMsg struct {
 	Frontier map[string]string `json:"frontier"`
+	Wants    *Wants            `json:"wants,omitempty"` // koje kanale pošiljatelj traži; bez toga sve
 }
 
 type deltaMsg struct {
@@ -654,6 +656,10 @@ func (s *Service) exchange(ctx context.Context, c *syncnet.Conn, initiator bool)
 	if err != nil {
 		return 0, 0, nil, err
 	}
+	myWants, err := s.CurrentWants(ctx)
+	if err != nil {
+		return 0, 0, nil, err
+	}
 
 	send := func(kind string, v any) error {
 		e, err := syncnet.NewEnvelope(kind, v)
@@ -679,7 +685,7 @@ func (s *Service) exchange(ctx context.Context, c *syncnet.Conn, initiator bool)
 
 	var theirs frontierMsg
 	if initiator {
-		if err := send(kindFrontier, frontierMsg{mine}); err != nil {
+		if err := send(kindFrontier, frontierMsg{mine, &myWants}); err != nil {
 			return 0, 0, theirs.Frontier, err
 		}
 		if err := expect(kindFrontier, &theirs); err != nil {
@@ -689,12 +695,14 @@ func (s *Service) exchange(ctx context.Context, c *syncnet.Conn, initiator bool)
 		if err := expect(kindFrontier, &theirs); err != nil {
 			return 0, 0, theirs.Frontier, err
 		}
-		if err := send(kindFrontier, frontierMsg{mine}); err != nil {
+		if err := send(kindFrontier, frontierMsg{mine, &myWants}); err != nil {
 			return 0, 0, theirs.Frontier, err
 		}
 	}
 
-	delta, err := s.rec.Delta(ctx, theirs.Frontier, 5000)
+	// šalje se samo što drugi prati; što ovaj čvor ne prati, ne prima ni
+	// omaškom, jer bi ostalo bez granice i vraćalo se svakom razmjenom
+	delta, err := s.rec.Delta(ctx, theirs.Frontier, s.wantsFunc(ctx, theirs.Wants), 5000)
 	if err != nil {
 		return 0, 0, theirs.Frontier, err
 	}
@@ -716,14 +724,16 @@ func (s *Service) exchange(ctx context.Context, c *syncnet.Conn, initiator bool)
 	}
 	sent = len(delta)
 
-	wanted := incoming.Versions
-	if s.accept != nil {
-		wanted = wanted[:0:0]
-		for _, v := range incoming.Versions {
-			if s.accept(v) {
-				wanted = append(wanted, v)
-			}
+	myFilter := s.wantsFunc(ctx, &myWants)
+	wanted := make([]ledger.Version, 0, len(incoming.Versions))
+	for _, v := range incoming.Versions {
+		if myFilter != nil && !myFilter(v.Channel) {
+			continue
 		}
+		if s.accept != nil && !s.accept(v) {
+			continue
+		}
+		wanted = append(wanted, v)
 	}
 	applied, err = s.rec.Apply(ctx, wanted)
 	if err != nil {

@@ -40,6 +40,57 @@ type Version struct {
 	Payload       json.RawMessage `json:"payload"`    // cijeli zapis kako ga vidi aplikacija
 	CreatedAt     time.Time       `json:"created_at"` // zidni sat čvora — informativno, ne za redoslijed
 	SchemaVersion int             `json:"schema_version"`
+	Channel       string          `json:"channel,omitempty"` // kanal: prazan drže svi, inače vrsta/područje/godina
+}
+
+// Kanali: što drže svi, i što čvor prati po izboru. Ustroj, registri i
+// djelatnici su mali i trebaju svakome, pa idu bez kanala. Očitanja i
+// dnevnici rastu godinama i tiču se jednog područja, pa nose kanal
+// "ocitanja/16/2026" ili "dnevnici/16/2026": laptop prati svoje područje i
+// zadnje dvije godine, uredski čvor sve. Granica razmjene vodi se po
+// autoru i kanalu, pa ono što čvor ne prati ne ostavlja rupu u razmjeni.
+const (
+	ChannelReadings = "ocitanja"
+	ChannelJournals = "dnevnici"
+)
+
+// ChannelFor slaže kanal iz vrste, područja i godine; bez područja nema
+// kanala, jer se takav zapis tiče svih (npr. uzvodna postaja na Dunavu)
+func ChannelFor(kind string, areaID, year int) string {
+	if areaID <= 0 || year <= 0 {
+		return ""
+	}
+	return fmt.Sprintf("%s/%d/%d", kind, areaID, year)
+}
+
+// SplitChannel rastavlja kanal na vrstu, područje i godinu; prazan kanal je ("", 0, 0)
+func SplitChannel(channel string) (kind string, areaID, year int) {
+	if channel == "" {
+		return "", 0, 0
+	}
+	parts := strings.Split(channel, "/")
+	if len(parts) != 3 {
+		return channel, 0, 0
+	}
+	fmt.Sscanf(parts[1], "%d", &areaID)
+	fmt.Sscanf(parts[2], "%d", &year)
+	return parts[0], areaID, year
+}
+
+// FrontierKey je ključ granice: autor za zajednički kanal, autor|kanal inače
+func FrontierKey(nodeID, channel string) string {
+	if channel == "" {
+		return nodeID
+	}
+	return nodeID + "|" + channel
+}
+
+// SplitFrontierKey vraća autora i kanal iz ključa granice
+func SplitFrontierKey(key string) (nodeID, channel string) {
+	if i := strings.IndexByte(key, '|'); i >= 0 {
+		return key[:i], key[i+1:]
+	}
+	return key, ""
 }
 
 // Execer je ono što Recorderu treba za upis: *sql.DB ili *sql.Tx.
@@ -62,19 +113,29 @@ func New(db *sql.DB, nodeID string) *Recorder {
 
 var ErrNoVersion = errors.New("zapis nema nijednu verziju")
 
-// Record upisuje novu verziju zapisa i vraća njezin identifikator.
-// Poziva se unutar transakcije u kojoj se mijenja i površina.
+// Record upisuje novu verziju zapisa u zajednički kanal i vraća njezin
+// identifikator. Poziva se unutar transakcije u kojoj se mijenja i površina.
 func (r *Recorder) Record(ctx context.Context, tx Execer, entity, entityID string, payload any) (string, error) {
-	return r.write(ctx, tx, entity, entityID, payload, false)
+	return r.write(ctx, tx, "", entity, entityID, payload, false)
+}
+
+// RecordIn upisuje novu verziju u zadani kanal
+func (r *Recorder) RecordIn(ctx context.Context, tx Execer, channel, entity, entityID string, payload any) (string, error) {
+	return r.write(ctx, tx, channel, entity, entityID, payload, false)
 }
 
 // Archive upisuje verziju koja zapis uklanja s površine. Sadržaj se čuva —
 // arhivirani zapis se može vratiti kao i svaka starija verzija.
 func (r *Recorder) Archive(ctx context.Context, tx Execer, entity, entityID string, payload any) (string, error) {
-	return r.write(ctx, tx, entity, entityID, payload, true)
+	return r.write(ctx, tx, "", entity, entityID, payload, true)
 }
 
-func (r *Recorder) write(ctx context.Context, tx Execer, entity, entityID string, payload any, archived bool) (string, error) {
+// ArchiveIn uklanja zapis s površine, u zadanom kanalu
+func (r *Recorder) ArchiveIn(ctx context.Context, tx Execer, channel, entity, entityID string, payload any) (string, error) {
+	return r.write(ctx, tx, channel, entity, entityID, payload, true)
+}
+
+func (r *Recorder) write(ctx context.Context, tx Execer, channel, entity, entityID string, payload any, archived bool) (string, error) {
 	if strings.TrimSpace(entity) == "" || strings.TrimSpace(entityID) == "" {
 		return "", fmt.Errorf("verzija bez entiteta ili identifikatora")
 	}
@@ -102,9 +163,9 @@ func (r *Recorder) write(ctx context.Context, tx Execer, entity, entityID string
 
 	_, err = tx.ExecContext(ctx, `
 		INSERT INTO record_versions (
-			version_id, entity, entity_id, node_id, supersedes, archived, payload, created_at, schema_version
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, id.String(), entity, entityID, r.nodeID, supersedes, boolInt(archived), string(body), time.Now().UTC(), SchemaVersion)
+			version_id, entity, entity_id, node_id, supersedes, archived, payload, created_at, schema_version, channel
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, id.String(), entity, entityID, r.nodeID, supersedes, boolInt(archived), string(body), time.Now().UTC(), SchemaVersion, channel)
 	if err != nil {
 		return "", fmt.Errorf("greška pri upisu verzije %s/%s: %w", entity, entityID, err)
 	}
@@ -153,8 +214,8 @@ func (r *Recorder) Apply(ctx context.Context, versions []Version) (applied int, 
 
 	stmt, err := tx.PrepareContext(ctx, `
 		INSERT INTO record_versions (
-			version_id, entity, entity_id, node_id, supersedes, archived, payload, created_at, schema_version
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+			version_id, entity, entity_id, node_id, supersedes, archived, payload, created_at, schema_version, channel
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(version_id) DO NOTHING
 	`)
 	if err != nil {
@@ -167,7 +228,7 @@ func (r *Recorder) Apply(ctx context.Context, versions []Version) (applied int, 
 			return 0, fmt.Errorf("primljena verzija bez identifikatora ili entiteta")
 		}
 		res, err := stmt.ExecContext(ctx, v.VersionID, v.Entity, v.EntityID, v.NodeID, v.Supersedes,
-			boolInt(v.Archived), string(v.Payload), v.CreatedAt.UTC(), v.SchemaVersion)
+			boolInt(v.Archived), string(v.Payload), v.CreatedAt.UTC(), v.SchemaVersion, v.Channel)
 		if err != nil {
 			return 0, fmt.Errorf("greška pri primanju verzije %s: %w", v.VersionID, err)
 		}
@@ -199,7 +260,7 @@ func (r *Recorder) Count(ctx context.Context) (map[string]int, error) {
 	return out, rows.Err()
 }
 
-const columns = `version_id, entity, entity_id, node_id, supersedes, archived, payload, created_at, schema_version`
+const columns = `version_id, entity, entity_id, node_id, supersedes, archived, payload, created_at, schema_version, channel`
 
 func (r *Recorder) query(ctx context.Context, query string, args ...any) ([]Version, error) {
 	rows, err := r.db.QueryContext(ctx, query, args...)
@@ -214,7 +275,7 @@ func (r *Recorder) query(ctx context.Context, query string, args ...any) ([]Vers
 		var archived int
 		var payload string
 		if err := rows.Scan(&v.VersionID, &v.Entity, &v.EntityID, &v.NodeID, &v.Supersedes,
-			&archived, &payload, &v.CreatedAt, &v.SchemaVersion); err != nil {
+			&archived, &payload, &v.CreatedAt, &v.SchemaVersion, &v.Channel); err != nil {
 			return nil, err
 		}
 		v.Archived = archived != 0
@@ -231,12 +292,14 @@ func boolInt(b bool) int {
 	return 0
 }
 
-// Frontier je dokle ovaj čvor zna za svakog autora: najveći version_id
-// koji drži od svakog node_id. Dva čvora razmijene frontiere i svaki
-// pošalje drugome ono što drugi od pojedinog autora još nema — i tuđe
-// verzije koje je sam primio, pa promjena stiže i preko posrednika.
+// Frontier je dokle ovaj čvor zna za svakog autora i kanal: najveći
+// version_id koji drži od svakog node_id u svakom kanalu (ključ je
+// FrontierKey). Dva čvora razmijene frontiere i svaki pošalje drugome ono
+// što drugi od pojedinog autora u tom kanalu još nema — i tuđe verzije koje
+// je sam primio, pa promjena stiže i preko posrednika. Kanal koji čvor ne
+// prati u granici nema, pa ga ni ne dobiva, a ne ostavlja ni rupu.
 func (r *Recorder) Frontier(ctx context.Context) (map[string]string, error) {
-	rows, err := r.db.QueryContext(ctx, `SELECT node_id, MAX(version_id) FROM record_versions GROUP BY node_id`)
+	rows, err := r.db.QueryContext(ctx, `SELECT node_id, channel, MAX(version_id) FROM record_versions GROUP BY node_id, channel`)
 	if err != nil {
 		return nil, err
 	}
@@ -244,13 +307,48 @@ func (r *Recorder) Frontier(ctx context.Context) (map[string]string, error) {
 
 	out := map[string]string{}
 	for rows.Next() {
-		var node, max string
-		if err := rows.Scan(&node, &max); err != nil {
+		var node, channel, max string
+		if err := rows.Scan(&node, &channel, &max); err != nil {
 			return nil, err
 		}
-		out[node] = max
+		out[FrontierKey(node, channel)] = max
 	}
 	return out, rows.Err()
+}
+
+// CountByChannel vraća broj verzija po kanalu — za nadzornu ploču i
+// odluku što s ovog računala obrisati
+func (r *Recorder) CountByChannel(ctx context.Context) (map[string]int, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT channel, COUNT(*) FROM record_versions GROUP BY channel`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]int{}
+	for rows.Next() {
+		var ch string
+		var n int
+		if err := rows.Scan(&ch, &n); err != nil {
+			return nil, err
+		}
+		out[ch] = n
+	}
+	return out, rows.Err()
+}
+
+// PurgeChannel briše sve verzije jednog kanala s ovog čvora. To nije
+// arhiviranje nego čišćenje mjesta: zapisi ostaju na čvorovima koji kanal
+// prate i vraćaju se razmjenom čim ga ovaj čvor opet zatraži.
+func (r *Recorder) PurgeChannel(ctx context.Context, tx Execer, channel string) (int64, error) {
+	if channel == "" {
+		return 0, fmt.Errorf("zajednički kanal se ne briše")
+	}
+	res, err := tx.ExecContext(ctx, `DELETE FROM record_versions WHERE channel = ?`, channel)
+	if err != nil {
+		return 0, err
+	}
+	n, _ := res.RowsAffected()
+	return n, nil
 }
 
 // Since vraća verzije novije od zadane, redom nastanka — to je ono što se
@@ -266,32 +364,37 @@ func (r *Recorder) Since(ctx context.Context, afterVersionID string, limit int) 
 	`, afterVersionID, limit)
 }
 
-// SinceByNode vraća verzije jednog autora novije od zadane, redom nastanka
-func (r *Recorder) SinceByNode(ctx context.Context, nodeID, afterVersionID string, limit int) ([]Version, error) {
+// SinceByNode vraća verzije jednog autora u jednom kanalu novije od zadane, redom nastanka
+func (r *Recorder) SinceByNode(ctx context.Context, nodeID, channel, afterVersionID string, limit int) ([]Version, error) {
 	if limit <= 0 {
 		limit = 1000
 	}
 	return r.query(ctx, `
 		SELECT `+columns+` FROM record_versions
-		WHERE node_id = ? AND version_id > ?
+		WHERE node_id = ? AND channel = ? AND version_id > ?
 		ORDER BY version_id ASC LIMIT ?
-	`, nodeID, afterVersionID, limit)
+	`, nodeID, channel, afterVersionID, limit)
 }
 
-// Delta je sve što drugi čvor još nema, prema njegovu frontieru:
-// za svakog autora kojeg ovaj čvor poznaje, verzije iznad onoga što drugi drži.
-func (r *Recorder) Delta(ctx context.Context, theirs map[string]string, limitPerNode int) ([]Version, error) {
+// Delta je sve što drugi čvor još nema, prema njegovoj granici: za svakog
+// autora i kanal koji ovaj čvor poznaje, verzije iznad onoga što drugi
+// drži. wants kaže koje kanale drugi uopće želi; nil znači sve.
+func (r *Recorder) Delta(ctx context.Context, theirs map[string]string, wants func(channel string) bool, limitPerNode int) ([]Version, error) {
 	mine, err := r.Frontier(ctx)
 	if err != nil {
 		return nil, err
 	}
 	var out []Version
-	for node, myMax := range mine {
-		theirMax := theirs[node]
+	for key, myMax := range mine {
+		node, channel := SplitFrontierKey(key)
+		if wants != nil && !wants(channel) {
+			continue
+		}
+		theirMax := theirs[key]
 		if theirMax >= myMax {
 			continue
 		}
-		batch, err := r.SinceByNode(ctx, node, theirMax, limitPerNode)
+		batch, err := r.SinceByNode(ctx, node, channel, theirMax, limitPerNode)
 		if err != nil {
 			return nil, err
 		}

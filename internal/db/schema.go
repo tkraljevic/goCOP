@@ -225,6 +225,17 @@ func InitSchema(database *sql.DB) error {
 			UNIQUE(section_code, station_id)
 		);`,
 
+		// Pretplate: koje kanale (vrsta/područje/godina) ovo računalo prati.
+		// Lokalno, ne putuje (vidi peers.Subscription).
+		`CREATE TABLE IF NOT EXISTS subscriptions (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			kind TEXT NOT NULL DEFAULT '',
+			sector_id TEXT NOT NULL DEFAULT '',
+			area_id INTEGER NOT NULL DEFAULT 0,
+			year_from INTEGER NOT NULL DEFAULT 0,
+			year_to INTEGER NOT NULL DEFAULT 0
+		);`,
+
 		// Stanje razmjene s pojedinim čvorom: odnos ovog čvora s tim, ostaje
 		// lokalno i ne putuje (vidi peers.SyncState)
 		`CREATE TABLE IF NOT EXISTS peer_sync (
@@ -334,7 +345,8 @@ func InitSchema(database *sql.DB) error {
 			ag_hours_3 INTEGER,
 			note TEXT NOT NULL DEFAULT '',
 			created_at DATETIME NOT NULL,
-			updated_at DATETIME NOT NULL
+			updated_at DATETIME NOT NULL,
+			channel TEXT NOT NULL DEFAULT ''
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_readings_station_time ON readings(station_id, measured_at DESC);`,
 		`CREATE INDEX IF NOT EXISTS idx_readings_structure_time ON readings(structure_id, measured_at DESC);`,
@@ -422,7 +434,8 @@ func InitSchema(database *sql.DB) error {
 			notes TEXT NOT NULL DEFAULT '',
 			created_by TEXT NOT NULL DEFAULT '',
 			created_at DATETIME NOT NULL,
-			updated_at DATETIME NOT NULL
+			updated_at DATETIME NOT NULL,
+			channel TEXT NOT NULL DEFAULT ''
 		);`,
 		`CREATE TABLE IF NOT EXISTS journal_sheets (
 			id TEXT PRIMARY KEY,
@@ -572,6 +585,9 @@ func migrateSchema(database *sql.DB) error {
 		{"sessions", "viewing_as", "TEXT"},
 		{"sections", "parts", "TEXT NOT NULL DEFAULT '[]'"},
 		{"users", "short_mobile", "TEXT"},
+		{"record_versions", "channel", "TEXT NOT NULL DEFAULT ''"},
+		{"readings", "channel", "TEXT NOT NULL DEFAULT ''"},
+		{"journals", "channel", "TEXT NOT NULL DEFAULT ''"},
 	}
 
 	// Vrijednosti koje su promijenile ime nakon što su upisane
@@ -607,6 +623,43 @@ func migrateSchema(database *sql.DB) error {
 				SELECT MAX(s.created_at) FROM sessions s WHERE s.user_id = users.id
 			) WHERE EXISTS (SELECT 1 FROM sessions s WHERE s.user_id = users.id)`); err != nil {
 			return fmt.Errorf("greška pri popunjavanju zadnjih prijava: %w", err)
+		}
+	}
+
+	// Kanali za zapise otprije stupca: očitanje ide u područje svoje letve
+	// (postaja preko dionice, objekt izravno) i godinu mjerenja, dnevnik u
+	// svoje područje i godinu; knjiga preuzima kanal s površine
+	// Kazala na stupcima kanala tek ovdje, kad stupci sigurno postoje i u
+	// bazama nastalim prije njih
+	for _, stmt := range []string{
+		`CREATE INDEX IF NOT EXISTS idx_versions_channel ON record_versions(node_id, channel, version_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_readings_channel ON readings(channel)`,
+	} {
+		if _, err := database.Exec(stmt); err != nil {
+			return fmt.Errorf("greška pri kazalu kanala: %w", err)
+		}
+	}
+	if justAdded["readings.channel"] || justAdded["journals.channel"] || justAdded["record_versions.channel"] {
+		for _, stmt := range []string{
+			`UPDATE readings SET channel = 'ocitanja/' || src.area || '/' || strftime('%Y', readings.measured_at) FROM (
+				SELECT r.id AS rid, COALESCE(
+					(SELECT s.area_id FROM section_stations ss JOIN sections s ON s.code = ss.section_code WHERE ss.station_id = r.station_id LIMIT 1),
+					(SELECT st.area_id FROM structures st WHERE st.id = r.structure_id), 0) AS area
+				FROM readings r) AS src WHERE readings.id = src.rid AND src.area > 0 AND readings.channel = ''`,
+			`UPDATE journals SET channel = 'dnevnici/' || area_id || '/' || CASE WHEN year > 0 THEN year ELSE strftime('%Y', created_at) END
+				WHERE area_id > 0 AND channel = ''`,
+			`UPDATE record_versions SET channel = (SELECT channel FROM readings WHERE readings.id = record_versions.entity_id)
+				WHERE entity = 'readings' AND channel = '' AND EXISTS (SELECT 1 FROM readings WHERE readings.id = record_versions.entity_id)`,
+			`UPDATE record_versions SET channel = (SELECT channel FROM journals WHERE journals.id = record_versions.entity_id)
+				WHERE entity = 'journals' AND channel = '' AND EXISTS (SELECT 1 FROM journals WHERE journals.id = record_versions.entity_id)`,
+			`UPDATE record_versions SET channel = (SELECT j.channel FROM journal_sheets sh JOIN journals j ON j.id = sh.journal_id WHERE sh.id = record_versions.entity_id)
+				WHERE entity = 'journal_sheets' AND channel = '' AND EXISTS (SELECT 1 FROM journal_sheets WHERE journal_sheets.id = record_versions.entity_id)`,
+			`UPDATE record_versions SET channel = (SELECT j.channel FROM journal_entries e JOIN journals j ON j.id = e.journal_id WHERE e.id = record_versions.entity_id)
+				WHERE entity = 'journal_entries' AND channel = '' AND EXISTS (SELECT 1 FROM journal_entries WHERE journal_entries.id = record_versions.entity_id)`,
+		} {
+			if _, err := database.Exec(stmt); err != nil {
+				return fmt.Errorf("greška pri dodjeli kanala postojećim zapisima: %w", err)
+			}
 		}
 	}
 

@@ -30,6 +30,21 @@ func NewReadingRepository(db *sql.DB, rec *ledger.Recorder) *ReadingRepository {
 	return &ReadingRepository{db: db, rec: rec}
 }
 
+// readingChannel je kanal očitanja: područje letve (postaja preko dionice
+// kojoj je mjerodavna, objekt izravno) i godina mjerenja. Letva bez
+// područja (uzvodne postaje na Dunavu, Dravi) ide u zajednički kanal.
+func readingChannel(ctx context.Context, q rowQuerier, rd *models.Reading) string {
+	var area int
+	switch {
+	case rd.StructureID != "":
+		_ = q.QueryRowContext(ctx, `SELECT area_id FROM structures WHERE id = ?`, rd.StructureID).Scan(&area)
+	case rd.StationID != "":
+		_ = q.QueryRowContext(ctx, `SELECT s.area_id FROM section_stations ss JOIN sections s ON s.code = ss.section_code
+			WHERE ss.station_id = ? ORDER BY s.code LIMIT 1`, rd.StationID).Scan(&area)
+	}
+	return ledger.ChannelFor(ledger.ChannelReadings, area, rd.MeasuredAt.Year())
+}
+
 func readingArgs(rd *models.Reading) []any {
 	return []any{
 		rd.ID.String(), rd.StationID, rd.StructureID, rd.MeasuredAt.UTC(), rd.LevelCm, rd.Level2Cm,
@@ -198,11 +213,15 @@ func (r *ReadingRepository) Create(ctx context.Context, rd *models.Reading) erro
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, readingArgs(rd)...); err != nil {
 		return fmt.Errorf("greška pri upisu očitanja: %w", err)
 	}
+	channel := readingChannel(ctx, tx, rd)
+	if _, err := tx.ExecContext(ctx, `UPDATE readings SET channel = ? WHERE id = ?`, channel, rd.ID.String()); err != nil {
+		return err
+	}
 	saved, err := getReadingTx(ctx, tx, rd.ID.String())
 	if err != nil {
 		return err
 	}
-	if _, err := r.rec.Record(ctx, tx, EntityReadings, rd.ID.String(), saved); err != nil {
+	if _, err := r.rec.RecordIn(ctx, tx, channel, EntityReadings, rd.ID.String(), saved); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -231,7 +250,11 @@ func (r *ReadingRepository) Update(ctx context.Context, rd *models.Reading) erro
 	if err != nil {
 		return err
 	}
-	if _, err := r.rec.Record(ctx, tx, EntityReadings, rd.ID.String(), saved); err != nil {
+	channel := readingChannel(ctx, tx, saved)
+	if _, err := tx.ExecContext(ctx, `UPDATE readings SET channel = ? WHERE id = ?`, channel, rd.ID.String()); err != nil {
+		return err
+	}
+	if _, err := r.rec.RecordIn(ctx, tx, channel, EntityReadings, rd.ID.String(), saved); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -251,10 +274,11 @@ func (r *ReadingRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	if existing == nil {
 		return fmt.Errorf("očitanje ne postoji")
 	}
+	channel := readingChannel(ctx, tx, existing)
 	if _, err := tx.ExecContext(ctx, `DELETE FROM readings WHERE id = ?`, id.String()); err != nil {
 		return err
 	}
-	if _, err := r.rec.Archive(ctx, tx, EntityReadings, id.String(), existing); err != nil {
+	if _, err := r.rec.ArchiveIn(ctx, tx, channel, EntityReadings, id.String(), existing); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -312,7 +336,11 @@ func (r *ReadingRepository) ImportBatch(ctx context.Context, readings []models.R
 		if n, _ := res.RowsAffected(); n == 0 {
 			continue
 		}
-		if _, err := r.rec.Record(ctx, tx, EntityReadings, rd.ID.String(), rd); err != nil {
+		channel := readingChannel(ctx, tx, rd)
+		if _, err := tx.ExecContext(ctx, `UPDATE readings SET channel = ? WHERE id = ?`, channel, rd.ID.String()); err != nil {
+			return inserted, err
+		}
+		if _, err := r.rec.RecordIn(ctx, tx, channel, EntityReadings, rd.ID.String(), rd); err != nil {
 			return inserted, err
 		}
 		inserted++
