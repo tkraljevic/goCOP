@@ -112,6 +112,9 @@ func (s *UserService) CreateUser(actor *models.UserPermissions, req CreateUserRe
 		ShortMobile:   req.ShortMobile,
 		Email:         req.Email,
 		IsActive:      true,
+		// Lozinku je odabrao administrator i zna je: osoba je pri prvoj
+		// prijavi mora zamijeniti svojom, kao i nakon poništavanja
+		MustChangePassword: true,
 	}
 
 	var initialDuty *models.Duty

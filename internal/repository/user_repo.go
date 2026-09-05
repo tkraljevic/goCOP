@@ -752,6 +752,35 @@ func (r *UserRepository) ChangePassword(userID uuid.UUID, newPasswordHash string
 	return tx.Commit()
 }
 
+// ResetPassword upisuje privremenu lozinku i zaključava račun na promjenu:
+// osoba koja se njome prijavi mora odmah postaviti svoju. Suprotno od
+// ChangePassword, koji oznaku gasi jer je lozinku postavio sam korisnik.
+func (r *UserRepository) ResetPassword(userID uuid.UUID, newPasswordHash string) error {
+	ctx := context.Background()
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec(`
+		UPDATE users
+		SET password_hash = ?, must_change_password = 1, updated_at = ?
+		WHERE id = ?
+	`, newPasswordHash, time.Now().UTC(), userID.String()); err != nil {
+		return fmt.Errorf("greška pri poništavanju lozinke: %w", err)
+	}
+
+	saved, err := getUserTx(ctx, tx, userID.String())
+	if err != nil {
+		return err
+	}
+	if _, err := r.rec.Record(ctx, tx, EntityUsers, userID.String(), versionOfUser(saved)); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 // MarkLogin bilježi prijavu korisnika, ali samo jednom dnevno.
 //
 // Prijava je česta, a knjiga verzija je zajednička svim čvorovima: kad bi
