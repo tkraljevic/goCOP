@@ -7,6 +7,9 @@ import (
 )
 
 // Moduli su dijelovi programa koje račun vidi u izborniku i smije otvoriti.
+// Administracija je poseban: nosi ono što ionako smije samo globalni
+// administrator (ustroj obrane, ovlasti, čvor i mreža, uvozi), pa je zadano
+// vidi samo on.
 // Vidljivost je zaseban sloj od prava pisanja: dužnosti kažu što tko SMIJE
 // upisati, moduli kažu što tko VIDI. Zadano se izvodi iz uloge, administrator
 // mijenja pravilo za ulogu ili napravi iznimku za pojedini račun. Početna
@@ -23,7 +26,7 @@ const (
 	ModuleRegisters = "registri"
 	ModuleJournals  = "dnevnici"
 	ModuleUsers     = "djelatnici"
-	ModuleSettings  = "postavke"
+	ModuleAdmin     = "administracija"
 )
 
 // Modules su moduli redom kojim stoje u izborniku
@@ -33,7 +36,7 @@ var Modules = []Module{
 	{ModuleJournals, "Dnevnici", "građevinski dnevnici održavanja i obrane: listovi, upisi, nalozi"},
 	{ModuleRegisters, "Registri", "dionice, područja, postaje, objekti, vodotoci, održavanje"},
 	{ModuleUsers, "Djelatnici", "imenik, dužnosti i ovlasti"},
-	{ModuleSettings, "Postavke", "čvor, mreža, uparivanje, moduli"},
+	{ModuleAdmin, "Administracija", "ustroj obrane, ovlasti, čvor i mreža, uvozi — sve što radi samo administrator"},
 }
 
 // ModuleLabel je naziv modula u sučelju
@@ -60,7 +63,7 @@ func IsModule(id string) bool {
 func DefaultModules(r Role) []string {
 	switch {
 	case r == RoleGlobalAdmin:
-		return []string{ModuleField, ModuleReadings, ModuleJournals, ModuleRegisters, ModuleUsers, ModuleSettings}
+		return []string{ModuleField, ModuleReadings, ModuleJournals, ModuleRegisters, ModuleUsers, ModuleAdmin}
 	case r == RoleServiceLeaderForeman:
 		// izvođač: početni pregled terena i vlastiti dnevnici
 		return []string{ModuleField, ModuleJournals}
@@ -70,7 +73,7 @@ func DefaultModules(r Role) []string {
 		return []string{ModuleField, ModuleReadings, ModuleRegisters}
 	case r == RoleCopLeader || r == RoleCopDeputy || r == RoleAreaAdmin ||
 		r == RoleNationalLeader || r == RoleNationalDeputy:
-		return []string{ModuleField, ModuleReadings, ModuleJournals, ModuleRegisters, ModuleUsers, ModuleSettings}
+		return []string{ModuleField, ModuleReadings, ModuleJournals, ModuleRegisters, ModuleUsers}
 	}
 	// rukovoditelji sektora, područja i dionica, operateri, ovlaštenici
 	return []string{ModuleField, ModuleReadings, ModuleJournals, ModuleRegisters, ModuleUsers}

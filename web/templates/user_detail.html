@@ -103,7 +103,7 @@
 <section class="detail-section">
   <h2>{{icon "eye"}} Moduli koje račun vidi</h2>
   <form method="POST" action="/users/{{.User.ID}}/modules" class="reg-card" style="padding:1rem;">
-    <p class="form-help" style="margin:0 0 0.75rem;">„Kao uloga“ slijedi pravilo za uloge (Postavke → Moduli). Iznimka vrijedi samo za ovaj račun i ne mijenja prava upisa.</p>
+    <p class="form-help" style="margin:0 0 0.75rem;">„Kao uloga“ slijedi pravilo za uloge (Administracija → Moduli i ovlasti). Iznimka vrijedi samo za ovaj račun i ne mijenja prava upisa.</p>
     <div class="reg-facts" style="grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));">
       {{range .ModuleRows}}
       <div>

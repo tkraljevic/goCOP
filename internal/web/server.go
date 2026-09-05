@@ -220,6 +220,7 @@ func NewServer(
 
 	// Predlošci koji proširuju base.html
 	for _, page := range []string{"dashboard.html", "registri.html", "users.html", "user_detail.html", "user_form.html", "duty_form.html", "profile.html", "sections.html", "section_detail.html", "section_form.html", "territories.html", "county_form.html", "municipality_form.html", "municipality_detail.html", "stations.html", "station_detail.html", "station_form.html", "watercourses.html", "watercourse_detail.html", "watercourse_form.html", "structures.html", "structure_detail.html", "structure_form.html", "readings.html", "reading_history.html", "reading_form.html", "teren.html", "moduli.html", "settings.html", "odrzavanje.html", "organizacija.html", "sector_form.html", "area_form.html",
+		"administracija.html", "uvozi.html",
 		"dnevnici.html", "dnevnik_form.html", "dnevnik.html", "dnevnik_list.html"} {
 		t, err := template.New("base.html").Funcs(tmplFuncs).ParseFS(templatesFS, "base.html", page)
 		if err != nil {
@@ -346,6 +347,11 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /{$}", s.authMiddleware(http.HandlerFunc(dashH.ShowDashboard)))
 	s.mux.Handle("GET /dashboard", s.authMiddleware(http.HandlerFunc(dashH.ShowDashboard)))
 	s.mux.Handle("GET /registri", s.authMiddleware(http.HandlerFunc(dashH.ShowRegisters)))
+
+	// Administracija: ulazna stranica i sve što radi samo administrator
+	adminH := NewAdminHandler(s.orgService, s.userService, s.templates["administracija.html"], s.templates["uvozi.html"])
+	s.mux.Handle("GET /administracija", s.authMiddleware(http.HandlerFunc(adminH.ShowAdmin)))
+	s.mux.Handle("GET /administracija/uvozi", s.authMiddleware(http.HandlerFunc(adminH.ShowImports)))
 
 	// Organizacija obrane: sektori i branjena područja
 	orgH := NewOrgHandler(s.orgService, s.templates["organizacija.html"], s.templates["sector_form.html"], s.templates["area_form.html"])
@@ -531,7 +537,7 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 var modulePaths = []struct{ prefix, module string }{
 	{"/teren", models.ModuleField},
 	{"/readings", models.ModuleReadings},
-	{"/registri", models.ModuleRegisters}, {"/organizacija", models.ModuleRegisters},
+	{"/registri", models.ModuleRegisters},
 	{"/sections", models.ModuleRegisters}, {"/stations", models.ModuleRegisters},
 	{"/structures", models.ModuleRegisters}, {"/watercourses", models.ModuleRegisters},
 	{"/territories", models.ModuleRegisters}, {"/odrzavanje", models.ModuleRegisters},
@@ -541,8 +547,10 @@ var modulePaths = []struct{ prefix, module string }{
 	{"/api/counties", models.ModuleRegisters}, {"/api/municipalities", models.ModuleRegisters},
 	{"/api/areas", models.ModuleRegisters},
 	{"/users", models.ModuleUsers},
-	{"/settings", models.ModuleSettings}, {"/api/peers", models.ModuleSettings},
-	{"/api/network", models.ModuleSettings}, {"/api/history", models.ModuleSettings},
+	{"/administracija", models.ModuleAdmin}, {"/organizacija", models.ModuleAdmin},
+	{"/moduli", models.ModuleAdmin}, {"/settings", models.ModuleAdmin},
+	{"/api/peers", models.ModuleAdmin}, {"/api/network", models.ModuleAdmin},
+	{"/api/history", models.ModuleAdmin},
 }
 
 func moduleForPath(path string) string {

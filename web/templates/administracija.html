@@ -1,0 +1,98 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Administracija{{end}}
+
+{{define "content"}}
+<div class="dashboard-container">
+  <div class="section-title-wrap">
+    <div class="breadcrumb"><a href="/">Početna</a> › Administracija</div>
+    <h1 class="page-title">{{icon "settings"}} Administracija</h1>
+    <p class="section-desc">
+      Posao koji radi samo administrator: ustroj obrane, ovlasti i vidljivost, čvor i mreža, uvozi podataka.
+      Registri i dnevnici su drugdje — ovdje stoji ono što određuje tko što smije i odakle podaci dolaze.
+    </p>
+  </div>
+
+  {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+  {{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
+
+  {{if eq .Sectors 0}}
+  <div class="alert alert-warning">
+    {{icon "triangle-alert"}} Čvor još nema nijedan sektor. Dok ustroja nema, nema ni dionica ni zaduženja.
+    Počnite s <a href="/organizacija/sektori/new">novim sektorom</a>, pa mu dodajte branjena područja.
+  </div>
+  {{end}}
+  {{if .NoContact}}
+  <div class="alert alert-warning">
+    {{icon "triangle-alert"}} Nijedan globalni administrator nema upisan mobitel ni e-poštu, pa stranica prijave
+    ne zna kome uputiti osobu koja je zaboravila lozinku. Upišite kontakt na <a href="/profile">svom profilu</a>.
+  </div>
+  {{end}}
+
+  <div class="dashboard-cards-grid">
+    <div class="dash-card">
+      <div class="dash-card-header">
+        <div class="dash-card-icon-box primary">{{icon "building"}}</div>
+        <span class="dash-status-pill {{if .Sectors}}info{{else}}default{{end}}">{{.Sectors}} SEKTORA · {{.Areas}} BP</span>
+      </div>
+      <div class="dash-card-body">
+        <h2 class="dash-card-title">Organizacija obrane</h2>
+        <p class="dash-card-desc">Sektori s centrima obrane i branjena područja s ispostavama. Na njih se vežu ovlasti, dionice i zaduženja.</p>
+      </div>
+      <div class="dash-card-footer"><a href="/organizacija" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
+    </div>
+
+    <div class="dash-card">
+      <div class="dash-card-header">
+        <div class="dash-card-icon-box info">{{icon "eye"}}</div>
+        <span class="dash-status-pill default">VIDLJIVOST</span>
+      </div>
+      <div class="dash-card-body">
+        <h2 class="dash-card-title">Moduli i ovlasti</h2>
+        <p class="dash-card-desc">Što koja uloga vidi u izborniku, uz iznimke za pojedini račun. Vidljivost je odvojena od prava upisa, koje daju dužnosti.</p>
+      </div>
+      <div class="dash-card-footer"><a href="/moduli" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
+    </div>
+
+    <div class="dash-card">
+      <div class="dash-card-header">
+        <div class="dash-card-icon-box teal">{{icon "radio-tower"}}</div>
+        <span class="dash-status-pill default">P2P</span>
+      </div>
+      <div class="dash-card-body">
+        <h2 class="dash-card-title">Čvor, mreža i sinkronizacija</h2>
+        <p class="dash-card-desc">Ovaj čvor i njegov ključ, uparivanje s drugim računalima, poznati čvorovi i ručna razmjena podataka.</p>
+      </div>
+      <div class="dash-card-footer"><a href="/settings" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
+    </div>
+
+    <div class="dash-card">
+      <div class="dash-card-header">
+        <div class="dash-card-icon-box warning">{{icon "download"}}</div>
+        <span class="dash-status-pill default">PRVO PUNJENJE</span>
+      </div>
+      <div class="dash-card-body">
+        <h2 class="dash-card-title">Uvozi podataka</h2>
+        <p class="dash-card-desc">Odakle podaci ulaze u ovaj čvor: registri i imenik uz bazu, ugovori o održavanju, tablice vodostaja, ranije evidencije.</p>
+      </div>
+      <div class="dash-card-footer"><a href="/administracija/uvozi" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
+    </div>
+
+    <div class="dash-card">
+      <div class="dash-card-header">
+        <div class="dash-card-icon-box danger">{{icon "key-round"}}</div>
+        <span class="dash-status-pill {{if .Locked}}warning{{else}}default{{end}}">{{.Users}} RAČUNA</span>
+      </div>
+      <div class="dash-card-body">
+        <h2 class="dash-card-title">Računi i lozinke</h2>
+        <p class="dash-card-desc">
+          {{if .Locked}}{{.Locked}} računa čeka promjenu lozinke pri prvoj prijavi.{{else}}Nijedan račun ne čeka promjenu lozinke.{{end}}
+          {{if .Inactive}} {{.Inactive}} je deaktivirano.{{end}}
+          Lozinku poništavate na stranici te osobe.
+        </p>
+      </div>
+      <div class="dash-card-footer"><a href="/users" class="btn btn-secondary dash-btn"><span>Otvori djelatnike</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
+    </div>
+  </div>
+</div>
+{{end}}
