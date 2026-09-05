@@ -280,9 +280,9 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		// Prijava: uzima se kasnija od dviju, jer je svaki čvor vidio svoje.
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO users (id, username, password_hash, full_name, title, is_global_admin,
-				must_change_password, org_type, org_name, phone, mobile_phone, short_phone, email,
+				must_change_password, org_type, org_name, phone, mobile_phone, short_phone, short_mobile, email,
 				is_active, last_login_at, created_at, updated_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT(id) DO UPDATE SET
 				username = excluded.username,
 				password_hash = CASE WHEN excluded.password_hash = '' THEN users.password_hash
@@ -290,12 +290,12 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 				full_name = excluded.full_name, title = excluded.title, is_global_admin = excluded.is_global_admin,
 				must_change_password = excluded.must_change_password, org_type = excluded.org_type,
 				org_name = excluded.org_name, phone = excluded.phone, mobile_phone = excluded.mobile_phone,
-				short_phone = excluded.short_phone, email = excluded.email, is_active = excluded.is_active,
+				short_phone = excluded.short_phone, short_mobile = excluded.short_mobile, email = excluded.email, is_active = excluded.is_active,
 				last_login_at = MAX(COALESCE(excluded.last_login_at, users.last_login_at),
 				                    COALESCE(users.last_login_at, excluded.last_login_at)),
 				updated_at = excluded.updated_at
 		`, u.ID.String(), u.Username, u.PasswordHash, u.FullName, u.Title, boolToInt(u.IsGlobalAdmin),
-			boolToInt(u.MustChangePassword), string(u.OrgType), u.OrgName, u.Phone, u.MobilePhone, u.ShortPhone, u.Email,
+			boolToInt(u.MustChangePassword), string(u.OrgType), u.OrgName, u.Phone, u.MobilePhone, u.ShortPhone, u.ShortMobile, u.Email,
 			boolToInt(u.IsActive), lastLogin, u.CreatedAt, u.UpdatedAt)
 		return err
 

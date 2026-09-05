@@ -188,6 +188,7 @@
       <div>
         <strong>Mobitel:</strong><br>
         {{if .MobilePhone}}<a href="tel:{{.MobilePhone}}" style="color:var(--primary); font-weight:600;">{{icon "smartphone"}} {{.MobilePhone}}</a>{{else}}-{{end}}
+        {{if .ShortMobile}} (skr. {{.ShortMobile}}){{end}}
       </div>
       <div>
         <strong>Fiksni / Lokal:</strong><br>

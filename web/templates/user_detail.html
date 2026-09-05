@@ -41,6 +41,7 @@
   <div class="reg-card" style="padding:1rem;">
     <dl class="reg-facts" style="font-size:0.9rem;">
       <div><dt>Mobitel</dt><dd>{{if .User.MobilePhone}}<a href="tel:{{.User.MobilePhone}}">{{.User.MobilePhone}}</a>{{else}}<span style="color:var(--text-muted); font-weight:500;">—</span>{{end}}</dd></div>
+      <div><dt>Skraćeni mobilni</dt><dd>{{if .User.ShortMobile}}{{.User.ShortMobile}}{{else}}<span style="color:var(--text-muted); font-weight:500;">—</span>{{end}}</dd></div>
       <div><dt>Fiksni</dt><dd>{{if .User.Phone}}<a href="tel:{{.User.Phone}}">{{.User.Phone}}</a>{{else}}<span style="color:var(--text-muted); font-weight:500;">—</span>{{end}}</dd></div>
       <div><dt>Lokal</dt><dd>{{if .User.ShortPhone}}{{.User.ShortPhone}}{{else}}<span style="color:var(--text-muted); font-weight:500;">—</span>{{end}}</dd></div>
       <div><dt>E-pošta</dt><dd style="overflow-wrap:anywhere;">{{if .User.Email}}<a href="mailto:{{.User.Email}}">{{.User.Email}}</a>{{else}}<span style="color:var(--text-muted); font-weight:500;">—</span>{{end}}</dd></div>
