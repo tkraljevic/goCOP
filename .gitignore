@@ -31,3 +31,6 @@ ocitanja/
 *ocitanja*.csv
 *.xlsx
 
+
+# radne datoteke alata za razvoj
+.claude/
