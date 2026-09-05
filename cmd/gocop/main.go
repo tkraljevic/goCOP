@@ -356,6 +356,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Greška pri inicijalizaciji web poslužitelja: %v", err)
 	}
+	server.SetDatabase(database, *dbPath)
 
 	// Sinkronizacija: prima razmjene, odgovara na probe s lokalne mreže,
 	// povremeno sam nazove poznate čvorove

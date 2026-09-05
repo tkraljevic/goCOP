@@ -187,7 +187,12 @@ sinkronizacija te pregled uvoza podataka. Vidi ga zadano samo globalni
 administrator. Nadzorna ploča **Sinkronizacija** pokazuje tko je na mreži,
 koliko računala odgovara, s kim je zadnja razmjena uspjela, tko zaostaje i
 što ne štima; razmjena ide s više čvorova istodobno, a čvorovi koji redom
-šute zovu se sve rjeđe. Na stranici prijave stoji kontakt glavnog
+šute zovu se sve rjeđe. **Održavanje baze** pokazuje koliko je baza velika
+i od čega, sažima knjigu verzija (svaki zapis zadržava zadnju verziju, a
+obrisani svoj nadgrobni spomenik; starije verzije brišu se nakon zadanog
+roka), vraća prostor na disku, te izvozi kanal u datoteku
+(`gocop-ocitanja-bp16-2024.db`) i uvozi je u bilo koji čvor: arhiva na
+disku ili prijenos bez mreže. Na stranici prijave stoji kontakt glavnog
 administratora iz registra (mobitel, e-pošta) i centar iz postavki čvora.
 
 `gocop.toml` — adresa web sučelja, putanja baze, identifikator i naziv
