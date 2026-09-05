@@ -469,10 +469,16 @@ func (r *Recorder) Stats(ctx context.Context) (Stats, error) {
 		AND version_id = (SELECT MAX(version_id) FROM record_versions b WHERE b.entity = a.entity AND b.entity_id = a.entity_id)`).Scan(&st.Tombstones); err != nil {
 		return st, err
 	}
-	var oldest sql.NullTime
+	// MIN() vraća tekst, ne DATETIME, pa se datum čita kao niz i tumači
+	var oldest sql.NullString
 	if err := r.db.QueryRowContext(ctx, `SELECT MIN(created_at) FROM record_versions`).Scan(&oldest); err == nil && oldest.Valid {
-		t := oldest.Time.UTC()
-		st.Oldest = &t
+		for _, layout := range []string{time.RFC3339Nano, "2006-01-02 15:04:05.999999999 -0700 MST", "2006-01-02 15:04:05.999999999-07:00", "2006-01-02 15:04:05"} {
+			if t, err := time.Parse(layout, oldest.String); err == nil {
+				t = t.UTC()
+				st.Oldest = &t
+				break
+			}
+		}
 	}
 	counts, err := r.Count(ctx)
 	if err != nil {
