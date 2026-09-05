@@ -167,6 +167,13 @@ Prvo pokretanje stvori praznu bazu i račun `admin` s početnom lozinkom
 koja se mijenja pri prvoj prijavi, te zapiše `data/gocop.toml`. Prvi korak
 u programu je registar Organizacija obrane: sektori, pa branjena područja. Ako uz bazu stoje datoteke registara i imenika,
 učita i njih. Otvoriti `http://localhost` (ili `http://localhost:8080`).
+Ustroj, registri i djelatnici stižu na svako računalo. Očitanja i dnevnici
+idu po kanalima „vrsta/područje/godina“ i računalo ih prima samo za ono
+što prati: na profilu, pod **Što ovo računalo prati**, osoba označi sektor
+ili područje i godine, a što joj više ne treba obriše s računala. Uredski
+poslužitelj prati sve (`sve = true` u `gocop.toml`) i tako je arhiva iz
+koje se svaki laptop može ponovno napuniti.
+
 Novo računalo prvo treba povezati s uredom. Dok u njemu nema djelatnika,
 stranica prijave nudi čarobnjak **Poveži ovo računalo s uredom**: pronaći
 ured u lokalnoj mreži ili upisati adresu, usporediti kod s osobom u uredu,

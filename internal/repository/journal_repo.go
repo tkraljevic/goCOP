@@ -146,6 +146,25 @@ func (r *JournalRepository) GetJournal(ctx context.Context, id string) (*models.
 }
 
 // SaveJournal upisuje novi dnevnik ili mijenja naslovnicu
+// journalChannel je kanal dnevnika: njegovo područje i godina
+func journalChannel(j *models.Journal) string {
+	year := j.Year
+	if year == 0 && j.StartedAt != nil {
+		year = j.StartedAt.Year()
+	}
+	if year == 0 {
+		year = j.CreatedAt.Year()
+	}
+	return ledger.ChannelFor(ledger.ChannelJournals, j.AreaID, year)
+}
+
+// channelOfJournal čita kanal dnevnika kojem list ili upis pripada
+func channelOfJournal(ctx context.Context, q rowQuerier, journalID string) string {
+	var ch string
+	_ = q.QueryRowContext(ctx, `SELECT channel FROM journals WHERE id = ?`, journalID).Scan(&ch)
+	return ch
+}
+
 func (r *JournalRepository) SaveJournal(ctx context.Context, j *models.Journal) error {
 	now := time.Now().UTC()
 	if j.ID == "" {
@@ -167,7 +186,11 @@ func (r *JournalRepository) SaveJournal(ctx context.Context, j *models.Journal) 
 	if _, err := tx.ExecContext(ctx, journalUpsert, journalArgs(j)...); err != nil {
 		return fmt.Errorf("greška pri upisu dnevnika: %w", err)
 	}
-	if _, err := r.rec.Record(ctx, tx, EntityJournals, j.ID, j); err != nil {
+	channel := journalChannel(j)
+	if _, err := tx.ExecContext(ctx, `UPDATE journals SET channel = ? WHERE id = ?`, channel, j.ID); err != nil {
+		return err
+	}
+	if _, err := r.rec.RecordIn(ctx, tx, channel, EntityJournals, j.ID, j); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -278,7 +301,7 @@ func (r *JournalRepository) SaveSheet(ctx context.Context, s *models.JournalShee
 	if _, err := tx.ExecContext(ctx, sheetUpsert, sheetArgs(s)...); err != nil {
 		return fmt.Errorf("greška pri upisu lista: %w", err)
 	}
-	if _, err := r.rec.Record(ctx, tx, EntityJournalSheets, s.ID, s); err != nil {
+	if _, err := r.rec.RecordIn(ctx, tx, channelOfJournal(ctx, tx, s.JournalID), EntityJournalSheets, s.ID, s); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -397,7 +420,7 @@ func (r *JournalRepository) SaveEntry(ctx context.Context, e *models.JournalEntr
 	if _, err := tx.ExecContext(ctx, entryUpsert, entryArgs(e)...); err != nil {
 		return fmt.Errorf("greška pri upisu u dnevnik: %w", err)
 	}
-	if _, err := r.rec.Record(ctx, tx, EntityJournalEntries, e.ID, e); err != nil {
+	if _, err := r.rec.RecordIn(ctx, tx, channelOfJournal(ctx, tx, e.JournalID), EntityJournalEntries, e.ID, e); err != nil {
 		return err
 	}
 	return tx.Commit()

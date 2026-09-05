@@ -181,6 +181,7 @@ func main() {
 		log.Fatalf("Kritična greška (mreža čvora): %v", err)
 	}
 	peersService.Accept(repository.KeepVersion)
+	peersService.SetWantsAll(cfg.Sync.All)
 	peersService.OnApplied(func(ctx context.Context, versions []ledger.Version) error {
 		return repository.ApplyVersions(ctx, database, recorder, versions)
 	})

@@ -6,6 +6,10 @@ package ledger
 // version_id je UUIDv7 — leksikografski poredak jednak je vremenskom, pa
 // "ORDER BY version_id" daje redoslijed nastanka bez oslanjanja na zidne
 // satove čvorova, koji na terenu nisu usklađeni.
+//
+// channel je kanal verzije: prazan za ono što drže svi čvorovi (ustroj,
+// registri, djelatnici), inače "vrsta/područje/godina" za očitanja i dnevnike,
+// koje čvor prati po izboru. Postojećim bazama stupac dodaje migracija.
 const Schema = `
 CREATE TABLE IF NOT EXISTS record_versions (
 	version_id TEXT PRIMARY KEY,
@@ -16,7 +20,8 @@ CREATE TABLE IF NOT EXISTS record_versions (
 	archived INTEGER NOT NULL DEFAULT 0,
 	payload TEXT NOT NULL,
 	created_at DATETIME NOT NULL,
-	schema_version INTEGER NOT NULL DEFAULT 1
+	schema_version INTEGER NOT NULL DEFAULT 1,
+	channel TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_versions_entity ON record_versions(entity, entity_id, version_id);
 CREATE INDEX IF NOT EXISTS idx_versions_node ON record_versions(node_id, version_id);

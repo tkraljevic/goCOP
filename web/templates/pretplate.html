@@ -1,0 +1,131 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Što ovo računalo prati{{end}}
+
+{{define "content"}}
+<div class="breadcrumb"><a href="/profile">Moj profil</a> › Što ovo računalo prati</div>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "download"}} Što ovo računalo prati</h1>
+    <p class="page-desc">
+      Ustroj, registri i djelatnici stižu na svako računalo. Očitanja i dnevnici rastu godinama i tiču se jednog
+      područja, pa ih računalo prima samo za područja i godine koje ovdje označite. Što vam više ne treba, obrišite:
+      ostaje u uredu i vraća se čim ga opet zatražite.
+    </p>
+  </div>
+</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
+
+{{if .All}}
+<div class="alert alert-warning">Ovaj čvor prati <b>sve</b>: sva očitanja i dnevnike svih područja i godina (postavka <span class="mono">sve = true</span> u gocop.toml). Pravila ispod tada ne vrijede.</div>
+{{end}}
+
+<section class="detail-section">
+  <h2>{{icon "check"}} Pretplate <span class="reg-chip">{{len .Rules}}</span></h2>
+  {{if .Rules}}
+  <div class="table-card"><div class="table-responsive">
+    <table class="data-table">
+      <thead><tr><th>Pravilo</th><th></th></tr></thead>
+      <tbody>
+      {{range .Rules}}
+      <tr>
+        <td>{{.Label}}</td>
+        <td style="white-space:nowrap; text-align:right;">
+          <form method="POST" action="/pretplate/ukloni" style="display:inline;">
+            <input type="hidden" name="id" value="{{.ID}}">
+            <button type="submit" class="btn btn-sm btn-secondary" title="Makni pravilo, podaci ostaju">Makni</button>
+          </form>
+          <form method="POST" action="/pretplate/ukloni" style="display:inline;" onsubmit="return confirm('Maknuti pravilo i s ovog računala obrisati sve što više ništa ne pokriva? Podaci ostaju u uredu.')">
+            <input type="hidden" name="id" value="{{.ID}}"><input type="hidden" name="purge" value="1">
+            <button type="submit" class="btn btn-sm btn-secondary" title="Makni pravilo i obriši podatke">{{icon "trash"}} Makni i obriši</button>
+          </form>
+        </td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div></div>
+  {{else}}
+  <div class="reg-empty">Bez pretplate ovo računalo prima samo ustroj, registre i djelatnike.</div>
+  {{end}}
+
+  <form class="form-page" method="POST" action="/pretplate/dodaj" style="margin-top:1rem;">
+    <h3 style="font-size:0.95rem; margin:0 0 0.5rem;">Nova pretplata</h3>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="kind">Što</label>
+        <select id="kind" name="kind" class="form-control">
+          <option value="">Očitanja i dnevnici</option>
+          <option value="ocitanja">Samo očitanja vodostaja</option>
+          <option value="dnevnici">Samo građevinski dnevnici</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="sector_id">Sektor</label>
+        <select id="sector_id" name="sector_id" class="form-control">
+          <option value="">Svi sektori</option>
+          {{range .Sectors}}<option value="{{.ID}}">{{.ID}}: {{.Name}}</option>{{end}}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="area_id">Branjeno područje</label>
+        <select id="area_id" name="area_id" class="form-control">
+          <option value="0">Sva područja sektora</option>
+          {{range .Areas}}<option value="{{.ID}}">{{.ID}}: {{.Name}} ({{.SectorID}})</option>{{end}}
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="year_from">Od godine</label>
+        <input type="text" inputmode="numeric" id="year_from" name="year_from" class="form-control" value="{{.ThisYear}}" placeholder="prazno = od početka">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="year_to">Do godine</label>
+        <input type="text" inputmode="numeric" id="year_to" name="year_to" class="form-control" placeholder="prazno = i ubuduće">
+      </div>
+    </div>
+    <div class="form-help">Za laptop na terenu dovoljno je vlastito područje od prošle godine. Prazna godina znači bez ograde.</div>
+    <div class="form-actions">
+      <button type="submit" name="sync" value="1" class="btn btn-primary">{{icon "download"}} Dodaj i preuzmi sada</button>
+      <button type="submit" class="btn btn-secondary">Samo dodaj</button>
+    </div>
+  </form>
+</section>
+
+<section class="detail-section">
+  <h2>{{icon "activity"}} Što računalo drži <span class="reg-chip">{{len .Channels}}</span></h2>
+  <p class="page-desc">Po vrsti, području i godini. Što pretplata više ne pokriva, može se obrisati; vraća se čim ga pretplata opet uključi.</p>
+  {{if .Channels}}
+  <div class="table-card"><div class="table-responsive">
+    <table class="data-table">
+      <thead><tr><th>Vrsta</th><th>BP</th><th>Godina</th><th>Verzija</th><th>Pretplata</th><th></th></tr></thead>
+      <tbody>
+      {{range .Channels}}
+      <tr>
+        <td>{{if eq .Kind "ocitanja"}}Očitanja{{else if eq .Kind "dnevnici"}}Dnevnici{{else}}{{.Kind}}{{end}}</td>
+        <td class="mono">{{.AreaID}}</td>
+        <td class="mono">{{.Year}}</td>
+        <td class="mono">{{.Versions}}</td>
+        <td>{{if .Wanted}}<span class="badge badge-active">prati se</span>{{else}}<span class="badge badge-inactive">ne prati se</span>{{end}}</td>
+        <td style="text-align:right;">
+          {{if not .Wanted}}
+          <form method="POST" action="/pretplate/obrisi" style="display:inline;" onsubmit="return confirm('Obrisati {{.Channel}} s ovog računala?')">
+            <input type="hidden" name="channel" value="{{.Channel}}">
+            <button type="submit" class="btn btn-sm btn-secondary">{{icon "trash"}} Obriši s računala</button>
+          </form>
+          {{end}}
+        </td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div></div>
+  {{else}}
+  <div class="reg-empty">Računalo još ne drži ni očitanja ni dnevnike po područjima.</div>
+  {{end}}
+</section>
+{{end}}

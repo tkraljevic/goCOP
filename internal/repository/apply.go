@@ -181,7 +181,10 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		if err := json.Unmarshal(v.Payload, &j); err != nil {
 			return err
 		}
-		_, err := tx.ExecContext(ctx, journalUpsert, journalArgs(&j)...)
+		if _, err := tx.ExecContext(ctx, journalUpsert, journalArgs(&j)...); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, `UPDATE journals SET channel = ? WHERE id = ?`, v.Channel, j.ID)
 		return err
 
 	case EntityJournalSheets:
@@ -239,6 +242,10 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 				ag_hours_2 = excluded.ag_hours_2, ag_hours_3 = excluded.ag_hours_3, note = excluded.note,
 				updated_at = excluded.updated_at
 		`, readingArgs(&rd)...)
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, `UPDATE readings SET channel = ? WHERE id = ?`, v.Channel, rd.ID.String())
 		return err
 
 	case EntityStructures:

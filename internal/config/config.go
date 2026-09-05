@@ -46,6 +46,7 @@ type Config struct {
 		DiscoveryPort int      `toml:"discovery_port" comment:"UDP port pronalaženja na lokalnoj mreži. 0 isključuje."`
 		AutoSync      string   `toml:"auto_sync" comment:"Razmak automatske sinkronizacije sa svim poznatim čvorovima, npr. \"5m\", \"1h\". \"0\" isključuje."`
 		Bootstrap     []string `toml:"bootstrap" comment:"Stalno izloženi čvorovi (domene) preko kojih se pronalaze ostali,\nnpr. [\"cop-osijek.com\", \"cop.voda.hr\"]. Popis raste; svaki dodatni ubrzava\ni osigurava pronalaženje ako jedan padne."`
+		All           bool     `toml:"sve" comment:"true = ovaj čvor prati sve kanale: sva očitanja i dnevnike svih područja i\ngodina (uredski poslužitelj). false = prati samo što je označeno u\nprogramu (laptop, mobitel)."`
 	} `toml:"sync"`
 }
 
