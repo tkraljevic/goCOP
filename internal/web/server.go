@@ -63,29 +63,10 @@ type Server struct {
 	mux                *http.ServeMux
 }
 
-func NewServer(
-	addr string,
-	authService *service.AuthService,
-	userService *service.UserService,
-	sectionService *service.SectionService,
-	territoryService *service.TerritoryService,
-	stationService *service.StationService,
-	watercourseService *service.WatercourseService,
-	structureService *service.StructureService,
-	readingService *service.ReadingService,
-	moduleService *service.ModuleService,
-	maintenanceService *service.MaintenanceService,
-	journalService *service.JournalService,
-	orgService *service.OrgService,
-	support SupportContact,
-	followRepo *repository.FollowRepository,
-	onFollowChange func(),
-	peersService *peers.Service,
-	recorder *ledger.Recorder,
-	sseBroker *service.SSEBroker,
-) (*Server, error) {
-	// Parsiranje HTML predložaka iz ugrađenog embed.FS
-	tmplFuncs := template.FuncMap{
+// templateFuncs su pomoćnici dostupni svim predlošcima. Stoje izvan NewServer
+// da ih ispod istog krova može pozvati i test koji iscrtava stranicu.
+func templateFuncs() template.FuncMap {
+	return template.FuncMap{
 		"formatDate": func(t time.Time) string {
 			if t.IsZero() {
 				return "-"
@@ -249,6 +230,31 @@ func NewServer(
 			return template.HTML(buf.String())
 		},
 	}
+}
+
+func NewServer(
+	addr string,
+	authService *service.AuthService,
+	userService *service.UserService,
+	sectionService *service.SectionService,
+	territoryService *service.TerritoryService,
+	stationService *service.StationService,
+	watercourseService *service.WatercourseService,
+	structureService *service.StructureService,
+	readingService *service.ReadingService,
+	moduleService *service.ModuleService,
+	maintenanceService *service.MaintenanceService,
+	journalService *service.JournalService,
+	orgService *service.OrgService,
+	support SupportContact,
+	followRepo *repository.FollowRepository,
+	onFollowChange func(),
+	peersService *peers.Service,
+	recorder *ledger.Recorder,
+	sseBroker *service.SSEBroker,
+) (*Server, error) {
+	// Parsiranje HTML predložaka iz ugrađenog embed.FS
+	tmplFuncs := templateFuncs()
 
 	templatesFS, err := fs.Sub(webassets.Files, "templates")
 	if err != nil {
