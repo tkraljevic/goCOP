@@ -21,6 +21,7 @@ const (
 	RoleGroupLevel4   = "Razina 4"
 	RoleGroupField    = "Teren"
 	RoleGroupExternal = "Vanjski suradnici"
+	RoleGroupGuest    = "Gost"
 	RoleGroupProgram  = "Program"
 )
 
@@ -44,11 +45,12 @@ var RoleCatalog = []RoleDef{
 	{RoleContractOfficerA3, RoleGroupLevel3, "Ovlaštenik za praćenje ugovora programa usluga A3", "prati ugovor obrane u području; upravlja područjem"},
 	{RoleSectionLeader, RoleGroupLevel4, "Rukovoditelj dionice", "vodi obranu na svojim dionicama (razina 4: dionica); upisuje očitanja i dnevnike za njih"},
 	{RoleSectionDeputy, RoleGroupLevel4, "Zamjenik rukovoditelja dionice", "zamjenjuje rukovoditelja dionice; ista prava na njegovim dionicama"},
-	{RoleServiceLeaderForeman, RoleGroupExternal, "Voditelj usluga / Poslovođa", "vodi radove ugovornog izvođača; vidi teren i vodi vlastite dnevnike"},
 	{RoleWaterGuard, RoleGroupField, "Vodočuvar", "obilazi dionice i očitava letve; terenski pogled"},
 	{RoleMachinist, RoleGroupField, "Strojar", "rukuje crpnim stanicama i ustavama; terenski pogled"},
 	{RoleFacilityOperator, RoleGroupField, "Rukovatelj", "rukuje objektom obrane; terenski pogled"},
 	{RoleCrewLeader, RoleGroupField, "Voditelj posade objekta", "vodi posadu na objektu; terenski pogled"},
+	{RoleServiceLeaderForeman, RoleGroupExternal, "Voditelj usluga / Poslovođa", "vodi radove ugovornog izvođača; vidi teren i vodi vlastite dnevnike"},
+	{RoleGuest, RoleGroupGuest, "Gost", "račun za posjetitelja obrane (civilna zaštita, uprava, mediji): gleda teren i vodostaje, ne upisuje"}
 	{RoleViewer, RoleGroupProgram, "Preglednik (samo čitanje)", "gleda, ne upisuje"},
 }
 
