@@ -1,6 +1,8 @@
 package web
 
 import (
+	"github.com/google/uuid"
+
 	"bytes"
 	"html/template"
 	"io/fs"
@@ -337,24 +339,58 @@ func TestStranicaUvoziNosiSveCSVRegistre(t *testing.T) {
 
 // Epizoda se pamti po vrhu vala, a ne po zadnjem vodostaju; otvorena epizoda
 // mora se vidjeti da još traje.
-func TestKarticaDionicePrikazujeEpizode(t *testing.T) {
+// Povijest obrana vodi se uz letvu, jer ista letva nosi više dionica. Kartica
+// dionice na nju upućuje, a sama je ne prepisuje.
+func TestKarticaDioniceUpucujeNaPovijestUzLetvu(t *testing.T) {
 	poc := time.Date(2024, 9, 17, 5, 0, 0, 0, time.UTC)
 	kraj := time.Date(2024, 10, 22, 5, 0, 0, 0, time.UTC)
 	vrh := 703
 	vrhAt := time.Date(2024, 9, 25, 5, 0, 0, 0, time.UTC)
+	letva := models.Station{ID: uuid.MustParse("c625fa9d-0000-4000-8000-000000000001"), Name: "Batina"}
 	html := iscrtaj(t, "section_detail.html", SectionPageData{
 		CurrentUser: &models.User{FullName: "Provjera"},
 		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
 		Section:     models.Section{Code: "B.34.1", AreaID: 34, SectorID: "B"},
+		Gauge:       &letva,
 		Episodes: []models.DefenseEpisode{
 			{StartedAt: poc, EndedAt: &kraj, Phase: models.PhaseEmergency, PeakCm: &vrh, PeakAt: &vrhAt},
 			{StartedAt: poc, Phase: models.PhasePrep},
 		},
 	})
-	// predložak plus ispisuje kao &#43;, pa se traži oblik kakav vidi preglednik
-	for _, want := range []string{"Obrana od poplava", "703 cm", "Izvanredna obrana", "traje", "36 dana"} {
+	for _, want := range []string{"Obrana od poplava", "/stations/" + letva.ID.String() + "#obrane", "Batina", "zabilježeno 2"} {
 		if !strings.Contains(html, want) {
 			t.Errorf("na kartici nema %q", want)
+		}
+	}
+	// tablica s vrhovima i trajanjima pripada kartici letve, ne dionici
+	for _, ne := range []string{"703 cm", "36 dana"} {
+		if strings.Contains(html, ne) {
+			t.Errorf("kartica dionice prepisuje povijest obrana: %q", ne)
+		}
+	}
+}
+
+// Kartica letve nosi obrane svih dionica koje se po njoj vode, pa uz svaku
+// mora stajati i o kojoj se dionici radi.
+func TestKarticaLetvePrikazujeObraneSvihDionica(t *testing.T) {
+	poc := time.Date(2024, 9, 17, 5, 0, 0, 0, time.UTC)
+	kraj := time.Date(2024, 10, 22, 5, 0, 0, 0, time.UTC)
+	vrh := 703
+	vrhAt := time.Date(2024, 9, 25, 5, 0, 0, 0, time.UTC)
+	html := iscrtaj(t, "station_detail.html", StationPageData{
+		CurrentUser: &models.User{FullName: "Provjera"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Station:     models.Station{ID: uuid.MustParse("c625fa9d-0000-4000-8000-000000000001"), Name: "Batina"},
+		Episodes: []models.DefenseEpisode{
+			{SectionCode: "B.34.1", StartedAt: poc, EndedAt: &kraj, Phase: models.PhaseEmergency,
+				PeakCm: &vrh, PeakAt: &vrhAt, Basis: models.BasisThreshold},
+			{SectionCode: "B.34.2", StartedAt: poc, Phase: models.PhasePrep},
+		},
+	})
+	for _, want := range []string{"Obrane vođene po ovoj letvi", "B.34.1", "B.34.2",
+		"703 cm", "Izvanredna obrana", "traje", "36 dana", "prijeđen prag"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("na kartici letve nema %q", want)
 		}
 	}
 }
