@@ -139,6 +139,12 @@ func NewServer(
 			}
 			return *t
 		},
+		// decimalni piše broj s decimalnim zarezom, kako se broj u hrvatskom
+		// i piše. Isto pravilo vrijedi za kilometre dionica i za CSV, pa
+		// obrazac i kartica ne smiju pokazivati točku.
+		"decimalni": func(v float64, decimals int) string {
+			return strings.Replace(strconv.FormatFloat(v, 'f', decimals, 64), ".", ",", 1)
+		},
 		"derefFloat": func(f *float64, decimals int) string {
 			if f == nil {
 				return "-"
