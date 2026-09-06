@@ -139,3 +139,22 @@ func izmedju(s, od, do string) string {
 	}
 	return rest[:j]
 }
+
+// Naziv sektora u registru već glasi "Sektor B — Dunav i donja Drava", pa ga
+// stranica ne smije još jednom uvoditi svojim "Sektor B —".
+func TestStranicaDioniceNePonavljaSektor(t *testing.T) {
+	html := iscrtaj(t, "section_detail.html", SectionPageData{
+		CurrentUser: &models.User{FullName: "Provjera"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Section: models.Section{
+			Code: "B.34.1", AreaID: 34, SectorID: "B",
+			SectorName: "Sektor B — Dunav i donja Drava",
+		},
+	})
+	if strings.Count(html, "Sektor B — Dunav i donja Drava") != 1 {
+		t.Error("naziv sektora ne stoji točno jednom")
+	}
+	if strings.Contains(html, "Sektor B — Sektor B") {
+		t.Error("sektor je napisan dvaput")
+	}
+}
