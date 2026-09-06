@@ -2289,6 +2289,20 @@ textarea {
 .part-gauges { margin: 0 0 0.5rem 2.5rem; font-size: 0.9rem; }
 .part-gauges .part-gauge + .part-gauge { margin-top: 0.15rem; }
 
+/* Kartica dionice po uzoru na Privitak: vodomjer u jednom retku s pragovima u
+   nizu, a nasipi i objekti u tablici gdje je nasip nosivi red. */
+.gauge-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; padding: 0.5rem 0.75rem; border: 1px solid var(--border); border-radius: 8px; text-decoration: none; color: inherit; margin-bottom: 0.4rem; }
+.gauge-row:hover { background: var(--bg-hover, rgba(0,0,0,0.03)); }
+.gauge-name { font-weight: 700; color: var(--text-strong); }
+.gauge-thresholds { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-left: auto; }
+.gauge-thresholds .threshold-pill { font-size: 0.8rem; white-space: nowrap; }
+.part-table td { vertical-align: top; }
+.part-table td:first-child { width: 30%; min-width: 12rem; }
+.part-emb-name { font-weight: 700; }
+.part-obj { line-height: 1.5; }
+.part-obj + .part-obj { margin-top: 0.15rem; }
+.part-obj-km { font-weight: 700; margin-right: 0.35rem; white-space: nowrap; }
+
 /* Nasipi i objekti poddionice: jedno zaglavlje, redci ispod. Naslovi stupaca
    ponavljali su se uz svaki redak i gutali prostor nazivu, pa se dugi naziv
    nasipa i stacionaža rezali. Na uskom zaslonu zaglavlje se gubi, a naslov se

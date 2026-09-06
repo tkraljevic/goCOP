@@ -23,6 +23,7 @@ type PartView struct {
 	Stations    []models.Station
 	Territories []models.SectionTerritory
 	Criteria    []models.GaugeItem // zapisi iz dokumentacije koji nisu postaje
+	Rows        []EmbankmentRow    // nasipi s objektima koji na njima leže, kao u Privitku
 }
 
 // SectionPageData je stranica jedne dionice ili njezina obrasca
@@ -115,7 +116,7 @@ func (h *SectionsHandler) ShowSection(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	for _, p := range sec.Parts {
-		v := PartView{SectionPart: p}
+		v := PartView{SectionPart: p, Rows: embankmentRows(p)}
 		for _, id := range p.StationIDs {
 			if s, ok := stationByID[id]; ok {
 				v.Stations = append(v.Stations, s)

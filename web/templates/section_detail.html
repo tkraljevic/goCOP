@@ -68,77 +68,62 @@
 
   <div class="part-block">
     <div class="part-label">{{icon "chart-column"}} Mjerodavni vodomjeri <span class="reg-chip">{{len $p.Stations}}</span></div>
-    <div class="reg-list">
-      {{range $p.Stations}}
-      <article class="reg-card">
-        <a class="reg-card-link" href="/stations/{{.ID}}">
-          <div class="reg-card-head">
-            <div>
-              <h3 class="reg-card-title">{{.Name}}</h3>
-              <div class="reg-card-sub">{{if .HasWatercourse}}{{.Watercourse}}{{end}}{{if .Stationing}} · {{.Stationing}}{{end}}{{if .ZeroDatum}} · „0“ {{brojHRd .ZeroDatum 2}} m{{end}}</div>
-            </div>
-            {{if .NeedsReview}}<span class="badge badge-inactive" title="{{.ReviewNote}}">{{icon "triangle-alert"}} </span>{{end}}
-          </div>
-          <dl class="reg-facts">
-            <div><dt>P</dt><dd><span class="threshold-pill prep">{{.Prep.Label}}</span></dd></div>
-            <div><dt>R</dt><dd><span class="threshold-pill regular">{{.Regular.Label}}</span></dd></div>
-            <div><dt>I</dt><dd><span class="threshold-pill emerg">{{.Emergency.Label}}</span></dd></div>
-            <div><dt>IS</dt><dd><span class="threshold-pill crit">{{.State.Label}}</span></dd></div>
-            <div><dt>M</dt><dd><span class="threshold-pill record">{{.Record.Label}}</span></dd></div>
-          </dl>
-        </a>
-      </article>
-      {{else}}
-      {{if not $p.Criteria}}<div class="reg-empty">Bez mjerodavnog vodomjera iz registra.</div>{{end}}
-      {{end}}
-    </div>
-    {{if $p.Criteria}}
-    <div style="margin-top:0.5rem;">
-      {{range $p.Criteria}}
-      <div class="part-gauge">{{icon "ruler"}} <strong>{{.StationName}}</strong>
-        {{if or .PrepCm .RegularCm .EmergCm .CriticalCm}}<span class="reading-meta">{{if .PrepCm}}P {{.PrepCm}}{{end}}{{if .RegularCm}} · R {{.RegularCm}}{{end}}{{if .EmergCm}} · I {{.EmergCm}}{{end}}{{if .CriticalCm}} · IS {{.CriticalCm}}{{end}}{{if .RecordCm}} · M {{.RecordCm}}{{end}}</span>{{end}}
-        {{if .Notes}}<span class="reading-meta"> · {{.Notes}}</span>{{end}}
-      </div>
-      {{end}}
+    {{range $p.Stations}}
+    <a class="gauge-row" href="/stations/{{.ID}}">
+      <span class="gauge-name">{{.Name}}</span>
+      <span class="mono reading-meta">{{if .Stationing}}{{.Stationing}}{{end}}{{if .ZeroDatum}} · „0“ {{brojHRd .ZeroDatum 2}} m{{end}}</span>
+      {{if .NeedsReview}}<span class="badge badge-inactive" title="{{.ReviewNote}}">{{icon "triangle-alert"}}</span>{{end}}
+      <span class="gauge-thresholds">
+        <span class="threshold-pill prep" title="Pripremno stanje">P {{.Prep.Label}}</span>
+        <span class="threshold-pill regular" title="Redovna obrana">R {{.Regular.Label}}</span>
+        <span class="threshold-pill emerg" title="Izvanredna obrana">I {{.Emergency.Label}}</span>
+        <span class="threshold-pill crit" title="Izvanredno stanje">IS {{.State.Label}}</span>
+        <span class="threshold-pill record" title="Najviši zabilježeni vodostaj">M {{.Record.Label}}</span>
+      </span>
+    </a>
+    {{else}}
+    {{if not $p.Criteria}}<div class="reg-empty">Bez mjerodavnog vodomjera iz registra.</div>{{end}}
+    {{end}}
+    {{range $p.Criteria}}
+    <div class="part-gauge">{{icon "ruler"}} <strong>{{.StationName}}</strong>
+      {{if or .PrepCm .RegularCm .EmergCm .CriticalCm}}<span class="reading-meta">{{if .PrepCm}}P {{.PrepCm}}{{end}}{{if .RegularCm}} · R {{.RegularCm}}{{end}}{{if .EmergCm}} · I {{.EmergCm}}{{end}}{{if .CriticalCm}} · IS {{.CriticalCm}}{{end}}{{if .RecordCm}} · M {{.RecordCm}}{{end}}</span>{{end}}
+      {{if .Notes}}<span class="reading-meta"> · {{.Notes}}</span>{{end}}
     </div>
     {{end}}
   </div>
 
-  {{if $p.Embankments}}
   <div class="part-block">
-    <div class="part-label">{{icon "shield"}} Nasipi i brane <span class="reg-chip">{{len $p.Embankments}}</span></div>
-    <div class="reg-list">
-      {{range $p.Embankments}}
-      <article class="reg-card" style="padding:0.75rem 1rem; gap:0.2rem;">
-        <div style="font-size:0.9rem; font-weight:600;">{{if .StructureID}}<a href="/structures/{{.StructureID}}" style="color:var(--primary);">{{.Name}}</a>{{else}}{{.Name}}{{end}}{{if eq .StructureKind "BRANA"}} <span class="reg-chip">brana</span>{{end}}</div>
-        {{if .Range}}<div class="mono" style="font-size:0.75rem; color:var(--text-muted);">{{.Range}}</div>{{end}}
-        {{if and .Data (ne .Data .Range)}}<div class="reading-meta">{{.Data}}</div>{{end}}
-      </article>
-      {{end}}
-    </div>
-  </div>
-  {{end}}
-
-  <div class="part-block">
-    <div class="part-label">{{icon "construction"}} Objekti <span class="reg-chip">{{len $p.Objects}}</span></div>
-    {{if $p.Objects}}
+    <div class="part-label">{{icon "shield"}} Nasipi i objekti <span class="reg-chip">{{len $p.Embankments}} · {{len $p.Objects}}</span></div>
+    {{if $p.Rows}}
     <div class="table-card"><div class="table-responsive">
-      <table class="data-table">
-        <thead><tr><th>Stacionaža</th><th>Obala</th><th>Objekt</th><th>Na nasipu</th></tr></thead>
+      <table class="data-table part-table">
+        <thead><tr><th>Nasip</th><th>Objekti na dionici</th></tr></thead>
         <tbody>
-        {{range $p.Objects}}
+        {{range $p.Rows}}
         <tr>
-          <td class="mono" style="white-space:nowrap;">{{.StationingLabel}}</td>
-          <td style="white-space:nowrap;">{{bankLabel .Bank}}</td>
-          <td>{{if .StructureID}}<a href="/structures/{{.StructureID}}" style="color:var(--primary);">{{icon "construction"}} {{if .StructureName}}{{.StructureName}}{{else}}{{.Name}}</a>{{end}}{{if and .Name .StructureName (ne .Name .StructureName)}} <span class="reading-meta">{{.Name}}</span>{{end}}{{else}}{{.Name}}{{end}}</td>
-          <td class="reading-meta">{{.OnEmbankment}}</td>
+          <td>
+            {{with .Embankment}}
+            <div class="part-emb-name">{{if .StructureID}}<a href="/structures/{{.StructureID}}" style="color:var(--primary);">{{.Name}}</a>{{else}}{{.Name}}{{end}}{{if eq .StructureKind "BRANA"}} <span class="reg-chip">brana</span>{{end}}</div>
+            {{if .Range}}<div class="mono reading-meta">{{.Range}}</div>{{end}}
+            {{if .LengthKm}}<div>{{brojHRd .LengthKm 3}} km</div>{{end}}
+            {{else}}
+            <span class="reading-meta">bez nasipa</span>
+            {{end}}
+          </td>
+          <td>
+            {{range .Objects}}
+            <div class="part-obj"><span class="mono part-obj-km">{{.StationingLabel}}</span> {{if .StructureID}}<a href="/structures/{{.StructureID}}" style="color:var(--primary);">{{if .StructureName}}{{.StructureName}}{{else}}{{.Name}}{{end}}</a>{{if and .Name .StructureName (ne .Name .StructureName)}} <span class="reading-meta">{{.Name}}</span>{{end}}{{else}}{{.Name}}{{end}}{{if and .Bank (ne .Bank $p.Bank)}} <span class="reading-meta">({{bankLabel .Bank}})</span>{{end}}</div>
+            {{else}}
+            <span class="reading-meta">—</span>
+            {{end}}
+          </td>
         </tr>
         {{end}}
         </tbody>
       </table>
     </div></div>
     {{else}}
-    <div class="reg-empty">Dokumentacija ne navodi objekte.</div>
+    <div class="reg-empty">Dokumentacija ne navodi nasipe ni objekte.</div>
     {{end}}
   </div>
 </section>
