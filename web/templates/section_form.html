@@ -84,8 +84,8 @@
     <div class="form-row" style="margin-top:0.75rem;">
       <div class="form-group">
         <label class="form-label">Vodotok *</label>
-        <select class="form-control" data-field="watercourse_code"><option value="">— odaberi vodu —</option></select>
-        <div class="form-help">Nema je? <a href="/watercourses/new" target="_blank">Dodaj u registar voda</a>, pa osvježi obrazac.</div>
+        <select class="form-control" data-field="watercourse_code" onchange="waterHelp(this)"><option value="">— odaberi vodu —</option></select>
+        <div class="form-help" data-role="water-help">Nema je u popisu? <a href="/watercourses/new" target="_blank">Dodaj u registar voda</a>, pa osvježi obrazac.</div>
       </div>
       <div class="form-group">
         <label class="form-label">Obala</label>
@@ -106,9 +106,30 @@
     <div class="form-help" data-role="description" hidden></div>
 
     <details open class="part-block">
+      <summary class="part-label" style="cursor:pointer;">{{icon "shield"}} Nasipi i brane <span class="reg-chip" data-role="emb-count">0</span></summary>
+      <div class="rows-emb">
+        <div class="rows-head"><div>Nasip ili brana</div><div>Uz vodu od</div><div>do</div><div>Po nasipu od</div><div>do</div><div>km</div><div></div></div>
+        <div data-role="emb-rows"></div>
+      </div>
+      <button type="button" class="btn btn-sm btn-secondary" onclick="addEmbankment(this)">{{icon "plus"}} Dodaj nasip ili branu</button>
+    </details>
+
+    <details open class="part-block">
+      <summary class="part-label" style="cursor:pointer;">{{icon "construction"}} Objekti <span class="reg-chip" data-role="obj-count">0</span></summary>
+      <div class="form-help">Naši objekti (crpne stanice, ustave, sifoni) vežu se na registar; mostovi i propusti ostaju samo redak.</div>
+      <div class="rows-obj">
+        <div class="rows-head"><div>Obala</div><div>Po</div><div>Stacionaža</div><div>Objekt (registar ili naziv)</div><div>Na nasipu</div><div></div></div>
+        <div data-role="obj-rows"></div>
+      </div>
+      <button type="button" class="btn btn-sm btn-secondary" onclick="addObject(this)">{{icon "plus"}} Dodaj objekt</button>
+    </details>
+
+    <details open class="part-block">
       <summary class="part-label" style="cursor:pointer;">{{icon "house"}} Ugroženo područje <span class="reg-chip" data-role="terr-count">0</span></summary>
-      <div data-role="terr-chips" style="display:flex; flex-wrap:wrap; gap:0.35rem; margin:0.5rem 0;"></div>
+      <div data-role="terr-chips" style="margin:0.5rem 0;"></div>
       <div class="form-row" style="grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); align-items:end;">
+        <div class="form-group" style="margin:0;" data-role="terr-emb-group" hidden><label class="form-label">Uz nasip</label>
+          <select class="form-control" data-role="terr-emb"><option value="">cijela poddionica</option></select></div>
         <div class="form-group" style="margin:0;"><label class="form-label">Županija</label>
           <select class="form-control" data-role="county" onchange="loadMunicipalities(this)"><option value="">—</option>{{range .Counties}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select></div>
         <div class="form-group" style="margin:0;"><label class="form-label">Grad ili općina</label>
@@ -133,25 +154,6 @@
       <button type="button" class="btn btn-sm btn-secondary" data-role="st-prepis" hidden onclick="prepisiVodomjere(this)">{{icon "clipboard-list"}} Prepiši iz dokumentacije</button>
       <div class="form-help" data-role="st-prepis-poruka" hidden></div>
     </details>
-
-    <details open class="part-block">
-      <summary class="part-label" style="cursor:pointer;">{{icon "shield"}} Nasipi i brane <span class="reg-chip" data-role="emb-count">0</span></summary>
-      <div class="rows-emb">
-        <div class="rows-head"><div>Nasip ili brana</div><div>Uz vodu od</div><div>do</div><div>Po nasipu od</div><div>do</div><div>km</div><div></div></div>
-        <div data-role="emb-rows"></div>
-      </div>
-      <button type="button" class="btn btn-sm btn-secondary" onclick="addEmbankment(this)">{{icon "plus"}} Dodaj nasip ili branu</button>
-    </details>
-
-    <details open class="part-block">
-      <summary class="part-label" style="cursor:pointer;">{{icon "construction"}} Objekti <span class="reg-chip" data-role="obj-count">0</span></summary>
-      <div class="form-help">Naši objekti (crpne stanice, ustave, sifoni) vežu se na registar; mostovi i propusti ostaju samo redak.</div>
-      <div class="rows-obj">
-        <div class="rows-head"><div>Obala</div><div>Po</div><div>Stacionaža</div><div>Objekt (registar ili naziv)</div><div>Na nasipu</div><div></div></div>
-        <div data-role="obj-rows"></div>
-      </div>
-      <button type="button" class="btn btn-sm btn-secondary" onclick="addObject(this)">{{icon "plus"}} Dodaj objekt</button>
-    </details>
   </section>
 </template>
 
@@ -164,7 +166,7 @@
     <div data-label="Po nasipu od"><input type="text" class="form-control mono" data-field="emb_from" placeholder="0+000" aria-label="Po nasipu od"></div>
     <div data-label="do"><input type="text" class="form-control mono" data-field="emb_to" placeholder="0+620" aria-label="Po nasipu do"></div>
     <div data-label="km"><input type="text" class="form-control" data-field="length_km" placeholder="0,620" aria-label="Duljina u kilometrima"></div>
-    <button type="button" class="btn btn-sm btn-secondary" onclick="this.closest('.emb-row').remove()" title="Ukloni">{{icon "x"}}</button>
+    <button type="button" class="btn btn-sm btn-secondary" onclick="const p = partOf(this); this.closest('.emb-row').remove(); renderChips(p);" title="Ukloni">{{icon "x"}}</button>
   </div>
 </template>
 
@@ -216,7 +218,7 @@ function addPart(p) {
   el.dataset.unaligned = p.unaligned ? '1' : '';
   const wsel = el.querySelector('[data-field=watercourse_code]');
   for (const w of WATERS) { const o = document.createElement('option'); o.value = w.code; o.textContent = w.name + (w.kind ? ' (' + w.kind + ')' : ''); wsel.appendChild(o); }
-  wsel.value = p.watercourse_code || '';
+  wsel.value = p.watercourse_code || ''; waterHelp(wsel);
   el.querySelector('[data-field=bank]').value = p.bank || '';
   el.querySelector('[data-field=stationing_kind]').value = p.stationing_kind || '';
   el.querySelector('[data-field=km_from]').value = p.km_from != null ? kmText(p.km_from) : '';
@@ -236,6 +238,9 @@ function addPart(p) {
   renderChips(el);
   renumber();
 }
+// uputa "dodaj u registar" ima smisla samo dok voda nije odabrana; uz odabranu
+// vodu čitala se kao upozorenje da je nema
+function waterHelp(sel) { const h = partOf(sel).querySelector('[data-role=water-help]'); if (h) h.hidden = !!sel.value; }
 function partOf(btn) { return btn.closest ? btn.closest('.part-edit') : btn; }
 function renumber() { document.querySelectorAll('#parts .part-edit').forEach((el, i) => el.querySelector('[data-role=ordinal]').textContent = i + 1); }
 function lengthFrom(input) {
@@ -248,7 +253,28 @@ function renderChips(el) {
   for (const id of st) { const s = STATIONS.find(x => x.id === id); const c = document.createElement('span'); c.className = 'reg-chip'; c.innerHTML = (s ? s.label : id) + ' <button type="button" title="Ukloni" style="border:0;background:none;cursor:pointer;">&times;</button>'; c.querySelector('button').onclick = () => { el.dataset.stations = JSON.stringify(JSON.parse(el.dataset.stations).filter(x => x !== id)); renderChips(el); }; sc.appendChild(c); }
   el.querySelector('[data-role=st-count]').textContent = st.length;
   const tr = JSON.parse(el.dataset.territories); const tc = el.querySelector('[data-role=terr-chips]'); tc.innerHTML = '';
-  for (const t of tr) { const key = t.settlement_id ? t.county_id + '/' + t.municipality_id + '/' + t.settlement_id : t.county_id + '/' + t.municipality_id; const c = document.createElement('span'); c.className = 'reg-chip'; c.innerHTML = (TERR_LABELS[key] || t.label || key) + ' <button type="button" title="Ukloni" style="border:0;background:none;cursor:pointer;">&times;</button>'; c.querySelector('button').onclick = () => { el.dataset.territories = JSON.stringify(JSON.parse(el.dataset.territories).filter(x => x !== t)); renderChips(el); }; tc.appendChild(c); }
+  // Naselja stoje uz svoj nasip, kao u Privitku; bez nasipa — ili bez oznake —
+  // stoje uz cijelu poddionicu. Izbor nasipa uz unos prati nasipe koji su upisani.
+  const nasipi = [...el.querySelectorAll('.emb-row')].map(r => r.querySelector('[data-field=name]').value.trim()).filter(Boolean);
+  const sel = el.querySelector('[data-role=terr-emb]'); const prije = sel.value;
+  sel.innerHTML = '<option value="">cijela poddionica</option>' + nasipi.map(n => '<option value="' + n.replace(/"/g, '&quot;') + '">' + n + '</option>').join('');
+  if (nasipi.includes(prije)) sel.value = prije;
+  el.querySelector('[data-role=terr-emb-group]').hidden = nasipi.length === 0;
+  const skupine = nasipi.map(n => ({naziv: n, kljuc: n.toLowerCase(), stavke: []})).concat([{naziv: nasipi.length ? 'Cijela poddionica' : '', kljuc: '', stavke: []}]);
+  for (const t of tr) {
+    const k = (t.on_embankment || '').toLowerCase();
+    (skupine.find(g => g.kljuc === k && k !== '') || skupine[skupine.length - 1]).stavke.push(t);
+  }
+  for (const g of skupine) {
+    if (!g.stavke.length && g.kljuc !== '') continue;
+    if (!g.stavke.length && !nasipi.length) continue;
+    const box = document.createElement('div'); box.style.cssText = 'margin-bottom:0.4rem;';
+    if (g.naziv) { const h = document.createElement('div'); h.className = 'form-label'; h.style.cssText = 'margin-bottom:0.2rem;'; h.textContent = g.naziv; box.appendChild(h); }
+    const red = document.createElement('div'); red.style.cssText = 'display:flex; flex-wrap:wrap; gap:0.35rem;';
+    if (!g.stavke.length) { const e = document.createElement('span'); e.className = 'reading-meta'; e.textContent = '—'; red.appendChild(e); }
+    for (const t of g.stavke) { const key = t.settlement_id ? t.county_id + '/' + t.municipality_id + '/' + t.settlement_id : t.county_id + '/' + t.municipality_id; const c = document.createElement('span'); c.className = 'reg-chip'; c.innerHTML = (TERR_LABELS[key] || t.label || key) + ' <button type="button" title="Ukloni" style="border:0;background:none;cursor:pointer;">&times;</button>'; c.querySelector('button').onclick = () => { el.dataset.territories = JSON.stringify(JSON.parse(el.dataset.territories).filter(x => x !== t)); renderChips(el); }; red.appendChild(c); }
+    box.appendChild(red); tc.appendChild(box);
+  }
   el.querySelector('[data-role=terr-count]').textContent = tr.length;
   el.querySelector('[data-role=emb-count]').textContent = el.querySelectorAll('.emb-row').length;
   el.querySelector('[data-role=obj-count]').textContent = el.querySelectorAll('.obj-row').length;
@@ -340,11 +366,13 @@ function addTerritory(btn) {
   const el = partOf(btn); const county = el.querySelector('[data-role=county]'); const muni = el.querySelector('[data-role=muni]');
   if (!county.value || !muni.value) return;
   const cid = parseInt(county.value), mid = parseInt(muni.value); const muniLabel = muni.options[muni.selectedIndex].textContent;
+  const zup = county.options[county.selectedIndex].textContent.replace(/\s*županija\s*$/i, '');
+  const nasip = el.querySelector('[data-role=terr-emb]').value;
   const checked = [...el.querySelectorAll('[data-role=settlements] input:checked')];
   const tr = JSON.parse(el.dataset.territories);
-  const push = (t, label) => { const key = t.settlement_id ? cid + '/' + mid + '/' + t.settlement_id : cid + '/' + mid; if (!tr.some(x => (x.settlement_id ? x.county_id + '/' + x.municipality_id + '/' + x.settlement_id : x.county_id + '/' + x.municipality_id) === key)) { TERR_LABELS[key] = label; tr.push(t); } };
-  if (checked.length === 0) push({county_id: cid, municipality_id: mid}, muniLabel);
-  for (const c of checked) push({county_id: cid, municipality_id: mid, settlement_id: parseInt(c.value)}, c.dataset.name + ' (' + muniLabel.replace(/^(Grad|Općina)\s+/, '') + ')');
+  const push = (t, label) => { if (nasip) t.on_embankment = nasip; const key = t.settlement_id ? cid + '/' + mid + '/' + t.settlement_id : cid + '/' + mid; if (!tr.some(x => (x.settlement_id ? x.county_id + '/' + x.municipality_id + '/' + x.settlement_id : x.county_id + '/' + x.municipality_id) === key)) { TERR_LABELS[key] = label; tr.push(t); } };
+  if (checked.length === 0) push({county_id: cid, municipality_id: mid}, muniLabel + ' (' + zup + ')');
+  for (const c of checked) push({county_id: cid, municipality_id: mid, settlement_id: parseInt(c.value)}, c.dataset.name + ' (' + muniLabel.replace(/^(Grad|Općina)\s+/, '') + ', ' + zup + ')');
   el.dataset.territories = JSON.stringify(tr); el.querySelectorAll('[data-role=settlements] input').forEach(i => i.checked = false); renderChips(el);
 }
 function addEmbankment(btn, e) {

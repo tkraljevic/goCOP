@@ -53,3 +53,17 @@ func TestKljucTeritorijaGledaVrijednostiNePokazivace(t *testing.T) {
 		t.Error("cijela općina i pojedino naselje ne smiju imati isti ključ")
 	}
 }
+
+// Natpis naselja nosi i županiju: isto ime naselja ponavlja se po Hrvatskoj,
+// a čitatelj obrasca nije nužno s tog terena.
+func TestNatpisNaseljaNosiZupaniju(t *testing.T) {
+	if got := models.TerritoryLabel("Batina", "", "Draž", "Osječko-baranjska županija"); got != "Batina (Draž, Osječko-baranjska)" {
+		t.Errorf("natpis naselja: %q", got)
+	}
+	if got := models.TerritoryLabel("", "OPCINA", "Draž", "Osječko-baranjska županija"); got != "Općina Draž (Osječko-baranjska)" {
+		t.Errorf("natpis općine: %q", got)
+	}
+	if got := models.TerritoryLabel("Batina", "", "Draž", ""); got != "Batina (Draž)" {
+		t.Errorf("bez županije: %q", got)
+	}
+}
