@@ -52,6 +52,9 @@ func main() {
 	csvOrigin := flag.String("tablica-izvor", "", "Odakle tablica potječe, npr. \"COP Osijek — dnevna tablica\"")
 	csvSkip := flag.String("tablica-preskoci", "", "Stupci koje ne uvozimo, odvojeni zarezom (npr. protoci)")
 	csvLinks := flag.String("tablica-veze", "", "Ručno vezivanje stupaca na letve: \"stupac=sifra,stupac=sifra\"")
+	csvQuality := flag.String("tablica-kvaliteta", "", "Podrijetlo vrijednosti: prazno = izmjereno, REKONSTRUIRANO za preračun iz druge postaje")
+	csvDerived := flag.String("tablica-izvedeno-iz", "", "Postaja iz koje je preračunato, npr. \"postaja Bezdan\"")
+	csvMethod := flag.String("tablica-nacin", "", "Kako je preračunato: formula, korekcija, razdoblje valjanosti")
 	csvWrite := flag.Bool("upisi", false, "Bez ove zastavice uvoz samo izvještava, ništa ne upisuje")
 	contractFile := flag.String("ugovor", "", "Ugovor o održavanju A.02 (xlsx iz dodatka Hrvatskih voda): uvozi popis lokacija i stavke radova")
 	contractLinks := flag.String("ugovor-veze", "", "Ručno vezivanje lokacija na registar: \"naziv iz popisa=sifra,naziv=sifra\"")
@@ -228,6 +231,7 @@ func main() {
 		rep, err := csvlevels.Run(context.Background(), csvlevels.Options{
 			Path: *csvFile, Hour: *csvHour, Origin: *csvOrigin, DryRun: !*csvWrite, Log: log.Printf,
 			Skip: splitList(*csvSkip), Aliases: splitPairs(*csvLinks),
+			Quality: strings.ToUpper(strings.TrimSpace(*csvQuality)), Derived: *csvDerived, Method: *csvMethod,
 			Deps: csvlevels.Deps{Readings: readingRepo, Stations: stationRepo, Structures: structureRepo},
 		})
 		if err != nil {

@@ -17,6 +17,7 @@ import (
 const EntityReadings = "readings"
 
 const readingColumns = `id, station_id, structure_id, measured_at, level_cm, level2_cm, source, origin, source_ref,
+	quality, derived_from, method,
 	observer, user_id, structure_state, gate, ag_hours_1, ag_hours_2, ag_hours_3, note, created_at, updated_at`
 
 // ReadingRepository čuva očitanja vodostaja. Svaki upis ostavlja verziju u
@@ -48,7 +49,8 @@ func readingChannel(ctx context.Context, q rowQuerier, rd *models.Reading) strin
 func readingArgs(rd *models.Reading) []any {
 	return []any{
 		rd.ID.String(), rd.StationID, rd.StructureID, rd.MeasuredAt.UTC(), rd.LevelCm, rd.Level2Cm,
-		rd.Source, rd.Origin, rd.SourceRef, rd.Observer, rd.UserID, rd.StructureState, rd.Gate,
+		rd.Source, rd.Origin, rd.SourceRef, rd.Quality, rd.DerivedFrom, rd.Method,
+		rd.Observer, rd.UserID, rd.StructureState, rd.Gate,
 		rd.AgHours1, rd.AgHours2, rd.AgHours3, rd.Note, rd.CreatedAt.UTC(), rd.UpdatedAt.UTC(),
 	}
 }
@@ -58,7 +60,8 @@ func scanReading(scanner interface{ Scan(...any) error }) (models.Reading, error
 	var id string
 	var level, level2, ag1, ag2, ag3 sql.NullInt64
 	err := scanner.Scan(&id, &rd.StationID, &rd.StructureID, &rd.MeasuredAt, &level, &level2,
-		&rd.Source, &rd.Origin, &rd.SourceRef, &rd.Observer, &rd.UserID, &rd.StructureState, &rd.Gate,
+		&rd.Source, &rd.Origin, &rd.SourceRef, &rd.Quality, &rd.DerivedFrom, &rd.Method,
+		&rd.Observer, &rd.UserID, &rd.StructureState, &rd.Gate,
 		&ag1, &ag2, &ag3, &rd.Note, &rd.CreatedAt, &rd.UpdatedAt)
 	if err != nil {
 		return rd, err
@@ -210,7 +213,7 @@ func (r *ReadingRepository) Create(ctx context.Context, rd *models.Reading) erro
 	}
 	defer tx.Rollback()
 	if _, err := tx.ExecContext(ctx, `INSERT INTO readings (`+readingColumns+`)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, readingArgs(rd)...); err != nil {
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, readingArgs(rd)...); err != nil {
 		return fmt.Errorf("greška pri upisu očitanja: %w", err)
 	}
 	channel := readingChannel(ctx, tx, rd)
@@ -312,7 +315,7 @@ func (r *ReadingRepository) ImportBatch(ctx context.Context, readings []models.R
 	}
 	defer tx.Rollback()
 	stmt, err := tx.PrepareContext(ctx, `INSERT OR IGNORE INTO readings (`+readingColumns+`)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return 0, err
 	}
