@@ -133,7 +133,7 @@ func fromProxy(host string) bool {
 // odjava i statika. Sve ostalo čeka dok lozinka nije postavljena.
 func passwordChangeAllowed(path string) bool {
 	switch path {
-	case "/profile", "/profile/update", "/profile/change-password", "/logout":
+	case "/profile", "/profile/update", "/profile/change-password", "/logout", "/logo":
 		return true
 	}
 	return strings.HasPrefix(path, "/static/")

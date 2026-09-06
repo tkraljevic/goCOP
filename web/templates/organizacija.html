@@ -29,7 +29,7 @@
   <div class="detail-head" style="align-items:flex-start;">
     <div>
       <div class="reading-meta">Razina 1</div>
-      <h2 style="margin:0;">{{.Terms.OrgName}}</h2>
+      <h2 style="margin:0; display:flex; align-items:center; gap:0.6rem;"><img src="{{logo}}" alt="" style="max-height:40px; max-width:140px;">{{.Terms.OrgName}}</h2>
       <div class="reading-meta" style="margin-top:0.25rem;">
         {{.Terms.Level1Unit}}{{if .Terms.Level1UnitName}}: {{.Terms.Level1UnitName}}{{end}}{{if .Terms.Level1Address}} · {{.Terms.Level1Address}}{{end}}
         {{if .Terms.Level1Phone}} · <a href="tel:{{.Terms.Level1Phone}}">{{.Terms.Level1Phone}}</a>{{end}}{{if .Terms.Level1Email}} · <a href="mailto:{{.Terms.Level1Email}}">{{.Terms.Level1Email}}</a>{{end}}
@@ -121,7 +121,7 @@
     Šifre dionica i ovlasti se ne mijenjaju. Vrijedi na svim čvorovima mreže.
   </p>
   {{if and .Permissions .Permissions.IsGlobalAdmin}}
-  <form class="form-page" method="POST" action="/organizacija/nazivi">
+  <form class="form-page" method="POST" action="/organizacija/nazivi" enctype="multipart/form-data">
     <h3 style="font-size:0.95rem; margin:0 0 0.5rem;">Razina 1: organizacija</h3>
     <div class="form-row">
       <div class="form-group"><label class="form-label" for="t-org">Naziv organizacije</label><input type="text" id="t-org" name="org_name" class="form-control" value="{{.Terms.OrgName}}" placeholder="Hrvatske vode"></div>
@@ -138,6 +138,23 @@
       <div class="form-group"><label class="form-label" for="t-l1cshort">Kratica</label><input type="text" id="t-l1cshort" name="level1_center_short" class="form-control" value="{{.Terms.Level1CenterShort}}" placeholder="GCOP"></div>
       <div class="form-group"><label class="form-label" for="t-l1cphone">Telefon centra</label><input type="tel" id="t-l1cphone" name="level1_center_phone" class="form-control" value="{{.Terms.Level1CenterPhone}}"></div>
       <div class="form-group"><label class="form-label" for="t-l1cemail">E-pošta centra</label><input type="email" id="t-l1cemail" name="level1_center_email" class="form-control" value="{{.Terms.Level1CenterEmail}}"></div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="t-logo">Znak organizacije</label>
+        <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+          <img src="{{logo}}" alt="" style="max-height:44px; max-width:160px; background:var(--surface); padding:0.25rem; border:1px solid var(--border); border-radius:6px;">
+          <input type="file" id="t-logo" name="logo" class="form-control" accept="image/svg+xml,image/png,image/jpeg,image/webp" style="max-width:20rem;">
+          {{if .Terms.HasLogo}}<label style="font-size:0.85rem; display:flex; gap:0.3rem; align-items:center;"><input type="checkbox" name="logo_remove" value="1"> Makni znak, vrati ugrađeni</label>{{end}}
+        </div>
+        <div class="form-help">SVG, PNG, JPEG ili WebP do 512 KB; pokazuje se u zaglavlju, na prijavi i pri uparivanju, na svim čvorovima. Najbolje vodoravan znak s prozirnom pozadinom.</div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="t-login-info">Tekst na stranici prijave</label>
+      <textarea id="t-login-info" name="login_info" class="form-control" rows="3" placeholder="npr. Prijavljujete se korisničkim imenom iz imenika djelatnika. Račun otvara administrator vašeg centra.">{{.Terms.LoginInfo}}</textarea>
+      <div class="form-help">Stoji ispod obrasca prijave, iznad kontakta administratora. Prazno daje kratku zadanu uputu.</div>
     </div>
 
     <h3 style="font-size:0.95rem; margin:1rem 0 0.5rem;">Razina 2: ustrojstvena jedinica sa svojim {{terml "sektor"}}</h3>
@@ -165,6 +182,7 @@
   {{else}}
   <dl class="reg-facts">
     <div><dt>Razina 1</dt><dd>{{.Terms.OrgName}} · {{.Terms.Level1Unit}} · {{.Terms.Level1Center}} ({{.Terms.Level1CenterShort}})</dd></div>
+    {{if .Terms.LoginInfo}}<div><dt>Prijava</dt><dd style="white-space:pre-line;">{{.Terms.LoginInfo}}</dd></div>{{end}}
     <div><dt>Razina 2</dt><dd>{{.Terms.Sector}} / {{.Terms.Sectors}} · {{.Terms.SectorOffice}} ({{.Terms.SectorOfficeShort}}) · {{.Terms.Center}} ({{.Terms.CenterShort}})</dd></div>
     <div><dt>Razina 3</dt><dd>{{.Terms.Area}} / {{.Terms.Areas}} ({{.Terms.AreaShort}}) · {{.Terms.AreaOffice}} ({{.Terms.AreaOfficeShort}}) · {{.Terms.Subcenter}}</dd></div>
   </dl>
