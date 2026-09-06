@@ -469,6 +469,8 @@ type SectionOfficer struct {
 	DutyTitle   string `json:"duty_title"`
 	Role        string `json:"role"`
 	RoleLabel   string `json:"role_label"`
+	RoleGroup   string `json:"role_group"` // "Razina 2", "Teren" — po katalogu uloga
+	Rank        int    `json:"rank"`       // 1 uprava … 5 teren i ostali; određuje poredak
 	Phone       string `json:"phone"`
 	MobilePhone string `json:"mobile_phone"`
 	Email       string `json:"email"`
