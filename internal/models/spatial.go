@@ -462,6 +462,41 @@ func (g GaugeItem) IsGauge() bool {
 }
 
 // SectionOfficer predstavlja djelatnika zaduženog za dionicu ili pripadajuće branjeno područje
+// OfficerGroup je skupina zaduženih iste razine ovlasti. Kartica ih dijeli jer
+// se na njoj traži jedno ime — najčešće rukovoditelj dionice — a ne čita se
+// popis od dvadesetak ljudi redom.
+type OfficerGroup struct {
+	Label   string
+	Rank    int
+	Members []SectionOfficer
+}
+
+// PersonnelByLevel dijeli zadužene po razini, redom kojim su već složeni
+// (odozgo prema dionici, pa teren). Naslov skupine uz razinu nosi i ono što ta
+// razina znači, nazivima koje organizacija koristi.
+func (s Section) PersonnelByLevel() []OfficerGroup {
+	t := Terms()
+	znacenje := map[int]string{
+		1: t.Lower("org"),
+		2: t.Lower("sektor"),
+		3: t.Lower("podrucje"),
+		4: "dionica",
+	}
+	var out []OfficerGroup
+	for _, o := range s.Personnel {
+		if n := len(out); n > 0 && out[n-1].Rank == o.Rank {
+			out[n-1].Members = append(out[n-1].Members, o)
+			continue
+		}
+		label := o.RoleGroup
+		if z := znacenje[o.Rank]; z != "" && label != "" {
+			label += " — " + z
+		}
+		out = append(out, OfficerGroup{Label: label, Rank: o.Rank, Members: []SectionOfficer{o}})
+	}
+	return out
+}
+
 type SectionOfficer struct {
 	UserID      string `json:"user_id"`
 	FullName    string `json:"full_name"`

@@ -158,3 +158,33 @@ func TestStranicaDioniceNePonavljaSektor(t *testing.T) {
 		t.Error("sektor je napisan dvaput")
 	}
 }
+
+// Na kartici dionice traži se jedno ime — najčešće rukovoditelj dionice — pa
+// zaduženi moraju biti razdvojeni po razinama, a ne u jednom popisu.
+func TestZaduzeniSuRazdvojeniPoRazinama(t *testing.T) {
+	html := iscrtaj(t, "section_detail.html", SectionPageData{
+		CurrentUser: &models.User{FullName: "Provjera"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Section: models.Section{
+			Code: "B.34.1", AreaID: 34, SectorID: "B",
+			Personnel: []models.SectionOfficer{
+				{FullName: "Rukovoditelj Sektora", Rank: 2, RoleGroup: "Razina 2", RoleLabel: "Rukovoditelj sektora"},
+				{FullName: "Rukovoditelj Dionice", Rank: 4, RoleGroup: "Razina 4", RoleLabel: "Rukovoditelj dionice"},
+				{FullName: "Zamjenik Dionice", Rank: 4, RoleGroup: "Razina 4", RoleLabel: "Zamjenik rukovoditelja dionice"},
+				{FullName: "Vodočuvar Prvi", Rank: 5, RoleGroup: "Teren", RoleLabel: "Vodočuvar"},
+			},
+		},
+	})
+	for _, naslov := range []string{"Razina 2 — sektor", "Razina 4 — dionica", "Teren"} {
+		if !strings.Contains(html, naslov) {
+			t.Errorf("nema naslova skupine %q", naslov)
+		}
+	}
+	// razina dionice mora doći prije terena, a svaka skupina jednom
+	if strings.Index(html, "Razina 4 — dionica") > strings.Index(html, "Vodočuvar Prvi") {
+		t.Error("teren stoji prije razine dionice")
+	}
+	if n := strings.Count(html, "Razina 4 — dionica"); n != 1 {
+		t.Errorf("naslov razine 4 pojavljuje se %d puta, očekivano jednom za obje osobe", n)
+	}
+}
