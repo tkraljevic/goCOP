@@ -64,6 +64,52 @@
     </div>
   </div>
 
+  <h3 style="font-size:0.9rem; margin:1rem 0 0.25rem;">Zabilježeni ekstremi</h3>
+  <p class="form-help" style="margin:0 0 0.5rem;">
+    Najviši i najniži vodostaj s datumom. Vrijednost koja nije izmjerena na ovoj letvi — preračunata iz druge postaje
+    ili preuzeta iz starije evidencije — mora nositi podrijetlo, izvor i način; takva ne ulazi u pragove obrane.
+  </p>
+  <input type="hidden" name="extremes" id="extremes">
+  <div class="rows-extreme">
+    <div class="rows-head"><div>Vrsta</div><div>Vodostaj (cm)</div><div>Datum</div><div>Podrijetlo</div><div>Izvor</div><div>Način / napomena</div><div></div></div>
+    <div id="extreme-rows"></div>
+  </div>
+  <button type="button" class="btn btn-sm btn-secondary" onclick="addExtremeRow()">{{icon "plus"}} Dodaj ekstrem</button>
+  <template id="tpl-extreme">
+    <div class="extreme-row">
+      <div data-label="Vrsta"><select class="form-control" data-field="kind" aria-label="Vrsta ekstrema"><option value="MAX">najviši</option><option value="MIN">najniži</option></select></div>
+      <div data-label="Vodostaj (cm)"><input type="text" inputmode="numeric" class="form-control mono" data-field="level_cm" placeholder="+775" aria-label="Vodostaj u centimetrima"></div>
+      <div data-label="Datum"><input type="text" class="form-control mono" data-field="on_date" placeholder="1965-06-24" aria-label="Datum" title="YYYY-MM-DD, ili samo godina"></div>
+      <div data-label="Podrijetlo"><select class="form-control" data-field="quality" aria-label="Podrijetlo vrijednosti"><option value="IZMJERENO">izmjereno</option><option value="REKONSTRUIRANO">rekonstruirano</option><option value="SUMNJIVO">sumnjivo</option></select></div>
+      <div data-label="Izvor"><input type="text" class="form-control" data-field="source" placeholder="DHMZ, postaja Bezdan…" aria-label="Izvor"></div>
+      <div data-label="Način / napomena"><input type="text" class="form-control" data-field="method" placeholder="preračun iz Bezdana" aria-label="Način ili napomena"></div>
+      <button type="button" class="btn btn-sm btn-secondary" onclick="this.closest('.extreme-row').remove()" title="Ukloni">{{icon "x"}}</button>
+    </div>
+  </template>
+  <script>
+  const EXTREMES = {{.ExtremesJSON}};
+  function addExtremeRow(e) {
+    e = e || {}; const row = document.getElementById('tpl-extreme').content.firstElementChild.cloneNode(true);
+    row.querySelector('[data-field=kind]').value = e.kind || 'MAX';
+    row.querySelector('[data-field=level_cm]').value = e.level_cm != null ? e.level_cm : '';
+    row.querySelector('[data-field=on_date]').value = e.on_date || '';
+    row.querySelector('[data-field=quality]').value = e.quality || 'IZMJERENO';
+    row.querySelector('[data-field=source]').value = e.source || '';
+    row.querySelector('[data-field=method]').value = e.method || e.note || '';
+    document.getElementById('extreme-rows').appendChild(row);
+  }
+  function collectExtremes() {
+    const rows = [...document.querySelectorAll('#extreme-rows .extreme-row')].map(r => {
+      const g = f => r.querySelector('[data-field=' + f + ']').value.trim();
+      return { kind: g('kind'), level_cm: g('level_cm'), on_date: g('on_date'), quality: g('quality'), source: g('source'), method: g('method') };
+    }).filter(x => x.level_cm || x.on_date);
+    document.getElementById('extremes').value = JSON.stringify(rows);
+    return true;
+  }
+  (EXTREMES || []).forEach(addExtremeRow);
+  document.getElementById('station-form') && document.getElementById('station-form').addEventListener('submit', collectExtremes);
+  </script>
+
   <h3 style="font-size:0.9rem; margin:1rem 0 0.25rem;">Promjene kote nule kroz vrijeme</h3>
   <p class="form-help" style="margin:0 0 0.5rem;">
     Kad je letva premještena, obnovljena ili dobila novi elaborat. Vodostaji u bazi svedeni su na zadnju kotu i ne

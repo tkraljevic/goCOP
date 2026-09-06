@@ -3,11 +3,13 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log"
 	"time"
 
 	"gocop/internal/ledger"
+	"gocop/internal/models"
 )
 
 // Popravci podataka koji se izvode jednom, a mijenjaju sinkronizirane
@@ -22,6 +24,46 @@ type fixup struct {
 }
 
 var fixups = []fixup{
+	{
+		// Batina najviši vodostaj iz 1965. nije izmjerila — preračunat je iz
+		// postaje Bezdan. Dotad je stajao kao napomena uz prag, pa se čitao kao
+		// mjerenje ove letve. Izmjereni maksimum ostaje +775 cm iz 2013.
+		name: "batina-ekstremi-podrijetlo",
+		run: func(ctx context.Context, tx *sql.Tx, rec *ledger.Recorder) (int, error) {
+			var id string
+			if err := tx.QueryRowContext(ctx, `SELECT id FROM stations WHERE code = 'batina'`).Scan(&id); err == sql.ErrNoRows {
+				return 0, nil
+			} else if err != nil {
+				return 0, err
+			}
+			cm := func(v int) *int { return &v }
+			extremes := []models.StationExtreme{
+				{Kind: models.ExtremeMax, LevelCm: cm(775), OnDate: "2013-06-14",
+					Quality: models.QualityMeasured, Source: "DHMZ"},
+				{Kind: models.ExtremeMax, LevelCm: cm(795), OnDate: "1965-06-24",
+					Quality: models.QualityReconstructed, Source: "postaja Bezdan",
+					Method: "preračun iz vodostaja Bezdana"},
+				{Kind: models.ExtremeMin, LevelCm: cm(-127), OnDate: "1909-01-07",
+					Quality: models.QualityMeasured, Source: "DHMZ"},
+			}
+			b, err := json.Marshal(extremes)
+			if err != nil {
+				return 0, err
+			}
+			if _, err := tx.ExecContext(ctx, `UPDATE stations SET extremes = ?, updated_at = ? WHERE id = ?`,
+				string(b), time.Now().UTC(), id); err != nil {
+				return 0, err
+			}
+			st, err := getStationTx(ctx, tx, id)
+			if err != nil {
+				return 0, err
+			}
+			if _, err := rec.Record(ctx, tx, EntityStations, id, st); err != nil {
+				return 0, err
+			}
+			return 1, nil
+		},
+	},
 	{
 		name: "batina-zero-datum-2025",
 		run: func(ctx context.Context, tx *sql.Tx, rec *ledger.Recorder) (int, error) {

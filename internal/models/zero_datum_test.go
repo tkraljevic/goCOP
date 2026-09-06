@@ -37,3 +37,34 @@ func TestZeroDatumAtBezPovijestiVracaNista(t *testing.T) {
 		t.Error("prije prve upisane promjene kota se ne zna")
 	}
 }
+
+// Vrijednost koja nije izmjerena na ovoj letvi ne smije se predstaviti kao
+// mjerenje: Batina najviši vodostaj iz 1965. ima preračunat iz Bezdana.
+func TestEkstremZnaJeLiIzmjerenNaOvojLetvi(t *testing.T) {
+	cm := func(v int) *int { return &v }
+	st := Station{Extremes: []StationExtreme{
+		{Kind: ExtremeMax, LevelCm: cm(775), OnDate: "2013-06-14", Quality: QualityMeasured},
+		{Kind: ExtremeMax, LevelCm: cm(795), OnDate: "1965-06-24", Quality: QualityReconstructed, Source: "postaja Bezdan"},
+		{Kind: ExtremeMin, LevelCm: cm(-127), OnDate: "1909-01-07"},
+	}}
+	maxi := st.ExtremesOf(ExtremeMax)
+	if len(maxi) != 2 {
+		t.Fatalf("najviših ekstrema %d, očekivano 2", len(maxi))
+	}
+	if !maxi[0].IsMeasured() {
+		t.Error("+775 iz 2013. je izmjeren")
+	}
+	if maxi[1].IsMeasured() {
+		t.Error("+795 iz 1965. nije izmjeren na Batini")
+	}
+	if maxi[1].Label() != "+795 cm" {
+		t.Errorf("natpis ekstrema: %q", maxi[1].Label())
+	}
+	// zatečeni zapisi nemaju upisanu kvalitetu; oni su mjerenja
+	if !st.ExtremesOf(ExtremeMin)[0].IsMeasured() {
+		t.Error("zapis bez upisane kvalitete je mjerenje")
+	}
+	if QualityLabel(QualityReconstructed) != "rekonstruirano" {
+		t.Error("natpis podrijetla")
+	}
+}
