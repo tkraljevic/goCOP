@@ -74,7 +74,7 @@
         <span class="badge badge-inactive">{{term "sektor"}} {{.SectorID}}</span>
       </div>
       <dl class="reg-facts">
-        {{if .ZeroDatum}}<div><dt>Kota „0“</dt><dd>{{derefFloat .ZeroDatum 2}} m</dd></div>{{end}}
+        {{if .ZeroDatum}}<div><dt>Kota „0“</dt><dd>{{brojHRd .ZeroDatum 2}} m</dd></div>{{end}}
         {{if .CapacityText}}<div><dt>Kapacitet</dt><dd>{{.CapacityText}} m³/s</dd></div>{{end}}
         {{if .StartText}}<div><dt>Uključenje</dt><dd>{{.StartText}} cm</dd></div>{{end}}
         {{if .StopText}}<div><dt>Zaustavljanje</dt><dd>{{.StopText}} cm</dd></div>{{end}}

@@ -201,7 +201,7 @@
 {{define "pager"}}
 {{if gt .Total 0}}
 <nav class="pager" aria-label="Listanje">
-  <span class="pager-count">{{.From}}–{{.To}} od {{.Total}}</span>
+  <span class="pager-count">{{.From}}–{{.To}} od {{brojHR .Total}}</span>
   {{if .Multi}}
   <div class="pager-links">
     {{if .HasPrev}}<a href="{{.URL .Prev}}" rel="prev" aria-label="Prethodna stranica">‹</a>{{else}}<span class="disabled">‹</span>{{end}}

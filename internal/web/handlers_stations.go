@@ -402,12 +402,8 @@ func parseThresholdInput(value string) models.Threshold {
 }
 
 func parseOptionalFloat(value string) *float64 {
-	trimmed := strings.ReplaceAll(strings.TrimSpace(value), ",", ".")
-	if trimmed == "" {
-		return nil
-	}
-	parsed, err := strconv.ParseFloat(trimmed, 64)
-	if err != nil {
+	parsed, ok := parseBroj(value)
+	if !ok {
 		return nil
 	}
 	return &parsed

@@ -85,9 +85,9 @@
 
       {{if or .LengthKm .BasinKm2 .AvgFlowM3S .Mouth}}
       <dl class="reg-facts">
-        {{if .LengthKm}}<div><dt>Duljina</dt><dd>{{derefFloat .LengthKm 0}} km</dd></div>{{end}}
-        {{if .BasinKm2}}<div><dt>Porječje</dt><dd>{{derefFloat .BasinKm2 0}} km²</dd></div>{{end}}
-        {{if .AvgFlowM3S}}<div><dt>Protok</dt><dd>{{derefFloat .AvgFlowM3S 0}} m³/s</dd></div>{{end}}
+        {{if .LengthKm}}<div><dt>Duljina</dt><dd>{{brojHRd .LengthKm 0}} km</dd></div>{{end}}
+        {{if .BasinKm2}}<div><dt>Porječje</dt><dd>{{brojHRd .BasinKm2 0}} km²</dd></div>{{end}}
+        {{if .AvgFlowM3S}}<div><dt>Protok</dt><dd>{{brojHRd .AvgFlowM3S 0}} m³/s</dd></div>{{end}}
         {{if .Mouth}}<div><dt>Ušće</dt><dd>{{.Mouth}}</dd></div>{{end}}
       </dl>
       {{end}}

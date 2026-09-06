@@ -77,7 +77,7 @@
           <div class="reg-card-head">
             <div>
               <h3 class="reg-card-title">{{.Name}}</h3>
-              <div class="reg-card-sub">{{if .HasWatercourse}}{{.Watercourse}}{{end}}{{if .Stationing}} · {{.Stationing}}{{end}}{{if .ZeroDatum}} · „0“ {{derefFloat .ZeroDatum 2}} m{{end}}</div>
+              <div class="reg-card-sub">{{if .HasWatercourse}}{{.Watercourse}}{{end}}{{if .Stationing}} · {{.Stationing}}{{end}}{{if .ZeroDatum}} · „0“ {{brojHRd .ZeroDatum 2}} m{{end}}</div>
             </div>
             {{if .NeedsReview}}<span class="badge badge-inactive" title="{{.ReviewNote}}">{{icon "triangle-alert"}} </span>{{end}}
           </div>

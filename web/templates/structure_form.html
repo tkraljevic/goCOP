@@ -55,7 +55,7 @@
   <div class="form-row">
     <div class="form-group">
       <label class="form-label" for="zero_datum">Kota „0“ letve (m n. m., Trst)</label>
-      <input type="text" inputmode="decimal" id="zero_datum" name="zero_datum" class="form-control" value="{{if .Structure.ZeroDatum}}{{derefFloat .Structure.ZeroDatum 2}}{{end}}" placeholder="82,06">
+      <input type="text" inputmode="decimal" id="zero_datum" name="zero_datum" class="form-control" value="{{if .Structure.ZeroDatum}}{{unosD .Structure.ZeroDatum 2}}{{end}}" placeholder="82,06">
     </div>
     <div class="form-group">
       <label class="form-label" for="watercourse_code">Voda (šifra iz registra)</label>

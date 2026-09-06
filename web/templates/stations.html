@@ -87,7 +87,7 @@
 
       <div class="reg-card-foot">
         <span class="reg-chip {{if eq (len .SectionCodes) 0}}empty{{end}}" title="{{range .SectionCodes}}{{.}} {{end}}">{{icon "file-text"}} {{dionice (len .SectionCodes)}}</span>
-        {{if .ZeroDatum}}<span class="reg-chip">„0“ {{derefFloat .ZeroDatum 2}} m</span>{{end}}
+        {{if .ZeroDatum}}<span class="reg-chip">„0“ {{brojHRd .ZeroDatum 2}} m</span>{{end}}
         {{if .Record.Cm}}<span class="reg-chip" title="Najviši zabilježeni vodostaj">max {{.Record.Label}}</span>{{end}}
       </div>
     </a>

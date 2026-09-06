@@ -46,11 +46,11 @@
       <datalist id="uvjeti-rijeci">{{range .ConditionWords}}<option value="{{.}}">{{end}}</datalist>
     </div>
     <div class="form-row" style="grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));">
-      <div class="form-group"><label class="form-label" for="temperature">Temperatura °C</label><input type="text" inputmode="decimal" id="temperature" name="temperature" class="form-control" value="{{if .Sheet.Temperature}}{{derefFloat .Sheet.Temperature 0}}{{end}}" oninput="document.getElementById('weather_edited').value='1'"></div>
-      <div class="form-group"><label class="form-label" for="wind_from">Vjetar od m/s</label><input type="text" inputmode="decimal" id="wind_from" name="wind_from" class="form-control" value="{{if .Sheet.WindFrom}}{{derefFloat .Sheet.WindFrom 0}}{{end}}" oninput="document.getElementById('weather_edited').value='1'"></div>
-      <div class="form-group"><label class="form-label" for="wind_to">do m/s</label><input type="text" inputmode="decimal" id="wind_to" name="wind_to" class="form-control" value="{{if .Sheet.WindTo}}{{derefFloat .Sheet.WindTo 0}}{{end}}" oninput="document.getElementById('weather_edited').value='1'"></div>
-      <div class="form-group"><label class="form-label" for="pressure">Tlak hPa</label><input type="text" inputmode="decimal" id="pressure" name="pressure" class="form-control" value="{{if .Sheet.Pressure}}{{derefFloat .Sheet.Pressure 0}}{{end}}" oninput="document.getElementById('weather_edited').value='1'"></div>
-      <div class="form-group"><label class="form-label" for="precipitation">Oborine mm</label><input type="text" inputmode="decimal" id="precipitation" name="precipitation" class="form-control" value="{{if .Sheet.Precipitation}}{{derefFloat .Sheet.Precipitation 1}}{{end}}" oninput="document.getElementById('weather_edited').value='1'"></div>
+      <div class="form-group"><label class="form-label" for="temperature">Temperatura °C</label><input type="text" inputmode="decimal" id="temperature" name="temperature" class="form-control" value="{{if .Sheet.Temperature}}{{unosD .Sheet.Temperature 0}}{{end}}" oninput="document.getElementById('weather_edited').value='1'"></div>
+      <div class="form-group"><label class="form-label" for="wind_from">Vjetar od m/s</label><input type="text" inputmode="decimal" id="wind_from" name="wind_from" class="form-control" value="{{if .Sheet.WindFrom}}{{unosD .Sheet.WindFrom 0}}{{end}}" oninput="document.getElementById('weather_edited').value='1'"></div>
+      <div class="form-group"><label class="form-label" for="wind_to">do m/s</label><input type="text" inputmode="decimal" id="wind_to" name="wind_to" class="form-control" value="{{if .Sheet.WindTo}}{{unosD .Sheet.WindTo 0}}{{end}}" oninput="document.getElementById('weather_edited').value='1'"></div>
+      <div class="form-group"><label class="form-label" for="pressure">Tlak hPa</label><input type="text" inputmode="decimal" id="pressure" name="pressure" class="form-control" value="{{if .Sheet.Pressure}}{{unosD .Sheet.Pressure 0}}{{end}}" oninput="document.getElementById('weather_edited').value='1'"></div>
+      <div class="form-group"><label class="form-label" for="precipitation">Oborine mm</label><input type="text" inputmode="decimal" id="precipitation" name="precipitation" class="form-control" value="{{if .Sheet.Precipitation}}{{unosD .Sheet.Precipitation 1}}{{end}}" oninput="document.getElementById('weather_edited').value='1'"></div>
     </div>
     <input type="hidden" id="weather_edited" name="weather_edited" value="0">
     <p class="form-help">{{if eq .Sheet.WeatherSource "OPEN_METEO"}}Prilike su povučene s Open-Meteo za dan lista.{{else if eq .Sheet.WeatherSource "RUČNO"}}Prilike su upisane ručno.{{else}}Prilike još nisu upisane.{{end}}</p>
@@ -138,7 +138,7 @@
         <td>
           {{if .WorkItemText}}<div>{{if .WorkItemNo}}<span style="color:var(--text-muted);">{{.WorkItemNo}}</span> {{end}}{{.WorkItemText}}</div>{{end}}
           {{if .Text}}<div style="white-space:pre-line;">{{.Text}}</div>{{end}}
-          {{if .Hours}}<div style="font-size:0.8rem; color:var(--text-muted);">trajanje {{derefFloat .Hours 1}} h</div>{{end}}
+          {{if .Hours}}<div style="font-size:0.8rem; color:var(--text-muted);">trajanje {{brojHRd .Hours 1}} h</div>{{end}}
           {{if .Voided}}<div style="font-size:0.8rem; color:var(--danger); text-decoration:none;">STORNO ({{.VoidedBy}}): {{.VoidReason}}</div>{{end}}
         </td>
         <td style="font-size:0.8rem; color:var(--text-muted); white-space:nowrap;">{{.UserName}}<br>{{(localTime .CreatedAt).Format "02.01.06. 15:04"}}</td>

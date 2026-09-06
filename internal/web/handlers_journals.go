@@ -352,12 +352,8 @@ func sheetPath(j *models.Journal, sh *models.JournalSheet) string {
 }
 
 func floatField(r *http.Request, key string) *float64 {
-	s := strings.TrimSpace(strings.ReplaceAll(r.FormValue(key), ",", "."))
-	if s == "" {
-		return nil
-	}
-	v, err := strconv.ParseFloat(s, 64)
-	if err != nil {
+	v, ok := parseBroj(r.FormValue(key))
+	if !ok {
 		return nil
 	}
 	return &v
