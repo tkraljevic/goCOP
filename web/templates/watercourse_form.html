@@ -64,17 +64,17 @@
     <div class="form-group">
       <label class="form-label" for="length_km">Duljina (km)</label>
       <input type="text" inputmode="decimal" id="length_km" name="length_km" class="form-control"
-             value="{{if .Water.LengthKm}}{{derefFloat .Water.LengthKm 1}}{{end}}" placeholder="133">
+             value="{{if .Water.LengthKm}}{{unosD .Water.LengthKm 1}}{{end}}" placeholder="133">
     </div>
     <div class="form-group">
       <label class="form-label" for="basin_km2">Porječje (km²)</label>
       <input type="text" inputmode="decimal" id="basin_km2" name="basin_km2" class="form-control"
-             value="{{if .Water.BasinKm2}}{{derefFloat .Water.BasinKm2 0}}{{end}}" placeholder="596">
+             value="{{if .Water.BasinKm2}}{{unosD .Water.BasinKm2 0}}{{end}}" placeholder="596">
     </div>
     <div class="form-group">
       <label class="form-label" for="avg_flow_m3s">Prosječni protok (m³/s)</label>
       <input type="text" inputmode="decimal" id="avg_flow_m3s" name="avg_flow_m3s" class="form-control"
-             value="{{if .Water.AvgFlowM3S}}{{derefFloat .Water.AvgFlowM3S 1}}{{end}}" placeholder="620">
+             value="{{if .Water.AvgFlowM3S}}{{unosD .Water.AvgFlowM3S 1}}{{end}}" placeholder="620">
     </div>
   </div>
 

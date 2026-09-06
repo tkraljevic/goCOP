@@ -49,11 +49,11 @@
   <div class="form-row">
     <div class="form-group">
       <label class="form-label" for="length_km">Ukupna duljina (km)</label>
-      <input type="text" inputmode="decimal" id="length_km" name="length_km" class="form-control" value="{{if .Section.LengthKm}}{{derefFloat .Section.LengthKm 3}}{{end}}" placeholder="zbroj poddionica">
+      <input type="text" inputmode="decimal" id="length_km" name="length_km" class="form-control" value="{{if .Section.LengthKm}}{{unosD .Section.LengthKm 3}}{{end}}" placeholder="zbroj poddionica">
     </div>
     <div class="form-group">
       <label class="form-label" for="embankment_km">Ukupno nasipa (km)</label>
-      <input type="text" inputmode="decimal" id="embankment_km" name="embankment_km" class="form-control" value="{{if .Section.EmbankmentKm}}{{derefFloat .Section.EmbankmentKm 3}}{{end}}" placeholder="zbroj odsjeka">
+      <input type="text" inputmode="decimal" id="embankment_km" name="embankment_km" class="form-control" value="{{if .Section.EmbankmentKm}}{{unosD .Section.EmbankmentKm 3}}{{end}}" placeholder="zbroj odsjeka">
     </div>
   </div>
   <div class="form-group">

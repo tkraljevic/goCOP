@@ -58,7 +58,7 @@
   <div class="form-row">
     <div class="form-group">
       <label class="form-label" for="area_sqkm">Površina (km²)</label>
-      <input type="text" inputmode="decimal" id="area_sqkm" name="area_sqkm" class="form-control" value="{{if gt .Municipality.AreaSqKm 0.0}}{{decimalni .Municipality.AreaSqKm 1}}{{end}}">
+      <input type="text" inputmode="decimal" id="area_sqkm" name="area_sqkm" class="form-control" value="{{if gt .Municipality.AreaSqKm 0.0}}{{unos .Municipality.AreaSqKm 1}}{{end}}">
     </div>
     <div class="form-group">
       <label class="form-label" for="population">Stanovništvo</label>

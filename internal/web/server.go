@@ -139,30 +139,14 @@ func NewServer(
 			}
 			return *t
 		},
-		// decimalni piše broj s decimalnim zarezom, kako se broj u hrvatskom
-		// i piše. Isto pravilo vrijedi za kilometre dionica i za CSV, pa
-		// obrazac i kartica ne smiju pokazivati točku.
-		"decimalni": func(v float64, decimals int) string {
-			return strings.Replace(strconv.FormatFloat(v, 'f', decimals, 64), ".", ",", 1)
-		},
-		// brojHR piše cijeli broj s točkom kao tisućnim razdjelnikom, kako se
-		// broj u hrvatskom i piše (132.892). Za razlomljene brojeve (npr.
-		// površinu) koristi se brojHRf, s zarezom kao decimalnim znakom.
-		"brojHR": func(n int) string {
-			return groupThousands(strconv.Itoa(n))
-		},
-		"brojHRf": func(v float64, decimals int) string {
-			s := strconv.FormatFloat(v, 'f', decimals, 64)
-			intPart, dec := s, ""
-			if i := strings.IndexByte(s, '.'); i >= 0 {
-				intPart, dec = s[:i], s[i+1:]
-			}
-			out := groupThousands(intPart)
-			if dec != "" {
-				out += "," + dec
-			}
-			return out
-		},
+		// Brojevi u sučelju: brojHR/brojHRf/brojHRd za prikaz (razdjelnik
+		// tisućica i decimalni zarez), unos/unosD za polje obrasca (bez
+		// tisućica). Sve je u brojevi.go, zajedno s čitanjem.
+		"brojHR":  brojHR,
+		"brojHRf": brojHRf,
+		"brojHRd": brojHRd,
+		"unos":    unos,
+		"unosD":   unosD,
 		"derefFloat": func(f *float64, decimals int) string {
 			if f == nil {
 				return "-"

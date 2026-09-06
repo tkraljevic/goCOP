@@ -566,13 +566,12 @@ func (h *ReadingsHandler) ShowForm(w http.ResponseWriter, r *http.Request) {
 }
 
 func parseOptionalInt(s string) (*int, error) {
-	s = strings.TrimSpace(strings.ReplaceAll(s, ",", "."))
-	if s == "" {
+	if strings.TrimSpace(s) == "" {
 		return nil, nil
 	}
-	f, err := strconv.ParseFloat(s, 64)
-	if err != nil {
-		return nil, fmt.Errorf("„%s“ nije broj", s)
+	f, ok := parseBroj(s)
+	if !ok {
+		return nil, fmt.Errorf("„%s“ nije broj", strings.TrimSpace(s))
 	}
 	v := int(math.Round(f))
 	return &v, nil
