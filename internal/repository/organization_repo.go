@@ -12,7 +12,7 @@ import (
 	"gocop/internal/models"
 )
 
-// Organizacija obrane: sektori (VGO s centrom obrane) i branjena područja
+// Administrativna organizacija: sektori (VGO s centrom obrane) i branjena područja
 // (mali slivovi s VGI). Program ih ne nosi u sebi; upisuje ih globalni
 // administrator, a svaki upis ostavlja verziju u knjizi pa stiže na ostale
 // čvorove. Na njih se vežu ovlasti, dionice i zaduženja, pa se brišu samo
