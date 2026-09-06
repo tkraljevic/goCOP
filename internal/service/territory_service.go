@@ -133,6 +133,18 @@ func (s *TerritoryService) GetTerritoryCounts(ctx context.Context) (int, int, in
 	return s.territoryRepo.GetTerritoryCounts(ctx)
 }
 
+// applyWebsite sprema uredno zapisanu adresu stranice ili javlja grešku.
+// Adresa završava kao poveznica na kartici, pa se provjerava ovdje — na putu
+// kojim prolazi i obrazac i CSV uvoz — a ne u pojedinom obrascu.
+func applyWebsite(raw string, set func(string)) error {
+	site, ok := models.NormalizeWebsite(raw)
+	if !ok {
+		return fmt.Errorf("web stranica mora biti adresa oblika https://primjer.hr")
+	}
+	set(site)
+	return nil
+}
+
 // CreateCounty dodaje novu županiju
 func (s *TerritoryService) CreateCounty(ctx context.Context, perms *models.UserPermissions, c *models.County) error {
 	if perms == nil || !perms.IsGlobalAdmin {
@@ -140,6 +152,9 @@ func (s *TerritoryService) CreateCounty(ctx context.Context, perms *models.UserP
 	}
 	if strings.TrimSpace(c.Name) == "" {
 		return fmt.Errorf("naziv županije je obavezan")
+	}
+	if err := applyWebsite(c.Website, func(v string) { c.Website = v }); err != nil {
+		return err
 	}
 	return s.territoryRepo.CreateCounty(ctx, c)
 }
@@ -151,6 +166,9 @@ func (s *TerritoryService) UpdateCounty(ctx context.Context, perms *models.UserP
 	}
 	if c.ID <= 0 || strings.TrimSpace(c.Name) == "" {
 		return fmt.Errorf("neispravan unos županije")
+	}
+	if err := applyWebsite(c.Website, func(v string) { c.Website = v }); err != nil {
+		return err
 	}
 	if err := s.territoryRepo.UpdateCounty(ctx, c); err != nil {
 		return err
@@ -188,6 +206,9 @@ func (s *TerritoryService) CreateMunicipality(ctx context.Context, perms *models
 	if m.Type != "GRAD" && m.Type != "OPCINA" {
 		m.Type = "OPCINA"
 	}
+	if err := applyWebsite(m.Website, func(v string) { m.Website = v }); err != nil {
+		return err
+	}
 	return s.territoryRepo.CreateMunicipality(ctx, m)
 }
 
@@ -202,6 +223,9 @@ func (s *TerritoryService) UpdateMunicipality(ctx context.Context, perms *models
 	m.Type = strings.ToUpper(strings.TrimSpace(m.Type))
 	if m.Type != "GRAD" && m.Type != "OPCINA" {
 		m.Type = "OPCINA"
+	}
+	if err := applyWebsite(m.Website, func(v string) { m.Website = v }); err != nil {
+		return err
 	}
 	if err := s.territoryRepo.UpdateMunicipality(ctx, m); err != nil {
 		return err

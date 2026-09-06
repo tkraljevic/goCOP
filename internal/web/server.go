@@ -213,6 +213,23 @@ func NewServer(
 			}
 			return fmt.Sprintf("%d", *i)
 		},
+		// websiteURL daje adresu spremnu za href. Zapisi upisani prije
+		// provjere u servisu mogu biti bez sheme ("www.grad.hr"), a takva
+		// bi poveznica vodila unutar goCOP-a; neispravna adresa vraća
+		// prazno, pa se poveznica uopće ne iscrta.
+		"websiteURL": func(raw string) string {
+			site, ok := models.NormalizeWebsite(raw)
+			if !ok {
+				return ""
+			}
+			return site
+		},
+		// websiteLabel je ista adresa bez sheme i završne kose crte —
+		// "https://www.darda.hr/" se na kartici čita kao "www.darda.hr"
+		"websiteLabel": func(raw string) string {
+			label := strings.TrimPrefix(strings.TrimPrefix(raw, "https://"), "http://")
+			return strings.TrimSuffix(label, "/")
+		},
 		"renderMarkdown": func(input string) template.HTML {
 			if strings.TrimSpace(input) == "" {
 				return ""

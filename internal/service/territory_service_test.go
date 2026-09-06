@@ -209,3 +209,84 @@ func TestCreateRenameAndDeleteSettlement(t *testing.T) {
 		t.Fatalf("Naselje nije obrisano iz baze")
 	}
 }
+
+// Za web stranicu ne trebaju registri iz data/, pa ovaj servis stoji na
+// praznoj shemi i test se ne preskače kad podaci nisu uz repozitorij.
+func setupEmptyTerritoryService(t *testing.T) (*TerritoryService, *models.UserPermissions) {
+	t.Helper()
+
+	database, err := db.OpenDB(":memory:")
+	if err != nil {
+		t.Fatalf("in-memory baza: %v", err)
+	}
+	t.Cleanup(func() { database.Close() })
+
+	if err := db.InitSchema(database); err != nil {
+		t.Fatalf("shema: %v", err)
+	}
+
+	rec := ledger.New(database, "test-node")
+	territoryRepo := repository.NewTerritoryRepository(database, rec)
+	sectionRepo := repository.NewSectionRepository(database, rec)
+	sectionService := NewSectionService(sectionRepo, NewSSEBroker())
+
+	return NewTerritoryService(territoryRepo, sectionService), &models.UserPermissions{IsGlobalAdmin: true}
+}
+
+// Adresa web stranice prolazi kroz servis — i iz obrasca i iz CSV uvoza — pa
+// se ovdje provjerava da se upisano bez sheme uredno spremi, da se neispravno
+// odbije, i da spremljeno dođe natrag iz baze. Isto za županiju i za općinu.
+func TestWebsiteNormalizationAndValidation(t *testing.T) {
+	ts, perms := setupEmptyTerritoryService(t)
+	ctx := context.Background()
+
+	county := &models.County{Name: "Probna županija", Seat: "Probno", Website: "probna-zupanija.hr"}
+	if err := ts.CreateCounty(ctx, perms, county); err != nil {
+		t.Fatalf("CreateCounty: %v", err)
+	}
+	if county.Website != "https://probna-zupanija.hr" {
+		t.Errorf("županiji je spremljena adresa %q, očekivano https://probna-zupanija.hr", county.Website)
+	}
+
+	saved, err := ts.GetCountyByID(ctx, county.ID)
+	if err != nil || saved == nil {
+		t.Fatalf("GetCountyByID: %v", err)
+	}
+	if saved.Website != "https://probna-zupanija.hr" {
+		t.Errorf("iz baze je pročitana adresa županije %q", saved.Website)
+	}
+
+	county.Website = "javascript:alert(1)"
+	if err := ts.UpdateCounty(ctx, perms, county); err == nil {
+		t.Error("UpdateCounty je prihvatio javascript: adresu")
+	}
+
+	muni := &models.Municipality{CountyID: county.ID, Name: "Probna općina", Type: "OPCINA",
+		Website: "  www.probna-opcina.hr  "}
+	if err := ts.CreateMunicipality(ctx, perms, muni); err != nil {
+		t.Fatalf("CreateMunicipality: %v", err)
+	}
+	if muni.Website != "https://www.probna-opcina.hr" {
+		t.Errorf("općini je spremljena adresa %q, očekivano https://www.probna-opcina.hr", muni.Website)
+	}
+
+	savedMuni, err := ts.GetMunicipalityByID(ctx, muni.ID)
+	if err != nil || savedMuni == nil {
+		t.Fatalf("GetMunicipalityByID: %v", err)
+	}
+	if savedMuni.Website != "https://www.probna-opcina.hr" {
+		t.Errorf("iz baze je pročitana adresa općine %q", savedMuni.Website)
+	}
+
+	// Adresa koja se predstavlja kao općinska a vodi drugamo
+	savedMuni.Website = "https://probna-opcina.hr@tudja-stranica.com"
+	if err := ts.UpdateMunicipality(ctx, perms, savedMuni); err == nil {
+		t.Error("UpdateMunicipality je prihvatio adresu s korisničkim dijelom")
+	}
+
+	// Prazno polje je dopušteno: stranica se ne mora znati
+	savedMuni.Website = ""
+	if err := ts.UpdateMunicipality(ctx, perms, savedMuni); err != nil {
+		t.Errorf("brisanje adrese nije prošlo: %v", err)
+	}
+}

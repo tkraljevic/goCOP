@@ -194,6 +194,7 @@ func (h *TerritoriesHandler) HandleCreateCounty(w http.ResponseWriter, r *http.R
 		Population: pop,
 		Email:      strings.TrimSpace(r.FormValue("email")),
 		Phone:      strings.TrimSpace(r.FormValue("phone")),
+		Website:    strings.TrimSpace(r.FormValue("website")),
 	}
 
 	if err := h.territoryService.CreateCounty(r.Context(), perms, c); err != nil {
@@ -224,6 +225,7 @@ func (h *TerritoriesHandler) HandleUpdateCounty(w http.ResponseWriter, r *http.R
 		Population: pop,
 		Email:      strings.TrimSpace(r.FormValue("email")),
 		Phone:      strings.TrimSpace(r.FormValue("phone")),
+		Website:    strings.TrimSpace(r.FormValue("website")),
 	}
 
 	if err := h.territoryService.UpdateCounty(r.Context(), perms, c); err != nil {
