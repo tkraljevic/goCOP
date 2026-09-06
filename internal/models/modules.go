@@ -71,6 +71,8 @@ func DefaultModules(r Role) []string {
 		return []string{ModuleField, ModuleReadings}
 	case r == RoleViewer:
 		return []string{ModuleField, ModuleReadings, ModuleRegisters}
+	case r == RoleGuest:
+		return []string{ModuleField, ModuleReadings}
 	case r == RoleCopLeader || r == RoleCopDeputy || r == RoleAreaAdmin ||
 		r == RoleNationalLeader || r == RoleNationalDeputy || r == RoleMainCenterLeader || r == RoleMainCenterDeputy:
 		return []string{ModuleField, ModuleReadings, ModuleJournals, ModuleRegisters, ModuleUsers}

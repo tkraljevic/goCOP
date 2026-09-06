@@ -36,6 +36,7 @@ const (
 	RoleFacilityOperator     Role = "FACILITY_OPERATOR"      // Rukovatelj
 	RoleCrewLeader           Role = "CREW_LEADER"            // Voditelj posade objekta
 	RoleFieldWorker          Role = "FIELD_WORKER"           // Terenski radnik (legacy alias)
+	RoleGuest                Role = "GUEST"                  // Gost: račun za posjetitelja obrane, samo gleda
 	RoleViewer               Role = "VIEWER"                 // Preglednik (samo čitanje)
 )
 
