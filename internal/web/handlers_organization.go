@@ -26,11 +26,13 @@ type OrgHandler struct {
 	tmplArea      *template.Template
 	tmplContr     *template.Template
 	tmplContrList *template.Template
+	tmplTerms     *template.Template
+	tmplRoles     *template.Template
 }
 
-func NewOrgHandler(org *service.OrgService, list, sector, area, contractor, contractors *template.Template) *OrgHandler {
+func NewOrgHandler(org *service.OrgService, list, sector, area, contractor, contractors, terms, roles *template.Template) *OrgHandler {
 	return &OrgHandler{org: org, tmplList: list, tmplSector: sector, tmplArea: area,
-		tmplContr: contractor, tmplContrList: contractors}
+		tmplContr: contractor, tmplContrList: contractors, tmplTerms: terms, tmplRoles: roles}
 }
 
 // SectorView je sektor sa svojim branjenim područjima i firmama cijelog sektora
@@ -280,7 +282,7 @@ func cell(row []string, i int) string {
 // Postojeći se osvježe, novi se dodaju; redci s greškom se preskaču i navedu.
 func (h *OrgHandler) HandleImportCSV(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseMultipartForm(4 << 20); err != nil {
-		redirectWith(w, r, "/organizacija", "error", "Neispravan zahtjev ili prevelika datoteka")
+		redirectWith(w, r, "/administracija/nazivi", "error", "Neispravan zahtjev ili prevelika datoteka")
 		return
 	}
 	perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
@@ -550,31 +552,74 @@ func LogoURL() string {
 	return fmt.Sprintf("/logo?v=%d", t.UpdatedAt.Unix())
 }
 
+// ShowTerms je stranica Općenito › Nazivi u administraciji
+func (h *OrgHandler) ShowTerms(w http.ResponseWriter, r *http.Request) {
+	data := h.pageData(r)
+	data.ActiveNav = "admin"
+	if !h.requireAdmin(w, data) {
+		return
+	}
+	if err := h.tmplTerms.ExecuteTemplate(w, "nazivi.html", data); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+// ShowRoleNames je stranica Općenito › Sudionici obrane u administraciji
+func (h *OrgHandler) ShowRoleNames(w http.ResponseWriter, r *http.Request) {
+	data := h.pageData(r)
+	data.ActiveNav = "admin"
+	if !h.requireAdmin(w, data) {
+		return
+	}
+	if err := h.tmplRoles.ExecuteTemplate(w, "sudionici.html", data); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+// HandleSaveRoleNames mijenja nazive sudionika obrane; ostale nazive ne dira
+func (h *OrgHandler) HandleSaveRoleNames(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		redirectWith(w, r, "/administracija/sudionici", "error", "Neispravan zahtjev")
+		return
+	}
+	perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
+	t, err := h.org.Terms(r.Context())
+	if err != nil {
+		redirectWith(w, r, "/administracija/sudionici", "error", err.Error())
+		return
+	}
+	t.RoleLabels = map[string]string{}
+	for _, d := range models.RoleCatalog {
+		t.RoleLabels[string(d.Role)] = strings.TrimSpace(r.FormValue("role_" + string(d.Role)))
+	}
+	if err := h.org.SaveTerms(r.Context(), perms, t); err != nil {
+		redirectWith(w, r, "/administracija/sudionici", "error", err.Error())
+		return
+	}
+	redirectWith(w, r, "/administracija/sudionici", "success", "Nazivi sudionika obrane su spremljeni i vrijede na svim čvorovima mreže.")
+}
+
 // HandleSaveTerms mijenja nazive razina ustroja (za organizacije koje ih zovu drukčije)
 func (h *OrgHandler) HandleSaveTerms(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseMultipartForm(2 << 20); err != nil {
-		redirectWith(w, r, "/organizacija", "error", "Neispravan zahtjev ili prevelika datoteka")
+		redirectWith(w, r, "/administracija/nazivi", "error", "Neispravan zahtjev ili prevelika datoteka")
 		return
 	}
 	perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
 	f := func(k string) string { return strings.TrimSpace(r.FormValue(k)) }
 	current, err := h.org.Terms(r.Context())
 	if err != nil {
-		redirectWith(w, r, "/organizacija", "error", err.Error())
+		redirectWith(w, r, "/administracija/nazivi", "error", err.Error())
 		return
 	}
 	t := models.OrgTerms{
-		LogoMime: current.LogoMime, Logo: current.Logo, LoginInfo: r.FormValue("login_info"),
+		LogoMime: current.LogoMime, Logo: current.Logo, LoginInfo: r.FormValue("login_info"), RoleLabels: current.RoleLabels,
 		OrgName: f("org_name"), OrgLegalForm: f("org_legal_form"), OrgRegistryNo: f("org_registry_no"), OrgTaxID: f("org_tax_id"),
 		Level1Unit: f("level1_unit"), Level1Center: f("level1_center"), Level1CenterShort: f("level1_center_short"),
 		Sector: f("sector"), Sectors: f("sectors"), SectorOffice: f("sector_office"), SectorOfficeShort: f("sector_office_short"),
 		Center: f("center"), CenterShort: f("center_short"),
 		Area: f("area"), Areas: f("areas"), AreaShort: f("area_short"), AreaOffice: f("area_office"), AreaOfficeShort: f("area_office_short"),
 		Subcenter: f("subcenter"),
-	}
-	t.RoleLabels = map[string]string{}
-	for _, d := range models.RoleCatalog {
-		t.RoleLabels[string(d.Role)] = f("role_" + string(d.Role))
 	}
 	if r.FormValue("logo_remove") == "1" {
 		t.LogoMime, t.Logo = "", nil
@@ -583,16 +628,16 @@ func (h *OrgHandler) HandleSaveTerms(w http.ResponseWriter, r *http.Request) {
 		defer file.Close()
 		mime, data, err := readLogo(file, hdr.Filename)
 		if err != nil {
-			redirectWith(w, r, "/organizacija", "error", err.Error())
+			redirectWith(w, r, "/administracija/nazivi", "error", err.Error())
 			return
 		}
 		t.LogoMime, t.Logo = mime, data
 	}
 	if err := h.org.SaveTerms(r.Context(), perms, t); err != nil {
-		redirectWith(w, r, "/organizacija", "error", err.Error())
+		redirectWith(w, r, "/administracija/nazivi", "error", err.Error())
 		return
 	}
-	redirectWith(w, r, "/organizacija", "success", "Nazivi razina su spremljeni i vrijede na svim čvorovima mreže.")
+	redirectWith(w, r, "/administracija/nazivi", "success", "Nazivi su spremljeni i vrijede na svim čvorovima mreže.")
 }
 
 func sectorFromForm(r *http.Request) *models.Sector {

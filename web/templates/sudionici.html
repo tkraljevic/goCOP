@@ -1,0 +1,36 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Sudionici obrane{{end}}
+
+{{define "content"}}
+<div class="breadcrumb"><a href="/administracija">Administracija</a> › Općenito › Sudionici obrane</div>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "shield"}} Sudionici obrane</h1>
+    <p class="page-desc">
+      Uloge nose ovlasti u programu i ne mijenjaju se; naziv smijete zvati po svome. Prazno polje ostavlja zadani naziv.
+      Naziv se pokazuje uz ime djelatnika, u obrascu dužnosti i u matrici modula, na svim čvorovima mreže.
+    </p>
+  </div>
+</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
+
+<form class="form-page" method="POST" action="/administracija/sudionici">
+    {{range .RoleGroups}}
+    <h4 style="font-size:0.85rem; margin:1rem 0 0.5rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.04em;">{{.Group}}</h4>
+    <div class="reg-list" style="margin-bottom:0.5rem;">
+      {{range .Rows}}
+      <article class="reg-card" style="padding:0.875rem 1rem; gap:0.4rem;">
+        <label class="form-label" for="role-{{.Role}}" style="margin:0;">{{.Name}}</label>
+        <input type="text" id="role-{{.Role}}" name="role_{{.Role}}" class="form-control" value="{{.Custom}}" placeholder="{{.Name}}">
+        <div class="form-help" style="margin:0;"><strong>Ovlasti:</strong> {{.Desc}}</div>
+      </article>
+      {{end}}
+    </div>
+    {{end}}
+  <div class="form-actions"><button type="submit" class="btn btn-primary">Spremi</button></div>
+</form>
+{{end}}
