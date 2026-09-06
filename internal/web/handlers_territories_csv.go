@@ -42,7 +42,7 @@ func (h *TerritoriesHandler) ExportMunicipalitiesCSV(w http.ResponseWriter, r *h
 		"Površina km2", "Stanovnika", "E-pošta", "Telefon", "Web"}}
 	for _, m := range muns {
 		rows = append(rows, []string{strconv.Itoa(m.ID), strconv.Itoa(m.CountyID), names[m.CountyID], m.Name, m.Type,
-			m.HeadTitle, m.HeadName, m.PostalCode, strconv.FormatFloat(m.AreaSqKm, 'f', -1, 64), strconv.Itoa(m.Population),
+			m.HeadTitle, m.HeadName, m.PostalCode, csvFloat(m.AreaSqKm), strconv.Itoa(m.Population),
 			m.Email, m.Phone, m.Website})
 	}
 	writeCSV(w, "gradovi-i-opcine.csv", rows)
@@ -165,12 +165,68 @@ func (h *TerritoriesHandler) HandleImportTerritoriesCSV(w http.ResponseWriter, r
 	redirectWith(w, r, "/territories", "success", msg)
 }
 
-func atoi(s string) int {
-	n, _ := strconv.Atoi(strings.TrimSpace(s))
-	return n
+// csvFloat piše decimalni broj onako kako ga očekuje hrvatski Excel — sa
+// zarezom. Sa točkom bi ćelija bila tekst ili, gore, datum, pa bi se uređeni
+// stupac vratio s uvozom kao nula.
+func csvFloat(v float64) string {
+	return strings.Replace(strconv.FormatFloat(v, 'f', -1, 64), ".", ",", 1)
 }
 
+// atoi čita cijeli broj kakav dođe iz Excela. Cijeli broj nema decimale, pa
+// su razdjelnici iza kojih stoje točno tri znamenke tisućice: "1.234" je 1234,
+// a ne 1,234. Sve ostalo ("1234,00") čita se kao decimalni broj i odsijeca.
+func atoi(s string) int {
+	s = strings.TrimSpace(s)
+	if n, err := strconv.Atoi(s); err == nil {
+		return n
+	}
+	s = strings.NewReplacer(" ", "", "\u00a0", "", "\u202f", "").Replace(s)
+	groups := strings.FieldsFunc(s, func(r rune) bool { return r == '.' || r == ',' })
+	if len(groups) > 1 {
+		thousands := true
+		for _, g := range groups[1:] {
+			if len(g) != 3 {
+				thousands = false
+				break
+			}
+		}
+		if n, err := strconv.Atoi(strings.Join(groups, "")); thousands && err == nil {
+			return n
+		}
+	}
+	return int(atof(s))
+}
+
+// atof vraća broj na decimalnu točku, kakvu traži baza. Prihvaća ono što
+// stvarno dolazi iz Excela i iz starijih izvoza: "34,5", "34.5", "1.234,5",
+// "1 234,5". Kad su prisutna oba razdjelnika, decimalni je onaj zadnji, a
+// prethodni razdvajaju tisućice; sam za sebe i zarez i točka znače decimalu,
+// jer su izvozi prije ove promjene pisali točku.
 func atof(s string) float64 {
-	f, _ := strconv.ParseFloat(strings.ReplaceAll(strings.TrimSpace(s), ",", "."), 64)
+	s = strings.TrimSpace(s)
+	// Razdjelnici tisućica koje ubacuju Excel i LibreOffice: obični razmak,
+	// tvrdi razmak i uski tvrdi razmak.
+	s = strings.NewReplacer(" ", "", "\u00a0", "", "\u202f", "").Replace(s)
+
+	dot, comma := strings.LastIndex(s, "."), strings.LastIndex(s, ",")
+	decimal := ""
+	switch {
+	case dot >= 0 && comma >= 0:
+		decimal = ","
+		if dot > comma {
+			decimal = "."
+		}
+	case comma >= 0:
+		decimal = ","
+	case dot >= 0:
+		decimal = "."
+	}
+	if decimal != "" {
+		i := strings.LastIndex(s, decimal)
+		whole := strings.NewReplacer(".", "", ",", "").Replace(s[:i])
+		s = whole + "." + s[i+1:]
+	}
+
+	f, _ := strconv.ParseFloat(s, 64)
 	return f
 }
