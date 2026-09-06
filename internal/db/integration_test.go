@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 	"path/filepath"
 	"testing"
@@ -248,6 +249,57 @@ func TestMigracijaPrekodiraNasumicneIdentitete(t *testing.T) {
 	}
 	if count(t, database, `SELECT COUNT(*) FROM section_stations ss LEFT JOIN stations s ON s.id = ss.station_id WHERE s.id IS NULL`) != 0 {
 		t.Error("nakon migracije postoje veze bez postaje")
+	}
+}
+
+// Poddionica nosi mjerodavne postaje u svom zapisu, pa ih prekodiranje mora
+// zahvatiti i ondje. Kad ih promaši, zapis pokazuje na identitet kojeg više
+// nema i povezivanje poddionica pri sljedećem pokretanju pukne na stranom
+// ključu — program se tada uopće ne digne. Baza se ovdje slaže ručno, da
+// provjera ne ovisi o imeniku i prijepisu koji stoje izvan repozitorija.
+func TestPrekodiranjeZahvacaIPostajeUPoddionicama(t *testing.T) {
+	database, err := OpenDB(filepath.Join(t.TempDir(), "gocop.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { database.Close() })
+	if err := InitSchema(database); err != nil {
+		t.Fatal(err)
+	}
+
+	stara := "01a0698c-4428-7144-9d8d-532c9c75ff0e"
+	stabilna := StableID("station", "batina").String()
+	parts := `[{"seq":1,"station_ids":["` + stara + `"]}]`
+	for _, stmt := range []string{
+		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('B', 'Sektor B', 'VGO Osijek', 'COP Osijek')`,
+		`INSERT INTO areas (id, sector_id, name, vgi_name) VALUES (34, 'B', 'BP 34', 'VGI Baranja')`,
+		`INSERT INTO stations (id, code, name, created_at, updated_at) VALUES ('` + stara + `', 'batina', 'Batina', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+		`INSERT INTO sections (code, area_id, sector_id, description, parts, created_at, updated_at)
+		 VALUES ('B.34.1', 34, 'B', 'r. Dunav', '` + parts + `', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+		`INSERT INTO section_stations (id, section_code, station_id, created_at)
+		 VALUES ('veza-1', 'B.34.1', '` + stara + `', CURRENT_TIMESTAMP)`,
+	} {
+		if _, err := database.Exec(stmt); err != nil {
+			t.Fatalf("priprema (%s): %v", stmt, err)
+		}
+	}
+
+	if err := InitSchema(database); err != nil {
+		t.Fatalf("migracija: %v", err)
+	}
+
+	if count(t, database, `SELECT COUNT(*) FROM stations WHERE id = ?`, stabilna) != 1 {
+		t.Fatal("postaja nije prekodirana na deterministički identitet")
+	}
+	if n := count(t, database, `SELECT COUNT(*) FROM sections WHERE parts LIKE '%' || ? || '%'`, stara); n != 0 {
+		t.Errorf("%d poddionica još navodi stari identitet postaje", n)
+	}
+	if count(t, database, `SELECT COUNT(*) FROM sections WHERE parts LIKE '%' || ? || '%'`, stabilna) != 1 {
+		t.Error("poddionica ne navodi novi identitet postaje")
+	}
+	// pravi ispit: upravo je ovaj korak pucao pri pokretanju
+	if err := LinkAllSections(context.Background(), database); err != nil {
+		t.Errorf("povezivanje poddionica nakon prekodiranja: %v", err)
 	}
 }
 
