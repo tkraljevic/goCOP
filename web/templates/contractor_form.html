@@ -1,20 +1,20 @@
 {{template "base.html" .}}
 
-{{define "title"}}goCOP — {{if .IsEdit}}{{.Contractor.Name}}{{else}}Novi izvođač{{end}}{{end}}
+{{define "title"}}goCOP — {{if .IsEdit}}{{.Contractor.Name}}{{else}}Nova firma{{end}}{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/registri">Registri</a> › <a href="/izvodjaci">Ugovorni izvođači</a> › {{if .IsEdit}}{{.Contractor.Name}} › Uređivanje{{else}}Novi izvođač{{end}}</div>
+<div class="breadcrumb"><a href="/registri">Registri</a> › <a href="/firme">Licencirane firme</a> › {{if .IsEdit}}{{.Contractor.Name}} › Uređivanje{{else}}Nova firma{{end}}</div>
 
 <div class="page-header">
   <div>
-    <h1 class="page-title">{{if .IsEdit}}{{icon "pencil"}} {{.Contractor.Name}}{{else}}{{icon "wrench"}} Ugovorni izvođač: novi{{end}}</h1>
-    <p class="page-desc">Licencirana pravna osoba koja po ugovoru radi održavanje i obranu. Označite gdje radi: cijeli {{terml "sektor"}} ili pojedina {{terml "podrucja"}}; više izvođača smije dijeliti isto mjesto. Udružene firme upišite kao jednog izvođača (zajednicu) ili svaku posebno.</p>
+    <h1 class="page-title">{{if .IsEdit}}{{icon "pencil"}} {{.Contractor.Name}}{{else}}{{icon "wrench"}} Licencirana firma: nova{{end}}</h1>
+    <p class="page-desc">Pravna osoba s licencijom koja po ugovoru radi održavanje i obranu. Označite gdje radi: cijeli {{terml "sektor"}} ili pojedina {{terml "podrucja"}}; više firmi smije dijeliti isto mjesto. Udružene firme upišite kao jednu (zajednicu) ili svaku posebno.</p>
   </div>
 </div>
 
 {{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
 
-<form class="form-page" method="POST" action="/izvodjaci/save">
+<form class="form-page" method="POST" action="/firme/save">
   {{if .IsEdit}}<input type="hidden" name="id" value="{{.Contractor.ID}}">{{end}}
   <div class="form-row">
     <div class="form-group">
@@ -54,9 +54,9 @@
   </div>
   <div class="form-group">
     <label style="display:flex; gap:0.4rem; align-items:center; font-size:0.9rem;">
-      <input type="checkbox" name="active" value="1" {{if or (not .IsEdit) .Contractor.Active}}checked{{end}}> Aktivan (radi po važećem ugovoru)
+      <input type="checkbox" name="active" value="1" {{if or (not .IsEdit) .Contractor.Active}}checked{{end}}> Aktivna (radi po važećem ugovoru)
     </label>
-    <div class="form-help">Neaktivan izvođač ostaje u registru radi povijesti, ali se ne pokazuje uz {{terml "podrucja"}}.</div>
+    <div class="form-help">Neaktivna firma ostaje u registru radi povijesti, ali se ne pokazuje uz {{terml "podrucja"}}.</div>
   </div>
 
   <h3 style="font-size:0.95rem; margin:1rem 0 0.5rem;">Gdje radi</h3>
@@ -76,7 +76,7 @@
   </div>
 
   <div class="form-actions">
-    <a href="/izvodjaci" class="btn btn-secondary">Odustani</a>
+    <a href="/firme" class="btn btn-secondary">Odustani</a>
     <button type="submit" class="btn btn-primary">{{if .IsEdit}}Spremi izmjene{{else}}Upiši{{end}}</button>
   </div>
 </form>
