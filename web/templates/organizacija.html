@@ -192,13 +192,13 @@
     </p>
     <div class="table-card"><div class="table-responsive">
       <table class="data-table">
-        <thead><tr><th>Skupina</th><th>Zadani naziv</th><th>Vaš naziv</th><th>Što smije</th></tr></thead>
+        <thead><tr><th style="width:7rem;">Skupina</th><th style="width:22%;">Zadani naziv</th><th style="min-width:18rem; width:32%;">Vaš naziv</th><th>Što smije</th></tr></thead>
         <tbody>
         {{range .RoleRows}}
         <tr>
           <td class="reading-meta">{{.Group}}</td>
           <td>{{.Name}}</td>
-          <td><input type="text" name="role_{{.Role}}" class="form-control" value="{{.Custom}}" placeholder="{{.Name}}"></td>
+          <td><input type="text" name="role_{{.Role}}" class="form-control" value="{{.Custom}}" placeholder="{{.Name}}" style="width:100%; min-width:16rem;"></td>
           <td class="reading-meta">{{.Desc}}</td>
         </tr>
         {{end}}
