@@ -185,6 +185,25 @@ func writeCSV(w http.ResponseWriter, name string, rows [][]string) {
 	cw.WriteAll(rows)
 }
 
+// csvText piše niz znamenki koji nije broj — OIB, matični broj i slično.
+// Excel takvu ćeliju inače pročita kao broj i pojede vodeću nulu, pa OIB
+// "03674958581" postane 3674958581, a duge nizove prikaže i u obliku
+// 1,23457E+10. Zapis ="..." Excel prikazuje kao tekst i vrijednost ostaje
+// čitava. Primjenjuje se samo na same znamenke: sve drugo Excel ionako ne
+// dira, a ="..." je za ostale čitače CSV-a nepotreban teret. Ako firme jednom
+// dobiju uvoz, ovaj omot treba skinuti pri čitanju.
+func csvText(s string) string {
+	if s == "" {
+		return ""
+	}
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return s
+		}
+	}
+	return `="` + s + `"`
+}
+
 // ExportSectorsCSV daje tablicu sektora kao CSV
 func (h *OrgHandler) ExportSectorsCSV(w http.ResponseWriter, r *http.Request) {
 	sectors, err := h.org.ListSectors(r.Context())
@@ -377,7 +396,7 @@ func (h *OrgHandler) ExportContractorsCSV(w http.ResponseWriter, r *http.Request
 		if !c.Active {
 			active = "ne"
 		}
-		rows = append(rows, []string{c.Name, c.ShortName, c.OIB, c.Address, c.Phone, c.Email, c.Contact, strings.Join(where, ", "), active, c.Notes})
+		rows = append(rows, []string{c.Name, c.ShortName, csvText(c.OIB), c.Address, c.Phone, c.Email, c.Contact, strings.Join(where, ", "), active, c.Notes})
 	}
 	writeCSV(w, "licencirane-firme.csv", rows)
 }
