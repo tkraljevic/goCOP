@@ -35,7 +35,7 @@
 
 <div class="reg-card" style="padding:1rem; margin-bottom:1.5rem;">
   <dl class="reg-facts" style="font-size:0.9rem;">
-    {{if gt .Municipality.AreaSqKm 0.0}}<div><dt>Površina</dt><dd>{{printf "%.1f" .Municipality.AreaSqKm}} km²</dd></div>{{end}}
+    {{if gt .Municipality.AreaSqKm 0.0}}<div><dt>Površina</dt><dd>{{decimalni .Municipality.AreaSqKm 1}} km²</dd></div>{{end}}
     {{if gt .Municipality.Population 0}}<div><dt>Stanovništvo</dt><dd>{{.Municipality.Population}}</dd></div>{{end}}
     <div><dt>Naselja</dt><dd>{{len .Settlements}}</dd></div>
     {{if .Municipality.Email}}<div><dt>E-pošta</dt><dd><a href="mailto:{{.Municipality.Email}}">{{.Municipality.Email}}</a></dd></div>{{end}}
