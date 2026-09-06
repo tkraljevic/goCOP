@@ -27,7 +27,7 @@ func scanContractor(row rowScannerOrg) (models.Contractor, error) {
 	return c, err
 }
 
-// ListContractors vraća izvođače abecedno, svakog s njegovim vezama
+// ListContractors vraća firme abecedno, svaku s njezinim vezama
 func (r *OrgRepository) ListContractors(ctx context.Context) ([]models.Contractor, error) {
 	rows, err := r.db.QueryContext(ctx, contractorSelect+` ORDER BY name COLLATE NOCASE`)
 	if err != nil {
@@ -56,7 +56,7 @@ func (r *OrgRepository) ListContractors(ctx context.Context) ([]models.Contracto
 	return out, nil
 }
 
-// GetContractor čita jednog izvođača s vezama; nil kad ga nema
+// GetContractor čita jednu firmu s vezama; nil kad je nema
 func (r *OrgRepository) GetContractor(ctx context.Context, id string) (*models.Contractor, error) {
 	c, err := scanContractor(r.db.QueryRowContext(ctx, contractorSelect+` WHERE id = ?`, id))
 	if err == sql.ErrNoRows {
@@ -69,7 +69,7 @@ func (r *OrgRepository) GetContractor(ctx context.Context, id string) (*models.C
 	return &c, err
 }
 
-// ListAssignments vraća veze jednog izvođača, ili sve kad je id prazan
+// ListAssignments vraća veze jedne firme, ili sve kad je id prazan
 func (r *OrgRepository) ListAssignments(ctx context.Context, contractorID string) ([]models.ContractorAssignment, error) {
 	q, args := `SELECT id, contractor_id, sector_id, area_id, note, updated_at FROM contractor_assignments`, []any{}
 	if contractorID != "" {
@@ -103,7 +103,7 @@ const assignmentUpsert = `INSERT INTO contractor_assignments (id, contractor_id,
 	ON CONFLICT(id) DO UPDATE SET contractor_id = excluded.contractor_id, sector_id = excluded.sector_id,
 		area_id = excluded.area_id, note = excluded.note, updated_at = excluded.updated_at`
 
-// SaveContractor upisuje izvođača i postavlja njegove veze na zadani skup:
+// SaveContractor upisuje firmu i postavlja njezine veze na zadani skup:
 // veze koje ostaju ne dobivaju novu verziju, maknute se arhiviraju, nove upišu
 func (r *OrgRepository) SaveContractor(ctx context.Context, c *models.Contractor, wanted []models.ContractorAssignment) error {
 	now := time.Now().UTC()
@@ -126,7 +126,7 @@ func (r *OrgRepository) SaveContractor(ctx context.Context, c *models.Contractor
 	defer tx.Rollback()
 	if _, err := tx.ExecContext(ctx, contractorUpsert, c.ID, c.Name, c.ShortName, c.OIB, c.Address, c.Phone, c.Email,
 		c.Contact, c.Notes, boolToInt(c.Active), now); err != nil {
-		return fmt.Errorf("upis izvođača: %w", err)
+		return fmt.Errorf("upis licencirane firme: %w", err)
 	}
 	if _, err := r.rec.Record(ctx, tx, EntityContractors, c.ID, c); err != nil {
 		return err
@@ -158,7 +158,7 @@ func (r *OrgRepository) SaveContractor(ctx context.Context, c *models.Contractor
 		}
 		w.ID, w.ContractorID, w.UpdatedAt = id.String(), c.ID, now
 		if _, err := tx.ExecContext(ctx, assignmentUpsert, w.ID, w.ContractorID, w.SectorID, w.AreaID, w.Note, w.UpdatedAt); err != nil {
-			return fmt.Errorf("upis veze izvođača: %w", err)
+			return fmt.Errorf("upis veze firme: %w", err)
 		}
 		if _, err := r.rec.Record(ctx, tx, EntityContractorAssignments, w.ID, w); err != nil {
 			return err
@@ -167,14 +167,14 @@ func (r *OrgRepository) SaveContractor(ctx context.Context, c *models.Contractor
 	return tx.Commit()
 }
 
-// DeleteContractor uklanja izvođača i njegove veze s površine; u knjizi ostaju arhivirani
+// DeleteContractor uklanja firmu i njezine veze s površine; u knjizi ostaju arhivirani
 func (r *OrgRepository) DeleteContractor(ctx context.Context, id string) error {
 	c, err := r.GetContractor(ctx, id)
 	if err != nil {
 		return err
 	}
 	if c == nil {
-		return fmt.Errorf("izvođač nije pronađen")
+		return fmt.Errorf("licencirana firma nije pronađena")
 	}
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -204,7 +204,7 @@ type ContractorIndex struct {
 	ByArea   map[int][]models.Contractor
 }
 
-// ContractorIndex slaže aktivne izvođače po mjestu rada, za tablice ustroja
+// ContractorIndex slaže aktivne firme po mjestu rada, za tablice ustroja
 func (r *OrgRepository) ContractorIndex(ctx context.Context) (ContractorIndex, error) {
 	idx := ContractorIndex{BySector: map[string][]models.Contractor{}, ByArea: map[int][]models.Contractor{}}
 	all, err := r.ListContractors(ctx)

@@ -5,10 +5,11 @@ import (
 	"time"
 )
 
-// Ugovorni izvođač: pravna osoba koja po ugovoru radi održavanje i obranu.
-// Jedan izvođač radi u više sektora ili područja, a jedno područje ima više
-// izvođača, pa se veza vodi zasebno (ContractorAssignment). Registar i veze
-// putuju razmjenom kao i ostatak ustroja.
+// Licencirana firma: pravna osoba koja po ugovoru radi održavanje i obranu.
+// Licencija se dobiva na natječaju, svake četiri godine. Jedna firma radi u
+// više sektora ili područja, a jedno područje ima više firmi, pa se veza vodi
+// zasebno (ContractorAssignment). Registar i veze putuju razmjenom kao i
+// ostatak ustroja.
 type Contractor struct {
 	ID        string    `json:"id"`
 	Name      string    `json:"name"`       // puni naziv, npr. Vodogradnja d.d. Osijek
@@ -34,7 +35,7 @@ func (c Contractor) Label() string {
 	return c.Name
 }
 
-// ContractorAssignment veže izvođača na sektor ili jedno branjeno područje.
+// ContractorAssignment veže firmu na sektor ili jedno branjeno područje.
 // AreaID 0 znači cijeli sektor.
 type ContractorAssignment struct {
 	ID           string    `json:"id"`

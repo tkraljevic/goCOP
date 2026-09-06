@@ -116,14 +116,14 @@
       <h2 style="margin:0;">{{term "podrucja"}}</h2>
     </div>
     <div class="detail-actions" style="display:flex; gap:0.4rem;">
-      <a href="/izvodjaci" class="btn btn-sm btn-secondary">{{icon "wrench"}} Izvođači</a>
+      <a href="/firme" class="btn btn-sm btn-secondary">{{icon "wrench"}} Firme</a>
       <a href="/organizacija/podrucja.csv" class="btn btn-sm btn-secondary" title="Izvoz u CSV (Excel)">{{icon "download"}} CSV</a>
       {{if and .Permissions .Permissions.IsGlobalAdmin .Sectors}}<a href="/organizacija/podrucja/new" class="btn btn-sm btn-primary">{{icon "plus"}} Novo: {{terml "podrucje"}}</a>{{end}}
     </div>
   </div>
   <div class="table-card" style="margin-top:0.75rem;"><div class="table-responsive">
     <table class="data-table">
-      <thead><tr><th>{{term "sektor"}}</th><th>{{term "bp"}}</th><th>Naziv</th><th>{{term "vgi"}}</th><th>{{term "podcentar"}}</th><th>Ugovorni izvođači</th>{{if and .Permissions .Permissions.IsGlobalAdmin}}<th></th>{{end}}</tr></thead>
+      <thead><tr><th>{{term "sektor"}}</th><th>{{term "bp"}}</th><th>Naziv</th><th>{{term "vgi"}}</th><th>{{term "podcentar"}}</th><th>Licencirane firme</th>{{if and .Permissions .Permissions.IsGlobalAdmin}}<th></th>{{end}}</tr></thead>
       <tbody>
       {{$n := 0}}
       {{range .Sectors}}{{range .Areas}}{{$n = 1}}
@@ -133,7 +133,7 @@
         <td><a href="/sections?sector={{.SectorID}}&area={{.ID}}" style="color:var(--primary); font-weight:600;">{{.Name}}</a></td>
         <td>{{if .DirectToSector}}<span class="reg-chip" title="Nema vlastite ispostave: pripada izravno razini 2 ({{terml "sektor"}})">bez ispostave, izravno razina 2</span>{{else}}{{.VgiName}}{{end}}</td>
         <td>{{.Subcenter}}</td>
-        <td class="reading-meta">{{range $i, $c := .Contractors}}{{if $i}}, {{end}}<a href="/izvodjaci" title="{{$c.Name}}">{{$c.Label}}</a>{{end}}</td>
+        <td class="reading-meta">{{range $i, $c := .Contractors}}{{if $i}}, {{end}}<a href="/firme" title="{{$c.Name}}">{{$c.Label}}</a>{{end}}</td>
         {{if and $.Permissions $.Permissions.IsGlobalAdmin}}
         <td style="white-space:nowrap; text-align:right;">
           <a href="/organizacija/podrucja/{{.ID}}/edit" class="btn btn-sm btn-secondary" title="Uredi">{{icon "pencil"}}</a>

@@ -165,12 +165,12 @@ func (s *OrgService) DeleteArea(ctx context.Context, perms *models.UserPermissio
 	return nil
 }
 
-// ListContractors vraća registar izvođača s mjestima rada
+// ListContractors vraća registar licenciranih firmi s mjestima rada
 func (s *OrgService) ListContractors(ctx context.Context) ([]models.Contractor, error) {
 	return s.repo.ListContractors(ctx)
 }
 
-// GetContractor vraća jednog izvođača; nil kad ga nema
+// GetContractor vraća jednu firmu; nil kad je nema
 func (s *OrgService) GetContractor(ctx context.Context, id string) (*models.Contractor, error) {
 	return s.repo.GetContractor(ctx, id)
 }
@@ -180,10 +180,10 @@ func (s *OrgService) ContractorIndex(ctx context.Context) (repository.Contractor
 	return s.repo.ContractorIndex(ctx)
 }
 
-// SaveContractor upisuje izvođača i postavlja gdje radi; veze na nepostojeći
+// SaveContractor upisuje firmu i postavlja gdje radi; veze na nepostojeći
 // sektor ili područje se odbijaju
 func (s *OrgService) SaveContractor(ctx context.Context, perms *models.UserPermissions, c *models.Contractor, where []models.ContractorAssignment) error {
-	if err := requireGlobalAdmin(perms, "uređivanje izvođača"); err != nil {
+	if err := requireGlobalAdmin(perms, "uređivanje licenciranih firmi"); err != nil {
 		return err
 	}
 	c.Name = strings.TrimSpace(c.Name)
@@ -191,7 +191,7 @@ func (s *OrgService) SaveContractor(ctx context.Context, perms *models.UserPermi
 	c.Address, c.Phone, c.Email = strings.TrimSpace(c.Address), strings.TrimSpace(c.Phone), strings.TrimSpace(c.Email)
 	c.Contact, c.Notes = strings.TrimSpace(c.Contact), strings.TrimSpace(c.Notes)
 	if c.Name == "" {
-		return fmt.Errorf("naziv izvođača je obavezan")
+		return fmt.Errorf("naziv firme je obavezan")
 	}
 	if c.OIB != "" && !reOIB.MatchString(c.OIB) {
 		return fmt.Errorf("OIB ima 11 znamenki")
@@ -232,19 +232,19 @@ func (s *OrgService) SaveContractor(ctx context.Context, perms *models.UserPermi
 	if err := s.repo.SaveContractor(ctx, c, clean); err != nil {
 		return err
 	}
-	s.sse.Broadcast("organization_changed", "Izvođač: "+c.Name, c.ID)
+	s.sse.Broadcast("organization_changed", "Licencirana firma: "+c.Name, c.ID)
 	return nil
 }
 
-// DeleteContractor briše izvođača i gdje radi
+// DeleteContractor briše firmu i gdje radi
 func (s *OrgService) DeleteContractor(ctx context.Context, perms *models.UserPermissions, id string) error {
-	if err := requireGlobalAdmin(perms, "uređivanje izvođača"); err != nil {
+	if err := requireGlobalAdmin(perms, "uređivanje licenciranih firmi"); err != nil {
 		return err
 	}
 	if err := s.repo.DeleteContractor(ctx, id); err != nil {
 		return err
 	}
-	s.sse.Broadcast("organization_changed", "Izvođač obrisan", id)
+	s.sse.Broadcast("organization_changed", "Licencirana firma obrisana", id)
 	return nil
 }
 
