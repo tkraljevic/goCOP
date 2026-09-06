@@ -19,7 +19,6 @@ const (
 	RoleGroupLevel2   = "Razina 2"
 	RoleGroupLevel3   = "Razina 3"
 	RoleGroupSection  = "Dionica"
-	RoleGroupCenter   = "Centar obrane"
 	RoleGroupField    = "Teren"
 	RoleGroupExternal = "Vanjski suradnici"
 	RoleGroupProgram  = "Program"
@@ -36,8 +35,8 @@ var RoleCatalog = []RoleDef{
 	{RoleSectorLeader, RoleGroupLevel2, "Rukovoditelj sektora", "vodi obranu sektora; upravlja sektorom i njegovim područjima"},
 	{RoleSectorDeputy, RoleGroupLevel2, "Zamjenik rukovoditelja sektora", "zamjenjuje rukovoditelja sektora; ista prava"},
 	{RoleSectorAreaDeputy, RoleGroupLevel2, "Zamjenik rukovoditelja sektora za branjeno područje", "iz sektora vodi jedno branjeno područje; upravlja tim područjem"},
-	{RoleCopLeader, RoleGroupCenter, "Voditelj Centra obrane od poplava", "vodi centar obrane sektora; upravlja sektorom i djelatnicima"},
-	{RoleCopDeputy, RoleGroupCenter, "Zamjenik voditelja Centra obrane od poplava", "zamjenjuje voditelja centra; ista prava"},
+	{RoleCopLeader, RoleGroupLevel2, "Voditelj Centra obrane od poplava", "vodi centar obrane sektora; upravlja sektorom i djelatnicima"},
+	{RoleCopDeputy, RoleGroupLevel2, "Zamjenik voditelja Centra obrane od poplava", "zamjenjuje voditelja centra; ista prava"},
 	{RoleAreaLeader, RoleGroupLevel3, "Rukovoditelj branjenog područja", "vodi obranu jednog branjenog područja; upravlja područjem i njegovim dionicama"},
 	{RoleAreaDeputy, RoleGroupLevel3, "Zamjenik rukovoditelja branjenog područja", "zamjenjuje rukovoditelja područja; ista prava"},
 	{RoleSectionLeader, RoleGroupSection, "Rukovoditelj dionice", "vodi obranu na svojim dionicama; upisuje očitanja i dnevnike za njih"},
@@ -45,7 +44,7 @@ var RoleCatalog = []RoleDef{
 	{RoleContractOfficerA2, RoleGroupLevel3, "Ovlaštenik za praćenje ugovora programa usluga A2", "prati ugovor održavanja u području; upravlja područjem"},
 	{RoleContractOfficerA3, RoleGroupLevel3, "Ovlaštenik za praćenje ugovora programa usluga A3", "prati ugovor obrane u području; upravlja područjem"},
 	{RoleServiceLeaderForeman, RoleGroupExternal, "Voditelj usluga / Poslovođa", "vodi radove ugovornog izvođača; vidi teren i vodi vlastite dnevnike"},
-	{RoleOperator, RoleGroupCenter, "Dežurni operater u COP-u", "dežura u centru; upisuje očitanja i dnevnike u dosegu zaduženja"},
+	{RoleOperator, RoleGroupLevel2, "Dežurni operater u COP-u", "dežura u centru; upisuje očitanja i dnevnike u dosegu zaduženja"},
 	{RoleWaterGuard, RoleGroupField, "Vodočuvar", "obilazi dionice i očitava letve; terenski pogled"},
 	{RoleMachinist, RoleGroupField, "Strojar", "rukuje crpnim stanicama i ustavama; terenski pogled"},
 	{RoleFacilityOperator, RoleGroupField, "Rukovatelj", "rukuje objektom obrane; terenski pogled"},
