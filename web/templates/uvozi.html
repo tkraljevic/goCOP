@@ -24,6 +24,35 @@
   <a href="/settings" class="btn btn-secondary">{{icon "link"}} Uparivanje i sinkronizacija</a>
 </section>
 
+<section class="detail-section" id="csv">
+  <h2>{{icon "table"}} CSV: izvoz i uvoz registara</h2>
+  <p class="page-desc">
+    Isti oblik u oba smjera: izvezi, uredi u Excelu, uvezi natrag. Redak s brojem koji već postoji se osvježi,
+    redak bez broja se doda; ništa se ne briše. Brojevi su s decimalnim zarezom, OIB ostaje tekst.
+  </p>
+  <div class="table-card"><div class="table-responsive">
+    <table class="data-table">
+      <thead><tr><th>Registar</th><th>Izvoz</th><th>Uvoz</th></tr></thead>
+      <tbody>
+        {{range .CSV}}
+        <tr>
+          <td><strong>{{.Name}}</strong>{{if .Note}}<div class="reading-meta">{{.Note}}</div>{{end}}</td>
+          <td style="white-space:nowrap;"><a href="{{.Export}}" class="btn btn-sm btn-secondary" title="Izvoz u CSV (Excel)">{{icon "download"}} CSV</a></td>
+          <td>
+            {{if .Import}}
+            <form method="POST" action="{{.Import}}" enctype="multipart/form-data" style="display:flex; gap:0.4rem; align-items:center; flex-wrap:wrap;">
+              {{if .Kind}}<input type="hidden" name="kind" value="{{.Kind}}">{{end}}
+              <input type="file" name="csv" accept=".csv,text/csv" required class="form-control" style="max-width:18rem;">
+              <button type="submit" class="btn btn-sm btn-primary">{{icon "upload"}} Uvezi</button>
+            </form>
+            {{else}}<span class="reading-meta">nema uvoza</span>{{end}}
+          </td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div></div>
+</section>
 <section class="detail-section">
   <h2>{{icon "file-text"}} Registri i imenik uz bazu</h2>
   <p class="page-desc">

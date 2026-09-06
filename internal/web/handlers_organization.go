@@ -431,6 +431,112 @@ func (h *OrgHandler) ExportContractorsCSV(w http.ResponseWriter, r *http.Request
 	writeCSV(w, "licencirane-firme.csv", rows)
 }
 
+// HandleImportContractorsCSV uvozi licencirane firme iz CSV-a istog oblika
+// kao izvoz. Firma se prepoznaje po OIB-u, a bez njega po nazivu; postojeća se
+// osvježi, nova se doda. Stupac "Gdje radi" nosi mjesta rada onako kako ih
+// izvoz piše ("BP 34, Sektor B"); OIB stiže i u omotu ="…" koji izvoz stavlja
+// zbog Excela.
+func (h *OrgHandler) HandleImportContractorsCSV(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseMultipartForm(4 << 20); err != nil {
+		redirectWith(w, r, "/administracija/uvozi", "error", "Neispravan zahtjev ili prevelika datoteka")
+		return
+	}
+	perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
+	file, _, err := r.FormFile("csv")
+	if err != nil {
+		redirectWith(w, r, "/administracija/uvozi", "error", "Odaberite CSV datoteku")
+		return
+	}
+	defer file.Close()
+	rows, err := readCSV(file)
+	if err != nil {
+		redirectWith(w, r, "/administracija/uvozi", "error", err.Error())
+		return
+	}
+	if len(rows) > 0 && strings.EqualFold(cell(rows[0], 0), "Naziv") {
+		rows = rows[1:]
+	}
+	ctx := r.Context()
+	postojece, _ := h.org.ListContractors(ctx)
+	poOIB, poNazivu := map[string]models.Contractor{}, map[string]models.Contractor{}
+	for _, c := range postojece {
+		if c.OIB != "" {
+			poOIB[c.OIB] = c
+		}
+		poNazivu[strings.ToLower(strings.TrimSpace(c.Name))] = c
+	}
+
+	var added, updated int
+	var errs []string
+	for i, row := range rows {
+		c := &models.Contractor{Name: cell(row, 0), ShortName: cell(row, 1), OIB: csvPlainText(cell(row, 2)),
+			Address: cell(row, 3), Phone: cell(row, 4), Email: cell(row, 5), Contact: cell(row, 6),
+			Active: !strings.EqualFold(cell(row, 8), "ne"), Notes: cell(row, 9)}
+		if c.Name == "" {
+			continue
+		}
+		isNew := true
+		if p, ok := poOIB[c.OIB]; ok && c.OIB != "" {
+			c.ID, isNew = p.ID, false
+		} else if p, ok := poNazivu[strings.ToLower(c.Name)]; ok {
+			c.ID, isNew = p.ID, false
+		}
+		if err := h.org.SaveContractor(ctx, perms, c, parseWhere(cell(row, 7))); err != nil {
+			errs = append(errs, fmt.Sprintf("redak %d (%s): %s", i+1, c.Name, err.Error()))
+			continue
+		}
+		if isNew {
+			added++
+		} else {
+			updated++
+		}
+	}
+	msg := fmt.Sprintf("Firme: %d novih, %d osvježenih.", added, updated)
+	if len(errs) > 0 {
+		if len(errs) > 5 {
+			errs = append(errs[:5], fmt.Sprintf("… i još %d", len(errs)-5))
+		}
+		redirectWith(w, r, "/administracija/uvozi", "error", msg+" Preskočeno: "+strings.Join(errs, "; "))
+		return
+	}
+	redirectWith(w, r, "/administracija/uvozi", "success", msg)
+}
+
+// parseWhere čita mjesta rada iz stupca "Gdje radi" u obliku kakav piše izvoz:
+// "BP 34, Sektor B". Prepoznaje nazive razina kako ih organizacija zove i
+// njihove skraćenice, jer izvoz koristi upravo njih; što ne prepozna, preskače.
+func parseWhere(s string) []models.ContractorAssignment {
+	t := models.Terms()
+	areaPrefixes := []string{strings.ToLower(t.AreaShort), strings.ToLower(t.Area), "bp"}
+	sectorPrefixes := []string{strings.ToLower(t.Sector), "sektor"}
+	var out []models.ContractorAssignment
+	for _, dio := range strings.Split(s, ",") {
+		l := strings.ToLower(strings.TrimSpace(dio))
+		if l == "" {
+			continue
+		}
+		if rest, ok := cutAnyPrefix(l, areaPrefixes); ok {
+			if id, err := strconv.Atoi(rest); err == nil && id > 0 {
+				out = append(out, models.ContractorAssignment{AreaID: id})
+			}
+			continue
+		}
+		if rest, ok := cutAnyPrefix(l, sectorPrefixes); ok && rest != "" {
+			out = append(out, models.ContractorAssignment{SectorID: strings.ToUpper(rest)})
+		}
+	}
+	return out
+}
+
+func cutAnyPrefix(s string, prefixes []string) (string, bool) {
+	for _, p := range prefixes {
+		if rest, ok := strings.CutPrefix(s, p+" "); ok {
+			return strings.TrimSpace(rest), true
+		}
+	}
+	return "", false
+}
+
 // ShowContractorForm prikazuje obrazac za novu ili postojeću firmu
 func (h *OrgHandler) ShowContractorForm(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
