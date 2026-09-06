@@ -229,7 +229,8 @@ func (h *OrgHandler) HandleSaveTerms(w http.ResponseWriter, r *http.Request) {
 	}
 	t := models.OrgTerms{
 		LogoMime: current.LogoMime, Logo: current.Logo, LoginInfo: r.FormValue("login_info"),
-		OrgName: f("org_name"), Level1Unit: f("level1_unit"), Level1UnitName: f("level1_unit_name"), Level1Address: f("level1_address"),
+		OrgName: f("org_name"), OrgLegalForm: f("org_legal_form"), OrgRegistryNo: f("org_registry_no"), OrgTaxID: f("org_tax_id"),
+		Level1Unit: f("level1_unit"), Level1UnitName: f("level1_unit_name"), Level1Address: f("level1_address"),
 		Level1Phone: f("level1_phone"), Level1Email: f("level1_email"), Level1Center: f("level1_center"), Level1CenterShort: f("level1_center_short"),
 		Level1CenterPhone: f("level1_center_phone"), Level1CenterEmail: f("level1_center_email"),
 		Sector: f("sector"), Sectors: f("sectors"), SectorOffice: f("sector_office"), SectorOfficeShort: f("sector_office_short"),
