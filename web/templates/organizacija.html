@@ -54,9 +54,10 @@
       <div class="reading-meta">Razina 2</div>
       <h2 style="margin:0;">{{term "sektori"}} <span class="reg-chip">{{len .Sectors}}</span></h2>
     </div>
-    {{if and .Permissions .Permissions.IsGlobalAdmin}}
-    <div class="detail-actions"><a href="/organizacija/sektori/new" class="btn btn-sm btn-primary">{{icon "plus"}} Novi: {{terml "sektor"}}</a></div>
-    {{end}}
+    <div class="detail-actions" style="display:flex; gap:0.4rem;">
+      {{if .Sectors}}<a href="/organizacija/sektori.csv" class="btn btn-sm btn-secondary" title="Izvoz u CSV (Excel)">{{icon "download"}} CSV</a>{{end}}
+      {{if and .Permissions .Permissions.IsGlobalAdmin}}<a href="/organizacija/sektori/new" class="btn btn-sm btn-primary">{{icon "plus"}} Novi: {{terml "sektor"}}</a>{{end}}
+    </div>
   </div>
   {{if .Sectors}}
   <div class="table-card" style="margin-top:0.75rem;"><div class="table-responsive">
@@ -103,9 +104,10 @@
       <div class="reading-meta">Razina 3</div>
       <h2 style="margin:0;">{{term "podrucja"}}</h2>
     </div>
-    {{if and .Permissions .Permissions.IsGlobalAdmin .Sectors}}
-    <div class="detail-actions"><a href="/organizacija/podrucja/new" class="btn btn-sm btn-primary">{{icon "plus"}} Novo: {{terml "podrucje"}}</a></div>
-    {{end}}
+    <div class="detail-actions" style="display:flex; gap:0.4rem;">
+      <a href="/organizacija/podrucja.csv" class="btn btn-sm btn-secondary" title="Izvoz u CSV (Excel)">{{icon "download"}} CSV</a>
+      {{if and .Permissions .Permissions.IsGlobalAdmin .Sectors}}<a href="/organizacija/podrucja/new" class="btn btn-sm btn-primary">{{icon "plus"}} Novo: {{terml "podrucje"}}</a>{{end}}
+    </div>
   </div>
   <div class="table-card" style="margin-top:0.75rem;"><div class="table-responsive">
     <table class="data-table">

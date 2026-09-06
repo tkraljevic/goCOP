@@ -2,6 +2,7 @@ package web
 
 import (
 	"bytes"
+	"encoding/csv"
 	"errors"
 	"fmt"
 	"html/template"
@@ -144,6 +145,52 @@ func (h *OrgHandler) ShowAreaForm(w http.ResponseWriter, r *http.Request) {
 	if err := h.tmplArea.ExecuteTemplate(w, "area_form.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// writeCSV šalje tablicu kao CSV za Excel: UTF-8 s oznakom BOM i točka-zarez,
+// kako ga hrvatski Excel otvara izravno u stupce
+func writeCSV(w http.ResponseWriter, name string, rows [][]string) {
+	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	w.Header().Set("Content-Disposition", `attachment; filename="`+name+`"`)
+	w.Write([]byte("\xEF\xBB\xBF"))
+	cw := csv.NewWriter(w)
+	cw.Comma = ';'
+	cw.UseCRLF = true
+	cw.WriteAll(rows)
+}
+
+// ExportSectorsCSV daje tablicu sektora kao CSV
+func (h *OrgHandler) ExportSectorsCSV(w http.ResponseWriter, r *http.Request) {
+	sectors, err := h.org.ListSectors(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	t := models.Terms()
+	rows := [][]string{{"Oznaka", "Naziv", t.SectorOffice, t.Center, "Adresa", "Telefon", "E-pošta"}}
+	for _, s := range sectors {
+		rows = append(rows, []string{s.ID, s.Name, s.VgoName, s.CenterCop, s.Address, s.Phone, s.Email})
+	}
+	writeCSV(w, "sektori.csv", rows)
+}
+
+// ExportAreasCSV daje tablicu branjenih područja kao CSV
+func (h *OrgHandler) ExportAreasCSV(w http.ResponseWriter, r *http.Request) {
+	areas, err := h.org.ListAreas(r.Context(), "")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	t := models.Terms()
+	rows := [][]string{{t.Sector, t.AreaShort, "Naziv", t.AreaOffice, t.Subcenter, "Ugovorni izvođač", "Izravno pod razinom 2"}}
+	for _, a := range areas {
+		direct := ""
+		if a.DirectToSector {
+			direct = "da"
+		}
+		rows = append(rows, []string{a.SectorID, strconv.Itoa(a.ID), a.Name, a.VgiName, a.Subcenter, a.ContractorName, direct})
+	}
+	writeCSV(w, "branjena-podrucja.csv", rows)
 }
 
 // roleRow je jedna uloga na stranici organizacije: zadani naziv, naziv
