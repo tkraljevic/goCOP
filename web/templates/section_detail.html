@@ -154,7 +154,10 @@
           <div class="reg-card-title" style="font-size:0.95rem;">{{.FullName}}{{if .Title}} <small style="font-weight:400; color:var(--text-muted);">{{.Title}}</small>{{end}}</div>
           <div class="reg-card-sub">{{.DutyTitle}}{{if .OrgName}} · {{.OrgName}}{{end}}</div>
         </div>
-        <span class="badge badge-area-admin">{{.RoleLabel}}</span>
+        <div style="display:flex; gap:0.35rem; align-items:center; flex-wrap:wrap; justify-content:flex-end;">
+          {{if .RoleGroup}}<span class="reg-chip" title="Razina s koje dolazi ovlast">{{.RoleGroup}}</span>{{end}}
+          <span class="badge badge-area-admin">{{.RoleLabel}}</span>
+        </div>
       </div>
       <div style="display:flex; flex-wrap:wrap; gap:0.75rem; font-size:0.85rem;">
         {{if .MobilePhone}}<a href="tel:{{.MobilePhone}}" style="color:var(--primary); font-weight:600; text-decoration:none;">{{icon "smartphone"}} {{.MobilePhone}}</a>{{end}}
