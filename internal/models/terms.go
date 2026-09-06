@@ -35,6 +35,11 @@ type OrgTerms struct {
 	Level1CenterPhone string `json:"level1_center_phone"` //
 	Level1CenterEmail string `json:"level1_center_email"` //
 
+	// znak organizacije i tekst koji stoji na stranici prijave
+	LogoMime  string `json:"logo_mime,omitempty"` // image/svg+xml, image/png…
+	Logo      []byte `json:"logo,omitempty"`      // sam znak, najviše LogoMaxBytes
+	LoginInfo string `json:"login_info"`          // upute ispod obrasca prijave
+
 	// razina 2: odjel sa sektorom
 	Sector            string `json:"sector"`              // Sektor
 	Sectors           string `json:"sectors"`             // Sektori
@@ -56,6 +61,12 @@ type OrgTerms struct {
 
 // TermsID je identitet jedinog zapisa naziva
 const TermsID = "terms"
+
+// LogoMaxBytes je najveći dopušteni znak; putuje knjigom verzija na sve čvorove
+const LogoMaxBytes = 512 * 1024
+
+// HasLogo javlja ima li organizacija vlastiti znak
+func (t OrgTerms) HasLogo() bool { return len(t.Logo) > 0 && t.LogoMime != "" }
 
 // DefaultTerms su nazivi Hrvatskih voda
 func DefaultTerms() OrgTerms {
@@ -93,6 +104,7 @@ func (t OrgTerms) Filled() OrgTerms {
 		Area: pick(t.Area, d.Area), Areas: pick(t.Areas, d.Areas), AreaShort: pick(t.AreaShort, d.AreaShort),
 		AreaOffice: pick(t.AreaOffice, d.AreaOffice), AreaOfficeShort: pick(t.AreaOfficeShort, d.AreaOfficeShort),
 		Subcenter: pick(t.Subcenter, d.Subcenter), UpdatedAt: t.UpdatedAt,
+		LogoMime: t.LogoMime, Logo: t.Logo, LoginInfo: strings.TrimSpace(t.LoginInfo),
 	}
 }
 
@@ -131,6 +143,8 @@ func (t OrgTerms) Get(key string) string {
 		return t.AreaOfficeShort
 	case "podcentar":
 		return t.Subcenter
+	case "prijava":
+		return t.LoginInfo
 	}
 	return key
 }
