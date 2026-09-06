@@ -205,6 +205,11 @@ func InitSchema(database *sql.DB) error {
 			zero_datum_system TEXT NOT NULL DEFAULT 'TRST',
 			zero_datum_new REAL,
 			zero_datum_new_system TEXT NOT NULL DEFAULT 'HVRS71',
+			zero_datum_history TEXT NOT NULL DEFAULT '[]',
+			zero_datum_source TEXT NOT NULL DEFAULT '',
+			zero_datum_method TEXT NOT NULL DEFAULT '',
+			zero_datum_survey_date TEXT NOT NULL DEFAULT '',
+			zero_datum_document_date TEXT NOT NULL DEFAULT '',
 
 			prep_cm INTEGER,
 			prep_raw TEXT NOT NULL DEFAULT '',
@@ -629,6 +634,10 @@ func migrateSchema(database *sql.DB) error {
 		table, column, definition string
 	}{
 		{"stations", "watercourse_source", "TEXT NOT NULL DEFAULT ''"},
+		{"stations", "zero_datum_source", "TEXT NOT NULL DEFAULT ''"},
+		{"stations", "zero_datum_method", "TEXT NOT NULL DEFAULT ''"},
+		{"stations", "zero_datum_survey_date", "TEXT NOT NULL DEFAULT ''"},
+		{"stations", "zero_datum_document_date", "TEXT NOT NULL DEFAULT ''"},
 		{"stations", "watercourse_code", "TEXT NOT NULL DEFAULT ''"},
 		{"sections", "watercourse_code", "TEXT NOT NULL DEFAULT ''"},
 		{"sections", "bank", "TEXT NOT NULL DEFAULT ''"},
@@ -653,6 +662,7 @@ func migrateSchema(database *sql.DB) error {
 		{"municipalities", "phone", "TEXT NOT NULL DEFAULT ''"},
 		{"municipalities", "website", "TEXT NOT NULL DEFAULT ''"},
 		{"counties", "website", "TEXT NOT NULL DEFAULT ''"},
+		{"stations", "zero_datum_history", "TEXT NOT NULL DEFAULT '[]'"},
 		{"areas", "direct_to_sector", "INTEGER NOT NULL DEFAULT 0"},
 		{"org_terms", "org_name", "TEXT NOT NULL DEFAULT ''"},
 		{"org_terms", "level1_unit", "TEXT NOT NULL DEFAULT ''"},

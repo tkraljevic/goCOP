@@ -183,6 +183,8 @@ func TestCitanjeCelije(t *testing.T) {
 		{"-118", -118, levelOK},
 		{"+95", 95, levelOK},
 		{"168,4", 168, levelOK},
+		{"169.0", 169, levelOK},
+		{"1.234", 1234, levelOK},
 		{"120 cm", 120, levelOK},
 		{"", 0, levelBlank},
 		{"-", 0, levelBlank},
