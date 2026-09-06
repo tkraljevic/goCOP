@@ -59,6 +59,9 @@
     <form method="POST" action="/administracija/baza/vacuum" onsubmit="return confirm('Sažeti datoteku na disku? Traje ovisno o veličini, program za to vrijeme radi sporije.')">
       <button type="submit" class="btn btn-secondary">{{icon "refresh-cw"}} Vrati prostor na disku (VACUUM)</button>
     </form>
+    <form method="POST" action="/administracija/baza/obnovi">
+      <button type="submit" class="btn btn-secondary" title="Zadnje verzije iz knjige ponovno se primijene na tablice; koristi se kad razmjena javi da površina nije osvježena">{{icon "history"}} Obnovi površinu iz knjige</button>
+    </form>
   </div>
   <div class="form-help">Obrisani redci oslobađaju prostor unutar datoteke; VACUUM ga vraća operacijskom sustavu.</div>
   {{end}}

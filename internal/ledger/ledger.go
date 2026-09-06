@@ -189,6 +189,21 @@ func (r *Recorder) Latest(ctx context.Context, entity, entityID string) (*Versio
 	return &versions[0], nil
 }
 
+// LatestOf vraća zadnju verziju svakog zapisa navedenih entiteta, redom
+// nastanka; s praznim popisom vraća zadnje verzije svih entiteta
+func (r *Recorder) LatestOf(ctx context.Context, entities []string) ([]Version, error) {
+	q := `SELECT ` + columns + ` FROM record_versions v
+		WHERE version_id = (SELECT MAX(version_id) FROM record_versions w WHERE w.entity = v.entity AND w.entity_id = v.entity_id)`
+	var args []any
+	if len(entities) > 0 {
+		q += ` AND entity IN (?` + strings.Repeat(",?", len(entities)-1) + `)`
+		for _, e := range entities {
+			args = append(args, e)
+		}
+	}
+	return r.query(ctx, q+` ORDER BY version_id`, args...)
+}
+
 // History vraća sve verzije zapisa, od najnovije prema najstarijoj
 func (r *Recorder) History(ctx context.Context, entity, entityID string) ([]Version, error) {
 	return r.query(ctx, `

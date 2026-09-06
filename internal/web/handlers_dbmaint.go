@@ -14,6 +14,7 @@ import (
 	"gocop/internal/ledger"
 	"gocop/internal/models"
 	"gocop/internal/peers"
+	"gocop/internal/repository"
 )
 
 // Održavanje baze: koliko je velika i od čega, sažimanje knjige verzija,
@@ -122,6 +123,20 @@ func (h *DBMaintHandler) HandleCompact(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	redirectWith(w, r, "/administracija/baza", "success", fmt.Sprintf("Knjiga je sažeta: obrisano %d starijih verzija, zadnje verzije i spomenici ostaju.", n))
+}
+
+// HandleReplay obnavlja površinu iz zadnjih verzija u knjizi
+func (h *DBMaintHandler) HandleReplay(w http.ResponseWriter, r *http.Request) {
+	if err := requireAdmin(r); err != nil {
+		http.Error(w, err.Error(), http.StatusForbidden)
+		return
+	}
+	n, err := repository.ReplaySurface(r.Context(), h.db(), h.rec)
+	if err != nil {
+		redirectWith(w, r, "/administracija/baza", "error", fmt.Sprintf("Površina obnovljena iz %d zapisa, uz preskočene: %v", n, err))
+		return
+	}
+	redirectWith(w, r, "/administracija/baza", "success", fmt.Sprintf("Površina je obnovljena iz knjige: %d zapisa.", n))
 }
 
 // HandleVacuum vraća prostor obrisanih redaka operacijskom sustavu

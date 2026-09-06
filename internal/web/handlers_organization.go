@@ -24,16 +24,24 @@ type OrgHandler struct {
 	tmplList   *template.Template
 	tmplSector *template.Template
 	tmplArea   *template.Template
+	tmplContr  *template.Template
 }
 
-func NewOrgHandler(org *service.OrgService, list, sector, area *template.Template) *OrgHandler {
-	return &OrgHandler{org: org, tmplList: list, tmplSector: sector, tmplArea: area}
+func NewOrgHandler(org *service.OrgService, list, sector, area, contractor *template.Template) *OrgHandler {
+	return &OrgHandler{org: org, tmplList: list, tmplSector: sector, tmplArea: area, tmplContr: contractor}
 }
 
-// SectorView je sektor sa svojim branjenim područjima
+// SectorView je sektor sa svojim branjenim područjima i izvođačima cijelog sektora
 type SectorView struct {
 	models.Sector
-	Areas []models.Area
+	Areas       []AreaView
+	Contractors []models.Contractor
+}
+
+// AreaView je područje sa svojim izvođačima
+type AreaView struct {
+	models.Area
+	Contractors []models.Contractor
 }
 
 type OrgPageData struct {
@@ -46,6 +54,10 @@ type OrgPageData struct {
 	Area           models.Area
 	SectorOptions  []models.Sector
 	Terms          models.OrgTerms
+	Contractors    []models.Contractor
+	Contractor     models.Contractor
+	SectorChecked  map[string]bool // obrazac izvođača: gdje radi
+	AreaChecked    map[int]bool
 	RoleRows       []roleRow   // sudionici obrane s nazivima organizacije
 	RoleGroups     []roleGroup // isti sudionici po skupinama, za kartice
 	IsEdit         bool
@@ -77,20 +89,22 @@ func (h *OrgHandler) ShowOrganization(w http.ResponseWriter, r *http.Request) {
 	}
 	areas, _ := h.org.ListAreas(ctx, "")
 	data.TotalAreas = len(areas)
-	bySector := map[string][]models.Area{}
+	idx, _ := h.org.ContractorIndex(ctx)
+	data.Contractors, _ = h.org.ListContractors(ctx)
+	bySector := map[string][]AreaView{}
 	known := map[string]bool{}
 	for _, s := range sectors {
 		known[s.ID] = true
 	}
 	for _, a := range areas {
 		if known[a.SectorID] {
-			bySector[a.SectorID] = append(bySector[a.SectorID], a)
+			bySector[a.SectorID] = append(bySector[a.SectorID], AreaView{Area: a, Contractors: append(append([]models.Contractor{}, idx.BySector[a.SectorID]...), idx.ByArea[a.ID]...)})
 		} else {
 			data.Orphans = append(data.Orphans, a)
 		}
 	}
 	for _, s := range sectors {
-		data.Sectors = append(data.Sectors, SectorView{Sector: s, Areas: bySector[s.ID]})
+		data.Sectors = append(data.Sectors, SectorView{Sector: s, Areas: bySector[s.ID], Contractors: idx.BySector[s.ID]})
 	}
 	if err := h.tmplList.ExecuteTemplate(w, "organizacija.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -182,13 +196,18 @@ func (h *OrgHandler) ExportAreasCSV(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	t := models.Terms()
-	rows := [][]string{{t.Sector, t.AreaShort, "Naziv", t.AreaOffice, t.Subcenter, "Ugovorni izvođač", "Izravno pod razinom 2"}}
+	idx, _ := h.org.ContractorIndex(r.Context())
+	rows := [][]string{{t.Sector, t.AreaShort, "Naziv", t.AreaOffice, t.Subcenter, "Ugovorni izvođači", "Izravno pod razinom 2"}}
 	for _, a := range areas {
 		direct := ""
 		if a.DirectToSector {
 			direct = "da"
 		}
-		rows = append(rows, []string{a.SectorID, strconv.Itoa(a.ID), a.Name, a.VgiName, a.Subcenter, a.ContractorName, direct})
+		var names []string
+		for _, c := range append(idx.BySector[a.SectorID], idx.ByArea[a.ID]...) {
+			names = append(names, c.Name)
+		}
+		rows = append(rows, []string{a.SectorID, strconv.Itoa(a.ID), a.Name, a.VgiName, a.Subcenter, strings.Join(names, ", "), direct})
 	}
 	writeCSV(w, "branjena-podrucja.csv", rows)
 }
@@ -280,7 +299,7 @@ func (h *OrgHandler) HandleImportCSV(w http.ResponseWriter, r *http.Request) {
 			id, _ := strconv.Atoi(cell(row, 1))
 			direct := strings.ToLower(cell(row, 6))
 			a := &models.Area{SectorID: cell(row, 0), ID: id, Name: cell(row, 2), VgiName: cell(row, 3),
-				Subcenter: cell(row, 4), ContractorName: cell(row, 5), DirectToSector: direct == "da" || direct == "1" || direct == "x"}
+				Subcenter: cell(row, 4), DirectToSector: direct == "da" || direct == "1" || direct == "x"}
 			existing, _ := h.org.GetArea(ctx, id)
 			if err = h.org.SaveArea(ctx, perms, a, existing == nil); err == nil {
 				if existing == nil {
@@ -311,6 +330,111 @@ func (h *OrgHandler) HandleImportCSV(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	redirectWith(w, r, "/organizacija", "success", msg)
+}
+
+// ExportContractorsCSV daje registar izvođača kao CSV
+func (h *OrgHandler) ExportContractorsCSV(w http.ResponseWriter, r *http.Request) {
+	list, err := h.org.ListContractors(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	rows := [][]string{{"Naziv", "Kratki naziv", "OIB", "Adresa", "Telefon", "E-pošta", "Osoba za obranu", "Gdje radi", "Aktivan", "Napomena"}}
+	for _, c := range list {
+		var where []string
+		for _, a := range c.Assignments {
+			where = append(where, a.Where())
+		}
+		active := "da"
+		if !c.Active {
+			active = "ne"
+		}
+		rows = append(rows, []string{c.Name, c.ShortName, c.OIB, c.Address, c.Phone, c.Email, c.Contact, strings.Join(where, ", "), active, c.Notes})
+	}
+	writeCSV(w, "izvodjaci.csv", rows)
+}
+
+// ShowContractorForm prikazuje obrazac za novog ili postojećeg izvođača
+func (h *OrgHandler) ShowContractorForm(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	data := h.pageData(r)
+	if !h.requireAdmin(w, data) {
+		return
+	}
+	data.SectorChecked, data.AreaChecked = map[string]bool{}, map[int]bool{}
+	if id := r.PathValue("id"); id != "" {
+		c, err := h.org.GetContractor(ctx, id)
+		if err != nil || c == nil {
+			http.NotFound(w, r)
+			return
+		}
+		data.Contractor, data.IsEdit = *c, true
+		for _, a := range c.Assignments {
+			if a.AreaID > 0 {
+				data.AreaChecked[a.AreaID] = true
+			} else {
+				data.SectorChecked[a.SectorID] = true
+			}
+		}
+	}
+	sectors, _ := h.org.ListSectors(ctx)
+	areas, _ := h.org.ListAreas(ctx, "")
+	for _, s := range sectors {
+		v := SectorView{Sector: s}
+		for _, a := range areas {
+			if a.SectorID == s.ID {
+				v.Areas = append(v.Areas, AreaView{Area: a})
+			}
+		}
+		data.Sectors = append(data.Sectors, v)
+	}
+	if err := h.tmplContr.ExecuteTemplate(w, "contractor_form.html", data); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+// HandleSaveContractor upisuje izvođača i gdje radi
+func (h *OrgHandler) HandleSaveContractor(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		redirectWith(w, r, "/organizacija", "error", "Neispravan zahtjev")
+		return
+	}
+	perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
+	f := func(k string) string { return strings.TrimSpace(r.FormValue(k)) }
+	c := &models.Contractor{ID: f("id"), Name: f("name"), ShortName: f("short_name"), OIB: f("oib"), Address: f("address"),
+		Phone: f("phone"), Email: f("email"), Contact: f("contact"), Notes: f("notes"), Active: r.FormValue("active") == "1"}
+	var where []models.ContractorAssignment
+	for _, s := range r.Form["sector"] {
+		where = append(where, models.ContractorAssignment{SectorID: s})
+	}
+	for _, a := range r.Form["area"] {
+		if id, err := strconv.Atoi(a); err == nil && id > 0 {
+			where = append(where, models.ContractorAssignment{AreaID: id})
+		}
+	}
+	back := "/organizacija/izvodjaci/new"
+	if c.ID != "" {
+		back = "/organizacija/izvodjaci/" + c.ID + "/edit"
+	}
+	if err := h.org.SaveContractor(r.Context(), perms, c, where); err != nil {
+		redirectWith(w, r, back, "error", err.Error())
+		return
+	}
+	redirectWith(w, r, "/organizacija#izvodjaci", "success", "Izvođač "+c.Name+" je spremljen.")
+}
+
+// HandleDeleteContractor briše izvođača
+func (h *OrgHandler) HandleDeleteContractor(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		redirectWith(w, r, "/organizacija", "error", "Neispravan zahtjev")
+		return
+	}
+	perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
+	if err := h.org.DeleteContractor(r.Context(), perms, r.FormValue("id")); err != nil {
+		redirectWith(w, r, "/organizacija#izvodjaci", "error", err.Error())
+		return
+	}
+	redirectWith(w, r, "/organizacija#izvodjaci", "success", "Izvođač je obrisan.")
 }
 
 // roleRow je jedna uloga na stranici organizacije: zadani naziv, naziv
@@ -456,7 +580,7 @@ func areaFromForm(r *http.Request) *models.Area {
 	f := func(k string) string { return strings.TrimSpace(r.FormValue(k)) }
 	id, _ := strconv.Atoi(f("id"))
 	return &models.Area{ID: id, SectorID: f("sector_id"), Name: f("name"), VgiName: f("vgi_name"),
-		Subcenter: f("subcenter"), ContractorName: f("contractor_name"), DirectToSector: r.FormValue("direct_to_sector") == "1"}
+		Subcenter: f("subcenter"), DirectToSector: r.FormValue("direct_to_sector") == "1"}
 }
 
 // HandleSaveSector upisuje sektor iz obrasca (nov ili izmijenjen)
