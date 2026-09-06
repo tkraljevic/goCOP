@@ -1,7 +1,11 @@
 package web
 
 import (
+	"bytes"
+	"errors"
+	"fmt"
 	"html/template"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -140,15 +144,74 @@ func (h *OrgHandler) ShowAreaForm(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// readLogo čita učitani znak i prepoznaje mu vrstu; prima SVG, PNG, JPEG i WebP
+// do models.LogoMaxBytes
+func readLogo(file io.Reader, name string) (mime string, data []byte, err error) {
+	data, err = io.ReadAll(io.LimitReader(file, models.LogoMaxBytes+1))
+	if err != nil {
+		return "", nil, fmt.Errorf("čitanje znaka: %w", err)
+	}
+	if len(data) > models.LogoMaxBytes {
+		return "", nil, fmt.Errorf("znak smije imati najviše %d KB", models.LogoMaxBytes/1024)
+	}
+	if len(data) == 0 {
+		return "", nil, errors.New("datoteka znaka je prazna")
+	}
+	head := strings.ToLower(string(data[:min(len(data), 512)]))
+	switch {
+	case strings.Contains(head, "<svg") || (strings.HasSuffix(strings.ToLower(name), ".svg") && strings.Contains(head, "<?xml")):
+		if strings.Contains(strings.ToLower(string(data)), "<script") {
+			return "", nil, errors.New("SVG znak ne smije sadržavati skripte")
+		}
+		return "image/svg+xml", data, nil
+	}
+	switch ct := http.DetectContentType(data); ct {
+	case "image/png", "image/jpeg", "image/webp", "image/gif":
+		return ct, data, nil
+	}
+	return "", nil, errors.New("znak mora biti slika: SVG, PNG, JPEG ili WebP")
+}
+
+// ServeLogo daje znak organizacije; bez vlastitog znaka vraća ugrađeni. Ne
+// traži prijavu, jer ga pokazuje i stranica prijave.
+func ServeLogo(w http.ResponseWriter, r *http.Request) {
+	t := models.Terms()
+	if !t.HasLogo() {
+		http.Redirect(w, r, "/static/img/hv-mark.svg", http.StatusFound)
+		return
+	}
+	w.Header().Set("Content-Type", t.LogoMime)
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'")
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	http.ServeContent(w, r, "logo", t.UpdatedAt, bytes.NewReader(t.Logo))
+}
+
+// LogoURL je adresa znaka za predloške; mijenja se s verzijom, da preglednik
+// ne drži stari znak u međuspremniku
+func LogoURL() string {
+	t := models.Terms()
+	if !t.HasLogo() {
+		return "/static/img/hv-mark.svg"
+	}
+	return fmt.Sprintf("/logo?v=%d", t.UpdatedAt.Unix())
+}
+
 // HandleSaveTerms mijenja nazive razina ustroja (za organizacije koje ih zovu drukčije)
 func (h *OrgHandler) HandleSaveTerms(w http.ResponseWriter, r *http.Request) {
-	if err := r.ParseForm(); err != nil {
-		redirectWith(w, r, "/organizacija", "error", "Neispravan zahtjev")
+	if err := r.ParseMultipartForm(2 << 20); err != nil {
+		redirectWith(w, r, "/organizacija", "error", "Neispravan zahtjev ili prevelika datoteka")
 		return
 	}
 	perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
 	f := func(k string) string { return strings.TrimSpace(r.FormValue(k)) }
+	current, err := h.org.Terms(r.Context())
+	if err != nil {
+		redirectWith(w, r, "/organizacija", "error", err.Error())
+		return
+	}
 	t := models.OrgTerms{
+		LogoMime: current.LogoMime, Logo: current.Logo, LoginInfo: r.FormValue("login_info"),
 		OrgName: f("org_name"), Level1Unit: f("level1_unit"), Level1UnitName: f("level1_unit_name"), Level1Address: f("level1_address"),
 		Level1Phone: f("level1_phone"), Level1Email: f("level1_email"), Level1Center: f("level1_center"), Level1CenterShort: f("level1_center_short"),
 		Level1CenterPhone: f("level1_center_phone"), Level1CenterEmail: f("level1_center_email"),
@@ -156,6 +219,18 @@ func (h *OrgHandler) HandleSaveTerms(w http.ResponseWriter, r *http.Request) {
 		Center: f("center"), CenterShort: f("center_short"),
 		Area: f("area"), Areas: f("areas"), AreaShort: f("area_short"), AreaOffice: f("area_office"), AreaOfficeShort: f("area_office_short"),
 		Subcenter: f("subcenter"),
+	}
+	if r.FormValue("logo_remove") == "1" {
+		t.LogoMime, t.Logo = "", nil
+	}
+	if file, hdr, err := r.FormFile("logo"); err == nil {
+		defer file.Close()
+		mime, data, err := readLogo(file, hdr.Filename)
+		if err != nil {
+			redirectWith(w, r, "/organizacija", "error", err.Error())
+			return
+		}
+		t.LogoMime, t.Logo = mime, data
 	}
 	if err := h.org.SaveTerms(r.Context(), perms, t); err != nil {
 		redirectWith(w, r, "/organizacija", "error", err.Error())

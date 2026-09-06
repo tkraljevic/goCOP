@@ -123,6 +123,7 @@ func NewServer(
 		"muniType":   models.MunicipalityTypeLabel,
 		"term":       func(key string) string { return models.Terms().Get(key) },
 		"terml":      func(key string) string { return models.Terms().Lower(key) },
+		"logo":       LogoURL,
 		"humanBytes": humanBytes,
 		"km":         models.FormatKm,
 		"derefTime": func(t *time.Time) time.Time {
@@ -336,6 +337,7 @@ func (s *Server) setupRoutes() {
 	staticFS, err := fs.Sub(webassets.Files, "static")
 	if err == nil {
 		s.mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticFS))))
+		s.mux.HandleFunc("GET /logo", ServeLogo)
 	}
 
 	// Uparivanje: prijavljenima uvijek, neprijavljenima dok je čvor svjež

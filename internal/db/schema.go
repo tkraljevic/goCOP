@@ -252,7 +252,10 @@ func InitSchema(database *sql.DB) error {
 			level1_center_email TEXT NOT NULL DEFAULT '',
 			sector_office_short TEXT NOT NULL DEFAULT '',
 			center_short TEXT NOT NULL DEFAULT '',
-			area_office_short TEXT NOT NULL DEFAULT ''
+			area_office_short TEXT NOT NULL DEFAULT '',
+			logo_mime TEXT NOT NULL DEFAULT '',
+			logo BLOB,
+			login_info TEXT NOT NULL DEFAULT ''
 		);`,
 
 		// Pretplate: koje kanale (vrsta/područje/godina) ovo računalo prati.
@@ -630,6 +633,9 @@ func migrateSchema(database *sql.DB) error {
 		{"org_terms", "sector_office_short", "TEXT NOT NULL DEFAULT ''"},
 		{"org_terms", "center_short", "TEXT NOT NULL DEFAULT ''"},
 		{"org_terms", "area_office_short", "TEXT NOT NULL DEFAULT ''"},
+		{"org_terms", "logo_mime", "TEXT NOT NULL DEFAULT ''"},
+		{"org_terms", "logo", "BLOB"},
+		{"org_terms", "login_info", "TEXT NOT NULL DEFAULT ''"},
 		{"readings", "channel", "TEXT NOT NULL DEFAULT ''"},
 		{"journals", "channel", "TEXT NOT NULL DEFAULT ''"},
 	}
