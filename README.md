@@ -23,7 +23,7 @@ prva računala. Kaže što program radi na računalu i mreži, što ne radi, i
   teritorijalne jedinice te djelatnici i njihova zaduženja. Registri imaju
   pretraživanje, detalje, unos i uređivanje, uz ovlasti prema području
   odgovornosti. Program dolazi prazan.
-- **Organizacija obrane:** sektori (vodnogospodarski odjeli s centrom
+- **Administrativna organizacija:** sektori (vodnogospodarski odjeli s centrom
   obrane) i branjena područja (mali slivovi s ispostavom) upisuju se prvi,
   jer se na njih vežu ovlasti, dionice i zaduženja. Pregled i izlistanje su
   u Registrima za svakoga; upisuje ih globalni administrator, program ih ne
@@ -167,7 +167,7 @@ gocop.exe            (Windows)
 
 Prvo pokretanje stvori praznu bazu i račun `admin` s početnom lozinkom
 koja se mijenja pri prvoj prijavi, te zapiše `data/gocop.toml`. Prvi korak
-u programu je registar Organizacija obrane: sektori, pa branjena područja. Ako uz bazu stoje datoteke registara i imenika,
+u programu je registar Administrativna organizacija: sektori, pa branjena područja. Ako uz bazu stoje datoteke registara i imenika,
 učita i njih. Otvoriti `http://localhost` (ili `http://localhost:8080`).
 Ustroj, registri i djelatnici stižu na svako računalo. Očitanja i dnevnici
 idu po kanalima „vrsta/područje/godina“ i računalo ih prima samo za ono
