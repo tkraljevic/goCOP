@@ -72,7 +72,7 @@ func DefaultModules(r Role) []string {
 	case r == RoleViewer:
 		return []string{ModuleField, ModuleReadings, ModuleRegisters}
 	case r == RoleCopLeader || r == RoleCopDeputy || r == RoleAreaAdmin ||
-		r == RoleNationalLeader || r == RoleNationalDeputy:
+		r == RoleNationalLeader || r == RoleNationalDeputy || r == RoleMainCenterLeader || r == RoleMainCenterDeputy:
 		return []string{ModuleField, ModuleReadings, ModuleJournals, ModuleRegisters, ModuleUsers}
 	}
 	// rukovoditelji sektora, područja i dionica, operateri, ovlaštenici
