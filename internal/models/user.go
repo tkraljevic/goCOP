@@ -37,59 +37,6 @@ const (
 	RoleViewer               Role = "VIEWER"                 // Preglednik (samo čitanje)
 )
 
-func (r Role) Label() string {
-	switch r {
-	case RoleGlobalAdmin:
-		return "Globalni administrator"
-	case RoleNationalLeader:
-		return "Glavni rukovoditelj (za cijelu RH)"
-	case RoleNationalDeputy:
-		return "Zamjenik Glavnog rukovoditelja (za cijelu RH)"
-	case RoleSectorMainDeputy:
-		return "Zamjenik Glavnog rukovoditelja za sektor"
-	case RoleSectorLeader:
-		return "Rukovoditelj sektora"
-	case RoleSectorDeputy:
-		return "Zamjenik rukovoditelja sektora"
-	case RoleSectorAreaDeputy:
-		return "Zamjenik rukovoditelja sektora za branjeno područje"
-	case RoleCopLeader:
-		return "Voditelj Centra obrane od poplava"
-	case RoleCopDeputy:
-		return "Zamjenik voditelja Centra obrane od poplava"
-	case RoleAreaAdmin:
-		return "Voditelj / Zamjenik COP-a"
-	case RoleAreaLeader:
-		return "Rukovoditelj branjenog područja"
-	case RoleAreaDeputy:
-		return "Zamjenik rukovoditelja branjenog područja"
-	case RoleSectionLeader:
-		return "Rukovoditelj dionice"
-	case RoleSectionDeputy:
-		return "Zamjenik rukovoditelja dionice"
-	case RoleContractOfficerA2:
-		return "Ovlaštenik za praćenje ugovora programa usluga A2"
-	case RoleContractOfficerA3:
-		return "Ovlaštenik za praćenje ugovora programa usluga A3"
-	case RoleServiceLeaderForeman:
-		return "Voditelj usluga / Poslovođa"
-	case RoleOperator:
-		return "Dežurni operater u COP-u"
-	case RoleWaterGuard, RoleFieldWorker:
-		return "Vodočuvar"
-	case RoleMachinist:
-		return "Strojar"
-	case RoleFacilityOperator:
-		return "Rukovatelj"
-	case RoleCrewLeader:
-		return "Voditelj posade objekta"
-	case RoleViewer:
-		return "Preglednik (samo čitanje)"
-	default:
-		return string(r)
-	}
-}
-
 // ScopeType definira prostorni doseg zaduženja
 type ScopeType string
 

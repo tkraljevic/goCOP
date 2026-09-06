@@ -16,29 +16,14 @@ import (
 
 type option struct{ Value, Label string }
 
-// roleOptions su uloge koje obrazac nudi, redom od najviše prema terenu
-var roleOptions = []option{
-	{"NATIONAL_LEADER", "Glavni rukovoditelj (za cijelu RH)"},
-	{"NATIONAL_DEPUTY", "Zamjenik Glavnog rukovoditelja (za cijelu RH)"},
-	{"SECTOR_MAIN_DEPUTY", "Zamjenik Glavnog rukovoditelja za sektor"},
-	{"SECTOR_LEADER", "Rukovoditelj sektora"},
-	{"SECTOR_DEPUTY", "Zamjenik rukovoditelja sektora"},
-	{"SECTOR_AREA_DEPUTY", "Zamjenik rukovoditelja sektora za branjeno područje"},
-	{"COP_LEADER", "Voditelj Centra obrane od poplava"},
-	{"COP_DEPUTY", "Zamjenik voditelja Centra obrane od poplava"},
-	{"AREA_LEADER", "Rukovoditelj branjenog područja"},
-	{"AREA_DEPUTY", "Zamjenik rukovoditelja branjenog područja"},
-	{"SECTION_LEADER", "Rukovoditelj dionice"},
-	{"SECTION_DEPUTY", "Zamjenik rukovoditelja dionice"},
-	{"CONTRACT_OFFICER_A2", "Ovlaštenik za praćenje ugovora programa usluga A2"},
-	{"CONTRACT_OFFICER_A3", "Ovlaštenik za praćenje ugovora programa usluga A3"},
-	{"SERVICE_LEADER_FOREMAN", "Voditelj usluga / Poslovođa"},
-	{"OPERATOR", "Dežurni operater u COP-u"},
-	{"WATER_GUARD", "Vodočuvar"},
-	{"MACHINIST", "Strojar"},
-	{"FACILITY_OPERATOR", "Rukovatelj"},
-	{"CREW_LEADER", "Voditelj posade objekta"},
-	{"VIEWER", "Preglednik"},
+// roleOptions su uloge koje obrazac nudi, redom od najviše prema terenu, s
+// nazivima kako ih zove organizacija
+func roleOptions() []option {
+	out := make([]option, 0, len(models.RoleCatalog))
+	for _, d := range models.RoleCatalog {
+		out = append(out, option{string(d.Role), d.Role.Label()})
+	}
+	return out
 }
 
 var scopeOptions = []option{
@@ -119,7 +104,7 @@ func (h *UsersHandler) pageData(r *http.Request) UserPageData {
 		CurrentUser:    currUser,
 		Permissions:    perms,
 		CanManage:      canManageUsers(perms),
-		Roles:          roleOptions,
+		Roles:          roleOptions(),
 		Scopes:         scopeOptions,
 		Orgs:           orgOptions,
 		SuccessMessage: r.URL.Query().Get("success"),

@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"time"
@@ -27,10 +28,10 @@ const (
 const termsColumns = `id, sector, sectors, area, areas, area_short, sector_office, area_office, center, subcenter, updated_at,
 	org_name, level1_unit, level1_unit_name, level1_address, level1_phone, level1_email,
 	level1_center, level1_center_short, level1_center_phone, level1_center_email,
-	sector_office_short, center_short, area_office_short, logo_mime, logo, login_info`
+	sector_office_short, center_short, area_office_short, logo_mime, logo, login_info, role_labels`
 
 const termsUpsert = `INSERT INTO org_terms (` + termsColumns + `)
-	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	ON CONFLICT(id) DO UPDATE SET sector = excluded.sector, sectors = excluded.sectors, area = excluded.area, areas = excluded.areas,
 		area_short = excluded.area_short, sector_office = excluded.sector_office, area_office = excluded.area_office,
 		center = excluded.center, subcenter = excluded.subcenter, updated_at = excluded.updated_at,
@@ -39,28 +40,41 @@ const termsUpsert = `INSERT INTO org_terms (` + termsColumns + `)
 		level1_center = excluded.level1_center, level1_center_short = excluded.level1_center_short,
 		level1_center_phone = excluded.level1_center_phone, level1_center_email = excluded.level1_center_email,
 		sector_office_short = excluded.sector_office_short, center_short = excluded.center_short, area_office_short = excluded.area_office_short,
-		logo_mime = excluded.logo_mime, logo = excluded.logo, login_info = excluded.login_info`
+		logo_mime = excluded.logo_mime, logo = excluded.logo, login_info = excluded.login_info, role_labels = excluded.role_labels`
 
 func termsArgs(t models.OrgTerms) []any {
 	return []any{models.TermsID, t.Sector, t.Sectors, t.Area, t.Areas, t.AreaShort, t.SectorOffice, t.AreaOffice, t.Center, t.Subcenter, t.UpdatedAt,
 		t.OrgName, t.Level1Unit, t.Level1UnitName, t.Level1Address, t.Level1Phone, t.Level1Email,
 		t.Level1Center, t.Level1CenterShort, t.Level1CenterPhone, t.Level1CenterEmail,
-		t.SectorOfficeShort, t.CenterShort, t.AreaOfficeShort, t.LogoMime, t.Logo, t.LoginInfo}
+		t.SectorOfficeShort, t.CenterShort, t.AreaOfficeShort, t.LogoMime, t.Logo, t.LoginInfo, labelsJSON(t.RoleLabels)}
+}
+
+// labelsJSON sprema nazive uloga u jedan stupac; prazno ostaje prazno
+func labelsJSON(m map[string]string) string {
+	if len(m) == 0 {
+		return ""
+	}
+	b, _ := json.Marshal(m)
+	return string(b)
 }
 
 // GetTerms čita nazive razina; bez zapisa vraća zadane
 func (r *OrgRepository) GetTerms(ctx context.Context) (models.OrgTerms, error) {
 	var t models.OrgTerms
+	var labels string
 	err := r.db.QueryRowContext(ctx, `SELECT `+termsColumns+` FROM org_terms WHERE id = ?`, models.TermsID).Scan(
 		&t.ID, &t.Sector, &t.Sectors, &t.Area, &t.Areas, &t.AreaShort, &t.SectorOffice, &t.AreaOffice, &t.Center, &t.Subcenter, &t.UpdatedAt,
 		&t.OrgName, &t.Level1Unit, &t.Level1UnitName, &t.Level1Address, &t.Level1Phone, &t.Level1Email,
 		&t.Level1Center, &t.Level1CenterShort, &t.Level1CenterPhone, &t.Level1CenterEmail,
-		&t.SectorOfficeShort, &t.CenterShort, &t.AreaOfficeShort, &t.LogoMime, &t.Logo, &t.LoginInfo)
+		&t.SectorOfficeShort, &t.CenterShort, &t.AreaOfficeShort, &t.LogoMime, &t.Logo, &t.LoginInfo, &labels)
 	if err == sql.ErrNoRows {
 		return models.DefaultTerms(), nil
 	}
 	if err != nil {
 		return t, err
+	}
+	if labels != "" {
+		_ = json.Unmarshal([]byte(labels), &t.RoleLabels)
 	}
 	return t.Filled(), nil
 }

@@ -255,7 +255,8 @@ func InitSchema(database *sql.DB) error {
 			area_office_short TEXT NOT NULL DEFAULT '',
 			logo_mime TEXT NOT NULL DEFAULT '',
 			logo BLOB,
-			login_info TEXT NOT NULL DEFAULT ''
+			login_info TEXT NOT NULL DEFAULT '',
+			role_labels TEXT NOT NULL DEFAULT ''
 		);`,
 
 		// Pretplate: koje kanale (vrsta/područje/godina) ovo računalo prati.
@@ -636,6 +637,7 @@ func migrateSchema(database *sql.DB) error {
 		{"org_terms", "logo_mime", "TEXT NOT NULL DEFAULT ''"},
 		{"org_terms", "logo", "BLOB"},
 		{"org_terms", "login_info", "TEXT NOT NULL DEFAULT ''"},
+		{"org_terms", "role_labels", "TEXT NOT NULL DEFAULT ''"},
 		{"readings", "channel", "TEXT NOT NULL DEFAULT ''"},
 		{"journals", "channel", "TEXT NOT NULL DEFAULT ''"},
 	}
