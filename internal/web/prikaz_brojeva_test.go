@@ -230,3 +230,37 @@ func TestKarticaDioniceSlazeObjektePoNasipima(t *testing.T) {
 		t.Error("stupac „Na nasipu\" više ne treba — nasip je sam redak")
 	}
 }
+
+// Obrazac dionice ide redom Privitka — nasipi, objekti, ugroženo područje,
+// vodomjeri — jer se naselje pripisuje nasipu, pa nasip mora biti upisan
+// prije. Uz unos naselja stoji izbor nasipa, skriven dok nasipa nema.
+func TestObrazacDioniceIdeRedomPrivitka(t *testing.T) {
+	html := iscrtaj(t, "section_form.html", SectionPageData{
+		CurrentUser: &models.User{FullName: "Provjera"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Section:     models.Section{Code: "B.34.1", AreaID: 34, SectorID: "B"},
+		IsEdit:      true,
+	})
+	tpl := izmedju(html, `<template id="tpl-part">`, "</template>")
+	if tpl == "" {
+		t.Fatal("predložak poddionice nije nađen")
+	}
+	redoslijed := []string{"Nasipi i brane", "Objekti <span", "Ugroženo područje", "Mjerodavni vodomjeri"}
+	zadnji := -1
+	for _, r := range redoslijed {
+		i := strings.Index(tpl, r)
+		if i < 0 {
+			t.Fatalf("u obrascu nema bloka %q", r)
+		}
+		if i < zadnji {
+			t.Errorf("blok %q dolazi prije prethodnog; redoslijed mora biti %v", r, redoslijed)
+		}
+		zadnji = i
+	}
+	if !strings.Contains(tpl, `data-role="terr-emb"`) {
+		t.Error("uz unos naselja nema izbora nasipa")
+	}
+	if !strings.Contains(tpl, `data-role="terr-emb-group" hidden`) {
+		t.Error("izbor nasipa mora biti skriven dok nasipa nema")
+	}
+}
