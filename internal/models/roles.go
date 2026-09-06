@@ -87,6 +87,18 @@ func (r Role) Rank() int {
 	return 5
 }
 
+// GroupLabel je naziv razine s koje uloga dolazi ("Razina 2", "Teren"), onako
+// kako uloge razvrstava katalog. Rank daje isti poredak brojem; ovo je za
+// ispis, da se na ekranu vidi zašto netko stoji prije nekoga.
+func (r Role) GroupLabel() string {
+	for _, d := range RoleCatalog {
+		if d.Role == r {
+			return d.Group
+		}
+	}
+	return ""
+}
+
 // NaturalScope je doseg koji uloga sama određuje
 func (r Role) NaturalScope() ScopeType {
 	switch r {

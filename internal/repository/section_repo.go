@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	"gocop/internal/db"
@@ -198,22 +199,17 @@ func (r *SectionRepository) GetSectionPersonnel(code string, areaID int, sectorI
 		JOIN users u ON d.user_id = u.id
 		WHERE d.is_active = 1
 		  AND (
-		      d.section_codes LIKE ? OR
+		      -- Šifra se traži kao cijela stavka popisa, ne kao dio teksta:
+		      -- "B.34.1" je inače nalazio i B.34.10 i B.34.12, pa je kartica
+		      -- dionice pokazivala rukovoditelje susjednih dionica.
+		      (',' || REPLACE(d.section_codes, ' ', '') || ',') LIKE ? OR
 		      (d.area_id = ? AND d.role IN ('WATER_GUARD', 'MACHINIST', 'AREA_LEADER', 'AREA_DEPUTY', 'CONTRACT_OFFICER_A2', 'CONTRACT_OFFICER_A3', 'SERVICE_LEADER_FOREMAN')) OR
 		      (d.sector_id = ? AND d.role IN ('SECTOR_LEADER', 'SECTOR_DEPUTY', 'COP_LEADER', 'COP_DEPUTY'))
 		  )
-		ORDER BY
-			CASE
-				WHEN d.section_codes LIKE ? THEN 1
-				WHEN d.role IN ('AREA_LEADER', 'AREA_DEPUTY') THEN 2
-				WHEN d.role IN ('WATER_GUARD', 'MACHINIST') THEN 3
-				WHEN d.role IN ('SECTOR_LEADER', 'SECTOR_DEPUTY', 'COP_LEADER', 'COP_DEPUTY') THEN 4
-				ELSE 5
-			END,
-			u.full_name ASC
+		ORDER BY u.full_name ASC
 	`
-	codeLike := "%" + code + "%"
-	rows, err := r.db.Query(query, codeLike, areaID, sectorID, codeLike)
+	codeLike := "%," + code + ",%"
+	rows, err := r.db.Query(query, codeLike, areaID, sectorID)
 	if err != nil {
 		return nil, fmt.Errorf("greška pri dohvatu osoblja za dionicu: %w", err)
 	}
@@ -230,7 +226,13 @@ func (r *SectionRepository) GetSectionPersonnel(code string, areaID int, sectorI
 		o.Title, o.Phone, o.MobilePhone, o.Email, o.OrgName = title.String, phone.String, mob.String, email.String, org.String
 		o.Role = roleStr
 		o.RoleLabel = models.Role(roleStr).Label()
+		o.RoleGroup = models.Role(roleStr).GroupLabel()
+		o.Rank = models.Role(roleStr).Rank()
 		officers = append(officers, o)
 	}
+	// Poredak ide odozgo: uprava organizacije, sektor, područje, dionica, pa
+	// teren — kako je posložen i katalog uloga. Razinu zna katalog, a ne baza,
+	// pa se slaže ovdje; unutar razine ostaje poredak po imenu iz upita.
+	sort.SliceStable(officers, func(i, j int) bool { return officers[i].Rank < officers[j].Rank })
 	return officers, nil
 }
