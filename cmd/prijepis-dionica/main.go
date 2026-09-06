@@ -179,6 +179,15 @@ func parseSection(code, body string) models.Section {
 				r.objects[i].OnEmbankment = r.embankments[0].Name
 			}
 		}
+		// Privitak ugroženo područje navodi uz redak, a redak je najčešće
+		// jedan nasip: uz nasip Državna granica–Draž stoje Draž, Gajić i
+		// Topolje, uz nasip za zaštitu Batine samo Batina. Spajanjem u
+		// poddionicu ta se podjela gubila, pa zapis ostaje i uz svoj nasip.
+		// Redak bez nasipa, ili s više njih, nema kome pripisati — ondje
+		// ugroženo područje ostaje samo na poddionici.
+		if r.protected != "" && len(r.embankments) == 1 {
+			r.embankments[0].ProtectedText = r.protected
+		}
 		if n := len(sec.Parts); n > 0 && sec.Parts[n-1].Description == r.vodotok {
 			p := &sec.Parts[n-1]
 			p.Embankments = append(p.Embankments, r.embankments...)

@@ -11,8 +11,9 @@ import (
 // stoje objekti koji na njemu leže. Aplikacija je to razbijala u odvojene
 // popise, pa je oko samo sastavljalo što ide s čime.
 type EmbankmentRow struct {
-	Embankment *models.PartEmbankment // nil za red objekata koji nisu ni na jednom nasipu
-	Objects    []models.PartObject
+	Embankment  *models.PartEmbankment // nil za red objekata koji nisu ni na jednom nasipu
+	Objects     []models.PartObject
+	Territories []models.SectionTerritory // ugroženo područje koje Privitak navodi uz taj nasip
 }
 
 // embankmentRows razvrstava objekte po nasipima. Objekt s upisanim nasipom ide
@@ -98,4 +99,39 @@ func stacionazaKm(o models.PartObject) (float64, bool) {
 
 func kljucNaziva(s string) string {
 	return strings.Join(strings.Fields(strings.ToLower(strings.NewReplacer("-", " ", "–", " ").Replace(s))), " ")
+}
+
+// razvrstajUgrozeno stavlja naselja uz nasip uz koji ih Privitak navodi.
+// Naselje bez te oznake — a takva su sva na dionici bez nasipa — ostaje na
+// poddionici i ispisuje se iznad tablice, kako je i bilo prije podjele.
+func razvrstajUgrozeno(rows []EmbankmentRow, part models.SectionPart, poKljucu map[string]models.SectionTerritory) []models.SectionTerritory {
+	postoji := map[string]bool{}
+	for _, r := range rows {
+		if r.Embankment != nil {
+			postoji[kljucNaziva(r.Embankment.Name)] = true
+		}
+	}
+	uNasipu := map[string][]models.SectionTerritory{}
+	var ostalo []models.SectionTerritory
+	for _, t := range part.Territories {
+		puni, ok := poKljucu[t.Key()]
+		if !ok {
+			continue
+		}
+		// Nasip pod kojim naselje stoji mogao je u međuvremenu biti
+		// preimenovan ili uklonjen; naselje tada pada natrag na poddionicu, a
+		// ne nestaje s kartice.
+		if k := kljucNaziva(t.OnEmbankment); k != "" && postoji[k] {
+			uNasipu[k] = append(uNasipu[k], puni)
+			continue
+		}
+		ostalo = append(ostalo, puni)
+	}
+	for i := range rows {
+		if rows[i].Embankment == nil {
+			continue
+		}
+		rows[i].Territories = uNasipu[kljucNaziva(rows[i].Embankment.Name)]
+	}
+	return ostalo
 }
