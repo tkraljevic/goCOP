@@ -309,6 +309,16 @@
               {{end}}
             </div>
           </div>
+          {{if .Email}}
+          <div style="word-break: break-all;">
+            {{icon "mail"}} <a href="mailto:{{.Email}}" style="color: var(--primary); text-decoration: none;">{{.Email}}</a>
+          </div>
+          {{end}}
+          {{if .Phone}}
+          <div>
+            {{icon "phone"}} <a href="tel:{{.Phone}}" style="color: var(--text-muted); text-decoration: none;">{{.Phone}}</a>
+          </div>
+          {{end}}
         </div>
       </div>
 
