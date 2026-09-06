@@ -69,7 +69,10 @@ func (s *OrgService) SaveSector(ctx context.Context, perms *models.UserPermissio
 		return fmt.Errorf("oznaka sektora je slovo ili kratka riječ velikim slovima, npr. B ili DIREKCIJA")
 	}
 	if sec.Name == "" {
-		return fmt.Errorf("naziv sektora je obavezan")
+		return fmt.Errorf("naziv jedinice je obavezan")
+	}
+	if sec.Level != 1 {
+		sec.Level = 2
 	}
 	existing, err := s.repo.GetSector(ctx, sec.ID)
 	if err != nil {

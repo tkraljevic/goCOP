@@ -431,8 +431,8 @@ func seedOrganization(database *sql.DB) error {
 	}
 	defer tx.Rollback()
 	for _, s := range org.Sectors {
-		if _, err := tx.Exec(`INSERT INTO sectors (id, name, vgo_name, center_cop, address, phone, email) VALUES (?, ?, ?, ?, ?, ?, ?)
-			ON CONFLICT(id) DO NOTHING`, s.ID, s.Name, s.VgoName, s.CenterCop, s.Address, s.Phone, s.Email); err != nil {
+		if _, err := tx.Exec(`INSERT INTO sectors (id, name, vgo_name, center_cop, address, phone, email, level) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+			ON CONFLICT(id) DO NOTHING`, s.ID, s.Name, s.VgoName, s.CenterCop, s.Address, s.Phone, s.Email, s.Level); err != nil {
 			return fmt.Errorf("sektor %s: %w", s.ID, err)
 		}
 	}

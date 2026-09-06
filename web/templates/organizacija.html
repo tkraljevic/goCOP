@@ -9,7 +9,7 @@
   <div>
     <h1 class="page-title">{{icon "building"}} Organizacija obrane</h1>
     <p class="page-desc">
-      Tri razine: organizacija s {{terml "direkcija"}} i {{terml "gcop"}}, pa {{terml "vgo"}} ({{term "vgo_k"}}) sa svojim
+      Četiri razine: krovna jedinica ({{terml "direkcija"}}) s {{terml "gcop"}}, pa {{terml "vgo"}} ({{term "vgo_k"}}) sa svojim
       {{terml "sektor"}} i {{terml "cop"}}, pa {{terml "vgi"}} ({{term "vgi_k"}}) s {{terml "podcentar"}} i svojim
       {{terml "podrucje"}}. Na njih se vežu ovlasti, dionice i zaduženja, pa se na novom čvoru upisuju prvi.
       Pregled i izlistanje vidi svatko s registrima; unos je administratorov.
@@ -27,25 +27,60 @@
 <section class="detail-section">
   <div class="detail-head" style="align-items:flex-start;">
     <div>
-      <div class="reading-meta">Razina 1</div>
       <h2 style="margin:0; display:flex; align-items:center; gap:0.6rem;"><img src="{{logo}}" alt="" style="max-height:40px; max-width:140px;">{{.Terms.OrgName}}</h2>
       {{if or .Terms.OrgLegalForm .Terms.OrgRegistryNo .Terms.OrgTaxID}}
       <div class="reading-meta" style="margin-top:0.25rem;">
         {{.Terms.OrgLegalForm}}{{if .Terms.OrgRegistryNo}} · Matični broj: <span class="mono">{{.Terms.OrgRegistryNo}}</span>{{end}}{{if .Terms.OrgTaxID}} · OIB: <span class="mono">{{.Terms.OrgTaxID}}</span>{{end}}
       </div>
       {{end}}
-      <div class="reading-meta" style="margin-top:0.25rem;">
-        {{.Terms.Level1Unit}}{{if .Terms.Level1UnitName}}: {{.Terms.Level1UnitName}}{{end}}{{if .Terms.Level1Address}} · {{.Terms.Level1Address}}{{end}}
-        {{if .Terms.Level1Phone}} · <a href="tel:{{.Terms.Level1Phone}}">{{.Terms.Level1Phone}}</a>{{end}}{{if .Terms.Level1Email}} · <a href="mailto:{{.Terms.Level1Email}}">{{.Terms.Level1Email}}</a>{{end}}
-      </div>
-      <div class="reading-meta">
-        {{.Terms.Level1Center}} ({{.Terms.Level1CenterShort}}){{if .Terms.Level1CenterPhone}} · <a href="tel:{{.Terms.Level1CenterPhone}}">{{.Terms.Level1CenterPhone}}</a>{{end}}{{if .Terms.Level1CenterEmail}} · <a href="mailto:{{.Terms.Level1CenterEmail}}">{{.Terms.Level1CenterEmail}}</a>{{end}}
-      </div>
     </div>
     {{if and .Permissions .Permissions.IsGlobalAdmin}}
     <div class="detail-actions"><a href="#nazivi" class="btn btn-sm btn-secondary">{{icon "pencil"}} Uredi organizaciju i nazive</a></div>
     {{end}}
   </div>
+</section>
+
+<section class="detail-section">
+  <div class="detail-head">
+    <div>
+      <div class="reading-meta">Razina 1</div>
+      <h2 style="margin:0;">{{term "direkcija"}}</h2>
+    </div>
+    {{if and .Permissions .Permissions.IsGlobalAdmin}}
+    <div class="detail-actions"><a href="/organizacija/sektori/new?razina=1" class="btn btn-sm btn-primary">{{icon "plus"}} Nova jedinica</a></div>
+    {{end}}
+  </div>
+  {{if .Level1}}
+  <div class="table-card" style="margin-top:0.75rem;"><div class="table-responsive">
+    <table class="data-table">
+      <thead><tr><th>Oznaka</th><th>Naziv</th><th>{{term "direkcija"}}</th><th>{{term "gcop"}}</th><th>Adresa</th><th>Kontakt</th>{{if and .Permissions .Permissions.IsGlobalAdmin}}<th></th>{{end}}</tr></thead>
+      <tbody>
+      {{range .Level1}}
+      <tr>
+        <td><span class="section-code-badge">{{.ID}}</span></td>
+        <td><strong>{{.Name}}</strong></td>
+        <td>{{.VgoName}}</td>
+        <td>{{.CenterCop}}</td>
+        <td class="reading-meta">{{.Address}}</td>
+        <td class="reading-meta" style="white-space:nowrap;">{{if .Phone}}<a href="tel:{{.Phone}}">{{.Phone}}</a>{{end}}{{if and .Phone .Email}}<br>{{end}}{{if .Email}}<a href="mailto:{{.Email}}">{{.Email}}</a>{{end}}</td>
+        {{if and $.Permissions $.Permissions.IsGlobalAdmin}}
+        <td style="white-space:nowrap; text-align:right;">
+          <a href="/organizacija/sektori/{{.ID}}/edit" class="btn btn-sm btn-secondary" title="Uredi">{{icon "pencil"}}</a>
+          <form method="POST" action="/organizacija/sektori/delete" onsubmit="return confirm('Obrisati jedinicu {{.ID}}?')" style="display:inline;">
+            <input type="hidden" name="id" value="{{.ID}}"><button type="submit" class="btn btn-sm btn-secondary" title="Obriši">{{icon "trash"}}</button>
+          </form>
+        </td>
+        {{end}}
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div></div>
+  {{else}}
+  <div class="reg-empty" style="margin-top:0.5rem;">
+    Krovna jedinica još nije upisana. {{if and .Permissions .Permissions.IsGlobalAdmin}}Upišite je s razinom 1: ona nosi {{terml "gcop"}} i kontakte središnjice.{{end}}
+  </div>
+  {{end}}
 </section>
 
 <section class="detail-section">
@@ -178,28 +213,21 @@
   </p>
   {{if and .Permissions .Permissions.IsGlobalAdmin}}
   <form class="form-page" method="POST" action="/organizacija/nazivi" enctype="multipart/form-data">
-    <h3 style="font-size:0.95rem; margin:0 0 0.5rem;">Razina 1: organizacija</h3>
+    <h3 style="font-size:0.95rem; margin:0 0 0.5rem;">Organizacija</h3>
     <div class="form-row">
       <div class="form-group"><label class="form-label" for="t-org">Naziv organizacije</label><input type="text" id="t-org" name="org_name" class="form-control" value="{{.Terms.OrgName}}" placeholder="Hrvatske vode"></div>
-      <div class="form-group"><label class="form-label" for="t-l1unit">Naziv razine 1</label><input type="text" id="t-l1unit" name="level1_unit" class="form-control" value="{{.Terms.Level1Unit}}" placeholder="Direkcija"></div>
-      <div class="form-group"><label class="form-label" for="t-l1name">Puni naziv jedinice</label><input type="text" id="t-l1name" name="level1_unit_name" class="form-control" value="{{.Terms.Level1UnitName}}" placeholder="npr. Direkcija Zagreb"></div>
-    </div>
-    <div class="form-row">
       <div class="form-group"><label class="form-label" for="t-legal">Pravni oblik</label><input type="text" id="t-legal" name="org_legal_form" class="form-control" value="{{.Terms.OrgLegalForm}}" placeholder="npr. pravna osoba za upravljanje vodama"></div>
       <div class="form-group"><label class="form-label" for="t-regno">Matični broj</label><input type="text" id="t-regno" name="org_registry_no" class="form-control" value="{{.Terms.OrgRegistryNo}}" inputmode="numeric"></div>
       <div class="form-group"><label class="form-label" for="t-oib">OIB / porezni broj</label><input type="text" id="t-oib" name="org_tax_id" class="form-control" value="{{.Terms.OrgTaxID}}" inputmode="numeric"></div>
     </div>
+
+    <h3 style="font-size:0.95rem; margin:1rem 0 0.5rem;">Razina 1: krovna jedinica sa svojim centrom</h3>
     <div class="form-row">
-      <div class="form-group"><label class="form-label" for="t-l1addr">Adresa</label><input type="text" id="t-l1addr" name="level1_address" class="form-control" value="{{.Terms.Level1Address}}"></div>
-      <div class="form-group"><label class="form-label" for="t-l1phone">Telefon</label><input type="tel" id="t-l1phone" name="level1_phone" class="form-control" value="{{.Terms.Level1Phone}}"></div>
-      <div class="form-group"><label class="form-label" for="t-l1email">E-pošta</label><input type="email" id="t-l1email" name="level1_email" class="form-control" value="{{.Terms.Level1Email}}"></div>
+      <div class="form-group"><label class="form-label" for="t-l1unit">Naziv jedinice</label><input type="text" id="t-l1unit" name="level1_unit" class="form-control" value="{{.Terms.Level1Unit}}" placeholder="Direkcija"></div>
+      <div class="form-group"><label class="form-label" for="t-l1center">Naziv centra</label><input type="text" id="t-l1center" name="level1_center" class="form-control" value="{{.Terms.Level1Center}}" placeholder="Glavni centar obrane od poplava"></div>
+      <div class="form-group"><label class="form-label" for="t-l1cshort">Kratica centra</label><input type="text" id="t-l1cshort" name="level1_center_short" class="form-control" value="{{.Terms.Level1CenterShort}}" placeholder="GCOP"></div>
     </div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label" for="t-l1center">Glavni centar</label><input type="text" id="t-l1center" name="level1_center" class="form-control" value="{{.Terms.Level1Center}}" placeholder="Glavni centar obrane od poplava"></div>
-      <div class="form-group"><label class="form-label" for="t-l1cshort">Kratica</label><input type="text" id="t-l1cshort" name="level1_center_short" class="form-control" value="{{.Terms.Level1CenterShort}}" placeholder="GCOP"></div>
-      <div class="form-group"><label class="form-label" for="t-l1cphone">Telefon centra</label><input type="tel" id="t-l1cphone" name="level1_center_phone" class="form-control" value="{{.Terms.Level1CenterPhone}}"></div>
-      <div class="form-group"><label class="form-label" for="t-l1cemail">E-pošta centra</label><input type="email" id="t-l1cemail" name="level1_center_email" class="form-control" value="{{.Terms.Level1CenterEmail}}"></div>
-    </div>
+    <div class="form-help" style="margin-bottom:0.5rem;">Ovdje su samo nazivi; sama jedinica s adresom i kontaktima upisuje se u tablicu razine 1 iznad.</div>
 
     <div class="form-row">
       <div class="form-group">
@@ -258,7 +286,8 @@
   </form>
   {{else}}
   <dl class="reg-facts">
-    <div><dt>Razina 1</dt><dd>{{.Terms.OrgName}}{{if .Terms.OrgLegalForm}}, {{.Terms.OrgLegalForm}}{{end}} · {{.Terms.Level1Unit}} · {{.Terms.Level1Center}} ({{.Terms.Level1CenterShort}})</dd></div>
+    <div><dt>Organizacija</dt><dd>{{.Terms.OrgName}}{{if .Terms.OrgLegalForm}}, {{.Terms.OrgLegalForm}}{{end}}</dd></div>
+    <div><dt>Razina 1</dt><dd>{{.Terms.Level1Unit}} · {{.Terms.Level1Center}} ({{.Terms.Level1CenterShort}})</dd></div>
     {{if or .Terms.OrgRegistryNo .Terms.OrgTaxID}}<div><dt>Identifikatori</dt><dd>{{if .Terms.OrgRegistryNo}}Matični broj <span class="mono">{{.Terms.OrgRegistryNo}}</span>{{end}}{{if .Terms.OrgTaxID}} · OIB <span class="mono">{{.Terms.OrgTaxID}}</span>{{end}}</dd></div>{{end}}
     {{if .Terms.LoginInfo}}<div><dt>Prijava</dt><dd style="white-space:pre-line;">{{.Terms.LoginInfo}}</dd></div>{{end}}
     <div><dt>Razina 2</dt><dd>{{.Terms.Sector}} / {{.Terms.Sectors}} · {{.Terms.SectorOffice}} ({{.Terms.SectorOfficeShort}}) · {{.Terms.Center}} ({{.Terms.CenterShort}})</dd></div>
