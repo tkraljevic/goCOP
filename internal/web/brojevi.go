@@ -187,3 +187,13 @@ func unosD(f *float64, decimals int) string {
 func csvFloat(v float64) string {
 	return strings.Replace(strconv.FormatFloat(v, 'f', -1, 64), ".", ",", 1)
 }
+
+// csvPlainText skida omot ="…" kojim csvText čuva niz znamenki od Excela, da
+// se izvezena datoteka može uvesti natrag onakva kakva je.
+func csvPlainText(s string) string {
+	s = strings.TrimSpace(s)
+	if strings.HasPrefix(s, `="`) && strings.HasSuffix(s, `"`) && len(s) >= 3 {
+		return s[2 : len(s)-1]
+	}
+	return s
+}

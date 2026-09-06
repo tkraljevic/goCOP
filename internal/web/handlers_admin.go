@@ -28,6 +28,7 @@ func NewAdminHandler(org *service.OrgService, users *service.UserService, peersS
 
 // AdminPageData je ulazna stranica administracije sa stanjem ustroja
 type AdminPageData struct {
+	CSV         []CSVRegister // registri s CSV izvozom i uvozom, za stranicu Uvozi
 	CurrentUser *models.User
 	Permissions *models.UserPermissions
 
@@ -92,8 +93,33 @@ func (h *AdminHandler) ShowAdmin(w http.ResponseWriter, r *http.Request) {
 }
 
 // ShowImports prikazuje što se i odakle uvozi u ovaj čvor
+// CSVRegister je jedan registar koji ide u CSV i natrag. Popis stoji na jednom
+// mjestu da se izvoz i uvoz ne traže po registrima; oblik datoteke je isti u
+// oba smjera.
+type CSVRegister struct {
+	Name   string
+	Note   string
+	Export string
+	Import string // prazno kad uvoza (još) nema
+	Kind   string // vrijednost polja "kind" za uvoze koji jednim putem primaju više registara
+}
+
+// csvRegisters su registri s CSV izvozom; uvoz postoji za sve osim gdje piše.
+func csvRegisters() []CSVRegister {
+	t := models.Terms()
+	return []CSVRegister{
+		{Name: "Županije", Export: "/territories/zupanije.csv", Import: "/territories/uvoz"},
+		{Name: "Gradovi i općine", Export: "/territories/gradovi-i-opcine.csv", Import: "/territories/uvoz", Kind: "opcine"},
+		{Name: "Naselja", Export: "/territories/naselja.csv", Import: "/territories/uvoz", Kind: "naselja"},
+		{Name: t.Sectors, Export: "/organizacija/sektori.csv", Import: "/organizacija/uvoz"},
+		{Name: t.Areas, Export: "/organizacija/podrucja.csv", Import: "/organizacija/uvoz", Kind: "podrucja"},
+		{Name: "Licencirane firme", Note: "firma se prepoznaje po OIB-u, bez njega po nazivu", Export: "/firme.csv", Import: "/firme/uvoz"},
+	}
+}
+
 func (h *AdminHandler) ShowImports(w http.ResponseWriter, r *http.Request) {
 	data := h.pageData(r)
+	data.CSV = csvRegisters()
 	if err := h.tmplImport.ExecuteTemplate(w, "uvozi.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}

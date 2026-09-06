@@ -311,3 +311,25 @@ func TestObrazacDioniceSiriIObjektiUTriStupca(t *testing.T) {
 		}
 	}
 }
+
+// Stranica Uvozi nosi sve CSV registre na jednom mjestu: izvoz i uvoz u
+// istom obliku, uvoz s oznakom "kind" ondje gdje jedan put prima više registara.
+func TestStranicaUvoziNosiSveCSVRegistre(t *testing.T) {
+	html := iscrtaj(t, "uvozi.html", AdminPageData{
+		CurrentUser: &models.User{FullName: "Provjera"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		CSV:         csvRegisters(),
+	})
+	for _, want := range []string{
+		`href="/territories/zupanije.csv"`, `href="/firme.csv"`, `action="/firme/uvoz"`,
+		`<input type="hidden" name="kind" value="opcine">`, `<input type="hidden" name="kind" value="naselja">`,
+		`<input type="hidden" name="kind" value="podrucja">`,
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("na stranici Uvozi nema %s", want)
+		}
+	}
+	if n := strings.Count(html, `enctype="multipart/form-data"`); n != 6 {
+		t.Errorf("obrazaca za uvoz ima %d, očekivano 6", n)
+	}
+}
