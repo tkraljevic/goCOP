@@ -30,6 +30,30 @@ func InitSchema(database *sql.DB) error {
 			direct_to_sector INTEGER NOT NULL DEFAULT 0
 		);`,
 
+		// Ugovorni izvođači i gdje rade (sektor ili područje); putuju razmjenom
+		`CREATE TABLE IF NOT EXISTS contractors (
+			id TEXT PRIMARY KEY,
+			name TEXT NOT NULL,
+			short_name TEXT NOT NULL DEFAULT '',
+			oib TEXT NOT NULL DEFAULT '',
+			address TEXT NOT NULL DEFAULT '',
+			phone TEXT NOT NULL DEFAULT '',
+			email TEXT NOT NULL DEFAULT '',
+			contact TEXT NOT NULL DEFAULT '',
+			notes TEXT NOT NULL DEFAULT '',
+			active INTEGER NOT NULL DEFAULT 1,
+			updated_at DATETIME NOT NULL
+		);`,
+		`CREATE TABLE IF NOT EXISTS contractor_assignments (
+			id TEXT PRIMARY KEY,
+			contractor_id TEXT NOT NULL,
+			sector_id TEXT NOT NULL,
+			area_id INTEGER NOT NULL DEFAULT 0,
+			note TEXT NOT NULL DEFAULT '',
+			updated_at DATETIME NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_contractor_assignments_contractor ON contractor_assignments(contractor_id);`,
+
 		`CREATE TABLE IF NOT EXISTS users (
 			id TEXT PRIMARY KEY,
 			username TEXT UNIQUE NOT NULL,

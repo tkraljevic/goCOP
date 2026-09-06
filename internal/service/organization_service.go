@@ -164,3 +164,89 @@ func (s *OrgService) DeleteArea(ctx context.Context, perms *models.UserPermissio
 	s.sse.Broadcast("organization_changed", fmt.Sprintf("Branjeno područje %d obrisano", id), fmt.Sprint(id))
 	return nil
 }
+
+// ListContractors vraća registar izvođača s mjestima rada
+func (s *OrgService) ListContractors(ctx context.Context) ([]models.Contractor, error) {
+	return s.repo.ListContractors(ctx)
+}
+
+// GetContractor vraća jednog izvođača; nil kad ga nema
+func (s *OrgService) GetContractor(ctx context.Context, id string) (*models.Contractor, error) {
+	return s.repo.GetContractor(ctx, id)
+}
+
+// ContractorIndex je tko gdje radi, za tablice ustroja
+func (s *OrgService) ContractorIndex(ctx context.Context) (repository.ContractorIndex, error) {
+	return s.repo.ContractorIndex(ctx)
+}
+
+// SaveContractor upisuje izvođača i postavlja gdje radi; veze na nepostojeći
+// sektor ili područje se odbijaju
+func (s *OrgService) SaveContractor(ctx context.Context, perms *models.UserPermissions, c *models.Contractor, where []models.ContractorAssignment) error {
+	if err := requireGlobalAdmin(perms, "uređivanje izvođača"); err != nil {
+		return err
+	}
+	c.Name = strings.TrimSpace(c.Name)
+	c.ShortName, c.OIB = strings.TrimSpace(c.ShortName), strings.TrimSpace(c.OIB)
+	c.Address, c.Phone, c.Email = strings.TrimSpace(c.Address), strings.TrimSpace(c.Phone), strings.TrimSpace(c.Email)
+	c.Contact, c.Notes = strings.TrimSpace(c.Contact), strings.TrimSpace(c.Notes)
+	if c.Name == "" {
+		return fmt.Errorf("naziv izvođača je obavezan")
+	}
+	if c.OIB != "" && !reOIB.MatchString(c.OIB) {
+		return fmt.Errorf("OIB ima 11 znamenki")
+	}
+	areas, err := s.repo.ListAreas(ctx, "")
+	if err != nil {
+		return err
+	}
+	sectorOf := map[int]string{}
+	for _, a := range areas {
+		sectorOf[a.ID] = a.SectorID
+	}
+	seen := map[string]bool{}
+	var clean []models.ContractorAssignment
+	for _, w := range where {
+		w.SectorID = strings.ToUpper(strings.TrimSpace(w.SectorID))
+		if w.AreaID > 0 {
+			sec, ok := sectorOf[w.AreaID]
+			if !ok {
+				return fmt.Errorf("branjeno područje %d ne postoji", w.AreaID)
+			}
+			w.SectorID = sec
+		} else {
+			sector, err := s.repo.GetSector(ctx, w.SectorID)
+			if err != nil {
+				return err
+			}
+			if sector == nil {
+				return fmt.Errorf("sektor %q ne postoji", w.SectorID)
+			}
+		}
+		if seen[w.Key()] {
+			continue
+		}
+		seen[w.Key()] = true
+		clean = append(clean, w)
+	}
+	if err := s.repo.SaveContractor(ctx, c, clean); err != nil {
+		return err
+	}
+	s.sse.Broadcast("organization_changed", "Izvođač: "+c.Name, c.ID)
+	return nil
+}
+
+// DeleteContractor briše izvođača i gdje radi
+func (s *OrgService) DeleteContractor(ctx context.Context, perms *models.UserPermissions, id string) error {
+	if err := requireGlobalAdmin(perms, "uređivanje izvođača"); err != nil {
+		return err
+	}
+	if err := s.repo.DeleteContractor(ctx, id); err != nil {
+		return err
+	}
+	s.sse.Broadcast("organization_changed", "Izvođač obrisan", id)
+	return nil
+}
+
+// reOIB: osobni identifikacijski broj ima 11 znamenki
+var reOIB = regexp.MustCompile(`^[0-9]{11}$`)

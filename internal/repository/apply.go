@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strconv"
 	"sync/atomic"
 	"time"
@@ -73,6 +74,26 @@ func KeepVersion(v ledger.Version) bool {
 	return KeepReadingVersion(v.Payload)
 }
 
+// SurfaceEntities su entiteti čija se površina obnavlja iz knjige: sve osim
+// očitanja i listova dnevnika, kojih je previše da se prolaze pri svakom startu
+var SurfaceEntities = []string{EntitySectors, EntityAreas, EntityOrgTerms, EntityContractors, EntityContractorAssignments,
+	EntityUsers, EntityDuties, "role_modules", "user_modules", EntityStations, EntitySections, EntityWatercourses,
+	EntityCounties, EntityMunicipalities, EntitySettlements, EntityStructures, "maintained_waters", "work_items", "journals"}
+
+// ReplaySurface ponovno primijeni zadnju verziju svakog zapisa iz knjige na
+// površinu. Služi kad je primjena primljenih verzija jednom zapela: knjiga je
+// istina, površina se iz nje uvijek može obnoviti.
+func ReplaySurface(ctx context.Context, db *sql.DB, rec *ledger.Recorder) (int, error) {
+	versions, err := rec.LatestOf(ctx, SurfaceEntities)
+	if err != nil {
+		return 0, err
+	}
+	if len(versions) == 0 {
+		return 0, nil
+	}
+	return len(versions), ApplyVersions(ctx, db, rec, versions)
+}
+
 func ApplyVersions(ctx context.Context, db *sql.DB, rec *ledger.Recorder, versions []ledger.Version) error {
 	// zadnja primljena verzija po zapisu — ostale su već u povijesti
 	latestReceived := map[string]ledger.Version{}
@@ -83,13 +104,24 @@ func ApplyVersions(ctx context.Context, db *sql.DB, rec *ledger.Recorder, versio
 		}
 	}
 
+	// redom nastanka: korisnik prije svoje dužnosti, sektor prije područja
+	ordered := make([]ledger.Version, 0, len(latestReceived))
+	for _, v := range latestReceived {
+		ordered = append(ordered, v)
+	}
+	sort.Slice(ordered, func(i, j int) bool { return ordered[i].VersionID < ordered[j].VersionID })
+
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
 
-	for _, v := range latestReceived {
+	// Jedna verzija koja se ne može primijeniti (npr. dužnost obrisanog
+	// korisnika) ne smije zaustaviti ostale: svaka ide u svoj savepoint,
+	// neuspjele se preskoče i prijave, ostatak se potvrdi.
+	var failed []string
+	for _, v := range ordered {
 		top, err := rec.Latest(ctx, v.Entity, v.EntityID)
 		if err != nil {
 			return err
@@ -97,12 +129,26 @@ func ApplyVersions(ctx context.Context, db *sql.DB, rec *ledger.Recorder, versio
 		if top.VersionID != v.VersionID {
 			continue // netko je već zapisao noviju; površina je već njezina
 		}
+		if _, err := tx.ExecContext(ctx, "SAVEPOINT apply_one"); err != nil {
+			return err
+		}
 		if err := applyOne(ctx, tx, v); err != nil {
-			return fmt.Errorf("primjena verzije %s (%s/%s): %w", v.VersionID, v.Entity, v.EntityID, err)
+			if _, rerr := tx.ExecContext(ctx, "ROLLBACK TO SAVEPOINT apply_one"); rerr != nil {
+				return rerr
+			}
+			failed = append(failed, fmt.Sprintf("%s/%s: %v", v.Entity, v.EntityID, err))
+		}
+		if _, err := tx.ExecContext(ctx, "RELEASE SAVEPOINT apply_one"); err != nil {
+			return err
 		}
 	}
-
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	if len(failed) > 0 {
+		return fmt.Errorf("%d verzija nije primijenjeno na površinu, ostale jesu; prva: %s", len(failed), failed[0])
+	}
+	return nil
 }
 
 func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
@@ -370,6 +416,23 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		`, a.ID, a.SectorID, a.Name, a.VgiName, a.Subcenter, a.ContractorName, boolToInt(a.DirectToSector))
 		return err
 
+	case EntityContractors:
+		var c models.Contractor
+		if err := json.Unmarshal(v.Payload, &c); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, contractorUpsert, c.ID, c.Name, c.ShortName, c.OIB, c.Address, c.Phone, c.Email,
+			c.Contact, c.Notes, boolToInt(c.Active), c.UpdatedAt)
+		return err
+
+	case EntityContractorAssignments:
+		var a models.ContractorAssignment
+		if err := json.Unmarshal(v.Payload, &a); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, assignmentUpsert, a.ID, a.ContractorID, a.SectorID, a.AreaID, a.Note, a.UpdatedAt)
+		return err
+
 	case EntityCounties:
 		var c models.County
 		if err := json.Unmarshal(v.Payload, &c); err != nil {
@@ -509,6 +572,10 @@ func removeFromSurface(ctx context.Context, tx *sql.Tx, v ledger.Version) error 
 	case EntityAreas:
 		stmt = `DELETE FROM areas WHERE id = ?`
 		arg, _ = strconv.Atoi(v.EntityID)
+	case EntityContractors:
+		stmt = `DELETE FROM contractors WHERE id = ?`
+	case EntityContractorAssignments:
+		stmt = `DELETE FROM contractor_assignments WHERE id = ?`
 	case EntityCounties:
 		stmt = `DELETE FROM counties WHERE id = ?`
 		arg, _ = strconv.Atoi(v.EntityID)

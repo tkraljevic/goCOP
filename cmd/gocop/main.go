@@ -186,6 +186,11 @@ func main() {
 	peersService.OnApplied(func(ctx context.Context, versions []ledger.Version) error {
 		return repository.ApplyVersions(ctx, database, recorder, versions)
 	})
+	// Površina se pri pokretanju obnovi iz knjige, da zapela primjena s
+	// prethodne razmjene ne ostavi čvor sa starim stanjem
+	if n, err := repository.ReplaySurface(context.Background(), database, recorder); err != nil {
+		log.Printf("Obnova površine iz knjige (%d zapisa): %v", n, err)
+	}
 
 	userRepo := repository.NewUserRepository(database, recorder)
 	sessionRepo := repository.NewSessionRepository(database)
