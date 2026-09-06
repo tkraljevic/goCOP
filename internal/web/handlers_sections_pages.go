@@ -210,11 +210,7 @@ func (h *SectionsHandler) ShowSectionForm(w http.ResponseWriter, r *http.Request
 			if terr, err := h.territoryService.GetSectionTerritories(ctx, data.Section.Code); err == nil {
 				for _, t := range terr {
 					key := models.PartTerritory{CountyID: t.CountyID, MunicipalityID: t.MunicipalityID, SettlementID: t.SettlementID}.Key()
-					if t.SettlementName != "" {
-						labels[key] = t.SettlementName + " (" + t.MunicipalityName + ")"
-					} else {
-						labels[key] = strings.TrimSpace(models.MunicipalityTypeLabel(t.MunicipalityType) + " " + t.MunicipalityName)
-					}
+					labels[key] = models.TerritoryLabel(t.SettlementName, t.MunicipalityType, t.MunicipalityName, t.CountyName)
 				}
 			}
 		}

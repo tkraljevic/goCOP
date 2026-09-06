@@ -93,11 +93,12 @@ func (s *TerritoryService) RazrijesiUgrozeno(ctx context.Context, tekst string) 
 		if n, ok := poNazivu[kljuc(ime)]; ok && len(n) == 1 {
 			id := n[0].ID
 			dodaj(models.PartTerritory{CountyID: zupanija.ID, MunicipalityID: n[0].MunicipalityID, SettlementID: &id},
-				fmt.Sprintf("%s (%s)", n[0].Name, imeOpcine[n[0].MunicipalityID]))
+				models.TerritoryLabel(n[0].Name, "", imeOpcine[n[0].MunicipalityID], zupanija.Name))
 			continue
 		}
 		if o, ok := opcinaPoNazivu[kljuc(ime)]; ok && len(o) == 1 {
-			dodaj(models.PartTerritory{CountyID: zupanija.ID, MunicipalityID: o[0].ID}, o[0].Name)
+			dodaj(models.PartTerritory{CountyID: zupanija.ID, MunicipalityID: o[0].ID},
+				models.TerritoryLabel("", o[0].Type, o[0].Name, zupanija.Name))
 			continue
 		}
 		out.Nerazrijeseno = append(out.Nerazrijeseno, ime)

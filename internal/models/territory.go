@@ -106,3 +106,22 @@ func MunicipalityTypeLabel(t string) string {
 	}
 	return t
 }
+
+// TerritoryLabel je natpis ugroženog naselja na obrascu: naselje, pa općina,
+// pa županija bez riječi "županija" — "Batina (Draž, Osječko-baranjska)".
+// Bez naselja stoji cijela općina ili grad. Županija se piše jer se isto ime
+// naselja ponavlja po Hrvatskoj, a čitatelj obrasca nije nužno s tog terena.
+func TerritoryLabel(settlement, municipalityType, municipality, county string) string {
+	county = strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(county), "županija"))
+	if settlement != "" {
+		if county != "" {
+			return settlement + " (" + municipality + ", " + county + ")"
+		}
+		return settlement + " (" + municipality + ")"
+	}
+	label := strings.TrimSpace(MunicipalityTypeLabel(municipalityType) + " " + municipality)
+	if county != "" {
+		label += " (" + county + ")"
+	}
+	return label
+}
