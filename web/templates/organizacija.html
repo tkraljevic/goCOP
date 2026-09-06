@@ -35,7 +35,7 @@
       {{end}}
     </div>
     {{if and .Permissions .Permissions.IsGlobalAdmin}}
-    <div class="detail-actions"><a href="#nazivi" class="btn btn-sm btn-secondary">{{icon "pencil"}} Uredi organizaciju i nazive</a></div>
+    <div class="detail-actions"><a href="/administracija/nazivi" class="btn btn-sm btn-secondary">{{icon "pencil"}} Nazivi</a></div>
     {{end}}
   </div>
 </section>
@@ -204,96 +204,10 @@
 </section>
 {{end}}
 
-<section class="detail-section" id="nazivi">
-  <h2>{{icon "pencil"}} Organizacija i nazivi razina</h2>
-  <p class="page-desc">
-    Hrvatske vode obranu dijele na Direkciju s Glavnim centrom, vodnogospodarske odjele sa sektorima i ispostave s branjenim
-    područjima; druga organizacija istu podjelu zove drukčije. Ovdje se upisuju riječi koje program pokazuje i podaci razine 1.
-    Šifre dionica i ovlasti se ne mijenjaju. Vrijedi na svim čvorovima mreže.
-  </p>
-  {{if and .Permissions .Permissions.IsGlobalAdmin}}
-  <form class="form-page" method="POST" action="/organizacija/nazivi" enctype="multipart/form-data">
-    <h3 style="font-size:0.95rem; margin:0 0 0.5rem;">Organizacija</h3>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label" for="t-org">Naziv organizacije</label><input type="text" id="t-org" name="org_name" class="form-control" value="{{.Terms.OrgName}}" placeholder="Hrvatske vode"></div>
-      <div class="form-group"><label class="form-label" for="t-legal">Pravni oblik</label><input type="text" id="t-legal" name="org_legal_form" class="form-control" value="{{.Terms.OrgLegalForm}}" placeholder="npr. pravna osoba za upravljanje vodama"></div>
-      <div class="form-group"><label class="form-label" for="t-regno">Matični broj</label><input type="text" id="t-regno" name="org_registry_no" class="form-control" value="{{.Terms.OrgRegistryNo}}" inputmode="numeric"></div>
-      <div class="form-group"><label class="form-label" for="t-oib">OIB / porezni broj</label><input type="text" id="t-oib" name="org_tax_id" class="form-control" value="{{.Terms.OrgTaxID}}" inputmode="numeric"></div>
-    </div>
-
-    <h3 style="font-size:0.95rem; margin:1rem 0 0.5rem;">Razina 1: krovna jedinica sa svojim centrom</h3>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label" for="t-l1unit">Naziv jedinice</label><input type="text" id="t-l1unit" name="level1_unit" class="form-control" value="{{.Terms.Level1Unit}}" placeholder="Direkcija"></div>
-      <div class="form-group"><label class="form-label" for="t-l1center">Naziv centra</label><input type="text" id="t-l1center" name="level1_center" class="form-control" value="{{.Terms.Level1Center}}" placeholder="Glavni centar obrane od poplava"></div>
-      <div class="form-group"><label class="form-label" for="t-l1cshort">Kratica centra</label><input type="text" id="t-l1cshort" name="level1_center_short" class="form-control" value="{{.Terms.Level1CenterShort}}" placeholder="GCOP"></div>
-    </div>
-    <div class="form-help" style="margin-bottom:0.5rem;">Ovdje su samo nazivi; sama jedinica s adresom i kontaktima upisuje se u tablicu razine 1 iznad.</div>
-
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label" for="t-logo">Znak organizacije</label>
-        <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
-          <img src="{{logo}}" alt="" style="max-height:44px; max-width:160px; background:var(--surface); padding:0.25rem; border:1px solid var(--border); border-radius:6px;">
-          <input type="file" id="t-logo" name="logo" class="form-control" accept="image/svg+xml,image/png,image/jpeg,image/webp" style="max-width:20rem;">
-          {{if .Terms.HasLogo}}<label style="font-size:0.85rem; display:flex; gap:0.3rem; align-items:center;"><input type="checkbox" name="logo_remove" value="1"> Makni znak, vrati ugrađeni</label>{{end}}
-        </div>
-        <div class="form-help">SVG, PNG, JPEG ili WebP do 512 KB; pokazuje se u zaglavlju, na prijavi i pri uparivanju, na svim čvorovima. Najbolje vodoravan znak s prozirnom pozadinom.</div>
-      </div>
-    </div>
-    <div class="form-group">
-      <label class="form-label" for="t-login-info">Tekst na stranici prijave</label>
-      <textarea id="t-login-info" name="login_info" class="form-control" rows="3" placeholder="npr. Prijavljujete se korisničkim imenom iz imenika djelatnika. Račun otvara administrator vašeg centra.">{{.Terms.LoginInfo}}</textarea>
-      <div class="form-help">Stoji ispod obrasca prijave, iznad kontakta administratora. Prazno daje kratku zadanu uputu.</div>
-    </div>
-
-    <h3 style="font-size:0.95rem; margin:1rem 0 0.5rem;">Razina 2: ustrojstvena jedinica sa svojim {{terml "sektor"}}</h3>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label" for="t-sector">Jednina</label><input type="text" id="t-sector" name="sector" class="form-control" value="{{.Terms.Sector}}" placeholder="Sektor"></div>
-      <div class="form-group"><label class="form-label" for="t-sectors">Množina</label><input type="text" id="t-sectors" name="sectors" class="form-control" value="{{.Terms.Sectors}}" placeholder="Sektori"></div>
-      <div class="form-group"><label class="form-label" for="t-sector-office">Ustrojstvena jedinica</label><input type="text" id="t-sector-office" name="sector_office" class="form-control" value="{{.Terms.SectorOffice}}" placeholder="Vodnogospodarski odjel"></div>
-      <div class="form-group"><label class="form-label" for="t-sector-office-short">Kratica jedinice</label><input type="text" id="t-sector-office-short" name="sector_office_short" class="form-control" value="{{.Terms.SectorOfficeShort}}" placeholder="VGO"></div>
-      <div class="form-group"><label class="form-label" for="t-center">Centar</label><input type="text" id="t-center" name="center" class="form-control" value="{{.Terms.Center}}" placeholder="Centar obrane od poplava"></div>
-      <div class="form-group"><label class="form-label" for="t-center-short">Kratica centra</label><input type="text" id="t-center-short" name="center_short" class="form-control" value="{{.Terms.CenterShort}}" placeholder="COP"></div>
-    </div>
-
-    <h3 style="font-size:0.95rem; margin:1rem 0 0.5rem;">Razina 3: ustrojstvena jedinica sa svojim {{terml "podrucje"}}</h3>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label" for="t-area">Jednina</label><input type="text" id="t-area" name="area" class="form-control" value="{{.Terms.Area}}" placeholder="Branjeno područje"></div>
-      <div class="form-group"><label class="form-label" for="t-areas">Množina</label><input type="text" id="t-areas" name="areas" class="form-control" value="{{.Terms.Areas}}" placeholder="Branjena područja"></div>
-      <div class="form-group"><label class="form-label" for="t-area-short">Kratica</label><input type="text" id="t-area-short" name="area_short" class="form-control" value="{{.Terms.AreaShort}}" placeholder="BP"></div>
-      <div class="form-group"><label class="form-label" for="t-area-office">Ustrojstvena jedinica</label><input type="text" id="t-area-office" name="area_office" class="form-control" value="{{.Terms.AreaOffice}}" placeholder="Vodnogospodarska ispostava"></div>
-      <div class="form-group"><label class="form-label" for="t-area-office-short">Kratica jedinice</label><input type="text" id="t-area-office-short" name="area_office_short" class="form-control" value="{{.Terms.AreaOfficeShort}}" placeholder="VGI"></div>
-      <div class="form-group"><label class="form-label" for="t-subcenter">Centar</label><input type="text" id="t-subcenter" name="subcenter" class="form-control" value="{{.Terms.Subcenter}}" placeholder="Podcentar obrane"></div>
-    </div>
-    <h3 style="font-size:0.95rem; margin:1rem 0 0.25rem;">Sudionici obrane</h3>
-    <p class="page-desc" style="margin-bottom:0.5rem;">
-      Uloge nose ovlasti u programu i ne mijenjaju se; naziv smijete zvati po svome. Prazno polje ostavlja zadani naziv.
-    </p>
-    {{range .RoleGroups}}
-    <h4 style="font-size:0.85rem; margin:1rem 0 0.5rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.04em;">{{.Group}}</h4>
-    <div class="reg-list" style="margin-bottom:0.5rem;">
-      {{range .Rows}}
-      <article class="reg-card" style="padding:0.875rem 1rem; gap:0.4rem;">
-        <label class="form-label" for="role-{{.Role}}" style="margin:0;">{{.Name}}</label>
-        <input type="text" id="role-{{.Role}}" name="role_{{.Role}}" class="form-control" value="{{.Custom}}" placeholder="{{.Name}}">
-        <div class="form-help" style="margin:0;"><strong>Ovlasti:</strong> {{.Desc}}</div>
-      </article>
-      {{end}}
-    </div>
-    {{end}}
-    <div class="form-help">Prazan naziv vraća zadani naziv Hrvatskih voda; podaci razine 1 (adresa, kontakti) smiju ostati prazni.</div>
-    <div class="form-actions"><button type="submit" class="btn btn-primary">Spremi</button></div>
-  </form>
-  {{else}}
-  <dl class="reg-facts">
-    <div><dt>Organizacija</dt><dd>{{.Terms.OrgName}}{{if .Terms.OrgLegalForm}}, {{.Terms.OrgLegalForm}}{{end}}</dd></div>
-    <div><dt>Razina 1</dt><dd>{{.Terms.Level1Unit}} · {{.Terms.Level1Center}} ({{.Terms.Level1CenterShort}})</dd></div>
-    {{if or .Terms.OrgRegistryNo .Terms.OrgTaxID}}<div><dt>Identifikatori</dt><dd>{{if .Terms.OrgRegistryNo}}Matični broj <span class="mono">{{.Terms.OrgRegistryNo}}</span>{{end}}{{if .Terms.OrgTaxID}} · OIB <span class="mono">{{.Terms.OrgTaxID}}</span>{{end}}</dd></div>{{end}}
-    {{if .Terms.LoginInfo}}<div><dt>Prijava</dt><dd style="white-space:pre-line;">{{.Terms.LoginInfo}}</dd></div>{{end}}
-    <div><dt>Razina 2</dt><dd>{{.Terms.Sector}} / {{.Terms.Sectors}} · {{.Terms.SectorOffice}} ({{.Terms.SectorOfficeShort}}) · {{.Terms.Center}} ({{.Terms.CenterShort}})</dd></div>
-    <div><dt>Razina 3</dt><dd>{{.Terms.Area}} / {{.Terms.Areas}} ({{.Terms.AreaShort}}) · {{.Terms.AreaOffice}} ({{.Terms.AreaOfficeShort}}) · {{.Terms.Subcenter}}</dd></div>
-    <div><dt>Sudionici</dt><dd>{{range $i, $r := .RoleRows}}{{if $i}} · {{end}}{{$r.Label}}{{end}}</dd></div>
-  </dl>
-  {{end}}
-</section>
+{{if and .Permissions .Permissions.IsGlobalAdmin}}
+<div class="form-help" style="margin-top:1rem;">
+  Nazive razina, znak organizacije i nazive sudionika obrane uređujete u Administraciji:
+  <a href="/administracija/nazivi">Nazivi</a> i <a href="/administracija/sudionici">Sudionici obrane</a>.
+</div>
+{{end}}
 {{end}}
