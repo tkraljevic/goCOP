@@ -138,6 +138,30 @@
 </section>
 {{end}}
 
+{{if .Episodes}}
+<section class="detail-section">
+  <h2>{{icon "activity"}} Epizode obrane <span class="reg-chip">{{len .Episodes}}</span></h2>
+  <p class="page-desc">Razdoblja u kojima je na dionici vrijedila mjera obrane, od prelaska pripremnog stanja do povratka ispod njega. Epizoda se pamti po vrhu vala, ne po zadnjem vodostaju.</p>
+  <div class="table-card"><div class="table-responsive">
+    <table class="data-table">
+      <thead><tr><th>Od</th><th>Do</th><th>Trajanje</th><th>Vrh</th><th>Nastupio</th><th>Najviši stupanj</th></tr></thead>
+      <tbody>
+      {{range .Episodes}}
+      <tr>
+        <td class="mono">{{formatDate (localTime .StartedAt)}}</td>
+        <td class="mono">{{if .EndedAt}}{{formatDate (localTime (derefTime .EndedAt))}}{{else}}<span class="badge badge-area-admin">traje</span>{{end}}</td>
+        <td style="white-space:nowrap;">{{.Days}} dana</td>
+        <td class="mono">{{.PeakLabel}}</td>
+        <td class="mono">{{if .PeakAt}}{{formatDate (localTime (derefTime .PeakAt))}}{{end}}</td>
+        <td><span class="threshold-pill {{if eq .Phase "IZVANREDNO"}}crit{{else if eq .Phase "IZVANREDNA"}}emerg{{else if eq .Phase "REDOVNA"}}regular{{else}}prep{{end}}">{{.Phase.Label}}</span></td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div></div>
+</section>
+{{end}}
+
 <section class="detail-section">
   <h2>{{icon "users"}} Zaduženi djelatnici <span class="reg-chip">{{len .Section.Personnel}}</span></h2>
   {{range .Section.PersonnelByLevel}}

@@ -47,6 +47,7 @@ type Server struct {
 	watercourseService *service.WatercourseService
 	structureService   *service.StructureService
 	readingService     *service.ReadingService
+	episodeService     *service.EpisodeService
 	moduleService      *service.ModuleService
 	maintenanceService *service.MaintenanceService
 	journalService     *service.JournalService
@@ -243,6 +244,7 @@ func NewServer(
 	watercourseService *service.WatercourseService,
 	structureService *service.StructureService,
 	readingService *service.ReadingService,
+	episodeService *service.EpisodeService,
 	moduleService *service.ModuleService,
 	maintenanceService *service.MaintenanceService,
 	journalService *service.JournalService,
@@ -297,6 +299,7 @@ func NewServer(
 		journalService:     journalService,
 		orgService:         orgService,
 		readingService:     readingService,
+		episodeService:     episodeService,
 		moduleService:      moduleService,
 		support:            support,
 		followRepo:         followRepo,
@@ -321,6 +324,7 @@ func (s *Server) setupRoutes() {
 	dashH := NewDashboardHandler(s.userService, s.templates["dashboard.html"], s.templates["registri.html"])
 	sectionsH := NewSectionsHandler(s.sectionService, s.userService, s.templates["sections.html"])
 	sectionsH.SetPageTemplates(s.templates["section_detail.html"], s.templates["section_form.html"], s.stationService, s.territoryService)
+	sectionsH.episodeService = s.episodeService
 	territoriesH := NewTerritoriesHandler(s.territoryService, s.templates["territories.html"])
 	territoriesH.SetPageTemplates(s.templates["county_form.html"], s.templates["municipality_form.html"], s.templates["municipality_detail.html"])
 	stationsH := NewStationsHandler(s.stationService, s.templates["stations.html"])
