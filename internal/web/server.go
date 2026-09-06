@@ -145,6 +145,24 @@ func NewServer(
 		"decimalni": func(v float64, decimals int) string {
 			return strings.Replace(strconv.FormatFloat(v, 'f', decimals, 64), ".", ",", 1)
 		},
+		// brojHR piše cijeli broj s točkom kao tisućnim razdjelnikom, kako se
+		// broj u hrvatskom i piše (132.892). Za razlomljene brojeve (npr.
+		// površinu) koristi se brojHRf, s zarezom kao decimalnim znakom.
+		"brojHR": func(n int) string {
+			return groupThousands(strconv.Itoa(n))
+		},
+		"brojHRf": func(v float64, decimals int) string {
+			s := strconv.FormatFloat(v, 'f', decimals, 64)
+			intPart, dec := s, ""
+			if i := strings.IndexByte(s, '.'); i >= 0 {
+				intPart, dec = s[:i], s[i+1:]
+			}
+			out := groupThousands(intPart)
+			if dec != "" {
+				out += "," + dec
+			}
+			return out
+		},
 		"derefFloat": func(f *float64, decimals int) string {
 			if f == nil {
 				return "-"
