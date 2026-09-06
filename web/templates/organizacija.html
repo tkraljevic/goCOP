@@ -197,7 +197,7 @@
       <article class="reg-card" style="padding:0.875rem 1rem; gap:0.4rem;">
         <label class="form-label" for="role-{{.Role}}" style="margin:0;">{{.Name}}</label>
         <input type="text" id="role-{{.Role}}" name="role_{{.Role}}" class="form-control" value="{{.Custom}}" placeholder="{{.Name}}">
-        <div class="form-help" style="margin:0;">{{.Desc}}</div>
+        <div class="form-help" style="margin:0;"><strong>Ovlasti:</strong> {{.Desc}}</div>
       </article>
       {{end}}
     </div>
