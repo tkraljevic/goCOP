@@ -1,6 +1,6 @@
 {{template "base.html" .}}
 
-{{define "title"}}goCOP — {{if .IsEdit}}{{term "sektor"}} {{.Sector.ID}}{{else}}Novi: {{terml "sektor"}}{{end}}{{end}}
+{{define "title"}}goCOP — {{if .IsEdit}}Jedinica {{.Sector.ID}}{{else}}Nova ustrojstvena jedinica{{end}}{{end}}
 
 {{define "content"}}
 <div class="breadcrumb"><a href="/registri">Registri</a> › <a href="/organizacija">Organizacija obrane</a> › {{if .IsEdit}}{{term "sektor"}} {{.Sector.ID}} › Uređivanje{{else}}Novi sektor{{end}}</div>
@@ -8,7 +8,7 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">{{if .IsEdit}}{{icon "pencil"}} {{term "sektor"}} {{.Sector.ID}}{{else}}{{icon "building"}} {{term "sektor"}}: novi{{end}}</h1>
-    <p class="page-desc">{{term "sektor"}}: {{terml "vgo"}} sa svojim centrom obrane. Oznaka je prvi dio šifre svake dionice (npr. B u B.16.4) i ne mijenja se poslije.</p>
+    <p class="page-desc">Ustrojstvena jedinica sa svojim centrom obrane. Razina 1 je krovna jedinica organizacije ({{terml "direkcija"}} s {{terml "gcop"}}), razina 2 je {{terml "sektor"}} ({{terml "vgo"}} s {{terml "cop"}}). Oznaka je prvi dio šifre svake dionice (npr. B u B.16.4) i ne mijenja se poslije.</p>
   </div>
 </div>
 
@@ -16,6 +16,14 @@
 
 <form class="form-page" method="POST" action="/organizacija/sektori/save">
   <input type="hidden" name="is_new" value="{{if .IsEdit}}0{{else}}1{{end}}">
+  <div class="form-group">
+    <label class="form-label" for="level">Razina *</label>
+    <select id="level" name="level" class="form-control" required>
+      <option value="2" {{if not .Sector.IsLevel1}}selected{{end}}>Razina 2: {{term "sektor"}} ({{terml "vgo"}} s {{terml "cop"}})</option>
+      <option value="1" {{if .Sector.IsLevel1}}selected{{end}}>Razina 1: krovna jedinica ({{terml "direkcija"}} s {{terml "gcop"}})</option>
+    </select>
+    <div class="form-help">Krovnu jedinicu obično ima samo jedna organizacija i samo jednu; {{terml "podrucja"}} se vežu na razinu 2.</div>
+  </div>
   <div class="form-row">
     <div class="form-group">
       <label class="form-label" for="id">Oznaka *</label>

@@ -49,6 +49,7 @@ type AreaView struct {
 type OrgPageData struct {
 	CurrentUser    *models.User
 	Permissions    *models.UserPermissions
+	Level1         []SectorView // krovne jedinice (razina 1)
 	Sectors        []SectorView
 	Orphans        []models.Area // područja čiji sektor ne postoji
 	TotalAreas     int
@@ -105,7 +106,12 @@ func (h *OrgHandler) ShowOrganization(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	for _, s := range sectors {
-		data.Sectors = append(data.Sectors, SectorView{Sector: s, Areas: bySector[s.ID], Contractors: idx.BySector[s.ID]})
+		v := SectorView{Sector: s, Areas: bySector[s.ID], Contractors: idx.BySector[s.ID]}
+		if s.IsLevel1() {
+			data.Level1 = append(data.Level1, v)
+		} else {
+			data.Sectors = append(data.Sectors, v)
+		}
 	}
 	if err := h.tmplList.ExecuteTemplate(w, "organizacija.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -125,6 +131,9 @@ func (h *OrgHandler) ShowSectorForm(w http.ResponseWriter, r *http.Request) {
 	data := h.pageData(r)
 	if !h.requireAdmin(w, data) {
 		return
+	}
+	if r.URL.Query().Get("razina") == "1" {
+		data.Sector.Level = 1
 	}
 	if id := r.PathValue("id"); id != "" {
 		s, err := h.org.GetSector(r.Context(), id)
@@ -182,9 +191,9 @@ func (h *OrgHandler) ExportSectorsCSV(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	t := models.Terms()
-	rows := [][]string{{"Oznaka", "Naziv", t.SectorOffice, t.Center, "Adresa", "Telefon", "E-pošta"}}
+	rows := [][]string{{"Oznaka", "Naziv", t.SectorOffice, t.Center, "Adresa", "Telefon", "E-pošta", "Razina"}}
 	for _, s := range sectors {
-		rows = append(rows, []string{s.ID, s.Name, s.VgoName, s.CenterCop, s.Address, s.Phone, s.Email})
+		rows = append(rows, []string{s.ID, s.Name, s.VgoName, s.CenterCop, s.Address, s.Phone, s.Email, strconv.Itoa(s.Level)})
 	}
 	writeCSV(w, "sektori.csv", rows)
 }
@@ -310,8 +319,9 @@ func (h *OrgHandler) HandleImportCSV(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		default:
+			level, _ := strconv.Atoi(cell(row, 7))
 			s := &models.Sector{ID: cell(row, 0), Name: cell(row, 1), VgoName: cell(row, 2), CenterCop: cell(row, 3),
-				Address: cell(row, 4), Phone: cell(row, 5), Email: cell(row, 6)}
+				Address: cell(row, 4), Phone: cell(row, 5), Email: cell(row, 6), Level: level}
 			existing, _ := h.org.GetSector(ctx, strings.ToUpper(s.ID))
 			if err = h.org.SaveSector(ctx, perms, s, existing == nil); err == nil {
 				if existing == nil {
@@ -556,9 +566,7 @@ func (h *OrgHandler) HandleSaveTerms(w http.ResponseWriter, r *http.Request) {
 	t := models.OrgTerms{
 		LogoMime: current.LogoMime, Logo: current.Logo, LoginInfo: r.FormValue("login_info"),
 		OrgName: f("org_name"), OrgLegalForm: f("org_legal_form"), OrgRegistryNo: f("org_registry_no"), OrgTaxID: f("org_tax_id"),
-		Level1Unit: f("level1_unit"), Level1UnitName: f("level1_unit_name"), Level1Address: f("level1_address"),
-		Level1Phone: f("level1_phone"), Level1Email: f("level1_email"), Level1Center: f("level1_center"), Level1CenterShort: f("level1_center_short"),
-		Level1CenterPhone: f("level1_center_phone"), Level1CenterEmail: f("level1_center_email"),
+		Level1Unit: f("level1_unit"), Level1Center: f("level1_center"), Level1CenterShort: f("level1_center_short"),
 		Sector: f("sector"), Sectors: f("sectors"), SectorOffice: f("sector_office"), SectorOfficeShort: f("sector_office_short"),
 		Center: f("center"), CenterShort: f("center_short"),
 		Area: f("area"), Areas: f("areas"), AreaShort: f("area_short"), AreaOffice: f("area_office"), AreaOfficeShort: f("area_office_short"),
@@ -589,8 +597,9 @@ func (h *OrgHandler) HandleSaveTerms(w http.ResponseWriter, r *http.Request) {
 
 func sectorFromForm(r *http.Request) *models.Sector {
 	f := func(k string) string { return strings.TrimSpace(r.FormValue(k)) }
+	level, _ := strconv.Atoi(f("level"))
 	return &models.Sector{ID: f("id"), Name: f("name"), VgoName: f("vgo_name"), CenterCop: f("center_cop"),
-		Address: f("address"), Phone: f("phone"), Email: f("email")}
+		Address: f("address"), Phone: f("phone"), Email: f("email"), Level: level}
 }
 
 func areaFromForm(r *http.Request) *models.Area {

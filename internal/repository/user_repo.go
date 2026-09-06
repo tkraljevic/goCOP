@@ -692,7 +692,7 @@ func (r *UserRepository) GlobalAdminContact() (name, phone, email string, ok boo
 }
 
 func (r *UserRepository) ListSectors() ([]models.Sector, error) {
-	rows, err := r.db.Query("SELECT id, name, vgo_name, center_cop, address, phone, email FROM sectors ORDER BY CASE WHEN id = 'DIREKCIJA' THEN 0 ELSE 1 END, id ASC")
+	rows, err := r.db.Query("SELECT id, name, vgo_name, center_cop, address, phone, email, level FROM sectors ORDER BY CASE WHEN id = 'DIREKCIJA' THEN 0 ELSE 1 END, id ASC")
 	if err != nil {
 		return nil, err
 	}
@@ -701,7 +701,7 @@ func (r *UserRepository) ListSectors() ([]models.Sector, error) {
 	var sectors []models.Sector
 	for rows.Next() {
 		var s models.Sector
-		if err := rows.Scan(&s.ID, &s.Name, &s.VgoName, &s.CenterCop, &s.Address, &s.Phone, &s.Email); err != nil {
+		if err := rows.Scan(&s.ID, &s.Name, &s.VgoName, &s.CenterCop, &s.Address, &s.Phone, &s.Email, &s.Level); err != nil {
 			return nil, err
 		}
 		sectors = append(sectors, s)
