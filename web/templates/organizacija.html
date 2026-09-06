@@ -17,7 +17,6 @@
   </div>
   {{if and .Permissions .Permissions.IsGlobalAdmin}}
   <div class="detail-actions">
-    <a href="/organizacija/sektori/new" class="btn btn-primary">{{icon "plus"}} {{term "sektor"}}: novi</a>
   </div>
   {{end}}
 </div>
@@ -49,54 +48,41 @@
   </div>
 </section>
 
-<h2 style="font-size:1rem; margin:1.25rem 0 0.25rem;"><span class="reading-meta">Razina 2 i 3</span></h2>
-{{if not .Sectors}}
-<div class="reg-empty" style="padding:2rem;">
-  Još nema nijednog: {{terml "sektor"}}. {{if and .Permissions .Permissions.IsGlobalAdmin}}Počnite prvim, pa mu dodajte {{terml "podrucja"}}.{{else}}Upisuje ih globalni administrator.{{end}}
-</div>
-{{end}}
-
-{{range .Sectors}}
 <section class="detail-section">
-  <div class="detail-head" style="align-items:flex-start;">
+  <div class="detail-head">
     <div>
-      <h2 style="margin:0;"><span class="section-code-badge">{{.ID}}</span> {{.Name}}</h2>
-      <div class="reading-meta" style="margin-top:0.25rem;">
-        {{.VgoName}}{{if .CenterCop}} · {{.CenterCop}}{{end}}{{if .Address}} · {{.Address}}{{end}}
-        {{if .Phone}} · <a href="tel:{{.Phone}}">{{.Phone}}</a>{{end}}{{if .Email}} · <a href="mailto:{{.Email}}">{{.Email}}</a>{{end}}
-      </div>
+      <div class="reading-meta">Razina 2</div>
+      <h2 style="margin:0;">{{term "sektori"}} <span class="reg-chip">{{len .Sectors}}</span></h2>
     </div>
-    {{if and $.Permissions $.Permissions.IsGlobalAdmin}}
-    <div class="detail-actions" style="display:flex; gap:0.4rem; flex-wrap:wrap;">
-      <a href="/organizacija/podrucja/new?sector={{.ID}}" class="btn btn-sm btn-secondary">{{icon "plus"}} {{term "podrucje"}}</a>
-      <a href="/organizacija/sektori/{{.ID}}/edit" class="btn btn-sm btn-secondary">{{icon "pencil"}} Uredi</a>
-      {{if not .Areas}}
-      <form method="POST" action="/organizacija/sektori/delete" onsubmit="return confirm('Obrisati sektor {{.ID}}?')" style="display:inline;">
-        <input type="hidden" name="id" value="{{.ID}}"><button type="submit" class="btn btn-sm btn-secondary">{{icon "trash"}} Obriši</button>
-      </form>
-      {{end}}
-    </div>
+    {{if and .Permissions .Permissions.IsGlobalAdmin}}
+    <div class="detail-actions"><a href="/organizacija/sektori/new" class="btn btn-sm btn-primary">{{icon "plus"}} Novi: {{terml "sektor"}}</a></div>
     {{end}}
   </div>
-
-  {{if .Areas}}
+  {{if .Sectors}}
   <div class="table-card" style="margin-top:0.75rem;"><div class="table-responsive">
     <table class="data-table">
-      <thead><tr><th>{{term "bp"}}</th><th>Naziv</th><th>{{term "vgi"}}</th><th>{{term "podcentar"}}</th><th>Ugovorni izvođač</th>{{if and $.Permissions $.Permissions.IsGlobalAdmin}}<th></th>{{end}}</tr></thead>
+      <thead><tr><th>Oznaka</th><th>Naziv</th><th>{{term "vgo"}}</th><th>{{term "cop"}}</th><th>Adresa</th><th>Kontakt</th><th style="text-align:right;">{{term "bp"}}</th>{{if and .Permissions .Permissions.IsGlobalAdmin}}<th></th>{{end}}</tr></thead>
       <tbody>
-      {{range .Areas}}
+      {{range .Sectors}}
       <tr>
-        <td class="mono">{{.ID}}</td>
-        <td><a href="/sections?sector={{.SectorID}}&area={{.ID}}" style="color:var(--primary); font-weight:600;">{{.Name}}</a></td>
-        <td>{{if .DirectToSector}}<span class="reg-chip" title="Nema vlastite ispostave: pripada izravno razini 2 ({{terml "sektor"}})">bez ispostave, izravno razina 2</span>{{else}}{{.VgiName}}{{end}}</td>
-        <td>{{.Subcenter}}</td>
-        <td class="reading-meta">{{.ContractorName}}</td>
+        <td><span class="section-code-badge">{{.ID}}</span></td>
+        <td><a href="/sections?sector={{.ID}}" style="color:var(--primary); font-weight:600;">{{.Name}}</a></td>
+        <td>{{.VgoName}}</td>
+        <td>{{.CenterCop}}</td>
+        <td class="reading-meta">{{.Address}}</td>
+        <td class="reading-meta" style="white-space:nowrap;">{{if .Phone}}<a href="tel:{{.Phone}}">{{.Phone}}</a>{{end}}{{if and .Phone .Email}}<br>{{end}}{{if .Email}}<a href="mailto:{{.Email}}">{{.Email}}</a>{{end}}</td>
+        <td class="mono" style="text-align:right;">{{len .Areas}}</td>
         {{if and $.Permissions $.Permissions.IsGlobalAdmin}}
         <td style="white-space:nowrap; text-align:right;">
-          <a href="/organizacija/podrucja/{{.ID}}/edit" class="btn btn-sm btn-secondary">{{icon "pencil"}}</a>
-          <form method="POST" action="/organizacija/podrucja/delete" onsubmit="return confirm('Obrisati {{terml "podrucje"}} {{.ID}}: {{.Name}}?')" style="display:inline;">
+          <a href="/organizacija/podrucja/new?sector={{.ID}}" class="btn btn-sm btn-secondary" title="Dodaj: {{terml "podrucje"}}">{{icon "plus"}}</a>
+          <a href="/organizacija/sektori/{{.ID}}/edit" class="btn btn-sm btn-secondary" title="Uredi">{{icon "pencil"}}</a>
+          {{if not .Areas}}
+          <form method="POST" action="/organizacija/sektori/delete" onsubmit="return confirm('Obrisati {{terml "sektor"}} {{.ID}}?')" style="display:inline;">
             <input type="hidden" name="id" value="{{.ID}}"><button type="submit" class="btn btn-sm btn-secondary" title="Obriši">{{icon "trash"}}</button>
           </form>
+          {{else}}
+          <button type="button" class="btn btn-sm btn-secondary" disabled title="Briše se tek kad nema područja">{{icon "trash"}}</button>
+          {{end}}
         </td>
         {{end}}
       </tr>
@@ -105,10 +91,50 @@
     </table>
   </div></div>
   {{else}}
-  <div class="reg-empty" style="margin-top:0.5rem;">Još bez ijednog: {{terml "podrucje"}}.</div>
+  <div class="reg-empty" style="margin-top:0.5rem;">
+    Još nema nijednog: {{terml "sektor"}}. {{if and .Permissions .Permissions.IsGlobalAdmin}}Počnite prvim, pa mu dodajte {{terml "podrucja"}}.{{else}}Upisuje ih globalni administrator.{{end}}
+  </div>
   {{end}}
 </section>
-{{end}}
+
+<section class="detail-section">
+  <div class="detail-head">
+    <div>
+      <div class="reading-meta">Razina 3</div>
+      <h2 style="margin:0;">{{term "podrucja"}}</h2>
+    </div>
+    {{if and .Permissions .Permissions.IsGlobalAdmin .Sectors}}
+    <div class="detail-actions"><a href="/organizacija/podrucja/new" class="btn btn-sm btn-primary">{{icon "plus"}} Novo: {{terml "podrucje"}}</a></div>
+    {{end}}
+  </div>
+  <div class="table-card" style="margin-top:0.75rem;"><div class="table-responsive">
+    <table class="data-table">
+      <thead><tr><th>{{term "sektor"}}</th><th>{{term "bp"}}</th><th>Naziv</th><th>{{term "vgi"}}</th><th>{{term "podcentar"}}</th><th>Ugovorni izvođač</th>{{if and .Permissions .Permissions.IsGlobalAdmin}}<th></th>{{end}}</tr></thead>
+      <tbody>
+      {{$n := 0}}
+      {{range .Sectors}}{{range .Areas}}{{$n = 1}}
+      <tr>
+        <td><span class="section-code-badge">{{.SectorID}}</span></td>
+        <td class="mono">{{.ID}}</td>
+        <td><a href="/sections?sector={{.SectorID}}&area={{.ID}}" style="color:var(--primary); font-weight:600;">{{.Name}}</a></td>
+        <td>{{if .DirectToSector}}<span class="reg-chip" title="Nema vlastite ispostave: pripada izravno razini 2 ({{terml "sektor"}})">bez ispostave, izravno razina 2</span>{{else}}{{.VgiName}}{{end}}</td>
+        <td>{{.Subcenter}}</td>
+        <td class="reading-meta">{{.ContractorName}}</td>
+        {{if and $.Permissions $.Permissions.IsGlobalAdmin}}
+        <td style="white-space:nowrap; text-align:right;">
+          <a href="/organizacija/podrucja/{{.ID}}/edit" class="btn btn-sm btn-secondary" title="Uredi">{{icon "pencil"}}</a>
+          <form method="POST" action="/organizacija/podrucja/delete" onsubmit="return confirm('Obrisati {{terml "podrucje"}} {{.ID}}: {{.Name}}?')" style="display:inline;">
+            <input type="hidden" name="id" value="{{.ID}}"><button type="submit" class="btn btn-sm btn-secondary" title="Obriši">{{icon "trash"}}</button>
+          </form>
+        </td>
+        {{end}}
+      </tr>
+      {{end}}{{end}}
+      {{if not $n}}<tr><td colspan="7" class="reg-empty">Još bez ijednog: {{terml "podrucje"}}.</td></tr>{{end}}
+      </tbody>
+    </table>
+  </div></div>
+</section>
 
 {{if .Orphans}}
 <section class="detail-section">
