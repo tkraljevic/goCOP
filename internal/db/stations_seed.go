@@ -272,6 +272,18 @@ func seedStations(database *sql.DB) error {
 		}
 	}
 
+	// Batina je prvi ogledni primjer s potvrđenom kotom u oba sustava.
+	if _, err := tx.Exec(`UPDATE stations SET
+		zero_datum_new = 80.189,
+		zero_datum_new_system = 'HVRS71',
+		zero_datum_source = 'Geodetski elaborat 250 BATINA, CADCOM',
+		zero_datum_method = 'Preuzeta zadana kota i transformirana u HVRS71; letva nije pronađena na terenu.',
+		zero_datum_survey_date = '2024-09-10',
+		zero_datum_document_date = '2025-01'
+		WHERE code = 'batina'`); err != nil {
+		return fmt.Errorf("greška pri popunjavanju kote nule za Batinu: %w", err)
+	}
+
 	if err := tx.Commit(); err != nil {
 		return err
 	}

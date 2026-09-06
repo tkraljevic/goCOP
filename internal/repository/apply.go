@@ -608,16 +608,22 @@ func upsertStation(ctx context.Context, tx *sql.Tx, st models.Station) error {
 		INSERT INTO stations (
 			id, code, name, watercourse, watercourse_code, watercourse_source, water_area, stationing,
 			zero_datum, zero_datum_system, zero_datum_new, zero_datum_new_system,
+			zero_datum_source, zero_datum_method, zero_datum_survey_date, zero_datum_document_date,
+			zero_datum_history,
 			prep_cm, prep_raw, regular_cm, regular_raw, emergency_cm, emergency_raw, state_cm, state_raw,
 			record_cm, record_raw, notes, source_name, needs_review, review_note,
 			latitude, longitude, created_at, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			code = excluded.code, name = excluded.name, watercourse = excluded.watercourse,
 			watercourse_code = excluded.watercourse_code, watercourse_source = excluded.watercourse_source,
 			water_area = excluded.water_area, stationing = excluded.stationing,
 			zero_datum = excluded.zero_datum, zero_datum_system = excluded.zero_datum_system,
 			zero_datum_new = excluded.zero_datum_new, zero_datum_new_system = excluded.zero_datum_new_system,
+			zero_datum_history = excluded.zero_datum_history,
+			zero_datum_source = excluded.zero_datum_source, zero_datum_method = excluded.zero_datum_method,
+			zero_datum_survey_date = excluded.zero_datum_survey_date,
+			zero_datum_document_date = excluded.zero_datum_document_date,
 			prep_cm = excluded.prep_cm, prep_raw = excluded.prep_raw, regular_cm = excluded.regular_cm,
 			regular_raw = excluded.regular_raw, emergency_cm = excluded.emergency_cm, emergency_raw = excluded.emergency_raw,
 			state_cm = excluded.state_cm, state_raw = excluded.state_raw, record_cm = excluded.record_cm,
@@ -628,6 +634,8 @@ func upsertStation(ctx context.Context, tx *sql.Tx, st models.Station) error {
 		st.ID.String(), st.Code, st.Name, st.Watercourse, st.WatercourseCode, st.WatercourseSource, st.WaterArea, st.Stationing,
 		st.ZeroDatum, defaultSystem(st.ZeroDatumSystem, models.ZeroDatumSystemOld),
 		st.ZeroDatumNew, defaultSystem(st.ZeroDatumNewSystem, models.ZeroDatumSystemNew),
+		st.ZeroDatumSource, st.ZeroDatumMethod, st.ZeroDatumSurveyDate, st.ZeroDatumDocumentDate,
+		zeroDatumHistoryJSON(&st),
 		st.Prep.Cm, st.Prep.Raw, st.Regular.Cm, st.Regular.Raw, st.Emergency.Cm, st.Emergency.Raw, st.State.Cm, st.State.Raw,
 		st.Record.Cm, st.Record.Raw, st.Notes, st.SourceName, boolToInt(st.NeedsReview), st.ReviewNote,
 		st.Latitude, st.Longitude, st.CreatedAt, st.UpdatedAt,

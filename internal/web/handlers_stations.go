@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -322,6 +323,7 @@ type stationForm struct {
 	ZeroDatumSystem    string `json:"zero_datum_system"`
 	ZeroDatumNew       string `json:"zero_datum_new"`
 	ZeroDatumNewSystem string `json:"zero_datum_new_system"`
+	ZeroDatumHistory   string `json:"zero_datum_history"` // JSON popis promjena kote, iz obrasca
 	Prep               string `json:"prep"`
 	Regular            string `json:"regular"`
 	Emergency          string `json:"emergency"`
@@ -355,6 +357,7 @@ func decodeStationForm(r *http.Request) (stationForm, error) {
 	form.ZeroDatumSystem = r.FormValue("zero_datum_system")
 	form.ZeroDatumNew = r.FormValue("zero_datum_new")
 	form.ZeroDatumNewSystem = r.FormValue("zero_datum_new_system")
+	form.ZeroDatumHistory = r.FormValue("zero_datum_history")
 	form.Prep = r.FormValue("prep")
 	form.Regular = r.FormValue("regular")
 	form.Emergency = r.FormValue("emergency")
@@ -376,6 +379,7 @@ func (f stationForm) toStation() models.Station {
 		ZeroDatumSystem:    strings.TrimSpace(f.ZeroDatumSystem),
 		ZeroDatumNew:       parseOptionalFloat(f.ZeroDatumNew),
 		ZeroDatumNewSystem: strings.TrimSpace(f.ZeroDatumNewSystem),
+		ZeroDatumHistory:   parseZeroDatumHistory(f.ZeroDatumHistory),
 		Prep:               parseThresholdInput(f.Prep),
 		Regular:            parseThresholdInput(f.Regular),
 		Emergency:          parseThresholdInput(f.Emergency),
@@ -415,4 +419,34 @@ func errBadJSON(err error) error {
 
 func errBadStationID(value string) error {
 	return fmt.Errorf("neispravan identifikator postaje: %s", value)
+}
+
+// parseZeroDatumHistory čita promjene kote nule iz obrasca. Redak bez kote i
+// bez datuma je prazan i preskače se; ostatak se slaže po datumu od najstarije,
+// da ZeroDatumAt može čitati redom.
+func parseZeroDatumHistory(raw string) []models.ZeroDatumChange {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || raw == "[]" {
+		return nil
+	}
+	var in []struct {
+		ValidFrom string `json:"valid_from"`
+		Datum     string `json:"datum"`
+		System    string `json:"system"`
+		Note      string `json:"note"`
+	}
+	if err := json.Unmarshal([]byte(raw), &in); err != nil {
+		return nil
+	}
+	var out []models.ZeroDatumChange
+	for _, r := range in {
+		c := models.ZeroDatumChange{ValidFrom: strings.TrimSpace(r.ValidFrom), Datum: parseOptionalFloat(r.Datum),
+			System: strings.ToUpper(strings.TrimSpace(r.System)), Note: strings.TrimSpace(r.Note)}
+		if c.Datum == nil && c.ValidFrom == "" {
+			continue
+		}
+		out = append(out, c)
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].ValidFrom < out[j].ValidFrom })
+	return out
 }

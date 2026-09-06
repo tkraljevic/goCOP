@@ -17,7 +17,7 @@
 
 {{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
 
-<form class="form-page" method="POST" action="{{if .IsEdit}}/api/stations/update{{else}}/api/stations/create{{end}}">
+<form class="form-page" id="station-form" method="POST" action="{{if .IsEdit}}/api/stations/update{{else}}/api/stations/create{{end}}">
   {{if .IsEdit}}<input type="hidden" name="id" value="{{.Station.ID}}">{{end}}
   <input type="hidden" name="code" value="{{.Station.Code}}">
   <input type="hidden" name="water_area" value="{{.Station.WaterArea}}">
@@ -63,6 +63,48 @@
       <div class="form-help">Ne preračunava se iz stare kote.</div>
     </div>
   </div>
+
+  <h3 style="font-size:0.9rem; margin:1rem 0 0.25rem;">Promjene kote nule kroz vrijeme</h3>
+  <p class="form-help" style="margin:0 0 0.5rem;">
+    Kad je letva premještena, obnovljena ili dobila novi elaborat. Vodostaji u bazi svedeni su na zadnju kotu i ne
+    preračunavaju se; povijest služi da se zna što je koja starija evidencija mjerila.
+  </p>
+  <input type="hidden" name="zero_datum_history" id="zero_datum_history">
+  <div class="rows-zero">
+    <div class="rows-head"><div>Vrijedi od</div><div>Kota „0“ (m)</div><div>Sustav</div><div>Napomena</div><div></div></div>
+    <div id="zero-rows"></div>
+  </div>
+  <button type="button" class="btn btn-sm btn-secondary" onclick="addZeroRow()">{{icon "plus"}} Dodaj promjenu kote</button>
+  <template id="tpl-zero">
+    <div class="zero-row">
+      <div data-label="Vrijedi od"><input type="date" class="form-control" data-field="valid_from" aria-label="Vrijedi od"></div>
+      <div data-label="Kota „0“ (m)"><input type="text" inputmode="decimal" class="form-control" data-field="datum" placeholder="80,450" aria-label="Kota nule u metrima"></div>
+      <div data-label="Sustav"><select class="form-control" data-field="system" aria-label="Visinski sustav"><option value="TRST">Trst</option><option value="HVRS71">HVRS71</option></select></div>
+      <div data-label="Napomena"><input type="text" class="form-control" data-field="note" placeholder="premještaj letve, novi elaborat…" aria-label="Napomena"></div>
+      <button type="button" class="btn btn-sm btn-secondary" onclick="this.closest('.zero-row').remove()" title="Ukloni">{{icon "x"}}</button>
+    </div>
+  </template>
+  <script>
+  const ZERO_HISTORY = {{.ZeroDatumHistoryJSON}};
+  function addZeroRow(c) {
+    c = c || {}; const row = document.getElementById('tpl-zero').content.firstElementChild.cloneNode(true);
+    row.querySelector('[data-field=valid_from]').value = c.valid_from || '';
+    row.querySelector('[data-field=datum]').value = c.datum != null ? String(c.datum).replace('.', ',') : '';
+    row.querySelector('[data-field=system]').value = c.system || 'TRST';
+    row.querySelector('[data-field=note]').value = c.note || '';
+    document.getElementById('zero-rows').appendChild(row);
+  }
+  function collectZeroHistory() {
+    const rows = [...document.querySelectorAll('#zero-rows .zero-row')].map(r => {
+      const g = f => r.querySelector('[data-field=' + f + ']').value.trim();
+      return { valid_from: g('valid_from'), datum: g('datum'), system: g('system'), note: g('note') };
+    }).filter(x => x.valid_from || x.datum);
+    document.getElementById('zero_datum_history').value = JSON.stringify(rows);
+    return true;
+  }
+  (ZERO_HISTORY || []).forEach(addZeroRow);
+  document.getElementById('station-form') && document.getElementById('station-form').addEventListener('submit', collectZeroHistory);
+  </script>
 
   <h3 style="font-size:0.9rem; margin:1rem 0 0.25rem;">Pragovi obrane od poplava</h3>
   <p class="form-help" style="margin:0 0 0.5rem;">

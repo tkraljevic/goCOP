@@ -21,9 +21,39 @@ type fixup struct {
 	run  func(ctx context.Context, tx *sql.Tx, rec *ledger.Recorder) (int, error)
 }
 
-// Popis je prazan: program ne nosi podatke, pa nema ni popravaka koji ih
-// poznaju. Mehanizam ostaje za popravke sheme koji moraju proći kroz knjigu.
-var fixups = []fixup{}
+var fixups = []fixup{
+	{
+		name: "batina-zero-datum-2025",
+		run: func(ctx context.Context, tx *sql.Tx, rec *ledger.Recorder) (int, error) {
+			var id string
+			if err := tx.QueryRowContext(ctx, `SELECT id FROM stations WHERE code = 'batina'`).Scan(&id); err == sql.ErrNoRows {
+				return 0, nil
+			} else if err != nil {
+				return 0, err
+			}
+
+			if _, err := tx.ExecContext(ctx, `UPDATE stations SET
+				zero_datum_new = 80.189,
+				zero_datum_new_system = 'HVRS71',
+				zero_datum_source = 'Geodetski elaborat 250 BATINA, CADCOM',
+				zero_datum_method = 'Preuzeta zadana kota i transformirana u HVRS71; letva nije pronađena na terenu.',
+				zero_datum_survey_date = '2024-09-10',
+				zero_datum_document_date = '2025-01',
+				updated_at = ?
+				WHERE id = ?`, time.Now().UTC(), id); err != nil {
+				return 0, err
+			}
+			st, err := getStationTx(ctx, tx, id)
+			if err != nil {
+				return 0, err
+			}
+			if _, err := rec.Record(ctx, tx, EntityStations, id, st); err != nil {
+				return 0, err
+			}
+			return 1, nil
+		},
+	},
+}
 
 // RunFixups izvodi popravke koji na ovom čvoru još nisu izvedeni
 func RunFixups(ctx context.Context, db *sql.DB, rec *ledger.Recorder) error {

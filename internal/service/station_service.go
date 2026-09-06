@@ -173,6 +173,10 @@ func (s *StationService) UpdateStation(ctx context.Context, perms *models.UserPe
 
 	// Obrazac ne šalje sva polja — ono što ne uređuje mora preživjeti izmjenu
 	station.SourceName = existing.SourceName
+	station.ZeroDatumSource = existing.ZeroDatumSource
+	station.ZeroDatumMethod = existing.ZeroDatumMethod
+	station.ZeroDatumSurveyDate = existing.ZeroDatumSurveyDate
+	station.ZeroDatumDocumentDate = existing.ZeroDatumDocumentDate
 	if strings.TrimSpace(station.Code) == "" {
 		station.Code = existing.Code
 	}

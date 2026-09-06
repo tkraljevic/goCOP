@@ -82,10 +82,20 @@ type Station struct {
 	// Jedna se NE izvodi iz druge: razlika visinskih sustava je konstanta koja se
 	// upisuje iz službenog izvora, a pogrešna kota nule pomiče cijelu ljestvicu
 	// pragova obrane.
-	ZeroDatum          *float64 `json:"zero_datum,omitempty"`
-	ZeroDatumSystem    string   `json:"zero_datum_system"`
-	ZeroDatumNew       *float64 `json:"zero_datum_new,omitempty"`
-	ZeroDatumNewSystem string   `json:"zero_datum_new_system"`
+	ZeroDatum             *float64 `json:"zero_datum,omitempty"`
+	ZeroDatumSystem       string   `json:"zero_datum_system"`
+	ZeroDatumNew          *float64 `json:"zero_datum_new,omitempty"`
+	ZeroDatumNewSystem    string   `json:"zero_datum_new_system"`
+	ZeroDatumSource       string   `json:"zero_datum_source,omitempty"`
+	ZeroDatumMethod       string   `json:"zero_datum_method,omitempty"`
+	ZeroDatumSurveyDate   string   `json:"zero_datum_survey_date,omitempty"`
+	ZeroDatumDocumentDate string   `json:"zero_datum_document_date,omitempty"`
+
+	// ZeroDatumHistory su promjene kote nule kroz vrijeme, od najstarije.
+	// Vodostaji u bazi svi su svedeni na zadnju kotu, pa se ne preračunavaju;
+	// povijest služi da se zna što je koja stara evidencija zapravo mjerila i
+	// kad je letva premještena ili obnovljena.
+	ZeroDatumHistory []ZeroDatumChange `json:"zero_datum_history,omitempty"`
 
 	Prep      Threshold `json:"prep"`      // Pripremno stanje
 	Regular   Threshold `json:"regular"`   // Redovna obrana od poplava
@@ -268,3 +278,25 @@ func (p DefensePhase) Label() string {
 // InForce javlja je li na snazi neka od četiriju faza obrane. Vodostaj ispod
 // pripremnog stanja i postaja bez pragova nisu faza, pa ih sučelje ne ističe.
 func (p DefensePhase) InForce() bool { return p.Severity() > 0 }
+
+// ZeroDatumChange je jedna kota nule s datumom od kojeg vrijedi.
+type ZeroDatumChange struct {
+	ValidFrom string   `json:"valid_from"`       // datum, YYYY-MM-DD; prazno = od početka mjerenja
+	Datum     *float64 `json:"datum,omitempty"`  // kota nule u metrima
+	System    string   `json:"system,omitempty"` // TRST, HVRS71 …
+	Note      string   `json:"note,omitempty"`   // razlog: premještaj letve, obnova, novi elaborat
+}
+
+// ZeroDatumAt vraća kotu koja je vrijedila na dan; nil kad povijest za taj
+// dan ne zna ništa. Promjene se čitaju od najstarije, pa pobjeđuje zadnja
+// koja je počela vrijediti prije ili na taj dan.
+func (s Station) ZeroDatumAt(day string) *ZeroDatumChange {
+	var out *ZeroDatumChange
+	for i := range s.ZeroDatumHistory {
+		c := &s.ZeroDatumHistory[i]
+		if c.ValidFrom == "" || c.ValidFrom <= day {
+			out = c
+		}
+	}
+	return out
+}
