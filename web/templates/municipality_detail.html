@@ -35,8 +35,8 @@
 
 <div class="reg-card" style="padding:1rem; margin-bottom:1.5rem;">
   <dl class="reg-facts" style="font-size:0.9rem;">
-    {{if gt .Municipality.AreaSqKm 0.0}}<div><dt>Površina</dt><dd>{{decimalni .Municipality.AreaSqKm 1}} km²</dd></div>{{end}}
-    {{if gt .Municipality.Population 0}}<div><dt>Stanovništvo</dt><dd>{{.Municipality.Population}}</dd></div>{{end}}
+    {{if gt .Municipality.AreaSqKm 0.0}}<div><dt>Površina</dt><dd>{{brojHRf .Municipality.AreaSqKm 1}} km²</dd></div>{{end}}
+    {{if gt .Municipality.Population 0}}<div><dt>Stanovništvo</dt><dd>{{brojHR .Municipality.Population}}</dd></div>{{end}}
     <div><dt>Naselja</dt><dd>{{len .Settlements}}</dd></div>
     {{if .Municipality.Email}}<div><dt>E-pošta</dt><dd><a href="mailto:{{.Municipality.Email}}">{{.Municipality.Email}}</a></dd></div>{{end}}
     {{if .Municipality.Phone}}<div><dt>Telefon</dt><dd><a href="tel:{{.Municipality.Phone}}">{{.Municipality.Phone}}</a></dd></div>{{end}}
@@ -64,7 +64,7 @@
       </form>
       {{else}}
       <div class="reg-card-title" style="font-size:0.95rem;">{{.Name}}</div>
-      {{if or .PostalCode .Population}}<div class="reg-card-sub">{{if .PostalCode}}{{.PostalCode}}{{end}}{{if gt .Population 0}} · {{.Population}} stanovnika{{end}}</div>{{end}}
+      {{if or .PostalCode .Population}}<div class="reg-card-sub">{{if .PostalCode}}{{.PostalCode}}{{end}}{{if gt .Population 0}} · {{brojHR .Population}} stanovnika{{end}}</div>{{end}}
       {{end}}
     </article>
     {{else}}
