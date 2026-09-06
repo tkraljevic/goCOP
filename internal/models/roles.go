@@ -8,9 +8,10 @@ package models
 // RoleDef je jedna uloga u katalogu sudionika obrane
 type RoleDef struct {
 	Role  Role
-	Group string // razina ustroja ili mjesto u obrani kojem uloga pripada
-	Name  string // zadani naziv (Hrvatske vode)
-	Desc  string // što uloga smije u programu
+	Group string    // razina ustroja ili mjesto u obrani kojem uloga pripada
+	Name  string    // zadani naziv (Hrvatske vode)
+	Desc  string    // što uloga smije u programu
+	Scope ScopeType // prirodni doseg: što dužnost s tom ulogom mora imati
 }
 
 // Skupine sudionika, redom od vrha ustroja prema terenu
@@ -28,31 +29,82 @@ const (
 // RoleCatalog su sve uloge koje program poznaje, redom kojim se nude u
 // obrascima: od najviše prema terenu
 var RoleCatalog = []RoleDef{
-	{RoleNationalLeader, RoleGroupLevel1, "Glavni rukovoditelj (za cijelu RH)", "vodi obranu cijele organizacije; puna prava u programu"},
-	{RoleNationalDeputy, RoleGroupLevel1, "Zamjenik Glavnog rukovoditelja (za cijelu RH)", "zamjenjuje glavnog rukovoditelja; puna prava"},
-	{RoleMainCenterLeader, RoleGroupLevel1, "Voditelj Glavnog centra obrane od poplava", "vodi glavni centar obrane po nalogu glavnog rukovoditelja: vodi evidenciju u programu, piše izvješća i koordinira centre sektora; puna prava"},
-	{RoleMainCenterDeputy, RoleGroupLevel1, "Zamjenik voditelja Glavnog centra obrane od poplava", "zamjenjuje voditelja glavnog centra u istom poslu; puna prava"},
-	{RoleSectorMainDeputy, RoleGroupLevel1, "Zamjenik Glavnog rukovoditelja za sektor", "imenovanje s razine 1: prava glavnog rukovoditelja, ali u okviru svog sektora; u pravilu ista osoba kao rukovoditelj sektora"},
-	{RoleSectorLeader, RoleGroupLevel2, "Rukovoditelj sektora", "vodi obranu sektora; upravlja sektorom i njegovim područjima"},
-	{RoleSectorDeputy, RoleGroupLevel2, "Zamjenik rukovoditelja sektora", "zamjenjuje rukovoditelja sektora; ista prava"},
-	{RoleSectorAreaDeputy, RoleGroupLevel2, "Zamjenik rukovoditelja sektora za branjeno područje", "imenovanje s razine 2: prava rukovoditelja sektora, ali u okviru svog branjenog područja; u pravilu ista osoba kao rukovoditelj branjenog područja"},
-	{RoleCopLeader, RoleGroupLevel2, "Voditelj Centra obrane od poplava", "vodi centar obrane po nalogu rukovoditelja sektora: vodi evidenciju u programu, piše izvješća, koordinira područja i djelatnike; upravlja sektorom"},
-	{RoleCopDeputy, RoleGroupLevel2, "Zamjenik voditelja Centra obrane od poplava", "zamjenjuje voditelja centra u istom poslu; ista prava"},
-	{RoleOperator, RoleGroupLevel2, "Dežurni operater u COP-u", "privremena dužnost za vrijeme aktivne obrane: dežura u centru, prima očitanja i vodi dnevnik u dosegu zaduženja; upisuje se kao privremena, s rokom"},
-	{RoleAreaLeader, RoleGroupLevel3, "Rukovoditelj branjenog područja", "vodi obranu jednog branjenog područja; upravlja područjem i njegovim dionicama"},
-	{RoleAreaDeputy, RoleGroupLevel3, "Zamjenik rukovoditelja branjenog područja", "zamjenjuje rukovoditelja područja; ista prava"},
-	{RoleContractOfficerA2, RoleGroupLevel3, "Ovlaštenik za praćenje ugovora programa usluga A2", "prati ugovor održavanja u području; upravlja područjem"},
-	{RoleContractOfficerA3, RoleGroupLevel3, "Ovlaštenik za praćenje ugovora programa usluga A3", "prati ugovor obrane u području; upravlja područjem"},
-	{RoleSectionLeader, RoleGroupLevel4, "Rukovoditelj dionice", "vodi obranu na svojim dionicama (razina 4: dionica); upisuje očitanja i dnevnike za njih"},
-	{RoleSectionDeputy, RoleGroupLevel4, "Zamjenik rukovoditelja dionice", "zamjenjuje rukovoditelja dionice; ista prava na njegovim dionicama"},
-	{RoleWaterGuard, RoleGroupField, "Vodočuvar", "obilazi dionice i očitava letve; terenski pogled"},
-	{RoleMachinist, RoleGroupField, "Strojar", "rukuje crpnim stanicama i ustavama; terenski pogled"},
-	{RoleFacilityOperator, RoleGroupField, "Rukovatelj", "rukuje objektom obrane; terenski pogled"},
-	{RoleCrewLeader, RoleGroupField, "Voditelj posade objekta", "vodi posadu na objektu; terenski pogled"},
-	{RoleServiceLeaderForeman, RoleGroupExternal, "Voditelj usluga / Poslovođa", "vodi radove ugovornog izvođača; vidi teren i vodi vlastite dnevnike"},
-	{RoleGuest, RoleGroupGuest, "Gost", "račun za posjetitelja obrane (civilna zaštita, uprava, mediji): gleda teren i vodostaje, ne upisuje"},
-	{RoleViewer, RoleGroupProgram, "Preglednik (samo čitanje)", "gleda, ne upisuje"},
+	{RoleNationalLeader, RoleGroupLevel1, "Glavni rukovoditelj (za cijelu RH)", "vodi obranu cijele organizacije; puna prava u programu", ScopeAll},
+	{RoleNationalDeputy, RoleGroupLevel1, "Zamjenik Glavnog rukovoditelja (za cijelu RH)", "zamjenjuje glavnog rukovoditelja; puna prava", ScopeAll},
+	{RoleMainCenterLeader, RoleGroupLevel1, "Voditelj Glavnog centra obrane od poplava", "vodi glavni centar obrane po nalogu glavnog rukovoditelja: vodi evidenciju u programu, piše izvješća i koordinira centre sektora; puna prava", ScopeAll},
+	{RoleMainCenterDeputy, RoleGroupLevel1, "Zamjenik voditelja Glavnog centra obrane od poplava", "zamjenjuje voditelja glavnog centra u istom poslu; puna prava", ScopeAll},
+	{RoleSectorMainDeputy, RoleGroupLevel1, "Zamjenik Glavnog rukovoditelja za sektor", "imenovanje s razine 1: prava glavnog rukovoditelja, ali u okviru svog sektora; u pravilu ista osoba kao rukovoditelj sektora", ScopeSector},
+	{RoleSectorLeader, RoleGroupLevel2, "Rukovoditelj sektora", "vodi obranu sektora; upravlja sektorom i njegovim područjima", ScopeSector},
+	{RoleSectorDeputy, RoleGroupLevel2, "Zamjenik rukovoditelja sektora", "zamjenjuje rukovoditelja sektora; ista prava", ScopeSector},
+	{RoleSectorAreaDeputy, RoleGroupLevel2, "Zamjenik rukovoditelja sektora za branjeno područje", "imenovanje s razine 2: prava rukovoditelja sektora, ali u okviru svog branjenog područja; u pravilu ista osoba kao rukovoditelj branjenog područja", ScopeArea},
+	{RoleCopLeader, RoleGroupLevel2, "Voditelj Centra obrane od poplava", "vodi centar obrane po nalogu rukovoditelja sektora: vodi evidenciju u programu, piše izvješća, koordinira područja i djelatnike; upravlja sektorom", ScopeSector},
+	{RoleCopDeputy, RoleGroupLevel2, "Zamjenik voditelja Centra obrane od poplava", "zamjenjuje voditelja centra u istom poslu; ista prava", ScopeSector},
+	{RoleOperator, RoleGroupLevel2, "Dežurni operater u COP-u", "privremena dužnost za vrijeme aktivne obrane: dežura u centru, prima očitanja i vodi dnevnik u dosegu zaduženja; upisuje se kao privremena, s rokom", ScopeSector},
+	{RoleAreaLeader, RoleGroupLevel3, "Rukovoditelj branjenog područja", "vodi obranu jednog branjenog područja; upravlja područjem i njegovim dionicama", ScopeArea},
+	{RoleAreaDeputy, RoleGroupLevel3, "Zamjenik rukovoditelja branjenog područja", "zamjenjuje rukovoditelja područja; ista prava", ScopeArea},
+	{RoleContractOfficerA2, RoleGroupLevel3, "Ovlaštenik za praćenje ugovora programa usluga A2", "prati ugovor održavanja u području; upravlja područjem", ScopeArea},
+	{RoleContractOfficerA3, RoleGroupLevel3, "Ovlaštenik za praćenje ugovora programa usluga A3", "prati ugovor obrane u području; upravlja područjem", ScopeArea},
+	{RoleSectionLeader, RoleGroupLevel4, "Rukovoditelj dionice", "vodi obranu na svojim dionicama (razina 4: dionica); upisuje očitanja i dnevnike za njih", ScopeSection},
+	{RoleSectionDeputy, RoleGroupLevel4, "Zamjenik rukovoditelja dionice", "zamjenjuje rukovoditelja dionice; ista prava na njegovim dionicama", ScopeSection},
+	{RoleWaterGuard, RoleGroupField, "Vodočuvar", "obilazi dionice i očitava letve; terenski pogled", ScopeSection},
+	{RoleMachinist, RoleGroupField, "Strojar", "rukuje crpnim stanicama i ustavama; terenski pogled", ScopeSection},
+	{RoleFacilityOperator, RoleGroupField, "Rukovatelj", "rukuje objektom obrane; terenski pogled", ScopeSection},
+	{RoleCrewLeader, RoleGroupField, "Voditelj posade objekta", "vodi posadu na objektu; terenski pogled", ScopeSection},
+	{RoleServiceLeaderForeman, RoleGroupExternal, "Voditelj usluga / Poslovođa", "vodi radove ugovornog izvođača; vidi teren i vodi vlastite dnevnike", ScopeArea},
+	{RoleGuest, RoleGroupGuest, "Gost", "račun za posjetitelja obrane (civilna zaštita, uprava, mediji): gleda teren i vodostaje, ne upisuje", ScopeAll},
+	{RoleViewer, RoleGroupProgram, "Preglednik (samo čitanje)", "gleda, ne upisuje", ScopeAll},
 }
+
+// Rank je razina s koje se uloga dodjeljuje: 1 uprava organizacije, 2 sektor,
+// 3 područje, 4 dionica, 5 teren i ostali. Dužnost smije dati samo tko je na
+// toj razini ili iznad nje.
+func (r Role) Rank() int {
+	switch r {
+	case RoleGlobalAdmin:
+		return 1
+	case RoleAreaAdmin:
+		return 2
+	case RoleFieldWorker:
+		return 5
+	}
+	for _, d := range RoleCatalog {
+		if d.Role == r {
+			switch d.Group {
+			case RoleGroupLevel1:
+				return 1
+			case RoleGroupLevel2:
+				return 2
+			case RoleGroupLevel3:
+				return 3
+			case RoleGroupLevel4:
+				return 4
+			}
+			return 5
+		}
+	}
+	return 5
+}
+
+// NaturalScope je doseg koji uloga sama određuje
+func (r Role) NaturalScope() ScopeType {
+	switch r {
+	case RoleGlobalAdmin:
+		return ScopeAll
+	case RoleAreaAdmin:
+		return ScopeSector
+	case RoleFieldWorker:
+		return ScopeSection
+	}
+	for _, d := range RoleCatalog {
+		if d.Role == r {
+			return d.Scope
+		}
+	}
+	return ScopeSection
+}
+
+// Writes javlja daje li uloga pravo upisa; gost i preglednik samo gledaju
+func (r Role) Writes() bool { return r != RoleViewer && r != RoleGuest }
 
 // RoleGroups su skupine kataloga redom pojavljivanja
 func RoleGroups() []string {

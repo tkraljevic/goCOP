@@ -136,7 +136,6 @@ func (h *UsersHandler) HandleCreateUser(w http.ResponseWriter, r *http.Request) 
 		Email:         r.FormValue("email"),
 		DutyTitle:     r.FormValue("duty_title"),
 		Role:          models.Role(r.FormValue("role")),
-		ScopeType:     models.ScopeType(r.FormValue("scope_type")),
 		SectorID:      sectorPtr,
 		AreaID:        areaPtr,
 		SectionCodes:  r.FormValue("section_codes"),
@@ -280,7 +279,6 @@ func (h *UsersHandler) HandleAddDuty(w http.ResponseWriter, r *http.Request) {
 		UserID:       userID,
 		Title:        r.FormValue("title"),
 		Role:         models.Role(r.FormValue("role")),
-		ScopeType:    models.ScopeType(r.FormValue("scope_type")),
 		SectorID:     sectorPtr,
 		AreaID:       areaPtr,
 		SectionCodes: r.FormValue("section_codes"),
@@ -358,7 +356,7 @@ func (h *UsersHandler) HandleDeleteUser(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if err := h.userService.DeleteUser(perms, userID); err != nil {
-		http.Redirect(w, r, "/users?error="+err.Error(), http.StatusSeeOther)
+		redirectWith(w, r, "/users/"+userID.String(), "error", err.Error())
 		return
 	}
 
