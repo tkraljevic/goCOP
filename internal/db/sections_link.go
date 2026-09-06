@@ -39,6 +39,18 @@ func WriteSection(ctx context.Context, tx Execer, sec *models.Section) error {
 	for i := range sec.Parts {
 		p := &sec.Parts[i]
 		p.Seq = i + 1
+		// Brojčana stacionaža objekta izvodi se iz zapisa kad je nema. Zapis
+		// "rkm 1428+010" je ono što piše u Privitku, broj je ono po čemu
+		// program raspoređuje objekte po nasipima; jedan klijent koji broj ne
+		// pošalje inače ga zauvijek izbriše.
+		for j := range p.Objects {
+			o := &p.Objects[j]
+			if o.Stationing == nil && o.StationingText != "" {
+				if km, ok := hydro.ParseStationingKm(o.StationingText); ok {
+					o.Stationing = &km
+				}
+			}
+		}
 		// naziv vode služi složenom opisu; u zapis ne ide, čita se iz registra
 		if p.WatercourseCode != "" && p.WatercourseName == "" {
 			_ = tx.QueryRowContext(ctx, `SELECT official_name FROM watercourses WHERE code = ?`, p.WatercourseCode).Scan(&p.WatercourseName)
