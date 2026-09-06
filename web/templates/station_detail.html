@@ -56,10 +56,37 @@
   <h2>{{icon "ruler"}} Kota nule vodomjera</h2>
   <div class="reg-card" style="padding:1rem;">
     <dl class="reg-facts station-zero-grid">
-      <div><dt>Trst (stari sustav)</dt><dd>{{if .Station.ZeroDatum}}{{brojHRd .Station.ZeroDatum 2}} m{{else}}<span style="color:var(--text-muted); font-weight:500;">nije upisana</span>{{end}}</dd></div>
-      <div><dt>HVRS71 (novi sustav)</dt><dd>{{if .Station.HasNewZeroDatum}}{{brojHRd .Station.ZeroDatumNew 2}} m{{else}}<span style="color:var(--text-muted); font-weight:500;">tek se mjeri</span>{{end}}</dd></div>
-      {{if .Station.Code}}<div><dt>Šifra</dt><dd style="font-family:ui-monospace, monospace; font-weight:500;">{{.Station.Code}}</dd></div>{{end}}
+      <div><dt>Trst (stari sustav)</dt><dd>{{if .Station.ZeroDatum}}{{brojHRd .Station.ZeroDatum 3}} m{{else}}<span style="color:var(--text-muted); font-weight:500;">nije upisana</span>{{end}}</dd></div>
+      <div><dt>HVRS71 (novi sustav)</dt><dd>{{if .Station.HasNewZeroDatum}}{{brojHRd .Station.ZeroDatumNew 3}} m{{else}}<span style="color:var(--text-muted); font-weight:500;">nije upisana</span>{{end}}</dd></div>
     </dl>
+    {{if .Station.ZeroDatumHistory}}
+    <div class="station-note">
+      <span>Promjene kote nule</span>
+      <div class="table-responsive">
+        <table class="data-table" style="margin-top:0.35rem;">
+          <thead><tr><th>Vrijedi od</th><th>Kota „0“</th><th>Sustav</th><th>Napomena</th></tr></thead>
+          <tbody>
+          {{range .Station.ZeroDatumHistory}}
+          <tr>
+            <td class="mono">{{if .ValidFrom}}{{.ValidFrom}}{{else}}<span class="reading-meta">od početka mjerenja</span>{{end}}</td>
+            <td class="mono">{{if .Datum}}{{brojHRd .Datum 3}} m{{else}}—{{end}}</td>
+            <td>{{.System}}</td>
+            <td>{{.Note}}</td>
+          </tr>
+          {{end}}
+          </tbody>
+        </table>
+      </div>
+      <p class="reading-meta" style="margin-top:0.35rem;">Vodostaji u bazi svedeni su na zadnju kotu; povijest kaže što je koja starija evidencija mjerila.</p>
+    </div>
+    {{end}}
+    {{if .Station.ZeroDatumSource}}
+    <div class="station-note">
+      <span>Izvor kote</span>
+      <p><strong>{{.Station.ZeroDatumSource}}</strong>{{if .Station.ZeroDatumDocumentDate}} · elaborat {{.Station.ZeroDatumDocumentDate}}{{end}}{{if .Station.ZeroDatumSurveyDate}} · teren {{.Station.ZeroDatumSurveyDate}}{{end}}</p>
+      {{if .Station.ZeroDatumMethod}}<p>{{.Station.ZeroDatumMethod}}</p>{{end}}
+    </div>
+    {{end}}
     {{if .Station.Notes}}
     <div class="station-note">
       <span>Napomena</span>

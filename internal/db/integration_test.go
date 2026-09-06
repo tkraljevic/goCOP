@@ -65,7 +65,7 @@ func TestSeedNaSvjezojBaziDajePoznateBrojke(t *testing.T) {
 		{"dionica s obalom", `SELECT COUNT(*) FROM sections WHERE bank <> ''`, 384},
 		{"dionica s rasponom stacionaže", `SELECT COUNT(*) FROM sections WHERE rkm_from IS NOT NULL`, 378},
 		{"postaja s kotom u sustavu Trst", `SELECT COUNT(*) FROM stations WHERE zero_datum_system = 'TRST'`, 255},
-		{"postaja s izmjerenom HVRS71 kotom", `SELECT COUNT(*) FROM stations WHERE zero_datum_new IS NOT NULL`, 0},
+		{"postaja s potvrđenom HVRS71 kotom", `SELECT COUNT(*) FROM stations WHERE zero_datum_new IS NOT NULL`, 1},
 	}
 
 	for _, e := range expect {
@@ -155,6 +155,31 @@ func TestBatinaIVukovarSuNaDunavu(t *testing.T) {
 		JOIN watercourses w ON w.code = s.watercourse_code
 		WHERE st.name = 'Batina' AND w.official_name = 'potok Karašica (Baranja)'`); got == 0 {
 		t.Error("Batina nije mjerodavna ni za jednu dionicu potoka Karašice (Baranja)")
+	}
+}
+
+func TestBatinaImaPotvrđenuKotuNuleIzElaborata(t *testing.T) {
+	database := freshDatabase(t)
+
+	var oldDatum, newDatum float64
+	var oldSystem, newSystem, source, method, surveyDate, documentDate string
+	if err := database.QueryRow(`SELECT
+		zero_datum, zero_datum_system, zero_datum_new, zero_datum_new_system,
+		zero_datum_source, zero_datum_method, zero_datum_survey_date, zero_datum_document_date
+		FROM stations WHERE code = 'batina'`).Scan(
+		&oldDatum, &oldSystem, &newDatum, &newSystem,
+		&source, &method, &surveyDate, &documentDate,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if oldDatum != 80.450 || oldSystem != "TRST" {
+		t.Errorf("stara kota = %.3f %s, očekivano 80.450 TRST", oldDatum, oldSystem)
+	}
+	if newDatum != 80.189 || newSystem != "HVRS71" {
+		t.Errorf("nova kota = %.3f %s, očekivano 80.189 HVRS71", newDatum, newSystem)
+	}
+	if source == "" || method == "" || surveyDate != "2024-09-10" || documentDate != "2025-01" {
+		t.Errorf("nepotpuno porijeklo kote: source=%q method=%q teren=%q elaborat=%q", source, method, surveyDate, documentDate)
 	}
 }
 

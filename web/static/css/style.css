@@ -2405,6 +2405,9 @@ textarea {
    vraća uz svako polje. */
 .part-edit { container-type: inline-size; }
 .rows-emb { --cols: minmax(12rem, 3fr) repeat(4, minmax(5.5rem, 1fr)) minmax(4.5rem, 0.8fr) 2.25rem; }
+.rows-zero { --cols: 10rem 8rem 8rem minmax(12rem, 2fr) 2.25rem; }
+.rows-zero .zero-row { display: grid; gap: 0.4rem; grid-template-columns: var(--cols); align-items: center; margin-bottom: 0.4rem; }
+.rows-zero .rows-head { display: grid; gap: 0.4rem; grid-template-columns: var(--cols); }
 .rows-obj { --cols: minmax(7rem, 1fr) minmax(14rem, 3fr) minmax(11rem, 2fr) 2.25rem; }
 .rows-head, .emb-row, .obj-row { display: grid; gap: 0.4rem; grid-template-columns: var(--cols); align-items: center; }
 .rows-head { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); margin-bottom: 0.25rem; }

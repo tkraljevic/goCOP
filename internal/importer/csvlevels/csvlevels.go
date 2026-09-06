@@ -593,8 +593,21 @@ func parseLevel(s string) (int, levelStatus) {
 	case "", "-", "--", "/", "x", "n/a", ".", "nema", "led", "suho":
 		return 0, levelBlank
 	}
-	s = strings.ReplaceAll(s, ".", "")
-	s = strings.ReplaceAll(s, ",", ".")
+	// Hrvatski izvoz piše decimalni zarez i točku za tisućice, ali DHMZ-ovi
+	// standardizirani CSV-ovi koriste decimalnu točku (npr. 169.0). Jedina
+	// točka s jednom ili dvije znamenke iza nje zato je decimalna; zapis 1.234
+	// ostaje tisuću dvjesto trideset četiri centimetra.
+	if strings.Contains(s, ",") {
+		s = strings.ReplaceAll(s, ".", "")
+		s = strings.ReplaceAll(s, ",", ".")
+	} else if strings.Count(s, ".") == 1 {
+		parts := strings.SplitN(s, ".", 2)
+		if len(parts[1]) == 3 {
+			s = parts[0] + parts[1]
+		}
+	} else {
+		s = strings.ReplaceAll(s, ".", "")
+	}
 	s = strings.ReplaceAll(s, " ", "")
 	f, err := strconv.ParseFloat(s, 64)
 	if err != nil {

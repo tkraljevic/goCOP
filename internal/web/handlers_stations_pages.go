@@ -1,6 +1,7 @@
 package web
 
 import (
+	"encoding/json"
 	"html/template"
 	"net/http"
 
@@ -15,16 +16,17 @@ import (
 
 // StationPageData je stranica jedne postaje ili njezina obrasca
 type StationPageData struct {
-	CurrentUser    *models.User
-	Permissions    *models.UserPermissions
-	Station        models.Station
-	Sections       []models.Section
-	WaterRegistry  []models.Watercourse
-	CanEdit        bool
-	IsEdit         bool
-	SuccessMessage string
-	ErrorMessage   string
-	ActiveNav      string
+	CurrentUser          *models.User
+	Permissions          *models.UserPermissions
+	Station              models.Station
+	ZeroDatumHistoryJSON template.JS // promjene kote nule za obrazac, kao JS literal
+	Sections             []models.Section
+	WaterRegistry        []models.Watercourse
+	CanEdit              bool
+	IsEdit               bool
+	SuccessMessage       string
+	ErrorMessage         string
+	ActiveNav            string
 	ViewAsBanner
 }
 
@@ -138,6 +140,10 @@ func (h *StationsHandler) ShowStationForm(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	data.ZeroDatumHistoryJSON = template.JS("[]")
+	if b, err := json.Marshal(data.Station.ZeroDatumHistory); err == nil && len(data.Station.ZeroDatumHistory) > 0 {
+		data.ZeroDatumHistoryJSON = template.JS(b)
+	}
 	if err := h.tmplForm.ExecuteTemplate(w, "station_form.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
