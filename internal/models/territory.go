@@ -30,6 +30,9 @@ type Municipality struct {
 	PostalCode string  `json:"postal_code,omitempty"`
 	AreaSqKm   float64 `json:"area_sqkm,omitempty"`
 	Population int     `json:"population,omitempty"`
+	Email      string  `json:"email,omitempty"` // službena e-pošta, za obavijesti u obrani
+	Phone      string  `json:"phone,omitempty"`
+	Website    string  `json:"website,omitempty"`
 }
 
 // Settlement predstavlja pojedino naselje u sastavu grada ili općine
