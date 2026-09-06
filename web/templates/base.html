@@ -46,11 +46,14 @@
           {{if .Sees "registri"}}
           <div class="nav-group">
             <button type="button" class="nav-link nav-group-btn
-                {{if or (eq .ActiveNav "registers") (eq .ActiveNav "sections") (eq .ActiveNav "territories") (eq .ActiveNav "stations") (eq .ActiveNav "watercourses") (eq .ActiveNav "structures") (eq .ActiveNav "maintenance")}}active{{end}}"
+                {{if or (eq .ActiveNav "registers") (eq .ActiveNav "organizacija") (eq .ActiveNav "sections") (eq .ActiveNav "territories") (eq .ActiveNav "stations") (eq .ActiveNav "watercourses") (eq .ActiveNav "structures") (eq .ActiveNav "maintenance")}}active{{end}}"
                 aria-haspopup="true" aria-expanded="false" onclick="toggleNavGroup(event)">
               {{icon "book-open"}} Registri <span class="nav-caret">▾</span>
             </button>
             <div class="nav-dropdown">
+              <a href="/organizacija" class="nav-dropdown-item {{if eq .ActiveNav "organizacija"}}active{{end}}">
+                {{icon "building"}} Organizacija obrane
+              </a>
               <a href="/sections" class="nav-dropdown-item {{if eq .ActiveNav "sections"}}active{{end}}">
                 {{icon "waves"}} {{term "podrucja"}} i dionice
               </a>
