@@ -38,7 +38,7 @@ var RoleCatalog = []RoleDef{
 	{RoleSectorAreaDeputy, RoleGroupLevel2, "Zamjenik rukovoditelja sektora za branjeno područje", "imenovanje s razine 2: prava rukovoditelja sektora, ali u okviru svog branjenog područja; u pravilu ista osoba kao rukovoditelj branjenog područja"},
 	{RoleCopLeader, RoleGroupLevel2, "Voditelj Centra obrane od poplava", "vodi centar obrane po nalogu rukovoditelja sektora: vodi evidenciju u programu, piše izvješća, koordinira područja i djelatnike; upravlja sektorom"},
 	{RoleCopDeputy, RoleGroupLevel2, "Zamjenik voditelja Centra obrane od poplava", "zamjenjuje voditelja centra u istom poslu; ista prava"},
-	{RoleOperator, RoleGroupLevel2, "Dežurni operater u COP-u", "dežura u centru; upisuje očitanja i dnevnike u dosegu zaduženja"},
+	{RoleOperator, RoleGroupLevel2, "Dežurni operater u COP-u", "privremena dužnost za vrijeme aktivne obrane: dežura u centru, prima očitanja i vodi dnevnik u dosegu zaduženja; upisuje se kao privremena, s rokom"},
 	{RoleAreaLeader, RoleGroupLevel3, "Rukovoditelj branjenog područja", "vodi obranu jednog branjenog područja; upravlja područjem i njegovim dionicama"},
 	{RoleAreaDeputy, RoleGroupLevel3, "Zamjenik rukovoditelja branjenog područja", "zamjenjuje rukovoditelja područja; ista prava"},
 	{RoleContractOfficerA2, RoleGroupLevel3, "Ovlaštenik za praćenje ugovora programa usluga A2", "prati ugovor održavanja u području; upravlja područjem"},
