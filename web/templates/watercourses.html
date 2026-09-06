@@ -86,7 +86,7 @@
       {{if or .LengthKm .BasinKm2 .AvgFlowM3S .Mouth}}
       <dl class="reg-facts">
         {{if .LengthKm}}<div><dt>Duljina</dt><dd>{{brojHRd .LengthKm 0}} km</dd></div>{{end}}
-        {{if .BasinKm2}}<div><dt>Porječje</dt><dd>{{brojHRd .BasinKm2 0}} km²</dd></div>{{end}}
+        {{if .BasinKm2}}<div><dt>Površina sliva</dt><dd>{{brojHRd .BasinKm2 0}} km²</dd></div>{{end}}
         {{if .AvgFlowM3S}}<div><dt>Protok</dt><dd>{{brojHRd .AvgFlowM3S 0}} m³/s</dd></div>{{end}}
         {{if .Mouth}}<div><dt>Ušće</dt><dd>{{.Mouth}}</dd></div>{{end}}
       </dl>
@@ -106,11 +106,6 @@
 
 {{template "pager" .Pager}}
 
-<p class="page-desc">
-  Opisni podaci dijela voda (duljina, porječje, protok, izvor, ušće) potječu s hrvatske Wikipedije,
-  suradnici Wikipedije, <a href="https://creativecommons.org/licenses/by-sa/4.0/deed.hr" target="_blank" rel="noopener">CC BY-SA 4.0</a>;
-  takvi zapisi nose oznaku podrijetla „Wikipedija“ i vežu na izvorni članak.
-</p>
 <p class="page-desc">
   Vode istog imena su različita vodna tijela — <em>potok Karašica (Baranja)</em> nije
   <em>rijeka Karašica (miholjačka)</em>. Kad naziv iz dokumentacije dionice odgovara objema,

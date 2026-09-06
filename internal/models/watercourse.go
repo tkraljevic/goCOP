@@ -28,6 +28,7 @@ type Watercourse struct {
 	Source     string   `json:"source,omitempty"`     // izvor
 	Mouth      string   `json:"mouth,omitempty"`      // ušće
 	FlowsInto  string   `json:"flows_into,omitempty"` // ulijeva se u
+	Notes      string   `json:"notes,omitempty"`      // napomena i atribucija izvora
 
 	// Izvedeno pri čitanju
 	SectionCount int `json:"section_count"`
@@ -67,7 +68,7 @@ func (w Watercourse) WikiURL() string {
 	if w.WikiSlug == "" {
 		return ""
 	}
-	return "https://hr.wikipedia.org/wiki/" + strings.ReplaceAll(w.OfficialName, " ", "_")
+	return "https://hr.wikipedia.org/wiki/" + strings.ReplaceAll(w.WikiSlug, " ", "_")
 }
 
 // IsFirstOrder govori je li vodno tijelo na popisu voda I. reda
@@ -100,7 +101,7 @@ func (w Watercourse) Summary() string {
 		parts = append(parts, fmt.Sprintf("%.0f km", *w.LengthKm))
 	}
 	if w.BasinKm2 != nil {
-		parts = append(parts, fmt.Sprintf("porječje %.0f km²", *w.BasinKm2))
+		parts = append(parts, fmt.Sprintf("površina sliva %.0f km²", *w.BasinKm2))
 	}
 	if w.AvgFlowM3S != nil {
 		parts = append(parts, fmt.Sprintf("prosječni protok %.0f m³/s", *w.AvgFlowM3S))

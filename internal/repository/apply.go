@@ -178,16 +178,16 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		}
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO watercourses (code, official_name, name, kind, category, subcategory, wiki_slug, origin,
-				length_km, basin_km2, avg_flow_m3s, source, mouth, flows_into)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				length_km, basin_km2, avg_flow_m3s, source, mouth, flows_into, notes)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT(code) DO UPDATE SET
 				official_name = excluded.official_name, name = excluded.name, kind = excluded.kind,
 				category = excluded.category, subcategory = excluded.subcategory, wiki_slug = excluded.wiki_slug,
 				origin = excluded.origin, length_km = excluded.length_km, basin_km2 = excluded.basin_km2,
 				avg_flow_m3s = excluded.avg_flow_m3s, source = excluded.source, mouth = excluded.mouth,
-				flows_into = excluded.flows_into
+				flows_into = excluded.flows_into, notes = excluded.notes
 		`, w.Code, w.OfficialName, w.Name, w.Kind, w.Category, w.Subcategory, w.WikiSlug, w.Origin,
-			w.LengthKm, w.BasinKm2, w.AvgFlowM3S, w.Source, w.Mouth, w.FlowsInto)
+			w.LengthKm, w.BasinKm2, w.AvgFlowM3S, w.Source, w.Mouth, w.FlowsInto, w.Notes)
 		return err
 
 	case EntityMaintainedWaters:
