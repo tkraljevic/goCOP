@@ -30,7 +30,7 @@ func InitSchema(database *sql.DB) error {
 			direct_to_sector INTEGER NOT NULL DEFAULT 0
 		);`,
 
-		// Ugovorni izvođači i gdje rade (sektor ili područje); putuju razmjenom
+		// Licencirane firme i gdje rade (sektor ili područje); putuju razmjenom
 		`CREATE TABLE IF NOT EXISTS contractors (
 			id TEXT PRIMARY KEY,
 			name TEXT NOT NULL,

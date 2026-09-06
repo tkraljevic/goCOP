@@ -1,22 +1,22 @@
 {{template "base.html" .}}
 
-{{define "title"}}goCOP — Ugovorni izvođači{{end}}
+{{define "title"}}goCOP — Licencirane firme{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/registri">Registri</a> › Ugovorni izvođači</div>
+<div class="breadcrumb"><a href="/registri">Registri</a> › Licencirane firme</div>
 
 <div class="page-header">
   <div>
-    <h1 class="page-title">{{icon "wrench"}} Ugovorni izvođači</h1>
+    <h1 class="page-title">{{icon "wrench"}} Licencirane firme</h1>
     <p class="page-desc">
-      Licencirane pravne osobe koje po ugovoru rade održavanje i obranu; natječaj svake četiri godine. Jedno
-      {{terml "podrucje"}} smije imati više izvođača, a udružene firme se upisuju kao zajednica ili svaka posebno.
+      Pravne osobe s licencijom koje po ugovoru rade održavanje i obranu; natječaj svake četiri godine. Jedno
+      {{terml "podrucje"}} smije imati više firmi, a udružene se upisuju kao zajednica ili svaka posebno.
       Pregled vidi svatko s registrima; unos je administratorov.
     </p>
   </div>
   <div class="detail-actions" style="display:flex; gap:0.4rem; align-items:flex-start;">
-    {{if .Contractors}}<a href="/izvodjaci.csv" class="btn btn-secondary" title="Izvoz u CSV (Excel)">{{icon "download"}} CSV</a>{{end}}
-    {{if and .Permissions .Permissions.IsGlobalAdmin .Sectors}}<a href="/izvodjaci/new" class="btn btn-primary">{{icon "plus"}} Novi izvođač</a>{{end}}
+    {{if .Contractors}}<a href="/firme.csv" class="btn btn-secondary" title="Izvoz u CSV (Excel)">{{icon "download"}} CSV</a>{{end}}
+    {{if and .Permissions .Permissions.IsGlobalAdmin .Sectors}}<a href="/firme/new" class="btn btn-primary">{{icon "plus"}} Nova firma</a>{{end}}
   </div>
 </div>
 
@@ -38,8 +38,8 @@
       <td>{{if .Active}}<span class="badge badge-active">aktivan</span>{{else}}<span class="badge badge-inactive">neaktivan</span>{{end}}</td>
       {{if and $.Permissions $.Permissions.IsGlobalAdmin}}
       <td style="white-space:nowrap; text-align:right;">
-        <a href="/izvodjaci/{{.ID}}/edit" class="btn btn-sm btn-secondary" title="Uredi">{{icon "pencil"}}</a>
-        <form method="POST" action="/izvodjaci/delete" onsubmit="return confirm('Obrisati izvođača {{.Name}}? Za povijest je bolje označiti ga neaktivnim.')" style="display:inline;">
+        <a href="/firme/{{.ID}}/edit" class="btn btn-sm btn-secondary" title="Uredi">{{icon "pencil"}}</a>
+        <form method="POST" action="/firme/delete" onsubmit="return confirm('Obrisati firmu {{.Name}}? Za povijest je bolje označiti je neaktivnom.')" style="display:inline;">
           <input type="hidden" name="id" value="{{.ID}}"><button type="submit" class="btn btn-sm btn-secondary" title="Obriši">{{icon "trash"}}</button>
         </form>
       </td>
@@ -51,7 +51,7 @@
 </div></div>
 {{else}}
 <div class="reg-empty" style="padding:2rem;">
-  Još nema nijednog izvođača. {{if and .Permissions .Permissions.IsGlobalAdmin}}{{if .Sectors}}Upišite prvoga, pa ga vežite na {{terml "podrucja"}} na kojima radi.{{else}}Prvo upišite ustroj: {{terml "sektori"}} i {{terml "podrucja"}}.{{end}}{{else}}Upisuje ih globalni administrator.{{end}}
+  Još nema nijedne firme. {{if and .Permissions .Permissions.IsGlobalAdmin}}{{if .Sectors}}Upišite prvu, pa je vežite na {{terml "podrucja"}} na kojima radi.{{else}}Prvo upišite ustroj: {{terml "sektori"}} i {{terml "podrucja"}}.{{end}}{{else}}Upisuje ih globalni administrator.{{end}}
 </div>
 {{end}}
 {{end}}

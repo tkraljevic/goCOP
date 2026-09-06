@@ -46,7 +46,7 @@
           {{if .Sees "registri"}}
           <div class="nav-group">
             <button type="button" class="nav-link nav-group-btn
-                {{if or (eq .ActiveNav "registers") (eq .ActiveNav "organizacija") (eq .ActiveNav "sections") (eq .ActiveNav "territories") (eq .ActiveNav "stations") (eq .ActiveNav "watercourses") (eq .ActiveNav "structures") (eq .ActiveNav "izvodjaci") (eq .ActiveNav "maintenance")}}active{{end}}"
+                {{if or (eq .ActiveNav "registers") (eq .ActiveNav "organizacija") (eq .ActiveNav "sections") (eq .ActiveNav "territories") (eq .ActiveNav "stations") (eq .ActiveNav "watercourses") (eq .ActiveNav "structures") (eq .ActiveNav "firme") (eq .ActiveNav "maintenance")}}active{{end}}"
                 aria-haspopup="true" aria-expanded="false" onclick="toggleNavGroup(event)">
               {{icon "book-open"}} Registri <span class="nav-caret">▾</span>
             </button>
@@ -69,8 +69,8 @@
               <a href="/watercourses" class="nav-dropdown-item {{if eq .ActiveNav "watercourses"}}active{{end}}">
                 {{icon "droplet"}} Vodotoci i vodna tijela
               </a>
-              <a href="/izvodjaci" class="nav-dropdown-item {{if eq .ActiveNav "izvodjaci"}}active{{end}}">
-                {{icon "wrench"}} Ugovorni izvođači
+              <a href="/firme" class="nav-dropdown-item {{if eq .ActiveNav "firme"}}active{{end}}">
+                {{icon "wrench"}} Licencirane firme
               </a>
               <a href="/odrzavanje" class="nav-dropdown-item {{if eq .ActiveNav "maintenance"}}active{{end}}">
                 {{icon "wrench"}} Održavanje
