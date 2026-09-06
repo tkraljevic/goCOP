@@ -1,0 +1,57 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Ugovorni izvođači{{end}}
+
+{{define "content"}}
+<div class="breadcrumb"><a href="/registri">Registri</a> › Ugovorni izvođači</div>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "wrench"}} Ugovorni izvođači</h1>
+    <p class="page-desc">
+      Licencirane pravne osobe koje po ugovoru rade održavanje i obranu; natječaj svake četiri godine. Jedno
+      {{terml "podrucje"}} smije imati više izvođača, a udružene firme se upisuju kao zajednica ili svaka posebno.
+      Pregled vidi svatko s registrima; unos je administratorov.
+    </p>
+  </div>
+  <div class="detail-actions" style="display:flex; gap:0.4rem; align-items:flex-start;">
+    {{if .Contractors}}<a href="/izvodjaci.csv" class="btn btn-secondary" title="Izvoz u CSV (Excel)">{{icon "download"}} CSV</a>{{end}}
+    {{if and .Permissions .Permissions.IsGlobalAdmin .Sectors}}<a href="/izvodjaci/new" class="btn btn-primary">{{icon "plus"}} Novi izvođač</a>{{end}}
+  </div>
+</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
+
+{{if .Contractors}}
+<div class="table-card"><div class="table-responsive">
+  <table class="data-table">
+    <thead><tr><th>Naziv</th><th>OIB</th><th>Kontakt</th><th>Osoba za obranu</th><th>Gdje radi</th><th>Stanje</th>{{if and .Permissions .Permissions.IsGlobalAdmin}}<th></th>{{end}}</tr></thead>
+    <tbody>
+    {{range .Contractors}}
+    <tr>
+      <td><strong>{{.Name}}</strong>{{if .Address}}<div class="reading-meta">{{.Address}}</div>{{end}}{{if .Notes}}<div class="form-help" style="margin:0.2rem 0 0;">{{.Notes}}</div>{{end}}</td>
+      <td class="mono">{{.OIB}}</td>
+      <td class="reading-meta" style="white-space:nowrap;">{{if .Phone}}<a href="tel:{{.Phone}}">{{.Phone}}</a>{{end}}{{if and .Phone .Email}}<br>{{end}}{{if .Email}}<a href="mailto:{{.Email}}">{{.Email}}</a>{{end}}</td>
+      <td>{{.Contact}}</td>
+      <td>{{range .Assignments}}<span class="reg-chip">{{.Where}}</span> {{end}}</td>
+      <td>{{if .Active}}<span class="badge badge-active">aktivan</span>{{else}}<span class="badge badge-inactive">neaktivan</span>{{end}}</td>
+      {{if and $.Permissions $.Permissions.IsGlobalAdmin}}
+      <td style="white-space:nowrap; text-align:right;">
+        <a href="/izvodjaci/{{.ID}}/edit" class="btn btn-sm btn-secondary" title="Uredi">{{icon "pencil"}}</a>
+        <form method="POST" action="/izvodjaci/delete" onsubmit="return confirm('Obrisati izvođača {{.Name}}? Za povijest je bolje označiti ga neaktivnim.')" style="display:inline;">
+          <input type="hidden" name="id" value="{{.ID}}"><button type="submit" class="btn btn-sm btn-secondary" title="Obriši">{{icon "trash"}}</button>
+        </form>
+      </td>
+      {{end}}
+    </tr>
+    {{end}}
+    </tbody>
+  </table>
+</div></div>
+{{else}}
+<div class="reg-empty" style="padding:2rem;">
+  Još nema nijednog izvođača. {{if and .Permissions .Permissions.IsGlobalAdmin}}{{if .Sectors}}Upišite prvoga, pa ga vežite na {{terml "podrucja"}} na kojima radi.{{else}}Prvo upišite ustroj: {{terml "sektori"}} i {{terml "podrucja"}}.{{end}}{{else}}Upisuje ih globalni administrator.{{end}}
+</div>
+{{end}}
+{{end}}

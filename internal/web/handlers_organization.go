@@ -20,15 +20,17 @@ import (
 // ostalo (ovlasti, dionice, zaduženja) veže se na njih.
 
 type OrgHandler struct {
-	org        *service.OrgService
-	tmplList   *template.Template
-	tmplSector *template.Template
-	tmplArea   *template.Template
-	tmplContr  *template.Template
+	org           *service.OrgService
+	tmplList      *template.Template
+	tmplSector    *template.Template
+	tmplArea      *template.Template
+	tmplContr     *template.Template
+	tmplContrList *template.Template
 }
 
-func NewOrgHandler(org *service.OrgService, list, sector, area, contractor *template.Template) *OrgHandler {
-	return &OrgHandler{org: org, tmplList: list, tmplSector: sector, tmplArea: area, tmplContr: contractor}
+func NewOrgHandler(org *service.OrgService, list, sector, area, contractor, contractors *template.Template) *OrgHandler {
+	return &OrgHandler{org: org, tmplList: list, tmplSector: sector, tmplArea: area,
+		tmplContr: contractor, tmplContrList: contractors}
 }
 
 // SectorView je sektor sa svojim branjenim područjima i izvođačima cijelog sektora
@@ -90,7 +92,6 @@ func (h *OrgHandler) ShowOrganization(w http.ResponseWriter, r *http.Request) {
 	areas, _ := h.org.ListAreas(ctx, "")
 	data.TotalAreas = len(areas)
 	idx, _ := h.org.ContractorIndex(ctx)
-	data.Contractors, _ = h.org.ListContractors(ctx)
 	bySector := map[string][]AreaView{}
 	known := map[string]bool{}
 	for _, s := range sectors {
@@ -332,6 +333,21 @@ func (h *OrgHandler) HandleImportCSV(w http.ResponseWriter, r *http.Request) {
 	redirectWith(w, r, "/organizacija", "success", msg)
 }
 
+// ShowContractors je registar izvođača kao vlastita stranica pod Registrima
+func (h *OrgHandler) ShowContractors(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	data := h.pageData(r)
+	data.ActiveNav = "izvodjaci"
+	data.Contractors, _ = h.org.ListContractors(ctx)
+	sectors, _ := h.org.ListSectors(ctx)
+	for _, s := range sectors {
+		data.Sectors = append(data.Sectors, SectorView{Sector: s})
+	}
+	if err := h.tmplContrList.ExecuteTemplate(w, "izvodjaci.html", data); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
 // ExportContractorsCSV daje registar izvođača kao CSV
 func (h *OrgHandler) ExportContractorsCSV(w http.ResponseWriter, r *http.Request) {
 	list, err := h.org.ListContractors(r.Context())
@@ -358,6 +374,7 @@ func (h *OrgHandler) ExportContractorsCSV(w http.ResponseWriter, r *http.Request
 func (h *OrgHandler) ShowContractorForm(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	data := h.pageData(r)
+	data.ActiveNav = "izvodjaci"
 	if !h.requireAdmin(w, data) {
 		return
 	}
@@ -412,15 +429,15 @@ func (h *OrgHandler) HandleSaveContractor(w http.ResponseWriter, r *http.Request
 			where = append(where, models.ContractorAssignment{AreaID: id})
 		}
 	}
-	back := "/organizacija/izvodjaci/new"
+	back := "/izvodjaci/new"
 	if c.ID != "" {
-		back = "/organizacija/izvodjaci/" + c.ID + "/edit"
+		back = "/izvodjaci/" + c.ID + "/edit"
 	}
 	if err := h.org.SaveContractor(r.Context(), perms, c, where); err != nil {
 		redirectWith(w, r, back, "error", err.Error())
 		return
 	}
-	redirectWith(w, r, "/organizacija#izvodjaci", "success", "Izvođač "+c.Name+" je spremljen.")
+	redirectWith(w, r, "/izvodjaci", "success", "Izvođač "+c.Name+" je spremljen.")
 }
 
 // HandleDeleteContractor briše izvođača
@@ -431,10 +448,10 @@ func (h *OrgHandler) HandleDeleteContractor(w http.ResponseWriter, r *http.Reque
 	}
 	perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
 	if err := h.org.DeleteContractor(r.Context(), perms, r.FormValue("id")); err != nil {
-		redirectWith(w, r, "/organizacija#izvodjaci", "error", err.Error())
+		redirectWith(w, r, "/izvodjaci", "error", err.Error())
 		return
 	}
-	redirectWith(w, r, "/organizacija#izvodjaci", "success", "Izvođač je obrisan.")
+	redirectWith(w, r, "/izvodjaci", "success", "Izvođač je obrisan.")
 }
 
 // roleRow je jedna uloga na stranici organizacije: zadani naziv, naziv
