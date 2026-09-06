@@ -30,6 +30,11 @@
     <div>
       <div class="reading-meta">Razina 1</div>
       <h2 style="margin:0; display:flex; align-items:center; gap:0.6rem;"><img src="{{logo}}" alt="" style="max-height:40px; max-width:140px;">{{.Terms.OrgName}}</h2>
+      {{if or .Terms.OrgLegalForm .Terms.OrgRegistryNo .Terms.OrgTaxID}}
+      <div class="reading-meta" style="margin-top:0.25rem;">
+        {{.Terms.OrgLegalForm}}{{if .Terms.OrgRegistryNo}} · Matični broj: <span class="mono">{{.Terms.OrgRegistryNo}}</span>{{end}}{{if .Terms.OrgTaxID}} · OIB: <span class="mono">{{.Terms.OrgTaxID}}</span>{{end}}
+      </div>
+      {{end}}
       <div class="reading-meta" style="margin-top:0.25rem;">
         {{.Terms.Level1Unit}}{{if .Terms.Level1UnitName}}: {{.Terms.Level1UnitName}}{{end}}{{if .Terms.Level1Address}} · {{.Terms.Level1Address}}{{end}}
         {{if .Terms.Level1Phone}} · <a href="tel:{{.Terms.Level1Phone}}">{{.Terms.Level1Phone}}</a>{{end}}{{if .Terms.Level1Email}} · <a href="mailto:{{.Terms.Level1Email}}">{{.Terms.Level1Email}}</a>{{end}}
@@ -129,6 +134,11 @@
       <div class="form-group"><label class="form-label" for="t-l1name">Puni naziv jedinice</label><input type="text" id="t-l1name" name="level1_unit_name" class="form-control" value="{{.Terms.Level1UnitName}}" placeholder="npr. Direkcija Zagreb"></div>
     </div>
     <div class="form-row">
+      <div class="form-group"><label class="form-label" for="t-legal">Pravni oblik</label><input type="text" id="t-legal" name="org_legal_form" class="form-control" value="{{.Terms.OrgLegalForm}}" placeholder="npr. pravna osoba za upravljanje vodama"></div>
+      <div class="form-group"><label class="form-label" for="t-regno">Matični broj</label><input type="text" id="t-regno" name="org_registry_no" class="form-control" value="{{.Terms.OrgRegistryNo}}" inputmode="numeric"></div>
+      <div class="form-group"><label class="form-label" for="t-oib">OIB / porezni broj</label><input type="text" id="t-oib" name="org_tax_id" class="form-control" value="{{.Terms.OrgTaxID}}" inputmode="numeric"></div>
+    </div>
+    <div class="form-row">
       <div class="form-group"><label class="form-label" for="t-l1addr">Adresa</label><input type="text" id="t-l1addr" name="level1_address" class="form-control" value="{{.Terms.Level1Address}}"></div>
       <div class="form-group"><label class="form-label" for="t-l1phone">Telefon</label><input type="tel" id="t-l1phone" name="level1_phone" class="form-control" value="{{.Terms.Level1Phone}}"></div>
       <div class="form-group"><label class="form-label" for="t-l1email">E-pošta</label><input type="email" id="t-l1email" name="level1_email" class="form-control" value="{{.Terms.Level1Email}}"></div>
@@ -200,7 +210,8 @@
   </form>
   {{else}}
   <dl class="reg-facts">
-    <div><dt>Razina 1</dt><dd>{{.Terms.OrgName}} · {{.Terms.Level1Unit}} · {{.Terms.Level1Center}} ({{.Terms.Level1CenterShort}})</dd></div>
+    <div><dt>Razina 1</dt><dd>{{.Terms.OrgName}}{{if .Terms.OrgLegalForm}}, {{.Terms.OrgLegalForm}}{{end}} · {{.Terms.Level1Unit}} · {{.Terms.Level1Center}} ({{.Terms.Level1CenterShort}})</dd></div>
+    {{if or .Terms.OrgRegistryNo .Terms.OrgTaxID}}<div><dt>Identifikatori</dt><dd>{{if .Terms.OrgRegistryNo}}Matični broj <span class="mono">{{.Terms.OrgRegistryNo}}</span>{{end}}{{if .Terms.OrgTaxID}} · OIB <span class="mono">{{.Terms.OrgTaxID}}</span>{{end}}</dd></div>{{end}}
     {{if .Terms.LoginInfo}}<div><dt>Prijava</dt><dd style="white-space:pre-line;">{{.Terms.LoginInfo}}</dd></div>{{end}}
     <div><dt>Razina 2</dt><dd>{{.Terms.Sector}} / {{.Terms.Sectors}} · {{.Terms.SectorOffice}} ({{.Terms.SectorOfficeShort}}) · {{.Terms.Center}} ({{.Terms.CenterShort}})</dd></div>
     <div><dt>Razina 3</dt><dd>{{.Terms.Area}} / {{.Terms.Areas}} ({{.Terms.AreaShort}}) · {{.Terms.AreaOffice}} ({{.Terms.AreaOfficeShort}}) · {{.Terms.Subcenter}}</dd></div>

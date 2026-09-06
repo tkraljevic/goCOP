@@ -25,6 +25,9 @@ type OrgTerms struct {
 
 	// razina 1: organizacija (nazivi i podaci)
 	OrgName           string `json:"org_name"`            // Hrvatske vode
+	OrgLegalForm      string `json:"org_legal_form"`      // pravna osoba za upravljanje vodama
+	OrgRegistryNo     string `json:"org_registry_no"`     // matični broj
+	OrgTaxID          string `json:"org_tax_id"`          // OIB ili porezni broj
 	Level1Unit        string `json:"level1_unit"`         // Direkcija
 	Level1UnitName    string `json:"level1_unit_name"`    // Direkcija Zagreb
 	Level1Address     string `json:"level1_address"`      // Ulica grada Vukovara 220, Zagreb
@@ -97,6 +100,7 @@ func (t OrgTerms) Filled() OrgTerms {
 	return OrgTerms{
 		ID:      TermsID,
 		OrgName: pick(t.OrgName, d.OrgName), Level1Unit: pick(t.Level1Unit, d.Level1Unit),
+		OrgLegalForm: strings.TrimSpace(t.OrgLegalForm), OrgRegistryNo: strings.TrimSpace(t.OrgRegistryNo), OrgTaxID: strings.TrimSpace(t.OrgTaxID),
 		Level1UnitName: strings.TrimSpace(t.Level1UnitName), Level1Address: strings.TrimSpace(t.Level1Address),
 		Level1Phone: strings.TrimSpace(t.Level1Phone), Level1Email: strings.TrimSpace(t.Level1Email),
 		Level1Center: pick(t.Level1Center, d.Level1Center), Level1CenterShort: pick(t.Level1CenterShort, d.Level1CenterShort),
