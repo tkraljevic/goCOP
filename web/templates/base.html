@@ -32,7 +32,7 @@
           {{if .CurrentUser}}
           <div class="nav-mobile-user">
             <span class="user-name">{{.CurrentUser.FullName}}</span>
-            <span class="user-role-label">{{roleLabel .CurrentUser.PrimaryRole}}</span>
+            <span class="user-role-label">{{roleLabel .CurrentUser.PrimaryRole}}{{if and .CurrentUser.IsGlobalAdmin .CurrentUser.PrimaryDuty}} · administrator{{end}}</span>
           </div>
           {{end}}
           <a href="/" class="nav-link {{if eq .ActiveNav "dashboard"}}active{{end}}">{{icon "house"}} Početna</a>
@@ -94,7 +94,7 @@
         <div class="user-profile">
           <div class="user-info-text">
             <span class="user-name">{{.CurrentUser.FullName}}</span>
-            <span class="user-role-label">{{roleLabel .CurrentUser.PrimaryRole}} · {{.CurrentUser.OrgName}}</span>
+            <span class="user-role-label">{{roleLabel .CurrentUser.PrimaryRole}}{{if and .CurrentUser.IsGlobalAdmin .CurrentUser.PrimaryDuty}} · administrator{{end}} · {{.CurrentUser.OrgName}}</span>
           </div>
           <a href="/profile" class="btn btn-secondary btn-sm">{{icon "user"}} Moj profil</a>
           <a href="/profile#lozinka" class="btn btn-secondary btn-sm">{{icon "key-round"}} Lozinka</a>

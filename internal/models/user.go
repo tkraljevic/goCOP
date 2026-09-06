@@ -204,13 +204,15 @@ func (u *User) IsFieldUser() bool {
 	return false
 }
 
-// PrimaryRole vraća najvišu ulogu korisnika
+// PrimaryRole je uloga koja se pokazuje uz ime: primarna dužnost, jer je
+// administracija programa zastavica na računu, a ne mjesto u obrani. Tko
+// nema dužnosti, a administrira, pokazuje se kao administrator.
 func (u *User) PrimaryRole() Role {
-	if u.IsGlobalAdmin {
-		return RoleGlobalAdmin
-	}
 	if pd := u.PrimaryDuty(); pd != nil {
 		return pd.Role
+	}
+	if u.IsGlobalAdmin {
+		return RoleGlobalAdmin
 	}
 	return RoleViewer
 }
