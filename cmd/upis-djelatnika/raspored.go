@@ -21,6 +21,7 @@ type zaduzenje struct {
 }
 
 var (
+	reZaSektor      = regexp.MustCompile(`za sektor ([a-f])`)
 	reRaspOdjeljak  = regexp.MustCompile(`^##\s+(.*)$`)
 	rePodOdjeljak   = regexp.MustCompile(`^###\s+(.*)$`)
 	reBrojPodrucja  = regexp.MustCompile(`Branjeno područje (\d+)`)
@@ -36,6 +37,16 @@ var upraveSektora = map[string]models.Role{
 	"zamjenik voditelja cop-a":                  models.RoleCopDeputy,
 	"rukovoditelj branjenog područja":           models.RoleAreaLeader,
 	"zamjenik rukovoditelja branjenog područja": models.RoleAreaDeputy,
+
+	// razina države, iz rasporeda za Republiku Hrvatsku
+	"glavni rukovoditelj obrane od poplava i voditelj glavnog centra obrane od poplava": models.RoleNationalLeader,
+	"zamjenik glavnog rukovoditelja obrane od poplava":                                  models.RoleNationalDeputy,
+	"zamjenik voditelja glavnog centra obrane od poplava":                               models.RoleMainCenterDeputy,
+}
+
+// dvostruke su dužnosti koje jedan redak rasporeda nosi uz glavnu ulogu
+var dvostruke = map[string]models.Role{
+	"glavni rukovoditelj obrane od poplava i voditelj glavnog centra obrane od poplava": models.RoleMainCenterLeader,
 }
 
 // terenskeUloge prevodi popise terenskog osoblja
@@ -117,7 +128,15 @@ func citajRaspored(tekst, sektor string) []zaduzenje {
 			out = append(out, zaduzenje{Osoba: ime, Uloga: models.RoleSectorAreaDeputy, SektorID: sektor, Podrucje: bp, Naslov: strings.TrimSpace(c[0])})
 			continue
 		}
+		// "Zamjenik Glavnog rukovoditelja za SEKTOR B" nosi svoj sektor
+		if m := reZaSektor.FindStringSubmatch(duznost); m != nil {
+			out = append(out, zaduzenje{Osoba: ime, Uloga: models.RoleSectorMainDeputy, SektorID: strings.ToUpper(m[1]), Naslov: strings.TrimSpace(c[0])})
+			continue
+		}
 		if uloga, ok := upraveSektora[duznost]; ok {
+			out = append(out, zaduzenje{Osoba: ime, Uloga: uloga, SektorID: sektor, Podrucje: podrucje, Naslov: strings.TrimSpace(c[0])})
+		}
+		if uloga, ok := dvostruke[duznost]; ok {
 			out = append(out, zaduzenje{Osoba: ime, Uloga: uloga, SektorID: sektor, Podrucje: podrucje, Naslov: strings.TrimSpace(c[0])})
 		}
 		// dužnosti pravne osobe preskaču se: te ljude imenik Hrvatskih voda ne vodi
