@@ -437,8 +437,8 @@ func seedOrganization(database *sql.DB) error {
 		}
 	}
 	for _, a := range org.Areas {
-		if _, err := tx.Exec(`INSERT INTO areas (id, sector_id, name, vgi_name, subcenter, contractor_name) VALUES (?, ?, ?, ?, ?, ?)
-			ON CONFLICT(id) DO NOTHING`, a.ID, a.SectorID, a.Name, a.VgiName, a.Subcenter, a.ContractorName); err != nil {
+		if _, err := tx.Exec(`INSERT INTO areas (id, sector_id, name, vgi_name, subcenter, contractor_name, direct_to_sector) VALUES (?, ?, ?, ?, ?, ?, ?)
+			ON CONFLICT(id) DO NOTHING`, a.ID, a.SectorID, a.Name, a.VgiName, a.Subcenter, a.ContractorName, boolInt(a.DirectToSector)); err != nil {
 			return fmt.Errorf("branjeno područje %d: %w", a.ID, err)
 		}
 	}
