@@ -91,6 +91,12 @@ type Station struct {
 	ZeroDatumSurveyDate   string   `json:"zero_datum_survey_date,omitempty"`
 	ZeroDatumDocumentDate string   `json:"zero_datum_document_date,omitempty"`
 
+	// Extremes su zabilježeni ekstremi letve: najviši i najniži vodostaj s
+	// datumom. Vode se odvojeno od pragova jer nisu svi izmjereni na ovoj
+	// letvi — Batina najviši vodostaj iz 1965. nema izmjeren nego preračunat iz
+	// Bezdana, a prikazan kao mjerenje tvrdio bi nešto što se nije dogodilo.
+	Extremes []StationExtreme `json:"extremes,omitempty"`
+
 	// ZeroDatumHistory su promjene kote nule kroz vrijeme, od najstarije.
 	// Vodostaji u bazi svi su svedeni na zadnju kotu, pa se ne preračunavaju;
 	// povijest služi da se zna što je koja stara evidencija zapravo mjerila i
@@ -296,6 +302,68 @@ func (s Station) ZeroDatumAt(day string) *ZeroDatumChange {
 		c := &s.ZeroDatumHistory[i]
 		if c.ValidFrom == "" || c.ValidFrom <= day {
 			out = c
+		}
+	}
+	return out
+}
+
+// Kvaliteta zabilježene vrijednosti: je li izmjerena na ovoj letvi ili
+// dobivena računom iz druge postaje.
+const (
+	QualityMeasured      = "IZMJERENO"
+	QualityReconstructed = "REKONSTRUIRANO"
+	QualityUncertain     = "SUMNJIVO"
+)
+
+// StationExtreme je zabilježeni najviši ili najniži vodostaj letve.
+type StationExtreme struct {
+	Kind    string `json:"kind"` // MAX ili MIN
+	LevelCm *int   `json:"level_cm,omitempty"`
+	OnDate  string `json:"on_date,omitempty"` // YYYY-MM-DD ili YYYY kad se zna samo godina
+	Quality string `json:"quality,omitempty"` // Quality*
+	Source  string `json:"source,omitempty"`  // odakle podatak: DHMZ, postaja Bezdan …
+	Method  string `json:"method,omitempty"`  // kako je dobiven, kad nije izmjeren
+	Note    string `json:"note,omitempty"`
+}
+
+const (
+	ExtremeMax = "MAX"
+	ExtremeMin = "MIN"
+)
+
+// IsMeasured govori smije li se vrijednost predstaviti kao mjerenje ove letve.
+// Prazna kvaliteta znači izmjereno: takvi su zapisi zatečeni prije nego što se
+// razlika počela bilježiti.
+func (e StationExtreme) IsMeasured() bool {
+	return e.Quality == "" || e.Quality == QualityMeasured
+}
+
+// Label je vrijednost s predznakom, kako se vodostaj i inače piše.
+func (e StationExtreme) Label() string {
+	if e.LevelCm == nil {
+		return "—"
+	}
+	return fmt.Sprintf("%+d cm", *e.LevelCm)
+}
+
+// QualityLabel je kratko objašnjenje odakle vrijednost dolazi.
+func QualityLabel(q string) string {
+	switch q {
+	case QualityReconstructed:
+		return "rekonstruirano"
+	case QualityUncertain:
+		return "sumnjivo"
+	default:
+		return "izmjereno"
+	}
+}
+
+// ExtremesOf vraća ekstreme zadane vrste, redom kojim su upisani.
+func (s Station) ExtremesOf(kind string) []StationExtreme {
+	var out []StationExtreme
+	for _, e := range s.Extremes {
+		if e.Kind == kind {
+			out = append(out, e)
 		}
 	}
 	return out

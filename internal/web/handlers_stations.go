@@ -324,6 +324,7 @@ type stationForm struct {
 	ZeroDatumNew       string `json:"zero_datum_new"`
 	ZeroDatumNewSystem string `json:"zero_datum_new_system"`
 	ZeroDatumHistory   string `json:"zero_datum_history"` // JSON popis promjena kote, iz obrasca
+	Extremes           string `json:"extremes"`           // JSON popis ekstrema, iz obrasca
 	Prep               string `json:"prep"`
 	Regular            string `json:"regular"`
 	Emergency          string `json:"emergency"`
@@ -358,6 +359,7 @@ func decodeStationForm(r *http.Request) (stationForm, error) {
 	form.ZeroDatumNew = r.FormValue("zero_datum_new")
 	form.ZeroDatumNewSystem = r.FormValue("zero_datum_new_system")
 	form.ZeroDatumHistory = r.FormValue("zero_datum_history")
+	form.Extremes = r.FormValue("extremes")
 	form.Prep = r.FormValue("prep")
 	form.Regular = r.FormValue("regular")
 	form.Emergency = r.FormValue("emergency")
@@ -380,6 +382,7 @@ func (f stationForm) toStation() models.Station {
 		ZeroDatumNew:       parseOptionalFloat(f.ZeroDatumNew),
 		ZeroDatumNewSystem: strings.TrimSpace(f.ZeroDatumNewSystem),
 		ZeroDatumHistory:   parseZeroDatumHistory(f.ZeroDatumHistory),
+		Extremes:           parseExtremes(f.Extremes),
 		Prep:               parseThresholdInput(f.Prep),
 		Regular:            parseThresholdInput(f.Regular),
 		Emergency:          parseThresholdInput(f.Emergency),
@@ -448,5 +451,42 @@ func parseZeroDatumHistory(raw string) []models.ZeroDatumChange {
 		out = append(out, c)
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].ValidFrom < out[j].ValidFrom })
+	return out
+}
+
+// parseExtremes čita zabilježene ekstreme iz obrasca. Redak bez vodostaja i
+// bez datuma je prazan i preskače se.
+func parseExtremes(raw string) []models.StationExtreme {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || raw == "[]" {
+		return nil
+	}
+	var in []struct {
+		Kind    string `json:"kind"`
+		LevelCm string `json:"level_cm"`
+		OnDate  string `json:"on_date"`
+		Quality string `json:"quality"`
+		Source  string `json:"source"`
+		Method  string `json:"method"`
+	}
+	if err := json.Unmarshal([]byte(raw), &in); err != nil {
+		return nil
+	}
+	var out []models.StationExtreme
+	for _, r := range in {
+		e := models.StationExtreme{Kind: strings.ToUpper(strings.TrimSpace(r.Kind)),
+			OnDate: strings.TrimSpace(r.OnDate), Quality: strings.ToUpper(strings.TrimSpace(r.Quality)),
+			Source: strings.TrimSpace(r.Source), Method: strings.TrimSpace(r.Method)}
+		if n, err := strconv.Atoi(strings.TrimPrefix(strings.TrimSpace(r.LevelCm), "+")); err == nil {
+			e.LevelCm = &n
+		}
+		if e.Kind != models.ExtremeMin {
+			e.Kind = models.ExtremeMax
+		}
+		if e.LevelCm == nil && e.OnDate == "" {
+			continue
+		}
+		out = append(out, e)
+	}
 	return out
 }

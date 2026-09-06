@@ -20,6 +20,7 @@ type StationPageData struct {
 	Permissions          *models.UserPermissions
 	Station              models.Station
 	ZeroDatumHistoryJSON template.JS // promjene kote nule za obrazac, kao JS literal
+	ExtremesJSON         template.JS // zabilježeni ekstremi za obrazac
 	Sections             []models.Section
 	WaterRegistry        []models.Watercourse
 	CanEdit              bool
@@ -140,6 +141,10 @@ func (h *StationsHandler) ShowStationForm(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	data.ExtremesJSON = template.JS("[]")
+	if b, err := json.Marshal(data.Station.Extremes); err == nil && len(data.Station.Extremes) > 0 {
+		data.ExtremesJSON = template.JS(b)
+	}
 	data.ZeroDatumHistoryJSON = template.JS("[]")
 	if b, err := json.Marshal(data.Station.ZeroDatumHistory); err == nil && len(data.Station.ZeroDatumHistory) > 0 {
 		data.ZeroDatumHistoryJSON = template.JS(b)

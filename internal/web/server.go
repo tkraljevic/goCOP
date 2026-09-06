@@ -106,14 +106,15 @@ func templateFuncs() template.FuncMap {
 			}
 			return template.JS(data)
 		},
-		"bankLabel":   hydro.BankLabel,
-		"muniType":    models.MunicipalityTypeLabel,
-		"term":        func(key string) string { return models.Terms().Get(key) },
-		"terml":       func(key string) string { return models.Terms().Lower(key) },
-		"logo":        LogoURL,
-		"roleOptions": roleOptions,
-		"humanBytes":  humanBytes,
-		"km":          models.FormatKm,
+		"qualityLabel": models.QualityLabel,
+		"bankLabel":    hydro.BankLabel,
+		"muniType":     models.MunicipalityTypeLabel,
+		"term":         func(key string) string { return models.Terms().Get(key) },
+		"terml":        func(key string) string { return models.Terms().Lower(key) },
+		"logo":         LogoURL,
+		"roleOptions":  roleOptions,
+		"humanBytes":   humanBytes,
+		"km":           models.FormatKm,
 		"derefTime": func(t *time.Time) time.Time {
 			if t == nil {
 				return time.Time{}
