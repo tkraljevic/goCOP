@@ -3,7 +3,7 @@
 {{define "title"}}goCOP — {{if .IsEdit}}{{.Contractor.Name}}{{else}}Novi izvođač{{end}}{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/registri">Registri</a> › <a href="/organizacija">Organizacija obrane</a> › {{if .IsEdit}}{{.Contractor.Name}} › Uređivanje{{else}}Novi izvođač{{end}}</div>
+<div class="breadcrumb"><a href="/registri">Registri</a> › <a href="/izvodjaci">Ugovorni izvođači</a> › {{if .IsEdit}}{{.Contractor.Name}} › Uređivanje{{else}}Novi izvođač{{end}}</div>
 
 <div class="page-header">
   <div>
@@ -14,7 +14,7 @@
 
 {{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
 
-<form class="form-page" method="POST" action="/organizacija/izvodjaci/save">
+<form class="form-page" method="POST" action="/izvodjaci/save">
   {{if .IsEdit}}<input type="hidden" name="id" value="{{.Contractor.ID}}">{{end}}
   <div class="form-row">
     <div class="form-group">
@@ -76,7 +76,7 @@
   </div>
 
   <div class="form-actions">
-    <a href="/organizacija#izvodjaci" class="btn btn-secondary">Odustani</a>
+    <a href="/izvodjaci" class="btn btn-secondary">Odustani</a>
     <button type="submit" class="btn btn-primary">{{if .IsEdit}}Spremi izmjene{{else}}Upiši{{end}}</button>
   </div>
 </form>
