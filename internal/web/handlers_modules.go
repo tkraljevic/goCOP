@@ -36,8 +36,8 @@ type ModulesPageData struct {
 // matrixRoles su uloge u tablici, redom od vrha prema terenu (kao obrazac dužnosti)
 func matrixRoles() []models.Role {
 	var out []models.Role
-	for _, o := range roleOptions {
-		out = append(out, models.Role(o.Value))
+	for _, d := range models.RoleCatalog {
+		out = append(out, d.Role)
 	}
 	return out
 }

@@ -45,6 +45,7 @@ type OrgPageData struct {
 	Area           models.Area
 	SectorOptions  []models.Sector
 	Terms          models.OrgTerms
+	RoleRows       []roleRow // sudionici obrane s nazivima organizacije
 	IsEdit         bool
 	SuccessMessage string
 	ErrorMessage   string
@@ -59,7 +60,7 @@ func (h *OrgHandler) pageData(r *http.Request) OrgPageData {
 	return OrgPageData{
 		CurrentUser: currUser, Permissions: perms,
 		SuccessMessage: r.URL.Query().Get("success"), ErrorMessage: r.URL.Query().Get("error"),
-		ActiveNav: "organizacija", ViewAsBanner: viewBanner(r), Terms: models.Terms(),
+		ActiveNav: "organizacija", ViewAsBanner: viewBanner(r), Terms: models.Terms(), RoleRows: roleRows(),
 	}
 }
 
@@ -144,6 +145,22 @@ func (h *OrgHandler) ShowAreaForm(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// roleRow je jedna uloga na stranici organizacije: zadani naziv, naziv
+// organizacije i što uloga smije
+type roleRow struct {
+	Role, Group, Name, Custom, Label, Desc string
+}
+
+func roleRows() []roleRow {
+	t := models.Terms()
+	out := make([]roleRow, 0, len(models.RoleCatalog))
+	for _, d := range models.RoleCatalog {
+		out = append(out, roleRow{Role: string(d.Role), Group: d.Group, Name: d.Name,
+			Custom: t.RoleLabels[string(d.Role)], Label: d.Role.Label(), Desc: d.Desc})
+	}
+	return out
+}
+
 // readLogo čita učitani znak i prepoznaje mu vrstu; prima SVG, PNG, JPEG i WebP
 // do models.LogoMaxBytes
 func readLogo(file io.Reader, name string) (mime string, data []byte, err error) {
@@ -219,6 +236,10 @@ func (h *OrgHandler) HandleSaveTerms(w http.ResponseWriter, r *http.Request) {
 		Center: f("center"), CenterShort: f("center_short"),
 		Area: f("area"), Areas: f("areas"), AreaShort: f("area_short"), AreaOffice: f("area_office"), AreaOfficeShort: f("area_office_short"),
 		Subcenter: f("subcenter"),
+	}
+	t.RoleLabels = map[string]string{}
+	for _, d := range models.RoleCatalog {
+		t.RoleLabels[string(d.Role)] = f("role_" + string(d.Role))
 	}
 	if r.FormValue("logo_remove") == "1" {
 		t.LogoMime, t.Logo = "", nil

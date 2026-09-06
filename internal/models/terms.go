@@ -40,6 +40,9 @@ type OrgTerms struct {
 	Logo      []byte `json:"logo,omitempty"`      // sam znak, najviše LogoMaxBytes
 	LoginInfo string `json:"login_info"`          // upute ispod obrasca prijave
 
+	// nazivi sudionika obrane po šifri uloge; prazno = zadani naziv
+	RoleLabels map[string]string `json:"role_labels,omitempty"`
+
 	// razina 2: odjel sa sektorom
 	Sector            string `json:"sector"`              // Sektor
 	Sectors           string `json:"sectors"`             // Sektori
@@ -105,7 +108,22 @@ func (t OrgTerms) Filled() OrgTerms {
 		AreaOffice: pick(t.AreaOffice, d.AreaOffice), AreaOfficeShort: pick(t.AreaOfficeShort, d.AreaOfficeShort),
 		Subcenter: pick(t.Subcenter, d.Subcenter), UpdatedAt: t.UpdatedAt,
 		LogoMime: t.LogoMime, Logo: t.Logo, LoginInfo: strings.TrimSpace(t.LoginInfo),
+		RoleLabels: cleanLabels(t.RoleLabels),
 	}
+}
+
+// cleanLabels zadržava samo uloge koje program poznaje i nazive koji nisu prazni
+func cleanLabels(in map[string]string) map[string]string {
+	out := map[string]string{}
+	for _, d := range RoleCatalog {
+		if v := strings.TrimSpace(in[string(d.Role)]); v != "" && v != d.Name {
+			out[string(d.Role)] = v
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 // Get vraća naziv po ključu kakav se piše u predlošcima

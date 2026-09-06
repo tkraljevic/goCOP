@@ -176,6 +176,25 @@
       <div class="form-group"><label class="form-label" for="t-area-office-short">Kratica jedinice</label><input type="text" id="t-area-office-short" name="area_office_short" class="form-control" value="{{.Terms.AreaOfficeShort}}" placeholder="VGI"></div>
       <div class="form-group"><label class="form-label" for="t-subcenter">Centar</label><input type="text" id="t-subcenter" name="subcenter" class="form-control" value="{{.Terms.Subcenter}}" placeholder="Podcentar obrane"></div>
     </div>
+    <h3 style="font-size:0.95rem; margin:1rem 0 0.25rem;">Sudionici obrane</h3>
+    <p class="page-desc" style="margin-bottom:0.5rem;">
+      Uloge nose ovlasti u programu i ne mijenjaju se; naziv smijete zvati po svome. Prazno polje ostavlja zadani naziv.
+    </p>
+    <div class="table-card"><div class="table-responsive">
+      <table class="data-table">
+        <thead><tr><th>Skupina</th><th>Zadani naziv</th><th>Vaš naziv</th><th>Što smije</th></tr></thead>
+        <tbody>
+        {{range .RoleRows}}
+        <tr>
+          <td class="reading-meta">{{.Group}}</td>
+          <td>{{.Name}}</td>
+          <td><input type="text" name="role_{{.Role}}" class="form-control" value="{{.Custom}}" placeholder="{{.Name}}"></td>
+          <td class="reading-meta">{{.Desc}}</td>
+        </tr>
+        {{end}}
+        </tbody>
+      </table>
+    </div></div>
     <div class="form-help">Prazan naziv vraća zadani naziv Hrvatskih voda; podaci razine 1 (adresa, kontakti) smiju ostati prazni.</div>
     <div class="form-actions"><button type="submit" class="btn btn-primary">Spremi</button></div>
   </form>
@@ -185,6 +204,7 @@
     {{if .Terms.LoginInfo}}<div><dt>Prijava</dt><dd style="white-space:pre-line;">{{.Terms.LoginInfo}}</dd></div>{{end}}
     <div><dt>Razina 2</dt><dd>{{.Terms.Sector}} / {{.Terms.Sectors}} · {{.Terms.SectorOffice}} ({{.Terms.SectorOfficeShort}}) · {{.Terms.Center}} ({{.Terms.CenterShort}})</dd></div>
     <div><dt>Razina 3</dt><dd>{{.Terms.Area}} / {{.Terms.Areas}} ({{.Terms.AreaShort}}) · {{.Terms.AreaOffice}} ({{.Terms.AreaOfficeShort}}) · {{.Terms.Subcenter}}</dd></div>
+    <div><dt>Sudionici</dt><dd>{{range $i, $r := .RoleRows}}{{if $i}} · {{end}}{{$r.Label}}{{end}}</dd></div>
   </dl>
   {{end}}
 </section>

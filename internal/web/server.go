@@ -98,8 +98,14 @@ func NewServer(
 			}
 			return t.Format("02.01.2006")
 		},
-		"roleLabel": func(r models.Role) string {
-			return r.Label()
+		"roleLabel": func(r any) string {
+			switch v := r.(type) {
+			case models.Role:
+				return v.Label()
+			case string:
+				return models.Role(v).Label()
+			}
+			return ""
 		},
 		"orgLabel": func(o models.OrgType) string {
 			return o.Label()
@@ -119,13 +125,14 @@ func NewServer(
 			}
 			return template.JS(data)
 		},
-		"bankLabel":  hydro.BankLabel,
-		"muniType":   models.MunicipalityTypeLabel,
-		"term":       func(key string) string { return models.Terms().Get(key) },
-		"terml":      func(key string) string { return models.Terms().Lower(key) },
-		"logo":       LogoURL,
-		"humanBytes": humanBytes,
-		"km":         models.FormatKm,
+		"bankLabel":   hydro.BankLabel,
+		"muniType":    models.MunicipalityTypeLabel,
+		"term":        func(key string) string { return models.Terms().Get(key) },
+		"terml":       func(key string) string { return models.Terms().Lower(key) },
+		"logo":        LogoURL,
+		"roleOptions": roleOptions,
+		"humanBytes":  humanBytes,
+		"km":          models.FormatKm,
 		"derefTime": func(t *time.Time) time.Time {
 			if t == nil {
 				return time.Time{}
