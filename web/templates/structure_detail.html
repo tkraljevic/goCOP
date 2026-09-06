@@ -33,7 +33,7 @@
   <h2>{{icon "gauge"}} Podaci objekta</h2>
   <div class="reg-card" style="padding:1rem;">
     <dl class="reg-facts" style="font-size:0.9rem;">
-      <div><dt>Kota „0“ letve</dt><dd>{{if .Structure.ZeroDatum}}{{derefFloat .Structure.ZeroDatum 2}} m ({{.Structure.ZeroDatumSystem}}){{else}}<span style="color:var(--text-muted); font-weight:500;">nije upisana</span>{{end}}</dd></div>
+      <div><dt>Kota „0“ letve</dt><dd>{{if .Structure.ZeroDatum}}{{brojHRd .Structure.ZeroDatum 2}} m ({{.Structure.ZeroDatumSystem}}){{else}}<span style="color:var(--text-muted); font-weight:500;">nije upisana</span>{{end}}</dd></div>
       {{if .Structure.IsPumpingStation}}
       <div><dt>Kapacitet</dt><dd>{{if .Structure.CapacityText}}{{.Structure.CapacityText}} m³/s{{else}}<span style="color:var(--text-muted); font-weight:500;">—</span>{{end}}</dd></div>
       <div><dt>Vodostaj uključenja</dt><dd>{{if .Structure.StartText}}{{.Structure.StartText}} cm{{else}}<span style="color:var(--text-muted); font-weight:500;">—</span>{{end}}</dd></div>

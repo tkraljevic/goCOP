@@ -43,7 +43,7 @@
       <td class="id">{{.Number}}</td>
       <td style="font-size:8pt;">{{.KindLabel}}{{if .IsTask}}<br>{{.StatusLabel}}{{if .DueDate}}, rok {{.DueDate.Format "02.01.2006."}}{{end}}{{end}}</td>
       <td><strong>{{.LocationName}}{{if not .LocationName}}{{.SectionCode}}{{end}}</strong>{{if .Place}}<br>{{.Place}}{{end}}</td>
-      <td>{{if .WorkItemText}}{{.WorkItemText}}{{if .Text}}<br>{{end}}{{end}}{{.Text}}{{if .Hours}} ({{derefFloat .Hours 1}} h){{end}}{{if .Voided}}<br><em>STORNO ({{.VoidedBy}}): {{.VoidReason}}</em>{{end}}</td>
+      <td>{{if .WorkItemText}}{{.WorkItemText}}{{if .Text}}<br>{{end}}{{end}}{{.Text}}{{if .Hours}} ({{brojHRd .Hours 1}} h){{end}}{{if .Voided}}<br><em>STORNO ({{.VoidedBy}}): {{.VoidReason}}</em>{{end}}</td>
       <td class="sig">{{.UserName}}<br>{{(localTime .CreatedAt).Format "02.01.06. u 15:04"}}</td>
     </tr>
 {{end}}

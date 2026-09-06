@@ -54,12 +54,12 @@
     <div class="form-group">
       <label class="form-label" for="zero_datum">Kota „0“ — Trst (m)</label>
       <input type="text" inputmode="decimal" id="zero_datum" name="zero_datum" class="form-control"
-             value="{{if .Station.ZeroDatum}}{{derefFloat .Station.ZeroDatum 2}}{{end}}" placeholder="76,28">
+             value="{{if .Station.ZeroDatum}}{{unosD .Station.ZeroDatum 2}}{{end}}" placeholder="76,28">
     </div>
     <div class="form-group">
       <label class="form-label" for="zero_datum_new">Kota „0“ — HVRS71 (m)</label>
       <input type="text" inputmode="decimal" id="zero_datum_new" name="zero_datum_new" class="form-control"
-             value="{{if .Station.ZeroDatumNew}}{{derefFloat .Station.ZeroDatumNew 2}}{{end}}" placeholder="tek se mjeri">
+             value="{{if .Station.ZeroDatumNew}}{{unosD .Station.ZeroDatumNew 2}}{{end}}" placeholder="tek se mjeri">
       <div class="form-help">Ne preračunava se iz stare kote.</div>
     </div>
   </div>

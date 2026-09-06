@@ -34,9 +34,9 @@
 
 <div class="reg-card" style="padding:1rem;">
   <dl class="reg-facts" style="font-size:0.85rem;">
-    {{if .Water.LengthKm}}<div><dt>Duljina</dt><dd>{{derefFloat .Water.LengthKm 1}} km</dd></div>{{end}}
-    {{if .Water.BasinKm2}}<div><dt>Porječje</dt><dd>{{derefFloat .Water.BasinKm2 0}} km²</dd></div>{{end}}
-    {{if .Water.AvgFlowM3S}}<div><dt>Prosječni protok</dt><dd>{{derefFloat .Water.AvgFlowM3S 1}} m³/s</dd></div>{{end}}
+    {{if .Water.LengthKm}}<div><dt>Duljina</dt><dd>{{brojHRd .Water.LengthKm 1}} km</dd></div>{{end}}
+    {{if .Water.BasinKm2}}<div><dt>Porječje</dt><dd>{{brojHRd .Water.BasinKm2 0}} km²</dd></div>{{end}}
+    {{if .Water.AvgFlowM3S}}<div><dt>Prosječni protok</dt><dd>{{brojHRd .Water.AvgFlowM3S 1}} m³/s</dd></div>{{end}}
     {{if .Water.Source}}<div><dt>Izvor</dt><dd>{{.Water.Source}}</dd></div>{{end}}
     {{if .Water.Mouth}}<div><dt>Ušće</dt><dd>{{.Water.Mouth}}</dd></div>{{end}}
     {{if .Water.FlowsInto}}<div><dt>Ulijeva se u</dt><dd>{{.Water.FlowsInto}}</dd></div>{{end}}
@@ -95,7 +95,7 @@
         </div>
         <p style="font-size:0.8rem; margin:0; color:var(--text);">{{.Description}}</p>
         {{if .RkmFrom}}
-        <div class="reg-card-foot"><span class="reg-chip">rkm {{derefFloat .RkmFrom 3}}{{if .RkmTo}} – {{derefFloat .RkmTo 3}}{{end}}</span></div>
+        <div class="reg-card-foot"><span class="reg-chip">rkm {{brojHRd .RkmFrom 3}}{{if .RkmTo}} – {{brojHRd .RkmTo 3}}{{end}}</span></div>
         {{end}}
       </a>
     </article>
