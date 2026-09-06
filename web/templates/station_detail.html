@@ -52,6 +52,29 @@
   </div>
 </section>
 
+{{if .Station.Extremes}}
+<section class="detail-section">
+  <h2>{{icon "chart-column"}} Zabilježeni ekstremi</h2>
+  <div class="table-card"><div class="table-responsive">
+    <table class="data-table">
+      <thead><tr><th>Vrsta</th><th>Vodostaj</th><th>Datum</th><th>Podrijetlo</th><th>Izvor i način</th></tr></thead>
+      <tbody>
+      {{range .Station.Extremes}}
+      <tr>
+        <td>{{if eq .Kind "MAX"}}najviši{{else}}najniži{{end}}</td>
+        <td class="mono">{{.Label}}</td>
+        <td class="mono">{{if .OnDate}}{{.OnDate}}{{else}}—{{end}}</td>
+        <td>{{if .IsMeasured}}<span class="badge">izmjereno</span>{{else}}<span class="badge badge-inactive" title="nije mjereno na ovoj letvi">{{qualityLabel .Quality}}</span>{{end}}</td>
+        <td>{{.Source}}{{if .Method}} <span class="reading-meta">{{.Method}}</span>{{end}}{{if .Note}} <span class="reading-meta">{{.Note}}</span>{{end}}</td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div></div>
+  <p class="reading-meta" style="margin-top:0.35rem;">Vrijednost koja nije izmjerena na ovoj letvi ne ulazi u pragove ni u izračun faze obrane.</p>
+</section>
+{{end}}
+
 <section class="detail-section">
   <h2>{{icon "ruler"}} Kota nule vodomjera</h2>
   <div class="reg-card" style="padding:1rem;">
