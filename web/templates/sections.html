@@ -1,11 +1,11 @@
 {{template "base.html" .}}
 
-{{define "title"}}goCOP — Branjena područja i dionice{{end}}
+{{define "title"}}goCOP — {{term "podrucja"}} i dionice{{end}}
 
 {{define "content"}}
 <div class="page-header">
   <div>
-    <h1 class="page-title">{{icon "waves"}} Branjena područja i dionice</h1>
+    <h1 class="page-title">{{icon "waves"}} {{term "podrucja"}} i dionice</h1>
     <p class="page-desc">Registar 465 štićenih dionica, nasipa, crpnih stanica, ustavnih objekata i mjerodavnih vodomjera</p>
   </div>
   {{if .CanCreateAny}}
@@ -41,9 +41,9 @@
     <!-- Drugi red: Filtri po sektorima i područjima -->
     <div class="filters-row" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
       <div class="filter-group">
-        <label for="sector-select" class="filter-label">{{icon "building-2"}} Sektor (VGO)</label>
+        <label for="sector-select" class="filter-label">{{icon "building-2"}} {{term "sektor"}}</label>
         <select id="sector-select" name="sector" class="filter-select" onchange="onSectorChange()">
-          <option value="">Svi sektori (A–F)</option>
+          <option value="">Svi: {{terml "sektori"}}</option>
           {{range .Sectors}}
           {{if ne .ID "DIREKCIJA"}}
           <option value="{{.ID}}" {{if eq $.SelectedSector .ID}}selected{{end}}>{{.Name}}</option>
@@ -53,9 +53,9 @@
       </div>
 
       <div class="filter-group">
-        <label for="area-select" class="filter-label">{{icon "waves"}} Branjeno područje</label>
+        <label for="area-select" class="filter-label">{{icon "waves"}} {{term "podrucje"}}</label>
         <select id="area-select" name="area" class="filter-select" onchange="document.getElementById('sections-filter-form').submit()">
-          <option value="">Sva branjena područja (1–34)</option>
+          <option value="">Sva: {{terml "podrucja"}}</option>
           {{range .Areas}}
           <option value="{{.ID}}" {{if eq $.SelectedArea .ID}}selected{{end}}>{{.ID}}: {{.Name}}</option>
           {{end}}
@@ -69,7 +69,7 @@
     <div class="active-pills-wrap">
       {{if .SelectedSector}}
       <span class="filter-pill">
-        {{icon "building-2"}} Sektor: <strong>{{.SelectedSector}}</strong>
+        {{icon "building-2"}} {{term "sektor"}}: <strong>{{.SelectedSector}}</strong>
         <a href="javascript:removeFilter('sector')" class="pill-remove">&times;</a>
       </span>
       {{end}}
@@ -115,7 +115,7 @@
   <div class="section-card" id="card-{{.Code}}">
     <div class="section-card-top">
       <div class="section-code-badge">{{.Code}}</div>
-      <div class="section-sector-tag">Sektor {{.SectorID}} · BP {{.AreaID}}</div>
+      <div class="section-sector-tag">{{term "sektor"}} {{.SectorID}} · {{term "bp"}} {{.AreaID}}</div>
     </div>
 
     <div class="section-card-content">

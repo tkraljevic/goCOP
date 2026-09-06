@@ -39,14 +39,14 @@
 
   <div class="form-row">
     <div class="form-group">
-      <label class="form-label" for="sector_id">Sektor</label>
+      <label class="form-label" for="sector_id">{{term "sektor"}}</label>
       <select id="sector_id" name="sector_id" class="form-control" onchange="filterAreas(this.value)">
         <option value="">— odaberi sektor —</option>
         {{range .Sectors}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
       </select>
     </div>
     <div class="form-group">
-      <label class="form-label" for="area_id">Branjeno područje</label>
+      <label class="form-label" for="area_id">{{term "podrucje"}}</label>
       <select id="area_id" name="area_id" class="form-control">
         <option value="">— odaberi područje —</option>
         {{range .Areas}}<option value="{{.ID}}" data-sector="{{.SectorID}}">{{.ID}}: {{.Name}}</option>{{end}}

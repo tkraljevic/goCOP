@@ -9,7 +9,7 @@
   <div>
     <h1 class="page-title">{{icon "construction"}} {{.Structure.Name}}</h1>
     <p class="page-desc">
-      {{.Structure.KindLabel}} · Sektor {{.Structure.SectorID}} · BP {{.Structure.AreaID}}{{if .Structure.AreaName}}: {{.Structure.AreaName}}{{end}}
+      {{.Structure.KindLabel}} · {{term "sektor"}} {{.Structure.SectorID}} · {{term "bp"}} {{.Structure.AreaID}}{{if .Structure.AreaName}}: {{.Structure.AreaName}}{{end}}
       · {{.Structure.OriginLabel}}
     </p>
   </div>

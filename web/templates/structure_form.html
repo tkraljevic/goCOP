@@ -36,12 +36,12 @@
 
   <div class="form-row">
     <div class="form-group">
-      <label class="form-label" for="area_id">Branjeno područje *</label>
+      <label class="form-label" for="area_id">{{term "podrucje"}} *</label>
       <select id="area_id" name="area_id" class="form-control" required>
         <option value="">Odaberi područje…</option>
-        {{range .Areas}}<option value="{{.ID}}" {{if eq .ID $.Structure.AreaID}}selected{{end}}>{{.ID}}: {{.Name}} (Sektor {{.SectorID}})</option>{{end}}
+        {{range .Areas}}<option value="{{.ID}}" {{if eq .ID $.Structure.AreaID}}selected{{end}}>{{.ID}}: {{.Name}} ({{term "sektor"}} {{.SectorID}})</option>{{end}}
       </select>
-      <div class="form-help">Sektor slijedi iz područja.</div>
+      <div class="form-help">{{term "sektor"}} slijedi iz područja.</div>
     </div>
     <div class="form-group">
       <label class="form-label" for="station_id">Vodomjer na objektu</label>

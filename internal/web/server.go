@@ -121,6 +121,8 @@ func NewServer(
 		},
 		"bankLabel":  hydro.BankLabel,
 		"muniType":   models.MunicipalityTypeLabel,
+		"term":       func(key string) string { return models.Terms().Get(key) },
+		"terml":      func(key string) string { return models.Terms().Lower(key) },
 		"humanBytes": humanBytes,
 		"km":         models.FormatKm,
 		"derefTime": func(t *time.Time) time.Time {
@@ -380,6 +382,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /organizacija/podrucja/{id}/edit", s.authMiddleware(http.HandlerFunc(orgH.ShowAreaForm)))
 	s.mux.Handle("POST /organizacija/podrucja/save", s.authMiddleware(http.HandlerFunc(orgH.HandleSaveArea)))
 	s.mux.Handle("POST /organizacija/podrucja/delete", s.authMiddleware(http.HandlerFunc(orgH.HandleDeleteArea)))
+	s.mux.Handle("POST /organizacija/nazivi", s.authMiddleware(http.HandlerFunc(orgH.HandleSaveTerms)))
 
 	s.mux.Handle("GET /users", s.authMiddleware(http.HandlerFunc(usersH.ShowUsers)))
 	s.mux.Handle("GET /users/new", s.authMiddleware(http.HandlerFunc(usersH.ShowUserForm)))
@@ -585,7 +588,7 @@ var modulePaths = []struct{ prefix, module string }{
 	{"/api/counties", models.ModuleRegisters}, {"/api/municipalities", models.ModuleRegisters},
 	{"/api/areas", models.ModuleRegisters},
 	{"/users", models.ModuleUsers},
-	{"/administracija", models.ModuleAdmin}, {"/organizacija", models.ModuleAdmin},
+	{"/administracija", models.ModuleAdmin}, {"/organizacija", models.ModuleRegisters},
 	{"/sinkronizacija", models.ModuleAdmin}, {"/api/sync", models.ModuleAdmin},
 	{"/moduli", models.ModuleAdmin}, {"/settings", models.ModuleAdmin},
 	{"/api/peers", models.ModuleAdmin}, {"/api/network", models.ModuleAdmin},

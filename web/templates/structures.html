@@ -36,14 +36,14 @@
     </div>
     <div class="filters-row" style="grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));">
       <div class="filter-group">
-        <label class="filter-label" for="sector">{{icon "building-2"}} Sektor</label>
+        <label class="filter-label" for="sector">{{icon "building-2"}} {{term "sektor"}}</label>
         <select id="sector" name="sector" class="filter-select" onchange="this.form.submit()">
-          <option value="">Svi sektori</option>
+          <option value="">Svi: {{terml "sektori"}}</option>
           {{range .Sectors}}{{if ne .ID "DIREKCIJA"}}<option value="{{.ID}}" {{if eq $.SelectedSector .ID}}selected{{end}}>{{.Name}}</option>{{end}}{{end}}
         </select>
       </div>
       <div class="filter-group">
-        <label class="filter-label" for="area">{{icon "waves"}} Branjeno područje</label>
+        <label class="filter-label" for="area">{{icon "waves"}} {{term "podrucje"}}</label>
         <select id="area" name="area" class="filter-select" onchange="this.form.submit()">
           <option value="">Sva područja</option>
           {{range .Areas}}<option value="{{.ID}}" {{if eq $.SelectedArea .ID}}selected{{end}}>{{.ID}}: {{.Name}}</option>{{end}}
@@ -71,7 +71,7 @@
           <h3 class="reg-card-title">{{.Name}}</h3>
           <div class="reg-card-sub">{{.KindLabel}} · BP {{.AreaID}}{{if .AreaName}}: {{.AreaName}}{{end}}</div>
         </div>
-        <span class="badge badge-inactive">Sektor {{.SectorID}}</span>
+        <span class="badge badge-inactive">{{term "sektor"}} {{.SectorID}}</span>
       </div>
       <dl class="reg-facts">
         {{if .ZeroDatum}}<div><dt>Kota „0“</dt><dd>{{derefFloat .ZeroDatum 2}} m</dd></div>{{end}}

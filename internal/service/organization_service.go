@@ -41,6 +41,23 @@ func (s *OrgService) GetArea(ctx context.Context, id int) (*models.Area, error) 
 	return s.repo.GetArea(ctx, id)
 }
 
+// Terms vraća nazive razina ustroja
+func (s *OrgService) Terms(ctx context.Context) (models.OrgTerms, error) {
+	return s.repo.GetTerms(ctx)
+}
+
+// SaveTerms mijenja nazive razina; vrijede na svim čvorovima mreže
+func (s *OrgService) SaveTerms(ctx context.Context, perms *models.UserPermissions, t models.OrgTerms) error {
+	if err := requireGlobalAdmin(perms, "uređivanje naziva razina"); err != nil {
+		return err
+	}
+	if err := s.repo.SaveTerms(ctx, t); err != nil {
+		return err
+	}
+	s.sse.Broadcast("organization_changed", "Nazivi razina ustroja su promijenjeni", models.TermsID)
+	return nil
+}
+
 // SaveSector upisuje sektor; nov traži slobodnu oznaku, postojeći se mijenja
 func (s *OrgService) SaveSector(ctx context.Context, perms *models.UserPermissions, sec *models.Sector, isNew bool) error {
 	if err := requireGlobalAdmin(perms, "uređivanje sektora"); err != nil {

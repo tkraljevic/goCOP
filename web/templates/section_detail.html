@@ -4,7 +4,7 @@
 
 {{define "content"}}
 <div class="breadcrumb">
-  <a href="/sections">Branjena područja i dionice</a>
+  <a href="/sections">{{term "podrucja"}} i dionice</a>
   {{if .Section.AreaID}} › <a href="/sections?sector={{.Section.SectorID}}&area={{.Section.AreaID}}">BP {{.Section.AreaID}}</a>{{end}}
   › {{.Section.Code}}
 </div>
@@ -13,7 +13,7 @@
   <div>
     <h1 class="page-title"><span class="section-code-badge" style="font-size:1.05rem; vertical-align:middle;">{{.Section.Code}}</span></h1>
     <p class="page-desc">
-      Sektor {{.Section.SectorID}}{{if .Section.SectorName}} — {{.Section.SectorName}}{{end}}
+      {{term "sektor"}} {{.Section.SectorID}}{{if .Section.SectorName}} — {{.Section.SectorName}}{{end}}
       {{if .Section.AreaName}} · BP {{.Section.AreaID}}: {{.Section.AreaName}}{{end}}
     </p>
   </div>

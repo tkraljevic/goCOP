@@ -25,8 +25,10 @@ prva računala. Kaže što program radi na računalu i mreži, što ne radi, i
   odgovornosti. Program dolazi prazan.
 - **Organizacija obrane:** sektori (vodnogospodarski odjeli s centrom
   obrane) i branjena područja (mali slivovi s ispostavom) upisuju se prvi,
-  jer se na njih vežu ovlasti, dionice i zaduženja. Upisuje ih globalni
-  administrator; program ih ne zna sam.
+  jer se na njih vežu ovlasti, dionice i zaduženja. Pregled i izlistanje su
+  u Registrima za svakoga; upisuje ih globalni administrator, program ih ne
+  zna sam. Nazivi razina su postavka mreže: druga organizacija istu podjelu
+  može zvati regija i slivno područje, a šifre i ovlasti rade isto.
 - **Dionica i poddionice:** dionica se sastoji od poddionica, a poddionica
   je jedna voda iz registra s jednim obuhvatom: stacionaža (rkm, pkm, bkm,
   kkm, po nasipu nkm) od–do, obala, obuhvat riječima, duljina. Na poddionici

@@ -21,6 +21,7 @@ import (
 	"gocop/internal/importer/csvlevels"
 	"gocop/internal/importer/ugovor"
 	"gocop/internal/ledger"
+	"gocop/internal/models"
 	"gocop/internal/peers"
 	"gocop/internal/repository"
 	"gocop/internal/service"
@@ -196,7 +197,11 @@ func main() {
 	sectionService := service.NewSectionService(sectionRepo, sseBroker)
 	territoryRepo := repository.NewTerritoryRepository(database, recorder)
 	territoryService := service.NewTerritoryService(territoryRepo, sectionService)
-	orgService := service.NewOrgService(repository.NewOrgRepository(database, recorder), sseBroker)
+	orgRepo := repository.NewOrgRepository(database, recorder)
+	orgService := service.NewOrgService(orgRepo, sseBroker)
+	if terms, err := orgRepo.GetTerms(context.Background()); err == nil {
+		models.SetTerms(terms)
+	}
 	stationRepo := repository.NewStationRepository(database, recorder)
 	stationService := service.NewStationService(stationRepo, sectionService, sseBroker)
 	watercourseRepo := repository.NewWatercourseRepository(database, recorder)

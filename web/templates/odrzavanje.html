@@ -20,7 +20,7 @@
   <form action="/odrzavanje" method="GET">
     <div class="filters-row" style="grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));">
       <div class="filter-group">
-        <label class="filter-label" for="area">{{icon "waves"}} Branjeno područje</label>
+        <label class="filter-label" for="area">{{icon "waves"}} {{term "podrucje"}}</label>
         <select id="area" name="area" class="filter-select" onchange="this.form.submit()">
           {{range .Areas}}<option value="{{.ID}}" {{if and $.Area (eq $.Area.ID .ID)}}selected{{end}}>{{.ID}}: {{.Name}}</option>{{end}}
         </select>
