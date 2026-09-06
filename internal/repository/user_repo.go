@@ -145,6 +145,18 @@ func getDutyTx(ctx context.Context, q rowQuerier, id string) (models.Duty, error
 	return d, nil
 }
 
+// GetDuty čita jedno zaduženje, aktivno ili opozvano
+func (r *UserRepository) GetDuty(id uuid.UUID) (*models.Duty, error) {
+	d, err := getDutyTx(context.Background(), r.db, id.String())
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &d, nil
+}
+
 // recordDuties ostavlja verziju za svako navedeno zaduženje, kakvo je na površini
 func (r *UserRepository) recordDuties(ctx context.Context, tx *sql.Tx, ids []string) error {
 	for _, id := range ids {

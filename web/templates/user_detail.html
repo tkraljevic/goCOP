@@ -73,7 +73,7 @@
           <div class="reg-card-sub">
             {{if .SectorID}}{{term "sektor"}} {{derefString .SectorID}}{{end}}
             {{if .AreaID}} · BP {{derefInt .AreaID}}{{if not .SectionCodes}} (sve dionice){{end}}{{end}}
-            {{if eq .ScopeType "ALL"}}Cijela Republika Hrvatska{{end}}
+            {{if eq .ScopeType "ALL"}}Cijela organizacija: {{term "org"}}{{end}}
           </div>
         </div>
         <span class="badge {{if .IsTemporary}}badge-ispomoc{{else}}badge-area-admin{{end}}">{{if .IsTemporary}}{{icon "zap"}} Ispomoć{{else}}{{roleLabel .Role}}{{end}}</span>
@@ -125,11 +125,11 @@
 </section>
 {{end}}
 
-{{if and .CanManage (not .IsSelf)}}
+{{if and .CanManage (not .IsSelf) .CanDelete}}
 <section class="detail-section">
   <h2 style="color:var(--danger);">{{icon "trash"}} Brisanje profila</h2>
   <div class="reg-card" style="padding:1rem; border-color:var(--danger-border);">
-    <p style="margin:0 0 0.75rem; font-size:0.9rem;">Profil nestaje s popisa i sa svih dionica, a u povijesti zapisa ostaje. Ako je osoba samo privremeno izvan službe, radije isključite prijavu u uređivanju profila.</p>
+    <p style="margin:0 0 0.75rem; font-size:0.9rem;">Ovim se računom nitko nije prijavio, pa se smije obrisati: nestaje s popisa i sa svih dionica. Račun koji je radio ne briše se, njemu se isključi prijava u uređivanju profila, da očitanja i upisi zadrže ime.</p>
     <form method="POST" action="/users/delete" onsubmit="return confirm('Obrisati profil djelatnika {{.User.FullName}}?')">
       <input type="hidden" name="user_id" value="{{.User.ID}}">
       <button type="submit" class="btn btn-sm" style="background:var(--danger-bg); color:var(--danger); border-color:var(--danger-border); min-height:40px;">{{icon "trash"}} Obriši profil</button>

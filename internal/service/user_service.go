@@ -55,22 +55,37 @@ type CreateUserRequest struct {
 	SectionCodes string
 }
 
+// areaSectors vraća pretragu sektora po području iz registra
+func (s *UserService) areaSectors() areaSector {
+	m := map[int]string{}
+	if areas, err := s.userRepo.ListAreas(""); err == nil {
+		for _, a := range areas {
+			m[a.ID] = a.SectorID
+		}
+	}
+	return func(id int) string { return m[id] }
+}
+
 // CreateUser stvara novog korisnika i dodjeljuje mu početnu funkciju
 func (s *UserService) CreateUser(actor *models.UserPermissions, req CreateUserRequest) (*models.User, error) {
-	if !actor.IsGlobalAdmin && len(actor.AdminSectors) == 0 && len(actor.AdminAreas) == 0 {
+	if actorRank(actor) == 0 {
 		return nil, ErrUnauthorized
 	}
-
-	if !actor.IsGlobalAdmin {
-		if req.IsGlobalAdmin || req.Role == models.RoleGlobalAdmin {
-			return nil, ErrUnauthorized
+	if req.IsGlobalAdmin && !actor.IsGlobalAdmin {
+		return nil, ErrUnauthorized
+	}
+	sectors := s.areaSectors()
+	if req.Role != "" {
+		scope, sectorID, areaID, err := normalizeScope(req.Role, req.SectorID, req.AreaID, req.SectionCodes, sectors)
+		if err != nil {
+			return nil, err
 		}
-		if req.SectorID != nil && !actor.AdminSectors[*req.SectorID] {
-			return nil, ErrUnauthorized
+		req.ScopeType, req.SectorID, req.AreaID = scope, sectorID, areaID
+		if err := mayAssign(actor, req.Role, req.SectorID, req.AreaID, sectors); err != nil {
+			return nil, err
 		}
-		if req.AreaID != nil && !actor.AdminAreas[*req.AreaID] {
-			return nil, ErrUnauthorized
-		}
+	} else if !actor.IsGlobalAdmin {
+		return nil, fmt.Errorf("%w: račun bez dužnosti otvara samo uprava organizacije", ErrUnauthorized)
 	}
 
 	req.Username = strings.TrimSpace(req.Username)
@@ -175,21 +190,11 @@ func (s *UserService) UpdateUser(actor *models.UserPermissions, req UpdateUserRe
 	}
 
 	if !actor.IsGlobalAdmin {
-		// Ako nije globalni admin, smije uređivati samo svoj profil ili korisnike unutar svog sektora/područja
+		// Tko nije uprava organizacije, uređuje svoj profil ili račune u
+		// svom dosegu čije su sve dužnosti na njegovoj razini ili niže
 		if actor.User.ID != target.ID {
-			canAdmin := false
-			for _, d := range target.Duties {
-				if d.SectorID != nil && actor.AdminSectors[*d.SectorID] {
-					canAdmin = true
-					break
-				}
-				if d.AreaID != nil && actor.AdminAreas[*d.AreaID] {
-					canAdmin = true
-					break
-				}
-			}
-			if !canAdmin {
-				return nil, ErrUnauthorized
+			if err := mayManage(actor, target, s.areaSectors()); err != nil {
+				return nil, err
 			}
 			req.IsGlobalAdmin = target.IsGlobalAdmin
 		} else {
@@ -251,8 +256,17 @@ type AddDutyRequest struct {
 
 // AddDuty dodjeljuje korisniku dodatnu funkciju, dionice ili privremenu ispomoć
 func (s *UserService) AddDuty(actor *models.UserPermissions, req AddDutyRequest) error {
-	if !actor.IsGlobalAdmin && len(actor.AdminSectors) == 0 && len(actor.AdminAreas) == 0 {
+	if actorRank(actor) == 0 {
 		return ErrUnauthorized
+	}
+	sectors := s.areaSectors()
+	scope, sectorID, areaID, err := normalizeScope(req.Role, req.SectorID, req.AreaID, req.SectionCodes, sectors)
+	if err != nil {
+		return err
+	}
+	req.ScopeType, req.SectorID, req.AreaID = scope, sectorID, areaID
+	if err := mayAssign(actor, req.Role, req.SectorID, req.AreaID, sectors); err != nil {
+		return err
 	}
 
 	if strings.TrimSpace(req.Title) == "" {
@@ -290,10 +304,23 @@ func (s *UserService) AddDuty(actor *models.UserPermissions, req AddDutyRequest)
 	return nil
 }
 
-// RevokeDuty opoziva funkciju ili privremenu ispomoć
+// RevokeDuty opoziva funkciju ili privremenu ispomoć; smije tko bi je smio i dati
 func (s *UserService) RevokeDuty(actor *models.UserPermissions, dutyID uuid.UUID) error {
-	if !actor.IsGlobalAdmin && len(actor.AdminSectors) == 0 && len(actor.AdminAreas) == 0 {
+	if actorRank(actor) == 0 {
 		return ErrUnauthorized
+	}
+	duty, err := s.userRepo.GetDuty(dutyID)
+	if err != nil {
+		return err
+	}
+	if duty == nil {
+		return fmt.Errorf("zaduženje nije pronađeno")
+	}
+	if !actor.IsGlobalAdmin && duty.UserID == actor.User.ID {
+		return fmt.Errorf("%w: vlastitu dužnost opoziva nadređena razina", ErrUnauthorized)
+	}
+	if err := mayAssign(actor, duty.Role, duty.SectorID, duty.AreaID, s.areaSectors()); err != nil {
+		return err
 	}
 
 	if err := s.userRepo.RevokeDuty(dutyID); err != nil {
@@ -304,9 +331,11 @@ func (s *UserService) RevokeDuty(actor *models.UserPermissions, dutyID uuid.UUID
 	return nil
 }
 
-// DeleteUser briše profil korisnika i sva njegova zaduženja
+// DeleteUser briše račun koji se nitko nikad nije prijavio, sa svim
+// dužnostima. Račun koji je radio ne briše se, jer bi očitanja i upisi ostali
+// bez imena: njemu se isključi prijava.
 func (s *UserService) DeleteUser(actor *models.UserPermissions, targetID uuid.UUID) error {
-	if !actor.IsGlobalAdmin && len(actor.AdminSectors) == 0 && len(actor.AdminAreas) == 0 {
+	if actorRank(actor) == 0 {
 		return ErrUnauthorized
 	}
 
@@ -323,23 +352,12 @@ func (s *UserService) DeleteUser(actor *models.UserPermissions, targetID uuid.UU
 		return fmt.Errorf("ne možete obrisati vlastiti korisnički profil")
 	}
 
+	if target.LastLoginAt != nil {
+		return fmt.Errorf("račun koji se prijavljivao ne briše se: isključite mu prijavu, da upisi zadrže ime")
+	}
 	if !actor.IsGlobalAdmin {
-		if target.IsGlobalAdmin {
-			return ErrUnauthorized
-		}
-		canAdmin := false
-		for _, d := range target.Duties {
-			if d.SectorID != nil && actor.AdminSectors[*d.SectorID] {
-				canAdmin = true
-				break
-			}
-			if d.AreaID != nil && actor.AdminAreas[*d.AreaID] {
-				canAdmin = true
-				break
-			}
-		}
-		if !canAdmin {
-			return ErrUnauthorized
+		if err := mayManage(actor, target, s.areaSectors()); err != nil {
+			return err
 		}
 	}
 

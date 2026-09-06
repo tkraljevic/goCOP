@@ -26,17 +26,13 @@ func roleOptions() []option {
 	return out
 }
 
-var scopeOptions = []option{
-	{"SECTOR", "Cijeli sektor"},
-	{"AREA", "Branjeno područje"},
-	{"SECTION", "Dionice"},
-	{"ALL", "Cijela RH"},
-}
-
-var orgOptions = []option{
-	{"HRVATSKE_VODE", "Hrvatske vode"},
-	{"PRAVNA_OSOBA", "Pravna osoba (Vodoprivreda)"},
-	{"VANJSKI", "Vanjska služba (CZ / MUP / 112)"},
+// orgOptions su vrste organizacije; matična nosi naziv iz postavki
+func orgOptions() []option {
+	return []option{
+		{string(models.OrgHrvatskeVode), models.OrgHrvatskeVode.Label()},
+		{string(models.OrgPravnaOsoba), models.OrgPravnaOsoba.Label()},
+		{string(models.OrgVanjski), models.OrgVanjski.Label()},
+	}
 }
 
 // UserPageData je stranica jednog djelatnika, njegova obrasca ili zaduženja
@@ -47,9 +43,9 @@ type UserPageData struct {
 	IsSelf      bool
 	CanManage   bool // smije uređivati tuđe profile i zaduženja
 	IsEdit      bool
+	CanDelete   bool // račun se nitko nije prijavio, pa se smije obrisati
 
 	Roles   []option
-	Scopes  []option
 	Orgs    []option
 	Sectors []models.Sector
 	Areas   []models.Area
@@ -96,6 +92,9 @@ func canManageUsers(p *models.UserPermissions) bool {
 	return p != nil && (p.IsGlobalAdmin || len(p.AdminSectors) > 0 || len(p.AdminAreas) > 0)
 }
 
+// deletable javlja smije li se račun obrisati: samo onaj koji se nikad nije prijavio
+func deletable(u *models.User) bool { return u != nil && u.LastLoginAt == nil }
+
 func (h *UsersHandler) pageData(r *http.Request) UserPageData {
 	ctx := r.Context()
 	currUser, _ := ctx.Value(contextKeyUser).(*models.User)
@@ -105,8 +104,7 @@ func (h *UsersHandler) pageData(r *http.Request) UserPageData {
 		Permissions:    perms,
 		CanManage:      canManageUsers(perms),
 		Roles:          roleOptions(),
-		Scopes:         scopeOptions,
-		Orgs:           orgOptions,
+		Orgs:           orgOptions(),
 		SuccessMessage: r.URL.Query().Get("success"),
 		ErrorMessage:   r.URL.Query().Get("error"),
 		ActiveNav:      "users",
@@ -159,6 +157,7 @@ func (h *UsersHandler) showUser(w http.ResponseWriter, r *http.Request, u *model
 	data.TempPassword = tempPassword
 	data.User = u
 	data.IsSelf = data.CurrentUser != nil && data.CurrentUser.ID == u.ID
+	data.CanDelete = deletable(u)
 	if h.moduleService != nil && data.Permissions != nil && data.Permissions.IsGlobalAdmin && !u.IsGlobalAdmin {
 		data.ModuleRows = h.moduleRows(r, u)
 	}
