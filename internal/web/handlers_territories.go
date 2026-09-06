@@ -182,8 +182,8 @@ func (h *TerritoriesHandler) HandleCreateCounty(w http.ResponseWriter, r *http.R
 		return
 	}
 	perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
-	area, _ := strconv.Atoi(r.FormValue("area_sqkm"))
-	pop, _ := strconv.Atoi(r.FormValue("population"))
+	area := atoi(r.FormValue("area_sqkm"))
+	pop := atoi(r.FormValue("population"))
 
 	c := &models.County{
 		Code:       strings.TrimSpace(r.FormValue("code")),
@@ -212,8 +212,8 @@ func (h *TerritoriesHandler) HandleUpdateCounty(w http.ResponseWriter, r *http.R
 	}
 	perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
 	id, _ := strconv.Atoi(r.FormValue("id"))
-	area, _ := strconv.Atoi(r.FormValue("area_sqkm"))
-	pop, _ := strconv.Atoi(r.FormValue("population"))
+	area := atoi(r.FormValue("area_sqkm"))
+	pop := atoi(r.FormValue("population"))
 
 	c := &models.County{
 		ID:         id,
@@ -259,8 +259,8 @@ func (h *TerritoriesHandler) HandleCreateMunicipality(w http.ResponseWriter, r *
 	}
 	perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
 	countyID, _ := strconv.Atoi(r.FormValue("county_id"))
-	area, _ := strconv.ParseFloat(r.FormValue("area_sqkm"), 64)
-	pop, _ := strconv.Atoi(r.FormValue("population"))
+	area := atof(r.FormValue("area_sqkm"))
+	pop := atoi(r.FormValue("population"))
 
 	m := &models.Municipality{
 		CountyID:   countyID,
@@ -292,8 +292,8 @@ func (h *TerritoriesHandler) HandleUpdateMunicipality(w http.ResponseWriter, r *
 	perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
 	id, _ := strconv.Atoi(r.FormValue("id"))
 	countyID, _ := strconv.Atoi(r.FormValue("county_id"))
-	area, _ := strconv.ParseFloat(r.FormValue("area_sqkm"), 64)
-	pop, _ := strconv.Atoi(r.FormValue("population"))
+	area := atof(r.FormValue("area_sqkm"))
+	pop := atoi(r.FormValue("population"))
 
 	m := &models.Municipality{
 		ID:         id,
@@ -359,7 +359,7 @@ func (h *TerritoriesHandler) HandleCreateSettlementAPI(w http.ResponseWriter, r 
 		req.CountyID, _ = strconv.Atoi(r.FormValue("county_id"))
 		req.Name = r.FormValue("name")
 		req.PostalCode = r.FormValue("postal_code")
-		req.Population, _ = strconv.Atoi(strings.TrimSpace(r.FormValue("population")))
+		req.Population = atoi(r.FormValue("population"))
 	}
 
 	s := &models.Settlement{
@@ -414,7 +414,7 @@ func (h *TerritoriesHandler) HandleUpdateSettlementAPI(w http.ResponseWriter, r 
 		req.ID, _ = strconv.Atoi(r.FormValue("id"))
 		req.Name = r.FormValue("name")
 		req.PostalCode = r.FormValue("postal_code")
-		req.Population, _ = strconv.Atoi(strings.TrimSpace(r.FormValue("population")))
+		req.Population = atoi(r.FormValue("population"))
 	}
 
 	s := &models.Settlement{
