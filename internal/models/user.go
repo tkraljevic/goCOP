@@ -59,14 +59,16 @@ const (
 	OrgVanjski      OrgType = "VANJSKI"
 )
 
+// Label je vrsta organizacije za prikaz; matična organizacija nosi naziv iz
+// postavki razine 1
 func (o OrgType) Label() string {
 	switch o {
 	case OrgHrvatskeVode:
-		return "Hrvatske vode"
+		return Terms().OrgName
 	case OrgPravnaOsoba:
-		return "Pravna osoba (Vodoprivreda)"
+		return "Ugovorni izvođač (pravna osoba)"
 	case OrgVanjski:
-		return "Vanjska služba (CZ / MUP)"
+		return "Vanjska služba (CZ / MUP / 112)"
 	default:
 		return string(o)
 	}
@@ -263,24 +265,24 @@ func NewUserPermissions(u User) *UserPermissions {
 			d.Role == RoleMainCenterLeader || d.Role == RoleMainCenterDeputy {
 			p.IsGlobalAdmin = true
 		}
+		// Uprava sektora (razina 2) i uprava područja (razina 3). Voditelj
+		// usluga izvođača je vanjska osoba: piše, ali ne upravlja računima.
 		if d.Role == RoleCopLeader || d.Role == RoleCopDeputy || d.Role == RoleAreaAdmin || d.Role == RoleSectorMainDeputy || d.Role == RoleSectorLeader || d.Role == RoleSectorDeputy {
 			if d.SectorID != nil {
 				p.AdminSectors[*d.SectorID] = true
 			}
 		}
 		if d.Role == RoleSectorAreaDeputy || d.Role == RoleAreaLeader || d.Role == RoleAreaDeputy ||
-			d.Role == RoleContractOfficerA2 || d.Role == RoleContractOfficerA3 || d.Role == RoleServiceLeaderForeman {
+			d.Role == RoleContractOfficerA2 || d.Role == RoleContractOfficerA3 {
 			if d.AreaID != nil {
 				p.AdminAreas[*d.AreaID] = true
 			}
-			if d.SectorID != nil {
-				p.AdminSectors[*d.SectorID] = true
-			}
 		}
 
-		// Prava unosa i pisanja prema dosegu
-		if d.ScopeType == ScopeAll {
-			p.IsGlobalAdmin = true
+		// Prava upisa prema dosegu; doseg sam po sebi ne daje upravu, a
+		// gost i preglednik ne pišu ni u svom dosegu
+		if !d.Role.Writes() {
+			continue
 		}
 		if d.SectorID != nil && *d.SectorID != "" {
 			p.AllowedSectors[*d.SectorID] = true

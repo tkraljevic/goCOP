@@ -91,20 +91,13 @@
     <label class="form-label" for="duty_title">Naziv funkcije</label>
     <input type="text" id="duty_title" name="duty_title" class="form-control" placeholder="npr. Voditelj COP Osijek ili Rukovoditelj dionica A.19.1 – A.19.4">
   </div>
-  <div class="form-row">
-    <div class="form-group">
-      <label class="form-label" for="role">Uloga *</label>
-      <select id="role" name="role" class="form-control" required>
-        {{range .Roles}}<option value="{{.Value}}" {{if eq .Value "OPERATOR"}}selected{{end}}>{{.Label}}</option>{{end}}
-      </select>
-    </div>
-    <div class="form-group">
-      <label class="form-label" for="scope_type">Opseg</label>
-      <select id="scope_type" name="scope_type" class="form-control">
-        {{range .Scopes}}<option value="{{.Value}}" {{if eq .Value "AREA"}}selected{{end}}>{{.Label}}</option>{{end}}
-      </select>
-    </div>
+  <div class="form-group">
+    <label class="form-label" for="role">Uloga *</label>
+    <select id="role" name="role" class="form-control" required>
+      {{range .Roles}}<option value="{{.Value}}" {{if eq .Value "OPERATOR"}}selected{{end}}>{{.Label}}</option>{{end}}
+    </select>
   </div>
+  <div class="form-help" style="margin-bottom:0.5rem;">Doseg određuje uloga: uloga razine 1 vrijedi za cijelu organizaciju, uloga {{terml "sektor"}}a traži {{terml "sektor"}}, uloga {{terml "podrucje"}}a traži {{terml "podrucje"}}, uloga dionice traži dionice. Tko nije uprava organizacije, dodjeljuje samo uloge svoje razine ili niže, u svom dosegu.</div>
   <div class="form-row">
     <div class="form-group">
       <label class="form-label" for="sector_id">{{term "sektor"}}</label>
@@ -124,7 +117,7 @@
   <div class="form-group">
     <label class="form-label" for="section_codes">Dionice</label>
     <input type="text" id="section_codes" name="section_codes" class="form-control" placeholder="npr. A.19.1, A.19.2, A.19.3">
-    <div class="form-help">Samo kad je opseg „Dionice“: šifre odvojene zarezom.</div>
+    <div class="form-help">Za uloge dionice i terena: šifre odvojene zarezom. Bez dionica terenska uloga pokriva cijelo {{terml "podrucje"}}.</div>
   </div>
   {{end}}
 
