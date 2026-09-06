@@ -2289,6 +2289,24 @@ textarea {
 .part-gauges { margin: 0 0 0.5rem 2.5rem; font-size: 0.9rem; }
 .part-gauges .part-gauge + .part-gauge { margin-top: 0.15rem; }
 
+/* Nasipi i objekti poddionice: jedno zaglavlje, redci ispod. Naslovi stupaca
+   ponavljali su se uz svaki redak i gutali prostor nazivu, pa se dugi naziv
+   nasipa i stacionaža rezali. Na uskom zaslonu zaglavlje se gubi, a naslov se
+   vraća uz svako polje. */
+.rows-emb { --cols: minmax(14rem, 2.5fr) repeat(4, minmax(6.5rem, 1fr)) minmax(6rem, 1fr) auto; }
+.rows-obj { --cols: 6rem 5.5rem 8rem minmax(14rem, 2fr) minmax(9rem, 1fr) auto; }
+.rows-head, .emb-row, .obj-row { display: grid; gap: 0.4rem; grid-template-columns: var(--cols); align-items: end; }
+.rows-head { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); margin-bottom: 0.25rem; }
+.emb-row, .obj-row { margin-bottom: 0.4rem; }
+@media (max-width: 900px) {
+  .rows-head { display: none; }
+  .emb-row, .obj-row { grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr)); }
+  .emb-row [data-label]::before, .obj-row [data-label]::before {
+    content: attr(data-label); display: block;
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary);
+  }
+}
+
 /* Dnevnik: struktura osoblja i strojeva — mreža sitnih brojčanih polja */
 .counts-grid {
   display: grid;

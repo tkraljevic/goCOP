@@ -152,6 +152,19 @@ func (h *TerritoriesHandler) HandleGetSettlementsAPI(w http.ResponseWriter, r *h
 	json.NewEncoder(w).Encode(settlements)
 }
 
+// HandleRazrijesiUgrozenoAPI uparuje zapis ugroženog područja iz dokumentacije
+// s registrom, da se ne prepisuje rukom. Vraća i ono što nije upario, jer
+// prešućeno naselje je gore od prijavljenog.
+func (h *TerritoriesHandler) HandleRazrijesiUgrozenoAPI(w http.ResponseWriter, r *http.Request) {
+	prijedlog, err := h.territoryService.RazrijesiUgrozeno(r.Context(), r.URL.Query().Get("tekst"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	json.NewEncoder(w).Encode(prijedlog)
+}
+
 // HandleGetSectionTerritoriesAPI vraća sva ugrožena područja pridružena dionici
 func (h *TerritoriesHandler) HandleGetSectionTerritoriesAPI(w http.ResponseWriter, r *http.Request) {
 	code := r.PathValue("code")

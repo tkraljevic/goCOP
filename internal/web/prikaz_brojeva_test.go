@@ -94,3 +94,48 @@ func TestObrazacLetvePiseZarezBezTisucica(t *testing.T) {
 		t.Error("u polju obrasca je razdjelnik tisućica")
 	}
 }
+
+// Obrazac dionice: naslovi stupaca stoje jednom, u zaglavlju, a ne uz svaki
+// redak — i uz dokumentaciju stoji gumb koji je prepisuje u veze na registar.
+func TestObrazacDioniceImaZaglavljeIPrijepis(t *testing.T) {
+	html := iscrtaj(t, "section_form.html", SectionPageData{
+		CurrentUser: &models.User{FullName: "Provjera"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Section:     models.Section{Code: "B.34.1", AreaID: 34, SectorID: "B"},
+		IsEdit:      true,
+	})
+	if n := strings.Count(html, `class="rows-head"`); n != 2 {
+		t.Errorf("zaglavlja stupaca ima %d, očekivano 2 (nasipi i objekti)", n)
+	}
+	if strings.Count(html, "Prepiši iz dokumentacije") != 2 {
+		t.Error("nema gumba za prijepis u oba bloka")
+	}
+	// Naslov stupca ne smije se ponavljati uz svaki redak: u predlošku retka
+	// ostaju samo polja, a naslov nosi data-label, koji se vidi tek na uskom
+	// zaslonu, i aria-label za čitače zaslona.
+	redak := izmedju(html, `<template id="tpl-emb">`, "</template>")
+	if redak == "" {
+		t.Fatal("predložak retka nasipa nije nađen")
+	}
+	if strings.Contains(redak, "<label") {
+		t.Error("redak nasipa još nosi vlastite naslove stupaca")
+	}
+	for _, treba := range []string{`data-label="Uz vodu od"`, `aria-label="Uz vodu od"`} {
+		if !strings.Contains(redak, treba) {
+			t.Errorf("redak nasipa nema %s", treba)
+		}
+	}
+}
+
+func izmedju(s, od, do string) string {
+	i := strings.Index(s, od)
+	if i < 0 {
+		return ""
+	}
+	rest := s[i+len(od):]
+	j := strings.Index(rest, do)
+	if j < 0 {
+		return ""
+	}
+	return rest[:j]
+}
