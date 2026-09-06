@@ -269,6 +269,9 @@ func (s *ReadingService) Overview(ctx context.Context) ([]models.GaugeSummary, e
 	}
 	for i := range structures {
 		st := structures[i]
+		if !st.TakesReadings() {
+			continue
+		}
 		g := models.GaugeSummary{
 			Key: "structure:" + st.ID.String(), Name: st.Name, Sub: st.KindLabel(),
 			URL: "/readings/structure/" + st.ID.String(), NewURL: "/readings/new?structure=" + st.ID.String(),
