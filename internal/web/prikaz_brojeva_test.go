@@ -188,3 +188,45 @@ func TestZaduzeniSuRazdvojeniPoRazinama(t *testing.T) {
 		t.Errorf("naslov razine 4 pojavljuje se %d puta, očekivano jednom za obje osobe", n)
 	}
 }
+
+// Kartica dionice slaže se kao Privitak: vodomjer u jednom retku, a nasip je
+// nosivi red s objektima koji na njemu leže — ne pet odvojenih popisa.
+func TestKarticaDioniceSlazeObjektePoNasipima(t *testing.T) {
+	kota := 80.45
+	rkm := func(v float64) *float64 { return &v }
+	part := models.SectionPart{
+		Seq: 1, Bank: "D",
+		Embankments: []models.PartEmbankment{
+			{Name: "Nasip za zaštitu Batine", WaterKind: "rkm", WaterFrom: rkm(1425.77), WaterTo: rkm(1423.77), LengthKm: rkm(2.005)},
+		},
+		Objects: []models.PartObject{
+			{Name: "vodokaz Batina", StationingKind: "rkm", StationingText: "rkm 1424+850"},
+		},
+	}
+	html := iscrtaj(t, "section_detail.html", SectionPageData{
+		CurrentUser: &models.User{FullName: "Provjera"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Section:     models.Section{Code: "B.34.1", AreaID: 34, SectorID: "B", Parts: []models.SectionPart{part}},
+		Parts: []PartView{{
+			SectionPart: part,
+			Rows:        embankmentRows(part),
+			Stations:    []models.Station{{Name: "Batina", Stationing: "rkm 1424+850", ZeroDatum: &kota}},
+		}},
+	})
+	for _, want := range []string{
+		`class="gauge-row"`, "Batina", "80,45 m",
+		`part-table"`, "Nasip za zaštitu Batine", "2,005 km", "vodokaz Batina",
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("na kartici nema %q", want)
+		}
+	}
+	// objekt stoji u istom retku tablice kao njegov nasip
+	red := izmedju(html, "Nasip za zaštitu Batine", "</tr>")
+	if !strings.Contains(red, "vodokaz Batina") {
+		t.Error("vodokaz Batina nije u retku svog nasipa")
+	}
+	if strings.Contains(html, "Na nasipu</th>") {
+		t.Error("stupac „Na nasipu\" više ne treba — nasip je sam redak")
+	}
+}
