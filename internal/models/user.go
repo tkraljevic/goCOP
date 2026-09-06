@@ -14,6 +14,8 @@ const (
 	RoleGlobalAdmin          Role = "GLOBAL_ADMIN"           // Cjelokupno upravljanje sustavom i svim korisnicima
 	RoleNationalLeader       Role = "NATIONAL_LEADER"        // Glavni rukovoditelj obrane od poplava (za cijelu RH)
 	RoleNationalDeputy       Role = "NATIONAL_DEPUTY"        // Zamjenik Glavnog rukovoditelja (za cijelu RH)
+	RoleMainCenterLeader     Role = "MAIN_CENTER_LEADER"     // Voditelj Glavnog centra obrane od poplava
+	RoleMainCenterDeputy     Role = "MAIN_CENTER_DEPUTY"     // Zamjenik voditelja Glavnog centra obrane od poplava
 	RoleSectorMainDeputy     Role = "SECTOR_MAIN_DEPUTY"     // Zamjenik Glavnog rukovoditelja za sektor
 	RoleSectorLeader         Role = "SECTOR_LEADER"          // Rukovoditelj sektora
 	RoleSectorDeputy         Role = "SECTOR_DEPUTY"          // Zamjenik rukovoditelja sektora
@@ -256,7 +258,8 @@ func NewUserPermissions(u User) *UserPermissions {
 		}
 
 		// Provjera admin prava
-		if d.Role == RoleGlobalAdmin || d.Role == RoleNationalLeader || d.Role == RoleNationalDeputy {
+		if d.Role == RoleGlobalAdmin || d.Role == RoleNationalLeader || d.Role == RoleNationalDeputy ||
+			d.Role == RoleMainCenterLeader || d.Role == RoleMainCenterDeputy {
 			p.IsGlobalAdmin = true
 		}
 		if d.Role == RoleCopLeader || d.Role == RoleCopDeputy || d.Role == RoleAreaAdmin || d.Role == RoleSectorMainDeputy || d.Role == RoleSectorLeader || d.Role == RoleSectorDeputy {
