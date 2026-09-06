@@ -32,6 +32,7 @@ type SectionPageData struct {
 	Permissions *models.UserPermissions
 	Section     models.Section
 	Parts       []PartView
+	Episodes    []models.DefenseEpisode // epizode obrane na ovoj dionici, najnovija prva
 	CanEdit     bool
 
 	// obrazac
@@ -133,6 +134,9 @@ func (h *SectionsHandler) ShowSection(w http.ResponseWriter, r *http.Request) {
 		data.Parts = append(data.Parts, v)
 	}
 
+	if h.episodeService != nil {
+		data.Episodes, _ = h.episodeService.List(ctx, sec.Code)
+	}
 	if err := h.tmplDetail.ExecuteTemplate(w, "section_detail.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}

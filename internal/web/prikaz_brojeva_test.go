@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"strings"
 	"testing"
+	"time"
 
 	webassets "gocop/web"
 
@@ -331,5 +332,29 @@ func TestStranicaUvoziNosiSveCSVRegistre(t *testing.T) {
 	}
 	if n := strings.Count(html, `enctype="multipart/form-data"`); n != 6 {
 		t.Errorf("obrazaca za uvoz ima %d, očekivano 6", n)
+	}
+}
+
+// Epizoda se pamti po vrhu vala, a ne po zadnjem vodostaju; otvorena epizoda
+// mora se vidjeti da još traje.
+func TestKarticaDionicePrikazujeEpizode(t *testing.T) {
+	poc := time.Date(2024, 9, 17, 5, 0, 0, 0, time.UTC)
+	kraj := time.Date(2024, 10, 22, 5, 0, 0, 0, time.UTC)
+	vrh := 703
+	vrhAt := time.Date(2024, 9, 25, 5, 0, 0, 0, time.UTC)
+	html := iscrtaj(t, "section_detail.html", SectionPageData{
+		CurrentUser: &models.User{FullName: "Provjera"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Section:     models.Section{Code: "B.34.1", AreaID: 34, SectorID: "B"},
+		Episodes: []models.DefenseEpisode{
+			{StartedAt: poc, EndedAt: &kraj, Phase: models.PhaseEmergency, PeakCm: &vrh, PeakAt: &vrhAt},
+			{StartedAt: poc, Phase: models.PhasePrep},
+		},
+	})
+	// predložak plus ispisuje kao &#43;, pa se traži oblik kakav vidi preglednik
+	for _, want := range []string{"Epizode obrane", "703 cm", "Izvanredna obrana", "traje", "36 dana"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("na kartici nema %q", want)
+		}
 	}
 }

@@ -220,6 +220,7 @@ func main() {
 	moduleRepo := repository.NewModuleRepository(database, recorder)
 	moduleService := service.NewModuleService(moduleRepo)
 	readingService := service.NewReadingService(readingRepo, stationRepo, structureRepo, sectionService, userService)
+	episodeService := service.NewEpisodeService(repository.NewEpisodeRepository(database, recorder), readingRepo, stationRepo)
 	maintenanceRepo := repository.NewMaintenanceRepository(database, recorder)
 	maintenanceService := service.NewMaintenanceService(maintenanceRepo, watercourseRepo, structureRepo)
 	journalRepo := repository.NewJournalRepository(database, recorder)
@@ -365,7 +366,7 @@ func main() {
 	}()
 
 	// 5. Inicijalizacija web poslužitelja s ugrađenim embed.FS resursima
-	server, err := web.NewServer(*addr, authService, userService, sectionService, territoryService, stationService, watercourseService, structureService, readingService, moduleService, maintenanceService, journalService, orgService, supportContact(cfg),
+	server, err := web.NewServer(*addr, authService, userService, sectionService, territoryService, stationService, watercourseService, structureService, readingService, episodeService, moduleService, maintenanceService, journalService, orgService, supportContact(cfg),
 		followRepo, applyReadingPolicy, peersService, recorder, sseBroker)
 	if err != nil {
 		log.Fatalf("Greška pri inicijalizaciji web poslužitelja: %v", err)
