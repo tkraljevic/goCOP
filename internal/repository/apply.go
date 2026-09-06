@@ -362,11 +362,12 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 			return err
 		}
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO areas (id, sector_id, name, vgi_name, subcenter, contractor_name)
-			VALUES (?, ?, ?, ?, ?, ?)
+			INSERT INTO areas (id, sector_id, name, vgi_name, subcenter, contractor_name, direct_to_sector)
+			VALUES (?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT(id) DO UPDATE SET sector_id = excluded.sector_id, name = excluded.name,
-				vgi_name = excluded.vgi_name, subcenter = excluded.subcenter, contractor_name = excluded.contractor_name
-		`, a.ID, a.SectorID, a.Name, a.VgiName, a.Subcenter, a.ContractorName)
+				vgi_name = excluded.vgi_name, subcenter = excluded.subcenter, contractor_name = excluded.contractor_name,
+				direct_to_sector = excluded.direct_to_sector
+		`, a.ID, a.SectorID, a.Name, a.VgiName, a.Subcenter, a.ContractorName, boolToInt(a.DirectToSector))
 		return err
 
 	case EntityCounties:
