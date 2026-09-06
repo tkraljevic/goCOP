@@ -71,7 +71,7 @@
         <div>
           <div class="reg-card-title" style="font-size:0.95rem;">{{.Title}}</div>
           <div class="reg-card-sub">
-            {{if .SectorID}}Sektor {{derefString .SectorID}}{{end}}
+            {{if .SectorID}}{{term "sektor"}} {{derefString .SectorID}}{{end}}
             {{if .AreaID}} · BP {{derefInt .AreaID}}{{if not .SectionCodes}} (sve dionice){{end}}{{end}}
             {{if eq .ScopeType "ALL"}}Cijela Republika Hrvatska{{end}}
           </div>

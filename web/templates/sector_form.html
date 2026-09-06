@@ -1,14 +1,14 @@
 {{template "base.html" .}}
 
-{{define "title"}}goCOP — {{if .IsEdit}}Uređivanje sektora {{.Sector.ID}}{{else}}Novi sektor{{end}}{{end}}
+{{define "title"}}goCOP — {{if .IsEdit}}{{term "sektor"}} {{.Sector.ID}}{{else}}Novi: {{terml "sektor"}}{{end}}{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/administracija">Administracija</a> › <a href="/organizacija">Organizacija obrane</a> › {{if .IsEdit}}Sektor {{.Sector.ID}} › Uređivanje{{else}}Novi sektor{{end}}</div>
+<div class="breadcrumb"><a href="/registri">Registri</a> › <a href="/organizacija">Organizacija obrane</a> › {{if .IsEdit}}{{term "sektor"}} {{.Sector.ID}} › Uređivanje{{else}}Novi sektor{{end}}</div>
 
 <div class="page-header">
   <div>
-    <h1 class="page-title">{{if .IsEdit}}{{icon "pencil"}} Sektor {{.Sector.ID}}{{else}}{{icon "building"}} Novi sektor{{end}}</h1>
-    <p class="page-desc">Sektor je vodnogospodarski odjel sa svojim centrom obrane od poplava. Oznaka sektora je prvi dio šifre svake dionice (npr. B u B.16.4) i ne mijenja se poslije.</p>
+    <h1 class="page-title">{{if .IsEdit}}{{icon "pencil"}} {{term "sektor"}} {{.Sector.ID}}{{else}}{{icon "building"}} {{term "sektor"}}: novi{{end}}</h1>
+    <p class="page-desc">{{term "sektor"}}: {{terml "vgo"}} sa svojim centrom obrane. Oznaka je prvi dio šifre svake dionice (npr. B u B.16.4) i ne mijenja se poslije.</p>
   </div>
 </div>
 
@@ -30,11 +30,11 @@
   </div>
   <div class="form-row">
     <div class="form-group">
-      <label class="form-label" for="vgo_name">Vodnogospodarski odjel</label>
+      <label class="form-label" for="vgo_name">{{term "vgo"}}</label>
       <input type="text" id="vgo_name" name="vgo_name" class="form-control" value="{{.Sector.VgoName}}" placeholder="npr. VGO za Dunav i donju Dravu, Osijek">
     </div>
     <div class="form-group">
-      <label class="form-label" for="center_cop">Centar obrane od poplava</label>
+      <label class="form-label" for="center_cop">{{term "cop"}}</label>
       <input type="text" id="center_cop" name="center_cop" class="form-control" value="{{.Sector.CenterCop}}" placeholder="npr. COP Osijek">
     </div>
   </div>
@@ -54,7 +54,7 @@
   </div>
   <div class="form-actions">
     <a href="/organizacija" class="btn btn-secondary">Odustani</a>
-    <button type="submit" class="btn btn-primary">{{if .IsEdit}}Spremi izmjene{{else}}Upiši sektor{{end}}</button>
+    <button type="submit" class="btn btn-primary">{{if .IsEdit}}Spremi izmjene{{else}}Upiši{{end}}</button>
   </div>
 </form>
 {{end}}

@@ -3,20 +3,20 @@
 {{define "title"}}goCOP — Organizacija obrane{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/administracija">Administracija</a> › Organizacija obrane</div>
+<div class="breadcrumb"><a href="/registri">Registri</a> › Organizacija obrane</div>
 
 <div class="page-header">
   <div>
     <h1 class="page-title">{{icon "building"}} Organizacija obrane</h1>
     <p class="page-desc">
-      Sektori (vodnogospodarski odjeli sa centrom obrane od poplava) i njihova branjena područja
-      (mali slivovi s vodnogospodarskom ispostavom). Na njih se vežu ovlasti, dionice i zaduženja,
-      pa se na novom čvoru upisuju prvi.
+      {{term "sektori"}} ({{terml "vgo"}} sa svojim centrom obrane) i njihova {{terml "podrucja"}}
+      (sliv s pripadnom ispostavom). Na njih se vežu ovlasti, dionice i zaduženja, pa se na novom čvoru
+      upisuju prvi. Pregled i izlistanje vidi svatko s registrima; unos je administratorov.
     </p>
   </div>
   {{if and .Permissions .Permissions.IsGlobalAdmin}}
   <div class="detail-actions">
-    <a href="/organizacija/sektori/new" class="btn btn-primary">{{icon "plus"}} Novi sektor</a>
+    <a href="/organizacija/sektori/new" class="btn btn-primary">{{icon "plus"}} {{term "sektor"}}: novi</a>
   </div>
   {{end}}
 </div>
@@ -26,7 +26,7 @@
 
 {{if not .Sectors}}
 <div class="reg-empty" style="padding:2rem;">
-  Još nema nijednog sektora. {{if and .Permissions .Permissions.IsGlobalAdmin}}Počnite sektorom, pa mu dodajte branjena područja.{{else}}Upisuje ih globalni administrator.{{end}}
+  Još nema nijednog: {{terml "sektor"}}. {{if and .Permissions .Permissions.IsGlobalAdmin}}Počnite prvim, pa mu dodajte {{terml "podrucja"}}.{{else}}Upisuje ih globalni administrator.{{end}}
 </div>
 {{end}}
 
@@ -42,7 +42,7 @@
     </div>
     {{if and $.Permissions $.Permissions.IsGlobalAdmin}}
     <div class="detail-actions" style="display:flex; gap:0.4rem; flex-wrap:wrap;">
-      <a href="/organizacija/podrucja/new?sector={{.ID}}" class="btn btn-sm btn-secondary">{{icon "plus"}} Branjeno područje</a>
+      <a href="/organizacija/podrucja/new?sector={{.ID}}" class="btn btn-sm btn-secondary">{{icon "plus"}} {{term "podrucje"}}</a>
       <a href="/organizacija/sektori/{{.ID}}/edit" class="btn btn-sm btn-secondary">{{icon "pencil"}} Uredi</a>
       {{if not .Areas}}
       <form method="POST" action="/organizacija/sektori/delete" onsubmit="return confirm('Obrisati sektor {{.ID}}?')" style="display:inline;">
@@ -56,7 +56,7 @@
   {{if .Areas}}
   <div class="table-card" style="margin-top:0.75rem;"><div class="table-responsive">
     <table class="data-table">
-      <thead><tr><th>BP</th><th>Naziv</th><th>VGI</th><th>Podcentar</th><th>Ugovorni izvođač</th>{{if and $.Permissions $.Permissions.IsGlobalAdmin}}<th></th>{{end}}</tr></thead>
+      <thead><tr><th>{{term "bp"}}</th><th>Naziv</th><th>{{term "vgi"}}</th><th>{{term "podcentar"}}</th><th>Ugovorni izvođač</th>{{if and $.Permissions $.Permissions.IsGlobalAdmin}}<th></th>{{end}}</tr></thead>
       <tbody>
       {{range .Areas}}
       <tr>
@@ -68,7 +68,7 @@
         {{if and $.Permissions $.Permissions.IsGlobalAdmin}}
         <td style="white-space:nowrap; text-align:right;">
           <a href="/organizacija/podrucja/{{.ID}}/edit" class="btn btn-sm btn-secondary">{{icon "pencil"}}</a>
-          <form method="POST" action="/organizacija/podrucja/delete" onsubmit="return confirm('Obrisati branjeno područje {{.ID}}: {{.Name}}?')" style="display:inline;">
+          <form method="POST" action="/organizacija/podrucja/delete" onsubmit="return confirm('Obrisati {{terml "podrucje"}} {{.ID}}: {{.Name}}?')" style="display:inline;">
             <input type="hidden" name="id" value="{{.ID}}"><button type="submit" class="btn btn-sm btn-secondary" title="Obriši">{{icon "trash"}}</button>
           </form>
         </td>
@@ -79,16 +79,48 @@
     </table>
   </div></div>
   {{else}}
-  <div class="reg-empty" style="margin-top:0.5rem;">Sektor još nema branjenih područja.</div>
+  <div class="reg-empty" style="margin-top:0.5rem;">Još bez ijednog: {{terml "podrucje"}}.</div>
   {{end}}
 </section>
 {{end}}
 
 {{if .Orphans}}
 <section class="detail-section">
-  <h2>{{icon "triangle-alert"}} Branjena područja bez sektora</h2>
-  <p class="page-desc">Sektor tih područja ne postoji na ovom čvoru; upišite sektor s istom oznakom ili ih premjestite.</p>
-  <ul>{{range .Orphans}}<li>BP {{.ID}} {{.Name}} (sektor {{.SectorID}}) — <a href="/organizacija/podrucja/{{.ID}}/edit">uredi</a></li>{{end}}</ul>
+  <h2>{{icon "triangle-alert"}} {{term "podrucja"}} bez nadređenog: {{terml "sektor"}}</h2>
+  <p class="page-desc">{{term "sektor"}} tih područja ne postoji na ovom čvoru; upišite ga s istom oznakom ili ih premjestite.</p>
+  <ul>{{range .Orphans}}<li>{{term "bp"}} {{.ID}} {{.Name}} ({{terml "sektor"}} {{.SectorID}}) — <a href="/organizacija/podrucja/{{.ID}}/edit">uredi</a></li>{{end}}</ul>
 </section>
 {{end}}
+
+<section class="detail-section" id="nazivi">
+  <h2>{{icon "pencil"}} Nazivi razina</h2>
+  <p class="page-desc">
+    Hrvatske vode obranu dijele na sektore i branjena područja; druga organizacija istu podjelu zove drukčije.
+    Ovdje se upisuju riječi koje program pokazuje. Šifre dionica i ovlasti se ne mijenjaju. Nazivi vrijede na svim čvorovima mreže.
+  </p>
+  {{if and .Permissions .Permissions.IsGlobalAdmin}}
+  <form class="form-page" method="POST" action="/organizacija/nazivi">
+    <div class="form-row">
+      <div class="form-group"><label class="form-label" for="t-sector">Razina 1, jednina</label><input type="text" id="t-sector" name="sector" class="form-control" value="{{.Terms.Sector}}" placeholder="Sektor"></div>
+      <div class="form-group"><label class="form-label" for="t-sectors">Razina 1, množina</label><input type="text" id="t-sectors" name="sectors" class="form-control" value="{{.Terms.Sectors}}" placeholder="Sektori"></div>
+      <div class="form-group"><label class="form-label" for="t-sector-office">Ustrojstvena jedinica razine 1</label><input type="text" id="t-sector-office" name="sector_office" class="form-control" value="{{.Terms.SectorOffice}}" placeholder="Vodnogospodarski odjel"></div>
+      <div class="form-group"><label class="form-label" for="t-center">Centar razine 1</label><input type="text" id="t-center" name="center" class="form-control" value="{{.Terms.Center}}" placeholder="Centar obrane od poplava"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label" for="t-area">Razina 2, jednina</label><input type="text" id="t-area" name="area" class="form-control" value="{{.Terms.Area}}" placeholder="Branjeno područje"></div>
+      <div class="form-group"><label class="form-label" for="t-areas">Razina 2, množina</label><input type="text" id="t-areas" name="areas" class="form-control" value="{{.Terms.Areas}}" placeholder="Branjena područja"></div>
+      <div class="form-group"><label class="form-label" for="t-area-short">Razina 2, kratica</label><input type="text" id="t-area-short" name="area_short" class="form-control" value="{{.Terms.AreaShort}}" placeholder="BP"></div>
+      <div class="form-group"><label class="form-label" for="t-area-office">Ustrojstvena jedinica razine 2</label><input type="text" id="t-area-office" name="area_office" class="form-control" value="{{.Terms.AreaOffice}}" placeholder="Vodnogospodarska ispostava"></div>
+      <div class="form-group"><label class="form-label" for="t-subcenter">Centar razine 2</label><input type="text" id="t-subcenter" name="subcenter" class="form-control" value="{{.Terms.Subcenter}}" placeholder="Podcentar obrane"></div>
+    </div>
+    <div class="form-help">Prazno polje vraća zadani naziv Hrvatskih voda.</div>
+    <div class="form-actions"><button type="submit" class="btn btn-primary">Spremi nazive</button></div>
+  </form>
+  {{else}}
+  <dl class="reg-facts">
+    <div><dt>Razina 1</dt><dd>{{.Terms.Sector}} / {{.Terms.Sectors}} · {{.Terms.SectorOffice}} · {{.Terms.Center}}</dd></div>
+    <div><dt>Razina 2</dt><dd>{{.Terms.Area}} / {{.Terms.Areas}} ({{.Terms.AreaShort}}) · {{.Terms.AreaOffice}} · {{.Terms.Subcenter}}</dd></div>
+  </dl>
+  {{end}}
+</section>
 {{end}}

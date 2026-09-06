@@ -225,6 +225,22 @@ func InitSchema(database *sql.DB) error {
 			UNIQUE(section_code, station_id)
 		);`,
 
+		// Nazivi razina ustroja (sektor, branjeno područje…) kako ih zove
+		// organizacija koja program koristi; jedan zapis, putuje razmjenom
+		`CREATE TABLE IF NOT EXISTS org_terms (
+			id TEXT PRIMARY KEY,
+			sector TEXT NOT NULL DEFAULT '',
+			sectors TEXT NOT NULL DEFAULT '',
+			area TEXT NOT NULL DEFAULT '',
+			areas TEXT NOT NULL DEFAULT '',
+			area_short TEXT NOT NULL DEFAULT '',
+			sector_office TEXT NOT NULL DEFAULT '',
+			area_office TEXT NOT NULL DEFAULT '',
+			center TEXT NOT NULL DEFAULT '',
+			subcenter TEXT NOT NULL DEFAULT '',
+			updated_at DATETIME NOT NULL
+		);`,
+
 		// Pretplate: koje kanale (vrsta/područje/godina) ovo računalo prati.
 		// Lokalno, ne putuje (vidi peers.Subscription).
 		`CREATE TABLE IF NOT EXISTS subscriptions (

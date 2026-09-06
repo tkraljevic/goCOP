@@ -344,6 +344,18 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		`, sec.ID, sec.Name, sec.VgoName, sec.CenterCop, sec.Address, sec.Phone, sec.Email)
 		return err
 
+	case EntityOrgTerms:
+		var t models.OrgTerms
+		if err := json.Unmarshal(v.Payload, &t); err != nil {
+			return err
+		}
+		t = t.Filled()
+		if _, err := tx.ExecContext(ctx, termsUpsert, termsArgs(t)...); err != nil {
+			return err
+		}
+		models.SetTerms(t)
+		return nil
+
 	case EntityAreas:
 		var a models.Area
 		if err := json.Unmarshal(v.Payload, &a); err != nil {

@@ -40,6 +40,7 @@ type OrgPageData struct {
 	Sector         models.Sector
 	Area           models.Area
 	SectorOptions  []models.Sector
+	Terms          models.OrgTerms
 	IsEdit         bool
 	SuccessMessage string
 	ErrorMessage   string
@@ -54,7 +55,7 @@ func (h *OrgHandler) pageData(r *http.Request) OrgPageData {
 	return OrgPageData{
 		CurrentUser: currUser, Permissions: perms,
 		SuccessMessage: r.URL.Query().Get("success"), ErrorMessage: r.URL.Query().Get("error"),
-		ActiveNav: "organizacija", ViewAsBanner: viewBanner(r),
+		ActiveNav: "organizacija", ViewAsBanner: viewBanner(r), Terms: models.Terms(),
 	}
 }
 
@@ -137,6 +138,23 @@ func (h *OrgHandler) ShowAreaForm(w http.ResponseWriter, r *http.Request) {
 	if err := h.tmplArea.ExecuteTemplate(w, "area_form.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// HandleSaveTerms mijenja nazive razina ustroja (za organizacije koje ih zovu drukčije)
+func (h *OrgHandler) HandleSaveTerms(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		redirectWith(w, r, "/organizacija", "error", "Neispravan zahtjev")
+		return
+	}
+	perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
+	f := func(k string) string { return strings.TrimSpace(r.FormValue(k)) }
+	t := models.OrgTerms{Sector: f("sector"), Sectors: f("sectors"), Area: f("area"), Areas: f("areas"), AreaShort: f("area_short"),
+		SectorOffice: f("sector_office"), AreaOffice: f("area_office"), Center: f("center"), Subcenter: f("subcenter")}
+	if err := h.org.SaveTerms(r.Context(), perms, t); err != nil {
+		redirectWith(w, r, "/organizacija", "error", err.Error())
+		return
+	}
+	redirectWith(w, r, "/organizacija", "success", "Nazivi razina su spremljeni i vrijede na svim čvorovima mreže.")
 }
 
 func sectorFromForm(r *http.Request) *models.Sector {

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strconv"
+	"time"
 
 	"gocop/internal/ledger"
 	"gocop/internal/models"
@@ -16,11 +17,58 @@ import (
 // čvorove. Na njih se vežu ovlasti, dionice i zaduženja, pa se brišu samo
 // dok ih ništa ne koristi.
 
-// EntitySectors i EntityAreas su nazivi entiteta u knjizi verzija
+// EntitySectors, EntityAreas i EntityOrgTerms su nazivi entiteta u knjizi verzija
 const (
-	EntitySectors = "sectors"
-	EntityAreas   = "areas"
+	EntitySectors  = "sectors"
+	EntityAreas    = "areas"
+	EntityOrgTerms = "org_terms"
 )
+
+const termsUpsert = `INSERT INTO org_terms (id, sector, sectors, area, areas, area_short, sector_office, area_office, center, subcenter, updated_at)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	ON CONFLICT(id) DO UPDATE SET sector = excluded.sector, sectors = excluded.sectors, area = excluded.area, areas = excluded.areas,
+		area_short = excluded.area_short, sector_office = excluded.sector_office, area_office = excluded.area_office,
+		center = excluded.center, subcenter = excluded.subcenter, updated_at = excluded.updated_at`
+
+func termsArgs(t models.OrgTerms) []any {
+	return []any{models.TermsID, t.Sector, t.Sectors, t.Area, t.Areas, t.AreaShort, t.SectorOffice, t.AreaOffice, t.Center, t.Subcenter, t.UpdatedAt}
+}
+
+// GetTerms čita nazive razina; bez zapisa vraća zadane
+func (r *OrgRepository) GetTerms(ctx context.Context) (models.OrgTerms, error) {
+	var t models.OrgTerms
+	err := r.db.QueryRowContext(ctx, `SELECT id, sector, sectors, area, areas, area_short, sector_office, area_office, center, subcenter, updated_at
+		FROM org_terms WHERE id = ?`, models.TermsID).Scan(&t.ID, &t.Sector, &t.Sectors, &t.Area, &t.Areas, &t.AreaShort, &t.SectorOffice, &t.AreaOffice, &t.Center, &t.Subcenter, &t.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return models.DefaultTerms(), nil
+	}
+	if err != nil {
+		return t, err
+	}
+	return t.Filled(), nil
+}
+
+// SaveTerms upisuje nazive, bilježi verziju i primjenjuje ih odmah
+func (r *OrgRepository) SaveTerms(ctx context.Context, t models.OrgTerms) error {
+	t = t.Filled()
+	t.UpdatedAt = time.Now().UTC()
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, termsUpsert, termsArgs(t)...); err != nil {
+		return fmt.Errorf("upis naziva razina: %w", err)
+	}
+	if _, err := r.rec.Record(ctx, tx, EntityOrgTerms, models.TermsID, t); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	models.SetTerms(t)
+	return nil
+}
 
 type OrgRepository struct {
 	db  *sql.DB
