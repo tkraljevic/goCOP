@@ -45,7 +45,8 @@ type OrgPageData struct {
 	Area           models.Area
 	SectorOptions  []models.Sector
 	Terms          models.OrgTerms
-	RoleRows       []roleRow // sudionici obrane s nazivima organizacije
+	RoleRows       []roleRow   // sudionici obrane s nazivima organizacije
+	RoleGroups     []roleGroup // isti sudionici po skupinama, za kartice
 	IsEdit         bool
 	SuccessMessage string
 	ErrorMessage   string
@@ -60,7 +61,7 @@ func (h *OrgHandler) pageData(r *http.Request) OrgPageData {
 	return OrgPageData{
 		CurrentUser: currUser, Permissions: perms,
 		SuccessMessage: r.URL.Query().Get("success"), ErrorMessage: r.URL.Query().Get("error"),
-		ActiveNav: "organizacija", ViewAsBanner: viewBanner(r), Terms: models.Terms(), RoleRows: roleRows(),
+		ActiveNav: "organizacija", ViewAsBanner: viewBanner(r), Terms: models.Terms(), RoleRows: roleRows(), RoleGroups: roleGroups(),
 	}
 }
 
@@ -157,6 +158,23 @@ func roleRows() []roleRow {
 	for _, d := range models.RoleCatalog {
 		out = append(out, roleRow{Role: string(d.Role), Group: d.Group, Name: d.Name,
 			Custom: t.RoleLabels[string(d.Role)], Label: d.Role.Label(), Desc: d.Desc})
+	}
+	return out
+}
+
+// roleGroup su uloge jedne skupine (razine)
+type roleGroup struct {
+	Group string
+	Rows  []roleRow
+}
+
+func roleGroups() []roleGroup {
+	var out []roleGroup
+	for _, r := range roleRows() {
+		if len(out) == 0 || out[len(out)-1].Group != r.Group {
+			out = append(out, roleGroup{Group: r.Group})
+		}
+		out[len(out)-1].Rows = append(out[len(out)-1].Rows, r)
 	}
 	return out
 }
