@@ -35,7 +35,7 @@
 <div class="reg-card" style="padding:1rem;">
   <dl class="reg-facts" style="font-size:0.85rem;">
     {{if .Water.LengthKm}}<div><dt>Duljina</dt><dd>{{brojHRd .Water.LengthKm 1}} km</dd></div>{{end}}
-    {{if .Water.BasinKm2}}<div><dt>Porječje</dt><dd>{{brojHRd .Water.BasinKm2 0}} km²</dd></div>{{end}}
+    {{if .Water.BasinKm2}}<div><dt>Površina sliva</dt><dd>{{brojHRd .Water.BasinKm2 0}} km²</dd></div>{{end}}
     {{if .Water.AvgFlowM3S}}<div><dt>Prosječni protok</dt><dd>{{brojHRd .Water.AvgFlowM3S 1}} m³/s</dd></div>{{end}}
     {{if .Water.Source}}<div><dt>Izvor</dt><dd>{{.Water.Source}}</dd></div>{{end}}
     {{if .Water.Mouth}}<div><dt>Ušće</dt><dd>{{.Water.Mouth}}</dd></div>{{end}}
@@ -43,17 +43,17 @@
     {{if .Water.Subcategory}}<div><dt>Skupina u Odluci</dt><dd>{{.Water.Subcategory}}</dd></div>{{end}}
     <div><dt>Šifra</dt><dd style="font-family:ui-monospace, monospace; font-weight:500;">{{.Water.Code}}</dd></div>
   </dl>
-  {{if .Water.WikiSlug}}
-  <p class="form-help" style="margin-top:0.75rem;">
-    Opisni podaci (duljina, porječje, protok, izvor, ušće) potječu iz članka na hrvatskoj Wikipediji:
-    <a href="{{.Water.WikiURL}}" target="_blank" rel="noopener">{{.Water.OfficialName}}</a>,
-    suradnici Wikipedije, licenca <a href="https://creativecommons.org/licenses/by-sa/4.0/deed.hr" target="_blank" rel="noopener">CC BY-SA 4.0</a>.
-  </p>
-  {{end}}
   {{if and (not .Water.LengthKm) (not .Water.Mouth) (not .Water.Source)}}
   <p class="page-desc" style="margin-top:0.5rem;">Za ovu vodu nema opisnih podataka; zapis postoji zato što se na nju veže dionica ili postaja.</p>
   {{end}}
 </div>
+
+{{if .Water.Notes}}
+<section class="detail-section">
+  <h2>{{icon "file-text"}} Napomena</h2>
+  <div class="reg-card markdown-body" style="padding:1rem; font-size:0.9rem;">{{renderMarkdown .Water.Notes}}</div>
+</section>
+{{end}}
 
 {{if .Maintenance}}
 <section class="detail-section">

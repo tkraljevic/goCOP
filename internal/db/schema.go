@@ -243,7 +243,8 @@ func InitSchema(database *sql.DB) error {
 			avg_flow_m3s REAL,
 			source TEXT NOT NULL DEFAULT '',
 			mouth TEXT NOT NULL DEFAULT '',
-			flows_into TEXT NOT NULL DEFAULT ''
+			flows_into TEXT NOT NULL DEFAULT '',
+			notes TEXT NOT NULL DEFAULT ''
 		);`,
 
 		// Mjerodavni vodomjeri pojedine dionice
@@ -634,6 +635,7 @@ func migrateSchema(database *sql.DB) error {
 		{"sections", "rkm_from", "REAL"},
 		{"sections", "rkm_to", "REAL"},
 		{"watercourses", "origin", "TEXT NOT NULL DEFAULT ''"},
+		{"watercourses", "notes", "TEXT NOT NULL DEFAULT ''"},
 		{"journal_sheets", "label", "TEXT NOT NULL DEFAULT ''"},
 		{"journal_entries", "side", "TEXT NOT NULL DEFAULT ''"},
 		{"maintained_waters", "program", "TEXT NOT NULL DEFAULT 'A.02'"},
@@ -703,6 +705,16 @@ func migrateSchema(database *sql.DB) error {
 				SELECT MAX(s.created_at) FROM sessions s WHERE s.user_id = users.id
 			) WHERE EXISTS (SELECT 1 FROM sessions s WHERE s.user_id = users.id)`); err != nil {
 			return fmt.Errorf("greška pri popunjavanju zadnjih prijava: %w", err)
+		}
+	}
+
+	// Dunav je prije uvođenja uređive napomene imao tvrdo kodiranu atribuciju
+	// u predlošku. Sačuvaj je kao podatak koji administrator može mijenjati.
+	if justAdded["watercourses.notes"] {
+		if _, err := database.Exec(`
+			UPDATE watercourses SET notes = ? WHERE code = 'rijeka-dunav' AND notes = ''`,
+			"Opisni podaci (duljina, površina sliva, protok, izvor, ušće) potječu iz članka na hrvatskoj Wikipediji: [rijeka Dunav](https://hr.wikipedia.org/wiki/Dunav), suradnici Wikipedije, licenca [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/deed.hr)."); err != nil {
+			return fmt.Errorf("greška pri prijenosu napomene Dunava: %w", err)
 		}
 	}
 

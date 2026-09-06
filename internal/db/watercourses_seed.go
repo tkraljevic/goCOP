@@ -33,6 +33,7 @@ type seedWatercourse struct {
 	Source       string   `json:"source"`
 	Mouth        string   `json:"mouth"`
 	FlowsInto    string   `json:"flows_into"`
+	Notes        string   `json:"notes"`
 }
 
 // seedWatercourses puni registar vodnih tijela i veže dionice i postaje na njega
@@ -64,8 +65,8 @@ func seedWatercourses(database *sql.DB) error {
 		stmt, err := tx.Prepare(`
 			INSERT INTO watercourses (
 				code, official_name, name, kind, category, subcategory, wiki_slug, origin,
-				length_km, basin_km2, avg_flow_m3s, source, mouth, flows_into
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				length_km, basin_km2, avg_flow_m3s, source, mouth, flows_into, notes
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT(code) DO NOTHING
 		`)
 		if err != nil {
@@ -77,7 +78,7 @@ func seedWatercourses(database *sql.DB) error {
 			_, err := stmt.Exec(
 				hydro.WatercourseCode(w.OfficialName), w.OfficialName, w.Name, w.Kind,
 				w.Category, w.Subcategory, w.WikiSlug, w.Origin,
-				w.LengthKm, w.BasinKm2, w.AvgFlowM3S, w.Source, w.Mouth, w.FlowsInto,
+				w.LengthKm, w.BasinKm2, w.AvgFlowM3S, w.Source, w.Mouth, w.FlowsInto, w.Notes,
 			)
 			if err != nil {
 				return fmt.Errorf("greška pri unosu vodnog tijela %q: %w", w.OfficialName, err)
