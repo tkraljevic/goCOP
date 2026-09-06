@@ -5,16 +5,23 @@ import (
 	"strings"
 )
 
-// Sector predstavlja jedan od 6 vodnogospodarskih sektora (VGO)
+// Sector je ustrojstvena jedinica sa svojim centrom obrane. Razina 1 je
+// krovna jedinica organizacije (kod Hrvatskih voda Direkcija s Glavnim
+// centrom), razina 2 su sektori (VGO s COP-om). Obje se vode istom tablicom
+// jer imaju isti oblik: jedinica, centar, adresa i kontakti.
 type Sector struct {
-	ID        string `json:"id"`         // A, B, C, D, E, F
+	ID        string `json:"id"`         // A, B, C, D, E, F ili DIREKCIJA
 	Name      string `json:"name"`       // npr. "Sektor B — Dunav i donja Drava"
 	VgoName   string `json:"vgo_name"`   // npr. "VGO za Dunav i donju Dravu, Osijek"
 	CenterCop string `json:"center_cop"` // npr. "COP Osijek"
 	Address   string `json:"address"`
 	Phone     string `json:"phone"`
 	Email     string `json:"email"`
+	Level     int    `json:"level"` // 1 krovna jedinica, 2 sektor (zadano)
 }
+
+// IsLevel1 javlja je li jedinica krovna (razina 1)
+func (s Sector) IsLevel1() bool { return s.Level == 1 }
 
 // Area predstavlja branjeno područje (mali sliv / VGI)
 type Area struct {

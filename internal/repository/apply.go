@@ -382,12 +382,16 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		if err := json.Unmarshal(v.Payload, &sec); err != nil {
 			return err
 		}
+		if sec.Level == 0 {
+			sec.Level = 2 // verzija otprije razina: jedinica je sektor
+		}
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO sectors (id, name, vgo_name, center_cop, address, phone, email)
-			VALUES (?, ?, ?, ?, ?, ?, ?)
+			INSERT INTO sectors (id, name, vgo_name, center_cop, address, phone, email, level)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT(id) DO UPDATE SET name = excluded.name, vgo_name = excluded.vgo_name,
-				center_cop = excluded.center_cop, address = excluded.address, phone = excluded.phone, email = excluded.email
-		`, sec.ID, sec.Name, sec.VgoName, sec.CenterCop, sec.Address, sec.Phone, sec.Email)
+				center_cop = excluded.center_cop, address = excluded.address, phone = excluded.phone,
+				email = excluded.email, level = excluded.level
+		`, sec.ID, sec.Name, sec.VgoName, sec.CenterCop, sec.Address, sec.Phone, sec.Email, sec.Level)
 		return err
 
 	case EntityOrgTerms:

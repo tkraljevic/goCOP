@@ -29,14 +29,8 @@ type OrgTerms struct {
 	OrgRegistryNo     string `json:"org_registry_no"`     // matični broj
 	OrgTaxID          string `json:"org_tax_id"`          // OIB ili porezni broj
 	Level1Unit        string `json:"level1_unit"`         // Direkcija
-	Level1UnitName    string `json:"level1_unit_name"`    // Direkcija Zagreb
-	Level1Address     string `json:"level1_address"`      // Ulica grada Vukovara 220, Zagreb
-	Level1Phone       string `json:"level1_phone"`        //
-	Level1Email       string `json:"level1_email"`        //
 	Level1Center      string `json:"level1_center"`       // Glavni centar obrane od poplava
 	Level1CenterShort string `json:"level1_center_short"` // GCOP
-	Level1CenterPhone string `json:"level1_center_phone"` //
-	Level1CenterEmail string `json:"level1_center_email"` //
 
 	// znak organizacije i tekst koji stoji na stranici prijave
 	LogoMime  string `json:"logo_mime,omitempty"` // image/svg+xml, image/png…
@@ -101,10 +95,7 @@ func (t OrgTerms) Filled() OrgTerms {
 		ID:      TermsID,
 		OrgName: pick(t.OrgName, d.OrgName), Level1Unit: pick(t.Level1Unit, d.Level1Unit),
 		OrgLegalForm: strings.TrimSpace(t.OrgLegalForm), OrgRegistryNo: strings.TrimSpace(t.OrgRegistryNo), OrgTaxID: strings.TrimSpace(t.OrgTaxID),
-		Level1UnitName: strings.TrimSpace(t.Level1UnitName), Level1Address: strings.TrimSpace(t.Level1Address),
-		Level1Phone: strings.TrimSpace(t.Level1Phone), Level1Email: strings.TrimSpace(t.Level1Email),
 		Level1Center: pick(t.Level1Center, d.Level1Center), Level1CenterShort: pick(t.Level1CenterShort, d.Level1CenterShort),
-		Level1CenterPhone: strings.TrimSpace(t.Level1CenterPhone), Level1CenterEmail: strings.TrimSpace(t.Level1CenterEmail),
 		Sector: pick(t.Sector, d.Sector), Sectors: pick(t.Sectors, d.Sectors),
 		SectorOffice: pick(t.SectorOffice, d.SectorOffice), SectorOfficeShort: pick(t.SectorOfficeShort, d.SectorOfficeShort),
 		Center: pick(t.Center, d.Center), CenterShort: pick(t.CenterShort, d.CenterShort),

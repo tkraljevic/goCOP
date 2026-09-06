@@ -26,28 +26,24 @@ const (
 )
 
 const termsColumns = `id, sector, sectors, area, areas, area_short, sector_office, area_office, center, subcenter, updated_at,
-	org_name, level1_unit, level1_unit_name, level1_address, level1_phone, level1_email,
-	level1_center, level1_center_short, level1_center_phone, level1_center_email,
+	org_name, level1_unit, level1_center, level1_center_short,
 	sector_office_short, center_short, area_office_short, logo_mime, logo, login_info, role_labels,
 	org_legal_form, org_registry_no, org_tax_id`
 
 const termsUpsert = `INSERT INTO org_terms (` + termsColumns + `)
-	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	ON CONFLICT(id) DO UPDATE SET sector = excluded.sector, sectors = excluded.sectors, area = excluded.area, areas = excluded.areas,
 		area_short = excluded.area_short, sector_office = excluded.sector_office, area_office = excluded.area_office,
 		center = excluded.center, subcenter = excluded.subcenter, updated_at = excluded.updated_at,
-		org_name = excluded.org_name, level1_unit = excluded.level1_unit, level1_unit_name = excluded.level1_unit_name,
-		level1_address = excluded.level1_address, level1_phone = excluded.level1_phone, level1_email = excluded.level1_email,
+		org_name = excluded.org_name, level1_unit = excluded.level1_unit,
 		level1_center = excluded.level1_center, level1_center_short = excluded.level1_center_short,
-		level1_center_phone = excluded.level1_center_phone, level1_center_email = excluded.level1_center_email,
 		sector_office_short = excluded.sector_office_short, center_short = excluded.center_short, area_office_short = excluded.area_office_short,
 		logo_mime = excluded.logo_mime, logo = excluded.logo, login_info = excluded.login_info, role_labels = excluded.role_labels,
 		org_legal_form = excluded.org_legal_form, org_registry_no = excluded.org_registry_no, org_tax_id = excluded.org_tax_id`
 
 func termsArgs(t models.OrgTerms) []any {
 	return []any{models.TermsID, t.Sector, t.Sectors, t.Area, t.Areas, t.AreaShort, t.SectorOffice, t.AreaOffice, t.Center, t.Subcenter, t.UpdatedAt,
-		t.OrgName, t.Level1Unit, t.Level1UnitName, t.Level1Address, t.Level1Phone, t.Level1Email,
-		t.Level1Center, t.Level1CenterShort, t.Level1CenterPhone, t.Level1CenterEmail,
+		t.OrgName, t.Level1Unit, t.Level1Center, t.Level1CenterShort,
 		t.SectorOfficeShort, t.CenterShort, t.AreaOfficeShort, t.LogoMime, t.Logo, t.LoginInfo, labelsJSON(t.RoleLabels),
 		t.OrgLegalForm, t.OrgRegistryNo, t.OrgTaxID}
 }
@@ -67,8 +63,7 @@ func (r *OrgRepository) GetTerms(ctx context.Context) (models.OrgTerms, error) {
 	var labels string
 	err := r.db.QueryRowContext(ctx, `SELECT `+termsColumns+` FROM org_terms WHERE id = ?`, models.TermsID).Scan(
 		&t.ID, &t.Sector, &t.Sectors, &t.Area, &t.Areas, &t.AreaShort, &t.SectorOffice, &t.AreaOffice, &t.Center, &t.Subcenter, &t.UpdatedAt,
-		&t.OrgName, &t.Level1Unit, &t.Level1UnitName, &t.Level1Address, &t.Level1Phone, &t.Level1Email,
-		&t.Level1Center, &t.Level1CenterShort, &t.Level1CenterPhone, &t.Level1CenterEmail,
+		&t.OrgName, &t.Level1Unit, &t.Level1Center, &t.Level1CenterShort,
 		&t.SectorOfficeShort, &t.CenterShort, &t.AreaOfficeShort, &t.LogoMime, &t.Logo, &t.LoginInfo, &labels,
 		&t.OrgLegalForm, &t.OrgRegistryNo, &t.OrgTaxID)
 	if err == sql.ErrNoRows {
@@ -121,8 +116,11 @@ type rowScannerOrg interface {
 func scanSector(row rowScannerOrg) (models.Sector, error) {
 	var s models.Sector
 	var address, phone, email sql.NullString
-	err := row.Scan(&s.ID, &s.Name, &s.VgoName, &s.CenterCop, &address, &phone, &email)
+	err := row.Scan(&s.ID, &s.Name, &s.VgoName, &s.CenterCop, &address, &phone, &email, &s.Level)
 	s.Address, s.Phone, s.Email = address.String, phone.String, email.String
+	if s.Level == 0 {
+		s.Level = 2 // zapisi otprije razina: jedinica je sektor
+	}
 	return s, err
 }
 
@@ -135,7 +133,7 @@ func scanArea(row rowScannerOrg) (models.Area, error) {
 	return a, err
 }
 
-const sectorSelect = `SELECT id, name, vgo_name, center_cop, address, phone, email FROM sectors`
+const sectorSelect = `SELECT id, name, vgo_name, center_cop, address, phone, email, level FROM sectors`
 const areaSelect = `SELECT id, sector_id, name, vgi_name, subcenter, contractor_name, direct_to_sector FROM areas`
 
 // ListSectors vraća sektore; Direkcija prva, ostali po oznaci
@@ -176,11 +174,12 @@ func (r *OrgRepository) SaveSector(ctx context.Context, s *models.Sector) error 
 	}
 	defer tx.Rollback()
 	if _, err := tx.ExecContext(ctx, `
-		INSERT INTO sectors (id, name, vgo_name, center_cop, address, phone, email)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO sectors (id, name, vgo_name, center_cop, address, phone, email, level)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET name = excluded.name, vgo_name = excluded.vgo_name,
-			center_cop = excluded.center_cop, address = excluded.address, phone = excluded.phone, email = excluded.email`,
-		s.ID, s.Name, s.VgoName, s.CenterCop, s.Address, s.Phone, s.Email); err != nil {
+			center_cop = excluded.center_cop, address = excluded.address, phone = excluded.phone,
+			email = excluded.email, level = excluded.level`,
+		s.ID, s.Name, s.VgoName, s.CenterCop, s.Address, s.Phone, s.Email, s.Level); err != nil {
 		return fmt.Errorf("upis sektora %s: %w", s.ID, err)
 	}
 	if _, err := r.rec.Record(ctx, tx, EntitySectors, s.ID, s); err != nil {
