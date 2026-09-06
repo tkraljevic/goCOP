@@ -91,6 +91,17 @@
       </tbody>
     </table>
   </div></div>
+  {{if and .Permissions .Permissions.IsGlobalAdmin}}
+  <details style="margin-top:0.5rem;">
+    <summary style="cursor:pointer; font-size:0.85rem; color:var(--text-muted);">{{icon "download"}} Uvoz iz CSV datoteke</summary>
+    <form method="POST" action="/organizacija/uvoz" enctype="multipart/form-data" style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; margin-top:0.5rem;">
+      <input type="hidden" name="kind" value="sektori">
+      <input type="file" name="csv" accept=".csv,text/csv" class="form-control" required style="max-width:20rem;">
+      <button type="submit" class="btn btn-sm btn-secondary">Uvezi</button>
+      <span class="form-help" style="margin:0;">Isti stupci kao u izvozu; postojeći se osvježe po oznaci, novi se dodaju.</span>
+    </form>
+  </details>
+  {{end}}
   {{else}}
   <div class="reg-empty" style="margin-top:0.5rem;">
     Još nema nijednog: {{terml "sektor"}}. {{if and .Permissions .Permissions.IsGlobalAdmin}}Počnite prvim, pa mu dodajte {{terml "podrucja"}}.{{else}}Upisuje ih globalni administrator.{{end}}
@@ -136,6 +147,17 @@
       </tbody>
     </table>
   </div></div>
+  {{if and .Permissions .Permissions.IsGlobalAdmin}}
+  <details style="margin-top:0.5rem;">
+    <summary style="cursor:pointer; font-size:0.85rem; color:var(--text-muted);">{{icon "download"}} Uvoz iz CSV datoteke</summary>
+    <form method="POST" action="/organizacija/uvoz" enctype="multipart/form-data" style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; margin-top:0.5rem;">
+      <input type="hidden" name="kind" value="podrucja">
+      <input type="file" name="csv" accept=".csv,text/csv" class="form-control" required style="max-width:20rem;">
+      <button type="submit" class="btn btn-sm btn-secondary">Uvezi</button>
+      <span class="form-help" style="margin:0;">Isti stupci kao u izvozu; postojeći se osvježe po oznaci, novi se dodaju.</span>
+    </form>
+  </details>
+  {{end}}
 </section>
 
 {{if .Orphans}}
