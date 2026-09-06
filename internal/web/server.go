@@ -435,6 +435,10 @@ func (s *Server) setupRoutes() {
 
 	// Teritorijalne jedinice (županije, gradovi, općine, naselja)
 	s.mux.Handle("GET /territories", s.authMiddleware(http.HandlerFunc(territoriesH.ShowTerritories)))
+	s.mux.Handle("GET /territories/zupanije.csv", s.authMiddleware(http.HandlerFunc(territoriesH.ExportCountiesCSV)))
+	s.mux.Handle("GET /territories/gradovi-i-opcine.csv", s.authMiddleware(http.HandlerFunc(territoriesH.ExportMunicipalitiesCSV)))
+	s.mux.Handle("GET /territories/naselja.csv", s.authMiddleware(http.HandlerFunc(territoriesH.ExportSettlementsCSV)))
+	s.mux.Handle("POST /territories/uvoz", s.authMiddleware(http.HandlerFunc(territoriesH.HandleImportTerritoriesCSV)))
 	s.mux.Handle("GET /territories/counties/new", s.authMiddleware(http.HandlerFunc(territoriesH.ShowCountyForm)))
 	s.mux.Handle("GET /territories/counties/{id}/edit", s.authMiddleware(http.HandlerFunc(territoriesH.ShowCountyForm)))
 	s.mux.Handle("GET /territories/municipalities/new", s.authMiddleware(http.HandlerFunc(territoriesH.ShowMunicipalityForm)))

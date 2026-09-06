@@ -69,6 +69,33 @@
     {{end}}
   </div>
 
+  {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+  {{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
+
+  <details class="detail-section" style="margin-bottom:1.5rem;">
+    <summary style="cursor:pointer; font-weight:600;">{{icon "download"}} Izvoz i uvoz tablica (CSV za Excel)</summary>
+    <p class="page-desc" style="margin-top:0.5rem;">
+      Županije, gradovi i općine te naselja mijenjaju se rijetko, pa se najlakše održavaju u tablici: izvezite,
+      uredite i vratite. Redak s postojećim brojem se osvježi, redak bez broja se doda; ništa se ne briše.
+    </p>
+    <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.75rem;">
+      <a href="/territories/zupanije.csv" class="btn btn-sm btn-secondary">{{icon "download"}} Županije</a>
+      <a href="/territories/gradovi-i-opcine.csv" class="btn btn-sm btn-secondary">{{icon "download"}} Gradovi i općine</a>
+      <a href="/territories/naselja.csv" class="btn btn-sm btn-secondary">{{icon "download"}} Naselja</a>
+    </div>
+    {{if .Permissions.IsGlobalAdmin}}
+    <form method="POST" action="/territories/uvoz" enctype="multipart/form-data" style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+      <select name="kind" class="form-control" style="max-width:14rem;">
+        <option value="zupanije">Županije</option>
+        <option value="opcine">Gradovi i općine</option>
+        <option value="naselja">Naselja</option>
+      </select>
+      <input type="file" name="csv" accept=".csv,text/csv" class="form-control" required style="max-width:20rem;">
+      <button type="submit" class="btn btn-sm btn-secondary">Uvezi</button>
+    </form>
+    {{end}}
+  </details>
+
   <!-- KPI brojači -->
   <div class="kpi-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
     <div class="kpi-card" style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; display: flex; align-items: center; gap: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">

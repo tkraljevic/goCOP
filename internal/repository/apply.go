@@ -457,13 +457,14 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 			return err
 		}
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO municipalities (id, county_id, name, type, head_title, head_name, postal_code, area_sqkm, population)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+			INSERT INTO municipalities (id, county_id, name, type, head_title, head_name, postal_code, area_sqkm, population, email, phone, website)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT(id) DO UPDATE SET
 				county_id = excluded.county_id, name = excluded.name, type = excluded.type,
 				head_title = excluded.head_title, head_name = excluded.head_name, postal_code = excluded.postal_code,
-				area_sqkm = excluded.area_sqkm, population = excluded.population
-		`, m.ID, m.CountyID, m.Name, m.Type, m.HeadTitle, m.HeadName, m.PostalCode, m.AreaSqKm, m.Population)
+				area_sqkm = excluded.area_sqkm, population = excluded.population,
+				email = excluded.email, phone = excluded.phone, website = excluded.website
+		`, m.ID, m.CountyID, m.Name, m.Type, m.HeadTitle, m.HeadName, m.PostalCode, m.AreaSqKm, m.Population, m.Email, m.Phone, m.Website)
 		return err
 
 	case EntitySettlements:

@@ -65,6 +65,22 @@
       <input type="text" inputmode="numeric" id="population" name="population" class="form-control" value="{{if gt .Municipality.Population 0}}{{.Municipality.Population}}{{end}}">
     </div>
   </div>
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="email">E-pošta</label>
+      <input type="email" id="email" name="email" class="form-control" value="{{.Municipality.Email}}" placeholder="npr. pisarnica@grad.hr">
+      <div class="form-help">Službena adresa za obavijesti u obrani od poplava.</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="phone">Telefon</label>
+      <input type="tel" id="phone" name="phone" class="form-control" value="{{.Municipality.Phone}}">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="website">Web stranica</label>
+      <input type="text" id="website" name="website" class="form-control" value="{{.Municipality.Website}}" placeholder="npr. www.grad.hr">
+    </div>
+  </div>
+
   <div class="form-actions">
     <a href="{{if .IsEdit}}/territories/municipalities/{{.Municipality.ID}}{{else}}/territories?tab=municipalities{{end}}" class="btn btn-secondary">Odustani</a>
     <button type="submit" class="btn btn-primary">{{if .IsEdit}}Spremi izmjene{{else}}Dodaj{{end}}</button>

@@ -158,7 +158,10 @@ func InitSchema(database *sql.DB) error {
 			head_name TEXT,
 			postal_code TEXT,
 			area_sqkm REAL,
-			population INTEGER
+			population INTEGER,
+			email TEXT NOT NULL DEFAULT '',
+			phone TEXT NOT NULL DEFAULT '',
+			website TEXT NOT NULL DEFAULT ''
 		);`,
 
 		`CREATE TABLE IF NOT EXISTS settlements (
@@ -643,6 +646,9 @@ func migrateSchema(database *sql.DB) error {
 		{"users", "short_mobile", "TEXT"},
 		{"record_versions", "channel", "TEXT NOT NULL DEFAULT ''"},
 		{"sectors", "level", "INTEGER NOT NULL DEFAULT 2"},
+		{"municipalities", "email", "TEXT NOT NULL DEFAULT ''"},
+		{"municipalities", "phone", "TEXT NOT NULL DEFAULT ''"},
+		{"municipalities", "website", "TEXT NOT NULL DEFAULT ''"},
 		{"areas", "direct_to_sector", "INTEGER NOT NULL DEFAULT 0"},
 		{"org_terms", "org_name", "TEXT NOT NULL DEFAULT ''"},
 		{"org_terms", "level1_unit", "TEXT NOT NULL DEFAULT ''"},
