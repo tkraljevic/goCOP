@@ -64,6 +64,18 @@ var StructureKinds = []string{
 // KindLabel je naziv vrste u sučelju
 func (s Structure) KindLabel() string { return StructureKindLabel(s.Kind) }
 
+// TakesReadings kaže je li na objektu uopće što očitati. Vodostaj se čita na
+// letvi crpne stanice, ustave, sifona ili pregrade; nasip i brana letve nemaju
+// — Teren ih je nudio kao "letve područja" s gumbom za upis, uz jedinu pravu
+// letvu Batinu.
+func (s Structure) TakesReadings() bool {
+	switch s.Kind {
+	case StructureKindEmbankment, StructureKindDam:
+		return false
+	}
+	return true
+}
+
 func StructureKindLabel(kind string) string {
 	switch kind {
 	case StructureKindPumpingStation:
