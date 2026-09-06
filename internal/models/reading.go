@@ -25,6 +25,14 @@ type Reading struct {
 	LevelCm  *int `json:"level_cm,omitempty"`  // vodostaj; na ustavi uzvodni
 	Level2Cm *int `json:"level2_cm,omitempty"` // nizvodni vodostaj na ustavi
 
+	// Quality kaže je li vrijednost izmjerena na ovoj letvi ili dobivena
+	// računom iz druge postaje. Prazno je izmjereno: takvi su svi zapisi
+	// zatečeni prije nego što se razlika počela bilježiti. Rekonstruirano
+	// očitanje ne smije se čitati kao mjerenje ove letve.
+	Quality     string `json:"quality,omitempty"`      // Quality*
+	DerivedFrom string `json:"derived_from,omitempty"` // odakle je preračunato, npr. "postaja Bezdan"
+	Method      string `json:"method,omitempty"`       // kako: formula, korekcija, razdoblje valjanosti
+
 	Source    string `json:"source"`               // ReadingSource*
 	Origin    string `json:"origin,omitempty"`     // GOCOP, DIRECTUS_BP16 …
 	SourceRef string `json:"source_ref,omitempty"` // npr. directus:vodostaji_na_crpnim_stanicama:26860
@@ -237,3 +245,8 @@ func (g GaugeSummary) Age() time.Duration {
 
 // Stale javlja da je zadnje očitanje starije od 36 sati — na terenu se čita svako jutro
 func (g GaugeSummary) Stale() bool { return g.Latest != nil && g.Age() > 36*time.Hour }
+
+// IsMeasured govori smije li se očitanje predstaviti kao mjerenje svoje letve.
+func (r Reading) IsMeasured() bool {
+	return r.Quality == "" || r.Quality == QualityMeasured
+}
