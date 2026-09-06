@@ -425,6 +425,25 @@ func InitSchema(database *sql.DB) error {
 		// Letve čiju povijest ovaj čvor drži u cijelosti. Tablica je LOKALNA:
 		// ne sinkronizira se, jer je odluka o mjestu na disku stvar ovog
 		// računala, a ne mreže.
+		`CREATE TABLE IF NOT EXISTS defense_episodes (
+			id TEXT PRIMARY KEY,
+			section_code TEXT NOT NULL REFERENCES sections(code) ON DELETE CASCADE,
+			station_id TEXT NOT NULL DEFAULT '',
+			started_at DATETIME NOT NULL,
+			-- prazno dok obrana traje
+			ended_at DATETIME,
+			phase TEXT NOT NULL DEFAULT '',
+			peak_cm INTEGER,
+			peak_at DATETIME,
+			-- OČITANJA (utvrđena računom) ili OPERATER (upisana rukom);
+			-- računom utvrđena epizoda smije se preračunati, upisana ne
+			origin TEXT NOT NULL DEFAULT '',
+			note TEXT NOT NULL DEFAULT '',
+			created_at DATETIME NOT NULL,
+			updated_at DATETIME NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_episodes_section ON defense_episodes(section_code, started_at);`,
+		`CREATE INDEX IF NOT EXISTS idx_episodes_open ON defense_episodes(ended_at) WHERE ended_at IS NULL;`,
 		`CREATE TABLE IF NOT EXISTS reading_follows (
 			gauge_key TEXT PRIMARY KEY,
 			name TEXT NOT NULL DEFAULT '',
