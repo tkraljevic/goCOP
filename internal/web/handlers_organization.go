@@ -40,6 +40,7 @@ type SectorView struct {
 	models.Sector
 	Areas       []AreaView
 	Contractors []models.Contractor
+	SectorAdmin bool // obrazac firme: smije li prijavljeni korisnik označiti cijeli sektor
 }
 
 // AreaView je područje sa svojim licenciranim firmama
@@ -61,6 +62,7 @@ type OrgPageData struct {
 	Terms          models.OrgTerms
 	Contractors    []models.Contractor
 	Contractor     models.Contractor
+	EditableIDs    map[string]bool // firme koje smije uređivati/brisati prijavljeni korisnik
 	SectorChecked  map[string]bool // obrazac firme: gdje radi
 	AreaChecked    map[int]bool
 	RoleRows       []roleRow   // sudionici obrane s nazivima organizacije
@@ -374,9 +376,37 @@ func (h *OrgHandler) ShowContractors(w http.ResponseWriter, r *http.Request) {
 	for _, s := range sectors {
 		data.Sectors = append(data.Sectors, SectorView{Sector: s})
 	}
+	data.EditableIDs = map[string]bool{}
+	if data.Permissions != nil {
+		for _, c := range data.Contractors {
+			if data.Permissions.IsGlobalAdmin {
+				data.EditableIDs[c.ID] = true
+				continue
+			}
+			for _, a := range c.Assignments {
+				if data.Permissions.CanAdminister(a.SectorID, a.AreaID) {
+					data.EditableIDs[c.ID] = true
+					break
+				}
+			}
+		}
+	}
 	if err := h.tmplContrList.ExecuteTemplate(w, "firme.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// requireContractorAccess dopušta otvaranje obrasca firme globalnom
+// administratoru te ovlašteniku za praćenje ugovora i drugim administratorima
+// sektora/područja; koje točno firme i mjesta rada smiju spremiti provjerava
+// tek OrgService.SaveContractor prema svom dosegu.
+func (h *OrgHandler) requireContractorAccess(w http.ResponseWriter, data OrgPageData) bool {
+	p := data.Permissions
+	if p != nil && (p.IsGlobalAdmin || len(p.AdminSectors) > 0 || len(p.AdminAreas) > 0) {
+		return true
+	}
+	http.Error(w, "Licencirane firme uređuje globalni administrator ili ovlaštenik za praćenje ugovora za svoje branjeno područje", http.StatusForbidden)
+	return false
 }
 
 // ExportContractorsCSV daje registar licenciranih firmi kao CSV
@@ -406,7 +436,7 @@ func (h *OrgHandler) ShowContractorForm(w http.ResponseWriter, r *http.Request) 
 	ctx := r.Context()
 	data := h.pageData(r)
 	data.ActiveNav = "firme"
-	if !h.requireAdmin(w, data) {
+	if !h.requireContractorAccess(w, data) {
 		return
 	}
 	data.SectorChecked, data.AreaChecked = map[string]bool{}, map[int]bool{}
@@ -415,6 +445,19 @@ func (h *OrgHandler) ShowContractorForm(w http.ResponseWriter, r *http.Request) 
 		if err != nil || c == nil {
 			http.NotFound(w, r)
 			return
+		}
+		if !data.Permissions.IsGlobalAdmin {
+			ownsOne := len(c.Assignments) == 0
+			for _, a := range c.Assignments {
+				if data.Permissions.CanAdminister(a.SectorID, a.AreaID) {
+					ownsOne = true
+					break
+				}
+			}
+			if !ownsOne {
+				http.Error(w, "Ovu firmu smije uređivati samo tko vodi barem jedno od njenih mjesta rada", http.StatusForbidden)
+				return
+			}
 		}
 		data.Contractor, data.IsEdit = *c, true
 		for _, a := range c.Assignments {
@@ -427,14 +470,18 @@ func (h *OrgHandler) ShowContractorForm(w http.ResponseWriter, r *http.Request) 
 	}
 	sectors, _ := h.org.ListSectors(ctx)
 	areas, _ := h.org.ListAreas(ctx, "")
+	canAll := data.Permissions.IsGlobalAdmin
 	for _, s := range sectors {
-		v := SectorView{Sector: s}
+		sectorAdmin := canAll || data.Permissions.AdminSectors[s.ID]
+		v := SectorView{Sector: s, SectorAdmin: sectorAdmin}
 		for _, a := range areas {
-			if a.SectorID == s.ID {
+			if a.SectorID == s.ID && (sectorAdmin || data.Permissions.AdminAreas[a.ID]) {
 				v.Areas = append(v.Areas, AreaView{Area: a})
 			}
 		}
-		data.Sectors = append(data.Sectors, v)
+		if sectorAdmin || len(v.Areas) > 0 {
+			data.Sectors = append(data.Sectors, v)
+		}
 	}
 	if err := h.tmplContr.ExecuteTemplate(w, "contractor_form.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
