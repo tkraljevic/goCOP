@@ -72,27 +72,8 @@
         </label>
         <select id="filter-role" name="role" class="filter-select {{if .SelectedRole}}filter-active{{end}}" onchange="this.form.submit()">
           <option value="">-- Sve uloge i dužnosti --</option>
-          <option value="GLOBAL_ADMIN" {{if eq $.SelectedRole "GLOBAL_ADMIN"}}selected{{end}}>Globalni administrator</option>
-          <option value="NATIONAL_LEADER" {{if eq $.SelectedRole "NATIONAL_LEADER"}}selected{{end}}>Glavni rukovoditelj (za cijelu RH)</option>
-          <option value="NATIONAL_DEPUTY" {{if eq $.SelectedRole "NATIONAL_DEPUTY"}}selected{{end}}>Zamjenik Glavnog rukovoditelja (za cijelu RH)</option>
-          <option value="SECTOR_MAIN_DEPUTY" {{if eq $.SelectedRole "SECTOR_MAIN_DEPUTY"}}selected{{end}}>Zamjenik Glavnog rukovoditelja za sektor</option>
-          <option value="SECTOR_LEADER" {{if eq $.SelectedRole "SECTOR_LEADER"}}selected{{end}}>Rukovoditelj sektora</option>
-          <option value="SECTOR_DEPUTY" {{if eq $.SelectedRole "SECTOR_DEPUTY"}}selected{{end}}>Zamjenik rukovoditelja sektora</option>
-          <option value="SECTOR_AREA_DEPUTY" {{if eq $.SelectedRole "SECTOR_AREA_DEPUTY"}}selected{{end}}>Zamjenik rukovoditelja sektora za {{terml "podrucje"}}</option>
-          <option value="COP_LEADER" {{if eq $.SelectedRole "COP_LEADER"}}selected{{end}}>Voditelj Centra obrane od poplava</option>
-          <option value="COP_DEPUTY" {{if eq $.SelectedRole "COP_DEPUTY"}}selected{{end}}>Zamjenik voditelja Centra obrane od poplava</option>
-          <option value="AREA_LEADER" {{if eq $.SelectedRole "AREA_LEADER"}}selected{{end}}>Rukovoditelj branjenog područja</option>
-          <option value="AREA_DEPUTY" {{if eq $.SelectedRole "AREA_DEPUTY"}}selected{{end}}>Zamjenik rukovoditelja branjenog područja</option>
-          <option value="SECTION_LEADER" {{if eq $.SelectedRole "SECTION_LEADER"}}selected{{end}}>Rukovoditelj dionice</option>
-          <option value="SECTION_DEPUTY" {{if eq $.SelectedRole "SECTION_DEPUTY"}}selected{{end}}>Zamjenik rukovoditelja dionice</option>
-          <option value="CONTRACT_OFFICER_A2" {{if eq $.SelectedRole "CONTRACT_OFFICER_A2"}}selected{{end}}>Ovlaštenik za praćenje ugovora programa usluga A2</option>
-          <option value="CONTRACT_OFFICER_A3" {{if eq $.SelectedRole "CONTRACT_OFFICER_A3"}}selected{{end}}>Ovlaštenik za praćenje ugovora programa usluga A3</option>
-          <option value="SERVICE_LEADER_FOREMAN" {{if eq $.SelectedRole "SERVICE_LEADER_FOREMAN"}}selected{{end}}>Voditelj usluga / Poslovođa</option>
-          <option value="OPERATOR" {{if eq $.SelectedRole "OPERATOR"}}selected{{end}}>Dežurni operater u COP-u</option>
-          <option value="WATER_GUARD" {{if or (eq $.SelectedRole "WATER_GUARD") (eq $.SelectedRole "FIELD_WORKER")}}selected{{end}}>Vodočuvar</option>
-          <option value="MACHINIST" {{if eq $.SelectedRole "MACHINIST"}}selected{{end}}>Strojar</option>
-          <option value="FACILITY_OPERATOR" {{if eq $.SelectedRole "FACILITY_OPERATOR"}}selected{{end}}>Rukovatelj</option>
-          <option value="CREW_LEADER" {{if eq $.SelectedRole "CREW_LEADER"}}selected{{end}}>Voditelj posade objekta</option>
+          <option value="GLOBAL_ADMIN" {{if eq $.SelectedRole "GLOBAL_ADMIN"}}selected{{end}}>{{roleLabel "GLOBAL_ADMIN"}}</option>
+          {{range roleOptions}}{{if ne .Value "VIEWER"}}<option value="{{.Value}}" {{if or (eq $.SelectedRole .Value) (and (eq .Value "WATER_GUARD") (eq $.SelectedRole "FIELD_WORKER"))}}selected{{end}}>{{.Label}}</option>{{end}}{{end}}
         </select>
       </div>
 
