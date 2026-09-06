@@ -18,7 +18,7 @@ const (
 	RoleGroupLevel1   = "Razina 1"
 	RoleGroupLevel2   = "Razina 2"
 	RoleGroupLevel3   = "Razina 3"
-	RoleGroupSection  = "Dionica"
+	RoleGroupLevel4   = "Razina 4"
 	RoleGroupField    = "Teren"
 	RoleGroupExternal = "Vanjski suradnici"
 	RoleGroupProgram  = "Program"
@@ -39,8 +39,8 @@ var RoleCatalog = []RoleDef{
 	{RoleCopDeputy, RoleGroupLevel2, "Zamjenik voditelja Centra obrane od poplava", "zamjenjuje voditelja centra; ista prava"},
 	{RoleAreaLeader, RoleGroupLevel3, "Rukovoditelj branjenog područja", "vodi obranu jednog branjenog područja; upravlja područjem i njegovim dionicama"},
 	{RoleAreaDeputy, RoleGroupLevel3, "Zamjenik rukovoditelja branjenog područja", "zamjenjuje rukovoditelja područja; ista prava"},
-	{RoleSectionLeader, RoleGroupSection, "Rukovoditelj dionice", "vodi obranu na svojim dionicama; upisuje očitanja i dnevnike za njih"},
-	{RoleSectionDeputy, RoleGroupSection, "Zamjenik rukovoditelja dionice", "zamjenjuje rukovoditelja dionice; ista prava na njegovim dionicama"},
+	{RoleSectionLeader, RoleGroupLevel4, "Rukovoditelj dionice", "vodi obranu na svojim dionicama (razina 4: dionica); upisuje očitanja i dnevnike za njih"},
+	{RoleSectionDeputy, RoleGroupLevel4, "Zamjenik rukovoditelja dionice", "zamjenjuje rukovoditelja dionice; ista prava na njegovim dionicama"},
 	{RoleContractOfficerA2, RoleGroupLevel3, "Ovlaštenik za praćenje ugovora programa usluga A2", "prati ugovor održavanja u području; upravlja područjem"},
 	{RoleContractOfficerA3, RoleGroupLevel3, "Ovlaštenik za praćenje ugovora programa usluga A3", "prati ugovor obrane u području; upravlja područjem"},
 	{RoleServiceLeaderForeman, RoleGroupExternal, "Voditelj usluga / Poslovođa", "vodi radove ugovornog izvođača; vidi teren i vodi vlastite dnevnike"},
