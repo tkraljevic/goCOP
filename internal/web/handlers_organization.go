@@ -193,6 +193,126 @@ func (h *OrgHandler) ExportAreasCSV(w http.ResponseWriter, r *http.Request) {
 	writeCSV(w, "branjena-podrucja.csv", rows)
 }
 
+// readCSV čita CSV kakav daje izvoz ili Excel: s oznakom BOM ili bez nje,
+// s točka-zarezom ili zarezom. Prvi redak je zaglavlje kad ne izgleda kao podatak.
+func readCSV(file io.Reader) ([][]string, error) {
+	data, err := io.ReadAll(io.LimitReader(file, 4<<20))
+	if err != nil {
+		return nil, err
+	}
+	data = bytes.TrimPrefix(data, []byte("\xEF\xBB\xBF"))
+	first, _, _ := strings.Cut(string(data), "\n")
+	cr := csv.NewReader(bytes.NewReader(data))
+	cr.Comma = ','
+	if strings.Count(first, ";") >= strings.Count(first, ",") {
+		cr.Comma = ';'
+	}
+	cr.FieldsPerRecord = -1
+	cr.LazyQuotes = true
+	cr.TrimLeadingSpace = true
+	rows, err := cr.ReadAll()
+	if err != nil {
+		return nil, fmt.Errorf("CSV se ne može pročitati: %w", err)
+	}
+	var out [][]string
+	for _, r := range rows {
+		empty := true
+		for i := range r {
+			r[i] = strings.TrimSpace(r[i])
+			if r[i] != "" {
+				empty = false
+			}
+		}
+		if !empty {
+			out = append(out, r)
+		}
+	}
+	return out, nil
+}
+
+// isHeader prepoznaje redak zaglavlja: prvi stupac je naziv, ne oznaka
+func isHeader(row []string) bool {
+	if len(row) == 0 {
+		return false
+	}
+	c := strings.ToLower(row[0])
+	t := models.Terms()
+	return c == "oznaka" || c == strings.ToLower(t.Sector) || c == "sektor" || c == "sector"
+}
+
+func cell(row []string, i int) string {
+	if i < len(row) {
+		return row[i]
+	}
+	return ""
+}
+
+// HandleImportCSV uvozi sektore ili područja iz CSV-a istog oblika kao izvoz.
+// Postojeći se osvježe, novi se dodaju; redci s greškom se preskaču i navedu.
+func (h *OrgHandler) HandleImportCSV(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseMultipartForm(4 << 20); err != nil {
+		redirectWith(w, r, "/organizacija", "error", "Neispravan zahtjev ili prevelika datoteka")
+		return
+	}
+	perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
+	file, _, err := r.FormFile("csv")
+	if err != nil {
+		redirectWith(w, r, "/organizacija", "error", "Odaberite CSV datoteku")
+		return
+	}
+	defer file.Close()
+	rows, err := readCSV(file)
+	if err != nil {
+		redirectWith(w, r, "/organizacija", "error", err.Error())
+		return
+	}
+	if len(rows) > 0 && isHeader(rows[0]) {
+		rows = rows[1:]
+	}
+	kind := r.FormValue("kind")
+	ctx := r.Context()
+	var added, updated int
+	var errs []string
+	for i, row := range rows {
+		var err error
+		switch kind {
+		case "podrucja":
+			id, _ := strconv.Atoi(cell(row, 1))
+			direct := strings.ToLower(cell(row, 6))
+			a := &models.Area{SectorID: cell(row, 0), ID: id, Name: cell(row, 2), VgiName: cell(row, 3),
+				Subcenter: cell(row, 4), ContractorName: cell(row, 5), DirectToSector: direct == "da" || direct == "1" || direct == "x"}
+			existing, _ := h.org.GetArea(ctx, id)
+			if err = h.org.SaveArea(ctx, perms, a, existing == nil); err == nil {
+				if existing == nil {
+					added++
+				} else {
+					updated++
+				}
+			}
+		default:
+			s := &models.Sector{ID: cell(row, 0), Name: cell(row, 1), VgoName: cell(row, 2), CenterCop: cell(row, 3),
+				Address: cell(row, 4), Phone: cell(row, 5), Email: cell(row, 6)}
+			existing, _ := h.org.GetSector(ctx, strings.ToUpper(s.ID))
+			if err = h.org.SaveSector(ctx, perms, s, existing == nil); err == nil {
+				if existing == nil {
+					added++
+				} else {
+					updated++
+				}
+			}
+		}
+		if err != nil {
+			errs = append(errs, fmt.Sprintf("redak %d: %s", i+1, err.Error()))
+		}
+	}
+	msg := fmt.Sprintf("Uvoz: %d novih, %d osvježenih.", added, updated)
+	if len(errs) > 0 {
+		redirectWith(w, r, "/organizacija", "error", msg+" Preskočeno: "+strings.Join(errs, "; "))
+		return
+	}
+	redirectWith(w, r, "/organizacija", "success", msg)
+}
+
 // roleRow je jedna uloga na stranici organizacije: zadani naziv, naziv
 // organizacije i što uloga smije
 type roleRow struct {

@@ -385,6 +385,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /organizacija", s.authMiddleware(http.HandlerFunc(orgH.ShowOrganization)))
 	s.mux.Handle("GET /organizacija/sektori.csv", s.authMiddleware(http.HandlerFunc(orgH.ExportSectorsCSV)))
 	s.mux.Handle("GET /organizacija/podrucja.csv", s.authMiddleware(http.HandlerFunc(orgH.ExportAreasCSV)))
+	s.mux.Handle("POST /organizacija/uvoz", s.authMiddleware(http.HandlerFunc(orgH.HandleImportCSV)))
 	s.mux.Handle("GET /organizacija/sektori/new", s.authMiddleware(http.HandlerFunc(orgH.ShowSectorForm)))
 	s.mux.Handle("GET /organizacija/sektori/{id}/edit", s.authMiddleware(http.HandlerFunc(orgH.ShowSectorForm)))
 	s.mux.Handle("POST /organizacija/sektori/save", s.authMiddleware(http.HandlerFunc(orgH.HandleSaveSector)))
