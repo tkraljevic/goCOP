@@ -47,8 +47,8 @@ func getMunicipalityTx(ctx context.Context, q rowQuerier, id int) (models.Munici
 	var headTitle, headName, postal sql.NullString
 	var area sql.NullFloat64
 	var pop sql.NullInt64
-	err := q.QueryRowContext(ctx, `SELECT id, county_id, name, type, head_title, head_name, postal_code, area_sqkm, population FROM municipalities WHERE id = ?`, id).
-		Scan(&m.ID, &m.CountyID, &m.Name, &m.Type, &headTitle, &headName, &postal, &area, &pop)
+	err := q.QueryRowContext(ctx, `SELECT id, county_id, name, type, head_title, head_name, postal_code, area_sqkm, population, email, phone, website FROM municipalities WHERE id = ?`, id).
+		Scan(&m.ID, &m.CountyID, &m.Name, &m.Type, &headTitle, &headName, &postal, &area, &pop, &m.Email, &m.Phone, &m.Website)
 	if err != nil {
 		return m, err
 	}
@@ -141,7 +141,8 @@ func (r *TerritoryRepository) GetCountyByID(ctx context.Context, id int) (*model
 // ListMunicipalities dohvaća gradove i općine (uz opcionalno filtriranje po županiji, tipu i pretrazi)
 func (r *TerritoryRepository) ListMunicipalities(ctx context.Context, countyID int, mType string, query string) ([]models.Municipality, error) {
 	queryBuilder := `
-		SELECT m.id, m.county_id, c.name, m.name, m.type, m.head_title, m.head_name, m.postal_code, m.area_sqkm, m.population
+		SELECT m.id, m.county_id, c.name, m.name, m.type, m.head_title, m.head_name, m.postal_code, m.area_sqkm, m.population,
+		       m.email, m.phone, m.website
 		FROM municipalities m
 		JOIN counties c ON m.county_id = c.id
 		WHERE 1=1
@@ -177,7 +178,8 @@ func (r *TerritoryRepository) ListMunicipalities(ctx context.Context, countyID i
 		var area sql.NullFloat64
 		var pop sql.NullInt64
 
-		if err := rows.Scan(&m.ID, &m.CountyID, &m.CountyName, &m.Name, &m.Type, &headTitle, &headName, &postalCode, &area, &pop); err != nil {
+		if err := rows.Scan(&m.ID, &m.CountyID, &m.CountyName, &m.Name, &m.Type, &headTitle, &headName, &postalCode, &area, &pop,
+			&m.Email, &m.Phone, &m.Website); err != nil {
 			return nil, err
 		}
 		m.HeadTitle = headTitle.String
@@ -371,9 +373,9 @@ func (r *TerritoryRepository) CreateMunicipality(ctx context.Context, m *models.
 	defer tx.Rollback()
 
 	res, err := tx.ExecContext(ctx, `
-		INSERT INTO municipalities (county_id, name, type, head_title, head_name, postal_code, area_sqkm, population)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-	`, m.CountyID, m.Name, m.Type, m.HeadTitle, m.HeadName, m.PostalCode, m.AreaSqKm, m.Population)
+		INSERT INTO municipalities (county_id, name, type, head_title, head_name, postal_code, area_sqkm, population, email, phone, website)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, m.CountyID, m.Name, m.Type, m.HeadTitle, m.HeadName, m.PostalCode, m.AreaSqKm, m.Population, m.Email, m.Phone, m.Website)
 	if err != nil {
 		return fmt.Errorf("greška pri dodavanju grada/općine: %w", err)
 	}
@@ -396,9 +398,10 @@ func (r *TerritoryRepository) UpdateMunicipality(ctx context.Context, m *models.
 
 	if _, err := tx.ExecContext(ctx, `
 		UPDATE municipalities
-		SET county_id = ?, name = ?, type = ?, head_title = ?, head_name = ?, postal_code = ?, area_sqkm = ?, population = ?
+		SET county_id = ?, name = ?, type = ?, head_title = ?, head_name = ?, postal_code = ?, area_sqkm = ?, population = ?,
+			email = ?, phone = ?, website = ?
 		WHERE id = ?
-	`, m.CountyID, m.Name, m.Type, m.HeadTitle, m.HeadName, m.PostalCode, m.AreaSqKm, m.Population, m.ID); err != nil {
+	`, m.CountyID, m.Name, m.Type, m.HeadTitle, m.HeadName, m.PostalCode, m.AreaSqKm, m.Population, m.Email, m.Phone, m.Website, m.ID); err != nil {
 		return fmt.Errorf("greška pri ažuriranju grada/općine: %w", err)
 	}
 	if _, err := r.rec.Record(ctx, tx, EntityMunicipalities, strconv.Itoa(m.ID), m); err != nil {

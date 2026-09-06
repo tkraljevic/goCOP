@@ -269,6 +269,9 @@ func (h *TerritoriesHandler) HandleCreateMunicipality(w http.ResponseWriter, r *
 		PostalCode: strings.TrimSpace(r.FormValue("postal_code")),
 		AreaSqKm:   area,
 		Population: pop,
+		Email:      strings.TrimSpace(r.FormValue("email")),
+		Phone:      strings.TrimSpace(r.FormValue("phone")),
+		Website:    strings.TrimSpace(r.FormValue("website")),
 	}
 
 	if err := h.territoryService.CreateMunicipality(r.Context(), perms, m); err != nil {
@@ -300,6 +303,9 @@ func (h *TerritoriesHandler) HandleUpdateMunicipality(w http.ResponseWriter, r *
 		PostalCode: strings.TrimSpace(r.FormValue("postal_code")),
 		AreaSqKm:   area,
 		Population: pop,
+		Email:      strings.TrimSpace(r.FormValue("email")),
+		Phone:      strings.TrimSpace(r.FormValue("phone")),
+		Website:    strings.TrimSpace(r.FormValue("website")),
 	}
 
 	if err := h.territoryService.UpdateMunicipality(r.Context(), perms, m); err != nil {
