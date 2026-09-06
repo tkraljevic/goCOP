@@ -6,6 +6,9 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
+
+	"github.com/google/uuid"
 
 	"gocop/internal/hydro"
 	"gocop/internal/models"
@@ -33,6 +36,12 @@ type SectionPageData struct {
 	Section     models.Section
 	Parts       []PartView
 	Episodes    []models.DefenseEpisode // epizode obrane na ovoj dionici, najnovija prva
+	OpenEpisode *models.DefenseEpisode  // obrana koja upravo traje, ako je ima
+	Gauge       *models.Station         // letva po kojoj se dionica vodi
+	NowLocal    string                  // sadašnji trenutak za polja obrasca
+	Phases      []models.DefensePhase   // stupnjevi koji se mogu proglasiti
+	Bases       []string                // osnove proglašenja
+	CanDeclare  bool                    // smije li prijavljeni proglasiti obranu
 	CanEdit     bool
 
 	// obrazac
@@ -136,10 +145,52 @@ func (h *SectionsHandler) ShowSection(w http.ResponseWriter, r *http.Request) {
 
 	if h.episodeService != nil {
 		data.Episodes, _ = h.episodeService.List(ctx, sec.Code)
+		imena := map[string]string{}
+		for i := range data.Episodes {
+			e := &data.Episodes[i]
+			e.DeclaredByName = h.imeDjelatnika(imena, e.DeclaredBy)
+			e.EndedByName = h.imeDjelatnika(imena, e.EndedBy)
+			if e.IsOpen() && data.OpenEpisode == nil {
+				kopija := *e
+				data.OpenEpisode = &kopija
+			}
+		}
+	}
+	// Obranu proglašava onaj tko na dionici smije upisivati; program je nikad
+	// ne proglašava sam, samo javlja da je vodostaj prešao prag.
+	data.CanDeclare = data.Permissions != nil && data.Permissions.HasWriteAccess("", 0, sec.Code)
+	data.NowLocal = time.Now().Format("2006-01-02T15:04")
+	data.Phases = []models.DefensePhase{models.PhasePrep, models.PhaseRegular, models.PhaseEmergency, models.PhaseState}
+	data.Bases = models.BasisOptions()
+	for _, p := range data.Parts {
+		if len(p.Stations) > 0 {
+			st := p.Stations[0]
+			data.Gauge = &st
+			break
+		}
 	}
 	if err := h.tmplDetail.ExecuteTemplate(w, "section_detail.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// imeDjelatnika razrješava identifikator u ime, pamteći već potražene da se
+// isti čovjek ne dohvaća za svaku epizodu iznova.
+func (h *SectionsHandler) imeDjelatnika(cache map[string]string, id string) string {
+	if id == "" || h.userService == nil {
+		return ""
+	}
+	if ime, ok := cache[id]; ok {
+		return ime
+	}
+	ime := ""
+	if uid, err := uuid.Parse(id); err == nil {
+		if u, err := h.userService.GetUserByID(uid); err == nil && u != nil {
+			ime = u.FullName
+		}
+	}
+	cache[id] = ime
+	return ime
 }
 
 // coveredBy javlja je li vodomjer iz dokumentacije već prikazan kao postaja

@@ -93,3 +93,28 @@ func TestBezPrelaskaPragaNemaEpizode(t *testing.T) {
 		t.Errorf("epizoda %d, očekivano nijednu", len(epi))
 	}
 }
+
+// Epizoda utvrđena računom počinje upravo prelaskom praga, pa mora nositi i
+// zabilježen trenutak prelaska — inače se poslije ne bi razlikovala od one
+// koju je čovjek proglasio unaprijed.
+func TestRacunataEpizodaBiljeziPrelazakPraga(t *testing.T) {
+	niz := []ocitanje{
+		{dan(2024, 9, 15), 280},
+		{dan(2024, 9, 16), 340},
+		{dan(2024, 9, 17), 250},
+	}
+	epi := izracunaj(niz, letvaBatina())
+	if len(epi) != 1 {
+		t.Fatalf("epizoda %d", len(epi))
+	}
+	e := epi[0]
+	if e.ThresholdAt == nil || !e.ThresholdAt.Equal(e.StartedAt) {
+		t.Errorf("prelazak praga %v, očekivano isti trenutak kao početak %v", e.ThresholdAt, e.StartedAt)
+	}
+	if e.Basis != models.BasisThreshold {
+		t.Errorf("osnova %q, očekivano prijeđen prag", e.Basis)
+	}
+	if e.DeclaredBeforeThreshold() {
+		t.Error("računata epizoda ne može biti proglašena prije praga")
+	}
+}

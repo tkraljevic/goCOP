@@ -22,6 +22,7 @@ type StationPageData struct {
 	ZeroDatumHistoryJSON template.JS // promjene kote nule za obrazac, kao JS literal
 	ExtremesJSON         template.JS // zabilježeni ekstremi za obrazac
 	Sections             []models.Section
+	Episodes             []models.DefenseEpisode // obrane vođene po ovoj letvi, najnovija prva
 	WaterRegistry        []models.Watercourse
 	CanEdit              bool
 	IsEdit               bool
@@ -38,6 +39,12 @@ func (h *StationsHandler) SetPageTemplates(detail, form *template.Template,
 	h.tmplForm = form
 	h.sectionService = sections
 	h.watercourseService = waters
+}
+
+// SetEpisodeService daje rukovatelju epizode obrane, da se na kartici letve
+// vidi tko je sve po njoj u obrani.
+func (h *StationsHandler) SetEpisodeService(episodes *service.EpisodeService) {
+	h.episodeService = episodes
 }
 
 func (h *StationsHandler) pageData(r *http.Request) StationPageData {
@@ -99,6 +106,11 @@ func (h *StationsHandler) ShowStation(w http.ResponseWriter, r *http.Request) {
 				data.Sections = append(data.Sections, *sec)
 			}
 		}
+	}
+	// Ista letva mjerodavna je za više dionica — Batina za cijelo BP 34 — pa
+	// se ovdje vide obrane svih njih, svaka sa svojim stupnjem.
+	if h.episodeService != nil {
+		data.Episodes, _ = h.episodeService.ByStation(ctx, st.ID.String(), 50)
 	}
 	if data.CanEdit && h.watercourseService != nil {
 		if waters, err := h.watercourseService.ListWatercourses(ctx, "", "", false); err == nil {

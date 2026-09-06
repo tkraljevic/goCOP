@@ -156,6 +156,33 @@
   </div>
 </section>
 
+<section class="detail-section" id="obrane">
+  <h2>{{icon "activity"}} Obrane vođene po ovoj letvi <span class="reg-chip">{{len .Episodes}}</span></h2>
+  <p class="page-desc">Ista letva mjerodavna je za više dionica, a obrana se proglašava po dionici — pa u istom valu svaka može biti na svom stupnju. Obrana se proglašava i prekida na kartici dionice.</p>
+  {{if .Episodes}}
+  <div class="table-card"><div class="table-responsive">
+    <table class="data-table">
+      <thead><tr><th>Dionica</th><th>Od</th><th>Do</th><th>Trajanje</th><th>Vrh</th><th>Najviši stupanj</th><th>Osnova</th></tr></thead>
+      <tbody>
+      {{range .Episodes}}
+      <tr>
+        <td><a href="/sections/{{.SectionCode}}#obrana" style="color:var(--primary); font-weight:600;">{{.SectionCode}}</a>{{if .SectionName}}<div class="reg-card-sub">{{.SectionName}}</div>{{end}}</td>
+        <td class="mono">{{formatDate (localTime .StartedAt)}}</td>
+        <td class="mono">{{if .EndedAt}}{{formatDate (localTime (derefTime .EndedAt))}}{{else}}<span class="badge badge-area-admin">traje</span>{{end}}</td>
+        <td style="white-space:nowrap;">{{.Days}} dana</td>
+        <td class="mono">{{.PeakLabel}}</td>
+        <td><span class="threshold-pill {{if eq .Phase "IZVANREDNO_STANJE"}}crit{{else if eq .Phase "IZVANREDNA"}}emerg{{else if eq .Phase "REDOVNA"}}regular{{else}}prep{{end}}">{{.Phase.Label}}</span></td>
+        <td>{{if .Basis}}{{.BasisLabel}}{{end}}{{if .DeclaredBeforeThreshold}} <small style="color:var(--text-muted);">(prije praga)</small>{{end}}</td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div></div>
+  {{else}}
+  <div class="reg-empty">Po ovoj letvi nije zabilježena nijedna obrana.</div>
+  {{end}}
+</section>
+
 <section class="detail-section">
   <h2>{{icon "file-text"}} Mjerodavna za dionice <span class="reg-chip">{{len .Sections}}</span></h2>
   <div class="reg-list station-sections-list">

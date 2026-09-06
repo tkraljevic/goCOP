@@ -352,9 +352,55 @@ func TestKarticaDionicePrikazujeEpizode(t *testing.T) {
 		},
 	})
 	// predložak plus ispisuje kao &#43;, pa se traži oblik kakav vidi preglednik
-	for _, want := range []string{"Epizode obrane", "703 cm", "Izvanredna obrana", "traje", "36 dana"} {
+	for _, want := range []string{"Obrana od poplava", "703 cm", "Izvanredna obrana", "traje", "36 dana"} {
 		if !strings.Contains(html, want) {
 			t.Errorf("na kartici nema %q", want)
 		}
+	}
+}
+
+// Obranu proglašava čovjek, pa kartica dionice mora ponuditi upis. Bez otvorene
+// epizode nudi se proglašenje, a dok obrana traje podizanje i prekid.
+func TestKarticaDioniceNudiProglasenjeObrane(t *testing.T) {
+	osnovno := SectionPageData{
+		CurrentUser: &models.User{FullName: "Provjera"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Section:     models.Section{Code: "B.34.1", AreaID: 34, SectorID: "B"},
+		CanDeclare:  true,
+		NowLocal:    "2024-09-17T05:00",
+		Phases:      []models.DefensePhase{models.PhasePrep, models.PhaseRegular, models.PhaseEmergency, models.PhaseState},
+		Bases:       models.BasisOptions(),
+	}
+
+	html := iscrtaj(t, "section_detail.html", osnovno)
+	for _, want := range []string{"Proglasi obranu", "/sections/B.34.1/obrana/proglasi", "prognoza", "Pripremno stanje"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("obrazac za proglašenje nema %q", want)
+		}
+	}
+
+	// Obrana proglašena prije nego što je vodostaj došao do praga: kartica to
+	// mora reći, jer inače izgleda kao da je epizoda počela bez razloga.
+	poc := time.Date(2024, 9, 17, 5, 0, 0, 0, time.UTC)
+	prag := poc.Add(30 * time.Hour)
+	otvorena := models.DefenseEpisode{
+		SectionCode: "B.34.1", StartedAt: poc, Phase: models.PhaseRegular,
+		Basis: models.BasisForecast, ThresholdAt: &prag,
+		DeclaredByName: "Željko Kovačević", Origin: models.EpisodeFromOperator,
+	}
+	sOtvorenom := osnovno
+	sOtvorenom.OpenEpisode = &otvorena
+	sOtvorenom.Episodes = []models.DefenseEpisode{otvorena}
+
+	html = iscrtaj(t, "section_detail.html", sOtvorenom)
+	for _, want := range []string{"na snazi od", "Željko Kovačević", "prognoza",
+		"30 sati prije", "/sections/B.34.1/obrana/prekini", "/sections/B.34.1/obrana/podigni"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("kartica s otvorenom obranom nema %q", want)
+		}
+	}
+	// Stupanj se ne spušta, pa se ne smiju nuditi niži od trenutnog
+	if strings.Contains(html, `<option value="PRIPREMNO">`) {
+		t.Error("nudi se spuštanje stupnja ispod onog na snazi")
 	}
 }

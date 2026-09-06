@@ -164,15 +164,20 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		}
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO defense_episodes (id, section_code, station_id, started_at, ended_at,
-				phase, peak_cm, peak_at, origin, note, created_at, updated_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				phase, peak_cm, peak_at, declared_by, basis, threshold_at, ended_by,
+				origin, note, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT(id) DO UPDATE SET
 				section_code = excluded.section_code, station_id = excluded.station_id,
 				started_at = excluded.started_at, ended_at = excluded.ended_at,
 				phase = excluded.phase, peak_cm = excluded.peak_cm, peak_at = excluded.peak_at,
+				declared_by = excluded.declared_by, basis = excluded.basis,
+				threshold_at = excluded.threshold_at, ended_by = excluded.ended_by,
 				origin = excluded.origin, note = excluded.note, updated_at = excluded.updated_at`,
 			e.ID.String(), e.SectionCode, e.StationID, e.StartedAt.UTC(), nullTime(e.EndedAt),
-			string(e.Phase), e.PeakCm, nullTime(e.PeakAt), e.Origin, e.Note, e.CreatedAt.UTC(), e.UpdatedAt.UTC())
+			string(e.Phase), e.PeakCm, nullTime(e.PeakAt), e.DeclaredBy, e.Basis,
+			nullTime(e.ThresholdAt), e.EndedBy,
+			e.Origin, e.Note, e.CreatedAt.UTC(), e.UpdatedAt.UTC())
 		return err
 
 	case EntityStations:

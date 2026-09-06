@@ -20,6 +20,7 @@ type StationsHandler struct {
 	stationService     *service.StationService
 	sectionService     *service.SectionService
 	watercourseService *service.WatercourseService
+	episodeService     *service.EpisodeService
 	tmpl               *template.Template // popis
 	tmplDetail         *template.Template // jedna postaja
 	tmplForm           *template.Template // obrazac
