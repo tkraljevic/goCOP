@@ -254,3 +254,34 @@ func humanBytes(n int64) string {
 	}
 	return fmt.Sprintf("%d B", n)
 }
+
+// groupThousands umeće točku svaka tri znamenke zdesna (132892 -> 132.892),
+// kako se veliki brojevi pišu u hrvatskom
+func groupThousands(intPart string) string {
+	neg := strings.HasPrefix(intPart, "-")
+	if neg {
+		intPart = intPart[1:]
+	}
+	n := len(intPart)
+	if n <= 3 {
+		if neg {
+			return "-" + intPart
+		}
+		return intPart
+	}
+	var b strings.Builder
+	first := n % 3
+	if first == 0 {
+		first = 3
+	}
+	b.WriteString(intPart[:first])
+	for i := first; i < n; i += 3 {
+		b.WriteByte('.')
+		b.WriteString(intPart[i : i+3])
+	}
+	res := b.String()
+	if neg {
+		res = "-" + res
+	}
+	return res
+}
