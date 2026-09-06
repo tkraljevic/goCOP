@@ -29,6 +29,8 @@ const (
 	RoleSectionDeputy        Role = "SECTION_DEPUTY"         // Zamjenik rukovoditelja dionice
 	RoleContractOfficerA2    Role = "CONTRACT_OFFICER_A2"    // Ovlaštenik za praćenje ugovora programa usluga A2
 	RoleContractOfficerA3    Role = "CONTRACT_OFFICER_A3"    // Ovlaštenik za praćenje ugovora programa usluga A3
+	RoleContractDeputyA2     Role = "CONTRACT_DEPUTY_A2"     // Zamjenik ovlaštenika za praćenje ugovora A2
+	RoleContractDeputyA3     Role = "CONTRACT_DEPUTY_A3"     // Zamjenik ovlaštenika za praćenje ugovora A3
 	RoleServiceLeaderForeman Role = "SERVICE_LEADER_FOREMAN" // Voditelj usluga / Poslovođa (licencirane firme)
 	RoleOperator             Role = "OPERATOR"               // Dežurni operater u COP-u
 	RoleWaterGuard           Role = "WATER_GUARD"            // Vodočuvar
@@ -275,7 +277,8 @@ func NewUserPermissions(u User) *UserPermissions {
 			}
 		}
 		if d.Role == RoleSectorAreaDeputy || d.Role == RoleAreaLeader || d.Role == RoleAreaDeputy ||
-			d.Role == RoleContractOfficerA2 || d.Role == RoleContractOfficerA3 {
+			d.Role == RoleContractOfficerA2 || d.Role == RoleContractOfficerA3 ||
+			d.Role == RoleContractDeputyA2 || d.Role == RoleContractDeputyA3 {
 			if d.AreaID != nil {
 				p.AdminAreas[*d.AreaID] = true
 			}
