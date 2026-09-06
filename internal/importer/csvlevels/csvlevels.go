@@ -38,6 +38,9 @@ type Options struct {
 	Hour     int               // sat očitanja (zadano 7)
 	Minute   int               // minuta očitanja
 	Origin   string            // odakle tablica potječe, za trag u zapisu
+	Quality  string            // models.Quality*; prazno je izmjereno
+	Derived  string            // odakle je preračunato, kad nije mjereno na toj letvi
+	Method   string            // kako je preračunato
 	Source   string            // način: UVOZ kad se ne zna je li ručno ili automatski
 	DryRun   bool              // samo pokaži što bi se dogodilo
 	Skip     []string          // stupci koje namjerno preskačemo (npr. protoci)
@@ -207,8 +210,9 @@ func Run(ctx context.Context, o Options) (Report, error) {
 				LevelCm:    &cm,
 				Source:     o.Source,
 				Origin:     o.Origin,
-				SourceRef:  "csv:" + col.Header + ":" + day.Format("2006-01-02"),
-				CreatedAt:  time.Now().UTC(),
+				Quality:    o.Quality, DerivedFrom: o.Derived, Method: o.Method,
+				SourceRef: "csv:" + col.Header + ":" + day.Format("2006-01-02"),
+				CreatedAt: time.Now().UTC(),
 			}
 			rd.UpdatedAt = rd.CreatedAt
 			if strings.HasPrefix(col.Key, "structure:") {

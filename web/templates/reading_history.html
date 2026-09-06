@@ -113,13 +113,14 @@
         {{if .Phase.InForce}}<span class="badge {{.Phase.BadgeClass}}" style="margin-left:0.4rem; font-size:0.7rem;">{{.Phase.Label}}</span>{{end}}
       </span>
       <span>{{if $.CanEdit}}<a href="/readings/edit/{{.ID}}" class="btn btn-sm btn-link" style="padding:0; color:var(--text-muted);">{{icon "pencil"}}</a>{{end}}</span>
-      {{if or .StructureState .Gate .Observer .Note .HasAgHours (ne .Source "RUČNO") .OriginLabel}}
+      {{if or .StructureState .Gate .Observer .Note .HasAgHours (ne .Source "RUČNO") .OriginLabel (not .IsMeasured)}}
       <span class="extra">
         {{if .StructureState}}{{.StateLabel}}{{end}}
         {{if .Gate}}zapornica {{.GateLabel}}{{end}}
         {{if .HasAgHours}} · agregati {{intOf .AgHours1}}/{{intOf .AgHours2}}/{{intOf .AgHours3}} h{{end}}
         {{if .Observer}} · {{.Observer}}{{end}}
         {{if .Note}} · {{.Note}}{{end}}
+        {{if not .IsMeasured}} · <span class="badge badge-inactive" title="{{.DerivedFrom}}{{if .Method}} — {{.Method}}{{end}}">{{qualityLabel .Quality}}{{if .DerivedFrom}}: {{.DerivedFrom}}{{end}}</span>{{end}}
         {{if ne .Source "RUČNO"}} · {{.SourceLabel}}{{end}}
         {{with .OriginLabel}} · {{.}}{{end}}
       </span>

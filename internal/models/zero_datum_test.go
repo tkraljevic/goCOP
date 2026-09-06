@@ -68,3 +68,17 @@ func TestEkstremZnaJeLiIzmjerenNaOvojLetvi(t *testing.T) {
 		t.Error("natpis podrijetla")
 	}
 }
+
+// Očitanje bez upisane kvalitete je mjerenje; rekonstruirano se ne smije
+// predstaviti kao mjerenje svoje letve.
+func TestOcitanjeZnaJeLiIzmjereno(t *testing.T) {
+	if !(Reading{}).IsMeasured() {
+		t.Error("zatečeno očitanje bez kvalitete je mjerenje")
+	}
+	if !(Reading{Quality: QualityMeasured}).IsMeasured() {
+		t.Error("izmjereno je izmjereno")
+	}
+	if (Reading{Quality: QualityReconstructed, DerivedFrom: "postaja Bezdan"}).IsMeasured() {
+		t.Error("rekonstruirano nije mjerenje")
+	}
+}
