@@ -1992,6 +1992,98 @@ a:hover { color: var(--accent); }
   color: var(--secondary);
 }
 
+/* Detalj vodomjerne postaje: podaci ostaju u pravilnim stupcima i kad se
+   pojedini naslov prelomi u dva retka. */
+.station-threshold-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.station-threshold-grid > div,
+.station-zero-grid > div {
+  display: grid;
+  grid-template-rows: 2.25rem auto;
+  align-content: start;
+}
+
+.station-threshold-grid dd {
+  align-self: start;
+}
+
+.station-zero-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem 1.25rem;
+  font-size: 0.9rem;
+}
+
+.station-note {
+  display: grid;
+  grid-template-columns: 7.5rem minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: baseline;
+  margin-top: 0.875rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.station-note > span {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.station-note p {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.station-watercourse-form {
+  display: grid;
+  grid-template-columns: minmax(14rem, 1fr) auto;
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.station-sections-list {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr));
+}
+
+@media (min-width: 900px) {
+  .station-sections-list .reg-card:only-child {
+    max-width: 42rem;
+  }
+}
+
+@media (max-width: 780px) {
+  .station-threshold-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .station-zero-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .station-threshold-grid,
+  .station-zero-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .station-watercourse-form {
+    grid-template-columns: 1fr;
+  }
+  .station-watercourse-form .btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .station-note {
+    grid-template-columns: 1fr;
+    gap: 0.25rem;
+  }
+}
+
 .breadcrumb {
   font-size: 0.8rem;
   color: var(--text-muted);
