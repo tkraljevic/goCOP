@@ -38,7 +38,7 @@
 <section class="detail-section" style="margin-top:0;">
   <h2>{{icon "gauge"}} Pragovi obrane od poplava</h2>
   <div class="reg-card" style="padding:1rem;">
-    <dl class="reg-facts" style="font-size:0.9rem;">
+    <dl class="reg-facts station-threshold-grid">
       <div><dt>Pripremno stanje</dt><dd><span class="threshold-pill prep">{{.Station.Prep.Label}}</span></dd></div>
       <div><dt>Redovna obrana</dt><dd><span class="threshold-pill regular">{{.Station.Regular.Label}}</span></dd></div>
       <div><dt>Izvanredna obrana</dt><dd><span class="threshold-pill emerg">{{.Station.Emergency.Label}}</span></dd></div>
@@ -55,12 +55,17 @@
 <section class="detail-section">
   <h2>{{icon "ruler"}} Kota nule vodomjera</h2>
   <div class="reg-card" style="padding:1rem;">
-    <dl class="reg-facts" style="font-size:0.9rem;">
+    <dl class="reg-facts station-zero-grid">
       <div><dt>Trst (stari sustav)</dt><dd>{{if .Station.ZeroDatum}}{{brojHRd .Station.ZeroDatum 2}} m{{else}}<span style="color:var(--text-muted); font-weight:500;">nije upisana</span>{{end}}</dd></div>
       <div><dt>HVRS71 (novi sustav)</dt><dd>{{if .Station.HasNewZeroDatum}}{{brojHRd .Station.ZeroDatumNew 2}} m{{else}}<span style="color:var(--text-muted); font-weight:500;">tek se mjeri</span>{{end}}</dd></div>
       {{if .Station.Code}}<div><dt>Šifra</dt><dd style="font-family:ui-monospace, monospace; font-weight:500;">{{.Station.Code}}</dd></div>{{end}}
     </dl>
-    {{if .Station.Notes}}<p style="font-size:0.85rem; margin:0.75rem 0 0;">{{.Station.Notes}}</p>{{end}}
+    {{if .Station.Notes}}
+    <div class="station-note">
+      <span>Napomena</span>
+      <p>{{.Station.Notes}}</p>
+    </div>
+    {{end}}
   </div>
 </section>
 
@@ -83,7 +88,7 @@
       {{end}}
     </p>
     {{if .CanEdit}}
-    <form method="POST" action="/api/stations/watercourse" style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:flex-end;">
+    <form method="POST" action="/api/stations/watercourse" class="station-watercourse-form">
       <input type="hidden" name="station_id" value="{{.Station.ID}}">
       <div class="form-group" style="flex:1; min-width:14rem; margin:0;">
         <label class="form-label" for="watercourse_code">Pridruži iz registra vodotoka</label>
@@ -103,7 +108,7 @@
 
 <section class="detail-section">
   <h2>{{icon "file-text"}} Mjerodavna za dionice <span class="reg-chip">{{len .Sections}}</span></h2>
-  <div class="reg-list">
+  <div class="reg-list station-sections-list">
     {{range .Sections}}
     <article class="reg-card">
       <a class="reg-card-link" href="/sections?q={{.Code}}">
