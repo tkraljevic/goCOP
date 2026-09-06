@@ -118,6 +118,8 @@
       <div data-role="settlements" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap:0.3rem; margin-top:0.5rem; font-size:0.85rem;" hidden></div>
       <div class="form-help">Bez odabranih naselja dodaje se cijela općina ili grad.</div>
       <div class="reading-meta" data-role="protected-text" hidden></div>
+      <button type="button" class="btn btn-sm btn-secondary" data-role="terr-prepis" hidden onclick="prepisiUgrozeno(this)">{{icon "clipboard-list"}} Prepiši iz dokumentacije</button>
+      <div class="form-help" data-role="terr-prepis-poruka" hidden></div>
     </details>
 
     <details open class="part-block">
@@ -128,43 +130,51 @@
         <button type="button" class="btn btn-sm btn-secondary" onclick="addStation(this)">{{icon "plus"}} Dodaj</button>
       </div>
       <div class="reading-meta" data-role="gauges-text" hidden></div>
+      <button type="button" class="btn btn-sm btn-secondary" data-role="st-prepis" hidden onclick="prepisiVodomjere(this)">{{icon "clipboard-list"}} Prepiši iz dokumentacije</button>
+      <div class="form-help" data-role="st-prepis-poruka" hidden></div>
     </details>
 
     <details open class="part-block">
       <summary class="part-label" style="cursor:pointer;">{{icon "shield"}} Nasipi i brane <span class="reg-chip" data-role="emb-count">0</span></summary>
-      <div data-role="emb-rows"></div>
+      <div class="rows-emb">
+        <div class="rows-head"><div>Nasip ili brana</div><div>Uz vodu od</div><div>do</div><div>Po nasipu od</div><div>do</div><div>km</div><div></div></div>
+        <div data-role="emb-rows"></div>
+      </div>
       <button type="button" class="btn btn-sm btn-secondary" onclick="addEmbankment(this)">{{icon "plus"}} Dodaj nasip ili branu</button>
     </details>
 
     <details open class="part-block">
       <summary class="part-label" style="cursor:pointer;">{{icon "construction"}} Objekti <span class="reg-chip" data-role="obj-count">0</span></summary>
       <div class="form-help">Naši objekti (crpne stanice, ustave, sifoni) vežu se na registar; mostovi i propusti ostaju samo redak.</div>
-      <div data-role="obj-rows"></div>
+      <div class="rows-obj">
+        <div class="rows-head"><div>Obala</div><div>Po</div><div>Stacionaža</div><div>Objekt (registar ili naziv)</div><div>Na nasipu</div><div></div></div>
+        <div data-role="obj-rows"></div>
+      </div>
       <button type="button" class="btn btn-sm btn-secondary" onclick="addObject(this)">{{icon "plus"}} Dodaj objekt</button>
     </details>
   </section>
 </template>
 
 <template id="tpl-emb">
-  <div class="emb-row" style="display:grid; gap:0.4rem; grid-template-columns: minmax(12rem, 2fr) repeat(4, minmax(5rem, 1fr)) minmax(5rem,1fr) auto; align-items:end; margin-bottom:0.4rem;">
-    <div><label class="form-label" style="font-size:0.7rem;">Nasip / brana iz registra ili novi naziv</label>
-      <input type="text" class="form-control" data-field="name" list="embankments-list" placeholder="Lijevi nasip …" autocomplete="off"><input type="hidden" data-field="structure_id"></div>
-    <div><label class="form-label" style="font-size:0.7rem;">Uz vodu od</label><input type="text" class="form-control mono" data-field="water_from" placeholder="0+235"></div>
-    <div><label class="form-label" style="font-size:0.7rem;">do</label><input type="text" class="form-control mono" data-field="water_to" placeholder="0+855"></div>
-    <div><label class="form-label" style="font-size:0.7rem;">Po nasipu od</label><input type="text" class="form-control mono" data-field="emb_from" placeholder="0+000"></div>
-    <div><label class="form-label" style="font-size:0.7rem;">do</label><input type="text" class="form-control mono" data-field="emb_to" placeholder="0+620"></div>
-    <div><label class="form-label" style="font-size:0.7rem;">km</label><input type="text" class="form-control" data-field="length_km" placeholder="0,620"></div>
+  <div class="emb-row">
+    <div data-label="Nasip ili brana">
+      <input type="text" class="form-control" data-field="name" list="embankments-list" placeholder="Lijevi nasip …" aria-label="Nasip ili brana iz registra ili novi naziv" autocomplete="off"><input type="hidden" data-field="structure_id"></div>
+    <div data-label="Uz vodu od"><input type="text" class="form-control mono" data-field="water_from" placeholder="0+235" aria-label="Uz vodu od"></div>
+    <div data-label="do"><input type="text" class="form-control mono" data-field="water_to" placeholder="0+855" aria-label="Uz vodu do"></div>
+    <div data-label="Po nasipu od"><input type="text" class="form-control mono" data-field="emb_from" placeholder="0+000" aria-label="Po nasipu od"></div>
+    <div data-label="do"><input type="text" class="form-control mono" data-field="emb_to" placeholder="0+620" aria-label="Po nasipu do"></div>
+    <div data-label="km"><input type="text" class="form-control" data-field="length_km" placeholder="0,620" aria-label="Duljina u kilometrima"></div>
     <button type="button" class="btn btn-sm btn-secondary" onclick="this.closest('.emb-row').remove()" title="Ukloni">{{icon "x"}}</button>
   </div>
 </template>
 
 <template id="tpl-obj">
-  <div class="obj-row" style="display:grid; gap:0.4rem; grid-template-columns: 6rem 5rem 7rem minmax(12rem, 2fr) minmax(8rem, 1fr) auto; align-items:end; margin-bottom:0.4rem;">
-    <div><label class="form-label" style="font-size:0.7rem;">Obala</label><select class="form-control" data-field="bank"><option value="">—</option>{{range .Banks}}<option value="{{.Code}}">{{.Code}}</option>{{end}}</select></div>
-    <div><label class="form-label" style="font-size:0.7rem;">Po</label><select class="form-control" data-field="stationing_kind"><option value="">—</option>{{range .StationingKinds}}<option value="{{.}}">{{.}}</option>{{end}}</select></div>
-    <div><label class="form-label" style="font-size:0.7rem;">Stacionaža</label><input type="text" class="form-control mono" data-field="stationing_text" placeholder="1+825"></div>
-    <div><label class="form-label" style="font-size:0.7rem;">Objekt (registar ili naziv)</label><input type="text" class="form-control" data-field="name" list="structures-list" placeholder="most, ušće, CS Adica…" autocomplete="off"><input type="hidden" data-field="structure_id"></div>
-    <div><label class="form-label" style="font-size:0.7rem;">Na nasipu</label><input type="text" class="form-control" data-field="on_embankment" placeholder="po želji"></div>
+  <div class="obj-row">
+    <div data-label="Obala"><select class="form-control" data-field="bank" aria-label="Obala"><option value="">—</option>{{range .Banks}}<option value="{{.Code}}">{{.Code}}</option>{{end}}</select></div>
+    <div data-label="Po"><select class="form-control" data-field="stationing_kind" aria-label="Vrsta stacionaže"><option value="">—</option>{{range .StationingKinds}}<option value="{{.}}">{{.}}</option>{{end}}</select></div>
+    <div data-label="Stacionaža"><input type="text" class="form-control mono" data-field="stationing_text" placeholder="1+825" aria-label="Stacionaža"></div>
+    <div data-label="Objekt"><input type="text" class="form-control" data-field="name" list="structures-list" placeholder="most, ušće, CS Adica…" aria-label="Objekt iz registra ili naziv" autocomplete="off"><input type="hidden" data-field="structure_id"></div>
+    <div data-label="Na nasipu"><input type="text" class="form-control" data-field="on_embankment" placeholder="po želji" aria-label="Na nasipu"></div>
     <button type="button" class="btn btn-sm btn-secondary" onclick="this.closest('.obj-row').remove()" title="Ukloni">{{icon "x"}}</button>
   </div>
 </template>
@@ -213,8 +223,10 @@ function addPart(p) {
   el.querySelector('[data-field=extent]').value = p.extent || '';
   if (p.length_km == null) lengthFrom(el);
   if (p.description) { const d = el.querySelector('[data-role=description]'); d.textContent = 'Dokumentacija: ' + p.description; d.hidden = false; }
-  if (p.protected_text) { const d = el.querySelector('[data-role=protected-text]'); d.textContent = 'Dokumentacija: ' + p.protected_text; d.hidden = false; }
-  if (p.gauges && p.gauges.length) { const d = el.querySelector('[data-role=gauges-text]'); d.textContent = 'Dokumentacija: ' + p.gauges.map(g => g.station_name).join('; '); d.hidden = false; }
+  if (p.protected_text) { const d = el.querySelector('[data-role=protected-text]'); d.textContent = 'Dokumentacija: ' + p.protected_text; d.hidden = false;
+    el.dataset.protectedText = p.protected_text; el.querySelector('[data-role=terr-prepis]').hidden = false; }
+  if (p.gauges && p.gauges.length) { const d = el.querySelector('[data-role=gauges-text]'); d.textContent = 'Dokumentacija: ' + p.gauges.map(g => g.station_name).join('; '); d.hidden = false;
+    el.dataset.gaugeNames = JSON.stringify(p.gauges.map(g => g.station_name)); el.querySelector('[data-role=st-prepis]').hidden = false; }
   el.querySelector('[data-role=remove]').onclick = () => { if (confirm('Ukloniti ovu poddionicu sa svime što nosi?')) { el.remove(); renumber(); refreshDescription(); } };
   for (const e of (p.embankments || [])) addEmbankment(el, e);
   for (const o of (p.objects || [])) addObject(el, o);
@@ -238,6 +250,54 @@ function renderChips(el) {
   el.querySelector('[data-role=terr-count]').textContent = tr.length;
   el.querySelector('[data-role=emb-count]').textContent = el.querySelectorAll('.emb-row').length;
   el.querySelector('[data-role=obj-count]').textContent = el.querySelectorAll('.obj-row').length;
+}
+// Prijepis iz dokumentacije: Privitak nosi rečenicu, program treba vezu na
+// registar. Uparuje se samo jednoznačno, a što ostane neupareno kaže se
+// naglas — prešućeno naselje gore je od prijavljenog.
+function prepisPoruka(el, role, dodano, nerazrijeseno, poruka) {
+  const d = el.querySelector('[data-role=' + role + ']');
+  const dijelovi = [];
+  if (dodano) dijelovi.push('dodano ' + dodano);
+  if (nerazrijeseno && nerazrijeseno.length) dijelovi.push('nije upareno: ' + nerazrijeseno.join(', '));
+  if (poruka) dijelovi.push(poruka);
+  if (!dijelovi.length) dijelovi.push('sve je već upisano');
+  d.textContent = dijelovi.join(' · ');
+  d.hidden = false;
+}
+async function prepisiUgrozeno(btn) {
+  const el = partOf(btn);
+  btn.disabled = true;
+  try {
+    const res = await fetch('/api/prijepis/ugrozeno?tekst=' + encodeURIComponent(el.dataset.protectedText || ''));
+    if (!res.ok) { prepisPoruka(el, 'terr-prepis-poruka', 0, null, 'prijepis nije uspio'); return; }
+    const p = await res.json();
+    const tr = JSON.parse(el.dataset.territories);
+    const kljuc = t => t.settlement_id ? t.county_id + '/' + t.municipality_id + '/' + t.settlement_id : t.county_id + '/' + t.municipality_id;
+    let dodano = 0;
+    (p.territories || []).forEach((t, i) => {
+      if (tr.some(x => kljuc(x) === kljuc(t))) return;
+      TERR_LABELS[kljuc(t)] = (p.labels || [])[i] || kljuc(t);
+      tr.push(t); dodano++;
+    });
+    el.dataset.territories = JSON.stringify(tr);
+    renderChips(el);
+    prepisPoruka(el, 'terr-prepis-poruka', dodano, p.nerazrijeseno, p.poruka);
+  } finally { btn.disabled = false; }
+}
+function prepisiVodomjere(btn) {
+  const el = partOf(btn);
+  const st = JSON.parse(el.dataset.stations);
+  const ne = []; let dodano = 0;
+  for (const zapis of JSON.parse(el.dataset.gaugeNames || '[]')) {
+    // zapis je oblika "Batina , rkm 1.424,85 (80,450)" — postaja je pred zarezom
+    const ime = zapis.split(',')[0].trim();
+    const s = STATIONS.find(x => x.name === ime) || STATIONS.find(x => x.name.toLowerCase() === ime.toLowerCase());
+    if (!s) { ne.push(ime); continue; }
+    if (!st.includes(s.id)) { st.push(s.id); dodano++; }
+  }
+  el.dataset.stations = JSON.stringify(st);
+  renderChips(el);
+  prepisPoruka(el, 'st-prepis-poruka', dodano, ne, ne.length && !STATIONS.length ? 'registar postaja je prazan' : '');
 }
 function addStation(btn) {
   const el = partOf(btn); const input = el.querySelector('[data-role=st-input]'); const v = input.value.trim();
