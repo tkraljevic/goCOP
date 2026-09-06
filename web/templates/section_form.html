@@ -194,7 +194,9 @@ const STRUCTURES = [{{range .Structures}}{id:{{.ID.String}}, name:{{.Name}}},{{e
 const EMBANKMENTS = [{{range .Embankments}}{id:{{.ID.String}}, name:{{.Name}}},{{end}}];
 
 function kmOf(text) {
-  const t = (text || '').trim().replace(',', '.');
+  // stacionaža dolazi i s oznakom vrste ("rkm 1428+010"); parseFloat na njoj
+  // vrati NaN, pa bi broj tiho ispao i ostao bi samo tekst
+  const t = (text || '').trim().replace(/^[A-Za-zČĆĐŠŽčćđšž]+\s*/, '').replace(',', '.');
   if (!t) return null;
   if (t.includes('+')) { const [k, m] = t.split('+'); const v = parseFloat(k) + parseFloat(m || 0) / 1000; return isNaN(v) ? null : v; }
   const v = parseFloat(t); return isNaN(v) ? null : v;
