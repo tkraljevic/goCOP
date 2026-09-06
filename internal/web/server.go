@@ -233,7 +233,7 @@ func NewServer(
 	templates := make(map[string]*template.Template)
 
 	// Predlošci koji proširuju base.html
-	for _, page := range []string{"dashboard.html", "registri.html", "users.html", "user_detail.html", "user_form.html", "duty_form.html", "profile.html", "sections.html", "section_detail.html", "section_form.html", "territories.html", "county_form.html", "municipality_form.html", "municipality_detail.html", "stations.html", "station_detail.html", "station_form.html", "watercourses.html", "watercourse_detail.html", "watercourse_form.html", "structures.html", "structure_detail.html", "structure_form.html", "readings.html", "reading_history.html", "reading_form.html", "teren.html", "moduli.html", "settings.html", "odrzavanje.html", "organizacija.html", "sector_form.html", "area_form.html",
+	for _, page := range []string{"dashboard.html", "registri.html", "users.html", "user_detail.html", "user_form.html", "duty_form.html", "profile.html", "sections.html", "section_detail.html", "section_form.html", "territories.html", "county_form.html", "municipality_form.html", "municipality_detail.html", "stations.html", "station_detail.html", "station_form.html", "watercourses.html", "watercourse_detail.html", "watercourse_form.html", "structures.html", "structure_detail.html", "structure_form.html", "readings.html", "reading_history.html", "reading_form.html", "teren.html", "moduli.html", "settings.html", "odrzavanje.html", "organizacija.html", "sector_form.html", "area_form.html", "contractor_form.html",
 		"administracija.html", "uvozi.html", "sinkronizacija.html", "pretplate.html", "baza.html",
 		"dnevnici.html", "dnevnik_form.html", "dnevnik.html", "dnevnik_list.html"} {
 		t, err := template.New("base.html").Funcs(tmplFuncs).ParseFS(templatesFS, "base.html", page)
@@ -381,7 +381,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /administracija/uvozi", s.authMiddleware(http.HandlerFunc(adminH.ShowImports)))
 
 	// Organizacija obrane: sektori i branjena područja
-	orgH := NewOrgHandler(s.orgService, s.templates["organizacija.html"], s.templates["sector_form.html"], s.templates["area_form.html"])
+	orgH := NewOrgHandler(s.orgService, s.templates["organizacija.html"], s.templates["sector_form.html"], s.templates["area_form.html"], s.templates["contractor_form.html"])
 	s.mux.Handle("GET /organizacija", s.authMiddleware(http.HandlerFunc(orgH.ShowOrganization)))
 	s.mux.Handle("GET /organizacija/sektori.csv", s.authMiddleware(http.HandlerFunc(orgH.ExportSectorsCSV)))
 	s.mux.Handle("GET /organizacija/podrucja.csv", s.authMiddleware(http.HandlerFunc(orgH.ExportAreasCSV)))
@@ -394,6 +394,11 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /organizacija/podrucja/{id}/edit", s.authMiddleware(http.HandlerFunc(orgH.ShowAreaForm)))
 	s.mux.Handle("POST /organizacija/podrucja/save", s.authMiddleware(http.HandlerFunc(orgH.HandleSaveArea)))
 	s.mux.Handle("POST /organizacija/podrucja/delete", s.authMiddleware(http.HandlerFunc(orgH.HandleDeleteArea)))
+	s.mux.Handle("GET /organizacija/izvodjaci.csv", s.authMiddleware(http.HandlerFunc(orgH.ExportContractorsCSV)))
+	s.mux.Handle("GET /organizacija/izvodjaci/new", s.authMiddleware(http.HandlerFunc(orgH.ShowContractorForm)))
+	s.mux.Handle("GET /organizacija/izvodjaci/{id}/edit", s.authMiddleware(http.HandlerFunc(orgH.ShowContractorForm)))
+	s.mux.Handle("POST /organizacija/izvodjaci/save", s.authMiddleware(http.HandlerFunc(orgH.HandleSaveContractor)))
+	s.mux.Handle("POST /organizacija/izvodjaci/delete", s.authMiddleware(http.HandlerFunc(orgH.HandleDeleteContractor)))
 	s.mux.Handle("POST /organizacija/nazivi", s.authMiddleware(http.HandlerFunc(orgH.HandleSaveTerms)))
 
 	s.mux.Handle("GET /users", s.authMiddleware(http.HandlerFunc(usersH.ShowUsers)))
@@ -496,6 +501,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /administracija/baza", s.authMiddleware(http.HandlerFunc(dbH.ShowMaintenance)))
 	s.mux.Handle("POST /administracija/baza/sazmi", s.authMiddleware(http.HandlerFunc(dbH.HandleCompact)))
 	s.mux.Handle("POST /administracija/baza/vacuum", s.authMiddleware(http.HandlerFunc(dbH.HandleVacuum)))
+	s.mux.Handle("POST /administracija/baza/obnovi", s.authMiddleware(http.HandlerFunc(dbH.HandleReplay)))
 	s.mux.Handle("GET /administracija/baza/izvoz", s.authMiddleware(http.HandlerFunc(dbH.HandleExport)))
 	s.mux.Handle("POST /administracija/baza/uvoz", s.authMiddleware(http.HandlerFunc(dbH.HandleImport)))
 
