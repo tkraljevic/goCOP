@@ -833,6 +833,14 @@ func rekeySeedIdentities(database *sql.DB) error {
 		); err != nil {
 			return err
 		}
+		// Poddionica nosi mjerodavne postaje u svom zapisu. Bez ovoga ostaje
+		// pokazivati na identitet kojeg više nema, pa povezivanje poddionica na
+		// registre pri sljedećem pokretanju pukne na stranom ključu i program
+		// se ne digne.
+		if _, err := tx.Exec(`UPDATE sections SET parts = REPLACE(parts, ?, ?) WHERE parts LIKE '%' || ? || '%'`,
+			r.old, r.new, r.old); err != nil {
+			return fmt.Errorf("prekodiranje postaje u poddionicama %s → %s: %w", r.old, r.new, err)
+		}
 	}
 	// veze postaja i dionica: i njihov id slijedi iz para
 	linkRows, err := tx.Query(`SELECT id, section_code, station_id FROM section_stations`)
