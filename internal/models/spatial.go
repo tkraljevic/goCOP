@@ -18,12 +18,13 @@ type Sector struct {
 
 // Area predstavlja branjeno područje (mali sliv / VGI)
 type Area struct {
-	ID             int    `json:"id"`                        // 1 do 34
-	SectorID       string `json:"sector_id"`                 // A do F
-	Name           string `json:"name"`                      // npr. "Mali sliv Vuka", "Mali sliv Bistra"
-	VgiName        string `json:"vgi_name"`                  // npr. "VGI Vuka, Osijek"
-	Subcenter      string `json:"subcenter"`                 // npr. "Podcentar Osijek"
-	ContractorName string `json:"contractor_name,omitempty"` // ugovorna pravna osoba za obranu
+	ID             int    `json:"id"`                         // 1 do 34
+	SectorID       string `json:"sector_id"`                  // A do F
+	Name           string `json:"name"`                       // npr. "Mali sliv Vuka", "Mali sliv Bistra"
+	VgiName        string `json:"vgi_name"`                   // npr. "VGI Vuka, Osijek"
+	Subcenter      string `json:"subcenter"`                  // npr. "Podcentar Osijek"
+	ContractorName string `json:"contractor_name,omitempty"`  // ugovorna pravna osoba za obranu
+	DirectToSector bool   `json:"direct_to_sector,omitempty"` // bez ispostave: pripada izravno sektoru (npr. B.34)
 }
 
 // SectionInfo predstavlja sažeti opis dionice

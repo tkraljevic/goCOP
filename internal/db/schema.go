@@ -26,7 +26,8 @@ func InitSchema(database *sql.DB) error {
 			name TEXT NOT NULL,
 			vgi_name TEXT NOT NULL,
 			subcenter TEXT,
-			contractor_name TEXT
+			contractor_name TEXT,
+			direct_to_sector INTEGER NOT NULL DEFAULT 0
 		);`,
 
 		`CREATE TABLE IF NOT EXISTS users (
@@ -238,7 +239,20 @@ func InitSchema(database *sql.DB) error {
 			area_office TEXT NOT NULL DEFAULT '',
 			center TEXT NOT NULL DEFAULT '',
 			subcenter TEXT NOT NULL DEFAULT '',
-			updated_at DATETIME NOT NULL
+			updated_at DATETIME NOT NULL,
+			org_name TEXT NOT NULL DEFAULT '',
+			level1_unit TEXT NOT NULL DEFAULT '',
+			level1_unit_name TEXT NOT NULL DEFAULT '',
+			level1_address TEXT NOT NULL DEFAULT '',
+			level1_phone TEXT NOT NULL DEFAULT '',
+			level1_email TEXT NOT NULL DEFAULT '',
+			level1_center TEXT NOT NULL DEFAULT '',
+			level1_center_short TEXT NOT NULL DEFAULT '',
+			level1_center_phone TEXT NOT NULL DEFAULT '',
+			level1_center_email TEXT NOT NULL DEFAULT '',
+			sector_office_short TEXT NOT NULL DEFAULT '',
+			center_short TEXT NOT NULL DEFAULT '',
+			area_office_short TEXT NOT NULL DEFAULT ''
 		);`,
 
 		// Pretplate: koje kanale (vrsta/područje/godina) ovo računalo prati.
@@ -602,6 +616,20 @@ func migrateSchema(database *sql.DB) error {
 		{"sections", "parts", "TEXT NOT NULL DEFAULT '[]'"},
 		{"users", "short_mobile", "TEXT"},
 		{"record_versions", "channel", "TEXT NOT NULL DEFAULT ''"},
+		{"areas", "direct_to_sector", "INTEGER NOT NULL DEFAULT 0"},
+		{"org_terms", "org_name", "TEXT NOT NULL DEFAULT ''"},
+		{"org_terms", "level1_unit", "TEXT NOT NULL DEFAULT ''"},
+		{"org_terms", "level1_unit_name", "TEXT NOT NULL DEFAULT ''"},
+		{"org_terms", "level1_address", "TEXT NOT NULL DEFAULT ''"},
+		{"org_terms", "level1_phone", "TEXT NOT NULL DEFAULT ''"},
+		{"org_terms", "level1_email", "TEXT NOT NULL DEFAULT ''"},
+		{"org_terms", "level1_center", "TEXT NOT NULL DEFAULT ''"},
+		{"org_terms", "level1_center_short", "TEXT NOT NULL DEFAULT ''"},
+		{"org_terms", "level1_center_phone", "TEXT NOT NULL DEFAULT ''"},
+		{"org_terms", "level1_center_email", "TEXT NOT NULL DEFAULT ''"},
+		{"org_terms", "sector_office_short", "TEXT NOT NULL DEFAULT ''"},
+		{"org_terms", "center_short", "TEXT NOT NULL DEFAULT ''"},
+		{"org_terms", "area_office_short", "TEXT NOT NULL DEFAULT ''"},
 		{"readings", "channel", "TEXT NOT NULL DEFAULT ''"},
 		{"journals", "channel", "TEXT NOT NULL DEFAULT ''"},
 	}

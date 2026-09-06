@@ -148,8 +148,15 @@ func (h *OrgHandler) HandleSaveTerms(w http.ResponseWriter, r *http.Request) {
 	}
 	perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
 	f := func(k string) string { return strings.TrimSpace(r.FormValue(k)) }
-	t := models.OrgTerms{Sector: f("sector"), Sectors: f("sectors"), Area: f("area"), Areas: f("areas"), AreaShort: f("area_short"),
-		SectorOffice: f("sector_office"), AreaOffice: f("area_office"), Center: f("center"), Subcenter: f("subcenter")}
+	t := models.OrgTerms{
+		OrgName: f("org_name"), Level1Unit: f("level1_unit"), Level1UnitName: f("level1_unit_name"), Level1Address: f("level1_address"),
+		Level1Phone: f("level1_phone"), Level1Email: f("level1_email"), Level1Center: f("level1_center"), Level1CenterShort: f("level1_center_short"),
+		Level1CenterPhone: f("level1_center_phone"), Level1CenterEmail: f("level1_center_email"),
+		Sector: f("sector"), Sectors: f("sectors"), SectorOffice: f("sector_office"), SectorOfficeShort: f("sector_office_short"),
+		Center: f("center"), CenterShort: f("center_short"),
+		Area: f("area"), Areas: f("areas"), AreaShort: f("area_short"), AreaOffice: f("area_office"), AreaOfficeShort: f("area_office_short"),
+		Subcenter: f("subcenter"),
+	}
 	if err := h.org.SaveTerms(r.Context(), perms, t); err != nil {
 		redirectWith(w, r, "/organizacija", "error", err.Error())
 		return
@@ -167,7 +174,7 @@ func areaFromForm(r *http.Request) *models.Area {
 	f := func(k string) string { return strings.TrimSpace(r.FormValue(k)) }
 	id, _ := strconv.Atoi(f("id"))
 	return &models.Area{ID: id, SectorID: f("sector_id"), Name: f("name"), VgiName: f("vgi_name"),
-		Subcenter: f("subcenter"), ContractorName: f("contractor_name")}
+		Subcenter: f("subcenter"), ContractorName: f("contractor_name"), DirectToSector: r.FormValue("direct_to_sector") == "1"}
 }
 
 // HandleSaveSector upisuje sektor iz obrasca (nov ili izmijenjen)

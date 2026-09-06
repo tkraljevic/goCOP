@@ -45,6 +45,13 @@
     </div>
   </div>
   <div class="form-group">
+    <label style="display:flex; gap:0.4rem; align-items:center; font-size:0.9rem;">
+      <input type="checkbox" name="direct_to_sector" value="1" {{if .Area.DirectToSector}}checked{{end}}>
+      Pripada izravno razini 2 ({{terml "sektor"}}), bez vlastite ispostave — npr. međudržavne rijeke
+    </label>
+    <div class="form-help">Ispostavu i centar tada nosi nadređeni {{terml "sektor"}}; polja iznad smiju ostati prazna ili ponoviti njegove.</div>
+  </div>
+  <div class="form-group">
     <label class="form-label" for="contractor_name">Ugovorni izvođač obrane</label>
     <input type="text" id="contractor_name" name="contractor_name" class="form-control" value="{{.Area.ContractorName}}" placeholder="pravna osoba iz ugovora o preventivnoj, redovnoj i izvanrednoj obrani">
   </div>
