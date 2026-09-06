@@ -443,12 +443,13 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 			return err
 		}
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO counties (id, code, name, seat, prefect, area_sqkm, population, email, phone)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+			INSERT INTO counties (id, code, name, seat, prefect, area_sqkm, population, email, phone, website)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT(id) DO UPDATE SET
 				code = excluded.code, name = excluded.name, seat = excluded.seat, prefect = excluded.prefect,
-				area_sqkm = excluded.area_sqkm, population = excluded.population, email = excluded.email, phone = excluded.phone
-		`, c.ID, c.Code, c.Name, c.Seat, c.Prefect, c.AreaSqKm, c.Population, c.Email, c.Phone)
+				area_sqkm = excluded.area_sqkm, population = excluded.population, email = excluded.email,
+				phone = excluded.phone, website = excluded.website
+		`, c.ID, c.Code, c.Name, c.Seat, c.Prefect, c.AreaSqKm, c.Population, c.Email, c.Phone, c.Website)
 		return err
 
 	case EntityMunicipalities:

@@ -250,3 +250,46 @@ func TestMigracijaPrekodiraNasumicneIdentitete(t *testing.T) {
 		t.Error("nakon migracije postoje veze bez postaje")
 	}
 }
+
+// Županije na terenskim računalima nastale su prije stupca za web stranicu;
+// migracija ga mora dodati, a postojeći zapisi preživjeti.
+func TestMigracijaDodajeWebStranicuZupanije(t *testing.T) {
+	database, err := OpenDB(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+
+	// stara shema: županija još nema web stranicu
+	if _, err := database.Exec(`
+		CREATE TABLE counties (
+			id INTEGER PRIMARY KEY, code TEXT UNIQUE, name TEXT NOT NULL, seat TEXT NOT NULL,
+			prefect TEXT, area_sqkm INTEGER, population INTEGER, email TEXT, phone TEXT
+		);
+		INSERT INTO counties (id, code, name, seat) VALUES (14, 'OBŽ', 'Osječko-baranjska županija', 'Osijek');`); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := InitSchema(database); err != nil {
+		t.Fatalf("migracija: %v", err)
+	}
+
+	exists, err := columnExists(database, "counties", "website")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !exists {
+		t.Fatal("tablica counties nema stupac website nakon migracije")
+	}
+
+	var name, site string
+	if err := database.QueryRow(`SELECT name, website FROM counties WHERE id = 14`).Scan(&name, &site); err != nil {
+		t.Fatalf("čitanje županije nakon migracije: %v", err)
+	}
+	if name == "" {
+		t.Error("zapis županije izgubljen pri migraciji")
+	}
+	if site != "" {
+		t.Errorf("stara županija je dobila adresu %q, očekivano prazno", site)
+	}
+}

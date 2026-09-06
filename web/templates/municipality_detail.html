@@ -40,7 +40,7 @@
     <div><dt>Naselja</dt><dd>{{len .Settlements}}</dd></div>
     {{if .Municipality.Email}}<div><dt>E-pošta</dt><dd><a href="mailto:{{.Municipality.Email}}">{{.Municipality.Email}}</a></dd></div>{{end}}
     {{if .Municipality.Phone}}<div><dt>Telefon</dt><dd><a href="tel:{{.Municipality.Phone}}">{{.Municipality.Phone}}</a></dd></div>{{end}}
-    {{if .Municipality.Website}}<div><dt>Web</dt><dd>{{.Municipality.Website}}</dd></div>{{end}}
+    {{with websiteURL .Municipality.Website}}<div style="overflow-wrap:anywhere;"><dt>Web</dt><dd><a href="{{.}}" target="_blank" rel="noopener noreferrer">{{websiteLabel .}}</a></dd></div>{{end}}
   </dl>
 </div>
 
