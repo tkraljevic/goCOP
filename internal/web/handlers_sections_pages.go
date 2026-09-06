@@ -122,11 +122,9 @@ func (h *SectionsHandler) ShowSection(w http.ResponseWriter, r *http.Request) {
 				v.Stations = append(v.Stations, s)
 			}
 		}
-		for _, t := range p.Territories {
-			if x, ok := terrByKey[t.Key()]; ok {
-				v.Territories = append(v.Territories, x)
-			}
-		}
+		// naselja uz svoj nasip; ostatak — i sve na dionici bez nasipa —
+		// ostaje na poddionici
+		v.Territories = razvrstajUgrozeno(v.Rows, p, terrByKey)
 		for _, g := range p.Gauges {
 			if !g.IsGauge() || !coveredBy(v.Stations, g) {
 				v.Criteria = append(v.Criteria, g)

@@ -270,20 +270,35 @@ async function prepisiUgrozeno(btn) {
   const el = partOf(btn);
   btn.disabled = true;
   try {
-    const res = await fetch('/api/prijepis/ugrozeno?tekst=' + encodeURIComponent(el.dataset.protectedText || ''));
-    if (!res.ok) { prepisPoruka(el, 'terr-prepis-poruka', 0, null, 'prijepis nije uspio'); return; }
-    const p = await res.json();
+    // Privitak ugroženo područje navodi uz nasip; kad zapisi po nasipima
+    // postoje, prepisuju se odvojeno pa naselje zna kojem nasipu pripada.
+    // Dionica bez nasipa ima samo zapis poddionice — tada ide on.
+    const izvori = [];
+    for (const row of el.querySelectorAll('.emb-row')) {
+      const naziv = row.querySelector('[data-field=name]').value.trim();
+      if (row.dataset.protected && naziv) izvori.push({tekst: row.dataset.protected, nasip: naziv});
+    }
+    if (!izvori.length) izvori.push({tekst: el.dataset.protectedText || '', nasip: ''});
+
     const tr = JSON.parse(el.dataset.territories);
     const kljuc = t => t.settlement_id ? t.county_id + '/' + t.municipality_id + '/' + t.settlement_id : t.county_id + '/' + t.municipality_id;
-    let dodano = 0;
-    (p.territories || []).forEach((t, i) => {
-      if (tr.some(x => kljuc(x) === kljuc(t))) return;
-      TERR_LABELS[kljuc(t)] = (p.labels || [])[i] || kljuc(t);
-      tr.push(t); dodano++;
-    });
+    let dodano = 0; const ne = []; let poruka = '';
+    for (const izvor of izvori) {
+      const res = await fetch('/api/prijepis/ugrozeno?tekst=' + encodeURIComponent(izvor.tekst));
+      if (!res.ok) { poruka = 'prijepis nije uspio'; continue; }
+      const p = await res.json();
+      (p.territories || []).forEach((t, i) => {
+        if (izvor.nasip) t.on_embankment = izvor.nasip;
+        if (tr.some(x => kljuc(x) === kljuc(t))) return;
+        TERR_LABELS[kljuc(t)] = (p.labels || [])[i] || kljuc(t);
+        tr.push(t); dodano++;
+      });
+      for (const n of p.nerazrijeseno || []) if (!ne.includes(n)) ne.push(n);
+      if (p.poruka) poruka = p.poruka;
+    }
     el.dataset.territories = JSON.stringify(tr);
     renderChips(el);
-    prepisPoruka(el, 'terr-prepis-poruka', dodano, p.nerazrijeseno, p.poruka);
+    prepisPoruka(el, 'terr-prepis-poruka', dodano, ne, poruka);
   } finally { btn.disabled = false; }
 }
 function prepisiVodomjere(btn) {
@@ -337,7 +352,7 @@ function addEmbankment(btn, e) {
   row.querySelector('[data-field=name]').value = e.name || ''; row.querySelector('[data-field=structure_id]').value = e.structure_id || '';
   row.querySelector('[data-field=water_from]').value = e.water_from != null ? kmText(e.water_from) : ''; row.querySelector('[data-field=water_to]').value = e.water_to != null ? kmText(e.water_to) : '';
   row.querySelector('[data-field=emb_from]').value = e.emb_from != null ? kmText(e.emb_from) : ''; row.querySelector('[data-field=emb_to]').value = e.emb_to != null ? kmText(e.emb_to) : '';
-  row.querySelector('[data-field=length_km]').value = e.length_km != null ? num(e.length_km) : ''; row.dataset.waterKind = e.water_kind || ''; row.dataset.data = e.data || '';
+  row.querySelector('[data-field=length_km]').value = e.length_km != null ? num(e.length_km) : ''; row.dataset.waterKind = e.water_kind || ''; row.dataset.data = e.data || ''; row.dataset.protected = e.protected_text || '';
   el.querySelector('[data-role=emb-rows]').appendChild(row); renderChips(el);
 }
 function addObject(btn, o) {
@@ -373,7 +388,7 @@ function collectParts() {
     for (const row of el.querySelectorAll('.emb-row')) {
       const g = f => row.querySelector('[data-field=' + f + ']').value.trim(); const name = g('name'); if (!name) continue;
       const known = EMBANKMENTS.find(x => x.name === name);
-      const e = { name: name, structure_id: known ? known.id : (g('structure_id') || ''), water_kind: row.dataset.waterKind || p.stationing_kind, data: row.dataset.data || '' };
+      const e = { name: name, structure_id: known ? known.id : (g('structure_id') || ''), water_kind: row.dataset.waterKind || p.stationing_kind, data: row.dataset.data || '', protected_text: row.dataset.protected || '' };
       const wf = kmOf(g('water_from')), wt = kmOf(g('water_to')), ef = kmOf(g('emb_from')), et = kmOf(g('emb_to')), lk = kmOf(g('length_km'));
       if (wf !== null) e.water_from = wf; if (wt !== null) e.water_to = wt; if (ef !== null) e.emb_from = ef; if (et !== null) e.emb_to = et; if (lk !== null) e.length_km = lk;
       p.embankments.push(e);

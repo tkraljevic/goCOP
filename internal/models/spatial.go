@@ -123,6 +123,11 @@ type PartTerritory struct {
 	CountyID       int  `json:"county_id"`
 	MunicipalityID int  `json:"municipality_id"`
 	SettlementID   *int `json:"settlement_id,omitempty"`
+
+	// OnEmbankment je nasip uz koji Privitak navodi ovo naselje. Prazno je kad
+	// dionica nema nasipa ili kad podjela nije poznata — tada naselje pripada
+	// cijeloj poddionici, kako je i bilo prije podjele.
+	OnEmbankment string `json:"on_embankment,omitempty"`
 }
 
 // PartObject je objekt na poddionici: naš objekt iz registra (crpna stanica,
@@ -154,6 +159,10 @@ type PartEmbankment struct {
 	EmbTo       *float64 `json:"emb_to,omitempty"`
 	LengthKm    *float64 `json:"length_km,omitempty"`
 	Data        string   `json:"data,omitempty"` // izvorni zapis
+
+	// ProtectedText je ugroženo područje kako ga Privitak navodi uz ovaj
+	// nasip; poddionica nastala spajanjem više redaka nosi zbroj svih.
+	ProtectedText string `json:"protected_text,omitempty"`
 
 	// Izvedeno pri čitanju
 	StructureKind string `json:"-"`
