@@ -18,7 +18,7 @@
     <div class="hero-user-card">
       <div class="user-greeting">Prijavljeni djelatnik:</div>
       <div class="user-name-large">{{.CurrentUser.FullName}}</div>
-      <div class="user-role-tag">{{roleLabel .CurrentUser.PrimaryRole}}</div>
+      <div class="user-role-tag">{{roleLabel .CurrentUser.PrimaryRole}}{{if and .CurrentUser.IsGlobalAdmin .CurrentUser.PrimaryDuty}} · administrator{{end}}</div>
       <div class="user-org-text">{{icon "building-2"}} {{.CurrentUser.OrgName}}</div>
       <div class="user-card-actions">
         <a href="/profile" class="btn btn-secondary btn-sm">{{icon "user"}} Moj profil</a>
