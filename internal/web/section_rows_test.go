@@ -72,3 +72,67 @@ func TestNazivNasipaPodnosiCrticuIRazmake(t *testing.T) {
 		t.Errorf("objekt nije pao na svoj nasip: %d redaka", len(rows))
 	}
 }
+
+func naselje(id int, ime, nasip string) (models.PartTerritory, models.SectionTerritory) {
+	t := models.PartTerritory{CountyID: 14, MunicipalityID: 332, SettlementID: &id, OnEmbankment: nasip}
+	return t, models.SectionTerritory{CountyID: 14, MunicipalityID: 332, SettlementID: &id, SettlementName: ime}
+}
+
+// Privitak naselja navodi uz nasip; kartica ih mora tako i pokazati.
+func TestUgrozenoIdeUzSvojNasip(t *testing.T) {
+	t1, s1 := naselje(1, "Draž", "Nasip Državna granica -Draž")
+	t2, s2 := naselje(2, "Batina", "Nasip za zaštitu Batine")
+	t3, s3 := naselje(3, "Gajić", "")
+	part := models.SectionPart{
+		Embankments: []models.PartEmbankment{
+			{Name: "Nasip Državna granica -Draž"},
+			{Name: "Nasip za zaštitu Batine"},
+		},
+		Territories: []models.PartTerritory{t1, t2, t3},
+	}
+	poKljucu := map[string]models.SectionTerritory{t1.Key(): s1, t2.Key(): s2, t3.Key(): s3}
+
+	rows := embankmentRows(part)
+	ostalo := razvrstajUgrozeno(rows, part, poKljucu)
+
+	if len(rows[0].Territories) != 1 || rows[0].Territories[0].SettlementName != "Draž" {
+		t.Errorf("prvi nasip ima %v", rows[0].Territories)
+	}
+	if len(rows[1].Territories) != 1 || rows[1].Territories[0].SettlementName != "Batina" {
+		t.Errorf("drugi nasip ima %v", rows[1].Territories)
+	}
+	if len(ostalo) != 1 || ostalo[0].SettlementName != "Gajić" {
+		t.Errorf("nepripisano naselje nije ostalo na poddionici: %v", ostalo)
+	}
+}
+
+// Dionica bez nasipa i dalje ima ugroženo područje — ono ostaje na poddionici.
+func TestDionicaBezNasipaZadrzavaUgrozeno(t *testing.T) {
+	t1, s1 := naselje(1, "Draž", "")
+	part := models.SectionPart{Territories: []models.PartTerritory{t1}}
+	rows := embankmentRows(part)
+	ostalo := razvrstajUgrozeno(rows, part, map[string]models.SectionTerritory{t1.Key(): s1})
+	if len(rows) != 0 {
+		t.Errorf("bez nasipa i bez objekata nema redaka, a ima %d", len(rows))
+	}
+	if len(ostalo) != 1 || ostalo[0].SettlementName != "Draž" {
+		t.Errorf("naselje se izgubilo: %v", ostalo)
+	}
+}
+
+// Naselje pripisano nasipu kojeg u poddionici nema ne smije nestati.
+func TestNaseljeNepoznatogNasipaOstajeNaPoddionici(t *testing.T) {
+	t1, s1 := naselje(1, "Draž", "Nasip kojeg nema")
+	part := models.SectionPart{
+		Embankments: []models.PartEmbankment{{Name: "Nasip Gomboš"}},
+		Territories: []models.PartTerritory{t1},
+	}
+	rows := embankmentRows(part)
+	ostalo := razvrstajUgrozeno(rows, part, map[string]models.SectionTerritory{t1.Key(): s1})
+	if len(rows[0].Territories) != 0 {
+		t.Error("naselje je palo na krivi nasip")
+	}
+	if len(ostalo) != 1 {
+		t.Errorf("naselje se izgubilo: %v", ostalo)
+	}
+}

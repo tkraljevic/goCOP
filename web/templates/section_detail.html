@@ -55,8 +55,9 @@
   </div>
   {{if $p.Unaligned}}<div class="alert alert-warning" style="margin:0.5rem 0;">{{icon "triangle-alert"}} Stupci izvorne tablice ovdje se nisu poravnali pri prijepisu; provjeriti prema Privitku.</div>{{end}}
 
+  {{if or $p.Territories (not $p.Rows)}}
   <div class="part-block">
-    <div class="part-label">{{icon "house"}} Ugroženo područje</div>
+    <div class="part-label">{{icon "house"}} Ugroženo područje{{if .Rows}} <small style="font-weight:400; text-transform:none; letter-spacing:0;">— bez nasipa</small>{{end}}</div>
     <div style="display:flex; flex-wrap:wrap; gap:0.375rem; align-items:center;">
       {{range $p.Territories}}
       <span class="reg-chip">{{if .SettlementName}}{{.SettlementName}} <small style="font-weight:500; color:var(--text-muted);">({{.MunicipalityName}})</small>{{else}}{{muniType .MunicipalityType}} {{.MunicipalityName}}{{end}}</span>
@@ -65,6 +66,7 @@
       {{end}}
     </div>
   </div>
+  {{end}}
 
   <div class="part-block">
     <div class="part-label">{{icon "chart-column"}} Mjerodavni vodomjeri <span class="reg-chip">{{len $p.Stations}}</span></div>
@@ -97,7 +99,7 @@
     {{if $p.Rows}}
     <div class="table-card"><div class="table-responsive">
       <table class="data-table part-table">
-        <thead><tr><th>Nasip</th><th>Objekti na dionici</th></tr></thead>
+        <thead><tr><th>Nasip</th><th>Objekti na dionici</th><th>Ugroženo područje</th></tr></thead>
         <tbody>
         {{range $p.Rows}}
         <tr>
@@ -113,6 +115,13 @@
           <td>
             {{range .Objects}}
             <div class="part-obj"><span class="mono part-obj-km">{{.StationingLabel}}</span> {{if .StructureID}}<a href="/structures/{{.StructureID}}" style="color:var(--primary);">{{if .StructureName}}{{.StructureName}}{{else}}{{.Name}}{{end}}</a>{{if and .Name .StructureName (ne .Name .StructureName)}} <span class="reading-meta">{{.Name}}</span>{{end}}{{else}}{{.Name}}{{end}}{{if and .Bank (ne .Bank $p.Bank)}} <span class="reading-meta">({{bankLabel .Bank}})</span>{{end}}</div>
+            {{else}}
+            <span class="reading-meta">—</span>
+            {{end}}
+          </td>
+          <td>
+            {{range .Territories}}
+            <div>{{if .SettlementName}}{{.SettlementName}}{{else}}{{muniType .MunicipalityType}} {{.MunicipalityName}}{{end}}</div>
             {{else}}
             <span class="reading-meta">—</span>
             {{end}}
