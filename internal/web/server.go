@@ -68,6 +68,7 @@ type Server struct {
 // da ih ispod istog krova može pozvati i test koji iscrtava stranicu.
 func templateFuncs() template.FuncMap {
 	return template.FuncMap{
+		"basisLabel": models.BasisLabel,
 		"formatDate": func(t time.Time) string {
 			if t.IsZero() {
 				return "-"
@@ -329,6 +330,7 @@ func (s *Server) setupRoutes() {
 	territoriesH.SetPageTemplates(s.templates["county_form.html"], s.templates["municipality_form.html"], s.templates["municipality_detail.html"])
 	stationsH := NewStationsHandler(s.stationService, s.templates["stations.html"])
 	stationsH.SetPageTemplates(s.templates["station_detail.html"], s.templates["station_form.html"], s.sectionService, s.watercourseService)
+	stationsH.SetEpisodeService(s.episodeService)
 	watercoursesH := NewWatercoursesHandler(s.watercourseService, s.sectionService, s.templates["watercourses.html"])
 	structuresH := NewStructuresHandler(s.structureService, s.stationService, s.sectionService, s.userService,
 		s.templates["structures.html"], s.templates["structure_detail.html"], s.templates["structure_form.html"])
@@ -469,6 +471,9 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /api/sections/{code}", s.authMiddleware(http.HandlerFunc(sectionsH.HandleGetSectionAPI)))
 	s.mux.Handle("POST /sections/create", s.authMiddleware(http.HandlerFunc(sectionsH.HandleCreateSection)))
 	s.mux.Handle("POST /sections/update", s.authMiddleware(http.HandlerFunc(sectionsH.HandleUpdateSection)))
+	s.mux.Handle("POST /sections/{code}/obrana/proglasi", s.authMiddleware(http.HandlerFunc(sectionsH.HandleDeclareDefense)))
+	s.mux.Handle("POST /sections/{code}/obrana/podigni", s.authMiddleware(http.HandlerFunc(sectionsH.HandleRaiseDefense)))
+	s.mux.Handle("POST /sections/{code}/obrana/prekini", s.authMiddleware(http.HandlerFunc(sectionsH.HandleEndDefense)))
 
 	// Teritorijalne jedinice (županije, gradovi, općine, naselja)
 	s.mux.Handle("GET /territories", s.authMiddleware(http.HandlerFunc(territoriesH.ShowTerritories)))

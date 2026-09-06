@@ -138,13 +138,79 @@
 </section>
 {{end}}
 
-{{if .Episodes}}
-<section class="detail-section">
-  <h2>{{icon "activity"}} Epizode obrane <span class="reg-chip">{{len .Episodes}}</span></h2>
-  <p class="page-desc">Razdoblja u kojima je na dionici vrijedila mjera obrane, od prelaska pripremnog stanja do povratka ispod njega. Epizoda se pamti po vrhu vala, ne po zadnjem vodostaju.</p>
+<section class="detail-section" id="obrana">
+  <h2>{{icon "activity"}} Obrana od poplava{{if .Episodes}} <span class="reg-chip">{{len .Episodes}}</span>{{end}}</h2>
+
+  {{if .OpenEpisode}}
+  <div class="table-card" style="padding:1rem 1.25rem; margin-bottom:1rem; border-left:4px solid var(--danger);">
+    <div style="display:flex; flex-wrap:wrap; align-items:center; gap:0.75rem 1.25rem;">
+      <span class="threshold-pill {{if eq .OpenEpisode.Phase "IZVANREDNO_STANJE"}}crit{{else if eq .OpenEpisode.Phase "IZVANREDNA"}}emerg{{else if eq .OpenEpisode.Phase "REDOVNA"}}regular{{else}}prep{{end}}">{{.OpenEpisode.Phase.Label}}</span>
+      <span>na snazi od <strong>{{formatDate (localTime .OpenEpisode.StartedAt)}}</strong>, {{.OpenEpisode.Days}}. dan</span>
+      {{if .OpenEpisode.Basis}}<span class="reg-card-sub">osnova: {{.OpenEpisode.BasisLabel}}</span>{{end}}
+      {{if .OpenEpisode.DeclaredByName}}<span class="reg-card-sub">proglasio: {{.OpenEpisode.DeclaredByName}}</span>{{end}}
+    </div>
+    {{if .OpenEpisode.DeclaredBeforeThreshold}}
+    <p class="page-desc" style="margin:0.5rem 0 0 0;">Obrana je proglašena {{.OpenEpisode.LeadHours}} sati prije nego što je vodostaj prešao prag.</p>
+    {{else if not .OpenEpisode.ThresholdAt}}
+    <p class="page-desc" style="margin:0.5rem 0 0 0;">Vodostaj još nije prešao prag pripremnog stanja.</p>
+    {{end}}
+    {{if .OpenEpisode.Note}}<p class="page-desc" style="margin:0.5rem 0 0 0;">{{.OpenEpisode.Note}}</p>{{end}}
+
+    {{if .CanDeclare}}
+    <div style="display:flex; flex-wrap:wrap; gap:1.5rem; margin-top:0.875rem; padding-top:0.875rem; border-top:1px solid var(--border);">
+      <form method="POST" action="/sections/{{.Section.Code}}/obrana/podigni" style="display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center;">
+        <label class="reg-card-sub" for="podigni-phase">Podigni stupanj</label>
+        <select id="podigni-phase" name="phase" class="form-control" style="width:auto;">
+          {{range $.Phases}}{{if gt .Severity $.OpenEpisode.Phase.Severity}}<option value="{{.}}">{{.Label}}</option>{{end}}{{end}}
+        </select>
+        <input type="text" name="note" class="form-control" style="width:14rem;" placeholder="napomena">
+        <button type="submit" class="btn btn-secondary btn-sm">Podigni</button>
+      </form>
+      <form method="POST" action="/sections/{{.Section.Code}}/obrana/prekini" style="display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center;">
+        <label class="reg-card-sub" for="prekini-at">Prekini obranu</label>
+        <input id="prekini-at" type="datetime-local" name="ended_at" class="form-control" style="width:auto;" value="{{.NowLocal}}">
+        <input type="text" name="note" class="form-control" style="width:14rem;" placeholder="napomena">
+        <button type="submit" class="btn btn-secondary btn-sm">Prekini</button>
+      </form>
+    </div>
+    {{end}}
+  </div>
+  {{else if .CanDeclare}}
+  <div class="table-card" style="padding:1rem 1.25rem; margin-bottom:1rem;">
+    <form method="POST" action="/sections/{{.Section.Code}}/obrana/proglasi">
+      <div style="display:flex; flex-wrap:wrap; gap:0.75rem; align-items:flex-end;">
+        <div class="form-group" style="margin:0;">
+          <label class="form-label" for="obrana-phase">Stupanj</label>
+          <select id="obrana-phase" name="phase" class="form-control" style="width:auto;" required>
+            {{range .Phases}}<option value="{{.}}">{{.Label}}</option>{{end}}
+          </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label class="form-label" for="obrana-at">Od</label>
+          <input id="obrana-at" type="datetime-local" name="started_at" class="form-control" style="width:auto;" value="{{.NowLocal}}">
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label class="form-label" for="obrana-basis">Po čemu</label>
+          <select id="obrana-basis" name="basis" class="form-control" style="width:auto;">
+            {{range .Bases}}<option value="{{.}}">{{basisLabel .}}</option>{{end}}
+          </select>
+        </div>
+        <div class="form-group" style="margin:0; flex:1 1 16rem;">
+          <label class="form-label" for="obrana-note">Napomena</label>
+          <input id="obrana-note" type="text" name="note" class="form-control" placeholder="npr. prognoza HHS-a, porast 40 cm/24 h">
+        </div>
+        <button type="submit" class="btn">{{icon "triangle-alert"}} Proglasi obranu</button>
+      </div>
+    </form>
+    <p class="page-desc" style="margin:0.75rem 0 0 0;">Obranu proglašava rukovoditelj. Program je ne proglašava sam — samo javlja kad vodostaj{{if .Gauge}} na letvi {{.Gauge.Name}}{{end}} prijeđe prag i to zabilježi uz epizodu, pa se poslije vidi je li obrana proglašena prije ili poslije toga.</p>
+  </div>
+  {{end}}
+
+  {{if .Episodes}}
+  <p class="page-desc">Razdoblja u kojima je na dionici vrijedila mjera obrane. Epizoda se pamti po vrhu vala, ne po zadnjem vodostaju.</p>
   <div class="table-card"><div class="table-responsive">
     <table class="data-table">
-      <thead><tr><th>Od</th><th>Do</th><th>Trajanje</th><th>Vrh</th><th>Nastupio</th><th>Najviši stupanj</th></tr></thead>
+      <thead><tr><th>Od</th><th>Do</th><th>Trajanje</th><th>Vrh</th><th>Nastupio</th><th>Najviši stupanj</th><th>Osnova</th><th>Zapis</th></tr></thead>
       <tbody>
       {{range .Episodes}}
       <tr>
@@ -153,14 +219,18 @@
         <td style="white-space:nowrap;">{{.Days}} dana</td>
         <td class="mono">{{.PeakLabel}}</td>
         <td class="mono">{{if .PeakAt}}{{formatDate (localTime (derefTime .PeakAt))}}{{end}}</td>
-        <td><span class="threshold-pill {{if eq .Phase "IZVANREDNO"}}crit{{else if eq .Phase "IZVANREDNA"}}emerg{{else if eq .Phase "REDOVNA"}}regular{{else}}prep{{end}}">{{.Phase.Label}}</span></td>
+        <td><span class="threshold-pill {{if eq .Phase "IZVANREDNO_STANJE"}}crit{{else if eq .Phase "IZVANREDNA"}}emerg{{else if eq .Phase "REDOVNA"}}regular{{else}}prep{{end}}">{{.Phase.Label}}</span></td>
+        <td>{{if .Basis}}{{.BasisLabel}}{{end}}{{if .DeclaredBeforeThreshold}} <small style="color:var(--text-muted);">(prije praga)</small>{{end}}</td>
+        <td class="reg-card-sub">{{if eq .Origin "OPERATER"}}{{if .DeclaredByName}}{{.DeclaredByName}}{{else}}upisano rukom{{end}}{{else}}iz očitanja{{end}}</td>
       </tr>
       {{end}}
       </tbody>
     </table>
   </div></div>
+  {{else}}
+  <div class="reg-empty">Na ovoj dionici nije zabilježena nijedna obrana.</div>
+  {{end}}
 </section>
-{{end}}
 
 <section class="detail-section">
   <h2>{{icon "users"}} Zaduženi djelatnici <span class="reg-chip">{{len .Section.Personnel}}</span></h2>

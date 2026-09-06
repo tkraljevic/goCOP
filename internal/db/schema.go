@@ -435,6 +435,12 @@ func InitSchema(database *sql.DB) error {
 			phase TEXT NOT NULL DEFAULT '',
 			peak_cm INTEGER,
 			peak_at DATETIME,
+			-- proglašenje je odluka, ne izvod iz brojeva: tko je proglasio, po
+			-- čemu, i kad je vodostaj prešao prag (zna biti i poslije odluke)
+			declared_by TEXT NOT NULL DEFAULT '',
+			basis TEXT NOT NULL DEFAULT '',
+			threshold_at DATETIME,
+			ended_by TEXT NOT NULL DEFAULT '',
 			-- OČITANJA (utvrđena računom) ili OPERATER (upisana rukom);
 			-- računom utvrđena epizoda smije se preračunati, upisana ne
 			origin TEXT NOT NULL DEFAULT '',
@@ -443,6 +449,7 @@ func InitSchema(database *sql.DB) error {
 			updated_at DATETIME NOT NULL
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_episodes_section ON defense_episodes(section_code, started_at);`,
+		`CREATE INDEX IF NOT EXISTS idx_episodes_station ON defense_episodes(station_id, started_at);`,
 		`CREATE INDEX IF NOT EXISTS idx_episodes_open ON defense_episodes(ended_at) WHERE ended_at IS NULL;`,
 		`CREATE TABLE IF NOT EXISTS reading_follows (
 			gauge_key TEXT PRIMARY KEY,
@@ -690,6 +697,10 @@ func migrateSchema(database *sql.DB) error {
 		{"readings", "quality", "TEXT NOT NULL DEFAULT ''"},
 		{"readings", "derived_from", "TEXT NOT NULL DEFAULT ''"},
 		{"readings", "method", "TEXT NOT NULL DEFAULT ''"},
+		{"defense_episodes", "declared_by", "TEXT NOT NULL DEFAULT ''"},
+		{"defense_episodes", "basis", "TEXT NOT NULL DEFAULT ''"},
+		{"defense_episodes", "threshold_at", "DATETIME"},
+		{"defense_episodes", "ended_by", "TEXT NOT NULL DEFAULT ''"},
 		{"areas", "direct_to_sector", "INTEGER NOT NULL DEFAULT 0"},
 		{"org_terms", "org_name", "TEXT NOT NULL DEFAULT ''"},
 		{"org_terms", "level1_unit", "TEXT NOT NULL DEFAULT ''"},

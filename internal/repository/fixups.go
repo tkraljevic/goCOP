@@ -95,6 +95,50 @@ var fixups = []fixup{
 			return 1, nil
 		},
 	},
+	{
+		// Epizode obrane rekonstruirane iz niza očitanja upisane su prije nego
+		// što je epizoda znala razlikovati proglašenje od prelaska praga. Sve
+		// su počele prelaskom praga, pa im se to i upisuje — bez toga bi na
+		// kartici stajale bez osnove, kao da su nastale bez razloga.
+		name: "epizode-osnova-prag",
+		run: func(ctx context.Context, tx *sql.Tx, rec *ledger.Recorder) (int, error) {
+			rows, err := tx.QueryContext(ctx, `SELECT id FROM defense_episodes
+				WHERE origin = ? AND (basis = '' OR threshold_at IS NULL)`, models.EpisodeFromReadings)
+			if err != nil {
+				return 0, err
+			}
+			var ids []string
+			for rows.Next() {
+				var id string
+				if err := rows.Scan(&id); err != nil {
+					rows.Close()
+					return 0, err
+				}
+				ids = append(ids, id)
+			}
+			rows.Close()
+			if err := rows.Err(); err != nil {
+				return 0, err
+			}
+
+			now := time.Now().UTC()
+			for _, id := range ids {
+				if _, err := tx.ExecContext(ctx, `UPDATE defense_episodes
+					SET basis = ?, threshold_at = started_at, updated_at = ? WHERE id = ?`,
+					models.BasisThreshold, now, id); err != nil {
+					return 0, err
+				}
+				e, err := getEpisodeTx(ctx, tx, id)
+				if err != nil {
+					return 0, err
+				}
+				if _, err := rec.Record(ctx, tx, EntityEpisodes, id, e); err != nil {
+					return 0, err
+				}
+			}
+			return len(ids), nil
+		},
+	},
 }
 
 // RunFixups izvodi popravke koji na ovom čvoru još nisu izvedeni
