@@ -63,9 +63,15 @@
   <div class="reg-list">
     {{range .Sectors}}
     <div class="reg-card" style="padding:0.75rem 1rem; gap:0.35rem;">
+      {{if .SectorAdmin}}
       <label style="display:flex; gap:0.4rem; align-items:center; font-weight:600;">
         <input type="checkbox" name="sector" value="{{.ID}}" {{if index $.SectorChecked .ID}}checked{{end}}> <span class="section-code-badge">{{.ID}}</span> cijeli {{terml "sektor"}}
       </label>
+      {{else}}
+      <div style="display:flex; gap:0.4rem; align-items:center; font-weight:600;">
+        <span class="section-code-badge">{{.ID}}</span> {{terml "sektor"}}
+      </div>
+      {{end}}
       {{range .Areas}}
       <label style="display:flex; gap:0.4rem; align-items:center; font-size:0.9rem; margin-left:1.25rem;">
         <input type="checkbox" name="area" value="{{.ID}}" {{if index $.AreaChecked .ID}}checked{{end}}> <span class="mono">{{.ID}}</span> {{.Name}}
