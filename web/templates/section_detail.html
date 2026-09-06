@@ -13,7 +13,7 @@
   <div>
     <h1 class="page-title"><span class="section-code-badge" style="font-size:1.05rem; vertical-align:middle;">{{.Section.Code}}</span></h1>
     <p class="page-desc">
-      {{term "sektor"}} {{.Section.SectorID}}{{if .Section.SectorName}} — {{.Section.SectorName}}{{end}}
+      {{if .Section.SectorName}}{{.Section.SectorName}}{{else}}{{term "sektor"}} {{.Section.SectorID}}{{end}}
       {{if .Section.AreaName}} · BP {{.Section.AreaID}}: {{.Section.AreaName}}{{end}}
     </p>
   </div>
@@ -51,7 +51,6 @@
         {{if gt $p.Length 0.0}} · {{km $p.Length}} km{{end}}
       </div>
       {{if $p.Extent}}<div class="reading-meta">{{$p.Extent}}</div>{{end}}
-      {{if and $p.Description (ne $p.Description $p.Compose)}}<div class="reading-meta" style="opacity:0.8;">Dokumentacija: {{$p.Description}}</div>{{end}}
     </div>
   </div>
   {{if $p.Unaligned}}<div class="alert alert-warning" style="margin:0.5rem 0;">{{icon "triangle-alert"}} Stupci izvorne tablice ovdje se nisu poravnali pri prijepisu; provjeriti prema Privitku.</div>{{end}}
@@ -65,7 +64,6 @@
       {{if $p.ProtectedText}}<span class="reading-meta">{{renderMarkdown $p.ProtectedText}}</span>{{else}}<span class="page-desc">Nije određeno.</span>{{end}}
       {{end}}
     </div>
-    {{if and $p.Territories $p.ProtectedText}}<div class="reading-meta" style="margin-top:0.35rem;">Dokumentacija: {{renderMarkdown $p.ProtectedText}}</div>{{end}}
   </div>
 
   <div class="part-block">
