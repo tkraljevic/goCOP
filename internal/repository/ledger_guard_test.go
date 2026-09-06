@@ -14,7 +14,7 @@ import (
 func TestUpisiUSinkroniziraneTabliceIduKrozRecorder(t *testing.T) {
 	// section_stations, section_structures i section_territories su kazala
 	// izvedena iz dionice i ne putuju zasebno
-	synced := []string{"sectors", "areas", "stations", "sections", "watercourses",
+	synced := []string{"sectors", "areas", "org_terms", "stations", "sections", "watercourses",
 		"counties", "municipalities", "settlements", "users", "duties",
 		"structures", "readings", "role_modules", "user_modules",
 		"maintained_waters", "work_items", "journals", "journal_sheets", "journal_entries"}

@@ -44,10 +44,10 @@
     <div class="filters-row">
       <div class="filter-group">
         <label class="filter-label" for="filter-sector">
-          <span>{{icon "building-2"}} </span> Sektor (VGO)
+          <span>{{icon "building-2"}} </span> {{term "sektor"}}
         </label>
         <select id="filter-sector" name="sector" class="filter-select {{if .SelectedSector}}filter-active{{end}}" onchange="this.form.submit()">
-          <option value="">-- Svi sektori (Direkcija + A – F) --</option>
+          <option value="">-- Svi: {{terml "sektori"}} --</option>
           {{range .Sectors}}
           <option value="{{.ID}}" {{if eq $.SelectedSector .ID}}selected{{end}}>{{.Name}}</option>
           {{end}}
@@ -56,10 +56,10 @@
 
       <div class="filter-group">
         <label class="filter-label" for="filter-area">
-          <span>{{icon "waves"}} </span> Branjeno područje (Mali sliv)
+          <span>{{icon "waves"}} </span> {{term "podrucje"}}
         </label>
         <select id="filter-area" name="area" class="filter-select {{if gt .SelectedArea 0}}filter-active{{end}}" onchange="this.form.submit()">
-          <option value="">-- Sva branjena područja --</option>
+          <option value="">-- Sva {{terml "podrucja"}} --</option>
           {{range .Areas}}
           <option value="{{.ID}}" {{if eq $.SelectedArea .ID}}selected{{end}}>Područje {{.ID}}: {{.Name}}</option>
           {{end}}
@@ -78,7 +78,7 @@
           <option value="SECTOR_MAIN_DEPUTY" {{if eq $.SelectedRole "SECTOR_MAIN_DEPUTY"}}selected{{end}}>Zamjenik Glavnog rukovoditelja za sektor</option>
           <option value="SECTOR_LEADER" {{if eq $.SelectedRole "SECTOR_LEADER"}}selected{{end}}>Rukovoditelj sektora</option>
           <option value="SECTOR_DEPUTY" {{if eq $.SelectedRole "SECTOR_DEPUTY"}}selected{{end}}>Zamjenik rukovoditelja sektora</option>
-          <option value="SECTOR_AREA_DEPUTY" {{if eq $.SelectedRole "SECTOR_AREA_DEPUTY"}}selected{{end}}>Zamjenik rukovoditelja sektora za branjeno područje</option>
+          <option value="SECTOR_AREA_DEPUTY" {{if eq $.SelectedRole "SECTOR_AREA_DEPUTY"}}selected{{end}}>Zamjenik rukovoditelja sektora za {{terml "podrucje"}}</option>
           <option value="COP_LEADER" {{if eq $.SelectedRole "COP_LEADER"}}selected{{end}}>Voditelj Centra obrane od poplava</option>
           <option value="COP_DEPUTY" {{if eq $.SelectedRole "COP_DEPUTY"}}selected{{end}}>Zamjenik voditelja Centra obrane od poplava</option>
           <option value="AREA_LEADER" {{if eq $.SelectedRole "AREA_LEADER"}}selected{{end}}>Rukovoditelj branjenog područja</option>
@@ -121,7 +121,7 @@
       {{end}}
       {{if .SelectedSector}}
       <span class="filter-pill">
-        {{icon "building-2"}} {{if eq .SelectedSector "DIREKCIJA"}}Direkcija Zagreb{{else}}Sektor {{.SelectedSector}}{{end}}
+        {{icon "building-2"}} {{if eq .SelectedSector "DIREKCIJA"}}Direkcija Zagreb{{else}}{{term "sektor"}} {{.SelectedSector}}{{end}}
         <a href="/users?q={{$.SearchQuery}}&area={{$.SelectedArea}}&role={{$.SelectedRole}}&status={{$.SelectedStatus}}" class="pill-remove" title="Ukloni filtar sektora">&times;</a>
       </span>
       {{end}}
@@ -175,8 +175,8 @@
           </span>
         </div>
         <div style="color:var(--text-muted); margin-top:0.25rem;">
-          {{if .SectorID}}Sektor: {{derefString .SectorID}}{{end}}
-          {{if .AreaID}} · Branjeno područje: {{derefInt .AreaID}}{{if not .SectionCodes}} <em>(sve dionice)</em>{{end}}{{end}}
+          {{if .SectorID}}{{term "sektor"}}: {{derefString .SectorID}}{{end}}
+          {{if .AreaID}} · {{term "podrucje"}}: {{derefInt .AreaID}}{{if not .SectionCodes}} <em>(sve dionice)</em>{{end}}{{end}}
           {{if .SectionCodes}}<br>Dionice: <strong>{{.SectionCodes}}</strong>{{end}}
         </div>
       </div>

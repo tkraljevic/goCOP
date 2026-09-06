@@ -8,7 +8,7 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">{{icon "notebook"}} {{if .IsEdit}}Naslovnica dnevnika{{else}}Novi dnevnik{{end}}</h1>
-    <p class="page-desc">Naslovnica građevinskog dnevnika: tko izvodi, tko nadzire i po kojem aktu. {{if .Area}}Branjeno područje {{.Area.ID}}: {{.Area.Name}}.{{end}}</p>
+    <p class="page-desc">Naslovnica građevinskog dnevnika: tko izvodi, tko nadzire i po kojem aktu. {{if .Area}}{{term "podrucje"}} {{.Area.ID}}: {{.Area.Name}}.{{end}}</p>
   </div>
 </div>
 
