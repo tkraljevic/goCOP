@@ -383,6 +383,8 @@ func (s *Server) setupRoutes() {
 	// Organizacija obrane: sektori i branjena područja
 	orgH := NewOrgHandler(s.orgService, s.templates["organizacija.html"], s.templates["sector_form.html"], s.templates["area_form.html"])
 	s.mux.Handle("GET /organizacija", s.authMiddleware(http.HandlerFunc(orgH.ShowOrganization)))
+	s.mux.Handle("GET /organizacija/sektori.csv", s.authMiddleware(http.HandlerFunc(orgH.ExportSectorsCSV)))
+	s.mux.Handle("GET /organizacija/podrucja.csv", s.authMiddleware(http.HandlerFunc(orgH.ExportAreasCSV)))
 	s.mux.Handle("GET /organizacija/sektori/new", s.authMiddleware(http.HandlerFunc(orgH.ShowSectorForm)))
 	s.mux.Handle("GET /organizacija/sektori/{id}/edit", s.authMiddleware(http.HandlerFunc(orgH.ShowSectorForm)))
 	s.mux.Handle("POST /organizacija/sektori/save", s.authMiddleware(http.HandlerFunc(orgH.HandleSaveSector)))
