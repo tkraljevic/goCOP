@@ -190,21 +190,18 @@
     <p class="page-desc" style="margin-bottom:0.5rem;">
       Uloge nose ovlasti u programu i ne mijenjaju se; naziv smijete zvati po svome. Prazno polje ostavlja zadani naziv.
     </p>
-    <div class="table-card"><div class="table-responsive">
-      <table class="data-table">
-        <thead><tr><th style="width:7rem;">Skupina</th><th style="width:22%;">Zadani naziv</th><th style="min-width:18rem; width:32%;">Vaš naziv</th><th>Što smije</th></tr></thead>
-        <tbody>
-        {{range .RoleRows}}
-        <tr>
-          <td class="reading-meta">{{.Group}}</td>
-          <td>{{.Name}}</td>
-          <td><input type="text" name="role_{{.Role}}" class="form-control" value="{{.Custom}}" placeholder="{{.Name}}" style="width:100%; min-width:16rem;"></td>
-          <td class="reading-meta">{{.Desc}}</td>
-        </tr>
-        {{end}}
-        </tbody>
-      </table>
-    </div></div>
+    {{range .RoleGroups}}
+    <h4 style="font-size:0.85rem; margin:1rem 0 0.5rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.04em;">{{.Group}}</h4>
+    <div class="reg-list" style="margin-bottom:0.5rem;">
+      {{range .Rows}}
+      <article class="reg-card" style="padding:0.875rem 1rem; gap:0.4rem;">
+        <label class="form-label" for="role-{{.Role}}" style="margin:0;">{{.Name}}</label>
+        <input type="text" id="role-{{.Role}}" name="role_{{.Role}}" class="form-control" value="{{.Custom}}" placeholder="{{.Name}}">
+        <div class="form-help" style="margin:0;">{{.Desc}}</div>
+      </article>
+      {{end}}
+    </div>
+    {{end}}
     <div class="form-help">Prazan naziv vraća zadani naziv Hrvatskih voda; podaci razine 1 (adresa, kontakti) smiju ostati prazni.</div>
     <div class="form-actions"><button type="submit" class="btn btn-primary">Spremi</button></div>
   </form>
