@@ -76,11 +76,32 @@ func main() {
 	}
 	actor := &models.UserPermissions{User: *admin, IsGlobalAdmin: true}
 
+	// Isti čovjek u dva imenika preskače se, ali dva različita čovjeka s istim
+	// inicijalom i prezimenom ne smiju: drugome se korisničko ime dopunjuje
+	// brojem. Bez toga bi tiho ostao bez računa.
+	postojeci, err := uRepo.ListUsers("", 0, "", "", "")
+	if err != nil {
+		log.Fatal(err)
+	}
+	istaOsoba := map[string]bool{}
+	zauzetoIme := map[string]bool{}
+	for _, u := range postojeci {
+		istaOsoba[strings.ToLower(u.FullName)] = true
+		if u.Email != "" {
+			istaOsoba[strings.ToLower(u.Email)] = true
+		}
+		zauzetoIme[strings.ToLower(u.Username)] = true
+	}
+
 	upisano, preskoceno := 0, 0
 	for _, o := range ljudi {
-		if postoji, _ := uRepo.GetUserByUsername(o.Korisnicko); postoji != nil {
+		if istaOsoba[strings.ToLower(o.Ime)] || (o.Email != "" && istaOsoba[strings.ToLower(o.Email)]) {
 			preskoceno++
 			continue
+		}
+		osnovni := o.Korisnicko
+		for n := 2; zauzetoIme[o.Korisnicko]; n++ {
+			o.Korisnicko = fmt.Sprintf("%s%d", osnovni, n)
 		}
 		_, err := svc.CreateUser(actor, service.CreateUserRequest{
 			Username: o.Korisnicko, Password: *lozinka, FullName: o.Ime, Title: o.Titula,
@@ -91,6 +112,7 @@ func main() {
 			log.Printf("%s (%s): %v", o.Ime, o.Korisnicko, err)
 			continue
 		}
+		zauzetoIme[o.Korisnicko] = true
 		upisano++
 	}
 	fmt.Printf("upisano %d, preskočeno %d (već postoje)\n", upisano, preskoceno)
