@@ -184,10 +184,13 @@ func (s *OrgService) ContractorIndex(ctx context.Context) (repository.Contractor
 }
 
 // SaveContractor upisuje firmu i postavlja gdje radi; veze na nepostojeći
-// sektor ili područje se odbijaju
+// sektor ili područje se odbijaju. Uređuje je globalni administrator ili
+// ovlaštenik za praćenje ugovora (i drugi administratori sektora/područja),
+// ali samo za svoj sektor ili branjeno područje — mjesta rada koja korisnik
+// ne administrira ostaju netaknuta.
 func (s *OrgService) SaveContractor(ctx context.Context, perms *models.UserPermissions, c *models.Contractor, where []models.ContractorAssignment) error {
-	if err := requireGlobalAdmin(perms, "uređivanje licenciranih firmi"); err != nil {
-		return err
+	if perms == nil {
+		return fmt.Errorf("prijava je obavezna")
 	}
 	c.Name = strings.TrimSpace(c.Name)
 	c.ShortName, c.OIB = strings.TrimSpace(c.ShortName), strings.TrimSpace(c.OIB)
@@ -232,6 +235,39 @@ func (s *OrgService) SaveContractor(ctx context.Context, perms *models.UserPermi
 		seen[w.Key()] = true
 		clean = append(clean, w)
 	}
+
+	if !perms.IsGlobalAdmin {
+		if len(clean) == 0 {
+			return fmt.Errorf("upis firme bez određenog sektora ili branjenog područja dopušten je samo globalnom administratoru")
+		}
+		for _, w := range clean {
+			if !perms.CanAdminister(w.SectorID, w.AreaID) {
+				return fmt.Errorf("firmu možete upisati samo za sektor ili branjeno područje koje vodite")
+			}
+		}
+		if c.ID != "" {
+			existing, err := s.repo.GetContractor(ctx, c.ID)
+			if err != nil {
+				return err
+			}
+			if existing == nil {
+				return fmt.Errorf("firma ne postoji")
+			}
+			ownsOne := len(existing.Assignments) == 0
+			for _, a := range existing.Assignments {
+				if perms.CanAdminister(a.SectorID, a.AreaID) {
+					ownsOne = true
+				} else {
+					// mjesta rada koja korisnik ne administrira ostaju netaknuta
+					clean = append(clean, a)
+				}
+			}
+			if !ownsOne {
+				return fmt.Errorf("ovu firmu smije uređivati samo tko vodi barem jedno od njenih postojećih mjesta rada")
+			}
+		}
+	}
+
 	if err := s.repo.SaveContractor(ctx, c, clean); err != nil {
 		return err
 	}
@@ -239,10 +275,26 @@ func (s *OrgService) SaveContractor(ctx context.Context, perms *models.UserPermi
 	return nil
 }
 
-// DeleteContractor briše firmu i gdje radi
+// DeleteContractor briše firmu i sva njena mjesta rada. Globalni administrator
+// smije uvijek; ovlaštenik za praćenje ugovora (ili drugi administrator
+// sektora/područja) smije samo ako firma radi isključivo na njegovom mjestu —
+// za firmu koja radi i drugdje treba urediti firmu i ukloniti samo svoje
+// mjesto rada, ili zatražiti globalnog administratora za brisanje cijele.
 func (s *OrgService) DeleteContractor(ctx context.Context, perms *models.UserPermissions, id string) error {
-	if err := requireGlobalAdmin(perms, "uređivanje licenciranih firmi"); err != nil {
-		return err
+	if perms == nil {
+		return fmt.Errorf("prijava je obavezna")
+	}
+	if !perms.IsGlobalAdmin {
+		existing, err := s.repo.GetContractor(ctx, id)
+		if err != nil {
+			return err
+		}
+		if existing == nil {
+			return fmt.Errorf("firma ne postoji")
+		}
+		if len(existing.Assignments) != 1 || !perms.CanAdminister(existing.Assignments[0].SectorID, existing.Assignments[0].AreaID) {
+			return fmt.Errorf("brisanje ove firme dopušteno je samo globalnom administratoru; ako radi i na drugim mjestima, uredite firmu i uklonite samo svoje mjesto rada")
+		}
 	}
 	if err := s.repo.DeleteContractor(ctx, id); err != nil {
 		return err

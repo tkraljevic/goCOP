@@ -11,12 +11,13 @@
     <p class="page-desc">
       Pravne osobe s licencijom koje po ugovoru rade održavanje i obranu; natječaj svake četiri godine. Jedno
       {{terml "podrucje"}} smije imati više firmi, a udružene se upisuju kao zajednica ili svaka posebno.
-      Pregled vidi svatko s registrima; unos je administratorov.
+      Pregled vidi svatko s registrima; unos vrši globalni administrator ili ovlaštenik za praćenje ugovora
+      za svoje {{terml "podrucje"}}.
     </p>
   </div>
   <div class="detail-actions" style="display:flex; gap:0.4rem; align-items:flex-start;">
     {{if .Contractors}}<a href="/firme.csv" class="btn btn-secondary" title="Izvoz u CSV (Excel)">{{icon "download"}} CSV</a>{{end}}
-    {{if and .Permissions .Permissions.IsGlobalAdmin .Sectors}}<a href="/firme/new" class="btn btn-primary">{{icon "plus"}} Nova firma</a>{{end}}
+    {{if and .Permissions (or .Permissions.IsGlobalAdmin (gt (len .Permissions.AdminSectors) 0) (gt (len .Permissions.AdminAreas) 0)) .Sectors}}<a href="/firme/new" class="btn btn-primary">{{icon "plus"}} Nova firma</a>{{end}}
   </div>
 </div>
 
@@ -26,7 +27,7 @@
 {{if .Contractors}}
 <div class="table-card"><div class="table-responsive">
   <table class="data-table">
-    <thead><tr><th>Naziv</th><th>OIB</th><th>Kontakt</th><th>Osoba za obranu</th><th>Gdje radi</th><th>Stanje</th>{{if and .Permissions .Permissions.IsGlobalAdmin}}<th></th>{{end}}</tr></thead>
+    <thead><tr><th>Naziv</th><th>OIB</th><th>Kontakt</th><th>Osoba za obranu</th><th>Gdje radi</th><th>Stanje</th>{{if $.EditableIDs}}<th></th>{{end}}</tr></thead>
     <tbody>
     {{range .Contractors}}
     <tr>
@@ -36,13 +37,15 @@
       <td>{{.Contact}}</td>
       <td>{{range .Assignments}}<span class="reg-chip">{{.Where}}</span> {{end}}</td>
       <td>{{if .Active}}<span class="badge badge-active">aktivan</span>{{else}}<span class="badge badge-inactive">neaktivan</span>{{end}}</td>
-      {{if and $.Permissions $.Permissions.IsGlobalAdmin}}
+      {{if index $.EditableIDs .ID}}
       <td style="white-space:nowrap; text-align:right;">
         <a href="/firme/{{.ID}}/edit" class="btn btn-sm btn-secondary" title="Uredi">{{icon "pencil"}}</a>
         <form method="POST" action="/firme/delete" onsubmit="return confirm('Obrisati firmu {{.Name}}? Za povijest je bolje označiti je neaktivnom.')" style="display:inline;">
           <input type="hidden" name="id" value="{{.ID}}"><button type="submit" class="btn btn-sm btn-secondary" title="Obriši">{{icon "trash"}}</button>
         </form>
       </td>
+      {{else if $.EditableIDs}}
+      <td></td>
       {{end}}
     </tr>
     {{end}}
@@ -51,7 +54,11 @@
 </div></div>
 {{else}}
 <div class="reg-empty" style="padding:2rem;">
-  Još nema nijedne firme. {{if and .Permissions .Permissions.IsGlobalAdmin}}{{if .Sectors}}Upišite prvu, pa je vežite na {{terml "podrucja"}} na kojima radi.{{else}}Prvo upišite ustroj: {{terml "sektori"}} i {{terml "podrucja"}}.{{end}}{{else}}Upisuje ih globalni administrator.{{end}}
+  Još nema nijedne firme. {{if and .Permissions (or .Permissions.IsGlobalAdmin (gt (len .Permissions.AdminSectors) 0) (gt (len .Permissions.AdminAreas) 0))}}{{if .Sectors}}Upišite prvu, pa je vežite na {{terml "podrucja"}} na kojima radi.{{else}}Prvo upišite ustroj: {{terml "sektori"}} i {{terml "podrucja"}}.{{end}}{{else}}Upisuje ih globalni administrator ili ovlaštenik za praćenje ugovora za svoje {{terml "podrucje"}}.{{end}}
 </div>
 {{end}}
+
+<p style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border); font-size: 0.8125rem; color: var(--text-muted); text-align: center;">
+  {{icon "info"}} Popis treba aktualizirati nakon svakog četverogodišnjeg sporazuma o održavanju.
+</p>
 {{end}}
