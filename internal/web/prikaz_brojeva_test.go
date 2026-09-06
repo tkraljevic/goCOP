@@ -73,7 +73,23 @@ func TestRegistarVodotokaPiseBrojeveHrvatski(t *testing.T) {
 		}
 	}
 	if strings.Contains(html, "96000") {
-		t.Error("porječje je ostalo bez razdjelnika tisućica")
+		t.Error("površina sliva ostala je bez razdjelnika tisućica")
+	}
+}
+
+func TestDetaljVodotokaRenderiraMarkdownNapomenu(t *testing.T) {
+	html := iscrtaj(t, "watercourse_detail.html", WatercoursePageData{
+		CurrentUser: &models.User{FullName: "Provjera"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Water: models.Watercourse{
+			Code: "rijeka-dunav", Name: "Dunav",
+			Notes: "## Izvor\n\n[Wikipedija](https://hr.wikipedia.org/wiki/Dunav)",
+		},
+	})
+	for _, want := range []string{"<h2>Izvor</h2>", `<a href="https://hr.wikipedia.org/wiki/Dunav">Wikipedija</a>`} {
+		if !strings.Contains(html, want) {
+			t.Errorf("Markdown napomena nije ispravno prikazana; nema %q", want)
+		}
 	}
 }
 
@@ -262,5 +278,36 @@ func TestObrazacDioniceIdeRedomPrivitka(t *testing.T) {
 	}
 	if !strings.Contains(tpl, `data-role="terr-emb-group" hidden`) {
 		t.Error("izbor nasipa mora biti skriven dok nasipa nema")
+	}
+}
+
+// Obrazac dionice nosi tablice sa sedam stupaca pa dobiva punu širinu; redak
+// objekta ima tri stupca — obalu i vrstu stacionaže izvodi iz poddionice i
+// zapisa — a "na nasipu" je izbornik nasipa, ne slobodan tekst.
+func TestObrazacDioniceSiriIObjektiUTriStupca(t *testing.T) {
+	html := iscrtaj(t, "section_form.html", SectionPageData{
+		CurrentUser: &models.User{FullName: "Provjera"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Section:     models.Section{Code: "B.34.1", AreaID: 34, SectorID: "B"},
+		IsEdit:      true,
+	})
+	if !strings.Contains(html, `class="form-page form-wide"`) {
+		t.Error("obrazac dionice nije na punu širinu")
+	}
+	obj := izmedju(html, `<template id="tpl-obj">`, "</template>")
+	if obj == "" {
+		t.Fatal("predložak retka objekta nije nađen")
+	}
+	if !strings.Contains(obj, `<select class="form-control" data-field="on_embankment"`) {
+		t.Error("„na nasipu\" nije izbornik")
+	}
+	if !strings.Contains(obj, `data-role="obj-extra" hidden`) {
+		t.Error("obala i vrsta stacionaže moraju biti skrivene dok ne odstupaju")
+	}
+	glava := izmedju(html, `<div class="rows-obj">`, `<div data-role="obj-rows">`)
+	for _, ne := range []string{"<div>Obala</div>", "<div>Po</div>"} {
+		if strings.Contains(glava, ne) {
+			t.Errorf("zaglavlje objekata još nosi stupac %s", ne)
+		}
 	}
 }

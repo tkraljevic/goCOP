@@ -125,6 +125,7 @@ type watercourseForm struct {
 	Source       string `json:"source"`
 	Mouth        string `json:"mouth"`
 	FlowsInto    string `json:"flows_into"`
+	Notes        string `json:"notes"`
 }
 
 func (f watercourseForm) toWatercourse() models.Watercourse {
@@ -142,6 +143,7 @@ func (f watercourseForm) toWatercourse() models.Watercourse {
 		Source:       strings.TrimSpace(f.Source),
 		Mouth:        strings.TrimSpace(f.Mouth),
 		FlowsInto:    strings.TrimSpace(f.FlowsInto),
+		Notes:        strings.TrimSpace(f.Notes),
 	}
 }
 
@@ -171,6 +173,7 @@ func decodeWatercourseForm(r *http.Request) (watercourseForm, error) {
 	form.Source = r.FormValue("source")
 	form.Mouth = r.FormValue("mouth")
 	form.FlowsInto = r.FormValue("flows_into")
+	form.Notes = r.FormValue("notes")
 	return form, nil
 }
 

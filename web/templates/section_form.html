@@ -20,7 +20,7 @@
 
 {{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
 
-<form class="form-page" method="POST" action="{{if .IsEdit}}/sections/update{{else}}/sections/create{{end}}" id="section-form" onsubmit="return collectParts()">
+<form class="form-page form-wide" method="POST" action="{{if .IsEdit}}/sections/update{{else}}/sections/create{{end}}" id="section-form" onsubmit="return collectParts()">
   <input type="hidden" name="parts_json" id="parts_json">
   {{if .IsEdit}}
   <input type="hidden" name="code" value="{{.Section.Code}}">
@@ -118,7 +118,7 @@
       <summary class="part-label" style="cursor:pointer;">{{icon "construction"}} Objekti <span class="reg-chip" data-role="obj-count">0</span></summary>
       <div class="form-help">Naši objekti (crpne stanice, ustave, sifoni) vežu se na registar; mostovi i propusti ostaju samo redak.</div>
       <div class="rows-obj">
-        <div class="rows-head"><div>Obala</div><div>Po</div><div>Stacionaža</div><div>Objekt (registar ili naziv)</div><div>Na nasipu</div><div></div></div>
+        <div class="rows-head"><div>Stacionaža</div><div>Objekt (registar ili naziv)</div><div>Na nasipu</div><div></div></div>
         <div data-role="obj-rows"></div>
       </div>
       <button type="button" class="btn btn-sm btn-secondary" onclick="addObject(this)">{{icon "plus"}} Dodaj objekt</button>
@@ -160,7 +160,7 @@
 <template id="tpl-emb">
   <div class="emb-row">
     <div data-label="Nasip ili brana">
-      <input type="text" class="form-control" data-field="name" list="embankments-list" placeholder="Lijevi nasip …" aria-label="Nasip ili brana iz registra ili novi naziv" autocomplete="off"><input type="hidden" data-field="structure_id"></div>
+      <input type="text" class="form-control" data-field="name" list="embankments-list" placeholder="Lijevi nasip …" aria-label="Nasip ili brana iz registra ili novi naziv" autocomplete="off" onchange="renderChips(partOf(this))"><input type="hidden" data-field="structure_id"></div>
     <div data-label="Uz vodu od"><input type="text" class="form-control mono" data-field="water_from" placeholder="0+235" aria-label="Uz vodu od"></div>
     <div data-label="do"><input type="text" class="form-control mono" data-field="water_to" placeholder="0+855" aria-label="Uz vodu do"></div>
     <div data-label="Po nasipu od"><input type="text" class="form-control mono" data-field="emb_from" placeholder="0+000" aria-label="Po nasipu od"></div>
@@ -172,12 +172,14 @@
 
 <template id="tpl-obj">
   <div class="obj-row">
-    <div data-label="Obala"><select class="form-control" data-field="bank" aria-label="Obala"><option value="">—</option>{{range .Banks}}<option value="{{.Code}}">{{.Code}}</option>{{end}}</select></div>
-    <div data-label="Po"><select class="form-control" data-field="stationing_kind" aria-label="Vrsta stacionaže"><option value="">—</option>{{range .StationingKinds}}<option value="{{.}}">{{.}}</option>{{end}}</select></div>
-    <div data-label="Stacionaža"><input type="text" class="form-control mono" data-field="stationing_text" placeholder="1+825" aria-label="Stacionaža"></div>
+    <div data-label="Stacionaža"><input type="text" class="form-control mono" data-field="stationing_text" placeholder="rkm 1+825" aria-label="Stacionaža" title="S oznakom vrste: rkm, nkm, pkm…"></div>
     <div data-label="Objekt"><input type="text" class="form-control" data-field="name" list="structures-list" placeholder="most, ušće, CS Adica…" aria-label="Objekt iz registra ili naziv" autocomplete="off"><input type="hidden" data-field="structure_id"></div>
-    <div data-label="Na nasipu"><input type="text" class="form-control" data-field="on_embankment" placeholder="po želji" aria-label="Na nasipu"></div>
+    <div data-label="Na nasipu"><select class="form-control" data-field="on_embankment" aria-label="Na nasipu"><option value="">— na vodotoku —</option></select></div>
     <button type="button" class="btn btn-sm btn-secondary" onclick="this.closest('.obj-row').remove()" title="Ukloni">{{icon "x"}}</button>
+    <div data-role="obj-extra" hidden>
+      <label>Obala <select class="form-control" data-field="bank" aria-label="Obala"><option value="">kao poddionica</option>{{range .Banks}}<option value="{{.Code}}">{{.Code}}</option>{{end}}</select></label>
+      <label>Stacionaža po <select class="form-control" data-field="stationing_kind" aria-label="Vrsta stacionaže"><option value="">iz zapisa</option>{{range .StationingKinds}}<option value="{{.}}">{{.}}</option>{{end}}</select></label>
+    </div>
   </div>
 </template>
 
@@ -255,10 +257,9 @@ function renderChips(el) {
   const tr = JSON.parse(el.dataset.territories); const tc = el.querySelector('[data-role=terr-chips]'); tc.innerHTML = '';
   // Naselja stoje uz svoj nasip, kao u Privitku; bez nasipa — ili bez oznake —
   // stoje uz cijelu poddionicu. Izbor nasipa uz unos prati nasipe koji su upisani.
-  const nasipi = [...el.querySelectorAll('.emb-row')].map(r => r.querySelector('[data-field=name]').value.trim()).filter(Boolean);
-  const sel = el.querySelector('[data-role=terr-emb]'); const prije = sel.value;
-  sel.innerHTML = '<option value="">cijela poddionica</option>' + nasipi.map(n => '<option value="' + n.replace(/"/g, '&quot;') + '">' + n + '</option>').join('');
-  if (nasipi.includes(prije)) sel.value = prije;
+  const nasipi = embankmentNames(el);
+  fillEmbankmentSelect(el.querySelector('[data-role=terr-emb]'), nasipi, 'cijela poddionica');
+  el.querySelectorAll('.obj-row [data-field=on_embankment]').forEach(sel => fillEmbankmentSelect(sel, nasipi, '— na vodotoku —'));
   el.querySelector('[data-role=terr-emb-group]').hidden = nasipi.length === 0;
   const skupine = nasipi.map(n => ({naziv: n, kljuc: n.toLowerCase(), stavke: []})).concat([{naziv: nasipi.length ? 'Cijela poddionica' : '', kljuc: '', stavke: []}]);
   for (const t of tr) {
@@ -383,12 +384,27 @@ function addEmbankment(btn, e) {
   row.querySelector('[data-field=length_km]').value = e.length_km != null ? num(e.length_km) : ''; row.dataset.waterKind = e.water_kind || ''; row.dataset.data = e.data || ''; row.dataset.protected = e.protected_text || '';
   el.querySelector('[data-role=emb-rows]').appendChild(row); renderChips(el);
 }
+// nasipi poddionice, kako su trenutno upisani — za izbornike "na nasipu" i "uz nasip"
+function embankmentNames(el) { return [...el.querySelectorAll('.emb-row')].map(r => r.querySelector('[data-field=name]').value.trim()).filter(Boolean); }
+function fillEmbankmentSelect(sel, names, first, value) {
+  const prije = value !== undefined ? value : sel.value;
+  sel.innerHTML = '<option value="">' + first + '</option>' + names.map(n => '<option value="' + n.replace(/"/g, '&quot;') + '">' + n + '</option>').join('');
+  // zatečeni naziv koji nije među nasipima (tipfeler iz uvoza) ostaje vidljiv, da se ne izgubi tiho
+  if (prije && !names.includes(prije)) { const o = document.createElement('option'); o.value = prije; o.textContent = prije + ' (nije među nasipima)'; sel.appendChild(o); }
+  sel.value = prije || '';
+}
 function addObject(btn, o) {
   const el = partOf(btn); o = o || {}; const row = document.getElementById('tpl-obj').content.firstElementChild.cloneNode(true);
-  row.querySelector('[data-field=bank]').value = o.bank || ''; row.querySelector('[data-field=stationing_kind]').value = o.stationing_kind || '';
-  row.querySelector('[data-field=stationing_text]').value = o.stationing_text || (o.stationing != null ? kmText(o.stationing) : '');
+  const partBank = el.querySelector('[data-field=bank]').value, partKind = el.querySelector('[data-field=stationing_kind]').value;
+  const text = o.stationing_text || (o.stationing != null ? kmText(o.stationing) : '');
+  row.querySelector('[data-field=stationing_text]').value = text;
   row.querySelector('[data-field=name]').value = o.name || ''; row.querySelector('[data-field=structure_id]').value = o.structure_id || '';
-  row.querySelector('[data-field=on_embankment]').value = o.on_embankment || '';
+  fillEmbankmentSelect(row.querySelector('[data-field=on_embankment]'), embankmentNames(el), '— na vodotoku —', o.on_embankment || '');
+  // obala i vrsta stacionaže ostaju upisive samo kad odstupaju od poddionice, odnosno od zapisa
+  const bankOdstupa = o.bank && o.bank !== partBank, kindOdstupa = o.stationing_kind && !/^[a-z]+/i.test(text) && o.stationing_kind !== partKind;
+  row.querySelector('[data-field=bank]').value = bankOdstupa ? o.bank : '';
+  row.querySelector('[data-field=stationing_kind]').value = kindOdstupa ? o.stationing_kind : '';
+  row.querySelector('[data-role=obj-extra]').hidden = !(bankOdstupa || kindOdstupa);
   el.querySelector('[data-role=obj-rows]').appendChild(row); renderChips(el);
 }
 function refreshDescription() {
@@ -424,9 +440,10 @@ function collectParts() {
     for (const row of el.querySelectorAll('.obj-row')) {
       const g = f => row.querySelector('[data-field=' + f + ']').value.trim(); const name = g('name'); if (!name) continue;
       const known = STRUCTURES.find(x => x.name === name);
-      const o = { name: name, structure_id: known ? known.id : (g('structure_id') || ''), bank: g('bank'), stationing_kind: g('stationing_kind'), stationing_text: g('stationing_text'), on_embankment: g('on_embankment') };
+      const o = { name: name, structure_id: known ? known.id : (g('structure_id') || ''), bank: g('bank') || p.bank, stationing_kind: g('stationing_kind'), stationing_text: g('stationing_text'), on_embankment: g('on_embankment') };
       const st = kmOf(g('stationing_text')); if (st !== null) o.stationing = st;
-      if (o.stationing_text && !o.stationing_kind) o.stationing_kind = p.stationing_kind;
+      // vrsta stacionaže: iz zapisa ("rkm 1428+010"), inače kao poddionica
+      const m = /^([a-z]+)\s/i.exec(o.stationing_text); if (!o.stationing_kind) o.stationing_kind = m ? m[1].toLowerCase() : p.stationing_kind;
       if (o.stationing_text && o.stationing_kind && !/^[a-z]/.test(o.stationing_text)) o.stationing_text = o.stationing_kind + ' ' + o.stationing_text;
       p.objects.push(o);
     }

@@ -23,7 +23,6 @@
 <form class="form-page" method="POST" action="{{if .IsEdit}}/api/watercourses/update{{else}}/api/watercourses/create{{end}}">
   {{if .IsEdit}}<input type="hidden" name="code" value="{{.Water.Code}}">{{end}}
   <input type="hidden" name="subcategory" value="{{.Water.Subcategory}}">
-  <input type="hidden" name="wiki_slug" value="{{.Water.WikiSlug}}">
 
   <div class="form-row">
     <div class="form-group">
@@ -38,6 +37,13 @@
              value="{{.Water.Name}}" placeholder="Karašica (Baranja)" autocomplete="off">
       <div class="form-help">Prazno znači isto kao službeni naziv.</div>
     </div>
+  </div>
+
+  <div class="form-group">
+    <label class="form-label" for="wiki_slug">Članak na hrvatskoj Wikipediji</label>
+    <input type="text" id="wiki_slug" name="wiki_slug" class="form-control"
+           value="{{.Water.WikiSlug}}" placeholder="npr. Dunav" autocomplete="off">
+    <div class="form-help">Naziv članka bez adrese. Kad je upisan, na prikazu se navode Wikipedija i licenca CC BY-SA 4.0.</div>
   </div>
 
   <div class="form-row">
@@ -67,7 +73,7 @@
              value="{{if .Water.LengthKm}}{{unosD .Water.LengthKm 1}}{{end}}" placeholder="133">
     </div>
     <div class="form-group">
-      <label class="form-label" for="basin_km2">Porječje (km²)</label>
+      <label class="form-label" for="basin_km2">Površina sliva (km²)</label>
       <input type="text" inputmode="decimal" id="basin_km2" name="basin_km2" class="form-control"
              value="{{if .Water.BasinKm2}}{{unosD .Water.BasinKm2 0}}{{end}}" placeholder="596">
     </div>
@@ -80,7 +86,7 @@
 
   <div class="form-row">
     <div class="form-group">
-      <label class="form-label" for="source">Izvor</label>
+      <label class="form-label" for="source">Izvorište / nastanak toka</label>
       <input type="text" id="source" name="source" class="form-control" value="{{.Water.Source}}">
     </div>
     <div class="form-group">
@@ -93,6 +99,13 @@
     <label class="form-label" for="flows_into">Ulijeva se u</label>
     <input type="text" id="flows_into" name="flows_into" class="form-control"
            value="{{.Water.FlowsInto}}" placeholder="Drava ⤴ Dunav → Crno more">
+  </div>
+
+  <div class="form-group">
+    <label class="form-label" for="notes">Napomena</label>
+    <textarea id="notes" name="notes" class="form-control" rows="10"
+              placeholder="Opis rijeke, dodatni podaci, izvori i licenca u Markdown formatu">{{.Water.Notes}}</textarea>
+    <div class="form-help">Slobodan tekst u Markdown formatu: naslovi, popisi, poveznice i podebljanje prikazuju se oblikovano nakon spremanja.</div>
   </div>
 
   <div class="form-actions">
