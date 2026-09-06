@@ -478,6 +478,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /api/counties", s.authMiddleware(http.HandlerFunc(territoriesH.HandleGetCountiesAPI)))
 	s.mux.Handle("GET /api/counties/{countyID}/municipalities", s.authMiddleware(http.HandlerFunc(territoriesH.HandleGetMunicipalitiesAPI)))
 	s.mux.Handle("GET /api/municipalities/{municipalityID}/settlements", s.authMiddleware(http.HandlerFunc(territoriesH.HandleGetSettlementsAPI)))
+	s.mux.Handle("GET /api/prijepis/ugrozeno", s.authMiddleware(http.HandlerFunc(territoriesH.HandleRazrijesiUgrozenoAPI)))
 	s.mux.Handle("GET /api/sections/{code}/territories", s.authMiddleware(http.HandlerFunc(territoriesH.HandleGetSectionTerritoriesAPI)))
 
 	// Upravljanje jedinicama (CRUD)
@@ -642,7 +643,7 @@ var modulePaths = []struct{ prefix, module string }{
 	{"/dnevnici", models.ModuleJournals},
 	{"/api/sections", models.ModuleRegisters}, {"/api/stations", models.ModuleRegisters},
 	{"/api/watercourses", models.ModuleRegisters}, {"/api/settlements", models.ModuleRegisters},
-	{"/api/counties", models.ModuleRegisters}, {"/api/municipalities", models.ModuleRegisters},
+	{"/api/counties", models.ModuleRegisters}, {"/api/municipalities", models.ModuleRegisters}, {"/api/prijepis", models.ModuleRegisters},
 	{"/api/areas", models.ModuleRegisters},
 	{"/users", models.ModuleUsers},
 	{"/administracija", models.ModuleAdmin}, {"/organizacija", models.ModuleRegisters},
