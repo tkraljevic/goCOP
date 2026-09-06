@@ -21,10 +21,10 @@ func (h *TerritoriesHandler) ExportCountiesCSV(w http.ResponseWriter, r *http.Re
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	rows := [][]string{{"Broj", "Šifra", "Naziv", "Sjedište", "Župan", "Površina km2", "Stanovnika", "E-pošta", "Telefon"}}
+	rows := [][]string{{"Broj", "Šifra", "Naziv", "Sjedište", "Župan", "Površina km2", "Stanovnika", "E-pošta", "Telefon", "Web"}}
 	for _, c := range counties {
 		rows = append(rows, []string{strconv.Itoa(c.ID), c.Code, c.Name, c.Seat, c.Prefect,
-			strconv.Itoa(c.AreaSqKm), strconv.Itoa(c.Population), c.Email, c.Phone})
+			strconv.Itoa(c.AreaSqKm), strconv.Itoa(c.Population), c.Email, c.Phone, c.Website})
 	}
 	writeCSV(w, "zupanije.csv", rows)
 }
@@ -136,7 +136,8 @@ func (h *TerritoriesHandler) HandleImportTerritoriesCSV(w http.ResponseWriter, r
 			}
 		default:
 			c := &models.County{ID: id, Code: cell(row, 1), Name: cell(row, 2), Seat: cell(row, 3), Prefect: cell(row, 4),
-				AreaSqKm: atoi(cell(row, 5)), Population: atoi(cell(row, 6)), Email: cell(row, 7), Phone: cell(row, 8)}
+				AreaSqKm: atoi(cell(row, 5)), Population: atoi(cell(row, 6)), Email: cell(row, 7), Phone: cell(row, 8),
+				Website: cell(row, 9)}
 			if id > 0 {
 				err = h.territoryService.UpdateCounty(ctx, perms, c)
 			} else {

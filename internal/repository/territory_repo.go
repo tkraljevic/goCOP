@@ -32,8 +32,8 @@ func getCountyTx(ctx context.Context, q rowQuerier, id int) (models.County, erro
 	var c models.County
 	var code, seat, prefect, email, phone sql.NullString
 	var area, pop sql.NullInt64
-	err := q.QueryRowContext(ctx, `SELECT id, code, name, seat, prefect, area_sqkm, population, email, phone FROM counties WHERE id = ?`, id).
-		Scan(&c.ID, &code, &c.Name, &seat, &prefect, &area, &pop, &email, &phone)
+	err := q.QueryRowContext(ctx, `SELECT id, code, name, seat, prefect, area_sqkm, population, email, phone, website FROM counties WHERE id = ?`, id).
+		Scan(&c.ID, &code, &c.Name, &seat, &prefect, &area, &pop, &email, &phone, &c.Website)
 	if err != nil {
 		return c, err
 	}
@@ -80,7 +80,7 @@ func (r *TerritoryRepository) archiveSectionTerritories(ctx context.Context, tx 
 // ListCounties vraća sve županije sortirane po redoslijedu/nazivu
 func (r *TerritoryRepository) ListCounties(ctx context.Context) ([]models.County, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, code, name, seat, prefect, area_sqkm, population, email, phone
+		SELECT id, code, name, seat, prefect, area_sqkm, population, email, phone, website
 		FROM counties
 		ORDER BY id ASC
 	`)
@@ -95,7 +95,7 @@ func (r *TerritoryRepository) ListCounties(ctx context.Context) ([]models.County
 		var code, prefect, email, phone sql.NullString
 		var area, pop sql.NullInt64
 
-		if err := rows.Scan(&c.ID, &code, &c.Name, &c.Seat, &prefect, &area, &pop, &email, &phone); err != nil {
+		if err := rows.Scan(&c.ID, &code, &c.Name, &c.Seat, &prefect, &area, &pop, &email, &phone, &c.Website); err != nil {
 			return nil, err
 		}
 		c.Code = code.String
@@ -113,7 +113,7 @@ func (r *TerritoryRepository) ListCounties(ctx context.Context) ([]models.County
 // GetCountyByID vraća pojedinu županiju
 func (r *TerritoryRepository) GetCountyByID(ctx context.Context, id int) (*models.County, error) {
 	row := r.db.QueryRowContext(ctx, `
-		SELECT id, code, name, seat, prefect, area_sqkm, population, email, phone
+		SELECT id, code, name, seat, prefect, area_sqkm, population, email, phone, website
 		FROM counties
 		WHERE id = ?
 	`, id)
@@ -122,7 +122,7 @@ func (r *TerritoryRepository) GetCountyByID(ctx context.Context, id int) (*model
 	var code, prefect, email, phone sql.NullString
 	var area, pop sql.NullInt64
 
-	if err := row.Scan(&c.ID, &code, &c.Name, &c.Seat, &prefect, &area, &pop, &email, &phone); err != nil {
+	if err := row.Scan(&c.ID, &code, &c.Name, &c.Seat, &prefect, &area, &pop, &email, &phone, &c.Website); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
@@ -307,9 +307,9 @@ func (r *TerritoryRepository) CreateCounty(ctx context.Context, c *models.County
 	defer tx.Rollback()
 
 	res, err := tx.ExecContext(ctx, `
-		INSERT INTO counties (code, name, seat, prefect, area_sqkm, population, email, phone)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-	`, c.Code, c.Name, c.Seat, c.Prefect, c.AreaSqKm, c.Population, c.Email, c.Phone)
+		INSERT INTO counties (code, name, seat, prefect, area_sqkm, population, email, phone, website)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, c.Code, c.Name, c.Seat, c.Prefect, c.AreaSqKm, c.Population, c.Email, c.Phone, c.Website)
 	if err != nil {
 		return fmt.Errorf("greška pri dodavanju županije: %w", err)
 	}
@@ -332,9 +332,9 @@ func (r *TerritoryRepository) UpdateCounty(ctx context.Context, c *models.County
 
 	if _, err := tx.ExecContext(ctx, `
 		UPDATE counties
-		SET code = ?, name = ?, seat = ?, prefect = ?, area_sqkm = ?, population = ?, email = ?, phone = ?
+		SET code = ?, name = ?, seat = ?, prefect = ?, area_sqkm = ?, population = ?, email = ?, phone = ?, website = ?
 		WHERE id = ?
-	`, c.Code, c.Name, c.Seat, c.Prefect, c.AreaSqKm, c.Population, c.Email, c.Phone, c.ID); err != nil {
+	`, c.Code, c.Name, c.Seat, c.Prefect, c.AreaSqKm, c.Population, c.Email, c.Phone, c.Website, c.ID); err != nil {
 		return fmt.Errorf("greška pri ažuriranju županije: %w", err)
 	}
 	if _, err := r.rec.Record(ctx, tx, EntityCounties, strconv.Itoa(c.ID), c); err != nil {

@@ -1,6 +1,7 @@
 package models
 
 import (
+	"net/url"
 	"strings"
 	"time"
 )
@@ -16,6 +17,7 @@ type County struct {
 	Population int    `json:"population"` // Broj stanovnika
 	Email      string `json:"email"`
 	Phone      string `json:"phone"`
+	Website    string `json:"website,omitempty"`
 }
 
 // Municipality predstavlja jedinicu lokalne samouprave (Grad ili Općina)
@@ -33,6 +35,41 @@ type Municipality struct {
 	Email      string  `json:"email,omitempty"` // službena e-pošta, za obavijesti u obrani
 	Phone      string  `json:"phone,omitempty"`
 	Website    string  `json:"website,omitempty"`
+}
+
+// NormalizeWebsite priprema upisanu adresu mrežne stranice za pohranu.
+//
+// Ljudi upisuju "www.darda.hr" bez sheme, a preglednik bi to u poveznici
+// shvatio kao putanju unutar goCOP-a; zato se dodaje https://. Prihvaćaju se
+// samo http i https: adresa završava u href atributu, a ondje "javascript:"
+// nije poveznica nego rupa. Odbija se i adresa s korisničkim dijelom — tu
+// završi zalijepljena e-mail adresa ("mailto:pisarnica@darda.hr"), ali i
+// adresa koja se predstavlja kao općinska a vodi drugamo
+// ("https://darda.hr@tudja-stranica.com").
+//
+// Neispravan unos vraća praznu adresu i ok=false, da ga sloj iznad može
+// odbiti umjesto da ga tiho proguta.
+func NormalizeWebsite(raw string) (string, bool) {
+	s := strings.TrimSpace(raw)
+	if s == "" {
+		return "", true
+	}
+	if !strings.Contains(s, "://") {
+		s = "https://" + s
+	}
+	u, err := url.Parse(s)
+	if err != nil {
+		return "", false
+	}
+	switch strings.ToLower(u.Scheme) {
+	case "http", "https":
+	default:
+		return "", false
+	}
+	if u.Host == "" || !strings.Contains(u.Host, ".") || u.User != nil {
+		return "", false
+	}
+	return u.String(), true
 }
 
 // Settlement predstavlja pojedino naselje u sastavu grada ili općine

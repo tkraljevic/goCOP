@@ -214,6 +214,11 @@
             {{icon "phone"}} <a href="tel:{{.Phone}}" style="color: var(--text-muted); text-decoration: none;">{{.Phone}}</a>
           </div>
           {{end}}
+          {{with websiteURL .Website}}
+          <div style="word-break: break-all;">
+            {{icon "link"}} <a href="{{.}}" target="_blank" rel="noopener noreferrer" style="color: var(--primary); text-decoration: none;">{{websiteLabel .}}</a>
+          </div>
+          {{end}}
         </div>
       </div>
 
@@ -317,6 +322,11 @@
           {{if .Phone}}
           <div>
             {{icon "phone"}} <a href="tel:{{.Phone}}" style="color: var(--text-muted); text-decoration: none;">{{.Phone}}</a>
+          </div>
+          {{end}}
+          {{with websiteURL .Website}}
+          <div style="word-break: break-all;">
+            {{icon "link"}} <a href="{{.}}" target="_blank" rel="noopener noreferrer" style="color: var(--primary); text-decoration: none;">{{websiteLabel .}}</a>
           </div>
           {{end}}
         </div>
