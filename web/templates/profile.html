@@ -6,7 +6,7 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">{{icon "user"}} Moj profil</h1>
-    <p class="page-desc">{{.User.FullName}} · @{{.User.Username}} · {{roleLabel .User.PrimaryRole}}{{if .User.OrgName}} · {{.User.OrgName}}{{end}}</p>
+    <p class="page-desc">{{.User.FullName}} · @{{.User.Username}} · {{roleLabel .User.PrimaryRole}}{{if and .User.IsGlobalAdmin .User.PrimaryDuty}} · globalni administrator{{end}}{{if .User.OrgName}} · {{.User.OrgName}}{{end}}</p>
   </div>
   <div class="detail-actions">
     <a href="/users/{{.User.ID}}" class="btn btn-secondary">{{icon "shield"}} Moja zaduženja</a>
