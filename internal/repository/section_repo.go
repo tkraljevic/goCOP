@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"gocop/internal/db"
@@ -231,8 +232,41 @@ func (r *SectionRepository) GetSectionPersonnel(code string, areaID int, sectorI
 		officers = append(officers, o)
 	}
 	// Poredak ide odozgo: uprava organizacije, sektor, područje, dionica, pa
-	// teren — kako je posložen i katalog uloga. Razinu zna katalog, a ne baza,
-	// pa se slaže ovdje; unutar razine ostaje poredak po imenu iz upita.
-	sort.SliceStable(officers, func(i, j int) bool { return officers[i].Rank < officers[j].Rank })
-	return officers, nil
+	// teren. Unutar razine ide po težini uloge, kako ih slaže katalog —
+	// rukovoditelj pred zamjenikom — pa tek onda po imenu. Razinu i težinu zna
+	// katalog, a ne baza, pa se popis slaže ovdje.
+	sort.SliceStable(officers, func(i, j int) bool {
+		a, b := officers[i], officers[j]
+		if a.Rank != b.Rank {
+			return a.Rank < b.Rank
+		}
+		ia, ib := models.Role(a.Role).CatalogIndex(), models.Role(b.Role).CatalogIndex()
+		if ia != ib {
+			return ia < ib
+		}
+		return a.FullName < b.FullName
+	})
+	return spojiDuznosti(officers), nil
+}
+
+// spojiDuznosti sažima istu osobu s više dužnosti na istoj razini u jedan
+// zapis: Mario Spajić je i zamjenik rukovoditelja sektora i voditelj centra, a
+// na kartici je jedan čovjek s jednim brojem telefona. Preko razina se ne
+// sažima — na razini područja i na razini dionice odgovara na različito
+// pitanje.
+func spojiDuznosti(officers []models.SectionOfficer) []models.SectionOfficer {
+	var out []models.SectionOfficer
+	mjesto := map[string]int{}
+	for _, o := range officers {
+		kljuc := o.UserID + "|" + strconv.Itoa(o.Rank)
+		if i, ok := mjesto[kljuc]; ok {
+			if o.DutyTitle != "" && !strings.Contains(out[i].DutyTitle, o.DutyTitle) {
+				out[i].DutyTitle += ", " + o.DutyTitle
+			}
+			continue
+		}
+		mjesto[kljuc] = len(out)
+		out = append(out, o)
+	}
+	return out
 }
