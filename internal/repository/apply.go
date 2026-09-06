@@ -157,6 +157,24 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 	}
 
 	switch v.Entity {
+	case EntityEpisodes:
+		var e models.DefenseEpisode
+		if err := json.Unmarshal(v.Payload, &e); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, `
+			INSERT INTO defense_episodes (id, section_code, station_id, started_at, ended_at,
+				phase, peak_cm, peak_at, origin, note, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			ON CONFLICT(id) DO UPDATE SET
+				section_code = excluded.section_code, station_id = excluded.station_id,
+				started_at = excluded.started_at, ended_at = excluded.ended_at,
+				phase = excluded.phase, peak_cm = excluded.peak_cm, peak_at = excluded.peak_at,
+				origin = excluded.origin, note = excluded.note, updated_at = excluded.updated_at`,
+			e.ID.String(), e.SectionCode, e.StationID, e.StartedAt.UTC(), nullTime(e.EndedAt),
+			string(e.Phase), e.PeakCm, nullTime(e.PeakAt), e.Origin, e.Note, e.CreatedAt.UTC(), e.UpdatedAt.UTC())
+		return err
+
 	case EntityStations:
 		var st models.Station
 		if err := json.Unmarshal(v.Payload, &st); err != nil {
