@@ -30,6 +30,8 @@ const (
 var RoleCatalog = []RoleDef{
 	{RoleNationalLeader, RoleGroupLevel1, "Glavni rukovoditelj (za cijelu RH)", "vodi obranu cijele organizacije; puna prava u programu"},
 	{RoleNationalDeputy, RoleGroupLevel1, "Zamjenik Glavnog rukovoditelja (za cijelu RH)", "zamjenjuje glavnog rukovoditelja; puna prava"},
+	{RoleMainCenterLeader, RoleGroupLevel1, "Voditelj Glavnog centra obrane od poplava", "vodi glavni centar obrane; iznad voditelja centara sektora, puna prava"},
+	{RoleMainCenterDeputy, RoleGroupLevel1, "Zamjenik voditelja Glavnog centra obrane od poplava", "zamjenjuje voditelja glavnog centra; puna prava"},
 	{RoleSectorMainDeputy, RoleGroupLevel2, "Zamjenik Glavnog rukovoditelja za sektor", "vodi obranu jednog sektora u ime glavnog rukovoditelja; upravlja sektorom"},
 	{RoleSectorLeader, RoleGroupLevel2, "Rukovoditelj sektora", "vodi obranu sektora; upravlja sektorom i njegovim područjima"},
 	{RoleSectorDeputy, RoleGroupLevel2, "Zamjenik rukovoditelja sektora", "zamjenjuje rukovoditelja sektora; ista prava"},
