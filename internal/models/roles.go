@@ -87,6 +87,19 @@ func (r Role) Rank() int {
 	return 5
 }
 
+// CatalogIndex je mjesto uloge u katalogu. Katalog je posložen po težini —
+// rukovoditelj pa zamjenik, voditelj centra pa njegov zamjenik — pa isti
+// redoslijed vrijedi i za popise ljudi unutar razine. Nepoznata uloga ide na
+// kraj.
+func (r Role) CatalogIndex() int {
+	for i, d := range RoleCatalog {
+		if d.Role == r {
+			return i
+		}
+	}
+	return len(RoleCatalog)
+}
+
 // GroupLabel je naziv razine s koje uloga dolazi ("Razina 2", "Teren"), onako
 // kako uloge razvrstava katalog. Rank daje isti poredak brojem; ovo je za
 // ispis, da se na ekranu vidi zašto netko stoji prije nekoga.
