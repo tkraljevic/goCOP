@@ -25,8 +25,9 @@ network-key
 # ide javno: očitanja žive u bazama čvorova i uvoze se iz datoteka uz bazu.
 #
 # Izvorne datoteke za uvoz stoje u vodostaji/, jedna mapa po postaji nazvana
-# šifrom iz registra — vodostaji/batina/batina_satni_2013.csv. Raspored i
-# zapis opisani su u vodostaji/README.md, koji i sam ostaje izvan repozitorija.
+# šifrom iz registra, a naziv datoteke nosi i izvor — isti niz iz dva izvora
+# nije isti niz: vodostaji/batina/batina_letva_satni_2013.csv. Raspored i zapis
+# opisani su u vodostaji/README.md, koji i sam ostaje izvan repozitorija.
 vodostaji/
 ocitanja/
 *vodostaji*.json
