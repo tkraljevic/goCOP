@@ -23,6 +23,10 @@ network-key
 # koja na letvama očitavaju vodočuvari i strojari, a kasnije možda i
 # mjerenja DHMZ-a po ugovoru o uzajamnom korištenju. Ni jedno ni drugo ne
 # ide javno: očitanja žive u bazama čvorova i uvoze se iz datoteka uz bazu.
+#
+# Izvorne datoteke za uvoz stoje u vodostaji/, jedna mapa po postaji nazvana
+# šifrom iz registra — vodostaji/batina/batina_satni_2013.csv. Raspored i
+# zapis opisani su u vodostaji/README.md, koji i sam ostaje izvan repozitorija.
 vodostaji/
 ocitanja/
 *vodostaji*.json
