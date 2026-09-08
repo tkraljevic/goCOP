@@ -2564,3 +2564,15 @@ textarea {
 .pomoc-pojmovi dd { margin: 0.1rem 0 0; color: var(--text-secondary); }
 /* sidro ne smije završiti ispod ljepljivog zaglavlja */
 .detail-section[id], .pomoc-tekst li[id] { scroll-margin-top: 5rem; }
+
+/* Presjek korita ispod grafa očitanja */
+.korito-mreza { stroke: var(--border); stroke-width: 1; stroke-dasharray: 2 4; }
+.korito-os { font-size: 10px; fill: var(--text-muted); }
+.korito-dno { fill: none; stroke: var(--text); stroke-width: 1.8; stroke-linejoin: round; }
+.korito-voda { fill: var(--primary); fill-opacity: 0.22; }
+.korito-ploha { stroke: var(--primary); stroke-width: 1.5; }
+/* pojas kroz koji je voda išla u razdoblju koje graf iznad prikazuje */
+.korito-pojas { fill: var(--primary); fill-opacity: 0.10; stroke: var(--primary);
+  stroke-opacity: 0.35; stroke-width: 1; stroke-dasharray: 3 3; }
+.korito-brojke { display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem;
+  margin-top: 0.6rem; font-size: 0.9rem; }

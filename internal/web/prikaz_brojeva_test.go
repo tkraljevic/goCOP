@@ -1493,3 +1493,63 @@ func TestModulSeZoveOcitanja(t *testing.T) {
 			models.ModuleReadings)
 	}
 }
+
+// Presjek korita ispod grafa. Korito je na Batini 1.643 cm, a graf niske vode
+// 16 — pod istu os ne idu, pa presjek ima svoju, a veže ih to što obje govore
+// u centimetrima na letvi.
+func TestPresjekKoritaIspodGrafa(t *testing.T) {
+	// pojednostavljen profil: dno na 72,8 m, obale na 89,2 m, kota nule 80,45
+	p := models.ProfilKorita{Datum: "2020-08-18", KotaNule: 80.45, Tocke: []models.TockaProfila{
+		{Stacionaza: 0, Visina: 89.2}, {Stacionaza: 60, Visina: 78.0},
+		{Stacionaza: 200, Visina: 72.8}, {Stacionaza: 340, Visina: 78.0},
+		{Stacionaza: 400, Visina: 89.2},
+	}}
+	pragovi := []PragKorita{{300, "pripremno", "prep"}, {800, "izvanredno stanje", "crit"}}
+	c := crtajKoritoP(p, 612, KoritoPostavke{Sirina: 900, Visina: 340, OsUCm: true,
+		Pragovi: pragovi, PojasOd: 180, PojasDo: 640, ImaPojas: true})
+	if c == nil {
+		t.Fatal("crtež nije nastao")
+	}
+	if c.DnoCm != -765 || c.VrhKoritaCm != 875 {
+		t.Errorf("dno %d, kruna %d cm — očekivano oko -765 i 875", c.DnoCm, c.VrhKoritaCm)
+	}
+	// Viši vodostaj mora biti više na slici: y raste prema dolje.
+	if c.Pragovi[1].Y >= c.Pragovi[0].Y {
+		t.Error("izvanredno stanje nacrtano ispod pripremnog")
+	}
+	if c.YVode >= c.Pragovi[0].Y || c.YVode <= c.Pragovi[1].Y {
+		t.Errorf("voda na 612 cm mora biti između pragova 300 i 800: %v", c.YVode)
+	}
+	// Pojas pokriva raspon razdoblja i obuhvaća vodnu plohu.
+	if !c.ImaPojas || c.PojasY > c.YVode || c.PojasY+c.PojasH < c.YVode {
+		t.Errorf("pojas %v..%v ne obuhvaća vodu na %v", c.PojasY, c.PojasY+c.PojasH, c.YVode)
+	}
+	// Podjele su okrugle u centimetrima: kota nule je 80,45 m, pa bi okrugli
+	// metar dao −845, −445, −45.
+	for _, k := range c.KoteY {
+		if k.Cm%50 != 0 {
+			t.Errorf("podjela na %d cm nije okrugla", k.Cm)
+		}
+	}
+	// Prag iznad krune obala ipak mora stati u sliku, jer je upravo to podatak
+	// koji se traži.
+	visok := crtajKoritoP(p, 100, KoritoPostavke{Sirina: 900, Visina: 340, OsUCm: true,
+		Pragovi: []PragKorita{{1200, "hipotetski", "crit"}}})
+	if visok.Pragovi[0].Y < 0 {
+		t.Errorf("prag iznad obale ispao iz slike: y %v", visok.Pragovi[0].Y)
+	}
+}
+
+// Kartica letve i dalje ima svoje podjele u metrima nad morem — ondje se
+// presjek čita uz apsolutne kote, ne uz graf.
+func TestKarticaLetveDrziKoteUMetrima(t *testing.T) {
+	p := models.ProfilKorita{Datum: "2020-08-18", KotaNule: 80.45, Tocke: []models.TockaProfila{
+		{Stacionaza: 0, Visina: 89.2}, {Stacionaza: 200, Visina: 72.8}, {Stacionaza: 400, Visina: 89.2},
+	}}
+	c := crtajKorito(p, 612)
+	for _, k := range c.KoteY {
+		if k.Kota != float64(int(k.Kota)) {
+			t.Errorf("kota %v nije okrugli metar", k.Kota)
+		}
+	}
+}

@@ -103,6 +103,17 @@ func templateFuncs() template.FuncMap {
 		},
 		// razmak za crtanje: širina umanjena za desni rub
 		"sub": func(a, b int) int { return a - b },
+		// koliko korita ostaje iznad zadnjeg stupnja obrane — brojka zbog koje
+		// se presjek i gleda. Prazno kad praga nema ili je već iznad obale.
+		"nadObranom": func(st *models.Station, vrhCm int) int {
+			if st == nil || !st.State.IsUsable() {
+				return 0
+			}
+			if r := vrhCm - *st.State.Cm; r > 0 {
+				return r
+			}
+			return 0
+		},
 		// razlika dviju vrijednosti, za prikaz koliko ispravak mijenja
 		"sub2":  func(a, b float64) float64 { return a - b },
 		"lower": strings.ToLower,

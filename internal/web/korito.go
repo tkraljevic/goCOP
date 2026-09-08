@@ -2,6 +2,7 @@ package web
 
 import (
 	"fmt"
+	"math"
 	"strings"
 
 	"gocop/internal/models"
@@ -13,6 +14,25 @@ import (
 // Vodostaj je u centimetrima iznad kote nule letve, pa se obje veličine svode
 // na istu apsolutnu kotu i onda na koordinate crteža. Time se vidi ono što se
 // iz broja ne vidi: koliko je vode u koritu i gdje su obale.
+
+// KoritoPostavke biraju kako se korito crta. Na kartici letve dovoljna je
+// slika korita s vodom; ispod grafa očitanja treba i pojas kroz koji je voda
+// išla i stupnjevi obrane, jer se tek s njima vidi koliko korita ostaje.
+type KoritoPostavke struct {
+	Sirina, Visina float64
+	Pragovi        []PragKorita // stupnjevi obrane ucrtani na korito
+	PojasOd        int          // najniži vodostaj razdoblja, cm
+	PojasDo        int          // najviši
+	ImaPojas       bool
+	OsUCm          bool // podjele na okruglim centimetrima na letvi, ne na okruglim metrima
+}
+
+// PragKorita je jedan stupanj obrane iskazan u centimetrima na letvi.
+type PragKorita struct {
+	Cm    int
+	Label string
+	Class string
+}
 
 // KoritoCrtez je profil pripremljen za crtanje, u koordinatama slike.
 type KoritoCrtez struct {
@@ -28,21 +48,43 @@ type KoritoCrtez struct {
 	SirinaVodeM    float64 // širina vodne plohe
 	KoteY          []KotaOznaka
 	Datum          string
+
+	// Ucrtani stupnjevi obrane i pojas kroz koji je voda išla u razdoblju
+	// koje graf iznad prikazuje.
+	Pragovi          []KotaOznaka
+	PojasY, PojasH   float64
+	ImaPojas         bool
+	PojasOd, PojasDo int
+	VrhKoritaCm      int // kruna obala u centimetrima na letvi
+	DnoCm            int
 }
 
-// KotaOznaka je vodoravna crta s ispisanom kotom.
+// KotaOznaka je vodoravna crta s ispisanom kotom. Uz apsolutnu kotu nosi i
+// vodostaj na letvi: presjek se čita zajedno s grafom iznad, a graf govori u
+// centimetrima.
 type KotaOznaka struct {
-	Y    float64
-	Kota float64
+	Y     float64
+	Kota  float64
+	Cm    int
+	Label string
+	Class string
 }
 
 // crtajKorito priprema profil za crtanje pri zadanom vodostaju.
 func crtajKorito(p models.ProfilKorita, vodostajCm int) *KoritoCrtez {
+	return crtajKoritoP(p, vodostajCm, KoritoPostavke{Sirina: 900, Visina: 320})
+}
+
+// crtajKoritoP je isti crtež, ali s postavkama.
+func crtajKoritoP(p models.ProfilKorita, vodostajCm int, o KoritoPostavke) *KoritoCrtez {
 	if len(p.Tocke) < 2 {
 		return nil
 	}
+	w, h := o.Sirina, o.Visina
+	if w <= 0 || h <= 0 {
+		w, h = 900, 320
+	}
 	const (
-		w, h                       = 900.0, 320.0
 		lijevo, desno, gore, dolje = 52.0, 12.0, 14.0, 26.0
 	)
 	x0, x1 := p.Tocke[0].Stacionaza, p.Tocke[len(p.Tocke)-1].Stacionaza
@@ -61,6 +103,14 @@ func crtajKorito(p models.ProfilKorita, vodostajCm int) *KoritoCrtez {
 	}
 	if kotaVode < minV {
 		minV = kotaVode
+	}
+	// Prag iznad krune obala mora se vidjeti: upravo to je podatak koji se
+	// traži — koliko korita ostaje iznad zadnjeg stupnja obrane.
+	for _, pr := range o.Pragovi {
+		k := p.KotaNule + float64(pr.Cm)/100
+		if k > maxV {
+			maxV = k
+		}
 	}
 	// malo zraka gore i dolje, da crta vode ne sjedne na rub
 	raspon := maxV - minV
@@ -93,6 +143,31 @@ func crtajKorito(p models.ProfilKorita, vodostajCm int) *KoritoCrtez {
 		Dno:        p.Dno(),
 		DubinaM:    kotaVode - p.Dno(),
 		Datum:      p.Datum,
+		DnoCm:      int((p.Dno() - p.KotaNule) * 100),
+	}
+	vrh := p.Tocke[0].Visina
+	for _, t := range p.Tocke {
+		if t.Visina > vrh {
+			vrh = t.Visina
+		}
+	}
+	c.VrhKoritaCm = int((vrh - p.KotaNule) * 100)
+
+	// Pojas kroz koji je voda išla u prikazanom razdoblju. Bez njega presjek
+	// pokazuje samo trenutak, a graf iznad govori o razdoblju.
+	if o.ImaPojas && o.PojasDo > o.PojasOd {
+		y0 := sy(p.KotaNule + float64(o.PojasDo)/100)
+		y1 := sy(p.KotaNule + float64(o.PojasOd)/100)
+		if y1-y0 < 2 {
+			y1 = y0 + 2 // razlika manja od dva piksela ipak mora biti vidljiva
+		}
+		c.PojasY, c.PojasH, c.ImaPojas = y0, y1-y0, true
+		c.PojasOd, c.PojasDo = o.PojasOd, o.PojasDo
+	}
+	for _, pr := range o.Pragovi {
+		k := p.KotaNule + float64(pr.Cm)/100
+		c.Pragovi = append(c.Pragovi, KotaOznaka{
+			Y: sy(k), Kota: k, Cm: pr.Cm, Label: pr.Label, Class: pr.Class})
 	}
 
 	// Vodna ploha: dno između mjesta gdje kota vode siječe obale, zatvoreno
@@ -136,7 +211,19 @@ func crtajKorito(p models.ProfilKorita, vodostajCm int) *KoritoCrtez {
 		c.SirinaVodeM = zadnji - prvi
 	}
 
-	// vodoravne kote, na okruglim metrima
+	// Vodoravne podjele. Kad se presjek čita uz graf, os govori u
+	// centimetrima na letvi i podjele moraju biti okrugle u njima: kota nule
+	// je 80,45 m, pa bi okrugli metar dao −845, −445, −45 i nitko to ne čita.
+	if o.OsUCm {
+		odCm, doCm := (minV-p.KotaNule)*100, (maxV-p.KotaNule)*100
+		korakCm := niceStep((doCm - odCm) / 6)
+		for k := math.Ceil(odCm/korakCm) * korakCm; k <= doCm; k += korakCm {
+			cm := int(math.Round(k))
+			c.KoteY = append(c.KoteY, KotaOznaka{
+				Y: sy(p.KotaNule + k/100), Kota: p.KotaNule + k/100, Cm: cm})
+		}
+		return c
+	}
 	korak := 1.0
 	for (maxV-minV)/korak > 8 {
 		korak *= 2
@@ -145,7 +232,8 @@ func crtajKorito(p models.ProfilKorita, vodostajCm int) *KoritoCrtez {
 		if k < minV {
 			continue
 		}
-		c.KoteY = append(c.KoteY, KotaOznaka{Y: sy(k), Kota: k})
+		c.KoteY = append(c.KoteY, KotaOznaka{Y: sy(k), Kota: k,
+			Cm: int(math.Round((k - p.KotaNule) * 100))})
 	}
 	return c
 }

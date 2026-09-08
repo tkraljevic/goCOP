@@ -132,6 +132,12 @@ type ReadingHistoryData struct {
 	Dana        int
 	Chart       *Chart
 	ChartUzak   *Chart // isti graf u obliku za telefon
+
+	// Presjek korita ispod grafa: gdje se voda nalazi u koritu. Ne pod istu
+	// os kao graf — korito je na Batini 1.643 cm, a graf niske vode 16 —
+	// nego uz vlastitu os, a veže ih to što obje govore u centimetrima.
+	Korito     *KoritoCrtez
+	KoritoOpis string // po kojem je vodostaju voda ucrtana
 	CanRecord   bool
 	CanEdit     bool
 	Followed    bool   // čvor drži cijelu povijest ove letve
@@ -515,6 +521,7 @@ func (h *ReadingsHandler) ShowHistory(w http.ResponseWriter, r *http.Request) {
 	if station != nil {
 		if a := h.arh(); a != nil && station.Code != "" {
 			data.Krivulje, _ = a.Krivulje(ctx, station.Code)
+			h.koritoUzGraf(ctx, &data, station, shown)
 		}
 		h.arhivaZaLetvu(ctx, r, &data, station)
 	}
@@ -522,6 +529,58 @@ func (h *ReadingsHandler) ShowHistory(w http.ResponseWriter, r *http.Request) {
 	if err := h.tmplHistory.ExecuteTemplate(w, "reading_history.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// koritoUzGraf priprema presjek korita ispod grafa: voda po zadnjem očitanju
+// razdoblja, pojas kroz koji je u tom razdoblju išla, i stupnjevi obrane
+// ucrtani na korito. Tek s pragovima na crtežu vidi se ono zbog čega se i
+// gleda — koliko korita ostaje iznad zadnjeg stupnja obrane.
+func (h *ReadingsHandler) koritoUzGraf(ctx context.Context, data *ReadingHistoryData,
+	station *models.Station, prikazano []models.Reading) {
+	a := h.arh()
+	if a == nil {
+		return
+	}
+	profili, err := a.Profili(ctx, station.Code)
+	if err != nil || len(profili) == 0 {
+		return
+	}
+	var zadnji *models.Reading
+	najn, najv := 0, 0
+	for i := range prikazano {
+		rd := &prikazano[i]
+		if rd.LevelCm == nil {
+			continue
+		}
+		if zadnji == nil {
+			zadnji, najn, najv = rd, *rd.LevelCm, *rd.LevelCm
+		}
+		najn = min(najn, *rd.LevelCm)
+		najv = max(najv, *rd.LevelCm)
+	}
+	if zadnji == nil {
+		return
+	}
+	var pragovi []PragKorita
+	for _, t := range []struct {
+		t         models.Threshold
+		naziv, cl string
+	}{
+		{station.Prep, "pripremno", "prep"},
+		{station.Regular, "redovna", "regular"},
+		{station.Emergency, "izvanredna", "emerg"},
+		{station.State, "izvanredno stanje", "crit"},
+	} {
+		if t.t.IsUsable() {
+			pragovi = append(pragovi, PragKorita{Cm: *t.t.Cm, Label: t.naziv, Class: t.cl})
+		}
+	}
+	data.Korito = crtajKoritoP(profili[0], *zadnji.LevelCm, KoritoPostavke{
+		Sirina: 900, Visina: 340, Pragovi: pragovi, OsUCm: true,
+		PojasOd: najn, PojasDo: najv, ImaPojas: najv > najn,
+	})
+	data.KoritoOpis = fmt.Sprintf("%d cm, %s", *zadnji.LevelCm,
+		zadnji.LocalTime().Format("2.1.2006. 15:04"))
 }
 
 // buildChart crta zadnjih 120 očitanja (ili cijelu godinu) s vodostajem
