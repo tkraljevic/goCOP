@@ -260,9 +260,11 @@ type ProfilKorita struct {
 	Tocke    []TockaProfila
 }
 
-// TockaProfila je jedna izmjerena točka: udaljenost od početka i kota dna.
+// TockaProfila je jedna izmjerena točka: udaljenost od početka snimanja i
+// kota dna. S koje obale snimanje počinje izvorne datoteke ne kažu, pa se to
+// ni ne tvrdi — crtež pokazuje stacionažu, ne obalu.
 type TockaProfila struct {
-	Stacionaza float64 // m
+	Stacionaza float64 // m od početka snimanja
 	Visina     float64 // apsolutna kota, m
 }
 
