@@ -57,6 +57,20 @@
       {{else}}
       <div><dt>Najviši zabilježeni</dt><dd><span class="threshold-pill record">{{.Station.Record.Label}}</span></dd></div>
       {{end}}
+      {{if .Station.ImaNajnize}}
+      {{with .Station.NajnizeIzmjereno}}
+      <div><dt>Najniži izmjereni</dt><dd>
+        <span class="threshold-pill low">{{.Label}}</span>
+        <div class="reg-card-sub" style="margin-top:0.2rem;">{{datumHR .OnDate}}</div>
+      </dd></div>
+      {{end}}
+      {{with .Station.NajnizeRekonstruirano}}
+      <div><dt>Najniži rekonstruirani</dt><dd>
+        <span class="threshold-pill low" style="opacity:0.75;">{{.Label}}</span>
+        <div class="reg-card-sub" style="margin-top:0.2rem;">{{datumHR .OnDate}} · {{kvaliteta .Quality}}</div>
+      </dd></div>
+      {{end}}
+      {{end}}
     </dl>
     {{if .Station.ImaKotuNule}}
     <div style="margin-top:0.875rem; padding-top:0.875rem; border-top:1px solid var(--border);">
@@ -113,9 +127,10 @@
       <tr>
         <td>{{if eq .Kind "MAX"}}najviši{{else}}najniži{{end}}</td>
         <td class="mono">{{.Label}}</td>
-        <td class="mono">{{if .OnDate}}{{.OnDate}}{{else}}—{{end}}</td>
+        <td class="mono">{{if .OnDate}}{{datumHR .OnDate}}{{else}}—{{end}}</td>
         <td>{{if .IsMeasured}}<span class="badge">izmjereno</span>{{else}}<span class="badge badge-inactive" title="nije mjereno na ovoj letvi">{{qualityLabel .Quality}}</span>{{end}}</td>
-        <td>{{.Source}}{{if .Method}} <span class="reading-meta">{{.Method}}</span>{{end}}{{if .Note}} <span class="reading-meta">{{.Note}}</span>{{end}}</td>
+        <td>{{.Source}}{{if .Method}} <span class="reading-meta">— {{.Method}}</span>{{end}}
+          {{if .Note}}<div class="reading-meta" style="margin-top:0.2rem;">{{.Note}}</div>{{end}}</td>
       </tr>
       {{end}}
       </tbody>

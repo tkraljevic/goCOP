@@ -428,6 +428,44 @@ func (s Station) NajviseZabiljezeno() *StationExtreme {
 	return naj
 }
 
+// NajnizeIzmjereno vraća najniži vodostaj doista izmjeren na ovoj letvi.
+func (s Station) NajnizeIzmjereno() *StationExtreme {
+	var naj *StationExtreme
+	for i, e := range s.Extremes {
+		if e.Kind != ExtremeMin || !e.IsMeasured() || e.LevelCm == nil {
+			continue
+		}
+		if naj == nil || *e.LevelCm < *naj.LevelCm {
+			naj = &s.Extremes[i]
+		}
+	}
+	return naj
+}
+
+// NajnizeRekonstruirano vraća najniži vodostaj koji se vodi, a nije mjeren na
+// ovoj letvi. Za Batinu je to -127 cm 7.1.1909., preračunato iz Bezdana —
+// letva tada nije postojala, utemeljena je 2001.
+//
+// Stoji uz izmjereni, ne umjesto njega: dvije brojke odgovaraju na različita
+// pitanja, „koliko je najniže izmjereno" i „koliko je najniže bilo".
+func (s Station) NajnizeRekonstruirano() *StationExtreme {
+	var naj *StationExtreme
+	for i, e := range s.Extremes {
+		if e.Kind != ExtremeMin || e.IsMeasured() || e.LevelCm == nil {
+			continue
+		}
+		if naj == nil || *e.LevelCm < *naj.LevelCm {
+			naj = &s.Extremes[i]
+		}
+	}
+	return naj
+}
+
+// ImaNajnize govori ima li letva ijedan zabilježeni najniži vodostaj.
+func (s Station) ImaNajnize() bool {
+	return s.NajnizeIzmjereno() != nil || s.NajnizeRekonstruirano() != nil
+}
+
 // RekordSeRazlikuje govori je li najviši zabilježeni viši od najvišeg
 // izmjerenog — tada se moraju prikazati oba, jer bi jedan bez drugoga lagao.
 func (s Station) RekordSeRazlikuje() bool {

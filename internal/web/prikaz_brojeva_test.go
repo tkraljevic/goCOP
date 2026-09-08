@@ -1738,3 +1738,99 @@ func TestSluzbenaKrivuljaPoOdsjeccima(t *testing.T) {
 		t.Errorf("potencijski oblik dao %.0f m³/s pri 300 cm", q)
 	}
 }
+
+// Zabilježeni ekstremi: izmjereno i rekonstruirano stoje jedno uz drugo, ali
+// se ne miješaju. Datum se piše hrvatski, a način i napomena razdvojeno —
+// inače se čita kao jedna rečenica.
+func TestZabiljezeniEkstremiRazlikujuPodrijetlo(t *testing.T) {
+	cm := func(v int) *int { return &v }
+	st := models.Station{ID: uuid.New(), Name: "Batina", Code: "batina",
+		Extremes: []models.StationExtreme{
+			{Kind: models.ExtremeMax, LevelCm: cm(775), OnDate: "2013-06-14",
+				Quality: models.QualityMeasured, Source: "DHMZ"},
+			{Kind: models.ExtremeMin, LevelCm: cm(-127), OnDate: "1909-01-07",
+				Quality: models.QualityReconstructed, Source: "postaja Bezdan",
+				Method: "preračun iz vodostaja Bezdana", Note: "Bezdan je 740 m uzvodno."},
+			{Kind: models.ExtremeMin, LevelCm: cm(-151), OnDate: "2026-08-22",
+				Quality: models.QualityMeasured, Source: "telemetrija, DHMZ",
+				Method: "satno očitanje u 4 sata"},
+		}}
+	html := iscrtaj(t, "station_detail.html", StationPageData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Station:     st,
+	})
+	for _, want := range []string{
+		"14.6.2013.", "7.1.1909.", "22.8.2026.", // datumi hrvatski
+		"-151 cm", "-127 cm",
+		"izmjereno", "rekonstruirano",
+		"— preračun iz vodostaja Bezdana", // način odvojen crticom
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("u tablici ekstrema nema %q", want)
+		}
+	}
+	// način i napomena ne smiju se slijepiti u jednu rečenicu
+	if strings.Contains(html, "Bezdana Bezdan je") {
+		t.Error("način i napomena su slijepljeni")
+	}
+	// izmjereni i rekonstruirani minimum stoje oba
+	if strings.Count(html, "najniži") != 2 {
+		t.Errorf("očekivana dva najniža, nađeno %d", strings.Count(html, "najniži"))
+	}
+}
+
+// Uz najviše stoje i najniži vodostaji, i to oba: izmjereni i rekonstruirani.
+// Batina ih ima dva različita svijeta — -151 cm izmjeren u kolovozu 2026. i
+// -127 cm preračunat za 7.1.1909., kad letva nije ni postojala.
+func TestNajniziVodostajiStojeJedanUzDrugi(t *testing.T) {
+	cm := func(v int) *int { return &v }
+	st := models.Station{ID: uuid.New(), Name: "Batina", Code: "batina",
+		Prep: models.Threshold{Cm: cm(300)},
+		Extremes: []models.StationExtreme{
+			{Kind: models.ExtremeMax, LevelCm: cm(775), OnDate: "2013-06-14",
+				Quality: models.QualityMeasured, Source: "DHMZ"},
+			{Kind: models.ExtremeMin, LevelCm: cm(-127), OnDate: "1909-01-07",
+				Quality: models.QualityReconstructed, Source: "postaja Bezdan"},
+			{Kind: models.ExtremeMin, LevelCm: cm(-151), OnDate: "2026-08-22",
+				Quality: models.QualityMeasured, Source: "telemetrija, DHMZ"},
+		}}
+	if iz := st.NajnizeIzmjereno(); iz == nil || *iz.LevelCm != -151 {
+		t.Errorf("najniži izmjereni: %v", iz)
+	}
+	if re := st.NajnizeRekonstruirano(); re == nil || *re.LevelCm != -127 {
+		t.Errorf("najniži rekonstruirani: %v", re)
+	}
+	// rekonstruirani se ne smije proglasiti izmjerenim ni obrnuto
+	if st.NajnizeIzmjereno() == st.NajnizeRekonstruirano() {
+		t.Error("izmjereni i rekonstruirani su isti zapis")
+	}
+
+	html := iscrtaj(t, "station_detail.html", StationPageData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Station:     st,
+	})
+	for _, want := range []string{
+		"Najniži izmjereni", "Najniži rekonstruirani",
+		"22.8.2026.", "7.1.1909.",
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("na kartici nema %q", want)
+		}
+	}
+
+	// letva bez zabilježenih najnižih ne dobiva prazne retke
+	bez := models.Station{ID: uuid.New(), Name: "Bez", Code: "bez", Prep: models.Threshold{Cm: cm(300)}}
+	if bez.ImaNajnize() {
+		t.Error("letva bez ekstrema tvrdi da ih ima")
+	}
+	prazna := iscrtaj(t, "station_detail.html", StationPageData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Station:     bez,
+	})
+	if strings.Contains(prazna, "Najniži izmjereni") {
+		t.Error("letva bez ekstrema dobila je prazan redak")
+	}
+}
