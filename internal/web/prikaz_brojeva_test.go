@@ -1116,3 +1116,81 @@ func TestSvjezaOcitanjaIznadArhive(t *testing.T) {
 		t.Error("u arhivi tablica stoji iznad grafa")
 	}
 }
+
+// Zalijepljeni ispis s letva.voda.hr mora se pročitati kakav jest, sa
+// zaglavljima i svime. Nečitljiv redak se prijavljuje, ne preskače tiho.
+func TestCitanjeZalijepljenihOcitanja(t *testing.T) {
+	ispis := `Vodostaj (cm) - satni podaci za razdoblje 07.09.2026. - 07.09.2026.
+
+Dunav - Batina (DHMZ)
+07.09.2026. 00 h    -118
+07.09.2026. 01 h    -118
+07.09.2026. 02 h    -119
+07.09.2026. 23 h    -122`
+
+	redci, satni, err := citajZalijepljeno(ispis)
+	if err != nil {
+		t.Fatalf("čitanje: %v", err)
+	}
+	if !satni {
+		t.Error("ispis sa satima nije prepoznat kao satni")
+	}
+	if len(redci) != 4 {
+		t.Fatalf("pročitano %d redaka, očekivano 4 (zaglavlja se preskaču)", len(redci))
+	}
+	if redci[0].Kad.Hour() != 0 || redci[0].Vrijedi != -118 {
+		t.Errorf("prvi redak %v %v", redci[0].Kad, redci[0].Vrijedi)
+	}
+	if redci[3].Kad.Hour() != 23 || redci[3].Vrijedi != -122 {
+		t.Errorf("zadnji redak %v %v", redci[3].Kad, redci[3].Vrijedi)
+	}
+	if d := redci[0].Kad; d.Day() != 7 || d.Month() != time.September || d.Year() != 2026 {
+		t.Errorf("datum %v", d)
+	}
+
+	// dnevni oblik, bez sata
+	dn, satni2, err := citajZalijepljeno("14.06.2013.\t771\n15.06.2013.\t769")
+	if err != nil || satni2 || len(dn) != 2 {
+		t.Errorf("dnevni oblik: %d redaka, satni=%v, %v", len(dn), satni2, err)
+	}
+
+	// nečitljiva vrijednost se prijavljuje
+	los, _, err := citajZalijepljeno("07.09.2026. 00 h    x118")
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	if len(los) != 1 || los[0].Greska == "" {
+		t.Error("nečitljiva vrijednost mora dati grešku, ne tiho otpasti")
+	}
+
+	// ispis bez ijednog prepoznatljivog retka se odbija
+	if _, _, err := citajZalijepljeno("Vodostaj (cm)\nDunav - Batina"); err == nil {
+		t.Error("ispis bez podataka mora biti odbijen")
+	}
+}
+
+// Usporedba s postojećim očitanjima: novo, isto i različito moraju se
+// razlikovati, jer se upisuje samo novo.
+func TestUsporedbaSPostojecim(t *testing.T) {
+	kad := func(h int) time.Time { return time.Date(2026, 9, 7, h, 0, 0, 0, time.UTC) }
+	redci := []ZalijepljenoOcitanje{
+		{Kad: kad(0), Vrijedi: -118},
+		{Kad: kad(1), Vrijedi: -118},
+		{Kad: kad(2), Vrijedi: -125},
+		{Kad: kad(3), Greska: "nečitljivo"},
+	}
+	postojece := map[int64]models.SpojenaVrijednost{
+		kad(1).Unix(): {Vrijednost: -118},
+		kad(2).Unix(): {Vrijednost: -119},
+	}
+	novih, istih, razlicitih := usporedi(redci, postojece)
+	if novih != 1 || istih != 1 || razlicitih != 1 {
+		t.Errorf("novih %d, istih %d, različitih %d — očekivano 1/1/1", novih, istih, razlicitih)
+	}
+	if !redci[2].Razlicit || redci[2].Staro != -119 {
+		t.Errorf("razlika nije zabilježena: %+v", redci[2])
+	}
+	if redci[0].Postoji {
+		t.Error("novo očitanje označeno kao postojeće")
+	}
+}

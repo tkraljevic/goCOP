@@ -1,0 +1,73 @@
+{{define "title"}}Uvoz očitanja — {{.GaugeName}} — goCOP{{end}}
+{{define "content"}}
+<nav class="breadcrumb"><a href="/readings">Vodostaji</a> ›
+  <a href="/readings/station/{{.Station.ID}}">{{.GaugeName}}</a> › Uvoz</nav>
+
+<div class="page-head">
+  <h1 class="page-title">{{icon "file-text"}} Što bi se upisalo</h1>
+  <p class="page-desc">
+    {{.GaugeName}} · {{if .Satni}}satna očitanja{{else}}dnevna očitanja{{end}}
+    {{if not .Od.IsZero}}· {{formatDate (localTime .Od)}} – {{formatDate (localTime .Do)}}{{end}}.
+    Ništa još nije upisano.
+  </p>
+</div>
+
+<div class="table-card" style="padding:1rem 1.25rem; margin-bottom:1rem;">
+  <div style="display:flex; flex-wrap:wrap; gap:1.5rem; font-size:0.95rem;">
+    <span>novih <strong>{{brojHR .Novih}}</strong></span>
+    <span>već upisanih <strong>{{brojHR .Istih}}</strong></span>
+    <span>{{if .Razlicitih}}<strong style="color:var(--tint-orange-fg);">{{brojHR .Razlicitih}} s drugom vrijednošću</strong>{{else}}bez razlika{{end}}</span>
+    <span>{{if .Greske}}<strong style="color:var(--danger);">{{brojHR .Greske}} nečitljivih</strong>{{else}}sve čitljivo{{end}}</span>
+  </div>
+  <p class="page-desc" style="margin:0.5rem 0 0 0;">
+    Očitanja idu u operativni zapis — ono na čemu ured radi i što se sinkronizira na druge čvorove.
+    Već upisana se preskaču, pa ponovni uvoz istog ispisa ništa ne udvostručuje.
+  </p>
+</div>
+
+<form method="POST" action="/readings/station/{{.Station.ID}}/zalijepi/potvrdi">
+  <div class="form-group" style="max-width:26rem;">
+    <label class="form-label" for="podrijetlo">Odakle su očitanja</label>
+    <input id="podrijetlo" name="podrijetlo" class="form-control" value="letva.voda.hr — zalijepljeno">
+    <p class="form-help">Ostaje uz svako očitanje, da se poslije zna odakle je došlo.</p>
+  </div>
+
+  <div class="table-card"><div class="table-responsive" style="max-height:30rem; overflow-y:auto;">
+    <table class="data-table">
+      <thead><tr><th>Redak</th><th>Kad</th><th style="text-align:right;">Vodostaj</th><th>Stanje</th></tr></thead>
+      <tbody>
+      {{range .Redci}}
+      <tr {{if .Greska}}style="background:var(--tint-red-bg);"{{else if .Postoji}}style="opacity:0.55;"{{end}}>
+        <td class="mono reg-card-sub">{{.Redak}}</td>
+        <td class="mono">{{if .Kad.IsZero}}—{{else}}{{formatDate (localTime .Kad)}}{{if $.Satni}} {{printf "%02d" .Kad.Hour}}:00{{end}}{{end}}</td>
+        <td class="mono" style="text-align:right;"><strong>{{brojHRf .Vrijedi 0}}</strong> cm</td>
+        <td>
+          {{if .Greska}}<span style="color:var(--danger);">{{.Greska}}</span>
+          {{else if .Razlicit}}<span class="badge badge-unknown">bilo {{brojHRf .Staro 0}}</span>
+          {{else if .Postoji}}<span class="reg-card-sub">već upisano</span>
+          {{else}}<span class="badge badge-area-admin">novo</span>{{end}}
+          {{if and (not .Greska) (not .Postoji)}}
+          <input type="hidden" name="kad" value="{{.Kad.Format "2006-01-02T15:04:05Z07:00"}}">
+          <input type="hidden" name="vrijednost" value="{{unos .Vrijedi 0}}">
+          {{end}}
+        </td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div></div>
+
+  <div style="display:flex; gap:0.75rem; margin-top:1rem; align-items:center;">
+    <button type="submit" class="btn" {{if not .Novih}}disabled{{end}}>
+      {{icon "check"}} Upiši {{brojHR .Novih}} {{if eq .Novih 1}}očitanje{{else}}očitanja{{end}}
+    </button>
+    <a href="/readings/station/{{.Station.ID}}" class="btn btn-secondary">Odustani</a>
+  </div>
+  {{if .Razlicitih}}
+  <p class="page-desc" style="margin-top:0.5rem;">
+    Očitanja koja već postoje s drugom vrijednošću se ne mijenjaju. Postojeće očitanje ispravlja se pojedinačno,
+    da promjena ima svoj trag.
+  </p>
+  {{end}}
+</form>
+{{end}}

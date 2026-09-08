@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"html/template"
+	"io"
 	"math"
 	"net/http"
 	"net/url"
@@ -12,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"gocop/internal/db"
 	"gocop/internal/models"
 	"gocop/internal/repository"
 	"gocop/internal/service"
@@ -36,7 +38,11 @@ type ReadingsHandler struct {
 	arhiva           func() *repository.ArhivaRepository
 	ispravci         func() *repository.IspravakRepository
 	tmplIspravci     *template.Template
+	tmplUvoz         *template.Template
 }
+
+// SetUvoz daje rukovatelju predložak pregleda zalijepljenih očitanja.
+func (h *ReadingsHandler) SetUvoz(tmpl *template.Template) { h.tmplUvoz = tmpl }
 
 // SetIspravci daje rukovatelju pohranu ispravaka arhive i predložak pregleda.
 // Uzima se dohvatnik, a ne sama pohrana: poslužitelj se sastavlja prije nego
@@ -827,4 +833,127 @@ func primijeniIspravke(vals []models.SpojenaVrijednost, ispravci map[int64]model
 		vals[i].Ispravljeno = true
 		vals[i].Razlog = is.Razlog
 	}
+}
+
+// HandleZalijepiPregled čita zalijepljena očitanja i pokazuje što bi se
+// upisalo. Ništa se ne upisuje dok čovjek ne potvrdi.
+func (h *ReadingsHandler) HandleZalijepiPregled(w http.ResponseWriter, r *http.Request) {
+	station, _ := h.gauge(r, r.PathValue("id"), "")
+	if station == nil {
+		http.NotFound(w, r)
+		return
+	}
+	back := "/readings/station/" + station.ID.String()
+	u, perms := h.base(r)
+	if !h.readingService.CanRecordStation(perms, station) {
+		redirectWith(w, r, back, "error", "Nemate pravo upisivati očitanja na "+station.Name)
+		return
+	}
+	if err := r.ParseMultipartForm(8 << 20); err != nil {
+		_ = r.ParseForm()
+	}
+	tekst := r.FormValue("tekst")
+	if f, _, err := r.FormFile("datoteka"); err == nil {
+		defer f.Close()
+		if b, err := io.ReadAll(io.LimitReader(f, 8<<20)); err == nil && len(b) > 0 {
+			tekst = strings.TrimPrefix(string(b), "\ufeff")
+		}
+	}
+	if strings.TrimSpace(tekst) == "" {
+		redirectWith(w, r, back, "error", "Zalijepi očitanja ili odaberi datoteku")
+		return
+	}
+	redci, satni, err := citajZalijepljeno(tekst)
+	if err != nil {
+		redirectWith(w, r, back, "error", err.Error())
+		return
+	}
+
+	data := PregledUvoza{
+		CurrentUser: u, Permissions: perms, Station: station, GaugeName: station.Name,
+		Satni: satni, Redci: redci, ActiveNav: "readings", ViewAsBanner: viewBanner(r),
+	}
+	// usporedba s onim što već imamo u očitanjima
+	postojece := map[int64]models.SpojenaVrijednost{}
+	if sve, err := h.readingService.List(r.Context(),
+		repository.ReadingFilter{StationID: station.ID.String()}); err == nil {
+		for _, rd := range sve {
+			if rd.LevelCm != nil {
+				postojece[rd.MeasuredAt.UTC().Unix()] = models.SpojenaVrijednost{Vrijednost: float64(*rd.LevelCm)}
+			}
+		}
+	}
+	data.Novih, data.Istih, data.Razlicitih = usporedi(data.Redci, postojece)
+	for _, x := range data.Redci {
+		if x.Greska != "" {
+			data.Greske++
+			continue
+		}
+		if data.Od.IsZero() || x.Kad.Before(data.Od) {
+			data.Od = x.Kad
+		}
+		if x.Kad.After(data.Do) {
+			data.Do = x.Kad
+		}
+	}
+	if err := h.tmplUvoz.ExecuteTemplate(w, "uvoz_ocitanja.html", data); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+// HandleZalijepiPotvrda upisuje očitanja koja je čovjek vidio i potvrdio.
+func (h *ReadingsHandler) HandleZalijepiPotvrda(w http.ResponseWriter, r *http.Request) {
+	station, _ := h.gauge(r, r.PathValue("id"), "")
+	if station == nil {
+		http.NotFound(w, r)
+		return
+	}
+	back := "/readings/station/" + station.ID.String()
+	_, perms := h.base(r)
+	user, _ := r.Context().Value(contextKeyUser).(*models.User)
+	if err := r.ParseForm(); err != nil || user == nil {
+		redirectWith(w, r, back, "error", "Neispravan zahtjev")
+		return
+	}
+	podrijetlo := strings.TrimSpace(r.FormValue("podrijetlo"))
+	if podrijetlo == "" {
+		podrijetlo = "letva.voda.hr — zalijepljeno"
+	}
+	var ocitanja []models.Reading
+	for i, kad := range r.Form["kad"] {
+		t, err := time.Parse(time.RFC3339, kad)
+		if err != nil {
+			continue
+		}
+		v, ok := parseBroj(nth(r.Form["vrijednost"], i))
+		if !ok {
+			continue
+		}
+		cm := int(v)
+		ref := podrijetlo + ":" + t.UTC().Format(time.RFC3339)
+		ocitanja = append(ocitanja, models.Reading{
+			ID:         db.StableID("reading", station.ID.String()+"|"+ref),
+			StationID:  station.ID.String(),
+			MeasuredAt: t.UTC(),
+			LevelCm:    &cm,
+			Source:     models.ReadingSourceImport,
+			Origin:     podrijetlo,
+			SourceRef:  ref,
+			UserID:     user.ID.String(),
+		})
+	}
+	if len(ocitanja) == 0 {
+		redirectWith(w, r, back, "error", "Nijedno očitanje nije potvrđeno")
+		return
+	}
+	n, err := h.readingService.UveziZalijepljena(r.Context(), perms, station, ocitanja)
+	if err != nil {
+		redirectWith(w, r, back, "error", err.Error())
+		return
+	}
+	poruka := fmt.Sprintf("Upisano %d od %d očitanja.", n, len(ocitanja))
+	if n < len(ocitanja) {
+		poruka += " Ostala su već bila upisana."
+	}
+	redirectWith(w, r, back, "success", poruka)
 }
