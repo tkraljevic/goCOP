@@ -200,8 +200,11 @@ type Chart struct {
 	// listanju teško se čita — ali se vidi gdje si u njemu.
 	IstakniOd, IstakniSir float64
 	Istaknuto             bool
-	From, To              time.Time
-	Min, Max              int
+
+	// Koliko je puta crta prekinuta zbog praznine u nizu
+	Praznina int
+	From, To time.Time
+	Min, Max int
 }
 
 type ChartPoint struct {

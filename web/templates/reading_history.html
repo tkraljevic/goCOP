@@ -67,7 +67,7 @@
 
 {{if .Chart}}
 <section class="detail-section">
-  <h2>{{icon "chart-column"}} Kretanje vodostaja <span class="reg-chip">{{.PogledOpis}}</span></h2>
+  <h2>{{icon "chart-column"}} Kretanje vodostaja <span class="reg-chip">{{.PogledOpis}}</span>{{if .Chart.Praznina}} <span class="reg-chip">{{.Chart.Praznina}} prekid{{if gt .Chart.Praznina 1}}a{{end}} u nizu</span>{{end}}</h2>
   <div class="reg-card chart graf-niza" style="padding:0.75rem 0.5rem 0.25rem;" data-tocke="{{.Chart.Tocke}}">
     <svg viewBox="0 0 {{.Chart.Width}} {{.Chart.Height}}" role="img" aria-label="Graf vodostaja">
       {{range .Chart.YTicks}}
@@ -220,7 +220,7 @@
   </form>
 
   {{if .ArhChart}}
-  <h3 class="part-label" style="margin:0 0 0.35rem 0;">{{velicinaLabel .ArhVelicina}} <span class="reg-card-sub">{{.ArhJedinica}}</span> — {{.ArhGodina}}.{{if eq .ArhKorak "satni"}}, svaki sat{{else}}, dnevni srednjak{{end}}</h3>
+  <h3 class="part-label" style="margin:0 0 0.35rem 0;">{{velicinaLabel .ArhVelicina}} <span class="reg-card-sub">{{.ArhJedinica}}</span> — {{.ArhGodina}}.{{if eq .ArhKorak "satni"}}, svaki sat{{else}}, dnevni srednjak{{end}}{{if .ArhChart.Praznina}} <span class="reg-chip">{{.ArhChart.Praznina}} prekid{{if gt .ArhChart.Praznina 1}}a{{end}}</span>{{end}}</h3>
   <div class="reg-card chart graf-niza" style="padding:0.75rem 0.5rem 0.25rem; margin-bottom:1rem;"
        data-tocke="{{.ArhChart.Tocke}}">
     <svg viewBox="0 0 {{.ArhChart.Width}} {{.ArhChart.Height}}" role="img"
