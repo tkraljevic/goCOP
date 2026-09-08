@@ -335,6 +335,18 @@ type stationForm struct {
 	State              string `json:"state"`
 	Record             string `json:"record"`
 	Notes              string `json:"notes"`
+
+	// Položaj letve i podrijetlo kote nule. Dotad se upisivalo popravkom u
+	// kodu, dakle nije se moglo ni vidjeti ni promijeniti iz programa.
+	Latitude              string `json:"latitude"`
+	Longitude             string `json:"longitude"`
+	ZeroDatumSource       string `json:"zero_datum_source"`
+	ZeroDatumMethod       string `json:"zero_datum_method"`
+	ZeroDatumSurveyDate   string `json:"zero_datum_survey_date"`
+	ZeroDatumDocumentDate string `json:"zero_datum_document_date"`
+	SourceName            string `json:"source_name"`
+	NeedsReview           string `json:"needs_review"`
+	ReviewNote            string `json:"review_note"`
 }
 
 func decodeStationForm(r *http.Request) (stationForm, error) {
@@ -370,6 +382,15 @@ func decodeStationForm(r *http.Request) (stationForm, error) {
 	form.State = r.FormValue("state")
 	form.Record = r.FormValue("record")
 	form.Notes = r.FormValue("notes")
+	form.Latitude = r.FormValue("latitude")
+	form.Longitude = r.FormValue("longitude")
+	form.ZeroDatumSource = r.FormValue("zero_datum_source")
+	form.ZeroDatumMethod = r.FormValue("zero_datum_method")
+	form.ZeroDatumSurveyDate = r.FormValue("zero_datum_survey_date")
+	form.ZeroDatumDocumentDate = r.FormValue("zero_datum_document_date")
+	form.SourceName = r.FormValue("source_name")
+	form.NeedsReview = r.FormValue("needs_review")
+	form.ReviewNote = r.FormValue("review_note")
 
 	return form, nil
 }
@@ -393,6 +414,16 @@ func (f stationForm) toStation() models.Station {
 		State:              parseThresholdInput(f.State),
 		Record:             parseThresholdInput(f.Record),
 		Notes:              strings.TrimSpace(f.Notes),
+
+		Latitude:              parseOptionalFloat(f.Latitude),
+		Longitude:             parseOptionalFloat(f.Longitude),
+		ZeroDatumSource:       strings.TrimSpace(f.ZeroDatumSource),
+		ZeroDatumMethod:       strings.TrimSpace(f.ZeroDatumMethod),
+		ZeroDatumSurveyDate:   strings.TrimSpace(f.ZeroDatumSurveyDate),
+		ZeroDatumDocumentDate: strings.TrimSpace(f.ZeroDatumDocumentDate),
+		SourceName:            strings.TrimSpace(f.SourceName),
+		NeedsReview:           f.NeedsReview == "1" || f.NeedsReview == "on" || f.NeedsReview == "true",
+		ReviewNote:            strings.TrimSpace(f.ReviewNote),
 	}
 }
 
@@ -472,6 +503,7 @@ func parseExtremes(raw string) []models.StationExtreme {
 		Quality string `json:"quality"`
 		Source  string `json:"source"`
 		Method  string `json:"method"`
+		Note    string `json:"note"`
 	}
 	if err := json.Unmarshal([]byte(raw), &in); err != nil {
 		return nil
@@ -480,7 +512,8 @@ func parseExtremes(raw string) []models.StationExtreme {
 	for _, r := range in {
 		e := models.StationExtreme{Kind: strings.ToUpper(strings.TrimSpace(r.Kind)),
 			OnDate: strings.TrimSpace(r.OnDate), Quality: strings.ToUpper(strings.TrimSpace(r.Quality)),
-			Source: strings.TrimSpace(r.Source), Method: strings.TrimSpace(r.Method)}
+			Source: strings.TrimSpace(r.Source), Method: strings.TrimSpace(r.Method),
+			Note: strings.TrimSpace(r.Note)}
 		if n, err := strconv.Atoi(strings.TrimPrefix(strings.TrimSpace(r.LevelCm), "+")); err == nil {
 			e.LevelCm = &n
 		}

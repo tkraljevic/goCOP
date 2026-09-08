@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"encoding/json"
 	"github.com/google/uuid"
 	"gocop/internal/repository"
 	"math"
@@ -1930,5 +1931,87 @@ func TestKartaSeCrtaSamoKadImaOboje(t *testing.T) {
 	})
 	if strings.Contains(bezKoord, "karta-letve") {
 		t.Error("letva bez koordinata dobila je kartu")
+	}
+}
+
+// Obrazac postaje mora nuditi sve što se o postaji vodi. Ono što se ne može
+// upisati završi kao popravak u kodu — a podaci jedne letve ne pripadaju
+// programu nego bazi.
+func TestObrazacPostajeNudiSvaPolja(t *testing.T) {
+	lat, lon := 45.845833, 18.854722
+	kota := 80.450
+	html := iscrtaj(t, "station_form.html", StationPageData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		IsEdit:      true,
+		Station: models.Station{
+			ID: uuid.New(), Code: "batina", Name: "Batina", Watercourse: "Dunav",
+			ZeroDatum: &kota, ZeroDatumSystem: "TRST",
+			ZeroDatumSource:     "Geodetski elaborat 250 BATINA",
+			ZeroDatumMethod:     "transformirano u HVRS71",
+			ZeroDatumSurveyDate: "2024-09-10", ZeroDatumDocumentDate: "2025-01",
+			Latitude: &lat, Longitude: &lon,
+			SourceName: "BATINA", NeedsReview: true, ReviewNote: "kota nije potvrđena",
+		},
+		ExtremesJSON: "[]", ZeroDatumHistoryJSON: "[]",
+	})
+	for _, polje := range []string{
+		"latitude", "longitude",
+		"zero_datum_source", "zero_datum_method",
+		"zero_datum_survey_date", "zero_datum_document_date",
+		"source_name", "needs_review", "review_note",
+	} {
+		if !strings.Contains(html, `name="`+polje+`"`) {
+			t.Errorf("obrazac nema polje %q", polje)
+		}
+	}
+	// upisane vrijednosti moraju se i vidjeti, inače ih spremanje briše
+	for _, v := range []string{"45,845833", "18,854722", "Geodetski elaborat 250 BATINA", "2024-09-10", "BATINA"} {
+		if !strings.Contains(html, v) {
+			t.Errorf("obrazac ne prikazuje %q", v)
+		}
+	}
+	if !strings.Contains(html, `name="needs_review" value="1" checked`) {
+		t.Error("oznaka za provjeru se ne prenosi u obrazac")
+	}
+	// Obrazac nosi tablice s osam stupaca; u uskoj kartici se prelijevaju
+	// preko ruba, pa mora biti širok.
+	if !strings.Contains(html, `class="form-page form-wide"`) {
+		t.Error("obrazac postaje nije širok — redci ekstrema će se prelijevati")
+	}
+}
+
+// Ekstrem ima i način i napomenu. Dok je obrazac imao jedno polje za oboje,
+// otvaranje i spremanje brisalo je napomenu — tiho, jer se nigdje nije vidjela.
+func TestEkstremNeGubiNapomenuKrozObrazac(t *testing.T) {
+	cm := 795
+	ex := []models.StationExtreme{{Kind: models.ExtremeMax, LevelCm: &cm, OnDate: "1965-06-24",
+		Quality: models.QualityReconstructed, Source: "postaja Bezdan",
+		Method: "preračun iz vodostaja Bezdana",
+		Note:   "Neovisna potvrda: preračun iz Mohácsa daje 790 cm."}}
+	b, _ := json.Marshal(ex)
+
+	html := iscrtaj(t, "station_form.html", StationPageData{
+		CurrentUser:  &models.User{FullName: "P"},
+		Permissions:  &models.UserPermissions{IsGlobalAdmin: true},
+		IsEdit:       true,
+		Station:      models.Station{ID: uuid.New(), Code: "batina", Name: "Batina", Extremes: ex},
+		ExtremesJSON: template.JS(b), ZeroDatumHistoryJSON: "[]",
+	})
+	if !strings.Contains(html, `data-field="note"`) {
+		t.Error("ekstrem nema zasebno polje za napomenu")
+	}
+	if !strings.Contains(html, "Neovisna potvrda") {
+		t.Error("napomena se ne prenosi u obrazac")
+	}
+
+	// isto i pri čitanju natrag iz obrasca
+	vraceno := parseExtremes(`[{"kind":"MAX","level_cm":"795","on_date":"1965-06-24",
+		"quality":"REKONSTRUIRANO","source":"postaja Bezdan","method":"preračun","note":"potvrda"}]`)
+	if len(vraceno) != 1 {
+		t.Fatalf("pročitano %d ekstrema", len(vraceno))
+	}
+	if vraceno[0].Method != "preračun" || vraceno[0].Note != "potvrda" {
+		t.Errorf("način %q, napomena %q", vraceno[0].Method, vraceno[0].Note)
 	}
 }

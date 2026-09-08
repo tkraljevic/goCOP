@@ -2383,7 +2383,9 @@ textarea {
 
 /* Obrazac dionice nosi tablice sa sedam stupaca; 44 rem je mjera za obrazac
    od pet polja, pa on dobiva punu širinu stranice kao i kartica dionice. */
-.form-page.form-wide { max-width: none; }
+/* Obrasci s tablicama unutar sebe — ekstremi, promjene kote — trebaju više
+   od 44 rem, inače se svaki redak slaže u karticu i stranica naraste. */
+.form-page.form-wide { max-width: 76rem; }
 
 /* Kartica dionice po uzoru na Privitak: vodomjer u jednom retku s pragovima u
    nizu, a nasipi i objekti u tablici gdje je nasip nosivi red. */
@@ -2405,10 +2407,13 @@ textarea {
    vraća uz svako polje. */
 .part-edit { container-type: inline-size; }
 .rows-emb { --cols: minmax(12rem, 3fr) repeat(4, minmax(5.5rem, 1fr)) minmax(4.5rem, 0.8fr) 2.25rem; }
-.rows-extreme { --cols: 7rem 7rem 8rem 8rem minmax(9rem, 1fr) minmax(10rem, 1.5fr) 2.25rem; }
+/* Redci se mjere prema širini kartice, ne prozora: prozor zna biti širok dok
+   je obrazac uzak, pa se stupci prelijevaju preko ruba. */
+.rows-extreme, .rows-zero { container-type: inline-size; }
+.rows-extreme { --cols: 6.5rem 6.5rem 8rem 8rem minmax(8rem, 1fr) minmax(9rem, 1.2fr) minmax(9rem, 1.2fr) 2.25rem; }
 .rows-extreme .extreme-row, .rows-extreme .rows-head { display: grid; gap: 0.4rem; grid-template-columns: var(--cols); align-items: center; }
 .rows-extreme .extreme-row { margin-bottom: 0.4rem; }
-.rows-zero { --cols: 10rem 8rem 8rem minmax(12rem, 2fr) 2.25rem; }
+.rows-zero { --cols: 9rem 7rem 7rem minmax(10rem, 2fr) 2.25rem; }
 .rows-zero .zero-row { display: grid; gap: 0.4rem; grid-template-columns: var(--cols); align-items: center; margin-bottom: 0.4rem; }
 .rows-zero .rows-head { display: grid; gap: 0.4rem; grid-template-columns: var(--cols); }
 .rows-obj { --cols: minmax(7rem, 1fr) minmax(14rem, 3fr) minmax(11rem, 2fr) 2.25rem; }
@@ -2432,6 +2437,23 @@ textarea {
     font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary);
   }
   .emb-row .mono, .obj-row .mono { text-align: left; }
+}
+
+/* Ekstremi i promjene kote imaju vlastiti prag, jer imaju više stupaca:
+   osam ih ne stane ispod 58 rem koliko god se stiskali. */
+@container (max-width: 58rem) {
+  .rows-extreme .rows-head, .rows-zero .rows-head { display: none; }
+  .rows-extreme .extreme-row, .rows-zero .zero-row {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+    align-items: end;
+    padding: 0.6rem 0.7rem; margin-bottom: 0.5rem;
+    border: 1px solid var(--border); border-radius: 4px;
+  }
+  .rows-extreme [data-label]::before, .rows-zero [data-label]::before {
+    content: attr(data-label); display: block;
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary);
+  }
+  .rows-extreme .extreme-row > .btn, .rows-zero .zero-row > .btn { justify-self: start; }
 }
 
 /* Dnevnik: struktura osoblja i strojeva — mreža sitnih brojčanih polja */
