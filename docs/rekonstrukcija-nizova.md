@@ -35,18 +35,44 @@ Odnos Batina − Bezdan iznosi mjerenih +19 cm i ne mijenja se od niske do
 visoke vode — točno razlika kota nule (80,64 − 80,45 = 0,19 m), jer su letve
 740 m jedna od druge.
 
-Uzrok razlike prema Mohácsu **nije utvrđen**. Pretpostavka o promjeni kote
-nule nije se potvrdila: vituki i COP daju danas istovjetne vrijednosti
-(razlika 0,0 cm na 5.208 dana), a u godišnjim srednjacima 1901.–2026. nema
-pomaka od 173 cm. Za razrješenje treba povijest kote nule Mohácsa ili dugi
-niz Bezdana.
+## Promjena kote nule Mohácsa 1943.
+
+Dio razlike je nađen i ispravljen. **1.1.1943. spuštene su kote nule dunavskih
+letvi nizvodno od Budimpešte**, jer je korito zbog stoljetne regulacije
+potonulo pa su se javljali negativni vodostaji (VITUKI 1976., Szilágyi 1988.).
+Mohács je nizvodno od Budimpešte, Budimpešta nije — pa se promjena vidi u
+njihovoj razlici.
+
+Izmjereno na dnevnim nizovima 1901.–1984.:
+
+| razdoblje | Mohács − Budimpešta | Baja − Budimpešta |
+|---|---|---|
+| 1936.–1942. | +42 cm | +13 cm |
+| 1943.–1952. | +102 cm | +72 cm |
+
+Stepenica je **+63 cm** i jedina je u cijelom nizu; pretraga svih godina po
+razlici petogodišnjih srednjaka daje 1943. kao daleko najveću (+63), a
+sljedeća je 1968. sa −32, što je već šum. Baja pokazuje isti pomak, što
+potvrđuje da je promjena bila zajednička, a ne svojstvo Mohácsa.
+
+Vrijednosti prije 1943. zato dobivaju **+63 cm** prije preračuna. Sirovi
+niz Mohácsa ostaje kakav ga vizugy.hu daje; ispravak se primjenjuje u
+preračunu i ovdje je zapisan.
+
+Nakon ispravka Batina za 7.1.1909. ispada **−245 cm**. Bezdan i dalje daje
+−127, dakle 118 cm razlike ostaje **neobjašnjeno**. Moguće je da je i
+Bezdanova kota u međuvremenu mijenjana, ili da odnos dviju letvi pri
+ekstremno maloj vodi nije konstantan. Za razrješenje treba kronologija kote
+nule Bezdana ili njegov dugi niz.
 
 ## Što program radi s time
 
-- Rekonstrukcija se **ne proteže** izvan raspona u kojem je odnos izmjeren.
-  Za Batinu je izostavljen 161 dan na kojima je Mohács bio ispod 4 cm — 0,4 %
-  niza, sve u prvoj trećini stoljeća. Isti dani izostavljeni su i iz
-  preračunatog protoka, da nizovi ostanu složni.
+- Rekonstrukcija se **ne izbacuje** izvan mjerenog raspona, nego označava.
+  Rupa u nizu hidrologu ne govori ništa, a znati da je bila ekstremna mala
+  voda i otprilike kolika, govori dosta. Dani na kojima Mohács izlazi iz
+  raspona idu u zaseban izvor `preracun-mohacs-izvan` s točnošću **±150 cm**
+  umjesto ±14, i uz svaku vrijednost piše „izvan mjerenog odnosa". Nakon
+  ispravka iz 1943. takvih je dana petnaest, svi u siječnju 1909.
 - Sažetak krajnosti pamti **odakle je** koja krajnost i uz preračunatu piše
   znak `≈`, s objašnjenjem ispod tablice. Vrijednost se ne skriva, samo se ne
   predstavlja kao mjerenje.
