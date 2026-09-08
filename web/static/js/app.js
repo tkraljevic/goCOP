@@ -472,7 +472,8 @@ function renderMarkdown(md) {
 // širina tablice sa širinom okvira. Tablica od tri kratka stupca ostaje
 // tablica i na telefonu, jer ondje je ona čitljivija.
 (function () {
-  var PRAG = 700; // ispod ove širine prozora se uopće razmatra
+  var PRAG = 700;          // ispod ove širine prozora se uopće razmatra
+  var NAJUZI_STUPAC = 110; // uži stupac lomi svaku vrijednost u nekoliko redaka
 
   // Naslov stupca uz svaku vrijednost. Uzima se iz zaglavlja, pa se ne mora
   // ponavljati u svakom predlošku — tablica ih ima trideset i četiri.
@@ -495,9 +496,16 @@ function renderMarkdown(md) {
     [].forEach.call(document.querySelectorAll('.table-responsive'), function (okvir) {
       var tab = okvir.querySelector('table');
       if (!tab) return;
-      // mjeri se bez slaganja, inače tablica uvijek stane
+      // Mjeri se bez slaganja, inače tablica uvijek stane.
       okvir.classList.remove('tablica-kartice');
-      var neStane = tab.scrollWidth > okvir.clientWidth + 1;
+      // Prelijevanje nije jedini način da tablica postane nečitljiva: pet
+      // stupaca u 375 točaka "stane" tako da svaku ćeliju slomi u visoki
+      // uski stupac. Zato se gleda i koliko prostora ostaje po stupcu.
+      var stupaca = tab.querySelectorAll('thead th').length || 1;
+      // skrivena tablica ima širinu nula; nju se ne dira
+      if (!okvir.clientWidth) return;
+      var neStane = tab.scrollWidth > okvir.clientWidth + 1 ||
+        okvir.clientWidth / stupaca < NAJUZI_STUPAC;
       if (neStane && window.innerWidth <= PRAG) {
         oznaci(tab);
         okvir.classList.add('tablica-kartice');

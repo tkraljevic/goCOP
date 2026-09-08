@@ -8,6 +8,7 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"regexp"
 
 	"bytes"
 	"html/template"
@@ -640,8 +641,8 @@ func TestKarticaLetveRazdvajaIzmjereniOdZabiljezenog(t *testing.T) {
 		Station:     st,
 	})
 	for _, want := range []string{
-		"Najviši izmjereni", "&#43;775 cm", "2013-06-14",
-		"Najviši zabilježeni", "&#43;795 cm", "1965-06-24", "rekonstruirano",
+		"Najviši izmjereni", "&#43;775 cm", "14.6.2013.",
+		"Najviši zabilježeni", "&#43;795 cm", "24.6.1965.", "rekonstruirano",
 		"U pragove i u izračun faze ulazi samo izmjereni",
 	} {
 		if !strings.Contains(html, want) {
@@ -1777,9 +1778,20 @@ func TestZabiljezeniEkstremiRazlikujuPodrijetlo(t *testing.T) {
 	if strings.Contains(html, "Bezdana Bezdan je") {
 		t.Error("način i napomena su slijepljeni")
 	}
-	// izmjereni i rekonstruirani minimum stoje oba
-	if strings.Count(html, "najniži") != 2 {
-		t.Errorf("očekivana dva najniža, nađeno %d", strings.Count(html, "najniži"))
+	// Ekstremi se ispisuju dvaput: tablicom za širok zaslon i karticama za
+	// uzak. Oba minimuma moraju biti u oba oblika.
+	if strings.Count(html, "najniži") != 4 {
+		t.Errorf("dva minimuma u dva oblika daju četiri spomena, nađeno %d",
+			strings.Count(html, "najniži"))
+	}
+	for _, oblik := range []string{"ekstremi-siroko", "ekstremi-usko"} {
+		if !strings.Contains(html, oblik) {
+			t.Errorf("nedostaje oblik %q", oblik)
+		}
+	}
+	// Način i napomena su objašnjenje, ne vrijednost — ukoso i sitnije.
+	if !strings.Contains(html, "ekstrem-nacin") {
+		t.Error("način nije izdvojen od izvora")
 	}
 }
 
@@ -2108,5 +2120,44 @@ func TestOznakeSpojenogNiza(t *testing.T) {
 	prazan := models.SpojDio{Zapisa: 0}
 	if got := prazan.UdioHR(1000); got != "0 %" {
 		t.Errorf("dio bez zapisa: %q", got)
+	}
+}
+
+// Datumi se u bazi vode kao 2013-06-14, a na stranici se čitaju hrvatski.
+// Sirovi ISO oblik ostao je na šest mjesta na kartici letve i primijetio ga
+// je korisnik, ne ja — pa se odsad traži da ga nigdje nema.
+func TestKarticaLetveNemaSirovihDatuma(t *testing.T) {
+	cm := func(v int) *int { return &v }
+	kota := func(v float64) *float64 { return &v }
+	st := models.Station{ID: uuid.New(), Name: "Batina", Code: "batina",
+		ZeroDatum: kota(80.450), ZeroDatumSystem: "TRST",
+		ZeroDatumNew: kota(80.189), ZeroDatumNewSystem: "HVRS71",
+		ZeroDatumSource: "Geodetski elaborat", ZeroDatumSurveyDate: "2024-09-10",
+		ZeroDatumDocumentDate: "2025-01",
+		Prep:                  models.Threshold{Cm: cm(300)},
+		Extremes: []models.StationExtreme{
+			{Kind: models.ExtremeMax, LevelCm: cm(775), OnDate: "2013-06-14",
+				Quality: models.QualityMeasured, Source: "DHMZ"},
+			{Kind: models.ExtremeMin, LevelCm: cm(-151), OnDate: "2026-08-22",
+				Quality: models.QualityMeasured, Source: "telemetrija, DHMZ"},
+		},
+		ZeroDatumHistory: []models.ZeroDatumChange{
+			{ValidFrom: "2001-03-09", Datum: kota(80.450), System: "TRST", Note: "prva izmjera"},
+		},
+	}
+	html := iscrtaj(t, "station_detail.html", StationPageData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Station:     st, PragoviKote: pragoviUKotama(st),
+	})
+	// ISO datum u tekstu stranice; u atributima obrasca je u redu
+	iso := regexp.MustCompile(`>[^<]*\b\d{4}-\d{2}-\d{2}\b`)
+	if nasao := iso.FindAllString(html, -1); len(nasao) > 0 {
+		t.Errorf("na kartici je ostao sirovi datum: %q", nasao[0])
+	}
+	for _, want := range []string{"14.6.2013.", "22.8.2026.", "9.3.2001.", "10.9.2024.", "1.2025."} {
+		if !strings.Contains(html, want) {
+			t.Errorf("nema hrvatskog datuma %q", want)
+		}
 	}
 }

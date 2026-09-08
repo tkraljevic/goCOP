@@ -2654,3 +2654,33 @@ textarea {
 .table-responsive.tablica-kartice td.celija-blok::before {
   display: block; margin-bottom: 0.3rem;
 }
+
+/* Zabilježeni ekstremi: izvor je podatak, način i napomena su objašnjenje.
+   Ukoso i sitnije, da se na prvi pogled razdvoje od vrijednosti i ne gutaju
+   prostor koji pripada brojkama. */
+.ekstrem-nacin, .ekstrem-napomena {
+  font-style: italic; color: var(--text-muted); font-size: 0.8rem;
+}
+.ekstrem-napomena { display: block; margin-top: 0.15rem; line-height: 1.45; }
+
+/* Zabilježeni ekstremi na uskom zaslonu. Općenito slaganje u kartice daje pet
+   redaka „naslov: vrijednost" po ekstremu; ovdje vrsta, vrijednost, datum i
+   podrijetlo stanu u jedan redak, a izvor i objašnjenje idu ispod. */
+.ekstremi-usko { display: none; list-style: none; margin: 0; padding: 0; }
+@media (max-width: 700px) {
+  .ekstremi-siroko { display: none; }
+  .ekstremi-usko { display: block; }
+}
+.ekstremi-usko > li {
+  padding: 0.7rem 0.9rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  margin-bottom: 0.4rem;
+}
+.ekstremi-usko > li:last-child { margin-bottom: 0; }
+.ex-glava { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.35rem 0.6rem; }
+.ex-vrsta { color: var(--text-secondary); font-size: 0.85rem; }
+.ex-vrijednost { font-size: 1.05rem; font-variant-numeric: tabular-nums; color: var(--text-strong); }
+.ex-datum { font-size: 0.85rem; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.ex-izvor { font-size: 0.85rem; margin-top: 0.2rem; }
