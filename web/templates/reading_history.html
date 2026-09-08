@@ -47,6 +47,7 @@
       zadnje očitanje {{ago .Latest.MeasuredAt}} · {{formatDate .Latest.LocalTime}}
       {{if and .Station .Latest.LevelCm}}{{range .Station.Kote (intOf .Latest.LevelCm)}}
       · <strong>{{brojHRf .Kota 3}} m</strong> {{.Sustav}}{{end}}{{end}}
+      {{with protokHR .Krivulje .Latest.LocalTime .Latest.LevelCm}} · <strong>{{.}} m³/s</strong> <span title="procjena iz HQ krivulje">iz krivulje</span>{{end}}
       {{if .Latest.StructureState}} · {{.Latest.StateLabel}}{{end}}
       {{if .Latest.Gate}} · zapornica {{.Latest.GateLabel}}{{end}}
       {{if .Latest.Observer}} · očitao {{.Latest.Observer}}{{end}}
@@ -117,6 +118,7 @@
         {{if .LevelCm}}{{intOf .LevelCm}} cm{{else}}<span style="color:var(--text-muted); font-weight:500;">—</span>{{end}}
         {{if .Level2Cm}}<span class="reading-meta"> / {{intOf .Level2Cm}} cm nizvodno</span>{{end}}
         {{if and $.Station .LevelCm}}{{range $.Station.Kote (intOf .LevelCm)}}<span class="reading-meta"> · {{brojHRf .Kota 3}} m {{.Sustav}}</span>{{end}}{{end}}
+        {{with protokHR $.Krivulje .LocalTime .LevelCm}}<span class="reading-meta" title="procjena protoka iz HQ krivulje"> · {{.}} m³/s</span>{{end}}
         {{if .Phase.InForce}}<span class="badge {{.Phase.BadgeClass}}" style="margin-left:0.4rem; font-size:0.7rem;">{{.Phase.Label}}</span>{{end}}
       </span>
       <span>{{if $.CanEdit}}<a href="/readings/edit/{{.ID}}" class="btn btn-sm btn-link" style="padding:0; color:var(--text-muted);">{{icon "pencil"}}</a>{{end}}</span>

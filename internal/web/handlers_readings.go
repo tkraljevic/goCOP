@@ -133,6 +133,11 @@ type ReadingHistoryData struct {
 	GaugeKey    string
 	Pager       Pager
 
+	// Krivulje protoka ove letve. S njima svako očitanje uz vodostaj dobiva i
+	// procjenu protoka — dežurni tako uz visinu vidi i koliko vode prolazi,
+	// bez da mora otvarati arhivu.
+	Krivulje []models.HQKrivulja
+
 	// Povijest iz arhive. Operativna očitanja su ono što ljudi upišu; arhiva je
 	// ono što je izmjereno prije nego što je program postojao. Stranica
 	// prikazuje oboje, ali arhivu tek kad postaji ima što pokazati.
@@ -488,6 +493,9 @@ func (h *ReadingsHandler) ShowHistory(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if station != nil {
+		if a := h.arh(); a != nil && station.Code != "" {
+			data.Krivulje, _ = a.Krivulje(ctx, station.Code)
+		}
 		h.arhivaZaLetvu(ctx, r, &data, station)
 	}
 
