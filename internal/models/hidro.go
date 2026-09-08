@@ -2,6 +2,7 @@ package models
 
 import (
 	"math"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -348,7 +349,84 @@ type ProfilKorita struct {
 	Datum    string
 	Vodostaj int     // vodostaj pri snimanju, cm
 	KotaNule float64 // apsolutna kota nule letve, m
+	PomakM   float64 // koliko dodati stacionaži da legne na zajedničku mrežu
 	Tocke    []TockaProfila
+
+	// Kad je profil spojen iz više snimaka, ovdje piše iz kojih i koliko je
+	// koja dala. Prazno kod obične snimke.
+	Sastav []DioProfila
+}
+
+// DioProfila je jedan doprinos spojenom profilu.
+type DioProfila struct {
+	Datum  string
+	OdM    float64
+	DoM    float64
+	Tocaka int
+}
+
+// Spojen javlja je li profil sastavljen iz više snimaka.
+func (p ProfilKorita) Spojen() bool { return len(p.Sastav) > 1 }
+
+// SpojiProfile slaže jedan profil od više snimaka istog presjeka. Novija
+// snimka ima prednost svugdje gdje seže; starija se uzima samo ondje gdje
+// novije nema. Tako se dobiva cijela visina korita — obale koje je zahvatila
+// starija snimka — bez da se dno miješa kroz godine.
+//
+// Stacionaže se prije toga svode na zajedničku mrežu: snimke se s godinama
+// iznova stacioniraju, pa se bez poravnanja spajaju dva različita mjesta.
+func SpojiProfile(snimke []ProfilKorita) ProfilKorita {
+	if len(snimke) == 0 {
+		return ProfilKorita{}
+	}
+	if len(snimke) == 1 {
+		return snimke[0]
+	}
+	// od najnovije prema starijoj
+	redom := make([]ProfilKorita, len(snimke))
+	copy(redom, snimke)
+	sort.SliceStable(redom, func(a, b int) bool { return redom[a].Datum > redom[b].Datum })
+
+	spoj := ProfilKorita{Datum: redom[0].Datum, Vodostaj: redom[0].Vodostaj, KotaNule: redom[0].KotaNule}
+	var pokriveno []struct{ od, do float64 }
+	unutar := func(s float64) bool {
+		for _, r := range pokriveno {
+			if s >= r.od && s <= r.do {
+				return true
+			}
+		}
+		return false
+	}
+	for _, sn := range redom {
+		if len(sn.Tocke) == 0 {
+			continue
+		}
+		dio := DioProfila{Datum: sn.Datum}
+		prvi := true
+		for _, t := range sn.Tocke {
+			s := t.Stacionaza + sn.PomakM
+			if unutar(s) {
+				continue
+			}
+			spoj.Tocke = append(spoj.Tocke, TockaProfila{Stacionaza: s, Visina: t.Visina})
+			if prvi {
+				dio.OdM, prvi = s, false
+			}
+			dio.DoM = s
+			dio.Tocaka++
+		}
+		if dio.Tocaka > 0 {
+			spoj.Sastav = append(spoj.Sastav, dio)
+		}
+		prva := sn.Tocke[0].Stacionaza + sn.PomakM
+		zadnja := sn.Tocke[len(sn.Tocke)-1].Stacionaza + sn.PomakM
+		pokriveno = append(pokriveno, struct{ od, do float64 }{prva, zadnja})
+	}
+	sort.Slice(spoj.Tocke, func(a, b int) bool {
+		return spoj.Tocke[a].Stacionaza < spoj.Tocke[b].Stacionaza
+	})
+	sort.SliceStable(spoj.Sastav, func(a, b int) bool { return spoj.Sastav[a].OdM < spoj.Sastav[b].OdM })
+	return spoj
 }
 
 // TockaProfila je jedna izmjerena točka. Stacionaža se mjeri od lijeve

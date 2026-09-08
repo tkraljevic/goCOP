@@ -177,6 +177,38 @@ koherentan — najniže po desetljećima: 35 (1900-e), 209, 152, 170, 82, 82,
 126, 123, 113. Prije su 1900-e, 1920-e i 1930-e stršile u minus (−165, −48,
 −30), što je i bio prvi trag.
 
+## Snimke korita i njihova stacionaža
+
+Snimke se s godinama iznova stacioniraju. Batinine tri:
+
+| snimka | stacionaža | pomak na zajedničku mrežu |
+|---|---|---|
+| 22.3.2010. | 0 – 505,6 m | 0 |
+| 12.11.2015. | 110 – 502,4 m | 0 |
+| 18.8.2020. | 0 – 398,9 m | **+104,5 m** |
+
+Snimka iz 2020. iznova je postavila stacionažu i izostavila prvih ~104 m
+lijeve terase. Pomak je izmjeren poklapanjem obala i pokosa: bez njega
+odstupanje između snimaka iznosi 6,33 m, s njim **0,39 m** — šesnaest puta
+manje. Ta 0,39 m je i sve što se korito promijenilo u deset godina.
+
+Poravnanja se vode u `vodostaji/poravnanje-profila.csv` i idu u arhivu
+(stupac `profili.pomak_m`).
+
+### Spajanje
+
+Presjek koji se prikazuje sastavljen je od svih snimaka: **novija ima prednost
+svugdje gdje seže, starija se uzima samo ondje gdje novije nema.** Dno tako
+dolazi iz najnovije snimke, a obale koje novija ne pokriva iz starije — bez
+miješanja dna kroz godine.
+
+Za Batinu to daje 96 točaka na 0–505,6 m umjesto 82 na 0–398,9: dno 72,81 m
+iz 2020., lijeva obala 90,11 m iz 2010. Visina korita raste sa 16,43 na
+17,30 m, a vodoravno se dobiva cijela lijeva terasa koju snimka iz 2020.
+uopće ne pokriva.
+
+Uz crtež piše iz kojih je snimaka sastavljen i koji je dio dala koja.
+
 ## Što treba za sljedeću letvu
 
 Prije nego se niz produlji unatrag iz susjedne postaje:

@@ -314,7 +314,7 @@ func (r *ArhivaRepository) Profili(ctx context.Context, letva string) ([]models.
 	if r == nil {
 		return nil, nil
 	}
-	rows, err := r.db.QueryContext(ctx, `SELECT id, datum, COALESCE(vodostaj,0), COALESCE(kota_nule,0)
+	rows, err := r.db.QueryContext(ctx, `SELECT id, datum, COALESCE(vodostaj,0), COALESCE(kota_nule,0), COALESCE(pomak_m,0)
 		FROM profili WHERE letva = ? ORDER BY datum DESC`, letva)
 	if err != nil {
 		return nil, fmt.Errorf("profili korita: %w", err)
@@ -323,7 +323,7 @@ func (r *ArhivaRepository) Profili(ctx context.Context, letva string) ([]models.
 	var out []models.ProfilKorita
 	for rows.Next() {
 		var p models.ProfilKorita
-		if err := rows.Scan(&p.ID, &p.Datum, &p.Vodostaj, &p.KotaNule); err != nil {
+		if err := rows.Scan(&p.ID, &p.Datum, &p.Vodostaj, &p.KotaNule, &p.PomakM); err != nil {
 			return nil, err
 		}
 		out = append(out, p)

@@ -267,43 +267,35 @@
 <section class="detail-section" id="korito">
   <h2>{{icon "waves"}} Korito i voda u njemu</h2>
   <p class="page-desc">
-    Sve kote na crtežu su u sustavu <strong>{{.Station.ZeroDatumSystem}}</strong>, jer je u njemu snimljen i profil korita.
-    Poprečni profil snimljen {{.Crtez.Datum}}, a voda je ucrtana po zadnjem vodostaju iz arhive
-    ({{.Zadnji.Vrijednost}} cm, {{formatDate (localTime .Zadnji.Kad)}}, {{izvorLabel .ZadnjiIzvor}}).
+    Presjek je spojen iz svih snimaka: novija ima prednost svugdje gdje seže, starija se uzima
+    samo ondje gdje novije nema — tako se dobiva cijela visina korita bez miješanja dna kroz
+    godine. Voda je ucrtana po zadnjem vodostaju iz arhive
+    ({{brojHRf .Zadnji.Vrijednost 0}} cm, {{formatDate (localTime .Zadnji.Kad)}}, {{izvorLabel .ZadnjiIzvor}}).
   </p>
-  <div class="table-card" style="padding:1rem;">
-    <div style="overflow-x:auto;">
-      <svg viewBox="0 0 {{.Crtez.Sirina}} {{.Crtez.Visina}}" style="width:100%; min-width:640px; height:auto;" role="img"
-           aria-label="Poprečni profil korita s vodnom plohom">
-        {{range .Crtez.KoteY}}
-        <line x1="46" y1="{{printf "%.1f" .Y}}" x2="{{$.Crtez.Sirina}}" y2="{{printf "%.1f" .Y}}"
-              stroke="var(--border)" stroke-width="1" stroke-dasharray="2 4"/>
-        <text x="42" y="{{printf "%.1f" .Y}}" dy="3.5" text-anchor="end"
-              style="font-size:10px; fill:var(--text-muted);">{{printf "%.0f" .Kota}}</text>
-        {{end}}
-        {{if .Crtez.ImaVode}}
-        <polygon points="{{.Crtez.Voda}}" fill="var(--primary)" fill-opacity="0.22"/>
-        <line x1="46" y1="{{printf "%.1f" .Crtez.YVode}}" x2="{{.Crtez.Sirina}}" y2="{{printf "%.1f" .Crtez.YVode}}"
-              stroke="var(--primary)" stroke-width="1.5"/>
-        {{end}}
-        <polyline points="{{.Crtez.Korito}}" fill="none" stroke="var(--text)" stroke-width="1.8"
-                  stroke-linejoin="round"/>
-        <text x="4" y="12" style="font-size:10px; fill:var(--text-muted);">m n.m.</text>
-      </svg>
-    </div>
-    <div style="display:flex; flex-wrap:wrap; gap:1.5rem; margin-top:0.75rem; font-size:0.9rem;">
+  <div class="reg-card korito-graf graf-siroki" style="padding:0.75rem 0.5rem 0.5rem;">
+    {{template "presjekKorita" .Crtez}}
+  </div>
+  {{with .CrtezUzak}}
+  <div class="reg-card korito-graf graf-uski" style="padding:0.75rem 0.5rem 0.5rem;">
+    {{template "presjekKorita" .}}
+  </div>
+  {{end}}
+  <div class="reg-card" style="padding:0.6rem 1rem; margin-top:-1px;">
+    <div class="korito-brojke">
       <span>vodna ploha <strong>{{brojHRf .Crtez.KotaVode 2}} m</strong> <span class="reg-card-sub">{{.Station.ZeroDatumSystem}}</span></span>
       <span>dubina nad dnom <strong>{{brojHRf .Crtez.DubinaM 2}} m</strong></span>
       {{if gt .Crtez.SirinaVodeM 0.0}}<span>širina vode <strong>{{brojHRf .Crtez.SirinaVodeM 0}} m</strong></span>{{end}}
       <span>dno korita <strong>{{brojHRf .Crtez.Dno 2}} m</strong></span>
       {{if gt .ZadnjiProtok 0.0}}<span>protok po krivulji <strong>{{brojHRf .ZadnjiProtok 0}} m³/s</strong></span>{{end}}
     </div>
-    {{if gt (len .Profili) 1}}
-    <p class="page-desc" style="margin:0.75rem 0 0 0;">
-      Korito je snimano {{len .Profili}} puta:
-      {{range $i, $p := .Profili}}{{if $i}}, {{end}}{{$p.Datum}}{{end}}. Crta se najnovije.
+    <p class="reg-card-sub" style="margin:0.5rem 0 0;">
+      Sve kote su u sustavu <strong>{{.Station.ZeroDatumSystem}}</strong>, jer je u njemu snimljen i profil.
+      {{if .Profil.Spojen}}Spojeno iz {{len .Profil.Sastav}} snimaka:
+        {{range $i, $d := .Profil.Sastav}}{{if $i}}, {{end}}{{datumHR $d.Datum}} ({{brojHRf $d.OdM 0}}–{{brojHRf $d.DoM 0}} m){{end}}.
+      {{else}}Snimljen {{datumHR .Crtez.Datum}}.{{end}}
+      {{if gt (len .Profili) 1}}Korito je snimano {{len .Profili}} puta:
+        {{range $i, $p := .Profili}}{{if $i}}, {{end}}{{datumHR $p.Datum}}{{end}}.{{end}}
     </p>
-    {{end}}
   </div>
 </section>
 {{end}}

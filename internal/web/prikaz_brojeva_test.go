@@ -2161,3 +2161,74 @@ func TestKarticaLetveNemaSirovihDatuma(t *testing.T) {
 		}
 	}
 }
+
+// Presjek se sastavlja od svih snimaka: novija ima prednost svugdje gdje
+// seže, starija popunjava ono što novija ne pokriva. Snimke se prije toga
+// svode na zajedničku stacionažu — Batinina iz 2020. počinje 104,5 m desno
+// od one iz 2010., pa bi bez poravnanja spajala dva različita mjesta.
+func TestSpajanjeProfilaPoravnavaSnimke(t *testing.T) {
+	stara := models.ProfilKorita{Datum: "2010-03-22", KotaNule: 80.45,
+		Tocke: []models.TockaProfila{
+			{Stacionaza: 0, Visina: 90.11},   // lijeva obala, samo u staroj
+			{Stacionaza: 50, Visina: 85.50},  // terasa, samo u staroj
+			{Stacionaza: 105, Visina: 82.11}, // odavde se preklapaju
+			{Stacionaza: 200, Visina: 73.20},
+			{Stacionaza: 500, Visina: 89.25}, // desna obala, samo u staroj
+		}}
+	nova := models.ProfilKorita{Datum: "2020-08-18", KotaNule: 80.45, PomakM: 104.5,
+		Tocke: []models.TockaProfila{
+			{Stacionaza: 0, Visina: 82.11},   // = 104,5 na zajedničkoj mreži
+			{Stacionaza: 95, Visina: 72.81},  // = 199,5, dno — novije od staroga
+			{Stacionaza: 294, Visina: 89.24}, // = 398,5
+		}}
+
+	sp := models.SpojiProfile([]models.ProfilKorita{stara, nova})
+	if !sp.Spojen() {
+		t.Fatal("profil ne zna da je spojen")
+	}
+	// Stacionaže moraju rasti i pokrivati cijeli raspon stare snimke.
+	if sp.Tocke[0].Stacionaza != 0 || sp.Tocke[len(sp.Tocke)-1].Stacionaza != 500 {
+		t.Errorf("raspon %v..%v, očekivano 0..500",
+			sp.Tocke[0].Stacionaza, sp.Tocke[len(sp.Tocke)-1].Stacionaza)
+	}
+	for i := 1; i < len(sp.Tocke); i++ {
+		if sp.Tocke[i].Stacionaza < sp.Tocke[i-1].Stacionaza {
+			t.Fatalf("stacionaže nisu poredane: %v poslije %v",
+				sp.Tocke[i].Stacionaza, sp.Tocke[i-1].Stacionaza)
+		}
+	}
+	// Dno mora doći iz novije snimke, ne iz starije.
+	if sp.Dno() != 72.81 {
+		t.Errorf("dno %v — mora doći iz novije snimke (72,81)", sp.Dno())
+	}
+	// Lijeva obala mora doći iz starije, jer je novija ne pokriva.
+	najvisa := sp.Tocke[0].Visina
+	for _, tc := range sp.Tocke {
+		if tc.Visina > najvisa {
+			najvisa = tc.Visina
+		}
+	}
+	if najvisa != 90.11 {
+		t.Errorf("najviša točka %v — mora doći iz starije snimke (90,11)", najvisa)
+	}
+	// Poravnanje: nova točka sa stacionaže 95 mora sjesti na 199,5.
+	nasao := false
+	for _, tc := range sp.Tocke {
+		if tc.Visina == 72.81 && tc.Stacionaza == 199.5 {
+			nasao = true
+		}
+	}
+	if !nasao {
+		t.Error("pomak nije primijenjen na stacionažu novije snimke")
+	}
+	// Sastav mora reći iz čega je što.
+	if len(sp.Sastav) != 2 {
+		t.Fatalf("sastav ima %d dijelova", len(sp.Sastav))
+	}
+
+	// Jedna snimka ostaje kakva jest.
+	sama := models.SpojiProfile([]models.ProfilKorita{stara})
+	if sama.Spojen() || len(sama.Tocke) != len(stara.Tocke) {
+		t.Error("jedna snimka ne smije se proglasiti spojenom")
+	}
+}

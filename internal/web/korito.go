@@ -71,23 +71,41 @@ type KoritoCrtez struct {
 	PocetakX, KrajX  float64
 	Lijevo           float64 // rub za oznake osi
 	SirinaPlohe      float64 // od lijevog ruba do desnog kraja slike
+	OsUCm            bool    // os govori u centimetrima na letvi, inače u metrima nad morem
 }
 
 // OsX je gdje stoje brojke okomite osi, poravnate desno.
 func (c *KoritoCrtez) OsX() float64 { return c.Lijevo - 4 }
 
+// NazivOsi kaže u čemu su brojke uz okomitu os.
+func (c *KoritoCrtez) NazivOsi() string {
+	if c.OsUCm {
+		return "cm na letvi"
+	}
+	return "m n.m."
+}
+
 // NatpisX je gdje počinje natpis praga: odmah desno od osi.
 func (c *KoritoCrtez) NatpisX() float64 { return c.Lijevo + 6 }
 
 // KotaOznaka je vodoravna crta s ispisanom kotom. Uz apsolutnu kotu nosi i
-// vodostaj na letvi: presjek se čita zajedno s grafom iznad, a graf govori u
-// centimetrima.
+// vodostaj na letvi: presjek se čita ili uz kotu nule, ili uz graf koji
+// govori u centimetrima.
 type KotaOznaka struct {
 	Y     float64
 	Kota  float64
 	Cm    int
 	Label string
 	Class string
+	UCm   bool // ispisuje se u centimetrima
+}
+
+// Ispis je brojka uz os, u onome u čemu se os vodi.
+func (k KotaOznaka) Ispis() string {
+	if k.UCm {
+		return brojHR(k.Cm)
+	}
+	return brojHRf(k.Kota, 0)
 }
 
 // crtajKorito priprema profil za crtanje pri zadanom vodostaju.
@@ -99,8 +117,12 @@ func crtajKorito(p models.ProfilKorita, vodostajCm int) *KoritoCrtez {
 // 900 jedinica stisnutom na 340 slikovnih točaka oznake padnu na tri točke,
 // pa uski ima svoj koordinatni sustav i širi lijevi rub za brojke.
 var (
+	// uz graf očitanja: os u centimetrima na letvi, jer se čita zajedno s njim
 	sirokoKorito = KoritoPostavke{Sirina: 900, Visina: 340, Lijevo: 52, OsUCm: true}
 	uskoKorito   = KoritoPostavke{Sirina: 520, Visina: 380, Lijevo: 74, OsUCm: true}
+	// na kartici letve: os u metrima nad morem, jer se ondje čita uz kotu nule
+	sirokoKoritoM = KoritoPostavke{Sirina: 900, Visina: 340, Lijevo: 52}
+	uskoKoritoM   = KoritoPostavke{Sirina: 520, Visina: 380, Lijevo: 74}
 )
 
 // sKoritom dopunjuje mjere pragovima i pojasom, da se obje veličine crtaju iz
@@ -191,7 +213,7 @@ func crtajKoritoP(p models.ProfilKorita, vodostajCm int, o KoritoPostavke) *Kori
 		DnoCm:      int((p.Dno() - p.KotaNule) * 100),
 		PocetakM:   x0, KrajM: x1,
 		PocetakX: sx(x0), KrajX: sx(x1),
-		Lijevo: lijevo, SirinaPlohe: w - lijevo,
+		Lijevo: lijevo, SirinaPlohe: w - lijevo, OsUCm: o.OsUCm,
 	}
 	c.LijevaCm = int(math.Round((p.Tocke[0].Visina - p.KotaNule) * 100))
 	c.DesnaCm = int(math.Round((p.Tocke[len(p.Tocke)-1].Visina - p.KotaNule) * 100))
@@ -273,7 +295,7 @@ func crtajKoritoP(p models.ProfilKorita, vodostajCm int, o KoritoPostavke) *Kori
 		for k := math.Ceil(odCm/korakCm) * korakCm; k <= doCm; k += korakCm {
 			cm := int(math.Round(k))
 			c.KoteY = append(c.KoteY, KotaOznaka{
-				Y: sy(p.KotaNule + k/100), Kota: p.KotaNule + k/100, Cm: cm})
+				Y: sy(p.KotaNule + k/100), Kota: p.KotaNule + k/100, Cm: cm, UCm: true})
 		}
 		return c
 	}

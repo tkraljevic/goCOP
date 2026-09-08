@@ -74,6 +74,10 @@ CREATE TABLE IF NOT EXISTS profili (
 	datum    TEXT NOT NULL,          -- kad je korito snimljeno
 	vodostaj INTEGER,                -- vodostaj pri snimanju, cm
 	kota_nule REAL,
+	-- Koliko dodati stacionaži da snimka legne na zajedničku mrežu. Snimke
+	-- se s godinama iznova stacioniraju: Batinina iz 2020. počinje 104,5 m
+	-- desno od one iz 2010. Bez poravnanja se ne mogu ni usporediti ni spojiti.
+	pomak_m REAL NOT NULL DEFAULT 0,
 	UNIQUE(letva, datum)
 );
 CREATE TABLE IF NOT EXISTS profil_tocke (
@@ -193,7 +197,11 @@ func Izgradi(koren, baza, samo string, zapisi io.Writer) (Izvjestaj, error) {
 	if err != nil {
 		return iz, err
 	}
-	if err := profili(db, koren, samo); err != nil {
+	poravnanja, err := poravnanjaProfila(koren)
+	if err != nil {
+		return iz, err
+	}
+	if err := profili(db, koren, samo, poravnanja); err != nil {
 		return iz, err
 	}
 	if err := krivulje(db, koren, samo); err != nil {
@@ -569,7 +577,39 @@ func bezSiljaka(velicina string, z []zapis) []zapis {
 // profili učitava snimke poprečnog profila korita. Nisu vremenski niz nego
 // oblik korita u jednom danu, pa idu u svoje tablice — ali u istu datoteku,
 // jer arhiva mora putovati kao jedna cjelina.
-func profili(db *sql.DB, koren, samo string) error {
+// poravnanjaProfila učitava koliko koju snimku treba pomaknuti da legne na
+// zajedničku stacionažu, po letvi i datumu.
+func poravnanjaProfila(koren string) (map[string]float64, error) {
+	f, err := os.Open(filepath.Join(koren, "poravnanje-profila.csv"))
+	if os.IsNotExist(err) {
+		return nil, nil
+	} else if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	cr := csv.NewReader(f)
+	cr.Comma = ';'
+	cr.FieldsPerRecord = -1
+	sve, err := cr.ReadAll()
+	if err != nil {
+		return nil, fmt.Errorf("poravnanje profila: %w", err)
+	}
+	out := map[string]float64{}
+	for i, r := range sve {
+		if i == 0 || len(r) < 3 {
+			continue
+		}
+		letva := strings.TrimSpace(strings.TrimPrefix(r[0], "\ufeff"))
+		v, err := strconv.ParseFloat(strings.ReplaceAll(strings.TrimSpace(r[2]), ",", "."), 64)
+		if err != nil {
+			return nil, fmt.Errorf("poravnanje profila, redak %d: pomak %q", i+1, r[2])
+		}
+		out[letva+"|"+strings.TrimSpace(r[1])] = v
+	}
+	return out, nil
+}
+
+func profili(db *sql.DB, koren, samo string, poravnanja map[string]float64) error {
 	puts, err := filepath.Glob(filepath.Join(koren, "*", "*", "profil", "*.csv"))
 	if err != nil {
 		return err
@@ -591,9 +631,10 @@ func profili(db *sql.DB, koren, samo string) error {
 		if len(tocke) == 0 {
 			continue
 		}
-		res, err := db.Exec(`INSERT INTO profili (letva, datum, vodostaj, kota_nule) VALUES (?,?,?,?)
-			ON CONFLICT(letva, datum) DO UPDATE SET vodostaj=excluded.vodostaj, kota_nule=excluded.kota_nule`,
-			letva, datum, vod, kota)
+		res, err := db.Exec(`INSERT INTO profili (letva, datum, vodostaj, kota_nule, pomak_m) VALUES (?,?,?,?,?)
+			ON CONFLICT(letva, datum) DO UPDATE SET vodostaj=excluded.vodostaj, kota_nule=excluded.kota_nule,
+				pomak_m=excluded.pomak_m`,
+			letva, datum, vod, kota, poravnanja[letva+"|"+datum])
 		if err != nil {
 			return err
 		}
