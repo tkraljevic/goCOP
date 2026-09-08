@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"net/http"
 	"strconv"
+	"time"
 
 	"gocop/internal/models"
 	"gocop/internal/repository"
@@ -30,6 +31,7 @@ type StationPageData struct {
 	Profili              []models.ProfilKorita     // snimke poprečnog profila korita
 	Profil               *models.ProfilKorita      // onaj koji se crta
 	Krivulje             []models.HQKrivulja       // krivulje protoka po razdobljima
+	PragoviQ             []PragProtok              // isti pragovi iskazani u protoku
 	NizID                int64                     // koji je niz odabran
 	Spojevi              []models.SpojDoseg        // spojeni nizovi: jedan satni, jedan dnevni
 	Sada                 *models.SpojenaVrijednost // zadnja vrijednost spojenog niza
@@ -145,6 +147,10 @@ func (h *StationsHandler) ShowStation(w http.ResponseWriter, r *http.Request) {
 	if h.episodeService != nil {
 		data.Episodes, _ = h.episodeService.ByStation(ctx, st.ID.String(), 50)
 	}
+	// Isti stupnjevi obrane iskazani u protoku, po krivulji koja danas vrijedi.
+	// Dežurni tako zna i koliko vode prolazi, ne samo koliko je visoko.
+	defer func() { data.PragoviQ = pragoviUProtoku(data.Station, data.Krivulje) }()
+
 	// Hidrološka arhiva: nizovi, karakteristične vrijednosti, korito i krivulje.
 	// Sve se računa pri čitanju, ništa se ne pamti — brojevi se tako ne mogu
 	// razići s podacima iz kojih su nastali.
@@ -261,4 +267,40 @@ func odabraniNiz(r *http.Request, nizovi []models.HidroNiz) int64 {
 		return nizovi[0].ID
 	}
 	return 0
+}
+
+// PragProtok je jedan stupanj obrane iskazan i u vodostaju i u protoku.
+type PragProtok struct {
+	Naziv string
+	Cm    int
+	Q     float64
+}
+
+// pragoviUProtoku prevodi pragove obrane u protok krivuljom koja danas vrijedi.
+// Bez krivulje se ne vraća ništa: pogađati prag u protoku bilo bi izmišljanje.
+func pragoviUProtoku(st models.Station, krivulje []models.HQKrivulja) []PragProtok {
+	k := krivuljaZa(krivulje, time.Now())
+	if k == nil {
+		return nil
+	}
+	var out []PragProtok
+	for _, t := range []struct {
+		t models.Threshold
+		n string
+	}{
+		{st.Prep, "Pripremno stanje"},
+		{st.Regular, "Redovna obrana"},
+		{st.Emergency, "Izvanredna obrana"},
+		{st.State, "Izvanredno stanje"},
+	} {
+		if !t.t.IsUsable() {
+			continue
+		}
+		q, ok := k.Protok(*t.t.Cm)
+		if !ok {
+			continue
+		}
+		out = append(out, PragProtok{Naziv: t.n, Cm: *t.t.Cm, Q: q})
+	}
+	return out
 }

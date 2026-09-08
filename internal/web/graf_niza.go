@@ -19,7 +19,8 @@ import (
 
 // crtajNiz gradi graf iz spojenih vrijednosti. Pragovi se crtaju samo za
 // vodostaj i samo kad je letva poznata.
-func crtajNiz(vals []models.SpojenaVrijednost, velicina string, station *models.Station) *Chart {
+func crtajNiz(vals []models.SpojenaVrijednost, velicina string, station *models.Station,
+	krivulje []models.HQKrivulja) *Chart {
 	if len(vals) < 2 {
 		return nil
 	}
@@ -46,7 +47,17 @@ func crtajNiz(vals []models.SpojenaVrijednost, velicina string, station *models.
 		label string
 		class string
 	}
-	if velicina == "vodostaj" && station != nil {
+	if station != nil && (velicina == "vodostaj" || velicina == "protok") {
+		// Za protok se prag prevodi krivuljom koja vrijedi u prikazanom
+		// razdoblju: stupanj obrane je isti, samo iskazan u m³/s. Bez krivulje
+		// se ne crta ništa — pogađati prag u protoku bilo bi izmišljanje.
+		var kr *models.HQKrivulja
+		if velicina == "protok" {
+			kr = krivuljaZa(krivulje, pts[len(pts)/2].Kad)
+			if kr == nil {
+				goto bezPragova
+			}
+		}
 		for _, t := range []struct {
 			t     models.Threshold
 			l, cl string
@@ -56,17 +67,33 @@ func crtajNiz(vals []models.SpojenaVrijednost, velicina string, station *models.
 			{station.Emergency, "izvanredna", "emerg"},
 			{station.State, "izvanredno", "crit"},
 		} {
-			if t.t.IsUsable() && float64(*t.t.Cm) <= najv+50 && float64(*t.t.Cm) >= najn-50 {
-				najn = math.Min(najn, float64(*t.t.Cm))
-				najv = math.Max(najv, float64(*t.t.Cm))
+			if !t.t.IsUsable() {
+				continue
+			}
+			v := float64(*t.t.Cm)
+			if kr != nil {
+				q, ok := kr.Protok(*t.t.Cm)
+				if !ok {
+					continue
+				}
+				v = q
+			}
+			granica := (najv - najn) * 0.15
+			if granica < 50 {
+				granica = 50
+			}
+			if v <= najv+granica && v >= najn-granica {
+				najn = math.Min(najn, v)
+				najv = math.Max(najv, v)
 				pragovi = append(pragovi, struct {
 					cm    int
 					label string
 					class string
-				}{*t.t.Cm, t.l, t.cl})
+				}{int(math.Round(v)), t.l, t.cl})
 			}
 		}
 	}
+bezPragova:
 	if najv == najn {
 		najv += math.Max(1, math.Abs(najv)*0.05)
 	}
@@ -171,6 +198,20 @@ func mjesecKratko(t time.Time) string {
 		return m + " " + t.Format("06")
 	}
 	return m
+}
+
+// krivuljaZa vraća HQ krivulju koja vrijedi u zadanom trenutku. Korito se
+// mijenja pa se krivulja povremeno iznova postavlja; prag u protoku ovisi o
+// tome koja je tada vrijedila.
+func krivuljaZa(krivulje []models.HQKrivulja, kad time.Time) *models.HQKrivulja {
+	d := kad.Format("2006-01-02")
+	for i := range krivulje {
+		k := &krivulje[i]
+		if k.VrijediOd <= d && (k.VrijediDo == "" || d <= k.VrijediDo) {
+			return k
+		}
+	}
+	return nil
 }
 
 // decimalaVelicine je koliko decimala veličina traži da bi značila ono što piše.
