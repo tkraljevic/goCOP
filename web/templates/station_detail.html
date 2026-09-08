@@ -156,6 +156,127 @@
   </div>
 </section>
 
+{{if .Crtez}}
+<section class="detail-section" id="korito">
+  <h2>{{icon "waves"}} Korito i voda u njemu</h2>
+  <p class="page-desc">
+    Poprečni profil snimljen {{.Crtez.Datum}}, a voda je ucrtana po zadnjem vodostaju iz arhive
+    ({{.Zadnji.Vrijednost}} cm, {{formatDate (localTime .Zadnji.Kad)}}, {{izvorLabel .ZadnjiIzvor}}).
+  </p>
+  <div class="table-card" style="padding:1rem;">
+    <div style="overflow-x:auto;">
+      <svg viewBox="0 0 {{.Crtez.Sirina}} {{.Crtez.Visina}}" style="width:100%; min-width:640px; height:auto;" role="img"
+           aria-label="Poprečni profil korita s vodnom plohom">
+        {{range .Crtez.KoteY}}
+        <line x1="46" y1="{{printf "%.1f" .Y}}" x2="{{$.Crtez.Sirina}}" y2="{{printf "%.1f" .Y}}"
+              stroke="var(--border)" stroke-width="1" stroke-dasharray="2 4"/>
+        <text x="42" y="{{printf "%.1f" .Y}}" dy="3.5" text-anchor="end"
+              style="font-size:10px; fill:var(--text-muted);">{{printf "%.0f" .Kota}}</text>
+        {{end}}
+        {{if .Crtez.ImaVode}}
+        <polygon points="{{.Crtez.Voda}}" fill="var(--primary)" fill-opacity="0.22"/>
+        <line x1="46" y1="{{printf "%.1f" .Crtez.YVode}}" x2="{{.Crtez.Sirina}}" y2="{{printf "%.1f" .Crtez.YVode}}"
+              stroke="var(--primary)" stroke-width="1.5"/>
+        {{end}}
+        <polyline points="{{.Crtez.Korito}}" fill="none" stroke="var(--text)" stroke-width="1.8"
+                  stroke-linejoin="round"/>
+        <text x="4" y="12" style="font-size:10px; fill:var(--text-muted);">m n.m.</text>
+      </svg>
+    </div>
+    <div style="display:flex; flex-wrap:wrap; gap:1.5rem; margin-top:0.75rem; font-size:0.9rem;">
+      <span>vodna ploha <strong>{{brojHRf .Crtez.KotaVode 2}} m</strong></span>
+      <span>dubina nad dnom <strong>{{brojHRf .Crtez.DubinaM 2}} m</strong></span>
+      {{if gt .Crtez.SirinaVodeM 0.0}}<span>širina vode <strong>{{brojHRf .Crtez.SirinaVodeM 0}} m</strong></span>{{end}}
+      <span>dno korita <strong>{{brojHRf .Crtez.Dno 2}} m</strong></span>
+      {{if gt .ZadnjiProtok 0.0}}<span>protok po krivulji <strong>{{brojHRf .ZadnjiProtok 0}} m³/s</strong></span>{{end}}
+    </div>
+    {{if gt (len .Profili) 1}}
+    <p class="page-desc" style="margin:0.75rem 0 0 0;">
+      Korito je snimano {{len .Profili}} puta:
+      {{range $i, $p := .Profili}}{{if $i}}, {{end}}{{$p.Datum}}{{end}}. Crta se najnovije.
+    </p>
+    {{end}}
+  </div>
+</section>
+{{end}}
+
+{{if .Nizovi}}
+<section class="detail-section" id="arhiva">
+  <h2>{{icon "activity"}} Hidrološka arhiva <span class="reg-chip">{{len .Nizovi}}</span></h2>
+  <p class="page-desc">Povijesni nizovi ove letve. Sve se računa pri čitanju iz same arhive, ništa se ne prepisuje — pa se brojevi ne mogu razići s podacima iz kojih su nastali.</p>
+  <div class="table-card"><div class="table-responsive">
+    <table class="data-table">
+      <thead><tr><th>Veličina</th><th>Izvor</th><th>Korak</th><th>Razdoblje</th><th style="text-align:right;">Zapisa</th><th></th></tr></thead>
+      <tbody>
+      {{range .Nizovi}}
+      <tr{{if eq .ID $.NizID}} style="background:var(--tint-blue-bg);"{{end}}>
+        <td><strong>{{velicinaLabel .Velicina}}</strong> <span class="reg-card-sub">{{.Jedinica}}</span></td>
+        <td>{{izvorLabel .Izvor}}{{if not .JeIzmjereno}} <span class="badge badge-unknown">nije mjereno ovdje</span>{{end}}</td>
+        <td class="reg-card-sub">{{vrstaLabel .Vrsta}}</td>
+        <td class="mono">{{.Od}} – {{.Do}}</td>
+        <td class="mono" style="text-align:right;">{{brojHR .Zapisa}}</td>
+        <td>{{if ne .ID $.NizID}}<a href="?niz={{.ID}}#arhiva" style="color:var(--primary);">pogledaj</a>{{end}}</td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div></div>
+
+  {{if .Pregled}}
+  <h3 class="part-label" style="margin:1.25rem 0 0.35rem 0;">
+    {{velicinaLabel .Pregled.Niz.Velicina}} po godinama — {{izvorLabel .Pregled.Niz.Izvor}}, {{vrstaLabel .Pregled.Niz.Vrsta}}
+  </h3>
+  <div class="table-card" style="padding:0.875rem 1.25rem; margin-bottom:0.75rem;">
+    <div style="display:flex; flex-wrap:wrap; gap:1.5rem; font-size:0.9rem;">
+      <span>najviše <strong>{{brojHRf .Pregled.Max 0}} {{.Pregled.Niz.Jedinica}}</strong> {{.Pregled.MaxNa}}</span>
+      <span>najniže <strong>{{brojHRf .Pregled.Min 0}} {{.Pregled.Niz.Jedinica}}</strong> {{.Pregled.MinNa}}</span>
+      <span>srednjak razdoblja <strong>{{brojHRf .Pregled.Srednjak 1}} {{.Pregled.Niz.Jedinica}}</strong></span>
+      <span class="reg-card-sub">{{len .Pregled.Godine}} godina</span>
+    </div>
+  </div>
+  <div class="table-card"><div class="table-responsive" style="max-height:26rem; overflow-y:auto;">
+    <table class="data-table">
+      <thead><tr><th>Godina</th><th style="text-align:right;">Maksimum</th><th>Nastupio</th><th style="text-align:right;">Minimum</th><th>Nastupio</th><th style="text-align:right;">Srednjak</th><th style="text-align:right;">Zapisa</th></tr></thead>
+      <tbody>
+      {{range .Pregled.Godine}}
+      <tr>
+        <td class="mono">{{.Godina}}.</td>
+        <td class="mono" style="text-align:right;">{{brojHRf .Max 0}}</td>
+        <td class="mono">{{.MaxNa}}</td>
+        <td class="mono" style="text-align:right;">{{brojHRf .Min 0}}</td>
+        <td class="mono">{{.MinNa}}</td>
+        <td class="mono" style="text-align:right;">{{brojHRf .Srednjak 1}}</td>
+        <td class="mono" style="text-align:right;">{{brojHR .Zapisa}}</td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div></div>
+  {{end}}
+
+  {{if .Krivulje}}
+  <h3 class="part-label" style="margin:1.25rem 0 0.35rem 0;">Krivulje protoka <span class="reg-chip">{{len .Krivulje}}</span></h3>
+  <p class="page-desc">Korito se mijenja, pa se krivulja povremeno iznova postavlja. Protok se računa krivuljom koja vrijedi na dan očitanja.</p>
+  <div class="table-card"><div class="table-responsive">
+    <table class="data-table">
+      <thead><tr><th>Vrijedi</th><th>Krivulja</th><th style="text-align:right;">Mjerenja</th><th style="text-align:right;">Odstupanje</th><th>Napomena</th></tr></thead>
+      <tbody>
+      {{range .Krivulje}}
+      <tr>
+        <td class="mono">{{.VrijediOd}} – {{if .VrijediDo}}{{.VrijediDo}}{{else}}danas{{end}}</td>
+        <td class="mono">{{.Zapis}}</td>
+        <td class="mono" style="text-align:right;">{{.Mjerenja}}</td>
+        <td class="mono" style="text-align:right;">{{brojHRf .Odstupanje 2}} %</td>
+        <td class="reg-card-sub">{{.Napomena}}</td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div></div>
+  {{end}}
+</section>
+{{end}}
+
 <section class="detail-section" id="obrane">
   <h2>{{icon "activity"}} Obrane vođene po ovoj letvi <span class="reg-chip">{{len .Episodes}}</span></h2>
   <p class="page-desc">Ista letva mjerodavna je za više dionica, a obrana se proglašava po dionici — pa u istom valu svaka može biti na svom stupnju. Obrana se proglašava i prekida na kartici dionice.</p>

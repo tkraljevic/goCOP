@@ -440,3 +440,74 @@ func TestKarticaDioniceNudiProglasenjeObrane(t *testing.T) {
 		t.Error("nudi se spuštanje stupnja ispod onog na snazi")
 	}
 }
+
+// Kartica letve crta korito s vodom u njemu i računa iz arhive. Provjerava se
+// da se vodna ploha nacrta i da brojevi ispod crteža stoje.
+func TestKarticaLetveCrtaKoritoIArhivu(t *testing.T) {
+	profil := models.ProfilKorita{
+		Datum: "2020-08-18", Vodostaj: 165, KotaNule: 80.45,
+		Tocke: []models.TockaProfila{
+			{Stacionaza: 0, Visina: 84.0}, {Stacionaza: 20, Visina: 78.0},
+			{Stacionaza: 60, Visina: 74.5}, {Stacionaza: 120, Visina: 76.0},
+			{Stacionaza: 180, Visina: 83.5},
+		},
+	}
+	crtez := crtajKorito(profil, 300)
+	if crtez == nil {
+		t.Fatal("korito se nije nacrtalo")
+	}
+	if !crtez.ImaVode {
+		t.Error("pri 300 cm voda mora biti u koritu")
+	}
+	// kota nule 80,45 + 3,00 m = 83,45 m; dno 74,50 → dubina 8,95 m
+	if v := crtez.KotaVode; v < 83.44 || v > 83.46 {
+		t.Errorf("kota vodne plohe %.2f, očekivano 83,45", v)
+	}
+	if d := crtez.DubinaM; d < 8.94 || d > 8.96 {
+		t.Errorf("dubina %.2f m, očekivano 8,95", d)
+	}
+
+	// suho korito: vodostaj ispod dna ne smije dati vodnu plohu
+	if suho := crtajKorito(profil, -700); suho != nil && suho.ImaVode {
+		t.Error("pri vodostaju ispod dna ne smije biti vodne plohe")
+	}
+
+	kad := time.Date(2026, 7, 31, 6, 0, 0, 0, time.UTC)
+	html := iscrtaj(t, "station_detail.html", StationPageData{
+		CurrentUser:  &models.User{FullName: "Provjera"},
+		Permissions:  &models.UserPermissions{IsGlobalAdmin: true},
+		Station:      models.Station{ID: uuid.MustParse("c625fa9d-0425-5115-8c49-8819cbb17bbd"), Name: "Batina", Code: "batina"},
+		Profili:      []models.ProfilKorita{profil},
+		Profil:       &profil,
+		Crtez:        crtez,
+		Zadnji:       &models.HidroTocka{Kad: kad, Vrijednost: 300},
+		ZadnjiIzvor:  "his2000",
+		ZadnjiProtok: 2939,
+		Nizovi: []models.HidroNiz{
+			{ID: 1, Letva: "batina", Izvor: "his2000", Velicina: "vodostaj", Vrsta: "satni",
+				Od: "2001-03-09", Do: "2026-07-31", Zapisa: 222624},
+			{ID: 2, Letva: "batina", Izvor: "preracun-mohacs", Velicina: "vodostaj", Vrsta: "srednjak",
+				Od: "1901-01-01", Do: "2001-03-08", Zapisa: 36493},
+		},
+		NizID: 1,
+		Pregled: &models.HidroPregled{
+			Niz: models.HidroNiz{ID: 1, Izvor: "his2000", Velicina: "vodostaj", Vrsta: "satni"},
+			Max: 772, MaxNa: "2013-06-13", Min: -128, MinNa: "2003-09-01", Srednjak: 201.4,
+			Godine: []models.HidroGodina{{Godina: 2013, Zapisa: 8760, Max: 772, MaxNa: "2013-06-13", Min: 12, MinNa: "2013-12-30", Srednjak: 244.1}},
+		},
+		Krivulje: []models.HQKrivulja{
+			{VrijediOd: "2016-01-01", A: 19.483, B: 2.2128, H0: 6.65, Mjerenja: 50, Odstupanje: 4.27},
+		},
+	})
+	for _, want := range []string{
+		"Korito i voda u njemu", "<polygon", "<polyline",
+		"DHMZ, ovjereno", "2.939 m³/s",
+		"Hidrološka arhiva", "222.624", "nije mjereno ovdje",
+		// predložak plus ispisuje kao &#43;, pa se traži oblik kakav vidi preglednik
+		"Krivulje protoka", "Q = 19,4830 · (H &#43; 6,65)^2,2128",
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("na kartici letve nema %q", want)
+		}
+	}
+}

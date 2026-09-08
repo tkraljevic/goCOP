@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"html/template"
 	"net/http"
+	"strconv"
 
 	"gocop/internal/models"
+	"gocop/internal/repository"
 	"gocop/internal/service"
 
 	"github.com/google/uuid"
@@ -23,6 +25,16 @@ type StationPageData struct {
 	ExtremesJSON         template.JS // zabilježeni ekstremi za obrazac
 	Sections             []models.Section
 	Episodes             []models.DefenseEpisode // obrane vođene po ovoj letvi, najnovija prva
+	Nizovi               []models.HidroNiz       // što o ovoj letvi ima u arhivi
+	Pregled              *models.HidroPregled    // karakteristične vrijednosti odabranog niza
+	Profili              []models.ProfilKorita   // snimke poprečnog profila korita
+	Profil               *models.ProfilKorita    // onaj koji se crta
+	Krivulje             []models.HQKrivulja     // krivulje protoka po razdobljima
+	NizID                int64                   // koji je niz odabran
+	Crtez                *KoritoCrtez            // korito s vodom u njemu
+	Zadnji               *models.HidroTocka      // zadnja vrijednost iz arhive
+	ZadnjiProtok         float64                 // preračunat iz krivulje
+	ZadnjiIzvor          string
 	WaterRegistry        []models.Watercourse
 	CanEdit              bool
 	IsEdit               bool
@@ -39,6 +51,12 @@ func (h *StationsHandler) SetPageTemplates(detail, form *template.Template,
 	h.tmplForm = form
 	h.sectionService = sections
 	h.watercourseService = waters
+}
+
+// SetArhiva daje rukovatelju hidrološku arhivu. Smije biti nil — čvor bez
+// preuzete arhive prikazuje letvu bez povijesti.
+func (h *StationsHandler) SetArhiva(a *repository.ArhivaRepository) {
+	h.arhiva = a
 }
 
 // SetEpisodeService daje rukovatelju epizode obrane, da se na kartici letve
@@ -112,6 +130,49 @@ func (h *StationsHandler) ShowStation(w http.ResponseWriter, r *http.Request) {
 	if h.episodeService != nil {
 		data.Episodes, _ = h.episodeService.ByStation(ctx, st.ID.String(), 50)
 	}
+	// Hidrološka arhiva: nizovi, karakteristične vrijednosti, korito i krivulje.
+	// Sve se računa pri čitanju, ništa se ne pamti — brojevi se tako ne mogu
+	// razići s podacima iz kojih su nastali.
+	if h.arhiva != nil && st.Code != "" {
+		data.Nizovi, _ = h.arhiva.Nizovi(ctx, st.Code)
+		data.Profili, _ = h.arhiva.Profili(ctx, st.Code)
+		data.Krivulje, _ = h.arhiva.Krivulje(ctx, st.Code)
+		if len(data.Profili) > 0 {
+			data.Profil = &data.Profili[0]
+		}
+		data.NizID = odabraniNiz(r, data.Nizovi)
+		if data.NizID > 0 {
+			data.Pregled, _ = h.arhiva.Pregled(ctx, data.NizID)
+		}
+		// zadnji vodostaj iz najpouzdanijeg niza, pa korito i protok iz njega
+		for _, n := range data.Nizovi {
+			if n.Velicina != "vodostaj" {
+				continue
+			}
+			if v, kad, ok := h.arhiva.Zadnje(ctx, n.ID); ok {
+				if data.Zadnji == nil || kad.After(data.Zadnji.Kad) {
+					data.Zadnji = &models.HidroTocka{Kad: kad, Vrijednost: v}
+					data.ZadnjiIzvor = n.Izvor
+				}
+			}
+		}
+		if data.Zadnji != nil {
+			cm := int(data.Zadnji.Vrijednost)
+			if data.Profil != nil {
+				data.Crtez = crtajKorito(*data.Profil, cm)
+			}
+			dan := data.Zadnji.Kad.Format("2006-01-02")
+			for _, k := range data.Krivulje {
+				if k.VrijediOd <= dan && (k.VrijediDo == "" || dan <= k.VrijediDo) {
+					if q, ok := k.Protok(cm); ok {
+						data.ZadnjiProtok = q
+					}
+					break
+				}
+			}
+		}
+	}
+
 	if data.CanEdit && h.watercourseService != nil {
 		if waters, err := h.watercourseService.ListWatercourses(ctx, "", "", false); err == nil {
 			data.WaterRegistry = waters
@@ -164,4 +225,27 @@ func (h *StationsHandler) ShowStationForm(w http.ResponseWriter, r *http.Request
 	if err := h.tmplForm.ExecuteTemplate(w, "station_form.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// odabraniNiz bira niz čije se karakteristične vrijednosti prikazuju: onaj iz
+// upita, inače najpouzdaniji vodostaj koji letva ima.
+func odabraniNiz(r *http.Request, nizovi []models.HidroNiz) int64 {
+	if s := r.URL.Query().Get("niz"); s != "" {
+		if id, err := strconv.ParseInt(s, 10, 64); err == nil {
+			for _, n := range nizovi {
+				if n.ID == id {
+					return id
+				}
+			}
+		}
+	}
+	for _, n := range nizovi {
+		if n.Velicina == "vodostaj" {
+			return n.ID
+		}
+	}
+	if len(nizovi) > 0 {
+		return nizovi[0].ID
+	}
+	return 0
 }

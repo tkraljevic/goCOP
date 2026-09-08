@@ -373,6 +373,19 @@ func main() {
 	}
 	server.SetDatabase(database, *dbPath)
 
+	// Hidrološka arhiva stoji uz bazu, kao zasebna datoteka. Smije je ne biti:
+	// čvor koji je nije preuzeo radi bez povijesnih nizova, a ne pada.
+	arhivaPut := filepath.Join(filepath.Dir(*dbPath), "vodostaji.db")
+	if arhiva, err := repository.OpenArhiva(arhivaPut); err != nil {
+		log.Printf("Arhiva vodostaja %s: %v", arhivaPut, err)
+	} else if arhiva == nil {
+		log.Printf("Arhiva vodostaja nije pronađena (%s) — letve rade bez povijesti", arhivaPut)
+	} else {
+		defer arhiva.Close()
+		server.SetArhiva(arhiva)
+		log.Printf("Arhiva vodostaja: %s", arhivaPut)
+	}
+
 	// Sinkronizacija: prima razmjene, odgovara na probe s lokalne mreže,
 	// povremeno sam nazove poznate čvorove
 	syncCtx, stopSync := context.WithCancel(context.Background())

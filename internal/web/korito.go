@@ -1,0 +1,159 @@
+package web
+
+import (
+	"fmt"
+	"strings"
+
+	"gocop/internal/models"
+)
+
+// Crtež poprečnog profila korita s vodom u njemu.
+//
+// Snimka korita je niz točaka (udaljenost od početka, apsolutna kota dna).
+// Vodostaj je u centimetrima iznad kote nule letve, pa se obje veličine svode
+// na istu apsolutnu kotu i onda na koordinate crteža. Time se vidi ono što se
+// iz broja ne vidi: koliko je vode u koritu i gdje su obale.
+
+// KoritoCrtez je profil pripremljen za crtanje, u koordinatama slike.
+type KoritoCrtez struct {
+	Sirina, Visina int     // veličina slike
+	Korito         string  // točke dna, za polyline
+	Voda           string  // površina vode, za polygon
+	ImaVode        bool    // vodostaj je iznad dna
+	VodostajCm     int     // vodostaj koji je nacrtan
+	KotaVode       float64 // apsolutna kota vodne plohe, m
+	YVode          float64 // gdje crta vodne plohe stoji na slici
+	Dno            float64 // najniža kota korita, m
+	DubinaM        float64 // dubina nad najnižom točkom
+	SirinaVodeM    float64 // širina vodne plohe
+	KoteY          []KotaOznaka
+	Datum          string
+}
+
+// KotaOznaka je vodoravna crta s ispisanom kotom.
+type KotaOznaka struct {
+	Y    float64
+	Kota float64
+}
+
+// crtajKorito priprema profil za crtanje pri zadanom vodostaju.
+func crtajKorito(p models.ProfilKorita, vodostajCm int) *KoritoCrtez {
+	if len(p.Tocke) < 2 {
+		return nil
+	}
+	const (
+		w, h                       = 900.0, 320.0
+		lijevo, desno, gore, dolje = 52.0, 12.0, 14.0, 26.0
+	)
+	x0, x1 := p.Tocke[0].Stacionaza, p.Tocke[len(p.Tocke)-1].Stacionaza
+	minV, maxV := p.Tocke[0].Visina, p.Tocke[0].Visina
+	for _, t := range p.Tocke {
+		if t.Visina < minV {
+			minV = t.Visina
+		}
+		if t.Visina > maxV {
+			maxV = t.Visina
+		}
+	}
+	kotaVode := p.KotaNule + float64(vodostajCm)/100
+	if kotaVode > maxV {
+		maxV = kotaVode
+	}
+	if kotaVode < minV {
+		minV = kotaVode
+	}
+	// malo zraka gore i dolje, da crta vode ne sjedne na rub
+	raspon := maxV - minV
+	if raspon <= 0 {
+		raspon = 1
+	}
+	minV -= raspon * 0.06
+	maxV += raspon * 0.10
+	if x1 <= x0 {
+		return nil
+	}
+
+	sx := func(s float64) float64 { return lijevo + (s-x0)/(x1-x0)*(w-lijevo-desno) }
+	sy := func(v float64) float64 { return gore + (maxV-v)/(maxV-minV)*(h-gore-dolje) }
+
+	var korito strings.Builder
+	for i, t := range p.Tocke {
+		if i > 0 {
+			korito.WriteByte(' ')
+		}
+		fmt.Fprintf(&korito, "%.1f,%.1f", sx(t.Stacionaza), sy(t.Visina))
+	}
+
+	c := &KoritoCrtez{
+		Sirina: int(w), Visina: int(h),
+		Korito:     korito.String(),
+		VodostajCm: vodostajCm,
+		KotaVode:   kotaVode,
+		YVode:      sy(kotaVode),
+		Dno:        p.Dno(),
+		DubinaM:    kotaVode - p.Dno(),
+		Datum:      p.Datum,
+	}
+
+	// Vodna ploha: dno između mjesta gdje kota vode siječe obale, zatvoreno
+	// vodoravnom crtom po vrhu. Presjecišta se traže po odsječcima, jer korito
+	// nije glatko nego niz izmjerenih točaka.
+	var voda []string
+	var prvi, zadnji float64
+	imaVode := false
+	for i := 1; i < len(p.Tocke); i++ {
+		a, b := p.Tocke[i-1], p.Tocke[i]
+		if a.Visina > kotaVode && b.Visina > kotaVode {
+			continue
+		}
+		if a.Visina > kotaVode {
+			u := (a.Visina - kotaVode) / (a.Visina - b.Visina)
+			s := a.Stacionaza + u*(b.Stacionaza-a.Stacionaza)
+			if !imaVode {
+				prvi = s
+			}
+			voda = append(voda, fmt.Sprintf("%.1f,%.1f", sx(s), sy(kotaVode)))
+			imaVode = true
+		}
+		if !imaVode {
+			prvi = a.Stacionaza
+			voda = append(voda, fmt.Sprintf("%.1f,%.1f", sx(a.Stacionaza), sy(a.Visina)))
+			imaVode = true
+		}
+		voda = append(voda, fmt.Sprintf("%.1f,%.1f", sx(b.Stacionaza), sy(nize(b.Visina, kotaVode))))
+		zadnji = b.Stacionaza
+		if b.Visina > kotaVode {
+			u := (kotaVode - a.Visina) / (b.Visina - a.Visina)
+			zadnji = a.Stacionaza + u*(b.Stacionaza-a.Stacionaza)
+			voda[len(voda)-1] = fmt.Sprintf("%.1f,%.1f", sx(zadnji), sy(kotaVode))
+		}
+	}
+	if imaVode && len(voda) > 2 {
+		voda = append(voda, fmt.Sprintf("%.1f,%.1f", sx(zadnji), sy(kotaVode)),
+			fmt.Sprintf("%.1f,%.1f", sx(prvi), sy(kotaVode)))
+		c.Voda = strings.Join(voda, " ")
+		c.ImaVode = true
+		c.SirinaVodeM = zadnji - prvi
+	}
+
+	// vodoravne kote, na okruglim metrima
+	korak := 1.0
+	for (maxV-minV)/korak > 8 {
+		korak *= 2
+	}
+	for k := float64(int(minV/korak)) * korak; k <= maxV; k += korak {
+		if k < minV {
+			continue
+		}
+		c.KoteY = append(c.KoteY, KotaOznaka{Y: sy(k), Kota: k})
+	}
+	return c
+}
+
+// nize vraća nižu od dvije kote
+func nize(a, b float64) float64 {
+	if a < b {
+		return a
+	}
+	return b
+}

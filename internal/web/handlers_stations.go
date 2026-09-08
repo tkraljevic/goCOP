@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 
 	"gocop/internal/models"
+	"gocop/internal/repository"
 	"gocop/internal/service"
 )
 
@@ -21,6 +22,7 @@ type StationsHandler struct {
 	sectionService     *service.SectionService
 	watercourseService *service.WatercourseService
 	episodeService     *service.EpisodeService
+	arhiva             *repository.ArhivaRepository
 	tmpl               *template.Template // popis
 	tmplDetail         *template.Template // jedna postaja
 	tmplForm           *template.Template // obrazac
