@@ -1857,7 +1857,7 @@ func TestPolozajLetveNaKartici(t *testing.T) {
 		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
 		Station:     st,
 	})
-	for _, want := range []string{"45° 50′ 45″ S", "45,845833", "Otvori na karti", "openstreetmap.org"} {
+	for _, want := range []string{"45° 50′ 45″ S", "45,845833", "Otvori u pregledniku", "openstreetmap.org"} {
 		if !strings.Contains(html, want) {
 			t.Errorf("na kartici nema %q", want)
 		}
@@ -1877,7 +1877,58 @@ func TestPolozajLetveNaKartici(t *testing.T) {
 		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
 		Station:     bez,
 	})
-	if strings.Contains(prazna, "Otvori na karti") {
+	if strings.Contains(prazna, "Otvori u pregledniku") {
 		t.Error("letva bez koordinata dobila je gumb za kartu")
+	}
+}
+
+// Karta se crta samo kad ima i koordinate i izvor pločica. Bez izvora se ne
+// prikazuje prazan okvir: čvor bez interneta i bez preuzetih pločica nema što
+// nacrtati, a koordinate iznad karte vrijede i dalje.
+func TestKartaSeCrtaSamoKadImaOboje(t *testing.T) {
+	lat, lon := 45.845833, 18.854722
+	st := models.Station{ID: uuid.New(), Name: "Batina", Code: "batina",
+		Watercourse: "Dunav", Latitude: &lat, Longitude: &lon}
+	karta := KartaPostavke{
+		Plocice:  "https://maps.wikimedia.org/osm-intl/{z}/{x}/{y}.png",
+		Zasluge:  "© OpenStreetMap, pločice Wikimedia",
+		NajviseZ: 17,
+	}
+	if !karta.Ima() || (KartaPostavke{}).Ima() {
+		t.Error("postavke karte krivo javljaju ima li izvora")
+	}
+
+	sKartom := iscrtaj(t, "station_detail.html", StationPageData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Station:     st, Karta: karta,
+	})
+	for _, want := range []string{
+		`class="karta-letve"`, `data-lat="45.845833"`, `data-lon="18.854722"`,
+		"maps.wikimedia.org", "pločice Wikimedia", `data-najvise-z="17"`,
+		"Batina · Dunav",
+	} {
+		if !strings.Contains(sKartom, want) {
+			t.Errorf("karta nema %q", want)
+		}
+	}
+
+	// bez izvora pločica nema okvira
+	bezIzvora := iscrtaj(t, "station_detail.html", StationPageData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Station:     st,
+	})
+	if strings.Contains(bezIzvora, "karta-letve") {
+		t.Error("bez izvora pločica nacrtan je prazan okvir karte")
+	}
+	// bez koordinata isto
+	bezKoord := iscrtaj(t, "station_detail.html", StationPageData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Station:     models.Station{ID: uuid.New(), Name: "Bez", Code: "bez"}, Karta: karta,
+	})
+	if strings.Contains(bezKoord, "karta-letve") {
+		t.Error("letva bez koordinata dobila je kartu")
 	}
 }

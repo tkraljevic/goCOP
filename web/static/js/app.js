@@ -425,3 +425,40 @@ function renderMarkdown(md) {
     document.querySelectorAll('.graf-niza').forEach(postavi);
   });
 })();
+
+// Karta položaja letve. Pločice dolaze s mreže, sve ostalo je lokalno — pa
+// program bez interneta i dalje radi, samo bez podloge. Kad se pločice jednom
+// preuzmu za područje obrane, u postavkama se upiše lokalna putanja i karta
+// radi svugdje.
+(function () {
+  document.addEventListener('DOMContentLoaded', function () {
+    if (typeof L === 'undefined') return;
+    document.querySelectorAll('.karta-letve').forEach(function (okvir) {
+      var platno = okvir.querySelector('.karta-platno');
+      var lat = parseFloat(okvir.dataset.lat), lon = parseFloat(okvir.dataset.lon);
+      if (!platno || isNaN(lat) || isNaN(lon) || !okvir.dataset.plocice) return;
+
+      var najvise = parseInt(okvir.dataset.najviseZ, 10) || 17;
+      var karta = L.map(platno, { scrollWheelZoom: false }).setView([lat, lon], 14);
+      var sloj = L.tileLayer(okvir.dataset.plocice, {
+        maxZoom: najvise,
+        attribution: okvir.dataset.zasluge || ''
+      });
+
+      // Ako pločice ne stignu, karta ostaje prazna — bolje je to reći nego
+      // pustiti čovjeka da gleda sive kvadrate i misli da je letva nestala.
+      var promasaja = 0;
+      sloj.on('tileerror', function () {
+        if (++promasaja < 3) return;
+        var poruka = okvir.querySelector('.karta-bez-mreze');
+        if (poruka) poruka.hidden = false;
+        okvir.classList.add('karta-prazna');
+      });
+      sloj.addTo(karta);
+
+      L.marker([lat, lon]).addTo(karta).bindPopup(okvir.dataset.naziv || '');
+      // kotačić miša lista stranicu; karta se približava tek na klik
+      karta.on('click', function () { karta.scrollWheelZoom.enable(); });
+    });
+  });
+})();

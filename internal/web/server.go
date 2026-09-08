@@ -37,7 +37,19 @@ const (
 	contextKeyModules contextKey = "modules"
 )
 
+// KartaPostavke je izvor pločica za kartu. Prazan predložak URL-a znači da se
+// karta ne prikazuje.
+type KartaPostavke struct {
+	Plocice  string
+	Zasluge  string
+	NajviseZ int
+}
+
+// Ima javlja može li se karta uopće nacrtati.
+func (k KartaPostavke) Ima() bool { return k.Plocice != "" }
+
 type Server struct {
+	karta              KartaPostavke
 	addr               string
 	authService        *service.AuthService
 	userService        *service.UserService
@@ -210,8 +222,15 @@ func templateFuncs() template.FuncMap {
 		"brojHR":  brojHR,
 		"brojHRf": brojHRf,
 		"brojHRd": brojHRd,
-		"unos":    unos,
-		"unosD":   unosD,
+		// vrijednost iz pokazivača, za predloške koje zanima broj a ne oblik
+		"deref": func(v *float64) float64 {
+			if v == nil {
+				return 0
+			}
+			return *v
+		},
+		"unos":  unos,
+		"unosD": unosD,
 		"derefFloat": func(f *float64, decimals int) string {
 			if f == nil {
 				return "-"
@@ -426,6 +445,7 @@ func (s *Server) setupRoutes() {
 	stationsH.SetPageTemplates(s.templates["station_detail.html"], s.templates["station_form.html"], s.sectionService, s.watercourseService)
 	stationsH.SetEpisodeService(s.episodeService)
 	stationsH.SetArhiva(func() *repository.ArhivaRepository { return s.arhiva })
+	stationsH.SetKarta(s.karta)
 	watercoursesH := NewWatercoursesHandler(s.watercourseService, s.sectionService, s.templates["watercourses.html"])
 	structuresH := NewStructuresHandler(s.structureService, s.stationService, s.sectionService, s.userService,
 		s.templates["structures.html"], s.templates["structure_detail.html"], s.templates["structure_form.html"])
@@ -816,6 +836,14 @@ func (s *Server) Start() error {
 // SetDatabase daje poslužitelju bazu i njezinu putanju, za održavanje
 func (s *Server) SetDatabase(db *sql.DB, path string) {
 	s.db, s.dbPath = db, path
+}
+
+// SetKarta daje poslužitelju izvor pločica za kartu. Prazan predložak URL-a
+// znači da se karta ne prikazuje — čvor bez interneta i bez preuzetih pločica
+// nema što crtati, pa je bolje ne prikazati ništa nego prazan okvir.
+func (s *Server) SetKarta(plocice, zasluge string, najviseZ int) {
+	s.karta = KartaPostavke{Plocice: plocice, Zasluge: zasluge, NajviseZ: najviseZ}
+	s.setupRoutes()
 }
 
 // SetArhiva daje poslužitelju hidrološku arhivu. Arhiva je zasebna datoteka i

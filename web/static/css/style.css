@@ -2600,3 +2600,9 @@ textarea {
 .preracunato { color: var(--text-muted); font-weight: 700; cursor: help; }
 /* najniži vodostaj: ista obitelj kao rekord, ali hladna strana */
 .threshold-pill.low { background: var(--tint-blue-bg); color: var(--primary); border-color: var(--primary); }
+
+/* Karta položaja letve */
+.karta-platno { height: 320px; border: 1px solid var(--border); border-radius: 4px; }
+.karta-letve.karta-prazna .karta-platno { opacity: 0.45; }
+.leaflet-container { background: var(--bg-subtle); font: inherit; }
+@media (max-width: 700px) { .karta-platno { height: 240px; } }

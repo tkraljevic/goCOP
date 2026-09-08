@@ -34,6 +34,7 @@ type StationPageData struct {
 	PragoviQ             []PragProtok              // isti pragovi iskazani u protoku
 	PragoviKote          []PragKota                // isti pragovi kao apsolutna kota vodne plohe
 	RazlikaSustava       float64                   // koliko se dva visinska sustava razlikuju
+	Karta                KartaPostavke             // izvor pločica za kartu položaja
 	NizID                int64                     // koji je niz odabran
 	Spojevi              []models.SpojDoseg        // spojeni nizovi: jedan satni, jedan dnevni
 	Sada                 *models.SpojenaVrijednost // zadnja vrijednost spojenog niza
@@ -77,6 +78,9 @@ func (h *StationsHandler) arh() *repository.ArhivaRepository {
 	}
 	return h.arhiva()
 }
+
+// SetKarta daje rukovatelju izvor pločica za kartu položaja letve.
+func (h *StationsHandler) SetKarta(k KartaPostavke) { h.karta = k }
 
 // SetEpisodeService daje rukovatelju epizode obrane, da se na kartici letve
 // vidi tko je sve po njoj u obrani.
@@ -136,6 +140,7 @@ func (h *StationsHandler) ShowStation(w http.ResponseWriter, r *http.Request) {
 	}
 	data.Station = *st
 	data.CanEdit = h.canEditStation(data.Permissions, *st)
+	data.Karta = h.karta
 
 	if h.sectionService != nil {
 		for _, code := range st.SectionCodes {

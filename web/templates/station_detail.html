@@ -147,9 +147,22 @@
     <span>{{icon "map-pin"}} <strong>{{.Station.KoordinateHR}}</strong></span>
     <span class="reg-card-sub mono">{{brojHRd .Station.Latitude 6}}, {{brojHRd .Station.Longitude 6}}</span>
     <a href="{{.Station.KartaURL}}" target="_blank" rel="noopener noreferrer"
-       class="btn btn-secondary btn-sm">{{icon "map"}} Otvori na karti</a>
-    <span class="reg-card-sub">Karta se otvara u pregledniku — program radi i bez interneta.</span>
+       class="btn btn-secondary btn-sm">{{icon "map"}} Otvori u pregledniku</a>
   </div>
+  {{if .Karta.Ima}}
+  <div class="karta-letve" style="margin-bottom:1rem;"
+       data-lat="{{printf "%.6f" (deref .Station.Latitude)}}"
+       data-lon="{{printf "%.6f" (deref .Station.Longitude)}}"
+       data-naziv="{{.Station.Name}}{{with .Station.Watercourse}} · {{.}}{{end}}"
+       data-plocice="{{.Karta.Plocice}}"
+       data-zasluge="{{.Karta.Zasluge}}"
+       data-najvise-z="{{.Karta.NajviseZ}}">
+    <div class="karta-platno"></div>
+    <p class="reg-card-sub karta-bez-mreze" hidden>{{icon "triangle-alert"}} Pločice karte
+      nisu dostupne — program radi bez interneta, a za ovo područje još nisu preuzete.
+      Položaj i koordinate iznad vrijede i dalje.</p>
+  </div>
+  {{end}}
   {{end}}
 
   <h2>{{icon "ruler"}} Kota nule vodomjera</h2>
