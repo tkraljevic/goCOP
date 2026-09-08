@@ -502,7 +502,7 @@ func TestKarticaLetveCrtaKoritoIArhivu(t *testing.T) {
 	for _, want := range []string{
 		"Korito i voda u njemu", "<polygon", "<polyline",
 		"DHMZ, ovjereno", "2.939 m³/s",
-		"Hidrološka arhiva", "222.624", "nije mjereno ovdje",
+		"Izvorni nizovi", "222.624", "nije mjereno ovdje",
 		// predložak plus ispisuje kao &#43;, pa se traži oblik kakav vidi preglednik
 		"Krivulje protoka", "Q = 19,4830 · (H &#43; 6,65)^2,2128",
 	} {

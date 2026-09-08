@@ -484,3 +484,103 @@ func (r *ArhivaRepository) SpojZadnje(ctx context.Context, letva, velicina, kora
 	v.Kad = time.Unix(kad, 0).UTC()
 	return &v, nil
 }
+
+// SpojRaspon vraća vrijednosti spojenog niza u razdoblju, novije prvo. Svaka
+// nosi izvor i odstupanje, pa se u tablici vidi odakle je koji redak.
+func (r *ArhivaRepository) SpojRaspon(ctx context.Context, letva, velicina, korak string,
+	od, do time.Time, granica int) ([]models.SpojenaVrijednost, error) {
+	if r == nil {
+		return nil, nil
+	}
+	if granica <= 0 || granica > 5000 {
+		granica = 400
+	}
+	rows, err := r.db.QueryContext(ctx, `SELECT vrijeme, vrijednost, izvor, vrsta, tocnost FROM spoj
+		WHERE letva=? AND velicina=? AND korak=? AND vrijeme BETWEEN ? AND ?
+		ORDER BY vrijeme DESC LIMIT ?`, letva, velicina, korak, od.Unix(), do.Unix(), granica)
+	if err != nil {
+		return nil, fmt.Errorf("spojeni niz: %w", err)
+	}
+	defer rows.Close()
+	var out []models.SpojenaVrijednost
+	for rows.Next() {
+		var v models.SpojenaVrijednost
+		var kad int64
+		if err := rows.Scan(&kad, &v.Vrijednost, &v.Izvor, &v.Vrsta, &v.Tocnost); err != nil {
+			return nil, err
+		}
+		v.Kad = time.Unix(kad, 0).UTC()
+		out = append(out, v)
+	}
+	return out, rows.Err()
+}
+
+// SpojGodine vraća godine koje spojeni niz pokriva, najnovija prva.
+func (r *ArhivaRepository) SpojGodine(ctx context.Context, letva, velicina, korak string) ([]int, error) {
+	if r == nil {
+		return nil, nil
+	}
+	rows, err := r.db.QueryContext(ctx, `SELECT DISTINCT strftime('%Y', vrijeme, 'unixepoch')
+		FROM spoj WHERE letva=? AND velicina=? AND korak=? ORDER BY 1 DESC`, letva, velicina, korak)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []int
+	for rows.Next() {
+		var g string
+		if err := rows.Scan(&g); err != nil {
+			return nil, err
+		}
+		var y int
+		fmt.Sscanf(g, "%d", &y)
+		out = append(out, y)
+	}
+	return out, rows.Err()
+}
+
+// Sazetak vraća jedan redak po veličini: razdoblje, srednjak i krajnosti s
+// datumima, računato iz spojenog dnevnog niza. To je pregled koji se gleda
+// prvi; razrada po godinama dolazi poslije.
+func (r *ArhivaRepository) Sazetak(ctx context.Context, letva string) ([]models.SazetakVelicine, error) {
+	if r == nil {
+		return nil, nil
+	}
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT velicina, count(*), date(min(vrijeme),'unixepoch'), date(max(vrijeme),'unixepoch'),
+		       avg(vrijednost), min(vrijednost), max(vrijednost), sum(vrijednost)
+		FROM spoj WHERE letva = ? AND korak = 'dnevni' GROUP BY velicina`, letva)
+	if err != nil {
+		return nil, fmt.Errorf("sažetak po veličinama: %w", err)
+	}
+	defer rows.Close()
+	var out []models.SazetakVelicine
+	for rows.Next() {
+		var s models.SazetakVelicine
+		var zbroj float64
+		if err := rows.Scan(&s.Velicina, &s.Zapisa, &s.Od, &s.Do, &s.Srednjak,
+			&s.Min, &s.Max, &zbroj); err != nil {
+			return nil, err
+		}
+		if models.SeZbraja(s.Velicina) {
+			s.ZbrojIma, s.Zbroj = true, zbroj
+		}
+		out = append(out, s)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	// datumi krajnosti, po veličini
+	for i := range out {
+		_ = r.db.QueryRowContext(ctx, `SELECT date(vrijeme,'unixepoch') FROM spoj
+			WHERE letva=? AND korak='dnevni' AND velicina=? ORDER BY vrijednost DESC, vrijeme LIMIT 1`,
+			letva, out[i].Velicina).Scan(&out[i].MaxNa)
+		_ = r.db.QueryRowContext(ctx, `SELECT date(vrijeme,'unixepoch') FROM spoj
+			WHERE letva=? AND korak='dnevni' AND velicina=? ORDER BY vrijednost ASC, vrijeme LIMIT 1`,
+			letva, out[i].Velicina).Scan(&out[i].MinNa)
+	}
+	sort.SliceStable(out, func(a, b int) bool {
+		return rangVelicine(out[a].Velicina) < rangVelicine(out[b].Velicina)
+	})
+	return out, nil
+}

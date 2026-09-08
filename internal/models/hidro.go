@@ -125,6 +125,35 @@ func (v SpojenaVrijednost) TocnostLabel() string {
 	return "±" + strconv.FormatFloat(v.Tocnost, 'f', 0, 64)
 }
 
+// SazetakVelicine je ono što se o jednoj veličini kaže u jednom retku:
+// razdoblje, srednjak i krajnosti. Za dežurnog je to cijela priča; ostalo je
+// razrada.
+type SazetakVelicine struct {
+	Velicina     string
+	Od, Do       string
+	Zapisa       int
+	Srednjak     float64
+	Min, Max     float64
+	MinNa, MaxNa string
+	ZbrojIma     bool
+	Zbroj        float64
+}
+
+// Jedinica je mjerna jedinica veličine.
+func (s SazetakVelicine) Jedinica() string { return JedinicaVelicine(s.Velicina) }
+
+// Naziv je veličina za ispis.
+func (s SazetakVelicine) Naziv() string { return NazivVelicine(s.Velicina) }
+
+// Decimala govori s koliko se decimala veličina ispisuje.
+func (s SazetakVelicine) Decimala() int {
+	switch s.Velicina {
+	case "temperatura", "koncentracija":
+		return 1
+	}
+	return 0
+}
+
 // SpojDoseg je što spojeni niz pokriva i iz čega je sastavljen.
 type SpojDoseg struct {
 	Letva    string
