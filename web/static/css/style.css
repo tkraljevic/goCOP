@@ -2542,3 +2542,25 @@ textarea {
   gap: 0.75rem; flex-wrap: wrap;
 }
 .odjeljak-glava > h2 { margin-bottom: 0; }
+
+/* Pomoć: znak "?" uz temu u zaglavlju i sama stranica pomoći */
+.pomoc-znak { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
+.pomoc-kazalo { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0 0 1.25rem; }
+.pomoc-kazalo a {
+  padding: 0.3rem 0.7rem; border: 1px solid var(--border); border-radius: 999px;
+  background: var(--surface); color: var(--text-secondary);
+  font-size: 0.82rem; font-weight: 600; text-decoration: none;
+}
+.pomoc-kazalo a:hover { border-color: var(--primary); color: var(--primary); }
+.pomoc-tekst { padding: 1rem 1.25rem; max-width: 62rem; line-height: 1.6; }
+.pomoc-tekst p { margin: 0 0 0.75rem; }
+.pomoc-tekst p:last-child { margin-bottom: 0; }
+.pomoc-tekst h3 {
+  margin: 1.25rem 0 0.4rem; font-size: 0.95rem; color: var(--text-strong);
+}
+.pomoc-tekst ul { margin: 0 0 0.75rem; padding-left: 1.2rem; }
+.pomoc-tekst li { margin-bottom: 0.4rem; }
+.pomoc-pojmovi dt { font-weight: 700; color: var(--text-strong); margin-top: 0.6rem; }
+.pomoc-pojmovi dd { margin: 0.1rem 0 0; color: var(--text-secondary); }
+/* sidro ne smije završiti ispod ljepljivog zaglavlja */
+.detail-section[id], .pomoc-tekst li[id] { scroll-margin-top: 5rem; }

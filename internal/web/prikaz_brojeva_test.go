@@ -1398,3 +1398,56 @@ func TestCuvajPovijestStojiUzOcitanja(t *testing.T) {
 		t.Error("gumb je i dalje u zaglavlju stranice")
 	}
 }
+
+// Znak "?" u zaglavlju vodi na odjeljak pomoći za stranicu na kojoj stojiš.
+// Sidro je ActiveNav, pa svaka vrijednost koju stranice koriste mora na
+// stranici pomoći imati svoje mjesto — inače znak vodi u prazno.
+func TestPomocImaSidroZaSvakuStranicu(t *testing.T) {
+	html := iscrtaj(t, "pomoc.html", PomocPageData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		ActiveNav:   "pomoc",
+	})
+	// vrijednosti ActiveNav koje stranice postavljaju
+	for _, nav := range []string{
+		"admin", "dashboard", "journals", "maintenance", "moduli", "organizacija",
+		"pomoc", "profile", "readings", "registers", "sections", "settings",
+		"stations", "structures", "sync", "teren", "territories", "users", "watercourses",
+	} {
+		if !strings.Contains(html, `id="`+nav+`"`) {
+			t.Errorf("pomoć nema sidro %q — znak ? s te stranice vodi u prazno", nav)
+		}
+	}
+	// znak u zaglavlju vodi na sidro trenutne stranice
+	if !strings.Contains(html, `href="/pomoc#pomoc"`) {
+		t.Error("znak ? u zaglavlju ne vodi na odjeljak stranice")
+	}
+	for _, want := range []string{"Kota nule", "HQ krivulja", "Dnevni srednjak", "Pojmovnik"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("pojmovnik nema %q", want)
+		}
+	}
+}
+
+// Široki graf je pri izdvajanju u zajednički predložak morao ostati isti do
+// koordinate: rubovi su prije stajali kao brojke u HTML-u, sad ih računa graf.
+func TestSirokiGrafZadrzavaKoordinate(t *testing.T) {
+	c := crtajNiz(nizZaGraf(time.Date(2013, 6, 14, 6, 0, 0, 0, time.UTC)), "vodostaj", nil, nil)
+	for _, p := range []struct {
+		ime  string
+		imas float64
+		zeli float64
+	}{
+		{"lijevi rub", c.LijevoX(), 96},
+		{"desni rub", c.DesnoX(), 1484},
+		{"oznake okomite osi", c.OsY(), 88},
+		{"oznake vodoravne osi", c.OsX(), 406},
+		{"natpis praga", c.PragX(), 1490},
+		{"dno plohe", c.DnoY(), 374},
+		{"visina plohe", c.VisinaPlohe(), 352},
+	} {
+		if p.imas != p.zeli {
+			t.Errorf("%s: %v, prije %v", p.ime, p.imas, p.zeli)
+		}
+	}
+}

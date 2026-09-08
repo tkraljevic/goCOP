@@ -336,7 +336,7 @@ func NewServer(
 	// Predlošci koji proširuju base.html
 	for _, page := range []string{"dashboard.html", "registri.html", "users.html", "user_detail.html", "user_form.html", "duty_form.html", "profile.html", "sections.html", "section_detail.html", "section_form.html", "territories.html", "county_form.html", "municipality_form.html", "municipality_detail.html", "stations.html", "station_detail.html", "station_form.html", "watercourses.html", "watercourse_detail.html", "watercourse_form.html", "structures.html", "structure_detail.html", "structure_form.html", "readings.html", "reading_history.html", "reading_form.html", "arhiva_ispravci.html", "uvoz_ocitanja.html", "teren.html", "moduli.html", "settings.html", "odrzavanje.html", "organizacija.html", "sector_form.html", "area_form.html", "contractor_form.html", "firme.html", "nazivi.html", "sudionici.html",
 		"administracija.html", "uvozi.html", "sinkronizacija.html", "pretplate.html", "baza.html",
-		"dnevnici.html", "dnevnik_form.html", "dnevnik.html", "dnevnik_list.html"} {
+		"dnevnici.html", "dnevnik_form.html", "dnevnik.html", "dnevnik_list.html", "pomoc.html"} {
 		t, err := template.New("base.html").Funcs(tmplFuncs).ParseFS(templatesFS, "base.html", page)
 		if err != nil {
 			return nil, fmt.Errorf("greška pri parsiranju predloška %s: %w", page, err)
@@ -489,6 +489,11 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /{$}", s.authMiddleware(http.HandlerFunc(dashH.ShowDashboard)))
 	s.mux.Handle("GET /dashboard", s.authMiddleware(http.HandlerFunc(dashH.ShowDashboard)))
 	s.mux.Handle("GET /registri", s.authMiddleware(http.HandlerFunc(dashH.ShowRegisters)))
+
+	// Pomoć je otvorena svima koji su prijavljeni: nije ni u jednom modulu, jer
+	// objašnjava i ono što čitatelj ne vidi, pa zna da postoji.
+	pomocH := NewPomocHandler(s.templates["pomoc.html"])
+	s.mux.Handle("GET /pomoc", s.authMiddleware(http.HandlerFunc(pomocH.ShowPomoc)))
 
 	// Administracija: ulazna stranica i sve što radi samo administrator
 	adminH := NewAdminHandler(s.orgService, s.userService, s.peersService, s.templates["administracija.html"], s.templates["uvozi.html"])
