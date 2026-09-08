@@ -123,6 +123,9 @@ type ReadingHistoryData struct {
 	Count       int
 	Years       []int
 	Year        int
+	Pogled      string // 30 | 90 | sve | godina
+	PogledOpis  string
+	Dana        int
 	Chart       *Chart
 	CanRecord   bool
 	CanEdit     bool
@@ -411,28 +414,53 @@ func (h *ReadingsHandler) ShowHistory(w http.ResponseWriter, r *http.Request) {
 		data.Years = append(data.Years, y)
 	}
 	sort.Sort(sort.Reverse(sort.IntSlice(data.Years)))
-	data.Year, _ = strconv.Atoi(r.URL.Query().Get("year"))
-	if data.Year > 0 && !years[data.Year] {
-		data.Year = 0 // godina bez ijednog očitanja: prikaži sve, da filtar i popis govore isto
+
+	// Pogled bira i graf i popis, da govore o istom razdoblju. Zadano je
+	// zadnjih trideset dana — koliko traje mjesec, i koliko dežurni obično
+	// gleda unatrag.
+	data.Pogled = r.URL.Query().Get("pogled")
+	if data.Pogled == "" {
+		data.Pogled = "30"
+	}
+	if g, err := strconv.Atoi(data.Pogled); err == nil && g > 1900 && !years[g] {
+		data.Pogled = "30" // godina bez ijednog očitanja
 	}
 	shown := all
-	if data.Year > 0 {
-		shown = shown[:0:0]
-		for _, rd := range all {
-			if rd.LocalTime().Year() == data.Year {
-				shown = append(shown, rd)
+	switch data.Pogled {
+	case "sve":
+		data.PogledOpis = "sve"
+	default:
+		if n, err := strconv.Atoi(data.Pogled); err == nil && n > 1900 {
+			data.Year = n
+			data.PogledOpis = fmt.Sprintf("%d.", n)
+			shown = shown[:0:0]
+			for _, rd := range all {
+				if rd.LocalTime().Year() == n {
+					shown = append(shown, rd)
+				}
+			}
+		} else {
+			dana := 30
+			if n, err := strconv.Atoi(data.Pogled); err == nil && n > 0 && n <= 3650 {
+				dana = n
+			}
+			data.Dana = dana
+			data.PogledOpis = fmt.Sprintf("zadnjih %d dana", dana)
+			granica := time.Now().AddDate(0, 0, -dana)
+			shown = shown[:0:0]
+			for _, rd := range all {
+				if rd.MeasuredAt.After(granica) {
+					shown = append(shown, rd)
+				}
 			}
 		}
 	}
 	data.Count = len(shown)
-	// Operativna očitanja koriste isti graf kao arhiva: veći koordinatni sustav,
-	// oznake po mjesecima i vrijednost uz miša. Prije su imali svoj, sitniji.
-	vidljiva := shown
-	if data.Year == 0 && len(vidljiva) > 120 {
-		vidljiva = vidljiva[:120]
-	}
+
+	// Graf i popis crtaju isto razdoblje: graf koji pokazuje drugo od tablice
+	// ispod njega laže o tome što se gleda.
 	var zaGraf []models.SpojenaVrijednost
-	for _, rd := range vidljiva {
+	for _, rd := range shown {
 		if rd.LevelCm == nil {
 			continue
 		}

@@ -76,3 +76,38 @@ func TestVrijemeNizaBezPomakaIDvostrukogSata(t *testing.T) {
 		t.Errorf("00 h lokalno spremljeno kao %v, očekivano 6.9. 22:00 UTC", got)
 	}
 }
+
+// Graf i popis moraju govoriti o istom razdoblju: graf koji pokazuje drugo od
+// tablice ispod njega laže o tome što se gleda. Zadano je zadnjih 30 dana.
+func TestPogledVeziGrafITablicu(t *testing.T) {
+	cm := func(v int) *int { return &v }
+	sad := time.Now()
+	var sve []models.Reading
+	for i := 0; i < 200; i++ { // 200 dana unatrag
+		sve = append(sve, models.Reading{MeasuredAt: sad.AddDate(0, 0, -i), LevelCm: cm(100 + i)})
+	}
+	_ = sve
+
+	html := iscrtaj(t, "reading_history.html", ReadingHistoryData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Station:     &models.Station{ID: uuid.New(), Name: "Batina", Code: "batina"},
+		GaugeName:   "Batina",
+		Pogled:      "30", PogledOpis: "zadnjih 30 dana", Dana: 30,
+		Years: []int{2026, 2025}, Count: 30,
+		Readings: sve[:30],
+		Chart:    crtajNiz(nizZaGraf(sad), "vodostaj", nil, nil),
+	})
+	if !strings.Contains(html, "zadnjih 30 dana") {
+		t.Error("pogled nije ispisan uz graf")
+	}
+	if !strings.Contains(html, `name="pogled"`) {
+		t.Error("nema izbornika pogleda")
+	}
+	// uvoz stoji ispod popisa očitanja
+	iOcitanja := strings.Index(html, "Očitanja")
+	iUvoz := strings.Index(html, "Unesi više očitanja odjednom")
+	if iUvoz > 0 && iOcitanja > 0 && iUvoz < iOcitanja {
+		t.Error("uvoz stoji iznad popisa očitanja")
+	}
+}
