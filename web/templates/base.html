@@ -253,16 +253,17 @@
 <svg viewBox="0 0 {{.Sirina}} {{.Visina}}" style="width:100%; height:auto;"
      role="img" aria-label="Poprečni profil korita: gdje se voda nalazi">
   {{range .KoteY}}
-  <line class="korito-mreza" x1="{{printf "%.1f" $.Lijevo}}" y1="{{printf "%.1f" .Y}}" x2="{{$.Sirina}}" y2="{{printf "%.1f" .Y}}"/>
+  <line class="korito-mreza" x1="{{printf "%.1f" $.Lijevo}}" y1="{{printf "%.1f" .Y}}" x2="{{printf "%.1f" $.DesnaOsCrtaX}}" y2="{{printf "%.1f" .Y}}"/>
   <text class="korito-os" x="{{printf "%.1f" $.OsX}}" y="{{printf "%.1f" .Y}}" dy="3.5" text-anchor="end">{{.Ispis}}</text>
+  {{if $.DvijeOsi}}<text class="korito-os" x="{{printf "%.1f" $.DesnaOsX}}" y="{{printf "%.1f" .Y}}" dy="3.5" text-anchor="start">{{.DesniIspis}}</text>{{end}}
   {{end}}
   {{range .Pragovi}}
-  <line class="korito-prag {{.Class}}" x1="{{printf "%.1f" $.Lijevo}}" y1="{{printf "%.1f" .Y}}" x2="{{$.Sirina}}" y2="{{printf "%.1f" .Y}}"/>
+  <line class="korito-prag {{.Class}}" x1="{{printf "%.1f" $.Lijevo}}" y1="{{printf "%.1f" .Y}}" x2="{{printf "%.1f" $.DesnaOsCrtaX}}" y2="{{printf "%.1f" .Y}}"/>
   <text class="korito-prag-natpis {{.Class}}" x="{{printf "%.1f" $.NatpisX}}" y="{{printf "%.1f" .Y}}" dy="-4">{{.Label}} {{brojHR .Cm}}</text>
   {{end}}
   {{if .ImaPojas}}
   <rect class="korito-pojas" x="{{printf "%.1f" .Lijevo}}" y="{{printf "%.1f" .PojasY}}"
-        width="{{printf "%.1f" .SirinaPlohe}}" height="{{printf "%.1f" .PojasH}}"/>
+        width="{{printf "%.1f" .SirinaPojasa}}" height="{{printf "%.1f" .PojasH}}"/>
   {{end}}
   {{if .ImaVode}}
   <polygon class="korito-voda" points="{{.Voda}}"/>
@@ -271,6 +272,7 @@
   {{end}}
   <polyline class="korito-dno" points="{{.Korito}}"/>
   <text class="korito-os" x="4" y="12">{{.NazivOsi}}</text>
+  {{if .DvijeOsi}}<text class="korito-os" x="{{sub .Sirina 4}}" y="12" text-anchor="end">{{.NazivDesneOsi}}</text>{{end}}
   <text class="korito-os" x="{{printf "%.1f" .PocetakX}}" y="{{sub .Visina 6}}" text-anchor="start">l. obala · {{brojHRf .PocetakM 0}} m</text>
   <text class="korito-os" x="{{printf "%.1f" .KrajX}}" y="{{sub .Visina 6}}" text-anchor="end">{{brojHRf .KrajM 0}} m · d. obala</text>
 </svg>

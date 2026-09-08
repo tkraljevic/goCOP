@@ -2409,11 +2409,14 @@ textarea {
 .rows-emb { --cols: minmax(12rem, 3fr) repeat(4, minmax(5.5rem, 1fr)) minmax(4.5rem, 0.8fr) 2.25rem; }
 /* Redci se mjere prema širini kartice, ne prozora: prozor zna biti širok dok
    je obrazac uzak, pa se stupci prelijevaju preko ruba. */
-.rows-extreme, .rows-zero { container-type: inline-size; }
+.rows-extreme, .rows-zero, .rows-return { container-type: inline-size; }
 .rows-extreme { --cols: 6.5rem 6.5rem 8rem 8rem minmax(8rem, 1fr) minmax(9rem, 1.2fr) minmax(9rem, 1.2fr) 2.25rem; }
 .rows-extreme .extreme-row, .rows-extreme .rows-head { display: grid; gap: 0.4rem; grid-template-columns: var(--cols); align-items: center; }
 .rows-extreme .extreme-row { margin-bottom: 0.4rem; }
 .rows-zero { --cols: 9rem 7rem 7rem minmax(10rem, 2fr) 2.25rem; }
+.rows-return { --cols: 5rem 6rem 5.5rem 5.5rem minmax(9rem, 1.3fr) minmax(6.5rem, 1fr) minmax(6.5rem, 1fr) 8.5rem minmax(8rem, 1.2fr) 2.25rem; }
+.rows-return .return-row, .rows-return .rows-head { display: grid; gap: 0.4rem; grid-template-columns: var(--cols); align-items: center; }
+.rows-return .return-row { margin-bottom: 0.4rem; }
 .rows-zero .zero-row { display: grid; gap: 0.4rem; grid-template-columns: var(--cols); align-items: center; margin-bottom: 0.4rem; }
 .rows-zero .rows-head { display: grid; gap: 0.4rem; grid-template-columns: var(--cols); }
 .rows-obj { --cols: minmax(7rem, 1fr) minmax(14rem, 3fr) minmax(11rem, 2fr) 2.25rem; }
@@ -2454,6 +2457,23 @@ textarea {
     font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary);
   }
   .rows-extreme .extreme-row > .btn, .rows-zero .zero-row > .btn { justify-self: start; }
+}
+
+/* Povratni vodostaj ima devet polja, pa mu treba širi prag nego ekstremima:
+   u jedan redak stanu tek pri punoj širini obrasca. */
+@container (max-width: 70rem) {
+  .rows-return .rows-head { display: none; }
+  .rows-return .return-row {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+    align-items: end;
+    padding: 0.6rem 0.7rem; margin-bottom: 0.5rem;
+    border: 1px solid var(--border); border-radius: 4px;
+  }
+  .rows-return [data-label]::before {
+    content: attr(data-label); display: block;
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary);
+  }
+  .rows-return .return-row > .btn { justify-self: start; }
 }
 
 /* Dnevnik: struktura osoblja i strojeva — mreža sitnih brojčanih polja */
@@ -2668,8 +2688,22 @@ textarea {
    podrijetlo stanu u jedan redak, a izvor i objašnjenje idu ispod. */
 .ekstremi-usko { display: none; list-style: none; margin: 0; padding: 0; }
 @media (max-width: 700px) {
-  .ekstremi-siroko { display: none; }
+  .ekstremi-siroko, .valovi-siroko { display: none; }
   .ekstremi-usko { display: block; }
+}
+@media (min-width: 701px) {
+  .valovi-usko { display: none; }
+}
+
+/* Valovi obrane: u kartici svaki stupanj ide u svoj redak „stanje → trajanje",
+   jer stupnjeva zna biti četiri i u jedan redak ne stanu. */
+.val-stupnjevi { margin: 0.5rem 0 0; display: grid; gap: 0.3rem; }
+.val-stupnjevi > div { display: grid; grid-template-columns: 8.5rem 1fr; gap: 0.3rem 0.6rem; align-items: baseline; }
+.val-stupnjevi dt { font-size: 0.8rem; color: var(--text-secondary); }
+.val-stupnjevi dd { margin: 0; font-size: 0.85rem; }
+.val-stupnjevi dd .ekstrem-nacin { display: block; }
+@media (max-width: 420px) {
+  .val-stupnjevi > div { grid-template-columns: 1fr; gap: 0.1rem; }
 }
 .ekstremi-usko > li {
   padding: 0.7rem 0.9rem;

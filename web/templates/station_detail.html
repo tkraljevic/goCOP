@@ -9,7 +9,7 @@
   <div>
     <h1 class="page-title">{{icon "ruler"}} {{.Station.Name}}</h1>
     <p class="page-desc">
-      {{if .Station.HasWatercourse}}{{.Station.Watercourse}}{{else}}vodotok nije određen{{end}}
+      {{if .Station.HasWatercourse}}{{if .Station.WatercourseCode}}<a href="/watercourses/{{.Station.WatercourseCode}}">{{.Station.Watercourse}}</a>{{else}}{{.Station.Watercourse}}{{end}}{{with .Station.PodrijetloVodotoka}} <span title="kako je utvrđeno na kojoj vodi letva stoji">({{.}})</span>{{end}}{{else}}vodotok nije određen{{end}}
       {{if .Station.Stationing}} · {{.Station.Stationing}}{{end}}
       {{if .Station.WaterArea}} · {{.Station.WaterArea}}{{end}}
       {{if .Station.NeedsReview}} · <span class="badge badge-inactive" title="{{.Station.ReviewNote}}">{{icon "triangle-alert"}} traži pregled pragova</span>{{end}}
@@ -35,7 +35,34 @@
 {{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
 {{if .Station.NeedsReview}}<div class="alert alert-warning">{{.Station.ReviewNote}}</div>{{end}}
 
+{{if .Station.ImaKoordinate}}
 <section class="detail-section" style="margin-top:0;">
+  <h2>{{icon "map-pin"}} Položaj letve</h2>
+  <div class="reg-card" style="padding:0.75rem 1rem; margin-bottom:1rem; display:flex; flex-wrap:wrap;
+       gap:0.5rem 1.5rem; align-items:baseline;">
+    <span><strong>{{.Station.KoordinateHR}}</strong></span>
+    <span class="reg-card-sub mono">{{brojHRd .Station.Latitude 6}}, {{brojHRd .Station.Longitude 6}}</span>
+    <a href="{{.Station.KartaURL}}" target="_blank" rel="noopener noreferrer"
+       class="btn btn-secondary btn-sm">{{icon "map"}} Otvori u pregledniku</a>
+  </div>
+  {{if .Karta.Ima}}
+  <div class="karta-letve"
+       data-lat="{{printf "%.6f" (deref .Station.Latitude)}}"
+       data-lon="{{printf "%.6f" (deref .Station.Longitude)}}"
+       data-naziv="{{.Station.Name}}{{with .Station.Watercourse}} · {{.}}{{end}}"
+       data-plocice="{{.Karta.Plocice}}"
+       data-zasluge="{{.Karta.Zasluge}}"
+       data-najvise-z="{{.Karta.NajviseZ}}">
+    <div class="karta-platno"></div>
+    <p class="reg-card-sub karta-bez-mreze" hidden>{{icon "triangle-alert"}} Pločice karte
+      nisu dostupne — program radi bez interneta, a za ovo područje još nisu preuzete.
+      Položaj i koordinate iznad vrijede i dalje.</p>
+  </div>
+  {{end}}
+</section>
+{{end}}
+
+<section class="detail-section">
   <h2>{{icon "gauge"}} Pragovi obrane od poplava</h2>
   <div class="reg-card" style="padding:1rem;">
     <dl class="reg-facts station-threshold-grid">
@@ -156,31 +183,50 @@
 </section>
 {{end}}
 
+{{if .Station.ImaPovratne}}
 <section class="detail-section">
-  {{if .Station.ImaKoordinate}}
-  <div class="reg-card" style="padding:0.75rem 1rem; margin-bottom:1rem; display:flex; flex-wrap:wrap;
-       gap:0.5rem 1.5rem; align-items:baseline;">
-    <span>{{icon "map-pin"}} <strong>{{.Station.KoordinateHR}}</strong></span>
-    <span class="reg-card-sub mono">{{brojHRd .Station.Latitude 6}}, {{brojHRd .Station.Longitude 6}}</span>
-    <a href="{{.Station.KartaURL}}" target="_blank" rel="noopener noreferrer"
-       class="btn btn-secondary btn-sm">{{icon "map"}} Otvori u pregledniku</a>
-  </div>
-  {{if .Karta.Ima}}
-  <div class="karta-letve" style="margin-bottom:1rem;"
-       data-lat="{{printf "%.6f" (deref .Station.Latitude)}}"
-       data-lon="{{printf "%.6f" (deref .Station.Longitude)}}"
-       data-naziv="{{.Station.Name}}{{with .Station.Watercourse}} · {{.}}{{end}}"
-       data-plocice="{{.Karta.Plocice}}"
-       data-zasluge="{{.Karta.Zasluge}}"
-       data-najvise-z="{{.Karta.NajviseZ}}">
-    <div class="karta-platno"></div>
-    <p class="reg-card-sub karta-bez-mreze" hidden>{{icon "triangle-alert"}} Pločice karte
-      nisu dostupne — program radi bez interneta, a za ovo područje još nisu preuzete.
-      Položaj i koordinate iznad vrijede i dalje.</p>
-  </div>
-  {{end}}
-  {{end}}
+  <h2>{{icon "history"}} Povratni vodostaji</h2>
+  <div class="table-card ekstremi-siroko"><div class="table-responsive">
+    <table class="data-table">
+      <thead><tr><th>Jednom u</th><th>Vodostaj</th><th>Raspon</th><th>Izgled u godini</th><th>Metoda i niz</th></tr></thead>
+      <tbody>
+      {{range .Station.PovratniVodostaji}}
+      <tr>
+        <td>{{.GodineLabel}}</td>
+        <td class="mono"><strong>{{.Label}}</strong></td>
+        <td class="mono">{{if .ImaRaspon}}{{.RasponLabel}}{{else}}—{{end}}</td>
+        <td>{{.SansaLabel}}</td>
+        <td class="celija-blok">{{.Series}}{{if .Method}} <span class="ekstrem-nacin">— {{.Method}}</span>{{end}}
+          {{if or .Source .ComputedOn}}<div class="ekstrem-nacin">{{.Source}}{{if .ComputedOn}}{{if .Source}} · {{end}}izračunato {{datumHR .ComputedOn}}{{end}}</div>{{end}}
+          {{if .Note}}<div class="ekstrem-napomena">{{.Note}}</div>{{end}}</td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div></div>
 
+  <ul class="ekstremi-usko">
+    {{range .Station.PovratniVodostaji}}
+    <li>
+      <div class="ex-glava">
+        <span class="ex-vrsta">jednom u {{.GodineLabel}}</span>
+        <strong class="ex-vrijednost">{{.Label}}</strong>
+        <span class="ex-datum">{{.SansaLabel}}</span>
+      </div>
+      {{if .ImaRaspon}}<div class="ex-izvor">raspon {{.RasponLabel}}</div>{{end}}
+      <div class="ex-izvor">{{.Series}}{{if .Method}} <span class="ekstrem-nacin">— {{.Method}}</span>{{end}}</div>
+      {{if or .Source .ComputedOn}}<div class="ekstrem-nacin">{{.Source}}{{if .ComputedOn}}{{if .Source}} · {{end}}izračunato {{datumHR .ComputedOn}}{{end}}</div>{{end}}
+      {{if .Note}}<div class="ekstrem-napomena">{{.Note}}</div>{{end}}
+    </li>
+    {{end}}
+  </ul>
+  <p class="reading-meta" style="margin-top:0.35rem;">Procjena iz niza, ne mjerenje i ne propis. „Jednom u 100 godina“
+    znači 1 % izgleda svake pojedine godine, a ne da se neće ponoviti prije isteka stoljeća — dvije takve vode mogu
+    doći uzastopce. Pragovi obrane su propisani i ne izvode se iz ovih brojki.</p>
+</section>
+{{end}}
+
+<section class="detail-section">
   <h2>{{icon "ruler"}} Kota nule vodomjera</h2>
   <div class="reg-card" style="padding:1rem;">
     <dl class="reg-facts station-zero-grid">
@@ -226,43 +272,6 @@
   </div>
 </section>
 
-<section class="detail-section">
-  <h2>{{icon "waves"}} Vodotok na kojem postaja stoji</h2>
-  <div class="reg-card" style="padding:1rem;">
-    <p style="margin:0 0 0.5rem; font-size:0.9rem;">
-      {{if .Station.HasWatercourse}}
-        <strong>{{.Station.Watercourse}}</strong>
-        <span class="page-desc" style="display:inline;">·
-          {{if eq .Station.WatercourseSource "NAZIV"}}iz naziva vodomjera
-          {{else if eq .Station.WatercourseSource "STACIONAŽA"}}iz stacionaže
-          {{else if eq .Station.WatercourseSource "DIONICE"}}izvedeno iz dionica
-          {{else if eq .Station.WatercourseSource "OPERATER"}}potvrdio operater
-          {{else}}{{.Station.WatercourseSource}}{{end}}
-        </span>
-        {{if .Station.WatercourseCode}}· <a href="/watercourses/{{.Station.WatercourseCode}}" style="color:var(--primary);">u registru</a>{{end}}
-      {{else}}
-        <span style="color:var(--text-muted);">Nije određen. Dokumentacija dionica govori za što je postaja mjerodavna, ne gdje stoji.</span>
-      {{end}}
-    </p>
-    {{if .CanEdit}}
-    <form method="POST" action="/api/stations/watercourse" class="station-watercourse-form">
-      <input type="hidden" name="station_id" value="{{.Station.ID}}">
-      <div class="form-group" style="flex:1; min-width:14rem; margin:0;">
-        <label class="form-label" for="watercourse_code">Pridruži iz registra vodotoka</label>
-        <select id="watercourse_code" name="watercourse_code" class="form-control">
-          <option value="">— ukloni vodotok —</option>
-          {{range .WaterRegistry}}
-          <option value="{{.Code}}" {{if eq .Code $.Station.WatercourseCode}}selected{{end}}>{{.OfficialName}}</option>
-          {{end}}
-        </select>
-      </div>
-      <button type="submit" class="btn btn-secondary" style="min-height:40px;">Spremi vodotok</button>
-    </form>
-    <p class="form-help">Ručni odabir nadjačava strojno utvrđivanje i bilježi se kao potvrda operatera.</p>
-    {{end}}
-  </div>
-</section>
-
 {{if .Crtez}}
 <section class="detail-section" id="korito">
   <h2>{{icon "waves"}} Korito i voda u njemu</h2>
@@ -282,14 +291,18 @@
   {{end}}
   <div class="reg-card" style="padding:0.6rem 1rem; margin-top:-1px;">
     <div class="korito-brojke">
-      <span>vodna ploha <strong>{{brojHRf .Crtez.KotaVode 2}} m</strong> <span class="reg-card-sub">{{.Station.ZeroDatumSystem}}</span></span>
+      <span>vodna ploha <strong>{{brojHRf .Crtez.KotaVode 2}} m</strong> <span class="reg-card-sub">{{if .Crtez.Sustav}}{{.Crtez.Sustav}}{{else}}{{.Station.ZeroDatumSystem}}{{end}}</span></span>
       <span>dubina nad dnom <strong>{{brojHRf .Crtez.DubinaM 2}} m</strong></span>
       {{if gt .Crtez.SirinaVodeM 0.0}}<span>širina vode <strong>{{brojHRf .Crtez.SirinaVodeM 0}} m</strong></span>{{end}}
       <span>dno korita <strong>{{brojHRf .Crtez.Dno 2}} m</strong></span>
       {{if gt .ZadnjiProtok 0.0}}<span>protok po krivulji <strong>{{brojHRf .ZadnjiProtok 0}} m³/s</strong></span>{{end}}
     </div>
     <p class="reg-card-sub" style="margin:0.5rem 0 0;">
-      Sve kote su u sustavu <strong>{{.Station.ZeroDatumSystem}}</strong>, jer je u njemu snimljen i profil.
+      {{if .Crtez.Sustav}}Kote su preračunate u <strong>{{.Crtez.Sustav}}</strong>; profil je snimljen u sustavu
+        {{.Station.ZeroDatumSystem}}, pa je od snimljenih kota oduzeto {{brojHRd .Station.RazlikaVisinskihSustava 3}} m.
+        Razlika se računa iz kota nule same letve i nigdje nije upisana kao konstanta.
+        Uz desni rub stoji vodostaj koji bi toj visini na letvi odgovarao.
+      {{else}}Sve kote su u sustavu <strong>{{.Station.ZeroDatumSystem}}</strong>, jer je u njemu snimljen i profil.{{end}}
       {{if .Profil.Spojen}}Spojeno iz {{len .Profil.Sastav}} snimaka:
         {{range $i, $d := .Profil.Sastav}}{{if $i}}, {{end}}{{datumHR $d.Datum}} ({{brojHRf $d.OdM 0}}–{{brojHRf $d.DoM 0}} m){{end}}.
       {{else}}Snimljen {{datumHR .Crtez.Datum}}.{{end}}
@@ -515,10 +528,104 @@
 </section>
 {{end}}
 
+<section class="detail-section" id="valovi">
+  <h2>{{icon "activity"}} Valovi obrane u nizu{{if .ValoviPager.Total}} <span class="reg-chip">{{brojHR .ValoviPager.Total}}</span>{{end}}</h2>
+  {{if .ValoviPragovi}}
+  <p class="page-desc">Kada bi po vodostaju počelo i završilo koje stanje, izračunato iz cijelog niza
+    mjerenja — ne iz proglašenih obrana. Odgovara na pitanje što bi po vodi bilo, a ne što je itko
+    odlučio; obranu proglašava i prekida čovjek, po dionici, na kartici dionice.</p>
+  {{end}}
+
+  {{if .Valovi}}
+  {{if .ValoviZbroj}}
+  <div class="table-card" style="margin-bottom:1rem;"><div class="table-responsive">
+    <table class="data-table">
+      <thead><tr><th>Stanje</th><th>Prag</th><th>Valova</th><th>Ukupno u stanju</th><th>Ukupno iznad praga</th><th>Najdulje u jednom valu</th></tr></thead>
+      <tbody>
+      {{range .ValoviZbroj}}
+      <tr>
+        <td><span class="threshold-pill {{.Stupanj.PillClass}}">{{.Stupanj.Label}}</span></td>
+        <td class="mono">{{printf "%+d" .PragCm}} cm</td>
+        <td class="mono">{{if .Valova}}{{brojHR .Valova}}{{else}}—{{end}}</td>
+        <td class="mono">{{.UkupnoHR}}</td>
+        <td class="mono">{{.UkupnoIznadHR}}<div class="reg-card-sub">{{.UdioHR $.ValoviNiz.Trajanje}} vremena</div></td>
+        <td class="mono">{{.NajduljeHR}}{{if .Valova}} <span class="ekstrem-nacin">— {{.NajduljiKad.Year}}.</span>{{end}}</td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div></div>
+  <p class="reading-meta" style="margin:-0.5rem 0 1rem;">Zbroj za cijeli niz: {{brojHR .ValoviNiz.Zapisa}} mjerenja
+    od {{.ValoviNiz.Od.Year}}. do {{.ValoviNiz.Do.Year}}. <strong>U stanju</strong> se broji kao u obrascu obrane —
+    stanja se ne preklapaju, pa dok traje redovna obrana pripremno stanje ne teče, a kad se redovna prekine
+    pripremno se nastavlja. <strong>Iznad praga</strong> broji sve vrijeme iznad te kote, uključujući i više stupnjeve.</p>
+  {{end}}
+
+  <div data-listanje="valovi">
+  <div class="table-card valovi-siroko"><div class="table-responsive">
+    <table class="data-table">
+      <thead><tr><th>Val</th><th>Vrh</th><th>Najviši stupanj</th>
+        {{range .ValoviPragovi}}<th>{{.Faza.Label}}</th>{{end}}</tr></thead>
+      <tbody>
+      {{range .Valovi}}
+      <tr>
+        <td class="mono" style="white-space:nowrap;">{{.PoceloHR}}<div class="reg-card-sub">do {{.ZavrsiloHR}}</div></td>
+        <td class="mono"><strong>{{.VrhLabel}}</strong><div class="reg-card-sub">{{.VrhKadHR}}</div></td>
+        <td><span class="threshold-pill {{.NajviseDosegnuto.PillClass}}">{{.NajviseDosegnuto.Label}}</span></td>
+        {{$v := .}}
+        {{range $.ValoviPragovi}}
+        {{with $v.StupanjZa .Faza}}
+        <td class="mono celija-blok"><strong title="{{.TrajanjeHR}}">{{brojHR .Sati}} h</strong>{{if .NaRubu}} <span title="val dodiruje rub niza, trajanje je najmanje toliko">+</span>{{end}}
+          <div class="reg-card-sub">{{.PoceloHR}} → {{.ZavrsiloHR}}</div>
+          {{if .Prekidan}}<div class="ekstrem-nacin">u {{.Navrata}} navrata</div>{{end}}</td>
+        {{else}}<td class="mono" style="color:var(--text-muted);">—</td>{{end}}
+        {{end}}
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div></div>
+
+  <ul class="valovi-usko ekstremi-usko">
+    {{range .Valovi}}
+    <li>
+      <div class="ex-glava">
+        <span class="ex-vrsta">{{.PoceloHR}} → {{.ZavrsiloHR}}</span>
+        <strong class="ex-vrijednost">{{.VrhLabel}}</strong>
+        <span class="threshold-pill {{.NajviseDosegnuto.PillClass}}">{{.NajviseDosegnuto.Label}}</span>
+      </div>
+      <dl class="val-stupnjevi">
+        {{range .Stupnjevi}}
+        <div><dt>{{.Stupanj.Label}}</dt>
+          <dd><strong>{{brojHR .Sati}} h</strong>{{if .NaRubu}} +{{end}} <span class="ekstrem-nacin">{{.TrajanjeHR}}</span>
+            <span class="ekstrem-nacin">{{.PoceloHR}} → {{.ZavrsiloHR}}{{if .Prekidan}}, u {{.Navrata}} navrata{{end}}</span></dd></div>
+        {{end}}
+      </dl>
+    </li>
+    {{end}}
+  </ul>
+  {{template "pager" .ValoviPager}}
+  </div>
+  <p class="reading-meta" style="margin-top:0.35rem;">Prijelaz praga se traži pravocrtno između dva mjerenja,
+    pa dnevni niz daje trajanje na dio dana točno. Znak <strong>+</strong> znači da val dodiruje rub niza i da je
+    trajanje najmanje toliko. Pad ispod pripremnog stanja kraći od
+    {{brojHR 3}} dana ne prekida val.</p>
+
+  {{else if not .ValoviPragovi}}
+  <div class="reg-empty">Za ovu letvu nijedan prag obrane nije upisan u centimetrima, pa se valovi ne mogu izračunati.</div>
+  {{else if not .ValoviNiz.Ima}}
+  <div class="reg-empty">Za ovu letvu u arhivi nema niza vodostaja iz kojega bi se valovi izračunali.</div>
+  {{else}}
+  <div class="reg-empty">U nizu od {{.ValoviNiz.Od.Year}}. do {{.ValoviNiz.Do.Year}}. voda nijednom nije dosegnula pripremno stanje.</div>
+  {{end}}
+</section>
+
+{{if .Episodes}}
 <section class="detail-section" id="obrane">
-  <h2>{{icon "activity"}} Obrane vođene po ovoj letvi <span class="reg-chip">{{len .Episodes}}</span></h2>
-  <p class="page-desc">Ista letva mjerodavna je za više dionica, a obrana se proglašava po dionici — pa u istom valu svaka može biti na svom stupnju. Obrana se proglašava i prekida na kartici dionice.</p>
-  {{if .Episodes}}
+  <h2>{{icon "shield"}} Obrane vođene po ovoj letvi <span class="reg-chip">{{len .Episodes}}</span></h2>
+  <p class="page-desc">Ovo su obrane koje je netko doista proglasio — za razliku od valova iznad, koji su
+    izračun iz vodostaja. Ista letva mjerodavna je za više dionica, a obrana se proglašava po dionici, pa u
+    istom valu svaka može biti na svom stupnju. Proglašava se i prekida na kartici dionice.</p>
   <div class="table-card"><div class="table-responsive">
     <table class="data-table">
       <thead><tr><th>Dionica</th><th>Od</th><th>Do</th><th>Trajanje</th><th>Vrh</th><th>Najviši stupanj</th><th>Osnova</th></tr></thead>
@@ -530,17 +637,15 @@
         <td class="mono">{{if .EndedAt}}{{formatDate (localTime (derefTime .EndedAt))}}{{else}}<span class="badge badge-area-admin">traje</span>{{end}}</td>
         <td style="white-space:nowrap;">{{.Days}} dana</td>
         <td class="mono">{{.PeakLabel}}</td>
-        <td><span class="threshold-pill {{if eq .Phase "IZVANREDNO_STANJE"}}crit{{else if eq .Phase "IZVANREDNA"}}emerg{{else if eq .Phase "REDOVNA"}}regular{{else}}prep{{end}}">{{.Phase.Label}}</span></td>
+        <td><span class="threshold-pill {{.Phase.PillClass}}">{{.Phase.Label}}</span></td>
         <td>{{if .Basis}}{{.BasisLabel}}{{end}}{{if .DeclaredBeforeThreshold}} <small style="color:var(--text-muted);">(prije praga)</small>{{end}}</td>
       </tr>
       {{end}}
       </tbody>
     </table>
   </div></div>
-  {{else}}
-  <div class="reg-empty">Po ovoj letvi nije zabilježena nijedna obrana.</div>
-  {{end}}
 </section>
+{{end}}
 
 <section class="detail-section">
   <h2>{{icon "file-text"}} Mjerodavna za dionice <span class="reg-chip">{{len .Sections}}</span></h2>

@@ -650,3 +650,65 @@ func (r *ArhivaRepository) SpojBroj(ctx context.Context, letva, velicina, korak 
 		letva, velicina, korak, od.Unix(), do.Unix()).Scan(&n)
 	return n, err
 }
+
+// SpojNajbolji vraća cijeli niz jedne veličine, uzlazno, u najboljoj
+// razlučivosti koju letva ima: satnoj ondje gdje satnih mjerenja ima, dnevnoj
+// prije i poslije njih. Služi izračunima koji gledaju cijelu povijest — valove
+// obrane, trajanja stanja — pa se ne reže na stranice.
+//
+// Dva koraka se ne miješaju unutar istog razdoblja: gdje postoji satni niz,
+// dnevni srednjak istog dana bio bi druga vrijednost istoga trenutka i lomio
+// bi prijelaze pragova.
+func (r *ArhivaRepository) SpojNajbolji(ctx context.Context, letva, velicina string) ([]models.HidroTocka, error) {
+	if r == nil {
+		return nil, nil
+	}
+	var odSat, doSat sql.NullInt64
+	if err := r.db.QueryRowContext(ctx, `SELECT MIN(vrijeme), MAX(vrijeme) FROM spoj
+		WHERE letva=? AND velicina=? AND korak='satni'`, letva, velicina).Scan(&odSat, &doSat); err != nil {
+		return nil, fmt.Errorf("doseg satnog niza: %w", err)
+	}
+	// Bez satnog niza ostaje sam dnevni; granice se namjeste tako da nijedan
+	// dnevni zapis ne ispadne.
+	od, do := int64(1), int64(0)
+	if odSat.Valid && doSat.Valid {
+		od, do = odSat.Int64, doSat.Int64
+	}
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT vrijeme, vrijednost FROM spoj
+		 WHERE letva=? AND velicina=? AND (korak='satni' OR (korak='dnevni' AND (vrijeme < ? OR vrijeme > ?)))
+		 ORDER BY vrijeme`, letva, velicina, od, do)
+	if err != nil {
+		return nil, fmt.Errorf("cijeli spojeni niz: %w", err)
+	}
+	defer rows.Close()
+	var out []models.HidroTocka
+	for rows.Next() {
+		var kad int64
+		var v float64
+		if err := rows.Scan(&kad, &v); err != nil {
+			return nil, err
+		}
+		out = append(out, models.HidroTocka{Kad: time.Unix(kad, 0).UTC(), Vrijednost: v})
+	}
+	return out, rows.Err()
+}
+
+// SpojOtisak vraća broj zapisa i vrijeme zadnjega, bez čitanja samog niza.
+// Služi provjeri je li zapamćen izračun još valjan: čitanje Batininog niza
+// traje desetinku sekunde, a ovaj upit milisekundu.
+func (r *ArhivaRepository) SpojOtisak(ctx context.Context, letva, velicina string) (int, time.Time) {
+	if r == nil {
+		return 0, time.Time{}
+	}
+	var n int
+	var zadnje sql.NullInt64
+	if err := r.db.QueryRowContext(ctx, `SELECT COUNT(*), MAX(vrijeme) FROM spoj
+		WHERE letva=? AND velicina=?`, letva, velicina).Scan(&n, &zadnje); err != nil {
+		return 0, time.Time{}
+	}
+	if !zadnje.Valid {
+		return n, time.Time{}
+	}
+	return n, time.Unix(zadnje.Int64, 0).UTC()
+}
