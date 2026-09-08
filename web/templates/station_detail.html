@@ -18,6 +18,8 @@
   <div class="detail-actions">
     <a href="/readings/new?station={{.Station.ID}}" class="btn btn-primary">{{icon "plus"}} Upiši očitanje</a>
     <a href="/readings/station/{{.Station.ID}}" class="btn btn-secondary">{{icon "activity"}} Očitanja</a>
+    <a href="/stations/{{.Station.ID}}/izvjesce.docx" class="btn btn-secondary"
+       title="Sve o ovoj letvi i svi izračuni iz njezina niza, u Wordovu dokumentu">{{icon "file-text"}} Generiraj izvješće</a>
   {{if .CanEdit}}
     <a href="/stations/{{.Station.ID}}/edit" class="btn btn-secondary">{{icon "pencil"}} Uredi</a>
     {{if .Permissions.IsGlobalAdmin}}

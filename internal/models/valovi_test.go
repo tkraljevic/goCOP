@@ -308,3 +308,21 @@ func TestTrajanjaStanjaSeNePreklapajuIZbrajajuUCijeliVal(t *testing.T) {
 	blizu(gore(PhaseRegular), 144, "iznad redovne")
 	blizu(gore(PhaseEmergency), 48, "iznad izvanredne")
 }
+
+// Trajanja se pišu kao i sve druge brojke u programu, s točkom među
+// tisućicama: 14.966 dana, ne 14966.
+func TestTrajanjeGrupiraTisucice(t *testing.T) {
+	for _, s := range []struct {
+		d    time.Duration
+		want string
+	}{
+		{24 * 999 * time.Hour, "999 dana"},
+		{24 * 1000 * time.Hour, "1.000 dana"},
+		{24 * 14966 * time.Hour, "14.966 dana"},
+		{1200 * time.Hour, "50 dana"},
+	} {
+		if got := trajanjeHR(s.d); got != s.want {
+			t.Errorf("%v → %q, očekivano %q", s.d, got, s.want)
+		}
+	}
+}

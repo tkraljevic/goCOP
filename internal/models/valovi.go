@@ -3,6 +3,7 @@ package models
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"time"
 )
 
@@ -388,10 +389,32 @@ func trajanjeHR(d time.Duration) string {
 		if sati < 1 {
 			return "<1 sat"
 		}
-		return fmt.Sprintf("%d %s", sati, sat(sati))
+		return grupiraj(sati) + " " + sat(sati)
 	}
 	dani := int(d.Hours()/24 + 0.5)
-	return fmt.Sprintf("%d %s", dani, dan(dani))
+	return grupiraj(dani) + " " + dan(dani)
+}
+
+// grupiraj razdvaja tisućice točkom, kako se kod nas piše: 14.966 dana.
+// Ista pravila kao drugdje u programu, ali ovdje jer model ne smije ovisiti
+// o sloju prikaza.
+func grupiraj(n int) string {
+	znak := ""
+	if n < 0 {
+		znak, n = "-", -n
+	}
+	s := strconv.Itoa(n)
+	if len(s) <= 3 {
+		return znak + s
+	}
+	var b []byte
+	for i, c := range []byte(s) {
+		if i > 0 && (len(s)-i)%3 == 0 {
+			b = append(b, '.')
+		}
+		b = append(b, c)
+	}
+	return znak + string(b)
 }
 
 func sat(n int) string {

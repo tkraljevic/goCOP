@@ -28,6 +28,7 @@ type StationPageData struct {
 	Sections             []models.Section
 	Episodes             []models.DefenseEpisode   // obrane vođene po ovoj letvi, najnovija prva
 	Valovi               []models.Val              // valovi obrane izračunati iz niza, najnoviji prvi
+	ValoviSvi            []models.Val              // svi valovi, prije rezanja na stranicu — izvješće bira po vrhu
 	ValoviPager          Pager                     // listanje valova
 	ValoviZbroj          []models.ZbrojStupnja     // koliko je koje stanje ukupno trajalo
 	ValoviNiz            models.RazdobljeNiza      // na kojem je nizu računato
@@ -130,22 +131,38 @@ func (h *StationsHandler) canEditStation(perms *models.UserPermissions, st model
 
 // ShowStation prikazuje jednu postaju s pragovima, kotama i dionicama
 func (h *StationsHandler) ShowStation(w http.ResponseWriter, r *http.Request) {
+	data, ok := h.podaciLetve(w, r)
+	if !ok {
+		return
+	}
+	if err := h.tmplDetail.ExecuteTemplate(w, "station_detail.html", data); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+// podaciLetve prikuplja sve o jednoj letvi: registar, arhivu, korito, krivulje
+// i valove obrane. Isti se podaci prikazuju na kartici i sastavljaju u
+// izvješće — kad bi svaki skupljao svoje, dokument i stranica razišli bi se
+// prvom idućom izmjenom, a nitko ne bi znao koji od njih laže.
+//
+// Vraća ok=false kad je odgovor već poslan (nema postaje, nema prava).
+func (h *StationsHandler) podaciLetve(w http.ResponseWriter, r *http.Request) (StationPageData, bool) {
 	ctx := r.Context()
 	data := h.pageData(r)
 
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		http.NotFound(w, r)
-		return
+		return data, false
 	}
 	st, err := h.stationService.GetStation(ctx, id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return data, false
 	}
 	if st == nil {
 		http.NotFound(w, r)
-		return
+		return data, false
 	}
 	data.Station = *st
 	data.CanEdit = h.canEditStation(data.Permissions, *st)
@@ -225,6 +242,7 @@ func (h *StationsHandler) ShowStation(w http.ResponseWriter, r *http.Request) {
 	if a := h.arh(); a != nil && len(data.ValoviPragovi) > 0 {
 		svi, niz := h.valovi.Valovi(ctx, a, st.Code, data.ValoviPragovi)
 		data.ValoviNiz = niz
+		data.ValoviSvi = svi
 		data.ValoviZbroj = models.ZbrojValova(svi, data.ValoviPragovi)
 		// vlastiti parametar, da listanje valova ne pomiče ostale popise
 		data.ValoviPager = pagerZa(r, "val", len(svi), valovaPoStranici)
@@ -244,10 +262,7 @@ func (h *StationsHandler) ShowStation(w http.ResponseWriter, r *http.Request) {
 	// i traži od same postaje, da o ovom redoslijedu uopće ne ovisi.
 	data.PragoviQ = pragoviUProtoku(data.Station, data.Krivulje)
 	data.PragoviKote = pragoviUKotama(data.Station)
-
-	if err := h.tmplDetail.ExecuteTemplate(w, "station_detail.html", data); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
+	return data, true
 }
 
 // ShowStationForm prikazuje obrazac za novu postaju ili izmjenu postojeće
