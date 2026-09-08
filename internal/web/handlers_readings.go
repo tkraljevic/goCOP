@@ -807,15 +807,66 @@ func (h *ReadingsHandler) arhivaZaLetvu(ctx context.Context, r *http.Request,
 	// Graf crta cijelu godinu, ne samo prikazanu stranicu — inače bi se mijenjao
 	// pri svakom listanju i ne bi značio ono što piše.
 	if data.ArhVelicina == "vodostaj" {
-		cijela, _ := a.SpojRaspon(ctx, station.Code, data.ArhVelicina, data.ArhKorak, od, do, 5000, 0)
+		cijela, _ := a.SpojRaspon(ctx, station.Code, data.ArhVelicina, data.ArhKorak, od, do, 20000, 0)
 		if len(cijela) > 1 {
 			kao := make([]models.Reading, 0, len(cijela))
 			for _, v := range cijela {
 				cm := int(v.Vrijednost)
 				kao = append(kao, models.Reading{MeasuredAt: v.Kad, LevelCm: &cm})
 			}
-			data.ArhChart = buildChart(kao, station, false)
+			data.ArhChart = buildChart(prorijedi(kao, 700), station, false)
 		}
 	}
 
+}
+
+// prorijedi svodi dugačak niz na oko ciljBroj točaka za crtanje, ali tako da
+// vrhovi ostanu. Godina satnih vodostaja ima 8.760 točaka; nacrtati ih sve
+// znači tešku sliku, a uzeti svaku n-tu znači izgubiti vrh vala — a vrh je
+// jedino zbog čega se graf i gleda.
+//
+// Zato se niz dijeli na razdoblja i iz svakog se uzima najniža i najviša
+// vrijednost, u vremenskom redu. Crta time postaje omotnica: pokazuje raspon
+// kroz koji je voda išla, bez izmišljanja i bez zaglađivanja vrhova.
+func prorijedi(pts []models.Reading, ciljBroj int) []models.Reading {
+	if ciljBroj < 4 || len(pts) <= ciljBroj {
+		return pts
+	}
+	poredak := make([]models.Reading, len(pts))
+	copy(poredak, pts)
+	sort.Slice(poredak, func(i, j int) bool { return poredak[i].MeasuredAt.Before(poredak[j].MeasuredAt) })
+
+	kosara := len(poredak) * 2 / ciljBroj // dvije točke po košari
+	if kosara < 2 {
+		return poredak
+	}
+	out := make([]models.Reading, 0, ciljBroj+2)
+	for i := 0; i < len(poredak); i += kosara {
+		kraj := i + kosara
+		if kraj > len(poredak) {
+			kraj = len(poredak)
+		}
+		naj, nis := i, i
+		for j := i; j < kraj; j++ {
+			if poredak[j].LevelCm == nil {
+				continue
+			}
+			if poredak[naj].LevelCm == nil || *poredak[j].LevelCm > *poredak[naj].LevelCm {
+				naj = j
+			}
+			if poredak[nis].LevelCm == nil || *poredak[j].LevelCm < *poredak[nis].LevelCm {
+				nis = j
+			}
+		}
+		if naj == nis {
+			out = append(out, poredak[naj])
+			continue
+		}
+		prvi, drugi := naj, nis
+		if nis < naj {
+			prvi, drugi = nis, naj
+		}
+		out = append(out, poredak[prvi], poredak[drugi])
+	}
+	return out
 }

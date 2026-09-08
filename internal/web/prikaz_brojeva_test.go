@@ -756,3 +756,59 @@ func TestRedakSazetkaOtvaraTuVelicinu(t *testing.T) {
 		t.Errorf("kartica letve ne vodi na %q", want)
 	}
 }
+
+// Graf satne godine mora pokriti cijelu godinu, ne samo dio. Prorjeđivanje
+// smije smanjiti broj točaka, ali ne smije pojesti vrh vala ni odrezati
+// početak razdoblja.
+func TestProrjedivanjeCuvaVrhIRaspon(t *testing.T) {
+	cm := func(v int) *int { return &v }
+	poc := time.Date(2013, 1, 1, 0, 0, 0, 0, time.UTC)
+	var sati []models.Reading
+	for i := 0; i < 8760; i++ {
+		v := 100 + i%50
+		if i == 4000 { // vrh vala usred godine
+			v = 772
+		}
+		if i == 7000 { // najniža voda
+			v = -128
+		}
+		sati = append(sati, models.Reading{MeasuredAt: poc.Add(time.Duration(i) * time.Hour), LevelCm: cm(v)})
+	}
+
+	out := prorijedi(sati, 700)
+	if len(out) > 900 {
+		t.Errorf("prorijeđeno na %d točaka, očekivano oko 700", len(out))
+	}
+	if len(out) < 100 {
+		t.Errorf("prorijeđeno na svega %d točaka", len(out))
+	}
+
+	var najv, najn int = -9999, 9999
+	prvi, zadnji := out[0].MeasuredAt, out[len(out)-1].MeasuredAt
+	for _, r := range out {
+		if *r.LevelCm > najv {
+			najv = *r.LevelCm
+		}
+		if *r.LevelCm < najn {
+			najn = *r.LevelCm
+		}
+	}
+	if najv != 772 {
+		t.Errorf("vrh vala izgubljen: najviše %d, očekivano 772", najv)
+	}
+	if najn != -128 {
+		t.Errorf("najniža voda izgubljena: najniže %d, očekivano -128", najn)
+	}
+	if !prvi.Equal(poc) {
+		t.Errorf("graf počinje %s, a godina počinje %s", prvi, poc)
+	}
+	if zadnji.Before(poc.AddDate(1, 0, 0).Add(-2 * time.Hour)) {
+		t.Errorf("graf završava %s, prerano za punu godinu", zadnji)
+	}
+
+	// kratak niz ostaje netaknut
+	kratak := sati[:50]
+	if got := prorijedi(kratak, 700); len(got) != 50 {
+		t.Errorf("kratak niz prorijeđen na %d, očekivano 50", len(got))
+	}
+}
