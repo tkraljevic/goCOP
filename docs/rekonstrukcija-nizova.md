@@ -65,6 +65,60 @@ Bezdanova kota u međuvremenu mijenjana, ili da odnos dviju letvi pri
 ekstremno maloj vodi nije konstantan. Za razrješenje treba kronologija kote
 nule Bezdana ili njegov dugi niz.
 
+## Što kote nule govore
+
+Visinski sustavi ne smetaju prijenosu: empirijski pomak mjeri se iz samih
+očitanja, pa razliku sustava upija sam od sebe. Ali kad se kote ipak usporede,
+provjeravaju i prijenos i same sebe. Sve u jadranskom sustavu (m n.J.m.;
+mađarske su kote u evidenciji dane i baltičke, m n.B.m. + 0,675).
+
+| letva | rkm | kota nule | razlika prema Batini | izmjereni pomak | ostatak = pad vode |
+|---|---|---|---|---|---|
+| Mohács | 1446,90 | 79,88 | −57 cm | −135 cm | −78 cm / 22,1 km = **3,54 cm/km** |
+| Bezdan | 1425,59 | 80,64 | +19 cm | +19 cm | **0 cm** / 0,7 km |
+| Batina | 1424,85 | 80,45 | — | — | — |
+| Apatin | 1401,90 | 78,84 | −161 cm | −48 cm | +113 cm / 22,9 km = **4,92 cm/km** |
+
+Kod Bezdana je izmjereni pomak **točno razlika kota**, uz nulti ostatak — kako
+i mora biti na 740 m. To potvrđuje i kote i mjerenja.
+
+Pad Dunava u ovoj dionici: **3,5 cm/km** uzvodno prema Mohácsu, **4,9 cm/km**
+nizvodno prema Apatinu.
+
+### Kote odaju promjenu iz 1943. neovisno o nizovima
+
+Mohács je 21,3 km UZVODNO od Bezdana, a kota nule mu je 76 cm NIŽA (79,88
+naspram 80,64). To je naopako. Uz +63 cm izgubljenih 1943. ispada 80,51,
+gotovo u razini Bezdana.
+
+### Kota postavlja fizičku granicu
+
+Za 7.1.1909., uz ispravljeni Mohács od −102 cm i Batininu nulu višu 57 cm:
+
+| | Batina |
+|---|---|
+| bez ikakva pada (nemoguće) | **−159 cm** — apsolutni gornji rub |
+| pad 3,5 cm/km (izmjeren) | −236 cm |
+| naša rekonstrukcija | −245 cm |
+
+Evidencija COP-a navodi −127 cm. To je 32 cm IZNAD granice koju kota dopušta
+i pri nultom padu, dakle fizički nedostižno ako je ispravljeni Mohács točan.
+Obrnuto, da bi Batina bila −127, Mohács je morao pokazivati barem −70 pri
+nultom padu ili oko −5 pri stvarnom — dakle ispravak bi trebao biti još
+100 do 160 cm veći.
+
+### Trag koji ostaje
+
+Stepenica je tražena u 1901.–1984. i nađena samo 1943. Premještanje **prije
+1901.** ne bi se ni vidjelo, a literatura navodi da su u prvom stoljeću
+mjerenja bila česta. Uz to: i s +63 cm Mohácsova nula (80,51) ostaje ispod
+Bezdanove (80,64) premda je 21 km uzvodno; za dosljednost s izmjerenim padom
+trebala bi biti oko 81,4 — razlika od ~90 cm, blizu neobjašnjenog ostatka.
+
+To nije dokaz. Kote nisu obvezne ležati na istoj plohi: svaka je postavljena
+na svoju povijesnu malu vodu, u svoje doba i po svojoj zemlji. Ali pokazuje u
+istom smjeru.
+
 ## Što program radi s time
 
 - Rekonstrukcija se **ne izbacuje** izvan mjerenog raspona, nego označava.
