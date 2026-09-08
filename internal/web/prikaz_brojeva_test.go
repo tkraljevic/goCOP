@@ -1654,3 +1654,53 @@ func TestUskiPresjekKorita(t *testing.T) {
 		t.Error("uski i široki presjek govore različito o istom koritu")
 	}
 }
+
+// Prelomljena krivulja protoka. Dva izraza, jedan do zadanog vodostaja i
+// drugi iznad — ali postavljena tako da se u točki prijeloma poklope. Bez tog
+// uvjeta jedan centimetar mijenja protok za stotine kubika, i baš oko praga
+// obrane, gdje se brojka najviše gleda.
+func TestPrelomljenaKrivuljaNemaSkok(t *testing.T) {
+	pr := 290
+	k := models.HQKrivulja{H0: 6.65, A: 16.4780, B: 2.295710,
+		PrijelomCm: &pr, A2: 26.3391, B2: 2.087858}
+	if !k.ImaPrijelom() {
+		t.Fatal("krivulja ne zna da je prelomljena")
+	}
+	if math.Abs(k.SkokNaPrijelomu()) > 0.01 {
+		t.Errorf("skok na prijelomu %.4f %% — krakovi se ne spajaju", k.SkokNaPrijelomu())
+	}
+	// Protok mora rasti s vodostajem, i preko same točke prijeloma.
+	var zadnji float64
+	for _, cm := range []int{-142, 0, 289, 290, 291, 500, 800} {
+		q, ok := k.Protok(cm)
+		if !ok {
+			t.Fatalf("protok za %d cm nije izračunat", cm)
+		}
+		if q <= zadnji {
+			t.Errorf("pri %d cm protok %.0f nije veći od prethodnog %.0f", cm, q, zadnji)
+		}
+		zadnji = q
+	}
+	// Ispod i iznad prijeloma vrijede različiti krakovi.
+	dolje, _ := k.Protok(289)
+	gore, _ := k.Protok(291)
+	if math.Abs(gore-dolje) > 20 {
+		t.Errorf("dva centimetra oko prijeloma mijenjaju protok za %.0f m³/s", gore-dolje)
+	}
+	// Zapis mora pokazati oba kraka, inače se iz kartice ne vidi da postoje.
+	z := k.Zapis()
+	for _, want := range []string{"do 290 cm", "iznad", "2,2957", "2,0879"} {
+		if !strings.Contains(z, want) {
+			t.Errorf("zapis krivulje nema %q: %s", want, z)
+		}
+	}
+
+	// Neprelomljena krivulja radi kao i prije.
+	stara := models.HQKrivulja{H0: 6.65, A: 19.4830, B: 2.2128}
+	if stara.ImaPrijelom() || stara.SkokNaPrijelomu() != 0 {
+		t.Error("krivulja bez prijeloma ne smije se ponašati kao prelomljena")
+	}
+	if q, _ := stara.Protok(300); q < 2900 || q > 2980 {
+		t.Errorf("neprelomljena krivulja dala %.0f m³/s pri 300 cm", q)
+	}
+}

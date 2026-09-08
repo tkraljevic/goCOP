@@ -302,15 +302,45 @@ func (p ProfilKorita) DubinaPri(vodostajCm int) float64 {
 // HQKrivulja pretvara vodostaj u protok: Q = a·(H + h0)^b, H u metrima iznad
 // kote nule. Vrijedi za razdoblje, jer se korito mijenja pa se krivulja
 // povremeno iznova postavlja.
+//
+// Krivulja može imati i prijelom: jedan izraz do zadanog vodostaja, drugi
+// iznad njega. Razlog je fizika, ne prilagodba — dok voda teče glavnim
+// koritom, odnos visine i protoka nije isti kao kad se razlije u širi profil.
+// Oba se kraka postavljaju tako da se u točki prijeloma poklope; bez tog
+// uvjeta jedan centimetar mijenja protok za stotine kubika i krivulja prestaje
+// biti upotrebljiva blizu praga obrane.
 type HQKrivulja struct {
 	ID         int64
 	Letva      string
 	VrijediOd  string
 	VrijediDo  string // prazno = do sljedeće izmjere
 	A, B, H0   float64
+	PrijelomCm *int    // vodostaj na kojem krivulja prelazi u gornji krak
+	A2, B2     float64 // gornji krak
 	Mjerenja   int
 	Odstupanje float64 // postotak
 	Napomena   string
+}
+
+// ImaPrijelom javlja je li krivulja prelomljena.
+func (k HQKrivulja) ImaPrijelom() bool { return k.PrijelomCm != nil && k.A2 > 0 }
+
+// SkokNaPrijelomu je razlika dvaju krakova u točki prijeloma, u postotku.
+// Ispravno postavljena krivulja tu ima nulu; sve drugo znači da se protok na
+// jednom centimetru skokovito mijenja.
+func (k HQKrivulja) SkokNaPrijelomu() float64 {
+	if !k.ImaPrijelom() {
+		return 0
+	}
+	h := float64(*k.PrijelomCm)/100 + k.H0
+	if h <= 0 {
+		return 0
+	}
+	dolje, gore := k.A*math.Pow(h, k.B), k.A2*math.Pow(h, k.B2)
+	if dolje == 0 {
+		return 0
+	}
+	return (gore/dolje - 1) * 100
 }
 
 // Protok računa protok iz vodostaja u centimetrima. Vraća false kad je
@@ -320,6 +350,9 @@ func (k HQKrivulja) Protok(vodostajCm int) (float64, bool) {
 	if h <= 0 {
 		return 0, false
 	}
+	if k.ImaPrijelom() && vodostajCm >= *k.PrijelomCm {
+		return k.A2 * math.Pow(h, k.B2), true
+	}
 	return k.A * math.Pow(h, k.B), true
 }
 
@@ -328,5 +361,12 @@ func (k HQKrivulja) Zapis() string {
 	zarez := func(f float64, d int) string {
 		return strings.Replace(strconv.FormatFloat(f, 'f', d, 64), ".", ",", 1)
 	}
-	return "Q = " + zarez(k.A, 4) + " · (H + " + zarez(k.H0, 2) + ")^" + zarez(k.B, 4)
+	izraz := func(a, b float64) string {
+		return "Q = " + zarez(a, 4) + " · (H + " + zarez(k.H0, 2) + ")^" + zarez(b, 4)
+	}
+	if k.ImaPrijelom() {
+		return izraz(k.A, k.B) + " do " + strconv.Itoa(*k.PrijelomCm) + " cm; " +
+			izraz(k.A2, k.B2) + " iznad"
+	}
+	return izraz(k.A, k.B)
 }
