@@ -350,33 +350,53 @@ func (r *ArhivaRepository) Profili(ctx context.Context, letva string) ([]models.
 	return out, nil
 }
 
-// Krivulje vraća HQ krivulje letve, najnovija prva.
+// Krivulje vraća HQ krivulje letve s njihovim odsječcima, najnovija prva.
 func (r *ArhivaRepository) Krivulje(ctx context.Context, letva string) ([]models.HQKrivulja, error) {
 	if r == nil {
 		return nil, nil
 	}
-	rows, err := r.db.QueryContext(ctx, `SELECT id, letva, vrijedi_od, vrijedi_do, a, b, h0,
-		prijelom, a2, b2, mjerenja, odstupanje, napomena
+	rows, err := r.db.QueryContext(ctx, `SELECT id, letva, vrijedi_od, vrijedi_do, izvor, napomena
 		FROM hq_krivulje WHERE letva = ? ORDER BY vrijedi_od DESC`, letva)
 	if err != nil {
 		return nil, fmt.Errorf("krivulje protoka: %w", err)
 	}
 	defer rows.Close()
 	var out []models.HQKrivulja
+	po := map[int64]int{}
 	for rows.Next() {
 		var k models.HQKrivulja
-		var prijelom sql.NullInt64
-		if err := rows.Scan(&k.ID, &k.Letva, &k.VrijediOd, &k.VrijediDo, &k.A, &k.B, &k.H0,
-			&prijelom, &k.A2, &k.B2, &k.Mjerenja, &k.Odstupanje, &k.Napomena); err != nil {
+		if err := rows.Scan(&k.ID, &k.Letva, &k.VrijediOd, &k.VrijediDo, &k.Izvor, &k.Napomena); err != nil {
 			return nil, err
 		}
-		if prijelom.Valid {
-			cm := int(prijelom.Int64)
-			k.PrijelomCm = &cm
-		}
+		po[k.ID] = len(out)
 		out = append(out, k)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if len(out) == 0 {
+		return nil, nil
+	}
+	// Odsječci se dohvaćaju jednim upitom, ne po krivulji: dvanaest krivulja
+	// znači dvanaest odlazaka u bazu pri svakom otvaranju stranice.
+	od, err := r.db.QueryContext(ctx, `SELECT o.krivulja, o.od_cm, o.do_cm, o.oblik, o.p1, o.p2, o.p3
+		FROM hq_odsjecci o JOIN hq_krivulje k ON k.id = o.krivulja
+		WHERE k.letva = ? ORDER BY o.krivulja, o.od_cm`, letva)
+	if err != nil {
+		return nil, fmt.Errorf("odsječci krivulja: %w", err)
+	}
+	defer od.Close()
+	for od.Next() {
+		var id int64
+		var o models.HQOdsjecak
+		if err := od.Scan(&id, &o.OdCm, &o.DoCm, &o.Oblik, &o.P1, &o.P2, &o.P3); err != nil {
+			return nil, err
+		}
+		if i, ima := po[id]; ima {
+			out[i].Odsjecci = append(out[i].Odsjecci, o)
+		}
+	}
+	return out, od.Err()
 }
 
 // Zadnje vraća zadnju vrijednost niza i njezin trenutak.

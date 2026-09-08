@@ -73,9 +73,10 @@
       <li><strong>Kota vode</strong> — apsolutna visina vodne plohe, u svakom visinskom sustavu
         koji letva ima. Letva mjeri od svoje nule; kota kaže koliko je voda visoka nad morem.
         Po tome se na terenu računa koliko obranu treba nadvisiti vrećama.</li>
-      <li><strong>Protok</strong> — koliko vode prolazi, u m³/s. Računa se iz HQ krivulje koja je
-        vrijedila u trenutku tog očitanja. Krivulje nema za svaku letvu; gdje je nema, ne piše
-        se ništa, jer bi izmišljen protok bio gori od nikakvog.</li>
+      <li><strong>Protok</strong> — koliko vode prolazi, u m³/s. Računa se službenom HQ krivuljom
+        DHMZ-a koja je vrijedila u trenutku tog očitanja. Krivulje nema za svaku letvu, a ni za
+        svaki vodostaj: kad je voda izvan raspona za koji je krivulja postavljena, ne piše se
+        ništa. Izmišljen protok gori je od nikakvog.</li>
       <li><strong>Pragovi</strong> — pripremno stanje, redovna obrana, izvanredna obrana,
         izvanredno stanje, i najviši zabilježeni vodostaj.</li>
     </ul>
@@ -229,11 +230,11 @@
         nule = kota vode.</dd>
       <dt>TRST i HVRS71</dt><dd>Dva visinska sustava. Isto mjesto ima u njima različitu kotu, pa
         se uvijek piše u kojem je sustavu brojka.</dd>
-      <dt>HQ krivulja</dt><dd>Veza vodostaja i protoka za tu letvu, u obliku Q = a · (H + h₀)^b.
-        Korito se mijenja, pa krivulja vrijedi za razdoblje i povremeno se iznova postavlja.
-        Krivulja je i <em>prelomljena</em>: jedan izraz dok voda teče glavnim koritom, drugi
-        kad se razlije u širi profil. Krakovi se spajaju u točki prijeloma, pa protok nigdje
-        ne skače.</dd>
+      <dt>HQ krivulja</dt><dd>Veza vodostaja i protoka za tu letvu. Postavlja je DHMZ, a program
+        je prepisuje iz HIS-2000 i ne mijenja. Sastoji se od <em>odsječaka</em>: dok voda teče
+        glavnim koritom odnos nije isti kao kad se razlije u širi profil, pa svaki odsječak
+        vrijedi u svom rasponu vodostaja. Izvan tog raspona protok se ne računa — DHMZ ga
+        objavljuje s razlogom. Krivulja se postavlja iznova, najčešće svake godine.</dd>
       <dt>Stupnjevi obrane</dt><dd>Pripremno stanje, redovna obrana, izvanredna obrana,
         izvanredno stanje. Obranu proglašava čovjek; prijelaz praga je povod, ne odluka.</dd>
       <dt>Dnevni srednjak</dt><dd>Prosjek dvadeset i četiri satna očitanja, ne jutarnje očitanje.</dd>

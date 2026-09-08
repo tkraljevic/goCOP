@@ -28,6 +28,8 @@ import (
 	"strings"
 	"time"
 
+	"gocop/internal/models"
+
 	_ "modernc.org/sqlite"
 )
 
@@ -84,17 +86,23 @@ CREATE TABLE IF NOT EXISTS hq_krivulje (
 	letva      TEXT NOT NULL,
 	vrijedi_od TEXT NOT NULL,
 	vrijedi_do TEXT NOT NULL DEFAULT '',
-	a          REAL NOT NULL,
-	b          REAL NOT NULL,
-	h0         REAL NOT NULL,
-	prijelom   INTEGER,                    -- vodostaj na kojem krivulja prelazi u gornji krak
-	a2         REAL NOT NULL DEFAULT 0,    -- gornji krak; 0 = krivulja nije prelomljena
-	b2         REAL NOT NULL DEFAULT 0,
-	mjerenja   INTEGER NOT NULL DEFAULT 0,
-	odstupanje REAL NOT NULL DEFAULT 0,
+	izvor      TEXT NOT NULL DEFAULT '',
 	napomena   TEXT NOT NULL DEFAULT '',
 	UNIQUE(letva, vrijedi_od)
 );
+-- Krivulja se sastoji od odsječaka: svaki vrijedi u svom rasponu vodostaja.
+-- Tako je i DHMZ objavljuje, a isti zapis nosi i potenciju za nizove koje smo
+-- sami preračunali ondje gdje službene krivulje nema.
+CREATE TABLE IF NOT EXISTS hq_odsjecci (
+	krivulja INTEGER NOT NULL REFERENCES hq_krivulje(id) ON DELETE CASCADE,
+	od_cm    INTEGER NOT NULL,
+	do_cm    INTEGER NOT NULL,
+	oblik    TEXT NOT NULL DEFAULT 'polinom',
+	p1       REAL NOT NULL,
+	p2       REAL NOT NULL,
+	p3       REAL NOT NULL,
+	PRIMARY KEY (krivulja, od_cm)
+) WITHOUT ROWID;
 CREATE TABLE IF NOT EXISTS ocitanja (
 	niz        INTEGER NOT NULL REFERENCES nizovi(id) ON DELETE CASCADE,
 	vrijeme    INTEGER NOT NULL,
@@ -507,39 +515,47 @@ func krivulje(db *sql.DB, koren, samo string) error {
 		if err != nil {
 			return err
 		}
+		br := func(x string) float64 {
+			v, _ := strconv.ParseFloat(strings.ReplaceAll(strings.TrimSpace(x), ",", "."), 64)
+			return v
+		}
+		cijeli := func(x string) int {
+			v, _ := strconv.Atoi(strings.TrimSpace(x))
+			return v
+		}
+		// Datoteka nosi po jedan redak za svaki odsječak; zaglavlje krivulje se
+		// ponavlja. Krivulja se prvo obriše pa iznova složi, da uklonjeni
+		// odsječak ne ostane visjeti.
+		vidjeno := map[string]int64{}
 		n := 0
 		for i, r := range sve {
-			if i == 0 || len(r) < 5 {
+			if i == 0 || len(r) < 8 {
 				continue
 			}
-			br := func(s string) float64 {
-				v, _ := strconv.ParseFloat(strings.ReplaceAll(strings.TrimSpace(s), ",", "."), 64)
-				return v
+			od, do := strings.TrimSpace(r[0]), strings.TrimSpace(r[1])
+			id, ima := vidjeno[od]
+			if !ima {
+				if _, err := db.Exec(`DELETE FROM hq_krivulje WHERE letva=? AND vrijedi_od=?`, letva, od); err != nil {
+					return err
+				}
+				res, err := db.Exec(`INSERT INTO hq_krivulje (letva, vrijedi_od, vrijedi_do, izvor, napomena)
+					VALUES (?,?,?,?,?)`, letva, od, do, nth(r, 8), nth(r, 9))
+				if err != nil {
+					return err
+				}
+				id, _ = res.LastInsertId()
+				vidjeno[od] = id
+				n++
 			}
-			cijeli := func(s string) int {
-				v, _ := strconv.Atoi(strings.TrimSpace(s))
-				return v
+			oblik := strings.TrimSpace(r[4])
+			if oblik != models.OblikPotencija {
+				oblik = models.OblikPolinom
 			}
-			nap := nth(r, 10)
-			// Prelomljena krivulja nosi još tri stupca. Starije datoteke ih
-			// nemaju, pa se čita ono što ima.
-			var prijelom any
-			if s := strings.TrimSpace(nth(r, 5)); s != "" {
-				prijelom = cijeli(s)
-			}
-			if _, err := db.Exec(`INSERT INTO hq_krivulje (letva, vrijedi_od, vrijedi_do, a, b, h0,
-					prijelom, a2, b2, mjerenja, odstupanje, napomena)
-				VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
-				ON CONFLICT(letva, vrijedi_od) DO UPDATE SET vrijedi_do=excluded.vrijedi_do, a=excluded.a,
-					b=excluded.b, h0=excluded.h0, prijelom=excluded.prijelom, a2=excluded.a2, b2=excluded.b2,
-					mjerenja=excluded.mjerenja, odstupanje=excluded.odstupanje,
-					napomena=excluded.napomena`,
-				letva, r[0], r[1], br(r[2]), br(r[3]), br(r[4]),
-				prijelom, br(nth(r, 6)), br(nth(r, 7)),
-				cijeli(nth(r, 8)), br(nth(r, 9)), nap); err != nil {
+			if _, err := db.Exec(`INSERT OR REPLACE INTO hq_odsjecci
+				(krivulja, od_cm, do_cm, oblik, p1, p2, p3) VALUES (?,?,?,?,?,?,?)`,
+				id, cijeli(r[2]), cijeli(r[3]), oblik, br(r[5]), br(r[6]), br(r[7])); err != nil {
 				return err
 			}
-			n++
 		}
 		fmt.Printf("%-8s %-16s HQ krivulje: %d\n", "", letva, n)
 	}

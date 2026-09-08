@@ -299,74 +299,135 @@ func (p ProfilKorita) DubinaPri(vodostajCm int) float64 {
 	return p.KotaNule + float64(vodostajCm)/100 - p.Dno()
 }
 
-// HQKrivulja pretvara vodostaj u protok: Q = a·(H + h0)^b, H u metrima iznad
-// kote nule. Vrijedi za razdoblje, jer se korito mijenja pa se krivulja
-// povremeno iznova postavlja.
+// HQKrivulja pretvara vodostaj u protok. Sastoji se od odsječaka: svaki
+// vrijedi u svom rasponu vodostaja, jer odnos visine i protoka nije isti dok
+// voda teče glavnim koritom i kad se razlije u širi profil.
 //
-// Krivulja može imati i prijelom: jedan izraz do zadanog vodostaja, drugi
-// iznad njega. Razlog je fizika, ne prilagodba — dok voda teče glavnim
-// koritom, odnos visine i protoka nije isti kao kad se razlije u širi profil.
-// Oba se kraka postavljaju tako da se u točki prijeloma poklope; bez tog
-// uvjeta jedan centimetar mijenja protok za stotine kubika i krivulja prestaje
-// biti upotrebljiva blizu praga obrane.
+// Oblik je onaj kojim ga DHMZ i objavljuje — kvadratni polinom po vodostaju u
+// metrima. Isti zapis nosi i potenciju, za nizove koje smo sami preračunali
+// ondje gdje službene krivulje nema.
+//
+// Krivulja vrijedi za razdoblje: DHMZ je postavlja iznova, najčešće svake
+// godine, jer se korito mijenja.
 type HQKrivulja struct {
-	ID         int64
-	Letva      string
-	VrijediOd  string
-	VrijediDo  string // prazno = do sljedeće izmjere
-	A, B, H0   float64
-	PrijelomCm *int    // vodostaj na kojem krivulja prelazi u gornji krak
-	A2, B2     float64 // gornji krak
-	Mjerenja   int
-	Odstupanje float64 // postotak
-	Napomena   string
+	ID        int64
+	Letva     string
+	VrijediOd string
+	VrijediDo string // prazno = do sljedeće izmjere
+	Izvor     string // tko ju je postavio
+	Napomena  string
+	Odsjecci  []HQOdsjecak
 }
 
-// ImaPrijelom javlja je li krivulja prelomljena.
-func (k HQKrivulja) ImaPrijelom() bool { return k.PrijelomCm != nil && k.A2 > 0 }
+// Oblici odsječka.
+const (
+	OblikPolinom   = "polinom"   // Q = p1·H² + p2·H + p3, H u metrima na letvi
+	OblikPotencija = "potencija" // Q = p1·(H + p3)^p2, H u metrima na letvi
+)
 
-// SkokNaPrijelomu je razlika dvaju krakova u točki prijeloma, u postotku.
-// Ispravno postavljena krivulja tu ima nulu; sve drugo znači da se protok na
-// jednom centimetru skokovito mijenja.
-func (k HQKrivulja) SkokNaPrijelomu() float64 {
-	if !k.ImaPrijelom() {
-		return 0
-	}
-	h := float64(*k.PrijelomCm)/100 + k.H0
-	if h <= 0 {
-		return 0
-	}
-	dolje, gore := k.A*math.Pow(h, k.B), k.A2*math.Pow(h, k.B2)
-	if dolje == 0 {
-		return 0
-	}
-	return (gore/dolje - 1) * 100
+// HQOdsjecak je jedan dio krivulje, s rasponom vodostaja u kojem vrijedi.
+// Izvan raspona se ne računa ništa: DHMZ ga objavljuje s razlogom, a protok
+// izvan njega bio bi produljenje krivulje ondje gdje je nitko nije mjerio.
+type HQOdsjecak struct {
+	OdCm, DoCm int
+	Oblik      string
+	P1, P2, P3 float64
 }
 
-// Protok računa protok iz vodostaja u centimetrima. Vraća false kad je
-// vodostaj ispod kote na kojoj krivulja prestaje vrijediti.
+// Protok računa protok iz odsječka.
+func (o HQOdsjecak) Protok(vodostajCm int) (float64, bool) {
+	h := float64(vodostajCm) / 100
+	if o.Oblik == OblikPotencija {
+		if h+o.P3 <= 0 {
+			return 0, false
+		}
+		return o.P1 * math.Pow(h+o.P3, o.P2), true
+	}
+	return o.P1*h*h + o.P2*h + o.P3, true
+}
+
+// Zapis je odsječak ispisan onako kako se i citira, s decimalnim zarezom.
+func (o HQOdsjecak) Zapis() string {
+	if o.Oblik == OblikPotencija {
+		return "Q = " + zarezHR(o.P1, 4) + " · (H + " + zarezHR(o.P3, 2) + ")^" + zarezHR(o.P2, 6)
+	}
+	znak := func(v float64) string {
+		if v < 0 {
+			return " − " + zarezHR(-v, 4) + "·"
+		}
+		return " + " + zarezHR(v, 4) + "·"
+	}
+	return "Q = " + zarezHR(o.P1, 4) + "·H²" + znak(o.P2) + "H" +
+		strings.TrimSuffix(znak(o.P3), "·")
+}
+
+// Raspon je raspon vodostaja u kojem odsječak vrijedi, ispisan.
+func (o HQOdsjecak) Raspon() string {
+	return strconv.Itoa(o.OdCm) + " do " + strconv.Itoa(o.DoCm) + " cm"
+}
+
+// zarezHR ispisuje broj s decimalnim zarezom, bez suvišnih nula.
+func zarezHR(f float64, najvise int) string {
+	s := strconv.FormatFloat(f, 'f', -1, 64)
+	if p := strings.IndexByte(s, '.'); p >= 0 && len(s)-p-1 > najvise {
+		s = strconv.FormatFloat(f, 'f', najvise, 64)
+	}
+	return strings.Replace(s, ".", ",", 1)
+}
+
+// Protok pretvara vodostaj u protok odsječkom koji za njega vrijedi. Vraća
+// false kad vodostaj izlazi iz raspona krivulje — tada se ne pogađa.
 func (k HQKrivulja) Protok(vodostajCm int) (float64, bool) {
-	h := float64(vodostajCm)/100 + k.H0
-	if h <= 0 {
-		return 0, false
+	for _, o := range k.Odsjecci {
+		if vodostajCm >= o.OdCm && vodostajCm <= o.DoCm {
+			return o.Protok(vodostajCm)
+		}
 	}
-	if k.ImaPrijelom() && vodostajCm >= *k.PrijelomCm {
-		return k.A2 * math.Pow(h, k.B2), true
-	}
-	return k.A * math.Pow(h, k.B), true
+	return 0, false
 }
 
-// Zapis je krivulja ispisana onako kako se i citira, s decimalnim zarezom.
+// Raspon je najniži i najviši vodostaj koji krivulja pokriva.
+func (k HQKrivulja) Raspon() (int, int, bool) {
+	if len(k.Odsjecci) == 0 {
+		return 0, 0, false
+	}
+	najn, najv := k.Odsjecci[0].OdCm, k.Odsjecci[0].DoCm
+	for _, o := range k.Odsjecci {
+		if o.OdCm < najn {
+			najn = o.OdCm
+		}
+		if o.DoCm > najv {
+			najv = o.DoCm
+		}
+	}
+	return najn, najv, true
+}
+
+// NajveciSkok je najveća razlika dvaju susjednih odsječaka na njihovoj
+// granici, u postotku. DHMZ-ove krivulje ondje imaju dvije desetinke;
+// veći skok znači da se protok na jednom centimetru mijenja skokovito.
+func (k HQKrivulja) NajveciSkok() float64 {
+	var naj float64
+	for i := 1; i < len(k.Odsjecci); i++ {
+		g := k.Odsjecci[i].OdCm
+		a, ok1 := k.Odsjecci[i-1].Protok(g)
+		b, ok2 := k.Odsjecci[i].Protok(g)
+		if !ok1 || !ok2 || a == 0 {
+			continue
+		}
+		if s := math.Abs(b/a-1) * 100; s > naj {
+			naj = s
+		}
+	}
+	return naj
+}
+
+// Zapis je cijela krivulja u jednom retku, za mjesta gdje nema prostora za
+// tablicu odsječaka.
 func (k HQKrivulja) Zapis() string {
-	zarez := func(f float64, d int) string {
-		return strings.Replace(strconv.FormatFloat(f, 'f', d, 64), ".", ",", 1)
+	var d []string
+	for _, o := range k.Odsjecci {
+		d = append(d, o.Zapis()+" ("+o.Raspon()+")")
 	}
-	izraz := func(a, b float64) string {
-		return "Q = " + zarez(a, 4) + " · (H + " + zarez(k.H0, 2) + ")^" + zarez(b, 4)
-	}
-	if k.ImaPrijelom() {
-		return izraz(k.A, k.B) + " do " + strconv.Itoa(*k.PrijelomCm) + " cm; " +
-			izraz(k.A2, k.B2) + " iznad"
-	}
-	return izraz(k.A, k.B)
+	return strings.Join(d, "; ")
 }

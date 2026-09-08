@@ -439,23 +439,27 @@
   {{if .Krivulje}}
   <details style="margin-top:1.25rem;">
     <summary style="cursor:pointer; font-weight:600;">Krivulje protoka <span class="reg-chip">{{len .Krivulje}}</span></summary>
-  <p class="page-desc">Korito se mijenja, pa se krivulja povremeno iznova postavlja. Protok se računa krivuljom koja vrijedi na dan očitanja.</p>
-  <div class="table-card"><div class="table-responsive">
+  <p class="page-desc">Korito se mijenja, pa se krivulja postavlja iznova — najčešće svake godine.
+    Protok se računa krivuljom koja je vrijedila na dan očitanja, i samo unutar raspona vodostaja
+    za koji je postavljena; izvan njega se ne pogađa.</p>
+  <div class="table-card table-stack"><div class="table-responsive">
     <table class="data-table">
-      <thead><tr><th>Vrijedi</th><th>Krivulja</th><th style="text-align:right;">Mjerenja</th><th style="text-align:right;">Odstupanje</th><th>Napomena</th></tr></thead>
+      <thead><tr><th>Vrijedi</th><th>Raspon</th><th>Odsječak</th><th>Izvor</th></tr></thead>
       <tbody>
-      {{range .Krivulje}}
+      {{range .Krivulje}}{{$k := .}}
+      {{range $i, $o := .Odsjecci}}
       <tr>
-        <td class="mono">{{.VrijediOd}} – {{if .VrijediDo}}{{.VrijediDo}}{{else}}danas{{end}}</td>
-        <td class="mono">{{.Zapis}}</td>
-        <td class="mono" style="text-align:right;">{{.Mjerenja}}</td>
-        <td class="mono" style="text-align:right;">{{brojHRf .Odstupanje 2}} %</td>
-        <td class="reg-card-sub">{{.Napomena}}</td>
+        <td class="mono naslov">{{if eq $i 0}}{{slice $k.VrijediOd 0 4}}.{{if $k.VrijediDo}}{{if ne (slice $k.VrijediDo 0 4) (slice $k.VrijediOd 0 4)}} – {{slice $k.VrijediDo 0 4}}.{{end}}{{else}} – danas{{end}}{{end}}</td>
+        <td class="mono" data-stupac="Raspon">{{$o.Raspon}}</td>
+        <td class="mono" data-stupac="Odsječak">{{$o.Zapis}}</td>
+        <td class="reg-card-sub" data-stupac="Izvor">{{if eq $i 0}}{{$k.Izvor}}{{end}} {{$k.Napomena}}</td>
       </tr>
+      {{end}}
       {{end}}
       </tbody>
     </table>
   </div></div>
+  <p class="form-help" style="margin-top:0.5rem;">H je vodostaj u metrima na letvi, Q protok u m³/s.</p>
   </details>
   {{end}}
   </details>
