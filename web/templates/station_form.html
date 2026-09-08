@@ -17,7 +17,7 @@
 
 {{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
 
-<form class="form-page" id="station-form" method="POST" action="{{if .IsEdit}}/api/stations/update{{else}}/api/stations/create{{end}}">
+<form class="form-page form-wide" id="station-form" method="POST" action="{{if .IsEdit}}/api/stations/update{{else}}/api/stations/create{{end}}">
   {{if .IsEdit}}<input type="hidden" name="id" value="{{.Station.ID}}">{{end}}
   <input type="hidden" name="code" value="{{.Station.Code}}">
   <input type="hidden" name="water_area" value="{{.Station.WaterArea}}">
@@ -64,6 +64,50 @@
     </div>
   </div>
 
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="zero_datum_source">Odakle kota</label>
+      <input type="text" id="zero_datum_source" name="zero_datum_source" class="form-control"
+             value="{{.Station.ZeroDatumSource}}" placeholder="Geodetski elaborat, tehnički zapisnik DHMZ-a…">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="zero_datum_method">Kako je utvrđena</label>
+      <input type="text" id="zero_datum_method" name="zero_datum_method" class="form-control"
+             value="{{.Station.ZeroDatumMethod}}" placeholder="izmjereno na terenu, transformirano iz starog sustava…">
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="zero_datum_survey_date">Datum izmjere</label>
+      <input type="text" id="zero_datum_survey_date" name="zero_datum_survey_date" class="form-control mono"
+             value="{{.Station.ZeroDatumSurveyDate}}" placeholder="2024-09-10">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="zero_datum_document_date">Datum dokumenta</label>
+      <input type="text" id="zero_datum_document_date" name="zero_datum_document_date" class="form-control mono"
+             value="{{.Station.ZeroDatumDocumentDate}}" placeholder="2025-01">
+      <div class="form-help">Elaborat zna nositi samo mjesec.</div>
+    </div>
+  </div>
+
+  <h3 style="font-size:0.9rem; margin:1rem 0 0.25rem;">Položaj</h3>
+  <p class="form-help" style="margin:0 0 0.5rem;">
+    Decimalni stupnjevi. Tehnički zapisnici DHMZ-a daju stupnjeve, minute i sekunde —
+    npr. 45° 50′ 45″ je 45,845833. S koordinatama se letva prikazuje na karti.
+  </p>
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="latitude">Geografska širina</label>
+      <input type="text" inputmode="decimal" id="latitude" name="latitude" class="form-control mono"
+             value="{{if .Station.Latitude}}{{unosD .Station.Latitude 6}}{{end}}" placeholder="45,845833">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="longitude">Geografska dužina</label>
+      <input type="text" inputmode="decimal" id="longitude" name="longitude" class="form-control mono"
+             value="{{if .Station.Longitude}}{{unosD .Station.Longitude 6}}{{end}}" placeholder="18,854722">
+    </div>
+  </div>
+
   <h3 style="font-size:0.9rem; margin:1rem 0 0.25rem;">Zabilježeni ekstremi</h3>
   <p class="form-help" style="margin:0 0 0.5rem;">
     Najviši i najniži vodostaj s datumom. Vrijednost koja nije izmjerena na ovoj letvi — preračunata iz druge postaje
@@ -71,7 +115,7 @@
   </p>
   <input type="hidden" name="extremes" id="extremes">
   <div class="rows-extreme">
-    <div class="rows-head"><div>Vrsta</div><div>Vodostaj (cm)</div><div>Datum</div><div>Podrijetlo</div><div>Izvor</div><div>Način / napomena</div><div></div></div>
+    <div class="rows-head"><div>Vrsta</div><div>Vodostaj (cm)</div><div>Datum</div><div>Podrijetlo</div><div>Izvor</div><div>Način</div><div>Napomena</div><div></div></div>
     <div id="extreme-rows"></div>
   </div>
   <button type="button" class="btn btn-sm btn-secondary" onclick="addExtremeRow()">{{icon "plus"}} Dodaj ekstrem</button>
@@ -82,7 +126,8 @@
       <div data-label="Datum"><input type="text" class="form-control mono" data-field="on_date" placeholder="1965-06-24" aria-label="Datum" title="YYYY-MM-DD, ili samo godina"></div>
       <div data-label="Podrijetlo"><select class="form-control" data-field="quality" aria-label="Podrijetlo vrijednosti"><option value="IZMJERENO">izmjereno</option><option value="REKONSTRUIRANO">rekonstruirano</option><option value="SUMNJIVO">sumnjivo</option></select></div>
       <div data-label="Izvor"><input type="text" class="form-control" data-field="source" placeholder="DHMZ, postaja Bezdan…" aria-label="Izvor"></div>
-      <div data-label="Način / napomena"><input type="text" class="form-control" data-field="method" placeholder="preračun iz Bezdana" aria-label="Način ili napomena"></div>
+      <div data-label="Način"><input type="text" class="form-control" data-field="method" placeholder="preračun iz susjedne postaje" aria-label="Kako je vrijednost dobivena"></div>
+      <div data-label="Napomena"><input type="text" class="form-control" data-field="note" placeholder="čime je potvrđeno, što se zna" aria-label="Napomena"></div>
       <button type="button" class="btn btn-sm btn-secondary" onclick="this.closest('.extreme-row').remove()" title="Ukloni">{{icon "x"}}</button>
     </div>
   </template>
@@ -95,13 +140,14 @@
     row.querySelector('[data-field=on_date]').value = e.on_date || '';
     row.querySelector('[data-field=quality]').value = e.quality || 'IZMJERENO';
     row.querySelector('[data-field=source]').value = e.source || '';
-    row.querySelector('[data-field=method]').value = e.method || e.note || '';
+    row.querySelector('[data-field=method]').value = e.method || '';
+    row.querySelector('[data-field=note]').value = e.note || '';
     document.getElementById('extreme-rows').appendChild(row);
   }
   function collectExtremes() {
     const rows = [...document.querySelectorAll('#extreme-rows .extreme-row')].map(r => {
       const g = f => r.querySelector('[data-field=' + f + ']').value.trim();
-      return { kind: g('kind'), level_cm: g('level_cm'), on_date: g('on_date'), quality: g('quality'), source: g('source'), method: g('method') };
+      return { kind: g('kind'), level_cm: g('level_cm'), on_date: g('on_date'), quality: g('quality'), source: g('source'), method: g('method'), note: g('note') };
     }).filter(x => x.level_cm || x.on_date);
     document.getElementById('extremes').value = JSON.stringify(rows);
     return true;
@@ -187,6 +233,28 @@
       <input type="text" id="notes" name="notes" class="form-control" value="{{.Station.Notes}}">
     </div>
   </div>
+
+  <h3 style="font-size:0.9rem; margin:1rem 0 0.25rem;">Podrijetlo i provjera</h3>
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="source_name">Naziv kako stoji u dokumentaciji</label>
+      <input type="text" id="source_name" name="source_name" class="form-control"
+             value="{{.Station.SourceName}}" placeholder="ako se razlikuje od naziva gore">
+      <div class="form-help">Služi za prepoznavanje pri uvozu iz starijih evidencija.</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="review_note">Što treba provjeriti</label>
+      <input type="text" id="review_note" name="review_note" class="form-control"
+             value="{{.Station.ReviewNote}}" placeholder="npr. kota nule nije potvrđena elaboratom">
+    </div>
+  </div>
+  <label class="form-check" style="display:flex; align-items:center; gap:0.5rem; margin-bottom:1rem;">
+    <input type="checkbox" name="needs_review" value="1" {{if .Station.NeedsReview}}checked{{end}}>
+    <span>Podaci nisu potvrđeni — traže provjeru operatera</span>
+  </label>
+  <p class="form-help" style="margin:-0.5rem 0 1rem;">
+    Označena postaja upozorava da se na njezine podatke još ne treba oslanjati u automatici.
+  </p>
 
   <div class="form-actions">
     <a href="{{if .IsEdit}}/stations/{{.Station.ID}}{{else}}/stations{{end}}" class="btn btn-secondary">Odustani</a>
