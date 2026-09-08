@@ -1,9 +1,9 @@
 {{template "base.html" .}}
 
-{{define "title"}}goCOP — Vodostaji: {{.GaugeName}}{{end}}
+{{define "title"}}goCOP — Očitanja: {{.GaugeName}}{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/readings">Vodostaji</a> › {{.GaugeName}}</div>
+<div class="breadcrumb"><a href="/readings">Očitanja</a> › {{.GaugeName}}</div>
 
 <div class="detail-head">
   <div>
@@ -73,7 +73,7 @@
 
 <section class="detail-section">
   <div class="odjeljak-glava">
-    <h2>{{icon "history"}} Očitanja <span class="reg-chip">{{.Count}}</span>{{if .Followed}} <span class="reg-chip">{{icon "download"}} povijest se čuva</span>{{end}}</h2>
+    <h2>{{icon "history"}} Svježa očitanja <span class="reg-chip">{{.Count}}</span>{{if .Followed}} <span class="reg-chip">{{icon "download"}} povijest se čuva</span>{{end}}</h2>
     {{if .Permissions.IsGlobalAdmin}}
     <form method="POST" action="/readings/follow" style="margin:0;">
       <input type="hidden" name="gauge_key" value="{{.GaugeKey}}">

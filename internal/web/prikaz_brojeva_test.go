@@ -1105,7 +1105,7 @@ func TestSvjezaOcitanjaIznadArhive(t *testing.T) {
 		ArhNiz:   []models.SpojenaVrijednost{{Kad: kad.AddDate(-13, 0, 0), Vrijednost: 771, Izvor: "his2000"}},
 		ArhPager: pagerZa(&http.Request{URL: &url.URL{Path: "/x"}}, "ap", 365, 100),
 	})
-	iOcitanja := strings.Index(html, "Očitanja")
+	iOcitanja := strings.Index(html, "Svježa očitanja")
 	iArhiva := strings.Index(html, "Povijest iz arhive")
 	if iOcitanja < 0 || iArhiva < 0 {
 		t.Fatal("nedostaje jedan od odjeljaka")
@@ -1386,7 +1386,7 @@ func TestCuvajPovijestStojiUzOcitanja(t *testing.T) {
 		GaugeName:   "Batina", Pogled: "30", PogledOpis: "zadnjih 30 dana",
 	})
 	iGlava := strings.Index(html, `class="detail-actions"`)
-	iOcitanja := strings.Index(html, "Očitanja")
+	iOcitanja := strings.Index(html, "Svježa očitanja")
 	iGumb := strings.Index(html, "Čuvaj povijest")
 	if iGumb < 0 {
 		t.Fatal("gumba nema")
@@ -1469,5 +1469,27 @@ func TestArhivskaTablicaNemaSvojKlizac(t *testing.T) {
 	})
 	if strings.Contains(html, "overflow-y:auto") || strings.Contains(html, "max-height:28rem") {
 		t.Error("arhivska tablica opet ima vlastiti klizač")
+	}
+}
+
+// Modul se u izborniku zove Očitanja, a ne Vodostaji: iste stranice nose i
+// protok, temperaturu i nanos, pa ime po jednoj veličini vara. Ključ modula
+// ostaje "vodostaji" — mijenja se natpis, ne ovlasti.
+func TestModulSeZoveOcitanja(t *testing.T) {
+	var nasao bool
+	for _, m := range models.Modules {
+		if m.ID == models.ModuleReadings {
+			nasao = true
+			if m.Label != "Očitanja" {
+				t.Errorf("modul se zove %q", m.Label)
+			}
+		}
+	}
+	if !nasao {
+		t.Fatal("modula nema u katalogu")
+	}
+	if models.ModuleReadings != "vodostaji" {
+		t.Errorf("ključ modula je %q — mijenjanjem bi svi računi izgubili ovlast",
+			models.ModuleReadings)
 	}
 }

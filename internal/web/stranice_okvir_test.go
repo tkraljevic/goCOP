@@ -107,7 +107,7 @@ func TestPogledVeziGrafITablicu(t *testing.T) {
 		t.Error("nema izbornika pogleda")
 	}
 	// uvoz stoji ispod popisa očitanja
-	iOcitanja := strings.Index(html, "Očitanja")
+	iOcitanja := strings.Index(html, "Svježa očitanja")
 	iUvoz := strings.Index(html, "Unesi više očitanja odjednom")
 	if iUvoz > 0 && iOcitanja > 0 && iUvoz < iOcitanja {
 		t.Error("uvoz stoji iznad popisa očitanja")
