@@ -65,7 +65,7 @@
 
 {{if .Chart}}
 <section class="detail-section">
-  <h2>{{icon "chart-column"}} Kretanje vodostaja <span class="reg-chip">{{if .Year}}{{.Year}}.{{else}}zadnjih {{len .Chart.Points}}{{end}}</span></h2>
+  <h2>{{icon "chart-column"}} Kretanje vodostaja <span class="reg-chip">{{.PogledOpis}}</span></h2>
   <div class="reg-card chart graf-niza" style="padding:0.75rem 0.5rem 0.25rem;" data-tocke="{{.Chart.Tocke}}">
     <svg viewBox="0 0 {{.Chart.Width}} {{.Chart.Height}}" role="img" aria-label="Graf vodostaja">
       {{range .Chart.YTicks}}
@@ -91,40 +91,19 @@
 </section>
 {{end}}
 
-{{if .CanRecord}}
-<section class="detail-section">
-  <h2>{{icon "upload"}} Unesi više očitanja odjednom</h2>
-  <p class="page-desc">
-    Zalijepi ispis s letva.voda.hr ili odaberi datoteku — tekst, CSV ili Excel (.xlsx).
-    Program prvo pokaže što bi se upisalo; već upisana očitanja se preskaču.
-  </p>
-  <form method="POST" action="/readings/station/{{.Station.ID}}/zalijepi" enctype="multipart/form-data"
-        class="table-card" style="padding:1rem 1.25rem;">
-    <div class="form-group" style="margin-bottom:0.75rem;">
-      <label class="form-label" for="tekst">Zalijepi ovdje</label>
-      <textarea id="tekst" name="tekst" class="form-control" rows="6" spellcheck="false"
-                style="font-family:ui-monospace,monospace; font-size:0.85rem;"
-                placeholder="07.09.2026. 00 h    -118&#10;07.09.2026. 01 h    -118&#10;07.09.2026. 02 h    -119"></textarea>
-    </div>
-    <div style="display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap;">
-      <input type="file" name="datoteka" accept=".csv,.txt,.xlsx,text/plain,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="form-control" style="max-width:18rem;">
-      <button type="submit" class="btn btn-secondary">{{icon "eye"}} Pogledaj što bi se upisalo</button>
-    </div>
-  </form>
-</section>
-{{end}}
-
 <section class="detail-section">
   <h2>{{icon "history"}} Očitanja <span class="reg-chip">{{.Count}}</span>{{if .Followed}} <span class="reg-chip">{{icon "download"}} povijest se čuva</span>{{end}}</h2>
-  {{if .Years}}
-  <form method="GET" action="" style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; margin-bottom:0.75rem;">
-    <label class="filter-label" for="year" style="margin:0;">Godina</label>
-    <select id="year" name="year" class="filter-select" style="max-width:10rem;" onchange="this.form.submit()">
-      <option value="">Sve</option>
-      {{range .Years}}<option value="{{.}}" {{if eq . $.Year}}selected{{end}}>{{.}}.</option>{{end}}
+  <form method="GET" action="" id="pogled" style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; margin-bottom:0.75rem;">
+    <label class="filter-label" for="pogledSel" style="margin:0;">Pogled</label>
+    <select id="pogledSel" name="pogled" class="filter-select" style="max-width:12rem;" onchange="this.form.submit()">
+      <option value="30" {{if eq .Pogled "30"}}selected{{end}}>zadnjih 30 dana</option>
+      <option value="90" {{if eq .Pogled "90"}}selected{{end}}>zadnjih 90 dana</option>
+      <option value="365" {{if eq .Pogled "365"}}selected{{end}}>zadnjih godinu dana</option>
+      {{range .Years}}<option value="{{.}}" {{if eq $.Year .}}selected{{end}}>{{.}}.</option>{{end}}
+      <option value="sve" {{if eq .Pogled "sve"}}selected{{end}}>sve</option>
     </select>
+    <span class="reg-card-sub">{{brojHR .Count}} očitanja</span>
   </form>
-  {{end}}
   {{template "pager" .Pager}}
   <div class="reg-card" style="padding:0;">
     {{range .Readings}}
@@ -155,6 +134,29 @@
   </div>
   {{template "pager" .Pager}}
 </section>
+
+{{if .CanRecord}}
+<section class="detail-section">
+  <h2>{{icon "upload"}} Unesi više očitanja odjednom</h2>
+  <p class="page-desc">
+    Zalijepi ispis s letva.voda.hr ili odaberi datoteku — tekst, CSV ili Excel (.xlsx).
+    Program prvo pokaže što bi se upisalo; već upisana očitanja se preskaču.
+  </p>
+  <form method="POST" action="/readings/station/{{.Station.ID}}/zalijepi" enctype="multipart/form-data"
+        class="table-card" style="padding:1rem 1.25rem;">
+    <div class="form-group" style="margin-bottom:0.75rem;">
+      <label class="form-label" for="tekst">Zalijepi ovdje</label>
+      <textarea id="tekst" name="tekst" class="form-control" rows="6" spellcheck="false"
+                style="font-family:ui-monospace,monospace; font-size:0.85rem;"
+                placeholder="07.09.2026. 00 h    -118&#10;07.09.2026. 01 h    -118&#10;07.09.2026. 02 h    -119"></textarea>
+    </div>
+    <div style="display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap;">
+      <input type="file" name="datoteka" accept=".csv,.txt,.xlsx,text/plain,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="form-control" style="max-width:18rem;">
+      <button type="submit" class="btn btn-secondary">{{icon "eye"}} Pogledaj što bi se upisalo</button>
+    </div>
+  </form>
+</section>
+{{end}}
 
 {{if .ArhVelicine}}
 <section class="detail-section" id="arhiva">
