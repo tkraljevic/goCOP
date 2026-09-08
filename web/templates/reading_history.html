@@ -63,6 +63,34 @@
 </section>
 {{end}}
 
+{{if .Chart}}
+<section class="detail-section">
+  <h2>{{icon "chart-column"}} Kretanje vodostaja <span class="reg-chip">{{if .Year}}{{.Year}}.{{else}}zadnjih {{len .Chart.Points}}{{end}}</span></h2>
+  <div class="reg-card chart" style="padding:0.75rem 0.5rem 0.5rem;">
+    <svg viewBox="0 0 {{.Chart.Width}} {{.Chart.Height}}" role="img" aria-label="Graf vodostaja">
+      {{range .Chart.YTicks}}
+      <line class="grid" x1="44" x2="{{$.Chart.Width}}" y1="{{printf "%.1f" .Pos}}" y2="{{printf "%.1f" .Pos}}"/>
+      <text class="tick" x="40" y="{{printf "%.1f" .Pos}}" text-anchor="end" dominant-baseline="middle">{{.Label}}</text>
+      {{end}}
+      {{range .Chart.Bands}}<rect class="band {{.Class}}" x="44" y="{{printf "%.1f" .Y}}" width="{{$.Chart.Width}}" height="{{printf "%.1f" .H}}"/>{{end}}
+      <path class="area" d="{{.Chart.Area}}"/>
+      {{range .Chart.Thresholds}}
+      <line class="thr {{.Class}}" x1="44" x2="{{$.Chart.Width}}" y1="{{printf "%.1f" .Y}}" y2="{{printf "%.1f" .Y}}"/>
+      <text class="thr-label {{.Class}}" x="{{$.Chart.Width}}" y="{{printf "%.1f" .Y}}" text-anchor="end" dy="-3">{{.Label}}</text>
+      {{end}}
+      <path class="line" d="{{.Chart.Path}}"/>
+      {{$n := len .Chart.Points}}
+      {{range $i, $p := .Chart.Points}}
+      <circle class="dot {{if eq (add $i 1) $n}}last{{end}}" cx="{{printf "%.1f" $p.X}}" cy="{{printf "%.1f" $p.Y}}" r="{{if eq (add $i 1) $n}}4{{else}}1.5{{end}}"><title>{{formatDate (localTime $p.At)}} — {{$p.Level}} cm</title></circle>
+      {{end}}
+      {{range $i, $t := .Chart.XTicks}}
+      <text class="tick" x="{{printf "%.1f" $t.Pos}}" y="{{$.Chart.Height}}" dy="-6" text-anchor="{{if eq $i 0}}start{{else if eq $i 2}}end{{else}}middle{{end}}">{{$t.Label}}</text>
+      {{end}}
+    </svg>
+  </div>
+</section>
+{{end}}
+
 <section class="detail-section">
   <h2>{{icon "history"}} Očitanja <span class="reg-chip">{{.Count}}</span>{{if .Followed}} <span class="reg-chip">{{icon "download"}} povijest se čuva</span>{{end}}</h2>
   {{if .Years}}
@@ -104,34 +132,6 @@
   </div>
   {{template "pager" .Pager}}
 </section>
-
-{{if .Chart}}
-<section class="detail-section">
-  <h2>{{icon "chart-column"}} Kretanje vodostaja <span class="reg-chip">{{if .Year}}{{.Year}}.{{else}}zadnjih {{len .Chart.Points}}{{end}}</span></h2>
-  <div class="reg-card chart" style="padding:0.75rem 0.5rem 0.5rem;">
-    <svg viewBox="0 0 {{.Chart.Width}} {{.Chart.Height}}" role="img" aria-label="Graf vodostaja">
-      {{range .Chart.YTicks}}
-      <line class="grid" x1="44" x2="{{$.Chart.Width}}" y1="{{printf "%.1f" .Pos}}" y2="{{printf "%.1f" .Pos}}"/>
-      <text class="tick" x="40" y="{{printf "%.1f" .Pos}}" text-anchor="end" dominant-baseline="middle">{{.Label}}</text>
-      {{end}}
-      {{range .Chart.Bands}}<rect class="band {{.Class}}" x="44" y="{{printf "%.1f" .Y}}" width="{{$.Chart.Width}}" height="{{printf "%.1f" .H}}"/>{{end}}
-      <path class="area" d="{{.Chart.Area}}"/>
-      {{range .Chart.Thresholds}}
-      <line class="thr {{.Class}}" x1="44" x2="{{$.Chart.Width}}" y1="{{printf "%.1f" .Y}}" y2="{{printf "%.1f" .Y}}"/>
-      <text class="thr-label {{.Class}}" x="{{$.Chart.Width}}" y="{{printf "%.1f" .Y}}" text-anchor="end" dy="-3">{{.Label}}</text>
-      {{end}}
-      <path class="line" d="{{.Chart.Path}}"/>
-      {{$n := len .Chart.Points}}
-      {{range $i, $p := .Chart.Points}}
-      <circle class="dot {{if eq (add $i 1) $n}}last{{end}}" cx="{{printf "%.1f" $p.X}}" cy="{{printf "%.1f" $p.Y}}" r="{{if eq (add $i 1) $n}}4{{else}}1.5{{end}}"><title>{{formatDate (localTime $p.At)}} — {{$p.Level}} cm</title></circle>
-      {{end}}
-      {{range $i, $t := .Chart.XTicks}}
-      <text class="tick" x="{{printf "%.1f" $t.Pos}}" y="{{$.Chart.Height}}" dy="-6" text-anchor="{{if eq $i 0}}start{{else if eq $i 2}}end{{else}}middle{{end}}">{{$t.Label}}</text>
-      {{end}}
-    </svg>
-  </div>
-</section>
-{{end}}
 
 {{if .ArhVelicine}}
 <section class="detail-section" id="arhiva">

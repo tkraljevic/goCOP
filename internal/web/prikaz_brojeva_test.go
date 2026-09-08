@@ -1162,4 +1162,8 @@ func TestSvjezaOcitanjaIznadArhive(t *testing.T) {
 	if iOcitanja > iArhiva {
 		t.Error("arhiva stoji iznad svježih očitanja")
 	}
+	// graf kretanja stoji iznad popisa očitanja
+	if i := strings.Index(html, "Kretanje vodostaja"); i > 0 && i > iOcitanja {
+		t.Error("graf kretanja stoji ispod popisa očitanja")
+	}
 }
