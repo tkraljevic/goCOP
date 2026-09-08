@@ -488,16 +488,19 @@ func (r *ArhivaRepository) SpojZadnje(ctx context.Context, letva, velicina, kora
 // SpojRaspon vraća vrijednosti spojenog niza u razdoblju, novije prvo. Svaka
 // nosi izvor i odstupanje, pa se u tablici vidi odakle je koji redak.
 func (r *ArhivaRepository) SpojRaspon(ctx context.Context, letva, velicina, korak string,
-	od, do time.Time, granica int) ([]models.SpojenaVrijednost, error) {
+	od, do time.Time, granica, odmak int) ([]models.SpojenaVrijednost, error) {
 	if r == nil {
 		return nil, nil
 	}
 	if granica <= 0 || granica > 5000 {
 		granica = 400
 	}
+	if odmak < 0 {
+		odmak = 0
+	}
 	rows, err := r.db.QueryContext(ctx, `SELECT vrijeme, vrijednost, izvor, vrsta, tocnost FROM spoj
 		WHERE letva=? AND velicina=? AND korak=? AND vrijeme BETWEEN ? AND ?
-		ORDER BY vrijeme DESC LIMIT ?`, letva, velicina, korak, od.Unix(), do.Unix(), granica)
+		ORDER BY vrijeme DESC LIMIT ? OFFSET ?`, letva, velicina, korak, od.Unix(), do.Unix(), granica, odmak)
 	if err != nil {
 		return nil, fmt.Errorf("spojeni niz: %w", err)
 	}
@@ -583,4 +586,17 @@ func (r *ArhivaRepository) Sazetak(ctx context.Context, letva string) ([]models.
 		return rangVelicine(out[a].Velicina) < rangVelicine(out[b].Velicina)
 	})
 	return out, nil
+}
+
+// SpojBroj vraća koliko vrijednosti spojeni niz ima u razdoblju — za listanje,
+// da se ne mora dohvatiti cijela godina da bi se znalo koliko je ima.
+func (r *ArhivaRepository) SpojBroj(ctx context.Context, letva, velicina, korak string, od, do time.Time) (int, error) {
+	if r == nil {
+		return 0, nil
+	}
+	var n int
+	err := r.db.QueryRowContext(ctx, `SELECT count(*) FROM spoj
+		WHERE letva=? AND velicina=? AND korak=? AND vrijeme BETWEEN ? AND ?`,
+		letva, velicina, korak, od.Unix(), do.Unix()).Scan(&n)
+	return n, err
 }

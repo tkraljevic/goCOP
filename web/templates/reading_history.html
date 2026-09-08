@@ -101,7 +101,7 @@
     <select name="god" class="filter-select" style="max-width:8rem;" onchange="this.form.submit()">
       {{range .ArhGodine}}<option value="{{.}}" {{if eq . $.ArhGodina}}selected{{end}}>{{.}}.</option>{{end}}
     </select>
-    <span class="reg-card-sub">{{len .ArhGodine}} godina u arhivi</span>
+    <span class="reg-card-sub">{{len .ArhGodine}} godina u arhivi{{if .ArhPager.Total}} · {{brojHR .ArhPager.Total}} vrijednosti u {{.ArhGodina}}.{{end}}</span>
   </form>
 
   {{if .ArhChart}}
@@ -134,8 +134,9 @@
       </tbody>
     </table>
   </div></div>
+  {{template "pager" .ArhPager}}
   <p class="page-desc" style="margin-top:0.5rem;">
-    Prikazano najviše 400 vrijednosti po godini, novije prvo. Svaka dolazi iz najtočnijeg izvora koji je taj trenutak pokrio.
+    Novije prvo. Svaka vrijednost dolazi iz najtočnijeg izvora koji je taj trenutak pokrio.
   </p>
   {{end}}
 </section>

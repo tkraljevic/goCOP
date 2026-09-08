@@ -2,6 +2,8 @@ package web
 
 import (
 	"github.com/google/uuid"
+	"net/http"
+	"net/url"
 
 	"bytes"
 	"html/template"
@@ -664,6 +666,7 @@ func TestPovijestLetveCitaArhivu(t *testing.T) {
 		ArhJedinica: "cm",
 		ArhGodine:   []int{2013, 2012, 1956},
 		ArhGodina:   2013,
+		ArhPager:    pagerZa(&http.Request{URL: &url.URL{Path: "/readings/station/x"}}, "ap", 8760, 100),
 		ArhNiz: []models.SpojenaVrijednost{
 			{Kad: kad, Vrijednost: 771, Izvor: "his2000", Vrsta: "srednjak", Tocnost: 0},
 			{Kad: kad.AddDate(0, 0, -1), Vrijednost: 758, Izvor: "letva-dhmz", Vrsta: "srednjak", Tocnost: 1},
@@ -677,6 +680,8 @@ func TestPovijestLetveCitaArhivu(t *testing.T) {
 		"Povijest iz arhive", "Vodostaj", "Protok", "Temperatura vode", "Pronos nanosa",
 		"1956", "2013", "771", "ovjereno", "telemetrija, DHMZ", "±1",
 		"797", "1956-03-13", // sažetak
+		"8.760", // ukupno vrijednosti u godini, iz listanja
+		"?ap=2", // listanje kroz satni niz
 	} {
 		if !strings.Contains(html, want) {
 			t.Errorf("na stranici povijesti nema %q", want)
