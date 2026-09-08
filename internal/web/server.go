@@ -58,6 +58,7 @@ type Server struct {
 	peersService       *peers.Service
 	db                 *sql.DB
 	dbPath             string
+	arhiva             *repository.ArhivaRepository
 	recorder           *ledger.Recorder
 	sseBroker          *service.SSEBroker
 	templates          map[string]*template.Template
@@ -68,7 +69,10 @@ type Server struct {
 // da ih ispod istog krova može pozvati i test koji iscrtava stranicu.
 func templateFuncs() template.FuncMap {
 	return template.FuncMap{
-		"basisLabel": models.BasisLabel,
+		"basisLabel":    models.BasisLabel,
+		"velicinaLabel": models.NazivVelicine,
+		"izvorLabel":    models.NazivIzvora,
+		"vrstaLabel":    models.NazivVrste,
 		"formatDate": func(t time.Time) string {
 			if t.IsZero() {
 				return "-"
@@ -331,6 +335,7 @@ func (s *Server) setupRoutes() {
 	stationsH := NewStationsHandler(s.stationService, s.templates["stations.html"])
 	stationsH.SetPageTemplates(s.templates["station_detail.html"], s.templates["station_form.html"], s.sectionService, s.watercourseService)
 	stationsH.SetEpisodeService(s.episodeService)
+	stationsH.SetArhiva(s.arhiva)
 	watercoursesH := NewWatercoursesHandler(s.watercourseService, s.sectionService, s.templates["watercourses.html"])
 	structuresH := NewStructuresHandler(s.structureService, s.stationService, s.sectionService, s.userService,
 		s.templates["structures.html"], s.templates["structure_detail.html"], s.templates["structure_form.html"])
@@ -692,6 +697,12 @@ func (s *Server) Start() error {
 // SetDatabase daje poslužitelju bazu i njezinu putanju, za održavanje
 func (s *Server) SetDatabase(db *sql.DB, path string) {
 	s.db, s.dbPath = db, path
+}
+
+// SetArhiva daje poslužitelju hidrološku arhivu. Arhiva je zasebna datoteka i
+// smije je ne biti: čvor koji je nije preuzeo radi bez povijesti, ne pada.
+func (s *Server) SetArhiva(a *repository.ArhivaRepository) {
+	s.arhiva = a
 }
 
 func (s *Server) SetAddr(addr string) {
