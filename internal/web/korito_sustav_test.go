@@ -4,8 +4,11 @@ import (
 	"math"
 	"strings"
 	"testing"
+	"time"
 
 	"gocop/internal/models"
+
+	"github.com/google/uuid"
 )
 
 func probniProfil() models.ProfilKorita {
@@ -232,5 +235,47 @@ func TestNatpisiPragovaNisuUzSamuOs(t *testing.T) {
 	sredina := c.Lijevo + c.SirinaPlohe/2
 	if c.NatpisX() >= sredina {
 		t.Errorf("natpis praga na %.0f je u sredini (%.0f), gdje stoji kota vode", c.NatpisX(), sredina)
+	}
+}
+
+// Predložak koji pukne pri izvršavanju ne javlja grešku na stranici nego je
+// prekine na mjestu pucanja: sve ispod tiho nestane. Tako je krivi pomoćnik u
+// natpisu ispod presjeka — brojHRd traži pokazivač, a razlika sustava je
+// obična brojka — odnio pola kartice letve, a nijedan test to nije primijetio
+// jer su svi presjek crtali izravno, bez iscrtavanja stranice.
+//
+// Zato se ovdje iscrtava cijela kartica s presjekom u novom sustavu i traži
+// da stigne do zadnjeg odjeljka.
+func TestKarticaLetveSPresjekomStigneDoKraja(t *testing.T) {
+	st := batinaSKotama()
+	st.ID = uuid.New()
+	st.Code = "batina"
+	st.Watercourse = "Dunav"
+	p := probniProfil()
+
+	html := iscrtaj(t, "station_detail.html", StationPageData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Station:     st, PragoviKote: pragoviUKotama(st),
+		Profili:   []models.ProfilKorita{p},
+		Profil:    &p,
+		Zadnji:    &models.HidroTocka{Kad: time.Now(), Vrijednost: 300},
+		Crtez:     crtajKoritoP(p, 300, sirokoKoritoM.uSustavu(st)),
+		CrtezUzak: crtajKoritoP(p, 300, uskoKoritoM.uSustavu(st)),
+	})
+
+	// odjeljak presjeka mora biti tu, s natpisom o preračunu
+	if !strings.Contains(html, "Korito i voda u njemu") {
+		t.Fatal("nema odjeljka s presjekom")
+	}
+	if !strings.Contains(html, "Kote su preračunate u") || !strings.Contains(html, "0,261") {
+		t.Error("nema objašnjenja preračuna s razlikom sustava")
+	}
+	// i sve što dolazi POSLIJE njega
+	if !strings.Contains(html, "Mjerodavna za dionice") {
+		t.Error("stranica je prekinuta prije zadnjeg odjeljka — predložak je pukao usred izvršavanja")
+	}
+	if !strings.HasSuffix(strings.TrimSpace(html), "</html>") {
+		t.Error("stranica ne završava zatvaranjem dokumenta")
 	}
 }

@@ -299,7 +299,7 @@
     </div>
     <p class="reg-card-sub" style="margin:0.5rem 0 0;">
       {{if .Crtez.Sustav}}Kote su preračunate u <strong>{{.Crtez.Sustav}}</strong>; profil je snimljen u sustavu
-        {{.Station.ZeroDatumSystem}}, pa je od snimljenih kota oduzeto {{brojHRd .Station.RazlikaVisinskihSustava 3}} m.
+        {{.Station.ZeroDatumSystem}}, pa je od snimljenih kota oduzeto {{brojHRf .Station.RazlikaVisinskihSustava 3}} m.
         Razlika se računa iz kota nule same letve i nigdje nije upisana kao konstanta.
         Uz desni rub stoji vodostaj koji bi toj visini na letvi odgovarao.
       {{else}}Sve kote su u sustavu <strong>{{.Station.ZeroDatumSystem}}</strong>, jer je u njemu snimljen i profil.{{end}}
