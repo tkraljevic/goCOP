@@ -48,6 +48,20 @@ CREATE TABLE IF NOT EXISTS nizovi (
 	osvjezeno TEXT NOT NULL DEFAULT '',
 	UNIQUE(letva, izvor, velicina, vrsta)
 );
+-- Spojeni niz: jedna vrijednost po trenutku, uzeta iz najboljeg izvora koji
+-- je taj trenutak pokrio. Uz svaku stoji odakle je i kolika joj je točnost, pa
+-- se brzi podatak može uzeti bez razmišljanja, a podrijetlo se ne gubi.
+CREATE TABLE IF NOT EXISTS spoj (
+	letva      TEXT NOT NULL,
+	velicina   TEXT NOT NULL,
+	korak      TEXT NOT NULL,   -- satni | dnevni
+	vrijeme    INTEGER NOT NULL,
+	vrijednost REAL NOT NULL,
+	izvor      TEXT NOT NULL,
+	vrsta      TEXT NOT NULL,   -- trenutna | srednjak | jutarnji
+	tocnost    REAL NOT NULL,   -- ± u jedinici veličine, 68 % vrijednosti
+	PRIMARY KEY (letva, velicina, korak, vrijeme)
+) WITHOUT ROWID;
 CREATE TABLE IF NOT EXISTS profili (
 	id       INTEGER PRIMARY KEY,
 	letva    TEXT NOT NULL,
@@ -138,7 +152,11 @@ func main() {
 			n.sliv, n.letva, n.izvor, n.velicina, n.vrsta, upisano, od, do, otisak[:8])
 		ukupno += upisano
 	}
-	fmt.Printf("\nnizova %d, očitanja %d\n", len(nizovi), ukupno)
+	spojeno, err := spoji(db, *samo)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("\nnizova %d, očitanja %d, spojenih vrijednosti %d\n", len(nizovi), ukupno, spojeno)
 	if st, err := os.Stat(*baza); err == nil {
 		fmt.Printf("%s: %.1f MB\n", *baza, float64(st.Size())/1e6)
 	}
@@ -490,4 +508,228 @@ func nth(r []string, i int) string {
 		return r[i]
 	}
 	return ""
+}
+
+// Točnost izvora, izmjerena usporedbom sa službeno ovjerenim nizom: koliko
+// odstupa 68 % vrijednosti. Nije procjena nego mjerenje na stotinama tisuća
+// sati kroz devet letava.
+var tocnostIzvora = map[string]float64{
+	"his2000":    0, // referenca — po njoj se ostali mjere
+	"letva-dhmz": 1,
+	"cop":        3,
+	"letva-hv":   5,
+}
+
+// redSpajanja je poredak povjerenja pri spajanju. letva-hv je zadnja jer nema
+// jednu točnost: dobra je većinu vremena, ali u zamrznutim razdobljima javlja
+// istu vrijednost danima.
+var redSpajanja = []string{"his2000", "letva-dhmz", "cop", "letva-hv"}
+
+func tocnost(izvor string) float64 {
+	if t, ok := tocnostIzvora[izvor]; ok {
+		return t
+	}
+	if strings.HasPrefix(izvor, "preracun-") {
+		return 14 // rekonstrukcija: 90 % unutar ±14 cm
+	}
+	return 20
+}
+
+// spoji gradi dva niza po letvi i veličini — satni i dnevni — uzimajući svaku
+// vrijednost iz najboljeg izvora koji je taj trenutak pokrio.
+//
+// Dnevni niz je srednjak, jer to znači "koliko je vode toga dana bilo". Gdje
+// srednjaka nema pa se uzme jutarnje očitanje, to piše uz vrijednost: jutarnja
+// vrijednost i dnevni srednjak razilaze se na naglom porastu i po više od
+// metra, i ne smiju se tiho pomiješati.
+func spoji(db *sql.DB, samo string) (int, error) {
+	q := `SELECT DISTINCT letva, velicina FROM nizovi`
+	var args []any
+	if samo != "" {
+		q += ` WHERE letva = ?`
+		args = append(args, samo)
+	}
+	rows, err := db.Query(q, args...)
+	if err != nil {
+		return 0, err
+	}
+	type par struct{ letva, velicina string }
+	var parovi []par
+	for rows.Next() {
+		var p par
+		if err := rows.Scan(&p.letva, &p.velicina); err != nil {
+			rows.Close()
+			return 0, err
+		}
+		parovi = append(parovi, p)
+	}
+	rows.Close()
+
+	ukupno := 0
+	for _, p := range parovi {
+		n, err := spojiJedan(db, p.letva, p.velicina)
+		if err != nil {
+			return ukupno, fmt.Errorf("%s/%s: %w", p.letva, p.velicina, err)
+		}
+		ukupno += n
+	}
+	return ukupno, nil
+}
+
+type spojena struct {
+	v       float64
+	izvor   string
+	vrsta   string
+	tocnost float64
+}
+
+func spojiJedan(db *sql.DB, letva, velicina string) (int, error) {
+	// koji nizovi postoje i kojim korakom
+	rows, err := db.Query(`SELECT id, izvor, vrsta FROM nizovi WHERE letva=? AND velicina=?`, letva, velicina)
+	if err != nil {
+		return 0, err
+	}
+	type niz struct {
+		id    int64
+		izvor string
+		vrsta string
+	}
+	var nizovi []niz
+	for rows.Next() {
+		var n niz
+		if err := rows.Scan(&n.id, &n.izvor, &n.vrsta); err != nil {
+			rows.Close()
+			return 0, err
+		}
+		nizovi = append(nizovi, n)
+	}
+	rows.Close()
+
+	satni := map[int64]spojena{}
+	dnevni := map[int64]spojena{}
+
+	uzmi := func(cilj map[int64]spojena, n niz, vrsta string, poDanu bool) error {
+		r, err := db.Query(`SELECT vrijeme, vrijednost FROM ocitanja WHERE niz = ?`, n.id)
+		if err != nil {
+			return err
+		}
+		defer r.Close()
+		t := tocnost(n.izvor)
+		for r.Next() {
+			var kad int64
+			var v float64
+			if err := r.Scan(&kad, &v); err != nil {
+				return err
+			}
+			if poDanu {
+				kad = kad - kad%86400
+			}
+			if prije, ima := cilj[kad]; ima && prije.tocnost <= t {
+				continue
+			}
+			cilj[kad] = spojena{v: v, izvor: n.izvor, vrsta: vrsta, tocnost: t}
+		}
+		return r.Err()
+	}
+
+	// satni: samo nizovi koji doista imaju sat
+	for _, izvor := range redSpajanja {
+		for _, n := range nizovi {
+			if n.izvor == izvor && n.vrsta == "satni" {
+				if err := uzmi(satni, n, "trenutna", false); err != nil {
+					return 0, err
+				}
+			}
+		}
+	}
+	// dnevni: prvo ovjereni srednjaci, pa srednjak izveden iz spojenog satnog,
+	// pa jutarnja očitanja, pa rekonstrukcija
+	for _, izvor := range redSpajanja {
+		for _, n := range nizovi {
+			if n.izvor == izvor && n.vrsta == "srednjak" {
+				if err := uzmi(dnevni, n, "srednjak", true); err != nil {
+					return 0, err
+				}
+			}
+		}
+	}
+	if len(satni) > 0 {
+		zbroj := map[int64]float64{}
+		broj := map[int64]int{}
+		najgora := map[int64]float64{}
+		izvorDana := map[int64]string{}
+		for kad, s := range satni {
+			d := kad - kad%86400
+			zbroj[d] += s.v
+			broj[d]++
+			if s.tocnost > najgora[d] {
+				najgora[d] = s.tocnost
+			}
+			izvorDana[d] = s.izvor
+		}
+		for d, n := range broj {
+			if n < 20 { // nepotpun dan ne daje srednjak
+				continue
+			}
+			t := najgora[d]
+			if prije, ima := dnevni[d]; ima && prije.tocnost <= t {
+				continue
+			}
+			dnevni[d] = spojena{v: zbroj[d] / float64(n), izvor: izvorDana[d], vrsta: "srednjak", tocnost: t}
+		}
+	}
+	for _, izvor := range redSpajanja {
+		for _, n := range nizovi {
+			if n.izvor == izvor && (n.vrsta == "jutarnji" || n.vrsta == "dnevni" || n.vrsta == "dvokratni") {
+				if err := uzmi(dnevni, n, n.vrsta, true); err != nil {
+					return 0, err
+				}
+			}
+		}
+	}
+	// preračun ide na kraj, samo tamo gdje ničega drugoga nema
+	for _, n := range nizovi {
+		if strings.HasPrefix(n.izvor, "preracun-") {
+			cilj, vrsta := dnevni, n.vrsta
+			if n.vrsta == "satni" {
+				cilj, vrsta = satni, "trenutna"
+				if err := uzmi(cilj, n, vrsta, false); err != nil {
+					return 0, err
+				}
+				continue
+			}
+			if err := uzmi(cilj, n, vrsta, true); err != nil {
+				return 0, err
+			}
+		}
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec(`DELETE FROM spoj WHERE letva=? AND velicina=?`, letva, velicina); err != nil {
+		return 0, err
+	}
+	st, err := tx.Prepare(`INSERT INTO spoj (letva, velicina, korak, vrijeme, vrijednost, izvor, vrsta, tocnost)
+		VALUES (?,?,?,?,?,?,?,?)`)
+	if err != nil {
+		return 0, err
+	}
+	defer st.Close()
+	n := 0
+	for korak, m := range map[string]map[int64]spojena{"satni": satni, "dnevni": dnevni} {
+		for kad, s := range m {
+			if _, err := st.Exec(letva, velicina, korak, kad, s.v, s.izvor, s.vrsta, s.tocnost); err != nil {
+				return n, err
+			}
+			n++
+		}
+	}
+	if n > 0 {
+		fmt.Printf("%-8s %-16s %-22s %-12s spojeno %8d  (satnih %d, dnevnih %d)\n",
+			"", letva, "→ spojeni niz", velicina, n, len(satni), len(dnevni))
+	}
+	return n, tx.Commit()
 }

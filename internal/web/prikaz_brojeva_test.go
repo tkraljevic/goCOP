@@ -562,3 +562,42 @@ func TestKarticaLetvePrikazujeHodTrajanjeIZbroj(t *testing.T) {
 		t.Error("pravilo o zbrajanju nije ispravno")
 	}
 }
+
+// Spojeni niz mora reći od čega je sastavljen. Broj bez podrijetla je broj
+// kojem se poslije ne može provjeriti odakle je došao.
+func TestKarticaLetvePrikazujeSpojeniNiz(t *testing.T) {
+	kad := time.Date(2026, 9, 7, 6, 0, 0, 0, time.UTC)
+	html := iscrtaj(t, "station_detail.html", StationPageData{
+		CurrentUser: &models.User{FullName: "Provjera"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Station:     models.Station{ID: uuid.MustParse("c625fa9d-0425-5115-8c49-8819cbb17bbd"), Name: "Batina", Code: "batina"},
+		Sada:        &models.SpojenaVrijednost{Kad: kad, Vrijednost: -129, Izvor: "letva-dhmz", Vrsta: "trenutna", Tocnost: 1},
+		Spojevi: []models.SpojDoseg{
+			{Velicina: "vodostaj", Korak: "dnevni", Od: "1901-01-01", Do: "2026-09-06", Zapisa: 45806,
+				Dijelovi: []models.SpojDio{
+					{Izvor: "preracun-mohacs", Vrsta: "srednjak", Zapisa: 36493, Od: "1901-01-01", Do: "2001-03-08", Tocnost: 14},
+					{Izvor: "his2000", Vrsta: "srednjak", Zapisa: 9276, Od: "2001-03-09", Do: "2026-07-31", Tocnost: 0},
+					{Izvor: "cop", Vrsta: "jutarnji", Zapisa: 37, Od: "2026-08-01", Do: "2026-09-06", Tocnost: 3},
+				}},
+		},
+	})
+	for _, want := range []string{
+		"Vodostaj i protok", "-129 cm", "±1", "telemetrija, DHMZ",
+		"1901-01-01", "45.806", "preračunato iz mohacs", "±14", "ovjereno",
+		"79 %", // udio rekonstrukcije u spojenom dnevnom nizu
+		"jutarnje očitanje, nije srednjak",
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("na kartici nema %q", want)
+		}
+	}
+
+	// udio se računa iz stvarnog broja zapisa, ne procjenjuje
+	d := models.SpojDio{Zapisa: 9276}
+	if u := d.Udio(45806); u != 20 {
+		t.Errorf("udio %d %%, očekivano 20", u)
+	}
+	if u := d.Udio(0); u != 0 {
+		t.Errorf("udio bez ukupnog broja mora biti 0, dobiveno %d", u)
+	}
+}
