@@ -57,17 +57,22 @@ func TestVrijemeNizaBezPomakaIDvostrukogSata(t *testing.T) {
 		GaugeName:   "Batina", Satni: satni, Redci: redci, Novih: 2,
 		Od: redci[0].Kad, Do: redci[1].Kad,
 	})
-	if !strings.Contains(html, "07.09.2026. 00:00") {
-		t.Error("prvi sat se ne ispisuje kao 07.09.2026. 00:00")
+	// vrijeme s letve je lokalno: 00 h ostaje 00:00 i pri ispisu, jer se
+	// pretvorbom u UTC i natrag vraća na isti sat
+	if !strings.Contains(html, "07.09.2026 00:00") {
+		t.Error("prvi sat se ne ispisuje kao 07.09.2026 00:00")
 	}
-	if !strings.Contains(html, "07.09.2026. 23:00") {
-		t.Error("zadnji sat se ne ispisuje kao 07.09.2026. 23:00")
+	if !strings.Contains(html, "07.09.2026 23:00") {
+		t.Error("zadnji sat se ne ispisuje kao 07.09.2026 23:00")
 	}
 	if strings.Contains(html, "02:00 00:00") || strings.Contains(html, "01:00 23:00") {
 		t.Error("vrijeme se ispisuje dvaput, pomaknuto pa sirovo")
 	}
-	// razdoblje u zaglavlju mora biti isti dan, ne prelijevati se u sljedeći
 	if strings.Contains(html, "08.09.2026") {
 		t.Error("razdoblje se pomaknulo u sljedeći dan")
+	}
+	// 00 h po lokalnom je 22:00 UTC prethodnog dana — tako mora i biti spremljeno
+	if got := redci[0].Kad.UTC(); got.Hour() != 22 || got.Day() != 6 {
+		t.Errorf("00 h lokalno spremljeno kao %v, očekivano 6.9. 22:00 UTC", got)
 	}
 }

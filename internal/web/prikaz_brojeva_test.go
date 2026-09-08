@@ -1138,14 +1138,19 @@ Dunav - Batina (DHMZ)
 	if len(redci) != 4 {
 		t.Fatalf("pročitano %d redaka, očekivano 4 (zaglavlja se preskaču)", len(redci))
 	}
-	if redci[0].Kad.Hour() != 0 || redci[0].Vrijedi != -118 {
-		t.Errorf("prvi redak %v %v", redci[0].Kad, redci[0].Vrijedi)
+	// vrijeme s letve je lokalno, pa se sprema pretvoreno u UTC
+	if l := redci[0].Kad.In(models.Zagreb); l.Hour() != 0 || redci[0].Vrijedi != -118 {
+		t.Errorf("prvi redak %v %v", l, redci[0].Vrijedi)
 	}
-	if redci[3].Kad.Hour() != 23 || redci[3].Vrijedi != -122 {
-		t.Errorf("zadnji redak %v %v", redci[3].Kad, redci[3].Vrijedi)
+	if l := redci[3].Kad.In(models.Zagreb); l.Hour() != 23 || redci[3].Vrijedi != -122 {
+		t.Errorf("zadnji redak %v %v", l, redci[3].Vrijedi)
 	}
-	if d := redci[0].Kad; d.Day() != 7 || d.Month() != time.September || d.Year() != 2026 {
+	if d := redci[0].Kad.In(models.Zagreb); d.Day() != 7 || d.Month() != time.September || d.Year() != 2026 {
 		t.Errorf("datum %v", d)
+	}
+	// 7.9.2026. je ljetno vrijeme, dakle UTC+2
+	if u := redci[0].Kad.UTC(); u.Day() != 6 || u.Hour() != 22 {
+		t.Errorf("00 h lokalno spremljeno kao %v, očekivano 6.9. 22:00 UTC", u)
 	}
 
 	// dnevni oblik, bez sata
