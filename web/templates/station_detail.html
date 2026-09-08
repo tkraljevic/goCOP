@@ -17,7 +17,7 @@
   </div>
   <div class="detail-actions">
     <a href="/readings/new?station={{.Station.ID}}" class="btn btn-primary">{{icon "plus"}} Upiši očitanje</a>
-    <a href="/readings/station/{{.Station.ID}}" class="btn btn-secondary">{{icon "activity"}} Vodostaji</a>
+    <a href="/readings/station/{{.Station.ID}}" class="btn btn-secondary">{{icon "activity"}} Očitanja</a>
   {{if .CanEdit}}
     <a href="/stations/{{.Station.ID}}/edit" class="btn btn-secondary">{{icon "pencil"}} Uredi</a>
     {{if .Permissions.IsGlobalAdmin}}

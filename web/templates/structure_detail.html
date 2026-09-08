@@ -15,7 +15,7 @@
   </div>
   <div class="detail-actions">
     <a href="/readings/new?structure={{.Structure.ID}}" class="btn btn-primary">{{icon "plus"}} Upiši očitanje</a>
-    <a href="/readings/structure/{{.Structure.ID}}" class="btn btn-secondary">{{icon "activity"}} Vodostaji</a>
+    <a href="/readings/structure/{{.Structure.ID}}" class="btn btn-secondary">{{icon "activity"}} Očitanja</a>
   {{if .CanEdit}}
     <a href="/structures/{{.Structure.ID}}/edit" class="btn btn-secondary">{{icon "pencil"}} Uredi</a>
     <form method="POST" action="/structures/delete" onsubmit="return confirm('Obrisati objekt „{{.Structure.Name}}“ iz registra? Zapis ostaje u povijesti.')">
