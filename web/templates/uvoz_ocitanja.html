@@ -9,7 +9,7 @@
   <h1 class="page-title">{{icon "file-text"}} Što bi se upisalo</h1>
   <p class="page-desc">
     {{.GaugeName}} · {{if .Satni}}satna očitanja{{else}}dnevna očitanja{{end}}
-    {{if not .Od.IsZero}}· {{vrijemeNiza .Od .Satni}} – {{vrijemeNiza .Do .Satni}}{{end}}.
+    {{if not .Od.IsZero}}· {{formatDate (localTime .Od)}} – {{formatDate (localTime .Do)}}{{end}}.
     Ništa još nije upisano.
   </p>
 </div>
@@ -24,6 +24,7 @@
   <p class="page-desc" style="margin:0.5rem 0 0 0;">
     Očitanja idu u operativni zapis — ono na čemu ured radi i što se sinkronizira na druge čvorove.
     Već upisana se preskaču, pa ponovni uvoz istog ispisa ništa ne udvostručuje.
+    Vrijeme s letve je lokalno i tako se i tumači, jednako kao u obrascu za ručni upis.
   </p>
 </div>
 
@@ -41,7 +42,7 @@
       {{range .Redci}}
       <tr {{if .Greska}}style="background:var(--tint-red-bg);"{{else if .Postoji}}style="opacity:0.55;"{{end}}>
         <td class="mono reg-card-sub">{{.Redak}}</td>
-        <td class="mono">{{vrijemeNiza .Kad $.Satni}}</td>
+        <td class="mono">{{formatDate (localTime .Kad)}}</td>
         <td class="mono" style="text-align:right;"><strong>{{brojHRf .Vrijedi 0}}</strong> cm</td>
         <td>
           {{if .Greska}}<span style="color:var(--danger);">{{.Greska}}</span>

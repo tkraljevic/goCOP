@@ -20,6 +20,11 @@ import (
 //
 // Zaglavlja se preskaču, a redak s datumom i satom prepoznaje se po obliku.
 // Prima se i oblik bez sata, za dnevne vrijednosti.
+//
+// Vrijeme s letve je LOKALNO, sa zimskim i ljetnim pomakom, i tako se i
+// pretvara u UTC — jednako kao što obrazac za ručni upis pretvara ono što
+// operater utipka. Bez toga bi isto očitanje s letve i iz obrasca završilo na
+// dva različita sata i izgledalo kao dvije različite vrijednosti.
 
 var (
 	reSatni  = regexp.MustCompile(`^\s*(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})\.?\s+(\d{1,2})\s*h?\s+(-?[\d.,]+)\s*$`)
@@ -93,7 +98,7 @@ func citajZalijepljeno(tekst string) ([]ZalijepljenoOcitanje, bool, error) {
 			out = append(out, z)
 			continue
 		}
-		z.Kad = time.Date(gg, time.Month(mm), dd, sat, 0, 0, 0, time.UTC)
+		z.Kad = time.Date(gg, time.Month(mm), dd, sat, 0, 0, 0, models.Zagreb).UTC()
 		x, ok := parseBroj(v)
 		if !ok {
 			z.Greska = "vrijednost nije broj: " + v
