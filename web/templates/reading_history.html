@@ -74,6 +74,8 @@
       <line class="grid" x1="96" x2="{{sub $.Chart.Width 116}}" y1="{{printf "%.1f" .Pos}}" y2="{{printf "%.1f" .Pos}}"/>
       <text class="tick" x="88" y="{{printf "%.1f" .Pos}}" text-anchor="end" dominant-baseline="middle">{{.Label}}</text>
       {{end}}
+      {{if .Chart.Istaknuto}}<rect class="istaknuto" x="{{printf "%.1f" .Chart.IstakniOd}}" y="22"
+            width="{{printf "%.1f" .Chart.IstakniSir}}" height="{{sub .Chart.Height 68}}"/>{{end}}
       <path class="area" d="{{.Chart.Area}}"/>
       {{range .Chart.Thresholds}}
       <line class="thr {{.Class}}" x1="96" x2="{{sub $.Chart.Width 116}}" y1="{{printf "%.1f" .Y}}" y2="{{printf "%.1f" .Y}}"/>
@@ -227,6 +229,8 @@
       <line class="grid" x1="96" x2="{{sub $.ArhChart.Width 116}}" y1="{{printf "%.1f" .Pos}}" y2="{{printf "%.1f" .Pos}}"/>
       <text class="tick" x="88" y="{{printf "%.1f" .Pos}}" text-anchor="end" dominant-baseline="middle">{{.Label}}</text>
       {{end}}
+      {{if .ArhChart.Istaknuto}}<rect class="istaknuto" x="{{printf "%.1f" .ArhChart.IstakniOd}}" y="22"
+            width="{{printf "%.1f" .ArhChart.IstakniSir}}" height="{{sub .ArhChart.Height 68}}"/>{{end}}
       <path class="area" d="{{.ArhChart.Area}}"/>
       {{range .ArhChart.Thresholds}}
       <line class="thr {{.Class}}" x1="96" x2="{{sub $.ArhChart.Width 116}}" y1="{{printf "%.1f" .Y}}" y2="{{printf "%.1f" .Y}}"/>
