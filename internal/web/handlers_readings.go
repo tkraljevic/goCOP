@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"fmt"
 	"html/template"
 	"math"
@@ -32,6 +33,20 @@ type ReadingsHandler struct {
 	tmplForm         *template.Template
 	followRepo       *repository.FollowRepository
 	onFollowChange   func()
+	arhiva           func() *repository.ArhivaRepository
+}
+
+// SetArhiva daje rukovatelju hidrološku arhivu. Dohvatnik, a ne vrijednost:
+// poslužitelj se sastavlja prije nego što se arhiva otvori.
+func (h *ReadingsHandler) SetArhiva(f func() *repository.ArhivaRepository) {
+	h.arhiva = f
+}
+
+func (h *ReadingsHandler) arh() *repository.ArhivaRepository {
+	if h.arhiva == nil {
+		return nil
+	}
+	return h.arhiva()
 }
 
 // SetFollow daje rukovatelju popis letvi čiju povijest ovaj čvor drži
@@ -88,6 +103,19 @@ type ReadingHistoryData struct {
 	Followed    bool // čvor drži cijelu povijest ove letve
 	GaugeKey    string
 	Pager       Pager
+
+	// Povijest iz arhive. Operativna očitanja su ono što ljudi upišu; arhiva je
+	// ono što je izmjereno prije nego što je program postojao. Stranica
+	// prikazuje oboje, ali arhivu tek kad postaji ima što pokazati.
+	ArhVelicine []string
+	ArhVelicina string
+	ArhKorak    string
+	ArhGodine   []int
+	ArhGodina   int
+	ArhNiz      []models.SpojenaVrijednost
+	ArhChart    *Chart
+	ArhJedinica string
+	ArhSazetak  []models.SazetakVelicine
 
 	SuccessMessage string
 	ErrorMessage   string
@@ -366,6 +394,10 @@ func (h *ReadingsHandler) ShowHistory(w http.ResponseWriter, r *http.Request) {
 	data.Count = len(shown)
 	data.Chart = buildChart(shown, thresholdStation, data.Year == 0)
 	data.Readings, data.Pager = paginate(shown, r, readingsPerPage)
+
+	if station != nil {
+		h.arhivaZaLetvu(ctx, r, &data, station)
+	}
 
 	if err := h.tmplHistory.ExecuteTemplate(w, "reading_history.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -707,4 +739,73 @@ func (h *ReadingsHandler) HandleFollow(w http.ResponseWriter, r *http.Request) {
 		h.onFollowChange()
 	}
 	redirectWith(w, r, back, "success", msg)
+}
+
+// arhivaZaLetvu puni povijest iz arhive: koje veličine postoje, koje godine i
+// vrijednosti odabrane godine. Svaka vrijednost nosi izvor i odstupanje, pa se
+// u tablici vidi odakle je koji redak.
+func (h *ReadingsHandler) arhivaZaLetvu(ctx context.Context, r *http.Request,
+	data *ReadingHistoryData, station *models.Station) {
+	a := h.arh()
+	if a == nil || station.Code == "" {
+		return
+	}
+	dosezi, err := a.SpojDosezi(ctx, station.Code)
+	if err != nil || len(dosezi) == 0 {
+		return
+	}
+	data.ArhSazetak, _ = a.Sazetak(ctx, station.Code)
+
+	vidjeno := map[string]bool{}
+	for _, d := range dosezi {
+		if !vidjeno[d.Velicina] {
+			vidjeno[d.Velicina] = true
+			data.ArhVelicine = append(data.ArhVelicine, d.Velicina)
+		}
+	}
+	data.ArhVelicina = r.URL.Query().Get("v")
+	if !vidjeno[data.ArhVelicina] {
+		data.ArhVelicina = data.ArhVelicine[0]
+	}
+	data.ArhKorak = r.URL.Query().Get("korak")
+	if data.ArhKorak != "satni" {
+		data.ArhKorak = "dnevni"
+	}
+	data.ArhJedinica = models.JedinicaVelicine(data.ArhVelicina)
+
+	data.ArhGodine, _ = a.SpojGodine(ctx, station.Code, data.ArhVelicina, data.ArhKorak)
+	if len(data.ArhGodine) == 0 {
+		// tražena gustoća ne postoji za tu veličinu — vrati se na dnevnu
+		data.ArhKorak = "dnevni"
+		data.ArhGodine, _ = a.SpojGodine(ctx, station.Code, data.ArhVelicina, data.ArhKorak)
+	}
+	if g, err := strconv.Atoi(r.URL.Query().Get("god")); err == nil {
+		data.ArhGodina = g
+	}
+	imaGodinu := false
+	for _, g := range data.ArhGodine {
+		if g == data.ArhGodina {
+			imaGodinu = true
+		}
+	}
+	if !imaGodinu && len(data.ArhGodine) > 0 {
+		data.ArhGodina = data.ArhGodine[0]
+	}
+	if data.ArhGodina == 0 {
+		return
+	}
+	od := time.Date(data.ArhGodina, 1, 1, 0, 0, 0, 0, time.UTC)
+	data.ArhNiz, _ = a.SpojRaspon(ctx, station.Code, data.ArhVelicina, data.ArhKorak,
+		od, od.AddDate(1, 0, 0).Add(-time.Second), 400)
+
+	// Graf koristi postojeću mehaniku, pa vrijedi samo za vodostaj: pragovi i
+	// centimetri su njegovi. Za ostale veličine ostaje tablica.
+	if data.ArhVelicina == "vodostaj" && len(data.ArhNiz) > 1 {
+		kao := make([]models.Reading, 0, len(data.ArhNiz))
+		for _, v := range data.ArhNiz {
+			cm := int(v.Vrijednost)
+			kao = append(kao, models.Reading{MeasuredAt: v.Kad, LevelCm: &cm})
+		}
+		data.ArhChart = buildChart(kao, station, false)
+	}
 }

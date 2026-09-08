@@ -63,6 +63,84 @@
 </section>
 {{end}}
 
+{{if .ArhVelicine}}
+<section class="detail-section" id="arhiva">
+  <h2>{{icon "activity"}} Povijest iz arhive</h2>
+
+  {{if .ArhSazetak}}
+  <div class="table-card" style="margin-bottom:1rem;"><div class="table-responsive">
+    <table class="data-table">
+      <thead><tr><th>Veličina</th><th>Razdoblje</th><th style="text-align:right;">Srednjak</th>
+        <th style="text-align:right;">Maksimum</th><th>Nastupio</th>
+        <th style="text-align:right;">Minimum</th><th>Nastupio</th></tr></thead>
+      <tbody>
+      {{range .ArhSazetak}}
+      <tr>
+        <td><strong>{{.Naziv}}</strong> <span class="reg-card-sub">{{.Jedinica}}</span></td>
+        <td class="mono">{{slice .Od 0 4}}. – {{slice .Do 0 4}}.</td>
+        <td class="mono" style="text-align:right;"><strong>{{brojHRf .Srednjak .Decimala}}</strong></td>
+        <td class="mono" style="text-align:right;">{{brojHRf .Max .Decimala}}</td>
+        <td class="mono reg-card-sub">{{.MaxNa}}</td>
+        <td class="mono" style="text-align:right;">{{brojHRf .Min .Decimala}}</td>
+        <td class="mono reg-card-sub">{{.MinNa}}</td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div></div>
+  {{end}}
+
+  <form method="GET" action="" style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; margin-bottom:0.75rem;">
+    <select name="v" class="filter-select" style="max-width:13rem;" onchange="this.form.submit()">
+      {{range .ArhVelicine}}<option value="{{.}}" {{if eq . $.ArhVelicina}}selected{{end}}>{{velicinaLabel .}}</option>{{end}}
+    </select>
+    <select name="korak" class="filter-select" style="max-width:10rem;" onchange="this.form.submit()">
+      <option value="dnevni" {{if eq .ArhKorak "dnevni"}}selected{{end}}>dnevni srednjak</option>
+      <option value="satni" {{if eq .ArhKorak "satni"}}selected{{end}}>svaki sat</option>
+    </select>
+    <select name="god" class="filter-select" style="max-width:8rem;" onchange="this.form.submit()">
+      {{range .ArhGodine}}<option value="{{.}}" {{if eq . $.ArhGodina}}selected{{end}}>{{.}}.</option>{{end}}
+    </select>
+    <span class="reg-card-sub">{{len .ArhGodine}} godina u arhivi</span>
+  </form>
+
+  {{if .ArhChart}}
+  <div class="reg-card chart" style="padding:0.75rem 0.5rem 0.5rem; margin-bottom:1rem;">
+    <svg viewBox="0 0 {{.ArhChart.Width}} {{.ArhChart.Height}}" role="img" aria-label="Graf iz arhive">
+      {{range .ArhChart.Bands}}<rect x="0" y="{{.Y}}" width="{{$.ArhChart.Width}}" height="{{.H}}" class="band {{.Class}}"/>{{end}}
+      {{range .ArhChart.YTicks}}<line x1="42" y1="{{.Pos}}" x2="{{$.ArhChart.Width}}" y2="{{.Pos}}" class="grid"/>
+      <text x="38" y="{{.Pos}}" dy="3.5" text-anchor="end" class="tick">{{.Label}}</text>{{end}}
+      {{range .ArhChart.Thresholds}}<line x1="42" y1="{{.Pos}}" x2="{{$.ArhChart.Width}}" y2="{{.Pos}}" class="threshold {{.Class}}"/>{{end}}
+      {{if .ArhChart.Area}}<polygon points="{{.ArhChart.Area}}" class="area"/>{{end}}
+      <polyline points="{{.ArhChart.Path}}" class="line"/>
+      {{range .ArhChart.XTicks}}<text x="{{.Pos}}" y="{{$.ArhChart.Height}}" dy="-4" text-anchor="middle" class="tick">{{.Label}}</text>{{end}}
+    </svg>
+  </div>
+  {{end}}
+
+  {{if .ArhNiz}}
+  <div class="table-card"><div class="table-responsive" style="max-height:28rem; overflow-y:auto;">
+    <table class="data-table">
+      <thead><tr><th>Kad</th><th style="text-align:right;">{{velicinaLabel .ArhVelicina}} <span class="reg-card-sub">{{.ArhJedinica}}</span></th><th>Točnost</th><th>Odakle</th></tr></thead>
+      <tbody>
+      {{range .ArhNiz}}
+      <tr>
+        <td class="mono">{{formatDate (localTime .Kad)}}{{if eq $.ArhKorak "satni"}} {{printf "%02d" .Kad.Hour}}:00{{end}}</td>
+        <td class="mono" style="text-align:right;"><strong>{{brojHRf .Vrijednost 1}}</strong></td>
+        <td><span class="badge {{if le .Tocnost 1.0}}badge-area-admin{{else}}badge-unknown{{end}}">{{.TocnostLabel}}</span></td>
+        <td class="reg-card-sub">{{izvorLabel .Izvor}}{{if ne .Vrsta "srednjak"}}{{if ne .Vrsta "trenutna"}} · {{vrstaLabel .Vrsta}}{{end}}{{end}}</td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div></div>
+  <p class="page-desc" style="margin-top:0.5rem;">
+    Prikazano najviše 400 vrijednosti po godini, novije prvo. Svaka dolazi iz najtočnijeg izvora koji je taj trenutak pokrio.
+  </p>
+  {{end}}
+</section>
+{{end}}
+
 {{if .Chart}}
 <section class="detail-section">
   <h2>{{icon "chart-column"}} Kretanje vodostaja <span class="reg-chip">{{if .Year}}{{.Year}}.{{else}}zadnjih {{len .Chart.Points}}{{end}}</span></h2>
