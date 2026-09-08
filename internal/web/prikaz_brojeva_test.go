@@ -500,16 +500,19 @@ func TestKarticaLetveCrtaKoritoIArhivu(t *testing.T) {
 			Max: 772, MaxNa: "2013-06-13", Min: -128, MinNa: "2003-09-01", Srednjak: 201.4,
 			Godine: []models.HidroGodina{{Godina: 2013, Zapisa: 8760, Max: 772, MaxNa: "2013-06-13", Min: 12, MinNa: "2013-12-30", Srednjak: 244.1}},
 		},
-		Krivulje: []models.HQKrivulja{
-			{VrijediOd: "2016-01-01", A: 19.483, B: 2.2128, H0: 6.65, Mjerenja: 50, Odstupanje: 4.27},
-		},
+		Krivulje: []models.HQKrivulja{{VrijediOd: "2024-01-01", Izvor: "DHMZ, HIS-2000",
+			Odsjecci: []models.HQOdsjecak{
+				{OdCm: -85, DoCm: 300, Oblik: models.OblikPolinom, P1: 0.1, P2: 512.754, P3: 1210.186},
+				{OdCm: 300, DoCm: 560, Oblik: models.OblikPolinom, P1: 66.063, P2: 158.727, P3: 1678.604},
+				{OdCm: 560, DoCm: 800, Oblik: models.OblikPolinom, P1: 218.145, P2: -1441.644, P3: 5871.3921},
+			}}},
 	})
 	for _, want := range []string{
 		"Korito i voda u njemu", "<polygon", "<polyline",
 		"DHMZ, ovjereno", "2.939 m³/s",
 		"Izvorni nizovi", "222.624", "nije mjereno ovdje",
 		// predložak plus ispisuje kao &#43;, pa se traži oblik kakav vidi preglednik
-		"Krivulje protoka", "Q = 19,4830 · (H &#43; 6,65)^2,2128",
+		"Krivulje protoka", "DHMZ, HIS-2000", "-85 do 300 cm",
 	} {
 		if !strings.Contains(html, want) {
 			t.Errorf("na kartici letve nema %q", want)
@@ -1003,8 +1006,12 @@ func TestPragoviNaGrafuProtoka(t *testing.T) {
 		Prep: models.Threshold{Cm: cm(300)}, Regular: models.Threshold{Cm: cm(500)},
 		Emergency: models.Threshold{Cm: cm(650)}, State: models.Threshold{Cm: cm(800)}}
 	krivulje := []models.HQKrivulja{
-		{VrijediOd: "2016-01-01", A: 19.4830, B: 2.2128, H0: 6.65},
-		{VrijediOd: "2001-03-09", VrijediDo: "2010-12-31", A: 14.5663, B: 2.3340, H0: 6.65},
+		{VrijediOd: "2016-01-01", Odsjecci: []models.HQOdsjecak{
+			{OdCm: -85, DoCm: 800, Oblik: models.OblikPolinom, P1: 18.933, P2: 538.85, P3: 1258.8}}},
+		{VrijediOd: "2001-01-01", VrijediDo: "2009-12-31", Odsjecci: []models.HQOdsjecak{
+			{OdCm: -70, DoCm: 250, Oblik: models.OblikPolinom, P1: 9.097, P2: 517.41, P3: 1139},
+			{OdCm: 250, DoCm: 500, Oblik: models.OblikPolinom, P1: 44.278, P2: 360.15, P3: 1312.3},
+			{OdCm: 500, DoCm: 800, Oblik: models.OblikPolinom, P1: 214.6, P2: -1463.1, P3: 6170.2998}}},
 	}
 	poc := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
 	niz := func(v ...float64) []models.SpojenaVrijednost {
@@ -1022,7 +1029,7 @@ func TestPragoviNaGrafuProtoka(t *testing.T) {
 	if len(g.Thresholds) == 0 {
 		t.Fatal("na grafu protoka nema pragova obrane")
 	}
-	// pripremno stanje na 300 cm daje po krivulji 2016.– oko 2.939 m³/s
+	// pripremno stanje na 300 cm daje po službenoj krivulji 2.749 m³/s
 	nasao := false
 	for _, p := range g.Thresholds {
 		if p.Label == "pripremno" {
@@ -1044,7 +1051,7 @@ func TestPragoviNaGrafuProtoka(t *testing.T) {
 	}
 
 	// krivulja se bira po razdoblju koje se gleda
-	if k := krivuljaZa(krivulje, time.Date(2005, 6, 1, 0, 0, 0, 0, time.UTC)); k == nil || k.A != 14.5663 {
+	if k := krivuljaZa(krivulje, time.Date(2005, 6, 1, 0, 0, 0, 0, time.UTC)); k == nil || k.VrijediOd != "2001-01-01" {
 		t.Errorf("za 2005. odabrana kriva krivulja: %v", k)
 	}
 	if k := krivuljaZa(krivulje, time.Date(2013, 6, 1, 0, 0, 0, 0, time.UTC)); k != nil {
@@ -1059,15 +1066,20 @@ func TestKarticaPokazujePragoveUProtoku(t *testing.T) {
 	st := models.Station{ID: uuid.New(), Name: "Batina", Code: "batina",
 		Prep: models.Threshold{Cm: cm(300)}, Regular: models.Threshold{Cm: cm(500)},
 		Emergency: models.Threshold{Cm: cm(650)}, State: models.Threshold{Cm: cm(800)}}
-	krivulje := []models.HQKrivulja{{VrijediOd: "2016-01-01", A: 19.4830, B: 2.2128, H0: 6.65}}
+	krivulje := []models.HQKrivulja{models.HQKrivulja{VrijediOd: "2026-01-01", Izvor: "DHMZ, HIS-2000",
+		Odsjecci: []models.HQOdsjecak{
+			{OdCm: -160, DoCm: 300, Oblik: models.OblikPolinom, P1: 0.1, P2: 512.754, P3: 1210.186},
+			{OdCm: 300, DoCm: 560, Oblik: models.OblikPolinom, P1: 66.063, P2: 158.727, P3: 1678.604},
+			{OdCm: 560, DoCm: 800, Oblik: models.OblikPolinom, P1: 218.145, P2: -1441.644, P3: 5871.3921},
+		}}}
 
 	q := pragoviUProtoku(st, krivulje)
 	if len(q) != 4 {
 		t.Fatalf("pragova u protoku %d, očekivano 4", len(q))
 	}
-	// 300 cm po ovoj krivulji daje oko 2.939 m³/s
-	if q[0].Q < 2900 || q[0].Q > 2980 {
-		t.Errorf("pripremno stanje %v m³/s, očekivano oko 2939", q[0].Q)
+	// 300 cm po službenoj krivulji daje 2.749 m³/s
+	if q[0].Q < 2700 || q[0].Q > 2800 {
+		t.Errorf("pripremno stanje %v m³/s, očekivano oko 2749", q[0].Q)
 	}
 	if q[3].Q <= q[2].Q || q[2].Q <= q[1].Q {
 		t.Error("protoci pragova moraju rasti s vodostajem")
@@ -1081,7 +1093,7 @@ func TestKarticaPokazujePragoveUProtoku(t *testing.T) {
 		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
 		Station:     st, Krivulje: krivulje, PragoviQ: q,
 	})
-	for _, want := range []string{"Isti stupnjevi u protoku", "2.939 m³/s", "pripremno stanje", "300 cm"} {
+	for _, want := range []string{"Isti stupnjevi u protoku", "2.749 m³/s", "pripremno stanje", "300 cm"} {
 		if !strings.Contains(html, want) {
 			t.Errorf("na kartici nema %q", want)
 		}
@@ -1266,7 +1278,12 @@ func TestApsolutnaKotaVodneP1ohe(t *testing.T) {
 func TestOcitanjeDobivaProtokIzKrivulje(t *testing.T) {
 	kad := time.Date(2026, 9, 7, 8, 0, 0, 0, models.Zagreb)
 	cm := 300
-	krivulje := []models.HQKrivulja{{VrijediOd: "2016-01-01", A: 19.4830, B: 2.2128, H0: 6.65}}
+	krivulje := []models.HQKrivulja{models.HQKrivulja{VrijediOd: "2026-01-01", Izvor: "DHMZ, HIS-2000",
+		Odsjecci: []models.HQOdsjecak{
+			{OdCm: -160, DoCm: 300, Oblik: models.OblikPolinom, P1: 0.1, P2: 512.754, P3: 1210.186},
+			{OdCm: 300, DoCm: 560, Oblik: models.OblikPolinom, P1: 66.063, P2: 158.727, P3: 1678.604},
+			{OdCm: 560, DoCm: 800, Oblik: models.OblikPolinom, P1: 218.145, P2: -1441.644, P3: 5871.3921},
+		}}}
 	podaci := ReadingHistoryData{
 		CurrentUser: &models.User{FullName: "P"},
 		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
@@ -1278,9 +1295,10 @@ func TestOcitanjeDobivaProtokIzKrivulje(t *testing.T) {
 		Krivulje:    krivulje,
 	}
 	html := iscrtaj(t, "reading_history.html", podaci)
-	if strings.Count(html, "2.939 m³/s") != 2 {
+	// 300 cm po službenoj krivulji za 2026. daje 2.749 m³/s
+	if strings.Count(html, "2.749 m³/s") != 2 {
 		t.Errorf("protok se očekuje uz zadnje očitanje i uz redak u tablici, nađeno %d puta",
-			strings.Count(html, "2.939 m³/s"))
+			strings.Count(html, "2.749 m³/s"))
 	}
 
 	podaci.Krivulje = nil
@@ -1655,52 +1673,68 @@ func TestUskiPresjekKorita(t *testing.T) {
 	}
 }
 
-// Prelomljena krivulja protoka. Dva izraza, jedan do zadanog vodostaja i
-// drugi iznad — ali postavljena tako da se u točki prijeloma poklope. Bez tog
-// uvjeta jedan centimetar mijenja protok za stotine kubika, i baš oko praga
-// obrane, gdje se brojka najviše gleda.
-func TestPrelomljenaKrivuljaNemaSkok(t *testing.T) {
-	pr := 290
-	k := models.HQKrivulja{H0: 6.65, A: 16.4780, B: 2.295710,
-		PrijelomCm: &pr, A2: 26.3391, B2: 2.087858}
-	if !k.ImaPrijelom() {
-		t.Fatal("krivulja ne zna da je prelomljena")
-	}
-	if math.Abs(k.SkokNaPrijelomu()) > 0.01 {
-		t.Errorf("skok na prijelomu %.4f %% — krakovi se ne spajaju", k.SkokNaPrijelomu())
-	}
-	// Protok mora rasti s vodostajem, i preko same točke prijeloma.
-	var zadnji float64
-	for _, cm := range []int{-142, 0, 289, 290, 291, 500, 800} {
-		q, ok := k.Protok(cm)
+// Službena krivulja protoka: niz odsječaka, svaki sa svojim rasponom
+// vodostaja. Izvan raspona se ne računa ništa — DHMZ ga objavljuje s
+// razlogom, a protok izvan njega bio bi produljenje krivulje ondje gdje je
+// nitko nije mjerio.
+func TestSluzbenaKrivuljaPoOdsjeccima(t *testing.T) {
+	// DHMZ, Batina, 2026.
+	k := models.HQKrivulja{VrijediOd: "2026-01-01", Izvor: "DHMZ, HIS-2000",
+		Odsjecci: []models.HQOdsjecak{
+			{OdCm: -160, DoCm: 300, Oblik: models.OblikPolinom, P1: 0.1, P2: 512.754, P3: 1210.186},
+			{OdCm: 300, DoCm: 560, Oblik: models.OblikPolinom, P1: 66.063, P2: 158.727, P3: 1678.604},
+			{OdCm: 560, DoCm: 800, Oblik: models.OblikPolinom, P1: 218.145, P2: -1441.644, P3: 5871.3921},
+		}}
+
+	// vrijednosti prepisane iz DHMZ-ove tablice
+	for _, p := range []struct {
+		cm   int
+		zeli float64
+	}{{-128, 554}, {0, 1210}, {300, 2749}, {560, 4639}, {800, 8300}} {
+		q, ok := k.Protok(p.cm)
 		if !ok {
-			t.Fatalf("protok za %d cm nije izračunat", cm)
+			t.Fatalf("%d cm: protok nije izračunat", p.cm)
 		}
+		if math.Abs(q-p.zeli) > math.Max(2, p.zeli*0.01) {
+			t.Errorf("%d cm → %.0f m³/s, u tablici %.0f", p.cm, q, p.zeli)
+		}
+	}
+	// Izvan raspona krivulja šuti.
+	if _, ok := k.Protok(-161); ok {
+		t.Error("ispod donjeg ruba krivulja je dala protok")
+	}
+	if _, ok := k.Protok(801); ok {
+		t.Error("iznad gornjeg ruba krivulja je dala protok")
+	}
+	if od, do, ima := k.Raspon(); !ima || od != -160 || do != 800 {
+		t.Errorf("raspon %d..%d", od, do)
+	}
+	// Protok raste s vodostajem i preko granica odsječaka.
+	var zadnji float64
+	for cm := -160; cm <= 800; cm += 7 {
+		q, _ := k.Protok(cm)
 		if q <= zadnji {
-			t.Errorf("pri %d cm protok %.0f nije veći od prethodnog %.0f", cm, q, zadnji)
+			t.Fatalf("pri %d cm protok %.0f nije veći od prethodnog %.0f", cm, q, zadnji)
 		}
 		zadnji = q
 	}
-	// Ispod i iznad prijeloma vrijede različiti krakovi.
-	dolje, _ := k.Protok(289)
-	gore, _ := k.Protok(291)
-	if math.Abs(gore-dolje) > 20 {
-		t.Errorf("dva centimetra oko prijeloma mijenjaju protok za %.0f m³/s", gore-dolje)
+	// DHMZ ne traži da se odsječci točno poklope, ali skok mora ostati sitan.
+	if s := k.NajveciSkok(); s > 1 {
+		t.Errorf("skok na granici odsječaka %.2f %%", s)
 	}
-	// Zapis mora pokazati oba kraka, inače se iz kartice ne vidi da postoje.
+	// Zapis mora pokazati sve odsječke s rasponima.
 	z := k.Zapis()
-	for _, want := range []string{"do 290 cm", "iznad", "2,2957", "2,0879"} {
+	for _, want := range []string{"-160 do 300 cm", "560 do 800 cm", "·H²"} {
 		if !strings.Contains(z, want) {
-			t.Errorf("zapis krivulje nema %q: %s", want, z)
+			t.Errorf("zapis nema %q: %s", want, z)
 		}
 	}
 
-	// Neprelomljena krivulja radi kao i prije.
-	stara := models.HQKrivulja{H0: 6.65, A: 19.4830, B: 2.2128}
-	if stara.ImaPrijelom() || stara.SkokNaPrijelomu() != 0 {
-		t.Error("krivulja bez prijeloma ne smije se ponašati kao prelomljena")
-	}
-	if q, _ := stara.Protok(300); q < 2900 || q > 2980 {
-		t.Errorf("neprelomljena krivulja dala %.0f m³/s pri 300 cm", q)
+	// Potencijski oblik i dalje radi — njime su preračunati nizovi ondje gdje
+	// službene krivulje nema.
+	pot := models.HQKrivulja{Odsjecci: []models.HQOdsjecak{
+		{OdCm: -142, DoCm: 772, Oblik: models.OblikPotencija, P1: 19.4830, P2: 2.2128, P3: 6.65}}}
+	if q, ok := pot.Protok(300); !ok || q < 2900 || q > 2980 {
+		t.Errorf("potencijski oblik dao %.0f m³/s pri 300 cm", q)
 	}
 }
