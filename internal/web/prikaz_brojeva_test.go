@@ -667,6 +667,7 @@ func TestPovijestLetveCitaArhivu(t *testing.T) {
 		ArhGodine:   []int{2013, 2012, 1956},
 		ArhGodina:   2013,
 		ArhPager:    pagerZa(&http.Request{URL: &url.URL{Path: "/readings/station/x"}}, "ap", 8760, 100),
+		ArhChart:    buildChart(nizZaGraf(kad), &models.Station{Name: "Batina"}, false),
 		ArhNiz: []models.SpojenaVrijednost{
 			{Kad: kad, Vrijednost: 771, Izvor: "his2000", Vrsta: "srednjak", Tocnost: 0},
 			{Kad: kad.AddDate(0, 0, -1), Vrijednost: 758, Izvor: "letva-dhmz", Vrsta: "srednjak", Tocnost: 1},
@@ -682,6 +683,10 @@ func TestPovijestLetveCitaArhivu(t *testing.T) {
 		"797", "1956-03-13", // sažetak
 		"8.760", // ukupno vrijednosti u godini, iz listanja
 		"?ap=2", // listanje kroz satni niz
+		// Graf crta putanju, ne polyline: Chart.Path je "d" atribut. Kad je
+		// stajao u points="", os se crtala a crta nije — pa se to ovdje drži.
+		`class="line" d="M`,
+		`class="area" d="M`,
 	} {
 		if !strings.Contains(html, want) {
 			t.Errorf("na stranici povijesti nema %q", want)
@@ -697,5 +702,15 @@ func TestPovijestLetveCitaArhivu(t *testing.T) {
 	})
 	if strings.Contains(prazna, "Povijest iz arhive") {
 		t.Error("letva bez arhive ne smije prikazivati odjeljak arhive")
+	}
+}
+
+// nizZaGraf daje nekoliko očitanja za provjeru crtanja
+func nizZaGraf(kad time.Time) []models.Reading {
+	cm := func(v int) *int { return &v }
+	return []models.Reading{
+		{MeasuredAt: kad, LevelCm: cm(771)},
+		{MeasuredAt: kad.AddDate(0, 0, -1), LevelCm: cm(758)},
+		{MeasuredAt: kad.AddDate(0, 0, -2), LevelCm: cm(690)},
 	}
 }
