@@ -646,6 +646,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /stations", s.authMiddleware(http.HandlerFunc(stationsH.ShowStations)))
 	s.mux.Handle("GET /stations/new", s.authMiddleware(http.HandlerFunc(stationsH.ShowStationForm)))
 	s.mux.Handle("GET /stations/{id}", s.authMiddleware(http.HandlerFunc(stationsH.ShowStation)))
+	s.mux.Handle("GET /stations/{id}/izvjesce.docx", s.authMiddleware(http.HandlerFunc(stationsH.IzvjesceLetveDocx)))
 	s.mux.Handle("GET /stations/{id}/edit", s.authMiddleware(http.HandlerFunc(stationsH.ShowStationForm)))
 	s.mux.Handle("GET /api/stations", s.authMiddleware(http.HandlerFunc(stationsH.HandleListStationsAPI)))
 	s.mux.Handle("POST /api/stations/create", s.authMiddleware(http.HandlerFunc(stationsH.HandleCreateStationAPI)))
