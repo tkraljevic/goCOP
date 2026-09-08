@@ -832,7 +832,7 @@ func TestGrafZaSvakuVelicinu(t *testing.T) {
 		return out
 	}
 
-	vod := crtajNiz(niz(120, 340, 560, 772, 610), "vodostaj", letva)
+	vod := crtajNiz(niz(120, 340, 560, 772, 610), "vodostaj", letva, nil)
 	if vod == nil {
 		t.Fatal("graf vodostaja se nije izgradio")
 	}
@@ -843,7 +843,7 @@ func TestGrafZaSvakuVelicinu(t *testing.T) {
 		t.Errorf("oznaka točke %q, očekivano 772 cm", got)
 	}
 
-	temp := crtajNiz(niz(0.4, 12.7, 24.9, 29.7), "temperatura", letva)
+	temp := crtajNiz(niz(0.4, 12.7, 24.9, 29.7), "temperatura", letva, nil)
 	if temp == nil {
 		t.Fatal("graf temperature se nije izgradio")
 	}
@@ -854,7 +854,7 @@ func TestGrafZaSvakuVelicinu(t *testing.T) {
 		t.Errorf("oznaka temperature %q, očekivano 29,7 stupnjeva", got)
 	}
 
-	pron := crtajNiz(niz(37.5, 6005, 145575), "pronos", letva)
+	pron := crtajNiz(niz(37.5, 6005, 145575), "pronos", letva, nil)
 	if pron == nil {
 		t.Fatal("graf pronosa se nije izgradio")
 	}
@@ -901,7 +901,7 @@ func TestGrafImaMjeseceIKorakOsi(t *testing.T) {
 		}
 		godina = append(godina, models.SpojenaVrijednost{Kad: poc.AddDate(0, 0, i), Vrijednost: v})
 	}
-	g := crtajNiz(godina, "vodostaj", letva)
+	g := crtajNiz(godina, "vodostaj", letva, nil)
 	if g == nil {
 		t.Fatal("graf se nije izgradio")
 	}
@@ -928,7 +928,7 @@ func TestGrafImaMjeseceIKorakOsi(t *testing.T) {
 
 	// kratko razdoblje ne dobiva mjesece nego dane
 	kratko := godina[:9]
-	k := crtajNiz(kratko, "vodostaj", letva)
+	k := crtajNiz(kratko, "vodostaj", letva, nil)
 	if strings.Contains(k.XTicks[0].Label, "sij") {
 		t.Errorf("kratko razdoblje označeno mjesecima: %q", k.XTicks[0].Label)
 	}
@@ -1038,5 +1038,99 @@ func TestRukovateljBezPohraneNePada(t *testing.T) {
 	if m, err := prazan.ZaNiz(context.Background(), "batina", "vodostaj", "dnevni",
 		time.Now().AddDate(-1, 0, 0), time.Now()); err != nil || m != nil {
 		t.Errorf("prazan repozitorij: %v, %v", m, err)
+	}
+}
+
+// Pragovi obrane vrijede i na grafu protoka, samo preračunati krivuljom koja
+// je tada vrijedila. Bez krivulje se ne crtaju: pogađati prag u protoku bilo bi
+// izmišljanje.
+func TestPragoviNaGrafuProtoka(t *testing.T) {
+	cm := func(v int) *int { return &v }
+	letva := &models.Station{Name: "Batina",
+		Prep: models.Threshold{Cm: cm(300)}, Regular: models.Threshold{Cm: cm(500)},
+		Emergency: models.Threshold{Cm: cm(650)}, State: models.Threshold{Cm: cm(800)}}
+	krivulje := []models.HQKrivulja{
+		{VrijediOd: "2016-01-01", A: 19.4830, B: 2.2128, H0: 6.65},
+		{VrijediOd: "2001-03-09", VrijediDo: "2010-12-31", A: 14.5663, B: 2.3340, H0: 6.65},
+	}
+	poc := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+	niz := func(v ...float64) []models.SpojenaVrijednost {
+		var out []models.SpojenaVrijednost
+		for i, x := range v {
+			out = append(out, models.SpojenaVrijednost{Kad: poc.AddDate(0, 0, i*30), Vrijednost: x})
+		}
+		return out
+	}
+
+	g := crtajNiz(niz(1200, 3100, 5000, 6200, 2000), "protok", letva, krivulje)
+	if g == nil {
+		t.Fatal("graf protoka se nije izgradio")
+	}
+	if len(g.Thresholds) == 0 {
+		t.Fatal("na grafu protoka nema pragova obrane")
+	}
+	// pripremno stanje na 300 cm daje po krivulji 2016.– oko 2.939 m³/s
+	nasao := false
+	for _, p := range g.Thresholds {
+		if p.Label == "pripremno" {
+			nasao = true
+		}
+	}
+	if !nasao {
+		t.Error("pripremno stanje nije preračunato u protok")
+	}
+
+	// bez krivulje nema pragova na protoku, a vodostaj ih i dalje ima
+	bez := crtajNiz(niz(1200, 3100, 5000), "protok", letva, nil)
+	if len(bez.Thresholds) != 0 {
+		t.Error("bez krivulje se pragovi u protoku ne smiju crtati")
+	}
+	vod := crtajNiz(niz(120, 340, 560), "vodostaj", letva, nil)
+	if len(vod.Thresholds) == 0 {
+		t.Error("vodostaj ima pragove i bez krivulje")
+	}
+
+	// krivulja se bira po razdoblju koje se gleda
+	if k := krivuljaZa(krivulje, time.Date(2005, 6, 1, 0, 0, 0, 0, time.UTC)); k == nil || k.A != 14.5663 {
+		t.Errorf("za 2005. odabrana kriva krivulja: %v", k)
+	}
+	if k := krivuljaZa(krivulje, time.Date(2013, 6, 1, 0, 0, 0, 0, time.UTC)); k != nil {
+		t.Error("za 2013. nema krivulje u ovom popisu, a odabrana je")
+	}
+}
+
+// Kartica letve pokazuje iste stupnjeve i u protoku, ali samo kad krivulja
+// postoji — bez nje bi to bila izmišljena brojka.
+func TestKarticaPokazujePragoveUProtoku(t *testing.T) {
+	cm := func(v int) *int { return &v }
+	st := models.Station{ID: uuid.New(), Name: "Batina", Code: "batina",
+		Prep: models.Threshold{Cm: cm(300)}, Regular: models.Threshold{Cm: cm(500)},
+		Emergency: models.Threshold{Cm: cm(650)}, State: models.Threshold{Cm: cm(800)}}
+	krivulje := []models.HQKrivulja{{VrijediOd: "2016-01-01", A: 19.4830, B: 2.2128, H0: 6.65}}
+
+	q := pragoviUProtoku(st, krivulje)
+	if len(q) != 4 {
+		t.Fatalf("pragova u protoku %d, očekivano 4", len(q))
+	}
+	// 300 cm po ovoj krivulji daje oko 2.939 m³/s
+	if q[0].Q < 2900 || q[0].Q > 2980 {
+		t.Errorf("pripremno stanje %v m³/s, očekivano oko 2939", q[0].Q)
+	}
+	if q[3].Q <= q[2].Q || q[2].Q <= q[1].Q {
+		t.Error("protoci pragova moraju rasti s vodostajem")
+	}
+	if len(pragoviUProtoku(st, nil)) != 0 {
+		t.Error("bez krivulje se pragovi u protoku ne smiju računati")
+	}
+
+	html := iscrtaj(t, "station_detail.html", StationPageData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Station:     st, Krivulje: krivulje, PragoviQ: q,
+	})
+	for _, want := range []string{"Isti stupnjevi u protoku", "2.939 m³/s", "pripremno stanje", "300 cm"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("na kartici nema %q", want)
+		}
 	}
 }

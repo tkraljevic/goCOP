@@ -832,7 +832,8 @@ func (h *ReadingsHandler) arhivaZaLetvu(ctx context.Context, r *http.Request,
 	// pri svakom listanju i ne bi značio ono što piše.
 	cijela, _ := a.SpojRaspon(ctx, station.Code, data.ArhVelicina, data.ArhKorak, od, do, 20000, 0)
 	primijeniIspravke(cijela, ispravci)
-	data.ArhChart = crtajNiz(prorijediNiz(cijela, 700), data.ArhVelicina, station)
+	krivulje, _ := a.Krivulje(ctx, station.Code)
+	data.ArhChart = crtajNiz(prorijediNiz(cijela, 700), data.ArhVelicina, station, krivulje)
 
 }
 

@@ -58,6 +58,16 @@
       <div><dt>Najviši zabilježeni</dt><dd><span class="threshold-pill record">{{.Station.Record.Label}}</span></dd></div>
       {{end}}
     </dl>
+    {{if .PragoviQ}}
+    <div style="margin-top:0.875rem; padding-top:0.875rem; border-top:1px solid var(--border);">
+      <div class="reg-card-sub" style="margin-bottom:0.4rem;">Isti stupnjevi u protoku, po krivulji koja danas vrijedi</div>
+      <div style="display:flex; flex-wrap:wrap; gap:1.25rem;">
+        {{range .PragoviQ}}
+        <span><strong>{{brojHRf .Q 0}} m³/s</strong> <span class="reg-card-sub">{{.Naziv | lower}} · {{brojHR .Cm}} cm</span></span>
+        {{end}}
+      </div>
+    </div>
+    {{end}}
     <p class="page-desc" style="margin-top:0.75rem;">
       {{if .Station.RekordSeRazlikuje}}U pragove i u izračun faze ulazi samo izmjereni. Zabilježeni je viši, ali preračunat s druge postaje, pa nije mjerilo za ovu letvu.<br>{{end}}
       {{if .Station.HasUsableThresholds}}Pragovi u centimetrima ulaze u automatski izračun stupnja obrane.
