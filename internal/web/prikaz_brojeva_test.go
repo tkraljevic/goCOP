@@ -671,6 +671,7 @@ func TestPovijestLetveCitaArhivu(t *testing.T) {
 		ArhGodina:   2013,
 		ArhPager:    pagerZa(&http.Request{URL: &url.URL{Path: "/readings/station/x"}}, "ap", 8760, 100),
 		ArhChart:    buildChart(nizZaGraf(kad), &models.Station{Name: "Batina"}, false),
+		ArhSada:     &models.SpojenaVrijednost{Kad: kad, Vrijednost: 771, Izvor: "his2000", Tocnost: 0},
 		ArhNiz: []models.SpojenaVrijednost{
 			{Kad: kad, Vrijednost: 771, Izvor: "his2000", Vrsta: "srednjak", Tocnost: 0},
 			{Kad: kad.AddDate(0, 0, -1), Vrijednost: 758, Izvor: "letva-dhmz", Vrsta: "srednjak", Tocnost: 1},
@@ -683,6 +684,7 @@ func TestPovijestLetveCitaArhivu(t *testing.T) {
 	for _, want := range []string{
 		"Povijest iz arhive", "Vodostaj", "Protok", "Temperatura vode", "Pronos nanosa",
 		"1956", "2013", "771", "ovjereno", "telemetrija, DHMZ", "±1",
+		"771 cm",            // zadnja vrijednost na vrhu, odmah iznad tablice
 		"797", "1956-03-13", // sažetak
 		"8.760", // ukupno vrijednosti u godini, iz listanja
 		"?ap=2", // listanje kroz satni niz
