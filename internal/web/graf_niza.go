@@ -24,16 +24,17 @@ import (
 type geometrija struct {
 	W, H                    float64
 	Lijevo, Desno, Vrh, Dno float64
+	Font                    float64 // veličina oznaka, ista koju daje CSS
 	Uzak                    bool
 }
 
 var (
 	// za stupac na zaslonu: omjer prema stvarnoj širini blizu je jedan naprama
 	// jedan, pa oznake ostaju sitne
-	sirokiGraf = geometrija{W: 1600, H: 420, Lijevo: 96, Desno: 116, Vrh: 22, Dno: 46}
+	sirokiGraf = geometrija{W: 1600, H: 420, Lijevo: 96, Desno: 116, Vrh: 22, Dno: 46, Font: 15}
 	// za telefon: uži koordinatni sustav i viši graf, jer je i sam zaslon takav.
 	// Desni rub je uzak — oznake pragova idu iznad crte, ne uz nju.
-	uskiGraf = geometrija{W: 620, H: 460, Lijevo: 76, Desno: 26, Vrh: 20, Dno: 44, Uzak: true}
+	uskiGraf = geometrija{W: 620, H: 460, Lijevo: 76, Desno: 26, Vrh: 20, Dno: 44, Font: 20, Uzak: true}
 )
 
 // crtajNiz gradi graf iz spojenih vrijednosti. Pragovi se crtaju samo za
@@ -189,7 +190,8 @@ bezPragova:
 	for _, p := range pragovi {
 		c.Thresholds = append(c.Thresholds, ChartLine{Y: yOf(float64(p.cm)), Label: p.label, Class: p.class})
 	}
-	c.XTicks = prorijediOznake(vodoravneOznake(c.From, c.To, xOf), int(plotW/86))
+	oznake := vodoravneOznake(c.From, c.To, xOf)
+	c.XTicks = prorijediOznake(oznake, staneOznaka(plotW, g.Font, oznake))
 	for i := range c.XTicks {
 		c.XTicks[i].Anchor = poravnanjeOznake(c.XTicks[i].Pos, left, left+plotW)
 	}
@@ -248,6 +250,25 @@ func vodoravneOznake(od, do time.Time, xOf func(time.Time) float64) []ChartTick 
 		}
 	}
 	return out
+}
+
+// staneOznaka računa koliko natpisa stane na vremensku os. Broj ne ovisi
+// samo o širini nego i o tome što na osi piše: „ožu“ i „7.9. 05h“ nisu jednako
+// široki, pa je na uskom grafu šest mjeseci u redu, a šest datuma sa satom
+// prelazi jedan preko drugoga.
+func staneOznaka(plotW, font float64, ticks []ChartTick) int {
+	najduzi := 3
+	for _, t := range ticks {
+		if n := len([]rune(t.Label)); n > najduzi {
+			najduzi = n
+		}
+	}
+	// prosječno slovo je oko 0,55 veličine fonta, plus trećina razmaka među njima
+	sirina := float64(najduzi) * font * 0.55 * 1.35
+	if sirina <= 0 {
+		return 6
+	}
+	return int(plotW / sirina)
 }
 
 // poravnanjeOznake drži natpis unutar slike: uz rubove se priljubi, inače

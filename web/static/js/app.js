@@ -410,6 +410,11 @@ function renderMarkdown(md) {
 
     svg.addEventListener('mousemove', pomak);
     svg.addEventListener('mouseleave', sakrij);
+    // Na dodiru nema odlaska miša: jedan dodir postavi pokazivač i on ostane
+    // stajati dok se stranica ne osvježi. Zato se sklanja i na kraj dodira.
+    svg.addEventListener('touchend', sakrij);
+    svg.addEventListener('touchcancel', sakrij);
+    window.addEventListener('scroll', sakrij, { passive: true });
     svg.addEventListener('touchmove', function (ev) {
       if (ev.touches.length) pomak(ev.touches[0]);
     }, { passive: true });

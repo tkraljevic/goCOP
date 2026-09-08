@@ -2462,6 +2462,10 @@ textarea {
 .graf-niza .thr-label { font-size: 15px; }
 .graf-niza .line { stroke-width: 2.5; }
 .graf-niza .grid { stroke-opacity: 0.55; }
+/* Zadani stil preglednika za [hidden] vrijedi samo za HTML elemente, pa
+   skriveni pokazivač u SVG-u ostaje nacrtan — vodilja na x=0 i biljeg u
+   gornjem lijevom kutu. Ovdje mu se to kaže izrijekom. */
+.graf-niza .pokazivac[hidden] { display: none; }
 .graf-niza .vodilja { stroke: var(--text-muted); stroke-width: 1.5; stroke-dasharray: 3 3; }
 .graf-niza .biljeg { fill: var(--primary); stroke: var(--bg); stroke-width: 2.5; }
 .graf-oblacic {
@@ -2583,6 +2587,12 @@ textarea {
 .korito-graf .korito-prag.regular { stroke: var(--tint-orange-fg); }
 .korito-graf .korito-prag.emerg, .korito-graf .korito-prag.crit { stroke: var(--danger); }
 .korito-graf .korito-prag-natpis { font-size: 11px; font-weight: 700; }
+/* Uski presjek ima svoj koordinatni sustav (520 jedinica), pa mu i oznake
+   moraju biti veće da na zaslonu ispadnu jednako čitljive kao na širokom. */
+.korito-graf.graf-uski .korito-os { font-size: 17px; }
+.korito-graf.graf-uski .korito-prag-natpis { font-size: 16px; }
+.korito-graf.graf-uski .korito-dno { stroke-width: 2.6; }
+.korito-graf.graf-uski .korito-prag { stroke-width: 1.8; }
 .korito-graf .korito-prag-natpis.prep { fill: var(--tint-yellow-fg); }
 .korito-graf .korito-prag-natpis.regular { fill: var(--tint-orange-fg); }
 .korito-graf .korito-prag-natpis.emerg, .korito-graf .korito-prag-natpis.crit { fill: var(--danger); }
