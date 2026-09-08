@@ -43,3 +43,31 @@ func TestSveStraniceImajuOkvir(t *testing.T) {
 		}
 	}
 }
+
+// Vrijeme vrijednosti u nizu ispisuje se kako je zapisano, bez pomicanja u
+// zagrebačko i bez dvostrukog sata. Prije se dobivalo „07.09.2026 02:00 00:00“:
+// formatDate već ispisuje sat, localTime ga pomakne, pa je dopisani sirovi sat
+// stajao uz njega.
+func TestVrijemeNizaBezPomakaIDvostrukogSata(t *testing.T) {
+	redci, satni, _ := citajZalijepljeno("07.09.2026. 00 h    -118\n07.09.2026. 23 h    -122")
+	html := iscrtaj(t, "uvoz_ocitanja.html", PregledUvoza{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Station:     &models.Station{ID: uuid.New(), Name: "Batina", Code: "batina"},
+		GaugeName:   "Batina", Satni: satni, Redci: redci, Novih: 2,
+		Od: redci[0].Kad, Do: redci[1].Kad,
+	})
+	if !strings.Contains(html, "07.09.2026. 00:00") {
+		t.Error("prvi sat se ne ispisuje kao 07.09.2026. 00:00")
+	}
+	if !strings.Contains(html, "07.09.2026. 23:00") {
+		t.Error("zadnji sat se ne ispisuje kao 07.09.2026. 23:00")
+	}
+	if strings.Contains(html, "02:00 00:00") || strings.Contains(html, "01:00 23:00") {
+		t.Error("vrijeme se ispisuje dvaput, pomaknuto pa sirovo")
+	}
+	// razdoblje u zaglavlju mora biti isti dan, ne prelijevati se u sljedeći
+	if strings.Contains(html, "08.09.2026") {
+		t.Error("razdoblje se pomaknulo u sljedeći dan")
+	}
+}
