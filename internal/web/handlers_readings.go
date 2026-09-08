@@ -139,12 +139,16 @@ type ReadingHistoryData struct {
 	Korito     *KoritoCrtez
 	KoritoUzak *KoritoCrtez // isti presjek u obliku za telefon
 	KoritoOpis string       // po kojem je vodostaju voda ucrtana
-	CanRecord   bool
-	CanEdit     bool
-	Followed    bool   // čvor drži cijelu povijest ove letve
-	GaugeURL    string // putanja ove letve, za izvoz i uvoz
-	GaugeKey    string
-	Pager       Pager
+
+	// Snimke iz kojih je presjek spojen, da se pod crtežom vidi od čega je.
+	Profili   []models.ProfilKorita
+	Profil    *models.ProfilKorita
+	CanRecord bool
+	CanEdit   bool
+	Followed  bool   // čvor drži cijelu povijest ove letve
+	GaugeURL  string // putanja ove letve, za izvoz i uvoz
+	GaugeKey  string
+	Pager     Pager
 
 	// Krivulje protoka ove letve. S njima svako očitanje uz vodostaj dobiva i
 	// procjenu protoka — dežurni tako uz visinu vidi i koliko vode prolazi,
@@ -154,23 +158,23 @@ type ReadingHistoryData struct {
 	// Povijest iz arhive. Operativna očitanja su ono što ljudi upišu; arhiva je
 	// ono što je izmjereno prije nego što je program postojao. Stranica
 	// prikazuje oboje, ali arhivu tek kad postaji ima što pokazati.
-	ArhVelicine  []string
-	ArhVelicina  string
-	ArhKorak     string
-	ArhGodine    []int
-	ArhGodina    int
-	ArhNiz       []models.SpojenaVrijednost
-	ArhChart     *Chart
-	ArhChartUzak *Chart
-	ArhJedinica  string
-	ArhSazetak   []models.SazetakVelicine
-	ArhPager     Pager
+	ArhVelicine     []string
+	ArhVelicina     string
+	ArhKorak        string
+	ArhGodine       []int
+	ArhGodina       int
+	ArhNiz          []models.SpojenaVrijednost
+	ArhChart        *Chart
+	ArhChartUzak    *Chart
+	ArhJedinica     string
+	ArhSazetak      []models.SazetakVelicine
+	ArhPager        Pager
 	ArhPromjeneKote []models.PromjenaKote // zabilježena premještanja nule letve
 	ArhIspravaka    int
-	ArhSada      *models.SpojenaVrijednost // zadnja vrijednost odabrane veličine
-	ArhDecimala  int
-	KoteZaArhivu bool   // prikazuje li se uz vodostaj i apsolutna kota vode
-	KotaSustav   string // u kojem visinskom sustavu
+	ArhSada         *models.SpojenaVrijednost // zadnja vrijednost odabrane veličine
+	ArhDecimala     int
+	KoteZaArhivu    bool   // prikazuje li se uz vodostaj i apsolutna kota vode
+	KotaSustav      string // u kojem visinskom sustavu
 
 	SuccessMessage string
 	ErrorMessage   string
@@ -224,7 +228,7 @@ type Chart struct {
 	// Rubovi crtaće plohe u koordinatama SVG-a. Predložak ih treba za mrežu i
 	// oznake, a razlikuju se između širokog i uskog grafa.
 	Lijevo, Desno, Vrh, Dno float64
-	Uzak                    bool // graf za telefon: oznake pragova idu iznad crte
+	Uzak                    bool   // graf za telefon: oznake pragova idu iznad crte
 	Opis                    string // što graf prikazuje, za čitač zaslona
 
 	// Koliko je puta crta prekinuta zbog praznine u nizu
@@ -577,19 +581,16 @@ func (h *ReadingsHandler) koritoUzGraf(ctx context.Context, data *ReadingHistory
 			pragovi = append(pragovi, PragKorita{Cm: *t.t.Cm, Label: t.naziv, Class: t.cl})
 		}
 	}
-	// Snimke se razlikuju po dosegu: Batinina iz 2010. hvata obje obale do
-	// vrha, iz 2020. lijevu presijeca na +166 cm. Bira se najnovija koja
-	// pokriva vodu prikazanog razdoblja; ako nijedna ne pokriva, najnovija.
-	profil := profili[0]
-	for _, kandidat := range profili {
-		c := crtajKoritoP(kandidat, najv, sirokoKorito)
-		if c != nil && !c.OdrezanSnimak {
-			profil = kandidat
-			break
-		}
-	}
-	data.Korito = crtajKoritoP(profil, *zadnji.LevelCm, sirokoKorito.sKoritom(pragovi, najn, najv))
-	data.KoritoUzak = crtajKoritoP(profil, *zadnji.LevelCm, uskoKorito.sKoritom(pragovi, najn, najv))
+	// Isti presjek kao na kartici letve: spojen iz svih snimaka, novija ima
+	// prednost svugdje gdje seže, starija popunjava ostatak. Prije se ovdje
+	// birala jedna snimka — najnovija koja pokriva vodu razdoblja — pa je
+	// presjek bio niži nego što korito jest: Batinina snimka iz 2020. lijevu
+	// obalu presijeca na +166 cm, a spojena seže do +966.
+	profil := models.SpojiProfile(profili)
+	data.Profili = profili
+	data.Profil = &profil
+	data.Korito = crtajKoritoP(profil, *zadnji.LevelCm, sirokoKorito.sKoritom(pragovi, najn, najv).uSustavu(*data.Station))
+	data.KoritoUzak = crtajKoritoP(profil, *zadnji.LevelCm, uskoKorito.sKoritom(pragovi, najn, najv).uSustavu(*data.Station))
 	data.KoritoOpis = fmt.Sprintf("%d cm, %s", *zadnji.LevelCm,
 		zadnji.LocalTime().Format("2.1.2006. 15:04"))
 }

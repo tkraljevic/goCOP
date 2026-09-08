@@ -514,9 +514,72 @@ function renderMarkdown(md) {
   }
 
   document.addEventListener('DOMContentLoaded', slozi);
+  // Listanje mijenja tablice bez novog učitavanja stranice, pa se slaganje
+  // mora ponoviti nad onim što je upravo umetnuto.
+  document.addEventListener('gocop:sadrzaj', slozi);
   var cekaj;
   window.addEventListener('resize', function () {
     clearTimeout(cekaj);
     cekaj = setTimeout(slozi, 150);
   });
+})();
+
+// Listanje bez ponovnog učitavanja stranice. Klik na listač dohvati istu
+// stranicu i zamijeni samo popis; ostatak — graf, presjek korita, karta —
+// ostaje netaknut, a pogled ne odskače na vrh.
+//
+// Nadogradnja, ne uvjet: poveznice listača su obične poveznice i bez skripte
+// rade kao i dosad. Zato ovdje nema ni HTMX-a ni sličnog: sve što treba stane
+// u tridesetak redaka, a program mora raditi i offline i bez skripte.
+(function () {
+  var uTijeku = null;
+
+  function zamijeni(okvir, url) {
+    var kljuc = okvir.getAttribute('data-listanje');
+    if (uTijeku) uTijeku.abort();
+    uTijeku = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    okvir.setAttribute('aria-busy', 'true');
+
+    fetch(url, {
+      credentials: 'same-origin',
+      headers: { 'X-Listanje': kljuc },
+      signal: uTijeku ? uTijeku.signal : undefined
+    })
+      .then(function (o) {
+        if (!o.ok) throw new Error(o.status);
+        return o.text();
+      })
+      .then(function (tekst) {
+        var doc = new DOMParser().parseFromString(tekst, 'text/html');
+        var novi = doc.querySelector('[data-listanje="' + kljuc + '"]');
+        if (!novi) throw new Error('nema popisa u odgovoru');
+        okvir.innerHTML = novi.innerHTML;
+        okvir.removeAttribute('aria-busy');
+        try { history.pushState({ listanje: kljuc }, '', url); } catch (e) { /* file:// */ }
+        document.dispatchEvent(new CustomEvent('gocop:sadrzaj', { detail: { okvir: okvir } }));
+        // Ako je popis iznad vidljivog dijela — dogodi se kad zadnja stranica
+        // ima manje redaka — vrati ga u pogled. Inače se ne dira ništa.
+        if (okvir.getBoundingClientRect().top < 0) {
+          okvir.scrollIntoView({ block: 'start' });
+        }
+      })
+      .catch(function (e) {
+        if (e && e.name === 'AbortError') return;
+        window.location.href = url; // pa neka radi kao i bez skripte
+      });
+  }
+
+  document.addEventListener('click', function (e) {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    var a = e.target.closest && e.target.closest('.pager a[href]');
+    if (!a) return;
+    var okvir = a.closest('[data-listanje]');
+    if (!okvir || !window.fetch || !window.DOMParser) return;
+    e.preventDefault();
+    zamijeni(okvir, a.getAttribute('href'));
+  });
+
+  // Natrag i naprijed moraju vratiti stranicu koja je bila. Popis se dohvaća
+  // iznova jer se u međuvremenu mogao promijeniti.
+  window.addEventListener('popstate', function () { window.location.reload(); });
 })();

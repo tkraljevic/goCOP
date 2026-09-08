@@ -156,6 +156,56 @@
   document.getElementById('station-form') && document.getElementById('station-form').addEventListener('submit', collectExtremes);
   </script>
 
+  <h3 style="font-size:0.9rem; margin:1rem 0 0.25rem;">Povratni vodostaji</h3>
+  <p class="form-help" style="margin:0 0 0.5rem;">
+    Koliko visoko voda dođe jednom u T godina. Procjena iz niza, ne mjerenje — zato uz brojku ide metoda i niz na
+    kojem je računata; bez toga se poslije ne zna što brojka tvrdi. Granice pouzdanosti upisuju se u paru ili nikako.
+    Ne ulaze u pragove obrane: prag je propisan, povratni vodostaj proračunat.
+  </p>
+  <input type="hidden" name="return_levels" id="return_levels">
+  <div class="rows-return">
+    <div class="rows-head"><div>Jednom u (god.)</div><div>Vodostaj (cm)</div><div>Donja (cm)</div><div>Gornja (cm)</div><div>Metoda</div><div>Niz</div><div>Izvor</div><div>Izračunato</div><div>Napomena</div><div></div></div>
+    <div id="return-rows"></div>
+  </div>
+  <button type="button" class="btn btn-sm btn-secondary" onclick="addReturnRow()">{{icon "plus"}} Dodaj povratni vodostaj</button>
+  <template id="tpl-return">
+    <div class="return-row">
+      <div data-label="Jednom u (god.)"><input type="text" inputmode="numeric" class="form-control mono" data-field="years" placeholder="100" aria-label="Povratno razdoblje u godinama"></div>
+      <div data-label="Vodostaj (cm)"><input type="text" inputmode="numeric" class="form-control mono" data-field="level_cm" placeholder="+795" aria-label="Procijenjeni vodostaj u centimetrima"></div>
+      <div data-label="Donja (cm)"><input type="text" inputmode="numeric" class="form-control mono" data-field="low_cm" placeholder="+762" aria-label="Donja granica pouzdanosti"></div>
+      <div data-label="Gornja (cm)"><input type="text" inputmode="numeric" class="form-control mono" data-field="high_cm" placeholder="+813" aria-label="Gornja granica pouzdanosti"></div>
+      <div data-label="Metoda"><input type="text" class="form-control" data-field="method" placeholder="POT, gen. Pareto, L-momenti" aria-label="Metoda proračuna"></div>
+      <div data-label="Niz"><input type="text" class="form-control" data-field="series" placeholder="1902.–2026." aria-label="Niz na kojem je računato"></div>
+      <div data-label="Izvor"><input type="text" class="form-control" data-field="source" placeholder="tko je računao" aria-label="Izvor"></div>
+      <div data-label="Izračunato"><input type="date" class="form-control" data-field="computed_on" aria-label="Datum izračuna"></div>
+      <div data-label="Napomena"><input type="text" class="form-control" data-field="note" placeholder="ograde, na što paziti" aria-label="Napomena"></div>
+      <button type="button" class="btn btn-sm btn-secondary" onclick="this.closest('.return-row').remove()" title="Ukloni">{{icon "x"}}</button>
+    </div>
+  </template>
+  <script>
+  const RETURN_LEVELS = {{.ReturnLevelsJSON}};
+  function addReturnRow(p) {
+    p = p || {}; const row = document.getElementById('tpl-return').content.firstElementChild.cloneNode(true);
+    const set = (f, v) => row.querySelector('[data-field=' + f + ']').value = (v != null ? v : '');
+    set('years', p.years); set('level_cm', p.level_cm); set('low_cm', p.low_cm); set('high_cm', p.high_cm);
+    set('method', p.method); set('series', p.series); set('source', p.source);
+    set('computed_on', p.computed_on); set('note', p.note);
+    document.getElementById('return-rows').appendChild(row);
+  }
+  function collectReturnLevels() {
+    const rows = [...document.querySelectorAll('#return-rows .return-row')].map(r => {
+      const g = f => r.querySelector('[data-field=' + f + ']').value.trim();
+      return { years: g('years'), level_cm: g('level_cm'), low_cm: g('low_cm'), high_cm: g('high_cm'),
+               method: g('method'), series: g('series'), source: g('source'),
+               computed_on: g('computed_on'), note: g('note') };
+    }).filter(x => x.years);
+    document.getElementById('return_levels').value = JSON.stringify(rows);
+    return true;
+  }
+  (RETURN_LEVELS || []).forEach(addReturnRow);
+  document.getElementById('station-form') && document.getElementById('station-form').addEventListener('submit', collectReturnLevels);
+  </script>
+
   <h3 style="font-size:0.9rem; margin:1rem 0 0.25rem;">Promjene kote nule kroz vrijeme</h3>
   <p class="form-help" style="margin:0 0 0.5rem;">
     Kad je letva premještena, obnovljena ili dobila novi elaborat. Vodostaji u bazi svedeni su na zadnju kotu i ne
@@ -261,4 +311,34 @@
     <button type="submit" class="btn btn-primary">{{if .IsEdit}}Spremi izmjene{{else}}Upiši u registar{{end}}</button>
   </div>
 </form>
+
+{{if .IsEdit}}
+{{if .WaterRegistry}}
+<div class="form-page form-wide" style="margin-top:1rem;">
+  <h3 style="font-size:0.9rem; margin:0 0 0.25rem;">Vodotok iz registra</h3>
+  <p class="form-help" style="margin:0 0 0.5rem;">
+    Voda na kojoj vodomjer <strong>fizički stoji</strong> — nije isto što i vode za koje je postaja
+    mjerodavna. Program je zasad utvrdio: <strong>{{if .Station.HasWatercourse}}{{.Station.Watercourse}}{{else}}ništa{{end}}</strong>{{with .Station.PodrijetloVodotoka}} ({{.}}){{end}}.
+    Ručni odabir nadjačava strojno utvrđivanje i bilježi se kao potvrda operatera.
+  </p>
+  <p class="form-help" style="margin:0 0 0.75rem;">
+    Sprema se odmah, odvojeno od ostatka obrasca — pa spremite izmjene gore prije nego dirate ovo,
+    inače će se izgubiti.
+  </p>
+  <form method="POST" action="/api/stations/watercourse" class="station-watercourse-form">
+    <input type="hidden" name="station_id" value="{{.Station.ID}}">
+    <div class="form-group" style="flex:1; min-width:14rem; margin:0;">
+      <label class="form-label" for="watercourse_code">Pridruži iz registra vodotoka</label>
+      <select id="watercourse_code" name="watercourse_code" class="form-control">
+        <option value="">— ukloni vodotok —</option>
+        {{range .WaterRegistry}}
+        <option value="{{.Code}}" {{if eq .Code $.Station.WatercourseCode}}selected{{end}}>{{.OfficialName}}</option>
+        {{end}}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-secondary" style="min-height:40px;">Spremi vodotok</button>
+  </form>
+</div>
+{{end}}
+{{end}}
 {{end}}

@@ -27,10 +27,12 @@ type StationsHandler struct {
 	tmpl               *template.Template // popis
 	tmplDetail         *template.Template // jedna postaja
 	tmplForm           *template.Template // obrazac
+	valovi             *valoviPamcenje    // izračunati valovi obrane, po letvi
 }
 
 func NewStationsHandler(stationService *service.StationService, tmpl *template.Template) *StationsHandler {
 	return &StationsHandler{
+		valovi:         novoValoviPamcenje(),
 		stationService: stationService,
 		tmpl:           tmpl,
 	}
@@ -329,6 +331,7 @@ type stationForm struct {
 	ZeroDatumNewSystem string `json:"zero_datum_new_system"`
 	ZeroDatumHistory   string `json:"zero_datum_history"` // JSON popis promjena kote, iz obrasca
 	Extremes           string `json:"extremes"`           // JSON popis ekstrema, iz obrasca
+	ReturnLevels       string `json:"return_levels"`      // JSON popis povratnih vodostaja, iz obrasca
 	Prep               string `json:"prep"`
 	Regular            string `json:"regular"`
 	Emergency          string `json:"emergency"`
@@ -376,6 +379,7 @@ func decodeStationForm(r *http.Request) (stationForm, error) {
 	form.ZeroDatumNewSystem = r.FormValue("zero_datum_new_system")
 	form.ZeroDatumHistory = r.FormValue("zero_datum_history")
 	form.Extremes = r.FormValue("extremes")
+	form.ReturnLevels = r.FormValue("return_levels")
 	form.Prep = r.FormValue("prep")
 	form.Regular = r.FormValue("regular")
 	form.Emergency = r.FormValue("emergency")
@@ -408,6 +412,7 @@ func (f stationForm) toStation() models.Station {
 		ZeroDatumNewSystem: strings.TrimSpace(f.ZeroDatumNewSystem),
 		ZeroDatumHistory:   parseZeroDatumHistory(f.ZeroDatumHistory),
 		Extremes:           parseExtremes(f.Extremes),
+		ReturnLevels:       parseReturnLevels(f.ReturnLevels),
 		Prep:               parseThresholdInput(f.Prep),
 		Regular:            parseThresholdInput(f.Regular),
 		Emergency:          parseThresholdInput(f.Emergency),
@@ -486,6 +491,56 @@ func parseZeroDatumHistory(raw string) []models.ZeroDatumChange {
 		out = append(out, c)
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].ValidFrom < out[j].ValidFrom })
+	return out
+}
+
+// parseReturnLevels čita povratne vodostaje iz obrasca. Redak bez povratnog
+// razdoblja je prazan i preskače se — vodostaj bez broja godina ne znači ništa.
+// Granice pouzdanosti se uzimaju samo u paru: jedna sama tvrdila bi interval
+// koji nije izračunat.
+func parseReturnLevels(raw string) []models.StationReturnLevel {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || raw == "[]" {
+		return nil
+	}
+	var in []struct {
+		Years      string `json:"years"`
+		LevelCm    string `json:"level_cm"`
+		LowCm      string `json:"low_cm"`
+		HighCm     string `json:"high_cm"`
+		Method     string `json:"method"`
+		Series     string `json:"series"`
+		Source     string `json:"source"`
+		Note       string `json:"note"`
+		ComputedOn string `json:"computed_on"`
+	}
+	if err := json.Unmarshal([]byte(raw), &in); err != nil {
+		return nil
+	}
+	cm := func(v string) *int {
+		n, err := strconv.Atoi(strings.TrimPrefix(strings.TrimSpace(v), "+"))
+		if err != nil {
+			return nil
+		}
+		return &n
+	}
+	var out []models.StationReturnLevel
+	for _, r := range in {
+		god, err := strconv.Atoi(strings.TrimSpace(r.Years))
+		if err != nil || god <= 0 {
+			continue
+		}
+		p := models.StationReturnLevel{Years: god, LevelCm: cm(r.LevelCm),
+			LowCm: cm(r.LowCm), HighCm: cm(r.HighCm),
+			Method: strings.TrimSpace(r.Method), Series: strings.TrimSpace(r.Series),
+			Source: strings.TrimSpace(r.Source), Note: strings.TrimSpace(r.Note),
+			ComputedOn: strings.TrimSpace(r.ComputedOn)}
+		if p.LowCm == nil || p.HighCm == nil {
+			p.LowCm, p.HighCm = nil, nil
+		}
+		out = append(out, p)
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].Years < out[j].Years })
 	return out
 }
 

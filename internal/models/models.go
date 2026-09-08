@@ -2,6 +2,7 @@ package models
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -98,6 +99,12 @@ type Station struct {
 	// Bezdana, a prikazan kao mjerenje tvrdio bi nešto što se nije dogodilo.
 	Extremes []StationExtreme `json:"extremes,omitempty"`
 
+	// ReturnLevels su povratni vodostaji: koliko visoko voda dođe jednom u T
+	// godina. Nisu mjerenje nego procjena iz niza, pa svaki nosi metodu, niz na
+	// kojem je računat i granice pouzdanosti — bez toga je brojka samo tvrdnja.
+	// Ne ulaze u pragove obrane: prag je propisan, povratni vodostaj proračunat.
+	ReturnLevels []StationReturnLevel `json:"return_levels,omitempty"`
+
 	// ZeroDatumHistory su promjene kote nule kroz vrijeme, od najstarije.
 	// Vodostaji u bazi svi su svedeni na zadnju kotu, pa se ne preračunavaju;
 	// povijest služi da se zna što je koja stara evidencija zapravo mjerila i
@@ -183,6 +190,23 @@ const (
 	WatercourseFromOperator   = "OPERATER"   // ručno potvrdio operater
 	WatercourseUndetermined   = ""           // nije utvrđeno — popunjava operater
 )
+
+// PodrijetloVodotoka kaže kako je utvrđeno na kojoj vodi letva stoji. Stoji uz
+// naziv vode jer nije svejedno je li ga netko potvrdio ili ga je program
+// pogodio iz naziva vodomjera.
+func (s Station) PodrijetloVodotoka() string {
+	switch s.WatercourseSource {
+	case WatercourseFromName:
+		return "iz naziva vodomjera"
+	case WatercourseFromStationing:
+		return "iz stacionaže"
+	case WatercourseFromSections:
+		return "izvedeno iz dionica"
+	case WatercourseFromOperator:
+		return "potvrdio operater"
+	}
+	return s.WatercourseSource
+}
 
 // HasWatercourse govori je li utvrđeno na kojoj vodi postaja stoji
 func (s Station) HasWatercourse() bool {
@@ -297,6 +321,22 @@ func (p DefensePhase) BadgeClass() string {
 	}
 }
 
+// PillClass je razred pilule kojom se stupanj prikazuje. Isti raspored boja
+// kao značka, ali drugo ime razreda — pilula stoji u tablici, značka u tekstu.
+func (p DefensePhase) PillClass() string {
+	switch p {
+	case PhaseState:
+		return "crit"
+	case PhaseEmergency:
+		return "emerg"
+	case PhaseRegular:
+		return "regular"
+	case PhasePrep:
+		return "prep"
+	}
+	return "none"
+}
+
 // Label vraća human-readable naziv faze na hrvatskom
 func (p DefensePhase) Label() string {
 	switch p {
@@ -367,6 +407,93 @@ const (
 	ExtremeMax = "MAX"
 	ExtremeMin = "MIN"
 )
+
+// StationReturnLevel je vodostaj koji se u prosjeku dosegne ili premaši jednom
+// u Years godina. Statistička procjena iz niza, ne mjerenje: LowCm i HighCm su
+// granice pouzdanosti, a Method i Series kažu čime je i na čemu računato.
+//
+// Stoji odvojeno od pragova obrane. Prag je propisana granica pri kojoj se
+// poduzimaju mjere; povratni vodostaj govori koliko je koja visina rijetka.
+// Miješanje to dvoje značilo bi da program sam sebi propisuje obranu.
+type StationReturnLevel struct {
+	Years      int    `json:"years"`              // povratno razdoblje T, u godinama
+	LevelCm    *int   `json:"level_cm,omitempty"` // procijenjeni vodostaj na letvi
+	LowCm      *int   `json:"low_cm,omitempty"`   // donja granica pouzdanosti
+	HighCm     *int   `json:"high_cm,omitempty"`  // gornja granica
+	Method     string `json:"method,omitempty"`   // npr. „POT, generalizirana Pareto, L-momenti"
+	Series     string `json:"series,omitempty"`   // niz na kojem je računato, npr. „1902.–2026."
+	Source     string `json:"source,omitempty"`   // tko je računao
+	Note       string `json:"note,omitempty"`
+	ComputedOn string `json:"computed_on,omitempty"` // datum izračuna, YYYY-MM-DD
+}
+
+// Label je procijenjeni vodostaj s predznakom, kako se vodostaj i inače piše.
+func (r StationReturnLevel) Label() string {
+	if r.LevelCm == nil {
+		return "—"
+	}
+	return fmt.Sprintf("%+d cm", *r.LevelCm)
+}
+
+// ImaRaspon govori jesu li upisane obje granice pouzdanosti. Jedna sama ne
+// znači ništa, pa se raspon ili prikazuje cijeli ili nikako.
+func (r StationReturnLevel) ImaRaspon() bool { return r.LowCm != nil && r.HighCm != nil }
+
+// RasponLabel je interval pouzdanosti; prazno kad nije upisan.
+func (r StationReturnLevel) RasponLabel() string {
+	if !r.ImaRaspon() {
+		return ""
+	}
+	return fmt.Sprintf("%+d do %+d cm", *r.LowCm, *r.HighCm)
+}
+
+// GodineLabel je povratno razdoblje kako se čita: „100 godina".
+func (r StationReturnLevel) GodineLabel() string {
+	if r.Years <= 0 {
+		return "—"
+	}
+	return fmt.Sprintf("%d %s", r.Years, godina(r.Years))
+}
+
+// SansaLabel je ista brojka gledana s druge strane: povratno razdoblje od 100
+// godina znači 1 % izgleda u svakoj pojedinoj godini. Ljudi povratno razdoblje
+// redovito čitaju kao „neće se ponoviti idućih 100 godina", što nije isto.
+func (r StationReturnLevel) SansaLabel() string {
+	if r.Years <= 0 {
+		return ""
+	}
+	p := 100 / float64(r.Years)
+	// Jedna decimala je dosta i za T=1000 (0,1 %), a bez zaokruživanja bi
+	// T=3 ispalo kao 33,333333333333336 %.
+	txt := strconv.FormatFloat(p, 'f', 1, 64)
+	txt = strings.TrimSuffix(txt, ".0")
+	return strings.Replace(txt, ".", ",", 1) + " % svake godine"
+}
+
+// godina bira oblik imenice uz broj: 1 godina, 2 godine, 5 godina.
+func godina(n int) string {
+	if n%100 >= 11 && n%100 <= 14 {
+		return "godina"
+	}
+	switch n % 10 {
+	case 1:
+		return "godina"
+	case 2, 3, 4:
+		return "godine"
+	}
+	return "godina"
+}
+
+// PovratniVodostaji vraća povratne vodostaje složene po povratnom razdoblju,
+// od najčešćeg prema najrjeđem, kako se i čitaju.
+func (s Station) PovratniVodostaji() []StationReturnLevel {
+	out := append([]StationReturnLevel(nil), s.ReturnLevels...)
+	sort.SliceStable(out, func(i, j int) bool { return out[i].Years < out[j].Years })
+	return out
+}
+
+// ImaPovratne govori ima li letva ijedan izračunat povratni vodostaj.
+func (s Station) ImaPovratne() bool { return len(s.ReturnLevels) > 0 }
 
 // IsMeasured govori smije li se vrijednost predstaviti kao mjerenje ove letve.
 // Prazna kvaliteta znači izmjereno: takvi su zapisi zatečeni prije nego što se

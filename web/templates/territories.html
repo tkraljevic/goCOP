@@ -255,6 +255,7 @@
   </div>
   {{else}}
 
+  <div data-listanje="popis">
   {{template "pager" .Pager}}
   <div id="munis-cards-view" class="munis-cards-grid">
     {{range .Municipalities}}
@@ -354,6 +355,7 @@
   </div>
 
   {{template "pager" .Pager}}
+  </div>
   {{end}}
   {{end}}
 

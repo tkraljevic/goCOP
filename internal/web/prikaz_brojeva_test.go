@@ -2232,3 +2232,211 @@ func TestSpajanjeProfilaPoravnavaSnimke(t *testing.T) {
 		t.Error("jedna snimka ne smije se proglasiti spojenom")
 	}
 }
+
+// Povratni vodostaj bez broja godina ne znači ništa, pa takav redak obrasca
+// otpada. Granice pouzdanosti stižu u paru: jedna sama tvrdila bi interval
+// koji nije izračunat.
+func TestPovratniVodostajiIzObrasca(t *testing.T) {
+	raw := `[{"years":"100","level_cm":"+795","low_cm":"762","high_cm":"813",
+	           "method":"POT","series":"1902.–2026.","source":"COP","computed_on":"2026-09-08","note":"n"},
+	          {"years":"25","level_cm":"755","low_cm":"739"},
+	          {"years":"","level_cm":"900"},
+	          {"years":"0","level_cm":"900"}]`
+	got := parseReturnLevels(raw)
+	if len(got) != 2 {
+		t.Fatalf("upisana su dva valjana retka, pročitano %d: %+v", len(got), got)
+	}
+	if got[0].Years != 25 || got[1].Years != 100 {
+		t.Errorf("redci se slažu po povratnom razdoblju: %d, %d", got[0].Years, got[1].Years)
+	}
+	if got[0].LowCm != nil || got[0].HighCm != nil {
+		t.Error("polovica raspona se odbacuje, inače bi se prikazao interval koji nije izračunat")
+	}
+	if got[1].LevelCm == nil || *got[1].LevelCm != 795 {
+		t.Errorf("vodostaj s predznakom: %+v", got[1].LevelCm)
+	}
+	if got[1].Method != "POT" || got[1].Series != "1902.–2026." ||
+		got[1].Source != "COP" || got[1].ComputedOn != "2026-09-08" || got[1].Note != "n" {
+		t.Errorf("izgubljen podatak o postanku: %+v", got[1])
+	}
+	if parseReturnLevels("") != nil || parseReturnLevels("[]") != nil || parseReturnLevels("{") != nil {
+		t.Error("prazan ili neispravan unos daje prazno")
+	}
+}
+
+// Kartica letve mora uz procjenu pokazati i čime je dobivena i koliko je
+// nesigurna. Brojka bez toga izgleda kao mjerenje, a nije.
+func TestKarticaLetvePokazujePovratneVodostaje(t *testing.T) {
+	cm := func(v int) *int { return &v }
+	st := models.Station{ID: uuid.New(), Name: "Batina", Code: "batina",
+		ReturnLevels: []models.StationReturnLevel{
+			{Years: 100, LevelCm: cm(795), LowCm: cm(762), HighCm: cm(813),
+				Method: "POT, generalizirana Pareto", Series: "1902.–2026.",
+				Source: "COP", ComputedOn: "2026-09-08"},
+			{Years: 25, LevelCm: cm(755), Method: "POT, generalizirana Pareto", Series: "1902.–2026."},
+		}}
+	html := iscrtaj(t, "station_detail.html", StationPageData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Station:     st, PragoviKote: pragoviUKotama(st),
+	})
+	for _, want := range []string{
+		"Povratni vodostaji", "100 godina", "25 godina", "&#43;795 cm", "&#43;755 cm",
+		"&#43;762 do &#43;813 cm", "1 % svake godine", "4 % svake godine",
+		"POT, generalizirana Pareto", "1902.–2026.", "8.9.2026.",
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("na kartici nema %q", want)
+		}
+	}
+	// Procjena se ne smije čitati kao propisani prag.
+	if !strings.Contains(html, "Pragovi obrane su propisani i ne izvode se iz ovih brojki.") {
+		t.Error("nema ograde da povratni vodostaj nije prag obrane")
+	}
+	iso := regexp.MustCompile(`>[^<]*\b\d{4}-\d{2}-\d{2}\b`)
+	if nasao := iso.FindAllString(html, -1); len(nasao) > 0 {
+		t.Errorf("sirovi datum u prikazu povratnih vodostaja: %q", nasao[0])
+	}
+	// Postaja bez izračuna nema odjeljak.
+	prazna := iscrtaj(t, "station_detail.html", StationPageData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Station:     models.Station{ID: uuid.New(), Name: "Dalj", Code: "dalj"},
+	})
+	if strings.Contains(prazna, "Povratni vodostaji") {
+		t.Error("postaja bez izračuna ne smije imati prazan odjeljak")
+	}
+}
+
+// Pridruživanje vodotoka iz registra je postavka, a stajalo je na vrhu
+// kartice koja se inače samo čita. Preseljeno je u Uredi; na kartici ostaje
+// samo podatak — naziv vode, kako je utvrđena i poveznica na registar.
+func TestPridruzivanjeVodotokaJeUObrascuANeNaKartici(t *testing.T) {
+	st := models.Station{ID: uuid.New(), Name: "Batina", Code: "batina",
+		Watercourse: "Dunav", WatercourseCode: "HR-D-1",
+		WatercourseSource: models.WatercourseFromOperator}
+	registar := []models.Watercourse{{Code: "HR-D-1", OfficialName: "rijeka Dunav"}}
+
+	kartica := iscrtaj(t, "station_detail.html", StationPageData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Station:     st, PragoviKote: pragoviUKotama(st),
+		CanEdit: true, WaterRegistry: registar,
+	})
+	for _, ne := range []string{
+		"Vodotok na kojem postaja stoji", "/api/stations/watercourse",
+		"Spremi vodotok", "Pridruži iz registra vodotoka",
+	} {
+		if strings.Contains(kartica, ne) {
+			t.Errorf("kartica još nudi postavljanje vodotoka: %q", ne)
+		}
+	}
+	// Podatak ne smije nestati zajedno s kontrolom.
+	for _, want := range []string{"Dunav", "potvrdio operater", `href="/watercourses/HR-D-1"`} {
+		if !strings.Contains(kartica, want) {
+			t.Errorf("kartica je izgubila %q", want)
+		}
+	}
+
+	obrazac := iscrtaj(t, "station_form.html", StationPageData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Station:     st, IsEdit: true, WaterRegistry: registar,
+	})
+	for _, want := range []string{
+		"Vodotok iz registra", `action="/api/stations/watercourse"`,
+		"Spremi vodotok", "rijeka Dunav", "potvrdio operater",
+	} {
+		if !strings.Contains(obrazac, want) {
+			t.Errorf("u obrascu nema %q", want)
+		}
+	}
+	// Obrazac u obrascu nije valjan HTML: glavni se mora zatvoriti prije ovoga.
+	if strings.Index(obrazac, "</form>") > strings.Index(obrazac, `action="/api/stations/watercourse"`) {
+		t.Error("pridruživanje vodotoka je ugniježđeno u glavni obrazac")
+	}
+
+	// Nova postaja još nema identifikator na koji bi se veza vezala.
+	nova := iscrtaj(t, "station_form.html", StationPageData{
+		CurrentUser:   &models.User{FullName: "P"},
+		Permissions:   &models.UserPermissions{IsGlobalAdmin: true},
+		WaterRegistry: registar,
+	})
+	if strings.Contains(nova, "/api/stations/watercourse") {
+		t.Error("nova postaja ne smije nuditi pridruživanje vodotoka")
+	}
+}
+
+// Valovi obrane su izračun iz niza, ne evidencija. Kartica mora pokazati oba
+// vremena — kad bi stanje počelo i kad bi završilo — i trajanje u satima, kako
+// se i evidentira u obrascu obrane.
+func TestKarticaLetvePrikazujeValoveObrane(t *testing.T) {
+	cm := func(v int) *int { return &v }
+	st := models.Station{ID: uuid.New(), Name: "Batina", Code: "batina",
+		Prep: models.Threshold{Cm: cm(300)}, Regular: models.Threshold{Cm: cm(500)},
+		Emergency: models.Threshold{Cm: cm(650)}, State: models.Threshold{Cm: cm(800)}}
+	pragovi := st.PragoviObrane()
+
+	poc := time.Date(2024, 6, 1, 0, 0, 0, 0, time.UTC)
+	var niz []models.HidroTocka
+	dodaj := func(sati int, v float64) {
+		for i := 0; i < sati; i++ {
+			niz = append(niz, models.HidroTocka{Kad: poc.Add(time.Duration(len(niz)) * time.Hour), Vrijednost: v})
+		}
+	}
+	dodaj(1, 100)
+	dodaj(48, 400)
+	dodaj(96, 600)
+	dodaj(1, 100)
+	valovi := models.Valovi(niz, pragovi)
+	if len(valovi) != 1 {
+		t.Fatalf("priprema testa: %d valova", len(valovi))
+	}
+
+	html := iscrtaj(t, "station_detail.html", StationPageData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Station:     st, PragoviKote: pragoviUKotama(st),
+		Valovi:        valovi,
+		ValoviPragovi: pragovi,
+		ValoviZbroj:   models.ZbrojValova(valovi, pragovi),
+		ValoviNiz:     models.RazdobljeNiza{Od: niz[0].Kad, Do: niz[len(niz)-1].Kad, Zapisa: len(niz)},
+		ValoviPager:   pagerZa(&http.Request{URL: &url.URL{Path: "/x"}}, "val", 1, 20),
+	})
+	for _, want := range []string{
+		"Valovi obrane u nizu", "Pripremno stanje", "Redovna obrana",
+		"Ukupno u stanju", "Ukupno iznad praga", "u nizu", "h",
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("na kartici nema %q", want)
+		}
+	}
+	// Izvanredno stanje nije dosegnuto: stupac postoji jer prag postoji, ali
+	// val u njemu nema vrijednost.
+	if !strings.Contains(html, "Izvanredno stanje") {
+		t.Error("stupac za upisani prag mora postojati i kad nije dosegnut")
+	}
+	// Izračun se ne smije predstaviti kao proglašena obrana.
+	if !strings.Contains(html, "ne iz proglašenih obrana") {
+		t.Error("nema ograde da je riječ o izračunu, a ne o evidenciji")
+	}
+	iso := regexp.MustCompile(`>[^<]*\b\d{4}-\d{2}-\d{2}\b`)
+	if n := iso.FindAllString(html, -1); len(n) > 0 {
+		t.Errorf("sirovi datum među valovima: %q", n[0])
+	}
+}
+
+// Postaja bez pragova u centimetrima ne može dati valove, i to mora reći, a ne
+// prikazati prazan popis kao da valova nije bilo.
+func TestBezPragovaKarticaObjasnjavaIzostanakValova(t *testing.T) {
+	st := models.Station{ID: uuid.New(), Name: "Dalj", Code: "dalj"}
+	html := iscrtaj(t, "station_detail.html", StationPageData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Station:     st, PragoviKote: pragoviUKotama(st),
+		ValoviPager: pagerZa(&http.Request{URL: &url.URL{Path: "/x"}}, "val", 0, 20),
+	})
+	if !strings.Contains(html, "nijedan prag obrane nije upisan u centimetrima") {
+		t.Error("izostanak pragova se mora objasniti")
+	}
+}

@@ -83,6 +83,38 @@
         izvanredno stanje, i najviši zabilježeni vodostaj.</li>
     </ul>
 
+    <h3>Valovi obrane u nizu</h3>
+    <p>Za svaki val u cijelom nizu program izračuna <strong>kada bi po vodostaju počelo i završilo koje
+      stanje</strong> i koliko bi trajalo — pripremno stanje, redovna obrana, izvanredna obrana, izvanredno
+      stanje. Isto što se poslije svake obrane upisuje u obrazac, samo unatrag kroz cijeli niz.</p>
+    <p>Trajanja se broje <strong>po stanjima koja se ne preklapaju</strong>, kako i stoje u obrascu: dok traje
+      redovna obrana, pripremno stanje ne teče; kad se redovna prekine, pripremno se nastavlja. Zbroj svih
+      stanja zato daje trajanje cijeloga vala. Uz to stoji i vrijeme <em>iznad praga</em>, koje uključuje i
+      više stupnjeve.</p>
+    <p>Ovo je <strong>izračun iz mjerenja, a ne evidencija</strong>. Obranu proglašava čovjek i redovito prije
+      nego voda prijeđe prag, pa se izračun i evidencija neće poklopiti — i ne trebaju. Izračun kaže što bi po
+      vodi bilo, evidencija što je odlučeno. Proglašene obrane stoje u zasebnoj tablici ispod, kad ih ima.</p>
+    <p>Prijelaz praga traži se pravocrtno između dva mjerenja, pa i dnevni niz daje trajanje točnije od dana.
+      Gdje ima satnih mjerenja, računa se po njima. Znak <strong>+</strong> uz trajanje znači da val dodiruje
+      rub niza — počeo je prije prvog ili traje iza zadnjeg podatka — pa je trajanje najmanje toliko. Pad ispod
+      pripremnog stanja kraći od tri dana ne prekida val.</p>
+    <p>Na vrhu stoji zbroj za cijeli niz: koliko je puta koje stanje nastupilo, koliko je ukupno trajalo i koji
+      je val bio najdulji. Sve se računa automatski iz pragova postaje i njezina niza, pa svaka letva koja ima
+      i jedno i drugo dobiva svoj pregled.</p>
+
+    <h3>Povratni vodostaji</h3>
+    <p>Za letvu koja ima dovoljno dug niz upisuje se koliko visoko voda dođe <strong>jednom u
+      25, 50 ili 100 godina</strong>. To nije mjerenje nego procjena iz niza, pa uz svaku brojku
+      stoji metoda, niz na kojem je računata i raspon unutar kojeg vrijednost pouzdano leži.
+      Brojka bez toga izgledala bi kao izmjeren podatak, a nije.</p>
+    <p>Uz svaku procjenu piše i <strong>postotak po godini</strong>, jer se „jednom u sto godina“
+      redovito čita krivo — kao da se takva voda neće ponoviti prije isteka stoljeća. Znači
+      suprotno: svake pojedine godine ima 1 % izgleda da dođe, neovisno o tome je li došla lani.
+      Dvije stogodišnje vode uzastopce nisu nemoguće ni neobjašnjive.</p>
+    <p>Povratni vodostaj <strong>nije prag obrane</strong> i ne ulazi u izračun stupnja obrane.
+      Prag je propisana granica pri kojoj se poduzimaju mjere; povratni vodostaj govori samo
+      koliko je koja visina rijetka. Upisuje se u <em>Uredi</em> na stranici letve.</p>
+
     <h3>Kretanje vodostaja</h3>
     <p>Graf pokazuje isto razdoblje koje je odabrano u <em>Pogledu</em> ispod njega — zadano
       zadnjih 30 dana. Prijelaz mišem preko crte pokazuje vrijednost i vrijeme. Kad se lista

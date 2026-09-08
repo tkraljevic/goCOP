@@ -37,6 +37,10 @@ func (p Pager) kljuc() string {
 
 const registryPerPage = 24
 
+// valovaPoStranici: Batinin niz od 1901. daje blizu sedamsto valova, pa se
+// listaju. Dvadeset stane na zaslon bez skrolanja kroz pola stoljeća odjednom.
+const valovaPoStranici = 20
+
 // paginate reže popis prema parametru "page" iz upita i vraća stranicu s
 // opisom. Ostali parametri upita ostaju u poveznicama, pa filtar preživi
 // listanje.

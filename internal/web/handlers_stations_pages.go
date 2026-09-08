@@ -24,8 +24,14 @@ type StationPageData struct {
 	Station              models.Station
 	ZeroDatumHistoryJSON template.JS // promjene kote nule za obrazac, kao JS literal
 	ExtremesJSON         template.JS // zabilježeni ekstremi za obrazac
+	ReturnLevelsJSON     template.JS // povratni vodostaji za obrazac
 	Sections             []models.Section
 	Episodes             []models.DefenseEpisode   // obrane vođene po ovoj letvi, najnovija prva
+	Valovi               []models.Val              // valovi obrane izračunati iz niza, najnoviji prvi
+	ValoviPager          Pager                     // listanje valova
+	ValoviZbroj          []models.ZbrojStupnja     // koliko je koje stanje ukupno trajalo
+	ValoviNiz            models.RazdobljeNiza      // na kojem je nizu računato
+	ValoviPragovi        []models.PragObrane       // pragovi koji su ušli u izračun
 	Nizovi               []models.HidroNiz         // što o ovoj letvi ima u arhivi
 	Pregled              *models.HidroPregled      // karakteristične vrijednosti odabranog niza
 	Profili              []models.ProfilKorita     // snimke poprečnog profila korita
@@ -191,8 +197,8 @@ func (h *StationsHandler) ShowStation(w http.ResponseWriter, r *http.Request) {
 		if data.Zadnji != nil {
 			cm := int(data.Zadnji.Vrijednost)
 			if data.Profil != nil {
-				data.Crtez = crtajKoritoP(*data.Profil, cm, sirokoKoritoM)
-				data.CrtezUzak = crtajKoritoP(*data.Profil, cm, uskoKoritoM)
+				data.Crtez = crtajKoritoP(*data.Profil, cm, sirokoKoritoM.uSustavu(*st))
+				data.CrtezUzak = crtajKoritoP(*data.Profil, cm, uskoKoritoM.uSustavu(*st))
 			}
 			dan := data.Zadnji.Kad.Format("2006-01-02")
 			for _, k := range data.Krivulje {
@@ -209,6 +215,25 @@ func (h *StationsHandler) ShowStation(w http.ResponseWriter, r *http.Request) {
 	if data.CanEdit && h.watercourseService != nil {
 		if waters, err := h.watercourseService.ListWatercourses(ctx, "", "", false); err == nil {
 			data.WaterRegistry = waters
+		}
+	}
+
+	// Valovi obrane iz cijelog niza: kada bi po vodostaju počelo i završilo
+	// koje stanje i koliko je trajalo. Računa se iz mjerenja, ne iz proglašenih
+	// obrana — odgovara na pitanje što bi po vodostaju bilo, ne što je odlučeno.
+	data.ValoviPragovi = data.Station.PragoviObrane()
+	if a := h.arh(); a != nil && len(data.ValoviPragovi) > 0 {
+		svi, niz := h.valovi.Valovi(ctx, a, st.Code, data.ValoviPragovi)
+		data.ValoviNiz = niz
+		data.ValoviZbroj = models.ZbrojValova(svi, data.ValoviPragovi)
+		// vlastiti parametar, da listanje valova ne pomiče ostale popise
+		data.ValoviPager = pagerZa(r, "val", len(svi), valovaPoStranici)
+		if od := data.ValoviPager.Odmak(); od < len(svi) {
+			do := od + valovaPoStranici
+			if do > len(svi) {
+				do = len(svi)
+			}
+			data.Valovi = svi[od:do]
 		}
 	}
 
@@ -255,9 +280,21 @@ func (h *StationsHandler) ShowStationForm(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	// Registar vodotoka za pridruživanje. Popis je potreban tek pri uređivanju
+	// postojeće postaje: nova još nema identifikator na koji bi se veza vezala.
+	if data.IsEdit && h.watercourseService != nil {
+		if waters, err := h.watercourseService.ListWatercourses(r.Context(), "", "", false); err == nil {
+			data.WaterRegistry = waters
+		}
+	}
+
 	data.ExtremesJSON = template.JS("[]")
 	if b, err := json.Marshal(data.Station.Extremes); err == nil && len(data.Station.Extremes) > 0 {
 		data.ExtremesJSON = template.JS(b)
+	}
+	data.ReturnLevelsJSON = template.JS("[]")
+	if b, err := json.Marshal(data.Station.ReturnLevels); err == nil && len(data.Station.ReturnLevels) > 0 {
+		data.ReturnLevelsJSON = template.JS(b)
 	}
 	data.ZeroDatumHistoryJSON = template.JS("[]")
 	if b, err := json.Marshal(data.Station.ZeroDatumHistory); err == nil && len(data.Station.ZeroDatumHistory) > 0 {

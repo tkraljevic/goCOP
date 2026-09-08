@@ -26,7 +26,15 @@ type KoritoPostavke struct {
 	PojasOd        int          // najniži vodostaj razdoblja, cm
 	PojasDo        int          // najviši
 	ImaPojas       bool
-	OsUCm          bool // podjele na okruglim centimetrima na letvi, ne na okruglim metrima
+	OsUCm          bool    // podjele na okruglim centimetrima na letvi, ne na okruglim metrima
+	Desno          float64 // rub za brojke druge osi; nula znači uski rub bez nje
+
+	// KotaNova je kota nule letve u novom visinskom sustavu. Profil je snimljen
+	// u onom sustavu u kojem mu stoji KotaNule — na Batini u TRST-u — pa se
+	// razlika računa iz same letve i ne upisuje se nigdje kao konstanta.
+	// Nula znači da novog sustava nema i da se kote prikazuju kako su snimljene.
+	KotaNova   float64
+	NazivNovog string
 }
 
 // PragKorita je jedan stupanj obrane iskazan u centimetrima na letvi.
@@ -61,28 +69,70 @@ type KoritoCrtez struct {
 	// obali — tako je označeno na izvornim listovima HIS-2000, okomitim
 	// natpisima „Lijeva obala“ i „Desna obala“ na krajevima crteža.
 	LijevaCm, DesnaCm int
-	NizaObalaCm       int // niža od dvije: preko nje voda prva izlazi iz snimka
+	NizaObalaCm       int  // niža od dvije: preko nje voda prva izlazi iz snimka
 	OdrezanSnimak     bool // voda je viša od niže obale, pa snimak razinu ne pokriva
 	DnoCm             int
-	VodaX0, VodaX1   float64 // dokle vodna ploha seže na slici
+	VodaX0, VodaX1    float64 // dokle vodna ploha seže na slici
 	// Stacionaža krajeva snimka. Koja je to obala izvorne datoteke ne kažu,
 	// pa crtež govori ono što zna: koliko je metara od početka snimanja.
-	PocetakM, KrajM  float64
-	PocetakX, KrajX  float64
-	Lijevo           float64 // rub za oznake osi
-	SirinaPlohe      float64 // od lijevog ruba do desnog kraja slike
-	OsUCm            bool    // os govori u centimetrima na letvi, inače u metrima nad morem
+	PocetakM, KrajM float64
+	PocetakX, KrajX float64
+	Lijevo          float64 // rub za oznake osi
+	SirinaPlohe     float64 // od lijevog ruba do desnog kraja slike
+	OsUCm           bool    // os govori u centimetrima na letvi, inače u metrima nad morem
+
+	// Druga os. Ista visina čita se s dvije strane: lijevo apsolutna kota,
+	// desno vodostaj koji bi joj na letvi odgovarao — ili obrnuto, ovisno o
+	// tome čemu crtež služi.
+	DvijeOsi bool
+	Desno    float64
+
+	// Sustav je visinski sustav u kojem su ispisane kote, i koliko je za to
+	// pomaknuto od onoga u kojem je profil snimljen.
+	Sustav       string
+	PomakSustava float64
+	SustavSnimke string
 }
 
 // OsX je gdje stoje brojke okomite osi, poravnate desno.
 func (c *KoritoCrtez) OsX() float64 { return c.Lijevo - 4 }
 
-// NazivOsi kaže u čemu su brojke uz okomitu os.
+// SirinaPojasa je koliko je pojas širok: do druge osi, ne do ruba slike.
+func (c *KoritoCrtez) SirinaPojasa() float64 { return c.DesnaOsCrtaX() - c.Lijevo }
+
+// DesnaOsX je gdje stoje brojke druge osi, poravnate lijevo.
+func (c *KoritoCrtez) DesnaOsX() float64 { return float64(c.Sirina) - c.Desno + 4 }
+
+// DesnaOsCrtaX je dokle sežu vodoravne crte kad postoji druga os.
+func (c *KoritoCrtez) DesnaOsCrtaX() float64 {
+	if c.DvijeOsi {
+		return float64(c.Sirina) - c.Desno
+	}
+	return float64(c.Sirina)
+}
+
+// NazivOsi kaže u čemu su brojke uz lijevu os.
 func (c *KoritoCrtez) NazivOsi() string {
 	if c.OsUCm {
 		return "cm na letvi"
 	}
+	if c.Sustav != "" {
+		return "m n.m. " + c.Sustav
+	}
 	return "m n.m."
+}
+
+// NazivDesneOsi je ono drugo: uz kotu stoji vodostaj koji bi joj odgovarao,
+// uz vodostaj kota. Ista crta, dvije mjere — bez toga se s presjeka ne da
+// očitati koji vodostaj koju visinu korita doseže.
+func (c *KoritoCrtez) NazivDesneOsi() string {
+	if c.OsUCm {
+		if c.Sustav != "" {
+			return "m n.m. " + c.Sustav
+		}
+		return "m n.m."
+	}
+	return "cm na letvi"
 }
 
 // NatpisX je gdje počinje natpis praga: odmah desno od osi.
@@ -100,12 +150,20 @@ type KotaOznaka struct {
 	UCm   bool // ispisuje se u centimetrima
 }
 
-// Ispis je brojka uz os, u onome u čemu se os vodi.
+// Ispis je brojka uz lijevu os, u onome u čemu se os vodi.
 func (k KotaOznaka) Ispis() string {
 	if k.UCm {
 		return brojHR(k.Cm)
 	}
 	return brojHRf(k.Kota, 0)
+}
+
+// DesniIspis je ista visina iskazana onom drugom mjerom.
+func (k KotaOznaka) DesniIspis() string {
+	if k.UCm {
+		return brojHRf(k.Kota, 2)
+	}
+	return brojHR(k.Cm)
 }
 
 // crtajKorito priprema profil za crtanje pri zadanom vodostaju.
@@ -117,12 +175,12 @@ func crtajKorito(p models.ProfilKorita, vodostajCm int) *KoritoCrtez {
 // 900 jedinica stisnutom na 340 slikovnih točaka oznake padnu na tri točke,
 // pa uski ima svoj koordinatni sustav i širi lijevi rub za brojke.
 var (
-	// uz graf očitanja: os u centimetrima na letvi, jer se čita zajedno s njim
-	sirokoKorito = KoritoPostavke{Sirina: 900, Visina: 340, Lijevo: 52, OsUCm: true}
-	uskoKorito   = KoritoPostavke{Sirina: 520, Visina: 380, Lijevo: 74, OsUCm: true}
-	// na kartici letve: os u metrima nad morem, jer se ondje čita uz kotu nule
-	sirokoKoritoM = KoritoPostavke{Sirina: 900, Visina: 340, Lijevo: 52}
-	uskoKoritoM   = KoritoPostavke{Sirina: 520, Visina: 380, Lijevo: 74}
+	// uz graf očitanja: lijevo centimetri na letvi, jer se čita zajedno s njim
+	sirokoKorito = KoritoPostavke{Sirina: 900, Visina: 340, Lijevo: 52, Desno: 54, OsUCm: true}
+	uskoKorito   = KoritoPostavke{Sirina: 520, Visina: 380, Lijevo: 74, Desno: 62, OsUCm: true}
+	// na kartici letve: lijevo metri nad morem, jer se ondje čita uz kotu nule
+	sirokoKoritoM = KoritoPostavke{Sirina: 900, Visina: 340, Lijevo: 52, Desno: 44}
+	uskoKoritoM   = KoritoPostavke{Sirina: 520, Visina: 380, Lijevo: 74, Desno: 50}
 )
 
 // sKoritom dopunjuje mjere pragovima i pojasom, da se obje veličine crtaju iz
@@ -130,6 +188,21 @@ var (
 func (o KoritoPostavke) sKoritom(pragovi []PragKorita, od, do int) KoritoPostavke {
 	o.Pragovi = pragovi
 	o.PojasOd, o.PojasDo, o.ImaPojas = od, do, do > od
+	return o
+}
+
+// uSustavu daje mjerama kotu nule u novom visinskom sustavu, da se presjek
+// prikaže u njemu. Letva bez novog sustava vraća mjere neizmijenjene: kote se
+// tada prikazuju kako su snimljene, jer se razlika nema iz čega izračunati.
+func (o KoritoPostavke) uSustavu(st models.Station) KoritoPostavke {
+	if st.ZeroDatumNew == nil {
+		return o
+	}
+	o.KotaNova = *st.ZeroDatumNew
+	o.NazivNovog = st.ZeroDatumNewSystem
+	if o.NazivNovog == "" {
+		o.NazivNovog = "HVRS71"
+	}
 	return o
 }
 
@@ -142,7 +215,11 @@ func crtajKoritoP(p models.ProfilKorita, vodostajCm int, o KoritoPostavke) *Kori
 	if w <= 0 || h <= 0 {
 		w, h = 900, 320
 	}
-	const desno, gore, dolje = 12.0, 14.0, 26.0
+	const gore, dolje = 14.0, 26.0
+	desno := o.Desno
+	if desno <= 0 {
+		desno = 12
+	}
 	lijevo := o.Lijevo
 	if lijevo <= 0 {
 		lijevo = 52
@@ -214,7 +291,17 @@ func crtajKoritoP(p models.ProfilKorita, vodostajCm int, o KoritoPostavke) *Kori
 		PocetakM:   x0, KrajM: x1,
 		PocetakX: sx(x0), KrajX: sx(x1),
 		Lijevo: lijevo, SirinaPlohe: w - lijevo, OsUCm: o.OsUCm,
+		DvijeOsi: o.Desno > 0, Desno: desno,
 	}
+	// Profil je snimljen u sustavu u kojem mu stoji kota nule. Kad letva ima
+	// i novi sustav, kote se prikazuju u njemu — razlika se računa iz same
+	// letve, pa nigdje ne stoji upisana kao konstanta i ne može zastarjeti.
+	if o.KotaNova != 0 {
+		c.PomakSustava = o.KotaNova - p.KotaNule
+		c.Sustav = o.NazivNovog
+	}
+	c.KotaVode += c.PomakSustava
+	c.Dno += c.PomakSustava
 	c.LijevaCm = int(math.Round((p.Tocke[0].Visina - p.KotaNule) * 100))
 	c.DesnaCm = int(math.Round((p.Tocke[len(p.Tocke)-1].Visina - p.KotaNule) * 100))
 	c.NizaObalaCm = c.LijevaCm
@@ -295,20 +382,23 @@ func crtajKoritoP(p models.ProfilKorita, vodostajCm int, o KoritoPostavke) *Kori
 		for k := math.Ceil(odCm/korakCm) * korakCm; k <= doCm; k += korakCm {
 			cm := int(math.Round(k))
 			c.KoteY = append(c.KoteY, KotaOznaka{
-				Y: sy(p.KotaNule + k/100), Kota: p.KotaNule + k/100, Cm: cm, UCm: true})
+				Y: sy(p.KotaNule + k/100), Kota: p.KotaNule + k/100 + c.PomakSustava,
+				Cm: cm, UCm: true})
 		}
 		return c
 	}
+	// Podjele moraju biti okrugle u sustavu u kojem se ispisuju, ne u onom u
+	// kojem je snimljeno: pomak od 26 cm inače daje 80, 81, 82 na crti koja
+	// zapravo stoji na 80,26.
 	korak := 1.0
 	for (maxV-minV)/korak > 8 {
 		korak *= 2
 	}
-	for k := float64(int(minV/korak)) * korak; k <= maxV; k += korak {
-		if k < minV {
-			continue
-		}
-		c.KoteY = append(c.KoteY, KotaOznaka{Y: sy(k), Kota: k,
-			Cm: int(math.Round((k - p.KotaNule) * 100))})
+	odP, doP := minV+c.PomakSustava, maxV+c.PomakSustava
+	for k := math.Ceil(odP/korak) * korak; k <= doP; k += korak {
+		sirovo := k - c.PomakSustava
+		c.KoteY = append(c.KoteY, KotaOznaka{Y: sy(sirovo), Kota: k,
+			Cm: int(math.Round((sirovo - p.KotaNule) * 100))})
 	}
 	return c
 }
