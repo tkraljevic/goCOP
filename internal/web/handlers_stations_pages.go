@@ -39,6 +39,7 @@ type StationPageData struct {
 	Sada                 *models.SpojenaVrijednost // zadnja vrijednost spojenog niza
 	Sazetak              []models.SazetakVelicine  // jedan redak po veličini
 	Crtez                *KoritoCrtez              // korito s vodom u njemu
+	CrtezUzak            *KoritoCrtez              // isti presjek u obliku za telefon
 	Zadnji               *models.HidroTocka        // zadnja vrijednost iz arhive
 	ZadnjiProtok         float64                   // preračunat iz krivulje
 	ZadnjiIzvor          string
@@ -166,7 +167,12 @@ func (h *StationsHandler) ShowStation(w http.ResponseWriter, r *http.Request) {
 		data.Profili, _ = a.Profili(ctx, st.Code)
 		data.Krivulje, _ = a.Krivulje(ctx, st.Code)
 		if len(data.Profili) > 0 {
-			data.Profil = &data.Profili[0]
+			// Presjek se sastavlja od svih snimaka: novija ima prednost, a
+			// starija popunjava ono što novija ne pokriva. Snimke se prije
+			// toga svode na zajedničku stacionažu — Batinina iz 2020. počinje
+			// 104,5 m desno od one iz 2010.
+			spoj := models.SpojiProfile(data.Profili)
+			data.Profil = &spoj
 		}
 		data.Sazetak, _ = a.Sazetak(ctx, st.Code)
 		data.Spojevi, _ = a.SpojDosezi(ctx, st.Code)
@@ -185,7 +191,8 @@ func (h *StationsHandler) ShowStation(w http.ResponseWriter, r *http.Request) {
 		if data.Zadnji != nil {
 			cm := int(data.Zadnji.Vrijednost)
 			if data.Profil != nil {
-				data.Crtez = crtajKorito(*data.Profil, cm)
+				data.Crtez = crtajKoritoP(*data.Profil, cm, sirokoKoritoM)
+				data.CrtezUzak = crtajKoritoP(*data.Profil, cm, uskoKoritoM)
 			}
 			dan := data.Zadnji.Kad.Format("2006-01-02")
 			for _, k := range data.Krivulje {
