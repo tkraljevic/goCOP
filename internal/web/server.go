@@ -71,8 +71,23 @@ func templateFuncs() template.FuncMap {
 	return template.FuncMap{
 		"basisLabel":    models.BasisLabel,
 		"velicinaLabel": models.NazivVelicine,
-		"izvorLabel":    models.NazivIzvora,
-		"vrstaLabel":    models.NazivVrste,
+		"lower":         strings.ToLower,
+		// udio mjesečnog srednjaka u rasponu niza, za stupčić uz tablicu
+		"mjesecUdio": func(v float64, p *models.HidroPregled) int {
+			if p == nil || p.Max <= p.Min {
+				return 0
+			}
+			u := int((v - p.Min) / (p.Max - p.Min) * 100)
+			if u < 2 {
+				return 2
+			}
+			if u > 100 {
+				return 100
+			}
+			return u
+		},
+		"izvorLabel": models.NazivIzvora,
+		"vrstaLabel": models.NazivVrste,
 		"formatDate": func(t time.Time) string {
 			if t.IsZero() {
 				return "-"

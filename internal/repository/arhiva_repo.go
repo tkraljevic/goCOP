@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"gocop/internal/models"
@@ -120,7 +121,7 @@ func (r *ArhivaRepository) Pregled(ctx context.Context, nizID int64) (*models.Hi
 	}
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT strftime('%Y', vrijeme, 'unixepoch') AS g, count(*),
-		       min(vrijednost), max(vrijednost), avg(vrijednost)
+		       min(vrijednost), max(vrijednost), avg(vrijednost), sum(vrijednost)
 		FROM ocitanja WHERE niz = ? GROUP BY g ORDER BY g`, nizID)
 	if err != nil {
 		return nil, fmt.Errorf("karakteristične vrijednosti: %w", err)
@@ -129,7 +130,7 @@ func (r *ArhivaRepository) Pregled(ctx context.Context, nizID int64) (*models.Hi
 	for rows.Next() {
 		var g models.HidroGodina
 		var god string
-		if err := rows.Scan(&god, &g.Zapisa, &g.Min, &g.Max, &g.Srednjak); err != nil {
+		if err := rows.Scan(&god, &g.Zapisa, &g.Min, &g.Max, &g.Srednjak, &g.Zbroj); err != nil {
 			return nil, err
 		}
 		fmt.Sscanf(god, "%d", &g.Godina)
@@ -203,7 +204,109 @@ func (r *ArhivaRepository) Pregled(ctx context.Context, nizID int64) (*models.Hi
 	if n > 0 {
 		p.Srednjak = zbroj / float64(n)
 	}
+	if models.SeZbraja(p.Niz.Velicina) {
+		p.ZbrojIma = true
+		for _, g := range p.Godine {
+			p.Zbroj += g.Zbroj
+		}
+	}
+
+	if p.Mjeseci, err = r.mjeseci(ctx, nizID); err != nil {
+		return nil, err
+	}
+	if p.Trajanje, err = r.trajanje(ctx, nizID); err != nil {
+		return nil, err
+	}
 	return &p, nil
+}
+
+// mjeseci računa godišnji hod: isti mjesec kroz sve godine niza.
+func (r *ArhivaRepository) mjeseci(ctx context.Context, nizID int64) ([]models.HidroMjesec, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT strftime('%m', vrijeme, 'unixepoch') AS m, count(*),
+		       min(vrijednost), max(vrijednost), avg(vrijednost)
+		FROM ocitanja WHERE niz = ? GROUP BY m ORDER BY m`, nizID)
+	if err != nil {
+		return nil, fmt.Errorf("godišnji hod: %w", err)
+	}
+	defer rows.Close()
+	var out []models.HidroMjesec
+	for rows.Next() {
+		var m models.HidroMjesec
+		var mj string
+		if err := rows.Scan(&mj, &m.Zapisa, &m.Min, &m.Max, &m.Srednjak); err != nil {
+			return nil, err
+		}
+		fmt.Sscanf(mj, "%d", &m.Mjesec)
+		out = append(out, m)
+	}
+	return out, rows.Err()
+}
+
+// trajanje računa krivulju trajanja: koja je vrijednost dosegnuta ili
+// premašena zadani postotak vremena. Ekstremi kažu koliko je najviše bilo,
+// trajanje koliko je često bilo — a za obranu je drugo jednako važno.
+func (r *ArhivaRepository) trajanje(ctx context.Context, nizID int64) ([]models.TrajanjeTocka, error) {
+	postoci := []int{1, 5, 10, 30, 50, 70, 90, 95, 99}
+	var n int
+	if err := r.db.QueryRowContext(ctx, `SELECT count(*) FROM ocitanja WHERE niz = ?`, nizID).Scan(&n); err != nil {
+		return nil, err
+	}
+	if n < 100 {
+		return nil, nil
+	}
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT rn, vrijednost FROM (
+			SELECT vrijednost, row_number() OVER (ORDER BY vrijednost DESC) rn
+			FROM ocitanja WHERE niz = ?
+		) WHERE rn IN (SELECT value FROM json_each(?))`, nizID, redniBrojevi(n, postoci))
+	if err != nil {
+		return nil, fmt.Errorf("krivulja trajanja: %w", err)
+	}
+	defer rows.Close()
+	poRednom := map[int]float64{}
+	for rows.Next() {
+		var rn int
+		var v float64
+		if err := rows.Scan(&rn, &v); err != nil {
+			return nil, err
+		}
+		poRednom[rn] = v
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	var out []models.TrajanjeTocka
+	for _, p := range postoci {
+		if v, ok := poRednom[redniBroj(n, p)]; ok {
+			out = append(out, models.TrajanjeTocka{Postotak: p, Vrijednost: v})
+		}
+	}
+	return out, nil
+}
+
+func redniBroj(n, postotak int) int {
+	i := n * postotak / 100
+	if i < 1 {
+		return 1
+	}
+	if i > n {
+		return n
+	}
+	return i
+}
+
+func redniBrojevi(n int, postoci []int) string {
+	var b strings.Builder
+	b.WriteByte('[')
+	for i, p := range postoci {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		fmt.Fprintf(&b, "%d", redniBroj(n, p))
+	}
+	b.WriteByte(']')
+	return b.String()
 }
 
 // Profili vraća snimke poprečnog profila korita, najnoviji prvi.
