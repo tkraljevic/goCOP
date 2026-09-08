@@ -34,13 +34,23 @@ type ReadingsHandler struct {
 	followRepo       *repository.FollowRepository
 	onFollowChange   func()
 	arhiva           func() *repository.ArhivaRepository
-	ispravci         *repository.IspravakRepository
+	ispravci         func() *repository.IspravakRepository
 	tmplIspravci     *template.Template
 }
 
 // SetIspravci daje rukovatelju pohranu ispravaka arhive i predložak pregleda.
-func (h *ReadingsHandler) SetIspravci(repo *repository.IspravakRepository, tmpl *template.Template) {
-	h.ispravci, h.tmplIspravci = repo, tmpl
+// Uzima se dohvatnik, a ne sama pohrana: poslužitelj se sastavlja prije nego
+// što dobije bazu, pa bi predana vrijednost zauvijek ostala prazna.
+func (h *ReadingsHandler) SetIspravci(f func() *repository.IspravakRepository, tmpl *template.Template) {
+	h.ispravci, h.tmplIspravci = f, tmpl
+}
+
+// isp vraća pohranu ispravaka ako je ima
+func (h *ReadingsHandler) isp() *repository.IspravakRepository {
+	if h.ispravci == nil {
+		return nil
+	}
+	return h.ispravci()
 }
 
 // SetArhiva daje rukovatelju hidrološku arhivu. Dohvatnik, a ne vrijednost:
@@ -880,10 +890,11 @@ func prorijedi(pts []models.Reading, ciljBroj int) []models.Reading {
 // ispravciZa dohvaća ispravke niza; bez pohrane vraća prazno.
 func (h *ReadingsHandler) ispravciZa(ctx context.Context, letva, velicina, korak string,
 	od, do time.Time) map[int64]models.ArhivaIspravak {
-	if h.ispravci == nil {
+	repo := h.isp()
+	if repo == nil {
 		return nil
 	}
-	m, err := h.ispravci.ZaNiz(ctx, letva, velicina, korak, od, do)
+	m, err := repo.ZaNiz(ctx, letva, velicina, korak, od, do)
 	if err != nil {
 		return nil
 	}

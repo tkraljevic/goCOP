@@ -372,7 +372,14 @@ func (s *Server) setupRoutes() {
 		s.templates["readings.html"], s.templates["reading_history.html"], s.templates["reading_form.html"])
 	readingsH.SetFollow(s.followRepo, s.onFollowChange)
 	readingsH.SetArhiva(func() *repository.ArhivaRepository { return s.arhiva })
-	readingsH.SetIspravci(repository.NewIspravakRepository(s.db, s.recorder), s.templates["arhiva_ispravci.html"])
+	// Baza se poslužitelju daje tek nakon sastavljanja, pa se repozitorij gradi
+	// pri zahtjevu. Predana vrijednost bila bi zauvijek prazna.
+	readingsH.SetIspravci(func() *repository.IspravakRepository {
+		if s.db == nil {
+			return nil
+		}
+		return repository.NewIspravakRepository(s.db, s.recorder)
+	}, s.templates["arhiva_ispravci.html"])
 	watercoursesH.SetPageTemplates(s.templates["watercourse_detail.html"], s.templates["watercourse_form.html"], s.stationService)
 	watercoursesH.SetMaintenanceService(s.maintenanceService)
 	maintenanceH := NewMaintenanceHandler(s.maintenanceService, s.userService, s.watercourseService, s.structureService, s.templates["odrzavanje.html"])

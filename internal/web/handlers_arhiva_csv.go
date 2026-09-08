@@ -294,7 +294,8 @@ func (h *ReadingsHandler) HandleArhivaUvoz(w http.ResponseWriter, r *http.Reques
 // HandleArhivaPotvrda upisuje ispravke koje je čovjek vidio i potvrdio.
 func (h *ReadingsHandler) HandleArhivaPotvrda(w http.ResponseWriter, r *http.Request) {
 	station, _ := h.gauge(r, r.PathValue("id"), "")
-	if station == nil || h.ispravci == nil {
+	repo := h.isp()
+	if station == nil || repo == nil {
 		http.NotFound(w, r)
 		return
 	}
@@ -336,7 +337,7 @@ func (h *ReadingsHandler) HandleArhivaPotvrda(w http.ResponseWriter, r *http.Req
 		redirectWith(w, r, back, "error", "Nijedan ispravak nije potvrđen")
 		return
 	}
-	n, err := h.ispravci.Spremi(r.Context(), ispravci)
+	n, err := repo.Spremi(r.Context(), ispravci)
 	if err != nil {
 		redirectWith(w, r, back, "error", err.Error())
 		return

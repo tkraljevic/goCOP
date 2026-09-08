@@ -52,7 +52,7 @@ func scanIspravak(sc interface{ Scan(...any) error }) (models.ArhivaIspravak, er
 // ZaNiz vraća ispravke jednog niza u razdoblju, ključem po trenutku.
 func (r *IspravakRepository) ZaNiz(ctx context.Context, letva, velicina, korak string,
 	od, do time.Time) (map[int64]models.ArhivaIspravak, error) {
-	if r == nil {
+	if r == nil || r.db == nil {
 		return nil, nil
 	}
 	rows, err := r.db.QueryContext(ctx, `SELECT `+ispravakColumns+` FROM arhiva_ispravci
@@ -75,7 +75,7 @@ func (r *IspravakRepository) ZaNiz(ctx context.Context, letva, velicina, korak s
 
 // Broj vraća koliko ispravaka niz ima ukupno.
 func (r *IspravakRepository) Broj(ctx context.Context, letva, velicina, korak string) (int, error) {
-	if r == nil {
+	if r == nil || r.db == nil {
 		return 0, nil
 	}
 	var n int
@@ -87,6 +87,9 @@ func (r *IspravakRepository) Broj(ctx context.Context, letva, velicina, korak st
 // Spremi upisuje ispravke u jednoj transakciji, svaki sa svojom verzijom.
 // Ponovni ispravak istog trenutka mijenja postojeći, ne dodaje drugi.
 func (r *IspravakRepository) Spremi(ctx context.Context, ispravci []models.ArhivaIspravak) (int, error) {
+	if r == nil || r.db == nil {
+		return 0, fmt.Errorf("baza nije dostupna")
+	}
 	if len(ispravci) == 0 {
 		return 0, nil
 	}
