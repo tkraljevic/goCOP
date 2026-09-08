@@ -36,6 +36,7 @@ import (
 const shema = `
 CREATE TABLE IF NOT EXISTS nizovi (
 	id        INTEGER PRIMARY KEY,
+	zona      TEXT NOT NULL DEFAULT '',   -- vremenska zona izvora prije pretvorbe
 	sliv      TEXT NOT NULL,
 	letva     TEXT NOT NULL,
 	izvor     TEXT NOT NULL,
@@ -105,6 +106,33 @@ CREATE TABLE IF NOT EXISTS ocitanja (
 type niz struct {
 	sliv, letva, izvor, velicina, vrsta string
 	datoteke                            []string
+}
+
+// Zagreb je vremenska zona hrvatskih izvora.
+var Zagreb = func() *time.Location {
+	l, err := time.LoadLocation("Europe/Zagreb")
+	if err != nil {
+		return time.FixedZone("CET", 3600)
+	}
+	return l
+}()
+
+// zonaIzvora govori u kojem je vremenu izvor zapisan.
+//
+// HIS-2000 i letva.voda.hr daju LOKALNI sat, onakav kakav pokazuje sat na
+// zidu, sa zimskim i ljetnim pomakom — a preuzeti su u stupac nazvan
+// vrijeme_utc. Mađarski vituki daje stvarni UTC, jer ga servis tako i vraća.
+//
+// Da se to ne ispravi, isti trenutak s dvije strane granice pada na različit
+// sat: mjereno je da se Mohács i Batina najbolje poklapaju uz 6 sati zimi i
+// 7 ljeti, a ta razlika od točno jednog sata nije hidrologija nego ovaj pomak.
+// Pravo putovanje vala je oko 5 sati.
+func zonaIzvora(izvor string) *time.Location {
+	switch {
+	case izvor == "vituki", izvor == "danubehis", strings.HasPrefix(izvor, "preracun-"):
+		return time.UTC
+	}
+	return Zagreb
 }
 
 // Izvjestaj je što je gradnja napravila.
@@ -223,7 +251,7 @@ func ubaci(db *sql.DB, n *niz) (int, string, string, string, error) {
 	var zapisi []zapis
 	poDanu := false
 	for _, p := range n.datoteke {
-		z, d, err := citaj(p)
+		z, d, err := citaj(p, zonaIzvora(n.izvor))
 		if err != nil {
 			return 0, "", "", "", err
 		}
@@ -292,8 +320,9 @@ func ubaci(db *sql.DB, n *niz) (int, string, string, string, error) {
 	if poDanu {
 		pd = 1
 	}
-	if _, err := tx.Exec(`UPDATE nizovi SET sliv=?, po_danu=?, od=?, do_=?, zapisa=?, otisak=?, datoteke=?, osvjezeno=? WHERE id=?`,
-		n.sliv, pd, od, do, len(zapisi), otisak, strings.Join(kratka(n.datoteke), " "),
+	if _, err := tx.Exec(`UPDATE nizovi SET sliv=?, zona=?, po_danu=?, od=?, do_=?, zapisa=?, otisak=?, datoteke=?, osvjezeno=? WHERE id=?`,
+		n.sliv, zonaIzvora(n.izvor).String(), pd, od, do, len(zapisi), otisak,
+		strings.Join(kratka(n.datoteke), " "),
 		time.Now().UTC().Format(time.RFC3339), id); err != nil {
 		return 0, "", "", "", err
 	}
@@ -310,7 +339,7 @@ func kratka(p []string) []string {
 
 // citaj čita jednu datoteku iz vodostaji/. Prvi stupac je vrijeme_utc ili
 // datum, drugi vrijednost; decimalni zarez je hrvatski zapis.
-func citaj(put string) ([]zapis, bool, error) {
+func citaj(put string, zona *time.Location) ([]zapis, bool, error) {
 	f, err := os.Open(put)
 	if err != nil {
 		return nil, false, err
@@ -341,8 +370,10 @@ func citaj(put string) ([]zapis, bool, error) {
 		s := strings.TrimSpace(r[0])
 		var t time.Time
 		if len(s) >= 19 {
-			t, err = time.Parse("2006-01-02 15:04:05", s[:19])
+			// sat postoji, pa zona ima smisla: čita se u zoni izvora
+			t, err = time.ParseInLocation("2006-01-02 15:04:05", s[:19], zona)
 		} else {
+			// samo datum: dan je dan, bez obzira na zonu
 			t, err = time.Parse("2006-01-02", s[:10])
 		}
 		if err != nil {

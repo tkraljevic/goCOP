@@ -882,13 +882,15 @@ func TestGrafImaMjeseceIKorakOsi(t *testing.T) {
 // Ispravak arhive: vraćena datoteka se prvo pročita i usporedi, ništa se ne
 // upisuje bez pregleda. Ispravak bez razloga nije ispravak.
 func TestCitanjeIspravakaIzDatoteke(t *testing.T) {
-	kad := func(d int) time.Time { return time.Date(2013, 6, d, 6, 0, 0, 0, time.UTC) }
+	// izvoz i uvoz idu u zagrebačkom vremenu, jer se datoteka uspoređuje s onim
+	// što letva pokazuje na zaslonu
+	kad := func(d int) time.Time { return time.Date(2013, 6, d, 6, 0, 0, 0, models.Zagreb).UTC() }
 	postojece := map[int64]models.SpojenaVrijednost{
 		kad(13).Unix(): {Kad: kad(13), Vrijednost: 758, Izvor: "his2000"},
 		kad(14).Unix(): {Kad: kad(14), Vrijednost: 771, Izvor: "his2000"},
 		kad(15).Unix(): {Kad: kad(15), Vrijednost: 769, Izvor: "letva-hv"},
 	}
-	csv := "\ufeffvrijeme_utc;vodostaj_cm;izvor;tocnost;ispravak;razlog\n" +
+	csv := "\ufeffvrijeme;vodostaj_cm;izvor;tocnost;ispravak;razlog\n" +
 		"2013-06-13 06:00:00;758;his2000;0;;\n" + // nediran
 		"2013-06-14 06:00:00;771;his2000;0;775;ovjereni maksimum iz elaborata\n" + // promjena
 		"2013-06-15 06:00:00;769;letva-hv;5;800;\n" + // bez razloga
@@ -926,6 +928,12 @@ func TestCitanjeIspravakaIzDatoteke(t *testing.T) {
 	// datoteka bez potrebnih stupaca se odbija, umjesto da tiho ne učini ništa
 	if _, err := citajIspravke([]byte("datum;vodostaj\n2013-06-14;771\n"), postojece, 0); err == nil {
 		t.Error("datoteka bez stupca „ispravak“ mora biti odbijena")
+	}
+	// datoteka izvezena prije preimenovanja stupca i dalje se čita
+	stara := "vrijeme_utc;vodostaj_cm;izvor;tocnost;ispravak;razlog\n" +
+		"2013-06-14 06:00:00;771;his2000;0;775;iz starijeg izvoza\n"
+	if r, err := citajIspravke([]byte(stara), postojece, 0); err != nil || len(r) != 1 || !r[0].Promjena() {
+		t.Errorf("stari naziv stupca se ne čita: %v, %v", r, err)
 	}
 }
 

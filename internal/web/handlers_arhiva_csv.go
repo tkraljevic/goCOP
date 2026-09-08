@@ -65,11 +65,13 @@ func (h *ReadingsHandler) HandleArhivaIzvoz(w http.ResponseWriter, r *http.Reque
 	cw.Comma = ';'
 	defer cw.Flush()
 	stupac := stupacVelicine(velicina)
-	_ = cw.Write([]string{"vrijeme_utc", stupac, "izvor", "tocnost", "ispravak", "razlog"})
+	// Vrijeme se izvozi u zagrebačkom, jer se datoteka uspoređuje s onim što
+	// letva pokazuje na zaslonu. Naziv stupca to i kaže.
+	_ = cw.Write([]string{"vrijeme", stupac, "izvor", "tocnost", "ispravak", "razlog"})
 	dec := decimalaVelicine(velicina)
 	for _, v := range vals {
 		_ = cw.Write([]string{
-			v.Kad.Format("2006-01-02 15:04:05"),
+			v.Kad.In(models.Zagreb).Format("2006-01-02 15:04:05"),
 			unos(v.Vrijednost, dec),
 			v.Izvor,
 			unos(v.Tocnost, 0),
@@ -132,9 +134,12 @@ func citajIspravke(sadrzaj []byte, postojece map[int64]models.SpojenaVrijednost,
 		}
 		return -1
 	}
-	iVrijeme, iIspravak, iRazlog := stupac("vrijeme_utc"), stupac("ispravak"), stupac("razlog")
+	iVrijeme, iIspravak, iRazlog := stupac("vrijeme"), stupac("ispravak"), stupac("razlog")
+	if iVrijeme < 0 {
+		iVrijeme = stupac("vrijeme_utc") // datoteke izvezene prije preimenovanja
+	}
 	if iVrijeme < 0 || iIspravak < 0 {
-		return nil, fmt.Errorf("datoteci nedostaje stupac „vrijeme_utc“ ili „ispravak“ — je li izvezena odavde?")
+		return nil, fmt.Errorf("datoteci nedostaje stupac „vrijeme“ ili „ispravak“ — je li izvezena odavde?")
 	}
 
 	var out []RedakIspravka
@@ -153,7 +158,7 @@ func citajIspravke(sadrzaj []byte, postojece map[int64]models.SpojenaVrijednost,
 		if len(r) > iRazlog && iRazlog >= 0 {
 			red.Razlog = strings.TrimSpace(r[iRazlog])
 		}
-		t, err := time.Parse("2006-01-02 15:04:05", strings.TrimSpace(r[iVrijeme]))
+		t, err := time.ParseInLocation("2006-01-02 15:04:05", strings.TrimSpace(r[iVrijeme]), models.Zagreb)
 		if err != nil {
 			red.Greska = "vrijeme nije čitljivo: " + r[iVrijeme]
 			out = append(out, red)
