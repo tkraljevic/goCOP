@@ -22,7 +22,7 @@ type StationsHandler struct {
 	sectionService     *service.SectionService
 	watercourseService *service.WatercourseService
 	episodeService     *service.EpisodeService
-	arhiva             *repository.ArhivaRepository
+	arhiva             func() *repository.ArhivaRepository
 	tmpl               *template.Template // popis
 	tmplDetail         *template.Template // jedna postaja
 	tmplForm           *template.Template // obrazac
