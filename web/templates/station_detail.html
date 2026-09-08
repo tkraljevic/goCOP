@@ -240,8 +240,9 @@
       </tr></thead>
       <tbody>
       {{range .Sazetak}}
-      <tr>
-        <td><strong>{{.Naziv}}</strong> <span class="reg-card-sub">{{.Jedinica}}</span></td>
+      {{$veza := printf "/readings/station/%s?v=%s#niz" $.Station.ID .Velicina}}
+      <tr onclick="location='{{$veza}}'" style="cursor:pointer;">
+        <td><a href="{{$veza}}" style="color:inherit; text-decoration:none;"><strong>{{.Naziv}}</strong></a> <span class="reg-card-sub">{{.Jedinica}}</span></td>
         <td class="mono">{{slice .Od 0 4}}. – {{slice .Do 0 4}}.</td>
         <td class="mono" style="text-align:right;"><strong>{{brojHRf .Srednjak .Decimala}}</strong></td>
         <td class="mono" style="text-align:right;">{{brojHRf .Max .Decimala}}</td>
@@ -256,7 +257,8 @@
   </div></div>
   <p class="page-desc" style="margin-top:0.5rem;">
     Računato iz spojenog dnevnog niza: svaki dan dolazi iz najtočnijeg izvora koji ga pokriva.
-    Razrada po godinama, godišnji hod i trajanje su niže.
+    Klik na redak otvara tu veličinu u <a href="/readings/station/{{.Station.ID}}#niz" style="color:var(--primary);">povijesti vodostaja</a>,
+    gdje se lista po godinama. Godišnji hod i trajanje su niže.
   </p>
   {{end}}
 

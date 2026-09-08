@@ -5,7 +5,6 @@ import (
 	"html/template"
 	"net/http"
 	"strconv"
-	"time"
 
 	"gocop/internal/models"
 	"gocop/internal/repository"
@@ -25,24 +24,19 @@ type StationPageData struct {
 	ZeroDatumHistoryJSON template.JS // promjene kote nule za obrazac, kao JS literal
 	ExtremesJSON         template.JS // zabilježeni ekstremi za obrazac
 	Sections             []models.Section
-	Episodes             []models.DefenseEpisode    // obrane vođene po ovoj letvi, najnovija prva
-	Nizovi               []models.HidroNiz          // što o ovoj letvi ima u arhivi
-	Pregled              *models.HidroPregled       // karakteristične vrijednosti odabranog niza
-	Profili              []models.ProfilKorita      // snimke poprečnog profila korita
-	Profil               *models.ProfilKorita       // onaj koji se crta
-	Krivulje             []models.HQKrivulja        // krivulje protoka po razdobljima
-	NizID                int64                      // koji je niz odabran
-	Spojevi              []models.SpojDoseg         // spojeni nizovi: jedan satni, jedan dnevni
-	Sada                 *models.SpojenaVrijednost  // zadnja vrijednost spojenog niza
-	Sazetak              []models.SazetakVelicine   // jedan redak po veličini
-	SpojNiz              []models.SpojenaVrijednost // spojene vrijednosti, novije prvo
-	SpojGodine           []int
-	SpojGodina           int
-	SpojKorak            string // satni | dnevni
-	SpojVelicina         string
-	Crtez                *KoritoCrtez       // korito s vodom u njemu
-	Zadnji               *models.HidroTocka // zadnja vrijednost iz arhive
-	ZadnjiProtok         float64            // preračunat iz krivulje
+	Episodes             []models.DefenseEpisode   // obrane vođene po ovoj letvi, najnovija prva
+	Nizovi               []models.HidroNiz         // što o ovoj letvi ima u arhivi
+	Pregled              *models.HidroPregled      // karakteristične vrijednosti odabranog niza
+	Profili              []models.ProfilKorita     // snimke poprečnog profila korita
+	Profil               *models.ProfilKorita      // onaj koji se crta
+	Krivulje             []models.HQKrivulja       // krivulje protoka po razdobljima
+	NizID                int64                     // koji je niz odabran
+	Spojevi              []models.SpojDoseg        // spojeni nizovi: jedan satni, jedan dnevni
+	Sada                 *models.SpojenaVrijednost // zadnja vrijednost spojenog niza
+	Sazetak              []models.SazetakVelicine  // jedan redak po veličini
+	Crtez                *KoritoCrtez              // korito s vodom u njemu
+	Zadnji               *models.HidroTocka        // zadnja vrijednost iz arhive
+	ZadnjiProtok         float64                   // preračunat iz krivulje
 	ZadnjiIzvor          string
 	WaterRegistry        []models.Watercourse
 	CanEdit              bool
@@ -166,26 +160,6 @@ func (h *StationsHandler) ShowStation(w http.ResponseWriter, r *http.Request) {
 		data.Sada, _ = a.SpojZadnje(ctx, st.Code, "vodostaj", "satni")
 		if data.Sada == nil {
 			data.Sada, _ = a.SpojZadnje(ctx, st.Code, "vodostaj", "dnevni")
-		}
-		// same spojene vrijednosti, po godini — to je ono što se gleda
-		data.SpojVelicina = r.URL.Query().Get("v")
-		if data.SpojVelicina == "" {
-			data.SpojVelicina = "vodostaj"
-		}
-		data.SpojKorak = r.URL.Query().Get("korak")
-		if data.SpojKorak != "satni" {
-			data.SpojKorak = "dnevni"
-		}
-		data.SpojGodine, _ = a.SpojGodine(ctx, st.Code, data.SpojVelicina, data.SpojKorak)
-		if g, err := strconv.Atoi(r.URL.Query().Get("god")); err == nil {
-			data.SpojGodina = g
-		} else if len(data.SpojGodine) > 0 {
-			data.SpojGodina = data.SpojGodine[0]
-		}
-		if data.SpojGodina > 0 {
-			od := time.Date(data.SpojGodina, 1, 1, 0, 0, 0, 0, time.UTC)
-			data.SpojNiz, _ = a.SpojRaspon(ctx, st.Code, data.SpojVelicina, data.SpojKorak,
-				od, od.AddDate(1, 0, 0).Add(-time.Second), 400, 0)
 		}
 		data.NizID = odabraniNiz(r, data.Nizovi)
 		if data.NizID > 0 {
