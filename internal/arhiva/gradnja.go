@@ -659,6 +659,12 @@ func tocnost(izvor string) float64 {
 	if t, ok := tocnostIzvora[izvor]; ok {
 		return t
 	}
+	if strings.HasSuffix(izvor, "-izvan") {
+		// Rekonstrukcija ondje gdje odnos dviju letvi nikad nije izmjeren.
+		// Za Batinu 7.1.1909. promašuje za oko 170 cm prema onome što daju
+		// Bezdan i Apatin, pa se tako i vodi. Vidi docs/rekonstrukcija-nizova.md.
+		return 150
+	}
 	if strings.HasPrefix(izvor, "preracun-") {
 		return 14 // rekonstrukcija: 90 % unutar ±14 cm
 	}

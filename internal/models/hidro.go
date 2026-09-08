@@ -78,8 +78,13 @@ func NazivIzvora(i string) string {
 		return "telemetrija, DHMZ"
 	case i == "vituki":
 		return "vizugy.hu, Mađarska"
-	case len(i) > 9 && i[:9] == "preracun-":
-		return "preračunato iz " + i[9:]
+	case strings.HasSuffix(i, "-izvan"):
+		// Odnos dviju letvi vrijedi samo u rasponu u kojem je izmjeren; ovdje
+		// je produljen izvan njega, pa to mora pisati uz svaku vrijednost.
+		return "preračunato iz " + strings.TrimSuffix(strings.TrimPrefix(i, "preracun-"), "-izvan") +
+			", izvan mjerenog odnosa"
+	case strings.HasPrefix(i, "preracun-"):
+		return "preračunato iz " + strings.TrimPrefix(i, "preracun-")
 	}
 	return i
 }
