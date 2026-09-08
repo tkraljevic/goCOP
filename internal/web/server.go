@@ -116,12 +116,20 @@ func templateFuncs() template.FuncMap {
 		// razmak za crtanje: širina umanjena za desni rub
 		"sub": func(a, b int) int { return a - b },
 		// datum iz arhive u hrvatskom obliku; ondje stoji kao 1909-01-07
+		// Datum iz arhive i iz elaborata. Elaborat zna nositi samo mjesec
+		// ("2025-01") ili samo godinu, pa se ispisuje koliko ga ima.
 		"datumHR": func(s string) string {
-			t, err := time.Parse("2006-01-02", s)
-			if err != nil {
-				return s
+			s = strings.TrimSpace(s)
+			for _, o := range []struct{ ulaz, izlaz string }{
+				{"2006-01-02", "2.1.2006."},
+				{"2006-01", "1.2006."},
+				{"2006", "2006."},
+			} {
+				if t, err := time.Parse(o.ulaz, s); err == nil {
+					return t.Format(o.izlaz)
+				}
 			}
-			return t.Format("2.1.2006.")
+			return s
 		},
 		// ima li u sažetku ijedna preračunata krajnost, da se objasni znak ≈
 		"imaPreracunatih": func(s []models.SazetakVelicine) bool {
