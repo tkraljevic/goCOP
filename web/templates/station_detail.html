@@ -46,12 +46,12 @@
       {{if .Station.RekordSeRazlikuje}}
       <div><dt>Najviši izmjereni</dt><dd>
         <span class="threshold-pill record">{{with .Station.NajviseIzmjereno}}{{.Label}}{{end}}</span>
-        <div class="reg-card-sub" style="margin-top:0.2rem;">{{with .Station.NajviseIzmjereno}}{{.OnDate}}{{end}}</div>
+        <div class="reg-card-sub" style="margin-top:0.2rem;">{{with .Station.NajviseIzmjereno}}{{datumHR .OnDate}}{{end}}</div>
       </dd></div>
       <div><dt>Najviši zabilježeni</dt><dd>
         <span class="threshold-pill record" style="opacity:0.75;">{{with .Station.NajviseZabiljezeno}}{{.Label}}{{end}}</span>
         <div class="reg-card-sub" style="margin-top:0.2rem;">
-          {{with .Station.NajviseZabiljezeno}}{{.OnDate}} · {{kvaliteta .Quality}}{{end}}
+          {{with .Station.NajviseZabiljezeno}}{{datumHR .OnDate}} · {{kvaliteta .Quality}}{{end}}
         </div>
       </dd></div>
       {{else}}
@@ -119,7 +119,7 @@
 {{if .Station.Extremes}}
 <section class="detail-section">
   <h2>{{icon "chart-column"}} Zabilježeni ekstremi</h2>
-  <div class="table-card"><div class="table-responsive">
+  <div class="table-card ekstremi-siroko"><div class="table-responsive">
     <table class="data-table">
       <thead><tr><th>Vrsta</th><th>Vodostaj</th><th>Datum</th><th>Podrijetlo</th><th>Izvor i način</th></tr></thead>
       <tbody>
@@ -129,13 +129,29 @@
         <td class="mono">{{.Label}}</td>
         <td class="mono">{{if .OnDate}}{{datumHR .OnDate}}{{else}}—{{end}}</td>
         <td>{{if .IsMeasured}}<span class="badge">izmjereno</span>{{else}}<span class="badge badge-inactive" title="nije mjereno na ovoj letvi">{{qualityLabel .Quality}}</span>{{end}}</td>
-        <td>{{.Source}}{{if .Method}} <span class="reading-meta">— {{.Method}}</span>{{end}}
-          {{if .Note}}<div class="reading-meta" style="margin-top:0.2rem;">{{.Note}}</div>{{end}}</td>
+        <td class="celija-blok">{{.Source}}{{if .Method}} <span class="ekstrem-nacin">— {{.Method}}</span>{{end}}
+          {{if .Note}}<div class="ekstrem-napomena">{{.Note}}</div>{{end}}</td>
       </tr>
       {{end}}
       </tbody>
     </table>
   </div></div>
+
+  <ul class="ekstremi-usko">
+    {{range .Station.Extremes}}
+    <li>
+      <div class="ex-glava">
+        <span class="ex-vrsta">{{if eq .Kind "MAX"}}najviši{{else}}najniži{{end}}</span>
+        <strong class="ex-vrijednost">{{.Label}}</strong>
+        <span class="ex-datum">{{if .OnDate}}{{datumHR .OnDate}}{{end}}</span>
+        {{if .IsMeasured}}<span class="badge">izmjereno</span>
+        {{else}}<span class="badge badge-inactive" title="nije mjereno na ovoj letvi">{{qualityLabel .Quality}}</span>{{end}}
+      </div>
+      <div class="ex-izvor">{{.Source}}{{if .Method}} <span class="ekstrem-nacin">— {{.Method}}</span>{{end}}</div>
+      {{if .Note}}<div class="ekstrem-napomena">{{.Note}}</div>{{end}}
+    </li>
+    {{end}}
+  </ul>
   <p class="reading-meta" style="margin-top:0.35rem;">Vrijednost koja nije izmjerena na ovoj letvi ne ulazi u pragove ni u izračun faze obrane.</p>
 </section>
 {{end}}
@@ -180,7 +196,7 @@
           <tbody>
           {{range .Station.ZeroDatumHistory}}
           <tr>
-            <td class="mono">{{if .ValidFrom}}{{.ValidFrom}}{{else}}<span class="reading-meta">od početka mjerenja</span>{{end}}</td>
+            <td class="mono">{{if .ValidFrom}}{{datumHR .ValidFrom}}{{else}}<span class="reading-meta">od početka mjerenja</span>{{end}}</td>
             <td class="mono">{{if .Datum}}{{brojHRd .Datum 3}} m{{else}}—{{end}}</td>
             <td>{{.System}}</td>
             <td>{{.Note}}</td>
@@ -325,9 +341,9 @@
         <td class="mono">{{slice .Od 0 4}}. – {{slice .Do 0 4}}.</td>
         <td class="mono" style="text-align:right;"><strong>{{brojHRf .Srednjak .Decimala}}</strong></td>
         <td class="mono" style="text-align:right;">{{brojHRf .Max .Decimala}}</td>
-        <td class="mono reg-card-sub">{{.MaxNa}}</td>
+        <td class="mono reg-card-sub">{{datumHR .MaxNa}}</td>
         <td class="mono" style="text-align:right;">{{brojHRf .Min .Decimala}}</td>
-        <td class="mono reg-card-sub">{{.MinNa}}</td>
+        <td class="mono reg-card-sub">{{datumHR .MinNa}}</td>
         <td class="mono" style="text-align:right;">{{if .ZbrojIma}}{{brojHRf .Zbroj 0}}{{end}}</td>
       </tr>
       {{end}}
@@ -395,7 +411,7 @@
         <td><strong>{{velicinaLabel .Velicina}}</strong> <span class="reg-card-sub">{{.Jedinica}}</span></td>
         <td>{{izvorLabel .Izvor}}{{if not .JeIzmjereno}} <span class="badge badge-unknown">nije mjereno ovdje</span>{{end}}</td>
         <td class="reg-card-sub">{{vrstaLabel .Vrsta}}</td>
-        <td class="mono">{{.Od}} – {{.Do}}</td>
+        <td class="mono">{{datumHR .Od}} – {{datumHR .Do}}</td>
         <td class="mono" style="text-align:right;">{{brojHR .Zapisa}}</td>
         <td>{{if ne .ID $.NizID}}<a href="?niz={{.ID}}#arhiva" style="color:var(--primary);">pogledaj</a>{{end}}</td>
       </tr>
@@ -425,9 +441,9 @@
       <tr>
         <td class="mono">{{.Godina}}.</td>
         <td class="mono" style="text-align:right;">{{brojHRf .Max 0}}</td>
-        <td class="mono">{{.MaxNa}}</td>
+        <td class="mono">{{datumHR .MaxNa}}</td>
         <td class="mono" style="text-align:right;">{{brojHRf .Min 0}}</td>
-        <td class="mono">{{.MinNa}}</td>
+        <td class="mono">{{datumHR .MinNa}}</td>
         <td class="mono" style="text-align:right;">{{brojHRf .Srednjak 1}}</td>
         {{if $.Pregled.ZbrojIma}}<td class="mono" style="text-align:right;">{{brojHRf .Zbroj 0}}</td>{{end}}
         <td class="mono" style="text-align:right;">{{brojHR .Zapisa}}</td>
