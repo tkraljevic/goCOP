@@ -106,14 +106,21 @@
 
   {{if .ArhChart}}
   <div class="reg-card chart" style="padding:0.75rem 0.5rem 0.5rem; margin-bottom:1rem;">
-    <svg viewBox="0 0 {{.ArhChart.Width}} {{.ArhChart.Height}}" role="img" aria-label="Graf iz arhive">
-      {{range .ArhChart.Bands}}<rect x="0" y="{{.Y}}" width="{{$.ArhChart.Width}}" height="{{.H}}" class="band {{.Class}}"/>{{end}}
-      {{range .ArhChart.YTicks}}<line x1="42" y1="{{.Pos}}" x2="{{$.ArhChart.Width}}" y2="{{.Pos}}" class="grid"/>
-      <text x="38" y="{{.Pos}}" dy="3.5" text-anchor="end" class="tick">{{.Label}}</text>{{end}}
-      {{range .ArhChart.Thresholds}}<line x1="42" y1="{{.Pos}}" x2="{{$.ArhChart.Width}}" y2="{{.Pos}}" class="threshold {{.Class}}"/>{{end}}
-      {{if .ArhChart.Area}}<polygon points="{{.ArhChart.Area}}" class="area"/>{{end}}
-      <polyline points="{{.ArhChart.Path}}" class="line"/>
-      {{range .ArhChart.XTicks}}<text x="{{.Pos}}" y="{{$.ArhChart.Height}}" dy="-4" text-anchor="middle" class="tick">{{.Label}}</text>{{end}}
+    <svg viewBox="0 0 {{.ArhChart.Width}} {{.ArhChart.Height}}" role="img" aria-label="Graf vodostaja iz arhive">
+      {{range .ArhChart.YTicks}}
+      <line class="grid" x1="44" x2="{{$.ArhChart.Width}}" y1="{{printf "%.1f" .Pos}}" y2="{{printf "%.1f" .Pos}}"/>
+      <text class="tick" x="40" y="{{printf "%.1f" .Pos}}" text-anchor="end" dominant-baseline="middle">{{.Label}}</text>
+      {{end}}
+      {{range .ArhChart.Bands}}<rect class="band {{.Class}}" x="44" y="{{printf "%.1f" .Y}}" width="{{$.ArhChart.Width}}" height="{{printf "%.1f" .H}}"/>{{end}}
+      <path class="area" d="{{.ArhChart.Area}}"/>
+      {{range .ArhChart.Thresholds}}
+      <line class="thr {{.Class}}" x1="44" x2="{{$.ArhChart.Width}}" y1="{{printf "%.1f" .Y}}" y2="{{printf "%.1f" .Y}}"/>
+      <text class="thr-label {{.Class}}" x="{{$.ArhChart.Width}}" y="{{printf "%.1f" .Y}}" text-anchor="end" dy="-3">{{.Label}}</text>
+      {{end}}
+      <path class="line" d="{{.ArhChart.Path}}"/>
+      {{range $i, $t := .ArhChart.XTicks}}
+      <text class="tick" x="{{printf "%.1f" $t.Pos}}" y="{{$.ArhChart.Height}}" dy="-6" text-anchor="{{if eq $i 0}}start{{else if eq $i 2}}end{{else}}middle{{end}}">{{$t.Label}}</text>
+      {{end}}
     </svg>
   </div>
   {{end}}
