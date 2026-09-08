@@ -350,7 +350,7 @@ func (s *Server) setupRoutes() {
 	stationsH := NewStationsHandler(s.stationService, s.templates["stations.html"])
 	stationsH.SetPageTemplates(s.templates["station_detail.html"], s.templates["station_form.html"], s.sectionService, s.watercourseService)
 	stationsH.SetEpisodeService(s.episodeService)
-	stationsH.SetArhiva(s.arhiva)
+	stationsH.SetArhiva(func() *repository.ArhivaRepository { return s.arhiva })
 	watercoursesH := NewWatercoursesHandler(s.watercourseService, s.sectionService, s.templates["watercourses.html"])
 	structuresH := NewStructuresHandler(s.structureService, s.stationService, s.sectionService, s.userService,
 		s.templates["structures.html"], s.templates["structure_detail.html"], s.templates["structure_form.html"])

@@ -53,10 +53,22 @@ func (h *StationsHandler) SetPageTemplates(detail, form *template.Template,
 	h.watercourseService = waters
 }
 
-// SetArhiva daje rukovatelju hidrološku arhivu. Smije biti nil — čvor bez
-// preuzete arhive prikazuje letvu bez povijesti.
-func (h *StationsHandler) SetArhiva(a *repository.ArhivaRepository) {
-	h.arhiva = a
+// SetArhiva daje rukovatelju hidrološku arhivu. Uzima se dohvatnik, a ne sama
+// arhiva: poslužitelj se sastavlja prije nego što se arhiva otvori, pa bi
+// vrijednost predana pri sastavljanju zauvijek ostala prazna.
+//
+// Arhive smije i ne biti — čvor koji je nije preuzeo prikazuje letvu bez
+// povijesti.
+func (h *StationsHandler) SetArhiva(f func() *repository.ArhivaRepository) {
+	h.arhiva = f
+}
+
+// arh vraća arhivu ako je ima
+func (h *StationsHandler) arh() *repository.ArhivaRepository {
+	if h.arhiva == nil {
+		return nil
+	}
+	return h.arhiva()
 }
 
 // SetEpisodeService daje rukovatelju epizode obrane, da se na kartici letve
@@ -133,23 +145,23 @@ func (h *StationsHandler) ShowStation(w http.ResponseWriter, r *http.Request) {
 	// Hidrološka arhiva: nizovi, karakteristične vrijednosti, korito i krivulje.
 	// Sve se računa pri čitanju, ništa se ne pamti — brojevi se tako ne mogu
 	// razići s podacima iz kojih su nastali.
-	if h.arhiva != nil && st.Code != "" {
-		data.Nizovi, _ = h.arhiva.Nizovi(ctx, st.Code)
-		data.Profili, _ = h.arhiva.Profili(ctx, st.Code)
-		data.Krivulje, _ = h.arhiva.Krivulje(ctx, st.Code)
+	if a := h.arh(); a != nil && st.Code != "" {
+		data.Nizovi, _ = a.Nizovi(ctx, st.Code)
+		data.Profili, _ = a.Profili(ctx, st.Code)
+		data.Krivulje, _ = a.Krivulje(ctx, st.Code)
 		if len(data.Profili) > 0 {
 			data.Profil = &data.Profili[0]
 		}
 		data.NizID = odabraniNiz(r, data.Nizovi)
 		if data.NizID > 0 {
-			data.Pregled, _ = h.arhiva.Pregled(ctx, data.NizID)
+			data.Pregled, _ = a.Pregled(ctx, data.NizID)
 		}
 		// zadnji vodostaj iz najpouzdanijeg niza, pa korito i protok iz njega
 		for _, n := range data.Nizovi {
 			if n.Velicina != "vodostaj" {
 				continue
 			}
-			if v, kad, ok := h.arhiva.Zadnje(ctx, n.ID); ok {
+			if v, kad, ok := a.Zadnje(ctx, n.ID); ok {
 				if data.Zadnji == nil || kad.After(data.Zadnji.Kad) {
 					data.Zadnji = &models.HidroTocka{Kad: kad, Vrijednost: v}
 					data.ZadnjiIzvor = n.Izvor
