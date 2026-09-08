@@ -56,8 +56,13 @@ type KoritoCrtez struct {
 	PojasY, PojasH   float64
 	ImaPojas         bool
 	PojasOd, PojasDo int
-	VrhKoritaCm      int // kruna obala u centimetrima na letvi
-	DnoCm            int
+	// Krajevi snimka u centimetrima na letvi. Snimanje počinje na lijevoj
+	// obali — tako je označeno na izvornim listovima HIS-2000, okomitim
+	// natpisima „Lijeva obala“ i „Desna obala“ na krajevima crteža.
+	LijevaCm, DesnaCm int
+	NizaObalaCm       int // niža od dvije: preko nje voda prva izlazi iz snimka
+	OdrezanSnimak     bool // voda je viša od niže obale, pa snimak razinu ne pokriva
+	DnoCm             int
 	VodaX0, VodaX1   float64 // dokle vodna ploha seže na slici
 	// Stacionaža krajeva snimka. Koja je to obala izvorne datoteke ne kažu,
 	// pa crtež govori ono što zna: koliko je metara od početka snimanja.
@@ -110,7 +115,7 @@ func crtajKoritoP(p models.ProfilKorita, vodostajCm int, o KoritoPostavke) *Kori
 	if kotaVode < minV {
 		minV = kotaVode
 	}
-	// Prag iznad krune obala mora se vidjeti: upravo to je podatak koji se
+	// Prag iznad ruba snimka mora se vidjeti: upravo je to podatak koji se
 	// traži — koliko korita ostaje iznad zadnjeg stupnja obrane.
 	for _, pr := range o.Pragovi {
 		k := p.KotaNule + float64(pr.Cm)/100
@@ -160,13 +165,17 @@ func crtajKoritoP(p models.ProfilKorita, vodostajCm int, o KoritoPostavke) *Kori
 		PocetakM:   x0, KrajM: x1,
 		PocetakX: sx(x0), KrajX: sx(x1),
 	}
-	vrh := p.Tocke[0].Visina
-	for _, t := range p.Tocke {
-		if t.Visina > vrh {
-			vrh = t.Visina
-		}
+	c.LijevaCm = int(math.Round((p.Tocke[0].Visina - p.KotaNule) * 100))
+	c.DesnaCm = int(math.Round((p.Tocke[len(p.Tocke)-1].Visina - p.KotaNule) * 100))
+	c.NizaObalaCm = c.LijevaCm
+	if c.DesnaCm < c.NizaObalaCm {
+		c.NizaObalaCm = c.DesnaCm
 	}
-	c.VrhKoritaCm = int((vrh - p.KotaNule) * 100)
+	// Snimak ne seže uvijek do vrha obale: mjerenje 2020. na Batini počinje
+	// na +166 cm, a mjerenje 2015. tek na 110. metru. Kad je voda iznad niže
+	// obale, crtež je pri toj razini presječen i to se mora reći — inače bi
+	// se iz njega čitalo da korita ima koliko ga na papiru ima.
+	c.OdrezanSnimak = vodostajCm > c.NizaObalaCm
 
 	// Pojas kroz koji je voda išla u prikazanom razdoblju. Bez njega presjek
 	// pokazuje samo trenutak, a graf iznad govori o razdoblju.

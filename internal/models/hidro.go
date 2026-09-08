@@ -260,11 +260,15 @@ type ProfilKorita struct {
 	Tocke    []TockaProfila
 }
 
-// TockaProfila je jedna izmjerena točka: udaljenost od početka snimanja i
-// kota dna. S koje obale snimanje počinje izvorne datoteke ne kažu, pa se to
-// ni ne tvrdi — crtež pokazuje stacionažu, ne obalu.
+// TockaProfila je jedna izmjerena točka. Stacionaža se mjeri od lijeve
+// obale: tako su krajevi označeni na izvornim listovima HIS-2000, okomitim
+// natpisima „Lijeva obala“ i „Desna obala“.
+//
+// Snimak ne seže uvijek do vrha obale — Batinin iz 2015. počinje tek na 110.
+// metru, a iz 2020. na koti +166 cm — pa se iz njega ne smije čitati koliko
+// korita ima iznad te razine.
 type TockaProfila struct {
-	Stacionaza float64 // m od početka snimanja
+	Stacionaza float64 // m od lijeve obale
 	Visina     float64 // apsolutna kota, m
 }
 

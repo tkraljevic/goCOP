@@ -75,7 +75,7 @@ CREATE TABLE IF NOT EXISTS profili (
 );
 CREATE TABLE IF NOT EXISTS profil_tocke (
 	profil     INTEGER NOT NULL REFERENCES profili(id) ON DELETE CASCADE,
-	stacionaza REAL NOT NULL,        -- m od početka snimanja; koja je to obala izvor ne kaže
+	stacionaza REAL NOT NULL,        -- m od lijeve obale (tako je označeno na listovima HIS-2000)
 	visina     REAL NOT NULL,        -- apsolutna kota, m
 	PRIMARY KEY (profil, stacionaza)
 ) WITHOUT ROWID;
