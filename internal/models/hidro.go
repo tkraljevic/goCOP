@@ -115,6 +115,12 @@ type SpojenaVrijednost struct {
 	Izvor      string
 	Vrsta      string  // trenutna | srednjak | jutarnji
 	Tocnost    float64 // ± u jedinici veličine, 68 % vrijednosti
+
+	// Ispravak stavljen preko arhivske vrijednosti. Izvorna vrijednost ostaje
+	// zapisana, jer se ispravak mora moći provjeriti i povući.
+	Ispravljeno bool
+	Izvorno     float64
+	Razlog      string
 }
 
 // TocnostLabel je odstupanje za ispis; ovjereni izvor nema ±.

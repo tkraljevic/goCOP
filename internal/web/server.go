@@ -73,7 +73,9 @@ func templateFuncs() template.FuncMap {
 		"velicinaLabel": models.NazivVelicine,
 		"kvaliteta":     models.QualityLabel,
 		// razmak za crtanje: širina umanjena za desni rub
-		"sub":   func(a, b int) int { return a - b },
+		"sub": func(a, b int) int { return a - b },
+		// razlika dviju vrijednosti, za prikaz koliko ispravak mijenja
+		"sub2":  func(a, b float64) float64 { return a - b },
 		"lower": strings.ToLower,
 		// udio mjesečnog srednjaka u rasponu niza, za stupčić uz tablicu
 		"mjesecUdio": func(v float64, p *models.HidroPregled) int {
@@ -290,7 +292,7 @@ func NewServer(
 	templates := make(map[string]*template.Template)
 
 	// Predlošci koji proširuju base.html
-	for _, page := range []string{"dashboard.html", "registri.html", "users.html", "user_detail.html", "user_form.html", "duty_form.html", "profile.html", "sections.html", "section_detail.html", "section_form.html", "territories.html", "county_form.html", "municipality_form.html", "municipality_detail.html", "stations.html", "station_detail.html", "station_form.html", "watercourses.html", "watercourse_detail.html", "watercourse_form.html", "structures.html", "structure_detail.html", "structure_form.html", "readings.html", "reading_history.html", "reading_form.html", "teren.html", "moduli.html", "settings.html", "odrzavanje.html", "organizacija.html", "sector_form.html", "area_form.html", "contractor_form.html", "firme.html", "nazivi.html", "sudionici.html",
+	for _, page := range []string{"dashboard.html", "registri.html", "users.html", "user_detail.html", "user_form.html", "duty_form.html", "profile.html", "sections.html", "section_detail.html", "section_form.html", "territories.html", "county_form.html", "municipality_form.html", "municipality_detail.html", "stations.html", "station_detail.html", "station_form.html", "watercourses.html", "watercourse_detail.html", "watercourse_form.html", "structures.html", "structure_detail.html", "structure_form.html", "readings.html", "reading_history.html", "reading_form.html", "arhiva_ispravci.html", "teren.html", "moduli.html", "settings.html", "odrzavanje.html", "organizacija.html", "sector_form.html", "area_form.html", "contractor_form.html", "firme.html", "nazivi.html", "sudionici.html",
 		"administracija.html", "uvozi.html", "sinkronizacija.html", "pretplate.html", "baza.html",
 		"dnevnici.html", "dnevnik_form.html", "dnevnik.html", "dnevnik_list.html"} {
 		t, err := template.New("base.html").Funcs(tmplFuncs).ParseFS(templatesFS, "base.html", page)
@@ -370,6 +372,7 @@ func (s *Server) setupRoutes() {
 		s.templates["readings.html"], s.templates["reading_history.html"], s.templates["reading_form.html"])
 	readingsH.SetFollow(s.followRepo, s.onFollowChange)
 	readingsH.SetArhiva(func() *repository.ArhivaRepository { return s.arhiva })
+	readingsH.SetIspravci(repository.NewIspravakRepository(s.db, s.recorder), s.templates["arhiva_ispravci.html"])
 	watercoursesH.SetPageTemplates(s.templates["watercourse_detail.html"], s.templates["watercourse_form.html"], s.stationService)
 	watercoursesH.SetMaintenanceService(s.maintenanceService)
 	maintenanceH := NewMaintenanceHandler(s.maintenanceService, s.userService, s.watercourseService, s.structureService, s.templates["odrzavanje.html"])
@@ -544,6 +547,9 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /readings/new", s.authMiddleware(http.HandlerFunc(readingsH.ShowForm)))
 	s.mux.Handle("GET /readings/edit/{id}", s.authMiddleware(http.HandlerFunc(readingsH.ShowForm)))
 	s.mux.Handle("GET /readings/station/{id}", s.authMiddleware(http.HandlerFunc(readingsH.ShowHistory)))
+	s.mux.Handle("GET /readings/station/{id}/izvoz.csv", s.authMiddleware(http.HandlerFunc(readingsH.HandleArhivaIzvoz)))
+	s.mux.Handle("POST /readings/station/{id}/uvoz", s.authMiddleware(http.HandlerFunc(readingsH.HandleArhivaUvoz)))
+	s.mux.Handle("POST /readings/station/{id}/uvoz/potvrdi", s.authMiddleware(http.HandlerFunc(readingsH.HandleArhivaPotvrda)))
 	s.mux.Handle("GET /readings/structure/{id}", s.authMiddleware(http.HandlerFunc(readingsH.ShowHistory)))
 	s.mux.Handle("POST /readings/create", s.authMiddleware(http.HandlerFunc(readingsH.HandleCreate)))
 	s.mux.Handle("POST /readings/update", s.authMiddleware(http.HandlerFunc(readingsH.HandleUpdate)))

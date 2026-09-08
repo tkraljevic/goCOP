@@ -931,3 +931,80 @@ func TestGrafImaMjeseceIKorakOsi(t *testing.T) {
 		t.Errorf("kratko razdoblje označeno mjesecima: %q", k.XTicks[0].Label)
 	}
 }
+
+// Ispravak arhive: vraćena datoteka se prvo pročita i usporedi, ništa se ne
+// upisuje bez pregleda. Ispravak bez razloga nije ispravak.
+func TestCitanjeIspravakaIzDatoteke(t *testing.T) {
+	kad := func(d int) time.Time { return time.Date(2013, 6, d, 6, 0, 0, 0, time.UTC) }
+	postojece := map[int64]models.SpojenaVrijednost{
+		kad(13).Unix(): {Kad: kad(13), Vrijednost: 758, Izvor: "his2000"},
+		kad(14).Unix(): {Kad: kad(14), Vrijednost: 771, Izvor: "his2000"},
+		kad(15).Unix(): {Kad: kad(15), Vrijednost: 769, Izvor: "letva-hv"},
+	}
+	csv := "\ufeffvrijeme_utc;vodostaj_cm;izvor;tocnost;ispravak;razlog\n" +
+		"2013-06-13 06:00:00;758;his2000;0;;\n" + // nediran
+		"2013-06-14 06:00:00;771;his2000;0;775;ovjereni maksimum iz elaborata\n" + // promjena
+		"2013-06-15 06:00:00;769;letva-hv;5;800;\n" + // bez razloga
+		"2013-06-16 06:00:00;700;his2000;0;705;dan kojeg nema\n" + // izvan arhive
+		"2013-06-14 06:00:00;771;his2000;0;xyz;nečitljivo\n" // vrijednost nije broj
+
+	redci, err := citajIspravke([]byte(csv), postojece, 0)
+	if err != nil {
+		t.Fatalf("čitanje: %v", err)
+	}
+	if len(redci) != 4 {
+		t.Fatalf("redaka s upisom %d, očekivano 4", len(redci))
+	}
+	var promjena, greske int
+	for _, r := range redci {
+		if r.Greska != "" {
+			greske++
+		} else if r.Promjena() {
+			promjena++
+		}
+	}
+	if promjena != 1 {
+		t.Errorf("stvarnih promjena %d, očekivano 1", promjena)
+	}
+	if greske != 3 {
+		t.Errorf("grešaka %d, očekivano 3 (bez razloga, izvan arhive, nije broj)", greske)
+	}
+	if redci[0].Novo != 775 || redci[0].Staro != 771 {
+		t.Errorf("promjena %v → %v, očekivano 771 → 775", redci[0].Staro, redci[0].Novo)
+	}
+	if redci[0].Izvor != "his2000" {
+		t.Errorf("izvor stare vrijednosti %q", redci[0].Izvor)
+	}
+
+	// datoteka bez potrebnih stupaca se odbija, umjesto da tiho ne učini ništa
+	if _, err := citajIspravke([]byte("datum;vodostaj\n2013-06-14;771\n"), postojece, 0); err == nil {
+		t.Error("datoteka bez stupca „ispravak“ mora biti odbijena")
+	}
+}
+
+// Ispravak se stavlja preko arhive, ali izvorna vrijednost ostaje uz njega.
+func TestIspravakNePrepisujeArhivu(t *testing.T) {
+	kad := time.Date(2013, 6, 14, 6, 0, 0, 0, time.UTC)
+	niz := []models.SpojenaVrijednost{
+		{Kad: kad, Vrijednost: 771, Izvor: "his2000"},
+		{Kad: kad.AddDate(0, 0, -1), Vrijednost: 758, Izvor: "his2000"},
+	}
+	primijeniIspravke(niz, map[int64]models.ArhivaIspravak{
+		kad.Unix(): {Vrijednost: 775, Razlog: "ovjereni maksimum"},
+	})
+	if !niz[0].Ispravljeno {
+		t.Fatal("ispravak nije primijenjen")
+	}
+	if niz[0].Vrijednost != 775 {
+		t.Errorf("vrijednost %v, očekivano 775", niz[0].Vrijednost)
+	}
+	if niz[0].Izvorno != 771 {
+		t.Errorf("izvorna vrijednost izgubljena: %v, očekivano 771", niz[0].Izvorno)
+	}
+	if niz[0].Razlog != "ovjereni maksimum" {
+		t.Errorf("razlog %q", niz[0].Razlog)
+	}
+	if niz[1].Ispravljeno {
+		t.Error("neispravljena vrijednost označena kao ispravljena")
+	}
+}

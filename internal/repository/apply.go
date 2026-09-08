@@ -180,6 +180,21 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 			e.Origin, e.Note, e.CreatedAt.UTC(), e.UpdatedAt.UTC())
 		return err
 
+	case EntityIspravci:
+		var i models.ArhivaIspravak
+		if err := json.Unmarshal(v.Payload, &i); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, `
+			INSERT INTO arhiva_ispravci (id, letva, velicina, korak, vrijeme, vrijednost, staro,
+				razlog, ispravio, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			ON CONFLICT(id) DO UPDATE SET vrijednost=excluded.vrijednost, staro=excluded.staro,
+				razlog=excluded.razlog, ispravio=excluded.ispravio, updated_at=excluded.updated_at`,
+			i.ID.String(), i.Letva, i.Velicina, i.Korak, i.Vrijeme.UTC(), i.Vrijednost, i.Staro,
+			i.Razlog, i.Ispravio, i.CreatedAt.UTC(), i.UpdatedAt.UTC())
+		return err
+
 	case EntityStations:
 		var st models.Station
 		if err := json.Unmarshal(v.Payload, &st); err != nil {

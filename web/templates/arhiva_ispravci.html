@@ -1,0 +1,76 @@
+{{define "title"}}Ispravci arhive — {{.GaugeName}} — goCOP{{end}}
+{{define "content"}}
+<nav class="breadcrumb"><a href="/readings">Vodostaji</a> ›
+  <a href="/readings/station/{{.Station.ID}}">{{.GaugeName}}</a> › Ispravci</nav>
+
+<div class="page-head">
+  <h1 class="page-title">{{icon "file-text"}} Što bi se promijenilo</h1>
+  <p class="page-desc">
+    Iz datoteke <strong>{{.Datoteka}}</strong> — {{velicinaLabel .Velicina}}, {{.Godina}}.,
+    {{if eq .Korak "satni"}}svaki sat{{else}}dnevni srednjak{{end}}.
+    Ništa još nije upisano.
+  </p>
+</div>
+
+<div class="table-card" style="padding:1rem 1.25rem; margin-bottom:1rem;">
+  <div style="display:flex; flex-wrap:wrap; gap:1.5rem; font-size:0.95rem;">
+    <span>mijenja se <strong>{{brojHR .Promjena}}</strong></span>
+    <span>bez promjene <strong>{{brojHR .Netaknuto}}</strong></span>
+    <span>{{if .Greske}}<strong style="color:var(--danger);">{{brojHR .Greske}} s greškom</strong>{{else}}bez grešaka{{end}}</span>
+  </div>
+  <p class="page-desc" style="margin:0.5rem 0 0 0;">
+    Arhiva se ne dira. Ispravak stoji uz nju, nosi tko ga je upisao i zašto, i pri čitanju se stavlja preko
+    izvorne vrijednosti — pa se u svakom trenutku vidi i što je izvor rekao i što je čovjek odlučio.
+  </p>
+</div>
+
+{{if .Greske}}
+<div class="alert alert-danger">
+  Redci s greškom se ne upisuju. Najčešći uzrok je da je tablični program prepravio oblik broja ili datuma.
+</div>
+{{end}}
+
+<form method="POST" action="/readings/station/{{.Station.ID}}/uvoz/potvrdi">
+  <input type="hidden" name="v" value="{{.Velicina}}">
+  <input type="hidden" name="korak" value="{{.Korak}}">
+  <div class="table-card"><div class="table-responsive" style="max-height:32rem; overflow-y:auto;">
+    <table class="data-table">
+      <thead><tr>
+        <th>Redak</th><th>Kad</th>
+        <th style="text-align:right;">Bilo</th><th style="text-align:right;">Postaje</th>
+        <th style="text-align:right;">Razlika</th><th>Izvor</th><th>Razlog</th>
+      </tr></thead>
+      <tbody>
+      {{range .Redci}}
+      <tr {{if .Greska}}style="background:var(--tint-red-bg);"{{else if not .Promjena}}style="opacity:0.55;"{{end}}>
+        <td class="mono reg-card-sub">{{.Redak}}</td>
+        <td class="mono">{{if .Kad.IsZero}}—{{else}}{{formatDate (localTime .Kad)}}{{if eq $.Korak "satni"}} {{printf "%02d" .Kad.Hour}}:00{{end}}{{end}}</td>
+        <td class="mono" style="text-align:right;">{{brojHRf .Staro $.Decimala}}</td>
+        <td class="mono" style="text-align:right;"><strong>{{brojHRf .Novo $.Decimala}}</strong></td>
+        <td class="mono" style="text-align:right;">{{if .Promjena}}{{brojHRf (sub2 .Novo .Staro) $.Decimala}}{{end}}</td>
+        <td class="reg-card-sub">{{izvorLabel .Izvor}}</td>
+        <td>
+          {{if .Greska}}<span style="color:var(--danger);">{{.Greska}}</span>
+          {{else}}{{.Razlog}}
+            {{if .Promjena}}
+            <input type="hidden" name="kad" value="{{.Kad.Format "2006-01-02T15:04:05Z07:00"}}">
+            <input type="hidden" name="novo" value="{{unos .Novo $.Decimala}}">
+            <input type="hidden" name="staro" value="{{unos .Staro $.Decimala}}">
+            <input type="hidden" name="razlog" value="{{.Razlog}}">
+            {{end}}
+          {{end}}
+        </td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div></div>
+
+  <div style="display:flex; gap:0.75rem; margin-top:1rem; align-items:center;">
+    <button type="submit" class="btn" {{if not .Promjena}}disabled{{end}}>
+      {{icon "check"}} Upiši {{brojHR .Promjena}} {{if eq .Promjena 1}}ispravak{{else}}ispravaka{{end}}
+    </button>
+    <a href="/readings/station/{{.Station.ID}}#arhiva" class="btn btn-secondary">Odustani</a>
+  </div>
+</form>
+{{end}}
