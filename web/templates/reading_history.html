@@ -107,6 +107,7 @@
   </form>
 
   {{if .ArhChart}}
+  <h3 class="part-label" style="margin:0 0 0.35rem 0;">{{velicinaLabel .ArhVelicina}} <span class="reg-card-sub">{{.ArhJedinica}}</span> — {{.ArhGodina}}.{{if eq .ArhKorak "satni"}}, svaki sat{{else}}, dnevni srednjak{{end}}</h3>
   <div class="reg-card chart" style="padding:0.75rem 0.5rem 0.5rem; margin-bottom:1rem;">
     <svg viewBox="0 0 {{.ArhChart.Width}} {{.ArhChart.Height}}" role="img" aria-label="Graf vodostaja iz arhive">
       {{range .ArhChart.YTicks}}
@@ -120,6 +121,11 @@
       <text class="thr-label {{.Class}}" x="{{$.ArhChart.Width}}" y="{{printf "%.1f" .Y}}" text-anchor="end" dy="-3">{{.Label}}</text>
       {{end}}
       <path class="line" d="{{.ArhChart.Path}}"/>
+      {{$n := len .ArhChart.Points}}
+      {{range $i, $p := .ArhChart.Points}}
+      <circle class="dot {{if eq (add $i 1) $n}}last{{end}}" cx="{{printf "%.1f" $p.X}}" cy="{{printf "%.1f" $p.Y}}"
+              r="{{if eq (add $i 1) $n}}4{{else}}1{{end}}"><title>{{formatDate (localTime $p.At)}} — {{$p.Oznaka}}</title></circle>
+      {{end}}
       {{range $i, $t := .ArhChart.XTicks}}
       <text class="tick" x="{{printf "%.1f" $t.Pos}}" y="{{$.ArhChart.Height}}" dy="-6" text-anchor="{{if eq $i 0}}start{{else if eq $i 2}}end{{else}}middle{{end}}">{{$t.Label}}</text>
       {{end}}

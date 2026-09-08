@@ -2,6 +2,7 @@ package web
 
 import (
 	"github.com/google/uuid"
+	"math"
 	"net/http"
 	"net/url"
 
@@ -810,5 +811,73 @@ func TestProrjedivanjeCuvaVrhIRaspon(t *testing.T) {
 	kratak := sati[:50]
 	if got := prorijedi(kratak, 700); len(got) != 50 {
 		t.Errorf("kratak niz prorijeđen na %d, očekivano 50", len(got))
+	}
+}
+
+// Graf mora raditi za svaku veličinu, sa svojom jedinicom i decimalama.
+// Pragovi obrane crtaju se samo uz vodostaj: temperatura nema pripremno stanje.
+func TestGrafZaSvakuVelicinu(t *testing.T) {
+	cm := func(v int) *int { return &v }
+	letva := &models.Station{Name: "Batina",
+		Prep: models.Threshold{Cm: cm(300)}, Regular: models.Threshold{Cm: cm(500)},
+		Emergency: models.Threshold{Cm: cm(650)}, State: models.Threshold{Cm: cm(800)}}
+	poc := time.Date(2013, 6, 1, 0, 0, 0, 0, time.UTC)
+	niz := func(v ...float64) []models.SpojenaVrijednost {
+		var out []models.SpojenaVrijednost
+		for i, x := range v {
+			out = append(out, models.SpojenaVrijednost{Kad: poc.AddDate(0, 0, i), Vrijednost: x})
+		}
+		return out
+	}
+
+	vod := crtajNiz(niz(120, 340, 560, 772, 610), "vodostaj", letva)
+	if vod == nil {
+		t.Fatal("graf vodostaja se nije izgradio")
+	}
+	if len(vod.Thresholds) == 0 {
+		t.Error("uz vodostaj moraju stajati pragovi obrane")
+	}
+	if got := vod.Points[3].Oznaka; got != "772 cm" {
+		t.Errorf("oznaka točke %q, očekivano 772 cm", got)
+	}
+
+	temp := crtajNiz(niz(0.4, 12.7, 24.9, 29.7), "temperatura", letva)
+	if temp == nil {
+		t.Fatal("graf temperature se nije izgradio")
+	}
+	if len(temp.Thresholds) != 0 {
+		t.Error("temperatura nema pragove obrane, a graf ih crta")
+	}
+	if got := temp.Points[3].Oznaka; got != "29,7 °C" {
+		t.Errorf("oznaka temperature %q, očekivano 29,7 stupnjeva", got)
+	}
+
+	pron := crtajNiz(niz(37.5, 6005, 145575), "pronos", letva)
+	if pron == nil {
+		t.Fatal("graf pronosa se nije izgradio")
+	}
+	if got := pron.Points[2].Oznaka; got != "145.575 t" {
+		t.Errorf("oznaka pronosa %q, očekivano 145.575 t", got)
+	}
+
+	// prorjeđivanje spojenog niza čuva vrh, kao i ono za očitanja
+	var dug []models.SpojenaVrijednost
+	for i := 0; i < 8760; i++ {
+		v := float64(100 + i%40)
+		if i == 5000 {
+			v = 8450
+		}
+		dug = append(dug, models.SpojenaVrijednost{Kad: poc.Add(time.Duration(i) * time.Hour), Vrijednost: v})
+	}
+	kraci := prorijediNiz(dug, 700)
+	if len(kraci) > 900 {
+		t.Errorf("prorijeđeno na %d točaka", len(kraci))
+	}
+	najv := 0.0
+	for _, v := range kraci {
+		najv = math.Max(najv, v.Vrijednost)
+	}
+	if najv != 8450 {
+		t.Errorf("vrh izgubljen: %v", najv)
 	}
 }
