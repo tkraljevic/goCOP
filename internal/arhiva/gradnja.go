@@ -87,6 +87,9 @@ CREATE TABLE IF NOT EXISTS hq_krivulje (
 	a          REAL NOT NULL,
 	b          REAL NOT NULL,
 	h0         REAL NOT NULL,
+	prijelom   INTEGER,                    -- vodostaj na kojem krivulja prelazi u gornji krak
+	a2         REAL NOT NULL DEFAULT 0,    -- gornji krak; 0 = krivulja nije prelomljena
+	b2         REAL NOT NULL DEFAULT 0,
 	mjerenja   INTEGER NOT NULL DEFAULT 0,
 	odstupanje REAL NOT NULL DEFAULT 0,
 	napomena   TEXT NOT NULL DEFAULT '',
@@ -517,17 +520,23 @@ func krivulje(db *sql.DB, koren, samo string) error {
 				v, _ := strconv.Atoi(strings.TrimSpace(s))
 				return v
 			}
-			nap := ""
-			if len(r) > 7 {
-				nap = r[7]
+			nap := nth(r, 10)
+			// Prelomljena krivulja nosi još tri stupca. Starije datoteke ih
+			// nemaju, pa se čita ono što ima.
+			var prijelom any
+			if s := strings.TrimSpace(nth(r, 5)); s != "" {
+				prijelom = cijeli(s)
 			}
-			if _, err := db.Exec(`INSERT INTO hq_krivulje (letva, vrijedi_od, vrijedi_do, a, b, h0, mjerenja, odstupanje, napomena)
-				VALUES (?,?,?,?,?,?,?,?,?)
+			if _, err := db.Exec(`INSERT INTO hq_krivulje (letva, vrijedi_od, vrijedi_do, a, b, h0,
+					prijelom, a2, b2, mjerenja, odstupanje, napomena)
+				VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
 				ON CONFLICT(letva, vrijedi_od) DO UPDATE SET vrijedi_do=excluded.vrijedi_do, a=excluded.a,
-					b=excluded.b, h0=excluded.h0, mjerenja=excluded.mjerenja, odstupanje=excluded.odstupanje,
+					b=excluded.b, h0=excluded.h0, prijelom=excluded.prijelom, a2=excluded.a2, b2=excluded.b2,
+					mjerenja=excluded.mjerenja, odstupanje=excluded.odstupanje,
 					napomena=excluded.napomena`,
 				letva, r[0], r[1], br(r[2]), br(r[3]), br(r[4]),
-				cijeli(nth(r, 5)), br(nth(r, 6)), nap); err != nil {
+				prijelom, br(nth(r, 6)), br(nth(r, 7)),
+				cijeli(nth(r, 8)), br(nth(r, 9)), nap); err != nil {
 				return err
 			}
 			n++

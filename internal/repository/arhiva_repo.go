@@ -356,7 +356,8 @@ func (r *ArhivaRepository) Krivulje(ctx context.Context, letva string) ([]models
 		return nil, nil
 	}
 	rows, err := r.db.QueryContext(ctx, `SELECT id, letva, vrijedi_od, vrijedi_do, a, b, h0,
-		mjerenja, odstupanje, napomena FROM hq_krivulje WHERE letva = ? ORDER BY vrijedi_od DESC`, letva)
+		prijelom, a2, b2, mjerenja, odstupanje, napomena
+		FROM hq_krivulje WHERE letva = ? ORDER BY vrijedi_od DESC`, letva)
 	if err != nil {
 		return nil, fmt.Errorf("krivulje protoka: %w", err)
 	}
@@ -364,9 +365,14 @@ func (r *ArhivaRepository) Krivulje(ctx context.Context, letva string) ([]models
 	var out []models.HQKrivulja
 	for rows.Next() {
 		var k models.HQKrivulja
+		var prijelom sql.NullInt64
 		if err := rows.Scan(&k.ID, &k.Letva, &k.VrijediOd, &k.VrijediDo, &k.A, &k.B, &k.H0,
-			&k.Mjerenja, &k.Odstupanje, &k.Napomena); err != nil {
+			&prijelom, &k.A2, &k.B2, &k.Mjerenja, &k.Odstupanje, &k.Napomena); err != nil {
 			return nil, err
+		}
+		if prijelom.Valid {
+			cm := int(prijelom.Int64)
+			k.PrijelomCm = &cm
 		}
 		out = append(out, k)
 	}
