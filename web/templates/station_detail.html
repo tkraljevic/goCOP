@@ -141,6 +141,17 @@
 {{end}}
 
 <section class="detail-section">
+  {{if .Station.ImaKoordinate}}
+  <div class="reg-card" style="padding:0.75rem 1rem; margin-bottom:1rem; display:flex; flex-wrap:wrap;
+       gap:0.5rem 1.5rem; align-items:baseline;">
+    <span>{{icon "map-pin"}} <strong>{{.Station.KoordinateHR}}</strong></span>
+    <span class="reg-card-sub mono">{{brojHRd .Station.Latitude 6}}, {{brojHRd .Station.Longitude 6}}</span>
+    <a href="{{.Station.KartaURL}}" target="_blank" rel="noopener noreferrer"
+       class="btn btn-secondary btn-sm">{{icon "map"}} Otvori na karti</a>
+    <span class="reg-card-sub">Karta se otvara u pregledniku — program radi i bez interneta.</span>
+  </div>
+  {{end}}
+
   <h2>{{icon "ruler"}} Kota nule vodomjera</h2>
   <div class="reg-card" style="padding:1rem;">
     <dl class="reg-facts station-zero-grid">

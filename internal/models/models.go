@@ -2,6 +2,7 @@ package models
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -426,6 +427,40 @@ func (s Station) NajviseZabiljezeno() *StationExtreme {
 		}
 	}
 	return naj
+}
+
+// ImaKoordinate javlja zna li se gdje letva stoji.
+func (s Station) ImaKoordinate() bool { return s.Latitude != nil && s.Longitude != nil }
+
+// KoordinateHR ispisuje položaj u stupnjevima, minutama i sekundama, kako
+// stoji u tehničkim zapisnicima DHMZ-a.
+func (s Station) KoordinateHR() string {
+	if !s.ImaKoordinate() {
+		return ""
+	}
+	dms := func(v float64, poz, neg string) string {
+		strana := poz
+		if v < 0 {
+			v, strana = -v, neg
+		}
+		st := int(v)
+		m := int((v - float64(st)) * 60)
+		sek := (v - float64(st) - float64(m)/60) * 3600
+		return fmt.Sprintf("%d° %d′ %s″ %s", st, m,
+			strings.Replace(strconv.FormatFloat(sek, 'f', 0, 64), ".", ",", 1), strana)
+	}
+	return dms(*s.Latitude, "S", "J") + "  " + dms(*s.Longitude, "I", "Z")
+}
+
+// KartaURL vodi na kartu s označenim položajem letve. Vanjska poveznica, ne
+// ugrađena karta: program radi bez interneta, pa se karta otvara tek kad je
+// čovjek zatraži i kad ga ima.
+func (s Station) KartaURL() string {
+	if !s.ImaKoordinate() {
+		return ""
+	}
+	return fmt.Sprintf("https://www.openstreetmap.org/?mlat=%.6f&mlon=%.6f#map=16/%.6f/%.6f",
+		*s.Latitude, *s.Longitude, *s.Latitude, *s.Longitude)
 }
 
 // NajnizeIzmjereno vraća najniži vodostaj doista izmjeren na ovoj letvi.

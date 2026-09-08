@@ -224,6 +224,43 @@ var fixups = []fixup{
 		},
 	},
 	{
+		// Koordinate Batine iz tehničkog zapisnika DHMZ-a (HIS-2000, šifra
+		// 5170, sastavljeno 3.12.2012.): φ 45° 50' 45", λ 18° 51' 17".
+		// Zapisnik daje pune lučne sekunde, dakle točnost oko 15 m — dovoljno
+		// za oznaku na karti, premalo za mjerenje.
+		//
+		// NE uzimaju se koordinate radara OTT RLS iz 2017. (45° 50' 38,26",
+		// 18° 51' 22,41"), premda su preciznije: one su za uređaj na mostu,
+		// 239 m nizvodno od vodokaznog profila.
+		name: "batina-koordinate-2012",
+		run: func(ctx context.Context, tx *sql.Tx, rec *ledger.Recorder) (int, error) {
+			var id string
+			var lat, lon sql.NullFloat64
+			err := tx.QueryRowContext(ctx,
+				`SELECT id, latitude, longitude FROM stations WHERE code = 'batina'`).Scan(&id, &lat, &lon)
+			if err == sql.ErrNoRows {
+				return 0, nil
+			} else if err != nil {
+				return 0, err
+			}
+			if lat.Valid && lon.Valid {
+				return 0, nil // već upisane, ne prepisuju se
+			}
+			if _, err := tx.ExecContext(ctx, `UPDATE stations SET latitude = ?, longitude = ?, updated_at = ?
+				WHERE id = ?`, 45.845833, 18.854722, time.Now().UTC(), id); err != nil {
+				return 0, err
+			}
+			st, err := getStationTx(ctx, tx, id)
+			if err != nil {
+				return 0, err
+			}
+			if _, err := rec.Record(ctx, tx, EntityStations, id, st); err != nil {
+				return 0, err
+			}
+			return 1, nil
+		},
+	},
+	{
 		name: "batina-zero-datum-2025",
 		run: func(ctx context.Context, tx *sql.Tx, rec *ledger.Recorder) (int, error) {
 			var id string
