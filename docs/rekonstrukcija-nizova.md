@@ -53,6 +53,23 @@ niz Bezdana.
 - Ispadi telemetrije izbacuju se pri gradnji arhive, po susjedima a ne po
   apsolutnoj granici (`bezSiljaka` u `internal/arhiva/gradnja.go`).
 
+## Zašto Batina nije rekonstruirana iz Bezdana
+
+Trebala bi biti — Bezdan je 740 m uzvodno, prijenos mu je najuži (raspršenost
+10 cm naspram 32 kod Apatina i 18 kod Mohácsa), i utemeljen je 1856.
+
+Ne može se: **Bezdana i Apatina imamo tek od 2004.** (jutarnja očitanja COP-a).
+Jedini niz koji seže u 1901. je mađarski Mohács. Rekonstrukcija 1901.-2001.
+zato stoji na najslabijem od tri prijenosa.
+
+Da bi se to popravilo, treba dnevni niz Bezdana 1901.-2001. — Republički
+hidrometeorološki zavod Srbije. S njim bi se cijelo razdoblje preračunalo
+iznova, i to prijenosom koji je na istom presjeku.
+
+Dotad: dani na kojima Mohács izlazi iz mjerenog raspona izostavljeni su, a
+zabilježeni minimum -127 cm (7.1.1909.) vodi se uz letvu kao rekonstrukcija
+iz Bezdana, ne kao vrijednost niza.
+
 ## Što treba za sljedeću letvu
 
 Prije nego se niz produlji unatrag iz susjedne postaje:
