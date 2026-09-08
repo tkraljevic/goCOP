@@ -112,20 +112,43 @@ bezPragova:
 	}
 	xOf := func(t time.Time) float64 { return left + t.Sub(c.From).Seconds()/span*plotW }
 
-	var sb strings.Builder
+	// Rupa u nizu ne smije se povući ravnom crtom: to bi tvrdilo da podatak
+	// postoji ondje gdje ga nema. Crta se prekida kad razmak nadmaši višekratnik
+	// uobičajenog, pa se prazno razdoblje i vidi kao prazno.
+	prag := prazninaPrag(pts)
+
+	var crta, ploha strings.Builder
+	novaDionica := true
+	var pocetakX float64
+	zatvori := func(krajX float64) {
+		if !novaDionica {
+			fmt.Fprintf(&ploha, " L%.1f %.1f L%.1f %.1f Z", krajX, top+plotH, pocetakX, top+plotH)
+		}
+	}
 	for i, p := range pts {
 		t := ChartPoint{X: xOf(p.Kad), Y: yOf(p.Vrijednost), Level: int(math.Round(p.Vrijednost)), At: p.Kad,
 			Vrijednost: p.Vrijednost, Oznaka: brojHRf(p.Vrijednost, dec) + " " + jed}
 		c.Points = append(c.Points, t)
-		if i == 0 {
-			fmt.Fprintf(&sb, "M%.1f %.1f", t.X, t.Y)
-		} else {
-			fmt.Fprintf(&sb, " L%.1f %.1f", t.X, t.Y)
+
+		rupa := i > 0 && prag > 0 && p.Kad.Sub(pts[i-1].Kad) > prag
+		if rupa {
+			zatvori(c.Points[i-1].X)
+			c.Praznina++
+			novaDionica = true
 		}
+		if novaDionica {
+			fmt.Fprintf(&crta, " M%.1f %.1f", t.X, t.Y)
+			fmt.Fprintf(&ploha, " M%.1f %.1f", t.X, t.Y)
+			pocetakX = t.X
+			novaDionica = false
+			continue
+		}
+		fmt.Fprintf(&crta, " L%.1f %.1f", t.X, t.Y)
+		fmt.Fprintf(&ploha, " L%.1f %.1f", t.X, t.Y)
 	}
-	c.Path = sb.String()
-	prvi, zadnji := c.Points[0], c.Points[len(c.Points)-1]
-	c.Area = fmt.Sprintf("%s L%.1f %.1f L%.1f %.1f Z", c.Path, zadnji.X, top+plotH, prvi.X, top+plotH)
+	zatvori(c.Points[len(c.Points)-1].X)
+	c.Path = strings.TrimSpace(crta.String())
+	c.Area = strings.TrimSpace(ploha.String())
 
 	// Deset podjela umjesto pet: vodostaj time dobiva korak od 100 cm, koji se
 	// i inače čita, umjesto 200.
@@ -304,4 +327,31 @@ func istakni(c *Chart, od, do time.Time) {
 	}
 	c.IstakniOd, c.IstakniSir = x0, x1-x0
 	c.Istaknuto = true
+}
+
+// prazninaPrag je razmak nakon kojega se crta prekida. Uzima se iz samog niza:
+// srednji razmak pomnožen s pet. Niz koji je gust svaki sat prekida se nakon
+// nekoliko sati, a dnevni tek nakon tjedan dana — pa isto pravilo radi i na
+// satnom nizu i na godišnjem, bez ijedne unaprijed upisane brojke.
+//
+// Vraća nulu kad niz nema dovoljno točaka da se razmak uopće procijeni.
+func prazninaPrag(pts []models.SpojenaVrijednost) time.Duration {
+	if len(pts) < 4 {
+		return 0
+	}
+	razmaci := make([]time.Duration, 0, len(pts)-1)
+	for i := 1; i < len(pts); i++ {
+		if d := pts[i].Kad.Sub(pts[i-1].Kad); d > 0 {
+			razmaci = append(razmaci, d)
+		}
+	}
+	if len(razmaci) < 3 {
+		return 0
+	}
+	sort.Slice(razmaci, func(i, j int) bool { return razmaci[i] < razmaci[j] })
+	srednji := razmaci[len(razmaci)/2]
+	if srednji <= 0 {
+		return 0
+	}
+	return srednji * 5
 }

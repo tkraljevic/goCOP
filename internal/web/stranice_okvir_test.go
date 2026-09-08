@@ -223,3 +223,53 @@ func TestIsticanjeSlijediListanje(t *testing.T) {
 		t.Errorf("isticanje izlazi iz okvira: od %v širina %v", g3.IstakniOd, g3.IstakniSir)
 	}
 }
+
+// Razdoblje bez očitanja ne smije se povući ravnom crtom: to bi tvrdilo da
+// podatak postoji ondje gdje ga nema. Prag se uzima iz samog niza, pa isto
+// pravilo radi i na satnom i na godišnjem.
+func TestGrafPrekidaCrtuNaPraznini(t *testing.T) {
+	poc := time.Date(2013, 1, 1, 0, 0, 0, 0, time.UTC)
+	var niz []models.SpojenaVrijednost
+	for d := 0; d < 120; d++ {
+		if d >= 40 && d < 70 { // mjesec bez ijednog očitanja
+			continue
+		}
+		niz = append(niz, models.SpojenaVrijednost{Kad: poc.AddDate(0, 0, d), Vrijednost: float64(100 + d)})
+	}
+	g := crtajNiz(niz, "vodostaj", nil, nil)
+	if g == nil {
+		t.Fatal("graf se nije izgradio")
+	}
+	if g.Praznina != 1 {
+		t.Errorf("prekida %d, očekivano 1", g.Praznina)
+	}
+	if strings.Count(g.Path, "M") != 2 {
+		t.Errorf("crta ima %d dionica, očekivano 2", strings.Count(g.Path, "M"))
+	}
+	if strings.Count(g.Area, "Z") != 2 {
+		t.Errorf("površina ima %d dionica, očekivano 2", strings.Count(g.Area, "Z"))
+	}
+
+	// neprekinut niz ostaje jedna crta
+	var pun []models.SpojenaVrijednost
+	for d := 0; d < 120; d++ {
+		pun = append(pun, models.SpojenaVrijednost{Kad: poc.AddDate(0, 0, d), Vrijednost: float64(100 + d)})
+	}
+	c := crtajNiz(pun, "vodostaj", nil, nil)
+	if c.Praznina != 0 || strings.Count(c.Path, "M") != 1 {
+		t.Errorf("neprekinut niz razlomljen: prekida %d, dionica %d", c.Praznina, strings.Count(c.Path, "M"))
+	}
+
+	// satni niz se prekida nakon nekoliko sati, ne nakon tjedan dana
+	var satni []models.SpojenaVrijednost
+	for h := 0; h < 100; h++ {
+		if h >= 40 && h < 50 {
+			continue
+		}
+		satni = append(satni, models.SpojenaVrijednost{Kad: poc.Add(time.Duration(h) * time.Hour), Vrijednost: 200})
+	}
+	sh := crtajNiz(satni, "vodostaj", nil, nil)
+	if sh.Praznina != 1 {
+		t.Errorf("satni niz: prekida %d, očekivano 1", sh.Praznina)
+	}
+}
