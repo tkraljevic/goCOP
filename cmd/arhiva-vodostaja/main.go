@@ -1,0 +1,303 @@
+// arhiva-vodostaja gradi i osvježava arhivsku bazu hidroloških nizova iz
+// datoteka u vodostaji/.
+//
+// Arhiva je odvojena od gocop.db namjerno. Povijesni niz se ne uređuje, nitko
+// ga ne ispravlja rukom i uvijek se može ponovno napraviti iz datoteka — pa mu
+// ne treba knjiga verzija ni sinkronizacija. Bez toga jedno očitanje stoji oko
+// 20 bajta umjesto 1.400, a milijuni satnih zapisa postaju izvedivi.
+//
+// Između čvorova se prenosi kao datoteka ili se preuzme na zahtjev; u redovnu
+// razmjenu verzija ide samo katalog nizova, ne i njihov sadržaj.
+package main
+
+import (
+	"crypto/sha256"
+	"database/sql"
+	"encoding/csv"
+	"encoding/hex"
+	"flag"
+	"fmt"
+	"io"
+	"log"
+	"os"
+	"path/filepath"
+	"sort"
+	"strconv"
+	"strings"
+	"time"
+
+	_ "modernc.org/sqlite"
+)
+
+// Shema arhive. Vrijeme je broj sekundi od 1970. u UTC-u, jer tekstualni
+// vremenski žig na sedam milijuna redaka stoji više nego sam podatak.
+const shema = `
+CREATE TABLE IF NOT EXISTS nizovi (
+	id        INTEGER PRIMARY KEY,
+	sliv      TEXT NOT NULL,
+	letva     TEXT NOT NULL,
+	izvor     TEXT NOT NULL,
+	velicina  TEXT NOT NULL,   -- vodostaj | protok | temperatura
+	vrsta     TEXT NOT NULL,   -- satni | dvokratni | jutarnji | srednjak | dnevni
+	po_danu   INTEGER NOT NULL DEFAULT 0, -- 1 kad izvor daje samo datum, bez sata
+	od        TEXT NOT NULL DEFAULT '',
+	do_       TEXT NOT NULL DEFAULT '',
+	zapisa    INTEGER NOT NULL DEFAULT 0,
+	otisak    TEXT NOT NULL DEFAULT '',   -- sadržajni otisak, za provjeru pri preuzimanju
+	datoteke  TEXT NOT NULL DEFAULT '',
+	osvjezeno TEXT NOT NULL DEFAULT '',
+	UNIQUE(letva, izvor, velicina, vrsta)
+);
+CREATE TABLE IF NOT EXISTS ocitanja (
+	niz        INTEGER NOT NULL REFERENCES nizovi(id) ON DELETE CASCADE,
+	vrijeme    INTEGER NOT NULL,
+	vrijednost REAL NOT NULL,
+	PRIMARY KEY (niz, vrijeme)
+) WITHOUT ROWID;
+-- Bez posebnog indeksa po vremenu: ključ (niz, vrijeme) već nosi svaki upit
+-- oblika „daj mi ovaj niz u ovom razdoblju", a to je jedini oblik koji nam
+-- treba. Zaseban indeks stajao bi 119 MB, gotovo koliko i sami podaci.
+`
+
+type niz struct {
+	sliv, letva, izvor, velicina, vrsta string
+	datoteke                            []string
+}
+
+func main() {
+	izvorDir := flag.String("iz", "vodostaji", "mapa s datotekama, složena po slivu i letvi")
+	baza := flag.String("baza", "data/vodostaji.db", "arhivska baza")
+	samo := flag.String("letva", "", "gradi samo zadanu letvu")
+	flag.Parse()
+
+	nizovi, err := popisi(*izvorDir, *samo)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if len(nizovi) == 0 {
+		log.Fatal("nema nijednog niza za uvoz")
+	}
+
+	db, err := sql.Open("sqlite", *baza+"?_pragma=journal_mode(WAL)&_pragma=synchronous(OFF)")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+	if _, err := db.Exec(shema); err != nil {
+		log.Fatal(err)
+	}
+
+	kljucevi := make([]string, 0, len(nizovi))
+	for k := range nizovi {
+		kljucevi = append(kljucevi, k)
+	}
+	sort.Strings(kljucevi)
+
+	ukupno := 0
+	for _, k := range kljucevi {
+		n := nizovi[k]
+		upisano, od, do, otisak, err := ubaci(db, n)
+		if err != nil {
+			log.Fatalf("%s: %v", k, err)
+		}
+		fmt.Printf("%-8s %-16s %-22s %-12s %-10s %8d  %s .. %s  %s\n",
+			n.sliv, n.letva, n.izvor, n.velicina, n.vrsta, upisano, od, do, otisak[:8])
+		ukupno += upisano
+	}
+	fmt.Printf("\nnizova %d, očitanja %d\n", len(nizovi), ukupno)
+	if st, err := os.Stat(*baza); err == nil {
+		fmt.Printf("%s: %.1f MB\n", *baza, float64(st.Size())/1e6)
+	}
+}
+
+// popisi prolazi stablo i grupira datoteke u nizove. Jedan niz je jedna letva,
+// jedan izvor, jedna veličina i jedna vrsta — bez obzira na koliko je godišnjih
+// datoteka razlomljen.
+func popisi(koren, samo string) (map[string]*niz, error) {
+	out := map[string]*niz{}
+	slivovi, err := os.ReadDir(koren)
+	if err != nil {
+		return nil, err
+	}
+	for _, s := range slivovi {
+		if !s.IsDir() || strings.HasPrefix(s.Name(), "PRISTUP") {
+			continue
+		}
+		letve, err := os.ReadDir(filepath.Join(koren, s.Name()))
+		if err != nil {
+			return nil, err
+		}
+		for _, l := range letve {
+			if !l.IsDir() || (samo != "" && l.Name() != samo) {
+				continue
+			}
+			d := filepath.Join(koren, s.Name(), l.Name())
+			dats, err := os.ReadDir(d)
+			if err != nil {
+				return nil, err
+			}
+			for _, f := range dats {
+				if f.IsDir() || !strings.HasSuffix(f.Name(), ".csv") {
+					continue
+				}
+				dj := strings.Split(strings.TrimSuffix(f.Name(), ".csv"), "_")
+				if len(dj) != 5 {
+					fmt.Fprintf(os.Stderr, "  preskačem, naziv nije po dogovoru: %s\n", f.Name())
+					continue
+				}
+				k := strings.Join([]string{l.Name(), dj[1], dj[2], dj[3]}, "|")
+				if out[k] == nil {
+					out[k] = &niz{sliv: s.Name(), letva: l.Name(), izvor: dj[1], velicina: dj[2], vrsta: dj[3]}
+				}
+				out[k].datoteke = append(out[k].datoteke, filepath.Join(d, f.Name()))
+			}
+		}
+	}
+	for _, n := range out {
+		sort.Strings(n.datoteke)
+	}
+	return out, nil
+}
+
+type zapis struct {
+	t int64
+	v float64
+}
+
+func ubaci(db *sql.DB, n *niz) (int, string, string, string, error) {
+	var zapisi []zapis
+	poDanu := false
+	for _, p := range n.datoteke {
+		z, d, err := citaj(p)
+		if err != nil {
+			return 0, "", "", "", err
+		}
+		poDanu = poDanu || d
+		zapisi = append(zapisi, z...)
+	}
+	// isti trenutak iz dvije datoteke: zadnja pročitana vrijedi
+	sort.SliceStable(zapisi, func(i, j int) bool { return zapisi[i].t < zapisi[j].t })
+	saz := make([]zapis, 0, len(zapisi))
+	for i, z := range zapisi {
+		if i > 0 && z.t == zapisi[i-1].t {
+			saz[len(saz)-1] = z
+			continue
+		}
+		saz = append(saz, z)
+	}
+	zapisi = saz
+	if len(zapisi) == 0 {
+		return 0, "", "", "", fmt.Errorf("nijedan čitljiv redak")
+	}
+
+	h := sha256.New()
+	for _, z := range zapisi {
+		fmt.Fprintf(h, "%d:%g\n", z.t, z.v)
+	}
+	otisak := hex.EncodeToString(h.Sum(nil))
+
+	od := time.Unix(zapisi[0].t, 0).UTC().Format("2006-01-02")
+	do := time.Unix(zapisi[len(zapisi)-1].t, 0).UTC().Format("2006-01-02")
+
+	tx, err := db.Begin()
+	if err != nil {
+		return 0, "", "", "", err
+	}
+	defer tx.Rollback()
+
+	var id int64
+	err = tx.QueryRow(`SELECT id FROM nizovi WHERE letva=? AND izvor=? AND velicina=? AND vrsta=?`,
+		n.letva, n.izvor, n.velicina, n.vrsta).Scan(&id)
+	if err == sql.ErrNoRows {
+		res, err := tx.Exec(`INSERT INTO nizovi (sliv, letva, izvor, velicina, vrsta) VALUES (?,?,?,?,?)`,
+			n.sliv, n.letva, n.izvor, n.velicina, n.vrsta)
+		if err != nil {
+			return 0, "", "", "", err
+		}
+		id, _ = res.LastInsertId()
+	} else if err != nil {
+		return 0, "", "", "", err
+	}
+
+	// niz se gradi cijeli iz svojih datoteka, pa se stari sadržaj miče
+	if _, err := tx.Exec(`DELETE FROM ocitanja WHERE niz = ?`, id); err != nil {
+		return 0, "", "", "", err
+	}
+	st, err := tx.Prepare(`INSERT INTO ocitanja (niz, vrijeme, vrijednost) VALUES (?,?,?)`)
+	if err != nil {
+		return 0, "", "", "", err
+	}
+	defer st.Close()
+	for _, z := range zapisi {
+		if _, err := st.Exec(id, z.t, z.v); err != nil {
+			return 0, "", "", "", err
+		}
+	}
+	pd := 0
+	if poDanu {
+		pd = 1
+	}
+	if _, err := tx.Exec(`UPDATE nizovi SET sliv=?, po_danu=?, od=?, do_=?, zapisa=?, otisak=?, datoteke=?, osvjezeno=? WHERE id=?`,
+		n.sliv, pd, od, do, len(zapisi), otisak, strings.Join(kratka(n.datoteke), " "),
+		time.Now().UTC().Format(time.RFC3339), id); err != nil {
+		return 0, "", "", "", err
+	}
+	return len(zapisi), od, do, otisak, tx.Commit()
+}
+
+func kratka(p []string) []string {
+	out := make([]string, len(p))
+	for i, x := range p {
+		out[i] = filepath.Base(x)
+	}
+	return out
+}
+
+// citaj čita jednu datoteku iz vodostaji/. Prvi stupac je vrijeme_utc ili
+// datum, drugi vrijednost; decimalni zarez je hrvatski zapis.
+func citaj(put string) ([]zapis, bool, error) {
+	f, err := os.Open(put)
+	if err != nil {
+		return nil, false, err
+	}
+	defer f.Close()
+	cr := csv.NewReader(f)
+	cr.Comma = ';'
+	cr.FieldsPerRecord = -1
+
+	glava, err := cr.Read()
+	if err != nil {
+		return nil, false, err
+	}
+	poDanu := len(glava) > 0 && strings.EqualFold(strings.TrimPrefix(glava[0], "\ufeff"), "datum")
+
+	var out []zapis
+	for i := 2; ; i++ {
+		r, err := cr.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, false, fmt.Errorf("%s redak %d: %w", filepath.Base(put), i, err)
+		}
+		if len(r) < 2 || strings.TrimSpace(r[1]) == "" {
+			continue
+		}
+		s := strings.TrimSpace(r[0])
+		var t time.Time
+		if len(s) >= 19 {
+			t, err = time.Parse("2006-01-02 15:04:05", s[:19])
+		} else {
+			t, err = time.Parse("2006-01-02", s[:10])
+		}
+		if err != nil {
+			return nil, false, fmt.Errorf("%s redak %d: vrijeme %q: %w", filepath.Base(put), i, s, err)
+		}
+		v, err := strconv.ParseFloat(strings.ReplaceAll(strings.TrimSpace(r[1]), ",", "."), 64)
+		if err != nil {
+			return nil, false, fmt.Errorf("%s redak %d: vrijednost %q: %w", filepath.Base(put), i, r[1], err)
+		}
+		out = append(out, zapis{t: t.UTC().Unix(), v: v})
+	}
+	return out, poDanu, nil
+}
