@@ -1834,3 +1834,50 @@ func TestNajniziVodostajiStojeJedanUzDrugi(t *testing.T) {
 		t.Error("letva bez ekstrema dobila je prazan redak")
 	}
 }
+
+// Položaj letve: stupnjevi i minute kako stoji u zapisniku DHMZ-a, decimalni
+// oblik za strojeve, i poveznica na kartu — vanjska, jer program radi bez
+// interneta.
+func TestPolozajLetveNaKartici(t *testing.T) {
+	lat, lon := 45.845833, 18.854722
+	st := models.Station{ID: uuid.New(), Name: "Batina", Code: "batina",
+		Latitude: &lat, Longitude: &lon}
+	if !st.ImaKoordinate() {
+		t.Fatal("letva s koordinatama tvrdi da ih nema")
+	}
+	if got := st.KoordinateHR(); got != "45° 50′ 45″ S  18° 51′ 17″ I" {
+		t.Errorf("koordinate ispisane kao %q", got)
+	}
+	if u := st.KartaURL(); !strings.Contains(u, "45.845833") || !strings.Contains(u, "18.854722") {
+		t.Errorf("poveznica na kartu: %s", u)
+	}
+
+	html := iscrtaj(t, "station_detail.html", StationPageData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Station:     st,
+	})
+	for _, want := range []string{"45° 50′ 45″ S", "45,845833", "Otvori na karti", "openstreetmap.org"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("na kartici nema %q", want)
+		}
+	}
+	// poveznica se otvara izvan programa i ne nosi referrer
+	if !strings.Contains(html, `rel="noopener noreferrer"`) {
+		t.Error("vanjska poveznica bez noopener")
+	}
+
+	// letva bez koordinata ne dobiva prazan okvir
+	bez := models.Station{ID: uuid.New(), Name: "Bez", Code: "bez"}
+	if bez.ImaKoordinate() || bez.KoordinateHR() != "" || bez.KartaURL() != "" {
+		t.Error("letva bez koordinata vraća položaj")
+	}
+	prazna := iscrtaj(t, "station_detail.html", StationPageData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Station:     bez,
+	})
+	if strings.Contains(prazna, "Otvori na karti") {
+		t.Error("letva bez koordinata dobila je gumb za kartu")
+	}
+}
