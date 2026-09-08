@@ -95,8 +95,8 @@
 <section class="detail-section">
   <h2>{{icon "upload"}} Unesi više očitanja odjednom</h2>
   <p class="page-desc">
-    Zalijepi ispis s letva.voda.hr ili odaberi datoteku. Program prvo pokaže što bi se upisalo.
-    Već upisana očitanja se preskaču.
+    Zalijepi ispis s letva.voda.hr ili odaberi datoteku — tekst, CSV ili Excel (.xlsx).
+    Program prvo pokaže što bi se upisalo; već upisana očitanja se preskaču.
   </p>
   <form method="POST" action="/readings/station/{{.Station.ID}}/zalijepi" enctype="multipart/form-data"
         class="table-card" style="padding:1rem 1.25rem;">
@@ -107,7 +107,7 @@
                 placeholder="07.09.2026. 00 h    -118&#10;07.09.2026. 01 h    -118&#10;07.09.2026. 02 h    -119"></textarea>
     </div>
     <div style="display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap;">
-      <input type="file" name="datoteka" accept=".csv,.txt,text/plain,text/csv" class="form-control" style="max-width:18rem;">
+      <input type="file" name="datoteka" accept=".csv,.txt,.xlsx,text/plain,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="form-control" style="max-width:18rem;">
       <button type="submit" class="btn btn-secondary">{{icon "eye"}} Pogledaj što bi se upisalo</button>
     </div>
   </form>

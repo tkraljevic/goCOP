@@ -1,6 +1,7 @@
 package web
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"html/template"
@@ -855,8 +856,27 @@ func (h *ReadingsHandler) HandleZalijepiPregled(w http.ResponseWriter, r *http.R
 	tekst := r.FormValue("tekst")
 	if f, _, err := r.FormFile("datoteka"); err == nil {
 		defer f.Close()
-		if b, err := io.ReadAll(io.LimitReader(f, 8<<20)); err == nil && len(b) > 0 {
-			tekst = strings.TrimPrefix(string(b), "\ufeff")
+		if b, err := io.ReadAll(io.LimitReader(f, 16<<20)); err == nil && len(b) > 0 {
+			// .xlsx počinje kao zip; sve ostalo se čita kao tekst
+			if len(b) > 2 && b[0] == 'P' && b[1] == 'K' {
+				redci, err := procitajXLSX(b)
+				if err != nil {
+					redirectWith(w, r, back, "error", err.Error())
+					return
+				}
+				t, _, err := xlsxUOcitanja(redci)
+				if err != nil {
+					redirectWith(w, r, back, "error", err.Error())
+					return
+				}
+				tekst = t
+			} else if bytes.HasPrefix(b, []byte{0xD0, 0xCF, 0x11, 0xE0}) {
+				redirectWith(w, r, back, "error",
+					"Ovo je stari Excel oblik (.xls). Spremi datoteku kao .xlsx pa je ponovno pošalji.")
+				return
+			} else {
+				tekst = strings.TrimPrefix(string(b), "\ufeff")
+			}
 		}
 	}
 	if strings.TrimSpace(tekst) == "" {

@@ -27,7 +27,9 @@ import (
 // dva različita sata i izgledalo kao dvije različite vrijednosti.
 
 var (
-	reSatni  = regexp.MustCompile(`^\s*(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})\.?\s+(\d{1,2})\s*h?\s+(-?[\d.,]+)\s*$`)
+	// „07.09.2026. 00 h  -118“ s letvina zaslona i „08.09.2026. 00:00  -123“ iz
+	// njezina Excel ispisa — isti podatak, dva zapisa istog sata
+	reSatni  = regexp.MustCompile(`^\s*(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})\.?\s+(\d{1,2})(?::\d{2})?\s*h?\s+(-?[\d.,]+)\s*$`)
 	reDnevni = regexp.MustCompile(`^\s*(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})\.?\s+(-?[\d.,]+)\s*$`)
 	reISO    = regexp.MustCompile(`^\s*(\d{4})-(\d{2})-(\d{2})[ T]?(\d{2})?:?\d*:?\d*\s*[;\t ]\s*(-?[\d.,]+)\s*$`)
 
