@@ -119,18 +119,56 @@ type HidroGodina struct {
 	Min, Max     float64
 	MinNa, MaxNa string
 	Srednjak     float64
-	Nepotpuna    bool // godina nije pokrivena cijela
+	Zbroj        float64 // za veličine koje se gomilaju, npr. pronos nanosa
+	Nepotpuna    bool    // godina nije pokrivena cijela
+}
+
+// HidroMjesec su vrijednosti jednog mjeseca kroz sve godine niza. Otud se
+// vidi godišnji hod: kad voda redovito raste, a kad presuši.
+type HidroMjesec struct {
+	Mjesec   int
+	Zapisa   int
+	Min, Max float64
+	Srednjak float64
+}
+
+// Naziv je mjesec ispisan.
+func (m HidroMjesec) Naziv() string {
+	mj := []string{"siječanj", "veljača", "ožujak", "travanj", "svibanj", "lipanj",
+		"srpanj", "kolovoz", "rujan", "listopad", "studeni", "prosinac"}
+	if m.Mjesec >= 1 && m.Mjesec <= 12 {
+		return mj[m.Mjesec-1]
+	}
+	return ""
+}
+
+// TrajanjeTocka je vrijednost koja je dosegnuta ili premašena zadani postotak
+// vremena. Krivulja trajanja govori ono što ekstremi ne mogu: koliko je često
+// voda bila visoka, a ne samo koliko je najviše bila.
+type TrajanjeTocka struct {
+	Postotak   int
+	Vrijednost float64
 }
 
 // HidroPregled je ono što se o nizu može reći bez ijedne odluke: raspon,
-// ekstremi i godine.
+// ekstremi, godišnji hod i trajanje.
 type HidroPregled struct {
 	Niz          HidroNiz
 	Godine       []HidroGodina
+	Mjeseci      []HidroMjesec
+	Trajanje     []TrajanjeTocka
 	Min, Max     float64
 	MinNa, MaxNa string
 	Srednjak     float64
+
+	// Zbroj ima smisla samo za veličine koje se gomilaju — pronos nanosa se
+	// zbraja, vodostaj se ne. Zato stoji odvojeno od srednjaka.
+	ZbrojIma bool
+	Zbroj    float64
 }
+
+// SeZbraja govori gomila li se veličina kroz vrijeme.
+func SeZbraja(velicina string) bool { return velicina == "pronos" }
 
 // ProfilKorita je snimak poprečnog profila u jednom danu.
 type ProfilKorita struct {

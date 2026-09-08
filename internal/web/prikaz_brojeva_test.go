@@ -511,3 +511,54 @@ func TestKarticaLetveCrtaKoritoIArhivu(t *testing.T) {
 		}
 	}
 }
+
+// Godišnji hod, trajanje i zbroj. Zbroj se ispisuje samo za veličine koje se
+// gomilaju — pronos nanosa se zbraja, vodostaj nema smisla zbrajati.
+func TestKarticaLetvePrikazujeHodTrajanjeIZbroj(t *testing.T) {
+	osnovno := func(p *models.HidroPregled) string {
+		return iscrtaj(t, "station_detail.html", StationPageData{
+			CurrentUser: &models.User{FullName: "Provjera"},
+			Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+			Station:     models.Station{ID: uuid.MustParse("c625fa9d-0425-5115-8c49-8819cbb17bbd"), Name: "Batina", Code: "batina"},
+			Nizovi:      []models.HidroNiz{p.Niz},
+			NizID:       p.Niz.ID,
+			Pregled:     p,
+		})
+	}
+
+	vodostaj := &models.HidroPregled{
+		Niz: models.HidroNiz{ID: 1, Izvor: "his2000", Velicina: "vodostaj", Vrsta: "satni"},
+		Min: -128, Max: 772, Srednjak: 201.4,
+		Godine: []models.HidroGodina{{Godina: 2013, Zapisa: 8760, Max: 772, Min: 12, Srednjak: 244.1}},
+		Mjeseci: []models.HidroMjesec{
+			{Mjesec: 1, Zapisa: 18600, Min: -60, Max: 632, Srednjak: 168.5},
+			{Mjesec: 6, Zapisa: 18000, Min: -20, Max: 772, Srednjak: 262.0},
+		},
+		Trajanje: []models.TrajanjeTocka{{Postotak: 5, Vrijednost: 457}, {Postotak: 95, Vrijednost: -6}},
+	}
+	html := osnovno(vodostaj)
+	for _, want := range []string{"Godišnji hod", "siječanj", "lipanj", "168,5", "Trajanje", "457", "-6"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("nema %q", want)
+		}
+	}
+	if strings.Contains(html, "ukupno kroz razdoblje") {
+		t.Error("vodostaj se ne zbraja, a zbroj se ispisuje")
+	}
+
+	pronos := &models.HidroPregled{
+		Niz: models.HidroNiz{ID: 2, Izvor: "his2000", Velicina: "pronos", Vrsta: "dnevni"},
+		Min: 37.5, Max: 145575, Srednjak: 6005.7,
+		ZbrojIma: true, Zbroj: 15470641,
+		Godine: []models.HidroGodina{{Godina: 2019, Zapisa: 365, Max: 145575, Min: 40, Srednjak: 7000, Zbroj: 2555000}},
+	}
+	html = osnovno(pronos)
+	for _, want := range []string{"Pronos nanosa", "ukupno kroz razdoblje", "15.470.641", "2.555.000"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("nema %q", want)
+		}
+	}
+	if !models.SeZbraja("pronos") || models.SeZbraja("vodostaj") {
+		t.Error("pravilo o zbrajanju nije ispravno")
+	}
+}

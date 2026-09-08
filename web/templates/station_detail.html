@@ -231,12 +231,13 @@
       <span>najviše <strong>{{brojHRf .Pregled.Max 0}} {{.Pregled.Niz.Jedinica}}</strong> {{.Pregled.MaxNa}}</span>
       <span>najniže <strong>{{brojHRf .Pregled.Min 0}} {{.Pregled.Niz.Jedinica}}</strong> {{.Pregled.MinNa}}</span>
       <span>srednjak razdoblja <strong>{{brojHRf .Pregled.Srednjak 1}} {{.Pregled.Niz.Jedinica}}</strong></span>
+      {{if .Pregled.ZbrojIma}}<span>ukupno kroz razdoblje <strong>{{brojHRf .Pregled.Zbroj 0}} {{.Pregled.Niz.Jedinica}}</strong></span>{{end}}
       <span class="reg-card-sub">{{len .Pregled.Godine}} godina</span>
     </div>
   </div>
   <div class="table-card"><div class="table-responsive" style="max-height:26rem; overflow-y:auto;">
     <table class="data-table">
-      <thead><tr><th>Godina</th><th style="text-align:right;">Maksimum</th><th>Nastupio</th><th style="text-align:right;">Minimum</th><th>Nastupio</th><th style="text-align:right;">Srednjak</th><th style="text-align:right;">Zapisa</th></tr></thead>
+      <thead><tr><th>Godina</th><th style="text-align:right;">Maksimum</th><th>Nastupio</th><th style="text-align:right;">Minimum</th><th>Nastupio</th><th style="text-align:right;">Srednjak</th>{{if .Pregled.ZbrojIma}}<th style="text-align:right;">Ukupno</th>{{end}}<th style="text-align:right;">Zapisa</th></tr></thead>
       <tbody>
       {{range .Pregled.Godine}}
       <tr>
@@ -246,12 +247,50 @@
         <td class="mono" style="text-align:right;">{{brojHRf .Min 0}}</td>
         <td class="mono">{{.MinNa}}</td>
         <td class="mono" style="text-align:right;">{{brojHRf .Srednjak 1}}</td>
+        {{if $.Pregled.ZbrojIma}}<td class="mono" style="text-align:right;">{{brojHRf .Zbroj 0}}</td>{{end}}
         <td class="mono" style="text-align:right;">{{brojHR .Zapisa}}</td>
       </tr>
       {{end}}
       </tbody>
     </table>
   </div></div>
+  {{end}}
+
+  {{if .Pregled.Mjeseci}}
+  <h3 class="part-label" style="margin:1.25rem 0 0.35rem 0;">Godišnji hod</h3>
+  <p class="page-desc">Isti mjesec kroz svih {{len .Pregled.Godine}} godina — kad voda redovito raste, a kad presuši.</p>
+  <div class="table-card"><div class="table-responsive">
+    <table class="data-table">
+      <thead><tr><th>Mjesec</th><th style="text-align:right;">Srednjak</th><th style="text-align:right;">Najniže</th><th style="text-align:right;">Najviše</th><th></th></tr></thead>
+      <tbody>
+      {{range .Pregled.Mjeseci}}
+      <tr>
+        <td>{{.Naziv}}</td>
+        <td class="mono" style="text-align:right;"><strong>{{brojHRf .Srednjak 1}}</strong></td>
+        <td class="mono" style="text-align:right;">{{brojHRf .Min 0}}</td>
+        <td class="mono" style="text-align:right;">{{brojHRf .Max 0}}</td>
+        <td style="width:40%; padding-right:1rem;">
+          <div style="background:var(--border); height:8px; border-radius:4px; overflow:hidden;">
+            <div style="background:var(--primary); height:8px; width:{{mjesecUdio .Srednjak $.Pregled}}%;"></div>
+          </div>
+        </td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div></div>
+  {{end}}
+
+  {{if .Pregled.Trajanje}}
+  <h3 class="part-label" style="margin:1.25rem 0 0.35rem 0;">Trajanje</h3>
+  <p class="page-desc">Vrijednost koja je dosegnuta ili premašena zadani dio vremena. Ekstremi kažu koliko je najviše bilo, trajanje koliko je često bilo.</p>
+  <div class="table-card"><div class="table-responsive">
+    <table class="data-table">
+      <thead><tr>{{range .Pregled.Trajanje}}<th style="text-align:right;">{{.Postotak}} %</th>{{end}}</tr></thead>
+      <tbody><tr>{{range .Pregled.Trajanje}}<td class="mono" style="text-align:right;">{{brojHRf .Vrijednost 0}}</td>{{end}}</tr></tbody>
+    </table>
+  </div></div>
+  <p class="page-desc" style="margin-top:0.4rem;">Npr. „5 %" znači da je {{velicinaLabel .Pregled.Niz.Velicina | lower}} bio te vrijednosti ili viši u 5 % vremena.</p>
   {{end}}
 
   {{if .Krivulje}}
