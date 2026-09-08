@@ -166,9 +166,11 @@ type Chart struct {
 }
 
 type ChartPoint struct {
-	X, Y  float64
-	Level int
-	At    time.Time
+	X, Y       float64
+	Level      int
+	At         time.Time
+	Vrijednost float64 // izvorna vrijednost, kad cijeli broj nije dovoljan
+	Oznaka     string  // vrijednost s jedinicom, za opis pri prelasku mišem
 }
 
 type ChartTick struct {
@@ -806,17 +808,8 @@ func (h *ReadingsHandler) arhivaZaLetvu(ctx context.Context, r *http.Request,
 
 	// Graf crta cijelu godinu, ne samo prikazanu stranicu — inače bi se mijenjao
 	// pri svakom listanju i ne bi značio ono što piše.
-	if data.ArhVelicina == "vodostaj" {
-		cijela, _ := a.SpojRaspon(ctx, station.Code, data.ArhVelicina, data.ArhKorak, od, do, 20000, 0)
-		if len(cijela) > 1 {
-			kao := make([]models.Reading, 0, len(cijela))
-			for _, v := range cijela {
-				cm := int(v.Vrijednost)
-				kao = append(kao, models.Reading{MeasuredAt: v.Kad, LevelCm: &cm})
-			}
-			data.ArhChart = buildChart(prorijedi(kao, 700), station, false)
-		}
-	}
+	cijela, _ := a.SpojRaspon(ctx, station.Code, data.ArhVelicina, data.ArhKorak, od, do, 20000, 0)
+	data.ArhChart = crtajNiz(prorijediNiz(cijela, 700), data.ArhVelicina, station)
 
 }
 
