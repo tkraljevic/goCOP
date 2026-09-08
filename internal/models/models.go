@@ -358,6 +358,47 @@ func QualityLabel(q string) string {
 	}
 }
 
+// NajviseIzmjereno vraća najviši vodostaj koji je doista izmjeren na ovoj
+// letvi. To je jedina brojka koja smije ući u pragove i u izračun faze.
+func (s Station) NajviseIzmjereno() *StationExtreme {
+	var naj *StationExtreme
+	for i, e := range s.Extremes {
+		if e.Kind != ExtremeMax || !e.IsMeasured() || e.LevelCm == nil {
+			continue
+		}
+		if naj == nil || *e.LevelCm > *naj.LevelCm {
+			naj = &s.Extremes[i]
+		}
+	}
+	return naj
+}
+
+// NajviseZabiljezeno vraća najviši vodostaj koji se za ovu letvu vodi, bez
+// obzira je li mjeren ili preračunat s druge postaje.
+//
+// Batina ima oba: +775 cm izmjereno 14.6.2013. i +795 cm 24.6.1965.,
+// preračunato iz Bezdana. Oba su točna, samo odgovaraju na različita pitanja —
+// „koliko je najviše izmjereno" i „koliko je najviše bilo".
+func (s Station) NajviseZabiljezeno() *StationExtreme {
+	var naj *StationExtreme
+	for i, e := range s.Extremes {
+		if e.Kind != ExtremeMax || e.LevelCm == nil {
+			continue
+		}
+		if naj == nil || *e.LevelCm > *naj.LevelCm {
+			naj = &s.Extremes[i]
+		}
+	}
+	return naj
+}
+
+// RekordSeRazlikuje govori je li najviši zabilježeni viši od najvišeg
+// izmjerenog — tada se moraju prikazati oba, jer bi jedan bez drugoga lagao.
+func (s Station) RekordSeRazlikuje() bool {
+	iz, zab := s.NajviseIzmjereno(), s.NajviseZabiljezeno()
+	return iz != nil && zab != nil && *zab.LevelCm > *iz.LevelCm
+}
+
 // ExtremesOf vraća ekstreme zadane vrste, redom kojim su upisani.
 func (s Station) ExtremesOf(kind string) []StationExtreme {
 	var out []StationExtreme

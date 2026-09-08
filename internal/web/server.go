@@ -71,6 +71,7 @@ func templateFuncs() template.FuncMap {
 	return template.FuncMap{
 		"basisLabel":    models.BasisLabel,
 		"velicinaLabel": models.NazivVelicine,
+		"kvaliteta":     models.QualityLabel,
 		"lower":         strings.ToLower,
 		// udio mjesečnog srednjaka u rasponu niza, za stupčić uz tablicu
 		"mjesecUdio": func(v float64, p *models.HidroPregled) int {

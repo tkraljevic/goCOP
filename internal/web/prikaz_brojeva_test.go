@@ -601,3 +601,50 @@ func TestKarticaLetvePrikazujeSpojeniNiz(t *testing.T) {
 		t.Errorf("udio bez ukupnog broja mora biti 0, dobiveno %d", u)
 	}
 }
+
+// Batina ima dva najviša vodostaja: +775 cm izmjereno 2013. i +795 cm iz
+// 1965., preračunato s Bezdana. Oba su točna i moraju stajati jedan uz drugi,
+// ali samo izmjereni smije ulaziti u pragove.
+func TestKarticaLetveRazdvajaIzmjereniOdZabiljezenog(t *testing.T) {
+	cm := func(v int) *int { return &v }
+	st := models.Station{
+		ID: uuid.MustParse("c625fa9d-0425-5115-8c49-8819cbb17bbd"), Name: "Batina", Code: "batina",
+		Extremes: []models.StationExtreme{
+			{Kind: models.ExtremeMax, LevelCm: cm(775), OnDate: "2013-06-14", Quality: models.QualityMeasured, Source: "DHMZ"},
+			{Kind: models.ExtremeMax, LevelCm: cm(795), OnDate: "1965-06-24", Quality: models.QualityReconstructed, Source: "postaja Bezdan"},
+			{Kind: models.ExtremeMin, LevelCm: cm(-127), OnDate: "1909-01-07", Quality: models.QualityMeasured},
+		},
+	}
+	if !st.RekordSeRazlikuje() {
+		t.Fatal("Batina ima različit izmjereni i zabilježeni maksimum")
+	}
+	if v := st.NajviseIzmjereno(); v == nil || *v.LevelCm != 775 {
+		t.Errorf("najviši izmjereni %v, očekivano 775", v)
+	}
+	if v := st.NajviseZabiljezeno(); v == nil || *v.LevelCm != 795 {
+		t.Errorf("najviši zabilježeni %v, očekivano 795", v)
+	}
+
+	html := iscrtaj(t, "station_detail.html", StationPageData{
+		CurrentUser: &models.User{FullName: "Provjera"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Station:     st,
+	})
+	for _, want := range []string{
+		"Najviši izmjereni", "&#43;775 cm", "2013-06-14",
+		"Najviši zabilježeni", "&#43;795 cm", "1965-06-24", "rekonstruirano",
+		"U pragove i u izračun faze ulazi samo izmjereni",
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("na kartici nema %q", want)
+		}
+	}
+
+	// letva bez rekonstruiranog maksimuma prikazuje samo jedan redak
+	jedan := models.Station{Name: "Osijek", Code: "osijek", Extremes: []models.StationExtreme{
+		{Kind: models.ExtremeMax, LevelCm: cm(514), OnDate: "2013-06-16", Quality: models.QualityMeasured},
+	}}
+	if jedan.RekordSeRazlikuje() {
+		t.Error("letva s jednim maksimumom ne smije prikazivati dva")
+	}
+}

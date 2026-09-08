@@ -43,9 +43,23 @@
       <div><dt>Redovna obrana</dt><dd><span class="threshold-pill regular">{{.Station.Regular.Label}}</span></dd></div>
       <div><dt>Izvanredna obrana</dt><dd><span class="threshold-pill emerg">{{.Station.Emergency.Label}}</span></dd></div>
       <div><dt>Izvanredno stanje</dt><dd><span class="threshold-pill crit">{{.Station.State.Label}}</span></dd></div>
+      {{if .Station.RekordSeRazlikuje}}
+      <div><dt>Najviši izmjereni</dt><dd>
+        <span class="threshold-pill record">{{with .Station.NajviseIzmjereno}}{{.Label}}{{end}}</span>
+        <div class="reg-card-sub" style="margin-top:0.2rem;">{{with .Station.NajviseIzmjereno}}{{.OnDate}}{{end}}</div>
+      </dd></div>
+      <div><dt>Najviši zabilježeni</dt><dd>
+        <span class="threshold-pill record" style="opacity:0.75;">{{with .Station.NajviseZabiljezeno}}{{.Label}}{{end}}</span>
+        <div class="reg-card-sub" style="margin-top:0.2rem;">
+          {{with .Station.NajviseZabiljezeno}}{{.OnDate}} · {{kvaliteta .Quality}}{{end}}
+        </div>
+      </dd></div>
+      {{else}}
       <div><dt>Najviši zabilježeni</dt><dd><span class="threshold-pill record">{{.Station.Record.Label}}</span></dd></div>
+      {{end}}
     </dl>
     <p class="page-desc" style="margin-top:0.75rem;">
+      {{if .Station.RekordSeRazlikuje}}U pragove i u izračun faze ulazi samo izmjereni. Zabilježeni je viši, ali preračunat s druge postaje, pa nije mjerilo za ovu letvu.<br>{{end}}
       {{if .Station.HasUsableThresholds}}Pragovi u centimetrima ulaze u automatski izračun stupnja obrane.
       {{else}}Nijedan prag nije u centimetrima, pa se stupanj obrane za ovu postaju ne računa automatski.{{end}}
     </p>
