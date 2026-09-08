@@ -492,7 +492,9 @@ func (r *ArhivaRepository) SpojRaspon(ctx context.Context, letva, velicina, kora
 	if r == nil {
 		return nil, nil
 	}
-	if granica <= 0 || granica > 5000 {
+	// Satna godina ima 8.760 vrijednosti; niža granica tiho bi odrezala
+	// početak godine, jer se čita od najnovije prema starijoj.
+	if granica <= 0 || granica > 20000 {
 		granica = 400
 	}
 	if odmak < 0 {
