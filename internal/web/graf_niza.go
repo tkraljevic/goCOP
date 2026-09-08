@@ -30,7 +30,10 @@ func crtajNiz(vals []models.SpojenaVrijednost, velicina string, station *models.
 	dec := decimalaVelicine(velicina)
 	jed := models.JedinicaVelicine(velicina)
 
-	c := &Chart{Width: 640, Height: 220, From: pts[0].Kad, To: pts[len(pts)-1].Kad}
+	// Koordinatni sustav je namjerno velik: SVG se razvlači na širinu stupca,
+	// pa bi u malom sustavu svaka oznaka narasla tri puta. Ovako je omjer blizu
+	// jedan naprama jedan i tekst ostaje sitan.
+	c := &Chart{Width: 1600, Height: 420, From: pts[0].Kad, To: pts[len(pts)-1].Kad}
 	najn, najv := pts[0].Vrijednost, pts[0].Vrijednost
 	for _, p := range pts {
 		najn = math.Min(najn, p.Vrijednost)
@@ -70,7 +73,7 @@ func crtajNiz(vals []models.SpojenaVrijednost, velicina string, station *models.
 	pad := (najv - najn) / 10
 	c.Min, c.Max = int(math.Floor(najn-pad)), int(math.Ceil(najv+pad))
 
-	const left, right, top, bottom = 52.0, 12.0, 12.0, 28.0
+	const left, right, top, bottom = 96.0, 116.0, 22.0, 46.0
 	plotW := float64(c.Width) - left - right
 	plotH := float64(c.Height) - top - bottom
 	span := c.To.Sub(c.From).Seconds()
@@ -97,17 +100,77 @@ func crtajNiz(vals []models.SpojenaVrijednost, velicina string, station *models.
 	prvi, zadnji := c.Points[0], c.Points[len(c.Points)-1]
 	c.Area = fmt.Sprintf("%s L%.1f %.1f L%.1f %.1f Z", c.Path, zadnji.X, top+plotH, prvi.X, top+plotH)
 
-	korak := niceStep(float64(c.Max-c.Min) / 5)
+	// Deset podjela umjesto pet: vodostaj time dobiva korak od 100 cm, koji se
+	// i inače čita, umjesto 200.
+	korak := niceStep(float64(c.Max-c.Min) / 10)
 	for v := math.Ceil(float64(c.Min)/korak) * korak; v <= float64(c.Max); v += korak {
 		c.YTicks = append(c.YTicks, ChartTick{Pos: yOf(v), Label: brojHRf(v, decimalaOsi(korak))})
 	}
 	for _, p := range pragovi {
 		c.Thresholds = append(c.Thresholds, ChartLine{Y: yOf(float64(p.cm)), Label: p.label, Class: p.class})
 	}
-	for _, t := range []time.Time{c.From, c.From.Add(time.Duration(span/2) * time.Second), c.To} {
-		c.XTicks = append(c.XTicks, ChartTick{Pos: xOf(t), Label: t.Format("2.1.2006.")})
+	c.XTicks = vodoravneOznake(c.From, c.To, xOf)
+
+	// Točke za pokazivač uz miša. Sam SVG ih ne crta — sedamsto kružića je
+	// teška slika i nečitljiva crta — nego ih čita skripta i pokazuje onu nad
+	// kojom je miš.
+	var sj strings.Builder
+	sj.WriteByte('[')
+	for i, p := range c.Points {
+		if i > 0 {
+			sj.WriteByte(',')
+		}
+		fmt.Fprintf(&sj, `[%.1f,%.1f,%q,%q]`, p.X, p.Y,
+			p.At.Format("2.1.2006."), p.Oznaka)
 	}
+	sj.WriteByte(']')
+	c.Tocke = sj.String()
 	return c
+}
+
+// vodoravneOznake bira oznake na vremenskoj osi prema rasponu: mjeseci za
+// godinu, dani za kraće razdoblje. Tri oznake na cijelu godinu ne govore ništa
+// o tome kad se što dogodilo.
+func vodoravneOznake(od, do time.Time, xOf func(time.Time) float64) []ChartTick {
+	var out []ChartTick
+	raspon := do.Sub(od)
+	switch {
+	case raspon > 80*24*time.Hour:
+		// prvi dan svakog mjeseca
+		t := time.Date(od.Year(), od.Month(), 1, 0, 0, 0, 0, od.Location())
+		if t.Before(od) {
+			t = t.AddDate(0, 1, 0)
+		}
+		korak := 1
+		if raspon > 400*24*time.Hour {
+			korak = 3
+		}
+		for i := 0; t.Before(do) || t.Equal(do); t, i = t.AddDate(0, korak, 0), i+1 {
+			out = append(out, ChartTick{Pos: xOf(t), Label: mjesecKratko(t)})
+		}
+	case raspon > 5*24*time.Hour:
+		korak := raspon / 6
+		for t := od; t.Before(do) || t.Equal(do); t = t.Add(korak) {
+			out = append(out, ChartTick{Pos: xOf(t), Label: t.Format("2.1.")})
+		}
+	default:
+		korak := raspon / 5
+		for t := od; t.Before(do) || t.Equal(do); t = t.Add(korak) {
+			out = append(out, ChartTick{Pos: xOf(t), Label: t.Format("2.1. 15h")})
+		}
+	}
+	return out
+}
+
+// mjesecKratko je mjesec u tri slova; siječanj nosi i godinu, jer graf zna
+// prijeći granicu godine.
+func mjesecKratko(t time.Time) string {
+	kratice := []string{"sij", "velj", "ožu", "tra", "svi", "lip", "srp", "kol", "ruj", "lis", "stu", "pro"}
+	m := kratice[int(t.Month())-1]
+	if t.Month() == time.January {
+		return m + " " + t.Format("06")
+	}
+	return m
 }
 
 // decimalaVelicine je koliko decimala veličina traži da bi značila ono što piše.

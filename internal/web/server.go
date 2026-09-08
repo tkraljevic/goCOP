@@ -72,7 +72,9 @@ func templateFuncs() template.FuncMap {
 		"basisLabel":    models.BasisLabel,
 		"velicinaLabel": models.NazivVelicine,
 		"kvaliteta":     models.QualityLabel,
-		"lower":         strings.ToLower,
+		// razmak za crtanje: širina umanjena za desni rub
+		"sub":   func(a, b int) int { return a - b },
+		"lower": strings.ToLower,
 		// udio mjesečnog srednjaka u rasponu niza, za stupčić uz tablicu
 		"mjesecUdio": func(v float64, p *models.HidroPregled) int {
 			if p == nil || p.Max <= p.Min {

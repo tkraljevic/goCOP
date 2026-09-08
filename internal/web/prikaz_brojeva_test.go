@@ -881,3 +881,53 @@ func TestGrafZaSvakuVelicinu(t *testing.T) {
 		t.Errorf("vrh izgubljen: %v", najv)
 	}
 }
+
+// Graf godine dobiva oznake po mjesecima, ne tri na cijelu godinu, i korak
+// osi koji se čita. Točke za pokazivač idu u podatak, ne u crtež.
+func TestGrafImaMjeseceIKorakOsi(t *testing.T) {
+	cm := func(v int) *int { return &v }
+	letva := &models.Station{Name: "Batina",
+		Prep: models.Threshold{Cm: cm(300)}, Regular: models.Threshold{Cm: cm(500)},
+		Emergency: models.Threshold{Cm: cm(650)}, State: models.Threshold{Cm: cm(800)}}
+
+	poc := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+	var godina []models.SpojenaVrijednost
+	for i := 0; i < 366; i++ {
+		v := 100.0 + float64(i%300)
+		if i == 200 {
+			v = 708
+		}
+		godina = append(godina, models.SpojenaVrijednost{Kad: poc.AddDate(0, 0, i), Vrijednost: v})
+	}
+	g := crtajNiz(godina, "vodostaj", letva)
+	if g == nil {
+		t.Fatal("graf se nije izgradio")
+	}
+	if len(g.XTicks) < 10 {
+		t.Errorf("oznaka na vremenskoj osi %d, za godinu se očekuje po mjesecima", len(g.XTicks))
+	}
+	if g.XTicks[0].Label != "sij 24" {
+		t.Errorf("prva oznaka %q, očekivano „sij 24“", g.XTicks[0].Label)
+	}
+	// korak od 100 cm: između susjednih oznaka mora biti 100
+	if len(g.YTicks) < 5 {
+		t.Fatalf("oznaka na okomitoj osi %d", len(g.YTicks))
+	}
+	a, b := atof(strings.ReplaceAll(g.YTicks[0].Label, ".", "")), atof(strings.ReplaceAll(g.YTicks[1].Label, ".", ""))
+	if d := b - a; d != 100 && d != -100 {
+		t.Errorf("korak osi %v, očekivano 100", d)
+	}
+	if g.Tocke == "" || !strings.HasPrefix(g.Tocke, "[[") {
+		t.Error("točke za pokazivač nisu pripremljene")
+	}
+	if !strings.Contains(g.Tocke, "708 cm") {
+		t.Error("vrh vala nema svoju oznaku među točkama")
+	}
+
+	// kratko razdoblje ne dobiva mjesece nego dane
+	kratko := godina[:9]
+	k := crtajNiz(kratko, "vodostaj", letva)
+	if strings.Contains(k.XTicks[0].Label, "sij") {
+		t.Errorf("kratko razdoblje označeno mjesecima: %q", k.XTicks[0].Label)
+	}
+}
