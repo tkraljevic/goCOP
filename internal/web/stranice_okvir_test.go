@@ -1,6 +1,8 @@
 package web
 
 import (
+	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -109,5 +111,34 @@ func TestPogledVeziGrafITablicu(t *testing.T) {
 	iUvoz := strings.Index(html, "Unesi više očitanja odjednom")
 	if iUvoz > 0 && iOcitanja > 0 && iUvoz < iOcitanja {
 		t.Error("uvoz stoji iznad popisa očitanja")
+	}
+}
+
+// U arhivi sažetak po veličinama stoji iznad grafa, a graf iznad tablice:
+// prvo se vidi što uopće ima, pa kretanje, pa pojedine vrijednosti.
+func TestRedoslijedUArhivi(t *testing.T) {
+	kad := time.Date(2013, 6, 14, 6, 0, 0, 0, time.UTC)
+	html := iscrtaj(t, "reading_history.html", ReadingHistoryData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Station:     &models.Station{ID: uuid.New(), Name: "Batina", Code: "batina"},
+		GaugeName:   "Batina", Pogled: "30", PogledOpis: "zadnjih 30 dana",
+		ArhVelicine: []string{"vodostaj"}, ArhVelicina: "vodostaj",
+		ArhKorak: "dnevni", ArhGodina: 2013, ArhGodine: []int{2013},
+		ArhNiz:   []models.SpojenaVrijednost{{Kad: kad, Vrijednost: 771, Izvor: "his2000"}},
+		ArhChart: crtajNiz(nizZaGraf(kad), "vodostaj", nil, nil),
+		ArhSazetak: []models.SazetakVelicine{
+			{Velicina: "vodostaj", Od: "1901-01-01", Do: "2026-09-06", Srednjak: 205, Max: 797, Min: -308},
+		},
+		ArhPager: pagerZa(&http.Request{URL: &url.URL{Path: "/x"}}, "ap", 365, 100),
+	})
+	iSazetak := strings.Index(html, "Karakteristične vrijednosti")
+	iGraf := strings.Index(html, "Graf vodostaja iz arhive")
+	iTablica := strings.Index(html, "Novije prvo. Svaka vrijednost")
+	if iSazetak < 0 || iGraf < 0 || iTablica < 0 {
+		t.Fatalf("nedostaje odjeljak: sažetak %d, graf %d, tablica %d", iSazetak, iGraf, iTablica)
+	}
+	if !(iSazetak < iGraf && iGraf < iTablica) {
+		t.Errorf("redoslijed nije sažetak → graf → tablica: %d, %d, %d", iSazetak, iGraf, iTablica)
 	}
 }
