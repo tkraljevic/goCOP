@@ -181,3 +181,45 @@ func TestPopisOcitanjaImaApsolutnuKotu(t *testing.T) {
 		t.Error("letva bez kote nule ispisuje apsolutnu visinu")
 	}
 }
+
+// Listanje tablice pomiče istaknuti dio grafa, ali graf ostaje cijelo
+// razdoblje: os koja se prerazapinje pri svakom kliku teško se čita.
+func TestIsticanjeSlijediListanje(t *testing.T) {
+	poc := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+	var niz []models.SpojenaVrijednost
+	for i := 0; i < 100; i++ {
+		niz = append(niz, models.SpojenaVrijednost{Kad: poc.AddDate(0, 0, i), Vrijednost: float64(100 + i)})
+	}
+	g := crtajNiz(niz, "vodostaj", nil, nil)
+	if g == nil {
+		t.Fatal("graf se nije izgradio")
+	}
+	if g.Istaknuto {
+		t.Error("bez listanja se ništa ne ističe")
+	}
+
+	// prva stranica: početak razdoblja
+	istakni(g, niz[0].Kad, niz[9].Kad)
+	prvi := g.IstakniOd
+	if !g.Istaknuto {
+		t.Fatal("isticanje nije postavljeno")
+	}
+
+	// zadnja stranica: isti graf, istaknuto pomaknuto udesno
+	g2 := crtajNiz(niz, "vodostaj", nil, nil)
+	istakni(g2, niz[90].Kad, niz[99].Kad)
+	if g2.IstakniOd <= prvi {
+		t.Errorf("isticanje se nije pomaknulo: %v prema %v", g2.IstakniOd, prvi)
+	}
+	// os se nije promijenila — graf i dalje pokazuje isto razdoblje
+	if !g2.From.Equal(g.From) || !g2.To.Equal(g.To) || g2.Min != g.Min || g2.Max != g.Max {
+		t.Error("graf se prerazapeo pri listanju")
+	}
+
+	// razdoblje izvan grafa se ne crta izvan okvira
+	g3 := crtajNiz(niz, "vodostaj", nil, nil)
+	istakni(g3, poc.AddDate(-1, 0, 0), poc.AddDate(1, 0, 0))
+	if g3.IstakniOd < 90 || g3.IstakniOd+g3.IstakniSir > float64(g3.Width) {
+		t.Errorf("isticanje izlazi iz okvira: od %v širina %v", g3.IstakniOd, g3.IstakniSir)
+	}
+}

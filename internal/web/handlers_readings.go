@@ -194,8 +194,14 @@ type Chart struct {
 	Thresholds    []ChartLine
 	Bands         []ChartBand
 	Tocke         string // točke kao JSON, za pokazivač uz miša
-	From, To      time.Time
-	Min, Max      int
+
+	// Istaknuto razdoblje: dio grafa koji je upravo u tablici ispod njega.
+	// Graf ostaje cijelo razdoblje — os koja se prerazapinje pri svakom
+	// listanju teško se čita — ali se vidi gdje si u njemu.
+	IstakniOd, IstakniSir float64
+	Istaknuto             bool
+	From, To              time.Time
+	Min, Max              int
 }
 
 type ChartPoint struct {
@@ -473,6 +479,10 @@ func (h *ReadingsHandler) ShowHistory(w http.ResponseWriter, r *http.Request) {
 	}
 	data.Chart = crtajNiz(prorijediNiz(zaGraf, 700), "vodostaj", thresholdStation, nil)
 	data.Readings, data.Pager = paginate(shown, r, readingsPerPage)
+	// na grafu se istakne ono što je upravo u tablici
+	if n := len(data.Readings); n > 0 && data.Pager.Multi() {
+		istakni(data.Chart, data.Readings[n-1].MeasuredAt, data.Readings[0].MeasuredAt)
+	}
 
 	if station != nil {
 		h.arhivaZaLetvu(ctx, r, &data, station)
@@ -784,6 +794,9 @@ func (h *ReadingsHandler) arhivaZaLetvu(ctx context.Context, r *http.Request,
 	primijeniIspravke(cijela, ispravci)
 	krivulje, _ := a.Krivulje(ctx, station.Code)
 	data.ArhChart = crtajNiz(prorijediNiz(cijela, 700), data.ArhVelicina, station, krivulje)
+	if n := len(data.ArhNiz); n > 0 && data.ArhPager.Multi() {
+		istakni(data.ArhChart, data.ArhNiz[n-1].Kad, data.ArhNiz[0].Kad)
+	}
 
 }
 

@@ -274,3 +274,34 @@ func prorijediNiz(vals []models.SpojenaVrijednost, ciljBroj int) []models.Spojen
 	}
 	return out
 }
+
+// istakni označava na grafu razdoblje koje je upravo prikazano u tablici.
+// Graf se ne prerazapinje: ostaje cijelo razdoblje, a istaknuti dio pokazuje
+// gdje se u njemu nalazi ono što se čita.
+func istakni(c *Chart, od, do time.Time) {
+	if c == nil || od.IsZero() || do.IsZero() || !do.After(od) {
+		return
+	}
+	const left, right = 96.0, 116.0
+	plotW := float64(c.Width) - left - right
+	span := c.To.Sub(c.From).Seconds()
+	if span <= 0 {
+		return
+	}
+	x := func(t time.Time) float64 {
+		u := t.Sub(c.From).Seconds() / span
+		if u < 0 {
+			u = 0
+		}
+		if u > 1 {
+			u = 1
+		}
+		return left + u*plotW
+	}
+	x0, x1 := x(od), x(do)
+	if x1-x0 < 2 {
+		x1 = x0 + 2 // razdoblje kraće od dva piksela ipak mora biti vidljivo
+	}
+	c.IstakniOd, c.IstakniSir = x0, x1-x0
+	c.Istaknuto = true
+}
