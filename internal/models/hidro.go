@@ -106,6 +106,52 @@ func NazivVrste(v string) string {
 	return v
 }
 
+// SpojenaVrijednost je jedna vrijednost spojenog niza: broj, odakle je i
+// koliko odstupa. Spojeni niz je jedan po letvi i veličini, satni i dnevni —
+// da se brzi podatak može uzeti bez biranja izvora, a podrijetlo se ne izgubi.
+type SpojenaVrijednost struct {
+	Kad        time.Time
+	Vrijednost float64
+	Izvor      string
+	Vrsta      string  // trenutna | srednjak | jutarnji
+	Tocnost    float64 // ± u jedinici veličine, 68 % vrijednosti
+}
+
+// TocnostLabel je odstupanje za ispis; ovjereni izvor nema ±.
+func (v SpojenaVrijednost) TocnostLabel() string {
+	if v.Tocnost <= 0 {
+		return "ovjereno"
+	}
+	return "±" + strconv.FormatFloat(v.Tocnost, 'f', 0, 64)
+}
+
+// SpojDoseg je što spojeni niz pokriva i iz čega je sastavljen.
+type SpojDoseg struct {
+	Letva    string
+	Velicina string
+	Korak    string // satni | dnevni
+	Od, Do   string
+	Zapisa   int
+	Dijelovi []SpojDio
+}
+
+// SpojDio je jedan izvor koji sudjeluje u spojenom nizu.
+type SpojDio struct {
+	Izvor   string
+	Vrsta   string
+	Zapisa  int
+	Od, Do  string
+	Tocnost float64
+}
+
+// Udio je koliki dio spojenog niza dolazi iz ovog izvora, u postocima.
+func (d SpojDio) Udio(ukupno int) int {
+	if ukupno <= 0 {
+		return 0
+	}
+	return d.Zapisa * 100 / ukupno
+}
+
 // HidroTocka je jedna vrijednost niza u trenutku.
 type HidroTocka struct {
 	Kad        time.Time

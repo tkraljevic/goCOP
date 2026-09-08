@@ -24,16 +24,18 @@ type StationPageData struct {
 	ZeroDatumHistoryJSON template.JS // promjene kote nule za obrazac, kao JS literal
 	ExtremesJSON         template.JS // zabilježeni ekstremi za obrazac
 	Sections             []models.Section
-	Episodes             []models.DefenseEpisode // obrane vođene po ovoj letvi, najnovija prva
-	Nizovi               []models.HidroNiz       // što o ovoj letvi ima u arhivi
-	Pregled              *models.HidroPregled    // karakteristične vrijednosti odabranog niza
-	Profili              []models.ProfilKorita   // snimke poprečnog profila korita
-	Profil               *models.ProfilKorita    // onaj koji se crta
-	Krivulje             []models.HQKrivulja     // krivulje protoka po razdobljima
-	NizID                int64                   // koji je niz odabran
-	Crtez                *KoritoCrtez            // korito s vodom u njemu
-	Zadnji               *models.HidroTocka      // zadnja vrijednost iz arhive
-	ZadnjiProtok         float64                 // preračunat iz krivulje
+	Episodes             []models.DefenseEpisode   // obrane vođene po ovoj letvi, najnovija prva
+	Nizovi               []models.HidroNiz         // što o ovoj letvi ima u arhivi
+	Pregled              *models.HidroPregled      // karakteristične vrijednosti odabranog niza
+	Profili              []models.ProfilKorita     // snimke poprečnog profila korita
+	Profil               *models.ProfilKorita      // onaj koji se crta
+	Krivulje             []models.HQKrivulja       // krivulje protoka po razdobljima
+	NizID                int64                     // koji je niz odabran
+	Spojevi              []models.SpojDoseg        // spojeni nizovi: jedan satni, jedan dnevni
+	Sada                 *models.SpojenaVrijednost // zadnja vrijednost spojenog niza
+	Crtez                *KoritoCrtez              // korito s vodom u njemu
+	Zadnji               *models.HidroTocka        // zadnja vrijednost iz arhive
+	ZadnjiProtok         float64                   // preračunat iz krivulje
 	ZadnjiIzvor          string
 	WaterRegistry        []models.Watercourse
 	CanEdit              bool
@@ -152,21 +154,18 @@ func (h *StationsHandler) ShowStation(w http.ResponseWriter, r *http.Request) {
 		if len(data.Profili) > 0 {
 			data.Profil = &data.Profili[0]
 		}
+		data.Spojevi, _ = a.SpojDosezi(ctx, st.Code)
+		data.Sada, _ = a.SpojZadnje(ctx, st.Code, "vodostaj", "satni")
+		if data.Sada == nil {
+			data.Sada, _ = a.SpojZadnje(ctx, st.Code, "vodostaj", "dnevni")
+		}
 		data.NizID = odabraniNiz(r, data.Nizovi)
 		if data.NizID > 0 {
 			data.Pregled, _ = a.Pregled(ctx, data.NizID)
 		}
-		// zadnji vodostaj iz najpouzdanijeg niza, pa korito i protok iz njega
-		for _, n := range data.Nizovi {
-			if n.Velicina != "vodostaj" {
-				continue
-			}
-			if v, kad, ok := a.Zadnje(ctx, n.ID); ok {
-				if data.Zadnji == nil || kad.After(data.Zadnji.Kad) {
-					data.Zadnji = &models.HidroTocka{Kad: kad, Vrijednost: v}
-					data.ZadnjiIzvor = n.Izvor
-				}
-			}
+		if data.Sada != nil {
+			data.Zadnji = &models.HidroTocka{Kad: data.Sada.Kad, Vrijednost: data.Sada.Vrijednost}
+			data.ZadnjiIzvor = data.Sada.Izvor
 		}
 		if data.Zadnji != nil {
 			cm := int(data.Zadnji.Vrijednost)

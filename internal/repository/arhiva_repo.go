@@ -410,3 +410,77 @@ func (r *ArhivaRepository) Raspon(ctx context.Context, nizID int64, od, do time.
 	}
 	return out, rows.Err()
 }
+
+// SpojDosezi opisuje spojene nizove letve: što pokrivaju i iz čega su
+// sastavljeni. Spajanje je odluka programa, pa mora biti vidljivo od čega je
+// niz sklopljen — inače je to samo broj bez podrijetla.
+func (r *ArhivaRepository) SpojDosezi(ctx context.Context, letva string) ([]models.SpojDoseg, error) {
+	if r == nil {
+		return nil, nil
+	}
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT velicina, korak, count(*),
+		       date(min(vrijeme),'unixepoch'), date(max(vrijeme),'unixepoch')
+		FROM spoj WHERE letva = ? GROUP BY velicina, korak`, letva)
+	if err != nil {
+		return nil, fmt.Errorf("spojeni nizovi: %w", err)
+	}
+	defer rows.Close()
+	var out []models.SpojDoseg
+	for rows.Next() {
+		d := models.SpojDoseg{Letva: letva}
+		if err := rows.Scan(&d.Velicina, &d.Korak, &d.Zapisa, &d.Od, &d.Do); err != nil {
+			return nil, err
+		}
+		out = append(out, d)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	for i := range out {
+		dio, err := r.db.QueryContext(ctx, `
+			SELECT izvor, vrsta, count(*), date(min(vrijeme),'unixepoch'), date(max(vrijeme),'unixepoch'), max(tocnost)
+			FROM spoj WHERE letva=? AND velicina=? AND korak=?
+			GROUP BY izvor, vrsta ORDER BY min(vrijeme)`, letva, out[i].Velicina, out[i].Korak)
+		if err != nil {
+			return nil, err
+		}
+		for dio.Next() {
+			var x models.SpojDio
+			if err := dio.Scan(&x.Izvor, &x.Vrsta, &x.Zapisa, &x.Od, &x.Do, &x.Tocnost); err != nil {
+				dio.Close()
+				return nil, err
+			}
+			out[i].Dijelovi = append(out[i].Dijelovi, x)
+		}
+		dio.Close()
+	}
+	sort.SliceStable(out, func(a, b int) bool {
+		if out[a].Velicina != out[b].Velicina {
+			return rangVelicine(out[a].Velicina) < rangVelicine(out[b].Velicina)
+		}
+		return out[a].Korak < out[b].Korak
+	})
+	return out, nil
+}
+
+// SpojZadnje vraća zadnju vrijednost spojenog niza — brzi podatak, s izvorom
+// i odstupanjem.
+func (r *ArhivaRepository) SpojZadnje(ctx context.Context, letva, velicina, korak string) (*models.SpojenaVrijednost, error) {
+	if r == nil {
+		return nil, nil
+	}
+	var v models.SpojenaVrijednost
+	var kad int64
+	err := r.db.QueryRowContext(ctx, `SELECT vrijeme, vrijednost, izvor, vrsta, tocnost FROM spoj
+		WHERE letva=? AND velicina=? AND korak=? ORDER BY vrijeme DESC LIMIT 1`,
+		letva, velicina, korak).Scan(&kad, &v.Vrijednost, &v.Izvor, &v.Vrsta, &v.Tocnost)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	v.Kad = time.Unix(kad, 0).UTC()
+	return &v, nil
+}

@@ -200,10 +200,59 @@
 </section>
 {{end}}
 
+{{if .Spojevi}}
+<section class="detail-section" id="spoj">
+  <h2>{{icon "activity"}} Vodostaj i protok</h2>
+  {{if .Sada}}
+  <div class="table-card" style="padding:1rem 1.25rem; margin-bottom:1rem;">
+    <div style="display:flex; flex-wrap:wrap; align-items:baseline; gap:0.75rem 1.75rem;">
+      <span style="font-size:1.75rem; font-weight:700;">{{brojHRf .Sada.Vrijednost 0}} cm</span>
+      <span class="reg-card-sub">{{formatDate (localTime .Sada.Kad)}}</span>
+      <span class="badge {{if le .Sada.Tocnost 1.0}}badge-area-admin{{else}}badge-unknown{{end}}">{{.Sada.TocnostLabel}}{{if gt .Sada.Tocnost 0.0}} cm{{end}}</span>
+      <span class="reg-card-sub">{{izvorLabel .Sada.Izvor}}</span>
+      {{if gt .ZadnjiProtok 0.0}}<span>protok <strong>{{brojHRf .ZadnjiProtok 0}} m³/s</strong> <span class="reg-card-sub">iz krivulje</span></span>{{end}}
+    </div>
+  </div>
+  {{end}}
+  <p class="page-desc">
+    Jedan satni i jedan dnevni niz po veličini, sastavljeni tako da svaki trenutak dolazi iz najtočnijeg
+    izvora koji ga pokriva. Uz svaku vrijednost stoji odakle je i koliko odstupa, pa se brzi podatak može
+    uzeti bez biranja izvora.
+  </p>
+  <div class="table-card"><div class="table-responsive">
+    <table class="data-table">
+      <thead><tr><th>Veličina</th><th>Korak</th><th>Razdoblje</th><th style="text-align:right;">Vrijednosti</th><th>Sastavljeno od</th></tr></thead>
+      <tbody>
+      {{range .Spojevi}}
+      <tr>
+        <td><strong>{{velicinaLabel .Velicina}}</strong></td>
+        <td class="reg-card-sub">{{if eq .Korak "satni"}}svaki sat{{else}}dnevni srednjak{{end}}</td>
+        <td class="mono">{{.Od}} – {{.Do}}</td>
+        <td class="mono" style="text-align:right;">{{brojHR .Zapisa}}</td>
+        <td>
+          {{$uk := .Zapisa}}
+          {{range .Dijelovi}}
+          <div style="display:flex; align-items:center; gap:0.5rem; font-size:0.85rem; margin-bottom:0.15rem;">
+            <span style="min-width:11rem;">{{izvorLabel .Izvor}}</span>
+            <span class="badge {{if le .Tocnost 1.0}}badge-area-admin{{else}}badge-unknown{{end}}">{{if gt .Tocnost 0.0}}±{{brojHRf .Tocnost 0}}{{else}}ovjereno{{end}}</span>
+            <span class="reg-card-sub mono">{{.Od}} – {{.Do}}</span>
+            <span class="reg-card-sub">{{.Udio $uk}} %</span>
+            {{if ne .Vrsta "srednjak"}}{{if ne .Vrsta "trenutna"}}<span class="badge badge-unknown">{{vrstaLabel .Vrsta}}, nije srednjak</span>{{end}}{{end}}
+          </div>
+          {{end}}
+        </td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div></div>
+</section>
+{{end}}
+
 {{if .Nizovi}}
 <section class="detail-section" id="arhiva">
   <h2>{{icon "activity"}} Hidrološka arhiva <span class="reg-chip">{{len .Nizovi}}</span></h2>
-  <p class="page-desc">Povijesni nizovi ove letve. Sve se računa pri čitanju iz same arhive, ništa se ne prepisuje — pa se brojevi ne mogu razići s podacima iz kojih su nastali.</p>
+  <p class="page-desc">Izvorni nizovi od kojih je spojeni sastavljen. Sve se računa pri čitanju iz same arhive, ništa se ne prepisuje — pa se brojevi ne mogu razići s podacima iz kojih su nastali.</p>
   <div class="table-card"><div class="table-responsive">
     <table class="data-table">
       <thead><tr><th>Veličina</th><th>Izvor</th><th>Korak</th><th>Razdoblje</th><th style="text-align:right;">Zapisa</th><th></th></tr></thead>
