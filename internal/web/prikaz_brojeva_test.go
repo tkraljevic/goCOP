@@ -1136,3 +1136,30 @@ func TestKarticaPokazujePragoveUProtoku(t *testing.T) {
 		}
 	}
 }
+
+// Redoslijed na stranici letve: svježa očitanja gore, arhiva ispod. Dežurni
+// prvo gleda što je danas, a ne što je bilo 1901.
+func TestSvjezaOcitanjaIznadArhive(t *testing.T) {
+	kad := time.Now().Add(-2 * time.Hour)
+	cm := -128
+	html := iscrtaj(t, "reading_history.html", ReadingHistoryData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Station:     &models.Station{ID: uuid.New(), Name: "Batina", Code: "batina"},
+		GaugeName:   "Batina",
+		Readings:    []models.Reading{{MeasuredAt: kad, LevelCm: &cm, Observer: "letva"}},
+		Count:       1,
+		ArhVelicine: []string{"vodostaj"}, ArhVelicina: "vodostaj",
+		ArhKorak: "dnevni", ArhGodina: 2013, ArhGodine: []int{2013},
+		ArhNiz:   []models.SpojenaVrijednost{{Kad: kad.AddDate(-13, 0, 0), Vrijednost: 771, Izvor: "his2000"}},
+		ArhPager: pagerZa(&http.Request{URL: &url.URL{Path: "/x"}}, "ap", 365, 100),
+	})
+	iOcitanja := strings.Index(html, "Očitanja")
+	iArhiva := strings.Index(html, "Povijest iz arhive")
+	if iOcitanja < 0 || iArhiva < 0 {
+		t.Fatal("nedostaje jedan od odjeljaka")
+	}
+	if iOcitanja > iArhiva {
+		t.Error("arhiva stoji iznad svježih očitanja")
+	}
+}
