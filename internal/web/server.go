@@ -84,6 +84,23 @@ func templateFuncs() template.FuncMap {
 			}
 			return k[0].Kota
 		},
+		// procjena protoka za jedno očitanje, po krivulji koja je tada
+		// vrijedila. Prazno kad krivulje nema ili vodostaj izlazi iz nje —
+		// izmišljen protok gori je od nikakvog.
+		"protokHR": func(krivulje []models.HQKrivulja, kad time.Time, cm *int) string {
+			if cm == nil {
+				return ""
+			}
+			k := krivuljaZa(krivulje, kad)
+			if k == nil {
+				return ""
+			}
+			q, ok := k.Protok(*cm)
+			if !ok {
+				return ""
+			}
+			return brojHRf(q, 0)
+		},
 		// razmak za crtanje: širina umanjena za desni rub
 		"sub": func(a, b int) int { return a - b },
 		// razlika dviju vrijednosti, za prikaz koliko ispravak mijenja

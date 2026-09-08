@@ -1259,3 +1259,39 @@ func TestApsolutnaKotaVodneP1ohe(t *testing.T) {
 		t.Errorf("samo stari sustav: %+v", k2)
 	}
 }
+
+// Uz svako očitanje stoji i protok po krivulji koja je tada vrijedila. Dežurni
+// tako uz visinu vidi i koliko vode prolazi. Bez krivulje se ne piše ništa —
+// izmišljen protok gori je od nikakvog.
+func TestOcitanjeDobivaProtokIzKrivulje(t *testing.T) {
+	kad := time.Date(2026, 9, 7, 8, 0, 0, 0, models.Zagreb)
+	cm := 300
+	krivulje := []models.HQKrivulja{{VrijediOd: "2016-01-01", A: 19.4830, B: 2.2128, H0: 6.65}}
+	podaci := ReadingHistoryData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Station:     &models.Station{ID: uuid.New(), Name: "Batina", Code: "batina"},
+		GaugeName:   "Batina",
+		Readings:    []models.Reading{{MeasuredAt: kad.UTC(), LevelCm: &cm}},
+		Latest:      &models.Reading{MeasuredAt: kad.UTC(), LevelCm: &cm},
+		Count:       1,
+		Krivulje:    krivulje,
+	}
+	html := iscrtaj(t, "reading_history.html", podaci)
+	if strings.Count(html, "2.939 m³/s") != 2 {
+		t.Errorf("protok se očekuje uz zadnje očitanje i uz redak u tablici, nađeno %d puta",
+			strings.Count(html, "2.939 m³/s"))
+	}
+
+	podaci.Krivulje = nil
+	if strings.Contains(iscrtaj(t, "reading_history.html", podaci), "m³/s") {
+		t.Error("bez krivulje se protok ne smije pisati")
+	}
+
+	// očitanje starije od svih krivulja ostaje bez protoka
+	staro := models.Reading{MeasuredAt: time.Date(1965, 6, 24, 6, 0, 0, 0, time.UTC), LevelCm: &cm}
+	podaci.Krivulje, podaci.Readings, podaci.Latest = krivulje, []models.Reading{staro}, &staro
+	if strings.Contains(iscrtaj(t, "reading_history.html", podaci), "m³/s") {
+		t.Error("krivulja se ne smije protezati izvan razdoblja za koje vrijedi")
+	}
+}
