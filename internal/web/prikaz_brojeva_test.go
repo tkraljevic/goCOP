@@ -1118,7 +1118,7 @@ func TestSvjezaOcitanjaIznadArhive(t *testing.T) {
 		t.Error("graf kretanja stoji ispod popisa očitanja")
 	}
 	// i u arhivi graf ide prije tablice vrijednosti
-	iGraf := strings.Index(html, "Graf vodostaja iz arhive")
+	iGraf := strings.Index(html, `aria-label="Graf:`)
 	iTablica := strings.Index(html, "Novije prvo. Svaka vrijednost")
 	if iGraf > 0 && iTablica > 0 && iGraf > iTablica {
 		t.Error("u arhivi tablica stoji iznad grafa")
