@@ -1295,3 +1295,106 @@ func TestOcitanjeDobivaProtokIzKrivulje(t *testing.T) {
 		t.Error("krivulja se ne smije protezati izvan razdoblja za koje vrijedi")
 	}
 }
+
+// Graf za telefon crta se u vlastitom, užem koordinatnom sustavu. Široki graf
+// stisnut sa 1.200 na 340 slikovnih točaka smanji oznake ispod čitljivog, pa
+// stranica nosi oba i CSS bira koji se pokazuje.
+func TestUskiGrafZaTelefon(t *testing.T) {
+	var vals []models.SpojenaVrijednost
+	pocetak := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	for i := 0; i < 360; i++ {
+		vals = append(vals, models.SpojenaVrijednost{
+			Kad: pocetak.AddDate(0, 0, i), Vrijednost: float64(100 + i%200), Izvor: "his2000"})
+	}
+	cm := func(v int) *int { return &v }
+	st := &models.Station{ID: uuid.New(), Name: "Batina", Code: "batina",
+		Prep: models.Threshold{Cm: cm(300)}, Regular: models.Threshold{Cm: cm(500)}}
+
+	sirok := crtajNiz(vals, "vodostaj", st, nil)
+	uzak := crtajNizUzak(vals, "vodostaj", st, nil)
+	if uzak.Width >= sirok.Width {
+		t.Errorf("uski graf %d nije uži od širokog %d", uzak.Width, sirok.Width)
+	}
+	if !uzak.Uzak || sirok.Uzak {
+		t.Error("graf mora znati je li uzak")
+	}
+	// Na uskom nema desnog ruba za natpise pragova, pa idu iznad crte, unutar
+	// slike. Natpis izvan viewBoxa bio bi nevidljiv.
+	if uzak.PragX() >= float64(uzak.Width) {
+		t.Errorf("natpis praga na %v izlazi iz slike široke %d", uzak.PragX(), uzak.Width)
+	}
+	if sirok.PragX() <= sirok.DesnoX() {
+		t.Error("na širokom grafu natpis praga stoji u desnom rubu")
+	}
+	// Godina ima dvanaest mjeseci; na uskoj osi nema mjesta za sve.
+	if len(uzak.XTicks) >= len(sirok.XTicks) {
+		t.Errorf("uski graf ima %d oznaka, široki %d — mora ih imati manje",
+			len(uzak.XTicks), len(sirok.XTicks))
+	}
+	// Oznaka uz rub priljubi se uz njega; inače bi pola natpisa bilo izvan slike.
+	for _, p := range []struct {
+		pos  float64
+		zeli string
+	}{{80, "start"}, {300, "middle"}, {590, "end"}} {
+		if got := poravnanjeOznake(p.pos, 76, 594); got != p.zeli {
+			t.Errorf("oznaka na %v: poravnanje %q, očekivano %q", p.pos, got, p.zeli)
+		}
+	}
+	for _, tk := range uzak.XTicks {
+		if tk.Anchor == "" {
+			t.Error("svaka oznaka mora imati poravnanje")
+		}
+	}
+}
+
+// Stranica letve nosi i široki i uski graf, a tablice na telefonu prelaze u
+// kartice — svaka vrijednost tada mora znati iz kojeg je stupca.
+func TestStranicaLetveNosiObaGrafa(t *testing.T) {
+	kad := time.Date(2013, 6, 14, 6, 0, 0, 0, time.UTC)
+	html := iscrtaj(t, "reading_history.html", ReadingHistoryData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Station:     &models.Station{ID: uuid.New(), Name: "Batina", Code: "batina"},
+		GaugeName:   "Batina", Pogled: "30", PogledOpis: "zadnjih 30 dana",
+		ArhVelicine: []string{"vodostaj"}, ArhVelicina: "vodostaj", ArhJedinica: "cm",
+		ArhKorak: "dnevni", ArhGodina: 2013, ArhGodine: []int{2013},
+		ArhNiz:       []models.SpojenaVrijednost{{Kad: kad, Vrijednost: 771, Izvor: "his2000"}},
+		ArhChart:     crtajNiz(nizZaGraf(kad), "vodostaj", nil, nil),
+		ArhChartUzak: crtajNizUzak(nizZaGraf(kad), "vodostaj", nil, nil),
+		ArhSazetak: []models.SazetakVelicine{
+			{Velicina: "vodostaj", Od: "1901-01-01", Do: "2026-09-06", Srednjak: 205, Max: 797, Min: -308},
+		},
+		ArhPager: pagerZa(&http.Request{URL: &url.URL{Path: "/x"}}, "ap", 365, 100),
+	})
+	if !strings.Contains(html, `viewBox="0 0 1600 420"`) || !strings.Contains(html, `viewBox="0 0 620 460"`) {
+		t.Error("stranica mora nositi i široki i uski graf")
+	}
+	for _, want := range []string{`class="table-card table-stack"`, `data-stupac="Razdoblje"`, `data-stupac="Odakle"`} {
+		if !strings.Contains(html, want) {
+			t.Errorf("tablica se na telefonu neće razložiti: nema %s", want)
+		}
+	}
+}
+
+// Gumb za čuvanje povijesti stoji uz očitanja, a ne u zaglavlju stranice:
+// tiče se samo tog odjeljka.
+func TestCuvajPovijestStojiUzOcitanja(t *testing.T) {
+	html := iscrtaj(t, "reading_history.html", ReadingHistoryData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Station:     &models.Station{ID: uuid.New(), Name: "Batina", Code: "batina"},
+		GaugeName:   "Batina", Pogled: "30", PogledOpis: "zadnjih 30 dana",
+	})
+	iGlava := strings.Index(html, `class="detail-actions"`)
+	iOcitanja := strings.Index(html, "Očitanja")
+	iGumb := strings.Index(html, "Čuvaj povijest")
+	if iGumb < 0 {
+		t.Fatal("gumba nema")
+	}
+	if iGumb < iOcitanja {
+		t.Errorf("gumb je iznad očitanja: %d < %d", iGumb, iOcitanja)
+	}
+	if iGlava > 0 && iGumb < strings.Index(html[iGlava:], "</div>")+iGlava {
+		t.Error("gumb je i dalje u zaglavlju stranice")
+	}
+}

@@ -127,6 +127,7 @@ type ReadingHistoryData struct {
 	PogledOpis  string
 	Dana        int
 	Chart       *Chart
+	ChartUzak   *Chart // isti graf u obliku za telefon
 	CanRecord   bool
 	CanEdit     bool
 	Followed    bool // čvor drži cijelu povijest ove letve
@@ -148,6 +149,7 @@ type ReadingHistoryData struct {
 	ArhGodina    int
 	ArhNiz       []models.SpojenaVrijednost
 	ArhChart     *Chart
+	ArhChartUzak *Chart
 	ArhJedinica  string
 	ArhSazetak   []models.SazetakVelicine
 	ArhPager     Pager
@@ -206,6 +208,12 @@ type Chart struct {
 	IstakniOd, IstakniSir float64
 	Istaknuto             bool
 
+	// Rubovi crtaće plohe u koordinatama SVG-a. Predložak ih treba za mrežu i
+	// oznake, a razlikuju se između širokog i uskog grafa.
+	Lijevo, Desno, Vrh, Dno float64
+	Uzak                    bool // graf za telefon: oznake pragova idu iznad crte
+	Opis                    string // što graf prikazuje, za čitač zaslona
+
 	// Koliko je puta crta prekinuta zbog praznine u nizu
 	Praznina int
 	From, To time.Time
@@ -223,6 +231,10 @@ type ChartPoint struct {
 type ChartTick struct {
 	Pos   float64
 	Label string
+	// Kako se natpis poravnava prema svojoj crtici. Sredina je pravilo, ali
+	// prva i zadnja oznaka na vremenskoj osi tako bi izašle iz slike, pa se
+	// priljube uz rub.
+	Anchor string
 }
 
 // ChartBand je pojas jedne faze obrane: od njezina praga do sljedećega.
@@ -486,10 +498,12 @@ func (h *ReadingsHandler) ShowHistory(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	data.Chart = crtajNiz(prorijediNiz(zaGraf, 700), "vodostaj", thresholdStation, nil)
+	data.ChartUzak = crtajNizUzak(prorijediNiz(zaGraf, 260), "vodostaj", thresholdStation, nil)
 	data.Readings, data.Pager = paginate(shown, r, readingsPerPage)
 	// na grafu se istakne ono što je upravo u tablici
 	if n := len(data.Readings); n > 0 && data.Pager.Multi() {
 		istakni(data.Chart, data.Readings[n-1].MeasuredAt, data.Readings[0].MeasuredAt)
+		istakni(data.ChartUzak, data.Readings[n-1].MeasuredAt, data.Readings[0].MeasuredAt)
 	}
 
 	if station != nil {
@@ -805,8 +819,10 @@ func (h *ReadingsHandler) arhivaZaLetvu(ctx context.Context, r *http.Request,
 	primijeniIspravke(cijela, ispravci)
 	krivulje, _ := a.Krivulje(ctx, station.Code)
 	data.ArhChart = crtajNiz(prorijediNiz(cijela, 700), data.ArhVelicina, station, krivulje)
+	data.ArhChartUzak = crtajNizUzak(prorijediNiz(cijela, 260), data.ArhVelicina, station, krivulje)
 	if n := len(data.ArhNiz); n > 0 && data.ArhPager.Multi() {
 		istakni(data.ArhChart, data.ArhNiz[n-1].Kad, data.ArhNiz[0].Kad)
+		istakni(data.ArhChartUzak, data.ArhNiz[n-1].Kad, data.ArhNiz[0].Kad)
 	}
 
 }

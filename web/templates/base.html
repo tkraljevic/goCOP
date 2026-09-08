@@ -216,3 +216,29 @@
 </nav>
 {{end}}
 {{end}}
+
+{{/* Graf niza — prima Chart. Isti crtež služi i širokom i uskom grafu; razlika
+     je samo u koordinatama koje graf sam nosi. */}}
+{{define "grafNiza"}}
+<svg viewBox="0 0 {{.Width}} {{.Height}}" role="img" aria-label="{{.Opis}}">
+  {{range .YTicks}}
+  <line class="grid" x1="{{printf "%.1f" $.LijevoX}}" x2="{{printf "%.1f" $.DesnoX}}" y1="{{printf "%.1f" .Pos}}" y2="{{printf "%.1f" .Pos}}"/>
+  <text class="tick" x="{{printf "%.1f" $.OsY}}" y="{{printf "%.1f" .Pos}}" text-anchor="end" dominant-baseline="middle">{{.Label}}</text>
+  {{end}}
+  {{if .Istaknuto}}<rect class="istaknuto" x="{{printf "%.1f" .IstakniOd}}" y="{{printf "%.1f" .Vrh}}"
+        width="{{printf "%.1f" .IstakniSir}}" height="{{printf "%.1f" .VisinaPlohe}}"/>{{end}}
+  <path class="area" d="{{.Area}}"/>
+  {{range .Thresholds}}
+  <line class="thr {{.Class}}" x1="{{printf "%.1f" $.LijevoX}}" x2="{{printf "%.1f" $.DesnoX}}" y1="{{printf "%.1f" .Y}}" y2="{{printf "%.1f" .Y}}"/>
+  <text class="thr-label {{.Class}}" x="{{printf "%.1f" $.PragX}}" y="{{printf "%.1f" .Y}}" dy="{{$.PragDy}}">{{.Label}}</text>
+  {{end}}
+  <path class="line" d="{{.Path}}"/>
+  {{range .XTicks}}
+  <text class="tick" x="{{printf "%.1f" .Pos}}" y="{{printf "%.1f" $.OsX}}" text-anchor="{{.Anchor}}">{{.Label}}</text>
+  {{end}}
+  <g class="pokazivac" hidden>
+    <line class="vodilja" y1="{{printf "%.1f" .Vrh}}" y2="{{printf "%.1f" .DnoY}}"/>
+    <circle class="biljeg" r="6"/>
+  </g>
+</svg>
+{{end}}

@@ -2476,3 +2476,69 @@ textarea {
 /* Dio grafa koji je upravo u tablici ispod njega */
 .graf-niza .istaknuto { fill: var(--primary); fill-opacity: 0.10; stroke: var(--primary);
   stroke-opacity: 0.35; stroke-width: 1; }
+
+/* ── Telefon: graf, tablice i popis očitanja ─────────────────────────────
+   Isti podaci, drugi oblik. Uski graf crta poslužitelj u vlastitom
+   koordinatnom sustavu (vidi geometrija u graf_niza.go), jer se široki
+   stisnut na 340 točaka ne da čitati. Ovdje se samo bira koji se pokazuje. */
+.graf-uski { display: none; }
+@media (max-width: 700px) {
+  .graf-siroki { display: none; }
+  .graf-uski { display: block; }
+}
+.graf-uski .tick { font-size: 20px; }
+.graf-uski .thr-label { font-size: 19px; }
+.graf-uski .line { stroke-width: 3.5; }
+.graf-uski .grid { stroke-width: 1.5; }
+.graf-uski .biljeg { r: 8; }
+
+/* Tablica koja se na uskom zaslonu razlaže u kartice: svaki redak postaje
+   blok, a zaglavlje stupca ide uz vrijednost. Vodoravno klizanje na telefonu
+   znači da se pola tablice nikad ne vidi. */
+@media (max-width: 700px) {
+  .table-stack .table-responsive { overflow-x: visible; }
+  .table-stack table { display: block; }
+  .table-stack thead { display: none; }
+  .table-stack tbody, .table-stack tr, .table-stack td { display: block; width: auto; }
+  .table-stack tr {
+    padding: 0.7rem 0.9rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .table-stack tr:last-child { border-bottom: 0; }
+  .table-stack td {
+    padding: 0.15rem 0;
+    border: 0;
+    text-align: left !important;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.75rem;
+  }
+  .table-stack td::before {
+    content: attr(data-stupac);
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    font-weight: 600;
+    flex: 0 0 auto;
+  }
+  .table-stack td:not([data-stupac])::before { content: none; }
+  /* prvi redak kartice je njezin naslov, bez natpisa stupca */
+  .table-stack td.naslov { font-size: 1rem; padding-bottom: 0.35rem; }
+  .table-stack td.prazno { display: none; }
+}
+
+/* Popis očitanja: vrijednost je narasla (kote, protok) pa na telefonu mora
+   prelamati. Svaki podatak ostaje cjelovit, prelama se između njih. */
+.reading-row .value > .reading-meta { white-space: nowrap; }
+@media (max-width: 560px) {
+  .reading-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .reading-row .value { white-space: normal; min-width: 0; }
+}
+
+/* Naslov odjeljka s radnjom uz njega. Radnja koja se tiče samo jednog
+   odjeljka stoji uz njegov naslov, a ne gore uz naslov cijele stranice. */
+.odjeljak-glava {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 0.75rem; flex-wrap: wrap;
+}
+.odjeljak-glava > h2 { margin-bottom: 0; }
