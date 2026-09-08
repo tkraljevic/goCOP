@@ -165,7 +165,8 @@ type ReadingHistoryData struct {
 	ArhJedinica  string
 	ArhSazetak   []models.SazetakVelicine
 	ArhPager     Pager
-	ArhIspravaka int
+	ArhPromjeneKote []models.PromjenaKote // zabilježena premještanja nule letve
+	ArhIspravaka    int
 	ArhSada      *models.SpojenaVrijednost // zadnja vrijednost odabrane veličine
 	ArhDecimala  int
 	KoteZaArhivu bool   // prikazuje li se uz vodostaj i apsolutna kota vode
@@ -832,6 +833,7 @@ func (h *ReadingsHandler) arhivaZaLetvu(ctx context.Context, r *http.Request,
 		return
 	}
 	data.ArhSazetak, _ = a.Sazetak(ctx, station.Code)
+	data.ArhPromjeneKote, _ = a.PromjeneKote(ctx, station.Code)
 
 	vidjeno := map[string]bool{}
 	for _, d := range dosezi {

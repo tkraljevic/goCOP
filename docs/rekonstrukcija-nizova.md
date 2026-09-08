@@ -154,6 +154,29 @@ Dotad: dani na kojima Mohács izlazi iz mjerenog raspona izostavljeni su, a
 zabilježeni minimum -127 cm (7.1.1909.) vodi se uz letvu kao rekonstrukcija
 iz Bezdana, ne kao vrijednost niza.
 
+## Promjene kote nule kao podatak
+
+Premještanja se vode u `vodostaji/promjene-kote.csv` — letva, datum, pomak,
+izvor, napomena — i pri gradnji arhive se **primjenjuju**: vrijednostima
+prije tog datuma dodaje se pomak, pa niz stoji na današnjoj koti. Sirove
+datoteke ostaju netaknute; ispravlja se tumačenje, ne podatak, kao i kod
+vremenskih zona.
+
+Zapisano je i u arhivi (tablica `promjene_kote`), a stranica letve to
+ispisuje iznad povijesti, da se ne čita kao da je niz oduvijek na istoj koti.
+
+Trenutno zapisano, sve po VITUKI (1976), na dan 1.1.1943.:
+
+| letva | pomak |
+|---|---|
+| Budimpešta, Dunaföldvár | +100 cm |
+| Paks, Baja, Dunaszekcső, Mohács | +200 cm |
+
+Svođenje je dalo 107.193 ispravljena zapisa. Niz Mohácsa time postaje
+koherentan — najniže po desetljećima: 35 (1900-e), 209, 152, 170, 82, 82,
+126, 123, 113. Prije su 1900-e, 1920-e i 1930-e stršile u minus (−165, −48,
+−30), što je i bio prvi trag.
+
 ## Što treba za sljedeću letvu
 
 Prije nego se niz produlji unatrag iz susjedne postaje:
@@ -162,3 +185,7 @@ Prije nego se niz produlji unatrag iz susjedne postaje:
 2. Ne primjenjivati ga izvan tog raspona.
 3. Provjeriti trećom postajom ondje gdje se može.
 4. Označiti preračunato kao preračunato, svugdje gdje se prikazuje.
+5. Provjeriti je li nula letve premještana. Očitanje je visina nad nulom, pa
+   je niz preko takvog datuma dva niza. Za dunavske letve to je dokumentirano
+   u VITUKI (1976); za druge treba matična knjiga letve (vízmérce törzskönyv,
+   odnosno njezin ekvivalent).
