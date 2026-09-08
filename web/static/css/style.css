@@ -2637,10 +2637,17 @@ textarea {
 .korito-graf .korito-prag.regular { stroke: var(--tint-orange-fg); }
 .korito-graf .korito-prag.emerg, .korito-graf .korito-prag.crit { stroke: var(--danger); }
 .korito-graf .korito-prag-natpis { font-size: 11px; font-weight: 700; }
+/* Kota vodne plohe stoji na sredini vode, jer je to podatak zbog kojeg se
+   presjek i gleda. Iznad crte, gdje je crtež prazan. */
+.korito-voda-natpis {
+  font-size: 11px; font-weight: 600; fill: var(--primary);
+  paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round;
+}
 /* Uski presjek ima svoj koordinatni sustav (520 jedinica), pa mu i oznake
    moraju biti veće da na zaslonu ispadnu jednako čitljive kao na širokom. */
 .korito-graf.graf-uski .korito-os { font-size: 17px; }
 .korito-graf.graf-uski .korito-prag-natpis { font-size: 16px; }
+.korito-graf.graf-uski .korito-voda-natpis { font-size: 16px; }
 .korito-graf.graf-uski .korito-dno { stroke-width: 2.6; }
 .korito-graf.graf-uski .korito-prag { stroke-width: 1.8; }
 .korito-graf .korito-prag-natpis.prep { fill: var(--tint-yellow-fg); }

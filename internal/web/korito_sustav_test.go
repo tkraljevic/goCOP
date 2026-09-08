@@ -168,3 +168,69 @@ func TestOcitanjaCrtajuSpojeniPresjek(t *testing.T) {
 		t.Errorf("dno spojenog (%d cm) nije iz novije snimke (%d cm)", spojeni.DnoCm, sama.DnoCm)
 	}
 }
+
+// Kota vodne plohe stoji na sredini vode. Kad je voda došla do praga —
+// upravo tada se presjek i gleda — natpis praga je na istoj visini, pa se
+// dva natpisa preklope i nijedan se ne može pročitati. Tada se kota vode
+// mora pomaknuti.
+func TestKotaVodeSeMicePredNatpisomPraga(t *testing.T) {
+	st := batinaSKotama()
+	pragovi := []PragKorita{
+		{Cm: 300, Label: "pripremno", Class: "prep"},
+		{Cm: 500, Label: "redovna", Class: "regular"},
+		{Cm: 650, Label: "izvanredna", Class: "emerg"},
+		{Cm: 800, Label: "izvanredno stanje", Class: "crit"},
+	}
+	// uski crtež: veći font, pa se natpisi sudare i pri srednjoj vodi
+	c := crtajKoritoP(probniProfil(), 500, uskoKorito.sKoritom(pragovi, 100, 500).uSustavu(st))
+	if c == nil || !c.ImaVode {
+		t.Fatal("presjek bez vode")
+	}
+	if c.VodaNatpis == "" {
+		t.Fatal("kota vodne plohe se ne ispisuje")
+	}
+	if !strings.Contains(c.VodaNatpis, "500 cm") || !strings.Contains(c.VodaNatpis, "85,19 m") {
+		t.Errorf("natpis vode: %q — mora nositi očitanje i kotu", c.VodaNatpis)
+	}
+
+	// natpis praga na istoj visini mora natjerati kotu vode da se makne
+	font := 16.0
+	sirina := sirinaNatpisa(c.VodaNatpis, font)
+	var od, do float64
+	switch c.VodaNatpisSidro {
+	case "start":
+		od, do = c.VodaNatpisX, c.VodaNatpisX+sirina
+	case "end":
+		od, do = c.VodaNatpisX-sirina, c.VodaNatpisX
+	default:
+		od, do = c.VodaNatpisX-sirina/2, c.VodaNatpisX+sirina/2
+	}
+	for _, pr := range c.Pragovi {
+		if math.Abs(pr.Y-c.YVode) > font+3 {
+			continue
+		}
+		kraj := c.NatpisX() + sirinaNatpisa(pr.Label+" "+brojHR(pr.Cm), font)
+		if kraj > od && c.NatpisX() < do {
+			t.Errorf("kota vode (%.0f–%.0f) preklapa natpis %q (%.0f–%.0f)",
+				od, do, pr.Label, c.NatpisX(), kraj)
+		}
+	}
+	// i ne smije izaći iz crteža
+	if od < 0 || do > float64(c.Sirina) {
+		t.Errorf("natpis vode izlazi iz crteža: %.0f–%.0f od %d", od, do, c.Sirina)
+	}
+}
+
+// Natpisi pragova ne smiju stajati uz samu os: ondje na strmom profilu leži
+// obala, pa natpis pada na crtu korita. Zato su pomaknuti u korito, ali ne
+// do sredine — ondje stoji kota vode.
+func TestNatpisiPragovaNisuUzSamuOs(t *testing.T) {
+	c := crtajKoritoP(probniProfil(), 300, sirokoKoritoM.uSustavu(batinaSKotama()))
+	if c.NatpisX() <= c.Lijevo+20 {
+		t.Errorf("natpis praga na %.0f, os na %.0f — prelijeva se preko obale", c.NatpisX(), c.Lijevo)
+	}
+	sredina := c.Lijevo + c.SirinaPlohe/2
+	if c.NatpisX() >= sredina {
+		t.Errorf("natpis praga na %.0f je u sredini (%.0f), gdje stoji kota vode", c.NatpisX(), sredina)
+	}
+}
