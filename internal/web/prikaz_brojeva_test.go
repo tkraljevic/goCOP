@@ -670,7 +670,7 @@ func TestPovijestLetveCitaArhivu(t *testing.T) {
 		ArhGodine:   []int{2013, 2012, 1956},
 		ArhGodina:   2013,
 		ArhPager:    pagerZa(&http.Request{URL: &url.URL{Path: "/readings/station/x"}}, "ap", 8760, 100),
-		ArhChart:    buildChart(nizZaGraf(kad), &models.Station{Name: "Batina"}, false),
+		ArhChart:    crtajNiz(nizZaGraf(kad), "vodostaj", &models.Station{Name: "Batina"}, nil),
 		ArhSada:     &models.SpojenaVrijednost{Kad: kad, Vrijednost: 771, Izvor: "his2000", Tocnost: 0},
 		ArhNiz: []models.SpojenaVrijednost{
 			{Kad: kad, Vrijednost: 771, Izvor: "his2000", Vrsta: "srednjak", Tocnost: 0},
@@ -710,13 +710,12 @@ func TestPovijestLetveCitaArhivu(t *testing.T) {
 	}
 }
 
-// nizZaGraf daje nekoliko očitanja za provjeru crtanja
-func nizZaGraf(kad time.Time) []models.Reading {
-	cm := func(v int) *int { return &v }
-	return []models.Reading{
-		{MeasuredAt: kad, LevelCm: cm(771)},
-		{MeasuredAt: kad.AddDate(0, 0, -1), LevelCm: cm(758)},
-		{MeasuredAt: kad.AddDate(0, 0, -2), LevelCm: cm(690)},
+// nizZaGraf daje nekoliko vrijednosti za provjeru crtanja
+func nizZaGraf(kad time.Time) []models.SpojenaVrijednost {
+	return []models.SpojenaVrijednost{
+		{Kad: kad, Vrijednost: 771},
+		{Kad: kad.AddDate(0, 0, -1), Vrijednost: 758},
+		{Kad: kad.AddDate(0, 0, -2), Vrijednost: 690},
 	}
 }
 
@@ -759,62 +758,6 @@ func TestRedakSazetkaOtvaraTuVelicinu(t *testing.T) {
 	})
 	if want := "/readings/station/" + id.String() + "?v=protok#niz"; !strings.Contains(html, want) {
 		t.Errorf("kartica letve ne vodi na %q", want)
-	}
-}
-
-// Graf satne godine mora pokriti cijelu godinu, ne samo dio. Prorjeđivanje
-// smije smanjiti broj točaka, ali ne smije pojesti vrh vala ni odrezati
-// početak razdoblja.
-func TestProrjedivanjeCuvaVrhIRaspon(t *testing.T) {
-	cm := func(v int) *int { return &v }
-	poc := time.Date(2013, 1, 1, 0, 0, 0, 0, time.UTC)
-	var sati []models.Reading
-	for i := 0; i < 8760; i++ {
-		v := 100 + i%50
-		if i == 4000 { // vrh vala usred godine
-			v = 772
-		}
-		if i == 7000 { // najniža voda
-			v = -128
-		}
-		sati = append(sati, models.Reading{MeasuredAt: poc.Add(time.Duration(i) * time.Hour), LevelCm: cm(v)})
-	}
-
-	out := prorijedi(sati, 700)
-	if len(out) > 900 {
-		t.Errorf("prorijeđeno na %d točaka, očekivano oko 700", len(out))
-	}
-	if len(out) < 100 {
-		t.Errorf("prorijeđeno na svega %d točaka", len(out))
-	}
-
-	var najv, najn int = -9999, 9999
-	prvi, zadnji := out[0].MeasuredAt, out[len(out)-1].MeasuredAt
-	for _, r := range out {
-		if *r.LevelCm > najv {
-			najv = *r.LevelCm
-		}
-		if *r.LevelCm < najn {
-			najn = *r.LevelCm
-		}
-	}
-	if najv != 772 {
-		t.Errorf("vrh vala izgubljen: najviše %d, očekivano 772", najv)
-	}
-	if najn != -128 {
-		t.Errorf("najniža voda izgubljena: najniže %d, očekivano -128", najn)
-	}
-	if !prvi.Equal(poc) {
-		t.Errorf("graf počinje %s, a godina počinje %s", prvi, poc)
-	}
-	if zadnji.Before(poc.AddDate(1, 0, 0).Add(-2 * time.Hour)) {
-		t.Errorf("graf završava %s, prerano za punu godinu", zadnji)
-	}
-
-	// kratak niz ostaje netaknut
-	kratak := sati[:50]
-	if got := prorijedi(kratak, 700); len(got) != 50 {
-		t.Errorf("kratak niz prorijeđen na %d, očekivano 50", len(got))
 	}
 }
 
@@ -1165,5 +1108,11 @@ func TestSvjezaOcitanjaIznadArhive(t *testing.T) {
 	// graf kretanja stoji iznad popisa očitanja
 	if i := strings.Index(html, "Kretanje vodostaja"); i > 0 && i > iOcitanja {
 		t.Error("graf kretanja stoji ispod popisa očitanja")
+	}
+	// i u arhivi graf ide prije tablice vrijednosti
+	iGraf := strings.Index(html, "Graf vodostaja iz arhive")
+	iTablica := strings.Index(html, "Novije prvo. Svaka vrijednost")
+	if iGraf > 0 && iTablica > 0 && iGraf > iTablica {
+		t.Error("u arhivi tablica stoji iznad grafa")
 	}
 }

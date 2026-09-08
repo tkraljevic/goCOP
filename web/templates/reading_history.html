@@ -66,27 +66,27 @@
 {{if .Chart}}
 <section class="detail-section">
   <h2>{{icon "chart-column"}} Kretanje vodostaja <span class="reg-chip">{{if .Year}}{{.Year}}.{{else}}zadnjih {{len .Chart.Points}}{{end}}</span></h2>
-  <div class="reg-card chart" style="padding:0.75rem 0.5rem 0.5rem;">
+  <div class="reg-card chart graf-niza" style="padding:0.75rem 0.5rem 0.25rem;" data-tocke="{{.Chart.Tocke}}">
     <svg viewBox="0 0 {{.Chart.Width}} {{.Chart.Height}}" role="img" aria-label="Graf vodostaja">
       {{range .Chart.YTicks}}
-      <line class="grid" x1="44" x2="{{$.Chart.Width}}" y1="{{printf "%.1f" .Pos}}" y2="{{printf "%.1f" .Pos}}"/>
-      <text class="tick" x="40" y="{{printf "%.1f" .Pos}}" text-anchor="end" dominant-baseline="middle">{{.Label}}</text>
+      <line class="grid" x1="96" x2="{{sub $.Chart.Width 116}}" y1="{{printf "%.1f" .Pos}}" y2="{{printf "%.1f" .Pos}}"/>
+      <text class="tick" x="88" y="{{printf "%.1f" .Pos}}" text-anchor="end" dominant-baseline="middle">{{.Label}}</text>
       {{end}}
-      {{range .Chart.Bands}}<rect class="band {{.Class}}" x="44" y="{{printf "%.1f" .Y}}" width="{{$.Chart.Width}}" height="{{printf "%.1f" .H}}"/>{{end}}
       <path class="area" d="{{.Chart.Area}}"/>
       {{range .Chart.Thresholds}}
-      <line class="thr {{.Class}}" x1="44" x2="{{$.Chart.Width}}" y1="{{printf "%.1f" .Y}}" y2="{{printf "%.1f" .Y}}"/>
-      <text class="thr-label {{.Class}}" x="{{$.Chart.Width}}" y="{{printf "%.1f" .Y}}" text-anchor="end" dy="-3">{{.Label}}</text>
+      <line class="thr {{.Class}}" x1="96" x2="{{sub $.Chart.Width 116}}" y1="{{printf "%.1f" .Y}}" y2="{{printf "%.1f" .Y}}"/>
+      <text class="thr-label {{.Class}}" x="{{sub $.Chart.Width 110}}" y="{{printf "%.1f" .Y}}" dominant-baseline="middle">{{.Label}}</text>
       {{end}}
       <path class="line" d="{{.Chart.Path}}"/>
-      {{$n := len .Chart.Points}}
-      {{range $i, $p := .Chart.Points}}
-      <circle class="dot {{if eq (add $i 1) $n}}last{{end}}" cx="{{printf "%.1f" $p.X}}" cy="{{printf "%.1f" $p.Y}}" r="{{if eq (add $i 1) $n}}4{{else}}1.5{{end}}"><title>{{formatDate (localTime $p.At)}} — {{$p.Level}} cm</title></circle>
+      {{range .Chart.XTicks}}
+      <text class="tick" x="{{printf "%.1f" .Pos}}" y="{{$.Chart.Height}}" dy="-14" text-anchor="middle">{{.Label}}</text>
       {{end}}
-      {{range $i, $t := .Chart.XTicks}}
-      <text class="tick" x="{{printf "%.1f" $t.Pos}}" y="{{$.Chart.Height}}" dy="-6" text-anchor="{{if eq $i 0}}start{{else if eq $i 2}}end{{else}}middle{{end}}">{{$t.Label}}</text>
-      {{end}}
+      <g class="pokazivac" hidden>
+        <line class="vodilja" y1="22" y2="{{sub $.Chart.Height 46}}"/>
+        <circle class="biljeg" r="6"/>
+      </g>
     </svg>
+    <div class="graf-oblacic" hidden></div>
   </div>
 </section>
 {{end}}
@@ -162,6 +162,35 @@
     <span class="reg-card-sub">{{len .ArhGodine}} godina u arhivi{{if .ArhPager.Total}} · {{brojHR .ArhPager.Total}} vrijednosti u {{.ArhGodina}}.{{end}}{{if .ArhIspravaka}} · <strong>{{brojHR .ArhIspravaka}} ispravljeno</strong>{{end}}</span>
   </form>
 
+  {{if .ArhChart}}
+  <h3 class="part-label" style="margin:0 0 0.35rem 0;">{{velicinaLabel .ArhVelicina}} <span class="reg-card-sub">{{.ArhJedinica}}</span> — {{.ArhGodina}}.{{if eq .ArhKorak "satni"}}, svaki sat{{else}}, dnevni srednjak{{end}}</h3>
+  <div class="reg-card chart graf-niza" style="padding:0.75rem 0.5rem 0.25rem; margin-bottom:1rem;"
+       data-tocke="{{.ArhChart.Tocke}}">
+    <svg viewBox="0 0 {{.ArhChart.Width}} {{.ArhChart.Height}}" role="img"
+         aria-label="Graf: {{velicinaLabel .ArhVelicina}}, {{.ArhGodina}}.">
+      {{range .ArhChart.YTicks}}
+      <line class="grid" x1="96" x2="{{sub $.ArhChart.Width 116}}" y1="{{printf "%.1f" .Pos}}" y2="{{printf "%.1f" .Pos}}"/>
+      <text class="tick" x="88" y="{{printf "%.1f" .Pos}}" text-anchor="end" dominant-baseline="middle">{{.Label}}</text>
+      {{end}}
+      <path class="area" d="{{.ArhChart.Area}}"/>
+      {{range .ArhChart.Thresholds}}
+      <line class="thr {{.Class}}" x1="96" x2="{{sub $.ArhChart.Width 116}}" y1="{{printf "%.1f" .Y}}" y2="{{printf "%.1f" .Y}}"/>
+      <text class="thr-label {{.Class}}" x="{{sub $.ArhChart.Width 110}}" y="{{printf "%.1f" .Y}}" dominant-baseline="middle">{{.Label}}</text>
+      {{end}}
+      <path class="line" d="{{.ArhChart.Path}}"/>
+      {{range .ArhChart.XTicks}}
+      <text class="tick" x="{{printf "%.1f" .Pos}}" y="{{$.ArhChart.Height}}" dy="-14" text-anchor="middle">{{.Label}}</text>
+      {{end}}
+      <g class="pokazivac" hidden>
+        <line class="vodilja" y1="22" y2="{{sub $.ArhChart.Height 46}}"/>
+        <circle class="biljeg" r="6"/>
+      </g>
+    </svg>
+    <div class="graf-oblacic" hidden></div>
+  </div>
+  {{end}}
+
+
   {{if .ArhNiz}}
   <div class="table-card"><div class="table-responsive" style="max-height:28rem; overflow-y:auto;">
     <table class="data-table">
@@ -209,35 +238,6 @@
     Novije prvo. Svaka vrijednost dolazi iz najtočnijeg izvora koji je taj trenutak pokrio.
   </p>
   {{end}}
-
-  {{if .ArhChart}}
-  <h3 class="part-label" style="margin:0 0 0.35rem 0;">{{velicinaLabel .ArhVelicina}} <span class="reg-card-sub">{{.ArhJedinica}}</span> — {{.ArhGodina}}.{{if eq .ArhKorak "satni"}}, svaki sat{{else}}, dnevni srednjak{{end}}</h3>
-  <div class="reg-card chart graf-niza" style="padding:0.75rem 0.5rem 0.25rem; margin-bottom:1rem;"
-       data-tocke="{{.ArhChart.Tocke}}">
-    <svg viewBox="0 0 {{.ArhChart.Width}} {{.ArhChart.Height}}" role="img"
-         aria-label="Graf: {{velicinaLabel .ArhVelicina}}, {{.ArhGodina}}.">
-      {{range .ArhChart.YTicks}}
-      <line class="grid" x1="96" x2="{{sub $.ArhChart.Width 116}}" y1="{{printf "%.1f" .Pos}}" y2="{{printf "%.1f" .Pos}}"/>
-      <text class="tick" x="88" y="{{printf "%.1f" .Pos}}" text-anchor="end" dominant-baseline="middle">{{.Label}}</text>
-      {{end}}
-      <path class="area" d="{{.ArhChart.Area}}"/>
-      {{range .ArhChart.Thresholds}}
-      <line class="thr {{.Class}}" x1="96" x2="{{sub $.ArhChart.Width 116}}" y1="{{printf "%.1f" .Y}}" y2="{{printf "%.1f" .Y}}"/>
-      <text class="thr-label {{.Class}}" x="{{sub $.ArhChart.Width 110}}" y="{{printf "%.1f" .Y}}" dominant-baseline="middle">{{.Label}}</text>
-      {{end}}
-      <path class="line" d="{{.ArhChart.Path}}"/>
-      {{range .ArhChart.XTicks}}
-      <text class="tick" x="{{printf "%.1f" .Pos}}" y="{{$.ArhChart.Height}}" dy="-14" text-anchor="middle">{{.Label}}</text>
-      {{end}}
-      <g class="pokazivac" hidden>
-        <line class="vodilja" y1="22" y2="{{sub $.ArhChart.Height 46}}"/>
-        <circle class="biljeg" r="6"/>
-      </g>
-    </svg>
-    <div class="graf-oblacic" hidden></div>
-  </div>
-  {{end}}
-
 
   <details style="margin-top:1.25rem;">
     <summary style="cursor:pointer; font-weight:600;">Karakteristične vrijednosti po veličinama</summary>

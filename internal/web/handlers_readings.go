@@ -418,7 +418,23 @@ func (h *ReadingsHandler) ShowHistory(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	data.Count = len(shown)
-	data.Chart = buildChart(shown, thresholdStation, data.Year == 0)
+	// Operativna očitanja koriste isti graf kao arhiva: veći koordinatni sustav,
+	// oznake po mjesecima i vrijednost uz miša. Prije su imali svoj, sitniji.
+	vidljiva := shown
+	if data.Year == 0 && len(vidljiva) > 120 {
+		vidljiva = vidljiva[:120]
+	}
+	var zaGraf []models.SpojenaVrijednost
+	for _, rd := range vidljiva {
+		if rd.LevelCm == nil {
+			continue
+		}
+		zaGraf = append(zaGraf, models.SpojenaVrijednost{
+			Kad: rd.MeasuredAt, Vrijednost: float64(*rd.LevelCm),
+			Izvor: rd.Origin, Vrsta: "trenutna",
+		})
+	}
+	data.Chart = crtajNiz(prorijediNiz(zaGraf, 700), "vodostaj", thresholdStation, nil)
 	data.Readings, data.Pager = paginate(shown, r, readingsPerPage)
 
 	if station != nil {
@@ -431,118 +447,6 @@ func (h *ReadingsHandler) ShowHistory(w http.ResponseWriter, r *http.Request) {
 }
 
 // buildChart crta zadnjih 120 očitanja (ili cijelu godinu) s vodostajem
-func buildChart(readings []models.Reading, station *models.Station, limitRecent bool) *Chart {
-	var pts []models.Reading
-	for _, rd := range readings {
-		if rd.LevelCm != nil {
-			pts = append(pts, rd)
-		}
-	}
-	if limitRecent && len(pts) > 120 {
-		pts = pts[:120]
-	}
-	if len(pts) < 2 {
-		return nil
-	}
-	sort.Slice(pts, func(i, j int) bool { return pts[i].MeasuredAt.Before(pts[j].MeasuredAt) })
-	c := &Chart{Width: 640, Height: 220, From: pts[0].MeasuredAt, To: pts[len(pts)-1].MeasuredAt}
-	c.Min, c.Max = *pts[0].LevelCm, *pts[0].LevelCm
-	for _, rd := range pts {
-		c.Min = min(c.Min, *rd.LevelCm)
-		c.Max = max(c.Max, *rd.LevelCm)
-	}
-	if station != nil {
-		for _, t := range []models.Threshold{station.Prep, station.Regular, station.Emergency, station.State} {
-			if t.IsUsable() && *t.Cm <= c.Max+50 && *t.Cm >= c.Min-50 {
-				c.Min = min(c.Min, *t.Cm)
-				c.Max = max(c.Max, *t.Cm)
-			}
-		}
-	}
-	if c.Max == c.Min {
-		c.Max++
-	}
-	pad := (c.Max - c.Min) / 10
-	if pad < 5 {
-		pad = 5
-	}
-	c.Min -= pad
-	c.Max += pad
-	const left, right, top, bottom = 44.0, 12.0, 12.0, 28.0
-	plotW := float64(c.Width) - left - right
-	plotH := float64(c.Height) - top - bottom
-	span := c.To.Sub(c.From).Seconds()
-	if span <= 0 {
-		span = 1
-	}
-	yOf := func(cm int) float64 {
-		return top + plotH - (float64(cm-c.Min)/float64(c.Max-c.Min))*plotH
-	}
-	xOf := func(t time.Time) float64 { return left + t.Sub(c.From).Seconds()/span*plotW }
-
-	var sb strings.Builder
-	for i, rd := range pts {
-		p := ChartPoint{X: xOf(rd.MeasuredAt), Y: yOf(*rd.LevelCm), Level: *rd.LevelCm, At: rd.MeasuredAt}
-		c.Points = append(c.Points, p)
-		if i == 0 {
-			fmt.Fprintf(&sb, "M%.1f %.1f", p.X, p.Y)
-		} else {
-			fmt.Fprintf(&sb, " L%.1f %.1f", p.X, p.Y)
-		}
-	}
-	c.Path = sb.String()
-	first, last := c.Points[0], c.Points[len(c.Points)-1]
-	c.Area = fmt.Sprintf("%s L%.1f %.1f L%.1f %.1f Z", c.Path, last.X, top+plotH, first.X, top+plotH)
-
-	// Y osi: 4 oznake zaokružene na lijep korak
-	step := niceStep(float64(c.Max-c.Min) / 5)
-	for v := math.Ceil(float64(c.Min)/step) * step; v <= float64(c.Max); v += step {
-		c.YTicks = append(c.YTicks, ChartTick{Pos: yOf(int(v)), Label: strconv.Itoa(int(v))})
-	}
-	// X osi: početak, sredina, kraj
-	for _, t := range []time.Time{c.From, c.From.Add(time.Duration(span/2) * time.Second), c.To} {
-		layout := "02.01.2006."
-		if span < 3*24*3600 {
-			layout = "02.01. 15:04"
-		}
-		c.XTicks = append(c.XTicks, ChartTick{Pos: xOf(t), Label: t.In(models.Zagreb).Format(layout)})
-	}
-	if station != nil {
-		type level struct {
-			cm    int
-			label string
-			class string
-		}
-		var levels []level
-		for _, l := range []struct {
-			t     models.Threshold
-			label string
-			class string
-		}{{station.Prep, "P", "prep"}, {station.Regular, "R", "regular"}, {station.Emergency, "I", "emerg"}, {station.State, "IS", "crit"}} {
-			if l.t.IsUsable() {
-				levels = append(levels, level{*l.t.Cm, l.label, l.class})
-			}
-		}
-		sort.Slice(levels, func(i, j int) bool { return levels[i].cm < levels[j].cm })
-		for i, l := range levels {
-			if l.cm >= c.Min && l.cm <= c.Max {
-				c.Thresholds = append(c.Thresholds, ChartLine{Y: yOf(l.cm), Label: l.label, Class: l.class})
-			}
-			// Pojas te faze traje do sljedećeg praga, a zadnji do vrha grafa
-			top := c.Max
-			if i+1 < len(levels) {
-				top = levels[i+1].cm
-			}
-			lo, hi := max(l.cm, c.Min), min(top, c.Max)
-			if hi <= lo {
-				continue
-			}
-			c.Bands = append(c.Bands, ChartBand{Y: yOf(hi), H: yOf(lo) - yOf(hi), Class: l.class})
-		}
-	}
-	return c
-}
-
 func niceStep(raw float64) float64 {
 	if raw <= 0 {
 		return 1
