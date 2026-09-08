@@ -127,9 +127,10 @@ nađen.
 - Rekonstrukcija se **ne izbacuje** izvan mjerenog raspona, nego označava.
   Rupa u nizu hidrologu ne govori ništa, a znati da je bila ekstremna mala
   voda i otprilike kolika, govori dosta. Dani na kojima Mohács izlazi iz
-  raspona idu u zaseban izvor `preracun-mohacs-izvan` s točnošću **±150 cm**
-  umjesto ±14, i uz svaku vrijednost piše „izvan mjerenog odnosa". Nakon
-  ispravka iz 1943. takvih je dana petnaest, svi u siječnju 1909.
+  raspona idu u zaseban izvor s nastavkom `-izvan`, s točnošću **±150 cm**
+  umjesto ±14, i uz svaku vrijednost piše „izvan mjerenog odnosa". Za Batinu
+  takvih dana nakon ispravka iz 1943. **nema nijednog**; mehanizam ostaje jer
+  je općenit i trebat će drugim letvama.
 - Sažetak krajnosti pamti **odakle je** koja krajnost i uz preračunatu piše
   znak `≈`, s objašnjenjem ispod tablice. Vrijednost se ne skriva, samo se ne
   predstavlja kao mjerenje.

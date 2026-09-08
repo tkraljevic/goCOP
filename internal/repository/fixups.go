@@ -71,8 +71,7 @@ var fixups = []fixup{
 		// koji je 740 m uzvodno i utemeljen 1856.; odnos Batina − Bezdan iznosi
 		// mjerenih +21 cm pri niskoj vodi, s raspršenošću od 10 cm na 8.126
 		// dana. Apatin, 23 km nizvodno, daje -159 cm i time potvrđuje red
-		// veličine. Preračun iz Mohácsa daje -298 i odudara od obojice; zašto,
-		// nije utvrđeno (vidi docs/rekonstrukcija-nizova.md).
+		// veličine.
 		name: "batina-minimum-1909-podrijetlo",
 		run: func(ctx context.Context, tx *sql.Tx, rec *ledger.Recorder) (int, error) {
 			var id, sirovi string
@@ -98,6 +97,58 @@ var fixups = []fixup{
 				e.Source = "postaja Bezdan"
 				e.Method = "preračun iz vodostaja Bezdana (-146 cm), pomak +21 cm"
 				e.Note = "Bezdan je 740 m uzvodno, utemeljen 1856. Preračun iz Apatina daje -159 cm. Preračun iz Mohácsa daje -298 cm i odudara; uzrok nije utvrđen."
+				nasao = true
+			}
+			if !nasao {
+				return 0, nil
+			}
+			b, err := json.Marshal(extremes)
+			if err != nil {
+				return 0, err
+			}
+			if _, err := tx.ExecContext(ctx, `UPDATE stations SET extremes = ?, updated_at = ? WHERE id = ?`,
+				string(b), time.Now().UTC(), id); err != nil {
+				return 0, err
+			}
+			st, err := getStationTx(ctx, tx, id)
+			if err != nil {
+				return 0, err
+			}
+			if _, err := rec.Record(ctx, tx, EntityStations, id, st); err != nil {
+				return 0, err
+			}
+			return 1, nil
+		},
+	},
+	{
+		// Napomena uz taj minimum govorila je da preračun iz Mohácsa daje -298
+		// cm i odudara, uzrok neutvrđen. Uzrok je u međuvremenu nađen: kote
+		// nule dunavskih letvi od Paksa do Mohácsa spuštene su 1.1.1943. za
+		// 200 cm (VITUKI 1976). Uz taj ispravak Mohács daje -108 cm, dakle
+		// sve tri procjene se slažu i napomena više ne stoji.
+		name: "batina-minimum-1909-mohacs-1943",
+		run: func(ctx context.Context, tx *sql.Tx, rec *ledger.Recorder) (int, error) {
+			var id, sirovi string
+			err := tx.QueryRowContext(ctx, `SELECT id, coalesce(extremes,'') FROM stations WHERE code = 'batina'`).Scan(&id, &sirovi)
+			if err == sql.ErrNoRows {
+				return 0, nil
+			} else if err != nil {
+				return 0, err
+			}
+			var extremes []models.StationExtreme
+			if sirovi == "" {
+				return 0, nil
+			}
+			if err := json.Unmarshal([]byte(sirovi), &extremes); err != nil {
+				return 0, err
+			}
+			nasao := false
+			for i := range extremes {
+				e := &extremes[i]
+				if e.Kind != models.ExtremeMin || e.OnDate != "1909-01-07" {
+					continue
+				}
+				e.Note = "Bezdan je 740 m uzvodno, utemeljen 1856. Preračun iz Apatina daje -159 cm, iz Mohácsa -108 cm uz ispravak kote nule iz 1943. (-200 cm, VITUKI 1976)."
 				nasao = true
 			}
 			if !nasao {
