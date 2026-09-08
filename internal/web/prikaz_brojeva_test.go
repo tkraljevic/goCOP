@@ -1,7 +1,9 @@
 package web
 
 import (
+	"context"
 	"github.com/google/uuid"
+	"gocop/internal/repository"
 	"math"
 	"net/http"
 	"net/url"
@@ -1006,5 +1008,35 @@ func TestIspravakNePrepisujeArhivu(t *testing.T) {
 	}
 	if niz[1].Ispravljeno {
 		t.Error("neispravljena vrijednost označena kao ispravljena")
+	}
+}
+
+// Rukovatelj se sastavlja prije nego što poslužitelj dobije bazu, pa mu se
+// pohrane predaju kao dohvatnici. Ovo drži da rukovatelj bez pohrane radi
+// umjesto da padne — dvaput je ista greška srušila stranicu.
+func TestRukovateljBezPohraneNePada(t *testing.T) {
+	h := &ReadingsHandler{}
+	if h.arh() != nil {
+		t.Error("arhiva bez dohvatnika mora biti prazna")
+	}
+	if h.isp() != nil {
+		t.Error("pohrana ispravaka bez dohvatnika mora biti prazna")
+	}
+	// dohvatnik koji vraća prazno je isto valjan odgovor
+	h.SetArhiva(func() *repository.ArhivaRepository { return nil })
+	h.SetIspravci(func() *repository.IspravakRepository { return nil }, nil)
+	if h.arh() != nil || h.isp() != nil {
+		t.Error("prazan dohvatnik mora vratiti prazno")
+	}
+	if m := h.ispravciZa(context.Background(), "batina", "vodostaj", "dnevni",
+		time.Now().AddDate(-1, 0, 0), time.Now()); m != nil {
+		t.Error("bez pohrane ispravaka ne smije se ništa dohvaćati")
+	}
+
+	// prazan repozitorij bez baze ne pada, nego vraća prazno
+	var prazan *repository.IspravakRepository
+	if m, err := prazan.ZaNiz(context.Background(), "batina", "vodostaj", "dnevni",
+		time.Now().AddDate(-1, 0, 0), time.Now()); err != nil || m != nil {
+		t.Errorf("prazan repozitorij: %v, %v", m, err)
 	}
 }
