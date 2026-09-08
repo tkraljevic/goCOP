@@ -37,33 +37,49 @@ visoke vode — točno razlika kota nule (80,64 − 80,45 = 0,19 m), jer su letv
 
 ## Promjena kote nule Mohácsa 1943.
 
-Dio razlike je nađen i ispravljen. **1.1.1943. spuštene su kote nule dunavskih
-letvi nizvodno od Budimpešte**, jer je korito zbog stoljetne regulacije
-potonulo pa su se javljali negativni vodostaji (VITUKI 1976., Szilágyi 1988.).
-Mohács je nizvodno od Budimpešte, Budimpešta nije — pa se promjena vidi u
-njihovoj razlici.
+**1.1.1943. spuštene su kote nule dunavskih letvi od Budimpešte nizvodno**, da
+se u nizovima izbjegnu negativni vodostaji koji su nastali potonućem korita
+nakon stoljetne regulacije. Iznos je dokumentiran:
 
-Izmjereno na dnevnim nizovima 1901.–1984.:
+> „A nullpont süllyesztése a Budapest–Dunaföldvár szakaszon 100 cm, a lefelé
+> következő Paks állomástól Mohácsig pedig 200 cm volt." (VITUKI 1976)
 
-| razdoblje | Mohács − Budimpešta | Baja − Budimpešta |
-|---|---|---|
-| 1936.–1942. | +42 cm | +13 cm |
-| 1943.–1952. | +102 cm | +72 cm |
+Dakle **Budimpešta–Dunaföldvár 100 cm, Paks–Mohács 200 cm**. Vrijednosti prije
+1943. dobivaju **+200 cm** prije preračuna.
 
-Stepenica je **+63 cm** i jedina je u cijelom nizu; pretraga svih godina po
-razlici petogodišnjih srednjaka daje 1943. kao daleko najveću (+63), a
-sljedeća je 1968. sa −32, što je već šum. Baja pokazuje isti pomak, što
-potvrđuje da je promjena bila zajednička, a ne svojstvo Mohácsa.
+Izvor: Kovács Péter, *A budapesti állami vízmérce két évszázados története*,
+40. Vándorgyűlés, Magyar Hidrológiai Társaság; iznos preuzet iz VITUKI (1976):
+*Hidrológiai alapok… 4.4. kötet: Adatgyűjtemény a vízmércékről*, 166 str.
 
-Vrijednosti prije 1943. zato dobivaju **+63 cm** prije preračuna. Sirovi
-niz Mohácsa ostaje kakav ga vizugy.hu daje; ispravak se primjenjuje u
-preračunu i ovdje je zapisan.
+### Kako je to promašeno pri prvoj procjeni
 
-Nakon ispravka Batina za 7.1.1909. ispada **−245 cm**. Bezdan i dalje daje
-−127, dakle 118 cm razlike ostaje **neobjašnjeno**. Moguće je da je i
-Bezdanova kota u međuvremenu mijenjana, ili da odnos dviju letvi pri
-ekstremno maloj vodi nije konstantan. Za razrješenje treba kronologija kote
-nule Bezdana ili njegov dugi niz.
+Stepenica je najprije procijenjena iz razlike Mohács − Budimpešta i ispala je
++63 cm. Bilo je krivo: **i Budimpešta je pomaknuta**, za 100 cm, pa je razlika
+dvaju pomaka, a ne pomak. Ni razvrstavanje po vodostaju Budimpešte nije
+pomoglo — isti broj prije i poslije 1943. nije ista voda.
+
+Provjera dokumentiranih iznosa: kad se prije 1943. Budimpešti doda 100 a
+Mohácsu i Baji 200 cm, preostala stepenica pada s +61 na **−17 cm**, i to
+jednako za obje postaje kroz sve razrede vode. Tih −17 cm najvjerojatnije je
+stvarno potonuće korita između dviju epoha — dakle ono zbog čega su kote i
+spuštene — pa se ne ispravlja.
+
+### Što je time riješeno
+
+Nakon ispravka **nijedan dan više ne izlazi iz mjerenog odnosa**: Mohács
+ispravljen nikad nije ispod 4 cm. Niz je cjelovit, svih 36.493 dana, s
+točnošću ±14 cm.
+
+Za 7.1.1909. sve četiri procjene sada se slažu:
+
+| | Batina |
+|---|---|
+| preko Mohácsa, ispravljeno | **−108 cm** |
+| preko Bezdana | −125 cm |
+| evidencija COP-a | −127 cm |
+| preko Apatina | −159 cm |
+
+Razlika prema Bezdanu pala je sa 118 na 17 cm.
 
 ## Što kote nule govore
 
@@ -97,27 +113,14 @@ Za 7.1.1909., uz ispravljeni Mohács od −102 cm i Batininu nulu višu 57 cm:
 
 | | Batina |
 |---|---|
-| bez ikakva pada (nemoguće) | **−159 cm** — apsolutni gornji rub |
-| pad 3,5 cm/km (izmjeren) | −236 cm |
-| naša rekonstrukcija | −245 cm |
+Mohács ispravljen za 1909. iznosi +35 cm. Batinina nula viša je 57 cm, pa uz
+izmjereni pad od 3,5 cm/km preko 22 km ispada oko −99 cm; empirijski pomak od
+−133 cm daje −108. Evidencija COP-a navodi −127, dakle unutar dosega.
 
-Evidencija COP-a navodi −127 cm. To je 32 cm IZNAD granice koju kota dopušta
-i pri nultom padu, dakle fizički nedostižno ako je ispravljeni Mohács točan.
-Obrnuto, da bi Batina bila −127, Mohács je morao pokazivati barem −70 pri
-nultom padu ili oko −5 pri stvarnom — dakle ispravak bi trebao biti još
-100 do 160 cm veći.
-
-### Trag koji ostaje
-
-Stepenica je tražena u 1901.–1984. i nađena samo 1943. Premještanje **prije
-1901.** ne bi se ni vidjelo, a literatura navodi da su u prvom stoljeću
-mjerenja bila česta. Uz to: i s +63 cm Mohácsova nula (80,51) ostaje ispod
-Bezdanove (80,64) premda je 21 km uzvodno; za dosljednost s izmjerenim padom
-trebala bi biti oko 81,4 — razlika od ~90 cm, blizu neobjašnjenog ostatka.
-
-To nije dokaz. Kote nisu obvezne ležati na istoj plohi: svaka je postavljena
-na svoju povijesnu malu vodu, u svoje doba i po svojoj zemlji. Ali pokazuje u
-istom smjeru.
+Ta je granica prije ispravka bila prekršena: uz Mohács od −102 cm Batina nije
+mogla biti iznad −159 ni pri nultom padu, a evidencija je tvrdila −127. Upravo
+je to nesuglasje navelo na traženje dokumentiranog iznosa, koji je onda i
+nađen.
 
 ## Što program radi s time
 
