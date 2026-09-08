@@ -367,6 +367,7 @@ func (s *Server) setupRoutes() {
 	readingsH := NewReadingsHandler(s.readingService, s.stationService, s.structureService, s.userService,
 		s.templates["readings.html"], s.templates["reading_history.html"], s.templates["reading_form.html"])
 	readingsH.SetFollow(s.followRepo, s.onFollowChange)
+	readingsH.SetArhiva(func() *repository.ArhivaRepository { return s.arhiva })
 	watercoursesH.SetPageTemplates(s.templates["watercourse_detail.html"], s.templates["watercourse_form.html"], s.stationService)
 	watercoursesH.SetMaintenanceService(s.maintenanceService)
 	maintenanceH := NewMaintenanceHandler(s.maintenanceService, s.userService, s.watercourseService, s.structureService, s.templates["odrzavanje.html"])

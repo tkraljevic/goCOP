@@ -648,3 +648,49 @@ func TestKarticaLetveRazdvajaIzmjereniOdZabiljezenog(t *testing.T) {
 		t.Error("letva s jednim maksimumom ne smije prikazivati dva")
 	}
 }
+
+// Stranica povijesti letve mora raditi i kad operativnih očitanja nema: povijest
+// se tada čita iz arhive, s biranjem veličine, koraka i godine.
+func TestPovijestLetveCitaArhivu(t *testing.T) {
+	kad := time.Date(2013, 6, 14, 6, 0, 0, 0, time.UTC)
+	html := iscrtaj(t, "reading_history.html", ReadingHistoryData{
+		CurrentUser: &models.User{FullName: "Provjera"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Station:     &models.Station{Name: "Batina", Code: "batina"},
+		GaugeName:   "Batina",
+		ArhVelicine: []string{"vodostaj", "protok", "temperatura", "pronos"},
+		ArhVelicina: "vodostaj",
+		ArhKorak:    "dnevni",
+		ArhJedinica: "cm",
+		ArhGodine:   []int{2013, 2012, 1956},
+		ArhGodina:   2013,
+		ArhNiz: []models.SpojenaVrijednost{
+			{Kad: kad, Vrijednost: 771, Izvor: "his2000", Vrsta: "srednjak", Tocnost: 0},
+			{Kad: kad.AddDate(0, 0, -1), Vrijednost: 758, Izvor: "letva-dhmz", Vrsta: "srednjak", Tocnost: 1},
+		},
+		ArhSazetak: []models.SazetakVelicine{
+			{Velicina: "vodostaj", Od: "1901-01-01", Do: "2026-09-06", Srednjak: 205, Max: 797, MaxNa: "1956-03-13", Min: -308, MinNa: "1947-09-20"},
+			{Velicina: "pronos", Od: "2018-05-01", Do: "2025-12-31", Srednjak: 6005.7, Max: 145575, Min: 37.5},
+		},
+	})
+	for _, want := range []string{
+		"Povijest iz arhive", "Vodostaj", "Protok", "Temperatura vode", "Pronos nanosa",
+		"1956", "2013", "771", "ovjereno", "telemetrija, DHMZ", "±1",
+		"797", "1956-03-13", // sažetak
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("na stranici povijesti nema %q", want)
+		}
+	}
+
+	// bez arhive stranica se i dalje mora iscrtati
+	prazna := iscrtaj(t, "reading_history.html", ReadingHistoryData{
+		CurrentUser: &models.User{FullName: "Provjera"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Station:     &models.Station{Name: "Nešto", Code: "nesto"},
+		GaugeName:   "Nešto",
+	})
+	if strings.Contains(prazna, "Povijest iz arhive") {
+		t.Error("letva bez arhive ne smije prikazivati odjeljak arhive")
+	}
+}
