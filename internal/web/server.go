@@ -197,18 +197,18 @@ func templateFuncs() template.FuncMap {
 		"structureState": models.StructureStateLabel,
 		"gateLabel":      models.GateLabel,
 		"localTime":      func(t time.Time) time.Time { return t.In(models.Zagreb) },
-		// Vrijeme vrijednosti u nizu ispisuje se onako kako je i zapisano, bez
-		// pomicanja u zagrebačko: cijeli je put označen kao vrijeme_utc — i
-		// datoteke koje korisnik uređuje i arhiva i zalijepljeni ispis. Kad bi
-		// se pomicalo samo pri ispisu, zaslon se ne bi poklapao s datotekom.
+		// Arhiva od sada drži pravi UTC, pa se pri ispisu pretvara u zagrebačko
+		// vrijeme — isto kao operativna očitanja. Dežurni tako svugdje vidi sat
+		// kakav pokazuje sat na zidu, bez obzira odakle podatak dolazi.
 		"vrijemeNiza": func(t time.Time, satni bool) string {
 			if t.IsZero() {
 				return "—"
 			}
+			l := t.In(models.Zagreb)
 			if satni {
-				return t.Format("02.01.2006. 15:00")
+				return l.Format("02.01.2006. 15:00")
 			}
-			return t.Format("02.01.2006.")
+			return l.Format("02.01.2006.")
 		},
 		"intOf": func(i *int) int {
 			if i == nil {
