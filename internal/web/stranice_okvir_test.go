@@ -142,3 +142,42 @@ func TestRedoslijedUArhivi(t *testing.T) {
 		t.Errorf("redoslijed nije sažetak → graf → tablica: %d, %d, %d", iSazetak, iGraf, iTablica)
 	}
 }
+
+// Apsolutna kota stoji uz svako očitanje u popisu, ne samo uz zadnje: na teren
+// se ide s popisom, a ne s jednom brojkom.
+func TestPopisOcitanjaImaApsolutnuKotu(t *testing.T) {
+	kotaP := func(v float64) *float64 { return &v }
+	cm := func(v int) *int { return &v }
+	st := &models.Station{
+		ID: uuid.New(), Name: "Batina", Code: "batina",
+		ZeroDatum: kotaP(80.450), ZeroDatumSystem: "TRST",
+		ZeroDatumNew: kotaP(80.189), ZeroDatumNewSystem: "HVRS71",
+	}
+	sad := time.Now()
+	html := iscrtaj(t, "reading_history.html", ReadingHistoryData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Station:     st, GaugeName: "Batina",
+		Pogled: "30", PogledOpis: "zadnjih 30 dana", Count: 2,
+		Latest:   &models.Reading{MeasuredAt: sad, LevelCm: cm(-129)},
+		Readings: []models.Reading{{MeasuredAt: sad, LevelCm: cm(-129)}},
+	})
+	// -129 cm: 80,189 - 1,29 = 78,899 i 80,450 - 1,29 = 79,160
+	for _, want := range []string{"78,899 m HVRS71", "79,160 m TRST"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("uz očitanje nema %q", want)
+		}
+	}
+
+	// letva bez kote nule ne smije ispisivati apsolutnu visinu
+	bez := iscrtaj(t, "reading_history.html", ReadingHistoryData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Station:     &models.Station{ID: uuid.New(), Name: "Nešto", Code: "nesto"},
+		GaugeName:   "Nešto", Pogled: "30", PogledOpis: "zadnjih 30 dana",
+		Readings: []models.Reading{{MeasuredAt: sad, LevelCm: cm(-129)}},
+	})
+	if strings.Contains(bez, " m HVRS71") || strings.Contains(bez, " m TRST") {
+		t.Error("letva bez kote nule ispisuje apsolutnu visinu")
+	}
+}
