@@ -195,8 +195,10 @@
     {{if .Station.ZeroDatumSource}}
     <div class="station-note">
       <span>Izvor kote</span>
-      <p><strong>{{.Station.ZeroDatumSource}}</strong>{{if .Station.ZeroDatumDocumentDate}} · elaborat {{.Station.ZeroDatumDocumentDate}}{{end}}{{if .Station.ZeroDatumSurveyDate}} · teren {{.Station.ZeroDatumSurveyDate}}{{end}}</p>
-      {{if .Station.ZeroDatumMethod}}<p>{{.Station.ZeroDatumMethod}}</p>{{end}}
+      <div>
+        <p style="margin:0;"><strong>{{.Station.ZeroDatumSource}}</strong>{{if .Station.ZeroDatumDocumentDate}} · elaborat {{datumHR .Station.ZeroDatumDocumentDate}}{{end}}{{if .Station.ZeroDatumSurveyDate}} · izmjereno {{datumHR .Station.ZeroDatumSurveyDate}}{{end}}</p>
+        {{if .Station.ZeroDatumMethod}}<p class="reading-meta" style="margin:0.25rem 0 0;">{{.Station.ZeroDatumMethod}}</p>{{end}}
+      </div>
     </div>
     {{end}}
     {{if .Station.Notes}}

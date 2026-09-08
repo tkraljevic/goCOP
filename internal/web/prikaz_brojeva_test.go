@@ -2015,3 +2015,21 @@ func TestEkstremNeGubiNapomenuKrozObrazac(t *testing.T) {
 		t.Errorf("način %q, napomena %q", vraceno[0].Method, vraceno[0].Note)
 	}
 }
+
+// Datum se u bazi vodi kao 2024-09-10, ali elaborat zna nositi samo mjesec
+// ili samo godinu. Prikaz mora podnijeti sve tri, a nepoznat oblik ostaviti
+// kakav jest umjesto da ga izmisli.
+func TestDatumHRPodnosiNepotpunDatum(t *testing.T) {
+	f := templateFuncs()["datumHR"].(func(string) string)
+	for _, p := range []struct{ ulaz, zeli string }{
+		{"2024-09-10", "10.9.2024."},
+		{"2025-01", "1.2025."},
+		{"1965", "1965."},
+		{"", ""},
+		{"prije rata", "prije rata"},
+	} {
+		if got := f(p.ulaz); got != p.zeli {
+			t.Errorf("datumHR(%q) = %q, očekivano %q", p.ulaz, got, p.zeli)
+		}
+	}
+}

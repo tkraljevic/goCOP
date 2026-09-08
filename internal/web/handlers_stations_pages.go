@@ -159,16 +159,6 @@ func (h *StationsHandler) ShowStation(w http.ResponseWriter, r *http.Request) {
 	if h.episodeService != nil {
 		data.Episodes, _ = h.episodeService.ByStation(ctx, st.ID.String(), 50)
 	}
-	// Isti stupnjevi obrane iskazani u protoku, po krivulji koja danas vrijedi.
-	// Dežurni tako zna i koliko vode prolazi, ne samo koliko je visoko.
-	defer func() {
-		data.PragoviQ = pragoviUProtoku(data.Station, data.Krivulje)
-		data.PragoviKote = pragoviUKotama(data.Station)
-		if k := data.Station.Kote(0); len(k) == 2 {
-			data.RazlikaSustava = k[1].Kota - k[0].Kota
-		}
-	}()
-
 	// Hidrološka arhiva: nizovi, karakteristične vrijednosti, korito i krivulje.
 	// Sve se računa pri čitanju, ništa se ne pamti — brojevi se tako ne mogu
 	// razići s podacima iz kojih su nastali.
@@ -214,6 +204,16 @@ func (h *StationsHandler) ShowStation(w http.ResponseWriter, r *http.Request) {
 		if waters, err := h.watercourseService.ListWatercourses(ctx, "", "", false); err == nil {
 			data.WaterRegistry = waters
 		}
+	}
+
+	// Stupnjevi obrane iskazani u protoku i u apsolutnoj koti vodne plohe.
+	// Računa se tek ovdje, kad su krivulje već dohvaćene iz arhive — a prije
+	// iscrtavanja, jer predložak dobiva presliku podataka i ono što se upiše
+	// poslije njega nikamo ne stiže.
+	data.PragoviQ = pragoviUProtoku(data.Station, data.Krivulje)
+	data.PragoviKote = pragoviUKotama(data.Station)
+	if k := data.Station.Kote(0); len(k) == 2 {
+		data.RazlikaSustava = k[1].Kota - k[0].Kota
 	}
 
 	if err := h.tmplDetail.ExecuteTemplate(w, "station_detail.html", data); err != nil {
