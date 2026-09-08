@@ -462,3 +462,53 @@ function renderMarkdown(md) {
     });
   });
 })();
+
+// Tablice na uskom zaslonu. Vodoravno listanje unutar stranice znači da se
+// pola tablice nikad ne vidi — prst ne zna koji klizač hvata, a dežurni ne
+// zna da desno još nešto piše. Zato se tablica koja ne stane razlaže u
+// kartice: svaki redak postaje blok, a naslov stupca ide uz vrijednost.
+//
+// Koje su to tablice ne pogađa se po broju stupaca nego mjeri: usporedi se
+// širina tablice sa širinom okvira. Tablica od tri kratka stupca ostaje
+// tablica i na telefonu, jer ondje je ona čitljivija.
+(function () {
+  var PRAG = 700; // ispod ove širine prozora se uopće razmatra
+
+  // Naslov stupca uz svaku vrijednost. Uzima se iz zaglavlja, pa se ne mora
+  // ponavljati u svakom predlošku — tablica ih ima trideset i četiri.
+  function oznaci(tab) {
+    if (tab.dataset.stupciOznaceni) return;
+    var glave = [].map.call(tab.querySelectorAll('thead th'), function (th) {
+      return th.textContent.trim().replace(/\s+/g, ' ');
+    });
+    if (!glave.length) return;
+    [].forEach.call(tab.querySelectorAll('tbody tr'), function (tr) {
+      [].forEach.call(tr.children, function (td, i) {
+        if (td.hasAttribute('data-stupac') || td.colSpan > 1) return;
+        if (glave[i]) td.setAttribute('data-stupac', glave[i]);
+      });
+    });
+    tab.dataset.stupciOznaceni = '1';
+  }
+
+  function slozi() {
+    [].forEach.call(document.querySelectorAll('.table-responsive'), function (okvir) {
+      var tab = okvir.querySelector('table');
+      if (!tab) return;
+      // mjeri se bez slaganja, inače tablica uvijek stane
+      okvir.classList.remove('tablica-kartice');
+      var neStane = tab.scrollWidth > okvir.clientWidth + 1;
+      if (neStane && window.innerWidth <= PRAG) {
+        oznaci(tab);
+        okvir.classList.add('tablica-kartice');
+      }
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', slozi);
+  var cekaj;
+  window.addEventListener('resize', function () {
+    clearTimeout(cekaj);
+    cekaj = setTimeout(slozi, 150);
+  });
+})();

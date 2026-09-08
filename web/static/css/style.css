@@ -2518,40 +2518,48 @@ textarea {
 .graf-uski .grid { stroke-width: 1.5; }
 .graf-uski .biljeg { r: 8; }
 
-/* Tablica koja se na uskom zaslonu razlaže u kartice: svaki redak postaje
-   blok, a zaglavlje stupca ide uz vrijednost. Vodoravno klizanje na telefonu
-   znači da se pola tablice nikad ne vidi. */
-@media (max-width: 700px) {
-  .table-stack .table-responsive { overflow-x: visible; }
-  .table-stack table { display: block; }
-  .table-stack thead { display: none; }
-  .table-stack tbody, .table-stack tr, .table-stack td { display: block; width: auto; }
-  .table-stack tr {
-    padding: 0.7rem 0.9rem;
-    border-bottom: 1px solid var(--border);
-  }
-  .table-stack tr:last-child { border-bottom: 0; }
-  .table-stack td {
-    padding: 0.15rem 0;
-    border: 0;
-    text-align: left !important;
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 0.75rem;
-  }
-  .table-stack td::before {
-    content: attr(data-stupac);
-    color: var(--text-muted);
-    font-size: 0.78rem;
-    font-weight: 600;
-    flex: 0 0 auto;
-  }
-  .table-stack td:not([data-stupac])::before { content: none; }
-  /* prvi redak kartice je njezin naslov, bez natpisa stupca */
-  .table-stack td.naslov { font-size: 1rem; padding-bottom: 0.35rem; }
-  .table-stack td.prazno { display: none; }
+/* Tablica koja se ne može pročitati bez vodoravnog listanja razlaže se u
+   kartice: svaki redak postaje blok, a naslov stupca ide uz vrijednost.
+   Koje su to tablice ne pogađa se nego mjeri — skripta u app.js usporedi
+   širinu tablice sa širinom okvira i samo prekobrojnima doda ovu klasu. */
+.table-responsive.tablica-kartice { overflow-x: visible; }
+.table-responsive.tablica-kartice table { display: block; }
+.table-responsive.tablica-kartice thead { display: none; }
+.table-responsive.tablica-kartice tbody,
+.table-responsive.tablica-kartice tr,
+.table-responsive.tablica-kartice td { display: block; width: auto; }
+.table-responsive.tablica-kartice tr {
+  padding: 0.7rem 0.9rem;
+  border-bottom: 1px solid var(--border);
 }
+.table-responsive.tablica-kartice tr:last-child { border-bottom: 0; }
+.table-responsive.tablica-kartice tr:hover { background: none; }
+.table-responsive.tablica-kartice td {
+  padding: 0.15rem 0;
+  border: 0;
+  text-align: left !important;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+.table-responsive.tablica-kartice td::before {
+  content: attr(data-stupac);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  flex: 0 0 auto;
+}
+.table-responsive.tablica-kartice td:not([data-stupac])::before { content: none; }
+/* prvi stupac je naslov kartice: bez natpisa i malo veći */
+.table-responsive.tablica-kartice td.naslov,
+.table-responsive.tablica-kartice td:first-child {
+  font-size: 1rem; padding-bottom: 0.35rem;
+}
+.table-responsive.tablica-kartice td:first-child::before { content: none; }
+/* redak koji se proteže preko svih stupaca (npr. „nema ničega") */
+.table-responsive.tablica-kartice td[colspan] { display: block; }
+.table-responsive.tablica-kartice td[colspan]::before { content: none; }
 
 /* Popis očitanja: vrijednost je narasla (kote, protok) pa na telefonu mora
    prelamati. Svaki podatak ostaje cjelovit, prelama se između njih. */
