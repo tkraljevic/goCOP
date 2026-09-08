@@ -161,6 +161,7 @@ type Chart struct {
 	XTicks        []ChartTick
 	Thresholds    []ChartLine
 	Bands         []ChartBand
+	Tocke         string // točke kao JSON, za pokazivač uz miša
 	From, To      time.Time
 	Min, Max      int
 }

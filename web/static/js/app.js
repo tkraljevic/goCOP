@@ -352,3 +352,71 @@ function renderMarkdown(md) {
 }
 
 
+
+// Pokazivač na grafu niza: pri prelasku mišem traži najbližu točku po
+// vodoravnoj osi i pokazuje njezinu vrijednost i vrijeme. Same točke nisu
+// nacrtane — sedamsto kružića bilo bi teška slika i nečitljiva crta — nego
+// stoje u data-tocke i skripta crta samo onu nad kojom je miš.
+(function () {
+  function postavi(box) {
+    var svg = box.querySelector('svg');
+    var oblacic = box.querySelector('.graf-oblacic');
+    var pokazivac = box.querySelector('.pokazivac');
+    if (!svg || !oblacic || !pokazivac) return;
+
+    var tocke;
+    try { tocke = JSON.parse(box.dataset.tocke || '[]'); } catch (e) { return; }
+    if (!tocke.length) return;
+
+    var vodilja = pokazivac.querySelector('.vodilja');
+    var biljeg = pokazivac.querySelector('.biljeg');
+    var vb = svg.viewBox.baseVal;
+
+    function najbliza(x) {
+      var lo = 0, hi = tocke.length - 1;
+      while (lo < hi) {
+        var sr = (lo + hi) >> 1;
+        if (tocke[sr][0] < x) lo = sr + 1; else hi = sr;
+      }
+      if (lo > 0 && Math.abs(tocke[lo - 1][0] - x) < Math.abs(tocke[lo][0] - x)) lo--;
+      return tocke[lo];
+    }
+
+    function pomak(ev) {
+      var r = svg.getBoundingClientRect();
+      if (!r.width) return;
+      var x = (ev.clientX - r.left) / r.width * vb.width;
+      var t = najbliza(x);
+      pokazivac.hidden = false;
+      vodilja.setAttribute('x1', t[0]);
+      vodilja.setAttribute('x2', t[0]);
+      biljeg.setAttribute('cx', t[0]);
+      biljeg.setAttribute('cy', t[1]);
+
+      oblacic.hidden = false;
+      oblacic.innerHTML = '<strong>' + t[3] + '</strong><span>' + t[2] + '</span>';
+      // oblačić prati miša, ali ne izlazi iz okvira
+      var lijevo = (t[0] / vb.width) * r.width;
+      var sirina = oblacic.offsetWidth || 120;
+      lijevo = Math.min(Math.max(lijevo - sirina / 2, 4), r.width - sirina - 4);
+      oblacic.style.left = lijevo + 'px';
+      oblacic.style.top = ((t[1] / vb.height) * r.height - oblacic.offsetHeight - 10) + 'px';
+    }
+
+    function sakrij() {
+      pokazivac.hidden = true;
+      oblacic.hidden = true;
+    }
+
+    svg.addEventListener('mousemove', pomak);
+    svg.addEventListener('mouseleave', sakrij);
+    svg.addEventListener('touchmove', function (ev) {
+      if (ev.touches.length) pomak(ev.touches[0]);
+    }, { passive: true });
+    svg.addEventListener('touchend', sakrij);
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.graf-niza').forEach(postavi);
+  });
+})();
