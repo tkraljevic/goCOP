@@ -9,7 +9,7 @@
   <h1 class="page-title">{{icon "file-text"}} Što bi se upisalo</h1>
   <p class="page-desc">
     {{.GaugeName}} · {{if .Satni}}satna očitanja{{else}}dnevna očitanja{{end}}
-    {{if not .Od.IsZero}}· {{formatDate (localTime .Od)}} – {{formatDate (localTime .Do)}}{{end}}.
+    {{if not .Od.IsZero}}· {{vrijemeNiza .Od .Satni}} – {{vrijemeNiza .Do .Satni}}{{end}}.
     Ništa još nije upisano.
   </p>
 </div>
@@ -41,7 +41,7 @@
       {{range .Redci}}
       <tr {{if .Greska}}style="background:var(--tint-red-bg);"{{else if .Postoji}}style="opacity:0.55;"{{end}}>
         <td class="mono reg-card-sub">{{.Redak}}</td>
-        <td class="mono">{{if .Kad.IsZero}}—{{else}}{{formatDate (localTime .Kad)}}{{if $.Satni}} {{printf "%02d" .Kad.Hour}}:00{{end}}{{end}}</td>
+        <td class="mono">{{vrijemeNiza .Kad $.Satni}}</td>
         <td class="mono" style="text-align:right;"><strong>{{brojHRf .Vrijedi 0}}</strong> cm</td>
         <td>
           {{if .Greska}}<span style="color:var(--danger);">{{.Greska}}</span>

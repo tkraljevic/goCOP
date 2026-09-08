@@ -197,6 +197,19 @@ func templateFuncs() template.FuncMap {
 		"structureState": models.StructureStateLabel,
 		"gateLabel":      models.GateLabel,
 		"localTime":      func(t time.Time) time.Time { return t.In(models.Zagreb) },
+		// Vrijeme vrijednosti u nizu ispisuje se onako kako je i zapisano, bez
+		// pomicanja u zagrebačko: cijeli je put označen kao vrijeme_utc — i
+		// datoteke koje korisnik uređuje i arhiva i zalijepljeni ispis. Kad bi
+		// se pomicalo samo pri ispisu, zaslon se ne bi poklapao s datotekom.
+		"vrijemeNiza": func(t time.Time, satni bool) string {
+			if t.IsZero() {
+				return "—"
+			}
+			if satni {
+				return t.Format("02.01.2006. 15:00")
+			}
+			return t.Format("02.01.2006.")
+		},
 		"intOf": func(i *int) int {
 			if i == nil {
 				return 0

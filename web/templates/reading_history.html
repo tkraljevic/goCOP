@@ -164,7 +164,7 @@
   <div class="table-card" style="padding:0.875rem 1.25rem; margin-bottom:0.75rem;">
     <div style="display:flex; flex-wrap:wrap; align-items:baseline; gap:0.75rem 1.5rem;">
       <span style="font-size:1.6rem; font-weight:700;">{{brojHRf .ArhSada.Vrijednost .ArhDecimala}} {{.ArhJedinica}}</span>
-      <span class="reg-card-sub">{{velicinaLabel .ArhVelicina}} · {{formatDate (localTime .ArhSada.Kad)}}</span>
+      <span class="reg-card-sub">{{velicinaLabel .ArhVelicina}} · {{vrijemeNiza .ArhSada.Kad (eq .ArhKorak "satni")}}</span>
       <span class="badge {{if le .ArhSada.Tocnost 1.0}}badge-area-admin{{else}}badge-unknown{{end}}">{{.ArhSada.TocnostLabel}}{{if gt .ArhSada.Tocnost 0.0}} {{.ArhJedinica}}{{end}}</span>
       <span class="reg-card-sub">{{izvorLabel .ArhSada.Izvor}}</span>
     </div>
@@ -221,7 +221,7 @@
       <tbody>
       {{range .ArhNiz}}
       <tr>
-        <td class="mono">{{formatDate (localTime .Kad)}}{{if eq $.ArhKorak "satni"}} {{printf "%02d" .Kad.Hour}}:00{{end}}</td>
+        <td class="mono">{{vrijemeNiza .Kad (eq $.ArhKorak "satni")}}</td>
         <td class="mono" style="text-align:right;"><strong>{{brojHRf .Vrijednost 1}}</strong>
           {{if .Ispravljeno}}<div class="reg-card-sub"><s>{{brojHRf .Izvorno 1}}</s></div>{{end}}</td>
         <td>{{if .Ispravljeno}}<span class="badge badge-area-admin">ispravljeno</span>
