@@ -21,6 +21,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"sort"
@@ -262,7 +263,7 @@ func ubaci(db *sql.DB, n *niz) (int, string, string, string, error) {
 	var zapisi []zapis
 	poDanu := false
 	for _, p := range n.datoteke {
-		z, d, err := citaj(p, zonaIzvora(n.izvor))
+		z, d, err := citaj(p, zonaIzvora(n.izvor), n.velicina)
 		if err != nil {
 			return 0, "", "", "", err
 		}
@@ -350,7 +351,25 @@ func kratka(p []string) []string {
 
 // citaj čita jednu datoteku iz vodostaji/. Prvi stupac je vrijeme_utc ili
 // datum, drugi vrijednost; decimalni zarez je hrvatski zapis.
-func citaj(put string, zona *time.Location) ([]zapis, bool, error) {
+// mogucaVrijednost odbacuje ono što fizički ne postoji. Telemetrija zna
+// javiti −2270 cm; dno korita na Batini je na −764, pa takva vrijednost nije
+// niska voda nego kvar. Odbacuje se pri gradnji, jer se poslije više ne zna
+// je li brojka mjerenje ili šum.
+func mogucaVrijednost(velicina string, v float64) bool {
+	switch velicina {
+	case "vodostaj":
+		return v > -1500 && v < 2000 // cm; najdublje korito u nizu je -764
+	case "protok":
+		return v >= 0 && v < 100000 // m³/s
+	case "temperatura":
+		return v >= -2 && v <= 45 // °C
+	case "koncentracija", "pronos":
+		return v >= 0
+	}
+	return true
+}
+
+func citaj(put string, zona *time.Location, velicina string) ([]zapis, bool, error) {
 	f, err := os.Open(put)
 	if err != nil {
 		return nil, false, err
@@ -394,9 +413,61 @@ func citaj(put string, zona *time.Location) ([]zapis, bool, error) {
 		if err != nil {
 			return nil, false, fmt.Errorf("%s redak %d: vrijednost %q: %w", filepath.Base(put), i, r[1], err)
 		}
+		if !mogucaVrijednost(velicina, v) {
+			continue
+		}
 		out = append(out, zapis{t: t.UTC().Unix(), v: v})
 	}
-	return out, poDanu, nil
+	return bezSiljaka(velicina, out), poDanu, nil
+}
+
+// bezSiljaka izbacuje pojedinačne ispade telemetrije. Prepoznaju se po tome
+// što susjedi oko njih mirno stoje: 65, −640, 63 nije pad vodostaja nego kvar
+// mjerila. Traže se oba susjeda, i to bliska u vremenu — vrijednost uz
+// prazninu u nizu ne dira se, jer ondje ne znamo što je između.
+func bezSiljaka(velicina string, z []zapis) []zapis {
+	if velicina != "vodostaj" || len(z) < 3 {
+		return z
+	}
+	const (
+		blizu   = 2 * 3600 // koliko susjed smije biti udaljen, sekundi
+		sloga   = 30.0     // koliko se susjedi smiju razlikovati međusobno, cm
+		ispad   = 150.0    // koliko vrijednost mora odskakati da bude ispad, cm
+	)
+	// Skok koji nijedna naša rijeka ne može napraviti u dva sata. Njime se
+	// hvata i ispad uz prazninu u nizu, gdje drugog susjeda nema.
+	const nemoguc = 300.0
+
+	out := z[:0:0]
+	izbaceno := 0
+	for i := range z {
+		v := z[i]
+		var a, b *zapis
+		if i > 0 && v.t-z[i-1].t <= blizu {
+			a = &z[i-1]
+		}
+		if i < len(z)-1 && z[i+1].t-v.t <= blizu {
+			b = &z[i+1]
+		}
+		siljak := false
+		switch {
+		case a != nil && b != nil:
+			siljak = math.Abs(b.v-a.v) <= sloga && math.Abs(v.v-(a.v+b.v)/2) > ispad
+		case a != nil:
+			siljak = math.Abs(v.v-a.v) > nemoguc
+		case b != nil:
+			siljak = math.Abs(v.v-b.v) > nemoguc
+		}
+		if siljak {
+			izbaceno++
+			continue
+		}
+		out = append(out, v)
+	}
+	if izbaceno > 0 {
+		fmt.Printf("%-8s %-16s izbačeno ispada telemetrije: %d\n", "", "", izbaceno)
+	}
+	return out
 }
 
 // profili učitava snimke poprečnog profila korita. Nisu vremenski niz nego

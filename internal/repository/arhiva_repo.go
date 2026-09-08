@@ -603,12 +603,12 @@ func (r *ArhivaRepository) Sazetak(ctx context.Context, letva string) ([]models.
 	}
 	// datumi krajnosti, po veličini
 	for i := range out {
-		_ = r.db.QueryRowContext(ctx, `SELECT date(vrijeme,'unixepoch') FROM spoj
+		_ = r.db.QueryRowContext(ctx, `SELECT date(vrijeme,'unixepoch'), izvor FROM spoj
 			WHERE letva=? AND korak='dnevni' AND velicina=? ORDER BY vrijednost DESC, vrijeme LIMIT 1`,
-			letva, out[i].Velicina).Scan(&out[i].MaxNa)
-		_ = r.db.QueryRowContext(ctx, `SELECT date(vrijeme,'unixepoch') FROM spoj
+			letva, out[i].Velicina).Scan(&out[i].MaxNa, &out[i].MaxIzvor)
+		_ = r.db.QueryRowContext(ctx, `SELECT date(vrijeme,'unixepoch'), izvor FROM spoj
 			WHERE letva=? AND korak='dnevni' AND velicina=? ORDER BY vrijednost ASC, vrijeme LIMIT 1`,
-			letva, out[i].Velicina).Scan(&out[i].MinNa)
+			letva, out[i].Velicina).Scan(&out[i].MinNa, &out[i].MinIzvor)
 	}
 	sort.SliceStable(out, func(a, b int) bool {
 		return rangVelicine(out[a].Velicina) < rangVelicine(out[b].Velicina)

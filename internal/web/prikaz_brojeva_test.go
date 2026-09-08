@@ -680,7 +680,7 @@ func TestPovijestLetveCitaArhivu(t *testing.T) {
 			{Kad: kad.AddDate(0, 0, -1), Vrijednost: 758, Izvor: "letva-dhmz", Vrsta: "srednjak", Tocnost: 1},
 		},
 		ArhSazetak: []models.SazetakVelicine{
-			{Velicina: "vodostaj", Od: "1901-01-01", Do: "2026-09-06", Srednjak: 205, Max: 797, MaxNa: "1956-03-13", Min: -308, MinNa: "1947-09-20"},
+			{Velicina: "vodostaj", Od: "1901-01-01", Do: "2026-09-06", Srednjak: 205, Max: 797, MaxNa: "13.3.1956.", Min: -308, MinNa: "1947-09-20"},
 			{Velicina: "pronos", Od: "2018-05-01", Do: "2025-12-31", Srednjak: 6005.7, Max: 145575, Min: 37.5},
 		},
 	})
@@ -688,7 +688,7 @@ func TestPovijestLetveCitaArhivu(t *testing.T) {
 		"Povijest iz arhive", "Vodostaj", "Protok", "Temperatura vode", "Pronos nanosa",
 		"1956", "2013", "771", "ovjereno", "telemetrija, DHMZ", "±1",
 		"771 cm",            // zadnja vrijednost na vrhu, odmah iznad tablice
-		"797", "1956-03-13", // sažetak
+		"797", "13.3.1956.", // sažetak
 		"8.760", // ukupno vrijednosti u godini, iz listanja
 		"?ap=2", // listanje kroz satni niz
 		// Graf crta putanju, ne polyline: Chart.Path je "d" atribut. Kad je

@@ -141,8 +141,20 @@ type SazetakVelicine struct {
 	Srednjak     float64
 	Min, Max     float64
 	MinNa, MaxNa string
-	ZbrojIma     bool
-	Zbroj        float64
+	// Odakle je koja krajnost. Bitno je jer niz seže dalje unatrag nego što
+	// letva postoji: Batina je utemeljena 2001., a niz počinje 1901. Sve prije
+	// je preračunato iz susjedne postaje i ne smije se čitati kao mjerenje.
+	MinIzvor, MaxIzvor string
+	ZbrojIma           bool
+	Zbroj              float64
+}
+
+// MinPreracunat i MaxPreracunat javljaju je li krajnost preračunata, a ne
+// izmjerena na ovoj letvi.
+func (s SazetakVelicine) MinPreracunat() bool { return strings.HasPrefix(s.MinIzvor, "preracun") }
+func (s SazetakVelicine) MaxPreracunat() bool { return strings.HasPrefix(s.MaxIzvor, "preracun") }
+func (s SazetakVelicine) ImaPreracunatih() bool {
+	return s.MinPreracunat() || s.MaxPreracunat()
 }
 
 // Jedinica je mjerna jedinica veličine.

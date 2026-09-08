@@ -103,6 +103,23 @@ func templateFuncs() template.FuncMap {
 		},
 		// razmak za crtanje: širina umanjena za desni rub
 		"sub": func(a, b int) int { return a - b },
+		// datum iz arhive u hrvatskom obliku; ondje stoji kao 1909-01-07
+		"datumHR": func(s string) string {
+			t, err := time.Parse("2006-01-02", s)
+			if err != nil {
+				return s
+			}
+			return t.Format("2.1.2006.")
+		},
+		// ima li u sažetku ijedna preračunata krajnost, da se objasni znak ≈
+		"imaPreracunatih": func(s []models.SazetakVelicine) bool {
+			for _, v := range s {
+				if v.ImaPreracunatih() {
+					return true
+				}
+			}
+			return false
+		},
 		// koliko korita ostaje iznad zadnjeg stupnja obrane — brojka zbog koje
 		// se presjek i gleda. Prazno kad praga nema ili je već iznad obale.
 		"nadObranom": func(st *models.Station, vrhCm int) int {
