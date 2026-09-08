@@ -40,6 +40,15 @@ type Config struct {
 		HistoryMonths int `toml:"povijest_mjeseci" comment:"Koliko mjeseci očitanja ovaj čvor drži iz razmjene s drugima.\n0 = sve. Na terenskom uređaju stavite 12: povijest od stotinjak\ngodina ne stane na telefon, a na nasipu ne treba. Ograda ne dira\nočitanja koja čvor sam upiše ili uveze."`
 	} `toml:"vodostaji"`
 
+	// Karta je izvor pločica za prikaz položaja letve. Zadano je Wikimedijin
+	// besplatni poslužitelj; kad se pločice jednom preuzmu za područje
+	// obrane, ovdje se upiše lokalna putanja i karta radi bez interneta.
+	Karta struct {
+		Plocice  string `toml:"plocice" comment:"Predložak URL-a pločica, s {z}/{x}/{y}. Prazno isključuje kartu.\nZadano je Wikimedijin poslužitelj. Za rad bez interneta upišite\nlokalnu putanju, npr. \"/karta/{z}/{x}/{y}.png\"."`
+		Zasluge  string `toml:"zasluge" comment:"Natpis o podrijetlu karte. Obvezan je: pločice se koriste pod\nuvjetima onoga tko ih daje."`
+		NajviseZ int    `toml:"najvise_z" comment:"Najveće približavanje. Više od 17 rijetko treba, a povlači\nmnogo više pločica kad se jednom budu preuzimale."`
+	} `toml:"karta"`
+
 	Sync struct {
 		ExchangePort  int      `toml:"exchange_port" comment:"Port razmjene verzija s drugim čvorovima. 0 isključuje razmjenu."`
 		PairPort      int      `toml:"pair_port" comment:"Port uparivanja (samo dok uparivanje traje)."`
@@ -61,6 +70,9 @@ func Default() Config {
 	c.Sync.DiscoveryPort = 4712
 	c.Sync.AutoSync = "5m"
 	c.Sync.Bootstrap = []string{"cop-osijek.com"}
+	c.Karta.Plocice = "https://maps.wikimedia.org/osm-intl/{z}/{x}/{y}.png"
+	c.Karta.Zasluge = "© OpenStreetMap, pločice Wikimedia"
+	c.Karta.NajviseZ = 17
 	return c
 }
 

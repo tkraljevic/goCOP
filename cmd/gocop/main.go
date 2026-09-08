@@ -372,6 +372,7 @@ func main() {
 		log.Fatalf("Greška pri inicijalizaciji web poslužitelja: %v", err)
 	}
 	server.SetDatabase(database, *dbPath)
+	server.SetKarta(cfg.Karta.Plocice, cfg.Karta.Zasluge, cfg.Karta.NajviseZ)
 
 	// Hidrološka arhiva stoji uz bazu, kao zasebna datoteka. Smije je ne biti:
 	// čvor koji je nije preuzeo radi bez povijesnih nizova, a ne pada.

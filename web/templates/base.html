@@ -9,7 +9,9 @@
     // Tema iz prethodnog izbora, prije prvog crtanja, da stranica ne bljesne
     (function () { try { var t = localStorage.getItem('gocop-theme'); if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t); } catch (e) {} })();
   </script>
+  <link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css">
   <link rel="stylesheet" href="/static/css/style.css">
+  <script src="/static/vendor/leaflet/leaflet.js" defer></script>
   <script src="/static/js/app.js" defer></script>
 </head>
 <body>
