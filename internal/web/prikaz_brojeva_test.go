@@ -1578,3 +1578,79 @@ func TestOdrezanSnimakSePriznaje(t *testing.T) {
 		t.Error("voda na 612 cm izlazi iz snimka preko lijeve obale na 166 cm")
 	}
 }
+
+// Broj oznaka na vremenskoj osi ovisi o tome što na njoj piše. Šest mjeseci
+// stane i na uskom grafu, šest datuma sa satom ne — natpisi se preklope.
+func TestOznakeOsiNePreklapajuSe(t *testing.T) {
+	// dva dana po satu: oznake su oblika „7.9. 05h“
+	var dva []models.SpojenaVrijednost
+	poc := time.Date(2026, 9, 7, 0, 0, 0, 0, time.UTC)
+	for i := 0; i < 48; i++ {
+		dva = append(dva, models.SpojenaVrijednost{Kad: poc.Add(time.Duration(i) * time.Hour),
+			Vrijednost: float64(-118 - i%12)})
+	}
+	// godina po danu: oznake su oblika „ožu“
+	var godina []models.SpojenaVrijednost
+	for i := 0; i < 365; i++ {
+		godina = append(godina, models.SpojenaVrijednost{Kad: poc.AddDate(0, 0, i-364),
+			Vrijednost: float64(100 + i%300)})
+	}
+	provjeri := func(ime string, c *Chart, font float64) {
+		t.Helper()
+		plotW := c.DesnoX() - c.LijevoX()
+		for i := 1; i < len(c.XTicks); i++ {
+			razmak := c.XTicks[i].Pos - c.XTicks[i-1].Pos
+			sirina := float64(len([]rune(c.XTicks[i].Label))) * font * 0.55
+			if razmak < sirina {
+				t.Errorf("%s: %q i %q na razmaku %.0f, a natpis je širok %.0f",
+					ime, c.XTicks[i-1].Label, c.XTicks[i].Label, razmak, sirina)
+			}
+		}
+		if len(c.XTicks) < 2 {
+			t.Errorf("%s: os je ostala bez oznaka", ime)
+		}
+		_ = plotW
+	}
+	provjeri("uski, sati", crtajNizUzak(dva, "vodostaj", nil, nil), uskiGraf.Font)
+	provjeri("uski, godina", crtajNizUzak(godina, "vodostaj", nil, nil), uskiGraf.Font)
+	provjeri("široki, sati", crtajNiz(dva, "vodostaj", nil, nil), sirokiGraf.Font)
+	provjeri("široki, godina", crtajNiz(godina, "vodostaj", nil, nil), sirokiGraf.Font)
+
+	// Duži natpisi moraju dati manje oznaka nego kratki na istoj osi.
+	sati := crtajNizUzak(dva, "vodostaj", nil, nil)
+	mjeseci := crtajNizUzak(godina, "vodostaj", nil, nil)
+	if len(sati.XTicks) > len(mjeseci.XTicks) {
+		t.Errorf("datumi sa satom (%d oznaka) ne smiju biti gušći od mjeseci (%d)",
+			len(sati.XTicks), len(mjeseci.XTicks))
+	}
+}
+
+// Presjek korita ima uski oblik za telefon, kao i graf: crtež od 900 jedinica
+// stisnut na 340 slikovnih točaka daje oznake od tri točke.
+func TestUskiPresjekKorita(t *testing.T) {
+	p := models.ProfilKorita{Datum: "2020-08-18", KotaNule: 80.45, Tocke: []models.TockaProfila{
+		{Stacionaza: 0, Visina: 82.11}, {Stacionaza: 30, Visina: 72.81},
+		{Stacionaza: 300, Visina: 75.0}, {Stacionaza: 398.9, Visina: 89.24},
+	}}
+	pragovi := []PragKorita{{300, "pripremno", "prep"}}
+	sirok := crtajKoritoP(p, -128, sirokoKorito.sKoritom(pragovi, -131, -117))
+	uzak := crtajKoritoP(p, -128, uskoKorito.sKoritom(pragovi, -131, -117))
+	if uzak.Sirina >= sirok.Sirina {
+		t.Errorf("uski presjek %d nije uži od širokog %d", uzak.Sirina, sirok.Sirina)
+	}
+	// Brojke osi na užem crtežu su veće, pa im treba širi rub.
+	if uzak.Lijevo <= sirok.Lijevo {
+		t.Errorf("uski presjek ima rub %v, široki %v — mora biti širi", uzak.Lijevo, sirok.Lijevo)
+	}
+	// Oznake i natpisi moraju stati unutar slike.
+	if uzak.OsX() <= 0 || uzak.NatpisX() >= float64(uzak.Sirina) {
+		t.Errorf("oznake izlaze iz slike: os %v, natpis %v", uzak.OsX(), uzak.NatpisX())
+	}
+	if uzak.SirinaPlohe != float64(uzak.Sirina)-uzak.Lijevo {
+		t.Error("pojas se ne proteže od ruba do kraja slike")
+	}
+	// Oba crteža moraju reći isto o koritu; razlikuju se samo mjerama.
+	if uzak.DnoCm != sirok.DnoCm || uzak.LijevaCm != sirok.LijevaCm {
+		t.Error("uski i široki presjek govore različito o istom koritu")
+	}
+}

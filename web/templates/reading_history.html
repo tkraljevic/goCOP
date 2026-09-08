@@ -71,37 +71,16 @@
 
   {{with .Korito}}
   <h3 class="part-label" style="margin:1rem 0 0.35rem 0;">Gdje je voda u koritu</h3>
-  <div class="reg-card korito-graf" style="padding:0.75rem 0.5rem 0.5rem;">
-    <div style="overflow-x:auto;">
-      <svg viewBox="0 0 {{.Sirina}} {{.Visina}}" style="width:100%; min-width:560px; height:auto;"
-           role="img" aria-label="Poprečni profil korita: gdje se voda nalazi">
-        {{range .KoteY}}
-        <line class="korito-mreza" x1="52" y1="{{printf "%.1f" .Y}}" x2="{{$.Korito.Sirina}}" y2="{{printf "%.1f" .Y}}"/>
-        <text class="korito-os" x="48" y="{{printf "%.1f" .Y}}" dy="3.5" text-anchor="end">{{brojHR .Cm}}</text>
-        {{end}}
-        {{range .Pragovi}}
-        <line class="korito-prag {{.Class}}" x1="52" y1="{{printf "%.1f" .Y}}" x2="{{$.Korito.Sirina}}" y2="{{printf "%.1f" .Y}}"/>
-        <text class="korito-prag-natpis {{.Class}}" x="58" y="{{printf "%.1f" .Y}}"
-              dy="-4">{{.Label}} {{brojHR .Cm}}</text>
-        {{end}}
-        {{if .ImaPojas}}
-        <rect class="korito-pojas" x="52" y="{{printf "%.1f" .PojasY}}"
-              width="{{sub $.Korito.Sirina 52}}" height="{{printf "%.1f" .PojasH}}"/>
-        {{end}}
-        {{if .ImaVode}}
-        <polygon class="korito-voda" points="{{.Voda}}"/>
-        <line class="korito-ploha" x1="{{printf "%.1f" .VodaX0}}" y1="{{printf "%.1f" .YVode}}"
-              x2="{{printf "%.1f" .VodaX1}}" y2="{{printf "%.1f" .YVode}}"/>
-        {{end}}
-        <polyline class="korito-dno" points="{{.Korito}}"/>
-        <text class="korito-os" x="4" y="12">cm na letvi</text>
-        <text class="korito-os" x="{{printf "%.1f" .PocetakX}}" y="{{sub .Visina 6}}"
-              text-anchor="start">lijeva obala · {{brojHRf .PocetakM 0}} m</text>
-        <text class="korito-os" x="{{printf "%.1f" .KrajX}}" y="{{sub .Visina 6}}"
-              text-anchor="end">{{brojHRf .KrajM 0}} m · desna obala</text>
-      </svg>
-    </div>
-    <p class="reg-card-sub" style="margin:0.25rem 0 0;">Presjek snimljen {{.Datum}} ·
+  <div class="reg-card korito-graf graf-siroki" style="padding:0.75rem 0.5rem 0.5rem;">
+    {{template "presjekKorita" .}}
+  </div>
+  {{with $.KoritoUzak}}
+  <div class="reg-card korito-graf graf-uski" style="padding:0.75rem 0.5rem 0.5rem;">
+    {{template "presjekKorita" .}}
+  </div>
+  {{end}}
+  <div class="reg-card" style="padding:0.6rem 1rem; margin-top:-1px;">
+    <p class="reg-card-sub" style="margin:0 0 0.35rem;">Presjek snimljen {{.Datum}} ·
       voda ucrtana po {{$.KoritoOpis}}</p>
     <div class="korito-brojke">
       <span>dubina nad dnom <strong>{{brojHRf .DubinaM 2}} m</strong></span>

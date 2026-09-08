@@ -137,7 +137,8 @@ type ReadingHistoryData struct {
 	// os kao graf — korito je na Batini 1.643 cm, a graf niske vode 16 —
 	// nego uz vlastitu os, a veže ih to što obje govore u centimetrima.
 	Korito     *KoritoCrtez
-	KoritoOpis string // po kojem je vodostaju voda ucrtana
+	KoritoUzak *KoritoCrtez // isti presjek u obliku za telefon
+	KoritoOpis string       // po kojem je vodostaju voda ucrtana
 	CanRecord   bool
 	CanEdit     bool
 	Followed    bool   // čvor drži cijelu povijest ove letve
@@ -580,16 +581,14 @@ func (h *ReadingsHandler) koritoUzGraf(ctx context.Context, data *ReadingHistory
 	// pokriva vodu prikazanog razdoblja; ako nijedna ne pokriva, najnovija.
 	profil := profili[0]
 	for _, kandidat := range profili {
-		c := crtajKoritoP(kandidat, najv, KoritoPostavke{Sirina: 900, Visina: 340})
+		c := crtajKoritoP(kandidat, najv, sirokoKorito)
 		if c != nil && !c.OdrezanSnimak {
 			profil = kandidat
 			break
 		}
 	}
-	data.Korito = crtajKoritoP(profil, *zadnji.LevelCm, KoritoPostavke{
-		Sirina: 900, Visina: 340, Pragovi: pragovi, OsUCm: true,
-		PojasOd: najn, PojasDo: najv, ImaPojas: najv > najn,
-	})
+	data.Korito = crtajKoritoP(profil, *zadnji.LevelCm, sirokoKorito.sKoritom(pragovi, najn, najv))
+	data.KoritoUzak = crtajKoritoP(profil, *zadnji.LevelCm, uskoKorito.sKoritom(pragovi, najn, najv))
 	data.KoritoOpis = fmt.Sprintf("%d cm, %s", *zadnji.LevelCm,
 		zadnji.LocalTime().Format("2.1.2006. 15:04"))
 }
