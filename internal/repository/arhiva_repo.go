@@ -350,6 +350,28 @@ func (r *ArhivaRepository) Profili(ctx context.Context, letva string) ([]models.
 	return out, nil
 }
 
+// PromjeneKote vraća zabilježena premještanja nule letve, najnovije prvo.
+func (r *ArhivaRepository) PromjeneKote(ctx context.Context, letva string) ([]models.PromjenaKote, error) {
+	if r == nil {
+		return nil, nil
+	}
+	rows, err := r.db.QueryContext(ctx, `SELECT letva, datum, pomak_cm, izvor, napomena
+		FROM promjene_kote WHERE letva = ? ORDER BY datum DESC`, letva)
+	if err != nil {
+		return nil, nil // starija arhiva nema tu tablicu
+	}
+	defer rows.Close()
+	var out []models.PromjenaKote
+	for rows.Next() {
+		var p models.PromjenaKote
+		if err := rows.Scan(&p.Letva, &p.Datum, &p.PomakCm, &p.Izvor, &p.Napomena); err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
 // Krivulje vraća HQ krivulje letve s njihovim odsječcima, najnovija prva.
 func (r *ArhivaRepository) Krivulje(ctx context.Context, letva string) ([]models.HQKrivulja, error) {
 	if r == nil {

@@ -268,6 +268,17 @@ type HidroPregled struct {
 // SeZbraja govori gomila li se veličina kroz vrijeme.
 func SeZbraja(velicina string) bool { return velicina == "pronos" }
 
+// PromjenaKote je zabilježeno premještanje nule letve. Očitanje je visina nad
+// nulom, pa premještanje pomiče cijeli niz prije tog datuma. Arhiva vrijednosti
+// već svodi na današnju kotu; ovo je zapis o tome što je i zašto pomaknuto.
+type PromjenaKote struct {
+	Letva    string
+	Datum    string
+	PomakCm  int
+	Izvor    string
+	Napomena string
+}
+
 // ProfilKorita je snimak poprečnog profila u jednom danu.
 type ProfilKorita struct {
 	ID       int64

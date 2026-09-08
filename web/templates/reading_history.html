@@ -226,6 +226,21 @@
   </div>
   {{end}}
 
+  {{if .ArhPromjeneKote}}
+  <div class="table-card" style="padding:0.75rem 1rem; margin-bottom:0.75rem;">
+    <p class="reg-card-sub" style="margin:0 0 0.35rem;">{{icon "triangle-alert"}} <strong>Nula ove letve
+      je premještana.</strong> Očitanje je visina nad nulom, pa premještanje pomiče cijeli niz prije
+      tog datuma. Vrijednosti u arhivi <strong>svedene su na današnju kotu</strong>; ovdje piše što je
+      pomaknuto.</p>
+    {{range .ArhPromjeneKote}}
+    <p class="form-help" style="margin:0.25rem 0 0;">Od <strong>{{datumHR .Datum}}</strong> vrijedi nova
+      nula; vrijednostima prije tog dana dodano je <strong>{{brojHR .PomakCm}} cm</strong>.
+      {{with .Izvor}}<span class="reg-card-sub">Izvor: {{.}}.</span>{{end}}
+      {{with .Napomena}} {{.}}{{end}}</p>
+    {{end}}
+  </div>
+  {{end}}
+
   {{if .ArhSazetak}}
   <h3 class="part-label" style="margin:0 0 0.35rem 0;">Karakteristične vrijednosti po veličinama</h3>
   <div class="table-card table-stack" style="margin-bottom:1rem;"><div class="table-responsive">

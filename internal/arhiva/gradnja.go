@@ -82,6 +82,18 @@ CREATE TABLE IF NOT EXISTS profil_tocke (
 	visina     REAL NOT NULL,        -- apsolutna kota, m
 	PRIMARY KEY (profil, stacionaza)
 ) WITHOUT ROWID;
+-- Promjene kote nule letve. Očitanje je visina nad nulom, pa premještanje
+-- nule pomiče cijeli niz prije tog datuma. Bez ovoga se vrijednosti s dviju
+-- strana datuma tiho miješaju: dunavskim letvama od Paksa do Mohácsa nula je
+-- 1.1.1943. spuštena za 2 m, i niz iz 1909. bez ispravka je toliko prenizak.
+CREATE TABLE IF NOT EXISTS promjene_kote (
+	letva    TEXT NOT NULL,
+	datum    TEXT NOT NULL,   -- od tog dana vrijedi nova nula
+	pomak_cm INTEGER NOT NULL,-- koliko dodati vrijednostima PRIJE tog dana
+	izvor    TEXT NOT NULL DEFAULT '',
+	napomena TEXT NOT NULL DEFAULT '',
+	PRIMARY KEY (letva, datum)
+);
 CREATE TABLE IF NOT EXISTS hq_krivulje (
 	id         INTEGER PRIMARY KEY,
 	letva      TEXT NOT NULL,
@@ -177,6 +189,10 @@ func Izgradi(koren, baza, samo string, zapisi io.Writer) (Izvjestaj, error) {
 	if _, err := db.Exec(shema); err != nil {
 		return iz, err
 	}
+	promjene, err := promjeneKote(db, koren, zapisi)
+	if err != nil {
+		return iz, err
+	}
 	if err := profili(db, koren, samo); err != nil {
 		return iz, err
 	}
@@ -191,7 +207,7 @@ func Izgradi(koren, baza, samo string, zapisi io.Writer) (Izvjestaj, error) {
 	sort.Strings(kljucevi)
 	for _, k := range kljucevi {
 		n := nizovi[k]
-		upisano, od, do, otisak, err := ubaci(db, n)
+		upisano, od, do, otisak, err := ubaci(db, n, promjene[n.letva])
 		if err != nil {
 			return iz, fmt.Errorf("%s: %w", k, err)
 		}
@@ -259,7 +275,7 @@ type zapis struct {
 	v float64
 }
 
-func ubaci(db *sql.DB, n *niz) (int, string, string, string, error) {
+func ubaci(db *sql.DB, n *niz, promjene []promjena) (int, string, string, string, error) {
 	var zapisi []zapis
 	poDanu := false
 	for _, p := range n.datoteke {
@@ -269,6 +285,14 @@ func ubaci(db *sql.DB, n *niz) (int, string, string, string, error) {
 		}
 		poDanu = poDanu || d
 		zapisi = append(zapisi, z...)
+	}
+	// Svođenje na današnju kotu nule prije svega ostaloga: sve dalje —
+	// spajanje, srednjaci, krajnosti — pretpostavlja jednu kotu kroz niz.
+	if n.velicina == "vodostaj" {
+		if svedeno, pomak := naKotu(zapisi, promjene); svedeno > 0 {
+			fmt.Printf("%-8s %-16s %-22s svedeno na današnju kotu: %d zapisa (%+.0f cm)\n",
+				"", n.letva, n.izvor, svedeno, pomak)
+		}
 	}
 	// isti trenutak iz dvije datoteke: zadnja pročitana vrijedi
 	sort.SliceStable(zapisi, func(i, j int) bool { return zapisi[i].t < zapisi[j].t })
@@ -351,6 +375,78 @@ func kratka(p []string) []string {
 
 // citaj čita jednu datoteku iz vodostaji/. Prvi stupac je vrijeme_utc ili
 // datum, drugi vrijednost; decimalni zarez je hrvatski zapis.
+// promjeneKote učitava zabilježena premještanja nule i sprema ih u arhivu.
+// Vraća ih po letvi, da se pri čitanju nizova mogu i primijeniti.
+func promjeneKote(db *sql.DB, koren string, zapisi io.Writer) (map[string][]promjena, error) {
+	put := filepath.Join(koren, "promjene-kote.csv")
+	f, err := os.Open(put)
+	if os.IsNotExist(err) {
+		return nil, nil
+	} else if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	cr := csv.NewReader(f)
+	cr.Comma = ';'
+	cr.FieldsPerRecord = -1
+	sve, err := cr.ReadAll()
+	if err != nil {
+		return nil, fmt.Errorf("promjene kote: %w", err)
+	}
+	out := map[string][]promjena{}
+	for i, r := range sve {
+		if i == 0 || len(r) < 3 {
+			continue
+		}
+		letva := strings.TrimSpace(strings.TrimPrefix(r[0], "\ufeff"))
+		cm, err := strconv.Atoi(strings.TrimSpace(r[2]))
+		if err != nil {
+			return nil, fmt.Errorf("promjene kote, redak %d: pomak %q", i+1, r[2])
+		}
+		datum := strings.TrimSpace(r[1])
+		t, err := time.Parse("2006-01-02", datum)
+		if err != nil {
+			return nil, fmt.Errorf("promjene kote, redak %d: datum %q", i+1, datum)
+		}
+		if _, err := db.Exec(`INSERT OR REPLACE INTO promjene_kote (letva, datum, pomak_cm, izvor, napomena)
+			VALUES (?,?,?,?,?)`, letva, datum, cm, nth(r, 3), nth(r, 4)); err != nil {
+			return nil, err
+		}
+		out[letva] = append(out[letva], promjena{do: t.UTC().Unix(), pomak: float64(cm)})
+	}
+	if len(out) > 0 {
+		fmt.Fprintf(zapisi, "%-8s %-16s promjene kote nule: %d letvi\n", "", "", len(out))
+	}
+	return out, nil
+}
+
+// promjena je jedno premještanje nule: vrijednostima prije "do" dodaje se pomak.
+type promjena struct {
+	do    int64
+	pomak float64
+}
+
+// naKotu svodi niz na današnju kotu nule. Očitanje je visina nad nulom, pa
+// premještanje nule pomiče sve prije tog datuma; bez toga se vrijednosti s
+// dviju strana datuma tiho miješaju.
+func naKotu(z []zapis, p []promjena) (int, float64) {
+	if len(p) == 0 {
+		return 0, 0
+	}
+	n := 0
+	var zadnji float64
+	for i := range z {
+		for _, pr := range p {
+			if z[i].t < pr.do {
+				z[i].v += pr.pomak
+				zadnji = pr.pomak
+				n++
+			}
+		}
+	}
+	return n, zadnji
+}
+
 // mogucaVrijednost odbacuje ono što fizički ne postoji. Telemetrija zna
 // javiti −2270 cm; dno korita na Batini je na −764, pa takva vrijednost nije
 // niska voda nego kvar. Odbacuje se pri gradnji, jer se poslije više ne zna
