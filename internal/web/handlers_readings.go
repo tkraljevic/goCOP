@@ -60,6 +60,8 @@ func NewReadingsHandler(readings *service.ReadingService, stations *service.Stat
 		userService: users, tmplOverview: overview, tmplHistory: history, tmplForm: form}
 }
 
+const arhivaPoStranici = 100
+
 const readingsPerPage = 30
 
 type ReadingsOverviewData struct {
@@ -116,6 +118,7 @@ type ReadingHistoryData struct {
 	ArhChart    *Chart
 	ArhJedinica string
 	ArhSazetak  []models.SazetakVelicine
+	ArhPager    Pager
 
 	SuccessMessage string
 	ErrorMessage   string
@@ -795,17 +798,24 @@ func (h *ReadingsHandler) arhivaZaLetvu(ctx context.Context, r *http.Request,
 		return
 	}
 	od := time.Date(data.ArhGodina, 1, 1, 0, 0, 0, 0, time.UTC)
+	do := od.AddDate(1, 0, 0).Add(-time.Second)
+	ukupno, _ := a.SpojBroj(ctx, station.Code, data.ArhVelicina, data.ArhKorak, od, do)
+	data.ArhPager = pagerZa(r, "ap", ukupno, arhivaPoStranici)
 	data.ArhNiz, _ = a.SpojRaspon(ctx, station.Code, data.ArhVelicina, data.ArhKorak,
-		od, od.AddDate(1, 0, 0).Add(-time.Second), 400)
+		od, do, data.ArhPager.PerPage, data.ArhPager.Odmak())
 
-	// Graf koristi postojeću mehaniku, pa vrijedi samo za vodostaj: pragovi i
-	// centimetri su njegovi. Za ostale veličine ostaje tablica.
-	if data.ArhVelicina == "vodostaj" && len(data.ArhNiz) > 1 {
-		kao := make([]models.Reading, 0, len(data.ArhNiz))
-		for _, v := range data.ArhNiz {
-			cm := int(v.Vrijednost)
-			kao = append(kao, models.Reading{MeasuredAt: v.Kad, LevelCm: &cm})
+	// Graf crta cijelu godinu, ne samo prikazanu stranicu — inače bi se mijenjao
+	// pri svakom listanju i ne bi značio ono što piše.
+	if data.ArhVelicina == "vodostaj" {
+		cijela, _ := a.SpojRaspon(ctx, station.Code, data.ArhVelicina, data.ArhKorak, od, do, 5000, 0)
+		if len(cijela) > 1 {
+			kao := make([]models.Reading, 0, len(cijela))
+			for _, v := range cijela {
+				cm := int(v.Vrijednost)
+				kao = append(kao, models.Reading{MeasuredAt: v.Kad, LevelCm: &cm})
+			}
+			data.ArhChart = buildChart(kao, station, false)
 		}
-		data.ArhChart = buildChart(kao, station, false)
 	}
+
 }

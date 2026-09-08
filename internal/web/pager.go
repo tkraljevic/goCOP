@@ -21,8 +21,18 @@ type Pager struct {
 	From    int // redni broj prve stavke na stranici, od 1
 	To      int // redni broj zadnje stavke na stranici
 
-	base url.Values
-	path string
+	base  url.Values
+	path  string
+	param string // ime parametra u upitu; prazno znači "page"
+}
+
+// kljuc je ime parametra stranice. Stranica koja lista dvije stvari odjednom
+// treba dva različita, inače jedan pomiče oba popisa.
+func (p Pager) kljuc() string {
+	if p.param == "" {
+		return "page"
+	}
+	return p.param
 }
 
 const registryPerPage = 24
@@ -80,7 +90,7 @@ func (p Pager) URL(page int) string {
 		q[k] = v
 	}
 	if page > 1 {
-		q.Set("page", strconv.Itoa(page))
+		q.Set(p.kljuc(), strconv.Itoa(page))
 	}
 	if enc := q.Encode(); enc != "" {
 		return p.path + "?" + enc
@@ -124,4 +134,43 @@ func (p Pager) Numbers() []int {
 	}
 	add(p.Pages)
 	return out
+}
+
+// pagerZa gradi listanje nad ukupnim brojem stavaka, bez da ih drži u memoriji.
+// Koristi se kad se stranica dohvaća iz baze, pa se ne reže gotov popis.
+func pagerZa(r *http.Request, param string, total, perPage int) Pager {
+	if perPage <= 0 {
+		perPage = registryPerPage
+	}
+	pages := (total + perPage - 1) / perPage
+	if pages < 1 {
+		pages = 1
+	}
+	page, _ := strconv.Atoi(r.URL.Query().Get(param))
+	if page < 1 {
+		page = 1
+	}
+	if page > pages {
+		page = pages
+	}
+	from := (page-1)*perPage + 1
+	to := page * perPage
+	if to > total {
+		to = total
+	}
+	if total == 0 {
+		from = 0
+	}
+	q := r.URL.Query()
+	q.Del(param)
+	return Pager{Page: page, PerPage: perPage, Total: total, Pages: pages, From: from, To: to,
+		base: q, path: r.URL.Path, param: param}
+}
+
+// Odmak je koliko stavaka preskočiti pri dohvatu iz baze.
+func (p Pager) Odmak() int {
+	if p.Page < 1 {
+		return 0
+	}
+	return (p.Page - 1) * p.PerPage
 }

@@ -185,7 +185,7 @@ func (h *StationsHandler) ShowStation(w http.ResponseWriter, r *http.Request) {
 		if data.SpojGodina > 0 {
 			od := time.Date(data.SpojGodina, 1, 1, 0, 0, 0, 0, time.UTC)
 			data.SpojNiz, _ = a.SpojRaspon(ctx, st.Code, data.SpojVelicina, data.SpojKorak,
-				od, od.AddDate(1, 0, 0).Add(-time.Second), 400)
+				od, od.AddDate(1, 0, 0).Add(-time.Second), 400, 0)
 		}
 		data.NizID = odabraniNiz(r, data.Nizovi)
 		if data.NizID > 0 {
