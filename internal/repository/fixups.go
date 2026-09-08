@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"gocop/internal/ledger"
@@ -137,6 +138,54 @@ var fixups = []fixup{
 				}
 			}
 			return len(ids), nil
+		},
+	},
+	{
+		// Napomena uz Batinu nosila je "M = +795 (preračun. 24.06.1965.!)".
+		// Ta brojka sad stoji kao ekstrem, propisno označena kao rekonstruirana
+		// i s izvorom, pa je u napomeni bila dvostruka — a polje napomene treba
+		// govoriti o postaji, ne prepisivati podatak koji već ima svoje mjesto.
+		//
+		// Uz sam ekstrem upisuje se neovisna potvrda: preračun iz Mohácsa daje
+		// 790 cm za isti dan, drugom postajom i drugom metodom.
+		name: "batina-napomena-u-ekstrem",
+		run: func(ctx context.Context, tx *sql.Tx, rec *ledger.Recorder) (int, error) {
+			var id, biljeska, ekstremi string
+			err := tx.QueryRowContext(ctx, `SELECT id, notes, extremes FROM stations WHERE code = 'batina'`).
+				Scan(&id, &biljeska, &ekstremi)
+			if err == sql.ErrNoRows {
+				return 0, nil
+			} else if err != nil {
+				return 0, err
+			}
+			if !strings.Contains(biljeska, "M = +795") {
+				return 0, nil
+			}
+			var eks []models.StationExtreme
+			if err := json.Unmarshal([]byte(ekstremi), &eks); err != nil {
+				return 0, err
+			}
+			for i := range eks {
+				if eks[i].Quality == models.QualityReconstructed && eks[i].OnDate == "1965-06-24" {
+					eks[i].Note = "Neovisna potvrda: preračun iz vodostaja Mohácsa daje 790 cm za isti dan."
+				}
+			}
+			b, err := json.Marshal(eks)
+			if err != nil {
+				return 0, err
+			}
+			if _, err := tx.ExecContext(ctx, `UPDATE stations SET notes = '', extremes = ?, updated_at = ?
+				WHERE id = ?`, string(b), time.Now().UTC(), id); err != nil {
+				return 0, err
+			}
+			st, err := getStationTx(ctx, tx, id)
+			if err != nil {
+				return 0, err
+			}
+			if _, err := rec.Record(ctx, tx, EntityStations, id, st); err != nil {
+				return 0, err
+			}
+			return 1, nil
 		},
 	},
 }
