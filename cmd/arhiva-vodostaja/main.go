@@ -48,6 +48,33 @@ CREATE TABLE IF NOT EXISTS nizovi (
 	osvjezeno TEXT NOT NULL DEFAULT '',
 	UNIQUE(letva, izvor, velicina, vrsta)
 );
+CREATE TABLE IF NOT EXISTS profili (
+	id       INTEGER PRIMARY KEY,
+	letva    TEXT NOT NULL,
+	datum    TEXT NOT NULL,          -- kad je korito snimljeno
+	vodostaj INTEGER,                -- vodostaj pri snimanju, cm
+	kota_nule REAL,
+	UNIQUE(letva, datum)
+);
+CREATE TABLE IF NOT EXISTS profil_tocke (
+	profil     INTEGER NOT NULL REFERENCES profili(id) ON DELETE CASCADE,
+	stacionaza REAL NOT NULL,        -- m od lijeve obale
+	visina     REAL NOT NULL,        -- apsolutna kota, m
+	PRIMARY KEY (profil, stacionaza)
+) WITHOUT ROWID;
+CREATE TABLE IF NOT EXISTS hq_krivulje (
+	id         INTEGER PRIMARY KEY,
+	letva      TEXT NOT NULL,
+	vrijedi_od TEXT NOT NULL,
+	vrijedi_do TEXT NOT NULL DEFAULT '',
+	a          REAL NOT NULL,
+	b          REAL NOT NULL,
+	h0         REAL NOT NULL,
+	mjerenja   INTEGER NOT NULL DEFAULT 0,
+	odstupanje REAL NOT NULL DEFAULT 0,
+	napomena   TEXT NOT NULL DEFAULT '',
+	UNIQUE(letva, vrijedi_od)
+);
 CREATE TABLE IF NOT EXISTS ocitanja (
 	niz        INTEGER NOT NULL REFERENCES nizovi(id) ON DELETE CASCADE,
 	vrijeme    INTEGER NOT NULL,
@@ -92,6 +119,13 @@ func main() {
 		kljucevi = append(kljucevi, k)
 	}
 	sort.Strings(kljucevi)
+
+	if err := profili(db, *izvorDir, *samo); err != nil {
+		log.Fatal(err)
+	}
+	if err := krivulje(db, *izvorDir, *samo); err != nil {
+		log.Fatal(err)
+	}
 
 	ukupno := 0
 	for _, k := range kljucevi {
@@ -300,4 +334,160 @@ func citaj(put string) ([]zapis, bool, error) {
 		out = append(out, zapis{t: t.UTC().Unix(), v: v})
 	}
 	return out, poDanu, nil
+}
+
+// profili učitava snimke poprečnog profila korita. Nisu vremenski niz nego
+// oblik korita u jednom danu, pa idu u svoje tablice — ali u istu datoteku,
+// jer arhiva mora putovati kao jedna cjelina.
+func profili(db *sql.DB, koren, samo string) error {
+	puts, err := filepath.Glob(filepath.Join(koren, "*", "*", "profil", "*.csv"))
+	if err != nil {
+		return err
+	}
+	for _, p := range puts {
+		letva := filepath.Base(filepath.Dir(filepath.Dir(p)))
+		if samo != "" && letva != samo {
+			continue
+		}
+		f, err := os.Open(p)
+		if err != nil {
+			return err
+		}
+		datum, vod, kota, tocke, err := citajProfil(f)
+		f.Close()
+		if err != nil {
+			return fmt.Errorf("%s: %w", filepath.Base(p), err)
+		}
+		if len(tocke) == 0 {
+			continue
+		}
+		res, err := db.Exec(`INSERT INTO profili (letva, datum, vodostaj, kota_nule) VALUES (?,?,?,?)
+			ON CONFLICT(letva, datum) DO UPDATE SET vodostaj=excluded.vodostaj, kota_nule=excluded.kota_nule`,
+			letva, datum, vod, kota)
+		if err != nil {
+			return err
+		}
+		var id int64
+		if id, _ = res.LastInsertId(); id == 0 {
+			if err := db.QueryRow(`SELECT id FROM profili WHERE letva=? AND datum=?`, letva, datum).Scan(&id); err != nil {
+				return err
+			}
+		}
+		if _, err := db.Exec(`DELETE FROM profil_tocke WHERE profil = ?`, id); err != nil {
+			return err
+		}
+		for _, t := range tocke {
+			if _, err := db.Exec(`INSERT OR REPLACE INTO profil_tocke (profil, stacionaza, visina) VALUES (?,?,?)`,
+				id, t[0], t[1]); err != nil {
+				return err
+			}
+		}
+		fmt.Printf("%-8s %-16s profil korita %s   %d točaka, vodostaj %d cm\n", "", letva, datum, len(tocke), vod)
+	}
+	return nil
+}
+
+func citajProfil(f *os.File) (datum string, vodostaj int, kota float64, tocke [][2]float64, err error) {
+	cr := csv.NewReader(f)
+	cr.Comma = ';'
+	cr.FieldsPerRecord = -1
+	cr.Comment = 0
+	sve, err := cr.ReadAll()
+	if err != nil {
+		return "", 0, 0, nil, err
+	}
+	for _, r := range sve {
+		if len(r) == 0 {
+			continue
+		}
+		if strings.HasPrefix(r[0], "#") {
+			// # poprečni profil korita, mjereno 2010-03-22, vodostaj pri mjerenju 174 cm, kota nule 80.45
+			for _, d := range strings.Split(r[0], ",") {
+				d = strings.TrimSpace(d)
+				switch {
+				case strings.HasPrefix(d, "mjereno "):
+					datum = strings.TrimSpace(strings.TrimPrefix(d, "mjereno "))
+				case strings.HasPrefix(d, "vodostaj pri mjerenju "):
+					fmt.Sscanf(strings.TrimPrefix(d, "vodostaj pri mjerenju "), "%d", &vodostaj)
+				case strings.HasPrefix(d, "kota nule "):
+					fmt.Sscanf(strings.TrimPrefix(d, "kota nule "), "%f", &kota)
+				}
+			}
+			continue
+		}
+		if len(r) < 2 || strings.HasPrefix(r[0], "stacionaza") {
+			continue
+		}
+		s, e1 := strconv.ParseFloat(strings.ReplaceAll(r[0], ",", "."), 64)
+		v, e2 := strconv.ParseFloat(strings.ReplaceAll(r[1], ",", "."), 64)
+		if e1 != nil || e2 != nil {
+			continue
+		}
+		tocke = append(tocke, [2]float64{s, v})
+	}
+	return datum, vodostaj, kota, tocke, nil
+}
+
+// krivulje učitava HQ krivulje s razdobljem valjanosti. Krivulja se povremeno
+// iznova postavlja jer se korito mijenja, pa ih letva ima više.
+func krivulje(db *sql.DB, koren, samo string) error {
+	puts, err := filepath.Glob(filepath.Join(koren, "*", "*", "hq", "*_hq_krivulje.csv"))
+	if err != nil {
+		return err
+	}
+	for _, p := range puts {
+		letva := filepath.Base(filepath.Dir(filepath.Dir(p)))
+		if samo != "" && letva != samo {
+			continue
+		}
+		f, err := os.Open(p)
+		if err != nil {
+			return err
+		}
+		cr := csv.NewReader(f)
+		cr.Comma = ';'
+		cr.FieldsPerRecord = -1
+		sve, err := cr.ReadAll()
+		f.Close()
+		if err != nil {
+			return err
+		}
+		n := 0
+		for i, r := range sve {
+			if i == 0 || len(r) < 5 {
+				continue
+			}
+			br := func(s string) float64 {
+				v, _ := strconv.ParseFloat(strings.ReplaceAll(strings.TrimSpace(s), ",", "."), 64)
+				return v
+			}
+			cijeli := func(s string) int {
+				v, _ := strconv.Atoi(strings.TrimSpace(s))
+				return v
+			}
+			nap := ""
+			if len(r) > 7 {
+				nap = r[7]
+			}
+			if _, err := db.Exec(`INSERT INTO hq_krivulje (letva, vrijedi_od, vrijedi_do, a, b, h0, mjerenja, odstupanje, napomena)
+				VALUES (?,?,?,?,?,?,?,?,?)
+				ON CONFLICT(letva, vrijedi_od) DO UPDATE SET vrijedi_do=excluded.vrijedi_do, a=excluded.a,
+					b=excluded.b, h0=excluded.h0, mjerenja=excluded.mjerenja, odstupanje=excluded.odstupanje,
+					napomena=excluded.napomena`,
+				letva, r[0], r[1], br(r[2]), br(r[3]), br(r[4]),
+				cijeli(nth(r, 5)), br(nth(r, 6)), nap); err != nil {
+				return err
+			}
+			n++
+		}
+		fmt.Printf("%-8s %-16s HQ krivulje: %d\n", "", letva, n)
+	}
+	return nil
+}
+
+func nth(r []string, i int) string {
+	if i < len(r) {
+		return r[i]
+	}
+	return ""
 }
