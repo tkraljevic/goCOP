@@ -1,0 +1,79 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Ispravak očitanja: {{.GaugeName}}{{end}}
+
+{{define "content"}}
+<nav class="breadcrumb"><a href="/readings">Očitanja</a> ›
+  <a href="{{.BackURL}}">{{.GaugeName}}</a> › Ispravak iz datoteke</nav>
+
+<div class="detail-head">
+  <div>
+    <h1 class="page-title">{{icon "upload"}} Što bi se promijenilo</h1>
+    <p class="page-desc">Iz datoteke <strong>{{.Datoteka}}</strong>.
+      Ništa još nije upisano. Pogledajte popis pa potvrdite.</p>
+  </div>
+</div>
+
+<div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1.25rem;">
+  <span class="stat-badge has-items">{{icon "pencil"}} {{brojHR .Izmjena}} za ispravak</span>
+  {{if .Brisanja}}<span class="stat-badge">{{icon "trash"}} {{brojHR .Brisanja}} za brisanje</span>{{end}}
+  {{if .Netaknuto}}<span class="stat-badge">{{brojHR .Netaknuto}} nepromijenjeno</span>{{end}}
+  {{if .Greske}}<span class="stat-badge">{{icon "triangle-alert"}} {{brojHR .Greske}} s greškom</span>{{end}}
+</div>
+
+{{if .Greske}}
+<div class="alert alert-danger">
+  Redci s greškom se preskaču. Ostali se mogu upisati.
+</div>
+{{end}}
+
+<form method="POST" action="{{.BackURL}}/ocitanja/potvrdi">
+<div class="table-card table-stack"><div class="table-responsive">
+  <table class="data-table">
+    <thead><tr><th>Redak</th><th>Očitanje</th><th>Što se mijenja</th></tr></thead>
+    <tbody>
+    {{range .Redci}}
+    <tr {{if .Greska}}style="background:var(--tint-red-bg);"{{else if .Brisati}}style="background:var(--tint-orange-bg);"{{end}}>
+      <td class="mono naslov">{{.Redak}}.</td>
+      <td class="mono" data-stupac="Očitanje">{{formatDate .Staro.LocalTime}}
+        · <strong>{{if .Staro.LevelCm}}{{intOf .Staro.LevelCm}} cm{{else}}—{{end}}</strong></td>
+      <td data-stupac="Mijenja se">
+        {{if .Greska}}<span class="badge badge-inactive">{{.Greska}}</span>
+        {{else if .Brisati}}<span class="badge badge-area-admin">briše se</span>
+        {{else if .Izmjene}}
+          {{range .Izmjene}}<div class="reading-meta">{{.Polje}}:
+            <s>{{if .Staro}}{{.Staro}}{{else}}prazno{{end}}</s> →
+            <strong>{{if .Novo}}{{.Novo}}{{else}}prazno{{end}}</strong></div>{{end}}
+        {{else}}<span class="reg-card-sub">nepromijenjeno</span>{{end}}
+      </td>
+    </tr>
+    {{if .Mijenja}}
+    <input type="hidden" name="id" value="{{.ID}}">
+    <input type="hidden" name="obrisi" value="{{if .Brisati}}da{{end}}">
+    <input type="hidden" name="vrijeme" value="{{.Novo.MeasuredAt.Format "2006-01-02T15:04:05Z07:00"}}">
+    <input type="hidden" name="vodostaj" value="{{if .Novo.LevelCm}}{{intOf .Novo.LevelCm}}{{end}}">
+    <input type="hidden" name="nizvodni" value="{{if .Novo.Level2Cm}}{{intOf .Novo.Level2Cm}}{{end}}">
+    <input type="hidden" name="ocitao" value="{{.Novo.Observer}}">
+    <input type="hidden" name="napomena" value="{{.Novo.Note}}">
+    {{end}}
+    {{else}}
+    <tr><td colspan="3" class="reg-empty">Datoteka ne mijenja nijedno očitanje.</td></tr>
+    {{end}}
+    </tbody>
+  </table>
+</div></div>
+
+<div style="display:flex; gap:0.75rem; margin-top:1.25rem; flex-wrap:wrap;">
+  {{if or .Izmjena .Brisanja}}
+  <button type="submit" class="btn btn-primary">{{icon "check"}} Upiši
+    {{if .Izmjena}}{{brojHR .Izmjena}} ispravak{{if ne .Izmjena 1}}a{{end}}{{end}}
+    {{if and .Izmjena .Brisanja}}i{{end}}
+    {{if .Brisanja}}{{brojHR .Brisanja}} brisanje{{if ne .Brisanja 1}}a{{end}}{{end}}</button>
+  {{end}}
+  <a href="{{.BackURL}}" class="btn btn-secondary">Odustani</a>
+</div>
+<p class="form-help" style="margin-top:0.75rem;">Svaka izmjena ulazi u knjigu verzija s vašim
+  imenom, kao i izmjena pojedinog očitanja. Obrisano očitanje nestaje s popisa, ali zapis o
+  njemu ostaje.</p>
+</form>
+{{end}}

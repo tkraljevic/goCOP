@@ -40,9 +40,13 @@ type ReadingsHandler struct {
 	ispravci         func() *repository.IspravakRepository
 	tmplIspravci     *template.Template
 	tmplUvoz         *template.Template
+	tmplOcitanjaCSV  *template.Template
 }
 
-// SetUvoz daje rukovatelju predložak pregleda zalijepljenih očitanja.
+// SetOcitanjaCSV daje rukovatelju predložak pregleda ispravaka iz CSV-a.
+func (h *ReadingsHandler) SetOcitanjaCSV(tmpl *template.Template) { h.tmplOcitanjaCSV = tmpl }
+
+// SetUvoz daje rukovatelju predložak pregleda zalijepljenih očitanja
 func (h *ReadingsHandler) SetUvoz(tmpl *template.Template) { h.tmplUvoz = tmpl }
 
 // SetIspravci daje rukovatelju pohranu ispravaka arhive i predložak pregleda.
@@ -130,7 +134,8 @@ type ReadingHistoryData struct {
 	ChartUzak   *Chart // isti graf u obliku za telefon
 	CanRecord   bool
 	CanEdit     bool
-	Followed    bool // čvor drži cijelu povijest ove letve
+	Followed    bool   // čvor drži cijelu povijest ove letve
+	GaugeURL    string // putanja ove letve, za izvoz i uvoz
 	GaugeKey    string
 	Pager       Pager
 
@@ -395,6 +400,7 @@ func (h *ReadingsHandler) ShowHistory(w http.ResponseWriter, r *http.Request) {
 	} else {
 		data.GaugeKey = "station:" + station.ID.String()
 	}
+	data.GaugeURL = vezaLetve(station, structure)
 	if h.followRepo != nil {
 		if keys, err := h.followRepo.Keys(ctx); err == nil {
 			data.Followed = keys[data.GaugeKey]

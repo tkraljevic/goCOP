@@ -151,6 +151,32 @@
     </div>
   </form>
 </section>
+
+<section class="detail-section">
+  <h2>{{icon "download"}} Provjera i ispravak u tablici</h2>
+  <p class="page-desc" style="margin-top:-0.5rem;">Izvezi očitanja, pogledaj ih u tablici i vrati
+    datoteku s ispravcima. Korisno kad je više očitanja upisano krivo — na primjer kad su
+    zamijenjeni sati ili je promašen predznak.</p>
+  <div class="table-card" style="padding:0.875rem 1.25rem;">
+    <div style="display:flex; flex-wrap:wrap; gap:1rem; align-items:center;">
+      <a class="btn btn-secondary btn-sm" href="{{.GaugeURL}}/ocitanja.csv?pogled={{.Pogled}}">
+        {{icon "download"}} Izvezi {{.PogledOpis}} u CSV
+      </a>
+      <a class="btn btn-secondary btn-sm" href="{{.GaugeURL}}/ocitanja.csv?pogled=sve">
+        {{icon "download"}} Izvezi sve
+      </a>
+      <form method="POST" action="{{.GaugeURL}}/ocitanja/uvoz" enctype="multipart/form-data"
+            style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; margin:0;">
+        <input type="file" name="datoteka" accept=".csv,text/csv" required class="form-control" style="max-width:18rem;">
+        <button type="submit" class="btn btn-secondary btn-sm">{{icon "upload"}} Vrati s ispravcima</button>
+      </form>
+    </div>
+    <p class="form-help" style="margin-top:0.75rem;">Stupac <strong>id</strong> govori koji je
+      redak koji — ne diraj ga i ne dodaj retke. Mijenja se vrijeme, vodostaj, nizvodni, tko je
+      očitao i napomena; za brisanje upiši <strong>da</strong> u stupac <strong>obrisi</strong>.
+      Prije upisa program pokaže što bi se promijenilo.</p>
+  </div>
+</section>
 {{end}}
 
 {{if .ArhVelicine}}
