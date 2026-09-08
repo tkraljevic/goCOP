@@ -1451,3 +1451,23 @@ func TestSirokiGrafZadrzavaKoordinate(t *testing.T) {
 		}
 	}
 }
+
+// Arhivska tablica nema svoj okvir za listanje. Prozorčić unutar stranice
+// znači dva klizača jedan u drugome; stranica se lista sama, a koliko se
+// redaka pokazuje odlučuje listanje ispod tablice.
+func TestArhivskaTablicaNemaSvojKlizac(t *testing.T) {
+	kad := time.Date(2013, 6, 14, 6, 0, 0, 0, time.UTC)
+	html := iscrtaj(t, "reading_history.html", ReadingHistoryData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Station:     &models.Station{ID: uuid.New(), Name: "Batina", Code: "batina"},
+		GaugeName:   "Batina", Pogled: "30", PogledOpis: "zadnjih 30 dana",
+		ArhVelicine: []string{"vodostaj"}, ArhVelicina: "vodostaj", ArhJedinica: "cm",
+		ArhKorak: "dnevni", ArhGodina: 2013, ArhGodine: []int{2013},
+		ArhNiz:   []models.SpojenaVrijednost{{Kad: kad, Vrijednost: 771, Izvor: "his2000"}},
+		ArhPager: pagerZa(&http.Request{URL: &url.URL{Path: "/x"}}, "ap", 365, 100),
+	})
+	if strings.Contains(html, "overflow-y:auto") || strings.Contains(html, "max-height:28rem") {
+		t.Error("arhivska tablica opet ima vlastiti klizač")
+	}
+}
