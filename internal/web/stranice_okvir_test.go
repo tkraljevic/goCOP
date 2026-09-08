@@ -133,7 +133,7 @@ func TestRedoslijedUArhivi(t *testing.T) {
 		ArhPager: pagerZa(&http.Request{URL: &url.URL{Path: "/x"}}, "ap", 365, 100),
 	})
 	iSazetak := strings.Index(html, "Karakteristične vrijednosti")
-	iGraf := strings.Index(html, "Graf vodostaja iz arhive")
+	iGraf := strings.Index(html, `aria-label="Graf:`)
 	iTablica := strings.Index(html, "Novije prvo. Svaka vrijednost")
 	if iSazetak < 0 || iGraf < 0 || iTablica < 0 {
 		t.Fatalf("nedostaje odjeljak: sažetak %d, graf %d, tablica %d", iSazetak, iGraf, iTablica)
