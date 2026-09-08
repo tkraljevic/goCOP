@@ -85,6 +85,8 @@
             <form action="/logout" method="POST"><button type="submit" class="nav-link">{{icon "log-out"}} Odjava</button></form>          </div>
           {{end}}
         </nav>
+        <a href="/pomoc{{if .ActiveNav}}#{{.ActiveNav}}{{end}}" class="theme-toggle pomoc-znak"
+           title="Pomoć za ovu stranicu" aria-label="Pomoć za ovu stranicu">{{icon "circle-question-mark"}}</a>
         <button type="button" class="theme-toggle" onclick="toggleTheme()" title="Svijetla ili tamna tema" aria-label="Svijetla ili tamna tema">
           <svg class="icon icon-sun" aria-hidden="true"><use href="/static/img/icons.svg#sun"/></svg>
           <svg class="icon icon-moon" aria-hidden="true"><use href="/static/img/icons.svg#moon"/></svg>
