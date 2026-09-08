@@ -1510,8 +1510,8 @@ func TestPresjekKoritaIspodGrafa(t *testing.T) {
 	if c == nil {
 		t.Fatal("crtež nije nastao")
 	}
-	if c.DnoCm != -765 || c.VrhKoritaCm != 875 {
-		t.Errorf("dno %d, kruna %d cm — očekivano oko -765 i 875", c.DnoCm, c.VrhKoritaCm)
+	if c.DnoCm != -765 || c.LijevaCm != 875 || c.DesnaCm != 875 {
+		t.Errorf("dno %d, obale %d/%d cm — očekivano -765 i 875", c.DnoCm, c.LijevaCm, c.DesnaCm)
 	}
 	// Viši vodostaj mora biti više na slici: y raste prema dolje.
 	if c.Pragovi[1].Y >= c.Pragovi[0].Y {
@@ -1551,5 +1551,30 @@ func TestKarticaLetveDrziKoteUMetrima(t *testing.T) {
 		if k.Kota != float64(int(k.Kota)) {
 			t.Errorf("kota %v nije okrugli metar", k.Kota)
 		}
+	}
+}
+
+// Snimak ne seže uvijek do vrha obale: Batinin iz 2015. počinje tek na 110.
+// metru, a iz 2020. na koti +166 cm. Kad je voda iznad niže obale, iz crteža
+// se ne smije čitati koliko korita ostaje — to se mora reći, ne prešutjeti.
+func TestOdrezanSnimakSePriznaje(t *testing.T) {
+	// lijeva obala presječena na 82,11 m = +166 cm, desna do 89,24 m = +879
+	p := models.ProfilKorita{Datum: "2020-08-18", KotaNule: 80.45, Tocke: []models.TockaProfila{
+		{Stacionaza: 0, Visina: 82.11}, {Stacionaza: 30, Visina: 72.81},
+		{Stacionaza: 300, Visina: 75.0}, {Stacionaza: 398.9, Visina: 89.24},
+	}}
+	nisko := crtajKoritoP(p, -128, KoritoPostavke{Sirina: 900, Visina: 340, OsUCm: true})
+	if nisko.LijevaCm != 166 || nisko.DesnaCm != 879 {
+		t.Errorf("obale %d/%d cm — očekivano 166 i 879", nisko.LijevaCm, nisko.DesnaCm)
+	}
+	if nisko.NizaObalaCm != 166 {
+		t.Errorf("niža obala %d cm", nisko.NizaObalaCm)
+	}
+	if nisko.OdrezanSnimak {
+		t.Error("voda na -128 cm je duboko unutar snimka")
+	}
+	visoko := crtajKoritoP(p, 612, KoritoPostavke{Sirina: 900, Visina: 340, OsUCm: true})
+	if !visoko.OdrezanSnimak {
+		t.Error("voda na 612 cm izlazi iz snimka preko lijeve obale na 166 cm")
 	}
 }

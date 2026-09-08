@@ -575,7 +575,18 @@ func (h *ReadingsHandler) koritoUzGraf(ctx context.Context, data *ReadingHistory
 			pragovi = append(pragovi, PragKorita{Cm: *t.t.Cm, Label: t.naziv, Class: t.cl})
 		}
 	}
-	data.Korito = crtajKoritoP(profili[0], *zadnji.LevelCm, KoritoPostavke{
+	// Snimke se razlikuju po dosegu: Batinina iz 2010. hvata obje obale do
+	// vrha, iz 2020. lijevu presijeca na +166 cm. Bira se najnovija koja
+	// pokriva vodu prikazanog razdoblja; ako nijedna ne pokriva, najnovija.
+	profil := profili[0]
+	for _, kandidat := range profili {
+		c := crtajKoritoP(kandidat, najv, KoritoPostavke{Sirina: 900, Visina: 340})
+		if c != nil && !c.OdrezanSnimak {
+			profil = kandidat
+			break
+		}
+	}
+	data.Korito = crtajKoritoP(profil, *zadnji.LevelCm, KoritoPostavke{
 		Sirina: 900, Visina: 340, Pragovi: pragovi, OsUCm: true,
 		PojasOd: najn, PojasDo: najv, ImaPojas: najv > najn,
 	})

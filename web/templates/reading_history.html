@@ -96,9 +96,9 @@
         <polyline class="korito-dno" points="{{.Korito}}"/>
         <text class="korito-os" x="4" y="12">cm na letvi</text>
         <text class="korito-os" x="{{printf "%.1f" .PocetakX}}" y="{{sub .Visina 6}}"
-              text-anchor="start">{{brojHRf .PocetakM 0}} m</text>
+              text-anchor="start">lijeva obala · {{brojHRf .PocetakM 0}} m</text>
         <text class="korito-os" x="{{printf "%.1f" .KrajX}}" y="{{sub .Visina 6}}"
-              text-anchor="end">{{brojHRf .KrajM 0}} m</text>
+              text-anchor="end">{{brojHRf .KrajM 0}} m · desna obala</text>
       </svg>
     </div>
     <p class="reg-card-sub" style="margin:0.25rem 0 0;">Presjek snimljen {{.Datum}} ·
@@ -107,14 +107,18 @@
       <span>dubina nad dnom <strong>{{brojHRf .DubinaM 2}} m</strong></span>
       {{if gt .SirinaVodeM 0.0}}<span>širina vode <strong>{{brojHRf .SirinaVodeM 0}} m</strong></span>{{end}}
       <span>dno korita <strong>{{brojHR .DnoCm}} cm</strong></span>
-      <span>kruna obala <strong>{{brojHR .VrhKoritaCm}} cm</strong></span>
+      <span>obale snimka <strong>{{brojHR .LijevaCm}}</strong> / <strong>{{brojHR .DesnaCm}} cm</strong></span>
       {{if .ImaPojas}}<span class="reg-card-sub">u prikazanom razdoblju voda je išla
         od {{brojHR .PojasOd}} do {{brojHR .PojasDo}} cm</span>{{end}}
     </div>
-    {{with nadObranom $.Station .VrhKoritaCm}}
+    {{if .OdrezanSnimak}}
+    <p class="form-help" style="margin-top:0.5rem;">{{icon "triangle-alert"}} Snimak seže do
+      <strong>{{brojHR .NizaObalaCm}} cm</strong>, a voda je iznad toga — koliko korita ostaje
+      iznad ove razine iz ovog se profila ne vidi.</p>
+    {{else}}{{with nadObranom $.Station .NizaObalaCm}}
     <p class="form-help" style="margin-top:0.5rem;">Iznad izvanrednog stanja ostaje još
-      <strong>{{brojHR .}} cm</strong> do krune obala.</p>
-    {{end}}
+      <strong>{{brojHR .}} cm</strong> do ruba snimljenog profila.</p>
+    {{end}}{{end}}
   </div>
   {{end}}
 </section>
