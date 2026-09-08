@@ -79,8 +79,11 @@ func (h *StationsHandler) arh() *repository.ArhivaRepository {
 	return h.arhiva()
 }
 
-// SetKarta daje rukovatelju izvor pločica za kartu položaja letve.
-func (h *StationsHandler) SetKarta(k KartaPostavke) { h.karta = k }
+// SetKarta daje rukovatelju izvor pločica za kartu položaja letve. Uzima se
+// dohvatnik, a ne sama vrijednost: poslužitelj se sastavlja i rute se
+// registriraju prije nego što se postavke pročitaju, pa bi vrijednost predana
+// pri sastavljanju zauvijek ostala prazna. Isto kao kod arhive.
+func (h *StationsHandler) SetKarta(f func() KartaPostavke) { h.karta = f }
 
 // SetEpisodeService daje rukovatelju epizode obrane, da se na kartici letve
 // vidi tko je sve po njoj u obrani.
@@ -140,7 +143,9 @@ func (h *StationsHandler) ShowStation(w http.ResponseWriter, r *http.Request) {
 	}
 	data.Station = *st
 	data.CanEdit = h.canEditStation(data.Permissions, *st)
-	data.Karta = h.karta
+	if h.karta != nil {
+		data.Karta = h.karta()
+	}
 
 	if h.sectionService != nil {
 		for _, code := range st.SectionCodes {
