@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"time"
 
 	"gocop/internal/models"
 )
@@ -57,6 +58,11 @@ type KoritoCrtez struct {
 	PojasOd, PojasDo int
 	VrhKoritaCm      int // kruna obala u centimetrima na letvi
 	DnoCm            int
+	VodaX0, VodaX1   float64 // dokle vodna ploha seže na slici
+	// Stacionaža krajeva snimka. Koja je to obala izvorne datoteke ne kažu,
+	// pa crtež govori ono što zna: koliko je metara od početka snimanja.
+	PocetakM, KrajM  float64
+	PocetakX, KrajX  float64
 }
 
 // KotaOznaka je vodoravna crta s ispisanom kotom. Uz apsolutnu kotu nosi i
@@ -112,13 +118,20 @@ func crtajKoritoP(p models.ProfilKorita, vodostajCm int, o KoritoPostavke) *Kori
 			maxV = k
 		}
 	}
-	// malo zraka gore i dolje, da crta vode ne sjedne na rub
+	// Malo zraka gore i dolje, da crta vode ne sjedne na rub. Kod visokog
+	// korita razmjerni zrak postane metar i pol praznine, pa se ograničava:
+	// gore treba stati samo natpis najvišeg praga.
 	raspon := maxV - minV
 	if raspon <= 0 {
 		raspon = 1
 	}
-	minV -= raspon * 0.06
-	maxV += raspon * 0.10
+	zrakGore, zrakDolje := raspon*0.10, raspon*0.06
+	if o.OsUCm {
+		zrakGore = math.Min(zrakGore, 0.8)
+		zrakDolje = math.Min(zrakDolje, 0.4)
+	}
+	minV -= zrakDolje
+	maxV += zrakGore
 	if x1 <= x0 {
 		return nil
 	}
@@ -142,8 +155,10 @@ func crtajKoritoP(p models.ProfilKorita, vodostajCm int, o KoritoPostavke) *Kori
 		YVode:      sy(kotaVode),
 		Dno:        p.Dno(),
 		DubinaM:    kotaVode - p.Dno(),
-		Datum:      p.Datum,
+		Datum:      datumHR(p.Datum),
 		DnoCm:      int((p.Dno() - p.KotaNule) * 100),
+		PocetakM:   x0, KrajM: x1,
+		PocetakX: sx(x0), KrajX: sx(x1),
 	}
 	vrh := p.Tocke[0].Visina
 	for _, t := range p.Tocke {
@@ -209,6 +224,7 @@ func crtajKoritoP(p models.ProfilKorita, vodostajCm int, o KoritoPostavke) *Kori
 		c.Voda = strings.Join(voda, " ")
 		c.ImaVode = true
 		c.SirinaVodeM = zadnji - prvi
+		c.VodaX0, c.VodaX1 = sx(prvi), sx(zadnji)
 	}
 
 	// Vodoravne podjele. Kad se presjek čita uz graf, os govori u
@@ -236,6 +252,16 @@ func crtajKoritoP(p models.ProfilKorita, vodostajCm int, o KoritoPostavke) *Kori
 			Cm: int(math.Round((k - p.KotaNule) * 100))})
 	}
 	return c
+}
+
+// datumHR ispisuje datum snimke onako kako se kod nas piše. U arhivi stoji
+// kao 2020-08-18, jer se tako i sortira.
+func datumHR(s string) string {
+	t, err := time.Parse("2006-01-02", s)
+	if err != nil {
+		return s
+	}
+	return t.Format("2.1.2006.")
 }
 
 // nize vraća nižu od dvije kote
