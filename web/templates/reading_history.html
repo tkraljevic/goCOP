@@ -103,7 +103,7 @@
     <select name="god" class="filter-select" style="max-width:8rem;" onchange="this.form.submit()">
       {{range .ArhGodine}}<option value="{{.}}" {{if eq . $.ArhGodina}}selected{{end}}>{{.}}.</option>{{end}}
     </select>
-    <span class="reg-card-sub">{{len .ArhGodine}} godina u arhivi{{if .ArhPager.Total}} · {{brojHR .ArhPager.Total}} vrijednosti u {{.ArhGodina}}.{{end}}</span>
+    <span class="reg-card-sub">{{len .ArhGodine}} godina u arhivi{{if .ArhPager.Total}} · {{brojHR .ArhPager.Total}} vrijednosti u {{.ArhGodina}}.{{end}}{{if .ArhIspravaka}} · <strong>{{brojHR .ArhIspravaka}} ispravljeno</strong>{{end}}</span>
   </form>
 
   {{if .ArhChart}}
@@ -142,15 +142,41 @@
       {{range .ArhNiz}}
       <tr>
         <td class="mono">{{formatDate (localTime .Kad)}}{{if eq $.ArhKorak "satni"}} {{printf "%02d" .Kad.Hour}}:00{{end}}</td>
-        <td class="mono" style="text-align:right;"><strong>{{brojHRf .Vrijednost 1}}</strong></td>
-        <td><span class="badge {{if le .Tocnost 1.0}}badge-area-admin{{else}}badge-unknown{{end}}">{{.TocnostLabel}}</span></td>
-        <td class="reg-card-sub">{{izvorLabel .Izvor}}{{if ne .Vrsta "srednjak"}}{{if ne .Vrsta "trenutna"}} · {{vrstaLabel .Vrsta}}{{end}}{{end}}</td>
+        <td class="mono" style="text-align:right;"><strong>{{brojHRf .Vrijednost 1}}</strong>
+          {{if .Ispravljeno}}<div class="reg-card-sub"><s>{{brojHRf .Izvorno 1}}</s></div>{{end}}</td>
+        <td>{{if .Ispravljeno}}<span class="badge badge-area-admin">ispravljeno</span>
+            {{else}}<span class="badge {{if le .Tocnost 1.0}}badge-area-admin{{else}}badge-unknown{{end}}">{{.TocnostLabel}}</span>{{end}}</td>
+        <td class="reg-card-sub">{{if .Ispravljeno}}{{.Razlog}}{{else}}{{izvorLabel .Izvor}}{{if ne .Vrsta "srednjak"}}{{if ne .Vrsta "trenutna"}} · {{vrstaLabel .Vrsta}}{{end}}{{end}}{{end}}</td>
       </tr>
       {{end}}
       </tbody>
     </table>
   </div></div>
   {{template "pager" .ArhPager}}
+
+  <div class="table-card" style="padding:0.875rem 1.25rem; margin-top:1rem;">
+    <div style="display:flex; flex-wrap:wrap; gap:1rem; align-items:center;">
+      <a class="btn btn-secondary btn-sm"
+         href="/readings/station/{{.Station.ID}}/izvoz.csv?v={{.ArhVelicina}}&korak={{.ArhKorak}}&god={{.ArhGodina}}">
+        {{icon "download"}} Izvezi {{.ArhGodina}}. u CSV
+      </a>
+      {{if .Permissions.IsGlobalAdmin}}
+      <form method="POST" action="/readings/station/{{.Station.ID}}/uvoz" enctype="multipart/form-data"
+            style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; margin:0;">
+        <input type="hidden" name="v" value="{{.ArhVelicina}}">
+        <input type="hidden" name="korak" value="{{.ArhKorak}}">
+        <input type="hidden" name="god" value="{{.ArhGodina}}">
+        <input type="file" name="datoteka" accept=".csv,text/csv" required class="form-control" style="max-width:18rem;">
+        <button type="submit" class="btn btn-secondary btn-sm">{{icon "upload"}} Vrati s ispravcima</button>
+      </form>
+      {{end}}
+    </div>
+    <p class="page-desc" style="margin:0.6rem 0 0 0;">
+      Izvezena datoteka ima prazne stupce <strong>ispravak</strong> i <strong>razlog</strong>. Upiši ispravljenu
+      vrijednost i zašto je mijenjaš, pa vrati datoteku — program prvo pokaže što bi se promijenilo i ne upisuje
+      ništa dok ne potvrdiš. Arhiva ostaje netaknuta: ispravak stoji uz nju i vidi se u nizu.
+    </p>
+  </div>
   <p class="page-desc" style="margin-top:0.5rem;">
     Novije prvo. Svaka vrijednost dolazi iz najtočnijeg izvora koji je taj trenutak pokrio.
   </p>

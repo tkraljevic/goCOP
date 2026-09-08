@@ -451,6 +451,25 @@ func InitSchema(database *sql.DB) error {
 		`CREATE INDEX IF NOT EXISTS idx_episodes_section ON defense_episodes(section_code, started_at);`,
 		`CREATE INDEX IF NOT EXISTS idx_episodes_station ON defense_episodes(station_id, started_at);`,
 		`CREATE INDEX IF NOT EXISTS idx_episodes_open ON defense_episodes(ended_at) WHERE ended_at IS NULL;`,
+		// Ispravci arhivskih vrijednosti. Arhiva se ne dira — ona je obnovljiva
+		// iz datoteka i mora ostati onakva kakvu su izvori dali. Ispravak je
+		// ljudska odluka: stoji odvojeno, nosi tko i zašto, i pri čitanju se
+		// stavlja preko arhive. Zato ide u operativnu bazu i sinkronizira se.
+		`CREATE TABLE IF NOT EXISTS arhiva_ispravci (
+			id TEXT PRIMARY KEY,
+			letva TEXT NOT NULL,
+			velicina TEXT NOT NULL,
+			korak TEXT NOT NULL,
+			vrijeme DATETIME NOT NULL,
+			vrijednost REAL NOT NULL,
+			staro REAL,
+			razlog TEXT NOT NULL DEFAULT '',
+			ispravio TEXT NOT NULL DEFAULT '',
+			created_at DATETIME NOT NULL,
+			updated_at DATETIME NOT NULL,
+			UNIQUE(letva, velicina, korak, vrijeme)
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_ispravci_niz ON arhiva_ispravci(letva, velicina, korak, vrijeme);`,
 		`CREATE TABLE IF NOT EXISTS reading_follows (
 			gauge_key TEXT PRIMARY KEY,
 			name TEXT NOT NULL DEFAULT '',

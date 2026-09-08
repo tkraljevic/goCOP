@@ -34,6 +34,13 @@ type ReadingsHandler struct {
 	followRepo       *repository.FollowRepository
 	onFollowChange   func()
 	arhiva           func() *repository.ArhivaRepository
+	ispravci         *repository.IspravakRepository
+	tmplIspravci     *template.Template
+}
+
+// SetIspravci daje rukovatelju pohranu ispravaka arhive i predložak pregleda.
+func (h *ReadingsHandler) SetIspravci(repo *repository.IspravakRepository, tmpl *template.Template) {
+	h.ispravci, h.tmplIspravci = repo, tmpl
 }
 
 // SetArhiva daje rukovatelju hidrološku arhivu. Dohvatnik, a ne vrijednost:
@@ -109,16 +116,17 @@ type ReadingHistoryData struct {
 	// Povijest iz arhive. Operativna očitanja su ono što ljudi upišu; arhiva je
 	// ono što je izmjereno prije nego što je program postojao. Stranica
 	// prikazuje oboje, ali arhivu tek kad postaji ima što pokazati.
-	ArhVelicine []string
-	ArhVelicina string
-	ArhKorak    string
-	ArhGodine   []int
-	ArhGodina   int
-	ArhNiz      []models.SpojenaVrijednost
-	ArhChart    *Chart
-	ArhJedinica string
-	ArhSazetak  []models.SazetakVelicine
-	ArhPager    Pager
+	ArhVelicine  []string
+	ArhVelicina  string
+	ArhKorak     string
+	ArhGodine    []int
+	ArhGodina    int
+	ArhNiz       []models.SpojenaVrijednost
+	ArhChart     *Chart
+	ArhJedinica  string
+	ArhSazetak   []models.SazetakVelicine
+	ArhPager     Pager
+	ArhIspravaka int
 
 	SuccessMessage string
 	ErrorMessage   string
@@ -806,10 +814,14 @@ func (h *ReadingsHandler) arhivaZaLetvu(ctx context.Context, r *http.Request,
 	data.ArhPager = pagerZa(r, "ap", ukupno, arhivaPoStranici)
 	data.ArhNiz, _ = a.SpojRaspon(ctx, station.Code, data.ArhVelicina, data.ArhKorak,
 		od, do, data.ArhPager.PerPage, data.ArhPager.Odmak())
+	ispravci := h.ispravciZa(ctx, station.Code, data.ArhVelicina, data.ArhKorak, od, do)
+	data.ArhIspravaka = len(ispravci)
+	primijeniIspravke(data.ArhNiz, ispravci)
 
 	// Graf crta cijelu godinu, ne samo prikazanu stranicu — inače bi se mijenjao
 	// pri svakom listanju i ne bi značio ono što piše.
 	cijela, _ := a.SpojRaspon(ctx, station.Code, data.ArhVelicina, data.ArhKorak, od, do, 20000, 0)
+	primijeniIspravke(cijela, ispravci)
 	data.ArhChart = crtajNiz(prorijediNiz(cijela, 700), data.ArhVelicina, station)
 
 }
@@ -863,4 +875,36 @@ func prorijedi(pts []models.Reading, ciljBroj int) []models.Reading {
 		out = append(out, poredak[prvi], poredak[drugi])
 	}
 	return out
+}
+
+// ispravciZa dohvaća ispravke niza; bez pohrane vraća prazno.
+func (h *ReadingsHandler) ispravciZa(ctx context.Context, letva, velicina, korak string,
+	od, do time.Time) map[int64]models.ArhivaIspravak {
+	if h.ispravci == nil {
+		return nil
+	}
+	m, err := h.ispravci.ZaNiz(ctx, letva, velicina, korak, od, do)
+	if err != nil {
+		return nil
+	}
+	return m
+}
+
+// primijeniIspravke stavlja ispravke preko arhivskih vrijednosti. Izvorna
+// vrijednost ostaje uz njih: ispravak se mora moći vidjeti i povući, inače je
+// to prepisivanje, a ne ispravljanje.
+func primijeniIspravke(vals []models.SpojenaVrijednost, ispravci map[int64]models.ArhivaIspravak) {
+	if len(ispravci) == 0 {
+		return
+	}
+	for i := range vals {
+		is, ima := ispravci[vals[i].Kad.Unix()]
+		if !ima {
+			continue
+		}
+		vals[i].Izvorno = vals[i].Vrijednost
+		vals[i].Vrijednost = is.Vrijednost
+		vals[i].Ispravljeno = true
+		vals[i].Razlog = is.Razlog
+	}
 }
