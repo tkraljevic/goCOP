@@ -435,3 +435,25 @@ func (s *ReadingService) FieldOverview(ctx context.Context, perms *models.UserPe
 	}
 	return fo, nil
 }
+
+// UveziZalijepljena upisuje niz očitanja odjednom, kakva se zalijepe s letve
+// ili donesu s terena. Identitet je izveden iz postaje i trenutka, pa ponovni
+// uvoz istog ispisa ne udvostručuje zapise nego ih preskače.
+//
+// Ne prolazi kroz Create jer bi svako očitanje tražilo istu provjeru prava i
+// isti dohvat postaje; provjera se radi jednom, za cijeli niz.
+func (s *ReadingService) UveziZalijepljena(ctx context.Context, perms *models.UserPermissions,
+	station *models.Station, ocitanja []models.Reading) (int, error) {
+	if station == nil {
+		return 0, fmt.Errorf("postaja nije zadana")
+	}
+	if !s.CanRecordStation(perms, station) {
+		return 0, fmt.Errorf("nemate pravo upisivati očitanja na %s", station.Name)
+	}
+	for i := range ocitanja {
+		if err := s.validate(&ocitanja[i]); err != nil {
+			return 0, fmt.Errorf("%s: %w", ocitanja[i].MeasuredAt.Format("2.1.2006. 15:04"), err)
+		}
+	}
+	return s.repo.ImportBatch(ctx, ocitanja)
+}
