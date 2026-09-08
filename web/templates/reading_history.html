@@ -63,6 +63,76 @@
 </section>
 {{end}}
 
+<section class="detail-section">
+  <h2>{{icon "history"}} Očitanja <span class="reg-chip">{{.Count}}</span>{{if .Followed}} <span class="reg-chip">{{icon "download"}} povijest se čuva</span>{{end}}</h2>
+  {{if .Years}}
+  <form method="GET" action="" style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; margin-bottom:0.75rem;">
+    <label class="filter-label" for="year" style="margin:0;">Godina</label>
+    <select id="year" name="year" class="filter-select" style="max-width:10rem;" onchange="this.form.submit()">
+      <option value="">Sve</option>
+      {{range .Years}}<option value="{{.}}" {{if eq . $.Year}}selected{{end}}>{{.}}.</option>{{end}}
+    </select>
+  </form>
+  {{end}}
+  {{template "pager" .Pager}}
+  <div class="reg-card" style="padding:0;">
+    {{range .Readings}}
+    <div class="reading-row">
+      <span class="when">{{formatDate .LocalTime}}</span>
+      <span class="value">
+        {{if .LevelCm}}{{intOf .LevelCm}} cm{{else}}<span style="color:var(--text-muted); font-weight:500;">—</span>{{end}}
+        {{if .Level2Cm}}<span class="reading-meta"> / {{intOf .Level2Cm}} cm nizvodno</span>{{end}}
+        {{if .Phase.InForce}}<span class="badge {{.Phase.BadgeClass}}" style="margin-left:0.4rem; font-size:0.7rem;">{{.Phase.Label}}</span>{{end}}
+      </span>
+      <span>{{if $.CanEdit}}<a href="/readings/edit/{{.ID}}" class="btn btn-sm btn-link" style="padding:0; color:var(--text-muted);">{{icon "pencil"}}</a>{{end}}</span>
+      {{if or .StructureState .Gate .Observer .Note .HasAgHours (ne .Source "RUČNO") .OriginLabel (not .IsMeasured)}}
+      <span class="extra">
+        {{if .StructureState}}{{.StateLabel}}{{end}}
+        {{if .Gate}}zapornica {{.GateLabel}}{{end}}
+        {{if .HasAgHours}} · agregati {{intOf .AgHours1}}/{{intOf .AgHours2}}/{{intOf .AgHours3}} h{{end}}
+        {{if .Observer}} · {{.Observer}}{{end}}
+        {{if .Note}} · {{.Note}}{{end}}
+        {{if not .IsMeasured}} · <span class="badge badge-inactive" title="{{.DerivedFrom}}{{if .Method}} — {{.Method}}{{end}}">{{qualityLabel .Quality}}{{if .DerivedFrom}}: {{.DerivedFrom}}{{end}}</span>{{end}}
+        {{if ne .Source "RUČNO"}} · {{.SourceLabel}}{{end}}
+        {{with .OriginLabel}} · {{.}}{{end}}
+      </span>
+      {{end}}
+    </div>
+    {{else}}
+    <div class="reg-empty" style="border:0;">Još nema očitanja na ovoj letvi.</div>
+    {{end}}
+  </div>
+  {{template "pager" .Pager}}
+</section>
+
+{{if .Chart}}
+<section class="detail-section">
+  <h2>{{icon "chart-column"}} Kretanje vodostaja <span class="reg-chip">{{if .Year}}{{.Year}}.{{else}}zadnjih {{len .Chart.Points}}{{end}}</span></h2>
+  <div class="reg-card chart" style="padding:0.75rem 0.5rem 0.5rem;">
+    <svg viewBox="0 0 {{.Chart.Width}} {{.Chart.Height}}" role="img" aria-label="Graf vodostaja">
+      {{range .Chart.YTicks}}
+      <line class="grid" x1="44" x2="{{$.Chart.Width}}" y1="{{printf "%.1f" .Pos}}" y2="{{printf "%.1f" .Pos}}"/>
+      <text class="tick" x="40" y="{{printf "%.1f" .Pos}}" text-anchor="end" dominant-baseline="middle">{{.Label}}</text>
+      {{end}}
+      {{range .Chart.Bands}}<rect class="band {{.Class}}" x="44" y="{{printf "%.1f" .Y}}" width="{{$.Chart.Width}}" height="{{printf "%.1f" .H}}"/>{{end}}
+      <path class="area" d="{{.Chart.Area}}"/>
+      {{range .Chart.Thresholds}}
+      <line class="thr {{.Class}}" x1="44" x2="{{$.Chart.Width}}" y1="{{printf "%.1f" .Y}}" y2="{{printf "%.1f" .Y}}"/>
+      <text class="thr-label {{.Class}}" x="{{$.Chart.Width}}" y="{{printf "%.1f" .Y}}" text-anchor="end" dy="-3">{{.Label}}</text>
+      {{end}}
+      <path class="line" d="{{.Chart.Path}}"/>
+      {{$n := len .Chart.Points}}
+      {{range $i, $p := .Chart.Points}}
+      <circle class="dot {{if eq (add $i 1) $n}}last{{end}}" cx="{{printf "%.1f" $p.X}}" cy="{{printf "%.1f" $p.Y}}" r="{{if eq (add $i 1) $n}}4{{else}}1.5{{end}}"><title>{{formatDate (localTime $p.At)}} — {{$p.Level}} cm</title></circle>
+      {{end}}
+      {{range $i, $t := .Chart.XTicks}}
+      <text class="tick" x="{{printf "%.1f" $t.Pos}}" y="{{$.Chart.Height}}" dy="-6" text-anchor="{{if eq $i 0}}start{{else if eq $i 2}}end{{else}}middle{{end}}">{{$t.Label}}</text>
+      {{end}}
+    </svg>
+  </div>
+</section>
+{{end}}
+
 {{if .ArhVelicine}}
 <section class="detail-section" id="arhiva">
   <h2>{{icon "activity"}} Povijest iz arhive</h2>
@@ -200,73 +270,4 @@
 </section>
 {{end}}
 
-{{if .Chart}}
-<section class="detail-section">
-  <h2>{{icon "chart-column"}} Kretanje vodostaja <span class="reg-chip">{{if .Year}}{{.Year}}.{{else}}zadnjih {{len .Chart.Points}}{{end}}</span></h2>
-  <div class="reg-card chart" style="padding:0.75rem 0.5rem 0.5rem;">
-    <svg viewBox="0 0 {{.Chart.Width}} {{.Chart.Height}}" role="img" aria-label="Graf vodostaja">
-      {{range .Chart.YTicks}}
-      <line class="grid" x1="44" x2="{{$.Chart.Width}}" y1="{{printf "%.1f" .Pos}}" y2="{{printf "%.1f" .Pos}}"/>
-      <text class="tick" x="40" y="{{printf "%.1f" .Pos}}" text-anchor="end" dominant-baseline="middle">{{.Label}}</text>
-      {{end}}
-      {{range .Chart.Bands}}<rect class="band {{.Class}}" x="44" y="{{printf "%.1f" .Y}}" width="{{$.Chart.Width}}" height="{{printf "%.1f" .H}}"/>{{end}}
-      <path class="area" d="{{.Chart.Area}}"/>
-      {{range .Chart.Thresholds}}
-      <line class="thr {{.Class}}" x1="44" x2="{{$.Chart.Width}}" y1="{{printf "%.1f" .Y}}" y2="{{printf "%.1f" .Y}}"/>
-      <text class="thr-label {{.Class}}" x="{{$.Chart.Width}}" y="{{printf "%.1f" .Y}}" text-anchor="end" dy="-3">{{.Label}}</text>
-      {{end}}
-      <path class="line" d="{{.Chart.Path}}"/>
-      {{$n := len .Chart.Points}}
-      {{range $i, $p := .Chart.Points}}
-      <circle class="dot {{if eq (add $i 1) $n}}last{{end}}" cx="{{printf "%.1f" $p.X}}" cy="{{printf "%.1f" $p.Y}}" r="{{if eq (add $i 1) $n}}4{{else}}1.5{{end}}"><title>{{formatDate (localTime $p.At)}} — {{$p.Level}} cm</title></circle>
-      {{end}}
-      {{range $i, $t := .Chart.XTicks}}
-      <text class="tick" x="{{printf "%.1f" $t.Pos}}" y="{{$.Chart.Height}}" dy="-6" text-anchor="{{if eq $i 0}}start{{else if eq $i 2}}end{{else}}middle{{end}}">{{$t.Label}}</text>
-      {{end}}
-    </svg>
-  </div>
-</section>
-{{end}}
-
-<section class="detail-section">
-  <h2>{{icon "history"}} Očitanja <span class="reg-chip">{{.Count}}</span>{{if .Followed}} <span class="reg-chip">{{icon "download"}} povijest se čuva</span>{{end}}</h2>
-  {{if .Years}}
-  <form method="GET" action="" style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; margin-bottom:0.75rem;">
-    <label class="filter-label" for="year" style="margin:0;">Godina</label>
-    <select id="year" name="year" class="filter-select" style="max-width:10rem;" onchange="this.form.submit()">
-      <option value="">Sve</option>
-      {{range .Years}}<option value="{{.}}" {{if eq . $.Year}}selected{{end}}>{{.}}.</option>{{end}}
-    </select>
-  </form>
-  {{end}}
-  {{template "pager" .Pager}}
-  <div class="reg-card" style="padding:0;">
-    {{range .Readings}}
-    <div class="reading-row">
-      <span class="when">{{formatDate .LocalTime}}</span>
-      <span class="value">
-        {{if .LevelCm}}{{intOf .LevelCm}} cm{{else}}<span style="color:var(--text-muted); font-weight:500;">—</span>{{end}}
-        {{if .Level2Cm}}<span class="reading-meta"> / {{intOf .Level2Cm}} cm nizvodno</span>{{end}}
-        {{if .Phase.InForce}}<span class="badge {{.Phase.BadgeClass}}" style="margin-left:0.4rem; font-size:0.7rem;">{{.Phase.Label}}</span>{{end}}
-      </span>
-      <span>{{if $.CanEdit}}<a href="/readings/edit/{{.ID}}" class="btn btn-sm btn-link" style="padding:0; color:var(--text-muted);">{{icon "pencil"}}</a>{{end}}</span>
-      {{if or .StructureState .Gate .Observer .Note .HasAgHours (ne .Source "RUČNO") .OriginLabel (not .IsMeasured)}}
-      <span class="extra">
-        {{if .StructureState}}{{.StateLabel}}{{end}}
-        {{if .Gate}}zapornica {{.GateLabel}}{{end}}
-        {{if .HasAgHours}} · agregati {{intOf .AgHours1}}/{{intOf .AgHours2}}/{{intOf .AgHours3}} h{{end}}
-        {{if .Observer}} · {{.Observer}}{{end}}
-        {{if .Note}} · {{.Note}}{{end}}
-        {{if not .IsMeasured}} · <span class="badge badge-inactive" title="{{.DerivedFrom}}{{if .Method}} — {{.Method}}{{end}}">{{qualityLabel .Quality}}{{if .DerivedFrom}}: {{.DerivedFrom}}{{end}}</span>{{end}}
-        {{if ne .Source "RUČNO"}} · {{.SourceLabel}}{{end}}
-        {{with .OriginLabel}} · {{.}}{{end}}
-      </span>
-      {{end}}
-    </div>
-    {{else}}
-    <div class="reg-empty" style="border:0;">Još nema očitanja na ovoj letvi.</div>
-    {{end}}
-  </div>
-  {{template "pager" .Pager}}
-</section>
 {{end}}
