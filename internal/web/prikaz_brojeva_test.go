@@ -714,3 +714,45 @@ func nizZaGraf(kad time.Time) []models.Reading {
 		{MeasuredAt: kad.AddDate(0, 0, -2), LevelCm: cm(690)},
 	}
 }
+
+// Klik na redak sažetka mora namjestiti izbornik na tu veličinu, jer inače
+// tablica i izbornik govore o različitim stvarima.
+func TestRedakSazetkaOtvaraTuVelicinu(t *testing.T) {
+	kad := time.Date(2013, 6, 14, 6, 0, 0, 0, time.UTC)
+	sazetak := []models.SazetakVelicine{
+		{Velicina: "vodostaj", Od: "1901-01-01", Do: "2026-09-06", Srednjak: 205, Max: 797, Min: -308},
+		{Velicina: "protok", Od: "1901-01-01", Do: "2025-12-31", Srednjak: 2383, Max: 8450, Min: 284},
+	}
+
+	// stranica povijesti: redak vodi na istu stranicu, samo drugu veličinu
+	html := iscrtaj(t, "reading_history.html", ReadingHistoryData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Station:     &models.Station{ID: uuid.New(), Name: "Batina", Code: "batina"},
+		GaugeName:   "Batina",
+		ArhVelicine: []string{"vodostaj", "protok"}, ArhVelicina: "vodostaj",
+		ArhKorak: "dnevni", ArhGodina: 2013, ArhGodine: []int{2013},
+		ArhNiz:     []models.SpojenaVrijednost{{Kad: kad, Vrijednost: 771, Izvor: "his2000", Vrsta: "srednjak"}},
+		ArhSazetak: sazetak,
+		ArhPager:   pagerZa(&http.Request{URL: &url.URL{Path: "/x"}}, "ap", 365, 100),
+	})
+	for _, want := range []string{"?v=protok&amp;korak=dnevni&amp;god=2013#niz", `id="niz"`} {
+		if !strings.Contains(html, want) {
+			t.Errorf("stranica povijesti nema %q", want)
+		}
+	}
+
+	// kartica letve: redak vodi na povijest, gdje preglednik i živi
+	id := uuid.MustParse("c625fa9d-0425-5115-8c49-8819cbb17bbd")
+	html = iscrtaj(t, "station_detail.html", StationPageData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Station:     models.Station{ID: id, Name: "Batina", Code: "batina"},
+		Sazetak:     sazetak,
+		Spojevi: []models.SpojDoseg{{Velicina: "vodostaj", Korak: "dnevni",
+			Od: "1901-01-01", Do: "2026-09-06", Zapisa: 45806}},
+	})
+	if want := "/readings/station/" + id.String() + "?v=protok#niz"; !strings.Contains(html, want) {
+		t.Errorf("kartica letve ne vodi na %q", want)
+	}
+}
