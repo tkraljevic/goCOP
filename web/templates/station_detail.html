@@ -93,7 +93,7 @@
       <p class="page-desc" style="margin:0.5rem 0 0 0;">
         Za nivelman na terenu: koliko vreća treba nadvisiti mjeri se od ove kote, u istom visinskom sustavu
         u kojem je i reper od kojeg se nivelira. Razlika između sustava na ovoj letvi iznosi
-        {{brojHRf .RazlikaSustava 3}} m.
+        {{brojHRf .Station.RazlikaVisinskihSustava 3}} m.
       </p>
     </div>
     {{end}}
@@ -356,16 +356,16 @@
       <tr>
         <td><strong>{{velicinaLabel .Velicina}}</strong></td>
         <td class="reg-card-sub">{{if eq .Korak "satni"}}svaki sat{{else}}dnevni srednjak{{end}}</td>
-        <td class="mono">{{.Od}} – {{.Do}}</td>
+        <td class="mono">{{datumHR .Od}} – {{datumHR .Do}}</td>
         <td class="mono" style="text-align:right;">{{brojHR .Zapisa}}</td>
-        <td>
+        <td class="celija-blok">
           {{$uk := .Zapisa}}
           {{range .Dijelovi}}
-          <div style="display:flex; align-items:center; gap:0.5rem; font-size:0.85rem; margin-bottom:0.15rem;">
-            <span style="min-width:11rem;">{{izvorLabel .Izvor}}</span>
-            <span class="badge {{if le .Tocnost 1.0}}badge-area-admin{{else}}badge-unknown{{end}}">{{if gt .Tocnost 0.0}}±{{brojHRf .Tocnost 0}}{{else}}ovjereno{{end}}</span>
-            <span class="reg-card-sub mono">{{.Od}} – {{.Do}}</span>
-            <span class="reg-card-sub">{{.Udio $uk}} %</span>
+          <div class="spoj-dio">
+            <span class="spoj-izvor">{{izvorLabel .Izvor}}</span>
+            <span class="badge {{if le .Tocnost 1.0}}badge-area-admin{{else}}badge-unknown{{end}}">{{.TocnostOznaka}}</span>
+            <span class="spoj-udio">{{.UdioHR $uk}}</span>
+            <span class="reg-card-sub mono">{{datumHR .Od}} – {{datumHR .Do}}</span>
             {{if ne .Vrsta "srednjak"}}{{if ne .Vrsta "trenutna"}}<span class="badge badge-unknown">{{vrstaLabel .Vrsta}}, nije srednjak</span>{{end}}{{end}}
           </div>
           {{end}}

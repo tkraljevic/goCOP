@@ -493,7 +493,7 @@ func TestKarticaLetveCrtaKoritoIArhivu(t *testing.T) {
 			{ID: 1, Letva: "batina", Izvor: "his2000", Velicina: "vodostaj", Vrsta: "satni",
 				Od: "2001-03-09", Do: "2026-07-31", Zapisa: 222624},
 			{ID: 2, Letva: "batina", Izvor: "preracun-mohacs", Velicina: "vodostaj", Vrsta: "srednjak",
-				Od: "1901-01-01", Do: "2001-03-08", Zapisa: 36493},
+				Od: "1.1.1901.", Do: "2001-03-08", Zapisa: 36493},
 		},
 		NizID: 1,
 		Pregled: &models.HidroPregled{
@@ -582,9 +582,9 @@ func TestKarticaLetvePrikazujeSpojeniNiz(t *testing.T) {
 		Station:     models.Station{ID: uuid.MustParse("c625fa9d-0425-5115-8c49-8819cbb17bbd"), Name: "Batina", Code: "batina"},
 		Sada:        &models.SpojenaVrijednost{Kad: kad, Vrijednost: -129, Izvor: "letva-dhmz", Vrsta: "trenutna", Tocnost: 1},
 		Spojevi: []models.SpojDoseg{
-			{Velicina: "vodostaj", Korak: "dnevni", Od: "1901-01-01", Do: "2026-09-06", Zapisa: 45806,
+			{Velicina: "vodostaj", Korak: "dnevni", Od: "1.1.1901.", Do: "2026-09-06", Zapisa: 45806,
 				Dijelovi: []models.SpojDio{
-					{Izvor: "preracun-mohacs", Vrsta: "srednjak", Zapisa: 36493, Od: "1901-01-01", Do: "2001-03-08", Tocnost: 14},
+					{Izvor: "preracun-mohacs", Vrsta: "srednjak", Zapisa: 36493, Od: "1.1.1901.", Do: "2001-03-08", Tocnost: 14},
 					{Izvor: "his2000", Vrsta: "srednjak", Zapisa: 9276, Od: "2001-03-09", Do: "2026-07-31", Tocnost: 0},
 					{Izvor: "cop", Vrsta: "jutarnji", Zapisa: 37, Od: "2026-08-01", Do: "2026-09-06", Tocnost: 3},
 				}},
@@ -592,7 +592,7 @@ func TestKarticaLetvePrikazujeSpojeniNiz(t *testing.T) {
 	})
 	for _, want := range []string{
 		"Vodostaj i protok", "-129 cm", "±1", "telemetrija, DHMZ",
-		"1901-01-01", "45.806", "preračunato iz mohacs", "±14", "ovjereno",
+		"1.1.1901.", "45.806", "preračunato iz Mohácsa", "±14", "ovjereno",
 		"79 %", // udio rekonstrukcije u spojenom dnevnom nizu
 		"jutarnje očitanje, nije srednjak",
 	} {
@@ -681,7 +681,7 @@ func TestPovijestLetveCitaArhivu(t *testing.T) {
 			{Kad: kad.AddDate(0, 0, -1), Vrijednost: 758, Izvor: "letva-dhmz", Vrsta: "srednjak", Tocnost: 1},
 		},
 		ArhSazetak: []models.SazetakVelicine{
-			{Velicina: "vodostaj", Od: "1901-01-01", Do: "2026-09-06", Srednjak: 205, Max: 797, MaxNa: "13.3.1956.", Min: -308, MinNa: "1947-09-20"},
+			{Velicina: "vodostaj", Od: "1.1.1901.", Do: "2026-09-06", Srednjak: 205, Max: 797, MaxNa: "13.3.1956.", Min: -308, MinNa: "1947-09-20"},
 			{Velicina: "pronos", Od: "2018-05-01", Do: "2025-12-31", Srednjak: 6005.7, Max: 145575, Min: 37.5},
 		},
 	})
@@ -728,8 +728,8 @@ func nizZaGraf(kad time.Time) []models.SpojenaVrijednost {
 func TestRedakSazetkaOtvaraTuVelicinu(t *testing.T) {
 	kad := time.Date(2013, 6, 14, 6, 0, 0, 0, time.UTC)
 	sazetak := []models.SazetakVelicine{
-		{Velicina: "vodostaj", Od: "1901-01-01", Do: "2026-09-06", Srednjak: 205, Max: 797, Min: -308},
-		{Velicina: "protok", Od: "1901-01-01", Do: "2025-12-31", Srednjak: 2383, Max: 8450, Min: 284},
+		{Velicina: "vodostaj", Od: "1.1.1901.", Do: "2026-09-06", Srednjak: 205, Max: 797, Min: -308},
+		{Velicina: "protok", Od: "1.1.1901.", Do: "2025-12-31", Srednjak: 2383, Max: 8450, Min: 284},
 	}
 
 	// stranica povijesti: redak vodi na istu stranicu, samo drugu veličinu
@@ -758,7 +758,7 @@ func TestRedakSazetkaOtvaraTuVelicinu(t *testing.T) {
 		Station:     models.Station{ID: id, Name: "Batina", Code: "batina"},
 		Sazetak:     sazetak,
 		Spojevi: []models.SpojDoseg{{Velicina: "vodostaj", Korak: "dnevni",
-			Od: "1901-01-01", Do: "2026-09-06", Zapisa: 45806}},
+			Od: "1.1.1901.", Do: "2026-09-06", Zapisa: 45806}},
 	})
 	if want := "/readings/station/" + id.String() + "?v=protok#niz"; !strings.Contains(html, want) {
 		t.Errorf("kartica letve ne vodi na %q", want)
@@ -1381,7 +1381,7 @@ func TestStranicaLetveNosiObaGrafa(t *testing.T) {
 		ArhChart:     crtajNiz(nizZaGraf(kad), "vodostaj", nil, nil),
 		ArhChartUzak: crtajNizUzak(nizZaGraf(kad), "vodostaj", nil, nil),
 		ArhSazetak: []models.SazetakVelicine{
-			{Velicina: "vodostaj", Od: "1901-01-01", Do: "2026-09-06", Srednjak: 205, Max: 797, Min: -308},
+			{Velicina: "vodostaj", Od: "1.1.1901.", Do: "2026-09-06", Srednjak: 205, Max: 797, Min: -308},
 		},
 		ArhPager: pagerZa(&http.Request{URL: &url.URL{Path: "/x"}}, "ap", 365, 100),
 	})
@@ -2033,5 +2033,80 @@ func TestDatumHRPodnosiNepotpunDatum(t *testing.T) {
 		if got := f(p.ulaz); got != p.zeli {
 			t.Errorf("datumHR(%q) = %q, očekivano %q", p.ulaz, got, p.zeli)
 		}
+	}
+}
+
+// Šifra letve nije naziv: „preračunato iz mohacs" nije rečenica koju itko
+// piše. Nepoznatoj letvi ostaje šifra, ali s velikim slovom.
+func TestNazivIzvoraImenujeLetvu(t *testing.T) {
+	for _, p := range []struct{ izvor, zeli string }{
+		{"preracun-mohacs", "preračunato iz Mohácsa"},
+		{"preracun-bezdan", "preračunato iz Bezdana"},
+		{"preracun-hq", "preračunato iz krivulje protoka"},
+		{"preracun-mohacs-izvan", "preračunato iz Mohácsa, izvan mjerenog odnosa"},
+		{"preracun-neznana", "preračunato iz Neznana"},
+		{"his2000", "DHMZ, ovjereno"},
+		{"letva-dhmz", "telemetrija, DHMZ"},
+	} {
+		if got := models.NazivIzvora(p.izvor); got != p.zeli {
+			t.Errorf("NazivIzvora(%q) = %q, očekivano %q", p.izvor, got, p.zeli)
+		}
+	}
+	if models.NazivLetve("") != "" {
+		t.Error("prazna šifra mora dati prazan naziv")
+	}
+}
+
+// Razlika visinskih sustava računa se iz same postaje. Dok je stajala u
+// podacima stranice, jedan pogrešan redoslijed u rukovatelju značio je da na
+// letvi piše 0,000 m premda su obje kote upisane.
+func TestRazlikaVisinskihSustavaDolaziIzPostaje(t *testing.T) {
+	kota := func(v float64) *float64 { return &v }
+	st := models.Station{ID: uuid.New(), Name: "Batina", Code: "batina",
+		ZeroDatum: kota(80.450), ZeroDatumSystem: "TRST",
+		ZeroDatumNew: kota(80.189), ZeroDatumNewSystem: "HVRS71",
+		Prep: models.Threshold{Cm: func(v int) *int { return &v }(300)}}
+	// Kote se vraćaju novi sustav pa stari, pa je razlika TRST − HVRS71
+	if got := st.RazlikaVisinskihSustava(); got < 0.2605 || got > 0.2615 {
+		t.Errorf("razlika %v, očekivano 0,261", got)
+	}
+	// letva s jednom kotom nema razliku
+	jedna := models.Station{ZeroDatum: kota(80.450), ZeroDatumSystem: "TRST"}
+	if jedna.RazlikaVisinskihSustava() != 0 {
+		t.Error("s jednom kotom razlika mora biti nula")
+	}
+
+	// i na stranici mora pisati, bez ičijeg posredovanja
+	html := iscrtaj(t, "station_detail.html", StationPageData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Station:     st,
+	})
+	if !strings.Contains(html, "0,261 m") {
+		t.Error("razlika visinskih sustava ne stiže na stranicu")
+	}
+}
+
+// Značka uz izvor spojenog niza kaže koliko odstupa. Za izvor po kojem se
+// ostali mjere pisalo je „ovjereno" uz natpis koji već glasi „DHMZ, ovjereno".
+// A dio koji postoji, a zaokruži se na nulu, ne smije pisati „0 %".
+func TestOznakeSpojenogNiza(t *testing.T) {
+	referenca := models.SpojDio{Izvor: "his2000", Tocnost: 0, Zapisa: 200}
+	if got := referenca.TocnostOznaka(); got != "mjerilo" {
+		t.Errorf("izvor bez odstupanja: %q", got)
+	}
+	telemetrija := models.SpojDio{Izvor: "letva-dhmz", Tocnost: 1, Zapisa: 3}
+	if got := telemetrija.TocnostOznaka(); got != "±1 cm" {
+		t.Errorf("telemetrija: %q", got)
+	}
+	if got := telemetrija.UdioHR(1000); got != "<1 %" {
+		t.Errorf("sitan udio: %q, očekivano <1 %%", got)
+	}
+	if got := referenca.UdioHR(1000); got != "20 %" {
+		t.Errorf("udio: %q", got)
+	}
+	prazan := models.SpojDio{Zapisa: 0}
+	if got := prazan.UdioHR(1000); got != "0 %" {
+		t.Errorf("dio bez zapisa: %q", got)
 	}
 }

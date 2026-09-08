@@ -81,12 +81,56 @@ func NazivIzvora(i string) string {
 	case strings.HasSuffix(i, "-izvan"):
 		// Odnos dviju letvi vrijedi samo u rasponu u kojem je izmjeren; ovdje
 		// je produljen izvan njega, pa to mora pisati uz svaku vrijednost.
-		return "preračunato iz " + strings.TrimSuffix(strings.TrimPrefix(i, "preracun-"), "-izvan") +
-			", izvan mjerenog odnosa"
+		return izvorPreracuna(strings.TrimSuffix(i, "-izvan")) + ", izvan mjerenog odnosa"
 	case strings.HasPrefix(i, "preracun-"):
-		return "preračunato iz " + strings.TrimPrefix(i, "preracun-")
+		return izvorPreracuna(i)
 	}
 	return i
+}
+
+// izvorPreracuna imenuje odakle je niz preračunat. Šifra letve nije naziv:
+// „preračunato iz mohacs" nije rečenica koju itko piše.
+func izvorPreracuna(i string) string {
+	odakle := strings.TrimPrefix(i, "preracun-")
+	if odakle == "hq" {
+		return "preračunato iz krivulje protoka"
+	}
+	return "preračunato iz " + NazivLetve(odakle)
+}
+
+// nazivLetve su letve čije se ime piše drukčije nego što glasi šifra —
+// susjedne postaje iz kojih preračunavamo, i one čije ime nosi kvačice.
+var nazivLetve = map[string]string{
+	"mohacs":      "Mohácsa",
+	"bezdan":      "Bezdana",
+	"apatin":      "Apatina",
+	"baja":        "Baje",
+	"paks":        "Paksa",
+	"budapest":    "Budimpešte",
+	"dunaszekcso": "Dunaszekcsőa",
+	"dunafoldvar": "Dunaföldvára",
+	"tikves":      "Tikveša",
+	"aljmas":      "Aljmaša",
+	"bogojevo":    "Bogojeva",
+	"vukovar":     "Vukovara",
+	"ilok":        "Iloka",
+	"dalj":        "Dalja",
+	"batina":      "Batine",
+	"osijek":      "Osijeka",
+	"belisce":     "Belišća",
+	"botovo":      "Botova",
+}
+
+// NazivLetve vraća ime letve za ispis, u genitivu jer se tako i koristi:
+// „preračunato iz Mohácsa". Nepoznatoj letvi ostaje šifra s velikim slovom.
+func NazivLetve(sifra string) string {
+	if n, ima := nazivLetve[sifra]; ima {
+		return n
+	}
+	if sifra == "" {
+		return ""
+	}
+	return strings.ToUpper(sifra[:1]) + sifra[1:]
 }
 
 // JeIzmjereno govori je li niz mjeren na toj letvi ili izveden računom.
@@ -202,6 +246,25 @@ func (d SpojDio) Udio(ukupno int) int {
 		return 0
 	}
 	return d.Zapisa * 100 / ukupno
+}
+
+// UdioHR je udio za ispis. Dio koji postoji, a zaokruži se na nulu, piše se
+// kao „<1 %" — „0 %" uz redak koji ipak stoji u popisu zbunjuje.
+func (d SpojDio) UdioHR(ukupno int) string {
+	u := d.Udio(ukupno)
+	if u == 0 && d.Zapisa > 0 {
+		return "<1 %"
+	}
+	return strconv.Itoa(u) + " %"
+}
+
+// TocnostOznaka je ono što piše na znački uz izvor: koliko odstupa, a za
+// izvor po kojem se ostali mjere — da je on mjerilo.
+func (d SpojDio) TocnostOznaka() string {
+	if d.Tocnost > 0 {
+		return "±" + strconv.FormatFloat(d.Tocnost, 'f', 0, 64) + " cm"
+	}
+	return "mjerilo"
 }
 
 // HidroTocka je jedna vrijednost niza u trenutku.
