@@ -2598,3 +2598,5 @@ textarea {
 .korito-graf .korito-prag-natpis.emerg, .korito-graf .korito-prag-natpis.crit { fill: var(--danger); }
 /* krajnost koja nije mjerena nego preračunata iz susjedne postaje */
 .preracunato { color: var(--text-muted); font-weight: 700; cursor: help; }
+/* najniži vodostaj: ista obitelj kao rekord, ali hladna strana */
+.threshold-pill.low { background: var(--tint-blue-bg); color: var(--primary); border-color: var(--primary); }

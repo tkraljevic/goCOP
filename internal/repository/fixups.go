@@ -173,6 +173,57 @@ var fixups = []fixup{
 		},
 	},
 	{
+		// Ljeto 2026. donijelo je najnižu vodu u nizu Batine: -151 cm 22.8. u
+		// 4 sata, po telemetriji DHMZ-a. Dotad je najniži zabilježeni bio
+		// rekonstruirani -127 cm iz 1909., pa se izmjereni rekord nije nigdje
+		// vidio. Ovjereni niz HIS-2000 seže do 31.7.2026., dakle kolovoz još
+		// nije ovjeren — i to uz vrijednost piše.
+		name: "batina-minimum-2026",
+		run: func(ctx context.Context, tx *sql.Tx, rec *ledger.Recorder) (int, error) {
+			var id, sirovi string
+			err := tx.QueryRowContext(ctx, `SELECT id, coalesce(extremes,'') FROM stations WHERE code = 'batina'`).Scan(&id, &sirovi)
+			if err == sql.ErrNoRows {
+				return 0, nil
+			} else if err != nil {
+				return 0, err
+			}
+			var extremes []models.StationExtreme
+			if sirovi != "" {
+				if err := json.Unmarshal([]byte(sirovi), &extremes); err != nil {
+					return 0, err
+				}
+			}
+			for _, e := range extremes {
+				if e.Kind == models.ExtremeMin && e.OnDate == "2026-08-22" {
+					return 0, nil // već upisan
+				}
+			}
+			cm := -151
+			extremes = append(extremes, models.StationExtreme{
+				Kind: models.ExtremeMin, LevelCm: &cm, OnDate: "2026-08-22",
+				Quality: models.QualityMeasured, Source: "telemetrija, DHMZ",
+				Method: "satno očitanje u 4 sata",
+				Note:   "Najniži izmjereni vodostaj u nizu. Ovjereni niz HIS-2000 seže do 31.7.2026., pa kolovoška vrijednost još nije ovjerena.",
+			})
+			b, err := json.Marshal(extremes)
+			if err != nil {
+				return 0, err
+			}
+			if _, err := tx.ExecContext(ctx, `UPDATE stations SET extremes = ?, updated_at = ? WHERE id = ?`,
+				string(b), time.Now().UTC(), id); err != nil {
+				return 0, err
+			}
+			st, err := getStationTx(ctx, tx, id)
+			if err != nil {
+				return 0, err
+			}
+			if _, err := rec.Record(ctx, tx, EntityStations, id, st); err != nil {
+				return 0, err
+			}
+			return 1, nil
+		},
+	},
+	{
 		name: "batina-zero-datum-2025",
 		run: func(ctx context.Context, tx *sql.Tx, rec *ledger.Recorder) (int, error) {
 			var id string
