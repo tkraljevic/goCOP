@@ -173,6 +173,32 @@
   </div>
   {{end}}
 
+  {{if .ArhSazetak}}
+  <div class="table-card" style="margin-bottom:1rem;"><div class="table-responsive">
+    <table class="data-table">
+      <thead><tr><th>Veličina</th><th>Razdoblje</th><th style="text-align:right;">Srednjak</th>
+        <th style="text-align:right;">Maksimum</th><th>Nastupio</th>
+        <th style="text-align:right;">Minimum</th><th>Nastupio</th></tr></thead>
+      <tbody>
+      {{range .ArhSazetak}}
+      {{$veza := printf "?v=%s&korak=%s&god=%d#niz" .Velicina $.ArhKorak $.ArhGodina}}
+      <tr {{if eq .Velicina $.ArhVelicina}}style="background:var(--tint-blue-bg);"{{end}}
+          onclick="location='{{$veza}}'" style="cursor:pointer;">
+        <td><a href="{{$veza}}" style="color:inherit; text-decoration:none;"><strong>{{.Naziv}}</strong></a> <span class="reg-card-sub">{{.Jedinica}}</span></td>
+        <td class="mono">{{slice .Od 0 4}}. – {{slice .Do 0 4}}.</td>
+        <td class="mono" style="text-align:right;"><strong>{{brojHRf .Srednjak .Decimala}}</strong></td>
+        <td class="mono" style="text-align:right;">{{brojHRf .Max .Decimala}}</td>
+        <td class="mono reg-card-sub">{{.MaxNa}}</td>
+        <td class="mono" style="text-align:right;">{{brojHRf .Min .Decimala}}</td>
+        <td class="mono reg-card-sub">{{.MinNa}}</td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div></div>
+  {{end}}
+
+
   <form method="GET" action="" id="niz" style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; margin-bottom:0.75rem;">
     <select name="v" class="filter-select" style="max-width:13rem;" onchange="this.form.submit()">
       {{range .ArhVelicine}}<option value="{{.}}" {{if eq . $.ArhVelicina}}selected{{end}}>{{velicinaLabel .}}</option>{{end}}
@@ -264,34 +290,6 @@
   </p>
   {{end}}
 
-  <details style="margin-top:1.25rem;">
-    <summary style="cursor:pointer; font-weight:600;">Karakteristične vrijednosti po veličinama</summary>
-  {{if .ArhSazetak}}
-  <div class="table-card" style="margin-bottom:1rem;"><div class="table-responsive">
-    <table class="data-table">
-      <thead><tr><th>Veličina</th><th>Razdoblje</th><th style="text-align:right;">Srednjak</th>
-        <th style="text-align:right;">Maksimum</th><th>Nastupio</th>
-        <th style="text-align:right;">Minimum</th><th>Nastupio</th></tr></thead>
-      <tbody>
-      {{range .ArhSazetak}}
-      {{$veza := printf "?v=%s&korak=%s&god=%d#niz" .Velicina $.ArhKorak $.ArhGodina}}
-      <tr {{if eq .Velicina $.ArhVelicina}}style="background:var(--tint-blue-bg);"{{end}}
-          onclick="location='{{$veza}}'" style="cursor:pointer;">
-        <td><a href="{{$veza}}" style="color:inherit; text-decoration:none;"><strong>{{.Naziv}}</strong></a> <span class="reg-card-sub">{{.Jedinica}}</span></td>
-        <td class="mono">{{slice .Od 0 4}}. – {{slice .Do 0 4}}.</td>
-        <td class="mono" style="text-align:right;"><strong>{{brojHRf .Srednjak .Decimala}}</strong></td>
-        <td class="mono" style="text-align:right;">{{brojHRf .Max .Decimala}}</td>
-        <td class="mono reg-card-sub">{{.MaxNa}}</td>
-        <td class="mono" style="text-align:right;">{{brojHRf .Min .Decimala}}</td>
-        <td class="mono reg-card-sub">{{.MinNa}}</td>
-      </tr>
-      {{end}}
-      </tbody>
-    </table>
-  </div></div>
-  {{end}}
-
-  </details>
 </section>
 {{end}}
 
