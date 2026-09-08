@@ -336,7 +336,7 @@ func NewServer(
 	// Predlošci koji proširuju base.html
 	for _, page := range []string{"dashboard.html", "registri.html", "users.html", "user_detail.html", "user_form.html", "duty_form.html", "profile.html", "sections.html", "section_detail.html", "section_form.html", "territories.html", "county_form.html", "municipality_form.html", "municipality_detail.html", "stations.html", "station_detail.html", "station_form.html", "watercourses.html", "watercourse_detail.html", "watercourse_form.html", "structures.html", "structure_detail.html", "structure_form.html", "readings.html", "reading_history.html", "reading_form.html", "arhiva_ispravci.html", "uvoz_ocitanja.html", "teren.html", "moduli.html", "settings.html", "odrzavanje.html", "organizacija.html", "sector_form.html", "area_form.html", "contractor_form.html", "firme.html", "nazivi.html", "sudionici.html",
 		"administracija.html", "uvozi.html", "sinkronizacija.html", "pretplate.html", "baza.html",
-		"dnevnici.html", "dnevnik_form.html", "dnevnik.html", "dnevnik_list.html", "pomoc.html"} {
+		"dnevnici.html", "dnevnik_form.html", "dnevnik.html", "dnevnik_list.html", "pomoc.html", "ocitanja_ispravci.html"} {
 		t, err := template.New("base.html").Funcs(tmplFuncs).ParseFS(templatesFS, "base.html", page)
 		if err != nil {
 			return nil, fmt.Errorf("greška pri parsiranju predloška %s: %w", page, err)
@@ -415,6 +415,7 @@ func (s *Server) setupRoutes() {
 	readingsH.SetFollow(s.followRepo, s.onFollowChange)
 	readingsH.SetArhiva(func() *repository.ArhivaRepository { return s.arhiva })
 	readingsH.SetUvoz(s.templates["uvoz_ocitanja.html"])
+	readingsH.SetOcitanjaCSV(s.templates["ocitanja_ispravci.html"])
 	// Baza se poslužitelju daje tek nakon sastavljanja, pa se repozitorij gradi
 	// pri zahtjevu. Predana vrijednost bila bi zauvijek prazna.
 	readingsH.SetIspravci(func() *repository.IspravakRepository {
@@ -607,6 +608,14 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /readings/station/{id}/zalijepi", s.authMiddleware(http.HandlerFunc(readingsH.HandleZalijepiPregled)))
 	s.mux.Handle("POST /readings/station/{id}/zalijepi/potvrdi", s.authMiddleware(http.HandlerFunc(readingsH.HandleZalijepiPotvrda)))
 	s.mux.Handle("POST /readings/station/{id}/uvoz/potvrdi", s.authMiddleware(http.HandlerFunc(readingsH.HandleArhivaPotvrda)))
+
+	// Izvoz i ispravak operativnih očitanja. Iste tri rute i za postaju i za
+	// objekt, jer i jedno i drugo nosi letvu.
+	for _, vrsta := range []string{"station", "structure"} {
+		s.mux.Handle("GET /readings/"+vrsta+"/{id}/ocitanja.csv", s.authMiddleware(http.HandlerFunc(readingsH.HandleOcitanjaIzvoz)))
+		s.mux.Handle("POST /readings/"+vrsta+"/{id}/ocitanja/uvoz", s.authMiddleware(http.HandlerFunc(readingsH.HandleOcitanjaUvoz)))
+		s.mux.Handle("POST /readings/"+vrsta+"/{id}/ocitanja/potvrdi", s.authMiddleware(http.HandlerFunc(readingsH.HandleOcitanjaPotvrda)))
+	}
 	s.mux.Handle("GET /readings/structure/{id}", s.authMiddleware(http.HandlerFunc(readingsH.ShowHistory)))
 	s.mux.Handle("POST /readings/create", s.authMiddleware(http.HandlerFunc(readingsH.HandleCreate)))
 	s.mux.Handle("POST /readings/update", s.authMiddleware(http.HandlerFunc(readingsH.HandleUpdate)))
