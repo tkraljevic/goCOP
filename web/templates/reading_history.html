@@ -45,6 +45,8 @@
     </div>
     <div class="reading-meta" style="margin-top:0.35rem;">
       zadnje očitanje {{ago .Latest.MeasuredAt}} · {{formatDate .Latest.LocalTime}}
+      {{if and .Station .Latest.LevelCm}}{{range .Station.Kote (intOf .Latest.LevelCm)}}
+      · <strong>{{brojHRf .Kota 3}} m</strong> {{.Sustav}}{{end}}{{end}}
       {{if .Latest.StructureState}} · {{.Latest.StateLabel}}{{end}}
       {{if .Latest.Gate}} · zapornica {{.Latest.GateLabel}}{{end}}
       {{if .Latest.Observer}} · očitao {{.Latest.Observer}}{{end}}
@@ -246,13 +248,14 @@
   {{if .ArhNiz}}
   <div class="table-card"><div class="table-responsive" style="max-height:28rem; overflow-y:auto;">
     <table class="data-table">
-      <thead><tr><th>Kad</th><th style="text-align:right;">{{velicinaLabel .ArhVelicina}} <span class="reg-card-sub">{{.ArhJedinica}}</span></th><th>Točnost</th><th>Odakle</th></tr></thead>
+      <thead><tr><th>Kad</th><th style="text-align:right;">{{velicinaLabel .ArhVelicina}} <span class="reg-card-sub">{{.ArhJedinica}}</span></th>{{if .KoteZaArhivu}}<th style="text-align:right;">Kota vode <span class="reg-card-sub">{{.KotaSustav}}</span></th>{{end}}<th>Točnost</th><th>Odakle</th></tr></thead>
       <tbody>
       {{range .ArhNiz}}
       <tr>
         <td class="mono">{{vrijemeNiza .Kad (eq $.ArhKorak "satni")}}</td>
         <td class="mono" style="text-align:right;"><strong>{{brojHRf .Vrijednost 1}}</strong>
           {{if .Ispravljeno}}<div class="reg-card-sub"><s>{{brojHRf .Izvorno 1}}</s></div>{{end}}</td>
+        {{if $.KoteZaArhivu}}<td class="mono" style="text-align:right;">{{brojHRf (kotaVode $.Station .Vrijednost) 3}}</td>{{end}}
         <td>{{if .Ispravljeno}}<span class="badge badge-area-admin">ispravljeno</span>
             {{else}}<span class="badge {{if le .Tocnost 1.0}}badge-area-admin{{else}}badge-unknown{{end}}">{{.TocnostLabel}}</span>{{end}}</td>
         <td class="reg-card-sub">{{if .Ispravljeno}}{{.Razlog}}{{else}}{{izvorLabel .Izvor}}{{if ne .Vrsta "srednjak"}}{{if ne .Vrsta "trenutna"}} · {{vrstaLabel .Vrsta}}{{end}}{{end}}{{end}}</td>

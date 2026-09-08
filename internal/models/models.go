@@ -193,6 +193,42 @@ func (s Station) HasNewZeroDatum() bool {
 	return s.ZeroDatumNew != nil
 }
 
+// KotaVode je vodna ploha u apsolutnoj visini, u jednom visinskom sustavu.
+type KotaVode struct {
+	Kota   float64 // metara nad morem
+	Sustav string  // HVRS71 ili TRST
+	Nova   bool    // je li to novi sustav
+}
+
+// Kote pretvara očitani vodostaj u apsolutnu visinu vodne plohe, u svakom
+// visinskom sustavu koji letva ima. Novi sustav dolazi prvi.
+//
+// Zašto oba: na Batini se TRST i HVRS71 razlikuju 26,1 cm. Tko na terenu
+// nivelira prema reperu u jednom sustavu, a čita kotu izračunatu u drugom,
+// promašuje za tu razliku — a upravo se po toj brojci određuje koliko vreća
+// treba nadvisiti obranu.
+func (s Station) Kote(vodostajCm int) []KotaVode {
+	var out []KotaVode
+	if s.ZeroDatumNew != nil {
+		sustav := s.ZeroDatumNewSystem
+		if sustav == "" {
+			sustav = "HVRS71"
+		}
+		out = append(out, KotaVode{Kota: *s.ZeroDatumNew + float64(vodostajCm)/100, Sustav: sustav, Nova: true})
+	}
+	if s.ZeroDatum != nil {
+		sustav := s.ZeroDatumSystem
+		if sustav == "" {
+			sustav = "TRST"
+		}
+		out = append(out, KotaVode{Kota: *s.ZeroDatum + float64(vodostajCm)/100, Sustav: sustav})
+	}
+	return out
+}
+
+// ImaKotuNule govori može li se vodostaj uopće pretvoriti u apsolutnu visinu.
+func (s Station) ImaKotuNule() bool { return s.ZeroDatumNew != nil || s.ZeroDatum != nil }
+
 // HasUsableThresholds govori ima li postaja ijedan prag u centimetrima, tj.
 // može li se za nju uopće automatski odrediti faza obrane
 func (s Station) HasUsableThresholds() bool {

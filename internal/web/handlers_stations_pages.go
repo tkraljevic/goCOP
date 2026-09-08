@@ -32,6 +32,8 @@ type StationPageData struct {
 	Profil               *models.ProfilKorita      // onaj koji se crta
 	Krivulje             []models.HQKrivulja       // krivulje protoka po razdobljima
 	PragoviQ             []PragProtok              // isti pragovi iskazani u protoku
+	PragoviKote          []PragKota                // isti pragovi kao apsolutna kota vodne plohe
+	RazlikaSustava       float64                   // koliko se dva visinska sustava razlikuju
 	NizID                int64                     // koji je niz odabran
 	Spojevi              []models.SpojDoseg        // spojeni nizovi: jedan satni, jedan dnevni
 	Sada                 *models.SpojenaVrijednost // zadnja vrijednost spojenog niza
@@ -149,7 +151,13 @@ func (h *StationsHandler) ShowStation(w http.ResponseWriter, r *http.Request) {
 	}
 	// Isti stupnjevi obrane iskazani u protoku, po krivulji koja danas vrijedi.
 	// Dežurni tako zna i koliko vode prolazi, ne samo koliko je visoko.
-	defer func() { data.PragoviQ = pragoviUProtoku(data.Station, data.Krivulje) }()
+	defer func() {
+		data.PragoviQ = pragoviUProtoku(data.Station, data.Krivulje)
+		data.PragoviKote = pragoviUKotama(data.Station)
+		if k := data.Station.Kote(0); len(k) == 2 {
+			data.RazlikaSustava = k[1].Kota - k[0].Kota
+		}
+	}()
 
 	// Hidrološka arhiva: nizovi, karakteristične vrijednosti, korito i krivulje.
 	// Sve se računa pri čitanju, ništa se ne pamti — brojevi se tako ne mogu
@@ -301,6 +309,38 @@ func pragoviUProtoku(st models.Station, krivulje []models.HQKrivulja) []PragProt
 			continue
 		}
 		out = append(out, PragProtok{Naziv: t.n, Cm: *t.t.Cm, Q: q})
+	}
+	return out
+}
+
+// PragKota je jedan stupanj obrane iskazan kao apsolutna kota vodne plohe.
+type PragKota struct {
+	Naziv string
+	Cm    int
+	Kote  []models.KotaVode
+}
+
+// pragoviUKotama prevodi pragove obrane u apsolutnu visinu vodne plohe, u
+// svakom visinskom sustavu koji letva ima. Po tome se na terenu mjeri koliko
+// obranu treba nadvisiti.
+func pragoviUKotama(st models.Station) []PragKota {
+	if !st.ImaKotuNule() {
+		return nil
+	}
+	var out []PragKota
+	for _, t := range []struct {
+		t models.Threshold
+		n string
+	}{
+		{st.Prep, "Pripremno stanje"},
+		{st.Regular, "Redovna obrana"},
+		{st.Emergency, "Izvanredna obrana"},
+		{st.State, "Izvanredno stanje"},
+	} {
+		if !t.t.IsUsable() {
+			continue
+		}
+		out = append(out, PragKota{Naziv: t.n, Cm: *t.t.Cm, Kote: st.Kote(*t.t.Cm)})
 	}
 	return out
 }

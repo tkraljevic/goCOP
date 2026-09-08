@@ -149,6 +149,8 @@ type ReadingHistoryData struct {
 	ArhIspravaka int
 	ArhSada      *models.SpojenaVrijednost // zadnja vrijednost odabrane veličine
 	ArhDecimala  int
+	KoteZaArhivu bool   // prikazuje li se uz vodostaj i apsolutna kota vode
+	KotaSustav   string // u kojem visinskom sustavu
 
 	SuccessMessage string
 	ErrorMessage   string
@@ -739,6 +741,11 @@ func (h *ReadingsHandler) arhivaZaLetvu(ctx context.Context, r *http.Request,
 	data.ArhJedinica = models.JedinicaVelicine(data.ArhVelicina)
 	data.ArhDecimala = decimalaVelicine(data.ArhVelicina)
 	data.ArhSada, _ = a.SpojZadnje(ctx, station.Code, data.ArhVelicina, data.ArhKorak)
+	if data.ArhVelicina == "vodostaj" && station.ImaKotuNule() {
+		if k := station.Kote(0); len(k) > 0 {
+			data.KoteZaArhivu, data.KotaSustav = true, k[0].Sustav
+		}
+	}
 
 	data.ArhGodine, _ = a.SpojGodine(ctx, station.Code, data.ArhVelicina, data.ArhKorak)
 	if len(data.ArhGodine) == 0 {
