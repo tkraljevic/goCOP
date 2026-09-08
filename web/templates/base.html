@@ -269,6 +269,8 @@
   <polygon class="korito-voda" points="{{.Voda}}"/>
   <line class="korito-ploha" x1="{{printf "%.1f" .VodaX0}}" y1="{{printf "%.1f" .YVode}}"
         x2="{{printf "%.1f" .VodaX1}}" y2="{{printf "%.1f" .YVode}}"/>
+  <text class="korito-voda-natpis" x="{{printf "%.1f" .VodaNatpisX}}" y="{{printf "%.1f" .YVode}}"
+        dy="-6" text-anchor="{{.VodaNatpisSidro}}">{{.VodaNatpis}}</text>
   {{end}}
   <polyline class="korito-dno" points="{{.Korito}}"/>
   <text class="korito-os" x="4" y="12">{{.NazivOsi}}</text>

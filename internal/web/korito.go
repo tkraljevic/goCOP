@@ -5,6 +5,7 @@ import (
 	"math"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"gocop/internal/models"
 )
@@ -73,6 +74,9 @@ type KoritoCrtez struct {
 	OdrezanSnimak     bool // voda je viša od niže obale, pa snimak razinu ne pokriva
 	DnoCm             int
 	VodaX0, VodaX1    float64 // dokle vodna ploha seže na slici
+	VodaNatpis        string  // vodostaj i kota, ispisani na samoj plohi
+	VodaNatpisX       float64
+	VodaNatpisSidro   string
 	// Stacionaža krajeva snimka. Koja je to obala izvorne datoteke ne kažu,
 	// pa crtež govori ono što zna: koliko je metara od početka snimanja.
 	PocetakM, KrajM float64
@@ -135,8 +139,53 @@ func (c *KoritoCrtez) NazivDesneOsi() string {
 	return "cm na letvi"
 }
 
-// NatpisX je gdje počinje natpis praga: odmah desno od osi.
-func (c *KoritoCrtez) NatpisX() float64 { return c.Lijevo + 6 }
+// NatpisX je gdje počinje natpis praga. Ne uz samu os: ondje natpis pada na
+// obalu, koja je na strmom profilu upravo na tom mjestu. Pomaknut je u korito,
+// gdje je crtež prazan, ali ne do sredine — ondje stoji kota vode.
+func (c *KoritoCrtez) NatpisX() float64 { return c.Lijevo + c.SirinaPlohe*0.28 }
+
+// sirinaNatpisa procjenjuje koliko je natpis širok u koordinatama crteža.
+// Točnu širinu zna tek preglednik, ali za razmicanje natpisa dovoljna je
+// procjena — pogreška od nekoliko postotaka ne mijenja odluku sudaraju li se.
+func sirinaNatpisa(tekst string, font float64) float64 {
+	return float64(utf8.RuneCountInString(tekst)) * font * 0.55
+}
+
+// smjestiVodaNatpis stavlja kotu vodne plohe na sredinu vode, a kad ondje već
+// stoji natpis praga na istoj visini — velika voda dolazi upravo do pragova —
+// pomiče je iza njega. Bez toga se pri visokom vodostaju dva natpisa preklope
+// i nijedan se ne može pročitati.
+func (c *KoritoCrtez) smjestiVodaNatpis(font float64) {
+	c.VodaNatpis = brojHR(c.VodostajCm) + " cm · " + brojHRf(c.KotaVode, 2) + " m"
+	c.VodaNatpisSidro = "middle"
+	sirina := sirinaNatpisa(c.VodaNatpis, font)
+	sredina := (c.VodaX0 + c.VodaX1) / 2
+	c.VodaNatpisX = sredina
+
+	od, do := sredina-sirina/2, sredina+sirina/2
+	pocetak := c.NatpisX()
+	najdalje := 0.0
+	for _, pr := range c.Pragovi {
+		if math.Abs(pr.Y-c.YVode) > font+3 {
+			continue // različite visine, natpisi se ne dodiruju
+		}
+		kraj := pocetak + sirinaNatpisa(pr.Label+" "+brojHR(pr.Cm), font)
+		if kraj > od && pocetak < do && kraj > najdalje {
+			najdalje = kraj
+		}
+	}
+	if najdalje == 0 {
+		return
+	}
+	if najdalje+10+sirina <= c.DesnaOsCrtaX()-4 {
+		c.VodaNatpisX, c.VodaNatpisSidro = najdalje+10, "start"
+		return
+	}
+	// desno nema mjesta: onda lijevo od natpisa praga
+	if pocetak-10-sirina >= c.Lijevo+4 {
+		c.VodaNatpisX, c.VodaNatpisSidro = pocetak-10, "end"
+	}
+}
 
 // KotaOznaka je vodoravna crta s ispisanom kotom. Uz apsolutnu kotu nosi i
 // vodostaj na letvi: presjek se čita ili uz kotu nule, ili uz graf koji
@@ -371,6 +420,12 @@ func crtajKoritoP(p models.ProfilKorita, vodostajCm int, o KoritoPostavke) *Kori
 		c.ImaVode = true
 		c.SirinaVodeM = zadnji - prvi
 		c.VodaX0, c.VodaX1 = sx(prvi), sx(zadnji)
+		// Uski crtež ima veći font, pa se natpisi ondje brže sudare.
+		font := 11.0
+		if w < 600 {
+			font = 16
+		}
+		c.smjestiVodaNatpis(font)
 	}
 
 	// Vodoravne podjele. Kad se presjek čita uz graf, os govori u
