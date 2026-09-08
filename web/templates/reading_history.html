@@ -16,17 +16,6 @@
   </div>
   <div class="detail-actions">
     {{if .CanRecord}}<a href="{{.NewURL}}" class="btn btn-primary">{{icon "plus"}} Upiši očitanje</a>{{end}}
-    {{if .Permissions.IsGlobalAdmin}}
-    <form method="POST" action="/readings/follow" style="margin:0;">
-      <input type="hidden" name="gauge_key" value="{{.GaugeKey}}">
-      <input type="hidden" name="name" value="{{.GaugeName}}">
-      <input type="hidden" name="back" value="/readings/{{if .Structure}}structure/{{.Structure.ID}}{{else}}station/{{.Station.ID}}{{end}}">
-      <input type="hidden" name="follow" value="{{if .Followed}}0{{else}}1{{end}}">
-      <button type="submit" class="btn btn-secondary" title="Drži li ovo računalo cijelu povijest ove letve">
-        {{icon "download"}} {{if .Followed}}Ne čuvaj povijest{{else}}Čuvaj povijest{{end}}
-      </button>
-    </form>
-    {{end}}
   </div>
 </div>
 
@@ -69,35 +58,34 @@
 {{if .Chart}}
 <section class="detail-section">
   <h2>{{icon "chart-column"}} Kretanje vodostaja <span class="reg-chip">{{.PogledOpis}}</span>{{if .Chart.Praznina}} <span class="reg-chip">{{.Chart.Praznina}} prekid{{if gt .Chart.Praznina 1}}a{{end}} u nizu</span>{{end}}</h2>
-  <div class="reg-card chart graf-niza" style="padding:0.75rem 0.5rem 0.25rem;" data-tocke="{{.Chart.Tocke}}">
-    <svg viewBox="0 0 {{.Chart.Width}} {{.Chart.Height}}" role="img" aria-label="Graf vodostaja">
-      {{range .Chart.YTicks}}
-      <line class="grid" x1="96" x2="{{sub $.Chart.Width 116}}" y1="{{printf "%.1f" .Pos}}" y2="{{printf "%.1f" .Pos}}"/>
-      <text class="tick" x="88" y="{{printf "%.1f" .Pos}}" text-anchor="end" dominant-baseline="middle">{{.Label}}</text>
-      {{end}}
-      {{if .Chart.Istaknuto}}<rect class="istaknuto" x="{{printf "%.1f" .Chart.IstakniOd}}" y="22"
-            width="{{printf "%.1f" .Chart.IstakniSir}}" height="{{sub .Chart.Height 68}}"/>{{end}}
-      <path class="area" d="{{.Chart.Area}}"/>
-      {{range .Chart.Thresholds}}
-      <line class="thr {{.Class}}" x1="96" x2="{{sub $.Chart.Width 116}}" y1="{{printf "%.1f" .Y}}" y2="{{printf "%.1f" .Y}}"/>
-      <text class="thr-label {{.Class}}" x="{{sub $.Chart.Width 110}}" y="{{printf "%.1f" .Y}}" dominant-baseline="middle">{{.Label}}</text>
-      {{end}}
-      <path class="line" d="{{.Chart.Path}}"/>
-      {{range .Chart.XTicks}}
-      <text class="tick" x="{{printf "%.1f" .Pos}}" y="{{$.Chart.Height}}" dy="-14" text-anchor="middle">{{.Label}}</text>
-      {{end}}
-      <g class="pokazivac" hidden>
-        <line class="vodilja" y1="22" y2="{{sub $.Chart.Height 46}}"/>
-        <circle class="biljeg" r="6"/>
-      </g>
-    </svg>
+  <div class="reg-card chart graf-niza graf-siroki" style="padding:0.75rem 0.5rem 0.25rem;" data-tocke="{{.Chart.Tocke}}">
+    {{template "grafNiza" .Chart}}
     <div class="graf-oblacic" hidden></div>
   </div>
+  {{if .ChartUzak}}
+  <div class="reg-card chart graf-niza graf-uski" style="padding:0.75rem 0.5rem 0.25rem;" data-tocke="{{.ChartUzak.Tocke}}">
+    {{template "grafNiza" .ChartUzak}}
+    <div class="graf-oblacic" hidden></div>
+  </div>
+  {{end}}
 </section>
 {{end}}
 
 <section class="detail-section">
-  <h2>{{icon "history"}} Očitanja <span class="reg-chip">{{.Count}}</span>{{if .Followed}} <span class="reg-chip">{{icon "download"}} povijest se čuva</span>{{end}}</h2>
+  <div class="odjeljak-glava">
+    <h2>{{icon "history"}} Očitanja <span class="reg-chip">{{.Count}}</span>{{if .Followed}} <span class="reg-chip">{{icon "download"}} povijest se čuva</span>{{end}}</h2>
+    {{if .Permissions.IsGlobalAdmin}}
+    <form method="POST" action="/readings/follow" style="margin:0;">
+      <input type="hidden" name="gauge_key" value="{{.GaugeKey}}">
+      <input type="hidden" name="name" value="{{.GaugeName}}">
+      <input type="hidden" name="back" value="/readings/{{if .Structure}}structure/{{.Structure.ID}}{{else}}station/{{.Station.ID}}{{end}}">
+      <input type="hidden" name="follow" value="{{if .Followed}}0{{else}}1{{end}}">
+      <button type="submit" class="btn btn-secondary btn-sm" title="Drži li ovo računalo cijelu povijest ove letve, ne samo zadnjih nekoliko očitanja">
+        {{icon "download"}} {{if .Followed}}Ne čuvaj povijest{{else}}Čuvaj povijest{{end}}
+      </button>
+    </form>
+    {{end}}
+  </div>
   <form method="GET" action="" id="pogled" style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; margin-bottom:0.75rem;">
     <label class="filter-label" for="pogledSel" style="margin:0;">Pogled</label>
     <select id="pogledSel" name="pogled" class="filter-select" style="max-width:12rem;" onchange="this.form.submit()">
@@ -182,7 +170,7 @@
 
   {{if .ArhSazetak}}
   <h3 class="part-label" style="margin:0 0 0.35rem 0;">Karakteristične vrijednosti po veličinama</h3>
-  <div class="table-card" style="margin-bottom:1rem;"><div class="table-responsive">
+  <div class="table-card table-stack" style="margin-bottom:1rem;"><div class="table-responsive">
     <table class="data-table">
       <thead><tr><th>Veličina</th><th>Razdoblje</th><th style="text-align:right;">Srednjak</th>
         <th style="text-align:right;">Maksimum</th><th>Nastupio</th>
@@ -192,13 +180,13 @@
       {{$veza := printf "?v=%s&korak=%s&god=%d#niz" .Velicina $.ArhKorak $.ArhGodina}}
       <tr {{if eq .Velicina $.ArhVelicina}}style="background:var(--tint-blue-bg);"{{end}}
           onclick="location='{{$veza}}'" style="cursor:pointer;">
-        <td><a href="{{$veza}}" style="color:inherit; text-decoration:none;"><strong>{{.Naziv}}</strong></a> <span class="reg-card-sub">{{.Jedinica}}</span></td>
-        <td class="mono">{{slice .Od 0 4}}. – {{slice .Do 0 4}}.</td>
-        <td class="mono" style="text-align:right;"><strong>{{brojHRf .Srednjak .Decimala}}</strong></td>
-        <td class="mono" style="text-align:right;">{{brojHRf .Max .Decimala}}</td>
-        <td class="mono reg-card-sub">{{.MaxNa}}</td>
-        <td class="mono" style="text-align:right;">{{brojHRf .Min .Decimala}}</td>
-        <td class="mono reg-card-sub">{{.MinNa}}</td>
+        <td class="naslov"><a href="{{$veza}}" style="color:inherit; text-decoration:none;"><strong>{{.Naziv}}</strong></a> <span class="reg-card-sub">{{.Jedinica}}</span></td>
+        <td class="mono" data-stupac="Razdoblje">{{slice .Od 0 4}}. – {{slice .Do 0 4}}.</td>
+        <td class="mono" style="text-align:right;" data-stupac="Srednjak"><strong>{{brojHRf .Srednjak .Decimala}}</strong></td>
+        <td class="mono" style="text-align:right;" data-stupac="Maksimum">{{brojHRf .Max .Decimala}}</td>
+        <td class="mono reg-card-sub" data-stupac="nastupio">{{.MaxNa}}</td>
+        <td class="mono" style="text-align:right;" data-stupac="Minimum">{{brojHRf .Min .Decimala}}</td>
+        <td class="mono reg-card-sub" data-stupac="nastupio">{{.MinNa}}</td>
       </tr>
       {{end}}
       </tbody>
@@ -223,49 +211,35 @@
 
   {{if .ArhChart}}
   <h3 class="part-label" style="margin:0 0 0.35rem 0;">{{velicinaLabel .ArhVelicina}} <span class="reg-card-sub">{{.ArhJedinica}}</span> — {{.ArhGodina}}.{{if eq .ArhKorak "satni"}}, svaki sat{{else}}, dnevni srednjak{{end}}{{if .ArhChart.Praznina}} <span class="reg-chip">{{.ArhChart.Praznina}} prekid{{if gt .ArhChart.Praznina 1}}a{{end}}</span>{{end}}</h3>
-  <div class="reg-card chart graf-niza" style="padding:0.75rem 0.5rem 0.25rem; margin-bottom:1rem;"
+  <div class="reg-card chart graf-niza graf-siroki" style="padding:0.75rem 0.5rem 0.25rem; margin-bottom:1rem;"
        data-tocke="{{.ArhChart.Tocke}}">
-    <svg viewBox="0 0 {{.ArhChart.Width}} {{.ArhChart.Height}}" role="img"
-         aria-label="Graf: {{velicinaLabel .ArhVelicina}}, {{.ArhGodina}}.">
-      {{range .ArhChart.YTicks}}
-      <line class="grid" x1="96" x2="{{sub $.ArhChart.Width 116}}" y1="{{printf "%.1f" .Pos}}" y2="{{printf "%.1f" .Pos}}"/>
-      <text class="tick" x="88" y="{{printf "%.1f" .Pos}}" text-anchor="end" dominant-baseline="middle">{{.Label}}</text>
-      {{end}}
-      {{if .ArhChart.Istaknuto}}<rect class="istaknuto" x="{{printf "%.1f" .ArhChart.IstakniOd}}" y="22"
-            width="{{printf "%.1f" .ArhChart.IstakniSir}}" height="{{sub .ArhChart.Height 68}}"/>{{end}}
-      <path class="area" d="{{.ArhChart.Area}}"/>
-      {{range .ArhChart.Thresholds}}
-      <line class="thr {{.Class}}" x1="96" x2="{{sub $.ArhChart.Width 116}}" y1="{{printf "%.1f" .Y}}" y2="{{printf "%.1f" .Y}}"/>
-      <text class="thr-label {{.Class}}" x="{{sub $.ArhChart.Width 110}}" y="{{printf "%.1f" .Y}}" dominant-baseline="middle">{{.Label}}</text>
-      {{end}}
-      <path class="line" d="{{.ArhChart.Path}}"/>
-      {{range .ArhChart.XTicks}}
-      <text class="tick" x="{{printf "%.1f" .Pos}}" y="{{$.ArhChart.Height}}" dy="-14" text-anchor="middle">{{.Label}}</text>
-      {{end}}
-      <g class="pokazivac" hidden>
-        <line class="vodilja" y1="22" y2="{{sub $.ArhChart.Height 46}}"/>
-        <circle class="biljeg" r="6"/>
-      </g>
-    </svg>
+    {{template "grafNiza" .ArhChart}}
     <div class="graf-oblacic" hidden></div>
   </div>
+  {{if .ArhChartUzak}}
+  <div class="reg-card chart graf-niza graf-uski" style="padding:0.75rem 0.5rem 0.25rem; margin-bottom:1rem;"
+       data-tocke="{{.ArhChartUzak.Tocke}}">
+    {{template "grafNiza" .ArhChartUzak}}
+    <div class="graf-oblacic" hidden></div>
+  </div>
+  {{end}}
   {{end}}
 
 
   {{if .ArhNiz}}
-  <div class="table-card"><div class="table-responsive" style="max-height:28rem; overflow-y:auto;">
+  <div class="table-card table-stack"><div class="table-responsive" style="max-height:28rem; overflow-y:auto;">
     <table class="data-table">
       <thead><tr><th>Kad</th><th style="text-align:right;">{{velicinaLabel .ArhVelicina}} <span class="reg-card-sub">{{.ArhJedinica}}</span></th>{{if .KoteZaArhivu}}<th style="text-align:right;">Kota vode <span class="reg-card-sub">{{.KotaSustav}}</span></th>{{end}}<th>Točnost</th><th>Odakle</th></tr></thead>
       <tbody>
       {{range .ArhNiz}}
       <tr>
-        <td class="mono">{{vrijemeNiza .Kad (eq $.ArhKorak "satni")}}</td>
-        <td class="mono" style="text-align:right;"><strong>{{brojHRf .Vrijednost 1}}</strong>
+        <td class="mono naslov">{{vrijemeNiza .Kad (eq $.ArhKorak "satni")}}</td>
+        <td class="mono" style="text-align:right;" data-stupac="{{velicinaLabel $.ArhVelicina}} ({{$.ArhJedinica}})"><strong>{{brojHRf .Vrijednost 1}}</strong>
           {{if .Ispravljeno}}<div class="reg-card-sub"><s>{{brojHRf .Izvorno 1}}</s></div>{{end}}</td>
-        {{if $.KoteZaArhivu}}<td class="mono" style="text-align:right;">{{brojHRf (kotaVode $.Station .Vrijednost) 3}}</td>{{end}}
-        <td>{{if .Ispravljeno}}<span class="badge badge-area-admin">ispravljeno</span>
+        {{if $.KoteZaArhivu}}<td class="mono" style="text-align:right;" data-stupac="Kota vode ({{$.KotaSustav}})">{{brojHRf (kotaVode $.Station .Vrijednost) 3}}</td>{{end}}
+        <td data-stupac="Točnost">{{if .Ispravljeno}}<span class="badge badge-area-admin">ispravljeno</span>
             {{else}}<span class="badge {{if le .Tocnost 1.0}}badge-area-admin{{else}}badge-unknown{{end}}">{{.TocnostLabel}}</span>{{end}}</td>
-        <td class="reg-card-sub">{{if .Ispravljeno}}{{.Razlog}}{{else}}{{izvorLabel .Izvor}}{{if ne .Vrsta "srednjak"}}{{if ne .Vrsta "trenutna"}} · {{vrstaLabel .Vrsta}}{{end}}{{end}}{{end}}</td>
+        <td class="reg-card-sub" data-stupac="Odakle">{{if .Ispravljeno}}{{.Razlog}}{{else}}{{izvorLabel .Izvor}}{{if ne .Vrsta "srednjak"}}{{if ne .Vrsta "trenutna"}} · {{vrstaLabel .Vrsta}}{{end}}{{end}}{{end}}</td>
       </tr>
       {{end}}
       </tbody>

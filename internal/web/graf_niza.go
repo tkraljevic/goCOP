@@ -17,9 +17,39 @@ import (
 // jedinice i decimale, pa im treba graf koji to zna — inače bi prikazivao
 // brojku koja ne znači ono što uz nju piše.
 
+// geometrija je oblik crtaće plohe: širina, visina i rubovi za oznake, sve u
+// koordinatama SVG-a. Postoje dvije jer jedan graf ne može biti čitljiv i na
+// zaslonu i na telefonu — isti crtež stisnut sa 1.200 na 340 slikovnih točaka
+// smanji oznake na tri točke, a to nitko ne čita.
+type geometrija struct {
+	W, H                    float64
+	Lijevo, Desno, Vrh, Dno float64
+	Uzak                    bool
+}
+
+var (
+	// za stupac na zaslonu: omjer prema stvarnoj širini blizu je jedan naprama
+	// jedan, pa oznake ostaju sitne
+	sirokiGraf = geometrija{W: 1600, H: 420, Lijevo: 96, Desno: 116, Vrh: 22, Dno: 46}
+	// za telefon: uži koordinatni sustav i viši graf, jer je i sam zaslon takav.
+	// Desni rub je uzak — oznake pragova idu iznad crte, ne uz nju.
+	uskiGraf = geometrija{W: 620, H: 460, Lijevo: 76, Desno: 26, Vrh: 20, Dno: 44, Uzak: true}
+)
+
 // crtajNiz gradi graf iz spojenih vrijednosti. Pragovi se crtaju samo za
 // vodostaj i samo kad je letva poznata.
 func crtajNiz(vals []models.SpojenaVrijednost, velicina string, station *models.Station,
+	krivulje []models.HQKrivulja) *Chart {
+	return crtajNizG(sirokiGraf, vals, velicina, station, krivulje)
+}
+
+// crtajNizUzak je isti graf u obliku za telefon.
+func crtajNizUzak(vals []models.SpojenaVrijednost, velicina string, station *models.Station,
+	krivulje []models.HQKrivulja) *Chart {
+	return crtajNizG(uskiGraf, vals, velicina, station, krivulje)
+}
+
+func crtajNizG(g geometrija, vals []models.SpojenaVrijednost, velicina string, station *models.Station,
 	krivulje []models.HQKrivulja) *Chart {
 	if len(vals) < 2 {
 		return nil
@@ -31,10 +61,9 @@ func crtajNiz(vals []models.SpojenaVrijednost, velicina string, station *models.
 	dec := decimalaVelicine(velicina)
 	jed := models.JedinicaVelicine(velicina)
 
-	// Koordinatni sustav je namjerno velik: SVG se razvlači na širinu stupca,
-	// pa bi u malom sustavu svaka oznaka narasla tri puta. Ovako je omjer blizu
-	// jedan naprama jedan i tekst ostaje sitan.
-	c := &Chart{Width: 1600, Height: 420, From: pts[0].Kad, To: pts[len(pts)-1].Kad}
+	c := &Chart{Width: int(g.W), Height: int(g.H),
+		Lijevo: g.Lijevo, Desno: g.Desno, Vrh: g.Vrh, Dno: g.Dno, Uzak: g.Uzak,
+		From: pts[0].Kad, To: pts[len(pts)-1].Kad}
 	najn, najv := pts[0].Vrijednost, pts[0].Vrijednost
 	for _, p := range pts {
 		najn = math.Min(najn, p.Vrijednost)
@@ -100,9 +129,10 @@ bezPragova:
 	pad := (najv - najn) / 10
 	c.Min, c.Max = int(math.Floor(najn-pad)), int(math.Ceil(najv+pad))
 
-	const left, right, top, bottom = 96.0, 116.0, 22.0, 46.0
-	plotW := float64(c.Width) - left - right
-	plotH := float64(c.Height) - top - bottom
+	left, right, top, bottom := g.Lijevo, g.Desno, g.Vrh, g.Dno
+	plotW := g.W - left - right
+	plotH := g.H - top - bottom
+	_ = right
 	span := c.To.Sub(c.From).Seconds()
 	if span <= 0 {
 		span = 1
@@ -159,7 +189,10 @@ bezPragova:
 	for _, p := range pragovi {
 		c.Thresholds = append(c.Thresholds, ChartLine{Y: yOf(float64(p.cm)), Label: p.label, Class: p.class})
 	}
-	c.XTicks = vodoravneOznake(c.From, c.To, xOf)
+	c.XTicks = prorijediOznake(vodoravneOznake(c.From, c.To, xOf), int(plotW/86))
+	for i := range c.XTicks {
+		c.XTicks[i].Anchor = poravnanjeOznake(c.XTicks[i].Pos, left, left+plotW)
+	}
 
 	// Točke za pokazivač uz miša. Sam SVG ih ne crta — sedamsto kružića je
 	// teška slika i nečitljiva crta — nego ih čita skripta i pokazuje onu nad
@@ -175,6 +208,11 @@ bezPragova:
 	}
 	sj.WriteByte(']')
 	c.Tocke = sj.String()
+
+	// Opis za čitač zaslona: što je nacrtano i za koje razdoblje. Bez njega je
+	// graf slika bez imena, a slijepom dežurnom ostaje samo tablica.
+	c.Opis = "Graf: " + models.NazivVelicine(velicina) + ", " +
+		c.From.In(models.Zagreb).Format("2.1.2006.") + " – " + c.To.In(models.Zagreb).Format("2.1.2006.")
 	return c
 }
 
@@ -208,6 +246,33 @@ func vodoravneOznake(od, do time.Time, xOf func(time.Time) float64) []ChartTick 
 		for t := od; t.Before(do) || t.Equal(do); t = t.Add(korak) {
 			out = append(out, ChartTick{Pos: xOf(t), Label: t.Format("2.1. 15h")})
 		}
+	}
+	return out
+}
+
+// poravnanjeOznake drži natpis unutar slike: uz rubove se priljubi, inače
+// stoji po sredini svoje crtice.
+func poravnanjeOznake(pos, od, do float64) string {
+	switch {
+	case pos-od < 34:
+		return "start"
+	case do-pos < 34:
+		return "end"
+	}
+	return "middle"
+}
+
+// prorijediOznake ostavlja najviše onoliko oznaka koliko ih na osi ima mjesta.
+// Uski graf ima prostora za šest, široki za sedamnaest; natisnute jedna na
+// drugu ne bi se čitale ni na jednom.
+func prorijediOznake(ticks []ChartTick, najvise int) []ChartTick {
+	if najvise < 2 || len(ticks) <= najvise {
+		return ticks
+	}
+	korak := (len(ticks) + najvise - 1) / najvise
+	out := make([]ChartTick, 0, len(ticks)/korak+1)
+	for i := 0; i < len(ticks); i += korak {
+		out = append(out, ticks[i])
 	}
 	return out
 }
@@ -305,8 +370,8 @@ func istakni(c *Chart, od, do time.Time) {
 	if c == nil || od.IsZero() || do.IsZero() || !do.After(od) {
 		return
 	}
-	const left, right = 96.0, 116.0
-	plotW := float64(c.Width) - left - right
+	left := c.Lijevo
+	plotW := c.DesnoX() - left
 	span := c.To.Sub(c.From).Seconds()
 	if span <= 0 {
 		return
@@ -354,4 +419,33 @@ func prazninaPrag(pts []models.SpojenaVrijednost) time.Duration {
 		return 0
 	}
 	return srednji * 5
+}
+
+// Rubne koordinate grafa. Predložak ih traži na više mjesta — mreža, oznake,
+// pokazivač — a razlikuju se između širokog i uskog grafa, pa ih računa graf
+// sam umjesto da se u HTML-u ponavljaju brojke.
+func (c *Chart) LijevoX() float64 { return c.Lijevo }
+func (c *Chart) DesnoX() float64  { return float64(c.Width) - c.Desno }
+func (c *Chart) OsY() float64     { return c.Lijevo - 8 } // oznake okomite osi, poravnate desno
+func (c *Chart) DnoY() float64    { return float64(c.Height) - c.Dno }
+func (c *Chart) OsX() float64     { return float64(c.Height) - 14 } // oznake vodoravne osi
+func (c *Chart) VisinaPlohe() float64 {
+	return float64(c.Height) - c.Vrh - c.Dno
+}
+
+// PragX i PragDy postavljaju natpis praga. Na širokom grafu stoji desno od
+// crte, u rubu koji je za to i ostavljen; na uskom tog ruba nema, pa natpis
+// ide iznad crte, uz lijevi rub.
+func (c *Chart) PragX() float64 {
+	if c.Uzak {
+		return c.Lijevo + 6
+	}
+	return float64(c.Width) - c.Desno + 6
+}
+
+func (c *Chart) PragDy() string {
+	if c.Uzak {
+		return "-5"
+	}
+	return "0.35em"
 }
