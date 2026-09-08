@@ -72,6 +72,18 @@ func templateFuncs() template.FuncMap {
 		"basisLabel":    models.BasisLabel,
 		"velicinaLabel": models.NazivVelicine,
 		"kvaliteta":     models.QualityLabel,
+		// apsolutna kota vodne plohe u prvom sustavu koji letva ima
+		"round": func(v float64) int { return int(v + 0.5) },
+		"kotaVode": func(st *models.Station, cm float64) float64 {
+			if st == nil {
+				return 0
+			}
+			k := st.Kote(int(cm))
+			if len(k) == 0 {
+				return 0
+			}
+			return k[0].Kota
+		},
 		// razmak za crtanje: širina umanjena za desni rub
 		"sub": func(a, b int) int { return a - b },
 		// razlika dviju vrijednosti, za prikaz koliko ispravak mijenja

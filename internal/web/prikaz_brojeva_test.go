@@ -1207,3 +1207,55 @@ func TestUsporedbaSPostojecim(t *testing.T) {
 		t.Error("novo očitanje označeno kao postojeće")
 	}
 }
+
+// Vodostaj se pretvara u apsolutnu kotu vodne plohe, u svakom visinskom
+// sustavu koji letva ima. Na Batini se sustavi razlikuju 26,1 cm — tko na
+// terenu nivelira prema reperu u jednom, a čita kotu iz drugoga, promaši za
+// tu razliku, a po toj se brojci određuje koliko vreća treba nadvisiti.
+func TestApsolutnaKotaVodneP1ohe(t *testing.T) {
+	kota := func(v float64) *float64 { return &v }
+	st := models.Station{
+		Name: "Batina", Code: "batina",
+		ZeroDatum: kota(80.450), ZeroDatumSystem: "TRST",
+		ZeroDatumNew: kota(80.189), ZeroDatumNewSystem: "HVRS71",
+	}
+	if !st.ImaKotuNule() {
+		t.Fatal("letva ima kotu nule, a javlja da nema")
+	}
+	k := st.Kote(-123)
+	if len(k) != 2 {
+		t.Fatalf("kota %d, očekivano 2 sustava", len(k))
+	}
+	// novi sustav dolazi prvi
+	if !k[0].Nova || k[0].Sustav != "HVRS71" {
+		t.Errorf("prvi sustav %+v, očekivano HVRS71", k[0])
+	}
+	if math.Abs(k[0].Kota-78.959) > 0.0005 {
+		t.Errorf("HVRS71: %.3f, očekivano 78,959", k[0].Kota)
+	}
+	// isti broj koji daje i letvin list APS.KOTE, koji računa u starom sustavu
+	if math.Abs(k[1].Kota-79.220) > 0.0005 {
+		t.Errorf("TRST: %.3f, očekivano 79,220", k[1].Kota)
+	}
+	if r := k[1].Kota - k[0].Kota; math.Abs(r-0.261) > 0.0005 {
+		t.Errorf("razlika sustava %.3f m, očekivano 0,261", r)
+	}
+
+	// vrh vala 2013.
+	if v := st.Kote(775); math.Abs(v[0].Kota-87.939) > 0.0005 {
+		t.Errorf("775 cm u HVRS71: %.3f, očekivano 87,939", v[0].Kota)
+	}
+
+	// letva bez ijedne kote ne izmišlja
+	prazna := models.Station{Name: "Nešto"}
+	if prazna.ImaKotuNule() || len(prazna.Kote(100)) != 0 {
+		t.Error("letva bez kote nule ne smije davati apsolutnu visinu")
+	}
+
+	// samo stari sustav: daje jednu kotu, i to označenu
+	samoStari := models.Station{ZeroDatum: kota(80.450), ZeroDatumSystem: "TRST"}
+	k2 := samoStari.Kote(0)
+	if len(k2) != 1 || k2[0].Sustav != "TRST" || k2[0].Nova {
+		t.Errorf("samo stari sustav: %+v", k2)
+	}
+}

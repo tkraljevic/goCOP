@@ -58,6 +58,32 @@
       <div><dt>Najviši zabilježeni</dt><dd><span class="threshold-pill record">{{.Station.Record.Label}}</span></dd></div>
       {{end}}
     </dl>
+    {{if .Station.ImaKotuNule}}
+    <div style="margin-top:0.875rem; padding-top:0.875rem; border-top:1px solid var(--border);">
+      <div class="reg-card-sub" style="margin-bottom:0.4rem;">Isti stupnjevi kao apsolutna kota vodne plohe</div>
+      <div class="table-responsive">
+        <table class="data-table" style="max-width:44rem;">
+          <thead><tr><th>Stupanj</th><th style="text-align:right;">Vodostaj</th>
+            {{range $.Station.Kote 0}}<th style="text-align:right;">{{.Sustav}}</th>{{end}}</tr></thead>
+          <tbody>
+          {{range .PragoviKote}}
+          <tr>
+            <td>{{.Naziv}}</td>
+            <td class="mono" style="text-align:right;">{{brojHR .Cm}} cm</td>
+            {{range .Kote}}<td class="mono" style="text-align:right;"><strong>{{brojHRf .Kota 3}} m</strong></td>{{end}}
+          </tr>
+          {{end}}
+          </tbody>
+        </table>
+      </div>
+      <p class="page-desc" style="margin:0.5rem 0 0 0;">
+        Za nivelman na terenu: koliko vreća treba nadvisiti mjeri se od ove kote, u istom visinskom sustavu
+        u kojem je i reper od kojeg se nivelira. Razlika između sustava na ovoj letvi iznosi
+        {{brojHRf .RazlikaSustava 3}} m.
+      </p>
+    </div>
+    {{end}}
+
     {{if .PragoviQ}}
     <div style="margin-top:0.875rem; padding-top:0.875rem; border-top:1px solid var(--border);">
       <div class="reg-card-sub" style="margin-bottom:0.4rem;">Isti stupnjevi u protoku, po krivulji koja danas vrijedi</div>
@@ -184,6 +210,7 @@
 <section class="detail-section" id="korito">
   <h2>{{icon "waves"}} Korito i voda u njemu</h2>
   <p class="page-desc">
+    Sve kote na crtežu su u sustavu <strong>{{.Station.ZeroDatumSystem}}</strong>, jer je u njemu snimljen i profil korita.
     Poprečni profil snimljen {{.Crtez.Datum}}, a voda je ucrtana po zadnjem vodostaju iz arhive
     ({{.Zadnji.Vrijednost}} cm, {{formatDate (localTime .Zadnji.Kad)}}, {{izvorLabel .ZadnjiIzvor}}).
   </p>
@@ -208,7 +235,7 @@
       </svg>
     </div>
     <div style="display:flex; flex-wrap:wrap; gap:1.5rem; margin-top:0.75rem; font-size:0.9rem;">
-      <span>vodna ploha <strong>{{brojHRf .Crtez.KotaVode 2}} m</strong></span>
+      <span>vodna ploha <strong>{{brojHRf .Crtez.KotaVode 2}} m</strong> <span class="reg-card-sub">{{.Station.ZeroDatumSystem}}</span></span>
       <span>dubina nad dnom <strong>{{brojHRf .Crtez.DubinaM 2}} m</strong></span>
       {{if gt .Crtez.SirinaVodeM 0.0}}<span>širina vode <strong>{{brojHRf .Crtez.SirinaVodeM 0}} m</strong></span>{{end}}
       <span>dno korita <strong>{{brojHRf .Crtez.Dno 2}} m</strong></span>
@@ -235,6 +262,7 @@
       <span class="badge {{if le .Sada.Tocnost 1.0}}badge-area-admin{{else}}badge-unknown{{end}}">{{.Sada.TocnostLabel}}{{if gt .Sada.Tocnost 0.0}} cm{{end}}</span>
       <span class="reg-card-sub">{{izvorLabel .Sada.Izvor}}</span>
       {{if gt .ZadnjiProtok 0.0}}<span>protok <strong>{{brojHRf .ZadnjiProtok 0}} m³/s</strong> <span class="reg-card-sub">iz krivulje</span></span>{{end}}
+      {{range .Station.Kote (round .Sada.Vrijednost)}}<span>kota vode <strong>{{brojHRf .Kota 3}} m</strong> <span class="reg-card-sub">{{.Sustav}}</span></span>{{end}}
     </div>
   </div>
   {{end}}
