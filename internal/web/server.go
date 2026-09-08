@@ -445,7 +445,7 @@ func (s *Server) setupRoutes() {
 	stationsH.SetPageTemplates(s.templates["station_detail.html"], s.templates["station_form.html"], s.sectionService, s.watercourseService)
 	stationsH.SetEpisodeService(s.episodeService)
 	stationsH.SetArhiva(func() *repository.ArhivaRepository { return s.arhiva })
-	stationsH.SetKarta(s.karta)
+	stationsH.SetKarta(func() KartaPostavke { return s.karta })
 	watercoursesH := NewWatercoursesHandler(s.watercourseService, s.sectionService, s.templates["watercourses.html"])
 	structuresH := NewStructuresHandler(s.structureService, s.stationService, s.sectionService, s.userService,
 		s.templates["structures.html"], s.templates["structure_detail.html"], s.templates["structure_form.html"])
@@ -843,7 +843,6 @@ func (s *Server) SetDatabase(db *sql.DB, path string) {
 // nema što crtati, pa je bolje ne prikazati ništa nego prazan okvir.
 func (s *Server) SetKarta(plocice, zasluge string, najviseZ int) {
 	s.karta = KartaPostavke{Plocice: plocice, Zasluge: zasluge, NajviseZ: najviseZ}
-	s.setupRoutes()
 }
 
 // SetArhiva daje poslužitelju hidrološku arhivu. Arhiva je zasebna datoteka i
