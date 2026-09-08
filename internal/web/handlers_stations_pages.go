@@ -33,7 +33,6 @@ type StationPageData struct {
 	Krivulje             []models.HQKrivulja       // krivulje protoka po razdobljima
 	PragoviQ             []PragProtok              // isti pragovi iskazani u protoku
 	PragoviKote          []PragKota                // isti pragovi kao apsolutna kota vodne plohe
-	RazlikaSustava       float64                   // koliko se dva visinska sustava razlikuju
 	Karta                KartaPostavke             // izvor pločica za kartu položaja
 	NizID                int64                     // koji je niz odabran
 	Spojevi              []models.SpojDoseg        // spojeni nizovi: jedan satni, jedan dnevni
@@ -209,12 +208,10 @@ func (h *StationsHandler) ShowStation(w http.ResponseWriter, r *http.Request) {
 	// Stupnjevi obrane iskazani u protoku i u apsolutnoj koti vodne plohe.
 	// Računa se tek ovdje, kad su krivulje već dohvaćene iz arhive — a prije
 	// iscrtavanja, jer predložak dobiva presliku podataka i ono što se upiše
-	// poslije njega nikamo ne stiže.
+	// poslije njega nikamo ne stiže. Razliku visinskih sustava predložak zato
+	// i traži od same postaje, da o ovom redoslijedu uopće ne ovisi.
 	data.PragoviQ = pragoviUProtoku(data.Station, data.Krivulje)
 	data.PragoviKote = pragoviUKotama(data.Station)
-	if k := data.Station.Kote(0); len(k) == 2 {
-		data.RazlikaSustava = k[1].Kota - k[0].Kota
-	}
 
 	if err := h.tmplDetail.ExecuteTemplate(w, "station_detail.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

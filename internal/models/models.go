@@ -463,6 +463,18 @@ func (s Station) KartaURL() string {
 		*s.Latitude, *s.Longitude, *s.Latitude, *s.Longitude)
 }
 
+// RazlikaVisinskihSustava je koliko se dvije kote nule iste letve razlikuju.
+// Računa se iz same postaje, a ne izvana: dok je stajala u podacima stranice,
+// jedan pogrešan redoslijed u rukovatelju značio je da nikad ne stigne do
+// prikaza i da na letvi piše 0,000 m.
+func (s Station) RazlikaVisinskihSustava() float64 {
+	k := s.Kote(0)
+	if len(k) != 2 {
+		return 0
+	}
+	return k[1].Kota - k[0].Kota
+}
+
 // NajnizeIzmjereno vraća najniži vodostaj doista izmjeren na ovoj letvi.
 func (s Station) NajnizeIzmjereno() *StationExtreme {
 	var naj *StationExtreme

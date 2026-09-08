@@ -2636,3 +2636,21 @@ textarea {
 .karta-letve.karta-prazna .karta-platno { opacity: 0.45; }
 .leaflet-container { background: var(--bg-subtle); font: inherit; }
 @media (max-width: 700px) { .karta-platno { height: 240px; } }
+
+/* Od čega je spojeni niz sastavljen: jedan redak po izvoru. Prelama se kad
+   nema mjesta umjesto da se stisne u stupac fiksne širine — izvora zna biti
+   četiri, a njihova imena nisu kratka. */
+.spoj-dio {
+  display: flex; flex-wrap: wrap; align-items: baseline;
+  gap: 0.3rem 0.6rem; font-size: 0.85rem; margin-bottom: 0.35rem;
+}
+.spoj-dio:last-child { margin-bottom: 0; }
+.spoj-izvor { font-weight: 600; color: var(--text-strong); }
+.spoj-udio { font-variant-numeric: tabular-nums; color: var(--text-secondary); }
+
+/* Ćelija koja nosi popis, a ne jednu vrijednost: u kartičnom slaganju naslov
+   ide iznad popisa, ne u isti redak s njim. */
+.table-responsive.tablica-kartice td.celija-blok { display: block; }
+.table-responsive.tablica-kartice td.celija-blok::before {
+  display: block; margin-bottom: 0.3rem;
+}
