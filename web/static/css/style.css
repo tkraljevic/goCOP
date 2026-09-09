@@ -193,8 +193,14 @@ body {
 }
 
 .brand-mark {
-  width: 40px;
+  /* Visina je zadana, širina se ravna po znaku: ugrađeni znak je kvadratan,
+     ali uneseni ne mora biti — uspravan ili vodoravan znak u kvadratnom
+     okviru preglednik razvuče, a razvučen grb ustanove je vidljiva pogreška
+     na svakoj stranici. */
   height: 40px;
+  width: auto;
+  max-width: 72px;
+  object-fit: contain;
   flex-shrink: 0;
 }
 
@@ -2305,8 +2311,8 @@ a:hover { color: var(--accent); }
   }
 
   .brand-mark {
-    width: 36px;
     height: 36px;
+    max-width: 64px;
   }
 }
 

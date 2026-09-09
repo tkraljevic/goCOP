@@ -68,6 +68,14 @@ const LogoMaxBytes = 512 * 1024
 // HasLogo javlja ima li organizacija vlastiti znak
 func (t OrgTerms) HasLogo() bool { return len(t.Logo) > 0 && t.LogoMime != "" }
 
+// ZnakNijeZaWord javlja da je znak u obliku koji Word ne prikazuje. SVG mu
+// treba rastersku zamjenu koju program ne izrađuje, pa bi memorandum na
+// izvješću tiho ostao bez znaka — a to se primijeti tek na gotovom dokumentu.
+func (t OrgTerms) ZnakNijeZaWord() bool {
+	return t.HasLogo() && !strings.EqualFold(t.LogoMime, "image/png") &&
+		!strings.EqualFold(t.LogoMime, "image/jpeg")
+}
+
 // DefaultTerms su nazivi Hrvatskih voda
 func DefaultTerms() OrgTerms {
 	return OrgTerms{

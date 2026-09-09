@@ -23,7 +23,35 @@ type Dokument struct {
 	naslov string
 	autor  string
 	kad    time.Time
+	slike  []slika
+
+	zaglavlje *Zaglavlje // memorandum na prvoj stranici; nil kad ga nema
+	znak      *znakSlike // znak ustanove u zaglavlju
 }
+
+// ImaZaglavlje javlja nosi li dokument memorandum.
+func (d *Dokument) ImaZaglavlje() bool { return d.zaglavlje != nil }
+
+// mediji su sve slike u paketu: one iz tijela i znak iz zaglavlja.
+func (d *Dokument) mediji() []slika {
+	m := append([]slika(nil), d.slike...)
+	if d.znak != nil {
+		m = append(m, d.znak.slika)
+	}
+	return m
+}
+
+// slika je PNG ugrađen u dokument. Word sliku ne nosi u tijelu nego kao
+// zaseban dio paketa, na koji se tijelo poziva vezom — zato se skupljaju
+// ovdje i zapisuju tek pri sastavljanju.
+type slika struct {
+	ime     string
+	sadrzaj []byte
+}
+
+// Najveća širina slike u dokumentu: A4 bez rubova, izraženo u EMU
+// (914.400 po palcu), koliko OOXML traži za veličine crteža.
+const najvecaSirinaEMU = 5943600
 
 // Novi otvara dokument. Naslov i autor idu u svojstva datoteke.
 func Novi(naslov, autor string, kad time.Time) *Dokument {
@@ -116,6 +144,42 @@ func (d *Dokument) redak(celije []string, glava bool) {
 	d.tijelo.WriteString(`</w:tr>`)
 }
 
+// Slika ugrađuje PNG u dokument, razmjerno smanjen da stane preko širine
+// stranice. Veličina se zadaje u slikovnim točkama izvorne slike.
+func (d *Dokument) Slika(png []byte, sirina, visina int, opis string) {
+	if len(png) == 0 || sirina <= 0 || visina <= 0 {
+		return
+	}
+	ime := fmt.Sprintf("slika%d.png", len(d.slike)+1)
+	d.slike = append(d.slike, slika{ime: ime, sadrzaj: png})
+	id := len(d.slike)
+
+	// 96 točaka po palcu je ono što Word pretpostavlja za PNG bez zapisane
+	// gustoće; preko toga se razmjerno smanjuje da stane u širinu stranice.
+	sirinaEMU := int64(sirina) * 9525
+	visinaEMU := int64(visina) * 9525
+	if sirinaEMU > najvecaSirinaEMU {
+		visinaEMU = visinaEMU * najvecaSirinaEMU / sirinaEMU
+		sirinaEMU = najvecaSirinaEMU
+	}
+
+	fmt.Fprintf(&d.tijelo, `<w:p><w:pPr><w:spacing w:before="60" w:after="60"/></w:pPr><w:r><w:drawing>`+
+		`<wp:inline distT="0" distB="0" distL="0" distR="0" `+
+		`xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">`+
+		`<wp:extent cx="%d" cy="%d"/><wp:docPr id="%d" name="%s" descr="%s"/>`+
+		`<a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">`+
+		`<a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">`+
+		`<pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">`+
+		`<pic:nvPicPr><pic:cNvPr id="%d" name="%s"/><pic:cNvPicPr/></pic:nvPicPr>`+
+		`<pic:blipFill><a:blip r:embed="rIdSlika%d" `+
+		`xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/>`+
+		`<a:stretch><a:fillRect/></a:stretch></pic:blipFill>`+
+		`<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="%d" cy="%d"/></a:xfrm>`+
+		`<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>`+
+		`</pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`,
+		sirinaEMU, visinaEMU, id, ime, escape(opis), id, ime, id, sirinaEMU, visinaEMU)
+}
+
 // PrijelomStranice počinje novu stranicu.
 func (d *Dokument) PrijelomStranice() {
 	d.tijelo.WriteString(`<w:p><w:r><w:br w:type="page"/></w:r></w:p>`)
@@ -148,19 +212,42 @@ func escape(s string) string {
 func (d *Dokument) Zapisi(w io.Writer) error {
 	z := zip.NewWriter(w)
 	for _, dio := range []struct{ ime, sadrzaj string }{
-		{"[Content_Types].xml", contentTypes},
+		{"[Content_Types].xml", contentTypesSa(d.mediji(), d.ImaZaglavlje())},
 		{"_rels/.rels", rels},
 		{"docProps/core.xml", coreXML(d.naslov, d.autor, d.kad)},
-		{"word/_rels/document.xml.rels", docRels},
+		{"word/_rels/document.xml.rels", docRelsSa(d.slike, d.ImaZaglavlje())},
 		{"word/styles.xml", stilovi},
 		{"word/numbering.xml", numeriranje},
-		{"word/document.xml", documentXML(d.tijelo.String())},
+		{"word/document.xml", documentXML(d.tijelo.String(), d.ImaZaglavlje())},
 	} {
 		f, err := z.Create(dio.ime)
 		if err != nil {
 			return err
 		}
 		if _, err := io.WriteString(f, dio.sadrzaj); err != nil {
+			return err
+		}
+	}
+	if d.ImaZaglavlje() {
+		for _, dio := range []struct{ ime, sadrzaj string }{
+			{"word/header1.xml", d.zaglavljeDio()},
+			{"word/_rels/header1.xml.rels", d.zaglavljeVeze()},
+		} {
+			f, err := z.Create(dio.ime)
+			if err != nil {
+				return err
+			}
+			if _, err := io.WriteString(f, dio.sadrzaj); err != nil {
+				return err
+			}
+		}
+	}
+	for _, sl := range d.mediji() {
+		f, err := z.Create("word/media/" + sl.ime)
+		if err != nil {
+			return err
+		}
+		if _, err := f.Write(sl.sadrzaj); err != nil {
 			return err
 		}
 	}
