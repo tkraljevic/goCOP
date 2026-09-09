@@ -161,3 +161,61 @@ func TestResolveStationWatercourse(t *testing.T) {
 		t.Errorf("Osijek → %q, očekivano prazno jer stacionaža nije jednoznačna", name)
 	}
 }
+
+// Kota nule se u dokumentaciji piše na milimetar — "(80,450)" — a izraz je
+// dopuštao samo dvije decimale, pa je tiho vraćao nil. Postaja bi time ostala
+// bez apsolutne kote vode, bez pragova u metrima i bez presjeka u metrima, a
+// nigdje se ne bi vidjelo da je podatak postojao i ispao.
+func TestParseZeroDatumCitaTriDecimale(t *testing.T) {
+	for _, s := range []struct {
+		zapis string
+		want  float64
+	}{
+		{"Batina , rkm 1.424,85 (80,450)", 80.450},
+		{"Siga , km 1.412,20 (78,510)", 78.510},
+		{"Beničanci-Prkos , rkm 47,90 (91,427)", 91.427},
+		{"Županja, rkm 271+900 (76,28)", 76.28},
+		{"CS Dvor , rkm 45,050 (83,500) /na ušću odvodnog kanala u Vuku/", 83.500},
+		{"Metković - Neretva (-0,27)", -0.27},
+	} {
+		got := ParseZeroDatum(s.zapis)
+		if got == nil {
+			t.Errorf("%q: kota se nije pročitala", s.zapis)
+			continue
+		}
+		if *got != s.want {
+			t.Errorf("%q → %v, očekivano %v", s.zapis, *got, s.want)
+		}
+	}
+}
+
+// Oznaka nepoznate kote nije kota. Dokumentacija je piše upitnicima ili
+// crticom; pročitati je kao broj značilo bi izmisliti podatak.
+func TestParseZeroDatumOdbijaOznakeNepoznatog(t *testing.T) {
+	for _, zapis := range []string{
+		"CS Draž , km 0,000 (??,???)",
+		"Koritnjak , km 1+912 (???,??)",
+		"Jankolovica (-)",
+		"Brezovica, rkm 26+171 (0,00)",
+		"brana Letaj",
+	} {
+		if got := ParseZeroDatum(zapis); got != nil {
+			t.Errorf("%q → %v, očekivano ništa", zapis, *got)
+		}
+	}
+}
+
+// Kota se čita iz zagrade, a stacionaža ostaje stacionaža: proširenje izraza
+// ne smije početi hvatati brojke koje kota nisu.
+func TestSirenjeKoteNeKvariStacionazu(t *testing.T) {
+	for _, s := range []struct{ zapis, ime, stac string }{
+		{"Batina , rkm 1.424,85 (80,450)", "Batina", "rkm 1.424,85"},
+		{"Siga , km 1.412,20 (78,510)", "Siga", "km 1.412,20"},
+		{"Županja, rkm 271+900 (76,28)", "Županja", "rkm 271+900"},
+	} {
+		ime, stac := ParseStationName(s.zapis)
+		if ime != s.ime || stac != s.stac {
+			t.Errorf("%q → ime %q, stacionaža %q; očekivano %q i %q", s.zapis, ime, stac, s.ime, s.stac)
+		}
+	}
+}

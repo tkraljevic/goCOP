@@ -11,8 +11,12 @@ import (
 var (
 	// stacionaža u nazivu vodomjera: "rkm 271+900", "km 60+486", "pkm 12+160", "27+760 km"
 	reStationing = regexp.MustCompile(`(?i)\b(r|p|k)?km\s*([0-9]+(?:[+.,][0-9]+)*)|\b([0-9]+\+[0-9]+)\s*km\b`)
-	// kota nule vodomjera na kraju naziva: "(76,28)"
-	reZeroDatum = regexp.MustCompile(`\(\s*([0-9]{1,4}[.,][0-9]{1,2})\s*\)`)
+	// Kota nule vodomjera u zagradi: "(76,28)", "(80,450)", "(-0,27)".
+	// Tri decimale nisu iznimka nego pravilo — niveliranje se vodi na milimetar
+	// — pa je dopuštanje samo dviju gubilo kotu na 58 od 250 zapisa, među njima
+	// Batini, Aljmašu i Belišću. Predznak dopušta kote ispod mora (Neretva).
+	// Oznake nepoznate kote — "(??,???)", "(-)" — nemaju znamenke i otpadaju.
+	reZeroDatum = regexp.MustCompile(`\(\s*([+-]?[0-9]{1,4}[.,][0-9]{1,3})\s*\)`)
 	// prag izražen isključivo brojem centimetara: "+ 600", "+1080", "-20", "580"
 	reThresholdCm = regexp.MustCompile(`^[+-]?[0-9]{1,4}$`)
 	// prefiks vodotoka ispred naziva postaje (nad ASCII-ziranim tekstom):
