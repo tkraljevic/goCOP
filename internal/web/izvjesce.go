@@ -39,7 +39,24 @@ type IzvjesceLetve struct {
 	ValoviZbroj []models.ZbrojStupnja
 	ValoviNiz   models.RazdobljeNiza
 	Sections    []models.Section
+	Episodes    []models.DefenseEpisode
+	Karta       *KartaSlika // položaj letve kao slika; nil kad pločice nisu dostupne
+
+	// Zaglavlje je memorandum centra iz kojeg dokument izlazi. Prazno kad
+	// program ne zna kojem sektoru letva pripada; dokument tada nastaje bez
+	// memoranduma, kao i dosad.
+	Zaglavlje docx.Zaglavlje
+
+	// Dio kaže koju stranicu izvješće preslikava. Dokument nosi ono što je na
+	// toj stranici i ništa više: tko ga sastavlja s kartice, prilaže podatke o
+	// letvi; tko s historijata, prilaže što se dogodilo.
+	Dio string
 }
+
+const (
+	izvjesceKartica    = "kartica"
+	izvjesceHistorijat = "historijat"
+)
 
 // valovaUIzvjescu je koliko se najviših valova ispisuje poimence. Batinin niz
 // ima 693 vala; svi bi dali tablicu od dvadesetak stranica koju nitko ne čita,
@@ -49,9 +66,17 @@ const valovaUIzvjescu = 25
 // Sastavi gradi dokument.
 func (iz IzvjesceLetve) Sastavi() *docx.Dokument {
 	st := iz.Station
-	d := docx.Novi("Izvješće o vodomjernoj postaji "+st.Name, iz.Sastavio, iz.Kad)
+	naslov := "Izvješće o vodomjernoj postaji " + st.Name
+	if iz.Dio == izvjesceHistorijat {
+		naslov = "Historijat vodomjerne postaje " + st.Name
+	}
+	d := docx.Novi(naslov, iz.Sastavio, iz.Kad)
+	d.PostaviZaglavlje(iz.Zaglavlje)
 
 	d.Naslov("Vodomjerna postaja " + st.Name)
+	if iz.Dio == izvjesceHistorijat {
+		d.Naslov("historijat")
+	}
 	pod := []string{}
 	if st.HasWatercourse() {
 		pod = append(pod, st.Watercourse)
@@ -62,14 +87,20 @@ func (iz IzvjesceLetve) Sastavi() *docx.Dokument {
 	d.Podnaslov(strings.Join(pod, " · "))
 
 	iz.osnovno(d)
-	iz.kotaNule(d)
-	iz.pragovi(d)
-	iz.ekstremi(d)
-	iz.povratni(d)
-	iz.niz(d)
-	iz.valoviObrane(d)
-	iz.koritoOpis(d)
-	iz.krivuljeProtoka(d)
+	if iz.Dio == izvjesceHistorijat {
+		iz.povratni(d)
+		iz.promjeneKote(d)
+		iz.niz(d)
+		iz.krivuljeProtoka(d)
+		iz.valoviObrane(d)
+		iz.proglaseneObrane(d)
+	} else {
+		iz.pragovi(d)
+		iz.kotaNule(d)
+		iz.ekstremi(d)
+		iz.polozaj(d)
+		iz.napomena(d)
+	}
 	iz.podrijetloPodataka(d)
 	return d
 }
@@ -125,20 +156,83 @@ func (iz IzvjesceLetve) kotaNule(d *docx.Dokument) {
 		d.Par("Elaborat", datumHR(st.ZeroDatumDocumentDate))
 	}
 
+}
+
+// promjeneKote je poglavlje historijata: kartica prikazuje samo kotu koja
+// danas vrijedi, a povijest promjena stoji ondje gdje se čita.
+func (iz IzvjesceLetve) promjeneKote(d *docx.Dokument) {
 	var redci [][]string
-	for _, c := range st.ZeroDatumHistory {
+	for _, c := range iz.Station.ZeroDatumHistory {
 		od := "od početka mjerenja"
 		if c.ValidFrom != "" {
 			od = datumHR(c.ValidFrom)
 		}
 		redci = append(redci, []string{od, brojHRd(c.Datum, 3) + " m", c.System, c.Note})
 	}
-	if len(redci) > 0 {
-		d.Odjeljak("Promjene kote nule")
-		d.Tablica([]string{"Vrijedi od", "Kota nule", "Sustav", "Napomena"}, redci)
-		d.Napomena("Vodostaji u bazi svedeni su na zadnju kotu i ne preračunavaju se. " +
-			"Povijest služi da se zna što je koja starija evidencija mjerila.")
+	if len(redci) == 0 {
+		return
 	}
+	d.Poglavlje("Promjene kote nule")
+	d.Tablica([]string{"Vrijedi od", "Kota nule", "Sustav", "Napomena"}, redci)
+	d.Napomena("Vodostaji u bazi svedeni su na zadnju kotu i ne preračunavaju se. " +
+		"Povijest služi da se zna što je koja starija evidencija mjerila.")
+}
+
+// polozaj je karta s označenom letvom. Slika se slaže iz istog izvora pločica
+// koji koristi i kartica; bez mreže je nema, pa se ispisuju samo koordinate —
+// dokument se zbog karte ne odbija sastaviti.
+func (iz IzvjesceLetve) polozaj(d *docx.Dokument) {
+	st := iz.Station
+	if !st.ImaKoordinate() {
+		return
+	}
+	d.Poglavlje("Položaj letve")
+	d.Par("Koordinate", st.KoordinateHR())
+	d.Par("Decimalno", brojHRd(st.Latitude, 6)+", "+brojHRd(st.Longitude, 6))
+	if iz.Karta == nil {
+		d.Napomena("Karta nije priložena: pločice podloge nisu bile dostupne pri sastavljanju.")
+		return
+	}
+	d.Slika(iz.Karta.PNG, iz.Karta.Sirina, iz.Karta.Visina, "Položaj letve "+st.Name+" na karti")
+	if iz.Karta.Zasluge != "" {
+		d.Napomena(iz.Karta.Zasluge)
+	}
+}
+
+// napomena je slobodni zapis uz letvu; stoji na kartici, pa i u njezinu izvješću.
+func (iz IzvjesceLetve) napomena(d *docx.Dokument) {
+	if strings.TrimSpace(iz.Station.Notes) == "" {
+		return
+	}
+	d.Poglavlje("Napomena")
+	d.Odlomak(iz.Station.Notes)
+}
+
+// proglaseneObrane su obrane koje je netko doista proglasio — za razliku od
+// valova, koji su izračun iz vodostaja.
+func (iz IzvjesceLetve) proglaseneObrane(d *docx.Dokument) {
+	if len(iz.Episodes) == 0 {
+		return
+	}
+	d.Poglavlje("Obrane vođene po ovoj letvi")
+	d.Odlomak("Obrane koje je netko doista proglasio. Ista letva mjerodavna je za više dionica, " +
+		"a obrana se proglašava po dionici, pa u istom valu svaka može biti na svom stupnju.")
+	var redci [][]string
+	for _, e := range iz.Episodes {
+		do := "traje"
+		if e.EndedAt != nil {
+			do = e.EndedAt.In(models.Zagreb).Format("2.1.2006. 15:04")
+		}
+		redci = append(redci, []string{
+			e.SectionCode,
+			e.StartedAt.In(models.Zagreb).Format("2.1.2006. 15:04"),
+			do,
+			fmt.Sprintf("%d dana", e.Days()),
+			e.PeakLabel(),
+			e.Phase.Label(),
+		})
+	}
+	d.Tablica([]string{"Dionica", "Od", "Do", "Trajanje", "Vrh", "Najviši stupanj"}, redci)
 }
 
 func (iz IzvjesceLetve) pragovi(d *docx.Dokument) {
@@ -146,30 +240,26 @@ func (iz IzvjesceLetve) pragovi(d *docx.Dokument) {
 		return
 	}
 	d.Poglavlje("Pragovi obrane od poplava")
-	glave := []string{"Stupanj", "Vodostaj"}
-	imaKote := len(iz.PragoviKote) > 0
-	if imaKote {
-		glave = append(glave, "Kota vodne plohe")
-	}
-	protok := map[string]string{}
-	for _, q := range iz.PragoviQ {
-		protok[q.Naziv] = brojHRf(q.Q, 0) + " m³/s"
-	}
-	if len(protok) > 0 {
+	// Protok stoji uz svoj prag, spojen po centimetrima još u rukovatelju —
+	// izvješće ga ne traži po nazivu stupnja, jer je naziv tekst za prikaz.
+	glave := []string{"Stupanj", "Vodostaj", "Kota vodne plohe"}
+	imaQ := imaProtok(iz.PragoviKote)
+	if imaQ {
 		glave = append(glave, "Protok po krivulji")
 	}
 	var redci [][]string
 	for _, p := range iz.PragoviKote {
-		r := []string{p.Naziv, brojHR(p.Cm) + " cm"}
-		if imaKote {
-			var k []string
-			for _, v := range p.Kote {
-				k = append(k, brojHRf(v.Kota, 2)+" m "+v.Sustav)
-			}
-			r = append(r, strings.Join(k, "\n"))
+		var k []string
+		for _, v := range p.Kote {
+			k = append(k, brojHRf(v.Kota, 2)+" m "+v.Sustav)
 		}
-		if len(protok) > 0 {
-			r = append(r, protok[p.Naziv])
+		r := []string{p.Naziv, brojHR(p.Cm) + " cm", strings.Join(k, "\n")}
+		if imaQ {
+			q := "—"
+			if p.Q != nil {
+				q = brojHRf(*p.Q, 0) + " m³/s"
+			}
+			r = append(r, q)
 		}
 		redci = append(redci, r)
 	}

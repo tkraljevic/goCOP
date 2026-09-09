@@ -46,6 +46,7 @@
           {{if .Terms.HasLogo}}<label style="font-size:0.85rem; display:flex; gap:0.3rem; align-items:center;"><input type="checkbox" name="logo_remove" value="1"> Makni znak, vrati ugrađeni</label>{{end}}
         </div>
         <div class="form-help">SVG, PNG, JPEG ili WebP do 512 KB; pokazuje se u zaglavlju, na prijavi i pri uparivanju, na svim čvorovima. Najbolje vodoravan znak s prozirnom pozadinom.</div>
+        {{if .Terms.ZnakNijeZaWord}}<div class="form-help" style="color:var(--warning-fg, #92400e);">Znak je u SVG-u, pa ga Word ne prikazuje: izvješća izlaze na memorandumu bez znaka. Za znak i u izvješćima unesite PNG ili JPEG.</div>{{end}}
       </div>
     </div>
     <div class="form-group">
