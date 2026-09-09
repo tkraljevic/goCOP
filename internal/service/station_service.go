@@ -38,6 +38,11 @@ func (s *StationService) ListStations(ctx context.Context, search, watercourse s
 	return s.stationRepo.ListStations(ctx, search, watercourse, onlyNeedsReview)
 }
 
+// BrojOcitanja govori koliko je očitanja upisano na letvi.
+func (s *StationService) BrojOcitanja(ctx context.Context, id uuid.UUID) int {
+	return s.stationRepo.BrojOcitanja(ctx, id)
+}
+
 func (s *StationService) GetStation(ctx context.Context, id uuid.UUID) (*models.Station, error) {
 	return s.stationRepo.GetStationByID(ctx, id)
 }
@@ -171,17 +176,15 @@ func (s *StationService) UpdateStation(ctx context.Context, perms *models.UserPe
 		return err
 	}
 
-	// Obrazac ne šalje sva polja — ono što ne uređuje mora preživjeti izmjenu
-	station.SourceName = existing.SourceName
-	station.ZeroDatumSource = existing.ZeroDatumSource
-	station.ZeroDatumMethod = existing.ZeroDatumMethod
-	station.ZeroDatumSurveyDate = existing.ZeroDatumSurveyDate
-	station.ZeroDatumDocumentDate = existing.ZeroDatumDocumentDate
+	// Ovdje je nekad stajalo vraćanje izvora kote, načina, datuma i naziva iz
+	// dokumentacije na stare vrijednosti, uz obrazloženje da ih obrazac ne
+	// šalje. Obrazac ih šalje, i to je značilo da se upisano tiho baca: tko bi
+	// obrisao napomenu o koti, dobio bi je natrag pri svakom spremanju.
+	//
+	// Ono što obrazac doista ne uređuje čuva rukovatelj — svaki obrazac prenosi
+	// samo svoja polja na postojeći zapis, pa ovdje nema što nadoknađivati.
 	if strings.TrimSpace(station.Code) == "" {
-		station.Code = existing.Code
-	}
-	if strings.TrimSpace(station.WaterArea) == "" {
-		station.WaterArea = existing.WaterArea
+		station.Code = existing.Code // šifra je identitet i ne uređuje se
 	}
 
 	// Naziv vodotoka mijenja i podrijetlo podatka: ručni unos je potvrda
@@ -194,11 +197,17 @@ func (s *StationService) UpdateStation(ctx context.Context, perms *models.UserPe
 		station.WatercourseSource = models.WatercourseFromOperator
 	}
 
-	station.NeedsReview = !station.HasUsableThresholds()
-	if !station.NeedsReview {
+	// Letva bez ijednog praga u centimetrima traži pregled bez obzira na
+	// kvačicu: to nije mišljenje operatera nego stanje podatka. Ima li pragove,
+	// odlučuje operater — dotad je kvačica bila bez ikakva učinka jer ju je ovaj
+	// redak prepisivao.
+	if !station.HasUsableThresholds() {
+		station.NeedsReview = true
+		if strings.TrimSpace(station.ReviewNote) == "" {
+			station.ReviewNote = "nijedan prag nije zapisan u centimetrima — faza obrane se ne računa automatski"
+		}
+	} else if !station.NeedsReview {
 		station.ReviewNote = ""
-	} else if station.ReviewNote == "" {
-		station.ReviewNote = "nijedan prag nije zapisan u centimetrima — faza obrane se ne računa automatski"
 	}
 
 	if err := s.stationRepo.UpdateStation(ctx, station); err != nil {

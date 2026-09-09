@@ -20,6 +20,15 @@
   --tint-yellow-bg: #fef9c3; --tint-yellow-fg: #854d0e;
   --tint-sky-bg: #f0f9ff;
   --tint-teal-bg: #ccfbf1;   --tint-teal-fg: #0f766e;
+
+  /* Stupnjevi obrane. Boje su propisane službenim dokumentima: pripremno
+     plavo, redovna žuto, izvanredna narančasto, izvanredno stanje crveno.
+     Prije su bile razasute po dvadesetak razreda, a izvanredna i izvanredno
+     stanje dijelili su istu — pa se na presjeku korita nisu razlikovali. */
+  --faza-p-bg: #dbeafe; --faza-p-fg: #1d4ed8; --faza-p-crta: #2563eb;
+  --faza-r-bg: #fef9c3; --faza-r-fg: #854d0e; --faza-r-crta: #ca8a04;
+  --faza-i-bg: #ffedd5; --faza-i-fg: #9a3412; --faza-i-crta: #ea580c;
+  --faza-s-bg: #dc2626; --faza-s-fg: #ffffff; --faza-s-crta: #dc2626;
   --accent: #20ba70;
   --accent-dark: #178f55;
   --accent-light: #e6f7ee;
@@ -65,6 +74,11 @@
     --tint-yellow-bg: #3a3208; --tint-yellow-fg: #fde68a;
     --tint-sky-bg: #16243a;
     --tint-teal-bg: #123a36;   --tint-teal-fg: #5eead4;
+
+    --faza-p-bg: #1e3a5f; --faza-p-fg: #93c5fd; --faza-p-crta: #60a5fa;
+    --faza-r-bg: #3a3208; --faza-r-fg: #fde68a; --faza-r-crta: #facc15;
+    --faza-i-bg: #3a1f0f; --faza-i-fg: #fdba74; --faza-i-crta: #fb923c;
+    --faza-s-bg: #dc2626; --faza-s-fg: #ffffff; --faza-s-crta: #f87171;
     --accent: #2fd08a;
     --accent-dark: #4ad493;
     --accent-light: #12362a;
@@ -105,6 +119,12 @@
   --tint-yellow-bg: #3a3208; --tint-yellow-fg: #fde68a;
   --tint-sky-bg: #16243a;
   --tint-teal-bg: #123a36;   --tint-teal-fg: #5eead4;
+    --tint-teal-bg: #123a36;   --tint-teal-fg: #5eead4;
+
+  --faza-p-bg: #1e3a5f; --faza-p-fg: #93c5fd; --faza-p-crta: #60a5fa;
+  --faza-r-bg: #3a3208; --faza-r-fg: #fde68a; --faza-r-crta: #facc15;
+  --faza-i-bg: #3a1f0f; --faza-i-fg: #fdba74; --faza-i-crta: #fb923c;
+  --faza-s-bg: #dc2626; --faza-s-fg: #ffffff; --faza-s-crta: #f87171;
   --accent: #2fd08a;
   --accent-dark: #4ad493;
   --accent-light: #12362a;
@@ -1482,31 +1502,88 @@ a:hover { color: var(--accent); }
 }
 
 .threshold-pill.prep {
-  background: var(--tint-yellow-bg);
-  color: var(--tint-amber-fg);
-  border: 1px solid var(--tint-yellow-bg);
+  background: var(--faza-p-bg);
+  color: var(--faza-p-fg);
+  border: 1px solid var(--faza-p-bg);
 }
 
 .threshold-pill.regular {
-  background: var(--tint-orange-bg);
-  color: #9a3412;
-  border: 1px solid var(--tint-orange-bg);
+  background: var(--faza-r-bg);
+  color: var(--faza-r-fg);
+  border: 1px solid var(--faza-r-bg);
 }
 
 .threshold-pill.emerg {
-  background: var(--danger-border);
-  color: var(--danger);
-  border: 1px solid var(--danger-border);
+  background: var(--faza-i-bg);
+  color: var(--faza-i-fg);
+  border: 1px solid var(--faza-i-bg);
 }
 
 .threshold-pill.crit {
-  background: #ef4444;
-  color: white;
+  background: var(--faza-s-bg);
+  color: var(--faza-s-fg);
+  border: 1px solid var(--faza-s-bg);
 }
 
 .threshold-pill.record {
   background: #7f1d1d;
   color: white;
+}
+
+/* Protok uz vodostaj istoga praga: ista boja veže dvije mjere istoga stupnja,
+   a obris umjesto ispune kaže da je to druga veličina, ne drugi prag. */
+.threshold-pill.protok {
+  background: transparent;
+  font-weight: 600;
+}
+.threshold-pill.crit.protok { color: var(--faza-s-crta); border: 1px solid var(--faza-s-crta); }
+
+/* Svaki stupanj obrane je svoja kartica: naziv pa dvije mjere iste boje —
+   koliko je vodostaj i koliki protok kroz njega prolazi. Prije su naziv i
+   vrijednost stajali u mreži zajedno s krajnostima i kotom nule, pa se nije
+   vidjelo što je propis a što mjerenje. */
+.pragovi-kartice {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+.prag-kartica {
+  border: 1px solid var(--border);
+  border-left-width: 3px;
+  border-radius: 6px;
+  padding: 0.55rem 0.7rem;
+  background: var(--surface);
+  min-width: 0;
+}
+.prag-kartica.prep { border-left-color: var(--faza-p-crta); }
+.prag-kartica.regular { border-left-color: var(--faza-r-crta); }
+.prag-kartica.emerg { border-left-color: var(--faza-i-crta); }
+.prag-kartica.crit { border-left-color: var(--faza-s-crta); }
+/* Rijetke radnje kartice — izvješće i brisanje — stoje na dnu, ne u zaglavlju
+   uz one koje se rabe svakodnevno. */
+.kartica-podnozje {
+  display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;
+  justify-content: flex-end;
+  margin: 1.5rem 0 0; padding-top: 0.875rem; border-top: 1px solid var(--border);
+}
+/* Na uskom zaslonu se gumbi ionako slažu jedan pod drugi, pa ih guranje udesno
+   samo odmiče od ruba na kojem palac stoji. */
+@media (max-width: 520px) {
+  .kartica-podnozje { justify-content: stretch; }
+  .kartica-podnozje > *, .kartica-podnozje form { flex: 1 1 100%; }
+  .kartica-podnozje .btn { width: 100%; justify-content: center; }
+}
+.prag-naziv {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin-bottom: 0.35rem;
+}
+.prag-mjere { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+
+@media (max-width: 780px) {
+  .pragovi-kartice { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 .personnel-cards-list {
@@ -1994,8 +2071,22 @@ a:hover { color: var(--accent); }
 
 /* Detalj vodomjerne postaje: podaci ostaju u pravilnim stupcima i kad se
    pojedini naslov prelomi u dva retka. */
+/* Kartica pragova ima tri skupine podatka i one se ne smiju stopiti u jednu
+   mrežu: prag je propisana granica, krajnost je izmjerena vrijednost, kota
+   nule je temelj iz kojeg se oboje izražava u metrima. Dok su stajali u istoj
+   mreži od pet stupaca, osam se stavki lomilo na 5 + 3 i drugi je red ostajao
+   razderan. */
+.pragovi-skupina {
+  margin-top: 0.875rem;
+  padding-top: 0.875rem;
+  border-top: 1px solid var(--border);
+}
+.pragovi-skupina > .reg-card-sub { margin-bottom: 0.5rem; }
+
+/* Četiri stupnja obrane su ljestvica i čitaju se slijeva nadesno, pa im ide
+   točno četiri stupca — nikad prelomljena u drugi red. */
 .station-threshold-grid {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.75rem;
   font-size: 0.9rem;
 }
@@ -2006,6 +2097,8 @@ a:hover { color: var(--accent); }
   grid-template-rows: 2.25rem auto;
   align-content: start;
 }
+
+.nema-podatka { color: var(--text-muted); font-weight: 500; }
 
 .station-threshold-grid dd {
   align-self: start;
@@ -2326,18 +2419,20 @@ textarea {
 .chart .grid { stroke: var(--border); stroke-width: 1; }
 .chart .tick { font-size: 10px; fill: var(--text-secondary); font-family: inherit; }
 /* Pojasevi faza obrane; prozirne boje rade i na svijetloj i na tamnoj temi */
-.chart .band.prep { fill: rgba(234, 179, 8, 0.16); }
-.chart .band.regular { fill: rgba(249, 115, 22, 0.20); }
-.chart .band.emerg { fill: rgba(239, 68, 68, 0.22); }
-.chart .band.crit { fill: rgba(220, 38, 38, 0.34); }
+.chart .band.prep { fill: color-mix(in srgb, var(--faza-p-crta) 16%, transparent); }
+.chart .band.regular { fill: color-mix(in srgb, var(--faza-r-crta) 20%, transparent); }
+.chart .band.emerg { fill: color-mix(in srgb, var(--faza-i-crta) 22%, transparent); }
+.chart .band.crit { fill: color-mix(in srgb, var(--faza-s-crta) 30%, transparent); }
 .chart .thr { stroke-dasharray: 4 3; stroke-width: 1.5; }
-.chart .thr.prep { stroke: var(--tint-yellow-fg); }
-.chart .thr.regular { stroke: var(--tint-orange-fg); }
-.chart .thr.emerg, .chart .thr.crit { stroke: var(--danger); }
+.chart .thr.prep { stroke: var(--faza-p-crta); }
+.chart .thr.regular { stroke: var(--faza-r-crta); }
+.chart .thr.emerg { stroke: var(--faza-i-crta); }
+.chart .thr.crit { stroke: var(--faza-s-crta); }
 .chart .thr-label { font-size: 10px; font-weight: 700; font-family: inherit; }
-.chart .thr-label.prep { fill: var(--tint-yellow-fg); }
-.chart .thr-label.regular { fill: var(--tint-orange-fg); }
-.chart .thr-label.emerg, .chart .thr-label.crit { fill: var(--danger); }
+.chart .thr-label.prep { fill: var(--faza-p-crta); }
+.chart .thr-label.regular { fill: var(--faza-r-crta); }
+.chart .thr-label.emerg { fill: var(--faza-i-crta); }
+.chart .thr-label.crit { fill: var(--faza-s-crta); }
 .level-input { font-size: 1.75rem; font-weight: 700; text-align: center; letter-spacing: 0.02em; min-height: 3.5rem; font-variant-numeric: tabular-nums; }
 
 /* Teren: obilazak letvi */
@@ -2648,9 +2743,10 @@ textarea {
 /* Stupnjevi obrane ucrtani na korito. Mjere su u koordinatama crteža, koji je
    širok 900 jedinica — otprilike jedan naprama jedan sa stvarnom širinom. */
 .korito-graf .korito-prag { stroke-width: 1.2; stroke-dasharray: 5 4; }
-.korito-graf .korito-prag.prep { stroke: var(--tint-yellow-fg); }
-.korito-graf .korito-prag.regular { stroke: var(--tint-orange-fg); }
-.korito-graf .korito-prag.emerg, .korito-graf .korito-prag.crit { stroke: var(--danger); }
+.korito-graf .korito-prag.prep { stroke: var(--faza-p-crta); }
+.korito-graf .korito-prag.regular { stroke: var(--faza-r-crta); }
+.korito-graf .korito-prag.emerg { stroke: var(--faza-i-crta); }
+.korito-graf .korito-prag.crit { stroke: var(--faza-s-crta); }
 .korito-graf .korito-prag-natpis { font-size: 11px; font-weight: 700; }
 /* Kota vodne plohe stoji na sredini vode, jer je to podatak zbog kojeg se
    presjek i gleda. Iznad crte, gdje je crtež prazan. */
@@ -2665,9 +2761,10 @@ textarea {
 .korito-graf.graf-uski .korito-voda-natpis { font-size: 16px; }
 .korito-graf.graf-uski .korito-dno { stroke-width: 2.6; }
 .korito-graf.graf-uski .korito-prag { stroke-width: 1.8; }
-.korito-graf .korito-prag-natpis.prep { fill: var(--tint-yellow-fg); }
-.korito-graf .korito-prag-natpis.regular { fill: var(--tint-orange-fg); }
-.korito-graf .korito-prag-natpis.emerg, .korito-graf .korito-prag-natpis.crit { fill: var(--danger); }
+.korito-graf .korito-prag-natpis.prep { fill: var(--faza-p-crta); }
+.korito-graf .korito-prag-natpis.regular { fill: var(--faza-r-crta); }
+.korito-graf .korito-prag-natpis.emerg { fill: var(--faza-i-crta); }
+.korito-graf .korito-prag-natpis.crit { fill: var(--faza-s-crta); }
 /* krajnost koja nije mjerena nego preračunata iz susjedne postaje */
 .preracunato { color: var(--text-muted); font-weight: 700; cursor: help; }
 /* najniži vodostaj: ista obitelj kao rekord, ali hladna strana */

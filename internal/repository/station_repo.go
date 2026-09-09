@@ -422,6 +422,18 @@ func (r *StationRepository) UpdateStation(ctx context.Context, st *models.Statio
 	return tx.Commit()
 }
 
+// BrojOcitanja govori koliko je očitanja upisano na ovoj letvi. Očitanja nemaju
+// vezu na postaju s kaskadnim brisanjem, pa brisanjem letve ne nestaju nego
+// ostaju bez nje — brojka služi da se to prije brisanja i kaže.
+func (r *StationRepository) BrojOcitanja(ctx context.Context, id uuid.UUID) int {
+	var n int
+	if err := r.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM readings WHERE station_id = ?`, id.String()).Scan(&n); err != nil {
+		return 0
+	}
+	return n
+}
+
 // DeleteStation uklanja postaju s površine i sve njezine veze s dionicama.
 // U knjizi verzija ostaje arhivirana i može se vratiti.
 func (r *StationRepository) DeleteStation(ctx context.Context, id uuid.UUID) error {

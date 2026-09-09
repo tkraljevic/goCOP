@@ -24,8 +24,11 @@ type StationsHandler struct {
 	episodeService     *service.EpisodeService
 	arhiva             func() *repository.ArhivaRepository
 	karta              func() KartaPostavke
+	sektor             func(ctx context.Context, id string) *models.Sector
 	tmpl               *template.Template // popis
 	tmplDetail         *template.Template // jedna postaja
+	tmplHistorijat     *template.Template // povijest jedne postaje
+	tmplHistObrazac    *template.Template // obrazac povijesnih podataka
 	tmplForm           *template.Template // obrazac
 	valovi             *valoviPamcenje    // izračunati valovi obrane, po letvi
 }
@@ -210,12 +213,28 @@ func (h *StationsHandler) HandleUpdateStationAPI(w http.ResponseWriter, r *http.
 		return
 	}
 
-	station := form.toStation()
+	// Postojeći zapis je polazište: obrazac prenosi samo svoja polja, pa ono
+	// što uređuje drugi obrazac ostaje netaknuto.
+	postojeca, err := h.stationService.GetStation(ctx, stationID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if postojeca == nil {
+		http.Error(w, "Postaja ne postoji", http.StatusNotFound)
+		return
+	}
+	station := *postojeca
+	form.primijeni(&station)
 	station.ID = stationID
 
 	if err := h.stationService.UpdateStation(ctx, perms, &station); err != nil {
 		if wantsPage(r) {
-			redirectWith(w, r, "/stations/"+stationID.String()+"/edit", "error", err.Error())
+			natrag := "/stations/" + stationID.String() + "/edit"
+			if form.Obrazac == obrazacHistorijat {
+				natrag = "/stations/" + stationID.String() + "/historijat/uredi"
+			}
+			redirectWith(w, r, natrag, "error", err.Error())
 			return
 		}
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -223,7 +242,11 @@ func (h *StationsHandler) HandleUpdateStationAPI(w http.ResponseWriter, r *http.
 	}
 
 	if wantsPage(r) {
-		redirectWith(w, r, "/stations/"+stationID.String(), "success", "Izmjene su spremljene.")
+		natrag := "/stations/" + stationID.String()
+		if form.Obrazac == obrazacHistorijat {
+			natrag += "/historijat"
+		}
+		redirectWith(w, r, natrag, "success", "Izmjene su spremljene.")
 		return
 	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -332,6 +355,7 @@ type stationForm struct {
 	ZeroDatumHistory   string `json:"zero_datum_history"` // JSON popis promjena kote, iz obrasca
 	Extremes           string `json:"extremes"`           // JSON popis ekstrema, iz obrasca
 	ReturnLevels       string `json:"return_levels"`      // JSON popis povratnih vodostaja, iz obrasca
+	Obrazac            string `json:"obrazac"`            // koji je obrazac poslan: kartica ili historijat
 	Prep               string `json:"prep"`
 	Regular            string `json:"regular"`
 	Emergency          string `json:"emergency"`
@@ -380,6 +404,7 @@ func decodeStationForm(r *http.Request) (stationForm, error) {
 	form.ZeroDatumHistory = r.FormValue("zero_datum_history")
 	form.Extremes = r.FormValue("extremes")
 	form.ReturnLevels = r.FormValue("return_levels")
+	form.Obrazac = r.FormValue("obrazac")
 	form.Prep = r.FormValue("prep")
 	form.Regular = r.FormValue("regular")
 	form.Emergency = r.FormValue("emergency")
@@ -397,6 +422,51 @@ func decodeStationForm(r *http.Request) (stationForm, error) {
 	form.ReviewNote = r.FormValue("review_note")
 
 	return form, nil
+}
+
+// Obrasci postaje. Kartica uređuje ono što na njoj piše — naziv, položaj,
+// pragove, kotu nule; historijat ono što je zabilježeno — ekstreme, povratne
+// vodostaje, promjene kote nule. Svaki obrazac prenosi SAMO svoja polja: kad
+// bi svaki gradio cijelu postaju, spremanje kartice tiho bi obrisalo ekstreme,
+// jer ih u njezinu obrascu nema pa bi stigli prazni.
+const (
+	obrazacKartica    = "kartica"
+	obrazacHistorijat = "historijat"
+)
+
+// primijeni prenosi polja obrasca na postojeću postaju, ostalo ostavlja kakvo
+// jest.
+func (f stationForm) primijeni(st *models.Station) {
+	if f.Obrazac == obrazacHistorijat {
+		st.ReturnLevels = parseReturnLevels(f.ReturnLevels)
+		st.ZeroDatumHistory = parseZeroDatumHistory(f.ZeroDatumHistory)
+		return
+	}
+	st.Code = strings.TrimSpace(f.Code)
+	st.Name = strings.TrimSpace(f.Name)
+	st.Watercourse = strings.TrimSpace(f.Watercourse)
+	st.WaterArea = strings.TrimSpace(f.WaterArea)
+	st.Stationing = strings.TrimSpace(f.Stationing)
+	st.Latitude = parseOptionalFloat(f.Latitude)
+	st.Longitude = parseOptionalFloat(f.Longitude)
+	st.Prep = parseThresholdInput(f.Prep)
+	st.Regular = parseThresholdInput(f.Regular)
+	st.Emergency = parseThresholdInput(f.Emergency)
+	st.State = parseThresholdInput(f.State)
+	st.Record = parseThresholdInput(f.Record)
+	st.Extremes = parseExtremes(f.Extremes)
+	st.ZeroDatum = parseOptionalFloat(f.ZeroDatum)
+	st.ZeroDatumSystem = strings.TrimSpace(f.ZeroDatumSystem)
+	st.ZeroDatumNew = parseOptionalFloat(f.ZeroDatumNew)
+	st.ZeroDatumNewSystem = strings.TrimSpace(f.ZeroDatumNewSystem)
+	st.ZeroDatumSource = strings.TrimSpace(f.ZeroDatumSource)
+	st.ZeroDatumMethod = strings.TrimSpace(f.ZeroDatumMethod)
+	st.ZeroDatumSurveyDate = strings.TrimSpace(f.ZeroDatumSurveyDate)
+	st.ZeroDatumDocumentDate = strings.TrimSpace(f.ZeroDatumDocumentDate)
+	st.Notes = strings.TrimSpace(f.Notes)
+	st.SourceName = strings.TrimSpace(f.SourceName)
+	st.NeedsReview = f.NeedsReview == "1" || f.NeedsReview == "on" || f.NeedsReview == "true"
+	st.ReviewNote = strings.TrimSpace(f.ReviewNote)
 }
 
 func (f stationForm) toStation() models.Station {
