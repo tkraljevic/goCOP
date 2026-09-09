@@ -35,6 +35,7 @@
     <a href="#letva-valovi">Valovi obrane u nizu</a>
     <a href="#letva-korito">Korito i voda u njemu</a>
     <a href="#letva-karta">Karta položaja</a>
+    <a href="#letva-historijat">Historijat letve</a>
     <a href="#letva-izvjesce">Izvješće u Wordu</a>
   </div>
   <div class="kazalo-grupa">
@@ -248,12 +249,31 @@
       ne treba internet, pa gdje mreže nema karta to i napiše, a koordinate i poveznica na
       vanjsku kartu vrijede i dalje. Izvor podloge postavlja se u <code>gocop.toml</code>.</p>
 
+    <h3 id="letva-historijat">Historijat letve</h3>
+    <p>Kartica letve odgovara na pitanje <strong>što letva jest</strong> — gdje stoji, koji su joj
+      pragovi i kota nule. Gumb <strong>Historijat</strong> otvara ono što se <strong>dogodilo</strong>:
+      zabilježene ekstreme, povratne vodostaje, promjene kote nule, cijeli niz iz arhive s izvorima i
+      razradom po godinama, valove obrane i proglašene obrane po dionicama.</p>
+    <p>Razdvojeno je namjerno. Dok je sve stajalo na jednoj stranici, do pragova se dolazilo kroz
+      sedam odjeljaka povijesti. Podaci su isti i skupljaju se istim putem, pa se dvije stranice ne
+      mogu razići.</p>
+
     <h3 id="letva-izvjesce">Izvješće u Wordu</h3>
-    <p>Gumb <strong>Generiraj izvješće</strong> sastavlja <code>.docx</code> sa svime što program
-      o letvi zna i svime što je iz njezina niza izračunao: osnovni podaci, kota nule i njezina
-      povijest, pragovi s kotama i protokom, ekstremi, povratni vodostaji s metodom, doseg niza i
-      odakle podaci dolaze, valovi obrane sa zbrojem za cijeli niz i najviših dvadeset pet
-      poimence, korito i krivulje protoka.</p>
+    <p>Gumb <strong>Generiraj izvješće</strong> sastavlja <code>.docx</code> s onim što stoji na
+      stranici s koje je pokrenut, i ništa više. S kartice letve to su osnovni podaci, pragovi s
+      kotama i protokom, kota nule, zabilježeni ekstremi i napomena. S historijata su to povratni
+      vodostaji s metodom, promjene kote nule, doseg niza i odakle podaci dolaze, krivulje protoka,
+      valovi obrane sa zbrojem za cijeli niz i najviših dvadeset pet poimence, te proglašene obrane.</p>
+    <p>Dva dokumenta imaju različita imena, pa se u mapi preuzimanja ne prepisuju.</p>
+    <p>Dokument izlazi na <strong>memorandumu</strong> centra: znak organizacije, ustanova,
+      ustrojstvena jedinica, adresa i telefoni. Ništa od toga nije upisano u program — uzima se iz
+      <strong>Postavke → Nazivi</strong> i iz zapisa sektora, pa svaki centar dobiva svoj
+      memorandum. Sektor se određuje iz dionica na kojima je letva mjerodavna. Znak unesite kao
+      PNG ili JPEG: SVG se lijepo prikazuje u sučelju, ali ga Word ne zna nacrtati, pa bi
+      memorandum ostao bez njega.</p>
+    <p>Izvješće s kartice nosi i <strong>kartu položaja</strong>. Za nju treba mreža, kao i za kartu
+      na stranici; bez nje dokument nastane s koordinatama i rečenicom da podloga nije bila
+      dostupna.</p>
     <p>Dokument se otvara u Wordu i dalje uređuje rukom — služi kao podloga za tekst, ne kao
       gotov elaborat. Ograde koje na kartici stoje uz brojke idu i u njega, jer dokument putuje
       dalje od stranice i čita ga netko tko izračun nije vidio. Grafova nema; brojke koje graf
