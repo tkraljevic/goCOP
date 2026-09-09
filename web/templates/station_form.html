@@ -11,7 +11,10 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">{{if .IsEdit}}{{icon "pencil"}} {{.Station.Name}}{{else}}{{icon "ruler"}} Nova vodomjerna postaja{{end}}</h1>
-    <p class="page-desc">Svaka izmjena ostaje u povijesti zapisa i stiže na sve čvorove.</p>
+    <p class="page-desc">Ovdje se uređuje ono što stoji na kartici letve, istim redom kojim je ondje
+      prikazano. Zabilježene ekstreme, povratne vodostaje i promjene kote nule uređuje
+      {{if .IsEdit}}<a href="/stations/{{.Station.ID}}/historijat">historijat</a>{{else}}historijat{{end}}.
+      Svaka izmjena ostaje u povijesti zapisa i stiže na sve čvorove.</p>
   </div>
 </div>
 
@@ -19,11 +22,12 @@
 
 <form class="form-page form-wide" id="station-form" method="POST" action="{{if .IsEdit}}/api/stations/update{{else}}/api/stations/create{{end}}">
   {{if .IsEdit}}<input type="hidden" name="id" value="{{.Station.ID}}">{{end}}
+  <input type="hidden" name="obrazac" value="kartica">
   <input type="hidden" name="code" value="{{.Station.Code}}">
-  <input type="hidden" name="water_area" value="{{.Station.WaterArea}}">
   <input type="hidden" name="zero_datum_system" value="{{if .Station.ZeroDatumSystem}}{{.Station.ZeroDatumSystem}}{{else}}TRST{{end}}">
   <input type="hidden" name="zero_datum_new_system" value="{{if .Station.ZeroDatumNewSystem}}{{.Station.ZeroDatumNewSystem}}{{else}}HVRS71{{end}}">
 
+  <h3 style="font-size:0.9rem; margin:0 0 0.5rem;">Osnovni podaci</h3>
   <div class="form-row">
     <div class="form-group">
       <label class="form-label" for="name">Naziv postaje *</label>
@@ -34,36 +38,67 @@
       <input type="text" id="stationing" name="stationing" class="form-control" value="{{.Station.Stationing}}" placeholder="rkm 271+900" autocomplete="off">
     </div>
   </div>
-
   <div class="form-row">
     <div class="form-group">
       <label class="form-label" for="watercourse">Vodotok (naziv)</label>
       <input type="text" id="watercourse" name="watercourse" class="form-control" value="{{.Station.Watercourse}}" placeholder="Sava" autocomplete="off">
-      <div class="form-help">Vezu na registar vodotoka postavljate na stranici postaje.</div>
+      <div class="form-help">Voda na kojoj vodomjer stoji. Vezu na registar postavljate niže.</div>
     </div>
-    {{if not .IsEdit}}
+    <div class="form-group">
+      <label class="form-label" for="water_area">Vodno područje</label>
+      <input type="text" id="water_area" name="water_area" class="form-control" value="{{.Station.WaterArea}}" placeholder="npr. Sliv Drave i Dunava" autocomplete="off">
+    </div>
+  </div>
+  {{if not .IsEdit}}
+  <div class="form-row">
     <div class="form-group">
       <label class="form-label" for="section_code">Dodaj na dionicu (neobavezno)</label>
       <input type="text" id="section_code" name="section_code" class="form-control" placeholder="npr. D.1.1" autocomplete="off">
     </div>
-    {{end}}
+    <div class="form-group"></div>
   </div>
+  {{end}}
 
-  <h3 style="font-size:0.9rem; margin:1rem 0 0.5rem;">Kota nule vodomjera</h3>
+  <h3 style="font-size:0.9rem; margin:1rem 0 0.25rem;">Pragovi obrane od poplava</h3>
+  <p class="form-help" style="margin:0 0 0.5rem;">
+    Broj se čita kao centimetri na vodomjeru i ulazi u izračun stupnja obrane.
+    Svaki drugi zapis (npr. „206,30 m n. m.") čuva se kao tekst i ne ulazi u izračun.
+  </p>
   <div class="form-row">
     <div class="form-group">
-      <label class="form-label" for="zero_datum">Kota „0“ — Trst (m)</label>
-      <input type="text" inputmode="decimal" id="zero_datum" name="zero_datum" class="form-control"
-             value="{{if .Station.ZeroDatum}}{{unosD .Station.ZeroDatum 2}}{{end}}" placeholder="76,28">
+      <label class="form-label" for="prep">Pripremno stanje (P)</label>
+      <input type="text" inputmode="numeric" id="prep" name="prep" class="form-control" value="{{thresholdInput .Station.Prep}}" placeholder="+600">
     </div>
+    <div class="form-group">
+      <label class="form-label" for="regular">Redovna obrana (R)</label>
+      <input type="text" inputmode="numeric" id="regular" name="regular" class="form-control" value="{{thresholdInput .Station.Regular}}" placeholder="+880">
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="emergency">Izvanredna obrana (I)</label>
+      <input type="text" inputmode="numeric" id="emergency" name="emergency" class="form-control" value="{{thresholdInput .Station.Emergency}}" placeholder="+980">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="state">Izvanredno stanje (IS)</label>
+      <input type="text" inputmode="numeric" id="state" name="state" class="form-control" value="{{thresholdInput .Station.State}}" placeholder="+1080">
+    </div>
+  </div>
+
+  <h3 style="font-size:0.9rem; margin:1rem 0 0.25rem;">Kota nule vodomjera</h3>
+  <div class="form-row">
     <div class="form-group">
       <label class="form-label" for="zero_datum_new">Kota „0“ — HVRS71 (m)</label>
       <input type="text" inputmode="decimal" id="zero_datum_new" name="zero_datum_new" class="form-control"
-             value="{{if .Station.ZeroDatumNew}}{{unosD .Station.ZeroDatumNew 2}}{{end}}" placeholder="tek se mjeri">
+             value="{{if .Station.ZeroDatumNew}}{{unosD .Station.ZeroDatumNew 3}}{{end}}" placeholder="80,189">
       <div class="form-help">Ne preračunava se iz stare kote.</div>
     </div>
+    <div class="form-group">
+      <label class="form-label" for="zero_datum">Kota „0“ — Trst (m)</label>
+      <input type="text" inputmode="decimal" id="zero_datum" name="zero_datum" class="form-control"
+             value="{{if .Station.ZeroDatum}}{{unosD .Station.ZeroDatum 3}}{{end}}" placeholder="80,450">
+    </div>
   </div>
-
   <div class="form-row">
     <div class="form-group">
       <label class="form-label" for="zero_datum_source">Odakle kota</label>
@@ -90,29 +125,20 @@
     </div>
   </div>
 
-  <h3 style="font-size:0.9rem; margin:1rem 0 0.25rem;">Položaj</h3>
-  <p class="form-help" style="margin:0 0 0.5rem;">
-    Decimalni stupnjevi. Tehnički zapisnici DHMZ-a daju stupnjeve, minute i sekunde —
-    npr. 45° 50′ 45″ je 45,845833. S koordinatama se letva prikazuje na karti.
-  </p>
-  <div class="form-row">
-    <div class="form-group">
-      <label class="form-label" for="latitude">Geografska širina</label>
-      <input type="text" inputmode="decimal" id="latitude" name="latitude" class="form-control mono"
-             value="{{if .Station.Latitude}}{{unosD .Station.Latitude 6}}{{end}}" placeholder="45,845833">
-    </div>
-    <div class="form-group">
-      <label class="form-label" for="longitude">Geografska dužina</label>
-      <input type="text" inputmode="decimal" id="longitude" name="longitude" class="form-control mono"
-             value="{{if .Station.Longitude}}{{unosD .Station.Longitude 6}}{{end}}" placeholder="18,854722">
-    </div>
-  </div>
-
   <h3 style="font-size:0.9rem; margin:1rem 0 0.25rem;">Zabilježeni ekstremi</h3>
   <p class="form-help" style="margin:0 0 0.5rem;">
     Najviši i najniži vodostaj s datumom. Vrijednost koja nije izmjerena na ovoj letvi — preračunata iz druge postaje
     ili preuzeta iz starije evidencije — mora nositi podrijetlo, izvor i način; takva ne ulazi u pragove obrane.
   </p>
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="record">Najviši zabilježeni, kako stoji u dokumentaciji</label>
+      <input type="text" id="record" name="record" class="form-control" value="{{thresholdInput .Station.Record}}" placeholder="+775 (14.6.2013.)">
+      <div class="form-help">Izvorni zapis iz Privitka, s datumom u zagradi. Razrađene krajnosti
+        upisuju se u tablicu ispod; ovo polje se prikazuje na kartici dionice i u popisu letvi.</div>
+    </div>
+    <div class="form-group"></div>
+  </div>
   <input type="hidden" name="extremes" id="extremes">
   <div class="rows-extreme">
     <div class="rows-head"><div>Vrsta</div><div>Vodostaj (cm)</div><div>Datum</div><div>Podrijetlo</div><div>Izvor</div><div>Način</div><div>Napomena</div><div></div></div>
@@ -156,132 +182,30 @@
   document.getElementById('station-form') && document.getElementById('station-form').addEventListener('submit', collectExtremes);
   </script>
 
-  <h3 style="font-size:0.9rem; margin:1rem 0 0.25rem;">Povratni vodostaji</h3>
-  <p class="form-help" style="margin:0 0 0.5rem;">
-    Koliko visoko voda dođe jednom u T godina. Procjena iz niza, ne mjerenje — zato uz brojku ide metoda i niz na
-    kojem je računata; bez toga se poslije ne zna što brojka tvrdi. Granice pouzdanosti upisuju se u paru ili nikako.
-    Ne ulaze u pragove obrane: prag je propisan, povratni vodostaj proračunat.
-  </p>
-  <input type="hidden" name="return_levels" id="return_levels">
-  <div class="rows-return">
-    <div class="rows-head"><div>Jednom u (god.)</div><div>Vodostaj (cm)</div><div>Donja (cm)</div><div>Gornja (cm)</div><div>Metoda</div><div>Niz</div><div>Izvor</div><div>Izračunato</div><div>Napomena</div><div></div></div>
-    <div id="return-rows"></div>
-  </div>
-  <button type="button" class="btn btn-sm btn-secondary" onclick="addReturnRow()">{{icon "plus"}} Dodaj povratni vodostaj</button>
-  <template id="tpl-return">
-    <div class="return-row">
-      <div data-label="Jednom u (god.)"><input type="text" inputmode="numeric" class="form-control mono" data-field="years" placeholder="100" aria-label="Povratno razdoblje u godinama"></div>
-      <div data-label="Vodostaj (cm)"><input type="text" inputmode="numeric" class="form-control mono" data-field="level_cm" placeholder="+795" aria-label="Procijenjeni vodostaj u centimetrima"></div>
-      <div data-label="Donja (cm)"><input type="text" inputmode="numeric" class="form-control mono" data-field="low_cm" placeholder="+762" aria-label="Donja granica pouzdanosti"></div>
-      <div data-label="Gornja (cm)"><input type="text" inputmode="numeric" class="form-control mono" data-field="high_cm" placeholder="+813" aria-label="Gornja granica pouzdanosti"></div>
-      <div data-label="Metoda"><input type="text" class="form-control" data-field="method" placeholder="POT, gen. Pareto, L-momenti" aria-label="Metoda proračuna"></div>
-      <div data-label="Niz"><input type="text" class="form-control" data-field="series" placeholder="1902.–2026." aria-label="Niz na kojem je računato"></div>
-      <div data-label="Izvor"><input type="text" class="form-control" data-field="source" placeholder="tko je računao" aria-label="Izvor"></div>
-      <div data-label="Izračunato"><input type="date" class="form-control" data-field="computed_on" aria-label="Datum izračuna"></div>
-      <div data-label="Napomena"><input type="text" class="form-control" data-field="note" placeholder="ograde, na što paziti" aria-label="Napomena"></div>
-      <button type="button" class="btn btn-sm btn-secondary" onclick="this.closest('.return-row').remove()" title="Ukloni">{{icon "x"}}</button>
-    </div>
-  </template>
-  <script>
-  const RETURN_LEVELS = {{.ReturnLevelsJSON}};
-  function addReturnRow(p) {
-    p = p || {}; const row = document.getElementById('tpl-return').content.firstElementChild.cloneNode(true);
-    const set = (f, v) => row.querySelector('[data-field=' + f + ']').value = (v != null ? v : '');
-    set('years', p.years); set('level_cm', p.level_cm); set('low_cm', p.low_cm); set('high_cm', p.high_cm);
-    set('method', p.method); set('series', p.series); set('source', p.source);
-    set('computed_on', p.computed_on); set('note', p.note);
-    document.getElementById('return-rows').appendChild(row);
-  }
-  function collectReturnLevels() {
-    const rows = [...document.querySelectorAll('#return-rows .return-row')].map(r => {
-      const g = f => r.querySelector('[data-field=' + f + ']').value.trim();
-      return { years: g('years'), level_cm: g('level_cm'), low_cm: g('low_cm'), high_cm: g('high_cm'),
-               method: g('method'), series: g('series'), source: g('source'),
-               computed_on: g('computed_on'), note: g('note') };
-    }).filter(x => x.years);
-    document.getElementById('return_levels').value = JSON.stringify(rows);
-    return true;
-  }
-  (RETURN_LEVELS || []).forEach(addReturnRow);
-  document.getElementById('station-form') && document.getElementById('station-form').addEventListener('submit', collectReturnLevels);
-  </script>
 
-  <h3 style="font-size:0.9rem; margin:1rem 0 0.25rem;">Promjene kote nule kroz vrijeme</h3>
+  <h3 style="font-size:0.9rem; margin:1rem 0 0.25rem;">Položaj letve</h3>
   <p class="form-help" style="margin:0 0 0.5rem;">
-    Kad je letva premještena, obnovljena ili dobila novi elaborat. Vodostaji u bazi svedeni su na zadnju kotu i ne
-    preračunavaju se; povijest služi da se zna što je koja starija evidencija mjerila.
+    Decimalni stupnjevi. Tehnički zapisnici DHMZ-a daju stupnjeve, minute i sekunde —
+    npr. 45° 50′ 45″ je 45,845833. S koordinatama se letva prikazuje na karti.
   </p>
-  <input type="hidden" name="zero_datum_history" id="zero_datum_history">
-  <div class="rows-zero">
-    <div class="rows-head"><div>Vrijedi od</div><div>Kota „0“ (m)</div><div>Sustav</div><div>Napomena</div><div></div></div>
-    <div id="zero-rows"></div>
-  </div>
-  <button type="button" class="btn btn-sm btn-secondary" onclick="addZeroRow()">{{icon "plus"}} Dodaj promjenu kote</button>
-  <template id="tpl-zero">
-    <div class="zero-row">
-      <div data-label="Vrijedi od"><input type="date" class="form-control" data-field="valid_from" aria-label="Vrijedi od"></div>
-      <div data-label="Kota „0“ (m)"><input type="text" inputmode="decimal" class="form-control" data-field="datum" placeholder="80,450" aria-label="Kota nule u metrima"></div>
-      <div data-label="Sustav"><select class="form-control" data-field="system" aria-label="Visinski sustav"><option value="TRST">Trst</option><option value="HVRS71">HVRS71</option></select></div>
-      <div data-label="Napomena"><input type="text" class="form-control" data-field="note" placeholder="premještaj letve, novi elaborat…" aria-label="Napomena"></div>
-      <button type="button" class="btn btn-sm btn-secondary" onclick="this.closest('.zero-row').remove()" title="Ukloni">{{icon "x"}}</button>
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="latitude">Geografska širina</label>
+      <input type="text" inputmode="decimal" id="latitude" name="latitude" class="form-control mono"
+             value="{{if .Station.Latitude}}{{unosD .Station.Latitude 6}}{{end}}" placeholder="45,845833">
     </div>
-  </template>
-  <script>
-  const ZERO_HISTORY = {{.ZeroDatumHistoryJSON}};
-  function addZeroRow(c) {
-    c = c || {}; const row = document.getElementById('tpl-zero').content.firstElementChild.cloneNode(true);
-    row.querySelector('[data-field=valid_from]').value = c.valid_from || '';
-    row.querySelector('[data-field=datum]').value = c.datum != null ? String(c.datum).replace('.', ',') : '';
-    row.querySelector('[data-field=system]').value = c.system || 'TRST';
-    row.querySelector('[data-field=note]').value = c.note || '';
-    document.getElementById('zero-rows').appendChild(row);
-  }
-  function collectZeroHistory() {
-    const rows = [...document.querySelectorAll('#zero-rows .zero-row')].map(r => {
-      const g = f => r.querySelector('[data-field=' + f + ']').value.trim();
-      return { valid_from: g('valid_from'), datum: g('datum'), system: g('system'), note: g('note') };
-    }).filter(x => x.valid_from || x.datum);
-    document.getElementById('zero_datum_history').value = JSON.stringify(rows);
-    return true;
-  }
-  (ZERO_HISTORY || []).forEach(addZeroRow);
-  document.getElementById('station-form') && document.getElementById('station-form').addEventListener('submit', collectZeroHistory);
-  </script>
+    <div class="form-group">
+      <label class="form-label" for="longitude">Geografska dužina</label>
+      <input type="text" inputmode="decimal" id="longitude" name="longitude" class="form-control mono"
+             value="{{if .Station.Longitude}}{{unosD .Station.Longitude 6}}{{end}}" placeholder="18,854722">
+    </div>
+  </div>
 
-  <h3 style="font-size:0.9rem; margin:1rem 0 0.25rem;">Pragovi obrane od poplava</h3>
-  <p class="form-help" style="margin:0 0 0.5rem;">
-    Broj se čita kao centimetri na vodomjeru i ulazi u izračun stupnja obrane.
-    Svaki drugi zapis (npr. „206,30 m n. m.") čuva se kao tekst i ne ulazi u izračun.
-  </p>
-  <div class="form-row">
-    <div class="form-group">
-      <label class="form-label" for="prep">Pripremno (P)</label>
-      <input type="text" inputmode="numeric" id="prep" name="prep" class="form-control" value="{{thresholdInput .Station.Prep}}" placeholder="+600">
-    </div>
-    <div class="form-group">
-      <label class="form-label" for="regular">Redovna (R)</label>
-      <input type="text" inputmode="numeric" id="regular" name="regular" class="form-control" value="{{thresholdInput .Station.Regular}}" placeholder="+880">
-    </div>
-  </div>
-  <div class="form-row">
-    <div class="form-group">
-      <label class="form-label" for="emergency">Izvanredna (I)</label>
-      <input type="text" inputmode="numeric" id="emergency" name="emergency" class="form-control" value="{{thresholdInput .Station.Emergency}}" placeholder="+980">
-    </div>
-    <div class="form-group">
-      <label class="form-label" for="state">Izvanredno stanje (IS)</label>
-      <input type="text" inputmode="numeric" id="state" name="state" class="form-control" value="{{thresholdInput .Station.State}}" placeholder="+1080">
-    </div>
-  </div>
-  <div class="form-row">
-    <div class="form-group">
-      <label class="form-label" for="record">Najviši zabilježeni (M)</label>
-      <input type="text" id="record" name="record" class="form-control" value="{{thresholdInput .Station.Record}}" placeholder="+1191 (17.5.2014.)">
-    </div>
-    <div class="form-group">
-      <label class="form-label" for="notes">Napomena</label>
-      <input type="text" id="notes" name="notes" class="form-control" value="{{.Station.Notes}}">
-    </div>
+  <h3 style="font-size:0.9rem; margin:1rem 0 0.25rem;">Napomena</h3>
+  <div class="form-group">
+    <label class="form-label" for="notes">Napomena uz letvu</label>
+    <input type="text" id="notes" name="notes" class="form-control" value="{{.Station.Notes}}"
+           placeholder="ono što se o letvi mora znati, a nije brojka">
   </div>
 
   <h3 style="font-size:0.9rem; margin:1rem 0 0.25rem;">Podrijetlo i provjera</h3>

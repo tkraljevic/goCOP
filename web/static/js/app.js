@@ -583,3 +583,45 @@ function renderMarkdown(md) {
   // iznova jer se u međuvremenu mogao promijeniti.
   window.addEventListener('popstate', function () { window.location.reload(); });
 })();
+
+
+// Brisanje letve. Jedan „jeste li sigurni" ovdje nije dovoljan: letva nosi
+// pragove, kotu nule, ekstreme i veze na dionice, a očitanja upisana na njoj
+// NEMAJU vezu s kaskadnim brisanjem — ostaju u bazi bez letve i više se ne mogu
+// otvoriti. Zato se posljedice nabroje, pa se traži da se naziv upiše rukom.
+(function () {
+  document.addEventListener('submit', function (e) {
+    var f = e.target;
+    if (!f.hasAttribute || !f.hasAttribute('data-brisanje-letve')) return;
+
+    var naziv = f.getAttribute('data-naziv') || '';
+    var ocitanja = parseInt(f.getAttribute('data-ocitanja') || '0', 10);
+    var dionica = parseInt(f.getAttribute('data-dionice') || '0', 10);
+
+    var posljedice = ['Brisanjem letve „' + naziv + '" nestaju:',
+      '  · pragovi obrane i kota nule',
+      '  · zabilježene krajnosti i povratni vodostaji'];
+    if (dionica > 0) {
+      posljedice.push('  · veza s ' + dionica + (dionica === 1 ? ' dionicom' : ' dionice') +
+        ' — ondje letva više neće biti mjerodavna');
+    }
+    if (ocitanja > 0) {
+      posljedice.push('');
+      posljedice.push(ocitanja + ' očitanja upisanih na ovoj letvi NEĆE se obrisati,');
+      posljedice.push('ali ostaju bez letve i više se neće moći otvoriti.');
+    }
+    posljedice.push('');
+    posljedice.push('Zapis ostaje u povijesti verzija i može se vratiti.');
+
+    if (!window.confirm(posljedice.join('\n'))) {
+      e.preventDefault();
+      return;
+    }
+    var upisano = window.prompt('Za potvrdu upišite naziv letve točno ovako:\n\n' + naziv);
+    if (upisano === null) { e.preventDefault(); return; }
+    if (upisano.trim() !== naziv) {
+      e.preventDefault();
+      window.alert('Naziv se ne poklapa — letva nije obrisana.');
+    }
+  });
+})();

@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"encoding/json"
 	"html/template"
 	"net/http"
@@ -39,6 +40,8 @@ type StationPageData struct {
 	Profil               *models.ProfilKorita      // onaj koji se crta
 	Krivulje             []models.HQKrivulja       // krivulje protoka po razdobljima
 	PragoviQ             []PragProtok              // isti pragovi iskazani u protoku
+	ImaProtok            bool                      // ima li ijedan prag protok, pa tablica treba stupac
+	BrojOcitanja         int                       // koliko je očitanja upisano na letvi — za upozorenje pri brisanju
 	PragoviKote          []PragKota                // isti pragovi kao apsolutna kota vodne plohe
 	Karta                KartaPostavke             // izvor pločica za kartu položaja
 	NizID                int64                     // koji je niz odabran
@@ -60,10 +63,12 @@ type StationPageData struct {
 }
 
 // SetPageTemplates daje rukovatelju predloške stranica i servise koje one trebaju
-func (h *StationsHandler) SetPageTemplates(detail, form *template.Template,
+func (h *StationsHandler) SetPageTemplates(detail, form, historijat, histObrazac *template.Template,
 	sections *service.SectionService, waters *service.WatercourseService) {
 	h.tmplDetail = detail
 	h.tmplForm = form
+	h.tmplHistorijat = historijat
+	h.tmplHistObrazac = histObrazac
 	h.sectionService = sections
 	h.watercourseService = waters
 }
@@ -91,6 +96,12 @@ func (h *StationsHandler) arh() *repository.ArhivaRepository {
 // registriraju prije nego što se postavke pročitaju, pa bi vrijednost predana
 // pri sastavljanju zauvijek ostala prazna. Isto kao kod arhive.
 func (h *StationsHandler) SetKarta(f func() KartaPostavke) { h.karta = f }
+
+// SetSektor daje rukovatelju zapis sektora, iz kojeg se gradi memorandum na
+// izvješću. Dohvatnik iz istog razloga kao kod karte.
+func (h *StationsHandler) SetSektor(f func(ctx context.Context, id string) *models.Sector) {
+	h.sektor = f
+}
 
 // SetEpisodeService daje rukovatelju epizode obrane, da se na kartici letve
 // vidi tko je sve po njoj u obrani.
@@ -140,6 +151,53 @@ func (h *StationsHandler) ShowStation(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// HistorijatLetve je sve što je na letvi zabilježeno i iz njezina niza
+// izračunato. Odvojeno od kartice namjerno: kartica odgovara na pitanje što
+// letva jest — gdje stoji, koji su joj pragovi i kota nule — a historijat na
+// pitanje što se dogodilo. Prije su oboje stajali na istoj stranici, pa je
+// dežurni do pragova dolazio kroz sedam odjeljaka povijesti.
+//
+// Podaci su isti i skupljaju se istim putem, pa se stranice ne mogu razići.
+func (h *StationsHandler) HistorijatLetve(w http.ResponseWriter, r *http.Request) {
+	data, ok := h.podaciLetve(w, r)
+	if !ok {
+		return
+	}
+	if err := h.tmplHistorijat.ExecuteTemplate(w, "station_history.html", data); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+// ObrazacHistorijata uređuje ono što historijat prikazuje. Odvojen od obrasca
+// kartice iz istog razloga iz kojeg su i stranice odvojene — i zato što obrazac
+// prenosi samo svoja polja, pa spremanje jednoga ne dira ono što uređuje drugi.
+func (h *StationsHandler) ObrazacHistorijata(w http.ResponseWriter, r *http.Request) {
+	data, ok := h.podaciLetve(w, r)
+	if !ok {
+		return
+	}
+	if !h.canEditStation(data.Permissions, data.Station) {
+		http.Error(w, "Nemate pravo uređivati ovu postaju", http.StatusForbidden)
+		return
+	}
+	data.IsEdit = true
+	data.ReturnLevelsJSON = jsonZaObrazac(data.Station.ReturnLevels)
+	data.ZeroDatumHistoryJSON = jsonZaObrazac(data.Station.ZeroDatumHistory)
+	if err := h.tmplHistObrazac.ExecuteTemplate(w, "station_history_form.html", data); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+// jsonZaObrazac pretvara popis u JS literal za obrazac; prazan popis je "[]",
+// da skripta u obrascu ne mora nagađati.
+func jsonZaObrazac(v any) template.JS {
+	b, err := json.Marshal(v)
+	if err != nil || string(b) == "null" {
+		return template.JS("[]")
+	}
+	return template.JS(b)
+}
+
 // podaciLetve prikuplja sve o jednoj letvi: registar, arhivu, korito, krivulje
 // i valove obrane. Isti se podaci prikazuju na kartici i sastavljaju u
 // izvješće — kad bi svaki skupljao svoje, dokument i stranica razišli bi se
@@ -166,6 +224,7 @@ func (h *StationsHandler) podaciLetve(w http.ResponseWriter, r *http.Request) (S
 	}
 	data.Station = *st
 	data.CanEdit = h.canEditStation(data.Permissions, *st)
+	data.BrojOcitanja = h.stationService.BrojOcitanja(ctx, st.ID)
 	if h.karta != nil {
 		data.Karta = h.karta()
 	}
@@ -261,7 +320,8 @@ func (h *StationsHandler) podaciLetve(w http.ResponseWriter, r *http.Request) (S
 	// poslije njega nikamo ne stiže. Razliku visinskih sustava predložak zato
 	// i traži od same postaje, da o ovom redoslijedu uopće ne ovisi.
 	data.PragoviQ = pragoviUProtoku(data.Station, data.Krivulje)
-	data.PragoviKote = pragoviUKotama(data.Station)
+	data.PragoviKote = sProtokom(pragoviUKotama(data.Station), data.PragoviQ)
+	data.ImaProtok = imaProtok(data.PragoviKote)
 	return data, true
 }
 
@@ -379,34 +439,67 @@ func pragoviUProtoku(st models.Station, krivulje []models.HQKrivulja) []PragProt
 	return out
 }
 
-// PragKota je jedan stupanj obrane iskazan kao apsolutna kota vodne plohe.
+// PragKota je jedan stupanj obrane iskazan kao apsolutna kota vodne plohe, i
+// — kad letva ima krivulju — u protoku. Sve tri mjere istog praga stoje u
+// jednom retku: ista brojka ponovljena u dvije tablice traži od čitatelja da
+// ih sam spaja po nazivu stupnja.
 type PragKota struct {
+	Faza  models.DefensePhase // za boju pilule
 	Naziv string
 	Cm    int
 	Kote  []models.KotaVode
+	Q     *float64 // protok po danas važećoj krivulji; nil kad ga nema
+}
+
+// ImaProtok javlja treba li tablici stupac protoka.
+func imaProtok(p []PragKota) bool {
+	for _, x := range p {
+		if x.Q != nil {
+			return true
+		}
+	}
+	return false
+}
+
+// sProtokom veže protok uz prag u koti. Veže se po centimetrima, ne po
+// nazivu: naziv je tekst za prikaz i mijenja se, a prag je brojka.
+func sProtokom(kote []PragKota, q []PragProtok) []PragKota {
+	po := make(map[int]float64, len(q))
+	for _, x := range q {
+		po[x.Cm] = x.Q
+	}
+	for i := range kote {
+		if v, ok := po[kote[i].Cm]; ok {
+			kote[i].Q = &v
+		}
+	}
+	return kote
 }
 
 // pragoviUKotama prevodi pragove obrane u apsolutnu visinu vodne plohe, u
 // svakom visinskom sustavu koji letva ima. Po tome se na terenu mjeri koliko
 // obranu treba nadvisiti.
+// Letva bez kote nule i dalje daje redak po pragu, samo bez kota: prag postoji
+// i prikazuje se, a apsolutna visina se bez kote nule ne može izračunati.
 func pragoviUKotama(st models.Station) []PragKota {
-	if !st.ImaKotuNule() {
-		return nil
-	}
 	var out []PragKota
 	for _, t := range []struct {
 		t models.Threshold
-		n string
+		f models.DefensePhase
 	}{
-		{st.Prep, "Pripremno stanje"},
-		{st.Regular, "Redovna obrana"},
-		{st.Emergency, "Izvanredna obrana"},
-		{st.State, "Izvanredno stanje"},
+		{st.Prep, models.PhasePrep},
+		{st.Regular, models.PhaseRegular},
+		{st.Emergency, models.PhaseEmergency},
+		{st.State, models.PhaseState},
 	} {
 		if !t.t.IsUsable() {
 			continue
 		}
-		out = append(out, PragKota{Naziv: t.n, Cm: *t.t.Cm, Kote: st.Kote(*t.t.Cm)})
+		p := PragKota{Faza: t.f, Naziv: t.f.Label(), Cm: *t.t.Cm}
+		if st.ImaKotuNule() {
+			p.Kote = st.Kote(*t.t.Cm)
+		}
+		out = append(out, p)
 	}
 	return out
 }

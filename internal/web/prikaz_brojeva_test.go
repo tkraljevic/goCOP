@@ -1,6 +1,7 @@
 package web
 
 import (
+	"archive/zip"
 	"context"
 	"encoding/json"
 	"github.com/google/uuid"
@@ -12,6 +13,7 @@ import (
 
 	"bytes"
 	"html/template"
+	"io"
 	"io/fs"
 	"strings"
 	"testing"
@@ -105,16 +107,23 @@ func TestDetaljVodotokaRenderiraMarkdownNapomenu(t *testing.T) {
 
 // U polju obrasca zarez da, razdjelnik tisućica ne — inače se vrijednost teško
 // uređuje, a i čitanje bi je moralo raspetljavati bez potrebe.
+//
+// Kota nule se pritom mora ispisati na tri decimale. Sa dvije bi Batinina kota
+// od 80,189 m u polju postala 80,19 i spremanjem bi se doista promijenila —
+// milimetar, ali pomiče cijelu ljestvicu pragova, i to bez ijedne poruke.
 func TestObrazacLetvePiseZarezBezTisucica(t *testing.T) {
-	kota := 1234.56
+	kota, milimetarska := 1234.56, 80.189
 	html := iscrtaj(t, "station_form.html", StationPageData{
 		CurrentUser: &models.User{FullName: "Provjera"},
 		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
-		Station:     models.Station{Name: "Belišće", ZeroDatum: &kota},
+		Station:     models.Station{Name: "Belišće", ZeroDatum: &kota, ZeroDatumNew: &milimetarska},
 		IsEdit:      true,
 	})
-	if !strings.Contains(html, `value="1234,56"`) {
-		t.Error("polje ne sadrži 1234,56")
+	if !strings.Contains(html, `value="1234,560"`) {
+		t.Error("polje ne sadrži 1234,560")
+	}
+	if !strings.Contains(html, `value="80,189"`) {
+		t.Error("kota nule se u obrascu skraćuje — spremanjem bi se promijenila")
 	}
 	if strings.Contains(html, `value="1.234,56"`) {
 		t.Error("u polju obrasca je razdjelnik tisućica")
@@ -377,14 +386,14 @@ func TestKarticaDioniceUpucujeNaPovijestUzLetvu(t *testing.T) {
 	}
 }
 
-// Kartica letve nosi obrane svih dionica koje se po njoj vode, pa uz svaku
+// Historijat letve nosi obrane svih dionica koje se po njoj vode, pa uz svaku
 // mora stajati i o kojoj se dionici radi.
-func TestKarticaLetvePrikazujeObraneSvihDionica(t *testing.T) {
+func TestHistorijatPrikazujeObraneSvihDionica(t *testing.T) {
 	poc := time.Date(2024, 9, 17, 5, 0, 0, 0, time.UTC)
 	kraj := time.Date(2024, 10, 22, 5, 0, 0, 0, time.UTC)
 	vrh := 703
 	vrhAt := time.Date(2024, 9, 25, 5, 0, 0, 0, time.UTC)
-	html := iscrtaj(t, "station_detail.html", StationPageData{
+	html := iscrtaj(t, "station_history.html", StationPageData{
 		CurrentUser: &models.User{FullName: "Provjera"},
 		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
 		Station:     models.Station{ID: uuid.MustParse("c625fa9d-0000-4000-8000-000000000001"), Name: "Batina"},
@@ -397,7 +406,7 @@ func TestKarticaLetvePrikazujeObraneSvihDionica(t *testing.T) {
 	for _, want := range []string{"Obrane vođene po ovoj letvi", "B.34.1", "B.34.2",
 		"703 cm", "Izvanredna obrana", "traje", "36 dana", "prijeđen prag"} {
 		if !strings.Contains(html, want) {
-			t.Errorf("na kartici letve nema %q", want)
+			t.Errorf("u historijatu letve nema %q", want)
 		}
 	}
 }
@@ -450,7 +459,7 @@ func TestKarticaDioniceNudiProglasenjeObrane(t *testing.T) {
 
 // Kartica letve crta korito s vodom u njemu i računa iz arhive. Provjerava se
 // da se vodna ploha nacrta i da brojevi ispod crteža stoje.
-func TestKarticaLetveCrtaKoritoIArhivu(t *testing.T) {
+func TestHistorijatCrtaArhivu(t *testing.T) {
 	profil := models.ProfilKorita{
 		Datum: "2020-08-18", Vodostaj: 165, KotaNule: 80.45,
 		Tocke: []models.TockaProfila{
@@ -480,7 +489,7 @@ func TestKarticaLetveCrtaKoritoIArhivu(t *testing.T) {
 	}
 
 	kad := time.Date(2026, 7, 31, 6, 0, 0, 0, time.UTC)
-	html := iscrtaj(t, "station_detail.html", StationPageData{
+	html := iscrtaj(t, "station_history.html", StationPageData{
 		CurrentUser:  &models.User{FullName: "Provjera"},
 		Permissions:  &models.UserPermissions{IsGlobalAdmin: true},
 		Station:      models.Station{ID: uuid.MustParse("c625fa9d-0425-5115-8c49-8819cbb17bbd"), Name: "Batina", Code: "batina"},
@@ -490,6 +499,11 @@ func TestKarticaLetveCrtaKoritoIArhivu(t *testing.T) {
 		Zadnji:       &models.HidroTocka{Kad: kad, Vrijednost: 300},
 		ZadnjiIzvor:  "his2000",
 		ZadnjiProtok: 2939,
+		// Protok stoji uz trenutno stanje, a taj odjeljak traži i spojeni niz —
+		// prije je protok dolazio iz natpisa uz presjek, kojeg na kartici više nema.
+		Sada: &models.SpojenaVrijednost{Kad: kad, Vrijednost: 300, Izvor: "his2000", Vrsta: "srednjak"},
+		Spojevi: []models.SpojDoseg{{Letva: "batina", Velicina: "vodostaj", Korak: "satni",
+			Od: "2001-03-09", Do: "2026-07-31", Zapisa: 222624}},
 		Nizovi: []models.HidroNiz{
 			{ID: 1, Letva: "batina", Izvor: "his2000", Velicina: "vodostaj", Vrsta: "satni",
 				Od: "2001-03-09", Do: "2026-07-31", Zapisa: 222624},
@@ -510,23 +524,22 @@ func TestKarticaLetveCrtaKoritoIArhivu(t *testing.T) {
 			}}},
 	})
 	for _, want := range []string{
-		"Korito i voda u njemu", "<polygon", "<polyline",
 		"DHMZ, ovjereno", "2.939 m³/s",
 		"Izvorni nizovi", "222.624", "nije mjereno ovdje",
 		// predložak plus ispisuje kao &#43;, pa se traži oblik kakav vidi preglednik
 		"Krivulje protoka", "DHMZ, HIS-2000", "-85 do 300 cm",
 	} {
 		if !strings.Contains(html, want) {
-			t.Errorf("na kartici letve nema %q", want)
+			t.Errorf("u historijatu letve nema %q", want)
 		}
 	}
 }
 
 // Godišnji hod, trajanje i zbroj. Zbroj se ispisuje samo za veličine koje se
 // gomilaju — pronos nanosa se zbraja, vodostaj nema smisla zbrajati.
-func TestKarticaLetvePrikazujeHodTrajanjeIZbroj(t *testing.T) {
+func TestHistorijatPrikazujeHodTrajanjeIZbroj(t *testing.T) {
 	osnovno := func(p *models.HidroPregled) string {
-		return iscrtaj(t, "station_detail.html", StationPageData{
+		return iscrtaj(t, "station_history.html", StationPageData{
 			CurrentUser: &models.User{FullName: "Provjera"},
 			Permissions: &models.UserPermissions{IsGlobalAdmin: true},
 			Station:     models.Station{ID: uuid.MustParse("c625fa9d-0425-5115-8c49-8819cbb17bbd"), Name: "Batina", Code: "batina"},
@@ -575,9 +588,9 @@ func TestKarticaLetvePrikazujeHodTrajanjeIZbroj(t *testing.T) {
 
 // Spojeni niz mora reći od čega je sastavljen. Broj bez podrijetla je broj
 // kojem se poslije ne može provjeriti odakle je došao.
-func TestKarticaLetvePrikazujeSpojeniNiz(t *testing.T) {
+func TestHistorijatPrikazujeSpojeniNiz(t *testing.T) {
 	kad := time.Date(2026, 9, 7, 6, 0, 0, 0, time.UTC)
-	html := iscrtaj(t, "station_detail.html", StationPageData{
+	html := iscrtaj(t, "station_history.html", StationPageData{
 		CurrentUser: &models.User{FullName: "Provjera"},
 		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
 		Station:     models.Station{ID: uuid.MustParse("c625fa9d-0425-5115-8c49-8819cbb17bbd"), Name: "Batina", Code: "batina"},
@@ -598,7 +611,7 @@ func TestKarticaLetvePrikazujeSpojeniNiz(t *testing.T) {
 		"jutarnje očitanje, nije srednjak",
 	} {
 		if !strings.Contains(html, want) {
-			t.Errorf("na kartici nema %q", want)
+			t.Errorf("u historijatu nema %q", want)
 		}
 	}
 
@@ -615,7 +628,7 @@ func TestKarticaLetvePrikazujeSpojeniNiz(t *testing.T) {
 // Batina ima dva najviša vodostaja: +775 cm izmjereno 2013. i +795 cm iz
 // 1965., preračunato s Bezdana. Oba su točna i moraju stajati jedan uz drugi,
 // ali samo izmjereni smije ulaziti u pragove.
-func TestKarticaLetveRazdvajaIzmjereniOdZabiljezenog(t *testing.T) {
+func TestKarticaRazdvajaIzmjereniOdZabiljezenog(t *testing.T) {
 	cm := func(v int) *int { return &v }
 	st := models.Station{
 		ID: uuid.MustParse("c625fa9d-0425-5115-8c49-8819cbb17bbd"), Name: "Batina", Code: "batina",
@@ -640,14 +653,19 @@ func TestKarticaLetveRazdvajaIzmjereniOdZabiljezenog(t *testing.T) {
 		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
 		Station:     st,
 	})
+	// Razliku nosi tablica ekstrema: obje vrijednosti sa svojim datumom i
+	// oznakom podrijetla. Uz pragove su nekad stajale i kao pilule, pa se ista
+	// brojka čitala dvaput.
 	for _, want := range []string{
-		"Najviši izmjereni", "&#43;775 cm", "14.6.2013.",
-		"Najviši zabilježeni", "&#43;795 cm", "24.6.1965.", "rekonstruirano",
-		"U pragove i u izračun faze ulazi samo izmjereni",
+		"&#43;775 cm", "14.6.2013.", "izmjereno",
+		"&#43;795 cm", "24.6.1965.", "rekonstruirano",
 	} {
 		if !strings.Contains(html, want) {
 			t.Errorf("na kartici nema %q", want)
 		}
+	}
+	if strings.Contains(html, "Zabilježene krajnosti") {
+		t.Error("krajnosti su se vratile uz pragove; cijele stoje u tablici ekstrema")
 	}
 
 	// letva bez rekonstruiranog maksimuma prikazuje samo jedan redak
@@ -753,7 +771,7 @@ func TestRedakSazetkaOtvaraTuVelicinu(t *testing.T) {
 
 	// kartica letve: redak vodi na povijest, gdje preglednik i živi
 	id := uuid.MustParse("c625fa9d-0425-5115-8c49-8819cbb17bbd")
-	html = iscrtaj(t, "station_detail.html", StationPageData{
+	html = iscrtaj(t, "station_history.html", StationPageData{
 		CurrentUser: &models.User{FullName: "P"},
 		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
 		Station:     models.Station{ID: id, Name: "Batina", Code: "batina"},
@@ -1090,15 +1108,22 @@ func TestKarticaPokazujePragoveUProtoku(t *testing.T) {
 		t.Error("bez krivulje se pragovi u protoku ne smiju računati")
 	}
 
+	// Protok stoji uz vodostaj istoga stupnja, u istoj boji — ne u zasebnom
+	// popisu, gdje se naziv stupnja i vodostaj ponavljao.
 	html := iscrtaj(t, "station_detail.html", StationPageData{
 		CurrentUser: &models.User{FullName: "P"},
 		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
 		Station:     st, Krivulje: krivulje, PragoviQ: q,
+		PragoviKote: sProtokom(pragoviUKotama(st), q),
 	})
-	for _, want := range []string{"Isti stupnjevi u protoku", "2.749 m³/s", "pripremno stanje", "300 cm"} {
+	for _, want := range []string{"Pripremno stanje", "300 cm", "2.749 m³/s",
+		`<span class="threshold-pill prep protok">`} {
 		if !strings.Contains(html, want) {
 			t.Errorf("na kartici nema %q", want)
 		}
+	}
+	if strings.Contains(html, "Isti stupnjevi u protoku") {
+		t.Error("zaseban popis protoka ostao je uz pragove")
 	}
 }
 
@@ -1826,9 +1851,11 @@ func TestNajniziVodostajiStojeJedanUzDrugi(t *testing.T) {
 		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
 		Station:     st,
 	})
+	// Oba najniža stoje u tablici ekstrema, svaki sa svojim datumom i
+	// podrijetlom — izmjereni i rekonstruirani ne smiju se stopiti u jedan.
 	for _, want := range []string{
-		"Najniži izmjereni", "Najniži rekonstruirani",
-		"22.8.2026.", "7.1.1909.",
+		"-151 cm", "22.8.2026.", "izmjereno",
+		"-127 cm", "7.1.1909.", "rekonstruirano",
 	} {
 		if !strings.Contains(html, want) {
 			t.Errorf("na kartici nema %q", want)
@@ -2088,14 +2115,37 @@ func TestRazlikaVisinskihSustavaDolaziIzPostaje(t *testing.T) {
 		t.Error("s jednom kotom razlika mora biti nula")
 	}
 
-	// i na stranici mora pisati, bez ičijeg posredovanja
+	// Razlika stoji uz kotu nule, u kartici pragova — ondje gdje se i koristi.
 	html := iscrtaj(t, "station_detail.html", StationPageData{
 		CurrentUser: &models.User{FullName: "P"},
 		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
-		Station:     st,
+		Station:     st, PragoviKote: pragoviUKotama(st),
 	})
-	if !strings.Contains(html, "0,261 m") {
-		t.Error("razlika visinskih sustava ne stiže na stranicu")
+	if !strings.Contains(html, "Razlika sustava") || !strings.Contains(html, "0,261 m") {
+		t.Error("razlika visinskih sustava ne stiže na karticu")
+	}
+
+	// I u izvješću, koje se prilaže i čita izvan programa.
+	iz := IzvjesceLetve{Station: st, Sastavio: "P", Kad: time.Now()}
+	var b bytes.Buffer
+	if err := iz.Sastavi().Zapisi(&b); err != nil {
+		t.Fatal(err)
+	}
+	z, err := zip.NewReader(bytes.NewReader(b.Bytes()), int64(b.Len()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc string
+	for _, f := range z.File {
+		if f.Name == "word/document.xml" {
+			r, _ := f.Open()
+			raw, _ := io.ReadAll(r)
+			r.Close()
+			doc = string(raw)
+		}
+	}
+	if !strings.Contains(doc, "0,261 m") {
+		t.Error("razlika visinskih sustava ne stiže do korisnika")
 	}
 }
 
@@ -2145,20 +2195,29 @@ func TestKarticaLetveNemaSirovihDatuma(t *testing.T) {
 			{ValidFrom: "2001-03-09", Datum: kota(80.450), System: "TRST", Note: "prva izmjera"},
 		},
 	}
-	html := iscrtaj(t, "station_detail.html", StationPageData{
+	podaci := StationPageData{
 		CurrentUser: &models.User{FullName: "P"},
 		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
 		Station:     st, PragoviKote: pragoviUKotama(st),
-	})
-	// ISO datum u tekstu stranice; u atributima obrasca je u redu
-	iso := regexp.MustCompile(`>[^<]*\b\d{4}-\d{2}-\d{2}\b`)
-	if nasao := iso.FindAllString(html, -1); len(nasao) > 0 {
-		t.Errorf("na kartici je ostao sirovi datum: %q", nasao[0])
 	}
-	for _, want := range []string{"14.6.2013.", "22.8.2026.", "9.3.2001.", "10.9.2024.", "1.2025."} {
-		if !strings.Contains(html, want) {
-			t.Errorf("nema hrvatskog datuma %q", want)
+	kartica := iscrtaj(t, "station_detail.html", podaci)
+	povijest := iscrtaj(t, "station_history.html", podaci)
+
+	// ISO datum u tekstu stranice; u atributima obrasca je u redu. Traži se na
+	// obje stranice — podaci su se selili među njima, a pravilo vrijedi za oba.
+	iso := regexp.MustCompile(`>[^<]*\b\d{4}-\d{2}-\d{2}\b`)
+	for ime, html := range map[string]string{"kartici": kartica, "historijatu": povijest} {
+		if nasao := iso.FindAllString(html, -1); len(nasao) > 0 {
+			t.Errorf("na %s je ostao sirovi datum: %q", ime, nasao[0])
 		}
+	}
+	for _, want := range []string{"14.6.2013.", "22.8.2026."} {
+		if !strings.Contains(kartica, want) {
+			t.Errorf("na kartici nema hrvatskog datuma %q", want)
+		}
+	}
+	if !strings.Contains(povijest, "9.3.2001.") {
+		t.Error("u historijatu nema hrvatskog datuma promjene kote nule")
 	}
 }
 
@@ -2275,7 +2334,7 @@ func TestKarticaLetvePokazujePovratneVodostaje(t *testing.T) {
 				Source: "COP", ComputedOn: "2026-09-08"},
 			{Years: 25, LevelCm: cm(755), Method: "POT, generalizirana Pareto", Series: "1902.–2026."},
 		}}
-	html := iscrtaj(t, "station_detail.html", StationPageData{
+	html := iscrtaj(t, "station_history.html", StationPageData{
 		CurrentUser: &models.User{FullName: "P"},
 		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
 		Station:     st, PragoviKote: pragoviUKotama(st),
@@ -2298,7 +2357,7 @@ func TestKarticaLetvePokazujePovratneVodostaje(t *testing.T) {
 		t.Errorf("sirovi datum u prikazu povratnih vodostaja: %q", nasao[0])
 	}
 	// Postaja bez izračuna nema odjeljak.
-	prazna := iscrtaj(t, "station_detail.html", StationPageData{
+	prazna := iscrtaj(t, "station_history.html", StationPageData{
 		CurrentUser: &models.User{FullName: "P"},
 		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
 		Station:     models.Station{ID: uuid.New(), Name: "Dalj", Code: "dalj"},
@@ -2393,7 +2452,7 @@ func TestKarticaLetvePrikazujeValoveObrane(t *testing.T) {
 		t.Fatalf("priprema testa: %d valova", len(valovi))
 	}
 
-	html := iscrtaj(t, "station_detail.html", StationPageData{
+	html := iscrtaj(t, "station_history.html", StationPageData{
 		CurrentUser: &models.User{FullName: "P"},
 		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
 		Station:     st, PragoviKote: pragoviUKotama(st),
@@ -2428,9 +2487,9 @@ func TestKarticaLetvePrikazujeValoveObrane(t *testing.T) {
 
 // Postaja bez pragova u centimetrima ne može dati valove, i to mora reći, a ne
 // prikazati prazan popis kao da valova nije bilo.
-func TestBezPragovaKarticaObjasnjavaIzostanakValova(t *testing.T) {
+func TestBezPragovaHistorijatObjasnjavaIzostanakValova(t *testing.T) {
 	st := models.Station{ID: uuid.New(), Name: "Dalj", Code: "dalj"}
-	html := iscrtaj(t, "station_detail.html", StationPageData{
+	html := iscrtaj(t, "station_history.html", StationPageData{
 		CurrentUser: &models.User{FullName: "P"},
 		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
 		Station:     st, PragoviKote: pragoviUKotama(st),

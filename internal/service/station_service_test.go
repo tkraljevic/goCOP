@@ -2,6 +2,8 @@ package service_test
 
 import (
 	"context"
+
+	"github.com/google/uuid"
 	"path/filepath"
 	"testing"
 
@@ -194,5 +196,124 @@ func TestSvakiUpisOstavljaVerziju(t *testing.T) {
 	}
 	if history[0].NodeID != "test-node" || history[0].Supersedes != history[1].VersionID {
 		t.Errorf("verzije nisu ulančane kako treba: %+v", history[0])
+	}
+}
+
+// letvaZaIzmjenu daje servis i jednu upisanu postaju, bez oslanjanja na
+// registre iz data/ — inače bi se test preskočio ondje gdje ih nema, a
+// preskočen test ne dokazuje ništa.
+func letvaZaIzmjenu(t *testing.T) (*service.StationService, *repository.StationRepository, *models.Station) {
+	t.Helper()
+	database, err := db.OpenDB(filepath.Join(t.TempDir(), "letva.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { database.Close() })
+	if err := db.InitSchema(database); err != nil {
+		t.Fatal(err)
+	}
+	rec := ledger.New(database, "test-node")
+	repo := repository.NewStationRepository(database, rec)
+	svc := service.NewStationService(repo,
+		service.NewSectionService(repository.NewSectionRepository(database, rec), service.NewSSEBroker()),
+		service.NewSSEBroker())
+
+	cm := func(v int) *int { return &v }
+	st := &models.Station{ID: uuid.New(), Code: "batina", Name: "Batina",
+		Prep: models.Threshold{Cm: cm(300)}, Regular: models.Threshold{Cm: cm(500)}}
+	if err := repo.CreateStation(context.Background(), st); err != nil {
+		t.Fatal(err)
+	}
+	return svc, repo, st
+}
+
+func ucitaj(t *testing.T, repo *repository.StationRepository, id uuid.UUID) *models.Station {
+	t.Helper()
+	st, err := repo.GetStationByID(context.Background(), id)
+	if err != nil || st == nil {
+		t.Fatalf("postaja se ne čita: %v", err)
+	}
+	return st
+}
+
+// Izvor kote, način, datumi i naziv iz dokumentacije dugo se nisu dali
+// promijeniti: servis ih je pri svakom spremanju vraćao na staro, uz
+// obrazloženje da ih obrazac ne šalje. Obrazac ih šalje, pa je posljedica bila
+// da se upisano tiho baca — tko bi obrisao napomenu o koti, dobio bi je natrag
+// pri sljedećem otvaranju, i tako koliko god puta pokušao.
+func TestIzvorKoteSeDaPromijenitiIObrisati(t *testing.T) {
+	svc, repo, st := letvaZaIzmjenu(t)
+	ctx := context.Background()
+
+	st.ZeroDatumSource = "Geodetski elaborat 250 BATINA"
+	st.ZeroDatumMethod = "izmjereno na terenu"
+	st.ZeroDatumSurveyDate = "2024-09-10"
+	st.ZeroDatumDocumentDate = "2025-01"
+	st.SourceName = "Batina (Dunav)"
+	if err := svc.UpdateStation(ctx, globalAdmin(), st); err != nil {
+		t.Fatal(err)
+	}
+	nakon := ucitaj(t, repo, st.ID)
+	if nakon.ZeroDatumMethod != "izmjereno na terenu" || nakon.ZeroDatumSource != "Geodetski elaborat 250 BATINA" {
+		t.Fatalf("upis nije prošao: izvor %q, način %q", nakon.ZeroDatumSource, nakon.ZeroDatumMethod)
+	}
+
+	// brisanje — ovo je bilo nemoguće koliko god puta se pokušalo
+	nakon.ZeroDatumMethod = ""
+	nakon.ZeroDatumSource = ""
+	nakon.ZeroDatumSurveyDate = ""
+	nakon.ZeroDatumDocumentDate = ""
+	nakon.SourceName = ""
+	if err := svc.UpdateStation(ctx, globalAdmin(), nakon); err != nil {
+		t.Fatal(err)
+	}
+	prazno := ucitaj(t, repo, st.ID)
+	for ime, v := range map[string]string{
+		"način":           prazno.ZeroDatumMethod,
+		"izvor":           prazno.ZeroDatumSource,
+		"datum izmjere":   prazno.ZeroDatumSurveyDate,
+		"datum dokumenta": prazno.ZeroDatumDocumentDate,
+		"naziv iz dok.":   prazno.SourceName,
+	} {
+		if v != "" {
+			t.Errorf("%s se vratio nakon brisanja: %q", ime, v)
+		}
+	}
+}
+
+// Kvačica „traži provjeru" bila je bez učinka: servis ju je računao iz pragova
+// i prepisivao ono što je operater označio. Letva bez pragova i dalje traži
+// pregled — to je stanje podatka, ne mišljenje — ali s pragovima odlučuje čovjek.
+func TestKvacicaZaProvjeruImaUcinak(t *testing.T) {
+	svc, repo, st := letvaZaIzmjenu(t)
+	ctx := context.Background()
+
+	st.NeedsReview = true
+	st.ReviewNote = "kota nije potvrđena elaboratom"
+	if err := svc.UpdateStation(ctx, globalAdmin(), st); err != nil {
+		t.Fatal(err)
+	}
+	if s := ucitaj(t, repo, st.ID); !s.NeedsReview || s.ReviewNote != "kota nije potvrđena elaboratom" {
+		t.Errorf("označeno za provjeru se izgubilo: %v %q", s.NeedsReview, s.ReviewNote)
+	}
+
+	s2 := ucitaj(t, repo, st.ID)
+	s2.NeedsReview = false
+	if err := svc.UpdateStation(ctx, globalAdmin(), s2); err != nil {
+		t.Fatal(err)
+	}
+	if s := ucitaj(t, repo, st.ID); s.NeedsReview || s.ReviewNote != "" {
+		t.Errorf("oznaka se ne da skinuti: %v %q", s.NeedsReview, s.ReviewNote)
+	}
+
+	// bez ijednog praga u centimetrima oznaka se vraća sama
+	s3 := ucitaj(t, repo, st.ID)
+	s3.Prep, s3.Regular = models.Threshold{}, models.Threshold{}
+	s3.NeedsReview = false
+	if err := svc.UpdateStation(ctx, globalAdmin(), s3); err != nil {
+		t.Fatal(err)
+	}
+	if s := ucitaj(t, repo, st.ID); !s.NeedsReview || s.ReviewNote == "" {
+		t.Error("letva bez pragova mora tražiti pregled bez obzira na kvačicu")
 	}
 }

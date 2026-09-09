@@ -9,6 +9,7 @@ import (
 	"html"
 	"html/template"
 	"io/fs"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -389,7 +390,7 @@ func NewServer(
 	templates := make(map[string]*template.Template)
 
 	// Predlošci koji proširuju base.html
-	for _, page := range []string{"dashboard.html", "registri.html", "users.html", "user_detail.html", "user_form.html", "duty_form.html", "profile.html", "sections.html", "section_detail.html", "section_form.html", "territories.html", "county_form.html", "municipality_form.html", "municipality_detail.html", "stations.html", "station_detail.html", "station_form.html", "watercourses.html", "watercourse_detail.html", "watercourse_form.html", "structures.html", "structure_detail.html", "structure_form.html", "readings.html", "reading_history.html", "reading_form.html", "arhiva_ispravci.html", "uvoz_ocitanja.html", "teren.html", "moduli.html", "settings.html", "odrzavanje.html", "organizacija.html", "sector_form.html", "area_form.html", "contractor_form.html", "firme.html", "nazivi.html", "sudionici.html",
+	for _, page := range []string{"dashboard.html", "registri.html", "users.html", "user_detail.html", "user_form.html", "duty_form.html", "profile.html", "sections.html", "section_detail.html", "section_form.html", "territories.html", "county_form.html", "municipality_form.html", "municipality_detail.html", "stations.html", "station_detail.html", "station_form.html", "station_history.html", "station_history_form.html", "watercourses.html", "watercourse_detail.html", "watercourse_form.html", "structures.html", "structure_detail.html", "structure_form.html", "readings.html", "reading_history.html", "reading_form.html", "arhiva_ispravci.html", "uvoz_ocitanja.html", "teren.html", "moduli.html", "settings.html", "odrzavanje.html", "organizacija.html", "sector_form.html", "area_form.html", "contractor_form.html", "firme.html", "nazivi.html", "sudionici.html",
 		"administracija.html", "uvozi.html", "sinkronizacija.html", "pretplate.html", "baza.html",
 		"dnevnici.html", "dnevnik_form.html", "dnevnik.html", "dnevnik_list.html", "pomoc.html", "ocitanja_ispravci.html"} {
 		t, err := template.New("base.html").Funcs(tmplFuncs).ParseFS(templatesFS, "base.html", page)
@@ -450,10 +451,24 @@ func (s *Server) setupRoutes() {
 	territoriesH := NewTerritoriesHandler(s.territoryService, s.templates["territories.html"])
 	territoriesH.SetPageTemplates(s.templates["county_form.html"], s.templates["municipality_form.html"], s.templates["municipality_detail.html"])
 	stationsH := NewStationsHandler(s.stationService, s.templates["stations.html"])
-	stationsH.SetPageTemplates(s.templates["station_detail.html"], s.templates["station_form.html"], s.sectionService, s.watercourseService)
+	stationsH.SetPageTemplates(s.templates["station_detail.html"], s.templates["station_form.html"],
+		s.templates["station_history.html"], s.templates["station_history_form.html"],
+		s.sectionService, s.watercourseService)
 	stationsH.SetEpisodeService(s.episodeService)
 	stationsH.SetArhiva(func() *repository.ArhivaRepository { return s.arhiva })
 	stationsH.SetKarta(func() KartaPostavke { return s.karta })
+	stationsH.SetSektor(func(ctx context.Context, id string) *models.Sector {
+		if s.orgService == nil {
+			return nil
+		}
+		sek, err := s.orgService.GetSector(ctx, id)
+		if err != nil {
+			// Memorandum nije razlog da izvješće ne nastane.
+			log.Printf("izvješće: sektor %s se nije pročitao: %v", id, err)
+			return nil
+		}
+		return sek
+	})
 	watercoursesH := NewWatercoursesHandler(s.watercourseService, s.sectionService, s.templates["watercourses.html"])
 	structuresH := NewStructuresHandler(s.structureService, s.stationService, s.sectionService, s.userService,
 		s.templates["structures.html"], s.templates["structure_detail.html"], s.templates["structure_form.html"])
@@ -646,6 +661,8 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /stations", s.authMiddleware(http.HandlerFunc(stationsH.ShowStations)))
 	s.mux.Handle("GET /stations/new", s.authMiddleware(http.HandlerFunc(stationsH.ShowStationForm)))
 	s.mux.Handle("GET /stations/{id}", s.authMiddleware(http.HandlerFunc(stationsH.ShowStation)))
+	s.mux.Handle("GET /stations/{id}/historijat", s.authMiddleware(http.HandlerFunc(stationsH.HistorijatLetve)))
+	s.mux.Handle("GET /stations/{id}/historijat/uredi", s.authMiddleware(http.HandlerFunc(stationsH.ObrazacHistorijata)))
 	s.mux.Handle("GET /stations/{id}/izvjesce.docx", s.authMiddleware(http.HandlerFunc(stationsH.IzvjesceLetveDocx)))
 	s.mux.Handle("GET /stations/{id}/edit", s.authMiddleware(http.HandlerFunc(stationsH.ShowStationForm)))
 	s.mux.Handle("GET /api/stations", s.authMiddleware(http.HandlerFunc(stationsH.HandleListStationsAPI)))

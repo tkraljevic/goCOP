@@ -1,6 +1,7 @@
 package db
 
 import (
+	"os"
 	"strings"
 	"testing"
 
@@ -208,4 +209,31 @@ func TestSvakiVodomjerIzDokumentacijeJePovezanSaSvojomDionicom(t *testing.T) {
 	}
 
 	t.Logf("preskočeno redaka koji nisu vodomjeri nego kriteriji: %d", len(skipped))
+}
+
+// Registar postaja puni se iz dokumentacije dionica. Podatak o jednoj letvi
+// upisan ravno u kod ne da se ni ispraviti ni povući kroz program, a pri svakom
+// novom punjenju vraća se bez obzira na to što je u međuvremenu utvrđeno — zato
+// se traži da ga u sjemenu nema.
+func TestSjemeNemaUpisanihPodatakaJedneLetve(t *testing.T) {
+	b, err := os.ReadFile("stations_seed.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	kod := string(b)
+	// komentari smiju spominjati letvu; kod ne smije
+	var bezKomentara strings.Builder
+	for _, red := range strings.Split(kod, "\n") {
+		if strings.HasPrefix(strings.TrimSpace(red), "//") {
+			continue
+		}
+		bezKomentara.WriteString(red + "\n")
+	}
+	kod = bezKomentara.String()
+
+	for _, tragovi := range []string{"batina", "Batina", "80.189", "CADCOM", "UPDATE stations SET"} {
+		if strings.Contains(kod, tragovi) {
+			t.Errorf("sjeme registra sadrži %q — podaci jedne letve upisuju se kroz obrazac, ne u kod", tragovi)
+		}
+	}
 }
