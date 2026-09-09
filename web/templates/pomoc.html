@@ -14,16 +14,52 @@
 </div>
 
 <nav class="pomoc-kazalo" aria-label="Sadržaj">
-  <a href="#pocetak">Kako se program koristi</a>
-  <a href="#dashboard">Početna</a>
-  <a href="#teren">Teren</a>
-  <a href="#readings">Očitanja</a>
-  <a href="#journals">Dnevnici</a>
-  <a href="#users">Djelatnici</a>
-  <a href="#registers">Registri</a>
-  <a href="#admin">Administracija</a>
-  <a href="#profile">Moj profil</a>
-  <a href="#pojmovi">Pojmovnik</a>
+  <div class="kazalo-grupa">
+    <a class="kazalo-glava" href="#pocetak">Kako se program koristi</a>
+    <a class="kazalo-glava" href="#dashboard">Početna</a>
+    <a class="kazalo-glava" href="#teren">Teren</a>
+  </div>
+  <div class="kazalo-grupa">
+    <a class="kazalo-glava" href="#sections">Dionice</a>
+    <a href="#dionica-poddionice">Poddionice</a>
+    <a href="#dionica-vodomjeri">Mjerodavni vodomjeri</a>
+    <a href="#dionica-obrana">Proglašavanje obrane</a>
+    <a href="#dionica-ljudi">Tko je zadužen</a>
+  </div>
+  <div class="kazalo-grupa">
+    <a class="kazalo-glava" href="#stations">Vodomjerne postaje</a>
+    <a href="#letva-kota">Kota nule i visinski sustavi</a>
+    <a href="#letva-pragovi">Pragovi i stupanj obrane</a>
+    <a href="#letva-ekstremi">Zabilježeni ekstremi</a>
+    <a href="#letva-povratni">Povratni vodostaji</a>
+    <a href="#letva-valovi">Valovi obrane u nizu</a>
+    <a href="#letva-korito">Korito i voda u njemu</a>
+    <a href="#letva-karta">Karta položaja</a>
+    <a href="#letva-izvjesce">Izvješće u Wordu</a>
+  </div>
+  <div class="kazalo-grupa">
+    <a class="kazalo-glava" href="#readings">Operativni vodostaji</a>
+    <a href="#ocitanja-zadnje">Zadnje očitanje</a>
+    <a href="#ocitanja-graf">Kretanje vodostaja</a>
+    <a href="#ocitanja-popis">Upis i popis očitanja</a>
+    <a href="#ocitanja-skupno">Unos više odjednom</a>
+    <a href="#ocitanja-ispravak">Provjera i ispravak u tablici</a>
+  </div>
+  <div class="kazalo-grupa">
+    <a class="kazalo-glava" href="#arhiva">Arhiva vodostaja</a>
+    <a href="#arhiva-karakteristike">Karakteristične vrijednosti</a>
+    <a href="#arhiva-izvori">Spojeni niz i izvori</a>
+    <a href="#arhiva-rekonstrukcija">Rekonstruirani nizovi</a>
+    <a href="#arhiva-ispravci">Izvoz i ispravci</a>
+  </div>
+  <div class="kazalo-grupa">
+    <a class="kazalo-glava" href="#journals">Dnevnici</a>
+    <a class="kazalo-glava" href="#users">Djelatnici</a>
+    <a class="kazalo-glava" href="#registers">Registri</a>
+    <a class="kazalo-glava" href="#admin">Administracija</a>
+    <a class="kazalo-glava" href="#profile">Moj profil</a>
+    <a class="kazalo-glava" href="#pojmovi">Pojmovnik</a>
+  </div>
 </nav>
 
 <span id="pomoc" aria-hidden="true"></span>
@@ -63,100 +99,213 @@
   </div>
 </section>
 
-<section class="detail-section" id="readings">
-  <h2>{{icon "activity"}} Očitanja</h2>
+<section class="detail-section" id="sections">
+  <h2>{{icon "file-text"}} Dionice</h2>
   <div class="reg-card pomoc-tekst">
-    <p><strong>Popis letvi</strong> pokazuje zadnje očitanje svake letve i je li koji stupanj
-      obrane na snazi. Filtri sužavaju popis na sektor ili područje.</p>
+    <p>Branjena dionica je dio vodotoka koji se brani kao cjelina. Nosi šifru oblika
+      <em>sektor.područje.broj</em> — B.34.1 je prva dionica područja 34 u sektoru B — i sve
+      ostalo visi na njoj: obuhvat, nasipi, objekti, ugrožena naselja, mjerodavne letve i ljudi
+      koji su za nju zaduženi.</p>
 
-    <h3>Stranica jedne letve</h3>
-    <p>Gore stoji <strong>zadnje očitanje</strong> i uz njega sve što se iz njega da izračunati:</p>
-    <ul>
-      <li><strong>Kota vode</strong> — apsolutna visina vodne plohe, u svakom visinskom sustavu
-        koji letva ima. Letva mjeri od svoje nule; kota kaže koliko je voda visoka nad morem.
-        Po tome se na terenu računa koliko obranu treba nadvisiti vrećama.</li>
-      <li><strong>Protok</strong> — koliko vode prolazi, u m³/s. Računa se službenom HQ krivuljom
-        DHMZ-a koja je vrijedila u trenutku tog očitanja. Krivulje nema za svaku letvu, a ni za
-        svaki vodostaj: kad je voda izvan raspona za koji je krivulja postavljena, ne piše se
-        ništa. Izmišljen protok gori je od nikakvog.</li>
-      <li><strong>Pragovi</strong> — pripremno stanje, redovna obrana, izvanredna obrana,
-        izvanredno stanje, i najviši zabilježeni vodostaj.</li>
-    </ul>
+    <h3 id="dionica-poddionice">Poddionice</h3>
+    <p>Dionica se sastoji od <strong>poddionica</strong>. Jedna poddionica je jedna voda s jednim
+      obuhvatom: rijeka Dunav, desna obala, rkm 1421+770 – 1433+060. Dionica na jednoj vodi ima
+      jednu poddionicu; ona koja hvata i rijeku i kanal ima dvije.</p>
+    <p>Ista voda s lijevim i desnim nasipom <strong>nije</strong> dvije poddionice nego jedna s
+      dva nasipa. Podjela ide po vodi i obuhvatu, ne po nasipu.</p>
+    <p>Svaka poddionica nosi: obuhvat i obalu, stacionažu (rkm za rijeke, pkm, bkm ili kkm za
+      ostalo), ugrožena naselja s pripadnošću županiji i općini, nasipe i brane, objekte
+      (crpne stanice, ustave, sifoni, mostovi, propusti) i mjerodavne vodomjere.</p>
+    <p>Opis dionice program slaže sam iz poddionica. Kad ga netko prepiše rukom, ostaje njegov i
+      program ga više ne dira.</p>
 
-    <h3>Valovi obrane u nizu</h3>
-    <p>Za svaki val u cijelom nizu program izračuna <strong>kada bi po vodostaju počelo i završilo koje
-      stanje</strong> i koliko bi trajalo — pripremno stanje, redovna obrana, izvanredna obrana, izvanredno
-      stanje. Isto što se poslije svake obrane upisuje u obrazac, samo unatrag kroz cijeli niz.</p>
-    <p>Trajanja se broje <strong>po stanjima koja se ne preklapaju</strong>, kako i stoje u obrascu: dok traje
-      redovna obrana, pripremno stanje ne teče; kad se redovna prekine, pripremno se nastavlja. Zbroj svih
-      stanja zato daje trajanje cijeloga vala. Uz to stoji i vrijeme <em>iznad praga</em>, koje uključuje i
-      više stupnjeve.</p>
-    <p>Ovo je <strong>izračun iz mjerenja, a ne evidencija</strong>. Obranu proglašava čovjek i redovito prije
-      nego voda prijeđe prag, pa se izračun i evidencija neće poklopiti — i ne trebaju. Izračun kaže što bi po
-      vodi bilo, evidencija što je odlučeno. Proglašene obrane stoje u zasebnoj tablici ispod, kad ih ima.</p>
-    <p>Prijelaz praga traži se pravocrtno između dva mjerenja, pa i dnevni niz daje trajanje točnije od dana.
-      Gdje ima satnih mjerenja, računa se po njima. Znak <strong>+</strong> uz trajanje znači da val dodiruje
-      rub niza — počeo je prije prvog ili traje iza zadnjeg podatka — pa je trajanje najmanje toliko. Pad ispod
-      pripremnog stanja kraći od tri dana ne prekida val.</p>
-    <p>Na vrhu stoji zbroj za cijeli niz: koliko je puta koje stanje nastupilo, koliko je ukupno trajalo i koji
-      je val bio najdulji. Sve se računa automatski iz pragova postaje i njezina niza, pa svaka letva koja ima
-      i jedno i drugo dobiva svoj pregled.</p>
+    <h3 id="dionica-vodomjeri">Mjerodavni vodomjeri</h3>
+    <p>Dionica ne drži vlastite pragove. Ona <strong>pridruži letvu</strong> koja joj je
+      mjerodavna, a pragovi dolaze s te letve — pripremno stanje, redovna obrana, izvanredna
+      obrana, izvanredno stanje i najviši zabilježeni vodostaj. Promijeni li se prag na letvi,
+      promijenio se svugdje gdje je ta letva mjerodavna, bez ijednog dodatnog upisa.</p>
+    <p><strong>Ista letva može biti mjerodavna za više dionica.</strong> Batina vodi i B.34.1 i
+      B.34.2; obje vide iste pragove i isti niz, a obrana se svejedno proglašava po dionici — u
+      istom valu svaka može biti na svom stupnju.</p>
+    <p>Letva se pridružuje u obrascu dionice, pod <em>Mjerodavni vodomjeri</em>: upiše se naziv
+      iz registra postaja i doda. Kad je dionica došla iz prijepisa dokumentacije, gumb
+      <em>Prepiši iz dokumentacije</em> pridruži letve koje u zapisu piše, a što se nije našlo u
+      registru program izričito nabroji umjesto da tiho preskoči.</p>
+    <p>Zapis iz dokumentacije koji <strong>nije</strong> vodomjer — kota u metrima, uputa na
+      pravilnik — ne ulazi u registar postaja nego ostaje uz poddionicu kao kriterij, jer se iz
+      njega ne da računati stupanj obrane.</p>
 
-    <h3>Povratni vodostaji</h3>
-    <p>Za letvu koja ima dovoljno dug niz upisuje se koliko visoko voda dođe <strong>jednom u
-      25, 50 ili 100 godina</strong>. To nije mjerenje nego procjena iz niza, pa uz svaku brojku
-      stoji metoda, niz na kojem je računata i raspon unutar kojeg vrijednost pouzdano leži.
-      Brojka bez toga izgledala bi kao izmjeren podatak, a nije.</p>
+    <h3 id="dionica-obrana">Proglašavanje obrane</h3>
+    <p>Obranu proglašava i prekida <strong>čovjek</strong>, na kartici dionice. Program je ne
+      proglašava sam. On javlja kad vodostaj na mjerodavnoj letvi prijeđe prag i to zabilježi uz
+      epizodu, pa se poslije vidi je li obrana proglašena prije ili poslije prijelaza i koliko
+      sati prije.</p>
+    <p>To je namjerno: obrana se redovito proglašava ispred vode, po prognozi ili po stanju
+      nasipa. Na Batini je razlika sati, na Belišću zna biti tjedana — i to je podatak, ne
+      greška.</p>
+    <p>Epizoda nosi tko je proglasio, kada, na kojem stupnju, po kojoj osnovi i tko je prekinuo.
+      Zatvorene epizode ostaju u povijesti dionice.</p>
+
+    <h3 id="dionica-ljudi">Tko je zadužen</h3>
+    <p>Ljudi se ne upisuju na dionicu izravno nego kroz <strong>dužnosti</strong>: djelatnik
+      dobiva dužnost na dionici ili na cijelom branjenom području, i time pravo da po njoj
+      upisuje. Popis zaduženih vidi se na kartici dionice, s funkcijom i brojem telefona.</p>
+  </div>
+</section>
+
+<section class="detail-section" id="stations">
+  <h2>{{icon "ruler"}} Vodomjerne postaje</h2>
+  <div class="reg-card pomoc-tekst">
+    <p>Letva je mjesto na kojem se mjeri vodostaj. Kartica letve skuplja sve što se o njoj zna i
+      sve što se iz njezina niza da izračunati — od kote nule do stogodišnje vode.</p>
+    <p>Registar letvi nosi šifru, vodotok na kojem letva <em>fizički stoji</em>, stacionažu i
+      vodno područje. Vodotok nije isto što i vode za koje je letva mjerodavna: Batina stoji na
+      Dunavu, a mjerodavna je i za dionice na Karašici.</p>
+
+    <h3 id="letva-kota">Kota nule i visinski sustavi</h3>
+    <p>Letva mjeri od svoje nule; kota nule kaže koliko je ta nula visoka nad morem. Vodi se u
+      <strong>dva visinska sustava</strong> — starom (Trst) i novom (HVRS71) — i jedna se
+      <em>ne</em> izvodi iz druge. Razlika je konstanta iz službenog izvora; na Batini je
+      0,261 m. Pogrešna kota nule pomiče cijelu ljestvicu pragova.</p>
+    <p>Kota se s vremenom mijenja: letva se premjesti, obnovi ili dobije novi elaborat. Te
+      promjene se upisuju s datumom od kojeg vrijede. Vodostaji u bazi <strong>svi su svedeni na
+      zadnju kotu</strong> i ne preračunavaju se; povijest promjena služi da se zna što je koja
+      starija evidencija zapravo mjerila. Bez toga se stari minimumi čitaju krivo — mađarski
+      Mohács je 1943. spustio nulu za 200 cm, i dok to nije bilo zapisano, rekonstruirani
+      Batinin minimum ispadao je metar niži nego što jest.</p>
+
+    <h3 id="letva-pragovi">Pragovi i stupanj obrane</h3>
+    <p>Četiri praga u centimetrima na letvi — pripremno stanje, redovna obrana, izvanredna
+      obrana, izvanredno stanje — određuju stupanj koji program javlja. Uz njih stoji i najviši
+      zabilježeni vodostaj.</p>
+    <p>Prag zapisan samo tekstom („206,30 m n. m.“) čuva se kakav jest, ali ne ulazi u izračun:
+      iz njega se ne da računati, a nagađanjem bi se izmislio prijelaz kojeg nema. Letva bez
+      ijednog praga u centimetrima to i kaže umjesto da javi „bez mjera obrane“.</p>
+    <p>Isti pragovi prikazuju se i u <strong>apsolutnoj koti</strong> vodne plohe i u
+      <strong>protoku</strong> po krivulji, jer se na terenu računa koliko obranu treba
+      nadvisiti, a u izvještajima se traži protok.</p>
+
+    <h3 id="letva-ekstremi">Zabilježeni ekstremi</h3>
+    <p>Najviši i najniži vodostaj s datumom. Vrijednost koja <strong>nije izmjerena na ovoj
+      letvi</strong> — preračunata iz susjedne postaje ili preuzeta iz starije evidencije — nosi
+      podrijetlo, izvor i način, i <em>ne ulazi</em> u pragove ni u izračun faze. Batina najviši
+      vodostaj iz 1965. nema izmjeren nego preračunat iz Bezdana; prikazan kao mjerenje tvrdio bi
+      nešto što se nije dogodilo.</p>
+    <p>Zato stoje dvije brojke: „koliko je najviše izmjereno“ i „koliko je najviše bilo“. To su
+      odgovori na različita pitanja.</p>
+
+    <h3 id="letva-povratni">Povratni vodostaji</h3>
+    <p>Za letvu s dovoljno dugim nizom upisuje se koliko visoko voda dođe <strong>jednom u 25, 50
+      ili 100 godina</strong>. To nije mjerenje nego procjena iz niza, pa uz svaku brojku stoji
+      metoda, niz na kojem je računata i raspon unutar kojeg vrijednost pouzdano leži. Brojka bez
+      toga izgledala bi kao izmjeren podatak.</p>
     <p>Uz svaku procjenu piše i <strong>postotak po godini</strong>, jer se „jednom u sto godina“
       redovito čita krivo — kao da se takva voda neće ponoviti prije isteka stoljeća. Znači
       suprotno: svake pojedine godine ima 1 % izgleda da dođe, neovisno o tome je li došla lani.
       Dvije stogodišnje vode uzastopce nisu nemoguće ni neobjašnjive.</p>
-    <p>Povratni vodostaj <strong>nije prag obrane</strong> i ne ulazi u izračun stupnja obrane.
-      Prag je propisana granica pri kojoj se poduzimaju mjere; povratni vodostaj govori samo
-      koliko je koja visina rijetka. Upisuje se u <em>Uredi</em> na stranici letve.</p>
+    <p>Povratni vodostaj <strong>nije prag obrane</strong> i ne ulazi u izračun stupnja. Prag je
+      propisana granica pri kojoj se poduzimaju mjere; povratni vodostaj govori samo koliko je
+      koja visina rijetka. Upisuje se u <em>Uredi</em> na kartici letve.</p>
 
-    <h3>Kretanje vodostaja</h3>
+    <h3 id="letva-valovi">Valovi obrane u nizu</h3>
+    <p>Za svaki val u cijelom nizu program izračuna <strong>kada bi po vodostaju počelo i
+      završilo koje stanje</strong> i koliko bi trajalo. Isto što se poslije svake obrane upisuje
+      u obrazac, samo unatrag kroz cijelu povijest.</p>
+    <p>Trajanja se broje <strong>po stanjima koja se ne preklapaju</strong>, kako i stoje u
+      obrascu: dok traje redovna obrana, pripremno stanje ne teče; kad se redovna prekine,
+      pripremno se nastavlja. Zbroj svih stanja zato daje trajanje cijeloga vala. Uz to stoji i
+      vrijeme <em>iznad praga</em>, koje uključuje i više stupnjeve.</p>
+    <p>Ovo je <strong>izračun iz mjerenja, a ne evidencija</strong>. Izračun kaže što bi po vodi
+      bilo, evidencija što je odlučeno; proglašene obrane stoje u zasebnoj tablici ispod.</p>
+    <p>Prijelaz praga traži se pravocrtno između dva mjerenja, pa i dnevni niz daje trajanje
+      točnije od dana. Gdje ima satnih mjerenja, računa se po njima. Znak <strong>+</strong> uz
+      trajanje znači da val dodiruje rub niza, pa je trajanje najmanje toliko. Pad ispod
+      pripremnog stanja kraći od tri dana ne prekida val; ako voda u istom valu prag prijeđe
+      dvaput, piše „u 2 navrata“ i vrijeme između se ne broji.</p>
+    <p>Na vrhu stoji zbroj za cijeli niz: koliko je puta koje stanje nastupilo, koliko je ukupno
+      trajalo i koji je val bio najdulji.</p>
+
+    <h3 id="letva-korito">Korito i voda u njemu</h3>
+    <p>Poprečni presjek korita, snimljen geodetski, s vodom ucrtanom po zadnjem vodostaju.
+      Presjek se <strong>spaja iz svih snimaka</strong>: novija ima prednost svugdje gdje seže,
+      starija popunjava ono što novija ne pokriva — tako se dobiva cijela visina korita bez
+      miješanja dna kroz godine. Snimke se prije toga svode na zajedničku stacionažu, jer se
+      između epoha ponovno stacioniraju.</p>
+    <p>Crtež ima <strong>dvije osi</strong>: s jedne strane apsolutna kota, s druge vodostaj koji
+      bi toj visini na letvi odgovarao. Kote se prikazuju u novom visinskom sustavu, preračunate
+      iz onoga u kojem je profil snimljen; razlika se računa iz kota nule same letve. Na sredini
+      vode stoji zadnje očitanje s kotom vodne plohe.</p>
+    <p>Isprekidane crte su stupnjevi obrane ucrtani na korito — po njima se vidi ono što se iz
+      brojke ne vidi: koliko korita ostaje iznad izvanrednog stanja. Osjenčani pojas je raspon
+      kroz koji je voda išla u prikazanom razdoblju.</p>
+    <p>Stacionaža se mjeri od <strong>lijeve obale</strong>. Kad je voda viša od niže obale
+      snimka, crtež je pri toj razini presječen i program to napiše umjesto da iz presječenog
+      crteža računa koliko korita ostaje. Rub snimljenog profila <strong>nije kruna
+      nasipa</strong>: to je zasebna kota koja se vodi uz obranu. Presjeka nema za svaku letvu.</p>
+
+    <h3 id="letva-karta">Karta položaja</h3>
+    <p>Letva s upisanim koordinatama prikazuje se na karti. Podloga dolazi s mreže; program sam
+      ne treba internet, pa gdje mreže nema karta to i napiše, a koordinate i poveznica na
+      vanjsku kartu vrijede i dalje. Izvor podloge postavlja se u <code>gocop.toml</code>.</p>
+
+    <h3 id="letva-izvjesce">Izvješće u Wordu</h3>
+    <p>Gumb <strong>Generiraj izvješće</strong> sastavlja <code>.docx</code> sa svime što program
+      o letvi zna i svime što je iz njezina niza izračunao: osnovni podaci, kota nule i njezina
+      povijest, pragovi s kotama i protokom, ekstremi, povratni vodostaji s metodom, doseg niza i
+      odakle podaci dolaze, valovi obrane sa zbrojem za cijeli niz i najviših dvadeset pet
+      poimence, korito i krivulje protoka.</p>
+    <p>Dokument se otvara u Wordu i dalje uređuje rukom — služi kao podloga za tekst, ne kao
+      gotov elaborat. Ograde koje na kartici stoje uz brojke idu i u njega, jer dokument putuje
+      dalje od stranice i čita ga netko tko izračun nije vidio. Grafova nema; brojke koje graf
+      pokazuje stoje u tablicama.</p>
+  </div>
+</section>
+
+<section class="detail-section" id="readings">
+  <h2>{{icon "activity"}} Operativni vodostaji</h2>
+  <div class="reg-card pomoc-tekst">
+    <p>Očitanja koja ovaj program sam vodi: ono što vodočuvar upiše, što se uveze s letva.voda.hr
+      ili što stigne telemetrijom. Za razliku od arhive, ovi se zapisi <strong>uređuju</strong> i
+      <strong>razmjenjuju</strong> među uredima.</p>
+    <p><strong>Popis letvi</strong> pokazuje zadnje očitanje svake letve i je li koji stupanj
+      obrane na snazi. Filtri sužavaju popis na sektor ili područje.</p>
+
+    <h3 id="ocitanja-zadnje">Zadnje očitanje</h3>
+    <p>Gore stoji zadnje očitanje i uz njega sve što se iz njega da izračunati:</p>
+    <ul>
+      <li><strong>Kota vode</strong> — apsolutna visina vodne plohe, u svakom visinskom sustavu
+        koji letva ima. Letva mjeri od svoje nule; kota kaže koliko je voda visoka nad morem.
+        Po tome se na terenu računa koliko obranu treba nadvisiti vrećama.</li>
+      <li><strong>Protok</strong> — koliko vode prolazi, u m³/s. Računa se službenom krivuljom
+        DHMZ-a koja je vrijedila u trenutku tog očitanja. Krivulje nema za svaku letvu, a ni za
+        svaki vodostaj: kad je voda izvan raspona za koji je krivulja postavljena, ne piše se
+        ništa. Izmišljen protok gori je od nikakvog.</li>
+      <li><strong>Pragovi</strong> — četiri stupnja obrane i najviši zabilježeni vodostaj.</li>
+    </ul>
+
+    <h3 id="ocitanja-graf">Kretanje vodostaja</h3>
     <p>Graf pokazuje isto razdoblje koje je odabrano u <em>Pogledu</em> ispod njega — zadano
       zadnjih 30 dana. Prijelaz mišem preko crte pokazuje vrijednost i vrijeme. Kad se lista
       tablica, na grafu se osjenča dio koji je upravo u njoj; sam graf se ne prerazapinje, da se
       vidi gdje ste u cjelini.</p>
     <p>Prekid u crti znači da podataka nema. Crta se namjerno ne povlači preko praznine — to bi
       tvrdilo da podatak postoji ondje gdje ga nema.</p>
+    <p>Ispod grafa stoji <a href="#letva-korito">presjek korita</a> s vodom ucrtanom po zadnjem
+      očitanju razdoblja.</p>
 
-    <h3>Karta položaja</h3>
-    <p>Letva koja ima upisane koordinate prikazuje se na karti. Podloga dolazi s mreže; program
-      sam ne treba internet, pa gdje mreže nema karta to i napiše, a koordinate i poveznica na
-      vanjsku kartu vrijede i dalje. Izvor podloge postavlja se u <code>gocop.toml</code>.</p>
-
-    <h3>Gdje je voda u koritu</h3>
-    <p>Ispod grafa stoji poprečni presjek korita, snimljen geodetski, s vodom ucrtanom po
-      zadnjem očitanju razdoblja. Presjek ima svoju okomitu os: korito je na Batini 16 metara
-      visoko, a graf niske vode pokazuje petnaestak centimetara — pod istu os ne idu. Veže ih
-      to što obje govore u centimetrima na letvi, gdje je nula kota nule vodomjera.</p>
-    <p>Osjenčani pojas je raspon kroz koji je voda išla u razdoblju koje graf iznad prikazuje.
-      Isprekidane crte su stupnjevi obrane ucrtani na korito — po njima se vidi ono što se iz
-      brojke ne vidi: koliko korita ostaje iznad izvanrednog stanja.</p>
-    <p>Stacionaža se mjeri od <strong>lijeve obale</strong>, kako je označeno na izvornim
-      listovima. Snimak ne seže uvijek do vrha obale — Batinin iz 2015. počinje tek na 110.
-      metru — pa se bira najnovija snimka koja pokriva vodu prikazanog razdoblja. Kad nijedna
-      ne pokriva, program to i napiše umjesto da iz presječenog crteža računa koliko korita
-      ostaje.</p>
-    <p>Rub snimljenog profila <strong>nije kruna nasipa</strong>: to je zasebna kota koja se
-      vodi uz obranu, a ne dobiva se iz geodetske snimke korita.</p>
-    <p>Presjeka nema za svaku letvu.</p>
-
-    <h3>Očitanja</h3>
+    <h3 id="ocitanja-popis">Upis i popis očitanja</h3>
     <p>Popis upisanih očitanja, novije prvo. Uz svako stoji odakle je došlo (ručno, uvoz,
-      telemetrija) i tko ga je upisao. Olovka otvara izmjenu.</p>
+      telemetrija) i tko ga je upisao. Olovka otvara izmjenu. Na telefonu se očitanje upisuje
+      velikim poljem za broj — na terenu se ne pogađa sitna tipka.</p>
     <p><strong>Čuvaj povijest</strong> govori ovom računalu da drži cijelu povijest te letve, a
       ne samo zadnjih nekoliko očitanja. Odluka je lokalna — druga računala ostaju kakva jesu.</p>
 
-    <h3>Unos više očitanja odjednom</h3>
+    <h3 id="ocitanja-skupno">Unos više odjednom</h3>
     <p>Umjesto upisa jednog po jednog, može se zalijepiti tablica s letva.voda.hr ili priložiti
       Excel datoteka. Program prvo pokaže <strong>što bi se upisalo</strong> i tek nakon potvrde
       upisuje. Vrijeme se čita kao lokalno, onako kako piše na zaslonu izvora.</p>
 
-    <h3>Provjera i ispravak u tablici</h3>
+    <h3 id="ocitanja-ispravak">Provjera i ispravak u tablici</h3>
     <p>Očitanja se izvoze u CSV — cijelo odabrano razdoblje ili sve — pa se u tablici pregledaju
       i po potrebi isprave. Ispravljena datoteka vraća se natrag i program prvo pokaže
       <strong>što bi se promijenilo</strong>, staro pored novoga; tek nakon potvrde upisuje.</p>
@@ -167,25 +316,92 @@
     <p>Ispravak očitanja nije isto što i ispravak arhive: očitanje je živ zapis ovog programa pa
       se stvarno mijenja, kroz istu knjigu verzija kao izmjena jednog po jednog. Poslije se zna
       tko je i kad što promijenio.</p>
+  </div>
+</section>
 
-    <h3>Povijest iz arhive</h3>
-    <p>Arhiva je zasebna baza s mjerenjima starijim od programa — na Batini od 1901. Odvojena je
-      zato što je velika, i ne razmjenjuje se sa sinkronizacijom; čvor koji je nije preuzeo radi
-      bez nje.</p>
+<section class="detail-section" id="arhiva">
+  <h2>{{icon "history"}} Arhiva vodostaja</h2>
+  <div class="reg-card pomoc-tekst">
+    <p>Arhiva je <strong>zasebna baza</strong> s mjerenjima starijim od programa — na Batini od
+      1901. Odvojena je zato što je velika i zato što nije naša: donesena je izvana, ne uređuje
+      se i uvijek se može ponovno napraviti iz izvornih datoteka.</p>
+    <p>Arhiva se <strong>ne razmjenjuje</strong> sinkronizacijom. Čvor koji je nije preuzeo radi
+      bez nje: kartica letve i dalje radi, samo bez povijesti. Dok su povijesni nizovi stajali u
+      glavnoj bazi, uz svaki je redak išla i verzija za razmjenu, pa je 45.547 očitanja jedne
+      letve zauzelo 61 % baze.</p>
+
+    <h3 id="arhiva-karakteristike">Karakteristične vrijednosti</h3>
+    <p>Po jedan redak za svaku veličinu — vodostaj, protok, temperatura vode, koncentracija i
+      pronos nanosa — sa srednjakom, maksimumom i minimumom i danima kad su nastupili. Pritisak
+      na redak prebacuje prikaz ispod na tu veličinu. Izbornici biraju veličinu, gustoću (dnevni
+      srednjak ili svaki sat) i godinu.</p>
+
+    <h3 id="arhiva-izvori">Spojeni niz i izvori</h3>
+    <p>Isti dan redovito je mjeren iz više izvora. Program ih <strong>ne miješa</strong> nego
+      slaže u spojeni niz: za svaki trenutak uzima najtočniji izvor i piše koji je to bio, uz
+      oznaku točnosti. Uz svaku vrijednost tako stoji odakle je i koliko joj se vjeruje.</p>
+    <p>Gdje ima satnih mjerenja, računa se po njima; prije toga po dnevnima. Izračuni koji gledaju
+      cijelu povijest — valovi obrane, povratni vodostaji — uzimaju najbolju razlučivost koju
+      letva ima za svako razdoblje.</p>
+
+    <h3 id="arhiva-rekonstrukcija">Rekonstruirani nizovi</h3>
+    <p>Dio niza nije mjeren na toj letvi nego <strong>preračunat iz susjedne postaje</strong>.
+      Batinina letva utemeljena je 2001., a niz seže do 1901. jer je preračunat iz mađarskog
+      Mohácsa. Takav zapis nosi kvalitetu, izvor i način, i posvuda se označava — rekonstruirano
+      očitanje ne smije se poslije čitati kao mjerenje.</p>
+    <p>Pri preračunu se pazi na promjene kote nule izvorne postaje: Mohács je 1943. spustio nulu
+      za 200 cm, i bez tog ispravka Batinin minimum iz 1909. ispadao je metar niži nego što jest.
+      Zato se promjene kote vode kao podatak, s datumom od kojeg vrijede.</p>
+
+    <h3 id="arhiva-ispravci">Izvoz i ispravci arhive</h3>
+    <p>Godina se izvozi u CSV, ispravi izvan programa i vrati natrag. Datoteka nosi stupce
+      <em>vrijeme</em>, vrijednost, <em>izvor</em>, <em>tocnost</em>, <em>ispravak</em> i
+      <em>razlog</em>; upisuje se <strong>ispravak</strong>, i uz njega obavezno
+      <strong>razlog</strong> — ispravak bez razloga program odbija.</p>
+    <p>Ključno: <strong>arhiva ostaje netaknuta</strong>. Ispravak ne prepisuje izvornu
+      vrijednost nego stoji uz nju; u nizu se vidi nova vrijednost, prekrižena stara i razlog, pa
+      se uvijek zna što je mjereno, a što ispravljeno. Ispravak se uvijek može povući.</p>
+    <p>Program prvo pokaže pregled svih ispravaka pa se tek nakon potvrde upisuju.</p>
+
+    <h3 id="arhiva-postupak">Kako novi podaci ulaze u arhivu</h3>
+    <p>Arhiva se <strong>ne dopunjuje kroz sučelje</strong>. Gradi se iznova iz izvornih datoteka,
+      i to je namjerno: tako je uvijek ponovljiva i uvijek se zna iz čega je nastala.</p>
+    <p>Postupak za novu ili revidiranu seriju:</p>
     <ul>
-      <li><strong>Karakteristične vrijednosti</strong> — po jedan redak za svaku veličinu
-        (vodostaj, protok, temperatura vode, koncentracija i pronos nanosa) sa srednjakom,
-        maksimumom i minimumom i danima kad su nastupili. Pritisak na redak prebacuje prikaz
-        ispod na tu veličinu.</li>
-      <li><strong>Izbornici</strong> biraju veličinu, gustoću (dnevni srednjak ili svaki sat) i
-        godinu.</li>
-      <li><strong>Točnost i porijeklo</strong> — svaka vrijednost nosi oznaku odakle je i koliko
-        joj se vjeruje. Isti dan mjeren je iz više izvora; program bira najtočniji i piše koji je
-        to bio, umjesto da tiho pomiješa.</li>
-      <li><strong>Izvoz i ispravci</strong> — godina se izvozi u CSV, ispravi izvan programa i
-        vrati natrag. Ispravak ne prepisuje izvornu vrijednost: uz nju stoji prekrižena stara i
-        razlog, pa se uvijek zna što je mjereno, a što ispravljeno.</li>
+      <li><strong>1. Datoteke u mapu.</strong> Izvorne datoteke — DHMZ-ov HIS-2000, preuzimanje s
+        letva.voda.hr, revidirani niz iz elaborata — slože se u mapu <code>vodostaji/</code>,
+        složeno po slivu i letvi. Ta mapa nikad ne ide u repozitorij: to su mjerenja Hrvatskih
+        voda i DHMZ-a.</li>
+      <li><strong>2. Gradnja arhive.</strong> Pokrene se <code>arhiva-vodostaja</code>. Alat
+        pročita datoteke i sastavi arhivsku bazu; može se ograničiti na jednu letvu
+        (<code>-letva batina</code>) dok se radi jedna po jedna. Pri gradnji se izbacuju ispadi
+        telemetrije i svi se vodostaji svode na današnju kotu nule.</li>
+      <li><strong>3. Provjera.</strong> Alat ispisuje koliko je zapisa ušlo, iz kojih izvora i u
+        kojem rasponu. Brojke se usporede s izvorom prije nego se na arhivu bilo što nasloni.</li>
     </ul>
+    <p>Revidirana serija <strong>zamjenjuje</strong> staru na istom mjestu: promijeni se datoteka
+      i arhiva se izgradi iznova. Ispravci upisani kroz sučelje stoje odvojeno od arhive, pa
+      ponovna gradnja ne briše ono što je čovjek ispravio.</p>
+
+    <h3 id="arhiva-selidba">Prebacivanje operativnih očitanja u arhivu</h3>
+    <p>Povijesni niz nekad završi u operativnoj bazi — uveze se kao očitanja, pa se poslije vidi
+      da mu ondje nije mjesto. Takav se niz seli u arhivu, ali se
+      <strong>ne briše dok arhiva ne dokaže da ga pokriva</strong>.</p>
+    <p>Postupak ima dva koraka i drugi se ne izvodi dok prvi ne prođe:</p>
+    <ul>
+      <li><strong>1. Provjera pokrivenosti.</strong> Alat <code>selidba-arhive</code> pokrene se
+        <em>bez</em> potvrde i samo usporedi: za svaki skup očitanja u operativnoj bazi provjeri
+        pokriva li arhiva isto razdoblje i isti broj zapisa. Ako ijedan zapis nije pokriven,
+        posao se odbija.</li>
+      <li><strong>2. Brisanje.</strong> Tek kad provjera prođe, isti se alat pokrene s
+        <code>-izvedi</code> i očitanja se uklone iz operativne baze. Epizode obrane izvedene iz
+        tih očitanja brišu se samo ako se to izričito zatraži.</li>
+    </ul>
+    <p>Nakon selidbe kartica letve izgleda isto: niz se čita iz arhive, a ne iz operativne baze.
+      Razlika je u tome što se više ne razmjenjuje i ne opterećuje knjigu verzija.</p>
+    <p class="reading-meta"><strong>Ograničenje:</strong> alat za selidbu zasad nosi
+      <em>upisan popis</em> nizova koji se sele — trenutačno samo Batinini. Za drugu letvu treba
+      ga dopuniti. Provjera pokrivenosti radi za sve, brisanje ne.</p>
   </div>
 </section>
 
@@ -215,12 +431,11 @@
     <ul>
       <li id="organizacija"><strong>Administrativna organizacija</strong> — ustroj kuće:
         sektori, područja, uredi.</li>
-      <li id="sections"><strong>Dionice</strong> — branjene dionice s pripadajućim letvama,
-        objektima i stupnjevima obrane.</li>
+      <li><strong>Dionice</strong> — branjene dionice s pripadajućim letvama, objektima i
+        stupnjevima obrane. Razrađeno gore, <a href="#sections">Dionice</a>.</li>
       <li id="territories"><strong>Teritorijalne jedinice</strong> — županije, općine, naselja.</li>
-      <li id="stations"><strong>Vodomjerne postaje</strong> — letve: šifra, vodotok, stacionaža,
-        kota nule i pragovi obrane. Kota nule vodi se u dva visinska sustava i svaka promjena
-        ostaje zapisana s datumom, jer stari vodostaji vrijede uz staru kotu.</li>
+      <li><strong>Vodomjerne postaje</strong> — letve: šifra, vodotok, stacionaža, kota nule i
+        pragovi obrane. Razrađeno gore, <a href="#stations">Vodomjerne postaje</a>.</li>
       <li id="structures"><strong>Objekti</strong> — crpke, ustave, propusti i ostalo što ima
         svoje stanje i zapornice.</li>
       <li id="watercourses"><strong>Vodotoci i vodna tijela</strong> — rijeke i kanali.</li>

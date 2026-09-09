@@ -2599,13 +2599,28 @@ textarea {
 
 /* Pomoć: znak "?" uz temu u zaglavlju i sama stranica pomoći */
 .pomoc-znak { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
-.pomoc-kazalo { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0 0 1.25rem; }
-.pomoc-kazalo a {
-  padding: 0.3rem 0.7rem; border: 1px solid var(--border); border-radius: 999px;
-  background: var(--surface); color: var(--text-secondary);
-  font-size: 0.82rem; font-weight: 600; text-decoration: none;
+/* Kazalo pomoći na dvije razine: poglavlja i ono što je u njima. Pomoć je
+   narasla preko tuceta odjeljaka — s jednom razinom se do odjeljka o arhivi
+   dolazi listanjem, a to je upravo ono što kazalo treba ukloniti. */
+.pomoc-kazalo {
+  display: grid; gap: 0.9rem 1.5rem; margin: 0 0 1.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr));
+  padding: 0.9rem 1.1rem; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--surface);
 }
-.pomoc-kazalo a:hover { border-color: var(--primary); color: var(--primary); }
+.kazalo-grupa { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+.pomoc-kazalo a {
+  color: var(--text-secondary); font-size: 0.8rem; text-decoration: none;
+  padding: 0.1rem 0; line-height: 1.35;
+}
+.pomoc-kazalo a::before { content: "· "; color: var(--text-muted); }
+.pomoc-kazalo a.kazalo-glava {
+  color: var(--text-strong); font-size: 0.86rem; font-weight: 700;
+  margin-top: 0.35rem;
+}
+.kazalo-grupa > a.kazalo-glava:first-child { margin-top: 0; }
+.pomoc-kazalo a.kazalo-glava::before { content: none; }
+.pomoc-kazalo a:hover { color: var(--primary); text-decoration: underline; }
 .pomoc-tekst { padding: 1rem 1.25rem; max-width: 62rem; line-height: 1.6; }
 .pomoc-tekst p { margin: 0 0 0.75rem; }
 .pomoc-tekst p:last-child { margin-bottom: 0; }
@@ -2617,7 +2632,7 @@ textarea {
 .pomoc-pojmovi dt { font-weight: 700; color: var(--text-strong); margin-top: 0.6rem; }
 .pomoc-pojmovi dd { margin: 0.1rem 0 0; color: var(--text-secondary); }
 /* sidro ne smije završiti ispod ljepljivog zaglavlja */
-.detail-section[id], .pomoc-tekst li[id] { scroll-margin-top: 5rem; }
+.detail-section[id], .pomoc-tekst li[id], .pomoc-tekst h3[id] { scroll-margin-top: 5rem; }
 
 /* Presjek korita ispod grafa očitanja */
 .korito-mreza { stroke: var(--border); stroke-width: 1; stroke-dasharray: 2 4; }
