@@ -111,7 +111,7 @@
         <th style="text-align:right;">Minimum</th><th>Nastupio</th></tr></thead>
       <tbody>
       {{range .ArhSazetak}}
-      {{$veza := printf "?v=%s&korak=%s&god=%d#niz" .Velicina $.ArhKorak $.ArhGodina}}
+      {{$veza := printf "?v=%s&korak=%s&god=%d&mj=%d#niz" .Velicina $.ArhKorak $.ArhGodina $.ArhMjesec}}
       <tr {{if eq .Velicina $.ArhVelicina}}style="background:var(--tint-blue-bg);"{{end}}
           onclick="location='{{$veza}}'" style="cursor:pointer;">
         <td class="naslov"><a href="{{$veza}}" style="color:inherit; text-decoration:none;"><strong>{{.Naziv}}</strong></a> <span class="reg-card-sub">{{.Jedinica}}</span></td>
@@ -145,11 +145,15 @@
     <select name="god" class="filter-select" style="max-width:8rem;" onchange="this.form.submit()">
       {{range .ArhGodine}}<option value="{{.}}" {{if eq . $.ArhGodina}}selected{{end}}>{{.}}.</option>{{end}}
     </select>
-    <span class="reg-card-sub">{{len .ArhGodine}} godina u arhivi{{if .ArhPager.Total}} · {{brojHR .ArhPager.Total}} vrijednosti u {{.ArhGodina}}.{{end}}{{if .ArhIspravaka}} · <strong>{{brojHR .ArhIspravaka}} ispravljeno</strong>{{end}}</span>
+    <select name="mj" class="filter-select" style="max-width:9rem;" onchange="this.form.submit()">
+      <option value="0" {{if eq .ArhMjesec 0}}selected{{end}}>cijela godina</option>
+      {{range $m := mjeseci}}<option value="{{$m}}" {{if eq $m $.ArhMjesec}}selected{{end}}>{{mjesecIme $m}}</option>{{end}}
+    </select>
+    <span class="reg-card-sub">{{len .ArhGodine}} {{uzBroj (len .ArhGodine) "godina" "godine" "godina"}} u arhivi{{if .ArhPager.Total}} · {{brojHR .ArhPager.Total}} {{uzBroj .ArhPager.Total "vrijednost" "vrijednosti" "vrijednosti"}}{{if .ArhMjesec}} — {{mjesecIme .ArhMjesec}} {{.ArhGodina}}.{{else}} u {{.ArhGodina}}.{{end}}{{end}}{{if .ArhIspravaka}} · <strong>{{brojHR .ArhIspravaka}} ispravljeno</strong>{{end}}</span>
   </form>
 
   {{if .ArhChart}}
-  <h3 class="part-label" style="margin:0 0 0.35rem 0;">{{velicinaLabel .ArhVelicina}} <span class="reg-card-sub">{{.ArhJedinica}}</span> — {{.ArhGodina}}.{{if eq .ArhKorak "satni"}}, svaki sat{{else}}, dnevni srednjak{{end}}{{if .ArhChart.Praznina}} <span class="reg-chip">{{.ArhChart.Praznina}} prekid{{if gt .ArhChart.Praznina 1}}a{{end}}</span>{{end}}</h3>
+  <h3 class="part-label" style="margin:0 0 0.35rem 0;">{{velicinaLabel .ArhVelicina}} <span class="reg-card-sub">{{.ArhJedinica}}</span> — {{if .ArhMjesec}}{{mjesecIme .ArhMjesec}} {{end}}{{.ArhGodina}}.{{if eq .ArhKorak "satni"}}, svaki sat{{else}}, dnevni srednjak{{end}}{{if .ArhChart.Praznina}} <span class="reg-chip">{{.ArhChart.Praznina}} prekid{{if gt .ArhChart.Praznina 1}}a{{end}}</span>{{end}}</h3>
   <div class="reg-card chart graf-niza graf-siroki" style="padding:0.75rem 0.5rem 0.25rem; margin-bottom:1rem;"
        data-tocke="{{.ArhChart.Tocke}}">
     {{template "grafNiza" .ArhChart}}

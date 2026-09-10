@@ -294,15 +294,18 @@ type HidroMjesec struct {
 	Srednjak float64
 }
 
-// Naziv je mjesec ispisan.
-func (m HidroMjesec) Naziv() string {
+// MjesecIme je mjesec ispisan, 1 do 12. Prazno za sve izvan toga.
+func MjesecIme(m int) string {
 	mj := []string{"siječanj", "veljača", "ožujak", "travanj", "svibanj", "lipanj",
 		"srpanj", "kolovoz", "rujan", "listopad", "studeni", "prosinac"}
-	if m.Mjesec >= 1 && m.Mjesec <= 12 {
-		return mj[m.Mjesec-1]
+	if m >= 1 && m <= 12 {
+		return mj[m-1]
 	}
 	return ""
 }
+
+// Naziv je mjesec ispisan.
+func (m HidroMjesec) Naziv() string { return MjesecIme(m.Mjesec) }
 
 // TrajanjeTocka je vrijednost koja je dosegnuta ili premašena zadani postotak
 // vremena. Krivulja trajanja govori ono što ekstremi ne mogu: koliko je često
