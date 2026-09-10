@@ -35,7 +35,8 @@
       {{if .Latest.Phase.InForce}}<span class="badge {{.Latest.Phase.BadgeClass}}">{{.Latest.Phase.Label}}</span>{{end}}
     </div>
     <div class="reading-meta" style="margin-top:0.35rem;">
-      zadnje očitanje {{ago .Latest.MeasuredAt}} · {{formatDate .Latest.LocalTime}}
+      zadnje očitanje {{ago .Latest.MeasuredAt}}{{if zastarjelo .Latest.LocalTime}}
+      <span class="badge badge-inactive" title="Nema novijeg očitanja više od dana">{{icon "triangle-alert"}} kasni</span>{{end}} · {{formatDate .Latest.LocalTime}}
       {{if and .Station .Latest.LevelCm}}{{range .Station.Kote (intOf .Latest.LevelCm)}}
       · <strong>{{brojHRf .Kota 3}} m</strong> {{.Sustav}}{{end}}{{end}}
       {{with protokHR .Krivulje .Latest.LocalTime .Latest.LevelCm}} · <strong>{{.}} m³/s</strong> <span title="procjena iz HQ krivulje">iz krivulje</span>{{end}}

@@ -2904,3 +2904,12 @@ textarea {
   color: var(--primary);
   cursor: default;
 }
+
+/* Kota vodne plohe na pragu — tiša od same brojke praga, jer je izvedena iz
+   nje i kote nule, a ne propisana. */
+.prag-kota {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  margin-top: 0.15rem;
+}

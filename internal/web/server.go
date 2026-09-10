@@ -95,21 +95,7 @@ func templateFuncs() template.FuncMap {
 		// Hrvatski broj uz imenicu: 1 vrijednost, 2 vrijednosti, 5 vrijednosti,
 		// ali 11 vrijednosti i 21 vrijednost. Bez toga na stranici piše
 		// "31 vrijednosti", što odmah bode oko.
-		"uzBroj": func(n int, jednina, dvojina, mnozina string) string {
-			if n < 0 {
-				n = -n
-			}
-			zadnje, zadnja2 := n%10, n%100
-			switch {
-			case zadnja2 >= 11 && zadnja2 <= 14:
-				return mnozina
-			case zadnje == 1:
-				return jednina
-			case zadnje >= 2 && zadnje <= 4:
-				return dvojina
-			}
-			return mnozina
-		},
+		"uzBroj": uzBrojHR,
 		// ogradeZaNiz spaja izdavačevu ogradu, koja stiže s paketom i stoji uz
 		// sam niz, s vlastitima koje je upisao operater.
 		"ogradeZaNiz": func(st models.Station, n models.HidroNiz) []models.Ograda {
@@ -123,6 +109,13 @@ func templateFuncs() template.FuncMap {
 				}
 			}
 			return out
+		},
+		// zastarjelo javlja da očitanje nije stiglo onoliko dugo da to treba
+		// primijetiti. Vrijeme već ispisuje ago; ovo je samo prosudba je li
+		// predugo. Prag je dan: izvan obrane se očitava jednom dnevno, pa dulje
+		// od toga znači propušten dan, a ne mirno stanje.
+		"zastarjelo": func(t time.Time) bool {
+			return !t.IsZero() && time.Since(t) > 24*time.Hour
 		},
 		"mjeseci":   func() []int { return []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12} },
 		"mjesecIme": models.MjesecIme,
@@ -1015,4 +1008,22 @@ func (s *Server) UgradiPaket(sadrzaj *arhiva.Sadrzaj) error {
 
 func (s *Server) SetAddr(addr string) {
 	s.addr = addr
+}
+
+// uzBrojHR bira oblik imenice uz broj po hrvatskoj sklonidbi: 1 vrijednost,
+// 2 vrijednosti, 5 vrijednosti — ali 11 vrijednosti i 21 vrijednost.
+func uzBrojHR(n int, jednina, dvojina, mnozina string) string {
+	if n < 0 {
+		n = -n
+	}
+	zadnje, zadnja2 := n%10, n%100
+	switch {
+	case zadnja2 >= 11 && zadnja2 <= 14:
+		return mnozina
+	case zadnje == 1:
+		return jednina
+	case zadnje >= 2 && zadnje <= 4:
+		return dvojina
+	}
+	return mnozina
 }

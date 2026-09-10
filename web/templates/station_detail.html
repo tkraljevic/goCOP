@@ -33,6 +33,9 @@
           <span class="threshold-pill {{.Faza.PillClass}}">{{brojHR .Cm}} cm</span>
           {{if .Q}}<span class="threshold-pill {{.Faza.PillClass}} protok">{{brojHRd .Q 0}} m³/s</span>{{end}}
         </div>
+        {{/* Kota vodne plohe na pragu: s njom se prag uspoređuje s krunom
+             nasipa i terenom. Izvješće ju je nosilo, kartica nije. */}}
+        {{range .Kote}}<div class="prag-kota">{{brojHRf .Kota 2}} m <span class="reg-card-sub">{{.Sustav}}</span></div>{{end}}
       </div>
       {{end}}
     </div>
@@ -132,20 +135,6 @@
 {{end}}
 
 
-<div class="kartica-podnozje">
-  <a href="/stations/{{.Station.ID}}/izvjesce.docx" class="btn btn-secondary"
-     title="Ono što stoji na ovoj stranici, u Wordovu dokumentu">{{icon "file-text"}} Generiraj izvješće</a>
-  {{if .CanEdit}}{{if .Permissions.IsGlobalAdmin}}
-  <form method="POST" action="/api/stations/delete" style="margin:0;"
-        data-brisanje-letve
-        data-naziv="{{.Station.Name}}"
-        data-ocitanja="{{.BrojOcitanja}}"
-        data-dionice="{{len .Station.SectionCodes}}">
-    <input type="hidden" name="station_id" value="{{.Station.ID}}">
-    <button type="submit" class="btn btn-danger">{{icon "trash"}} Obriši</button>
-  </form>
-  {{end}}{{end}}
-</div>
 
 <section class="detail-section">
   <h2>{{icon "file-text"}} Mjerodavna za dionice <span class="reg-chip">{{len .Sections}}</span></h2>
@@ -168,4 +157,20 @@
     {{end}}
   </div>
 </section>
+
+<div class="kartica-podnozje">
+  <a href="/stations/{{.Station.ID}}/izvjesce.docx" class="btn btn-secondary"
+     title="Ono što stoji na ovoj stranici, u Wordovu dokumentu">{{icon "file-text"}} Generiraj izvješće</a>
+  {{if .CanEdit}}{{if .Permissions.IsGlobalAdmin}}
+  <form method="POST" action="/api/stations/delete" style="margin:0;"
+        data-brisanje-letve
+        data-naziv="{{.Station.Name}}"
+        data-ocitanja="{{.BrojOcitanja}}"
+        data-dionice="{{len .Station.SectionCodes}}">
+    <input type="hidden" name="station_id" value="{{.Station.ID}}">
+    <button type="submit" class="btn btn-danger">{{icon "trash"}} Obriši</button>
+  </form>
+  {{end}}{{end}}
+</div>
+
 {{end}}
