@@ -1,0 +1,81 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — {{.Station.Name}}, učitavanje paketa{{end}}
+
+{{define "content"}}
+<div class="breadcrumb"><a href="/stations">Vodomjerne postaje</a> ›
+  <a href="/stations/{{.Station.ID}}">{{.Station.Name}}</a> ›
+  <a href="/stations/{{.Station.ID}}/historijat">Historijat</a> › Učitavanje paketa</div>
+
+<div class="detail-head">
+  <div>
+    <h1 class="page-title">{{icon "download"}} Učitavanje historijata</h1>
+    <p class="page-desc">Ništa još nije upisano. Ovdje piše što paket nosi i što bi zamijenio.</p>
+  </div>
+</div>
+
+{{if .Greska}}
+<section class="detail-section">
+  <div class="alert alert-danger">{{icon "triangle-alert"}} {{.Greska}}</div>
+  <p class="page-desc">Paket se provjerava otiskom prije nego se išta upiše. Datoteka koja se putem
+    pokvarila ili nije paket ne ugrađuje se — u arhivu ne smije ući nešto što se usput promijenilo.</p>
+  <a href="/stations/{{.Station.ID}}/historijat" class="btn btn-secondary">{{icon "arrow-left"}} Natrag na historijat</a>
+</section>
+
+{{else if .DrugaLetva}}
+<section class="detail-section">
+  <div class="alert alert-danger">{{icon "triangle-alert"}}
+    Ovaj paket nosi historijat letve <strong>{{.Manifest.Letva}}</strong>, a otvorena je
+    <strong>{{.Station.Name}}</strong>. Nije ugrađen.</div>
+  <p class="page-desc">Otvorite letvu {{.Manifest.Letva}} i ondje učitajte paket. Ugradnja zamjenjuje
+    sve što je o letvi bilo, pa se ne radi na krivoj.</p>
+  <a href="/stations/{{.Station.ID}}/historijat" class="btn btn-secondary">{{icon "arrow-left"}} Natrag na historijat</a>
+</section>
+
+{{else}}
+<section class="detail-section">
+  <h2>{{icon "package"}} Što paket nosi</h2>
+  <div class="reg-card" style="padding:1rem;">
+    <dl class="reg-facts">
+      <div><dt>Letva</dt><dd>{{.Manifest.Letva}}</dd></div>
+      <div><dt>Izdanje</dt><dd>{{.Manifest.Izdanje}}</dd></div>
+      <div><dt>Nizova</dt><dd class="mono">{{brojHR .Manifest.Nizova}}</dd></div>
+      <div><dt>Zapisa</dt><dd class="mono">{{brojHR .Manifest.Zapisa}}</dd></div>
+      <div><dt>Razdoblje</dt><dd class="mono">{{datumHR .Manifest.Od}} – {{datumHR .Manifest.Do}}</dd></div>
+      <div><dt>Sastavio čvor</dt><dd>{{.Manifest.Izdao}}</dd></div>
+      <div><dt>Nastalo</dt><dd class="mono">{{formatDate (localTime .Manifest.Nastalo)}}</dd></div>
+      <div style="grid-column:1/-1;"><dt>Otisak</dt><dd class="mono reg-card-sub" style="word-break:break-all;">{{.Manifest.Otisak}}</dd></div>
+    </dl>
+  </div>
+  <p class="page-desc" style="margin-top:0.5rem;">Otisak je provjeren — sadržaj paketa odgovara onome
+    što manifest tvrdi.</p>
+</section>
+
+<section class="detail-section">
+  <h2>{{icon "triangle-alert"}} Što bi se zamijenilo</h2>
+  {{if .Zateceno}}
+  <div class="alert alert-warning">
+    Arhiva o ovoj letvi već drži <strong>{{brojHR .Zateceno.Zapisa}}</strong>
+    {{uzBroj .Zateceno.Zapisa "zapis" "zapisa" "zapisa"}} u
+    <strong>{{brojHR .Zateceno.Nizova}}</strong> {{uzBroj .Zateceno.Nizova "nizu" "niza" "nizova"}},
+    razdoblje {{datumHR .Zateceno.Od}} – {{datumHR .Zateceno.Do}}
+    <strong>Sve to se briše</strong> i zamjenjuje onim iz paketa.
+  </div>
+  <p class="page-desc">Izdanje je cjelovita izjava o letvi, a ne dodatak — zato zamjenjuje, ne
+    dopunjuje. Novije izdanje mijenja i stare godine, jer ovjera zaostaje za mjerenjem.</p>
+  {{else}}
+  <div class="alert alert-success">{{icon "check"}} Arhiva o ovoj letvi zasad nema ništa — ugradnjom
+    ne odlazi nijedan zapis.</div>
+  {{end}}
+  <p class="page-desc">Operativna očitanja se ne diraju. Ugradnja mijenja samo arhivu.</p>
+</section>
+
+<div class="kartica-podnozje">
+  <a href="/stations/{{.Station.ID}}/historijat" class="btn btn-secondary">Odustani</a>
+  <form method="POST" action="/stations/{{.Station.ID}}/paket/ugradi" style="margin:0;">
+    <input type="hidden" name="kljuc" value="{{.Kljuc}}">
+    <button type="submit" class="btn btn-primary">{{icon "download"}} Ugradi historijat</button>
+  </form>
+</div>
+{{end}}
+{{end}}

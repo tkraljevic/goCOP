@@ -553,6 +553,20 @@
 </section>
 {{end}}
 <div class="kartica-podnozje">
+  {{if .Permissions.IsGlobalAdmin}}
+  {{/* Paket na disku je put koji radi kad ne radi ništa drugo — ni mreža, ni
+       domena. Zato stoji ovdje, a ne čeka katalog. */}}
+  <form method="POST" action="/stations/{{.Station.ID}}/paket/pregled" enctype="multipart/form-data"
+        style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; margin:0;">
+    <input type="file" name="paket" accept=".cop" required class="form-control" style="max-width:16rem;">
+    <button type="submit" class="btn btn-secondary"
+            title="Učitaj historijat s diska ili USB ključa; prije upisa se pokaže što bi se promijenilo">{{icon "download"}} Učitaj paket</button>
+  </form>
+  {{if .Spojevi}}
+  <a href="/stations/{{.Station.ID}}/paket.cop" class="btn btn-secondary"
+     title="Spremi historijat ove letve kao datoteku, za USB ključ ili drugi čvor">{{icon "package"}} Izvezi paket</a>
+  {{end}}
+  {{end}}
   <a href="/stations/{{.Station.ID}}/izvjesce.docx?dio=historijat" class="btn btn-secondary"
      title="Ono što stoji na ovoj stranici, u Wordovu dokumentu">{{icon "file-text"}} Generiraj izvješće</a>
 </div>

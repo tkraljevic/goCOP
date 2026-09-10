@@ -380,10 +380,12 @@ func main() {
 	if arhiva, err := repository.OpenArhiva(arhivaPut); err != nil {
 		log.Printf("Arhiva vodostaja %s: %v", arhivaPut, err)
 	} else if arhiva == nil {
-		log.Printf("Arhiva vodostaja nije pronađena (%s) — letve rade bez povijesti", arhivaPut)
+		server.SetArhivaPut(arhivaPut)
+		log.Printf("Arhiva vodostaja nije pronađena (%s) — letve rade bez povijesti; paket se može učitati", arhivaPut)
 	} else {
 		defer arhiva.Close()
 		server.SetArhiva(arhiva)
+		server.SetArhivaPut(arhivaPut)
 		log.Printf("Arhiva vodostaja: %s", arhivaPut)
 	}
 

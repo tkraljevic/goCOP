@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"gocop/internal/arhiva"
 	"gocop/internal/models"
 	"gocop/internal/repository"
 	"gocop/internal/service"
@@ -25,6 +26,10 @@ type StationsHandler struct {
 	readingService     *service.ReadingService
 	arhiva             func() *repository.ArhivaRepository
 	ispravci           func() *repository.IspravakRepository
+	arhivaPutFn        func() string
+	cvorFn             func() string
+	ugradi             func(*arhiva.Sadrzaj) error
+	tmplPaket          *template.Template
 	karta              func() KartaPostavke
 	sektor             func(ctx context.Context, id string) *models.Sector
 	tmpl               *template.Template // popis
