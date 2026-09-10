@@ -227,6 +227,19 @@ func krajnostiIzSazetka(sazetak []models.SazetakVelicine) []models.KrajnostIzNiz
 	return nil
 }
 
+// krajnostiLetve su najviše i najniže što program ima o letvi: arhivski niz,
+// dopunjen operativnim očitanjima kad ona nadmašuju arhivu. Arhiva seže dalje
+// unatrag, ali tekuću godinu drži operativa — a val zbog kojeg netko i gleda
+// ekstreme događa se upravo u njoj. Kartica ih pokazuje, obrazac nudi na
+// preuzimanje; zato nastaju na jednom mjestu.
+func (h *StationsHandler) krajnostiLetve(ctx context.Context, st models.Station, sazetak []models.SazetakVelicine) []models.KrajnostIzNiza {
+	k := krajnostiIzSazetka(sazetak)
+	if h.readingService != nil {
+		k = spojiKrajnosti(k, h.readingService.Krajnosti(ctx, st.ID.String()))
+	}
+	return k
+}
+
 // spojiKrajnosti dodaje operativnu krajnost samo kad nadmašuje arhivsku ili
 // kad arhive nema. Ovogodišnji vrh koji je daleko ispod rekorda nije krajnost
 // nego šum: uz "najviši 797 cm" ne treba stajati "najviši -55 cm".
@@ -318,10 +331,6 @@ func (h *StationsHandler) podaciLetve(w http.ResponseWriter, r *http.Request) (S
 	data.CanEdit = h.canEditStation(data.Permissions, *st)
 	if h.readingService != nil {
 		data.CanRecord = h.readingService.CanRecordStation(data.Permissions, st)
-		// Arhiva seže dalje unatrag, ali tekuću godinu drži operativa — a val
-		// zbog kojeg netko i gleda ekstreme događa se upravo u njoj.
-		data.KrajnostiIzNiza = spojiKrajnosti(data.KrajnostiIzNiza,
-			h.readingService.Krajnosti(ctx, st.ID.String()))
 	}
 	data.BrojOcitanja = h.stationService.BrojOcitanja(ctx, st.ID)
 	if h.karta != nil {
@@ -356,7 +365,6 @@ func (h *StationsHandler) podaciLetve(w http.ResponseWriter, r *http.Request) (S
 			data.Profil = &spoj
 		}
 		data.Sazetak, _ = a.Sazetak(ctx, st.Code)
-		data.KrajnostiIzNiza = krajnostiIzSazetka(data.Sazetak)
 		data.Spojevi, _ = a.SpojDosezi(ctx, st.Code)
 		data.Sada, _ = a.SpojZadnje(ctx, st.Code, "vodostaj", "satni")
 		if data.Sada == nil {
@@ -419,6 +427,7 @@ func (h *StationsHandler) podaciLetve(w http.ResponseWriter, r *http.Request) (S
 	// iscrtavanja, jer predložak dobiva presliku podataka i ono što se upiše
 	// poslije njega nikamo ne stiže. Razliku visinskih sustava predložak zato
 	// i traži od same postaje, da o ovom redoslijedu uopće ne ovisi.
+	data.KrajnostiIzNiza = h.krajnostiLetve(ctx, *st, data.Sazetak)
 	data.PragoviQ = pragoviUProtoku(data.Station, data.Krivulje)
 	data.PragoviKote = sProtokom(pragoviUKotama(data.Station), data.PragoviQ)
 	data.ImaProtok = imaProtok(data.PragoviKote)
@@ -463,9 +472,16 @@ func (h *StationsHandler) ShowStationForm(w http.ResponseWriter, r *http.Request
 		}
 	}
 
-	// Krajnosti iz podataka nudi obrazac na preuzimanje; kartica ih samo
-	// pokazuje. Do njih se dolazi kroz podaciLetve, pa ih ovdje treba samo
-	// prepakirati za skriptu.
+	// Krajnosti iz podataka obrazac nudi na preuzimanje. Obrazac ne prolazi
+	// kroz podaciLetve, pa ih ovdje treba dohvatiti — samo pri uređivanju:
+	// nova letva još nema ni šifru pod kojom bi arhiva stajala.
+	if data.IsEdit {
+		var sazetak []models.SazetakVelicine
+		if a := h.arh(); a != nil && data.Station.Code != "" {
+			sazetak, _ = a.Sazetak(r.Context(), data.Station.Code)
+		}
+		data.KrajnostiIzNiza = h.krajnostiLetve(r.Context(), data.Station, sazetak)
+	}
 	data.KrajnostiIzNizaJSON = jsonZaObrazac(data.KrajnostiIzNiza)
 	data.ExtremesJSON = template.JS("[]")
 	if b, err := json.Marshal(data.Station.Extremes); err == nil && len(data.Station.Extremes) > 0 {
