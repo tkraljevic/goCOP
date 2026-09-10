@@ -111,9 +111,7 @@ put, a ne oblik u kojem podatak živi.
 ## Šifriranje — kad zarađuje svoje mjesto
 
 **Ne** zato da se izvana ne zna da je datoteka arhiva: šifriranje skriva
-sadržaj, ne postojanje. Nastavak `.cop` umjesto `.zip` ne znači ništa jer se
-gledaju prvi bajtovi, ne ime. Slobodno tako nazvati radi urednosti, ali to ne
-broji kao mjera sigurnosti.
+sadržaj, ne postojanje.
 
 **Ne** ako paketi kruže samo unutar mreže koja je ionako šifrirana — tada je
 ceremonija.
@@ -124,6 +122,77 @@ To je jedini razlog koji šifriranje ovdje opravdava, i ujedno mehanizam za
 
 Iz toga slijedi zahtjev: **ključ po vrsti sadržaja, ne jedan po mreži.** Jedan
 ključ za sve znači da svaki član, uključujući izvođača, otključava sve.
+
+### Kako se šifrira
+
+Zamisao da se datoteci promijene prvi bajtovi kako se izvana ne bi znalo što
+je — nepotrebna je, jer rješava nešto što se samo od sebe rješava, dok pravi
+propust ostavlja otvorenim.
+
+**Šifrat nema magičnih bajtova.** Izlaz dobrog šifriranja neraspoznatljiv je
+od šuma; nema `PK\x03\x04` niti ičega drugoga što bi se moglo prerušiti.
+Jedino prepoznatljivo u takvoj datoteci je zaglavlje koje se doda samo.
+
+**Ali „šifrirani zip" ne skriva što je unutra.** Središnji katalog ZIP-a
+ostaje u čistom obliku: **imena datoteka, veličine, vremena i struktura.** Tko
+nema ključ i dalje pročita da unutra stoji `batina_1902-1970.csv`. Promjena
+prvih bajtova tu ne pomaže nimalo — katalog je i dalje ondje.
+
+Zato: **šifrirati cijeli tok, ne unose u spremniku.** AEAD
+(XChaCha20-Poly1305 ili AES-GCM), izlaz `nonce + šifrat + oznaka`. Nonce je
+slučajan, pa datoteka od prvog bajta izgleda kao šum, a nema kataloga koji bi
+je otkucao. AEAD usput daje i ono zbog čega bi se inače htjelo zaglavlje —
+**provjeru da je datoteka tvoja i neoštećena**: ako se ključ ne poklopi,
+otvaranje padne.
+
+### Ime datoteke govori više od zaglavlja
+
+Najveći propust, a magični bajtovi ga uopće ne dodiruju:
+
+```
+historijat_batina_v1.cop
+```
+
+Takvo ime u javnoj mapi kaže sve — koja letva, da je historijat, koja
+inačica. Zaključana vrata, a na sanduku piše što je unutra.
+
+**Datoteke se zato imenuju otiskom, ne sadržajem:**
+
+```
+a3f9c2e8d1b47f06….cop
+```
+
+Ime tada ne odaje ništa, a program svejedno zna što je što, jer **katalog nosi
+„batina, izdanje v1, otisak `a3f9…`"** i putuje sinkronizacijom, ne javnom
+mapom. To je isti otisak koji već stoji u `nizovi.otisak`, pa ne košta ništa
+dodatno.
+
+### Što i dalje curi
+
+| | skriva se? |
+|---|---|
+| sadržaj | da, ako je AEAD nad cijelim tokom |
+| imena datoteka unutra | da, ako **nije** ZIP sa šifriranim unosima |
+| ime same datoteke | da, ako je imenovana otiskom |
+| **veličina** | ne |
+| **kad se pojavila** | ne |
+| **tko je preuzima** | ne |
+
+Zadnja tri se ne mogu sakriti dok sadržaj stoji na javnom mjestu. To je
+razlog više da se ne računa na tajnost, nego na ključ.
+
+### Dvije stvari koje treba znati unaprijed
+
+**Zamagljivanje u reviziji izgleda gore nego šifriranje.** „Šifrirali smo
+podatke" je standardna mjera koju svaki revizor prepoznaje. „Prerušili smo
+datoteke da se ne zna što su" poziva na pitanje što se skrivalo. Za javno
+tijelo to nije nevažno.
+
+**Bez zaglavlja se gubi i vlastito prepoznavanje.** Program ne može pogledati
+zalutalu datoteku i reći što je — ovisi potpuno o katalogu. To je u redu dok
+katalog postoji, ali za pet godina, na tuđem disku, takva datoteka nikome
+ništa ne znači. AEAD to ublažava, jer ključ ili otvori ili ne, ali vrijedi
+znati da je to zamjena, a ne dobitak.
 
 ## Transport
 
@@ -256,8 +325,11 @@ sudionika treba da budu pronađeni, ne da se prijavljuju.
 1. format paketa i katalog
 2. otisak kao identitet, adresa kao natuknica
 3. ključ po vrsti sadržaja
-4. dvije mjere za dvije vrste sadržaja
-5. Drive kao prvi izvor
+4. **AEAD nad cijelim tokom, ne ZIP sa šifriranim unosima** — inače imena
+   datoteka ostaju čitljiva
+5. **ime datoteke je otisak**, ne opis sadržaja
+6. dvije mjere za dvije vrste sadržaja
+7. Drive kao prvi izvor
 
 **Odgođeno** dok se ne pojavi sadržaj koji to traži:
 
