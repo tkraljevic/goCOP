@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"html/template"
+	"math"
 	"net/http"
 	"strconv"
 	"time"
@@ -26,6 +27,7 @@ type StationPageData struct {
 	Station              models.Station
 	ZeroDatumHistoryJSON template.JS // promjene kote nule za obrazac, kao JS literal
 	OgradeNizaJSON       template.JS // vlastite ograde uz nizove, za obrazac
+	KrajnostiIzNizaJSON  template.JS // krajnosti iz podataka, za preuzimanje u obrazac
 	ExtremesJSON         template.JS // zabilježeni ekstremi za obrazac
 	ReturnLevelsJSON     template.JS // povratni vodostaji za obrazac
 	Sections             []models.Section
@@ -61,10 +63,14 @@ type StationPageData struct {
 	CanRecord            bool   // smije li upisati očitanje
 	LetvaStranica        string // koja je stranica letve otvorena: kartica, ocitanja, historijat
 	HistorijatPrazan     bool   // letva još nema ništa od onoga što historijat pokazuje
-	IsEdit               bool
-	SuccessMessage       string
-	ErrorMessage         string
-	ActiveNav            string
+	// KrajnostiIzNiza su najviše i najniže što program ima u podacima. Stoje uz
+	// zabilježene ekstreme, ne umjesto njih: zabilježeni je tvrdnja s
+	// podrijetlom, ovo je najveće što u nizu stoji.
+	KrajnostiIzNiza []models.KrajnostIzNiza
+	IsEdit          bool
+	SuccessMessage  string
+	ErrorMessage    string
+	ActiveNav       string
 	ViewAsBanner
 }
 
@@ -203,6 +209,48 @@ func (h *StationsHandler) HistorijatLetve(w http.ResponseWriter, r *http.Request
 	}
 }
 
+// krajnostiIzSazetka vadi najviši i najniži vodostaj iz arhivskog sažetka.
+// Samo vodostaj: zabilježeni ekstrem je vodostaj u centimetrima, pa protok i
+// temperatura ovdje nemaju s čime stajati jedno uz drugo.
+func krajnostiIzSazetka(sazetak []models.SazetakVelicine) []models.KrajnostIzNiza {
+	for _, s := range sazetak {
+		if s.Velicina != "vodostaj" {
+			continue
+		}
+		return []models.KrajnostIzNiza{
+			{Kind: models.ExtremeMax, LevelCm: int(math.Round(s.Max)), OnDate: s.MaxNa,
+				Izvor: s.MaxIzvor, Odakle: "arhiva"},
+			{Kind: models.ExtremeMin, LevelCm: int(math.Round(s.Min)), OnDate: s.MinNa,
+				Izvor: s.MinIzvor, Odakle: "arhiva"},
+		}
+	}
+	return nil
+}
+
+// spojiKrajnosti dodaje operativnu krajnost samo kad nadmašuje arhivsku ili
+// kad arhive nema. Ovogodišnji vrh koji je daleko ispod rekorda nije krajnost
+// nego šum: uz "najviši 797 cm" ne treba stajati "najviši -55 cm".
+func spojiKrajnosti(arhiva, operativa []models.KrajnostIzNiza) []models.KrajnostIzNiza {
+	naslijedeno := map[string]models.KrajnostIzNiza{}
+	for _, k := range arhiva {
+		naslijedeno[k.Kind] = k
+	}
+	out := append([]models.KrajnostIzNiza(nil), arhiva...)
+	for _, k := range operativa {
+		a, ima := naslijedeno[k.Kind]
+		if ima {
+			if k.Kind == models.ExtremeMax && k.LevelCm <= a.LevelCm {
+				continue
+			}
+			if k.Kind == models.ExtremeMin && k.LevelCm >= a.LevelCm {
+				continue
+			}
+		}
+		out = append(out, k)
+	}
+	return out
+}
+
 // historijatPrazan javlja da letva još nema ništa od onoga što historijat
 // pokazuje. Ekstremi se ne broje — oni su na kartici, a praznina se mjeri onim
 // što je na ovoj stranici.
@@ -270,6 +318,10 @@ func (h *StationsHandler) podaciLetve(w http.ResponseWriter, r *http.Request) (S
 	data.CanEdit = h.canEditStation(data.Permissions, *st)
 	if h.readingService != nil {
 		data.CanRecord = h.readingService.CanRecordStation(data.Permissions, st)
+		// Arhiva seže dalje unatrag, ali tekuću godinu drži operativa — a val
+		// zbog kojeg netko i gleda ekstreme događa se upravo u njoj.
+		data.KrajnostiIzNiza = spojiKrajnosti(data.KrajnostiIzNiza,
+			h.readingService.Krajnosti(ctx, st.ID.String()))
 	}
 	data.BrojOcitanja = h.stationService.BrojOcitanja(ctx, st.ID)
 	if h.karta != nil {
@@ -304,6 +356,7 @@ func (h *StationsHandler) podaciLetve(w http.ResponseWriter, r *http.Request) (S
 			data.Profil = &spoj
 		}
 		data.Sazetak, _ = a.Sazetak(ctx, st.Code)
+		data.KrajnostiIzNiza = krajnostiIzSazetka(data.Sazetak)
 		data.Spojevi, _ = a.SpojDosezi(ctx, st.Code)
 		data.Sada, _ = a.SpojZadnje(ctx, st.Code, "vodostaj", "satni")
 		if data.Sada == nil {
@@ -410,6 +463,10 @@ func (h *StationsHandler) ShowStationForm(w http.ResponseWriter, r *http.Request
 		}
 	}
 
+	// Krajnosti iz podataka nudi obrazac na preuzimanje; kartica ih samo
+	// pokazuje. Do njih se dolazi kroz podaciLetve, pa ih ovdje treba samo
+	// prepakirati za skriptu.
+	data.KrajnostiIzNizaJSON = jsonZaObrazac(data.KrajnostiIzNiza)
 	data.ExtremesJSON = template.JS("[]")
 	if b, err := json.Marshal(data.Station.Extremes); err == nil && len(data.Station.Extremes) > 0 {
 		data.ExtremesJSON = template.JS(b)

@@ -474,3 +474,32 @@ func (r *ReadingRepository) ListForGauges(ctx context.Context, stationIDs, struc
 	}
 	return out, rows.Err()
 }
+
+// Krajnosti vraća najviše i najniže operativno očitanje ove letve. Arhiva seže
+// dalje unatrag, ali tekuću godinu drži operativa — a upravo se u njoj događa
+// val zbog kojeg netko i gleda ekstreme.
+func (r *ReadingRepository) Krajnosti(ctx context.Context, stationID string) []models.KrajnostIzNiza {
+	if r == nil || stationID == "" {
+		return nil
+	}
+	var out []models.KrajnostIzNiza
+	for _, s := range []struct {
+		kind, smjer string
+	}{{models.ExtremeMax, "DESC"}, {models.ExtremeMin, "ASC"}} {
+		var cm int
+		var kad time.Time
+		var origin string
+		err := r.db.QueryRowContext(ctx, `SELECT level_cm, measured_at, origin FROM readings
+			WHERE station_id = ? AND level_cm IS NOT NULL
+			ORDER BY level_cm `+s.smjer+`, measured_at ASC LIMIT 1`, stationID).
+			Scan(&cm, &kad, &origin)
+		if err != nil {
+			continue
+		}
+		out = append(out, models.KrajnostIzNiza{
+			Kind: s.kind, LevelCm: cm, Odakle: "očitanja", Izvor: origin,
+			OnDate: kad.In(models.Zagreb).Format("2006-01-02"),
+		})
+	}
+	return out
+}
