@@ -713,6 +713,9 @@ func migrateSchema(database *sql.DB) error {
 		{"municipalities", "website", "TEXT NOT NULL DEFAULT ''"},
 		{"counties", "website", "TEXT NOT NULL DEFAULT ''"},
 		{"stations", "zero_datum_history", "TEXT NOT NULL DEFAULT '[]'"},
+		// Vlastite ograde uz nizove iz arhive. Izdavačeva stoji uz sam niz i
+		// dolazi s paketom; ova je naša i putuje knjigom verzija.
+		{"stations", "ograde_niza", "TEXT NOT NULL DEFAULT '[]'"},
 		{"stations", "extremes", "TEXT NOT NULL DEFAULT '[]'"},
 		{"stations", "return_levels", "TEXT NOT NULL DEFAULT '[]'"},
 		{"readings", "quality", "TEXT NOT NULL DEFAULT ''"},

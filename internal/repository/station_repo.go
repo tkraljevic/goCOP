@@ -48,7 +48,7 @@ const stationColumns = `
 	s.id, s.code, s.name, s.watercourse, s.watercourse_code, s.watercourse_source, s.water_area, s.stationing,
 	s.zero_datum, s.zero_datum_system, s.zero_datum_new, s.zero_datum_new_system,
 	s.zero_datum_source, s.zero_datum_method, s.zero_datum_survey_date, s.zero_datum_document_date,
-	s.zero_datum_history, s.extremes, s.return_levels,
+	s.zero_datum_history, s.ograde_niza, s.extremes, s.return_levels,
 	s.prep_cm, s.prep_raw, s.regular_cm, s.regular_raw,
 	s.emergency_cm, s.emergency_raw, s.state_cm, s.state_raw,
 	s.record_cm, s.record_raw,
@@ -72,6 +72,7 @@ func scanStation(scanner interface{ Scan(...any) error }) (models.Station, error
 		lon       sql.NullFloat64
 		needsRev  int
 		history   string
+		ograde    string
 		extremes  string
 		povratni  string
 	)
@@ -80,7 +81,7 @@ func scanStation(scanner interface{ Scan(...any) error }) (models.Station, error
 		&idStr, &st.Code, &st.Name, &st.Watercourse, &st.WatercourseCode, &st.WatercourseSource, &st.WaterArea, &st.Stationing,
 		&zeroDatum, &st.ZeroDatumSystem, &zeroNew, &st.ZeroDatumNewSystem,
 		&st.ZeroDatumSource, &st.ZeroDatumMethod, &st.ZeroDatumSurveyDate, &st.ZeroDatumDocumentDate,
-		&history, &extremes, &povratni,
+		&history, &ograde, &extremes, &povratni,
 		&prepCm, &st.Prep.Raw, &regCm, &st.Regular.Raw,
 		&emgCm, &st.Emergency.Raw, &stateCm, &st.State.Raw,
 		&recordCm, &st.Record.Raw,
@@ -102,6 +103,9 @@ func scanStation(scanner interface{ Scan(...any) error }) (models.Station, error
 	st.ZeroDatumNew = nullFloatPtr(zeroNew)
 	if history != "" && history != "[]" {
 		_ = json.Unmarshal([]byte(history), &st.ZeroDatumHistory)
+	}
+	if ograde != "" && ograde != "[]" {
+		_ = json.Unmarshal([]byte(ograde), &st.OgradeNiza)
 	}
 	if extremes != "" && extremes != "[]" {
 		_ = json.Unmarshal([]byte(extremes), &st.Extremes)
@@ -339,19 +343,19 @@ func (r *StationRepository) CreateStation(ctx context.Context, st *models.Statio
 			id, code, name, watercourse, watercourse_code, watercourse_source, water_area, stationing,
 			zero_datum, zero_datum_system, zero_datum_new, zero_datum_new_system,
 			zero_datum_source, zero_datum_method, zero_datum_survey_date, zero_datum_document_date,
-			zero_datum_history, extremes, return_levels,
+			zero_datum_history, ograde_niza, extremes, return_levels,
 			prep_cm, prep_raw, regular_cm, regular_raw,
 			emergency_cm, emergency_raw, state_cm, state_raw,
 			record_cm, record_raw,
 			notes, source_name, needs_review, review_note,
 			latitude, longitude, created_at, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`,
 		st.ID.String(), st.Code, st.Name, st.Watercourse, st.WatercourseCode, st.WatercourseSource, st.WaterArea, st.Stationing,
 		st.ZeroDatum, defaultSystem(st.ZeroDatumSystem, models.ZeroDatumSystemOld),
 		st.ZeroDatumNew, defaultSystem(st.ZeroDatumNewSystem, models.ZeroDatumSystemNew),
 		st.ZeroDatumSource, st.ZeroDatumMethod, st.ZeroDatumSurveyDate, st.ZeroDatumDocumentDate,
-		zeroDatumHistoryJSON(st), extremesJSON(st), returnLevelsJSON(st),
+		zeroDatumHistoryJSON(st), ogradeNizaJSON(st), extremesJSON(st), returnLevelsJSON(st),
 		st.Prep.Cm, st.Prep.Raw, st.Regular.Cm, st.Regular.Raw,
 		st.Emergency.Cm, st.Emergency.Raw, st.State.Cm, st.State.Raw,
 		st.Record.Cm, st.Record.Raw,
@@ -385,7 +389,7 @@ func (r *StationRepository) UpdateStation(ctx context.Context, st *models.Statio
 			water_area = ?, stationing = ?,
 			zero_datum = ?, zero_datum_system = ?, zero_datum_new = ?, zero_datum_new_system = ?,
 			zero_datum_source = ?, zero_datum_method = ?, zero_datum_survey_date = ?, zero_datum_document_date = ?,
-			zero_datum_history = ?, extremes = ?, return_levels = ?,
+			zero_datum_history = ?, ograde_niza = ?, extremes = ?, return_levels = ?,
 			prep_cm = ?, prep_raw = ?, regular_cm = ?, regular_raw = ?,
 			emergency_cm = ?, emergency_raw = ?, state_cm = ?, state_raw = ?,
 			record_cm = ?, record_raw = ?,
@@ -397,7 +401,7 @@ func (r *StationRepository) UpdateStation(ctx context.Context, st *models.Statio
 		st.ZeroDatum, defaultSystem(st.ZeroDatumSystem, models.ZeroDatumSystemOld),
 		st.ZeroDatumNew, defaultSystem(st.ZeroDatumNewSystem, models.ZeroDatumSystemNew),
 		st.ZeroDatumSource, st.ZeroDatumMethod, st.ZeroDatumSurveyDate, st.ZeroDatumDocumentDate,
-		zeroDatumHistoryJSON(st), extremesJSON(st), returnLevelsJSON(st),
+		zeroDatumHistoryJSON(st), ogradeNizaJSON(st), extremesJSON(st), returnLevelsJSON(st),
 		st.Prep.Cm, st.Prep.Raw, st.Regular.Cm, st.Regular.Raw,
 		st.Emergency.Cm, st.Emergency.Raw, st.State.Cm, st.State.Raw,
 		st.Record.Cm, st.Record.Raw,
@@ -542,6 +546,18 @@ func zeroDatumHistoryJSON(st *models.Station) string {
 		return "[]"
 	}
 	b, err := json.Marshal(st.ZeroDatumHistory)
+	if err != nil {
+		return "[]"
+	}
+	return string(b)
+}
+
+// ogradeNizaJSON pakira vlastite ograde uz nizove; prazno je "[]".
+func ogradeNizaJSON(st *models.Station) string {
+	if len(st.OgradeNiza) == 0 {
+		return "[]"
+	}
+	b, err := json.Marshal(st.OgradeNiza)
 	if err != nil {
 		return "[]"
 	}

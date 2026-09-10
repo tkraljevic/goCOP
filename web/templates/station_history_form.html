@@ -119,6 +119,56 @@
   </script>
 
 
+  <h3 style="font-size:0.9rem; margin:1.5rem 0 0.25rem;">Ograde uz nizove</h3>
+  <p class="form-help" style="margin:0 0 0.5rem;">
+    Što o pojedinom nizu znate, a iz brojki se ne vidi: zaleđen mjerač, sumnjive zimske vrijednosti,
+    prekid u mjerenju. Stoji uz niz na historijatu i ide u izvješće — dokument čita netko tko niz nije
+    vidio. Niz se prepoznaje po <strong>izvoru</strong> i veličini, jer se broj niza pri obnovi arhive
+    mijenja. Ostavite li veličinu praznu, ograda vrijedi za sve veličine tog izvora.
+  </p>
+  <p class="form-help" style="margin:0 0 0.5rem;">
+    Ovo je <strong>vaša</strong> ograda i putuje na sve čvorove. Ograda koja stiže s paketom je
+    izdavačeva, stoji uz sam niz u arhivi i ovdje se ne uređuje.
+  </p>
+  <input type="hidden" name="ograde_niza" id="ograde_niza">
+  <div class="rows-zero">
+    <div class="rows-head"><div>Izvor</div><div>Veličina</div><div>Od</div><div>Do</div><div>Što treba znati</div><div></div></div>
+    <div id="ograda-rows"></div>
+  </div>
+  <button type="button" class="btn btn-sm btn-secondary" onclick="addOgradaRow()">{{icon "plus"}} Dodaj ogradu</button>
+  <template id="tpl-ograda">
+    <div class="zero-row">
+      <div data-label="Izvor"><input type="text" class="form-control" data-field="izvor" placeholder="his2000" aria-label="Izvor niza"></div>
+      <div data-label="Veličina"><input type="text" class="form-control" data-field="velicina" placeholder="sve" aria-label="Veličina"></div>
+      <div data-label="Od"><input type="date" class="form-control" data-field="od" aria-label="Od"></div>
+      <div data-label="Do"><input type="date" class="form-control" data-field="do" aria-label="Do"></div>
+      <div data-label="Što treba znati"><input type="text" class="form-control" data-field="tekst" placeholder="mjerač zaleđen, vrijednosti nepouzdane" aria-label="Ograda"></div>
+      <button type="button" class="btn btn-sm btn-secondary" onclick="this.closest('.zero-row').remove()" aria-label="Ukloni">×</button>
+    </div>
+  </template>
+  <script>
+  const OGRADE = {{.OgradeNizaJSON}};
+  function addOgradaRow(o) {
+    o = o || {}; const row = document.getElementById('tpl-ograda').content.firstElementChild.cloneNode(true);
+    row.querySelector('[data-field=izvor]').value = o.izvor || '';
+    row.querySelector('[data-field=velicina]').value = o.velicina || '';
+    row.querySelector('[data-field=od]').value = o.od || '';
+    row.querySelector('[data-field=do]').value = o.do || '';
+    row.querySelector('[data-field=tekst]').value = o.tekst || '';
+    document.getElementById('ograda-rows').appendChild(row);
+  }
+  function collectOgrade() {
+    const rows = [...document.querySelectorAll('#ograda-rows .zero-row')].map(r => {
+      const g = f => r.querySelector('[data-field=' + f + ']').value.trim();
+      return { izvor: g('izvor'), velicina: g('velicina'), od: g('od'), do: g('do'), tekst: g('tekst') };
+    }).filter(x => x.izvor && x.tekst);
+    document.getElementById('ograde_niza').value = JSON.stringify(rows);
+    return true;
+  }
+  (OGRADE || []).forEach(addOgradaRow);
+  document.getElementById('station-form') && document.getElementById('station-form').addEventListener('submit', collectOgrade);
+  </script>
+
   <div class="form-actions">
     <a href="/stations/{{.Station.ID}}/historijat" class="btn btn-secondary">Odustani</a>
     <button type="submit" class="btn btn-primary">Spremi izmjene</button>

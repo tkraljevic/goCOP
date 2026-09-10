@@ -298,7 +298,7 @@
       {{range .Nizovi}}
       <tr{{if eq .ID $.NizID}} style="background:var(--tint-blue-bg);"{{end}}>
         <td><strong>{{velicinaLabel .Velicina}}</strong> <span class="reg-card-sub">{{.Jedinica}}</span></td>
-        <td>{{izvorLabel .Izvor}}{{if .Napomena}} <span class="badge badge-inactive" title="{{.Napomena}}">{{icon "triangle-alert"}} ograda</span>{{end}}{{if not .JeIzmjereno}} <span class="badge badge-unknown">nije mjereno ovdje</span>{{end}}</td>
+        <td>{{izvorLabel .Izvor}}{{range ogradeZaNiz $.Station .}} <span class="badge badge-inactive" title="{{if .Razdoblje}}{{.Razdoblje}}: {{end}}{{.Tekst}}{{if .Izdavaceva}} (iz izdanja){{end}}">{{icon "triangle-alert"}} ograda</span>{{end}}{{if not .JeIzmjereno}} <span class="badge badge-unknown">nije mjereno ovdje</span>{{end}}</td>
         <td class="reg-card-sub">{{vrstaLabel .Vrsta}}</td>
         <td class="mono">{{datumHR .Od}} – {{datumHR .Do}}</td>
         <td class="mono" style="text-align:right;">{{brojHR .Zapisa}}</td>

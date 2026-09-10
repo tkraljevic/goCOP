@@ -230,8 +230,19 @@
   {{end}}
 
   {{if .CanEdit}}
-  <a href="/stations/{{.Station.ID}}{{if eq .LetvaStranica "historijat"}}/historijat/uredi{{else}}/edit{{end}}"
-     class="btn btn-secondary" title="Uređuje ono što je na ovoj stranici">{{icon "pencil"}} Uredi</a>
+  {{/* Svaki Uredi mijenja ono što je na svojoj stranici: kartica opis letve,
+       historijat zabilježenu povijest, očitanja same vrijednosti. Zato tri
+       cilja pod istim imenom — isto ime jer je i radnja ista. */}}
+  {{if eq .LetvaStranica "ocitanja"}}
+  <a href="#ispravci" class="btn btn-secondary"
+     title="Ispravak upisanih očitanja">{{icon "pencil"}} Uredi</a>
+  {{else if eq .LetvaStranica "historijat"}}
+  <a href="/stations/{{.Station.ID}}/historijat/uredi" class="btn btn-secondary"
+     title="Povratni vodostaji, promjene kote nule i ograde uz nizove">{{icon "pencil"}} Uredi</a>
+  {{else}}
+  <a href="/stations/{{.Station.ID}}/edit" class="btn btn-secondary"
+     title="Pragovi, kota nule, ekstremi, položaj i napomena">{{icon "pencil"}} Uredi</a>
+  {{end}}
   {{end}}
 </div>
 {{end}}

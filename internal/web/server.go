@@ -110,6 +110,20 @@ func templateFuncs() template.FuncMap {
 			}
 			return mnozina
 		},
+		// ogradeZaNiz spaja izdavačevu ogradu, koja stiže s paketom i stoji uz
+		// sam niz, s vlastitima koje je upisao operater.
+		"ogradeZaNiz": func(st models.Station, n models.HidroNiz) []models.Ograda {
+			var out []models.Ograda
+			if t := strings.TrimSpace(n.Napomena); t != "" {
+				out = append(out, models.Ograda{Tekst: t, Izdavaceva: true})
+			}
+			for _, o := range st.OgradeNiza {
+				if o.VrijediZa(n.Izvor, n.Velicina) {
+					out = append(out, models.Ograda{Tekst: o.Tekst, Razdoblje: o.Razdoblje()})
+				}
+			}
+			return out
+		},
 		"mjeseci":   func() []int { return []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12} },
 		"mjesecIme": models.MjesecIme,
 		"round":     func(v float64) int { return int(math.Round(v)) },
