@@ -110,8 +110,11 @@ func imeIzvjesca(st models.Station, kad time.Time, dio string) string {
 	}
 	// Dva izvješća iste letve ne smiju dobiti isto ime: u mapi preuzimanja bi
 	// se drugo tiho zvalo „…(1)" ili prepisalo prvo.
-	if dio == izvjesceHistorijat {
+	switch dio {
+	case izvjesceHistorijat:
 		osnova += "-historijat"
+	case izvjesceOcitanja:
+		osnova += "-ocitanja"
 	}
 	return "izvjesce-" + osnova + "-" + kad.In(models.Zagreb).Format("2006-01-02") + ".docx"
 }
@@ -121,3 +124,48 @@ var zamjene = strings.NewReplacer(
 	"Č", "C", "Ć", "C", "Đ", "D", "Š", "S", "Ž", "Z")
 
 func bezDijakritike(s string) string { return zamjene.Replace(s) }
+
+// IzvjesceOcitanjaDocx sastavlja Wordov dokument o očitanjima letve — ono što
+// stoji na operativnoj stranici, za odabrano razdoblje. Vodne građevine ga
+// nemaju: izvješće je o letvi.
+func (h *ReadingsHandler) IzvjesceOcitanjaDocx(w http.ResponseWriter, r *http.Request) {
+	data, station, ok := h.podaciOcitanja(w, r)
+	if !ok {
+		return
+	}
+	if station == nil {
+		http.NotFound(w, r)
+		return
+	}
+	sastavio := "goCOP"
+	if data.CurrentUser != nil && data.CurrentUser.FullName != "" {
+		sastavio = data.CurrentUser.FullName
+	}
+	iz := IzvjesceLetve{
+		Dio: izvjesceOcitanja, Station: *station,
+		Sastavio: sastavio, Kad: time.Now(),
+		Krivulje:     data.Krivulje,
+		Ocitanja:     data.Svi,
+		OcitanjaOpis: data.PogledOpis,
+		Zaglavlje:    zaglavljeIzvjesca(models.Terms(), h.sektorZaLetvu(r.Context(), station)),
+	}
+	posaljiIzvjesce(w, iz, *station)
+}
+
+// posaljiIzvjesce sastavlja dokument u memoriji pa ga tek onda šalje: kad bi se
+// pisao ravno u odgovor, greška usred sastavljanja ostavila bi korisniku pola
+// datoteke koju Word odbija otvoriti, a poslužitelj bi to prijavio kao uspjeh.
+func posaljiIzvjesce(w http.ResponseWriter, iz IzvjesceLetve, st models.Station) {
+	var b bytes.Buffer
+	if err := iz.Sastavi().Zapisi(&b); err != nil {
+		http.Error(w, "izvješće se nije dalo sastaviti: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	ime := imeIzvjesca(st, iz.Kad, iz.Dio)
+	w.Header().Set("Content-Type",
+		"application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+	w.Header().Set("Content-Disposition", `attachment; filename="`+ime+`"`)
+	w.Header().Set("Content-Length", strconv.Itoa(b.Len()))
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	_, _ = w.Write(b.Bytes())
+}

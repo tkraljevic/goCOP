@@ -540,6 +540,21 @@ func (s *Server) setupRoutes() {
 		s.templates["readings.html"], s.templates["reading_history.html"], s.templates["reading_form.html"])
 	readingsH.SetFollow(s.followRepo, s.onFollowChange)
 	readingsH.SetArhiva(func() *repository.ArhivaRepository { return s.arhiva })
+	readingsH.SetSektorZaLetvu(func(ctx context.Context, st *models.Station) *models.Sector {
+		if st == nil || s.sectionService == nil || s.orgService == nil {
+			return nil
+		}
+		for _, code := range st.SectionCodes {
+			sec, err := s.sectionService.GetSectionWithDetails(code)
+			if err != nil || sec == nil || sec.SectorID == "" {
+				continue
+			}
+			if sek, err := s.orgService.GetSector(ctx, sec.SectorID); err == nil {
+				return sek
+			}
+		}
+		return nil
+	})
 	readingsH.SetUvoz(s.templates["uvoz_ocitanja.html"])
 	readingsH.SetOcitanjaCSV(s.templates["ocitanja_ispravci.html"])
 	// Baza se poslužitelju daje tek nakon sastavljanja, pa se repozitorij gradi
@@ -718,6 +733,8 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /stations/{id}", s.authMiddleware(http.HandlerFunc(stationsH.ShowStation)))
 	s.mux.Handle("GET /stations/{id}/historijat", s.authMiddleware(http.HandlerFunc(stationsH.HistorijatLetve)))
 	s.mux.Handle("GET /stations/{id}/historijat/uredi", s.authMiddleware(http.HandlerFunc(stationsH.ObrazacHistorijata)))
+	s.mux.Handle("GET /readings/station/{id}/izvjesce.docx",
+		s.authMiddleware(http.HandlerFunc(readingsH.IzvjesceOcitanjaDocx)))
 	s.mux.Handle("GET /stations/{id}/izvjesce.docx", s.authMiddleware(http.HandlerFunc(stationsH.IzvjesceLetveDocx)))
 	s.mux.Handle("GET /stations/{id}/edit", s.authMiddleware(http.HandlerFunc(stationsH.ShowStationForm)))
 	s.mux.Handle("GET /api/stations", s.authMiddleware(http.HandlerFunc(stationsH.HandleListStationsAPI)))
