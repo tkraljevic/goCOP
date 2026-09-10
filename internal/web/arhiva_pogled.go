@@ -38,6 +38,11 @@ type ArhivaPogled struct {
 	KotaSustav      string // u kojem visinskom sustavu
 }
 
+// arhivaPoStranici je koliko se vrijednosti ispisuje odjednom. Trideset stane
+// na zaslon bez listanja kroz stranicu; tko traži razdoblje, gleda graf iznad,
+// a ne popis.
+const arhivaPoStranici = 30
+
 // popuniArhivu puni pregled. Svaka vrijednost nosi izvor i odstupanje, pa se u
 // tablici vidi odakle je koji redak.
 func popuniArhivu(ctx context.Context, r *http.Request, a *repository.ArhivaRepository,
