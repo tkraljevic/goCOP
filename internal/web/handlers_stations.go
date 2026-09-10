@@ -22,6 +22,7 @@ type StationsHandler struct {
 	sectionService     *service.SectionService
 	watercourseService *service.WatercourseService
 	episodeService     *service.EpisodeService
+	readingService     *service.ReadingService
 	arhiva             func() *repository.ArhivaRepository
 	ispravci           func() *repository.IspravakRepository
 	karta              func() KartaPostavke

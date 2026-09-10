@@ -56,6 +56,8 @@ type StationPageData struct {
 	ZadnjiIzvor          string
 	WaterRegistry        []models.Watercourse
 	CanEdit              bool
+	CanRecord            bool   // smije li upisati očitanje
+	LetvaStranica        string // koja je stranica letve otvorena: kartica, ocitanja, historijat
 	IsEdit               bool
 	SuccessMessage       string
 	ErrorMessage         string
@@ -97,6 +99,10 @@ func (h *StationsHandler) arh() *repository.ArhivaRepository {
 // registriraju prije nego što se postavke pročitaju, pa bi vrijednost predana
 // pri sastavljanju zauvijek ostala prazna. Isto kao kod arhive.
 func (h *StationsHandler) SetKarta(f func() KartaPostavke) { h.karta = f }
+
+// SetReadingService daje rukovatelju pravo upisa očitanja, da zajednički
+// izbornik letve pokaže isti gumb kao i stranica očitanja.
+func (h *StationsHandler) SetReadingService(s *service.ReadingService) { h.readingService = s }
 
 // SetIspravci daje rukovatelju pohranu ispravaka arhive; bez nje se arhiva i
 // dalje prikazuje, samo bez ispravaka.
@@ -153,6 +159,7 @@ func (h *StationsHandler) ShowStation(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	data.LetvaStranica = "kartica"
 	if err := h.tmplDetail.ExecuteTemplate(w, "station_detail.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -179,6 +186,7 @@ func (h *StationsHandler) HistorijatLetve(w http.ResponseWriter, r *http.Request
 		}
 		popuniArhivu(r.Context(), r, h.arhiva(), isp, &data.ArhivaPogled, &data.Station)
 	}
+	data.LetvaStranica = "historijat"
 	if err := h.tmplHistorijat.ExecuteTemplate(w, "station_history.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -240,6 +248,9 @@ func (h *StationsHandler) podaciLetve(w http.ResponseWriter, r *http.Request) (S
 	}
 	data.Station = *st
 	data.CanEdit = h.canEditStation(data.Permissions, *st)
+	if h.readingService != nil {
+		data.CanRecord = h.readingService.CanRecordStation(data.Permissions, st)
+	}
 	data.BrojOcitanja = h.stationService.BrojOcitanja(ctx, st.ID)
 	if h.karta != nil {
 		data.Karta = h.karta()

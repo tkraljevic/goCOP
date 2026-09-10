@@ -503,6 +503,7 @@ func (s *Server) setupRoutes() {
 		s.templates["station_history.html"], s.templates["station_history_form.html"],
 		s.sectionService, s.watercourseService)
 	stationsH.SetEpisodeService(s.episodeService)
+	stationsH.SetReadingService(s.readingService)
 	stationsH.SetArhiva(func() *repository.ArhivaRepository { return s.arhiva })
 	stationsH.SetIspravci(func() *repository.IspravakRepository {
 		if s.db == nil {

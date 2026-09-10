@@ -12,13 +12,7 @@
     <p class="page-desc">Sve što je na ovoj letvi zabilježeno i sve što je iz njezina niza izračunato.
       Kartica letve govori što letva jest; ovdje stoji što se dogodilo.</p>
   </div>
-  <div class="detail-actions">
-    <a href="/stations/{{.Station.ID}}" class="btn btn-secondary">{{icon "ruler"}} Kartica letve</a>
-    <a href="/readings/station/{{.Station.ID}}" class="btn btn-secondary">{{icon "activity"}} Očitanja</a>
-    {{if .CanEdit}}<a href="/stations/{{.Station.ID}}/historijat/uredi" class="btn btn-secondary">{{icon "pencil"}} Uredi</a>{{end}}
-    <a href="/stations/{{.Station.ID}}/izvjesce.docx?dio=historijat" class="btn btn-secondary"
-       title="Ono što stoji na ovoj stranici, u Wordovu dokumentu">{{icon "file-text"}} Generiraj izvješće</a>
-  </div>
+  {{template "letvaIzbornik" .}}
 </div>
 
 {{if .Spojevi}}
@@ -545,4 +539,9 @@
     a niz dolazi iz arhive vodostaja.</div>
 </section>
 {{end}}
+<div class="kartica-podnozje">
+  <a href="/stations/{{.Station.ID}}/izvjesce.docx?dio=historijat" class="btn btn-secondary"
+     title="Ono što stoji na ovoj stranici, u Wordovu dokumentu">{{icon "file-text"}} Generiraj izvješće</a>
+</div>
+
 {{end}}

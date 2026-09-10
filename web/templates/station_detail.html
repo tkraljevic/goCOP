@@ -15,15 +15,7 @@
       {{if .Station.NeedsReview}} · <span class="badge badge-inactive" title="{{.Station.ReviewNote}}">{{icon "triangle-alert"}} traži pregled pragova</span>{{end}}
     </p>
   </div>
-  <div class="detail-actions">
-    <a href="/readings/new?station={{.Station.ID}}" class="btn btn-primary">{{icon "plus"}} Upiši očitanje</a>
-    <a href="/readings/station/{{.Station.ID}}" class="btn btn-secondary">{{icon "activity"}} Očitanja</a>
-    <a href="/stations/{{.Station.ID}}/historijat" class="btn btn-secondary"
-       title="Ekstremi, povratni vodostaji, arhiva, valovi obrane i proglašene obrane">{{icon "history"}} Historijat</a>
-  {{if .CanEdit}}
-    <a href="/stations/{{.Station.ID}}/edit" class="btn btn-secondary">{{icon "pencil"}} Uredi</a>
-  {{end}}
-  </div>
+  {{template "letvaIzbornik" .}}
 </div>
 
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}

@@ -202,6 +202,40 @@
 </html>
 
 {{/* Listanje popisa — zajedničko svim registrima. Prima Pager. */}}
+{{define "letvaIzbornik"}}
+{{/* Isti izbornik na kartici, očitanjima i historijatu. Stranica na kojoj se
+     stoji označena je i nije poveznica, pa se raspored ne miče između stranica.
+     Uredi i Generiraj izvješće mijenjaju cilj po stranici — svaka uređuje i
+     prilaže ono što je na njoj. */}}
+<div class="detail-actions letva-izbornik">
+  {{if .CanRecord}}<a href="/readings/new?station={{.Station.ID}}" class="btn btn-primary">{{icon "plus"}} Upiši očitanje</a>{{end}}
+
+  {{if eq .LetvaStranica "kartica"}}
+  <span class="btn btn-secondary je-ovdje" aria-current="page">{{icon "ruler"}} Kartica letve</span>
+  {{else}}
+  <a href="/stations/{{.Station.ID}}" class="btn btn-secondary">{{icon "ruler"}} Kartica letve</a>
+  {{end}}
+
+  {{if eq .LetvaStranica "ocitanja"}}
+  <span class="btn btn-secondary je-ovdje" aria-current="page">{{icon "activity"}} Očitanja</span>
+  {{else}}
+  <a href="/readings/station/{{.Station.ID}}" class="btn btn-secondary">{{icon "activity"}} Očitanja</a>
+  {{end}}
+
+  {{if eq .LetvaStranica "historijat"}}
+  <span class="btn btn-secondary je-ovdje" aria-current="page">{{icon "history"}} Historijat</span>
+  {{else}}
+  <a href="/stations/{{.Station.ID}}/historijat" class="btn btn-secondary"
+     title="Ekstremi, povratni vodostaji, arhiva, valovi obrane i proglašene obrane">{{icon "history"}} Historijat</a>
+  {{end}}
+
+  {{if .CanEdit}}
+  <a href="/stations/{{.Station.ID}}{{if eq .LetvaStranica "historijat"}}/historijat/uredi{{else}}/edit{{end}}"
+     class="btn btn-secondary" title="Uređuje ono što je na ovoj stranici">{{icon "pencil"}} Uredi</a>
+  {{end}}
+</div>
+{{end}}
+
 {{define "pager"}}
 {{if gt .Total 0}}
 <nav class="pager" aria-label="Listanje">
