@@ -25,6 +25,7 @@ type StationPageData struct {
 	Permissions          *models.UserPermissions
 	Station              models.Station
 	ZeroDatumHistoryJSON template.JS // promjene kote nule za obrazac, kao JS literal
+	OgradeNizaJSON       template.JS // vlastite ograde uz nizove, za obrazac
 	ExtremesJSON         template.JS // zabilježeni ekstremi za obrazac
 	ReturnLevelsJSON     template.JS // povratni vodostaji za obrazac
 	Sections             []models.Section
@@ -225,6 +226,7 @@ func (h *StationsHandler) ObrazacHistorijata(w http.ResponseWriter, r *http.Requ
 	data.IsEdit = true
 	data.ReturnLevelsJSON = jsonZaObrazac(data.Station.ReturnLevels)
 	data.ZeroDatumHistoryJSON = jsonZaObrazac(data.Station.ZeroDatumHistory)
+	data.OgradeNizaJSON = jsonZaObrazac(data.Station.OgradeNiza)
 	if err := h.tmplHistObrazac.ExecuteTemplate(w, "station_history_form.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}

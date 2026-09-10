@@ -360,6 +360,7 @@ type stationForm struct {
 	ZeroDatumNew       string `json:"zero_datum_new"`
 	ZeroDatumNewSystem string `json:"zero_datum_new_system"`
 	ZeroDatumHistory   string `json:"zero_datum_history"` // JSON popis promjena kote, iz obrasca
+	OgradeNiza         string `json:"ograde_niza"`        // JSON popis vlastitih ograda uz nizove
 	Extremes           string `json:"extremes"`           // JSON popis ekstrema, iz obrasca
 	ReturnLevels       string `json:"return_levels"`      // JSON popis povratnih vodostaja, iz obrasca
 	Obrazac            string `json:"obrazac"`            // koji je obrazac poslan: kartica ili historijat
@@ -409,6 +410,7 @@ func decodeStationForm(r *http.Request) (stationForm, error) {
 	form.ZeroDatumNew = r.FormValue("zero_datum_new")
 	form.ZeroDatumNewSystem = r.FormValue("zero_datum_new_system")
 	form.ZeroDatumHistory = r.FormValue("zero_datum_history")
+	form.OgradeNiza = r.FormValue("ograde_niza")
 	form.Extremes = r.FormValue("extremes")
 	form.ReturnLevels = r.FormValue("return_levels")
 	form.Obrazac = r.FormValue("obrazac")
@@ -447,6 +449,7 @@ func (f stationForm) primijeni(st *models.Station) {
 	if f.Obrazac == obrazacHistorijat {
 		st.ReturnLevels = parseReturnLevels(f.ReturnLevels)
 		st.ZeroDatumHistory = parseZeroDatumHistory(f.ZeroDatumHistory)
+		st.OgradeNiza = parseOgradeNiza(f.OgradeNiza)
 		return
 	}
 	st.Code = strings.TrimSpace(f.Code)
@@ -544,6 +547,31 @@ func errBadStationID(value string) error {
 // parseZeroDatumHistory čita promjene kote nule iz obrasca. Redak bez kote i
 // bez datuma je prazan i preskače se; ostatak se slaže po datumu od najstarije,
 // da ZeroDatumAt može čitati redom.
+// parseOgradeNiza čita vlastite ograde iz obrasca. Ograda bez teksta ne
+// postoji — prazan redak je pogreška u unosu, ne podatak.
+func parseOgradeNiza(raw string) []models.OgradaNiza {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || raw == "[]" {
+		return nil
+	}
+	var in []models.OgradaNiza
+	if err := json.Unmarshal([]byte(raw), &in); err != nil {
+		return nil
+	}
+	var out []models.OgradaNiza
+	for _, o := range in {
+		o.Izvor = strings.TrimSpace(o.Izvor)
+		o.Velicina = strings.TrimSpace(o.Velicina)
+		o.Od, o.Do = strings.TrimSpace(o.Od), strings.TrimSpace(o.Do)
+		o.Tekst = strings.TrimSpace(o.Tekst)
+		if o.Izvor == "" || o.Tekst == "" {
+			continue
+		}
+		out = append(out, o)
+	}
+	return out
+}
+
 func parseZeroDatumHistory(raw string) []models.ZeroDatumChange {
 	raw = strings.TrimSpace(raw)
 	if raw == "" || raw == "[]" {

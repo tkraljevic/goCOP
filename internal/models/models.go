@@ -111,6 +111,14 @@ type Station struct {
 	// kad je letva premještena ili obnovljena.
 	ZeroDatumHistory []ZeroDatumChange `json:"zero_datum_history,omitempty"`
 
+	// OgradeNiza je ono što o pojedinom nizu iz arhive znamo, a iz brojki se
+	// ne vidi: zaleđen mjerač, sumnjive zimske vrijednosti, prekid u mjerenju.
+	//
+	// Izdavačeva ograda dolazi s paketom i stoji uz sam niz u arhivi. Ova je
+	// naša: arhiva se otvara samo za čitanje i pregrađuje se pri svakoj
+	// obnovi, pa bi ondje nestala i postojala na jednom jedinom čvoru.
+	OgradeNiza []OgradaNiza `json:"ograde_niza,omitempty"`
+
 	Prep      Threshold `json:"prep"`      // Pripremno stanje
 	Regular   Threshold `json:"regular"`   // Redovna obrana od poplava
 	Emergency Threshold `json:"emergency"` // Izvanredna obrana od poplava
@@ -656,4 +664,44 @@ func (s Station) ExtremesOf(kind string) []StationExtreme {
 		}
 	}
 	return out
+}
+
+// OgradaNiza je vlastita napomena uz jedan niz iz arhive. Niz se prepoznaje po
+// izvoru i veličini — id se pri obnovi arhive mijenja, pa se na njega ne može
+// vezati.
+type OgradaNiza struct {
+	Izvor    string `json:"izvor"`        // his2000, letva-dhmz, preracun-mohacs …
+	Velicina string `json:"velicina"`     // vodostaj, protok, temperatura …
+	Od       string `json:"od,omitempty"` // na koje se razdoblje odnosi; prazno = na cijeli niz
+	Do       string `json:"do,omitempty"`
+	Tekst    string `json:"tekst"`
+}
+
+// VrijediZa javlja odnosi li se ograda na zadani niz.
+func (o OgradaNiza) VrijediZa(izvor, velicina string) bool {
+	if !strings.EqualFold(o.Izvor, izvor) {
+		return false
+	}
+	return o.Velicina == "" || strings.EqualFold(o.Velicina, velicina)
+}
+
+// Razdoblje je ograda ispisana uz tekst, kad se odnosi samo na dio niza.
+func (o OgradaNiza) Razdoblje() string {
+	switch {
+	case o.Od != "" && o.Do != "":
+		return o.Od + " – " + o.Do
+	case o.Od != "":
+		return "od " + o.Od
+	case o.Do != "":
+		return "do " + o.Do
+	}
+	return ""
+}
+
+// Ograda je jedna napomena uz niz, spremna za prikaz. Izdavačeva stiže s
+// paketom i vrijedi za sve čvorove; ostale je upisao operater ovog čvora.
+type Ograda struct {
+	Tekst      string
+	Razdoblje  string
+	Izdavaceva bool
 }

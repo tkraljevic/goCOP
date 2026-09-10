@@ -121,3 +121,83 @@ func TestObrazacHistorijataNeObecavaTudje(t *testing.T) {
 		t.Error("obrazac i dalje obećava krajnosti, kojih na njemu nema")
 	}
 }
+
+// Uredi mijenja ono što je na svojoj stranici. Prije je s očitanja vodio na
+// obrazac kartice — uređivao bi pragove i kotu nule, a ničega od toga ondje
+// nema.
+func TestUrediMijenjaOnoStoJeNaStranici(t *testing.T) {
+	id := uuid.MustParse("c625fa9d-0425-5115-8c49-8819cbb17bbd")
+	st := models.Station{ID: id, Name: "Batina", Code: "batina"}
+	korisnik := &models.User{FullName: "P"}
+	prava := &models.UserPermissions{IsGlobalAdmin: true}
+
+	for _, s := range []struct {
+		stranica, predlozak, cilj string
+	}{
+		{"kartica", "station_detail.html", "/stations/" + id.String() + "/edit"},
+		{"historijat", "station_history.html", "/stations/" + id.String() + "/historijat/uredi"},
+	} {
+		var html string
+		if s.stranica == "historijat" {
+			html = iscrtaj(t, s.predlozak, StationPageData{CurrentUser: korisnik, Permissions: prava,
+				Station: st, CanEdit: true, CanRecord: true, LetvaStranica: s.stranica})
+		} else {
+			html = iscrtaj(t, s.predlozak, StationPageData{CurrentUser: korisnik, Permissions: prava,
+				Station: st, CanEdit: true, CanRecord: true, LetvaStranica: s.stranica})
+		}
+		if !strings.Contains(dioIzbornika(t, s.stranica, html), s.cilj) {
+			t.Errorf("%s: Uredi ne vodi na %s", s.stranica, s.cilj)
+		}
+	}
+
+	// očitanja: uređuju se sama očitanja, na istoj stranici
+	ocitanja := iscrtaj(t, "reading_history.html", ReadingHistoryData{
+		CurrentUser: korisnik, Permissions: prava, Station: &st, GaugeName: "Batina",
+		CanEdit: true, CanRecord: true, LetvaStranica: "ocitanja"})
+	izbornik := dioIzbornika(t, "ocitanja", ocitanja)
+	if !strings.Contains(izbornik, `href="#ispravci"`) {
+		t.Error("očitanja: Uredi ne vodi na ispravak očitanja")
+	}
+	if strings.Contains(izbornik, "/stations/"+id.String()+"/edit") {
+		t.Error("očitanja: Uredi i dalje vodi na obrazac kartice")
+	}
+	if !strings.Contains(ocitanja, `id="ispravci"`) {
+		t.Error("očitanja: nema odjeljka na koji Uredi vodi")
+	}
+}
+
+// Obrazac historijata prima ono što historijat pokazuje a ne računa se samo.
+// Ograde su treće, uz povratne vodostaje i promjene kote nule.
+func TestObrazacHistorijataPrimaOgrade(t *testing.T) {
+	st := models.Station{ID: uuid.New(), Name: "Batina", Code: "batina",
+		OgradeNiza: []models.OgradaNiza{{Izvor: "letva-hv", Velicina: "vodostaj",
+			Tekst: "mjerač zaleđen"}}}
+	html := iscrtaj(t, "station_history_form.html", StationPageData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Station:     st, CanEdit: true, IsEdit: true,
+		OgradeNizaJSON: jsonZaObrazac(st.OgradeNiza),
+	})
+	for _, want := range []string{"Ograde uz nizove", `name="ograde_niza"`, "mjerač zaleđen"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("obrazac nema %q", want)
+		}
+	}
+	// i kaže da izdavačeva ograda nije njegov posao
+	if !strings.Contains(html, "izdavačeva") {
+		t.Error("obrazac ne razlikuje vlastitu ogradu od one koja stiže s paketom")
+	}
+}
+
+// Ograda bez teksta ili bez izvora nije podatak nego pogreška u unosu.
+func TestPraznaOgradaSeNeSprema(t *testing.T) {
+	ulaz := `[{"izvor":"his2000","tekst":"zaleđen"},{"izvor":"","tekst":"bez izvora"},` +
+		`{"izvor":"cop","tekst":"   "},{"izvor":" letva-hv ","velicina":" vodostaj ","tekst":" led "}]`
+	out := parseOgradeNiza(ulaz)
+	if len(out) != 2 {
+		t.Fatalf("spremljeno %d ograda, očekivane 2: %+v", len(out), out)
+	}
+	if out[1].Izvor != "letva-hv" || out[1].Tekst != "led" {
+		t.Errorf("razmaci se ne uklanjaju: %+v", out[1])
+	}
+}

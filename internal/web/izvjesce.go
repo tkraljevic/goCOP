@@ -653,13 +653,32 @@ func (iz IzvjesceLetve) ocitanjaPoglavlje(d *docx.Dokument) {
 func (iz IzvjesceLetve) ogradeUzNizove(d *docx.Dokument) {
 	var redci [][]string
 	for _, n := range iz.Nizovi {
-		if strings.TrimSpace(n.Napomena) == "" {
-			continue
+		if t := strings.TrimSpace(n.Napomena); t != "" {
+			redci = append(redci, []string{
+				models.NazivVelicine(n.Velicina), models.NazivIzvora(n.Izvor),
+				datumHR(n.Od) + " – " + datumHR(n.Do), t + " (iz izdanja)",
+			})
 		}
-		redci = append(redci, []string{
-			models.NazivVelicine(n.Velicina), models.NazivIzvora(n.Izvor),
-			datumHR(n.Od) + " – " + datumHR(n.Do), n.Napomena,
-		})
+		for _, o := range iz.Station.OgradeNiza {
+			if !o.VrijediZa(n.Izvor, n.Velicina) {
+				continue
+			}
+			// Razdoblje ograde, kad je uže od niza, ispisuje se hrvatski —
+			// dokument čita čovjek, ne baza.
+			razdoblje := datumHR(n.Od) + " – " + datumHR(n.Do)
+			switch {
+			case o.Od != "" && o.Do != "":
+				razdoblje = datumHR(o.Od) + " – " + datumHR(o.Do)
+			case o.Od != "":
+				razdoblje = "od " + datumHR(o.Od)
+			case o.Do != "":
+				razdoblje = "do " + datumHR(o.Do)
+			}
+			redci = append(redci, []string{
+				models.NazivVelicine(n.Velicina), models.NazivIzvora(n.Izvor),
+				razdoblje, o.Tekst,
+			})
+		}
 	}
 	if len(redci) == 0 {
 		return
