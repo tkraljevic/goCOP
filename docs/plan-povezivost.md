@@ -1,341 +1,416 @@
-# Povezivost čvorova i raspačavanje arhiva
+# Povezivost, otpornost i raspačavanje
 
-Zapis odluka o tome kako čvorovi dolaze jedan do drugoga i kako se do njih
-raznosi ono što ne ide redovnom sinkronizacijom. **Ovo nije raspored posla
-nego okvir**: v1 ostaje na onome što već radi. Nastalo iz razgovora u rujnu
-2026.
+Zapis o tome zašto goCOP ide na mrežu ravnopravnih čvorova, što je krajnji
+cilj, i kojim redom se do njega ide. **Ne treba sve odjednom** — ali svaki
+korak mora biti upotrebljiv sam za sebe i nijedan ne smije zatvoriti put
+prema cilju.
 
 Arhiva, izdanja i zaborav imaju svoj zapis u
-[plan-arhiva-i-zaborav.md](plan-arhiva-i-zaborav.md); ovdje se ne ponavljaju.
+[plan-arhiva-i-zaborav.md](plan-arhiva-i-zaborav.md).
 
-## Zamisao od koje se krenulo
+## Zašto — i zašto ne zbog propusnosti
 
-Vlastiti poslužitelj (`sync.cop-osijek.com`) koji pronalazi čvorove na
-internetu i pomaže im uspostaviti privremene tunele, šifrirana P2P mreža nad
-time, i raznošenje velikih arhiva protokolom nalik torrentu — svaki čvor koji
-ima dio odmah ga nudi dalje. Uz to `.cop` paketi: šifrirani, tako da izvana
-nitko ne zna što su, a čvor povlači samo ono što ga zanima — samo Batinu, samo
-Vukovar.
+Obrana od poplava je kritična djelatnost. Ne smije stati zato što je nešto
+palo.
 
-Podjela slojeva iz te skice je točna i otprilike odgovara Syncthingovu
-ustroju:
+**Ovo nije teorija — dogodilo se više puta.**
 
-```
-Tracker    = pronalazi čvorove
-Transport  = sigurna veza među njima
-Sync       = sinkronizira bazu
-Blob       = raznosi velike nepromjenjive datoteke
-Relay      = zadnji izlaz
-```
+Zato pitanje nije je li podatak 1 TB, 400 MB ili 0,5 MB. Pitanje je nastavlja
+li obrana raditi u najgorim uvjetima.
 
-### Što od toga već postoji
+> **Osnovno načelo:** nijedan pojedinačni servis, poslužitelj ni mrežna
+> lokacija ne smije biti nužan za nastavak rada i za pristup posljednjim
+> pouzdanim podacima.
 
-Više nego što se čini:
+Ušteda propusnosti, raznošenje arhiva i swarm su **nuspojave**, ne razlog.
+
+## Krajnji cilj
+
+Kad je gotovo, ovo vrijedi:
+
+1. Svaki ovlašteni čvor ima **vlastitu lokalnu SQLite bazu** i radi neograničeno
+   dugo bez ičije pomoći.
+2. Čvorovi se sinkroniziraju **izravno**, čim se mogu dosegnuti — na LAN-u, u
+   uredu, preko interneta.
+3. **Nijedan čvor nije nužan.** Ni tvoj, ni uredski, ni onaj s arhivom.
+4. Povijesni podaci su dostupni na zahtjev i **provjerljivi otiskom**.
+5. **Tko što dobiva** provodi se na razini replikacije, ne prikaza.
+6. Kompromitirani čvor se može **prepoznati i poništiti**, a ne samo isključiti.
+
+## Što već radi
+
+Ovo nije početak iz prazna:
 
 | dio | stanje |
 |---|---|
-| ključ mreže, potpisana članstva | radi (`internal/peers/network.go`) |
+| lokalna SQLite baza na svakom čvoru | radi |
+| knjiga verzija s revizijama | radi (`internal/ledger`) |
+| ključ mreže, potpisana članstva s rokom | radi (`memberships`, ima `expires_at`) |
 | UUID i par ključeva po čvoru | radi |
 | šifrirana veza među čvorovima | radi (TLS, `syncnet`) |
 | pronalaženje na LAN-u | radi (UDP broadcast) |
-| sinkronizacija po revizijama | radi (`internal/ledger`) |
 | otisak niza za provjeru pri preuzimanju | radi (`nizovi.otisak`) |
+| rad bez interneta | radi |
 | dohvatljivost preko interneta | nema |
 | prijenos datoteka među čvorovima | nema |
+| opseg kao granica replikacije | nema |
+| provenijencija i potpisi po zapisu | djelomično |
 
-## Mjerenje koje je promijenilo zaključak
+## Slojevi
 
-**471 MB arhive nije količina podataka nego način na koji ih SQLite drži** —
-48 bajta po očitanju za nešto što je razlika vremena i vodostaj u
-centimetrima.
+### 1. Identitet i članstvo
 
-Batina, izmjereno na 933.686 zapisa u 16 nizova:
+Svaki čvor ima `device UUID` i vlastiti par ključeva. Mreža ima ključ mreže,
+iz kojeg se izvode identifikatori i ključevi za potvrdu. Svaki projekt ima
+svoj `project_id`.
+
+**Ključ mreže se upotrebljava jednom, pri pristupanju**, i ne ostaje na
+uređaju. Dalje čvor radi svojim parom ključeva i potpisanim članstvom s
+rokom. Ako ključ mreže živi na disku svakog čvora, jedan izgubljen uređaj
+kompromitira sve.
+
+Tracker nikad ne dobiva ključ mreže.
+
+### 2. Pronalaženje
+
+Na LAN-u mDNS ili postojeće pronalaženje. Za internet malen rendezvous
+servis čija je uloga **samo**: prijava prisutnosti, pronalaženje čvorova,
+razmjena kandidata za vezu, i objava sposobnosti.
+
+Tracker **ne prenosi bazu ni korisničke podatke**.
+
+Napomena: „tko što ima" ne treba tracker — to je zapis od stotinjak bajta koji
+može putovati knjigom verzija, istim putem kao sve ostalo.
+
+### 3. Povezivost — `PeerTransport`
+
+Sada **Tailscale**, jer već radi u poslovnoj mreži i rješava probijanje NAT-a,
+izravne veze, WireGuard šifriranje i relay.
+
+Ali aplikacijski sloj **ne smije biti vezan uz njega**. Definira se čisto
+sučelje `PeerTransport`, tako da se Tailscale kasnije može zamijeniti bez
+ijedne promjene u protokolu sinkronizacije. To je jedina stvar koja „Tailscale
+sada" čini sigurnim potezom.
+
+Napomena: **sam WireGuard ne rješava NAT** — on je tunel i traži poznatu
+dohvatljivu adresu. Ako se ide na otvoreno, to je **Headscale** (vlastiti
+poslužitelj za spajanje) i **tsnet** (Tailscale kao Go knjižnica u samom
+programu, pa korisnik ne instalira ništa).
+
+Buduća vlastita izvedba: QUIC, TLS 1.3, STUN/ICE, izravni IPv6 gdje ga ima.
+
+Redoslijed povezivanja:
+
+```
+LAN izravno → IPv6 izravno → internet P2P → relay preko čvora → središnji relay
+```
+
+### 4. Sinkronizacija baze
+
+**SQLite se ne prenosi kao datoteka.** Prenose se logičke promjene: `record_uuid`,
+revizija, čvor podrijetla, vrijeme, vrsta zahvata, otisak i provenijencija.
+
+Svaki čvor radi offline. Kad opet nađe druge, radi anti-entropy usklađivanje i
+dohvaća ono što mu nedostaje.
+
+Na desetke čvorova **ne ide puna mreža** gdje svatko priča sa svima. Ide
+gossip s ograničenim brojem aktivnih susjeda:
+
+```
+A → B, C        B → D, E        C → F, G
+```
+
+### 5. Sukobi i provenijencija — kritični dio
+
+**Posljednji upis ne smije biti jedini mehanizam** za operativno važne podatke.
+
+Uz svaki podatak: izvor, vrijeme mjerenja, vrijeme primitka, čvor koji ga je
+primio, revizija, i po potrebi potpis.
+
+Ako dva izvora daju različitu vrijednost za isto mjerenje, **oba se čuvaju i
+sukob se označi**. Kod obrane od poplava tiho prepisan prag nije estetski nego
+operativni problem.
+
+### 6. Telemetrija
+
+Za primanje novih mjerenja može se razmotriti MQTT ili sličan protokol, ali
+**ne kao jedini izvor istine ni kao središnja ovisnost**. Više čvorova ili
+pristupnika prima iz više neovisnih izvora i propagira dalje mrežom, pa kvar
+jednog ne znači gubitak mjerenja.
+
+### 7. Arhive
+
+Povijest koja se više ne mijenja izdvaja se iz aktivne baze u nepromjenjive
+SQLite arhive po razdoblju:
+
+```
+vodostaji_1900_1949.sqlite
+vodostaji_1950_1979.sqlite
+```
+
+Nepromjenjive, samo za čitanje, adresirane otiskom, opisane manifestom, i po
+potrebi priključene kroz `ATTACH` — pa **ostaju odmah upitljive** za analize
+dugih nizova.
+
+`.cop` je **transportni paket**: manifest + SQLite arhiva + otisak i potpis.
+Nakon preuzimanja se provjeri i arhiva se ugradi lokalno. Time `.cop` nije
+oblik pohrane, pa `CGO_ENABLED=0` i `modernc.org/sqlite` nisu prepreka.
+
+### 8. Prijenos blobova
+
+Za malen broj čvorova dovoljno je: izravno preuzimanje s čvora, nastavak
+prekinutog, ranged prijenos, provjera otiskom, i prelazak na drugi čvor.
+
+Swarm s dijeljenjem na komade ima smisla **tek kad mreža naraste na desetke
+ili stotine** — tada tracker prati samo tko ima koji resurs, ne svaki komad.
+
+### 9. Politika relaya
+
+Središnji relay je **zadnji izlaz, ne glavni put**. Za male promjene baze
+prihvatljiv je. Za velike arhive se izbjegava: gigabajt preko tuđeg relaya je
+spor i nepristojan. Ako je dostupan samo relay — **odgodi**, izdanje može
+čekati.
+
+### 10. Sigurnost
+
+Sigurnost prijenosa i šifriranje pohranjenog su **odvojene stvari**.
+
+Veza među čvorovima je E2E šifrirana. Tracker i relay **nemaju pristup
+sadržaju**. Svaki čvor ima svoj par ključeva; ključ mreže služi za članstvo,
+ne za promet.
+
+### 11. Skaliranje na zaposlenike
+
+Svaki zaposlenik s prijenosnikom može imati svoj čvor, pa se računa na desetke
+do stotine. Zato: bez pune mreže, ograničen broj aktivnih susjeda, gossip, i
+**opsezi** — organizacija, sektor, VGO, područje, dionica, privatno.
+
+## Oblik mreže
+
+### Uloga se ne dodjeljuje nego proizlazi
+
+Netko ima unraid koji je stalno gore. Netko drugi mini-računalo u uredu.
+Netko treći ništa osim prijenosnika.
+
+**To se ne konfigurira.** Čvor objavljuje činjenice o sebi — koliko je
+dostupan, što ima, kako se do njega dolazi — a ostali ga sami odaberu kad im
+odgovara. Time topologija prati stvarnost i preživljava promjenu opreme, a
+nitko ne mora održavati popis tko je „poslužitelj".
+
+### Stalni čvor je poželjan put, nikad nužan
+
+Ovo je jedina stvar koja može tiho pojesti cijelu zamisao. Čim se ijedna
+radnja osloni na to da je stalni čvor dostupan — „traži katalog od ureda",
+„prijavi se preko čvora" — ponovno je sagrađen poslužitelj, samo s više
+koraka.
+
+**Provjera:** isključi stalni čvor i vidi rade li dva prijenosnika u istoj
+prostoriji međusobno. Ne „rade li offline" nego rade li **jedan s drugim**,
+bez ičega u sredini. To treba raditi redovito, ne jednom.
+
+### Otpornost dolazi od raznolikosti, ne od broja
+
+Deset mini-računala u deset ureda, na istoj domeni, s istim ažuriranjima i
+istim vjerodajnicama — u praksi je **jedan** čvor. Padne li domena, padnu svi
+zajedno.
+
+Prijenosnik koji je te večeri bio kod nekoga doma, i kućni unraid koji nije na
+toj domeni — **oni preživljavaju**. Zato su kućne instalacije najvrjedniji
+sloj mreže, a ne rub o kojem treba brinuti.
+
+Zaključak: vrijedi imati čvorove koji otkazuju **iz različitih razloga**, ne
+samo mnogo njih.
+
+## Otpornost na kompromitaciju nije isto što i na nedostupnost
+
+Ovo je poglavlje koje razlog i rješenje inače ne spajaju do kraja.
+
+Mreža čvorova štiti od toga da nešto **padne**. Od toga da nešto bude
+**zauzeto** — ne sama po sebi. Ako je napadač ušao na razini domene, imao je
+vjerodajnice i pristup uređajima. Sto čvorova s istim programom je veća
+površina napada, a knjiga verzija će savjesno raznijeti otrovane zapise na
+sve.
+
+Zato uz mrežu idu tri stvari:
+
+1. **Potpisani zapisi** — kompromitiran čvor ne može krivotvoriti tuđe podatke.
+2. **Knjiga samo za dopisivanje, provjerljiva unatrag** — otrovane revizije se
+   mogu pronaći.
+3. **Poništavanje po čvoru i vremenu** — mora se moći reći „sve od čvora X
+   nakon tog trenutka je sumnjivo" i to ukloniti bez ručnog čišćenja stotinu
+   baza.
+
+### Kopija u koju mreža ne piše
+
+Prošli put je spasila sigurnosna kopija. Mreža daje **dostupnost, ne
+oporavak**.
+
+Razlika je u ovome: **mreža daje kopije u prostoru, backup daje kopije u
+vremenu.** Zaraza i otrovani zapisi šire se prostorom trenutačno — sto čvorova
+ima sto jednako pokvarenih kopija. Pomaže samo kopija od **prije** incidenta.
+
+Dovoljna je povremena kopija, ali mora zadovoljiti jedan uvjet: **ništa što je
+na mreži ne smije joj moći pisati.** Kopija na stalno priključenom disku ili
+na dijeljenoj mapi na koju čvor ima pravo pisanja pada s prvim ucjenjivačkim
+softverom — tako se backupi i gube.
+
+Tri načina koji uvjet zadovoljavaju:
+
+- **odspojeni disk** — priključi se samo za vrijeme kopiranja
+- **samo-dopisivanje / WORM** — snimke koje se ne mogu prepisati (ZFS ili
+  btrfs snapshot, spremište s object-lockom)
+- **povlačenje izvana** — backup domaćin sam povlači, a izvor mu ne može ni
+  pisati ni brisati
+
+Stalno upaljen čvor (unraid, mini-računalo) dobro je odredište **samo** ako su
+kopije snimke koje sustav u pogonu ne može prepisati. „Stalno gore i na mreži"
+znači i „dohvatljiv napadaču".
+
+Ritam je dvostruk i jeftin:
+
+- **izdanja arhive** — jednom po izdanju, čuvaju se sva; nepromjenjiva su i
+  mala
+- **operativna baza** — često; 5,6 MB, pa je i dnevna kopija kroz godinu dana
+  zanemariva
+
+Jedna posljedica onoga što se ionako gradi: izdanja su adresirana otiskom, pa
+se **ispravnost kopije može provjeriti**, a ne samo pretpostaviti. Obična
+kopija baze koja je tiho istrunula izgleda jednako kao zdrava; ova se
+prepozna.
+
+*Ukradeni i izgubljeni uređaji izuzeti su iz opsega za sada. Mehanizam koji ih
+pokriva — članstvo s kratkim rokom koje samo istekne — ionako slijedi iz
+opoziva bilo koje vrste, a `expires_at` već stoji u shemi.*
+
+## Veličina podataka — dobra vijest, ne razlog
+
+Izmjereno na Batini (933.686 zapisa, 16 nizova):
 
 | oblik | veličina | po zapisu |
 |---|---|---|
 | u SQLiteu | ~44 MB | 48 B |
-| sirovo (vrijeme + vrijednost) | 14,2 MB | 16 B |
+| sirovo | 14,2 MB | 16 B |
 | razlike + varint | 2,8 MB | 3,15 B |
 | + gzip | **0,5 MB** | 0,51 B |
 | + xz | **0,3 MB** | 0,35 B |
 
-Stotinu puta manje. Ako se ostatak arhive ponaša slično — a nema razloga da ne
-bi, jer je isti oblik podatka — cijela arhiva od 10,4 milijuna zapisa stane u
-**svega nekoliko megabajta**.
+Onih 471 MB arhive nije količina podataka nego način na koji ih SQLite drži.
+Za cijelu arhivu od 10,4 milijuna zapisa to je **procjena** od nekoliko
+megabajta — mjerena je samo Batina.
 
-**Posljedica:** za historijate ne postoji problem raspačavanja. Torrent,
-swarm, dijeljenje na komade i tracker rješavaju problem koji te brojke nemaju.
-Batina je privitak u e-pošti.
-
-## Gdje to ne vrijedi
-
-Onih sto puta vrijedi za **nizove brojeva**. Ne vrijedi ni za što od ovoga:
-
-- **fotografije s terena** — već komprimirane, pakiranje ne daje ništa
-- **video** — isto, samo gore
-- **potpisani PDF-ovi** — komprimirani, i moraju ostati **bajt u bajt**, jer
-  potpis inače pada
-
-Tekst dnevnika održavanja je malen: oko 1000 upisa godišnje puta radovi A.02 i
-A.03 puta 34 branjena područja je oko 68.000 upisa, stotinjak megabajta sirovo
-i malo nakon pakiranja. **Ali privitci uz te upise rastu bez granice** — deset
-fotografija po upisu je red veličine terabajta godišnje.
-
-Dakle: za nizove ne treba, za terenski materijal treba.
-
-Zatečeno stanje kad se ovo pisalo: `journal_entries` je prazan, a model
-privitka u programu **ne postoji**. Odluka se donosi prije nego išta postoji,
-što je pravi trenutak.
+To ne mijenja razlog za mrežu, ali mijenja **redoslijed**: raznošenje nizova
+je lako i može čekati, jer stane u ništa. Ono što je teško dolazi s
+fotografijama.
 
 ## Dvije vrste sadržaja, dvije mjere
 
 | | jedinica | zašto |
 |---|---|---|
-| **nizovi** | paket po letvi i izdanju, `historijat_batina_v1.cop` | mnogo sitnih zapisa; pojedinačno adresiranje se ne isplati |
-| **fotografije, video, PDF** | pojedinačan nepromjenjiv objekt adresiran otiskom | malo velikih stvari; nema izdanja ni prepakiravanja |
+| **nizovi** | paket po letvi i izdanju | mnogo sitnih zapisa; pojedinačno adresiranje se ne isplati |
+| **fotografije, video, PDF** | pojedinačan nepromjenjiv objekt po otisku | malo velikih stvari; nema izdanja ni prepakiravanja |
 
-Drugi red usput daje tri stvari besplatno: ista fotografija ne čuva se
-dvaput, cjelovitost se provjerava sama, a djelomična replikacija postaje
-prirodna — svaki čvor drži ono što je tražio.
+Pakiranje od sto puta vrijedi **samo za brojeve**. Fotografije i video su već
+komprimirani; potpisani PDF mora ostati bajt u bajt jer potpis inače pada.
 
-### `.cop` je format prijenosa, ne pohrane
+Tekst dnevnika je malen — oko 1000 upisa godišnje puta radovi A.02 i A.03 puta
+34 branjena područja je oko 68.000 upisa. **Privitci uz te upise rastu bez
+granice**: deset fotografija po upisu je red veličine terabajta godišnje.
 
-Paket se preuzme, raspakira i **uloži u arhivsku SQLite bazu**. Baza ostaje
-obična i upitna.
+Zatečeno stanje: `journal_entries` je prazan, model privitka **ne postoji**.
+Odluka se donosi prije nego išta postoji.
 
-To je bitno jer je prvi prigovor na šifrirane pakete bio da se kose s
-`CGO_ENABLED=0` — `modernc.org/sqlite` ne poznaje SQLCipher, pa se šifrirana
-baza ne bi mogla otvoriti. Taj prigovor **pada** čim je `.cop` samo omot za
-put, a ne oblik u kojem podatak živi.
+## Šifriranje
 
-## Šifriranje — kad zarađuje svoje mjesto
+**Ne** zato da se izvana ne zna što je datoteka — šifriranje skriva sadržaj,
+ne postojanje. **Ne** ako paketi kruže samo unutar mreže koja je ionako
+šifrirana.
 
-**Ne** zato da se izvana ne zna da je datoteka arhiva: šifriranje skriva
-sadržaj, ne postojanje.
+**Da** zbog jednog: **izvođačev čvor raznosi ono što ne smije čitati.** To je
+razlog koji ga opravdava, i ujedno mehanizam za „tko što dobiva". Iz toga
+slijedi **ključ po vrsti sadržaja, ne jedan po mreži**.
 
-**Ne** ako paketi kruže samo unutar mreže koja je ionako šifrirana — tada je
-ceremonija.
+### Kako
 
-**Da** u jednom slučaju: **izvođačev čvor raznosi ono što ne smije čitati.**
-To je jedini razlog koji šifriranje ovdje opravdava, i ujedno mehanizam za
-„tko što dobiva".
+**Šifrat nema magičnih bajtova** — izlaz dobrog šifriranja je neraspoznatljiv
+od šuma, nema se što prerušiti. Ali **„šifrirani zip" ne skriva što je
+unutra**: središnji katalog ostaje čitljiv, s imenima datoteka, veličinama i
+vremenima.
 
-Iz toga slijedi zahtjev: **ključ po vrsti sadržaja, ne jedan po mreži.** Jedan
-ključ za sve znači da svaki član, uključujući izvođača, otključava sve.
-
-### Kako se šifrira
-
-Zamisao da se datoteci promijene prvi bajtovi kako se izvana ne bi znalo što
-je — nepotrebna je, jer rješava nešto što se samo od sebe rješava, dok pravi
-propust ostavlja otvorenim.
-
-**Šifrat nema magičnih bajtova.** Izlaz dobrog šifriranja neraspoznatljiv je
-od šuma; nema `PK\x03\x04` niti ičega drugoga što bi se moglo prerušiti.
-Jedino prepoznatljivo u takvoj datoteci je zaglavlje koje se doda samo.
-
-**Ali „šifrirani zip" ne skriva što je unutra.** Središnji katalog ZIP-a
-ostaje u čistom obliku: **imena datoteka, veličine, vremena i struktura.** Tko
-nema ključ i dalje pročita da unutra stoji `batina_1902-1970.csv`. Promjena
-prvih bajtova tu ne pomaže nimalo — katalog je i dalje ondje.
-
-Zato: **šifrirati cijeli tok, ne unose u spremniku.** AEAD
-(XChaCha20-Poly1305 ili AES-GCM), izlaz `nonce + šifrat + oznaka`. Nonce je
-slučajan, pa datoteka od prvog bajta izgleda kao šum, a nema kataloga koji bi
-je otkucao. AEAD usput daje i ono zbog čega bi se inače htjelo zaglavlje —
-**provjeru da je datoteka tvoja i neoštećena**: ako se ključ ne poklopi,
-otvaranje padne.
+Zato: **AEAD nad cijelim tokom** (XChaCha20-Poly1305 ili AES-GCM), izlaz
+`nonce + šifrat + oznaka`. Od prvog bajta izgleda kao šum, nema kataloga koji
+odaje, i sam provjerava ispravnost — ako se ključ ne poklopi, otvaranje padne.
 
 ### Ime datoteke govori više od zaglavlja
 
-Najveći propust, a magični bajtovi ga uopće ne dodiruju:
+`historijat_batina_v1.cop` u javnoj mapi kaže sve. Zato se datoteke imenuju
+**otiskom**: `a3f9c2e8….cop`. Katalog zna što je što i putuje sinkronizacijom,
+ne javnom mapom.
 
-```
-historijat_batina_v1.cop
-```
-
-Takvo ime u javnoj mapi kaže sve — koja letva, da je historijat, koja
-inačica. Zaključana vrata, a na sanduku piše što je unutra.
-
-**Datoteke se zato imenuju otiskom, ne sadržajem:**
-
-```
-a3f9c2e8d1b47f06….cop
-```
-
-Ime tada ne odaje ništa, a program svejedno zna što je što, jer **katalog nosi
-„batina, izdanje v1, otisak `a3f9…`"** i putuje sinkronizacijom, ne javnom
-mapom. To je isti otisak koji već stoji u `nizovi.otisak`, pa ne košta ništa
-dodatno.
-
-### Što i dalje curi
-
-| | skriva se? |
-|---|---|
-| sadržaj | da, ako je AEAD nad cijelim tokom |
-| imena datoteka unutra | da, ako **nije** ZIP sa šifriranim unosima |
-| ime same datoteke | da, ako je imenovana otiskom |
-| **veličina** | ne |
-| **kad se pojavila** | ne |
-| **tko je preuzima** | ne |
-
-Zadnja tri se ne mogu sakriti dok sadržaj stoji na javnom mjestu. To je
-razlog više da se ne računa na tajnost, nego na ključ.
-
-### Dvije stvari koje treba znati unaprijed
-
-**Zamagljivanje u reviziji izgleda gore nego šifriranje.** „Šifrirali smo
-podatke" je standardna mjera koju svaki revizor prepoznaje. „Prerušili smo
-datoteke da se ne zna što su" poziva na pitanje što se skrivalo. Za javno
-tijelo to nije nevažno.
-
-**Bez zaglavlja se gubi i vlastito prepoznavanje.** Program ne može pogledati
-zalutalu datoteku i reći što je — ovisi potpuno o katalogu. To je u redu dok
-katalog postoji, ali za pet godina, na tuđem disku, takva datoteka nikome
-ništa ne znači. AEAD to ublažava, jer ključ ili otvori ili ne, ali vrijedi
-znati da je to zamjena, a ne dobitak.
-
-## Transport
-
-**Sam WireGuard ne rješava NAT.** On je tunel — šifriranje i usmjeravanje. Da
-bi se dva čvora spojila, jedan mora biti dohvatljiv na poznatoj adresi. Iza
-kućnog rutera i CGNAT-a to je upravo problem koji postoji.
-
-| | što je | cijena |
-|---|---|---|
-| **Tailscale** | WireGuard + koordinacija + probijanje NAT-a + DERP relay | poslužitelj koji spaja je komercijalan |
-| **Headscale** | otvorena izvedba tog poslužitelja, vrti se sam | mora pratiti inačice klijenta |
-| **tsnet** | Tailscale kao Go knjižnica u samom programu | velika ovisnost za program koji ih nema |
-| **go-libp2p** | cijeli generički P2P sloj, već napisan | vrlo velika ovisnost |
-
-**tsnet + Headscale** znači da korisnik u Slavonskom Brodu **ne instalira
-ništa** i da nema komercijalne ovisnosti — program se sam pridruži mreži
-ključem koji mu administrator izda. To je najbolji odgovor ako se ide na
-mrežu.
-
-Zamka: kad probijanje NAT-a ne uspije, treba **DERP relay** — ili Tailscaleov
-javni, čime se komercijalna ovisnost vraća na mala vrata, ili vlastiti, što je
-još jedna usluga za održavanje.
-
-### Ali pri ovim veličinama možda ništa od toga
-
-**Odlazna HTTPS veza prolazi kroz svaki vatrozid i svaki NAT, bez ijedne
-postavke kod korisnika.** To je jedina varijanta u kojoj čovjek u Brodu doista
-ne radi ništa.
-
-Argument za čvorove koji **preživljava** male brojke nije propusnost nego
-**raspoloživost**: središnji poslužitelj otkazuje upravo kad treba, za velike
-vode kad padne veza. To je već pokriveno — pronalaženje na LAN-u i razmjena
-preko `syncnet` rade bez interneta.
-
-**Oblik koji iz toga slijedi:**
-
-- **LAN mreža ostaje** — nosi izvanredno stanje, već je napisana
-- **glup HTTPS izvor** — nosi „različiti gradovi, različite mreže", nula
-  postavljanja kod korisnika
-- **P2P preko interneta se ne piše** dok se ne pojavi sadržaj koji ta dva ne
-  pokrivaju, a to su fotografije i video
-
-### Tracker vjerojatno ne treba uopće
-
-„Imam izdanje v1, otisak taj-i-taj" je zapis od stotinjak bajta koji može
-putovati knjigom verzija, istim putem kao sve ostalo. Time nestaje javni
-poslužitelj i sav teret uz njega: raspoloživost, certifikat, zloporaba, i
-podaci o prisutnosti — tko je kad na mreži — koji su sami po sebi osjetljivi
-za ustanovu.
+Što svejedno curi: **veličina, kad se pojavila, tko je preuzima.** Razlog više
+da se ne računa na tajnost nego na ključ.
 
 ## Odakle se paketi preuzimaju
 
-### Pravilo koje sve drži na okupu
+> **Adresa nikad nije identitet.** Sadržaj se prepoznaje po otisku, izvori su
+> popis natuknica — i troše se.
 
-> **Adresa nikad nije identitet.** Sadržaj se prepoznaje po otisku, a izvori
-> su popis natuknica — i troše se.
+Zato izvor može biti bilo što, i mijenja se bez selidbe:
 
-Ako katalog kaže „batina, izdanje v1, otisak `abc…`", onda je adresa samo
-jedan način da se do toga dođe, a preuzeto se u svakom slučaju provjerava
-otiskom. Time privremeno rješenje prestaje biti dug: prelazak s jednog izvora
-na drugi je izmjena u postavkama, ne selidba.
+- **Google Drive** — za nizove nosi do kraja; za to je i napravljen, i **link
+  se može opozvati**. Zamke: neslužbena adresa za preuzimanje, stranica o
+  virusima iznad ~100 MB, i „download quota exceeded".
+- **GitHub** — samo kroz **Releases**, ne kroz git povijest: git čuva svaku
+  inačicu zauvijek, a šifrirani sadržaj se ne razlikuje od šuma pa se svaka
+  sprema cijela. Po uvjetima korištenja GitHub **nije CDN**.
+- **drugi čvor** — krajnji cilj
+- **USB ključ** — u nuždi, i to je legitiman izvor
 
-Pola toga već stoji: `nizovi.otisak` s komentarom „sadržajni otisak, za
-provjeru pri preuzimanju", i katalog koji je u planu arhive predviđen da putuje
-redovnom sinkronizacijom. **Fali samo popis izvora.**
+Za oboje vrijedi isto pitanje, i nije tehničko: osobni račun i strani servis
+kao mjesto gdje stoje službeni dokumenti javnog tijela. Za vodostaje nikoga
+neće zanimati; za potpisana rješenja i fotografije s ljudima hoće. **Pitati
+prije nego se navikne.**
 
-### Google Drive — prvi izvor
+## Plan po koracima
 
-Za nizove nosi do kraja: cijela arhiva je nekoliko megabajta, a 15 GB je
-besmisleno velika rezerva. Prednosti pred GitHubom:
+Ne treba sve odjednom. Redoslijed je određen jednim mjerilom: **što je skupo
+naknadno ugraditi, ide prvo.**
 
-- **za to je i napravljen**, pa nema razgovora o uvjetima korištenja
-- **link se može opozvati** — javni repozitorij ne može, jer postoje forkovi i
-  predmemorije
+Odluke u **modelu podataka** teško se popravljaju — provenijencija i opseg
+naknadno znače prepisivanje svakog zapisa. **Mreža** se mijenja kad god, jer
+je iza sučelja. Zato podatkovni sloj ide prije mrežnog, iako je mrežni
+zanimljiviji.
 
-Dijeljeni link **jest vjerodajnica**: tko ga ima, skida. To je u redu jer bez
-ključa nema sadržaja — ovdje se šifriranje i model dijeljenja poklapaju.
+| korak | što | zašto tim redom |
+|---|---|---|
+| **0** | *(napravljeno)* lokalna baza, knjiga verzija, LAN, TLS, članstva | temelj već stoji |
+| **1** | **provenijencija i potpis po zapisu**; **opseg kao granica replikacije** | najskuplje naknadno — mijenja svaki zapis i svaku razmjenu |
+| **2** | **sučelje `PeerTransport`**, Tailscale iza njega | jeftino sada, oslobađa sve kasnije |
+| **3** | **izdanja arhive**: manifest, otisak, ime po otisku, popis izvora (Drive prvi) | rješava 471 MB i daje katalog |
+| **4** | **sukobi vidljivi u sučelju** — oba zapisa, oznaka, tko je unio | bez toga se pogreška ne vidi dok ne zaboli |
+| **5** | **gossip** umjesto razmjene sa svima | tek kad čvorova bude dovoljno da smeta |
+| **6** | **prijenos blobova** među čvorovima: nastavak, ranged, provjera | kad se pojave privitci |
+| **7** | **poništavanje po čvoru i vremenu** | kad mreža bude dovoljno velika da kompromitacija boli |
+| **8** | *(možda nikad)* vlastiti transport QUIC/STUN, swarm s komadima | tek ako Tailscale zasmeta ili čvorova bude stotine |
 
-Zamke koje treba znati unaprijed:
+Svaki korak je upotrebljiv sam za sebe. Korak 3 vrijedi i bez mreže — arhiva
+se preuzme s Drivea. Korak 1 vrijedi i bez ijednog drugog čvora, jer se zna
+odakle podatak dolazi.
 
-- preuzimanje dijeljenog linka programski nije službeno podržano; adresa
-  `uc?export=download` radi, ali je neslužbena i mijenjala se
-- datoteke iznad ~100 MB vraćaju **HTML stranicu s upozorenjem o virusima**
-  umjesto datoteke
-- postoji **„download quota exceeded"** — kad isti sadržaj povuče dovoljno
-  ljudi, zaključa se na 24 sata, i kvar je nejasan kad se dogodi
-
-### GitHub — moguć, ali s uvjetima
-
-- **Releases, ne git povijest.** Git čuva svaku inačicu zauvijek, a šifrirani
-  sadržaj se ne razlikuje od šuma — dvije inačice istog paketa nemaju ništa
-  zajedničko, pa se svaka sprema cijela. Repozitorij godišnjih izdanja raste
-  jednosmjerno i ne može se smanjiti bez prepisivanja povijesti.
-- granica u gitu je 100 MB po datoteci; u Releasesima 2 GB, i ne broje se u
-  veličinu repozitorija
-- po uvjetima korištenja GitHub **nije CDN**; za stotine megabajta nitko neće
-  trepnuti, za terabajte račun može biti označen
-- **nepoznata adresa nije zaštita** — javni repozitoriji se indeksiraju i
-  postoje servisi koji prate svaki novi javni repozitorij
-
-### Pitanje koje nije tehničko
-
-Oboje otvara isto: osobni Gmail račun i američki servis kao mjesto gdje stoje
-službeni dokumenti javnog tijela. Za nizove vodostaja nikoga neće zanimati; za
-potpisana rješenja i fotografije s ljudima hoće. **Pitati prije nego se
-navikne** — šifrirano jest branjivo, ali branjivo nije isto što i odobreno.
-
-## Posljedice koje se ne smiju prešutjeti
+## Što se ne smije zaboraviti
 
 **Djelomične arhive tiho lome usporedbe.** Batina je rekonstruirana iz
-**Bezdana**; čvor koji ima samo Batinu tu analizu ne može napraviti. Program
-to mora reći — „ova analiza traži i Bezdan, nije preuzet" — a ne izračunati
-nešto na manjem uzorku i prešutjeti.
+**Bezdana**. Čvor koji ima samo Batinu tu analizu ne može napraviti — i to
+mora **reći**, a ne izračunati nešto na manjem uzorku i prešutjeti.
 
-**Širenje izvan Hrvatskih voda mijenja opseg iz udobnosti u sigurnosno
-pitanje.** Sada ključ mreže znači puno članstvo. Kad uđu licencirane firme,
-treba odlučiti dobiva li izvođačev čvor sve letve i cijelu arhivu ili samo
-dionice na kojima radi. **Riješiti prije prvog vanjskog čvora** — lakše je
-suziti prije nego oduzeti poslije.
+**Opseg prije prvog vanjskog čvora.** Kad uđu licencirane firme, općine,
+županije i službe za spašavanje, ključ mreže koji daje puno članstvo nije
+prihvatljiv. Lakše je suziti prije nego oduzeti poslije. I mora djelovati na
+razini replikacije — ako svaki čvor ionako dobije sve, opseg je ukras.
 
-**Korisnici.** Administrator ih otvara, bez masovnog uvoza. Tisuću korisnika
-nije tehnički teret — teret je tisuću lozinki koje netko mora dostaviti i
-resetirati. Zato odlučiti **kontakt ili račun** prije prvih stotinu: većini
-sudionika treba da budu pronađeni, ne da se prijavljuju.
+**Kontakt ili račun, prije prvih stotinu korisnika.** Tisuću korisnika nije
+tehnički teret; teret je tisuću lozinki. Većini sudionika treba da budu
+pronađeni, ne da se prijavljuju.
 
-## Što je odlučeno, a što odgođeno
-
-**Odlučeno sada** — jer se poslije teško mijenja:
-
-1. format paketa i katalog
-2. otisak kao identitet, adresa kao natuknica
-3. ključ po vrsti sadržaja
-4. **AEAD nad cijelim tokom, ne ZIP sa šifriranim unosima** — inače imena
-   datoteka ostaju čitljiva
-5. **ime datoteke je otisak**, ne opis sadržaja
-6. dvije mjere za dvije vrste sadržaja
-7. Drive kao prvi izvor
-
-**Odgođeno** dok se ne pojavi sadržaj koji to traži:
-
-- P2P preko interneta, tracker, relay
-- swarm i dijeljenje na komade
-- tsnet, Headscale, vlastiti DERP
-- izdvajanje generičkog sloja u vlastiti modul — sloj pisan kao općenit prije
-  nego postoji drugi korisnik gotovo uvijek ispadne kao prvi korisnik s više
-  parametara
+**Službeni podaci na privatnim uređajima.** Kućni čvor je najotporniji dio
+mreže i vrijedi ga poticati — ali s uskim opsegom i šifriranim diskom, i uz
+odluku ustanove, ne prešutno.
