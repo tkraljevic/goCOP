@@ -11,6 +11,7 @@ import (
 	"io"
 	"math"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -25,7 +26,10 @@ import (
 // Šifriranja ovdje nema. Kad zatreba — a treba samo da izvođačev čvor može
 // raznositi ono što ne smije čitati — cijeli se ZIP zamota u AEAD, pa se
 // sakriju i imena dijelova. Zato format iznutra ostaje ovakav.
-const PaketInacica = 1
+// PaketInacica 2 dodaje izvori.json. Bez njega je paket bio nepotpuna izjava:
+// Ugradi na čvoru primatelju ponovno gradi spojeni niz, pa je isti paket na
+// čvoru s drukčije postavljenim izvorima davao druge brojeve.
+const PaketInacica = 2
 
 // Manifest je ono što se o paketu zna prije nego se raspakira.
 type Manifest struct {
@@ -94,8 +98,30 @@ type promjenaUPaketu struct {
 }
 
 // dijelovi su imena u ZIP-u, uvijek istim redom — otisak se računa preko njih
-// po tom redu, pa isti sadržaj daje isti otisak na svakom čvoru.
-var dijelovi = []string{"nizovi.json", "ocitanja.bin", "krivulje.json", "profili.json", "promjene.json"}
+// po tom redu, pa isti sadržaj daje isti otisak na svakom čvoru. Popis ovisi o
+// inačici, jer bi inače stariji paketi pri provjeri ispali pokvareni.
+var (
+	dijeloviV1 = []string{"nizovi.json", "ocitanja.bin", "krivulje.json", "profili.json", "promjene.json"}
+	dijeloviV2 = []string{"nizovi.json", "ocitanja.bin", "krivulje.json", "profili.json", "promjene.json", "izvori.json"}
+)
+
+func dijeloviZa(inacica int) []string {
+	if inacica <= 1 {
+		return dijeloviV1
+	}
+	return dijeloviV2
+}
+
+// izvorUPaketu su postavke jednog izvora onakve kakve su bile pri sastavljanju.
+// Mapa NE putuje: to je putanja na disku onoga tko je paket složio i na drugom
+// čvoru ne znači ništa.
+type izvorUPaketu struct {
+	Naziv    string  `json:"naziv"`
+	Tocnost  float64 `json:"tocnost"`
+	Red      int     `json:"red"`
+	Ukljucen bool    `json:"ukljucen"`
+	Napomena string  `json:"napomena"`
+}
 
 // mjeriloZa nalazi najmanji cijeli množitelj kojim se sve vrijednosti niza
 // svode na cijeli broj bez gubitka. Vraća 0 kad se ne da — tada se vrijednosti
@@ -249,11 +275,20 @@ func Izvezi(db *sql.DB, letva string, izdanje int, izdao string, w io.Writer) (M
 	if sadrzaj["promjene.json"], err = json.Marshal(promjene); err != nil {
 		return m, err
 	}
+	// Samo izvori koje ova letva doista koristi — postavke tuđih izvora nisu
+	// izjava o njoj i ne bi imale što raditi u njezinu paketu.
+	izvori, err := izvoriZaNizove(db, nizovi)
+	if err != nil {
+		return m, err
+	}
+	if sadrzaj["izvori.json"], err = json.Marshal(izvori); err != nil {
+		return m, err
+	}
 
 	m.Nizova = len(nizovi)
 	m.Od, m.Do = razdoblje(nizovi)
 	h := sha256.New()
-	for _, ime := range dijelovi {
+	for _, ime := range dijeloviZa(m.Inacica) {
 		h.Write(sadrzaj[ime])
 	}
 	m.Otisak = hex.EncodeToString(h.Sum(nil))
@@ -266,7 +301,7 @@ func Izvezi(db *sql.DB, letva string, izdanje int, izdao string, w io.Writer) (M
 	if err := upisiDio(z, "manifest.json", manifest); err != nil {
 		return m, err
 	}
-	for _, ime := range dijelovi {
+	for _, ime := range dijeloviZa(m.Inacica) {
 		if err := upisiDio(z, ime, sadrzaj[ime]); err != nil {
 			return m, err
 		}
@@ -281,6 +316,83 @@ type bajtovi []byte
 func (b *bajtovi) Write(p []byte) (int, error) {
 	*b = append(*b, p...)
 	return len(p), nil
+}
+
+// izvoriZaNizove vadi postavke izvora koje ova letva koristi, poredane po
+// nazivu da isti sadržaj uvijek da isti otisak.
+func izvoriZaNizove(db *sql.DB, nizovi []nizUPaketu) ([]izvorUPaketu, error) {
+	treba := map[string]bool{}
+	for _, n := range nizovi {
+		treba[n.Izvor] = true
+	}
+	svi, err := Izvori(db)
+	if err != nil {
+		return nil, err
+	}
+	out := []izvorUPaketu{}
+	for _, i := range svi {
+		if treba[i.Naziv] {
+			out = append(out, izvorUPaketu{Naziv: i.Naziv, Tocnost: i.Tocnost,
+				Red: i.Red, Ukljucen: i.Ukljucen, Napomena: i.Napomena})
+			delete(treba, i.Naziv)
+		}
+	}
+	// Izvor kojeg tablica ne poznaje — arhiva otvorena samo za čitanje ne može
+	// se dopuniti — opisuje se zadanim vrijednostima, da paket ipak kaže s čime
+	// je složen. Prešutjeti ga značilo bi da primatelj ne zna ni to.
+	for naziv := range treba {
+		if strings.HasPrefix(naziv, "preracun-") {
+			continue // preračun ne ulazi u red povjerenja nego uvijek na kraj
+		}
+		out = append(out, izvorUPaketu{Naziv: naziv, Tocnost: zadanaTocnost(naziv),
+			Red: 900, Napomena: "izvor nije bio na popisu čvora koji je paket izdao"})
+	}
+	sort.Slice(out, func(a, b int) bool { return out[a].Naziv < out[b].Naziv })
+	return out, nil
+}
+
+// RazlikaIzvora javlja u čemu se postavke ovog čvora razlikuju od onih s
+// kojima je paket složen. Ne ispravlja ništa: izvori su zajednički svim
+// letvama, pa bi paket jedne letve tiho promijenio brojeve na svim ostalima.
+// Čovjek to mora vidjeti i odlučiti.
+type RazlikaIzvora struct {
+	Naziv        string
+	Nepoznat     bool // čvor ga još ne zna
+	Paket, Nas   Izvor
+	Tocnost, Red bool
+	Ukljucen     bool
+}
+
+// Vazna javlja mijenja li razlika brojeve. Napomena ih ne mijenja.
+func (r RazlikaIzvora) Vazna() bool { return r.Nepoznat || r.Tocnost || r.Red || r.Ukljucen }
+
+func RazlikeIzvora(db *sql.DB, s *Sadrzaj) ([]RazlikaIzvora, error) {
+	if s == nil || len(s.Izvori) == 0 {
+		return nil, nil
+	}
+	nasi, err := Izvori(db)
+	if err != nil {
+		return nil, err
+	}
+	po := map[string]Izvor{}
+	for _, i := range nasi {
+		po[i.Naziv] = i
+	}
+	var out []RazlikaIzvora
+	for _, p := range s.Izvori {
+		paket := Izvor{Naziv: p.Naziv, Tocnost: p.Tocnost, Red: p.Red, Ukljucen: p.Ukljucen, Napomena: p.Napomena}
+		nas, ima := po[p.Naziv]
+		if !ima {
+			out = append(out, RazlikaIzvora{Naziv: p.Naziv, Nepoznat: true, Paket: paket})
+			continue
+		}
+		r := RazlikaIzvora{Naziv: p.Naziv, Paket: paket, Nas: nas,
+			Tocnost: nas.Tocnost != p.Tocnost, Red: nas.Red != p.Red, Ukljucen: nas.Ukljucen != p.Ukljucen}
+		if r.Vazna() {
+			out = append(out, r)
+		}
+	}
+	return out, nil
 }
 
 func upisiDio(z *zip.Writer, ime string, sadrzaj []byte) error {
@@ -483,7 +595,15 @@ type Sadrzaj struct {
 	krivulje    []krivuljaUPaketu
 	profili     []profilUPaketu
 	promjene    []promjenaUPaketu
+
+	// Izvori su postavke s kojima je paket složen. Paket inačice 1 ih nema, pa
+	// se ondje ne zna s čime je spojeni niz nastao.
+	Izvori []izvorUPaketu
 }
+
+// PostavkeIzvora vraća ono s čime je paket složen, za usporedbu s onim što
+// čvor ima.
+func (s *Sadrzaj) PostavkeIzvora() []izvorUPaketu { return s.Izvori }
 
 // Procitaj raspakira paket i provjerava otisak. Paket kojemu se otisak ne
 // poklapa ne ugrađuje se: bolje odbiti nego u arhivu upisati nešto što se
@@ -516,7 +636,7 @@ func Procitaj(r io.ReaderAt, velicina int64) (*Sadrzaj, error) {
 			s.Manifest.Inacica, PaketInacica)
 	}
 	h := sha256.New()
-	for _, ime := range dijelovi {
+	for _, ime := range dijeloviZa(s.Manifest.Inacica) {
 		h.Write(sadrzaj[ime])
 	}
 	if otisak := hex.EncodeToString(h.Sum(nil)); otisak != s.Manifest.Otisak {
@@ -536,6 +656,11 @@ func Procitaj(r io.ReaderAt, velicina int64) (*Sadrzaj, error) {
 	if err := json.Unmarshal(sadrzaj["promjene.json"], &s.promjene); err != nil {
 		return nil, err
 	}
+	if b := sadrzaj["izvori.json"]; len(b) > 0 {
+		if err := json.Unmarshal(b, &s.Izvori); err != nil {
+			return nil, err
+		}
+	}
 
 	br := &citac{b: sadrzaj["ocitanja.bin"]}
 	for i := range s.nizovi {
@@ -552,6 +677,10 @@ func Procitaj(r io.ReaderAt, velicina int64) (*Sadrzaj, error) {
 	}
 	return &s, nil
 }
+
+// tx2Exec je Exec izvan transakcije; postavke izvora upisuju se nakon što je
+// glavna transakcija zatvorena, jer ih čita spajanje koje ide poslije nje.
+func tx2Exec(db *sql.DB, q string, args ...any) (sql.Result, error) { return db.Exec(q, args...) }
 
 func kratki(otisak string) string {
 	if len(otisak) > 12 {
@@ -688,9 +817,22 @@ func Ugradi(db *sql.DB, s *Sadrzaj) error {
 
 	// Spoj je izveden i ne putuje paketom — gradi se ovdje, iz upravo
 	// ugrađenih nizova.
-	// Paket može donijeti izvor kojeg ovaj čvor još ne poznaje. Upisuje se u
-	// tablicu — isključen, dok čovjek ne odluči — da se vidi da je stigao.
-	// Prije nego su nizovi upisani, o njemu se nije imalo odakle saznati.
+	// Paket može donijeti izvor kojeg ovaj čvor još ne poznaje. Takav ulazi s
+	// postavkama iz paketa, i to UKLJUČEN ako je ondje bio: podaci tog izvora
+	// upravo stižu, nikoga drugoga ne diraju, a čvor koji je paket izdao za
+	// njih jamči. Na vratima je obrnuto — ondje za novi izvor nitko ne jamči.
+	//
+	// Postavke izvora koje čvor VEĆ ima ne mijenjaju se. Izvori su zajednički
+	// svim letvama, pa bi paket jedne tiho promijenio brojeve na svim
+	// ostalima; razlika se pokazuje čovjeku prije ugradnje.
+	for _, i := range s.Izvori {
+		if _, err := tx2Exec(db, `INSERT OR IGNORE INTO izvori (naziv, tocnost, red, ukljucen, napomena)
+			VALUES (?,?,?,?,?)`, i.Naziv, i.Tocnost, i.Red, i.Ukljucen, i.Napomena); err != nil {
+			return fmt.Errorf("upis izvora %s iz paketa: %w", i.Naziv, err)
+		}
+	}
+	// Ono što paket ne spominje — stariji paket bez izvori.json, ili izvor koji
+	// je u nizovima a nije u popisu — ulazi isključeno, kao i inače.
 	if err := upisiZadaneIzvore(db); err != nil {
 		return err
 	}

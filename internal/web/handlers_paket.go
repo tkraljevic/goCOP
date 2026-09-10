@@ -95,6 +95,13 @@ type PaketData struct {
 	Zateceno   *models.StanjeLetve // što je o toj letvi već u arhivi; nil kad ničega nema
 	Greska     string
 	DrugaLetva bool // paket je za drugu letvu od one s koje se učitava
+
+	// RazlikeIzvora su postavke s kojima je paket složen a razlikuju se od
+	// ovdašnjih. Ugradnja ih ne mijenja — izvori su zajednički svim letvama —
+	// pa se moraju vidjeti prije nego se ugradi, jer spojeni niz nastaje ovdje
+	// i s ovdašnjim postavkama.
+	RazlikeIzvora []arhiva.RazlikaIzvora
+	StariPaket    bool // inačica 1: ne kaže s čime je složen
 }
 
 // IzveziPaket šalje historijat letve kao datoteku. Sastavlja se u memoriju pa
@@ -218,6 +225,13 @@ func (h *StationsHandler) PregledPaketa(w http.ResponseWriter, r *http.Request) 
 	}
 	if a := h.arhiva(); a != nil {
 		pd.Zateceno = a.StanjeLetve(r.Context(), data.Station.Code)
+	}
+	pd.StariPaket = sadrzaj.Manifest.Inacica < 2
+	if put := h.arhivaPutFn(); put != "" {
+		if db, err := sql.Open("sqlite", put+"?mode=ro"); err == nil {
+			pd.RazlikeIzvora, _ = arhiva.RazlikeIzvora(db, sadrzaj)
+			db.Close()
+		}
 	}
 	pd.Kljuc = cekaju.spremi(privremena.Name(), sadrzaj.Manifest.Letva)
 	h.pisiPregled(w, pd)
