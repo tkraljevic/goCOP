@@ -338,7 +338,7 @@
   </div></div>
   {{end}}
 
-  {{if .Pregled.Mjeseci}}
+  {{if and .Pregled .Pregled.Mjeseci}}
   <details style="margin-top:1.25rem;">
     <summary style="cursor:pointer; font-weight:600;">Godišnji hod</summary>
   <p class="page-desc">Isti mjesec kroz svih {{len .Pregled.Godine}} godina — kad voda redovito raste, a kad presuši.</p>
@@ -365,7 +365,7 @@
   </details>
   {{end}}
 
-  {{if .Pregled.Trajanje}}
+  {{if and .Pregled .Pregled.Trajanje}}
   <h3 class="part-label" style="margin:1.25rem 0 0.35rem 0;">Trajanje</h3>
   <p class="page-desc">Vrijednost koja je dosegnuta ili premašena zadani dio vremena. Ekstremi kažu koliko je najviše bilo, trajanje koliko je često bilo.</p>
   <div class="table-card"><div class="table-responsive">

@@ -87,7 +87,16 @@ func templateFuncs() template.FuncMap {
 		"kvaliteta":     models.QualityLabel,
 		// apsolutna kota vodne plohe u prvom sustavu koji letva ima
 		"round": func(v float64) int { return int(v + 0.5) },
-		"kotaVode": func(st *models.Station, cm float64) float64 {
+		// Letva dolazi kao pokazivač sa stranice očitanja, a kao vrijednost s
+		// historijata; isti se dio predloška iscrtava na obje.
+		"kotaVode": func(letva any, cm float64) float64 {
+			var st *models.Station
+			switch v := letva.(type) {
+			case *models.Station:
+				st = v
+			case models.Station:
+				st = &v
+			}
 			if st == nil {
 				return 0
 			}
