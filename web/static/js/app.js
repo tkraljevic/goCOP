@@ -625,3 +625,80 @@ function renderMarkdown(md) {
     }
   });
 })();
+
+// Odabir retka u nizu iz arhive: kartica iznad pokazuje odabranu vrijednost,
+// a ne samo posljednju. Dežurni tako vidi vodostaj, protok iz krivulje i kotu
+// vode za bilo koji dan, bez računanja u glavi.
+//
+// Bez skripte se ne gubi ništa: kartica ostaje na posljednjoj vrijednosti, a
+// sve vrijednosti i dalje stoje u tablici.
+(function () {
+  function polje(kartica, ime) {
+    return kartica.querySelector('[data-polje="' + ime + '"]');
+  }
+
+  function pisi(kartica, izvor) {
+    var v = polje(kartica, 'vodostaj');
+    if (v) { v.textContent = izvor.getAttribute('data-vodostaj') + ' cm'; }
+
+    var kad = polje(kartica, 'kad');
+    if (kad) { kad.textContent = izvor.getAttribute('data-kad') || ''; }
+
+    var t = polje(kartica, 'tocnost');
+    if (t) {
+      t.textContent = izvor.getAttribute('data-tocnost') || '';
+      t.hidden = !t.textContent;
+      t.className = 'badge ' + (izvor.getAttribute('data-tocno') ? 'badge-area-admin' : 'badge-unknown');
+    }
+
+    var i = polje(kartica, 'izvor');
+    if (i) { i.textContent = izvor.getAttribute('data-izvor') || ''; }
+
+    var q = polje(kartica, 'protok');
+    if (q) {
+      var protok = izvor.getAttribute('data-protok');
+      q.hidden = !protok;
+      if (protok) {
+        q.innerHTML = 'protok <strong>' + protok + ' m³/s</strong> ' +
+          '<span class="reg-card-sub">iz krivulje</span>';
+      }
+    }
+
+    var k = polje(kartica, 'kote');
+    if (k) {
+      var kote = (izvor.getAttribute('data-kote') || '').split('|').filter(Boolean);
+      k.innerHTML = kote.map(function (red) {
+        var dio = red.split(' m ');
+        return '<span>kota vode <strong>' + dio[0] + ' m</strong> ' +
+          '<span class="reg-card-sub">' + (dio[1] || '') + '</span></span>';
+      }).join(' ');
+    }
+  }
+
+  function odaberi(redak) {
+    var kartica = document.getElementById('stanje');
+    if (!kartica || !redak) { return; }
+    var bio = document.querySelector('.niz-redak.odabran');
+    if (bio) { bio.classList.remove('odabran'); }
+    if (bio === redak) {
+      // ponovni klik vraća posljednju vrijednost
+      pisi(kartica, kartica);
+      kartica.classList.remove('odabrano');
+      return;
+    }
+    redak.classList.add('odabran');
+    pisi(kartica, redak);
+    kartica.classList.add('odabrano');
+  }
+
+  document.addEventListener('click', function (e) {
+    var redak = e.target.closest ? e.target.closest('.niz-redak') : null;
+    if (redak) { odaberi(redak); }
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' && e.key !== ' ') { return; }
+    var redak = e.target.closest ? e.target.closest('.niz-redak') : null;
+    if (redak) { e.preventDefault(); odaberi(redak); }
+  });
+})();

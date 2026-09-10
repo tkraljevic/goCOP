@@ -10,6 +10,7 @@ import (
 	"html/template"
 	"io/fs"
 	"log"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -86,7 +87,10 @@ func templateFuncs() template.FuncMap {
 		"velicinaLabel": models.NazivVelicine,
 		"kvaliteta":     models.QualityLabel,
 		// apsolutna kota vodne plohe u prvom sustavu koji letva ima
-		"round": func(v float64) int { return int(v + 0.5) },
+		// int(v+0.5) je krivo za negativne brojeve: -109,0 je davalo -108, pa je
+		// kota vode ispadala centimetar previsoka. Batina je negativna veći dio
+		// godine, a greška se nije vidjela jer je i tablica računala drukčije.
+		"round": func(v float64) int { return int(math.Round(v)) },
 		// Letva dolazi kao pokazivač sa stranice očitanja, a kao vrijednost s
 		// historijata; isti se dio predloška iscrtava na obje.
 		"kotaVode": func(letva any, cm float64) float64 {
@@ -100,7 +104,10 @@ func templateFuncs() template.FuncMap {
 			if st == nil {
 				return 0
 			}
-			k := st.Kote(int(cm))
+			// Zaokruživanje, ne odbacivanje decimala: vodostaj -108,95 cm se
+			// prikazuje kao -109, pa i kota mora biti ona za -109. Odbacivanje
+			// je davalo kotu za -108 i tablica se razilazila s karticom.
+			k := st.Kote(int(math.Round(cm)))
 			if len(k) == 0 {
 				return 0
 			}
@@ -109,7 +116,19 @@ func templateFuncs() template.FuncMap {
 		// procjena protoka za jedno očitanje, po krivulji koja je tada
 		// vrijedila. Prazno kad krivulje nema ili vodostaj izlazi iz nje —
 		// izmišljen protok gori je od nikakvog.
-		"protokHR": func(krivulje []models.HQKrivulja, kad time.Time, cm *int) string {
+		// Vodostaj dolazi kao *int s očitanja i kao float64 iz arhive; ista
+		// procjena vrijedi za oba.
+		"protokHR": func(krivulje []models.HQKrivulja, kad time.Time, vodostaj any) string {
+			var cm *int
+			switch v := vodostaj.(type) {
+			case *int:
+				cm = v
+			case int:
+				cm = &v
+			case float64:
+				n := int(math.Round(v))
+				cm = &n
+			}
 			if cm == nil {
 				return ""
 			}
