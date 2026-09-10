@@ -187,8 +187,10 @@
         kind: k.Kind, level_cm: k.LevelCm, on_date: k.OnDate,
         quality: preracun ? 'REKONSTRUIRANO' : 'IZMJERENO',
         source: k.Odakle === 'arhiva' ? 'arhiva vodostaja' : 'operativna očitanja',
-        method: preracun ? 'preračun iz niza ' + k.Izvor : '',
-        note: 'preuzeto iz podataka — provjeriti prije objave',
+        method: preracun ? 'preračun iz susjedne postaje (' + k.Izvor + ')' : 'mjereno (' + k.Izvor + ')',
+        note: preracun
+          ? 'nije mjereno na ovoj letvi — provjeriti prije objave'
+          : 'preuzeto iz podataka — provjeriti prije objave',
       });
     });
   }

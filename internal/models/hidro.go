@@ -198,8 +198,16 @@ type SazetakVelicine struct {
 	// letva postoji: Batina je utemeljena 2001., a niz počinje 1901. Sve prije
 	// je preračunato iz susjedne postaje i ne smije se čitati kao mjerenje.
 	MinIzvor, MaxIzvor string
-	ZbrojIma           bool
-	Zbroj              float64
+	// Krajnosti bez preračuna — ono što je letva stvarno izmjerila, u najboljoj
+	// razlučivosti koju ima. Zabilježeni ekstrem postaje je ovo: Batinin je vrh
+	// 772 cm 13. lipnja 2013., a ne 797 cm iz 1956. koji dolazi iz Mohácsa.
+	// Uzimaju se i satne vrijednosti, jer vrh vala ne čeka ponoć.
+	MinMjeren, MaxMjeren           float64
+	MinMjerenNa, MaxMjerenNa       string
+	MinMjerenIzvor, MaxMjerenIzvor string
+	ImaMjerenih                    bool
+	ZbrojIma                       bool
+	Zbroj                          float64
 }
 
 // MinPreracunat i MaxPreracunat javljaju je li krajnost preračunata, a ne
