@@ -2515,12 +2515,20 @@ textarea {
 .rows-extreme .extreme-row, .rows-extreme .rows-head { display: grid; gap: 0.4rem; grid-template-columns: var(--cols); align-items: center; }
 .rows-extreme .extreme-row { margin-bottom: 0.4rem; }
 .rows-zero { --cols: 9rem 7rem 7rem minmax(10rem, 2fr) 2.25rem; }
-.rows-return { --cols: 5rem 6rem 5.5rem 5.5rem minmax(9rem, 1.3fr) minmax(6.5rem, 1fr) minmax(6.5rem, 1fr) 8.5rem minmax(8rem, 1.2fr) 2.25rem; }
+.rows-return { --cols: 4.5rem 5.5rem 5rem 5rem minmax(11rem, 2fr) minmax(6rem, 1fr) minmax(6rem, 1fr) 8rem minmax(11rem, 2fr) 2.25rem; }
 .rows-return .return-row, .rows-return .rows-head { display: grid; gap: 0.4rem; grid-template-columns: var(--cols); align-items: center; }
 .rows-return .return-row { margin-bottom: 0.4rem; }
 .rows-zero .zero-row { display: grid; gap: 0.4rem; grid-template-columns: var(--cols); align-items: center; margin-bottom: 0.4rem; }
 .rows-zero .rows-head { display: grid; gap: 0.4rem; grid-template-columns: var(--cols); }
 .rows-obj { --cols: minmax(7rem, 1fr) minmax(14rem, 3fr) minmax(11rem, 2fr) 2.25rem; }
+/* Ograde uz nizove: izvor i veličina su kratki, datumi fiksni, a tekst je ono
+   zbog čega se redak i upisuje — njemu ide sve što pretekne. */
+.rows-ograda { container-type: inline-size; --cols: 9rem 8rem 9rem 9rem minmax(16rem, 3fr) 2.25rem; }
+.rows-ograda .ograda-row, .rows-ograda .rows-head {
+  display: grid; gap: 0.4rem; grid-template-columns: var(--cols); align-items: center;
+}
+.rows-ograda .ograda-row { margin-bottom: 0.4rem; }
+.rows-ograda .rows-head > div, .rows-ograda .ograda-row > div { min-width: 0; }
 .rows-head, .emb-row, .obj-row { display: grid; gap: 0.4rem; grid-template-columns: var(--cols); align-items: center; }
 .rows-head { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); margin-bottom: 0.25rem; }
 .rows-head > div, .emb-row > div, .obj-row > div { min-width: 0; }
@@ -2558,6 +2566,7 @@ textarea {
     font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary);
   }
   .rows-extreme .extreme-row > .btn, .rows-zero .zero-row > .btn { justify-self: start; }
+  .rows-extreme [data-siroko], .rows-zero [data-siroko] { grid-column: 1 / -1; }
 }
 
 /* Povratni vodostaj ima devet polja, pa mu treba širi prag nego ekstremima:
@@ -2575,6 +2584,25 @@ textarea {
     font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary);
   }
   .rows-return .return-row > .btn { justify-self: start; }
+  /* Metoda i napomena stisnute u stupac širine broja ne daju se ni pročitati
+     ni ispraviti; u kartičnom prikazu idu preko cijele širine. */
+  .rows-return [data-siroko] { grid-column: 1 / -1; }
+}
+
+@container (max-width: 62rem) {
+  .rows-ograda .rows-head { display: none; }
+  .rows-ograda .ograda-row {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
+    align-items: end;
+    padding: 0.6rem 0.7rem; margin-bottom: 0.5rem;
+    border: 1px solid var(--border); border-radius: 4px;
+  }
+  .rows-ograda [data-label]::before {
+    content: attr(data-label); display: block;
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary);
+  }
+  .rows-ograda .ograda-row > .btn { justify-self: start; }
+  .rows-ograda [data-siroko] { grid-column: 1 / -1; }
 }
 
 /* Dnevnik: struktura osoblja i strojeva — mreža sitnih brojčanih polja */

@@ -12,11 +12,8 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">{{icon "pencil"}} {{.Station.Name}} — historijat</h1>
-    <p class="page-desc">Ovdje se upisuje ono što historijat pokazuje, a ne računa se sam:
-      <strong>povratni vodostaji</strong> i <strong>promjene kote nule</strong>.
-      Niz iz arhive i valovi obrane dolaze sami. Naziv, položaj, pragove, kotu nule i
-      zabilježene krajnosti uređuje <a href="/stations/{{.Station.ID}}/edit">kartica letve</a>.
-      Svaka izmjena ostaje u povijesti zapisa i stiže na sve čvorove.</p>
+    <p class="page-desc">Troje što se na historijatu upisuje rukom. Niz i valovi dolaze sami;
+      pragove, kotu nule i ekstreme uređuje <a href="/stations/{{.Station.ID}}/edit">kartica letve</a>.</p>
   </div>
 </div>
 
@@ -28,9 +25,9 @@
 
   <h3 style="font-size:0.9rem; margin:1rem 0 0.25rem;">Povratni vodostaji</h3>
   <p class="form-help" style="margin:0 0 0.5rem;">
-    Koliko visoko voda dođe jednom u T godina. Procjena iz niza, ne mjerenje — zato uz brojku ide metoda i niz na
-    kojem je računata; bez toga se poslije ne zna što brojka tvrdi. Granice pouzdanosti upisuju se u paru ili nikako.
-    Ne ulaze u pragove obrane: prag je propisan, povratni vodostaj proračunat.
+    Procjena iz niza, ne mjerenje — zato uz brojku ide metoda i niz na kojem je računata.
+    Granice pouzdanosti idu u paru ili nikako.
+    <span class="reg-card-sub">Ne ulaze u pragove obrane: prag je propisan, povratni vodostaj proračunat.</span>
   </p>
   <input type="hidden" name="return_levels" id="return_levels">
   <div class="rows-return">
@@ -44,11 +41,11 @@
       <div data-label="Vodostaj (cm)"><input type="text" inputmode="numeric" class="form-control mono" data-field="level_cm" placeholder="+795" aria-label="Procijenjeni vodostaj u centimetrima"></div>
       <div data-label="Donja (cm)"><input type="text" inputmode="numeric" class="form-control mono" data-field="low_cm" placeholder="+762" aria-label="Donja granica pouzdanosti"></div>
       <div data-label="Gornja (cm)"><input type="text" inputmode="numeric" class="form-control mono" data-field="high_cm" placeholder="+813" aria-label="Gornja granica pouzdanosti"></div>
-      <div data-label="Metoda"><input type="text" class="form-control" data-field="method" placeholder="POT, gen. Pareto, L-momenti" aria-label="Metoda proračuna"></div>
+      <div data-label="Metoda" data-siroko><input type="text" class="form-control" data-field="method" placeholder="POT, gen. Pareto, L-momenti" aria-label="Metoda proračuna"></div>
       <div data-label="Niz"><input type="text" class="form-control" data-field="series" placeholder="1902.–2026." aria-label="Niz na kojem je računato"></div>
       <div data-label="Izvor"><input type="text" class="form-control" data-field="source" placeholder="tko je računao" aria-label="Izvor"></div>
       <div data-label="Izračunato"><input type="date" class="form-control" data-field="computed_on" aria-label="Datum izračuna"></div>
-      <div data-label="Napomena"><input type="text" class="form-control" data-field="note" placeholder="ograde, na što paziti" aria-label="Napomena"></div>
+      <div data-label="Napomena" data-siroko><input type="text" class="form-control" data-field="note" placeholder="ograde, na što paziti" aria-label="Napomena"></div>
       <button type="button" class="btn btn-sm btn-secondary" onclick="this.closest('.return-row').remove()" title="Ukloni">{{icon "x"}}</button>
     </div>
   </template>
@@ -78,8 +75,9 @@
 
   <h3 style="font-size:0.9rem; margin:1rem 0 0.25rem;">Promjene kote nule kroz vrijeme</h3>
   <p class="form-help" style="margin:0 0 0.5rem;">
-    Kad je letva premještena, obnovljena ili dobila novi elaborat. Vodostaji u bazi svedeni su na zadnju kotu i ne
-    preračunavaju se; povijest služi da se zna što je koja starija evidencija mjerila.
+    Kad je letva premještena, obnovljena ili dobila novi elaborat.
+    <span class="reg-card-sub">Vodostaji u bazi svedeni su na zadnju kotu; povijest govori što je koja starija
+    evidencija mjerila.</span>
   </p>
   <input type="hidden" name="zero_datum_history" id="zero_datum_history">
   <div class="rows-zero">
@@ -92,7 +90,7 @@
       <div data-label="Vrijedi od"><input type="date" class="form-control" data-field="valid_from" aria-label="Vrijedi od"></div>
       <div data-label="Kota „0“ (m)"><input type="text" inputmode="decimal" class="form-control" data-field="datum" placeholder="80,450" aria-label="Kota nule u metrima"></div>
       <div data-label="Sustav"><select class="form-control" data-field="system" aria-label="Visinski sustav"><option value="TRST">Trst</option><option value="HVRS71">HVRS71</option></select></div>
-      <div data-label="Napomena"><input type="text" class="form-control" data-field="note" placeholder="premještaj letve, novi elaborat…" aria-label="Napomena"></div>
+      <div data-label="Napomena" data-siroko><input type="text" class="form-control" data-field="note" placeholder="premještaj letve, novi elaborat…" aria-label="Napomena"></div>
       <button type="button" class="btn btn-sm btn-secondary" onclick="this.closest('.zero-row').remove()" title="Ukloni">{{icon "x"}}</button>
     </div>
   </template>
@@ -121,29 +119,24 @@
 
   <h3 style="font-size:0.9rem; margin:1.5rem 0 0.25rem;">Ograde uz nizove</h3>
   <p class="form-help" style="margin:0 0 0.5rem;">
-    Što o pojedinom nizu znate, a iz brojki se ne vidi: zaleđen mjerač, sumnjive zimske vrijednosti,
-    prekid u mjerenju. Stoji uz niz na historijatu i ide u izvješće — dokument čita netko tko niz nije
-    vidio. Niz se prepoznaje po <strong>izvoru</strong> i veličini, jer se broj niza pri obnovi arhive
-    mijenja. Ostavite li veličinu praznu, ograda vrijedi za sve veličine tog izvora.
-  </p>
-  <p class="form-help" style="margin:0 0 0.5rem;">
-    Ovo je <strong>vaša</strong> ograda i putuje na sve čvorove. Ograda koja stiže s paketom je
-    izdavačeva, stoji uz sam niz u arhivi i ovdje se ne uređuje.
+    Što o nizu znate, a iz brojki se ne vidi — zaleđen mjerač, sumnjiva zima, prekid u mjerenju.
+    Stoji uz niz i ide u izvješće. Prazna veličina znači sve veličine tog izvora.
+    <span class="reg-card-sub">Ograda označena „iz izdanja" stiže s paketom i ovdje se ne uređuje.</span>
   </p>
   <input type="hidden" name="ograde_niza" id="ograde_niza">
-  <div class="rows-zero">
+  <div class="rows-ograda">
     <div class="rows-head"><div>Izvor</div><div>Veličina</div><div>Od</div><div>Do</div><div>Što treba znati</div><div></div></div>
     <div id="ograda-rows"></div>
   </div>
   <button type="button" class="btn btn-sm btn-secondary" onclick="addOgradaRow()">{{icon "plus"}} Dodaj ogradu</button>
   <template id="tpl-ograda">
-    <div class="zero-row">
+    <div class="ograda-row">
       <div data-label="Izvor"><input type="text" class="form-control" data-field="izvor" placeholder="his2000" aria-label="Izvor niza"></div>
       <div data-label="Veličina"><input type="text" class="form-control" data-field="velicina" placeholder="sve" aria-label="Veličina"></div>
       <div data-label="Od"><input type="date" class="form-control" data-field="od" aria-label="Od"></div>
       <div data-label="Do"><input type="date" class="form-control" data-field="do" aria-label="Do"></div>
-      <div data-label="Što treba znati"><input type="text" class="form-control" data-field="tekst" placeholder="mjerač zaleđen, vrijednosti nepouzdane" aria-label="Ograda"></div>
-      <button type="button" class="btn btn-sm btn-secondary" onclick="this.closest('.zero-row').remove()" aria-label="Ukloni">×</button>
+      <div data-label="Što treba znati" data-siroko><input type="text" class="form-control" data-field="tekst" placeholder="mjerač zaleđen, vrijednosti nepouzdane" aria-label="Ograda"></div>
+      <button type="button" class="btn btn-sm btn-secondary" onclick="this.closest('.ograda-row').remove()" aria-label="Ukloni">×</button>
     </div>
   </template>
   <script>
@@ -158,7 +151,7 @@
     document.getElementById('ograda-rows').appendChild(row);
   }
   function collectOgrade() {
-    const rows = [...document.querySelectorAll('#ograda-rows .zero-row')].map(r => {
+    const rows = [...document.querySelectorAll('#ograda-rows .ograda-row')].map(r => {
       const g = f => r.querySelector('[data-field=' + f + ']').value.trim();
       return { izvor: g('izvor'), velicina: g('velicina'), od: g('od'), do: g('do'), tekst: g('tekst') };
     }).filter(x => x.izvor && x.tekst);
