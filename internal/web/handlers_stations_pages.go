@@ -67,10 +67,13 @@ type StationPageData struct {
 	// zabilježene ekstreme, ne umjesto njih: zabilježeni je tvrdnja s
 	// podrijetlom, ovo je najveće što u nizu stoji.
 	KrajnostiIzNiza []models.KrajnostIzNiza
-	IsEdit          bool
-	SuccessMessage  string
-	ErrorMessage    string
-	ActiveNav       string
+	// VisiVrh je kulminacija koju pojedinačna dojava drži iznad spojenog niza.
+	// Stoji uz krajnosti kao upozorenje, ne kao vrijednost za upis.
+	VisiVrh        *models.VisiVrh
+	IsEdit         bool
+	SuccessMessage string
+	ErrorMessage   string
+	ActiveNav      string
 	ViewAsBanner
 }
 
@@ -261,6 +264,16 @@ func (h *StationsHandler) krajnostiLetve(ctx context.Context, st models.Station,
 		k = spojiKrajnosti(k, h.readingService.Krajnosti(ctx, st.ID.String()))
 	}
 	return k
+}
+
+// visiVrhIzSazetka vadi upozorenje o zaglađenom vrhu, ako ga za vodostaj ima.
+func visiVrhIzSazetka(sazetak []models.SazetakVelicine) *models.VisiVrh {
+	for _, s := range sazetak {
+		if s.Velicina == "vodostaj" {
+			return s.Visi
+		}
+	}
+	return nil
 }
 
 // spojiKrajnosti dodaje operativnu krajnost samo kad nadmašuje arhivsku ili
@@ -454,6 +467,7 @@ func (h *StationsHandler) podaciLetve(w http.ResponseWriter, r *http.Request) (S
 	// poslije njega nikamo ne stiže. Razliku visinskih sustava predložak zato
 	// i traži od same postaje, da o ovom redoslijedu uopće ne ovisi.
 	data.KrajnostiIzNiza = h.krajnostiLetve(ctx, *st, data.Sazetak)
+	data.VisiVrh = visiVrhIzSazetka(data.Sazetak)
 	data.PragoviQ = pragoviUProtoku(data.Station, data.Krivulje)
 	data.PragoviKote = sProtokom(pragoviUKotama(data.Station), data.PragoviQ)
 	data.ImaProtok = imaProtok(data.PragoviKote)
