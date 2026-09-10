@@ -183,8 +183,8 @@ func TestObrazacHistorijataPrimaOgrade(t *testing.T) {
 			t.Errorf("obrazac nema %q", want)
 		}
 	}
-	// i kaže da izdavačeva ograda nije njegov posao
-	if !strings.Contains(html, "izdavačeva") {
+	// i kaže da ograda koja stiže s paketom nije njegov posao
+	if !strings.Contains(html, "iz izdanja") {
 		t.Error("obrazac ne razlikuje vlastitu ogradu od one koja stiže s paketom")
 	}
 }
