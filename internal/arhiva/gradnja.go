@@ -287,6 +287,14 @@ func Izgradi(koren, baza, samo string, zapisi io.Writer) (Izvjestaj, error) {
 	}
 	iz.Nizova = len(nizovi)
 
+	// Izvor koji se prvi put pojavio u datotekama upisuje se sada, kad su nizovi
+	// već u bazi. Prvi prolaz tablice bio je prije njih, pa novi izvor dotad
+	// nije imao odakle biti viđen — i čekao bi sljedeću gradnju da se uopće
+	// pojavi na popisu.
+	if err := upisiZadaneIzvore(db); err != nil {
+		return iz, err
+	}
+
 	iz.Spojenih, err = spoji(db, samo)
 	return iz, err
 }

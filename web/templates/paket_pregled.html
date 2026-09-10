@@ -53,6 +53,35 @@
 
 <section class="detail-section">
   <h2>{{icon "triangle-alert"}} Što bi se zamijenilo</h2>
+  {{if .StariPaket}}
+  <div class="alert alert-warning">
+    Paket je starije inačice i <strong>ne kaže s kojim je postavkama izvora složen</strong>. Spojeni niz nastaje
+    ovdje, pa se brojevi mogu razlikovati od onih na čvoru koji ga je izdao, a da se to nigdje ne vidi.
+  </div>
+  {{end}}
+
+  {{if .RazlikeIzvora}}
+  <div class="alert alert-warning">
+    <strong>Postavke izvora se razlikuju.</strong> Spojeni niz se računa ovdje, s ovdašnjim postavkama, pa se
+    brojevi neće poklopiti s onima na čvoru koji je paket izdao. Ugradnja ih <strong>ne mijenja</strong> — izvori
+    su zajednički svim letvama, pa bi paket jedne tiho promijenio brojeve na svim ostalima.
+    <ul style="margin:0.5rem 0 0; padding-left:1.25rem;">
+      {{range .RazlikeIzvora}}
+      <li><span class="mono">{{.Naziv}}</span>:
+        {{if .Nepoznat}}ovaj čvor ga ne poznaje — ući će s postavkama iz paketa
+          (točnost {{brojHRf .Paket.Tocnost 0}}, red {{.Paket.Red}}{{if .Paket.Ukljucen}}, ulazi u spoj{{else}}, ne ulazi{{end}})
+        {{else}}
+          {{if .Tocnost}}točnost {{brojHRf .Nas.Tocnost 0}} ovdje, {{brojHRf .Paket.Tocnost 0}} u paketu{{end}}
+          {{if .Red}}{{if .Tocnost}} · {{end}}red {{.Nas.Red}} ovdje, {{.Paket.Red}} u paketu{{end}}
+          {{if .Ukljucen}}{{if or .Tocnost .Red}} · {{end}}{{if .Nas.Ukljucen}}ovdje ulazi u spoj, u paketu ne{{else}}ovdje ne ulazi u spoj, u paketu ulazi{{end}}{{end}}
+        {{end}}
+      </li>
+      {{end}}
+    </ul>
+    <p style="margin:0.5rem 0 0;">Uskladiti ih možete na <a href="/administracija/izvori">Izvori arhive</a>.</p>
+  </div>
+  {{end}}
+
   {{if .Zateceno}}
   <div class="alert alert-warning">
     Arhiva o ovoj letvi već drži <strong>{{brojHR .Zateceno.Zapisa}}</strong>
