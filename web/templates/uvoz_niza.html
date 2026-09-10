@@ -1,0 +1,144 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Unos podataka u arhivu{{end}}
+
+{{define "content"}}
+<div class="breadcrumb"><a href="/administracija">Administracija</a> › Unos u arhivu</div>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "upload"}} Unos podataka u arhivu</h1>
+    <p class="page-desc">
+      Datoteka s očitanjima — CSV ili Excel, u bilo kakvom obliku. Program pogodi koji je stupac vrijeme a koji
+      vrijednost, pokaže što je pročitao, i tek nakon vaše potvrde zapiše niz u stablo arhive i izgradi tu letvu.
+    </p>
+  </div>
+</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
+
+{{if .Cekaizvor}}
+<div class="alert alert-warning">
+  Izvor <strong class="mono">{{.Cekaizvor}}</strong> arhiva još ne poznaje, pa <strong>ne ulazi u spojeni niz</strong> —
+  podaci su upisani, ali se na letvi još ne vide. To je namjerno: novi izvor čeka odluku o točnosti i redu
+  povjerenja. Uključite ga na <a href="/administracija/izvori">Izvori arhive</a>.
+</div>
+{{end}}
+
+{{if .Dnevnik}}
+<div class="table-card" style="padding:0.875rem 1.25rem; margin-bottom:1rem;">
+  <div class="part-label" style="margin:0 0 0.4rem;">Gradnja</div>
+  <pre class="uvoz-dnevnik">{{.Dnevnik}}</pre>
+</div>
+{{end}}
+
+{{if .PodaciDir}}
+<form method="POST" action="/administracija/uvoz-niza/pregled" enctype="multipart/form-data"
+      class="reg-card" style="padding:1rem; margin-bottom:1rem;">
+  <label class="izvor-napomena" style="margin:0;">
+    <span class="part-label">Datoteka s diska</span>
+    <input type="file" name="datoteka" accept=".csv,.txt,.xlsx" required class="form-control">
+    <small class="izvor-disk">Stablo arhive: <span class="mono">{{.PodaciDir}}</span></small>
+  </label>
+  <div style="margin-top:0.75rem;">
+    <button type="submit" class="btn btn-primary">{{icon "eye"}} Pogledaj što je u njoj</button>
+  </div>
+</form>
+{{end}}
+
+{{if .Pogodak}}
+<form method="POST" action="/administracija/uvoz-niza/upisi" class="izvori-mreza" style="align-items:start;">
+  <input type="hidden" name="id" value="{{.Id}}">
+
+  <div class="izvor-kartica">
+    <div class="izvor-glava">
+      <div>
+        <h2 class="izvor-naziv">Što je pročitano</h2>
+        <p class="izvor-obujam mono">{{.Ime}}</p>
+      </div>
+    </div>
+    <dl class="reg-facts" style="margin:0;">
+      <div><dt>Redaka</dt><dd>{{brojHR .Redaka}}{{if .Preskoc}} <span class="reg-card-sub">({{brojHR .Preskoc}} preskočeno)</span>{{end}}</dd></div>
+      <div><dt>Razdoblje</dt><dd>{{.Od}} – {{.Do}}</dd></div>
+      <div><dt>Raspon</dt><dd class="mono">{{brojHRf .Najmanje 1}} – {{brojHRf .Najvise 1}}</dd></div>
+      <div><dt>Razdjelnik</dt><dd class="mono">{{if eq .Pogodak.Razdjelnik ""}}Excel{{else if eq .Pogodak.Razdjelnik "\t"}}tabulator{{else}}{{.Pogodak.Razdjelnik}}{{end}}</dd></div>
+    </dl>
+    {{if .Preskoc}}
+    <p class="reading-meta" style="margin:0.5rem 0 0;">Preskočeni su redci u kojima se vrijeme ili vrijednost ne
+      daju pročitati, oni s vrijednošću koju arhiva ne prima, i ponovljeni trenuci.</p>
+    {{end}}
+  </div>
+
+  <div class="izvor-kartica">
+    <h2 class="izvor-naziv">Koji su stupci</h2>
+    <div class="izvor-brojevi">
+      <label>
+        <span class="part-label">Vrijeme</span>
+        <select name="stupac_vrijeme" class="form-control">
+          {{range $i, $z := .Pogodak.Zaglavlje}}<option value="{{$i}}" {{if eq $i $.Prijedlg.StupacVrijeme}}selected{{end}}>{{$i}} · {{$z}}</option>{{end}}
+        </select>
+      </label>
+      <label>
+        <span class="part-label">Vrijednost</span>
+        <select name="stupac_vrijednost" class="form-control">
+          {{range $i, $z := .Pogodak.Zaglavlje}}<option value="{{$i}}" {{if eq $i $.Prijedlg.StupacVrijednost}}selected{{end}}>{{$i}} · {{$z}}</option>{{end}}
+        </select>
+      </label>
+    </div>
+    <div class="table-responsive" style="margin-top:0.5rem;">
+      <table class="data-table uvoz-uzorak">
+        <thead><tr>{{range .Pogodak.Zaglavlje}}<th>{{.}}</th>{{end}}</tr></thead>
+        <tbody>{{range .Pogodak.Uzorak}}<tr>{{range .}}<td class="mono">{{.}}</td>{{end}}</tr>{{end}}</tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="izvor-kartica">
+    <h2 class="izvor-naziv">Čemu pripada</h2>
+    <label class="izvor-napomena">
+      <span class="part-label">Letva</span>
+      <input type="text" name="letva" value="{{.Prijedlg.Letva}}" class="form-control mono" list="popis-letava" required>
+      <datalist id="popis-letava">{{range .Letve}}<option value="{{.}}">{{end}}</datalist>
+    </label>
+    <label class="izvor-napomena">
+      <span class="part-label">Sliv</span>
+      <input type="text" name="sliv" value="{{.Prijedlg.Sliv}}" class="form-control mono" list="popis-slivova" required>
+      <datalist id="popis-slivova">{{range .Slivovi}}<option value="{{.}}">{{end}}</datalist>
+      <small class="izvor-disk">Postojeća letva ga već ima; nova mora doći sa slivom.</small>
+    </label>
+    <label class="izvor-napomena">
+      <span class="part-label">Izvor</span>
+      <input type="text" name="izvor" value="{{.Prijedlg.Izvor}}" class="form-control mono" list="popis-izvora" required>
+      <datalist id="popis-izvora">{{range .Izvori}}<option value="{{.}}">{{end}}</datalist>
+      <small class="izvor-disk">Novi izvor ulazi isključen dok ga ne uključite pod Izvori arhive.</small>
+    </label>
+    <div class="izvor-brojevi">
+      <label>
+        <span class="part-label">Veličina</span>
+        <select name="velicina" class="form-control">
+          {{range .Velicine}}<option value="{{.}}" {{if eq . $.Prijedlg.Velicina}}selected{{end}}>{{.}}</option>{{end}}
+        </select>
+      </label>
+      <label>
+        <span class="part-label">Vrsta</span>
+        <select name="vrsta" class="form-control">
+          {{range .Vrste}}<option value="{{.}}" {{if eq . $.Prijedlg.Vrsta}}selected{{end}}>{{.}}</option>{{end}}
+        </select>
+      </label>
+    </div>
+    <label class="izvor-napomena">
+      <span class="part-label">Zona izvora</span>
+      <select name="zona" class="form-control">
+        {{range .Zone}}<option value="{{.}}" {{if eq . $.Prijedlg.Zona}}selected{{end}}>{{.}}</option>{{end}}
+      </select>
+      <small class="izvor-disk">Tiče se samo zapisa sa satom; dan je dan bez obzira na zonu.</small>
+    </label>
+    <div class="izvor-podnozje" style="gap:0.5rem;">
+      <button type="submit" formaction="/administracija/uvoz-niza/pregled-opet" class="btn btn-sm btn-secondary">{{icon "refresh-cw"}} Osvježi pregled</button>
+      <button type="submit" class="btn btn-sm btn-primary">{{icon "check"}} Upiši i izgradi</button>
+    </div>
+  </div>
+</form>
+{{end}}
+{{end}}

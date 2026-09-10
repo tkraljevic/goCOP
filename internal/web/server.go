@@ -449,7 +449,7 @@ func NewServer(
 
 	// Predlošci koji proširuju base.html
 	for _, page := range []string{"dashboard.html", "registri.html", "users.html", "user_detail.html", "user_form.html", "duty_form.html", "profile.html", "sections.html", "section_detail.html", "section_form.html", "territories.html", "county_form.html", "municipality_form.html", "municipality_detail.html", "stations.html", "station_detail.html", "station_form.html", "station_history.html", "station_history_form.html", "paket_pregled.html", "watercourses.html", "watercourse_detail.html", "watercourse_form.html", "structures.html", "structure_detail.html", "structure_form.html", "readings.html", "reading_history.html", "reading_form.html", "arhiva_ispravci.html", "uvoz_ocitanja.html", "teren.html", "moduli.html", "settings.html", "odrzavanje.html", "organizacija.html", "sector_form.html", "area_form.html", "contractor_form.html", "firme.html", "nazivi.html", "sudionici.html",
-		"administracija.html", "uvozi.html", "sinkronizacija.html", "pretplate.html", "baza.html", "izvori.html",
+		"administracija.html", "uvozi.html", "sinkronizacija.html", "pretplate.html", "baza.html", "izvori.html", "uvoz_niza.html",
 		"dnevnici.html", "dnevnik_form.html", "dnevnik.html", "dnevnik_list.html", "pomoc.html", "ocitanja_ispravci.html"} {
 		t, err := template.New("base.html").Funcs(tmplFuncs).ParseFS(templatesFS, "base.html", page)
 		if err != nil {
@@ -813,6 +813,12 @@ func (s *Server) setupRoutes() {
 		s.PostaviIzvor, s.templates["izvori.html"])
 	s.mux.Handle("GET /administracija/izvori", s.authMiddleware(http.HandlerFunc(izvoriH.ShowIzvori)))
 	s.mux.Handle("POST /administracija/izvori", s.authMiddleware(http.HandlerFunc(izvoriH.SpremiIzvor)))
+	uvozH := NewUvozHandler(func() string { return s.arhivaPut }, func() string { return s.podaciDir },
+		s.IzgradiLetvu, s.templates["uvoz_niza.html"])
+	s.mux.Handle("GET /administracija/uvoz-niza", s.authMiddleware(http.HandlerFunc(uvozH.ShowUvoz)))
+	s.mux.Handle("POST /administracija/uvoz-niza/pregled", s.authMiddleware(http.HandlerFunc(uvozH.PregledUvoza)))
+	s.mux.Handle("POST /administracija/uvoz-niza/pregled-opet", s.authMiddleware(http.HandlerFunc(uvozH.PonoviPregled)))
+	s.mux.Handle("POST /administracija/uvoz-niza/upisi", s.authMiddleware(http.HandlerFunc(uvozH.UpisiUvoz)))
 	s.mux.Handle("GET /administracija/baza", s.authMiddleware(http.HandlerFunc(dbH.ShowMaintenance)))
 	s.mux.Handle("POST /administracija/baza/sazmi", s.authMiddleware(http.HandlerFunc(dbH.HandleCompact)))
 	s.mux.Handle("POST /administracija/baza/vacuum", s.authMiddleware(http.HandlerFunc(dbH.HandleVacuum)))
@@ -1051,6 +1057,33 @@ func (s *Server) PostaviIzvor(i arhiva.Izvor) ([]string, error) {
 	}
 	s.arhiva = novo
 	return letve, nil
+}
+
+// IzgradiLetvu gradi jednu letvu iz stabla s datotekama i vraća ispis gradnje.
+// Arhiva je otvorena samo za čitanje, pa gradnja ide zasebnom vezom, a po
+// završetku se čitač zamjenjuje novim.
+func (s *Server) IzgradiLetvu(letva string) (string, error) {
+	if s.podaciDir == "" {
+		return "", fmt.Errorf("ovaj čvor nema stablo s izvornim datotekama")
+	}
+	if s.arhivaPut == "" {
+		return "", fmt.Errorf("nije poznato gdje arhiva stoji")
+	}
+	var ispis strings.Builder
+	iz, err := arhiva.Izgradi(s.podaciDir, s.arhivaPut, letva, &ispis)
+	if err != nil {
+		return ispis.String(), err
+	}
+	fmt.Fprintf(&ispis, "\nnizova %d, očitanja %d, spojenih vrijednosti %d\n", iz.Nizova, iz.Ocitanja, iz.Spojenih)
+	novo, err := repository.OpenArhiva(s.arhivaPut)
+	if err != nil {
+		return ispis.String(), err
+	}
+	if s.arhiva != nil {
+		s.arhiva.Close()
+	}
+	s.arhiva = novo
+	return ispis.String(), nil
 }
 
 func (s *Server) SetAddr(addr string) {
