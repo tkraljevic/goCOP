@@ -741,18 +741,18 @@ func profili(db *sql.DB, koren, samo string, poravnanja map[string]float64) erro
 		if len(tocke) == 0 {
 			continue
 		}
-		res, err := db.Exec(`INSERT INTO profili (letva, datum, vodostaj, kota_nule, pomak_m) VALUES (?,?,?,?,?)
-			ON CONFLICT(letva, datum) DO UPDATE SET vodostaj=excluded.vodostaj, kota_nule=excluded.kota_nule,
-				pomak_m=excluded.pomak_m`,
-			letva, datum, vod, kota, poravnanja[letva+"|"+datum])
-		if err != nil {
-			return err
-		}
+		// Id se traži kroz RETURNING, ne kroz LastInsertId. Kad upsert ode u
+		// UPDATE, SQLite ne dira last_insert_rowid nego vraća onaj od prošlog
+		// upisa na toj vezi — a to je ovdje bila promjena kote nule, iz druge
+		// tablice. Točke korita tako su odlazile pod tuđi broj: bez provjere
+		// stranih ključeva tiho, u siročad, a s provjerom gradnja padne.
 		var id int64
-		if id, _ = res.LastInsertId(); id == 0 {
-			if err := db.QueryRow(`SELECT id FROM profili WHERE letva=? AND datum=?`, letva, datum).Scan(&id); err != nil {
-				return err
-			}
+		if err := db.QueryRow(`INSERT INTO profili (letva, datum, vodostaj, kota_nule, pomak_m) VALUES (?,?,?,?,?)
+			ON CONFLICT(letva, datum) DO UPDATE SET vodostaj=excluded.vodostaj, kota_nule=excluded.kota_nule,
+				pomak_m=excluded.pomak_m
+			RETURNING id`,
+			letva, datum, vod, kota, poravnanja[letva+"|"+datum]).Scan(&id); err != nil {
+			return fmt.Errorf("profil %s %s: %w", letva, datum, err)
 		}
 		if _, err := db.Exec(`DELETE FROM profil_tocke WHERE profil = ?`, id); err != nil {
 			return err
