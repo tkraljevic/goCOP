@@ -38,6 +38,9 @@ import (
 // IF NOT EXISTS ih ne dodaje u postojeću tablicu, a arhiva se ne gradi iznova
 // zbog jednog stupca — 471 MB se ne prepisuje bez potrebe.
 func dopuniShemu(db *sql.DB) error {
+	if _, err := db.Exec(shemaIzvora); err != nil {
+		return fmt.Errorf("tablica izvora: %w", err)
+	}
 	stupci := []struct{ tablica, stupac, opis string }{
 		{"nizovi", "napomena", "TEXT NOT NULL DEFAULT ''"},
 	}
@@ -56,8 +59,19 @@ func dopuniShemu(db *sql.DB) error {
 			return fmt.Errorf("dodavanje stupca %s.%s: %w", c.tablica, c.stupac, err)
 		}
 	}
-	return nil
+	return upisiZadaneIzvore(db)
 }
+
+// shemaIzvora stoji odvojeno od ostatka jer se dodaje i u arhive koje su
+// nastale prije nje.
+const shemaIzvora = `
+CREATE TABLE IF NOT EXISTS izvori (
+	naziv    TEXT PRIMARY KEY,
+	tocnost  REAL    NOT NULL DEFAULT 20,
+	red      INTEGER NOT NULL DEFAULT 900,
+	ukljucen INTEGER NOT NULL DEFAULT 0,
+	napomena TEXT    NOT NULL DEFAULT ''
+);`
 
 // Shema arhive. Vrijeme je broj sekundi od 1970. u UTC-u, jer tekstualni
 // vremenski žig na sedam milijuna redaka stoji više nego sam podatak.
@@ -816,25 +830,37 @@ func nth(r []string, i int) string {
 	return ""
 }
 
-// Točnost izvora, izmjerena usporedbom sa službeno ovjerenim nizom: koliko
-// odstupa 68 % vrijednosti. Nije procjena nego mjerenje na stotinama tisuća
-// sati kroz devet letava.
-var tocnostIzvora = map[string]float64{
-	"his2000":    0, // referenca — po njoj se ostali mjere
-	"letva-dhmz": 1,
-	"cop":        3,
-	"letva-hv":   5,
+// Izvor je jedna dojava: tko javlja, koliko mu se vjeruje i ulazi li u spoj.
+// Stoji u arhivi, ne u kodu — dok je bio u kodu, razlika između "namjerno
+// isključeno" i "zaboravljeno" nije postojala, pa je 1,67 milijuna zapisa iz
+// pet izvora ležalo u bazi i nigdje se nije vidjelo.
+type Izvor struct {
+	Naziv    string
+	Tocnost  float64 // ± u jedinici veličine, 68 % vrijednosti
+	Red      int     // manji broj, veće povjerenje
+	Ukljucen bool
+	Napomena string
 }
 
-// redSpajanja je poredak povjerenja pri spajanju. letva-hv je zadnja jer nema
-// jednu točnost: dobra je većinu vremena, ali u zamrznutim razdobljima javlja
-// istu vrijednost danima.
-var redSpajanja = []string{"his2000", "letva-dhmz", "cop", "letva-hv"}
+// zadaniIzvori je ono što je do sada stajalo u kodu, prepisano u tablicu.
+// Točnosti su izmjerene usporedbom sa službeno ovjerenim nizom, na stotinama
+// tisuća sati kroz devet letava — osim ondje gdje napomena kaže drukčije.
+var zadaniIzvori = []Izvor{
+	{"his2000", 0, 10, true, "referenca — po njoj su ostali izmjereni"},
+	{"letva-dhmz", 1, 20, true, ""},
+	{"cop", 3, 30, true, ""},
+	{"letva-hv", 5, 40, true, "dobra većinu vremena; u zamrznutim razdobljima javlja istu vrijednost danima"},
+	{"vituki", 5, 50, true, "točnost proglašena, ne izmjerena — nema preklapanja s ovjerenim nizom"},
+	{"his2000-cs", 0, 11, false, "Donji Miholjac — odlučuje se kad dođe Drava"},
+	{"his2000-spojeno", 0, 12, false, "Donji Miholjac — odlučuje se kad dođe Drava"},
+	{"his2000-ukinuta-nizv", 0, 13, false, "Donji Miholjac — odlučuje se kad dođe Drava"},
+	{"his2000-ukinuto", 0, 14, false, "Donji Miholjac — odlučuje se kad dođe Drava"},
+}
 
-func tocnost(izvor string) float64 {
-	if t, ok := tocnostIzvora[izvor]; ok {
-		return t
-	}
+// zadanaTocnost vrijedi za izvor kojeg u tablici nema. Preračun se prepoznaje
+// po imenu jer ga tablica i ne treba: on ne ulazi u red povjerenja nego uvijek
+// na kraj, ondje gdje mjerenja nema.
+func zadanaTocnost(izvor string) float64 {
 	if strings.HasSuffix(izvor, "-izvan") {
 		// Rekonstrukcija ondje gdje odnos dviju letvi nikad nije izmjeren.
 		// Za Batinu 7.1.1909. promašuje za oko 170 cm prema onome što daju
@@ -847,6 +873,45 @@ func tocnost(izvor string) float64 {
 	return 20
 }
 
+// upisiZadaneIzvore puni tablicu prvi put i dopunjuje ju izvorima koji su se
+// u međuvremenu pojavili u nizovima. Novi izvor ulazi **isključen**: bolje da
+// čeka odluku nego da tiho promijeni brojeve po kojima se brani od poplave.
+func upisiZadaneIzvore(db *sql.DB) error {
+	for _, i := range zadaniIzvori {
+		if _, err := db.Exec(`INSERT OR IGNORE INTO izvori (naziv, tocnost, red, ukljucen, napomena)
+			VALUES (?,?,?,?,?)`, i.Naziv, i.Tocnost, i.Red, i.Ukljucen, i.Napomena); err != nil {
+			return fmt.Errorf("upis izvora %s: %w", i.Naziv, err)
+		}
+	}
+	_, err := db.Exec(`INSERT OR IGNORE INTO izvori (naziv, tocnost, red, ukljucen, napomena)
+		SELECT DISTINCT izvor, ?, 900, 0, 'novi izvor — uključiti ručno'
+		FROM nizovi WHERE izvor NOT LIKE 'preracun-%'`, zadanaTocnost(""))
+	return err
+}
+
+// citajIzvore vraća uključene izvore po redu povjerenja i točnost svih.
+func citajIzvore(db *sql.DB) (red []string, tocnosti map[string]float64, err error) {
+	rows, err := db.Query(`SELECT naziv, tocnost, ukljucen FROM izvori ORDER BY red, naziv`)
+	if err != nil {
+		return nil, nil, fmt.Errorf("čitanje izvora: %w", err)
+	}
+	defer rows.Close()
+	tocnosti = map[string]float64{}
+	for rows.Next() {
+		var n string
+		var t float64
+		var ukljucen bool
+		if err := rows.Scan(&n, &t, &ukljucen); err != nil {
+			return nil, nil, err
+		}
+		tocnosti[n] = t
+		if ukljucen {
+			red = append(red, n)
+		}
+	}
+	return red, tocnosti, rows.Err()
+}
+
 // spoji gradi dva niza po letvi i veličini — satni i dnevni — uzimajući svaku
 // vrijednost iz najboljeg izvora koji je taj trenutak pokrio.
 //
@@ -855,6 +920,13 @@ func tocnost(izvor string) float64 {
 // vrijednost i dnevni srednjak razilaze se na naglom porastu i po više od
 // metra, i ne smiju se tiho pomiješati.
 func spoji(db *sql.DB, samo string) (int, error) {
+	// Red povjerenja i točnosti čitaju se jednom, iz arhive. Isti paket mora
+	// na svakom čvoru dati iste brojeve, pa postavke ne smiju ovisiti o tome
+	// koju je verziju programa tko pokrenuo.
+	redSpajanja, tocnosti, err := citajIzvore(db)
+	if err != nil {
+		return 0, err
+	}
 	q := `SELECT DISTINCT letva, velicina FROM nizovi`
 	var args []any
 	if samo != "" {
@@ -879,7 +951,7 @@ func spoji(db *sql.DB, samo string) (int, error) {
 
 	ukupno := 0
 	for _, p := range parovi {
-		n, err := spojiJedan(db, p.letva, p.velicina)
+		n, err := spojiJedan(db, p.letva, p.velicina, redSpajanja, tocnosti)
 		if err != nil {
 			return ukupno, fmt.Errorf("%s/%s: %w", p.letva, p.velicina, err)
 		}
@@ -895,7 +967,13 @@ type spojena struct {
 	tocnost float64
 }
 
-func spojiJedan(db *sql.DB, letva, velicina string) (int, error) {
+func spojiJedan(db *sql.DB, letva, velicina string, redSpajanja []string, tocnosti map[string]float64) (int, error) {
+	tocnost := func(izvor string) float64 {
+		if t, ok := tocnosti[izvor]; ok {
+			return t
+		}
+		return zadanaTocnost(izvor)
+	}
 	// koji nizovi postoje i kojim korakom
 	rows, err := db.Query(`SELECT id, izvor, vrsta FROM nizovi WHERE letva=? AND velicina=?`, letva, velicina)
 	if err != nil {

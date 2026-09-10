@@ -688,6 +688,12 @@ func Ugradi(db *sql.DB, s *Sadrzaj) error {
 
 	// Spoj je izveden i ne putuje paketom — gradi se ovdje, iz upravo
 	// ugrađenih nizova.
+	// Paket može donijeti izvor kojeg ovaj čvor još ne poznaje. Upisuje se u
+	// tablicu — isključen, dok čovjek ne odluči — da se vidi da je stigao.
+	// Prije nego su nizovi upisani, o njemu se nije imalo odakle saznati.
+	if err := upisiZadaneIzvore(db); err != nil {
+		return err
+	}
 	_, err = spoji(db, letva)
 	return err
 }
