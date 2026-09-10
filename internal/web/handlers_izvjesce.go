@@ -34,7 +34,7 @@ func (h *StationsHandler) IzvjesceLetveDocx(w http.ResponseWriter, r *http.Reque
 		Dio: dio, Episodes: data.Episodes,
 		Station: data.Station, Sastavio: sastavio, Kad: time.Now(),
 		PragoviKote: data.PragoviKote, PragoviQ: data.PragoviQ,
-		Krivulje: data.Krivulje, Profili: data.Profili, Profil: data.Profil,
+		Krivulje: data.Krivulje, Nizovi: data.Nizovi, Profili: data.Profili, Profil: data.Profil,
 		Crtez: data.Crtez, Sazetak: data.Sazetak, Spojevi: data.Spojevi,
 		Zadnji: data.Zadnji, ZadnjiIzvor: data.ZadnjiIzvor,
 		Valovi: data.ValoviSvi, ValoviZbroj: data.ValoviZbroj, ValoviNiz: data.ValoviNiz,

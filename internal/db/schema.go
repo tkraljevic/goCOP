@@ -738,6 +738,10 @@ func migrateSchema(database *sql.DB) error {
 		{"org_terms", "org_registry_no", "TEXT NOT NULL DEFAULT ''"},
 		{"org_terms", "org_tax_id", "TEXT NOT NULL DEFAULT ''"},
 		{"readings", "channel", "TEXT NOT NULL DEFAULT ''"},
+		// Izdanje arhive u koje je očitanje uloženo. Prazno dok nije uloženo.
+		// Uloženo očitanje prestaje se sinkronizirati i smije se zaboraviti —
+		// isto stoji u arhivi, u 48 bajta umjesto 1.360.
+		{"readings", "izdanje", "TEXT NOT NULL DEFAULT ''"},
 		{"journals", "channel", "TEXT NOT NULL DEFAULT ''"},
 	}
 

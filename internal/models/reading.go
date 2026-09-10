@@ -45,7 +45,11 @@ type Reading struct {
 	AgHours2       *int   `json:"ag_hours_2,omitempty"`
 	AgHours3       *int   `json:"ag_hours_3,omitempty"`
 
-	Note      string    `json:"note,omitempty"`
+	Note string `json:"note,omitempty"`
+	// Izdanje je oznaka arhivskog izdanja u koje je ovo očitanje uloženo.
+	// Prazno dok nije uloženo. Uloženo se više ne sinkronizira i smije se
+	// zaboraviti — isto stoji u arhivi, u 48 bajta umjesto 1.360.
+	Izdanje   string    `json:"izdanje,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 

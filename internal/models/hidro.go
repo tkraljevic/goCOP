@@ -27,6 +27,9 @@ type HidroNiz struct {
 	Od, Do   string
 	Zapisa   int
 	Otisak   string
+	// Napomena je ograda uz niz: što se o njemu zna, a iz brojki se ne vidi —
+	// zaleđen mjerač, sumnjive zimske vrijednosti, prekid u mjerenju.
+	Napomena string
 }
 
 // Jedinica je mjerna jedinica veličine.

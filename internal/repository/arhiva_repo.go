@@ -17,6 +17,9 @@ import (
 
 type ArhivaRepository struct {
 	db *sql.DB
+	// imaNapomenu javlja podnosi li ova arhiva napomenu uz niz. Starija izdanja
+	// je nemaju, a čitanje mora raditi i s njima.
+	imaNapomenu bool
 }
 
 // OpenArhiva otvara arhivu za čitanje. Vraća nil bez greške kad datoteke nema.
@@ -34,7 +37,16 @@ func OpenArhiva(path string) (*ArhivaRepository, error) {
 		db.Close()
 		return nil, nil
 	}
-	return &ArhivaRepository{db: db}, nil
+	// Arhiva se otvara samo za čitanje, pa se ovdje ne može dopuniti. Starije
+	// arhive nemaju napomenu uz niz; čitanje mora raditi i s njima, jer čvor
+	// koji je preuzeo staro izdanje ne smije ostati bez povijesti.
+	r := &ArhivaRepository{db: db}
+	var ima int
+	if err := db.QueryRow(
+		`SELECT count(*) FROM pragma_table_info('nizovi') WHERE name = 'napomena'`).Scan(&ima); err == nil {
+		r.imaNapomenu = ima > 0
+	}
+	return r, nil
 }
 
 func (r *ArhivaRepository) Close() error {
@@ -49,8 +61,12 @@ func (r *ArhivaRepository) Nizovi(ctx context.Context, letva string) ([]models.H
 	if r == nil {
 		return nil, nil
 	}
+	napomena := "'' AS napomena"
+	if r.imaNapomenu {
+		napomena = "napomena"
+	}
 	rows, err := r.db.QueryContext(ctx, `SELECT id, sliv, letva, izvor, velicina, vrsta, po_danu,
-		od, do_, zapisa, otisak FROM nizovi WHERE letva = ?`, letva)
+		od, do_, zapisa, otisak, `+napomena+` FROM nizovi WHERE letva = ?`, letva)
 	if err != nil {
 		return nil, fmt.Errorf("dohvat nizova arhive: %w", err)
 	}
@@ -60,7 +76,7 @@ func (r *ArhivaRepository) Nizovi(ctx context.Context, letva string) ([]models.H
 		var n models.HidroNiz
 		var poDanu int
 		if err := rows.Scan(&n.ID, &n.Sliv, &n.Letva, &n.Izvor, &n.Velicina, &n.Vrsta,
-			&poDanu, &n.Od, &n.Do, &n.Zapisa, &n.Otisak); err != nil {
+			&poDanu, &n.Od, &n.Do, &n.Zapisa, &n.Otisak, &n.Napomena); err != nil {
 			return nil, err
 		}
 		n.PoDanu = poDanu == 1

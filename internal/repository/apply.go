@@ -317,7 +317,7 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		}
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO readings (`+readingColumns+`)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT(id) DO UPDATE SET
 				station_id = excluded.station_id, structure_id = excluded.structure_id, measured_at = excluded.measured_at,
 				level_cm = excluded.level_cm, level2_cm = excluded.level2_cm, source = excluded.source, origin = excluded.origin,
@@ -326,6 +326,7 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 				observer = excluded.observer, user_id = excluded.user_id,
 				structure_state = excluded.structure_state, gate = excluded.gate, ag_hours_1 = excluded.ag_hours_1,
 				ag_hours_2 = excluded.ag_hours_2, ag_hours_3 = excluded.ag_hours_3, note = excluded.note,
+				izdanje = excluded.izdanje,
 				updated_at = excluded.updated_at
 		`, readingArgs(&rd)...)
 		if err != nil {
