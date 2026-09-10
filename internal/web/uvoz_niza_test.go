@@ -150,3 +150,60 @@ func TestNazivNePrimaDonjuCrtu(t *testing.T) {
 		t.Error("popis veličina ne sadrži vodostaj")
 	}
 }
+
+// HIS2000 poravnava stupce razmacima i daje sat bez minuta, a iznad podataka
+// stavlja naslov bez razdjelnika. Prva izvedba je zbog tog naslova odbacila
+// točku-zarez i uzela zarez, pa se nije čitalo ništa.
+func TestVrataCitajuHIS2000(t *testing.T) {
+	sadrzaj := "Satni podaci postaje VUKOVAR  za godinu 2001,  VODOSTAJ  (cm)\r\n" +
+		" 1. 1.2001  0;117;\r\n 1. 1.2001  1;118;\r\n 1. 1.2001  2;119;\r\n" +
+		"31.12.2026 23;;\r\n"
+	p, tijelo, err := pogodi("satni.csv", []byte(sadrzaj))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Razdjelnik != ";" {
+		t.Errorf("razdjelnik %q — naslov bez razdjelnika ne smije odlučivati", p.Razdjelnik)
+	}
+	if p.StupacVrijeme != 0 || p.StupacVrijednost != 1 {
+		t.Errorf("stupci %d i %d", p.StupacVrijeme, p.StupacVrijednost)
+	}
+	redci, presk, err := pretvori(tijelo, UvozNiza{Velicina: "vodostaj", Zona: "Europe/Zagreb",
+		StupacVrijeme: 0, StupacVrijednost: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Zadnji redak ima vrijeme bez vrijednosti: mjerenja nema, nije greška.
+	if len(redci) != 3 || presk != 0 {
+		t.Fatalf("redaka %d, preskočeno %d", len(redci), presk)
+	}
+	if got := redci[0].Vrijeme.UTC().Format("2006-01-02 15:04"); got != "2000-12-31 23:00" {
+		t.Errorf("prvi zapis %s — 1.1.2001. u 0 h po Zagrebu je 31.12.2000. u 23 h UTC", got)
+	}
+}
+
+// Dnevni izvoz HIS2000 iznad podataka ima naslov, prazan redak i blok s
+// metapodacima. Početak podataka mora se naći, a ne pretpostaviti.
+func TestVrataNalazePocetakIspodMetapodataka(t *testing.T) {
+	sadrzaj := "Dnevni podaci postaje VUKOVAR - DUNAV,  VODOSTAJ  (cm)\r\n\r\n" +
+		"Šifra;Naziv;Vodotok;Godina podataka;\r\n5070;VUKOVAR;DUNAV;1900-2026;\r\n" +
+		"01.01.1900;120;\r\n02.01.1900;138;\r\n03.01.1900;170;\r\n"
+	p, tijelo, err := pogodi("dnevni.csv", []byte(sadrzaj))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tijelo) != 3 {
+		t.Fatalf("tijelo ima %d redaka, očekivana tri", len(tijelo))
+	}
+	if p.StupacVrijeme != 0 || p.StupacVrijednost != 1 {
+		t.Errorf("stupci %d i %d", p.StupacVrijeme, p.StupacVrijednost)
+	}
+	redci, _, err := pretvori(tijelo, UvozNiza{Velicina: "vodostaj",
+		StupacVrijeme: 0, StupacVrijednost: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(redci) != 3 || !redci[0].PoDanu {
+		t.Errorf("pročitano %d redaka, poDanu=%v", len(redci), redci[0].PoDanu)
+	}
+}
