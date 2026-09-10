@@ -143,10 +143,13 @@ type ReadingHistoryData struct {
 	Profil    *models.ProfilKorita
 	CanRecord bool
 	CanEdit   bool
-	Followed  bool   // čvor drži cijelu povijest ove letve
-	GaugeURL  string // putanja ove letve, za izvoz i uvoz
-	GaugeKey  string
-	Pager     Pager
+	// LetvaStranica govori zajedničkom izborniku gdje se stoji. Prazno kad
+	// stranica nije o letvi nego o vodnoj građevini.
+	LetvaStranica string
+	Followed      bool   // čvor drži cijelu povijest ove letve
+	GaugeURL      string // putanja ove letve, za izvoz i uvoz
+	GaugeKey      string
+	Pager         Pager
 
 	// Krivulje protoka ove letve. S njima svako očitanje uz vodostaj dobiva i
 	// procjenu protoka — dežurni tako uz visinu vidi i koliko vode prolazi,
@@ -508,6 +511,9 @@ func (h *ReadingsHandler) ShowHistory(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if station != nil {
+		data.LetvaStranica = "ocitanja"
+	}
 	if err := h.tmplHistory.ExecuteTemplate(w, "reading_history.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}

@@ -14,9 +14,11 @@
       {{if .Structure}} · <a href="/structures/{{.Structure.ID}}">objekt u registru</a>{{end}}
     </p>
   </div>
+  {{if .Station}}{{template "letvaIzbornik" .}}{{else}}
   <div class="detail-actions">
     {{if .CanRecord}}<a href="{{.NewURL}}" class="btn btn-primary">{{icon "plus"}} Upiši očitanje</a>{{end}}
   </div>
+  {{end}}
 </div>
 
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
@@ -167,7 +169,10 @@
   </div>
 </section>
 
-{{if .CanRecord}}
+{{/* Skupni unos vrijedi samo za letvu: ispis s letva.voda.hr i putanja uvoza
+     idu po letvi. Vodna građevina nema takav izvor, a bez ove zaštite bi
+     stranica na njoj pucala. */}}
+{{if and .CanRecord .Station}}
 <section class="detail-section">
   <h2>{{icon "upload"}} Unesi više očitanja odjednom</h2>
   <p class="page-desc">

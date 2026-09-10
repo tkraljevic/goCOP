@@ -612,7 +612,7 @@ func TestKarticaJeSamodostatna(t *testing.T) {
 	podaci := StationPageData{
 		CurrentUser: &models.User{FullName: "P"},
 		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
-		Station:     st, PragoviKote: pragoviUKotama(st), CanEdit: true, IsEdit: true,
+		Station:     st, PragoviKote: pragoviUKotama(st), CanEdit: true, CanRecord: true, IsEdit: true,
 	}
 	kartica := iscrtaj(t, "station_detail.html", podaci)
 	obrazac := iscrtaj(t, "station_form.html", podaci)

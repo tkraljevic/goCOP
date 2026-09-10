@@ -2867,3 +2867,12 @@ textarea {
 #stanje.odabrano {
   border-color: var(--primary);
 }
+
+/* Stranica na kojoj se stoji, u zajedničkom izborniku letve. Nije poveznica
+   nego oznaka gdje si — zato ne mijenja izgled na prijelaz mišem. */
+.letva-izbornik .je-ovdje {
+  background: var(--tint-blue-bg);
+  border-color: var(--primary);
+  color: var(--primary);
+  cursor: default;
+}
