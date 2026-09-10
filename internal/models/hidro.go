@@ -206,8 +206,26 @@ type SazetakVelicine struct {
 	MinMjerenNa, MaxMjerenNa       string
 	MinMjerenIzvor, MaxMjerenIzvor string
 	ImaMjerenih                    bool
-	ZbrojIma                       bool
-	Zbroj                          float64
+	// Visi je kulminacija koju jedan izvorni niz bilježi iznad spojenog.
+	// Nije ispravak nego upozorenje: ovjereni niz zna zagladiti vrh vala.
+	Visi     *VisiVrh
+	ZbrojIma bool
+	Zbroj    float64
+}
+
+// VisiVrh je vrh vala koji jedan izvorni niz drži iznad spojenoga. Na Batini
+// 14. lipnja 2013. HV-ova letva stoji na 775–776 cm osam sati zaredom, dok
+// ovjereni his2000 kroz cijelu kulminaciju drži ravnih 772 — a zabilježeno je
+// 775. Ravan vrh od četrnaest sati usred vala nije ono što rijeka radi.
+//
+// Traži se samo ono što je i zadržano i blizu: kratak skok je šum mjerila, a
+// veliko odstupanje je kvar. U siječnju 2017. obje letvine dojave penju se na
+// 1273 cm dok ovjereni niz stoji na nuli — zaleđeno mjerilo, ne voda.
+type VisiVrh struct {
+	Vrijednost float64
+	Kad        string // datum i sat
+	Izvor      string
+	Sati       int // koliko se sati zaredom držao iznad spojenoga
 }
 
 // MinPreracunat i MaxPreracunat javljaju je li krajnost preračunata, a ne

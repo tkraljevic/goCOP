@@ -647,20 +647,138 @@ func (r *ArhivaRepository) Sazetak(ctx context.Context, letva string) ([]models.
 		_ = r.db.QueryRowContext(ctx, `SELECT date(vrijeme,'unixepoch'), izvor FROM spoj
 			WHERE letva=? AND korak='dnevni' AND velicina=? ORDER BY vrijednost ASC, vrijeme LIMIT 1`,
 			letva, out[i].Velicina).Scan(&out[i].MinNa, &out[i].MinIzvor)
-		// Izmjereno, bez preračuna iz susjedne postaje, i bez ograde na korak:
-		// satni vrh vala je ono što je letva zabilježila, dnevni ga zaglađuje.
+		// Izmjereno, bez preračuna iz susjedne postaje. Krajnji dan bira dnevni
+		// niz, jer je on ovjeren, a satni ga potom samo izoštri.
 		maxErr := r.db.QueryRowContext(ctx, `SELECT vrijednost, date(vrijeme,'unixepoch'), izvor FROM spoj
-			WHERE letva=? AND velicina=? AND izvor NOT LIKE 'preracun%' ORDER BY vrijednost DESC, vrijeme LIMIT 1`,
+			WHERE letva=? AND velicina=? AND korak='dnevni' AND izvor NOT LIKE 'preracun%'
+			ORDER BY vrijednost DESC, vrijeme LIMIT 1`,
 			letva, out[i].Velicina).Scan(&out[i].MaxMjeren, &out[i].MaxMjerenNa, &out[i].MaxMjerenIzvor)
 		minErr := r.db.QueryRowContext(ctx, `SELECT vrijednost, date(vrijeme,'unixepoch'), izvor FROM spoj
-			WHERE letva=? AND velicina=? AND izvor NOT LIKE 'preracun%' ORDER BY vrijednost ASC, vrijeme LIMIT 1`,
+			WHERE letva=? AND velicina=? AND korak='dnevni' AND izvor NOT LIKE 'preracun%'
+			ORDER BY vrijednost ASC, vrijeme LIMIT 1`,
 			letva, out[i].Velicina).Scan(&out[i].MinMjeren, &out[i].MinMjerenNa, &out[i].MinMjerenIzvor)
 		out[i].ImaMjerenih = maxErr == nil && minErr == nil
+		if out[i].ImaMjerenih {
+			r.izostriSatnim(ctx, letva, &out[i])
+		}
+		if out[i].ImaMjerenih && out[i].Velicina == "vodostaj" {
+			out[i].Visi = r.visiVrh(ctx, letva, out[i].Velicina, out[i].MaxMjerenNa, out[i].MaxMjeren)
+		}
 	}
 	sort.SliceStable(out, func(a, b int) bool {
 		return rangVelicine(out[a].Velicina) < rangVelicine(out[b].Velicina)
 	})
 	return out, nil
+}
+
+// najveciPomakVrha je koliko satni vrh smije stršati iznad dnevne vrijednosti
+// istoga dana da bi se uzeo ozbiljno. Dnevna je srednjak pa vrh vala zaglađuje
+// i satni ga s pravom nadmašuje — ali za desetke centimetara, ne za metre.
+const najveciPomakVrha = 100.0
+
+// izostriSatnim zamjenjuje dnevnu krajnost satnom iz istog vala. Dan bira
+// dnevni niz, jer satni zna nositi cijele blokove kvara: Dalj 12. siječnja
+// 2026. javlja 1616 cm šest sati zaredom, a Dunav ondje nikad nije prešao 950.
+// Takav dan u dnevnom nizu ne pobjeđuje, pa ovamo ni ne dolazi.
+func (r *ArhivaRepository) izostriSatnim(ctx context.Context, letva string, s *models.SazetakVelicine) {
+	uzmi := func(dan string, silazno bool) (float64, string, string, bool) {
+		smjer := "ASC"
+		if silazno {
+			smjer = "DESC"
+		}
+		var v float64
+		var na, izvor string
+		err := r.db.QueryRowContext(ctx, `SELECT vrijednost, date(vrijeme,'unixepoch'), izvor FROM spoj
+			WHERE letva=? AND velicina=? AND korak='satni' AND izvor NOT LIKE 'preracun%'
+			  AND vrijeme >= CAST(strftime('%s', ?, '-1 day') AS INTEGER)
+			  AND vrijeme <  CAST(strftime('%s', ?, '+2 days') AS INTEGER)
+			ORDER BY vrijednost `+smjer+`, vrijeme LIMIT 1`,
+			letva, s.Velicina, dan, dan).Scan(&v, &na, &izvor)
+		return v, na, izvor, err == nil
+	}
+	if v, na, izvor, ok := uzmi(s.MaxMjerenNa, true); ok &&
+		v > s.MaxMjeren && v-s.MaxMjeren <= najveciPomakVrha {
+		s.MaxMjeren, s.MaxMjerenNa, s.MaxMjerenIzvor = v, na, izvor
+	}
+	if v, na, izvor, ok := uzmi(s.MinMjerenNa, false); ok &&
+		v < s.MinMjeren && s.MinMjeren-v <= najveciPomakVrha {
+		s.MinMjeren, s.MinMjerenNa, s.MinMjerenIzvor = v, na, izvor
+	}
+}
+
+// Ograde za traženje višeg vrha. Odstupanje se mjeri prema spojenom nizu u
+// istom satu: do 15 cm je razilaženje dvaju mjerila na istoj vodi, preko toga
+// je kvar. Tri sata su najmanje što se smije zvati kulminacijom — dva sata su
+// i DHMZ-ov skok od 13. lipnja 2013., koji susjedni sati ne potvrđuju.
+const (
+	najveceOdstupanjeVrha = 15.0
+	najmanjeSatiVrha      = 3
+)
+
+// visiVrh traži kulminaciju koju izvorni niz drži iznad spojenoga. Vraća nil
+// kad je nema — a to je uobičajeno: spojeni niz je u pravilu najbolje što
+// letva ima, i samo na vrhu vala zna zaostati za pojedinačnom dojavom.
+//
+// Gleda se samo val koji drži rekord, u prozoru od dan prije do dan poslije.
+// Ondje pitanje i ima smisla: koliko je zapravo doseglo ono što je najviše
+// doseglo. Pretraga cijele povijesti trajala bi pola sekunde po učitavanju
+// kartice, jer nad vrijednostima nema kazala — a našla bi razilaženja koja
+// rekord ionako ne dodiruju.
+func (r *ArhivaRepository) visiVrh(ctx context.Context, letva, velicina, dan string, iznad float64) *models.VisiVrh {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT n.izvor, o.vrijeme, o.vrijednost
+		FROM ocitanja o
+		  JOIN nizovi n ON n.id = o.niz
+		  JOIN spoj s ON s.letva = n.letva AND s.velicina = n.velicina
+		               AND s.korak = 'satni' AND s.vrijeme = o.vrijeme
+		WHERE n.letva = ? AND n.velicina = ? AND n.vrsta = 'satni'
+		  AND n.izvor NOT LIKE 'preracun%'
+		  AND o.vrijeme >= CAST(strftime('%s', ?, '-1 day') AS INTEGER)
+		  AND o.vrijeme <  CAST(strftime('%s', ?, '+2 days') AS INTEGER)
+		  AND o.vrijednost > ?
+		  AND o.vrijednost - s.vrijednost > 0
+		  AND o.vrijednost - s.vrijednost <= ?
+		ORDER BY n.izvor, o.vrijeme`, letva, velicina, dan, dan, iznad, najveceOdstupanjeVrha)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+
+	var najbolji *models.VisiVrh
+	var izvor string
+	var prethodni int64
+	var vrh float64
+	var vrhKad int64
+	var sati int
+	zatvori := func() {
+		if sati >= najmanjeSatiVrha && (najbolji == nil || vrh > najbolji.Vrijednost) {
+			najbolji = &models.VisiVrh{Vrijednost: vrh, Izvor: izvor, Sati: sati,
+				Kad: time.Unix(vrhKad, 0).UTC().Format("2006-01-02 15:04")}
+		}
+		sati = 0
+	}
+	for rows.Next() {
+		var iz string
+		var kad int64
+		var v float64
+		if err := rows.Scan(&iz, &kad, &v); err != nil {
+			return nil
+		}
+		if sati == 0 || iz != izvor || kad != prethodni+3600 {
+			zatvori()
+			izvor, vrh, vrhKad, sati = iz, v, kad, 0
+		}
+		if v > vrh {
+			vrh, vrhKad = v, kad
+		}
+		prethodni = kad
+		sati++
+	}
+	zatvori()
+	if err := rows.Err(); err != nil {
+		return nil
+	}
+	return najbolji
 }
 
 // SpojBroj vraća koliko vrijednosti spojeni niz ima u razdoblju — za listanje,

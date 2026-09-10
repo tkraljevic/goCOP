@@ -114,6 +114,12 @@
       </div>
       {{end}}
     </div>
+    {{if $.VisiVrh}}
+    <p class="reading-meta" style="margin:0.5rem 0 0;">Na kulminaciji dojave ne stoje jedno na drugome:
+      <strong>{{$.VisiVrh.Izvor}}</strong> bilježi <strong>{{brojHRf $.VisiVrh.Vrijednost 0}} cm</strong>
+      {{$.VisiVrh.Kad}}, i drži se iznad spojenog niza {{$.VisiVrh.Sati}} {{uzBroj $.VisiVrh.Sati "sat" "sata" "sati"}}.
+      Ovjereni niz vrh vala zna zagladiti, pa zabilježeni ekstrem može biti viši od onoga što ovdje piše.</p>
+    {{end}}
     {{if not $.Station.Extremes}}
     <p class="reading-meta" style="margin:0.5rem 0 0;">Zabilježeni ekstremi nisu upisani. Ovo je najveće i
       najmanje što program ima u podacima — upisani ekstrem je službeni zapis i može se od toga razlikovati.</p>
