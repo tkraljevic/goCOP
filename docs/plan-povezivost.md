@@ -37,6 +37,37 @@ Kad je gotovo, ovo vrijedi:
 5. **Tko što dobiva** provodi se na razini replikacije, ne prikaza.
 6. Kompromitirani čvor se može **prepoznati i poništiti**, a ne samo isključiti.
 
+Iz toga slijedi i kako program treba opisivati: ne kao „aplikacija sa SQLite
+bazom i P2P sinkronizacijom", nego kao **raspodijeljeni sustav operativnih
+podataka**. P2P nije mogućnost koja mu je dodana — proizlazi iz zahtjeva da
+sustav nastavi raditi kad dijelovi infrastrukture nestanu.
+
+```
+                       IZVORI
+                          │
+                 unos + provenijencija
+                          ↓
+                ┌─────────────────┐
+                │  LOKALNI ČVOR   │
+                │  SQLite         │
+                │  knjiga verzija │
+                │  potpisi        │
+                └────────┬────────┘
+                         │
+                   PeerTransport
+                         │
+           ┌─────────────┼─────────────┐
+           ČVOR        ČVOR          ČVOR
+           └────── anti-entropy ──────┘
+
+              nijedan čvor nije nužan
+
+                         +
+              nepromjenjive arhive
+                         +
+              nepromjenjive kopije
+```
+
 ## Što već radi
 
 Ovo nije početak iz prazna:
@@ -131,6 +162,49 @@ Ako dva izvora daju različitu vrijednost za isto mjerenje, **oba se čuvaju i
 sukob se označi**. Kod obrane od poplava tiho prepisan prag nije estetski nego
 operativni problem.
 
+#### Stanje podatka, ne samo vrijednost
+
+Operateru nije dovoljno:
+
+```
+VODOSTAJ = 521 cm
+```
+
+nego:
+
+```
+521 cm
+  izvor        telemetrija postaje
+  izmjereno    07:00
+  primljeno    07:02
+  čvor         node-17
+  potpis       valjan
+  starost      2 min
+  stanje       POTVRĐENO
+```
+
+Razlika između **„vodostaj je 521 cm"** i **„posljednji poznati vodostaj je
+521 cm, ali podatak je star 47 minuta"** u obrani može biti važnija od same
+vrijednosti. Prva rečenica navodi na odluku, druga na provjeru.
+
+Stanja: `POTVRĐENO`, `NEPOTVRĐENO`, `SPORNO`, `ZASTARJELO`, `PONIŠTENO`.
+
+**Ali stanje se izvodi, ne pohranjuje.** Ovo je bitno:
+
+- **zastarjelost** je razlika između `measured_at` i sada — pohranjena bi bila
+  netočna već u trenutku upisa
+- **spornost** ovisi o tome postoji li druga vrijednost za isto mjerenje
+- **poništenost** ovisi o tome je li u međuvremenu stigla odluka o poništenju
+
+Pohranjuju se **činjenice** — izvor, vremena, čvor, valjanost potpisa — a
+stanje se računa pri prikazu. Pohranjeno stanje tiho zastari, a upravo je
+tiho zastarjeli podatak ono od čega se ovdje branimo.
+
+Prag zastarijevanja **nije jedan broj**. Ovisi o očekivanom ritmu tog niza,
+koji program već zna (`nizovi.vrsta`: satni, dvokratni, jutarnji, dnevni).
+Podatak star 47 minuta je uredan kod dnevnog očitanja, a alarmantan kod
+satnog za vrijeme vala.
+
 ### 6. Telemetrija
 
 Za primanje novih mjerenja može se razmotriti MQTT ili sličan protokol, ali
@@ -214,9 +288,16 @@ Deset mini-računala u deset ureda, na istoj domeni, s istim ažuriranjima i
 istim vjerodajnicama — u praksi je **jedan** čvor. Padne li domena, padnu svi
 zajedno.
 
-Prijenosnik koji je te večeri bio kod nekoga doma, i kućni unraid koji nije na
-toj domeni — **oni preživljavaju**. Zato su kućne instalacije najvrjedniji
-sloj mreže, a ne rub o kojem treba brinuti.
+Zato mreži trebaju **izmješteni čvorovi u različitim domenama otkazivanja**:
+druga mreža, drugi pružatelj pristupa, druga struja, izvan ustanovske domene i
+izvan njezina ciklusa ažuriranja. Takav čvor ne dijeli sudbinu s ostalima i
+preživi ono što obori sve unutar kuće.
+
+Kako se to izvede je zasebno pitanje. Kućna instalacija je **jedna moguća
+izvedba** i tehnički najlakša, ali sa sobom nosi upravljanje uređajima,
+zaštitu podataka i odluku ustanove — vidi „Što se ne smije zaboraviti". Druge
+izvedbe su čvor na drugoj lokaciji ustanove, kod ugovornog partnera, ili na
+zakupljenom poslužitelju izvan iste domene.
 
 Zaključak: vrijedi imati čvorove koji otkazuju **iz različitih razloga**, ne
 samo mnogo njih.
@@ -383,18 +464,63 @@ zanimljiviji.
 | korak | što | zašto tim redom |
 |---|---|---|
 | **0** | *(napravljeno)* lokalna baza, knjiga verzija, LAN, TLS, članstva | temelj već stoji |
-| **1** | **provenijencija i potpis po zapisu**; **opseg kao granica replikacije** | najskuplje naknadno — mijenja svaki zapis i svaku razmjenu |
+| **1** | **model podataka**: provenijencija, potpis, vrijeme potpisa, opseg kao granica replikacije, **i izrazivo poništavanje** | najskuplje naknadno — mijenja svaki zapis i svaku razmjenu |
 | **2** | **sučelje `PeerTransport`**, Tailscale iza njega | jeftino sada, oslobađa sve kasnije |
 | **3** | **izdanja arhive**: manifest, otisak, ime po otisku, popis izvora (Drive prvi) | rješava 471 MB i daje katalog |
-| **4** | **sukobi vidljivi u sučelju** — oba zapisa, oznaka, tko je unio | bez toga se pogreška ne vidi dok ne zaboli |
+| **4** | **stanje podatka u sučelju** — koliko je star, odakle je, je li sporan | bez toga se pogreška ne vidi dok ne zaboli |
 | **5** | **gossip** umjesto razmjene sa svima | tek kad čvorova bude dovoljno da smeta |
 | **6** | **prijenos blobova** među čvorovima: nastavak, ranged, provjera | kad se pojave privitci |
-| **7** | **poništavanje po čvoru i vremenu** | kad mreža bude dovoljno velika da kompromitacija boli |
+| **7** | **provođenje poništavanja** — sučelje, širenje, automatika | mehanizam može čekati, ali samo ako je model iz koraka 1 to predvidio |
 | **8** | *(možda nikad)* vlastiti transport QUIC/STUN, swarm s komadima | tek ako Tailscale zasmeta ili čvorova bude stotine |
 
 Svaki korak je upotrebljiv sam za sebe. Korak 3 vrijedi i bez mreže — arhiva
 se preuzme s Drivea. Korak 1 vrijedi i bez ijednog drugog čvora, jer se zna
 odakle podatak dolazi.
+
+### Korak 1 razrađeno — jer se poslije ne popravlja
+
+Ovo je jedini korak koji se ne može odgoditi bez cijene. Transport se mijenja
+iza sučelja, sučelje se prepravlja, ali **model podataka se naknadno mijenja
+samo prepisivanjem svakog zapisa i svake razmjene**.
+
+Uz svaki zapis:
+
+```
+record_uuid      koji je to zapis
+revision         koja mu je verzija
+origin_node      koji ga je čvor stvorio
+source           odakle podatak dolazi (mjerenje, prijepis, rekonstrukcija)
+measured_at      kad je izmjeren
+received_at      kad je stigao u sustav
+signed_at        kad ga je čvor potpisao
+signature        potpis nad sadržajem i vremenom
+scope            čiji je — organizacija, sektor, područje, dionica, privatno
+```
+
+**`signed_at` je odvojen od `received_at` i od vremena primjene.** To izgleda
+kao sitnica, a upravo o tome ovisi može li se poništavanje uopće izraziti.
+Ako se pamti samo „zadnja izmjena", nikad se neće moći reći „sve od čvora X
+nakon 03:17".
+
+Poništavanje se tada izražava ovako, i ne traži nikakvu promjenu sheme kad
+zatreba:
+
+```
+REVOKE
+  node        = 7c29…
+  valid_until = 2026-09-10T03:17:00
+
+⇒ sve što je taj čvor potpisao poslije 03:17 → NEPOUZDANO
+```
+
+**Sam mehanizam — sučelje, širenje odluke, automatika — može čekati korak 7.
+Ali mogućnost da se to izrekne mora postojati od koraka 1.** Zapis koji ne
+nosi tko ga je potpisao i kad, ne može se poslije proglasiti sumnjivim ni
+ručno.
+
+Isto vrijedi za **opseg**: mora biti granica **replikacije**, a ne prikaza.
+Ako svaki čvor ionako dobije sve pa filtrira pri ispisu, opseg je ukras, a
+ukraden ili kompromitiran čvor ima sve.
 
 ## Što se ne smije zaboraviti
 
@@ -411,6 +537,9 @@ razini replikacije — ako svaki čvor ionako dobije sve, opseg je ukras.
 tehnički teret; teret je tisuću lozinki. Većini sudionika treba da budu
 pronađeni, ne da se prijavljuju.
 
-**Službeni podaci na privatnim uređajima.** Kućni čvor je najotporniji dio
-mreže i vrijedi ga poticati — ali s uskim opsegom i šifriranim diskom, i uz
-odluku ustanove, ne prešutno.
+**Službeni podaci na privatnim uređajima.** Izmješteni čvor je ono što mreži
+daje raznolikost otkazivanja, i vrijedi ga imati — ali ako je izveden kao
+kućna instalacija, otvara upravljanje uređajima, zaštitu podataka i sigurnosnu
+politiku. Uz uzak opseg i šifriran disk, i uz odluku ustanove, ne prešutno.
+Gdje to nije prihvatljivo, ista se svrha postiže čvorom na drugoj lokaciji
+ustanove ili kod ugovornog partnera.
