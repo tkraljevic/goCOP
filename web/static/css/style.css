@@ -2843,3 +2843,27 @@ textarea {
 .ex-vrijednost { font-size: 1.05rem; font-variant-numeric: tabular-nums; color: var(--text-strong); }
 .ex-datum { font-size: 0.85rem; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
 .ex-izvor { font-size: 0.85rem; margin-top: 0.2rem; }
+
+/* Odabrani redak niza i kartica koja tada pokazuje njega, a ne posljednju
+   vrijednost. Bez oznake se ne bi vidjelo da kartica više ne govori o danas. */
+.niz-redak {
+  cursor: pointer;
+}
+
+.niz-redak:hover {
+  background: var(--tint-blue-bg);
+}
+
+.niz-redak.odabran {
+  background: var(--tint-blue-bg);
+  box-shadow: inset 3px 0 0 var(--primary);
+}
+
+.niz-redak:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+#stanje.odabrano {
+  border-color: var(--primary);
+}

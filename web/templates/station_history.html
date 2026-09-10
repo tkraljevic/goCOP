@@ -21,85 +21,25 @@
   </div>
 </div>
 
-{{if .Station.ImaPovratne}}
-<section class="detail-section">
-  <h2>{{icon "history"}} Povratni vodostaji</h2>
-  <div class="table-card ekstremi-siroko"><div class="table-responsive">
-    <table class="data-table">
-      <thead><tr><th>Jednom u</th><th>Vodostaj</th><th>Raspon</th><th>Izgled u godini</th><th>Metoda i niz</th></tr></thead>
-      <tbody>
-      {{range .Station.PovratniVodostaji}}
-      <tr>
-        <td>{{.GodineLabel}}</td>
-        <td class="mono"><strong>{{.Label}}</strong></td>
-        <td class="mono">{{if .ImaRaspon}}{{.RasponLabel}}{{else}}—{{end}}</td>
-        <td>{{.SansaLabel}}</td>
-        <td class="celija-blok">{{.Series}}{{if .Method}} <span class="ekstrem-nacin">— {{.Method}}</span>{{end}}
-          {{if or .Source .ComputedOn}}<div class="ekstrem-nacin">{{.Source}}{{if .ComputedOn}}{{if .Source}} · {{end}}izračunato {{datumHR .ComputedOn}}{{end}}</div>{{end}}
-          {{if .Note}}<div class="ekstrem-napomena">{{.Note}}</div>{{end}}</td>
-      </tr>
-      {{end}}
-      </tbody>
-    </table>
-  </div></div>
-
-  <ul class="ekstremi-usko">
-    {{range .Station.PovratniVodostaji}}
-    <li>
-      <div class="ex-glava">
-        <span class="ex-vrsta">jednom u {{.GodineLabel}}</span>
-        <strong class="ex-vrijednost">{{.Label}}</strong>
-        <span class="ex-datum">{{.SansaLabel}}</span>
-      </div>
-      {{if .ImaRaspon}}<div class="ex-izvor">raspon {{.RasponLabel}}</div>{{end}}
-      <div class="ex-izvor">{{.Series}}{{if .Method}} <span class="ekstrem-nacin">— {{.Method}}</span>{{end}}</div>
-      {{if or .Source .ComputedOn}}<div class="ekstrem-nacin">{{.Source}}{{if .ComputedOn}}{{if .Source}} · {{end}}izračunato {{datumHR .ComputedOn}}{{end}}</div>{{end}}
-      {{if .Note}}<div class="ekstrem-napomena">{{.Note}}</div>{{end}}
-    </li>
-    {{end}}
-  </ul>
-  <p class="reading-meta" style="margin-top:0.35rem;">Procjena iz niza, ne mjerenje i ne propis. „Jednom u 100 godina“
-    znači 1 % izgleda svake pojedine godine, a ne da se neće ponoviti prije isteka stoljeća — dvije takve vode mogu
-    doći uzastopce. Pragovi obrane su propisani i ne izvode se iz ovih brojki.</p>
-</section>
-{{end}}
-
-{{if .Station.ZeroDatumHistory}}
-<section class="detail-section">
-  <h2>{{icon "ruler"}} Promjene kote nule</h2>
-  <div class="reg-card" style="padding:1rem;">
-    <div class="table-responsive">
-      <table class="data-table">
-        <thead><tr><th>Vrijedi od</th><th>Kota „0“</th><th>Sustav</th><th>Napomena</th></tr></thead>
-        <tbody>
-        {{range .Station.ZeroDatumHistory}}
-        <tr>
-          <td class="mono">{{if .ValidFrom}}{{datumHR .ValidFrom}}{{else}}<span class="reading-meta">od početka mjerenja</span>{{end}}</td>
-          <td class="mono">{{if .Datum}}{{brojHRd .Datum 3}} m{{else}}—{{end}}</td>
-          <td>{{.System}}</td>
-          <td>{{.Note}}</td>
-        </tr>
-        {{end}}
-        </tbody>
-      </table>
-    </div>
-    <p class="reading-meta" style="margin-top:0.35rem;">Vodostaji u bazi svedeni su na zadnju kotu; povijest kaže što je koja starija evidencija mjerila.</p>
-  </div>
-</section>
-{{end}}
-
 {{if .Spojevi}}
 <section class="detail-section" id="spoj">
   <h2>{{icon "activity"}} Vodostaj i protok</h2>
   {{if .Sada}}
-  <div class="table-card" style="padding:1rem 1.25rem; margin-bottom:1rem;">
+  <div class="table-card" id="stanje" style="padding:1rem 1.25rem; margin-bottom:1rem;"
+       data-vodostaj="{{brojHRf .Sada.Vrijednost 0}}"
+       data-kad="{{formatDate (localTime .Sada.Kad)}}"
+       data-tocnost="{{.Sada.TocnostLabel}}{{if gt .Sada.Tocnost 0.0}} cm{{end}}"
+       data-tocno="{{if le .Sada.Tocnost 1.0}}1{{end}}"
+       data-izvor="{{izvorLabel .Sada.Izvor}}"
+       data-protok="{{if gt .ZadnjiProtok 0.0}}{{brojHRf .ZadnjiProtok 0}}{{end}}"
+       data-kote="{{range .Station.Kote (round .Sada.Vrijednost)}}{{brojHRf .Kota 3}} m {{.Sustav}}|{{end}}">
     <div style="display:flex; flex-wrap:wrap; align-items:baseline; gap:0.75rem 1.75rem;">
-      <span style="font-size:1.75rem; font-weight:700;">{{brojHRf .Sada.Vrijednost 0}} cm</span>
-      <span class="reg-card-sub">{{formatDate (localTime .Sada.Kad)}}</span>
-      <span class="badge {{if le .Sada.Tocnost 1.0}}badge-area-admin{{else}}badge-unknown{{end}}">{{.Sada.TocnostLabel}}{{if gt .Sada.Tocnost 0.0}} cm{{end}}</span>
-      <span class="reg-card-sub">{{izvorLabel .Sada.Izvor}}</span>
-      {{if gt .ZadnjiProtok 0.0}}<span>protok <strong>{{brojHRf .ZadnjiProtok 0}} m³/s</strong> <span class="reg-card-sub">iz krivulje</span></span>{{end}}
-      {{range .Station.Kote (round .Sada.Vrijednost)}}<span>kota vode <strong>{{brojHRf .Kota 3}} m</strong> <span class="reg-card-sub">{{.Sustav}}</span></span>{{end}}
+      <span style="font-size:1.75rem; font-weight:700;" data-polje="vodostaj">{{brojHRf .Sada.Vrijednost 0}} cm</span>
+      <span class="reg-card-sub" data-polje="kad">{{formatDate (localTime .Sada.Kad)}}</span>
+      <span class="badge {{if le .Sada.Tocnost 1.0}}badge-area-admin{{else}}badge-unknown{{end}}" data-polje="tocnost">{{.Sada.TocnostLabel}}{{if gt .Sada.Tocnost 0.0}} cm{{end}}</span>
+      <span class="reg-card-sub" data-polje="izvor">{{izvorLabel .Sada.Izvor}}</span>
+      <span data-polje="protok"{{if not (gt .ZadnjiProtok 0.0)}} hidden{{end}}>protok <strong>{{brojHRf .ZadnjiProtok 0}} m³/s</strong> <span class="reg-card-sub">iz krivulje</span></span>
+      <span data-polje="kote">{{range .Station.Kote (round .Sada.Vrijednost)}}<span>kota vode <strong>{{brojHRf .Kota 3}} m</strong> <span class="reg-card-sub">{{.Sustav}}</span></span> {{end}}</span>
     </div>
   </div>
   {{end}}
@@ -232,7 +172,7 @@
       <thead><tr><th>Kad</th><th style="text-align:right;">{{velicinaLabel .ArhVelicina}} <span class="reg-card-sub">{{.ArhJedinica}}</span></th>{{if .KoteZaArhivu}}<th style="text-align:right;">Kota vode <span class="reg-card-sub">{{.KotaSustav}}</span></th>{{end}}<th>Točnost</th><th>Odakle</th></tr></thead>
       <tbody>
       {{range .ArhNiz}}
-      <tr>
+      <tr{{if eq $.ArhVelicina "vodostaj"}} class="niz-redak" tabindex="0" data-vodostaj="{{brojHRf .Vrijednost 0}}" data-kad="{{vrijemeNiza .Kad (eq $.ArhKorak "satni")}}" data-tocnost="{{if .Ispravljeno}}ispravljeno{{else}}{{.TocnostLabel}}{{end}}" data-tocno="{{if le .Tocnost 1.0}}1{{end}}" data-izvor="{{if .Ispravljeno}}{{.Razlog}}{{else}}{{izvorLabel .Izvor}}{{end}}" data-protok="{{protokHR $.Krivulje .Kad .Vrijednost}}" data-kote="{{if $.KoteZaArhivu}}{{range $.Station.Kote (round .Vrijednost)}}{{brojHRf .Kota 3}} m {{.Sustav}}|{{end}}{{end}}"{{end}}>
         <td class="mono naslov">{{vrijemeNiza .Kad (eq $.ArhKorak "satni")}}</td>
         <td class="mono" style="text-align:right;" data-stupac="{{velicinaLabel $.ArhVelicina}} ({{$.ArhJedinica}})"><strong>{{brojHRf .Vrijednost 1}}</strong>
           {{if .Ispravljeno}}<div class="reg-card-sub"><s>{{brojHRf .Izvorno 1}}</s></div>{{end}}</td>
@@ -276,6 +216,73 @@
   </p>
   {{end}}
 
+</section>
+{{end}}
+
+{{if .Station.ImaPovratne}}
+<section class="detail-section">
+  <h2>{{icon "history"}} Povratni vodostaji</h2>
+  <div class="table-card ekstremi-siroko"><div class="table-responsive">
+    <table class="data-table">
+      <thead><tr><th>Jednom u</th><th>Vodostaj</th><th>Raspon</th><th>Izgled u godini</th><th>Metoda i niz</th></tr></thead>
+      <tbody>
+      {{range .Station.PovratniVodostaji}}
+      <tr>
+        <td>{{.GodineLabel}}</td>
+        <td class="mono"><strong>{{.Label}}</strong></td>
+        <td class="mono">{{if .ImaRaspon}}{{.RasponLabel}}{{else}}—{{end}}</td>
+        <td>{{.SansaLabel}}</td>
+        <td class="celija-blok">{{.Series}}{{if .Method}} <span class="ekstrem-nacin">— {{.Method}}</span>{{end}}
+          {{if or .Source .ComputedOn}}<div class="ekstrem-nacin">{{.Source}}{{if .ComputedOn}}{{if .Source}} · {{end}}izračunato {{datumHR .ComputedOn}}{{end}}</div>{{end}}
+          {{if .Note}}<div class="ekstrem-napomena">{{.Note}}</div>{{end}}</td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div></div>
+
+  <ul class="ekstremi-usko">
+    {{range .Station.PovratniVodostaji}}
+    <li>
+      <div class="ex-glava">
+        <span class="ex-vrsta">jednom u {{.GodineLabel}}</span>
+        <strong class="ex-vrijednost">{{.Label}}</strong>
+        <span class="ex-datum">{{.SansaLabel}}</span>
+      </div>
+      {{if .ImaRaspon}}<div class="ex-izvor">raspon {{.RasponLabel}}</div>{{end}}
+      <div class="ex-izvor">{{.Series}}{{if .Method}} <span class="ekstrem-nacin">— {{.Method}}</span>{{end}}</div>
+      {{if or .Source .ComputedOn}}<div class="ekstrem-nacin">{{.Source}}{{if .ComputedOn}}{{if .Source}} · {{end}}izračunato {{datumHR .ComputedOn}}{{end}}</div>{{end}}
+      {{if .Note}}<div class="ekstrem-napomena">{{.Note}}</div>{{end}}
+    </li>
+    {{end}}
+  </ul>
+  <p class="reading-meta" style="margin-top:0.35rem;">Procjena iz niza, ne mjerenje i ne propis. „Jednom u 100 godina“
+    znači 1 % izgleda svake pojedine godine, a ne da se neće ponoviti prije isteka stoljeća — dvije takve vode mogu
+    doći uzastopce. Pragovi obrane su propisani i ne izvode se iz ovih brojki.</p>
+</section>
+{{end}}
+
+{{if .Station.ZeroDatumHistory}}
+<section class="detail-section">
+  <h2>{{icon "ruler"}} Promjene kote nule</h2>
+  <div class="reg-card" style="padding:1rem;">
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead><tr><th>Vrijedi od</th><th>Kota „0“</th><th>Sustav</th><th>Napomena</th></tr></thead>
+        <tbody>
+        {{range .Station.ZeroDatumHistory}}
+        <tr>
+          <td class="mono">{{if .ValidFrom}}{{datumHR .ValidFrom}}{{else}}<span class="reading-meta">od početka mjerenja</span>{{end}}</td>
+          <td class="mono">{{if .Datum}}{{brojHRd .Datum 3}} m{{else}}—{{end}}</td>
+          <td>{{.System}}</td>
+          <td>{{.Note}}</td>
+        </tr>
+        {{end}}
+        </tbody>
+      </table>
+    </div>
+    <p class="reading-meta" style="margin-top:0.35rem;">Vodostaji u bazi svedeni su na zadnju kotu; povijest kaže što je koja starija evidencija mjerila.</p>
+  </div>
 </section>
 {{end}}
 
