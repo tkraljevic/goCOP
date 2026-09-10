@@ -43,6 +43,7 @@ func dopuniShemu(db *sql.DB) error {
 	}
 	stupci := []struct{ tablica, stupac, opis string }{
 		{"nizovi", "napomena", "TEXT NOT NULL DEFAULT ''"},
+		{"izvori", "mapa", "TEXT NOT NULL DEFAULT ''"},
 	}
 	for _, c := range stupci {
 		var ima int
@@ -70,6 +71,7 @@ CREATE TABLE IF NOT EXISTS izvori (
 	tocnost  REAL    NOT NULL DEFAULT 20,
 	red      INTEGER NOT NULL DEFAULT 900,
 	ukljucen INTEGER NOT NULL DEFAULT 0,
+	mapa     TEXT    NOT NULL DEFAULT '',
 	napomena TEXT    NOT NULL DEFAULT ''
 );`
 
@@ -220,14 +222,6 @@ func Izgradi(koren, baza, samo string, zapisi io.Writer) (Izvjestaj, error) {
 	if zapisi == nil {
 		zapisi = io.Discard
 	}
-	nizovi, err := popisi(koren, samo)
-	if err != nil {
-		return iz, err
-	}
-	if len(nizovi) == 0 {
-		return iz, fmt.Errorf("nema nijednog niza za uvoz")
-	}
-
 	db, err := sql.Open("sqlite", baza+"?_pragma=journal_mode(WAL)&_pragma=synchronous(OFF)")
 	if err != nil {
 		return iz, err
@@ -246,6 +240,21 @@ func Izgradi(koren, baza, samo string, zapisi io.Writer) (Izvjestaj, error) {
 	if err := dopuniShemu(db); err != nil {
 		return iz, err
 	}
+
+	// Popis datoteka nastaje tek sad, jer se mora znati ima li koji izvor
+	// vlastito stablo. Zajedničko stablo daje sve, a izvor s vlastitom mapom
+	// nadjačava ono što je o njemu ondje nađeno.
+	nizovi, err := popisi(koren, samo)
+	if err != nil {
+		return iz, err
+	}
+	if err := dodajIzVlastitihMapa(db, nizovi, samo, zapisi); err != nil {
+		return iz, err
+	}
+	if len(nizovi) == 0 {
+		return iz, fmt.Errorf("nema nijednog niza za uvoz")
+	}
+
 	promjene, err := promjeneKote(db, koren, zapisi)
 	if err != nil {
 		return iz, err
@@ -280,6 +289,54 @@ func Izgradi(koren, baza, samo string, zapisi io.Writer) (Izvjestaj, error) {
 
 	iz.Spojenih, err = spoji(db, samo)
 	return iz, err
+}
+
+// dodajIzVlastitihMapa dopunjuje popis nizovima iz stabala koja pojedini
+// izvori drže za sebe. Mapa koje nema ne ruši gradnju: vanjski disk nije
+// priključen ili je mapa preimenovana, a ostatak arhive s time nema veze —
+// samo se zapiše da je preskočena.
+func dodajIzVlastitihMapa(db *sql.DB, nizovi map[string]*niz, samo string, zapisi io.Writer) error {
+	izvori, err := Izvori(db)
+	if err != nil {
+		return err
+	}
+	poMapi := map[string][]string{}
+	for _, i := range izvori {
+		if m := strings.TrimSpace(i.Mapa); m != "" {
+			poMapi[m] = append(poMapi[m], i.Naziv)
+		}
+	}
+	for mapa, imena := range poMapi {
+		dodatni, err := popisi(mapa, samo)
+		if err != nil {
+			fmt.Fprintf(zapisi, "  preskačem mapu %s (%v): %s\n", mapa, err, strings.Join(imena, ", "))
+			continue
+		}
+		nadeno := 0
+		for k, n := range dodatni {
+			for _, ime := range imena {
+				if n.izvor == ime {
+					nizovi[k] = n
+					nadeno++
+					break
+				}
+			}
+		}
+		fmt.Fprintf(zapisi, "  vlastita mapa %s: %d %s za %s\n", mapa, nadeno,
+			uzBrojNiz(nadeno), strings.Join(imena, ", "))
+	}
+	return nil
+}
+
+func uzBrojNiz(n int) string {
+	switch {
+	case n%10 == 1 && n%100 != 11:
+		return "niz"
+	case n%10 >= 2 && n%10 <= 4 && (n%100 < 12 || n%100 > 14):
+		return "niza"
+	default:
+		return "nizova"
+	}
 }
 
 // popisi prolazi stablo i grupira datoteke u nizove. Jedan niz je jedna letva,
@@ -839,6 +896,11 @@ type Izvor struct {
 	Tocnost  float64 // ± u jedinici veličine, 68 % vrijednosti
 	Red      int     // manji broj, veće povjerenje
 	Ukljucen bool
+	// Mapa je stablo iz kojeg se čitaju datoteke ovog izvora. Prazno znači
+	// zajedničko stablo arhive. Novi izvor često stiže sa svoje strane — s
+	// vanjskog diska, iz sinkronizirane mape — i ne mora se preseliti da bi
+	// ušao u arhivu.
+	Mapa     string
 	Napomena string
 }
 
@@ -846,15 +908,15 @@ type Izvor struct {
 // Točnosti su izmjerene usporedbom sa službeno ovjerenim nizom, na stotinama
 // tisuća sati kroz devet letava — osim ondje gdje napomena kaže drukčije.
 var zadaniIzvori = []Izvor{
-	{"his2000", 0, 10, true, "referenca — po njoj su ostali izmjereni"},
-	{"letva-dhmz", 1, 20, true, ""},
-	{"cop", 3, 30, true, ""},
-	{"letva-hv", 5, 40, true, "dobra većinu vremena; u zamrznutim razdobljima javlja istu vrijednost danima"},
-	{"vituki", 5, 50, true, "točnost proglašena, ne izmjerena — nema preklapanja s ovjerenim nizom"},
-	{"his2000-cs", 0, 11, false, "Donji Miholjac — odlučuje se kad dođe Drava"},
-	{"his2000-spojeno", 0, 12, false, "Donji Miholjac — odlučuje se kad dođe Drava"},
-	{"his2000-ukinuta-nizv", 0, 13, false, "Donji Miholjac — odlučuje se kad dođe Drava"},
-	{"his2000-ukinuto", 0, 14, false, "Donji Miholjac — odlučuje se kad dođe Drava"},
+	{"his2000", 0, 10, true, "", "referenca — po njoj su ostali izmjereni"},
+	{"letva-dhmz", 1, 20, true, "", ""},
+	{"cop", 3, 30, true, "", ""},
+	{"letva-hv", 5, 40, true, "", "dobra većinu vremena; u zamrznutim razdobljima javlja istu vrijednost danima"},
+	{"vituki", 5, 50, true, "", "točnost proglašena, ne izmjerena — nema preklapanja s ovjerenim nizom"},
+	{"his2000-cs", 0, 11, false, "", "Donji Miholjac — odlučuje se kad dođe Drava"},
+	{"his2000-spojeno", 0, 12, false, "", "Donji Miholjac — odlučuje se kad dođe Drava"},
+	{"his2000-ukinuta-nizv", 0, 13, false, "", "Donji Miholjac — odlučuje se kad dođe Drava"},
+	{"his2000-ukinuto", 0, 14, false, "", "Donji Miholjac — odlučuje se kad dođe Drava"},
 }
 
 // zadanaTocnost vrijedi za izvor kojeg u tablici nema. Preračun se prepoznaje
@@ -878,8 +940,8 @@ func zadanaTocnost(izvor string) float64 {
 // čeka odluku nego da tiho promijeni brojeve po kojima se brani od poplave.
 func upisiZadaneIzvore(db *sql.DB) error {
 	for _, i := range zadaniIzvori {
-		if _, err := db.Exec(`INSERT OR IGNORE INTO izvori (naziv, tocnost, red, ukljucen, napomena)
-			VALUES (?,?,?,?,?)`, i.Naziv, i.Tocnost, i.Red, i.Ukljucen, i.Napomena); err != nil {
+		if _, err := db.Exec(`INSERT OR IGNORE INTO izvori (naziv, tocnost, red, ukljucen, mapa, napomena)
+			VALUES (?,?,?,?,?,?)`, i.Naziv, i.Tocnost, i.Red, i.Ukljucen, i.Mapa, i.Napomena); err != nil {
 			return fmt.Errorf("upis izvora %s: %w", i.Naziv, err)
 		}
 	}
@@ -892,7 +954,8 @@ func upisiZadaneIzvore(db *sql.DB) error {
 // Izvori vraća sve izvore koje arhiva poznaje, po redu povjerenja. Služi
 // stranici na kojoj se uređuju; gradnja koristi citajIzvore.
 func Izvori(db *sql.DB) ([]Izvor, error) {
-	rows, err := db.Query(`SELECT naziv, tocnost, red, ukljucen, napomena FROM izvori ORDER BY red, naziv`)
+	rows, err := db.Query(`SELECT naziv, tocnost, red, ukljucen, ` + stupacMape(db) + `, napomena
+		FROM izvori ORDER BY red, naziv`)
 	if err != nil {
 		return nil, fmt.Errorf("čitanje izvora: %w", err)
 	}
@@ -900,7 +963,7 @@ func Izvori(db *sql.DB) ([]Izvor, error) {
 	var out []Izvor
 	for rows.Next() {
 		var i Izvor
-		if err := rows.Scan(&i.Naziv, &i.Tocnost, &i.Red, &i.Ukljucen, &i.Napomena); err != nil {
+		if err := rows.Scan(&i.Naziv, &i.Tocnost, &i.Red, &i.Ukljucen, &i.Mapa, &i.Napomena); err != nil {
 			return nil, err
 		}
 		out = append(out, i)
@@ -908,21 +971,35 @@ func Izvori(db *sql.DB) ([]Izvor, error) {
 	return out, rows.Err()
 }
 
+// stupacMape javlja može li se mapa čitati. Arhiva se otvara samo za čitanje,
+// pa se u njoj ne može ni dopuniti — a čvor koji je preuzeo starije izdanje
+// nema taj stupac. Čitanje mora raditi i ondje, inače bi mu popis izvora
+// nestao zbog stupca koji nema.
+func stupacMape(db *sql.DB) string {
+	var ima int
+	if err := db.QueryRow(
+		`SELECT count(*) FROM pragma_table_info('izvori') WHERE name = 'mapa'`).Scan(&ima); err != nil || ima == 0 {
+		return `''`
+	}
+	return "mapa"
+}
+
 // PostaviIzvor mijenja jedan izvor i javlja koje letve zbog toga treba ponovno
 // spojiti — one koje od njega imaju ijedan niz. Spajanje se ne pokreće ovdje:
 // na velikoj letvi traje sekundama, pa je odluka kad ga pokrenuti na pozivatelju.
 func PostaviIzvor(db *sql.DB, i Izvor) ([]string, error) {
 	var prije Izvor
-	err := db.QueryRow(`SELECT tocnost, red, ukljucen, napomena FROM izvori WHERE naziv=?`, i.Naziv).
-		Scan(&prije.Tocnost, &prije.Red, &prije.Ukljucen, &prije.Napomena)
+	err := db.QueryRow(`SELECT tocnost, red, ukljucen, `+stupacMape(db)+`, napomena FROM izvori WHERE naziv=?`,
+		i.Naziv).Scan(&prije.Tocnost, &prije.Red, &prije.Ukljucen, &prije.Mapa, &prije.Napomena)
 	if err != nil {
 		return nil, fmt.Errorf("izvor %q: %w", i.Naziv, err)
 	}
-	if _, err := db.Exec(`UPDATE izvori SET tocnost=?, red=?, ukljucen=?, napomena=? WHERE naziv=?`,
-		i.Tocnost, i.Red, i.Ukljucen, i.Napomena, i.Naziv); err != nil {
+	if _, err := db.Exec(`UPDATE izvori SET tocnost=?, red=?, ukljucen=?, mapa=?, napomena=? WHERE naziv=?`,
+		i.Tocnost, i.Red, i.Ukljucen, i.Mapa, i.Napomena, i.Naziv); err != nil {
 		return nil, fmt.Errorf("upis izvora %q: %w", i.Naziv, err)
 	}
-	// Napomena ne mijenja nijedan broj, pa zbog nje nema što ponovno spajati.
+	// Napomena ne mijenja nijedan broj, a mapa ga ne mijenja dok se arhiva
+	// ponovno ne izgradi — spoj se računa iz onoga što je već u bazi.
 	if prije.Tocnost == i.Tocnost && prije.Red == i.Red && prije.Ukljucen == i.Ukljucen {
 		return nil, nil
 	}

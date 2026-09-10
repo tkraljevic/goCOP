@@ -2,7 +2,9 @@ package arhiva
 
 import (
 	"database/sql"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	_ "modernc.org/sqlite"
@@ -126,5 +128,76 @@ func TestOdlukaOIzvoruPrezivljavaPonovnuGradnju(t *testing.T) {
 	}
 	if !ukljucen || napomena != "uključeno za Dravu" {
 		t.Errorf("odluka pregažena zadanim vrijednostima: uključen=%v napomena=%q", ukljucen, napomena)
+	}
+}
+
+// Izvor sa svojom mapom čita se iz nje, a ne iz zajedničkog stabla. Novi izvor
+// često stiže sa svoje strane i ne mora se preseliti da bi ušao u arhivu.
+func TestGradnjaCitaVlastituMapuIzvora(t *testing.T) {
+	db := praznaArhiva(t)
+	vlastita := t.TempDir()
+	mapa := filepath.Join(vlastita, "dunav", "batina")
+	if err := os.MkdirAll(mapa, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(mapa, "batina_vituki_vodostaj_satni_2013.csv"),
+		[]byte("vrijeme_utc;vodostaj_cm\n2013-06-14 05:00:00;776\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`UPDATE izvori SET mapa=? WHERE naziv='vituki'`, vlastita); err != nil {
+		t.Fatal(err)
+	}
+	nizovi := map[string]*niz{}
+	var log strings.Builder
+	if err := dodajIzVlastitihMapa(db, nizovi, "", &log); err != nil {
+		t.Fatal(err)
+	}
+	if len(nizovi) != 1 {
+		t.Fatalf("iz vlastite mape nije pokupljen niz: %v", nizovi)
+	}
+	for _, n := range nizovi {
+		if n.izvor != "vituki" || n.letva != "batina" {
+			t.Errorf("pokupljen krivi niz: %+v", n)
+		}
+	}
+}
+
+// Mapa koje nema ne smije srušiti gradnju: vanjski disk zna biti otkvačen, a
+// ostatak arhive s time nema veze. Mora se samo vidjeti da je preskočena.
+func TestNedostupnaMapaNeRusiGradnju(t *testing.T) {
+	db := praznaArhiva(t)
+	if _, err := db.Exec(`UPDATE izvori SET mapa='/nema/ovakve/mape' WHERE naziv='vituki'`); err != nil {
+		t.Fatal(err)
+	}
+	nizovi := map[string]*niz{}
+	var log strings.Builder
+	if err := dodajIzVlastitihMapa(db, nizovi, "", &log); err != nil {
+		t.Fatalf("gradnja je pala zbog nedostupne mape: %v", err)
+	}
+	if !strings.Contains(log.String(), "preskačem mapu") {
+		t.Errorf("preskakanje se nije zapisalo: %q", log.String())
+	}
+}
+
+// Čvor koji je preuzeo starije izdanje nema stupac s mapom. Popis izvora mora
+// raditi i ondje — inače bi mu stranica ostala prazna zbog stupca koji nema.
+func TestIzvoriSeCitajuIIzArhiveBezStupcaMape(t *testing.T) {
+	db, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "staro.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if _, err := db.Exec(`CREATE TABLE izvori (naziv TEXT PRIMARY KEY, tocnost REAL NOT NULL DEFAULT 20,
+		red INTEGER NOT NULL DEFAULT 900, ukljucen INTEGER NOT NULL DEFAULT 0,
+		napomena TEXT NOT NULL DEFAULT '');
+		INSERT INTO izvori (naziv, tocnost, red, ukljucen) VALUES ('his2000', 0, 10, 1);`); err != nil {
+		t.Fatal(err)
+	}
+	izvori, err := Izvori(db)
+	if err != nil {
+		t.Fatalf("stara arhiva se ne čita: %v", err)
+	}
+	if len(izvori) != 1 || izvori[0].Naziv != "his2000" || izvori[0].Mapa != "" {
+		t.Errorf("iz stare arhive dobiveno %+v", izvori)
 	}
 }
