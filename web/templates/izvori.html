@@ -1,0 +1,90 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Izvori arhive{{end}}
+
+{{define "content"}}
+<div class="breadcrumb"><a href="/administracija">Administracija</a> › Izvori arhive</div>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "radio-tower"}} Izvori arhive</h1>
+    <p class="page-desc">
+      Tko javlja vodostaj, koliko mu se vjeruje i ulazi li u spojeni niz. Spajanje uzima svaku vrijednost iz
+      najtočnijeg izvora koji je taj trenutak pokrio; kad su dva jednako točna, odlučuje red povjerenja.
+      Isključeni izvor ostaje u arhivi, ali se nigdje ne prikazuje.
+    </p>
+  </div>
+</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
+
+{{if .Zanemareno}}
+<div class="alert alert-warning">
+  <strong>{{brojHR .Zanemareno}} {{uzBroj .Zanemareno "zapis" "zapisa" "zapisa"}}</strong> leži u arhivi a ne ulazi
+  u spojeni niz — nigdje se ne vidi. Ako je to namjera, upišite ju u napomenu da se poslije zna.
+</div>
+{{end}}
+
+{{if .Izvori}}
+<div class="table-card"><div class="table-responsive">
+  <table class="data-table">
+    <thead><tr>
+      <th>Izvor</th><th style="text-align:right;">Točnost ±</th><th style="text-align:right;">Red</th>
+      <th>U spoju</th><th style="text-align:right;">Nizova</th><th style="text-align:right;">Zapisa</th>
+      <th>Napomena</th><th></th>
+    </tr></thead>
+    <tbody>
+    {{range .Izvori}}
+    <tr>
+      <form method="POST" action="/administracija/izvori" id="izvor-{{.Naziv}}"></form>
+      <td class="mono naslov">
+        <input type="hidden" form="izvor-{{.Naziv}}" name="naziv" value="{{.Naziv}}">
+        <strong>{{.Naziv}}</strong>
+        {{if .Letve}}<div class="reg-card-sub">{{len .Letve}} {{uzBroj (len .Letve) "letva" "letve" "letava"}}:
+          {{range $i, $l := .Letve}}{{if $i}}, {{end}}{{$l}}{{end}}</div>{{end}}
+      </td>
+      <td style="text-align:right;" data-stupac="Točnost ±">
+        <input type="text" inputmode="decimal" form="izvor-{{.Naziv}}" name="tocnost" value="{{brojHRf .Tocnost 0}}"
+               class="form-control mono" style="max-width:5rem; text-align:right;" aria-label="Točnost izvora {{.Naziv}}">
+      </td>
+      <td style="text-align:right;" data-stupac="Red">
+        <input type="text" inputmode="numeric" form="izvor-{{.Naziv}}" name="red" value="{{.Red}}"
+               class="form-control mono" style="max-width:4.5rem; text-align:right;" aria-label="Red povjerenja izvora {{.Naziv}}">
+      </td>
+      <td data-stupac="U spoju">
+        <label style="display:flex; gap:0.35rem; align-items:center;">
+          <input type="checkbox" form="izvor-{{.Naziv}}" name="ukljucen" value="1" {{if .Ukljucen}}checked{{end}}>
+          {{if .Ukljucen}}ulazi{{else}}<span class="reg-card-sub">ne ulazi</span>{{end}}
+        </label>
+      </td>
+      <td class="mono" style="text-align:right;" data-stupac="Nizova">{{if .Nizova}}{{.Nizova}}{{else}}—{{end}}</td>
+      <td class="mono" style="text-align:right;" data-stupac="Zapisa">
+        {{if .Zapisa}}{{brojHR .Zapisa}}{{else}}—{{end}}
+        {{if .Neiskoristen}}<div><span class="badge badge-unknown" title="Podaci su u arhivi, ali se nigdje ne vide">ne vidi se</span></div>{{end}}
+      </td>
+      <td data-stupac="Napomena">
+        <input type="text" form="izvor-{{.Naziv}}" name="napomena" value="{{.Napomena}}"
+               class="form-control" placeholder="zašto je tako odlučeno" aria-label="Napomena uz izvor {{.Naziv}}">
+      </td>
+      <td><button type="submit" form="izvor-{{.Naziv}}" class="btn btn-sm btn-secondary">{{icon "check"}} Spremi</button></td>
+    </tr>
+    {{end}}
+    </tbody>
+  </table>
+</div></div>
+
+<div class="table-card" style="padding:0.875rem 1.25rem; margin-top:1rem;">
+  <div class="part-label" style="margin:0 0 0.4rem;">Što se događa pri spremanju</div>
+  <p class="reading-meta" style="margin:0;">
+    Promjena točnosti, reda ili uključenosti mijenja spojeni niz, pa se letve tog izvora <strong>odmah ponovno
+    spajaju</strong> — na velikoj letvi to traje nekoliko sekundi. Promjena samo napomene ne dira nijedan broj.
+    Izvorni nizovi se pritom ne diraju: spoj se uvijek iznova računa iz njih, pa se svaka odluka može i poništiti.
+  </p>
+</div>
+{{else}}
+<div class="reg-card" style="padding:1.5rem; text-align:center;">
+  <p class="reg-card-sub" style="margin:0;">Arhiva nema popis izvora. Pojavit će se čim se arhiva izgradi ili ugradi paket.</p>
+</div>
+{{end}}
+{{end}}
