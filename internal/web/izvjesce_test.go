@@ -342,3 +342,110 @@ func probnaKartaPNG(t *testing.T) []byte {
 }
 
 func stupanj(v float64) *float64 { return &v }
+
+func probnaOcitanja(kad time.Time) []models.Reading {
+	cm := func(v int) *int { return &v }
+	return []models.Reading{
+		{MeasuredAt: kad, LevelCm: cm(660), Observer: "Ivan Horvat", Origin: "letva",
+			Note: "očitano s letve"},
+		{MeasuredAt: kad.AddDate(0, 0, -1), LevelCm: cm(505), Observer: "Ivan Horvat", Origin: "letva"},
+		{MeasuredAt: kad.AddDate(0, 0, -2), LevelCm: cm(-118), Observer: "Marko Marić", Origin: "letva"},
+	}
+}
+
+// Treće izvješće: ono što stoji na operativnoj stranici. Kartica govori što
+// letva jest, historijat što se dogodilo, očitanja što je upisano.
+func TestIzvjesceOcitanjaNosiUpisano(t *testing.T) {
+	iz := probnoIzvjesce(t)
+	iz.Dio = izvjesceOcitanja
+	iz.Ocitanja = probnaOcitanja(time.Date(2026, 9, 8, 7, 0, 0, 0, models.Zagreb))
+	iz.OcitanjaOpis = "zadnjih 30 dana"
+
+	html := dokumentXML(t, iz)
+	for _, want := range []string{
+		"Vodomjerna postaja Batina — očitanja",
+		"Očitanja — zadnjih 30 dana",
+		"660 cm", "505 cm", "-118 cm",
+		"Ivan Horvat", "Marko Marić", "očitano s letve",
+		"8.9.2026. 07:00",
+		"stranica očitanja", // podnožje govori o pravoj stranici
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("u izvješću o očitanjima nema %q", want)
+		}
+	}
+	// ne nosi ono što je na drugim stranicama
+	for _, ne := range []string{"Valovi obrane", "Povratni vodostaji", "Pragovi obrane"} {
+		if strings.Contains(html, ne) {
+			t.Errorf("izvješće o očitanjima nosi %q s druge stranice", ne)
+		}
+	}
+}
+
+// Naslov je jedan redak. Prije su to bila dva zasebna naslova, pa se drugi
+// lomio od prvoga kao da su dva dokumenta.
+func TestNaslovIzvjescaJeJedanRedak(t *testing.T) {
+	for dio, want := range map[string]string{
+		izvjesceKartica:    "Vodomjerna postaja Batina",
+		izvjesceHistorijat: "Vodomjerna postaja Batina — historijat",
+		izvjesceOcitanja:   "Vodomjerna postaja Batina — očitanja",
+	} {
+		iz := probnoIzvjesce(t)
+		iz.Dio = dio
+		html := dokumentXML(t, iz)
+		if !strings.Contains(html, want) {
+			t.Errorf("%s: naslov nije %q", dio, want)
+		}
+		if strings.Count(html, `w:val="Naslov"`) != 1 {
+			t.Errorf("%s: naslova ima %d, mora biti jedan", dio, strings.Count(html, `w:val="Naslov"`))
+		}
+	}
+}
+
+// Prazno razdoblje se kaže, a ne prešuti praznom tablicom.
+func TestIzvjesceOcitanjaBezUpisaToKaze(t *testing.T) {
+	iz := probnoIzvjesce(t)
+	iz.Dio = izvjesceOcitanja
+	iz.OcitanjaOpis = "zadnjih 30 dana"
+
+	html := dokumentXML(t, iz)
+	if !strings.Contains(html, "nema upisanih očitanja") {
+		t.Error("prazno razdoblje se prešućuje")
+	}
+}
+
+// Stupci koji nemaju što pokazati ne stoje prazni.
+func TestIzvjesceOcitanjaNemaPraznihStupaca(t *testing.T) {
+	iz := probnoIzvjesce(t)
+	iz.Dio = izvjesceOcitanja
+	cm := func(v int) *int { return &v }
+	iz.Ocitanja = []models.Reading{{MeasuredAt: time.Now(), LevelCm: cm(-118), Origin: "letva"}}
+
+	// "Napomena" je i naziv stila u dokumentu, pa se traži tekst ćelije, ne riječ
+	html := dokumentXML(t, iz)
+	for _, ne := range []string{"Stupanj obrane", "Napomena"} {
+		if strings.Contains(html, ">"+ne+"<") {
+			t.Errorf("prazan stupac %q stoji u tablici", ne)
+		}
+	}
+	// a kad ima što pokazati, stupac se pojavi
+	iz.Ocitanja[0].Note = "led na letvi"
+	if !strings.Contains(dokumentXML(t, iz), ">Napomena<") {
+		t.Error("stupac napomene se ne pojavljuje ni kad napomena postoji")
+	}
+}
+
+// Tri izvješća iste letve moraju imati različita imena — inače se u mapi
+// preuzimanja tiho prepisuju.
+func TestTriIzvjescaImajuRazlicitaImena(t *testing.T) {
+	st := models.Station{Code: "batina", Name: "Batina"}
+	kad := time.Date(2026, 9, 10, 12, 0, 0, 0, models.Zagreb)
+	vidjeno := map[string]string{}
+	for _, dio := range []string{izvjesceKartica, izvjesceHistorijat, izvjesceOcitanja} {
+		ime := imeIzvjesca(st, kad, dio)
+		if prije, ima := vidjeno[ime]; ima {
+			t.Errorf("%s i %s dijele ime %q", prije, dio, ime)
+		}
+		vidjeno[ime] = dio
+	}
+}

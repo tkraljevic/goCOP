@@ -51,11 +51,18 @@ type IzvjesceLetve struct {
 	// toj stranici i ništa više: tko ga sastavlja s kartice, prilaže podatke o
 	// letvi; tko s historijata, prilaže što se dogodilo.
 	Dio string
+
+	// Očitanja s operativne stranice: ono što su ljudi upisali u odabranom
+	// razdoblju. Cijelo razdoblje, ne samo prikazana stranica.
+	Ocitanja      []models.Reading
+	OcitanjaOpis  string // koje je razdoblje odabrano, npr. „zadnjih 30 dana"
+	OcitanjaFazne []models.PragObrane
 }
 
 const (
 	izvjesceKartica    = "kartica"
 	izvjesceHistorijat = "historijat"
+	izvjesceOcitanja   = "ocitanja"
 )
 
 // valovaUIzvjescu je koliko se najviših valova ispisuje poimence. Batinin niz
@@ -67,16 +74,25 @@ const valovaUIzvjescu = 25
 func (iz IzvjesceLetve) Sastavi() *docx.Dokument {
 	st := iz.Station
 	naslov := "Izvješće o vodomjernoj postaji " + st.Name
-	if iz.Dio == izvjesceHistorijat {
+	switch iz.Dio {
+	case izvjesceHistorijat:
 		naslov = "Historijat vodomjerne postaje " + st.Name
+	case izvjesceOcitanja:
+		naslov = "Očitanja vodomjerne postaje " + st.Name
 	}
 	d := docx.Novi(naslov, iz.Sastavio, iz.Kad)
 	d.PostaviZaglavlje(iz.Zaglavlje)
 
-	d.Naslov("Vodomjerna postaja " + st.Name)
-	if iz.Dio == izvjesceHistorijat {
-		d.Naslov("historijat")
+	// Jedan naslov, ne dva: drugi red je bio zaseban naslov i lomio se od
+	// prvoga kao da su dva dokumenta.
+	glava := "Vodomjerna postaja " + st.Name
+	switch iz.Dio {
+	case izvjesceHistorijat:
+		glava += " — historijat"
+	case izvjesceOcitanja:
+		glava += " — očitanja"
 	}
+	d.Naslov(glava)
 	pod := []string{}
 	if st.HasWatercourse() {
 		pod = append(pod, st.Watercourse)
@@ -94,6 +110,8 @@ func (iz IzvjesceLetve) Sastavi() *docx.Dokument {
 		iz.krivuljeProtoka(d)
 		iz.valoviObrane(d)
 		iz.proglaseneObrane(d)
+	} else if iz.Dio == izvjesceOcitanja {
+		iz.ocitanjaPoglavlje(d)
 	} else {
 		iz.pragovi(d)
 		iz.kotaNule(d)
@@ -522,8 +540,106 @@ func (iz IzvjesceLetve) podrijetloPodataka(d *docx.Dokument) {
 	d.Par("Postaja", iz.Station.Name)
 	d.Par("Sastavio", iz.Sastavio)
 	d.Par("Sastavljeno", iz.Kad.In(models.Zagreb).Format("2.1.2006. u 15:04"))
+	stranica := "kartica letve"
+	switch iz.Dio {
+	case izvjesceHistorijat:
+		stranica = "historijat letve"
+	case izvjesceOcitanja:
+		stranica = "stranica očitanja"
+	}
 	d.Napomena("Izvješće je sastavljeno iz podataka programa i ne mijenja ih. Sve brojke " +
-		"računaju se pri sastavljanju iz istog niza koji prikazuje kartica letve, pa se " +
+		"računaju se pri sastavljanju iz istog niza koji prikazuje " + stranica + ", pa se " +
 		"dokument i stranica ne mogu razići. Grafovi nisu ugrađeni; brojke koje pokazuju " +
 		"stoje u tablicama.")
+}
+
+// ocitanjaPoglavlje je operativni dio: što je u odabranom razdoblju upisano na
+// ovoj letvi. Za razliku od arhive, ovo su vrijednosti koje su ljudi unijeli i
+// po kojima se vodi obrana, pa uz svaku stoji tko je očitao i odakle je došla.
+func (iz IzvjesceLetve) ocitanjaPoglavlje(d *docx.Dokument) {
+	if len(iz.Ocitanja) == 0 {
+		d.Poglavlje("Očitanja")
+		d.Napomena("U odabranom razdoblju nema upisanih očitanja.")
+		return
+	}
+	naslov := "Očitanja"
+	if iz.OcitanjaOpis != "" {
+		naslov += " — " + iz.OcitanjaOpis
+	}
+	d.Poglavlje(naslov)
+
+	glave := []string{"Vrijeme", "Vodostaj"}
+	kote := iz.Station.ImaKotuNule()
+	if kote {
+		glave = append(glave, "Kota vode")
+	}
+	if len(iz.Krivulje) > 0 {
+		glave = append(glave, "Protok")
+	}
+	imaStupanj, imaNapomenu := false, false
+	for _, o := range iz.Ocitanja {
+		imaStupanj = imaStupanj || o.Phase.InForce()
+		imaNapomenu = imaNapomenu || strings.TrimSpace(o.Note) != ""
+	}
+	if imaStupanj {
+		glave = append(glave, "Stupanj obrane")
+	}
+	glave = append(glave, "Očitao", "Odakle")
+	if imaNapomenu {
+		glave = append(glave, "Napomena")
+	}
+
+	var redci [][]string
+	for _, o := range iz.Ocitanja {
+		red := []string{o.LocalTime().Format("2.1.2006. 15:04"), ""}
+		if o.LevelCm != nil {
+			red[1] = brojHR(*o.LevelCm) + " cm"
+			if o.Level2Cm != nil {
+				red[1] += " / " + brojHR(*o.Level2Cm) + " cm nizvodno"
+			}
+		} else {
+			red[1] = "—"
+		}
+		if kote {
+			var k []string
+			if o.LevelCm != nil {
+				for _, v := range iz.Station.Kote(*o.LevelCm) {
+					k = append(k, brojHRf(v.Kota, 3)+" m "+v.Sustav)
+				}
+			}
+			red = append(red, strings.Join(k, "\n"))
+		}
+		if len(iz.Krivulje) > 0 {
+			q := ""
+			if o.LevelCm != nil {
+				if kr := krivuljaZa(iz.Krivulje, o.LocalTime()); kr != nil {
+					if v, ok := kr.Protok(*o.LevelCm); ok {
+						q = brojHRf(v, 0) + " m³/s"
+					}
+				}
+			}
+			red = append(red, q)
+		}
+		if imaStupanj {
+			stupanj := ""
+			if o.Phase.InForce() {
+				stupanj = o.Phase.Label()
+			}
+			red = append(red, stupanj)
+		}
+		odakle := o.OriginLabel()
+		if odakle == "" {
+			odakle = o.Source
+		}
+		red = append(red, o.Observer, odakle)
+		if imaNapomenu {
+			red = append(red, o.Note)
+		}
+		redci = append(redci, red)
+	}
+	d.Tablica(glave, redci)
+
+	d.Napomena("Očitanja su ono što je upisano na ovoj letvi i po čemu se vodi obrana. " +
+		"Kota vode i protok nisu mjereni nego preračunati — kota iz kote nule vodomjera, " +
+		"protok iz službene krivulje koja je u trenutku očitanja vrijedila.")
 }

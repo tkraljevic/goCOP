@@ -27,6 +27,7 @@ import (
 // vrijeme je sad, sve ostalo je izborno.
 
 type ReadingsHandler struct {
+	sektorZaLetvuFn  func(context.Context, *models.Station) *models.Sector
 	readingService   *service.ReadingService
 	stationService   *service.StationService
 	structureService *service.StructureService
@@ -66,6 +67,21 @@ func (h *ReadingsHandler) isp() *repository.IspravakRepository {
 
 // SetArhiva daje rukovatelju hidrološku arhivu. Dohvatnik, a ne vrijednost:
 // poslužitelj se sastavlja prije nego što se arhiva otvori.
+// SetSektorZaLetvu daje rukovatelju centar iz kojeg dokument izlazi. Gotov
+// dohvatnik, a ne servisi: razrješavanje dionice u sektor ostaje ondje gdje su
+// ti servisi ionako sastavljeni.
+func (h *ReadingsHandler) SetSektorZaLetvu(f func(context.Context, *models.Station) *models.Sector) {
+	h.sektorZaLetvuFn = f
+}
+
+// sektorZaLetvu vraća centar; bez dohvatnika dokument nastaje bez memoranduma.
+func (h *ReadingsHandler) sektorZaLetvu(ctx context.Context, st *models.Station) *models.Sector {
+	if h.sektorZaLetvuFn == nil {
+		return nil
+	}
+	return h.sektorZaLetvuFn(ctx, st)
+}
+
 func (h *ReadingsHandler) SetArhiva(f func() *repository.ArhivaRepository) {
 	h.arhiva = f
 }
@@ -121,6 +137,7 @@ type ReadingHistoryData struct {
 	GaugeSub    string
 	NewURL      string
 	Readings    []models.Reading
+	Svi         []models.Reading // cijelo odabrano razdoblje, prije listanja — za izvješće
 	Latest      *models.Reading
 	Count       int
 	Years       []int
@@ -367,7 +384,24 @@ func gaugeNames(station *models.Station, structure *models.Structure) (name, sub
 }
 
 // ShowHistory prikazuje očitanja jedne letve
+// ShowHistory je operativna stranica letve: graf kretanja i svježa očitanja.
 func (h *ReadingsHandler) ShowHistory(w http.ResponseWriter, r *http.Request) {
+	data, station, ok := h.podaciOcitanja(w, r)
+	if !ok {
+		return
+	}
+	if station != nil {
+		data.LetvaStranica = "ocitanja"
+	}
+	if err := h.tmplHistory.ExecuteTemplate(w, "reading_history.html", data); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+// podaciOcitanja prikuplja sve što stranica očitanja prikazuje. Odvojeno od
+// iscrtavanja, jer isto treba i izvješću — inače bi dokument i stranica mogli
+// pokazivati različito razdoblje.
+func (h *ReadingsHandler) podaciOcitanja(w http.ResponseWriter, r *http.Request) (ReadingHistoryData, *models.Station, bool) {
 	ctx := r.Context()
 	u, perms := h.base(r)
 	var station *models.Station
@@ -379,7 +413,7 @@ func (h *ReadingsHandler) ShowHistory(w http.ResponseWriter, r *http.Request) {
 	}
 	if station == nil && structure == nil {
 		http.NotFound(w, r)
-		return
+		return ReadingHistoryData{}, nil, false
 	}
 	data := ReadingHistoryData{
 		CurrentUser: u, Permissions: perms, Station: station, Structure: structure,
@@ -497,6 +531,7 @@ func (h *ReadingsHandler) ShowHistory(w http.ResponseWriter, r *http.Request) {
 	}
 	data.Chart = crtajNiz(prorijediNiz(zaGraf, 700), "vodostaj", thresholdStation, nil)
 	data.ChartUzak = crtajNizUzak(prorijediNiz(zaGraf, 260), "vodostaj", thresholdStation, nil)
+	data.Svi = shown // izvješće uzima cijelo razdoblje, ne samo prikazanu stranicu
 	data.Readings, data.Pager = paginate(shown, r, readingsPerPage)
 	// na grafu se istakne ono što je upravo u tablici
 	if n := len(data.Readings); n > 0 && data.Pager.Multi() {
@@ -511,12 +546,7 @@ func (h *ReadingsHandler) ShowHistory(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if station != nil {
-		data.LetvaStranica = "ocitanja"
-	}
-	if err := h.tmplHistory.ExecuteTemplate(w, "reading_history.html", data); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
+	return data, station, true
 }
 
 // koritoUzGraf priprema presjek korita ispod grafa: voda po zadnjem očitanju
