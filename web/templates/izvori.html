@@ -11,7 +11,8 @@
     <p class="page-desc">
       Tko javlja vodostaj, koliko mu se vjeruje i ulazi li u spojeni niz. Spajanje uzima svaku vrijednost iz
       najtočnijeg izvora koji je taj trenutak pokrio; kad su dva jednako točna, odlučuje red povjerenja.
-      Isključeni izvor ostaje u arhivi, ali se nigdje ne prikazuje.
+      Isključeni izvor ostaje u arhivi, ali se nigdje ne prikazuje. Točnost je odstupanje u jedinici veličine —
+      u koliko se centimetara drži 68 % vrijednosti tog izvora.
     </p>
   </div>
 </div>
@@ -27,52 +28,61 @@
 {{end}}
 
 {{if .Izvori}}
-<div class="table-card"><div class="table-responsive">
-  <table class="data-table">
-    <thead><tr>
-      <th>Izvor</th><th style="text-align:right;">Točnost ±</th><th style="text-align:right;">Red</th>
-      <th>U spoju</th><th style="text-align:right;">Nizova</th><th style="text-align:right;">Zapisa</th>
-      <th>Napomena</th><th></th>
-    </tr></thead>
-    <tbody>
-    {{range .Izvori}}
-    <tr>
-      <form method="POST" action="/administracija/izvori" id="izvor-{{.Naziv}}"></form>
-      <td class="mono naslov">
-        <input type="hidden" form="izvor-{{.Naziv}}" name="naziv" value="{{.Naziv}}">
-        <strong>{{.Naziv}}</strong>
-        {{if .Letve}}<div class="reg-card-sub">{{len .Letve}} {{uzBroj (len .Letve) "letva" "letve" "letava"}}:
-          {{range $i, $l := .Letve}}{{if $i}}, {{end}}{{$l}}{{end}}</div>{{end}}
-      </td>
-      <td style="text-align:right;" data-stupac="Točnost ±">
-        <input type="text" inputmode="decimal" form="izvor-{{.Naziv}}" name="tocnost" value="{{brojHRf .Tocnost 0}}"
-               class="form-control mono" style="max-width:5rem; text-align:right;" aria-label="Točnost izvora {{.Naziv}}">
-      </td>
-      <td style="text-align:right;" data-stupac="Red">
-        <input type="text" inputmode="numeric" form="izvor-{{.Naziv}}" name="red" value="{{.Red}}"
-               class="form-control mono" style="max-width:4.5rem; text-align:right;" aria-label="Red povjerenja izvora {{.Naziv}}">
-      </td>
-      <td data-stupac="U spoju">
-        <label style="display:flex; gap:0.35rem; align-items:center;">
-          <input type="checkbox" form="izvor-{{.Naziv}}" name="ukljucen" value="1" {{if .Ukljucen}}checked{{end}}>
-          {{if .Ukljucen}}ulazi{{else}}<span class="reg-card-sub">ne ulazi</span>{{end}}
-        </label>
-      </td>
-      <td class="mono" style="text-align:right;" data-stupac="Nizova">{{if .Nizova}}{{.Nizova}}{{else}}—{{end}}</td>
-      <td class="mono" style="text-align:right;" data-stupac="Zapisa">
-        {{if .Zapisa}}{{brojHR .Zapisa}}{{else}}—{{end}}
-        {{if .Neiskoristen}}<div><span class="badge badge-unknown" title="Podaci su u arhivi, ali se nigdje ne vide">ne vidi se</span></div>{{end}}
-      </td>
-      <td data-stupac="Napomena">
-        <input type="text" form="izvor-{{.Naziv}}" name="napomena" value="{{.Napomena}}"
-               class="form-control" placeholder="zašto je tako odlučeno" aria-label="Napomena uz izvor {{.Naziv}}">
-      </td>
-      <td><button type="submit" form="izvor-{{.Naziv}}" class="btn btn-sm btn-secondary">{{icon "check"}} Spremi</button></td>
-    </tr>
+<div class="izvori-mreza">
+  {{range .Izvori}}
+  <form method="POST" action="/administracija/izvori" class="izvor-kartica{{if not .Ukljucen}} izvor-iskljucen{{end}}">
+    <input type="hidden" name="naziv" value="{{.Naziv}}">
+
+    <div class="izvor-glava">
+      <div>
+        <h2 class="izvor-naziv mono">{{.Naziv}}</h2>
+        <p class="izvor-obujam">
+          {{if .Nizova}}{{brojHR .Zapisa}} {{uzBroj .Zapisa "zapis" "zapisa" "zapisa"}} ·
+            {{.Nizova}} {{uzBroj .Nizova "niz" "niza" "nizova"}} ·
+            {{len .Letve}} {{uzBroj (len .Letve) "letva" "letve" "letava"}}
+          {{else}}nema podataka u arhivi{{end}}
+        </p>
+      </div>
+      {{if .Neiskoristen}}<span class="badge badge-unknown" title="Podaci su u arhivi, ali se nigdje ne vide">ne vidi se</span>{{end}}
+    </div>
+
+    <label class="izvor-sklopka">
+      <input type="checkbox" name="ukljucen" value="1" {{if .Ukljucen}}checked{{end}}>
+      <span><strong>Ulazi u spojeni niz</strong></span>
+    </label>
+
+    <div class="izvor-brojevi">
+      <label>
+        <span class="part-label">Točnost ±</span>
+        <input type="text" inputmode="decimal" name="tocnost" value="{{brojHRf .Tocnost 0}}" class="form-control mono">
+        <small>68 % vrijednosti</small>
+      </label>
+      <label>
+        <span class="part-label">Red povjerenja</span>
+        <input type="text" inputmode="numeric" name="red" value="{{.Red}}" class="form-control mono">
+        <small>manji broj ide prvi</small>
+      </label>
+    </div>
+
+    <label class="izvor-napomena">
+      <span class="part-label">Napomena</span>
+      <input type="text" name="napomena" value="{{.Napomena}}" class="form-control"
+             placeholder="zašto je tako odlučeno">
+    </label>
+
+    {{if .Letve}}
+    <details class="izvor-letve">
+      <summary>Letve ({{len .Letve}})</summary>
+      <p>{{range $i, $l := .Letve}}{{if $i}}, {{end}}{{$l}}{{end}}</p>
+    </details>
     {{end}}
-    </tbody>
-  </table>
-</div></div>
+
+    <div class="izvor-podnozje">
+      <button type="submit" class="btn btn-sm btn-primary">{{icon "check"}} Spremi</button>
+    </div>
+  </form>
+  {{end}}
+</div>
 
 <div class="table-card" style="padding:0.875rem 1.25rem; margin-top:1rem;">
   <div class="part-label" style="margin:0 0 0.4rem;">Što se događa pri spremanju</div>
