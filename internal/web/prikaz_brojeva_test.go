@@ -762,7 +762,7 @@ func TestRedakSazetkaOtvaraTuVelicinu(t *testing.T) {
 			ArhPager:   pagerZa(&http.Request{URL: &url.URL{Path: "/x"}}, "ap", 365, 100),
 		},
 	})
-	for _, want := range []string{"?v=protok&amp;korak=dnevni&amp;god=2013#niz", `id="niz"`} {
+	for _, want := range []string{"?v=protok&amp;korak=dnevni&amp;god=2013&amp;mj=0#niz", `id="niz"`} {
 		if !strings.Contains(html, want) {
 			t.Errorf("stranica povijesti nema %q", want)
 		}

@@ -90,7 +90,27 @@ func templateFuncs() template.FuncMap {
 		// int(v+0.5) je krivo za negativne brojeve: -109,0 je davalo -108, pa je
 		// kota vode ispadala centimetar previsoka. Batina je negativna veći dio
 		// godine, a greška se nije vidjela jer je i tablica računala drukčije.
-		"round": func(v float64) int { return int(math.Round(v)) },
+		// Hrvatski broj uz imenicu: 1 vrijednost, 2 vrijednosti, 5 vrijednosti,
+		// ali 11 vrijednosti i 21 vrijednost. Bez toga na stranici piše
+		// "31 vrijednosti", što odmah bode oko.
+		"uzBroj": func(n int, jednina, dvojina, mnozina string) string {
+			if n < 0 {
+				n = -n
+			}
+			zadnje, zadnja2 := n%10, n%100
+			switch {
+			case zadnja2 >= 11 && zadnja2 <= 14:
+				return mnozina
+			case zadnje == 1:
+				return jednina
+			case zadnje >= 2 && zadnje <= 4:
+				return dvojina
+			}
+			return mnozina
+		},
+		"mjeseci":   func() []int { return []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12} },
+		"mjesecIme": models.MjesecIme,
+		"round":     func(v float64) int { return int(math.Round(v)) },
 		// Letva dolazi kao pokazivač sa stranice očitanja, a kao vrijednost s
 		// historijata; isti se dio predloška iscrtava na obje.
 		"kotaVode": func(letva any, cm float64) float64 {
