@@ -448,7 +448,7 @@ func NewServer(
 
 	// Predlošci koji proširuju base.html
 	for _, page := range []string{"dashboard.html", "registri.html", "users.html", "user_detail.html", "user_form.html", "duty_form.html", "profile.html", "sections.html", "section_detail.html", "section_form.html", "territories.html", "county_form.html", "municipality_form.html", "municipality_detail.html", "stations.html", "station_detail.html", "station_form.html", "station_history.html", "station_history_form.html", "paket_pregled.html", "watercourses.html", "watercourse_detail.html", "watercourse_form.html", "structures.html", "structure_detail.html", "structure_form.html", "readings.html", "reading_history.html", "reading_form.html", "arhiva_ispravci.html", "uvoz_ocitanja.html", "teren.html", "moduli.html", "settings.html", "odrzavanje.html", "organizacija.html", "sector_form.html", "area_form.html", "contractor_form.html", "firme.html", "nazivi.html", "sudionici.html",
-		"administracija.html", "uvozi.html", "sinkronizacija.html", "pretplate.html", "baza.html",
+		"administracija.html", "uvozi.html", "sinkronizacija.html", "pretplate.html", "baza.html", "izvori.html",
 		"dnevnici.html", "dnevnik_form.html", "dnevnik.html", "dnevnik_list.html", "pomoc.html", "ocitanja_ispravci.html"} {
 		t, err := template.New("base.html").Funcs(tmplFuncs).ParseFS(templatesFS, "base.html", page)
 		if err != nil {
@@ -808,6 +808,9 @@ func (s *Server) setupRoutes() {
 
 	// Održavanje baze: brojke, sažimanje, VACUUM, izvoz i uvoz kanala
 	dbH := NewDBMaintHandler(func() *sql.DB { return s.db }, s.recorder, s.peersService, func() string { return s.dbPath }, s.templates["baza.html"])
+	izvoriH := NewIzvoriHandler(func() string { return s.arhivaPut }, s.PostaviIzvor, s.templates["izvori.html"])
+	s.mux.Handle("GET /administracija/izvori", s.authMiddleware(http.HandlerFunc(izvoriH.ShowIzvori)))
+	s.mux.Handle("POST /administracija/izvori", s.authMiddleware(http.HandlerFunc(izvoriH.SpremiIzvor)))
 	s.mux.Handle("GET /administracija/baza", s.authMiddleware(http.HandlerFunc(dbH.ShowMaintenance)))
 	s.mux.Handle("POST /administracija/baza/sazmi", s.authMiddleware(http.HandlerFunc(dbH.HandleCompact)))
 	s.mux.Handle("POST /administracija/baza/vacuum", s.authMiddleware(http.HandlerFunc(dbH.HandleVacuum)))
@@ -1004,6 +1007,42 @@ func (s *Server) UgradiPaket(sadrzaj *arhiva.Sadrzaj) error {
 	}
 	s.arhiva = novo
 	return nil
+}
+
+// PostaviIzvor mijenja izvor u arhivi i ponovno spaja letve kojih se tiče.
+// Arhiva je otvorena samo za čitanje, pa se za upis otvara zasebno i po
+// završetku se čitač zamjenjuje novim — inače bi stranice još neko vrijeme
+// pokazivale spoj kakav je bio prije promjene.
+func (s *Server) PostaviIzvor(i arhiva.Izvor) ([]string, error) {
+	if s.arhivaPut == "" {
+		return nil, fmt.Errorf("nije poznato gdje arhiva stoji")
+	}
+	db, err := sql.Open("sqlite", s.arhivaPut+"?_pragma=journal_mode(WAL)")
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+	letve, err := arhiva.PostaviIzvor(db, i)
+	if err != nil {
+		return nil, err
+	}
+	for _, l := range letve {
+		if _, err := arhiva.Spoji(db, l); err != nil {
+			return nil, fmt.Errorf("ponovno spajanje letve %s: %w", l, err)
+		}
+	}
+	if len(letve) == 0 {
+		return nil, nil
+	}
+	novo, err := repository.OpenArhiva(s.arhivaPut)
+	if err != nil {
+		return letve, err
+	}
+	if s.arhiva != nil {
+		s.arhiva.Close()
+	}
+	s.arhiva = novo
+	return letve, nil
 }
 
 func (s *Server) SetAddr(addr string) {

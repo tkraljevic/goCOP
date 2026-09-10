@@ -889,6 +889,64 @@ func upisiZadaneIzvore(db *sql.DB) error {
 	return err
 }
 
+// Izvori vraća sve izvore koje arhiva poznaje, po redu povjerenja. Služi
+// stranici na kojoj se uređuju; gradnja koristi citajIzvore.
+func Izvori(db *sql.DB) ([]Izvor, error) {
+	rows, err := db.Query(`SELECT naziv, tocnost, red, ukljucen, napomena FROM izvori ORDER BY red, naziv`)
+	if err != nil {
+		return nil, fmt.Errorf("čitanje izvora: %w", err)
+	}
+	defer rows.Close()
+	var out []Izvor
+	for rows.Next() {
+		var i Izvor
+		if err := rows.Scan(&i.Naziv, &i.Tocnost, &i.Red, &i.Ukljucen, &i.Napomena); err != nil {
+			return nil, err
+		}
+		out = append(out, i)
+	}
+	return out, rows.Err()
+}
+
+// PostaviIzvor mijenja jedan izvor i javlja koje letve zbog toga treba ponovno
+// spojiti — one koje od njega imaju ijedan niz. Spajanje se ne pokreće ovdje:
+// na velikoj letvi traje sekundama, pa je odluka kad ga pokrenuti na pozivatelju.
+func PostaviIzvor(db *sql.DB, i Izvor) ([]string, error) {
+	var prije Izvor
+	err := db.QueryRow(`SELECT tocnost, red, ukljucen, napomena FROM izvori WHERE naziv=?`, i.Naziv).
+		Scan(&prije.Tocnost, &prije.Red, &prije.Ukljucen, &prije.Napomena)
+	if err != nil {
+		return nil, fmt.Errorf("izvor %q: %w", i.Naziv, err)
+	}
+	if _, err := db.Exec(`UPDATE izvori SET tocnost=?, red=?, ukljucen=?, napomena=? WHERE naziv=?`,
+		i.Tocnost, i.Red, i.Ukljucen, i.Napomena, i.Naziv); err != nil {
+		return nil, fmt.Errorf("upis izvora %q: %w", i.Naziv, err)
+	}
+	// Napomena ne mijenja nijedan broj, pa zbog nje nema što ponovno spajati.
+	if prije.Tocnost == i.Tocnost && prije.Red == i.Red && prije.Ukljucen == i.Ukljucen {
+		return nil, nil
+	}
+	rows, err := db.Query(`SELECT DISTINCT letva FROM nizovi WHERE izvor=? ORDER BY letva`, i.Naziv)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var letve []string
+	for rows.Next() {
+		var l string
+		if err := rows.Scan(&l); err != nil {
+			return nil, err
+		}
+		letve = append(letve, l)
+	}
+	return letve, rows.Err()
+}
+
+// Spoji ponovno gradi spojeni niz jedne letve iz onoga što je već u arhivi.
+// Ne dira izvorne nizove i ne traži mapu s datotekama — čvor koji je arhivu
+// dobio paketom nema odakle graditi, ali spajati mora moći.
+func Spoji(db *sql.DB, letva string) (int, error) { return spoji(db, letva) }
+
 // citajIzvore vraća uključene izvore po redu povjerenja i točnost svih.
 func citajIzvore(db *sql.DB) (red []string, tocnosti map[string]float64, err error) {
 	rows, err := db.Query(`SELECT naziv, tocnost, ukljucen FROM izvori ORDER BY red, naziv`)
