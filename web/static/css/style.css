@@ -2885,7 +2885,6 @@ textarea {
 .niz-redak.odabran {
   background: var(--tint-blue-bg);
   box-shadow: inset 3px 0 0 var(--primary);
-  border-color: var(--primary);
 }
 
 .niz-redak:focus-visible {
@@ -2969,36 +2968,3 @@ textarea {
 .izvor-letve > p { margin: 0.35rem 0 0; font-size: 0.8125rem; color: var(--text-muted); overflow-wrap: anywhere; }
 .izvor-podnozje { display: flex; justify-content: flex-end; margin-top: auto; }
 .izvor-disk { display: block; margin-top: 0.25rem; color: var(--text-muted); font-size: 0.7rem; overflow-wrap: anywhere; }
-
-/* Listanje arhive: vrijednost po kartici umjesto retka tablice. Tablica ima
-   jednu širinu, a zasloni je nemaju — na telefonu se pet stupaca stisne do
-   neupotrebljivosti. Kartica je uska pa ih na širokom zaslonu stane pet-šest
-   u red, a 31 vrijednost i dalje stane na jednu stranicu. */
-.niz-mreza {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
-  gap: 0.5rem;
-  margin-bottom: 0.75rem;
-}
-.niz-kartica {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  padding: 0.625rem 0.75rem;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-}
-.niz-kad { font-size: 0.75rem; color: var(--text-muted); }
-.niz-vrijednost { font-size: 1.125rem; font-weight: 600; line-height: 1.2; }
-.niz-jedinica { font-size: 0.7rem; font-weight: 400; color: var(--text-muted); }
-.niz-izvorno { font-size: 0.75rem; color: var(--text-muted); }
-.niz-kota { font-size: 0.8125rem; color: var(--text-muted); }
-/* Podrijetlo u jednom retku: "COP Osijek, odabrana jutarnja vrijednost" inače
-   prelama karticu u dva retka i cijeli red kartica postane viši zbog jedne.
-   Puni naziv ostaje u title, jer se vrijednost i datum skeniraju, a izvor se
-   traži tek kad nešto zapne. */
-.niz-podrijetlo { display: flex; gap: 0.25rem; align-items: center; margin-top: 0.25rem; font-size: 0.7rem; min-width: 0; }
-.niz-podrijetlo .badge { font-size: 0.65rem; flex: none; }
-.niz-podrijetlo .reg-card-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.niz-kartica { min-width: 0; }
