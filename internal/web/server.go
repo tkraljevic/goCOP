@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"gocop/internal/arhiva"
 	"gocop/internal/hydro"
 	"gocop/internal/ledger"
 	"gocop/internal/models"
@@ -52,6 +53,7 @@ func (k KartaPostavke) Ima() bool { return k.Plocice != "" }
 
 type Server struct {
 	karta              KartaPostavke
+	arhivaPut          string
 	addr               string
 	authService        *service.AuthService
 	userService        *service.UserService
@@ -438,7 +440,7 @@ func NewServer(
 	templates := make(map[string]*template.Template)
 
 	// Predlošci koji proširuju base.html
-	for _, page := range []string{"dashboard.html", "registri.html", "users.html", "user_detail.html", "user_form.html", "duty_form.html", "profile.html", "sections.html", "section_detail.html", "section_form.html", "territories.html", "county_form.html", "municipality_form.html", "municipality_detail.html", "stations.html", "station_detail.html", "station_form.html", "station_history.html", "station_history_form.html", "watercourses.html", "watercourse_detail.html", "watercourse_form.html", "structures.html", "structure_detail.html", "structure_form.html", "readings.html", "reading_history.html", "reading_form.html", "arhiva_ispravci.html", "uvoz_ocitanja.html", "teren.html", "moduli.html", "settings.html", "odrzavanje.html", "organizacija.html", "sector_form.html", "area_form.html", "contractor_form.html", "firme.html", "nazivi.html", "sudionici.html",
+	for _, page := range []string{"dashboard.html", "registri.html", "users.html", "user_detail.html", "user_form.html", "duty_form.html", "profile.html", "sections.html", "section_detail.html", "section_form.html", "territories.html", "county_form.html", "municipality_form.html", "municipality_detail.html", "stations.html", "station_detail.html", "station_form.html", "station_history.html", "station_history_form.html", "paket_pregled.html", "watercourses.html", "watercourse_detail.html", "watercourse_form.html", "structures.html", "structure_detail.html", "structure_form.html", "readings.html", "reading_history.html", "reading_form.html", "arhiva_ispravci.html", "uvoz_ocitanja.html", "teren.html", "moduli.html", "settings.html", "odrzavanje.html", "organizacija.html", "sector_form.html", "area_form.html", "contractor_form.html", "firme.html", "nazivi.html", "sudionici.html",
 		"administracija.html", "uvozi.html", "sinkronizacija.html", "pretplate.html", "baza.html",
 		"dnevnici.html", "dnevnik_form.html", "dnevnik.html", "dnevnik_list.html", "pomoc.html", "ocitanja_ispravci.html"} {
 		t, err := template.New("base.html").Funcs(tmplFuncs).ParseFS(templatesFS, "base.html", page)
@@ -512,6 +514,11 @@ func (s *Server) setupRoutes() {
 		return repository.NewIspravakRepository(s.db, s.recorder)
 	})
 	stationsH.SetKarta(func() KartaPostavke { return s.karta })
+	stationsH.SetPaket(
+		func() string { return s.arhivaPut },
+		func() string { return s.recorder.Cvor() },
+		s.UgradiPaket,
+		s.templates["paket_pregled.html"])
 	stationsH.SetSektor(func(ctx context.Context, id string) *models.Sector {
 		if s.orgService == nil {
 			return nil
@@ -735,6 +742,9 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /stations/{id}/historijat/uredi", s.authMiddleware(http.HandlerFunc(stationsH.ObrazacHistorijata)))
 	s.mux.Handle("GET /readings/station/{id}/izvjesce.docx",
 		s.authMiddleware(http.HandlerFunc(readingsH.IzvjesceOcitanjaDocx)))
+	s.mux.Handle("GET /stations/{id}/paket.cop", s.authMiddleware(http.HandlerFunc(stationsH.IzveziPaket)))
+	s.mux.Handle("POST /stations/{id}/paket/pregled", s.authMiddleware(http.HandlerFunc(stationsH.PregledPaketa)))
+	s.mux.Handle("POST /stations/{id}/paket/ugradi", s.authMiddleware(http.HandlerFunc(stationsH.UgradiPaket)))
 	s.mux.Handle("GET /stations/{id}/izvjesce.docx", s.authMiddleware(http.HandlerFunc(stationsH.IzvjesceLetveDocx)))
 	s.mux.Handle("GET /stations/{id}/edit", s.authMiddleware(http.HandlerFunc(stationsH.ShowStationForm)))
 	s.mux.Handle("GET /api/stations", s.authMiddleware(http.HandlerFunc(stationsH.HandleListStationsAPI)))
@@ -947,6 +957,46 @@ func (s *Server) SetKarta(plocice, zasluge string, najviseZ int) {
 // smije je ne biti: čvor koji je nije preuzeo radi bez povijesti, ne pada.
 func (s *Server) SetArhiva(a *repository.ArhivaRepository) {
 	s.arhiva = a
+}
+
+// SetArhivaPut govori poslužitelju gdje arhiva stoji. Bez toga se paket može
+// izvesti, ali ne i ugraditi: arhiva se za čitanje otvara samo za čitanje, pa
+// upis traži vlastito otvaranje.
+func (s *Server) SetArhivaPut(put string) {
+	s.arhivaPut = put
+}
+
+// UgradiPaket upisuje paket u arhivu i ponovno je otvara, da program odmah
+// vidi novu povijest. Bez ponovnog otvaranja stara veza pokazuje staro stanje
+// dok se program ne pokrene iznova.
+func (s *Server) UgradiPaket(sadrzaj *arhiva.Sadrzaj) error {
+	if s.arhivaPut == "" {
+		return fmt.Errorf("nije poznato gdje arhiva stoji")
+	}
+	db, err := sql.Open("sqlite", s.arhivaPut+"?_pragma=journal_mode(WAL)")
+	if err != nil {
+		return err
+	}
+	if err := arhiva.PripremiPraznu(db); err != nil {
+		db.Close()
+		return err
+	}
+	if err := arhiva.Ugradi(db, sadrzaj); err != nil {
+		db.Close()
+		return err
+	}
+	if err := db.Close(); err != nil {
+		return err
+	}
+	novo, err := repository.OpenArhiva(s.arhivaPut)
+	if err != nil {
+		return err
+	}
+	if s.arhiva != nil {
+		s.arhiva.Close()
+	}
+	s.arhiva = novo
+	return nil
 }
 
 func (s *Server) SetAddr(addr string) {

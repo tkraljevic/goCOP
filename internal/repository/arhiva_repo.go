@@ -728,3 +728,20 @@ func (r *ArhivaRepository) SpojOtisak(ctx context.Context, letva, velicina strin
 	}
 	return n, time.Unix(zadnje.Int64, 0).UTC()
 }
+
+// StanjeLetve je kratak opis onoga što arhiva o letvi već drži — koliko
+// nizova i zapisa, i koje razdoblje. Služi da se prije ugradnje vidi što
+// odlazi, jer izdanje zamjenjuje sve.
+func (r *ArhivaRepository) StanjeLetve(ctx context.Context, letva string) *models.StanjeLetve {
+	if r == nil || letva == "" {
+		return nil
+	}
+	var s models.StanjeLetve
+	err := r.db.QueryRowContext(ctx, `SELECT count(*), coalesce(sum(zapisa),0),
+		coalesce(min(nullif(od,'')),''), coalesce(max(nullif(do_,'')),'')
+		FROM nizovi WHERE letva = ?`, letva).Scan(&s.Nizova, &s.Zapisa, &s.Od, &s.Do)
+	if err != nil || s.Nizova == 0 {
+		return nil
+	}
+	return &s
+}

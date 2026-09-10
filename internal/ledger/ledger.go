@@ -107,6 +107,15 @@ type Recorder struct {
 	nodeID string
 }
 
+// Cvor je oznaka ovog čvora. Paket historijata nosi tko ga je sastavio, pa se
+// poslije zna odakle je došao.
+func (r *Recorder) Cvor() string {
+	if r == nil {
+		return ""
+	}
+	return r.nodeID
+}
+
 func New(db *sql.DB, nodeID string) *Recorder {
 	return &Recorder{db: db, nodeID: nodeID}
 }

@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"gocop/internal/arhiva"
 	"gocop/internal/models"
 	"gocop/internal/repository"
 	"gocop/internal/service"
@@ -104,6 +105,13 @@ func (h *StationsHandler) SetKarta(f func() KartaPostavke) { h.karta = f }
 // SetReadingService daje rukovatelju pravo upisa očitanja, da zajednički
 // izbornik letve pokaže isti gumb kao i stranica očitanja.
 func (h *StationsHandler) SetReadingService(s *service.ReadingService) { h.readingService = s }
+
+// SetPaket daje rukovatelju sve što treba za pakete historijata: gdje arhiva
+// stoji, kako se čvor zove i kako se paket ugrađuje.
+func (h *StationsHandler) SetPaket(put func() string, cvor func() string,
+	ugradi func(*arhiva.Sadrzaj) error, tmpl *template.Template) {
+	h.arhivaPutFn, h.cvorFn, h.ugradi, h.tmplPaket = put, cvor, ugradi, tmpl
+}
 
 // SetIspravci daje rukovatelju pohranu ispravaka arhive; bez nje se arhiva i
 // dalje prikazuje, samo bez ispravaka.

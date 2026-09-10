@@ -606,3 +606,11 @@ func (k HQKrivulja) Zapis() string {
 	}
 	return strings.Join(d, "; ")
 }
+
+// StanjeLetve je koliko arhiva o jednoj letvi drži. Prije ugradnje paketa
+// pokazuje što odlazi — izdanje zamjenjuje sve što je o letvi bilo.
+type StanjeLetve struct {
+	Nizova int
+	Zapisa int
+	Od, Do string
+}
