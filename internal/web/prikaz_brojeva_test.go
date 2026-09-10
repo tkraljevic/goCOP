@@ -759,10 +759,13 @@ func TestRedakSazetkaOtvaraTuVelicinu(t *testing.T) {
 			ArhKorak: "dnevni", ArhGodina: 2013, ArhGodine: []int{2013},
 			ArhNiz:     []models.SpojenaVrijednost{{Kad: kad, Vrijednost: 771, Izvor: "his2000", Vrsta: "srednjak"}},
 			ArhSazetak: sazetak,
+			ArhRed:     "vrh",
 			ArhPager:   pagerZa(&http.Request{URL: &url.URL{Path: "/x"}}, "ap", 365, 100),
 		},
 	})
-	for _, want := range []string{"?v=protok&amp;korak=dnevni&amp;god=2013&amp;mj=0#niz", `id="niz"`} {
+	// Veza nosi i poredak, inače bi prijelaz na drugu veličinu tiho vratio
+	// listanje na datum.
+	for _, want := range []string{"?v=protok&amp;korak=dnevni&amp;god=2013&amp;mj=0&amp;red=vrh#niz", `id="niz"`} {
 		if !strings.Contains(html, want) {
 			t.Errorf("stranica povijesti nema %q", want)
 		}

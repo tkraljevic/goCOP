@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"gocop/internal/models"
+	"gocop/internal/repository"
 )
 
 // Izvoz spojenog niza u CSV, po godini.
@@ -46,7 +47,7 @@ func (h *ReadingsHandler) HandleArhivaIzvoz(w http.ResponseWriter, r *http.Reque
 	}
 	od := time.Date(god, 1, 1, 0, 0, 0, 0, time.UTC)
 	do := od.AddDate(1, 0, 0).Add(-time.Second)
-	vals, err := a.SpojRaspon(r.Context(), station.Code, velicina, korak, od, do, 20000, 0)
+	vals, err := a.SpojRaspon(r.Context(), station.Code, velicina, korak, od, do, 20000, 0, repository.PoVremenu)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -257,7 +258,7 @@ func (h *ReadingsHandler) HandleArhivaUvoz(w http.ResponseWriter, r *http.Reques
 	}
 	od := time.Date(god, 1, 1, 0, 0, 0, 0, time.UTC)
 	do := od.AddDate(1, 0, 0).Add(-time.Second)
-	vals, err := a.SpojRaspon(r.Context(), station.Code, velicina, korak, od, do, 20000, 0)
+	vals, err := a.SpojRaspon(r.Context(), station.Code, velicina, korak, od, do, 20000, 0, repository.PoVremenu)
 	if err != nil {
 		redirectWith(w, r, back, "error", err.Error())
 		return

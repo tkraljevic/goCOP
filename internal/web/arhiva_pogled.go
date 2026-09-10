@@ -24,7 +24,8 @@ type ArhivaPogled struct {
 	ArhKorak        string
 	ArhGodine       []int
 	ArhGodina       int
-	ArhMjesec       int // 0 = cijela godina
+	ArhMjesec       int    // 0 = cijela godina
+	ArhRed          string // prazno = po vremenu; vrh/dno = po vrijednosti
 	ArhNiz          []models.SpojenaVrijednost
 	ArhChart        *Chart
 	ArhChartUzak    *Chart
@@ -113,10 +114,16 @@ func popuniArhivu(ctx context.Context, r *http.Request, a *repository.ArhivaRepo
 		od = time.Date(p.ArhGodina, time.Month(p.ArhMjesec), 1, 0, 0, 0, 0, time.UTC)
 		do = od.AddDate(0, 1, 0).Add(-time.Second)
 	}
+	switch r.URL.Query().Get("red") {
+	case repository.PoNajvisem:
+		p.ArhRed = repository.PoNajvisem
+	case repository.PoNajnizem:
+		p.ArhRed = repository.PoNajnizem
+	}
 	ukupno, _ := a.SpojBroj(ctx, station.Code, p.ArhVelicina, p.ArhKorak, od, do)
 	p.ArhPager = pagerZa(r, "ap", ukupno, arhivaPoStranici)
 	p.ArhNiz, _ = a.SpojRaspon(ctx, station.Code, p.ArhVelicina, p.ArhKorak,
-		od, do, p.ArhPager.PerPage, p.ArhPager.Odmak())
+		od, do, p.ArhPager.PerPage, p.ArhPager.Odmak(), p.ArhRed)
 	ispravci := ispravciIz(ctx, isp, station.Code, p.ArhVelicina, p.ArhKorak, od, do)
 	p.ArhIspravaka = len(ispravci)
 	primijeniIspravke(p.ArhNiz, ispravci)
@@ -124,7 +131,7 @@ func popuniArhivu(ctx context.Context, r *http.Request, a *repository.ArhivaRepo
 	// Graf crta cijelo razdoblje, ne samo prikazanu stranicu — inače bi se
 	// mijenjao pri svakom listanju i ne bi značio ono što piše. Mjesec je
 	// drugo: to je namjeran izbor razdoblja, pa ga graf slijedi.
-	cijela, _ := a.SpojRaspon(ctx, station.Code, p.ArhVelicina, p.ArhKorak, od, do, 20000, 0)
+	cijela, _ := a.SpojRaspon(ctx, station.Code, p.ArhVelicina, p.ArhKorak, od, do, 20000, 0, repository.PoVremenu)
 	primijeniIspravke(cijela, ispravci)
 	krivulje, _ := a.Krivulje(ctx, station.Code)
 	p.ArhChart = crtajNiz(prorijediNiz(cijela, 700), p.ArhVelicina, station, krivulje)
