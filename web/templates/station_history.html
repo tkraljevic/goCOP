@@ -412,6 +412,9 @@
 </section>
 {{end}}
 
+{{/* Prazna letva dobiva jednu poruku, ne dvije: valovi bi inače ispod nje
+     ponovili da se ne mogu izračunati. */}}
+{{if not .HistorijatPrazan}}
 <section class="detail-section" id="valovi">
   <h2>{{icon "activity"}} Valovi obrane u nizu{{if .ValoviPager.Total}} <span class="reg-chip">{{brojHR .ValoviPager.Total}}</span>{{end}}</h2>
   {{if .ValoviPragovi}}
@@ -503,6 +506,7 @@
   <div class="reg-empty">U nizu od {{.ValoviNiz.Od.Year}}. do {{.ValoviNiz.Do.Year}}. voda nijednom nije dosegnula pripremno stanje.</div>
   {{end}}
 </section>
+{{end}}
 
 {{if .Episodes}}
 <section class="detail-section" id="obrane">
@@ -532,11 +536,20 @@
 {{end}}
 
 
-{{if and (not .Station.Extremes) (not .Station.ImaPovratne) (not .Station.ZeroDatumHistory) (not .Spojevi) (not .ValoviPragovi) (not .Episodes)}}
+{{/* Ekstremi su na kartici, ne ovdje — praznina historijata mjeri se onim što
+     historijat i pokazuje. */}}
+{{if .HistorijatPrazan}}
 <section class="detail-section">
-  <div class="reg-empty">O ovoj letvi još nema zabilježene povijesti: ni ekstrema, ni niza u arhivi,
-    ni proglašenih obrana. Podaci se upisuju u <a href="/stations/{{.Station.ID}}/edit">Uredi</a>,
-    a niz dolazi iz arhive vodostaja.</div>
+  <div class="reg-empty">
+    <p style="margin:0 0 0.5rem;">O ovoj letvi još nema zabilježene povijesti.</p>
+    <p style="margin:0 0 0.75rem;">Ovdje stoje <strong>povratni vodostaji</strong>, <strong>promjene kote
+      nule</strong>, niz iz arhive vodostaja, valovi obrane izračunati iz njega i obrane proglašene po
+      ovoj letvi.</p>
+    <p style="margin:0 0 0.75rem;">Povratni vodostaji i promjene kote nule upisuju se rukom.
+      Niz dolazi iz arhive vodostaja, a valovi se iz njega računaju sami — čim letva ima
+      <a href="/stations/{{.Station.ID}}/edit">pragove obrane u centimetrima</a>.</p>
+    {{if .CanEdit}}<a href="/stations/{{.Station.ID}}/historijat/uredi" class="btn btn-secondary">{{icon "pencil"}} Uredi historijat</a>{{end}}
+  </div>
 </section>
 {{end}}
 <div class="kartica-podnozje">

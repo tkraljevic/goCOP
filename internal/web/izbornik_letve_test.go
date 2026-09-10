@@ -94,3 +94,30 @@ func dioIzbornika(t *testing.T, ime, html string) string {
 	}
 	return html[i : i+kraj]
 }
+
+// Prazan historijat mora reći gdje se što upisuje, a obrazac ne smije obećavati
+// ono što ne prima. Krajnosti su otišle na karticu kad su se stranice
+// razdvojile, a tekstovi su ostali govoriti o njima.
+func TestObrazacHistorijataNeObecavaTudje(t *testing.T) {
+	st := models.Station{ID: uuid.New(), Name: "Siga", Code: "siga"}
+	html := iscrtaj(t, "station_history_form.html", StationPageData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Station:     st, CanEdit: true, IsEdit: true,
+	})
+	// prima ovo dvoje
+	for _, want := range []string{"Povratni vodostaji", "Promjene kote nule"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("obrazac historijata nema %q", want)
+		}
+	}
+	// i upućuje drugamo za ono što ne prima
+	if !strings.Contains(html, "kartica letve") {
+		t.Error("obrazac ne kaže gdje se uređuje ostalo")
+	}
+	// ali ne tvrdi da krajnosti uređuje on
+	uvod := html[:strings.Index(html, "Povratni vodostaji")]
+	if strings.Contains(uvod, "zabilježeno: krajnosti") {
+		t.Error("obrazac i dalje obećava krajnosti, kojih na njemu nema")
+	}
+}

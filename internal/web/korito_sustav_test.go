@@ -471,16 +471,43 @@ func TestKarticaIHistorijatSuRazdvojeni(t *testing.T) {
 // Letva bez ijednog povijesnog podatka ne smije dati stranicu praznih okvira.
 func TestHistorijatPrazneLetveToKaze(t *testing.T) {
 	st := models.Station{ID: uuid.New(), Name: "Dalj", Code: "dalj"}
-	html := iscrtaj(t, "station_history.html", StationPageData{
+	podaci := StationPageData{
 		CurrentUser: &models.User{FullName: "P"},
 		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
-		Station:     st,
-	})
+		Station:     st, CanEdit: true,
+	}
+	if !historijatPrazan(podaci) {
+		t.Fatal("letva bez ijednog podatka nije prepoznata kao prazna")
+	}
+	podaci.HistorijatPrazan = true
+	html := iscrtaj(t, "station_history.html", podaci)
 	if !strings.Contains(html, "još nema zabilježene povijesti") {
 		t.Error("prazan historijat mora reći da podataka nema")
 	}
 	if strings.Contains(html, "<table") {
 		t.Error("prazan historijat ne smije crtati prazne tablice")
+	}
+	// jedna poruka, ne dvije: valovi ne ponavljaju istu vijest ispod nje
+	if strings.Contains(html, "valovi se ne mogu izračunati") {
+		t.Error("uz praznu poruku stoji i poruka valova")
+	}
+	// i vodi na obrazac koji te podatke doista prima
+	if !strings.Contains(html, "/historijat/uredi") {
+		t.Error("prazan historijat ne nudi obrazac historijata")
+	}
+	if strings.Contains(html, `href="/stations/`+st.ID.String()+`/edit">Uredi</a>`) {
+		t.Error("prazan historijat vodi na obrazac kartice, koji te podatke ne prima")
+	}
+}
+
+// Ekstremi su na kartici; letva koja ih ima, a nema ništa od historijata, i
+// dalje ima prazan historijat.
+func TestEkstremiNeCineHistorijatPunim(t *testing.T) {
+	cm := func(v int) *int { return &v }
+	st := models.Station{ID: uuid.New(), Name: "Dalj", Code: "dalj",
+		Extremes: []models.StationExtreme{{Kind: models.ExtremeMax, LevelCm: cm(514)}}}
+	if !historijatPrazan(StationPageData{Station: st}) {
+		t.Error("ekstremi s kartice čine historijat punim")
 	}
 }
 
