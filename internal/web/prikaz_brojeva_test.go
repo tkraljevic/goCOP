@@ -1403,8 +1403,9 @@ func TestUskiGrafZaTelefon(t *testing.T) {
 	}
 }
 
-// Stranica letve nosi i široki i uski graf, a tablice na telefonu prelaze u
-// kartice — svaka vrijednost tada mora znati iz kojeg je stupca.
+// Stranica letve nosi i široki i uski graf, a listanje arhive je mreža
+// kartica — svaka vrijednost nosi svoje vrijeme, jedinicu i podrijetlo uza se,
+// jer ih više nema u zaglavlju stupca.
 func TestStranicaLetveNosiObaGrafa(t *testing.T) {
 	kad := time.Date(2013, 6, 14, 6, 0, 0, 0, time.UTC)
 	html := iscrtaj(t, "station_history.html", StationPageData{
@@ -1426,11 +1427,16 @@ func TestStranicaLetveNosiObaGrafa(t *testing.T) {
 	if !strings.Contains(html, `viewBox="0 0 1600 420"`) || !strings.Contains(html, `viewBox="0 0 620 460"`) {
 		t.Error("stranica mora nositi i široki i uski graf")
 	}
-	// Naslove stupaca uz vrijednosti dodaje skripta iz zaglavlja tablice, pa
-	// se ne ponavljaju u predlošku; ovdje se traži samo da zaglavlje postoji.
-	for _, want := range []string{"<thead>", "Razdoblje", "Odakle"} {
+	for _, want := range []string{"Razdoblje", "niz-kartica", "14.06.2013.", "771,0", "DHMZ, ovjereno"} {
 		if !strings.Contains(html, want) {
-			t.Errorf("tablica nema %s", want)
+			t.Errorf("stranica nema %s", want)
+		}
+	}
+	// Kartica je i dalje odabiriva: klik na nju mijenja vodostaj i protok
+	// gore, pa mora nositi razred i podatke koje skripta traži.
+	for _, want := range []string{`niz-redak`, `data-vodostaj="771"`, `data-kad="14.06.2013."`} {
+		if !strings.Contains(html, want) {
+			t.Errorf("kartica nije odabiriva, nema %s", want)
 		}
 	}
 }
