@@ -56,36 +56,40 @@ func citajTablicu(ime string, sadrzaj []byte) ([][]string, string, error) {
 	return out, razdjelnik, s.Err()
 }
 
-// pogodiRazdjelnik bira onaj koji u prvim redcima daje najviše stupaca i
-// jednak broj u svakom retku. Točka-zarez ide prvi jer je to ono što
-// hrvatski Excel izvozi.
+// pogodiRazdjelnik bira onaj koji većinu redaka razlomi na isti broj stupaca,
+// i to na najviše njih. Ne traži se da SVI redci budu jednaki: HIS2000 iznad
+// podataka ima naslov i blok s metapodacima koji imaju svoj broj stupaca, a
+// zbog njih je prva izvedba odbacivala točku-zarez i uzimala zarez — pa se
+// onda ništa nije čitalo.
 func pogodiRazdjelnik(sadrzaj []byte) string {
 	uzorak := sadrzaj
-	if len(uzorak) > 8192 {
-		uzorak = uzorak[:8192]
+	if len(uzorak) > 65536 {
+		uzorak = uzorak[:65536]
 	}
-	redci := strings.Split(string(uzorak), "\n")
-	if len(redci) > 10 {
-		redci = redci[:10]
+	var redci []string
+	for _, r := range strings.Split(string(uzorak), "\n") {
+		r = strings.TrimSpace(r)
+		if r != "" && !strings.HasPrefix(r, "#") {
+			redci = append(redci, r)
+		}
 	}
-	najbolji, najviše := ";", 0
+	if len(redci) > 50 {
+		redci = redci[:50]
+	}
+	najbolji, najviseStupaca, najviseRedaka := ";", 1, 0
 	for _, r := range []string{";", "\t", ",", "|"} {
-		stupaca, jednako := 0, true
-		for i, redak := range redci {
-			redak = strings.TrimSpace(redak)
-			if redak == "" || strings.HasPrefix(redak, "#") {
+		koliko := map[int]int{}
+		for _, redak := range redci {
+			koliko[len(strings.Split(redak, r))]++
+		}
+		// najčešći broj stupaca veći od jedan, i koliko ga redaka ima
+		for stupaca, redaka := range koliko {
+			if stupaca < 2 {
 				continue
 			}
-			n := len(strings.Split(redak, r))
-			if stupaca == 0 {
-				stupaca = n
-			} else if n != stupaca {
-				jednako = false
+			if stupaca > najviseStupaca || (stupaca == najviseStupaca && redaka > najviseRedaka) {
+				najbolji, najviseStupaca, najviseRedaka = r, stupaca, redaka
 			}
-			_ = i
-		}
-		if jednako && stupaca > najviše {
-			najbolji, najviše = r, stupaca
 		}
 	}
 	return najbolji
@@ -102,21 +106,23 @@ func pogodi(ime string, sadrzaj []byte) (*Pogodak, [][]string, error) {
 	if len(redci) < 2 {
 		return nil, nil, fmt.Errorf("datoteka nema ni zaglavlje ni jedan redak")
 	}
-	p := &Pogodak{Razdjelnik: razdjelnik, Zaglavlje: redci[0], StupacVrijeme: -1, StupacVrijednost: -1}
-	tijelo := redci[1:]
-	p.Redaka = len(tijelo)
-
-	proba := tijelo
-	if len(proba) > 20 {
-		proba = proba[:20]
+	// Gdje podaci počinju traži se, ne pretpostavlja. HIS2000 iznad njih ima
+	// naslov, prazan redak i blok s metapodacima; drugi izvozi imaju jedno
+	// zaglavlje ili nijedno. Prvi redak koji se čita kao vrijeme i vrijednost
+	// je početak; onaj iznad njega je zaglavlje, ako ima jednako stupaca.
+	pocetak, stVrijeme, stVrijednost := nadiPocetak(redci)
+	if pocetak < 0 {
+		return nil, nil, fmt.Errorf("ni u jednom retku se ne čitaju vrijeme i vrijednost jedno uz drugo")
 	}
-	for stupac := 0; stupac < len(p.Zaglavlje); stupac++ {
-		if p.StupacVrijeme < 0 && sviSuVrijeme(proba, stupac) {
-			p.StupacVrijeme = stupac
-			continue
-		}
-		if p.StupacVrijeme >= 0 && p.StupacVrijednost < 0 && sviSuBroj(proba, stupac) {
-			p.StupacVrijednost = stupac
+	p := &Pogodak{Razdjelnik: razdjelnik, StupacVrijeme: stVrijeme, StupacVrijednost: stVrijednost}
+	tijelo := redci[pocetak:]
+	p.Redaka = len(tijelo)
+	if pocetak > 0 && len(redci[pocetak-1]) == len(redci[pocetak]) {
+		p.Zaglavlje = redci[pocetak-1]
+	} else {
+		p.Zaglavlje = make([]string, len(redci[pocetak]))
+		for i := range p.Zaglavlje {
+			p.Zaglavlje[i] = fmt.Sprintf("stupac %d", i+1)
 		}
 	}
 	for i, r := range tijelo {
@@ -126,6 +132,53 @@ func pogodi(ime string, sadrzaj []byte) (*Pogodak, [][]string, error) {
 		p.Uzorak = append(p.Uzorak, r)
 	}
 	return p, tijelo, nil
+}
+
+// nadiPocetak vraća prvi redak u kojem stoje vrijeme i broj jedno uz drugo, i
+// koji su to stupci. Traži se prvi takav redak koji ima još barem dva slična
+// za sobom — jedan usamljen redak koji slučajno izgleda kao podatak ne smije
+// proglasiti početak.
+func nadiPocetak(redci [][]string) (pocetak, stVrijeme, stVrijednost int) {
+	for i := 0; i < len(redci); i++ {
+		v, b := stupciRetka(redci[i])
+		if v < 0 || b < 0 {
+			continue
+		}
+		potvrda := 0
+		for j := i + 1; j < len(redci) && j < i+4; j++ {
+			if v2, b2 := stupciRetka(redci[j]); v2 == v && b2 == b {
+				potvrda++
+			}
+		}
+		if potvrda >= 1 || i == len(redci)-1 {
+			return i, v, b
+		}
+	}
+	return -1, -1, -1
+}
+
+// stupciRetka javlja koji stupac tog retka je vrijeme a koji vrijednost.
+// Vrijednost se traži iza vremena, jer datum u brojčanom obliku inače zna
+// proći kao broj.
+func stupciRetka(r []string) (vrijeme, vrijednost int) {
+	vrijeme, vrijednost = -1, -1
+	for i := range r {
+		s := celija(r, i)
+		if s == "" {
+			continue
+		}
+		if vrijeme < 0 {
+			if _, _, ok := procitajVrijeme(s); ok {
+				vrijeme = i
+			}
+			continue
+		}
+		if _, ok := procitajBroj(s); ok {
+			vrijednost = i
+			return
+		}
+	}
+	return
 }
 
 func celija(r []string, i int) string {
@@ -185,6 +238,10 @@ var oblici = []struct {
 	{"2.1.2006. 15:04", false},
 	{"2.1.2006.", true},
 	{"2.1.2006", true},
+	// HIS2000 daje sat bez minuta, a dan i mjesec poravnava razmacima:
+	// " 1. 1.2002  0". Razmaci se prije čitanja skupe u jedan.
+	{"2.1.2006 15", false},
+	{"2006-01-02 15", false},
 }
 
 // procitajVrijeme vraća vrijeme i javlja je li zapis imao samo datum. Zona se
@@ -194,6 +251,7 @@ func procitajVrijeme(s string) (time.Time, bool, bool) {
 	if s == "" {
 		return time.Time{}, false, false
 	}
+	s = skupiRazmake(s)
 	for _, o := range oblici {
 		if t, err := time.Parse(o.uzorak, s); err == nil {
 			return t, o.poDanu, true
@@ -209,6 +267,25 @@ func procitajVrijeme(s string) (time.Time, bool, bool) {
 		return t.Round(time.Minute), ostatak == 0, true
 	}
 	return time.Time{}, false, false
+}
+
+// skupiRazmake svodi poravnavanje razmacima na jedan razmak i miče razmak iza
+// točke: " 1. 1.2002  0" postaje "1.1.2002 0". HIS2000 tako poravnava stupce.
+func skupiRazmake(s string) string {
+	var b strings.Builder
+	razmak := false
+	for _, r := range s {
+		if r == ' ' || r == '\t' {
+			razmak = true
+			continue
+		}
+		if razmak && b.Len() > 0 && !strings.HasSuffix(b.String(), ".") {
+			b.WriteByte(' ')
+		}
+		razmak = false
+		b.WriteRune(r)
+	}
+	return b.String()
 }
 
 // procitajBroj prima i decimalni zarez i točku. Tisućice se ne razdvajaju, pa
@@ -250,6 +327,9 @@ func pretvori(tijelo [][]string, u UvozNiza) (redci []arhiva.Redak, preskoceno i
 		if !ok {
 			preskoceno++
 			continue
+		}
+		if sb == "" {
+			continue // vrijeme bez vrijednosti: mjerenja nema, nije greška
 		}
 		v, ok := procitajBroj(sb)
 		if !ok {
