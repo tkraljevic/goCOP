@@ -58,6 +58,7 @@ type StationPageData struct {
 	CanEdit              bool
 	CanRecord            bool   // smije li upisati očitanje
 	LetvaStranica        string // koja je stranica letve otvorena: kartica, ocitanja, historijat
+	HistorijatPrazan     bool   // letva još nema ništa od onoga što historijat pokazuje
 	IsEdit               bool
 	SuccessMessage       string
 	ErrorMessage         string
@@ -187,9 +188,18 @@ func (h *StationsHandler) HistorijatLetve(w http.ResponseWriter, r *http.Request
 		popuniArhivu(r.Context(), r, h.arhiva(), isp, &data.ArhivaPogled, &data.Station)
 	}
 	data.LetvaStranica = "historijat"
+	data.HistorijatPrazan = historijatPrazan(data)
 	if err := h.tmplHistorijat.ExecuteTemplate(w, "station_history.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// historijatPrazan javlja da letva još nema ništa od onoga što historijat
+// pokazuje. Ekstremi se ne broje — oni su na kartici, a praznina se mjeri onim
+// što je na ovoj stranici.
+func historijatPrazan(d StationPageData) bool {
+	return !d.Station.ImaPovratne() && len(d.Station.ZeroDatumHistory) == 0 &&
+		len(d.Spojevi) == 0 && len(d.ValoviPragovi) == 0 && len(d.Episodes) == 0
 }
 
 // ObrazacHistorijata uređuje ono što historijat prikazuje. Odvojen od obrasca
