@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -20,21 +22,31 @@ import (
 
 type IzvoriHandler struct {
 	arhivaPut func() string
+	podaciDir func() string // zajedničko stablo s izvornim datotekama
 	postavi   func(arhiva.Izvor) ([]string, error)
 	tmpl      *template.Template
 }
 
-func NewIzvoriHandler(arhivaPut func() string, postavi func(arhiva.Izvor) ([]string, error),
+func NewIzvoriHandler(arhivaPut, podaciDir func() string, postavi func(arhiva.Izvor) ([]string, error),
 	tmpl *template.Template) *IzvoriHandler {
-	return &IzvoriHandler{arhivaPut: arhivaPut, postavi: postavi, tmpl: tmpl}
+	return &IzvoriHandler{arhivaPut: arhivaPut, podaciDir: podaciDir, postavi: postavi, tmpl: tmpl}
 }
 
-// IzvorURedu je izvor s onim što se o njemu vidi iz arhive.
+// IzvorURedu je izvor s onim što se o njemu vidi iz arhive i s diska.
 type IzvorURedu struct {
 	arhiva.Izvor
 	Nizova int
 	Zapisa int
 	Letve  []string
+
+	// Odakle se čitaju datoteke ovog izvora i što je ondje sada. Arhiva pamti
+	// samo imena datoteka koje su u nju ušle; da se vidi je li stiglo nešto
+	// novo — ili je disk otkvačen — mora se pogledati na disk.
+	Stablo    string // stvarno stablo: vlastita mapa ili zajedničko
+	Vlastito  bool
+	Dostupno  bool
+	Datoteka  int
+	GreskaPut string
 }
 
 // ImaPodatke javlja stoji li iza izvora išta. Izvor bez ijednog niza je zapis
@@ -50,7 +62,8 @@ type IzvoriPageData struct {
 	Permissions *models.UserPermissions
 
 	Izvori     []IzvorURedu
-	Zanemareno int // zapisa koji leže u arhivi a ne ulaze u spoj
+	Zanemareno int    // zapisa koji leže u arhivi a ne ulaze u spoj
+	PodaciDir  string // zajedničko stablo, ono koje vrijedi kad izvor nema svoje
 
 	SuccessMessage string
 	ErrorMessage   string
@@ -77,10 +90,11 @@ func (h *IzvoriHandler) ShowIzvori(w http.ResponseWriter, r *http.Request) {
 	}
 	if put := h.arhivaPut(); put == "" {
 		data.ErrorMessage = "Nije poznato gdje arhiva stoji."
-	} else if izvori, zanemareno, err := citajIzvoreZaStranicu(put); err != nil {
+	} else if izvori, zanemareno, err := citajIzvoreZaStranicu(put, h.podaciDir()); err != nil {
 		data.ErrorMessage = "Arhiva se ne čita: " + err.Error()
 	} else {
 		data.Izvori, data.Zanemareno = izvori, zanemareno
+		data.PodaciDir = h.podaciDir()
 	}
 	if err := h.tmpl.ExecuteTemplate(w, "izvori.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -90,7 +104,7 @@ func (h *IzvoriHandler) ShowIzvori(w http.ResponseWriter, r *http.Request) {
 // citajIzvoreZaStranicu spaja popis izvora s onim što o njima piše u nizovima.
 // Namjerno ne broji vrijednosti u spoju: to je prolaz kroz šest milijuna
 // redaka, a odgovor je ionako u stupcu "uključen".
-func citajIzvoreZaStranicu(put string) ([]IzvorURedu, int, error) {
+func citajIzvoreZaStranicu(put, podaciDir string) ([]IzvorURedu, int, error) {
 	db, err := sql.Open("sqlite", put+"?mode=ro&_pragma=busy_timeout(3000)")
 	if err != nil {
 		return nil, 0, err
@@ -143,9 +157,30 @@ func citajIzvoreZaStranicu(put string) ([]IzvorURedu, int, error) {
 		if red.Neiskoristen() {
 			zanemareno += red.Zapisa
 		}
+		red.Stablo, red.Vlastito = podaciDir, false
+		if m := strings.TrimSpace(i.Mapa); m != "" {
+			red.Stablo, red.Vlastito = m, true
+		}
+		red.Dostupno, red.Datoteka, red.GreskaPut = stanjeNaDisku(red.Stablo, i.Naziv)
 		out = append(out, red)
 	}
 	return out, zanemareno, nil
+}
+
+// stanjeNaDisku broji datoteke tog izvora u stablu. Naziv datoteke je ugovor —
+// letva_izvor_velicina_vrsta_razdoblje.csv — pa se izvor iz njega i prepoznaje.
+func stanjeNaDisku(stablo, izvor string) (dostupno bool, datoteka int, greska string) {
+	if stablo == "" {
+		return false, 0, "nije zadano gdje datoteke stoje"
+	}
+	if st, err := os.Stat(stablo); err != nil || !st.IsDir() {
+		return false, 0, "mapa nije dostupna"
+	}
+	puts, err := filepath.Glob(filepath.Join(stablo, "*", "*", "*_"+izvor+"_*.csv"))
+	if err != nil {
+		return true, 0, "putanja se ne da pročitati"
+	}
+	return true, len(puts), ""
 }
 
 func sadrzi(s []string, x string) bool {
@@ -181,9 +216,18 @@ func (h *IzvoriHandler) SpremiIzvor(w http.ResponseWriter, r *http.Request) {
 		redirectWith(w, r, "/administracija/izvori", "error", "Red povjerenja mora biti cijeli broj veći od nule.")
 		return
 	}
+	mapa := strings.TrimSpace(r.FormValue("mapa"))
+	if mapa != "" {
+		if st, err := os.Stat(mapa); err != nil || !st.IsDir() {
+			redirectWith(w, r, "/administracija/izvori", "error",
+				"Mape "+mapa+" nema, ili nije mapa. Ostavite prazno za zajedničko stablo arhive.")
+			return
+		}
+	}
 	i := arhiva.Izvor{
 		Naziv: naziv, Tocnost: tocnost, Red: red,
 		Ukljucen: r.FormValue("ukljucen") == "1",
+		Mapa:     mapa,
 		Napomena: strings.TrimSpace(r.FormValue("napomena")),
 	}
 	letve, err := h.postavi(i)

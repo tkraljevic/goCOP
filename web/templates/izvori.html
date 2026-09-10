@@ -65,6 +65,19 @@
     </div>
 
     <label class="izvor-napomena">
+      <span class="part-label">Mapa s datotekama</span>
+      <input type="text" name="mapa" value="{{.Mapa}}" class="form-control mono"
+             placeholder="{{if $.PodaciDir}}{{$.PodaciDir}}{{else}}zajedničko stablo arhive{{end}}">
+      <small class="izvor-disk">
+        {{if not .Stablo}}Nije zadano gdje datoteke stoje.
+        {{else if not .Dostupno}}<span class="badge badge-unknown">{{.GreskaPut}}</span> {{.Stablo}}
+        {{else}}{{brojHR .Datoteka}} {{uzBroj .Datoteka "datoteka" "datoteke" "datoteka"}} u
+          <span class="mono">{{.Stablo}}</span>{{if not .Vlastito}} (zajedničko){{end}}
+        {{end}}
+      </small>
+    </label>
+
+    <label class="izvor-napomena">
       <span class="part-label">Napomena</span>
       <input type="text" name="napomena" value="{{.Napomena}}" class="form-control"
              placeholder="zašto je tako odlučeno">

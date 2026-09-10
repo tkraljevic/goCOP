@@ -54,6 +54,7 @@ func (k KartaPostavke) Ima() bool { return k.Plocice != "" }
 type Server struct {
 	karta              KartaPostavke
 	arhivaPut          string
+	podaciDir          string // stablo s izvornim datotekama; prazno na čvoru koji samo prima pakete
 	addr               string
 	authService        *service.AuthService
 	userService        *service.UserService
@@ -808,7 +809,8 @@ func (s *Server) setupRoutes() {
 
 	// Održavanje baze: brojke, sažimanje, VACUUM, izvoz i uvoz kanala
 	dbH := NewDBMaintHandler(func() *sql.DB { return s.db }, s.recorder, s.peersService, func() string { return s.dbPath }, s.templates["baza.html"])
-	izvoriH := NewIzvoriHandler(func() string { return s.arhivaPut }, s.PostaviIzvor, s.templates["izvori.html"])
+	izvoriH := NewIzvoriHandler(func() string { return s.arhivaPut }, func() string { return s.podaciDir },
+		s.PostaviIzvor, s.templates["izvori.html"])
 	s.mux.Handle("GET /administracija/izvori", s.authMiddleware(http.HandlerFunc(izvoriH.ShowIzvori)))
 	s.mux.Handle("POST /administracija/izvori", s.authMiddleware(http.HandlerFunc(izvoriH.SpremiIzvor)))
 	s.mux.Handle("GET /administracija/baza", s.authMiddleware(http.HandlerFunc(dbH.ShowMaintenance)))
@@ -974,6 +976,12 @@ func (s *Server) SetArhiva(a *repository.ArhivaRepository) {
 // upis traži vlastito otvaranje.
 func (s *Server) SetArhivaPut(put string) {
 	s.arhivaPut = put
+}
+
+// SetPodaciDir kazuje gdje stoji zajedničko stablo s izvornim datotekama.
+// Čvor koji arhivu dobiva paketom ga nema — ondje se ne gradi, nego prima.
+func (s *Server) SetPodaciDir(dir string) {
+	s.podaciDir = dir
 }
 
 // UgradiPaket upisuje paket u arhivu i ponovno je otvara, da program odmah

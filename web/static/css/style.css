@@ -2967,3 +2967,4 @@ textarea {
 .izvor-letve > summary { cursor: pointer; font-size: 0.8125rem; color: var(--text-muted); }
 .izvor-letve > p { margin: 0.35rem 0 0; font-size: 0.8125rem; color: var(--text-muted); overflow-wrap: anywhere; }
 .izvor-podnozje { display: flex; justify-content: flex-end; margin-top: auto; }
+.izvor-disk { display: block; margin-top: 0.25rem; color: var(--text-muted); font-size: 0.7rem; overflow-wrap: anywhere; }

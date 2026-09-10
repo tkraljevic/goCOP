@@ -2,6 +2,7 @@ package web
 
 import (
 	"database/sql"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -40,7 +41,7 @@ func arhivaZaStranicu(t *testing.T) string {
 // Stranica mora pokazati koliko podataka stoji iza svakog izvora i, još važnije,
 // koliko ih leži neiskorišteno — jer se upravo to prije nije vidjelo nigdje.
 func TestStranicaIzvoraBrojiNeiskoristeno(t *testing.T) {
-	izvori, zanemareno, err := citajIzvoreZaStranicu(arhivaZaStranicu(t))
+	izvori, zanemareno, err := citajIzvoreZaStranicu(arhivaZaStranicu(t), "vodostaji")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +76,7 @@ func TestStranicaIzvoraBrojiNeiskoristeno(t *testing.T) {
 // Redoslijed na stranici mora biti red povjerenja, jer o njemu ovisi koja
 // vrijednost ulazi u spoj kad su dva izvora jednako točna.
 func TestStranicaIzvoraSlazePoRedu(t *testing.T) {
-	izvori, _, err := citajIzvoreZaStranicu(arhivaZaStranicu(t))
+	izvori, _, err := citajIzvoreZaStranicu(arhivaZaStranicu(t), "vodostaji")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -136,6 +137,66 @@ func TestObrazacIzvoraNemaFormeUTablici(t *testing.T) {
 		prije := html[:i]
 		if strings.Count(prije, "<table") > strings.Count(prije, "</table>") {
 			t.Error("obrazac stoji unutar tablice — preglednik će ga izbaciti i polja će ostati prazna")
+		}
+	}
+}
+
+// Izvor mora znati gdje mu datoteke stoje. Bez toga se s ove stranice vidi da
+// izvor postoji, ali ne i je li mu išta novo stiglo — ni je li disk otkvačen.
+func TestIzvorZnaSvojuMapuNaDisku(t *testing.T) {
+	stablo := t.TempDir()
+	dunav := filepath.Join(stablo, "dunav", "batina")
+	if err := os.MkdirAll(dunav, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, ime := range []string{
+		"batina_his2000_vodostaj_satni_2001-2026.csv",
+		"batina_his2000_protok_satni_2001-2025.csv",
+		"batina_letva-dhmz_vodostaj_satni_2013.csv",
+	} {
+		if err := os.WriteFile(filepath.Join(dunav, ime), []byte("vrijeme_utc;vodostaj_cm\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	izvori, _, err := citajIzvoreZaStranicu(arhivaZaStranicu(t), stablo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nadi := func(naziv string) IzvorURedu {
+		for _, i := range izvori {
+			if i.Naziv == naziv {
+				return i
+			}
+		}
+		t.Fatalf("izvora %q nema", naziv)
+		return IzvorURedu{}
+	}
+	h := nadi("his2000")
+	if !h.Dostupno || h.Datoteka != 2 || h.Vlastito {
+		t.Errorf("his2000: dostupno=%v datoteka=%d vlastito=%v", h.Dostupno, h.Datoteka, h.Vlastito)
+	}
+	// Ime izvora u nazivu datoteke je ugovor: letva-dhmz ne smije pokupiti
+	// his2000 datoteke ni obrnuto.
+	if d := nadi("letva-dhmz"); d.Datoteka != 1 {
+		t.Errorf("letva-dhmz je pokupio %d datoteka umjesto jedne", d.Datoteka)
+	}
+	if h.Stablo != stablo {
+		t.Errorf("stablo %q, očekivano %q", h.Stablo, stablo)
+	}
+}
+
+// Otkvačen disk ili preimenovana mapa ne smiju izgledati kao "nema podataka".
+func TestNedostupnaMapaSeVidiKaoNedostupna(t *testing.T) {
+	izvori, _, err := citajIzvoreZaStranicu(arhivaZaStranicu(t), filepath.Join(t.TempDir(), "nema-ovoga"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, i := range izvori {
+		if i.Dostupno {
+			t.Errorf("izvor %s javlja dostupnu mapu koje nema", i.Naziv)
+		}
+		if i.GreskaPut == "" {
+			t.Errorf("izvor %s ne kaže zašto mapa nije dostupna", i.Naziv)
 		}
 	}
 }
