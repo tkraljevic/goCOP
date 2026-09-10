@@ -647,6 +647,15 @@ func (r *ArhivaRepository) Sazetak(ctx context.Context, letva string) ([]models.
 		_ = r.db.QueryRowContext(ctx, `SELECT date(vrijeme,'unixepoch'), izvor FROM spoj
 			WHERE letva=? AND korak='dnevni' AND velicina=? ORDER BY vrijednost ASC, vrijeme LIMIT 1`,
 			letva, out[i].Velicina).Scan(&out[i].MinNa, &out[i].MinIzvor)
+		// Izmjereno, bez preračuna iz susjedne postaje, i bez ograde na korak:
+		// satni vrh vala je ono što je letva zabilježila, dnevni ga zaglađuje.
+		maxErr := r.db.QueryRowContext(ctx, `SELECT vrijednost, date(vrijeme,'unixepoch'), izvor FROM spoj
+			WHERE letva=? AND velicina=? AND izvor NOT LIKE 'preracun%' ORDER BY vrijednost DESC, vrijeme LIMIT 1`,
+			letva, out[i].Velicina).Scan(&out[i].MaxMjeren, &out[i].MaxMjerenNa, &out[i].MaxMjerenIzvor)
+		minErr := r.db.QueryRowContext(ctx, `SELECT vrijednost, date(vrijeme,'unixepoch'), izvor FROM spoj
+			WHERE letva=? AND velicina=? AND izvor NOT LIKE 'preracun%' ORDER BY vrijednost ASC, vrijeme LIMIT 1`,
+			letva, out[i].Velicina).Scan(&out[i].MinMjeren, &out[i].MinMjerenNa, &out[i].MinMjerenIzvor)
+		out[i].ImaMjerenih = maxErr == nil && minErr == nil
 	}
 	sort.SliceStable(out, func(a, b int) bool {
 		return rangVelicine(out[a].Velicina) < rangVelicine(out[b].Velicina)

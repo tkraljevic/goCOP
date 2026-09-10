@@ -106,7 +106,7 @@
     <div class="krajnosti-iz-niza">
       {{range .KrajnostiIzNiza}}
       <div>
-        <span class="reg-card-sub">{{.Naslov}} · {{.Odakle}}</span>
+        <span class="reg-card-sub">{{.Naslov}}{{if not .JeMjerena}} u nizu{{end}} · {{.Odakle}}</span>
         <strong>{{brojHR .LevelCm}} cm</strong>
         <span class="reg-card-sub">{{if .OnDate}}{{datumHR .OnDate}}{{end}}</span>
         {{if not .JeMjerena}}<span class="badge badge-inactive"

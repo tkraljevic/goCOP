@@ -217,12 +217,35 @@ func krajnostiIzSazetka(sazetak []models.SazetakVelicine) []models.KrajnostIzNiz
 		if s.Velicina != "vodostaj" {
 			continue
 		}
-		return []models.KrajnostIzNiza{
-			{Kind: models.ExtremeMax, LevelCm: int(math.Round(s.Max)), OnDate: s.MaxNa,
-				Izvor: s.MaxIzvor, Odakle: "arhiva"},
-			{Kind: models.ExtremeMin, LevelCm: int(math.Round(s.Min)), OnDate: s.MinNa,
-				Izvor: s.MinIzvor, Odakle: "arhiva"},
+		if !s.ImaMjerenih {
+			// Letva bez ijednog vlastitog mjerenja: ostaje samo niz, kakav jest.
+			return []models.KrajnostIzNiza{
+				{Kind: models.ExtremeMax, LevelCm: int(math.Round(s.Max)), OnDate: s.MaxNa,
+					Izvor: s.MaxIzvor, Odakle: "arhiva"},
+				{Kind: models.ExtremeMin, LevelCm: int(math.Round(s.Min)), OnDate: s.MinNa,
+					Izvor: s.MinIzvor, Odakle: "arhiva"},
+			}
 		}
+		// Izmjereno ide prvo — zabilježeni ekstrem letve je ono što je letva
+		// zabilježila. Rekonstrukcija se dodaje samo kad seže preko toga: na
+		// Batini 797 cm iz 1956. stoji iznad izmjerenih 772 cm iz 2013., i
+		// jedno drugo ne zamjenjuje.
+		out := []models.KrajnostIzNiza{
+			{Kind: models.ExtremeMax, LevelCm: int(math.Round(s.MaxMjeren)), OnDate: s.MaxMjerenNa,
+				Izvor: s.MaxMjerenIzvor, Odakle: "arhiva"},
+		}
+		if s.MaxPreracunat() && s.Max > s.MaxMjeren {
+			out = append(out, models.KrajnostIzNiza{Kind: models.ExtremeMax,
+				LevelCm: int(math.Round(s.Max)), OnDate: s.MaxNa, Izvor: s.MaxIzvor, Odakle: "arhiva"})
+		}
+		out = append(out, models.KrajnostIzNiza{Kind: models.ExtremeMin,
+			LevelCm: int(math.Round(s.MinMjeren)), OnDate: s.MinMjerenNa,
+			Izvor: s.MinMjerenIzvor, Odakle: "arhiva"})
+		if s.MinPreracunat() && s.Min < s.MinMjeren {
+			out = append(out, models.KrajnostIzNiza{Kind: models.ExtremeMin,
+				LevelCm: int(math.Round(s.Min)), OnDate: s.MinNa, Izvor: s.MinIzvor, Odakle: "arhiva"})
+		}
+		return out
 	}
 	return nil
 }
@@ -246,6 +269,9 @@ func (h *StationsHandler) krajnostiLetve(ctx context.Context, st models.Station,
 func spojiKrajnosti(arhiva, operativa []models.KrajnostIzNiza) []models.KrajnostIzNiza {
 	naslijedeno := map[string]models.KrajnostIzNiza{}
 	for _, k := range arhiva {
+		if p, ima := naslijedeno[k.Kind]; ima && p.JeMjerena() {
+			continue // izmjereno je mjerilo; rekonstrukcija ga ne nadglasava
+		}
 		naslijedeno[k.Kind] = k
 	}
 	out := append([]models.KrajnostIzNiza(nil), arhiva...)
