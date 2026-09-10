@@ -681,27 +681,27 @@ func TestKarticaRazdvajaIzmjereniOdZabiljezenog(t *testing.T) {
 // se tada čita iz arhive, s biranjem veličine, koraka i godine.
 func TestPovijestLetveCitaArhivu(t *testing.T) {
 	kad := time.Date(2013, 6, 14, 6, 0, 0, 0, time.UTC)
-	html := iscrtaj(t, "reading_history.html", ReadingHistoryData{
+	html := iscrtaj(t, "station_history.html", StationPageData{
 		CurrentUser: &models.User{FullName: "Provjera"},
 		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
-		Station:     &models.Station{Name: "Batina", Code: "batina"},
-		GaugeName:   "Batina",
-		ArhVelicine: []string{"vodostaj", "protok", "temperatura", "pronos"},
-		ArhVelicina: "vodostaj",
-		ArhKorak:    "dnevni",
-		ArhJedinica: "cm",
-		ArhGodine:   []int{2013, 2012, 1956},
-		ArhGodina:   2013,
-		ArhPager:    pagerZa(&http.Request{URL: &url.URL{Path: "/readings/station/x"}}, "ap", 8760, 100),
-		ArhChart:    crtajNiz(nizZaGraf(kad), "vodostaj", &models.Station{Name: "Batina"}, nil),
-		ArhSada:     &models.SpojenaVrijednost{Kad: kad, Vrijednost: 771, Izvor: "his2000", Tocnost: 0},
-		ArhNiz: []models.SpojenaVrijednost{
-			{Kad: kad, Vrijednost: 771, Izvor: "his2000", Vrsta: "srednjak", Tocnost: 0},
-			{Kad: kad.AddDate(0, 0, -1), Vrijednost: 758, Izvor: "letva-dhmz", Vrsta: "srednjak", Tocnost: 1},
-		},
-		ArhSazetak: []models.SazetakVelicine{
-			{Velicina: "vodostaj", Od: "1.1.1901.", Do: "2026-09-06", Srednjak: 205, Max: 797, MaxNa: "13.3.1956.", Min: -308, MinNa: "1947-09-20"},
-			{Velicina: "pronos", Od: "2018-05-01", Do: "2025-12-31", Srednjak: 6005.7, Max: 145575, Min: 37.5},
+		Station:     models.Station{Name: "Batina", Code: "batina"},
+		ArhivaPogled: ArhivaPogled{ArhVelicine: []string{"vodostaj", "protok", "temperatura", "pronos"},
+			ArhVelicina: "vodostaj",
+			ArhKorak:    "dnevni",
+			ArhJedinica: "cm",
+			ArhGodine:   []int{2013, 2012, 1956},
+			ArhGodina:   2013,
+			ArhPager:    pagerZa(&http.Request{URL: &url.URL{Path: "/readings/station/x"}}, "ap", 8760, 100),
+			ArhChart:    crtajNiz(nizZaGraf(kad), "vodostaj", &models.Station{Name: "Batina"}, nil),
+			ArhSada:     &models.SpojenaVrijednost{Kad: kad, Vrijednost: 771, Izvor: "his2000", Tocnost: 0},
+			ArhNiz: []models.SpojenaVrijednost{
+				{Kad: kad, Vrijednost: 771, Izvor: "his2000", Vrsta: "srednjak", Tocnost: 0},
+				{Kad: kad.AddDate(0, 0, -1), Vrijednost: 758, Izvor: "letva-dhmz", Vrsta: "srednjak", Tocnost: 1},
+			},
+			ArhSazetak: []models.SazetakVelicine{
+				{Velicina: "vodostaj", Od: "1.1.1901.", Do: "2026-09-06", Srednjak: 205, Max: 797, MaxNa: "13.3.1956.", Min: -308, MinNa: "1947-09-20"},
+				{Velicina: "pronos", Od: "2018-05-01", Do: "2025-12-31", Srednjak: 6005.7, Max: 145575, Min: 37.5},
+			},
 		},
 	})
 	for _, want := range []string{
@@ -722,11 +722,10 @@ func TestPovijestLetveCitaArhivu(t *testing.T) {
 	}
 
 	// bez arhive stranica se i dalje mora iscrtati
-	prazna := iscrtaj(t, "reading_history.html", ReadingHistoryData{
+	prazna := iscrtaj(t, "station_history.html", StationPageData{
 		CurrentUser: &models.User{FullName: "Provjera"},
 		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
-		Station:     &models.Station{Name: "Nešto", Code: "nesto"},
-		GaugeName:   "Nešto",
+		Station:     models.Station{Name: "Nešto", Code: "nesto"},
 	})
 	if strings.Contains(prazna, "Povijest iz arhive") {
 		t.Error("letva bez arhive ne smije prikazivati odjeljak arhive")
@@ -752,16 +751,16 @@ func TestRedakSazetkaOtvaraTuVelicinu(t *testing.T) {
 	}
 
 	// stranica povijesti: redak vodi na istu stranicu, samo drugu veličinu
-	html := iscrtaj(t, "reading_history.html", ReadingHistoryData{
+	html := iscrtaj(t, "station_history.html", StationPageData{
 		CurrentUser: &models.User{FullName: "P"},
 		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
-		Station:     &models.Station{ID: uuid.New(), Name: "Batina", Code: "batina"},
-		GaugeName:   "Batina",
-		ArhVelicine: []string{"vodostaj", "protok"}, ArhVelicina: "vodostaj",
-		ArhKorak: "dnevni", ArhGodina: 2013, ArhGodine: []int{2013},
-		ArhNiz:     []models.SpojenaVrijednost{{Kad: kad, Vrijednost: 771, Izvor: "his2000", Vrsta: "srednjak"}},
-		ArhSazetak: sazetak,
-		ArhPager:   pagerZa(&http.Request{URL: &url.URL{Path: "/x"}}, "ap", 365, 100),
+		Station:     models.Station{ID: uuid.New(), Name: "Batina", Code: "batina"},
+		ArhivaPogled: ArhivaPogled{ArhVelicine: []string{"vodostaj", "protok"}, ArhVelicina: "vodostaj",
+			ArhKorak: "dnevni", ArhGodina: 2013, ArhGodine: []int{2013},
+			ArhNiz:     []models.SpojenaVrijednost{{Kad: kad, Vrijednost: 771, Izvor: "his2000", Vrsta: "srednjak"}},
+			ArhSazetak: sazetak,
+			ArhPager:   pagerZa(&http.Request{URL: &url.URL{Path: "/x"}}, "ap", 365, 100),
+		},
 	})
 	for _, want := range []string{"?v=protok&amp;korak=dnevni&amp;god=2013#niz", `id="niz"`} {
 		if !strings.Contains(html, want) {
@@ -769,18 +768,12 @@ func TestRedakSazetkaOtvaraTuVelicinu(t *testing.T) {
 		}
 	}
 
-	// kartica letve: redak vodi na povijest, gdje preglednik i živi
 	id := uuid.MustParse("c625fa9d-0425-5115-8c49-8819cbb17bbd")
-	html = iscrtaj(t, "station_history.html", StationPageData{
-		CurrentUser: &models.User{FullName: "P"},
-		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
-		Station:     models.Station{ID: id, Name: "Batina", Code: "batina"},
-		Sazetak:     sazetak,
-		Spojevi: []models.SpojDoseg{{Velicina: "vodostaj", Korak: "dnevni",
-			Od: "1.1.1901.", Do: "2026-09-06", Zapisa: 45806}},
-	})
-	if want := "/readings/station/" + id.String() + "?v=protok#niz"; !strings.Contains(html, want) {
-		t.Errorf("kartica letve ne vodi na %q", want)
+	// Sažetak i preglednik stoje na istoj stranici, pa redak vodi na nju samu.
+	// Dok je preglednik bio na očitanjima, redak je vodio onamo — i tko je
+	// htio usporediti dvije veličine, hodao je između dviju stranica.
+	if strings.Contains(html, "/readings/station/"+id.String()+"?v=") {
+		t.Error("redak sažetka vodi na očitanja, gdje arhive više nema")
 	}
 }
 
@@ -1004,7 +997,7 @@ func TestRukovateljBezPohraneNePada(t *testing.T) {
 	if h.arh() != nil || h.isp() != nil {
 		t.Error("prazan dohvatnik mora vratiti prazno")
 	}
-	if m := h.ispravciZa(context.Background(), "batina", "vodostaj", "dnevni",
+	if m := ispravciIz(context.Background(), nil, "batina", "vodostaj", "dnevni",
 		time.Now().AddDate(-1, 0, 0), time.Now()); m != nil {
 		t.Error("bez pohrane ispravaka ne smije se ništa dohvaćati")
 	}
@@ -1127,9 +1120,9 @@ func TestKarticaPokazujePragoveUProtoku(t *testing.T) {
 	}
 }
 
-// Redoslijed na stranici letve: svježa očitanja gore, arhiva ispod. Dežurni
-// prvo gleda što je danas, a ne što je bilo 1901.
-func TestSvjezaOcitanjaIznadArhive(t *testing.T) {
+// Očitanja su operativa i ne nose arhivu. Dok su stajale zajedno, dvije su
+// stranice pokazivale različit „zadnji vodostaj" i nije bilo jasno koji vrijedi.
+func TestOcitanjaNeNoseArhivu(t *testing.T) {
 	kad := time.Now().Add(-2 * time.Hour)
 	cm := -128
 	html := iscrtaj(t, "reading_history.html", ReadingHistoryData{
@@ -1139,28 +1132,43 @@ func TestSvjezaOcitanjaIznadArhive(t *testing.T) {
 		GaugeName:   "Batina",
 		Readings:    []models.Reading{{MeasuredAt: kad, LevelCm: &cm, Observer: "letva"}},
 		Count:       1,
-		ArhVelicine: []string{"vodostaj"}, ArhVelicina: "vodostaj",
-		ArhKorak: "dnevni", ArhGodina: 2013, ArhGodine: []int{2013},
-		ArhNiz:   []models.SpojenaVrijednost{{Kad: kad.AddDate(-13, 0, 0), Vrijednost: 771, Izvor: "his2000"}},
-		ArhPager: pagerZa(&http.Request{URL: &url.URL{Path: "/x"}}, "ap", 365, 100),
 	})
-	iOcitanja := strings.Index(html, "Svježa očitanja")
-	iArhiva := strings.Index(html, "Povijest iz arhive")
-	if iOcitanja < 0 || iArhiva < 0 {
-		t.Fatal("nedostaje jedan od odjeljaka")
+	if strings.Contains(html, "Povijest iz arhive") {
+		t.Error("arhiva se vratila na očitanja")
 	}
-	if iOcitanja > iArhiva {
-		t.Error("arhiva stoji iznad svježih očitanja")
+	if !strings.Contains(html, "Svježa očitanja") {
+		t.Error("nema svježih očitanja")
 	}
 	// graf kretanja stoji iznad popisa očitanja
+	iOcitanja := strings.Index(html, "Svježa očitanja")
 	if i := strings.Index(html, "Kretanje vodostaja"); i > 0 && i > iOcitanja {
 		t.Error("graf kretanja stoji ispod popisa očitanja")
 	}
-	// i u arhivi graf ide prije tablice vrijednosti
+}
+
+// Na historijatu graf ide prije tablice vrijednosti — prvo se vidi oblik
+// godine, pa tek onda pojedinačni dani.
+func TestUArhiviGrafIdePrijeTablice(t *testing.T) {
+	kad := time.Date(2013, 6, 14, 6, 0, 0, 0, time.UTC)
+	html := iscrtaj(t, "station_history.html", StationPageData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Station:     models.Station{ID: uuid.New(), Name: "Batina", Code: "batina"},
+		ArhivaPogled: ArhivaPogled{
+			ArhVelicine: []string{"vodostaj"}, ArhVelicina: "vodostaj",
+			ArhKorak: "dnevni", ArhGodina: 2013, ArhGodine: []int{2013},
+			ArhChart: crtajNiz(nizZaGraf(kad), "vodostaj", &models.Station{Name: "Batina"}, nil),
+			ArhNiz:   []models.SpojenaVrijednost{{Kad: kad, Vrijednost: 771, Izvor: "his2000"}},
+			ArhPager: pagerZa(&http.Request{URL: &url.URL{Path: "/x"}}, "ap", 365, 100),
+		},
+	})
 	iGraf := strings.Index(html, `aria-label="Graf:`)
 	iTablica := strings.Index(html, "Novije prvo. Svaka vrijednost")
-	if iGraf > 0 && iTablica > 0 && iGraf > iTablica {
-		t.Error("u arhivi tablica stoji iznad grafa")
+	if iGraf <= 0 || iTablica <= 0 {
+		t.Fatal("nedostaje graf ili tablica")
+	}
+	if iGraf > iTablica {
+		t.Error("tablica stoji iznad grafa")
 	}
 }
 
@@ -1396,20 +1404,21 @@ func TestUskiGrafZaTelefon(t *testing.T) {
 // kartice — svaka vrijednost tada mora znati iz kojeg je stupca.
 func TestStranicaLetveNosiObaGrafa(t *testing.T) {
 	kad := time.Date(2013, 6, 14, 6, 0, 0, 0, time.UTC)
-	html := iscrtaj(t, "reading_history.html", ReadingHistoryData{
+	html := iscrtaj(t, "station_history.html", StationPageData{
 		CurrentUser: &models.User{FullName: "P"},
 		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
-		Station:     &models.Station{ID: uuid.New(), Name: "Batina", Code: "batina"},
-		GaugeName:   "Batina", Pogled: "30", PogledOpis: "zadnjih 30 dana",
-		ArhVelicine: []string{"vodostaj"}, ArhVelicina: "vodostaj", ArhJedinica: "cm",
-		ArhKorak: "dnevni", ArhGodina: 2013, ArhGodine: []int{2013},
-		ArhNiz:       []models.SpojenaVrijednost{{Kad: kad, Vrijednost: 771, Izvor: "his2000"}},
-		ArhChart:     crtajNiz(nizZaGraf(kad), "vodostaj", nil, nil),
-		ArhChartUzak: crtajNizUzak(nizZaGraf(kad), "vodostaj", nil, nil),
-		ArhSazetak: []models.SazetakVelicine{
-			{Velicina: "vodostaj", Od: "1.1.1901.", Do: "2026-09-06", Srednjak: 205, Max: 797, Min: -308},
+		Station:     models.Station{ID: uuid.New(), Name: "Batina", Code: "batina"},
+		ArhivaPogled: ArhivaPogled{
+			ArhVelicine: []string{"vodostaj"}, ArhVelicina: "vodostaj", ArhJedinica: "cm",
+			ArhKorak: "dnevni", ArhGodina: 2013, ArhGodine: []int{2013},
+			ArhNiz:       []models.SpojenaVrijednost{{Kad: kad, Vrijednost: 771, Izvor: "his2000"}},
+			ArhChart:     crtajNiz(nizZaGraf(kad), "vodostaj", nil, nil),
+			ArhChartUzak: crtajNizUzak(nizZaGraf(kad), "vodostaj", nil, nil),
+			ArhSazetak: []models.SazetakVelicine{
+				{Velicina: "vodostaj", Od: "1.1.1901.", Do: "2026-09-06", Srednjak: 205, Max: 797, Min: -308},
+			},
+			ArhPager: pagerZa(&http.Request{URL: &url.URL{Path: "/x"}}, "ap", 365, 100),
 		},
-		ArhPager: pagerZa(&http.Request{URL: &url.URL{Path: "/x"}}, "ap", 365, 100),
 	})
 	if !strings.Contains(html, `viewBox="0 0 1600 420"`) || !strings.Contains(html, `viewBox="0 0 620 460"`) {
 		t.Error("stranica mora nositi i široki i uski graf")
@@ -1504,15 +1513,16 @@ func TestSirokiGrafZadrzavaKoordinate(t *testing.T) {
 // redaka pokazuje odlučuje listanje ispod tablice.
 func TestArhivskaTablicaNemaSvojKlizac(t *testing.T) {
 	kad := time.Date(2013, 6, 14, 6, 0, 0, 0, time.UTC)
-	html := iscrtaj(t, "reading_history.html", ReadingHistoryData{
+	html := iscrtaj(t, "station_history.html", StationPageData{
 		CurrentUser: &models.User{FullName: "P"},
 		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
-		Station:     &models.Station{ID: uuid.New(), Name: "Batina", Code: "batina"},
-		GaugeName:   "Batina", Pogled: "30", PogledOpis: "zadnjih 30 dana",
-		ArhVelicine: []string{"vodostaj"}, ArhVelicina: "vodostaj", ArhJedinica: "cm",
-		ArhKorak: "dnevni", ArhGodina: 2013, ArhGodine: []int{2013},
-		ArhNiz:   []models.SpojenaVrijednost{{Kad: kad, Vrijednost: 771, Izvor: "his2000"}},
-		ArhPager: pagerZa(&http.Request{URL: &url.URL{Path: "/x"}}, "ap", 365, 100),
+		Station:     models.Station{ID: uuid.New(), Name: "Batina", Code: "batina"},
+		ArhivaPogled: ArhivaPogled{
+			ArhVelicine: []string{"vodostaj"}, ArhVelicina: "vodostaj", ArhJedinica: "cm",
+			ArhKorak: "dnevni", ArhGodina: 2013, ArhGodine: []int{2013},
+			ArhNiz:   []models.SpojenaVrijednost{{Kad: kad, Vrijednost: 771, Izvor: "his2000"}},
+			ArhPager: pagerZa(&http.Request{URL: &url.URL{Path: "/x"}}, "ap", 365, 100),
+		},
 	})
 	if strings.Contains(html, "overflow-y:auto") || strings.Contains(html, "max-height:28rem") {
 		t.Error("arhivska tablica opet ima vlastiti klizač")

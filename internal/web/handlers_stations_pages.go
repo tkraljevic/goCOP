@@ -48,6 +48,7 @@ type StationPageData struct {
 	Spojevi              []models.SpojDoseg        // spojeni nizovi: jedan satni, jedan dnevni
 	Sada                 *models.SpojenaVrijednost // zadnja vrijednost spojenog niza
 	Sazetak              []models.SazetakVelicine  // jedan redak po veličini
+	ArhivaPogled                                   // povijest iz arhive na historijatu letve
 	Crtez                *KoritoCrtez              // korito s vodom u njemu
 	CrtezUzak            *KoritoCrtez              // isti presjek u obliku za telefon
 	Zadnji               *models.HidroTocka        // zadnja vrijednost iz arhive
@@ -96,6 +97,12 @@ func (h *StationsHandler) arh() *repository.ArhivaRepository {
 // registriraju prije nego što se postavke pročitaju, pa bi vrijednost predana
 // pri sastavljanju zauvijek ostala prazna. Isto kao kod arhive.
 func (h *StationsHandler) SetKarta(f func() KartaPostavke) { h.karta = f }
+
+// SetIspravci daje rukovatelju pohranu ispravaka arhive; bez nje se arhiva i
+// dalje prikazuje, samo bez ispravaka.
+func (h *StationsHandler) SetIspravci(f func() *repository.IspravakRepository) {
+	h.ispravci = f
+}
 
 // SetSektor daje rukovatelju zapis sektora, iz kojeg se gradi memorandum na
 // izvješću. Dohvatnik iz istog razloga kao kod karte.
@@ -162,6 +169,15 @@ func (h *StationsHandler) HistorijatLetve(w http.ResponseWriter, r *http.Request
 	data, ok := h.podaciLetve(w, r)
 	if !ok {
 		return
+	}
+	// Arhiva se puni samo ovdje: kartica je operativa i ne treba je, a izvješće
+	// bi je platilo bez potrebe.
+	if h.arhiva != nil {
+		var isp *repository.IspravakRepository
+		if h.ispravci != nil {
+			isp = h.ispravci()
+		}
+		popuniArhivu(r.Context(), r, h.arhiva(), isp, &data.ArhivaPogled, &data.Station)
 	}
 	if err := h.tmplHistorijat.ExecuteTemplate(w, "station_history.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

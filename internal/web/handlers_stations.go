@@ -23,6 +23,7 @@ type StationsHandler struct {
 	watercourseService *service.WatercourseService
 	episodeService     *service.EpisodeService
 	arhiva             func() *repository.ArhivaRepository
+	ispravci           func() *repository.IspravakRepository
 	karta              func() KartaPostavke
 	sektor             func(ctx context.Context, id string) *models.Sector
 	tmpl               *template.Template // popis
