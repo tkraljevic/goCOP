@@ -145,6 +145,14 @@
     <div id="extreme-rows"></div>
   </div>
   <button type="button" class="btn btn-sm btn-secondary" onclick="addExtremeRow()">{{icon "plus"}} Dodaj ekstrem</button>
+  {{/* Preuzimanje iz podataka, ne prepisivanje: upisani ekstrem je službena
+       tvrdnja s podrijetlom, a ovo je najveće što u nizu stoji. Redak se doda
+       popunjen, a čovjek potvrdi ili ispravi — kod Batine niz kaže 797 cm
+       preračunato, a zabilježeno je 775 cm izmjereno. */}}
+  {{if .KrajnostiIzNiza}}
+  <button type="button" class="btn btn-sm btn-secondary" onclick="preuzmiKrajnosti()"
+          title="Doda retke iz arhive i očitanja; potvrdite ili ispravite prije spremanja">{{icon "download"}} Preuzmi iz podataka</button>
+  {{end}}
   <template id="tpl-extreme">
     <div class="extreme-row">
       <div data-label="Vrsta"><select class="form-control" data-field="kind" aria-label="Vrsta ekstrema"><option value="MAX">najviši</option><option value="MIN">najniži</option></select></div>
@@ -169,6 +177,20 @@
     row.querySelector('[data-field=method]').value = e.method || '';
     row.querySelector('[data-field=note]').value = e.note || '';
     document.getElementById('extreme-rows').appendChild(row);
+  }
+  const KRAJNOSTI = {{.KrajnostiIzNizaJSON}};
+  function preuzmiKrajnosti() {
+    (KRAJNOSTI || []).forEach(k => {
+      // preračunato iz susjedne postaje nije mjerenje; način se popuni izvorom
+      const preracun = String(k.Izvor || '').startsWith('preracun');
+      addExtremeRow({
+        kind: k.Kind, level_cm: k.LevelCm, on_date: k.OnDate,
+        quality: preracun ? 'REKONSTRUIRANO' : 'IZMJERENO',
+        source: k.Odakle === 'arhiva' ? 'arhiva vodostaja' : 'operativna očitanja',
+        method: preracun ? 'preračun iz niza ' + k.Izvor : '',
+        note: 'preuzeto iz podataka — provjeriti prije objave',
+      });
+    });
   }
   function collectExtremes() {
     const rows = [...document.querySelectorAll('#extreme-rows .extreme-row')].map(r => {

@@ -52,6 +52,14 @@ func hasAnyWriteRight(perms *models.UserPermissions) bool {
 }
 
 // CanRecordStation javlja smije li korisnik upisati očitanje na postaju
+// Krajnosti vraća najviše i najniže operativno očitanje letve.
+func (s *ReadingService) Krajnosti(ctx context.Context, stationID string) []models.KrajnostIzNiza {
+	if s == nil || s.repo == nil {
+		return nil
+	}
+	return s.repo.Krajnosti(ctx, stationID)
+}
+
 func (s *ReadingService) CanRecordStation(perms *models.UserPermissions, st *models.Station) bool {
 	if perms == nil || st == nil {
 		return false

@@ -705,3 +705,32 @@ type Ograda struct {
 	Razdoblje  string
 	Izdavaceva bool
 }
+
+// KrajnostIzNiza je najviša ili najniža vrijednost koju program ima u
+// podacima — iz arhive ili iz operativnih očitanja.
+//
+// Ne zamjenjuje zabilježeni ekstrem. Zabilježeni je tvrdnja s podrijetlom
+// („775 cm, izmjereno, DHMZ"), ova je najveće što u nizu stoji. Kod Batine se
+// razilaze: niz kaže 797 cm 1956., ali preračunato iz Mohácsa, a zabilježeno
+// je 775 cm izmjereno. Razlika je podatak, ne pogreška.
+type KrajnostIzNiza struct {
+	Kind    string // ExtremeMax ili ExtremeMin
+	LevelCm int
+	OnDate  string
+	Izvor   string // his2000, preracun-mohacs, letva-dhmz …
+	Odakle  string // "arhiva" ili "očitanja"
+}
+
+// JeMjerena javlja je li krajnost izmjerena na ovoj letvi, a ne preračunata iz
+// susjedne. Niz seže dalje unatrag nego što letva postoji.
+func (k KrajnostIzNiza) JeMjerena() bool {
+	return !strings.HasPrefix(k.Izvor, "preracun")
+}
+
+// Naslov je "najviši" ili "najniži", za ispis.
+func (k KrajnostIzNiza) Naslov() string {
+	if k.Kind == ExtremeMin {
+		return "najniži"
+	}
+	return "najviši"
+}

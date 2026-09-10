@@ -2913,3 +2913,18 @@ textarea {
   font-variant-numeric: tabular-nums;
   margin-top: 0.15rem;
 }
+
+/* Krajnosti iz podataka — stoje uz zabilježene ekstreme, tiše od njih, jer su
+   ono što u nizu piše a ne službeni zapis. */
+.krajnosti-iz-niza {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 2rem;
+}
+
+.krajnosti-iz-niza > div {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  font-variant-numeric: tabular-nums;
+}
