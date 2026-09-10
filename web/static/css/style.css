@@ -2928,3 +2928,42 @@ textarea {
   gap: 0.4rem;
   font-variant-numeric: tabular-nums;
 }
+
+/* Izvori arhive: svaki izvor je zasebna kartica i zaseban obrazac, pa
+   promjena jednog ne dira ostale. Tablica je ovdje bila kriva dvaput —
+   polja preuska za uređivanje, a <form> unutar <tr> preglednik izbacuje
+   iz tablice, pa su se vrijednosti gubile. */
+.izvori-mreza {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(21rem, 1fr));
+  gap: 0.875rem;
+}
+.izvor-kartica {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.izvor-kartica.izvor-iskljucen { border-style: dashed; }
+.izvor-glava { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; }
+.izvor-naziv { margin: 0; font-size: 1rem; font-weight: 600; overflow-wrap: anywhere; }
+.izvor-obujam { margin: 0.15rem 0 0; font-size: 0.8125rem; color: var(--text-muted); }
+
+.izvor-sklopka { display: flex; gap: 0.5rem; align-items: flex-start; cursor: pointer; }
+.izvor-sklopka input { margin-top: 0.2rem; flex: none; }
+.izvor-sklopka span { display: block; font-size: 0.875rem; line-height: 1.3; }
+.izvor-sklopka small { display: block; color: var(--text-muted); font-size: 0.75rem; }
+
+.izvor-brojevi { display: grid; grid-template-columns: 1fr 1fr; gap: 0.625rem; }
+.izvor-brojevi label, .izvor-napomena { display: block; }
+.izvor-brojevi .part-label, .izvor-napomena .part-label { display: block; margin-bottom: 0.2rem; }
+.izvor-brojevi input { width: 100%; text-align: right; }
+.izvor-brojevi small { display: block; margin-top: 0.2rem; color: var(--text-muted); font-size: 0.7rem; }
+.izvor-napomena input { width: 100%; }
+
+.izvor-letve > summary { cursor: pointer; font-size: 0.8125rem; color: var(--text-muted); }
+.izvor-letve > p { margin: 0.35rem 0 0; font-size: 0.8125rem; color: var(--text-muted); overflow-wrap: anywhere; }
+.izvor-podnozje { display: flex; justify-content: flex-end; margin-top: auto; }

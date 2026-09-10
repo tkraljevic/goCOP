@@ -117,3 +117,25 @@ func TestNapomenaNePokreceSpajanje(t *testing.T) {
 		t.Errorf("letve za ponovno spajanje: %v", letve)
 	}
 }
+
+// Vrijednosti u obrascu moraju stvarno doći do preglednika. Prva izvedba bila
+// je tablica s <form> unutar <tr> — preglednik takav obrazac izbaci iz tablice
+// pri raščlambi, pa je stupac "red" ostajao prazan iako ga je predložak ispisao.
+func TestObrazacIzvoraNemaFormeUTablici(t *testing.T) {
+	html := iscrtaj(t, "izvori.html", IzvoriPageData{
+		Izvori: []IzvorURedu{{Izvor: arhiva.Izvor{Naziv: "his2000", Tocnost: 0, Red: 10,
+			Ukljucen: true, Napomena: "referenca"}, Nizova: 44, Zapisa: 4542315, Letve: []string{"batina"}}},
+	})
+	for _, treba := range []string{`name="red" value="10"`, `name="tocnost" value="0"`,
+		`name="naziv" value="his2000"`, `name="napomena" value="referenca"`} {
+		if !strings.Contains(html, treba) {
+			t.Errorf("obrazac nema %s", treba)
+		}
+	}
+	if i := strings.Index(html, "<form"); i >= 0 {
+		prije := html[:i]
+		if strings.Count(prije, "<table") > strings.Count(prije, "</table>") {
+			t.Error("obrazac stoji unutar tablice — preglednik će ga izbaciti i polja će ostati prazna")
+		}
+	}
+}
