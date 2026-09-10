@@ -551,8 +551,28 @@ func (r *ArhivaRepository) SpojZadnje(ctx context.Context, letva, velicina, kora
 
 // SpojRaspon vraća vrijednosti spojenog niza u razdoblju, novije prvo. Svaka
 // nosi izvor i odstupanje, pa se u tablici vidi odakle je koji redak.
+// Poredak listanja spojenog niza. Prazno je po vremenu, od najnovijeg —
+// tako se niz i čita. Po vrijednosti se traži drugo: koji su dani u godini
+// bili najviši, bez listanja dvanaest stranica.
+const (
+	PoVremenu  = ""
+	PoNajvisem = "vrh"
+	PoNajnizem = "dno"
+)
+
+func poredakSpoja(p string) string {
+	switch p {
+	case PoNajvisem:
+		return "vrijednost DESC, vrijeme DESC"
+	case PoNajnizem:
+		return "vrijednost ASC, vrijeme DESC"
+	default:
+		return "vrijeme DESC"
+	}
+}
+
 func (r *ArhivaRepository) SpojRaspon(ctx context.Context, letva, velicina, korak string,
-	od, do time.Time, granica, odmak int) ([]models.SpojenaVrijednost, error) {
+	od, do time.Time, granica, odmak int, poredak string) ([]models.SpojenaVrijednost, error) {
 	if r == nil {
 		return nil, nil
 	}
@@ -566,7 +586,7 @@ func (r *ArhivaRepository) SpojRaspon(ctx context.Context, letva, velicina, kora
 	}
 	rows, err := r.db.QueryContext(ctx, `SELECT vrijeme, vrijednost, izvor, vrsta, tocnost FROM spoj
 		WHERE letva=? AND velicina=? AND korak=? AND vrijeme BETWEEN ? AND ?
-		ORDER BY vrijeme DESC LIMIT ? OFFSET ?`, letva, velicina, korak, od.Unix(), do.Unix(), granica, odmak)
+		ORDER BY `+poredakSpoja(poredak)+` LIMIT ? OFFSET ?`, letva, velicina, korak, od.Unix(), do.Unix(), granica, odmak)
 	if err != nil {
 		return nil, fmt.Errorf("spojeni niz: %w", err)
 	}
