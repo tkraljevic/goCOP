@@ -456,6 +456,12 @@ func (s *Server) setupRoutes() {
 		s.sectionService, s.watercourseService)
 	stationsH.SetEpisodeService(s.episodeService)
 	stationsH.SetArhiva(func() *repository.ArhivaRepository { return s.arhiva })
+	stationsH.SetIspravci(func() *repository.IspravakRepository {
+		if s.db == nil {
+			return nil
+		}
+		return repository.NewIspravakRepository(s.db, s.recorder)
+	})
 	stationsH.SetKarta(func() KartaPostavke { return s.karta })
 	stationsH.SetSektor(func(ctx context.Context, id string) *models.Sector {
 		if s.orgService == nil {

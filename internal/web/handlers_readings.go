@@ -155,27 +155,6 @@ type ReadingHistoryData struct {
 	// bez da mora otvarati arhivu.
 	Krivulje []models.HQKrivulja
 
-	// Povijest iz arhive. Operativna očitanja su ono što ljudi upišu; arhiva je
-	// ono što je izmjereno prije nego što je program postojao. Stranica
-	// prikazuje oboje, ali arhivu tek kad postaji ima što pokazati.
-	ArhVelicine     []string
-	ArhVelicina     string
-	ArhKorak        string
-	ArhGodine       []int
-	ArhGodina       int
-	ArhNiz          []models.SpojenaVrijednost
-	ArhChart        *Chart
-	ArhChartUzak    *Chart
-	ArhJedinica     string
-	ArhSazetak      []models.SazetakVelicine
-	ArhPager        Pager
-	ArhPromjeneKote []models.PromjenaKote // zabilježena premještanja nule letve
-	ArhIspravaka    int
-	ArhSada         *models.SpojenaVrijednost // zadnja vrijednost odabrane veličine
-	ArhDecimala     int
-	KoteZaArhivu    bool   // prikazuje li se uz vodostaj i apsolutna kota vode
-	KotaSustav      string // u kojem visinskom sustavu
-
 	SuccessMessage string
 	ErrorMessage   string
 	ActiveNav      string
@@ -529,7 +508,6 @@ func (h *ReadingsHandler) ShowHistory(w http.ResponseWriter, r *http.Request) {
 			data.Krivulje, _ = a.Krivulje(ctx, station.Code)
 			h.koritoUzGraf(ctx, &data, station, shown)
 		}
-		h.arhivaZaLetvu(ctx, r, &data, station)
 	}
 
 	if err := h.tmplHistory.ExecuteTemplate(w, "reading_history.html", data); err != nil {
@@ -820,91 +798,6 @@ func (h *ReadingsHandler) HandleFollow(w http.ResponseWriter, r *http.Request) {
 	redirectWith(w, r, back, "success", msg)
 }
 
-// arhivaZaLetvu puni povijest iz arhive: koje veličine postoje, koje godine i
-// vrijednosti odabrane godine. Svaka vrijednost nosi izvor i odstupanje, pa se
-// u tablici vidi odakle je koji redak.
-func (h *ReadingsHandler) arhivaZaLetvu(ctx context.Context, r *http.Request,
-	data *ReadingHistoryData, station *models.Station) {
-	a := h.arh()
-	if a == nil || station.Code == "" {
-		return
-	}
-	dosezi, err := a.SpojDosezi(ctx, station.Code)
-	if err != nil || len(dosezi) == 0 {
-		return
-	}
-	data.ArhSazetak, _ = a.Sazetak(ctx, station.Code)
-	data.ArhPromjeneKote, _ = a.PromjeneKote(ctx, station.Code)
-
-	vidjeno := map[string]bool{}
-	for _, d := range dosezi {
-		if !vidjeno[d.Velicina] {
-			vidjeno[d.Velicina] = true
-			data.ArhVelicine = append(data.ArhVelicine, d.Velicina)
-		}
-	}
-	data.ArhVelicina = r.URL.Query().Get("v")
-	if !vidjeno[data.ArhVelicina] {
-		data.ArhVelicina = data.ArhVelicine[0]
-	}
-	data.ArhKorak = r.URL.Query().Get("korak")
-	if data.ArhKorak != "satni" {
-		data.ArhKorak = "dnevni"
-	}
-	data.ArhJedinica = models.JedinicaVelicine(data.ArhVelicina)
-	data.ArhDecimala = decimalaVelicine(data.ArhVelicina)
-	data.ArhSada, _ = a.SpojZadnje(ctx, station.Code, data.ArhVelicina, data.ArhKorak)
-	if data.ArhVelicina == "vodostaj" && station.ImaKotuNule() {
-		if k := station.Kote(0); len(k) > 0 {
-			data.KoteZaArhivu, data.KotaSustav = true, k[0].Sustav
-		}
-	}
-
-	data.ArhGodine, _ = a.SpojGodine(ctx, station.Code, data.ArhVelicina, data.ArhKorak)
-	if len(data.ArhGodine) == 0 {
-		// tražena gustoća ne postoji za tu veličinu — vrati se na dnevnu
-		data.ArhKorak = "dnevni"
-		data.ArhGodine, _ = a.SpojGodine(ctx, station.Code, data.ArhVelicina, data.ArhKorak)
-	}
-	if g, err := strconv.Atoi(r.URL.Query().Get("god")); err == nil {
-		data.ArhGodina = g
-	}
-	imaGodinu := false
-	for _, g := range data.ArhGodine {
-		if g == data.ArhGodina {
-			imaGodinu = true
-		}
-	}
-	if !imaGodinu && len(data.ArhGodine) > 0 {
-		data.ArhGodina = data.ArhGodine[0]
-	}
-	if data.ArhGodina == 0 {
-		return
-	}
-	od := time.Date(data.ArhGodina, 1, 1, 0, 0, 0, 0, time.UTC)
-	do := od.AddDate(1, 0, 0).Add(-time.Second)
-	ukupno, _ := a.SpojBroj(ctx, station.Code, data.ArhVelicina, data.ArhKorak, od, do)
-	data.ArhPager = pagerZa(r, "ap", ukupno, arhivaPoStranici)
-	data.ArhNiz, _ = a.SpojRaspon(ctx, station.Code, data.ArhVelicina, data.ArhKorak,
-		od, do, data.ArhPager.PerPage, data.ArhPager.Odmak())
-	ispravci := h.ispravciZa(ctx, station.Code, data.ArhVelicina, data.ArhKorak, od, do)
-	data.ArhIspravaka = len(ispravci)
-	primijeniIspravke(data.ArhNiz, ispravci)
-
-	// Graf crta cijelu godinu, ne samo prikazanu stranicu — inače bi se mijenjao
-	// pri svakom listanju i ne bi značio ono što piše.
-	cijela, _ := a.SpojRaspon(ctx, station.Code, data.ArhVelicina, data.ArhKorak, od, do, 20000, 0)
-	primijeniIspravke(cijela, ispravci)
-	krivulje, _ := a.Krivulje(ctx, station.Code)
-	data.ArhChart = crtajNiz(prorijediNiz(cijela, 700), data.ArhVelicina, station, krivulje)
-	data.ArhChartUzak = crtajNizUzak(prorijediNiz(cijela, 260), data.ArhVelicina, station, krivulje)
-	if n := len(data.ArhNiz); n > 0 && data.ArhPager.Multi() {
-		istakni(data.ArhChart, data.ArhNiz[n-1].Kad, data.ArhNiz[0].Kad)
-		istakni(data.ArhChartUzak, data.ArhNiz[n-1].Kad, data.ArhNiz[0].Kad)
-	}
-
-}
-
 // prorijedi svodi dugačak niz na oko ciljBroj točaka za crtanje, ali tako da
 // vrhovi ostanu. Godina satnih vodostaja ima 8.760 točaka; nacrtati ih sve
 // znači tešku sliku, a uzeti svaku n-tu znači izgubiti vrh vala — a vrh je
@@ -954,20 +847,6 @@ func prorijedi(pts []models.Reading, ciljBroj int) []models.Reading {
 		out = append(out, poredak[prvi], poredak[drugi])
 	}
 	return out
-}
-
-// ispravciZa dohvaća ispravke niza; bez pohrane vraća prazno.
-func (h *ReadingsHandler) ispravciZa(ctx context.Context, letva, velicina, korak string,
-	od, do time.Time) map[int64]models.ArhivaIspravak {
-	repo := h.isp()
-	if repo == nil {
-		return nil
-	}
-	m, err := repo.ZaNiz(ctx, letva, velicina, korak, od, do)
-	if err != nil {
-		return nil
-	}
-	return m
 }
 
 // primijeniIspravke stavlja ispravke preko arhivskih vrijednosti. Izvorna

@@ -118,19 +118,20 @@ func TestPogledVeziGrafITablicu(t *testing.T) {
 // prvo se vidi što uopće ima, pa kretanje, pa pojedine vrijednosti.
 func TestRedoslijedUArhivi(t *testing.T) {
 	kad := time.Date(2013, 6, 14, 6, 0, 0, 0, time.UTC)
-	html := iscrtaj(t, "reading_history.html", ReadingHistoryData{
+	html := iscrtaj(t, "station_history.html", StationPageData{
 		CurrentUser: &models.User{FullName: "P"},
 		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
-		Station:     &models.Station{ID: uuid.New(), Name: "Batina", Code: "batina"},
-		GaugeName:   "Batina", Pogled: "30", PogledOpis: "zadnjih 30 dana",
-		ArhVelicine: []string{"vodostaj"}, ArhVelicina: "vodostaj",
-		ArhKorak: "dnevni", ArhGodina: 2013, ArhGodine: []int{2013},
-		ArhNiz:   []models.SpojenaVrijednost{{Kad: kad, Vrijednost: 771, Izvor: "his2000"}},
-		ArhChart: crtajNiz(nizZaGraf(kad), "vodostaj", nil, nil),
-		ArhSazetak: []models.SazetakVelicine{
-			{Velicina: "vodostaj", Od: "1901-01-01", Do: "2026-09-06", Srednjak: 205, Max: 797, Min: -308},
+		Station:     models.Station{ID: uuid.New(), Name: "Batina", Code: "batina"},
+		ArhivaPogled: ArhivaPogled{
+			ArhVelicine: []string{"vodostaj"}, ArhVelicina: "vodostaj",
+			ArhKorak: "dnevni", ArhGodina: 2013, ArhGodine: []int{2013},
+			ArhNiz:   []models.SpojenaVrijednost{{Kad: kad, Vrijednost: 771, Izvor: "his2000"}},
+			ArhChart: crtajNiz(nizZaGraf(kad), "vodostaj", nil, nil),
+			ArhSazetak: []models.SazetakVelicine{
+				{Velicina: "vodostaj", Od: "1901-01-01", Do: "2026-09-06", Srednjak: 205, Max: 797, Min: -308},
+			},
+			ArhPager: pagerZa(&http.Request{URL: &url.URL{Path: "/x"}}, "ap", 365, 100),
 		},
-		ArhPager: pagerZa(&http.Request{URL: &url.URL{Path: "/x"}}, "ap", 365, 100),
 	})
 	iSazetak := strings.Index(html, "Karakteristične vrijednosti")
 	iGraf := strings.Index(html, `aria-label="Graf:`)
