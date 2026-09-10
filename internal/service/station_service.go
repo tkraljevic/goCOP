@@ -144,10 +144,7 @@ func (s *StationService) CreateStation(ctx context.Context, perms *models.UserPe
 	if strings.TrimSpace(station.Code) == "" {
 		station.Code = hydro.Slug(station.Name)
 	}
-	station.NeedsReview = !station.HasUsableThresholds()
-	if station.NeedsReview && station.ReviewNote == "" {
-		station.ReviewNote = "nijedan prag nije zapisan u centimetrima — faza obrane se ne računa automatski"
-	}
+	preispitajPregled(station)
 
 	if err := s.stationRepo.CreateStation(ctx, station); err != nil {
 		return err
@@ -155,6 +152,31 @@ func (s *StationService) CreateStation(ctx context.Context, perms *models.UserPe
 
 	// Mjerodavnost za dionicu upisuje se u poddionici na obrascu dionice
 	return nil
+}
+
+// bezPragovaNapomena je napomena koju program sam upiše kad postaja nema
+// pragova u centimetrima. Prepoznaje se po tekstu, pa se poslije zna razlikovati
+// od onoga što je napisao čovjek.
+const bezPragovaNapomena = "nijedan prag nije zapisan u centimetrima — faza obrane se ne računa automatski"
+
+// preispitajPregled postavlja i SKIDA oznaku da postaja traži pregled.
+//
+// Skidanje je bilo ono što je nedostajalo: oznaka se postavljala pri otvaranju
+// prazne kartice i ostajala zauvijek, pa je Vukovar s upisanih 530/580/630/680
+// i dalje javljao da nijedan prag nije zapisan u centimetrima. Ono što je
+// napisao čovjek se ne dira — on je mogao označiti nešto sasvim drugo.
+func preispitajPregled(station *models.Station) {
+	if !station.HasUsableThresholds() {
+		station.NeedsReview = true
+		if station.ReviewNote == "" {
+			station.ReviewNote = bezPragovaNapomena
+		}
+		return
+	}
+	if station.ReviewNote == "" || station.ReviewNote == bezPragovaNapomena {
+		station.NeedsReview = false
+		station.ReviewNote = ""
+	}
 }
 
 // UpdateStation mijenja podatke postaje u registru.
@@ -175,6 +197,7 @@ func (s *StationService) UpdateStation(ctx context.Context, perms *models.UserPe
 	if err := s.requireAnySectionAccess(perms, existing.SectionCodes); err != nil {
 		return err
 	}
+	preispitajPregled(station)
 
 	// Ovdje je nekad stajalo vraćanje izvora kote, načina, datuma i naziva iz
 	// dokumentacije na stare vrijednosti, uz obrazloženje da ih obrazac ne
