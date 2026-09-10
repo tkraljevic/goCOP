@@ -3,6 +3,7 @@ package web
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"gocop/internal/models"
 
@@ -199,5 +200,47 @@ func TestPraznaOgradaSeNeSprema(t *testing.T) {
 	}
 	if out[1].Izvor != "letva-hv" || out[1].Tekst != "led" {
 		t.Errorf("razmaci se ne uklanjaju: %+v", out[1])
+	}
+}
+
+// Razorna radnja stoji na kraju stranice, ne usred nje. Podnožje se
+// iscrtavalo prije odjeljka o dionicama, pa je Obriši stajao na sredini a
+// zadnji odjeljak visio ispod njega.
+func TestPodnozjeKarticeStojiNaKraju(t *testing.T) {
+	html := iscrtaj(t, "station_detail.html", StationPageData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Station:     models.Station{ID: uuid.New(), Name: "Batina", Code: "batina"},
+		CanEdit:     true, CanRecord: true, LetvaStranica: "kartica",
+	})
+	podnozje := strings.Index(html, "kartica-podnozje")
+	dionice := strings.Index(html, "Mjerodavna za dionice")
+	if podnozje < 0 || dionice < 0 {
+		t.Fatal("nedostaje podnožje ili odjeljak o dionicama")
+	}
+	if podnozje < dionice {
+		t.Error("podnožje s Obriši stoji prije zadnjeg odjeljka")
+	}
+}
+
+// Kad telemetrija stane, stranica izgleda jednako kao da sve radi — vrijednost
+// stoji, samo je stara. Za velike vode to je razlika između odluke i provjere.
+func TestOcitanjeKojeKasniSeOznacava(t *testing.T) {
+	cm := func(v int) *int { return &v }
+	st := models.Station{ID: uuid.New(), Name: "Batina", Code: "batina"}
+	podaci := func(staro time.Duration) string {
+		r := models.Reading{MeasuredAt: time.Now().Add(-staro), LevelCm: cm(-118), Origin: "letva"}
+		return iscrtaj(t, "reading_history.html", ReadingHistoryData{
+			CurrentUser: &models.User{FullName: "P"},
+			Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+			Station:     &st, GaugeName: "Batina", CanRecord: true, LetvaStranica: "ocitanja",
+			Readings: []models.Reading{r}, Latest: &r, Count: 1,
+		})
+	}
+	if strings.Contains(podaci(2*time.Hour), "kasni") {
+		t.Error("svježe očitanje označeno kao zakašnjelo")
+	}
+	if !strings.Contains(podaci(30*time.Hour), "kasni") {
+		t.Error("očitanje starije od dana nije označeno")
 	}
 }
