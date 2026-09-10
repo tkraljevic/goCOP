@@ -39,10 +39,10 @@ type ArhivaPogled struct {
 	KotaSustav      string // u kojem visinskom sustavu
 }
 
-// arhivaPoStranici je koliko se vrijednosti ispisuje odjednom. Trideset stane
-// na zaslon bez listanja kroz stranicu; tko traži razdoblje, gleda graf iznad,
-// a ne popis.
-const arhivaPoStranici = 30
+// arhivaPoStranici je koliko se vrijednosti ispisuje odjednom. Trideset i
+// jedan, a ne trideset: najduži mjesec tako stane na jednu stranicu, pa se
+// zbog jednog jedinog dana ne mora listati.
+const arhivaPoStranici = 31
 
 // popuniArhivu puni pregled. Svaka vrijednost nosi izvor i odstupanje, pa se u
 // tablici vidi odakle je koji redak.
