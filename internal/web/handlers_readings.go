@@ -88,8 +88,6 @@ func NewReadingsHandler(readings *service.ReadingService, stations *service.Stat
 		userService: users, tmplOverview: overview, tmplHistory: history, tmplForm: form}
 }
 
-const arhivaPoStranici = 100
-
 const readingsPerPage = 30
 
 type ReadingsOverviewData struct {
