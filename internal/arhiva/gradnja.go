@@ -34,6 +34,31 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+// dopuniShemu dodaje stupce koji su nastali nakon prvih arhiva. CREATE TABLE
+// IF NOT EXISTS ih ne dodaje u postojeću tablicu, a arhiva se ne gradi iznova
+// zbog jednog stupca — 471 MB se ne prepisuje bez potrebe.
+func dopuniShemu(db *sql.DB) error {
+	stupci := []struct{ tablica, stupac, opis string }{
+		{"nizovi", "napomena", "TEXT NOT NULL DEFAULT ''"},
+	}
+	for _, c := range stupci {
+		var ima int
+		if err := db.QueryRow(
+			`SELECT count(*) FROM pragma_table_info(?) WHERE name = ?`,
+			c.tablica, c.stupac).Scan(&ima); err != nil {
+			return fmt.Errorf("provjera stupca %s.%s: %w", c.tablica, c.stupac, err)
+		}
+		if ima > 0 {
+			continue
+		}
+		if _, err := db.Exec(fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s",
+			c.tablica, c.stupac, c.opis)); err != nil {
+			return fmt.Errorf("dodavanje stupca %s.%s: %w", c.tablica, c.stupac, err)
+		}
+	}
+	return nil
+}
+
 // Shema arhive. Vrijeme je broj sekundi od 1970. u UTC-u, jer tekstualni
 // vremenski žig na sedam milijuna redaka stoji više nego sam podatak.
 const shema = `
@@ -52,6 +77,10 @@ CREATE TABLE IF NOT EXISTS nizovi (
 	otisak    TEXT NOT NULL DEFAULT '',   -- sadržajni otisak, za provjeru pri preuzimanju
 	datoteke  TEXT NOT NULL DEFAULT '',
 	osvjezeno TEXT NOT NULL DEFAULT '',
+	-- Ograda uz niz: što se o njemu zna, a iz brojki se ne vidi. Zaleđen
+	-- mjerač, sumnjive zimske vrijednosti, prekid u mjerenju. Putuje s
+	-- podacima, da se ne otkriva iznova na svakom čvoru.
+	napomena  TEXT NOT NULL DEFAULT '',
 	UNIQUE(letva, izvor, velicina, vrsta)
 );
 -- Spojeni niz: jedna vrijednost po trenutku, uzeta iz najboljeg izvora koji
@@ -191,6 +220,9 @@ func Izgradi(koren, baza, samo string, zapisi io.Writer) (Izvjestaj, error) {
 	}
 	defer db.Close()
 	if _, err := db.Exec(shema); err != nil {
+		return iz, err
+	}
+	if err := dopuniShemu(db); err != nil {
 		return iz, err
 	}
 	promjene, err := promjeneKote(db, koren, zapisi)
@@ -534,9 +566,9 @@ func bezSiljaka(velicina string, z []zapis) []zapis {
 		return z
 	}
 	const (
-		blizu   = 2 * 3600 // koliko susjed smije biti udaljen, sekundi
-		sloga   = 30.0     // koliko se susjedi smiju razlikovati međusobno, cm
-		ispad   = 150.0    // koliko vrijednost mora odskakati da bude ispad, cm
+		blizu = 2 * 3600 // koliko susjed smije biti udaljen, sekundi
+		sloga = 30.0     // koliko se susjedi smiju razlikovati međusobno, cm
+		ispad = 150.0    // koliko vrijednost mora odskakati da bude ispad, cm
 	)
 	// Skok koji nijedna naša rijeka ne može napraviti u dva sata. Njime se
 	// hvata i ispad uz prazninu u nizu, gdje drugog susjeda nema.

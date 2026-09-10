@@ -28,6 +28,7 @@ type IzvjesceLetve struct {
 	PragoviKote []PragKota
 	PragoviQ    []PragProtok
 	Krivulje    []models.HQKrivulja
+	Nizovi      []models.HidroNiz // izvorni nizovi, radi ograda uz njih
 	Profili     []models.ProfilKorita
 	Profil      *models.ProfilKorita
 	Crtez       *KoritoCrtez
@@ -107,6 +108,7 @@ func (iz IzvjesceLetve) Sastavi() *docx.Dokument {
 		iz.povratni(d)
 		iz.promjeneKote(d)
 		iz.niz(d)
+		iz.ogradeUzNizove(d)
 		iz.krivuljeProtoka(d)
 		iz.valoviObrane(d)
 		iz.proglaseneObrane(d)
@@ -642,4 +644,26 @@ func (iz IzvjesceLetve) ocitanjaPoglavlje(d *docx.Dokument) {
 	d.Napomena("Očitanja su ono što je upisano na ovoj letvi i po čemu se vodi obrana. " +
 		"Kota vode i protok nisu mjereni nego preračunati — kota iz kote nule vodomjera, " +
 		"protok iz službene krivulje koja je u trenutku očitanja vrijedila.")
+}
+
+// ogradeUzNizove ispisuje što se o pojedinom nizu zna, a iz brojki se ne vidi
+// — zaleđen mjerač, sumnjive zimske vrijednosti, prekid u mjerenju. Dokument
+// putuje dalje od stranice i čita ga netko tko niz nije vidio, pa ograda
+// vrijedi više ovdje nego na zaslonu.
+func (iz IzvjesceLetve) ogradeUzNizove(d *docx.Dokument) {
+	var redci [][]string
+	for _, n := range iz.Nizovi {
+		if strings.TrimSpace(n.Napomena) == "" {
+			continue
+		}
+		redci = append(redci, []string{
+			models.NazivVelicine(n.Velicina), models.NazivIzvora(n.Izvor),
+			datumHR(n.Od) + " – " + datumHR(n.Do), n.Napomena,
+		})
+	}
+	if len(redci) == 0 {
+		return
+	}
+	d.Poglavlje("Ograde uz nizove")
+	d.Tablica([]string{"Veličina", "Izvor", "Razdoblje", "Što treba znati"}, redci)
 }
