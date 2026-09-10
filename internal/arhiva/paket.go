@@ -446,10 +446,32 @@ func ucitajPromjene(db *sql.DB, letva string) ([]promjenaUPaketu, error) {
 // PripremiPraznu stvara shemu u praznoj arhivi. Čvor koji arhivu ne gradi
 // sam nego je samo prima mora je ipak imati gdje upisati.
 func PripremiPraznu(db *sql.DB) error {
+	// Bez ovoga SQLite ne provodi ON DELETE CASCADE, pa brisanje roditelja
+	// ostavlja djecu. Zatečena arhiva tako je skupila 330 odsječaka i 164 točke
+	// profila bez svoje krivulje odnosno profila.
+	if _, err := db.Exec(`PRAGMA foreign_keys = ON`); err != nil {
+		return err
+	}
 	if _, err := db.Exec(shema); err != nil {
 		return err
 	}
 	return dopuniShemu(db)
+}
+
+// pospremiSirotisteva briše djecu kojoj je roditelj davno nestao. Nije samo
+// urednost: id se u SQLiteu ponovno dodjeljuje, pa nova krivulja dobije broj
+// davno obrisane, a njezini odsječci nalete na tuđe ostatke i upis padne.
+func pospremiSirotista(tx *sql.Tx) error {
+	for _, q := range []string{
+		`DELETE FROM hq_odsjecci WHERE krivulja NOT IN (SELECT id FROM hq_krivulje)`,
+		`DELETE FROM profil_tocke WHERE profil NOT IN (SELECT id FROM profili)`,
+		`DELETE FROM ocitanja WHERE niz NOT IN (SELECT id FROM nizovi)`,
+	} {
+		if _, err := tx.Exec(q); err != nil {
+			return fmt.Errorf("pospremanje ostataka: %w", err)
+		}
+	}
+	return nil
 }
 
 // Sadrzaj je raspakiran paket, spreman za ugradnju.
@@ -584,6 +606,9 @@ func Ugradi(db *sql.DB, s *Sadrzaj) error {
 			return fmt.Errorf("čišćenje prethodnog izdanja: %w", err)
 		}
 	}
+	if err := pospremiSirotista(tx); err != nil {
+		return err
+	}
 
 	upisNiz, err := tx.Prepare(`INSERT INTO nizovi (zona, sliv, letva, izvor, velicina, vrsta,
 		po_danu, od, do_, zapisa, otisak, datoteke, osvjezeno, napomena)
@@ -621,7 +646,10 @@ func Ugradi(db *sql.DB, s *Sadrzaj) error {
 		if err != nil {
 			return err
 		}
-		id, _ := res.LastInsertId()
+		id, err := res.LastInsertId()
+		if err != nil {
+			return fmt.Errorf("upis krivulje %s: %w", k.VrijediOd, err)
+		}
 		for _, o := range k.Odsjecci {
 			if _, err := tx.Exec(`INSERT INTO hq_odsjecci (krivulja, od_cm, do_cm, oblik, p1, p2, p3)
 				VALUES (?,?,?,?,?,?,?)`, id, o.OdCm, o.DoCm, o.Oblik, o.P1, o.P2, o.P3); err != nil {
@@ -636,7 +664,10 @@ func Ugradi(db *sql.DB, s *Sadrzaj) error {
 		if err != nil {
 			return err
 		}
-		id, _ := res.LastInsertId()
+		id, err := res.LastInsertId()
+		if err != nil {
+			return fmt.Errorf("upis profila %s: %w", p.Datum, err)
+		}
 		for _, t := range p.Tocke {
 			if _, err := tx.Exec(`INSERT INTO profil_tocke (profil, stacionaza, visina)
 				VALUES (?,?,?)`, id, t[0], t[1]); err != nil {

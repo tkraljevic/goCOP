@@ -219,6 +219,13 @@ func Izgradi(koren, baza, samo string, zapisi io.Writer) (Izvjestaj, error) {
 		return iz, err
 	}
 	defer db.Close()
+	// Bez ovoga SQLite ne provodi ON DELETE CASCADE. Gradnja briše krivulje i
+	// profile pa ih upisuje iznova, a djeca su ostajala — zatečena arhiva je
+	// tako skupila 330 odsječaka i 164 točke bez roditelja. Kad se id poslije
+	// ponovno dodijeli, novi upis naleti na te ostatke i padne.
+	if _, err := db.Exec(`PRAGMA foreign_keys = ON`); err != nil {
+		return iz, err
+	}
 	if _, err := db.Exec(shema); err != nil {
 		return iz, err
 	}

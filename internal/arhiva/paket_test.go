@@ -235,3 +235,67 @@ func napraviArhivu(t *testing.T, put string) *sql.DB {
 	t.Cleanup(func() { os.Remove(put) })
 	return db
 }
+
+// Zatečena arhiva nosi 330 odsječaka i 164 točke profila kojima je roditelj
+// davno obrisan: SQLite po zadanom ne provodi ON DELETE CASCADE, pa je svaka
+// obnova ostavljala djecu. Id se poslije ponovno dodjeljuje, nova krivulja
+// dobije broj davno obrisane i njezini odsječci nalete na tuđe ostatke.
+//
+// Ugradnja je na tome padala s "UNIQUE constraint failed: hq_odsjecci".
+func TestUgradnjaPodnosiOstatkeBezRoditelja(t *testing.T) {
+	izvor := filepath.Join(t.TempDir(), "izvor.db")
+	db := napraviArhivu(t, izvor)
+	res, _ := db.Exec(`INSERT INTO nizovi (sliv, letva, izvor, velicina, vrsta, zapisa)
+		VALUES ('dunav','batina','his2000','vodostaj','satni',1)`)
+	nizID, _ := res.LastInsertId()
+	db.Exec(`INSERT INTO ocitanja (niz, vrijeme, vrijednost) VALUES (?,1000,100)`, nizID)
+	kr, _ := db.Exec(`INSERT INTO hq_krivulje (letva, vrijedi_od, izvor) VALUES ('batina','2024-01-01','DHMZ')`)
+	krID, _ := kr.LastInsertId()
+	db.Exec(`INSERT INTO hq_odsjecci (krivulja, od_cm, do_cm, oblik, p1, p2, p3)
+		VALUES (?,-85,300,'polinom',0.1,512.754,1210.186)`, krID)
+	pr, _ := db.Exec(`INSERT INTO profili (letva, datum, vodostaj, kota_nule, pomak_m)
+		VALUES ('batina','2020-06-01',300,80.189,0)`)
+	prID, _ := pr.LastInsertId()
+	db.Exec(`INSERT INTO profil_tocke (profil, stacionaza, visina) VALUES (?,0,84.5)`, prID)
+
+	var paket bytes.Buffer
+	if _, err := Izvezi(db, "batina", 1, "cvor", &paket); err != nil {
+		t.Fatal(err)
+	}
+	db.Close()
+
+	// odredište kakvo je zatečeno: roditelji obrisani, djeca ostala, pa je id
+	// slobodan da ga nova krivulja dobije
+	cilj := filepath.Join(t.TempDir(), "cilj.db")
+	db2 := napraviArhivu(t, cilj)
+	defer db2.Close()
+	if _, err := db2.Exec(`INSERT INTO hq_odsjecci (krivulja, od_cm, do_cm, oblik, p1, p2, p3)
+		VALUES (1,-85,300,'polinom',9,9,9)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db2.Exec(`INSERT INTO profil_tocke (profil, stacionaza, visina) VALUES (1,0,99)`); err != nil {
+		t.Fatal(err)
+	}
+
+	s, err := Procitaj(bytes.NewReader(paket.Bytes()), int64(paket.Len()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := Ugradi(db2, s); err != nil {
+		t.Fatalf("ugradnja pada na ostacima bez roditelja: %v", err)
+	}
+
+	// ostaci su pospremljeni, a ugrađeno je ono iz paketa
+	var sirotih int
+	db2.QueryRow(`SELECT count(*) FROM hq_odsjecci WHERE krivulja NOT IN (SELECT id FROM hq_krivulje)`).Scan(&sirotih)
+	if sirotih != 0 {
+		t.Errorf("ostalo je %d odsječaka bez krivulje", sirotih)
+	}
+	var p1 float64
+	if err := db2.QueryRow(`SELECT p1 FROM hq_odsjecci`).Scan(&p1); err != nil {
+		t.Fatal(err)
+	}
+	if p1 != 0.1 {
+		t.Errorf("odsječak nije iz paketa nego zatečeni ostatak: p1 = %v", p1)
+	}
+}
