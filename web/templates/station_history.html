@@ -170,24 +170,21 @@
 
   {{if .ArhNiz}}
   <div data-listanje="arhiva">
-<div class="table-card"><div class="table-responsive">
-    <table class="data-table">
-      <thead><tr><th>Kad</th><th style="text-align:right;">{{velicinaLabel .ArhVelicina}} <span class="reg-card-sub">{{.ArhJedinica}}</span></th>{{if .KoteZaArhivu}}<th style="text-align:right;">Kota vode <span class="reg-card-sub">{{.KotaSustav}}</span></th>{{end}}<th>Točnost</th><th>Odakle</th></tr></thead>
-      <tbody>
-      {{range .ArhNiz}}
-      <tr{{if eq $.ArhVelicina "vodostaj"}} class="niz-redak" tabindex="0" data-vodostaj="{{brojHRf .Vrijednost 0}}" data-kad="{{vrijemeNiza .Kad (eq $.ArhKorak "satni")}}" data-tocnost="{{if .Ispravljeno}}ispravljeno{{else}}{{.TocnostLabel}}{{end}}" data-tocno="{{if le .Tocnost 1.0}}1{{end}}" data-izvor="{{if .Ispravljeno}}{{.Razlog}}{{else}}{{izvorLabel .Izvor}}{{end}}" data-protok="{{protokHR $.Krivulje .Kad .Vrijednost}}" data-kote="{{if $.KoteZaArhivu}}{{range $.Station.Kote (round .Vrijednost)}}{{brojHRf .Kota 3}} m {{.Sustav}}|{{end}}{{end}}"{{end}}>
-        <td class="mono naslov">{{vrijemeNiza .Kad (eq $.ArhKorak "satni")}}</td>
-        <td class="mono" style="text-align:right;" data-stupac="{{velicinaLabel $.ArhVelicina}} ({{$.ArhJedinica}})"><strong>{{brojHRf .Vrijednost 1}}</strong>
-          {{if .Ispravljeno}}<div class="reg-card-sub"><s>{{brojHRf .Izvorno 1}}</s></div>{{end}}</td>
-        {{if $.KoteZaArhivu}}<td class="mono" style="text-align:right;" data-stupac="Kota vode ({{$.KotaSustav}})">{{brojHRf (kotaVode $.Station .Vrijednost) 3}}</td>{{end}}
-        <td data-stupac="Točnost">{{if .Ispravljeno}}<span class="badge badge-area-admin">ispravljeno</span>
-            {{else}}<span class="badge {{if le .Tocnost 1.0}}badge-area-admin{{else}}badge-unknown{{end}}">{{.TocnostLabel}}</span>{{end}}</td>
-        <td class="reg-card-sub" data-stupac="Odakle">{{if .Ispravljeno}}{{.Razlog}}{{else}}{{izvorLabel .Izvor}}{{if ne .Vrsta "srednjak"}}{{if ne .Vrsta "trenutna"}} · {{vrstaLabel .Vrsta}}{{end}}{{end}}{{end}}</td>
-      </tr>
-      {{end}}
-      </tbody>
-    </table>
-  </div></div>
+  <div class="niz-mreza">
+    {{range .ArhNiz}}
+    <article class="niz-kartica{{if eq $.ArhVelicina "vodostaj"}} niz-redak{{end}}"{{if eq $.ArhVelicina "vodostaj"}} tabindex="0" data-vodostaj="{{brojHRf .Vrijednost 0}}" data-kad="{{vrijemeNiza .Kad (eq $.ArhKorak "satni")}}" data-tocnost="{{if .Ispravljeno}}ispravljeno{{else}}{{.TocnostLabel}}{{end}}" data-tocno="{{if le .Tocnost 1.0}}1{{end}}" data-izvor="{{if .Ispravljeno}}{{.Razlog}}{{else}}{{izvorLabel .Izvor}}{{end}}" data-protok="{{protokHR $.Krivulje .Kad .Vrijednost}}" data-kote="{{if $.KoteZaArhivu}}{{range $.Station.Kote (round .Vrijednost)}}{{brojHRf .Kota 3}} m {{.Sustav}}|{{end}}{{end}}"{{end}}>
+      <div class="niz-kad mono">{{vrijemeNiza .Kad (eq $.ArhKorak "satni")}}</div>
+      <div class="niz-vrijednost mono">{{brojHRf .Vrijednost 1}} <span class="niz-jedinica">{{$.ArhJedinica}}</span></div>
+      {{if .Ispravljeno}}<div class="niz-izvorno mono"><s>{{brojHRf .Izvorno 1}}</s></div>{{end}}
+      {{if $.KoteZaArhivu}}<div class="niz-kota mono">{{brojHRf (kotaVode $.Station .Vrijednost) 3}} m <span class="niz-jedinica">{{$.KotaSustav}}</span></div>{{end}}
+      <div class="niz-podrijetlo">
+        {{if .Ispravljeno}}<span class="badge badge-area-admin">ispravljeno</span> <span class="reg-card-sub" title="{{.Razlog}}">{{.Razlog}}</span>
+        {{else}}<span class="badge {{if le .Tocnost 1.0}}badge-area-admin{{else}}badge-unknown{{end}}">{{.TocnostLabel}}</span>
+          <span class="reg-card-sub" title="{{izvorLabel .Izvor}}{{if ne .Vrsta "srednjak"}}{{if ne .Vrsta "trenutna"}} · {{vrstaLabel .Vrsta}}{{end}}{{end}}">{{izvorLabel .Izvor}}{{if ne .Vrsta "srednjak"}}{{if ne .Vrsta "trenutna"}} · {{vrstaLabel .Vrsta}}{{end}}{{end}}</span>{{end}}
+      </div>
+    </article>
+    {{end}}
+  </div>
   {{template "pager" .ArhPager}}
 </div>
 
