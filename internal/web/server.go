@@ -107,6 +107,7 @@ func templateFuncs() template.FuncMap {
 		// ali 11 vrijednosti i 21 vrijednost. Bez toga na stranici piše
 		// "31 vrijednosti", što odmah bode oko.
 		"uzBroj":             uzBrojHR,
+		"statika":            statickaAdresa,
 		"osStacionaze":       models.OsStacionaze,
 		"vrsteBiljeske":      func() []struct{ Vrsta, Naziv, Opis string } { return models.VrsteBiljeske },
 		"vrstaBiljeskeNaziv": models.NazivVrsteBiljeske,
@@ -384,7 +385,8 @@ func templateFuncs() template.FuncMap {
 		// dio binarne datoteke, pa izgledaju isto na svakom uređaju i rade
 		// bez mreže — emoji su se crtali drukčije na svakom sustavu.
 		"icon": func(name string) template.HTML {
-			return template.HTML(`<svg class="icon" aria-hidden="true"><use href="/static/img/icons.svg#` +
+			return template.HTML(`<svg class="icon" aria-hidden="true"><use href="` +
+				statickaAdresa("img/icons.svg") + `#` +
 				template.HTMLEscapeString(name) + `"/></svg>`)
 		},
 		"thresholdInput": func(t models.Threshold) string {
@@ -637,7 +639,8 @@ func (s *Server) setupRoutes() {
 	// Statičke datoteke (CSS, JS) poslužene iz embed.FS
 	staticFS, err := fs.Sub(webassets.Files, "static")
 	if err == nil {
-		s.mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticFS))))
+		izracunajOtiske(staticFS)
+		s.mux.Handle("GET /static/", sPredmemorijom(http.StripPrefix("/static/", http.FileServer(http.FS(staticFS)))))
 		s.mux.HandleFunc("GET /logo", ServeLogo)
 	}
 
