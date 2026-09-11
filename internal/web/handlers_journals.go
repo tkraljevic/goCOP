@@ -42,7 +42,10 @@ type JournalPageData struct {
 	Permissions *models.UserPermissions
 	Areas       []models.Area
 	Area        *models.Area
-	Journals    []models.Journal
+	// Opseg je doseg dnevnika iz kojeg se računaju prava: sektor i njegova
+	// područja za COP, jedno područje za uslugu.
+	Opseg    models.Opseg
+	Journals []models.Journal
 	// Vrsta je dnevnik koji se gleda; prazno na razdjelnici.
 	Vrsta   string
 	BrojCOP int
@@ -161,14 +164,28 @@ func (h *JournalsHandler) loadJournal(w http.ResponseWriter, r *http.Request) (*
 	return j, area, true
 }
 
+// opseg je doseg dnevnika: po centru za COP, po području za uslugu. Popis
+// područja treba samo sektorskom COP-u, da zna koja su mu područja.
+func (h *JournalsHandler) opseg(j *models.Journal, area *models.Area) models.Opseg {
+	if j == nil {
+		if area == nil {
+			return models.Opseg{}
+		}
+		return models.OpsegPodrucja(*area)
+	}
+	sva, _ := h.users.ListAreas("")
+	return models.OpsegDnevnika(*j, area, sva)
+}
+
 func (h *JournalsHandler) fillRights(d *JournalPageData) {
-	if d.Area == nil {
+	d.Opseg = h.opseg(d.Journal, d.Area)
+	if d.Opseg.Prazan() {
 		return
 	}
-	d.CanWrite = h.journals.CanWrite(d.Permissions, *d.Area)
-	d.CanSupervise = h.journals.CanSupervise(d.CurrentUser, d.Permissions, *d.Area)
-	d.CanManage = h.journals.CanManage(d.CurrentUser, d.Permissions, *d.Area)
-	d.AllowedKinds = h.journals.AllowedKinds(d.CurrentUser, d.Permissions, *d.Area)
+	d.CanWrite = h.journals.CanWrite(d.Permissions, d.Opseg)
+	d.CanSupervise = h.journals.CanSupervise(d.CurrentUser, d.Permissions, d.Opseg)
+	d.CanManage = h.journals.CanManage(d.CurrentUser, d.Permissions, d.Opseg)
+	d.AllowedKinds = h.journals.AllowedKinds(d.CurrentUser, d.Permissions, d.Opseg, d.Journal)
 }
 
 // ShowJournals prikazuje dnevnike područja
@@ -373,7 +390,7 @@ func (h *JournalsHandler) HandleOpenSheet(w http.ResponseWriter, r *http.Request
 	if err != nil {
 		day = time.Now().In(models.Zagreb).Truncate(24 * time.Hour)
 	}
-	sh, err := h.journals.NewSheet(r.Context(), u, perms, *area, j, day, r.FormValue("label"))
+	sh, err := h.journals.NewSheet(r.Context(), u, perms, h.opseg(j, area), j, day, r.FormValue("label"))
 	if err != nil {
 		redirectWith(w, r, "/dnevnici/"+j.ID, "error", err.Error())
 		return
@@ -467,7 +484,7 @@ func (h *JournalsHandler) HandleSheetConditions(w http.ResponseWriter, r *http.R
 	}
 	upd.Staff = models.JoinCounts(countRows(r, "staff_name", "staff_n"))
 	upd.Machines = models.JoinCounts(countRows(r, "machine_name", "machine_n"))
-	if err := h.journals.UpdateSheet(r.Context(), perms, *area, &upd); err != nil {
+	if err := h.journals.UpdateSheet(r.Context(), perms, h.opseg(j, area), &upd); err != nil {
 		redirectWith(w, r, sheetPath(j, sh), "error", err.Error())
 		return
 	}
@@ -511,7 +528,7 @@ func (h *JournalsHandler) HandleSheetWeather(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	_, perms := h.base(r)
-	if err := h.journals.RefreshWeather(r.Context(), perms, *area, j, sh); err != nil {
+	if err := h.journals.RefreshWeather(r.Context(), perms, h.opseg(j, area), j, sh); err != nil {
 		redirectWith(w, r, sheetPath(j, sh), "error", err.Error())
 		return
 	}
@@ -529,7 +546,7 @@ func (h *JournalsHandler) HandleConfirmSheet(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	u, perms := h.base(r)
-	if err := h.journals.ConfirmSheet(r.Context(), u, perms, *area, sh.ID); err != nil {
+	if err := h.journals.ConfirmSheet(r.Context(), u, perms, h.opseg(j, area), sh.ID); err != nil {
 		redirectWith(w, r, sheetPath(j, sh), "error", err.Error())
 		return
 	}
@@ -559,7 +576,7 @@ func (h *JournalsHandler) HandleAddEntry(w http.ResponseWriter, r *http.Request)
 	if t, err := time.ParseInLocation("2006-01-02", r.FormValue("due_date"), models.Zagreb); err == nil {
 		e.DueDate = &t
 	}
-	target, err := h.journals.AddEntry(r.Context(), u, perms, *area, j, sh, &e)
+	target, err := h.journals.AddEntry(r.Context(), u, perms, h.opseg(j, area), j, sh, &e)
 	if err != nil {
 		redirectWith(w, r, sheetPath(j, sh), "error", err.Error())
 		return
@@ -582,7 +599,7 @@ func (h *JournalsHandler) HandleVoidEntry(w http.ResponseWriter, r *http.Request
 	if e, _ := h.journals.GetJournal(r.Context(), j.ID); e != nil && r.FormValue("sheet") != "" {
 		back += "/listovi/" + r.FormValue("sheet")
 	}
-	if err := h.journals.VoidEntry(r.Context(), u, perms, *area, r.PathValue("entry"), r.FormValue("reason")); err != nil {
+	if err := h.journals.VoidEntry(r.Context(), u, perms, h.opseg(j, area), r.PathValue("entry"), r.FormValue("reason")); err != nil {
 		redirectWith(w, r, back, "error", err.Error())
 		return
 	}
@@ -604,7 +621,7 @@ func (h *JournalsHandler) HandleTaskStatus(w http.ResponseWriter, r *http.Reques
 	if r.FormValue("sheet") != "" {
 		back += "/listovi/" + r.FormValue("sheet")
 	}
-	if err := h.journals.SetTaskStatus(r.Context(), u, perms, *area, r.PathValue("entry"), r.FormValue("status")); err != nil {
+	if err := h.journals.SetTaskStatus(r.Context(), u, perms, h.opseg(j, area), r.PathValue("entry"), r.FormValue("status")); err != nil {
 		redirectWith(w, r, back, "error", err.Error())
 		return
 	}
