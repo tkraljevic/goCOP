@@ -702,3 +702,107 @@ function renderMarkdown(md) {
     if (redak) { e.preventDefault(); odaberi(redak); }
   });
 })();
+
+// Traka napretka za dugi posao.
+//
+// Poslužitelj posao vrti u pozadini i javlja kako stoji na /poslovi/{id}.
+// Stranica koja ga je pokrenula ispiše <div class="posao" data-posao="ID">
+// i ovo je popuni: traka, čime se posao bavi, i dnevnik koji raste.
+//
+// Kad posao završi, ide se na odredište koje je posao sam odredio. Ako ga
+// nema, ostaje se ovdje i vidi se ispis.
+(function () {
+  'use strict';
+
+  var RAZMAK = 1000;
+
+  function nacrtaj(okvir, s) {
+    var traka = okvir.querySelector('.posao-traka-crta');
+    var sto = okvir.querySelector('.posao-sto');
+    var brojka = okvir.querySelector('.posao-brojka');
+    var dnevnik = okvir.querySelector('.posao-dnevnik');
+
+    if (traka) {
+      if (s.postotak < 0) {
+        okvir.classList.add('posao-neodredeno');
+        traka.style.width = '100%';
+      } else {
+        okvir.classList.remove('posao-neodredeno');
+        traka.style.width = s.postotak + '%';
+      }
+    }
+    if (sto) { sto.textContent = s.sto || ''; }
+    if (brojka) {
+      var t = '';
+      if (s.ukupno > 0) { t = s.gotovo + ' / ' + s.ukupno; }
+      else if (s.postotak >= 0) { t = s.postotak + ' %'; }
+      if (s.sekundi > 2) { t += (t ? ' · ' : '') + s.sekundi + ' s'; }
+      brojka.textContent = t;
+    }
+    if (dnevnik && s.redci && s.redci.length) {
+      var bio = dnevnik.scrollTop + dnevnik.clientHeight >= dnevnik.scrollHeight - 4;
+      dnevnik.textContent = s.redci.join('\n');
+      if (bio) { dnevnik.scrollTop = dnevnik.scrollHeight; }
+    }
+  }
+
+  function zavrsi(okvir, s) {
+    okvir.classList.remove('posao-neodredeno');
+    okvir.classList.add(s.stanje === 'pao' ? 'posao-pao' : 'posao-gotov');
+    var sto = okvir.querySelector('.posao-sto');
+    if (sto) { sto.textContent = s.stanje === 'pao' ? (s.greska || 'posao je pao') : (s.sazetak || 'gotovo'); }
+    if (s.stanje !== 'pao' && s.odrediste) {
+      window.location.href = s.odrediste;
+    }
+  }
+
+  function prati(okvir) {
+    var id = okvir.getAttribute('data-posao');
+    if (!id || okvir.dataset.pracen === '1') { return; }
+    okvir.dataset.pracen = '1';
+
+    // Posao radi i kad se stranica zatvori; ovo je samo prozor u njega.
+    var promasaja = 0;
+    (function pitaj() {
+      fetch('/poslovi/' + encodeURIComponent(id), { headers: { 'Accept': 'application/json' } })
+        .then(function (o) {
+          if (o.status === 404) { return { stanje: 'nepoznat' }; }
+          if (!o.ok) { throw new Error(o.status); }
+          return o.json();
+        })
+        .then(function (s) {
+          if (s.stanje === 'nepoznat') {
+            // Posao je istekao ili je poslužitelj u međuvremenu pokrenut
+            // iznova; osvježavanje stranice pokaže zatečeno stanje.
+            okvir.classList.add('posao-pao');
+            var sto = okvir.querySelector('.posao-sto');
+            if (sto) { sto.textContent = 'posao se više ne prati — osvježite stranicu da vidite kako je prošlo'; }
+            return;
+          }
+          promasaja = 0;
+          nacrtaj(okvir, s);
+          if (s.stanje === 'traje') { setTimeout(pitaj, RAZMAK); return; }
+          zavrsi(okvir, s);
+        })
+        .catch(function () {
+          // Kratak prekid mreže ne znači da je posao pao; odustaje se tek
+          // nakon nekoliko promašaja zaredom.
+          promasaja++;
+          if (promasaja < 10) { setTimeout(pitaj, RAZMAK * 2); return; }
+          var sto = okvir.querySelector('.posao-sto');
+          if (sto) { sto.textContent = 'veza s poslužiteljem je prekinuta — osvježite stranicu'; }
+        });
+    })();
+  }
+
+  function pokreni() {
+    var okviri = document.querySelectorAll('[data-posao]');
+    for (var i = 0; i < okviri.length; i++) { prati(okviri[i]); }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', pokreni);
+  } else {
+    pokreni();
+  }
+})();

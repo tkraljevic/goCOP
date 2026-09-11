@@ -38,6 +38,7 @@ func main() {
 	addrFlag := flag.String("addr", "", "Adresa i port web sučelja (zadano :80; ako nije dostupan, sam prelazi na :8080)")
 	dbFlag := flag.String("db", "", "Putanja do SQLite baze (zadano data/gocop.db)")
 	podaciFlag := flag.String("podaci", "vodostaji", "Stablo s izvornim datotekama arhive; prazno na čvoru koji arhivu samo prima")
+	paketiFlag := flag.String("pakete", "pakete", "Mapa u koju se izdaju .cop paketi i u kojoj stoji katalog; prazno isključuje izdavanje")
 	nodeFlag := flag.String("node", "", "Identifikator ovog čvora za sinkronizaciju")
 	nameFlag := flag.String("name", "", "Naziv ovog čvora za druge čvorove (zadano: ime računala)")
 	syncPortFlag := flag.Int("sync-port", -1, "Port razmjene s drugim čvorovima (0 isključuje)")
@@ -379,6 +380,7 @@ func main() {
 	// čvor koji je nije preuzeo radi bez povijesnih nizova, a ne pada.
 	arhivaPut := filepath.Join(filepath.Dir(*dbPath), "vodostaji.db")
 	server.SetPodaciDir(*podaciFlag)
+	server.SetPaketiDir(*paketiFlag)
 	if arhiva, err := repository.OpenArhiva(arhivaPut); err != nil {
 		log.Printf("Arhiva vodostaja %s: %v", arhivaPut, err)
 	} else if arhiva == nil {

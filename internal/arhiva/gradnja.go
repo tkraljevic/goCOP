@@ -217,6 +217,21 @@ type Izvjestaj struct {
 
 // Izgradi čita datoteke iz koren/ i upisuje ih u arhivsku bazu. Prazna letva
 // znači sve. Ispis ide u zapisi, ako je zadan.
+// Javljac je odredište ispisa koje uz retke zna primiti i korak: čime se
+// gradnja bavi i koliki je dio toga gotov. Naredbenom retku to ne treba i ne
+// mora to znati — njemu su dovoljni retci koje gradnja ionako piše. Stranica,
+// koja mora nacrtati traku napretka, javljanje prima.
+type Javljac interface {
+	Korak(sto string, gotovo, ukupno int)
+}
+
+// javi šalje korak ako ga odredište zna primiti; inače ne radi ništa.
+func javi(zapisi io.Writer, sto string, gotovo, ukupno int) {
+	if j, ok := zapisi.(Javljac); ok {
+		j.Korak(sto, gotovo, ukupno)
+	}
+}
+
 func Izgradi(koren, baza, samo string, zapisi io.Writer) (Izvjestaj, error) {
 	var iz Izvjestaj
 	if zapisi == nil {
@@ -244,6 +259,7 @@ func Izgradi(koren, baza, samo string, zapisi io.Writer) (Izvjestaj, error) {
 	// Popis datoteka nastaje tek sad, jer se mora znati ima li koji izvor
 	// vlastito stablo. Zajedničko stablo daje sve, a izvor s vlastitom mapom
 	// nadjačava ono što je o njemu ondje nađeno.
+	javi(zapisi, "popisujem datoteke", 0, 0)
 	nizovi, err := popisi(koren, samo)
 	if err != nil {
 		return iz, err
@@ -255,10 +271,12 @@ func Izgradi(koren, baza, samo string, zapisi io.Writer) (Izvjestaj, error) {
 		return iz, fmt.Errorf("nema nijednog niza za uvoz")
 	}
 
+	javi(zapisi, "čitam promjene kote nule", 0, 0)
 	promjene, err := promjeneKote(db, koren, zapisi)
 	if err != nil {
 		return iz, err
 	}
+	javi(zapisi, "čitam poprečne profile", 0, 0)
 	poravnanja, err := poravnanjaProfila(koren)
 	if err != nil {
 		return iz, err
@@ -266,6 +284,7 @@ func Izgradi(koren, baza, samo string, zapisi io.Writer) (Izvjestaj, error) {
 	if err := profili(db, koren, samo, poravnanja); err != nil {
 		return iz, err
 	}
+	javi(zapisi, "čitam krivulje protoka", 0, 0)
 	if err := krivulje(db, koren, samo); err != nil {
 		return iz, err
 	}
@@ -275,8 +294,9 @@ func Izgradi(koren, baza, samo string, zapisi io.Writer) (Izvjestaj, error) {
 		kljucevi = append(kljucevi, k)
 	}
 	sort.Strings(kljucevi)
-	for _, k := range kljucevi {
+	for i, k := range kljucevi {
 		n := nizovi[k]
+		javi(zapisi, "upisujem "+n.letva+" · "+n.izvor+" · "+n.velicina, i, len(kljucevi))
 		upisano, od, do, otisak, err := ubaci(db, n, promjene[n.letva])
 		if err != nil {
 			return iz, fmt.Errorf("%s: %w", k, err)
@@ -295,6 +315,7 @@ func Izgradi(koren, baza, samo string, zapisi io.Writer) (Izvjestaj, error) {
 		return iz, err
 	}
 
+	javi(zapisi, "spajam izvore u jedan niz", len(kljucevi), len(kljucevi))
 	iz.Spojenih, err = spoji(db, samo)
 	return iz, err
 }

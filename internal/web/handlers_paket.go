@@ -122,8 +122,14 @@ func (h *StationsHandler) IzveziPaket(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
+	// Broj izdanja daje katalog, ne čovjek: isti broj dok se sadržaj ne
+	// promijeni, sljedeći čim se promijeni.
+	mapa := ""
+	if h.paketiDirFn != nil {
+		mapa = h.paketiDirFn()
+	}
 	var b bytes.Buffer
-	m, err := arhiva.Izvezi(db, data.Station.Code, izdanjeIz(r), h.cvorFn(), &b)
+	m, err := arhiva.SljedeceIzdanje(db, mapa, data.Station.Code, h.cvorFn(), &b)
 	if err != nil {
 		http.Error(w, "paket se nije dao sastaviti: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -133,17 +139,6 @@ func (h *StationsHandler) IzveziPaket(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Disposition", `attachment; filename="`+ime+`"`)
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	_, _ = w.Write(b.Bytes())
-}
-
-func izdanjeIz(r *http.Request) int {
-	// Izdanje zasad upisuje čovjek; kad katalog proradi, broj će davati on.
-	if v := strings.TrimSpace(r.URL.Query().Get("izdanje")); v != "" {
-		var n int
-		if _, err := fmt.Sscanf(v, "%d", &n); err == nil && n > 0 {
-			return n
-		}
-	}
-	return 1
 }
 
 func sigurnoIme(s string) string {

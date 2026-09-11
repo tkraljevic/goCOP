@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"html"
 	"html/template"
+	"io"
 	"io/fs"
 	"log"
 	"math"
@@ -21,6 +22,7 @@ import (
 	"gocop/internal/ledger"
 	"gocop/internal/models"
 	"gocop/internal/peers"
+	"gocop/internal/poslovi"
 	"gocop/internal/repository"
 	"gocop/internal/service"
 	webassets "gocop/web"
@@ -55,6 +57,8 @@ type Server struct {
 	karta              KartaPostavke
 	arhivaPut          string
 	podaciDir          string // stablo s izvornim datotekama; prazno na čvoru koji samo prima pakete
+	paketiDir          string // mapa u koju se izdaju .cop paketi i u kojoj stoji katalog
+	poslovi            *poslovi.Registar
 	addr               string
 	authService        *service.AuthService
 	userService        *service.UserService
@@ -492,6 +496,7 @@ func NewServer(
 		recorder:           recorder,
 		sseBroker:          sseBroker,
 		templates:          templates,
+		poslovi:            poslovi.NoviRegistar(),
 		mux:                http.NewServeMux(),
 	}
 
@@ -536,6 +541,7 @@ func (s *Server) setupRoutes() {
 		func() string { return s.recorder.Cvor() },
 		s.UgradiPaket,
 		s.templates["paket_pregled.html"])
+	stationsH.SetPaketiDir(func() string { return s.paketiDir })
 	stationsH.SetSektor(func(ctx context.Context, id string) *models.Sector {
 		if s.orgService == nil {
 			return nil
@@ -818,6 +824,9 @@ func (s *Server) setupRoutes() {
 
 	// Održavanje baze: brojke, sažimanje, VACUUM, izvoz i uvoz kanala
 	dbH := NewDBMaintHandler(func() *sql.DB { return s.db }, s.recorder, s.peersService, func() string { return s.dbPath }, s.templates["baza.html"])
+	// Dugi poslovi: stranica pita kako stoje dok traju.
+	s.mux.Handle("GET /poslovi/{id}", s.authMiddleware(http.HandlerFunc(s.StanjePosla)))
+
 	izvoriH := NewIzvoriHandler(func() string { return s.arhivaPut }, func() string { return s.podaciDir },
 		s.PostaviIzvor, s.templates["izvori.html"])
 	s.mux.Handle("GET /administracija/izvori", s.authMiddleware(http.HandlerFunc(izvoriH.ShowIzvori)))
@@ -828,6 +837,9 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /administracija/uvoz-niza/pregled", s.authMiddleware(http.HandlerFunc(uvozH.PregledUvoza)))
 	s.mux.Handle("POST /administracija/uvoz-niza/pregled-opet", s.authMiddleware(http.HandlerFunc(uvozH.PonoviPregled)))
 	s.mux.Handle("POST /administracija/uvoz-niza/upisi", s.authMiddleware(http.HandlerFunc(uvozH.UpisiUvoz)))
+	uvozH.SetIzdavanje(func() string { return s.paketiDir }, s.IzdajArhivu, s.KatalogIzdanja, s.poslovi)
+	s.mux.Handle("POST /administracija/izdavanje/provjera", s.authMiddleware(http.HandlerFunc(uvozH.ProvjeriIzdanja)))
+	s.mux.Handle("POST /administracija/izdavanje", s.authMiddleware(http.HandlerFunc(uvozH.Izdaj)))
 	s.mux.Handle("GET /administracija/baza", s.authMiddleware(http.HandlerFunc(dbH.ShowMaintenance)))
 	s.mux.Handle("POST /administracija/baza/sazmi", s.authMiddleware(http.HandlerFunc(dbH.HandleCompact)))
 	s.mux.Handle("POST /administracija/baza/vacuum", s.authMiddleware(http.HandlerFunc(dbH.HandleVacuum)))
@@ -993,6 +1005,12 @@ func (s *Server) SetArhivaPut(put string) {
 	s.arhivaPut = put
 }
 
+// SetPaketiDir kazuje gdje stoje izdani paketi i katalog. Po katalogu se zna
+// koje je izdanje koje letve zadnje izdano, pa se broj više ne upisuje rukom.
+func (s *Server) SetPaketiDir(dir string) {
+	s.paketiDir = dir
+}
+
 // SetPodaciDir kazuje gdje stoji zajedničko stablo s izvornim datotekama.
 // Čvor koji arhivu dobiva paketom ga nema — ondje se ne gradi, nego prima.
 func (s *Server) SetPodaciDir(dir string) {
@@ -1068,31 +1086,62 @@ func (s *Server) PostaviIzvor(i arhiva.Izvor) ([]string, error) {
 	return letve, nil
 }
 
-// IzgradiLetvu gradi jednu letvu iz stabla s datotekama i vraća ispis gradnje.
+// IzgradiLetvu gradi jednu letvu iz stabla s datotekama. Tijek se piše u
+// zapisi — naredbenom retku na zaslon, stranici u posao koji crta traku.
 // Arhiva je otvorena samo za čitanje, pa gradnja ide zasebnom vezom, a po
 // završetku se čitač zamjenjuje novim.
-func (s *Server) IzgradiLetvu(letva string) (string, error) {
+func (s *Server) IzgradiLetvu(letva string, zapisi io.Writer) error {
 	if s.podaciDir == "" {
-		return "", fmt.Errorf("ovaj čvor nema stablo s izvornim datotekama")
+		return fmt.Errorf("ovaj čvor nema stablo s izvornim datotekama")
 	}
 	if s.arhivaPut == "" {
-		return "", fmt.Errorf("nije poznato gdje arhiva stoji")
+		return fmt.Errorf("nije poznato gdje arhiva stoji")
 	}
-	var ispis strings.Builder
-	iz, err := arhiva.Izgradi(s.podaciDir, s.arhivaPut, letva, &ispis)
+	if zapisi == nil {
+		zapisi = io.Discard
+	}
+	iz, err := arhiva.Izgradi(s.podaciDir, s.arhivaPut, letva, zapisi)
 	if err != nil {
-		return ispis.String(), err
+		return err
 	}
-	fmt.Fprintf(&ispis, "\nnizova %d, očitanja %d, spojenih vrijednosti %d\n", iz.Nizova, iz.Ocitanja, iz.Spojenih)
+	fmt.Fprintf(zapisi, "\nnizova %d, očitanja %d, spojenih vrijednosti %d\n", iz.Nizova, iz.Ocitanja, iz.Spojenih)
 	novo, err := repository.OpenArhiva(s.arhivaPut)
 	if err != nil {
-		return ispis.String(), err
+		return err
 	}
 	if s.arhiva != nil {
 		s.arhiva.Close()
 	}
 	s.arhiva = novo
-	return ispis.String(), nil
+	return nil
+}
+
+// IzdajArhivu sastavlja .cop pakete i osvježava katalog. Probno izdavanje sve
+// izračuna a ništa ne zapiše — po njemu se prije klika vidi što bi se
+// promijenilo i zašto.
+func (s *Server) IzdajArhivu(letva string, probno bool, zapisi io.Writer) (arhiva.IzvjestajIzdanja, error) {
+	var iz arhiva.IzvjestajIzdanja
+	if s.arhivaPut == "" {
+		return iz, fmt.Errorf("nije poznato gdje arhiva stoji")
+	}
+	if s.paketiDir == "" {
+		return iz, fmt.Errorf("nije zadana mapa u koju se izdaje")
+	}
+	db, err := sql.Open("sqlite", s.arhivaPut+"?mode=ro")
+	if err != nil {
+		return iz, err
+	}
+	defer db.Close()
+	return arhiva.Izdaj(db, s.paketiDir, s.recorder.Cvor(), letva, probno, zapisi)
+}
+
+// KatalogIzdanja čita što je dosad izdano. Mape koje nema nije greška: na ovom
+// čvoru se još nije izdavalo.
+func (s *Server) KatalogIzdanja() (arhiva.Katalog, error) {
+	if s.paketiDir == "" {
+		return arhiva.Katalog{}, nil
+	}
+	return arhiva.UcitajKatalog(s.paketiDir)
 }
 
 func (s *Server) SetAddr(addr string) {

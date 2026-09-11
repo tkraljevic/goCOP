@@ -29,6 +29,7 @@ type StationsHandler struct {
 	biljeske           func() *repository.BiljeskaRepository
 	arhivaPutFn        func() string
 	cvorFn             func() string
+	paketiDirFn        func() string
 	ugradi             func(*arhiva.Sadrzaj) error
 	tmplPaket          *template.Template
 	karta              func() KartaPostavke

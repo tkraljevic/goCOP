@@ -15,6 +15,20 @@
   </div>
 </div>
 
+{{if .PosaoID}}
+<div class="posao" data-posao="{{.PosaoID}}">
+  <p class="posao-naslov">{{icon "clock"}} {{.PosaoNaziv}}</p>
+  <div class="posao-traka"><div class="posao-traka-crta"></div></div>
+  <div class="posao-crta">
+    <span class="posao-sto">počinjem</span>
+    <span class="posao-brojka"></span>
+  </div>
+  <pre class="posao-dnevnik"></pre>
+  <p class="reading-meta" style="margin:0.6rem 0 0;">
+    Posao se vrti na poslužitelju i dovršit će se i ako zatvorite stranicu.
+  </p>
+</div>
+{{end}}
 
 {{if .Cekaizvor}}
 <div class="alert alert-warning">
@@ -28,6 +42,77 @@
 <div class="table-card" style="padding:0.875rem 1.25rem; margin-bottom:1rem;">
   <div class="part-label" style="margin:0 0 0.4rem;">Gradnja</div>
   <pre class="uvoz-dnevnik">{{.Dnevnik}}</pre>
+</div>
+{{end}}
+
+{{if and .IzdavanjeRadi (not .PosaoID)}}
+<div class="table-card" style="padding:1rem 1.25rem; margin-bottom:1rem;">
+  <div class="izvor-glava" style="margin-bottom:0.5rem;">
+    <div>
+      <h2 class="izvor-naziv">{{icon "package"}} Izdanja arhive</h2>
+      <p class="section-desc" style="margin:0.25rem 0 0;">
+        Izdanje ne upisuje čovjek: raste samo kad se sadržaj letve promijenio. Otisak se računa preko podataka, ne
+        preko manifesta, pa dva čvora s istim stanjem dođu do istog broja bez dogovora. Starije izdanje ostaje u
+        mapi — čvor koji ga još nije preuzeo mora ga moći naći.
+      </p>
+    </div>
+  </div>
+
+  {{if .Izdanja}}
+  <div class="part-label" style="margin:0.75rem 0 0.25rem;">
+    {{if .Izdanja.Probno}}Što bi se izdalo{{else}}Što je izdano{{end}}
+    {{if .IzdanjeLetva}}· {{.IzdanjeLetva}}{{end}}
+  </div>
+  <div>
+    {{range .Izdanja.Redci}}
+    <div class="izdanje-red">
+      <span class="izdanje-letva mono">{{.Letva}}</span>
+      {{if .Greska}}
+        <span class="izdanje-isto">preskočeno: {{.Greska}}</span>
+      {{else if .Novo}}
+        <span class="izdanje-skok">{{if .Prije}}v{{.Prije}} → v{{.Izdanje}}{{else}}novo · v{{.Izdanje}}{{end}}</span>
+        <span class="izdanje-otisak">{{.Otisak}}</span>
+        <span class="izdanje-isto">{{brojHR .Zapisa}} zapisa · {{.Od}} – {{.Do}}</span>
+      {{else}}
+        <span class="izdanje-isto">v{{.Izdanje}} nepromijenjeno</span>
+        <span class="izdanje-otisak">{{.Otisak}}</span>
+      {{end}}
+    </div>
+    {{end}}
+  </div>
+  {{else if .Katalog.Paketi}}
+  <dl class="reg-facts" style="margin:0.5rem 0 0;">
+    <div><dt>Izdano letvi</dt><dd>{{len .Katalog.Paketi}}</dd></div>
+    <div><dt>Zadnje izdavanje</dt><dd>{{if .KatalogNastalo}}{{.KatalogNastalo}}{{else}}—{{end}}</dd></div>
+    <div><dt>Izdao</dt><dd class="mono">{{.Katalog.Izdao}}</dd></div>
+    <div><dt>Mapa</dt><dd class="mono">{{.PaketiDir}}</dd></div>
+  </dl>
+  {{else}}
+  <p class="reading-meta" style="margin:0.5rem 0 0;">
+    Na ovom čvoru još nije izdano nijedno izdanje. Mapa: <span class="mono">{{.PaketiDir}}</span>
+  </p>
+  {{end}}
+
+  <div class="izvor-podnozje" style="gap:0.5rem; margin-top:0.9rem;">
+    <form method="POST" action="/administracija/izdavanje/provjera">
+      {{if .IzdanjeLetva}}<input type="hidden" name="letva" value="{{.IzdanjeLetva}}">{{end}}
+      <button type="submit" class="btn btn-sm btn-secondary">{{icon "eye"}}
+        Provjeri {{if .IzdanjeLetva}}{{.IzdanjeLetva}}{{else}}sve letve{{end}}</button>
+    </form>
+    {{if and .Izdanja .Izdanja.Probno}}
+    {{if .Izdanja.Promijenjenih}}
+    <form method="POST" action="/administracija/izdavanje">
+      {{if .IzdanjeLetva}}<input type="hidden" name="letva" value="{{.IzdanjeLetva}}">{{end}}
+      <button type="submit" class="btn btn-sm btn-primary">{{icon "package"}}
+        Izdaj {{if .IzdanjeLetva}}{{.IzdanjeLetva}}{{else}}sve promijenjeno{{end}}</button>
+    </form>
+    {{end}}
+    {{else}}
+    <form method="POST" action="/administracija/izdavanje">
+      <button type="submit" class="btn btn-sm btn-secondary">{{icon "package"}} Izdaj sve promijenjeno</button>
+    </form>
+    {{end}}
+  </div>
 </div>
 {{end}}
 

@@ -2973,3 +2973,97 @@ textarea {
 .uvoz-uzorak td, .uvoz-uzorak th { padding: 0.25rem 0.4rem; }
 /* Bilješka uz arhivsku vrijednost: ne mijenja ju, svjedoči o njoj. */
 .niz-biljeska { margin-top: 0.2rem; font-size: 0.75rem; color: var(--text); }
+
+/* ── Dugi posao: traka napretka ─────────────────────────────────────────────
+   Posao koji traje dulje od klika vrti se na poslužitelju, a ovdje se vidi
+   gdje je. Traka je određena kad se zna koliko koraka ima; kad se ne zna,
+   putuje lijevo-desno i ne laže o postotku. */
+.posao {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--primary);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 1rem 1.1rem;
+  margin: 1rem 0;
+}
+.posao-naslov {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  color: var(--text-strong);
+  margin: 0 0 0.5rem;
+}
+.posao-traka {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--bg-subtle);
+  overflow: hidden;
+}
+.posao-traka-crta {
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  background: var(--primary);
+  transition: width 0.35s ease;
+}
+.posao-neodredeno .posao-traka-crta {
+  width: 40% !important;
+  transition: none;
+  animation: posao-putuje 1.4s ease-in-out infinite;
+}
+@keyframes posao-putuje {
+  0%   { margin-left: -40%; }
+  100% { margin-left: 100%; }
+}
+.posao-gotov .posao-traka-crta { background: var(--success); }
+.posao-pao   { border-left-color: var(--danger); }
+.posao-pao   .posao-traka-crta { background: var(--danger); width: 100% !important; }
+.posao-crta {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.posao-sto { overflow-wrap: anywhere; }
+.posao-brojka { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.posao-dnevnik {
+  margin: 0.75rem 0 0;
+  max-height: 16rem;
+  overflow: auto;
+  background: var(--bg-subtle);
+  border-radius: var(--radius);
+  padding: 0.6rem 0.75rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  white-space: pre;
+  color: var(--text-secondary);
+}
+.posao-dnevnik:empty { display: none; }
+
+/* Prijedlog izdanja: što bi se izdalo i zašto. */
+.izdanje-red {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.75rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.9rem;
+}
+.izdanje-red:last-child { border-bottom: none; }
+.izdanje-letva { font-weight: 600; min-width: 9rem; }
+.izdanje-skok { color: var(--success); font-variant-numeric: tabular-nums; }
+.izdanje-isto { color: var(--text-muted); }
+.izdanje-otisak {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+@media (prefers-reduced-motion: reduce) {
+  .posao-neodredeno .posao-traka-crta { animation: none; width: 100% !important; opacity: 0.5; }
+  .posao-traka-crta { transition: none; }
+}
