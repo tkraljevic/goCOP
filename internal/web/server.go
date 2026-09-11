@@ -836,6 +836,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /administracija/uvoz-niza", s.authMiddleware(http.HandlerFunc(uvozH.ShowUvoz)))
 	s.mux.Handle("POST /administracija/uvoz-niza/pregled", s.authMiddleware(http.HandlerFunc(uvozH.PregledUvoza)))
 	s.mux.Handle("POST /administracija/uvoz-niza/pregled-opet", s.authMiddleware(http.HandlerFunc(uvozH.PonoviPregled)))
+	s.mux.Handle("POST /administracija/uvoz-niza/zatecen", s.authMiddleware(http.HandlerFunc(uvozH.Zatecen)))
 	s.mux.Handle("POST /administracija/uvoz-niza/upisi", s.authMiddleware(http.HandlerFunc(uvozH.UpisiUvoz)))
 	uvozH.SetIzdavanje(func() string { return s.paketiDir }, s.IzdajArhivu, s.KatalogIzdanja, s.poslovi)
 	s.mux.Handle("POST /administracija/izdavanje/provjera", s.authMiddleware(http.HandlerFunc(uvozH.ProvjeriIzdanja)))

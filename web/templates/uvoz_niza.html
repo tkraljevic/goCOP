@@ -217,7 +217,18 @@
       </select>
       <small class="izvor-disk">Tiče se samo zapisa sa satom; dan je dan bez obzira na zonu.</small>
     </label>
-    {{if .Zatecen}}
+    <div id="zatecen-okvir">{{template "zatecen-niz" .}}</div>
+    <div class="izvor-podnozje" style="gap:0.5rem;">
+      <button type="submit" formaction="/administracija/uvoz-niza/pregled-opet" class="btn btn-sm btn-secondary">{{icon "refresh-cw"}} Osvježi pregled</button>
+      <button type="submit" class="btn btn-sm btn-primary">{{icon "check"}} Upiši i izgradi</button>
+    </div>
+  </div>
+</form>
+{{end}}
+{{end}}
+
+{{define "zatecen-niz"}}
+{{if .Zatecen}}
     <div class="izvor-napomena">
       <span class="part-label">Niz već postoji</span>
       <p class="reading-meta" style="margin:0 0 0.5rem;">
@@ -241,11 +252,4 @@
       {{end}}
     </div>
     {{end}}
-    <div class="izvor-podnozje" style="gap:0.5rem;">
-      <button type="submit" formaction="/administracija/uvoz-niza/pregled-opet" class="btn btn-sm btn-secondary">{{icon "refresh-cw"}} Osvježi pregled</button>
-      <button type="submit" class="btn btn-sm btn-primary">{{icon "check"}} Upiši i izgradi</button>
-    </div>
-  </div>
-</form>
-{{end}}
 {{end}}
