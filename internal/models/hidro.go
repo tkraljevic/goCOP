@@ -177,9 +177,10 @@ type SpojenaVrijednost struct {
 
 	// Biljeska je ono što je čovjek rekao o toj vrijednosti. Ne mijenja ju —
 	// „očitan maksimum" uz 772 cm u 11:11 nije ispravak nego svjedočanstvo.
-	Biljeska    string
-	BiljeskaTko string
-	BiljeskaVrh bool // čovjek je rekao da je to bila kulminacija
+	Biljeska         string
+	BiljeskaTko      string
+	BiljeskaVrsta    string // vrh, dno, granica, procjena…
+	BiljeskaPouzdana bool   // smije li vrijednost odlučivati o ekstremu i fazi
 }
 
 // TocnostLabel je odstupanje za ispis; ovjereni izvor nema ±.

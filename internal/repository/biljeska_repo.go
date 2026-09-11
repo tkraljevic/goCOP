@@ -27,12 +27,12 @@ func NewBiljeskaRepository(db *sql.DB, rec *ledger.Recorder) *BiljeskaRepository
 	return &BiljeskaRepository{db: db, rec: rec}
 }
 
-const biljeskaColumns = `id, letva, velicina, korak, vrijeme, tekst, tko, created_at, updated_at`
+const biljeskaColumns = `id, letva, velicina, korak, vrijeme, vrsta, tekst, tko, created_at, updated_at`
 
 func scanBiljeska(sc interface{ Scan(...any) error }) (models.ArhivaBiljeska, error) {
 	var b models.ArhivaBiljeska
 	var id string
-	if err := sc.Scan(&id, &b.Letva, &b.Velicina, &b.Korak, &b.Vrijeme, &b.Tekst,
+	if err := sc.Scan(&id, &b.Letva, &b.Velicina, &b.Korak, &b.Vrijeme, &b.Vrsta, &b.Tekst,
 		&b.Tko, &b.CreatedAt, &b.UpdatedAt); err != nil {
 		return b, err
 	}
@@ -80,9 +80,9 @@ func (r *BiljeskaRepository) Broj(ctx context.Context, letva, velicina, korak st
 	return n, err
 }
 
-// Vrhovi vraća bilješke kojima je čovjek rekao da je to bila kulminacija.
+// Krajnosti vraća bilješke kojima je čovjek rekao da je to bio vrh ili dno.
 // One imaju jaču riječ od svakog nagađanja iz razilaženja dojava.
-func (r *BiljeskaRepository) Vrhovi(ctx context.Context, letva, velicina string) ([]models.ArhivaBiljeska, error) {
+func (r *BiljeskaRepository) Krajnosti(ctx context.Context, letva, velicina string) ([]models.ArhivaBiljeska, error) {
 	if r == nil || r.db == nil {
 		return nil, nil
 	}
@@ -98,16 +98,16 @@ func (r *BiljeskaRepository) Vrhovi(ctx context.Context, letva, velicina string)
 		if err != nil {
 			return nil, err
 		}
-		if b.JeVrh() {
+		if b.JeKrajnost() {
 			out = append(out, b)
 		}
 	}
 	return out, rows.Err()
 }
 
-// Spremi upisuje bilješke i bilježi ih u knjigu verzija. Prazan tekst briše
-// bilješku: bilješka bez teksta ne govori ništa, a ostavljena bi u listanju
-// stajala kao prazan znak.
+// Spremi upisuje bilješke i bilježi ih u knjigu verzija. Prazna bilješka —
+// bez teksta I bez vrste — briše se: ne govori ništa, a u listanju bi stajala
+// kao prazan znak. Vrsta bez teksta je i dalje tvrdnja i ostaje.
 func (r *BiljeskaRepository) Spremi(ctx context.Context, biljeske []models.ArhivaBiljeska) (int, error) {
 	if r == nil || r.db == nil {
 		return 0, fmt.Errorf("baza nije dostupna")
@@ -135,7 +135,7 @@ func (r *BiljeskaRepository) Spremi(ctx context.Context, biljeske []models.Arhiv
 		} else if err != sql.ErrNoRows {
 			return n, err
 		}
-		if b.Tekst == "" {
+		if b.Tekst == "" && b.Vrsta == "" {
 			if b.ID == uuid.Nil {
 				continue // nema što obrisati
 			}
@@ -162,10 +162,10 @@ func (r *BiljeskaRepository) Spremi(ctx context.Context, biljeske []models.Arhiv
 		b.UpdatedAt = now
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO arhiva_biljeske (`+biljeskaColumns+`)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-			ON CONFLICT(id) DO UPDATE SET tekst=excluded.tekst, tko=excluded.tko,
-				updated_at=excluded.updated_at`,
-			b.ID.String(), b.Letva, b.Velicina, b.Korak, b.Vrijeme.UTC(), b.Tekst,
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			ON CONFLICT(id) DO UPDATE SET vrsta=excluded.vrsta, tekst=excluded.tekst,
+				tko=excluded.tko, updated_at=excluded.updated_at`,
+			b.ID.String(), b.Letva, b.Velicina, b.Korak, b.Vrijeme.UTC(), b.Vrsta, b.Tekst,
 			b.Tko, b.CreatedAt, b.UpdatedAt); err != nil {
 			return n, fmt.Errorf("upis bilješke: %w", err)
 		}

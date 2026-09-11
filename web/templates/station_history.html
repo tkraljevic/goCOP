@@ -183,7 +183,7 @@
         <td data-stupac="Točnost">{{if .Ispravljeno}}<span class="badge badge-area-admin">ispravljeno</span>
             {{else}}<span class="badge {{if le .Tocnost 1.0}}badge-area-admin{{else}}badge-unknown{{end}}">{{.TocnostLabel}}</span>{{end}}</td>
         <td class="reg-card-sub" data-stupac="Odakle">{{if .Ispravljeno}}{{.Razlog}}{{else}}{{izvorLabel .Izvor}}{{if ne .Vrsta "srednjak"}}{{if ne .Vrsta "trenutna"}} · {{vrstaLabel .Vrsta}}{{end}}{{end}}{{end}}
-          {{if .Biljeska}}<div class="niz-biljeska">{{if .BiljeskaVrh}}<span class="badge badge-area-admin" title="Čovjek je zabilježio da je to bila kulminacija">vrh</span> {{end}}{{.Biljeska}}{{if .BiljeskaTko}} <span class="reg-card-sub">— {{.BiljeskaTko}}</span>{{end}}</div>{{end}}</td>
+          {{if or .Biljeska .BiljeskaVrsta}}<div class="niz-biljeska">{{if .BiljeskaVrsta}}<span class="badge {{if .BiljeskaPouzdana}}badge-area-admin{{else}}badge-unknown{{end}}" title="{{vrstaBiljeskeNaziv .BiljeskaVrsta}}">{{vrstaBiljeskeNaziv .BiljeskaVrsta}}</span> {{end}}{{.Biljeska}}{{if .BiljeskaTko}} <span class="reg-card-sub">— {{.BiljeskaTko}}</span>{{end}}</div>{{end}}</td>
       </tr>
       {{end}}
       </tbody>

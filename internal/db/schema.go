@@ -477,6 +477,7 @@ func InitSchema(database *sql.DB) error {
 			velicina TEXT NOT NULL,
 			korak TEXT NOT NULL,
 			vrijeme DATETIME NOT NULL,
+			vrsta TEXT NOT NULL DEFAULT '',
 			tekst TEXT NOT NULL DEFAULT '',
 			tko TEXT NOT NULL DEFAULT '',
 			created_at DATETIME NOT NULL,
@@ -730,6 +731,8 @@ func migrateSchema(database *sql.DB) error {
 		// dolazi s paketom; ova je naša i putuje knjigom verzija.
 		{"stations", "ograde_niza", "TEXT NOT NULL DEFAULT '[]'"},
 		{"stations", "extremes", "TEXT NOT NULL DEFAULT '[]'"},
+		{"arhiva_biljeske", "vrsta", "TEXT NOT NULL DEFAULT ''"},
+		{"readings", "vrsta_biljeske", "TEXT NOT NULL DEFAULT ''"},
 		{"stations", "return_levels", "TEXT NOT NULL DEFAULT '[]'"},
 		{"readings", "quality", "TEXT NOT NULL DEFAULT ''"},
 		{"readings", "derived_from", "TEXT NOT NULL DEFAULT ''"},
