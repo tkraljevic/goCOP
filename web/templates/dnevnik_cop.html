@@ -13,9 +13,15 @@
       Dežurstvo centra{{if .Journal.CentarNaziv}} — <strong>{{.Journal.CentarNaziv}}</strong>{{else if .Journal.CentarSektor}} — {{terml "sektor"}} {{.Journal.CentarSektor}}{{end}}
       {{if .Journal.StartedAt}} · {{.Journal.StartedAt.Format "2.1.2006."}}{{if .Journal.EndedAt}} – {{.Journal.EndedAt.Format "2.1.2006."}}{{end}}{{end}}
       · {{len .Dani}} {{uzBroj (len .Dani) "dan" "dana" "dana"}}
+      {{if .Journal.EndedAt}}· <strong>zaključen</strong>{{else if not .Journal.Reconstruction}}· <strong>otvoren</strong>{{end}}
     </p>
   </div>
+  <div class="page-actions">
+    {{if .CanManage}}<a href="/dnevnici/{{.Journal.ID}}/edit" class="btn btn-secondary">{{icon "pencil"}} Zaglavlje</a>{{end}}
+    {{if .CanWrite}}<a href="#novi-zapis" class="btn btn-primary">{{icon "plus"}} Novi zapis</a>{{end}}
+  </div>
 </div>
+
 
 {{if .Journal.Reconstruction}}
 {{/* Prijepis nije dokument. Dokument je uvez na papiru; ovo je preslika, i
@@ -41,12 +47,61 @@
         {{if .UserName}}<div class="zapis-upisao">upisao {{.UserName}}</div>{{end}}
       </div>
       <div class="zapis-tekst">{{.Text}}{{if .Voided}}
-        <div class="reading-meta">storniran{{if .VoidReason}}: {{.VoidReason}}{{end}}</div>{{end}}</div>
+        <div class="reading-meta">storniran{{if .VoidReason}}: {{.VoidReason}}{{end}}{{if .VoidedBy}} — {{.VoidedBy}}{{end}}</div>{{end}}
+        {{/* Zapis se ne briše nego stornira: ostaje s brojem i razlogom.
+             U prijepisu se ne stornira — ondje se krivo pročitano ispravlja. */}}
+        {{if and $.CanWrite (not .Voided) (not $.Journal.Reconstruction)}}
+        <form method="POST" action="/dnevnici/{{$.Journal.ID}}/upisi/{{.ID}}/storno" class="zapis-storno"
+          onsubmit="var r=prompt('Razlog storniranja zapisa br. {{.Number}}:'); if(!r) return false; this.reason.value=r; return true;">
+          <input type="hidden" name="reason" value="">
+          <button type="submit" class="btn btn-sm btn-secondary" title="Storniraj zapis br. {{.Number}}">{{icon "x"}} storno</button>
+        </form>
+        {{end}}
+      </div>
     </article>
     {{end}}
   </div>
 </section>
 {{else}}
 <div class="reg-empty">U ovom dnevniku još nema zapisa.</div>
+{{end}}
+
+{{/* Obrazac stoji ispod zapisa: dežurni piše na kraj, kao u bilježnici.
+     Dan i vrijeme su odvojeni — dan je obvezan, vrijeme se upisuje kad se
+     zna kad se dogodilo; kad je upisano vidi se iz zapisa samog. */}}
+{{if and .CanWrite .AllowedKinds}}
+<form method="POST" action="/dnevnici/{{.Journal.ID}}/zapisi" id="novi-zapis" class="reg-card novi-zapis">
+  <h2 class="novi-zapis-naslov">{{icon "pencil"}} Novi zapis</h2>
+  <div class="form-row novi-zapis-red">
+    <div class="form-group">
+      <label class="form-label" for="z-date">Dan *</label>
+      <input type="date" id="z-date" name="date" class="form-control" value="{{.Today}}" required>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="z-time">Vrijeme</label>
+      <input type="time" id="z-time" name="time" class="form-control" value="{{.Sada}}">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="z-kind">Vrsta *</label>
+      <select id="z-kind" name="kind" class="form-control" required>
+        {{range .AllowedKinds}}<option value="{{.}}">{{entryKind .}}</option>{{end}}
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="z-reported">Javio</label>
+      <input type="text" id="z-reported" name="reported_by" class="form-control" placeholder="tko je javio, kad niste vi" autocomplete="off">
+    </div>
+  </div>
+  <div class="form-group">
+    <label class="form-label" for="z-text">Zapis *</label>
+    <textarea id="z-text" name="text" class="form-control" rows="3" required placeholder="vodostaj Batina u 07:00 +551, tendencija porast"></textarea>
+  </div>
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">{{icon "check"}} Upiši</button>
+    <span class="reading-meta">Upisuje {{.CurrentUser.FullName}}. Zapis se ne briše: krivi se stornira uz razlog, a ispravak je novi zapis.</span>
+  </div>
+</form>
+{{else if .Journal.EndedAt}}
+<p class="reading-meta">Dnevnik je zaključen {{.Journal.EndedAt.Format "2.1.2006."}} i više se u njega ne piše.</p>
 {{end}}
 {{end}}

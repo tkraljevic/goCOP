@@ -3277,3 +3277,12 @@ textarea {
 .zapis-smjena .zapis-tekst { font-weight: 600; }
 
 .zapis-storniran .zapis-tekst { text-decoration: line-through; color: var(--text-muted); }
+.zapis-storniran .reading-meta { text-decoration: none; }
+.zapis-storno { display: inline-block; margin-left: 0.5rem; vertical-align: baseline; }
+.zapis-storno .btn-sm { padding: 0 0.4rem; font-size: 0.72rem; opacity: 0.55; }
+.zapis:hover .zapis-storno .btn-sm { opacity: 1; }
+
+/* Novi zapis stoji na kraju, kao u bilježnici. */
+.novi-zapis { padding: 1rem; margin-top: 1.5rem; }
+.novi-zapis-naslov { margin: 0 0 0.75rem; font-size: 0.95rem; }
+.novi-zapis-red { grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr)); }

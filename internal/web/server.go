@@ -641,6 +641,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /dnevnici/{id}/listovi/{sheet}/vrijeme", s.authMiddleware(http.HandlerFunc(journalsH.HandleSheetWeather)))
 	s.mux.Handle("POST /dnevnici/{id}/listovi/{sheet}/potvrdi", s.authMiddleware(http.HandlerFunc(journalsH.HandleConfirmSheet)))
 	s.mux.Handle("POST /dnevnici/{id}/listovi/{sheet}/upisi", s.authMiddleware(http.HandlerFunc(journalsH.HandleAddEntry)))
+	s.mux.Handle("POST /dnevnici/{id}/zapisi", s.authMiddleware(http.HandlerFunc(journalsH.HandleAddCOPEntry)))
 	s.mux.Handle("POST /dnevnici/{id}/upisi/{entry}/storno", s.authMiddleware(http.HandlerFunc(journalsH.HandleVoidEntry)))
 	s.mux.Handle("POST /dnevnici/{id}/upisi/{entry}/stanje", s.authMiddleware(http.HandlerFunc(journalsH.HandleTaskStatus)))
 	settingsH := NewSettingsHandler(s.peersService, s.recorder, s.templates["settings.html"])

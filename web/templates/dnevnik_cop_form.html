@@ -15,8 +15,6 @@
   </div>
 </div>
 
-{{if .ErrorMessage}}<div class="alert alert-error">{{icon "triangle-alert"}} {{.ErrorMessage}}</div>{{end}}
-
 <form class="form-page" method="POST" action="{{if .IsEdit}}/dnevnici/{{.Journal.ID}}{{else}}/dnevnici/novi-cop{{end}}">
   <div class="form-group">
     <label class="form-label" for="centar">Centar obrane *</label>
