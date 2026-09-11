@@ -195,6 +195,25 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 			i.Razlog, i.Ispravio, i.CreatedAt.UTC(), i.UpdatedAt.UTC())
 		return err
 
+	case EntityBiljeske:
+		var b models.ArhivaBiljeska
+		if err := json.Unmarshal(v.Payload, &b); err != nil {
+			return err
+		}
+		if v.Archived {
+			_, err := tx.ExecContext(ctx, `DELETE FROM arhiva_biljeske WHERE id = ?`, b.ID.String())
+			return err
+		}
+		_, err := tx.ExecContext(ctx, `
+			INSERT INTO arhiva_biljeske (id, letva, velicina, korak, vrijeme, tekst, tko,
+				created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+			ON CONFLICT(id) DO UPDATE SET tekst=excluded.tekst, tko=excluded.tko,
+				updated_at=excluded.updated_at`,
+			b.ID.String(), b.Letva, b.Velicina, b.Korak, b.Vrijeme.UTC(), b.Tekst, b.Tko,
+			b.CreatedAt.UTC(), b.UpdatedAt.UTC())
+		return err
+
 	case EntityStations:
 		var st models.Station
 		if err := json.Unmarshal(v.Payload, &st); err != nil {

@@ -174,6 +174,12 @@ type SpojenaVrijednost struct {
 	Ispravljeno bool
 	Izvorno     float64
 	Razlog      string
+
+	// Biljeska je ono što je čovjek rekao o toj vrijednosti. Ne mijenja ju —
+	// „očitan maksimum" uz 772 cm u 11:11 nije ispravak nego svjedočanstvo.
+	Biljeska    string
+	BiljeskaTko string
+	BiljeskaVrh bool // čovjek je rekao da je to bila kulminacija
 }
 
 // TocnostLabel je odstupanje za ispis; ovjereni izvor nema ±.
