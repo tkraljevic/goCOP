@@ -247,6 +247,9 @@
       nešto što se nije dogodilo.</p>
     <p>Zato stoje dvije brojke: „koliko je najviše izmjereno“ i „koliko je najviše bilo“. To su
       odgovori na različita pitanja.</p>
+    <p>Uz zabilježene ekstreme kartica prikazuje i <strong>krajnosti iz samih podataka</strong>
+      (najviši i najniži vodostaj zabilježen u bazi), pa se odmah vidi slažu li se podaci u arhivi
+      sa službeno evidentiranim ekstremom letve.</p>
 
     <h3 id="letva-povratni">Povratni vodostaji</h3>
     <p>Za letvu s dovoljno dugim nizom upisuje se koliko visoko voda dođe <strong>jednom u 25, 50
@@ -436,9 +439,35 @@
       se uvijek zna što je mjereno, a što ispravljeno. Ispravak se uvijek može povući.</p>
     <p>Program prvo pokaže pregled svih ispravaka pa se tek nakon potvrde upisuju.</p>
 
-    <h3 id="arhiva-postupak">Kako novi podaci ulaze u arhivu</h3>
-    <p>Arhiva se <strong>ne dopunjuje kroz sučelje</strong>. Gradi se iznova iz izvornih datoteka,
-      i to je namjerno: tako je uvijek ponovljiva i uvijek se zna iz čega je nastala.</p>
+    <h3 id="arhiva-unos">Unos i ulaganje kroz sučelje</h3>
+    <p>Podaci u arhivu ulaze kroz <strong>Administracija → Unos u arhivu</strong> na dva načina:</p>
+    <ul>
+      <li><strong>Vrata arhive (datoteke s diska)</strong> — prijenos CSV ili Excel datoteka u bilo
+        kojem obliku. Program sam prepozna koji je stupac vrijeme, a koji vrijednost, prikaže pregled
+        pročitanog i tek nakon vaše potvrde zapiše niz u stablo arhive i pokrene gradnju letve
+        u pozadini, uz praćenje posla i traku napretka.</li>
+      <li><strong>Očitanja iz programa (Ulaganje)</strong> — ono što su naši ljudi očitali na
+        terenu ili dojavili kroz operativni dio programa ulaže se u arhivu po letvi i razdoblju. Time očitanja
+        prelaze u arhivu i prestaju opterećivati operativnu bazu i knjigu verzija. Pri ulaganju se
+        točno razgraničuje: dojava u <code>cop</code>, ručno očitano na letvi u <code>cop-rucno</code>
+        (čovjek pred letvom je neovisna kontrola telemetrije i ne stapa se s njom), rekonstruirano u
+        <code>preracun-cop</code>, dok se sumnjiva očitanja ne ulažu.</li>
+      <li><strong>Pospremanje uloženog</strong> — brisanje očitanja iz operativne baze nakon ulaganja
+        u arhivu izvodi se kao zaseban korak uz izričitu potvrdu. Program neposredno prije brisanja
+        još jednom provjeri nalazi li se svaka pojedina vrijednost u arhivi — ako ijedna nedostaje,
+        ne briše se ništa.</li>
+      <li><strong>Izdanja arhive</strong> — izdavanje novih paketa arhive s izračunom SHA-256
+        otiska po samim podacima (ne po metapodacima). Dva čvora s istim stanjem dolaze do istog
+        otiska i verzije bez prethodnog dogovora.</li>
+      <li><strong>Izvori arhive</strong> — na stranici <em>Administracija → Izvori arhive</em>
+        uređuju se izvori razvrstani u tri skupine (službeni, operativni, rekonstruirani), s
+        pripadajućim stupnjem točnosti, redom povjerenja i stazom do datoteka.</li>
+    </ul>
+
+    <h3 id="arhiva-postupak">Gradnja iz izvornih datoteka (CLI alati)</h3>
+    <p>Za masovnu početnu pripremu ili rad izravno na poslužitelju, arhiva se može graditi i izvan
+      web sučelja, izravno iz izvornih datoteka. Tako je uvijek ponovljiva i uvijek se zna iz čega
+      je nastala.</p>
     <p>Postupak za novu ili revidiranu seriju:</p>
     <ul>
       <li><strong>1. Datoteke u mapu.</strong> Izvorne datoteke — DHMZ-ov HIS-2000, preuzimanje s
@@ -458,8 +487,8 @@
 
     <h3 id="arhiva-selidba">Prebacivanje operativnih očitanja u arhivu</h3>
     <p>Povijesni niz nekad završi u operativnoj bazi — uveze se kao očitanja, pa se poslije vidi
-      da mu ondje nije mjesto. Takav se niz seli u arhivu, ali se
-      <strong>ne briše dok arhiva ne dokaže da ga pokriva</strong>.</p>
+      da mu ondje nije mjesto. Takav se niz seli u arhivu (kroz sučelje pod <em>Ulaganje</em> ili
+      alatom iz naredbenog retka), ali se <strong>ne briše dok arhiva ne dokaže da ga pokriva</strong>.</p>
     <p>Postupak ima dva koraka i drugi se ne izvodi dok prvi ne prođe:</p>
     <ul>
       <li><strong>1. Provjera pokrivenosti.</strong> Alat <code>selidba-arhive</code> pokrene se
@@ -472,9 +501,9 @@
     </ul>
     <p>Nakon selidbe kartica letve izgleda isto: niz se čita iz arhive, a ne iz operativne baze.
       Razlika je u tome što se više ne razmjenjuje i ne opterećuje knjigu verzija.</p>
-    <p class="reading-meta"><strong>Ograničenje:</strong> alat za selidbu zasad nosi
-      <em>upisan popis</em> nizova koji se sele — trenutačno samo Batinini. Za drugu letvu treba
-      ga dopuniti. Provjera pokrivenosti radi za sve, brisanje ne.</p>
+    <p class="reading-meta"><strong>Kroz sučelje ili alat:</strong> selidba se danas najlakše izvodi
+      kroz <em>Administracija → Unos u arhivu → Očitanja iz programa</em>, gdje radi za sve letve uz
+      pregled i provjeru. Alat <code>selidba-arhive</code> u naredbenom retku služi za izravan rad na poslužitelju.</p>
   </div>
 </section>
 
@@ -534,6 +563,10 @@
         posrednika; arhiva vodostaja u nju ne ulazi jer se preuzima zasebno.</li>
       <li><strong>Održavanje baze</strong> — sažimanje, izvoz i obnova. Ovdje se vidi i knjiga
         verzija: svaka izmjena u programu ima svoj zapis, pa se stanje može ponovno izgraditi.</li>
+      <li><strong>Unos u arhivu</strong> — vrata arhive za unos CSV i Excel datoteka, ulaganje
+        operativnih očitanja u arhivsko stablo i izdavanje novih paketa arhive s otiskom.</li>
+      <li><strong>Izvori arhive</strong> — pregled i uređivanje izvora arhivskih podataka,
+        njihove pouzdanosti i točnosti.</li>
       <li><strong>Uvozi podataka</strong> — jednokratni uvozi iz vanjskih evidencija.</li>
       <li><strong>Nazivi</strong> — kako se kuća i centar zovu na ispisima.</li>
     </ul>

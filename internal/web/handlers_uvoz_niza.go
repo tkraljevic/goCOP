@@ -73,7 +73,8 @@ type UvozHandler struct {
 	arhivaPut func() string
 	podaciDir func() string
 	paketiDir func() string
-	izgradi   func(letva string, zapisi io.Writer) error
+	izgradi   func(letva string, zapisi io.Writer) (arhiva.Izvjestaj, error)
+	makniNiz  func(letva, izvor, velicina, vrsta string) (int, error)
 	izdaj     func(letva string, probno bool, zapisi io.Writer) (arhiva.IzvjestajIzdanja, error)
 	katalog   func() (arhiva.Katalog, error)
 	poslovi   *poslovi.Registar
@@ -83,12 +84,17 @@ type UvozHandler struct {
 }
 
 func NewUvozHandler(arhivaPut, podaciDir func() string,
-	izgradi func(letva string, zapisi io.Writer) error, tmpl *template.Template) *UvozHandler {
+	izgradi func(letva string, zapisi io.Writer) (arhiva.Izvjestaj, error), tmpl *template.Template) *UvozHandler {
 	// Vlastiti registar da rukovatelj radi i kad mu poslužitelj svoj ne da
 	// (u testovima). Gradnja bez registra nema kamo javljati, a stranica bi na
 	// upisu pukla.
 	return &UvozHandler{arhivaPut: arhivaPut, podaciDir: podaciDir, izgradi: izgradi,
 		poslovi: poslovi.NoviRegistar(), tmpl: tmpl}
+}
+
+// SetMakniNiz daje vratima način da maknu niz koji je ostao bez datoteke.
+func (h *UvozHandler) SetMakniNiz(f func(letva, izvor, velicina, vrsta string) (int, error)) {
+	h.makniNiz = f
 }
 
 // SetIzdavanje daje vratima ono što treba za izdavanje paketa. Čvor koji ne
@@ -151,6 +157,9 @@ type UvozPageData struct {
 	// Dugi posao u tijeku: stranica crta traku i pita poslužitelja kako stoji.
 	PosaoID    string
 	PosaoNaziv string
+
+	// Nizovi koji su ostali u arhivi bez datoteke u stablu
+	Sirotani []arhiva.Sirotan
 
 	// Ulaganje očitanja iz programa u arhivu
 	UlaganjeRadi bool
@@ -308,6 +317,7 @@ func (h *UvozHandler) pogledajPosao(d *UvozPageData, r *http.Request) {
 	switch plod := p.Plod().(type) {
 	case *ishodUvoza:
 		d.Cekaizvor = plod.Cekaizvor
+		d.Sirotani = plod.Sirotani
 		d.Izdanja, d.IzdanjeLetva = plod.Izdanja, plod.Letva
 	case *arhiva.IzvjestajIzdanja:
 		d.Izdanja = plod
@@ -669,10 +679,11 @@ func (h *UvozHandler) UpisiUvoz(w http.ResponseWriter, r *http.Request) {
 	d = h.pageData(r)
 	p := h.poslovi.Pokreni("Izgradnja letve "+u.Letva, korisnik,
 		"/administracija/uvoz-niza?posao={id}", func(p *poslovi.Posao) error {
-			if err := h.izgradi(u.Letva, p); err != nil {
+			izvj, err := h.izgradi(u.Letva, p)
+			if err != nil {
 				return fmt.Errorf("datoteka je zapisana u %s, ali gradnja letve nije uspjela: %w", put, err)
 			}
-			ishod := &ishodUvoza{Put: put, Letva: u.Letva}
+			ishod := &ishodUvoza{Put: put, Letva: u.Letva, Sirotani: izvj.Sirotani}
 			// Novi izvor ulazi isključen — to je namjerno, ali čovjek bi inače
 			// mislio da je posao gotov, a podaci bi ležali u arhivi i nigdje se
 			// ne bi vidjeli. Pita se tek sad: gradnja je ta koja novi izvor
@@ -704,6 +715,7 @@ type ishodUvoza struct {
 	Put       string
 	Letva     string
 	Cekaizvor string
+	Sirotani  []arhiva.Sirotan
 	Izdanja   *arhiva.IzvjestajIzdanja
 }
 

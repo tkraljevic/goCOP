@@ -836,6 +836,8 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /administracija/uvoz-niza", s.authMiddleware(http.HandlerFunc(uvozH.ShowUvoz)))
 	s.mux.Handle("POST /administracija/uvoz-niza/pregled", s.authMiddleware(http.HandlerFunc(uvozH.PregledUvoza)))
 	s.mux.Handle("POST /administracija/uvoz-niza/pregled-opet", s.authMiddleware(http.HandlerFunc(uvozH.PonoviPregled)))
+	uvozH.SetMakniNiz(s.MakniNiz)
+	s.mux.Handle("POST /administracija/uvoz-niza/makni-niz", s.authMiddleware(http.HandlerFunc(uvozH.MakniSirotana)))
 	s.mux.Handle("POST /administracija/uvoz-niza/zatecen", s.authMiddleware(http.HandlerFunc(uvozH.Zatecen)))
 	s.mux.Handle("POST /administracija/uvoz-niza/upisi", s.authMiddleware(http.HandlerFunc(uvozH.UpisiUvoz)))
 	uvozH.SetIzdavanje(func() string { return s.paketiDir }, s.IzdajArhivu, s.KatalogIzdanja, s.poslovi)
@@ -1095,30 +1097,55 @@ func (s *Server) PostaviIzvor(i arhiva.Izvor) ([]string, error) {
 // zapisi — naredbenom retku na zaslon, stranici u posao koji crta traku.
 // Arhiva je otvorena samo za čitanje, pa gradnja ide zasebnom vezom, a po
 // završetku se čitač zamjenjuje novim.
-func (s *Server) IzgradiLetvu(letva string, zapisi io.Writer) error {
+func (s *Server) IzgradiLetvu(letva string, zapisi io.Writer) (arhiva.Izvjestaj, error) {
+	var iz arhiva.Izvjestaj
 	if s.podaciDir == "" {
-		return fmt.Errorf("ovaj čvor nema stablo s izvornim datotekama")
+		return iz, fmt.Errorf("ovaj čvor nema stablo s izvornim datotekama")
 	}
 	if s.arhivaPut == "" {
-		return fmt.Errorf("nije poznato gdje arhiva stoji")
+		return iz, fmt.Errorf("nije poznato gdje arhiva stoji")
 	}
 	if zapisi == nil {
 		zapisi = io.Discard
 	}
 	iz, err := arhiva.Izgradi(s.podaciDir, s.arhivaPut, letva, zapisi)
 	if err != nil {
-		return err
+		return iz, err
 	}
 	fmt.Fprintf(zapisi, "\nnizova %d, očitanja %d, spojenih vrijednosti %d\n", iz.Nizova, iz.Ocitanja, iz.Spojenih)
 	novo, err := repository.OpenArhiva(s.arhivaPut)
 	if err != nil {
-		return err
+		return iz, err
 	}
 	if s.arhiva != nil {
 		s.arhiva.Close()
 	}
 	s.arhiva = novo
-	return nil
+	return iz, nil
+}
+
+// MakniNiz briše niz koji je ostao u arhivi iako mu datoteke u stablu više
+// nema, pa zatim otvara arhivu iznova da program odmah vidi novo stanje.
+func (s *Server) MakniNiz(letva, izvor, velicina, vrsta string) (int, error) {
+	if s.arhivaPut == "" {
+		return 0, fmt.Errorf("nije poznato gdje arhiva stoji")
+	}
+	db, err := sql.Open("sqlite", s.arhivaPut)
+	if err != nil {
+		return 0, err
+	}
+	defer db.Close()
+	n, err := arhiva.MakniNiz(db, letva, izvor, velicina, vrsta)
+	if err != nil {
+		return 0, err
+	}
+	if novo, err := repository.OpenArhiva(s.arhivaPut); err == nil {
+		if s.arhiva != nil {
+			s.arhiva.Close()
+		}
+		s.arhiva = novo
+	}
+	return n, nil
 }
 
 // IzdajArhivu sastavlja .cop pakete i osvježava katalog. Probno izdavanje sve

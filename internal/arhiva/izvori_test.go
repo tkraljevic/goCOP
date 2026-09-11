@@ -177,7 +177,7 @@ func TestGradnjaCitaVlastituMapuIzvora(t *testing.T) {
 	}
 	nizovi := map[string]*niz{}
 	var log strings.Builder
-	if err := dodajIzVlastitihMapa(db, nizovi, "", &log); err != nil {
+	if _, err := dodajIzVlastitihMapa(db, nizovi, "", &log); err != nil {
 		t.Fatal(err)
 	}
 	if len(nizovi) != 1 {
@@ -199,7 +199,7 @@ func TestNedostupnaMapaNeRusiGradnju(t *testing.T) {
 	}
 	nizovi := map[string]*niz{}
 	var log strings.Builder
-	if err := dodajIzVlastitihMapa(db, nizovi, "", &log); err != nil {
+	if _, err := dodajIzVlastitihMapa(db, nizovi, "", &log); err != nil {
 		t.Fatalf("gradnja je pala zbog nedostupne mape: %v", err)
 	}
 	if !strings.Contains(log.String(), "preskačem mapu") {

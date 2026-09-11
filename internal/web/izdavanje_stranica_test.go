@@ -240,3 +240,20 @@ func TestCvorBezStablaNemaUlaganja(t *testing.T) {
 		t.Error("čvor koji ne ulaže ipak nudi ulaganje")
 	}
 }
+
+// Niz koji je ostao u arhivi bez datoteke mora se vidjeti, s brojem vrijednosti
+// koje su ušle u spojeni niz — po tome se vidi šteti li ili samo leži.
+func TestSirotanSeVidiSaSvojimUcinkom(t *testing.T) {
+	d := vrataZaTest()
+	d.Sirotani = []arhiva.Sirotan{
+		{Letva: "batina", Izvor: "cop-rucno", Velicina: "vodostaj", Vrsta: "jutarnji",
+			Zapisa: 1, USpoju: 11},
+	}
+	html := iscrtaj(t, "uvoz_niza.html", d)
+	for _, want := range []string{"Nizovi bez datoteke u stablu", "cop-rucno", "jutarnji",
+		"u spojenom nizu", "/administracija/uvoz-niza/makni-niz", "return confirm("} {
+		if !strings.Contains(html, want) {
+			t.Errorf("stranica nema %q", want)
+		}
+	}
+}

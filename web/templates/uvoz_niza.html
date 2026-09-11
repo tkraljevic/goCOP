@@ -38,6 +38,31 @@
 </div>
 {{end}}
 
+{{if .Sirotani}}
+<div class="alert alert-warning">
+  <p style="margin:0 0 0.5rem;">
+    <strong>Nizovi bez datoteke u stablu.</strong> Ovi stoje u arhivi, ali datoteke iz koje su nastali više nema.
+    Gradnja ih ne briše sama — izvor sa svojom mapom na vanjskom disku izgleda isto tako kad disk nije priključen,
+    pa bi tiho brisanje odnijelo godine podataka.
+  </p>
+  {{range .Sirotani}}
+  <div class="izdanje-red">
+    <span class="izdanje-letva mono">{{.Letva}}</span>
+    <span class="mono">{{.Izvor}} · {{.Velicina}} · {{.Vrsta}}</span>
+    <span>{{brojHR .Zapisa}} vrijednosti{{if .USpoju}}, od toga {{brojHR .USpoju}} u spojenom nizu{{end}}</span>
+    <form method="POST" action="/administracija/uvoz-niza/makni-niz" style="margin-left:auto;"
+          onsubmit="return confirm('Maknuti niz {{.Izvor}} · {{.Vrsta}} za {{.Letva}} iz arhive? U stablu ga nema, pa se ne može vratiti gradnjom.');">
+      <input type="hidden" name="letva" value="{{.Letva}}">
+      <input type="hidden" name="izvor" value="{{.Izvor}}">
+      <input type="hidden" name="velicina" value="{{.Velicina}}">
+      <input type="hidden" name="vrsta" value="{{.Vrsta}}">
+      <button type="submit" class="btn btn-sm btn-secondary">{{icon "trash"}} Makni</button>
+    </form>
+  </div>
+  {{end}}
+</div>
+{{end}}
+
 {{if .Dnevnik}}
 <div class="table-card" style="padding:0.875rem 1.25rem; margin-bottom:1rem;">
   <div class="part-label" style="margin:0 0 0.4rem;">Gradnja</div>

@@ -194,3 +194,41 @@ func (h *UvozHandler) Pospremi(w http.ResponseWriter, r *http.Request) {
 type discard struct{}
 
 func (discard) Write(b []byte) (int, error) { return len(b), nil }
+
+// MakniSirotana briše niz koji je ostao u arhivi iako mu datoteke u stablu
+// više nema.
+//
+// Gradnja to ne radi sama: izvor sa svojom mapom na vanjskom disku izgleda isto
+// tako kad disk nije priključen, pa bi tiho brisanje odnijelo godine podataka.
+// Ovdje čovjek vidi o kojem je nizu riječ, koliko nosi vrijednosti i koliko ih
+// je ušlo u spojeni niz — pa odlučuje.
+func (h *UvozHandler) MakniSirotana(w http.ResponseWriter, r *http.Request) {
+	d := h.pageData(r)
+	if !h.smije(d) {
+		http.Error(w, "Arhivu uređuje administrator", http.StatusForbidden)
+		return
+	}
+	if h.makniNiz == nil {
+		d.ErrorMessage = "Ovaj čvor ne može uređivati arhivu."
+		h.pisi(w, d)
+		return
+	}
+	letva := strings.TrimSpace(r.FormValue("letva"))
+	izvor := strings.TrimSpace(r.FormValue("izvor"))
+	velicina := strings.TrimSpace(r.FormValue("velicina"))
+	vrsta := strings.TrimSpace(r.FormValue("vrsta"))
+	if letva == "" || izvor == "" || velicina == "" || vrsta == "" {
+		d.ErrorMessage = "Nije zadano koji niz maknuti."
+		h.pisi(w, d)
+		return
+	}
+	n, err := h.makniNiz(letva, izvor, velicina, vrsta)
+	if err != nil {
+		d.ErrorMessage = "niz se nije dao maknuti: " + err.Error()
+		h.pisi(w, d)
+		return
+	}
+	redirectWith(w, r, "/administracija/uvoz-niza", "success",
+		fmt.Sprintf("Maknut niz %s · %s · %s · %s (%d vrijednosti). U stablu ga ionako nema, "+
+			"pa se arhiva i dalje da izgraditi iznova.", letva, izvor, velicina, vrsta, n))
+}
