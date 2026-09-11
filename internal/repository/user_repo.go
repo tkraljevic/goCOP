@@ -692,7 +692,9 @@ func (r *UserRepository) GlobalAdminContact() (name, phone, email string, ok boo
 }
 
 func (r *UserRepository) ListSectors() ([]models.Sector, error) {
-	rows, err := r.db.Query("SELECT id, name, vgo_name, center_cop, address, phone, email, level FROM sectors ORDER BY CASE WHEN id = 'DIREKCIJA' THEN 0 ELSE 1 END, id ASC")
+	// Adresa, telefon i e-mail smiju biti prazni: sektor bez njih je i dalje
+	// sektor, a NULL u string ruši cijeli popis.
+	rows, err := r.db.Query("SELECT id, name, vgo_name, center_cop, COALESCE(address, ''), COALESCE(phone, ''), COALESCE(email, ''), level FROM sectors ORDER BY CASE WHEN id = 'DIREKCIJA' THEN 0 ELSE 1 END, id ASC")
 	if err != nil {
 		return nil, err
 	}
