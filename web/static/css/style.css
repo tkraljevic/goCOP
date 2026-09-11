@@ -3079,3 +3079,82 @@ textarea {
   cursor: pointer;
 }
 .uvoz-nacin input { margin-top: 0.2rem; flex: none; }
+
+/* ── Nasip kao kartica ──────────────────────────────────────────────────────
+   Redak je jedan nasip sa svime što se uz njega brani, kako stoji i u
+   Privitku. To je prije bila tablica s tri stupca, ali oni nisu ni blizu
+   jednako dugi: jedno ime nasipa naspram osam objekata i dvanaest naselja, pa
+   je prvi stupac stajao prazan kroz cijelu visinu retka, a naselja su se
+   nizala jedno ispod drugog premda su kratka. */
+.nasip-popis { display: flex; flex-direction: column; gap: 0.75rem; }
+
+.nasip-karta {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--primary);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.nasip-glava {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.35rem 1rem;
+  padding: 0.7rem 0.9rem;
+  background: var(--bg-subtle);
+  border-bottom: 1px solid var(--border);
+}
+.nasip-ime { font-weight: 700; color: var(--text-strong); }
+.nasip-ime a { color: var(--primary); }
+.nasip-mjere {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.9rem;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+.nasip-duljina { font-weight: 600; color: var(--text-strong); font-variant-numeric: tabular-nums; }
+
+/* Objekti i naselja stoje jedno uz drugo dok ima mjesta; na uskom zaslonu
+   jedno ispod drugog. Objekti dobivaju više prostora jer nose stacionažu. */
+.nasip-tijelo {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: 0.75rem 1.5rem;
+  padding: 0.8rem 0.9rem;
+}
+@media (max-width: 48rem) {
+  .nasip-tijelo { grid-template-columns: 1fr; }
+}
+.nasip-stupac { min-width: 0; }
+.nasip-stupac + .nasip-stupac { border-left: 1px dashed var(--border); padding-left: 1.5rem; }
+@media (max-width: 48rem) {
+  .nasip-stupac + .nasip-stupac {
+    border-left: 0; padding-left: 0;
+    border-top: 1px dashed var(--border); padding-top: 0.7rem;
+  }
+}
+
+/* Stacionaža u svom stupcu, da se brojevi poravnaju i oko ih može pročitati
+   odozgo prema dolje umjesto da ih traži u svakom retku posebno. */
+.nasip-stupac .part-obj {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.5rem;
+  align-items: baseline;
+  padding: 0.12rem 0;
+}
+.nasip-stupac .part-obj-km {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+.part-obj-ime { overflow-wrap: anywhere; }
+.part-obj-ime a { color: var(--primary); }
+
+.nasip-naselja { display: flex; flex-wrap: wrap; gap: 0.3rem; }
