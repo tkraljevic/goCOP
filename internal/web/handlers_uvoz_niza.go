@@ -1,6 +1,7 @@
 package web
 
 import (
+	"database/sql"
 	"fmt"
 	"html/template"
 	"io"
@@ -15,6 +16,7 @@ import (
 	"gocop/internal/arhiva"
 	"gocop/internal/models"
 	"gocop/internal/poslovi"
+	"gocop/internal/ulaganje"
 )
 
 // Uvoz niza u arhivu: administrator odabere datoteku s diska, program pogodi
@@ -75,6 +77,8 @@ type UvozHandler struct {
 	izdaj     func(letva string, probno bool, zapisi io.Writer) (arhiva.IzvjestajIzdanja, error)
 	katalog   func() (arhiva.Katalog, error)
 	poslovi   *poslovi.Registar
+	baza      func() *sql.DB
+	cvor      func() string
 	tmpl      *template.Template
 }
 
@@ -96,6 +100,17 @@ func (h *UvozHandler) SetIzdavanje(paketiDir func() string,
 	if reg != nil {
 		h.poslovi = reg
 	}
+}
+
+// SetOcitanja daje vratima operativnu bazu, da se očitanja iz programa mogu
+// uložiti u arhivu. Bez nje se ta vrata ne pokazuju.
+func (h *UvozHandler) SetOcitanja(baza func() *sql.DB, cvor func() string) {
+	h.baza, h.cvor = baza, cvor
+}
+
+// ulaganjeRadi javlja može li se s ovog čvora ulagati.
+func (h *UvozHandler) ulaganjeRadi() bool {
+	return h.baza != nil && h.baza() != nil && h.podaciDir() != "" && h.arhivaPut() != ""
 }
 
 // izdavanjeRadi javlja je li ovaj čvor uopće izdavač.
@@ -137,6 +152,13 @@ type UvozPageData struct {
 	PosaoID    string
 	PosaoNaziv string
 
+	// Ulaganje očitanja iz programa u arhivu
+	UlaganjeRadi bool
+	Ulaganje     *ulaganje.Pregled
+	UlOd, UlDo   string
+	UlLetva      string
+	Pospremivo   []ulaganje.ZaPospremanje
+
 	// Izdavanje paketa
 	IzdavanjeRadi  bool
 	PaketiDir      string
@@ -173,6 +195,12 @@ func (h *UvozHandler) pageData(r *http.Request) UvozPageData {
 		d.Slivovi = s
 	}
 	d.Izvori = h.imenaIzvora()
+	d.UlaganjeRadi = h.ulaganjeRadi()
+	if d.UlaganjeRadi {
+		if p, err := ulaganje.Pospremivo(r.Context(), h.baza()); err == nil {
+			d.Pospremivo = p
+		}
+	}
 	d.IzdavanjeRadi = h.izdavanjeRadi()
 	if d.IzdavanjeRadi {
 		d.PaketiDir = h.paketiDir()

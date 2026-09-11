@@ -116,6 +116,117 @@
 </div>
 {{end}}
 
+{{if and .UlaganjeRadi (not .PosaoID)}}
+<div class="table-card" style="padding:1rem 1.25rem; margin-bottom:1rem;">
+  <div class="izvor-glava" style="margin-bottom:0.5rem;">
+    <div>
+      <h2 class="izvor-naziv">{{icon "clipboard-list"}} Očitanja iz programa</h2>
+      <p class="section-desc" style="margin:0.25rem 0 0;">
+        Ista vrata, drugi izvor: ono što su naši ljudi očitali i dojavili prelazi u arhivu i prestaje zauzimati
+        knjigu verzija. Očitanje ondje stoji 1.186 bajta, ista vrijednost u arhivi tri. Ništa se ne briše —
+        pospremanje je zaseban korak ispod.
+      </p>
+    </div>
+  </div>
+
+  <form method="POST" action="/administracija/ulaganje/pregled" class="izvor-brojevi" style="margin-top:0.75rem;">
+    <label>
+      <span class="part-label">Letva</span>
+      <input type="text" name="ul_letva" value="{{.UlLetva}}" class="form-control mono" list="popis-letava" required>
+    </label>
+    <label>
+      <span class="part-label">Od</span>
+      <input type="date" name="ul_od" value="{{.UlOd}}" class="form-control" required>
+    </label>
+    <label>
+      <span class="part-label">Do</span>
+      <input type="date" name="ul_do" value="{{.UlDo}}" class="form-control" required>
+    </label>
+    <div style="display:flex; align-items:end;">
+      <button type="submit" class="btn btn-primary">{{icon "eye"}} Pogledaj što bi ušlo</button>
+    </div>
+  </form>
+  <datalist id="popis-letava">{{range .Letve}}<option value="{{.}}">{{end}}</datalist>
+
+  {{with .Ulaganje}}
+  {{if .Ukupno}}
+  <div class="izvor-napomena" style="margin-top:1rem;">
+    <span class="part-label">{{.Postaja.Name}} · {{.Ukupno}} očitanja koja još nisu uložena</span>
+    <div style="margin-top:0.4rem;">
+      <div class="izdanje-red">
+        <span class="izdanje-letva">Dojavljeno</span>
+        <span>{{brojHR .Mjereno}} → <span class="mono">{{.Izvor}}</span>, niz <span class="mono">{{.Vrsta}}</span></span>
+      </div>
+      {{if .Rucno}}
+      <div class="izdanje-red">
+        <span class="izdanje-letva">Ručno s letve</span>
+        <span>{{brojHR .Rucno}} → <span class="mono">{{.IzvorRucnog}}</span>, niz <span class="mono">{{.VrstaRucnog}}</span>
+          — čovjek pred letvom nije dojava i ne stapa se s njom</span>
+      </div>
+      {{end}}
+      {{if .Preracunato}}
+      <div class="izdanje-red">
+        <span class="izdanje-letva">Rekonstruirano</span>
+        <span>{{brojHR .Preracunato}} → <span class="mono">preracun-{{.Izvor}}</span>, odvojeno</span>
+      </div>
+      {{end}}
+      {{if .Sumnjivo}}
+      <div class="izdanje-red">
+        <span class="izdanje-letva">Sumnjivo</span>
+        <span class="izdanje-isto">{{brojHR .Sumnjivo}} — ne ulaže se; arhiva nema mjesto za sumnju po vrijednosti,
+          pa bi ondje izgledalo kao mjerenje</span>
+      </div>
+      {{end}}
+      {{if .BezVrijednosti}}
+      <div class="izdanje-red">
+        <span class="izdanje-letva">Bez vodostaja</span>
+        <span class="izdanje-isto">{{brojHR .BezVrijednosti}} — ne ulaže se (građevine, prazna očitanja)</span>
+      </div>
+      {{end}}
+      {{if .SBiljeskom}}
+      <div class="izdanje-red">
+        <span class="izdanje-letva">S bilješkom</span>
+        <span>{{brojHR .SBiljeskom}} — prelazi u bilješke uz vrijednost i ostaje nakon što broj ode u arhivu</span>
+      </div>
+      {{end}}
+    </div>
+    {{if .Ima}}
+    <form method="POST" action="/administracija/ulaganje" style="margin-top:0.9rem;">
+      <input type="hidden" name="ul_letva" value="{{$.UlLetva}}">
+      <input type="hidden" name="ul_od" value="{{$.UlOd}}">
+      <input type="hidden" name="ul_do" value="{{$.UlDo}}">
+      <button type="submit" class="btn btn-primary">{{icon "check"}} Uloži i izgradi</button>
+    </form>
+    {{end}}
+  </div>
+  {{end}}
+  {{end}}
+
+  {{if .Pospremivo}}
+  <div class="izvor-napomena" style="margin-top:1.25rem;">
+    <span class="part-label">Uloženo, čeka pospremanje</span>
+    <p class="reading-meta" style="margin:0.25rem 0 0.5rem;">
+      Ovo je već u arhivi, ali još stoji i u operativnoj bazi. Brisanje je jedino mjesto u programu koje mȃkne
+      izmjerenu vrijednost, pa se prije njega još jednom provjerava da je svaka doista u arhivi. Ako i jedna
+      nedostaje, ne briše se ništa.
+    </p>
+    {{range .Pospremivo}}
+    <div class="izdanje-red">
+      <span class="izdanje-letva mono">{{.Letva}}</span>
+      <span>{{brojHR .Broj}} očitanja</span>
+      <span class="izdanje-isto">izdanje {{.Oznake}}</span>
+      <form method="POST" action="/administracija/ulaganje/pospremi" style="margin-left:auto;"
+            onsubmit="return confirm('Obrisati {{.Broj}} uloženih očitanja za {{.Letva}} iz operativne baze? Arhiva ostaje.');">
+        <input type="hidden" name="postaja" value="{{.StationID}}">
+        <button type="submit" class="btn btn-sm btn-secondary">{{icon "trash"}} Pospremi {{.Letva}}</button>
+      </form>
+    </div>
+    {{end}}
+  </div>
+  {{end}}
+</div>
+{{end}}
+
 {{if .PodaciDir}}
 <form method="POST" action="/administracija/uvoz-niza/pregled" enctype="multipart/form-data"
       class="reg-card" style="padding:1rem; margin-bottom:1rem;">
@@ -182,7 +293,6 @@
     <label class="izvor-napomena">
       <span class="part-label">Letva</span>
       <input type="text" name="letva" value="{{.Prijedlg.Letva}}" class="form-control mono" list="popis-letava" required>
-      <datalist id="popis-letava">{{range .Letve}}<option value="{{.}}">{{end}}</datalist>
     </label>
     <label class="izvor-napomena">
       <span class="part-label">Sliv</span>
