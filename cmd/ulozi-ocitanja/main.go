@@ -41,7 +41,8 @@ func main() {
 	sifra := flag.String("letva", "", "šifra postaje, npr. vukovar")
 	odS := flag.String("od", "", "od datuma, YYYY-MM-DD")
 	doS := flag.String("do", "", "do datuma, YYYY-MM-DD (uključivo)")
-	izvor := flag.String("izvor", "cop", "pod kojim izvorom se ulaže")
+	izvor := flag.String("izvor", "cop", "pod kojim izvorom se ulaže ono što je stiglo dojavom")
+	izvorRucno := flag.String("izvor-rucno", "cop-rucno", "pod kojim izvorom se ulaže ono što je čovjek očitao na letvi")
 	vrsta := flag.String("vrsta", "", "vrsta niza; prazno znači pogodi iz gustoće očitanja")
 	izdanje := flag.String("izdanje", "", "oznaka izdanja koja se upisuje uz uloženo očitanje")
 	zaboravi := flag.Bool("zaboravi", false, "obriši uložena očitanja i njihove verzije")
@@ -93,7 +94,10 @@ func main() {
 	iz := razvrstaj(ocitanja)
 	fmt.Printf("%s (%s), %s – %s\n", postaja.Name, postaja.Code, *odS, *doS)
 	fmt.Printf("  očitanja:      %d\n", len(ocitanja))
-	fmt.Printf("  izmjereno:     %d\n", len(iz.mjereno))
+	fmt.Printf("  dojavljeno:    %d  → %s\n", len(iz.mjereno), *izvor)
+	if len(iz.rucno) > 0 {
+		fmt.Printf("  ručno s letve: %d  → %s\n", len(iz.rucno), *izvorRucno)
+	}
 	if len(iz.preracunato) > 0 {
 		fmt.Printf("  rekonstruirano:%d  → ulaže se odvojeno, kao preracun-%s\n", len(iz.preracunato), *izvor)
 	}
@@ -116,11 +120,27 @@ func main() {
 		return
 	}
 
-	put, err := arhiva.Dopuni(*koren, sliv, postaja.Code, *izvor, "vodostaj", odabranaVrsta, iz.mjereno)
-	if err != nil {
-		log.Fatalf("ulaganje: %v", err)
+	if len(iz.mjereno) > 0 {
+		put, err := arhiva.Dopuni(*koren, sliv, postaja.Code, *izvor, "vodostaj", odabranaVrsta, iz.mjereno)
+		if err != nil {
+			log.Fatalf("ulaganje: %v", err)
+		}
+		fmt.Printf("\nzapisano: %s\n", put)
 	}
-	fmt.Printf("\nzapisano: %s\n", put)
+	if len(iz.rucno) > 0 {
+		// Ručno očitanje ide kao satni niz, iako nije satno: arhiva u satnom
+		// nizu drži trenutke, a ne pune sate — VITUKI ondje stoji u 03:30.
+		// Kao "jutarnji" bi palo u dnevni niz i izgubilo svoj sat, a 8. rujna
+		// su na Batini tri očitanja u danu: 05, 13 i 21 h.
+		put, err := arhiva.Dopuni(*koren, sliv, postaja.Code, *izvorRucno, "vodostaj", odabranaVrsta, iz.rucno)
+		if err != nil {
+			log.Fatalf("ulaganje ručnih: %v", err)
+		}
+		fmt.Printf("zapisano: %s\n", put)
+		if err := upisiIzvorRucnog(*arhivaPut, *izvorRucno); err != nil {
+			log.Fatalf("izvor %s: %v", *izvorRucno, err)
+		}
+	}
 	if len(iz.preracunato) > 0 {
 		p2, err := arhiva.Dopuni(*koren, sliv, postaja.Code, "preracun-"+*izvor, "vodostaj",
 			odabranaVrsta, iz.preracunato)
@@ -140,15 +160,16 @@ func main() {
 
 	// Provjera prije ikakvog brisanja: je li svako uloženo očitanje doista u
 	// arhivi. Mjerenje se ne može ponoviti, pa se ne vjeruje na riječ.
-	nedostaje, err := provjeriUArhivi(*arhivaPut, postaja.Code, iz.mjereno)
+	svi := append(append([]arhiva.Redak{}, iz.mjereno...), iz.rucno...)
+	nedostaje, err := provjeriUArhivi(*arhivaPut, postaja.Code, svi)
 	if err != nil {
 		log.Fatal(err)
 	}
 	if nedostaje > 0 {
 		log.Fatalf("PROVJERA PALA: %d od %d vrijednosti nije u arhivi — ništa se ne briše",
-			nedostaje, len(iz.mjereno))
+			nedostaje, len(svi))
 	}
-	fmt.Printf("provjera: svih %d vrijednosti je u arhivi\n", len(iz.mjereno))
+	fmt.Printf("provjera: svih %d vrijednosti je u arhivi\n", len(svi))
 
 	rec := ledger.New(baza, *nodeID)
 	if len(iz.biljeske) > 0 {
@@ -184,6 +205,7 @@ func main() {
 
 type razvrstano struct {
 	mjereno        []arhiva.Redak
+	rucno          []arhiva.Redak
 	preracunato    []arhiva.Redak
 	biljeske       []ocitanjeSBiljeskom
 	ulozeniID      []string
@@ -213,9 +235,15 @@ func razvrstaj(o []models.Reading) razvrstano {
 			continue
 		}
 		red := arhiva.Redak{Vrijeme: r.MeasuredAt.UTC(), Vrijednost: float64(*r.LevelCm)}
-		if r.Quality == models.QualityReconstructed {
+		switch {
+		case r.Quality == models.QualityReconstructed:
 			iz.preracunato = append(iz.preracunato, red)
-		} else {
+		case r.Source == models.ReadingSourceManual:
+			// Čovjek pred letvom nije dojava. Podrijetlo se ne smije stopiti:
+			// pri maloj vodi je ručno očitanje jedina neovisna provjera onoga
+			// što telemetrija javlja.
+			iz.rucno = append(iz.rucno, red)
+		default:
 			iz.mjereno = append(iz.mjereno, red)
 		}
 		if r.Note != "" || r.VrstaBiljeske != "" {
@@ -260,6 +288,21 @@ func biljeskeZa(letva, vrsta string, o []ocitanjeSBiljeskom) []models.ArhivaBilj
 	return out
 }
 
+// upisiIzvorRucnog otvara mjesto ručnom očitanju u tablici izvora, uključeno.
+// Nepoznat izvor inače ulazi isključen i čeka odluku — ali za ono što je naš
+// čovjek očitao na letvi odluka je već donesena time što je upisano.
+func upisiIzvorRucnog(arhivaPut, naziv string) error {
+	db, err := sql.Open("sqlite", arhivaPut)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	_, err = db.Exec(`INSERT OR IGNORE INTO izvori (naziv, tocnost, red, ukljucen, napomena)
+		VALUES (?, 1, 15, 1, 'očitanje s letve, upisano u programu; ispred telemetrije jer
+			je čovjek pred letvom jedina neovisna provjera onoga što mjerilo javlja')`, naziv)
+	return err
+}
+
 func postajaPoSifri(ctx context.Context, baza *sql.DB, sifra string) (models.Station, error) {
 	var st models.Station
 	var id string
@@ -278,7 +321,7 @@ func postajaPoSifri(ctx context.Context, baza *sql.DB, sifra string) (models.Sta
 func ocitanjaZaUlaganje(ctx context.Context, baza *sql.DB, stationID string,
 	od, do time.Time) ([]models.Reading, error) {
 	rows, err := baza.QueryContext(ctx, `
-		SELECT id, measured_at, level_cm, quality, observer, note, vrsta_biljeske, izdanje
+		SELECT id, measured_at, level_cm, quality, source, observer, note, vrsta_biljeske, izdanje
 		FROM readings WHERE station_id = ? AND measured_at BETWEEN ? AND ?
 		ORDER BY measured_at`, stationID, od.UTC(), do.UTC())
 	if err != nil {
@@ -290,7 +333,7 @@ func ocitanjaZaUlaganje(ctx context.Context, baza *sql.DB, stationID string,
 		var r models.Reading
 		var id string
 		var level sql.NullInt64
-		if err := rows.Scan(&id, &r.MeasuredAt, &level, &r.Quality, &r.Observer,
+		if err := rows.Scan(&id, &r.MeasuredAt, &level, &r.Quality, &r.Source, &r.Observer,
 			&r.Note, &r.VrstaBiljeske, &r.Izdanje); err != nil {
 			return nil, err
 		}
