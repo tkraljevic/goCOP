@@ -142,7 +142,14 @@ func (r *JournalRepository) ListJournals(ctx context.Context, areaID int) ([]mod
 
 func (r *JournalRepository) decorateJournal(ctx context.Context, j *models.Journal) {
 	var last sql.NullString
-	r.db.QueryRowContext(ctx, `SELECT COUNT(*), MAX(date) FROM journal_sheets WHERE journal_id = ?`, j.ID).Scan(&j.SheetCount, &last)
+	// Dnevnik COP-a nema listova nego zapise koji teku po danima, pa se broje
+	// dani dežurstva umjesto listova.
+	if j.CentarSektor != "" {
+		r.db.QueryRowContext(ctx, `SELECT COUNT(DISTINCT date), MAX(date) FROM journal_entries WHERE journal_id = ?`,
+			j.ID).Scan(&j.SheetCount, &last)
+	} else {
+		r.db.QueryRowContext(ctx, `SELECT COUNT(*), MAX(date) FROM journal_sheets WHERE journal_id = ?`, j.ID).Scan(&j.SheetCount, &last)
+	}
 	if last.Valid {
 		j.LastSheetOn = last.String
 	}
@@ -509,4 +516,39 @@ func (r *JournalRepository) BrojPoVrstama(ctx context.Context) (map[string]int, 
 // dnevnik, pa se čita po dnevniku a ne po listu.
 func (r *JournalRepository) EntriesForJournal(ctx context.Context, journalID string) ([]models.JournalEntry, error) {
 	return r.queryEntries(ctx, `e.journal_id = ?`, journalID)
+}
+
+// ListCOPJournals vraća dnevnike centara obrane.
+//
+// Ne ide preko branjenog područja: dnevnik COP-a vezan je na centar i područje
+// mu je prazno, pa ga popis po području nikad ne bi našao. Prazan sektor znači
+// sve centre koje osoba smije vidjeti.
+func (r *JournalRepository) ListCOPJournals(ctx context.Context, sektor string) ([]models.Journal, error) {
+	q := `SELECT ` + journalColumns + ` FROM journals WHERE centar_sektor IS NOT NULL AND centar_sektor <> ''`
+	var args []any
+	if sektor != "" {
+		q += ` AND centar_sektor = ?`
+		args = append(args, sektor)
+	}
+	q += ` ORDER BY started_at DESC, year DESC, title`
+	rows, err := r.db.QueryContext(ctx, q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []models.Journal
+	for rows.Next() {
+		j, err := scanJournal(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, j)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	for i := range out {
+		r.decorateJournal(ctx, &out[i])
+	}
+	return out, nil
 }

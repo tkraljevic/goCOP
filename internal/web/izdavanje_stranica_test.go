@@ -378,3 +378,34 @@ func TestZiviDnevnikNeNudiPrepravak(t *testing.T) {
 		t.Error("prazan dnevnik to ne kaže")
 	}
 }
+
+// Dnevnici COP-a ne idu preko branjenog područja: vezani su na centar i
+// područje im je prazno, pa ih popis po području nikad nije našao — stranica
+// je izgledala prazno iako je u bazi trinaest dnevnika.
+func TestPopisCOPNeTraziPodrucje(t *testing.T) {
+	d := JournalPageData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Vrsta:       models.JournalKindDefense,
+		Areas:       []models.Area{{ID: 15}, {ID: 34}},
+		Journals: []models.Journal{{
+			ID: "dn-1", Kind: models.JournalKindDefense, CentarSektor: "B",
+			Title: "Dnevnik COP-a, lipanj 2009.", Year: 2009,
+			Reconstruction: true, SheetCount: 3, LastSheetOn: "2009-06-30",
+		}},
+	}
+	html := iscrtaj(t, "dnevnici.html", d)
+	for _, want := range []string{"Dnevnik COP-a, lipanj 2009.", "dana dežurstva", "prijepis iz uveza"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("popis nema %q", want)
+		}
+	}
+	// Birač područja nema smisla: dnevnik COP-a nije ničijeg područja.
+	if strings.Contains(html, `id="area"`) {
+		t.Error("popis dnevnika COP-a nudi birač područja")
+	}
+	// Ni pojam lista, jer dežurstvo teče danima.
+	if strings.Contains(html, "listova") {
+		t.Error("dnevnik COP-a broji listove")
+	}
+}

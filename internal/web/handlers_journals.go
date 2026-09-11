@@ -187,6 +187,21 @@ func (h *JournalsHandler) ShowJournalKinds(w http.ResponseWriter, r *http.Reques
 func (h *JournalsHandler) ShowJournals(w http.ResponseWriter, r *http.Request) {
 	data := h.pageData(r)
 	data.Vrsta = r.URL.Query().Get("vrsta")
+
+	// Dnevnici COP-a ne idu preko branjenog područja: vezani su na centar i
+	// područje im je prazno, pa ih popis po području nikad ne bi našao.
+	if data.Vrsta == models.JournalKindDefense {
+		h.fillRights(&data)
+		js, err := h.journals.ListCOPJournals(r.Context(), "")
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		data.Journals = js
+		h.render(w, h.tmplList, "dnevnici.html", data)
+		return
+	}
+
 	want, _ := strconv.Atoi(r.URL.Query().Get("area"))
 	data.Area, data.Areas = h.areaOf(data.Permissions, want)
 	h.fillRights(&data)

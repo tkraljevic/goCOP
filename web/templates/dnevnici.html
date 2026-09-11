@@ -24,7 +24,7 @@
 </div>
 
 
-{{if gt (len .Areas) 1}}
+{{if and (ne .Vrsta "OBRANA") (gt (len .Areas) 1)}}
 <div class="filter-card">
   <form action="/dnevnici/popis" method="GET">
     <input type="hidden" name="vrsta" value="{{.Vrsta}}">
@@ -47,7 +47,7 @@
       <div class="reg-card-head">
         <div>
           <h3 class="reg-card-title">{{.DisplayTitle}}</h3>
-          <div class="reg-card-sub">{{.KindLabel}} · {{.Year}}.{{if .SectionCode}} · dionica {{.SectionCode}}{{end}}</div>
+          <div class="reg-card-sub">{{if .CentarSektor}}{{terml "sektor"}} {{.CentarSektor}}{{else}}{{.KindLabel}}{{end}} · {{.Year}}.{{if .SectionCode}} · dionica {{.SectionCode}}{{end}}</div>
         </div>
         <span>{{if .Reconstruction}}<span class="badge badge-inactive" title="Upisi preneseni iz starije evidencije radi primjera; ovjereni listovi postoje zasebno">rekonstrukcija</span> {{end}}{{if .OpenTasks}}<span class="badge badge-pending">{{.OpenTasks}} otvorenih naloga</span>{{end}}</span>
       </div>
@@ -57,14 +57,20 @@
         {{if .Supervisor}}<div><dt>Nadzor</dt><dd>{{.Supervisor}}</dd></div>{{end}}
       </dl>
       <div class="reg-card-foot">
+        {{if .CentarSektor}}
+        <span class="reg-chip {{if eq .SheetCount 0}}empty{{end}}">{{icon "file-text"}} {{.SheetCount}} {{uzBroj .SheetCount "dan" "dana" "dana"}} dežurstva</span>
+        {{if .LastSheetOn}}<span class="reg-chip">{{icon "history"}} zadnji {{.LastSheetOn}}</span>{{end}}
+        {{if .Reconstruction}}<span class="reg-chip">{{icon "notebook"}} prijepis iz uveza</span>{{end}}
+        {{else}}
         <span class="reg-chip {{if eq .SheetCount 0}}empty{{end}}">{{icon "file-text"}} {{.SheetCount}} listova</span>
         {{if .LastSheetOn}}<span class="reg-chip">{{icon "history"}} zadnji list {{.LastSheetOn}}</span>{{end}}
+        {{end}}
       </div>
     </a>
   </article>
   {{else}}
   <div class="reg-empty">
-    {{if .Area}}U području {{.Area.Name}} još nema dnevnika te vrste.{{if .CanManage}} Otvorite ga gumbom „Novi dnevnik“ i popunite naslovnicu.{{end}}{{else}}Nema područja.{{end}}
+    {{if eq .Vrsta "OBRANA"}}Još nema nijednog dnevnika COP-a.{{else if .Area}}U području {{.Area.Name}} još nema dnevnika te vrste.{{if .CanManage}} Otvorite ga gumbom „Novi dnevnik“ i popunite naslovnicu.{{end}}{{else}}Nema područja.{{end}}
   </div>
   {{end}}
 </div>
