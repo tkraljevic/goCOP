@@ -9,10 +9,10 @@
     // Tema iz prethodnog izbora, prije prvog crtanja, da stranica ne bljesne
     (function () { try { var t = localStorage.getItem('gocop-theme'); if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t); } catch (e) {} })();
   </script>
-  <link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css">
-  <link rel="stylesheet" href="/static/css/style.css">
-  <script src="/static/vendor/leaflet/leaflet.js" defer></script>
-  <script src="/static/js/app.js" defer></script>
+  <link rel="stylesheet" href="{{statika "vendor/leaflet/leaflet.css"}}">
+  <link rel="stylesheet" href="{{statika "css/style.css"}}">
+  <script src="{{statika "vendor/leaflet/leaflet.js"}}" defer></script>
+  <script src="{{statika "js/app.js"}}" defer></script>
 </head>
 <body>
   <!-- Navigacija -->
@@ -90,8 +90,8 @@
         <a href="/pomoc{{if .ActiveNav}}#{{.ActiveNav}}{{end}}" class="theme-toggle pomoc-znak"
            title="Pomoć za ovu stranicu" aria-label="Pomoć za ovu stranicu">{{icon "circle-question-mark"}}</a>
         <button type="button" class="theme-toggle" onclick="toggleTheme()" title="Svijetla ili tamna tema" aria-label="Svijetla ili tamna tema">
-          <svg class="icon icon-sun" aria-hidden="true"><use href="/static/img/icons.svg#sun"/></svg>
-          <svg class="icon icon-moon" aria-hidden="true"><use href="/static/img/icons.svg#moon"/></svg>
+          <svg class="icon icon-sun" aria-hidden="true"><use href="{{statika "img/icons.svg"}}#sun"/></svg>
+          <svg class="icon icon-moon" aria-hidden="true"><use href="{{statika "img/icons.svg"}}#moon"/></svg>
         </button>
       </div>
 
