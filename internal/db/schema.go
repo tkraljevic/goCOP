@@ -867,6 +867,12 @@ func migrateSchema(database *sql.DB) error {
 		}
 	}
 
+	// Dnevnik se veže na centar, a to traži da area_id prestane biti obvezan —
+	// jedino što se u SQLiteu ne da s ALTER, nego ponovnom izradom tablice.
+	if err := preslozidnevnike(database); err != nil {
+		return err
+	}
+
 	return rekeySeedIdentities(database)
 }
 
@@ -1040,4 +1046,127 @@ func columnExists(database *sql.DB, table, column string) (bool, error) {
 		return false, fmt.Errorf("greška pri provjeri stupca %s.%s: %w", table, column, err)
 	}
 	return count > 0, nil
+}
+
+// preslozidnevnike vezuje dnevnik na CENTAR umjesto na branjeno područje.
+//
+// Dnevnik COP-a je bilježnica jednog centra, ne jednog područja. Dežurni u
+// Osijeku vodi jednu bilježnicu bez obzira gdje je obrana proglašena — dežura
+// zbog Virovitice, ali piše u dnevnik COP-a Osijek. Ako i Virovitica ima
+// dežurnog, njegov upis ide u isti taj dnevnik, samo pod njegovim imenom.
+//
+// Zato area_id prestaje biti obvezan: sektorski COP pokriva pet područja i
+// nijedno od njih nije "njegovo". Dnevnici usluga A.02 i A.03 i dalje su po
+// području i ondje area_id ostaje popunjen.
+//
+// SQLite ne zna maknuti NOT NULL s ALTER, pa se tablica radi iznova i redci se
+// prepišu. Danas ih je nula, ali postupak mora biti isti — sutra neće biti.
+func preslozidnevnike(database *sql.DB) error {
+	obvezan, err := stupacJeObvezan(database, "journals", "area_id")
+	if err != nil || !obvezan {
+		return err
+	}
+
+	// Redoslijed je onaj iz upute SQLitea, i nije proizvoljan.
+	//
+	// Nova tablica nastaje pod PRIVREMENIM imenom i preimenuje se na kraju.
+	// Obrnuto — preimenovati staru pa je obrisati — ne radi: SQLite pri
+	// preimenovanju prepiše strane ključeve djece da pokazuju na novo ime, pa
+	// ih DROP kaskadom odnese sa sobom. Prva izvedba je tako obrisala sve
+	// zapise dnevnika, a test je to uhvatio.
+	//
+	// Strani ključevi se gase oko cijelog zahvata, jer pragma ne djeluje unutar
+	// transakcije. Provjera cjelovitosti prije potvrde hvata ono što bi gašenje
+	// propustilo.
+	if _, err := database.Exec(`PRAGMA foreign_keys = OFF`); err != nil {
+		return err
+	}
+	defer database.Exec(`PRAGMA foreign_keys = ON`)
+
+	tx, err := database.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	for _, q := range []string{
+		`CREATE TABLE journals_novo (
+			id TEXT PRIMARY KEY,
+			area_id INTEGER REFERENCES areas(id),
+			-- Prazno, ne '': stupac ima strani ključ, a prazan niz ne postoji u
+			-- tablici sektora, pa bi svaki dnevnik bez centra pao na vezi.
+			-- Dnevnici usluga A.02 i A.03 nemaju centar nego područje.
+			centar_sektor TEXT REFERENCES sectors(id),
+			centar_podrucje INTEGER REFERENCES areas(id),
+			kind TEXT NOT NULL,
+			title TEXT NOT NULL DEFAULT '',
+			year INTEGER NOT NULL DEFAULT 0,
+			contract TEXT NOT NULL DEFAULT '',
+			reconstruction INTEGER NOT NULL DEFAULT 0,
+			section_code TEXT NOT NULL DEFAULT '',
+			structure_id TEXT NOT NULL DEFAULT '',
+			contractor TEXT NOT NULL DEFAULT '',
+			contractor_lead TEXT NOT NULL DEFAULT '',
+			contractor_lead_act TEXT NOT NULL DEFAULT '',
+			supervisor TEXT NOT NULL DEFAULT '',
+			supervisor_act TEXT NOT NULL DEFAULT '',
+			supervisor_deputy TEXT NOT NULL DEFAULT '',
+			chief_supervisor TEXT NOT NULL DEFAULT '',
+			investor TEXT NOT NULL DEFAULT '',
+			started_at DATETIME,
+			ended_at DATETIME,
+			latitude REAL,
+			longitude REAL,
+			gauges TEXT NOT NULL DEFAULT '',
+			notes TEXT NOT NULL DEFAULT '',
+			created_by TEXT NOT NULL DEFAULT '',
+			created_at DATETIME NOT NULL,
+			updated_at DATETIME NOT NULL,
+			channel TEXT NOT NULL DEFAULT ''
+		)`,
+		`INSERT INTO journals_novo (id, area_id, kind, title, year, contract, reconstruction,
+			section_code, structure_id, contractor, contractor_lead, contractor_lead_act,
+			supervisor, supervisor_act, supervisor_deputy, chief_supervisor, investor,
+			started_at, ended_at, latitude, longitude, gauges, notes, created_by,
+			created_at, updated_at, channel)
+		 SELECT id, area_id, kind, title, year, contract, reconstruction,
+			section_code, structure_id, contractor, contractor_lead, contractor_lead_act,
+			supervisor, supervisor_act, supervisor_deputy, chief_supervisor, investor,
+			started_at, ended_at, latitude, longitude, gauges, notes, created_by,
+			created_at, updated_at, channel
+		 FROM journals`,
+		`DROP TABLE journals`,
+		`ALTER TABLE journals_novo RENAME TO journals`,
+		`CREATE INDEX IF NOT EXISTS idx_journals_area ON journals(area_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_journals_centar ON journals(centar_sektor, centar_podrucje)`,
+	} {
+		if _, err := tx.Exec(q); err != nil {
+			return fmt.Errorf("preslagivanje dnevnika (%.40s…): %w", q, err)
+		}
+	}
+
+	// Ako je zamjena ostavila dijete bez roditelja, bolje je ne potvrditi.
+	var pokvarenih int
+	if err := tx.QueryRow(`SELECT count(*) FROM pragma_foreign_key_check`).Scan(&pokvarenih); err != nil {
+		return err
+	}
+	if pokvarenih > 0 {
+		return fmt.Errorf("preslagivanje dnevnika ostavilo %d pokvarenih veza — ništa nije promijenjeno",
+			pokvarenih)
+	}
+	return tx.Commit()
+}
+
+// stupacJeObvezan javlja nosi li stupac NOT NULL.
+func stupacJeObvezan(database *sql.DB, tablica, stupac string) (bool, error) {
+	var notnull int
+	err := database.QueryRow(
+		`SELECT "notnull" FROM pragma_table_info(?) WHERE name = ?`, tablica, stupac).Scan(&notnull)
+	if err == sql.ErrNoRows {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return notnull == 1, nil
 }
