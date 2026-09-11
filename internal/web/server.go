@@ -765,9 +765,9 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /stations/{id}/historijat/uredi", s.authMiddleware(http.HandlerFunc(stationsH.ObrazacHistorijata)))
 	s.mux.Handle("GET /readings/station/{id}/izvjesce.docx",
 		s.authMiddleware(http.HandlerFunc(readingsH.IzvjesceOcitanjaDocx)))
-	s.mux.Handle("GET /stations/{id}/paket.cop", s.authMiddleware(http.HandlerFunc(stationsH.IzveziPaket)))
-	s.mux.Handle("POST /stations/{id}/paket/pregled", s.authMiddleware(http.HandlerFunc(stationsH.PregledPaketa)))
-	s.mux.Handle("POST /stations/{id}/paket/ugradi", s.authMiddleware(http.HandlerFunc(stationsH.UgradiPaket)))
+	s.mux.Handle("GET /stations/{id}/paket.cop", s.samoAdmin(http.HandlerFunc(stationsH.IzveziPaket)))
+	s.mux.Handle("POST /stations/{id}/paket/pregled", s.samoAdmin(http.HandlerFunc(stationsH.PregledPaketa)))
+	s.mux.Handle("POST /stations/{id}/paket/ugradi", s.samoAdmin(http.HandlerFunc(stationsH.UgradiPaket)))
 	s.mux.Handle("GET /stations/{id}/izvjesce.docx", s.authMiddleware(http.HandlerFunc(stationsH.IzvjesceLetveDocx)))
 	s.mux.Handle("GET /stations/{id}/edit", s.authMiddleware(http.HandlerFunc(stationsH.ShowStationForm)))
 	s.mux.Handle("GET /api/stations", s.authMiddleware(http.HandlerFunc(stationsH.HandleListStationsAPI)))
@@ -829,24 +829,24 @@ func (s *Server) setupRoutes() {
 
 	izvoriH := NewIzvoriHandler(func() string { return s.arhivaPut }, func() string { return s.podaciDir },
 		s.PostaviIzvor, s.templates["izvori.html"])
-	s.mux.Handle("GET /administracija/izvori", s.authMiddleware(http.HandlerFunc(izvoriH.ShowIzvori)))
-	s.mux.Handle("POST /administracija/izvori", s.authMiddleware(http.HandlerFunc(izvoriH.SpremiIzvor)))
+	s.mux.Handle("GET /administracija/izvori", s.samoAdmin(http.HandlerFunc(izvoriH.ShowIzvori)))
+	s.mux.Handle("POST /administracija/izvori", s.samoAdmin(http.HandlerFunc(izvoriH.SpremiIzvor)))
 	uvozH := NewUvozHandler(func() string { return s.arhivaPut }, func() string { return s.podaciDir },
 		s.IzgradiLetvu, s.templates["uvoz_niza.html"])
-	s.mux.Handle("GET /administracija/uvoz-niza", s.authMiddleware(http.HandlerFunc(uvozH.ShowUvoz)))
-	s.mux.Handle("POST /administracija/uvoz-niza/pregled", s.authMiddleware(http.HandlerFunc(uvozH.PregledUvoza)))
-	s.mux.Handle("POST /administracija/uvoz-niza/pregled-opet", s.authMiddleware(http.HandlerFunc(uvozH.PonoviPregled)))
+	s.mux.Handle("GET /administracija/uvoz-niza", s.samoAdmin(http.HandlerFunc(uvozH.ShowUvoz)))
+	s.mux.Handle("POST /administracija/uvoz-niza/pregled", s.samoAdmin(http.HandlerFunc(uvozH.PregledUvoza)))
+	s.mux.Handle("POST /administracija/uvoz-niza/pregled-opet", s.samoAdmin(http.HandlerFunc(uvozH.PonoviPregled)))
 	uvozH.SetMakniNiz(s.MakniNiz)
-	s.mux.Handle("POST /administracija/uvoz-niza/makni-niz", s.authMiddleware(http.HandlerFunc(uvozH.MakniSirotana)))
-	s.mux.Handle("POST /administracija/uvoz-niza/zatecen", s.authMiddleware(http.HandlerFunc(uvozH.Zatecen)))
-	s.mux.Handle("POST /administracija/uvoz-niza/upisi", s.authMiddleware(http.HandlerFunc(uvozH.UpisiUvoz)))
+	s.mux.Handle("POST /administracija/uvoz-niza/makni-niz", s.samoAdmin(http.HandlerFunc(uvozH.MakniSirotana)))
+	s.mux.Handle("POST /administracija/uvoz-niza/zatecen", s.samoAdmin(http.HandlerFunc(uvozH.Zatecen)))
+	s.mux.Handle("POST /administracija/uvoz-niza/upisi", s.samoAdmin(http.HandlerFunc(uvozH.UpisiUvoz)))
 	uvozH.SetIzdavanje(func() string { return s.paketiDir }, s.IzdajArhivu, s.KatalogIzdanja, s.poslovi)
 	uvozH.SetOcitanja(func() *sql.DB { return s.db }, func() string { return s.recorder.Cvor() })
-	s.mux.Handle("POST /administracija/ulaganje/pregled", s.authMiddleware(http.HandlerFunc(uvozH.PregledUlaganja)))
-	s.mux.Handle("POST /administracija/ulaganje", s.authMiddleware(http.HandlerFunc(uvozH.UloziOcitanja)))
-	s.mux.Handle("POST /administracija/ulaganje/pospremi", s.authMiddleware(http.HandlerFunc(uvozH.Pospremi)))
-	s.mux.Handle("POST /administracija/izdavanje/provjera", s.authMiddleware(http.HandlerFunc(uvozH.ProvjeriIzdanja)))
-	s.mux.Handle("POST /administracija/izdavanje", s.authMiddleware(http.HandlerFunc(uvozH.Izdaj)))
+	s.mux.Handle("POST /administracija/ulaganje/pregled", s.samoAdmin(http.HandlerFunc(uvozH.PregledUlaganja)))
+	s.mux.Handle("POST /administracija/ulaganje", s.samoAdmin(http.HandlerFunc(uvozH.UloziOcitanja)))
+	s.mux.Handle("POST /administracija/ulaganje/pospremi", s.samoAdmin(http.HandlerFunc(uvozH.Pospremi)))
+	s.mux.Handle("POST /administracija/izdavanje/provjera", s.samoAdmin(http.HandlerFunc(uvozH.ProvjeriIzdanja)))
+	s.mux.Handle("POST /administracija/izdavanje", s.samoAdmin(http.HandlerFunc(uvozH.Izdaj)))
 	s.mux.Handle("GET /administracija/baza", s.authMiddleware(http.HandlerFunc(dbH.ShowMaintenance)))
 	s.mux.Handle("POST /administracija/baza/sazmi", s.authMiddleware(http.HandlerFunc(dbH.HandleCompact)))
 	s.mux.Handle("POST /administracija/baza/vacuum", s.authMiddleware(http.HandlerFunc(dbH.HandleVacuum)))
@@ -879,6 +879,33 @@ func (s *Server) setupRoutes() {
 
 	// Mjerodavni vodomjeri dionice
 	s.mux.Handle("GET /api/sections/{code}/stations", s.authMiddleware(http.HandlerFunc(stationsH.HandleGetSectionStationsAPI)))
+}
+
+// samoAdmin je ograda nad rutom, ne nad gumbom.
+//
+// Skrivanje gumba nije ovlast: ruta je i dalje ondje i prima zahtjev. Gumbi za
+// ugradnju i izvoz paketa prikazivali su se samo administratoru, ali su rute
+// imale samo opći autentifikacijski sloj — prijavljeni korisnik bez prava mogao
+// je poslati POST i zamijeniti kompletan historijat letve.
+//
+// Sve što mijenja hidrološku arhivu prolazi ovuda, pa se ne može zaboraviti u
+// pojedinom rukovatelju. Provjere u rukovateljima ostaju; ovo je prvi sloj, ne
+// jedini.
+func (s *Server) samoAdmin(next http.Handler) http.Handler {
+	return s.authMiddleware(trebaAdmina(next))
+}
+
+// trebaAdmina je sama provjera prava, odvojena od prijave da se može ispitati
+// bez baze i sesije.
+func trebaAdmina(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
+		if perms == nil || !perms.IsGlobalAdmin {
+			http.Error(w, "Ovo radi samo administrator", http.StatusForbidden)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // authMiddleware provjerava sesijski kolačić i postavlja korisnika u context
