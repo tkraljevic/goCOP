@@ -3166,3 +3166,18 @@ textarea {
    nkm) piše i slovima, pa se sve čita i bez razlikovanja boja. */
 .os-voda { color: var(--primary); }
 .os-nasip { color: var(--success); }
+
+/* Blokovi letve na kartici dionice. Ista letva vrijedi za više dionica, pa se
+   pragovi, kota nule i ekstremi povlače s nje, a ne drže po dionici. */
+.letva-blokovi { margin: 1rem 0; }
+.letva-blokovi-glava {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+  color: var(--text-strong);
+  margin-bottom: 0.25rem;
+}
+.letva-blokovi-glava a { color: var(--primary); }
+.letva-blokovi .detail-section { margin-top: 0.5rem; }
+.letva-blokovi .detail-section h2 { font-size: 0.95rem; }

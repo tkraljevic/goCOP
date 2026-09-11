@@ -151,6 +151,19 @@
 </section>
 {{end}}
 
+{{range .LetveBlokovi}}
+{{/* Pragovi, kota nule i ekstremi povlače se s letve po kojoj se dionica vodi.
+     Dionica ih ne drži svoje: ista letva vrijedi za više dionica, pa bi svoja
+     kopija značila da se iste brojke na dva mjesta s vremenom raziđu. */}}
+<div class="letva-blokovi">
+  <div class="letva-blokovi-glava">{{icon "chart-column"}} <a href="/stations/{{.Station.ID}}">{{.Station.Name}}</a>
+    <span class="reg-card-sub">{{if .Station.Stationing}}{{.Station.Stationing}}{{end}}</span></div>
+  {{template "letva-pragovi" .}}
+  {{template "letva-kota-nule" .}}
+  {{template "letva-ekstremi" .}}
+</div>
+{{end}}
+
 <section class="detail-section" id="obrana">
   <h2>{{icon "activity"}} Obrana od poplava{{if .Episodes}} <span class="reg-chip">{{len .Episodes}}</span>{{end}}</h2>
 

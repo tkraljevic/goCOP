@@ -36,7 +36,7 @@ func iscrtaj(t *testing.T, stranica string, data any) string {
 		t.Fatal(err)
 	}
 	tmpl, err := template.New("base.html").Funcs(templateFuncs()).
-		ParseFS(templatesFS, "base.html", stranica)
+		ParseFS(templatesFS, DijeloviPredloska(stranica)...)
 	if err != nil {
 		t.Fatalf("predložak %s se ne učitava: %v", stranica, err)
 	}
@@ -2593,3 +2593,54 @@ func max0(i int) int {
 	}
 	return i
 }
+
+// Pragovi, kota nule i zabilježeni ekstremi povlače se s letve po kojoj se
+// dionica vodi. Ista letva vrijedi za više dionica — Batina za cijelo BP 34 —
+// pa bi svoja kopija po dionici značila da se iste brojke s vremenom raziđu.
+func TestKarticaDionicePovlaciBlokoveSLetve(t *testing.T) {
+	kota, kotaNova := 80.45, 80.189
+	st := models.Station{
+		Name: "Batina", Code: "batina", Stationing: "rkm 1424+850",
+		ZeroDatum: &kota, ZeroDatumNew: &kotaNova,
+		Prep:    models.Threshold{Cm: intp(300), Raw: "+300"},
+		Regular: models.Threshold{Cm: intp(500), Raw: "+500"},
+		Extremes: []models.StationExtreme{
+			{Kind: "MAX", LevelCm: intp(772), OnDate: "2013-06-13",
+				Source: "arhiva vodostaja", Method: "mjereno (his2000)"},
+		},
+	}
+	part := models.SectionPart{Seq: 1, Bank: "D"}
+	d := SectionPageData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Section:     models.Section{Code: "B.34.2", AreaID: 34, SectorID: "B", Parts: []models.SectionPart{part}},
+		Parts:       []PartView{{SectionPart: part, Stations: []models.Station{st}}},
+	}
+	d.LetveBlokovi = letveBlokovi(d.Parts)
+
+	html := iscrtaj(t, "section_detail.html", d)
+	for _, want := range []string{
+		"Pragovi obrane od poplava", "Pripremno stanje", "300 cm", "Redovna obrana",
+		"Kota nule vodomjera", "80,189 m", "80,450 m",
+		"Zabilježeni ekstremi", "772", "arhiva vodostaja", "mjereno (his2000)",
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("kartica dionice nema %q s letve", want)
+		}
+	}
+}
+
+// Ista letva na dvije poddionice ne smije dati dva ista bloka.
+func TestLetvaSeNePonavljaPoPoddionicama(t *testing.T) {
+	st := models.Station{Name: "Batina", Code: "batina",
+		Prep: models.Threshold{Cm: intp(300), Raw: "+300"}}
+	parts := []PartView{
+		{Stations: []models.Station{st}},
+		{Stations: []models.Station{st}},
+	}
+	if n := len(letveBlokovi(parts)); n != 1 {
+		t.Errorf("ista letva na dvije poddionice dala %d blokova", n)
+	}
+}
+
+func intp(v int) *int { return &v }
