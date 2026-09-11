@@ -3067,3 +3067,15 @@ textarea {
   .posao-neodredeno .posao-traka-crta { animation: none; width: 100% !important; opacity: 0.5; }
   .posao-traka-crta { transition: none; }
 }
+
+/* Izbor pri upisu niza koji već postoji: dopuna ili zamjena. */
+.uvoz-nacin {
+  display: flex;
+  gap: 0.5rem;
+  align-items: start;
+  padding: 0.4rem 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.uvoz-nacin input { margin-top: 0.2rem; flex: none; }

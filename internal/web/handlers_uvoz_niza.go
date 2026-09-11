@@ -127,6 +127,9 @@ type UvozPageData struct {
 	Najmanje float64
 	Najvise  float64
 
+	// Što niz već ima u stablu, da se vidi što bi zamjena odnijela.
+	Zatecen *ZatecenNiz
+
 	Dnevnik   string // ispis gradnje nakon upisa
 	Cekaizvor string // izvor koji je upisan a još ne ulazi u spojeni niz
 
@@ -371,7 +374,77 @@ func (h *UvozHandler) popuniPregled(d *UvozPageData, ime string, sadrzaj []byte,
 			d.Najvise = x.Vrijednost
 		}
 	}
+	d.Zatecen = zateceno(d.PodaciDir, d.Prijedlg, redci)
+	if d.Prijedlg.Nacin == "" {
+		// Dopuna je zadano jer ne može ništa odnijeti. Zamjena se bira kad je
+		// staro krivo, a tad čovjek vidi koliko toga baca.
+		d.Prijedlg.Nacin = "dopuni"
+	}
 	return nil
+}
+
+// ZatecenNiz je ono što niz već ima u stablu. Postoji zato što upis briše
+// stariju datoteku istog niza — inače bi gradnja obje pročitala kao dodatne
+// godine — pa datoteka koja pokriva uže razdoblje tiho odnese ostatak.
+//
+// Na Dalju je to bilo 36.477 satnih vrijednosti iz 1986.–2004., među njima i
+// poplava 2006.: novi izvoz iz HIS2000 počinjao je 2005., a stara datoteka
+// 1986. Nitko to ne bi primijetio dok netko ne zatraži staru poplavu.
+type ZatecenNiz struct {
+	Redaka   int
+	Od, Do   string
+	IzvanNov int    // koliko zatečenih vrijednosti nova datoteka uopće ne pokriva
+	OdIzvan  string // razdoblje koje bi zamjena odnijela
+	DoIzvan  string
+}
+
+// zateceno gleda što niz već ima i koliko bi toga zamjena odnijela.
+func zateceno(koren string, u UvozNiza, novi []arhiva.Redak) *ZatecenNiz {
+	if koren == "" || len(novi) == 0 {
+		return nil
+	}
+	stare, err := arhiva.PostojeciRedci(koren, u.Sliv, u.Letva, u.Izvor, u.Velicina, u.Vrsta)
+	if err != nil || len(stare) == 0 {
+		return nil
+	}
+	imaNovi := make(map[int64]bool, len(novi))
+	odNov, doNov := novi[0].Vrijeme, novi[0].Vrijeme
+	for _, r := range novi {
+		imaNovi[r.Vrijeme.Unix()] = true
+		if r.Vrijeme.Before(odNov) {
+			odNov = r.Vrijeme
+		}
+		if r.Vrijeme.After(doNov) {
+			doNov = r.Vrijeme
+		}
+	}
+	z := &ZatecenNiz{Redaka: len(stare)}
+	od, do := stare[0].Vrijeme, stare[0].Vrijeme
+	var odIzvan, doIzvan time.Time
+	for _, r := range stare {
+		if r.Vrijeme.Before(od) {
+			od = r.Vrijeme
+		}
+		if r.Vrijeme.After(do) {
+			do = r.Vrijeme
+		}
+		if imaNovi[r.Vrijeme.Unix()] {
+			continue
+		}
+		z.IzvanNov++
+		if odIzvan.IsZero() || r.Vrijeme.Before(odIzvan) {
+			odIzvan = r.Vrijeme
+		}
+		if r.Vrijeme.After(doIzvan) {
+			doIzvan = r.Vrijeme
+		}
+	}
+	dan := func(t time.Time) string { return t.In(models.Zagreb).Format("02.01.2006.") }
+	z.Od, z.Do = dan(od), dan(do)
+	if z.IzvanNov > 0 {
+		z.OdIzvan, z.DoIzvan = dan(odIzvan), dan(doIzvan)
+	}
+	return z
 }
 
 // prijedlogIzNaziva čita ono što naziv već kazuje. Datoteka koja dolazi iz
@@ -408,6 +481,7 @@ func primiIzObrasca(u *UvozNiza, r *http.Request) {
 	set(&u.Velicina, "velicina")
 	set(&u.Vrsta, "vrsta")
 	set(&u.Zona, "zona")
+	set(&u.Nacin, "nacin")
 	if v, err := strconv.Atoi(r.FormValue("stupac_vrijeme")); err == nil && v >= 0 {
 		u.StupacVrijeme = v
 	}
@@ -501,7 +575,14 @@ func (h *UvozHandler) UpisiUvoz(w http.ResponseWriter, r *http.Request) {
 		h.pisi(w, d)
 		return
 	}
-	put, err := arhiva.Upisi(h.podaciDir(), u.Sliv, u.Letva, u.Izvor, u.Velicina, u.Vrsta, redci)
+	// Dopuna zadržava ono što niz već ima; zamjena ga baca. Upisi briše
+	// stariju datoteku istog niza, pa datoteka koja pokriva uže razdoblje pri
+	// zamjeni odnese ostatak — zato je dopuna zadano.
+	upis := arhiva.Dopuni
+	if u.Nacin == "zamijeni" {
+		upis = arhiva.Upisi
+	}
+	put, err := upis(h.podaciDir(), u.Sliv, u.Letva, u.Izvor, u.Velicina, u.Vrsta, redci)
 	if err != nil {
 		d.ErrorMessage = "upis nije uspio: " + err.Error()
 		h.pisi(w, d)
