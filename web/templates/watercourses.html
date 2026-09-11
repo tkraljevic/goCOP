@@ -24,8 +24,6 @@
   <span class="stat-badge {{if gt .UnlinkedStations 0}}has-items{{end}}">{{icon "ruler"}} {{.UnlinkedStations}} postaja bez veze</span>
 </div>
 
-{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
-{{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
 
 <div class="filter-card">
   <form action="/watercourses" method="GET">

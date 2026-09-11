@@ -13,9 +13,7 @@
     </p>
   </div>
 
-  {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
-  {{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
-
+    
   {{if eq .Sectors 0}}
   <div class="alert alert-warning">
     {{icon "triangle-alert"}} Čvor još nema nijedan {{terml "sektor"}}. Dok ustroja nema, nema ni dionica ni zaduženja.

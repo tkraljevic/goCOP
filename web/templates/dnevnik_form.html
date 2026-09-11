@@ -12,7 +12,6 @@
   </div>
 </div>
 
-{{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
 
 <form class="form-page" method="POST" action="{{if .IsEdit}}/dnevnici/{{.Journal.ID}}{{else}}/dnevnici{{end}}">
   <input type="hidden" name="area" value="{{.Journal.AreaID}}">

@@ -17,7 +17,6 @@
   </div>
 </div>
 
-{{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
 
 <form class="form-page form-wide" id="station-form" method="POST" action="/api/stations/update">
   <input type="hidden" name="id" value="{{.Station.ID}}">

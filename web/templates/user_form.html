@@ -15,7 +15,6 @@
   </div>
 </div>
 
-{{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
 
 <form class="form-page" method="POST" action="{{if .IsEdit}}/users/update{{else}}/users/create{{end}}" autocomplete="off">
   {{if .IsEdit}}<input type="hidden" name="id" value="{{.User.ID}}">{{end}}

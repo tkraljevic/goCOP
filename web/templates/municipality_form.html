@@ -15,7 +15,6 @@
   </div>
 </div>
 
-{{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
 
 <form class="form-page" method="POST" action="{{if .IsEdit}}/territories/municipality/update{{else}}/territories/municipality/create{{end}}">
   {{if .IsEdit}}<input type="hidden" name="id" value="{{.Municipality.ID}}">{{end}}

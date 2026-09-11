@@ -21,8 +21,6 @@
   {{range .Kinds}}{{$n := index $.ByKind .}}{{if gt $n 0}}<span class="stat-badge has-items">{{$n}} · {{structureKind .}}</span>{{end}}{{end}}
 </div>
 
-{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
-{{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
 
 <div class="filter-card">
   <form action="/structures" method="GET">

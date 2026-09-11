@@ -23,8 +23,6 @@
   <span class="stat-badge {{if gt .WithoutWatercourse 0}}has-items{{end}}">{{icon "waves"}} {{.WithoutWatercourse}} bez utvrđenog vodotoka</span>
 </div>
 
-{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
-{{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
 
 <div class="filter-card">
   <form action="/stations" method="GET">
