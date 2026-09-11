@@ -20,6 +20,7 @@ type JournalsHandler struct {
 	maintenance *service.MaintenanceService
 	sections    *service.SectionService
 	stations    *service.StationService
+	tmplIzbor   *template.Template
 	tmplList    *template.Template
 	tmplForm    *template.Template
 	tmplJournal *template.Template
@@ -29,18 +30,23 @@ type JournalsHandler struct {
 
 func NewJournalsHandler(j *service.JournalService, users *service.UserService, m *service.MaintenanceService,
 	sections *service.SectionService, stations *service.StationService,
-	list, form, journal, sheet, print *template.Template) *JournalsHandler {
+	izbor, list, form, journal, sheet, print *template.Template) *JournalsHandler {
 	return &JournalsHandler{journals: j, users: users, maintenance: m, sections: sections, stations: stations,
-		tmplList: list, tmplForm: form, tmplJournal: journal, tmplSheet: sheet, tmplPrint: print}
+		tmplIzbor: izbor, tmplList: list, tmplForm: form, tmplJournal: journal, tmplSheet: sheet, tmplPrint: print}
 }
 
 // JournalPageData su podaci svih stranica dnevnika; što stranica ne treba ostaje prazno
 type JournalPageData struct {
-	CurrentUser    *models.User
-	Permissions    *models.UserPermissions
-	Areas          []models.Area
-	Area           *models.Area
-	Journals       []models.Journal
+	CurrentUser *models.User
+	Permissions *models.UserPermissions
+	Areas       []models.Area
+	Area        *models.Area
+	Journals    []models.Journal
+	// Vrsta je dnevnik koji se gleda; prazno na razdjelnici.
+	Vrsta          string
+	BrojCOP        int
+	BrojA02        int
+	BrojA03        int
 	Journal        *models.Journal
 	Sheets         []models.JournalSheet
 	Sheet          *models.JournalSheet
@@ -152,8 +158,25 @@ func (h *JournalsHandler) fillRights(d *JournalPageData) {
 }
 
 // ShowJournals prikazuje dnevnike područja
+// ShowJournalKinds je razdjelnica: tri vrste dnevnika koje se ne miješaju.
+//
+// Dežurni zapisnik COP-a i dnevnik usluge održavanja nemaju isti sadržaj ni
+// istog voditelja, pa ni ne stoje na istom popisu. Prije je /dnevnici odmah
+// otvarao popis jednog područja sa svim vrstama pomiješanim.
+func (h *JournalsHandler) ShowJournalKinds(w http.ResponseWriter, r *http.Request) {
+	data := h.pageData(r)
+	h.fillRights(&data)
+	if broj, err := h.journals.BrojPoVrstama(r.Context()); err == nil {
+		data.BrojCOP = broj[models.JournalKindDefense]
+		data.BrojA02 = broj[models.JournalKindMaintenanceA02]
+		data.BrojA03 = broj[models.JournalKindMaintenanceA03]
+	}
+	h.render(w, h.tmplIzbor, "dnevnici_izbor.html", data)
+}
+
 func (h *JournalsHandler) ShowJournals(w http.ResponseWriter, r *http.Request) {
 	data := h.pageData(r)
+	data.Vrsta = r.URL.Query().Get("vrsta")
 	want, _ := strconv.Atoi(r.URL.Query().Get("area"))
 	data.Area, data.Areas = h.areaOf(data.Permissions, want)
 	h.fillRights(&data)
@@ -162,6 +185,16 @@ func (h *JournalsHandler) ShowJournals(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
+		}
+		// Popis je po vrsti: vrste se ne miješaju jer nemaju isti sadržaj.
+		if data.Vrsta != "" {
+			var samo []models.Journal
+			for _, j := range js {
+				if j.Kind == data.Vrsta {
+					samo = append(samo, j)
+				}
+			}
+			js = samo
 		}
 		data.Journals = js
 	}
@@ -186,7 +219,11 @@ func (h *JournalsHandler) ShowJournalForm(w http.ResponseWriter, r *http.Request
 	} else {
 		want, _ := strconv.Atoi(r.URL.Query().Get("area"))
 		data.Area, data.Areas = h.areaOf(data.Permissions, want)
-		data.Journal = &models.Journal{Kind: models.JournalKindMaintenanceA02, Year: time.Now().In(models.Zagreb).Year(),
+		vrsta := r.URL.Query().Get("kind")
+		if !models.IsJournalKind(vrsta) {
+			vrsta = models.JournalKindMaintenanceA02
+		}
+		data.Journal = &models.Journal{Kind: vrsta, Year: time.Now().In(models.Zagreb).Year(),
 			Investor: "Hrvatske vode, Ulica grada Vukovara 220, 10000 Zagreb"}
 		if data.Area != nil {
 			data.Journal.AreaID = data.Area.ID

@@ -284,3 +284,44 @@ func TestObrazacDioniceNudiSljedecu(t *testing.T) {
 		t.Error("uređivanje nudi „i sljedeću“")
 	}
 }
+
+// Dnevnici se ne miješaju: dežurni zapisnik COP-a i dnevnik usluge održavanja
+// nemaju isti sadržaj ni istog voditelja. Razdjelnica ih dijeli karticama, kao
+// na Administraciji.
+func TestRazdjelnicaDnevnikaDijeliTriVrste(t *testing.T) {
+	html := iscrtaj(t, "dnevnici_izbor.html", JournalPageData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		BrojCOP:     13, BrojA02: 2,
+	})
+	for _, want := range []string{
+		"Dnevnici COP-a", "Dnevnici usluga A.02", "Dnevnici usluga A.03",
+		"/dnevnici/popis?vrsta=OBRANA", "/dnevnici/popis?vrsta=ODRZAVANJE_A02", "/dnevnici/popis?vrsta=ODRZAVANJE_A03",
+		"operateri", ">13<",
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("razdjelnica nema %q", want)
+		}
+	}
+	// Svaka kartica ima ikonu, kao i na Administraciji.
+	if n := strings.Count(html, "dash-card-icon-box"); n != 3 {
+		t.Errorf("ikona na %d kartica, a ima ih tri", n)
+	}
+}
+
+// Popis zna koju vrstu pokazuje: naslov, povratak i gumb za novi dnevnik
+// moraju je nositi, inače se s razdjelnice padne natrag u pomiješan popis.
+func TestPopisDnevnikaNosiSvojuVrstu(t *testing.T) {
+	html := iscrtaj(t, "dnevnici.html", JournalPageData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Vrsta:       "OBRANA",
+		Area:        &models.Area{ID: 34, Name: "Međudržavne rijeke"},
+		CanManage:   true,
+	})
+	for _, want := range []string{"Obrana od poplava", `href="/dnevnici"`, "kind=OBRANA", "operateri"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("popis nema %q", want)
+		}
+	}
+}

@@ -3,23 +3,31 @@
 {{define "title"}}goCOP — Dnevnici{{end}}
 
 {{define "content"}}
+<div class="breadcrumb"><a href="/dnevnici">Dnevnici</a> › {{vrstaDnevnika .Vrsta}}</div>
+
 <div class="page-header">
   <div>
-    <h1 class="page-title">{{icon "notebook"}} Građevinski dnevnici</h1>
+    <h1 class="page-title">{{icon "notebook"}} {{vrstaDnevnika .Vrsta}}</h1>
     <p class="page-desc">
-      Dnevnik održavanja (A.02 vode I. i II. reda, A.03 kanali III. i IV. reda) vodi izvođač svaki dan, a nadzire ga
-      ovlaštenik za praćenje ugovora. Dnevnik obrane od poplava vodi se po dionici dok traju mjere, a nadzire ga rukovoditelj.
+      {{if eq .Vrsta "OBRANA"}}Dežurstvo centra obrane od poplava. Upisuju ga operateri dok traje obrana:
+      vrijeme, tko javlja i što. Teče danima, bez izvođača i nadzora.
+      {{else if eq .Vrsta "ODRZAVANJE_A02"}}Održavanje voda I. i II. reda. Vodi ga izvođač svaki dan, a nadzire
+      ovlaštenik za praćenje ugovora.
+      {{else if eq .Vrsta "ODRZAVANJE_A03"}}Održavanje kanala III. i IV. reda. Isti oblik kao A.02, druga usluga
+      i drugi ugovor.
+      {{else}}Sve vrste dnevnika.{{end}}
     </p>
   </div>
   {{if and .Area .CanManage}}
-  <a href="/dnevnici/new?area={{.Area.ID}}" class="btn btn-primary">{{icon "plus"}} Novi dnevnik</a>
+  <a href="/dnevnici/new?area={{.Area.ID}}{{if .Vrsta}}&kind={{.Vrsta}}{{end}}" class="btn btn-primary">{{icon "plus"}} Novi dnevnik</a>
   {{end}}
 </div>
 
 
 {{if gt (len .Areas) 1}}
 <div class="filter-card">
-  <form action="/dnevnici" method="GET">
+  <form action="/dnevnici/popis" method="GET">
+    <input type="hidden" name="vrsta" value="{{.Vrsta}}">
     <div class="filters-row" style="grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));">
       <div class="filter-group">
         <label class="filter-label" for="area">{{icon "waves"}} {{term "podrucje"}}</label>
@@ -56,7 +64,7 @@
   </article>
   {{else}}
   <div class="reg-empty">
-    {{if .Area}}U području {{.Area.Name}} još nema dnevnika.{{if .CanManage}} Otvorite ga gumbom „Novi dnevnik“ i popunite naslovnicu.{{end}}{{else}}Nema područja.{{end}}
+    {{if .Area}}U području {{.Area.Name}} još nema dnevnika te vrste.{{if .CanManage}} Otvorite ga gumbom „Novi dnevnik“ i popunite naslovnicu.{{end}}{{else}}Nema područja.{{end}}
   </div>
   {{end}}
 </div>

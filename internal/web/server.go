@@ -107,6 +107,7 @@ func templateFuncs() template.FuncMap {
 		// ali 11 vrijednosti i 21 vrijednost. Bez toga na stranici piše
 		// "31 vrijednosti", što odmah bode oko.
 		"uzBroj":             uzBrojHR,
+		"vrstaDnevnika":      models.JournalKindLabel,
 		"statika":            statickaAdresa,
 		"osStacionaze":       models.OsStacionaze,
 		"vrsteBiljeske":      func() []struct{ Vrsta, Naziv, Opis string } { return models.VrsteBiljeske },
@@ -466,7 +467,7 @@ func NewServer(
 	// Predlošci koji proširuju base.html
 	for _, page := range []string{"dashboard.html", "registri.html", "users.html", "user_detail.html", "user_form.html", "duty_form.html", "profile.html", "sections.html", "section_detail.html", "section_form.html", "territories.html", "county_form.html", "municipality_form.html", "municipality_detail.html", "stations.html", "station_detail.html", "station_form.html", "station_history.html", "station_history_form.html", "paket_pregled.html", "watercourses.html", "watercourse_detail.html", "watercourse_form.html", "structures.html", "structure_detail.html", "structure_form.html", "readings.html", "reading_history.html", "reading_form.html", "arhiva_ispravci.html", "uvoz_ocitanja.html", "teren.html", "moduli.html", "settings.html", "odrzavanje.html", "organizacija.html", "sector_form.html", "area_form.html", "contractor_form.html", "firme.html", "nazivi.html", "sudionici.html",
 		"administracija.html", "uvozi.html", "sinkronizacija.html", "pretplate.html", "baza.html", "izvori.html", "uvoz_niza.html",
-		"dnevnici.html", "dnevnik_form.html", "dnevnik.html", "dnevnik_list.html", "pomoc.html", "ocitanja_ispravci.html"} {
+		"dnevnici.html", "dnevnici_izbor.html", "dnevnik_form.html", "dnevnik.html", "dnevnik_list.html", "pomoc.html", "ocitanja_ispravci.html"} {
 		t, err := template.New("base.html").Funcs(tmplFuncs).ParseFS(templatesFS, DijeloviPredloska(page)...)
 		if err != nil {
 			return nil, fmt.Errorf("greška pri parsiranju predloška %s: %w", page, err)
@@ -617,8 +618,12 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /odrzavanje/uvoz", s.authMiddleware(http.HandlerFunc(maintenanceH.HandleImportUpload)))
 	s.mux.Handle("POST /odrzavanje/uvoz/upisi", s.authMiddleware(http.HandlerFunc(maintenanceH.HandleImportWrite)))
 	journalsH := NewJournalsHandler(s.journalService, s.userService, s.maintenanceService, s.sectionService, s.stationService,
-		s.templates["dnevnici.html"], s.templates["dnevnik_form.html"], s.templates["dnevnik.html"], s.templates["dnevnik_list.html"], s.templates["dnevnik_ispis.html"])
-	s.mux.Handle("GET /dnevnici", s.authMiddleware(http.HandlerFunc(journalsH.ShowJournals)))
+		s.templates["dnevnici_izbor.html"], s.templates["dnevnici.html"], s.templates["dnevnik_form.html"], s.templates["dnevnik.html"], s.templates["dnevnik_list.html"], s.templates["dnevnik_ispis.html"])
+	s.mux.Handle("GET /dnevnici", s.authMiddleware(http.HandlerFunc(journalsH.ShowJournalKinds)))
+	// Popis je doslovna putanja, ne /dnevnici/vrsta/{kind}: ta bi se sudarila s
+	// /dnevnici/{id}/edit — obje hvataju "/dnevnici/vrsta/edit". Doslovni
+	// segment nadjačava zamjenski, pa /dnevnici/popis prolazi bez sudara.
+	s.mux.Handle("GET /dnevnici/popis", s.authMiddleware(http.HandlerFunc(journalsH.ShowJournals)))
 	s.mux.Handle("GET /dnevnici/new", s.authMiddleware(http.HandlerFunc(journalsH.ShowJournalForm)))
 	s.mux.Handle("POST /dnevnici", s.authMiddleware(http.HandlerFunc(journalsH.HandleSaveJournal)))
 	s.mux.Handle("GET /dnevnici/{id}", s.authMiddleware(http.HandlerFunc(journalsH.ShowJournal)))

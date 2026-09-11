@@ -412,3 +412,8 @@ func (s *JournalService) SetTaskStatus(ctx context.Context, u *models.User, perm
 	e.Status = status
 	return s.repo.SaveEntry(ctx, e)
 }
+
+// BrojPoVrstama broji dnevnike po vrsti.
+func (s *JournalService) BrojPoVrstama(ctx context.Context) (map[string]int, error) {
+	return s.repo.BrojPoVrstama(ctx)
+}
