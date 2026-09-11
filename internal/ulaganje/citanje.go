@@ -165,22 +165,62 @@ func ocitanjaZaUlaganje(ctx context.Context, baza *sql.DB, stationID string,
 	return out, rows.Err()
 }
 
-// ProvjeriUArhivi broji koliko zadanih vrijednosti nema u spojenom nizu.
-func ProvjeriUArhivi(put, letva string, redci []arhiva.Redak) (int, error) {
+// UNizu je jedan niz u arhivi i vrijednosti koje se u njemu traže.
+type UNizu struct {
+	Izvor    string
+	Velicina string
+	Vrsta    string
+	Redci    []arhiva.Redak
+}
+
+// ProvjeriUArhivi broji koliko zadanih vrijednosti nema u arhivi, i to u
+// vlastitom nizu, na vlastitom trenutku i s vlastitom vrijednošću.
+//
+// Prva izvedba je gledala samo postoji li u spojenom nizu bilo kakav zapis iste
+// letve i trenutka. To ne dokazuje ono što tvrdi: spoj po trenutku drži jednu
+// vrijednost, onu najtočnijeg izvora, pa naše očitanje može izgubiti sudar a
+// provjera svejedno prođe. Kroz tu rupu bi prošao i dvostruki sat pri povratku
+// na zimsko vrijeme, gdje dopuna dva zapisa sažme u jedan: vrijednost bi
+// nestala iz stabla, u spoju bi na tom trenutku stajao netko drugi, i original
+// bi se obrisao iz operative.
+//
+// Zato se gleda sirova tablica ocitanja kroz identitet niza — letva, izvor,
+// veličina, vrsta — i traži se baš ta vrijednost.
+func ProvjeriUArhivi(put, letva string, nizovi []UNizu) (int, error) {
 	a, err := sql.Open("sqlite", put+"?mode=ro")
 	if err != nil {
 		return 0, err
 	}
 	defer a.Close()
+
 	nedostaje := 0
-	for _, r := range redci {
-		var n int
-		if err := a.QueryRow(`SELECT count(*) FROM spoj WHERE letva=? AND velicina='vodostaj'
-			AND vrijeme=?`, letva, r.Vrijeme.Unix()).Scan(&n); err != nil {
+	for _, n := range nizovi {
+		if len(n.Redci) == 0 {
+			continue
+		}
+		var id int64
+		err := a.QueryRow(`SELECT id FROM nizovi WHERE letva=? AND izvor=? AND velicina=? AND vrsta=?`,
+			letva, n.Izvor, n.Velicina, n.Vrsta).Scan(&id)
+		if err == sql.ErrNoRows {
+			// Niza uopće nema: nijedna njegova vrijednost nije u arhivi.
+			nedostaje += len(n.Redci)
+			continue
+		}
+		if err != nil {
 			return nedostaje, err
 		}
-		if n == 0 {
-			nedostaje++
+		for _, r := range n.Redci {
+			var k int
+			// Vrijednosti su cjelobrojni centimetri pisani kao realan broj;
+			// usporedba ide preko razlike, ne preko jednakosti.
+			if err := a.QueryRow(`SELECT count(*) FROM ocitanja
+				WHERE niz=? AND vrijeme=? AND abs(vrijednost - ?) < 0.001`,
+				id, r.Vrijeme.Unix(), r.Vrijednost).Scan(&k); err != nil {
+				return nedostaje, err
+			}
+			if k == 0 {
+				nedostaje++
+			}
 		}
 	}
 	return nedostaje, nil
