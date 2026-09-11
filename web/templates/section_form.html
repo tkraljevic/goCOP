@@ -18,7 +18,6 @@
   </div>
 </div>
 
-{{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
 
 <form class="form-page form-wide" method="POST" action="{{if .IsEdit}}/sections/update{{else}}/sections/create{{end}}" id="section-form" onsubmit="return collectParts()">
   <input type="hidden" name="parts_json" id="parts_json">

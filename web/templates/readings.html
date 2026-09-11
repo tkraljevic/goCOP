@@ -19,8 +19,6 @@
   {{if not .LastAt.IsZero}}<span class="stat-badge">{{icon "clock"}} zadnje {{ago .LastAt}}</span>{{end}}
 </div>
 
-{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
-{{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
 
 <div class="filter-card">
   <form action="/readings" method="GET">

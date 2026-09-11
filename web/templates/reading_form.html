@@ -12,7 +12,6 @@
   </div>
 </div>
 
-{{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
 
 <form class="form-page" method="POST" action="{{if .IsEdit}}/readings/update{{else}}/readings/create{{end}}">
   {{if .IsEdit}}<input type="hidden" name="id" value="{{.Reading.ID}}">{{end}}

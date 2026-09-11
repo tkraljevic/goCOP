@@ -274,3 +274,33 @@ func TestGrafPrekidaCrtuNaPraznini(t *testing.T) {
 		t.Errorf("satni niz: prekida %d, očekivano 1", sh.Praznina)
 	}
 }
+
+// Poruka o uspjehu i greški ispisuje se na jednom mjestu — u okviru. Svaka ju
+// je stranica ispisivala i sama, pa se prikazivala dvaput: jednom iznad puta
+// do stranice, jednom ispod naslova. Tako je bilo od prvog commita.
+func TestPorukaSeIspisujeJednom(t *testing.T) {
+	html := iscrtaj(t, "izvori.html", IzvoriPageData{
+		CurrentUser:    &models.User{FullName: "P"},
+		Permissions:    &models.UserPermissions{IsGlobalAdmin: true},
+		SuccessMessage: "JEDINSTVENA-PORUKA", ErrorMessage: "JEDINSTVENA-GRESKA",
+	})
+	if n := strings.Count(html, "JEDINSTVENA-PORUKA"); n != 1 {
+		t.Errorf("poruka o uspjehu ispisana %d puta", n)
+	}
+	if n := strings.Count(html, "JEDINSTVENA-GRESKA"); n != 1 {
+		t.Errorf("poruka o grešci ispisana %d puta", n)
+	}
+}
+
+// Stranica koja poruku ne ispisuje sama mora ju dobiti iz okvira — inače bi
+// uklanjanje dvostrukog ispisa nekima oduzelo poruku.
+func TestPorukaStizeIzOkviraISvimOstalima(t *testing.T) {
+	html := iscrtaj(t, "uvoz_niza.html", UvozPageData{
+		CurrentUser:    &models.User{FullName: "P"},
+		Permissions:    &models.UserPermissions{IsGlobalAdmin: true},
+		SuccessMessage: "IZ-OKVIRA",
+	})
+	if !strings.Contains(html, "IZ-OKVIRA") {
+		t.Error("stranica je ostala bez poruke")
+	}
+}

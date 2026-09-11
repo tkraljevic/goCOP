@@ -12,7 +12,6 @@
   </div>
 </div>
 
-{{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
 
 <form class="form-page" method="POST" action="/organizacija/podrucja/save">
   <input type="hidden" name="is_new" value="{{if .IsEdit}}0{{else}}1{{end}}">

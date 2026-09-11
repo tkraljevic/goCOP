@@ -18,7 +18,6 @@
   </div>
 </div>
 
-{{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
 
 <form class="form-page" method="POST" action="{{if .IsEdit}}/api/watercourses/update{{else}}/api/watercourses/create{{end}}">
   {{if .IsEdit}}<input type="hidden" name="code" value="{{.Water.Code}}">{{end}}
