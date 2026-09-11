@@ -251,6 +251,21 @@ func Izgradi(koren, baza, samo string, zapisi io.Writer) (Izvjestaj, error) {
 	if zapisi == nil {
 		zapisi = io.Discard
 	}
+	// Gradnja niz briše pa upisuje iznova. Dvije istodobne nad istom letvom
+	// presreću se usred toga, a izdavanje koje naiđe usred gradnje pročita
+	// polovičan sadržaj i zapiše njegov otisak u katalog kao pravo izdanje.
+	sto := "gradnja letve " + samo
+	if samo == "" {
+		sto = "gradnja cijele arhive"
+	}
+	brava, err := Uzmi(baza, sto, "")
+	if err != nil {
+		return iz, err
+	}
+	defer brava.Pusti()
+	if bila, opis := brava.Preuzeta(); bila {
+		fmt.Fprintf(zapisi, "preuzeta brava prekinutog posla: %s — provjeriti je li ostao nered\n", opis)
+	}
 	db, err := sql.Open("sqlite", baza+"?_pragma=journal_mode(WAL)&_pragma=synchronous(OFF)")
 	if err != nil {
 		return iz, err
@@ -1390,7 +1405,15 @@ func spojiJedan(db *sql.DB, letva, velicina string, redSpajanja []string, tocnos
 //
 // Arhiva se poslije ovoga i dalje da izgraditi iznova iz stabla: ondje te
 // datoteke nema, pa je i nema što vratiti.
-func MakniNiz(db *sql.DB, letva, izvor, velicina, vrsta string) (int, error) {
+func MakniNiz(db *sql.DB, baza, letva, izvor, velicina, vrsta string) (int, error) {
+	// Micanje niza završava ponovnim spajanjem, što je isti posao kao gradnja,
+	// pa ide pod istu bravu.
+	brava, err := Uzmi(baza, "micanje niza "+letva+" · "+izvor, "")
+	if err != nil {
+		return 0, err
+	}
+	defer brava.Pusti()
+
 	tx, err := db.Begin()
 	if err != nil {
 		return 0, err

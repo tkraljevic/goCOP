@@ -86,7 +86,7 @@ func TestPaketNistaNeGubi(t *testing.T) {
 	if err != nil {
 		t.Fatalf("čitanje: %v", err)
 	}
-	if err := Ugradi(db2, s); err != nil {
+	if err := Ugradi(db2, cilj, s); err != nil {
 		t.Fatalf("ugradnja: %v", err)
 	}
 
@@ -281,7 +281,7 @@ func TestUgradnjaPodnosiOstatkeBezRoditelja(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := Ugradi(db2, s); err != nil {
+	if err := Ugradi(db2, cilj, s); err != nil {
 		t.Fatalf("ugradnja pada na ostacima bez roditelja: %v", err)
 	}
 

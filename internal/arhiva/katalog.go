@@ -128,6 +128,24 @@ func Izdaj(db *sql.DB, uMapu, izdao, samo string, probno bool, zapisi io.Writer)
 	}
 	iz := IzvjestajIzdanja{Probno: probno, Mapa: uMapu}
 
+	// Izdavanje čita arhivu i piše katalog. Dva istodobna oba pročitaju katalog
+	// pa oba zapišu, i jedno se izgubi; uz to oba pišu isto *.novo ime, pa
+	// jedan paket pregazi drugi usred pisanja. Probno ne piše ništa, ali i ono
+	// mora vidjeti cjelovitu arhivu, pa i ono uzima bravu.
+	if !probno {
+		if err := os.MkdirAll(uMapu, 0o755); err != nil {
+			return iz, err
+		}
+	}
+	brava, err := Uzmi(uMapu, "izdavanje arhive", izdao)
+	if err != nil {
+		return iz, err
+	}
+	defer brava.Pusti()
+	if bila, opis := brava.Preuzeta(); bila {
+		fmt.Fprintf(zapisi, "preuzeta brava prekinutog posla: %s — provjeriti mapu izdanja\n", opis)
+	}
+
 	letve, err := LetveUArhivi(db, samo)
 	if err != nil {
 		return iz, err
@@ -140,12 +158,6 @@ func Izdaj(db *sql.DB, uMapu, izdao, samo string, probno bool, zapisi io.Writer)
 		return iz, err
 	}
 	poLetvi := prijasnji.PoLetvi()
-
-	if !probno {
-		if err := os.MkdirAll(uMapu, 0o755); err != nil {
-			return iz, err
-		}
-	}
 
 	novi := Katalog{Inacica: PaketInacica, Nastalo: time.Now().UTC(), Izdao: izdao}
 	for i, letva := range letve {

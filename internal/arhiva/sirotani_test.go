@@ -103,7 +103,7 @@ func TestMicanjeNizaCistiISpoj(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	obrisano, err := MakniNiz(db, "batina", "cop-rucno", "vodostaj", "jutarnji")
+	obrisano, err := MakniNiz(db, baza, "batina", "cop-rucno", "vodostaj", "jutarnji")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,7 +137,7 @@ func TestMicanjeNizaCistiISpoj(t *testing.T) {
 	}
 
 	// Nepostojeći niz se javlja greškom, ne tiho.
-	if _, err := MakniNiz(db, "batina", "cop-rucno", "vodostaj", "jutarnji"); err == nil {
+	if _, err := MakniNiz(db, baza, "batina", "cop-rucno", "vodostaj", "jutarnji"); err == nil {
 		t.Error("micanje nepostojećeg niza je prošlo bez greške")
 	}
 }

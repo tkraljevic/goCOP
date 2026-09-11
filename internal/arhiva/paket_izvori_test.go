@@ -86,7 +86,8 @@ func TestNepoznatIzvorIzPaketaUlaziSPostavkama(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	prima, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "b.db"))
+	cilj := filepath.Join(t.TempDir(), "b.db")
+	prima, err := sql.Open("sqlite", cilj)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -94,7 +95,7 @@ func TestNepoznatIzvorIzPaketaUlaziSPostavkama(t *testing.T) {
 	if err := PripremiPraznu(prima); err != nil {
 		t.Fatal(err)
 	}
-	if err := Ugradi(prima, s); err != nil {
+	if err := Ugradi(prima, cilj, s); err != nil {
 		t.Fatal(err)
 	}
 	var tocnost float64
@@ -128,7 +129,7 @@ func TestPostojeceMPostavkeSeNeMijenjajuNegoJavljaju(t *testing.T) {
 	}
 	s, _ := Procitaj(bytes.NewReader(b.Bytes()), int64(b.Len()))
 
-	prima, _ := arhivaSNizom(t, "letva-hv")
+	prima, cilj := arhivaSNizom(t, "letva-hv")
 	if _, err := prima.Exec(`UPDATE izvori SET tocnost=8 WHERE naziv='letva-hv'`); err != nil {
 		t.Fatal(err)
 	}
@@ -139,7 +140,7 @@ func TestPostojeceMPostavkeSeNeMijenjajuNegoJavljaju(t *testing.T) {
 	if len(razlike) != 1 || !razlike[0].Tocnost || razlike[0].Paket.Tocnost != 5 || razlike[0].Nas.Tocnost != 8 {
 		t.Fatalf("razlike: %+v", razlike)
 	}
-	if err := Ugradi(prima, s); err != nil {
+	if err := Ugradi(prima, cilj, s); err != nil {
 		t.Fatal(err)
 	}
 	var tocnost float64

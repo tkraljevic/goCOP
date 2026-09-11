@@ -705,7 +705,15 @@ func (c *citac) ReadByte() (byte, error) {
 
 // Ugradi upisuje paket u arhivu i pregrađuje spojeni niz. Sve u jednoj
 // transakciji: arhiva ne smije ostati s pola letve.
-func Ugradi(db *sql.DB, s *Sadrzaj) error {
+func Ugradi(db *sql.DB, baza string, s *Sadrzaj) error {
+	// Ugradnja briše letvu pa upisuje njezine dijelove i gradi spoj — isti
+	// posao kao gradnja, pa ista brava.
+	brava, err := Uzmi(baza, "ugradnja paketa "+s.Manifest.Letva, s.Manifest.Izdao)
+	if err != nil {
+		return err
+	}
+	defer brava.Pusti()
+
 	if s == nil {
 		return fmt.Errorf("nema što ugraditi")
 	}
