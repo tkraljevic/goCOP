@@ -418,6 +418,11 @@ func (s *JournalService) BrojPoVrstama(ctx context.Context) (map[string]int, err
 	return s.repo.BrojPoVrstama(ctx)
 }
 
+// ListCOPJournals vraća dnevnike centara obrane.
+func (s *JournalService) ListCOPJournals(ctx context.Context, sektor string) ([]models.Journal, error) {
+	return s.repo.ListCOPJournals(ctx, sektor)
+}
+
 // EntriesForJournal vraća zapise dežurstva jednog dnevnika.
 func (s *JournalService) EntriesForJournal(ctx context.Context, journalID string) ([]models.JournalEntry, error) {
 	return s.repo.EntriesForJournal(ctx, journalID)
