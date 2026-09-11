@@ -17,6 +17,9 @@
   <div class="kazalo-grupa">
     <a class="kazalo-glava" href="#pocetak">Kako se program koristi</a>
     <a class="kazalo-glava" href="#dashboard">Početna</a>
+    <a href="#dashboard-hero">Prijavljeni djelatnik i profil</a>
+    <a href="#dashboard-kpi">Operativni brojači</a>
+    <a href="#dashboard-kartice">Mreža modula i kartice</a>
     <a class="kazalo-glava" href="#teren">Teren</a>
   </div>
   <div class="kazalo-grupa">
@@ -52,6 +55,9 @@
     <a href="#arhiva-izvori">Spojeni niz i izvori</a>
     <a href="#arhiva-rekonstrukcija">Rekonstruirani nizovi</a>
     <a href="#arhiva-ispravci">Izvoz i ispravci</a>
+    <a href="#arhiva-unos">Unos i ulaganje kroz sučelje</a>
+    <a href="#arhiva-postupak">Gradnja iz izvornih datoteka</a>
+    <a href="#arhiva-selidba">Prebacivanje u arhivu i pospremanje</a>
   </div>
   <div class="kazalo-grupa">
     <a class="kazalo-glava" href="#journals">Dnevnici</a>
@@ -85,8 +91,55 @@
 <section class="detail-section" id="dashboard">
   <h2>{{icon "house"}} Početna</h2>
   <div class="reg-card pomoc-tekst">
-    <p>Ulazna stranica s prečacima na module koje vaša uloga vidi. Odavde se ide dalje;
-      sama ništa ne mijenja.</p>
+    <p>Početna stranica je operativni preglednik i glavno polazište za rad u sustavu. Ovdje se
+      vidi tko je prijavljen, ključni pokazatelji sustava obrane od poplava te prečaci na module
+      za koje imate ovlasti. Sama stranica služi za orijentaciju i brzi prijelaz na radne
+      zadatke — na njoj se podaci ne unose izravno.</p>
+
+    <h3 id="dashboard-hero">Prijavljeni djelatnik i profil</h3>
+    <p>Na vrhu stoji <strong>kartica prijavljenog djelatnika</strong> koja odmah potvrđuje vaš
+      identitet i operativni položaj: puno ime i prezime, uloga u obrani (npr. Glavni koordinator,
+      Voditelj centra, Rukovoditelj dionice, Vodočuvar) te ustrojstvena jedinica (VGO, sektor,
+      područje ili Direkcija). Ako imate status administratora sustava, i to je ovdje naznačeno.</p>
+    <p>Uz karticu se nalaze dvije brze radnje:</p>
+    <ul>
+      <li><strong>Moj profil</strong> — pregled vlastitih podataka, ureda, radne stanice i
+        promjena lozinke.</li>
+      <li><strong>Imenik djelatnika</strong> — prečac na središnji imenik sudionika obrane,
+        njihovih dužnosti i kontakata (prikazuje se onima čija uloga ima pristup imeniku).</li>
+    </ul>
+
+    <h3 id="dashboard-kpi">Operativni brojači</h3>
+    <p>Četiri ključne brojke na vrhu daju sažeti uvid u obuhvat obrane od poplava u sustavu:</p>
+    <ul>
+      <li><strong>Djelatnika i sudionika</strong> — ukupan broj registriranih djelatnika Hrvatskih
+        voda i vanjskih sudionika obrane od poplava.</li>
+      <li><strong>Aktivnih funkcija i zaduženja</strong> — broj važećih operativnih zaduženja i
+        dužnosti raspoređenih po dionicama, sektorima i centrima.</li>
+      <li><strong>Branjenih područja (1–34)</strong> — 34 branjena područja u Republici Hrvatskoj,
+        ustrojena prema Državnom planu obrane od poplava.</li>
+      <li><strong>6 sektora + Direkcija</strong> — teritorijalni sektori obrane od poplava (A do F)
+        uz Glavni centar obrane od poplava u Zagrebu (Direkcija).</li>
+    </ul>
+
+    <h3 id="dashboard-kartice">Mreža modula i kartice</h3>
+    <p>Ispod brojača nalazi se mreža prečaca na operativne evidencije. <strong>Prikazuju se samo one
+      kartice za koje vaša uloga ima ovlasti</strong>:</p>
+    <ul>
+      <li><strong>Teren</strong> — brzi popis vlastitih vodomjernih postaja i hidrotehničkih
+        objekata, posebno prilagođen radu na mobitelu i upisu očitanja jednom rukom na terenu.</li>
+      <li><strong>Očitanja</strong> — operativni vodostaji: zadnja očitana stanja, stupnjevi
+        i pragovi obrane od poplava, grafikoni kretanja vodostaja i praćene postaje.</li>
+      <li><strong>Dnevnici</strong> — građevinski dnevnici redovnog održavanja (A.02, A.03) i
+        dnevnici obrane od poplava po branjenim područjima, vođenje dnevnih listova, upisa i radnih naloga.</li>
+      <li><strong>Djelatnici</strong> — operativni imenik svih sudionika obrane s kontaktima,
+        funkcijama i rasporedom zaduženja po dionicama.</li>
+      <li><strong>Registri</strong> — temeljne evidencije: branjena područja, teritorijalni ustroj
+        (županije, općine, naselja), vodomjerne postaje, objekti, vodotoci i program održavanja.</li>
+    </ul>
+    <p>Ako neku karticu ne vidite, to znači da je vaša uloga u sustavu ne koristi. Ako vam je
+      pojedini modul potreban za rad, ovlasti uređuje administrator pod <em>Administracija → Moduli
+      i ovlasti</em>.</p>
   </div>
 </section>
 

@@ -197,9 +197,13 @@ func (h *UvozHandler) pageData(r *http.Request) UvozPageData {
 	d.Izvori = h.imenaIzvora()
 	d.UlaganjeRadi = h.ulaganjeRadi()
 	if d.UlaganjeRadi {
-		if p, err := ulaganje.Pospremivo(r.Context(), h.baza()); err == nil {
-			d.Pospremivo = p
+		p, err := ulaganje.Pospremivo(r.Context(), h.baza())
+		if err != nil {
+			// Prva izvedba je ovu grešku progutala, pa se odjeljak o
+			// pospremanju nije pojavljivao a nitko nije znao zašto.
+			d.ErrorMessage = "Popis uloženog se ne čita: " + err.Error()
 		}
+		d.Pospremivo = p
 	}
 	d.IzdavanjeRadi = h.izdavanjeRadi()
 	if d.IzdavanjeRadi {

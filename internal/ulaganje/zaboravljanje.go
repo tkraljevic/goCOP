@@ -44,12 +44,34 @@ func Pospremivo(ctx context.Context, baza *sql.DB) ([]ZaPospremanje, error) {
 	var out []ZaPospremanje
 	for rows.Next() {
 		var z ZaPospremanje
-		if err := rows.Scan(&z.StationID, &z.Letva, &z.Naziv, &z.Broj, &z.Od, &z.Do, &z.Oznake); err != nil {
+		// min() i max() gube tip stupca, pa ih upravljač vraća kao tekst i
+		// izravno skeniranje u time.Time padne. Prva izvedba je tu grešku
+		// progutala i odjeljak se jednostavno nije pojavio.
+		var od, do string
+		if err := rows.Scan(&z.StationID, &z.Letva, &z.Naziv, &z.Broj, &od, &do, &z.Oznake); err != nil {
 			return nil, err
 		}
+		z.Od, z.Do = procitajVrijeme(od), procitajVrijeme(do)
 		out = append(out, z)
 	}
 	return out, rows.Err()
+}
+
+// procitajVrijeme čita ono što upravljač vrati iz agregata. Neupotrebljiv zapis
+// nije razlog da se letva ne pokaže: razdoblje je opis, a brisanje se ravna po
+// provjeri u arhivi.
+func procitajVrijeme(s string) time.Time {
+	for _, oblik := range []string{
+		"2006-01-02 15:04:05.999999999 -0700 MST",
+		"2006-01-02 15:04:05 -0700 MST",
+		"2006-01-02T15:04:05Z07:00",
+		"2006-01-02 15:04:05",
+	} {
+		if t, err := time.Parse(oblik, s); err == nil {
+			return t
+		}
+	}
+	return time.Time{}
 }
 
 // IshodPospremanja je što je zaboravljanje napravilo.
