@@ -83,6 +83,7 @@ type JournalPageData struct {
 	Used              int  // izvođačevih upisa na listu
 	IsFull            bool // za izvođača: nema mjesta, otvara novi list
 	Today             string
+	Sada              string // sat i minuta sad, za vrijeme novog zapisa
 	CanWrite          bool
 	CanSupervise      bool
 	CanManage         bool
@@ -114,6 +115,7 @@ func (h *JournalsHandler) pageData(r *http.Request) JournalPageData {
 		CurrentUser: u, Permissions: perms, Kinds: models.JournalKindsUsluga,
 		StaffRoles: models.StaffRoles, MachineTypes: models.MachineTypes, ConditionWords: models.ConditionWords,
 		Ratings: models.Ratings, Today: time.Now().In(models.Zagreb).Format("2006-01-02"),
+		Sada:           time.Now().In(models.Zagreb).Format("15:04"),
 		SuccessMessage: r.URL.Query().Get("success"), ErrorMessage: r.URL.Query().Get("error"),
 		ActiveNav: "journals", ViewAsBanner: viewBanner(r), IsContractor: service.IsContractor(u),
 	}
@@ -190,6 +192,10 @@ func (h *JournalsHandler) fillRights(d *JournalPageData) {
 	d.CanSupervise = h.journals.CanSupervise(d.CurrentUser, d.Permissions, d.Opseg)
 	d.CanManage = h.journals.CanManage(d.CurrentUser, d.Permissions, d.Opseg)
 	d.AllowedKinds = h.journals.AllowedKinds(d.CurrentUser, d.Permissions, d.Opseg, d.Journal)
+	// Zaglavlje dnevnika COP-a mijenja uprava centra, ne svatko tko piše.
+	if d.Journal != nil && d.Journal.CentarSektor != "" {
+		d.CanManage = h.journals.MozeOtvoritiCOP(d.Permissions, d.Journal.CentarSektor)
+	}
 }
 
 // ShowJournals prikazuje dnevnike područja
@@ -620,6 +626,10 @@ func (h *JournalsHandler) HandleVoidEntry(w http.ResponseWriter, r *http.Request
 		redirectWith(w, r, back, "error", err.Error())
 		return
 	}
+	if j.CentarSektor != "" {
+		redirectWith(w, r, back+"#novi-zapis", "success", "Zapis je storniran; ostaje u dnevniku s razlogom.")
+		return
+	}
 	redirectWith(w, r, back+"#upisi", "success", "Upis je storniran; ostaje na listu s razlogom.")
 }
 
@@ -757,4 +767,35 @@ func (h *JournalsHandler) HandleSaveCOPJournal(w http.ResponseWriter, r *http.Re
 		poruka = "Zaglavlje dnevnika je spremljeno."
 	}
 	redirectWith(w, r, "/dnevnici/"+j.ID, "success", poruka)
+}
+
+// HandleAddCOPEntry upisuje zapis u zapisnik dežurstva. Dan i vrijeme dolaze
+// odvojeno: dan je obvezan, vrijeme se upisuje kad se zna kad se dogodilo.
+func (h *JournalsHandler) HandleAddCOPEntry(w http.ResponseWriter, r *http.Request) {
+	j, area, ok := h.loadJournal(w, r)
+	if !ok {
+		return
+	}
+	u, perms := h.base(r)
+	back := "/dnevnici/" + j.ID + "#novi-zapis"
+	if err := r.ParseForm(); err != nil {
+		redirectWith(w, r, back, "error", "Neispravan zahtjev")
+		return
+	}
+	f := func(k string) string { return strings.TrimSpace(r.FormValue(k)) }
+	e := models.JournalEntry{Kind: f("kind"), ReportedBy: f("reported_by"), Text: r.FormValue("text")}
+	dan, err := time.ParseInLocation("2006-01-02", f("date"), models.Zagreb)
+	if err != nil {
+		redirectWith(w, r, back, "error", "Upišite dan zapisa")
+		return
+	}
+	e.Date = dan
+	if kad, err := time.ParseInLocation("2006-01-02 15:04", f("date")+" "+f("time"), models.Zagreb); err == nil {
+		e.HappenedAt = &kad
+	}
+	if err := h.journals.DodajZapisCOP(r.Context(), u, perms, h.opseg(j, area), j, &e); err != nil {
+		redirectWith(w, r, back, "error", err.Error())
+		return
+	}
+	redirectWith(w, r, back, "success", fmt.Sprintf("Zapis br. %d je upisan.", e.Number))
 }

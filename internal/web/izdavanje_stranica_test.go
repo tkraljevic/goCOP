@@ -426,6 +426,55 @@ func TestZiviDnevnikNeNudiPrepravak(t *testing.T) {
 	}
 }
 
+// Obrazac za zapis stoji na kraju dnevnika, samo onome tko smije pisati, s
+// vrstama dežurstva. Zaključen dnevnik ga nema i kaže zašto.
+func TestDnevnikCOPNudiObrazacZaZapis(t *testing.T) {
+	dan := time.Date(2026, 9, 11, 0, 0, 0, 0, models.Zagreb)
+	d := JournalPageData{
+		CurrentUser: &models.User{FullName: "Dežurni Operater"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Journal: &models.Journal{ID: "dn-3", Kind: models.JournalKindDefense,
+			CentarSektor: "B", Title: "Dnevnik COP-a, 2026.", StartedAt: &dan},
+		Today: "2026-09-11", Sada: "07:15",
+		CanWrite: true, CanManage: true, AllowedKinds: models.EntryKindsCOP,
+		Dani: []DanZapisa{{Dan: dan, Zapisi: []models.JournalEntry{
+			{ID: "z1", Number: 1, Kind: models.EntryKindReport, Text: "vodostaj", HappenedAt: &dan}}}},
+	}
+	html := iscrtaj(t, "dnevnik_cop.html", d)
+	for _, want := range []string{
+		`action="/dnevnici/dn-3/zapisi"`, `id="novi-zapis"`, `value="2026-09-11"`, `value="07:15"`,
+		`<option value="DOJAVA">Dojava`, `<option value="DEZURSTVO">Dežurstvo`,
+		"Upisuje Dežurni Operater", `/dnevnici/dn-3/upisi/z1/storno`, `/dnevnici/dn-3/edit`, "otvoren",
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("dnevnik nema %q", want)
+		}
+	}
+	if strings.Contains(html, `value="RAD"`) || strings.Contains(html, `value="NALOG"`) {
+		t.Error("zapisnik dežurstva nudi građevinske vrste")
+	}
+
+	// Bez prava: ni obrasca ni storna, zapisi se vide.
+	d.CanWrite, d.CanManage, d.AllowedKinds = false, false, nil
+	html = iscrtaj(t, "dnevnik_cop.html", d)
+	for _, nesmije := range []string{`id="novi-zapis"`, "/storno", "/edit"} {
+		if strings.Contains(html, nesmije) {
+			t.Errorf("čitatelj dobiva %q", nesmije)
+		}
+	}
+	if !strings.Contains(html, "vodostaj") {
+		t.Error("čitatelj ne vidi zapise")
+	}
+
+	// Zaključen: umjesto obrasca stoji zašto ga nema.
+	d.CanWrite, d.AllowedKinds = true, models.EntryKindsCOP
+	d.Journal.EndedAt = &dan
+	html = iscrtaj(t, "dnevnik_cop.html", d)
+	if !strings.Contains(html, "zaključen") {
+		t.Error("zaključen dnevnik to ne kaže")
+	}
+}
+
 // Dnevnici COP-a ne idu preko branjenog područja: vezani su na centar i
 // područje im je prazno, pa ih popis po području nikad nije našao — stranica
 // je izgledala prazno iako je u bazi trinaest dnevnika.

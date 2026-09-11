@@ -507,3 +507,47 @@ func (s *JournalService) CentriZaOtvaranje(perms *models.UserPermissions, sektor
 	}
 	return out
 }
+
+// DodajZapisCOP upisuje u zapisnik dežurstva. Zapis se veže izravno na dnevnik,
+// bez lista: nosi dan, vrijeme kad se dogodilo (kad se zna), tko je javio i
+// tekst. Tko je upisao dolazi iz prijave, ne iz obrasca — to je onaj koji
+// odgovara za zapis, dok za sadržaj odgovara onaj tko je javio.
+func (s *JournalService) DodajZapisCOP(ctx context.Context, u *models.User, perms *models.UserPermissions, o models.Opseg, j *models.Journal, e *models.JournalEntry) error {
+	if u == nil {
+		return errors.New("upis zahtijeva prijavu")
+	}
+	if j == nil || j.CentarSektor == "" {
+		return errors.New("ovo nije dnevnik COP-a")
+	}
+	dopustena := false
+	for _, k := range s.AllowedKinds(u, perms, o, j) {
+		if k == e.Kind {
+			dopustena = true
+		}
+	}
+	if !dopustena {
+		return errors.New("nemate pravo na tu vrstu zapisa u ovaj dnevnik")
+	}
+	e.Text = strings.TrimSpace(e.Text)
+	if e.Text == "" {
+		return errors.New("zapis mora imati tekst")
+	}
+	if e.Date.IsZero() {
+		return errors.New("zapis mora imati dan")
+	}
+	// Zaključen dnevnik ne prima zapise poslije kraja: što se dogodilo poslije
+	// obrane ide u sljedeći dnevnik, a ne u onaj koji je već zapečaćen.
+	if j.EndedAt != nil && e.Date.After(*j.EndedAt) {
+		return fmt.Errorf("dnevnik je zaključen %s: zapis poslije toga ide u novi dnevnik", j.EndedAt.In(models.Zagreb).Format("2.1.2006."))
+	}
+	if j.StartedAt != nil && e.Date.Before(*j.StartedAt) {
+		return fmt.Errorf("dnevnik počinje %s: zapis prije toga u njega ne ide", j.StartedAt.In(models.Zagreb).Format("2.1.2006."))
+	}
+	e.ID, e.Number, e.SheetID, e.Side = "", 0, "", ""
+	e.JournalID = j.ID
+	e.ReportedBy = strings.TrimSpace(e.ReportedBy)
+	e.UserID, e.UserName = u.ID.String(), u.FullName
+	e.DueDate, e.Status, e.WorkItemID = nil, "", ""
+	e.Voided, e.VoidReason, e.VoidedBy = false, "", ""
+	return s.repo.SaveEntry(ctx, e)
+}
