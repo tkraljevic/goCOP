@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"gocop/internal/models"
 	_ "modernc.org/sqlite"
 )
 
@@ -54,25 +55,51 @@ func TestTablicaIzvoraNastajeSPostojecimVrijednostima(t *testing.T) {
 	}
 }
 
-// Red povjerenja mora izaći onim redom kojim je i stajao u kodu, jer o njemu
-// ovisi koja vrijednost ulazi u spoj.
-func TestRedPovjerenjaOstajeIsti(t *testing.T) {
+// Redovi su sravnjeni na tri skupine: ovjereno, s letve, operativno. Fini
+// poredak među dojavama ne odlučuje gotovo ništa — izmjereno je da ondje gdje
+// se dvije razilaze, ovjereni niz je gotovo uvijek ondje i odlučuje. Unutar
+// skupine odlučuje izmjerena točnost, pa ona mora ostati.
+func TestIzvoriSuSravnjeniUTriSkupine(t *testing.T) {
 	db := praznaArhiva(t)
 	red, tocnosti, err := citajIzvore(db)
 	if err != nil {
 		t.Fatal(err)
 	}
-	ocekivano := []string{"his2000", "letva-dhmz", "cop", "letva-hv", "vituki"}
-	if len(red) != len(ocekivano) {
-		t.Fatalf("uključeni izvori: %v", red)
+	svi, err := Izvori(db)
+	if err != nil {
+		t.Fatal(err)
 	}
-	for i := range ocekivano {
-		if red[i] != ocekivano[i] {
-			t.Errorf("na mjestu %d stoji %q, očekivano %q", i, red[i], ocekivano[i])
+	po := map[string]int{}
+	for _, i := range svi {
+		po[i.Naziv] = i.Red
+	}
+	for naziv, ocekivanaSkupina := range map[string]string{
+		"his2000": models.SkupinaOvjereno, "vituki": models.SkupinaOvjereno,
+		"his2000-cs": models.SkupinaOvjereno, "cop-rucno": models.SkupinaSLetve,
+		"letva-dhmz": models.SkupinaOperativno, "cop": models.SkupinaOperativno,
+		"letva-hv": models.SkupinaOperativno,
+	} {
+		if got := models.SkupinaIzvora(naziv, po[naziv]); got != ocekivanaSkupina {
+			t.Errorf("%s je u skupini %q, očekivano %q (red %d)", naziv, got, ocekivanaSkupina, po[naziv])
 		}
 	}
-	if tocnosti["letva-hv"] != 5 {
-		t.Errorf("točnost letva-hv: %v", tocnosti["letva-hv"])
+	// Ovjereno ide prvo, pa s letve, pa operativno.
+	var skupine []string
+	for _, n := range red {
+		skupine = append(skupine, models.SkupinaIzvora(n, po[n]))
+	}
+	rang := map[string]int{models.SkupinaOvjereno: 0, models.SkupinaSLetve: 1, models.SkupinaOperativno: 2}
+	for i := 1; i < len(skupine); i++ {
+		if rang[skupine[i-1]] > rang[skupine[i]] {
+			t.Errorf("skupine nisu po redu: %v (%v)", red, skupine)
+			break
+		}
+	}
+	// Izmjerene točnosti ostaju — one odlučuju unutar skupine i ispisuju se kao ±.
+	for naziv, ocekivano := range map[string]float64{"his2000": 0, "letva-dhmz": 1, "cop": 3, "letva-hv": 5, "cop-rucno": 1} {
+		if tocnosti[naziv] != ocekivano {
+			t.Errorf("točnost %s: %v, očekivano %v", naziv, tocnosti[naziv], ocekivano)
+		}
 	}
 }
 

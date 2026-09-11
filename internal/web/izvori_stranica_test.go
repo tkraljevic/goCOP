@@ -101,7 +101,7 @@ func TestNapomenaNePokreceSpajanje(t *testing.T) {
 	}
 	defer db.Close()
 	letve, err := arhiva.PostaviIzvor(db, arhiva.Izvor{
-		Naziv: "vituki", Tocnost: 5, Red: 50, Ukljucen: true, Napomena: "dopisano objašnjenje"})
+		Naziv: "vituki", Tocnost: 5, Red: 10, Ukljucen: true, Napomena: "dopisano objašnjenje"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,7 +110,7 @@ func TestNapomenaNePokreceSpajanje(t *testing.T) {
 	}
 	// A promjena točnosti mora javiti obje letve tog izvora.
 	letve, err = arhiva.PostaviIzvor(db, arhiva.Izvor{
-		Naziv: "vituki", Tocnost: 8, Red: 50, Ukljucen: true, Napomena: "dopisano objašnjenje"})
+		Naziv: "vituki", Tocnost: 8, Red: 10, Ukljucen: true, Napomena: "dopisano objašnjenje"})
 	if err != nil {
 		t.Fatal(err)
 	}

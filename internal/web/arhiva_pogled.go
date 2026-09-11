@@ -129,6 +129,7 @@ func popuniArhivu(ctx context.Context, r *http.Request, a *repository.ArhivaRepo
 	ispravci := ispravciIz(ctx, isp, station.Code, p.ArhVelicina, p.ArhKorak, od, do)
 	p.ArhIspravaka = len(ispravci)
 	primijeniIspravke(p.ArhNiz, ispravci)
+	popuniSkupine(ctx, a, p.ArhNiz)
 	biljeske := biljeskeIz(ctx, bil, station.Code, p.ArhVelicina, p.ArhKorak, od, do)
 	p.ArhBiljezaka = len(biljeske)
 	primijeniBiljeske(p.ArhNiz, biljeske)
@@ -141,6 +142,24 @@ func popuniArhivu(ctx context.Context, r *http.Request, a *repository.ArhivaRepo
 	krivulje, _ := a.Krivulje(ctx, station.Code)
 	p.ArhChart = crtajNiz(prorijediNiz(cijela, 700), p.ArhVelicina, station, krivulje)
 	p.ArhChartUzak = crtajNizUzak(prorijediNiz(cijela, 260), p.ArhVelicina, station, krivulje)
+}
+
+// popuniSkupine stavlja uz svaku vrijednost skupinu njezina izvora. Ljestvica
+// od osam naziva bila je nečitljiva, a izmjereno je da fini poredak među
+// dojavama ne odlučuje gotovo ništa — pa se ispisuju tri riječi, a puni naziv
+// ostaje u opisu.
+func popuniSkupine(ctx context.Context, a *repository.ArhivaRepository, vals []models.SpojenaVrijednost) {
+	if a == nil || len(vals) == 0 {
+		return
+	}
+	redovi := a.RedoviIzvora(ctx)
+	for i := range vals {
+		red, ima := redovi[vals[i].Izvor]
+		if !ima {
+			red = 20
+		}
+		vals[i].Skupina = models.SkupinaIzvora(vals[i].Izvor, red)
+	}
 }
 
 // biljeskeIz čita bilješke uz vrijednosti; bez pohrane vraća prazno, jer su

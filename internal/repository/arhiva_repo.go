@@ -801,6 +801,29 @@ func (r *ArhivaRepository) visiVrh(ctx context.Context, letva, velicina, dan str
 	return najbolji
 }
 
+// RedoviIzvora vraća red povjerenja po izvoru, za prikaz skupine. Arhiva bez
+// popisa izvora vraća prazno i tada sve pada u operativno — to je starije
+// izdanje, a ne greška.
+func (r *ArhivaRepository) RedoviIzvora(ctx context.Context) map[string]int {
+	out := map[string]int{}
+	if r == nil || r.db == nil {
+		return out
+	}
+	rows, err := r.db.QueryContext(ctx, `SELECT naziv, red FROM izvori`)
+	if err != nil {
+		return out
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var n string
+		var red int
+		if err := rows.Scan(&n, &red); err == nil {
+			out[n] = red
+		}
+	}
+	return out
+}
+
 // SpojBroj vraća koliko vrijednosti spojeni niz ima u razdoblju — za listanje,
 // da se ne mora dohvatiti cijela godina da bi se znalo koliko je ima.
 func (r *ArhivaRepository) SpojBroj(ctx context.Context, letva, velicina, korak string, od, do time.Time) (int, error) {
