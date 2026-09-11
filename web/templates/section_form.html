@@ -272,13 +272,50 @@ function renderChips(el) {
     if (g.naziv) { const h = document.createElement('div'); h.className = 'form-label'; h.style.cssText = 'margin-bottom:0.2rem;'; h.textContent = g.naziv; box.appendChild(h); }
     const red = document.createElement('div'); red.style.cssText = 'display:flex; flex-wrap:wrap; gap:0.35rem;';
     if (!g.stavke.length) { const e = document.createElement('span'); e.className = 'reading-meta'; e.textContent = '—'; red.appendChild(e); }
-    for (const t of g.stavke) { const key = t.settlement_id ? t.county_id + '/' + t.municipality_id + '/' + t.settlement_id : t.county_id + '/' + t.municipality_id; const c = document.createElement('span'); c.className = 'reg-chip'; c.innerHTML = (TERR_LABELS[key] || t.label || key) + ' <button type="button" title="Ukloni" style="border:0;background:none;cursor:pointer;">&times;</button>'; c.querySelector('button').onclick = () => { el.dataset.territories = JSON.stringify(JSON.parse(el.dataset.territories).filter(x => x !== t)); renderChips(el); }; red.appendChild(c); }
+    for (const t of g.stavke) {
+      const key = kljucPodrucja(t);
+      const c = document.createElement('span'); c.className = 'reg-chip';
+      c.innerHTML = (TERR_LABELS[key] || t.label || key) + ' <button type="button" title="Ukloni" style="border:0;background:none;cursor:pointer;">&times;</button>';
+      c.querySelector('button').onclick = () => { makniPodrucje(el, t); };
+      red.appendChild(c);
+    }
     box.appendChild(red); tc.appendChild(box);
   }
   el.querySelector('[data-role=terr-count]').textContent = tr.length;
   el.querySelector('[data-role=emb-count]').textContent = el.querySelectorAll('.emb-row').length;
   el.querySelector('[data-role=obj-count]').textContent = el.querySelectorAll('.obj-row').length;
 }
+// kljucPodrucja je ono po čemu se ugroženo područje prepoznaje: županija,
+// općina i naselje ako ga ima.
+function kljucPodrucja(t) {
+  return t.settlement_id
+    ? t.county_id + '/' + t.municipality_id + '/' + t.settlement_id
+    : t.county_id + '/' + t.municipality_id;
+}
+
+// makniPodrucje briše jedno ugroženo područje s poddionice.
+//
+// Uspoređuje se po ključu i nasipu, ne po objektu. JSON.parse svaki put stvara
+// nove objekte, pa je "x !== t" bila istina za svaki element i značka se nije
+// dala maknuti: klik na × nije radio ništa. Isto područje zna stajati uz dva
+// nasipa, pa nasip ulazi u usporedbu, a briše se samo prvi pogodak — dvije
+// jednake stavke se miču jednu po jednu, kao što ih je čovjek i dodao.
+function makniPodrucje(el, t) {
+  const kljuc = kljucPodrucja(t);
+  const nasip = (t.on_embankment || '').toLowerCase();
+  const preostalo = [];
+  let maknuto = false;
+  for (const x of JSON.parse(el.dataset.territories)) {
+    if (!maknuto && kljucPodrucja(x) === kljuc && (x.on_embankment || '').toLowerCase() === nasip) {
+      maknuto = true;
+      continue;
+    }
+    preostalo.push(x);
+  }
+  el.dataset.territories = JSON.stringify(preostalo);
+  renderChips(el);
+}
+
 // Prijepis iz dokumentacije: Privitak nosi rečenicu, program treba vezu na
 // registar. Uparuje se samo jednoznačno, a što ostane neupareno kaže se
 // naglas — prešućeno naselje gore je od prijavljenog.
