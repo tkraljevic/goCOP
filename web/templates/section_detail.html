@@ -114,7 +114,7 @@
           </div>
           {{with .Embankment}}
           <div class="nasip-mjere">
-            {{if .Range}}<span class="mono">{{.Range}}</span>{{end}}
+            {{range .RangeDijelovi}}<span class="mono os os-{{osStacionaze .}}">{{.}}</span>{{end}}
             {{if .LengthKm}}<span class="nasip-duljina">{{brojHRd .LengthKm 3}} km</span>{{end}}
           </div>
           {{end}}
@@ -124,7 +124,7 @@
           <div class="nasip-stupac">
             <div class="part-label">Objekti <span class="reg-chip">{{len .Objects}}</span></div>
             {{range .Objects}}
-            <div class="part-obj"><span class="mono part-obj-km">{{.StationingLabel}}</span><span class="part-obj-ime">{{if .StructureID}}<a href="/structures/{{.StructureID}}">{{if .StructureName}}{{.StructureName}}{{else}}{{.Name}}{{end}}</a>{{if and .Name .StructureName (ne .Name .StructureName)}} <span class="reading-meta">{{.Name}}</span>{{end}}{{else}}{{.Name}}{{end}}{{if and .Bank (ne .Bank $p.Bank)}} <span class="reading-meta">({{bankLabel .Bank}})</span>{{end}}</span></div>
+            <div class="part-obj"><span class="mono part-obj-km os os-{{osStacionaze .StationingLabel}}">{{.StationingLabel}}</span><span class="part-obj-ime">{{if .StructureID}}<a href="/structures/{{.StructureID}}">{{if .StructureName}}{{.StructureName}}{{else}}{{.Name}}{{end}}</a>{{if and .Name .StructureName (ne .Name .StructureName)}} <span class="reading-meta">{{.Name}}</span>{{end}}{{else}}{{.Name}}{{end}}{{if and .Bank (ne .Bank $p.Bank)}} <span class="reading-meta">({{bankLabel .Bank}})</span>{{end}}</span></div>
             {{else}}
             <div class="reading-meta">Nema ih.</div>
             {{end}}

@@ -107,6 +107,7 @@ func templateFuncs() template.FuncMap {
 		// ali 11 vrijednosti i 21 vrijednost. Bez toga na stranici piše
 		// "31 vrijednosti", što odmah bode oko.
 		"uzBroj":             uzBrojHR,
+		"osStacionaze":       models.OsStacionaze,
 		"vrsteBiljeske":      func() []struct{ Vrsta, Naziv, Opis string } { return models.VrsteBiljeske },
 		"vrstaBiljeskeNaziv": models.NazivVrsteBiljeske,
 		// ogradeZaNiz spaja izdavačevu ogradu, koja stiže s paketom i stoji uz

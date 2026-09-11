@@ -17,6 +17,8 @@ import (
 	"io/fs"
 	"strings"
 	"testing"
+
+	gohtml "html"
 	"time"
 
 	webassets "gocop/web"
@@ -2535,4 +2537,59 @@ func TestBezPragovaHistorijatObjasnjavaIzostanakValova(t *testing.T) {
 	if !strings.Contains(html, "nijedan prag obrane nije upisan u centimetrima") {
 		t.Error("izostanak pragova se mora objasniti")
 	}
+}
+
+// Stacionaža nosi boju svoje osi: voda plava, nasip zelen. Bez toga se rkm i
+// kkm u istom popisu čitaju kao jedan niz koji ne drži red.
+func TestStacionazaNosiBojuSvojeOsi(t *testing.T) {
+	f := func(v float64) *float64 { return &v }
+	part := models.SectionPart{
+		Seq: 1, Bank: "D",
+		Embankments: []models.PartEmbankment{{
+			Name: "Nasip Zmajevac - Kopačevo", WaterKind: "rkm",
+			WaterFrom: f(1403), WaterTo: f(1421), EmbFrom: f(0), EmbTo: f(18), LengthKm: f(18),
+		}},
+		Objects: []models.PartObject{
+			{Name: "CS Zmajevac", StationingKind: "rkm", StationingText: "rkm 1419+900"},
+			{Name: "lugarnica Monjoroš", StationingKind: "kkm", StationingText: "kkm 5+436"},
+		},
+	}
+	html := iscrtaj(t, "section_detail.html", SectionPageData{
+		CurrentUser: &models.User{FullName: "Provjera"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Section:     models.Section{Code: "B.34.2", AreaID: 34, SectorID: "B", Parts: []models.SectionPart{part}},
+		Parts:       []PartView{{SectionPart: part, Rows: embankmentRows(part)}},
+	})
+
+	// Predložak bježi "+" u &#43;, pa se traži po odšifriranom tekstu.
+	citljiv := gohtml.UnescapeString(html)
+
+	// Objekt uz rijeku i objekt uz kanal oba su voda.
+	for _, s := range []string{"rkm 1419+900", "kkm 5+436"} {
+		i := strings.Index(citljiv, s)
+		if i < 0 {
+			t.Fatalf("nema stacionaže %q", s)
+		}
+		if !strings.Contains(citljiv[max0(i-120):i], "os-voda") {
+			t.Errorf("stacionaža %q nije obojena kao voda", s)
+		}
+	}
+	// Raspon nasipa nosi obje osi, svaka sa svojom bojom.
+	if !strings.Contains(html, "os-nasip") {
+		t.Error("nkm raspon nije obojen kao nasip")
+	}
+	if n := strings.Count(html, "os-voda"); n != 3 {
+		t.Errorf("očekivane tri vodne oznake (dva objekta i rkm raspon), nađeno %d", n)
+	}
+	// Duljina nije stacionaža i ne smije dobiti praznu oznaku osi.
+	if strings.Contains(html, `class="mono os os-"`) {
+		t.Error("nešto bez osi je dobilo oznaku osi")
+	}
+}
+
+func max0(i int) int {
+	if i < 0 {
+		return 0
+	}
+	return i
 }
