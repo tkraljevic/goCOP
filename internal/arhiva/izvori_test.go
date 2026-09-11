@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	_ "modernc.org/sqlite"
 )
@@ -199,5 +200,56 @@ func TestIzvoriSeCitajuIIzArhiveBezStupcaMape(t *testing.T) {
 	}
 	if len(izvori) != 1 || izvori[0].Naziv != "his2000" || izvori[0].Mapa != "" {
 		t.Errorf("iz stare arhive dobiveno %+v", izvori)
+	}
+}
+
+// Ulaganje mora dopunjavati, ne zamjenjivati: izvor cop na Vukovaru već drži
+// 8.154 jutarnja očitanja od 2004., a ulaže se jedna godina. Upisi bi stariji
+// dio maknuo jer nosi isto ime niza.
+func TestDopunaCuvaStarije(t *testing.T) {
+	koren := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(koren, "dunav", "vukovar"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	staro := []Redak{
+		{Vrijeme: time.Date(2004, 1, 1, 7, 0, 0, 0, time.UTC), Vrijednost: 120},
+		{Vrijeme: time.Date(2004, 1, 2, 7, 0, 0, 0, time.UTC), Vrijednost: 138},
+	}
+	if _, err := Upisi(koren, "dunav", "vukovar", "cop", "vodostaj", "jutarnji", staro); err != nil {
+		t.Fatal(err)
+	}
+	novo := []Redak{
+		{Vrijeme: time.Date(2026, 9, 10, 7, 0, 0, 0, time.UTC), Vrijednost: -86},
+		{Vrijeme: time.Date(2004, 1, 2, 7, 0, 0, 0, time.UTC), Vrijednost: 139}, // isti trenutak
+	}
+	put, err := Dopuni(koren, "dunav", "vukovar", "cop", "vodostaj", "jutarnji", novo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	redci, err := PostojeciRedci(koren, "dunav", "vukovar", "cop", "vodostaj", "jutarnji")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(redci) != 3 {
+		t.Fatalf("nakon dopune %d redaka, očekivana tri: %v", len(redci), redci)
+	}
+	po := map[int64]float64{}
+	for _, r := range redci {
+		po[r.Vrijeme.Unix()] = r.Vrijednost
+	}
+	if po[staro[0].Vrijeme.Unix()] != 120 {
+		t.Error("stariji redak je nestao pri dopuni")
+	}
+	// Za isti trenutak pobjeđuje novi: ulaže se ono što je čovjek ispravio.
+	if po[staro[1].Vrijeme.Unix()] != 139 {
+		t.Errorf("za isti trenutak ostala je stara vrijednost: %v", po[staro[1].Vrijeme.Unix()])
+	}
+	if filepath.Base(put) != "vukovar_cop_vodostaj_jutarnji_2004-2026.csv" {
+		t.Errorf("ime nakon dopune: %q", filepath.Base(put))
+	}
+	// Stara datoteka s užim razdobljem ne smije ostati uz novu.
+	puts, _ := filepath.Glob(filepath.Join(koren, "dunav", "vukovar", "vukovar_cop_*.csv"))
+	if len(puts) != 1 {
+		t.Errorf("uz novu je ostalo i staro: %v", puts)
 	}
 }

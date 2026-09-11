@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -168,6 +169,96 @@ func Upisi(koren, sliv, letva, izvor, velicina, vrsta string, redci []Redak) (st
 		}
 	}
 	return put, nil
+}
+
+// Dopuni spaja nove retke s onim što niz već ima u stablu i zapisuje sve.
+//
+// Ulaganje očitanja mora dopunjavati, ne zamjenjivati: izvor `cop` na Vukovaru
+// već drži 8.154 jutarnja očitanja od 2004., a ulaže se jedna godina. Upisi bi
+// stariji dio maknuo jer nosi isto ime niza.
+//
+// Kad se isti trenutak pojavi u oboje, novi redak pobjeđuje — ulaže se ono što
+// je čovjek upisao i ispravio, a to je novije od onoga što je ondje stajalo.
+func Dopuni(koren, sliv, letva, izvor, velicina, vrsta string, redci []Redak) (string, error) {
+	if err := ProvjeriDjelove(letva, izvor, velicina, vrsta); err != nil {
+		return "", err
+	}
+	stare, err := PostojeciRedci(koren, sliv, letva, izvor, velicina, vrsta)
+	if err != nil {
+		return "", err
+	}
+	po := map[int64]Redak{}
+	for _, r := range stare {
+		po[r.Vrijeme.Unix()] = r
+	}
+	for _, r := range redci {
+		po[r.Vrijeme.Unix()] = r
+	}
+	spojeno := make([]Redak, 0, len(po))
+	for _, r := range po {
+		spojeno = append(spojeno, r)
+	}
+	return Upisi(koren, sliv, letva, izvor, velicina, vrsta, spojeno)
+}
+
+// PostojeciRedci čita ono što niz već ima u stablu. Niza može i ne biti — tada
+// se ulaže na prazno i to nije greška.
+func PostojeciRedci(koren, sliv, letva, izvor, velicina, vrsta string) ([]Redak, error) {
+	uzorak := filepath.Join(koren, sliv, letva,
+		strings.Join([]string{letva, izvor, velicina, vrsta}, "_")+"_*.csv")
+	puts, err := filepath.Glob(uzorak)
+	if err != nil || len(puts) == 0 {
+		return nil, nil
+	}
+	sort.Strings(puts)
+	var out []Redak
+	for _, p := range puts {
+		f, err := os.Open(p)
+		if err != nil {
+			return nil, err
+		}
+		sc := bufio.NewScanner(f)
+		sc.Buffer(make([]byte, 1<<20), 1<<20)
+		prvi := true
+		poDanu := false
+		for sc.Scan() {
+			redak := strings.TrimSpace(strings.TrimPrefix(sc.Text(), "\ufeff"))
+			if prvi {
+				poDanu = strings.HasPrefix(strings.ToLower(redak), "datum")
+				prvi = false
+				continue
+			}
+			if redak == "" {
+				continue
+			}
+			dj := strings.SplitN(redak, ";", 2)
+			if len(dj) != 2 {
+				continue
+			}
+			t, err := vrijemeIzCSV(dj[0])
+			if err != nil {
+				continue
+			}
+			v, err := strconv.ParseFloat(strings.TrimSpace(strings.ReplaceAll(dj[1], ",", ".")), 64)
+			if err != nil {
+				continue
+			}
+			out = append(out, Redak{Vrijeme: t, PoDanu: poDanu, Vrijednost: v})
+		}
+		f.Close()
+		if err := sc.Err(); err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
+}
+
+func vrijemeIzCSV(s string) (time.Time, error) {
+	s = strings.TrimSpace(s)
+	if len(s) >= 19 {
+		return time.Parse("2006-01-02 15:04:05", s[:19])
+	}
+	return time.Parse("2006-01-02", s)
 }
 
 // zaglavlje bira prvi stupac po tome ima li niz sat. Gradnja po tome razlikuje
