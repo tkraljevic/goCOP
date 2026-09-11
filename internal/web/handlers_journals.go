@@ -21,6 +21,7 @@ type JournalsHandler struct {
 	sections    *service.SectionService
 	stations    *service.StationService
 	tmplIzbor   *template.Template
+	tmplCOP     *template.Template
 	tmplList    *template.Template
 	tmplForm    *template.Template
 	tmplJournal *template.Template
@@ -30,9 +31,9 @@ type JournalsHandler struct {
 
 func NewJournalsHandler(j *service.JournalService, users *service.UserService, m *service.MaintenanceService,
 	sections *service.SectionService, stations *service.StationService,
-	izbor, list, form, journal, sheet, print *template.Template) *JournalsHandler {
+	izbor, list, form, journal, cop, sheet, print *template.Template) *JournalsHandler {
 	return &JournalsHandler{journals: j, users: users, maintenance: m, sections: sections, stations: stations,
-		tmplIzbor: izbor, tmplList: list, tmplForm: form, tmplJournal: journal, tmplSheet: sheet, tmplPrint: print}
+		tmplIzbor: izbor, tmplCOP: cop, tmplList: list, tmplForm: form, tmplJournal: journal, tmplSheet: sheet, tmplPrint: print}
 }
 
 // JournalPageData su podaci svih stranica dnevnika; što stranica ne treba ostaje prazno
@@ -43,10 +44,12 @@ type JournalPageData struct {
 	Area        *models.Area
 	Journals    []models.Journal
 	// Vrsta je dnevnik koji se gleda; prazno na razdjelnici.
-	Vrsta          string
-	BrojCOP        int
-	BrojA02        int
-	BrojA03        int
+	Vrsta   string
+	BrojCOP int
+	BrojA02 int
+	BrojA03 int
+	// Dani su zapisi dežurstva složeni po danima; samo u dnevniku COP-a.
+	Dani           []DanZapisa
 	Journal        *models.Journal
 	Sheets         []models.JournalSheet
 	Sheet          *models.JournalSheet
@@ -139,6 +142,13 @@ func (h *JournalsHandler) loadJournal(w http.ResponseWriter, r *http.Request) (*
 		return nil, nil, false
 	}
 	_, perms := h.base(r)
+	// Dnevnik COP-a vezan je na centar i područja nema — sektorski COP pokriva
+	// pet područja i nijedno nije "njegovo". Samo dnevnik usluge mora imati
+	// područje, jer se po njemu i vodi.
+	if j.CentarSektor != "" {
+		area, _ := h.areaOf(perms, 0)
+		return j, area, true
+	}
 	area, _ := h.areaOf(perms, j.AreaID)
 	if area == nil {
 		http.Error(w, "dnevnik pokazuje na nepoznato područje", http.StatusInternalServerError)
@@ -309,6 +319,18 @@ func (h *JournalsHandler) ShowJournal(w http.ResponseWriter, r *http.Request) {
 	data.Journal, data.Area = j, area
 	h.fillRights(&data)
 	ctx := r.Context()
+	// Dnevnik COP-a nema listova ni naloga: to je zapisnik dežurstva, a zapisi
+	// teku po danima izravno uz dnevnik.
+	if j.CentarSektor != "" {
+		zapisi, err := h.journals.EntriesForJournal(ctx, j.ID)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		data.Dani = poDanima(zapisi)
+		h.render(w, h.tmplCOP, "dnevnik_cop.html", data)
+		return
+	}
 	data.Sheets, _ = h.journals.ListSheets(ctx, j.ID)
 	data.OpenTasks, _ = h.journals.OpenTasks(ctx, j.ID)
 	data.Gaps, _ = h.journals.NumberGaps(ctx, j.ID)
@@ -589,4 +611,28 @@ func (h *JournalsHandler) ShowPrint(w http.ResponseWriter, r *http.Request) {
 		data.PrintSheets = append(data.PrintSheets, PrintSheet{Sheet: sh, Entries: entries})
 	}
 	h.render(w, h.tmplPrint, "dnevnik_ispis.html", data)
+}
+
+// DanZapisa su zapisi jednog dana dežurstva.
+type DanZapisa struct {
+	Dan    time.Time
+	Zapisi []models.JournalEntry
+}
+
+// poDanima slaže zapisnik po danima, redom kojim je i pisan.
+//
+// Dnevnik COP-a nema listova: dežurstvo teče danima i zapis se veže izravno na
+// dnevnik. Dan je jedina podjela koju zapisnik ima, i ona dolazi iz samog
+// zapisa, ne iz nekog omota oko njega.
+func poDanima(zapisi []models.JournalEntry) []DanZapisa {
+	var out []DanZapisa
+	for _, z := range zapisi {
+		dan := z.Date
+		if n := len(out); n > 0 && out[n-1].Dan.Equal(dan) {
+			out[n-1].Zapisi = append(out[n-1].Zapisi, z)
+			continue
+		}
+		out = append(out, DanZapisa{Dan: dan, Zapisi: []models.JournalEntry{z}})
+	}
+	return out
 }

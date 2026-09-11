@@ -3238,3 +3238,42 @@ textarea {
 }
 .ekstremi-sklop > summary::marker { color: var(--primary); }
 .ekstremi-sklop[open] > summary { margin-bottom: 0.4rem; }
+
+/* ── Dnevnik COP-a: zapisnik dežurstva ──────────────────────────────────────
+   Nema listova ni naloga. Dežurstvo teče danima, a zapis nosi vrijeme, onoga
+   tko je javio i tekst. Vrijeme stoji u svom stupcu i poravnato je, da se
+   slijed čita odozgo prema dolje. */
+.dan-dezurstva { margin: 1.25rem 0; }
+.dan-naslov {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-strong);
+  padding-bottom: 0.3rem;
+  border-bottom: 2px solid var(--border);
+  margin: 0 0 0.5rem;
+}
+.zapisi { display: flex; flex-direction: column; }
+.zapis {
+  display: grid;
+  grid-template-columns: 3.5rem minmax(0, 11rem) minmax(0, 1fr);
+  gap: 0.5rem 0.9rem;
+  padding: 0.45rem 0.3rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.9rem;
+  align-items: baseline;
+}
+.zapis:last-child { border-bottom: 0; }
+@media (max-width: 40rem) {
+  .zapis { grid-template-columns: 3.5rem minmax(0, 1fr); }
+  .zapis-tekst { grid-column: 1 / -1; }
+}
+.zapis-kad { font-weight: 700; color: var(--primary); font-variant-numeric: tabular-nums; }
+.zapis-tko { color: var(--text-secondary); overflow-wrap: anywhere; }
+.zapis-upisao { font-size: 0.75rem; color: var(--text-muted); }
+.zapis-tekst { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* Smjena je granica dana, ne običan zapis. */
+.zapis-smjena { background: var(--bg-subtle); }
+.zapis-smjena .zapis-tekst { font-weight: 600; }
+
+.zapis-storniran .zapis-tekst { text-decoration: line-through; color: var(--text-muted); }
