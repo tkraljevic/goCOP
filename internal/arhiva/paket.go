@@ -2,6 +2,7 @@ package arhiva
 
 import (
 	"archive/zip"
+	"crypto/ed25519"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/binary"
@@ -43,24 +44,38 @@ type Manifest struct {
 	Zapisa  int       `json:"zapisa"`
 	Od      string    `json:"od"`
 	Do      string    `json:"do"`
+
+	// Dijelovi i Potpis su izvan otiska, kao i ostatak manifesta. Otisak se
+	// računa preko podataka, pa dodavanje potpisa ne mijenja ni otisak ni broj
+	// izdanja — postojeći paketi se mogu izdati potpisani, a ostati isto
+	// izdanje.
+	Dijelovi []DioPaketa `json:"dijelovi,omitempty"`
+	Potpis   *Potpis     `json:"potpis,omitempty"`
 }
 
 // nizUPaketu je opis jednog niza. Mjerilo govori kojim je cijelim brojem
 // vrijednost pomnožena pri pakiranju; 0 znači da se nije dala svesti na cijeli
 // broj pa je zapisana kakva jest.
 type nizUPaketu struct {
-	Zona      string `json:"zona"`
-	Sliv      string `json:"sliv"`
-	Izvor     string `json:"izvor"`
-	Velicina  string `json:"velicina"`
-	Vrsta     string `json:"vrsta"`
-	PoDanu    int    `json:"po_danu"`
-	Od        string `json:"od"`
-	Do        string `json:"do"`
-	Zapisa    int    `json:"zapisa"`
-	Otisak    string `json:"otisak"`
-	Datoteke  string `json:"datoteke"`
-	Osvjezeno string `json:"osvjezeno"`
+	Zona     string `json:"zona"`
+	Sliv     string `json:"sliv"`
+	Izvor    string `json:"izvor"`
+	Velicina string `json:"velicina"`
+	Vrsta    string `json:"vrsta"`
+	PoDanu   int    `json:"po_danu"`
+	Od       string `json:"od"`
+	Do       string `json:"do"`
+	Zapisa   int    `json:"zapisa"`
+	Otisak   string `json:"otisak"`
+	Datoteke string `json:"datoteke"`
+	// Osvjezeno NE putuje paketom.
+	//
+	// To je vrijeme kad je NAŠA gradnja dotaknula niz, a ne podatak o samom
+	// nizu. Dok je bilo u paketu, svaka ponovna gradnja mijenjala je otisak
+	// iako se nijedna vrijednost nije promijenila — pa je izdanje skakalo bez
+	// razloga. Otisak mora ovisiti samo o sadržaju; kad je paket nastao piše u
+	// manifestu.
+	Osvjezeno string `json:"-"`
 	Napomena  string `json:"napomena"`
 	Mjerilo   int    `json:"mjerilo"`
 }
@@ -301,6 +316,15 @@ func citajNiz(r io.ByteReader, mjerilo int) (vrijeme []int64, vrijednost []float
 // Izvezi sastavlja paket historijata jedne letve. Ne šalje se sve što je u
 // arhivi: spoj je izveden iz nizova i gradi se pri ugradnji, pa bi u paketu
 // bio dvije trećine tereta bez ijednog novog podatka.
+// kljucIzdavaca je ključ kojim ovaj program potpisuje pakete. Prazan znači da
+// se ne potpisuje — paket je tada samo tvrdnja o tome tko ga je izdao.
+var kljucIzdavaca ed25519.PrivateKey
+
+// PostaviKljucIzdavaca daje paketima ključ čvora. Isti je onaj kojim se čvor
+// predstavlja na mreži: paket i razmjena govore o istom čvoru, pa nema razloga
+// za drugi ključ.
+func PostaviKljucIzdavaca(k ed25519.PrivateKey) { kljucIzdavaca = k }
+
 func Izvezi(db *sql.DB, letva string, izdanje int, izdao string, w io.Writer) (Manifest, error) {
 	m := Manifest{Inacica: PaketInacica, Letva: letva, Izdanje: izdanje,
 		Nastalo: time.Now().UTC(), Izdao: izdao}
@@ -363,6 +387,12 @@ func Izvezi(db *sql.DB, letva string, izdanje int, izdao string, w io.Writer) (M
 		h.Write(sadrzaj[ime])
 	}
 	m.Otisak = hex.EncodeToString(h.Sum(nil))
+
+	// Otisak svakog dijela i potpis idu u manifest, koji je izvan otiska. Zato
+	// potpisivanje ne mijenja ni otisak ni broj izdanja: postojeći paket se
+	// može izdati potpisan i ostati isto izdanje.
+	m.Dijelovi = otisciDijelova(sadrzaj, dijeloviZa(m.Inacica))
+	m.Potpis = potpisi(m, m.Dijelovi, kljucIzdavaca)
 
 	z := zip.NewWriter(w)
 	manifest, err := json.MarshalIndent(m, "", "  ")
@@ -659,13 +689,15 @@ func pospremiSirotista(tx *sql.Tx) error {
 
 // Sadrzaj je raspakiran paket, spreman za ugradnju.
 type Sadrzaj struct {
-	Manifest    Manifest
-	nizovi      []nizUPaketu
-	vrijeme     [][]int64
-	vrijednosti [][]float64
-	krivulje    []krivuljaUPaketu
-	profili     []profilUPaketu
-	promjene    []promjenaUPaketu
+	Manifest Manifest
+	// PotpisaoKljuc je javni ključ kojim je paket potpisan; prazno kad nije.
+	PotpisaoKljuc ed25519.PublicKey
+	nizovi        []nizUPaketu
+	vrijeme       [][]int64
+	vrijednosti   [][]float64
+	krivulje      []krivuljaUPaketu
+	profili       []profilUPaketu
+	promjene      []promjenaUPaketu
 
 	// Izvori su postavke s kojima je paket složen. Paket inačice 1 ih nema, pa
 	// se ondje ne zna s čime je spojeni niz nastao.
@@ -704,6 +736,32 @@ func Procitaj(r io.ReaderAt, velicina int64) (*Sadrzaj, error) {
 	if otisak := hex.EncodeToString(h.Sum(nil)); otisak != s.Manifest.Otisak {
 		return nil, fmt.Errorf("otisak se ne poklapa: paket kaže %s, izračunato %s",
 			kratki(s.Manifest.Otisak), kratki(otisak))
+	}
+
+	// Otisak po dijelu veže i granicu među dijelovima, koju zajednički otisak
+	// ne veže. Provjerava se samo ako ga paket nosi: stariji paketi ga nemaju.
+	for _, d := range s.Manifest.Dijelovi {
+		b, ima := sadrzaj[d.Ime]
+		if !ima {
+			return nil, fmt.Errorf("manifest navodi dio %q kojeg u paketu nema", d.Ime)
+		}
+		z := sha256.Sum256(b)
+		if hex.EncodeToString(z[:]) != d.Otisak || len(b) != d.Bajtova {
+			return nil, fmt.Errorf("dio %q ne odgovara onome što manifest o njemu kaže", d.Ime)
+		}
+	}
+
+	// Potpis se provjerava ako postoji. Čiji je ključ i vjeruje li mu se
+	// odlučuje se pri ugradnji, ne ovdje: čitanje paketa mora raditi i za onaj
+	// koji se samo gleda.
+	if s.Manifest.Potpis != nil {
+		bezPotpisa := s.Manifest
+		bezPotpisa.Potpis = nil
+		kljuc, err := ProvjeriPotpis(bezPotpisa, s.Manifest.Dijelovi, s.Manifest.Potpis)
+		if err != nil {
+			return nil, fmt.Errorf("potpis paketa: %w", err)
+		}
+		s.PotpisaoKljuc = kljuc
 	}
 
 	if err := json.Unmarshal(sadrzaj["nizovi.json"], &s.nizovi); err != nil {
@@ -819,8 +877,11 @@ func Ugradi(db *sql.DB, baza string, s *Sadrzaj) error {
 	defer upisVrijednost.Close()
 
 	for i, n := range s.nizovi {
+		// Osvjezeno ne putuje paketom, pa se upisuje trenutak nastanka paketa:
+		// za ovaj čvor niz je star koliko i izdanje iz kojeg je došao.
 		res, err := upisNiz.Exec(n.Zona, n.Sliv, letva, n.Izvor, n.Velicina, n.Vrsta,
-			n.PoDanu, n.Od, n.Do, n.Zapisa, n.Otisak, n.Datoteke, n.Osvjezeno, n.Napomena)
+			n.PoDanu, n.Od, n.Do, n.Zapisa, n.Otisak, n.Datoteke,
+			s.Manifest.Nastalo.UTC().Format(time.RFC3339), n.Napomena)
 		if err != nil {
 			return fmt.Errorf("upis niza %s/%s: %w", n.Izvor, n.Velicina, err)
 		}

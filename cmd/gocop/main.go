@@ -15,6 +15,7 @@ import (
 	"syscall"
 	"time"
 
+	"gocop/internal/arhiva"
 	"gocop/internal/config"
 	"gocop/internal/db"
 	"gocop/internal/importer/bp16"
@@ -186,6 +187,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("Kritična greška (mreža čvora): %v", err)
 	}
+	// Paketi se potpisuju ključem čvora. Nepotpisan paket je samo tvrdnja o
+	// tome tko ga je izdao — svaki koji danas izađe nepotpisan ostaje takav,
+	// jer se onaj koji je već otišao ne da naknadno potpisati.
+	arhiva.PostaviKljucIzdavaca(node.PrivateKey())
 	peersService.Accept(repository.KeepVersion)
 	peersService.SetWantsAll(cfg.Sync.All)
 	peersService.OnApplied(func(ctx context.Context, versions []ledger.Version) error {
