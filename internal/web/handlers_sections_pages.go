@@ -38,6 +38,9 @@ type SectionPageData struct {
 	OpenEpisode *models.DefenseEpisode  // obrana koja upravo traje, ako je ima
 	Gauge       *models.Station         // letva po kojoj se dionica vodi
 	CanEdit     bool
+	// PredlozenaSifra je prvi slobodan broj u odabranom području; upisuje se u
+	// obrazac unaprijed jer se dionice unose u nizu.
+	PredlozenaSifra string
 
 	// obrazac
 	Sectors         []models.Sector
@@ -202,6 +205,12 @@ func coveredBy(stations []models.Station, g models.GaugeItem) bool {
 }
 
 // ShowSectionForm prikazuje obrazac za novu dionicu ili izmjenu postojeće
+// mustAreas vraća područja; prazan popis nije razlog da obrazac ne radi.
+func mustAreas(h *SectionsHandler) []models.Area {
+	a, _ := h.userService.ListAreas("")
+	return a
+}
+
 func (h *SectionsHandler) ShowSectionForm(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	data := h.pageData(r)
@@ -231,6 +240,15 @@ func (h *SectionsHandler) ShowSectionForm(w http.ResponseWriter, r *http.Request
 			data.Section.AreaID = a
 		}
 		data.Sectors, _ = h.userService.ListSectors()
+		if data.Section.AreaID > 0 {
+			for _, a := range mustAreas(h) {
+				if a.ID == data.Section.AreaID {
+					data.Section.SectorID = a.SectorID
+					data.PredlozenaSifra = h.sectionService.SljedecaSifra(a.SectorID, a.ID)
+					break
+				}
+			}
+		}
 	}
 	data.Areas, _ = h.userService.ListAreas("")
 
