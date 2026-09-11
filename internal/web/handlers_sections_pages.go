@@ -26,6 +26,10 @@ type PartView struct {
 	Territories []models.SectionTerritory
 	Criteria    []models.GaugeItem // zapisi iz dokumentacije koji nisu postaje
 	Rows        []EmbankmentRow    // nasipi s objektima koji na njima leže, kao u Privitku
+	// LetveBlokovi su pragovi, kota nule i ekstremi letvi ove poddionice,
+	// povučeni s letve. Stoje ovdje jer letva pripada poddionici; ista letva na
+	// dvije poddionice iscrtava se jednom, a drugi put kao kratka uputa.
+	LetveBlokovi []LetvaBlok
 }
 
 // SectionPageData je stranica jedne dionice ili njezina obrasca
@@ -41,10 +45,6 @@ type SectionPageData struct {
 	// PredlozenaSifra je prvi slobodan broj u odabranom području; upisuje se u
 	// obrazac unaprijed jer se dionice unose u nizu.
 	PredlozenaSifra string
-	// LetveBlokovi su pragovi, kota nule i zabilježeni ekstremi mjerodavnih
-	// letvi. Dionica ih ne drži svoje — povlači ih s letve po kojoj se vodi,
-	// pa su na obje stranice iste brojke i isti prikaz.
-	LetveBlokovi []LetvaBlok
 
 	// obrazac
 	Sectors         []models.Sector
@@ -162,7 +162,7 @@ func (h *SectionsHandler) ShowSection(w http.ResponseWriter, r *http.Request) {
 	// dionice pokazuje obranu koja traje i upućuje na letvu, ali je ne
 	// proglašava — jedan te isti stupanj vrijedi za sve dionice koje se po toj
 	// letvi vode, pa mu je mjesto ondje, a ne na svakoj dionici posebno.
-	data.LetveBlokovi = letveBlokovi(data.Parts)
+	napuniLetveBlokove(data.Parts)
 	for _, p := range data.Parts {
 		if len(p.Stations) > 0 {
 			st := p.Stations[0]
@@ -223,27 +223,35 @@ type LetvaBlok struct {
 	// letve, kamo i vodi poveznica u zaglavlju.
 	KrajnostiIzNiza []models.KrajnostIzNiza
 	VisiVrh         *models.VisiVrh
+
+	// Ponovljena znači da je ista letva već iscrtana uz raniju poddionicu, pa
+	// se ovdje pokazuje samo uputa.
+	Ponovljena bool
 }
 
-// letveBlokovi slaže prikaz za svaku mjerodavnu letvu dionice.
+// napuniLetveBlokove slaže prikaz letvi po poddionicama.
+//
+// Letva pripada poddionici, pa blok stoji ondje — inače se na dionici s više
+// voda ne vidi koja letva vlada kojom. Ista letva na dvije poddionice iscrtava
+// se jednom u cijelosti; drugi put samo kao uputa, da se iste brojke ne
+// ponavljaju.
 //
 // Pragovi se računaju iz same postaje i ne traže arhivu. Protok uz prag traži
-// krivulju, a zabilježeni ekstremi iz niza arhivu — oboje stoji na kartici
-// letve, kamo i vodi poveznica.
-func letveBlokovi(parts []PartView) []LetvaBlok {
-	var vidjene = map[string]bool{}
-	var out []LetvaBlok
-	for _, p := range parts {
-		for _, st := range p.Stations {
+// krivulju, a krajnosti iz niza arhivu — oboje stoji na kartici letve, kamo i
+// vodi poveznica u zaglavlju bloka.
+func napuniLetveBlokove(parts []PartView) {
+	vidjene := map[string]bool{}
+	for i := range parts {
+		for _, st := range parts[i].Stations {
 			id := st.ID.String()
+			b := LetvaBlok{Station: st, PragoviKote: pragoviUKotama(st)}
 			if vidjene[id] {
-				continue
+				b.Ponovljena = true
 			}
 			vidjene[id] = true
-			out = append(out, LetvaBlok{Station: st, PragoviKote: pragoviUKotama(st)})
+			parts[i].LetveBlokovi = append(parts[i].LetveBlokovi, b)
 		}
 	}
-	return out
 }
 
 // mustAreas vraća područja; prazan popis nije razlog da obrazac ne radi.

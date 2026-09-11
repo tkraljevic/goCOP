@@ -252,7 +252,7 @@ func TestKarticaDioniceSlazeObjektePoNasipima(t *testing.T) {
 			MunicipalityName: "Draž", MunicipalityType: "OPCINA",
 			SettlementID: intp(4861), SettlementName: "Batina"},
 	}
-	html := iscrtaj(t, "section_detail.html", SectionPageData{
+	dionica := SectionPageData{
 		CurrentUser: &models.User{FullName: "Provjera"},
 		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
 		Section:     models.Section{Code: "B.34.1", AreaID: 34, SectorID: "B", Parts: []models.SectionPart{part}},
@@ -261,9 +261,11 @@ func TestKarticaDioniceSlazeObjektePoNasipima(t *testing.T) {
 			Rows:        redovi,
 			Stations:    []models.Station{{Name: "Batina", Stationing: "rkm 1424+850", ZeroDatum: &kota}},
 		}},
-	})
+	}
+	napuniLetveBlokove(dionica.Parts)
+	html := iscrtaj(t, "section_detail.html", dionica)
 	for _, want := range []string{
-		`class="gauge-row"`, "Batina", "80,45 m",
+		"letva-blokovi-glava", "Batina", "80,450 m",
 		`class="nasip-karta"`, "Nasip za zaštitu Batine", "2,005 km", "vodokaz Batina",
 	} {
 		if !strings.Contains(html, want) {
@@ -2621,7 +2623,7 @@ func TestKarticaDionicePovlaciBlokoveSLetve(t *testing.T) {
 		Section:     models.Section{Code: "B.34.2", AreaID: 34, SectorID: "B", Parts: []models.SectionPart{part}},
 		Parts:       []PartView{{SectionPart: part, Stations: []models.Station{st}}},
 	}
-	d.LetveBlokovi = letveBlokovi(d.Parts)
+	napuniLetveBlokove(d.Parts)
 
 	html := iscrtaj(t, "section_detail.html", d)
 	for _, want := range []string{
@@ -2633,6 +2635,11 @@ func TestKarticaDionicePovlaciBlokoveSLetve(t *testing.T) {
 			t.Errorf("kartica dionice nema %q s letve", want)
 		}
 	}
+	// Letva se pokazuje jednom. Prije je iznad bloka stajao još i redak s istim
+	// imenom, pa je Batina bila na dva mjesta.
+	if n := strings.Count(html, ">Batina<"); n != 1 {
+		t.Errorf("ime letve se pojavljuje %d puta, a mora jednom", n)
+	}
 }
 
 // Ista letva na dvije poddionice ne smije dati dva ista bloka.
@@ -2643,8 +2650,12 @@ func TestLetvaSeNePonavljaPoPoddionicama(t *testing.T) {
 		{Stations: []models.Station{st}},
 		{Stations: []models.Station{st}},
 	}
-	if n := len(letveBlokovi(parts)); n != 1 {
-		t.Errorf("ista letva na dvije poddionice dala %d blokova", n)
+	napuniLetveBlokove(parts)
+	if parts[0].LetveBlokovi[0].Ponovljena {
+		t.Error("prva poddionica je označena kao ponovljena")
+	}
+	if !parts[1].LetveBlokovi[0].Ponovljena {
+		t.Error("ista letva na drugoj poddionici nije označena kao ponovljena")
 	}
 }
 
