@@ -68,17 +68,26 @@
 
   <div class="part-block">
     <div class="part-label">{{icon "chart-column"}} Mjerodavni vodomjeri <span class="reg-chip">{{len $p.Stations}}</span></div>
-    {{range $p.Stations}}
-    <a class="gauge-row" href="/stations/{{.ID}}">
-      <span class="gauge-name">{{.Name}}</span>
-      <span class="mono reading-meta">{{if .Stationing}}{{.Stationing}}{{end}}{{if .ZeroDatum}} · „0“ {{brojHRd .ZeroDatum 2}} m{{end}}</span>
-      {{if .NeedsReview}}<span class="badge badge-inactive" title="{{.ReviewNote}}">{{icon "triangle-alert"}}</span>{{end}}
-      {{/* Pragovi su niže, u bloku koji se povlači s letve. Ovdje su stajali
-           dvaput i razilazili se u obliku: vrpca pilula naspram kartica s
-           kotama vodne plohe. */}}
-    </a>
+    {{/* Letva se pokazuje jednom: zaglavlje bloka nosi ime, stacionažu i
+         poveznicu, a ispod stoje pragovi, kota nule i ekstremi povučeni s nje.
+         Prije je iznad toga stajao još i redak s istim imenom. */}}
+    {{range $p.LetveBlokovi}}
+    {{if .Ponovljena}}
+    <div class="gauge-row"><span class="gauge-name"><a href="/stations/{{.Station.ID}}">{{.Station.Name}}</a></span>
+      <span class="reading-meta">ista letva kao gore</span></div>
     {{else}}
-    {{if not $p.Criteria}}<div class="reg-empty">Bez mjerodavnog vodomjera iz registra.</div>{{end}}
+    <div class="letva-blokovi">
+      <div class="letva-blokovi-glava">{{icon "chart-column"}} <a href="/stations/{{.Station.ID}}">{{.Station.Name}}</a>
+        <span class="reg-card-sub">{{if .Station.Stationing}}{{.Station.Stationing}}{{end}}</span>
+        {{if .Station.NeedsReview}}<span class="badge badge-inactive" title="{{.Station.ReviewNote}}">{{icon "triangle-alert"}}</span>{{end}}</div>
+      {{template "letva-pragovi" .}}
+      {{template "letva-kota-nule" .}}
+      {{template "letva-ekstremi" .}}
+    </div>
+    {{end}}
+    {{end}}
+    {{if and (not $p.Stations) (not $p.Criteria)}}
+    <div class="reg-empty">Bez mjerodavnog vodomjera iz registra.</div>
     {{end}}
     {{range $p.Criteria}}
     <div class="part-gauge">{{icon "ruler"}} <strong>{{.StationName}}</strong>
@@ -159,19 +168,6 @@
     {{end}}
   </div>
 </section>
-{{end}}
-
-{{range .LetveBlokovi}}
-{{/* Pragovi, kota nule i ekstremi povlače se s letve po kojoj se dionica vodi.
-     Dionica ih ne drži svoje: ista letva vrijedi za više dionica, pa bi svoja
-     kopija značila da se iste brojke na dva mjesta s vremenom raziđu. */}}
-<div class="letva-blokovi">
-  <div class="letva-blokovi-glava">{{icon "chart-column"}} <a href="/stations/{{.Station.ID}}">{{.Station.Name}}</a>
-    <span class="reg-card-sub">{{if .Station.Stationing}}{{.Station.Stationing}}{{end}}</span></div>
-  {{template "letva-pragovi" .}}
-  {{template "letva-kota-nule" .}}
-  {{template "letva-ekstremi" .}}
-</div>
 {{end}}
 
 <section class="detail-section" id="obrana">
