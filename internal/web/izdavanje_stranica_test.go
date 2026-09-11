@@ -311,18 +311,65 @@ func TestRazdjelnicaDnevnikaDijeliTriVrste(t *testing.T) {
 
 // Popis zna koju vrstu pokazuje: naslov, povratak i gumb za novi dnevnik
 // moraju je nositi, inače se s razdjelnice padne natrag u pomiješan popis.
+// Dnevnik COP-a se otvara svojim obrascem, ne naslovnicom usluge — i samo
+// onome tko vodi neki centar.
 func TestPopisDnevnikaNosiSvojuVrstu(t *testing.T) {
-	html := iscrtaj(t, "dnevnici.html", JournalPageData{
+	d := JournalPageData{
 		CurrentUser: &models.User{FullName: "P"},
 		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
 		Vrsta:       "OBRANA",
 		Area:        &models.Area{ID: 34, Name: "Međudržavne rijeke"},
 		CanManage:   true,
-	})
-	for _, want := range []string{"Obrana od poplava", `href="/dnevnici"`, "kind=OBRANA", "operateri"} {
+	}
+	html := iscrtaj(t, "dnevnici.html", d)
+	for _, want := range []string{"Obrana od poplava", `href="/dnevnici"`, "operateri"} {
 		if !strings.Contains(html, want) {
 			t.Errorf("popis nema %q", want)
 		}
+	}
+	for _, nesmije := range []string{"kind=OBRANA", "novi-cop"} {
+		if strings.Contains(html, nesmije) {
+			t.Errorf("popis bez centra za otvaranje nudi %q", nesmije)
+		}
+	}
+	d.CentriZaOtvaranje = []models.Centar{{Sektor: "B", Naziv: "COP Osijek"}}
+	d.Centar = "B"
+	html = iscrtaj(t, "dnevnici.html", d)
+	if !strings.Contains(html, `href="/dnevnici/novi-cop?centar=B"`) {
+		t.Error("voditelj centra nema gumb za novi dnevnik COP-a")
+	}
+}
+
+// Obrazac dnevnika COP-a: centar i početak, bez izvođača i nadzora. Pri
+// izmjeni se centar ne mijenja — dnevnik je njegov.
+func TestObrazacDnevnikaCOPa(t *testing.T) {
+	pocetak := time.Date(2026, 9, 11, 0, 0, 0, 0, models.Zagreb)
+	d := JournalPageData{
+		CurrentUser:       &models.User{FullName: "P"},
+		Permissions:       &models.UserPermissions{IsGlobalAdmin: true},
+		CentriZaOtvaranje: []models.Centar{{Sektor: "B", Naziv: "COP Osijek"}, {Sektor: "D", Naziv: "COP Slavonski Brod"}},
+		Journal:           &models.Journal{Kind: models.JournalKindDefense, CentarSektor: "B", Year: 2026, StartedAt: &pocetak},
+	}
+	html := iscrtaj(t, "dnevnik_cop_form.html", d)
+	for _, want := range []string{`action="/dnevnici/novi-cop"`, `<option value="B" selected>COP Osijek`, `value="2026-09-11"`, "Otvori dnevnik"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("obrazac nema %q", want)
+		}
+	}
+	for _, nesmije := range []string{"Izvođač", "Nadzor", "contractor"} {
+		if strings.Contains(html, nesmije) {
+			t.Errorf("obrazac dnevnika COP-a nudi %q", nesmije)
+		}
+	}
+
+	d.IsEdit = true
+	d.Journal.ID, d.Journal.CentarNaziv = "dn-1", "COP Osijek"
+	html = iscrtaj(t, "dnevnik_cop_form.html", d)
+	if !strings.Contains(html, `action="/dnevnici/dn-1"`) || !strings.Contains(html, "Spremi zaglavlje") {
+		t.Error("izmjena ne ide na dnevnik")
+	}
+	if strings.Contains(html, `name="centar"`) {
+		t.Error("izmjena nudi promjenu centra")
 	}
 }
 

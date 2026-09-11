@@ -106,8 +106,10 @@ func (s *JournalService) SaveJournal(ctx context.Context, u *models.User, perms 
 	if !models.IsJournalKind(j.Kind) {
 		return errors.New("nepoznata vrsta dnevnika")
 	}
-	if j.IsDefense() && j.SectionCode == "" {
-		return errors.New("dnevnik obrane vodi se po dionici: upišite šifru dionice")
+	// Obrana nema naslovnicu s izvođačem: njezin je dnevnik zapisnik
+	// dežurstva centra i otvara se u COP-u, ne po području.
+	if j.IsDefense() {
+		return errors.New("dnevnik obrane vodi se u centru obrane: otvorite dnevnik COP-a")
 	}
 	if j.Year == 0 {
 		j.Year = time.Now().In(models.Zagreb).Year()
@@ -445,4 +447,63 @@ func (s *JournalService) CentriSDnevnicima(ctx context.Context) ([]models.Centar
 // EntriesForJournal vraća zapise dežurstva jednog dnevnika.
 func (s *JournalService) EntriesForJournal(ctx context.Context, journalID string) ([]models.JournalEntry, error) {
 	return s.repo.EntriesForJournal(ctx, journalID)
+}
+
+// MozeOtvoritiCOP: dnevnik COP-a otvara voditelj ili zamjenik centra — uprava
+// sektora — ne svatko tko u njega piše. Dežurni s područja piše, ali ne
+// otvara: dnevnik je centra, a ne njegov.
+func (s *JournalService) MozeOtvoritiCOP(perms *models.UserPermissions, sektor string) bool {
+	return perms != nil && sektor != "" && perms.CanAdminister(sektor, 0)
+}
+
+// SpremiCOPDnevnik otvara dnevnik centra ili mu mijenja zaglavlje. Bez
+// izvođača i nadzora: centar, naziv, početak dežurstva, i kraj kad obrana
+// prestane. Centar se poslije otvaranja ne mijenja — dnevnik je njegov.
+func (s *JournalService) SpremiCOPDnevnik(ctx context.Context, u *models.User, perms *models.UserPermissions, j *models.Journal) error {
+	if j.ID != "" {
+		cur, err := s.repo.GetJournal(ctx, j.ID)
+		if err != nil {
+			return err
+		}
+		if cur == nil || cur.CentarSektor == "" {
+			return errors.New("dnevnik COP-a nije pronađen")
+		}
+		if !s.MozeOtvoritiCOP(perms, cur.CentarSektor) {
+			return errors.New("zaglavlje dnevnika COP-a mijenja voditelj ili zamjenik centra")
+		}
+		cur.Title, cur.StartedAt, cur.EndedAt, cur.Notes = j.Title, j.StartedAt, j.EndedAt, j.Notes
+		*j = *cur
+	} else {
+		if !s.MozeOtvoritiCOP(perms, j.CentarSektor) {
+			return errors.New("dnevnik COP-a otvara voditelj ili zamjenik centra")
+		}
+		j.Kind, j.AreaID, j.CentarPodrucje, j.Reconstruction = models.JournalKindDefense, 0, nil, false
+		if u != nil {
+			j.CreatedBy = u.ID.String()
+		}
+	}
+	if j.StartedAt == nil {
+		return errors.New("upišite početak dežurstva")
+	}
+	if j.EndedAt != nil && j.EndedAt.Before(*j.StartedAt) {
+		return errors.New("kraj dežurstva je prije početka")
+	}
+	j.Year = j.StartedAt.In(models.Zagreb).Year()
+	j.Title = strings.TrimSpace(j.Title)
+	if j.Title == "" {
+		j.Title = fmt.Sprintf("Dnevnik COP-a, %d.", j.Year)
+	}
+	return s.repo.SaveJournal(ctx, j)
+}
+
+// CentriZaOtvaranje vraća centre u kojima osoba smije otvoriti dnevnik.
+func (s *JournalService) CentriZaOtvaranje(perms *models.UserPermissions, sektori []models.Sector) []models.Centar {
+	var out []models.Centar
+	for _, sk := range sektori {
+		if sk.Level != 2 || sk.CenterCop == "" || !s.MozeOtvoritiCOP(perms, sk.ID) {
+			continue
+		}
+		out = append(out, models.Centar{Sektor: sk.ID, Naziv: sk.CenterCop})
+	}
+	return out
 }

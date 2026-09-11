@@ -19,7 +19,7 @@
   <div class="form-row">
     <div class="form-group">
       <label class="form-label" for="kind">Vrsta dnevnika *</label>
-      <select id="kind" name="kind" class="form-control" required onchange="document.getElementById('obrana').hidden = this.value !== 'OBRANA'">
+      <select id="kind" name="kind" class="form-control" required>
         {{range .Kinds}}<option value="{{.}}" {{if eq $.Journal.Kind .}}selected{{end}}>{{journalKind .}}</option>{{end}}
       </select>
     </div>
@@ -36,16 +36,6 @@
   <div class="form-group">
     <label class="form-label" for="contract">Ugovor (klasa, urbroj, datum)</label>
     <input type="text" id="contract" name="contract" class="form-control" value="{{.Journal.Contract}}" placeholder="Klasa: 325-01/22-09/187, UrBr: …, od 28.01.2023.">
-  </div>
-
-  <div id="obrana" {{if not .Journal.IsDefense}}hidden{{end}}>
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label" for="section_code">Dionica (obrana) *</label>
-        <input type="text" id="section_code" name="section_code" class="form-control" list="dionice" value="{{.Journal.SectionCode}}" placeholder="B.34.3" autocomplete="off">
-        <datalist id="dionice">{{range .Sections}}<option value="{{.Code}}">{{.Description}}</option>{{end}}</datalist>
-      </div>
-    </div>
   </div>
 
   <h2 style="font-size:1rem; margin:1.25rem 0 0.5rem;">Izvođač</h2>
