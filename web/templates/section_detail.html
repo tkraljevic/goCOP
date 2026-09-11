@@ -93,42 +93,57 @@
   </div>
 
   <div class="part-block">
-    <div class="part-label">{{icon "shield"}} Nasipi i objekti <span class="reg-chip">{{len $p.Embankments}} · {{len $p.Objects}}</span></div>
+    <div class="part-label">{{icon "shield"}} Nasipi i objekti
+      <span class="reg-chip">{{len $p.Embankments}} {{uzBroj (len $p.Embankments) "nasip" "nasipa" "nasipa"}}</span>
+      <span class="reg-chip">{{len $p.Objects}} {{uzBroj (len $p.Objects) "objekt" "objekta" "objekata"}}</span>
+    </div>
     {{if $p.Rows}}
-    <div class="table-card"><div class="table-responsive">
-      <table class="data-table part-table">
-        <thead><tr><th>Nasip</th><th>Objekti na dionici</th><th>Ugroženo područje</th></tr></thead>
-        <tbody>
-        {{range $p.Rows}}
-        <tr>
-          <td>
+    {{/* Redak je jedan nasip sa svime što se uz njega brani — tako stoji i u
+         Privitku. Nekad je to bila tablica s tri stupca, ali oni nisu ni blizu
+         jednako dugi: jedno ime nasipa naspram osam objekata i dvanaest
+         naselja, pa je prvi stupac ostajao prazan kroz cijelu visinu retka. */}}
+    <div class="nasip-popis">
+      {{range $p.Rows}}
+      <article class="nasip-karta">
+        <header class="nasip-glava">
+          <div class="nasip-ime">
             {{with .Embankment}}
-            <div class="part-emb-name">{{if .StructureID}}<a href="/structures/{{.StructureID}}" style="color:var(--primary);">{{.Name}}</a>{{else}}{{.Name}}{{end}}{{if eq .StructureKind "BRANA"}} <span class="reg-chip">brana</span>{{end}}</div>
-            {{if .Range}}<div class="mono reading-meta">{{.Range}}</div>{{end}}
-            {{if .LengthKm}}<div>{{brojHRd .LengthKm 3}} km</div>{{end}}
-            {{else}}
-            <span class="reading-meta">bez nasipa</span>
-            {{end}}
-          </td>
-          <td>
+            {{if .StructureID}}<a href="/structures/{{.StructureID}}">{{.Name}}</a>{{else}}{{.Name}}{{end}}
+            {{if eq .StructureKind "BRANA"}}<span class="reg-chip">brana</span>{{end}}
+            {{else}}<span class="reading-meta">Bez nasipa</span>{{end}}
+          </div>
+          {{with .Embankment}}
+          <div class="nasip-mjere">
+            {{if .Range}}<span class="mono">{{.Range}}</span>{{end}}
+            {{if .LengthKm}}<span class="nasip-duljina">{{brojHRd .LengthKm 3}} km</span>{{end}}
+          </div>
+          {{end}}
+        </header>
+
+        <div class="nasip-tijelo">
+          <div class="nasip-stupac">
+            <div class="part-label">Objekti <span class="reg-chip">{{len .Objects}}</span></div>
             {{range .Objects}}
-            <div class="part-obj"><span class="mono part-obj-km">{{.StationingLabel}}</span> {{if .StructureID}}<a href="/structures/{{.StructureID}}" style="color:var(--primary);">{{if .StructureName}}{{.StructureName}}{{else}}{{.Name}}{{end}}</a>{{if and .Name .StructureName (ne .Name .StructureName)}} <span class="reading-meta">{{.Name}}</span>{{end}}{{else}}{{.Name}}{{end}}{{if and .Bank (ne .Bank $p.Bank)}} <span class="reading-meta">({{bankLabel .Bank}})</span>{{end}}</div>
+            <div class="part-obj"><span class="mono part-obj-km">{{.StationingLabel}}</span><span class="part-obj-ime">{{if .StructureID}}<a href="/structures/{{.StructureID}}">{{if .StructureName}}{{.StructureName}}{{else}}{{.Name}}{{end}}</a>{{if and .Name .StructureName (ne .Name .StructureName)}} <span class="reading-meta">{{.Name}}</span>{{end}}{{else}}{{.Name}}{{end}}{{if and .Bank (ne .Bank $p.Bank)}} <span class="reading-meta">({{bankLabel .Bank}})</span>{{end}}</span></div>
             {{else}}
-            <span class="reading-meta">—</span>
+            <div class="reading-meta">Nema ih.</div>
             {{end}}
-          </td>
-          <td>
-            {{range .Territories}}
-            <div>{{if .SettlementName}}{{.SettlementName}}{{else}}{{muniType .MunicipalityType}} {{.MunicipalityName}}{{end}}</div>
+          </div>
+
+          <div class="nasip-stupac">
+            <div class="part-label">Ugroženo područje <span class="reg-chip">{{len .Territories}}</span></div>
+            {{if .Territories}}
+            <div class="nasip-naselja">
+              {{range .Territories}}<span class="reg-chip">{{if .SettlementName}}{{.SettlementName}}{{else}}{{muniType .MunicipalityType}} {{.MunicipalityName}}{{end}}</span>{{end}}
+            </div>
             {{else}}
-            <span class="reading-meta">—</span>
+            <div class="reading-meta">Nije određeno.</div>
             {{end}}
-          </td>
-        </tr>
-        {{end}}
-        </tbody>
-      </table>
-    </div></div>
+          </div>
+        </div>
+      </article>
+      {{end}}
+    </div>
     {{else}}
     <div class="reg-empty">Dokumentacija ne navodi nasipe ni objekte.</div>
     {{end}}

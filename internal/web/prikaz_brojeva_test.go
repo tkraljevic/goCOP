@@ -224,8 +224,12 @@ func TestZaduzeniSuRazdvojeniPoRazinama(t *testing.T) {
 	}
 }
 
-// Kartica dionice slaže se kao Privitak: vodomjer u jednom retku, a nasip je
-// nosivi red s objektima koji na njemu leže — ne pet odvojenih popisa.
+// Kartica dionice slaže se kao Privitak: vodomjer u jednom retku, a nasip nosi
+// objekte koji na njemu leže i naselja koja brani — ne pet odvojenih popisa.
+//
+// Nasip je kartica, ne redak tablice. Tablica je tražila da tri stupca budu
+// jednako duga, a nisu: jedno ime nasipa naspram osam objekata i dvanaest
+// naselja ostavljalo je prvi stupac prazan kroz cijelu visinu retka.
 func TestKarticaDioniceSlazeObjektePoNasipima(t *testing.T) {
 	kota := 80.45
 	rkm := func(v float64) *float64 { return &v }
@@ -238,31 +242,42 @@ func TestKarticaDioniceSlazeObjektePoNasipima(t *testing.T) {
 			{Name: "vodokaz Batina", StationingKind: "rkm", StationingText: "rkm 1424+850"},
 		},
 	}
+	// Naselja uz nasip puni rukovatelj iz registra, ne embankmentRows, pa se
+	// ovdje postavljaju izravno.
+	redovi := embankmentRows(part)
+	redovi[0].Territories = []models.SectionTerritory{
+		{SettlementName: "Batina", MunicipalityName: "Draž"},
+	}
 	html := iscrtaj(t, "section_detail.html", SectionPageData{
 		CurrentUser: &models.User{FullName: "Provjera"},
 		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
 		Section:     models.Section{Code: "B.34.1", AreaID: 34, SectorID: "B", Parts: []models.SectionPart{part}},
 		Parts: []PartView{{
 			SectionPart: part,
-			Rows:        embankmentRows(part),
+			Rows:        redovi,
 			Stations:    []models.Station{{Name: "Batina", Stationing: "rkm 1424+850", ZeroDatum: &kota}},
 		}},
 	})
 	for _, want := range []string{
 		`class="gauge-row"`, "Batina", "80,45 m",
-		`part-table"`, "Nasip za zaštitu Batine", "2,005 km", "vodokaz Batina",
+		`class="nasip-karta"`, "Nasip za zaštitu Batine", "2,005 km", "vodokaz Batina",
 	} {
 		if !strings.Contains(html, want) {
 			t.Errorf("na kartici nema %q", want)
 		}
 	}
-	// objekt stoji u istom retku tablice kao njegov nasip
-	red := izmedju(html, "Nasip za zaštitu Batine", "</tr>")
-	if !strings.Contains(red, "vodokaz Batina") {
-		t.Error("vodokaz Batina nije u retku svog nasipa")
+	// objekt stoji u kartici svog nasipa, ne u zajedničkom popisu
+	kartica := izmedju(html, "Nasip za zaštitu Batine", "</article>")
+	if !strings.Contains(kartica, "vodokaz Batina") {
+		t.Error("vodokaz Batina nije u kartici svog nasipa")
 	}
 	if strings.Contains(html, "Na nasipu</th>") {
-		t.Error("stupac „Na nasipu\" više ne treba — nasip je sam redak")
+		t.Error("stupac „Na nasipu\" više ne treba — nasip je sam sebi kartica")
+	}
+	// Naselja teku kao značke; dvanaest imena u dvanaest redaka je bilo
+	// trošenje visine na tekst od petnaestak znakova.
+	if !strings.Contains(html, "nasip-naselja") {
+		t.Error("naselja se ne slažu kao značke")
 	}
 }
 
