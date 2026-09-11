@@ -880,3 +880,8 @@ func hasAddressForHost(addresses []string, host string) bool {
 	}
 	return false
 }
+
+// PrivateKey daje privatni ključ čvora onome tko njime potpisuje ono što čvor
+// izdaje. Ključ je isti kojim se čvor predstavlja na mreži: paket i razmjena
+// govore o istom čvoru, pa nema razloga za drugi ključ.
+func (n *Node) PrivateKey() ed25519.PrivateKey { return n.key }
