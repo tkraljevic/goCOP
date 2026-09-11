@@ -3181,3 +3181,28 @@ textarea {
 .letva-blokovi-glava a { color: var(--primary); }
 .letva-blokovi .detail-section { margin-top: 0.5rem; }
 .letva-blokovi .detail-section h2 { font-size: 0.95rem; }
+
+/* Ugroženo područje kao u Privitku: županija, pa općina, pa naselja. */
+.ugrozeno-zupanija + .ugrozeno-zupanija { margin-top: 0.6rem; }
+.ugrozeno-zup-ime {
+  font-weight: 700;
+  color: var(--text-strong);
+  font-size: 0.85rem;
+  margin-bottom: 0.2rem;
+}
+.ugrozeno-opcina {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.3rem 0.5rem;
+  padding: 0.2rem 0 0.2rem 0.6rem;
+  border-left: 2px solid var(--border);
+  margin-bottom: 0.2rem;
+}
+.ugrozeno-opc-ime {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.ugrozeno-naselja { display: flex; flex-wrap: wrap; gap: 0.3rem; }

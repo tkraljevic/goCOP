@@ -73,13 +73,9 @@
       <span class="gauge-name">{{.Name}}</span>
       <span class="mono reading-meta">{{if .Stationing}}{{.Stationing}}{{end}}{{if .ZeroDatum}} · „0“ {{brojHRd .ZeroDatum 2}} m{{end}}</span>
       {{if .NeedsReview}}<span class="badge badge-inactive" title="{{.ReviewNote}}">{{icon "triangle-alert"}}</span>{{end}}
-      <span class="gauge-thresholds">
-        <span class="threshold-pill prep" title="Pripremno stanje">P {{.Prep.Label}}</span>
-        <span class="threshold-pill regular" title="Redovna obrana">R {{.Regular.Label}}</span>
-        <span class="threshold-pill emerg" title="Izvanredna obrana">I {{.Emergency.Label}}</span>
-        <span class="threshold-pill crit" title="Izvanredno stanje">IS {{.State.Label}}</span>
-        <span class="threshold-pill record" title="Najviši zabilježeni vodostaj">M {{.Record.Label}}</span>
-      </span>
+      {{/* Pragovi su niže, u bloku koji se povlači s letve. Ovdje su stajali
+           dvaput i razilazili se u obliku: vrpca pilula naspram kartica s
+           kotama vodne plohe. */}}
     </a>
     {{else}}
     {{if not $p.Criteria}}<div class="reg-empty">Bez mjerodavnog vodomjera iz registra.</div>{{end}}
@@ -133,9 +129,23 @@
           <div class="nasip-stupac">
             <div class="part-label">Ugroženo područje <span class="reg-chip">{{len .Territories}}</span></div>
             {{if .Territories}}
-            <div class="nasip-naselja">
-              {{range .Territories}}<span class="reg-chip">{{if .SettlementName}}{{.SettlementName}}{{else}}{{muniType .MunicipalityType}} {{.MunicipalityName}}{{end}}</span>{{end}}
+            {{/* Županija, pa općina, pa naselja — kako stoji u Privitku. Ravan
+                 popis gubi ono što je ondje nosivo: Kneževi Vinogradi su
+                 općina, Zmajevac naselje u njoj, a kao dvije značke izgledaju
+                 jednakovrijedno. */}}
+            {{range .UgrozenoPoZupanijama}}
+            <div class="ugrozeno-zupanija">
+              <div class="ugrozeno-zup-ime">{{.Naziv}}</div>
+              {{range .Opcine}}
+              <div class="ugrozeno-opcina">
+                <span class="ugrozeno-opc-ime">{{muniType .Tip}} {{.Naziv}}</span>
+                <span class="ugrozeno-naselja">
+                  {{range .Naselja}}{{if .CijelaOpcina}}<span class="reading-meta">cijela jedinica</span>{{else}}<span class="reg-chip">{{.Naziv}}</span>{{end}}{{end}}
+                </span>
+              </div>
+              {{end}}
             </div>
+            {{end}}
             {{else}}
             <div class="reading-meta">Nije određeno.</div>
             {{end}}

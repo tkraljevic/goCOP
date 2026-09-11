@@ -16,6 +16,12 @@ type EmbankmentRow struct {
 	Territories []models.SectionTerritory // ugroženo područje koje Privitak navodi uz taj nasip
 }
 
+// UgrozenoPoZupanijama daje ugroženo područje složeno kao u Privitku: županija,
+// pa općina, pa naselja.
+func (r EmbankmentRow) UgrozenoPoZupanijama() []UgrozenaZupanija {
+	return grupirajUgrozeno(r.Territories)
+}
+
 // embankmentRows razvrstava objekte po nasipima. Objekt s upisanim nasipom ide
 // na njega; objekt bez nasipa, ali sa stacionažom uz vodu, ide na nasip čiji
 // raspon uz vodu tu stacionažu pokriva — ušće ili vodokaz na rkm 1424+850 leži
