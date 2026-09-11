@@ -50,6 +50,7 @@ func main() {
 	stanje := flag.String("stanje", "", "prag izvanrednog stanja, u cm")
 	rekord := flag.String("rekord", "", "najviši zabilježeni vodostaj, u cm")
 
+	ograda := flag.String("ograda", "", "ograda uz niz: izvor|veličina|od|do|ispod|iznad|tekst")
 	sirina := flag.String("sirina", "", "zemljopisna širina, decimalni stupnjevi")
 	duzina := flag.String("duzina", "", "zemljopisna dužina, decimalni stupnjevi")
 	flag.Parse()
@@ -159,6 +160,15 @@ func main() {
 	prag("izvanredno stanje", &letva.State, *stanje)
 	prag("rekord", &letva.Record, *rekord)
 
+	if *ograda != "" {
+		o, err := ogradaIz(*ograda)
+		if err != nil {
+			log.Fatal(err)
+		}
+		letva.OgradeNiza = append(letva.OgradeNiza, o)
+		promjene = append(promjene, fmt.Sprintf("%-18s + %s %s %s", "ograda", o.Izvor, o.Raspon(), o.Tekst))
+	}
+
 	if len(promjene) == 0 {
 		fmt.Println("ništa se ne mijenja")
 		return
@@ -176,6 +186,42 @@ func main() {
 		os.Exit(1)
 	}
 	fmt.Printf("\nupisano, %d %s\n", len(promjene), uzBroj(len(promjene)))
+}
+
+// ogradaIz čita ogradu iz jednog retka: izvor|veličina|od|do|ispod|iznad|tekst.
+// Prazna polja se preskaču — ograda bez granica vrijedi za cijeli niz.
+func ogradaIz(s string) (models.OgradaNiza, error) {
+	dj := strings.Split(s, "|")
+	if len(dj) != 7 {
+		return models.OgradaNiza{}, fmt.Errorf("ograda treba sedam polja odvojenih |, dobiveno %d", len(dj))
+	}
+	o := models.OgradaNiza{
+		Izvor: strings.TrimSpace(dj[0]), Velicina: strings.TrimSpace(dj[1]),
+		Od: strings.TrimSpace(dj[2]), Do: strings.TrimSpace(dj[3]),
+		Tekst: strings.TrimSpace(dj[6]),
+	}
+	if o.Izvor == "" || o.Tekst == "" {
+		return o, fmt.Errorf("ograda mora imati izvor i tekst")
+	}
+	granica := func(v string) (*float64, error) {
+		v = strings.TrimSpace(v)
+		if v == "" {
+			return nil, nil
+		}
+		f, err := strconv.ParseFloat(strings.ReplaceAll(v, ",", "."), 64)
+		if err != nil {
+			return nil, err
+		}
+		return &f, nil
+	}
+	var err error
+	if o.Ispod, err = granica(dj[4]); err != nil {
+		return o, fmt.Errorf("granica ispod: %w", err)
+	}
+	if o.Iznad, err = granica(dj[5]); err != nil {
+		return o, fmt.Errorf("granica iznad: %w", err)
+	}
+	return o, nil
 }
 
 func uzBroj(n int) string {

@@ -2523,7 +2523,7 @@ textarea {
 .rows-obj { --cols: minmax(7rem, 1fr) minmax(14rem, 3fr) minmax(11rem, 2fr) 2.25rem; }
 /* Ograde uz nizove: izvor i veličina su kratki, datumi fiksni, a tekst je ono
    zbog čega se redak i upisuje — njemu ide sve što pretekne. */
-.rows-ograda { container-type: inline-size; --cols: 9rem 8rem 9rem 9rem minmax(16rem, 3fr) 2.25rem; }
+.rows-ograda { container-type: inline-size; --cols: 8rem 7rem 8.5rem 8.5rem 5rem 5rem minmax(14rem, 3fr) 2.25rem; }
 .rows-ograda .ograda-row, .rows-ograda .rows-head {
   display: grid; gap: 0.4rem; grid-template-columns: var(--cols); align-items: center;
 }
