@@ -105,6 +105,77 @@ var (
 	dijeloviV2 = []string{"nizovi.json", "ocitanja.bin", "krivulje.json", "profili.json", "promjene.json", "izvori.json"}
 )
 
+// NajveceRaspakirano je granica zbroja svih dijelova paketa nakon
+// raspakiravanja.
+//
+// Ulazni .cop ograničen je na 50 MB, ali ZIP može biti malen a raspakirati se u
+// koliko god. Cijela arhiva od 39 letvi i deset milijuna zapisa stane u 5,7 MB
+// zbijeno; najveća pojedina letva raspakirana je oko 40 MB. Sto megabajta je
+// široko za svaku stvarnu letvu i usko za napad.
+const NajveceRaspakirano = 100 << 20
+
+// dopusteniDijelovi su imena koja paket smije sadržavati. Sve drugo se odbija:
+// ime koje program ne čita ionako ne ulazi u otisak, pa bi bilo mjesto za
+// prijevoz nečega što nitko ne gleda.
+func dopusteniDijelovi() map[string]bool {
+	d := map[string]bool{"manifest.json": true}
+	for _, ime := range dijeloviV2 {
+		d[ime] = true
+	}
+	return d
+}
+
+// raspakiraj čita dijelove paketa uz granice.
+//
+// Prije se svaki unos čitao s io.ReadAll bez ikakve granice, pa je malen paket
+// mogao pojesti memoriju prije nego ijedna provjera dođe na red. Uz to su se
+// imena uzimala u mapu, pa bi drugi manifest.json tiho nadjačao prvi.
+func raspakiraj(z *zip.Reader) (map[string][]byte, error) {
+	dopusteno := dopusteniDijelovi()
+	var ukupno uint64
+	for _, f := range z.File {
+		if !dopusteno[f.Name] {
+			return nil, fmt.Errorf("paket sadrži %q, a to nije dio .cop paketa", f.Name)
+		}
+		ukupno += f.UncompressedSize64
+		if ukupno > NajveceRaspakirano {
+			return nil, fmt.Errorf("paket se raspakirava u više od %d MB — odbijen prije čitanja",
+				NajveceRaspakirano>>20)
+		}
+	}
+
+	sadrzaj := map[string][]byte{}
+	for _, f := range z.File {
+		if _, vec := sadrzaj[f.Name]; vec {
+			return nil, fmt.Errorf("paket sadrži %q dvaput", f.Name)
+		}
+		rc, err := f.Open()
+		if err != nil {
+			return nil, err
+		}
+		// Granica se ne oslanja na ono što ZIP o sebi tvrdi: prijavljena
+		// veličina je podatak iz same datoteke i može lagati. Čita se jedan
+		// bajt više od dopuštenog, pa se prekoračenje prepozna.
+		b, err := io.ReadAll(io.LimitReader(rc, NajveceRaspakirano+1))
+		rc.Close()
+		if err != nil {
+			return nil, err
+		}
+		if uint64(len(b)) > NajveceRaspakirano {
+			return nil, fmt.Errorf("dio %q je veći nego što paket tvrdi", f.Name)
+		}
+		if uint64(len(b)) != f.UncompressedSize64 {
+			return nil, fmt.Errorf("dio %q ima %d bajta, a paket tvrdi %d",
+				f.Name, len(b), f.UncompressedSize64)
+		}
+		sadrzaj[f.Name] = b
+	}
+	if len(sadrzaj["manifest.json"]) == 0 {
+		return nil, fmt.Errorf("paket nema manifest")
+	}
+	return sadrzaj, nil
+}
+
 func dijeloviZa(inacica int) []string {
 	if inacica <= 1 {
 		return dijeloviV1
@@ -613,18 +684,9 @@ func Procitaj(r io.ReaderAt, velicina int64) (*Sadrzaj, error) {
 	if err != nil {
 		return nil, fmt.Errorf("paket nije ZIP: %w", err)
 	}
-	sadrzaj := map[string][]byte{}
-	for _, f := range z.File {
-		rc, err := f.Open()
-		if err != nil {
-			return nil, err
-		}
-		b, err := io.ReadAll(rc)
-		rc.Close()
-		if err != nil {
-			return nil, err
-		}
-		sadrzaj[f.Name] = b
+	sadrzaj, err := raspakiraj(z)
+	if err != nil {
+		return nil, err
 	}
 
 	var s Sadrzaj
