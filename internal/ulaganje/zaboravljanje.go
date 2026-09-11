@@ -15,7 +15,7 @@ import (
 	"io"
 	"time"
 
-	"gocop/internal/arhiva"
+	"gocop/internal/models"
 )
 
 // ZaUpospremanje je jedna letva s očitanjima koja su uložena a još stoje u
@@ -90,8 +90,11 @@ func Zaboravi(ctx context.Context, baza *sql.DB, arhivaPut, stationID string,
 	if zapisi == nil {
 		zapisi = io.Discard
 	}
+	// Čita se i podrijetlo, jer se po njemu zna u kojem nizu vrijednost mora
+	// biti. Brisanje se ne smije osloniti na to da je negdje u arhivi nešto s
+	// istim vremenom — mora biti baš ta vrijednost u baš tom nizu.
 	rows, err := baza.QueryContext(ctx, `
-		SELECT r.id, r.measured_at, r.level_cm, s.code
+		SELECT r.id, r.measured_at, r.level_cm, r.quality, r.source, s.code
 		FROM readings r JOIN stations s ON s.id = r.station_id
 		WHERE r.station_id = ? AND r.izdanje IS NOT NULL AND r.izdanje <> ''
 		ORDER BY r.measured_at`, stationID)
@@ -99,21 +102,23 @@ func Zaboravi(ctx context.Context, baza *sql.DB, arhivaPut, stationID string,
 		return nil, err
 	}
 	var ids []string
-	var redci []arhiva.Redak
+	var ocitanja []models.Reading
 	letva := ""
 	for rows.Next() {
+		var r models.Reading
 		var id, code string
-		var kad time.Time
 		var level sql.NullInt64
-		if err := rows.Scan(&id, &kad, &level, &code); err != nil {
+		if err := rows.Scan(&id, &r.MeasuredAt, &level, &r.Quality, &r.Source, &code); err != nil {
 			rows.Close()
 			return nil, err
 		}
 		letva = code
 		ids = append(ids, id)
 		if level.Valid {
-			redci = append(redci, arhiva.Redak{Vrijeme: kad.UTC(), Vrijednost: float64(level.Int64)})
+			v := int(level.Int64)
+			r.LevelCm = &v
 		}
+		ocitanja = append(ocitanja, r)
 	}
 	rows.Close()
 	if err := rows.Err(); err != nil {
@@ -123,16 +128,30 @@ func Zaboravi(ctx context.Context, baza *sql.DB, arhivaPut, stationID string,
 		return nil, fmt.Errorf("ta letva nema uloženih očitanja koja bi se pospremila")
 	}
 
+	razvrstano, _, _ := razvrstaj(ocitanja)
+	nizovi := []UNizu{
+		{Izvor: IzvorDojave, Velicina: "vodostaj",
+			Vrsta: zatecenaVrsta(arhivaPut, letva, IzvorDojave), Redci: razvrstano.mjereno},
+		{Izvor: IzvorRucnog, Velicina: "vodostaj",
+			Vrsta: zatecenaVrsta(arhivaPut, letva, IzvorRucnog), Redci: razvrstano.rucno},
+		{Izvor: "preracun-" + IzvorDojave, Velicina: "vodostaj",
+			Vrsta: zatecenaVrsta(arhivaPut, letva, "preracun-"+IzvorDojave), Redci: razvrstano.preracunato},
+	}
+	ukupno := 0
+	for _, n := range nizovi {
+		ukupno += len(n.Redci)
+	}
+
 	javi(zapisi, "provjeravam je li sve u arhivi", 0, 0)
-	nedostaje, err := ProvjeriUArhivi(arhivaPut, letva, redci)
+	nedostaje, err := ProvjeriUArhivi(arhivaPut, letva, nizovi)
 	if err != nil {
 		return nil, err
 	}
 	if nedostaje > 0 {
 		return nil, fmt.Errorf("provjera pala: %d od %d vrijednosti nije u arhivi — ništa se ne briše",
-			nedostaje, len(redci))
+			nedostaje, ukupno)
 	}
-	fmt.Fprintf(zapisi, "provjera: svih %d vrijednosti je u arhivi\n", len(redci))
+	fmt.Fprintf(zapisi, "provjera: svih %d vrijednosti je u arhivi\n", ukupno)
 
 	javi(zapisi, "brišem uložena očitanja", 0, 0)
 	obrisano, verzija, err := zaboraviUlozena(ctx, baza, ids)
@@ -141,7 +160,7 @@ func Zaboravi(ctx context.Context, baza *sql.DB, arhivaPut, stationID string,
 	}
 	fmt.Fprintf(zapisi, "obrisano: %d očitanja i %d verzija\n", obrisano, verzija)
 	fmt.Fprintln(zapisi, "prostor se vraća tek nakon VACUUM (Administracija → Održavanje baze)")
-	return &IshodPospremanja{Letva: letva, Provjereno: len(redci),
+	return &IshodPospremanja{Letva: letva, Provjereno: ukupno,
 		Obrisano: obrisano, Verzija: verzija}, nil
 }
 

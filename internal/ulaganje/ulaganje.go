@@ -218,19 +218,28 @@ func (p *Pregled) Ulozi(ctx context.Context, z Zahtjev, zapisi io.Writer) (*Isho
 	iz.Nizova, iz.Ocitanja, iz.Spojenih = izvjestaj.Nizova, izvjestaj.Ocitanja, izvjestaj.Spojenih
 
 	// Provjera prije ikakvog označavanja: je li svako uloženo očitanje doista u
-	// arhivi. Mjerenje se ne može ponoviti, pa se ne vjeruje na riječ.
+	// arhivi, u svom nizu i sa svojom vrijednošću. Mjerenje se ne može ponoviti,
+	// pa se ne vjeruje na riječ.
+	//
+	// Rekonstruirano mora biti u provjeri kao i ostalo. Prva izvedba ga je
+	// izostavila iz provjere, a ostavila u skupu koji se označava kao uloženo —
+	// pa se moglo obrisati iz operative a da nitko nije potvrdio da je stiglo.
 	javi(zapisi, "provjeravam je li sve stiglo u arhivu", 0, 0)
-	svi := append(append([]arhiva.Redak{}, p.mjereno...), p.rucno...)
-	nedostaje, err := ProvjeriUArhivi(z.ArhivaPut, p.Postaja.Code, svi)
+	provjera := p.nizoviZaProvjeru()
+	ukupno := 0
+	for _, n := range provjera {
+		ukupno += len(n.Redci)
+	}
+	nedostaje, err := ProvjeriUArhivi(z.ArhivaPut, p.Postaja.Code, provjera)
 	if err != nil {
 		return nil, err
 	}
 	if nedostaje > 0 {
 		return nil, fmt.Errorf("provjera pala: %d od %d vrijednosti nije u arhivi — ništa se ne označava",
-			nedostaje, len(svi))
+			nedostaje, ukupno)
 	}
-	iz.Provjereno = len(svi)
-	fmt.Fprintf(zapisi, "provjera: svih %d vrijednosti je u arhivi\n", len(svi))
+	iz.Provjereno = ukupno
+	fmt.Fprintf(zapisi, "provjera: svih %d vrijednosti je u arhivi\n", ukupno)
 
 	rec := ledger.New(z.Baza, z.Cvor)
 	if len(p.biljeske) > 0 {
@@ -253,6 +262,16 @@ func (p *Pregled) Ulozi(ctx context.Context, z Zahtjev, zapisi io.Writer) (*Isho
 	}
 	fmt.Fprintf(zapisi, "označeno kao uloženo (%s): %d očitanja\n", iz.Oznaka, iz.Oznaceno)
 	return iz, nil
+}
+
+// nizoviZaProvjeru kaže gdje svaka skupina mora završiti. Isti raspored po
+// kojem se i upisuje, pa se ne može razići s njim.
+func (p *Pregled) nizoviZaProvjeru() []UNizu {
+	return []UNizu{
+		{Izvor: p.Izvor, Velicina: "vodostaj", Vrsta: p.Vrsta, Redci: p.mjereno},
+		{Izvor: p.IzvorRucnog, Velicina: "vodostaj", Vrsta: p.VrstaRucnog, Redci: p.rucno},
+		{Izvor: "preracun-" + p.Izvor, Velicina: "vodostaj", Vrsta: p.Vrsta, Redci: p.preracunato},
+	}
 }
 
 // javi šalje korak odredištu koje ga zna primiti; naredbeni redak ne mora.
