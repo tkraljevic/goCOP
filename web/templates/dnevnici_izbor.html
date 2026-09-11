@@ -1,0 +1,63 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Dnevnici{{end}}
+
+{{define "content"}}
+<div class="dashboard-container">
+  <div class="section-title-wrap">
+    <div class="breadcrumb"><a href="/">Početna</a> › Dnevnici</div>
+    <h1 class="page-title">{{icon "notebook"}} Dnevnici</h1>
+    <p class="section-desc">
+      Tri su vrste i ne miješaju se: dežurni zapisnik centra obrane, i dnevnici dviju usluga održavanja.
+      Razlikuju se po tome tko ih vodi, kad se vode i što u njih ulazi.
+    </p>
+  </div>
+
+  <div class="dashboard-cards-grid">
+    <div class="dash-card">
+      <div class="dash-card-header">
+        <div class="dash-card-icon-box primary">{{icon "activity"}}</div>
+        <span class="dash-status-pill {{if .BrojCOP}}info{{else}}default{{end}}">{{.BrojCOP}}</span>
+      </div>
+      <div class="dash-card-body">
+        <h2 class="dash-card-title">Dnevnici COP-a</h2>
+        <p class="dash-card-desc">
+          Dežurstvo centra obrane od poplava. Upisuju ga operateri dok traje obrana: vrijeme, tko javlja i što.
+          Vodi se po centru — jedan po {{terml "sektor"}}u — i teče danima, bez izvođača i nadzora.
+        </p>
+      </div>
+      <div class="dash-card-footer"><a href="/dnevnici/popis?vrsta=OBRANA" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
+    </div>
+
+    <div class="dash-card">
+      <div class="dash-card-header">
+        <div class="dash-card-icon-box teal">{{icon "waves"}}</div>
+        <span class="dash-status-pill {{if .BrojA02}}info{{else}}default{{end}}">{{.BrojA02}}</span>
+      </div>
+      <div class="dash-card-body">
+        <h2 class="dash-card-title">Dnevnici usluga A.02</h2>
+        <p class="dash-card-desc">
+          Održavanje voda I. i II. reda. Vodi ga izvođač svaki dan, nadzire ovlaštenik za praćenje ugovora.
+          Nije građevinski dnevnik, ali je po obliku najbliži njemu. Po {{terml "sektor"}}u i {{terml "podrucju"}}.
+        </p>
+      </div>
+      <div class="dash-card-footer"><a href="/dnevnici/popis?vrsta=ODRZAVANJE_A02" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
+    </div>
+
+    <div class="dash-card">
+      <div class="dash-card-header">
+        <div class="dash-card-icon-box teal">{{icon "construction"}}</div>
+        <span class="dash-status-pill {{if .BrojA03}}info{{else}}default{{end}}">{{.BrojA03}}</span>
+      </div>
+      <div class="dash-card-body">
+        <h2 class="dash-card-title">Dnevnici usluga A.03</h2>
+        <p class="dash-card-desc">
+          Održavanje kanala III. i IV. reda. Isti oblik kao A.02, druga usluga i drugi ugovor.
+          Po {{terml "sektor"}}u i {{terml "podrucju"}}.
+        </p>
+      </div>
+      <div class="dash-card-footer"><a href="/dnevnici/popis?vrsta=ODRZAVANJE_A03" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
+    </div>
+  </div>
+</div>
+{{end}}

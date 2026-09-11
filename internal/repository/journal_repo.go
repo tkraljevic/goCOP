@@ -451,3 +451,26 @@ func (r *JournalRepository) NumberGaps(ctx context.Context, journalID string) ([
 	}
 	return gaps, rows.Err()
 }
+
+// BrojPoVrstama broji dnevnike po vrsti, za razdjelnicu na /dnevnici.
+//
+// Dnevnici se razlikuju po tome tko ih vodi i čemu služe: dežurni zapisnik
+// COP-a nije isto što i dnevnik usluge održavanja, pa ni ne stoje na istom
+// popisu. Brojka uz karticu kaže ima li se ondje što otvoriti.
+func (r *JournalRepository) BrojPoVrstama(ctx context.Context) (map[string]int, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT kind, count(*) FROM journals GROUP BY kind`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]int{}
+	for rows.Next() {
+		var k string
+		var n int
+		if err := rows.Scan(&k, &n); err != nil {
+			return nil, err
+		}
+		out[k] = n
+	}
+	return out, rows.Err()
+}

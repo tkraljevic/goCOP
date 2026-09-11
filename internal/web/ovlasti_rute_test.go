@@ -107,3 +107,28 @@ func TestSveArhivskeRuteIduKrozOgradu(t *testing.T) {
 		}
 	}
 }
+
+// Poslužitelj ne smije pasti pri pokretanju zbog sudara putanja.
+//
+// "/dnevnici/vrsta/{kind}" sudarilo se s "/dnevnici/{id}/edit" — obje hvataju
+// "/dnevnici/vrsta/edit" — i Go je to javio panikom pri pokretanju. Ovo drži da
+// se rute daju registrirati.
+func TestRuteSeDajuRegistriratiBezSudara(t *testing.T) {
+	defer func() {
+		if x := recover(); x != nil {
+			t.Fatalf("registracija ruta je pukla: %v", x)
+		}
+	}()
+	mux := http.NewServeMux()
+	for _, uzorak := range []string{
+		"GET /dnevnici",
+		"GET /dnevnici/popis",
+		"GET /dnevnici/new",
+		"GET /dnevnici/{id}",
+		"GET /dnevnici/{id}/edit",
+		"GET /dnevnici/{id}/ispis",
+		"GET /dnevnici/{id}/listovi/{sheet}",
+	} {
+		mux.Handle(uzorak, http.NotFoundHandler())
+	}
+}
