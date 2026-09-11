@@ -595,6 +595,8 @@ func InitSchema(database *sql.DB) error {
 		);`,
 		`CREATE TABLE IF NOT EXISTS journal_entries (
 			id TEXT PRIMARY KEY,
+			happened_at DATETIME,
+			reported_by TEXT NOT NULL DEFAULT '',
 			journal_id TEXT NOT NULL REFERENCES journals(id) ON DELETE CASCADE,
 			sheet_id TEXT NOT NULL DEFAULT '',
 			number INTEGER NOT NULL DEFAULT 0,
@@ -711,6 +713,18 @@ func migrateSchema(database *sql.DB) error {
 		{"watercourses", "notes", "TEXT NOT NULL DEFAULT ''"},
 		{"journal_sheets", "label", "TEXT NOT NULL DEFAULT ''"},
 		{"journal_entries", "side", "TEXT NOT NULL DEFAULT ''"},
+		// Dnevnik COP-a bilježi dvije stvari koje građevinski ne treba.
+		//
+		// Kad se dogodilo naspram kad je upisano: u zapisniku se u 07:15 upisuje
+		// vodostaj od 07:00, i oba su vremena dokazna. Jedno vrijeme briše
+		// razliku između "javio odmah" i "javio sat kasnije".
+		//
+		// Tko je javio naspram tko je upisao: stupac s imenom u starim
+		// dnevnicima najčešće je onaj tko je javio, ne dežurni koji piše — "Sa
+		// porte javljaju", "Javorović iz Glavnog centra javio". Spojeno u jedno
+		// polje, odgovornost se pripiše onome tko je držao olovku.
+		{"journal_entries", "happened_at", "DATETIME"},
+		{"journal_entries", "reported_by", "TEXT NOT NULL DEFAULT ''"},
 		{"maintained_waters", "program", "TEXT NOT NULL DEFAULT 'A.02'"},
 		{"sections", "description_custom", "INTEGER NOT NULL DEFAULT 0"},
 		{"sections", "length_km", "REAL"},

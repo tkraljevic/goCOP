@@ -324,6 +324,16 @@ type JournalEntry struct {
 	DueDate *time.Time `json:"due_date,omitempty"`
 	Status  string     `json:"status,omitempty"` // TaskStatus*
 
+	// HappenedAt je kad se dogodilo, CreatedAt kad je upisano. U dnevniku COP-a
+	// to nije isto: u 07:15 se upisuje vodostaj od 07:00, i oba su vremena
+	// dokazna. Prazno znači da se zna samo dan.
+	HappenedAt *time.Time `json:"happened_at,omitempty"`
+
+	// ReportedBy je tko je javio, kad to nije onaj tko upisuje: "Sa porte",
+	// "Javorović iz Glavnog centra". Odgovornost za sadržaj je njegova, za
+	// zapis onoga tko je upisao.
+	ReportedBy string `json:"reported_by,omitempty"`
+
 	ParentID string `json:"parent_id,omitempty"` // odgovor na drugi upis
 
 	Voided     bool   `json:"voided"`
@@ -357,7 +367,17 @@ const (
 	EntryKindNote   = "NAPOMENA" // napomena bilo koga
 	EntryKindTask   = "NALOG"    // nalog izvođaču s rokom
 	EntryKindReview = "OCJENA"   // ocjena izvedenog od nadzora
+
+	// Vrste iz dnevnika COP-a. Dežurstvo se upisuje na početku i kraju smjene,
+	// dojava nosi ono što je netko javio, obavijest ono što je stiglo odozgo.
+	EntryKindDuty   = "DEZURSTVO"
+	EntryKindReport = "DOJAVA"
+	EntryKindNotice = "OBAVIJEST"
 )
+
+// EntryKindsCOP su vrste upisa u dnevniku dežurstva, redom kojim ih obrazac
+// nudi. Građevinske vrste ondje nemaju smisla, kao ni ove u dnevniku usluge.
+var EntryKindsCOP = []string{EntryKindReport, EntryKindNotice, EntryKindNote, EntryKindDuty}
 
 // EntryKinds su vrste upisa redom kojim ih obrazac nudi
 var EntryKinds = []string{EntryKindWork, EntryKindNote, EntryKindTask, EntryKindReview}
@@ -369,6 +389,12 @@ func EntryKindLabel(kind string) string {
 		return "Rad"
 	case EntryKindNote:
 		return "Napomena"
+	case EntryKindDuty:
+		return "Dežurstvo"
+	case EntryKindReport:
+		return "Dojava"
+	case EntryKindNotice:
+		return "Obavijest"
 	case EntryKindTask:
 		return "Nalog"
 	case EntryKindReview:
