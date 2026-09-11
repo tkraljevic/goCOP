@@ -27,11 +27,11 @@ func TestZapisUDnevnikCOPaPravila(t *testing.T) {
 	dan := func(d int) time.Time { return time.Date(2026, 9, d, 0, 0, 0, 0, models.Zagreb) }
 
 	tests := []struct {
-		sto   string
-		u     *models.User
-		perms *models.UserPermissions
-		j     *models.Journal
-		e     models.JournalEntry
+		sto    string
+		u      *models.User
+		perms  *models.UserPermissions
+		j      *models.Journal
+		e      models.JournalEntry
 		greska string
 	}{
 		{"bez prijave", nil, perms, otvoren, models.JournalEntry{Kind: models.EntryKindReport, Text: "x", Date: dan(5)}, "prijavu"},
