@@ -147,12 +147,17 @@ func Upisi(koren, sliv, letva, izvor, velicina, vrsta string, redci []Redak) (st
 	put := filepath.Join(mapa, KanonskoIme(letva, izvor, velicina, vrsta,
 		redci[0].Vrijeme, redci[len(redci)-1].Vrijeme))
 
+	// Vrijeme se piše u zoni koju gradnja za taj izvor očekuje. Hrvatski izvori
+	// drže LOKALNI sat u stupcu nazvanom vrijeme_utc — naziv je zatečen i
+	// pogrešan, ali gradnja tako čita, pa bi pravi UTC ovdje značio da se svaka
+	// upisana vrijednost pri sljedećoj gradnji pomakne za sat ili dva.
+	zona := zonaIzvora(izvor)
 	privremeno := put + ".nova"
-	if err := zapisiCSV(privremeno, velicina, redci); err != nil {
+	if err := zapisiCSV(privremeno, velicina, zona, redci); err != nil {
 		os.Remove(privremeno)
 		return "", err
 	}
-	if err := provjeriZapisano(privremeno, redci); err != nil {
+	if err := provjeriZapisano(privremeno, zona, redci); err != nil {
 		os.Remove(privremeno)
 		return "", err
 	}
@@ -235,7 +240,7 @@ func PostojeciRedci(koren, sliv, letva, izvor, velicina, vrsta string) ([]Redak,
 			if len(dj) != 2 {
 				continue
 			}
-			t, err := vrijemeIzCSV(dj[0])
+			t, err := vrijemeIzCSV(dj[0], zonaIzvora(izvor))
 			if err != nil {
 				continue
 			}
@@ -253,10 +258,11 @@ func PostojeciRedci(koren, sliv, letva, izvor, velicina, vrsta string) ([]Redak,
 	return out, nil
 }
 
-func vrijemeIzCSV(s string) (time.Time, error) {
+func vrijemeIzCSV(s string, zona *time.Location) (time.Time, error) {
 	s = strings.TrimSpace(s)
 	if len(s) >= 19 {
-		return time.Parse("2006-01-02 15:04:05", s[:19])
+		t, err := time.ParseInLocation("2006-01-02 15:04:05", s[:19], zona)
+		return t.UTC(), err
 	}
 	return time.Parse("2006-01-02", s)
 }
@@ -278,7 +284,7 @@ func zaglavlje(velicina string, redci []Redak) string {
 	return prvi + ";" + drugi
 }
 
-func zapisiCSV(put, velicina string, redci []Redak) error {
+func zapisiCSV(put, velicina string, zona *time.Location, redci []Redak) error {
 	f, err := os.Create(put)
 	if err != nil {
 		return err
@@ -289,7 +295,7 @@ func zapisiCSV(put, velicina string, redci []Redak) error {
 		return err
 	}
 	for _, r := range redci {
-		if _, err := fmt.Fprintf(w, "%s;%s\n", vrijemeUCSV(r), brojUCSV(r.Vrijednost)); err != nil {
+		if _, err := fmt.Fprintf(w, "%s;%s\n", vrijemeUCSV(r, zona), brojUCSV(r.Vrijednost)); err != nil {
 			f.Close()
 			return err
 		}
@@ -301,11 +307,13 @@ func zapisiCSV(put, velicina string, redci []Redak) error {
 	return f.Close()
 }
 
-func vrijemeUCSV(r Redak) string {
+// vrijemeUCSV piše sat u zoni izvora, a dan bez zone — dan je dan bez obzira
+// odakle se gleda, i gradnja ga tako i čita.
+func vrijemeUCSV(r Redak, zona *time.Location) string {
 	if r.PoDanu {
 		return r.Vrijeme.UTC().Format("2006-01-02")
 	}
-	return r.Vrijeme.UTC().Format("2006-01-02 15:04:05")
+	return r.Vrijeme.In(zona).Format("2006-01-02 15:04:05")
 }
 
 // brojUCSV piše bez suvišnih nula: 776 ostaje 776, a 8,66 ostaje 8.66.
@@ -318,7 +326,7 @@ func brojUCSV(v float64) string {
 // provjeriZapisano čita datoteku natrag i uspoređuje s onim što je u nju
 // otišlo. Mjerenje se ne može ponoviti, pa se provjerava prije nego se stara
 // datoteka makne.
-func provjeriZapisano(put string, redci []Redak) error {
+func provjeriZapisano(put string, zona *time.Location, redci []Redak) error {
 	f, err := os.Open(put)
 	if err != nil {
 		return err
@@ -338,7 +346,7 @@ func provjeriZapisano(put string, redci []Redak) error {
 		if n >= len(redci) {
 			return fmt.Errorf("provjera: zapisano je više redaka nego što ih je bilo")
 		}
-		ocekivano := vrijemeUCSV(redci[n]) + ";" + brojUCSV(redci[n].Vrijednost)
+		ocekivano := vrijemeUCSV(redci[n], zona) + ";" + brojUCSV(redci[n].Vrijednost)
 		if redak != ocekivano {
 			return fmt.Errorf("provjera: redak %d je %q, a upisano je bilo %q", n+1, redak, ocekivano)
 		}

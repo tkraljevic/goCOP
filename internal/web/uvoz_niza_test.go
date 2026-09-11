@@ -129,7 +129,12 @@ func TestUpisSlazeKanonskoImeIMicePrijasnju(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ocekivano := "vrijeme_utc;vodostaj_cm\n2013-06-14 05:00:00;776\n2014-01-02 06:00:00;774.5\n"
+	// Sat se piše u ZONI IZVORA, ne u UTC-u. Hrvatski izvori drže lokalni sat u
+	// stupcu nazvanom vrijeme_utc — naziv je zatečen i pogrešan, ali gradnja
+	// tako čita. Piše li se ovdje pravi UTC, svaka se vrijednost pri sljedećoj
+	// gradnji pomakne za sat zimi i dva ljeti, i to promjenjivo kroz godinu.
+	// 05:00 UTC u lipnju i 06:00 UTC u siječnju oboje su 07:00 po Zagrebu.
+	ocekivano := "vrijeme_utc;vodostaj_cm\n2013-06-14 07:00:00;776\n2014-01-02 07:00:00;774.5\n"
 	if string(b) != ocekivano {
 		t.Errorf("zapisano:\n%q\nočekivano:\n%q", string(b), ocekivano)
 	}
