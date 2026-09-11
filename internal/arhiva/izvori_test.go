@@ -253,3 +253,39 @@ func TestDopunaCuvaStarije(t *testing.T) {
 		t.Errorf("uz novu je ostalo i staro: %v", puts)
 	}
 }
+
+// Zatečeni niz mora proći kroz dopunu nepromijenjen. Čita se i piše istom
+// zonom, pa je put tam-i-natrag identitet — inače bi svaka dopuna pomaknula
+// cijelu povijest za sat ili dva.
+func TestDopunaNePomiceZateceno(t *testing.T) {
+	koren := t.TempDir()
+	mapa := filepath.Join(koren, "dunav", "vukovar")
+	if err := os.MkdirAll(mapa, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// Hrvatski izvor: u datoteci stoji LOKALNI sat, iako stupac kaže vrijeme_utc.
+	izvorno := "vrijeme_utc;vodostaj_cm\n2026-09-11 04:00:00;-90\n2026-09-11 05:00:00;-90\n"
+	put := filepath.Join(mapa, "vukovar_letva-dhmz_vodostaj_satni_2026.csv")
+	if err := os.WriteFile(put, []byte(izvorno), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	redci, err := PostojeciRedci(koren, "dunav", "vukovar", "letva-dhmz", "vodostaj", "satni")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 04:00 po Zagrebu u rujnu je 02:00 UTC.
+	if got := redci[0].Vrijeme.UTC().Format("15:04"); got != "02:00" {
+		t.Errorf("pročitano %s, očekivano 02:00 UTC", got)
+	}
+	noviPut, err := Dopuni(koren, "dunav", "vukovar", "letva-dhmz", "vodostaj", "satni", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(noviPut)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(b) != izvorno {
+		t.Errorf("dopuna je promijenila zatečeno:\n%q\numjesto\n%q", string(b), izvorno)
+	}
+}
