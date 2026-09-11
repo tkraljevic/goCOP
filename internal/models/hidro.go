@@ -70,6 +70,33 @@ func NazivVelicine(v string) string {
 }
 
 // NazivIzvora objašnjava odakle niz dolazi i koliko mu se vjeruje.
+// Skupine izvora. Ljestvica od osam stupnjeva bila je složenost koja ne radi
+// ništa: izmjereno je da na Batini, od 15.960 trenutaka gdje se izvori razilaze
+// preko 10 cm, ovjereni niz odlučuje u SVIH 15.960 — fini poredak među
+// dojavama ne odlučuje gotovo nikad. Ostaju tri skupine, a unutar skupine
+// odlučuje izmjerena točnost.
+const (
+	SkupinaOvjereno   = "ovjereno"
+	SkupinaSLetve     = "s letve"
+	SkupinaOperativno = "operativno"
+	SkupinaPreracun   = "preračun"
+)
+
+// SkupinaIzvora svrstava izvor po redu povjerenja, ne po imenu — red je ono
+// što administrator uređuje, pa skupina slijedi njegovu odluku.
+func SkupinaIzvora(naziv string, red int) string {
+	if strings.HasPrefix(naziv, "preracun-") {
+		return SkupinaPreracun
+	}
+	switch {
+	case red <= 10:
+		return SkupinaOvjereno
+	case red <= 19:
+		return SkupinaSLetve
+	}
+	return SkupinaOperativno
+}
+
 func NazivIzvora(i string) string {
 	switch {
 	case i == "his2000":
@@ -177,6 +204,10 @@ type SpojenaVrijednost struct {
 
 	// Biljeska je ono što je čovjek rekao o toj vrijednosti. Ne mijenja ju —
 	// „očitan maksimum" uz 772 cm u 11:11 nije ispravak nego svjedočanstvo.
+	// Skupina je ono što se ispisuje umjesto punog naziva izvora: ovjereno,
+	// s letve, operativno. Puni naziv ostaje u opisu.
+	Skupina string
+
 	Biljeska         string
 	BiljeskaTko      string
 	BiljeskaVrsta    string // vrh, dno, granica, procjena…

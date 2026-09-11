@@ -49,6 +49,9 @@ type IzvorURedu struct {
 	GreskaPut string
 }
 
+// Skupina svrstava izvor po redu povjerenja — ovjereno, s letve, operativno.
+func (i IzvorURedu) Skupina() string { return models.SkupinaIzvora(i.Naziv, i.Red) }
+
 // ImaPodatke javlja stoji li iza izvora išta. Izvor bez ijednog niza je zapis
 // o odluci, ne o podacima.
 func (i IzvorURedu) ImaPodatke() bool { return i.Nizova > 0 }

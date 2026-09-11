@@ -14,6 +14,13 @@
       Isključeni izvor ostaje u arhivi, ali se nigdje ne prikazuje. Točnost je odstupanje u jedinici veličine —
       u koliko se centimetara drži 68 % vrijednosti tog izvora.
     </p>
+    <p class="page-desc">
+      Red povjerenja svrstava izvor u jednu od tri skupine: <strong>ovjereno</strong> (do 10) su službeni,
+      revidirani nizovi; <strong>s letve</strong> (11–19) je ono što je čovjek očitao — ovjereni niz je zaglađen
+      i takve trenutke zna izgubiti; <strong>operativno</strong> (20 i više) su dojave automatike. Unutar skupine
+      odlučuje točnost. Sitniji poredak ne treba: izmjereno je da ondje gdje se dvije dojave razilaze, ovjereni
+      niz je gotovo uvijek ondje i odlučuje.
+    </p>
   </div>
 </div>
 
@@ -35,7 +42,7 @@
 
     <div class="izvor-glava">
       <div>
-        <h2 class="izvor-naziv mono">{{.Naziv}}</h2>
+        <h2 class="izvor-naziv mono">{{.Naziv}} <span class="badge badge-inactive">{{.Skupina}}</span></h2>
         <p class="izvor-obujam">
           {{if .Nizova}}{{brojHR .Zapisa}} {{uzBroj .Zapisa "zapis" "zapisa" "zapisa"}} ·
             {{.Nizova}} {{uzBroj .Nizova "niz" "niza" "nizova"}} ·

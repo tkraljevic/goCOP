@@ -915,16 +915,25 @@ type Izvor struct {
 // zadaniIzvori je ono što je do sada stajalo u kodu, prepisano u tablicu.
 // Točnosti su izmjerene usporedbom sa službeno ovjerenim nizom, na stotinama
 // tisuća sati kroz devet letava — osim ondje gdje napomena kaže drukčije.
+// Redovi su sravnjeni na tri skupine. Prije ih je bilo osam, a izmjereno je da
+// fini poredak među dojavama ne odlučuje gotovo ništa: gdje god se dvije
+// posvađaju, ovjereni niz je ondje i pobjeđuje. Unutar skupine odlučuje
+// izmjerena točnost, koja ostaje jer je mjerena i jer se ispisuje kao ±.
 var zadaniIzvori = []Izvor{
+	// ovjereno — službeni, revidirani nizovi
 	{"his2000", 0, 10, true, "", "referenca — po njoj su ostali izmjereni"},
+	{"vituki", 5, 10, true, "", "mađarska služba, na tamošnjim letvama jedini izvor; točnost proglašena, ne izmjerena"},
+	{"his2000-cs", 0, 10, false, "", "Donji Miholjac — odlučuje se kad dođe Drava"},
+	{"his2000-spojeno", 0, 10, false, "", "Donji Miholjac — odlučuje se kad dođe Drava"},
+	{"his2000-ukinuta-nizv", 0, 10, false, "", "Donji Miholjac — odlučuje se kad dođe Drava"},
+	{"his2000-ukinuto", 0, 10, false, "", "Donji Miholjac — odlučuje se kad dođe Drava"},
+	// s letve — ono što je čovjek očitao; ovjereni niz je zaglađen i takve
+	// trenutke zna izgubiti, pa stoji ispred dojava
+	{"cop-rucno", 1, 15, true, "", "očitanje s letve, upisano u programu"},
+	// operativno — dojave automatike
 	{"letva-dhmz", 1, 20, true, "", ""},
-	{"cop", 3, 30, true, "", ""},
-	{"letva-hv", 5, 40, true, "", "dobra većinu vremena; u zamrznutim razdobljima javlja istu vrijednost danima"},
-	{"vituki", 5, 50, true, "", "točnost proglašena, ne izmjerena — nema preklapanja s ovjerenim nizom"},
-	{"his2000-cs", 0, 11, false, "", "Donji Miholjac — odlučuje se kad dođe Drava"},
-	{"his2000-spojeno", 0, 12, false, "", "Donji Miholjac — odlučuje se kad dođe Drava"},
-	{"his2000-ukinuta-nizv", 0, 13, false, "", "Donji Miholjac — odlučuje se kad dođe Drava"},
-	{"his2000-ukinuto", 0, 14, false, "", "Donji Miholjac — odlučuje se kad dođe Drava"},
+	{"cop", 3, 20, true, "", ""},
+	{"letva-hv", 5, 20, true, "", "dobra većinu vremena; u zamrznutim razdobljima javlja istu vrijednost danima"},
 }
 
 // zadanaTocnost vrijedi za izvor kojeg u tablici nema. Preračun se prepoznaje
@@ -954,7 +963,7 @@ func upisiZadaneIzvore(db *sql.DB) error {
 		}
 	}
 	_, err := db.Exec(`INSERT OR IGNORE INTO izvori (naziv, tocnost, red, ukljucen, napomena)
-		SELECT DISTINCT izvor, ?, 900, 0, 'novi izvor — uključiti ručno'
+		SELECT DISTINCT izvor, ?, 20, 0, 'novi izvor — uključiti ručno'
 		FROM nizovi WHERE izvor NOT LIKE 'preracun-%'`, zadanaTocnost(""))
 	return err
 }
