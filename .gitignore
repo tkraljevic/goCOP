@@ -40,3 +40,8 @@ ocitanja/
 # radne datoteke alata za razvoj
 .claude/
 pakete/
+
+# Uvoznik starih dnevnika COP-a radi nad digitaliziranim uvezom s imenima
+# djelatnika i ostaje uz taj uvez, izvan repozitorija — kao i imenik.
+cmd/uvoz-dnevnika-cop/
+/uvoz-dnevnika-cop
