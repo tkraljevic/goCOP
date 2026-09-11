@@ -42,33 +42,47 @@ func IsContractor(u *models.User) bool {
 	return false
 }
 
-// CanWrite: pravo pisanja u području dnevnika (izvođač ga ima kroz svoju dužnost)
-func (s *JournalService) CanWrite(perms *models.UserPermissions, area models.Area) bool {
-	if perms == nil {
+// CanWrite: pravo pisanja u dosegu dnevnika (izvođač ga ima kroz svoju
+// dužnost). Doseg, ne područje: dnevnik sektorskog COP-a prima upis od
+// svakoga tko vodi sektor ili bilo koje područje u njemu.
+func (s *JournalService) CanWrite(perms *models.UserPermissions, o models.Opseg) bool {
+	if perms == nil || o.Prazan() {
 		return false
 	}
 	if perms.IsGlobalAdmin {
 		return true
 	}
-	return perms.AdminSectors[area.SectorID] || perms.AdminAreas[area.ID] ||
-		perms.AllowedSectors[area.SectorID] || perms.AllowedAreas[area.ID]
+	if o.Sektor != "" && (perms.AdminSectors[o.Sektor] || perms.AllowedSectors[o.Sektor]) {
+		return true
+	}
+	for _, id := range o.Podrucja {
+		if perms.AdminAreas[id] || perms.AllowedAreas[id] {
+			return true
+		}
+	}
+	return false
 }
 
 // CanSupervise: nadzor piše nalog i ocjenu i potvrđuje list za nadzor — HV
 // strana s pravom pisanja, ne izvođač
-func (s *JournalService) CanSupervise(u *models.User, perms *models.UserPermissions, area models.Area) bool {
-	return s.CanWrite(perms, area) && !IsContractor(u)
+func (s *JournalService) CanSupervise(u *models.User, perms *models.UserPermissions, o models.Opseg) bool {
+	return s.CanWrite(perms, o) && !IsContractor(u)
 }
 
 // CanManage: naslovnicu uređuje nadzor ili administrator područja
-func (s *JournalService) CanManage(u *models.User, perms *models.UserPermissions, area models.Area) bool {
-	return s.CanSupervise(u, perms, area)
+func (s *JournalService) CanManage(u *models.User, perms *models.UserPermissions, o models.Opseg) bool {
+	return s.CanSupervise(u, perms, o)
 }
 
-// AllowedKinds vraća vrste upisa koje osoba smije pisati
-func (s *JournalService) AllowedKinds(u *models.User, perms *models.UserPermissions, area models.Area) []string {
-	if !s.CanWrite(perms, area) {
+// AllowedKinds vraća vrste upisa koje osoba smije pisati u dnevnik j.
+// Dnevnik COP-a ima svoje vrste: u zapisnik dežurstva ne ulazi rad
+// izvođača ni nalog, a dojava i obavijest nemaju što tražiti na listu usluge.
+func (s *JournalService) AllowedKinds(u *models.User, perms *models.UserPermissions, o models.Opseg, j *models.Journal) []string {
+	if !s.CanWrite(perms, o) {
 		return nil
+	}
+	if j != nil && j.CentarSektor != "" {
+		return models.EntryKindsCOP
 	}
 	if IsContractor(u) {
 		return []string{models.EntryKindWork, models.EntryKindNote}
@@ -86,7 +100,7 @@ func (s *JournalService) GetJournal(ctx context.Context, id string) (*models.Jou
 
 // SaveJournal upisuje ili mijenja naslovnicu
 func (s *JournalService) SaveJournal(ctx context.Context, u *models.User, perms *models.UserPermissions, area models.Area, j *models.Journal) error {
-	if !s.CanManage(u, perms, area) {
+	if !s.CanManage(u, perms, models.OpsegPodrucja(area)) {
 		return errors.New("naslovnicu dnevnika uređuje ovlaštenik ili rukovoditelj područja")
 	}
 	if !models.IsJournalKind(j.Kind) {
@@ -131,8 +145,8 @@ func (s *JournalService) GetSheet(ctx context.Context, id string) (*models.Journ
 // NewSheet otvara novi list za dan: s vodostajima iz očitanja, osobljem i
 // strojevima s prethodnog lista i, kad ima interneta, vremenskim prilikama.
 // U danu može biti više listova — po ekipi, kao u tiskanom dnevniku.
-func (s *JournalService) NewSheet(ctx context.Context, u *models.User, perms *models.UserPermissions, area models.Area, j *models.Journal, day time.Time, label string) (*models.JournalSheet, error) {
-	if !s.CanWrite(perms, area) {
+func (s *JournalService) NewSheet(ctx context.Context, u *models.User, perms *models.UserPermissions, o models.Opseg, j *models.Journal, day time.Time, label string) (*models.JournalSheet, error) {
+	if !s.CanWrite(perms, o) {
 		return nil, errors.New("nemate pravo pisati u ovaj dnevnik")
 	}
 	sh := &models.JournalSheet{JournalID: j.ID, Date: day, Label: strings.TrimSpace(label)}
@@ -172,8 +186,8 @@ func (s *JournalService) fillWeather(ctx context.Context, sh *models.JournalShee
 }
 
 // RefreshWeather ponovno povlači prilike za list, na zahtjev
-func (s *JournalService) RefreshWeather(ctx context.Context, perms *models.UserPermissions, area models.Area, j *models.Journal, sh *models.JournalSheet) error {
-	if !s.CanWrite(perms, area) {
+func (s *JournalService) RefreshWeather(ctx context.Context, perms *models.UserPermissions, o models.Opseg, j *models.Journal, sh *models.JournalSheet) error {
+	if !s.CanWrite(perms, o) {
 		return errors.New("nemate pravo pisati u ovaj dnevnik")
 	}
 	if j.Latitude == nil || j.Longitude == nil {
@@ -230,8 +244,8 @@ func (s *JournalService) waterLevels(ctx context.Context, j *models.Journal, day
 }
 
 // UpdateSheet mijenja uvjete, osoblje i strojeve na listu; potvrde se ne diraju
-func (s *JournalService) UpdateSheet(ctx context.Context, perms *models.UserPermissions, area models.Area, sh *models.JournalSheet) error {
-	if !s.CanWrite(perms, area) {
+func (s *JournalService) UpdateSheet(ctx context.Context, perms *models.UserPermissions, o models.Opseg, sh *models.JournalSheet) error {
+	if !s.CanWrite(perms, o) {
 		return errors.New("nemate pravo pisati u ovaj dnevnik")
 	}
 	cur, err := s.repo.GetSheet(ctx, sh.ID)
@@ -259,8 +273,8 @@ func (s *JournalService) UpdateSheet(ctx context.Context, perms *models.UserPerm
 }
 
 // ConfirmSheet potvrđuje list za izvođača ili za nadzor, prema tome tko potvrđuje
-func (s *JournalService) ConfirmSheet(ctx context.Context, u *models.User, perms *models.UserPermissions, area models.Area, sheetID string) error {
-	if u == nil || !s.CanWrite(perms, area) {
+func (s *JournalService) ConfirmSheet(ctx context.Context, u *models.User, perms *models.UserPermissions, o models.Opseg, sheetID string) error {
+	if u == nil || !s.CanWrite(perms, o) {
 		return errors.New("nemate pravo potvrditi list")
 	}
 	sh, err := s.repo.GetSheet(ctx, sheetID)
@@ -310,12 +324,12 @@ func ContractorEntries(entries []models.JournalEntry) int {
 }
 
 // AddEntry upisuje na list; vrsta mora biti dopuštena osobi
-func (s *JournalService) AddEntry(ctx context.Context, u *models.User, perms *models.UserPermissions, area models.Area, j *models.Journal, sh *models.JournalSheet, e *models.JournalEntry) (*models.JournalSheet, error) {
+func (s *JournalService) AddEntry(ctx context.Context, u *models.User, perms *models.UserPermissions, o models.Opseg, j *models.Journal, sh *models.JournalSheet, e *models.JournalEntry) (*models.JournalSheet, error) {
 	if u == nil {
 		return nil, errors.New("upis zahtijeva prijavu")
 	}
 	allowed := false
-	for _, k := range s.AllowedKinds(u, perms, area) {
+	for _, k := range s.AllowedKinds(u, perms, o, j) {
 		if k == e.Kind {
 			allowed = true
 		}
@@ -363,8 +377,8 @@ func (s *JournalService) AddEntry(ctx context.Context, u *models.User, perms *mo
 }
 
 // VoidEntry stornira upis: ostaje na listu s brojem i razlogom
-func (s *JournalService) VoidEntry(ctx context.Context, u *models.User, perms *models.UserPermissions, area models.Area, id, reason string) error {
-	if u == nil || !s.CanWrite(perms, area) {
+func (s *JournalService) VoidEntry(ctx context.Context, u *models.User, perms *models.UserPermissions, o models.Opseg, id, reason string) error {
+	if u == nil || !s.CanWrite(perms, o) {
 		return errors.New("nemate pravo storniranja")
 	}
 	e, err := s.repo.GetEntry(ctx, id)
@@ -374,7 +388,7 @@ func (s *JournalService) VoidEntry(ctx context.Context, u *models.User, perms *m
 	if e == nil {
 		return errors.New("upis nije pronađen")
 	}
-	if e.UserID != u.ID.String() && !s.CanSupervise(u, perms, area) {
+	if e.UserID != u.ID.String() && !s.CanSupervise(u, perms, o) {
 		return errors.New("tuđi upis stornira samo nadzor")
 	}
 	if strings.TrimSpace(reason) == "" {
@@ -386,8 +400,8 @@ func (s *JournalService) VoidEntry(ctx context.Context, u *models.User, perms *m
 
 // SetTaskStatus mijenja stanje naloga: izvođač ga označava izvedenim,
 // nadzor ga može i otkazati ili vratiti u otvoren
-func (s *JournalService) SetTaskStatus(ctx context.Context, u *models.User, perms *models.UserPermissions, area models.Area, id, status string) error {
-	if u == nil || !s.CanWrite(perms, area) {
+func (s *JournalService) SetTaskStatus(ctx context.Context, u *models.User, perms *models.UserPermissions, o models.Opseg, id, status string) error {
+	if u == nil || !s.CanWrite(perms, o) {
 		return errors.New("nemate pravo mijenjati nalog")
 	}
 	e, err := s.repo.GetEntry(ctx, id)
@@ -403,7 +417,7 @@ func (s *JournalService) SetTaskStatus(ctx context.Context, u *models.User, perm
 	switch status {
 	case models.TaskDone:
 	case models.TaskOpen, models.TaskCancelled:
-		if !s.CanSupervise(u, perms, area) {
+		if !s.CanSupervise(u, perms, o) {
 			return errors.New("nalog otkazuje ili ponovno otvara samo nadzor")
 		}
 	default:
