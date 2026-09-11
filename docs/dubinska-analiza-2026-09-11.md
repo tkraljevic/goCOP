@@ -15,38 +15,35 @@ logike. Na pregledanom stanju prolaze `go test ./...`, `go vet ./...` i ciljani
 `go test -race` za `internal/arhiva`, `internal/ulaganje`, `internal/poslovi` i
 `internal/web`.
 
-Prije nego `.cop` paketi i pozadinski poslovi postanu automatski distribucijski
-sustav, postoje četiri obvezne točke: stroga serverska provjera ovlasti za paket,
-atomska ugradnja arhive, vjerodostojna provjera prije brisanja operative te
-potpisivanje i zaštita od povratka na starije izdanje. Najnoviji sloj
-dodaje izdavanje iz sučelja i praćenje dugih poslova, ali otvara i pitanje
-međusobnog zaključavanja arhivskih poslova.
+Od prethodnog presjeka zatvorene su ključne prepreke za pouzdanu distribuciju:
+arhivske rute imaju serversku administratorsku ogradu, provjera prije brisanja
+dokazuje točan niz i vrijednost, ugradnja paketa je atomska, arhivski poslovi su
+serijalizirani, ZIP ulaz ima granice, paketi se potpisuju, a primljena izdanja
+imaju evidenciju i zaštitu od povratka unatrag. Preostali posao više nije
+spašavanje osnovnog integriteta nego dovršavanje politike povjerenja, oporavka i
+distribucije između čvorova.
 
 **Ocjena aktualnog smjera:** vrlo dobar i domenski zreo.  
-**Ocjena spremnosti za kontroliranu internu betu:** blizu, nakon sigurnosnog
-učvršćivanja.  
-**Ocjena spremnosti za automatsku distribuciju među nepouzdanim čvorovima:** još
-ne; nedostaju autentikacija paketa, pravilo prihvata izdanja i transakcijska
-zaštita.
+**Ocjena spremnosti za kontroliranu internu betu:** tehnička jezgra je spremna
+za ozbiljno beta-pilotsko testiranje.
+**Ocjena spremnosti za automatsku distribuciju među nepouzdanim čvorovima:**
+znatno bliže, ali još treba dovršiti upravljanje pouzdanim ključevima,
+opozivima, oporavkom i transportom.
 
 ---
 
 ## 1. Opseg i zatečeno stanje
 
-Analiza obuhvaća commitanu osnovu do `8ed248f`. Od prethodnog presjeka na
-`97a3a23` dodano je devet commitova. Oni izdvajaju ulaganje operative u zajednički
-paket, uvode isti postupak u administratorsko sučelje, štite postojeći niz od
-nenamjernog prepisivanja, čuvaju dvostruki sat pri prijelazu na zimsko vrijeme,
-otkrivaju nizove kojima nedostaje izvorna datoteka i ispravljaju uklanjanje niza
-koje je moglo zahvatiti sestrinski niz istog izvora. Commitana osnova je 11
-commitova ispred `origin/master`. Tijekom završne provjere u radnom stablu su se
-pojavile druge, još necommitane promjene; brojke i nalazi u ovom dokumentu
-namjerno su vezani uz stabilni presjek `8ed248f`, a ne uz taj rad u tijeku.
+Analiza obuhvaća commitanu osnovu do `4a4291a`. Od presjeka `8ed248f` dodan je 21
+commit. Uz doradu kartica dionica i dnevnika, šest završnih commitova sustavno
+zatvara sigurnosnu jezgru `.cop` toka: zaključavanje poslova, atomsku ugradnju,
+granice raspakiravanja, potpis, sadržajno stabilan otisak te evidenciju primljenih
+izdanja s pravilom protiv vraćanja unatrag. Commitana osnova je pri završnoj
+provjeri usklađena s `origin/master`.
 
-Projekt trenutačno ima 80.445 redaka Go koda, predložaka, JavaScripta i CSS-a te
-457 Go testnih funkcija. `master` ima 240 commitova. Razlika između dva presjeka
-zahvaća 20 datoteka s 2.758 dodanih i 409 uklonjenih redaka: riječ je o značajnom
-učvršćivanju arhivskog radnog toka, a ne samo kozmetičkoj promjeni.
+Projekt trenutačno ima 83.830 redaka Go koda, predložaka, JavaScripta i CSS-a te
+515 Go testnih funkcija. `master` ima 261 commit. Razlika od `8ed248f` zahvaća 57
+datoteka s 3.934 dodana i 495 uklonjenih redaka.
 
 Glavne cjeline su:
 
@@ -157,8 +154,8 @@ zapisi bez vrijednosti ne ulažu se.^5
 
 Filozofija je dobra: prvo trajna i obnovljiva kopija, zatim provjera, zatim
 zaborav. Novi prikaz, pregled uloženoga i zasebna akcija čišćenja smanjuju
-operativnu mogućnost pogreške. Implementacijska provjera još nije dovoljno jaka;
-to je jedan od ključnih nalaza u poglavlju 6.
+operativnu mogućnost pogreške, a provjera prije brisanja sada dokazuje točan niz,
+vrijeme i vrijednost; detalj je u poglavlju 6.
 
 ### 3.5. Bilješke uz arhivsku vrijednost
 
@@ -244,49 +241,30 @@ provjere.
 
 ## 5. Sigurnosna analiza
 
-### P0 — ugradnja paketa mora imati serversku administratorsku ogradu
+### Zatvoreno — serverske ovlasti arhivskih ruta
 
-Gumb za ugradnju `.cop` paketa prikazuje se samo globalnom administratoru, ali
-HTTP rute koriste samo opći autentifikacijski middleware. `PregledPaketa` i
-`UgradiPaket` dohvaćaju postaju i korisnika, ali ne odbijaju korisnika koji nije
-globalni administrator.^8 Skrivanje gumba nije ovlast. Prijavljeni korisnik može
-izravno poslati POST i zamijeniti kompletan historijat letve.
+Izvoz, pregled i ugradnja `.cop` paketa sada prolaze kroz zajednički middleware
+`samoAdmin`. Provjera je na ruti, ne samo na vidljivosti gumba, a regresijski
+testovi običnom korisniku očekuju HTTP 403.^8
 
-**Preporuka:** zajednička serverska funkcija `requireGlobalAdmin` na pregledu i
-ugradnji; zaseban test koji izravno poziva obje rute kao običan korisnik i
-očekuje HTTP 403. Razmotriti treba li i izvoz kompletnog historijata biti
-ograničen, osobito ako budu dodani osjetljivi prilozi.
+### Zatvoreno — integritet i kriptografski potpis
 
-### P0 — integritet nije autentičnost
+Paket uz SHA-256 sada nosi Ed25519 potpis kanonskog manifesta i pojedinačne
+otiske dijelova. Vrijeme gradnje uklonjeno je iz sadržajnog identiteta, pa isti
+sadržaj daje isti otisak. Matematički valjan potpis ipak još nije isto što i
+organizacijsko povjerenje: mreža mora povezati javni ključ s odobrenim čvorom i
+imati pravilo opoziva kompromitiranog ključa.^9
 
-SHA-256 otisak dokazuje da sadržaj odgovara manifestu i otkriva slučajno
-oštećenje. Ne dokazuje identitet izdavača: napadač može promijeniti sadržaj,
-izračunati novi hash i upisati proizvoljan `Izdao`. Plan povezivosti već
-predviđa potpis, ali paket ga još nema.^9
+### Zatvoreno — povratak na starije izdanje
 
-**Preporuka:** potpisati kanonski manifest koji uključuje hash svih dijelova,
-izdanje, postaju, vrijeme i identitet čvora. Prihvaćati samo ključ aktivnog
-člana mreže te pamtiti rezultat provjere i razlog eventualnog ručnog izuzeća.
+Arhiva vodi `primljena_izdanja` i odbija niže izdanje te isti broj s drukčijim
+otiskom. Evidencija se zapisuje u istoj transakciji kao sadržaj paketa, pa se
+pravilo prihvata ne može razići sa stvarno ugrađenim stanjem.^10
 
-### P1 — povratak na starije izdanje
+### Zatvoreno — granice raspakiravanja
 
-Pregled pokazuje broj izdanja, ali lokalna arhiva ne pamti zadnje ugrađeno
-izdanje i nema pravilo koje odbija stariji paket. Staro, ali valjano potpisano
-izdanje bilo bi klasičan replay/rollback napad.
-
-**Preporuka:** u arhivskoj bazi voditi `primljena_izdanja(letva, izdanje,
-otisak, izdao, primljeno, potpis_valjan)`. Niže ili isto izdanje s različitim
-hashom odbiti; namjerni rollback dopustiti samo administratoru uz posebno
-obrazloženje i zapis u glavnoj knjizi.
-
-### P1 — ograničenje raspakirane veličine
-
-Ulazni `.cop` ograničen je na 50 MB, ali se svaki ZIP dio čita neograničenim
-`io.ReadAll`. Mali komprimirani paket može se raspakirati u mnogo memorije.^10
-
-**Preporuka:** dopustiti samo očekivana imena dijelova, odbiti duplikate,
-ograničiti ukupnu `UncompressedSize64`, broj nizova i broj zapisa prije
-alokacije te provjeriti da `ocitanja.bin` nema višak nepročitanih bajtova.
+Čitač paketa ograničava strukturu i raspakiranu veličinu prije nekontrolirane
+alokacije. Posebni testovi pokrivaju prevelike i nepravilne ZIP dijelove.^11
 
 ### Postojeći alfa rizici
 
@@ -299,62 +277,26 @@ jer ga lokalni HTTP i TLS terminacija na tunelu ne mogu tretirati jednako.
 
 ## 6. Pouzdanost, transakcije i konkurentnost
 
-### P0 — ugradnja `.cop` paketa nije jedna transakcija
+### Zatvoreno — atomska ugradnja i uklanjanje niza
 
-`Ugradi` obriše staru letvu, upiše sirove dijelove i potvrdi transakciju. Tek
-zatim izvan transakcije dodaje postavke izvora i gradi `spoj`.^11 Ako taj drugi
-dio padne, stari spoj je već obrisan, novi sirovi nizovi su trajno upisani, a
-korisnik dobiva grešku. Stanje je djelomično i suprotno komentaru funkcije.
+Ugradnja sada briše staro stanje, zapisuje sve dijelove, ponovno gradi spoj i
+evidentira izdanje unutar jedne transakcije. Namjerno izazvan kvar spajanja čuva
+staro izdanje. `MakniNiz` također vodi brisanje i ponovnu gradnju kroz
+transakciju.^12
 
-**Preporuka:** ili omogućiti `spojiTx` i sve potvrditi zajedno, ili izgraditi
-novu arhivsku datoteku sa strane, potpuno je validirati i atomskim renameom
-zamijeniti aktivnu. Drugi pristup je sigurniji za višemilijunske arhive i lakše
-omogućuje rollback.
+### Zatvoreno — stroga provjera prije zaborava
 
-Isti obrazac u blažem obliku postoji u `MakniNiz`: uklanjanje sirovog niza se
-potvrdi prije ponovne gradnje spoja. Nova puna ponovna gradnja ispravno čuva
-sestrinske nizove, ali kvar tijekom `spoji` ipak može ostaviti uklonjen izvor i
-zastarjeli izvedeni prikaz. I ta operacija treba transakcijsku ili
-copy-on-write granicu.^17
+`ProvjeriUArhivi` više ne gleda izvedeni `spoj`. Za svaki operativni zapis traži
+točan sirovi niz prema letvi, izvoru, veličini i vrsti te isto vrijeme i istu
+vrijednost. Ako ijedna vrijednost nedostaje ili se razlikuje, ništa se ne briše;
+to je pokriveno zasebnim testovima.^13
 
-### P0 — provjera prije zaborava ne dokazuje ono što tvrdi
+### Zatvoreno — istodobni arhivski poslovi i aktivni čitač
 
-Refaktoriranje u `internal/ulaganje` nije zatvorilo temeljni rizik.
-`ProvjeriUArhivi` provjerava samo postoji li u izvedenoj tablici `spoj` bilo
-kakav zapis iste letve i vremena. Ne uspoređuje vrijednost ni izvor. Uz to,
-rekonstruirani zapisi nisu dodani u skup `svi`, ali jesu u skupu označenom za
-brisanje, pa se mogu označiti i obrisati bez ekvivalentne stroge provjere.^12
-
-**Preporuka:** provjeravati svaki zapis u sirovoj tablici `ocitanja` preko
-točnog identiteta niza `(letva, izvor, veličina, vrsta)`, vremena i vrijednosti.
-Provjera mora obuhvatiti dojave, ručna i rekonstruirana očitanja. Tek zapis s
-potpunim podudaranjem smije dobiti oznaku izdanja i ući u skup za brisanje.
-
-### P1 — istodobni arhivski poslovi
-
-Novi registar poslova štiti vlastita polja mutexom, što ciljani race-testovi
-potvrđuju. Ne postoji, međutim, brava nad poslovnim resursima. Dva administratora
-mogu istodobno pokrenuti gradnju iste letve, izdavanje cijele arhive ili
-gradnju i izdavanje. Oba izdavanja koriste ista privremena imena `*.novo` i
-čitanje-pa-zapis kataloga, pa je moguć izgubljen katalog ili neusklađen paket.
-
-**Preporuka:** jedan koordinator arhive s read/write semantikom:
-
-- gradnja/ugradnja letve: ekskluzivna brava za letvu i arhivsku bazu;
-- izdavanje: stabilan read-snapshot ili globalna read brava;
-- zapis kataloga: ekskluzivna brava nad mapom izdanja;
-- UI treba odbiti ili staviti u red konfliktan posao, a ne samo pokušati.
-
-### P1 — zamjena aktivnog čitača arhive
-
-Nakon gradnje ili ugradnje poslužitelj zatvara `s.arhiva` i zamjenjuje pokazivač
-novim repozitorijem. Pozadinski posao to sada radi iz druge goroutine, dok HTTP
-zahtjevi mogu istodobno čitati stari pokazivač. Ciljani race-test nije aktivirao
-taj stvarni serverski scenarij.
-
-**Preporuka:** `sync.RWMutex` ili atomarni holder za repozitorij. Stari čitač se
-ne smije zatvoriti dok aktivni zahtjevi ne otpuste referencu. Još čišći pristup
-je dugovječni read pool nad istom datotekom ako promjene sheme to dopuštaju.
+Sve mutacije iste arhivske datoteke prolaze kroz zajedničku procesnu i datotečnu
+bravu, pa se konfliktni poslovi ne izvršavaju usporedno. Aktivni čitač više se ne
+zatvara i ne zamjenjuje ispod HTTP zahtjeva, a dodan je paralelni race-test tog
+scenarija.^14
 
 ### P2 — životni ciklus memorijskih poslova
 
@@ -416,10 +358,10 @@ Potpis autoriteta ostaje odvojen od peerova koji samo prenose bajtove.
 
 ### Što ti prolazi ne dokazuju
 
-Race detector otkriva samo utrke koje izvršeni test stvarno aktivira. Ne dokazuje
-sigurnost istodobne gradnje i posluživanja arhive bez testa koji te operacije
-pokreće paralelno. Jedinični test kataloga ne dokazuje atomsku konzistentnost
-više datoteka pri prekidu procesa. Obični hash test ne dokazuje autentičnost.
+Race detector otkriva samo utrke koje izvršeni test stvarno aktivira. Novi test
+doista pokreće arhivsku operaciju uz paralelno čitanje, što je bitan napredak,
+ali ni on ne simulira prekid procesa ili nestanak diska. Kriptografski test
+dokazuje valjanost potpisa, ne i to da organizacija vjeruje tom javnom ključu.
 
 ### Statička upozorenja
 
@@ -437,23 +379,23 @@ Od prethodne analize dodani su testovi za:
 - očuvanje oba očitanja u ponovljenom satu pri povratku na zimsko vrijeme;
 - otkrivanje sirotana pri svakom otvaranju arhive;
 - uklanjanje niza bez gubitka spoja sestrinskog niza;
-- prednost rekonstrukcije unutar dopuštenog raspona.
+- prednost rekonstrukcije unutar dopuštenog raspona;
+- zabranu arhivskih ruta običnom korisniku;
+- strogu provjeru vrijednosti prije zaborava;
+- rollback cijele ugradnje kada spajanje padne;
+- serijalizaciju arhivskih poslova i paralelno čitanje;
+- granice ZIP paketa, Ed25519 potpis i anti-rollback izdanja.
 
 To su dobro odabrane provjere jer svaka čuva konkretan podatkovni incident od
 ponavljanja. Ne zamjenjuju, međutim, sljedeće sigurnosne i transakcijske testove.
 
 ### Testovi koje još treba dodati
 
-1. običan korisnik dobiva 403 na pregled i ugradnju `.cop` paketa;
-2. kvar `spoji` ostavlja staru arhivu potpuno čitljivom;
-3. izmijenjena vrijednost istog timestampa blokira `-zaboravi`;
-4. rekonstruirani zapis mora biti provjeren prije brisanja;
-5. dva istodobna izdavanja ne gube katalog i ne dijele `.novo` datoteku;
-6. gradnja u pozadini uz paralelno čitanje historijata prolazi pod `-race`;
-7. ZIP s prevelikom raspakiranom veličinom odbija se prije alokacije;
-8. starije ili jednako izdanje s drugim hashom odbija se;
-9. paket neaktivnog ili opozvanog čvora odbija se;
-10. prekid procesa između paketa i kataloga ima determinističan oporavak.
+1. paket valjano potpisan ključem neaktivnog ili opozvanog čvora odbija se;
+2. prekid procesa i nestanak prostora tijekom izdavanja imaju determinističan
+   oporavak;
+3. dvije zasebne instance procesa nad istom arhivom potvrđuju ponašanje
+   datotečne brave na svim podržanim operacijskim sustavima.
 
 ---
 
@@ -469,7 +411,8 @@ je ostavio razilaženja u statičkim dokumentima:
 - tablica datoteka instalacije ne navodi arhivu, katalog ni mapu paketa;
 - `docs/plan-arhiva-i-zaborav.md` označava izdanje, katalog i ulaganje kao
   „nije napravljeno”, iako implementacija sada postoji;
-- plan opisuje potpisan `.cop`, a aktualni format ima samo hash.
+- dokumentacija još treba objasniti potpis, pouzdane ključeve i evidenciju
+  primljenih izdanja iz perspektive administratora.
 
 To nije kozmetika. Administrator iz dokumentacije mora moći zaključiti što se
 backupira, što se može ponovno izgraditi, što se sinkronizira i što se smije
@@ -490,19 +433,15 @@ oporavak” s matricom:
 
 ### Faza A — zaštita podataka
 
-1. serverske administratorske ovlasti za sve arhivske mutacije;
-2. jaka provjera ulaganja prije `-zaboravi`;
-3. atomska ugradnja paketa ili gradnja nove arhive sa strane;
-4. koordinacija istodobnih arhivskih poslova;
-5. sigurna zamjena aktivnog arhivskog čitača.
+Ova faza je zatvorena: uvedene su serverske ovlasti, jaka provjera prije
+zaborava, atomska ugradnja, koordinacija poslova i sigurno korištenje aktivnog
+čitača.
 
 ### Faza B — vjerodostojno izdanje
 
-1. potpis manifesta Ed25519 ključem čvora;
-2. evidencija primljenih izdanja i anti-rollback pravilo;
-3. ograničenja ZIP strukture i raspakirane veličine;
-4. kanonski manifest s hashom svakog dijela;
-5. status autoriteta: službeno, interno, rekonstruirano, neprovjereno.
+Prve četiri stavke su implementirane: Ed25519 potpis, evidencija primljenih
+izdanja, anti-rollback, ZIP granice i otisci dijelova. Preostaje organizacijski
+status autoriteta, vezanje ključa uz odobreni čvor i opoziv ključa.
 
 ### Faza C — operativna beta
 
@@ -532,15 +471,14 @@ Najveći uspjeh je što arhiva nije postala samo još jedna velika tablica:
 definirani su izvori, način spajanja, rekonstrukcija, ljudske bilješke, izdanja
 i prijenosni paket.
 
-Najveća opasnost sada nije manjak funkcija nego brzina kojom se pouzdane ručne
-operacije pretvaraju u automatske. Svaka automatizacija umnožava posljedicu
-slabe ovlasti, neatomskog upisa ili pogrešne provjere brisanja. Zato sljedeći
-korak ne bi trebao biti više vrsta `.cop` sadržaja, nego dovršavanje sigurnosne
-i transakcijske jezgre postojećeg paketa.
+Sigurnosna i transakcijska jezgra postojećeg paketa sada je stvarno zatvorena na
+razini koda i regresijskih testova. Najveća opasnost pomaknula se na operativnu
+razinu: upravljanje pouzdanim ključevima, oporavak nakon prekida procesa,
+backup/restore probe i dokumentiranje odgovornosti pojedinog čvora.
 
-Ako se navedeni P0 i P1 nalazi zatvore, projekt ima vrlo uvjerljiv temelj za
-gotovu betu: ne samo vizualno dojmljivu, nego operativno objašnjivu, obnovljivu
-i provjerljivu. Upravo ta kombinacija može proizvesti stvarni „WOW efekt” kod
+Projekt sada ima vrlo uvjerljiv temelj za gotovu betu: ne samo vizualno
+dojmljivu, nego operativno objašnjivu, obnovljivu i provjerljivu. Upravo ta
+kombinacija može proizvesti stvarni „WOW efekt” kod
 vodoprivrednih stručnjaka — jer sustav razumije njihov posao, a ne samo njihove
 obrasce.
 
@@ -555,13 +493,13 @@ obrasce.
 5. [`internal/ulaganje/ulaganje.go`](../internal/ulaganje/ulaganje.go), ulaganje; [`internal/ulaganje/citanje.go`](../internal/ulaganje/citanje.go), čitanje i provjera; [`internal/ulaganje/zaboravljanje.go`](../internal/ulaganje/zaboravljanje.go), čišćenje; [`internal/web/handlers_ulaganje.go`](../internal/web/handlers_ulaganje.go), web-sučelje.
 6. [`internal/models/biljeska.go`](../internal/models/biljeska.go); [`internal/repository/biljeska_repo.go`](../internal/repository/biljeska_repo.go).
 7. [`internal/poslovi/poslovi.go`](../internal/poslovi/poslovi.go); [`internal/poslovi/poslovi_test.go`](../internal/poslovi/poslovi_test.go); [`web/static/js/app.js`](../web/static/js/app.js).
-8. [`internal/web/server.go`](../internal/web/server.go), rute paketa; [`internal/web/handlers_paket.go`](../internal/web/handlers_paket.go), pregled i ugradnja.
-9. [`docs/plan-povezivost.md`](plan-povezivost.md), plan potpisa i distribucije; [`internal/arhiva/paket.go`](../internal/arhiva/paket.go), aktualni hash bez potpisa.
-10. [`internal/arhiva/paket.go`](../internal/arhiva/paket.go), `Procitaj` i neograničeni `io.ReadAll` ZIP dijelova.
-11. [`internal/arhiva/paket.go`](../internal/arhiva/paket.go), `Ugradi`: commit prije izvora i funkcije `spoji`.
-12. [`internal/ulaganje/ulaganje.go`](../internal/ulaganje/ulaganje.go), skup za ulaganje; [`internal/ulaganje/citanje.go`](../internal/ulaganje/citanje.go), `ProvjeriUArhivi`; [`internal/ulaganje/zaboravljanje.go`](../internal/ulaganje/zaboravljanje.go), označavanje i brisanje.
-13. [`README.md`](../README.md), deklarirano stanje, instalacija, sigurnost i alfa ograničenja.
-14. [`docs/plan-arhiva-i-zaborav.md`](plan-arhiva-i-zaborav.md), plan životnog ciklusa arhive.
+8. [`internal/web/server.go`](../internal/web/server.go), middleware `samoAdmin` i zaštićene rute; [`internal/web/ovlasti_rute_test.go`](../internal/web/ovlasti_rute_test.go), provjere HTTP 403.
+9. [`internal/arhiva/potpis.go`](../internal/arhiva/potpis.go), kanonski Ed25519 potpis; [`internal/arhiva/potpis_test.go`](../internal/arhiva/potpis_test.go), potpis i sadržajno stabilan otisak.
+10. [`internal/arhiva/primljena.go`](../internal/arhiva/primljena.go), evidencija i pravilo prihvata; [`internal/arhiva/primljena_test.go`](../internal/arhiva/primljena_test.go), anti-rollback scenariji.
+11. [`internal/arhiva/paket.go`](../internal/arhiva/paket.go), ograničeno čitanje paketa; [`internal/arhiva/paket_granice_test.go`](../internal/arhiva/paket_granice_test.go), granice ZIP strukture i veličine.
+12. [`internal/arhiva/paket.go`](../internal/arhiva/paket.go), atomska ugradnja; [`internal/arhiva/ugradnja_atomska_test.go`](../internal/arhiva/ugradnja_atomska_test.go), rollback pri kvaru; [`internal/arhiva/gradnja.go`](../internal/arhiva/gradnja.go), transakcijski `MakniNiz`.
+13. [`internal/ulaganje/citanje.go`](../internal/ulaganje/citanje.go), strogi `ProvjeriUArhivi`; [`internal/ulaganje/zaboravljanje.go`](../internal/ulaganje/zaboravljanje.go), brisanje tek nakon potpune provjere; [`internal/ulaganje/provjera_test.go`](../internal/ulaganje/provjera_test.go), negativni scenariji.
+14. [`internal/arhiva/brava.go`](../internal/arhiva/brava.go), koordinator arhive; [`internal/arhiva/brava_test.go`](../internal/arhiva/brava_test.go); [`internal/web/arhiva_utrka_test.go`](../internal/web/arhiva_utrka_test.go), paralelno čitanje.
 15. [`docs/rekonstrukcija-nizova.md`](rekonstrukcija-nizova.md), metodologija rekonstrukcije, kota nule i profili korita.
 16. [`internal/web/handlers_uvoz_niza.go`](../internal/web/handlers_uvoz_niza.go), zatečeni niz, dopuna i zamjena; [`internal/web/izdavanje_stranica_test.go`](../internal/web/izdavanje_stranica_test.go), upozorenje na izgubljeni raspon.
 17. [`internal/arhiva/gradnja.go`](../internal/arhiva/gradnja.go), otkrivanje sirotana i `MakniNiz`; [`internal/arhiva/sirotani_test.go`](../internal/arhiva/sirotani_test.go), regresijski scenariji sirotana i sestrinskih nizova.
