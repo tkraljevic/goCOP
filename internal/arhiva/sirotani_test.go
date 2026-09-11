@@ -66,7 +66,13 @@ func TestGradnjaJavljaNizBezDatoteke(t *testing.T) {
 	}
 }
 
-// Micanje niza odnosi i ono što je od njega ušlo u spojeni niz.
+// Micanje niza odnosi ono što je od njega ušlo u spojeni niz — ali ne smije
+// odnijeti ono što ondje stoji od sestrinskog niza istog izvora.
+//
+// Prva izvedba je brisala po letvi, izvoru i veličini. Micanje suvišnog
+// "cop-rucno · jutarnji" na Batini tako je iz spoja odnijelo i svih deset
+// ručnih očitanja, među njima i zabilježeni minimum, iako im je niz ostao
+// netaknut.
 func TestMicanjeNizaCistiISpoj(t *testing.T) {
 	koren := t.TempDir()
 	baza := filepath.Join(t.TempDir(), "arhiva.db")
@@ -87,6 +93,16 @@ func TestMicanjeNizaCistiISpoj(t *testing.T) {
 	}
 	defer db.Close()
 
+	// Sestrinski niz istog izvora ima i svoju vrijednost, drugog dana.
+	drugiDan := kad.AddDate(0, 0, -1)
+	if _, err := Upisi(koren, "dunav", "batina", "cop-rucno", "vodostaj", "satni",
+		[]Redak{{Vrijeme: kad, Vrijednost: -160}, {Vrijeme: drugiDan, Vrijednost: -159}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Izgradi(koren, baza, "batina", nil); err != nil {
+		t.Fatal(err)
+	}
+
 	obrisano, err := MakniNiz(db, "batina", "cop-rucno", "vodostaj", "jutarnji")
 	if err != nil {
 		t.Fatal(err)
@@ -102,6 +118,24 @@ func TestMicanjeNizaCistiISpoj(t *testing.T) {
 	if n != 0 {
 		t.Errorf("niz je ostao u arhivi")
 	}
+	// Ono što dolazi od sestrinskog niza mora ostati u spoju.
+	var uSpoju int
+	if err := db.QueryRow(`SELECT count(*) FROM spoj WHERE letva='batina' AND izvor='cop-rucno'`).
+		Scan(&uSpoju); err != nil {
+		t.Fatal(err)
+	}
+	if uSpoju == 0 {
+		t.Error("micanje jednog niza odnijelo je iz spoja i ono što dolazi od sestrinskog")
+	}
+	var najnize float64
+	if err := db.QueryRow(`SELECT min(vrijednost) FROM spoj WHERE letva='batina'
+		AND izvor='cop-rucno'`).Scan(&najnize); err != nil {
+		t.Fatal(err)
+	}
+	if najnize != -160 {
+		t.Errorf("u spoju je najniže %.0f, a ručno očitanje kaže -160", najnize)
+	}
+
 	// Nepostojeći niz se javlja greškom, ne tiho.
 	if _, err := MakniNiz(db, "batina", "cop-rucno", "vodostaj", "jutarnji"); err == nil {
 		t.Error("micanje nepostojećeg niza je prošlo bez greške")

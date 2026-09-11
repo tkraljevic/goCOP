@@ -1414,14 +1414,22 @@ func MakniNiz(db *sql.DB, letva, izvor, velicina, vrsta string) (int, error) {
 	if _, err := tx.Exec(`DELETE FROM nizovi WHERE id = ?`, id); err != nil {
 		return 0, err
 	}
-	// Spojeni niz se gradi iz nizova, pa ono što je od ovoga ušlo mora otići s
-	// njim. Sljedeća gradnja ga ionako slaže iznova, ali dotad bi vrijednost
-	// stajala u spoju bez niza iza sebe.
-	if _, err := tx.Exec(`DELETE FROM spoj WHERE letva=? AND izvor=? AND velicina=?`,
-		letva, izvor, velicina); err != nil {
+	if err := tx.Commit(); err != nil {
 		return 0, err
 	}
-	return int(obrisano), tx.Commit()
+
+	// Spojeni niz se slaže iznova, za cijelu letvu.
+	//
+	// Prva izvedba je iz spoja brisala po letvi, izvoru i veličini — a to su
+	// redovi i sestrinskih nizova istog izvora. Micanje suvišnog niza
+	// "cop-rucno · jutarnji" na Batini tako je odnijelo i svih deset ručnih
+	// očitanja iz spojenog niza, među njima i zabilježeni minimum, iako im je
+	// niz ostao netaknut. Sljedeća gradnja bi to popravila, ali dotad arhiva
+	// stoji kriva a nitko nema razloga graditi.
+	if _, err := spoji(db, letva); err != nil {
+		return int(obrisano), fmt.Errorf("niz je maknut, ali spojeni niz se nije složio iznova: %w", err)
+	}
+	return int(obrisano), nil
 }
 
 // Sirotani javlja koji nizovi stoje u arhivi bez datoteke u stablu, bez
