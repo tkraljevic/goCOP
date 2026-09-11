@@ -46,6 +46,11 @@ type Reading struct {
 	AgHours3       *int   `json:"ag_hours_3,omitempty"`
 
 	Note string `json:"note,omitempty"`
+	// VrstaBiljeske je tvrdnja uz očitanje s posljedicom na brojke — očitan
+	// maksimum, voda preko letve, procjena. Pri ulaganju u arhivu postaje
+	// bilješka uz vrijednost; bez nje bi se pri pospremanju baze izgubilo
+	// upravo ono zbog čega se očitanje i pamti.
+	VrstaBiljeske string `json:"vrsta_biljeske,omitempty"`
 	// Izdanje je oznaka arhivskog izdanja u koje je ovo očitanje uloženo.
 	// Prazno dok nije uloženo. Uloženo se više ne sinkronizira i smije se
 	// zaboraviti — isto stoji u arhivi, u 48 bajta umjesto 1.360.

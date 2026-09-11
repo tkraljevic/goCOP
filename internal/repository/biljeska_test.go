@@ -33,7 +33,7 @@ func TestBiljeskaPreziviUzVrijednost(t *testing.T) {
 	kad := time.Date(2026, 6, 12, 11, 11, 0, 0, time.UTC)
 	n, err := r.Spremi(ctx, []models.ArhivaBiljeska{{
 		Letva: "vukovar", Velicina: "vodostaj", Korak: "satni",
-		Vrijeme: kad, Tekst: "očitan maksimum", Tko: "Ivan",
+		Vrijeme: kad, Vrsta: models.BiljeskaVrh, Tekst: "očitan maksimum", Tko: "Ivan",
 	}})
 	if err != nil || n != 1 {
 		t.Fatalf("spremanje: %d, %v", n, err)
@@ -53,22 +53,52 @@ func TestBiljeskaPreziviUzVrijednost(t *testing.T) {
 	if !b.JeVrh() {
 		t.Error("tvrdnja o kulminaciji se ne prepoznaje")
 	}
+	if b.Vrsta != models.BiljeskaVrh {
+		t.Errorf("vrsta %q", b.Vrsta)
+	}
 }
 
-// Bilješka se prepoznaje kao tvrdnja o vrhu i kad je napisana drukčije —
-// ljudi ne pišu po obrascu.
-func TestPrepoznavanjeTvrdnjeOVrhu(t *testing.T) {
-	for _, tekst := range []string{
-		"očitan maksimum", "MAKSIMUM", "kulminacija u 11:11", "vrh vala",
-		"najviši vodostaj tog dana", "dosegnut vrhunac",
-	} {
-		if !(models.ArhivaBiljeska{Tekst: tekst}).JeVrh() {
-			t.Errorf("%q se ne prepoznaje kao vrh", tekst)
+// Vrsta je tvrdnja čovjeka, ne pogađanje iz teksta. Tekst se koristi samo da
+// obrazac predloži vrstu — "nije bio maksimum" sadrži istu riječ kao i "očitan
+// maksimum", pa pogađanje ne smije odlučivati o brojkama.
+func TestVrstaOdlucuje_TekstSamoPredlaze(t *testing.T) {
+	b := models.ArhivaBiljeska{Tekst: "nije bio maksimum"}
+	if b.JeVrh() {
+		t.Error("tekst sam proglasio vrh — o tome odlučuje vrsta")
+	}
+	b.Vrsta = models.BiljeskaVrh
+	if !b.JeVrh() || !b.JeKrajnost() {
+		t.Error("upisana vrsta se ne prepoznaje")
+	}
+	for _, tekst := range []string{"očitan maksimum", "MAKSIMUM", "kulminacija u 11:11", "vrh vala"} {
+		if models.PredloziVrstu(tekst) != models.BiljeskaVrh {
+			t.Errorf("%q se ne predlaže kao vrh", tekst)
+		}
+	}
+	for _, tekst := range []string{"očitan minimum", "najniži tog dana", "mala voda"} {
+		if models.PredloziVrstu(tekst) != models.BiljeskaDno {
+			t.Errorf("%q se ne predlaže kao dno", tekst)
 		}
 	}
 	for _, tekst := range []string{"vodokaz zaleđen", "mjereno s mosta", "uzorak uzet"} {
-		if (models.ArhivaBiljeska{Tekst: tekst}).JeVrh() {
-			t.Errorf("%q je krivo proglašeno vrhom", tekst)
+		if models.PredloziVrstu(tekst) != "" {
+			t.Errorf("%q je krivo predloženo kao krajnost", tekst)
+		}
+	}
+}
+
+// Procjena, granica i nepouzdano očitanje ne smiju odlučivati o ekstremu ni o
+// fazi obrane — svako iz svog razloga.
+func TestNepouzdaneVrsteNeOdlucuju(t *testing.T) {
+	for _, v := range []string{models.BiljeskaIznad, models.BiljeskaIspod,
+		models.BiljeskaProcjena, models.BiljeskaNepouzdano} {
+		if (models.ArhivaBiljeska{Vrsta: v}).Pouzdana() {
+			t.Errorf("%s je proglašeno pouzdanim", v)
+		}
+	}
+	for _, v := range []string{"", models.BiljeskaVrh, models.BiljeskaDno, models.BiljeskaDogadaj} {
+		if !(models.ArhivaBiljeska{Vrsta: v}).Pouzdana() {
+			t.Errorf("%q je bez razloga proglašeno nepouzdanim", v)
 		}
 	}
 }

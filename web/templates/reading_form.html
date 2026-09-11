@@ -96,6 +96,42 @@
     </div>
   </div>
 
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="vrsta_biljeske">Što ovo očitanje jest</label>
+      <select id="vrsta_biljeske" name="vrsta_biljeske" class="form-control">
+        {{range vrsteBiljeske}}<option value="{{.Vrsta}}" {{if eq .Vrsta $.Reading.VrstaBiljeske}}selected{{end}}>{{.Naziv}}</option>{{end}}
+      </select>
+      <div class="form-help" id="vrsta-opis">Ostaje uz vrijednost i kad očitanje jednom uđe u arhivu.</div>
+    </div>
+  </div>
+
+  <script>
+  const OPISI = { {{range vrsteBiljeske}}"{{.Vrsta}}": "{{.Opis}}", {{end}} };
+  (function () {
+    const vrsta = document.getElementById('vrsta_biljeske');
+    const opis = document.getElementById('vrsta-opis');
+    const note = document.getElementById('note');
+    if (!vrsta || !opis) { return; }
+    function pisiOpis() {
+      opis.textContent = OPISI[vrsta.value] || '';
+    }
+    vrsta.addEventListener('change', pisiOpis);
+    pisiOpis();
+    // Iz napomene se vrsta samo PREDLAŽE, i to dok je čovjek nije sam odabrao.
+    if (note) {
+      note.addEventListener('blur', function () {
+        if (vrsta.value !== '') { return; }
+        const t = note.value.toLowerCase();
+        const dno = ['minimum', 'najniž', 'mala voda'].some(o => t.includes(o));
+        const vrh = ['maksimum', 'maximum', 'kulminacij', 'vrh vala', 'vrhunac', 'najviš'].some(o => t.includes(o));
+        if (dno) { vrsta.value = 'DNO'; pisiOpis(); }
+        else if (vrh) { vrsta.value = 'VRH'; pisiOpis(); }
+      });
+    }
+  })();
+  </script>
+
   <div class="form-actions">
     <a href="{{.BackURL}}" class="btn btn-secondary">Odustani</a>
     <button type="submit" class="btn btn-primary">{{if .IsEdit}}Spremi izmjene{{else}}Upiši očitanje{{end}}</button>

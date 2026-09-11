@@ -207,3 +207,18 @@ func TestVrataNalazePocetakIspodMetapodataka(t *testing.T) {
 		t.Errorf("pročitano %d redaka, poDanu=%v", len(redci), redci[0].PoDanu)
 	}
 }
+
+// Vrsta bilješke ima posljedicu na brojke, pa se prima samo ono što je na
+// zatvorenom popisu — ne što god stigne iz obrasca.
+func TestVrstaBiljeskeSePrimaSamoSPopisa(t *testing.T) {
+	for _, v := range []string{"VRH", "dno", " Procjena ", "NEPOUZDANO"} {
+		if vrstaBiljeskeIz(v) == "" {
+			t.Errorf("%q je s popisa a odbijeno", v)
+		}
+	}
+	for _, v := range []string{"", "REKORD", "'; DROP TABLE readings", "vrh vala"} {
+		if got := vrstaBiljeskeIz(v); got != "" {
+			t.Errorf("%q je primljeno kao %q", v, got)
+		}
+	}
+}

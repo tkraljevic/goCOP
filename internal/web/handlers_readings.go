@@ -709,6 +709,7 @@ func readingFromForm(r *http.Request) (*models.Reading, error) {
 		Gate:           strings.TrimSpace(r.FormValue("gate")),
 		Observer:       strings.TrimSpace(r.FormValue("observer")),
 		Note:           strings.TrimSpace(r.FormValue("note")),
+		VrstaBiljeske:  vrstaBiljeskeIz(r.FormValue("vrsta_biljeske")),
 	}
 	if idStr := r.FormValue("id"); idStr != "" {
 		id, err := uuid.Parse(idStr)
@@ -902,6 +903,16 @@ func primijeniIspravke(vals []models.SpojenaVrijednost, ispravci map[int64]model
 	}
 }
 
+// vrstaBiljeskeIz prima samo ono što je na zatvorenom popisu. Vrsta ima
+// posljedicu na brojke, pa se ne smije primiti što god stigne iz obrasca.
+func vrstaBiljeskeIz(v string) string {
+	v = strings.ToUpper(strings.TrimSpace(v))
+	if models.JeVrstaBiljeske(v) {
+		return v
+	}
+	return ""
+}
+
 // primijeniBiljeske stavlja uz vrijednost ono što je čovjek o njoj rekao.
 // Ne dira ni vrijednost ni oznaku ispravka — bilješka svjedoči, ne mijenja.
 func primijeniBiljeske(vals []models.SpojenaVrijednost, biljeske map[int64]models.ArhivaBiljeska) {
@@ -915,7 +926,8 @@ func primijeniBiljeske(vals []models.SpojenaVrijednost, biljeske map[int64]model
 		}
 		vals[i].Biljeska = b.Tekst
 		vals[i].BiljeskaTko = b.Tko
-		vals[i].BiljeskaVrh = b.JeVrh()
+		vals[i].BiljeskaVrsta = b.Vrsta
+		vals[i].BiljeskaPouzdana = b.Pouzdana()
 	}
 }
 

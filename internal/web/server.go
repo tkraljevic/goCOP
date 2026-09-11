@@ -96,7 +96,9 @@ func templateFuncs() template.FuncMap {
 		// Hrvatski broj uz imenicu: 1 vrijednost, 2 vrijednosti, 5 vrijednosti,
 		// ali 11 vrijednosti i 21 vrijednost. Bez toga na stranici piše
 		// "31 vrijednosti", što odmah bode oko.
-		"uzBroj": uzBrojHR,
+		"uzBroj":             uzBrojHR,
+		"vrsteBiljeske":      func() []struct{ Vrsta, Naziv, Opis string } { return models.VrsteBiljeske },
+		"vrstaBiljeskeNaziv": models.NazivVrsteBiljeske,
 		// ogradeZaNiz spaja izdavačevu ogradu, koja stiže s paketom i stoji uz
 		// sam niz, s vlastitima koje je upisao operater.
 		"ogradeZaNiz": func(st models.Station, n models.HidroNiz) []models.Ograda {
