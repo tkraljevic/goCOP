@@ -490,6 +490,45 @@ func primiIzObrasca(u *UvozNiza, r *http.Request) {
 	}
 }
 
+// Zatecen javlja samo ono što stranica treba o zatečenom nizu, bez ponovnog
+// učitavanja stranice.
+//
+// Naziv datoteke rijetko kaže kojoj letvi pripada — HIS2000 izvozi "satni.csv"
+// — pa čovjek letvu, izvor i vrstu upisuje rukom. Dok to ne stigne ovamo,
+// poslužitelj ne zna koji niz gleda i ne može reći što taj niz već ima ni što
+// bi zamjena odnijela. Prije se to vidjelo tek nakon klika na "Osvježi
+// pregled", pa se moglo i ne vidjeti.
+func (h *UvozHandler) Zatecen(w http.ResponseWriter, r *http.Request) {
+	d := h.pageData(r)
+	if !h.smije(d) {
+		http.Error(w, "Podatke u arhivu unosi administrator", http.StatusForbidden)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	korisnik := ""
+	if d.CurrentUser != nil {
+		korisnik = d.CurrentUser.ID.String()
+	}
+	ceka, ima := uvozi.uzmi(r.FormValue("id"), korisnik)
+	if !ima {
+		// Odabir je istekao; stranica onda samo ne pokaže okvir.
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		return
+	}
+	if err := h.popuniPregled(&d, ceka.ime, ceka.sadrzaj, r); err != nil {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	if err := h.tmpl.ExecuteTemplate(w, "zatecen-niz", d); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
 // PonoviPregled preračunava pregled s onim što je čovjek u međuvremenu
 // ispravio — drugi stupac, druga zona — bez ponovnog odabira datoteke.
 func (h *UvozHandler) PonoviPregled(w http.ResponseWriter, r *http.Request) {

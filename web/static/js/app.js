@@ -806,3 +806,52 @@ function renderMarkdown(md) {
     pokreni();
   }
 })();
+
+// Vrata arhive: okvir o zatečenom nizu se puni čim se zna koji je niz.
+//
+// Naziv datoteke rijetko kaže kojoj letvi pripada, pa čovjek letvu, izvor i
+// vrstu upisuje rukom. Poslužitelj dotad ne zna što taj niz već ima u stablu,
+// a to je baš ono što treba vidjeti prije upisa. Ovo ga pita čim se polje
+// promijeni, bez ponovnog učitavanja stranice — inače bi se gubilo ono što je
+// upravo utipkano.
+(function () {
+  'use strict';
+
+  var POLJA = ['letva', 'sliv', 'izvor', 'velicina', 'vrsta'];
+
+  function pripremi() {
+    var forma = document.querySelector('form[action="/administracija/uvoz-niza/upisi"]');
+    var okvir = document.getElementById('zatecen-okvir');
+    if (!forma || !okvir) { return; }
+
+    var uTijeku = null;
+    function pitaj() {
+      var letva = forma.elements['letva'];
+      if (!letva || !letva.value.trim()) { okvir.innerHTML = ''; return; }
+      if (uTijeku) { uTijeku.abort(); }
+      var prekid = new AbortController();
+      uTijeku = prekid;
+      fetch('/administracija/uvoz-niza/zatecen', {
+        method: 'POST',
+        body: new FormData(forma),
+        signal: prekid.signal
+      })
+        .then(function (o) { return o.ok ? o.text() : ''; })
+        .then(function (html) { okvir.innerHTML = html; uTijeku = null; })
+        .catch(function () { /* prekinut ili pao — okvir ostaje kakav je */ });
+    }
+
+    POLJA.forEach(function (ime) {
+      var polje = forma.elements[ime];
+      if (polje) { polje.addEventListener('change', pitaj); }
+    });
+    // Prvi put odmah, za slučaj da naziv datoteke već sve kazuje.
+    if (!okvir.innerHTML.trim()) { pitaj(); }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', pripremi);
+  } else {
+    pripremi();
+  }
+})();
