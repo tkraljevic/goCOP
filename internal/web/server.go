@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"gocop/internal/arhiva"
@@ -54,11 +55,16 @@ type KartaPostavke struct {
 func (k KartaPostavke) Ima() bool { return k.Plocice != "" }
 
 type Server struct {
-	karta              KartaPostavke
-	arhivaPut          string
-	podaciDir          string // stablo s izvornim datotekama; prazno na čvoru koji samo prima pakete
-	paketiDir          string // mapa u koju se izdaju .cop paketi i u kojoj stoji katalog
-	poslovi            *poslovi.Registar
+	karta     KartaPostavke
+	arhivaPut string
+	podaciDir string // stablo s izvornim datotekama; prazno na čvoru koji samo prima pakete
+	paketiDir string // mapa u koju se izdaju .cop paketi i u kojoj stoji katalog
+	poslovi   *poslovi.Registar
+	// arhivaMu čuva pokazivač na čitača arhive. Gradnja, ugradnja i micanje
+	// niza zamjenjuju ga iz pozadinske dretve posla, dok ga HTTP zahtjevi
+	// čitaju — bez brave je to utrka, a zatvaranje starog čitača može srušiti
+	// zahtjev koji ga još drži.
+	arhivaMu           sync.RWMutex
 	addr               string
 	authService        *service.AuthService
 	userService        *service.UserService
@@ -522,7 +528,7 @@ func (s *Server) setupRoutes() {
 		s.sectionService, s.watercourseService)
 	stationsH.SetEpisodeService(s.episodeService)
 	stationsH.SetReadingService(s.readingService)
-	stationsH.SetArhiva(func() *repository.ArhivaRepository { return s.arhiva })
+	stationsH.SetArhiva(s.Arhiva)
 	stationsH.SetIspravci(func() *repository.IspravakRepository {
 		if s.db == nil {
 			return nil
@@ -569,7 +575,7 @@ func (s *Server) setupRoutes() {
 	readingsH := NewReadingsHandler(s.readingService, s.stationService, s.structureService, s.userService,
 		s.templates["readings.html"], s.templates["reading_history.html"], s.templates["reading_form.html"])
 	readingsH.SetFollow(s.followRepo, s.onFollowChange)
-	readingsH.SetArhiva(func() *repository.ArhivaRepository { return s.arhiva })
+	readingsH.SetArhiva(s.Arhiva)
 	readingsH.SetSektorZaLetvu(func(ctx context.Context, st *models.Station) *models.Sector {
 		if st == nil || s.sectionService == nil || s.orgService == nil {
 			return nil
@@ -1029,7 +1035,7 @@ func (s *Server) SetKarta(plocice, zasluge string, najviseZ int) {
 // SetArhiva daje poslužitelju hidrološku arhivu. Arhiva je zasebna datoteka i
 // smije je ne biti: čvor koji je nije preuzeo radi bez povijesti, ne pada.
 func (s *Server) SetArhiva(a *repository.ArhivaRepository) {
-	s.arhiva = a
+	s.zamijeniArhivu(a)
 }
 
 // SetArhivaPut govori poslužitelju gdje arhiva stoji. Bez toga se paket može
@@ -1037,6 +1043,26 @@ func (s *Server) SetArhiva(a *repository.ArhivaRepository) {
 // upis traži vlastito otvaranje.
 func (s *Server) SetArhivaPut(put string) {
 	s.arhivaPut = put
+}
+
+// Arhiva vraća trenutnog čitača arhive. Zahtjev ga uzme jednom i drži do kraja
+// posluživanja; zamjena čeka da ga svi otpuste.
+func (s *Server) Arhiva() *repository.ArhivaRepository {
+	s.arhivaMu.RLock()
+	defer s.arhivaMu.RUnlock()
+	return s.arhiva
+}
+
+// zamijeniArhivu stavlja novog čitača i zatvara starog. Zatvaranje ide pod
+// pisačom bravom, pa nijedan zahtjev u tom trenutku ne drži staru vezu.
+func (s *Server) zamijeniArhivu(novo *repository.ArhivaRepository) {
+	s.arhivaMu.Lock()
+	staro := s.arhiva
+	s.arhiva = novo
+	s.arhivaMu.Unlock()
+	if staro != nil && staro != novo {
+		staro.Close()
+	}
 }
 
 // SetPaketiDir kazuje gdje stoje izdani paketi i katalog. Po katalogu se zna
@@ -1077,10 +1103,7 @@ func (s *Server) UgradiPaket(sadrzaj *arhiva.Sadrzaj) error {
 	if err != nil {
 		return err
 	}
-	if s.arhiva != nil {
-		s.arhiva.Close()
-	}
-	s.arhiva = novo
+	s.zamijeniArhivu(novo)
 	return nil
 }
 
@@ -1113,10 +1136,7 @@ func (s *Server) PostaviIzvor(i arhiva.Izvor) ([]string, error) {
 	if err != nil {
 		return letve, err
 	}
-	if s.arhiva != nil {
-		s.arhiva.Close()
-	}
-	s.arhiva = novo
+	s.zamijeniArhivu(novo)
 	return letve, nil
 }
 
@@ -1144,10 +1164,7 @@ func (s *Server) IzgradiLetvu(letva string, zapisi io.Writer) (arhiva.Izvjestaj,
 	if err != nil {
 		return iz, err
 	}
-	if s.arhiva != nil {
-		s.arhiva.Close()
-	}
-	s.arhiva = novo
+	s.zamijeniArhivu(novo)
 	return iz, nil
 }
 
@@ -1167,10 +1184,7 @@ func (s *Server) MakniNiz(letva, izvor, velicina, vrsta string) (int, error) {
 		return 0, err
 	}
 	if novo, err := repository.OpenArhiva(s.arhivaPut); err == nil {
-		if s.arhiva != nil {
-			s.arhiva.Close()
-		}
-		s.arhiva = novo
+		s.zamijeniArhivu(novo)
 	}
 	return n, nil
 }
