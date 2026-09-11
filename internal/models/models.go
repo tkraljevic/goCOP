@@ -674,7 +674,13 @@ type OgradaNiza struct {
 	Velicina string `json:"velicina"`     // vodostaj, protok, temperatura …
 	Od       string `json:"od,omitempty"` // na koje se razdoblje odnosi; prazno = na cijeli niz
 	Do       string `json:"do,omitempty"`
-	Tekst    string `json:"tekst"`
+	// Ispod i Iznad sužavaju ogradu na raspon vrijednosti, u jedinici veličine.
+	// Tlačna sonda ne laže cijelo vrijeme nego tek kad joj voda pobjegne ispod
+	// usisa; bez te granice ograda bi obezvrijedila i ono što je niz dobro
+	// izmjerio. Vukovar 2026.: ispod 100 cm sonda je bila na suhom.
+	Ispod *float64 `json:"ispod,omitempty"`
+	Iznad *float64 `json:"iznad,omitempty"`
+	Tekst string   `json:"tekst"`
 }
 
 // VrijediZa javlja odnosi li se ograda na zadani niz.
@@ -683,6 +689,34 @@ func (o OgradaNiza) VrijediZa(izvor, velicina string) bool {
 		return false
 	}
 	return o.Velicina == "" || strings.EqualFold(o.Velicina, velicina)
+}
+
+// VrijediZaVrijednost javlja dira li ograda zadanu vrijednost. Ograda bez
+// granica vrijedi za sve; s granicama samo za ono što u njih upada.
+func (o OgradaNiza) VrijediZaVrijednost(v float64) bool {
+	if o.Ispod != nil && v >= *o.Ispod {
+		return false
+	}
+	if o.Iznad != nil && v <= *o.Iznad {
+		return false
+	}
+	return true
+}
+
+// ImaGranice javlja sužava li se ograda na raspon vrijednosti.
+func (o OgradaNiza) ImaGranice() bool { return o.Ispod != nil || o.Iznad != nil }
+
+// Raspon je granica ispisana uz tekst, kad ograda ne vrijedi za cijeli niz.
+func (o OgradaNiza) Raspon() string {
+	switch {
+	case o.Ispod != nil && o.Iznad != nil:
+		return fmt.Sprintf("%g – %g", *o.Iznad, *o.Ispod)
+	case o.Ispod != nil:
+		return fmt.Sprintf("ispod %g", *o.Ispod)
+	case o.Iznad != nil:
+		return fmt.Sprintf("iznad %g", *o.Iznad)
+	}
+	return ""
 }
 
 // Razdoblje je ograda ispisana uz tekst, kad se odnosi samo na dio niza.
@@ -703,8 +737,12 @@ func (o OgradaNiza) Razdoblje() string {
 type Ograda struct {
 	Tekst      string
 	Razdoblje  string
+	Raspon     string // na koje vrijednosti se odnosi, kad ne vrijedi za sve
 	Izdavaceva bool
 }
+
+// ImaGranice javlja sužava li se ograda na raspon vrijednosti.
+func (o Ograda) ImaGranice() bool { return o.Raspon != "" }
 
 // KrajnostIzNiza je najviša ili najniža vrijednost koju program ima u
 // podacima — iz arhive ili iz operativnih očitanja.

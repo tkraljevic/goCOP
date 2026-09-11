@@ -121,11 +121,14 @@
   <p class="form-help" style="margin:0 0 0.5rem;">
     Što o nizu znate, a iz brojki se ne vidi — zaleđen mjerač, sumnjiva zima, prekid u mjerenju.
     Stoji uz niz i ide u izvješće. Prazna veličina znači sve veličine tog izvora.
+    <strong>Ispod</strong> i <strong>Iznad</strong> sužavaju ogradu na raspon vrijednosti: tlačna sonda ne laže
+    cijelo vrijeme nego tek kad joj voda pobjegne ispod usisa, pa bi ograda bez granice obezvrijedila i ono
+    što je niz dobro izmjerio.
     <span class="reg-card-sub">Ograda označena „iz izdanja" stiže s paketom i ovdje se ne uređuje.</span>
   </p>
   <input type="hidden" name="ograde_niza" id="ograde_niza">
   <div class="rows-ograda">
-    <div class="rows-head"><div>Izvor</div><div>Veličina</div><div>Od</div><div>Do</div><div>Što treba znati</div><div></div></div>
+    <div class="rows-head"><div>Izvor</div><div>Veličina</div><div>Od</div><div>Do</div><div>Ispod</div><div>Iznad</div><div>Što treba znati</div><div></div></div>
     <div id="ograda-rows"></div>
   </div>
   <button type="button" class="btn btn-sm btn-secondary" onclick="addOgradaRow()">{{icon "plus"}} Dodaj ogradu</button>
@@ -135,6 +138,8 @@
       <div data-label="Veličina"><input type="text" class="form-control" data-field="velicina" placeholder="sve" aria-label="Veličina"></div>
       <div data-label="Od"><input type="date" class="form-control" data-field="od" aria-label="Od"></div>
       <div data-label="Do"><input type="date" class="form-control" data-field="do" aria-label="Do"></div>
+      <div data-label="Ispod"><input type="text" inputmode="numeric" class="form-control mono" data-field="ispod" placeholder="—" aria-label="Vrijedi ispod vrijednosti"></div>
+      <div data-label="Iznad"><input type="text" inputmode="numeric" class="form-control mono" data-field="iznad" placeholder="—" aria-label="Vrijedi iznad vrijednosti"></div>
       <div data-label="Što treba znati" data-siroko><input type="text" class="form-control" data-field="tekst" placeholder="mjerač zaleđen, vrijednosti nepouzdane" aria-label="Ograda"></div>
       <button type="button" class="btn btn-sm btn-secondary" onclick="this.closest('.ograda-row').remove()" aria-label="Ukloni">×</button>
     </div>
@@ -147,13 +152,17 @@
     row.querySelector('[data-field=velicina]').value = o.velicina || '';
     row.querySelector('[data-field=od]').value = o.od || '';
     row.querySelector('[data-field=do]').value = o.do || '';
+    row.querySelector('[data-field=ispod]').value = o.ispod != null ? o.ispod : '';
+    row.querySelector('[data-field=iznad]').value = o.iznad != null ? o.iznad : '';
     row.querySelector('[data-field=tekst]').value = o.tekst || '';
     document.getElementById('ograda-rows').appendChild(row);
   }
   function collectOgrade() {
     const rows = [...document.querySelectorAll('#ograda-rows .ograda-row')].map(r => {
       const g = f => r.querySelector('[data-field=' + f + ']').value.trim();
-      return { izvor: g('izvor'), velicina: g('velicina'), od: g('od'), do: g('do'), tekst: g('tekst') };
+      const broj = f => { const v = g(f).replace(',', '.'); return v === '' ? null : Number(v); };
+      return { izvor: g('izvor'), velicina: g('velicina'), od: g('od'), do: g('do'),
+               ispod: broj('ispod'), iznad: broj('iznad'), tekst: g('tekst') };
     }).filter(x => x.izvor && x.tekst);
     document.getElementById('ograde_niza').value = JSON.stringify(rows);
     return true;

@@ -106,7 +106,8 @@ func templateFuncs() template.FuncMap {
 			}
 			for _, o := range st.OgradeNiza {
 				if o.VrijediZa(n.Izvor, n.Velicina) {
-					out = append(out, models.Ograda{Tekst: o.Tekst, Razdoblje: o.Razdoblje()})
+					out = append(out, models.Ograda{Tekst: o.Tekst,
+						Razdoblje: o.Razdoblje(), Raspon: o.Raspon()})
 				}
 			}
 			return out

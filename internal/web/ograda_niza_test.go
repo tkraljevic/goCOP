@@ -105,3 +105,52 @@ func TestObjeOgradeStojeUzIstiNiz(t *testing.T) {
 		}
 	}
 }
+
+// Tlačna sonda ne laže cijelo vrijeme nego tek kad joj voda pobjegne ispod
+// usisa. Ograda bez granice obezvrijedila bi i ono što je niz dobro izmjerio —
+// Vukovar je do lipnja 2026. bio na +190 cm i uredno mjeren.
+func TestOgradaSGranicomDiraSamoSvojRaspon(t *testing.T) {
+	sto := 100.0
+	o := models.OgradaNiza{Izvor: "letva-dhmz", Velicina: "vodostaj", Ispod: &sto,
+		Tekst: "tlačna sonda na suhom"}
+	if !o.VrijediZaVrijednost(-77) {
+		t.Error("vrijednost ispod granice mora biti pod ogradom")
+	}
+	if o.VrijediZaVrijednost(190) {
+		t.Error("vrijednost iznad granice ne smije biti pod ogradom")
+	}
+	if o.VrijediZaVrijednost(100) {
+		t.Error("granica je isključiva: 100 nije ispod 100")
+	}
+	if o.Raspon() != "ispod 100" {
+		t.Errorf("raspon %q", o.Raspon())
+	}
+}
+
+// Ograda bez granica vrijedi za sve vrijednosti, kao i dosad.
+func TestOgradaBezGranicaVrijediZaSve(t *testing.T) {
+	o := models.OgradaNiza{Izvor: "his2000", Tekst: "zaleđen mjerač"}
+	if o.ImaGranice() || o.Raspon() != "" {
+		t.Error("ograda bez granica javlja da ih ima")
+	}
+	for _, v := range []float64{-500, 0, 800} {
+		if !o.VrijediZaVrijednost(v) {
+			t.Errorf("%v je ispalo izvan ograde bez granica", v)
+		}
+	}
+}
+
+// Obostrana granica: samo ono između.
+func TestOgradaMozeBitiObostrana(t *testing.T) {
+	dolje, gore := 100.0, -50.0
+	o := models.OgradaNiza{Izvor: "letva-hv", Ispod: &dolje, Iznad: &gore}
+	if !o.VrijediZaVrijednost(0) {
+		t.Error("vrijednost unutar raspona mora biti pod ogradom")
+	}
+	if o.VrijediZaVrijednost(-80) || o.VrijediZaVrijednost(150) {
+		t.Error("vrijednost izvan raspona ne smije biti pod ogradom")
+	}
+	if o.Raspon() != "-50 – 100" {
+		t.Errorf("raspon %q", o.Raspon())
+	}
+}
