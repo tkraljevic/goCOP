@@ -303,6 +303,9 @@ func procitajBroj(s string) (float64, bool) {
 type UvozNiza struct {
 	Sliv, Letva, Izvor, Velicina, Vrsta, Zona string
 	StupacVrijeme, StupacVrijednost           int
+	// Nacin je "dopuni" ili "zamijeni": zadržava li se ono što niz već ima u
+	// stablu ili se sve baca i piše iznova.
+	Nacin string
 }
 
 // pretvori pretvara pročitane retke u ono što se upisuje, i javlja što je

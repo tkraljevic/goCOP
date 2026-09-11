@@ -71,11 +71,11 @@
         <span class="izdanje-isto">preskočeno: {{.Greska}}</span>
       {{else if .Novo}}
         <span class="izdanje-skok">{{if .Prije}}v{{.Prije}} → v{{.Izdanje}}{{else}}novo · v{{.Izdanje}}{{end}}</span>
-        <span class="izdanje-otisak">{{.Otisak}}</span>
+        <span class="izdanje-otisak" title="{{.Otisak}}">{{slice .Otisak 0 8}}</span>
         <span class="izdanje-isto">{{brojHR .Zapisa}} zapisa · {{.Od}} – {{.Do}}</span>
       {{else}}
         <span class="izdanje-isto">v{{.Izdanje}} nepromijenjeno</span>
-        <span class="izdanje-otisak">{{.Otisak}}</span>
+        <span class="izdanje-otisak" title="{{.Otisak}}">{{slice .Otisak 0 8}}</span>
       {{end}}
     </div>
     {{end}}
@@ -217,6 +217,30 @@
       </select>
       <small class="izvor-disk">Tiče se samo zapisa sa satom; dan je dan bez obzira na zonu.</small>
     </label>
+    {{if .Zatecen}}
+    <div class="izvor-napomena">
+      <span class="part-label">Niz već postoji</span>
+      <p class="reading-meta" style="margin:0 0 0.5rem;">
+        U stablu stoji {{brojHR .Zatecen.Redaka}} vrijednosti, {{.Zatecen.Od}} – {{.Zatecen.Do}}.
+      </p>
+      <label class="uvoz-nacin">
+        <input type="radio" name="nacin" value="dopuni" {{if ne $.Prijedlg.Nacin "zamijeni"}}checked{{end}}>
+        <span><strong>Dopuni</strong> — zadržava se sve što niz već ima; gdje se isti trenutak pojavi u oboje,
+          vrijedi nova vrijednost.</span>
+      </label>
+      <label class="uvoz-nacin">
+        <input type="radio" name="nacin" value="zamijeni" {{if eq $.Prijedlg.Nacin "zamijeni"}}checked{{end}}>
+        <span><strong>Zamijeni</strong> — staro se baca i ostaje samo ovo iz datoteke. Za slučaj kad je zatečeno
+          krivo.</span>
+      </label>
+      {{if .Zatecen.IzvanNov}}
+      <div class="alert alert-warning" style="margin:0.6rem 0 0;">
+        Zamjena bi odnijela <strong>{{brojHR .Zatecen.IzvanNov}}</strong> vrijednosti
+        ({{.Zatecen.OdIzvan}} – {{.Zatecen.DoIzvan}}) koje u ovoj datoteci ne postoje.
+      </div>
+      {{end}}
+    </div>
+    {{end}}
     <div class="izvor-podnozje" style="gap:0.5rem;">
       <button type="submit" formaction="/administracija/uvoz-niza/pregled-opet" class="btn btn-sm btn-secondary">{{icon "refresh-cw"}} Osvježi pregled</button>
       <button type="submit" class="btn btn-sm btn-primary">{{icon "check"}} Upiši i izgradi</button>
