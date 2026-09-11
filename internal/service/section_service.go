@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"gocop/internal/models"
@@ -175,4 +176,43 @@ func validateParts(sec *models.Section) error {
 		}
 	}
 	return nil
+}
+
+// SljedecaSifra predlaže šifru sljedeće dionice u području: isti sektor i
+// područje, prvi slobodan broj.
+//
+// Dionice se upisuju u nizu — sektor B ima 65 dionica u pet područja — pa je
+// tipkanje šifre za svaku od njih posao koji program može obaviti. Prijedlog se
+// smije prepisati: šifra nije uvijek neprekinut niz, a dionica koja je jednom
+// ukinuta ne vraća svoj broj.
+func (s *SectionService) SljedecaSifra(sectorID string, areaID int) string {
+	if sectorID == "" || areaID <= 0 {
+		return ""
+	}
+	predmetak := sectorID + "." + strconv.Itoa(areaID) + "."
+	dionice, err := s.ListSections(sectorID, areaID, "")
+	if err != nil {
+		return predmetak + "1"
+	}
+	sifre := make([]string, 0, len(dionice))
+	for _, d := range dionice {
+		sifre = append(sifre, d.Code)
+	}
+	return sljedecaSifra(predmetak, sifre)
+}
+
+// sljedecaSifra je sam račun, odvojen da se može ispitati bez baze.
+func sljedecaSifra(predmetak string, sifre []string) string {
+	najveci := 0
+	for _, c := range sifre {
+		if !strings.HasPrefix(c, predmetak) {
+			continue
+		}
+		// Rep mora biti sam broj: "B.34.2" da, "B.34.2a" i "B.340.1" ne.
+		n, err := strconv.Atoi(strings.TrimPrefix(c, predmetak))
+		if err == nil && n > najveci {
+			najveci = n
+		}
+	}
+	return predmetak + strconv.Itoa(najveci+1)
 }

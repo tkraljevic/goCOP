@@ -257,3 +257,30 @@ func TestSirotanSeVidiSaSvojimUcinkom(t *testing.T) {
 		}
 	}
 }
+
+// Dionice se unose u nizu, pa obrazac nudi upis i odmah sljedeću, a šifru
+// predlaže unaprijed. Bez toga je svaka od 63 dionice sektora B dva klika i
+// jedan izbor područja dalje nego što treba.
+func TestObrazacDioniceNudiSljedecu(t *testing.T) {
+	d := SectionPageData{
+		CurrentUser:     &models.User{FullName: "P"},
+		Permissions:     &models.UserPermissions{IsGlobalAdmin: true},
+		Section:         models.Section{AreaID: 34, SectorID: "B", Parts: []models.SectionPart{{Seq: 1}}},
+		PredlozenaSifra: "B.34.3",
+	}
+	html := iscrtaj(t, "section_form.html", d)
+	for _, want := range []string{`name="dalje"`, "Upiši i sljedeću", `value="B.34.3"`,
+		"prvi slobodan broj"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("obrazac nema %q", want)
+		}
+	}
+
+	// Pri uređivanju postojeće dionice nema smisla nuditi sljedeću.
+	d.IsEdit = true
+	d.Section.Code = "B.34.2"
+	html = iscrtaj(t, "section_form.html", d)
+	if strings.Contains(html, `name="dalje"`) {
+		t.Error("uređivanje nudi „i sljedeću“")
+	}
+}

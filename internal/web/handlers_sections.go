@@ -180,6 +180,15 @@ func (h *SectionsHandler) HandleCreateSection(w http.ResponseWriter, r *http.Req
 		redirectWith(w, r, "/sections/new?area="+strconv.Itoa(sec.AreaID), "error", err.Error())
 		return
 	}
+	// Dionice se unose u nizu — sektor B ima 65 u pet područja — pa se poslije
+	// upisa nudi povratak na prazan obrazac istog područja, s predloženom
+	// sljedećom šifrom. Bez toga je svaka dionica dva klika i jedan izbor
+	// područja dalje nego što treba.
+	if r.FormValue("dalje") != "" {
+		redirectWith(w, r, "/sections/new?area="+strconv.Itoa(sec.AreaID), "success",
+			"Dionica "+sec.Code+" je upisana. Na redu je sljedeća.")
+		return
+	}
 	redirectWith(w, r, "/sections/"+sec.Code, "success", "Dionica "+sec.Code+" je upisana.")
 }
 

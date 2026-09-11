@@ -35,8 +35,8 @@
     </div>
     <div class="form-group">
       <label class="form-label" for="code">Šifra dionice *</label>
-      <input type="text" id="code" name="code" class="form-control" required placeholder="npr. B.15.5" autocomplete="off" style="font-family:ui-monospace, monospace;">
-      <div class="form-help">Sektor.područje.broj — sektor slijedi iz područja.</div>
+      <input type="text" id="code" name="code" class="form-control" required placeholder="npr. B.15.5" autocomplete="off" style="font-family:ui-monospace, monospace;" value="{{.PredlozenaSifra}}">
+      <div class="form-help">Sektor.područje.broj — sektor slijedi iz područja.{{if .PredlozenaSifra}} Predložen je prvi slobodan broj; prepišite ga ako niz preskače.{{end}}</div>
     </div>
   </div>
   {{end}}
@@ -70,6 +70,10 @@
 
   <div class="form-actions">
     <a href="{{if .IsEdit}}/sections/{{.Section.Code}}{{else}}/sections{{end}}" class="btn btn-secondary">Odustani</a>
+    {{if not .IsEdit}}
+    <button type="submit" class="btn btn-secondary" name="dalje" value="1"
+            title="Upisuje ovu i odmah otvara praznu, u istom području i sa sljedećom šifrom">{{icon "plus"}} Upiši i sljedeću</button>
+    {{end}}
     <button type="submit" class="btn btn-primary">{{if .IsEdit}}Spremi izmjene{{else}}Upiši dionicu{{end}}</button>
   </div>
 </form>
