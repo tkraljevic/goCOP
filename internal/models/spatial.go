@@ -520,3 +520,44 @@ type SectionOfficer struct {
 	Email       string `json:"email"`
 	OrgName     string `json:"org_name"`
 }
+
+// OsStacionaze kaže mjeri li se stacionaža uz vodu ili uz nasip.
+//
+// Na istoj dionici stoje obje: crpna stanica ima rkm uz rijeku i kkm uz kanal,
+// a nasip svoj nkm. Kad su svi brojevi iste boje, oko ih čita kao jedan niz i
+// traži zašto 1419+900 stoji do 1+650. Voda je plava, nasip zelen.
+func OsStacionaze(oznaka string) string {
+	o := strings.ToLower(strings.TrimSpace(oznaka))
+	if i := strings.IndexAny(o, " \t"); i > 0 {
+		o = o[:i]
+	}
+	switch o {
+	case "rkm", "pkm", "bkm", "kkm":
+		return "voda"
+	case "nkm", "km":
+		return "nasip"
+	}
+	return ""
+}
+
+// RangeDijelovi razlaže odsjek nasipa na komade, da svaki dobije boju svoje
+// osi. Range ih spaja u jedan niz znakova, što je dobro za ispis ali ne i za
+// prikaz u kojem se rkm i nkm razlikuju bojom.
+//
+// Duljina ispada: nije stacionaža, nema os, a u zaglavlju kartice ionako stoji
+// zasebno — u nizu bi se ispisala dvaput.
+func (e PartEmbankment) RangeDijelovi() []string {
+	r := e.Range()
+	if r == "" {
+		return nil
+	}
+	var out []string
+	for _, d := range strings.Split(r, ";") {
+		d = strings.TrimSpace(d)
+		if d == "" || strings.HasPrefix(d, "(") {
+			continue
+		}
+		out = append(out, d)
+	}
+	return out
+}

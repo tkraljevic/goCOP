@@ -3158,3 +3158,11 @@ textarea {
 .part-obj-ime a { color: var(--primary); }
 
 .nasip-naselja { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+
+/* Os stacionaže bojom: voda plavo, nasip zeleno.
+   Na istoj dionici stoje obje — crpna stanica ima rkm uz rijeku i kkm uz
+   kanal, a nasip svoj nkm — pa je bez razlike 1419+900 do 1+650 izgledalo kao
+   jedan niz koji ne drži red. Boja je pomoć, ne nositelj: oznaka osi (rkm,
+   nkm) piše i slovima, pa se sve čita i bez razlikovanja boja. */
+.os-voda { color: var(--primary); }
+.os-nasip { color: var(--success); }
