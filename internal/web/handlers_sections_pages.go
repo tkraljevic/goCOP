@@ -41,6 +41,10 @@ type SectionPageData struct {
 	// PredlozenaSifra je prvi slobodan broj u odabranom području; upisuje se u
 	// obrazac unaprijed jer se dionice unose u nizu.
 	PredlozenaSifra string
+	// LetveBlokovi su pragovi, kota nule i zabilježeni ekstremi mjerodavnih
+	// letvi. Dionica ih ne drži svoje — povlači ih s letve po kojoj se vodi,
+	// pa su na obje stranice iste brojke i isti prikaz.
+	LetveBlokovi []LetvaBlok
 
 	// obrazac
 	Sectors         []models.Sector
@@ -158,6 +162,7 @@ func (h *SectionsHandler) ShowSection(w http.ResponseWriter, r *http.Request) {
 	// dionice pokazuje obranu koja traje i upućuje na letvu, ali je ne
 	// proglašava — jedan te isti stupanj vrijedi za sve dionice koje se po toj
 	// letvi vode, pa mu je mjesto ondje, a ne na svakoj dionici posebno.
+	data.LetveBlokovi = letveBlokovi(data.Parts)
 	for _, p := range data.Parts {
 		if len(p.Stations) > 0 {
 			st := p.Stations[0]
@@ -205,6 +210,42 @@ func coveredBy(stations []models.Station, g models.GaugeItem) bool {
 }
 
 // ShowSectionForm prikazuje obrazac za novu dionicu ili izmjenu postojeće
+// LetvaBlok nosi ono što zajednički predlošci trebaju o jednoj letvi. Imena
+// polja su ista kao na kartici letve, pa isti predložak radi s oboje.
+type LetvaBlok struct {
+	Station     models.Station
+	PragoviKote []PragKota
+
+	// Ovo dvoje dolazi iz arhive i na kartici dionice stoji prazno: pragovi se
+	// računaju iz same postaje, a krajnosti iz niza traže arhivsku bazu i
+	// sažetak po letvi. Polja postoje da zajednički predložak radi s oboje —
+	// prazno znači da se taj dio ne iscrtava, a potpuna slika je na kartici
+	// letve, kamo i vodi poveznica u zaglavlju.
+	KrajnostiIzNiza []models.KrajnostIzNiza
+	VisiVrh         *models.VisiVrh
+}
+
+// letveBlokovi slaže prikaz za svaku mjerodavnu letvu dionice.
+//
+// Pragovi se računaju iz same postaje i ne traže arhivu. Protok uz prag traži
+// krivulju, a zabilježeni ekstremi iz niza arhivu — oboje stoji na kartici
+// letve, kamo i vodi poveznica.
+func letveBlokovi(parts []PartView) []LetvaBlok {
+	var vidjene = map[string]bool{}
+	var out []LetvaBlok
+	for _, p := range parts {
+		for _, st := range p.Stations {
+			id := st.ID.String()
+			if vidjene[id] {
+				continue
+			}
+			vidjene[id] = true
+			out = append(out, LetvaBlok{Station: st, PragoviKote: pragoviUKotama(st)})
+		}
+	}
+	return out
+}
+
 // mustAreas vraća područja; prazan popis nije razlog da obrazac ne radi.
 func mustAreas(h *SectionsHandler) []models.Area {
 	a, _ := h.userService.ListAreas("")

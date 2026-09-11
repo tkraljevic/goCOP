@@ -467,7 +467,7 @@ func NewServer(
 	for _, page := range []string{"dashboard.html", "registri.html", "users.html", "user_detail.html", "user_form.html", "duty_form.html", "profile.html", "sections.html", "section_detail.html", "section_form.html", "territories.html", "county_form.html", "municipality_form.html", "municipality_detail.html", "stations.html", "station_detail.html", "station_form.html", "station_history.html", "station_history_form.html", "paket_pregled.html", "watercourses.html", "watercourse_detail.html", "watercourse_form.html", "structures.html", "structure_detail.html", "structure_form.html", "readings.html", "reading_history.html", "reading_form.html", "arhiva_ispravci.html", "uvoz_ocitanja.html", "teren.html", "moduli.html", "settings.html", "odrzavanje.html", "organizacija.html", "sector_form.html", "area_form.html", "contractor_form.html", "firme.html", "nazivi.html", "sudionici.html",
 		"administracija.html", "uvozi.html", "sinkronizacija.html", "pretplate.html", "baza.html", "izvori.html", "uvoz_niza.html",
 		"dnevnici.html", "dnevnik_form.html", "dnevnik.html", "dnevnik_list.html", "pomoc.html", "ocitanja_ispravci.html"} {
-		t, err := template.New("base.html").Funcs(tmplFuncs).ParseFS(templatesFS, "base.html", page)
+		t, err := template.New("base.html").Funcs(tmplFuncs).ParseFS(templatesFS, DijeloviPredloska(page)...)
 		if err != nil {
 			return nil, fmt.Errorf("greška pri parsiranju predloška %s: %w", page, err)
 		}
@@ -889,6 +889,21 @@ func (s *Server) setupRoutes() {
 
 	// Mjerodavni vodomjeri dionice
 	s.mux.Handle("GET /api/sections/{code}/stations", s.authMiddleware(http.HandlerFunc(stationsH.HandleGetSectionStationsAPI)))
+}
+
+// DijeloviPredloska kaže koje datoteke stranica treba uz sebe.
+//
+// Blokovi letve — pragovi obrane, kota nule, zabilježeni ekstremi — stoje u
+// vlastitoj datoteci jer ih koriste i kartica letve i kartica dionice koja se
+// po toj letvi vodi. Jedna definicija; dvije bi se s vremenom razišle, a
+// razlika bi se vidjela tek kad ista letva na dvije stranice pokaže dva praga.
+func DijeloviPredloska(stranica string) []string {
+	dijelovi := []string{"base.html", stranica}
+	switch stranica {
+	case "station_detail.html", "section_detail.html":
+		dijelovi = append(dijelovi, "letva_blokovi.html")
+	}
+	return dijelovi
 }
 
 // samoAdmin je ograda nad rutom, ne nad gumbom.

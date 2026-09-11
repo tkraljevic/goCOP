@@ -1,0 +1,119 @@
+{{/* Pragovi, kota nule i zabilježeni ekstremi letve.
+     Isti blokovi stoje na kartici letve i na kartici dionice, koja se po toj
+     letvi vodi. Definicija je jedna: dvije bi se s vremenom razišle, a razlika
+     bi se vidjela tek kad ista letva na dvije stranice pokaže dva praga. */}}
+
+{{define "letva-pragovi"}}
+<section class="detail-section">
+  <h2>{{icon "gauge"}} Pragovi obrane od poplava</h2>
+  <div class="reg-card" style="padding:1rem;">
+    <div class="pragovi-kartice">
+      {{range .PragoviKote}}
+      <div class="prag-kartica {{.Faza.PillClass}}">
+        <div class="prag-naziv">{{.Naziv}}</div>
+        <div class="prag-mjere">
+          <span class="threshold-pill {{.Faza.PillClass}}">{{brojHR .Cm}} cm</span>
+          {{if .Q}}<span class="threshold-pill {{.Faza.PillClass}} protok">{{brojHRd .Q 0}} m³/s</span>{{end}}
+        </div>
+        {{/* Kota vodne plohe na pragu: s njom se prag uspoređuje s krunom
+             nasipa i terenom. Izvješće ju je nosilo, kartica nije. */}}
+        {{range .Kote}}<div class="prag-kota">{{brojHRf .Kota 2}} m <span class="reg-card-sub">{{.Sustav}}</span></div>{{end}}
+      </div>
+      {{end}}
+    </div>
+    {{if not .Station.HasUsableThresholds}}
+    <p class="page-desc" style="margin:0.25rem 0 0;">Nijedan prag nije upisan u centimetrima, pa se
+      stupanj obrane za ovu postaju ne računa automatski.</p>
+    {{end}}
+
+  </div>
+</section>
+
+{{end}}
+
+{{define "letva-kota-nule"}}
+<section class="detail-section">
+  <h2>{{icon "ruler"}} Kota nule vodomjera</h2>
+  <div class="reg-card" style="padding:1rem;">
+    <dl class="reg-facts station-zero-grid">
+      <div><dt>HVRS71 (novi sustav)</dt><dd>{{if .Station.HasNewZeroDatum}}{{brojHRd .Station.ZeroDatumNew 3}} m{{else}}<span class="nema-podatka">nije upisana</span>{{end}}</dd></div>
+      <div><dt>Trst (stari sustav)</dt><dd>{{if .Station.ZeroDatum}}{{brojHRd .Station.ZeroDatum 3}} m{{else}}<span class="nema-podatka">nije upisana</span>{{end}}</dd></div>
+      <div><dt>Razlika sustava</dt><dd>{{if .Station.RazlikaVisinskihSustava}}{{brojHRf .Station.RazlikaVisinskihSustava 3}} m{{else}}<span class="nema-podatka">—</span>{{end}}</dd></div>
+    </dl>
+  </div>
+</section>
+{{end}}
+
+{{define "letva-ekstremi"}}
+{{if or .Station.Extremes .KrajnostiIzNiza}}
+<section class="detail-section">
+  <h2>{{icon "chart-column"}} Zabilježeni ekstremi</h2>
+  <div class="table-card ekstremi-siroko"><div class="table-responsive">
+    <table class="data-table">
+      <thead><tr><th>Vrsta</th><th>Vodostaj</th><th>Datum</th><th>Podrijetlo</th><th>Izvor i način</th></tr></thead>
+      <tbody>
+      {{range .Station.Extremes}}
+      <tr>
+        <td>{{if eq .Kind "MAX"}}najviši{{else}}najniži{{end}}</td>
+        <td class="mono">{{.Label}}</td>
+        <td class="mono">{{if .OnDate}}{{datumHR .OnDate}}{{else}}—{{end}}</td>
+        <td>{{if .IsMeasured}}<span class="badge">izmjereno</span>{{else}}<span class="badge badge-inactive" title="nije mjereno na ovoj letvi">{{qualityLabel .Quality}}</span>{{end}}</td>
+        <td class="celija-blok">{{.Source}}{{if .Method}} <span class="ekstrem-nacin">— {{.Method}}</span>{{end}}
+          {{if .Note}}<div class="ekstrem-napomena">{{.Note}}</div>{{end}}</td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div></div>
+
+  <ul class="ekstremi-usko">
+    {{range .Station.Extremes}}
+    <li>
+      <div class="ex-glava">
+        <span class="ex-vrsta">{{if eq .Kind "MAX"}}najviši{{else}}najniži{{end}}</span>
+        <strong class="ex-vrijednost">{{.Label}}</strong>
+        <span class="ex-datum">{{if .OnDate}}{{datumHR .OnDate}}{{end}}</span>
+        {{if .IsMeasured}}<span class="badge">izmjereno</span>
+        {{else}}<span class="badge badge-inactive" title="nije mjereno na ovoj letvi">{{qualityLabel .Quality}}</span>{{end}}
+      </div>
+      <div class="ex-izvor">{{.Source}}{{if .Method}} <span class="ekstrem-nacin">— {{.Method}}</span>{{end}}</div>
+      {{if .Note}}<div class="ekstrem-napomena">{{.Note}}</div>{{end}}
+    </li>
+    {{end}}
+  </ul>
+  <p class="reading-meta" style="margin-top:0.35rem;">Vrijednost koja nije izmjerena na ovoj letvi ne ulazi u pragove ni u izračun faze obrane.</p>
+
+  {{/* Što o krajnostima kažu sami podaci. Ne zamjenjuje zabilježeno:
+       zabilježeni ekstrem je tvrdnja s podrijetlom, ovo je najveće što u nizu
+       stoji. Kod Batine se razilaze — niz kaže 797 cm 1956., ali preračunato
+       iz Mohácsa, a zabilježeno je 775 cm izmjereno. */}}
+  {{if .KrajnostiIzNiza}}
+  <div class="reg-card" style="padding:0.75rem 1rem; margin-top:0.75rem;">
+    <div class="part-label" style="margin:0 0 0.4rem;">Što stoji u podacima</div>
+    <div class="krajnosti-iz-niza">
+      {{range .KrajnostiIzNiza}}
+      <div>
+        <span class="reg-card-sub">{{.Naslov}}{{if not .JeMjerena}} u nizu{{end}} · {{.Odakle}}</span>
+        <strong>{{brojHR .LevelCm}} cm</strong>
+        <span class="reg-card-sub">{{if .OnDate}}{{datumHR .OnDate}}{{end}}</span>
+        {{if not .JeMjerena}}<span class="badge badge-inactive"
+          title="Nije mjereno na ovoj letvi nego preračunato iz susjedne">preračunato</span>{{end}}
+      </div>
+      {{end}}
+    </div>
+    {{if $.VisiVrh}}
+    <p class="reading-meta" style="margin:0.5rem 0 0;">Na kulminaciji dojave ne stoje jedno na drugome:
+      <strong>{{$.VisiVrh.Izvor}}</strong> bilježi <strong>{{brojHRf $.VisiVrh.Vrijednost 0}} cm</strong>
+      {{$.VisiVrh.Kad}}, i drži se iznad spojenog niza {{$.VisiVrh.Sati}} {{uzBroj $.VisiVrh.Sati "sat" "sata" "sati"}}.
+      Ovjereni niz vrh vala zna zagladiti, pa zabilježeni ekstrem može biti viši od onoga što ovdje piše.</p>
+    {{end}}
+    {{if not $.Station.Extremes}}
+    <p class="reading-meta" style="margin:0.5rem 0 0;">Zabilježeni ekstremi nisu upisani. Ovo je najveće i
+      najmanje što program ima u podacima — upisani ekstrem je službeni zapis i može se od toga razlikovati.</p>
+    {{end}}
+  </div>
+  {{end}}
+
+</section>
+{{end}}
+{{end}}
