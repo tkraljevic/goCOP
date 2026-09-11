@@ -113,6 +113,17 @@ func main() {
 	if odabranaVrsta == "" {
 		odabranaVrsta = pogodiVrstu(iz.mjereno)
 	}
+	// Gdje niz već postoji, ulaže se u njega. Pogađanje iz gustoće vrijedi samo
+	// kad se ulaže na prazno: jedno jedino očitanje izgleda kao jutarnje, pa bi
+	// razdvojilo izvor na dva niza i vrijednost bi pala u dnevni umjesto u
+	// satni — što je provjera i uhvatila.
+	if v := zatecenaVrsta(*arhivaPut, postaja.Code, *izvor); v != "" {
+		odabranaVrsta = v
+	}
+	vrstaRucnog := odabranaVrsta
+	if v := zatecenaVrsta(*arhivaPut, postaja.Code, *izvorRucno); v != "" {
+		vrstaRucnog = v
+	}
 	fmt.Printf("  vrsta niza:    %s\n", odabranaVrsta)
 
 	if *suho {
@@ -132,7 +143,7 @@ func main() {
 		// nizu drži trenutke, a ne pune sate — VITUKI ondje stoji u 03:30.
 		// Kao "jutarnji" bi palo u dnevni niz i izgubilo svoj sat, a 8. rujna
 		// su na Batini tri očitanja u danu: 05, 13 i 21 h.
-		put, err := arhiva.Dopuni(*koren, sliv, postaja.Code, *izvorRucno, "vodostaj", odabranaVrsta, iz.rucno)
+		put, err := arhiva.Dopuni(*koren, sliv, postaja.Code, *izvorRucno, "vodostaj", vrstaRucnog, iz.rucno)
 		if err != nil {
 			log.Fatalf("ulaganje ručnih: %v", err)
 		}
@@ -174,7 +185,7 @@ func main() {
 	rec := ledger.New(baza, *nodeID)
 	if len(iz.biljeske) > 0 {
 		bilRepo := repository.NewBiljeskaRepository(baza, rec)
-		n, err := bilRepo.Spremi(ctx, biljeskeZa(postaja.Code, odabranaVrsta, iz.biljeske))
+		n, err := bilRepo.Spremi(ctx, biljeskeZa(postaja.Code, vrstaRucnog, iz.biljeske))
 		if err != nil {
 			log.Fatalf("bilješke: %v", err)
 		}
@@ -253,6 +264,23 @@ func razvrstaj(o []models.Reading) razvrstano {
 		iz.ulozeniID = append(iz.ulozeniID, r.ID.String())
 	}
 	return iz
+}
+
+// zatecenaVrsta javlja pod kojom vrstom taj izvor već stoji u arhivi. Prazno
+// znači da ga ondje nema, pa se vrsta tek bira.
+func zatecenaVrsta(arhivaPut, letva, izvor string) string {
+	db, err := sql.Open("sqlite", arhivaPut+"?mode=ro")
+	if err != nil {
+		return ""
+	}
+	defer db.Close()
+	var v string
+	err = db.QueryRow(`SELECT vrsta FROM nizovi WHERE letva=? AND izvor=? AND velicina='vodostaj'
+		ORDER BY zapisa DESC LIMIT 1`, letva, izvor).Scan(&v)
+	if err != nil {
+		return ""
+	}
+	return v
 }
 
 // pogodiVrstu bira vrstu niza po gustoći očitanja. Jedno dnevno je jutarnje
