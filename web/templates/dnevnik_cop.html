@@ -10,7 +10,7 @@
   <div>
     <h1 class="page-title">{{icon "activity"}} {{.Journal.DisplayTitle}}</h1>
     <p class="page-desc">
-      Dežurstvo centra{{if .Journal.CentarSektor}} — {{terml "sektor"}} {{.Journal.CentarSektor}}{{end}}
+      Dežurstvo centra{{if .Journal.CentarNaziv}} — <strong>{{.Journal.CentarNaziv}}</strong>{{else if .Journal.CentarSektor}} — {{terml "sektor"}} {{.Journal.CentarSektor}}{{end}}
       {{if .Journal.StartedAt}} · {{.Journal.StartedAt.Format "2.1.2006."}}{{if .Journal.EndedAt}} – {{.Journal.EndedAt.Format "2.1.2006."}}{{end}}{{end}}
       · {{len .Dani}} {{uzBroj (len .Dani) "dan" "dana" "dana"}}
     </p>

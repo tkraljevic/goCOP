@@ -24,6 +24,23 @@
 </div>
 
 
+{{if and (eq .Vrsta "OBRANA") .Centri}}
+<div class="filter-card">
+  <form action="/dnevnici/popis" method="GET">
+    <input type="hidden" name="vrsta" value="OBRANA">
+    <div class="filters-row" style="grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));">
+      <div class="filter-group">
+        <label class="filter-label" for="centar">{{icon "activity"}} Centar obrane</label>
+        <select id="centar" name="centar" class="filter-select" onchange="this.form.submit()">
+          <option value="">svi centri</option>
+          {{range .Centri}}<option value="{{.Sektor}}" {{if eq $.Centar .Sektor}}selected{{end}}>{{.Naziv}} ({{.Dnevnika}})</option>{{end}}
+        </select>
+      </div>
+    </div>
+  </form>
+</div>
+{{end}}
+
 {{if and (ne .Vrsta "OBRANA") (gt (len .Areas) 1)}}
 <div class="filter-card">
   <form action="/dnevnici/popis" method="GET">
@@ -47,7 +64,7 @@
       <div class="reg-card-head">
         <div>
           <h3 class="reg-card-title">{{.DisplayTitle}}</h3>
-          <div class="reg-card-sub">{{if .CentarSektor}}{{terml "sektor"}} {{.CentarSektor}}{{else}}{{.KindLabel}}{{end}} · {{.Year}}.{{if .SectionCode}} · dionica {{.SectionCode}}{{end}}</div>
+          <div class="reg-card-sub">{{if .CentarSektor}}{{if .CentarNaziv}}{{.CentarNaziv}}{{else}}{{terml "sektor"}} {{.CentarSektor}}{{end}}{{else}}{{.KindLabel}}{{end}} · {{.Year}}.{{if .SectionCode}} · dionica {{.SectionCode}}{{end}}</div>
         </div>
         <span>{{if .Reconstruction}}<span class="badge badge-inactive" title="Upisi preneseni iz starije evidencije radi primjera; ovjereni listovi postoje zasebno">rekonstrukcija</span> {{end}}{{if .OpenTasks}}<span class="badge badge-pending">{{.OpenTasks}} otvorenih naloga</span>{{end}}</span>
       </div>

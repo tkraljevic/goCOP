@@ -28,6 +28,9 @@ type Journal struct {
 	// a ne iz zaglavlja — to nije svojstvo dnevnika nego onoga što se događa.
 	CentarSektor   string `json:"centar_sektor,omitempty"`
 	CentarPodrucje *int   `json:"centar_podrucje,omitempty"` // prazno kad vodi sektorski COP
+	// CentarNaziv je ime centra iz registra — "COP Osijek", ne "sektor B".
+	// Popunjava se pri čitanju i ne putuje razmjenom.
+	CentarNaziv string `json:"-"`
 
 	AreaID   int    `json:"area_id"`
 	Kind     string `json:"kind"`  // JournalKind*
@@ -96,6 +99,13 @@ func IsJournalKind(kind string) bool {
 		}
 	}
 	return false
+}
+
+// Centar je centar obrane s brojem dnevnika, za birač na popisu.
+type Centar struct {
+	Sektor   string
+	Naziv    string
+	Dnevnika int
 }
 
 // JournalKindLabel vraća vrstu za prikaz

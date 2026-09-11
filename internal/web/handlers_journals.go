@@ -49,7 +49,11 @@ type JournalPageData struct {
 	BrojA02 int
 	BrojA03 int
 	// Dani su zapisi dežurstva složeni po danima; samo u dnevniku COP-a.
-	Dani           []DanZapisa
+	Dani []DanZapisa
+	// Centri i Centar su birač na popisu dnevnika COP-a: dnevnik se vodi po
+	// centru, pa se i bira po centru a ne po području.
+	Centri         []models.Centar
+	Centar         string
 	Journal        *models.Journal
 	Sheets         []models.JournalSheet
 	Sheet          *models.JournalSheet
@@ -192,7 +196,9 @@ func (h *JournalsHandler) ShowJournals(w http.ResponseWriter, r *http.Request) {
 	// područje im je prazno, pa ih popis po području nikad ne bi našao.
 	if data.Vrsta == models.JournalKindDefense {
 		h.fillRights(&data)
-		js, err := h.journals.ListCOPJournals(r.Context(), "")
+		data.Centri, _ = h.journals.CentriSDnevnicima(r.Context())
+		data.Centar = r.URL.Query().Get("centar")
+		js, err := h.journals.ListCOPJournals(r.Context(), data.Centar)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
