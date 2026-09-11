@@ -502,3 +502,11 @@ func (r *JournalRepository) BrojPoVrstama(ctx context.Context) (map[string]int, 
 	}
 	return out, rows.Err()
 }
+
+// EntriesForJournal vraća sve zapise dnevnika, redom kojim su pisani.
+//
+// Dnevnik COP-a nema listova: dežurstvo teče danima i zapis se veže izravno na
+// dnevnik, pa se čita po dnevniku a ne po listu.
+func (r *JournalRepository) EntriesForJournal(ctx context.Context, journalID string) ([]models.JournalEntry, error) {
+	return r.queryEntries(ctx, `e.journal_id = ?`, journalID)
+}

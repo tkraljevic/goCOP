@@ -325,3 +325,56 @@ func TestPopisDnevnikaNosiSvojuVrstu(t *testing.T) {
 		}
 	}
 }
+
+// Dnevnik COP-a nema listova ni naloga: dežurstvo teče danima, a zapis nosi
+// vrijeme, onoga tko je javio i tekst.
+func TestDnevnikCOPPokazujeZapisePoDanima(t *testing.T) {
+	kad := time.Date(2009, 6, 29, 7, 15, 0, 0, models.Zagreb)
+	dan := time.Date(2009, 6, 29, 0, 0, 0, 0, models.Zagreb)
+	d := JournalPageData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Journal: &models.Journal{ID: "dn-1", Kind: models.JournalKindDefense,
+			CentarSektor: "B", Title: "Dnevnik COP-a, lipanj 2009.", Year: 2009,
+			Reconstruction: true, Notes: "Prijepis iz digitaliziranog uveza."},
+		Dani: []DanZapisa{{Dan: dan, Zapisi: []models.JournalEntry{
+			{Kind: models.EntryKindDuty, Text: "Dežurstvo 07:00 – 15:00",
+				HappenedAt: &dan, ReportedBy: "Ana Anić"},
+			{Kind: models.EntryKindNote, Text: "vodostaj Batina u 07:00 +551",
+				HappenedAt: &kad, ReportedBy: "Marko Marić"},
+		}}},
+	}
+	html := iscrtaj(t, "dnevnik_cop.html", d)
+	for _, want := range []string{
+		"Ponedjeljak 29.6.2009.", "07:15", "Marko Marić", "vodostaj Batina",
+		"Ana Anić", "zapis-smjena", "Prijepis iz uveza",
+		"ispraviti na mjestu",
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("stranica nema %q", want)
+		}
+	}
+	// Građevinskog ovdje nema: ni listova, ni izvođača, ni naloga.
+	for _, nesmije := range []string{"Novi list", "Izvođač", "Otvoreni nalozi"} {
+		if strings.Contains(html, nesmije) {
+			t.Errorf("zapisnik dežurstva nudi %q", nesmije)
+		}
+	}
+}
+
+// Živi dnevnik ne nudi ispravak na mjestu: ondje je zapis sam dokument.
+func TestZiviDnevnikNeNudiPrepravak(t *testing.T) {
+	d := JournalPageData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Journal: &models.Journal{ID: "dn-2", Kind: models.JournalKindDefense,
+			CentarSektor: "B", Title: "Dnevnik COP-a"},
+	}
+	html := iscrtaj(t, "dnevnik_cop.html", d)
+	if strings.Contains(html, "ispraviti na mjestu") {
+		t.Error("živi dnevnik nudi prepravak zapisa")
+	}
+	if !strings.Contains(html, "još nema zapisa") {
+		t.Error("prazan dnevnik to ne kaže")
+	}
+}

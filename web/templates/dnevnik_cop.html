@@ -1,0 +1,52 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — {{.Journal.DisplayTitle}}{{end}}
+
+{{define "content"}}
+<div class="breadcrumb"><a href="/dnevnici">Dnevnici</a> ›
+  <a href="/dnevnici/popis?vrsta=OBRANA">Dnevnici COP-a</a> › {{.Journal.DisplayTitle}}</div>
+
+<div class="detail-head">
+  <div>
+    <h1 class="page-title">{{icon "activity"}} {{.Journal.DisplayTitle}}</h1>
+    <p class="page-desc">
+      Dežurstvo centra{{if .Journal.CentarSektor}} — {{terml "sektor"}} {{.Journal.CentarSektor}}{{end}}
+      {{if .Journal.StartedAt}} · {{.Journal.StartedAt.Format "2.1.2006."}}{{if .Journal.EndedAt}} – {{.Journal.EndedAt.Format "2.1.2006."}}{{end}}{{end}}
+      · {{len .Dani}} {{uzBroj (len .Dani) "dan" "dana" "dana"}}
+    </p>
+  </div>
+</div>
+
+{{if .Journal.Reconstruction}}
+{{/* Prijepis nije dokument. Dokument je uvez na papiru; ovo je preslika, i
+     zato se ovdje ispravak KRIVO PROČITANOG radi na mjestu — za razliku od
+     živog dnevnika, gdje je zapis sam dokument pa se ispravlja novim zapisom. */}}
+<div class="alert alert-warning">
+  {{icon "triangle-alert"}} <strong>Prijepis iz uveza.</strong> {{.Journal.Notes}}
+  {{if .Journal.SmijePrepravakZapisa}}<br>Krivo pročitan zapis smije se ispraviti na mjestu — ispravak
+  presliku približava izvorniku. U živom dnevniku ispravak je novi zapis uz stari.{{end}}
+</div>
+{{end}}
+
+{{range .Dani}}
+<section class="dan-dezurstva">
+  <h2 class="dan-naslov">{{danTjedna .Dan}} {{.Dan.Format "2.1.2006."}}
+    <span class="reg-chip">{{len .Zapisi}} {{uzBroj (len .Zapisi) "zapis" "zapisa" "zapisa"}}</span></h2>
+  <div class="zapisi">
+    {{range .Zapisi}}
+    <article class="zapis{{if .Voided}} zapis-storniran{{end}}{{if eq .Kind "DEZURSTVO"}} zapis-smjena{{end}}">
+      <div class="zapis-kad mono">{{if .HappenedAt}}{{.HappenedAt.Format "15:04"}}{{else}}—{{end}}</div>
+      <div class="zapis-tko">
+        {{if .ReportedBy}}{{.ReportedBy}}{{else}}<span class="reading-meta">—</span>{{end}}
+        {{if .UserName}}<div class="zapis-upisao">upisao {{.UserName}}</div>{{end}}
+      </div>
+      <div class="zapis-tekst">{{.Text}}{{if .Voided}}
+        <div class="reading-meta">storniran{{if .VoidReason}}: {{.VoidReason}}{{end}}</div>{{end}}</div>
+    </article>
+    {{end}}
+  </div>
+</section>
+{{else}}
+<div class="reg-empty">U ovom dnevniku još nema zapisa.</div>
+{{end}}
+{{end}}
