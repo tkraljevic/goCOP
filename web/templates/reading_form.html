@@ -68,7 +68,8 @@
   <div class="form-row">
     <div class="form-group">
       <label class="form-label" for="measured_at">Vrijeme očitanja</label>
-      <input type="datetime-local" id="measured_at" name="measured_at" class="form-control" value="{{.LocalValue}}" required>
+      <input type="datetime-local" id="measured_at" name="measured_at" class="form-control" value="{{.LocalValue}}"
+             data-zadano="{{.LocalValue}}" required>
       <div class="form-help">Zadano je sad; promijenite kad upisujete naknadno.</div>
     </div>
     {{if .IsField}}
@@ -107,6 +108,37 @@
   </div>
 
   <script>
+  // Vrijeme očitanja je podatak koliko i sam broj — na rekordu pogotovo.
+  // Obrazac ga popuni trenutkom otvaranja, pa je onaj tko ga ostavi otvoren pa
+  // upiše poslije dobivao vrijeme kad je otvorio, a ne kad je očitao. Zato:
+  // nedirnuto polje se pri slanju osvježi na sada, a dirnuto se potvrđuje ako
+  // znatno zaostaje. Bez skripte ostaje kako je bilo — upozorenje smije izostati,
+  // upis ne smije.
+  (function () {
+    const polje = document.getElementById('measured_at');
+    const obrazac = polje && polje.form;
+    if (!obrazac) { return; }
+    let dirano = false;
+    polje.addEventListener('input', function () { dirano = true; });
+    function sada() {
+      const d = new Date(Date.now() - new Date().getTimezoneOffset() * 60000);
+      return d.toISOString().slice(0, 16);
+    }
+    obrazac.addEventListener('submit', function (e) {
+      if (!dirano && polje.value === polje.dataset.zadano) {
+        polje.value = sada();   // stajao otvoren; vrijedi trenutak slanja
+        return;
+      }
+      const razlika = (Date.now() - new Date(polje.value).getTime()) / 60000;
+      if (razlika > 30 && !confirm(
+            'Vrijeme očitanja je ' + Math.round(razlika / 60 * 10) / 10 +
+            ' h prije upisa. Je li to točno?')) {
+        e.preventDefault();
+        polje.focus();
+      }
+    });
+  })();
+
   const OPISI = { {{range vrsteBiljeske}}"{{.Vrsta}}": "{{.Opis}}", {{end}} };
   (function () {
     const vrsta = document.getElementById('vrsta_biljeske');
