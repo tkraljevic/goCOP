@@ -1,0 +1,61 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — {{if .IsEdit}}Zaglavlje dnevnika COP-a{{else}}Novi dnevnik COP-a{{end}}{{end}}
+
+{{define "content"}}
+<div class="breadcrumb"><a href="/dnevnici">Dnevnici</a> ›
+  <a href="/dnevnici/popis?vrsta=OBRANA">Dnevnici COP-a</a> ›
+  {{if .IsEdit}}<a href="/dnevnici/{{.Journal.ID}}">{{.Journal.DisplayTitle}}</a> › Zaglavlje{{else}}Novi dnevnik{{end}}</div>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "activity"}} {{if .IsEdit}}Zaglavlje dnevnika COP-a{{else}}Novi dnevnik COP-a{{end}}</h1>
+    <p class="page-desc">Zapisnik dežurstva centra. Otvara se kad počne dežurstvo i traje dok traje obrana;
+      izvođača i nadzora nema. Tko dežura i što javlja piše se u zapise, ne ovdje.</p>
+  </div>
+</div>
+
+{{if .ErrorMessage}}<div class="alert alert-error">{{icon "triangle-alert"}} {{.ErrorMessage}}</div>{{end}}
+
+<form class="form-page" method="POST" action="{{if .IsEdit}}/dnevnici/{{.Journal.ID}}{{else}}/dnevnici/novi-cop{{end}}">
+  <div class="form-group">
+    <label class="form-label" for="centar">Centar obrane *</label>
+    {{if .IsEdit}}
+    {{/* Centar se poslije otvaranja ne mijenja: dnevnik je njegov. */}}
+    <input type="text" id="centar" class="form-control" value="{{if .Journal.CentarNaziv}}{{.Journal.CentarNaziv}}{{else}}{{terml "sektor"}} {{.Journal.CentarSektor}}{{end}}" disabled>
+    {{else}}
+    <select id="centar" name="centar" class="form-control" required>
+      {{range .CentriZaOtvaranje}}<option value="{{.Sektor}}" {{if eq $.Journal.CentarSektor .Sektor}}selected{{end}}>{{.Naziv}}</option>{{end}}
+    </select>
+    {{end}}
+  </div>
+
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="started_at">Početak dežurstva *</label>
+      <input type="date" id="started_at" name="started_at" class="form-control" required value="{{if .Journal.StartedAt}}{{.Journal.StartedAt.Format "2006-01-02"}}{{end}}">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="ended_at">Kraj dežurstva</label>
+      <input type="date" id="ended_at" name="ended_at" class="form-control" value="{{if .Journal.EndedAt}}{{.Journal.EndedAt.Format "2006-01-02"}}{{end}}">
+      <p class="form-help">Ostaje prazno dok obrana traje.</p>
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label class="form-label" for="title">Naziv</label>
+    <input type="text" id="title" name="title" class="form-control" value="{{.Journal.Title}}" placeholder="Dnevnik COP-a, {{.Journal.Year}}.">
+    <p class="form-help">Prazno daje „Dnevnik COP-a, godina.“ Kad je obrana jedna i po imenu poznata, napišite je: „Dnevnik COP-a — Dunav, lipanj 2013.“</p>
+  </div>
+
+  <div class="form-group">
+    <label class="form-label" for="notes">Napomena</label>
+    <textarea id="notes" name="notes" class="form-control" rows="2">{{.Journal.Notes}}</textarea>
+  </div>
+
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">{{icon "check"}} {{if .IsEdit}}Spremi zaglavlje{{else}}Otvori dnevnik{{end}}</button>
+    <a href="{{if .IsEdit}}/dnevnici/{{.Journal.ID}}{{else}}/dnevnici/popis?vrsta=OBRANA{{end}}" class="btn btn-secondary">Odustani</a>
+  </div>
+</form>
+{{end}}

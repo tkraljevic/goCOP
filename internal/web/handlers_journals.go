@@ -22,6 +22,7 @@ type JournalsHandler struct {
 	stations    *service.StationService
 	tmplIzbor   *template.Template
 	tmplCOP     *template.Template
+	tmplCOPForm *template.Template
 	tmplList    *template.Template
 	tmplForm    *template.Template
 	tmplJournal *template.Template
@@ -31,9 +32,9 @@ type JournalsHandler struct {
 
 func NewJournalsHandler(j *service.JournalService, users *service.UserService, m *service.MaintenanceService,
 	sections *service.SectionService, stations *service.StationService,
-	izbor, list, form, journal, cop, sheet, print *template.Template) *JournalsHandler {
+	izbor, list, form, journal, cop, copForm, sheet, print *template.Template) *JournalsHandler {
 	return &JournalsHandler{journals: j, users: users, maintenance: m, sections: sections, stations: stations,
-		tmplIzbor: izbor, tmplCOP: cop, tmplList: list, tmplForm: form, tmplJournal: journal, tmplSheet: sheet, tmplPrint: print}
+		tmplIzbor: izbor, tmplCOP: cop, tmplCOPForm: copForm, tmplList: list, tmplForm: form, tmplJournal: journal, tmplSheet: sheet, tmplPrint: print}
 }
 
 // JournalPageData su podaci svih stranica dnevnika; što stranica ne treba ostaje prazno
@@ -55,40 +56,43 @@ type JournalPageData struct {
 	Dani []DanZapisa
 	// Centri i Centar su birač na popisu dnevnika COP-a: dnevnik se vodi po
 	// centru, pa se i bira po centru a ne po području.
-	Centri         []models.Centar
-	Centar         string
-	Journal        *models.Journal
-	Sheets         []models.JournalSheet
-	Sheet          *models.JournalSheet
-	Entries        []models.JournalEntry
-	OpenTasks      []models.JournalEntry
-	Gaps           []int
-	Kinds          []string
-	Locations      []models.MaintainedWater
-	WorkItems      []models.WorkItem
-	Sections       []models.Section
-	Stations       []models.Station
-	AllowedKinds   []string
-	StaffRoles     []string
-	MachineTypes   []string
-	ConditionWords []string
-	Ratings        []int
-	StaffRows      []models.Count
-	MachineRows    []models.Count
-	Capacity       int
-	Used           int  // izvođačevih upisa na listu
-	IsFull         bool // za izvođača: nema mjesta, otvara novi list
-	Today          string
-	CanWrite       bool
-	CanSupervise   bool
-	CanManage      bool
-	IsContractor   bool
-	IsEdit         bool
-	PrintSheets    []PrintSheet
-	From, To       string
-	SuccessMessage string
-	ErrorMessage   string
-	ActiveNav      string
+	Centri []models.Centar
+	Centar string
+	// CentriZaOtvaranje su centri u kojima osoba smije otvoriti dnevnik:
+	// uprava sektora, ne svatko tko piše.
+	CentriZaOtvaranje []models.Centar
+	Journal           *models.Journal
+	Sheets            []models.JournalSheet
+	Sheet             *models.JournalSheet
+	Entries           []models.JournalEntry
+	OpenTasks         []models.JournalEntry
+	Gaps              []int
+	Kinds             []string
+	Locations         []models.MaintainedWater
+	WorkItems         []models.WorkItem
+	Sections          []models.Section
+	Stations          []models.Station
+	AllowedKinds      []string
+	StaffRoles        []string
+	MachineTypes      []string
+	ConditionWords    []string
+	Ratings           []int
+	StaffRows         []models.Count
+	MachineRows       []models.Count
+	Capacity          int
+	Used              int  // izvođačevih upisa na listu
+	IsFull            bool // za izvođača: nema mjesta, otvara novi list
+	Today             string
+	CanWrite          bool
+	CanSupervise      bool
+	CanManage         bool
+	IsContractor      bool
+	IsEdit            bool
+	PrintSheets       []PrintSheet
+	From, To          string
+	SuccessMessage    string
+	ErrorMessage      string
+	ActiveNav         string
 	ViewAsBanner
 }
 
@@ -107,7 +111,7 @@ func (h *JournalsHandler) base(r *http.Request) (*models.User, *models.UserPermi
 func (h *JournalsHandler) pageData(r *http.Request) JournalPageData {
 	u, perms := h.base(r)
 	return JournalPageData{
-		CurrentUser: u, Permissions: perms, Kinds: models.JournalKinds,
+		CurrentUser: u, Permissions: perms, Kinds: models.JournalKindsUsluga,
 		StaffRoles: models.StaffRoles, MachineTypes: models.MachineTypes, ConditionWords: models.ConditionWords,
 		Ratings: models.Ratings, Today: time.Now().In(models.Zagreb).Format("2006-01-02"),
 		SuccessMessage: r.URL.Query().Get("success"), ErrorMessage: r.URL.Query().Get("error"),
@@ -215,6 +219,7 @@ func (h *JournalsHandler) ShowJournals(w http.ResponseWriter, r *http.Request) {
 		h.fillRights(&data)
 		data.Centri, _ = h.journals.CentriSDnevnicima(r.Context())
 		data.Centar = r.URL.Query().Get("centar")
+		data.CentriZaOtvaranje = h.centriZaOtvaranje(data.Permissions)
 		js, err := h.journals.ListCOPJournals(r.Context(), data.Centar)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -263,11 +268,19 @@ func (h *JournalsHandler) ShowJournalForm(w http.ResponseWriter, r *http.Request
 		if !ok {
 			return
 		}
+		if j.CentarSektor != "" {
+			h.showCOPJournalForm(w, r, j)
+			return
+		}
 		data.Journal, data.Area, data.IsEdit = j, area, true
 	} else {
 		want, _ := strconv.Atoi(r.URL.Query().Get("area"))
 		data.Area, data.Areas = h.areaOf(data.Permissions, want)
 		vrsta := r.URL.Query().Get("kind")
+		if vrsta == models.JournalKindDefense {
+			http.Redirect(w, r, "/dnevnici/novi-cop", http.StatusSeeOther)
+			return
+		}
 		if !models.IsJournalKind(vrsta) {
 			vrsta = models.JournalKindMaintenanceA02
 		}
@@ -328,6 +341,10 @@ func (h *JournalsHandler) HandleSaveJournal(w http.ResponseWriter, r *http.Reque
 	areaID, _ := strconv.Atoi(r.FormValue("area"))
 	if j.ID != "" {
 		if cur, _ := h.journals.GetJournal(r.Context(), j.ID); cur != nil {
+			if cur.CentarSektor != "" {
+				h.HandleSaveCOPJournal(w, r)
+				return
+			}
 			areaID = cur.AreaID
 		}
 	}
@@ -673,4 +690,71 @@ func poDanima(zapisi []models.JournalEntry) []DanZapisa {
 		out = append(out, DanZapisa{Dan: dan, Zapisi: []models.JournalEntry{z}})
 	}
 	return out
+}
+
+// centriZaOtvaranje su centri u kojima osoba smije otvoriti dnevnik COP-a.
+func (h *JournalsHandler) centriZaOtvaranje(perms *models.UserPermissions) []models.Centar {
+	sektori, _ := h.users.ListSectors()
+	return h.journals.CentriZaOtvaranje(perms, sektori)
+}
+
+// ShowCOPJournalForm prikazuje obrazac za novi dnevnik COP-a: centar i
+// početak dežurstva. Izvođača i nadzora nema — to je zapisnik centra.
+func (h *JournalsHandler) ShowCOPJournalForm(w http.ResponseWriter, r *http.Request) {
+	h.showCOPJournalForm(w, r, nil)
+}
+
+func (h *JournalsHandler) showCOPJournalForm(w http.ResponseWriter, r *http.Request, j *models.Journal) {
+	data := h.pageData(r)
+	data.CentriZaOtvaranje = h.centriZaOtvaranje(data.Permissions)
+	if j != nil {
+		if !h.journals.MozeOtvoritiCOP(data.Permissions, j.CentarSektor) {
+			http.Error(w, "Zaglavlje dnevnika COP-a mijenja voditelj ili zamjenik centra", http.StatusForbidden)
+			return
+		}
+		data.Journal, data.IsEdit = j, true
+	} else {
+		if len(data.CentriZaOtvaranje) == 0 {
+			http.Error(w, "Dnevnik COP-a otvara voditelj ili zamjenik centra", http.StatusForbidden)
+			return
+		}
+		danas := time.Now().In(models.Zagreb)
+		pocetak := time.Date(danas.Year(), danas.Month(), danas.Day(), 0, 0, 0, 0, models.Zagreb)
+		data.Journal = &models.Journal{Kind: models.JournalKindDefense, Year: danas.Year(), StartedAt: &pocetak,
+			CentarSektor: r.URL.Query().Get("centar")}
+		if data.Journal.CentarSektor == "" && len(data.CentriZaOtvaranje) == 1 {
+			data.Journal.CentarSektor = data.CentriZaOtvaranje[0].Sektor
+		}
+	}
+	h.render(w, h.tmplCOPForm, "dnevnik_cop_form.html", data)
+}
+
+// HandleSaveCOPJournal otvara dnevnik COP-a ili mu sprema zaglavlje.
+func (h *JournalsHandler) HandleSaveCOPJournal(w http.ResponseWriter, r *http.Request) {
+	u, perms := h.base(r)
+	if err := r.ParseForm(); err != nil {
+		redirectWith(w, r, "/dnevnici/popis?vrsta=OBRANA", "error", "Neispravan zahtjev")
+		return
+	}
+	f := func(k string) string { return strings.TrimSpace(r.FormValue(k)) }
+	j := models.Journal{ID: r.PathValue("id"), CentarSektor: f("centar"), Title: f("title"), Notes: f("notes")}
+	if t, err := time.ParseInLocation("2006-01-02", f("started_at"), models.Zagreb); err == nil {
+		j.StartedAt = &t
+	}
+	if t, err := time.ParseInLocation("2006-01-02", f("ended_at"), models.Zagreb); err == nil {
+		j.EndedAt = &t
+	}
+	back := "/dnevnici/novi-cop"
+	if j.ID != "" {
+		back = "/dnevnici/" + j.ID + "/edit"
+	}
+	if err := h.journals.SpremiCOPDnevnik(r.Context(), u, perms, &j); err != nil {
+		redirectWith(w, r, back, "error", err.Error())
+		return
+	}
+	poruka := "Dnevnik COP-a je otvoren."
+	if r.PathValue("id") != "" {
+		poruka = "Zaglavlje dnevnika je spremljeno."
+	}
+	redirectWith(w, r, "/dnevnici/"+j.ID, "success", poruka)
 }

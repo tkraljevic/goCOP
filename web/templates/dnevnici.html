@@ -18,7 +18,9 @@
       {{else}}Sve vrste dnevnika.{{end}}
     </p>
   </div>
-  {{if and .Area .CanManage}}
+  {{if eq .Vrsta "OBRANA"}}
+  {{if .CentriZaOtvaranje}}<a href="/dnevnici/novi-cop{{if .Centar}}?centar={{.Centar}}{{end}}" class="btn btn-primary">{{icon "plus"}} Novi dnevnik COP-a</a>{{end}}
+  {{else if and .Area .CanManage}}
   <a href="/dnevnici/new?area={{.Area.ID}}{{if .Vrsta}}&kind={{.Vrsta}}{{end}}" class="btn btn-primary">{{icon "plus"}} Novi dnevnik</a>
   {{end}}
 </div>
@@ -87,7 +89,7 @@
   </article>
   {{else}}
   <div class="reg-empty">
-    {{if eq .Vrsta "OBRANA"}}Još nema nijednog dnevnika COP-a.{{else if .Area}}U području {{.Area.Name}} još nema dnevnika te vrste.{{if .CanManage}} Otvorite ga gumbom „Novi dnevnik“ i popunite naslovnicu.{{end}}{{else}}Nema područja.{{end}}
+    {{if eq .Vrsta "OBRANA"}}Još nema nijednog dnevnika COP-a.{{if .CentriZaOtvaranje}} Otvara se kad počne dežurstvo, gumbom „Novi dnevnik COP-a“.{{end}}{{else if .Area}}U području {{.Area.Name}} još nema dnevnika te vrste.{{if .CanManage}} Otvorite ga gumbom „Novi dnevnik“ i popunite naslovnicu.{{end}}{{else}}Nema područja.{{end}}
   </div>
   {{end}}
 </div>

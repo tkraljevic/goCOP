@@ -91,6 +91,11 @@ const (
 // JournalKinds su vrste redom kojim ih obrazac nudi
 var JournalKinds = []string{JournalKindMaintenanceA02, JournalKindMaintenanceA03, JournalKindDefense}
 
+// JournalKindsUsluga su vrste koje se otvaraju po branjenom području, s
+// izvođačem i nadzorom. Obrana se ne otvara tako: njezin je dnevnik
+// zapisnik dežurstva centra i otvara se u COP-u.
+var JournalKindsUsluga = []string{JournalKindMaintenanceA02, JournalKindMaintenanceA03}
+
 // IsJournalKind javlja je li vrsta poznata
 func IsJournalKind(kind string) bool {
 	for _, k := range JournalKinds {
