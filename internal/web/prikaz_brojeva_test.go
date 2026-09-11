@@ -248,7 +248,9 @@ func TestKarticaDioniceSlazeObjektePoNasipima(t *testing.T) {
 	// ovdje postavljaju izravno.
 	redovi := embankmentRows(part)
 	redovi[0].Territories = []models.SectionTerritory{
-		{SettlementName: "Batina", MunicipalityName: "Draž"},
+		{CountyID: 14, CountyName: "Osječko-baranjska", MunicipalityID: 1,
+			MunicipalityName: "Draž", MunicipalityType: "OPCINA",
+			SettlementID: intp(4861), SettlementName: "Batina"},
 	}
 	html := iscrtaj(t, "section_detail.html", SectionPageData{
 		CurrentUser: &models.User{FullName: "Provjera"},
@@ -276,10 +278,13 @@ func TestKarticaDioniceSlazeObjektePoNasipima(t *testing.T) {
 	if strings.Contains(html, "Na nasipu</th>") {
 		t.Error("stupac „Na nasipu\" više ne treba — nasip je sam sebi kartica")
 	}
-	// Naselja teku kao značke; dvanaest imena u dvanaest redaka je bilo
-	// trošenje visine na tekst od petnaestak znakova.
-	if !strings.Contains(html, "nasip-naselja") {
-		t.Error("naselja se ne slažu kao značke")
+	// Naselja stoje pod svojom općinom, a općina pod županijom — kako i u
+	// Privitku. Ravan popis gubi kojoj općini naselje pripada.
+	if !strings.Contains(html, "ugrozeno-zup-ime") {
+		t.Error("naselja nisu složena po županiji i općini")
+	}
+	if !strings.Contains(html, "Draž") {
+		t.Error("općina se ne vidi uz naselje")
 	}
 }
 
