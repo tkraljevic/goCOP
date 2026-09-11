@@ -80,7 +80,11 @@ type UvozHandler struct {
 
 func NewUvozHandler(arhivaPut, podaciDir func() string,
 	izgradi func(letva string, zapisi io.Writer) error, tmpl *template.Template) *UvozHandler {
-	return &UvozHandler{arhivaPut: arhivaPut, podaciDir: podaciDir, izgradi: izgradi, tmpl: tmpl}
+	// Vlastiti registar da rukovatelj radi i kad mu poslužitelj svoj ne da
+	// (u testovima). Gradnja bez registra nema kamo javljati, a stranica bi na
+	// upisu pukla.
+	return &UvozHandler{arhivaPut: arhivaPut, podaciDir: podaciDir, izgradi: izgradi,
+		poslovi: poslovi.NoviRegistar(), tmpl: tmpl}
 }
 
 // SetIzdavanje daje vratima ono što treba za izdavanje paketa. Čvor koji ne
@@ -88,7 +92,10 @@ func NewUvozHandler(arhivaPut, podaciDir func() string,
 func (h *UvozHandler) SetIzdavanje(paketiDir func() string,
 	izdaj func(letva string, probno bool, zapisi io.Writer) (arhiva.IzvjestajIzdanja, error),
 	katalog func() (arhiva.Katalog, error), reg *poslovi.Registar) {
-	h.paketiDir, h.izdaj, h.katalog, h.poslovi = paketiDir, izdaj, katalog, reg
+	h.paketiDir, h.izdaj, h.katalog = paketiDir, izdaj, katalog
+	if reg != nil {
+		h.poslovi = reg
+	}
 }
 
 // izdavanjeRadi javlja je li ovaj čvor uopće izdavač.
