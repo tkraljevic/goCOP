@@ -7,6 +7,7 @@ import (
 
 	"gocop/internal/arhiva"
 	"gocop/internal/models"
+	"gocop/internal/ulaganje"
 )
 
 func vrataZaTest() UvozPageData {
@@ -186,5 +187,56 @@ func TestZatecenoBrojiSamoOnoStoNovaDatotekaNema(t *testing.T) {
 	if z3 := zateceno(koren, UvozNiza{Sliv: "dunav", Letva: "nova", Izvor: "his2000",
 		Velicina: "vodostaj", Vrsta: "satni"}, novi); z3 != nil {
 		t.Errorf("nepostojeći niz javio %+v", z3)
+	}
+}
+
+// Druga vrata: očitanja iz programa. Pregled mora razdvojiti dojavu od onoga
+// što je čovjek očitao na letvi — pri maloj vodi je ručno očitanje jedina
+// neovisna provjera onoga što telemetrija javlja.
+func TestUlaganjeRazdvajaDojavuOdRucnog(t *testing.T) {
+	d := vrataZaTest()
+	d.UlaganjeRadi = true
+	d.UlLetva, d.UlOd, d.UlDo = "batina", "2026-09-01", "2026-09-11"
+	d.Ulaganje = &ulaganje.Pregled{
+		Postaja: models.Station{Name: "Batina", Code: "batina"},
+		Ukupno:  87, Mjereno: 78, Rucno: 9, Sumnjivo: 2, BezVrijednosti: 1, SBiljeskom: 5,
+		Izvor: "cop", IzvorRucnog: "cop-rucno", Vrsta: "satni", VrstaRucnog: "satni",
+	}
+	html := iscrtaj(t, "uvoz_niza.html", d)
+	for _, want := range []string{"Očitanja iz programa", "Batina", "cop-rucno",
+		"Dojavljeno", "Ručno s letve", "Sumnjivo", "S bilješkom"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("stranica nema %q", want)
+		}
+	}
+	// Sumnjivo se ne ulaže i to mora pisati, inače bi u arhivi izgledalo kao
+	// mjerenje.
+	if !strings.Contains(html, "ne ulaže se") {
+		t.Error("ne piše da se sumnjivo ne ulaže")
+	}
+}
+
+// Pospremanje briše, pa mora tražiti potvrdu i stajati odvojeno od ulaganja.
+func TestPospremanjeTraziPotvrdu(t *testing.T) {
+	d := vrataZaTest()
+	d.UlaganjeRadi = true
+	d.Pospremivo = []ulaganje.ZaPospremanje{
+		{StationID: "abc", Letva: "vukovar", Naziv: "Vukovar", Broj: 128, Oznake: "2026-09-10"},
+	}
+	html := iscrtaj(t, "uvoz_niza.html", d)
+	for _, want := range []string{"Uloženo, čeka pospremanje", "vukovar", "128",
+		"onsubmit=\"return confirm(", "/administracija/ulaganje/pospremi"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("stranica nema %q", want)
+		}
+	}
+}
+
+// Čvor koji ne može ulagati ne smije nuditi ta vrata.
+func TestCvorBezStablaNemaUlaganja(t *testing.T) {
+	d := vrataZaTest()
+	html := iscrtaj(t, "uvoz_niza.html", d)
+	if strings.Contains(html, "Očitanja iz programa") {
+		t.Error("čvor koji ne ulaže ipak nudi ulaganje")
 	}
 }

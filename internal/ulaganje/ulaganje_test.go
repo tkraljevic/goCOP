@@ -1,4 +1,4 @@
-package main
+package ulaganje
 
 import (
 	"testing"
@@ -22,7 +22,7 @@ func ocit(sat int, cm int, kvaliteta, napomena, vrsta string) models.Reading {
 // ondje izgledalo kao mjerenje. Rekonstruirano ide odvojeno, jer arhiva
 // preračun ionako vodi zasebno i uvijek na kraju reda povjerenja.
 func TestRazvrstavanjeCuvaRazlikuIzmedjuMjerenogISumnjivog(t *testing.T) {
-	iz := razvrstaj([]models.Reading{
+	iz, sumnjivo, bezVrijednosti := razvrstaj([]models.Reading{
 		ocit(1, -86, models.QualityMeasured, "", ""),
 		ocit(2, -87, "", "", ""), // prazna kvaliteta je izmjereno
 		ocit(3, -88, models.QualityReconstructed, "", ""),
@@ -35,11 +35,11 @@ func TestRazvrstavanjeCuvaRazlikuIzmedjuMjerenogISumnjivog(t *testing.T) {
 	if len(iz.preracunato) != 1 {
 		t.Errorf("rekonstruiranih %d", len(iz.preracunato))
 	}
-	if iz.sumnjivo != 1 {
-		t.Errorf("sumnjivih %d", iz.sumnjivo)
+	if sumnjivo != 1 {
+		t.Errorf("sumnjivih %d", sumnjivo)
 	}
-	if iz.bezVrijednosti != 1 {
-		t.Errorf("bez vrijednosti %d", iz.bezVrijednosti)
+	if bezVrijednosti != 1 {
+		t.Errorf("bez vrijednosti %d", bezVrijednosti)
 	}
 	// Sumnjivo i ono bez vrijednosti NE smiju se označiti kao uložena, inače
 	// bi ih zaboravljanje obrisalo a nigdje ih ne bi bilo.
@@ -51,7 +51,7 @@ func TestRazvrstavanjeCuvaRazlikuIzmedjuMjerenogISumnjivog(t *testing.T) {
 // Bilješka prelazi uz vrijednost — to je jedino zbog čega se ručno očitanje i
 // pamti nakon što broj ode u arhivu.
 func TestBiljeskaPrelaziUzVrijednost(t *testing.T) {
-	iz := razvrstaj([]models.Reading{
+	iz, _, _ := razvrstaj([]models.Reading{
 		ocit(4, -90, models.QualityMeasured, "očitan minimum", models.BiljeskaDno),
 		ocit(5, -89, models.QualityMeasured, "", ""),
 	})
