@@ -411,24 +411,30 @@ func TestHistorijatPrikazujeObraneSvihDionica(t *testing.T) {
 	}
 }
 
-// Obranu proglašava čovjek, pa kartica dionice mora ponuditi upis. Bez otvorene
-// epizode nudi se proglašenje, a dok obrana traje podizanje i prekid.
-func TestKarticaDioniceNudiProglasenjeObrane(t *testing.T) {
+// Obrana se proglašava uz letvu, ne na dionici.
+//
+// Jedan te isti stupanj vrijedi za sve dionice koje se po toj letvi vode —
+// Batina za cijelo BP 34 — pa bi proglašavanje po dionici značilo isti posao
+// ponovljen nekoliko puta i mogućnost da se dionice raziđu.
+//
+// Kartica dionice i dalje pokazuje obranu koja traje: živo stanje ne smije
+// nestati s mjesta na kojem ga čovjek gleda.
+func TestKarticaDioniceNeProglasavaObranu(t *testing.T) {
 	osnovno := SectionPageData{
 		CurrentUser: &models.User{FullName: "Provjera"},
 		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
 		Section:     models.Section{Code: "B.34.1", AreaID: 34, SectorID: "B"},
-		CanDeclare:  true,
-		NowLocal:    "2024-09-17T05:00",
-		Phases:      []models.DefensePhase{models.PhasePrep, models.PhaseRegular, models.PhaseEmergency, models.PhaseState},
-		Bases:       models.BasisOptions(),
 	}
 
 	html := iscrtaj(t, "section_detail.html", osnovno)
-	for _, want := range []string{"Proglasi obranu", "/sections/B.34.1/obrana/proglasi", "prognoza", "Pripremno stanje"} {
-		if !strings.Contains(html, want) {
-			t.Errorf("obrazac za proglašenje nema %q", want)
+	for _, nesmije := range []string{"Proglasi obranu", "/sections/B.34.1/obrana/proglasi",
+		"/sections/B.34.1/obrana/podigni", "/sections/B.34.1/obrana/prekini"} {
+		if strings.Contains(html, nesmije) {
+			t.Errorf("kartica dionice nudi %q, a obrana se proglašava uz letvu", nesmije)
 		}
+	}
+	if !strings.Contains(html, "proglašava uz mjerodavnu letvu") {
+		t.Error("kartica ne kaže gdje se obrana proglašava")
 	}
 
 	// Obrana proglašena prije nego što je vodostaj došao do praga: kartica to
@@ -443,17 +449,20 @@ func TestKarticaDioniceNudiProglasenjeObrane(t *testing.T) {
 	sOtvorenom := osnovno
 	sOtvorenom.OpenEpisode = &otvorena
 	sOtvorenom.Episodes = []models.DefenseEpisode{otvorena}
+	sOtvorenom.Gauge = &models.Station{ID: uuid.MustParse("9f1c0b2e-0000-7000-8000-000000000000"),
+		Name: "Batina", Code: "batina"}
 
 	html = iscrtaj(t, "section_detail.html", sOtvorenom)
 	for _, want := range []string{"na snazi od", "Željko Kovačević", "prognoza",
-		"30 sati prije", "/sections/B.34.1/obrana/prekini", "/sections/B.34.1/obrana/podigni"} {
+		"30 sati prije", "Batina", "proglašava i prekida uz letvu"} {
 		if !strings.Contains(html, want) {
 			t.Errorf("kartica s otvorenom obranom nema %q", want)
 		}
 	}
-	// Stupanj se ne spušta, pa se ne smiju nuditi niži od trenutnog
-	if strings.Contains(html, `<option value="PRIPREMNO">`) {
-		t.Error("nudi se spuštanje stupnja ispod onog na snazi")
+	for _, nesmije := range []string{"/sections/B.34.1/obrana/podigni", "/sections/B.34.1/obrana/prekini"} {
+		if strings.Contains(html, nesmije) {
+			t.Errorf("kartica s otvorenom obranom nudi %q", nesmije)
+		}
 	}
 }
 

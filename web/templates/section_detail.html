@@ -153,63 +153,17 @@
     <p class="page-desc" style="margin:0.5rem 0 0 0;">Vodostaj još nije prešao prag pripremnog stanja.</p>
     {{end}}
     {{if .OpenEpisode.Note}}<p class="page-desc" style="margin:0.5rem 0 0 0;">{{.OpenEpisode.Note}}</p>{{end}}
-
-    {{if .CanDeclare}}
-    <div style="display:flex; flex-wrap:wrap; gap:1.5rem; margin-top:0.875rem; padding-top:0.875rem; border-top:1px solid var(--border);">
-      <form method="POST" action="/sections/{{.Section.Code}}/obrana/podigni" style="display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center;">
-        <label class="reg-card-sub" for="podigni-phase">Podigni stupanj</label>
-        <select id="podigni-phase" name="phase" class="form-control" style="width:auto;">
-          {{range $.Phases}}{{if gt .Severity $.OpenEpisode.Phase.Severity}}<option value="{{.}}">{{.Label}}</option>{{end}}{{end}}
-        </select>
-        <input type="text" name="note" class="form-control" style="width:14rem;" placeholder="napomena">
-        <button type="submit" class="btn btn-secondary btn-sm">Podigni</button>
-      </form>
-      <form method="POST" action="/sections/{{.Section.Code}}/obrana/prekini" style="display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center;">
-        <label class="reg-card-sub" for="prekini-at">Prekini obranu</label>
-        <input id="prekini-at" type="datetime-local" name="ended_at" class="form-control" style="width:auto;" value="{{.NowLocal}}">
-        <input type="text" name="note" class="form-control" style="width:14rem;" placeholder="napomena">
-        <button type="submit" class="btn btn-secondary btn-sm">Prekini</button>
-      </form>
-    </div>
-    {{end}}
-  </div>
-  {{else if .CanDeclare}}
-  <div class="table-card" style="padding:1rem 1.25rem; margin-bottom:1rem;">
-    <form method="POST" action="/sections/{{.Section.Code}}/obrana/proglasi">
-      <div style="display:flex; flex-wrap:wrap; gap:0.75rem; align-items:flex-end;">
-        <div class="form-group" style="margin:0;">
-          <label class="form-label" for="obrana-phase">Stupanj</label>
-          <select id="obrana-phase" name="phase" class="form-control" style="width:auto;" required>
-            {{range .Phases}}<option value="{{.}}">{{.Label}}</option>{{end}}
-          </select>
-        </div>
-        <div class="form-group" style="margin:0;">
-          <label class="form-label" for="obrana-at">Od</label>
-          <input id="obrana-at" type="datetime-local" name="started_at" class="form-control" style="width:auto;" value="{{.NowLocal}}">
-        </div>
-        <div class="form-group" style="margin:0;">
-          <label class="form-label" for="obrana-basis">Po čemu</label>
-          <select id="obrana-basis" name="basis" class="form-control" style="width:auto;">
-            {{range .Bases}}<option value="{{.}}">{{basisLabel .}}</option>{{end}}
-          </select>
-        </div>
-        <div class="form-group" style="margin:0; flex:1 1 16rem;">
-          <label class="form-label" for="obrana-note">Napomena</label>
-          <input id="obrana-note" type="text" name="note" class="form-control" placeholder="npr. prognoza HHS-a, porast 40 cm/24 h">
-        </div>
-        <button type="submit" class="btn">{{icon "triangle-alert"}} Proglasi obranu</button>
-      </div>
-    </form>
-    <p class="page-desc" style="margin:0.75rem 0 0 0;">Obranu proglašava rukovoditelj. Program je ne proglašava sam — samo javlja kad vodostaj{{if .Gauge}} na letvi {{.Gauge.Name}}{{end}} prijeđe prag i to zabilježi uz epizodu, pa se poslije vidi je li obrana proglašena prije ili poslije toga.</p>
   </div>
   {{end}}
 
   {{if .Gauge}}
   <p class="page-desc" style="margin-top:0.5rem;">
-    Povijest obrana vodi se uz letvu <a href="/stations/{{.Gauge.ID}}#obrane" style="color:var(--primary); font-weight:600;">{{.Gauge.Name}}</a>, zajedno s ostalim dionicama koje se po njoj vode{{if .Episodes}} — na ovoj ih je dionici zabilježeno {{len .Episodes}}{{end}}.
+    Obrana se proglašava i prekida uz letvu <a href="/stations/{{.Gauge.ID}}#obrane" style="color:var(--primary); font-weight:600;">{{.Gauge.Name}}</a>, ondje gdje se vodostaj i čita; ondje se vodi i povijest, zajedno s ostalim dionicama koje se po toj letvi vode{{if .Episodes}} — na ovoj ih je dionici zabilježeno {{len .Episodes}}{{end}}.
   </p>
   {{else if .Episodes}}
-  <p class="page-desc" style="margin-top:0.5rem;">Zabilježenih obrana: {{len .Episodes}}. Povijest se vodi uz mjerodavnu letvu, a dionica je nema upisanu.</p>
+  <p class="page-desc" style="margin-top:0.5rem;">Zabilježenih obrana: {{len .Episodes}}. Obrana se proglašava uz mjerodavnu letvu, a dionica je nema upisanu.</p>
+  {{else}}
+  <p class="page-desc" style="margin-top:0.5rem;">Obrana se proglašava uz mjerodavnu letvu, ondje gdje se vodostaj i čita. Ova dionica nema upisanu letvu.</p>
   {{end}}
 </section>
 

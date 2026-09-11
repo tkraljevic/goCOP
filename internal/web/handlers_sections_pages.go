@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 
@@ -38,10 +37,6 @@ type SectionPageData struct {
 	Episodes    []models.DefenseEpisode // epizode obrane na ovoj dionici, najnovija prva
 	OpenEpisode *models.DefenseEpisode  // obrana koja upravo traje, ako je ima
 	Gauge       *models.Station         // letva po kojoj se dionica vodi
-	NowLocal    string                  // sadašnji trenutak za polja obrasca
-	Phases      []models.DefensePhase   // stupnjevi koji se mogu proglasiti
-	Bases       []string                // osnove proglašenja
-	CanDeclare  bool                    // smije li prijavljeni proglasiti obranu
 	CanEdit     bool
 
 	// obrazac
@@ -156,12 +151,10 @@ func (h *SectionsHandler) ShowSection(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	// Obranu proglašava onaj tko na dionici smije upisivati; program je nikad
-	// ne proglašava sam, samo javlja da je vodostaj prešao prag.
-	data.CanDeclare = data.Permissions != nil && data.Permissions.HasWriteAccess("", 0, sec.Code)
-	data.NowLocal = time.Now().Format("2006-01-02T15:04")
-	data.Phases = []models.DefensePhase{models.PhasePrep, models.PhaseRegular, models.PhaseEmergency, models.PhaseState}
-	data.Bases = models.BasisOptions()
+	// Obrana se proglašava uz letvu, ondje gdje se vodostaj i čita. Stranica
+	// dionice pokazuje obranu koja traje i upućuje na letvu, ali je ne
+	// proglašava — jedan te isti stupanj vrijedi za sve dionice koje se po toj
+	// letvi vode, pa mu je mjesto ondje, a ne na svakoj dionici posebno.
 	for _, p := range data.Parts {
 		if len(p.Stations) > 0 {
 			st := p.Stations[0]
