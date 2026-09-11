@@ -123,6 +123,10 @@ func (h *StationsHandler) SetPaket(put func() string, cvor func() string,
 	h.arhivaPutFn, h.cvorFn, h.ugradi, h.tmplPaket = put, cvor, ugradi, tmpl
 }
 
+// SetPaketiDir kazuje gdje stoji katalog izdanja. Bez njega izvoz i dalje radi,
+// samo svaki paket izlazi kao prvo izdanje.
+func (h *StationsHandler) SetPaketiDir(f func() string) { h.paketiDirFn = f }
+
 // SetIspravci daje rukovatelju pohranu ispravaka arhive; bez nje se arhiva i
 // dalje prikazuje, samo bez ispravaka.
 func (h *StationsHandler) SetIspravci(f func() *repository.IspravakRepository) {

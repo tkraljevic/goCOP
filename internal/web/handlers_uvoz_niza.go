@@ -14,6 +14,7 @@ import (
 
 	"gocop/internal/arhiva"
 	"gocop/internal/models"
+	"gocop/internal/poslovi"
 )
 
 // Uvoz niza u arhivu: administrator odabere datoteku s diska, program pogodi
@@ -69,13 +70,30 @@ func (u *uvoziUTijeku) makni(id string) {
 type UvozHandler struct {
 	arhivaPut func() string
 	podaciDir func() string
-	izgradi   func(letva string) (string, error)
+	paketiDir func() string
+	izgradi   func(letva string, zapisi io.Writer) error
+	izdaj     func(letva string, probno bool, zapisi io.Writer) (arhiva.IzvjestajIzdanja, error)
+	katalog   func() (arhiva.Katalog, error)
+	poslovi   *poslovi.Registar
 	tmpl      *template.Template
 }
 
 func NewUvozHandler(arhivaPut, podaciDir func() string,
-	izgradi func(letva string) (string, error), tmpl *template.Template) *UvozHandler {
+	izgradi func(letva string, zapisi io.Writer) error, tmpl *template.Template) *UvozHandler {
 	return &UvozHandler{arhivaPut: arhivaPut, podaciDir: podaciDir, izgradi: izgradi, tmpl: tmpl}
+}
+
+// SetIzdavanje daje vratima ono što treba za izdavanje paketa. Čvor koji ne
+// izdaje to ne postavlja i onda se odjeljak o izdanjima ne pokazuje.
+func (h *UvozHandler) SetIzdavanje(paketiDir func() string,
+	izdaj func(letva string, probno bool, zapisi io.Writer) (arhiva.IzvjestajIzdanja, error),
+	katalog func() (arhiva.Katalog, error), reg *poslovi.Registar) {
+	h.paketiDir, h.izdaj, h.katalog, h.poslovi = paketiDir, izdaj, katalog, reg
+}
+
+// izdavanjeRadi javlja je li ovaj čvor uopće izdavač.
+func (h *UvozHandler) izdavanjeRadi() bool {
+	return h.izdaj != nil && h.poslovi != nil && h.paketiDir != nil && h.paketiDir() != ""
 }
 
 type UvozPageData struct {
@@ -105,6 +123,18 @@ type UvozPageData struct {
 	Dnevnik   string // ispis gradnje nakon upisa
 	Cekaizvor string // izvor koji je upisan a još ne ulazi u spojeni niz
 
+	// Dugi posao u tijeku: stranica crta traku i pita poslužitelja kako stoji.
+	PosaoID    string
+	PosaoNaziv string
+
+	// Izdavanje paketa
+	IzdavanjeRadi  bool
+	PaketiDir      string
+	Katalog        arhiva.Katalog
+	KatalogNastalo string
+	Izdanja        *arhiva.IzvjestajIzdanja // prijedlog ili ishod izdavanja
+	IzdanjeLetva   string                   // na koju se letvu odnosi; prazno = sve
+
 	SuccessMessage string
 	ErrorMessage   string
 	ActiveNav      string
@@ -133,6 +163,20 @@ func (h *UvozHandler) pageData(r *http.Request) UvozPageData {
 		d.Slivovi = s
 	}
 	d.Izvori = h.imenaIzvora()
+	d.IzdavanjeRadi = h.izdavanjeRadi()
+	if d.IzdavanjeRadi {
+		d.PaketiDir = h.paketiDir()
+		if k, err := h.katalog(); err != nil {
+			// Katalog koji se ne čita zaustavlja izdavanje, pa je bolje da to
+			// piše ovdje nego da čovjek klikne pa dobije grešku.
+			d.ErrorMessage = "Katalog izdanja se ne čita: " + err.Error()
+		} else {
+			d.Katalog = k
+			if !k.Nastalo.IsZero() {
+				d.KatalogNastalo = k.Nastalo.In(models.Zagreb).Format("02.01.2006. 15:04")
+			}
+		}
+	}
 	return d
 }
 
@@ -194,7 +238,41 @@ func (h *UvozHandler) ShowUvoz(w http.ResponseWriter, r *http.Request) {
 		d.ErrorMessage = "Ovaj čvor nema stablo s izvornim datotekama, pa se u arhivu ne može unositi — " +
 			"arhiva mu stiže paketom."
 	}
+	h.pogledajPosao(&d, r)
 	h.pisi(w, d)
+}
+
+// pogledajPosao puni stranicu onim što posao javlja. Posao koji još traje daje
+// samo svoj broj — traku crta preglednik; gotov posao daje ispis i ishod.
+func (h *UvozHandler) pogledajPosao(d *UvozPageData, r *http.Request) {
+	id := strings.TrimSpace(r.URL.Query().Get("posao"))
+	if id == "" || h.poslovi == nil || d.CurrentUser == nil {
+		return
+	}
+	p, ima := h.poslovi.Nadi(id, d.CurrentUser.ID.String())
+	if !ima {
+		return
+	}
+	if p.Traje() {
+		d.PosaoID, d.PosaoNaziv = p.ID, p.Naziv
+		return
+	}
+	d.Dnevnik = p.Dnevnik()
+	if g := p.Greska(); g != "" {
+		d.ErrorMessage = p.Naziv + " nije uspjela: " + g
+	} else {
+		d.SuccessMessage = p.Stanje().Sazetak
+	}
+	switch plod := p.Plod().(type) {
+	case *ishodUvoza:
+		d.Cekaizvor = plod.Cekaizvor
+		d.Izdanja, d.IzdanjeLetva = plod.Izdanja, plod.Letva
+	case *arhiva.IzvjestajIzdanja:
+		d.Izdanja = plod
+		if len(plod.Redci) == 1 {
+			d.IzdanjeLetva = plod.Redci[0].Letva
+		}
+	}
 }
 
 // PregledUvoza čita odabranu datoteku i pokazuje što je u njoj. Ništa se ne
@@ -425,22 +503,127 @@ func (h *UvozHandler) UpisiUvoz(w http.ResponseWriter, r *http.Request) {
 	uvozi.makni(id)
 
 	// Gradnja ide odmah, jer datoteka koja leži u stablu a nije ušla u arhivu
-	// nigdje se ne vidi — a čovjek bi mislio da je posao gotov.
-	dnevnik, err := h.izgradi(u.Letva)
-	if err != nil {
-		redirectWith(w, r, "/administracija/uvoz-niza", "error",
-			"Datoteka je zapisana u "+put+", ali gradnja letve nije uspjela: "+err.Error())
+	// nigdje se ne vidi — a čovjek bi mislio da je posao gotov. Ide u pozadinu:
+	// velika letva se gradi minutama, a dotad je preglednik stajao na bijelom
+	// jer je poslužitelj bio zauzet baš tim poslom i nije imao odakle javiti
+	// gdje je.
+	d = h.pageData(r)
+	p := h.poslovi.Pokreni("Izgradnja letve "+u.Letva, korisnik,
+		"/administracija/uvoz-niza?posao={id}", func(p *poslovi.Posao) error {
+			if err := h.izgradi(u.Letva, p); err != nil {
+				return fmt.Errorf("datoteka je zapisana u %s, ali gradnja letve nije uspjela: %w", put, err)
+			}
+			ishod := &ishodUvoza{Put: put, Letva: u.Letva}
+			// Novi izvor ulazi isključen — to je namjerno, ali čovjek bi inače
+			// mislio da je posao gotov, a podaci bi ležali u arhivi i nigdje se
+			// ne bi vidjeli. Pita se tek sad: gradnja je ta koja novi izvor
+			// upisuje na popis.
+			if !h.izvorUlaziUSpoj(u.Izvor) {
+				ishod.Cekaizvor = u.Izvor
+			}
+			// Odmah se gleda i bi li ova letva dobila novo izdanje. Probno
+			// sastavljanje jedne letve traje djelić sekunde, a čovjeku odgovara
+			// na pitanje zbog kojeg je i došao: je li se arhiva promijenila.
+			if h.izdavanjeRadi() {
+				p.Korak("gledam bi li se izdanje promijenilo", 0, 0)
+				if iz, err := h.izdaj(u.Letva, true, io.Discard); err == nil {
+					ishod.Izdanja = &iz
+				} else {
+					fmt.Fprintf(p, "\nizdanje se nije dalo provjeriti: %v\n", err)
+				}
+			}
+			p.Zavrsi(fmt.Sprintf("Zapisano u %s; %s je ponovno izgrađena.", put, u.Letva), ishod)
+			return nil
+		})
+	d.PosaoID, d.PosaoNaziv = p.ID, p.Naziv
+	h.pisi(w, d)
+}
+
+// ishodUvoza je ono što gradnja ostavi stranici: kamo je zapisano, čeka li
+// koji izvor da ga se uključi, i bi li letva dobila novo izdanje.
+type ishodUvoza struct {
+	Put       string
+	Letva     string
+	Cekaizvor string
+	Izdanja   *arhiva.IzvjestajIzdanja
+}
+
+// ProvjeriIzdanja sastavlja pakete nasuho: ništa se ne zapisuje, a vidi se
+// koja bi letva dobila novo izdanje i zašto.
+func (h *UvozHandler) ProvjeriIzdanja(w http.ResponseWriter, r *http.Request) {
+	h.izdavanje(w, r, true)
+}
+
+// Izdaj zapisuje nove pakete i osvježava katalog.
+func (h *UvozHandler) Izdaj(w http.ResponseWriter, r *http.Request) {
+	h.izdavanje(w, r, false)
+}
+
+func (h *UvozHandler) izdavanje(w http.ResponseWriter, r *http.Request, probno bool) {
+	d := h.pageData(r)
+	if !h.smije(d) {
+		http.Error(w, "Arhivu izdaje administrator", http.StatusForbidden)
 		return
 	}
-	d = h.pageData(r)
-	d.SuccessMessage = fmt.Sprintf("Zapisano u %s; %s je ponovno izgrađena.", put, u.Letva)
-	d.Dnevnik = dnevnik
-	// Novi izvor ulazi isključen — to je namjerno, ali čovjek bi inače mislio
-	// da je posao gotov, a podaci bi ležali u arhivi i nigdje se ne bi vidjeli.
-	if !h.izvorUlaziUSpoj(u.Izvor) {
-		d.Cekaizvor = u.Izvor
+	if !h.izdavanjeRadi() {
+		d.ErrorMessage = "Ovaj čvor ne izdaje arhivu — nije mu zadana mapa u koju bi izdavao."
+		h.pisi(w, d)
+		return
 	}
+	letva := strings.TrimSpace(r.FormValue("letva"))
+	korisnik := ""
+	if d.CurrentUser != nil {
+		korisnik = d.CurrentUser.ID.String()
+	}
+
+	naziv := "Izdavanje cijele arhive"
+	if letva != "" {
+		naziv = "Izdavanje letve " + letva
+	}
+	if probno {
+		naziv = "Provjera izdanja"
+		if letva != "" {
+			naziv += " — " + letva
+		}
+	}
+	p := h.poslovi.Pokreni(naziv, korisnik, "/administracija/uvoz-niza?posao={id}",
+		func(p *poslovi.Posao) error {
+			iz, err := h.izdaj(letva, probno, p)
+			if err != nil {
+				return err
+			}
+			p.Zavrsi(sazetakIzdanja(iz), &iz)
+			return nil
+		})
+	d.PosaoID, d.PosaoNaziv = p.ID, p.Naziv
 	h.pisi(w, d)
+}
+
+// sazetakIzdanja je jedna rečenica o tome što se dogodilo.
+func sazetakIzdanja(iz arhiva.IzvjestajIzdanja) string {
+	if iz.Probno {
+		if iz.Promijenjenih == 0 {
+			return "Ništa se nije promijenilo — nema što izdati."
+		}
+		return fmt.Sprintf("%d %s bi dobilo novo izdanje; %d je nepromijenjeno.",
+			iz.Promijenjenih, uzBrojLetva(iz.Promijenjenih), iz.Istih)
+	}
+	if iz.Promijenjenih == 0 {
+		return "Katalog je osvježen; nijedna letva nije trebala novo izdanje."
+	}
+	return fmt.Sprintf("Izdano %d %s u %s; %d nepromijenjeno.",
+		iz.Promijenjenih, uzBrojLetva(iz.Promijenjenih), iz.Mapa, iz.Istih)
+}
+
+func uzBrojLetva(n int) string {
+	switch {
+	case n%10 == 1 && n%100 != 11:
+		return "letva"
+	case n%10 >= 2 && n%10 <= 4 && (n%100 < 12 || n%100 > 14):
+		return "letve"
+	default:
+		return "letvi"
+	}
 }
 
 func novIdUvoza() string {
