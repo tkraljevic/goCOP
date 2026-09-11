@@ -50,7 +50,7 @@ func nullDay(t *time.Time) any {
 
 // --- dnevnik ---
 
-const journalColumns = `id, area_id, kind, title, year, contract, reconstruction, section_code, structure_id, contractor, contractor_lead,
+const journalColumns = `id, area_id, centar_sektor, centar_podrucje, kind, title, year, contract, reconstruction, section_code, structure_id, contractor, contractor_lead,
 	contractor_lead_act, supervisor, supervisor_act, supervisor_deputy, chief_supervisor, investor, started_at, ended_at,
 	latitude, longitude, gauges, notes, created_by, created_at, updated_at`
 
@@ -58,10 +58,18 @@ func scanJournal(row rowScanner) (models.Journal, error) {
 	var j models.Journal
 	var started, ended sql.NullTime
 	var recon int
-	err := row.Scan(&j.ID, &j.AreaID, &j.Kind, &j.Title, &j.Year, &j.Contract, &recon, &j.SectionCode, &j.StructureID, &j.Contractor,
+	var area, centarPodrucje sql.NullInt64
+	var centarSektor sql.NullString
+	err := row.Scan(&j.ID, &area, &centarSektor, &centarPodrucje, &j.Kind, &j.Title, &j.Year, &j.Contract, &recon, &j.SectionCode, &j.StructureID, &j.Contractor,
 		&j.ContractorLead, &j.ContractorLeadAct, &j.Supervisor, &j.SupervisorAct, &j.SupervisorDeputy, &j.ChiefSupervisor,
 		&j.Investor, &started, &ended, &j.Latitude, &j.Longitude, &j.Gauges, &j.Notes, &j.CreatedBy, &j.CreatedAt, &j.UpdatedAt)
 	j.Reconstruction = recon != 0
+	j.AreaID = int(area.Int64)
+	j.CentarSektor = centarSektor.String
+	if centarPodrucje.Valid {
+		n := int(centarPodrucje.Int64)
+		j.CentarPodrucje = &n
+	}
 	if started.Valid {
 		t := started.Time
 		j.StartedAt = &t
@@ -74,15 +82,26 @@ func scanJournal(row rowScanner) (models.Journal, error) {
 }
 
 func journalArgs(j *models.Journal) []any {
-	return []any{j.ID, j.AreaID, j.Kind, j.Title, j.Year, j.Contract, boolInt(j.Reconstruction), j.SectionCode, j.StructureID, j.Contractor, j.ContractorLead,
+	// Prazno područje se piše kao NULL, ne kao 0: stupac ima strani ključ, a
+	// područja s brojem 0 nema. Dnevnik COP-a vezan je na centar i područje
+	// mu ostaje prazno.
+	var area, centar any
+	if j.AreaID > 0 {
+		area = j.AreaID
+	}
+	if j.CentarSektor != "" {
+		centar = j.CentarSektor
+	}
+	return []any{j.ID, area, centar, j.CentarPodrucje, j.Kind, j.Title, j.Year, j.Contract, boolInt(j.Reconstruction), j.SectionCode, j.StructureID, j.Contractor, j.ContractorLead,
 		j.ContractorLeadAct, j.Supervisor, j.SupervisorAct, j.SupervisorDeputy, j.ChiefSupervisor, j.Investor, j.StartedAt, j.EndedAt,
 		j.Latitude, j.Longitude, j.Gauges, j.Notes, j.CreatedBy, j.CreatedAt, j.UpdatedAt}
 }
 
 const journalUpsert = `INSERT INTO journals (` + journalColumns + `)
-	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	ON CONFLICT(id) DO UPDATE SET
-		area_id = excluded.area_id, kind = excluded.kind, title = excluded.title, year = excluded.year, contract = excluded.contract,
+		area_id = excluded.area_id, centar_sektor = excluded.centar_sektor,
+		centar_podrucje = excluded.centar_podrucje, kind = excluded.kind, title = excluded.title, year = excluded.year, contract = excluded.contract,
 		reconstruction = excluded.reconstruction,
 		section_code = excluded.section_code, structure_id = excluded.structure_id, contractor = excluded.contractor,
 		contractor_lead = excluded.contractor_lead, contractor_lead_act = excluded.contractor_lead_act, supervisor = excluded.supervisor,

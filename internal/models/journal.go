@@ -17,15 +17,31 @@ import (
 // izvođača, te napomene, naloge i ocjene ovlaštenika ili rukovoditelja.
 // Količine se ne upisuju — one idu u građevinsku knjigu.
 type Journal struct {
-	ID       string `json:"id"`
+	ID string `json:"id"`
+
+	// Dnevnik COP-a veže se na CENTAR, dnevnik usluge na branjeno područje.
+	//
+	// Centar vodi jednu bilježnicu bez obzira gdje je obrana proglašena:
+	// dežurni u Osijeku dežura zbog Virovitice, ali piše u dnevnik COP-a
+	// Osijek, a ako i Virovitica ima dežurnog, njegov upis ide u isti taj
+	// dnevnik pod njegovim imenom. Koja su područja u igri vidi se iz zapisa,
+	// a ne iz zaglavlja — to nije svojstvo dnevnika nego onoga što se događa.
+	CentarSektor   string `json:"centar_sektor,omitempty"`
+	CentarPodrucje *int   `json:"centar_podrucje,omitempty"` // prazno kad vodi sektorski COP
+
 	AreaID   int    `json:"area_id"`
 	Kind     string `json:"kind"`  // JournalKind*
 	Title    string `json:"title"` // naziv radova, npr. "A.02. Kanali I. i II. reda"
 	Year     int    `json:"year"`
 	Contract string `json:"contract"` // klasa/urbroj ugovora ili naziv
 
-	// Rekonstrukcija: upisi preneseni iz starije evidencije radi primjera;
-	// stvarni, ovjereni listovi postoje zasebno i ovaj ih dnevnik ne zamjenjuje
+	// Rekonstrukcija: upisi preneseni iz starije evidencije; stvarni, ovjereni
+	// listovi postoje zasebno i ovaj ih dnevnik ne zamjenjuje.
+	//
+	// To nije samo oznaka nego pravilo. U živom dnevniku zapis JEST dokument,
+	// pa se ne prepravlja — ispravak je novi zapis uz stari. U prijepisu je
+	// zapis samo preslika, a dokument je uvez na papiru; ondje je ispravljanje
+	// krivo pročitanog jedino ispravno, jer presliku približava izvorniku.
 	Reconstruction bool `json:"reconstruction"`
 
 	// Dnevnik obrane vodi se po dionici, po potrebi i po objektu
@@ -99,6 +115,13 @@ func JournalKindLabel(kind string) string {
 func (j Journal) KindLabel() string { return JournalKindLabel(j.Kind) }
 
 // IsDefense govori vodi li se dnevnik po dionici dok traju mjere obrane
+// SmijePrepravakZapisa javlja smije li se tekst zapisa mijenjati na mjestu.
+//
+// Samo u prijepisu. Ondje je zapis preslika uveza, pa se ispravak krivo
+// pročitanog vraća prema izvorniku. U živom dnevniku zapis je sam dokument i
+// ispravlja se novim zapisom uz stari, nikad prepravkom.
+func (j Journal) SmijePrepravakZapisa() bool { return j.Reconstruction }
+
 func (j Journal) IsDefense() bool { return j.Kind == JournalKindDefense }
 
 // Program vraća program radova kojem dnevnik pripada
