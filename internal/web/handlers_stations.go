@@ -26,6 +26,7 @@ type StationsHandler struct {
 	readingService     *service.ReadingService
 	arhiva             func() *repository.ArhivaRepository
 	ispravci           func() *repository.IspravakRepository
+	biljeske           func() *repository.BiljeskaRepository
 	arhivaPutFn        func() string
 	cvorFn             func() string
 	ugradi             func(*arhiva.Sadrzaj) error

@@ -34,6 +34,7 @@ type ArhivaPogled struct {
 	ArhPager        Pager
 	ArhPromjeneKote []models.PromjenaKote // zabilježena premještanja nule letve
 	ArhIspravaka    int
+	ArhBiljezaka    int
 	ArhSada         *models.SpojenaVrijednost // zadnja vrijednost odabrane veličine
 	ArhDecimala     int
 	KoteZaArhivu    bool   // prikazuje li se uz vodostaj i apsolutna kota vode
@@ -48,7 +49,8 @@ const arhivaPoStranici = 31
 // popuniArhivu puni pregled. Svaka vrijednost nosi izvor i odstupanje, pa se u
 // tablici vidi odakle je koji redak.
 func popuniArhivu(ctx context.Context, r *http.Request, a *repository.ArhivaRepository,
-	isp *repository.IspravakRepository, p *ArhivaPogled, station *models.Station) {
+	isp *repository.IspravakRepository, bil *repository.BiljeskaRepository,
+	p *ArhivaPogled, station *models.Station) {
 	if a == nil || station == nil || station.Code == "" {
 		return
 	}
@@ -127,6 +129,9 @@ func popuniArhivu(ctx context.Context, r *http.Request, a *repository.ArhivaRepo
 	ispravci := ispravciIz(ctx, isp, station.Code, p.ArhVelicina, p.ArhKorak, od, do)
 	p.ArhIspravaka = len(ispravci)
 	primijeniIspravke(p.ArhNiz, ispravci)
+	biljeske := biljeskeIz(ctx, bil, station.Code, p.ArhVelicina, p.ArhKorak, od, do)
+	p.ArhBiljezaka = len(biljeske)
+	primijeniBiljeske(p.ArhNiz, biljeske)
 
 	// Graf crta cijelo razdoblje, ne samo prikazanu stranicu — inače bi se
 	// mijenjao pri svakom listanju i ne bi značio ono što piše. Mjesec je
@@ -136,6 +141,20 @@ func popuniArhivu(ctx context.Context, r *http.Request, a *repository.ArhivaRepo
 	krivulje, _ := a.Krivulje(ctx, station.Code)
 	p.ArhChart = crtajNiz(prorijediNiz(cijela, 700), p.ArhVelicina, station, krivulje)
 	p.ArhChartUzak = crtajNizUzak(prorijediNiz(cijela, 260), p.ArhVelicina, station, krivulje)
+}
+
+// biljeskeIz čita bilješke uz vrijednosti; bez pohrane vraća prazno, jer su
+// bilješke dodatak arhivi, a ne uvjet da se ona prikaže.
+func biljeskeIz(ctx context.Context, repo *repository.BiljeskaRepository,
+	letva, velicina, korak string, od, do time.Time) map[int64]models.ArhivaBiljeska {
+	if repo == nil {
+		return nil
+	}
+	m, err := repo.ZaNiz(ctx, letva, velicina, korak, od, do)
+	if err != nil {
+		return nil
+	}
+	return m
 }
 
 // ispravciIz čita ispravke arhive; bez pohrane vraća prazno, jer ispravci su

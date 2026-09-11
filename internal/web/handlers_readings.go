@@ -902,6 +902,23 @@ func primijeniIspravke(vals []models.SpojenaVrijednost, ispravci map[int64]model
 	}
 }
 
+// primijeniBiljeske stavlja uz vrijednost ono što je čovjek o njoj rekao.
+// Ne dira ni vrijednost ni oznaku ispravka — bilješka svjedoči, ne mijenja.
+func primijeniBiljeske(vals []models.SpojenaVrijednost, biljeske map[int64]models.ArhivaBiljeska) {
+	if len(biljeske) == 0 {
+		return
+	}
+	for i := range vals {
+		b, ima := biljeske[vals[i].Kad.Unix()]
+		if !ima {
+			continue
+		}
+		vals[i].Biljeska = b.Tekst
+		vals[i].BiljeskaTko = b.Tko
+		vals[i].BiljeskaVrh = b.JeVrh()
+	}
+}
+
 // HandleZalijepiPregled čita zalijepljena očitanja i pokazuje što bi se
 // upisalo. Ništa se ne upisuje dok čovjek ne potvrdi.
 func (h *ReadingsHandler) HandleZalijepiPregled(w http.ResponseWriter, r *http.Request) {

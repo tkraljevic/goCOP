@@ -129,6 +129,11 @@ func (h *StationsHandler) SetIspravci(f func() *repository.IspravakRepository) {
 	h.ispravci = f
 }
 
+// SetBiljeske daje rukovatelju bilješke uz arhivske vrijednosti.
+func (h *StationsHandler) SetBiljeske(f func() *repository.BiljeskaRepository) {
+	h.biljeske = f
+}
+
 // SetSektor daje rukovatelju zapis sektora, iz kojeg se gradi memorandum na
 // izvješću. Dohvatnik iz istog razloga kao kod karte.
 func (h *StationsHandler) SetSektor(f func(ctx context.Context, id string) *models.Sector) {
@@ -203,7 +208,11 @@ func (h *StationsHandler) HistorijatLetve(w http.ResponseWriter, r *http.Request
 		if h.ispravci != nil {
 			isp = h.ispravci()
 		}
-		popuniArhivu(r.Context(), r, h.arhiva(), isp, &data.ArhivaPogled, &data.Station)
+		var bil *repository.BiljeskaRepository
+		if h.biljeske != nil {
+			bil = h.biljeske()
+		}
+		popuniArhivu(r.Context(), r, h.arhiva(), isp, bil, &data.ArhivaPogled, &data.Station)
 	}
 	data.LetvaStranica = "historijat"
 	data.HistorijatPrazan = historijatPrazan(data)

@@ -521,6 +521,12 @@ func (s *Server) setupRoutes() {
 		}
 		return repository.NewIspravakRepository(s.db, s.recorder)
 	})
+	stationsH.SetBiljeske(func() *repository.BiljeskaRepository {
+		if s.db == nil {
+			return nil
+		}
+		return repository.NewBiljeskaRepository(s.db, s.recorder)
+	})
 	stationsH.SetKarta(func() KartaPostavke { return s.karta })
 	stationsH.SetPaket(
 		func() string { return s.arhivaPut },

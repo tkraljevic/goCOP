@@ -471,6 +471,19 @@ func InitSchema(database *sql.DB) error {
 			UNIQUE(letva, velicina, korak, vrijeme)
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_ispravci_niz ON arhiva_ispravci(letva, velicina, korak, vrijeme);`,
+		`CREATE TABLE IF NOT EXISTS arhiva_biljeske (
+			id TEXT PRIMARY KEY,
+			letva TEXT NOT NULL,
+			velicina TEXT NOT NULL,
+			korak TEXT NOT NULL,
+			vrijeme DATETIME NOT NULL,
+			tekst TEXT NOT NULL DEFAULT '',
+			tko TEXT NOT NULL DEFAULT '',
+			created_at DATETIME NOT NULL,
+			updated_at DATETIME NOT NULL,
+			UNIQUE(letva, velicina, korak, vrijeme)
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_biljeske_niz ON arhiva_biljeske(letva, velicina, korak, vrijeme);`,
 		`CREATE TABLE IF NOT EXISTS reading_follows (
 			gauge_key TEXT PRIMARY KEY,
 			name TEXT NOT NULL DEFAULT '',

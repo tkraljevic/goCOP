@@ -2971,3 +2971,5 @@ textarea {
 .uvoz-dnevnik { margin: 0; max-height: 18rem; overflow: auto; font-size: 0.75rem; line-height: 1.45; white-space: pre; }
 .uvoz-uzorak { font-size: 0.75rem; }
 .uvoz-uzorak td, .uvoz-uzorak th { padding: 0.25rem 0.4rem; }
+/* Bilješka uz arhivsku vrijednost: ne mijenja ju, svjedoči o njoj. */
+.niz-biljeska { margin-top: 0.2rem; font-size: 0.75rem; color: var(--text); }
