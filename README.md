@@ -51,9 +51,10 @@ prva računala. Kaže što program radi na računalu i mreži, što ne radi, i
   list s uvjetima (vremenske prilike s Open-Meteo dok ima interneta,
   vodostaji iz očitanja, ocjena uvjeta, osoblje i strojevi) i upisi: rad
   izvođača, napomene, nalozi s rokom i ocjene nadzora. Upisi nose redni broj
-  bez rupa i ne brišu se nego storniraju; list potvrđuju izvođač i nadzor,
-  a ispisuje se u obliku obrasca. Izvođač (voditelj usluga / poslovođa) vidi
-  samo dnevnike.
+  bez rupa, razlikuju vrijeme događaja od vremena unosa te osobu koja je
+  javila od osobe koja je upisala. Ne brišu se nego storniraju; list potvrđuju
+  izvođač i nadzor, a ispisuje se u obliku obrasca. Izvođač (voditelj usluga /
+  poslovođa) vidi samo dnevnike.
 - **Rad bez interneta:** cijeli program, sučelje i podaci rade lokalno;
   sučelje je prilagođeno i radu na mobitelu.
 - **Usklađivanje računala:** čvorovi se pronalaze u lokalnoj mreži, ručno
@@ -61,6 +62,15 @@ prva računala. Kaže što program radi na računalu i mreži, što ne radi, i
 - **Povijest:** svaka izmjena ostaje zabilježena kao nova verzija, a brisanje
   je arhiviranje. Administratori mogu provjeriti ovlasti pogledom kroz račun
   drugog djelatnika, bez mogućnosti izmjene u tom načinu rada.
+- **Hidrološka arhiva:** veliki nizovi vodostaja odvojeni su od operativne baze.
+  Administrator kroz sučelje uvozi CSV/XLSX, uspoređuje ga sa zatečenim nizom,
+  zadano ga nadopunjuje, gradi spojeni historijat te ulaže završena operativna
+  očitanja. Arhiva prepoznaje niz bez izvorne datoteke i ne briše ga sama.
+- **`.cop` izdanja:** historijat pojedine postaje izdaje se kao prijenosni paket.
+  Paket je ograničen pri raspakiravanju, ima otiske dijelova i Ed25519 potpis,
+  ugrađuje se atomski, a starije izdanje ne može automatski pregaziti novije.
+  Arhivske mutacije dostupne su samo globalnom administratoru i izvode se jedna
+  po jedna.
 
 ---
 
@@ -76,10 +86,14 @@ prva računala. Kaže što program radi na računalu i mreži, što ne radi, i
 
   | datoteka | što je |
   |---|---|
-  | `gocop.db` (+ `-wal`, `-shm`) | SQLite baza — svi podaci |
+  | `gocop.db` (+ `-wal`, `-shm`) | SQLite baza — operativa, registri, korisnici i knjiga verzija |
+  | `vodostaji.db` (+ `-wal`, `-shm`) | obnovljiva hidrološka arhiva i evidencija primljenih izdanja |
   | `gocop.toml` | postavke, s komentarima; program je zapiše pri prvom pokretanju |
   | `node-key` | privatni ključ ovog računala (Ed25519), prava 0600 |
   | `network-key` | ključ mreže, kod čvora koji ju je osnovao |
+
+  Uz `data/` zadano žive `vodostaji/`, stablo izvornih datoteka, i `pakete/`,
+  mapa izdanih `.cop` paketa s `katalog.json`. Putanje se mogu promijeniti.
 
   U istu mapu administrator može staviti datoteke registara i imenika
   (`*.json`); program ih pročita samo pri prvom punjenju prazne baze
@@ -112,8 +126,9 @@ između računala koja sudjeluju u testu. Portovi se mijenjaju u `gocop.toml`.
 
 ## 3. Podaci i sigurnost
 
-- **Podaci su na računalu**, u jednoj SQLite datoteci. Ne šalju se nikamo
-  osim na uparena računala.
+- **Podaci su na računalu.** Operativa je u `gocop.db`, a velika hidrološka
+  povijest u `vodostaji.db` i izvornom stablu. Ne šalju se nikamo osim na
+  uparena računala ili u `.cop` paket koji administrator izričito izda.
 - **Osobni podaci.** Registar djelatnika sadrži imena, funkcije, telefone i
   e-mail adrese djelatnika i sudionika obrane od poplava, kako ih
   organizacija unese ili uveze iz svog imenika. Tretirati mapu `data/` kao
@@ -132,8 +147,10 @@ između računala koja sudjeluju u testu. Portovi se mijenjaju u `gocop.toml`.
 - **Ključ računala** (`node-key`) je njegov identitet. Kopija baze bez
   ključa nije to računalo. Ključ se ne sinkronizira i ne smije u backup koji
   ide na drugo računalo.
-- **Ništa se ne briše.** Svaka izmjena je nova verzija iznad prethodne;
-  brisanje je arhiviranje. Povijest ostaje i može se vratiti.
+- **Poslovni zapisi ne nestaju običnim brisanjem.** Izmjena je nova verzija,
+  a brisanje arhiviranje. Starije tehničke verzije i već uložena operativna
+  očitanja mogu se pospremiti samo administratorskim postupkom koji najprije
+  provjerava da je točan niz, vrijeme i vrijednost u arhivi.
 
 ## 4. Poznata ograničenja alfa faze — pročitati prije odobrenja
 
@@ -199,7 +216,8 @@ administratora iz registra (mobitel, e-pošta) i centar iz postavki čvora.
 
 `gocop.toml` — adresa web sučelja, putanja baze, identifikator i naziv
 računala, portovi, razmak automatske sinkronizacije, stalno izložene
-domene. Zastavice na naredbenom retku (`-addr`, `-db`, `-node`, `-name`,
+domene. Zastavice na naredbenom retku (`-addr`, `-db`, `-podaci`, `-pakete`,
+`-node`, `-name`,
 `-sync-port`, `-pair-port`, `-discovery-port`, `-auto-sync`, `-config`)
 imaju prednost pred datotekom.
 
@@ -230,6 +248,8 @@ jesu.
 ## 8. Za razvoj
 
 Go, bez CGO-a; SQLite (modernc), sučelje `html/template` ugrađeno u binary.
+Projekt trenutačno ima više od 500 Go testova; puni testovi, `go vet` i ciljani
+race-testovi arhive i weba prolaze na aktualnom stanju.
 
 ```bash
 go build -ldflags "-X main.version=0.0.1" -o gocop ./cmd/gocop
