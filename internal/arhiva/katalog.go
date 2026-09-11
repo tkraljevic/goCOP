@@ -120,8 +120,10 @@ type IzvjestajIzdanja struct {
 // Probno izdavanje sve izračuna ali ništa ne zapiše — tako se prije klika vidi
 // što bi se promijenilo.
 //
-// Starije izdanje se ne briše: čvor koji ga još nije preuzeo mora ga moći naći,
-// a katalog kaže koje je najnovije.
+// Starije izdanje se ne briše, ali ne zato da bi ga netko preuzeo: paket je
+// cjelovita izjava o letvi, pa svaki čvor uzima samo zadnje. Stara izdanja su
+// ZAPIS — ako je netko u ožujku odlučivao po v2, treba v2 da bi se vidjelo što
+// je tad imao pred sobom.
 func Izdaj(db *sql.DB, uMapu, izdao, samo string, probno bool, zapisi io.Writer) (IzvjestajIzdanja, error) {
 	if zapisi == nil {
 		zapisi = io.Discard

@@ -41,6 +41,9 @@ func dopuniShemu(db *sql.DB) error {
 	if _, err := db.Exec(shemaIzvora); err != nil {
 		return fmt.Errorf("tablica izvora: %w", err)
 	}
+	if _, err := db.Exec(shemaPrimljenih); err != nil {
+		return fmt.Errorf("tablica primljenih izdanja: %w", err)
+	}
 	stupci := []struct{ tablica, stupac, opis string }{
 		{"nizovi", "napomena", "TEXT NOT NULL DEFAULT ''"},
 		{"izvori", "mapa", "TEXT NOT NULL DEFAULT ''"},

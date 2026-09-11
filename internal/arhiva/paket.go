@@ -821,6 +821,27 @@ func (c *citac) ReadByte() (byte, error) {
 
 // Ugradi upisuje paket u arhivu i pregrađuje spojeni niz. Sve u jednoj
 // transakciji: arhiva ne smije ostati s pola letve.
+// unatragNamjerno je uključen samo unutar UgradiUnatrag.
+var unatragNamjerno bool
+
+// UgradiUnatrag ugrađuje starije izdanje, na izričit zahtjev.
+//
+// Postoji jer se to zna morati: izdanje koje je otišlo sa zlim podatkom vraća
+// se na prethodno dok se ne izda ispravak. Razlog se upisuje uz evidenciju —
+// vraćanje bez zapisa ne razlikuje se od napada.
+func UgradiUnatrag(db *sql.DB, baza string, s *Sadrzaj, razlog string) error {
+	if strings.TrimSpace(razlog) == "" {
+		return fmt.Errorf("vraćanje na starije izdanje traži razlog")
+	}
+	unatragNamjerno = true
+	defer func() { unatragNamjerno = false }()
+	if err := Ugradi(db, baza, s); err != nil {
+		return err
+	}
+	return zapisiPrimljeno(db, s.Manifest, len(s.PotpisaoKljuc) > 0,
+		"vraćeno unatrag: "+strings.TrimSpace(razlog))
+}
+
 func Ugradi(db *sql.DB, baza string, s *Sadrzaj) error {
 	// Ugradnja briše letvu pa upisuje njezine dijelove i gradi spoj — isti
 	// posao kao gradnja, pa ista brava.
@@ -835,6 +856,15 @@ func Ugradi(db *sql.DB, baza string, s *Sadrzaj) error {
 	}
 	if err := dopuniShemu(db); err != nil {
 		return err
+	}
+	// Staro ali ispravno potpisano izdanje prolazi kao i svako drugo ako ga
+	// nitko ne uspoređuje s onim što čvor već ima. Ništa u njemu nije
+	// krivotvoreno — samo je staro, a letva bi tiho izgubila ono što je u
+	// međuvremenu stiglo.
+	if !unatragNamjerno {
+		if err := SmijeUgraditi(db, s.Manifest); err != nil {
+			return err
+		}
 	}
 	letva := s.Manifest.Letva
 	tx, err := db.Begin()
@@ -966,6 +996,11 @@ func Ugradi(db *sql.DB, baza string, s *Sadrzaj) error {
 	}
 	if _, err := SpojiU(tx, letva); err != nil {
 		return fmt.Errorf("spajanje nakon ugradnje: %w", err)
+	}
+	// Evidencija se piše u istoj transakciji kao i sadržaj, da se ne razmine s
+	// njim: zapis o izdanju koje nije ušlo gori je od nikakvog.
+	if err := zapisiPrimljeno(tx, s.Manifest, len(s.PotpisaoKljuc) > 0, ""); err != nil {
+		return fmt.Errorf("evidencija primljenog izdanja: %w", err)
 	}
 	return tx.Commit()
 }
