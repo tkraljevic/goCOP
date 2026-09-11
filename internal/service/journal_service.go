@@ -423,6 +423,11 @@ func (s *JournalService) ListCOPJournals(ctx context.Context, sektor string) ([]
 	return s.repo.ListCOPJournals(ctx, sektor)
 }
 
+// CentriSDnevnicima vraća centre koji imaju barem jedan dnevnik.
+func (s *JournalService) CentriSDnevnicima(ctx context.Context) ([]models.Centar, error) {
+	return s.repo.CentriSDnevnicima(ctx)
+}
+
 // EntriesForJournal vraća zapise dežurstva jednog dnevnika.
 func (s *JournalService) EntriesForJournal(ctx context.Context, journalID string) ([]models.JournalEntry, error) {
 	return s.repo.EntriesForJournal(ctx, journalID)

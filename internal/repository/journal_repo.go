@@ -156,6 +156,19 @@ func (r *JournalRepository) decorateJournal(ctx context.Context, j *models.Journ
 	r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM journal_entries WHERE journal_id = ? AND kind = ? AND status = ? AND voided = 0`,
 		j.ID, models.EntryKindTask, models.TaskOpen).Scan(&j.OpenTasks)
 	r.db.QueryRowContext(ctx, `SELECT name FROM areas WHERE id = ?`, j.AreaID).Scan(&j.AreaName)
+	if j.CentarSektor != "" {
+		// Centar se zove svojim imenom. "COP Osijek" kaže čiji je dnevnik,
+		// "sektor B" traži da netko zna koji je to sektor.
+		r.db.QueryRowContext(ctx, `SELECT center_cop FROM sectors WHERE id = ?`,
+			j.CentarSektor).Scan(&j.CentarNaziv)
+		if j.CentarPodrucje != nil {
+			var podrucje string
+			if err := r.db.QueryRowContext(ctx, `SELECT name FROM areas WHERE id = ?`,
+				*j.CentarPodrucje).Scan(&podrucje); err == nil && podrucje != "" {
+				j.CentarNaziv += " — " + podrucje
+			}
+		}
+	}
 }
 
 // GetJournal vraća dnevnik
@@ -523,6 +536,29 @@ func (r *JournalRepository) EntriesForJournal(ctx context.Context, journalID str
 // Ne ide preko branjenog područja: dnevnik COP-a vezan je na centar i područje
 // mu je prazno, pa ga popis po području nikad ne bi našao. Prazan sektor znači
 // sve centre koje osoba smije vidjeti.
+// CentriSDnevnicima vraća sektore koji imaju barem jedan dnevnik COP-a, s
+// imenom centra — za birač na popisu.
+func (r *JournalRepository) CentriSDnevnicima(ctx context.Context) ([]models.Centar, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT s.id, s.center_cop, count(*)
+		FROM journals j JOIN sectors s ON s.id = j.centar_sektor
+		WHERE j.centar_sektor IS NOT NULL AND j.centar_sektor <> ''
+		GROUP BY s.id ORDER BY s.center_cop`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []models.Centar
+	for rows.Next() {
+		var c models.Centar
+		if err := rows.Scan(&c.Sektor, &c.Naziv, &c.Dnevnika); err != nil {
+			return nil, err
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
 func (r *JournalRepository) ListCOPJournals(ctx context.Context, sektor string) ([]models.Journal, error) {
 	q := `SELECT ` + journalColumns + ` FROM journals WHERE centar_sektor IS NOT NULL AND centar_sektor <> ''`
 	var args []any
