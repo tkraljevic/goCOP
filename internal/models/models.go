@@ -772,3 +772,56 @@ func (k KrajnostIzNiza) Naslov() string {
 	}
 	return "najviši"
 }
+
+// SazetakEkstrema daje najviši i najniži u jednom retku, za sklopljeni prikaz.
+// Prazno kad ekstrema nema.
+func (s Station) SazetakEkstrema() string {
+	var naj, min *StationExtreme
+	for i := range s.Extremes {
+		e := &s.Extremes[i]
+		if e.LevelCm == nil {
+			continue
+		}
+		if e.Kind == ExtremeMax && (naj == nil || *e.LevelCm > *naj.LevelCm) {
+			naj = e
+		}
+		if e.Kind == ExtremeMin && (min == nil || *e.LevelCm < *min.LevelCm) {
+			min = e
+		}
+	}
+	var dj []string
+	opis := func(oznaka string, e *StationExtreme) {
+		if e == nil {
+			return
+		}
+		t := oznaka + " " + e.Label()
+		if e.OnDate != "" {
+			t += " (" + e.OnDate + ")"
+		}
+		dj = append(dj, t)
+	}
+	opis("najviši", naj)
+	opis("najniži", min)
+	return strings.Join(dj, " · ")
+}
+
+// ZajednickaNapomenaEkstrema vraća napomenu ako je ista uz sve ekstreme.
+//
+// Ograda „provjeriti prije objave“ stoji uz svaki zapis, pa se u tablici od
+// četiri retka ispisivala tri puta. To je sistemska ograda, ne podatak o toj
+// vrijednosti — kad je svugdje ista, piše jednom ispod tablice.
+func (s Station) ZajednickaNapomenaEkstrema() string {
+	if len(s.Extremes) == 0 {
+		return ""
+	}
+	prva := s.Extremes[0].Note
+	if prva == "" {
+		return ""
+	}
+	for _, e := range s.Extremes[1:] {
+		if e.Note != prva {
+			return ""
+		}
+	}
+	return prva
+}

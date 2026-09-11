@@ -25,17 +25,22 @@
 </div>
 
 
+{{/* Sažetak stoji samo ondje gdje doista sažima. Kod jedne poddionice opis je
+     doslovan prijepis onoga što piše dva retka niže, a sve brojke stoje kao
+     značke uz same stavke — tada samo odgađa prvi pravi podatak za jedan ekran. */}}
+{{if .Sazetak.Ima}}
 <div class="reg-card" style="padding:1rem;">
-  <p style="margin:0 0 0.5rem; font-size:0.95rem; font-weight:500;">{{.Section.EffectiveDescription}}</p>
+  {{if .Sazetak.Opis}}<p style="margin:0 0 0.5rem; font-size:0.95rem; font-weight:500;">{{.Section.EffectiveDescription}}</p>{{end}}
   <dl class="reg-facts">
-    {{if gt .Section.Length 0.0}}<div><dt>Ukupna duljina</dt><dd>{{km .Section.Length}} km</dd></div>{{end}}
-    {{if gt .Section.EmbankmentLength 0.0}}<div><dt>Ukupno nasipa</dt><dd>{{km .Section.EmbankmentLength}} km</dd></div>{{end}}
-    <div><dt>Poddionica</dt><dd>{{len .Parts}}</dd></div>
-    <div><dt>Vodomjera</dt><dd>{{.Section.GaugeCount}}</dd></div>
-    <div><dt>Objekata</dt><dd>{{.Section.ObjectCount}}</dd></div>
-    <div><dt>Nasipa i brana</dt><dd>{{.Section.EmbankmentCount}}</dd></div>
+    {{if .Sazetak.Duljina}}<div><dt>Ukupna duljina</dt><dd>{{km .Section.Length}} km</dd></div>{{end}}
+    {{if .Sazetak.NasipiDuljina}}<div><dt>Ukupno nasipa</dt><dd>{{km .Section.EmbankmentLength}} km</dd></div>{{end}}
+    {{if .Sazetak.Poddionica}}<div><dt>Poddionica</dt><dd>{{len .Parts}}</dd></div>{{end}}
+    {{if .Sazetak.Vodomjera}}<div><dt>Vodomjera</dt><dd>{{.Section.GaugeCount}}</dd></div>{{end}}
+    {{if .Sazetak.Objekata}}<div><dt>Objekata</dt><dd>{{.Section.ObjectCount}}</dd></div>{{end}}
+    {{if .Sazetak.NasipaIBrana}}<div><dt>Nasipa i brana</dt><dd>{{.Section.EmbankmentCount}}</dd></div>{{end}}
   </dl>
 </div>
+{{end}}
 
 {{range $pi, $p := .Parts}}
 <section class="detail-section part">

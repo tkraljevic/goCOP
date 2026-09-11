@@ -31,38 +31,42 @@ type StationPageData struct {
 	ExtremesJSON         template.JS // zabilježeni ekstremi za obrazac
 	ReturnLevelsJSON     template.JS // povratni vodostaji za obrazac
 	Sections             []models.Section
-	Episodes             []models.DefenseEpisode   // obrane vođene po ovoj letvi, najnovija prva
-	Valovi               []models.Val              // valovi obrane izračunati iz niza, najnoviji prvi
-	ValoviSvi            []models.Val              // svi valovi, prije rezanja na stranicu — izvješće bira po vrhu
-	ValoviPager          Pager                     // listanje valova
-	ValoviZbroj          []models.ZbrojStupnja     // koliko je koje stanje ukupno trajalo
-	ValoviNiz            models.RazdobljeNiza      // na kojem je nizu računato
-	ValoviPragovi        []models.PragObrane       // pragovi koji su ušli u izračun
-	Nizovi               []models.HidroNiz         // što o ovoj letvi ima u arhivi
-	Pregled              *models.HidroPregled      // karakteristične vrijednosti odabranog niza
-	Profili              []models.ProfilKorita     // snimke poprečnog profila korita
-	Profil               *models.ProfilKorita      // onaj koji se crta
-	Krivulje             []models.HQKrivulja       // krivulje protoka po razdobljima
-	PragoviQ             []PragProtok              // isti pragovi iskazani u protoku
-	ImaProtok            bool                      // ima li ijedan prag protok, pa tablica treba stupac
-	BrojOcitanja         int                       // koliko je očitanja upisano na letvi — za upozorenje pri brisanju
-	PragoviKote          []PragKota                // isti pragovi kao apsolutna kota vodne plohe
-	Karta                KartaPostavke             // izvor pločica za kartu položaja
-	NizID                int64                     // koji je niz odabran
-	Spojevi              []models.SpojDoseg        // spojeni nizovi: jedan satni, jedan dnevni
-	Sada                 *models.SpojenaVrijednost // zadnja vrijednost spojenog niza
-	Sazetak              []models.SazetakVelicine  // jedan redak po veličini
-	ArhivaPogled                                   // povijest iz arhive na historijatu letve
-	Crtez                *KoritoCrtez              // korito s vodom u njemu
-	CrtezUzak            *KoritoCrtez              // isti presjek u obliku za telefon
-	Zadnji               *models.HidroTocka        // zadnja vrijednost iz arhive
-	ZadnjiProtok         float64                   // preračunat iz krivulje
-	ZadnjiIzvor          string
-	WaterRegistry        []models.Watercourse
-	CanEdit              bool
-	CanRecord            bool   // smije li upisati očitanje
-	LetvaStranica        string // koja je stranica letve otvorena: kartica, ocitanja, historijat
-	HistorijatPrazan     bool   // letva još nema ništa od onoga što historijat pokazuje
+	Episodes             []models.DefenseEpisode // obrane vođene po ovoj letvi, najnovija prva
+	Valovi               []models.Val            // valovi obrane izračunati iz niza, najnoviji prvi
+	ValoviSvi            []models.Val            // svi valovi, prije rezanja na stranicu — izvješće bira po vrhu
+	ValoviPager          Pager                   // listanje valova
+	ValoviZbroj          []models.ZbrojStupnja   // koliko je koje stanje ukupno trajalo
+	ValoviNiz            models.RazdobljeNiza    // na kojem je nizu računato
+	ValoviPragovi        []models.PragObrane     // pragovi koji su ušli u izračun
+	Nizovi               []models.HidroNiz       // što o ovoj letvi ima u arhivi
+	Pregled              *models.HidroPregled    // karakteristične vrijednosti odabranog niza
+	Profili              []models.ProfilKorita   // snimke poprečnog profila korita
+	Profil               *models.ProfilKorita    // onaj koji se crta
+	Krivulje             []models.HQKrivulja     // krivulje protoka po razdobljima
+	PragoviQ             []PragProtok            // isti pragovi iskazani u protoku
+	ImaProtok            bool                    // ima li ijedan prag protok, pa tablica treba stupac
+	BrojOcitanja         int                     // koliko je očitanja upisano na letvi — za upozorenje pri brisanju
+	PragoviKote          []PragKota              // isti pragovi kao apsolutna kota vodne plohe
+	// Sazeto sklapa zabilježene ekstreme. Na kartici letve su predmet i stoje
+	// otvoreni, pa ostaje netočno; polje postoji da zajednički predložak radi
+	// s objema stranicama.
+	Sazeto           bool
+	Karta            KartaPostavke             // izvor pločica za kartu položaja
+	NizID            int64                     // koji je niz odabran
+	Spojevi          []models.SpojDoseg        // spojeni nizovi: jedan satni, jedan dnevni
+	Sada             *models.SpojenaVrijednost // zadnja vrijednost spojenog niza
+	Sazetak          []models.SazetakVelicine  // jedan redak po veličini
+	ArhivaPogled                               // povijest iz arhive na historijatu letve
+	Crtez            *KoritoCrtez              // korito s vodom u njemu
+	CrtezUzak        *KoritoCrtez              // isti presjek u obliku za telefon
+	Zadnji           *models.HidroTocka        // zadnja vrijednost iz arhive
+	ZadnjiProtok     float64                   // preračunat iz krivulje
+	ZadnjiIzvor      string
+	WaterRegistry    []models.Watercourse
+	CanEdit          bool
+	CanRecord        bool   // smije li upisati očitanje
+	LetvaStranica    string // koja je stranica letve otvorena: kartica, ocitanja, historijat
+	HistorijatPrazan bool   // letva još nema ništa od onoga što historijat pokazuje
 	// KrajnostiIzNiza su najviše i najniže što program ima u podacima. Stoje uz
 	// zabilježene ekstreme, ne umjesto njih: zabilježeni je tvrdnja s
 	// podrijetlom, ovo je najveće što u nizu stoji.

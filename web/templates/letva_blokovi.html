@@ -48,6 +48,10 @@
 {{if or .Station.Extremes .KrajnostiIzNiza}}
 <section class="detail-section">
   <h2>{{icon "chart-column"}} Zabilježeni ekstremi</h2>
+  {{/* Na kartici dionice stoje sklopljeni: prag i kota se gledaju tijekom
+       obrane, ekstrem kad se piše izvješće. Na kartici letve su predmet i
+       ostaju otvoreni. */}}
+  {{if .Sazeto}}<details class="ekstremi-sklop"><summary>{{.Station.SazetakEkstrema}}</summary>{{end}}
   <div class="table-card ekstremi-siroko"><div class="table-responsive">
     <table class="data-table">
       <thead><tr><th>Vrsta</th><th>Vodostaj</th><th>Datum</th><th>Podrijetlo</th><th>Izvor i način</th></tr></thead>
@@ -59,7 +63,7 @@
         <td class="mono">{{if .OnDate}}{{datumHR .OnDate}}{{else}}—{{end}}</td>
         <td>{{if .IsMeasured}}<span class="badge">izmjereno</span>{{else}}<span class="badge badge-inactive" title="nije mjereno na ovoj letvi">{{qualityLabel .Quality}}</span>{{end}}</td>
         <td class="celija-blok">{{.Source}}{{if .Method}} <span class="ekstrem-nacin">— {{.Method}}</span>{{end}}
-          {{if .Note}}<div class="ekstrem-napomena">{{.Note}}</div>{{end}}</td>
+          {{if and .Note (ne .Note $.Station.ZajednickaNapomenaEkstrema)}}<div class="ekstrem-napomena">{{.Note}}</div>{{end}}</td>
       </tr>
       {{end}}
       </tbody>
@@ -77,10 +81,11 @@
         {{else}}<span class="badge badge-inactive" title="nije mjereno na ovoj letvi">{{qualityLabel .Quality}}</span>{{end}}
       </div>
       <div class="ex-izvor">{{.Source}}{{if .Method}} <span class="ekstrem-nacin">— {{.Method}}</span>{{end}}</div>
-      {{if .Note}}<div class="ekstrem-napomena">{{.Note}}</div>{{end}}
+      {{if and .Note (ne .Note $.Station.ZajednickaNapomenaEkstrema)}}<div class="ekstrem-napomena">{{.Note}}</div>{{end}}
     </li>
     {{end}}
   </ul>
+  {{with .Station.ZajednickaNapomenaEkstrema}}<p class="reading-meta" style="margin-top:0.35rem;">Uz sve zapise stoji: {{.}}</p>{{end}}
   <p class="reading-meta" style="margin-top:0.35rem;">Vrijednost koja nije izmjerena na ovoj letvi ne ulazi u pragove ni u izračun faze obrane.</p>
 
   {{/* Što o krajnostima kažu sami podaci. Ne zamjenjuje zabilježeno:
@@ -114,6 +119,7 @@
   </div>
   {{end}}
 
+  {{if .Sazeto}}</details>{{end}}
 </section>
 {{end}}
 {{end}}

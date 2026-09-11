@@ -59,3 +59,42 @@ func TestRangeDijeloviRazlazeOsi(t *testing.T) {
 		t.Errorf("prazan nasip dao %q", d)
 	}
 }
+
+// Sklopljeni ekstremi trebaju jedan redak sažetka.
+func TestSazetakEkstremaDajeNajvisiINajnizi(t *testing.T) {
+	c := func(v int) *int { return &v }
+	st := Station{Extremes: []StationExtreme{
+		{Kind: ExtremeMax, LevelCm: c(772), OnDate: "2013-06-13"},
+		{Kind: ExtremeMax, LevelCm: c(797), OnDate: "1956-03-13"},
+		{Kind: ExtremeMin, LevelCm: c(-151), OnDate: "2026-08-22"},
+		{Kind: ExtremeMin, LevelCm: c(-153), OnDate: "2026-09-10"},
+	}}
+	got := st.SazetakEkstrema()
+	// Uzima se najviši od najviših i najniži od najnižih, ne prvi u popisu.
+	if !strings.Contains(got, "797") || !strings.Contains(got, "-153") {
+		t.Errorf("sažetak %q", got)
+	}
+	if strings.Contains(got, "772") || strings.Contains(got, "-151") {
+		t.Errorf("sažetak nosi i one koji nisu krajnji: %q", got)
+	}
+	if (Station{}).SazetakEkstrema() != "" {
+		t.Error("letva bez ekstrema dala sažetak")
+	}
+}
+
+// Ograda koja stoji uz svaki zapis nije podatak o toj vrijednosti nego
+// sistemska napomena; u tablici od četiri retka ispisivala se tri puta.
+func TestZajednickaNapomenaSePrepoznaje(t *testing.T) {
+	const ograda = "provjeriti prije objave"
+	ista := Station{Extremes: []StationExtreme{{Note: ograda}, {Note: ograda}}}
+	if ista.ZajednickaNapomenaEkstrema() != ograda {
+		t.Error("ista napomena uz sve zapise nije prepoznata")
+	}
+	razlicite := Station{Extremes: []StationExtreme{{Note: ograda}, {Note: "drugo"}}}
+	if razlicite.ZajednickaNapomenaEkstrema() != "" {
+		t.Error("različite napomene proglašene zajedničkom")
+	}
+	if (Station{Extremes: []StationExtreme{{}}}).ZajednickaNapomenaEkstrema() != "" {
+		t.Error("prazna napomena proglašena zajedničkom")
+	}
+}
