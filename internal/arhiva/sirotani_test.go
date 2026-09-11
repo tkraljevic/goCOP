@@ -157,3 +157,56 @@ func TestSirotaniBezGradnje(t *testing.T) {
 		t.Error("ne javlja koliko je sirotanovih vrijednosti u spojenom nizu")
 	}
 }
+
+// Rekonstrukcija izvan mjerenog odnosa ne smije nadjačati onu unutar njega,
+// bez obzira na to koja je prije upisana.
+//
+// To drži zadanaTocnost: nastavak "-izvan" nosi ±150 cm umjesto ±14, pa gubi
+// svaki sudar. Na Batini su te dvije verzije istih dana razmaknute 137 cm —
+// siječanj 1909. je -108 po odnosu unutar raspona, a -245 po onome izvan njega,
+// što je ostatak od prije ispravka kote iz 1943. Da granica padne, spojeni niz
+// bi za te dane pokazao vrijednost ispod zabilježenog minimuma Batine.
+func TestRekonstrukcijaIzvanRasponaNeNadjacava(t *testing.T) {
+	koren := t.TempDir()
+	baza := filepath.Join(t.TempDir(), "arhiva.db")
+	kad := time.Date(1909, 1, 7, 0, 0, 0, 0, time.UTC)
+
+	// Onaj izvan raspona upisan je prvi, pa ima manji rowid.
+	if _, err := Upisi(koren, "dunav", "batina", "preracun-mohacs-izvan", "vodostaj", "srednjak",
+		[]Redak{{Vrijeme: kad, Vrijednost: -245, PoDanu: true}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Izgradi(koren, baza, "batina", nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Upisi(koren, "dunav", "batina", "preracun-mohacs", "vodostaj", "srednjak",
+		[]Redak{{Vrijeme: kad, Vrijednost: -108, PoDanu: true}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Izgradi(koren, baza, "batina", nil); err != nil {
+		t.Fatal(err)
+	}
+
+	db, err := sql.Open("sqlite", baza+"?mode=ro")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	var raniji, kasniji int64
+	_ = db.QueryRow(`SELECT id FROM nizovi WHERE izvor='preracun-mohacs-izvan'`).Scan(&raniji)
+	_ = db.QueryRow(`SELECT id FROM nizovi WHERE izvor='preracun-mohacs'`).Scan(&kasniji)
+	if raniji >= kasniji {
+		t.Fatalf("test ne postavlja zamku: id %d i %d", raniji, kasniji)
+	}
+
+	var v float64
+	var izvor string
+	if err := db.QueryRow(`SELECT vrijednost, izvor FROM spoj WHERE letva='batina'
+		AND velicina='vodostaj' AND korak='dnevni'`).Scan(&v, &izvor); err != nil {
+		t.Fatal(err)
+	}
+	if v != -108 || izvor != "preracun-mohacs" {
+		t.Errorf("u spoju stoji %.0f iz %s, a mora stajati -108 iz preracun-mohacs", v, izvor)
+	}
+}
