@@ -213,6 +213,20 @@ type Izvjestaj struct {
 	Nizova   int
 	Ocitanja int
 	Spojenih int
+	Sirotani []Sirotan
+}
+
+// Sirotan je niz koji stoji u arhivi, a datoteke iz koje je nastao više nema u
+// stablu. Gradnja ga ne briše sama: izvor sa svojom mapom na vanjskom disku
+// izgleda isto tako kad disk nije priključen, a tiho brisanje bi tad odnijelo
+// godine podataka. Zato se samo javlja, a miče ga čovjek.
+type Sirotan struct {
+	Letva    string
+	Izvor    string
+	Velicina string
+	Vrsta    string
+	Zapisa   int
+	USpoju   int
 }
 
 // Izgradi čita datoteke iz koren/ i upisuje ih u arhivsku bazu. Prazna letva
@@ -264,7 +278,8 @@ func Izgradi(koren, baza, samo string, zapisi io.Writer) (Izvjestaj, error) {
 	if err != nil {
 		return iz, err
 	}
-	if err := dodajIzVlastitihMapa(db, nizovi, samo, zapisi); err != nil {
+	nedostupni, err := dodajIzVlastitihMapa(db, nizovi, samo, zapisi)
+	if err != nil {
 		return iz, err
 	}
 	if len(nizovi) == 0 {
@@ -317,17 +332,83 @@ func Izgradi(koren, baza, samo string, zapisi io.Writer) (Izvjestaj, error) {
 
 	javi(zapisi, "spajam izvore u jedan niz", len(kljucevi), len(kljucevi))
 	iz.Spojenih, err = spoji(db, samo)
-	return iz, err
+	if err != nil {
+		return iz, err
+	}
+
+	iz.Sirotani, err = nadiSirotane(db, nizovi, samo, nedostupni)
+	if err != nil {
+		return iz, err
+	}
+	for _, o := range iz.Sirotani {
+		fmt.Fprintf(zapisi, "%-8s %-16s %-22s %-12s %-10s %8d  SIROTAN — datoteke nema u stablu",
+			"", o.Letva, o.Izvor, o.Velicina, o.Vrsta, o.Zapisa)
+		if o.USpoju > 0 {
+			fmt.Fprintf(zapisi, ", a %d vrijednosti je u spojenom nizu", o.USpoju)
+		}
+		fmt.Fprintln(zapisi)
+	}
+	return iz, nil
+}
+
+// nadiSirotane traži nizove koji su u arhivi a nemaju datoteku u stablu.
+//
+// Ne briše ih: izvor sa svojom mapom na vanjskom disku izgleda isto tako kad
+// disk nije priključen, pa bi tiho brisanje odnijelo godine podataka. Izvori
+// čija mapa nije bila dostupna ovdje se i izrijekom preskaču.
+func nadiSirotane(db *sql.DB, nizovi map[string]*niz, samo string,
+	nedostupni map[string]bool) ([]Sirotan, error) {
+	uStablu := map[string]bool{}
+	letve := map[string]bool{}
+	for _, n := range nizovi {
+		uStablu[n.letva+"|"+n.izvor+"|"+n.velicina+"|"+n.vrsta] = true
+		letve[n.letva] = true
+	}
+	q := `SELECT letva, izvor, velicina, vrsta, zapisa FROM nizovi WHERE izvor <> 'spoj'`
+	var args []any
+	if samo != "" {
+		q += ` AND letva = ?`
+		args = append(args, samo)
+	}
+	rows, err := db.Query(q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Sirotan
+	for rows.Next() {
+		var o Sirotan
+		if err := rows.Scan(&o.Letva, &o.Izvor, &o.Velicina, &o.Vrsta, &o.Zapisa); err != nil {
+			return nil, err
+		}
+		if uStablu[o.Letva+"|"+o.Izvor+"|"+o.Velicina+"|"+o.Vrsta] || nedostupni[o.Izvor] {
+			continue
+		}
+		// Gradnja jedne letve ne vidi ostale, pa o njima ne smije ni suditi.
+		if samo == "" && !letve[o.Letva] {
+			continue
+		}
+		out = append(out, o)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	for i := range out {
+		_ = db.QueryRow(`SELECT count(*) FROM spoj WHERE letva=? AND izvor=? AND velicina=?`,
+			out[i].Letva, out[i].Izvor, out[i].Velicina).Scan(&out[i].USpoju)
+	}
+	return out, nil
 }
 
 // dodajIzVlastitihMapa dopunjuje popis nizovima iz stabala koja pojedini
 // izvori drže za sebe. Mapa koje nema ne ruši gradnju: vanjski disk nije
 // priključen ili je mapa preimenovana, a ostatak arhive s time nema veze —
 // samo se zapiše da je preskočena.
-func dodajIzVlastitihMapa(db *sql.DB, nizovi map[string]*niz, samo string, zapisi io.Writer) error {
+func dodajIzVlastitihMapa(db *sql.DB, nizovi map[string]*niz, samo string, zapisi io.Writer) (map[string]bool, error) {
+	nedostupni := map[string]bool{}
 	izvori, err := Izvori(db)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	poMapi := map[string][]string{}
 	for _, i := range izvori {
@@ -339,6 +420,11 @@ func dodajIzVlastitihMapa(db *sql.DB, nizovi map[string]*niz, samo string, zapis
 		dodatni, err := popisi(mapa, samo)
 		if err != nil {
 			fmt.Fprintf(zapisi, "  preskačem mapu %s (%v): %s\n", mapa, err, strings.Join(imena, ", "))
+			// Izvor čija mapa nije dostupna ne smije ispasti sirotan: disk
+			// nije priključen, a podaci nisu nestali.
+			for _, ime := range imena {
+				nedostupni[ime] = true
+			}
 			continue
 		}
 		nadeno := 0
@@ -354,7 +440,7 @@ func dodajIzVlastitihMapa(db *sql.DB, nizovi map[string]*niz, samo string, zapis
 		fmt.Fprintf(zapisi, "  vlastita mapa %s: %d %s za %s\n", mapa, nadeno,
 			uzBrojNiz(nadeno), strings.Join(imena, ", "))
 	}
-	return nil
+	return nedostupni, nil
 }
 
 func uzBrojNiz(n int) string {
@@ -1295,4 +1381,45 @@ func spojiJedan(db *sql.DB, letva, velicina string, redSpajanja []string, tocnos
 			"", letva, "→ spojeni niz", velicina, n, len(satni), len(dnevni))
 	}
 	return n, tx.Commit()
+}
+
+// MakniNiz briše niz iz arhive, s očitanjima i onim što je od njega ušlo u
+// spojeni niz. Zove se samo kad čovjek to zatraži — gradnja sama nikad ne
+// briše niz, jer izvor s nedostupnom mapom izgleda isto kao izvor kojeg više
+// nema.
+//
+// Arhiva se poslije ovoga i dalje da izgraditi iznova iz stabla: ondje te
+// datoteke nema, pa je i nema što vratiti.
+func MakniNiz(db *sql.DB, letva, izvor, velicina, vrsta string) (int, error) {
+	tx, err := db.Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+
+	var id int64
+	err = tx.QueryRow(`SELECT id FROM nizovi WHERE letva=? AND izvor=? AND velicina=? AND vrsta=?`,
+		letva, izvor, velicina, vrsta).Scan(&id)
+	if err == sql.ErrNoRows {
+		return 0, fmt.Errorf("niz %s/%s/%s/%s nije u arhivi", letva, izvor, velicina, vrsta)
+	}
+	if err != nil {
+		return 0, err
+	}
+	res, err := tx.Exec(`DELETE FROM ocitanja WHERE niz = ?`, id)
+	if err != nil {
+		return 0, err
+	}
+	obrisano, _ := res.RowsAffected()
+	if _, err := tx.Exec(`DELETE FROM nizovi WHERE id = ?`, id); err != nil {
+		return 0, err
+	}
+	// Spojeni niz se gradi iz nizova, pa ono što je od ovoga ušlo mora otići s
+	// njim. Sljedeća gradnja ga ionako slaže iznova, ali dotad bi vrijednost
+	// stajala u spoju bez niza iza sebe.
+	if _, err := tx.Exec(`DELETE FROM spoj WHERE letva=? AND izvor=? AND velicina=?`,
+		letva, izvor, velicina); err != nil {
+		return 0, err
+	}
+	return int(obrisano), tx.Commit()
 }
