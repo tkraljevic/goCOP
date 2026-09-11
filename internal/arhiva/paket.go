@@ -678,10 +678,6 @@ func Procitaj(r io.ReaderAt, velicina int64) (*Sadrzaj, error) {
 	return &s, nil
 }
 
-// tx2Exec je Exec izvan transakcije; postavke izvora upisuju se nakon što je
-// glavna transakcija zatvorena, jer ih čita spajanje koje ide poslije nje.
-func tx2Exec(db *sql.DB, q string, args ...any) (sql.Result, error) { return db.Exec(q, args...) }
-
 func kratki(otisak string) string {
 	if len(otisak) > 12 {
 		return otisak[:12] + "…"
@@ -819,10 +815,11 @@ func Ugradi(db *sql.DB, baza string, s *Sadrzaj) error {
 			return err
 		}
 	}
-	if err := tx.Commit(); err != nil {
-		return err
-	}
-
+	// Sve što slijedi teče u ISTOJ transakciji. Prije se ovdje potvrđivalo, pa
+	// su izvori i spoj išli izvan nje: kvar u tom drugom dijelu ostavljao je
+	// obrisan stari spoj i upisane nove nizove — pola arhive, uz grešku
+	// korisniku i suprotno onome što je pisalo iznad funkcije.
+	//
 	// Spoj je izveden i ne putuje paketom — gradi se ovdje, iz upravo
 	// ugrađenih nizova.
 	// Paket može donijeti izvor kojeg ovaj čvor još ne poznaje. Takav ulazi s
@@ -834,16 +831,18 @@ func Ugradi(db *sql.DB, baza string, s *Sadrzaj) error {
 	// svim letvama, pa bi paket jedne tiho promijenio brojeve na svim
 	// ostalima; razlika se pokazuje čovjeku prije ugradnje.
 	for _, i := range s.Izvori {
-		if _, err := tx2Exec(db, `INSERT OR IGNORE INTO izvori (naziv, tocnost, red, ukljucen, napomena)
+		if _, err := tx.Exec(`INSERT OR IGNORE INTO izvori (naziv, tocnost, red, ukljucen, napomena)
 			VALUES (?,?,?,?,?)`, i.Naziv, i.Tocnost, i.Red, i.Ukljucen, i.Napomena); err != nil {
 			return fmt.Errorf("upis izvora %s iz paketa: %w", i.Naziv, err)
 		}
 	}
 	// Ono što paket ne spominje — stariji paket bez izvori.json, ili izvor koji
 	// je u nizovima a nije u popisu — ulazi isključeno, kao i inače.
-	if err := upisiZadaneIzvore(db); err != nil {
+	if err := upisiZadaneIzvore(tx); err != nil {
 		return err
 	}
-	_, err = spoji(db, letva)
-	return err
+	if _, err := SpojiU(tx, letva); err != nil {
+		return fmt.Errorf("spajanje nakon ugradnje: %w", err)
+	}
+	return tx.Commit()
 }

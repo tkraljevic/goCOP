@@ -1077,7 +1077,7 @@ func zadanaTocnost(izvor string) float64 {
 // upisiZadaneIzvore puni tablicu prvi put i dopunjuje ju izvorima koji su se
 // u međuvremenu pojavili u nizovima. Novi izvor ulazi **isključen**: bolje da
 // čeka odluku nego da tiho promijeni brojeve po kojima se brani od poplave.
-func upisiZadaneIzvore(db *sql.DB) error {
+func upisiZadaneIzvore(db Izvrsitelj) error {
 	for _, i := range zadaniIzvori {
 		if _, err := db.Exec(`INSERT OR IGNORE INTO izvori (naziv, tocnost, red, ukljucen, mapa, napomena)
 			VALUES (?,?,?,?,?,?)`, i.Naziv, i.Tocnost, i.Red, i.Ukljucen, i.Mapa, i.Napomena); err != nil {
@@ -1164,7 +1164,7 @@ func PostaviIzvor(db *sql.DB, i Izvor) ([]string, error) {
 func Spoji(db *sql.DB, letva string) (int, error) { return spoji(db, letva) }
 
 // citajIzvore vraća uključene izvore po redu povjerenja i točnost svih.
-func citajIzvore(db *sql.DB) (red []string, tocnosti map[string]float64, err error) {
+func citajIzvore(db Izvrsitelj) (red []string, tocnosti map[string]float64, err error) {
 	rows, err := db.Query(`SELECT naziv, tocnost, ukljucen FROM izvori ORDER BY red, naziv`)
 	if err != nil {
 		return nil, nil, fmt.Errorf("čitanje izvora: %w", err)
@@ -1193,21 +1193,57 @@ func citajIzvore(db *sql.DB) (red []string, tocnosti map[string]float64, err err
 // srednjaka nema pa se uzme jutarnje očitanje, to piše uz vrijednost: jutarnja
 // vrijednost i dnevni srednjak razilaze se na naglom porastu i po više od
 // metra, i ne smiju se tiho pomiješati.
+// Izvrsitelj je ono što zna izvršiti upit: baza ili transakcija.
+//
+// Postoji da spajanje može teći UNUTAR tuđe transakcije. Ugradnja paketa briše
+// letvu, upiše njezine dijelove i mora složiti spoj — ako to zadnje teče izvan
+// transakcije, kvar ostavlja obrisan stari spoj i upisane nove nizove, dakle
+// pola arhive.
+type Izvrsitelj interface {
+	Exec(query string, args ...any) (sql.Result, error)
+	Query(query string, args ...any) (*sql.Rows, error)
+	QueryRow(query string, args ...any) *sql.Row
+}
+
+// SpojiU slaže spojeni niz jedne letve unutar zadane transakcije.
+func SpojiU(q Izvrsitelj, letva string) (int, error) {
+	return spojiSve(q, letva, nil)
+}
+
 func spoji(db *sql.DB, samo string) (int, error) {
+	// Svaka letva i veličina dobiva svoju transakciju: puna gradnja spaja
+	// preko deset milijuna vrijednosti, a to u jednoj transakciji napuhne
+	// dnevnik pisanja preko svake mjere.
+	return spojiSve(db, samo, func(f func(Izvrsitelj) error) error {
+		tx, err := db.Begin()
+		if err != nil {
+			return err
+		}
+		if err := f(tx); err != nil {
+			tx.Rollback()
+			return err
+		}
+		return tx.Commit()
+	})
+}
+
+// spojiSve spaja letvu ili sve letve. Kad je zadan omotac, svaki par letva i
+// veličina prolazi kroz njega; bez njega sve teče u zatečenoj transakciji.
+func spojiSve(q Izvrsitelj, samo string, omotac func(func(Izvrsitelj) error) error) (int, error) {
 	// Red povjerenja i točnosti čitaju se jednom, iz arhive. Isti paket mora
 	// na svakom čvoru dati iste brojeve, pa postavke ne smiju ovisiti o tome
 	// koju je verziju programa tko pokrenuo.
-	redSpajanja, tocnosti, err := citajIzvore(db)
+	redSpajanja, tocnosti, err := citajIzvore(q)
 	if err != nil {
 		return 0, err
 	}
-	q := `SELECT DISTINCT letva, velicina FROM nizovi`
+	upit := `SELECT DISTINCT letva, velicina FROM nizovi`
 	var args []any
 	if samo != "" {
-		q += ` WHERE letva = ?`
+		upit += ` WHERE letva = ?`
 		args = append(args, samo)
 	}
-	rows, err := db.Query(q, args...)
+	rows, err := q.Query(upit, args...)
 	if err != nil {
 		return 0, err
 	}
@@ -1225,7 +1261,18 @@ func spoji(db *sql.DB, samo string) (int, error) {
 
 	ukupno := 0
 	for _, p := range parovi {
-		n, err := spojiJedan(db, p.letva, p.velicina, redSpajanja, tocnosti)
+		var n int
+		posao := func(izv Izvrsitelj) error {
+			var err error
+			n, err = spojiJedan(izv, p.letva, p.velicina, redSpajanja, tocnosti)
+			return err
+		}
+		var err error
+		if omotac != nil {
+			err = omotac(posao)
+		} else {
+			err = posao(q)
+		}
 		if err != nil {
 			return ukupno, fmt.Errorf("%s/%s: %w", p.letva, p.velicina, err)
 		}
@@ -1241,7 +1288,7 @@ type spojena struct {
 	tocnost float64
 }
 
-func spojiJedan(db *sql.DB, letva, velicina string, redSpajanja []string, tocnosti map[string]float64) (int, error) {
+func spojiJedan(db Izvrsitelj, letva, velicina string, redSpajanja []string, tocnosti map[string]float64) (int, error) {
 	tocnost := func(izvor string) float64 {
 		if t, ok := tocnosti[izvor]; ok {
 			return t
@@ -1368,24 +1415,17 @@ func spojiJedan(db *sql.DB, letva, velicina string, redSpajanja []string, tocnos
 		}
 	}
 
-	tx, err := db.Begin()
-	if err != nil {
+	// Transakciju vodi pozivatelj: puna gradnja otvara svoju po letvi i
+	// veličini, a ugradnja paketa spaja unutar svoje, da se kvar ne zaustavi
+	// između obrisanog starog spoja i upisanih novih nizova.
+	if _, err := db.Exec(`DELETE FROM spoj WHERE letva=? AND velicina=?`, letva, velicina); err != nil {
 		return 0, err
 	}
-	defer tx.Rollback()
-	if _, err := tx.Exec(`DELETE FROM spoj WHERE letva=? AND velicina=?`, letva, velicina); err != nil {
-		return 0, err
-	}
-	st, err := tx.Prepare(`INSERT INTO spoj (letva, velicina, korak, vrijeme, vrijednost, izvor, vrsta, tocnost)
-		VALUES (?,?,?,?,?,?,?,?)`)
-	if err != nil {
-		return 0, err
-	}
-	defer st.Close()
 	n := 0
 	for korak, m := range map[string]map[int64]spojena{"satni": satni, "dnevni": dnevni} {
 		for kad, s := range m {
-			if _, err := st.Exec(letva, velicina, korak, kad, s.v, s.izvor, s.vrsta, s.tocnost); err != nil {
+			if _, err := db.Exec(`INSERT INTO spoj (letva, velicina, korak, vrijeme, vrijednost, izvor, vrsta, tocnost)
+				VALUES (?,?,?,?,?,?,?,?)`, letva, velicina, korak, kad, s.v, s.izvor, s.vrsta, s.tocnost); err != nil {
 				return n, err
 			}
 			n++
@@ -1395,7 +1435,7 @@ func spojiJedan(db *sql.DB, letva, velicina string, redSpajanja []string, tocnos
 		fmt.Printf("%-8s %-16s %-22s %-12s spojeno %8d  (satnih %d, dnevnih %d)\n",
 			"", letva, "→ spojeni niz", velicina, n, len(satni), len(dnevni))
 	}
-	return n, tx.Commit()
+	return n, nil
 }
 
 // MakniNiz briše niz iz arhive, s očitanjima i onim što je od njega ušlo u
