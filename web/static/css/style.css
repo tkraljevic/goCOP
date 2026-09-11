@@ -3169,18 +3169,40 @@ textarea {
 
 /* Blokovi letve na kartici dionice. Ista letva vrijedi za više dionica, pa se
    pragovi, kota nule i ekstremi povlače s nje, a ne drže po dionici. */
-.letva-blokovi { margin: 1rem 0; }
+.letva-blokovi { margin: 0.75rem 0 1.25rem; }
+
+/* Letva je nosilac, pragovi i kota su njezine stavke. Prvo su blokovi došli s
+   kartice letve gdje su prva razina, pa su ovdje vikali glasnije od letve koja
+   ih drži i od poddionice kojoj pripadaju. Ime letve nosi težinu; naslovi
+   unutra spuštaju se na razinu oznake, istu kakvu imaju "Objekti" i "Ugroženo
+   područje" pod nasipom. */
 .letva-blokovi-glava {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem 0.6rem;
+  font-size: 1rem;
   font-weight: 700;
   color: var(--text-strong);
-  margin-bottom: 0.25rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.5rem;
 }
 .letva-blokovi-glava a { color: var(--primary); }
-.letva-blokovi .detail-section { margin-top: 0.5rem; }
-.letva-blokovi .detail-section h2 { font-size: 0.95rem; }
+.letva-blokovi .detail-section { margin: 0.6rem 0 0; }
+.letva-blokovi .detail-section h2 {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  margin: 0 0 0.25rem;
+  padding: 0;
+  border: 0;
+}
+.letva-blokovi .detail-section h2 .icon { width: 0.85em; height: 0.85em; }
+.letva-blokovi .reg-card,
+.letva-blokovi .table-card { padding: 0.75rem 0.9rem; }
 
 /* Ugroženo područje kao u Privitku: županija, pa općina, pa naselja. */
 .ugrozeno-zupanija + .ugrozeno-zupanija { margin-top: 0.6rem; }
@@ -3206,3 +3228,13 @@ textarea {
   white-space: nowrap;
 }
 .ugrozeno-naselja { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+
+/* Sklopljeni ekstremi na kartici dionice. */
+.ekstremi-sklop > summary {
+  cursor: pointer;
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  padding: 0.25rem 0;
+}
+.ekstremi-sklop > summary::marker { color: var(--primary); }
+.ekstremi-sklop[open] > summary { margin-bottom: 0.4rem; }

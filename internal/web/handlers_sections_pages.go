@@ -42,6 +42,8 @@ type SectionPageData struct {
 	OpenEpisode *models.DefenseEpisode  // obrana koja upravo traje, ako je ima
 	Gauge       *models.Station         // letva po kojoj se dionica vodi
 	CanEdit     bool
+	// Sazetak kaže koji dijelovi trake na vrhu nose nešto što se ne vidi niže.
+	Sazetak SazetakDionice
 	// PredlozenaSifra je prvi slobodan broj u odabranom području; upisuje se u
 	// obrazac unaprijed jer se dionice unose u nizu.
 	PredlozenaSifra string
@@ -163,6 +165,7 @@ func (h *SectionsHandler) ShowSection(w http.ResponseWriter, r *http.Request) {
 	// proglašava — jedan te isti stupanj vrijedi za sve dionice koje se po toj
 	// letvi vode, pa mu je mjesto ondje, a ne na svakoj dionici posebno.
 	napuniLetveBlokove(data.Parts)
+	data.Sazetak = sazetakDionice(data.Section, data.Parts)
 	for _, p := range data.Parts {
 		if len(p.Stations) > 0 {
 			st := p.Stations[0]
@@ -227,6 +230,10 @@ type LetvaBlok struct {
 	// Ponovljena znači da je ista letva već iscrtana uz raniju poddionicu, pa
 	// se ovdje pokazuje samo uputa.
 	Ponovljena bool
+
+	// Sazeto sklapa zabilježene ekstreme. Na kartici dionice su referenca koja
+	// se gleda rijetko; na kartici letve su predmet i stoje otvoreni.
+	Sazeto bool
 }
 
 // napuniLetveBlokove slaže prikaz letvi po poddionicama.
@@ -244,7 +251,7 @@ func napuniLetveBlokove(parts []PartView) {
 	for i := range parts {
 		for _, st := range parts[i].Stations {
 			id := st.ID.String()
-			b := LetvaBlok{Station: st, PragoviKote: pragoviUKotama(st)}
+			b := LetvaBlok{Station: st, PragoviKote: pragoviUKotama(st), Sazeto: true}
 			if vidjene[id] {
 				b.Ponovljena = true
 			}
