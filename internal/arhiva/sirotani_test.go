@@ -107,3 +107,53 @@ func TestMicanjeNizaCistiISpoj(t *testing.T) {
 		t.Error("micanje nepostojećeg niza je prošlo bez greške")
 	}
 }
+
+// Sirotani se moraju vidjeti i kad se ništa ne gradi: datoteka se može maknuti
+// i izravno iz stabla, a stranica se otvara češće nego što se gradi.
+func TestSirotaniBezGradnje(t *testing.T) {
+	koren := t.TempDir()
+	baza := filepath.Join(t.TempDir(), "arhiva.db")
+	kad := time.Date(2026, 9, 11, 7, 0, 0, 0, time.UTC)
+	for _, vrsta := range []string{"satni", "jutarnji"} {
+		if _, err := Upisi(koren, "dunav", "batina", "cop-rucno", "vodostaj", vrsta,
+			[]Redak{{Vrijeme: kad, Vrijednost: -160}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := Izgradi(koren, baza, "batina", nil); err != nil {
+		t.Fatal(err)
+	}
+
+	db, err := sql.Open("sqlite", baza)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	// Dok su obje datoteke tu, sirotana nema.
+	o, err := Sirotani(db, koren)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(o) != 0 {
+		t.Fatalf("javljeno %d sirotana iako su sve datoteke na mjestu: %+v", len(o), o)
+	}
+
+	stare, _ := filepath.Glob(filepath.Join(koren, "dunav", "batina",
+		"batina_cop-rucno_vodostaj_jutarnji_*.csv"))
+	if err := os.Remove(stare[0]); err != nil {
+		t.Fatal(err)
+	}
+
+	// Bez ijedne gradnje, samo pitanjem.
+	o, err = Sirotani(db, koren)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(o) != 1 || o[0].Vrsta != "jutarnji" {
+		t.Fatalf("bez gradnje javljeno %+v", o)
+	}
+	if o[0].USpoju == 0 {
+		t.Error("ne javlja koliko je sirotanovih vrijednosti u spojenom nizu")
+	}
+}

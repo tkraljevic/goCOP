@@ -1423,3 +1423,39 @@ func MakniNiz(db *sql.DB, letva, izvor, velicina, vrsta string) (int, error) {
 	}
 	return int(obrisano), tx.Commit()
 }
+
+// Sirotani javlja koji nizovi stoje u arhivi bez datoteke u stablu, bez
+// gradnje. Stranica ih tako može pokazati kad god se otvori, a ne samo odmah
+// nakon što se nešto gradilo.
+//
+// Prolazi se samo kroz nazive datoteka, ne kroz njihov sadržaj, pa je jeftino
+// dovoljno da stoji na svakom otvaranju stranice.
+func Sirotani(db *sql.DB, koren string) ([]Sirotan, error) {
+	nizovi, err := popisi(koren, "")
+	if err != nil {
+		return nil, err
+	}
+	izvori, err := Izvori(db)
+	if err != nil {
+		return nil, err
+	}
+	nedostupni := map[string]bool{}
+	for _, i := range izvori {
+		mapa := strings.TrimSpace(i.Mapa)
+		if mapa == "" {
+			continue
+		}
+		dodatni, err := popisi(mapa, "")
+		if err != nil {
+			// Vanjski disk nije priključen; izvor nije nestao.
+			nedostupni[i.Naziv] = true
+			continue
+		}
+		for k, n := range dodatni {
+			if n.izvor == i.Naziv {
+				nizovi[k] = n
+			}
+		}
+	}
+	return nadiSirotane(db, nizovi, "", nedostupni)
+}

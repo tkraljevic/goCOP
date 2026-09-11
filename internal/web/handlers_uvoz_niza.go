@@ -214,6 +214,16 @@ func (h *UvozHandler) pageData(r *http.Request) UvozPageData {
 		}
 		d.Pospremivo = p
 	}
+	// Nizovi bez datoteke u stablu gledaju se pri svakom otvaranju, ne samo
+	// odmah nakon gradnje: sirotan ne nastaje samo ovdje — datoteka se može
+	// maknuti i izravno iz stabla.
+	if d.PodaciDir != "" && h.arhivaPut() != "" && len(d.Sirotani) == 0 {
+		if o, err := sirotaniUArhivi(h.arhivaPut(), d.PodaciDir); err != nil {
+			d.ErrorMessage = "Nizovi bez datoteke se ne daju provjeriti: " + err.Error()
+		} else {
+			d.Sirotani = o
+		}
+	}
 	d.IzdavanjeRadi = h.izdavanjeRadi()
 	if d.IzdavanjeRadi {
 		d.PaketiDir = h.paketiDir()
@@ -229,6 +239,17 @@ func (h *UvozHandler) pageData(r *http.Request) UvozPageData {
 		}
 	}
 	return d
+}
+
+// sirotaniUArhivi otvara arhivu samo za čitanje i pita je za nizove kojima je
+// datoteka nestala iz stabla.
+func sirotaniUArhivi(arhivaPut, koren string) ([]arhiva.Sirotan, error) {
+	db, err := sql.Open("sqlite", arhivaPut+"?mode=ro")
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+	return arhiva.Sirotani(db, koren)
 }
 
 // imenaIzvora čita izvore iz arhive da se ime ne bi izmišljalo pri svakom
