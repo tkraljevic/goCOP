@@ -1116,7 +1116,7 @@ func (s *Server) UgradiPaket(sadrzaj *arhiva.Sadrzaj) error {
 		db.Close()
 		return err
 	}
-	if err := arhiva.Ugradi(db, sadrzaj); err != nil {
+	if err := arhiva.Ugradi(db, s.arhivaPut, sadrzaj); err != nil {
 		db.Close()
 		return err
 	}
@@ -1203,7 +1203,7 @@ func (s *Server) MakniNiz(letva, izvor, velicina, vrsta string) (int, error) {
 		return 0, err
 	}
 	defer db.Close()
-	n, err := arhiva.MakniNiz(db, letva, izvor, velicina, vrsta)
+	n, err := arhiva.MakniNiz(db, s.arhivaPut, letva, izvor, velicina, vrsta)
 	if err != nil {
 		return 0, err
 	}
