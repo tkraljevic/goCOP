@@ -12,7 +12,8 @@ Aktualna arhitektura ima dobre temelje za betu: mali broj vanjskih ovisnosti,
 čisti Go i SQLite, rad bez interneta, verzioniranje poslovnih zapisa, granularne
 ovlasti, determinističke identitete i testove koji pokrivaju velik dio domenske
 logike. Na pregledanom stanju prolaze `go test ./...`, `go vet ./...` i ciljani
-`go test -race` za `internal/poslovi`, `internal/arhiva` i `internal/web`.
+`go test -race` za `internal/arhiva`, `internal/ulaganje`, `internal/poslovi` i
+`internal/web`.
 
 Prije nego `.cop` paketi i pozadinski poslovi postanu automatski distribucijski
 sustav, postoje četiri obvezne točke: stroga serverska provjera ovlasti za paket,
@@ -32,18 +33,20 @@ zaštita.
 
 ## 1. Opseg i zatečeno stanje
 
-Analiza obuhvaća commitanu osnovu do `97a3a23`. Tijekom pregleda dovršena su dva
-nova lokalna commita: `b608f5b` dodaje katalog u paket `internal/arhiva`, paket
-`internal/poslovi`, administratorsko izdavanje arhive i prikaz napretka dugih
-poslova; `97a3a23` osigurava da vrata uvoza imaju registar poslova i izvan pune
-serverske inicijalizacije. Lokalni `master` je nakon toga dva commita ispred
-`origin/master`.
+Analiza obuhvaća commitanu osnovu do `8ed248f`. Od prethodnog presjeka na
+`97a3a23` dodano je devet commitova. Oni izdvajaju ulaganje operative u zajednički
+paket, uvode isti postupak u administratorsko sučelje, štite postojeći niz od
+nenamjernog prepisivanja, čuvaju dvostruki sat pri prijelazu na zimsko vrijeme,
+otkrivaju nizove kojima nedostaje izvorna datoteka i ispravljaju uklanjanje niza
+koje je moglo zahvatiti sestrinski niz istog izvora. Commitana osnova je 11
+commitova ispred `origin/master`. Tijekom završne provjere u radnom stablu su se
+pojavile druge, još necommitane promjene; brojke i nalazi u ovom dokumentu
+namjerno su vezani uz stabilni presjek `8ed248f`, a ne uz taj rad u tijeku.
 
-Projekt trenutačno ima približno 78.000 redaka Go koda, predložaka, JavaScripta i
-CSS-a te 437 Go testnih funkcija. Nakon navedenih commitova `master` ima 231
-commit. Petnaest commitova od prvih vrata arhive do `c4cbfe6` zahvaća 85 datoteka
-s približno 4.200 dodanih redaka:
-to je funkcionalna ekspanzija, ne malo održavanje.
+Projekt trenutačno ima 80.445 redaka Go koda, predložaka, JavaScripta i CSS-a te
+457 Go testnih funkcija. `master` ima 240 commitova. Razlika između dva presjeka
+zahvaća 20 datoteka s 2.758 dodanih i 409 uklonjenih redaka: riječ je o značajnom
+učvršćivanju arhivskog radnog toka, a ne samo kozmetičkoj promjeni.
 
 Glavne cjeline su:
 
@@ -54,6 +57,7 @@ Glavne cjeline su:
 | `internal/service` | poslovna pravila i provjera ovlasti |
 | `internal/repository` | glavna SQLite baza i knjiga verzija |
 | `internal/arhiva` | gradnja hidrološke arhive, spajanje izvora i `.cop` paket |
+| `internal/ulaganje` | ulaganje završene operative u arhivu i kontrolirani zaborav |
 | `internal/peers` + `syncnet` | identitet čvora, uparivanje i razmjena |
 | `internal/poslovi` | novi memorijski registar dugih pozadinskih poslova |
 | `internal/docx` i uvoznici | dokumenti i migracija vanjskih podataka |
@@ -134,7 +138,7 @@ ugradnje.^3
 
 Katalog vodi zadnje izdanje svake letve, otisak, razdoblje, broj nizova i zapisa
 te ime paketa. Paket se zapisuje sa strane i preimenuje tek kad je cijeli, a
-stara izdanja ostaju. Radni sloj seli izdavanje iz CLI omotača u
+stara izdanja ostaju. Aktualna implementacija drži izdavanje izvan CLI omotača u
 `internal/arhiva`, pa istu implementaciju koriste terminal i web-sučelje.^4
 
 To je pravi korak prema distribucijskom protokolu, ali još nije torrent:
@@ -144,14 +148,17 @@ adresiranom paketu s ručnim ili datotečnim transportom.
 
 ### 3.4. Ulaganje operative i kontrolirani zaborav
 
-Alat `ulozi-ocitanja` premješta završena operativna očitanja u arhivsko stablo,
-gradi letvu, označava zapise izdanjem i tek uz posebnu zastavicu briše izvornik
-i njegove verzije. Ručno očitanje, dojava i rekonstrukcija ostaju različiti
-izvori. Sumnjiva očitanja i zapisi bez vrijednosti ne ulažu se.^5
+Poslovna logika ulaganja sada živi u `internal/ulaganje`, a koriste je i CLI
+`ulozi-ocitanja` i administratorsko sučelje. Postupak premješta završena
+operativna očitanja u arhivsko stablo, gradi letvu, označava zapise izdanjem i
+tek u odvojenom koraku nudi brisanje izvornika i njegovih verzija. Ručno
+očitanje, dojava i rekonstrukcija ostaju različiti izvori. Sumnjiva očitanja i
+zapisi bez vrijednosti ne ulažu se.^5
 
 Filozofija je dobra: prvo trajna i obnovljiva kopija, zatim provjera, zatim
-zaborav. Implementacijska provjera još nije dovoljno jaka; to je jedan od
-ključnih nalaza u poglavlju 7.
+zaborav. Novi prikaz, pregled uloženoga i zasebna akcija čišćenja smanjuju
+operativnu mogućnost pogreške. Implementacijska provjera još nije dovoljno jaka;
+to je jedan od ključnih nalaza u poglavlju 6.
 
 ### 3.5. Bilješke uz arhivsku vrijednost
 
@@ -174,6 +181,26 @@ paniku, neodređen napredak i rezultat posla.^7
 To rješava stvaran UX problem višeminutne gradnje. Istodobno mijenja model
 izvršavanja: arhivske operacije sada se lakše mogu preklopiti, pa je potrebno
 uvesti koordinaciju poslova po resursu.
+
+### 3.7. Zaštita postojećih nizova i kontrola izvornog stabla
+
+Uvoz više ne može tiho skratiti stariji niz. Kada su postaja, izvor i vrsta
+poznati, sučelje odmah prikazuje zatečeni raspon i broj vrijednosti. Zadani je
+postupak nadopuna, dok zamjena zahtijeva izričit odabir i upozorenje koliko bi
+vrijednosti i koji raspon nestali. To je važna zaštita od jedne od najskupljih
+klasa pogreške: urednog, ali nepotpunog ulaza koji izgleda vjerodostojno.^16
+
+Arhiva sada pri svakom otvaranju traži i **sirotane**: nizove zapisane u bazi za
+koje u izvornom stablu više nema datoteke. Ne briše ih automatski, jer izvor može
+biti privremeno nedostupan; administrator ih vidi i može ih namjerno ukloniti.
+Uklanjanje zatim ponovno gradi cijeli spoj letve, čime je zatvorena greška u
+kojoj je uklanjanje jednog niza moglo odnijeti spoj sestrinskog niza istog
+izvora.^17
+
+Dodani su i domenski regresijski testovi za dvostruki lokalni sat pri povratku na
+zimsko vrijeme te za izbor rekonstrukcije unutar dopuštenog raspona nad
+varijantom izvan njega. Ti testovi potvrđuju da arhiva čuva oba fizički različita
+očitanja i da granica valjanosti ulazi u odabir najbolje vrijednosti.^18
 
 ---
 
@@ -284,12 +311,19 @@ novu arhivsku datoteku sa strane, potpuno je validirati i atomskim renameom
 zamijeniti aktivnu. Drugi pristup je sigurniji za višemilijunske arhive i lakše
 omogućuje rollback.
 
+Isti obrazac u blažem obliku postoji u `MakniNiz`: uklanjanje sirovog niza se
+potvrdi prije ponovne gradnje spoja. Nova puna ponovna gradnja ispravno čuva
+sestrinske nizove, ali kvar tijekom `spoji` ipak može ostaviti uklonjen izvor i
+zastarjeli izvedeni prikaz. I ta operacija treba transakcijsku ili
+copy-on-write granicu.^17
+
 ### P0 — provjera prije zaborava ne dokazuje ono što tvrdi
 
-`provjeriUArhivi` provjerava samo postoji li u izvedenoj tablici `spoj` bilo
+Refaktoriranje u `internal/ulaganje` nije zatvorilo temeljni rizik.
+`ProvjeriUArhivi` provjerava samo postoji li u izvedenoj tablici `spoj` bilo
 kakav zapis iste letve i vremena. Ne uspoređuje vrijednost ni izvor. Uz to,
-rekonstruirani zapisi nisu dodani u skup `svi`, ali jesu u `ulozeniID`, pa se
-mogu označiti i obrisati.^12
+rekonstruirani zapisi nisu dodani u skup `svi`, ali jesu u skupu označenom za
+brisanje, pa se mogu označiti i obrisati bez ekvivalentne stroge provjere.^12
 
 **Preporuka:** provjeravati svaki zapis u sirovoj tablici `ocitanja` preko
 točnog identiteta niza `(letva, izvor, veličina, vrsta)`, vremena i vrijednosti.
@@ -377,7 +411,8 @@ Potpis autoriteta ostaje odvojen od peerova koji samo prenose bajtove.
 - `go build` je pokriven posredno punim testnim prolazom svih paketa.
 - `go test ./...` prolazi na aktualnom radnom stanju.
 - `go vet ./...` prolazi.
-- `go test -race ./internal/poslovi ./internal/arhiva ./internal/web` prolazi.
+- `go test -race ./internal/arhiva ./internal/ulaganje ./internal/poslovi
+  ./internal/web` prolazi.
 
 ### Što ti prolazi ne dokazuju
 
@@ -388,12 +423,26 @@ više datoteka pri prekidu procesa. Obični hash test ne dokazuje autentičnost.
 
 ### Statička upozorenja
 
-Nalazi o mrtvom kodu (`prorijedi`, `sviSuVrijeme`, `sviSuBroj`, `Linker.names`,
-`sectionStructureLink`) imaju smisla kao čišćenje. `koritoOpis` ne treba brisati
-bez odluke pripada li presjek korita kartici postaje u Word izvješću. To je
-funkcionalna odluka, ne lint-popravak.
+Raniji nalazi o mrtvom kodu (`prorijedi`, `sviSuVrijeme`, `sviSuBroj`,
+`Linker.names`, `sectionStructureLink`) ostaju kandidati za ciljano čišćenje;
+nisu bili predmet ovog ponovnog prolaza `staticcheckom`. `koritoOpis` ne treba
+brisati bez odluke pripada li presjek korita kartici postaje u Word izvješću.
+To je funkcionalna odluka, ne lint-popravak.
 
-### Testovi koje treba dodati
+### Novi regresijski pokrivači
+
+Od prethodne analize dodani su testovi za:
+
+- nadopunu nasuprot izričitoj zamjeni postojećeg niza;
+- očuvanje oba očitanja u ponovljenom satu pri povratku na zimsko vrijeme;
+- otkrivanje sirotana pri svakom otvaranju arhive;
+- uklanjanje niza bez gubitka spoja sestrinskog niza;
+- prednost rekonstrukcije unutar dopuštenog raspona.
+
+To su dobro odabrane provjere jer svaka čuva konkretan podatkovni incident od
+ponavljanja. Ne zamjenjuju, međutim, sljedeće sigurnosne i transakcijske testove.
+
+### Testovi koje još treba dodati
 
 1. običan korisnik dobiva 403 na pregled i ugradnju `.cop` paketa;
 2. kvar `spoji` ostavlja staru arhivu potpuno čitljivom;
@@ -411,7 +460,9 @@ funkcionalna odluka, ne lint-popravak.
 ## 9. Dokumentacija i operativna spremnost
 
 README dobro opisuje alfa status, instalaciju, mrežne portove i osnovni model
-ovlasti. Međutim, ubrzani razvoj stvorio je razilaženja:
+ovlasti. Ugrađena pomoć sada bolje opisuje ulaganje, čišćenje i sirotane, pa je
+operativni tok vidljiv i administratoru koji ne koristi CLI. Ubrzani razvoj ipak
+je ostavio razilaženja u statičkim dokumentima:
 
 - README još govori da su svi podaci u jednoj SQLite datoteci, dok hidrološka
   arhiva sada živi u `data/vodostaji.db`;
@@ -501,14 +552,17 @@ obrasce.
 2. [`internal/web/handlers_uvoz_niza.go`](../internal/web/handlers_uvoz_niza.go), pregled, potvrda i upis niza; [`internal/web/uvoz_niza.go`](../internal/web/uvoz_niza.go), prepoznavanje i normalizacija.
 3. [`internal/arhiva/paket.go`](../internal/arhiva/paket.go), format paketa, otisak, izvori i ugradnja.
 4. [`internal/arhiva/katalog.go`](../internal/arhiva/katalog.go), katalog i izdavanje; [`cmd/paket-arhive/main.go`](../cmd/paket-arhive/main.go), CLI omotač.
-5. [`cmd/ulozi-ocitanja/main.go`](../cmd/ulozi-ocitanja/main.go), ulaganje, provjera i zaborav operative.
+5. [`internal/ulaganje/ulaganje.go`](../internal/ulaganje/ulaganje.go), ulaganje; [`internal/ulaganje/citanje.go`](../internal/ulaganje/citanje.go), čitanje i provjera; [`internal/ulaganje/zaboravljanje.go`](../internal/ulaganje/zaboravljanje.go), čišćenje; [`internal/web/handlers_ulaganje.go`](../internal/web/handlers_ulaganje.go), web-sučelje.
 6. [`internal/models/biljeska.go`](../internal/models/biljeska.go); [`internal/repository/biljeska_repo.go`](../internal/repository/biljeska_repo.go).
 7. [`internal/poslovi/poslovi.go`](../internal/poslovi/poslovi.go); [`internal/poslovi/poslovi_test.go`](../internal/poslovi/poslovi_test.go); [`web/static/js/app.js`](../web/static/js/app.js).
 8. [`internal/web/server.go`](../internal/web/server.go), rute paketa; [`internal/web/handlers_paket.go`](../internal/web/handlers_paket.go), pregled i ugradnja.
 9. [`docs/plan-povezivost.md`](plan-povezivost.md), plan potpisa i distribucije; [`internal/arhiva/paket.go`](../internal/arhiva/paket.go), aktualni hash bez potpisa.
 10. [`internal/arhiva/paket.go`](../internal/arhiva/paket.go), `Procitaj` i neograničeni `io.ReadAll` ZIP dijelova.
 11. [`internal/arhiva/paket.go`](../internal/arhiva/paket.go), `Ugradi`: commit prije izvora i funkcije `spoji`.
-12. [`cmd/ulozi-ocitanja/main.go`](../cmd/ulozi-ocitanja/main.go), skup `svi`, `provjeriUArhivi`, označavanje i brisanje.
+12. [`internal/ulaganje/ulaganje.go`](../internal/ulaganje/ulaganje.go), skup za ulaganje; [`internal/ulaganje/citanje.go`](../internal/ulaganje/citanje.go), `ProvjeriUArhivi`; [`internal/ulaganje/zaboravljanje.go`](../internal/ulaganje/zaboravljanje.go), označavanje i brisanje.
 13. [`README.md`](../README.md), deklarirano stanje, instalacija, sigurnost i alfa ograničenja.
 14. [`docs/plan-arhiva-i-zaborav.md`](plan-arhiva-i-zaborav.md), plan životnog ciklusa arhive.
 15. [`docs/rekonstrukcija-nizova.md`](rekonstrukcija-nizova.md), metodologija rekonstrukcije, kota nule i profili korita.
+16. [`internal/web/handlers_uvoz_niza.go`](../internal/web/handlers_uvoz_niza.go), zatečeni niz, dopuna i zamjena; [`internal/web/izdavanje_stranica_test.go`](../internal/web/izdavanje_stranica_test.go), upozorenje na izgubljeni raspon.
+17. [`internal/arhiva/gradnja.go`](../internal/arhiva/gradnja.go), otkrivanje sirotana i `MakniNiz`; [`internal/arhiva/sirotani_test.go`](../internal/arhiva/sirotani_test.go), regresijski scenariji sirotana i sestrinskih nizova.
+18. [`internal/arhiva/dvostruki_sat_test.go`](../internal/arhiva/dvostruki_sat_test.go), ponovljeni sat; [`internal/arhiva/sirotani_test.go`](../internal/arhiva/sirotani_test.go), prioritet rekonstrukcije unutar raspona.
