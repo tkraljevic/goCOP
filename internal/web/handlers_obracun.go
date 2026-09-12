@@ -33,6 +33,7 @@ type ObracunPostavkePageData struct {
 	Godina       int
 	OveGodine    []string // datumi blagdana ove godine, za provjeru pravila
 	Koeficijenti obracun.Koeficijenti
+	RadnoVrijeme obracun.RadnoVrijeme
 	Razredi      []obracun.Razred
 	Mjesta       []obracun.Mjesto
 
@@ -73,6 +74,7 @@ func (h *ObracunPostavkeHandler) ShowPostavke(w http.ResponseWriter, r *http.Req
 		return
 	}
 	data.Koeficijenti = svc.Koeficijenti(r.Context())
+	data.RadnoVrijeme = svc.RadnoVrijeme(r.Context())
 	data.Godina = time.Now().In(models.Zagreb).Year()
 	if g, err := strconv.Atoi(r.URL.Query().Get("godina")); err == nil && g > 1900 && g < 2200 {
 		data.Godina = g
@@ -138,4 +140,23 @@ func (h *ObracunPostavkeHandler) HandleSpremiKoeficijente(w http.ResponseWriter,
 		return
 	}
 	redirectWith(w, r, back, "success", "Koeficijenti su upisani.")
+}
+
+// HandleSpremiRadnoVrijeme upisuje redovno radno vrijeme radnim danom
+func (h *ObracunPostavkeHandler) HandleSpremiRadnoVrijeme(w http.ResponseWriter, r *http.Request) {
+	back := "/administracija/obracun"
+	if err := r.ParseForm(); err != nil {
+		redirectWith(w, r, back, "error", "Neispravan zahtjev")
+		return
+	}
+	rv, err := obracun.ParseRadnoVrijeme(r.FormValue("od"), r.FormValue("do"))
+	if err != nil {
+		redirectWith(w, r, back, "error", err.Error())
+		return
+	}
+	if err := h.svc().SpremiRadnoVrijeme(r.Context(), rv); err != nil {
+		redirectWith(w, r, back, "error", err.Error())
+		return
+	}
+	redirectWith(w, r, back, "success", "Redovno radno vrijeme je "+rv.Tekst()+".")
 }

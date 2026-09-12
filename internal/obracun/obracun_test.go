@@ -130,3 +130,30 @@ func TestRazvrstajPoZidnomSatu(t *testing.T) {
 		t.Errorf("preko prijelaza: %v (%v)", s, s.Ukupno())
 	}
 }
+
+// Radno vrijeme je podatak organizacije: kalendar s drugim radnim vremenom
+// pomiče granicu redovnog i prekovremenog; bez njega vrijedi zadano 7:30–15:30.
+func TestRazvrstajPoRadnomVremenu(t *testing.T) {
+	// petak 7:00–16:00, zadano: redovno 7:30–15:30 = 8 h, dnevni 0:30 + 0:30
+	s := Razvrstaj(kad(2026, 9, 11, 7, 0), kad(2026, 9, 11, 16, 0), Hrvatski{})
+	if s[RRV] != 8*time.Hour || s[DRD] != time.Hour {
+		t.Errorf("zadano: %v", s)
+	}
+	// isto uz radno vrijeme 8–16: redovno 8 h, dnevni 1 h prije
+	rv, err := ParseRadnoVrijeme("08:00", "16:00")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s = Razvrstaj(kad(2026, 9, 11, 7, 0), kad(2026, 9, 11, 16, 0), SRadnimVremenom{Kalendar: Hrvatski{}, RV: rv})
+	if s[RRV] != 8*time.Hour || s[DRD] != time.Hour {
+		t.Errorf("8–16: %v", s)
+	}
+	if rv.Tekst() != "8–16" || rv.DnevniTekst() != "6–8 i 16–22" || rv.Pojas(RRV) != "redovno 8–16" || Zadano.Tekst() != "7:30–15:30" {
+		t.Errorf("tekst: %q %q %q", rv.Tekst(), rv.DnevniTekst(), rv.Pojas(RRV))
+	}
+	for _, krivo := range [][2]string{{"05:00", "13:00"}, {"15:00", "07:00"}, {"7", "15"}, {"14:00", "23:00"}} {
+		if _, err := ParseRadnoVrijeme(krivo[0], krivo[1]); err == nil {
+			t.Errorf("%v prošlo", krivo)
+		}
+	}
+}

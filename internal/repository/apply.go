@@ -80,7 +80,7 @@ func KeepVersion(v ledger.Version) bool {
 var SurfaceEntities = []string{EntitySectors, EntityAreas, EntityOrgTerms, EntityContractors, EntityContractorAssignments,
 	EntityUsers, EntityDuties, "role_modules", "user_modules", EntityStations, EntitySections, EntityWatercourses,
 	EntityCounties, EntityMunicipalities, EntitySettlements, EntityStructures, "maintained_waters", "work_items", "journals",
-	EntityBlagdani, EntityKoeficijenti}
+	EntityBlagdani, EntityKoeficijenti, EntityObracunPostavke}
 
 // ReplaySurface ponovno primijeni zadnju verziju svakog zapisa iz knjige na
 // površinu. Služi kad je primjena primljenih verzija jednom zapela: knjiga je
@@ -354,6 +354,14 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 			return err
 		}
 		_, err := tx.ExecContext(ctx, koeficijentUpsert, k.ID, k.Mjesto, k.Razred, k.K, v.CreatedAt)
+		return err
+
+	case EntityObracunPostavke:
+		var p Postavka
+		if err := json.Unmarshal(v.Payload, &p); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, postavkaUpsert, p.ID, p.Vrijednost, v.CreatedAt)
 		return err
 
 	case EntityRoleModules:
@@ -683,6 +691,8 @@ func removeFromSurface(ctx context.Context, tx *sql.Tx, v ledger.Version) error 
 		stmt = `DELETE FROM blagdani WHERE id = ?`
 	case EntityKoeficijenti:
 		stmt = `DELETE FROM koeficijenti WHERE id = ?`
+	case EntityObracunPostavke:
+		stmt = `DELETE FROM obracun_postavke WHERE id = ?`
 	case EntityMaintainedWaters:
 		stmt = `DELETE FROM maintained_waters WHERE id = ?`
 	case EntityWorkItems:

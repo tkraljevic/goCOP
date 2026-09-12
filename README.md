@@ -68,8 +68,9 @@ prva računala. Kaže što program radi na računalu i mreži, što ne radi, i
   pola sata u korist djelatnika. Obračun se slaže po branjenom području s
   rekapitulacijom; klik na ime otvara izvješće o radnim satima te osobe, a
   na profilu svatko vidi svoje planove i izvješća. Blagdani (kao pravila, s
-  razdobljem važenja) i koeficijenti su podatak organizacije i uređuju se u
-  Administraciji, ne novom verzijom programa.
+  razdobljem važenja), redovno radno vrijeme (zadano 7:30–15:30) i
+  koeficijenti su podatak organizacije i uređuju se u Administraciji, ne
+  novom verzijom programa.
 - **Dnevno izvješće rukovoditelja dionice:** standardni obrazac iz
   Privitka 4 Državnog plana, jedan po dionici i danu dok traje obrana,
   predaje se do 08:00 u podcentar. Program unaprijed upiše što zna — vodotok

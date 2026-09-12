@@ -66,7 +66,7 @@
       <tbody>
       {{range .Razredi}}
       <tr>
-        <td title="{{.}}">{{.Dan}} <span class="reg-card-sub">{{.Pojas}}</span></td>
+        <td title="{{.}}">{{.Dan}} <span class="reg-card-sub">{{$.RadnoVrijeme.Pojas .}}</span></td>
         <td class="mono br">{{sati ($.IORS.Sat "URED" .)}}</td>
         <td class="mono br">{{if $.IORS.Obr "URED" .}}{{brojHRf ($.IORS.Obr "URED" .) 1}}{{end}}</td>
         <td class="mono br">{{sati ($.IORS.Sat "TEREN" .)}}</td>

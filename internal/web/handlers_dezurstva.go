@@ -153,6 +153,7 @@ func (h *JournalsHandler) ShowObracun(w http.ResponseWriter, r *http.Request) {
 			nazivi[a.ID] = a.Name
 		}
 	}
+	data.RadnoVrijeme = postavke.RadnoVrijeme(r.Context())
 	if data.Obracun, err = h.journals.Obracun(r.Context(), j, od, do, postavke.Kalendar(r.Context()), postavke.Koeficijenti(r.Context()), nazivi); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -212,6 +213,7 @@ func (h *JournalsHandler) ShowIORS(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	var err error
+	data.RadnoVrijeme = postavke.RadnoVrijeme(r.Context())
 	if data.IORS, err = h.journals.ObracunOsobe(r.Context(), j, userID, od, do, postavke.Kalendar(r.Context()), postavke.Koeficijenti(r.Context()), nazivi); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
