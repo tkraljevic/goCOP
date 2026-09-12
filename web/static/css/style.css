@@ -3317,3 +3317,13 @@ textarea {
 .iors-tablica th.br, .iors-tablica td.br { text-align: right; white-space: nowrap; }
 .iors-tablica tr.iors-ceka td { color: var(--text-muted, #777); font-style: italic; }
 @media print { .page-actions, .breadcrumb, .alert { display: none !important; } }
+
+/* IORS: kartica po danu — bez vodoravnog klizanja */
+.iors-dani { display: flex; flex-direction: column; gap: 0.5rem; }
+.iors-dan { background: var(--card-bg, #fff); border: 1px solid var(--border, #ddd); border-radius: 6px; padding: 0.6rem 0.9rem; }
+.iors-dan-glava { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem 1rem; }
+.iors-dan-datum { min-width: 13rem; }
+.iors-dan-ukupno { margin-left: auto; }
+.iors-dan-opis { margin: 0.3rem 0; }
+.iors-dan-razredi { margin-top: 0.2rem; }
+.iors-dan.iors-ceka { border-style: dashed; color: var(--text-muted, #777); }
