@@ -245,10 +245,14 @@ func (k Koeficijenti) Obracunski(s Sati, m Mjesto) float64 {
 	return Zaokruzi(u, Korak)
 }
 
-// Zaokruzi zaokružuje na najbliži višekratnik koraka. Kad je točno na
-// sredini, ide na parni višekratnik — 0,25 na 0, 0,75 na 1 — pa sredine
-// jednom idu djelatniku, jednom ustanovi, i ni jedno ni drugo ne gubi
-// sustavno. Obično zaokruživanje sredine bi uvijek išlo na jednu stranu.
+// Zaokruzi zaokružuje na najbliži višekratnik koraka; kad je točno na
+// sredini, ide gore — djelatniku: 0,25 na 0,5, 0,75 na 1.
+//
+// Pravilo "na parni broj" bilo bi pošteno tek u prosjeku: s koeficijentom
+// 1,5 sredina pada na svaki neparni polusat, pa bi tko uvijek odradi istih
+// 1,5 h uvijek gubio četvrt sata, a tko odradi 0,5 h uvijek dobivao. Ovako
+// nitko ne gubi sustavno, pravilo stane u jednu rečenicu, a ustanovu košta
+// najviše četvrt sata po razredu po osobi po obračunu.
 func Zaokruzi(x, korak float64) float64 {
 	if korak <= 0 {
 		return x
@@ -258,15 +262,7 @@ func Zaokruzi(x, korak float64) float64 {
 	if q < 0 && dolje != q {
 		dolje--
 	}
-	ost := q - dolje
-	const eps = 1e-9
-	switch {
-	case ost < 0.5-eps:
-		return dolje * korak
-	case ost > 0.5+eps:
-		return (dolje + 1) * korak
-	}
-	if int64(dolje)%2 == 0 {
+	if q-dolje < 0.5-1e-9 {
 		return dolje * korak
 	}
 	return (dolje + 1) * korak
