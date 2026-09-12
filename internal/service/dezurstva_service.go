@@ -166,50 +166,57 @@ func (s *JournalService) MakniDezurstvo(ctx context.Context, u *models.User, per
 	return s.repo.ArhivirajDezurstvo(ctx, d)
 }
 
-// ObracunOsobe su sati jedne osobe u razdoblju, po mjestu rada i razredu,
-// i ono što iz toga slijedi po koeficijentima
-type ObracunOsobe struct {
+// Obracun je ono što voditelj gleda: po "za koga" (branjeno područje, pa
+// cijeli sektor), redak po osobi i mjestu rada, uz svaki redak samo razredi
+// u kojima ima sati. Zbrojevi po grupi i za cijeli sektor su rekapitulacija.
+type Obracun struct {
+	Grupe       []ObracunGrupa
+	Stvarni     time.Duration
+	Obracunski  float64
+	CekaPotvrdu time.Duration // sati u razdoblju koji još nisu potvrđeni; izvan zbroja
+}
+
+type ObracunGrupa struct {
+	Za         string
+	Podrucje   *int
+	Redovi     []ObracunRedak
+	Stvarni    time.Duration
+	Obracunski float64
+}
+
+type ObracunRedak struct {
 	UserID, UserName string
-	// Za koga je radila: branjeno područje ili cijeli sektor. Ista osoba
-	// ima redak za svako — obračun se slaže po području, kao i dosad.
-	Podrucje    *int
-	Za          string
-	Ured, Teren obracun.Sati
-	// Obračunski po razredu, zaokruženi na pola sata; zbroj iz njih
-	UredObr, TerenObr map[obracun.Razred]float64
-	Stvarni           time.Duration
-	Obracunski        float64
+	Mjesto           string // MjestoUred ili MjestoTeren
+	Stavke           []ObracunStavka
+	Stvarni          time.Duration
+	Obracunski       float64
 }
 
-// Obr vraća obračunske sate razreda za mjesto, za ispis u tablici
-func (o ObracunOsobe) Obr(mjesto string, r obracun.Razred) float64 {
-	if mjesto == models.MjestoTeren {
-		return o.TerenObr[r]
-	}
-	return o.UredObr[r]
+// ObracunStavka je jedan razred s brojkom: stvarni sati i obračunski,
+// zaokruženi na pola sata
+type ObracunStavka struct {
+	Razred     obracun.Razred
+	Sati       time.Duration
+	Obracunski float64
 }
 
-// Sati vraća stvarne sate razreda za mjesto, za ispis u tablici
-func (o ObracunOsobe) Sati(mjesto string, r obracun.Razred) time.Duration {
-	if mjesto == models.MjestoTeren {
-		return o.Teren[r]
-	}
-	return o.Ured[r]
-}
-
-// Obracun zbraja POTVRĐENA dežurstva dnevnika u razdoblju [od, do) po osobi.
-// Razmak koji viri iz razdoblja uzima se samo onim dijelom koji je unutra,
-// pa se obračun za mjesec ne mijenja time što smjena prelazi u sljedeći.
-// Uz obračun vraća i koliko sati u razdoblju još čeka potvrdu — to nije
-// u zbroju, ali se mora vidjeti.
-// nazivi daje ime područja po broju; prazan broj je cijeli sektor.
-func (s *JournalService) Obracun(ctx context.Context, j *models.Journal, od, do time.Time, kal obracun.Kalendar, k obracun.Koeficijenti, nazivi map[int]string) ([]ObracunOsobe, time.Duration, error) {
+// Obracun zbraja POTVRĐENA dežurstva dnevnika u razdoblju [od, do). Razmak
+// koji viri iz razdoblja uzima se samo onim dijelom koji je unutra, pa se
+// obračun za mjesec ne mijenja time što smjena prelazi u sljedeći. Nazivi
+// daju ime područja po broju; prazan broj je cijeli sektor.
+func (s *JournalService) Obracun(ctx context.Context, j *models.Journal, od, do time.Time, kal obracun.Kalendar, k obracun.Koeficijenti, nazivi map[int]string) (Obracun, error) {
+	var out Obracun
 	dez, err := s.repo.ListDezurstva(ctx, j.ID)
 	if err != nil {
-		return nil, 0, err
+		return out, err
 	}
-	poOsobi := map[string]*ObracunOsobe{}
-	var ceka time.Duration
+	type kljuc struct {
+		podrucje int
+		user     string
+		mjesto   string
+	}
+	sati := map[kljuc]obracun.Sati{}
+	imena := map[string]string{}
 	for _, d := range dez {
 		a, b := d.Od, d.Do
 		if a.Before(od) {
@@ -222,47 +229,72 @@ func (s *JournalService) Obracun(ctx context.Context, j *models.Journal, od, do 
 			continue
 		}
 		if !d.Potvrdeno() {
-			ceka += b.Sub(a)
+			out.CekaPotvrdu += b.Sub(a)
 			continue
 		}
-		kljuc, za, podrucje := d.UserID+"/", "cijeli "+models.Terms().Lower("sektor")+" "+j.CentarSektor, (*int)(nil)
-		if d.ZaPodrucje() {
-			n := *d.Podrucje
-			podrucje = &n
-			kljuc = fmt.Sprintf("%s/%d", d.UserID, n)
-			if za = nazivi[n]; za == "" {
-				za = fmt.Sprintf("%s %d", models.Terms().Lower("podrucje"), n)
+		kl := kljuc{d.PodrucjeID(), d.UserID, d.Mjesto}
+		if sati[kl] == nil {
+			sati[kl] = obracun.Sati{}
+		}
+		sati[kl].Dodaj(obracun.Razvrstaj(a, b, kal))
+		imena[d.UserID] = d.UserName
+	}
+	grupe := map[int]*ObracunGrupa{}
+	for kl, st := range sati {
+		g := grupe[kl.podrucje]
+		if g == nil {
+			za := "cijeli " + models.Terms().Lower("sektor") + " " + j.CentarSektor
+			var podrucje *int
+			if kl.podrucje > 0 {
+				n := kl.podrucje
+				podrucje = &n
+				if za = nazivi[n]; za == "" {
+					za = fmt.Sprintf("%s %d", models.Terms().Lower("podrucje"), n)
+				}
+			}
+			g = &ObracunGrupa{Za: za, Podrucje: podrucje}
+			grupe[kl.podrucje] = g
+		}
+		mjesto := obracun.Mjesto(kl.mjesto)
+		if mjesto != obracun.Teren {
+			mjesto = obracun.Ured
+		}
+		r := ObracunRedak{UserID: kl.user, UserName: imena[kl.user], Mjesto: string(mjesto), Stvarni: st.Ukupno()}
+		obr := k.ObracunskiPoRazredu(st, mjesto)
+		for _, razred := range obracun.Razredi {
+			if st[razred] > 0 {
+				r.Stavke = append(r.Stavke, ObracunStavka{Razred: razred, Sati: st[razred], Obracunski: obr[razred]})
+				r.Obracunski += obr[razred]
 			}
 		}
-		o := poOsobi[kljuc]
-		if o == nil {
-			o = &ObracunOsobe{UserID: d.UserID, UserName: d.UserName, Podrucje: podrucje, Za: za, Ured: obracun.Sati{}, Teren: obracun.Sati{}}
-			poOsobi[kljuc] = o
-		}
-		sati := obracun.Razvrstaj(a, b, kal)
-		if d.Mjesto == models.MjestoTeren {
-			o.Teren.Dodaj(sati)
-		} else {
-			o.Ured.Dodaj(sati)
-		}
+		r.Obracunski = obracun.Zaokruzi(r.Obracunski, obracun.Korak)
+		g.Redovi = append(g.Redovi, r)
 	}
-	var out []ObracunOsobe
-	for _, o := range poOsobi {
-		o.Stvarni = o.Ured.Ukupno() + o.Teren.Ukupno()
-		o.UredObr, o.TerenObr = k.ObracunskiPoRazredu(o.Ured, obracun.Ured), k.ObracunskiPoRazredu(o.Teren, obracun.Teren)
-		o.Obracunski = k.Obracunski(o.Ured, obracun.Ured) + k.Obracunski(o.Teren, obracun.Teren)
-		out = append(out, *o)
+	for _, g := range grupe {
+		sort.Slice(g.Redovi, func(i, l int) bool {
+			if g.Redovi[i].UserName != g.Redovi[l].UserName {
+				return g.Redovi[i].UserName < g.Redovi[l].UserName
+			}
+			return g.Redovi[i].Mjesto < g.Redovi[l].Mjesto
+		})
+		for _, r := range g.Redovi {
+			g.Stvarni += r.Stvarni
+			g.Obracunski += r.Obracunski
+		}
+		out.Stvarni += g.Stvarni
+		out.Obracunski += g.Obracunski
+		out.Grupe = append(out.Grupe, *g)
 	}
-	// Po području pa po imenu; cijeli sektor na kraju, kao list "B i ostali".
-	sort.Slice(out, func(i, l int) bool {
-		a, b := out[i], out[l]
+	// Po području, cijeli sektor na kraju — kao list "B i ostali".
+	sort.Slice(out.Grupe, func(i, l int) bool {
+		a, b := out.Grupe[i], out.Grupe[l]
 		if (a.Podrucje == nil) != (b.Podrucje == nil) {
 			return a.Podrucje != nil
 		}
-		if a.Podrucje != nil && *a.Podrucje != *b.Podrucje {
+		if a.Podrucje != nil {
 			return *a.Podrucje < *b.Podrucje
 		}
-		return a.UserName < b.UserName
+		return false
 	})
-	return out, ceka, nil
+	return out, nil
 }

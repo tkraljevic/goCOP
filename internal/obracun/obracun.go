@@ -86,6 +86,25 @@ func (r Razred) Pojas() string {
 	return "noćni 22–6"
 }
 
+// Kratko je naziv razreda za popis u jednom retku: "subota noćni"
+func (r Razred) Kratko() string {
+	switch r {
+	case RRV:
+		return "radni dan redovno"
+	case DRD:
+		return "radni dan dnevni"
+	case NRD:
+		return "radni dan noćni"
+	case VID:
+		return "subota dnevni"
+	case VIN:
+		return "subota noćni"
+	case BLD:
+		return "nedj./blagdan dnevni"
+	}
+	return "nedj./blagdan noćni"
+}
+
 // Mjesto rada: obrazac razlikuje samo ured i teren, s različitim koeficijentima
 type Mjesto string
 

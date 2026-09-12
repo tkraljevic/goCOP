@@ -3292,3 +3292,23 @@ textarea {
 .novi-zapis { padding: 1rem; margin-top: 1.5rem; }
 .novi-zapis-naslov { margin: 0 0 0.75rem; font-size: 0.95rem; }
 .novi-zapis-red { grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr)); }
+
+/* Obračun sati: filtar u jednom retku; grupe po "za koga" s međuzbrojem;
+   razredi kao popis u ćeliji, samo oni s brojkom. */
+.obracun-filtar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; margin: 0 0 1rem; }
+.obracun-filtar label { font-size: 0.85rem; font-weight: 600; }
+.obracun-filtar .form-control { width: auto; }
+.obracun-tablica th.br, .obracun-tablica td.br { text-align: right; white-space: nowrap; }
+.obracun-tablica .obracun-grupa th { background: var(--primary-light, #e8eef7); color: var(--primary, #173e74); text-transform: uppercase; letter-spacing: 0.03em; font-size: 0.78rem; padding-top: 0.55rem; padding-bottom: 0.55rem; }
+.obracun-tablica .obracun-zbroj td { background: var(--bg-muted, #f7f7f7); font-style: italic; border-bottom: 2px solid var(--border, #ddd); }
+.obracun-tablica tfoot .obracun-ukupno th { font-size: 1rem; border-top: 2px solid var(--primary, #173e74); }
+.obracun-stavke { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.15rem 1rem; }
+.obracun-stavke li { white-space: nowrap; }
+.obracun-objasnjenje { padding: 0.9rem 1.1rem; margin-top: 0.9rem; font-size: 0.86rem; color: var(--text-muted, #555); }
+.obracun-objasnjenje p { margin: 0 0 0.5rem; }
+.obracun-primjeri { margin: 0; padding-left: 1.2rem; }
+.obracun-primjeri li { margin: 0.15rem 0; }
+@media (max-width: 768px) {
+  .obracun-tablica .obracun-grupa th, .obracun-tablica tfoot th { display: block; }
+  .obracun-stavke { flex-direction: column; gap: 0.1rem; }
+}

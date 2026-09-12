@@ -4,7 +4,6 @@
 
 {{define "content"}}
 <div class="breadcrumb"><a href="/dnevnici">Dnevnici</a> ›
-  <a href="/dnevnici/popis?vrsta=OBRANA">Dnevnici COP-a</a> ›
   <a href="/dnevnici/popis?vrsta=DEZURSTVA">Plan dežurstava</a> ›
   <a href="/dnevnici/{{.Journal.ID}}/dezurstva">{{.Journal.DisplayTitle}}</a> › Obračun sati</div>
 
@@ -12,68 +11,85 @@
   <div>
     <h1 class="page-title">{{icon "calculator"}} Obračun sati u obrani</h1>
     <p class="page-desc">{{.Journal.DisplayTitle}}{{if .Journal.CentarNaziv}} — {{.Journal.CentarNaziv}}{{end}}.
-      Iz plana dežurstava, po pravilima obrasca IORS: sati po zidnom satu, razvrstani po vrsti dana i pojasu,
-      pomnoženi koeficijentima za ured i teren.</p>
+      Iz plana dežurstava: tko je koliko odradio i koliko mu ide, po branjenom području za koje je radio.</p>
   </div>
 </div>
 
-<form method="GET" action="/dnevnici/{{.Journal.ID}}/obracun" class="reg-card" style="padding:0.75rem 1rem; display:flex; gap:0.75rem; flex-wrap:wrap; align-items:end;">
-  <div class="form-group" style="margin:0;">
-    <label class="form-label" for="od">Od</label>
-    <input type="date" id="od" name="od" class="form-control" value="{{.From}}">
-  </div>
-  <div class="form-group" style="margin:0;">
-    <label class="form-label" for="do">Do (uključivo)</label>
-    <input type="date" id="do" name="do" class="form-control" value="{{.To}}">
-  </div>
+{{/* Filtar je jedan redak, ne kartica: dva datuma i gumb. */}}
+<form method="GET" action="/dnevnici/{{.Journal.ID}}/obracun" class="obracun-filtar">
+  <label for="od">Od</label>
+  <input type="date" id="od" name="od" class="form-control" value="{{.From}}">
+  <label for="do">Do <span class="reg-card-sub">(uključivo)</span></label>
+  <input type="date" id="do" name="do" class="form-control" value="{{.To}}">
   <button type="submit" class="btn btn-secondary">{{icon "search"}} Prikaži</button>
 </form>
 
-{{if .CekaPotvrdu}}
-<div class="alert alert-warning" style="margin-top:1rem;">{{icon "triangle-alert"}} <strong>{{sati .CekaPotvrdu}} h</strong> u razdoblju još čeka potvrdu
+{{if .Obracun.CekaPotvrdu}}
+<div class="alert alert-warning">{{icon "triangle-alert"}} <strong>{{sati .Obracun.CekaPotvrdu}} h</strong> u razdoblju još čeka potvrdu
   uprave centra i nije u obračunu. <a href="/dnevnici/{{.Journal.ID}}/dezurstva">Plan dežurstava</a></div>
 {{end}}
 
-{{if .Obracun}}
-<div class="table-card" style="margin-top:1rem;"><div class="table-responsive">
-  <table class="data-table">
-    <thead>
-      {{/* Kao u obrascu: po razredu stvarni i obračunski sati, zaokruženi
-           na pola sata; zbroj iz zaokruženih. Kratica razreda samo kao
-           naslov na prelazak mišem. */}}
-      <tr><th rowspan="3">Osoba</th><th rowspan="3">Za</th><th rowspan="3">Mjesto</th>
-        <th colspan="6">radni dan</th><th colspan="4">subota</th><th colspan="4">nedjelja i blagdan</th>
-        <th colspan="2">sveukupno</th></tr>
-      <tr>{{range .Razredi}}<th colspan="2" title="{{.}}" style="font-weight:normal; white-space:nowrap;">{{.Pojas}}</th>{{end}}
-        <th rowspan="2">stvarni</th><th rowspan="2">obračunski</th></tr>
-      <tr>{{range .Razredi}}<th class="reg-card-sub" style="font-weight:normal;">sati</th><th class="reg-card-sub" style="font-weight:normal;">obr.</th>{{end}}</tr>
-    </thead>
+{{if .Obracun.Grupe}}
+{{/* Grupe po "za koga" s međuzbrojem, cijeli sektor na kraju, zbroj sektora
+     na dnu — to je rekapitulacija. Jedan red po osobi i mjestu rada; uz red
+     samo razredi u kojima ima sati, kao "12:00 → 24,5". Zbrojevi stoje odmah
+     uz ime, ne iza vodoravnog klizača. Puna tablica sa svih sedam razreda je
+     stvar izvoza, ne ekrana. */}}
+<div class="table-card"><div class="table-responsive tablica-kartice">
+  <table class="data-table obracun-tablica">
+    <thead><tr><th>Osoba</th><th class="br">Stvarni sati</th><th class="br">Obračunski</th><th>Po razredima <span class="reg-card-sub">(sati → obračunski)</span></th></tr></thead>
     <tbody>
-    {{range .Obracun}}
+    {{range .Obracun.Grupe}}
+    <tr class="obracun-grupa"><th colspan="4">{{.Za}}</th></tr>
+    {{range .Redovi}}
     <tr>
-      <td rowspan="2"><strong>{{.UserName}}</strong></td>
-      <td rowspan="2">{{.Za}}</td>
-      <td>ured</td>
-      {{$o := .}}{{range $.Razredi}}<td class="mono">{{sati ($o.Sati "URED" .)}}</td><td class="mono">{{if $o.Obr "URED" .}}{{brojHRf ($o.Obr "URED" .) 1}}{{else}}–{{end}}</td>{{end}}
-      <td class="mono" rowspan="2"><strong>{{sati .Stvarni}}</strong></td>
-      <td class="mono" rowspan="2"><strong>{{brojHRf .Obracunski 1}}</strong></td>
+      <td data-stupac="Osoba"><strong>{{.UserName}}</strong> <span class="reg-chip">{{if eq .Mjesto "TEREN"}}teren{{else}}ured{{end}}</span></td>
+      <td class="mono br" data-stupac="Stvarni sati">{{sati .Stvarni}}</td>
+      <td class="mono br" data-stupac="Obračunski"><strong>{{brojHRf .Obracunski 1}}</strong></td>
+      <td data-stupac="Po razredima"><ul class="obracun-stavke">
+        {{range .Stavke}}<li><span class="reg-card-sub">{{.Razred.Kratko}}</span> <span class="mono">{{sati .Sati}}</span> → <span class="mono">{{brojHRf .Obracunski 1}}</span></li>{{end}}
+      </ul></td>
     </tr>
-    <tr>
-      <td>teren</td>
-      {{range $.Razredi}}<td class="mono">{{sati ($o.Sati "TEREN" .)}}</td><td class="mono">{{if $o.Obr "TEREN" .}}{{brojHRf ($o.Obr "TEREN" .) 1}}{{else}}–{{end}}</td>{{end}}
+    {{end}}
+    <tr class="obracun-zbroj">
+      <td data-stupac="">ukupno {{.Za}}</td>
+      <td class="mono br" data-stupac="Stvarni sati">{{sati .Stvarni}}</td>
+      <td class="mono br" data-stupac="Obračunski"><strong>{{brojHRf .Obracunski 1}}</strong></td>
+      <td></td>
     </tr>
     {{end}}
     </tbody>
+    <tfoot>
+    <tr class="obracun-ukupno">
+      <th>{{if .Journal.CentarNaziv}}{{.Journal.CentarNaziv}}{{else}}{{terml "sektor"}} {{.Journal.CentarSektor}}{{end}} ukupno</th>
+      <th class="mono br">{{sati .Obracun.Stvarni}}</th>
+      <th class="mono br">{{brojHRf .Obracun.Obracunski 1}}</th>
+      <th></th>
+    </tr>
+    </tfoot>
   </table>
 </div></div>
-<p class="reading-meta" style="margin-top:0.5rem;">Koeficijenti (ured / teren): redovno 0 / 0,2 · dnevni 1,5 / 1,7 · noćni 1,85 / 2,05 ·
-  subota dnevni 1,85 / 2,05 · subota noćni 2,2 / 2,4 · nedjelja i blagdan dnevni 2 / 2,2 · noćni 2,35 / 2,55 — iz obrasca IORS 2026.
-  Nedjelja se obračunava kao blagdan.</p>
-<p class="reading-meta" style="margin-top:0.35rem;">Obračunski sati zaokruženi su na pola sata jer se tako obračunava plaća:
-  najmanja jedinica koja se isplaćuje je pola sata, pa manje od toga u obračun ne može. Zaokružuje se po razredu, a zbroj
-  se radi iz zaokruženih. Kad je točno na sredini — 0,25 ili 0,75 — ide na parni višekratnik (0,25 na 0, 0,75 na 1),
-  pa sredine jednom idu djelatniku, jednom ustanovi, i nitko ne gubi sustavno.</p>
+
+<div class="reg-card obracun-objasnjenje">
+  <p>Sati se broje po zidnom satu i razvrstavaju po vrsti dana i pojasu — radni dan: redovno 8–16, dnevni 6–8 i 16–22,
+    noćni 22–6; subota te nedjelja i blagdan: dnevni 6–22, noćni 22–6 — pa množe koeficijentima za ured i teren iz
+    <a href="/administracija/obracun">postavki obračuna</a>. Nedjelja se obračunava kao blagdan.</p>
+  <p>Obračunski sati zaokruženi su na <strong>pola sata</strong>, jer se tako obračunava plaća: najmanja jedinica koja se
+    isplaćuje je pola sata, pa manje od toga u obračun ne može. Zaokružuje se po razredu, a zbroj se radi iz zaokruženih.
+    Kad je točno na sredini — 0,25 ili 0,75 — ide na parni višekratnik (0,25 na 0, 0,75 na 1), pa sredine jednom idu
+    djelatniku, jednom ustanovi, i nitko ne gubi sustavno.</p>
+  <p><strong>Primjeri</strong> (ured, koeficijenti obrasca):</p>
+  <ul class="obracun-primjeri">
+    <li>3 h subota dnevni × 1,85 = 5,55 → <strong>5,5</strong> — bliže je 5,5 nego 6,0</li>
+    <li>2 h subota noćni × 2,2 = 4,4 → <strong>4,5</strong> — bliže je 4,5 nego 4,0</li>
+    <li>6 h nedjelja noćni × 2,35 = 14,1 → <strong>14,0</strong> — bliže je 14,0 nego 14,5</li>
+    <li>1 h nedjelja dnevni × 2 = 2,0 → <strong>2,0</strong> — cijeli broj ostaje</li>
+    <li>0,5 h radni dan dnevni × 1,5 = 0,75 → <strong>1,0</strong> — točno na sredini, parni višekratnik je 1,0</li>
+    <li>0,5 h nedjelja dnevni × 2,2 (teren) = 1,1 → <strong>1,0</strong></li>
+    <li>0,5 h radni dan noćni × 1,85 = 0,925 → <strong>1,0</strong>; 1 h × 1,85 = 1,85 → <strong>2,0</strong>; 1,5 h × 1,85 = 2,775 → <strong>3,0</strong></li>
+  </ul>
+</div>
 {{else}}
-<div class="reg-empty" style="margin-top:1rem;">U tom razdoblju nema potvrđenih sati.</div>
+<div class="reg-empty">U tom razdoblju nema potvrđenih sati.</div>
 {{end}}
 {{end}}

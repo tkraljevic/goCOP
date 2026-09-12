@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"gocop/internal/models"
-	"gocop/internal/obracun"
 	"gocop/internal/service"
 )
 
@@ -106,11 +105,9 @@ type JournalPageData struct {
 	Osobe     []models.User // koga se može staviti u plan; samo za upravu centra
 	// UpravaCentra slaže plan dežurstava; CanManage (nadzor) za to nije dovoljan
 	UpravaCentra   bool
-	MozeSebe       bool          // smije upisati vlastito dežurstvo
-	CekaPotvrdu    time.Duration // sati u razdoblju koji još nisu potvrđeni, izvan obračuna
+	MozeSebe       bool // smije upisati vlastito dežurstvo
 	OpisiRada      []models.OpisRada
-	Obracun        []service.ObracunOsobe
-	Razredi        []obracun.Razred
+	Obracun        service.Obracun
 	CanWrite       bool
 	CanSupervise   bool
 	CanManage      bool
