@@ -3,7 +3,7 @@
 {{define "title"}}goCOP — {{if .IsEdit}}Zaglavlje dnevnika COP-a{{else}}Novi dnevnik COP-a{{end}}{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/dnevnici">Dnevnici</a> ›
+<div class="breadcrumb"><a href="/dnevnici">Dokumentacija</a> ›
   <a href="/dnevnici/popis?vrsta=OBRANA">Dnevnici COP-a</a> ›
   {{if .IsEdit}}<a href="/dnevnici/{{.Journal.ID}}">{{.Journal.DisplayTitle}}</a> › Zaglavlje{{else}}Novi dnevnik{{end}}</div>
 

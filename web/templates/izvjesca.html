@@ -1,0 +1,50 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Dnevna izvješća{{end}}
+
+{{define "content"}}
+<div class="breadcrumb"><a href="/dnevnici">Dokumentacija</a> › Dnevna izvješća</div>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "file-text"}} Dnevna izvješća rukovoditelja dionica</h1>
+    <p class="page-desc">Za svaki dan dok traje obrana, po dionici; predaju se do 08:00 u podcentar. Iz njih voditelj centra slaže
+      izvješće sektora.</p>
+  </div>
+  {{if .Dionice}}<a href="/izvjesca/novo{{if .Sifra}}?dionica={{.Sifra}}{{end}}" class="btn btn-primary">{{icon "plus"}} Novo izvješće</a>{{end}}
+</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
+
+<form method="GET" action="/izvjesca" class="obracun-filtar">
+  <label for="f-dan">Dan</label>
+  <input type="date" id="f-dan" name="dan" class="form-control" value="{{.Dan}}">
+  <label for="f-dionica">Dionica</label>
+  <input type="text" id="f-dionica" name="dionica" class="form-control" value="{{.Sifra}}" placeholder="npr. B.16.3" style="max-width:9rem;">
+  <button type="submit" class="btn btn-secondary">{{icon "search"}} Prikaži</button>
+</form>
+
+{{if .Izvjesca}}
+<div class="table-card"><div class="table-responsive tablica-kartice">
+  <table class="data-table">
+    <thead><tr><th>Dan</th><th>Dionica</th><th>Vodotok</th><th>Stadij</th><th>Tendencija</th><th>Izradio</th><th>Stanje</th></tr></thead>
+    <tbody>
+    {{range .Izvjesca}}
+    <tr>
+      <td data-stupac="Dan"><a href="/izvjesca/{{.ID}}"><strong>{{danTjedna .Dan}} {{.Dan.Format "2.1.2006."}}</strong></a></td>
+      <td data-stupac="Dionica" class="mono">{{.SectionCode}}{{if .Podrucje}} <span class="reg-card-sub">{{.Podrucje}}</span>{{end}}</td>
+      <td data-stupac="Vodotok">{{.Sadrzaj.Vodotok}}</td>
+      <td data-stupac="Stadij"><span class="threshold-pill {{.Stadij.PillClass}}">{{.StadijKratica}}</span></td>
+      <td data-stupac="Tendencija">{{tendencija .Sadrzaj.Tendencija}}</td>
+      <td data-stupac="Izradio">{{.Izradio}} <span class="reg-card-sub">{{.IzradenoAt.Format "2.1. 15:04"}}</span></td>
+      <td data-stupac="Stanje">{{if .Predano}}<span class="badge">predano {{.PredanoAt.Format "15:04"}}</span>{{else}}<span class="badge badge-pending">nacrt</span>{{end}}</td>
+    </tr>
+    {{end}}
+    </tbody>
+  </table>
+</div></div>
+{{else}}
+<div class="reg-empty">Nema izvješća{{if or .Dan .Sifra}} za taj izbor{{end}}.{{if .Dionice}} Novo se piše gumbom „Novo izvješće“.{{end}}</div>
+{{end}}
+{{end}}

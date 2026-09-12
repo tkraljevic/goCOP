@@ -78,7 +78,8 @@ type Server struct {
 	moduleService      *service.ModuleService
 	maintenanceService *service.MaintenanceService
 	journalService     *service.JournalService
-	obracunService     *service.ObracunService // postavke obračuna sati; nil dok se ne postavi
+	obracunService     *service.ObracunService  // postavke obračuna sati; nil dok se ne postavi
+	izvjescaService    *service.IzvjescaService // dnevna izvješća; nil dok se ne postavi
 	orgService         *service.OrgService
 	support            SupportContact
 	followRepo         *repository.FollowRepository
@@ -144,6 +145,15 @@ func templateFuncs() template.FuncMap {
 				return "–"
 			}
 			return fmt.Sprintf("%d:%02d", int(d.Hours()), int(d.Minutes())%60)
+		},
+		"tendencija": models.TendencijaNaziv,
+		"list":       func(s ...string) []string { return s },
+		"seq": func(n int) []int {
+			out := make([]int, n)
+			for i := range out {
+				out[i] = i
+			}
+			return out
 		},
 		"round": func(v float64) int { return int(math.Round(v)) },
 		// Letva dolazi kao pokazivač sa stranice očitanja, a kao vrijednost s
@@ -476,7 +486,7 @@ func NewServer(
 	// Predlošci koji proširuju base.html
 	for _, page := range []string{"dashboard.html", "registri.html", "users.html", "user_detail.html", "user_form.html", "duty_form.html", "profile.html", "sections.html", "section_detail.html", "section_form.html", "territories.html", "county_form.html", "municipality_form.html", "municipality_detail.html", "stations.html", "station_detail.html", "station_form.html", "station_history.html", "station_history_form.html", "paket_pregled.html", "watercourses.html", "watercourse_detail.html", "watercourse_form.html", "structures.html", "structure_detail.html", "structure_form.html", "readings.html", "reading_history.html", "reading_form.html", "arhiva_ispravci.html", "uvoz_ocitanja.html", "teren.html", "moduli.html", "settings.html", "odrzavanje.html", "organizacija.html", "sector_form.html", "area_form.html", "contractor_form.html", "firme.html", "nazivi.html", "sudionici.html",
 		"administracija.html", "uvozi.html", "sinkronizacija.html", "pretplate.html", "baza.html", "izvori.html", "uvoz_niza.html",
-		"dnevnici.html", "dnevnici_izbor.html", "dnevnik_form.html", "dnevnik.html", "dnevnik_cop.html", "dnevnik_cop_form.html", "dnevnik_list.html", "dnevnik_obracun.html", "dnevnik_dezurstva.html", "dnevnik_iors.html", "obracun_postavke.html", "pomoc.html", "ocitanja_ispravci.html"} {
+		"dnevnici.html", "dnevnici_izbor.html", "dnevnik_form.html", "dnevnik.html", "dnevnik_cop.html", "dnevnik_cop_form.html", "dnevnik_list.html", "dnevnik_obracun.html", "dnevnik_dezurstva.html", "dnevnik_iors.html", "izvjesca.html", "izvjesce_form.html", "izvjesce.html", "obracun_postavke.html", "pomoc.html", "ocitanja_ispravci.html"} {
 		t, err := template.New("base.html").Funcs(tmplFuncs).ParseFS(templatesFS, DijeloviPredloska(page)...)
 		if err != nil {
 			return nil, fmt.Errorf("greška pri parsiranju predloška %s: %w", page, err)
@@ -880,6 +890,18 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /administracija/obracun/blagdani/{id}/makni", s.samoAdmin(http.HandlerFunc(obracunH.HandleMakniBlagdan)))
 	s.mux.Handle("POST /administracija/obracun/koeficijenti", s.samoAdmin(http.HandlerFunc(obracunH.HandleSpremiKoeficijente)))
 	journalsH.SetObracun(func() *service.ObracunService { return s.obracunService })
+	journalsH.SetIzvjesca(func() *service.IzvjescaService { return s.izvjescaService })
+
+	izvjescaH := NewIzvjescaHandler(func() *service.IzvjescaService { return s.izvjescaService },
+		s.templates["izvjesca.html"], s.templates["izvjesce_form.html"], s.templates["izvjesce.html"])
+	s.mux.Handle("GET /izvjesca", s.authMiddleware(http.HandlerFunc(izvjescaH.ShowPopis)))
+	s.mux.Handle("GET /izvjesca/novo", s.authMiddleware(http.HandlerFunc(izvjescaH.ShowNovo)))
+	s.mux.Handle("POST /izvjesca", s.authMiddleware(http.HandlerFunc(izvjescaH.HandleSpremi)))
+	s.mux.Handle("GET /izvjesca/{id}", s.authMiddleware(http.HandlerFunc(izvjescaH.ShowIzvjesce)))
+	s.mux.Handle("GET /izvjesca/{id}/uredi", s.authMiddleware(http.HandlerFunc(izvjescaH.ShowUredi)))
+	s.mux.Handle("POST /izvjesca/{id}", s.authMiddleware(http.HandlerFunc(izvjescaH.HandleSpremi)))
+	s.mux.Handle("POST /izvjesca/{id}/predaj", s.authMiddleware(http.HandlerFunc(izvjescaH.HandlePredaj)))
+	s.mux.Handle("POST /izvjesca/{id}/obrisi", s.authMiddleware(http.HandlerFunc(izvjescaH.HandleObrisi)))
 	s.mux.Handle("POST /administracija/izvori", s.samoAdmin(http.HandlerFunc(izvoriH.SpremiIzvor)))
 	uvozH := NewUvozHandler(func() string { return s.arhivaPut }, func() string { return s.podaciDir },
 		s.IzgradiLetvu, s.templates["uvoz_niza.html"])
@@ -1095,6 +1117,9 @@ func (s *Server) SetKarta(plocice, zasluge string, najviseZ int) {
 // smije je ne biti: čvor koji je nije preuzeo radi bez povijesti, ne pada.
 // SetObracun daje poslužitelju postavke obračuna sati (blagdani i koeficijenti)
 func (s *Server) SetObracun(o *service.ObracunService) { s.obracunService = o }
+
+// SetIzvjesca daje poslužitelju dnevna izvješća rukovoditelja dionica
+func (s *Server) SetIzvjesca(i *service.IzvjescaService) { s.izvjescaService = i }
 
 func (s *Server) SetArhiva(a *repository.ArhivaRepository) {
 	s.zamijeniArhivu(a)

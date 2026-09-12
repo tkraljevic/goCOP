@@ -1,15 +1,15 @@
 {{template "base.html" .}}
 
-{{define "title"}}goCOP — Dnevnici{{end}}
+{{define "title"}}goCOP — Dokumentacija{{end}}
 
 {{define "content"}}
 <div class="dashboard-container">
   <div class="section-title-wrap">
-    <div class="breadcrumb"><a href="/">Početna</a> › Dnevnici</div>
-    <h1 class="page-title">{{icon "notebook"}} Dnevnici</h1>
+    <div class="breadcrumb"><a href="/">Početna</a> › Dokumentacija</div>
+    <h1 class="page-title">{{icon "notebook"}} Dokumentacija</h1>
     <p class="section-desc">
-      Dežurni zapisnik centra obrane s planom dežurstava uz njega, i dnevnici dviju usluga održavanja.
-      Razlikuju se po tome tko ih vodi, kad se vode i što u njih ulazi.
+      Što se u obrani vodi i piše: dežurni zapisnik centra s planom dežurstava, dnevna izvješća rukovoditelja
+      dionica, i dnevnici dviju usluga održavanja. Razlikuju se po tome tko ih vodi, kad i što u njih ulazi.
     </p>
   </div>
 
@@ -42,6 +42,21 @@
         </p>
       </div>
       <div class="dash-card-footer"><a href="/dnevnici/popis?vrsta=DEZURSTVA" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
+    </div>
+
+    <div class="dash-card">
+      <div class="dash-card-header">
+        <div class="dash-card-icon-box primary">{{icon "file-text"}}</div>
+        <span class="dash-status-pill {{if .BrojIzvjesca}}info{{else}}default{{end}}">{{.BrojIzvjesca}}</span>
+      </div>
+      <div class="dash-card-body">
+        <h2 class="dash-card-title">Dnevna izvješća</h2>
+        <p class="dash-card-desc">
+          Izvješće rukovoditelja dionice za svaki dan obrane, po standardnom obrascu: vodostaji, mjere, ljudi i
+          strojevi, stanje na poplavljenom području. Predaje se do 08:00 u podcentar.
+        </p>
+      </div>
+      <div class="dash-card-footer"><a href="/izvjesca" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
     </div>
 
     <div class="dash-card">
