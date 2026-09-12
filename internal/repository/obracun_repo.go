@@ -8,14 +8,28 @@ import (
 
 	"gocop/internal/ledger"
 	"gocop/internal/obracun"
+
+	"strings"
 )
 
 // Postavke obračuna sati — blagdani i koeficijenti — su podatak organizacije
 // i putuju zajedničkim kanalom kao registri: svaki čvor računa isto.
 const (
-	EntityBlagdani     = "blagdani"
-	EntityKoeficijenti = "koeficijenti"
+	EntityBlagdani        = "blagdani"
+	EntityKoeficijenti    = "koeficijenti"
+	EntityObracunPostavke = "obracun_postavke"
 )
+
+// Postavka je jedna postavka obračuna kao tekst: "radno_vrijeme" = "07:30-15:30"
+type Postavka struct {
+	ID         string `json:"id"`
+	Vrijednost string `json:"vrijednost"`
+}
+
+const PostavkaRadnoVrijeme = "radno_vrijeme"
+
+const postavkaUpsert = `INSERT INTO obracun_postavke (id, vrijednost, updated_at) VALUES (?, ?, ?)
+	ON CONFLICT(id) DO UPDATE SET vrijednost = excluded.vrijednost, updated_at = excluded.updated_at`
 
 // Koeficijent je jedan množitelj: mjesto rada i razred sata
 type Koeficijent struct {
@@ -195,6 +209,44 @@ func (r *ObracunRepository) SaveKoeficijent(ctx context.Context, k Koeficijent) 
 		return fmt.Errorf("upis koeficijenta: %w", err)
 	}
 	if _, err := r.rec.Record(ctx, tx, EntityKoeficijenti, k.ID, k); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// RadnoVrijeme čita redovno radno vrijeme; bez zapisa vraća zadano
+func (r *ObracunRepository) RadnoVrijeme(ctx context.Context) (obracun.RadnoVrijeme, error) {
+	var v string
+	err := r.db.QueryRowContext(ctx, `SELECT vrijednost FROM obracun_postavke WHERE id = ?`, PostavkaRadnoVrijeme).Scan(&v)
+	if err == sql.ErrNoRows {
+		return obracun.Zadano, nil
+	}
+	if err != nil {
+		return obracun.Zadano, err
+	}
+	od, do, _ := strings.Cut(v, "-")
+	rv, err := obracun.ParseRadnoVrijeme(od, do)
+	if err != nil {
+		return obracun.Zadano, nil
+	}
+	return rv, nil
+}
+
+// SaveRadnoVrijeme upisuje redovno radno vrijeme i bilježi verziju
+func (r *ObracunRepository) SaveRadnoVrijeme(ctx context.Context, rv obracun.RadnoVrijeme) error {
+	if err := rv.Valjano(); err != nil {
+		return err
+	}
+	p := Postavka{ID: PostavkaRadnoVrijeme, Vrijednost: rv.OdTekst() + "-" + rv.DoTekst()}
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, postavkaUpsert, p.ID, p.Vrijednost, time.Now().UTC()); err != nil {
+		return fmt.Errorf("upis radnog vremena: %w", err)
+	}
+	if _, err := r.rec.Record(ctx, tx, EntityObracunPostavke, p.ID, p); err != nil {
 		return err
 	}
 	return tx.Commit()

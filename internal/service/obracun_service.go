@@ -25,11 +25,28 @@ func (s *ObracunService) Kalendar(ctx context.Context) obracun.Kalendar {
 	if s == nil || s.repo == nil {
 		return obracun.Hrvatski{}
 	}
-	ps, err := s.repo.Blagdani(ctx)
-	if err != nil || len(ps) == 0 {
-		return obracun.Hrvatski{}
+	var kal obracun.Kalendar = obracun.Hrvatski{}
+	if ps, err := s.repo.Blagdani(ctx); err == nil && len(ps) > 0 {
+		kal = ps
 	}
-	return ps
+	return obracun.SRadnimVremenom{Kalendar: kal, RV: s.RadnoVrijeme(ctx)}
+}
+
+// RadnoVrijeme vraća redovno radno vrijeme iz baze; bez baze zadano
+func (s *ObracunService) RadnoVrijeme(ctx context.Context) obracun.RadnoVrijeme {
+	if s == nil || s.repo == nil {
+		return obracun.Zadano
+	}
+	rv, err := s.repo.RadnoVrijeme(ctx)
+	if err != nil {
+		return obracun.Zadano
+	}
+	return rv
+}
+
+// SpremiRadnoVrijeme upisuje redovno radno vrijeme
+func (s *ObracunService) SpremiRadnoVrijeme(ctx context.Context, rv obracun.RadnoVrijeme) error {
+	return s.repo.SaveRadnoVrijeme(ctx, rv)
 }
 
 // Koeficijenti vraća množitelje iz baze; bez baze one iz obrasca IORS 2026

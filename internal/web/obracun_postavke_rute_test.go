@@ -17,6 +17,9 @@ import (
 	"gocop/internal/repository"
 	"gocop/internal/service"
 	webassets "gocop/web"
+
+	"gocop/internal/obracun"
+	"time"
 )
 
 // Postavke obračuna kroz rute, kao administrator: stranica dolazi napunjena
@@ -47,6 +50,7 @@ func TestPostavkeObracunaKrozRute(t *testing.T) {
 	mux.HandleFunc("POST /administracija/obracun/blagdani", h.HandleSpremiBlagdan)
 	mux.HandleFunc("POST /administracija/obracun/blagdani/{id}/makni", h.HandleMakniBlagdan)
 	mux.HandleFunc("POST /administracija/obracun/koeficijenti", h.HandleSpremiKoeficijente)
+	mux.HandleFunc("POST /administracija/obracun/radno-vrijeme", h.HandleSpremiRadnoVrijeme)
 
 	admin := &models.UserPermissions{IsGlobalAdmin: true}
 	zovi := func(metoda, putanja string, obrazac url.Values) *httptest.ResponseRecorder {
@@ -99,6 +103,24 @@ func TestPostavkeObracunaKrozRute(t *testing.T) {
 	mora(zovi(http.MethodGet, "/administracija/obracun", nil), http.StatusOK, "novi koeficijenti", `value="2,5"`)
 	if k := svc.Koeficijenti(context.Background()); k["URED"]["BLD"] != 2.5 || k["TEREN"]["BLN"] != 1 {
 		t.Errorf("koeficijenti poslije upisa: %v", k)
+	}
+
+	// Radno vrijeme: zadano 7:30–15:30, upis 8–16 mijenja legendu i razvrstavanje, krivo se odbija
+	mora(zovi(http.MethodGet, "/administracija/obracun", nil), http.StatusOK, "radno vrijeme", `value="07:30"`, "redovno 7:30–15:30")
+	w = zovi(http.MethodPost, "/administracija/obracun/radno-vrijeme", url.Values{"od": {"08:00"}, "do": {"16:00"}})
+	if l := w.Header().Get("Location"); w.Code != http.StatusSeeOther || !strings.Contains(l, "success=") {
+		t.Fatalf("radno vrijeme: %d %s", w.Code, l)
+	}
+	mora(zovi(http.MethodGet, "/administracija/obracun", nil), http.StatusOK, "novo radno vrijeme", `value="08:00"`, "redovno 8–16", "dnevni 6–8 i 16–22")
+	if rv := svc.RadnoVrijeme(context.Background()); rv.Od != 8*60 || rv.Do != 16*60 {
+		t.Errorf("radno vrijeme poslije upisa: %+v", rv)
+	}
+	if sati := obracun.Razvrstaj(time.Date(2026, 9, 11, 7, 0, 0, 0, models.Zagreb), time.Date(2026, 9, 11, 16, 0, 0, 0, models.Zagreb), svc.Kalendar(context.Background())); sati[obracun.RRV] != 8*time.Hour {
+		t.Errorf("kalendar ne nosi radno vrijeme: %v", sati)
+	}
+	w = zovi(http.MethodPost, "/administracija/obracun/radno-vrijeme", url.Values{"od": {"16:00"}, "do": {"08:00"}})
+	if l := w.Header().Get("Location"); !strings.Contains(l, "error=") {
+		t.Errorf("obrnuto radno vrijeme prošlo: %s", l)
 	}
 
 	// Krivo: stalni bez dana

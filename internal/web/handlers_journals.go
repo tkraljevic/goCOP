@@ -119,6 +119,7 @@ type JournalPageData struct {
 	Obracun        service.Obracun
 	IORS           service.IORS
 	Razredi        []obracun.Razred
+	RadnoVrijeme   obracun.RadnoVrijeme
 	CanWrite       bool
 	CanSupervise   bool
 	CanManage      bool

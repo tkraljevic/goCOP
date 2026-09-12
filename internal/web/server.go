@@ -893,6 +893,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /administracija/obracun/blagdani", s.samoAdmin(http.HandlerFunc(obracunH.HandleSpremiBlagdan)))
 	s.mux.Handle("POST /administracija/obracun/blagdani/{id}/makni", s.samoAdmin(http.HandlerFunc(obracunH.HandleMakniBlagdan)))
 	s.mux.Handle("POST /administracija/obracun/koeficijenti", s.samoAdmin(http.HandlerFunc(obracunH.HandleSpremiKoeficijente)))
+	s.mux.Handle("POST /administracija/obracun/radno-vrijeme", s.samoAdmin(http.HandlerFunc(obracunH.HandleSpremiRadnoVrijeme)))
 	journalsH.SetObracun(func() *service.ObracunService { return s.obracunService })
 	journalsH.SetIzvjesca(func() *service.IzvjescaService { return s.izvjescaService })
 

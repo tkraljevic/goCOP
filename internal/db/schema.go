@@ -122,6 +122,11 @@ func InitSchema(database *sql.DB) error {
 			updated_at DATETIME NOT NULL
 		);`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_sektorska_izvjesca_dan ON sektorska_izvjesca(sektor, dan);`,
+		`CREATE TABLE IF NOT EXISTS obracun_postavke (
+			id TEXT PRIMARY KEY,
+			vrijednost TEXT NOT NULL,
+			updated_at DATETIME NOT NULL
+		);`,
 		`CREATE TABLE IF NOT EXISTS koeficijenti (
 			id TEXT PRIMARY KEY,
 			mjesto TEXT NOT NULL,

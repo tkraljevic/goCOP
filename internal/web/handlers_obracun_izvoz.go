@@ -140,7 +140,7 @@ func (h *JournalsHandler) IzvoziObracun(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	z := h.ZaglavljeIzvozaDnevnika(j)
-	knjiga := KnjigaObracuna(obr, z, od, do.AddDate(0, 0, -1))
+	knjiga := KnjigaObracuna(obr, postavke.RadnoVrijeme(r.Context()), z, od, do.AddDate(0, 0, -1))
 	ime := fmt.Sprintf("Obracun_sati_%s_%s_%s.xlsx", service.OznakaIzNaziva(z.Centar), od.Format("2006-01-02"), do.AddDate(0, 0, -1).Format("2006-01-02"))
 	posaljiXLSX(w, ime, knjiga)
 }
@@ -176,7 +176,7 @@ func (h *JournalsHandler) IzvoziIORS(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	z := h.ZaglavljeIzvozaDnevnika(j)
-	knjiga := KnjigaIORS(iors, koef, z, j.DisplayTitle(), od, do.AddDate(0, 0, -1))
+	knjiga := KnjigaIORS(iors, koef, postavke.RadnoVrijeme(r.Context()), z, j.DisplayTitle(), od, do.AddDate(0, 0, -1))
 	ime := fmt.Sprintf("IORS_%s_%s_%s.xlsx", service.OznakaIzNaziva(iors.UserName), od.Format("2006-01-02"), do.AddDate(0, 0, -1).Format("2006-01-02"))
 	posaljiXLSX(w, ime, knjiga)
 }
@@ -294,7 +294,7 @@ type osobaUIzvozu struct {
 // (Prekovremeni_<mjesec>_<godina>.xlsx): list BP_<broj> po području i
 // <sektor>_i_ostali, stupac A prazan, UKUPNO iznad osoba, imena velikim
 // slovima, stupac AB s kontrolom; REKAPITULACIJA na kraju.
-func KnjigaObracuna(obr service.Obracun, z ZaglavljeIzvoza, od, do time.Time) *xlsxw.Knjiga {
+func KnjigaObracuna(obr service.Obracun, rv obracun.RadnoVrijeme, z ZaglavljeIzvoza, od, do time.Time) *xlsxw.Knjiga {
 	k := &xlsxw.Knjiga{LogoPNG: z.LogoPNG}
 	razdoblje := fmt.Sprintf("od %s do %s", od.Format("02.01.2006."), do.Format("02.01.2006."))
 	type zbrojLista struct {
@@ -412,7 +412,7 @@ func KnjigaObracuna(obr service.Obracun, z ZaglavljeIzvoza, od, do time.Time) *x
 		ukAdresa := xlsxw.Adresa(cY, l.Redak()-1)
 		l.Dodaj()
 		napomenaLista(l, "Bruto satnicu po osobi upisuje računovodstvo iz prošle plaće u stupac „satnica“; iznosi se izračunaju sami. "+
-			"Sati radnog dana su prekovremeni (6–7:30 i 15:30–22); redovno radno vrijeme 7:30–15:30 nije sat, ali na terenu ulazi u obračunske s koeficijentom 0,2. "+
+			"Sati radnog dana su prekovremeni ("+rv.DnevniTekst()+"); redovno radno vrijeme "+rv.Tekst()+" nije sat, ali na terenu ulazi u obračunske s koeficijentom 0,2. "+
 			"Obračunski sati zaokruženi su po razredu na pola sata, sredina djelatniku. Nedjelja se obračunava kao blagdan.", stupaca, 30)
 		potpisiLista(l, z, stupaca, z.Potpisnici)
 		listovi = append(listovi, zbrojLista{naziv, l.Naziv, brutoAdresa, doprAdresa, ukAdresa})
@@ -530,7 +530,7 @@ func osobeGrupe(g service.ObracunGrupa) []osobaUIzvozu {
 // KnjigaIORS slaže obrazac IORS jedne osobe kao jedan dokument: zaglavlje s
 // logotipom, osnovno o obračunu, redak po danu i razmaku sa satima po
 // razredu, obračun po razredu za ured i teren, potpisi.
-func KnjigaIORS(iors service.IORS, koef obracun.Koeficijenti, z ZaglavljeIzvoza, obrana string, od, do time.Time) *xlsxw.Knjiga {
+func KnjigaIORS(iors service.IORS, koef obracun.Koeficijenti, rv obracun.RadnoVrijeme, z ZaglavljeIzvoza, obrana string, od, do time.Time) *xlsxw.Knjiga {
 	k := &xlsxw.Knjiga{LogoPNG: z.LogoPNG}
 	B := xlsxw.T
 	const stupaca = 14 // A..N
@@ -596,7 +596,7 @@ func KnjigaIORS(iors service.IORS, koef obracun.Koeficijenti, z ZaglavljeIzvoza,
 		B("RADNI DAN", xlsxw.Zaglavlje), B("", xlsxw.Zaglavlje), B("", xlsxw.Zaglavlje), B("SUBOTA", xlsxw.Zaglavlje), B("", xlsxw.Zaglavlje), B("NEDJELJA I BLAGDAN", xlsxw.Zaglavlje), B("", xlsxw.Zaglavlje)}
 	red2 := []xlsxw.Celija{B("", xlsxw.Zaglavlje), B("", xlsxw.Zaglavlje), B("", xlsxw.Zaglavlje), B("", xlsxw.Zaglavlje), B("", xlsxw.Zaglavlje), B("sati", xlsxw.Zaglavlje), B("", xlsxw.Zaglavlje)}
 	for _, razred := range obracun.Razredi {
-		red2 = append(red2, B(razred.Pojas(), xlsxw.Zaglavlje))
+		red2 = append(red2, B(rv.Pojas(razred), xlsxw.Zaglavlje))
 	}
 	l.Dodaj(red1...)
 	l.Dodaj(red2...)
@@ -674,7 +674,7 @@ func KnjigaIORS(iors service.IORS, koef obracun.Koeficijenti, z ZaglavljeIzvoza,
 			}
 			obr := iors.Obr(mjesto, razred)
 			rr := l.Redak()
-			l.Dodaj(B(naziv, xlsxw.Tablica), B("", xlsxw.Tablica), B(razred.Dan()+" — "+razred.Pojas(), xlsxw.Tablica), B("", xlsxw.Tablica), B("", xlsxw.Tablica),
+			l.Dodaj(B(naziv, xlsxw.Tablica), B("", xlsxw.Tablica), B(razred.Dan()+" — "+rv.Pojas(razred), xlsxw.Tablica), B("", xlsxw.Tablica), B("", xlsxw.Tablica),
 				xlsxw.N(sati, xlsxw.TablicaBroj), xlsxw.N(koef[mjesto][razred], xlsxw.TablicaBroj), xlsxw.N(obr, xlsxw.TablicaBroj))
 			l.Spoji(0, rr, 1, rr)
 			l.Spoji(2, rr, 4, rr)
