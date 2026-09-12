@@ -35,16 +35,24 @@ func TestHrvatskiBlagdaniKaoUObrascu(t *testing.T) {
 	}
 }
 
-// Stvarni redak iz IORS-a: nedjelja 11.6.2023., 15:00–24:00, teren. Obrazac
-// daje 7 h vikend dnevnih i 2 h vikend noćnih — nedjelja je po formuli
-// vikend, iako stupac obračuna piše "nedjelja i blagdan".
-func TestRazvrstajNedjeljaJeVikend(t *testing.T) {
+// Stvarni redak iz IORS-a: nedjelja 11.6.2023., 15:00–24:00, teren — 7 h
+// dnevnih i 2 h noćnih, kao nedjelja i blagdan. Formule tablice obrasca su
+// to svrstavale u vikend s koeficijentom subote; ovdje se ne ponavlja.
+func TestRazvrstajNedjeljaJeBlagdan(t *testing.T) {
 	s := Razvrstaj(kad(2023, 6, 11, 15, 0), kad(2023, 6, 12, 0, 0), Hrvatski{})
-	if s[VID] != 7*time.Hour || s[VIN] != 2*time.Hour || len(s) != 2 {
+	if s[BLD] != 7*time.Hour || s[BLN] != 2*time.Hour || len(s) != 2 {
 		t.Errorf("nedjelja 15–24: %v", s)
 	}
-	if o := IORS2026.Obracunski(s, Teren); o != 7*2.05+2*2.4 {
-		t.Errorf("obračunski: %v, a obrazac daje %v", o, 7*2.05+2*2.4)
+	if o := IORS2026.Obracunski(s, Teren); o != 7*2.2+2*2.55 {
+		t.Errorf("obračunski: %v, očekuje %v", o, 7*2.2+2*2.55)
+	}
+}
+
+// Subota ostaje svoje: 12.9.2026. 15–24 su 7 h subotnjih dnevnih i 2 noćna.
+func TestRazvrstajSubota(t *testing.T) {
+	s := Razvrstaj(kad(2026, 9, 12, 15, 0), kad(2026, 9, 13, 0, 0), Hrvatski{})
+	if s[VID] != 7*time.Hour || s[VIN] != 2*time.Hour || len(s) != 2 {
+		t.Errorf("subota 15–24: %v", s)
 	}
 }
 
@@ -67,7 +75,7 @@ func TestRazvrstajRadniDanPoPojasevima(t *testing.T) {
 }
 
 // Noćna smjena preko ponoći: petak 22:00 – subota 06:00. Prvi dio je radni
-// dan noćni, drugi vikend noćni — dan se mijenja u ponoć.
+// dan noćni, drugi subotnji noćni — dan se mijenja u ponoć.
 func TestRazvrstajPrekoPonoci(t *testing.T) {
 	s := Razvrstaj(kad(2026, 9, 11, 22, 0), kad(2026, 9, 12, 6, 0), Hrvatski{})
 	if s[NRD] != 2*time.Hour || s[VIN] != 6*time.Hour || len(s) != 2 {
@@ -75,8 +83,8 @@ func TestRazvrstajPrekoPonoci(t *testing.T) {
 	}
 }
 
-// Blagdan ima prednost pred vikendom: nedjelja 1.11.2026. je blagdan.
-func TestRazvrstajBlagdanPrijeVikenda(t *testing.T) {
+// Nedjelja 1.11.2026. je i blagdan — jedno te isto, bez dvostrukog brojanja.
+func TestRazvrstajNedjeljaKojaJeBlagdan(t *testing.T) {
 	s := Razvrstaj(kad(2026, 11, 1, 8, 0), kad(2026, 11, 1, 23, 0), Hrvatski{})
 	if s[BLD] != 14*time.Hour || s[BLN] != 1*time.Hour || len(s) != 2 {
 		t.Errorf("blagdan: %v", s)

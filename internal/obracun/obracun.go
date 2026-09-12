@@ -2,11 +2,14 @@
 // obrazac IORS (Izvješće o radnim satima) Hrvatskih voda, i množi ih
 // koeficijentima u obračunske sate.
 //
-// Pravila su prepisana iz formula obrasca, ne iz njegovih naslova — tamo gdje
-// se razlikuju, formula je ono što se godinama isplaćivalo. Dan je jedan od
-// tri: radni, vikend (subota ili nedjelja koja nije blagdan) ili blagdan.
-// Radni dan ima redovno radno vrijeme 8–16, dnevne sate 6–8 i 16–22 te noćne
-// 0–6 i 22–24; vikend i blagdan imaju dnevne 6–22 i noćne ostalo.
+// Dan je jedan od tri: radni, subota, ili nedjelja i blagdan. Radni dan ima
+// redovno radno vrijeme 8–16, dnevne sate 6–8 i 16–22 te noćne 0–6 i 22–24;
+// subota i blagdan imaju dnevne 6–22 i noćne ostalo.
+//
+// Nedjelja se obračunava kao blagdan, kako i piše u stupcu obrasca
+// ("NEDJELJA I BLAGDAN"). Formule u proračunskoj tablici obrasca nedjelju
+// su svrstavale u vikend, s koeficijentom subote — to je greška tablice, ne
+// pravilo, i ovdje se ne ponavlja.
 //
 // Sve se računa po zidnom satu u zoni Europe/Zagreb, kao što se i upisuje —
 // dežurni ne gleda UTC. Razmak koji prijeđe ponoć dijeli se po danima, jer
@@ -27,10 +30,10 @@ const (
 	RRV Razred = "RRV" // radni dan, redovno radno vrijeme 8–16
 	DRD Razred = "DRD" // radni dan, dnevni sati 6–8 i 16–22
 	NRD Razred = "NRD" // radni dan, noćni sati 0–6 i 22–24
-	VID Razred = "VID" // vikend, dnevni 6–22
-	VIN Razred = "VIN" // vikend, noćni
-	BLD Razred = "BLD" // blagdan, dnevni 6–22
-	BLN Razred = "BLN" // blagdan, noćni
+	VID Razred = "VID" // subota, dnevni 6–22
+	VIN Razred = "VIN" // subota, noćni
+	BLD Razred = "BLD" // nedjelja i blagdan, dnevni 6–22
+	BLN Razred = "BLN" // nedjelja i blagdan, noćni
 )
 
 // Razredi redom kojim ih obrazac ispisuje
@@ -46,13 +49,13 @@ func (r Razred) Naziv() string {
 	case NRD:
 		return "radni dan, noćni (22–6)"
 	case VID:
-		return "vikend, dnevni (6–22)"
+		return "subota, dnevni (6–22)"
 	case VIN:
-		return "vikend, noćni (22–6)"
+		return "subota, noćni (22–6)"
 	case BLD:
-		return "blagdan, dnevni (6–22)"
+		return "nedjelja i blagdan, dnevni (6–22)"
 	case BLN:
-		return "blagdan, noćni (22–6)"
+		return "nedjelja i blagdan, noćni (22–6)"
 	}
 	return string(r)
 }
@@ -86,14 +89,14 @@ func (s Sati) Dodaj(o Sati) {
 	}
 }
 
-// VrstaDana je ono što o danu odlučuje: blagdan ima prednost pred vikendom,
-// pa nedjelja koja je blagdan ide u blagdan, kao i u obrascu.
+// VrstaDana je ono što o danu odlučuje: nedjelja i blagdan su jedno, subota
+// je svoje.
 type VrstaDana int
 
 const (
 	RadniDan VrstaDana = iota
-	Vikend
-	Blagdan
+	Subota
+	Blagdan // i nedjelja
 )
 
 // Kalendar kaže je li dan blagdan. Zadani je hrvatski; druga organizacija
@@ -104,11 +107,11 @@ type Kalendar interface {
 
 // Dan razvrstava datum
 func Dan(dan time.Time, k Kalendar) VrstaDana {
-	if k != nil && k.Blagdan(dan) {
+	if dan.Weekday() == time.Sunday || (k != nil && k.Blagdan(dan)) {
 		return Blagdan
 	}
-	if wd := dan.Weekday(); wd == time.Saturday || wd == time.Sunday {
-		return Vikend
+	if dan.Weekday() == time.Saturday {
+		return Subota
 	}
 	return RadniDan
 }
@@ -123,7 +126,7 @@ func pojasevi(vrsta VrstaDana) []pojas {
 	switch vrsta {
 	case RadniDan:
 		return []pojas{{0, 6 * 60, NRD}, {6 * 60, 8 * 60, DRD}, {8 * 60, 16 * 60, RRV}, {16 * 60, 22 * 60, DRD}, {22 * 60, 24 * 60, NRD}}
-	case Vikend:
+	case Subota:
 		return []pojas{{0, 6 * 60, VIN}, {6 * 60, 22 * 60, VID}, {22 * 60, 24 * 60, VIN}}
 	default:
 		return []pojas{{0, 6 * 60, BLN}, {6 * 60, 22 * 60, BLD}, {22 * 60, 24 * 60, BLN}}
