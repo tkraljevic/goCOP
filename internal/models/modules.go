@@ -33,7 +33,7 @@ const (
 var Modules = []Module{
 	{ModuleField, "Teren", "letve koje osoba obilazi i upis očitanja na jedan dodir"},
 	{ModuleReadings, "Očitanja", "zadnja očitanja svih letvi, povijest i graf"},
-	{ModuleJournals, "Dnevnici", "građevinski dnevnici održavanja i obrane: listovi, upisi, nalozi"},
+	{ModuleJournals, "Dokumentacija", "dnevnik COP-a, plan dežurstava i obračun sati, dnevna izvješća, dnevnici usluga A.02 i A.03"},
 	{ModuleRegisters, "Registri", "dionice, područja, postaje, objekti, vodotoci, održavanje"},
 	{ModuleUsers, "Djelatnici", "imenik, dužnosti i ovlasti"},
 	{ModuleAdmin, "Administracija", "ustroj obrane, ovlasti, čvor i mreža, uvozi — sve što radi samo administrator"},

@@ -33,8 +33,12 @@ type JournalsHandler struct {
 	tmplDezurstva *template.Template
 	tmplIORS      *template.Template
 	// obracun daje blagdane i koeficijente iz baze; nil znači ono što program nosi u sebi
-	obracun func() *service.ObracunService
+	obracun  func() *service.ObracunService
+	izvjesca func() *service.IzvjescaService
 }
+
+// SetIzvjesca spaja razdjelnicu s dnevnim izvješćima, radi broja na kartici
+func (h *JournalsHandler) SetIzvjesca(f func() *service.IzvjescaService) { h.izvjesca = f }
 
 // SetObracun spaja rukovatelja s postavkama obračuna
 func (h *JournalsHandler) SetObracun(f func() *service.ObracunService) { h.obracun = f }
@@ -68,6 +72,7 @@ type JournalPageData struct {
 	BrojCOP int
 	// BrojDezurstava je broj dežurstava u svim planovima, za karticu
 	BrojDezurstava int
+	BrojIzvjesca   int
 	BrojA02        int
 	BrojA03        int
 	// Dani su zapisi dežurstva složeni po danima; samo u dnevniku COP-a.
@@ -240,6 +245,11 @@ func (h *JournalsHandler) ShowJournalKinds(w http.ResponseWriter, r *http.Reques
 	if broj, err := h.journals.BrojPoVrstama(r.Context()); err == nil {
 		data.BrojCOP = broj[models.JournalKindDefense]
 		data.BrojDezurstava, _ = h.journals.BrojDezurstava(r.Context())
+		if h.izvjesca != nil {
+			if svc := h.izvjesca(); svc != nil {
+				data.BrojIzvjesca, _ = svc.Broj(r.Context())
+			}
+		}
 		data.BrojA02 = broj[models.JournalKindMaintenanceA02]
 		data.BrojA03 = broj[models.JournalKindMaintenanceA03]
 	}

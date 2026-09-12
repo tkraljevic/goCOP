@@ -3408,3 +3408,14 @@ textarea {
 .dan-dezurstva { scroll-margin-top: 0.5rem; }
 
 .dezurni-sad { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.35rem 0.6rem; border-radius: 4px; background: var(--primary-light, #e8eef7); color: var(--primary, #173e74); font-size: 0.9rem; }
+
+/* Dnevno izvješće rukovoditelja dionice */
+.izvjesce-odjeljak { font-size: 1rem; margin: 1.4rem 0 0.5rem; padding-bottom: 0.3rem; border-bottom: 2px solid var(--primary, #173e74); color: var(--primary, #173e74); text-transform: uppercase; letter-spacing: 0.03em; }
+.izvjesce-brojevi { display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap: 0.5rem 0.75rem; margin-bottom: 0.75rem; }
+.izvjesce-brojevi label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.82rem; color: var(--text-secondary, #555); }
+.izvjesce-brojevi label.siroko { grid-column: span 2; }
+.izvjesce-radio { display: flex; flex-wrap: wrap; gap: 0.5rem 1.2rem; }
+.izvjesce-radio label { display: inline-flex; align-items: center; gap: 0.3rem; }
+.izvjesce-vodostaji .form-control { padding-top: 0.3rem; padding-bottom: 0.3rem; }
+.izvjesce-facts > div { grid-template-columns: minmax(12rem, 1fr) 2fr; }
+@media print { .izvjesce-dokument { font-size: 11pt; } }

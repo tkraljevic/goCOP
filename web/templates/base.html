@@ -40,7 +40,7 @@
           <a href="/" class="nav-link {{if eq .ActiveNav "dashboard"}}active{{end}}">{{icon "house"}} Početna</a>
           {{if .Sees "teren"}}<a href="/teren" class="nav-link {{if eq .ActiveNav "teren"}}active{{end}}">{{icon "map-pin"}} Teren</a>{{end}}
           {{if .Sees "vodostaji"}}<a href="/readings" class="nav-link {{if eq .ActiveNav "readings"}}active{{end}}">{{icon "activity"}} Očitanja</a>{{end}}
-          {{if .Sees "dnevnici"}}<a href="/dnevnici" class="nav-link {{if eq .ActiveNav "journals"}}active{{end}}">{{icon "notebook"}} Dnevnici</a>{{end}}
+          {{if .Sees "dnevnici"}}<a href="/dnevnici" class="nav-link {{if eq .ActiveNav "journals"}}active{{end}}">{{icon "notebook"}} Dokumentacija</a>{{end}}
           {{if .Sees "djelatnici"}}<a href="/users" class="nav-link {{if eq .ActiveNav "users"}}active{{end}}">{{icon "users"}} Djelatnici</a>{{end}}
           {{if .Sees "administracija"}}<a href="/administracija" class="nav-link {{if or (eq .ActiveNav "admin") (eq .ActiveNav "settings") (eq .ActiveNav "moduli") (eq .ActiveNav "organizacija")}}active{{end}}">{{icon "settings"}} Administracija</a>{{end}}
 

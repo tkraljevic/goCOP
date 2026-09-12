@@ -1,0 +1,159 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Dnevno izvješće rukovoditelja dionice{{end}}
+
+{{define "content"}}
+<div class="breadcrumb"><a href="/dnevnici">Dokumentacija</a> › <a href="/izvjesca">Dnevna izvješća</a> ›
+  {{if .IsEdit}}<a href="/izvjesca/{{.Izvjesce.ID}}">{{.Dionica.Code}} · {{.Izvjesce.Dan.Format "2.1.2006."}}</a> › Obrazac{{else}}Novo izvješće{{end}}</div>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "file-text"}} Dnevno izvješće rukovoditelja dionice</h1>
+    <p class="page-desc">Standardni obrazac iz Privitka 4. Za protekli dan ili za danas; predaje se do 08:00 u podcentar.
+      Što program zna već je upisano — vodotok, vodostaji u 07:00, stadij obrane — i može se prepraviti.</p>
+  </div>
+</div>
+
+{{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
+{{if .Izvjesce.Predano}}<div class="alert alert-warning">{{icon "triangle-alert"}} Izvješće je predano {{.Izvjesce.PredanoAt.Format "2.1.2006. 15:04"}}. Izmjena ostaje zabilježena u knjizi verzija.</div>{{end}}
+
+<form class="form-page form-wide izvjesce-obrazac" method="POST" action="{{if .IsEdit}}/izvjesca/{{.Izvjesce.ID}}{{else}}/izvjesca{{end}}">
+  {{/* Zaglavlje obrasca: dan, dionica, stadij, vodotok */}}
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="dan">Za dan *</label>
+      <input type="date" id="dan" name="dan" class="form-control" value="{{.Izvjesce.Dan.Format "2006-01-02"}}" max="{{.Danas}}" required{{if .IsEdit}} readonly{{end}}>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="dionica">Dionica *</label>
+      {{if .IsEdit}}
+      <input type="hidden" name="dionica" value="{{.Dionica.Code}}">
+      <input type="text" class="form-control" value="{{.Dionica.Code}} — {{.Dionica.EffectiveDescription}}" disabled>
+      {{else}}
+      <select id="dionica" name="dionica" class="form-control" required onchange="location.href='/izvjesca/novo?dionica='+encodeURIComponent(this.value)+'&dan='+encodeURIComponent(document.getElementById('dan').value)">
+        {{range .Dionice}}<option value="{{.Code}}"{{if eq .Code $.Dionica.Code}} selected{{end}}>{{.Code}} — {{.EffectiveDescription}}</option>{{end}}
+      </select>
+      {{end}}
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="stadij">Stadij obrane od poplava *</label>
+      <select id="stadij" name="stadij" class="form-control">
+        <option value="NORMALNO"{{if eq .Izvjesce.Stadij "NORMALNO"}} selected{{end}}>— nije proglašena —</option>
+        {{range .Stadiji}}<option value="{{.}}"{{if eq . $.Izvjesce.Stadij}} selected{{end}}>{{.Label}}</option>{{end}}
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="vodotok">Vodotok</label>
+      <input type="text" id="vodotok" name="vodotok" class="form-control" value="{{.Izvjesce.Sadrzaj.Vodotok}}">
+    </div>
+  </div>
+
+  <h2 class="izvjesce-odjeljak">Vodostaji (protoke)</h2>
+  <p class="page-desc">U 07:00 na mjerodavnom vodomjeru, i drugi važni tijekom dana. Redak iz očitanja je označen; upišite što nedostaje.</p>
+  <div class="table-card"><div class="table-responsive">
+    <table class="data-table izvjesce-vodostaji">
+      <thead><tr><th>Vodomjer</th><th>sat</th><th>vrijednost</th><th>jedinica</th><th></th></tr></thead>
+      <tbody>
+      {{range $v := .Izvjesce.Sadrzaj.Vodostaji}}
+      <tr>
+        <td><input type="hidden" name="vodostaj_station" value="{{.StationID}}"><input type="text" name="vodostaj_postaja" class="form-control" value="{{.Postaja}}"></td>
+        <td><input type="time" name="vodostaj_sat" class="form-control" value="{{.Sat}}"></td>
+        <td><input type="text" name="vodostaj_vrijednost" class="form-control mono" value="{{.Vrijednost}}" inputmode="decimal"></td>
+        <td><select name="vodostaj_jedinica" class="form-control">{{range $j := (list "cm" "m n.m." "m³/s")}}<option value="{{$j}}"{{if eq $j $v.Jedinica}} selected{{end}}>{{$j}}</option>{{end}}</select></td>
+        <td class="reg-card-sub">{{if .Izvor}}iz {{.Izvor}}{{end}}</td>
+      </tr>
+      {{end}}
+      {{range $i := (seq 3)}}
+      <tr>
+        <td><input type="hidden" name="vodostaj_station" value=""><input type="text" name="vodostaj_postaja" class="form-control" placeholder="vodomjer"></td>
+        <td><input type="time" name="vodostaj_sat" class="form-control"></td>
+        <td><input type="text" name="vodostaj_vrijednost" class="form-control mono" inputmode="decimal"></td>
+        <td><select name="vodostaj_jedinica" class="form-control"><option value="cm">cm</option><option value="m n.m.">m n.m.</option><option value="m³/s">m³/s</option></select></td>
+        <td></td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div></div>
+  <div class="form-group">
+    <label class="form-label">Stanje – tendencija vodostaja (protoke)</label>
+    <div class="izvjesce-radio">
+      {{range .Tendencije}}<label><input type="radio" name="tendencija" value="{{.Kod}}"{{if eq .Kod $.Izvjesce.Sadrzaj.Tendencija}} checked{{end}}> {{.Naziv}}</label>{{end}}
+    </div>
+  </div>
+
+  <h2 class="izvjesce-odjeljak">Mjere obrane od poplava</h2>
+  <div class="form-group">
+    <label class="form-label" for="pregled">Pregled i ocjena stanja ispravnosti regulacijskih i zaštitnih vodnih građevina i građevina za osnovnu melioracijsku odvodnju i stanja protočnosti korita vodotoka i kanala (naplavine, čepovi…). Vrijeme uočavanja oštećenja, stanje i lokacija kritičnih mjesta.</label>
+    <textarea id="pregled" name="pregled" class="form-control" rows="4">{{.Izvjesce.Sadrzaj.Pregled}}</textarea>
+  </div>
+  <div class="form-group">
+    <label class="form-label" for="radnje">Provedene mjere i radnje (saniranje oštećenja vodnih građevina, dužina nadvišenja nasipa i gradnje privremenih nasipa, stabilizacija obale, uklanjanje naplavina i čepova, crpljenje mobilnim crpkama i drugi radovi)</label>
+    <textarea id="radnje" name="radnje" class="form-control" rows="4">{{.Izvjesce.Sadrzaj.Radnje}}</textarea>
+  </div>
+  <div class="form-row">
+    <div class="form-group"><label class="form-label" for="vrece">vreće</label><input type="text" id="vrece" name="vrece" class="form-control" value="{{.Izvjesce.Sadrzaj.Vrece}}" placeholder="kom"></div>
+    <div class="form-group"><label class="form-label" for="materijal">materijal</label><input type="text" id="materijal" name="materijal" class="form-control" value="{{.Izvjesce.Sadrzaj.Materijal}}" placeholder="m³, t"></div>
+    <div class="form-group"><label class="form-label" for="nasipi">nasipi</label><input type="text" id="nasipi" name="nasipi" class="form-control" value="{{.Izvjesce.Sadrzaj.Nasipi}}" placeholder="m nadvišenja / privremenih"></div>
+    <div class="form-group"><label class="form-label" for="crpke">crpke</label><input type="text" id="crpke" name="crpke" class="form-control" value="{{.Izvjesce.Sadrzaj.Crpke}}" placeholder="broj i kapacitet"></div>
+  </div>
+  <div class="form-group">
+    <label class="form-label" for="objekti">Vrijeme aktiviranja objekata za rasterećenje velikih voda s tehničkim podacima (oteretni kanali, retencije, akumulacije, ustave, preljevi, CS…)</label>
+    <textarea id="objekti" name="objekti" class="form-control" rows="3">{{.Izvjesce.Sadrzaj.Objekti}}</textarea>
+  </div>
+
+  <h2 class="izvjesce-odjeljak">Sudjelovanje ljudi i materijalnih sredstava u obrani od poplava</h2>
+  <p class="page-desc">Pravne osobe za provedbu preventivne, redovne i izvanredne obrane od poplava</p>
+  {{$p := .Izvjesce.Sadrzaj.Pravne}}
+  <div class="izvjesce-brojevi">
+    <label>ljudi <input type="number" name="pravne_ljudi" class="form-control" min="0" value="{{if $p.Ljudi}}{{$p.Ljudi}}{{end}}"></label>
+    <label>kamioni <input type="number" name="pravne_kamioni" class="form-control" min="0" value="{{if $p.Kamioni}}{{$p.Kamioni}}{{end}}"></label>
+    <label>bageri <input type="number" name="pravne_bageri" class="form-control" min="0" value="{{if $p.Bageri}}{{$p.Bageri}}{{end}}"></label>
+    <label>komb. strojevi <input type="number" name="pravne_komb" class="form-control" min="0" value="{{if $p.KombStrojevi}}{{$p.KombStrojevi}}{{end}}"></label>
+    <label>utovarivači <input type="number" name="pravne_utovarivaci" class="form-control" min="0" value="{{if $p.Utovarivaci}}{{$p.Utovarivaci}}{{end}}"></label>
+    <label>buldožeri <input type="number" name="pravne_buldozeri" class="form-control" min="0" value="{{if $p.Buldozeri}}{{$p.Buldozeri}}{{end}}"></label>
+    <label>traktori <input type="number" name="pravne_traktori" class="form-control" min="0" value="{{if $p.Traktori}}{{$p.Traktori}}{{end}}"></label>
+    <label>brodovi <input type="number" name="pravne_brodovi" class="form-control" min="0" value="{{if $p.Brodovi}}{{$p.Brodovi}}{{end}}"></label>
+    <label>čamci <input type="number" name="pravne_camci" class="form-control" min="0" value="{{if $p.Camci}}{{$p.Camci}}{{end}}"></label>
+    <label class="siroko">ostalo <input type="text" name="pravne_ostalo" class="form-control" value="{{$p.Ostalo}}"></label>
+  </div>
+  <p class="page-desc">Ostali sudionici obrane od poplava</p>
+  {{$o := .Izvjesce.Sadrzaj.Ostali}}
+  <div class="izvjesce-brojevi">
+    <label>policija <input type="number" name="ostali_policija" class="form-control" min="0" value="{{if $o.Policija}}{{$o.Policija}}{{end}}"></label>
+    <label>vatrogasci <input type="number" name="ostali_vatrogasci" class="form-control" min="0" value="{{if $o.Vatrogasci}}{{$o.Vatrogasci}}{{end}}"></label>
+    <label>Hrvatska vojska <input type="number" name="ostali_vojska" class="form-control" min="0" value="{{if $o.Vojska}}{{$o.Vojska}}{{end}}"></label>
+    <label>HGSS <input type="number" name="ostali_hgss" class="form-control" min="0" value="{{if $o.HGSS}}{{$o.HGSS}}{{end}}"></label>
+    <label>Civilna zaštita <input type="number" name="ostali_cz" class="form-control" min="0" value="{{if $o.CivilnaZastita}}{{$o.CivilnaZastita}}{{end}}"></label>
+    <label>Crveni križ <input type="number" name="ostali_ck" class="form-control" min="0" value="{{if $o.CrveniKriz}}{{$o.CrveniKriz}}{{end}}"></label>
+    <label class="siroko">druge pravne osobe i građani <input type="text" name="ostali_drugi" class="form-control" value="{{$o.Drugi}}"></label>
+  </div>
+
+  <h2 class="izvjesce-odjeljak">Stanje na poplavljenom području</h2>
+  {{$pp := .Izvjesce.Sadrzaj.Poplavljeno}}
+  <div class="form-group"><label class="form-label" for="popl_naselja">Poplavljena područja i objekti — naselja</label><input type="text" id="popl_naselja" name="popl_naselja" class="form-control" value="{{$pp.Naselja}}"></div>
+  <div class="izvjesce-brojevi">
+    <label>ljudi <input type="number" name="popl_ljudi" class="form-control" min="0" value="{{if $pp.Ljudi}}{{$pp.Ljudi}}{{end}}"></label>
+    <label>stambeni objekti <input type="number" name="popl_stambeni" class="form-control" min="0" value="{{if $pp.Stambeni}}{{$pp.Stambeni}}{{end}}"></label>
+    <label>industrijski objekti <input type="number" name="popl_industrijski" class="form-control" min="0" value="{{if $pp.Industrijski}}{{$pp.Industrijski}}{{end}}"></label>
+    <label>farme <input type="number" name="popl_farme" class="form-control" min="0" value="{{if $pp.Farme}}{{$pp.Farme}}{{end}}"></label>
+    <label class="siroko">infrastrukturni objekti (ceste, mostovi…) <input type="text" name="popl_infrastruktura" class="form-control" value="{{$pp.Infrastruktura}}"></label>
+    <label>šumske površine (ha) <input type="text" name="popl_sumske" class="form-control" inputmode="decimal" value="{{if $pp.SumskeHa}}{{brojHRf $pp.SumskeHa 1}}{{end}}"></label>
+    <label>poljoprivredne (ha) <input type="text" name="popl_poljoprivredne" class="form-control" inputmode="decimal" value="{{if $pp.PoljoprivredneHa}}{{brojHRf $pp.PoljoprivredneHa 1}}{{end}}"></label>
+    <label>ostale površine (ha) <input type="text" name="popl_ostale" class="form-control" inputmode="decimal" value="{{if $pp.OstaleHa}}{{brojHRf $pp.OstaleHa 1}}{{end}}"></label>
+  </div>
+  {{$e := .Izvjesce.Sadrzaj.Evakuacija}}
+  <div class="form-group"><label class="form-label" for="evak_naselja">Evakuacija — naselja</label><input type="text" id="evak_naselja" name="evak_naselja" class="form-control" value="{{$e.Naselja}}"></div>
+  <div class="izvjesce-brojevi">
+    <label>broj evakuiranih ljudi <input type="number" name="evak_ljudi" class="form-control" min="0" value="{{if $e.Ljudi}}{{$e.Ljudi}}{{end}}"></label>
+    <label>broj kućanstava <input type="number" name="evak_kucanstava" class="form-control" min="0" value="{{if $e.Kucanstava}}{{$e.Kucanstava}}{{end}}"></label>
+    <label class="siroko">broj i vrsta evakuiranih životinja <input type="text" name="evak_zivotinje" class="form-control" value="{{$e.Zivotinje}}"></label>
+  </div>
+
+  <div class="form-actions">
+    <button type="submit" class="btn btn-secondary">{{icon "check"}} Spremi nacrt</button>
+    <button type="submit" name="predaj" value="1" class="btn btn-primary">{{icon "arrow-right"}} Spremi i predaj</button>
+    <span class="reading-meta">Izrađuje {{.CurrentUser.FullName}}; datum i sat izrade upisuju se sami. Predano izvješće ostaje u knjizi verzija.</span>
+  </div>
+</form>
+{{end}}

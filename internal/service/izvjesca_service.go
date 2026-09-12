@@ -277,3 +277,23 @@ func (s *IzvjescaService) List(ctx context.Context, journalID, sectionCode, sekt
 func (s *IzvjescaService) Broj(ctx context.Context) (int, error) {
 	return s.repo.Broj(ctx)
 }
+
+// DioniceZaPisanje vraća dionice za koje osoba smije pisati izvješće, redom
+// šifre — rukovoditelju dionice njegove, upravi područja sve u području,
+// upravi sektora sve u sektoru
+func (s *IzvjescaService) DioniceZaPisanje(perms *models.UserPermissions) ([]models.Section, error) {
+	if s.sections == nil || perms == nil {
+		return nil, nil
+	}
+	sve, err := s.sections.ListSections("", 0, "")
+	if err != nil {
+		return nil, err
+	}
+	var out []models.Section
+	for i := range sve {
+		if s.SmijePisati(perms, &sve[i]) {
+			out = append(out, sve[i])
+		}
+	}
+	return out, nil
+}

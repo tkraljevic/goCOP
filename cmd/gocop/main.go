@@ -227,7 +227,8 @@ func main() {
 	moduleRepo := repository.NewModuleRepository(database, recorder)
 	moduleService := service.NewModuleService(moduleRepo)
 	readingService := service.NewReadingService(readingRepo, stationRepo, structureRepo, sectionService, userService)
-	episodeService := service.NewEpisodeService(repository.NewEpisodeRepository(database, recorder), readingRepo, stationRepo)
+	episodeRepo := repository.NewEpisodeRepository(database, recorder)
+	episodeService := service.NewEpisodeService(episodeRepo, readingRepo, stationRepo)
 	maintenanceRepo := repository.NewMaintenanceRepository(database, recorder)
 	maintenanceService := service.NewMaintenanceService(maintenanceRepo, watercourseRepo, structureRepo)
 	journalRepo := repository.NewJournalRepository(database, recorder)
@@ -237,6 +238,7 @@ func main() {
 		log.Fatalf("postavke obračuna sati: %v", err)
 	}
 	obracunService := service.NewObracunService(obracunRepo)
+	izvjescaService := service.NewIzvjescaService(repository.NewIzvjescaRepository(database, recorder), sectionRepo, stationRepo, readingRepo, episodeRepo, journalRepo)
 
 	// Uvoz tablice vodostaja. Bez -upisi je samo izvješće: koje su postaje
 	// prepoznate, koliko bi zapisa bilo novo i gdje se izvori ne slažu.
@@ -385,6 +387,7 @@ func main() {
 	}
 	server.SetDatabase(database, *dbPath)
 	server.SetObracun(obracunService)
+	server.SetIzvjesca(izvjescaService)
 	server.SetKarta(cfg.Karta.Plocice, cfg.Karta.Zasluge, cfg.Karta.NajviseZ)
 
 	// Hidrološka arhiva stoji uz bazu, kao zasebna datoteka. Smije je ne biti:

@@ -292,20 +292,21 @@ func TestRazdjelnicaDnevnikaDijeliTriVrste(t *testing.T) {
 	html := iscrtaj(t, "dnevnici_izbor.html", JournalPageData{
 		CurrentUser: &models.User{FullName: "P"},
 		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
-		BrojCOP:     13, BrojA02: 2,
+		BrojCOP:     13, BrojA02: 2, BrojIzvjesca: 4,
 	})
 	for _, want := range []string{
-		"Dnevnici COP-a", "Dnevnici usluga A.02", "Dnevnici usluga A.03",
-		"/dnevnici/popis?vrsta=OBRANA", "/dnevnici/popis?vrsta=ODRZAVANJE_A02", "/dnevnici/popis?vrsta=ODRZAVANJE_A03",
-		"operateri", ">13<",
+		"Dokumentacija", "Dnevnici COP-a", "Dnevna izvješća", "Dnevnici usluga A.02", "Dnevnici usluga A.03",
+		"/dnevnici/popis?vrsta=OBRANA", "/izvjesca", "/dnevnici/popis?vrsta=ODRZAVANJE_A02", "/dnevnici/popis?vrsta=ODRZAVANJE_A03",
+		"operateri", ">13<", ">4<",
 	} {
 		if !strings.Contains(html, want) {
 			t.Errorf("razdjelnica nema %q", want)
 		}
 	}
-	// Svaka kartica ima ikonu, kao i na Administraciji.
-	if n := strings.Count(html, "dash-card-icon-box"); n != 4 {
-		t.Errorf("ikona na %d kartica, a ima ih četiri", n)
+	// Svaka kartica ima ikonu, kao i na Administraciji: COP, dežurstva,
+	// izvješća, A.02, A.03.
+	if n := strings.Count(html, "dash-card-icon-box"); n != 5 {
+		t.Errorf("ikona na %d kartica, a ima ih pet", n)
 	}
 }
 
