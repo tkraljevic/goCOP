@@ -197,7 +197,13 @@ var prazno = xlsxw.T("")
 func zaglavljeLista(l *xlsxw.List, z ZaglavljeIzvoza, naslov, podnaslov string, stupaca int) int {
 	l.Logo = len(z.LogoPNG) > 0
 	l.Podnozje = "&L" + z.Organizacija + " · " + z.Centar + " · " + naslov + "&Rstranica &P od &N"
-	pocetak := 2
+	// Tekst stoji od stupca B; kad je stupac A preuzak za logotip (ispod
+	// osam znakova, oko 1,6 cm), tekst ide od C da logotip ne bude sitan.
+	pocetak := 1
+	if len(l.Sirine) > 0 && l.Sirine[0] < 8 {
+		pocetak = 2
+	}
+	l.LogoStupaca = pocetak
 	if !l.Logo {
 		pocetak = 0
 	}
@@ -210,7 +216,8 @@ func zaglavljeLista(l *xlsxw.List, z ZaglavljeIzvoza, naslov, podnaslov string, 
 		l.Visina(r, visina)
 	}
 	// Četiri retka po 17 točaka su 2,4 cm: logotip od 2,2 cm stane u njih i
-	// ne prelazi ispod naslova. Tekst stoji od stupca C, desno od logotipa.
+	// ne prelazi ispod naslova. Tekst stoji od stupca B, desno od logotipa,
+	// koji se smanji kad je stupac A uži od njega.
 	redak(z.Organizacija, xlsxw.Podnaslov, 17)
 	redak(z.Odjel, xlsxw.Obican, 17)
 	redak(z.Centar, xlsxw.Obican, 17)
@@ -753,7 +760,7 @@ func KnjigaDnevnika(j *models.Journal, zapisi []models.JournalEntry, dezurstva [
 	const stupaca = 8 // A..H
 	l := k.NoviList("Dnevnik")
 	l.Vodoravno = true
-	l.Sirine = []float64{6, 8, 12, 18, 18, 72, 18, 8}
+	l.Sirine = []float64{8, 8, 12, 18, 18, 72, 18, 8}
 	podnaslov := ""
 	if j.StartedAt != nil {
 		podnaslov = j.StartedAt.Format("02.01.2006.")
