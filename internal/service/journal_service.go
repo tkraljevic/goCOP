@@ -618,3 +618,20 @@ func podrucjeUSektoru(podrucje *int, o models.Opseg) error {
 	}
 	return errors.New("branjeno područje nije u sektoru ovog centra")
 }
+
+// ObrisiDnevnik arhivira dnevnik sa svime što nosi. Briše ga tko ga smije
+// otvoriti: dnevnik COP-a uprava centra, dnevnik usluge nadzor. Ništa ne
+// nestaje iz knjige verzija — brisanje je arhiviranje, kao i svugdje.
+func (s *JournalService) ObrisiDnevnik(ctx context.Context, u *models.User, perms *models.UserPermissions, o models.Opseg, j *models.Journal) (int, error) {
+	if u == nil || j == nil {
+		return 0, errors.New("brisanje zahtijeva prijavu")
+	}
+	if j.CentarSektor != "" {
+		if !s.UpravaCentra(perms, j) {
+			return 0, errors.New("dnevnik COP-a briše voditelj ili zamjenik centra")
+		}
+	} else if !s.CanManage(u, perms, o) {
+		return 0, errors.New("dnevnik briše ovlaštenik ili rukovoditelj područja")
+	}
+	return s.repo.ArhivirajDnevnik(ctx, j)
+}
