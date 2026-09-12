@@ -803,7 +803,8 @@ func KnjigaDnevnika(j *models.Journal, zapisi []models.JournalEntry, dezurstva [
 	r1 := l.Redak()
 	upisao := "Upisao"
 	if j.Reconstruction {
-		upisao = "Upisao (iz uveza se ne zna)"
+		upisao = "Upisao (po dežurstvu)"
+		service.PripisiUpisivace(zapisi)
 	}
 	l.Dodaj(B("Br.", xlsxw.Zaglavlje), B("Vrijeme", xlsxw.Zaglavlje), B("Vrsta", xlsxw.Zaglavlje), B("Za", xlsxw.Zaglavlje), B("Javio", xlsxw.Zaglavlje), B("Zapis", xlsxw.Zaglavlje), B(upisao, xlsxw.Zaglavlje), B("Storno", xlsxw.Zaglavlje))
 	l.Visina(r1, 22)
@@ -844,8 +845,12 @@ func KnjigaDnevnika(j *models.Journal, zapisi []models.JournalEntry, dezurstva [
 			}
 			tekst += "]"
 		}
+		upisaoIme := e.UserName
+		if upisaoIme == "" {
+			upisaoIme = e.UpisaoPoDezurstvu
+		}
 		l.Dodaj(xlsxw.N(float64(e.Number), xlsxw.TablicaSredina), B(vrijeme, xlsxw.TablicaSredina), B(e.KindLabel(), xlsxw.Tablica), B(za, xlsxw.TablicaTekst),
-			B(e.ReportedBy, xlsxw.TablicaTekst), B(tekst, xlsxw.TablicaTekst), B(e.UserName, xlsxw.TablicaTekst), B(oznaka, xlsxw.TablicaSredina))
+			B(e.ReportedBy, xlsxw.TablicaTekst), B(tekst, xlsxw.TablicaTekst), B(upisaoIme, xlsxw.TablicaTekst), B(oznaka, xlsxw.TablicaSredina))
 	}
 	if len(zapisi) == 0 {
 		l.Dodaj(B("U dnevniku nema zapisa.", xlsxw.Napomena))
@@ -862,14 +867,18 @@ func KnjigaDnevnika(j *models.Journal, zapisi []models.JournalEntry, dezurstva [
 	poImenu := map[string]*vodio{}
 	var redom []string
 	for _, e := range zapisi {
-		if e.UserName == "" {
+		ime := e.UserName
+		if ime == "" {
+			ime = e.UpisaoPoDezurstvu
+		}
+		if ime == "" {
 			continue
 		}
-		v := poImenu[e.UserName]
+		v := poImenu[ime]
 		if v == nil {
-			v = &vodio{ime: e.UserName}
-			poImenu[e.UserName] = v
-			redom = append(redom, e.UserName)
+			v = &vodio{ime: ime}
+			poImenu[ime] = v
+			redom = append(redom, ime)
 		}
 		v.zapisa++
 	}
@@ -910,7 +919,11 @@ func KnjigaDnevnika(j *models.Journal, zapisi []models.JournalEntry, dezurstva [
 		}
 		l.Dodaj()
 	}
-	napomenaLista(l, "Svaki zapis nosi tko ga je upisao i kad, i ne mijenja se: to je potpis onoga tko je vodio. Tko je javio ne potpisuje — izvor je, "+
+	napomena := ""
+	if j.Reconstruction {
+		napomena = "U prijepisu uvez nema potpisa uz redak; „upisao“ je zaključak iz zapisa o dežurstvu — tko je dežurao, taj je upisivao. "
+	}
+	napomenaLista(l, napomena+"Svaki zapis nosi tko ga je upisao i kad, i ne mijenja se: to je potpis onoga tko je vodio. Tko je javio ne potpisuje — izvor je, "+
 		"a njegovo ime stoji uz zapis. Vrijeme je kad se dogodilo; kad je upisano vidi se u programu. Zapis se ne briše nego stornira uz razlog. "+
 		"Izvezeno iz goCOP-a "+z.Datum.Format("02.01.2006. 15:04")+".", stupaca, 36)
 	potpisi := make([]PotpisnikIzvoza, 0, 2)
