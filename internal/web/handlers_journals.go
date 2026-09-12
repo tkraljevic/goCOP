@@ -421,6 +421,9 @@ func (h *JournalsHandler) ShowJournal(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		if j.Reconstruction {
+			service.PripisiUpisivace(zapisi)
+		}
 		// Dnevnik se čita i po području: ?podrucje=16 ostavlja zapise tog
 		// područja i one za cijeli sektor, jer se sektorski tiču svakoga.
 		data.Areas, _ = h.users.ListAreas(j.CentarSektor)

@@ -76,7 +76,7 @@
       <div class="zapis-kad mono">{{if .HappenedAt}}{{.HappenedAt.Format "15:04"}}{{else}}—{{end}}</div>
       <div class="zapis-tko">
         {{if .ReportedBy}}{{.ReportedBy}}{{else}}<span class="reading-meta">—</span>{{end}}
-        {{if .UserName}}<div class="zapis-upisao">upisao {{.UserName}}</div>{{end}}
+        {{if .UserName}}<div class="zapis-upisao">upisao {{.UserName}}</div>{{else if .UpisaoPoDezurstvu}}<div class="zapis-upisao" title="Zaključak iz zapisa o dežurstvu, ne podatak iz uveza">dežurao {{.UpisaoPoDezurstvu}}</div>{{end}}
       </div>
       <div class="zapis-tekst">{{if .ZaPodrucje}}{{$id := .PodrucjeID}}{{range $.Areas}}{{if eq .ID $id}}<span class="reg-chip zapis-podrucje" title="branjeno područje {{.ID}}">{{.Name}}</span>{{end}}{{end}} {{end}}{{.Text}}{{if .Voided}}
         <div class="reading-meta">storniran{{if .VoidReason}}: {{.VoidReason}}{{end}}{{if .VoidedBy}} — {{.VoidedBy}}{{end}}</div>{{end}}

@@ -410,6 +410,9 @@ type JournalEntry struct {
 	LocationName string `json:"-"`
 	WorkItemText string `json:"-"`
 	WorkItemNo   string `json:"-"`
+	// UpisaoPoDezurstvu je tko je upisao po zaključku iz zapisa o dežurstvu,
+	// u prijepisu gdje uvez nema potpisa uz redak; nije podatak iz uveza
+	UpisaoPoDezurstvu string `json:"-"`
 }
 
 // Strana upisa: izvođač popunjava list, a za nadzor (ovlaštenik,
