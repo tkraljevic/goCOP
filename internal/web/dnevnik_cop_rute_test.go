@@ -1,8 +1,13 @@
 package web
 
 import (
+	"bytes"
 	"context"
 	"html/template"
+	"image"
+	"image/color"
+	"image/draw"
+	pngenc "image/png"
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
@@ -82,6 +87,22 @@ func TestDnevnikCOPKrozRute(t *testing.T) {
 	mux.HandleFunc("POST /dnevnici/{id}/obrisi", h.HandleObrisiDnevnik)
 	mux.HandleFunc("POST /dnevnici/{id}/dezurstvo/preuzmi", h.HandlePreuzmiDezurstvo)
 	mux.HandleFunc("POST /dnevnici/{id}/dezurstvo/predaj", h.HandlePredajDezurstvo)
+
+	// Logotip organizacije ide u zaglavlje izvoza; ovdje sitna slika, da se
+	// crtež i njegove veze zapišu i provjere.
+	{
+		var png bytes.Buffer
+		slika := image.NewRGBA(image.Rect(0, 0, 40, 16))
+		draw.Draw(slika, slika.Bounds(), &image.Uniform{color.RGBA{0x17, 0x3e, 0x74, 0xff}}, image.Point{}, draw.Src)
+		if err := pngenc.Encode(&png, slika); err != nil {
+			t.Fatal(err)
+		}
+		stari := models.Terms()
+		sLogom := stari
+		sLogom.Logo, sLogom.LogoMime = png.Bytes(), "image/png"
+		models.SetTerms(sLogom)
+		defer models.SetTerms(stari)
+	}
 
 	voditelj := &models.User{ID: uuid.New(), FullName: "Voditelj Centra"}
 	uprava := &models.UserPermissions{AdminSectors: map[string]bool{"B": true}, AllowedSectors: map[string]bool{"B": true}}
@@ -299,6 +320,9 @@ func TestDnevnikCOPKrozRute(t *testing.T) {
 	w = zovi(http.MethodGet, "/dnevnici/"+dnevnik+"/obracun/"+dezurni.ID.String()+"/iors.xlsx?od=2026-09-11&do=2026-09-14", nil)
 	if w.Code != http.StatusOK || !strings.Contains(w.Header().Get("Content-Disposition"), "IORS_ana-anic_2026-09-11_2026-09-14.xlsx") {
 		t.Fatalf("IORS izvoz: %d %s", w.Code, w.Header().Get("Content-Disposition"))
+	}
+	if put := os.Getenv("GOCOP_IZVOZ_IORS"); put != "" {
+		_ = os.WriteFile(put, w.Body.Bytes(), 0o644)
 	}
 	iorsRedci, err := procitajXLSX(w.Body.Bytes())
 	if err != nil {
