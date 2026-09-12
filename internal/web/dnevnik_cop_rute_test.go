@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -46,7 +47,8 @@ func TestDnevnikCOPKrozRute(t *testing.T) {
 	rec := ledger.New(baza, "test")
 	userRepo := repository.NewUserRepository(baza, rec)
 	users := service.NewUserService(userRepo, service.NewAuthService(userRepo, repository.NewSessionRepository(baza)), service.NewSSEBroker())
-	journals := service.NewJournalService(repository.NewJournalRepository(baza, rec), nil, nil)
+	journalRepo := repository.NewJournalRepository(baza, rec)
+	journals := service.NewJournalService(journalRepo, nil, nil)
 
 	templatesFS, _ := fs.Sub(webassets.Files, "templates")
 	tmpl := func(stranica string) *template.Template {
@@ -67,6 +69,7 @@ func TestDnevnikCOPKrozRute(t *testing.T) {
 	mux.HandleFunc("GET /dnevnici/{id}", h.ShowJournal)
 	mux.HandleFunc("POST /dnevnici/{id}/zapisi", h.HandleAddCOPEntry)
 	mux.HandleFunc("POST /dnevnici/{id}/upisi/{entry}/storno", h.HandleVoidEntry)
+	mux.HandleFunc("POST /dnevnici/{id}/upisi/{entry}/ispravak", h.HandleIspraviPrijepis)
 
 	voditelj := &models.User{ID: uuid.New(), FullName: "Voditelj Centra"}
 	uprava := &models.UserPermissions{AdminSectors: map[string]bool{"B": true}, AllowedSectors: map[string]bool{"B": true}}
@@ -115,13 +118,13 @@ func TestDnevnikCOPKrozRute(t *testing.T) {
 	// Zapis ulazi i vidi se s vremenom i onim tko je javio.
 	w = zovi(http.MethodPost, "/dnevnici/"+dnevnik+"/zapisi", url.Values{
 		"date": {"2026-09-11"}, "time": {"07:15"}, "kind": {models.EntryKindReport},
-		"reported_by": {"Sa porte"}, "text": {"vodostaj Batina u 07:00 +551"}})
+		"reported_by": {"Sa porte"}, "text": {"vodostaj Batina u 07:00 iznosi 551 cm"}})
 	mora(w, http.StatusSeeOther, "zapis")
 	if l := w.Header().Get("Location"); !strings.Contains(l, "success=") {
 		t.Fatalf("zapis nije prošao: %s", l)
 	}
 	w = zovi(http.MethodGet, "/dnevnici/"+dnevnik, nil)
-	mora(w, http.StatusOK, "dnevnik sa zapisom", "07:15", "Sa porte", "vodostaj Batina u 07:00 +551", "upisao Voditelj Centra", "/storno")
+	mora(w, http.StatusOK, "dnevnik sa zapisom", "07:15", "Sa porte", "vodostaj Batina u 07:00 iznosi 551 cm", "upisao Voditelj Centra", "/storno")
 
 	// Storno: zapis ostaje, prekrižen, s razlogom.
 	m := regexp.MustCompile(`/upisi/([^/]+)/storno`).FindStringSubmatch(w.Body.String())
@@ -131,7 +134,47 @@ func TestDnevnikCOPKrozRute(t *testing.T) {
 	w = zovi(http.MethodPost, "/dnevnici/"+dnevnik+"/upisi/"+m[1]+"/storno", url.Values{"reason": {"krivo očitano"}})
 	mora(w, http.StatusSeeOther, "storno")
 	mora(zovi(http.MethodGet, "/dnevnici/"+dnevnik, nil), http.StatusOK, "poslije storna",
-		"zapis-storniran", "storniran: krivo očitano", "vodostaj Batina u 07:00 +551")
+		"zapis-storniran", "storniran: krivo očitano", "vodostaj Batina u 07:00 iznosi 551 cm")
+
+	// Živi dnevnik ne nudi ispravak na mjestu i odbija ga.
+	if strings.Contains(w.Body.String(), "/ispravak") {
+		t.Error("živi dnevnik nudi ispravak na mjestu")
+	}
+	w = zovi(http.MethodPost, "/dnevnici/"+dnevnik+"/upisi/"+m[1]+"/ispravak", url.Values{"kind": {models.EntryKindReport}, "text": {"drugo"}})
+	if l := w.Header().Get("Location"); !strings.Contains(l, "error=") {
+		t.Errorf("živi dnevnik primio ispravak na mjestu: %s", l)
+	}
+
+	// Prijepis: krivo pročitano ispravlja se na mjestu, dan ostaje, a stranica
+	// se vraća na taj zapis.
+	pocetak := time.Date(2009, 6, 1, 0, 0, 0, 0, models.Zagreb)
+	prijepis := &models.Journal{Kind: models.JournalKindDefense, CentarSektor: "B", Title: "Dnevnik COP-a, lipanj 2009.",
+		Year: 2009, Reconstruction: true, StartedAt: &pocetak, Notes: "prijepis"}
+	if err := journalRepo.SaveJournal(context.Background(), prijepis); err != nil {
+		t.Fatal(err)
+	}
+	dan := time.Date(2009, 6, 29, 0, 0, 0, 0, models.Zagreb)
+	kad := dan.Add(7*time.Hour + 15*time.Minute)
+	stari := &models.JournalEntry{JournalID: prijepis.ID, Date: dan, Kind: models.EntryKindNote, Text: "vodostaj Batina 55l cm", HappenedAt: &kad, ReportedBy: "Sa porte"}
+	if err := journalRepo.SaveEntry(context.Background(), stari); err != nil {
+		t.Fatal(err)
+	}
+	w = zovi(http.MethodGet, "/dnevnici/"+prijepis.ID, nil)
+	mora(w, http.StatusOK, "prijepis", "Prijepis iz uveza", `id="zapis-1"`, "/upisi/"+stari.ID+"/ispravak", "vodostaj Batina 55l cm")
+	w = zovi(http.MethodPost, "/dnevnici/"+prijepis.ID+"/upisi/"+stari.ID+"/ispravak", url.Values{
+		"time": {"07:00"}, "kind": {models.EntryKindReport}, "reported_by": {"S porte"}, "text": {"vodostaj Batina 551 cm"}})
+	mora(w, http.StatusSeeOther, "ispravak")
+	if l := w.Header().Get("Location"); !strings.Contains(l, "success=") || !strings.HasSuffix(l, "#zapis-1") {
+		t.Fatalf("ispravak: %s", l)
+	}
+	w = zovi(http.MethodGet, "/dnevnici/"+prijepis.ID, nil)
+	mora(w, http.StatusOK, "poslije ispravka", "07:00", "S porte", "vodostaj Batina 551 cm", "Ponedjeljak 29.6.2009.")
+	if strings.Contains(w.Body.String(), "55l cm") {
+		t.Error("krivo čitanje još stoji na stranici")
+	}
+	if e, _ := journalRepo.GetEntry(context.Background(), stari.ID); e == nil || e.Kind != models.EntryKindReport || e.Number != 1 {
+		t.Errorf("ispravljen zapis: %+v", e)
+	}
 
 	// Građevinska vrsta u zapisnik dežurstva ne ulazi.
 	w = zovi(http.MethodPost, "/dnevnici/"+dnevnik+"/zapisi", url.Values{
