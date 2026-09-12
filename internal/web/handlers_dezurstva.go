@@ -9,7 +9,6 @@ import (
 	"github.com/google/uuid"
 
 	"gocop/internal/models"
-	"gocop/internal/obracun"
 )
 
 // Plan dežurstava stoji uz dnevnik COP-a: uprava centra ga slaže, dežurni ga
@@ -158,7 +157,6 @@ func (h *JournalsHandler) ShowObracun(w http.ResponseWriter, r *http.Request) {
 		do = t.AddDate(0, 0, 1)
 	}
 	data.From, data.To = od.Format("2006-01-02"), do.AddDate(0, 0, -1).Format("2006-01-02")
-	data.Razredi = obracun.Razredi
 	var err error
 	postavke := h.postavkeObracuna()
 	nazivi := map[int]string{}
@@ -167,7 +165,7 @@ func (h *JournalsHandler) ShowObracun(w http.ResponseWriter, r *http.Request) {
 			nazivi[a.ID] = a.Name
 		}
 	}
-	if data.Obracun, data.CekaPotvrdu, err = h.journals.Obracun(r.Context(), j, od, do, postavke.Kalendar(r.Context()), postavke.Koeficijenti(r.Context()), nazivi); err != nil {
+	if data.Obracun, err = h.journals.Obracun(r.Context(), j, od, do, postavke.Kalendar(r.Context()), postavke.Koeficijenti(r.Context()), nazivi); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
