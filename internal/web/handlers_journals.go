@@ -799,3 +799,32 @@ func (h *JournalsHandler) HandleAddCOPEntry(w http.ResponseWriter, r *http.Reque
 	}
 	redirectWith(w, r, back, "success", fmt.Sprintf("Zapis br. %d je upisan.", e.Number))
 }
+
+// HandleIspraviPrijepis ispravlja krivo pročitan zapis prijepisa na mjestu;
+// vraća na taj zapis, ne na kraj dnevnika
+func (h *JournalsHandler) HandleIspraviPrijepis(w http.ResponseWriter, r *http.Request) {
+	j, area, ok := h.loadJournal(w, r)
+	if !ok {
+		return
+	}
+	u, perms := h.base(r)
+	back := "/dnevnici/" + j.ID
+	if err := r.ParseForm(); err != nil {
+		redirectWith(w, r, back, "error", "Neispravan zahtjev")
+		return
+	}
+	f := func(k string) string { return strings.TrimSpace(r.FormValue(k)) }
+	ispravak := models.JournalEntry{Kind: f("kind"), ReportedBy: f("reported_by"), Text: r.FormValue("text")}
+	// Dan ostaje dan zapisa; mijenja se samo sat u tom danu.
+	if e, _ := h.journals.GetEntry(r.Context(), r.PathValue("entry")); e != nil {
+		back += "#zapis-" + strconv.Itoa(e.Number)
+		if kad, err := time.ParseInLocation("2006-01-02 15:04", e.Date.In(models.Zagreb).Format("2006-01-02")+" "+f("time"), models.Zagreb); err == nil {
+			ispravak.HappenedAt = &kad
+		}
+	}
+	if err := h.journals.IspraviPrijepis(r.Context(), u, perms, h.opseg(j, area), j, r.PathValue("entry"), ispravak); err != nil {
+		redirectWith(w, r, back, "error", err.Error())
+		return
+	}
+	redirectWith(w, r, back, "success", "Zapis je ispravljen; prijašnje čitanje ostaje u knjizi verzija.")
+}

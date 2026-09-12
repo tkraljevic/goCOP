@@ -3281,6 +3281,12 @@ textarea {
 .zapis-storno { display: inline-block; margin-left: 0.5rem; vertical-align: baseline; }
 .zapis-storno .btn-sm { padding: 0 0.4rem; font-size: 0.72rem; opacity: 0.55; }
 .zapis:hover .zapis-storno .btn-sm { opacity: 1; }
+.zapis-ispravak { display: inline-block; margin-left: 0.5rem; vertical-align: baseline; }
+.zapis-ispravak > summary { list-style: none; cursor: pointer; padding: 0 0.4rem; font-size: 0.72rem; opacity: 0.55; }
+.zapis-ispravak > summary::-webkit-details-marker { display: none; }
+.zapis:hover .zapis-ispravak > summary, .zapis-ispravak[open] > summary { opacity: 1; }
+.zapis-ispravak[open] { display: block; margin: 0.5rem 0 0; }
+.zapis-ispravak-obrazac { margin-top: 0.5rem; padding: 0.75rem; border: 1px solid var(--border, #ddd); border-radius: 4px; }
 
 /* Novi zapis stoji na kraju, kao u bilježnici. */
 .novi-zapis { padding: 1rem; margin-top: 1.5rem; }

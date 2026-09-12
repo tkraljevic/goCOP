@@ -551,3 +551,50 @@ func (s *JournalService) DodajZapisCOP(ctx context.Context, u *models.User, perm
 	e.Voided, e.VoidReason, e.VoidedBy = false, "", ""
 	return s.repo.SaveEntry(ctx, e)
 }
+
+func (s *JournalService) GetEntry(ctx context.Context, id string) (*models.JournalEntry, error) {
+	return s.repo.GetEntry(ctx, id)
+}
+
+// IspraviPrijepis ispravlja krivo pročitan zapis prijepisa na mjestu.
+//
+// Samo u prijepisu: ondje je zapis preslika uveza, a dokument je papir, pa
+// ispravak presliku približava izvorniku. U živom dnevniku zapis JEST
+// dokument i ne prepravlja se — ispravak je novi zapis uz stari. Ni ovdje
+// prijašnje čitanje ne nestaje: knjiga verzija ga zadrži kao stariju verziju.
+//
+// Dan zapisa se ne mijenja: dan je granica dnevnika i redoslijeda, a krivo
+// pročitan dan se rješava novim zapisom u pravom danu i stornom krivog.
+func (s *JournalService) IspraviPrijepis(ctx context.Context, u *models.User, perms *models.UserPermissions, o models.Opseg, j *models.Journal, id string, ispravak models.JournalEntry) error {
+	if u == nil {
+		return errors.New("ispravak zahtijeva prijavu")
+	}
+	if j == nil || !j.SmijePrepravakZapisa() {
+		return errors.New("u živom dnevniku zapis se ne prepravlja: ispravak je novi zapis uz stari")
+	}
+	if !s.CanWrite(perms, o) {
+		return errors.New("nemate pravo ispravljati ovaj dnevnik")
+	}
+	e, err := s.repo.GetEntry(ctx, id)
+	if err != nil {
+		return err
+	}
+	if e == nil || e.JournalID != j.ID {
+		return errors.New("zapis nije pronađen u ovom dnevniku")
+	}
+	dopustena := false
+	for _, k := range s.AllowedKinds(u, perms, o, j) {
+		if k == ispravak.Kind {
+			dopustena = true
+		}
+	}
+	if !dopustena {
+		return errors.New("nepoznata vrsta zapisa za dnevnik COP-a")
+	}
+	ispravak.Text = strings.TrimSpace(ispravak.Text)
+	if ispravak.Text == "" {
+		return errors.New("zapis mora imati tekst")
+	}
+	e.Kind, e.Text, e.ReportedBy, e.HappenedAt = ispravak.Kind, ispravak.Text, strings.TrimSpace(ispravak.ReportedBy), ispravak.HappenedAt
+	return s.repo.SaveEntry(ctx, e)
+}

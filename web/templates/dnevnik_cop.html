@@ -40,7 +40,7 @@
     <span class="reg-chip">{{len .Zapisi}} {{uzBroj (len .Zapisi) "zapis" "zapisa" "zapisa"}}</span></h2>
   <div class="zapisi">
     {{range .Zapisi}}
-    <article class="zapis{{if .Voided}} zapis-storniran{{end}}{{if eq .Kind "DEZURSTVO"}} zapis-smjena{{end}}">
+    <article id="zapis-{{.Number}}" class="zapis{{if .Voided}} zapis-storniran{{end}}{{if eq .Kind "DEZURSTVO"}} zapis-smjena{{end}}">
       <div class="zapis-kad mono">{{if .HappenedAt}}{{.HappenedAt.Format "15:04"}}{{else}}—{{end}}</div>
       <div class="zapis-tko">
         {{if .ReportedBy}}{{.ReportedBy}}{{else}}<span class="reading-meta">—</span>{{end}}
@@ -56,6 +56,39 @@
           <input type="hidden" name="reason" value="">
           <button type="submit" class="btn btn-sm btn-secondary" title="Storniraj zapis br. {{.Number}}">{{icon "x"}} storno</button>
         </form>
+        {{end}}
+        {{/* U prijepisu se krivo pročitano ispravlja na mjestu: obrazac je uz
+             zapis, sklopljen, s onim što sad piše. Dan se ne mijenja. */}}
+        {{if and $.CanWrite $.Journal.SmijePrepravakZapisa}}
+        <details class="zapis-ispravak">
+          <summary class="btn btn-sm btn-secondary" title="Ispravi krivo pročitan zapis br. {{.Number}}">{{icon "pencil"}} ispravi</summary>
+          <form method="POST" action="/dnevnici/{{$.Journal.ID}}/upisi/{{.ID}}/ispravak" class="zapis-ispravak-obrazac">
+            <div class="form-row novi-zapis-red">
+              <div class="form-group">
+                <label class="form-label" for="i-time-{{.Number}}">Vrijeme</label>
+                <input type="time" id="i-time-{{.Number}}" name="time" class="form-control" value="{{if .HappenedAt}}{{.HappenedAt.Format "15:04"}}{{end}}">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="i-kind-{{.Number}}">Vrsta</label>
+                <select id="i-kind-{{.Number}}" name="kind" class="form-control">
+                  {{$k := .Kind}}{{range $.AllowedKinds}}<option value="{{.}}"{{if eq . $k}} selected{{end}}>{{entryKind .}}</option>{{end}}
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="i-reported-{{.Number}}">Javio</label>
+                <input type="text" id="i-reported-{{.Number}}" name="reported_by" class="form-control" value="{{.ReportedBy}}" autocomplete="off">
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="i-text-{{.Number}}">Zapis</label>
+              <textarea id="i-text-{{.Number}}" name="text" class="form-control" rows="3" required>{{.Text}}</textarea>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary btn-sm">{{icon "check"}} Ispravi</button>
+              <span class="reading-meta">Prijašnje čitanje ostaje u knjizi verzija.</span>
+            </div>
+          </form>
+        </details>
         {{end}}
       </div>
     </article>
