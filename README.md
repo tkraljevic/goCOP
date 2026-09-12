@@ -38,7 +38,10 @@ prva računala. Kaže što program radi na računalu i mreži, što ne radi, i
   registra objekata s odsjecima. Brane nose naziv retencije ili akumulacije
   koju zatvaraju. Opis dionice slaže se iz poddionica, uz mogućnost ručnog
   opisa. Kazala veza (postaja–dionica, objekt–dionica, teritorij–dionica)
-  izvode se iz poddionica i ne razmjenjuju se zasebno.
+  izvode se iz poddionica i ne razmjenjuju se zasebno. Kartica dionice
+  izvozi se u Excel (A4) sa svime što je na njoj: pragovi i kota nule
+  letvi, nasipi s objektima i ugroženim naseljima, obrana koja traje,
+  zaduženi djelatnici.
 - **Održavanje:** popis lokacija izvršenja usluga po branjenom području
   (što se održava iz programa A.02 i pod kojom kategorijom: red vode,
   skupina, vrsta) i stavke radova bez cijena, koje operateri dopunjuju.
