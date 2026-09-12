@@ -32,6 +32,11 @@ type Celija struct {
 	Stil    int
 }
 
+// FT je formula čiji je rezultat tekst, s izračunatim tekstom
+func FT(formula, tekst string, stil ...int) Celija {
+	return Celija{Formula: formula, Tekst: tekst, Stil: prvi(stil)}
+}
+
 // T je tekstualna ćelija
 func T(s string, stil ...int) Celija { return Celija{Tekst: s, Stil: prvi(stil)} }
 
@@ -173,6 +178,8 @@ func (l *List) xml() string {
 			}
 			adresa := Adresa(c, r)
 			switch {
+			case cel.Formula != "" && !cel.JeBroj:
+				fmt.Fprintf(&b, `<c r="%s" s="%d" t="str"><f>%s</f><v>%s</v></c>`, adresa, cel.Stil, esc(cel.Formula), esc(cel.Tekst))
 			case cel.Formula != "":
 				fmt.Fprintf(&b, `<c r="%s" s="%d"><f>%s</f><v>%s</v></c>`, adresa, cel.Stil, esc(cel.Formula), broj(cel.Broj))
 			case cel.JeBroj:
