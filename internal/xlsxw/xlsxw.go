@@ -211,15 +211,16 @@ func (k *Knjiga) Zapisi(w io.Writer) error {
 	return z.Close()
 }
 
-// crtezLogotipa smješta sliku u gornji lijevi kut, širine oko 3,2 cm, u
-// omjeru slike (iz PNG zaglavlja)
+// crtezLogotipa smješta sliku u gornji lijevi kut, visine 2,2 cm — koliko
+// su visoka četiri retka zaglavlja — a širine po omjeru slike (iz PNG
+// zaglavlja), pa ne prelazi ni ispod naslova ni preko teksta desno od sebe
 func crtezLogotipa(png []byte) string {
-	cx := int64(1150000) // EMU
-	cy := cx
+	cy := int64(790000) // EMU, 2,2 cm
+	cx := cy
 	if len(png) >= 24 {
 		w, h := binary.BigEndian.Uint32(png[16:20]), binary.BigEndian.Uint32(png[20:24])
 		if w > 0 && h > 0 {
-			cy = cx * int64(h) / int64(w)
+			cx = cy * int64(w) / int64(h)
 		}
 	}
 	return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">` +

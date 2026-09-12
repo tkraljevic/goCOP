@@ -208,11 +208,13 @@ func zaglavljeLista(l *xlsxw.List, z ZaglavljeIzvoza, naslov, podnaslov string, 
 		l.Spoji(pocetak, r, stupaca-1, r)
 		l.Visina(r, visina)
 	}
-	redak(z.Organizacija, xlsxw.Podnaslov, 16)
-	redak(z.Odjel, xlsxw.Obican, 14)
-	redak(z.Centar, xlsxw.Obican, 14)
+	// Četiri retka po 17 točaka su 2,4 cm: logotip od 2,2 cm stane u njih i
+	// ne prelazi ispod naslova. Tekst stoji od stupca C, desno od logotipa.
+	redak(z.Organizacija, xlsxw.Podnaslov, 17)
+	redak(z.Odjel, xlsxw.Obican, 17)
+	redak(z.Centar, xlsxw.Obican, 17)
 	l.Dodaj()
-	l.Visina(l.Redak()-1, 10)
+	l.Visina(l.Redak()-1, 17)
 	r := l.Redak()
 	red := make([]xlsxw.Celija, stupaca)
 	red[0] = xlsxw.T(naslov, xlsxw.Naslov)
@@ -301,7 +303,7 @@ func KnjigaObracuna(obr service.Obracun, z ZaglavljeIzvoza, od, do time.Time) *x
 		}
 		l := k.NoviList(list)
 		l.Vodoravno = true
-		l.Sirine = []float64{2, 26}
+		l.Sirine = []float64{4, 26}
 		for range kategorijeIzvoza {
 			l.Sirine = append(l.Sirine, 8, 11, 11)
 		}
