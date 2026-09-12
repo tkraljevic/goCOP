@@ -3312,3 +3312,5 @@ textarea {
   .obracun-tablica .obracun-grupa th, .obracun-tablica tfoot th { display: block; }
   .obracun-stavke { flex-direction: column; gap: 0.1rem; }
 }
+
+.zapis-podrucje { font-size: 0.72rem; vertical-align: 0.1em; margin-right: 0.2rem; }

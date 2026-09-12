@@ -106,6 +106,7 @@ type JournalPageData struct {
 	// UpravaCentra slaže plan dežurstava; CanManage (nadzor) za to nije dovoljan
 	UpravaCentra   bool
 	MozeSebe       bool // smije upisati vlastito dežurstvo
+	Podrucje       int  // filtar dnevnika COP-a po području; 0 = sve
 	OpisiRada      []models.OpisRada
 	Obracun        service.Obracun
 	CanWrite       bool
@@ -414,6 +415,18 @@ func (h *JournalsHandler) ShowJournal(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
+		}
+		// Dnevnik se čita i po području: ?podrucje=16 ostavlja zapise tog
+		// područja i one za cijeli sektor, jer se sektorski tiču svakoga.
+		data.Areas, _ = h.users.ListAreas(j.CentarSektor)
+		if data.Podrucje, _ = strconv.Atoi(r.URL.Query().Get("podrucje")); data.Podrucje > 0 {
+			var samo []models.JournalEntry
+			for _, z := range zapisi {
+				if !z.ZaPodrucje() || z.PodrucjeID() == data.Podrucje {
+					samo = append(samo, z)
+				}
+			}
+			zapisi = samo
 		}
 		data.Dani = poDanima(zapisi)
 		// Plan dežurstava ima svoju stranicu; ovdje samo koliko ih je, za gumb.
@@ -813,6 +826,9 @@ func (h *JournalsHandler) HandleAddCOPEntry(w http.ResponseWriter, r *http.Reque
 	}
 	f := func(k string) string { return strings.TrimSpace(r.FormValue(k)) }
 	e := models.JournalEntry{Kind: f("kind"), ReportedBy: f("reported_by"), Text: r.FormValue("text")}
+	if n, err := strconv.Atoi(f("podrucje")); err == nil && n > 0 {
+		e.Podrucje = &n
+	}
 	dan, err := time.ParseInLocation("2006-01-02", f("date"), models.Zagreb)
 	if err != nil {
 		redirectWith(w, r, back, "error", "Upišite dan zapisa")
@@ -844,6 +860,9 @@ func (h *JournalsHandler) HandleIspraviPrijepis(w http.ResponseWriter, r *http.R
 	}
 	f := func(k string) string { return strings.TrimSpace(r.FormValue(k)) }
 	ispravak := models.JournalEntry{Kind: f("kind"), ReportedBy: f("reported_by"), Text: r.FormValue("text")}
+	if n, err := strconv.Atoi(f("podrucje")); err == nil && n > 0 {
+		ispravak.Podrucje = &n
+	}
 	// Dan ostaje dan zapisa; mijenja se samo sat u tom danu.
 	if e, _ := h.journals.GetEntry(r.Context(), r.PathValue("entry")); e != nil {
 		back += "#zapis-" + strconv.Itoa(e.Number)

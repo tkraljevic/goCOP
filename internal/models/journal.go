@@ -373,6 +373,12 @@ type JournalEntry struct {
 	// dokazna. Prazno znači da se zna samo dan.
 	HappenedAt *time.Time `json:"happened_at,omitempty"`
 
+	// Podrucje je na koje se branjeno područje zapis odnosi, kad se odnosi
+	// na jedno; prazno je cijeli sektor. Dnevnik COP-a vodi se po centru, pa
+	// se iz zapisa vidi koja su područja u igri — i po njima se dnevnik može
+	// i čitati: što se događalo na jednom području kroz obranu.
+	Podrucje *int `json:"podrucje,omitempty"`
+
 	// ReportedBy je tko je javio, kad to nije onaj tko upisuje: "Sa porte",
 	// "Javorović iz Glavnog centra". Odgovornost za sadržaj je njegova, za
 	// zapis onoga tko je upisao.
@@ -401,6 +407,17 @@ const (
 	EntrySideContractor = "IZVOĐAČ"
 	EntrySideSupervisor = "NADZOR"
 )
+
+// ZaPodrucje javlja je li zapis vezan na jedno branjeno područje
+func (e JournalEntry) ZaPodrucje() bool { return e.Podrucje != nil && *e.Podrucje > 0 }
+
+// PodrucjeID je broj područja, 0 za cijeli sektor — za usporedbu u predlošku
+func (e JournalEntry) PodrucjeID() int {
+	if e.ZaPodrucje() {
+		return *e.Podrucje
+	}
+	return 0
+}
 
 // IsSupervisor govori je li upis od nadzora
 func (e JournalEntry) IsSupervisor() bool { return e.Side == EntrySideSupervisor }

@@ -640,6 +640,7 @@ func InitSchema(database *sql.DB) error {
 			id TEXT PRIMARY KEY,
 			happened_at DATETIME,
 			reported_by TEXT NOT NULL DEFAULT '',
+			podrucje INTEGER,
 			journal_id TEXT NOT NULL REFERENCES journals(id) ON DELETE CASCADE,
 			sheet_id TEXT NOT NULL DEFAULT '',
 			number INTEGER NOT NULL DEFAULT 0,
@@ -768,6 +769,7 @@ func migrateSchema(database *sql.DB) error {
 		// polje, odgovornost se pripiše onome tko je držao olovku.
 		{"journal_entries", "happened_at", "DATETIME"},
 		{"journal_entries", "reported_by", "TEXT NOT NULL DEFAULT ''"},
+		{"journal_entries", "podrucje", "INTEGER"},
 		{"maintained_waters", "program", "TEXT NOT NULL DEFAULT 'A.02'"},
 		{"sections", "description_custom", "INTEGER NOT NULL DEFAULT 0"},
 		{"sections", "length_km", "REAL"},
