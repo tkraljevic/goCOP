@@ -76,7 +76,7 @@ func TestRazvrstajSubota(t *testing.T) {
 }
 
 func TestRazvrstajRadniDanPoPojasevima(t *testing.T) {
-	// petak 5:30–23:30: noćni 0:30, dnevni 2 (6–8) + 6 (16–22), redovno 8, noćni 1:30
+	// petak 5:30–23:30: noćni 0:30, dnevni 1:30 (6–7:30) + 6:30 (15:30–22), redovno 8 (7:30–15:30), noćni 1:30
 	s := Razvrstaj(kad(2026, 9, 11, 5, 30), kad(2026, 9, 11, 23, 30), Hrvatski{})
 	zelim := Sati{NRD: 2 * time.Hour, DRD: 8 * time.Hour, RRV: 8 * time.Hour}
 	for r, d := range zelim {
