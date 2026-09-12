@@ -78,6 +78,8 @@ func TestDnevnikCOPKrozRute(t *testing.T) {
 	mux.HandleFunc("GET /dnevnici/{id}/obracun", h.ShowObracun)
 	mux.HandleFunc("GET /dnevnici/{id}/obracun/{user}", h.ShowIORS)
 	mux.HandleFunc("GET /dnevnici/{id}/obracun.xlsx", h.IzvoziObracun)
+	mux.HandleFunc("POST /dnevnici/{id}/dezurstvo/preuzmi", h.HandlePreuzmiDezurstvo)
+	mux.HandleFunc("POST /dnevnici/{id}/dezurstvo/predaj", h.HandlePredajDezurstvo)
 
 	voditelj := &models.User{ID: uuid.New(), FullName: "Voditelj Centra"}
 	uprava := &models.UserPermissions{AdminSectors: map[string]bool{"B": true}, AllowedSectors: map[string]bool{"B": true}}
@@ -326,9 +328,53 @@ func TestDnevnikCOPKrozRute(t *testing.T) {
 		t.Errorf("zbroj u Excelu: %v", ukupno)
 	}
 
+	// Dežurstvo se preuzima i predaje: Ana preuzme, dnevnik kaže tko dežura,
+	// voditelj preuzme bez njezine predaje — njezin razmak ode u plan (čeka
+	// potvrdu), pa preda svoje — potvrđeno odmah, jer je uprava.
+	rw = kaoDezurni(http.MethodPost, "/dnevnici/"+dnevnik+"/dezurstvo/preuzmi", url.Values{})
+	if l := rw.Header().Get("Location"); !strings.Contains(l, "success=") {
+		t.Fatalf("preuzimanje: %s", l)
+	}
+	rw = kaoDezurni(http.MethodGet, "/dnevnici/"+dnevnik, nil)
+	mora(rw, http.StatusOK, "dežura Ana", "Dežura <strong>Ana Anić</strong>", "/dezurstvo/predaj", "Dežurstvo preuzima Ana Anić.")
+	if strings.Contains(rw.Body.String(), "/dezurstvo/preuzmi") {
+		t.Error("Ana vidi gumb za preuzimanje dok dežura")
+	}
+	rw = kaoDezurni(http.MethodPost, "/dnevnici/"+dnevnik+"/dezurstvo/preuzmi", url.Values{})
+	if l := rw.Header().Get("Location"); !strings.Contains(l, "error=") {
+		t.Errorf("dvostruko preuzimanje prošlo: %s", l)
+	}
+	w = zovi(http.MethodPost, "/dnevnici/"+dnevnik+"/dezurstvo/preuzmi", url.Values{})
+	if l := w.Header().Get("Location"); !strings.Contains(l, "success=") {
+		t.Fatalf("voditelj preuzima: %s", l)
+	}
+	w = zovi(http.MethodGet, "/dnevnici/"+dnevnik, nil)
+	mora(w, http.StatusOK, "dežura voditelj", "Dežura <strong>Voditelj Centra</strong>", "Dežurstvo predaje Ana Anić", "nije predano; zaključeno preuzimanjem")
+	w = zovi(http.MethodPost, "/dnevnici/"+dnevnik+"/dezurstvo/predaj", url.Values{})
+	if l := w.Header().Get("Location"); !strings.Contains(l, "success=") {
+		t.Fatalf("voditelj predaje: %s", l)
+	}
+	dez, _ := journalRepo.ListDezurstva(context.Background(), dnevnik)
+	var anin, voditeljev *models.Dezurstvo
+	for i := range dez {
+		if dez[i].Napomena != "" && dez[i].UserID == dezurni.ID.String() {
+			anin = &dez[i]
+		}
+		if dez[i].UserID == voditelj.ID.String() {
+			voditeljev = &dez[i]
+		}
+	}
+	if anin == nil || anin.Potvrdeno() || anin.Opis != "Dežurstvo u COP-u" || anin.Mjesto != models.MjestoUred {
+		t.Errorf("Anin razmak iz dežurstva: %+v", anin)
+	}
+	if voditeljev == nil || !voditeljev.Potvrdeno() {
+		t.Errorf("voditeljev razmak: %+v", voditeljev)
+	}
+
 	// Profil: planovi u kojima osoba ima dežurstva, s brojem i satima.
+	// (dva planirana i jedno iz preuzimanja, koje traje koliko je test brz)
 	if planovi, err := journalRepo.PlanoviOsobe(context.Background(), dezurni.ID.String()); err != nil || len(planovi) != 1 ||
-		planovi[0].JournalID != dnevnik || planovi[0].Dezurstava != 2 || planovi[0].Sati != 16*time.Hour || planovi[0].Centar != "COP Osijek" {
+		planovi[0].JournalID != dnevnik || planovi[0].Dezurstava != 3 || planovi[0].Sati < 16*time.Hour || planovi[0].Sati > 16*time.Hour+time.Minute || planovi[0].Centar != "COP Osijek" {
 		t.Errorf("planovi osobe: %+v, %v", planovi, err)
 	}
 

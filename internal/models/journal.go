@@ -64,6 +64,14 @@ type Journal struct {
 	StartedAt *time.Time `json:"started_at,omitempty"`
 	EndedAt   *time.Time `json:"ended_at,omitempty"`
 
+	// Tko sad dežura u dnevniku COP-a. Operater dolaskom preuzme dežurstvo,
+	// odlaskom ga preda; tko dođe za njim preuzme ga opet. Preuzimanje i
+	// predaja su zapisi u dnevniku, a odrađeni razmak ide u plan dežurstava
+	// kao dežurstvo u COP-u — pa iz toga slijedi i obračun sati.
+	DezurniID  string     `json:"dezurni_id,omitempty"`
+	DezurniIme string     `json:"dezurni_ime,omitempty"`
+	DezurniOd  *time.Time `json:"dezurni_od,omitempty"`
+
 	// Za vremenske prilike i vodostaje na listu
 	Latitude  *float64 `json:"latitude,omitempty"`
 	Longitude *float64 `json:"longitude,omitempty"`
@@ -134,6 +142,9 @@ func JournalKindLabel(kind string) string {
 
 // KindLabel vraća vrstu dnevnika za prikaz
 func (j Journal) KindLabel() string { return JournalKindLabel(j.Kind) }
+
+// NetkoDezura javlja je li dežurstvo trenutno preuzeto
+func (j Journal) NetkoDezura() bool { return j.DezurniID != "" && j.DezurniOd != nil }
 
 // IsDefense govori vodi li se dnevnik po dionici dok traju mjere obrane
 // SmijePrepravakZapisa javlja smije li se tekst zapisa mijenjati na mjestu.

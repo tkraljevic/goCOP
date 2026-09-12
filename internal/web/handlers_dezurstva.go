@@ -226,3 +226,31 @@ func (h *JournalsHandler) ShowIORS(w http.ResponseWriter, r *http.Request) {
 	data.Razredi = obracun.Razredi
 	h.render(w, h.tmplIORS, "dnevnik_iors.html", data)
 }
+
+// HandlePreuzmiDezurstvo: operater dolaskom preuzima dežurstvo
+func (h *JournalsHandler) HandlePreuzmiDezurstvo(w http.ResponseWriter, r *http.Request) {
+	j, area, ok := h.loadJournal(w, r)
+	if !ok {
+		return
+	}
+	u, perms := h.base(r)
+	if err := h.journals.PreuzmiDezurstvo(r.Context(), u, perms, h.opseg(j, area), j); err != nil {
+		redirectWith(w, r, "/dnevnici/"+j.ID, "error", err.Error())
+		return
+	}
+	redirectWith(w, r, "/dnevnici/"+j.ID+"#kraj", "success", "Dežurstvo je preuzeto.")
+}
+
+// HandlePredajDezurstvo: operater odlaskom predaje dežurstvo
+func (h *JournalsHandler) HandlePredajDezurstvo(w http.ResponseWriter, r *http.Request) {
+	j, _, ok := h.loadJournal(w, r)
+	if !ok {
+		return
+	}
+	u, perms := h.base(r)
+	if err := h.journals.PredajDezurstvo(r.Context(), u, perms, j); err != nil {
+		redirectWith(w, r, "/dnevnici/"+j.ID, "error", err.Error())
+		return
+	}
+	redirectWith(w, r, "/dnevnici/"+j.ID+"#kraj", "success", "Dežurstvo je predano; razmak je u planu dežurstava.")
+}

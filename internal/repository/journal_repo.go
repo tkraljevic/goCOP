@@ -52,18 +52,23 @@ func nullDay(t *time.Time) any {
 
 const journalColumns = `id, area_id, centar_sektor, centar_podrucje, kind, title, year, contract, reconstruction, section_code, structure_id, contractor, contractor_lead,
 	contractor_lead_act, supervisor, supervisor_act, supervisor_deputy, chief_supervisor, investor, started_at, ended_at,
-	latitude, longitude, gauges, notes, created_by, created_at, updated_at`
+	latitude, longitude, gauges, notes, created_by, created_at, updated_at, dezurni_id, dezurni_ime, dezurni_od`
 
 func scanJournal(row rowScanner) (models.Journal, error) {
 	var j models.Journal
-	var started, ended sql.NullTime
+	var started, ended, dezurniOd sql.NullTime
 	var recon int
 	var area, centarPodrucje sql.NullInt64
 	var centarSektor sql.NullString
 	err := row.Scan(&j.ID, &area, &centarSektor, &centarPodrucje, &j.Kind, &j.Title, &j.Year, &j.Contract, &recon, &j.SectionCode, &j.StructureID, &j.Contractor,
 		&j.ContractorLead, &j.ContractorLeadAct, &j.Supervisor, &j.SupervisorAct, &j.SupervisorDeputy, &j.ChiefSupervisor,
-		&j.Investor, &started, &ended, &j.Latitude, &j.Longitude, &j.Gauges, &j.Notes, &j.CreatedBy, &j.CreatedAt, &j.UpdatedAt)
+		&j.Investor, &started, &ended, &j.Latitude, &j.Longitude, &j.Gauges, &j.Notes, &j.CreatedBy, &j.CreatedAt, &j.UpdatedAt,
+		&j.DezurniID, &j.DezurniIme, &dezurniOd)
 	j.Reconstruction = recon != 0
+	if dezurniOd.Valid {
+		t := dezurniOd.Time.In(models.Zagreb)
+		j.DezurniOd = &t
+	}
 	j.AreaID = int(area.Int64)
 	j.CentarSektor = centarSektor.String
 	if centarPodrucje.Valid {
@@ -94,13 +99,14 @@ func journalArgs(j *models.Journal) []any {
 	}
 	return []any{j.ID, area, centar, j.CentarPodrucje, j.Kind, j.Title, j.Year, j.Contract, boolInt(j.Reconstruction), j.SectionCode, j.StructureID, j.Contractor, j.ContractorLead,
 		j.ContractorLeadAct, j.Supervisor, j.SupervisorAct, j.SupervisorDeputy, j.ChiefSupervisor, j.Investor, j.StartedAt, j.EndedAt,
-		j.Latitude, j.Longitude, j.Gauges, j.Notes, j.CreatedBy, j.CreatedAt, j.UpdatedAt}
+		j.Latitude, j.Longitude, j.Gauges, j.Notes, j.CreatedBy, j.CreatedAt, j.UpdatedAt, j.DezurniID, j.DezurniIme, j.DezurniOd}
 }
 
 const journalUpsert = `INSERT INTO journals (` + journalColumns + `)
-	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	ON CONFLICT(id) DO UPDATE SET
 		area_id = excluded.area_id, centar_sektor = excluded.centar_sektor,
+		dezurni_id = excluded.dezurni_id, dezurni_ime = excluded.dezurni_ime, dezurni_od = excluded.dezurni_od,
 		centar_podrucje = excluded.centar_podrucje, kind = excluded.kind, title = excluded.title, year = excluded.year, contract = excluded.contract,
 		reconstruction = excluded.reconstruction,
 		section_code = excluded.section_code, structure_id = excluded.structure_id, contractor = excluded.contractor,

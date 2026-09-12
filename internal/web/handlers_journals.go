@@ -441,6 +441,8 @@ func (h *JournalsHandler) ShowJournal(w http.ResponseWriter, r *http.Request) {
 		}
 		// Plan dežurstava ima svoju stranicu; ovdje samo koliko ih je, za gumb.
 		data.Dezurstva, _ = h.journals.Dezurstva(ctx, j.ID)
+		data.UpravaCentra = h.journals.UpravaCentra(data.Permissions, j)
+		data.MozeSebe = h.journals.MozeSebeUPlan(data.Permissions, h.opseg(j, area), j)
 		h.render(w, h.tmplCOP, "dnevnik_cop.html", data)
 		return
 	}

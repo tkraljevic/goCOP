@@ -608,7 +608,10 @@ func InitSchema(database *sql.DB) error {
 			created_by TEXT NOT NULL DEFAULT '',
 			created_at DATETIME NOT NULL,
 			updated_at DATETIME NOT NULL,
-			channel TEXT NOT NULL DEFAULT ''
+			channel TEXT NOT NULL DEFAULT '',
+			dezurni_id TEXT NOT NULL DEFAULT '',
+			dezurni_ime TEXT NOT NULL DEFAULT '',
+			dezurni_od DATETIME
 		);`,
 		`CREATE TABLE IF NOT EXISTS journal_sheets (
 			id TEXT PRIMARY KEY,
@@ -821,6 +824,9 @@ func migrateSchema(database *sql.DB) error {
 		// isto stoji u arhivi, u 48 bajta umjesto 1.360.
 		{"readings", "izdanje", "TEXT NOT NULL DEFAULT ''"},
 		{"journals", "channel", "TEXT NOT NULL DEFAULT ''"},
+		{"journals", "dezurni_id", "TEXT NOT NULL DEFAULT ''"},
+		{"journals", "dezurni_ime", "TEXT NOT NULL DEFAULT ''"},
+		{"journals", "dezurni_od", "DATETIME"},
 		{"dezurstva", "podrucje", "INTEGER"},
 		{"dezurstva", "potvrdio", "TEXT NOT NULL DEFAULT ''"},
 		{"dezurstva", "potvrdeno_at", "DATETIME"},
@@ -1170,7 +1176,10 @@ func preslozidnevnike(database *sql.DB) error {
 			created_by TEXT NOT NULL DEFAULT '',
 			created_at DATETIME NOT NULL,
 			updated_at DATETIME NOT NULL,
-			channel TEXT NOT NULL DEFAULT ''
+			channel TEXT NOT NULL DEFAULT '',
+			dezurni_id TEXT NOT NULL DEFAULT '',
+			dezurni_ime TEXT NOT NULL DEFAULT '',
+			dezurni_od DATETIME
 		)`,
 		`INSERT INTO journals_novo (id, area_id, kind, title, year, contract, reconstruction,
 			section_code, structure_id, contractor, contractor_lead, contractor_lead_act,

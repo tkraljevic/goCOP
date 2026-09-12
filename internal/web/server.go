@@ -653,6 +653,8 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /dnevnici/{id}/zapisi", s.authMiddleware(http.HandlerFunc(journalsH.HandleAddCOPEntry)))
 	s.mux.Handle("POST /dnevnici/{id}/upisi/{entry}/storno", s.authMiddleware(http.HandlerFunc(journalsH.HandleVoidEntry)))
 	s.mux.Handle("POST /dnevnici/{id}/upisi/{entry}/ispravak", s.authMiddleware(http.HandlerFunc(journalsH.HandleIspraviPrijepis)))
+	s.mux.Handle("POST /dnevnici/{id}/dezurstvo/preuzmi", s.authMiddleware(http.HandlerFunc(journalsH.HandlePreuzmiDezurstvo)))
+	s.mux.Handle("POST /dnevnici/{id}/dezurstvo/predaj", s.authMiddleware(http.HandlerFunc(journalsH.HandlePredajDezurstvo)))
 	s.mux.Handle("GET /dnevnici/{id}/dezurstva", s.authMiddleware(http.HandlerFunc(journalsH.ShowDezurstva)))
 	s.mux.Handle("POST /dnevnici/{id}/dezurstva", s.authMiddleware(http.HandlerFunc(journalsH.HandleSaveDezurstvo)))
 	s.mux.Handle("POST /dnevnici/{id}/dezurstva/{dez}/potvrdi", s.authMiddleware(http.HandlerFunc(journalsH.HandlePotvrdiDezurstvo)))

@@ -17,6 +17,22 @@
     </p>
   </div>
   <div class="page-actions">
+    {{/* Dežurstvo: dolaskom se preuzme, odlaskom preda. Oboje je zapis u
+         dnevniku, a odrađeni razmak ide u plan i obračun. */}}
+    {{if and (not .Journal.EndedAt) (not .Journal.Reconstruction)}}
+      {{if .Journal.NetkoDezura}}
+        <span class="dezurni-sad" title="od {{.Journal.DezurniOd.Format "2.1.2006. 15:04"}}">{{icon "user"}} Dežura <strong>{{.Journal.DezurniIme}}</strong> od {{.Journal.DezurniOd.Format "15:04"}}</span>
+        {{if or (eq .Journal.DezurniID .CurrentUser.ID.String) .UpravaCentra}}
+        <form method="POST" action="/dnevnici/{{.Journal.ID}}/dezurstvo/predaj" style="display:inline;"><button type="submit" class="btn btn-secondary">{{icon "log-out"}} Predajem dežurstvo</button></form>
+        {{end}}
+        {{if and .MozeSebe (ne .Journal.DezurniID .CurrentUser.ID.String)}}
+        <form method="POST" action="/dnevnici/{{.Journal.ID}}/dezurstvo/preuzmi" style="display:inline;"
+          onsubmit="return confirm('{{.Journal.DezurniIme}} nije predao dežurstvo. Preuzimanjem se njegovo dežurstvo zaključuje sad. Nastaviti?');"><button type="submit" class="btn btn-primary">{{icon "user"}} Preuzimam dežurstvo</button></form>
+        {{end}}
+      {{else if .MozeSebe}}
+        <form method="POST" action="/dnevnici/{{.Journal.ID}}/dezurstvo/preuzmi" style="display:inline;"><button type="submit" class="btn btn-primary">{{icon "user"}} Preuzimam dežurstvo</button></form>
+      {{end}}
+    {{end}}
     {{if .CanManage}}<a href="/dnevnici/{{.Journal.ID}}/edit" class="btn btn-secondary">{{icon "pencil"}} Zaglavlje</a>{{end}}
     {{if .Dani}}<a href="#{{if .ImaDanas}}dan-{{.Today}}{{else}}kraj{{end}}" class="btn btn-secondary" title="{{if .ImaDanas}}Na današnje zapise{{else}}Na zadnji zapis{{end}}">{{icon "arrow-right"}} {{if .ImaDanas}}Danas{{else}}Na kraj{{end}}</a>{{end}}
     <a href="/dnevnici/{{.Journal.ID}}/dezurstva" class="btn btn-secondary">{{icon "users"}} Plan dežurstava{{if .Dezurstva}} <span class="reg-chip">{{len .Dezurstva}}</span>{{end}}</a>
