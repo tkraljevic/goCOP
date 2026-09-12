@@ -111,3 +111,20 @@ func TestPomocOpisujeDnevnikCOPDezurstvaIObracun(t *testing.T) {
 		}
 	}
 }
+
+// Duga pomoć bez tražilice opet postaje priručnik koji se čita od početka.
+// Česti zadaci moraju voditi na postojeća sidra, a skripta imati polazište u
+// predlošku umjesto da se tiho ne pokrene.
+func TestPomocImaPretraguICesteZadatke(t *testing.T) {
+	h := pomocHTML(t)
+	for _, want := range []string{
+		`id="pomoc-pretraga"`, `id="pomoc-pretraga-stanje"`,
+		"Upisati vodostaj", "Voditi dnevnik COP-a", "Upisati dežurstvo",
+		"Izvesti obračun", "Uvesti hidrološki niz", "Povezati računalo",
+		`class="pomoc-na-vrh"`,
+	} {
+		if !strings.Contains(h, want) {
+			t.Errorf("pomoć nema tražilicu ili česti zadatak %q", want)
+		}
+	}
+}
