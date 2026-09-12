@@ -18,6 +18,7 @@
   <div class="page-actions">
     <a href="/dnevnici/{{.Journal.ID}}/obracun?od={{.From}}&amp;do={{.To}}" class="btn btn-secondary">{{icon "arrow-left"}} Obračun</a>
     <button type="button" class="btn btn-secondary" onclick="window.print()">{{icon "printer"}} Ispis</button>
+    <a href="/dnevnici/{{.Journal.ID}}/obracun/{{.IORS.UserID}}/iors.xlsx?od={{.From}}&amp;do={{.To}}" class="btn btn-primary" title="Obrazac IORS u Excelu">{{icon "download"}} IORS Excel</a>
   </div>
 </div>
 

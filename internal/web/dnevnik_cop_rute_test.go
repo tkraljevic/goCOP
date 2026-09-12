@@ -77,6 +77,7 @@ func TestDnevnikCOPKrozRute(t *testing.T) {
 	mux.HandleFunc("POST /dnevnici/{id}/dezurstva/{dez}/potvrdi", h.HandlePotvrdiDezurstvo)
 	mux.HandleFunc("GET /dnevnici/{id}/obracun", h.ShowObracun)
 	mux.HandleFunc("GET /dnevnici/{id}/obracun/{user}", h.ShowIORS)
+	mux.HandleFunc("GET /dnevnici/{id}/obracun/{user}/iors.xlsx", h.IzvoziIORS)
 	mux.HandleFunc("GET /dnevnici/{id}/obracun.xlsx", h.IzvoziObracun)
 	mux.HandleFunc("POST /dnevnici/{id}/obrisi", h.HandleObrisiDnevnik)
 	mux.HandleFunc("POST /dnevnici/{id}/dezurstvo/preuzmi", h.HandlePreuzmiDezurstvo)
@@ -294,6 +295,32 @@ func TestDnevnikCOPKrozRute(t *testing.T) {
 	w = zovi(http.MethodGet, "/dnevnici/"+dnevnik+"/obracun/"+dezurni.ID.String()+"?od=2026-09-11&do=2026-09-14", nil)
 	mora(w, http.StatusOK, "IORS", "Ana Anić", "Subota <strong>12.9.2026.</strong>", "Nedjelja <strong>13.9.2026.</strong>", "Ponedjeljak <strong>14.9.2026.</strong>",
 		"19:00", "24:00", "00:00", "07:00", "Dežurstvo u COP-u", "Vuka", "Obilazak i pregled", ">5,5<", ">14,0<", ">0,5<", ">1,5<", ">26,0<", ">2,0<")
+	// IORS u Excelu: redak po danu, sati po razredu, sveukupno.
+	w = zovi(http.MethodGet, "/dnevnici/"+dnevnik+"/obracun/"+dezurni.ID.String()+"/iors.xlsx?od=2026-09-11&do=2026-09-14", nil)
+	if w.Code != http.StatusOK || !strings.Contains(w.Header().Get("Content-Disposition"), "IORS_ana-anic_2026-09-11_2026-09-14.xlsx") {
+		t.Fatalf("IORS izvoz: %d %s", w.Code, w.Header().Get("Content-Disposition"))
+	}
+	iorsRedci, err := procitajXLSX(w.Body.Bytes())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var subota, sveukupno []string
+	for _, r := range iorsRedci {
+		if len(r) > 1 && r[0] == "subota" && r[1] == "12.09.2026." {
+			subota = r
+		}
+		if len(r) > 0 && r[0] == "SVEUKUPNO" {
+			sveukupno = r
+		}
+	}
+	// subota 19:00–24:00: 5 h, subota dnevni 3, subota noćni 2 (stupci J, K)
+	if len(subota) < 12 || subota[2] != "19:00" || subota[3] != "24:00" || subota[5] != "5" || subota[10] != "3" || subota[11] != "2" {
+		t.Errorf("IORS subota: %v", subota)
+	}
+	if len(sveukupno) < 6 || sveukupno[5] != "16" {
+		t.Errorf("IORS sveukupno: %v", sveukupno)
+	}
+
 	// Sama sebe vidi i bez prava pisanja u dnevnik; tuđe ne.
 	rw = kaoDezurni(http.MethodGet, "/dnevnici/"+dnevnik+"/obracun/"+dezurni.ID.String(), nil)
 	mora(rw, http.StatusOK, "svoj IORS", "Ana Anić")
