@@ -8,7 +8,7 @@
     <div class="breadcrumb"><a href="/">Početna</a> › Dnevnici</div>
     <h1 class="page-title">{{icon "notebook"}} Dnevnici</h1>
     <p class="section-desc">
-      Tri su vrste i ne miješaju se: dežurni zapisnik centra obrane, i dnevnici dviju usluga održavanja.
+      Dežurni zapisnik centra obrane s planom dežurstava uz njega, i dnevnici dviju usluga održavanja.
       Razlikuju se po tome tko ih vodi, kad se vode i što u njih ulazi.
     </p>
   </div>
@@ -27,6 +27,21 @@
         </p>
       </div>
       <div class="dash-card-footer"><a href="/dnevnici/popis?vrsta=OBRANA" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
+    </div>
+
+    <div class="dash-card">
+      <div class="dash-card-header">
+        <div class="dash-card-icon-box primary">{{icon "users"}}</div>
+        <span class="dash-status-pill {{if .BrojDezurstava}}info{{else}}default{{end}}">{{.BrojDezurstava}}</span>
+      </div>
+      <div class="dash-card-body">
+        <h2 class="dash-card-title">Plan dežurstava</h2>
+        <p class="dash-card-desc">
+          Tko dežura kad, i što radi: u centru, na terenu, u uredu. Slaže ga uprava centra uz dnevnik COP-a,
+          a isti zapisi poslije obrane daju obračun sati.
+        </p>
+      </div>
+      <div class="dash-card-footer"><a href="/dnevnici/popis?vrsta=DEZURSTVA" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
     </div>
 
     <div class="dash-card">

@@ -26,6 +26,12 @@ type Dezurstvo struct {
 	Mjesto   string `json:"mjesto"` // MjestoUred ili MjestoTeren
 	Napomena string `json:"napomena"`
 
+	// Svatko upisuje sebe, od vodočuvara do glavnog rukovoditelja; uprava
+	// centra to poslije provjeri i potvrdi. U obračun ulazi samo potvrđeno.
+	// Što uprava sama upiše potvrđeno je odmah — ona je ta koja provjerava.
+	Potvrdio    string     `json:"potvrdio,omitempty"`
+	PotvrdenoAt *time.Time `json:"potvrdeno_at,omitempty"`
+
 	CreatedBy string    `json:"created_by"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
@@ -66,6 +72,9 @@ func MjestoZaOpis(opis string) string {
 	}
 	return ""
 }
+
+// Potvrdeno javlja je li dežurstvo provjerila uprava centra
+func (d Dezurstvo) Potvrdeno() bool { return d.PotvrdenoAt != nil }
 
 // Trajanje razmaka
 func (d Dezurstvo) Trajanje() time.Duration { return d.Do.Sub(d.Od) }

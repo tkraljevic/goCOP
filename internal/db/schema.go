@@ -67,6 +67,8 @@ func InitSchema(database *sql.DB) error {
 			opis TEXT NOT NULL DEFAULT '',
 			mjesto TEXT NOT NULL DEFAULT '',
 			napomena TEXT NOT NULL DEFAULT '',
+			potvrdio TEXT NOT NULL DEFAULT '',
+			potvrdeno_at DATETIME,
 			created_by TEXT NOT NULL DEFAULT '',
 			created_at DATETIME NOT NULL,
 			updated_at DATETIME NOT NULL
@@ -816,6 +818,8 @@ func migrateSchema(database *sql.DB) error {
 		// isto stoji u arhivi, u 48 bajta umjesto 1.360.
 		{"readings", "izdanje", "TEXT NOT NULL DEFAULT ''"},
 		{"journals", "channel", "TEXT NOT NULL DEFAULT ''"},
+		{"dezurstva", "potvrdio", "TEXT NOT NULL DEFAULT ''"},
+		{"dezurstva", "potvrdeno_at", "DATETIME"},
 	}
 
 	// Vrijednosti koje su promijenile ime nakon što su upisane

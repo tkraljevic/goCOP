@@ -61,7 +61,7 @@ func TestDnevnikCOPKrozRute(t *testing.T) {
 	}
 	h := NewJournalsHandler(journals, users, nil, nil, nil,
 		tmpl("dnevnici_izbor.html"), tmpl("dnevnici.html"), tmpl("dnevnik_form.html"), tmpl("dnevnik.html"),
-		tmpl("dnevnik_cop.html"), tmpl("dnevnik_cop_form.html"), tmpl("dnevnik_list.html"), nil, tmpl("dnevnik_obracun.html"))
+		tmpl("dnevnik_cop.html"), tmpl("dnevnik_cop_form.html"), tmpl("dnevnik_list.html"), nil, tmpl("dnevnik_obracun.html"), tmpl("dnevnik_dezurstva.html"))
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /dnevnici/popis", h.ShowJournals)
 	mux.HandleFunc("GET /dnevnici/novi-cop", h.ShowCOPJournalForm)
@@ -70,8 +70,10 @@ func TestDnevnikCOPKrozRute(t *testing.T) {
 	mux.HandleFunc("POST /dnevnici/{id}/zapisi", h.HandleAddCOPEntry)
 	mux.HandleFunc("POST /dnevnici/{id}/upisi/{entry}/storno", h.HandleVoidEntry)
 	mux.HandleFunc("POST /dnevnici/{id}/upisi/{entry}/ispravak", h.HandleIspraviPrijepis)
+	mux.HandleFunc("GET /dnevnici/{id}/dezurstva", h.ShowDezurstva)
 	mux.HandleFunc("POST /dnevnici/{id}/dezurstva", h.HandleSaveDezurstvo)
 	mux.HandleFunc("POST /dnevnici/{id}/dezurstva/{dez}/makni", h.HandleMakniDezurstvo)
+	mux.HandleFunc("POST /dnevnici/{id}/dezurstva/{dez}/potvrdi", h.HandlePotvrdiDezurstvo)
 	mux.HandleFunc("GET /dnevnici/{id}/obracun", h.ShowObracun)
 
 	voditelj := &models.User{ID: uuid.New(), FullName: "Voditelj Centra"}
@@ -193,8 +195,15 @@ func TestDnevnikCOPKrozRute(t *testing.T) {
 	if l := w.Header().Get("Location"); !strings.Contains(l, "success=") {
 		t.Fatalf("dežurstvo nije ušlo u plan: %s", l)
 	}
-	mora(zovi(http.MethodGet, "/dnevnici/"+dnevnik, nil), http.StatusOK, "plan na dnevniku",
-		`id="dezurstva"`, "Ana Anić", "Dežurstvo u COP-u", "12.9.", "19:00", "13.9.", "07:00", "(12:00)", "/obracun")
+	// Plan ima svoju stranicu; dnevnik COP-a nosi samo gumb do nje.
+	mora(zovi(http.MethodGet, "/dnevnici/"+dnevnik+"/dezurstva", nil), http.StatusOK, "plan",
+		"Ana Anić", "Dežurstvo u COP-u", "12.9.", "19:00", "13.9.", "07:00", "(12:00)", "/obracun", `id="novo-dezurstvo"`)
+	w = zovi(http.MethodGet, "/dnevnici/"+dnevnik, nil)
+	mora(w, http.StatusOK, "dnevnik s gumbom", "/dnevnici/"+dnevnik+"/dezurstva")
+	if strings.Contains(w.Body.String(), `id="novo-dezurstvo"`) {
+		t.Error("obrazac plana još stoji na dnevniku COP-a")
+	}
+	mora(zovi(http.MethodGet, "/dnevnici/popis?vrsta=DEZURSTVA", nil), http.StatusOK, "popis planova", "Plan dežurstava", "/dnevnici/"+dnevnik+"/dezurstva")
 	w = zovi(http.MethodGet, "/dnevnici/"+dnevnik+"/obracun", nil)
 	mora(w, http.StatusOK, "obračun", "Ana Anić", "3:00", "2:00", "6:00", "1:00", "12:00")
 	// ured: 3 × 1,85 + 2 × 2,2 + 6 × 2,35 + 1 × 2 = 26,05 obračunskih sati
@@ -203,16 +212,57 @@ func TestDnevnikCOPKrozRute(t *testing.T) {
 	}
 	// Razdoblje koje hvata samo subotu: 5 h (19–24), obračunski 3×1,85 + 2×2,2 = 9,95.
 	mora(zovi(http.MethodGet, "/dnevnici/"+dnevnik+"/obracun?od=2026-09-12&do=2026-09-12", nil), http.StatusOK, "obračun subote", "5:00", "9,95")
-	// Dežurni ne slaže plan.
+	// Svatko upisuje sebe: dežurni bez uprave upiše svoje dežurstvo, ono
+	// čeka potvrdu i ne ulazi u obračun dok ga uprava ne potvrdi. Tuđe ne može.
 	obican := &models.UserPermissions{AllowedSectors: map[string]bool{"B": true}}
-	r := httptest.NewRequest(http.MethodPost, "/dnevnici/"+dnevnik+"/dezurstva", strings.NewReader(url.Values{
-		"user_id": {dezurni.ID.String()}, "opis": {"Dežurstvo u COP-u"}, "od_date": {"2026-09-14"}, "od_time": {"07:00"}, "do_time": {"19:00"}}.Encode()))
-	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	ctx := context.WithValue(context.WithValue(r.Context(), contextKeyUser, dezurni), contextKeyPerms, obican)
-	rw := httptest.NewRecorder()
-	mux.ServeHTTP(rw, r.WithContext(ctx))
+	kaoDezurni := func(metoda, putanja string, obrazac url.Values) *httptest.ResponseRecorder {
+		t.Helper()
+		var r *http.Request
+		if obrazac != nil {
+			r = httptest.NewRequest(metoda, putanja, strings.NewReader(obrazac.Encode()))
+			r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		} else {
+			r = httptest.NewRequest(metoda, putanja, nil)
+		}
+		ctx := context.WithValue(context.WithValue(r.Context(), contextKeyUser, dezurni), contextKeyPerms, obican)
+		rw := httptest.NewRecorder()
+		mux.ServeHTTP(rw, r.WithContext(ctx))
+		return rw
+	}
+	rw := kaoDezurni(http.MethodPost, "/dnevnici/"+dnevnik+"/dezurstva", url.Values{
+		"user_id": {dezurni.ID.String()}, "opis": {"Obilazak i pregled obrambenih objekata"}, "od_date": {"2026-09-14"}, "od_time": {"07:00"}, "do_time": {"11:00"}})
+	if l := rw.Header().Get("Location"); !strings.Contains(l, "success=") {
+		t.Fatalf("dežurni nije upisao sebe: %s", l)
+	}
+	rw = kaoDezurni(http.MethodGet, "/dnevnici/"+dnevnik+"/dezurstva", nil)
+	mora(rw, http.StatusOK, "plan kao dežurni", "čeka potvrdu", `value="Ana Anić" disabled`, "Obilazak i pregled")
+	if strings.Contains(rw.Body.String(), "/potvrdi") {
+		t.Error("dežurni vidi gumb za potvrdu")
+	}
+	// Ponedjeljak 14.9. 07–11 teren: 1 h dnevni + 3 h redovno — ali još ne u obračunu.
+	// Zadano razdoblje seže do sutra; 14.9. je iza toga, pa se razdoblje zada.
+	w = zovi(http.MethodGet, "/dnevnici/"+dnevnik+"/obracun?od=2026-09-11&do=2026-09-14", nil)
+	mora(w, http.StatusOK, "obračun s nepotvrđenim", "4:00 h", "čeka potvrdu", "26,05")
+	rw = kaoDezurni(http.MethodPost, "/dnevnici/"+dnevnik+"/dezurstva", url.Values{
+		"user_id": {voditelj.ID.String()}, "opis": {"Dežurstvo u COP-u"}, "od_date": {"2026-09-14"}, "od_time": {"07:00"}, "do_time": {"19:00"}})
 	if l := rw.Header().Get("Location"); !strings.Contains(l, "error=") {
-		t.Errorf("dežurni je složio plan: %s", l)
+		t.Errorf("dežurni je upisao tuđe dežurstvo: %s", l)
+	}
+	// Uprava potvrdi; sati uđu u obračun: 26,05 + 3 × 0,2 + 1 × 1,7 = 28,35.
+	w = zovi(http.MethodGet, "/dnevnici/"+dnevnik+"/dezurstva", nil)
+	m = regexp.MustCompile(`/dezurstva/([^/]+)/potvrdi`).FindStringSubmatch(w.Body.String())
+	if m == nil {
+		t.Fatal("uprava ne vidi gumb za potvrdu")
+	}
+	w = zovi(http.MethodPost, "/dnevnici/"+dnevnik+"/dezurstva/"+m[1]+"/potvrdi", url.Values{})
+	if l := w.Header().Get("Location"); !strings.Contains(l, "success=") {
+		t.Fatalf("potvrda: %s", l)
+	}
+	mora(zovi(http.MethodGet, "/dnevnici/"+dnevnik+"/dezurstva", nil), http.StatusOK, "potvrđeno", "potvrdio Voditelj Centra")
+	w = zovi(http.MethodGet, "/dnevnici/"+dnevnik+"/obracun?od=2026-09-11&do=2026-09-14", nil)
+	mora(w, http.StatusOK, "obračun poslije potvrde", "28,35", "16:00")
+	if strings.Contains(w.Body.String(), "čeka potvrdu") {
+		t.Error("poslije potvrde još nešto čeka")
 	}
 
 	// Građevinska vrsta u zapisnik dežurstva ne ulazi.
