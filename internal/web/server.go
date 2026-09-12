@@ -778,6 +778,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /sections/{code}", s.authMiddleware(http.HandlerFunc(sectionsH.ShowSection)))
 	s.mux.Handle("GET /sections/{code}/edit", s.authMiddleware(http.HandlerFunc(sectionsH.ShowSectionForm)))
 	s.mux.Handle("GET /sections/{code}/dionica.xlsx", s.authMiddleware(http.HandlerFunc(sectionsH.IzvoziDionicu)))
+	s.mux.Handle("GET /sections/dionice.xlsx", s.authMiddleware(http.HandlerFunc(sectionsH.IzvoziPopisDionica)))
 	s.mux.Handle("GET /api/sections/{code}", s.authMiddleware(http.HandlerFunc(sectionsH.HandleGetSectionAPI)))
 	s.mux.Handle("POST /sections/create", s.authMiddleware(http.HandlerFunc(sectionsH.HandleCreateSection)))
 	s.mux.Handle("POST /sections/update", s.authMiddleware(http.HandlerFunc(sectionsH.HandleUpdateSection)))
