@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -76,6 +77,7 @@ func TestDnevnikCOPKrozRute(t *testing.T) {
 	mux.HandleFunc("POST /dnevnici/{id}/dezurstva/{dez}/potvrdi", h.HandlePotvrdiDezurstvo)
 	mux.HandleFunc("GET /dnevnici/{id}/obracun", h.ShowObracun)
 	mux.HandleFunc("GET /dnevnici/{id}/obracun/{user}", h.ShowIORS)
+	mux.HandleFunc("GET /dnevnici/{id}/obracun.xlsx", h.IzvoziObracun)
 
 	voditelj := &models.User{ID: uuid.New(), FullName: "Voditelj Centra"}
 	uprava := &models.UserPermissions{AdminSectors: map[string]bool{"B": true}, AllowedSectors: map[string]bool{"B": true}}
@@ -292,6 +294,36 @@ func TestDnevnikCOPKrozRute(t *testing.T) {
 	// Sama sebe vidi i bez prava pisanja u dnevnik; tuđe ne.
 	rw = kaoDezurni(http.MethodGet, "/dnevnici/"+dnevnik+"/obracun/"+dezurni.ID.String(), nil)
 	mora(rw, http.StatusOK, "svoj IORS", "Ana Anić")
+
+	// Excel za računovodstvo: list po području, redak po osobi, satnica prazna.
+	w = zovi(http.MethodGet, "/dnevnici/"+dnevnik+"/obracun.xlsx?od=2026-09-11&do=2026-09-14", nil)
+	if w.Code != http.StatusOK || !strings.Contains(w.Header().Get("Content-Disposition"), "Obracun_sati_cop-osijek_2026-09-11_2026-09-14.xlsx") {
+		t.Fatalf("izvoz: %d %s", w.Code, w.Header().Get("Content-Disposition"))
+	}
+	if put := os.Getenv("GOCOP_IZVOZ_XLSX"); put != "" {
+		_ = os.WriteFile(put, w.Body.Bytes(), 0o644)
+	}
+	redci, err := procitajXLSX(w.Body.Bytes())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var ana, ukupno []string
+	for _, r := range redci {
+		if len(r) > 0 && r[0] == "Ana Anić" {
+			ana = r
+		}
+		if len(r) > 0 && r[0] == "UKUPNO" {
+			ukupno = r
+		}
+	}
+	// prvi list je Vuka: subota dnevni 3 h → 5,5; subota noćni 2 → 4,5;
+	// nedjelja dnevni 1 → 2; nedjelja noćni 6 → 14; sveukupno 12 h → 26.
+	if len(ana) < 23 || ana[7] != "3" || ana[8] != "5.5" || ana[10] != "2" || ana[11] != "4.5" || ana[13] != "1" || ana[14] != "2" || ana[16] != "6" || ana[17] != "14" || ana[19] != "12" || ana[20] != "26" {
+		t.Errorf("redak Ane u Excelu: %v", ana)
+	}
+	if len(ukupno) < 21 || ukupno[20] != "26" {
+		t.Errorf("zbroj u Excelu: %v", ukupno)
+	}
 
 	// Profil: planovi u kojima osoba ima dežurstva, s brojem i satima.
 	if planovi, err := journalRepo.PlanoviOsobe(context.Background(), dezurni.ID.String()); err != nil || len(planovi) != 1 ||
