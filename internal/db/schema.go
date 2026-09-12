@@ -90,6 +90,24 @@ func InitSchema(database *sql.DB) error {
 			do_godine INTEGER NOT NULL DEFAULT 0,
 			updated_at DATETIME NOT NULL
 		);`,
+		// Dnevna izvješća rukovoditelja dionica: zaglavlje u stupcima, obrazac
+		// u JSON-u — propisan je i mijenja se cijeli. Jedno po dionici i danu.
+		`CREATE TABLE IF NOT EXISTS dnevna_izvjesca (
+			id TEXT PRIMARY KEY,
+			journal_id TEXT NOT NULL DEFAULT '',
+			section_code TEXT NOT NULL,
+			dan TEXT NOT NULL,
+			stadij TEXT NOT NULL DEFAULT '',
+			sadrzaj TEXT NOT NULL DEFAULT '{}',
+			izradio_id TEXT NOT NULL DEFAULT '',
+			izradio TEXT NOT NULL DEFAULT '',
+			izradeno_at DATETIME NOT NULL,
+			predano_at DATETIME,
+			created_at DATETIME NOT NULL,
+			updated_at DATETIME NOT NULL
+		);`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_dnevna_izvjesca_dan ON dnevna_izvjesca(section_code, dan);`,
+		`CREATE INDEX IF NOT EXISTS idx_dnevna_izvjesca_journal ON dnevna_izvjesca(journal_id, dan);`,
 		`CREATE TABLE IF NOT EXISTS koeficijenti (
 			id TEXT PRIMARY KEY,
 			mjesto TEXT NOT NULL,
