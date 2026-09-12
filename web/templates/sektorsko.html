@@ -21,7 +21,6 @@
     <form method="POST" action="/sektorsko-izvjesce/{{$iz.ID}}/obrisi" style="display:inline;" onsubmit="return confirm('Obrisati izvješće sektora? U knjizi verzija ostaje arhivirano.');"><button type="submit" class="btn btn-secondary" title="Obriši">{{icon "trash"}}</button></form>
     {{end}}
     <a href="/sektorsko-izvjesce/{{$iz.ID}}/izvjesce.xlsx" class="btn btn-secondary" title="Dokument za ispis, A4">{{icon "download"}} Excel</a>
-    <button type="button" class="btn btn-secondary" onclick="window.print()">{{icon "printer"}} Ispis</button>
   </div>
 </div>
 
