@@ -3417,7 +3417,15 @@ textarea {
 .izvjesce-radio { display: flex; flex-wrap: wrap; gap: 0.5rem 1.2rem; }
 .izvjesce-radio label { display: inline-flex; align-items: center; gap: 0.3rem; }
 .izvjesce-vodostaji .form-control { padding-top: 0.3rem; padding-bottom: 0.3rem; }
-.izvjesce-facts > div { grid-template-columns: minmax(12rem, 1fr) 2fr; }
+/* Tekst izvješća: jedan podatak po retku, oznaka lijevo, tekst preko ostatka */
+.izvjesce-facts { display: block; font-size: 0.9rem; }
+.izvjesce-facts > div { display: grid; grid-template-columns: minmax(10rem, 16rem) 1fr; gap: 0.25rem 1rem; padding: 0.5rem 0; border-top: 1px solid var(--border, #e3e7ec); }
+.izvjesce-facts > div:first-child { border-top: 0; }
+.izvjesce-facts dt { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted, #667); line-height: 1.3; align-self: start; }
+.izvjesce-facts dd { margin: 0; font-weight: 400; font-size: 0.92rem; line-height: 1.45; }
+.izvjesce-facts dd.zapis-tekst { white-space: pre-line; }
+@media (max-width: 640px) { .izvjesce-facts > div { grid-template-columns: 1fr; } }
+.izvjesce-dokument .detail-section > .zapis-tekst { white-space: pre-line; font-size: 0.92rem; line-height: 1.45; margin: 0; }
 @media print { .izvjesce-dokument { font-size: 11pt; } }
 
 /* Sektorsko izvješće */
@@ -3426,3 +3434,8 @@ textarea {
 .sektorsko-ploca-glava h2 { margin: 0; font-size: 1.05rem; display: inline-flex; align-items: center; gap: 0.4rem; }
 .izvjesce-podnaslov { font-size: 0.95rem; margin: 0.9rem 0 0.4rem; color: var(--text-secondary, #555); }
 .data-table tr.zbroj td { background: var(--surface-2, #f3f5f8); }
+
+/* Kratke količine u jednom retku: oznaka sitno iznad vrijednosti */
+.izvjesce-kolicine { display: flex; flex-wrap: wrap; gap: 0.4rem 1.5rem; margin: 0.15rem 0; }
+.izvjesce-kolicine > span { display: inline-flex; flex-direction: column; min-width: 4.5rem; }
+.izvjesce-kolicine small { font-size: 0.68rem; color: var(--text-muted, #667); text-transform: uppercase; letter-spacing: 0.03em; }

@@ -45,7 +45,7 @@
     <dl class="reg-facts izvjesce-facts">
       <div><dt>Pregled i ocjena stanja građevina i korita; oštećenja i kritična mjesta</dt><dd class="zapis-tekst">{{if $s.Pregled}}{{$s.Pregled}}{{else}}—{{end}}</dd></div>
       <div><dt>Provedene mjere i radnje</dt><dd class="zapis-tekst">{{if $s.Radnje}}{{$s.Radnje}}{{else}}—{{end}}</dd></div>
-      <div><dt>vreće · materijal · nasipi · crpke</dt><dd>{{or $s.Vrece "—"}} · {{or $s.Materijal "—"}} · {{or $s.Nasipi "—"}} · {{or $s.Crpke "—"}}</dd></div>
+      <div><dt>Ugrađeno i angažirano</dt><dd><span class="izvjesce-kolicine"><span><small>vreće</small>{{or $s.Vrece "—"}}</span><span><small>materijal</small>{{or $s.Materijal "—"}}</span><span><small>nasipi</small>{{or $s.Nasipi "—"}}</span><span><small>crpke</small>{{or $s.Crpke "—"}}</span></span></dd></div>
       <div><dt>Aktiviranje objekata za rasterećenje velikih voda</dt><dd class="zapis-tekst">{{if $s.Objekti}}{{$s.Objekti}}{{else}}—{{end}}</dd></div>
     </dl>
   </section>
@@ -65,12 +65,15 @@
     <h2>{{icon "waves"}} Stanje na poplavljenom području</h2>
     {{$pp := $s.Poplavljeno}}{{$e := $s.Evakuacija}}
     <dl class="reg-facts izvjesce-facts">
-      <div><dt>Poplavljena naselja</dt><dd>{{or $pp.Naselja "—"}}</dd></div>
-      <div><dt>ljudi · stambeni · industrijski · farme</dt><dd class="mono">{{$pp.Ljudi}} · {{$pp.Stambeni}} · {{$pp.Industrijski}} · {{$pp.Farme}}</dd></div>
-      <div><dt>infrastrukturni objekti</dt><dd>{{or $pp.Infrastruktura "—"}}</dd></div>
-      <div><dt>površine (ha): šumske · poljoprivredne · ostale</dt><dd class="mono">{{brojHRf $pp.SumskeHa 1}} · {{brojHRf $pp.PoljoprivredneHa 1}} · {{brojHRf $pp.OstaleHa 1}}</dd></div>
-      <div><dt>Evakuacija — naselja</dt><dd>{{or $e.Naselja "—"}}</dd></div>
-      <div><dt>evakuirano ljudi · kućanstava · životinje</dt><dd>{{$e.Ljudi}} · {{$e.Kucanstava}} · {{or $e.Zivotinje "—"}}</dd></div>
+      <div><dt>Poplavljena područja i objekti</dt><dd>{{if or $pp.Naselja $pp.Ljudi $pp.Stambeni $pp.Industrijski $pp.Farme $pp.Infrastruktura $pp.SumskeHa $pp.PoljoprivredneHa $pp.OstaleHa}}
+        {{if $pp.Naselja}}<div>naselja: <strong>{{$pp.Naselja}}</strong></div>{{end}}
+        <span class="izvjesce-kolicine"><span><small>ljudi</small>{{$pp.Ljudi}}</span><span><small>stambeni objekti</small>{{$pp.Stambeni}}</span><span><small>industrijski objekti</small>{{$pp.Industrijski}}</span><span><small>farme</small>{{$pp.Farme}}</span><span><small>šumske (ha)</small>{{brojHRf $pp.SumskeHa 1}}</span><span><small>poljoprivredne (ha)</small>{{brojHRf $pp.PoljoprivredneHa 1}}</span><span><small>ostale (ha)</small>{{brojHRf $pp.OstaleHa 1}}</span></span>
+        {{if $pp.Infrastruktura}}<div>infrastrukturni objekti: {{$pp.Infrastruktura}}</div>{{end}}
+        {{else}}— nema poplavljenih područja{{end}}</dd></div>
+      <div><dt>Evakuacija</dt><dd>{{if or $e.Naselja $e.Ljudi $e.Kucanstava $e.Zivotinje}}
+        {{if $e.Naselja}}<div>naselja: <strong>{{$e.Naselja}}</strong></div>{{end}}
+        <span class="izvjesce-kolicine"><span><small>evakuirano ljudi</small>{{$e.Ljudi}}</span><span><small>kućanstava</small>{{$e.Kucanstava}}</span><span><small>životinje</small>{{or $e.Zivotinje "—"}}</span></span>
+        {{else}}— nije provedena{{end}}</dd></div>
     </dl>
   </section>
 
