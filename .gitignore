@@ -45,3 +45,6 @@ pakete/
 # djelatnika i ostaje uz taj uvez, izvan repozitorija — kao i imenik.
 cmd/uvoz-dnevnika-cop/
 /uvoz-dnevnika-cop
+
+# Uvoz IORS obrazaca radi nad datotekama s imenima djelatnika; ostaje uz njih.
+cmd/uvoz-iors/
