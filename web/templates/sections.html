@@ -8,9 +8,12 @@
     <h1 class="page-title">{{icon "waves"}} Dionice</h1>
     <p class="page-desc">Registar 465 štićenih dionica, nasipa, crpnih stanica, ustavnih objekata i mjerodavnih vodomjera</p>
   </div>
-  {{if .CanCreateAny}}
-  <a href="/sections/new" class="btn btn-primary">{{icon "plus"}} Nova dionica</a>
-  {{end}}
+  <div class="page-actions">
+    <a href="/sections/dionice.xlsx{{if or .SelectedSector .SelectedArea .SearchQuery}}?sector={{.SelectedSector}}&area={{if .SelectedArea}}{{.SelectedArea}}{{end}}&q={{.SearchQuery}}{{end}}" class="btn btn-secondary" title="Popis dionica po sektoru i području, A4">{{icon "download"}} Excel</a>
+    {{if .CanCreateAny}}
+    <a href="/sections/new" class="btn btn-primary">{{icon "plus"}} Nova dionica</a>
+    {{end}}
+  </div>
 </div>
 
 <!-- Traka za pretraživanje i filtriranje -->
