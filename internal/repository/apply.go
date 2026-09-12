@@ -306,6 +306,14 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		_, err := tx.ExecContext(ctx, entryUpsert, entryArgs(&e)...)
 		return err
 
+	case EntityDezurstva:
+		var d models.Dezurstvo
+		if err := json.Unmarshal(v.Payload, &d); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, dezurstvoUpsert, dezurstvoArgs(&d)...)
+		return err
+
 	case EntityRoleModules:
 		var rm models.RoleModules
 		if err := json.Unmarshal(v.Payload, &rm); err != nil {
@@ -623,6 +631,8 @@ func removeFromSurface(ctx context.Context, tx *sql.Tx, v ledger.Version) error 
 		stmt = `DELETE FROM journal_sheets WHERE id = ?`
 	case EntityJournalEntries:
 		stmt = `DELETE FROM journal_entries WHERE id = ?`
+	case EntityDezurstva:
+		stmt = `DELETE FROM dezurstva WHERE id = ?`
 	case EntityMaintainedWaters:
 		stmt = `DELETE FROM maintained_waters WHERE id = ?`
 	case EntityWorkItems:

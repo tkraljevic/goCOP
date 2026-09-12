@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"gocop/internal/models"
+	"gocop/internal/obracun"
 	"gocop/internal/service"
 )
 
@@ -28,13 +29,14 @@ type JournalsHandler struct {
 	tmplJournal *template.Template
 	tmplSheet   *template.Template
 	tmplPrint   *template.Template
+	tmplObracun *template.Template
 }
 
 func NewJournalsHandler(j *service.JournalService, users *service.UserService, m *service.MaintenanceService,
 	sections *service.SectionService, stations *service.StationService,
-	izbor, list, form, journal, cop, copForm, sheet, print *template.Template) *JournalsHandler {
+	izbor, list, form, journal, cop, copForm, sheet, print, obracun *template.Template) *JournalsHandler {
 	return &JournalsHandler{journals: j, users: users, maintenance: m, sections: sections, stations: stations,
-		tmplIzbor: izbor, tmplCOP: cop, tmplCOPForm: copForm, tmplList: list, tmplForm: form, tmplJournal: journal, tmplSheet: sheet, tmplPrint: print}
+		tmplIzbor: izbor, tmplCOP: cop, tmplCOPForm: copForm, tmplList: list, tmplForm: form, tmplJournal: journal, tmplSheet: sheet, tmplPrint: print, tmplObracun: obracun}
 }
 
 // JournalPageData su podaci svih stranica dnevnika; što stranica ne treba ostaje prazno
@@ -84,16 +86,24 @@ type JournalPageData struct {
 	IsFull            bool // za izvođača: nema mjesta, otvara novi list
 	Today             string
 	Sada              string // sat i minuta sad, za vrijeme novog zapisa
-	CanWrite          bool
-	CanSupervise      bool
-	CanManage         bool
-	IsContractor      bool
-	IsEdit            bool
-	PrintSheets       []PrintSheet
-	From, To          string
-	SuccessMessage    string
-	ErrorMessage      string
-	ActiveNav         string
+	// Plan dežurstava uz dnevnik COP-a i obračun sati iz njega
+	Dezurstva []models.Dezurstvo
+	Osobe     []models.User // koga se može staviti u plan; samo za upravu centra
+	// UpravaCentra slaže plan dežurstava; CanManage (nadzor) za to nije dovoljan
+	UpravaCentra   bool
+	OpisiRada      []models.OpisRada
+	Obracun        []service.ObracunOsobe
+	Razredi        []obracun.Razred
+	CanWrite       bool
+	CanSupervise   bool
+	CanManage      bool
+	IsContractor   bool
+	IsEdit         bool
+	PrintSheets    []PrintSheet
+	From, To       string
+	SuccessMessage string
+	ErrorMessage   string
+	ActiveNav      string
 	ViewAsBanner
 }
 
@@ -389,6 +399,11 @@ func (h *JournalsHandler) ShowJournal(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		data.Dani = poDanima(zapisi)
+		data.Dezurstva, _ = h.journals.Dezurstva(ctx, j.ID)
+		data.OpisiRada = models.OpisiRada
+		if data.UpravaCentra = h.journals.UpravaCentra(data.Permissions, j); data.UpravaCentra {
+			data.Osobe, _ = h.users.ListUsers(j.CentarSektor, 0, "", "", "")
+		}
 		h.render(w, h.tmplCOP, "dnevnik_cop.html", data)
 		return
 	}

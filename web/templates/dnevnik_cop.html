@@ -34,6 +34,83 @@
 </div>
 {{end}}
 
+{{/* Plan dežurstava: razmak od–do jedne osobe s opisom rada. Prije obrane
+     plan, poslije nje ulaz za obračun sati — jedna evidencija, ne dvije.
+     Slaže ga uprava centra; dežurni ga vidi. */}}
+{{if or .Dezurstva .UpravaCentra}}
+<section class="detail-section" id="dezurstva">
+  <h2>{{icon "users"}} Plan dežurstava
+    {{if .Dezurstva}}<span class="reg-chip">{{len .Dezurstva}}</span>{{end}}
+    {{if .CanWrite}}<a href="/dnevnici/{{.Journal.ID}}/obracun" class="btn btn-sm btn-secondary" style="margin-left:auto;">{{icon "calculator"}} Obračun sati</a>{{end}}
+  </h2>
+  {{if .Dezurstva}}
+  <div class="table-card"><div class="table-responsive">
+    <table class="data-table">
+      <thead><tr><th>Od</th><th>Do</th><th>Tko</th><th>Opis rada</th><th>Mjesto</th><th></th></tr></thead>
+      <tbody>
+      {{range .Dezurstva}}
+      <tr>
+        <td class="mono">{{danTjedna .Od}} {{.Od.Format "2.1."}} {{.Od.Format "15:04"}}</td>
+        <td class="mono">{{if ne (.Do.Format "2006-01-02") (.Od.Format "2006-01-02")}}{{.Do.Format "2.1."}} {{end}}{{.Do.Format "15:04"}} <span class="reg-card-sub">({{sati .Trajanje}})</span></td>
+        <td>{{.UserName}}</td>
+        <td>{{.Opis}}{{if .Napomena}}<div class="reg-card-sub">{{.Napomena}}</div>{{end}}</td>
+        <td>{{if eq .Mjesto "TEREN"}}teren{{else}}ured{{end}}</td>
+        <td>{{if $.UpravaCentra}}<form method="POST" action="/dnevnici/{{$.Journal.ID}}/dezurstva/{{.ID}}/makni" style="display:inline;"
+          onsubmit="return confirm('Maknuti dežurstvo iz plana?');"><button type="submit" class="btn btn-sm btn-secondary" title="Makni iz plana">{{icon "x"}}</button></form>{{end}}</td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div></div>
+  {{end}}
+  {{if .UpravaCentra}}
+  <details class="reg-card" style="padding:0.75rem 1rem; margin-top:0.5rem;">
+    <summary>{{icon "plus"}} Dodaj dežurstvo</summary>
+    <form method="POST" action="/dnevnici/{{.Journal.ID}}/dezurstva" style="margin-top:0.75rem;">
+      <div class="form-row novi-zapis-red">
+        <div class="form-group">
+          <label class="form-label" for="d-osoba">Tko *</label>
+          <select id="d-osoba" name="user_id" class="form-control" required>
+            <option value="">— odaberite —</option>
+            {{range .Osobe}}<option value="{{.ID}}">{{.FullName}}</option>{{end}}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="d-opis">Opis rada *</label>
+          <select id="d-opis" name="opis" class="form-control" required>
+            {{range .OpisiRada}}<option value="{{.Opis}}">{{.Opis}} ({{if eq .Mjesto "TEREN"}}teren{{else}}ured{{end}})</option>{{end}}
+          </select>
+        </div>
+      </div>
+      <div class="form-row novi-zapis-red">
+        <div class="form-group">
+          <label class="form-label" for="d-od-date">Od *</label>
+          <div style="display:flex; gap:0.35rem;">
+            <input type="date" id="d-od-date" name="od_date" class="form-control" value="{{.Today}}" required>
+            <input type="time" name="od_time" class="form-control" value="07:00" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="d-do-date">Do * <span class="reg-card-sub">(dan prazan = isti dan)</span></label>
+          <div style="display:flex; gap:0.35rem;">
+            <input type="date" id="d-do-date" name="do_date" class="form-control">
+            <input type="time" name="do_time" class="form-control" value="19:00" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="d-napomena">Napomena</label>
+          <input type="text" id="d-napomena" name="napomena" class="form-control" autocomplete="off">
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">{{icon "check"}} Upiši u plan</button>
+      </div>
+    </form>
+  </details>
+  {{end}}
+</section>
+{{end}}
+
 {{range .Dani}}
 <section class="dan-dezurstva">
   <h2 class="dan-naslov">{{danTjedna .Dan}} {{.Dan.Format "2.1.2006."}}

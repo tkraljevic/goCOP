@@ -61,7 +61,7 @@ func TestDnevnikCOPKrozRute(t *testing.T) {
 	}
 	h := NewJournalsHandler(journals, users, nil, nil, nil,
 		tmpl("dnevnici_izbor.html"), tmpl("dnevnici.html"), tmpl("dnevnik_form.html"), tmpl("dnevnik.html"),
-		tmpl("dnevnik_cop.html"), tmpl("dnevnik_cop_form.html"), tmpl("dnevnik_list.html"), nil)
+		tmpl("dnevnik_cop.html"), tmpl("dnevnik_cop_form.html"), tmpl("dnevnik_list.html"), nil, tmpl("dnevnik_obracun.html"))
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /dnevnici/popis", h.ShowJournals)
 	mux.HandleFunc("GET /dnevnici/novi-cop", h.ShowCOPJournalForm)
@@ -70,6 +70,9 @@ func TestDnevnikCOPKrozRute(t *testing.T) {
 	mux.HandleFunc("POST /dnevnici/{id}/zapisi", h.HandleAddCOPEntry)
 	mux.HandleFunc("POST /dnevnici/{id}/upisi/{entry}/storno", h.HandleVoidEntry)
 	mux.HandleFunc("POST /dnevnici/{id}/upisi/{entry}/ispravak", h.HandleIspraviPrijepis)
+	mux.HandleFunc("POST /dnevnici/{id}/dezurstva", h.HandleSaveDezurstvo)
+	mux.HandleFunc("POST /dnevnici/{id}/dezurstva/{dez}/makni", h.HandleMakniDezurstvo)
+	mux.HandleFunc("GET /dnevnici/{id}/obracun", h.ShowObracun)
 
 	voditelj := &models.User{ID: uuid.New(), FullName: "Voditelj Centra"}
 	uprava := &models.UserPermissions{AdminSectors: map[string]bool{"B": true}, AllowedSectors: map[string]bool{"B": true}}
@@ -174,6 +177,42 @@ func TestDnevnikCOPKrozRute(t *testing.T) {
 	}
 	if e, _ := journalRepo.GetEntry(context.Background(), stari.ID); e == nil || e.Kind != models.EntryKindReport || e.Number != 1 {
 		t.Errorf("ispravljen zapis: %+v", e)
+	}
+
+	// Plan dežurstava: uprava upiše dežurnog, plan se vidi na dnevniku, a
+	// obračun iz njega računa sate. Subota 12.9.2026. 19:00 – nedjelja 07:00
+	// u COP-u (ured): 4 h vikend dnevnih (19–22 i 6–7), 8 h vikend noćnih.
+	dezurni := &models.User{ID: uuid.New(), Username: "ana", FullName: "Ana Anić", PasswordHash: "x", IsActive: true}
+	if err := userRepo.CreateUser(dezurni, nil); err != nil {
+		t.Fatal(err)
+	}
+	w = zovi(http.MethodPost, "/dnevnici/"+dnevnik+"/dezurstva", url.Values{
+		"user_id": {dezurni.ID.String()}, "opis": {"Dežurstvo u COP-u"},
+		"od_date": {"2026-09-12"}, "od_time": {"19:00"}, "do_date": {"2026-09-13"}, "do_time": {"07:00"}})
+	mora(w, http.StatusSeeOther, "dežurstvo")
+	if l := w.Header().Get("Location"); !strings.Contains(l, "success=") {
+		t.Fatalf("dežurstvo nije ušlo u plan: %s", l)
+	}
+	mora(zovi(http.MethodGet, "/dnevnici/"+dnevnik, nil), http.StatusOK, "plan na dnevniku",
+		`id="dezurstva"`, "Ana Anić", "Dežurstvo u COP-u", "12.9.", "19:00", "13.9.", "07:00", "(12:00)", "/obracun")
+	w = zovi(http.MethodGet, "/dnevnici/"+dnevnik+"/obracun", nil)
+	mora(w, http.StatusOK, "obračun", "Ana Anić", "4:00", "8:00", "12:00")
+	// ured: 4 × 1,85 + 8 × 2,2 = 25,00 obračunskih sati
+	if !strings.Contains(w.Body.String(), "25,00") {
+		t.Errorf("obračun nema 25,00 obračunskih sati")
+	}
+	// Razdoblje koje hvata samo subotu: 5 h (19–24), obračunski 3×1,85 + 2×2,2 = 9,95.
+	mora(zovi(http.MethodGet, "/dnevnici/"+dnevnik+"/obracun?od=2026-09-12&do=2026-09-12", nil), http.StatusOK, "obračun subote", "5:00", "9,95")
+	// Dežurni ne slaže plan.
+	obican := &models.UserPermissions{AllowedSectors: map[string]bool{"B": true}}
+	r := httptest.NewRequest(http.MethodPost, "/dnevnici/"+dnevnik+"/dezurstva", strings.NewReader(url.Values{
+		"user_id": {dezurni.ID.String()}, "opis": {"Dežurstvo u COP-u"}, "od_date": {"2026-09-14"}, "od_time": {"07:00"}, "do_time": {"19:00"}}.Encode()))
+	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	ctx := context.WithValue(context.WithValue(r.Context(), contextKeyUser, dezurni), contextKeyPerms, obican)
+	rw := httptest.NewRecorder()
+	mux.ServeHTTP(rw, r.WithContext(ctx))
+	if l := rw.Header().Get("Location"); !strings.Contains(l, "error=") {
+		t.Errorf("dežurni je složio plan: %s", l)
 	}
 
 	// Građevinska vrsta u zapisnik dežurstva ne ulazi.
