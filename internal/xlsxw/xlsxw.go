@@ -68,16 +68,17 @@ func prvi(stil []int) int {
 
 // List je jedan radni list
 type List struct {
-	Naziv     string
-	Redci     [][]Celija
-	Sirine    []float64       // širine stupaca u znakovima
-	visine    map[int]float64 // visine redaka u točkama
-	spojene   []string        // spojena područja, "A1:D1"
-	Logo      bool            // logotip knjige u gornjem lijevom kutu
-	Vodoravno bool            // ispis vodoravno, cijela širina na jednu stranicu
-	Uspravno  bool            // ispis uspravno, cijela širina na jednu stranicu
-	Podnozje  string          // podnožje ispisa; &P i &N su broj stranice i ukupno
-	ponovi    [2]int          // redci zaglavlja koji se ponavljaju na svakoj stranici (1-based), 0 = nema
+	Naziv       string
+	Redci       [][]Celija
+	Sirine      []float64       // širine stupaca u znakovima
+	visine      map[int]float64 // visine redaka u točkama
+	spojene     []string        // spojena područja, "A1:D1"
+	Logo        bool            // logotip knjige u gornjem lijevom kutu
+	Vodoravno   bool            // ispis vodoravno, cijela širina na jednu stranicu
+	Uspravno    bool            // ispis uspravno, cijela širina na jednu stranicu
+	LogoStupaca int             // koliko stupaca slijeva logotip smije zauzeti; 0 = jedan
+	Podnozje    string          // podnožje ispisa; &P i &N su broj stranice i ukupno
+	ponovi      [2]int          // redci zaglavlja koji se ponavljaju na svakoj stranici (1-based), 0 = nema
 }
 
 // PonoviRetke zadaje retke (0-based, uključivo) koji se pri ispisu ponavljaju
@@ -164,7 +165,7 @@ func (k *Knjiga) Zapisi(w io.Writer) error {
 			if err := pisi(fmt.Sprintf("xl/worksheets/_rels/sheet%d.xml.rels", n), `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdD" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing`+strconv.Itoa(n)+`.xml"/></Relationships>`); err != nil {
 				return err
 			}
-			if err := pisi(fmt.Sprintf("xl/drawings/drawing%d.xml", n), crtezLogotipa(k.LogoPNG)); err != nil {
+			if err := pisi(fmt.Sprintf("xl/drawings/drawing%d.xml", n), crtezLogotipa(k.LogoPNG, l.sirinaStupcaA())); err != nil {
 				return err
 			}
 			if err := pisi(fmt.Sprintf("xl/drawings/_rels/drawing%d.xml.rels", n), `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdL" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image1.png"/></Relationships>`); err != nil {
@@ -216,7 +217,10 @@ func (k *Knjiga) Zapisi(w io.Writer) error {
 // crtezLogotipa smješta sliku u gornji lijevi kut, visine 2,2 cm — koliko
 // su visoka četiri retka zaglavlja — a širine po omjeru slike (iz PNG
 // zaglavlja), pa ne prelazi ni ispod naslova ni preko teksta desno od sebe
-func crtezLogotipa(png []byte) string {
+//
+// Slika stane u stupce rezervirane za nju (obično samo A): tekst zaglavlja
+// stoji odmah desno, pa se logotip smanji kad je mjesta manje od 2,2 cm.
+func crtezLogotipa(png []byte, stupacA int64) string {
 	cy := int64(790000) // EMU, 2,2 cm
 	cx := cy
 	if len(png) >= 24 {
@@ -225,12 +229,34 @@ func crtezLogotipa(png []byte) string {
 			cx = cy * int64(w) / int64(h)
 		}
 	}
+	if najvise := stupacA - 2*60000; najvise > 0 && cx > najvise {
+		cy = cy * najvise / cx
+		cx = najvise
+	}
 	return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">` +
 		`<xdr:oneCellAnchor><xdr:from><xdr:col>0</xdr:col><xdr:colOff>60000</xdr:colOff><xdr:row>0</xdr:row><xdr:rowOff>60000</xdr:rowOff></xdr:from>` +
 		fmt.Sprintf(`<xdr:ext cx="%d" cy="%d"/>`, cx, cy) +
 		`<xdr:pic><xdr:nvPicPr><xdr:cNvPr id="2" name="Logotip"/><xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr>` +
 		`<xdr:blipFill><a:blip r:embed="rIdL"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill>` +
 		fmt.Sprintf(`<xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="%d" cy="%d"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:oneCellAnchor></xdr:wsDr>`, cx, cy)
+}
+
+// sirinaStupcaA je širina stupaca rezerviranih za logotip u EMU: Excelova
+// širina u znakovima je oko 7 piksela po znaku plus 5, a piksel je 9525 EMU
+func (l *List) sirinaStupcaA() int64 {
+	n := l.LogoStupaca
+	if n < 1 {
+		n = 1
+	}
+	ukupno := 0.0
+	for i := 0; i < n; i++ {
+		sirina := 8.43
+		if i < len(l.Sirine) && l.Sirine[i] > 0 {
+			sirina = l.Sirine[i]
+		}
+		ukupno += sirina*7 + 5
+	}
+	return int64(ukupno * 9525)
 }
 
 // stilovi, redom kao konstante gore
