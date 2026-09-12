@@ -3327,3 +3327,27 @@ textarea {
 .iors-dan-opis { margin: 0.3rem 0; }
 .iors-dan-razredi { margin-top: 0.2rem; }
 .iors-dan.iors-ceka { border-style: dashed; color: var(--text-muted, #777); }
+
+/* Unos u dnevnik COP-a: traka na dnu zaslona, tekst prvi */
+.unos-zapisa { position: sticky; bottom: 0; z-index: 5; margin-top: 1rem; padding: 0.6rem 0.9rem 0.5rem;
+  background: var(--card-bg, #fff); border: 1px solid var(--border, #ddd); border-bottom: 0; border-radius: 8px 8px 0 0;
+  box-shadow: 0 -6px 18px rgba(0,0,0,0.08); }
+.unos-tekst { width: 100%; resize: vertical; min-height: 2.6rem; font-size: 1rem; }
+.unos-red { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.6rem; margin-top: 0.45rem; }
+.unos-polje { display: inline-flex; align-items: center; gap: 0.3rem; margin: 0; font-size: 0.85rem; color: var(--text-secondary, #555); }
+.unos-polje .form-control { width: auto; padding-top: 0.3rem; padding-bottom: 0.3rem; }
+.unos-javio { flex: 1 1 12rem; }
+.unos-javio .form-control { width: 100%; }
+.unos-dan { font-size: 0.85rem; }
+.unos-dan > summary { cursor: pointer; list-style: none; color: var(--text-secondary, #555); padding: 0.3rem 0.4rem; border: 1px dashed var(--border, #ccc); border-radius: 4px; }
+.unos-dan > summary::-webkit-details-marker { display: none; }
+.unos-dan[open] { display: inline-flex; align-items: center; gap: 0.4rem; }
+.unos-dan[open] > summary { border-style: solid; }
+.unos-gumb { margin-left: auto; }
+.unos-napomena { margin-top: 0.3rem; }
+/* Zapis na koji se stiglo (novi ili ispravljen) nakratko svijetli, i ne
+   ostaje ispod trake za unos. */
+.zapis { scroll-margin-bottom: 11rem; scroll-margin-top: 4rem; }
+.zapis:target { animation: zapis-svjetlo 2.5s ease-out; }
+@keyframes zapis-svjetlo { from { background: var(--primary-light, #e8eef7); } to { background: transparent; } }
+@media (max-width: 640px) { .unos-polje > span { display: none; } .unos-gumb { margin-left: 0; width: 100%; } }

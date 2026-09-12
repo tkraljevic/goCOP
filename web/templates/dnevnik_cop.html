@@ -122,43 +122,40 @@
      Dan i vrijeme su odvojeni — dan je obvezan, vrijeme se upisuje kad se
      zna kad se dogodilo; kad je upisano vidi se iz zapisa samog. */}}
 {{if and .CanWrite .AllowedKinds}}
-<form method="POST" action="/dnevnici/{{.Journal.ID}}/zapisi" id="novi-zapis" class="reg-card novi-zapis">
-  <h2 class="novi-zapis-naslov">{{icon "pencil"}} Novi zapis</h2>
-  <div class="form-row novi-zapis-red">
-    <div class="form-group">
-      <label class="form-label" for="z-date">Dan *</label>
-      <input type="date" id="z-date" name="date" class="form-control" value="{{.Today}}" required>
-    </div>
-    <div class="form-group">
-      <label class="form-label" for="z-time">Vrijeme</label>
-      <input type="time" id="z-time" name="time" class="form-control" value="{{.Sada}}">
-    </div>
-    <div class="form-group">
-      <label class="form-label" for="z-kind">Vrsta *</label>
-      <select id="z-kind" name="kind" class="form-control" required>
+<form method="POST" action="/dnevnici/{{.Journal.ID}}/zapisi" id="novi-zapis" class="unos-zapisa">
+  {{/* Unos je traka na dnu zaslona, kao redak u bilježnici: tekst prvi i
+       najveći, ostalo su sitnice s razumnim zadanim vrijednostima — sad,
+       dojava, cijeli sektor. Dan je skriven dok se ne traži drugi.
+       Ctrl+Enter upisuje. */}}
+  <textarea id="z-text" name="text" class="form-control unos-tekst" rows="2" required autofocus
+    placeholder="vodostaj Batina u 07:00 +551, tendencija porast…"
+    onkeydown="if((event.ctrlKey||event.metaKey)&&event.key==='Enter'){this.form.requestSubmit();}"></textarea>
+  <div class="unos-red">
+    <label class="unos-polje" title="Kad se dogodilo; kad je upisano vidi se samo">
+      <span>u</span><input type="time" id="z-time" name="time" class="form-control" value="{{.Sada}}">
+    </label>
+    <label class="unos-polje">
+      <select id="z-kind" name="kind" class="form-control" required title="Vrsta zapisa">
         {{range .AllowedKinds}}<option value="{{.}}">{{entryKind .}}</option>{{end}}
       </select>
-    </div>
-    <div class="form-group">
-      <label class="form-label" for="z-podrucje">Za</label>
-      <select id="z-podrucje" name="podrucje" class="form-control">
+    </label>
+    <label class="unos-polje">
+      <span>za</span>
+      <select id="z-podrucje" name="podrucje" class="form-control" title="Na koje se područje odnosi">
         <option value="">cijeli {{terml "sektor"}} {{.Journal.CentarSektor}}</option>
         {{range .Areas}}<option value="{{.ID}}"{{if eq .ID $.Podrucje}} selected{{end}}>{{.Name}}</option>{{end}}
       </select>
-    </div>
-    <div class="form-group">
-      <label class="form-label" for="z-reported">Javio</label>
-      <input type="text" id="z-reported" name="reported_by" class="form-control" placeholder="tko je javio, kad niste vi" autocomplete="off">
-    </div>
+    </label>
+    <label class="unos-polje unos-javio">
+      <span>javio</span><input type="text" id="z-reported" name="reported_by" class="form-control" placeholder="tko, kad niste vi" autocomplete="off">
+    </label>
+    <details class="unos-dan">
+      <summary title="Zapis za drugi dan">{{icon "clock"}} dan</summary>
+      <input type="date" id="z-date" name="date" class="form-control" value="{{.Today}}" required>
+    </details>
+    <button type="submit" class="btn btn-primary unos-gumb">{{icon "check"}} Upiši</button>
   </div>
-  <div class="form-group">
-    <label class="form-label" for="z-text">Zapis *</label>
-    <textarea id="z-text" name="text" class="form-control" rows="3" required placeholder="vodostaj Batina u 07:00 +551, tendencija porast"></textarea>
-  </div>
-  <div class="form-actions">
-    <button type="submit" class="btn btn-primary">{{icon "check"}} Upiši</button>
-    <span class="reading-meta">Upisuje {{.CurrentUser.FullName}}. Zapis se ne briše: krivi se stornira uz razlog, a ispravak je novi zapis.</span>
-  </div>
+  <div class="unos-napomena reading-meta">Upisuje {{.CurrentUser.FullName}} · Ctrl+Enter upisuje · zapis se ne briše, krivi se stornira uz razlog</div>
 </form>
 {{else if .Journal.EndedAt}}
 <p class="reading-meta">Dnevnik je zaključen {{.Journal.EndedAt.Format "2.1.2006."}} i više se u njega ne piše.</p>
