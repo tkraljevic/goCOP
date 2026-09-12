@@ -33,6 +33,7 @@
         <form method="POST" action="/dnevnici/{{.Journal.ID}}/dezurstvo/preuzmi" style="display:inline;"><button type="submit" class="btn btn-primary">{{icon "user"}} Preuzimam dežurstvo</button></form>
       {{end}}
     {{end}}
+    <a href="/dnevnici/{{.Journal.ID}}/dnevnik.xlsx{{if .Podrucje}}?podrucje={{.Podrucje}}{{end}}" class="btn btn-secondary" title="Dnevnik kao dokument za ispis">{{icon "download"}} Excel</a>
     {{if .CanManage}}<a href="/dnevnici/{{.Journal.ID}}/edit" class="btn btn-secondary">{{icon "pencil"}} Zaglavlje</a>{{end}}
     {{if .UpravaCentra}}<form method="POST" action="/dnevnici/{{.Journal.ID}}/obrisi" style="display:inline;"
       onsubmit="return confirm('Obrisati dnevnik „{{.Journal.DisplayTitle}}“ sa svim zapisima i dežurstvima? U knjizi verzija ostaje arhiviran, ali s popisa nestaje.');"><button type="submit" class="btn btn-secondary" title="Obriši dnevnik">{{icon "trash"}}</button></form>{{end}}

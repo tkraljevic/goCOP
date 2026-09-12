@@ -85,6 +85,7 @@ func TestDnevnikCOPKrozRute(t *testing.T) {
 	mux.HandleFunc("GET /dnevnici/{id}/obracun/{user}/iors.xlsx", h.IzvoziIORS)
 	mux.HandleFunc("GET /dnevnici/{id}/obracun.xlsx", h.IzvoziObracun)
 	mux.HandleFunc("POST /dnevnici/{id}/obrisi", h.HandleObrisiDnevnik)
+	mux.HandleFunc("GET /dnevnici/{id}/dnevnik.xlsx", h.IzvoziDnevnik)
 	mux.HandleFunc("POST /dnevnici/{id}/dezurstvo/preuzmi", h.HandlePreuzmiDezurstvo)
 	mux.HandleFunc("POST /dnevnici/{id}/dezurstvo/predaj", h.HandlePredajDezurstvo)
 
@@ -449,6 +450,33 @@ func TestDnevnikCOPKrozRute(t *testing.T) {
 		"date": {"2026-09-11"}, "kind": {models.EntryKindWork}, "text": {"košnja"}})
 	if l := w.Header().Get("Location"); !strings.Contains(l, "error=") {
 		t.Errorf("rad izvođača ušao u dnevnik COP-a: %s", l)
+	}
+
+	// Dnevnik kao dokument: zapisi po danima, storniran označen, filtar po području.
+	w = zovi(http.MethodGet, "/dnevnici/"+dnevnik+"/dnevnik.xlsx", nil)
+	if w.Code != http.StatusOK || !strings.Contains(w.Header().Get("Content-Disposition"), "Dnevnik_COP_cop-osijek_2026_2026-09-11.xlsx") {
+		t.Fatalf("izvoz dnevnika: %d %s", w.Code, w.Header().Get("Content-Disposition"))
+	}
+	if put := os.Getenv("GOCOP_IZVOZ_DNEVNIK"); put != "" {
+		_ = os.WriteFile(put, w.Body.Bytes(), 0o644)
+	}
+	dnevnikRedci, err := procitajXLSX(w.Body.Bytes())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var prviZapis []string
+	dana := 0
+	for _, r := range dnevnikRedci {
+		if len(r) > 0 && strings.HasPrefix(r[0], "Petak 11.9.2026.") {
+			dana++
+		}
+		if len(r) > 5 && r[0] == "1" {
+			prviZapis = r
+		}
+	}
+	if dana != 1 || len(prviZapis) < 8 || prviZapis[1] != "07:15" || prviZapis[2] != "Dojava" || prviZapis[3] != "Vuka" || prviZapis[4] != "Sa porte" ||
+		!strings.Contains(prviZapis[5], "iznosi 551 cm") || !strings.Contains(prviZapis[5], "[STORNIRAN: krivo očitano") || prviZapis[7] != "STORNO" {
+		t.Errorf("dnevnik u Excelu: dana %d, prvi zapis %v", dana, prviZapis)
 	}
 
 	// Brisanje: dežurni ne smije; uprava briše, dnevnik nestaje s površine, a
