@@ -124,3 +124,7 @@ func oznakaIzNaziva(naziv string) string {
 	}
 	return strings.Trim(b.String(), "-")
 }
+
+// OznakaIzNaziva daje oznaku bez dijakritike i razmaka, za ključeve i imena
+// datoteka: "COP Osijek" → "cop-osijek"
+func OznakaIzNaziva(naziv string) string { return oznakaIzNaziva(naziv) }

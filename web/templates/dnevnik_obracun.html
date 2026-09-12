@@ -22,6 +22,8 @@
   <label for="do">Do <span class="reg-card-sub">(uključivo)</span></label>
   <input type="date" id="do" name="do" class="form-control" value="{{.To}}">
   <button type="submit" class="btn btn-secondary">{{icon "search"}} Prikaži</button>
+  {{if .Obracun.Grupe}}<a href="/dnevnici/{{.Journal.ID}}/obracun.xlsx?od={{.From}}&amp;do={{.To}}" class="btn btn-secondary" style="margin-left:auto;"
+    title="List po području, redak po osobi; bruto satnicu upisuje računovodstvo">{{icon "download"}} Excel za računovodstvo</a>{{end}}
 </form>
 
 {{if .Obracun.CekaPotvrdu}}
