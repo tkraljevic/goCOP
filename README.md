@@ -45,8 +45,30 @@ prva računala. Kaže što program radi na računalu i mreži, što ne radi, i
   Popis se uvozi iz ugovora o održavanju (na stranici Održavanje ili
   zastavicom `-ugovor`) ili dopunjuje ručno; pozicije plana i cjenici se ne
   uvoze jer se mijenjaju sa svakim okvirnim sporazumom.
-- **Građevinski dnevnici:** dnevnik održavanja A.02 i A.03 po branjenom
-  području i dnevnik obrane od poplava po dionici. Naslovnica (izvođač,
+- **Dnevnik COP-a:** dežurni zapisnik centra obrane od poplava, jedan po
+  centru (sektoru) i po obrani — traje koliko i dežurstva. Otvara ga
+  voditelj ili zamjenik centra; upisuju svi koji rade u sektoru, iz centra
+  i s branjenih područja, u isti dnevnik. Zapis nosi vrijeme događaja i
+  vrijeme upisa, tko je javio i tko je upisao, vrstu (dojava, obavijest,
+  napomena, dežurstvo) i branjeno područje na koje se odnosi, pa se dnevnik
+  čita i po području. Zapisi se ne brišu nego storniraju uz razlog. Stari,
+  digitalizirani dnevnici uvoze se kao prijepis: ondje se krivo pročitano
+  ispravlja na mjestu, jer je dokument uvez na papiru; u živom dnevniku
+  ispravak je novi zapis.
+- **Plan dežurstava i obračun sati:** uz dnevnik COP-a vodi se plan — tko
+  dežura kad, gdje (ured ili teren), za koje branjeno područje ili za cijeli
+  sektor, s opisom rada iz obrasca IORS. Svatko upisuje sebe, od vodočuvara
+  do glavnog rukovoditelja; uprava centra upisuje bilo koga i potvrđuje tuđe
+  upise. Isti zapisi poslije obrane daju obračun sati: po zidnom satu, po
+  vrsti dana i pojasu (radni dan, subota, nedjelja i blagdan; redovno,
+  dnevni, noćni), pomnoženo koeficijentima za ured i teren, zaokruženo na
+  pola sata u korist djelatnika. Obračun se slaže po branjenom području s
+  rekapitulacijom; klik na ime otvara izvješće o radnim satima te osobe, a
+  na profilu svatko vidi svoje planove i izvješća. Blagdani (kao pravila, s
+  razdobljem važenja) i koeficijenti su podatak organizacije i uređuju se u
+  Administraciji, ne novom verzijom programa.
+- **Dnevnici usluga A.02 i A.03:** dnevnik održavanja voda I. i II. reda i
+  kanala III. i IV. reda, po branjenom području. Naslovnica (izvođač,
   voditelj usluga, ovlaštenik ili nadzorni inženjer, akti), za svaki dan
   list s uvjetima (vremenske prilike s Open-Meteo dok ima interneta,
   vodostaji iz očitanja, ocjena uvjeta, osoblje i strojevi) i upisi: rad
@@ -202,7 +224,8 @@ dodatna računala i ručnu razmjenu.
 
 Sve što radi samo administrator stoji u modulu **Administracija**: ustroj
 obrane (sektori i branjena područja), moduli i ovlasti, čvor, mreža i
-sinkronizacija te pregled uvoza podataka. Vidi ga zadano samo globalni
+sinkronizacija, postavke obračuna sati (blagdani i koeficijenti) te pregled
+uvoza podataka. Vidi ga zadano samo globalni
 administrator. Nadzorna ploča **Sinkronizacija** pokazuje tko je na mreži,
 koliko računala odgovara, s kim je zadnja razmjena uspjela, tko zaostaje i
 što ne štima; razmjena ide s više čvorova istodobno, a čvorovi koji redom
