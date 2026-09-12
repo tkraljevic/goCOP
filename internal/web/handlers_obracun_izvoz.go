@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -690,4 +691,156 @@ func KnjigaIORS(iors service.IORS, koef obracun.Koeficijenti, z ZaglavljeIzvoza,
 
 func satiTekst(d time.Duration) string {
 	return fmt.Sprintf("%d:%02d", int(d.Hours()), int(d.Minutes())%60)
+}
+
+// IzvoziDnevnik piše dnevnik COP-a kao dokument za ispis: zapisi po danima,
+// s vremenom, vrstom, područjem, tko je javio i tko upisao. Filtar po
+// području isti je kao na stranici.
+func (h *JournalsHandler) IzvoziDnevnik(w http.ResponseWriter, r *http.Request) {
+	j, area, ok := h.loadJournal(w, r)
+	if !ok {
+		return
+	}
+	if j.CentarSektor == "" {
+		http.Error(w, "izvoz dnevnika je za dnevnik COP-a", http.StatusNotFound)
+		return
+	}
+	data := h.pageData(r)
+	data.Journal, data.Area = j, area
+	h.fillRights(&data)
+	zapisi, err := h.journals.EntriesForJournal(r.Context(), j.ID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	nazivi := h.naziviPodrucja(j.CentarSektor)
+	podrucje, _ := strconv.Atoi(r.URL.Query().Get("podrucje"))
+	if podrucje > 0 {
+		var samo []models.JournalEntry
+		for _, z := range zapisi {
+			if !z.ZaPodrucje() || z.PodrucjeID() == podrucje {
+				samo = append(samo, z)
+			}
+		}
+		zapisi = samo
+	}
+	z := h.ZaglavljeIzvozaDnevnika(j)
+	knjiga := KnjigaDnevnika(j, zapisi, z, nazivi, nazivi[podrucje])
+	ime := "Dnevnik_COP_" + service.OznakaIzNaziva(z.Centar) + "_" + strconv.Itoa(j.Year)
+	if j.StartedAt != nil {
+		ime += "_" + j.StartedAt.Format("2006-01-02")
+	}
+	if podrucje > 0 {
+		ime += "_" + service.OznakaIzNaziva(nazivi[podrucje])
+	}
+	posaljiXLSX(w, ime+".xlsx", knjiga)
+}
+
+// KnjigaDnevnika slaže dnevnik COP-a kao jedan list: zaglavlje, osnovno o
+// dnevniku, pa zapisi po danima — dan kao naslovni redak, ispod redak po
+// zapisu. Storniran zapis ostaje, označen, s razlogom.
+func KnjigaDnevnika(j *models.Journal, zapisi []models.JournalEntry, z ZaglavljeIzvoza, nazivi map[int]string, samoPodrucje string) *xlsxw.Knjiga {
+	k := &xlsxw.Knjiga{LogoPNG: z.LogoPNG}
+	B := xlsxw.T
+	const stupaca = 8 // A..H
+	l := k.NoviList("Dnevnik")
+	l.Vodoravno = true
+	l.Sirine = []float64{6, 8, 12, 18, 18, 72, 18, 4}
+	podnaslov := ""
+	if j.StartedAt != nil {
+		podnaslov = j.StartedAt.Format("02.01.2006.")
+		if j.EndedAt != nil {
+			podnaslov += " – " + j.EndedAt.Format("02.01.2006.")
+		} else {
+			podnaslov += " – (otvoren)"
+		}
+	}
+	if samoPodrucje != "" {
+		podnaslov += " · zapisi za " + samoPodrucje + " i cijeli " + models.Terms().Lower("sektor")
+	}
+	zaglavljeLista(l, z, j.DisplayTitle(), podnaslov, stupaca)
+
+	osnovno := func(oznaka, vrijednost string) {
+		r := l.Redak()
+		red := make([]xlsxw.Celija, stupaca)
+		red[0] = B(oznaka, xlsxw.TablicaPod)
+		red[1] = B("", xlsxw.TablicaPod)
+		red[2] = B(vrijednost, xlsxw.Tablica)
+		for c := 3; c < stupaca; c++ {
+			red[c] = B("", xlsxw.Tablica)
+		}
+		l.Dodaj(red...)
+		l.Spoji(0, r, 1, r)
+		l.Spoji(2, r, stupaca-1, r)
+	}
+	osnovno("Centar", z.Centar)
+	osnovno("Razdoblje", podnaslov)
+	dana := map[string]bool{}
+	storniranih := 0
+	for _, e := range zapisi {
+		dana[e.Date.Format("2006-01-02")] = true
+		if e.Voided {
+			storniranih++
+		}
+	}
+	osnovno("Zapisa", fmt.Sprintf("%d, u %d dana; storniranih %d", len(zapisi), len(dana), storniranih))
+	if j.Reconstruction {
+		osnovno("Napomena", "Prijepis iz uveza. "+j.Notes)
+	} else if j.Notes != "" {
+		osnovno("Napomena", j.Notes)
+	}
+	l.Dodaj()
+	l.Visina(l.Redak()-1, 8)
+
+	r1 := l.Redak()
+	l.Dodaj(B("Br.", xlsxw.Zaglavlje), B("Vrijeme", xlsxw.Zaglavlje), B("Vrsta", xlsxw.Zaglavlje), B("Za", xlsxw.Zaglavlje), B("Javio", xlsxw.Zaglavlje), B("Zapis", xlsxw.Zaglavlje), B("Upisao", xlsxw.Zaglavlje), B("", xlsxw.Zaglavlje))
+	l.Visina(r1, 22)
+	l.PonoviRetke(r1, r1)
+	var dan string
+	for _, e := range zapisi {
+		if d := e.Date.Format("2006-01-02"); d != dan {
+			dan = d
+			r := l.Redak()
+			red := make([]xlsxw.Celija, stupaca)
+			red[0] = B(danTjednaHR(e.Date)+" "+e.Date.Format("2.1.2006."), xlsxw.TablicaPod)
+			for c := 1; c < stupaca; c++ {
+				red[c] = B("", xlsxw.TablicaPod)
+			}
+			l.Dodaj(red...)
+			l.Spoji(0, r, stupaca-1, r)
+		}
+		vrijeme := ""
+		if e.HappenedAt != nil {
+			vrijeme = e.HappenedAt.Format("15:04")
+		}
+		za := "cijeli " + models.Terms().Lower("sektor")
+		if e.ZaPodrucje() {
+			if za = nazivi[e.PodrucjeID()]; za == "" {
+				za = fmt.Sprintf("%s %d", models.Terms().Lower("podrucje"), e.PodrucjeID())
+			}
+		}
+		tekst := e.Text
+		oznaka := ""
+		if e.Voided {
+			oznaka = "STORNO"
+			tekst += "\n[STORNIRAN"
+			if e.VoidReason != "" {
+				tekst += ": " + e.VoidReason
+			}
+			if e.VoidedBy != "" {
+				tekst += " — " + e.VoidedBy
+			}
+			tekst += "]"
+		}
+		l.Dodaj(xlsxw.N(float64(e.Number), xlsxw.TablicaSredina), B(vrijeme, xlsxw.TablicaSredina), B(e.KindLabel(), xlsxw.Tablica), B(za, xlsxw.TablicaTekst),
+			B(e.ReportedBy, xlsxw.TablicaTekst), B(tekst, xlsxw.TablicaTekst), B(e.UserName, xlsxw.TablicaTekst), B(oznaka, xlsxw.TablicaSredina))
+	}
+	if len(zapisi) == 0 {
+		l.Dodaj(B("U dnevniku nema zapisa.", xlsxw.Napomena))
+	}
+	l.Dodaj()
+	napomenaLista(l, "Vrijeme je kad se dogodilo; kad je upisano vidi se u programu. Zapis se ne briše nego stornira uz razlog; storniran ostaje u dnevniku. "+
+		"Izvezeno iz goCOP-a "+z.Datum.Format("02.01.2006. 15:04")+".", stupaca, 24)
+	potpisiLista(l, z, stupaca, z.Potpisnici)
+	return k
 }
