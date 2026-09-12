@@ -212,7 +212,7 @@ func (r *SectionRepository) GetSectionPersonnel(code string, areaID int, sectorI
 		      (d.sector_id = ? AND d.role IN ('SECTOR_LEADER', 'SECTOR_DEPUTY', 'COP_LEADER', 'COP_DEPUTY', 'AREA_ADMIN')) OR
 		      -- Razina 2 za područje, razina 3 i teren područja
 		      (d.area_id = ? AND d.role IN ('SECTOR_AREA_DEPUTY', 'AREA_LEADER', 'AREA_DEPUTY', 'CONTRACT_OFFICER_A2', 'CONTRACT_DEPUTY_A2',
-		         'CONTRACT_OFFICER_A3', 'CONTRACT_DEPUTY_A3', 'SERVICE_LEADER_FOREMAN', 'WATER_GUARD', 'MACHINIST'))
+		         'CONTRACT_OFFICER_A3', 'CONTRACT_DEPUTY_A3', 'SERVICE_LEADER_FOREMAN', 'WATER_GUARD', 'MACHINIST', 'FACILITY_OPERATOR', 'CREW_LEADER'))
 		  )
 		ORDER BY u.full_name ASC
 	`
