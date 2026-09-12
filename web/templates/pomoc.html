@@ -13,6 +13,26 @@
   </div>
 </div>
 
+<div class="pomoc-alati" role="search">
+  <label for="pomoc-pretraga">Što želite napraviti?</label>
+  <div class="pomoc-pretraga-red">
+    {{icon "search"}}
+    <input id="pomoc-pretraga" type="search" autocomplete="off"
+      placeholder="Npr. upisati vodostaj, storno, obračun sati…">
+    <button type="button" id="pomoc-pretraga-obrisi" class="btn btn-sm btn-secondary" hidden>Očisti</button>
+  </div>
+  <p id="pomoc-pretraga-stanje" class="reading-meta" role="status" aria-live="polite">Pretražuje naslove i tekst cijele pomoći.</p>
+</div>
+
+<div class="pomoc-brzi" aria-label="Česti zadaci">
+  <a href="#ocitanja-popis">{{icon "waves"}} <span><strong>Upisati vodostaj</strong><small>Jedno očitanje na terenu</small></span></a>
+  <a href="#dnevnik-cop">{{icon "activity"}} <span><strong>Voditi dnevnik COP-a</strong><small>Nova dojava, storno i prijepis</small></span></a>
+  <a href="#dnevnik-dezurstva">{{icon "users"}} <span><strong>Upisati dežurstvo</strong><small>Plan i potvrda uprave centra</small></span></a>
+  <a href="#dnevnik-obracun">{{icon "calculator"}} <span><strong>Izvesti obračun</strong><small>IORS i Excel za računovodstvo</small></span></a>
+  <a href="#arhiva-unos">{{icon "package"}} <span><strong>Uvesti hidrološki niz</strong><small>CSV, Excel i zatečeni podaci</small></span></a>
+  <a href="#settings">{{icon "radio-tower"}} <span><strong>Povezati računalo</strong><small>Čvor, mreža i sinkronizacija</small></span></a>
+</div>
+
 <nav class="pomoc-kazalo" aria-label="Sadržaj">
   <div class="kazalo-grupa">
     <a class="kazalo-glava" href="#pocetak">Kako se program koristi</a>
@@ -72,6 +92,10 @@
     <a class="kazalo-glava" href="#pojmovi">Pojmovnik</a>
   </div>
 </nav>
+
+<div id="pomoc-nema-rezultata" class="reg-empty" hidden>
+  Nema odjeljka s tim izrazom. Pokušajte kraće, primjerice „vodostaj“, „dnevnik“, „storno“ ili „arhiva“.
+</div>
 
 <span id="pomoc" aria-hidden="true"></span>
 <section class="detail-section" id="pocetak">
@@ -529,6 +553,8 @@
       područje na koje se zapis odnosi i tekst zapisa. Program zasebno pamti kada je unos stvarno
       napravljen i tko ga je napravio. Tako naknadno unesena dojava ne izgleda kao da je upisana
       u trenutku događaja.</p>
+    <p><span class="reg-chip">Piše: operater u dosegu centra</span>
+      <span class="reg-chip">Zaglavlje: voditelj ili zamjenik centra</span></p>
     <p>Zapis se ne prepisuje i ne briše. Pogrešan zapis se <strong>stornira uz razlog</strong> i
       ostaje vidljiv u dnevniku. Prijepis iz stare evidencije može se ispraviti dok je označen
       kao prijepis; zaključen dnevnik više ne prima nove zapise.</p>
@@ -542,6 +568,8 @@
       unos potvrđen je odmah. Nepotvrđeni vlastiti unos osoba može maknuti, a uprava upravlja
       cijelim planom. Dežurstvo preko ponoći dobiva datum završetka; razmak dulji od 36 sati
       upisuje se u više dijelova.</p>
+    <p><span class="reg-chip">Svoj unos: svatko u dosegu</span>
+      <span class="reg-chip">Potvrđuje: uprava centra</span></p>
 
     <h3 id="dnevnik-obracun">Obračun sati i IORS</h3>
     <p>Obračun uzima samo potvrđena dežurstva i razvrstava stvarne sate prema vrsti dana,
@@ -553,6 +581,7 @@
       po danima i razredima. Osoba vlastiti plan i IORS nalazi i na stranici <em>Moj profil</em>.
       Cijeli obračun može se izvesti u Excel u obliku za računovodstvo, s listovima
       <code>BP_&lt;broj&gt;</code>, ukupnim iznosima i mjestima za potpise.</p>
+    <p><a class="btn btn-secondary btn-sm" href="/dnevnici/popis?vrsta=DEZURSTVA">{{icon "users"}} Otvori plan dežurstava</a></p>
 
     <h3 id="dnevnik-usluge">Dnevnici usluga A.02 i A.03</h3>
     <p>Dnevnici A.02 i A.03 vode se po području i ugovoru. Imaju naslovnicu s izvođačem,
@@ -561,6 +590,7 @@
     <p>Upisi imaju redne brojeve bez rupa i ne brišu se nego storniraju. Izvođač i nadzor
       potvrđuju list; nakon obje potvrde list se više ne mijenja. Gotov dnevnik ispisuje se u
       obliku obrasca za potpis.</p>
+    <p><a class="btn btn-secondary btn-sm" href="/dnevnici">{{icon "notebook"}} Otvori Dnevnike</a></p>
   </div>
 </section>
 
@@ -658,4 +688,5 @@
     </dl>
   </div>
 </section>
+<a class="pomoc-na-vrh" href="#pomoc" aria-label="Na vrh pomoći" title="Na vrh">↑</a>
 {{end}}

@@ -426,6 +426,74 @@ function renderMarkdown(md) {
   });
 })();
 
+// Pomoć je jedna duga stranica jer znak "?" sa svake stranice mora moći
+// otvoriti točan odjeljak. Pretraga zato ne šalje ništa poslužitelju: samo
+// skriva odjeljke koji ne sadrže tražene riječi. Dijakritika se zanemaruje da
+// "ocitanje" nađe "očitanje", što je važno na tipkovnicama bez hrvatskih slova.
+(function () {
+  'use strict';
+
+  function pripremiPomoc() {
+    var unos = document.getElementById('pomoc-pretraga');
+    if (!unos) { return; }
+    var obrisi = document.getElementById('pomoc-pretraga-obrisi');
+    var stanje = document.getElementById('pomoc-pretraga-stanje');
+    var nema = document.getElementById('pomoc-nema-rezultata');
+    var kazalo = document.querySelector('.pomoc-kazalo');
+    var brzi = document.querySelector('.pomoc-brzi');
+    var odjeljci = Array.prototype.slice.call(document.querySelectorAll('.detail-section[id]'));
+
+    function svedi(s) {
+      return (s || '').toLocaleLowerCase('hr').normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+    }
+    var tekstovi = odjeljci.map(function (o) { return svedi(o.textContent); });
+
+    function filtriraj() {
+      var upit = svedi(unos.value);
+      var rijeci = upit.split(' ').filter(Boolean);
+      var broj = 0;
+      odjeljci.forEach(function (o, i) {
+        var prolazi = !rijeci.length || rijeci.every(function (r) { return tekstovi[i].indexOf(r) !== -1; });
+        o.classList.toggle('pomoc-skriveno', !prolazi);
+        if (prolazi) { broj++; }
+      });
+
+      if (kazalo) {
+        kazalo.querySelectorAll('a[href^="#"]').forEach(function (a) {
+          var cilj = document.getElementById(a.getAttribute('href').slice(1));
+          var odjeljak = cilj && cilj.closest('.detail-section');
+          a.classList.toggle('pomoc-skriveno', !!upit && (!odjeljak || odjeljak.classList.contains('pomoc-skriveno')));
+        });
+        kazalo.querySelectorAll('.kazalo-grupa').forEach(function (g) {
+          g.classList.toggle('pomoc-skriveno', !!upit && !g.querySelector('a:not(.pomoc-skriveno)'));
+        });
+      }
+      if (brzi) { brzi.classList.toggle('pomoc-skriveno', !!upit); }
+      if (obrisi) { obrisi.hidden = !upit; }
+      if (nema) { nema.hidden = !upit || broj !== 0; }
+      if (stanje) {
+        stanje.textContent = upit ? (broj ? 'Broj pronađenih odjeljaka: ' + broj : 'Nema rezultata')
+          : 'Pretražuje naslove i tekst cijele pomoći.';
+      }
+    }
+
+    unos.addEventListener('input', filtriraj);
+    unos.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && unos.value) { unos.value = ''; filtriraj(); }
+    });
+    if (obrisi) {
+      obrisi.addEventListener('click', function () { unos.value = ''; filtriraj(); unos.focus(); });
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', pripremiPomoc);
+  } else {
+    pripremiPomoc();
+  }
+})();
+
 // Karta položaja letve. Pločice dolaze s mreže, sve ostalo je lokalno — pa
 // program bez interneta i dalje radi, samo bez podloge. Kad se pločice jednom
 // preuzmu za područje obrane, u postavkama se upiše lokalna putanja i karta
