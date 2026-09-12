@@ -34,9 +34,21 @@ func (h *JournalsHandler) ShowDezurstva(w http.ResponseWriter, r *http.Request) 
 	data.Areas, _ = h.users.ListAreas(j.CentarSektor)
 	data.UpravaCentra = h.journals.UpravaCentra(data.Permissions, j)
 	data.MozeSebe = h.journals.MozeSebeUPlan(data.Permissions, h.opseg(j, area), j)
-	// Uprava bira bilo koga iz sektora; ostali upisuju samo sebe.
+	// Uprava bira bilo koga iz sektora, ali program najprije ponudi nju
+	// samu — najčešće upisuje sebe; ostali upisuju samo sebe.
 	if data.UpravaCentra {
 		data.Osobe, _ = h.users.ListUsers(j.CentarSektor, 0, "", "", "")
+		if data.CurrentUser != nil {
+			svoj := false
+			for _, o := range data.Osobe {
+				if o.ID == data.CurrentUser.ID {
+					svoj = true
+				}
+			}
+			if !svoj {
+				data.Osobe = append([]models.User{*data.CurrentUser}, data.Osobe...)
+			}
+		}
 	} else if data.MozeSebe && data.CurrentUser != nil {
 		data.Osobe = []models.User{*data.CurrentUser}
 	}
