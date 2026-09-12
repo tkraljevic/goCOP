@@ -5,16 +5,15 @@ poplava. Ovaj popis raste kako se posao širi; tko god je pridonio, a ovdje
 ga nema, neka se javi da se doda.
 
 Podrijetlo podataka i prava nad njima opisani su u datoteci `NOTICE`;
-ovdje su ljudi.
+ovdje su opisani doprinosi. Imena djelatnika ne objavljuju se bez njihove
+izričite suglasnosti.
 
 ## Suradnici na registrima i dnevnicima
 
-- **[ime uklonjeno radi privatnosti], mag. ing. aedif.** — prvotno prikupio kontakte
-  zaposlenika koji su bili dostupni u bazi; iz toga je nastao registar
-  djelatnika.
-- **[ime uklonjeno radi privatnosti], mag. ing. aedif.** — digitalizira dnevnike obrane od
-  poplava Centra obrane od poplava Osijek od 2005. godine; ti dnevnici su
-  povijesna građa za modul dnevnika i rješenja.
+- Prikupljeni su službeni kontakti iz kojih je nastao registar djelatnika.
+- Digitaliziraju se dnevnici obrane od poplava Centra obrane od poplava
+  Osijek od 2005. godine; ti dnevnici su povijesna građa za modul dnevnika
+  i rješenja.
 
 ## Unos podataka u aplikaciju app.bp16.xyz (Baranja)
 
@@ -24,10 +23,7 @@ skup podataka o baranjskim dionicama, objektima i vodomjerima, a iskustvo
 iz tog rada oblikovalo je i način na koji goCOP danas radi. Hvala svima koji
 su unosili:
 
-<!-- TODO: upisati imena i titule osoba koje su unosile podatke u
-     app.bp16.xyz, jedna po retku, u obliku:
-- **Ime Prezime, titula** — što je unosio/la (npr. dionice, vodomjeri, objekti) -->
-- _(popis u pripremi)_
+Imena se ne objavljuju u javnom repozitoriju bez izričite suglasnosti.
 
 ## Alati
 
