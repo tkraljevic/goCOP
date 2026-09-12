@@ -68,9 +68,9 @@ type ZaglavljeIzvoza struct {
 	LogoPNG      []byte
 }
 
-// zaglavljeIzvoza skuplja ono što na dokumentu stoji o organizaciji: nazive
+// ZaglavljeIzvozaDnevnika skuplja ono što na dokumentu stoji o organizaciji: nazive
 // iz postavki i registra sektora, logotip, i tko potpisuje — tko god to sad jest
-func (h *JournalsHandler) zaglavljeIzvoza(j *models.Journal) ZaglavljeIzvoza {
+func (h *JournalsHandler) ZaglavljeIzvozaDnevnika(j *models.Journal) ZaglavljeIzvoza {
 	t := models.Terms()
 	centar := j.CentarNaziv
 	if centar == "" {
@@ -138,8 +138,8 @@ func (h *JournalsHandler) IzvoziObracun(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	z := h.zaglavljeIzvoza(j)
-	knjiga := knjigaObracuna(obr, z, od, do.AddDate(0, 0, -1))
+	z := h.ZaglavljeIzvozaDnevnika(j)
+	knjiga := KnjigaObracuna(obr, z, od, do.AddDate(0, 0, -1))
 	ime := fmt.Sprintf("Obracun_sati_%s_%s_%s.xlsx", service.OznakaIzNaziva(z.Centar), od.Format("2006-01-02"), do.AddDate(0, 0, -1).Format("2006-01-02"))
 	posaljiXLSX(w, ime, knjiga)
 }
@@ -174,8 +174,8 @@ func (h *JournalsHandler) IzvoziIORS(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	z := h.zaglavljeIzvoza(j)
-	knjiga := knjigaIORS(iors, koef, z, j.DisplayTitle(), od, do.AddDate(0, 0, -1))
+	z := h.ZaglavljeIzvozaDnevnika(j)
+	knjiga := KnjigaIORS(iors, koef, z, j.DisplayTitle(), od, do.AddDate(0, 0, -1))
 	ime := fmt.Sprintf("IORS_%s_%s_%s.xlsx", service.OznakaIzNaziva(iors.UserName), od.Format("2006-01-02"), do.AddDate(0, 0, -1).Format("2006-01-02"))
 	posaljiXLSX(w, ime, knjiga)
 }
@@ -280,11 +280,11 @@ type osobaUIzvozu struct {
 	Obracunski map[obracun.Razred]float64
 }
 
-// knjigaObracuna slaže radnu knjigu skupnog obračuna u obliku dosadašnjeg
+// KnjigaObracuna slaže radnu knjigu skupnog obračuna u obliku dosadašnjeg
 // (Prekovremeni_<mjesec>_<godina>.xlsx): list BP_<broj> po području i
 // <sektor>_i_ostali, stupac A prazan, UKUPNO iznad osoba, imena velikim
 // slovima, stupac AB s kontrolom; REKAPITULACIJA na kraju.
-func knjigaObracuna(obr service.Obracun, z ZaglavljeIzvoza, od, do time.Time) *xlsxw.Knjiga {
+func KnjigaObracuna(obr service.Obracun, z ZaglavljeIzvoza, od, do time.Time) *xlsxw.Knjiga {
 	k := &xlsxw.Knjiga{LogoPNG: z.LogoPNG}
 	razdoblje := fmt.Sprintf("od %s do %s", od.Format("02.01.2006."), do.Format("02.01.2006."))
 	type zbrojLista struct {
@@ -521,10 +521,10 @@ func osobeGrupe(g service.ObracunGrupa) []osobaUIzvozu {
 	return out
 }
 
-// knjigaIORS slaže obrazac IORS jedne osobe kao jedan dokument: zaglavlje s
+// KnjigaIORS slaže obrazac IORS jedne osobe kao jedan dokument: zaglavlje s
 // logotipom, osnovno o obračunu, redak po danu i razmaku sa satima po
 // razredu, obračun po razredu za ured i teren, potpisi.
-func knjigaIORS(iors service.IORS, koef obracun.Koeficijenti, z ZaglavljeIzvoza, obrana string, od, do time.Time) *xlsxw.Knjiga {
+func KnjigaIORS(iors service.IORS, koef obracun.Koeficijenti, z ZaglavljeIzvoza, obrana string, od, do time.Time) *xlsxw.Knjiga {
 	k := &xlsxw.Knjiga{LogoPNG: z.LogoPNG}
 	B := xlsxw.T
 	const stupaca = 14 // A..N
