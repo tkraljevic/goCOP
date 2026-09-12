@@ -21,19 +21,24 @@ import (
 // Satnicu goCOP ne zna i ne pamti: to je plaća, računovodstvo je upiše u
 // stupac iz prošle plaće, a formule izračunaju iznose. Natrag se ne uvozi.
 
-// kategorija izvoza: naziv i razredi koje zbraja
+// kategorija izvoza: naziv, razredi čiji se sati ispisuju, i razredi čiji
+// obračunski sati ulaze. Redovno radno vrijeme (8–16 radnim danom) nije
+// prekovremeni sat i u obrascu se ne broji kao sat — ali na terenu nosi
+// koeficijent 0,2, pa u obračunske sate ulazi. Tako je u isplaćenom obračunu:
+// 33 sata radnog dana daju 72 obračunska.
 type kategorijaIzvoza struct {
 	Naziv   string
+	Sati    []obracun.Razred
 	Razredi []obracun.Razred
 }
 
 var kategorijeIzvoza = []kategorijaIzvoza{
-	{"radni dan", []obracun.Razred{obracun.RRV, obracun.DRD}},
-	{"noćni radni dan", []obracun.Razred{obracun.NRD}},
-	{"dnevni subota", []obracun.Razred{obracun.VID}},
-	{"noćni subota", []obracun.Razred{obracun.VIN}},
-	{"dnevni nedjelja i blagdan", []obracun.Razred{obracun.BLD}},
-	{"noćni nedjelja i blagdan", []obracun.Razred{obracun.BLN}},
+	{"radni dan", []obracun.Razred{obracun.DRD}, []obracun.Razred{obracun.RRV, obracun.DRD}},
+	{"noćni radni dan", []obracun.Razred{obracun.NRD}, []obracun.Razred{obracun.NRD}},
+	{"dnevni subota", []obracun.Razred{obracun.VID}, []obracun.Razred{obracun.VID}},
+	{"noćni subota", []obracun.Razred{obracun.VIN}, []obracun.Razred{obracun.VIN}},
+	{"dnevni nedjelja i blagdan", []obracun.Razred{obracun.BLD}, []obracun.Razred{obracun.BLD}},
+	{"noćni nedjelja i blagdan", []obracun.Razred{obracun.BLN}, []obracun.Razred{obracun.BLN}},
 }
 
 // DoprinosiNaBruto je stopa doprinosa na bruto plaću, kako stoji u obračunu
@@ -206,8 +211,10 @@ func knjigaObracuna(obr service.Obracun, z ZaglavljeIzvoza, od, do time.Time) *x
 			for i, kat := range kategorijeIzvoza {
 				c := 2 + i*3
 				var sati, obrac float64
-				for _, razred := range kat.Razredi {
+				for _, razred := range kat.Sati {
 					sati += o.Stvarni[razred]
+				}
+				for _, razred := range kat.Razredi {
 					obrac += o.Obracunski[razred]
 				}
 				red = append(red, xlsxw.N(sati, xlsxw.Broj2), xlsxw.N(obrac, xlsxw.Broj2),
@@ -239,7 +246,7 @@ func knjigaObracuna(obr service.Obracun, z ZaglavljeIzvoza, od, do time.Time) *x
 		l.Dodaj(sve...)
 		ukAdresa := xlsxw.Adresa(cY, len(l.Redci)-1)
 		l.Dodaj()
-		l.Dodaj(prazno, B("Bruto satnicu po osobi upisuje računovodstvo iz prošle plaće u stupac X; iznosi se izračunaju sami. Obračunski sati zaokruženi su po razredu na pola sata, sredina djelatniku."))
+		l.Dodaj(prazno, B("Bruto satnicu po osobi upisuje računovodstvo iz prošle plaće u stupac X; iznosi se izračunaju sami. Sati radnog dana su prekovremeni (6–8 i 16–22); redovno radno vrijeme 8–16 nije sat, ali na terenu ulazi u obračunske s koeficijentom 0,2. Obračunski sati zaokruženi su po razredu na pola sata, sredina djelatniku."))
 		// potpisi, kao na obrascu: mjesto i datum lijevo, funkcije pa imena
 		for len(l.Redci) < ukupnoRedak+22 {
 			l.Dodaj()
@@ -323,23 +330,27 @@ func knjigaObracuna(obr service.Obracun, z ZaglavljeIzvoza, od, do time.Time) *x
 func vrijednostStupca(o osobaUIzvozu, c int) float64 {
 	var v float64
 	switch {
-	case c == 20 || c == 21:
-		for _, razred := range obracun.Razredi {
-			if c == 20 {
+	case c == 20:
+		for _, kat := range kategorijeIzvoza {
+			for _, razred := range kat.Sati {
 				v += o.Stvarni[razred]
-			} else {
-				v += o.Obracunski[razred]
 			}
+		}
+	case c == 21:
+		for _, razred := range obracun.Razredi {
+			v += o.Obracunski[razred]
 		}
 	case c >= 2 && c <= 19:
 		i, koji := (c-2)/3, (c-2)%3
 		if koji == 2 {
 			return 0 // bruto: satnica nepoznata
 		}
-		for _, razred := range kategorijeIzvoza[i].Razredi {
-			if koji == 0 {
+		if koji == 0 {
+			for _, razred := range kategorijeIzvoza[i].Sati {
 				v += o.Stvarni[razred]
-			} else {
+			}
+		} else {
+			for _, razred := range kategorijeIzvoza[i].Razredi {
 				v += o.Obracunski[razred]
 			}
 		}
