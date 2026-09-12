@@ -328,6 +328,18 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		_, err = tx.ExecContext(ctx, izvjesceUpsert, args...)
 		return err
 
+	case EntitySektorskaIzvjesca:
+		var i models.SektorskoIzvjesce
+		if err := json.Unmarshal(v.Payload, &i); err != nil {
+			return err
+		}
+		args, err := sektorskoArgs(&i)
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, sektorskoUpsert, args...)
+		return err
+
 	case EntityBlagdani:
 		var p obracun.Pravilo
 		if err := json.Unmarshal(v.Payload, &p); err != nil {
@@ -665,6 +677,8 @@ func removeFromSurface(ctx context.Context, tx *sql.Tx, v ledger.Version) error 
 		stmt = `DELETE FROM dezurstva WHERE id = ?`
 	case EntityDnevnaIzvjesca:
 		stmt = `DELETE FROM dnevna_izvjesca WHERE id = ?`
+	case EntitySektorskaIzvjesca:
+		stmt = `DELETE FROM sektorska_izvjesca WHERE id = ?`
 	case EntityBlagdani:
 		stmt = `DELETE FROM blagdani WHERE id = ?`
 	case EntityKoeficijenti:

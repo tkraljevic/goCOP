@@ -15,7 +15,8 @@ import (
 // pregled kao dokument, predaja. Obrazac je standardni iz Privitka 4, a
 // popunjava se iz onoga što program zna.
 type IzvjescaHandler struct {
-	zaglavlje func(sektor string) ZaglavljeIzvoza // za izvoz; nil dok se ne postavi
+	zaglavlje                func(sektor string) ZaglavljeIzvoza // za izvoz; nil dok se ne postavi
+	tmplSektObr, tmplSektDok *template.Template                  // sektorsko izvješće: obrazac i dokument
 
 	svc       func() *service.IzvjescaService
 	tmplPopis *template.Template
@@ -42,6 +43,10 @@ type IzvjescaPageData struct {
 	Danas       string
 	Dan         string // filtar popisa
 	Sifra       string // filtar popisa: dionica
+
+	// sektorska izvješća na popisu, za one koji ih slažu ili vide
+	Sektorska []models.SektorskoIzvjesce
+	Sektori   []string // za koje osoba slaže sektorsko izvješće
 
 	SuccessMessage string
 	ErrorMessage   string
@@ -96,6 +101,14 @@ func (h *IzvjescaHandler) ShowPopis(w http.ResponseWriter, r *http.Request) {
 		}
 		if svc.SmijeVidjeti(data.Permissions, sec) {
 			data.Izvjesca = append(data.Izvjesca, iz)
+		}
+	}
+	data.Sektori = svc.SektoriZaSastavljanje(data.Permissions)
+	if sektorska, err := svc.ListSektorska(r.Context(), ""); err == nil {
+		for _, si := range sektorska {
+			if svc.SmijeVidjetiSektor(data.Permissions, si.Sektor) {
+				data.Sektorska = append(data.Sektorska, si)
+			}
 		}
 	}
 	h.render(w, h.tmplPopis, "izvjesca.html", data)

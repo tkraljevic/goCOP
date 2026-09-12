@@ -17,6 +17,42 @@
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
 
+{{if or .Sektori .Sektorska}}
+<div class="sektorsko-ploca">
+  <div class="sektorsko-ploca-glava">
+    <h2>{{icon "file-text"}} Izvješće sektora</h2>
+    {{if .Sektori}}
+    <form method="GET" action="/sektorsko-izvjesce/novo" class="obracun-filtar" style="margin:0;">
+      {{if gt (len .Sektori) 1}}<select name="sektor" class="form-control">{{range .Sektori}}<option value="{{.}}">Sektor {{.}}</option>{{end}}</select>{{else}}<input type="hidden" name="sektor" value="{{index .Sektori 0}}">{{end}}
+      <input type="date" name="dan" class="form-control" value="{{if .Dan}}{{.Dan}}{{else}}{{.Danas}}{{end}}" max="{{.Danas}}">
+      <button type="submit" class="btn btn-primary">{{icon "plus"}} Sastavi za dan</button>
+    </form>
+    {{end}}
+  </div>
+  {{if .Sektorska}}
+  <div class="table-card"><div class="table-responsive tablica-kartice">
+    <table class="data-table">
+      <thead><tr><th>Dan</th><th>Sektor</th><th>Stadij</th><th>Izvješća dionica</th><th>Zapisa</th><th>Sastavio</th><th>Stanje</th></tr></thead>
+      <tbody>
+      {{range .Sektorska}}
+      <tr>
+        <td data-stupac="Dan"><a href="/sektorsko-izvjesce/{{.ID}}"><strong>{{danTjedna .Dan}} {{.Dan.Format "2.1.2006."}}</strong></a></td>
+        <td data-stupac="Sektor">{{.Sektor}}</td>
+        <td data-stupac="Stadij"><span class="threshold-pill {{.NajvisiStadij.PillClass}}">{{stadijKratica .NajvisiStadij}}</span></td>
+        <td data-stupac="Izvješća" class="mono">{{.Sadrzaj.Pregled.Izvjesca}}{{if .Sadrzaj.Pregled.Nacrta}} <span class="reg-card-sub">+{{.Sadrzaj.Pregled.Nacrta}} nepredano</span>{{end}}</td>
+        <td data-stupac="Zapisa" class="mono">{{len .Sadrzaj.Zapisi}}</td>
+        <td data-stupac="Sastavio">{{.Izradio}} <span class="reg-card-sub">{{.IzradenoAt.Format "2.1. 15:04"}}</span></td>
+        <td data-stupac="Stanje">{{if .Predano}}<span class="badge">predano {{.PredanoAt.Format "15:04"}}</span>{{else}}<span class="badge badge-pending">nacrt</span>{{end}}</td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div></div>
+  {{else}}<p class="reading-meta">Još nema izvješća sektora. Izaberite dan i sastavite ga iz izvješća dionica i dnevnika.</p>{{end}}
+</div>
+{{end}}
+
+<h2 class="izvjesce-odjeljak">Izvješća dionica</h2>
 <form method="GET" action="/izvjesca" class="obracun-filtar">
   <label for="f-dan">Dan</label>
   <input type="date" id="f-dan" name="dan" class="form-control" value="{{.Dan}}">

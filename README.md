@@ -73,8 +73,16 @@ prva računala. Kaže što program radi na računalu i mreži, što ne radi, i
   dionice, stadij iz otvorene obrane, vodostaje u 07:00 iz očitanja — a
   rukovoditelj dionice ili zamjenik dopuni mjere, sudionike i stanje na
   poplavljenom području te preda. Izvješće se ispisuje kao obrazac (Excel,
-  A4) s logotipom, nazivom odjela i potpisom. Sve to zajedno — dnevnici,
-  plan dežurstava, obračun i izvješća — stoji pod **Dokumentacijom**.
+  A4) s logotipom, nazivom odjela i potpisom.
+- **Dnevno izvješće sektora:** voditelj COP-a slaže ga za dan iz predanih
+  izvješća dionica i zapisa dnevnika COP-a: program zbroji ljude, strojeve i
+  stanje po branjenim područjima i vodotocima, predloži tekst, a voditelj
+  dopiše hidrometeorološke uvjete i ocjenu, odabere što ulazi i preda
+  Glavnom centru. Tablice se snimaju pri spremanju, pa dokument ostaje isti
+  i kad se izvješće dionice poslije popravi. Probne dionice i izvješća za
+  isprobavanje upisuje `go run ./cmd/probna-izvjesca -upisi`. Sve to
+  zajedno — dnevnici, plan dežurstava, obračun i izvješća — stoji pod
+  **Dokumentacijom**.
 - **Dnevnici usluga A.02 i A.03:** dnevnik održavanja voda I. i II. reda i
   kanala III. i IV. reda, po branjenom području. Naslovnica (izvođač,
   voditelj usluga, ovlaštenik ili nadzorni inženjer, akti), za svaki dan

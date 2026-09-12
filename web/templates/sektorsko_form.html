@@ -1,0 +1,123 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Dnevno izvješće sektora{{end}}
+
+{{define "content"}}
+{{$iz := .Sektorsko}}{{$s := $iz.Sadrzaj}}
+<div class="breadcrumb"><a href="/dnevnici">Dokumentacija</a> › <a href="/izvjesca">Dnevna izvješća</a> ›
+  {{if $iz.ID}}<a href="/sektorsko-izvjesce/{{$iz.ID}}">Sektor {{.Sektor}} · {{$iz.Dan.Format "2.1.2006."}}</a> › Obrazac{{else}}Novo izvješće sektora{{end}}</div>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "file-text"}} Dnevno izvješće rukovoditelja sektora</h1>
+    <p class="page-desc">{{.Centar}} · za dan <strong>{{danTjedna $iz.Dan}} {{$iz.Dan.Format "2.1.2006."}}</strong>. Slaže se iz predanih izvješća dionica i
+      zapisa dnevnika COP-a; program zbroji ljude, strojeve i stanje po branjenim područjima i predloži tekst, vi ga skratite i dopunite.
+      Predaje se Glavnom centru do 10:00.</p>
+  </div>
+</div>
+
+{{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
+{{if $iz.Predano}}<div class="alert alert-warning">{{icon "triangle-alert"}} Izvješće je predano {{$iz.PredanoAt.Format "2.1.2006. 15:04"}}. Izmjena ostaje zabilježena u knjizi verzija.</div>{{end}}
+
+<form class="form-page form-wide izvjesce-obrazac" method="POST" action="{{if $iz.ID}}/sektorsko-izvjesce/{{$iz.ID}}{{else}}/sektorsko-izvjesce{{end}}">
+  <input type="hidden" name="sektor" value="{{.Sektor}}">
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="dan">Za dan *</label>
+      <input type="date" id="dan" name="dan" class="form-control" value="{{$iz.Dan.Format "2006-01-02"}}" max="{{.Danas}}" required{{if $iz.ID}} readonly{{else}} onchange="location.href='/sektorsko-izvjesce/novo?sektor={{.Sektor}}&dan='+encodeURIComponent(this.value)"{{end}}>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Sektor</label>
+      <input type="text" class="form-control" value="{{.Sektor}} — {{.Centar}}" disabled>
+    </div>
+  </div>
+
+  <h2 class="izvjesce-odjeljak">Izvješća dionica koja ulaze</h2>
+  {{if .Dostupna}}
+  <p class="page-desc">Označena ulaze u zbroj i tablice. Nacrti su neoznačeni: dionica ih još nije predala.</p>
+  <div class="table-card"><div class="table-responsive">
+    <table class="data-table">
+      <thead><tr><th></th><th>Dionica</th><th>Područje</th><th>Vodotok</th><th>Stadij</th><th>Tendencija</th><th class="br">ljudi</th><th>Izradio</th><th>Stanje</th></tr></thead>
+      <tbody>
+      {{range .Dostupna}}
+      <tr>
+        <td><input type="checkbox" name="izvjesce" value="{{.ID}}"{{if index $.Ukljucena .ID}} checked{{end}}></td>
+        <td class="mono"><a href="/izvjesca/{{.ID}}" target="_blank">{{.SectionCode}}</a></td>
+        <td>{{.Podrucje}}</td>
+        <td>{{.Sadrzaj.Vodotok}}</td>
+        <td><span class="threshold-pill {{.Stadij.PillClass}}">{{.StadijKratica}}</span></td>
+        <td>{{tendencija .Sadrzaj.Tendencija}}</td>
+        <td class="mono br">{{.Sadrzaj.Pravne.Ljudi}}</td>
+        <td>{{.Izradio}}</td>
+        <td>{{if .Predano}}<span class="badge">predano {{.PredanoAt.Format "15:04"}}</span>{{else}}<span class="badge badge-pending">nacrt</span>{{end}}</td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div></div>
+  {{else}}<div class="reg-empty">Za taj dan nijedna dionica još nije napisala izvješće. Sektorsko se može složiti i samo iz dnevnika i opisa.</div>{{end}}
+
+  <h2 class="izvjesce-odjeljak">Hidrometeorološki uvjeti</h2>
+  <div class="form-group">
+    <label class="form-label" for="hidrometeo">Opis hidrometeoroloških uvjeta na sektoru po branjenim područjima (oborine, prognoza, uzvodni vodostaji, led)</label>
+    <textarea id="hidrometeo" name="hidrometeo" class="form-control" rows="4">{{$s.Hidrometeo}}</textarea>
+  </div>
+
+  <h2 class="izvjesce-odjeljak">Stanje i mjere po branjenim područjima</h2>
+  <p class="page-desc">Tekst je predložen iz izvješća dionica; vodotoci, stadiji, vodostaji i zbrojevi idu u tablice sami.</p>
+  <div class="form-group">
+    <label class="form-label" for="ostecenja">Vrijeme uočavanja oštećenja vodnih građevina, stanje i lokacije kritičnih mjesta</label>
+    <textarea id="ostecenja" name="ostecenja" class="form-control" rows="5">{{$s.Ostecenja}}</textarea>
+  </div>
+  <div class="form-group">
+    <label class="form-label" for="mjere">Zbirni opis provedenih mjera i radnji po branjenim područjima (vreće, materijal, nasipi, crpke)</label>
+    <textarea id="mjere" name="mjere" class="form-control" rows="5">{{$s.Mjere}}</textarea>
+  </div>
+  <div class="form-group">
+    <label class="form-label" for="objekti">Vrijeme početka i prestanka aktiviranja objekata za rasterećenje velikih voda, s tehničkim podacima</label>
+    <textarea id="objekti" name="objekti" class="form-control" rows="3">{{$s.Objekti}}</textarea>
+  </div>
+  <div class="form-group">
+    <label class="form-label" for="poplavljeno">Opis poplavljenih područja i objekata po branjenim područjima i županijama</label>
+    <textarea id="poplavljeno" name="poplavljeno" class="form-control" rows="3">{{$s.Poplavljeno}}</textarea>
+  </div>
+  <div class="form-group">
+    <label class="form-label" for="evakuacija">Provedene evakuacije po branjenim područjima i županijama</label>
+    <textarea id="evakuacija" name="evakuacija" class="form-control" rows="2">{{$s.Evakuacija}}</textarea>
+  </div>
+
+  <h2 class="izvjesce-odjeljak">Zapisi iz dnevnika COP-a</h2>
+  {{if .DostupniZapisi}}
+  <p class="page-desc">Dojave, obavijesti i napomene toga dana; označeni ulaze u izvješće kao kronologija.</p>
+  <div class="table-card"><div class="table-responsive">
+    <table class="data-table">
+      <thead><tr><th></th><th>Vrijeme</th><th>Područje</th><th>Vrsta</th><th>Javio</th><th>Zapis</th></tr></thead>
+      <tbody>
+      {{range .DostupniZapisi}}
+      <tr>
+        <td><input type="checkbox" name="zapis" value="{{.ID}}"{{if index $.UkljuceniZapisi .ID}} checked{{end}}></td>
+        <td class="mono">{{.Vrijeme}}</td>
+        <td>{{.Podrucje}}</td>
+        <td>{{.Vrsta}}</td>
+        <td>{{.Javio}}</td>
+        <td class="zapis-tekst">{{.Tekst}}</td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div></div>
+  {{else}}<div class="reg-empty">{{if $iz.JournalID}}Dnevnik COP-a nema zapisa za taj dan.{{else}}Nema otvorenog dnevnika COP-a za sektor, pa nema ni zapisa.{{end}}</div>{{end}}
+
+  <h2 class="izvjesce-odjeljak">Ocjena i napomena</h2>
+  <div class="form-group">
+    <label class="form-label" for="napomena">Ocjena stanja, najava za sutra, što Glavni centar treba znati</label>
+    <textarea id="napomena" name="napomena" class="form-control" rows="3">{{$s.Napomena}}</textarea>
+  </div>
+
+  <div class="form-actions">
+    <button type="submit" class="btn btn-secondary">{{icon "check"}} Spremi nacrt</button>
+    <button type="submit" name="predaj" value="1" class="btn btn-primary">{{icon "arrow-right"}} Spremi i predaj</button>
+    <span class="reading-meta">Slaže {{.CurrentUser.FullName}}; potpisuje rukovoditelj sektora. Tablice se snimaju pri spremanju.</span>
+  </div>
+</form>
+{{end}}
