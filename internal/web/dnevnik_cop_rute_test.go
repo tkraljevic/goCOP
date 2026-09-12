@@ -197,7 +197,8 @@ func TestDnevnikCOPKrozRute(t *testing.T) {
 	}
 	// Plan ima svoju stranicu; dnevnik COP-a nosi samo gumb do nje.
 	mora(zovi(http.MethodGet, "/dnevnici/"+dnevnik+"/dezurstva", nil), http.StatusOK, "plan",
-		"Ana Anić", "Dežurstvo u COP-u", "12.9.", "19:00", "13.9.", "07:00", "(12:00)", "/obracun", `id="novo-dezurstvo"`, "<td>Vuka</td>", "cijeli sektor B")
+		"Ana Anić", "Dežurstvo u COP-u", "12.9.", "19:00", "13.9.", "07:00", "(12:00)", "/obracun", `id="novo-dezurstvo"`, "<td>Vuka</td>", "cijeli sektor B",
+		`value="`+voditelj.ID.String()+`" selected>Voditelj Centra (ja)`)
 	w = zovi(http.MethodGet, "/dnevnici/"+dnevnik, nil)
 	mora(w, http.StatusOK, "dnevnik s gumbom", "/dnevnici/"+dnevnik+"/dezurstva")
 	if strings.Contains(w.Body.String(), `id="novo-dezurstvo"`) {

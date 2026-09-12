@@ -65,8 +65,7 @@
       <label class="form-label" for="d-osoba">Tko *</label>
       {{if .UpravaCentra}}
       <select id="d-osoba" name="user_id" class="form-control" required>
-        <option value="">— odaberite —</option>
-        {{range .Osobe}}<option value="{{.ID}}">{{.FullName}}</option>{{end}}
+        {{range .Osobe}}<option value="{{.ID}}"{{if eq .ID.String $.CurrentUser.ID.String}} selected{{end}}>{{.FullName}}{{if eq .ID.String $.CurrentUser.ID.String}} (ja){{end}}</option>{{end}}
       </select>
       {{else}}
       <input type="hidden" name="user_id" value="{{.CurrentUser.ID}}">
