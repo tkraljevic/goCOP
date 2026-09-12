@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -101,13 +102,23 @@ func (h *SectionsHandler) pageData(r *http.Request) SectionPageData {
 
 // ShowSection prikazuje jednu dionicu sa svime što se na nju veže
 func (h *SectionsHandler) ShowSection(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
 	data := h.pageData(r)
-
-	sec, err := h.sectionService.GetSectionWithDetails(strings.TrimSpace(r.PathValue("code")))
-	if err != nil || sec == nil {
+	if !h.napuniDionicu(r, &data) {
 		http.NotFound(w, r)
 		return
+	}
+	if err := h.tmplDetail.ExecuteTemplate(w, "section_detail.html", data); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+// napuniDionicu skuplja dionicu sa svime što se na nju veže — isto za
+// stranicu i za izvoz; false kad dionice nema
+func (h *SectionsHandler) napuniDionicu(r *http.Request, data *SectionPageData) bool {
+	ctx := r.Context()
+	sec, err := h.sectionService.GetSectionWithDetails(strings.TrimSpace(r.PathValue("code")))
+	if err != nil || sec == nil {
+		return false
 	}
 	data.Section = *sec
 	data.CanEdit = h.sectionService.CanEditSection(data.Permissions, sec)
@@ -173,9 +184,34 @@ func (h *SectionsHandler) ShowSection(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
-	if err := h.tmplDetail.ExecuteTemplate(w, "section_detail.html", data); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	return true
+}
+
+// IzvoziDionicu piše karticu dionice kao .xlsx: sve što je na stranici,
+// složeno za ispis na A4
+func (h *SectionsHandler) IzvoziDionicu(w http.ResponseWriter, r *http.Request) {
+	data := h.pageData(r)
+	if !h.napuniDionicu(r, &data) {
+		http.NotFound(w, r)
+		return
 	}
+	t := models.Terms()
+	z := ZaglavljeIzvoza{Organizacija: t.OrgName, Sektor: data.Section.SectorID, Datum: time.Now().In(models.Zagreb)}
+	if t.HasLogo() && t.LogoMime == "image/png" {
+		z.LogoPNG = t.Logo
+	}
+	if sektori, err := h.userService.ListSectors(); err == nil {
+		for _, sk := range sektori {
+			if sk.ID == data.Section.SectorID {
+				z.Odjel, z.Centar = sk.VgoName, sk.CenterCop
+				z.Mjesto = strings.TrimSpace(strings.TrimPrefix(sk.CenterCop, t.CenterShort))
+			}
+		}
+	}
+	if data.Section.AreaName != "" {
+		z.Centar = strings.TrimSpace(z.Centar + " · BP " + strconv.Itoa(data.Section.AreaID) + " " + data.Section.AreaName)
+	}
+	posaljiXLSX(w, "dionica-"+strings.ReplaceAll(data.Section.Code, ".", "-")+".xlsx", KnjigaDionice(data, z))
 }
 
 // imeDjelatnika razrješava identifikator u ime, pamteći već potražene da se

@@ -17,11 +17,10 @@
       {{if .Section.AreaName}} · BP {{.Section.AreaID}}: {{.Section.AreaName}}{{end}}
     </p>
   </div>
-  {{if .CanEdit}}
   <div class="detail-actions">
-    <a href="/sections/{{.Section.Code}}/edit" class="btn btn-secondary">{{icon "pencil"}} Uredi</a>
+    {{if .CanEdit}}<a href="/sections/{{.Section.Code}}/edit" class="btn btn-secondary">{{icon "pencil"}} Uredi</a>{{end}}
+    <a href="/sections/{{.Section.Code}}/dionica.xlsx" class="btn btn-secondary" title="Kartica dionice za ispis, A4">{{icon "download"}} Excel</a>
   </div>
-  {{end}}
 </div>
 
 
