@@ -303,15 +303,9 @@ Uvoz očitanja vodostaja te stanja crpnih stanica i ustava branjenog
 područja 16 (Baranja) od 2013. do 2026. nastao je iz evidencije koju je
 Tomislav Kraljević vodio na privatnom poslužitelju (app.bp16.xyz) i koju je
 VGI Baranja punila svako jutro. Ti podaci nisu dio programa; uvoze se na
-čvorove Hrvatskih voda. Zahvala ljudima koji su ih trinaest godina
-prikupljali:
-
-- **unos u evidenciju:** [ime uklonjeno radi privatnosti], [ime uklonjeno radi privatnosti], [ime uklonjeno radi privatnosti],
-  [ime uklonjeno radi privatnosti], [ime uklonjeno radi privatnosti]
-- **očitanja na terenu:** [ime uklonjeno radi privatnosti], [ime uklonjeno radi privatnosti], [ime uklonjeno radi privatnosti],
-  [ime uklonjeno radi privatnosti], [ime uklonjeno radi privatnosti], [ime uklonjeno radi privatnosti], [ime uklonjeno radi privatnosti], [ime uklonjeno radi privatnosti],
-  [ime uklonjeno radi privatnosti], [ime uklonjeno radi privatnosti], [ime uklonjeno radi privatnosti], [ime uklonjeno radi privatnosti],
-  [ime uklonjeno radi privatnosti], [ime uklonjeno radi privatnosti], [ime uklonjeno radi privatnosti], [ime uklonjeno radi privatnosti], [ime uklonjeno radi privatnosti]
+čvorove Hrvatskih voda. Zahvala svim djelatnicima koji su ih trinaest godina
+unosili u evidenciju i očitavali na terenu. Njihova imena nisu objavljena u
+javnom repozitoriju radi zaštite osobnih podataka.
 
 ## Podaci koji nisu u repozitoriju
 
