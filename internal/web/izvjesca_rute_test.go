@@ -68,6 +68,10 @@ func TestDnevnaIzvjescaKrozRute(t *testing.T) {
 	mux.HandleFunc("POST /izvjesca/{id}", h.HandleSpremi)
 	mux.HandleFunc("POST /izvjesca/{id}/predaj", h.HandlePredaj)
 	mux.HandleFunc("POST /izvjesca/{id}/obrisi", h.HandleObrisi)
+	mux.HandleFunc("GET /izvjesca/{id}/izvjesce.xlsx", h.IzvoziIzvjesce)
+	h.SetZaglavlje(func(sektor string) ZaglavljeIzvoza {
+		return ZaglavljeIzvoza{Organizacija: "Hrvatske vode", Odjel: "VGO Osijek", Centar: "COP Osijek", Sektor: sektor, Mjesto: "Osijek", Datum: time.Now()}
+	})
 
 	rukovoditelj := &models.User{ID: uuid.New(), FullName: "Rukovoditelj Dionice"}
 	prava := &models.UserPermissions{AllowedSections: map[string]bool{"B.16.3": true}}
@@ -138,6 +142,29 @@ func TestDnevnaIzvjescaKrozRute(t *testing.T) {
 	mora(zovi(http.MethodPost, "/izvjesca/"+id+"/predaj", url.Values{}), http.StatusSeeOther, "predaja")
 	mora(zovi(http.MethodGet, "/izvjesca/"+id, nil), http.StatusOK, "predano", "predano u podcentar")
 	mora(zovi(http.MethodGet, "/izvjesca?dionica=B.16.3", nil), http.StatusOK, "popis poslije", "B.16.3", "Dunav", ">R<", "predano")
+
+	// Izvoz je valjana .xlsx datoteka s obrascem.
+	w = zovi(http.MethodGet, "/izvjesca/"+id+"/izvjesce.xlsx", nil)
+	if w.Code != http.StatusOK || !strings.Contains(w.Header().Get("Content-Disposition"), "dnevno-izvjesce-B-16-3-"+danas) {
+		t.Fatalf("izvoz: %d %s", w.Code, w.Header().Get("Content-Disposition"))
+	}
+	if p := os.Getenv("GOCOP_IZVOZ_IZVJESCE"); p != "" {
+		_ = os.WriteFile(p, w.Body.Bytes(), 0o644)
+	}
+	redci, err := procitajXLSX(w.Body.Bytes())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var sve []string
+	for _, r := range redci {
+		sve = append(sve, strings.Join(r, "|"))
+	}
+	list := strings.Join(sve, "\n")
+	for _, want := range []string{"DNEVNO IZVJEŠĆE RUKOVODITELJA DIONICE", "B.16.3", "Dunav – Batina", "07:00", "☒ porast", "☒ R", "Nasip pregledan", "Nadvišenje nasipa 120 m.", "Batina", "Rukovoditelj Dionice"} {
+		if !strings.Contains(list, want) {
+			t.Errorf("izvoz nema %q", want)
+		}
+	}
 
 	// Predano rukovoditelj ne briše.
 	w = zovi(http.MethodPost, "/izvjesca/"+id+"/obrisi", url.Values{})
