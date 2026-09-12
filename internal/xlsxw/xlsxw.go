@@ -75,6 +75,7 @@ type List struct {
 	spojene   []string        // spojena područja, "A1:D1"
 	Logo      bool            // logotip knjige u gornjem lijevom kutu
 	Vodoravno bool            // ispis vodoravno, cijela širina na jednu stranicu
+	Uspravno  bool            // ispis uspravno, cijela širina na jednu stranicu
 	Podnozje  string          // podnožje ispisa; &P i &N su broj stranice i ukupno
 	ponovi    [2]int          // redci zaglavlja koji se ponavljaju na svakoj stranici (1-based), 0 = nema
 }
@@ -269,7 +270,7 @@ const stilovi = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSh
 func (l *List) xml(logo bool) string {
 	var b strings.Builder
 	b.WriteString(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">`)
-	if l.Vodoravno {
+	if l.Vodoravno || l.Uspravno {
 		b.WriteString(`<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>`)
 	}
 	b.WriteString(`<sheetViews><sheetView workbookViewId="0" showGridLines="0"/></sheetViews>`)
@@ -320,6 +321,8 @@ func (l *List) xml(logo bool) string {
 	b.WriteString(`<printOptions horizontalCentered="1"/><pageMargins left="0.5" right="0.5" top="0.6" bottom="0.6" header="0.3" footer="0.3"/>`)
 	if l.Vodoravno {
 		b.WriteString(`<pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"/>`)
+	} else if l.Uspravno {
+		b.WriteString(`<pageSetup paperSize="9" orientation="portrait" fitToWidth="1" fitToHeight="0"/>`)
 	} else {
 		b.WriteString(`<pageSetup paperSize="9" orientation="portrait"/>`)
 	}

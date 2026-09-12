@@ -15,6 +15,8 @@ import (
 // pregled kao dokument, predaja. Obrazac je standardni iz Privitka 4, a
 // popunjava se iz onoga što program zna.
 type IzvjescaHandler struct {
+	zaglavlje func(sektor string) ZaglavljeIzvoza // za izvoz; nil dok se ne postavi
+
 	svc       func() *service.IzvjescaService
 	tmplPopis *template.Template
 	tmplObr   *template.Template
@@ -223,6 +225,23 @@ func (h *IzvjescaHandler) HandleSpremi(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	redirectWith(w, r, "/izvjesca/"+iz.ID, "success", "Izvješće je spremljeno kao nacrt.")
+}
+
+// SetZaglavlje daje rukovatelju ono što na izvozu stoji o organizaciji
+func (h *IzvjescaHandler) SetZaglavlje(f func(sektor string) ZaglavljeIzvoza) { h.zaglavlje = f }
+
+// IzvoziIzvjesce piše izvješće kao .xlsx u obliku propisanog obrasca
+func (h *IzvjescaHandler) IzvoziIzvjesce(w http.ResponseWriter, r *http.Request) {
+	data := h.pageData(r)
+	iz, sec, ok := h.ucitaj(w, r, &data)
+	if !ok {
+		return
+	}
+	z := ZaglavljeIzvoza{Organizacija: models.Terms().OrgName, Datum: time.Now().In(models.Zagreb)}
+	if h.zaglavlje != nil {
+		z = h.zaglavlje(sec.SectorID)
+	}
+	posaljiXLSX(w, "dnevno-izvjesce-"+strings.ReplaceAll(sec.Code, ".", "-")+"-"+iz.Dan.Format("2006-01-02")+".xlsx", KnjigaIzvjesca(iz, sec, z))
 }
 
 // HandlePredaj označava izvješće predanim

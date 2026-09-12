@@ -67,6 +67,14 @@ prva računala. Kaže što program radi na računalu i mreži, što ne radi, i
   na profilu svatko vidi svoje planove i izvješća. Blagdani (kao pravila, s
   razdobljem važenja) i koeficijenti su podatak organizacije i uređuju se u
   Administraciji, ne novom verzijom programa.
+- **Dnevno izvješće rukovoditelja dionice:** standardni obrazac iz
+  Privitka 4 Državnog plana, jedan po dionici i danu dok traje obrana,
+  predaje se do 08:00 u podcentar. Program unaprijed upiše što zna — vodotok
+  dionice, stadij iz otvorene obrane, vodostaje u 07:00 iz očitanja — a
+  rukovoditelj dionice ili zamjenik dopuni mjere, sudionike i stanje na
+  poplavljenom području te preda. Izvješće se ispisuje kao obrazac (Excel,
+  A4) s logotipom, nazivom odjela i potpisom. Sve to zajedno — dnevnici,
+  plan dežurstava, obračun i izvješća — stoji pod **Dokumentacijom**.
 - **Dnevnici usluga A.02 i A.03:** dnevnik održavanja voda I. i II. reda i
   kanala III. i IV. reda, po branjenom području. Naslovnica (izvođač,
   voditelj usluga, ovlaštenik ili nadzorni inženjer, akti), za svaki dan

@@ -902,6 +902,10 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /izvjesca/{id}", s.authMiddleware(http.HandlerFunc(izvjescaH.HandleSpremi)))
 	s.mux.Handle("POST /izvjesca/{id}/predaj", s.authMiddleware(http.HandlerFunc(izvjescaH.HandlePredaj)))
 	s.mux.Handle("POST /izvjesca/{id}/obrisi", s.authMiddleware(http.HandlerFunc(izvjescaH.HandleObrisi)))
+	s.mux.Handle("GET /izvjesca/{id}/izvjesce.xlsx", s.authMiddleware(http.HandlerFunc(izvjescaH.IzvoziIzvjesce)))
+	izvjescaH.SetZaglavlje(func(sektor string) ZaglavljeIzvoza {
+		return journalsH.ZaglavljeIzvozaDnevnika(&models.Journal{CentarSektor: sektor})
+	})
 	s.mux.Handle("POST /administracija/izvori", s.samoAdmin(http.HandlerFunc(izvoriH.SpremiIzvor)))
 	uvozH := NewUvozHandler(func() string { return s.arhivaPut }, func() string { return s.podaciDir },
 		s.IzgradiLetvu, s.templates["uvoz_niza.html"])
