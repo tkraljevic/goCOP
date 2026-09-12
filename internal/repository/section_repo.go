@@ -204,13 +204,20 @@ func (r *SectionRepository) GetSectionPersonnel(code string, areaID int, sectorI
 		      -- "B.34.1" je inače nalazio i B.34.10 i B.34.12, pa je kartica
 		      -- dionice pokazivala rukovoditelje susjednih dionica.
 		      (',' || REPLACE(d.section_codes, ' ', '') || ',') LIKE ? OR
-		      (d.area_id = ? AND d.role IN ('WATER_GUARD', 'MACHINIST', 'AREA_LEADER', 'AREA_DEPUTY', 'CONTRACT_OFFICER_A2', 'CONTRACT_OFFICER_A3', 'SERVICE_LEADER_FOREMAN')) OR
-		      (d.sector_id = ? AND d.role IN ('SECTOR_LEADER', 'SECTOR_DEPUTY', 'COP_LEADER', 'COP_DEPUTY'))
+		      -- Razina 1 vrijedi za cijelu državu, ili za ovaj sektor (zamjenik
+		      -- Glavnog rukovoditelja za sektor)
+		      (d.role IN ('NATIONAL_LEADER', 'NATIONAL_DEPUTY', 'MAIN_CENTER_LEADER', 'MAIN_CENTER_DEPUTY', 'SECTOR_MAIN_DEPUTY')
+		         AND (d.sector_id IS NULL OR d.sector_id = '' OR d.sector_id = ?)) OR
+		      -- Razina 2: uprava sektora i centra
+		      (d.sector_id = ? AND d.role IN ('SECTOR_LEADER', 'SECTOR_DEPUTY', 'COP_LEADER', 'COP_DEPUTY', 'AREA_ADMIN')) OR
+		      -- Razina 2 za područje, razina 3 i teren područja
+		      (d.area_id = ? AND d.role IN ('SECTOR_AREA_DEPUTY', 'AREA_LEADER', 'AREA_DEPUTY', 'CONTRACT_OFFICER_A2', 'CONTRACT_DEPUTY_A2',
+		         'CONTRACT_OFFICER_A3', 'CONTRACT_DEPUTY_A3', 'SERVICE_LEADER_FOREMAN', 'WATER_GUARD', 'MACHINIST'))
 		  )
 		ORDER BY u.full_name ASC
 	`
 	codeLike := "%," + code + ",%"
-	rows, err := r.db.Query(query, codeLike, areaID, sectorID)
+	rows, err := r.db.Query(query, codeLike, sectorID, sectorID, areaID)
 	if err != nil {
 		return nil, fmt.Errorf("greška pri dohvatu osoblja za dionicu: %w", err)
 	}
