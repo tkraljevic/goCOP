@@ -15,24 +15,34 @@ import (
 const EntityDezurstva = "dezurstva"
 
 // Dežurstvo putuje kanalom svog dnevnika: tko prati dnevnik, prati i plan.
-const dezurstvoUpsert = `INSERT INTO dezurstva (id, journal_id, user_id, user_name, od, do_, opis, mjesto, napomena, created_by, created_at, updated_at)
-	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+const dezurstvoUpsert = `INSERT INTO dezurstva (id, journal_id, user_id, user_name, od, do_, opis, mjesto, napomena, potvrdio, potvrdeno_at, created_by, created_at, updated_at)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	ON CONFLICT(id) DO UPDATE SET journal_id = excluded.journal_id, user_id = excluded.user_id, user_name = excluded.user_name,
 		od = excluded.od, do_ = excluded.do_, opis = excluded.opis, mjesto = excluded.mjesto, napomena = excluded.napomena,
+		potvrdio = excluded.potvrdio, potvrdeno_at = excluded.potvrdeno_at,
 		created_by = excluded.created_by, created_at = excluded.created_at, updated_at = excluded.updated_at`
 
 func dezurstvoArgs(d *models.Dezurstvo) []any {
-	return []any{d.ID, d.JournalID, d.UserID, d.UserName, d.Od.UTC(), d.Do.UTC(), d.Opis, d.Mjesto, d.Napomena, d.CreatedBy, d.CreatedAt, d.UpdatedAt}
+	var potvrdeno any
+	if d.PotvrdenoAt != nil {
+		potvrdeno = d.PotvrdenoAt.UTC()
+	}
+	return []any{d.ID, d.JournalID, d.UserID, d.UserName, d.Od.UTC(), d.Do.UTC(), d.Opis, d.Mjesto, d.Napomena, d.Potvrdio, potvrdeno, d.CreatedBy, d.CreatedAt, d.UpdatedAt}
 }
 
-const dezurstvoColumns = `id, journal_id, user_id, user_name, od, do_, opis, mjesto, napomena, created_by, created_at, updated_at`
+const dezurstvoColumns = `id, journal_id, user_id, user_name, od, do_, opis, mjesto, napomena, potvrdio, potvrdeno_at, created_by, created_at, updated_at`
 
 func scanDezurstvo(row interface{ Scan(...any) error }) (*models.Dezurstvo, error) {
 	var d models.Dezurstvo
-	if err := row.Scan(&d.ID, &d.JournalID, &d.UserID, &d.UserName, &d.Od, &d.Do, &d.Opis, &d.Mjesto, &d.Napomena, &d.CreatedBy, &d.CreatedAt, &d.UpdatedAt); err != nil {
+	var potvrdeno sql.NullTime
+	if err := row.Scan(&d.ID, &d.JournalID, &d.UserID, &d.UserName, &d.Od, &d.Do, &d.Opis, &d.Mjesto, &d.Napomena, &d.Potvrdio, &potvrdeno, &d.CreatedBy, &d.CreatedAt, &d.UpdatedAt); err != nil {
 		return nil, err
 	}
 	d.Od, d.Do = d.Od.In(models.Zagreb), d.Do.In(models.Zagreb)
+	if potvrdeno.Valid {
+		t := potvrdeno.Time.In(models.Zagreb)
+		d.PotvrdenoAt = &t
+	}
 	return &d, nil
 }
 
@@ -89,6 +99,13 @@ func (r *JournalRepository) ListDezurstva(ctx context.Context, journalID string)
 		out = append(out, *d)
 	}
 	return out, rows.Err()
+}
+
+// BrojDezurstava broji sva dežurstva, za razdjelnicu na /dnevnici
+func (r *JournalRepository) BrojDezurstava(ctx context.Context) (int, error) {
+	var n int
+	err := r.db.QueryRowContext(ctx, `SELECT count(*) FROM dezurstva`).Scan(&n)
+	return n, err
 }
 
 // ArhivirajDezurstvo miče dežurstvo s površine; u knjizi ostaje kao

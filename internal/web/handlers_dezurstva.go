@@ -14,14 +14,41 @@ import (
 // Plan dežurstava stoji uz dnevnik COP-a: uprava centra ga slaže, dežurni ga
 // vidi, a poslije obrane isti zapisi daju obračun sati po osobi.
 
-// HandleSaveDezurstvo upisuje ili mijenja dežurstvo iz obrasca na dnevniku
+// ShowDezurstva prikazuje plan dežurstava dnevnika COP-a: popis, obrazac za
+// upravu centra, i put do obračuna
+func (h *JournalsHandler) ShowDezurstva(w http.ResponseWriter, r *http.Request) {
+	j, area, ok := h.loadJournal(w, r)
+	if !ok {
+		return
+	}
+	if j.CentarSektor == "" {
+		http.Error(w, "plan dežurstava vodi se uz dnevnik COP-a", http.StatusNotFound)
+		return
+	}
+	data := h.pageData(r)
+	data.Journal, data.Area = j, area
+	h.fillRights(&data)
+	data.Dezurstva, _ = h.journals.Dezurstva(r.Context(), j.ID)
+	data.OpisiRada = models.OpisiRada
+	data.UpravaCentra = h.journals.UpravaCentra(data.Permissions, j)
+	data.MozeSebe = h.journals.MozeSebeUPlan(data.Permissions, h.opseg(j, area), j)
+	// Uprava bira bilo koga iz sektora; ostali upisuju samo sebe.
+	if data.UpravaCentra {
+		data.Osobe, _ = h.users.ListUsers(j.CentarSektor, 0, "", "", "")
+	} else if data.MozeSebe && data.CurrentUser != nil {
+		data.Osobe = []models.User{*data.CurrentUser}
+	}
+	h.render(w, h.tmplDezurstva, "dnevnik_dezurstva.html", data)
+}
+
+// HandleSaveDezurstvo upisuje ili mijenja dežurstvo iz obrasca na planu
 func (h *JournalsHandler) HandleSaveDezurstvo(w http.ResponseWriter, r *http.Request) {
 	j, area, ok := h.loadJournal(w, r)
 	if !ok {
 		return
 	}
 	u, perms := h.base(r)
-	back := "/dnevnici/" + j.ID + "#dezurstva"
+	back := "/dnevnici/" + j.ID + "/dezurstva"
 	if err := r.ParseForm(); err != nil {
 		redirectWith(w, r, back, "error", "Neispravan zahtjev")
 		return
@@ -56,17 +83,32 @@ func (h *JournalsHandler) HandleSaveDezurstvo(w http.ResponseWriter, r *http.Req
 
 // HandleMakniDezurstvo miče dežurstvo iz plana
 func (h *JournalsHandler) HandleMakniDezurstvo(w http.ResponseWriter, r *http.Request) {
-	j, area, ok := h.loadJournal(w, r)
+	j, _, ok := h.loadJournal(w, r)
 	if !ok {
 		return
 	}
 	u, perms := h.base(r)
-	back := "/dnevnici/" + j.ID + "#dezurstva"
-	if err := h.journals.MakniDezurstvo(r.Context(), u, perms, h.opseg(j, area), j, r.PathValue("dez")); err != nil {
+	back := "/dnevnici/" + j.ID + "/dezurstva"
+	if err := h.journals.MakniDezurstvo(r.Context(), u, perms, j, r.PathValue("dez")); err != nil {
 		redirectWith(w, r, back, "error", err.Error())
 		return
 	}
 	redirectWith(w, r, back, "success", "Dežurstvo je maknuto iz plana.")
+}
+
+// HandlePotvrdiDezurstvo: uprava centra provjerila je upis i potvrđuje ga
+func (h *JournalsHandler) HandlePotvrdiDezurstvo(w http.ResponseWriter, r *http.Request) {
+	j, _, ok := h.loadJournal(w, r)
+	if !ok {
+		return
+	}
+	u, perms := h.base(r)
+	back := "/dnevnici/" + j.ID + "/dezurstva"
+	if err := h.journals.PotvrdiDezurstvo(r.Context(), u, perms, j, r.PathValue("dez")); err != nil {
+		redirectWith(w, r, back, "error", err.Error())
+		return
+	}
+	redirectWith(w, r, back, "success", "Dežurstvo je potvrđeno.")
 }
 
 // ShowObracun prikazuje sate po osobi za razdoblje; zadano je cijelo
@@ -101,7 +143,7 @@ func (h *JournalsHandler) ShowObracun(w http.ResponseWriter, r *http.Request) {
 	data.Razredi = obracun.Razredi
 	var err error
 	postavke := h.postavkeObracuna()
-	if data.Obracun, err = h.journals.Obracun(r.Context(), j, od, do, postavke.Kalendar(r.Context()), postavke.Koeficijenti(r.Context())); err != nil {
+	if data.Obracun, data.CekaPotvrdu, err = h.journals.Obracun(r.Context(), j, od, do, postavke.Kalendar(r.Context()), postavke.Koeficijenti(r.Context())); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

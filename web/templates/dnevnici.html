@@ -9,7 +9,9 @@
   <div>
     <h1 class="page-title">{{icon "notebook"}} {{vrstaDnevnika .Vrsta}}</h1>
     <p class="page-desc">
-      {{if eq .Vrsta "OBRANA"}}Dežurstvo centra obrane od poplava. Upisuju ga operateri dok traje obrana:
+      {{if eq .Vrsta "DEZURSTVA"}}Tko dežura kad, i što radi: u centru, na terenu, u uredu. Plan stoji uz dnevnik
+      COP-a jer traje koliko i obrana; isti zapisi poslije daju obračun sati.
+      {{else if eq .Vrsta "OBRANA"}}Dežurstvo centra obrane od poplava. Upisuju ga operateri dok traje obrana:
       vrijeme, tko javlja i što. Teče danima, bez izvođača i nadzora.
       {{else if eq .Vrsta "ODRZAVANJE_A02"}}Održavanje voda I. i II. reda. Vodi ga izvođač svaki dan, a nadzire
       ovlaštenik za praćenje ugovora.
@@ -26,7 +28,7 @@
 </div>
 
 
-{{if and (eq .Vrsta "OBRANA") .Centri}}
+{{if and (or (eq .Vrsta "OBRANA") (eq .Vrsta "DEZURSTVA")) .Centri}}
 <div class="filter-card">
   <form action="/dnevnici/popis" method="GET">
     <input type="hidden" name="vrsta" value="OBRANA">
@@ -43,7 +45,7 @@
 </div>
 {{end}}
 
-{{if and (ne .Vrsta "OBRANA") (gt (len .Areas) 1)}}
+{{if and (ne .Vrsta "OBRANA") (ne .Vrsta "DEZURSTVA") (gt (len .Areas) 1)}}
 <div class="filter-card">
   <form action="/dnevnici/popis" method="GET">
     <input type="hidden" name="vrsta" value="{{.Vrsta}}">
@@ -62,7 +64,7 @@
 <div class="reg-list">
   {{range .Journals}}
   <article class="reg-card">
-    <a class="reg-card-link" href="/dnevnici/{{.ID}}">
+    <a class="reg-card-link" href="/dnevnici/{{.ID}}{{if eq $.Vrsta "DEZURSTVA"}}/dezurstva{{end}}">
       <div class="reg-card-head">
         <div>
           <h3 class="reg-card-title">{{.DisplayTitle}}</h3>
@@ -89,7 +91,8 @@
   </article>
   {{else}}
   <div class="reg-empty">
-    {{if eq .Vrsta "OBRANA"}}Još nema nijednog dnevnika COP-a.{{if .CentriZaOtvaranje}} Otvara se kad počne dežurstvo, gumbom „Novi dnevnik COP-a“.{{end}}{{else if .Area}}U području {{.Area.Name}} još nema dnevnika te vrste.{{if .CanManage}} Otvorite ga gumbom „Novi dnevnik“ i popunite naslovnicu.{{end}}{{else}}Nema područja.{{end}}
+    {{if eq .Vrsta "DEZURSTVA"}}Plan dežurstava otvara se s dnevnikom COP-a; još nema nijednog.
+    {{else if eq .Vrsta "OBRANA"}}Još nema nijednog dnevnika COP-a.{{if .CentriZaOtvaranje}} Otvara se kad počne dežurstvo, gumbom „Novi dnevnik COP-a“.{{end}}{{else if .Area}}U području {{.Area.Name}} još nema dnevnika te vrste.{{if .CanManage}} Otvorite ga gumbom „Novi dnevnik“ i popunite naslovnicu.{{end}}{{else}}Nema područja.{{end}}
   </div>
   {{end}}
 </div>

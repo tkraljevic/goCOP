@@ -304,8 +304,8 @@ func TestRazdjelnicaDnevnikaDijeliTriVrste(t *testing.T) {
 		}
 	}
 	// Svaka kartica ima ikonu, kao i na Administraciji.
-	if n := strings.Count(html, "dash-card-icon-box"); n != 3 {
-		t.Errorf("ikona na %d kartica, a ima ih tri", n)
+	if n := strings.Count(html, "dash-card-icon-box"); n != 4 {
+		t.Errorf("ikona na %d kartica, a ima ih četiri", n)
 	}
 }
 

@@ -5,7 +5,8 @@
 {{define "content"}}
 <div class="breadcrumb"><a href="/dnevnici">Dnevnici</a> ›
   <a href="/dnevnici/popis?vrsta=OBRANA">Dnevnici COP-a</a> ›
-  <a href="/dnevnici/{{.Journal.ID}}">{{.Journal.DisplayTitle}}</a> › Obračun sati</div>
+  <a href="/dnevnici/popis?vrsta=DEZURSTVA">Plan dežurstava</a> ›
+  <a href="/dnevnici/{{.Journal.ID}}/dezurstva">{{.Journal.DisplayTitle}}</a> › Obračun sati</div>
 
 <div class="detail-head">
   <div>
@@ -27,6 +28,11 @@
   </div>
   <button type="submit" class="btn btn-secondary">{{icon "search"}} Prikaži</button>
 </form>
+
+{{if .CekaPotvrdu}}
+<div class="alert alert-warning" style="margin-top:1rem;">{{icon "triangle-alert"}} <strong>{{sati .CekaPotvrdu}} h</strong> u razdoblju još čeka potvrdu
+  uprave centra i nije u obračunu. <a href="/dnevnici/{{.Journal.ID}}/dezurstva">Plan dežurstava</a></div>
+{{end}}
 
 {{if .Obracun}}
 <div class="table-card" style="margin-top:1rem;"><div class="table-responsive">
@@ -58,6 +64,6 @@
   subota dnevni 1,85 / 2,05 · subota noćni 2,2 / 2,4 · nedjelja i blagdan dnevni 2 / 2,2 · noćni 2,35 / 2,55 — iz obrasca IORS 2026.
   Nedjelja se obračunava kao blagdan.</p>
 {{else}}
-<div class="reg-empty" style="margin-top:1rem;">U tom razdoblju u planu dežurstava nema sati.</div>
+<div class="reg-empty" style="margin-top:1rem;">U tom razdoblju nema potvrđenih sati.</div>
 {{end}}
 {{end}}

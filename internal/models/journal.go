@@ -88,6 +88,10 @@ const (
 	JournalKindDefense        = "OBRANA"
 )
 
+// PopisDezurstava nije vrsta dnevnika nego popis: plan dežurstava stoji uz
+// dnevnik COP-a, ali se otvara sa svoje kartice, kao da je svoj dnevnik.
+const PopisDezurstava = "DEZURSTVA"
+
 // JournalKinds su vrste redom kojim ih obrazac nudi
 var JournalKinds = []string{JournalKindMaintenanceA02, JournalKindMaintenanceA03, JournalKindDefense}
 
@@ -122,6 +126,8 @@ func JournalKindLabel(kind string) string {
 		return "Održavanje A.03 — kanali III. i IV. reda"
 	case JournalKindDefense:
 		return "Obrana od poplava"
+	case PopisDezurstava:
+		return "Plan dežurstava"
 	}
 	return kind
 }

@@ -1,0 +1,109 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Plan dežurstava, {{.Journal.DisplayTitle}}{{end}}
+
+{{define "content"}}
+<div class="breadcrumb"><a href="/dnevnici">Dnevnici</a> ›
+  <a href="/dnevnici/popis?vrsta=DEZURSTVA">Plan dežurstava</a> › {{.Journal.DisplayTitle}}</div>
+
+<div class="detail-head">
+  <div>
+    <h1 class="page-title">{{icon "users"}} Plan dežurstava</h1>
+    <p class="page-desc">
+      {{.Journal.DisplayTitle}}{{if .Journal.CentarNaziv}} — <strong>{{.Journal.CentarNaziv}}</strong>{{end}}
+      {{if .Journal.StartedAt}} · {{.Journal.StartedAt.Format "2.1.2006."}}{{if .Journal.EndedAt}} – {{.Journal.EndedAt.Format "2.1.2006."}}{{end}}{{end}}
+      · {{len .Dezurstva}} {{uzBroj (len .Dezurstva) "dežurstvo" "dežurstva" "dežurstava"}}
+    </p>
+    {{/* Plan i obračun su jedna evidencija: razmak od–do jedne osobe s opisom
+         rada je prije obrane plan, poslije nje ulaz za obrazac IORS. Nije samo
+         dežurstvo u centru — isti zapis nosi i rukovođenje na terenu, obilazak
+         objekata, administrativni rad. Slaže ga uprava centra; dežurni ga vidi. */}}
+    <p class="page-desc">Tko dežura kad, i što radi: u centru, na terenu, u uredu. Isti zapisi poslije obrane daju
+      obračun sati — jedna evidencija, ne dvije. Svatko upisuje sebe, od vodočuvara do glavnog rukovoditelja;
+      uprava centra to provjeri i potvrdi.</p>
+  </div>
+  <div class="page-actions">
+    <a href="/dnevnici/{{.Journal.ID}}" class="btn btn-secondary">{{icon "activity"}} Dnevnik COP-a</a>
+    {{if .CanWrite}}<a href="/dnevnici/{{.Journal.ID}}/obracun" class="btn btn-primary">{{icon "calculator"}} Obračun sati</a>{{end}}
+  </div>
+</div>
+
+{{if .Dezurstva}}
+<div class="table-card"><div class="table-responsive">
+  <table class="data-table">
+    <thead><tr><th>Od</th><th>Do</th><th>Tko</th><th>Opis rada</th><th>Mjesto</th><th>Potvrda</th><th></th></tr></thead>
+    <tbody>
+    {{range .Dezurstva}}
+    <tr>
+      <td class="mono">{{danTjedna .Od}} {{.Od.Format "2.1."}} {{.Od.Format "15:04"}}</td>
+      <td class="mono">{{if ne (.Do.Format "2006-01-02") (.Od.Format "2006-01-02")}}{{.Do.Format "2.1."}} {{end}}{{.Do.Format "15:04"}} <span class="reg-card-sub">({{sati .Trajanje}})</span></td>
+      <td>{{.UserName}}</td>
+      <td>{{.Opis}}{{if .Napomena}}<div class="reg-card-sub">{{.Napomena}}</div>{{end}}</td>
+      <td>{{if eq .Mjesto "TEREN"}}teren{{else}}ured{{end}}</td>
+      {{/* Svatko upisuje sebe; uprava centra to provjeri i potvrdi. U
+           obračun ulazi samo potvrđeno, pa se vidi što još čeka. */}}
+      <td>{{if .Potvrdeno}}<span class="badge" title="{{.PotvrdenoAt.Format "2.1.2006. 15:04"}}">potvrdio {{.Potvrdio}}</span>
+        {{else if $.UpravaCentra}}<form method="POST" action="/dnevnici/{{$.Journal.ID}}/dezurstva/{{.ID}}/potvrdi" style="display:inline;"><button type="submit" class="btn btn-sm btn-primary" title="Provjereno, ulazi u obračun">{{icon "check"}} potvrdi</button></form>
+        {{else}}<span class="badge badge-pending">čeka potvrdu</span>{{end}}</td>
+      <td>{{if or $.UpravaCentra (and (not .Potvrdeno) (eq .UserID $.CurrentUser.ID.String))}}<form method="POST" action="/dnevnici/{{$.Journal.ID}}/dezurstva/{{.ID}}/makni" style="display:inline;"
+        onsubmit="return confirm('Maknuti dežurstvo iz plana?');"><button type="submit" class="btn btn-sm btn-secondary" title="Makni iz plana">{{icon "x"}}</button></form>{{end}}</td>
+    </tr>
+    {{end}}
+    </tbody>
+  </table>
+</div></div>
+{{else}}
+<div class="reg-empty">U planu još nema dežurstava.{{if or .UpravaCentra .MozeSebe}} Dodajte prvo obrascem ispod.{{end}}</div>
+{{end}}
+
+{{if or .UpravaCentra .MozeSebe}}
+<form method="POST" action="/dnevnici/{{.Journal.ID}}/dezurstva" id="novo-dezurstvo" class="reg-card novi-zapis">
+  <h2 class="novi-zapis-naslov">{{icon "plus"}} Dodaj dežurstvo</h2>
+  <div class="form-row novi-zapis-red">
+    <div class="form-group">
+      <label class="form-label" for="d-osoba">Tko *</label>
+      {{if .UpravaCentra}}
+      <select id="d-osoba" name="user_id" class="form-control" required>
+        <option value="">— odaberite —</option>
+        {{range .Osobe}}<option value="{{.ID}}">{{.FullName}}</option>{{end}}
+      </select>
+      {{else}}
+      <input type="hidden" name="user_id" value="{{.CurrentUser.ID}}">
+      <input type="text" id="d-osoba" class="form-control" value="{{.CurrentUser.FullName}}" disabled>
+      {{end}}
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="d-opis">Opis rada *</label>
+      <select id="d-opis" name="opis" class="form-control" required>
+        {{range .OpisiRada}}<option value="{{.Opis}}">{{.Opis}} ({{if eq .Mjesto "TEREN"}}teren{{else}}ured{{end}})</option>{{end}}
+      </select>
+    </div>
+  </div>
+  <div class="form-row novi-zapis-red">
+    <div class="form-group">
+      <label class="form-label" for="d-od-date">Od *</label>
+      <div style="display:flex; gap:0.35rem;">
+        <input type="date" id="d-od-date" name="od_date" class="form-control" value="{{.Today}}" required>
+        <input type="time" name="od_time" class="form-control" value="07:00" required>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="d-do-date">Do * <span class="reg-card-sub">(dan prazan = isti dan)</span></label>
+      <div style="display:flex; gap:0.35rem;">
+        <input type="date" id="d-do-date" name="do_date" class="form-control">
+        <input type="time" name="do_time" class="form-control" value="19:00" required>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="d-napomena">Napomena</label>
+      <input type="text" id="d-napomena" name="napomena" class="form-control" autocomplete="off">
+    </div>
+  </div>
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">{{icon "check"}} Upiši u plan</button>
+    <span class="reading-meta">{{if .UpravaCentra}}Što uprava upiše potvrđeno je odmah.{{else}}Upis čeka potvrdu uprave centra; tek potvrđeno ulazi u obračun.{{end}}
+      Dežurstvo preko ponoći upišite s danom kraja; dulje od 36 sati kao više razmaka.</span>
+  </div>
+</form>
+{{end}}
+{{end}}

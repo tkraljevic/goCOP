@@ -16,20 +16,21 @@ import (
 // JournalsHandler: građevinski dnevnici — popis po području, naslovnica,
 // listovi po danu, upisi, nalozi i ispis
 type JournalsHandler struct {
-	journals    *service.JournalService
-	users       *service.UserService
-	maintenance *service.MaintenanceService
-	sections    *service.SectionService
-	stations    *service.StationService
-	tmplIzbor   *template.Template
-	tmplCOP     *template.Template
-	tmplCOPForm *template.Template
-	tmplList    *template.Template
-	tmplForm    *template.Template
-	tmplJournal *template.Template
-	tmplSheet   *template.Template
-	tmplPrint   *template.Template
-	tmplObracun *template.Template
+	journals      *service.JournalService
+	users         *service.UserService
+	maintenance   *service.MaintenanceService
+	sections      *service.SectionService
+	stations      *service.StationService
+	tmplIzbor     *template.Template
+	tmplCOP       *template.Template
+	tmplCOPForm   *template.Template
+	tmplList      *template.Template
+	tmplForm      *template.Template
+	tmplJournal   *template.Template
+	tmplSheet     *template.Template
+	tmplPrint     *template.Template
+	tmplObracun   *template.Template
+	tmplDezurstva *template.Template
 	// obracun daje blagdane i koeficijente iz baze; nil znači ono što program nosi u sebi
 	obracun func() *service.ObracunService
 }
@@ -46,9 +47,9 @@ func (h *JournalsHandler) postavkeObracuna() *service.ObracunService {
 
 func NewJournalsHandler(j *service.JournalService, users *service.UserService, m *service.MaintenanceService,
 	sections *service.SectionService, stations *service.StationService,
-	izbor, list, form, journal, cop, copForm, sheet, print, obracun *template.Template) *JournalsHandler {
+	izbor, list, form, journal, cop, copForm, sheet, print, obracun, dezurstva *template.Template) *JournalsHandler {
 	return &JournalsHandler{journals: j, users: users, maintenance: m, sections: sections, stations: stations,
-		tmplIzbor: izbor, tmplCOP: cop, tmplCOPForm: copForm, tmplList: list, tmplForm: form, tmplJournal: journal, tmplSheet: sheet, tmplPrint: print, tmplObracun: obracun}
+		tmplIzbor: izbor, tmplCOP: cop, tmplCOPForm: copForm, tmplList: list, tmplForm: form, tmplJournal: journal, tmplSheet: sheet, tmplPrint: print, tmplObracun: obracun, tmplDezurstva: dezurstva}
 }
 
 // JournalPageData su podaci svih stranica dnevnika; što stranica ne treba ostaje prazno
@@ -64,8 +65,10 @@ type JournalPageData struct {
 	// Vrsta je dnevnik koji se gleda; prazno na razdjelnici.
 	Vrsta   string
 	BrojCOP int
-	BrojA02 int
-	BrojA03 int
+	// BrojDezurstava je broj dežurstava u svim planovima, za karticu
+	BrojDezurstava int
+	BrojA02        int
+	BrojA03        int
 	// Dani su zapisi dežurstva složeni po danima; samo u dnevniku COP-a.
 	Dani []DanZapisa
 	// Centri i Centar su birač na popisu dnevnika COP-a: dnevnik se vodi po
@@ -103,6 +106,8 @@ type JournalPageData struct {
 	Osobe     []models.User // koga se može staviti u plan; samo za upravu centra
 	// UpravaCentra slaže plan dežurstava; CanManage (nadzor) za to nije dovoljan
 	UpravaCentra   bool
+	MozeSebe       bool          // smije upisati vlastito dežurstvo
+	CekaPotvrdu    time.Duration // sati u razdoblju koji još nisu potvrđeni, izvan obračuna
 	OpisiRada      []models.OpisRada
 	Obracun        []service.ObracunOsobe
 	Razredi        []obracun.Razred
@@ -231,6 +236,7 @@ func (h *JournalsHandler) ShowJournalKinds(w http.ResponseWriter, r *http.Reques
 	h.fillRights(&data)
 	if broj, err := h.journals.BrojPoVrstama(r.Context()); err == nil {
 		data.BrojCOP = broj[models.JournalKindDefense]
+		data.BrojDezurstava, _ = h.journals.BrojDezurstava(r.Context())
 		data.BrojA02 = broj[models.JournalKindMaintenanceA02]
 		data.BrojA03 = broj[models.JournalKindMaintenanceA03]
 	}
@@ -243,7 +249,9 @@ func (h *JournalsHandler) ShowJournals(w http.ResponseWriter, r *http.Request) {
 
 	// Dnevnici COP-a ne idu preko branjenog područja: vezani su na centar i
 	// područje im je prazno, pa ih popis po području nikad ne bi našao.
-	if data.Vrsta == models.JournalKindDefense {
+	// Plan dežurstava je isti popis dnevnika COP-a, samo svaka kartica vodi
+	// na plan umjesto na zapisnik.
+	if data.Vrsta == models.JournalKindDefense || data.Vrsta == models.PopisDezurstava {
 		h.fillRights(&data)
 		data.Centri, _ = h.journals.CentriSDnevnicima(r.Context())
 		data.Centar = r.URL.Query().Get("centar")
@@ -411,11 +419,8 @@ func (h *JournalsHandler) ShowJournal(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		data.Dani = poDanima(zapisi)
+		// Plan dežurstava ima svoju stranicu; ovdje samo koliko ih je, za gumb.
 		data.Dezurstva, _ = h.journals.Dezurstva(ctx, j.ID)
-		data.OpisiRada = models.OpisiRada
-		if data.UpravaCentra = h.journals.UpravaCentra(data.Permissions, j); data.UpravaCentra {
-			data.Osobe, _ = h.users.ListUsers(j.CentarSektor, 0, "", "", "")
-		}
 		h.render(w, h.tmplCOP, "dnevnik_cop.html", data)
 		return
 	}
