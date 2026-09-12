@@ -181,7 +181,7 @@ func TestDnevnikCOPKrozRute(t *testing.T) {
 
 	// Plan dežurstava: uprava upiše dežurnog, plan se vidi na dnevniku, a
 	// obračun iz njega računa sate. Subota 12.9.2026. 19:00 – nedjelja 07:00
-	// u COP-u (ured): 4 h vikend dnevnih (19–22 i 6–7), 8 h vikend noćnih.
+	// u COP-u (ured): subota 3 h dnevna i 2 noćna, nedjelja 6 h noćnih i 1 dnevni.
 	dezurni := &models.User{ID: uuid.New(), Username: "ana", FullName: "Ana Anić", PasswordHash: "x", IsActive: true}
 	if err := userRepo.CreateUser(dezurni, nil); err != nil {
 		t.Fatal(err)
@@ -196,10 +196,10 @@ func TestDnevnikCOPKrozRute(t *testing.T) {
 	mora(zovi(http.MethodGet, "/dnevnici/"+dnevnik, nil), http.StatusOK, "plan na dnevniku",
 		`id="dezurstva"`, "Ana Anić", "Dežurstvo u COP-u", "12.9.", "19:00", "13.9.", "07:00", "(12:00)", "/obracun")
 	w = zovi(http.MethodGet, "/dnevnici/"+dnevnik+"/obracun", nil)
-	mora(w, http.StatusOK, "obračun", "Ana Anić", "4:00", "8:00", "12:00")
-	// ured: 4 × 1,85 + 8 × 2,2 = 25,00 obračunskih sati
-	if !strings.Contains(w.Body.String(), "25,00") {
-		t.Errorf("obračun nema 25,00 obračunskih sati")
+	mora(w, http.StatusOK, "obračun", "Ana Anić", "3:00", "2:00", "6:00", "1:00", "12:00")
+	// ured: 3 × 1,85 + 2 × 2,2 + 6 × 2,35 + 1 × 2 = 26,05 obračunskih sati
+	if !strings.Contains(w.Body.String(), "26,05") {
+		t.Errorf("obračun nema 26,05 obračunskih sati")
 	}
 	// Razdoblje koje hvata samo subotu: 5 h (19–24), obračunski 3×1,85 + 2×2,2 = 9,95.
 	mora(zovi(http.MethodGet, "/dnevnici/"+dnevnik+"/obracun?od=2026-09-12&do=2026-09-12", nil), http.StatusOK, "obračun subote", "5:00", "9,95")
