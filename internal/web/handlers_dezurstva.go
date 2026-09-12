@@ -100,7 +100,8 @@ func (h *JournalsHandler) ShowObracun(w http.ResponseWriter, r *http.Request) {
 	data.From, data.To = od.Format("2006-01-02"), do.AddDate(0, 0, -1).Format("2006-01-02")
 	data.Razredi = obracun.Razredi
 	var err error
-	if data.Obracun, err = h.journals.Obracun(r.Context(), j, od, do, obracun.IORS2026); err != nil {
+	postavke := h.postavkeObracuna()
+	if data.Obracun, err = h.journals.Obracun(r.Context(), j, od, do, postavke.Kalendar(r.Context()), postavke.Koeficijenti(r.Context())); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

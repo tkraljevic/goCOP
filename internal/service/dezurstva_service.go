@@ -112,7 +112,7 @@ func (o ObracunOsobe) Sati(mjesto string, r obracun.Razred) time.Duration {
 // Obracun zbraja dežurstva dnevnika u razdoblju [od, do) po osobi. Razmak
 // koji viri iz razdoblja uzima se samo onim dijelom koji je unutra, pa se
 // obračun za mjesec ne mijenja time što smjena prelazi u sljedeći.
-func (s *JournalService) Obracun(ctx context.Context, j *models.Journal, od, do time.Time, k obracun.Koeficijenti) ([]ObracunOsobe, error) {
+func (s *JournalService) Obracun(ctx context.Context, j *models.Journal, od, do time.Time, kal obracun.Kalendar, k obracun.Koeficijenti) ([]ObracunOsobe, error) {
 	dez, err := s.repo.ListDezurstva(ctx, j.ID)
 	if err != nil {
 		return nil, err
@@ -134,7 +134,7 @@ func (s *JournalService) Obracun(ctx context.Context, j *models.Journal, od, do 
 			o = &ObracunOsobe{UserID: d.UserID, UserName: d.UserName, Ured: obracun.Sati{}, Teren: obracun.Sati{}}
 			poOsobi[d.UserID] = o
 		}
-		sati := obracun.Razvrstaj(a, b, obracun.Hrvatski{})
+		sati := obracun.Razvrstaj(a, b, kal)
 		if d.Mjesto == models.MjestoTeren {
 			o.Teren.Dodaj(sati)
 		} else {

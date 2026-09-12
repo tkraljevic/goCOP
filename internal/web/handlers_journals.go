@@ -30,6 +30,18 @@ type JournalsHandler struct {
 	tmplSheet   *template.Template
 	tmplPrint   *template.Template
 	tmplObracun *template.Template
+	// obracun daje blagdane i koeficijente iz baze; nil znači ono što program nosi u sebi
+	obracun func() *service.ObracunService
+}
+
+// SetObracun spaja rukovatelja s postavkama obračuna
+func (h *JournalsHandler) SetObracun(f func() *service.ObracunService) { h.obracun = f }
+
+func (h *JournalsHandler) postavkeObracuna() *service.ObracunService {
+	if h.obracun == nil {
+		return nil
+	}
+	return h.obracun()
 }
 
 func NewJournalsHandler(j *service.JournalService, users *service.UserService, m *service.MaintenanceService,
