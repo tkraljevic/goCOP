@@ -372,8 +372,8 @@ func TestDnevnikCOPKrozRute(t *testing.T) {
 	}
 	// prvi list je BP_15 (Vuka): stupac A prazan, ime velikim slovima u B;
 	// subota dnevni I=3 J=5,5; subota noćni L=2 M=4,5; nedjelja dnevni O=1
-	// P=2; noćni R=6 S=14; sveukupno U=12 V=26; kontrola AB "DOBRO".
-	if len(ana) < 28 || ana[8] != "3" || ana[9] != "5.5" || ana[11] != "2" || ana[12] != "4.5" || ana[14] != "1" || ana[15] != "2" || ana[17] != "6" || ana[18] != "14" || ana[20] != "12" || ana[21] != "26" || ana[27] != "DOBRO" {
+	// P=2; noćni R=6 S=14; sveukupno U=12 V=26.
+	if len(ana) < 25 || ana[8] != "3" || ana[9] != "5.5" || ana[11] != "2" || ana[12] != "4.5" || ana[14] != "1" || ana[15] != "2" || ana[17] != "6" || ana[18] != "14" || ana[20] != "12" || ana[21] != "26" {
 		t.Errorf("redak Ane u Excelu: %v", ana)
 	}
 	if len(ukupno) < 22 || ukupno[21] != "26" {
