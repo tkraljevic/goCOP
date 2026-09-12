@@ -846,7 +846,8 @@ func (h *JournalsHandler) HandleAddCOPEntry(w http.ResponseWriter, r *http.Reque
 		redirectWith(w, r, back, "error", err.Error())
 		return
 	}
-	redirectWith(w, r, back, "success", fmt.Sprintf("Zapis br. %d je upisan.", e.Number))
+	// Natrag na sam zapis: on je iznad trake za unos i nakratko zasvijetli.
+	redirectWith(w, r, "/dnevnici/"+j.ID+"#zapis-"+strconv.Itoa(e.Number), "success", fmt.Sprintf("Zapis br. %d je upisan.", e.Number))
 }
 
 // HandleIspraviPrijepis ispravlja krivo pročitan zapis prijepisa na mjestu;
