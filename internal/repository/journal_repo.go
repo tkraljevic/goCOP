@@ -607,3 +607,59 @@ func (r *JournalRepository) ListCOPJournals(ctx context.Context, sektor string) 
 	}
 	return out, nil
 }
+
+// ArhivirajDnevnik miče dnevnik s površine sa svime što nosi — listovima,
+// zapisima i dežurstvima — i svako od toga bilježi u knjizi kao arhivirano,
+// pa i drugi čvorovi znaju da ga više nema. Ništa se ne gubi iz knjige.
+// Vraća koliko je zapisa i dežurstava otišlo s njim.
+func (r *JournalRepository) ArhivirajDnevnik(ctx context.Context, j *models.Journal) (int, error) {
+	zapisi, err := r.EntriesForJournal(ctx, j.ID)
+	if err != nil {
+		return 0, err
+	}
+	listovi, err := r.ListSheets(ctx, j.ID)
+	if err != nil {
+		return 0, err
+	}
+	dezurstva, err := r.ListDezurstva(ctx, j.ID)
+	if err != nil {
+		return 0, err
+	}
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+	channel := channelOfJournal(ctx, tx, j.ID)
+	for i := range zapisi {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM journal_entries WHERE id = ?`, zapisi[i].ID); err != nil {
+			return 0, err
+		}
+		if _, err := r.rec.ArchiveIn(ctx, tx, channel, EntityJournalEntries, zapisi[i].ID, zapisi[i]); err != nil {
+			return 0, err
+		}
+	}
+	for i := range listovi {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM journal_sheets WHERE id = ?`, listovi[i].ID); err != nil {
+			return 0, err
+		}
+		if _, err := r.rec.ArchiveIn(ctx, tx, channel, EntityJournalSheets, listovi[i].ID, listovi[i]); err != nil {
+			return 0, err
+		}
+	}
+	for i := range dezurstva {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM dezurstva WHERE id = ?`, dezurstva[i].ID); err != nil {
+			return 0, err
+		}
+		if _, err := r.rec.ArchiveIn(ctx, tx, channel, EntityDezurstva, dezurstva[i].ID, dezurstva[i]); err != nil {
+			return 0, err
+		}
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM journals WHERE id = ?`, j.ID); err != nil {
+		return 0, err
+	}
+	if _, err := r.rec.ArchiveIn(ctx, tx, channel, EntityJournals, j.ID, j); err != nil {
+		return 0, err
+	}
+	return len(zapisi) + len(dezurstva), tx.Commit()
+}

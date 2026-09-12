@@ -889,3 +889,23 @@ func (h *JournalsHandler) HandleIspraviPrijepis(w http.ResponseWriter, r *http.R
 	}
 	redirectWith(w, r, back, "success", "Zapis je ispravljen; prijašnje čitanje ostaje u knjizi verzija.")
 }
+
+// HandleObrisiDnevnik arhivira dnevnik sa svime što nosi i vraća na popis
+// njegove vrste
+func (h *JournalsHandler) HandleObrisiDnevnik(w http.ResponseWriter, r *http.Request) {
+	j, area, ok := h.loadJournal(w, r)
+	if !ok {
+		return
+	}
+	u, perms := h.base(r)
+	n, err := h.journals.ObrisiDnevnik(r.Context(), u, perms, h.opseg(j, area), j)
+	if err != nil {
+		redirectWith(w, r, "/dnevnici/"+j.ID, "error", err.Error())
+		return
+	}
+	popis := "/dnevnici/popis?vrsta=" + j.Kind
+	if j.AreaID > 0 {
+		popis += "&area=" + strconv.Itoa(j.AreaID)
+	}
+	redirectWith(w, r, popis, "success", fmt.Sprintf("Dnevnik „%s“ je obrisan, s %d zapisa; u knjizi verzija ostaje arhiviran.", j.DisplayTitle(), n))
+}

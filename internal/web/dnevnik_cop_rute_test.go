@@ -78,6 +78,7 @@ func TestDnevnikCOPKrozRute(t *testing.T) {
 	mux.HandleFunc("GET /dnevnici/{id}/obracun", h.ShowObracun)
 	mux.HandleFunc("GET /dnevnici/{id}/obracun/{user}", h.ShowIORS)
 	mux.HandleFunc("GET /dnevnici/{id}/obracun.xlsx", h.IzvoziObracun)
+	mux.HandleFunc("POST /dnevnici/{id}/obrisi", h.HandleObrisiDnevnik)
 	mux.HandleFunc("POST /dnevnici/{id}/dezurstvo/preuzmi", h.HandlePreuzmiDezurstvo)
 	mux.HandleFunc("POST /dnevnici/{id}/dezurstvo/predaj", h.HandlePredajDezurstvo)
 
@@ -397,5 +398,26 @@ func TestDnevnikCOPKrozRute(t *testing.T) {
 		"date": {"2026-09-11"}, "kind": {models.EntryKindWork}, "text": {"košnja"}})
 	if l := w.Header().Get("Location"); !strings.Contains(l, "error=") {
 		t.Errorf("rad izvođača ušao u dnevnik COP-a: %s", l)
+	}
+
+	// Brisanje: dežurni ne smije; uprava briše, dnevnik nestaje s površine, a
+	// u knjizi verzija ostaje arhiviran sa svim zapisima i dežurstvima.
+	rw = kaoDezurni(http.MethodPost, "/dnevnici/"+dnevnik+"/obrisi", url.Values{})
+	if l := rw.Header().Get("Location"); !strings.Contains(l, "error=") {
+		t.Errorf("dežurni obrisao dnevnik: %s", l)
+	}
+	w = zovi(http.MethodPost, "/dnevnici/"+dnevnik+"/obrisi", url.Values{})
+	if l := w.Header().Get("Location"); w.Code != http.StatusSeeOther || !strings.Contains(l, "success=") || !strings.Contains(l, "vrsta=OBRANA") {
+		t.Fatalf("brisanje: %d %s", w.Code, l)
+	}
+	if w = zovi(http.MethodGet, "/dnevnici/"+dnevnik, nil); w.Code != http.StatusNotFound {
+		t.Errorf("obrisan dnevnik još odgovara: %d", w.Code)
+	}
+	var arhiviranih int
+	if err := baza.QueryRow(`SELECT count(*) FROM record_versions WHERE archived = 1 AND entity IN ('journals','journal_entries','dezurstva')`).Scan(&arhiviranih); err != nil {
+		t.Fatal(err)
+	}
+	if arhiviranih < 1+3+4 {
+		t.Errorf("u knjizi %d arhiviranih, očekuje dnevnik + zapise + dežurstva", arhiviranih)
 	}
 }

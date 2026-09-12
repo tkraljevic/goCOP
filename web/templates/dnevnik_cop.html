@@ -34,6 +34,8 @@
       {{end}}
     {{end}}
     {{if .CanManage}}<a href="/dnevnici/{{.Journal.ID}}/edit" class="btn btn-secondary">{{icon "pencil"}} Zaglavlje</a>{{end}}
+    {{if .UpravaCentra}}<form method="POST" action="/dnevnici/{{.Journal.ID}}/obrisi" style="display:inline;"
+      onsubmit="return confirm('Obrisati dnevnik „{{.Journal.DisplayTitle}}“ sa svim zapisima i dežurstvima? U knjizi verzija ostaje arhiviran, ali s popisa nestaje.');"><button type="submit" class="btn btn-secondary" title="Obriši dnevnik">{{icon "trash"}}</button></form>{{end}}
     {{if .Dani}}<a href="#{{if .ImaDanas}}dan-{{.Today}}{{else}}kraj{{end}}" class="btn btn-secondary" title="{{if .ImaDanas}}Na današnje zapise{{else}}Na zadnji zapis{{end}}">{{icon "arrow-right"}} {{if .ImaDanas}}Danas{{else}}Na kraj{{end}}</a>{{end}}
     <a href="/dnevnici/{{.Journal.ID}}/dezurstva" class="btn btn-secondary">{{icon "users"}} Plan dežurstava{{if .Dezurstva}} <span class="reg-chip">{{len .Dezurstva}}</span>{{end}}</a>
     {{if .CanWrite}}<a href="#novi-zapis" class="btn btn-primary">{{icon "plus"}} Novi zapis</a>{{end}}
