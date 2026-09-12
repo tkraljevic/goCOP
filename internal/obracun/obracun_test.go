@@ -53,12 +53,13 @@ func TestRazvrstajNedjeljaJeBlagdan(t *testing.T) {
 	}
 }
 
-// Zaokruživanje na pola sata: sredina ide na parni višekratnik, pa ne ide
-// sustavno ni djelatniku ni ustanovi.
+// Zaokruživanje na pola sata: sredina ide gore, djelatniku — 1,5 h × 1,5
+// = 2,25 daje 2,5, ne 2,0.
 func TestZaokruziNaPolaSata(t *testing.T) {
 	for _, tc := range []struct{ x, zelim float64 }{
 		{15.4, 15.5}, {5.1, 5}, {0.6, 0.5}, {1.7, 1.5}, {4.4, 4.5}, {14.1, 14}, {5.55, 5.5},
-		{0.25, 0}, {0.75, 1}, {1.25, 1}, {1.75, 2}, {2.25, 2}, {0, 0}, {7, 7}, {7.5, 7.5},
+		{0.25, 0.5}, {0.75, 1}, {1.25, 1.5}, {1.75, 2}, {2.25, 2.5}, {0, 0}, {7, 7}, {7.5, 7.5},
+		{2.2499, 2}, {2.2501, 2.5},
 	} {
 		if z := Zaokruzi(tc.x, Korak); z != tc.zelim {
 			t.Errorf("%v → %v, očekuje %v", tc.x, z, tc.zelim)
