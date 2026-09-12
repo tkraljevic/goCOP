@@ -292,7 +292,7 @@ func KnjigaObracuna(obr service.Obracun, z ZaglavljeIzvoza, od, do time.Time) *x
 	}
 	var listovi []zbrojLista
 	B := xlsxw.T
-	const stupaca = 28 // A..AB
+	const stupaca = 25 // A..Y
 
 	for _, g := range obr.Grupe {
 		naziv, list := "Sektor "+z.Sektor+" i ostali", z.Sektor+"_i_ostali"
@@ -305,7 +305,7 @@ func KnjigaObracuna(obr service.Obracun, z ZaglavljeIzvoza, od, do time.Time) *x
 		for range kategorijeIzvoza {
 			l.Sirine = append(l.Sirine, 8, 11, 11)
 		}
-		l.Sirine = append(l.Sirine, 11, 12, 2, 11, 13, 2, 2, 9)
+		l.Sirine = append(l.Sirine, 11, 12, 2, 11, 13)
 		zaglavljeLista(l, z, "Obračun radnog vremena pri obrani od poplava", "razdoblje "+razdoblje+" · "+naziv, stupaca)
 
 		// zaglavlje tablice: dva reda, kategorije spojene preko tri stupca
@@ -314,13 +314,13 @@ func KnjigaObracuna(obr service.Obracun, z ZaglavljeIzvoza, od, do time.Time) *x
 		for _, kat := range kategorijeIzvoza {
 			red6 = append(red6, B(kat.Naziv, xlsxw.Zaglavlje), B("", xlsxw.Zaglavlje), B("", xlsxw.Zaglavlje))
 		}
-		red6 = append(red6, B("SVEUKUPNO", xlsxw.Zaglavlje), B("", xlsxw.Zaglavlje), prazno, B("BRUTO", xlsxw.Zaglavlje), B("", xlsxw.Zaglavlje), prazno, prazno, B("kontrola", xlsxw.Zaglavlje))
+		red6 = append(red6, B("SVEUKUPNO", xlsxw.Zaglavlje), B("", xlsxw.Zaglavlje), prazno, B("BRUTO", xlsxw.Zaglavlje), B("", xlsxw.Zaglavlje))
 		l.Dodaj(red6...)
 		red7 := []xlsxw.Celija{prazno, B("Ime i prezime", xlsxw.Zaglavlje)}
 		for range kategorijeIzvoza {
 			red7 = append(red7, B("sati", xlsxw.Zaglavlje), B("obračunski sati", xlsxw.Zaglavlje), B("bruto (€)", xlsxw.Zaglavlje))
 		}
-		red7 = append(red7, B("sati", xlsxw.Zaglavlje), B("obračunski sati", xlsxw.Zaglavlje), prazno, B("satnica (€)", xlsxw.Zaglavlje), B("ukupan bruto (€)", xlsxw.Zaglavlje), prazno, prazno, B("", xlsxw.Zaglavlje))
+		red7 = append(red7, B("sati", xlsxw.Zaglavlje), B("obračunski sati", xlsxw.Zaglavlje), prazno, B("satnica (€)", xlsxw.Zaglavlje), B("ukupan bruto (€)", xlsxw.Zaglavlje))
 		l.Dodaj(red7...)
 		for i := range kategorijeIzvoza {
 			l.Spoji(2+i*3, r6, 4+i*3, r6)
@@ -328,7 +328,6 @@ func KnjigaObracuna(obr service.Obracun, z ZaglavljeIzvoza, od, do time.Time) *x
 		l.Spoji(20, r6, 21, r6)
 		l.Spoji(23, r6, 24, r6)
 		l.Spoji(1, r6, 1, r6+1)
-		l.Spoji(27, r6, 27, r6+1)
 		l.Visina(r6, 30)
 		l.Visina(r6+1, 30)
 		l.PonoviRetke(r6, r6+1)
@@ -340,8 +339,9 @@ func KnjigaObracuna(obr service.Obracun, z ZaglavljeIzvoza, od, do time.Time) *x
 		if len(osobe) == 0 {
 			zadnji = prvi
 		}
-		// stupci: 2..19 kategorije, 20 U sati, 21 V obr, 22 W prazno, 23 X satnica, 24 Y bruto, 27 AB kontrola
-		const cU, cV, cX, cY, cAB = 20, 21, 23, 24, 27
+		// stupci: 2..19 kategorije, 20 U sati, 21 V obr, 22 W prazno, 23 X satnica, 24 Y bruto.
+		// Stupca kontrole (DOBRO/GREŠKA) nema: postojao je za ručni prijepis.
+		const cU, cV, cX, cY = 20, 21, 23, 24
 		suma := func(c int, v float64) xlsxw.Celija {
 			return xlsxw.F(fmt.Sprintf("SUM(%s:%s)", xlsxw.Adresa(c, prvi), xlsxw.Adresa(c, zadnji)), v, xlsxw.TablicaBrojPod)
 		}
@@ -356,9 +356,7 @@ func KnjigaObracuna(obr service.Obracun, z ZaglavljeIzvoza, od, do time.Time) *x
 		for c := 2; c <= cV; c++ {
 			ukupno = append(ukupno, suma(c, zbrojPo(c)))
 		}
-		ukupno = append(ukupno, prazno, B("", xlsxw.TablicaPod), suma(cY, 0), prazno, prazno,
-			xlsxw.FT(fmt.Sprintf(`IF(ROUND(%s+%s+%s+%s+%s+%s-%s,0)=0,"DOBRO","GREŠKA")`,
-				xlsxw.Adresa(4, ukupnoRedak), xlsxw.Adresa(7, ukupnoRedak), xlsxw.Adresa(10, ukupnoRedak), xlsxw.Adresa(13, ukupnoRedak), xlsxw.Adresa(16, ukupnoRedak), xlsxw.Adresa(19, ukupnoRedak), xlsxw.Adresa(cY, ukupnoRedak)), "DOBRO", xlsxw.TablicaSredina))
+		ukupno = append(ukupno, prazno, B("", xlsxw.TablicaPod), suma(cY, 0))
 		l.Dodaj(ukupno...)
 
 		for _, o := range osobe {
@@ -385,9 +383,7 @@ func KnjigaObracuna(obr service.Obracun, z ZaglavljeIzvoza, od, do time.Time) *x
 				xlsxw.F(strings.Join(obrAdrese, "+"), vrijednostStupca(o, cV), xlsxw.TablicaBrojPod),
 				prazno,
 				xlsxw.N(0, xlsxw.TablicaBroj), // satnica: upisuje računovodstvo
-				xlsxw.F(strings.Join(brutoAdrese, "+"), 0, xlsxw.TablicaBrojPod),
-				prazno, prazno,
-				xlsxw.FT(fmt.Sprintf(`IF(ROUND(%s*%s-%s,0)=0,"DOBRO","GREŠKA")`, xlsxw.Adresa(cV, r), xlsxw.Adresa(cX, r), xlsxw.Adresa(cY, r)), "DOBRO", xlsxw.TablicaSredina))
+				xlsxw.F(strings.Join(brutoAdrese, "+"), 0, xlsxw.TablicaBrojPod))
 			l.Dodaj(red...)
 		}
 		brutoAdresa := xlsxw.Adresa(cY, ukupnoRedak)
@@ -408,7 +404,7 @@ func KnjigaObracuna(obr service.Obracun, z ZaglavljeIzvoza, od, do time.Time) *x
 		napomenaLista(l, "Bruto satnicu po osobi upisuje računovodstvo iz prošle plaće u stupac „satnica“; iznosi se izračunaju sami. "+
 			"Sati radnog dana su prekovremeni (6–8 i 16–22); redovno radno vrijeme 8–16 nije sat, ali na terenu ulazi u obračunske s koeficijentom 0,2. "+
 			"Obračunski sati zaokruženi su po razredu na pola sata, sredina djelatniku. Nedjelja se obračunava kao blagdan.", stupaca, 30)
-		potpisiLista(l, z, 26, z.Potpisnici)
+		potpisiLista(l, z, stupaca, z.Potpisnici)
 		listovi = append(listovi, zbrojLista{naziv, l.Naziv, brutoAdresa, doprAdresa, ukAdresa})
 	}
 
