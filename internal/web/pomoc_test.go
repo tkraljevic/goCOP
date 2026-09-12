@@ -95,3 +95,19 @@ func TestPomocOpisujePostupkeSArhivom(t *testing.T) {
 		}
 	}
 }
+
+// Dnevnici su prerasli jedan građevinski obrazac: pomoć mora objasniti cijeli
+// put od zapisnika centra preko plana do obračuna, jer se pogrešan unos sati
+// inače otkrije tek u računovodstvu.
+func TestPomocOpisujeDnevnikCOPDezurstvaIObracun(t *testing.T) {
+	h := pomocHTML(t)
+	for _, want := range []string{
+		`id="dnevnik-cop"`, `id="dnevnik-dezurstva"`, `id="dnevnik-obracun"`,
+		"tko je javio", "čeka potvrdu uprave centra", "Nedjelja se obračunava kao",
+		"Moj profil", `BP_&lt;broj&gt;`,
+	} {
+		if !strings.Contains(h, want) {
+			t.Errorf("pomoć ne opisuje %q", want)
+		}
+	}
+}
