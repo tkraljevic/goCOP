@@ -753,7 +753,7 @@ func KnjigaDnevnika(j *models.Journal, zapisi []models.JournalEntry, dezurstva [
 	const stupaca = 8 // A..H
 	l := k.NoviList("Dnevnik")
 	l.Vodoravno = true
-	l.Sirine = []float64{6, 8, 12, 18, 18, 72, 18, 4}
+	l.Sirine = []float64{6, 8, 12, 18, 18, 72, 18, 8}
 	podnaslov := ""
 	if j.StartedAt != nil {
 		podnaslov = j.StartedAt.Format("02.01.2006.")
@@ -801,7 +801,11 @@ func KnjigaDnevnika(j *models.Journal, zapisi []models.JournalEntry, dezurstva [
 	l.Visina(l.Redak()-1, 8)
 
 	r1 := l.Redak()
-	l.Dodaj(B("Br.", xlsxw.Zaglavlje), B("Vrijeme", xlsxw.Zaglavlje), B("Vrsta", xlsxw.Zaglavlje), B("Za", xlsxw.Zaglavlje), B("Javio", xlsxw.Zaglavlje), B("Zapis", xlsxw.Zaglavlje), B("Upisao", xlsxw.Zaglavlje), B("", xlsxw.Zaglavlje))
+	upisao := "Upisao"
+	if j.Reconstruction {
+		upisao = "Upisao (iz uveza se ne zna)"
+	}
+	l.Dodaj(B("Br.", xlsxw.Zaglavlje), B("Vrijeme", xlsxw.Zaglavlje), B("Vrsta", xlsxw.Zaglavlje), B("Za", xlsxw.Zaglavlje), B("Javio", xlsxw.Zaglavlje), B("Zapis", xlsxw.Zaglavlje), B(upisao, xlsxw.Zaglavlje), B("Storno", xlsxw.Zaglavlje))
 	l.Visina(r1, 22)
 	l.PonoviRetke(r1, r1)
 	var dan string
