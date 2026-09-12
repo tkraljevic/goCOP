@@ -55,6 +55,24 @@ func InitSchema(database *sql.DB) error {
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_contractor_assignments_contractor ON contractor_assignments(contractor_id);`,
 
+		// Plan dežurstava i ulaz za obračun sati: razmak od–do jedne osobe
+		// uz dnevnik COP-a. Stupac "do" je rezervirana riječ, pa do_.
+		`CREATE TABLE IF NOT EXISTS dezurstva (
+			id TEXT PRIMARY KEY,
+			journal_id TEXT NOT NULL,
+			user_id TEXT NOT NULL,
+			user_name TEXT NOT NULL DEFAULT '',
+			od DATETIME NOT NULL,
+			do_ DATETIME NOT NULL,
+			opis TEXT NOT NULL DEFAULT '',
+			mjesto TEXT NOT NULL DEFAULT '',
+			napomena TEXT NOT NULL DEFAULT '',
+			created_by TEXT NOT NULL DEFAULT '',
+			created_at DATETIME NOT NULL,
+			updated_at DATETIME NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_dezurstva_journal ON dezurstva(journal_id, od);`,
+
 		`CREATE TABLE IF NOT EXISTS users (
 			id TEXT PRIMARY KEY,
 			username TEXT UNIQUE NOT NULL,

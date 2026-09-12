@@ -137,7 +137,14 @@ func templateFuncs() template.FuncMap {
 		},
 		"mjeseci":   func() []int { return []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12} },
 		"mjesecIme": models.MjesecIme,
-		"round":     func(v float64) int { return int(math.Round(v)) },
+		// sati ispisuje trajanje kao h:mm, kako ga obrazac i čita
+		"sati": func(d time.Duration) string {
+			if d <= 0 {
+				return "–"
+			}
+			return fmt.Sprintf("%d:%02d", int(d.Hours()), int(d.Minutes())%60)
+		},
+		"round": func(v float64) int { return int(math.Round(v)) },
 		// Letva dolazi kao pokazivač sa stranice očitanja, a kao vrijednost s
 		// historijata; isti se dio predloška iscrtava na obje.
 		"kotaVode": func(letva any, cm float64) float64 {
@@ -468,7 +475,7 @@ func NewServer(
 	// Predlošci koji proširuju base.html
 	for _, page := range []string{"dashboard.html", "registri.html", "users.html", "user_detail.html", "user_form.html", "duty_form.html", "profile.html", "sections.html", "section_detail.html", "section_form.html", "territories.html", "county_form.html", "municipality_form.html", "municipality_detail.html", "stations.html", "station_detail.html", "station_form.html", "station_history.html", "station_history_form.html", "paket_pregled.html", "watercourses.html", "watercourse_detail.html", "watercourse_form.html", "structures.html", "structure_detail.html", "structure_form.html", "readings.html", "reading_history.html", "reading_form.html", "arhiva_ispravci.html", "uvoz_ocitanja.html", "teren.html", "moduli.html", "settings.html", "odrzavanje.html", "organizacija.html", "sector_form.html", "area_form.html", "contractor_form.html", "firme.html", "nazivi.html", "sudionici.html",
 		"administracija.html", "uvozi.html", "sinkronizacija.html", "pretplate.html", "baza.html", "izvori.html", "uvoz_niza.html",
-		"dnevnici.html", "dnevnici_izbor.html", "dnevnik_form.html", "dnevnik.html", "dnevnik_cop.html", "dnevnik_cop_form.html", "dnevnik_list.html", "pomoc.html", "ocitanja_ispravci.html"} {
+		"dnevnici.html", "dnevnici_izbor.html", "dnevnik_form.html", "dnevnik.html", "dnevnik_cop.html", "dnevnik_cop_form.html", "dnevnik_list.html", "dnevnik_obracun.html", "pomoc.html", "ocitanja_ispravci.html"} {
 		t, err := template.New("base.html").Funcs(tmplFuncs).ParseFS(templatesFS, DijeloviPredloska(page)...)
 		if err != nil {
 			return nil, fmt.Errorf("greška pri parsiranju predloška %s: %w", page, err)
@@ -619,7 +626,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /odrzavanje/uvoz", s.authMiddleware(http.HandlerFunc(maintenanceH.HandleImportUpload)))
 	s.mux.Handle("POST /odrzavanje/uvoz/upisi", s.authMiddleware(http.HandlerFunc(maintenanceH.HandleImportWrite)))
 	journalsH := NewJournalsHandler(s.journalService, s.userService, s.maintenanceService, s.sectionService, s.stationService,
-		s.templates["dnevnici_izbor.html"], s.templates["dnevnici.html"], s.templates["dnevnik_form.html"], s.templates["dnevnik.html"], s.templates["dnevnik_cop.html"], s.templates["dnevnik_cop_form.html"], s.templates["dnevnik_list.html"], s.templates["dnevnik_ispis.html"])
+		s.templates["dnevnici_izbor.html"], s.templates["dnevnici.html"], s.templates["dnevnik_form.html"], s.templates["dnevnik.html"], s.templates["dnevnik_cop.html"], s.templates["dnevnik_cop_form.html"], s.templates["dnevnik_list.html"], s.templates["dnevnik_ispis.html"], s.templates["dnevnik_obracun.html"])
 	s.mux.Handle("GET /dnevnici", s.authMiddleware(http.HandlerFunc(journalsH.ShowJournalKinds)))
 	// Popis je doslovna putanja, ne /dnevnici/vrsta/{kind}: ta bi se sudarila s
 	// /dnevnici/{id}/edit — obje hvataju "/dnevnici/vrsta/edit". Doslovni
@@ -644,6 +651,9 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /dnevnici/{id}/zapisi", s.authMiddleware(http.HandlerFunc(journalsH.HandleAddCOPEntry)))
 	s.mux.Handle("POST /dnevnici/{id}/upisi/{entry}/storno", s.authMiddleware(http.HandlerFunc(journalsH.HandleVoidEntry)))
 	s.mux.Handle("POST /dnevnici/{id}/upisi/{entry}/ispravak", s.authMiddleware(http.HandlerFunc(journalsH.HandleIspraviPrijepis)))
+	s.mux.Handle("POST /dnevnici/{id}/dezurstva", s.authMiddleware(http.HandlerFunc(journalsH.HandleSaveDezurstvo)))
+	s.mux.Handle("POST /dnevnici/{id}/dezurstva/{dez}/makni", s.authMiddleware(http.HandlerFunc(journalsH.HandleMakniDezurstvo)))
+	s.mux.Handle("GET /dnevnici/{id}/obracun", s.authMiddleware(http.HandlerFunc(journalsH.ShowObracun)))
 	s.mux.Handle("POST /dnevnici/{id}/upisi/{entry}/stanje", s.authMiddleware(http.HandlerFunc(journalsH.HandleTaskStatus)))
 	settingsH := NewSettingsHandler(s.peersService, s.recorder, s.templates["settings.html"])
 	sseH := NewSSEHandler(s.sseBroker)

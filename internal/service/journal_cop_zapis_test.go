@@ -81,3 +81,40 @@ func TestIspravakPrijepisaSamoUPrijepisu(t *testing.T) {
 		}
 	}
 }
+
+// Plan dežurstava slaže uprava centra, unutar trajanja dnevnika, s opisom
+// s popisa — pravila prije baze.
+func TestDezurstvoPravila(t *testing.T) {
+	s := &JournalService{}
+	u := &models.User{ID: uuid.New(), FullName: "Voditelj"}
+	uprava := &models.UserPermissions{AdminSectors: map[string]bool{"B": true}, AllowedSectors: map[string]bool{"B": true}}
+	dezurni := &models.UserPermissions{AllowedSectors: map[string]bool{"B": true}}
+	o := models.Opseg{Sektor: "B", Podrucja: []int{15}}
+	pocetak := time.Date(2026, 9, 1, 0, 0, 0, 0, models.Zagreb)
+	j := &models.Journal{ID: "dn", Kind: models.JournalKindDefense, CentarSektor: "B", StartedAt: &pocetak}
+	kad := func(d, h int) time.Time { return time.Date(2026, 9, d, h, 0, 0, 0, models.Zagreb) }
+	dobro := models.Dezurstvo{UserID: "u1", UserName: "Ana Anić", Od: kad(5, 7), Do: kad(5, 19), Opis: "Dežurstvo u COP-u"}
+
+	tests := []struct {
+		sto    string
+		u      *models.User
+		perms  *models.UserPermissions
+		d      models.Dezurstvo
+		greska string
+	}{
+		{"bez prijave", nil, uprava, dobro, "prijavu"},
+		{"dežurni ne slaže plan", u, dezurni, dobro, "voditelj ili zamjenik"},
+		{"bez osobe", u, uprava, models.Dezurstvo{Od: kad(5, 7), Do: kad(5, 19), Opis: "Dežurstvo u COP-u"}, "osobu"},
+		{"kraj prije početka", u, uprava, models.Dezurstvo{UserID: "u1", UserName: "A", Od: kad(5, 19), Do: kad(5, 7), Opis: "Dežurstvo u COP-u"}, "poslije početka"},
+		{"predugo", u, uprava, models.Dezurstvo{UserID: "u1", UserName: "A", Od: kad(5, 7), Do: kad(7, 7), Opis: "Dežurstvo u COP-u"}, "36 sati"},
+		{"prije dnevnika", u, uprava, models.Dezurstvo{UserID: "u1", UserName: "A", Od: time.Date(2026, 8, 31, 7, 0, 0, 0, models.Zagreb), Do: time.Date(2026, 8, 31, 19, 0, 0, 0, models.Zagreb), Opis: "Dežurstvo u COP-u"}, "počinje 1.9.2026."},
+		{"opis izvan popisa", u, uprava, models.Dezurstvo{UserID: "u1", UserName: "A", Od: kad(5, 7), Do: kad(5, 19), Opis: "nešto"}, "s popisa"},
+	}
+	for _, tc := range tests {
+		d := tc.d
+		err := s.SpremiDezurstvo(context.Background(), tc.u, tc.perms, o, j, &d)
+		if err == nil || !strings.Contains(err.Error(), tc.greska) {
+			t.Errorf("%s: greška %v, očekuje %q", tc.sto, err, tc.greska)
+		}
+	}
+}
