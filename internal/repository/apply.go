@@ -13,6 +13,7 @@ import (
 	"gocop/internal/db"
 	"gocop/internal/ledger"
 	"gocop/internal/models"
+	"gocop/internal/obracun"
 )
 
 // ApplyVersions osvježava površinu (obične tablice) iz verzija primljenih
@@ -78,7 +79,8 @@ func KeepVersion(v ledger.Version) bool {
 // očitanja i listova dnevnika, kojih je previše da se prolaze pri svakom startu
 var SurfaceEntities = []string{EntitySectors, EntityAreas, EntityOrgTerms, EntityContractors, EntityContractorAssignments,
 	EntityUsers, EntityDuties, "role_modules", "user_modules", EntityStations, EntitySections, EntityWatercourses,
-	EntityCounties, EntityMunicipalities, EntitySettlements, EntityStructures, "maintained_waters", "work_items", "journals"}
+	EntityCounties, EntityMunicipalities, EntitySettlements, EntityStructures, "maintained_waters", "work_items", "journals",
+	EntityBlagdani, EntityKoeficijenti}
 
 // ReplaySurface ponovno primijeni zadnju verziju svakog zapisa iz knjige na
 // površinu. Služi kad je primjena primljenih verzija jednom zapela: knjiga je
@@ -312,6 +314,22 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 			return err
 		}
 		_, err := tx.ExecContext(ctx, dezurstvoUpsert, dezurstvoArgs(&d)...)
+		return err
+
+	case EntityBlagdani:
+		var p obracun.Pravilo
+		if err := json.Unmarshal(v.Payload, &p); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, blagdanUpsert, blagdanArgs(p, v.CreatedAt)...)
+		return err
+
+	case EntityKoeficijenti:
+		var k Koeficijent
+		if err := json.Unmarshal(v.Payload, &k); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, koeficijentUpsert, k.ID, k.Mjesto, k.Razred, k.K, v.CreatedAt)
 		return err
 
 	case EntityRoleModules:
@@ -633,6 +651,10 @@ func removeFromSurface(ctx context.Context, tx *sql.Tx, v ledger.Version) error 
 		stmt = `DELETE FROM journal_entries WHERE id = ?`
 	case EntityDezurstva:
 		stmt = `DELETE FROM dezurstva WHERE id = ?`
+	case EntityBlagdani:
+		stmt = `DELETE FROM blagdani WHERE id = ?`
+	case EntityKoeficijenti:
+		stmt = `DELETE FROM koeficijenti WHERE id = ?`
 	case EntityMaintainedWaters:
 		stmt = `DELETE FROM maintained_waters WHERE id = ?`
 	case EntityWorkItems:

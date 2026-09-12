@@ -232,6 +232,11 @@ func main() {
 	maintenanceService := service.NewMaintenanceService(maintenanceRepo, watercourseRepo, structureRepo)
 	journalRepo := repository.NewJournalRepository(database, recorder)
 	journalService := service.NewJournalService(journalRepo, stationRepo, readingRepo)
+	obracunRepo := repository.NewObracunRepository(database, recorder)
+	if err := obracunRepo.Osiguraj(context.Background()); err != nil {
+		log.Fatalf("postavke obračuna sati: %v", err)
+	}
+	obracunService := service.NewObracunService(obracunRepo)
 
 	// Uvoz tablice vodostaja. Bez -upisi je samo izvješće: koje su postaje
 	// prepoznate, koliko bi zapisa bilo novo i gdje se izvori ne slažu.
@@ -379,6 +384,7 @@ func main() {
 		log.Fatalf("Greška pri inicijalizaciji web poslužitelja: %v", err)
 	}
 	server.SetDatabase(database, *dbPath)
+	server.SetObracun(obracunService)
 	server.SetKarta(cfg.Karta.Plocice, cfg.Karta.Zasluge, cfg.Karta.NajviseZ)
 
 	// Hidrološka arhiva stoji uz bazu, kao zasebna datoteka. Smije je ne biti:

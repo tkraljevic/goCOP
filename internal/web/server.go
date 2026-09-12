@@ -78,6 +78,7 @@ type Server struct {
 	moduleService      *service.ModuleService
 	maintenanceService *service.MaintenanceService
 	journalService     *service.JournalService
+	obracunService     *service.ObracunService // postavke obračuna sati; nil dok se ne postavi
 	orgService         *service.OrgService
 	support            SupportContact
 	followRepo         *repository.FollowRepository
@@ -475,7 +476,7 @@ func NewServer(
 	// Predlošci koji proširuju base.html
 	for _, page := range []string{"dashboard.html", "registri.html", "users.html", "user_detail.html", "user_form.html", "duty_form.html", "profile.html", "sections.html", "section_detail.html", "section_form.html", "territories.html", "county_form.html", "municipality_form.html", "municipality_detail.html", "stations.html", "station_detail.html", "station_form.html", "station_history.html", "station_history_form.html", "paket_pregled.html", "watercourses.html", "watercourse_detail.html", "watercourse_form.html", "structures.html", "structure_detail.html", "structure_form.html", "readings.html", "reading_history.html", "reading_form.html", "arhiva_ispravci.html", "uvoz_ocitanja.html", "teren.html", "moduli.html", "settings.html", "odrzavanje.html", "organizacija.html", "sector_form.html", "area_form.html", "contractor_form.html", "firme.html", "nazivi.html", "sudionici.html",
 		"administracija.html", "uvozi.html", "sinkronizacija.html", "pretplate.html", "baza.html", "izvori.html", "uvoz_niza.html",
-		"dnevnici.html", "dnevnici_izbor.html", "dnevnik_form.html", "dnevnik.html", "dnevnik_cop.html", "dnevnik_cop_form.html", "dnevnik_list.html", "dnevnik_obracun.html", "pomoc.html", "ocitanja_ispravci.html"} {
+		"dnevnici.html", "dnevnici_izbor.html", "dnevnik_form.html", "dnevnik.html", "dnevnik_cop.html", "dnevnik_cop_form.html", "dnevnik_list.html", "dnevnik_obracun.html", "obracun_postavke.html", "pomoc.html", "ocitanja_ispravci.html"} {
 		t, err := template.New("base.html").Funcs(tmplFuncs).ParseFS(templatesFS, DijeloviPredloska(page)...)
 		if err != nil {
 			return nil, fmt.Errorf("greška pri parsiranju predloška %s: %w", page, err)
@@ -862,6 +863,13 @@ func (s *Server) setupRoutes() {
 	izvoriH := NewIzvoriHandler(func() string { return s.arhivaPut }, func() string { return s.podaciDir },
 		s.PostaviIzvor, s.templates["izvori.html"])
 	s.mux.Handle("GET /administracija/izvori", s.samoAdmin(http.HandlerFunc(izvoriH.ShowIzvori)))
+
+	obracunH := NewObracunPostavkeHandler(func() *service.ObracunService { return s.obracunService }, s.templates["obracun_postavke.html"])
+	s.mux.Handle("GET /administracija/obracun", s.samoAdmin(http.HandlerFunc(obracunH.ShowPostavke)))
+	s.mux.Handle("POST /administracija/obracun/blagdani", s.samoAdmin(http.HandlerFunc(obracunH.HandleSpremiBlagdan)))
+	s.mux.Handle("POST /administracija/obracun/blagdani/{id}/makni", s.samoAdmin(http.HandlerFunc(obracunH.HandleMakniBlagdan)))
+	s.mux.Handle("POST /administracija/obracun/koeficijenti", s.samoAdmin(http.HandlerFunc(obracunH.HandleSpremiKoeficijente)))
+	journalsH.SetObracun(func() *service.ObracunService { return s.obracunService })
 	s.mux.Handle("POST /administracija/izvori", s.samoAdmin(http.HandlerFunc(izvoriH.SpremiIzvor)))
 	uvozH := NewUvozHandler(func() string { return s.arhivaPut }, func() string { return s.podaciDir },
 		s.IzgradiLetvu, s.templates["uvoz_niza.html"])
@@ -1075,6 +1083,9 @@ func (s *Server) SetKarta(plocice, zasluge string, najviseZ int) {
 
 // SetArhiva daje poslužitelju hidrološku arhivu. Arhiva je zasebna datoteka i
 // smije je ne biti: čvor koji je nije preuzeo radi bez povijesti, ne pada.
+// SetObracun daje poslužitelju postavke obračuna sati (blagdani i koeficijenti)
+func (s *Server) SetObracun(o *service.ObracunService) { s.obracunService = o }
+
 func (s *Server) SetArhiva(a *repository.ArhivaRepository) {
 	s.zamijeniArhivu(a)
 }

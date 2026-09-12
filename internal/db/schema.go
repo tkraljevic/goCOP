@@ -73,6 +73,28 @@ func InitSchema(database *sql.DB) error {
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_dezurstva_journal ON dezurstva(journal_id, od);`,
 
+		// Postavke obračuna sati: blagdani kao pravila i koeficijenti po
+		// mjestu i razredu. Podatak organizacije, ne pravilo programa.
+		`CREATE TABLE IF NOT EXISTS blagdani (
+			id TEXT PRIMARY KEY,
+			naziv TEXT NOT NULL,
+			vrsta TEXT NOT NULL,
+			mjesec INTEGER NOT NULL DEFAULT 0,
+			dan INTEGER NOT NULL DEFAULT 0,
+			pomak INTEGER NOT NULL DEFAULT 0,
+			datum TEXT NOT NULL DEFAULT '',
+			od_godine INTEGER NOT NULL DEFAULT 0,
+			do_godine INTEGER NOT NULL DEFAULT 0,
+			updated_at DATETIME NOT NULL
+		);`,
+		`CREATE TABLE IF NOT EXISTS koeficijenti (
+			id TEXT PRIMARY KEY,
+			mjesto TEXT NOT NULL,
+			razred TEXT NOT NULL,
+			k REAL NOT NULL,
+			updated_at DATETIME NOT NULL
+		);`,
+
 		`CREATE TABLE IF NOT EXISTS users (
 			id TEXT PRIMARY KEY,
 			username TEXT UNIQUE NOT NULL,

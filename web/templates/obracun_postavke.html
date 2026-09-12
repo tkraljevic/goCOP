@@ -1,0 +1,118 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Obračun sati: blagdani i koeficijenti{{end}}
+
+{{define "content"}}
+<div class="breadcrumb"><a href="/administracija">Administracija</a> › Obračun sati</div>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "calculator"}} Obračun sati u obrani</h1>
+    <p class="page-desc">
+      Blagdani i koeficijenti po kojima se sati iz plana dežurstava pretvaraju u obračunske. Ovo je podatak
+      organizacije, ne pravilo programa: zakon o blagdanima se mijenja, a koeficijente određuje kolektivni ugovor.
+      Program dolazi napunjen hrvatskim zakonom i koeficijentima obrasca IORS; promjena ovdje vrijedi na svim
+      računalima mreže.
+    </p>
+  </div>
+</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
+
+<section class="detail-section">
+  <h2>{{icon "clock"}} Blagdani</h2>
+  <p class="page-desc">Ukinut blagdan ne briše se nego mu se upiše zadnja godina — prošli obračuni ostaju točni.
+    Pomični se računaju od Uskrsa; jednokratni je jedan datum, npr. dan žalosti koji Vlada proglasi neradnim.</p>
+  <div class="table-card"><div class="table-responsive">
+    <table class="data-table">
+      <thead><tr><th>Naziv</th><th>Kad</th><th>Vrijedi</th><th></th></tr></thead>
+      <tbody>
+      {{range .Blagdani}}
+      <tr>
+        <td>{{.Naziv}}</td>
+        <td class="mono">{{.Opis}}</td>
+        <td class="mono">{{if .OdGodine}}od {{.OdGodine}}.{{end}}{{if .DoGodine}} do {{.DoGodine}}.{{end}}{{if and (not .OdGodine) (not .DoGodine)}}uvijek{{end}}</td>
+        <td><form method="POST" action="/administracija/obracun/blagdani/{{.ID}}/makni" style="display:inline;"
+          onsubmit="return confirm('Maknuti blagdan {{.Naziv}}? Ukinut blagdan bolje je zatvoriti godinom do.');">
+          <button type="submit" class="btn btn-sm btn-secondary" title="Makni">{{icon "x"}}</button></form></td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div></div>
+  <p class="reading-meta" style="margin-top:0.5rem;">Po tim pravilima u {{.Godina}}. blagdani padaju:
+    {{range $i, $d := .OveGodine}}{{if $i}}, {{end}}{{$d}}{{end}}.
+    <a href="/administracija/obracun?godina={{.Godina}}">Provjeri drugu godinu</a> dodavanjem <code>?godina=</code>.</p>
+
+  <details class="reg-card" style="padding:0.75rem 1rem; margin-top:0.75rem;">
+    <summary>{{icon "plus"}} Dodaj blagdan</summary>
+    <form method="POST" action="/administracija/obracun/blagdani" style="margin-top:0.75rem;">
+      <div class="form-row novi-zapis-red">
+        <div class="form-group">
+          <label class="form-label" for="b-naziv">Naziv *</label>
+          <input type="text" id="b-naziv" name="naziv" class="form-control" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="b-vrsta">Vrsta *</label>
+          <select id="b-vrsta" name="vrsta" class="form-control">
+            <option value="STALNI">stalni datum</option>
+            <option value="USKRS">po Uskrsu</option>
+            <option value="JEDNOKRATNI">jednokratni</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row novi-zapis-red">
+        <div class="form-group">
+          <label class="form-label" for="b-dan">Dan i mjesec <span class="reg-card-sub">(stalni)</span></label>
+          <div style="display:flex; gap:0.35rem;">
+            <input type="number" id="b-dan" name="dan" class="form-control" min="1" max="31" placeholder="dan">
+            <input type="number" name="mjesec" class="form-control" min="1" max="12" placeholder="mjesec">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="b-pomak">Dana od Uskrsa <span class="reg-card-sub">(po Uskrsu)</span></label>
+          <input type="number" id="b-pomak" name="pomak" class="form-control" placeholder="0 Uskrs, 1 ponedjeljak, 60 Tijelovo">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="b-datum">Datum <span class="reg-card-sub">(jednokratni)</span></label>
+          <input type="date" id="b-datum" name="datum" class="form-control">
+        </div>
+      </div>
+      <div class="form-row novi-zapis-red">
+        <div class="form-group">
+          <label class="form-label" for="b-od">Vrijedi od godine</label>
+          <input type="number" id="b-od" name="od_godine" class="form-control" placeholder="prazno = oduvijek">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="b-do">do godine</label>
+          <input type="number" id="b-do" name="do_godine" class="form-control" placeholder="prazno = i dalje">
+        </div>
+      </div>
+      <div class="form-actions"><button type="submit" class="btn btn-primary">{{icon "check"}} Upiši blagdan</button></div>
+    </form>
+  </details>
+</section>
+
+<section class="detail-section">
+  <h2>{{icon "calculator"}} Koeficijenti</h2>
+  <p class="page-desc">Stvarni sati puta koeficijent daju obračunske sate. Ured u redovnom radnom vremenu nosi 0 — to je
+    plaća, ne prekovremeni. Nedjelja se obračunava kao blagdan.</p>
+  <form method="POST" action="/administracija/obracun/koeficijenti">
+    <div class="table-card"><div class="table-responsive">
+      <table class="data-table">
+        <thead><tr><th>Razred</th>{{range .Mjesta}}<th>{{if eq . "TEREN"}}teren{{else}}ured{{end}}</th>{{end}}</tr></thead>
+        <tbody>
+        {{range $r := .Razredi}}
+        <tr>
+          <td>{{$r}} <span class="reg-card-sub">{{$r.Naziv}}</span></td>
+          {{range $m := $.Mjesta}}<td><input type="text" inputmode="decimal" name="k_{{$m}}_{{$r}}" class="form-control mono" style="max-width:6rem;" value="{{$.K $m $r}}"></td>{{end}}
+        </tr>
+        {{end}}
+        </tbody>
+      </table>
+    </div></div>
+    <div class="form-actions" style="margin-top:0.75rem;"><button type="submit" class="btn btn-primary">{{icon "check"}} Upiši koeficijente</button></div>
+  </form>
+</section>
+{{end}}
