@@ -31,13 +31,14 @@
 {{if .Dezurstva}}
 <div class="table-card"><div class="table-responsive">
   <table class="data-table">
-    <thead><tr><th>Od</th><th>Do</th><th>Tko</th><th>Opis rada</th><th>Mjesto</th><th>Potvrda</th><th></th></tr></thead>
+    <thead><tr><th>Od</th><th>Do</th><th>Tko</th><th>Za</th><th>Opis rada</th><th>Mjesto</th><th>Potvrda</th><th></th></tr></thead>
     <tbody>
     {{range .Dezurstva}}
     <tr>
       <td class="mono">{{danTjedna .Od}} {{.Od.Format "2.1."}} {{.Od.Format "15:04"}}</td>
       <td class="mono">{{if ne (.Do.Format "2006-01-02") (.Od.Format "2006-01-02")}}{{.Do.Format "2.1."}} {{end}}{{.Do.Format "15:04"}} <span class="reg-card-sub">({{sati .Trajanje}})</span></td>
       <td>{{.UserName}}</td>
+      <td>{{if .ZaPodrucje}}{{$id := .PodrucjeID}}{{range $.Areas}}{{if eq .ID $id}}{{.Name}}{{end}}{{end}}{{else}}cijeli {{terml "sektor"}}{{end}}</td>
       <td>{{.Opis}}{{if .Napomena}}<div class="reg-card-sub">{{.Napomena}}</div>{{end}}</td>
       <td>{{if eq .Mjesto "TEREN"}}teren{{else}}ured{{end}}</td>
       {{/* Svatko upisuje sebe; uprava centra to provjeri i potvrdi. U
@@ -71,6 +72,13 @@
       <input type="hidden" name="user_id" value="{{.CurrentUser.ID}}">
       <input type="text" id="d-osoba" class="form-control" value="{{.CurrentUser.FullName}}" disabled>
       {{end}}
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="d-podrucje">Za koga *</label>
+      <select id="d-podrucje" name="podrucje" class="form-control">
+        <option value="">cijeli {{terml "sektor"}} {{.Journal.CentarSektor}}</option>
+        {{range .Areas}}<option value="{{.ID}}">{{.Name}} ({{.ID}})</option>{{end}}
+      </select>
     </div>
     <div class="form-group">
       <label class="form-label" for="d-opis">Opis rada *</label>

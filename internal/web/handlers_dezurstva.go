@@ -2,6 +2,7 @@ package web
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -30,6 +31,7 @@ func (h *JournalsHandler) ShowDezurstva(w http.ResponseWriter, r *http.Request) 
 	h.fillRights(&data)
 	data.Dezurstva, _ = h.journals.Dezurstva(r.Context(), j.ID)
 	data.OpisiRada = models.OpisiRada
+	data.Areas, _ = h.users.ListAreas(j.CentarSektor)
 	data.UpravaCentra = h.journals.UpravaCentra(data.Permissions, j)
 	data.MozeSebe = h.journals.MozeSebeUPlan(data.Permissions, h.opseg(j, area), j)
 	// Uprava bira bilo koga iz sektora; ostali upisuju samo sebe.
@@ -55,6 +57,10 @@ func (h *JournalsHandler) HandleSaveDezurstvo(w http.ResponseWriter, r *http.Req
 	}
 	f := func(k string) string { return strings.TrimSpace(r.FormValue(k)) }
 	d := models.Dezurstvo{ID: f("id"), UserID: f("user_id"), Opis: f("opis"), Napomena: r.FormValue("napomena")}
+	// Za koga: broj područja, ili prazno za cijeli sektor
+	if n, err := strconv.Atoi(f("podrucje")); err == nil && n > 0 {
+		d.Podrucje = &n
+	}
 	// Ime se uzima iz imenika u trenutku upisa i ostaje uz zapis
 	if id, err := uuid.Parse(d.UserID); err == nil {
 		if osoba, _ := h.users.GetUserByID(id); osoba != nil {
@@ -143,7 +149,13 @@ func (h *JournalsHandler) ShowObracun(w http.ResponseWriter, r *http.Request) {
 	data.Razredi = obracun.Razredi
 	var err error
 	postavke := h.postavkeObracuna()
-	if data.Obracun, data.CekaPotvrdu, err = h.journals.Obracun(r.Context(), j, od, do, postavke.Kalendar(r.Context()), postavke.Koeficijenti(r.Context())); err != nil {
+	nazivi := map[int]string{}
+	if podrucja, err := h.users.ListAreas(j.CentarSektor); err == nil {
+		for _, a := range podrucja {
+			nazivi[a.ID] = a.Name
+		}
+	}
+	if data.Obracun, data.CekaPotvrdu, err = h.journals.Obracun(r.Context(), j, od, do, postavke.Kalendar(r.Context()), postavke.Koeficijenti(r.Context()), nazivi); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

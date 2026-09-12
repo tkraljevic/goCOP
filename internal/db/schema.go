@@ -64,6 +64,7 @@ func InitSchema(database *sql.DB) error {
 			user_name TEXT NOT NULL DEFAULT '',
 			od DATETIME NOT NULL,
 			do_ DATETIME NOT NULL,
+			podrucje INTEGER,
 			opis TEXT NOT NULL DEFAULT '',
 			mjesto TEXT NOT NULL DEFAULT '',
 			napomena TEXT NOT NULL DEFAULT '',
@@ -818,6 +819,7 @@ func migrateSchema(database *sql.DB) error {
 		// isto stoji u arhivi, u 48 bajta umjesto 1.360.
 		{"readings", "izdanje", "TEXT NOT NULL DEFAULT ''"},
 		{"journals", "channel", "TEXT NOT NULL DEFAULT ''"},
+		{"dezurstva", "podrucje", "INTEGER"},
 		{"dezurstva", "potvrdio", "TEXT NOT NULL DEFAULT ''"},
 		{"dezurstva", "potvrdeno_at", "DATETIME"},
 	}

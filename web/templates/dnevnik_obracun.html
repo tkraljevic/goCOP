@@ -38,7 +38,7 @@
 <div class="table-card" style="margin-top:1rem;"><div class="table-responsive">
   <table class="data-table">
     <thead>
-      <tr><th rowspan="2">Osoba</th><th rowspan="2">Mjesto</th>
+      <tr><th rowspan="2">Osoba</th><th rowspan="2">Za</th><th rowspan="2">Mjesto</th>
         {{range .Razredi}}<th title="{{.Naziv}}">{{.}}</th>{{end}}
         <th rowspan="2">Stvarni sati</th><th rowspan="2">Obračunski sati</th></tr>
       <tr>{{range .Razredi}}<th class="reg-card-sub" style="font-weight:normal; white-space:nowrap;">{{.Naziv}}</th>{{end}}</tr>
@@ -47,6 +47,7 @@
     {{range .Obracun}}
     <tr>
       <td rowspan="2"><strong>{{.UserName}}</strong></td>
+      <td rowspan="2">{{.Za}}</td>
       <td>ured</td>
       {{$o := .}}{{range $.Razredi}}<td class="mono">{{sati ($o.Sati "URED" .)}}</td>{{end}}
       <td class="mono" rowspan="2"><strong>{{sati .Stvarni}}</strong></td>

@@ -88,6 +88,20 @@ func (s *JournalService) SpremiDezurstvo(ctx context.Context, u *models.User, pe
 	if d.Mjesto == "" {
 		return errors.New("odaberite opis rada s popisa")
 	}
+	// Za koga: područje mora biti u sektoru centra; prazno je cijeli sektor.
+	if d.ZaPodrucje() {
+		uSektoru := false
+		for _, id := range o.Podrucja {
+			if id == *d.Podrucje {
+				uSektoru = true
+			}
+		}
+		if !uSektoru {
+			return errors.New("branjeno područje nije u sektoru ovog centra")
+		}
+	} else {
+		d.Podrucje = nil
+	}
 	d.JournalID = j.ID
 	d.UserName, d.Napomena = strings.TrimSpace(d.UserName), strings.TrimSpace(d.Napomena)
 	if d.ID != "" {
@@ -156,9 +170,13 @@ func (s *JournalService) MakniDezurstvo(ctx context.Context, u *models.User, per
 // i ono što iz toga slijedi po koeficijentima
 type ObracunOsobe struct {
 	UserID, UserName string
-	Ured, Teren      obracun.Sati
-	Stvarni          time.Duration
-	Obracunski       float64
+	// Za koga je radila: branjeno područje ili cijeli sektor. Ista osoba
+	// ima redak za svako — obračun se slaže po području, kao i dosad.
+	Podrucje    *int
+	Za          string
+	Ured, Teren obracun.Sati
+	Stvarni     time.Duration
+	Obracunski  float64
 }
 
 // Sati vraća stvarne sate razreda za mjesto, za ispis u tablici
@@ -174,7 +192,8 @@ func (o ObracunOsobe) Sati(mjesto string, r obracun.Razred) time.Duration {
 // pa se obračun za mjesec ne mijenja time što smjena prelazi u sljedeći.
 // Uz obračun vraća i koliko sati u razdoblju još čeka potvrdu — to nije
 // u zbroju, ali se mora vidjeti.
-func (s *JournalService) Obracun(ctx context.Context, j *models.Journal, od, do time.Time, kal obracun.Kalendar, k obracun.Koeficijenti) ([]ObracunOsobe, time.Duration, error) {
+// nazivi daje ime područja po broju; prazan broj je cijeli sektor.
+func (s *JournalService) Obracun(ctx context.Context, j *models.Journal, od, do time.Time, kal obracun.Kalendar, k obracun.Koeficijenti, nazivi map[int]string) ([]ObracunOsobe, time.Duration, error) {
 	dez, err := s.repo.ListDezurstva(ctx, j.ID)
 	if err != nil {
 		return nil, 0, err
@@ -196,10 +215,19 @@ func (s *JournalService) Obracun(ctx context.Context, j *models.Journal, od, do 
 			ceka += b.Sub(a)
 			continue
 		}
-		o := poOsobi[d.UserID]
+		kljuc, za, podrucje := d.UserID+"/", "cijeli "+models.Terms().Lower("sektor")+" "+j.CentarSektor, (*int)(nil)
+		if d.ZaPodrucje() {
+			n := *d.Podrucje
+			podrucje = &n
+			kljuc = fmt.Sprintf("%s/%d", d.UserID, n)
+			if za = nazivi[n]; za == "" {
+				za = fmt.Sprintf("%s %d", models.Terms().Lower("podrucje"), n)
+			}
+		}
+		o := poOsobi[kljuc]
 		if o == nil {
-			o = &ObracunOsobe{UserID: d.UserID, UserName: d.UserName, Ured: obracun.Sati{}, Teren: obracun.Sati{}}
-			poOsobi[d.UserID] = o
+			o = &ObracunOsobe{UserID: d.UserID, UserName: d.UserName, Podrucje: podrucje, Za: za, Ured: obracun.Sati{}, Teren: obracun.Sati{}}
+			poOsobi[kljuc] = o
 		}
 		sati := obracun.Razvrstaj(a, b, kal)
 		if d.Mjesto == models.MjestoTeren {
@@ -214,6 +242,16 @@ func (s *JournalService) Obracun(ctx context.Context, j *models.Journal, od, do 
 		o.Obracunski = k.Obracunski(o.Ured, obracun.Ured) + k.Obracunski(o.Teren, obracun.Teren)
 		out = append(out, *o)
 	}
-	sort.Slice(out, func(i, l int) bool { return out[i].UserName < out[l].UserName })
+	// Po području pa po imenu; cijeli sektor na kraju, kao list "B i ostali".
+	sort.Slice(out, func(i, l int) bool {
+		a, b := out[i], out[l]
+		if (a.Podrucje == nil) != (b.Podrucje == nil) {
+			return a.Podrucje != nil
+		}
+		if a.Podrucje != nil && *a.Podrucje != *b.Podrucje {
+			return *a.Podrucje < *b.Podrucje
+		}
+		return a.UserName < b.UserName
+	})
 	return out, ceka, nil
 }

@@ -20,6 +20,12 @@ type Dezurstvo struct {
 	Od time.Time `json:"od"`
 	Do time.Time `json:"do"`
 
+	// Podrucje je za koga je osoba radila: branjeno područje, ili prazno za
+	// cijeli sektor. To je podatak dežurstva, ne osobe — sektorski čovjek
+	// jedan dan radi za jedno područje, a čovjek s područja zna biti poslan
+	// drugamo. Obračun se po tome i slaže, kao i dosad po listovima BP-a.
+	Podrucje *int `json:"podrucje,omitempty"`
+
 	// Opis je jedan od OpisiRada; Mjesto se iz njega izvodi pri upisu i
 	// pohranjuje, da obračun ostane isti i ako se popis opisa promijeni.
 	Opis     string `json:"opis"`
@@ -71,6 +77,17 @@ func MjestoZaOpis(opis string) string {
 		}
 	}
 	return ""
+}
+
+// ZaPodrucje javlja je li dežurstvo vezano na jedno branjeno područje
+func (d Dezurstvo) ZaPodrucje() bool { return d.Podrucje != nil && *d.Podrucje > 0 }
+
+// PodrucjeID je broj područja, 0 za cijeli sektor — za usporedbu u predlošku
+func (d Dezurstvo) PodrucjeID() int {
+	if d.ZaPodrucje() {
+		return *d.Podrucje
+	}
+	return 0
 }
 
 // Potvrdeno javlja je li dežurstvo provjerila uprava centra
