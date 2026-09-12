@@ -51,6 +51,7 @@ type UserPageData struct {
 	Areas   []models.Area
 
 	ModuleRows []ModuleOverrideRow // vidljivost modula za ovaj račun (samo globalni administrator)
+	Planovi    []models.PlanOsobe  // planovi dežurstava u kojima osoba ima sate
 
 	// Privremena lozinka nakon poništavanja: pokazuje se jednom, na stranici
 	// koja slijedi odmah iza radnje. Ne ide u adresu ni u poruku o uspjehu,
@@ -229,6 +230,9 @@ func (h *UsersHandler) ShowProfile(w http.ResponseWriter, r *http.Request) {
 	}
 	data.IsSelf = true
 	data.ActiveNav = "profile"
+	if h.planovi != nil {
+		data.Planovi, _ = h.planovi(r.Context(), data.User.ID.String())
+	}
 
 	if err := h.tmplProfile.ExecuteTemplate(w, "profile.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

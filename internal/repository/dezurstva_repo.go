@@ -133,3 +133,58 @@ func (r *JournalRepository) ArhivirajDezurstvo(ctx context.Context, d *models.De
 	}
 	return tx.Commit()
 }
+
+// PlanoviOsobe vraća planove u kojima osoba ima dežurstva, najnoviji prvi.
+// Zbraja se u Gou: datumi su pohranjeni u Go-ovu zapisu koji SQLite-ov
+// strftime ne čita.
+func (r *JournalRepository) PlanoviOsobe(ctx context.Context, userID string) ([]models.PlanOsobe, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT j.id, j.title, COALESCE(s.center_cop, ''), j.centar_sektor, j.ended_at IS NOT NULL, d.od, d.do_, d.potvrdeno_at IS NULL
+		FROM dezurstva d JOIN journals j ON j.id = d.journal_id LEFT JOIN sectors s ON s.id = j.centar_sektor
+		WHERE d.user_id = ? ORDER BY d.od`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	po := map[string]*models.PlanOsobe{}
+	var redom []string
+	for rows.Next() {
+		var p models.PlanOsobe
+		var od, do time.Time
+		var ceka bool
+		if err := rows.Scan(&p.JournalID, &p.Naslov, &p.Centar, &p.Sektor, &p.Zakljucen, &od, &do, &ceka); err != nil {
+			return nil, err
+		}
+		od, do = od.In(models.Zagreb), do.In(models.Zagreb)
+		g := po[p.JournalID]
+		if g == nil {
+			p.Prvo, p.Zadnje = od, do
+			g = &p
+			po[p.JournalID] = g
+			redom = append(redom, p.JournalID)
+		}
+		g.Dezurstava++
+		g.Sati += do.Sub(od)
+		if ceka {
+			g.CekaPotvrdu++
+		}
+		if od.Before(g.Prvo) {
+			g.Prvo = od
+		}
+		if do.After(g.Zadnje) {
+			g.Zadnje = do
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	out := make([]models.PlanOsobe, 0, len(redom))
+	for _, id := range redom {
+		out = append(out, *po[id])
+	}
+	// najnoviji plan prvi
+	for i, j := 0, len(out)-1; i < j; i, j = i+1, j-1 {
+		out[i], out[j] = out[j], out[i]
+	}
+	return out, nil
+}

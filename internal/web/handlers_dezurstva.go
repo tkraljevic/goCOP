@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"gocop/internal/models"
+	"gocop/internal/obracun"
 )
 
 // Plan dežurstava stoji uz dnevnik COP-a: uprava centra ga slaže, dežurni ga
@@ -142,13 +143,31 @@ func (h *JournalsHandler) ShowObracun(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Obračun sati vidi tko piše u dnevnik", http.StatusForbidden)
 		return
 	}
-	od := time.Date(1900, 1, 1, 0, 0, 0, 0, models.Zagreb)
+	od, do := h.razdobljeObracuna(r, j)
+	data.From, data.To = od.Format("2006-01-02"), do.AddDate(0, 0, -1).Format("2006-01-02")
+	var err error
+	postavke := h.postavkeObracuna()
+	nazivi := map[int]string{}
+	if podrucja, err := h.users.ListAreas(j.CentarSektor); err == nil {
+		for _, a := range podrucja {
+			nazivi[a.ID] = a.Name
+		}
+	}
+	if data.Obracun, err = h.journals.Obracun(r.Context(), j, od, do, postavke.Kalendar(r.Context()), postavke.Koeficijenti(r.Context()), nazivi); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	h.render(w, h.tmplObracun, "dnevnik_obracun.html", data)
+}
+
+// razdobljeObracuna: zadano od početka dnevnika do kraja plana; ?od i ?do
+// (dan uključivo) ga sužavaju
+func (h *JournalsHandler) razdobljeObracuna(r *http.Request, j *models.Journal) (od, do time.Time) {
+	od = time.Date(1900, 1, 1, 0, 0, 0, 0, models.Zagreb)
 	if j.StartedAt != nil {
 		od = j.StartedAt.In(models.Zagreb)
 	}
-	// Zadano razdoblje seže do kraja plana: otvoren dnevnik ima dežurstva
-	// unaprijed, i ona moraju biti u obračunu bez da se razdoblje traži.
-	do := time.Now().In(models.Zagreb).AddDate(0, 0, 1)
+	do = time.Now().In(models.Zagreb).AddDate(0, 0, 1)
 	if dez, err := h.journals.Dezurstva(r.Context(), j.ID); err == nil {
 		for _, d := range dez {
 			if kraj := d.Do.In(models.Zagreb).AddDate(0, 0, 1); kraj.After(do) {
@@ -165,8 +184,26 @@ func (h *JournalsHandler) ShowObracun(w http.ResponseWriter, r *http.Request) {
 	if t, err := time.ParseInLocation("2006-01-02", r.URL.Query().Get("do"), models.Zagreb); err == nil {
 		do = t.AddDate(0, 0, 1)
 	}
+	return od, do
+}
+
+// ShowIORS prikazuje izvješće o radnim satima jedne osobe — ono što obrazac
+// IORS traži po djelatniku. Vidi ga tko vidi obračun, i osoba sama.
+func (h *JournalsHandler) ShowIORS(w http.ResponseWriter, r *http.Request) {
+	j, area, ok := h.loadJournal(w, r)
+	if !ok {
+		return
+	}
+	data := h.pageData(r)
+	data.Journal, data.Area = j, area
+	h.fillRights(&data)
+	userID := r.PathValue("user")
+	if !data.CanWrite && (data.CurrentUser == nil || data.CurrentUser.ID.String() != userID) {
+		http.Error(w, "Izvješće o satima vidi tko piše u dnevnik, i osoba sama", http.StatusForbidden)
+		return
+	}
+	od, do := h.razdobljeObracuna(r, j)
 	data.From, data.To = od.Format("2006-01-02"), do.AddDate(0, 0, -1).Format("2006-01-02")
-	var err error
 	postavke := h.postavkeObracuna()
 	nazivi := map[int]string{}
 	if podrucja, err := h.users.ListAreas(j.CentarSektor); err == nil {
@@ -174,9 +211,18 @@ func (h *JournalsHandler) ShowObracun(w http.ResponseWriter, r *http.Request) {
 			nazivi[a.ID] = a.Name
 		}
 	}
-	if data.Obracun, err = h.journals.Obracun(r.Context(), j, od, do, postavke.Kalendar(r.Context()), postavke.Koeficijenti(r.Context()), nazivi); err != nil {
+	var err error
+	if data.IORS, err = h.journals.ObracunOsobe(r.Context(), j, userID, od, do, postavke.Kalendar(r.Context()), postavke.Koeficijenti(r.Context()), nazivi); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	h.render(w, h.tmplObracun, "dnevnik_obracun.html", data)
+	if data.IORS.UserName == "" {
+		if id, err := uuid.Parse(userID); err == nil {
+			if osoba, _ := h.users.GetUserByID(id); osoba != nil {
+				data.IORS.UserName = osoba.FullName
+			}
+		}
+	}
+	data.Razredi = obracun.Razredi
+	h.render(w, h.tmplIORS, "dnevnik_iors.html", data)
 }

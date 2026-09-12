@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"gocop/internal/models"
+	"gocop/internal/obracun"
 	"gocop/internal/service"
 )
 
@@ -30,6 +31,7 @@ type JournalsHandler struct {
 	tmplPrint     *template.Template
 	tmplObracun   *template.Template
 	tmplDezurstva *template.Template
+	tmplIORS      *template.Template
 	// obracun daje blagdane i koeficijente iz baze; nil znači ono što program nosi u sebi
 	obracun func() *service.ObracunService
 }
@@ -46,9 +48,9 @@ func (h *JournalsHandler) postavkeObracuna() *service.ObracunService {
 
 func NewJournalsHandler(j *service.JournalService, users *service.UserService, m *service.MaintenanceService,
 	sections *service.SectionService, stations *service.StationService,
-	izbor, list, form, journal, cop, copForm, sheet, print, obracun, dezurstva *template.Template) *JournalsHandler {
+	izbor, list, form, journal, cop, copForm, sheet, print, obracun, dezurstva, iors *template.Template) *JournalsHandler {
 	return &JournalsHandler{journals: j, users: users, maintenance: m, sections: sections, stations: stations,
-		tmplIzbor: izbor, tmplCOP: cop, tmplCOPForm: copForm, tmplList: list, tmplForm: form, tmplJournal: journal, tmplSheet: sheet, tmplPrint: print, tmplObracun: obracun, tmplDezurstva: dezurstva}
+		tmplIzbor: izbor, tmplCOP: cop, tmplCOPForm: copForm, tmplList: list, tmplForm: form, tmplJournal: journal, tmplSheet: sheet, tmplPrint: print, tmplObracun: obracun, tmplDezurstva: dezurstva, tmplIORS: iors}
 }
 
 // JournalPageData su podaci svih stranica dnevnika; što stranica ne treba ostaje prazno
@@ -109,6 +111,8 @@ type JournalPageData struct {
 	Podrucje       int  // filtar dnevnika COP-a po području; 0 = sve
 	OpisiRada      []models.OpisRada
 	Obracun        service.Obracun
+	IORS           service.IORS
+	Razredi        []obracun.Razred
 	CanWrite       bool
 	CanSupervise   bool
 	CanManage      bool

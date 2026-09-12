@@ -3314,3 +3314,6 @@ textarea {
 }
 
 .zapis-podrucje { font-size: 0.72rem; vertical-align: 0.1em; margin-right: 0.2rem; }
+.iors-tablica th.br, .iors-tablica td.br { text-align: right; white-space: nowrap; }
+.iors-tablica tr.iors-ceka td { color: var(--text-muted, #777); font-style: italic; }
+@media print { .page-actions, .breadcrumb, .alert { display: none !important; } }

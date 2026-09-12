@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"encoding/json"
 	"html/template"
 	"net/http"
@@ -23,6 +24,14 @@ type UsersHandler struct {
 	tmplForm      *template.Template // obrazac
 	tmplDuty      *template.Template // zaduženje
 	tmplProfile   *template.Template // vlastiti profil
+	// planovi daje planove dežurstava osobe, za profil; nil dok se ne spoji
+	planovi func(ctx context.Context, userID string) ([]models.PlanOsobe, error)
+}
+
+// SetPlanovi spaja profil s planom dežurstava: osoba na profilu vidi svoje
+// planove i izvješća o satima
+func (h *UsersHandler) SetPlanovi(f func(ctx context.Context, userID string) ([]models.PlanOsobe, error)) {
+	h.planovi = f
 }
 
 func NewUsersHandler(userService *service.UserService, tmpl *template.Template) *UsersHandler {
