@@ -61,6 +61,10 @@
   </div>
   <div class="kazalo-grupa">
     <a class="kazalo-glava" href="#journals">Dnevnici</a>
+    <a href="#dnevnik-cop">Dnevnik COP-a</a>
+    <a href="#dnevnik-dezurstva">Plan dežurstava</a>
+    <a href="#dnevnik-obracun">Obračun sati i IORS</a>
+    <a href="#dnevnik-usluge">Dnevnici usluga A.02 i A.03</a>
     <a class="kazalo-glava" href="#users">Djelatnici</a>
     <a class="kazalo-glava" href="#registers">Registri</a>
     <a class="kazalo-glava" href="#admin">Administracija</a>
@@ -79,8 +83,10 @@
     <p><strong>Što vidite ovisi o ulozi.</strong> Izbornik ne pokazuje sve svima: dijelovi
       koje vaša uloga ne treba jednostavno nisu tu. Ako vam nešto nedostaje, a mislite da vam
       treba, to uređuje administrator pod <em>Administracija → Moduli i ovlasti</em>.</p>
-    <p><strong>Ništa se ne briše nepovratno.</strong> Svaka izmjena ostaje zapisana s time tko
-      ju je i kad napravio. Obrisano očitanje nestaje s popisa, ali zapis o njemu ostaje.</p>
+    <p><strong>Poslovni zapis ne nestaje običnim brisanjem.</strong> Svaka izmjena ostaje zapisana
+      s time tko ju je i kad napravio. Stare tehničke verzije i operativna očitanja koja su već
+      sigurno uložena u arhivu posprema samo administrator, kroz postupak koji prvo provjerava
+      točan niz, vrijeme i vrijednost.</p>
     <p><strong>Na telefonu</strong> izbornik otvara gumb {{icon "menu"}} gore lijevo. Grafovi i
       tablice imaju svoj oblik za uski zaslon — isti podaci, drukčije složeni. Tablica koja ne
       stane u širinu zaslona razlaže se u kartice, s naslovom stupca uz svaku vrijednost, pa se
@@ -130,8 +136,8 @@
         objekata, posebno prilagođen radu na mobitelu i upisu očitanja jednom rukom na terenu.</li>
       <li><strong>Očitanja</strong> — operativni vodostaji: zadnja očitana stanja, stupnjevi
         i pragovi obrane od poplava, grafikoni kretanja vodostaja i praćene postaje.</li>
-      <li><strong>Dnevnici</strong> — građevinski dnevnici redovnog održavanja (A.02, A.03) i
-        dnevnici obrane od poplava po branjenim područjima, vođenje dnevnih listova, upisa i radnih naloga.</li>
+      <li><strong>Dnevnici</strong> — dnevnik COP-a po centru obrane, plan dežurstava i obračun
+        sati te dnevnici usluga održavanja A.02 i A.03 s dnevnim listovima i radnim nalozima.</li>
       <li><strong>Djelatnici</strong> — operativni imenik svih sudionika obrane s kontaktima,
         funkcijama i rasporedom zaduženja po dionicama.</li>
       <li><strong>Registri</strong> — temeljne evidencije: branjena područja, teritorijalni ustroj
@@ -510,8 +516,51 @@
 <section class="detail-section" id="journals">
   <h2>{{icon "notebook"}} Dnevnici</h2>
   <div class="reg-card pomoc-tekst">
-    <p>Građevinski dnevnici radova: tko je radio, gdje, čime i koliko. Dnevnik se vodi po
-      danima, a gotov se ispisuje u obliku za potpis.</p>
+    <p>Ulaz u Dnevnike prvo razdvaja četiri različita posla: <strong>dnevnik COP-a</strong>,
+      <strong>plan dežurstava</strong> te dnevnike usluga <strong>A.02</strong> i
+      <strong>A.03</strong>. Ne vode ih isti ljudi i ne sadrže iste podatke, zato nisu pomiješani
+      u jednom popisu.</p>
+
+    <h3 id="dnevnik-cop">Dnevnik COP-a</h3>
+    <p>Dnevnik COP-a je kronološki zapisnik jednog centra obrane dok traje obrana. Otvara ga
+      voditelj ili zamjenik centra: bira centar i početak dežurstva, a završetak ostavlja prazan
+      dok obrana traje. Jedan dnevnik pokriva cijeli centar, ne samo jedno branjeno područje.</p>
+    <p>Operater upisuje <strong>dan i vrijeme događaja</strong>, <strong>tko je javio</strong>,
+      područje na koje se zapis odnosi i tekst zapisa. Program zasebno pamti kada je unos stvarno
+      napravljen i tko ga je napravio. Tako naknadno unesena dojava ne izgleda kao da je upisana
+      u trenutku događaja.</p>
+    <p>Zapis se ne prepisuje i ne briše. Pogrešan zapis se <strong>stornira uz razlog</strong> i
+      ostaje vidljiv u dnevniku. Prijepis iz stare evidencije može se ispraviti dok je označen
+      kao prijepis; zaključen dnevnik više ne prima nove zapise.</p>
+
+    <h3 id="dnevnik-dezurstva">Plan dežurstava</h3>
+    <p>Plan stoji uz dnevnik COP-a i govori <strong>tko je radio, od kada do kada, za cijeli
+      sektor ili određeno područje, na kojem poslu te u uredu ili na terenu</strong>. Isti zapis
+      poslije postaje osnova obračuna — dežurstvo se ne prepisuje u drugu evidenciju.</p>
+    <p>Svatko tko pripada dosegu centra može upisati sebe. Takav upis čeka potvrdu uprave centra
+      i tek tada ulazi u obračun. Uprava centra može upisati bilo koju osobu u svom dosegu; njezin
+      unos potvrđen je odmah. Nepotvrđeni vlastiti unos osoba može maknuti, a uprava upravlja
+      cijelim planom. Dežurstvo preko ponoći dobiva datum završetka; razmak dulji od 36 sati
+      upisuje se u više dijelova.</p>
+
+    <h3 id="dnevnik-obracun">Obračun sati i IORS</h3>
+    <p>Obračun uzima samo potvrđena dežurstva i razvrstava stvarne sate prema vrsti dana,
+      dnevnom ili noćnom pojasu te mjestu rada — ured ili teren. Nedjelja se obračunava kao
+      blagdan. Koeficijente i kalendar blagdana održava globalni administrator; promjena vrijedi
+      kao podatak organizacije, a ne kao tvrdo pravilo u programu.</p>
+    <p>Obračunski sati zaokružuju se po razredu na pola sata, a točna sredina ide djelatniku.
+      Sažetak prikazuje ljude po području, dok klik na osobu otvara njezin obrazac IORS s radom
+      po danima i razredima. Osoba vlastiti plan i IORS nalazi i na stranici <em>Moj profil</em>.
+      Cijeli obračun može se izvesti u Excel u obliku za računovodstvo, s listovima
+      <code>BP_&lt;broj&gt;</code>, ukupnim iznosima i mjestima za potpise.</p>
+
+    <h3 id="dnevnik-usluge">Dnevnici usluga A.02 i A.03</h3>
+    <p>Dnevnici A.02 i A.03 vode se po području i ugovoru. Imaju naslovnicu s izvođačem,
+      voditeljem i nadzorom te dnevne listove s vremenskim prilikama, vodostajima, osobljem,
+      strojevima, radovima, napomenama i nalozima. Svaka ekipa istog dana dobiva svoj list.</p>
+    <p>Upisi imaju redne brojeve bez rupa i ne brišu se nego storniraju. Izvođač i nadzor
+      potvrđuju list; nakon obje potvrde list se više ne mijenja. Gotov dnevnik ispisuje se u
+      obliku obrasca za potpis.</p>
   </div>
 </section>
 
@@ -564,9 +613,14 @@
       <li><strong>Održavanje baze</strong> — sažimanje, izvoz i obnova. Ovdje se vidi i knjiga
         verzija: svaka izmjena u programu ima svoj zapis, pa se stanje može ponovno izgraditi.</li>
       <li><strong>Unos u arhivu</strong> — vrata arhive za unos CSV i Excel datoteka, ulaganje
-        operativnih očitanja u arhivsko stablo i izdavanje novih paketa arhive s otiskom.</li>
+        operativnih očitanja u arhivsko stablo i izdavanje novih potpisanih <code>.cop</code>
+        paketa. Ugradnja je atomska, starije izdanje ne može samo pregaziti novije, a istodobno
+        se nad istom arhivom izvodi samo jedan posao.</li>
       <li><strong>Izvori arhive</strong> — pregled i uređivanje izvora arhivskih podataka,
         njihove pouzdanosti i točnosti.</li>
+      <li id="obracun"><strong>Obračun sati</strong> — blagdani i koeficijenti za ured i teren.
+        Nedjelja se računa kao blagdan; povijesno pravilo ne briše se nego mu se ograniči
+        razdoblje važenja kako bi stari obračuni ostali ponovljivi.</li>
       <li><strong>Uvozi podataka</strong> — jednokratni uvozi iz vanjskih evidencija.</li>
       <li><strong>Nazivi</strong> — kako se kuća i centar zovu na ispisima.</li>
     </ul>
@@ -578,6 +632,8 @@
   <div class="reg-card pomoc-tekst">
     <p>Vaši kontakti, oznaka računala i ureda na kojem radite, i promjena lozinke. Početna
       lozinka mijenja se pri prvoj prijavi.</p>
+    <p>Ovdje su i vaša dežurstva uz dnevnike COP-a. Za svaki centar u kojem ste u planu možete
+      otvoriti plan i vlastito izvješće o radnim satima bez traženja dnevnika u popisu.</p>
   </div>
 </section>
 
