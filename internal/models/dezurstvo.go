@@ -98,3 +98,17 @@ func (d Dezurstvo) Trajanje() time.Duration { return d.Do.Sub(d.Od) }
 
 // DateKey je dan početka u obliku 2006-01-02, po zidnom satu
 func (d Dezurstvo) DateKey() string { return d.Od.In(Zagreb).Format("2006-01-02") }
+
+// PlanOsobe je jedan plan u kojem osoba ima dežurstva — za profil, gdje
+// osoba vidi svoje planove i izvješća o satima bez traženja po dnevnicima
+type PlanOsobe struct {
+	JournalID    string
+	Naslov       string
+	Centar       string
+	Sektor       string
+	Zakljucen    bool
+	Dezurstava   int
+	CekaPotvrdu  int
+	Sati         time.Duration
+	Prvo, Zadnje time.Time
+}

@@ -44,7 +44,7 @@
     <tr class="obracun-grupa"><th colspan="4">{{.Za}}</th></tr>
     {{range .Redovi}}
     <tr>
-      <td data-stupac="Osoba"><strong>{{.UserName}}</strong> <span class="reg-chip">{{if eq .Mjesto "TEREN"}}teren{{else}}ured{{end}}</span></td>
+      <td data-stupac="Osoba"><a href="/dnevnici/{{$.Journal.ID}}/obracun/{{.UserID}}?od={{$.From}}&amp;do={{$.To}}" title="Izvješće o radnim satima"><strong>{{.UserName}}</strong></a> <span class="reg-chip">{{if eq .Mjesto "TEREN"}}teren{{else}}ured{{end}}</span></td>
       <td class="mono br" data-stupac="Stvarni sati">{{sati .Stvarni}}</td>
       <td class="mono br" data-stupac="Obračunski"><strong>{{brojHRf .Obracunski 1}}</strong></td>
       <td data-stupac="Po razredima"><ul class="obracun-stavke">

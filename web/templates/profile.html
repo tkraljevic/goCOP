@@ -61,6 +61,34 @@
   </form>
 </section>
 
+{{/* Svoje planove dežurstava i izvješća o satima osoba nalazi na profilu,
+     bez traženja po dnevnicima. */}}
+<section class="detail-section">
+  <h2>{{icon "users"}} Moja dežurstva i sati</h2>
+  {{if .Planovi}}
+  <div class="reg-list">
+    {{range .Planovi}}
+    <article class="reg-card">
+      <div class="reg-card-head">
+        <div>
+          <h3 class="reg-card-title">{{.Naslov}}</h3>
+          <div class="reg-card-sub">{{if .Centar}}{{.Centar}}{{else}}{{terml "sektor"}} {{.Sektor}}{{end}} · {{.Prvo.Format "2.1.2006."}} – {{.Zadnje.Format "2.1.2006."}}{{if .Zakljucen}} · zaključen{{end}}</div>
+        </div>
+      </div>
+      <div class="reg-card-foot">
+        <span class="reg-chip">{{icon "clock"}} {{.Dezurstava}} {{uzBroj .Dezurstava "dežurstvo" "dežurstva" "dežurstava"}}, {{sati .Sati}} h</span>
+        {{if .CekaPotvrdu}}<span class="badge badge-pending">{{.CekaPotvrdu}} čeka potvrdu</span>{{end}}
+        <a href="/dnevnici/{{.JournalID}}/dezurstva" class="btn btn-sm btn-secondary">{{icon "users"}} Plan</a>
+        <a href="/dnevnici/{{.JournalID}}/obracun/{{$.User.ID}}" class="btn btn-sm btn-secondary">{{icon "calculator"}} Izvješće o satima</a>
+      </div>
+    </article>
+    {{end}}
+  </div>
+  {{else}}
+  <p class="page-desc">Još niste ni u jednom planu dežurstava. Kad vas uprava centra upiše, ili se upišete sami, ovdje su plan i izvješće o satima.</p>
+  {{end}}
+</section>
+
 <section class="detail-section">
   <h2>{{icon "radio-tower"}} Ovo računalo i ured</h2>
   <p class="page-desc">Svako računalo s programom je vlastita kopija koja se usklađuje s ostalima. Ako ste program pokrenuli na novom računalu ili mobitelu, uparite ga s uredom; razmjenu možete pokrenuti i ručno.</p>

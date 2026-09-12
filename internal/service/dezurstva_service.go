@@ -298,3 +298,116 @@ func (s *JournalService) Obracun(ctx context.Context, j *models.Journal, od, do 
 	})
 	return out, nil
 }
+
+// IORS je izvješće o radnim satima jedne osobe, kako ga obrazac traži: redak
+// po danu i razmaku (dan, od–do, opis, mjesto, sati po razredu), pa obračun
+// po razredu za ured i teren. Nepotvrđeni razmaci se vide, ali nisu u zbroju.
+type IORS struct {
+	UserID, UserName string
+	Od, Do           time.Time
+	Redovi           []IORSRedak
+	Ured, Teren      obracun.Sati
+	UredObr          map[obracun.Razred]float64
+	TerenObr         map[obracun.Razred]float64
+	UredObracunski   float64 // zbroj obračunskih u uredu
+	TerenObracunski  float64
+	Stvarni          time.Duration
+	Obracunski       float64
+	CekaPotvrdu      time.Duration
+}
+
+// IORSRedak je jedan dan jednog razmaka; razmak preko ponoći daje dva retka,
+// jer svaki dan nosi svoju vrstu
+type IORSRedak struct {
+	Dan       time.Time
+	Od, Do    time.Time
+	Opis      string
+	Mjesto    string
+	Za        string
+	Sati      obracun.Sati
+	Ukupno    time.Duration
+	Potvrdeno bool
+}
+
+// Sat vraća sate razreda u retku, za tablicu
+func (r IORSRedak) Sat(razred obracun.Razred) time.Duration { return r.Sati[razred] }
+
+// Obr vraća obračunske sate razreda za mjesto
+func (o IORS) Obr(mjesto obracun.Mjesto, r obracun.Razred) float64 {
+	if mjesto == obracun.Teren {
+		return o.TerenObr[r]
+	}
+	return o.UredObr[r]
+}
+
+// Sat vraća stvarne sate razreda za mjesto
+func (o IORS) Sat(mjesto obracun.Mjesto, r obracun.Razred) time.Duration {
+	if mjesto == obracun.Teren {
+		return o.Teren[r]
+	}
+	return o.Ured[r]
+}
+
+// ObracunOsobe slaže IORS jedne osobe za razdoblje [od, do)
+func (s *JournalService) ObracunOsobe(ctx context.Context, j *models.Journal, userID string, od, do time.Time, kal obracun.Kalendar, k obracun.Koeficijenti, nazivi map[int]string) (IORS, error) {
+	out := IORS{UserID: userID, Od: od, Do: do, Ured: obracun.Sati{}, Teren: obracun.Sati{}}
+	dez, err := s.repo.ListDezurstva(ctx, j.ID)
+	if err != nil {
+		return out, err
+	}
+	for _, d := range dez {
+		if d.UserID != userID {
+			continue
+		}
+		out.UserName = d.UserName
+		a, b := d.Od, d.Do
+		if a.Before(od) {
+			a = od
+		}
+		if b.After(do) {
+			b = do
+		}
+		if !b.After(a) {
+			continue
+		}
+		za := "cijeli " + models.Terms().Lower("sektor") + " " + j.CentarSektor
+		if d.ZaPodrucje() {
+			if za = nazivi[d.PodrucjeID()]; za == "" {
+				za = fmt.Sprintf("%s %d", models.Terms().Lower("podrucje"), d.PodrucjeID())
+			}
+		}
+		// Po danima, kao u obrascu: redak ne prelazi ponoć.
+		for pocetak := a.In(models.Zagreb); pocetak.Before(b); {
+			ponoc := time.Date(pocetak.Year(), pocetak.Month(), pocetak.Day()+1, 0, 0, 0, 0, models.Zagreb)
+			kraj := b.In(models.Zagreb)
+			if kraj.After(ponoc) {
+				kraj = ponoc
+			}
+			sati := obracun.Razvrstaj(pocetak, kraj, kal)
+			r := IORSRedak{Dan: time.Date(pocetak.Year(), pocetak.Month(), pocetak.Day(), 0, 0, 0, 0, models.Zagreb),
+				Od: pocetak, Do: kraj, Opis: d.Opis, Mjesto: d.Mjesto, Za: za, Sati: sati, Ukupno: sati.Ukupno(), Potvrdeno: d.Potvrdeno()}
+			out.Redovi = append(out.Redovi, r)
+			if d.Potvrdeno() {
+				if d.Mjesto == models.MjestoTeren {
+					out.Teren.Dodaj(sati)
+				} else {
+					out.Ured.Dodaj(sati)
+				}
+			} else {
+				out.CekaPotvrdu += r.Ukupno
+			}
+			pocetak = ponoc
+		}
+	}
+	sort.Slice(out.Redovi, func(i, l int) bool { return out.Redovi[i].Od.Before(out.Redovi[l].Od) })
+	out.UredObr, out.TerenObr = k.ObracunskiPoRazredu(out.Ured, obracun.Ured), k.ObracunskiPoRazredu(out.Teren, obracun.Teren)
+	out.Stvarni = out.Ured.Ukupno() + out.Teren.Ukupno()
+	out.UredObracunski, out.TerenObracunski = k.Obracunski(out.Ured, obracun.Ured), k.Obracunski(out.Teren, obracun.Teren)
+	out.Obracunski = out.UredObracunski + out.TerenObracunski
+	return out, nil
+}
+
+// PlanoviOsobe vraća planove u kojima osoba ima dežurstva, za profil
+func (s *JournalService) PlanoviOsobe(ctx context.Context, userID string) ([]models.PlanOsobe, error) {
+	return s.repo.PlanoviOsobe(ctx, userID)
+}

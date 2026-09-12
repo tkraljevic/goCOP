@@ -1,0 +1,97 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Izvješće o radnim satima, {{.IORS.UserName}}{{end}}
+
+{{define "content"}}
+<div class="breadcrumb"><a href="/dnevnici">Dnevnici</a> ›
+  <a href="/dnevnici/popis?vrsta=DEZURSTVA">Plan dežurstava</a> ›
+  <a href="/dnevnici/{{.Journal.ID}}/dezurstva">{{.Journal.DisplayTitle}}</a> ›
+  <a href="/dnevnici/{{.Journal.ID}}/obracun?od={{.From}}&amp;do={{.To}}">Obračun sati</a> › {{.IORS.UserName}}</div>
+
+<div class="detail-head">
+  <div>
+    <h1 class="page-title">{{icon "user"}} Izvješće o radnim satima</h1>
+    <p class="page-desc">ostvarenim pri provedbi obrane od poplava — <strong>{{.IORS.UserName}}</strong>,
+      razdoblje <strong>{{datumHR .From}} – {{datumHR .To}}</strong>.
+      {{.Journal.DisplayTitle}}{{if .Journal.CentarNaziv}}, {{.Journal.CentarNaziv}}{{end}}.</p>
+  </div>
+  <div class="page-actions">
+    <a href="/dnevnici/{{.Journal.ID}}/obracun?od={{.From}}&amp;do={{.To}}" class="btn btn-secondary">{{icon "arrow-left"}} Obračun</a>
+    <button type="button" class="btn btn-secondary" onclick="window.print()">{{icon "printer"}} Ispis</button>
+  </div>
+</div>
+
+{{if .IORS.CekaPotvrdu}}
+<div class="alert alert-warning">{{icon "triangle-alert"}} <strong>{{sati .IORS.CekaPotvrdu}} h</strong> u razdoblju još čeka potvrdu
+  uprave centra: vidi se u popisu, ali nije u obračunu.</div>
+{{end}}
+
+{{if .IORS.Redovi}}
+{{/* Prvi dio obrasca: redak po danu i razmaku — dan u tjednu, datum, od–do,
+     opis rada, ukupno, mjesto, pa sati po razredu. Ovdje su svi razredi
+     stupci, jer to jest obrazac. */}}
+<section class="detail-section">
+  <h2>{{icon "clock"}} Radni sati po danima</h2>
+  <div class="table-card"><div class="table-responsive">
+    <table class="data-table iors-tablica">
+      <thead>
+        <tr><th rowspan="2">Dan</th><th rowspan="2" class="br">Od</th><th rowspan="2" class="br">Do</th><th rowspan="2">Opis rada</th><th rowspan="2">Za</th><th rowspan="2">Mjesto</th><th rowspan="2" class="br">Ukupno</th>
+          <th colspan="3">radni dan</th><th colspan="2">subota</th><th colspan="2">nedjelja i blagdan</th></tr>
+        <tr>{{range .Razredi}}<th class="br" title="{{.}}" style="font-weight:normal; white-space:nowrap;">{{.Pojas}}</th>{{end}}</tr>
+      </thead>
+      <tbody>
+      {{range .IORS.Redovi}}
+      <tr{{if not .Potvrdeno}} class="iors-ceka"{{end}}>
+        <td style="white-space:nowrap;">{{danTjedna .Dan}} {{.Dan.Format "2.1.2006."}}</td>
+        <td class="mono br">{{.Od.Format "15:04"}}</td>
+        <td class="mono br">{{if eq (.Do.Format "15:04") "00:00"}}24:00{{else}}{{.Do.Format "15:04"}}{{end}}</td>
+        <td>{{.Opis}}{{if not .Potvrdeno}} <span class="badge badge-pending">čeka potvrdu</span>{{end}}</td>
+        <td>{{.Za}}</td>
+        <td>{{if eq .Mjesto "TEREN"}}teren{{else}}ured{{end}}</td>
+        <td class="mono br"><strong>{{sati .Ukupno}}</strong></td>
+        {{$r := .}}{{range $.Razredi}}<td class="mono br">{{sati ($r.Sat .)}}</td>{{end}}
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div></div>
+</section>
+
+{{/* Drugi dio obrasca: obračun — stvarni sati puta koeficijent, po razredu,
+     ured i teren odvojeno, pa sveukupno. */}}
+<section class="detail-section">
+  <h2>{{icon "calculator"}} Obračun sati</h2>
+  <div class="table-card"><div class="table-responsive">
+    <table class="data-table iors-tablica">
+      <thead>
+        <tr><th rowspan="2">Sati</th><th colspan="2">ured</th><th colspan="2">teren</th></tr>
+        <tr><th class="br" style="font-weight:normal;">stvarni</th><th class="br" style="font-weight:normal;">obračunski</th><th class="br" style="font-weight:normal;">stvarni</th><th class="br" style="font-weight:normal;">obračunski</th></tr>
+      </thead>
+      <tbody>
+      {{range .Razredi}}
+      <tr>
+        <td title="{{.}}">{{.Dan}} <span class="reg-card-sub">{{.Pojas}}</span></td>
+        <td class="mono br">{{sati ($.IORS.Sat "URED" .)}}</td>
+        <td class="mono br">{{if $.IORS.Obr "URED" .}}{{brojHRf ($.IORS.Obr "URED" .) 1}}{{end}}</td>
+        <td class="mono br">{{sati ($.IORS.Sat "TEREN" .)}}</td>
+        <td class="mono br">{{if $.IORS.Obr "TEREN" .}}{{brojHRf ($.IORS.Obr "TEREN" .) 1}}{{end}}</td>
+      </tr>
+      {{end}}
+      </tbody>
+      <tfoot>
+        <tr class="obracun-ukupno"><th>sveukupno</th>
+          <th class="mono br">{{sati .IORS.Ured.Ukupno}}</th><th class="mono br">{{brojHRf .IORS.UredObracunski 1}}</th>
+          <th class="mono br">{{sati .IORS.Teren.Ukupno}}</th><th class="mono br">{{brojHRf .IORS.TerenObracunski 1}}</th></tr>
+        <tr class="obracun-ukupno"><th>stvarni sati / obračunski sati</th>
+          <th class="mono br" colspan="2"><strong>{{sati .IORS.Stvarni}}</strong></th>
+          <th class="mono br" colspan="2"><strong>{{brojHRf .IORS.Obracunski 1}}</strong></th></tr>
+      </tfoot>
+    </table>
+  </div></div>
+  <p class="reading-meta" style="margin-top:0.5rem;">Obračunski sati zaokruženi su po razredu na pola sata, sredina djelatniku;
+    koeficijenti iz <a href="/administracija/obracun">postavki obračuna</a>. Nedjelja se obračunava kao blagdan.</p>
+</section>
+{{else}}
+<div class="reg-empty">U tom razdoblju {{.IORS.UserName}} nema dežurstava u planu.</div>
+{{end}}
+{{end}}
