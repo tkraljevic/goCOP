@@ -43,8 +43,26 @@ func TestRazvrstajNedjeljaJeBlagdan(t *testing.T) {
 	if s[BLD] != 7*time.Hour || s[BLN] != 2*time.Hour || len(s) != 2 {
 		t.Errorf("nedjelja 15–24: %v", s)
 	}
-	if o := IORS2026.Obracunski(s, Teren); o != 7*2.2+2*2.55 {
-		t.Errorf("obračunski: %v, očekuje %v", o, 7*2.2+2*2.55)
+	// 7 × 2,2 = 15,4 → 15,5; 2 × 2,55 = 5,1 → 5,0; zbroj 20,5.
+	po := IORS2026.ObracunskiPoRazredu(s, Teren)
+	if po[BLD] != 15.5 || po[BLN] != 5 {
+		t.Errorf("po razredu: %v", po)
+	}
+	if o := IORS2026.Obracunski(s, Teren); o != 20.5 {
+		t.Errorf("obračunski: %v, očekuje 20,5", o)
+	}
+}
+
+// Zaokruživanje na pola sata: sredina ide na parni višekratnik, pa ne ide
+// sustavno ni djelatniku ni ustanovi.
+func TestZaokruziNaPolaSata(t *testing.T) {
+	for _, tc := range []struct{ x, zelim float64 }{
+		{15.4, 15.5}, {5.1, 5}, {0.6, 0.5}, {1.7, 1.5}, {4.4, 4.5}, {14.1, 14}, {5.55, 5.5},
+		{0.25, 0}, {0.75, 1}, {1.25, 1}, {1.75, 2}, {2.25, 2}, {0, 0}, {7, 7}, {7.5, 7.5},
+	} {
+		if z := Zaokruzi(tc.x, Korak); z != tc.zelim {
+			t.Errorf("%v → %v, očekuje %v", tc.x, z, tc.zelim)
+		}
 	}
 }
 
@@ -69,7 +87,8 @@ func TestRazvrstajRadniDanPoPojasevima(t *testing.T) {
 		t.Errorf("ukupno %v", s.Ukupno())
 	}
 	// U uredu redovno vrijeme nosi 0: to je plaća, ne prekovremeni.
-	if o := IORS2026.Obracunski(s, Ured); o != 8*1.5+2*1.85 {
+	// 8 × 1,5 = 12; 2 × 1,85 = 3,7 → 3,5; zbroj 15,5.
+	if o := IORS2026.Obracunski(s, Ured); o != 15.5 {
 		t.Errorf("ured: %v", o)
 	}
 }

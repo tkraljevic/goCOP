@@ -207,12 +207,15 @@ func TestDnevnikCOPKrozRute(t *testing.T) {
 	mora(zovi(http.MethodGet, "/dnevnici/popis?vrsta=DEZURSTVA", nil), http.StatusOK, "popis planova", "Plan dežurstava", "/dnevnici/"+dnevnik+"/dezurstva")
 	w = zovi(http.MethodGet, "/dnevnici/"+dnevnik+"/obracun", nil)
 	mora(w, http.StatusOK, "obračun", "Ana Anić", "3:00", "2:00", "6:00", "1:00", "12:00", "Vuka")
-	// ured: 3 × 1,85 + 2 × 2,2 + 6 × 2,35 + 1 × 2 = 26,05 obračunskih sati
-	if !strings.Contains(w.Body.String(), "26,05") {
-		t.Errorf("obračun nema 26,05 obračunskih sati")
+	// ured po razredu, zaokruženo na pola sata: 3 × 1,85 = 5,55 → 5,5;
+	// 2 × 2,2 = 4,4 → 4,5; 6 × 2,35 = 14,1 → 14,0; 1 × 2 = 2 → zbroj 26,0.
+	for _, z := range []string{">5,5<", ">4,5<", ">14,0<", ">2,0<", ">26,0<"} {
+		if !strings.Contains(w.Body.String(), z) {
+			t.Errorf("obračun nema %s", z)
+		}
 	}
-	// Razdoblje koje hvata samo subotu: 5 h (19–24), obračunski 3×1,85 + 2×2,2 = 9,95.
-	mora(zovi(http.MethodGet, "/dnevnici/"+dnevnik+"/obracun?od=2026-09-12&do=2026-09-12", nil), http.StatusOK, "obračun subote", "5:00", "9,95")
+	// Razdoblje koje hvata samo subotu: 5 h (19–24), obračunski 5,5 + 4,5 = 10,0.
+	mora(zovi(http.MethodGet, "/dnevnici/"+dnevnik+"/obracun?od=2026-09-12&do=2026-09-12", nil), http.StatusOK, "obračun subote", "5:00", ">10,0<")
 	// Svatko upisuje sebe: dežurni bez uprave upiše svoje dežurstvo, ono
 	// čeka potvrdu i ne ulazi u obračun dok ga uprava ne potvrdi. Tuđe ne može.
 	obican := &models.UserPermissions{AllowedSectors: map[string]bool{"B": true}}
@@ -243,14 +246,14 @@ func TestDnevnikCOPKrozRute(t *testing.T) {
 	// Ponedjeljak 14.9. 07–11 teren: 1 h dnevni + 3 h redovno — ali još ne u obračunu.
 	// Zadano razdoblje seže do sutra; 14.9. je iza toga, pa se razdoblje zada.
 	w = zovi(http.MethodGet, "/dnevnici/"+dnevnik+"/obracun?od=2026-09-11&do=2026-09-14", nil)
-	mora(w, http.StatusOK, "obračun s nepotvrđenim", "4:00 h", "čeka potvrdu", "26,05")
+	mora(w, http.StatusOK, "obračun s nepotvrđenim", "4:00 h", "čeka potvrdu", ">26,0<")
 	rw = kaoDezurni(http.MethodPost, "/dnevnici/"+dnevnik+"/dezurstva", url.Values{
 		"user_id": {voditelj.ID.String()}, "opis": {"Dežurstvo u COP-u"}, "od_date": {"2026-09-14"}, "od_time": {"07:00"}, "do_time": {"19:00"}})
 	if l := rw.Header().Get("Location"); !strings.Contains(l, "error=") {
 		t.Errorf("dežurni je upisao tuđe dežurstvo: %s", l)
 	}
 	// Uprava potvrdi; sati uđu u obračun kao svoj redak, jer su za cijeli
-	// sektor a ne za Vuku: 3 × 0,2 + 1 × 1,7 = 2,30.
+	// sektor a ne za Vuku: 3 × 0,2 = 0,6 → 0,5; 1 × 1,7 → 1,5; zbroj 2,0.
 	w = zovi(http.MethodGet, "/dnevnici/"+dnevnik+"/dezurstva", nil)
 	m = regexp.MustCompile(`/dezurstva/([^/]+)/potvrdi`).FindStringSubmatch(w.Body.String())
 	if m == nil {
@@ -262,7 +265,7 @@ func TestDnevnikCOPKrozRute(t *testing.T) {
 	}
 	mora(zovi(http.MethodGet, "/dnevnici/"+dnevnik+"/dezurstva", nil), http.StatusOK, "potvrđeno", "potvrdio Voditelj Centra")
 	w = zovi(http.MethodGet, "/dnevnici/"+dnevnik+"/obracun?od=2026-09-11&do=2026-09-14", nil)
-	mora(w, http.StatusOK, "obračun poslije potvrde", "26,05", "2,30", "cijeli sektor B", "4:00")
+	mora(w, http.StatusOK, "obračun poslije potvrde", ">26,0<", ">2,0<", ">0,5<", ">1,5<", "cijeli sektor B", "4:00")
 	if strings.Contains(w.Body.String(), "čeka potvrdu") {
 		t.Error("poslije potvrde još nešto čeka")
 	}

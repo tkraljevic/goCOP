@@ -175,8 +175,18 @@ type ObracunOsobe struct {
 	Podrucje    *int
 	Za          string
 	Ured, Teren obracun.Sati
-	Stvarni     time.Duration
-	Obracunski  float64
+	// Obračunski po razredu, zaokruženi na pola sata; zbroj iz njih
+	UredObr, TerenObr map[obracun.Razred]float64
+	Stvarni           time.Duration
+	Obracunski        float64
+}
+
+// Obr vraća obračunske sate razreda za mjesto, za ispis u tablici
+func (o ObracunOsobe) Obr(mjesto string, r obracun.Razred) float64 {
+	if mjesto == models.MjestoTeren {
+		return o.TerenObr[r]
+	}
+	return o.UredObr[r]
 }
 
 // Sati vraća stvarne sate razreda za mjesto, za ispis u tablici
@@ -239,6 +249,7 @@ func (s *JournalService) Obracun(ctx context.Context, j *models.Journal, od, do 
 	var out []ObracunOsobe
 	for _, o := range poOsobi {
 		o.Stvarni = o.Ured.Ukupno() + o.Teren.Ukupno()
+		o.UredObr, o.TerenObr = k.ObracunskiPoRazredu(o.Ured, obracun.Ured), k.ObracunskiPoRazredu(o.Teren, obracun.Teren)
 		o.Obracunski = k.Obracunski(o.Ured, obracun.Ured) + k.Obracunski(o.Teren, obracun.Teren)
 		out = append(out, *o)
 	}
