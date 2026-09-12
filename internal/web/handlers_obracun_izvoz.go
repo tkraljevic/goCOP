@@ -725,7 +725,8 @@ func (h *JournalsHandler) IzvoziDnevnik(w http.ResponseWriter, r *http.Request) 
 		zapisi = samo
 	}
 	z := h.ZaglavljeIzvozaDnevnika(j)
-	knjiga := KnjigaDnevnika(j, zapisi, z, nazivi, nazivi[podrucje])
+	dezurstva, _ := h.journals.Dezurstva(r.Context(), j.ID)
+	knjiga := KnjigaDnevnika(j, zapisi, dezurstva, z, nazivi, nazivi[podrucje])
 	ime := "Dnevnik_COP_" + service.OznakaIzNaziva(z.Centar) + "_" + strconv.Itoa(j.Year)
 	if j.StartedAt != nil {
 		ime += "_" + j.StartedAt.Format("2006-01-02")
@@ -737,9 +738,16 @@ func (h *JournalsHandler) IzvoziDnevnik(w http.ResponseWriter, r *http.Request) 
 }
 
 // KnjigaDnevnika slaže dnevnik COP-a kao jedan list: zaglavlje, osnovno o
-// dnevniku, pa zapisi po danima — dan kao naslovni redak, ispod redak po
-// zapisu. Storniran zapis ostaje, označen, s razlogom.
-func KnjigaDnevnika(j *models.Journal, zapisi []models.JournalEntry, z ZaglavljeIzvoza, nazivi map[int]string, samoPodrucje string) *xlsxw.Knjiga {
+// dnevniku, zapisi po danima — dan kao naslovni redak, ispod redak po zapisu
+// (storniran ostaje, označen, s razlogom) — pa tko ga je vodio i potpisi.
+//
+// Tko potpisuje: oni koji su javljali ne potpisuju nikad — izvor su, ne
+// autor, i njihovo ime i sat stoje uz zapis. Oni koji su vodili već su
+// potpisali svaki svoj zapis: tko i kad, nepromjenjivo; na kraju stoje
+// popisom, s brojem zapisa i dežurstvima. Dokument potpisuje voditelj
+// centra, da je zaključen i cjelovit, a rukovoditelj sektora prima na
+// znanje. Pravi potpis dolazi pečaćenjem u .cop; dotad ispis nosi datum.
+func KnjigaDnevnika(j *models.Journal, zapisi []models.JournalEntry, dezurstva []models.Dezurstvo, z ZaglavljeIzvoza, nazivi map[int]string, samoPodrucje string) *xlsxw.Knjiga {
 	k := &xlsxw.Knjiga{LogoPNG: z.LogoPNG}
 	B := xlsxw.T
 	const stupaca = 8 // A..H
@@ -839,8 +847,76 @@ func KnjigaDnevnika(j *models.Journal, zapisi []models.JournalEntry, z Zaglavlje
 		l.Dodaj(B("U dnevniku nema zapisa.", xlsxw.Napomena))
 	}
 	l.Dodaj()
-	napomenaLista(l, "Vrijeme je kad se dogodilo; kad je upisano vidi se u programu. Zapis se ne briše nego stornira uz razlog; storniran ostaje u dnevniku. "+
-		"Izvezeno iz goCOP-a "+z.Datum.Format("02.01.2006. 15:04")+".", stupaca, 24)
-	potpisiLista(l, z, stupaca, z.Potpisnici)
+	l.Visina(l.Redak()-1, 8)
+
+	// Dnevnik vodili: tko je upisivao, koliko, i kad je dežurao
+	type vodio struct {
+		ime       string
+		zapisa    int
+		dezurstva []string
+	}
+	poImenu := map[string]*vodio{}
+	var redom []string
+	for _, e := range zapisi {
+		if e.UserName == "" {
+			continue
+		}
+		v := poImenu[e.UserName]
+		if v == nil {
+			v = &vodio{ime: e.UserName}
+			poImenu[e.UserName] = v
+			redom = append(redom, e.UserName)
+		}
+		v.zapisa++
+	}
+	for _, d := range dezurstva {
+		if d.Opis != models.OpisiRada[0].Opis {
+			continue // samo dežurstvo u centru; teren i ostalo je u planu, ne u vođenju dnevnika
+		}
+		v := poImenu[d.UserName]
+		if v == nil {
+			v = &vodio{ime: d.UserName}
+			poImenu[d.UserName] = v
+			redom = append(redom, d.UserName)
+		}
+		kraj := d.Do.Format("15:04")
+		if d.Do.Format("2006-01-02") != d.Od.Format("2006-01-02") {
+			kraj = d.Do.Format("2.1. 15:04")
+		}
+		v.dezurstva = append(v.dezurstva, d.Od.Format("2.1. 15:04")+"–"+kraj)
+	}
+	sort.Strings(redom)
+	if len(redom) > 0 {
+		r := l.Redak()
+		red := make([]xlsxw.Celija, stupaca)
+		red[0] = B("Dnevnik vodili", xlsxw.Podnaslov)
+		l.Dodaj(red...)
+		l.Spoji(0, r, stupaca-1, r)
+		rz := l.Redak()
+		l.Dodaj(B("Ime i prezime", xlsxw.Zaglavlje), B("", xlsxw.Zaglavlje), B("", xlsxw.Zaglavlje), B("Zapisa", xlsxw.Zaglavlje), B("Dežurstva u centru", xlsxw.Zaglavlje), B("", xlsxw.Zaglavlje), B("", xlsxw.Zaglavlje), B("", xlsxw.Zaglavlje))
+		l.Spoji(0, rz, 2, rz)
+		l.Spoji(4, rz, stupaca-1, rz)
+		for _, ime := range redom {
+			v := poImenu[ime]
+			rr := l.Redak()
+			l.Dodaj(B(v.ime, xlsxw.Tablica), B("", xlsxw.Tablica), B("", xlsxw.Tablica), xlsxw.N(float64(v.zapisa), xlsxw.TablicaSredina),
+				B(strings.Join(v.dezurstva, "; "), xlsxw.TablicaTekst), B("", xlsxw.TablicaTekst), B("", xlsxw.TablicaTekst), B("", xlsxw.TablicaTekst))
+			l.Spoji(0, rr, 2, rr)
+			l.Spoji(4, rr, stupaca-1, rr)
+		}
+		l.Dodaj()
+	}
+	napomenaLista(l, "Svaki zapis nosi tko ga je upisao i kad, i ne mijenja se: to je potpis onoga tko je vodio. Tko je javio ne potpisuje — izvor je, "+
+		"a njegovo ime stoji uz zapis. Vrijeme je kad se dogodilo; kad je upisano vidi se u programu. Zapis se ne briše nego stornira uz razlog. "+
+		"Izvezeno iz goCOP-a "+z.Datum.Format("02.01.2006. 15:04")+".", stupaca, 36)
+	potpisi := make([]PotpisnikIzvoza, 0, 2)
+	for i, p := range z.Potpisnici {
+		uloga := "primio na znanje"
+		if i == 0 {
+			uloga = "zaključio dnevnik"
+		}
+		potpisi = append(potpisi, PotpisnikIzvoza{Funkcija: p.Funkcija + " — " + uloga, Ime: p.Ime})
+	}
+	potpisiLista(l, z, stupaca, potpisi)
 	return k
 }

@@ -464,7 +464,7 @@ func TestDnevnikCOPKrozRute(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var prviZapis []string
+	var prviZapis, vodio []string
 	dana := 0
 	for _, r := range dnevnikRedci {
 		if len(r) > 0 && strings.HasPrefix(r[0], "Petak 11.9.2026.") {
@@ -473,6 +473,13 @@ func TestDnevnikCOPKrozRute(t *testing.T) {
 		if len(r) > 5 && r[0] == "1" {
 			prviZapis = r
 		}
+		if len(r) > 4 && r[0] == "Voditelj Centra" {
+			vodio = r
+		}
+	}
+	// Dnevnik vodili: voditelj s brojem zapisa i dežurstvom u centru
+	if len(vodio) < 5 || vodio[3] == "" || vodio[3] == "0" || !strings.Contains(vodio[4], "–") {
+		t.Errorf("dnevnik vodili: %v", vodio)
 	}
 	if dana != 1 || len(prviZapis) < 8 || prviZapis[1] != "07:15" || prviZapis[2] != "Dojava" || prviZapis[3] != "Vuka" || prviZapis[4] != "Sa porte" ||
 		!strings.Contains(prviZapis[5], "iznosi 551 cm") || !strings.Contains(prviZapis[5], "[STORNIRAN: krivo očitano") || prviZapis[7] != "STORNO" {
