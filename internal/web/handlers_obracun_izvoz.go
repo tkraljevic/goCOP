@@ -76,7 +76,33 @@ func (h *JournalsHandler) IzvoziObracun(w http.ResponseWriter, r *http.Request) 
 	if centar == "" {
 		centar = models.Terms().Sector + " " + j.CentarSektor
 	}
-	knjiga := knjigaObracuna(obr, centar, od, do.AddDate(0, 0, -1))
+	z := ZaglavljeIzvoza{Organizacija: strings.ToUpper(models.Terms().OrgName), Odjel: strings.ToUpper(models.Terms().SectorOffice),
+		Sektor: j.CentarSektor, Mjesto: strings.TrimSpace(strings.TrimPrefix(centar, models.Terms().CenterShort)), Datum: time.Now().In(models.Zagreb)}
+	if sektori, err := h.users.ListSectors(); err == nil {
+		for _, sk := range sektori {
+			if sk.ID == j.CentarSektor {
+				z.OdjelNaziv = strings.ToUpper(sk.VgoName)
+			}
+		}
+	}
+	// Potpisuju voditelj centra i rukovoditelj sektora — tko god to sad jest
+	for _, p := range []struct {
+		uloga    models.Role
+		funkcija string
+	}{
+		{models.RoleCopLeader, "voditelj Centra obrane od poplava Sektora " + j.CentarSektor},
+		{models.RoleSectorLeader, "Rukovoditelj obrane od poplava Sektora " + j.CentarSektor},
+	} {
+		ime := ""
+		if osobe, err := h.users.ListUsers(j.CentarSektor, 0, string(p.uloga), "", ""); err == nil && len(osobe) > 0 {
+			ime = osobe[0].FullName
+			if osobe[0].Title != "" {
+				ime += ", " + osobe[0].Title
+			}
+		}
+		z.Potpisnici = append(z.Potpisnici, PotpisnikIzvoza{Funkcija: p.funkcija, Ime: ime})
+	}
+	knjiga := knjigaObracuna(obr, z, od, do.AddDate(0, 0, -1))
 	ime := fmt.Sprintf("Obracun_sati_%s_%s_%s.xlsx", service.OznakaIzNaziva(centar), od.Format("2006-01-02"), do.AddDate(0, 0, -1).Format("2006-01-02"))
 	w.Header().Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 	w.Header().Set("Content-Disposition", `attachment; filename="`+ime+`"`)
@@ -85,136 +111,191 @@ func (h *JournalsHandler) IzvoziObracun(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-// knjigaObracuna slaže radnu knjigu iz obračuna
-func knjigaObracuna(obr service.Obracun, centar string, od, do time.Time) *xlsxw.Knjiga {
+// PotpisnikIzvoza je tko potpisuje obračun: naziv funkcije i ime s titulom
+type PotpisnikIzvoza struct {
+	Funkcija string
+	Ime      string
+}
+
+// ZaglavljeIzvoza je ono što na listu stoji iznad tablice i ispod nje
+type ZaglavljeIzvoza struct {
+	Organizacija string // HRVATSKE VODE
+	Odjel        string // VODNOGOSPODARSKI ODJEL
+	OdjelNaziv   string // ZA DUNAV I DONJU DRAVU, OSIJEK
+	Sektor       string // B
+	Mjesto       string // Osijek
+	Datum        time.Time
+	Potpisnici   []PotpisnikIzvoza
+}
+
+// knjigaObracuna slaže radnu knjigu točno u obliku dosadašnjeg obračuna
+// (Prekovremeni_<mjesec>_<godina>.xlsx): list BP_<broj> po području i
+// <sektor>_i_ostali, stupac A prazan, UKUPNO iznad osoba, imena velikim
+// slovima, stupac AB s kontrolom, potpisi dolje; REKAPITULACIJA na kraju.
+func knjigaObracuna(obr service.Obracun, z ZaglavljeIzvoza, od, do time.Time) *xlsxw.Knjiga {
 	k := &xlsxw.Knjiga{}
 	razdoblje := fmt.Sprintf("od %s do %s", od.Format("02.01.2006."), do.Format("02.01.2006."))
 	type zbrojLista struct {
-		naziv  string
-		list   string
-		bruto  string // adresa ukupnog bruta
-		dopr   string
-		ukupno string
+		naziv, list, bruto, dopr, ukupno string
 	}
 	var listovi []zbrojLista
+	B := xlsxw.T
+	prazno := xlsxw.T("")
 
 	for _, g := range obr.Grupe {
-		l := k.NoviList(g.Za)
-		l.Sirine = []float64{28}
+		naziv, list := "Sektor "+z.Sektor+" i ostali", z.Sektor+"_i_ostali"
+		if g.Podrucje != nil {
+			naziv, list = fmt.Sprintf("Branjeno područje %d", *g.Podrucje), fmt.Sprintf("BP_%d", *g.Podrucje)
+		}
+		l := k.NoviList(list)
+		l.Sirine = []float64{3, 26}
 		for range kategorijeIzvoza {
-			l.Sirine = append(l.Sirine, 9, 11, 11)
+			l.Sirine = append(l.Sirine, 8, 11, 11)
 		}
-		l.Sirine = append(l.Sirine, 11, 12, 12, 14)
-		l.Dodaj(xlsxw.T(models.Terms().OrgName, xlsxw.Naslov))
-		l.Dodaj(xlsxw.T(centar, xlsxw.Podebljan))
-		l.Dodaj(xlsxw.T("Obračun radnog vremena pri obrani od poplava u razdoblju "+razdoblje, xlsxw.Podebljan))
+		l.Sirine = append(l.Sirine, 11, 12, 3, 11, 13, 3, 3, 9)
+		l.Dodaj(prazno, B(z.Organizacija, xlsxw.Naslov))
+		l.Dodaj(prazno, B(z.Odjel, xlsxw.Podebljan))
+		l.Dodaj(prazno, B(z.OdjelNaziv, xlsxw.Podebljan))
+		l.Dodaj(prazno, B("Obračun radnog vremena pri obrani od poplava u razdoblju "+razdoblje, xlsxw.Podebljan))
 		l.Dodaj()
-		l.Dodaj(xlsxw.T(g.Za, xlsxw.Podebljan))
-		// zaglavlje: kategorija pa tri stupca ispod
-		red1 := []xlsxw.Celija{xlsxw.T("")}
-		red2 := []xlsxw.Celija{xlsxw.T("Ime i prezime", xlsxw.Podebljan)}
-		for _, kat := range kategorijeIzvoza {
-			red1 = append(red1, xlsxw.T(kat.Naziv, xlsxw.Podebljan), xlsxw.T(""), xlsxw.T(""))
-			red2 = append(red2, xlsxw.T("sati", xlsxw.Podebljan), xlsxw.T("obračunski sati", xlsxw.Podebljan), xlsxw.T("bruto (€)", xlsxw.Podebljan))
+		red6 := []xlsxw.Celija{prazno, B(naziv, xlsxw.Podebljan), B("SUMARNO", xlsxw.Podebljan)}
+		for len(red6) < 20 {
+			red6 = append(red6, prazno)
 		}
-		red1 = append(red1, xlsxw.T("sveukupno", xlsxw.Podebljan), xlsxw.T(""), xlsxw.T(""), xlsxw.T(""))
-		red2 = append(red2, xlsxw.T("sati", xlsxw.Podebljan), xlsxw.T("obračunski sati", xlsxw.Podebljan), xlsxw.T("bruto satnica (€)", xlsxw.Podebljan), xlsxw.T("ukupan bruto (€)", xlsxw.Podebljan))
-		l.Dodaj(red1...)
-		l.Dodaj(red2...)
-		prviRedak := len(l.Redci) // redak prve osobe (0-based)
+		red6 = append(red6, B("SATI SVEUKUPNO", xlsxw.Podebljan), prazno, prazno, B("BRUTO", xlsxw.Podebljan))
+		l.Dodaj(red6...)
+		red7 := []xlsxw.Celija{prazno, prazno}
+		for _, kat := range kategorijeIzvoza {
+			red7 = append(red7, B("Sati "+kat.Naziv, xlsxw.Podebljan), B("OBRAČUNSKI SATI "+kat.Naziv, xlsxw.Podebljan), B(kat.Naziv+" BRUTO (€)", xlsxw.Podebljan))
+		}
+		red7 = append(red7, B("SATI SVEUKUPNO", xlsxw.Podebljan), B("OBRAČUNSKI SATI SVEUKUPNO", xlsxw.Podebljan), prazno, B("BRUTO satnica (€)", xlsxw.Podebljan), B("Ukupan BRUTO iznos (€)", xlsxw.Podebljan))
+		l.Dodaj(red7...)
 
-		for _, o := range osobeGrupe(g) {
+		osobe := osobeGrupe(g)
+		ukupnoRedak := len(l.Redci)        // 0-based redak UKUPNO
+		prvi := ukupnoRedak + 1            // prva osoba
+		zadnji := ukupnoRedak + len(osobe) // zadnja osoba
+		if len(osobe) == 0 {
+			zadnji = prvi
+		}
+		// stupci: 2..19 kategorije, 20 U sati, 21 V obr, 22 W prazno, 23 X satnica, 24 Y bruto, 27 AB kontrola
+		const cU, cV, cX, cY, cAB = 20, 21, 23, 24, 27
+		suma := func(c int, v float64) xlsxw.Celija {
+			return xlsxw.F(fmt.Sprintf("SUM(%s:%s)", xlsxw.Adresa(c, prvi), xlsxw.Adresa(c, zadnji)), v, xlsxw.Broj2Pod)
+		}
+		zbrojPo := func(c int) float64 {
+			var v float64
+			for _, o := range osobe {
+				v += vrijednostStupca(o, c)
+			}
+			return v
+		}
+		ukupno := []xlsxw.Celija{prazno, B("UKUPNO:", xlsxw.Podebljan)}
+		for c := 2; c <= cV; c++ {
+			ukupno = append(ukupno, suma(c, zbrojPo(c)))
+		}
+		ukupno = append(ukupno, prazno, prazno, suma(cY, 0), prazno, prazno,
+			xlsxw.FT(fmt.Sprintf(`IF(ROUND(%s+%s+%s+%s+%s+%s-%s,0)=0,"DOBRO","GREŠKA")`,
+				xlsxw.Adresa(4, ukupnoRedak), xlsxw.Adresa(7, ukupnoRedak), xlsxw.Adresa(10, ukupnoRedak), xlsxw.Adresa(13, ukupnoRedak), xlsxw.Adresa(16, ukupnoRedak), xlsxw.Adresa(19, ukupnoRedak), xlsxw.Adresa(cY, ukupnoRedak)), "DOBRO"))
+		l.Dodaj(ukupno...)
+
+		for _, o := range osobe {
 			r := len(l.Redci)
-			red := []xlsxw.Celija{xlsxw.T(o.Ime)}
+			red := []xlsxw.Celija{prazno, B(strings.ToUpper(o.Ime))}
 			var satiAdrese, obrAdrese, brutoAdrese []string
 			for i, kat := range kategorijeIzvoza {
+				c := 2 + i*3
 				var sati, obrac float64
 				for _, razred := range kat.Razredi {
 					sati += o.Stvarni[razred]
 					obrac += o.Obracunski[razred]
 				}
-				c := 1 + i*3
-				satnica := xlsxw.Adresa(1+len(kategorijeIzvoza)*3+2, r)
 				red = append(red, xlsxw.N(sati, xlsxw.Broj2), xlsxw.N(obrac, xlsxw.Broj2),
-					xlsxw.F(fmt.Sprintf("ROUND(%s*%s,2)", xlsxw.Adresa(c+1, r), satnica), 0, xlsxw.Broj2))
+					xlsxw.F(fmt.Sprintf("ROUND(%s*%s,2)", xlsxw.Adresa(c+1, r), xlsxw.Adresa(cX, r)), 0, xlsxw.Broj2))
 				satiAdrese = append(satiAdrese, xlsxw.Adresa(c, r))
 				obrAdrese = append(obrAdrese, xlsxw.Adresa(c+1, r))
 				brutoAdrese = append(brutoAdrese, xlsxw.Adresa(c+2, r))
 			}
-			var ukSati, ukObr float64
-			for _, razred := range obracun.Razredi {
-				ukSati += o.Stvarni[razred]
-				ukObr += o.Obracunski[razred]
-			}
 			red = append(red,
-				xlsxw.F(strings.Join(satiAdrese, "+"), ukSati, xlsxw.Broj2Pod),
-				xlsxw.F(strings.Join(obrAdrese, "+"), ukObr, xlsxw.Broj2Pod),
+				xlsxw.F(strings.Join(satiAdrese, "+"), vrijednostStupca(o, cU), xlsxw.Broj2Pod),
+				xlsxw.F(strings.Join(obrAdrese, "+"), vrijednostStupca(o, cV), xlsxw.Broj2Pod),
+				prazno,
 				xlsxw.N(0, xlsxw.Broj2), // satnica: upisuje računovodstvo
-				xlsxw.F(strings.Join(brutoAdrese, "+"), 0, xlsxw.Broj2Pod))
+				xlsxw.F(strings.Join(brutoAdrese, "+"), 0, xlsxw.Broj2Pod),
+				prazno, prazno,
+				xlsxw.FT(fmt.Sprintf(`IF(ROUND(%s*%s-%s,0)=0,"DOBRO","GREŠKA")`, xlsxw.Adresa(cV, r), xlsxw.Adresa(cX, r), xlsxw.Adresa(cY, r)), "DOBRO"))
 			l.Dodaj(red...)
 		}
-		zadnji := len(l.Redci) - 1
-		// zbroj po stupcima
-		zbroj := []xlsxw.Celija{xlsxw.T("UKUPNO", xlsxw.Podebljan)}
-		stupaca := 1 + len(kategorijeIzvoza)*3 + 4
-		for c := 1; c < stupaca; c++ {
-			if c == stupaca-2 { // satnica se ne zbraja
-				zbroj = append(zbroj, xlsxw.T(""))
-				continue
-			}
-			var v float64
-			for r := prviRedak; r <= zadnji; r++ {
-				if c < len(l.Redci[r]) {
-					v += l.Redci[r][c].Broj
-				}
-			}
-			zbroj = append(zbroj, xlsxw.F(fmt.Sprintf("SUM(%s:%s)", xlsxw.Adresa(c, prviRedak), xlsxw.Adresa(c, zadnji)), v, xlsxw.Broj2Pod))
+		brutoAdresa := xlsxw.Adresa(cY, ukupnoRedak)
+		l.Dodaj()
+		dopr := make([]xlsxw.Celija, cY+1)
+		dopr[1] = B("Doprinosi na bruto : 16,50%")
+		dopr[cY] = xlsxw.F(fmt.Sprintf("ROUND(%s*0.165,2)", brutoAdresa), 0, xlsxw.Broj2)
+		l.Dodaj(dopr...)
+		doprAdresa := xlsxw.Adresa(cY, len(l.Redci)-1)
+		sve := make([]xlsxw.Celija, cY+1)
+		sve[1] = B("SVEUKUPAN IZNOS:", xlsxw.Podebljan)
+		sve[cY] = xlsxw.F(brutoAdresa+"+"+doprAdresa, 0, xlsxw.Broj2Pod)
+		l.Dodaj(sve...)
+		ukAdresa := xlsxw.Adresa(cY, len(l.Redci)-1)
+		l.Dodaj()
+		l.Dodaj(prazno, B("Bruto satnicu po osobi upisuje računovodstvo iz prošle plaće u stupac X; iznosi se izračunaju sami. Obračunski sati zaokruženi su po razredu na pola sata, sredina djelatniku."))
+		// potpisi, kao na obrascu: mjesto i datum lijevo, funkcije pa imena
+		for len(l.Redci) < ukupnoRedak+22 {
+			l.Dodaj()
 		}
-		l.Dodaj(zbroj...)
-		zbrojRedak := len(l.Redci) - 1
-		brutoAdresa := xlsxw.Adresa(stupaca-1, zbrojRedak)
-		l.Dodaj()
-		l.Dodaj(xlsxw.T("Doprinosi na bruto: 16,50 %"), xlsxw.F(fmt.Sprintf("ROUND(%s*%s,2)", brutoAdresa, strings.ReplaceAll(fmt.Sprintf("%.3f", DoprinosiNaBruto), ",", ".")), 0, xlsxw.Broj2))
-		doprAdresa := xlsxw.Adresa(1, len(l.Redci)-1)
-		l.Dodaj(xlsxw.T("SVEUKUPAN IZNOS:", xlsxw.Podebljan), xlsxw.F(brutoAdresa+"+"+doprAdresa, 0, xlsxw.Broj2Pod))
-		ukAdresa := xlsxw.Adresa(1, len(l.Redci)-1)
-		l.Dodaj()
-		l.Dodaj(xlsxw.T("Bruto satnicu po osobi upisuje računovodstvo iz prošle plaće; iznosi se izračunaju sami. Obračunski sati zaokruženi su po razredu na pola sata, sredina djelatniku."))
-		listovi = append(listovi, zbrojLista{g.Za, l.Naziv, brutoAdresa, doprAdresa, ukAdresa})
+		potpis := make([]xlsxw.Celija, cU+1)
+		potpis[1] = B(z.Mjesto + ", " + z.Datum.Format("02.01.2006."))
+		imena := make([]xlsxw.Celija, cU+1)
+		for i, p := range z.Potpisnici {
+			c := 13 + i*7 // N, U
+			if c > cU {
+				break
+			}
+			potpis[c] = B(p.Funkcija)
+			imena[c] = B(p.Ime)
+		}
+		l.Dodaj(potpis...)
+		l.Dodaj(imena...)
+		listovi = append(listovi, zbrojLista{naziv, l.Naziv, brutoAdresa, doprAdresa, ukAdresa})
 	}
 
-	// rekapitulacija
 	rk := k.NoviList("REKAPITULACIJA")
-	rk.Sirine = []float64{6, 34, 14, 16, 14}
-	rk.Dodaj(xlsxw.T(models.Terms().OrgName, xlsxw.Naslov))
-	rk.Dodaj(xlsxw.T(centar, xlsxw.Podebljan))
-	rk.Dodaj(xlsxw.T("Rekapitulacija troškova, razdoblje "+razdoblje, xlsxw.Podebljan))
+	rk.Sirine = []float64{8, 30, 14, 18, 14}
+	for len(rk.Redci) < 8 {
+		rk.Dodaj()
+	}
+	rk.Dodaj(B("Rekapitulacija troškova Sektora "+z.Sektor, xlsxw.Naslov))
 	rk.Dodaj()
-	rk.Dodaj(xlsxw.T("r.br.", xlsxw.Podebljan), xlsxw.T("Branjeno područje", xlsxw.Podebljan), xlsxw.T("Bruto iznos", xlsxw.Podebljan), xlsxw.T("doprinos na bruto", xlsxw.Podebljan), xlsxw.T("ukupan iznos", xlsxw.Podebljan))
+	rk.Dodaj(B("r.br.", xlsxw.Podebljan), B("Branjeno područje", xlsxw.Podebljan), B("Bruto iznos", xlsxw.Podebljan), B("doprinos na bruto", xlsxw.Podebljan), B("ukupan iznos", xlsxw.Podebljan))
 	prvi := len(rk.Redci)
-	for i, z := range listovi {
-		ref := func(adresa string) string { return "'" + z.list + "'!" + adresa }
-		rk.Dodaj(xlsxw.T(fmt.Sprintf("%d.", i+1)), xlsxw.T(z.naziv), xlsxw.F(ref(z.bruto), 0, xlsxw.Broj2), xlsxw.F(ref(z.dopr), 0, xlsxw.Broj2), xlsxw.F(ref(z.ukupno), 0, xlsxw.Broj2))
+	for i, zl := range listovi {
+		ref := func(adresa string) string { return "'" + zl.list + "'!" + adresa }
+		rk.Dodaj(B(fmt.Sprintf("%d.", i+1)), B(zl.naziv), xlsxw.F(ref(zl.bruto), 0, xlsxw.Broj2), xlsxw.F(ref(zl.dopr), 0, xlsxw.Broj2), xlsxw.F(ref(zl.ukupno), 0, xlsxw.Broj2))
 	}
 	zadnji := len(rk.Redci) - 1
 	if zadnji >= prvi {
-		rk.Dodaj(xlsxw.T(""), xlsxw.T("UKUPNO "+strings.ToUpper(centar)+":", xlsxw.Podebljan),
+		rk.Dodaj(B("UKUPNO SEKTOR "+z.Sektor+":", xlsxw.Podebljan), prazno,
 			xlsxw.F(fmt.Sprintf("SUM(%s:%s)", xlsxw.Adresa(2, prvi), xlsxw.Adresa(2, zadnji)), 0, xlsxw.Broj2Pod),
 			xlsxw.F(fmt.Sprintf("SUM(%s:%s)", xlsxw.Adresa(3, prvi), xlsxw.Adresa(3, zadnji)), 0, xlsxw.Broj2Pod),
 			xlsxw.F(fmt.Sprintf("SUM(%s:%s)", xlsxw.Adresa(4, prvi), xlsxw.Adresa(4, zadnji)), 0, xlsxw.Broj2Pod))
 	}
 	rk.Dodaj()
-	rk.Dodaj(xlsxw.T("Stvarni sati u razdoblju: " + satiTekst(obr.Stvarni) + " h; obračunski sati: " + strings.ReplaceAll(fmt.Sprintf("%.1f", obr.Obracunski), ".", ",")))
+	rk.Dodaj(B("Stvarni sati u razdoblju: " + satiTekst(obr.Stvarni) + " h; obračunski sati: " + strings.ReplaceAll(fmt.Sprintf("%.1f", obr.Obracunski), ".", ",")))
+	for len(rk.Redci) < 28 {
+		rk.Dodaj()
+	}
+	rk.Dodaj(prazno, B(z.Mjesto+", "+z.Datum.Format("02.01.2006.")))
 
 	// po razredima, za provjeru
 	rz := k.NoviList("Po razredima")
 	rz.Sirine = []float64{28, 22, 8}
-	red := []xlsxw.Celija{xlsxw.T("Ime i prezime", xlsxw.Podebljan), xlsxw.T("Za", xlsxw.Podebljan), xlsxw.T("Mjesto", xlsxw.Podebljan)}
+	red := []xlsxw.Celija{B("Ime i prezime", xlsxw.Podebljan), B("Za", xlsxw.Podebljan), B("Mjesto", xlsxw.Podebljan)}
 	for _, razred := range obracun.Razredi {
 		rz.Sirine = append(rz.Sirine, 9, 9)
-		red = append(red, xlsxw.T(razred.Kratko()+" sati", xlsxw.Podebljan), xlsxw.T(razred.Kratko()+" obr.", xlsxw.Podebljan))
+		red = append(red, B(razred.Kratko()+" sati", xlsxw.Podebljan), B(razred.Kratko()+" obr.", xlsxw.Podebljan))
 	}
-	red = append(red, xlsxw.T("sati", xlsxw.Podebljan), xlsxw.T("obračunski", xlsxw.Podebljan))
+	red = append(red, B("sati", xlsxw.Podebljan), B("obračunski", xlsxw.Podebljan))
 	rz.Dodaj(red...)
 	for _, g := range obr.Grupe {
 		for _, r := range g.Redovi {
@@ -222,7 +303,7 @@ func knjigaObracuna(obr service.Obracun, centar string, od, do time.Time) *xlsxw
 			if r.Mjesto == models.MjestoTeren {
 				mjesto = "teren"
 			}
-			red := []xlsxw.Celija{xlsxw.T(r.UserName), xlsxw.T(g.Za), xlsxw.T(mjesto)}
+			red := []xlsxw.Celija{B(r.UserName), B(g.Za), B(mjesto)}
 			po := map[obracun.Razred]service.ObracunStavka{}
 			for _, st := range r.Stavke {
 				po[st.Razred] = st
@@ -235,6 +316,35 @@ func knjigaObracuna(obr service.Obracun, centar string, od, do time.Time) *xlsxw
 		}
 	}
 	return k
+}
+
+// vrijednostStupca daje brojku osobe u stupcu obrasca (2..21): sati ili
+// obračunski po kategoriji, ili sveukupno — za izračunate vrijednosti zbroja
+func vrijednostStupca(o osobaUIzvozu, c int) float64 {
+	var v float64
+	switch {
+	case c == 20 || c == 21:
+		for _, razred := range obracun.Razredi {
+			if c == 20 {
+				v += o.Stvarni[razred]
+			} else {
+				v += o.Obracunski[razred]
+			}
+		}
+	case c >= 2 && c <= 19:
+		i, koji := (c-2)/3, (c-2)%3
+		if koji == 2 {
+			return 0 // bruto: satnica nepoznata
+		}
+		for _, razred := range kategorijeIzvoza[i].Razredi {
+			if koji == 0 {
+				v += o.Stvarni[razred]
+			} else {
+				v += o.Obracunski[razred]
+			}
+		}
+	}
+	return v
 }
 
 // osobeGrupe zbraja retke grupe po osobi preko ureda i terena — u obrascu

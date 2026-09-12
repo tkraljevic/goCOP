@@ -309,19 +309,20 @@ func TestDnevnikCOPKrozRute(t *testing.T) {
 	}
 	var ana, ukupno []string
 	for _, r := range redci {
-		if len(r) > 0 && r[0] == "Ana Anić" {
+		if len(r) > 1 && r[1] == "ANA ANIĆ" {
 			ana = r
 		}
-		if len(r) > 0 && r[0] == "UKUPNO" {
+		if len(r) > 1 && r[1] == "UKUPNO:" {
 			ukupno = r
 		}
 	}
-	// prvi list je Vuka: subota dnevni 3 h → 5,5; subota noćni 2 → 4,5;
-	// nedjelja dnevni 1 → 2; nedjelja noćni 6 → 14; sveukupno 12 h → 26.
-	if len(ana) < 23 || ana[7] != "3" || ana[8] != "5.5" || ana[10] != "2" || ana[11] != "4.5" || ana[13] != "1" || ana[14] != "2" || ana[16] != "6" || ana[17] != "14" || ana[19] != "12" || ana[20] != "26" {
+	// prvi list je BP_15 (Vuka): stupac A prazan, ime velikim slovima u B;
+	// subota dnevni I=3 J=5,5; subota noćni L=2 M=4,5; nedjelja dnevni O=1
+	// P=2; noćni R=6 S=14; sveukupno U=12 V=26; kontrola AB "DOBRO".
+	if len(ana) < 28 || ana[8] != "3" || ana[9] != "5.5" || ana[11] != "2" || ana[12] != "4.5" || ana[14] != "1" || ana[15] != "2" || ana[17] != "6" || ana[18] != "14" || ana[20] != "12" || ana[21] != "26" || ana[27] != "DOBRO" {
 		t.Errorf("redak Ane u Excelu: %v", ana)
 	}
-	if len(ukupno) < 21 || ukupno[20] != "26" {
+	if len(ukupno) < 22 || ukupno[21] != "26" {
 		t.Errorf("zbroj u Excelu: %v", ukupno)
 	}
 
