@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+
 	"gocop/internal/models"
 	"gocop/internal/obracun"
 	"gocop/internal/service"
@@ -380,4 +382,146 @@ func osobeGrupe(g service.ObracunGrupa) []osobaUIzvozu {
 
 func satiTekst(d time.Duration) string {
 	return fmt.Sprintf("%d:%02d", int(d.Hours()), int(d.Minutes())%60)
+}
+
+// IzvoziIORS piše izvješće o radnim satima jedne osobe kao .xlsx, u obliku
+// obrasca IORS: list s redcima po danu i list s obračunom po razredu.
+func (h *JournalsHandler) IzvoziIORS(w http.ResponseWriter, r *http.Request) {
+	j, area, ok := h.loadJournal(w, r)
+	if !ok {
+		return
+	}
+	data := h.pageData(r)
+	data.Journal, data.Area = j, area
+	h.fillRights(&data)
+	userID := r.PathValue("user")
+	if !data.CanWrite && (data.CurrentUser == nil || data.CurrentUser.ID.String() != userID) {
+		http.Error(w, "Izvješće o satima vidi tko piše u dnevnik, i osoba sama", http.StatusForbidden)
+		return
+	}
+	od, do := h.razdobljeObracuna(r, j)
+	postavke := h.postavkeObracuna()
+	nazivi := map[int]string{}
+	if podrucja, err := h.users.ListAreas(j.CentarSektor); err == nil {
+		for _, a := range podrucja {
+			nazivi[a.ID] = a.Name
+		}
+	}
+	koef := postavke.Koeficijenti(r.Context())
+	iors, err := h.journals.ObracunOsobe(r.Context(), j, userID, od, do, postavke.Kalendar(r.Context()), koef, nazivi)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if iors.UserName == "" {
+		if id, err := uuid.Parse(userID); err == nil {
+			if osoba, _ := h.users.GetUserByID(id); osoba != nil {
+				iors.UserName = osoba.FullName
+			}
+		}
+	}
+	centar := j.CentarNaziv
+	if centar == "" {
+		centar = models.Terms().Sector + " " + j.CentarSektor
+	}
+	knjiga := knjigaIORS(iors, koef, centar, od, do.AddDate(0, 0, -1))
+	ime := fmt.Sprintf("IORS_%s_%s_%s.xlsx", service.OznakaIzNaziva(iors.UserName), od.Format("2006-01-02"), do.AddDate(0, 0, -1).Format("2006-01-02"))
+	w.Header().Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	w.Header().Set("Content-Disposition", `attachment; filename="`+ime+`"`)
+	if err := knjiga.Zapisi(w); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+// knjigaIORS slaže obrazac IORS jedne osobe: list Izvjesce_o_radnim_satima
+// (redak po danu i razmaku, sati po razredu) i list Obrazac_Obracuna
+// (stvarni sati × koeficijent = obračunski, ured i teren odvojeno)
+func knjigaIORS(iors service.IORS, koef obracun.Koeficijenti, centar string, od, do time.Time) *xlsxw.Knjiga {
+	k := &xlsxw.Knjiga{}
+	B := xlsxw.T
+	prazno := xlsxw.T("")
+	razdoblje := fmt.Sprintf("od %s do %s", od.Format("02.01.2006."), do.Format("02.01.2006."))
+
+	l := k.NoviList("Izvjesce_o_radnim_satima")
+	l.Sirine = []float64{13, 12, 7, 7, 46, 9, 8, 9, 9, 9, 9, 9, 9, 9}
+	l.Dodaj(B(models.Terms().OrgName+" — "+centar, xlsxw.Podebljan))
+	l.Dodaj(B("Izvješće o radnim satima ostvarenim pri provedbi obrane od poplava/leda:", xlsxw.Naslov))
+	l.Dodaj(B("za razdoblje " + razdoblje))
+	l.Dodaj()
+	l.Dodaj(B("Ime i prezime sudionika u provedbi obrane od poplava/leda:"), prazno, prazno, prazno, prazno, prazno, B(strings.ToUpper(iors.UserName), xlsxw.Podebljan))
+	l.Dodaj()
+	red1 := []xlsxw.Celija{B("Dan u tjednu", xlsxw.Podebljan), B("Datum", xlsxw.Podebljan), B("Od", xlsxw.Podebljan), B("Do", xlsxw.Podebljan), B("Opis rada", xlsxw.Podebljan), B("Ukupno sati", xlsxw.Podebljan), B("Mjesto", xlsxw.Podebljan),
+		B("RADNI DAN", xlsxw.Podebljan), prazno, prazno, B("SUBOTA", xlsxw.Podebljan), prazno, B("NEDJELJA I BLAGDAN", xlsxw.Podebljan), prazno}
+	red2 := []xlsxw.Celija{prazno, prazno, prazno, prazno, prazno, prazno, prazno}
+	for _, razred := range obracun.Razredi {
+		red2 = append(red2, B(razred.Pojas(), xlsxw.Podebljan))
+	}
+	l.Dodaj(red1...)
+	l.Dodaj(red2...)
+	prvi := len(l.Redci)
+	for _, r := range iors.Redovi {
+		mjesto := "Ured"
+		if r.Mjesto == models.MjestoTeren {
+			mjesto = "Teren"
+		}
+		opis := r.Opis
+		if !r.Potvrdeno {
+			opis += " (čeka potvrdu — nije u obračunu)"
+		}
+		doTekst := r.Do.Format("15:04")
+		if doTekst == "00:00" {
+			doTekst = "24:00"
+		}
+		red := []xlsxw.Celija{B(strings.ToLower(danTjednaHR(r.Dan))), B(r.Dan.Format("02.01.2006.")), B(r.Od.Format("15:04")), B(doTekst), B(opis + " — " + r.Za),
+			xlsxw.N(r.Ukupno.Hours(), xlsxw.Broj2Pod), B(mjesto)}
+		for _, razred := range obracun.Razredi {
+			if v := r.Sati[razred]; v > 0 && r.Potvrdeno {
+				red = append(red, xlsxw.N(v.Hours(), xlsxw.Broj2))
+			} else {
+				red = append(red, prazno)
+			}
+		}
+		l.Dodaj(red...)
+	}
+	zadnji := len(l.Redci) - 1
+	sve := []xlsxw.Celija{B("SVEUKUPNO", xlsxw.Podebljan), prazno, prazno, prazno, prazno,
+		xlsxw.F(fmt.Sprintf("SUM(%s:%s)", xlsxw.Adresa(5, prvi), xlsxw.Adresa(5, zadnji)), iors.Stvarni.Hours()+iors.CekaPotvrdu.Hours(), xlsxw.Broj2Pod), prazno}
+	for i, razred := range obracun.Razredi {
+		c := 7 + i
+		sve = append(sve, xlsxw.F(fmt.Sprintf("SUM(%s:%s)", xlsxw.Adresa(c, prvi), xlsxw.Adresa(c, zadnji)), (iors.Ured[razred]+iors.Teren[razred]).Hours(), xlsxw.Broj2Pod))
+	}
+	if zadnji >= prvi {
+		l.Dodaj(sve...)
+	}
+	l.Dodaj()
+	l.Dodaj(B("Evidenciju vodio sudionik provedbe obrane:"), prazno, prazno, prazno, prazno, prazno, B(iors.UserName))
+	l.Dodaj()
+	l.Dodaj(B("Iz plana dežurstava goCOP-a; sati po zidnom satu, razmak preko ponoći podijeljen po danima. Nedjelja se obračunava kao blagdan."))
+
+	o := k.NoviList("Obrazac_Obracuna")
+	o.Sirine = []float64{8, 34, 12, 10, 14}
+	o.Dodaj(B("OBRAČUN SATI RADNOG VREMENA PRI OBRANI OD POPLAVA", xlsxw.Naslov))
+	o.Dodaj(B("za razdoblje " + razdoblje))
+	o.Dodaj()
+	o.Dodaj(B("IME I PREZIME"), B(strings.ToUpper(iors.UserName), xlsxw.Podebljan))
+	o.Dodaj()
+	o.Dodaj(B("Mjesto", xlsxw.Podebljan), B("Sati", xlsxw.Podebljan), B("stvarni sati", xlsxw.Podebljan), B("k", xlsxw.Podebljan), B("obračunski sati", xlsxw.Podebljan))
+	var ukStvarni, ukObr float64
+	for _, mjesto := range []obracun.Mjesto{obracun.Ured, obracun.Teren} {
+		naziv := "URED"
+		if mjesto == obracun.Teren {
+			naziv = "TEREN"
+		}
+		for _, razred := range obracun.Razredi {
+			sati := iors.Sat(mjesto, razred).Hours()
+			obr := iors.Obr(mjesto, razred)
+			o.Dodaj(B(naziv), B(razred.Dan()+" — "+razred.Pojas()), xlsxw.N(sati, xlsxw.Broj2), xlsxw.N(koef[mjesto][razred], xlsxw.Broj2), xlsxw.N(obr, xlsxw.Broj2))
+			ukStvarni += sati
+			ukObr += obr
+		}
+	}
+	o.Dodaj(B("SVEUKUPNO", xlsxw.Podebljan), prazno, xlsxw.N(ukStvarni, xlsxw.Broj2Pod), prazno, xlsxw.N(ukObr, xlsxw.Broj2Pod))
+	o.Dodaj()
+	o.Dodaj(B("Obračunski sati zaokruženi su po razredu na pola sata, sredina djelatniku; zbroj je iz zaokruženih."))
+	return k
 }
