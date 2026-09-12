@@ -543,6 +543,9 @@ func (s *JournalService) DodajZapisCOP(ctx context.Context, u *models.User, perm
 	if j.StartedAt != nil && e.Date.Before(*j.StartedAt) {
 		return fmt.Errorf("dnevnik počinje %s: zapis prije toga u njega ne ide", j.StartedAt.In(models.Zagreb).Format("2.1.2006."))
 	}
+	if err := podrucjeUSektoru(e.Podrucje, o); err != nil {
+		return err
+	}
 	e.ID, e.Number, e.SheetID, e.Side = "", 0, "", ""
 	e.JournalID = j.ID
 	e.ReportedBy = strings.TrimSpace(e.ReportedBy)
@@ -595,6 +598,23 @@ func (s *JournalService) IspraviPrijepis(ctx context.Context, u *models.User, pe
 	if ispravak.Text == "" {
 		return errors.New("zapis mora imati tekst")
 	}
-	e.Kind, e.Text, e.ReportedBy, e.HappenedAt = ispravak.Kind, ispravak.Text, strings.TrimSpace(ispravak.ReportedBy), ispravak.HappenedAt
+	if err := podrucjeUSektoru(ispravak.Podrucje, o); err != nil {
+		return err
+	}
+	e.Kind, e.Text, e.ReportedBy, e.HappenedAt, e.Podrucje = ispravak.Kind, ispravak.Text, strings.TrimSpace(ispravak.ReportedBy), ispravak.HappenedAt, ispravak.Podrucje
 	return s.repo.SaveEntry(ctx, e)
+}
+
+// podrucjeUSektoru provjerava da područje zapisa pripada sektoru centra;
+// prazno je cijeli sektor i uvijek prolazi
+func podrucjeUSektoru(podrucje *int, o models.Opseg) error {
+	if podrucje == nil || *podrucje <= 0 {
+		return nil
+	}
+	for _, id := range o.Podrucja {
+		if id == *podrucje {
+			return nil
+		}
+	}
+	return errors.New("branjeno područje nije u sektoru ovog centra")
 }

@@ -122,14 +122,29 @@ func TestDnevnikCOPKrozRute(t *testing.T) {
 
 	// Zapis ulazi i vidi se s vremenom i onim tko je javio.
 	w = zovi(http.MethodPost, "/dnevnici/"+dnevnik+"/zapisi", url.Values{
-		"date": {"2026-09-11"}, "time": {"07:15"}, "kind": {models.EntryKindReport},
+		"date": {"2026-09-11"}, "time": {"07:15"}, "kind": {models.EntryKindReport}, "podrucje": {"15"},
 		"reported_by": {"Sa porte"}, "text": {"vodostaj Batina u 07:00 iznosi 551 cm"}})
 	mora(w, http.StatusSeeOther, "zapis")
 	if l := w.Header().Get("Location"); !strings.Contains(l, "success=") {
 		t.Fatalf("zapis nije prošao: %s", l)
 	}
 	w = zovi(http.MethodGet, "/dnevnici/"+dnevnik, nil)
-	mora(w, http.StatusOK, "dnevnik sa zapisom", "07:15", "Sa porte", "vodostaj Batina u 07:00 iznosi 551 cm", "upisao Voditelj Centra", "/storno")
+	mora(w, http.StatusOK, "dnevnik sa zapisom", "07:15", "Sa porte", "vodostaj Batina u 07:00 iznosi 551 cm", "upisao Voditelj Centra", "/storno",
+		`class="reg-chip zapis-podrucje" title="branjeno područje 15">Vuka</span>`)
+	// Zapis za cijeli sektor, pa čitanje po području: Vuka vidi oboje, a
+	// područje 99 nije u sektoru i odbija se.
+	w = zovi(http.MethodPost, "/dnevnici/"+dnevnik+"/zapisi", url.Values{
+		"date": {"2026-09-11"}, "kind": {models.EntryKindNotice}, "text": {"obavijest iz GCOP-a za sve"}})
+	if l := w.Header().Get("Location"); !strings.Contains(l, "success=") {
+		t.Fatalf("sektorski zapis: %s", l)
+	}
+	mora(zovi(http.MethodGet, "/dnevnici/"+dnevnik+"?podrucje=15", nil), http.StatusOK, "po području", "iznosi 551 cm", "obavijest iz GCOP-a", `value="15" selected`)
+	w = zovi(http.MethodPost, "/dnevnici/"+dnevnik+"/zapisi", url.Values{
+		"date": {"2026-09-11"}, "kind": {models.EntryKindReport}, "podrucje": {"99"}, "text": {"x"}})
+	if l := w.Header().Get("Location"); !strings.Contains(l, "error=") {
+		t.Errorf("područje izvan sektora u zapisu prošlo: %s", l)
+	}
+	w = zovi(http.MethodGet, "/dnevnici/"+dnevnik, nil)
 
 	// Storno: zapis ostaje, prekrižen, s razlogom.
 	m := regexp.MustCompile(`/upisi/([^/]+)/storno`).FindStringSubmatch(w.Body.String())

@@ -35,6 +35,17 @@
 </div>
 {{end}}
 
+{{if .Areas}}
+<form method="GET" action="/dnevnici/{{.Journal.ID}}" class="obracun-filtar">
+  <label for="f-podrucje">Prikaži</label>
+  <select id="f-podrucje" name="podrucje" class="form-control" onchange="this.form.submit()">
+    <option value="">sve zapise</option>
+    {{range .Areas}}<option value="{{.ID}}"{{if eq .ID $.Podrucje}} selected{{end}}>{{.Name}} ({{.ID}}) i cijeli {{terml "sektor"}}</option>{{end}}
+  </select>
+  <noscript><button type="submit" class="btn btn-secondary">Prikaži</button></noscript>
+</form>
+{{end}}
+
 {{range .Dani}}
 <section class="dan-dezurstva">
   <h2 class="dan-naslov">{{danTjedna .Dan}} {{.Dan.Format "2.1.2006."}}
@@ -47,7 +58,7 @@
         {{if .ReportedBy}}{{.ReportedBy}}{{else}}<span class="reading-meta">—</span>{{end}}
         {{if .UserName}}<div class="zapis-upisao">upisao {{.UserName}}</div>{{end}}
       </div>
-      <div class="zapis-tekst">{{.Text}}{{if .Voided}}
+      <div class="zapis-tekst">{{if .ZaPodrucje}}{{$id := .PodrucjeID}}{{range $.Areas}}{{if eq .ID $id}}<span class="reg-chip zapis-podrucje" title="branjeno područje {{.ID}}">{{.Name}}</span>{{end}}{{end}} {{end}}{{.Text}}{{if .Voided}}
         <div class="reading-meta">storniran{{if .VoidReason}}: {{.VoidReason}}{{end}}{{if .VoidedBy}} — {{.VoidedBy}}{{end}}</div>{{end}}
         {{/* Zapis se ne briše nego stornira: ostaje s brojem i razlogom.
              U prijepisu se ne stornira — ondje se krivo pročitano ispravlja. */}}
@@ -73,6 +84,13 @@
                 <label class="form-label" for="i-kind-{{.Number}}">Vrsta</label>
                 <select id="i-kind-{{.Number}}" name="kind" class="form-control">
                   {{$k := .Kind}}{{range $.AllowedKinds}}<option value="{{.}}"{{if eq . $k}} selected{{end}}>{{entryKind .}}</option>{{end}}
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="i-podrucje-{{.Number}}">Za</label>
+                <select id="i-podrucje-{{.Number}}" name="podrucje" class="form-control">
+                  {{$p := .PodrucjeID}}<option value="">cijeli {{terml "sektor"}}</option>
+                  {{range $.Areas}}<option value="{{.ID}}"{{if eq .ID $p}} selected{{end}}>{{.Name}}</option>{{end}}
                 </select>
               </div>
               <div class="form-group">
@@ -119,6 +137,13 @@
       <label class="form-label" for="z-kind">Vrsta *</label>
       <select id="z-kind" name="kind" class="form-control" required>
         {{range .AllowedKinds}}<option value="{{.}}">{{entryKind .}}</option>{{end}}
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="z-podrucje">Za</label>
+      <select id="z-podrucje" name="podrucje" class="form-control">
+        <option value="">cijeli {{terml "sektor"}} {{.Journal.CentarSektor}}</option>
+        {{range .Areas}}<option value="{{.ID}}"{{if eq .ID $.Podrucje}} selected{{end}}>{{.Name}}</option>{{end}}
       </select>
     </div>
     <div class="form-group">

@@ -350,7 +350,7 @@ func (r *JournalRepository) SaveSheet(ctx context.Context, s *models.JournalShee
 
 const entryColumns = `e.id, e.journal_id, e.sheet_id, e.number, e.date, e.kind, e.side, e.maintained_water_id, e.section_code, e.place,
 	e.work_item_id, e.text, e.hours, e.due_date, e.status, e.parent_id, e.voided, e.void_reason, e.voided_by,
-	e.user_id, e.user_name, e.happened_at, e.reported_by, e.created_at, e.updated_at,
+	e.user_id, e.user_name, e.happened_at, e.reported_by, e.podrucje, e.created_at, e.updated_at,
 	COALESCE(w.official_name, st.name, mw.name, ''), COALESCE(wi.description, ''), COALESCE(wi.number, '')`
 
 const entryFrom = ` FROM journal_entries e
@@ -364,12 +364,17 @@ func scanEntry(row rowScanner) (models.JournalEntry, error) {
 	var date string
 	var due sql.NullString
 	var dogodilo sql.NullTime
+	var podrucje sql.NullInt64
 	var voided int
 	err := row.Scan(&e.ID, &e.JournalID, &e.SheetID, &e.Number, &date, &e.Kind, &e.Side, &e.MaintainedWaterID, &e.SectionCode, &e.Place,
 		&e.WorkItemID, &e.Text, &e.Hours, &due, &e.Status, &e.ParentID, &voided, &e.VoidReason, &e.VoidedBy,
-		&e.UserID, &e.UserName, &dogodilo, &e.ReportedBy, &e.CreatedAt, &e.UpdatedAt,
+		&e.UserID, &e.UserName, &dogodilo, &e.ReportedBy, &podrucje, &e.CreatedAt, &e.UpdatedAt,
 		&e.LocationName, &e.WorkItemText, &e.WorkItemNo)
 	e.Date = parseDay(date)
+	if podrucje.Valid && podrucje.Int64 > 0 {
+		n := int(podrucje.Int64)
+		e.Podrucje = &n
+	}
 	if dogodilo.Valid {
 		t := dogodilo.Time
 		e.HappenedAt = &t
@@ -384,21 +389,29 @@ func scanEntry(row rowScanner) (models.JournalEntry, error) {
 
 const entryUpsert = `INSERT INTO journal_entries (id, journal_id, sheet_id, number, date, kind, side, maintained_water_id, section_code, place,
 		work_item_id, text, hours, due_date, status, parent_id, voided, void_reason, voided_by, user_id, user_name,
-		happened_at, reported_by, created_at, updated_at)
-	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		happened_at, reported_by, podrucje, created_at, updated_at)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	ON CONFLICT(id) DO UPDATE SET
 		sheet_id = excluded.sheet_id, number = excluded.number, date = excluded.date, kind = excluded.kind, side = excluded.side,
 		maintained_water_id = excluded.maintained_water_id, section_code = excluded.section_code, place = excluded.place,
 		work_item_id = excluded.work_item_id, text = excluded.text, hours = excluded.hours, due_date = excluded.due_date,
 		status = excluded.status, parent_id = excluded.parent_id, voided = excluded.voided, void_reason = excluded.void_reason,
 		voided_by = excluded.voided_by, user_name = excluded.user_name,
-		happened_at = excluded.happened_at, reported_by = excluded.reported_by,
+		happened_at = excluded.happened_at, reported_by = excluded.reported_by, podrucje = excluded.podrucje,
 		updated_at = excluded.updated_at`
 
 func entryArgs(e *models.JournalEntry) []any {
 	return []any{e.ID, e.JournalID, e.SheetID, e.Number, dayKey(e.Date), e.Kind, e.Side, e.MaintainedWaterID, e.SectionCode, e.Place,
 		e.WorkItemID, e.Text, e.Hours, nullDay(e.DueDate), e.Status, e.ParentID, boolInt(e.Voided), e.VoidReason, e.VoidedBy,
-		e.UserID, e.UserName, e.HappenedAt, e.ReportedBy, e.CreatedAt, e.UpdatedAt}
+		e.UserID, e.UserName, e.HappenedAt, e.ReportedBy, podrucjeArg(e), e.CreatedAt, e.UpdatedAt}
+}
+
+// podrucjeArg: NULL za cijeli sektor
+func podrucjeArg(e *models.JournalEntry) any {
+	if e.ZaPodrucje() {
+		return *e.Podrucje
+	}
+	return nil
 }
 
 func (r *JournalRepository) queryEntries(ctx context.Context, where string, args ...any) ([]models.JournalEntry, error) {
