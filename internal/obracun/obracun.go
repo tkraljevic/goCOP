@@ -3,7 +3,7 @@
 // koeficijentima u obračunske sate.
 //
 // Dan je jedan od tri: radni, subota, ili nedjelja i blagdan. Radni dan ima
-// redovno radno vrijeme 8–16, dnevne sate 6–8 i 16–22 te noćne 0–6 i 22–24;
+// redovno radno vrijeme 7:30–15:30, dnevne sate 6–7:30 i 15:30–22 te noćne 0–6 i 22–24;
 // subota i blagdan imaju dnevne 6–22 i noćne ostalo.
 //
 // Nedjelja se obračunava kao blagdan, kako i piše u stupcu obrasca
@@ -27,8 +27,8 @@ import (
 type Razred string
 
 const (
-	RRV Razred = "RRV" // radni dan, redovno radno vrijeme 8–16
-	DRD Razred = "DRD" // radni dan, dnevni sati 6–8 i 16–22
+	RRV Razred = "RRV" // radni dan, redovno radno vrijeme 7:30–15:30
+	DRD Razred = "DRD" // radni dan, dnevni sati 6–7:30 i 15:30–22
 	NRD Razred = "NRD" // radni dan, noćni sati 0–6 i 22–24
 	VID Razred = "VID" // subota, dnevni 6–22
 	VIN Razred = "VIN" // subota, noćni
@@ -43,9 +43,9 @@ var Razredi = []Razred{RRV, DRD, NRD, VID, VIN, BLD, BLN}
 func (r Razred) Naziv() string {
 	switch r {
 	case RRV:
-		return "radni dan, redovno (8–16)"
+		return "radni dan, redovno (7:30–15:30)"
 	case DRD:
-		return "radni dan, dnevni (6–8 i 16–22)"
+		return "radni dan, dnevni (6–7:30 i 15:30–22)"
 	case NRD:
 		return "radni dan, noćni (22–6)"
 	case VID:
@@ -75,9 +75,9 @@ func (r Razred) Dan() string {
 func (r Razred) Pojas() string {
 	switch r {
 	case RRV:
-		return "redovno 8–16"
+		return "redovno 7:30–15:30"
 	case DRD:
-		return "dnevni 6–8 i 16–22"
+		return "dnevni 6–7:30 i 15:30–22"
 	case NRD:
 		return "noćni 22–6"
 	case VID, BLD:
@@ -167,10 +167,17 @@ type pojas struct {
 	razred Razred
 }
 
+// Redovno radno vrijeme u Hrvatskim vodama: 7:30 do 15:30 radnim danom.
+// Prije i poslije toga radni dan je prekovremeni dnevni sat, do 22.
+const (
+	RedovnoOd = 7*60 + 30
+	RedovnoDo = 15*60 + 30
+)
+
 func pojasevi(vrsta VrstaDana) []pojas {
 	switch vrsta {
 	case RadniDan:
-		return []pojas{{0, 6 * 60, NRD}, {6 * 60, 8 * 60, DRD}, {8 * 60, 16 * 60, RRV}, {16 * 60, 22 * 60, DRD}, {22 * 60, 24 * 60, NRD}}
+		return []pojas{{0, 6 * 60, NRD}, {6 * 60, RedovnoOd, DRD}, {RedovnoOd, RedovnoDo, RRV}, {RedovnoDo, 22 * 60, DRD}, {22 * 60, 24 * 60, NRD}}
 	case Subota:
 		return []pojas{{0, 6 * 60, VIN}, {6 * 60, 22 * 60, VID}, {22 * 60, 24 * 60, VIN}}
 	default:

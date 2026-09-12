@@ -29,7 +29,7 @@ import (
 // Natrag se ne uvozi.
 
 // kategorija izvoza: naziv, razredi čiji se sati ispisuju, i razredi čiji
-// obračunski sati ulaze. Redovno radno vrijeme (8–16 radnim danom) nije
+// obračunski sati ulaze. Redovno radno vrijeme (7:30–15:30 radnim danom) nije
 // prekovremeni sat i u obrascu se ne broji kao sat — ali na terenu nosi
 // koeficijent 0,2, pa u obračunske sate ulazi. Tako je u isplaćenom obračunu:
 // 33 sata radnog dana daju 72 obračunska.
@@ -412,7 +412,7 @@ func KnjigaObracuna(obr service.Obracun, z ZaglavljeIzvoza, od, do time.Time) *x
 		ukAdresa := xlsxw.Adresa(cY, l.Redak()-1)
 		l.Dodaj()
 		napomenaLista(l, "Bruto satnicu po osobi upisuje računovodstvo iz prošle plaće u stupac „satnica“; iznosi se izračunaju sami. "+
-			"Sati radnog dana su prekovremeni (6–8 i 16–22); redovno radno vrijeme 8–16 nije sat, ali na terenu ulazi u obračunske s koeficijentom 0,2. "+
+			"Sati radnog dana su prekovremeni (6–7:30 i 15:30–22); redovno radno vrijeme 7:30–15:30 nije sat, ali na terenu ulazi u obračunske s koeficijentom 0,2. "+
 			"Obračunski sati zaokruženi su po razredu na pola sata, sredina djelatniku. Nedjelja se obračunava kao blagdan.", stupaca, 30)
 		potpisiLista(l, z, stupaca, z.Potpisnici)
 		listovi = append(listovi, zbrojLista{naziv, l.Naziv, brutoAdresa, doprAdresa, ukAdresa})
