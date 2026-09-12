@@ -18,6 +18,7 @@
   </div>
   <div class="page-actions">
     {{if .CanManage}}<a href="/dnevnici/{{.Journal.ID}}/edit" class="btn btn-secondary">{{icon "pencil"}} Zaglavlje</a>{{end}}
+    {{if .Dani}}<a href="#{{if .ImaDanas}}dan-{{.Today}}{{else}}kraj{{end}}" class="btn btn-secondary" title="{{if .ImaDanas}}Na današnje zapise{{else}}Na zadnji zapis{{end}}">{{icon "arrow-right"}} {{if .ImaDanas}}Danas{{else}}Na kraj{{end}}</a>{{end}}
     <a href="/dnevnici/{{.Journal.ID}}/dezurstva" class="btn btn-secondary">{{icon "users"}} Plan dežurstava{{if .Dezurstva}} <span class="reg-chip">{{len .Dezurstva}}</span>{{end}}</a>
     {{if .CanWrite}}<a href="#novi-zapis" class="btn btn-primary">{{icon "plus"}} Novi zapis</a>{{end}}
   </div>
@@ -47,7 +48,7 @@
 {{end}}
 
 {{range .Dani}}
-<section class="dan-dezurstva">
+<section class="dan-dezurstva" id="dan-{{.Dan.Format "2006-01-02"}}">
   <h2 class="dan-naslov">{{danTjedna .Dan}} {{.Dan.Format "2.1.2006."}}
     <span class="reg-chip">{{len .Zapisi}} {{uzBroj (len .Zapisi) "zapis" "zapisa" "zapisa"}}</span></h2>
   <div class="zapisi">
@@ -63,11 +64,13 @@
         {{/* Zapis se ne briše nego stornira: ostaje s brojem i razlogom.
              U prijepisu se ne stornira — ondje se krivo pročitano ispravlja. */}}
         {{if and $.CanWrite (not .Voided) (not $.Journal.Reconstruction)}}
-        <form method="POST" action="/dnevnici/{{$.Journal.ID}}/upisi/{{.ID}}/storno" class="zapis-storno"
-          onsubmit="var r=prompt('Razlog storniranja zapisa br. {{.Number}}:'); if(!r) return false; this.reason.value=r; return true;">
-          <input type="hidden" name="reason" value="">
-          <button type="submit" class="btn btn-sm btn-secondary" title="Storniraj zapis br. {{.Number}}">{{icon "x"}} storno</button>
-        </form>
+        <details class="zapis-storno">
+          <summary class="btn btn-sm btn-secondary" title="Storniraj zapis br. {{.Number}}">{{icon "x"}} storno</summary>
+          <form method="POST" action="/dnevnici/{{$.Journal.ID}}/upisi/{{.ID}}/storno" class="zapis-storno-obrazac">
+            <input type="text" name="reason" class="form-control" placeholder="razlog storniranja zapisa br. {{.Number}}" required autocomplete="off">
+            <button type="submit" class="btn btn-sm btn-primary">{{icon "check"}} Storniraj</button>
+          </form>
+        </details>
         {{end}}
         {{/* U prijepisu se krivo pročitano ispravlja na mjestu: obrazac je uz
              zapis, sklopljen, s onim što sad piše. Dan se ne mijenja. */}}
@@ -117,6 +120,7 @@
 {{else}}
 <div class="reg-empty">U ovom dnevniku još nema zapisa.</div>
 {{end}}
+<div id="kraj"></div>
 
 {{/* Obrazac stoji ispod zapisa: dežurni piše na kraj, kao u bilježnici.
      Dan i vrijeme su odvojeni — dan je obvezan, vrijeme se upisuje kad se

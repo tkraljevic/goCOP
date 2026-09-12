@@ -109,6 +109,7 @@ type JournalPageData struct {
 	UpravaCentra   bool
 	MozeSebe       bool // smije upisati vlastito dežurstvo
 	Podrucje       int  // filtar dnevnika COP-a po području; 0 = sve
+	ImaDanas       bool // dnevnik COP-a ima zapise za danas, za skok
 	OpisiRada      []models.OpisRada
 	Obracun        service.Obracun
 	IORS           service.IORS
@@ -433,6 +434,11 @@ func (h *JournalsHandler) ShowJournal(w http.ResponseWriter, r *http.Request) {
 			zapisi = samo
 		}
 		data.Dani = poDanima(zapisi)
+		for _, d := range data.Dani {
+			if d.Dan.Format("2006-01-02") == data.Today {
+				data.ImaDanas = true
+			}
+		}
 		// Plan dežurstava ima svoju stranicu; ovdje samo koliko ih je, za gumb.
 		data.Dezurstva, _ = h.journals.Dezurstva(ctx, j.ID)
 		h.render(w, h.tmplCOP, "dnevnik_cop.html", data)
