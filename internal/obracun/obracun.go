@@ -60,6 +60,32 @@ func (r Razred) Naziv() string {
 	return string(r)
 }
 
+// Dan je vrsta dana razreda, za zaglavlje tablice
+func (r Razred) Dan() string {
+	switch r {
+	case RRV, DRD, NRD:
+		return "radni dan"
+	case VID, VIN:
+		return "subota"
+	}
+	return "nedjelja i blagdan"
+}
+
+// Pojas je dio dana razreda, za zaglavlje tablice
+func (r Razred) Pojas() string {
+	switch r {
+	case RRV:
+		return "redovno 8–16"
+	case DRD:
+		return "dnevni 6–8 i 16–22"
+	case NRD:
+		return "noćni 22–6"
+	case VID, BLD:
+		return "dnevni 6–22"
+	}
+	return "noćni 22–6"
+}
+
 // Mjesto rada: obrazac razlikuje samo ured i teren, s različitim koeficijentima
 type Mjesto string
 

@@ -101,11 +101,11 @@
   <form method="POST" action="/administracija/obracun/koeficijenti">
     <div class="table-card"><div class="table-responsive">
       <table class="data-table">
-        <thead><tr><th>Razred</th>{{range .Mjesta}}<th>{{if eq . "TEREN"}}teren{{else}}ured{{end}}</th>{{end}}</tr></thead>
+        <thead><tr><th>Sati</th>{{range .Mjesta}}<th>{{if eq . "TEREN"}}teren{{else}}ured{{end}}</th>{{end}}</tr></thead>
         <tbody>
         {{range $r := .Razredi}}
         <tr>
-          <td>{{$r}} <span class="reg-card-sub">{{$r.Naziv}}</span></td>
+          <td title="{{$r}}">{{$r.Dan}} <span class="reg-card-sub">{{$r.Pojas}}</span></td>
           {{range $m := $.Mjesta}}<td><input type="text" inputmode="decimal" name="k_{{$m}}_{{$r}}" class="form-control mono" style="max-width:6rem;" value="{{$.K $m $r}}"></td>{{end}}
         </tr>
         {{end}}
