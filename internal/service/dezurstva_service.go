@@ -429,3 +429,91 @@ func (r IORSRedak) PoRazredima() []IORSStavka {
 	}
 	return out
 }
+
+// Dežurstvo u dnevniku COP-a: operater dolaskom preuzme, odlaskom preda.
+// Oboje je zapis u dnevniku (vrsta DEZURSTVO), a odrađeni razmak ide u plan
+// kao "Dežurstvo u COP-u" — pa u obračun, čim ga uprava potvrdi. Tko preuzme
+// dok prethodnik nije predao, zaključi mu dežurstvo tim trenutkom: to se
+// vidi u zapisu, i nitko ne ostaje "na dežurstvu" zauvijek.
+
+// PreuzmiDezurstvo upisuje da osoba dežura od sada
+func (s *JournalService) PreuzmiDezurstvo(ctx context.Context, u *models.User, perms *models.UserPermissions, o models.Opseg, j *models.Journal) error {
+	if u == nil {
+		return errors.New("upis zahtijeva prijavu")
+	}
+	if j == nil || j.CentarSektor == "" {
+		return errors.New("dežurstvo se preuzima u dnevniku COP-a")
+	}
+	if j.EndedAt != nil {
+		return errors.New("dnevnik je zaključen")
+	}
+	if !s.MozeSebeUPlan(perms, o, j) {
+		return errors.New("dežurstvo preuzima tko radi u sektoru centra")
+	}
+	if j.DezurniID == u.ID.String() {
+		return errors.New("već dežurate")
+	}
+	sad := time.Now().In(models.Zagreb)
+	if j.NetkoDezura() {
+		// Ne potvrđuje se ni kad preuzima uprava: nitko nije vidio kad je
+		// prethodnik stvarno otišao, pa razmak čeka provjeru.
+		if err := s.zakljuciDezurstvo(ctx, u, j, sad, " (nije predano; zaključeno preuzimanjem)", false); err != nil {
+			return err
+		}
+	}
+	j.DezurniID, j.DezurniIme, j.DezurniOd = u.ID.String(), u.FullName, &sad
+	if err := s.repo.SaveJournal(ctx, j); err != nil {
+		return err
+	}
+	return s.repo.SaveEntry(ctx, &models.JournalEntry{JournalID: j.ID, Date: pocetakDana(sad), Kind: models.EntryKindDuty, HappenedAt: &sad,
+		Text: "Dežurstvo preuzima " + u.FullName + ".", UserID: u.ID.String(), UserName: u.FullName})
+}
+
+// PredajDezurstvo zaključuje dežurstvo osobe koja dežura; uprava centra
+// može predati i tuđe
+func (s *JournalService) PredajDezurstvo(ctx context.Context, u *models.User, perms *models.UserPermissions, j *models.Journal) error {
+	if u == nil {
+		return errors.New("upis zahtijeva prijavu")
+	}
+	if j == nil || !j.NetkoDezura() {
+		return errors.New("nitko ne dežura")
+	}
+	if j.DezurniID != u.ID.String() && !s.UpravaCentra(perms, j) {
+		return errors.New("dežurstvo predaje tko dežura, ili uprava centra")
+	}
+	return s.zakljuciDezurstvo(ctx, u, j, time.Now().In(models.Zagreb), "", s.UpravaCentra(perms, j))
+}
+
+// zakljuciDezurstvo upisuje predaju: zapis u dnevnik, razmak u plan, dnevnik
+// bez dežurnog. Razmak potvrđuje uprava kao i svaki drugi; potvrđen je
+// odmah samo kad ga uprava sama preda (svoje ili tuđe).
+func (s *JournalService) zakljuciDezurstvo(ctx context.Context, u *models.User, j *models.Journal, kad time.Time, napomena string, potvrdi bool) error {
+	od := j.DezurniOd.In(models.Zagreb)
+	d := &models.Dezurstvo{JournalID: j.ID, UserID: j.DezurniID, UserName: j.DezurniIme, Od: od, Do: kad,
+		Opis: models.OpisiRada[0].Opis, Mjesto: models.MjestoZaOpis(models.OpisiRada[0].Opis), Napomena: strings.TrimSpace(napomena), CreatedBy: u.ID.String()}
+	if !kad.After(od) {
+		d.Do = od.Add(time.Minute)
+	}
+	if potvrdi {
+		d.Potvrdio, d.PotvrdenoAt = u.FullName, &kad
+	}
+	if err := s.repo.SaveDezurstvo(ctx, d); err != nil {
+		return err
+	}
+	tekst := "Dežurstvo predaje " + j.DezurniIme + " (od " + od.Format("2.1. 15:04") + ", " + satiTekst(kad.Sub(od)) + " h)" + napomena + "."
+	if err := s.repo.SaveEntry(ctx, &models.JournalEntry{JournalID: j.ID, Date: pocetakDana(kad), Kind: models.EntryKindDuty, HappenedAt: &kad,
+		Text: tekst, UserID: u.ID.String(), UserName: u.FullName}); err != nil {
+		return err
+	}
+	j.DezurniID, j.DezurniIme, j.DezurniOd = "", "", nil
+	return s.repo.SaveJournal(ctx, j)
+}
+
+func pocetakDana(t time.Time) time.Time {
+	t = t.In(models.Zagreb)
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, models.Zagreb)
+}
+
+func satiTekst(d time.Duration) string {
+	return fmt.Sprintf("%d:%02d", int(d.Hours()), int(d.Minutes())%60)
+}

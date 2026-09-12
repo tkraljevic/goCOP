@@ -3406,3 +3406,5 @@ textarea {
 .zapis-storno-obrazac { display: flex; gap: 0.4rem; margin-top: 0.4rem; max-width: 34rem; }
 .dan-naslov { position: sticky; top: 0; z-index: 2; background: var(--bg, #f4f4f4); padding: 0.4rem 0; }
 .dan-dezurstva { scroll-margin-top: 0.5rem; }
+
+.dezurni-sad { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.35rem 0.6rem; border-radius: 4px; background: var(--primary-light, #e8eef7); color: var(--primary, #173e74); font-size: 0.9rem; }
