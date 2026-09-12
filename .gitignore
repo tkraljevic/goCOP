@@ -48,3 +48,4 @@ cmd/uvoz-dnevnika-cop/
 
 # Uvoz IORS obrazaca radi nad datotekama s imenima djelatnika; ostaje uz njih.
 cmd/uvoz-iors/
+/uvoz-iors
