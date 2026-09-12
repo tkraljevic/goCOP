@@ -387,6 +387,7 @@ func main() {
 	}
 	server.SetDatabase(database, *dbPath)
 	server.SetObracun(obracunService)
+	izvjescaService.SetSektorska(repository.NewSektorskaIzvjescaRepository(database, recorder))
 	server.SetIzvjesca(izvjescaService)
 	server.SetKarta(cfg.Karta.Plocice, cfg.Karta.Zasluge, cfg.Karta.NajviseZ)
 

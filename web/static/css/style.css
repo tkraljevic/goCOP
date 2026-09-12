@@ -3419,3 +3419,10 @@ textarea {
 .izvjesce-vodostaji .form-control { padding-top: 0.3rem; padding-bottom: 0.3rem; }
 .izvjesce-facts > div { grid-template-columns: minmax(12rem, 1fr) 2fr; }
 @media print { .izvjesce-dokument { font-size: 11pt; } }
+
+/* Sektorsko izvješće */
+.sektorsko-ploca { border: 1px solid var(--border, #d9dee5); border-left: 4px solid var(--primary, #173e74); border-radius: 8px; padding: 0.9rem 1rem; margin-bottom: 1.5rem; background: var(--surface, #fff); }
+.sektorsko-ploca-glava { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.5rem 1rem; margin-bottom: 0.6rem; }
+.sektorsko-ploca-glava h2 { margin: 0; font-size: 1.05rem; display: inline-flex; align-items: center; gap: 0.4rem; }
+.izvjesce-podnaslov { font-size: 0.95rem; margin: 0.9rem 0 0.4rem; color: var(--text-secondary, #555); }
+.data-table tr.zbroj td { background: var(--surface-2, #f3f5f8); }

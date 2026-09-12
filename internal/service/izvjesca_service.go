@@ -19,12 +19,13 @@ import (
 // vodotok iz dionice, vodostaji u 07:00 iz očitanja mjerodavnih vodomjera,
 // stadij iz proglašene obrane, obrana iz otvorenog dnevnika COP-a.
 type IzvjescaService struct {
-	repo     *repository.IzvjescaRepository
-	sections *repository.SectionRepository
-	stations *repository.StationRepository
-	readings *repository.ReadingRepository
-	episodes *repository.EpisodeRepository
-	journals *repository.JournalRepository
+	repo      *repository.IzvjescaRepository
+	sections  *repository.SectionRepository
+	stations  *repository.StationRepository
+	readings  *repository.ReadingRepository
+	episodes  *repository.EpisodeRepository
+	journals  *repository.JournalRepository
+	sektorska *repository.SektorskaIzvjescaRepository // sektorska izvješća; nil dok se ne postavi
 }
 
 func NewIzvjescaService(repo *repository.IzvjescaRepository, sections *repository.SectionRepository, stations *repository.StationRepository,

@@ -146,8 +146,10 @@ func templateFuncs() template.FuncMap {
 			}
 			return fmt.Sprintf("%d:%02d", int(d.Hours()), int(d.Minutes())%60)
 		},
-		"tendencija": models.TendencijaNaziv,
-		"list":       func(s ...string) []string { return s },
+		"tendencija":    models.TendencijaNaziv,
+		"stadijKratica": models.StadijKratica,
+		"join":          strings.Join,
+		"list":          func(s ...string) []string { return s },
 		"seq": func(n int) []int {
 			out := make([]int, n)
 			for i := range out {
@@ -486,7 +488,7 @@ func NewServer(
 	// Predlošci koji proširuju base.html
 	for _, page := range []string{"dashboard.html", "registri.html", "users.html", "user_detail.html", "user_form.html", "duty_form.html", "profile.html", "sections.html", "section_detail.html", "section_form.html", "territories.html", "county_form.html", "municipality_form.html", "municipality_detail.html", "stations.html", "station_detail.html", "station_form.html", "station_history.html", "station_history_form.html", "paket_pregled.html", "watercourses.html", "watercourse_detail.html", "watercourse_form.html", "structures.html", "structure_detail.html", "structure_form.html", "readings.html", "reading_history.html", "reading_form.html", "arhiva_ispravci.html", "uvoz_ocitanja.html", "teren.html", "moduli.html", "settings.html", "odrzavanje.html", "organizacija.html", "sector_form.html", "area_form.html", "contractor_form.html", "firme.html", "nazivi.html", "sudionici.html",
 		"administracija.html", "uvozi.html", "sinkronizacija.html", "pretplate.html", "baza.html", "izvori.html", "uvoz_niza.html",
-		"dnevnici.html", "dnevnici_izbor.html", "dnevnik_form.html", "dnevnik.html", "dnevnik_cop.html", "dnevnik_cop_form.html", "dnevnik_list.html", "dnevnik_obracun.html", "dnevnik_dezurstva.html", "dnevnik_iors.html", "izvjesca.html", "izvjesce_form.html", "izvjesce.html", "obracun_postavke.html", "pomoc.html", "ocitanja_ispravci.html"} {
+		"dnevnici.html", "dnevnici_izbor.html", "dnevnik_form.html", "dnevnik.html", "dnevnik_cop.html", "dnevnik_cop_form.html", "dnevnik_list.html", "dnevnik_obracun.html", "dnevnik_dezurstva.html", "dnevnik_iors.html", "izvjesca.html", "izvjesce_form.html", "izvjesce.html", "sektorsko_form.html", "sektorsko.html", "obracun_postavke.html", "pomoc.html", "ocitanja_ispravci.html"} {
 		t, err := template.New("base.html").Funcs(tmplFuncs).ParseFS(templatesFS, DijeloviPredloska(page)...)
 		if err != nil {
 			return nil, fmt.Errorf("greška pri parsiranju predloška %s: %w", page, err)
@@ -903,6 +905,15 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /izvjesca/{id}/predaj", s.authMiddleware(http.HandlerFunc(izvjescaH.HandlePredaj)))
 	s.mux.Handle("POST /izvjesca/{id}/obrisi", s.authMiddleware(http.HandlerFunc(izvjescaH.HandleObrisi)))
 	s.mux.Handle("GET /izvjesca/{id}/izvjesce.xlsx", s.authMiddleware(http.HandlerFunc(izvjescaH.IzvoziIzvjesce)))
+	izvjescaH.SetSektorsko(s.templates["sektorsko_form.html"], s.templates["sektorsko.html"])
+	s.mux.Handle("GET /sektorsko-izvjesce/novo", s.authMiddleware(http.HandlerFunc(izvjescaH.ShowSektorskoNovo)))
+	s.mux.Handle("POST /sektorsko-izvjesce", s.authMiddleware(http.HandlerFunc(izvjescaH.HandleSektorskoSpremi)))
+	s.mux.Handle("GET /sektorsko-izvjesce/{id}", s.authMiddleware(http.HandlerFunc(izvjescaH.ShowSektorsko)))
+	s.mux.Handle("GET /sektorsko-izvjesce/{id}/uredi", s.authMiddleware(http.HandlerFunc(izvjescaH.ShowSektorskoUredi)))
+	s.mux.Handle("POST /sektorsko-izvjesce/{id}", s.authMiddleware(http.HandlerFunc(izvjescaH.HandleSektorskoSpremi)))
+	s.mux.Handle("POST /sektorsko-izvjesce/{id}/predaj", s.authMiddleware(http.HandlerFunc(izvjescaH.HandleSektorskoPredaj)))
+	s.mux.Handle("POST /sektorsko-izvjesce/{id}/obrisi", s.authMiddleware(http.HandlerFunc(izvjescaH.HandleSektorskoObrisi)))
+	s.mux.Handle("GET /sektorsko-izvjesce/{id}/izvjesce.xlsx", s.authMiddleware(http.HandlerFunc(izvjescaH.IzvoziSektorsko)))
 	izvjescaH.SetZaglavlje(func(sektor string) ZaglavljeIzvoza {
 		return journalsH.ZaglavljeIzvozaDnevnika(&models.Journal{CentarSektor: sektor})
 	})

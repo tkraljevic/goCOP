@@ -108,6 +108,20 @@ func InitSchema(database *sql.DB) error {
 		);`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_dnevna_izvjesca_dan ON dnevna_izvjesca(section_code, dan);`,
 		`CREATE INDEX IF NOT EXISTS idx_dnevna_izvjesca_journal ON dnevna_izvjesca(journal_id, dan);`,
+		`CREATE TABLE IF NOT EXISTS sektorska_izvjesca (
+			id TEXT PRIMARY KEY,
+			journal_id TEXT NOT NULL DEFAULT '',
+			sektor TEXT NOT NULL,
+			dan TEXT NOT NULL,
+			sadrzaj TEXT NOT NULL DEFAULT '{}',
+			izradio_id TEXT NOT NULL DEFAULT '',
+			izradio TEXT NOT NULL DEFAULT '',
+			izradeno_at DATETIME NOT NULL,
+			predano_at DATETIME,
+			created_at DATETIME NOT NULL,
+			updated_at DATETIME NOT NULL
+		);`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_sektorska_izvjesca_dan ON sektorska_izvjesca(sektor, dan);`,
 		`CREATE TABLE IF NOT EXISTS koeficijenti (
 			id TEXT PRIMARY KEY,
 			mjesto TEXT NOT NULL,
