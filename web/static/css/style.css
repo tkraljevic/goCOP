@@ -3351,3 +3351,11 @@ textarea {
 .zapis:target { animation: zapis-svjetlo 2.5s ease-out; }
 @keyframes zapis-svjetlo { from { background: var(--primary-light, #e8eef7); } to { background: transparent; } }
 @media (max-width: 640px) { .unos-polje > span { display: none; } .unos-gumb { margin-left: 0; width: 100%; } }
+
+/* storno uz zapis bez sistemskog dijaloga; naslov dana ostaje pri vrhu */
+.zapis-storno > summary { list-style: none; cursor: pointer; }
+.zapis-storno > summary::-webkit-details-marker { display: none; }
+.zapis-storno[open] { display: block; margin: 0.4rem 0 0; }
+.zapis-storno-obrazac { display: flex; gap: 0.4rem; margin-top: 0.4rem; max-width: 34rem; }
+.dan-naslov { position: sticky; top: 0; z-index: 2; background: var(--bg, #f4f4f4); padding: 0.4rem 0; }
+.dan-dezurstva { scroll-margin-top: 0.5rem; }
