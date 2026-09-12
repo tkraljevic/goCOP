@@ -200,23 +200,55 @@ var IORS2026 = Koeficijenti{
 	Teren: {RRV: 0.2, DRD: 1.7, NRD: 2.05, VID: 2.05, VIN: 2.4, BLD: 2.2, BLN: 2.55},
 }
 
-// Obracunski vraća obračunske sate: stvarni sati puta koeficijent, po
-// razredu zaokruženo na dvije decimale kao u obrascu
-func (k Koeficijenti) Obracunski(s Sati, m Mjesto) float64 {
-	var u float64
+// Korak je na što se obračunski sati zaokružuju: pola sata, kao u obračunu
+// koji se isplaćuje (72, 49, 52,5, 77,5).
+const Korak = 0.5
+
+// ObracunskiPoRazredu vraća obračunske sate po razredu: stvarni sati puta
+// koeficijent, zaokruženo na Korak. Zbroj se radi iz zaokruženih, da ono što
+// piše po stupcima daje ono što piše u zbroju.
+func (k Koeficijenti) ObracunskiPoRazredu(s Sati, m Mjesto) map[Razred]float64 {
+	out := map[Razred]float64{}
 	for r, d := range s {
-		u += zaokruzi(d.Hours()*k[m][r], 2)
+		if d > 0 {
+			out[r] = Zaokruzi(d.Hours()*k[m][r], Korak)
+		}
 	}
-	return zaokruzi(u, 2)
+	return out
 }
 
-func zaokruzi(x float64, dec int) float64 {
-	p := 1.0
-	for i := 0; i < dec; i++ {
-		p *= 10
+// Obracunski vraća zbroj obračunskih sati po razredima
+func (k Koeficijenti) Obracunski(s Sati, m Mjesto) float64 {
+	var u float64
+	for _, v := range k.ObracunskiPoRazredu(s, m) {
+		u += v
 	}
-	if x < 0 {
-		return float64(int64(x*p-0.5)) / p
+	return Zaokruzi(u, Korak)
+}
+
+// Zaokruzi zaokružuje na najbliži višekratnik koraka. Kad je točno na
+// sredini, ide na parni višekratnik — 0,25 na 0, 0,75 na 1 — pa sredine
+// jednom idu djelatniku, jednom ustanovi, i ni jedno ni drugo ne gubi
+// sustavno. Obično zaokruživanje sredine bi uvijek išlo na jednu stranu.
+func Zaokruzi(x, korak float64) float64 {
+	if korak <= 0 {
+		return x
 	}
-	return float64(int64(x*p+0.5)) / p
+	q := x / korak
+	dolje := float64(int64(q))
+	if q < 0 && dolje != q {
+		dolje--
+	}
+	ost := q - dolje
+	const eps = 1e-9
+	switch {
+	case ost < 0.5-eps:
+		return dolje * korak
+	case ost > 0.5+eps:
+		return (dolje + 1) * korak
+	}
+	if int64(dolje)%2 == 0 {
+		return dolje * korak
+	}
+	return (dolje + 1) * korak
 }
