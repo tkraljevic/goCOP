@@ -146,7 +146,16 @@ func (h *JournalsHandler) ShowObracun(w http.ResponseWriter, r *http.Request) {
 	if j.StartedAt != nil {
 		od = j.StartedAt.In(models.Zagreb)
 	}
+	// Zadano razdoblje seže do kraja plana: otvoren dnevnik ima dežurstva
+	// unaprijed, i ona moraju biti u obračunu bez da se razdoblje traži.
 	do := time.Now().In(models.Zagreb).AddDate(0, 0, 1)
+	if dez, err := h.journals.Dezurstva(r.Context(), j.ID); err == nil {
+		for _, d := range dez {
+			if kraj := d.Do.In(models.Zagreb).AddDate(0, 0, 1); kraj.After(do) {
+				do = time.Date(kraj.Year(), kraj.Month(), kraj.Day(), 0, 0, 0, 0, models.Zagreb)
+			}
+		}
+	}
 	if j.EndedAt != nil {
 		do = j.EndedAt.In(models.Zagreb).AddDate(0, 0, 1)
 	}

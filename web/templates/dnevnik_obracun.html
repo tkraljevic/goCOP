@@ -35,6 +35,7 @@
      samo razredi u kojima ima sati, kao "12:00 → 24,5". Zbrojevi stoje odmah
      uz ime, ne iza vodoravnog klizača. Puna tablica sa svih sedam razreda je
      stvar izvoza, ne ekrana. */}}
+<p class="page-desc" style="margin:0 0 0.5rem;">Razdoblje <strong>{{datumHR .From}} – {{datumHR .To}}</strong>{{if not .Journal.EndedAt}}, do kraja plana{{end}}.</p>
 <div class="table-card"><div class="table-responsive tablica-kartice">
   <table class="data-table obracun-tablica">
     <thead><tr><th>Osoba</th><th class="br">Stvarni sati</th><th class="br">Obračunski</th><th>Po razredima <span class="reg-card-sub">(sati → obračunski)</span></th></tr></thead>

@@ -281,6 +281,8 @@ func TestDnevnikCOPKrozRute(t *testing.T) {
 	mora(zovi(http.MethodGet, "/dnevnici/"+dnevnik+"/dezurstva", nil), http.StatusOK, "potvrđeno", "potvrdio Voditelj Centra")
 	w = zovi(http.MethodGet, "/dnevnici/"+dnevnik+"/obracun?od=2026-09-11&do=2026-09-14", nil)
 	mora(w, http.StatusOK, "obračun poslije potvrde", ">26,0<", ">2,0<", ">0,5<", ">1,5<", "cijeli sektor B", "4:00")
+	// Bez zadanog razdoblja obračun seže do kraja plana, pa 14.9. ulazi sam.
+	mora(zovi(http.MethodGet, "/dnevnici/"+dnevnik+"/obracun", nil), http.StatusOK, "zadano razdoblje", ">2,0<", "do kraja plana", "14.9.2026.")
 	if strings.Contains(w.Body.String(), "čeka potvrdu") {
 		t.Error("poslije potvrde još nešto čeka")
 	}
