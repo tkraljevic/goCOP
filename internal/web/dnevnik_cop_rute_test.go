@@ -287,7 +287,7 @@ func TestDnevnikCOPKrozRute(t *testing.T) {
 	w = zovi(http.MethodGet, "/dnevnici/"+dnevnik+"/obracun?od=2026-09-11&do=2026-09-14", nil)
 	mora(w, http.StatusOK, "veza na IORS", "/obracun/"+dezurni.ID.String()+"?od=2026-09-11")
 	w = zovi(http.MethodGet, "/dnevnici/"+dnevnik+"/obracun/"+dezurni.ID.String()+"?od=2026-09-11&do=2026-09-14", nil)
-	mora(w, http.StatusOK, "IORS", "Ana Anić", "Subota 12.9.2026.", "Nedjelja 13.9.2026.", "Ponedjeljak 14.9.2026.",
+	mora(w, http.StatusOK, "IORS", "Ana Anić", "Subota <strong>12.9.2026.</strong>", "Nedjelja <strong>13.9.2026.</strong>", "Ponedjeljak <strong>14.9.2026.</strong>",
 		"19:00", "24:00", "00:00", "07:00", "Dežurstvo u COP-u", "Vuka", "Obilazak i pregled", ">5,5<", ">14,0<", ">0,5<", ">1,5<", ">26,0<", ">2,0<")
 	// Sama sebe vidi i bez prava pisanja u dnevnik; tuđe ne.
 	rw = kaoDezurni(http.MethodGet, "/dnevnici/"+dnevnik+"/obracun/"+dezurni.ID.String(), nil)

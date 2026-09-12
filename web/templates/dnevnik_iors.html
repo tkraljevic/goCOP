@@ -32,29 +32,25 @@
      stupci, jer to jest obrazac. */}}
 <section class="detail-section">
   <h2>{{icon "clock"}} Radni sati po danima</h2>
-  <div class="table-card"><div class="table-responsive">
-    <table class="data-table iors-tablica">
-      <thead>
-        <tr><th rowspan="2">Dan</th><th rowspan="2" class="br">Od</th><th rowspan="2" class="br">Do</th><th rowspan="2">Opis rada</th><th rowspan="2">Za</th><th rowspan="2">Mjesto</th><th rowspan="2" class="br">Ukupno</th>
-          <th colspan="3">radni dan</th><th colspan="2">subota</th><th colspan="2">nedjelja i blagdan</th></tr>
-        <tr>{{range .Razredi}}<th class="br" title="{{.}}" style="font-weight:normal; white-space:nowrap;">{{.Pojas}}</th>{{end}}</tr>
-      </thead>
-      <tbody>
-      {{range .IORS.Redovi}}
-      <tr{{if not .Potvrdeno}} class="iors-ceka"{{end}}>
-        <td style="white-space:nowrap;">{{danTjedna .Dan}} {{.Dan.Format "2.1.2006."}}</td>
-        <td class="mono br">{{.Od.Format "15:04"}}</td>
-        <td class="mono br">{{if eq (.Do.Format "15:04") "00:00"}}24:00{{else}}{{.Do.Format "15:04"}}{{end}}</td>
-        <td>{{.Opis}}{{if not .Potvrdeno}} <span class="badge badge-pending">čeka potvrdu</span>{{end}}</td>
-        <td>{{.Za}}</td>
-        <td>{{if eq .Mjesto "TEREN"}}teren{{else}}ured{{end}}</td>
-        <td class="mono br"><strong>{{sati .Ukupno}}</strong></td>
-        {{$r := .}}{{range $.Razredi}}<td class="mono br">{{sati ($r.Sat .)}}</td>{{end}}
-      </tr>
-      {{end}}
-      </tbody>
-    </table>
-  </div></div>
+  {{/* Kartica po danu umjesto tablice od 14 stupaca: dan, od–do i ukupno u
+       zaglavlju, opis ispod, pa samo razredi koji imaju sate. Nema
+       vodoravnog klizanja; puna tablica je stvar izvoza. */}}
+  <div class="iors-dani">
+    {{range .IORS.Redovi}}
+    <article class="iors-dan{{if not .Potvrdeno}} iors-ceka{{end}}">
+      <div class="iors-dan-glava">
+        <div class="iors-dan-datum">{{danTjedna .Dan}} <strong>{{.Dan.Format "2.1.2006."}}</strong></div>
+        <div class="iors-dan-vrijeme mono">{{.Od.Format "15:04"}} – {{if eq (.Do.Format "15:04") "00:00"}}24:00{{else}}{{.Do.Format "15:04"}}{{end}}</div>
+        <div class="iors-dan-ukupno mono"><strong>{{sati .Ukupno}}</strong> h</div>
+      </div>
+      <div class="iors-dan-opis">{{.Opis}} <span class="reg-chip">{{if eq .Mjesto "TEREN"}}teren{{else}}ured{{end}}</span>
+        <span class="reg-chip">{{.Za}}</span>{{if not .Potvrdeno}} <span class="badge badge-pending">čeka potvrdu</span>{{end}}</div>
+      <ul class="obracun-stavke iors-dan-razredi">
+        {{range .PoRazredima}}<li><span class="reg-card-sub">{{.Razred.Kratko}}</span> <span class="mono">{{sati .Sati}}</span></li>{{end}}
+      </ul>
+    </article>
+    {{end}}
+  </div>
 </section>
 
 {{/* Drugi dio obrasca: obračun — stvarni sati puta koeficijent, po razredu,

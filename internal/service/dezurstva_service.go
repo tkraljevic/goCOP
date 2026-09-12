@@ -411,3 +411,21 @@ func (s *JournalService) ObracunOsobe(ctx context.Context, j *models.Journal, us
 func (s *JournalService) PlanoviOsobe(ctx context.Context, userID string) ([]models.PlanOsobe, error) {
 	return s.repo.PlanoviOsobe(ctx, userID)
 }
+
+// IORSStavka je jedan razred s brojkom u retku po danu
+type IORSStavka struct {
+	Razred obracun.Razred
+	Sati   time.Duration
+}
+
+// PoRazredima vraća razrede retka koji imaju sate, redom obrasca — za
+// prikaz u kartici dana, gdje prazni razredi ne zauzimaju mjesto
+func (r IORSRedak) PoRazredima() []IORSStavka {
+	var out []IORSStavka
+	for _, razred := range obracun.Razredi {
+		if r.Sati[razred] > 0 {
+			out = append(out, IORSStavka{Razred: razred, Sati: r.Sati[razred]})
+		}
+	}
+	return out
+}
