@@ -198,10 +198,10 @@ func TestImeIzvjescaJeSigurnoZaPrijenos(t *testing.T) {
 		st   models.Station
 		want string
 	}{
-		{models.Station{Code: "batina"}, "izvjesce-batina-2026-09-09.docx"},
-		{models.Station{Name: "Gospić Prag (HEP)"}, "izvjesce-gospic-prag-hep-2026-09-09.docx"},
-		{models.Station{Name: "Đakovo Žuta"}, "izvjesce-dakovo-zuta-2026-09-09.docx"},
-		{models.Station{}, "izvjesce-postaja-2026-09-09.docx"},
+		{models.Station{Code: "batina"}, "izvjesce-batina-2026-09-09.xlsx"},
+		{models.Station{Name: "Gospić Prag (HEP)"}, "izvjesce-gospic-prag-hep-2026-09-09.xlsx"},
+		{models.Station{Name: "Đakovo Žuta"}, "izvjesce-dakovo-zuta-2026-09-09.xlsx"},
+		{models.Station{}, "izvjesce-postaja-2026-09-09.xlsx"},
 	} {
 		if got := imeIzvjesca(s.st, kad, izvjesceKartica); got != s.want {
 			t.Errorf("%q → %q, očekivano %q", s.st.Name+s.st.Code, got, s.want)
