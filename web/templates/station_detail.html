@@ -85,8 +85,8 @@
 </section>
 
 <div class="kartica-podnozje">
-  <a href="/stations/{{.Station.ID}}/izvjesce.docx" class="btn btn-secondary"
-     title="Ono što stoji na ovoj stranici, u Wordovu dokumentu">{{icon "file-text"}} Generiraj izvješće</a>
+  <a href="/stations/{{.Station.ID}}/izvjesce.xlsx" class="btn btn-secondary"
+     title="Kartica postaje kao oblikovana Excelova datoteka">{{icon "download"}} Excel</a>
   {{if .CanEdit}}{{if .Permissions.IsGlobalAdmin}}
   <form method="POST" action="/api/stations/delete" style="margin:0;"
         data-brisanje-letve
