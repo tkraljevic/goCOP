@@ -93,6 +93,7 @@ func TestSredstvaKrozRute(t *testing.T) {
 	mux.HandleFunc("GET /sredstva/popisi/{id}/uredi", h.ShowPopisUredi)
 	mux.HandleFunc("POST /sredstva/popisi/{id}", h.HandleSavePopis)
 	mux.HandleFunc("POST /sredstva/popisi/{id}/zakljuci", h.HandleZakljuciPopis)
+	mux.HandleFunc("GET /sredstva/popisi/{id}/inventura.xlsx", h.IzvoziInventuru)
 
 	skladistar := &models.User{ID: uuid.New(), FullName: "Skladištar Osijek"}
 	uprava := &models.UserPermissions{AdminSectors: map[string]bool{"B": true}, AllowedSectors: map[string]bool{"B": true}}
@@ -221,6 +222,25 @@ func TestSredstvaKrozRute(t *testing.T) {
 	mora(zovi(http.MethodGet, "/sredstva/popisi?sektor=B", nil), http.StatusOK, "popisi", "Centralno skladište Osijek", "zaključen")
 	if w := zovi(http.MethodGet, "/sredstva/popisi/"+popis+"/uredi", nil); w.Code != http.StatusForbidden {
 		t.Errorf("uređivanje zaključenog: %d", w.Code)
+	}
+	// inventura u Excelu: knjižno, prebrojano, razlika, potrebe
+	w = zovi(http.MethodGet, "/sredstva/popisi/"+popis+"/inventura.xlsx", nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("izvoz inventure: %d", w.Code)
+	}
+	if r, err := procitajXLSX(w.Body.Bytes()); err != nil {
+		t.Fatal(err)
+	} else {
+		var sve []string
+		for _, x := range r {
+			sve = append(sve, strings.Join(x, "|"))
+		}
+		list := strings.Join(sve, "\n")
+		for _, want := range []string{"INVENTURA SREDSTAVA ZA OBRANU OD POPLAVA NA DAN", "zaključena", "9.|Vreće 50x80 cm|kom|prazno|95000|94990|-10|||50000|10 poderanih", "|Vreće 50x80 cm|kom|napunjeno|1000|1000|"} {
+			if !strings.Contains(list, want) {
+				t.Errorf("inventura nema %q\n%s", want, list)
+			}
+		}
 	}
 
 	// knjiga prometa u Excelu, po filtru

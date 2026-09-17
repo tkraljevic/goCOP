@@ -45,6 +45,144 @@ func (h *MtsHandler) IzvoziTablicu(w http.ResponseWriter, r *http.Request) {
 	posaljiXLSX(w, "MTS_"+strings.ToLower(data.Sektor)+"_"+dan.Format("2006-01-02")+".xlsx", KnjigaMts(t, nazivSektora, z))
 }
 
+// IzvoziInventuru piše inventuru kao .xlsx, s usporedbom prema prethodnoj
+// zaključenoj inventuri istog skladišta, za analizu iz godine u godinu
+func (h *MtsHandler) IzvoziInventuru(w http.ResponseWriter, r *http.Request) {
+	data := h.sektorskoPodaci(r)
+	p, ok := h.ucitajPopis(w, r, &data)
+	if !ok {
+		return
+	}
+	sk := data.Skladiste
+	// prethodna zaključena inventura istog skladišta
+	var prosla *models.Popis
+	if sve, err := h.svc().Popisi(r.Context(), "", sk.ID, 0); err == nil {
+		for i := range sve {
+			if sve[i].Dan.Before(p.Dan) && sve[i].Zakljucen() {
+				if prosla == nil || sve[i].Dan.After(prosla.Dan) {
+					x := sve[i]
+					prosla = &x
+				}
+			}
+		}
+	}
+	terms := models.Terms()
+	z := ZaglavljeIzvoza{Organizacija: terms.OrgName, Sektor: sk.Sektor, Datum: time.Now().In(models.Zagreb)}
+	if terms.HasLogo() && terms.LogoMime == "image/png" {
+		z.LogoPNG = terms.Logo
+	}
+	for _, x := range data.Sektori {
+		if x.ID == sk.Sektor {
+			z.Odjel, z.Centar = x.VgoName, x.CenterCop
+			z.Mjesto = strings.TrimSpace(strings.TrimPrefix(x.CenterCop, terms.CenterShort))
+		}
+	}
+	posaljiXLSX(w, "inventura_"+models.OznakaSredstva(sk.Naziv)+"_"+p.Dan.Format("2006-01-02")+".xlsx", KnjigaInventure(p, sk, prosla, z))
+}
+
+// sektorskoPodaci je pageData; ime je ostalo od zajedničkog obrasca
+func (h *MtsHandler) sektorskoPodaci(r *http.Request) MtsPageData { return h.pageData(r) }
+
+// KnjigaInventure slaže inventuru na A4 vodoravno: redak po vrsti i obliku
+// s knjižnim, prebrojanim, razlikom i potrebama, a uz to prebrojano na
+// prethodnoj inventuri i razlika prema njemu
+func KnjigaInventure(p *models.Popis, sk *models.Skladiste, prosla *models.Popis, z ZaglavljeIzvoza) *xlsxw.Knjiga {
+	k := &xlsxw.Knjiga{LogoPNG: z.LogoPNG}
+	B := xlsxw.T
+	const stupaca = 11
+	l := k.NoviList("Inventura")
+	l.Vodoravno = true
+	l.Sirine = []float64{6, 32, 7, 11, 11, 11, 11, 13, 13, 13, 30}
+	podnaslov := sk.Naziv
+	if sk.AreaName != "" {
+		podnaslov = fmt.Sprintf("BP %d %s · %s", sk.AreaID, sk.AreaName, sk.Naziv)
+	}
+	stanje := "nacrt"
+	if p.Zakljucen() {
+		stanje = "zaključena " + p.ZakljucenoAt.Format("02.01.2006.")
+	}
+	podnaslov += " · " + stanje
+	if prosla != nil {
+		podnaslov += " · usporedba s inventurom na dan " + prosla.Dan.Format("02.01.2006.")
+	}
+	zaglavljeLista(l, z, "INVENTURA SREDSTAVA ZA OBRANU OD POPLAVA NA DAN "+p.Dan.Format("02.01.2006."), podnaslov, stupaca)
+	r := l.Redak()
+	proslaOznaka := "Prethodna inventura"
+	if prosla != nil {
+		proslaOznaka += " " + prosla.Dan.Format("02.01.2006.")
+	}
+	l.Dodaj(B("R. br.", xlsxw.Zaglavlje), B("Vrsta sredstava", xlsxw.Zaglavlje), B("Jed.", xlsxw.Zaglavlje), B("Oblik", xlsxw.Zaglavlje), B("Knjižno", xlsxw.Zaglavlje),
+		B("Prebrojano", xlsxw.Zaglavlje), B("Razlika", xlsxw.Zaglavlje), B(proslaOznaka, xlsxw.Zaglavlje), B("Promjena prema prethodnoj", xlsxw.Zaglavlje), B("Potrebe za nabavom", xlsxw.Zaglavlje), B("Napomena", xlsxw.Zaglavlje))
+	l.Visina(r, 32)
+	l.PonoviRetke(r, r)
+	broj := func(v float64, stil int) xlsxw.Celija {
+		if v == 0 {
+			return B("", stil)
+		}
+		return xlsxw.N(v, stil)
+	}
+	proslo := map[string]float64{}
+	if prosla != nil {
+		for _, st := range prosla.Stavke {
+			proslo[st.VrstaID+"|"+st.Oblik] = st.Utvrdjeno
+		}
+	}
+	var zbrojRazlika, zbrojPotreba int
+	for _, g := range models.GrupeSredstava {
+		red := make([]xlsxw.Celija, stupaca)
+		for c := range red {
+			red[c] = B("", xlsxw.TablicaPod)
+		}
+		red[0], red[1] = B(g.Rimski, xlsxw.TablicaPod), B(g.Naziv, xlsxw.TablicaPod)
+		l.Dodaj(red...)
+		n := 0
+		for _, st := range p.Stavke {
+			if st.Grupa != g.ID {
+				continue
+			}
+			// svaki oblik je svoj redak; redni broj nosi samo prvi redak vrste
+			rb := ""
+			if st.Oblik == models.OblikOsnovni || st.Oblik == models.OblikPrazno {
+				n++
+				rb = strconv.Itoa(n) + "."
+			}
+			oblik := ""
+			if st.Oblik != "" {
+				oblik = models.OblikNaziv(st.Oblik)
+			}
+			razlika := st.Razlika()
+			if razlika != 0 {
+				zbrojRazlika++
+			}
+			if st.Potrebno != 0 {
+				zbrojPotreba++
+			}
+			var prije, promjena xlsxw.Celija = B("", xlsxw.TablicaBroj), B("", xlsxw.TablicaBroj)
+			if prosla != nil {
+				pr := proslo[st.VrstaID+"|"+st.Oblik]
+				prije = broj(pr, xlsxw.TablicaBroj)
+				promjena = broj(st.Utvrdjeno-pr, xlsxw.TablicaBroj)
+			}
+			l.Dodaj(B(rb, xlsxw.TablicaSredina), B(st.VrstaNaziv, xlsxw.Tablica), B(st.Jedinica, xlsxw.TablicaSredina), B(oblik, xlsxw.TablicaSredina),
+				broj(st.Knjizno, xlsxw.TablicaBroj), broj(st.Utvrdjeno, xlsxw.TablicaBrojPod), broj(razlika, xlsxw.TablicaBroj), prije, promjena,
+				broj(st.Potrebno, xlsxw.TablicaBroj), B(st.Napomena, xlsxw.TablicaTekst))
+		}
+	}
+	napomenaLista(l, fmt.Sprintf("Knjižno je stanje iz prometa na dan inventure; razlika je prebrojano manje knjižno i zaključenjem se proknjižava kao usklađenje. Redaka s razlikom: %d; redaka s potrebama za nabavom: %d. Izradio: %s, %s.%s Iz programa goCOP.",
+		zbrojRazlika, zbrojPotreba, p.Izradio, p.IzradenoAt.Format("02.01.2006. 15:04"), naznaka(p.Napomena)), stupaca, 36)
+	zp := z
+	zp.Datum = p.Dan
+	potpisiLista(l, zp, stupaca, []PotpisnikIzvoza{{Funkcija: "popis izvršio (skladištar)", Ime: p.Izradio}, {Funkcija: "član povjerenstva"}, {Funkcija: "rukovoditelj branjenog područja"}})
+	return k
+}
+
+func naznaka(s string) string {
+	if strings.TrimSpace(s) == "" {
+		return ""
+	}
+	return " Napomena: " + s + "."
+}
+
 // IzvoziPotvrdu piše potvrdu jednog zahvata: otpremnicu za izdavanje i
 // prijenos, primku za primljeno, povratnicu za povrat, potvrdu za ostalo
 func (h *MtsHandler) IzvoziPotvrdu(w http.ResponseWriter, r *http.Request) {

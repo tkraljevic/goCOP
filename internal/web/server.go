@@ -936,6 +936,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /sredstva/popisi/{id}/uredi", s.authMiddleware(http.HandlerFunc(mtsH.ShowPopisUredi)))
 	s.mux.Handle("POST /sredstva/popisi/{id}", s.authMiddleware(http.HandlerFunc(mtsH.HandleSavePopis)))
 	s.mux.Handle("POST /sredstva/popisi/{id}/zakljuci", s.authMiddleware(http.HandlerFunc(mtsH.HandleZakljuciPopis)))
+	s.mux.Handle("GET /sredstva/popisi/{id}/inventura.xlsx", s.authMiddleware(http.HandlerFunc(mtsH.IzvoziInventuru)))
 
 	izvjescaH := NewIzvjescaHandler(func() *service.IzvjescaService { return s.izvjescaService },
 		s.templates["izvjesca.html"], s.templates["izvjesce_form.html"], s.templates["izvjesce.html"])

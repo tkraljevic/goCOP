@@ -14,6 +14,7 @@
       {{if $p.Razlika}} · {{$p.Razlika}} {{uzBroj $p.Razlika "redak" "retka" "redaka"}} s razlikom{{end}}</p>
   </div>
   <div class="page-actions">
+    <a href="/sredstva/popisi/{{$p.ID}}/inventura.xlsx" class="btn btn-secondary" title="inventura s usporedbom prema prethodnoj, A4">{{icon "download"}} Excel</a>
     {{if and .SmijePisati (not $p.Zakljucen)}}
     <a href="/sredstva/popisi/{{$p.ID}}/uredi" class="btn btn-secondary">{{icon "pencil"}} Uredi</a>
     <form method="POST" action="/sredstva/popisi/{{$p.ID}}/zakljuci" style="display:inline;" onsubmit="return confirm('Zaključiti inventuru? Razlike prema knjizi bit će proknjižene.');"><button type="submit" class="btn btn-primary">{{icon "lock"}} Zaključi</button></form>
