@@ -122,6 +122,76 @@ func InitSchema(database *sql.DB) error {
 			updated_at DATETIME NOT NULL
 		);`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_sektorska_izvjesca_dan ON sektorska_izvjesca(sektor, dan);`,
+		// Materijalno-tehnička sredstva: katalog vrsta, skladišta, promet i
+		// godišnji popis. Količine se ne drže kao broj nego se zbrajaju iz
+		// prometa, pa tablica stanja namjerno ne postoji.
+		`CREATE TABLE IF NOT EXISTS mts_vrste (
+			id TEXT PRIMARY KEY,
+			grupa TEXT NOT NULL,
+			redoslijed INTEGER NOT NULL DEFAULT 0,
+			naziv TEXT NOT NULL,
+			jedinica TEXT NOT NULL DEFAULT 'kom',
+			oblici TEXT NOT NULL DEFAULT '[]',
+			aktivna INTEGER NOT NULL DEFAULT 1,
+			napomena TEXT NOT NULL DEFAULT '',
+			updated_at DATETIME NOT NULL
+		);`,
+		`CREATE TABLE IF NOT EXISTS mts_skladista (
+			id TEXT PRIMARY KEY,
+			sektor TEXT NOT NULL,
+			area_id INTEGER NOT NULL DEFAULT 0,
+			naziv TEXT NOT NULL,
+			adresa TEXT NOT NULL DEFAULT '',
+			structure_id TEXT NOT NULL DEFAULT '',
+			contractor_id TEXT NOT NULL DEFAULT '',
+			centralno INTEGER NOT NULL DEFAULT 0,
+			aktivno INTEGER NOT NULL DEFAULT 1,
+			napomena TEXT NOT NULL DEFAULT '',
+			created_at DATETIME NOT NULL,
+			updated_at DATETIME NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_mts_skladista_sektor ON mts_skladista(sektor, area_id);`,
+		`CREATE TABLE IF NOT EXISTS mts_promet (
+			id TEXT PRIMARY KEY,
+			datum TEXT NOT NULL,
+			vrsta_id TEXT NOT NULL,
+			oblik TEXT NOT NULL DEFAULT '',
+			kolicina REAL NOT NULL,
+			vrsta TEXT NOT NULL,
+			skladiste_id TEXT NOT NULL DEFAULT '',
+			section_code TEXT NOT NULL DEFAULT '',
+			veza_id TEXT NOT NULL DEFAULT '',
+			journal_id TEXT NOT NULL DEFAULT '',
+			popis_id TEXT NOT NULL DEFAULT '',
+			nalozio TEXT NOT NULL DEFAULT '',
+			preuzeo TEXT NOT NULL DEFAULT '',
+			dokument TEXT NOT NULL DEFAULT '',
+			user_id TEXT NOT NULL DEFAULT '',
+			user_name TEXT NOT NULL DEFAULT '',
+			napomena TEXT NOT NULL DEFAULT '',
+			created_at DATETIME NOT NULL,
+			updated_at DATETIME NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_mts_promet_skladiste ON mts_promet(skladiste_id, vrsta_id, oblik);`,
+		`CREATE INDEX IF NOT EXISTS idx_mts_promet_teren ON mts_promet(journal_id, section_code, vrsta_id);`,
+		`CREATE INDEX IF NOT EXISTS idx_mts_promet_datum ON mts_promet(datum);`,
+		`CREATE TABLE IF NOT EXISTS mts_popisi (
+			id TEXT PRIMARY KEY,
+			skladiste_id TEXT NOT NULL,
+			sektor TEXT NOT NULL,
+			dan TEXT NOT NULL,
+			godina INTEGER NOT NULL,
+			stavke TEXT NOT NULL DEFAULT '[]',
+			izradio_id TEXT NOT NULL DEFAULT '',
+			izradio TEXT NOT NULL DEFAULT '',
+			izradeno_at DATETIME NOT NULL,
+			zakljuceno_at DATETIME,
+			napomena TEXT NOT NULL DEFAULT '',
+			created_at DATETIME NOT NULL,
+			updated_at DATETIME NOT NULL
+		);`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_mts_popisi_dan ON mts_popisi(skladiste_id, dan);`,
+
 		`CREATE TABLE IF NOT EXISTS obracun_postavke (
 			id TEXT PRIMARY KEY,
 			vrijednost TEXT NOT NULL,
