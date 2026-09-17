@@ -20,6 +20,7 @@
     <a href="/sredstva/skladista/{{$sk.ID}}/promet/novo?vrsta=IZDANO" class="btn btn-primary">{{icon "arrow-right"}} Izdaj na teren</a>
     <a href="/sredstva/skladista/{{$sk.ID}}/promet/novo" class="btn btn-secondary">{{icon "notebook-pen"}} Drugi zahvat</a>
     <a href="/sredstva/skladista/{{$sk.ID}}/popis" class="btn btn-secondary">{{icon "list"}} Inventura na dan</a>
+    <a href="/sredstva/skladista/{{$sk.ID}}/potrebe" class="btn btn-secondary">{{icon "notebook-pen"}} Potrebe za nabavom</a>
     {{end}}
     {{if .SmijeUrediti}}<a href="/sredstva/skladista/{{$sk.ID}}/uredi" class="btn btn-secondary">{{icon "pencil"}} Uredi</a>{{end}}
     <a href="/sredstva/skladista/{{$sk.ID}}/skladiste.xlsx" class="btn btn-secondary" title="stanje na danas i knjiga prometa, A4">{{icon "download"}} Excel</a>

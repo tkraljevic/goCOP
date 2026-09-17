@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -84,6 +85,9 @@ func TestSredstvaKrozRute(t *testing.T) {
 	mux.HandleFunc("GET /sredstva/skladista/{id}/promet/novo", h.ShowPrometForm)
 	mux.HandleFunc("POST /sredstva/skladista/{id}/promet", h.HandleSavePromet)
 	mux.HandleFunc("GET /sredstva/skladista/{id}/popis", h.ShowPopisNovo)
+	mux.HandleFunc("GET /sredstva/skladista/{id}/potrebe", h.ShowPotrebe)
+	mux.HandleFunc("POST /sredstva/skladista/{id}/potrebe", h.HandleSavePotrebe)
+	mux.HandleFunc("GET /sredstva/potrebe", h.ShowPotrebeSektora)
 	mux.HandleFunc("GET /sredstva/skladista/{id}/skladiste.xlsx", h.IzvoziSkladiste)
 	mux.HandleFunc("GET /sredstva/promet/{veza}/potvrda.xlsx", h.IzvoziPotvrdu)
 	mux.HandleFunc("GET /sredstva/promet.xlsx", h.IzvoziPromet)
@@ -211,10 +215,10 @@ func TestSredstvaKrozRute(t *testing.T) {
 	// popis: predložak nosi knjižno, spremi se s prebrojanim i potrebama, zaključi
 	mora(zovi(http.MethodGet, "/sredstva/skladista/"+sk+"/popis?dan="+danas, nil), http.StatusOK, "popis predložak", "Inventura na dan", `name="u:vrece-50x80:PRAZNO"`, `value="95000"`)
 	obrazac := url.Values{"skladiste": {sk}, "dan": {danas}, "u:vrece-50x80:PRAZNO": {"94 990"}, "k:vrece-50x80:PRAZNO": {"95000"},
-		"u:vrece-50x80:PUNJENO": {"1000"}, "k:vrece-50x80:PUNJENO": {"1000"}, "p:vrece-50x80:PRAZNO": {"50 000"}, "n:vrece-50x80:PRAZNO": {"10 poderanih"}}
+		"u:vrece-50x80:PUNJENO": {"1000"}, "k:vrece-50x80:PUNJENO": {"1000"}, "n:vrece-50x80:PRAZNO": {"10 poderanih"}}
 	kamo = odredište(zovi(http.MethodPost, "/sredstva/popisi", obrazac), "spremanje popisa")
 	popis := strings.SplitN(strings.TrimPrefix(kamo, "/sredstva/popisi/"), "?", 2)[0]
-	mora(zovi(http.MethodGet, "/sredstva/popisi/"+popis, nil), http.StatusOK, "popis nacrt", "nacrt", "94 990", "−10", "50 000", "10 poderanih", "Zaključi")
+	mora(zovi(http.MethodGet, "/sredstva/popisi/"+popis, nil), http.StatusOK, "popis nacrt", "nacrt", "94 990", "−10", "10 poderanih", "Zaključi")
 	mora(zovi(http.MethodGet, "/sredstva/skladista/"+sk+"/popis?dan="+danas, nil), http.StatusSeeOther, "isti dan vodi na postojeći")
 	odredište(zovi(http.MethodPost, "/sredstva/popisi/"+popis+"/zakljuci", url.Values{}), "zaključenje")
 	mora(zovi(http.MethodGet, "/sredstva/popisi/"+popis, nil), http.StatusOK, "zaključen", "zaključen", "razlike proknjižene")
@@ -236,7 +240,7 @@ func TestSredstvaKrozRute(t *testing.T) {
 			sve = append(sve, strings.Join(x, "|"))
 		}
 		list := strings.Join(sve, "\n")
-		for _, want := range []string{"INVENTURA SREDSTAVA ZA OBRANU OD POPLAVA NA DAN", "zaključena", "9.|Vreće 50x80 cm|kom|prazno|95000|94990|-10|||50000|10 poderanih", "|Vreće 50x80 cm|kom|napunjeno|1000|1000|"} {
+		for _, want := range []string{"INVENTURA SREDSTAVA ZA OBRANU OD POPLAVA NA DAN", "zaključena", "9.|Vreće 50x80 cm|kom|prazno|95000|94990|-10|||10 poderanih", "|Vreće 50x80 cm|kom|napunjeno|1000|1000|"} {
 			if !strings.Contains(list, want) {
 				t.Errorf("inventura nema %q\n%s", want, list)
 			}
@@ -262,6 +266,12 @@ func TestSredstvaKrozRute(t *testing.T) {
 			}
 		}
 	}
+
+	// potrebe za nabavom, odvojeno od inventure, za godinu nabave koja pripada danas
+	godina := models.GodinaPotreba(time.Now().In(models.Zagreb))
+	mora(zovi(http.MethodGet, "/sredstva/skladista/"+sk+"/potrebe", nil), http.StatusOK, "potrebe obrazac", "Potrebe za nabavom u "+strconv.Itoa(godina)+".", `name="pt:vrece-50x80"`)
+	odredište(zovi(http.MethodPost, "/sredstva/skladista/"+sk+"/potrebe", url.Values{"godina": {strconv.Itoa(godina)}, "pt:vrece-50x80": {"50 000"}, "pn:vrece-50x80": {"potrošeno u obrani"}}), "potrebe")
+	mora(zovi(http.MethodGet, "/sredstva/potrebe?sektor=B&godina="+strconv.Itoa(godina), nil), http.StatusOK, "potrebe sektora", "Vreće 50x80 cm", "50 000", "Centralno skladište Osijek")
 
 	// kartica skladišta u Excelu: stanje s oblicima i potrebama, pa promet
 	w = zovi(http.MethodGet, "/sredstva/skladista/"+sk+"/skladiste.xlsx?dan="+danas, nil)
