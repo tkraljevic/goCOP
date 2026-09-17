@@ -911,6 +911,7 @@ func (s *Server) setupRoutes() {
 		func(ime string) *template.Template { return s.templates[ime] })
 	s.mux.Handle("GET /sredstva", s.authMiddleware(http.HandlerFunc(mtsH.ShowPregled)))
 	s.mux.Handle("GET /sredstva/promet", s.authMiddleware(http.HandlerFunc(mtsH.ShowPromet)))
+	s.mux.Handle("GET /sredstva/mts.xlsx", s.authMiddleware(http.HandlerFunc(mtsH.IzvoziTablicu)))
 	s.mux.Handle("GET /sredstva/na-terenu", s.authMiddleware(http.HandlerFunc(mtsH.ShowNaTerenu)))
 	s.mux.Handle("GET /sredstva/gdje/{vrsta}", s.authMiddleware(http.HandlerFunc(mtsH.ShowGdjeIma)))
 	s.mux.Handle("GET /sredstva/skladista/novo", s.authMiddleware(http.HandlerFunc(mtsH.ShowSkladisteForm)))

@@ -22,6 +22,14 @@
   <input type="number" id="f-godina" name="godina" class="form-control" value="{{if .Godina}}{{.Godina}}{{end}}" placeholder="sve" style="max-width:7rem;">
   <button type="submit" class="btn btn-secondary">{{icon "search"}} Prikaži</button>
 </form>
+{{if .Sektor}}
+<form method="GET" action="/sredstva/mts.xlsx" class="obracun-filtar">
+  <input type="hidden" name="sektor" value="{{.Sektor}}">
+  <label for="f-dan-gcop">Tablica za Glavni centar na dan</label>
+  <input type="date" id="f-dan-gcop" name="dan" class="form-control" value="{{.Danas}}" max="{{.Danas}}">
+  <button type="submit" class="btn btn-secondary">{{icon "download"}} Excel za GCOP</button>
+</form>
+{{end}}
 
 {{if .Skladista}}
 <div class="sektorsko-ploca">

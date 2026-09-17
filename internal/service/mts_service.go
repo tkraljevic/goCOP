@@ -632,3 +632,98 @@ func (s *MtsService) Popis(ctx context.Context, id string) (*models.Popis, error
 func (s *MtsService) Popisi(ctx context.Context, sektor, skladisteID string, godina int) ([]models.Popis, error) {
 	return s.repo.ListPopisi(ctx, sektor, skladisteID, godina)
 }
+
+// ---- tablica za Glavni centar
+
+// TablicaSredstava je popis sredstava po skladištima sektora na dan, kako
+// ga sektor jednom godišnje šalje Glavnom centru: redak po vrsti, dva
+// stupca po skladištu (stanje na dan, dodatne potrebe za nabavom) i zbroj
+// sektora. Skladište s popisom na taj dan daje prebrojano i potrebe;
+// skladište bez popisa daje knjižno stanje i nula potreba.
+type TablicaSredstava struct {
+	Sektor    string
+	Dan       time.Time
+	Skladista []models.Skladiste
+	Vrste     []models.VrstaSredstva
+	stanje    map[string]map[string]float64 // skladište → vrsta → stanje
+	potrebe   map[string]map[string]float64
+	Popisi    map[string]*models.Popis // skladište → popis na dan, kad postoji
+}
+
+// StanjeU vraća stanje vrste u skladištu, preko svih oblika
+func (t TablicaSredstava) StanjeU(skladisteID, vrstaID string) float64 {
+	return t.stanje[skladisteID][vrstaID]
+}
+
+// PotrebeU vraća dodatne potrebe vrste u skladištu
+func (t TablicaSredstava) PotrebeU(skladisteID, vrstaID string) float64 {
+	return t.potrebe[skladisteID][vrstaID]
+}
+
+// UkupnoStanje zbraja stanje vrste kroz sva skladišta
+func (t TablicaSredstava) UkupnoStanje(vrstaID string) float64 {
+	var s float64
+	for _, sk := range t.Skladista {
+		s += t.stanje[sk.ID][vrstaID]
+	}
+	return s
+}
+
+// UkupnoPotrebe zbraja potrebe vrste kroz sva skladišta
+func (t TablicaSredstava) UkupnoPotrebe(vrstaID string) float64 {
+	var s float64
+	for _, sk := range t.Skladista {
+		s += t.potrebe[sk.ID][vrstaID]
+	}
+	return s
+}
+
+// Izvor kaže odakle je stupac skladišta: zaključen popis, nacrt popisa ili knjiga
+func (t TablicaSredstava) Izvor(skladisteID string) string {
+	p, ok := t.Popisi[skladisteID]
+	switch {
+	case !ok:
+		return "knjižno stanje"
+	case p.Zakljucen():
+		return "popis zaključen"
+	}
+	return "popis u nacrtu"
+}
+
+// Tablica slaže popis sredstava sektora na dan
+func (s *MtsService) Tablica(ctx context.Context, sektor string, dan time.Time) (*TablicaSredstava, error) {
+	dan = pocetakDana(dan)
+	skladista, err := s.repo.ListSkladista(ctx, sektor, 0, false)
+	if err != nil {
+		return nil, err
+	}
+	vrste, err := s.repo.ListVrste(ctx, false)
+	if err != nil {
+		return nil, err
+	}
+	t := &TablicaSredstava{Sektor: sektor, Dan: dan, Skladista: skladista, Vrste: vrste,
+		stanje: map[string]map[string]float64{}, potrebe: map[string]map[string]float64{}, Popisi: map[string]*models.Popis{}}
+	for _, sk := range skladista {
+		t.stanje[sk.ID], t.potrebe[sk.ID] = map[string]float64{}, map[string]float64{}
+		p, err := s.repo.PopisZaDan(ctx, sk.ID, dan)
+		if err != nil {
+			return nil, err
+		}
+		if p != nil {
+			t.Popisi[sk.ID] = p
+			for _, st := range p.Stavke {
+				t.stanje[sk.ID][st.VrstaID] += st.Utvrdjeno
+				t.potrebe[sk.ID][st.VrstaID] += st.Potrebno
+			}
+			continue
+		}
+		stanja, err := s.repo.Stanje(ctx, sk.ID, "", &dan)
+		if err != nil {
+			return nil, err
+		}
+		for _, st := range stanja {
+			t.stanje[sk.ID][st.VrstaID] += st.Kolicina
+		}
+	}
+	return t, nil
+}
