@@ -3439,3 +3439,16 @@ textarea {
 .izvjesce-kolicine { display: flex; flex-wrap: wrap; gap: 0.4rem 1.5rem; margin: 0.15rem 0; }
 .izvjesce-kolicine > span { display: inline-flex; flex-direction: column; min-width: 4.5rem; }
 .izvjesce-kolicine small { font-size: 0.68rem; color: var(--text-muted, #667); text-transform: uppercase; letter-spacing: 0.03em; }
+
+/* Sredstva za obranu (MTS) */
+.mts-stanje tr.mts-grupa td, .mts-popis tr.mts-grupa td { background: var(--surface-2, #f3f5f8); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; font-size: 0.78rem; }
+.mts-stanje tr.mts-prazno td, .mts-popis tr.mts-prazno td { color: var(--text-muted, #889); }
+.mts-plus { color: var(--success, #1b7f3b); }
+.mts-minus { color: var(--danger, #b3261e); }
+.mts-zahvati { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: 0.4rem; }
+.mts-zahvat { display: flex; flex-direction: column; gap: 0.15rem; padding: 0.5rem 0.65rem; border: 1px solid var(--border, #d9dee5); border-radius: 8px; cursor: pointer; }
+.mts-zahvat:has(input:checked) { border-color: var(--primary, #173e74); background: color-mix(in srgb, var(--primary, #173e74) 6%, transparent); }
+.mts-zahvat small { color: var(--text-muted, #667); font-size: 0.75rem; }
+.mts-zahvat input { margin-right: 0.3rem; }
+.mts-broj { max-width: 8rem; text-align: right; }
+.mts-skladista .reg-card { padding: 0.75rem 1rem; }

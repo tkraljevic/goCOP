@@ -1,0 +1,91 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — {{.Skladiste.Naziv}}{{end}}
+
+{{define "content"}}
+{{$sk := .Skladiste}}
+<div class="breadcrumb"><a href="/registri">Registri</a> › <a href="/sredstva?sektor={{$sk.Sektor}}">Sredstva za obranu</a> › {{$sk.Naziv}}</div>
+
+<div class="detail-head">
+  <div>
+    <h1 class="page-title">{{icon "building"}} {{$sk.Naziv}}{{if $sk.Centralno}} <span class="reg-chip">središnje skladište</span>{{end}}{{if not $sk.Aktivno}} <span class="badge badge-inactive">ugašeno</span>{{end}}</h1>
+    <p class="page-desc">{{if $sk.AreaName}}BP {{$sk.AreaID}} · {{$sk.AreaName}} · {{end}}{{term "sektor"}} {{$sk.Sektor}}{{if $sk.Adresa}} · {{$sk.Adresa}}{{end}}
+      {{if $sk.StructureName}} · objekt: <a href="/structures/{{$sk.StructureID}}">{{$sk.StructureName}}</a>{{end}}
+      {{if $sk.ContractorName}} · u krugu: {{$sk.ContractorName}}{{end}}</p>
+    {{if $sk.Napomena}}<p class="page-desc">{{$sk.Napomena}}</p>{{end}}
+  </div>
+  <div class="page-actions">
+    {{if .SmijePisati}}
+    <a href="/sredstva/skladista/{{$sk.ID}}/promet/novo?vrsta=PRIMKA" class="btn btn-primary">{{icon "plus"}} Primka</a>
+    <a href="/sredstva/skladista/{{$sk.ID}}/promet/novo?vrsta=IZDANO" class="btn btn-primary">{{icon "arrow-right"}} Izdaj na teren</a>
+    <a href="/sredstva/skladista/{{$sk.ID}}/promet/novo" class="btn btn-secondary">{{icon "notebook-pen"}} Drugi zahvat</a>
+    <a href="/sredstva/skladista/{{$sk.ID}}/popis" class="btn btn-secondary">{{icon "list"}} Popis na dan</a>
+    {{end}}
+    {{if .SmijeUrediti}}<a href="/sredstva/skladista/{{$sk.ID}}/uredi" class="btn btn-secondary">{{icon "pencil"}} Uredi</a>{{end}}
+  </div>
+</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
+
+<section class="detail-section">
+  <h2>{{icon "list"}} Stanje</h2>
+  {{$oblici := .Oblici}}
+  <div class="table-card"><div class="table-responsive">
+    <table class="data-table mts-stanje">
+      <thead><tr><th>R. br.</th><th>Vrsta sredstva</th><th>Jed.</th><th class="br">Ukupno</th>{{range $oblici}}<th class="br">{{oblik .}}</th>{{end}}<th></th></tr></thead>
+      <tbody>
+      {{range .PoGrupama}}
+      <tr class="mts-grupa"><td>{{.Rimski}}</td><td colspan="{{add 4 (len $oblici)}}">{{.Naziv}}</td></tr>
+      {{range .Redci}}
+      <tr{{if not .Ima}} class="mts-prazno"{{end}}>
+        <td class="mono">{{.Vrsta.Redoslijed}}.</td>
+        <td><a href="/sredstva/gdje/{{.Vrsta.ID}}" title="gdje ima">{{.Vrsta.Naziv}}</a></td>
+        <td>{{.Vrsta.Jedinica}}</td>
+        <td class="mono br"><strong>{{if .Ukupno}}{{kolicina .Ukupno}}{{end}}</strong></td>
+        {{$sv := .}}{{range $oblici}}<td class="mono br">{{if $sv.Vrsta.ImaOblike}}{{with $sv.Oblik .}}{{kolicina .}}{{end}}{{end}}</td>{{end}}
+        <td>{{if $.SmijePisati}}<a href="/sredstva/skladista/{{$sk.ID}}/promet/novo?sredstvo={{.Vrsta.ID}}" class="btn btn-secondary btn-sm" title="zahvat na ovoj vrsti">{{icon "plus"}}</a>{{end}}</td>
+      </tr>
+      {{end}}
+      {{end}}
+      </tbody>
+    </table>
+  </div></div>
+</section>
+
+<section class="detail-section">
+  <h2>{{icon "notebook"}} Zadnji promet <a href="/sredstva/promet?sektor={{$sk.Sektor}}&skladiste={{$sk.ID}}" class="btn btn-secondary btn-sm" style="margin-left:0.5rem;">cijela knjiga</a></h2>
+  {{if .Promet}}
+  <div class="table-card"><div class="table-responsive tablica-kartice">
+    <table class="data-table">
+      <thead><tr><th>Datum</th><th>Zahvat</th><th>Sredstvo</th><th class="br">Količina</th><th>Nalog · osoba · dokument</th><th>Upisao</th><th>Napomena</th></tr></thead>
+      <tbody>
+      {{range .Promet}}
+      <tr>
+        <td data-stupac="Datum" class="mono">{{.Datum.Format "2.1.2006."}}</td>
+        <td data-stupac="Zahvat">{{promet .Vrsta}}</td>
+        <td data-stupac="Sredstvo">{{.VrstaNaziv}}{{if .Oblik}} <span class="reg-card-sub">{{oblik .Oblik}}</span>{{end}}</td>
+        <td data-stupac="Količina" class="mono br {{if lt .Kolicina 0.0}}mts-minus{{else}}mts-plus{{end}}">{{kolicinaZnak .Kolicina}} {{.Jedinica}}</td>
+        <td data-stupac="Nalog">{{if .Nalozio}}nalog: {{.Nalozio}}{{end}}{{if .Preuzeo}}{{if .Nalozio}} · {{end}}{{strana .Vrsta}}: {{.Preuzeo}}{{end}}{{if .Dokument}} · {{.Dokument}}{{end}}{{if .SectionCode}} · {{.SectionCode}}{{end}}</td>
+        <td data-stupac="Upisao">{{.UserName}}</td>
+        <td data-stupac="Napomena">{{.Napomena}}</td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div></div>
+  {{else}}<div class="reg-empty">Još nema prometa. Prvi zahvat je obično <strong>početno stanje</strong>: što je zatečeno na polici kad se skladište uvodi u program.</div>{{end}}
+</section>
+
+{{if .Popisi}}
+<section class="detail-section">
+  <h2>{{icon "list"}} Popisi</h2>
+  <div class="table-card"><div class="table-responsive">
+    <table class="data-table">
+      <thead><tr><th>Na dan</th><th>Stanje</th><th class="br">Razlika u redaka</th><th>Izradio</th></tr></thead>
+      <tbody>{{range .Popisi}}<tr><td><a href="/sredstva/popisi/{{.ID}}">{{.Dan.Format "2.1.2006."}}</a></td><td>{{if .Zakljucen}}<span class="badge">zaključen {{.ZakljucenoAt.Format "2.1.2006."}}</span>{{else}}<span class="badge badge-pending">nacrt</span>{{end}}</td><td class="mono br">{{.Razlika}}</td><td>{{.Izradio}}</td></tr>{{end}}</tbody>
+    </table>
+  </div></div>
+</section>
+{{end}}
+{{end}}

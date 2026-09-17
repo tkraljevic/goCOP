@@ -1,0 +1,53 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Popis {{.Skladiste.Naziv}} {{.Popis.Dan.Format "2.1.2006."}}{{end}}
+
+{{define "content"}}
+{{$p := .Popis}}{{$sk := .Skladiste}}
+<div class="breadcrumb"><a href="/registri">Registri</a> › <a href="/sredstva?sektor={{$sk.Sektor}}">Sredstva za obranu</a> › <a href="/sredstva/skladista/{{$sk.ID}}">{{$sk.Naziv}}</a> › Popis {{$p.Dan.Format "2.1.2006."}}</div>
+
+<div class="detail-head">
+  <div>
+    <h1 class="page-title">{{icon "list"}} Popis sredstava na dan {{$p.Dan.Format "2.1.2006."}}</h1>
+    <p class="page-desc">{{$sk.Naziv}}{{if $sk.AreaName}} · BP {{$sk.AreaID}} {{$sk.AreaName}}{{end}} · {{term "sektor"}} {{$sk.Sektor}}
+      · {{if $p.Zakljucen}}<span class="badge">zaključen {{$p.ZakljucenoAt.Format "2.1.2006. 15:04"}}</span>{{else}}<span class="badge badge-pending">nacrt</span>{{end}}
+      {{if $p.Razlika}} · {{$p.Razlika}} {{uzBroj $p.Razlika "redak" "retka" "redaka"}} s razlikom{{end}}</p>
+  </div>
+  <div class="page-actions">
+    {{if and .SmijePisati (not $p.Zakljucen)}}
+    <a href="/sredstva/popisi/{{$p.ID}}/uredi" class="btn btn-secondary">{{icon "pencil"}} Uredi</a>
+    <form method="POST" action="/sredstva/popisi/{{$p.ID}}/zakljuci" style="display:inline;" onsubmit="return confirm('Zaključiti popis? Razlike prema knjizi bit će proknjižene.');"><button type="submit" class="btn btn-primary">{{icon "lock"}} Zaključi</button></form>
+    {{end}}
+  </div>
+</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
+
+<div class="table-card"><div class="table-responsive">
+  <table class="data-table mts-popis">
+    <thead><tr><th>R. br.</th><th>Vrsta sredstva</th><th>Jed.</th><th>Oblik</th><th class="br">Knjižno</th><th class="br">Prebrojano</th><th class="br">Razlika</th><th class="br">Potrebe za nabavom</th><th>Napomena</th></tr></thead>
+    <tbody>
+    {{range .StavkePoGrupama}}
+    <tr class="mts-grupa"><td>{{.Rimski}}</td><td colspan="8">{{.Naziv}}</td></tr>
+    {{range .Stavke}}
+    <tr{{if and (not .Utvrdjeno) (not .Potrebno) (not .Knjizno)}} class="mts-prazno"{{end}}>
+      <td></td>
+      <td>{{.VrstaNaziv}}</td>
+      <td>{{.Jedinica}}</td>
+      <td>{{if .Oblik}}{{oblik .Oblik}}{{end}}</td>
+      <td class="mono br">{{if .Knjizno}}{{kolicina .Knjizno}}{{end}}</td>
+      <td class="mono br"><strong>{{if .Utvrdjeno}}{{kolicina .Utvrdjeno}}{{end}}</strong></td>
+      <td class="mono br {{if lt .Razlika 0.0}}mts-minus{{else if gt .Razlika 0.0}}mts-plus{{end}}">{{if .Razlika}}{{kolicinaZnak .Razlika}}{{end}}</td>
+      <td class="mono br">{{if .Potrebno}}{{kolicina .Potrebno}}{{end}}</td>
+      <td>{{.Napomena}}</td>
+    </tr>
+    {{end}}
+    {{end}}
+    </tbody>
+  </table>
+</div></div>
+
+<p class="reading-meta" style="margin-top:0.75rem;">Izradio: <strong>{{$p.Izradio}}</strong>, {{$p.IzradenoAt.Format "2.1.2006. 15:04"}}{{if $p.Napomena}} · {{$p.Napomena}}{{end}}
+  {{if $p.Zakljucen}} · razlike proknjižene kao usklađenje po popisu{{end}}</p>
+{{end}}

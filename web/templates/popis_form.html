@@ -1,0 +1,56 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Popis sredstava na dan{{end}}
+
+{{define "content"}}
+{{$p := .Popis}}{{$sk := .Skladiste}}
+<div class="breadcrumb"><a href="/registri">Registri</a> › <a href="/sredstva?sektor={{$sk.Sektor}}">Sredstva za obranu</a> › <a href="/sredstva/skladista/{{$sk.ID}}">{{$sk.Naziv}}</a> › Popis na dan {{$p.Dan.Format "2.1.2006."}}</div>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "list"}} Popis sredstava — {{$sk.Naziv}}</h1>
+    <p class="page-desc">Stanje na dan <strong>{{$p.Dan.Format "2.1.2006."}}</strong>. Stupac „knjižno“ je što promet pokazuje na taj dan; u
+      „prebrojano“ upišite što je na polici, u „potrebe“ koliko još treba nabaviti u godini. Nacrt se može mijenjati;
+      zaključenje proknjiži razlike i tada se više ne mijenja.</p>
+  </div>
+</div>
+
+{{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
+
+<form class="form-page form-wide" method="POST" action="{{if $p.ID}}/sredstva/popisi/{{$p.ID}}{{else}}/sredstva/popisi{{end}}">
+  <input type="hidden" name="skladiste" value="{{$sk.ID}}">
+  <input type="hidden" name="dan" value="{{$p.Dan.Format "2006-01-02"}}">
+  <div class="table-card"><div class="table-responsive">
+    <table class="data-table mts-popis">
+      <thead><tr><th>R. br.</th><th>Vrsta sredstva</th><th>Jed.</th><th>Oblik</th><th class="br">Knjižno</th><th class="br">Prebrojano</th><th class="br">Potrebe za nabavom</th><th>Napomena</th></tr></thead>
+      <tbody>
+      {{range .StavkePoGrupama}}
+      <tr class="mts-grupa"><td>{{.Rimski}}</td><td colspan="7">{{.Naziv}}</td></tr>
+      {{range .Stavke}}
+      {{$k := printf "%s:%s" .VrstaID .Oblik}}
+      <tr>
+        <td class="mono"></td>
+        <td>{{.VrstaNaziv}}</td>
+        <td>{{.Jedinica}}</td>
+        <td>{{if .Oblik}}{{oblik .Oblik}}{{end}}</td>
+        <td class="mono br">{{kolicina .Knjizno}}<input type="hidden" name="k:{{$k}}" value="{{.Knjizno}}"></td>
+        <td class="br"><input type="text" name="u:{{$k}}" class="form-control mono mts-broj" inputmode="decimal" value="{{if .Utvrdjeno}}{{kolicinaPlain .Utvrdjeno}}{{end}}"></td>
+        <td class="br"><input type="text" name="p:{{$k}}" class="form-control mono mts-broj" inputmode="decimal" value="{{if .Potrebno}}{{kolicinaPlain .Potrebno}}{{end}}"></td>
+        <td><input type="text" name="n:{{$k}}" class="form-control" value="{{.Napomena}}"></td>
+      </tr>
+      {{end}}
+      {{end}}
+      </tbody>
+    </table>
+  </div></div>
+  <div class="form-group" style="margin-top:0.75rem;">
+    <label class="form-label" for="napomena">Napomena uz popis</label>
+    <input type="text" id="napomena" name="napomena" class="form-control" value="{{$p.Napomena}}" placeholder="tko je brojao, što nedostaje, što je oštećeno">
+  </div>
+  <div class="form-actions">
+    <button type="submit" class="btn btn-secondary">{{icon "check"}} Spremi nacrt</button>
+    <button type="submit" name="zakljuci" value="1" class="btn btn-primary" onclick="return confirm('Zaključiti popis? Razlike prema knjizi bit će proknjižene i popis se više ne mijenja.');">{{icon "lock"}} Spremi i zaključi</button>
+    <a href="/sredstva/skladista/{{$sk.ID}}" class="btn btn-secondary">Odustani</a>
+  </div>
+</form>
+{{end}}

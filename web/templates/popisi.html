@@ -1,0 +1,59 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Godišnji popisi sredstava{{end}}
+
+{{define "content"}}
+<div class="breadcrumb"><a href="/registri">Registri</a> › <a href="/sredstva?sektor={{.Sektor}}">Sredstva za obranu</a> › Godišnji popisi</div>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "list"}} Godišnji popisi sredstava</h1>
+    <p class="page-desc">Popis po skladištu na dan, obično 31. prosinca: prebrojano na polici, knjižno iz prometa, razlika i dodatne
+      potrebe za nabavom. Zaključenjem se razlika proknjiži, a iz zaključenih popisa slaže se tablica za Glavni centar.</p>
+  </div>
+</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
+
+<form method="GET" action="/sredstva/popisi" class="obracun-filtar">
+  <input type="hidden" name="sektor" value="{{.Sektor}}">
+  <label for="f-godina">Godina</label>
+  <input type="number" id="f-godina" name="godina" class="form-control" value="{{if .Godina}}{{.Godina}}{{end}}" placeholder="sve" style="max-width:7rem;">
+  <button type="submit" class="btn btn-secondary">{{icon "search"}} Prikaži</button>
+</form>
+
+{{if .Skladista}}
+<div class="sektorsko-ploca">
+  <div class="sektorsko-ploca-glava">
+    <h2>{{icon "plus"}} Novi popis</h2>
+    <form method="GET" action="" class="obracun-filtar" style="margin:0;" onsubmit="this.action='/sredstva/skladista/'+this.skladiste.value+'/popis';">
+      <select name="skladiste" class="form-control">{{range .Skladista}}<option value="{{.ID}}">{{.Naziv}}</option>{{end}}</select>
+      <input type="date" name="dan" class="form-control" value="{{.Danas}}" max="{{.Danas}}">
+      <button type="submit" class="btn btn-primary">{{icon "list"}} Otvori popis na dan</button>
+    </form>
+  </div>
+</div>
+{{end}}
+
+{{if .Popisi}}
+<div class="table-card"><div class="table-responsive tablica-kartice">
+  <table class="data-table">
+    <thead><tr><th>Na dan</th><th>Skladište</th><th>Stanje</th><th class="br">Redaka s razlikom</th><th>Izradio</th></tr></thead>
+    <tbody>
+    {{range .Popisi}}
+    <tr>
+      <td data-stupac="Na dan"><a href="/sredstva/popisi/{{.ID}}"><strong>{{.Dan.Format "2.1.2006."}}</strong></a></td>
+      <td data-stupac="Skladište">{{.SkladisteNaziv}}{{if .AreaID}} <span class="reg-card-sub">BP {{.AreaID}}</span>{{end}}</td>
+      <td data-stupac="Stanje">{{if .Zakljucen}}<span class="badge">zaključen {{.ZakljucenoAt.Format "2.1.2006."}}</span>{{else}}<span class="badge badge-pending">nacrt</span>{{end}}</td>
+      <td data-stupac="Razlika" class="mono br">{{.Razlika}}</td>
+      <td data-stupac="Izradio">{{.Izradio}} <span class="reg-card-sub">{{.IzradenoAt.Format "2.1.2006."}}</span></td>
+    </tr>
+    {{end}}
+    </tbody>
+  </table>
+</div></div>
+{{else}}
+<div class="reg-empty">Još nema popisa{{if .Godina}} za {{.Godina}}.{{else}}.{{end}}</div>
+{{end}}
+{{end}}

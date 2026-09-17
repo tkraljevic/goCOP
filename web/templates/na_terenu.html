@@ -1,0 +1,70 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Sredstva na terenu{{end}}
+
+{{define "content"}}
+<div class="breadcrumb"><a href="/registri">Registri</a> › <a href="/sredstva?sektor={{.Sektor}}">Sredstva za obranu</a> › Na terenu</div>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "map-pin"}} Sredstva na terenu</h1>
+    <p class="page-desc">Što je izdano na dionice a nije ni vraćeno ni ugrađeno. Ugradnja i povrat upisuju se iz skladišta koje je
+      izdalo.</p>
+  </div>
+</div>
+
+<form method="GET" action="/sredstva/na-terenu" class="obracun-filtar">
+  <input type="hidden" name="sektor" value="{{.Sektor}}">
+  <label for="f-obrana">Obrana</label>
+  <select id="f-obrana" name="obrana" class="form-control" onchange="this.form.submit()">
+    <option value="">sve obrane</option>
+    {{range .Obrane}}<option value="{{.ID}}"{{if eq .ID $.VrstaID}} selected{{end}}>{{.DisplayTitle}}{{if .EndedAt}} (zaključen){{end}}</option>{{end}}
+  </select>
+</form>
+
+{{if .NaTerenu}}
+{{$vrste := .Vrste}}
+<div class="table-card"><div class="table-responsive tablica-kartice">
+  <table class="data-table">
+    <thead><tr><th>Dionica</th><th>Sredstvo</th><th>Oblik</th><th class="br">Količina</th></tr></thead>
+    <tbody>
+    {{range .NaTerenu}}
+    {{$st := .}}
+    <tr>
+      <td data-stupac="Dionica" class="mono">{{if .SectionCode}}<a href="/sections/{{.SectionCode}}">{{.SectionCode}}</a>{{else}}nije razvrstano{{end}}</td>
+      <td data-stupac="Sredstvo">{{range $vrste}}{{if eq .ID $st.VrstaID}}{{.Naziv}}{{end}}{{end}}</td>
+      <td data-stupac="Oblik">{{if .Oblik}}{{oblik .Oblik}}{{end}}</td>
+      <td data-stupac="Količina" class="mono br"><strong>{{kolicina .Kolicina}}</strong> {{range $vrste}}{{if eq .ID $st.VrstaID}}{{.Jedinica}}{{end}}{{end}}</td>
+    </tr>
+    {{end}}
+    </tbody>
+  </table>
+</div></div>
+{{else}}
+<div class="reg-empty">Ništa nije na terenu{{if .VrstaID}} za tu obranu{{end}}.</div>
+{{end}}
+
+{{if .Promet}}
+<section class="detail-section">
+  <h2>{{icon "notebook"}} Promet obrane</h2>
+  <div class="table-card"><div class="table-responsive tablica-kartice">
+    <table class="data-table">
+      <thead><tr><th>Datum</th><th>Zahvat</th><th>Mjesto</th><th>Sredstvo</th><th class="br">Količina</th><th>Nalog · osoba · dokument</th><th>Upisao</th></tr></thead>
+      <tbody>
+      {{range .Promet}}
+      <tr>
+        <td data-stupac="Datum" class="mono">{{.Datum.Format "2.1.2006."}}</td>
+        <td data-stupac="Zahvat">{{promet .Vrsta}}</td>
+        <td data-stupac="Mjesto">{{.MjestoNaziv}}</td>
+        <td data-stupac="Sredstvo">{{.VrstaNaziv}}{{if .Oblik}} <span class="reg-card-sub">{{oblik .Oblik}}</span>{{end}}</td>
+        <td data-stupac="Količina" class="mono br {{if lt .Kolicina 0.0}}mts-minus{{else}}mts-plus{{end}}">{{kolicinaZnak .Kolicina}} {{.Jedinica}}</td>
+        <td data-stupac="Nalog">{{if .Nalozio}}nalog: {{.Nalozio}}{{end}}{{if .Preuzeo}}{{if .Nalozio}} · {{end}}{{strana .Vrsta}}: {{.Preuzeo}}{{end}}{{if .Dokument}} · {{.Dokument}}{{end}}</td>
+        <td data-stupac="Upisao">{{.UserName}}</td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div></div>
+</section>
+{{end}}
+{{end}}

@@ -80,6 +80,7 @@ type Server struct {
 	journalService     *service.JournalService
 	obracunService     *service.ObracunService  // postavke obračuna sati; nil dok se ne postavi
 	izvjescaService    *service.IzvjescaService // dnevna izvješća; nil dok se ne postavi
+	mtsService         *service.MtsService      // sredstva za obranu; nil dok se ne postavi
 	orgService         *service.OrgService
 	support            SupportContact
 	followRepo         *repository.FollowRepository
@@ -372,6 +373,14 @@ func templateFuncs() template.FuncMap {
 			}
 		},
 		"add":            func(a, b int) int { return a + b },
+		"kolicina":       kolicinaHR,
+		"kolicinaZnak":   kolicinaSaZnakom,
+		"kolicinaPlain":  func(v float64) string { return strings.Replace(strconv.FormatFloat(v, 'f', -1, 64), ".", ",", 1) },
+		"oblik":          models.OblikNaziv,
+		"promet":         models.PrometNaziv,
+		"strana":         models.StranaOznaka,
+		"grupa":          models.GrupaNaziv,
+		"vrijemeHR":      func(t time.Time) string { return t.In(models.Zagreb).Format("2.1.2006. 15:04") },
 		"structureKind":  models.StructureKindLabel,
 		"readingSource":  models.ReadingSourceLabel,
 		"structureState": models.StructureStateLabel,
@@ -488,7 +497,8 @@ func NewServer(
 	// Predlošci koji proširuju base.html
 	for _, page := range []string{"dashboard.html", "registri.html", "users.html", "user_detail.html", "user_form.html", "duty_form.html", "profile.html", "sections.html", "section_detail.html", "section_form.html", "territories.html", "county_form.html", "municipality_form.html", "municipality_detail.html", "stations.html", "station_detail.html", "station_form.html", "station_history.html", "station_history_form.html", "paket_pregled.html", "watercourses.html", "watercourse_detail.html", "watercourse_form.html", "structures.html", "structure_detail.html", "structure_form.html", "readings.html", "reading_history.html", "reading_form.html", "arhiva_ispravci.html", "uvoz_ocitanja.html", "teren.html", "moduli.html", "settings.html", "odrzavanje.html", "organizacija.html", "sector_form.html", "area_form.html", "contractor_form.html", "firme.html", "nazivi.html", "sudionici.html",
 		"administracija.html", "uvozi.html", "sinkronizacija.html", "pretplate.html", "baza.html", "izvori.html", "uvoz_niza.html",
-		"dnevnici.html", "dnevnici_izbor.html", "dnevnik_form.html", "dnevnik.html", "dnevnik_cop.html", "dnevnik_cop_form.html", "dnevnik_list.html", "dnevnik_obracun.html", "dnevnik_dezurstva.html", "dnevnik_iors.html", "izvjesca.html", "izvjesce_form.html", "izvjesce.html", "sektorsko_form.html", "sektorsko.html", "obracun_postavke.html", "pomoc.html", "ocitanja_ispravci.html"} {
+		"dnevnici.html", "dnevnici_izbor.html", "dnevnik_form.html", "dnevnik.html", "dnevnik_cop.html", "dnevnik_cop_form.html", "dnevnik_list.html", "dnevnik_obracun.html", "dnevnik_dezurstva.html", "dnevnik_iors.html", "izvjesca.html", "izvjesce_form.html", "izvjesce.html", "sektorsko_form.html", "sektorsko.html", "obracun_postavke.html",
+		"sredstva.html", "skladiste.html", "skladiste_form.html", "promet_form.html", "promet.html", "gdje_ima.html", "na_terenu.html", "popisi.html", "popis_form.html", "popis.html", "pomoc.html", "ocitanja_ispravci.html"} {
 		t, err := template.New("base.html").Funcs(tmplFuncs).ParseFS(templatesFS, DijeloviPredloska(page)...)
 		if err != nil {
 			return nil, fmt.Errorf("greška pri parsiranju predloška %s: %w", page, err)
@@ -897,6 +907,27 @@ func (s *Server) setupRoutes() {
 	journalsH.SetObracun(func() *service.ObracunService { return s.obracunService })
 	journalsH.SetIzvjesca(func() *service.IzvjescaService { return s.izvjescaService })
 
+	mtsH := NewMtsHandler(func() *service.MtsService { return s.mtsService }, s.userService, s.sectionService, s.journalService,
+		func(ime string) *template.Template { return s.templates[ime] })
+	s.mux.Handle("GET /sredstva", s.authMiddleware(http.HandlerFunc(mtsH.ShowPregled)))
+	s.mux.Handle("GET /sredstva/promet", s.authMiddleware(http.HandlerFunc(mtsH.ShowPromet)))
+	s.mux.Handle("GET /sredstva/na-terenu", s.authMiddleware(http.HandlerFunc(mtsH.ShowNaTerenu)))
+	s.mux.Handle("GET /sredstva/gdje/{vrsta}", s.authMiddleware(http.HandlerFunc(mtsH.ShowGdjeIma)))
+	s.mux.Handle("GET /sredstva/skladista/novo", s.authMiddleware(http.HandlerFunc(mtsH.ShowSkladisteForm)))
+	s.mux.Handle("POST /sredstva/skladista", s.authMiddleware(http.HandlerFunc(mtsH.HandleSaveSkladiste)))
+	s.mux.Handle("GET /sredstva/skladista/{id}", s.authMiddleware(http.HandlerFunc(mtsH.ShowSkladiste)))
+	s.mux.Handle("GET /sredstva/skladista/{id}/uredi", s.authMiddleware(http.HandlerFunc(mtsH.ShowSkladisteForm)))
+	s.mux.Handle("POST /sredstva/skladista/{id}", s.authMiddleware(http.HandlerFunc(mtsH.HandleSaveSkladiste)))
+	s.mux.Handle("GET /sredstva/skladista/{id}/promet/novo", s.authMiddleware(http.HandlerFunc(mtsH.ShowPrometForm)))
+	s.mux.Handle("POST /sredstva/skladista/{id}/promet", s.authMiddleware(http.HandlerFunc(mtsH.HandleSavePromet)))
+	s.mux.Handle("GET /sredstva/skladista/{id}/popis", s.authMiddleware(http.HandlerFunc(mtsH.ShowPopisNovo)))
+	s.mux.Handle("GET /sredstva/popisi", s.authMiddleware(http.HandlerFunc(mtsH.ShowPopisi)))
+	s.mux.Handle("POST /sredstva/popisi", s.authMiddleware(http.HandlerFunc(mtsH.HandleSavePopis)))
+	s.mux.Handle("GET /sredstva/popisi/{id}", s.authMiddleware(http.HandlerFunc(mtsH.ShowPopis)))
+	s.mux.Handle("GET /sredstva/popisi/{id}/uredi", s.authMiddleware(http.HandlerFunc(mtsH.ShowPopisUredi)))
+	s.mux.Handle("POST /sredstva/popisi/{id}", s.authMiddleware(http.HandlerFunc(mtsH.HandleSavePopis)))
+	s.mux.Handle("POST /sredstva/popisi/{id}/zakljuci", s.authMiddleware(http.HandlerFunc(mtsH.HandleZakljuciPopis)))
+
 	izvjescaH := NewIzvjescaHandler(func() *service.IzvjescaService { return s.izvjescaService },
 		s.templates["izvjesca.html"], s.templates["izvjesce_form.html"], s.templates["izvjesce.html"])
 	s.mux.Handle("GET /izvjesca", s.authMiddleware(http.HandlerFunc(izvjescaH.ShowPopis)))
@@ -1138,6 +1169,9 @@ func (s *Server) SetObracun(o *service.ObracunService) { s.obracunService = o }
 
 // SetIzvjesca daje poslužitelju dnevna izvješća rukovoditelja dionica
 func (s *Server) SetIzvjesca(i *service.IzvjescaService) { s.izvjescaService = i }
+
+// SetMts daje poslužitelju evidenciju sredstava za obranu
+func (s *Server) SetMts(m *service.MtsService) { s.mtsService = m }
 
 func (s *Server) SetArhiva(a *repository.ArhivaRepository) {
 	s.zamijeniArhivu(a)

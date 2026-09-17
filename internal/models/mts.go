@@ -213,7 +213,8 @@ type Promet struct {
 	Oblik    string  `json:"oblik"`
 	Kolicina float64 `json:"kolicina"` // + u mjesto, − iz mjesta
 
-	Vrsta string `json:"vrsta"` // Promet*
+	Vrsta  string `json:"vrsta"`  // Promet*
+	Sektor string `json:"sektor"` // sektor skladišta; teren nosi sektor skladišta koje je izdalo
 
 	// Mjesto: točno jedno od dvoje. Skladište je mjesto s adresom, teren je
 	// dionica na kojoj se sredstvo nalazi dok obrana traje.

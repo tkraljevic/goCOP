@@ -90,21 +90,21 @@ func scanSkladiste(row interface{ Scan(...any) error }) (models.Skladiste, error
 	return s, err
 }
 
-const prometUpsert = `INSERT INTO mts_promet (id, datum, vrsta_id, oblik, kolicina, vrsta, skladiste_id, section_code, veza_id, journal_id,
+const prometUpsert = `INSERT INTO mts_promet (id, datum, vrsta_id, oblik, kolicina, vrsta, sektor, skladiste_id, section_code, veza_id, journal_id,
 	popis_id, nalozio, preuzeo, dokument, user_id, user_name, napomena, created_at, updated_at)
-	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	ON CONFLICT(id) DO UPDATE SET datum = excluded.datum, vrsta_id = excluded.vrsta_id, oblik = excluded.oblik, kolicina = excluded.kolicina,
-		vrsta = excluded.vrsta, skladiste_id = excluded.skladiste_id, section_code = excluded.section_code, veza_id = excluded.veza_id,
+		vrsta = excluded.vrsta, sektor = excluded.sektor, skladiste_id = excluded.skladiste_id, section_code = excluded.section_code, veza_id = excluded.veza_id,
 		journal_id = excluded.journal_id, popis_id = excluded.popis_id, nalozio = excluded.nalozio, preuzeo = excluded.preuzeo,
 		dokument = excluded.dokument, user_id = excluded.user_id, user_name = excluded.user_name, napomena = excluded.napomena,
 		created_at = excluded.created_at, updated_at = excluded.updated_at`
 
 func prometArgs(p *models.Promet) []any {
-	return []any{p.ID, dayKey(p.Datum), p.VrstaID, p.Oblik, p.Kolicina, p.Vrsta, p.SkladisteID, p.SectionCode, p.VezaID, p.JournalID,
+	return []any{p.ID, dayKey(p.Datum), p.VrstaID, p.Oblik, p.Kolicina, p.Vrsta, p.Sektor, p.SkladisteID, p.SectionCode, p.VezaID, p.JournalID,
 		p.PopisID, p.Nalozio, p.Preuzeo, p.Dokument, p.UserID, p.UserName, p.Napomena, p.CreatedAt.UTC(), p.UpdatedAt.UTC()}
 }
 
-const prometColumns = `p.id, p.datum, p.vrsta_id, p.oblik, p.kolicina, p.vrsta, p.skladiste_id, p.section_code, p.veza_id, p.journal_id,
+const prometColumns = `p.id, p.datum, p.vrsta_id, p.oblik, p.kolicina, p.vrsta, p.sektor, p.skladiste_id, p.section_code, p.veza_id, p.journal_id,
 	p.popis_id, p.nalozio, p.preuzeo, p.dokument, p.user_id, p.user_name, p.napomena, p.created_at, p.updated_at,
 	COALESCE(v.naziv, ''), COALESCE(v.jedinica, ''), COALESCE(s.naziv, '')`
 const prometFrom = ` FROM mts_promet p LEFT JOIN mts_vrste v ON v.id = p.vrsta_id LEFT JOIN mts_skladista s ON s.id = p.skladiste_id`
@@ -112,7 +112,7 @@ const prometFrom = ` FROM mts_promet p LEFT JOIN mts_vrste v ON v.id = p.vrsta_i
 func scanPromet(row interface{ Scan(...any) error }) (models.Promet, error) {
 	var p models.Promet
 	var datum string
-	err := row.Scan(&p.ID, &datum, &p.VrstaID, &p.Oblik, &p.Kolicina, &p.Vrsta, &p.SkladisteID, &p.SectionCode, &p.VezaID, &p.JournalID,
+	err := row.Scan(&p.ID, &datum, &p.VrstaID, &p.Oblik, &p.Kolicina, &p.Vrsta, &p.Sektor, &p.SkladisteID, &p.SectionCode, &p.VezaID, &p.JournalID,
 		&p.PopisID, &p.Nalozio, &p.Preuzeo, &p.Dokument, &p.UserID, &p.UserName, &p.Napomena, &p.CreatedAt, &p.UpdatedAt,
 		&p.VrstaNaziv, &p.Jedinica, &p.SkladisteNaziv)
 	p.Datum = parseDay(datum)
@@ -385,7 +385,7 @@ func (r *MtsRepository) ListPromet(ctx context.Context, f FiltarPrometa) ([]mode
 		args = append(args, f.SkladisteID)
 	}
 	if f.Sektor != "" {
-		q += ` AND (s.sektor = ? OR (p.skladiste_id = '' AND p.journal_id <> ''))`
+		q += ` AND p.sektor = ?`
 		args = append(args, f.Sektor)
 	}
 	if f.VrstaID != "" {
@@ -451,13 +451,17 @@ func (r *MtsRepository) Stanje(ctx context.Context, skladisteID, sektor string, 
 }
 
 // StanjeNaTerenu zbraja što je izdano a nije vraćeno ni ugrađeno, po
-// dionicama jedne obrane
-func (r *MtsRepository) StanjeNaTerenu(ctx context.Context, journalID string) ([]models.Stanje, error) {
+// dionicama; obrana i sektor sužavaju, prazno znači sve
+func (r *MtsRepository) StanjeNaTerenu(ctx context.Context, journalID, sektor string) ([]models.Stanje, error) {
 	q := `SELECT p.section_code, p.vrsta_id, p.oblik, SUM(p.kolicina)` + prometFrom + ` WHERE p.skladiste_id = ''`
 	var args []any
 	if journalID != "" {
 		q += ` AND p.journal_id = ?`
 		args = append(args, journalID)
+	}
+	if sektor != "" {
+		q += ` AND p.sektor = ?`
+		args = append(args, sektor)
 	}
 	q += ` GROUP BY p.section_code, p.vrsta_id, p.oblik`
 	return r.zbroji(ctx, q, args, true)
