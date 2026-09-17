@@ -57,7 +57,11 @@ prva računala. Kaže što program radi na računalu i mreži, što ne radi, i
   knjižno stanje, skladištar upiše prebrojano i potrebe za nabavom, a
   zaključenjem se razlika proknjiži. Tablica za Glavni centar (redak po
   vrsti, dva stupca po skladištu, zbroj sektora) izvozi se u Excel na
-  dan; „gdje ima“ pokazuje zalihe jedne vrste kroz sve sektore.
+  dan; „gdje ima“ pokazuje zalihe jedne vrste kroz sve sektore. Promet i
+  popis upisuje skladištar (dužnost po branjenom području) i uprava
+  područja i sektora. Postojeća sektorska tablica uvozi se kao početno
+  stanje i zaključen popis alatom `go run ./cmd/uvoz-mts -iz tablica.json
+  -upisi` (JSON: skladišta po području sa stavkama stanje i potrebe).
 - **Dnevnik COP-a:** dežurni zapisnik centra obrane od poplava, jedan po
   centru (sektoru) i po obrani — traje koliko i dežurstva. Otvara ga
   voditelj ili zamjenik centra; upisuju svi koji rade u sektoru, iz centra

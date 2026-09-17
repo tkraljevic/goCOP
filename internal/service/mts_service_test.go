@@ -265,6 +265,24 @@ func TestMtsKatalogIPrava(t *testing.T) {
 		t.Errorf("stanje ima %d redaka, katalog %d", len(stanje), len(vrste))
 	}
 
+	// vodočuvar s dosegom na području ne upisuje promet; skladištar da
+	vodocuvar := &models.UserPermissions{AllowedAreas: map[int]bool{34: true}}
+	if _, err := s.Provedi(ctx, u, vodocuvar, Zahvat{Vrsta: models.PrometPrimka, SkladisteID: sk.ID, VrstaID: "lopata", Kolicina: 5}); err == nil {
+		t.Error("vodočuvar upisao promet")
+	}
+	bp := 34
+	sektorB := "B"
+	skladistar := &models.UserPermissions{AllowedAreas: map[int]bool{34: true},
+		User: models.User{Duties: []models.Duty{{Role: models.RoleWarehouseKeeper, AreaID: &bp, SectorID: &sektorB, IsActive: true}}}}
+	if _, err := s.Provedi(ctx, u, skladistar, Zahvat{Vrsta: models.PrometPrimka, SkladisteID: sk.ID, VrstaID: "lopata", Kolicina: 5}); err != nil {
+		t.Errorf("skladištar ne može upisati: %v", err)
+	}
+	drugiBP := 16
+	tudjiSkladistar := &models.UserPermissions{User: models.User{Duties: []models.Duty{{Role: models.RoleWarehouseKeeper, AreaID: &drugiBP, SectorID: &sektorB, IsActive: true}}}}
+	if _, err := s.Provedi(ctx, u, tudjiSkladistar, Zahvat{Vrsta: models.PrometPrimka, SkladisteID: sk.ID, VrstaID: "lopata", Kolicina: 5}); err == nil {
+		t.Error("skladištar drugog područja upisao promet")
+	}
+
 	// tuđi sektor ne upisuje promet
 	tudji := &models.UserPermissions{AllowedSectors: map[string]bool{"C": true}}
 	if _, err := s.Provedi(ctx, u, tudji, Zahvat{Vrsta: models.PrometPrimka, SkladisteID: sk.ID, VrstaID: "lopata", Kolicina: 5}); err == nil ||

@@ -67,6 +67,9 @@ func DefaultModules(r Role) []string {
 	case r == RoleServiceLeaderForeman:
 		// izvođač: početni pregled terena i vlastiti dnevnici
 		return []string{ModuleField, ModuleJournals}
+	case r == RoleWarehouseKeeper:
+		// skladištar: sredstva su u registrima
+		return []string{ModuleField, ModuleReadings, ModuleRegisters}
 	case r.IsField():
 		return []string{ModuleField, ModuleReadings}
 	case r == RoleViewer:

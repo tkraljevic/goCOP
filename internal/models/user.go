@@ -37,6 +37,7 @@ const (
 	RoleMachinist            Role = "MACHINIST"              // Strojar
 	RoleFacilityOperator     Role = "FACILITY_OPERATOR"      // Rukovatelj
 	RoleCrewLeader           Role = "CREW_LEADER"            // Voditelj posade objekta
+	RoleWarehouseKeeper      Role = "WAREHOUSE_KEEPER"       // Skladištar sredstava za obranu
 	RoleFieldWorker          Role = "FIELD_WORKER"           // Terenski radnik (legacy alias)
 	RoleGuest                Role = "GUEST"                  // Gost: račun za posjetitelja obrane, samo gleda
 	RoleViewer               Role = "VIEWER"                 // Preglednik (samo čitanje)
@@ -242,6 +243,33 @@ type UserPermissions struct {
 	AllowedSectors  map[string]bool // Sektori s pravom pisanja
 	AllowedAreas    map[int]bool    // Branjena područja s pravom pisanja
 	AllowedSections map[string]bool // Pojedinačne dionice s pravom pisanja
+}
+
+// VodiSkladista javlja je li osoba skladištar za to branjeno područje (ili
+// za cijeli sektor, kad je dužnost bez područja). Skladištar upisuje promet
+// i popis, ali ne upravlja ničim drugim — pa mu doseg ne daje upravu.
+func (p *UserPermissions) VodiSkladista(sektor string, areaID int) bool {
+	if p == nil {
+		return false
+	}
+	for _, d := range p.User.Duties {
+		if !d.IsActive || d.Role != RoleWarehouseKeeper {
+			continue
+		}
+		if d.ExpiresAt != nil && d.ExpiresAt.Before(time.Now()) {
+			continue
+		}
+		if d.AreaID != nil && *d.AreaID > 0 {
+			if *d.AreaID == areaID {
+				return true
+			}
+			continue
+		}
+		if d.SectorID != nil && *d.SectorID == sektor {
+			return true
+		}
+	}
+	return false
 }
 
 // NewUserPermissions izračunava ukupne ovlasti korisnika iz svih njegovih funkcija

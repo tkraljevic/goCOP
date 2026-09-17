@@ -627,3 +627,44 @@ func (r *MtsRepository) ArhivirajVrstu(ctx context.Context, v *models.VrstaSreds
 	}
 	return tx.Commit()
 }
+
+// ArhivirajPromet miče retke prometa s površine; u knjizi verzija ostaju
+// arhivirani. Za uvoz koji zamjenjuje probne upise, ne za svakodnevni rad —
+// promet se inače ne briše nego ispravlja novim retkom.
+func (r *MtsRepository) ArhivirajPromet(ctx context.Context, redci []models.Promet) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for i := range redci {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM mts_promet WHERE id = ?`, redci[i].ID); err != nil {
+			return err
+		}
+		if _, err := r.rec.Archive(ctx, tx, EntityMtsPromet, redci[i].ID, &redci[i]); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+// ArhivirajPopis miče popis s površine; u knjizi verzija ostaje arhiviran.
+// Za nacrt koji nikad nije trebao nastati; zaključeni popis se ne miče,
+// jer su njegova usklađenja već u prometu.
+func (r *MtsRepository) ArhivirajPopis(ctx context.Context, p *models.Popis) error {
+	if p.Zakljucen() {
+		return fmt.Errorf("zaključeni popis se ne miče")
+	}
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `DELETE FROM mts_popisi WHERE id = ?`, p.ID); err != nil {
+		return err
+	}
+	if _, err := r.rec.Archive(ctx, tx, EntityMtsPopisi, p.ID, p); err != nil {
+		return err
+	}
+	return tx.Commit()
+}

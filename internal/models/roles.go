@@ -52,6 +52,7 @@ var RoleCatalog = []RoleDef{
 	{RoleMachinist, RoleGroupField, "Strojar", "rukuje crpnim stanicama i ustavama; terenski pogled", ScopeSection},
 	{RoleFacilityOperator, RoleGroupField, "Rukovatelj", "rukuje objektom obrane; terenski pogled", ScopeSection},
 	{RoleCrewLeader, RoleGroupField, "Voditelj posade objekta", "vodi posadu na objektu; terenski pogled", ScopeSection},
+	{RoleWarehouseKeeper, RoleGroupField, "Skladištar", "vodi skladište sredstava za obranu svog područja: primke, izdavanje na teren, punjenje vreća, godišnji popis", ScopeArea},
 	{RoleServiceLeaderForeman, RoleGroupExternal, "Voditelj usluga / Poslovođa", "vodi radove ugovornog izvođača; vidi teren i vodi vlastite dnevnike", ScopeArea},
 	{RoleGuest, RoleGroupGuest, "Gost", "račun za posjetitelja obrane (civilna zaštita, uprava, mediji): gleda teren i vodostaje, ne upisuje", ScopeAll},
 	{RoleViewer, RoleGroupProgram, "Preglednik (samo čitanje)", "gleda, ne upisuje", ScopeAll},
