@@ -37,6 +37,7 @@ func TestSredstvaKrozRute(t *testing.T) {
 	for _, q := range []string{
 		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('B', 'Sektor B', 'VGO Osijek', 'COP Osijek')`,
 		`INSERT INTO areas (id, sector_id, name, vgi_name, subcenter) VALUES (34, 'B', 'Drava i Dunav', 'COP', 'Osijek')`,
+		`INSERT INTO sections (code, area_id, sector_id, description, created_at, updated_at) VALUES ('B.34.1', 34, 'B', 'Dunav d.o.', '2026-01-01', '2026-01-01')`,
 	} {
 		if _, err := baza.Exec(q); err != nil {
 			t.Fatal(err)
@@ -83,6 +84,7 @@ func TestSredstvaKrozRute(t *testing.T) {
 	mux.HandleFunc("GET /sredstva/skladista/{id}/promet/novo", h.ShowPrometForm)
 	mux.HandleFunc("POST /sredstva/skladista/{id}/promet", h.HandleSavePromet)
 	mux.HandleFunc("GET /sredstva/skladista/{id}/popis", h.ShowPopisNovo)
+	mux.HandleFunc("GET /sredstva/skladista/{id}/skladiste.xlsx", h.IzvoziSkladiste)
 	mux.HandleFunc("GET /sredstva/popisi", h.ShowPopisi)
 	mux.HandleFunc("POST /sredstva/popisi", h.HandleSavePopis)
 	mux.HandleFunc("GET /sredstva/popisi/{id}", h.ShowPopis)
@@ -163,14 +165,14 @@ func TestSredstvaKrozRute(t *testing.T) {
 	mora(zovi(http.MethodGet, "/sredstva/skladista/"+sk, nil), http.StatusOK, "kartica poslije", "95 000", "5 000", "Punjenje", "nalog: rukovoditelj sektora", "Dopremio: Vreće d.o.o.", "OT 44/26")
 	// preko zalihe se ne izdaje
 	w := zovi(http.MethodPost, "/sredstva/skladista/"+sk+"/promet", url.Values{"vrsta": {"IZDANO"}, "datum": {danas}, "sredstvo": {"vrece-50x80"},
-		"oblik": {"PUNJENO"}, "kolicina": {"9000"}, "dionica": {"B.34.1"}})
+		"oblik": {"PUNJENO"}, "kolicina": {"9000"}, "podrucje": {"34"}, "dionica": {"B.34.1"}})
 	if l := w.Header().Get("Location"); !strings.Contains(l, "error=") {
 		t.Errorf("izdavanje preko zalihe prošlo: %s", l)
 	}
 	odredište(zovi(http.MethodPost, "/sredstva/skladista/"+sk+"/promet", url.Values{"vrsta": {"IZDANO"}, "datum": {danas}, "sredstvo": {"vrece-50x80"},
-		"oblik": {"PUNJENO"}, "kolicina": {"4000"}, "dionica": {"B.34.1"}, "preuzeo": {"vodočuvar"}}), "izdavanje")
-	mora(zovi(http.MethodGet, "/sredstva/na-terenu?sektor=B", nil), http.StatusOK, "na terenu", "B.34.1", "4 000")
-	mora(zovi(http.MethodGet, "/sredstva/promet?sektor=B", nil), http.StatusOK, "knjiga", "Izdano na teren", "teren · B.34.1", "−4 000", "&#43;4 000", "Preuzeo: vodočuvar")
+		"oblik": {"PUNJENO"}, "kolicina": {"4000"}, "podrucje": {"34"}, "dionica": {"B.34.1"}, "preuzeo": {"vodočuvar"}}), "izdavanje")
+	mora(zovi(http.MethodGet, "/sredstva/na-terenu?sektor=B", nil), http.StatusOK, "na terenu", "BP 34 Drava i Dunav · B.34.1", "4 000")
+	mora(zovi(http.MethodGet, "/sredstva/promet?sektor=B", nil), http.StatusOK, "knjiga", "Izdano na teren", "teren · BP 34 Drava i Dunav · B.34.1", "−4 000", "&#43;4 000", "Preuzeo: vodočuvar")
 	mora(zovi(http.MethodGet, "/sredstva/gdje/vrece-50x80", nil), http.StatusOK, "gdje ima", "Centralno skladište Osijek", "96 000")
 	if l := zovi(http.MethodPost, "/sredstva/katalog/vrece-50x80/obrisi", url.Values{}).Header().Get("Location"); !strings.Contains(l, "error=") {
 		t.Errorf("korištena vrsta uklonjena: %s", l)
@@ -191,6 +193,24 @@ func TestSredstvaKrozRute(t *testing.T) {
 	mora(zovi(http.MethodGet, "/sredstva/popisi?sektor=B", nil), http.StatusOK, "popisi", "Centralno skladište Osijek", "zaključen")
 	if w := zovi(http.MethodGet, "/sredstva/popisi/"+popis+"/uredi", nil); w.Code != http.StatusForbidden {
 		t.Errorf("uređivanje zaključenog: %d", w.Code)
+	}
+
+	// kartica skladišta u Excelu: stanje s oblicima i potrebama, pa promet
+	w = zovi(http.MethodGet, "/sredstva/skladista/"+sk+"/skladiste.xlsx?dan="+danas, nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("izvoz skladišta: %d", w.Code)
+	}
+	if r, err := procitajXLSX(w.Body.Bytes()); err != nil {
+		t.Fatal(err)
+	} else {
+		var sve []string
+		for _, x := range r {
+			sve = append(sve, strings.Join(x, "|"))
+		}
+		list := strings.Join(sve, "\n")
+		if !strings.Contains(list, "9.|Vreće 50x80 cm|kom|95990|94990|1000|50000") {
+			t.Errorf("kartica skladišta nema redak vreća:\n%s", list)
+		}
 	}
 
 	// tablica za Glavni centar: redak po vrsti, stupci skladišta i zbroj sektora

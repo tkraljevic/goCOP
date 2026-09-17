@@ -909,6 +909,7 @@ func (s *Server) setupRoutes() {
 
 	mtsH := NewMtsHandler(func() *service.MtsService { return s.mtsService }, s.userService, s.sectionService, s.journalService,
 		func(ime string) *template.Template { return s.templates[ime] })
+	mtsH.SetStructures(s.structureService)
 	s.mux.Handle("GET /sredstva", s.authMiddleware(http.HandlerFunc(mtsH.ShowPregled)))
 	s.mux.Handle("GET /sredstva/promet", s.authMiddleware(http.HandlerFunc(mtsH.ShowPromet)))
 	s.mux.Handle("GET /sredstva/mts.xlsx", s.authMiddleware(http.HandlerFunc(mtsH.IzvoziTablicu)))
@@ -926,6 +927,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /sredstva/skladista/{id}/promet/novo", s.authMiddleware(http.HandlerFunc(mtsH.ShowPrometForm)))
 	s.mux.Handle("POST /sredstva/skladista/{id}/promet", s.authMiddleware(http.HandlerFunc(mtsH.HandleSavePromet)))
 	s.mux.Handle("GET /sredstva/skladista/{id}/popis", s.authMiddleware(http.HandlerFunc(mtsH.ShowPopisNovo)))
+	s.mux.Handle("GET /sredstva/skladista/{id}/skladiste.xlsx", s.authMiddleware(http.HandlerFunc(mtsH.IzvoziSkladiste)))
 	s.mux.Handle("GET /sredstva/popisi", s.authMiddleware(http.HandlerFunc(mtsH.ShowPopisi)))
 	s.mux.Handle("POST /sredstva/popisi", s.authMiddleware(http.HandlerFunc(mtsH.HandleSavePopis)))
 	s.mux.Handle("GET /sredstva/popisi/{id}", s.authMiddleware(http.HandlerFunc(mtsH.ShowPopis)))

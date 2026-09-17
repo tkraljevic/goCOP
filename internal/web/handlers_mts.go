@@ -20,12 +20,16 @@ import (
 // pogled „gdje ima“ kroz sve sektore. Sve pod /sredstva.
 
 type MtsHandler struct {
-	svc      func() *service.MtsService
-	users    *service.UserService
-	sections *service.SectionService
-	journals *service.JournalService
-	tmpl     func(string) *template.Template
+	svc        func() *service.MtsService
+	users      *service.UserService
+	sections   *service.SectionService
+	journals   *service.JournalService
+	structures *service.StructureService
+	tmpl       func(string) *template.Template
 }
+
+// SetStructures daje rukovatelju registar objekata, za mjesta na terenu
+func (h *MtsHandler) SetStructures(s *service.StructureService) { h.structures = s }
 
 func NewMtsHandler(svc func() *service.MtsService, users *service.UserService, sections *service.SectionService,
 	journals *service.JournalService, tmpl func(string) *template.Template) *MtsHandler {
@@ -58,6 +62,9 @@ type MtsPageData struct {
 	Popis  *models.Popis
 	Popisi []models.Popis
 	Godina int
+
+	Objekti  []models.Structure // objekti i nasipi sektora, za mjesto na terenu
+	MjestaNa []models.Stanje    // mjesta na terenu na kojima nešto stoji
 
 	GdjeIma []service.MjestoZalihe
 
@@ -343,6 +350,11 @@ func (h *MtsHandler) popuniObrazacPrometa(r *http.Request, data *MtsPageData, sk
 			}
 		}
 	}
+	data.Podrucja, _ = h.users.ListAreas(sk.Sektor)
+	if h.structures != nil {
+		data.Objekti, _ = h.structures.List(r.Context(), sk.Sektor, 0, "", "")
+	}
+	data.MjestaNa = h.svc().MjestaNaTerenu(r.Context(), "", sk.Sektor)
 }
 
 // HandleSavePromet provodi zahvat
@@ -355,8 +367,9 @@ func (h *MtsHandler) HandleSavePromet(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	f := func(k string) string { return strings.TrimSpace(r.FormValue(k)) }
 	z := service.Zahvat{Vrsta: f("vrsta"), SkladisteID: id, VrstaID: f("sredstvo"), Oblik: f("oblik"), UOblik: f("u_oblik"),
-		NaSkladisteID: f("na_skladiste"), SectionCode: f("dionica"), JournalID: f("obrana"),
+		NaSkladisteID: f("na_skladiste"), SectionCode: f("dionica"), StructureID: f("objekt"), Mjesto: f("mjesto"), JournalID: f("obrana"),
 		Nalozio: f("nalozio"), Preuzeo: f("preuzeo"), Dokument: f("dokument"), Napomena: f("napomena")}
+	z.AreaID, _ = strconv.Atoi(f("podrucje"))
 	if t, err := time.ParseInLocation("2006-01-02", f("datum"), models.Zagreb); err == nil {
 		z.Datum = t
 	}
