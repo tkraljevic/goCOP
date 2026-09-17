@@ -26,7 +26,7 @@
   </div>
 </div>
 
-{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}{{if .Potvrda}} <a href="/sredstva/promet/{{.Potvrda}}/potvrda.xlsx" class="btn btn-secondary btn-sm" style="margin-left:0.5rem;">{{icon "download"}} Ispiši potvrdu / otpremnicu</a>{{end}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
 
 <section class="detail-section">
@@ -71,7 +71,7 @@
         <td data-stupac="Količina" class="mono br {{if lt .Kolicina 0.0}}mts-minus{{else}}mts-plus{{end}}">{{kolicinaZnak .Kolicina}} {{.Jedinica}}</td>
         <td data-stupac="Nalog">{{if .Nalozio}}nalog: {{.Nalozio}}{{end}}{{if .Preuzeo}}{{if .Nalozio}} · {{end}}{{strana .Vrsta}}: {{.Preuzeo}}{{end}}{{if .Dokument}} · {{.Dokument}}{{end}}{{if not .SkladisteID}} · {{.MjestoNaziv}}{{end}}</td>
         <td data-stupac="Upisao">{{.UserName}}</td>
-        <td data-stupac="Napomena">{{.Napomena}}</td>
+        <td data-stupac="Napomena">{{.Napomena}}{{if .VezaID}} <a href="/sredstva/promet/{{.VezaID}}/potvrda.xlsx" title="potvrda / otpremnica" class="reg-card-sub">{{icon "download"}}</a>{{end}}</td>
       </tr>
       {{end}}
       </tbody>

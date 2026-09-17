@@ -31,6 +31,7 @@
   <label for="f-od">od</label><input type="date" id="f-od" name="od" class="form-control" value="{{.Od}}">
   <label for="f-do">do</label><input type="date" id="f-do" name="do" class="form-control" value="{{.Do}}">
   <button type="submit" class="btn btn-secondary">{{icon "search"}} Prikaži</button>
+  <button type="submit" formaction="/sredstva/promet.xlsx" class="btn btn-secondary" title="ista knjiga, po istim filtrima, A4 vodoravno">{{icon "download"}} Excel</button>
 </form>
 
 {{if .Promet}}
@@ -47,7 +48,7 @@
       <td data-stupac="Količina" class="mono br {{if lt .Kolicina 0.0}}mts-minus{{else}}mts-plus{{end}}">{{kolicinaZnak .Kolicina}} {{.Jedinica}}</td>
       <td data-stupac="Nalog">{{if .Nalozio}}nalog: {{.Nalozio}}{{end}}{{if .Preuzeo}}{{if .Nalozio}} · {{end}}{{strana .Vrsta}}: {{.Preuzeo}}{{end}}{{if .Dokument}} · {{.Dokument}}{{end}}</td>
       <td data-stupac="Upisao">{{.UserName}} <span class="reg-card-sub">{{vrijemeHR .CreatedAt}}</span></td>
-      <td data-stupac="Napomena">{{.Napomena}}</td>
+      <td data-stupac="Napomena">{{.Napomena}}{{if .VezaID}} <a href="/sredstva/promet/{{.VezaID}}/potvrda.xlsx" title="potvrda / otpremnica" class="reg-card-sub">{{icon "download"}}</a>{{end}}</td>
     </tr>
     {{end}}
     </tbody>

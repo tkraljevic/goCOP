@@ -68,6 +68,7 @@ type MtsPageData struct {
 
 	GdjeIma []service.MjestoZalihe
 
+	Potvrda      string // veza zahvata koji je upravo upisan, za ispis potvrde
 	SmijePisati  bool
 	SmijeUrediti bool
 	IsEdit       bool
@@ -155,7 +156,8 @@ func (h *MtsHandler) pageData(r *http.Request) MtsPageData {
 		SuccessMessage: r.URL.Query().Get("success"), ErrorMessage: r.URL.Query().Get("error"),
 		ActiveNav: "sredstva", ViewAsBanner: viewBanner(r),
 		Grupe: models.GrupeSredstava, VrstePrometa: models.VrstePrometa,
-		Danas: time.Now().In(models.Zagreb).Format("2006-01-02"),
+		Danas:   time.Now().In(models.Zagreb).Format("2006-01-02"),
+		Potvrda: r.URL.Query().Get("potvrda"),
 	}
 	d.Sektori, _ = h.users.ListSectors()
 	d.Sektor = strings.TrimSpace(r.URL.Query().Get("sektor"))
@@ -389,11 +391,15 @@ func (h *MtsHandler) HandleSavePromet(w http.ResponseWriter, r *http.Request) {
 	if len(redci) > 0 && redci[0].Jedinica != "" {
 		poruka += " " + redci[0].Jedinica
 	}
+	veza := ""
+	if len(redci) > 0 {
+		veza = redci[0].VezaID
+	}
 	if r.FormValue("jos") == "1" {
-		redirectWith(w, r, "/sredstva/skladista/"+id+"/promet/novo?vrsta="+z.Vrsta, "success", poruka+" je upisano; sljedeći zahvat.")
+		redirectWith(w, r, "/sredstva/skladista/"+id+"/promet/novo?vrsta="+z.Vrsta+"&potvrda="+veza, "success", poruka+" je upisano; sljedeći zahvat.")
 		return
 	}
-	redirectWith(w, r, "/sredstva/skladista/"+id, "success", poruka+" je upisano.")
+	redirectWith(w, r, "/sredstva/skladista/"+id+"?potvrda="+veza, "success", poruka+" je upisano.")
 }
 
 // ShowPromet prikazuje knjigu prometa po filtru

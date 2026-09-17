@@ -15,7 +15,7 @@
 </div>
 
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
-{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}{{if .Potvrda}} <a href="/sredstva/promet/{{.Potvrda}}/potvrda.xlsx" class="btn btn-secondary btn-sm" style="margin-left:0.5rem;">{{icon "download"}} Ispiši potvrdu</a>{{end}}</div>{{end}}
 
 <form class="form-page form-wide" method="POST" action="/sredstva/skladista/{{$sk.ID}}/promet" id="zahvat">
   <div class="form-group">

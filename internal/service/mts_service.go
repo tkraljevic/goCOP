@@ -392,6 +392,7 @@ func (s *MtsService) Provedi(ctx context.Context, u *models.User, perms *models.
 		Nalozio: strings.TrimSpace(z.Nalozio), Preuzeo: strings.TrimSpace(z.Preuzeo), Dokument: strings.TrimSpace(z.Dokument),
 		Napomena: strings.TrimSpace(z.Napomena), UserID: u.ID.String(), UserName: u.FullName}
 	veza := uuid.New().String()
+	osnova.VezaID = veza
 
 	// mjesto na terenu, kad ga zahvat ima
 	naTeren := z.AreaID > 0 || z.SectionCode != "" || z.StructureID != "" || strings.TrimSpace(z.Mjesto) != ""

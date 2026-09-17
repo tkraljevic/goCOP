@@ -85,6 +85,8 @@ func TestSredstvaKrozRute(t *testing.T) {
 	mux.HandleFunc("POST /sredstva/skladista/{id}/promet", h.HandleSavePromet)
 	mux.HandleFunc("GET /sredstva/skladista/{id}/popis", h.ShowPopisNovo)
 	mux.HandleFunc("GET /sredstva/skladista/{id}/skladiste.xlsx", h.IzvoziSkladiste)
+	mux.HandleFunc("GET /sredstva/promet/{veza}/potvrda.xlsx", h.IzvoziPotvrdu)
+	mux.HandleFunc("GET /sredstva/promet.xlsx", h.IzvoziPromet)
 	mux.HandleFunc("GET /sredstva/popisi", h.ShowPopisi)
 	mux.HandleFunc("POST /sredstva/popisi", h.HandleSavePopis)
 	mux.HandleFunc("GET /sredstva/popisi/{id}", h.ShowPopis)
@@ -169,8 +171,34 @@ func TestSredstvaKrozRute(t *testing.T) {
 	if l := w.Header().Get("Location"); !strings.Contains(l, "error=") {
 		t.Errorf("izdavanje preko zalihe prošlo: %s", l)
 	}
-	odredište(zovi(http.MethodPost, "/sredstva/skladista/"+sk+"/promet", url.Values{"vrsta": {"IZDANO"}, "datum": {danas}, "sredstvo": {"vrece-50x80"},
-		"oblik": {"PUNJENO"}, "kolicina": {"4000"}, "podrucje": {"34"}, "dionica": {"B.34.1"}, "preuzeo": {"vodočuvar"}}), "izdavanje")
+	kamo = odredište(zovi(http.MethodPost, "/sredstva/skladista/"+sk+"/promet", url.Values{"vrsta": {"IZDANO"}, "datum": {danas}, "sredstvo": {"vrece-50x80"},
+		"oblik": {"PUNJENO"}, "kolicina": {"4000"}, "podrucje": {"34"}, "dionica": {"B.34.1"}, "preuzeo": {"vodočuvar"}, "nalozio": {"voditelj COP-a"}, "dokument": {"OT 7/26"}}), "izdavanje")
+	// otpremnica za taj zahvat
+	veza := ""
+	if i := strings.Index(kamo, "potvrda="); i >= 0 {
+		veza = strings.SplitN(kamo[i+len("potvrda="):], "&", 2)[0]
+	}
+	if veza == "" {
+		t.Fatalf("izdavanje ne vodi na potvrdu: %s", kamo)
+	}
+	w = zovi(http.MethodGet, "/sredstva/promet/"+veza+"/potvrda.xlsx", nil)
+	if w.Code != http.StatusOK || !strings.Contains(w.Header().Get("Content-Disposition"), "otpremnica_") {
+		t.Fatalf("otpremnica: %d %s", w.Code, w.Header().Get("Content-Disposition"))
+	}
+	if r, err := procitajXLSX(w.Body.Bytes()); err != nil {
+		t.Fatal(err)
+	} else {
+		var sve []string
+		for _, x := range r {
+			sve = append(sve, strings.Join(x, "|"))
+		}
+		list := strings.Join(sve, "\n")
+		for _, want := range []string{"OTPREMNICA br. OT 7/26", "Centralno skladište Osijek", "BP 34 Drava i Dunav · B.34.1", "voditelj COP-a", "vodočuvar", "1.|Vreće 50x80 cm|napunjeno|kom|4000"} {
+			if !strings.Contains(list, want) {
+				t.Errorf("otpremnica nema %q\n%s", want, list)
+			}
+		}
+	}
 	mora(zovi(http.MethodGet, "/sredstva/na-terenu?sektor=B", nil), http.StatusOK, "na terenu", "BP 34 Drava i Dunav · B.34.1", "4 000")
 	mora(zovi(http.MethodGet, "/sredstva/promet?sektor=B", nil), http.StatusOK, "knjiga", "Izdano na teren", "teren · BP 34 Drava i Dunav · B.34.1", "−4 000", "&#43;4 000", "Preuzeo: vodočuvar")
 	mora(zovi(http.MethodGet, "/sredstva/gdje/vrece-50x80", nil), http.StatusOK, "gdje ima", "Centralno skladište Osijek", "96 000")
@@ -193,6 +221,26 @@ func TestSredstvaKrozRute(t *testing.T) {
 	mora(zovi(http.MethodGet, "/sredstva/popisi?sektor=B", nil), http.StatusOK, "popisi", "Centralno skladište Osijek", "zaključen")
 	if w := zovi(http.MethodGet, "/sredstva/popisi/"+popis+"/uredi", nil); w.Code != http.StatusForbidden {
 		t.Errorf("uređivanje zaključenog: %d", w.Code)
+	}
+
+	// knjiga prometa u Excelu, po filtru
+	w = zovi(http.MethodGet, "/sredstva/promet.xlsx?sektor=B&vrsta=vrece-50x80", nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("izvoz prometa: %d", w.Code)
+	}
+	if r, err := procitajXLSX(w.Body.Bytes()); err != nil {
+		t.Fatal(err)
+	} else {
+		var sve []string
+		for _, x := range r {
+			sve = append(sve, strings.Join(x, "|"))
+		}
+		list := strings.Join(sve, "\n")
+		for _, want := range []string{"KNJIGA PROMETA SREDSTAVA", "Izdano na teren|Centralno skladište Osijek|Vreće 50x80 cm|napunjeno|-4000|kom", "OT 7/26"} {
+			if !strings.Contains(list, want) {
+				t.Errorf("knjiga nema %q\n%s", want, list)
+			}
+		}
 	}
 
 	// kartica skladišta u Excelu: stanje s oblicima i potrebama, pa promet
