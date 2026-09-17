@@ -30,22 +30,24 @@
 
 <section class="detail-section">
   <h2>{{icon "list"}} Stanje</h2>
-  {{$oblici := .Oblici}}
   <div class="table-card"><div class="table-responsive">
     <table class="data-table mts-stanje">
-      <thead><tr><th>R. br.</th><th>Vrsta sredstva</th><th>Jed.</th><th class="br">Ukupno</th>{{range $oblici}}<th class="br">{{oblik .}}</th>{{end}}<th></th></tr></thead>
+      <thead><tr><th>R. br.</th><th>Vrsta sredstva</th><th>Jed.</th><th class="br">Ukupno</th><th></th></tr></thead>
       <tbody>
       {{range .PoGrupama}}
-      <tr class="mts-grupa"><td>{{.Rimski}}</td><td colspan="{{add 4 (len $oblici)}}">{{.Naziv}}</td></tr>
+      <tr class="mts-grupa"><td>{{.Rimski}}</td><td colspan="4">{{.Naziv}}</td></tr>
       {{range .Redci}}
       <tr{{if not .Ima}} class="mts-prazno"{{end}}>
         <td class="mono">{{.Vrsta.Redoslijed}}.</td>
         <td><a href="/sredstva/gdje/{{.Vrsta.ID}}" title="gdje ima">{{.Vrsta.Naziv}}</a></td>
         <td>{{.Vrsta.Jedinica}}</td>
         <td class="mono br"><strong>{{if .Ukupno}}{{kolicina .Ukupno}}{{end}}</strong></td>
-        {{$sv := .}}{{range $oblici}}<td class="mono br">{{if $sv.Vrsta.ImaOblike}}{{with $sv.Oblik .}}{{kolicina .}}{{end}}{{end}}</td>{{end}}
         <td>{{if $.SmijePisati}}<a href="/sredstva/skladista/{{$sk.ID}}/promet/novo?sredstvo={{.Vrsta.ID}}" class="btn btn-secondary btn-sm" title="zahvat na ovoj vrsti">{{icon "plus"}}</a>{{end}}</td>
       </tr>
+      {{if and .Vrsta.ImaOblike .Ima}}{{$sv := .}}
+      <tr class="mts-oblici"><td></td><td colspan="4">od toga: {{range $i, $o := .Vrsta.Oblici}}{{if $i}} · {{end}}{{oblik $o}} <strong class="mono">{{kolicina ($sv.Oblik $o)}}</strong>{{end}}
+        {{if $.SmijePisati}}{{if gt ($sv.Oblik "PRAZNO") 0.0}} <a href="/sredstva/skladista/{{$sk.ID}}/promet/novo?vrsta=PUNJENJE&sredstvo={{.Vrsta.ID}}" class="btn btn-secondary btn-sm">napuni</a>{{end}}{{if gt ($sv.Oblik "PUNJENO") 0.0}} <a href="/sredstva/skladista/{{$sk.ID}}/promet/novo?vrsta=IZDANO&sredstvo={{.Vrsta.ID}}&oblik=PUNJENO" class="btn btn-secondary btn-sm">izdaj na teren</a>{{end}}{{end}}</td></tr>
+      {{end}}
       {{end}}
       {{end}}
       </tbody>

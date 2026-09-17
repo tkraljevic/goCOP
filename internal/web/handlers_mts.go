@@ -320,6 +320,9 @@ func (h *MtsHandler) ShowPrometForm(w http.ResponseWriter, r *http.Request) {
 	if data.Zahvat.Vrsta == "" {
 		data.Zahvat.Vrsta = models.PrometPrimka
 	}
+	if data.Zahvat.Oblik == "" {
+		data.Zahvat.Oblik = zadaniOblik(data.Zahvat.Vrsta)
+	}
 	h.render(w, "promet_form.html", data)
 }
 
@@ -586,6 +589,15 @@ func (h *MtsHandler) HandleZakljuciPopis(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	redirectWith(w, r, "/sredstva/popisi/"+id, "success", "Inventura je zaključena; razlike su proknjižene.")
+}
+
+// zadaniOblik: na teren idu napunjene vreće, u skladište stižu prazne
+func zadaniOblik(vrstaPrometa string) string {
+	switch vrstaPrometa {
+	case models.PrometIzdano, models.PrometPovrat, models.PrometUtrosak:
+		return models.OblikPunjeno
+	}
+	return models.OblikPrazno
 }
 
 // kolicinaHR piše količinu bez suvišnih decimala, sa zarezom i razmakom

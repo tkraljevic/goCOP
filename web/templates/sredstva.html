@@ -64,21 +64,22 @@
 <section class="detail-section">
   <h2>{{icon "list"}} Stanje{{if .Sektor}} sektora {{.Sektor}}{{else}} svih sektora{{end}} po vrstama</h2>
   <p class="page-desc">Sva skladišta zbrojena. Klik na vrstu pokazuje gdje je ima — i u drugim sektorima.</p>
-  {{$oblici := .Oblici}}
   <div class="table-card"><div class="table-responsive">
     <table class="data-table mts-stanje">
-      <thead><tr><th>R. br.</th><th>Vrsta sredstva</th><th>Jed.</th><th class="br">Ukupno</th>{{range $oblici}}<th class="br">{{oblik .}}</th>{{end}}</tr></thead>
+      <thead><tr><th>R. br.</th><th>Vrsta sredstva</th><th>Jed.</th><th class="br">Ukupno</th></tr></thead>
       <tbody>
       {{range .PoGrupama}}
-      <tr class="mts-grupa"><td>{{.Rimski}}</td><td colspan="{{add 3 (len $oblici)}}">{{.Naziv}}</td></tr>
+      <tr class="mts-grupa"><td>{{.Rimski}}</td><td colspan="3">{{.Naziv}}</td></tr>
       {{range .Redci}}
       <tr{{if not .Ima}} class="mts-prazno"{{end}}>
         <td class="mono">{{.Vrsta.Redoslijed}}.</td>
         <td><a href="/sredstva/gdje/{{.Vrsta.ID}}">{{.Vrsta.Naziv}}</a></td>
         <td>{{.Vrsta.Jedinica}}</td>
         <td class="mono br"><strong>{{if .Ukupno}}{{kolicina .Ukupno}}{{end}}</strong></td>
-        {{$sv := .}}{{range $oblici}}<td class="mono br">{{if $sv.Vrsta.ImaOblike}}{{with $sv.Oblik .}}{{kolicina .}}{{end}}{{end}}</td>{{end}}
       </tr>
+      {{if and .Vrsta.ImaOblike .Ima}}{{$sv := .}}
+      <tr class="mts-oblici"><td></td><td colspan="3">od toga: {{range $i, $o := .Vrsta.Oblici}}{{if $i}} · {{end}}{{oblik $o}} <strong class="mono">{{kolicina ($sv.Oblik $o)}}</strong>{{end}}</td></tr>
+      {{end}}
       {{end}}
       {{end}}
       </tbody>

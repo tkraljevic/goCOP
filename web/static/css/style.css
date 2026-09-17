@@ -3452,3 +3452,6 @@ textarea {
 .mts-zahvat input { margin-right: 0.3rem; }
 .mts-broj { max-width: 8rem; text-align: right; }
 .mts-skladista .reg-card { padding: 0.75rem 1rem; }
+
+.mts-stanje tr.mts-oblici td { padding-top: 0; font-size: 0.82rem; color: var(--text-muted, #667); border-top: 0; }
+.mts-stanje tr.mts-oblici .btn-sm { margin-left: 0.4rem; padding: 0.05rem 0.45rem; font-size: 0.75rem; }
