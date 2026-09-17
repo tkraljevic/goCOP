@@ -19,7 +19,7 @@
     <a href="/sredstva/skladista/{{$sk.ID}}/promet/novo?vrsta=PRIMKA" class="btn btn-primary">{{icon "plus"}} Primka</a>
     <a href="/sredstva/skladista/{{$sk.ID}}/promet/novo?vrsta=IZDANO" class="btn btn-primary">{{icon "arrow-right"}} Izdaj na teren</a>
     <a href="/sredstva/skladista/{{$sk.ID}}/promet/novo" class="btn btn-secondary">{{icon "notebook-pen"}} Drugi zahvat</a>
-    <a href="/sredstva/skladista/{{$sk.ID}}/popis" class="btn btn-secondary">{{icon "list"}} Popis na dan</a>
+    <a href="/sredstva/skladista/{{$sk.ID}}/popis" class="btn btn-secondary">{{icon "list"}} Inventura na dan</a>
     {{end}}
     {{if .SmijeUrediti}}<a href="/sredstva/skladista/{{$sk.ID}}/uredi" class="btn btn-secondary">{{icon "pencil"}} Uredi</a>{{end}}
   </div>
@@ -79,7 +79,7 @@
 
 {{if .Popisi}}
 <section class="detail-section">
-  <h2>{{icon "list"}} Popisi</h2>
+  <h2>{{icon "list"}} Inventure</h2>
   <div class="table-card"><div class="table-responsive">
     <table class="data-table">
       <thead><tr><th>Na dan</th><th>Stanje</th><th class="br">Razlika u redaka</th><th>Izradio</th></tr></thead>

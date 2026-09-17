@@ -178,7 +178,7 @@ func TestSredstvaKrozRute(t *testing.T) {
 	mora(zovi(http.MethodGet, "/sredstva?sektor=B", nil), http.StatusOK, "pregled sa stanjem", "96 000", "95 000", "1 000")
 
 	// popis: predložak nosi knjižno, spremi se s prebrojanim i potrebama, zaključi
-	mora(zovi(http.MethodGet, "/sredstva/skladista/"+sk+"/popis?dan="+danas, nil), http.StatusOK, "popis predložak", "Popis sredstava", `name="u:vrece-50x80:PRAZNO"`, `value="95000"`)
+	mora(zovi(http.MethodGet, "/sredstva/skladista/"+sk+"/popis?dan="+danas, nil), http.StatusOK, "popis predložak", "Inventura na dan", `name="u:vrece-50x80:PRAZNO"`, `value="95000"`)
 	obrazac := url.Values{"skladiste": {sk}, "dan": {danas}, "u:vrece-50x80:PRAZNO": {"94 990"}, "k:vrece-50x80:PRAZNO": {"95000"},
 		"u:vrece-50x80:PUNJENO": {"1000"}, "k:vrece-50x80:PUNJENO": {"1000"}, "p:vrece-50x80:PRAZNO": {"50 000"}, "n:vrece-50x80:PRAZNO": {"10 poderanih"}}
 	kamo = odredište(zovi(http.MethodPost, "/sredstva/popisi", obrazac), "spremanje popisa")
@@ -187,7 +187,7 @@ func TestSredstvaKrozRute(t *testing.T) {
 	mora(zovi(http.MethodGet, "/sredstva/skladista/"+sk+"/popis?dan="+danas, nil), http.StatusSeeOther, "isti dan vodi na postojeći")
 	odredište(zovi(http.MethodPost, "/sredstva/popisi/"+popis+"/zakljuci", url.Values{}), "zaključenje")
 	mora(zovi(http.MethodGet, "/sredstva/popisi/"+popis, nil), http.StatusOK, "zaključen", "zaključen", "razlike proknjižene")
-	mora(zovi(http.MethodGet, "/sredstva/skladista/"+sk, nil), http.StatusOK, "stanje poslije popisa", "94 990", "Usklađenje po popisu")
+	mora(zovi(http.MethodGet, "/sredstva/skladista/"+sk, nil), http.StatusOK, "stanje poslije popisa", "94 990", "Usklađenje po inventuri")
 	mora(zovi(http.MethodGet, "/sredstva/popisi?sektor=B", nil), http.StatusOK, "popisi", "Centralno skladište Osijek", "zaključen")
 	if w := zovi(http.MethodGet, "/sredstva/popisi/"+popis+"/uredi", nil); w.Code != http.StatusForbidden {
 		t.Errorf("uređivanje zaključenog: %d", w.Code)
@@ -208,7 +208,7 @@ func TestSredstvaKrozRute(t *testing.T) {
 	}
 	list := strings.Join(sve, "\n")
 	for _, want := range []string{"POPIS SREDSTAVA ZA OBRANU OD POPLAVA PO SKLADIŠTIMA", "BP 34 - DRAVA I DUNAV", "Centralno skladište Osijek", "Splavarska 2a",
-		"Dodatne potrebe za nabavom u", "III|Materijal", "9.|Vreće 50x80 cm|kom|95990|50000|95990|50000", "IV|Pribor i osobna zaštitna sredstva", "popis zaključen"} {
+		"Dodatne potrebe za nabavom u", "III|Materijal", "9.|Vreće 50x80 cm|kom|95990|50000|95990|50000", "IV|Pribor i osobna zaštitna sredstva", "inventura zaključena"} {
 		if !strings.Contains(list, want) {
 			t.Errorf("tablica nema %q\n%s", want, list)
 		}

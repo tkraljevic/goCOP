@@ -188,7 +188,7 @@ var VrstePrometa = []struct {
 	{PrometPrijenos, "Prijenos", "premješteno u drugo skladište"},
 	{PrometPunjenje, "Punjenje vreća", "prazne vreće postaju napunjene"},
 	{PrometOtpis, "Otpis", "rashodovano ili uništeno"},
-	{PrometPopis, "Usklađenje po popisu", "razlika utvrđena godišnjim popisom"},
+	{PrometPopis, "Usklađenje po inventuri", "razlika utvrđena inventurom"},
 	{PrometPocetno, "Početno stanje", "zatečeno pri uvođenju u program"},
 }
 
@@ -347,7 +347,7 @@ type PopisnaStavka struct {
 // Razlika je koliko popis odstupa od knjige: pozitivno višak, negativno manjak
 func (s PopisnaStavka) Razlika() float64 { return s.Utvrdjeno - s.Knjizno }
 
-// Zakljucen javlja je li popis zaključen i proknjižen
+// Zakljucen javlja je li inventura zaključena i proknjižen
 func (p Popis) Zakljucen() bool { return p.ZakljucenoAt != nil }
 
 // DanKey je dan popisa u obliku 2006-01-02

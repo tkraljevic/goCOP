@@ -470,7 +470,7 @@ func (h *MtsHandler) ShowPopisNovo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !data.SmijePisati {
-		http.Error(w, "Popis vodi uprava branjenog područja ili sektora", http.StatusForbidden)
+		http.Error(w, "Inventuru vodi uprava branjenog područja ili sektora", http.StatusForbidden)
 		return
 	}
 	dan := time.Now().In(models.Zagreb)
@@ -527,7 +527,7 @@ func (h *MtsHandler) ShowPopisUredi(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !data.SmijePisati || p.Zakljucen() {
-		http.Error(w, "Zaključeni popis se ne mijenja", http.StatusForbidden)
+		http.Error(w, "Zaključena inventura se ne mijenja", http.StatusForbidden)
 		return
 	}
 	data.IsEdit = true
@@ -571,10 +571,10 @@ func (h *MtsHandler) HandleSavePopis(w http.ResponseWriter, r *http.Request) {
 			redirectWith(w, r, "/sredstva/popisi/"+p.ID, "error", "Popis je spremljen, ali nije zaključen: "+err.Error())
 			return
 		}
-		redirectWith(w, r, "/sredstva/popisi/"+p.ID, "success", "Popis je zaključen; razlike su proknjižene.")
+		redirectWith(w, r, "/sredstva/popisi/"+p.ID, "success", "Inventura je zaključena; razlike su proknjižene.")
 		return
 	}
-	redirectWith(w, r, "/sredstva/popisi/"+p.ID, "success", "Popis je spremljen kao nacrt.")
+	redirectWith(w, r, "/sredstva/popisi/"+p.ID, "success", "Inventura je spremljena kao nacrt.")
 }
 
 // HandleZakljuciPopis proknjižava razlike
@@ -585,7 +585,7 @@ func (h *MtsHandler) HandleZakljuciPopis(w http.ResponseWriter, r *http.Request)
 		redirectWith(w, r, "/sredstva/popisi/"+id, "error", err.Error())
 		return
 	}
-	redirectWith(w, r, "/sredstva/popisi/"+id, "success", "Popis je zaključen; razlike su proknjižene.")
+	redirectWith(w, r, "/sredstva/popisi/"+id, "success", "Inventura je zaključena; razlike su proknjižene.")
 }
 
 // kolicinaHR piše količinu bez suvišnih decimala, sa zarezom i razmakom

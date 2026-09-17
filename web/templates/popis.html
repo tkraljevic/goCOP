@@ -4,11 +4,11 @@
 
 {{define "content"}}
 {{$p := .Popis}}{{$sk := .Skladiste}}
-<div class="breadcrumb"><a href="/registri">Registri</a> › <a href="/sredstva?sektor={{$sk.Sektor}}">Sredstva za obranu</a> › <a href="/sredstva/skladista/{{$sk.ID}}">{{$sk.Naziv}}</a> › Popis {{$p.Dan.Format "2.1.2006."}}</div>
+<div class="breadcrumb"><a href="/registri">Registri</a> › <a href="/sredstva?sektor={{$sk.Sektor}}">Sredstva za obranu</a> › <a href="/sredstva/skladista/{{$sk.ID}}">{{$sk.Naziv}}</a> › Inventura {{$p.Dan.Format "2.1.2006."}}</div>
 
 <div class="detail-head">
   <div>
-    <h1 class="page-title">{{icon "list"}} Popis sredstava na dan {{$p.Dan.Format "2.1.2006."}}</h1>
+    <h1 class="page-title">{{icon "list"}} Inventura na dan {{$p.Dan.Format "2.1.2006."}}</h1>
     <p class="page-desc">{{$sk.Naziv}}{{if $sk.AreaName}} · BP {{$sk.AreaID}} {{$sk.AreaName}}{{end}} · {{term "sektor"}} {{$sk.Sektor}}
       · {{if $p.Zakljucen}}<span class="badge">zaključen {{$p.ZakljucenoAt.Format "2.1.2006. 15:04"}}</span>{{else}}<span class="badge badge-pending">nacrt</span>{{end}}
       {{if $p.Razlika}} · {{$p.Razlika}} {{uzBroj $p.Razlika "redak" "retka" "redaka"}} s razlikom{{end}}</p>
@@ -16,7 +16,7 @@
   <div class="page-actions">
     {{if and .SmijePisati (not $p.Zakljucen)}}
     <a href="/sredstva/popisi/{{$p.ID}}/uredi" class="btn btn-secondary">{{icon "pencil"}} Uredi</a>
-    <form method="POST" action="/sredstva/popisi/{{$p.ID}}/zakljuci" style="display:inline;" onsubmit="return confirm('Zaključiti popis? Razlike prema knjizi bit će proknjižene.');"><button type="submit" class="btn btn-primary">{{icon "lock"}} Zaključi</button></form>
+    <form method="POST" action="/sredstva/popisi/{{$p.ID}}/zakljuci" style="display:inline;" onsubmit="return confirm('Zaključiti inventuru? Razlike prema knjizi bit će proknjižene.');"><button type="submit" class="btn btn-primary">{{icon "lock"}} Zaključi</button></form>
     {{end}}
   </div>
 </div>
@@ -49,5 +49,5 @@
 </div></div>
 
 <p class="reading-meta" style="margin-top:0.75rem;">Izradio: <strong>{{$p.Izradio}}</strong>, {{$p.IzradenoAt.Format "2.1.2006. 15:04"}}{{if $p.Napomena}} · {{$p.Napomena}}{{end}}
-  {{if $p.Zakljucen}} · razlike proknjižene kao usklađenje po popisu{{end}}</p>
+  {{if $p.Zakljucen}} · razlike proknjižene kao usklađenje po inventuri{{end}}</p>
 {{end}}
