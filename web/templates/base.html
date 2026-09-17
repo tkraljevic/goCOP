@@ -48,7 +48,7 @@
           {{if .Sees "registri"}}
           <div class="nav-group">
             <button type="button" class="nav-link nav-group-btn
-                {{if or (eq .ActiveNav "registers") (eq .ActiveNav "organizacija") (eq .ActiveNav "sections") (eq .ActiveNav "territories") (eq .ActiveNav "stations") (eq .ActiveNav "watercourses") (eq .ActiveNav "structures") (eq .ActiveNav "firme") (eq .ActiveNav "maintenance")}}active{{end}}"
+                {{if or (eq .ActiveNav "registers") (eq .ActiveNav "organizacija") (eq .ActiveNav "sections") (eq .ActiveNav "territories") (eq .ActiveNav "stations") (eq .ActiveNav "watercourses") (eq .ActiveNav "structures") (eq .ActiveNav "firme") (eq .ActiveNav "maintenance") (eq .ActiveNav "sredstva")}}active{{end}}"
                 aria-haspopup="true" aria-expanded="false" onclick="toggleNavGroup(event)">
               {{icon "book-open"}} Registri <span class="nav-caret">▾</span>
             </button>
@@ -76,6 +76,9 @@
               </a>
               <a href="/odrzavanje" class="nav-dropdown-item {{if eq .ActiveNav "maintenance"}}active{{end}}">
                 {{icon "wrench"}} Održavanje
+              </a>
+              <a href="/sredstva" class="nav-dropdown-item {{if eq .ActiveNav "sredstva"}}active{{end}}">
+                {{icon "package"}} Sredstva za obranu
               </a>
             </div>
           </div>

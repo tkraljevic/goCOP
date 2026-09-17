@@ -228,8 +228,8 @@ func (s *MtsService) GdjeIma(ctx context.Context, vrstaID string) ([]MjestoZalih
 
 // NaTerenu vraća što je izdano a nije vraćeno ni ugrađeno, po dionicama
 // jedne obrane
-func (s *MtsService) NaTerenu(ctx context.Context, journalID string) ([]models.Stanje, error) {
-	stanja, err := s.repo.StanjeNaTerenu(ctx, journalID)
+func (s *MtsService) NaTerenu(ctx context.Context, journalID, sektor string) ([]models.Stanje, error) {
+	stanja, err := s.repo.StanjeNaTerenu(ctx, journalID, sektor)
 	if err != nil {
 		return nil, err
 	}
@@ -249,7 +249,7 @@ func (s *MtsService) kolikoIma(ctx context.Context, skladisteID, sectionCode, jo
 	if skladisteID != "" {
 		stanja, err = s.repo.Stanje(ctx, skladisteID, "", nil)
 	} else {
-		stanja, err = s.repo.StanjeNaTerenu(ctx, journalID)
+		stanja, err = s.repo.StanjeNaTerenu(ctx, journalID, "")
 	}
 	if err != nil {
 		return 0, err
@@ -327,7 +327,7 @@ func (s *MtsService) Provedi(ctx context.Context, u *models.User, perms *models.
 		z.Oblik = models.OblikOsnovni
 	}
 
-	osnova := models.Promet{Datum: z.Datum, VrstaID: z.VrstaID, Oblik: z.Oblik, Vrsta: z.Vrsta, JournalID: z.JournalID,
+	osnova := models.Promet{Datum: z.Datum, VrstaID: z.VrstaID, Oblik: z.Oblik, Vrsta: z.Vrsta, Sektor: sk.Sektor, JournalID: z.JournalID,
 		Nalozio: strings.TrimSpace(z.Nalozio), Preuzeo: strings.TrimSpace(z.Preuzeo), Dokument: strings.TrimSpace(z.Dokument),
 		Napomena: strings.TrimSpace(z.Napomena), UserID: u.ID.String(), UserName: u.FullName}
 	veza := uuid.New().String()
@@ -402,7 +402,7 @@ func (s *MtsService) Provedi(ctx context.Context, u *models.User, perms *models.
 		}
 		a, b := osnova, osnova
 		a.SkladisteID, a.Kolicina, a.VezaID = sk.ID, -z.Kolicina, veza
-		b.SkladisteID, b.Kolicina, b.VezaID = cilj.ID, z.Kolicina, veza
+		b.SkladisteID, b.Kolicina, b.VezaID, b.Sektor = cilj.ID, z.Kolicina, veza, cilj.Sektor
 		if a.Napomena == "" {
 			a.Napomena = "u " + cilj.Naziv
 		}
@@ -611,7 +611,7 @@ func (s *MtsService) ZakljuciPopis(ctx context.Context, u *models.User, perms *m
 			continue
 		}
 		redci = append(redci, models.Promet{Datum: p.Dan, VrstaID: st.VrstaID, Oblik: st.Oblik, Kolicina: razlika,
-			Vrsta: models.PrometPopis, SkladisteID: p.SkladisteID, PopisID: p.ID, UserID: u.ID.String(), UserName: u.FullName,
+			Vrsta: models.PrometPopis, Sektor: sk.Sektor, SkladisteID: p.SkladisteID, PopisID: p.ID, UserID: u.ID.String(), UserName: u.FullName,
 			Napomena: "usklađenje po popisu na dan " + p.Dan.Format("2.1.2006.")})
 	}
 	if err := s.repo.SavePromet(ctx, redci); err != nil {

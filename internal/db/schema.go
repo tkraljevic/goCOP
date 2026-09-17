@@ -158,6 +158,7 @@ func InitSchema(database *sql.DB) error {
 			oblik TEXT NOT NULL DEFAULT '',
 			kolicina REAL NOT NULL,
 			vrsta TEXT NOT NULL,
+			sektor TEXT NOT NULL DEFAULT '',
 			skladiste_id TEXT NOT NULL DEFAULT '',
 			section_code TEXT NOT NULL DEFAULT '',
 			veza_id TEXT NOT NULL DEFAULT '',

@@ -1,0 +1,129 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Zahvat u skladištu{{end}}
+
+{{define "content"}}
+{{$sk := .Skladiste}}{{$z := .Zahvat}}
+<div class="breadcrumb"><a href="/registri">Registri</a> › <a href="/sredstva?sektor={{$sk.Sektor}}">Sredstva za obranu</a> › <a href="/sredstva/skladista/{{$sk.ID}}">{{$sk.Naziv}}</a> › Zahvat</div>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "notebook-pen"}} Zahvat u skladištu {{$sk.Naziv}}</h1>
+    <p class="page-desc">Svaki zahvat je redak u knjizi: što, koliko, tko je naložio, tko je preuzeo ili dopremio i po kojem
+      dokumentu. Stanje se iz toga zbraja samo.</p>
+  </div>
+</div>
+
+{{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+
+<form class="form-page form-wide" method="POST" action="/sredstva/skladista/{{$sk.ID}}/promet" id="zahvat">
+  <div class="form-group">
+    <label class="form-label">Vrsta zahvata *</label>
+    <div class="mts-zahvati">
+      {{range .VrstePrometa}}{{if ne .ID "POPIS"}}
+      <label class="mts-zahvat"><input type="radio" name="vrsta" value="{{.ID}}"{{if eq .ID $z.Vrsta}} checked{{end}} onchange="pokaziPolja()"> <strong>{{.Naziv}}</strong><small>{{.Opis}}</small></label>
+      {{end}}{{end}}
+    </div>
+  </div>
+
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="datum">Datum *</label>
+      <input type="date" id="datum" name="datum" class="form-control" value="{{$z.Datum.Format "2006-01-02"}}" max="{{.Danas}}" required>
+    </div>
+    <div class="form-group" style="flex:2;">
+      <label class="form-label" for="sredstvo">Sredstvo *</label>
+      <select id="sredstvo" name="sredstvo" class="form-control" required onchange="pokaziPolja()">
+        <option value="">— odaberite —</option>
+        {{range $g := .Grupe}}<optgroup label="{{$g.Rimski}} {{$g.Naziv}}">
+        {{range $.Vrste}}{{if eq .Grupa $g.ID}}<option value="{{.ID}}" data-jed="{{.Jedinica}}" data-oblici="{{join .Oblici ","}}"{{if eq .ID $z.VrstaID}} selected{{end}}>{{.Redoslijed}}. {{.Naziv}} ({{.Jedinica}})</option>{{end}}{{end}}
+        </optgroup>{{end}}
+      </select>
+    </div>
+  </div>
+
+  <div class="form-row">
+    <div class="form-group" id="p-oblik">
+      <label class="form-label" for="oblik">Oblik</label>
+      <select id="oblik" name="oblik" class="form-control">
+        <option value="">osnovno</option>
+        <option value="PRAZNO"{{if eq $z.Oblik "PRAZNO"}} selected{{end}}>prazno</option>
+        <option value="PUNJENO"{{if eq $z.Oblik "PUNJENO"}} selected{{end}}>napunjeno</option>
+        <option value="NEISPRAVNO"{{if eq $z.Oblik "NEISPRAVNO"}} selected{{end}}>neispravno</option>
+      </select>
+    </div>
+    <div class="form-group" id="p-u-oblik">
+      <label class="form-label" for="u_oblik">U oblik (punjenje)</label>
+      <select id="u_oblik" name="u_oblik" class="form-control">
+        <option value="PUNJENO">napunjeno</option>
+        <option value="PRAZNO">prazno</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="kolicina">Količina * <span class="reg-card-sub" id="jed"></span></label>
+      <input type="text" id="kolicina" name="kolicina" class="form-control mono" inputmode="decimal" required placeholder="npr. 4 200">
+    </div>
+  </div>
+
+  <div class="form-row" id="p-teren">
+    <div class="form-group">
+      <label class="form-label" for="dionica">Dionica na terenu</label>
+      <select id="dionica" name="dionica" class="form-control">
+        <option value="">— nije razvrstano —</option>
+        {{range .Dionice}}<option value="{{.Code}}"{{if eq .Code $z.SectionCode}} selected{{end}}>{{.Code}} — {{.EffectiveDescription}}</option>{{end}}
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="obrana">Obrana (dnevnik COP-a)</label>
+      <select id="obrana" name="obrana" class="form-control">
+        <option value="">— bez obrane —</option>
+        {{range .Obrane}}<option value="{{.ID}}"{{if eq .ID $z.JournalID}} selected{{end}}>{{.DisplayTitle}}</option>{{end}}
+      </select>
+    </div>
+  </div>
+
+  <div class="form-group" id="p-na-skladiste">
+    <label class="form-label" for="na_skladiste">U skladište (prijenos)</label>
+    <select id="na_skladiste" name="na_skladiste" class="form-control">
+      <option value="">— odaberite —</option>
+      {{range .Skladista}}{{if ne .ID $sk.ID}}<option value="{{.ID}}">{{term "sektor"}} {{.Sektor}} · {{if .AreaName}}BP {{.AreaID}} · {{end}}{{.Naziv}}</option>{{end}}{{end}}
+    </select>
+  </div>
+
+  <div class="form-row">
+    <div class="form-group"><label class="form-label" for="nalozio">Naložio</label><input type="text" id="nalozio" name="nalozio" class="form-control" value="{{$z.Nalozio}}" placeholder="tko je dao nalog"></div>
+    <div class="form-group"><label class="form-label" for="preuzeo" id="l-preuzeo">Preuzeo / dopremio</label><input type="text" id="preuzeo" name="preuzeo" class="form-control" value="{{$z.Preuzeo}}" placeholder="osoba ili firma"></div>
+    <div class="form-group"><label class="form-label" for="dokument">Dokument</label><input type="text" id="dokument" name="dokument" class="form-control" value="{{$z.Dokument}}" placeholder="broj otpremnice, računa, naloga"></div>
+  </div>
+  <div class="form-group">
+    <label class="form-label" for="napomena">Napomena</label>
+    <input type="text" id="napomena" name="napomena" class="form-control" value="{{$z.Napomena}}">
+  </div>
+
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">{{icon "check"}} Upiši</button>
+    <button type="submit" name="jos" value="1" class="btn btn-secondary">{{icon "plus"}} Upiši i sljedeći</button>
+    <a href="/sredstva/skladista/{{$sk.ID}}" class="btn btn-secondary">Odustani</a>
+  </div>
+</form>
+
+<script>
+function pokaziPolja() {
+  var v = (document.querySelector('input[name=vrsta]:checked') || {}).value || '';
+  var s = document.getElementById('sredstvo');
+  var opt = s.options[s.selectedIndex] || {};
+  var oblici = (opt.getAttribute && opt.getAttribute('data-oblici')) || '';
+  document.getElementById('jed').textContent = (opt.getAttribute && opt.getAttribute('data-jed')) || '';
+  var imaOblike = oblici !== '';
+  document.getElementById('p-oblik').style.display = imaOblike ? '' : 'none';
+  document.getElementById('p-u-oblik').style.display = (imaOblike && v === 'PUNJENJE') ? '' : 'none';
+  document.getElementById('p-teren').style.display = (v === 'IZDANO' || v === 'POVRAT' || v === 'UTROSAK') ? '' : 'none';
+  document.getElementById('p-na-skladiste').style.display = v === 'PRIJENOS' ? '' : 'none';
+  var l = {PRIMKA: 'Dopremio', IZDANO: 'Preuzeo', PRIJENOS: 'Preuzeo', POVRAT: 'Vratio', UTROSAK: 'Ugradio', OTPIS: 'Rashodovao'};
+  document.getElementById('l-preuzeo').textContent = l[v] || 'Osoba';
+  if (imaOblike && v === 'PUNJENJE') { document.getElementById('oblik').value = 'PRAZNO'; }
+}
+pokaziPolja();
+</script>
+{{end}}

@@ -1,0 +1,59 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Knjiga prometa sredstava{{end}}
+
+{{define "content"}}
+<div class="breadcrumb"><a href="/registri">Registri</a> › <a href="/sredstva?sektor={{.Sektor}}">Sredstva za obranu</a> › Knjiga prometa</div>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "notebook"}} Knjiga prometa sredstava</h1>
+    <p class="page-desc">Svaki ulaz i izlaz{{if .Skladiste}} skladišta {{.Skladiste.Naziv}}{{else if .Sektor}} u sektoru {{.Sektor}}{{end}}, najnoviji prvi. Redci s
+      istim potezom (prijenos, punjenje, izdavanje) idu u paru: iz jednog mjesta odlazi, u drugo dolazi.</p>
+  </div>
+</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
+
+<form method="GET" action="/sredstva/promet" class="obracun-filtar">
+  <input type="hidden" name="sektor" value="{{.Sektor}}">
+  <label for="f-sk">Skladište</label>
+  <select id="f-sk" name="skladiste" class="form-control">
+    <option value="">sva</option>
+    {{range .Skladista}}<option value="{{.ID}}"{{if and $.Skladiste (eq .ID $.Skladiste.ID)}} selected{{end}}>{{.Naziv}}</option>{{end}}
+  </select>
+  <label for="f-vrsta">Sredstvo</label>
+  <select id="f-vrsta" name="vrsta" class="form-control">
+    <option value="">sva</option>
+    {{range .Vrste}}<option value="{{.ID}}"{{if eq .ID $.VrstaID}} selected{{end}}>{{.Naziv}}</option>{{end}}
+  </select>
+  <label for="f-od">od</label><input type="date" id="f-od" name="od" class="form-control" value="{{.Od}}">
+  <label for="f-do">do</label><input type="date" id="f-do" name="do" class="form-control" value="{{.Do}}">
+  <button type="submit" class="btn btn-secondary">{{icon "search"}} Prikaži</button>
+</form>
+
+{{if .Promet}}
+<div class="table-card"><div class="table-responsive tablica-kartice">
+  <table class="data-table">
+    <thead><tr><th>Datum</th><th>Zahvat</th><th>Mjesto</th><th>Sredstvo</th><th class="br">Količina</th><th>Nalog · osoba · dokument</th><th>Upisao</th><th>Napomena</th></tr></thead>
+    <tbody>
+    {{range .Promet}}
+    <tr>
+      <td data-stupac="Datum" class="mono">{{.Datum.Format "2.1.2006."}}</td>
+      <td data-stupac="Zahvat">{{promet .Vrsta}}</td>
+      <td data-stupac="Mjesto">{{if .SkladisteID}}<a href="/sredstva/skladista/{{.SkladisteID}}">{{.MjestoNaziv}}</a>{{else}}{{.MjestoNaziv}}{{end}}</td>
+      <td data-stupac="Sredstvo">{{.VrstaNaziv}}{{if .Oblik}} <span class="reg-card-sub">{{oblik .Oblik}}</span>{{end}}</td>
+      <td data-stupac="Količina" class="mono br {{if lt .Kolicina 0.0}}mts-minus{{else}}mts-plus{{end}}">{{kolicinaZnak .Kolicina}} {{.Jedinica}}</td>
+      <td data-stupac="Nalog">{{if .Nalozio}}nalog: {{.Nalozio}}{{end}}{{if .Preuzeo}}{{if .Nalozio}} · {{end}}{{strana .Vrsta}}: {{.Preuzeo}}{{end}}{{if .Dokument}} · {{.Dokument}}{{end}}</td>
+      <td data-stupac="Upisao">{{.UserName}} <span class="reg-card-sub">{{vrijemeHR .CreatedAt}}</span></td>
+      <td data-stupac="Napomena">{{.Napomena}}</td>
+    </tr>
+    {{end}}
+    </tbody>
+  </table>
+</div></div>
+{{else}}
+<div class="reg-empty">Nema prometa za taj izbor.</div>
+{{end}}
+{{end}}

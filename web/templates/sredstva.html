@@ -1,0 +1,79 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Sredstva za obranu{{end}}
+
+{{define "content"}}
+<div class="breadcrumb"><a href="/registri">Registri</a> › Sredstva za obranu</div>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "package"}} Sredstva za obranu od poplava</h1>
+    <p class="page-desc">Što stoji po skladištima sektora, zbrojeno po vrstama iz propisanog popisa. Stanje se ne upisuje nego
+      zbraja iz prometa: svaka primka, izdavanje i utrošak ostaju u knjizi.</p>
+  </div>
+  <div class="page-actions">
+    <a href="/sredstva/promet?sektor={{.Sektor}}" class="btn btn-secondary">{{icon "notebook"}} Knjiga prometa</a>
+    <a href="/sredstva/na-terenu?sektor={{.Sektor}}" class="btn btn-secondary">{{icon "map-pin"}} Na terenu</a>
+    <a href="/sredstva/popisi?sektor={{.Sektor}}" class="btn btn-secondary">{{icon "list"}} Godišnji popisi</a>
+    {{if .SmijeUrediti}}<a href="/sredstva/skladista/novo?sektor={{.Sektor}}" class="btn btn-primary">{{icon "plus"}} Novo skladište</a>{{end}}
+  </div>
+</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
+
+<form method="GET" action="/sredstva" class="obracun-filtar">
+  <label for="f-sektor">{{term "sektor"}}</label>
+  <select id="f-sektor" name="sektor" class="form-control" onchange="this.form.submit()">
+    <option value=""{{if not .Sektor}} selected{{end}}>svi sektori</option>
+    {{range .Sektori}}{{if ne .ID "DIREKCIJA"}}<option value="{{.ID}}"{{if eq .ID $.Sektor}} selected{{end}}>{{.Name}}</option>{{end}}{{end}}
+  </select>
+</form>
+
+<section class="detail-section">
+  <h2>{{icon "building"}} Skladišta <span class="reg-chip">{{len .Skladista}}</span></h2>
+  {{if .Skladista}}
+  <div class="reg-list mts-skladista">
+    {{range .Skladista}}
+    <article class="reg-card">
+      <div class="reg-card-head">
+        <div>
+          <div class="reg-card-title"><a href="/sredstva/skladista/{{.ID}}">{{.Naziv}}</a>{{if .Centralno}} <span class="reg-chip">središnje</span>{{end}}</div>
+          <div class="reg-card-sub">{{if .AreaName}}BP {{.AreaID}} · {{.AreaName}}{{else}}{{term "sektor"}} {{.Sektor}}{{end}}{{if .Adresa}} · {{.Adresa}}{{end}}</div>
+          {{if or .StructureName .ContractorName}}<div class="reg-card-sub">{{if .StructureName}}objekt: {{.StructureName}}{{end}}{{if .ContractorName}}{{if .StructureName}} · {{end}}kod: {{.ContractorName}}{{end}}</div>{{end}}
+        </div>
+        <a href="/sredstva/skladista/{{.ID}}" class="btn btn-secondary btn-sm">{{icon "arrow-right"}}</a>
+      </div>
+    </article>
+    {{end}}
+  </div>
+  {{else}}
+  <div class="reg-empty">Nema upisanih skladišta{{if .Sektor}} u sektoru {{.Sektor}}{{end}}.{{if .SmijeUrediti}} Upišite ih gumbom „Novo skladište“ — jedno za svako mjesto na kojem sredstva stoje.{{end}}</div>
+  {{end}}
+</section>
+
+<section class="detail-section">
+  <h2>{{icon "list"}} Stanje{{if .Sektor}} sektora {{.Sektor}}{{else}} svih sektora{{end}} po vrstama</h2>
+  <p class="page-desc">Sva skladišta zbrojena. Klik na vrstu pokazuje gdje je ima — i u drugim sektorima.</p>
+  {{$oblici := .Oblici}}
+  <div class="table-card"><div class="table-responsive">
+    <table class="data-table mts-stanje">
+      <thead><tr><th>R. br.</th><th>Vrsta sredstva</th><th>Jed.</th><th class="br">Ukupno</th>{{range $oblici}}<th class="br">{{oblik .}}</th>{{end}}</tr></thead>
+      <tbody>
+      {{range .PoGrupama}}
+      <tr class="mts-grupa"><td>{{.Rimski}}</td><td colspan="{{add 3 (len $oblici)}}">{{.Naziv}}</td></tr>
+      {{range .Redci}}
+      <tr{{if not .Ima}} class="mts-prazno"{{end}}>
+        <td class="mono">{{.Vrsta.Redoslijed}}.</td>
+        <td><a href="/sredstva/gdje/{{.Vrsta.ID}}">{{.Vrsta.Naziv}}</a></td>
+        <td>{{.Vrsta.Jedinica}}</td>
+        <td class="mono br"><strong>{{if .Ukupno}}{{kolicina .Ukupno}}{{end}}</strong></td>
+        {{$sv := .}}{{range $oblici}}<td class="mono br">{{if $sv.Vrsta.ImaOblike}}{{with $sv.Oblik .}}{{kolicina .}}{{end}}{{end}}</td>{{end}}
+      </tr>
+      {{end}}
+      {{end}}
+      </tbody>
+    </table>
+  </div></div>
+</section>
+{{end}}

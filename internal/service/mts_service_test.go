@@ -64,7 +64,7 @@ func TestMtsPutVrecaKrozObranu(t *testing.T) {
 	if ima(models.OblikPunjeno) != 1000 {
 		t.Fatalf("poslije izdavanja u skladištu: %v", ima(models.OblikPunjeno))
 	}
-	naTerenu, err := s.NaTerenu(ctx, obrana)
+	naTerenu, err := s.NaTerenu(ctx, obrana, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,7 +81,7 @@ func TestMtsPutVrecaKrozObranu(t *testing.T) {
 		Oblik: models.OblikPunjeno, Kolicina: 500, SectionCode: "B.34.1", JournalID: obrana}); err != nil {
 		t.Fatal(err)
 	}
-	if naTerenu, _ := s.NaTerenu(ctx, obrana); len(naTerenu) != 0 {
+	if naTerenu, _ := s.NaTerenu(ctx, obrana, ""); len(naTerenu) != 0 {
 		t.Errorf("teren nije zatvoren: %+v", naTerenu)
 	}
 	if ima(models.OblikPunjeno) != 1500 || ima(models.OblikPrazno) != 95000 {

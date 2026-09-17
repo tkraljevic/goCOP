@@ -243,7 +243,6 @@ func main() {
 		log.Fatalf("katalog sredstava za obranu: %v", err)
 	}
 	mtsService := service.NewMtsService(mtsRepo, sectionRepo, userRepo)
-	_ = mtsService
 	izvjescaService := service.NewIzvjescaService(repository.NewIzvjescaRepository(database, recorder), sectionRepo, stationRepo, readingRepo, episodeRepo, journalRepo)
 
 	// Uvoz tablice vodostaja. Bez -upisi je samo izvješće: koje su postaje
@@ -395,6 +394,7 @@ func main() {
 	server.SetObracun(obracunService)
 	izvjescaService.SetSektorska(repository.NewSektorskaIzvjescaRepository(database, recorder))
 	server.SetIzvjesca(izvjescaService)
+	server.SetMts(mtsService)
 	server.SetKarta(cfg.Karta.Plocice, cfg.Karta.Zasluge, cfg.Karta.NajviseZ)
 
 	// Hidrološka arhiva stoji uz bazu, kao zasebna datoteka. Smije je ne biti:
