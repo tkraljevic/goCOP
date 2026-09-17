@@ -68,7 +68,7 @@
 
   <div class="form-row" id="p-teren">
     <div class="form-group">
-      <label class="form-label" for="dionica">Dionica na terenu</label>
+      <label class="form-label" for="dionica" id="l-dionica">Dionica na terenu</label>
       <select id="dionica" name="dionica" class="form-control">
         <option value="">— nije razvrstano —</option>
         {{range .Dionice}}<option value="{{.Code}}"{{if eq .Code $z.SectionCode}} selected{{end}}>{{.Code}} — {{.EffectiveDescription}}</option>{{end}}
@@ -118,7 +118,8 @@ function pokaziPolja() {
   var imaOblike = oblici !== '';
   document.getElementById('p-oblik').style.display = imaOblike ? '' : 'none';
   document.getElementById('p-u-oblik').style.display = (imaOblike && v === 'PUNJENJE') ? '' : 'none';
-  document.getElementById('p-teren').style.display = (v === 'IZDANO' || v === 'POVRAT' || v === 'UTROSAK') ? '' : 'none';
+  document.getElementById('p-teren').style.display = (v === 'IZDANO' || v === 'POVRAT' || v === 'UTROSAK' || (v === 'PUNJENJE' && imaOblike)) ? '' : 'none';
+  document.getElementById('l-dionica').textContent = v === 'PUNJENJE' ? 'Dionica (punjenje na terenu; prazno = u skladištu)' : 'Dionica na terenu';
   document.getElementById('p-na-skladiste').style.display = v === 'PRIJENOS' ? '' : 'none';
   var l = {PRIMKA: 'Dopremio', IZDANO: 'Preuzeo', PRIJENOS: 'Preuzeo', POVRAT: 'Vratio', UTROSAK: 'Ugradio', OTPIS: 'Rashodovao'};
   document.getElementById('l-preuzeo').textContent = l[v] || 'Osoba';

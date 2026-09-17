@@ -186,7 +186,7 @@ var VrstePrometa = []struct {
 	{PrometPovrat, "Povrat s terena", "vraćeno u skladište, neutrošeno"},
 	{PrometUtrosak, "Utrošak na terenu", "ugrađeno u nasip ili potrošeno"},
 	{PrometPrijenos, "Prijenos", "premješteno u drugo skladište"},
-	{PrometPunjenje, "Punjenje vreća", "prazne vreće postaju napunjene"},
+	{PrometPunjenje, "Punjenje", "prazno postaje napunjeno, u skladištu ili na dionici (jumbo vreće i box barijere pune se na terenu); pražnjenje obrnuto"},
 	{PrometOtpis, "Otpis", "rashodovano ili uništeno"},
 	{PrometPopis, "Usklađenje po inventuri", "razlika utvrđena inventurom"},
 	{PrometPocetno, "Početno stanje", "zatečeno pri uvođenju u program"},
