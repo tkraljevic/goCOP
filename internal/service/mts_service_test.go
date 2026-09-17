@@ -57,7 +57,7 @@ func TestMtsPutVrecaKrozObranu(t *testing.T) {
 	// izdavanje na dionicu: iz skladišta odlazi, na terenu se pojavljuje
 	obrana := uuid.New().String()
 	if _, err := s.Provedi(ctx, u, uprava, Zahvat{Vrsta: models.PrometIzdano, SkladisteID: sk.ID, VrstaID: vrece,
-		Oblik: models.OblikPunjeno, Kolicina: 4000, SectionCode: "B.34.1", JournalID: obrana,
+		Oblik: models.OblikPunjeno, Kolicina: 4000, AreaID: 34, SectionCode: "B.34.1", JournalID: obrana,
 		Nalozio: "rukovoditelj dionice", Preuzeo: "vodočuvar Batina", Dokument: "OT-2026-14"}); err != nil {
 		t.Fatal(err)
 	}
@@ -68,17 +68,17 @@ func TestMtsPutVrecaKrozObranu(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(naTerenu) != 1 || naTerenu[0].SectionCode != "B.34.1" || naTerenu[0].Kolicina != 4000 {
+	if len(naTerenu) != 1 || naTerenu[0].SectionCode != "B.34.1" || naTerenu[0].AreaID != 34 || naTerenu[0].Kolicina != 4000 {
 		t.Fatalf("na terenu poslije izdavanja: %+v", naTerenu)
 	}
 
 	// ugradnja i povrat zatvaraju teren
 	if _, err := s.Provedi(ctx, u, uprava, Zahvat{Vrsta: models.PrometUtrosak, SkladisteID: sk.ID, VrstaID: vrece,
-		Oblik: models.OblikPunjeno, Kolicina: 3500, SectionCode: "B.34.1", JournalID: obrana, Preuzeo: "DVD Batina"}); err != nil {
+		Oblik: models.OblikPunjeno, Kolicina: 3500, AreaID: 34, SectionCode: "B.34.1", JournalID: obrana, Preuzeo: "DVD Batina"}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.Provedi(ctx, u, uprava, Zahvat{Vrsta: models.PrometPovrat, SkladisteID: sk.ID, VrstaID: vrece,
-		Oblik: models.OblikPunjeno, Kolicina: 500, SectionCode: "B.34.1", JournalID: obrana}); err != nil {
+		Oblik: models.OblikPunjeno, Kolicina: 500, AreaID: 34, SectionCode: "B.34.1", JournalID: obrana}); err != nil {
 		t.Fatal(err)
 	}
 	if naTerenu, _ := s.NaTerenu(ctx, obrana, ""); len(naTerenu) != 0 {
@@ -94,11 +94,11 @@ func TestMtsPutVrecaKrozObranu(t *testing.T) {
 	if _, err := s.Provedi(ctx, u, uprava, Zahvat{Vrsta: models.PrometPocetno, SkladisteID: sk.ID, VrstaID: box, Oblik: models.OblikPrazno, Kolicina: 300}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.Provedi(ctx, u, uprava, Zahvat{Vrsta: models.PrometIzdano, SkladisteID: sk.ID, VrstaID: box, Oblik: models.OblikPrazno, Kolicina: 120, SectionCode: "B.34.1", JournalID: obrana}); err != nil {
+	if _, err := s.Provedi(ctx, u, uprava, Zahvat{Vrsta: models.PrometIzdano, SkladisteID: sk.ID, VrstaID: box, Oblik: models.OblikPrazno, Kolicina: 120, AreaID: 34, SectionCode: "B.34.1", JournalID: obrana}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.Provedi(ctx, u, uprava, Zahvat{Vrsta: models.PrometPunjenje, SkladisteID: sk.ID, VrstaID: box, Oblik: models.OblikPrazno, UOblik: models.OblikPunjeno,
-		Kolicina: 100, SectionCode: "B.34.1", JournalID: obrana, Preuzeo: "bager Hidrogradnja"}); err != nil {
+		Kolicina: 100, AreaID: 34, SectionCode: "B.34.1", JournalID: obrana, Preuzeo: "bager Hidrogradnja"}); err != nil {
 		t.Fatalf("punjenje na terenu: %v", err)
 	}
 	teren, _ := s.NaTerenu(ctx, obrana, "")
@@ -115,19 +115,43 @@ func TestMtsPutVrecaKrozObranu(t *testing.T) {
 		t.Errorf("barijere na terenu: punih %v, praznih %v", punih, praznih)
 	}
 	if _, err := s.Provedi(ctx, u, uprava, Zahvat{Vrsta: models.PrometPunjenje, SkladisteID: sk.ID, VrstaID: box, Oblik: models.OblikPunjeno, UOblik: models.OblikPrazno,
-		Kolicina: 200, SectionCode: "B.34.1", JournalID: obrana}); err == nil {
+		Kolicina: 200, AreaID: 34, SectionCode: "B.34.1", JournalID: obrana}); err == nil {
 		t.Error("ispražnjeno više nego što je napunjeno")
+	}
+
+	// mjesto koje nije dionica: kuća na području, i nasip preko dviju dionica
+	if _, err := s.Provedi(ctx, u, uprava, Zahvat{Vrsta: models.PrometIzdano, SkladisteID: sk.ID, VrstaID: vrece, Oblik: models.OblikPunjeno,
+		Kolicina: 200, AreaID: 34, Mjesto: "kuća iza groblja, Kopačevo", JournalID: obrana}); err != nil {
+		t.Fatalf("izdavanje na opis mjesta: %v", err)
+	}
+	if _, err := s.Provedi(ctx, u, uprava, Zahvat{Vrsta: models.PrometIzdano, SkladisteID: sk.ID, VrstaID: vrece, Oblik: models.OblikPunjeno,
+		Kolicina: 100, Mjesto: "negdje"}); err == nil || !strings.Contains(err.Error(), "branjeno područje") {
+		t.Errorf("izdavanje bez područja prošlo: %v", err)
+	}
+	// povrat s drugog mjesta ne prolazi: tamo ništa nije izdano
+	if _, err := s.Provedi(ctx, u, uprava, Zahvat{Vrsta: models.PrometPovrat, SkladisteID: sk.ID, VrstaID: vrece, Oblik: models.OblikPunjeno,
+		Kolicina: 50, AreaID: 34, Mjesto: "drugo mjesto", JournalID: obrana}); err == nil || !strings.Contains(err.Error(), "na terenu") {
+		t.Errorf("povrat s tuđeg mjesta: %v", err)
+	}
+	if _, err := s.Provedi(ctx, u, uprava, Zahvat{Vrsta: models.PrometPovrat, SkladisteID: sk.ID, VrstaID: vrece, Oblik: models.OblikPunjeno,
+		Kolicina: 200, AreaID: 34, Mjesto: "kuća iza groblja, Kopačevo", JournalID: obrana}); err != nil {
+		t.Fatalf("povrat s opisa mjesta: %v", err)
+	}
+	for _, m := range s.MjestaNaTerenu(ctx, obrana, "") {
+		if m.Mjesto == "kuća iza groblja, Kopačevo" {
+			t.Errorf("mjesto poslije povrata još stoji: %+v", m)
+		}
 	}
 
 	// ne može se izdati više nego što stoji; poruka kaže koliko ima
 	_, err = s.Provedi(ctx, u, uprava, Zahvat{Vrsta: models.PrometIzdano, SkladisteID: sk.ID, VrstaID: vrece,
-		Oblik: models.OblikPunjeno, Kolicina: 9000, SectionCode: "B.34.1", JournalID: obrana})
+		Oblik: models.OblikPunjeno, Kolicina: 9000, AreaID: 34, SectionCode: "B.34.1", JournalID: obrana})
 	if err == nil || !strings.Contains(err.Error(), "1500") {
 		t.Errorf("izdavanje preko zalihe: %v", err)
 	}
 	// ni ugraditi više nego što je na terenu
 	if _, err := s.Provedi(ctx, u, uprava, Zahvat{Vrsta: models.PrometUtrosak, SkladisteID: sk.ID, VrstaID: vrece,
-		Oblik: models.OblikPunjeno, Kolicina: 10, SectionCode: "B.34.1", JournalID: obrana}); err == nil ||
+		Oblik: models.OblikPunjeno, Kolicina: 10, AreaID: 34, SectionCode: "B.34.1", JournalID: obrana}); err == nil ||
 		!strings.Contains(err.Error(), "na terenu") {
 		t.Errorf("utrošak bez terena: %v", err)
 	}
@@ -352,6 +376,7 @@ func pripremiMts(t *testing.T) (*MtsService, *models.Skladiste, context.Context,
 		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('F', 'Sektor F', 'VGO Split', 'COP Split')`,
 		`INSERT INTO areas (id, sector_id, name, vgi_name, subcenter) VALUES (34, 'B', 'Drava i Dunav', 'COP', 'Osijek')`,
 		`INSERT INTO areas (id, sector_id, name, vgi_name, subcenter) VALUES (40, 'F', 'Neretva', 'VGI Neretva', 'Metković')`,
+		`INSERT INTO sections (code, area_id, sector_id, description, created_at, updated_at) VALUES ('B.34.1', 34, 'B', 'Dunav d.o.', '2026-01-01', '2026-01-01')`,
 	} {
 		if _, err := baza.Exec(q); err != nil {
 			t.Fatal(err)

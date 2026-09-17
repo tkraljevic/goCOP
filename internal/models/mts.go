@@ -216,10 +216,15 @@ type Promet struct {
 	Vrsta  string `json:"vrsta"`  // Promet*
 	Sektor string `json:"sektor"` // sektor skladišta; teren nosi sektor skladišta koje je izdalo
 
-	// Mjesto: točno jedno od dvoje. Skladište je mjesto s adresom, teren je
-	// dionica na kojoj se sredstvo nalazi dok obrana traje.
+	// Mjesto: skladište, ili teren. Teren se opisuje kao u dnevniku COP-a:
+	// branjeno područje obvezno, a po volji dionica, objekt ili nasip iz
+	// registra i slobodan opis („kuća iza groblja, Kopačevo“) — jer se ne
+	// brani uvijek dionica, a nasip zna ležati preko dviju.
 	SkladisteID string `json:"skladiste_id,omitempty"`
+	AreaID      int    `json:"area_id,omitempty"`
 	SectionCode string `json:"section_code,omitempty"`
+	StructureID string `json:"structure_id,omitempty"`
+	Mjesto      string `json:"mjesto,omitempty"`
 
 	VezaID    string `json:"veza_id,omitempty"`    // redci jednog poteza: prijenos, punjenje, izdavanje
 	JournalID string `json:"journal_id,omitempty"` // obrana uz koju promet stoji
@@ -243,6 +248,52 @@ type Promet struct {
 	VrstaNaziv     string `json:"-"`
 	Jedinica       string `json:"-"`
 	SkladisteNaziv string `json:"-"`
+	AreaName       string `json:"-"`
+	StructureName  string `json:"-"`
+}
+
+// MjestoTerena je mjesto na terenu kako ga promet nosi; isti skup polja
+// znači isto mjesto, pa se po njemu zbraja što je gdje
+type MjestoTerena struct {
+	AreaID      int
+	SectionCode string
+	StructureID string
+	Mjesto      string
+}
+
+// Kljuc je oznaka mjesta za zbrajanje i obrasce
+func (m MjestoTerena) Kljuc() string {
+	return itoa(m.AreaID) + "|" + m.SectionCode + "|" + m.StructureID + "|" + m.Mjesto
+}
+
+// Prazno javlja da mjesto nije opisano ničim
+func (m MjestoTerena) Prazno() bool {
+	return m.AreaID == 0 && m.SectionCode == "" && m.StructureID == "" && m.Mjesto == ""
+}
+
+// nazivTerena slaže opis mjesta za prikaz iz onoga što je upisano
+func nazivTerena(areaID int, areaName, section, structureName, mjesto string) string {
+	var d []string
+	if areaID > 0 {
+		if areaName != "" {
+			d = append(d, "BP "+itoa(areaID)+" "+areaName)
+		} else {
+			d = append(d, "BP "+itoa(areaID))
+		}
+	}
+	if section != "" {
+		d = append(d, section)
+	}
+	if structureName != "" {
+		d = append(d, structureName)
+	}
+	if mjesto != "" {
+		d = append(d, mjesto)
+	}
+	if len(d) == 0 {
+		return "teren, nije razvrstano"
+	}
+	return strings.Join(d, " · ")
 }
 
 // StranaOznaka je naziv polja „preuzeo“ za tu vrstu prometa: kod primke je
@@ -274,19 +325,38 @@ func (p Promet) MjestoNaziv() string {
 		}
 		return "skladište"
 	}
-	if p.SectionCode != "" {
-		return "teren · " + p.SectionCode
-	}
-	return "teren"
+	return "teren · " + nazivTerena(p.AreaID, p.AreaName, p.SectionCode, p.StructureName, p.Mjesto)
+}
+
+// Teren vraća mjesto retka na terenu
+func (p Promet) Teren() MjestoTerena {
+	return MjestoTerena{AreaID: p.AreaID, SectionCode: p.SectionCode, StructureID: p.StructureID, Mjesto: p.Mjesto}
 }
 
 // Stanje je količina jedne vrste u jednom obliku na jednom mjestu
 type Stanje struct {
 	SkladisteID string  `json:"skladiste_id,omitempty"`
+	AreaID      int     `json:"area_id,omitempty"`
 	SectionCode string  `json:"section_code,omitempty"`
+	StructureID string  `json:"structure_id,omitempty"`
+	Mjesto      string  `json:"mjesto,omitempty"`
 	VrstaID     string  `json:"vrsta_id"`
 	Oblik       string  `json:"oblik"`
 	Kolicina    float64 `json:"kolicina"`
+
+	// Izvedeno pri čitanju
+	AreaName      string `json:"-"`
+	StructureName string `json:"-"`
+}
+
+// Teren vraća mjesto stanja na terenu
+func (s Stanje) Teren() MjestoTerena {
+	return MjestoTerena{AreaID: s.AreaID, SectionCode: s.SectionCode, StructureID: s.StructureID, Mjesto: s.Mjesto}
+}
+
+// MjestoNaziv je mjesto na terenu za prikaz
+func (s Stanje) MjestoNaziv() string {
+	return nazivTerena(s.AreaID, s.AreaName, s.SectionCode, s.StructureName, s.Mjesto)
 }
 
 // StanjeVrste su količine jedne vrste po oblicima, sa zbrojem

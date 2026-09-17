@@ -90,31 +90,33 @@ func scanSkladiste(row interface{ Scan(...any) error }) (models.Skladiste, error
 	return s, err
 }
 
-const prometUpsert = `INSERT INTO mts_promet (id, datum, vrsta_id, oblik, kolicina, vrsta, sektor, skladiste_id, section_code, veza_id, journal_id,
+const prometUpsert = `INSERT INTO mts_promet (id, datum, vrsta_id, oblik, kolicina, vrsta, sektor, skladiste_id, area_id, section_code, structure_id, mjesto, veza_id, journal_id,
 	popis_id, nalozio, preuzeo, dokument, user_id, user_name, napomena, created_at, updated_at)
-	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	ON CONFLICT(id) DO UPDATE SET datum = excluded.datum, vrsta_id = excluded.vrsta_id, oblik = excluded.oblik, kolicina = excluded.kolicina,
-		vrsta = excluded.vrsta, sektor = excluded.sektor, skladiste_id = excluded.skladiste_id, section_code = excluded.section_code, veza_id = excluded.veza_id,
+		vrsta = excluded.vrsta, sektor = excluded.sektor, skladiste_id = excluded.skladiste_id, area_id = excluded.area_id, section_code = excluded.section_code,
+		structure_id = excluded.structure_id, mjesto = excluded.mjesto, veza_id = excluded.veza_id,
 		journal_id = excluded.journal_id, popis_id = excluded.popis_id, nalozio = excluded.nalozio, preuzeo = excluded.preuzeo,
 		dokument = excluded.dokument, user_id = excluded.user_id, user_name = excluded.user_name, napomena = excluded.napomena,
 		created_at = excluded.created_at, updated_at = excluded.updated_at`
 
 func prometArgs(p *models.Promet) []any {
-	return []any{p.ID, dayKey(p.Datum), p.VrstaID, p.Oblik, p.Kolicina, p.Vrsta, p.Sektor, p.SkladisteID, p.SectionCode, p.VezaID, p.JournalID,
+	return []any{p.ID, dayKey(p.Datum), p.VrstaID, p.Oblik, p.Kolicina, p.Vrsta, p.Sektor, p.SkladisteID, p.AreaID, p.SectionCode, p.StructureID, p.Mjesto, p.VezaID, p.JournalID,
 		p.PopisID, p.Nalozio, p.Preuzeo, p.Dokument, p.UserID, p.UserName, p.Napomena, p.CreatedAt.UTC(), p.UpdatedAt.UTC()}
 }
 
-const prometColumns = `p.id, p.datum, p.vrsta_id, p.oblik, p.kolicina, p.vrsta, p.sektor, p.skladiste_id, p.section_code, p.veza_id, p.journal_id,
+const prometColumns = `p.id, p.datum, p.vrsta_id, p.oblik, p.kolicina, p.vrsta, p.sektor, p.skladiste_id, p.area_id, p.section_code, p.structure_id, p.mjesto, p.veza_id, p.journal_id,
 	p.popis_id, p.nalozio, p.preuzeo, p.dokument, p.user_id, p.user_name, p.napomena, p.created_at, p.updated_at,
-	COALESCE(v.naziv, ''), COALESCE(v.jedinica, ''), COALESCE(s.naziv, '')`
-const prometFrom = ` FROM mts_promet p LEFT JOIN mts_vrste v ON v.id = p.vrsta_id LEFT JOIN mts_skladista s ON s.id = p.skladiste_id`
+	COALESCE(v.naziv, ''), COALESCE(v.jedinica, ''), COALESCE(s.naziv, ''), COALESCE(a.name, ''), COALESCE(st.name, '')`
+const prometFrom = ` FROM mts_promet p LEFT JOIN mts_vrste v ON v.id = p.vrsta_id LEFT JOIN mts_skladista s ON s.id = p.skladiste_id
+	LEFT JOIN areas a ON a.id = p.area_id LEFT JOIN structures st ON st.id = p.structure_id`
 
 func scanPromet(row interface{ Scan(...any) error }) (models.Promet, error) {
 	var p models.Promet
 	var datum string
-	err := row.Scan(&p.ID, &datum, &p.VrstaID, &p.Oblik, &p.Kolicina, &p.Vrsta, &p.Sektor, &p.SkladisteID, &p.SectionCode, &p.VezaID, &p.JournalID,
+	err := row.Scan(&p.ID, &datum, &p.VrstaID, &p.Oblik, &p.Kolicina, &p.Vrsta, &p.Sektor, &p.SkladisteID, &p.AreaID, &p.SectionCode, &p.StructureID, &p.Mjesto, &p.VezaID, &p.JournalID,
 		&p.PopisID, &p.Nalozio, &p.Preuzeo, &p.Dokument, &p.UserID, &p.UserName, &p.Napomena, &p.CreatedAt, &p.UpdatedAt,
-		&p.VrstaNaziv, &p.Jedinica, &p.SkladisteNaziv)
+		&p.VrstaNaziv, &p.Jedinica, &p.SkladisteNaziv, &p.AreaName, &p.StructureName)
 	p.Datum = parseDay(datum)
 	return p, err
 }
@@ -244,7 +246,10 @@ func (r *MtsRepository) OsigurajKatalog(ctx context.Context) error {
 		return err
 	}
 	if n > 0 {
-		return r.osigurajOblike(ctx)
+		if err := r.osigurajOblike(ctx); err != nil {
+			return err
+		}
+		return r.osigurajPodrucjaTerena(ctx)
 	}
 	for _, v := range models.KatalogSredstava() {
 		kopija := v
@@ -481,13 +486,27 @@ func (r *MtsRepository) Stanje(ctx context.Context, skladisteID, sektor string, 
 		args = append(args, dayKey(*naDan))
 	}
 	q += ` GROUP BY p.skladiste_id, p.vrsta_id, p.oblik`
-	return r.zbroji(ctx, q, args, false)
+	rows, err := r.db.QueryContext(ctx, q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []models.Stanje
+	for rows.Next() {
+		var s models.Stanje
+		if err := rows.Scan(&s.SkladisteID, &s.VrstaID, &s.Oblik, &s.Kolicina); err != nil {
+			return nil, err
+		}
+		out = append(out, s)
+	}
+	return out, rows.Err()
 }
 
 // StanjeNaTerenu zbraja što je izdano a nije vraćeno ni ugrađeno, po
 // dionicama; obrana i sektor sužavaju, prazno znači sve
 func (r *MtsRepository) StanjeNaTerenu(ctx context.Context, journalID, sektor string) ([]models.Stanje, error) {
-	q := `SELECT p.section_code, p.vrsta_id, p.oblik, SUM(p.kolicina)` + prometFrom + ` WHERE p.skladiste_id = ''`
+	q := `SELECT p.area_id, p.section_code, p.structure_id, p.mjesto, COALESCE(a.name, ''), COALESCE(st.name, ''), p.vrsta_id, p.oblik, SUM(p.kolicina)` +
+		prometFrom + ` WHERE p.skladiste_id = ''`
 	var args []any
 	if journalID != "" {
 		q += ` AND p.journal_id = ?`
@@ -497,11 +516,7 @@ func (r *MtsRepository) StanjeNaTerenu(ctx context.Context, journalID, sektor st
 		q += ` AND p.sektor = ?`
 		args = append(args, sektor)
 	}
-	q += ` GROUP BY p.section_code, p.vrsta_id, p.oblik`
-	return r.zbroji(ctx, q, args, true)
-}
-
-func (r *MtsRepository) zbroji(ctx context.Context, q string, args []any, teren bool) ([]models.Stanje, error) {
+	q += ` GROUP BY p.area_id, p.section_code, p.structure_id, p.mjesto, p.vrsta_id, p.oblik ORDER BY p.area_id, p.section_code, p.structure_id, p.mjesto`
 	rows, err := r.db.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, err
@@ -510,18 +525,47 @@ func (r *MtsRepository) zbroji(ctx context.Context, q string, args []any, teren 
 	var out []models.Stanje
 	for rows.Next() {
 		var s models.Stanje
-		var mjesto string
-		if err := rows.Scan(&mjesto, &s.VrstaID, &s.Oblik, &s.Kolicina); err != nil {
+		if err := rows.Scan(&s.AreaID, &s.SectionCode, &s.StructureID, &s.Mjesto, &s.AreaName, &s.StructureName, &s.VrstaID, &s.Oblik, &s.Kolicina); err != nil {
 			return nil, err
-		}
-		if teren {
-			s.SectionCode = mjesto
-		} else {
-			s.SkladisteID = mjesto
 		}
 		out = append(out, s)
 	}
 	return out, rows.Err()
+}
+
+// osigurajPodrucjaTerena dopisuje branjeno područje retcima na terenu koji
+// ga nemaju, a imaju dionicu — iz doba kad je mjesto bilo samo dionica
+func (r *MtsRepository) osigurajPodrucjaTerena(ctx context.Context) error {
+	rows, err := r.db.QueryContext(ctx, `SELECT p.id, s.area_id FROM mts_promet p JOIN sections s ON s.code = p.section_code
+		WHERE p.skladiste_id = '' AND p.area_id = 0 AND p.section_code <> ''`)
+	if err != nil {
+		return err
+	}
+	type par struct {
+		id   string
+		area int
+	}
+	var parovi []par
+	for rows.Next() {
+		var x par
+		if err := rows.Scan(&x.id, &x.area); err != nil {
+			rows.Close()
+			return err
+		}
+		parovi = append(parovi, x)
+	}
+	rows.Close()
+	for _, x := range parovi {
+		p, err := scanPromet(r.db.QueryRowContext(ctx, `SELECT `+prometColumns+prometFrom+` WHERE p.id = ?`, x.id))
+		if err != nil {
+			return err
+		}
+		p.AreaID = x.area
+		if err := r.SavePromet(ctx, []models.Promet{p}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // ---- godišnji popis

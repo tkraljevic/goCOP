@@ -66,20 +66,49 @@
     </div>
   </div>
 
-  <div class="form-row" id="p-teren">
-    <div class="form-group">
-      <label class="form-label" for="dionica" id="l-dionica">Dionica na terenu</label>
-      <select id="dionica" name="dionica" class="form-control">
-        <option value="">— nije razvrstano —</option>
-        {{range .Dionice}}<option value="{{.Code}}"{{if eq .Code $z.SectionCode}} selected{{end}}>{{.Code}} — {{.EffectiveDescription}}</option>{{end}}
+  <div id="p-teren">
+    <div class="form-group" id="p-postojece">
+      <label class="form-label" for="postojece">Mjesto na terenu na kojem nešto stoji</label>
+      <select id="postojece" class="form-control" onchange="odaberiMjesto(this)">
+        <option value="">— upišite mjesto dolje, ili odaberite —</option>
+        {{range .MjestaNa}}<option value="{{.AreaID}}|{{.SectionCode}}|{{.StructureID}}|{{.Mjesto}}">{{.MjestoNaziv}}</option>{{end}}
       </select>
     </div>
-    <div class="form-group">
-      <label class="form-label" for="obrana">Obrana (dnevnik COP-a)</label>
-      <select id="obrana" name="obrana" class="form-control">
-        <option value="">— bez obrane —</option>
-        {{range .Obrane}}<option value="{{.ID}}"{{if eq .ID $z.JournalID}} selected{{end}}>{{.DisplayTitle}}</option>{{end}}
-      </select>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="podrucje" id="l-podrucje">{{term "podrucje"}} *</label>
+        <select id="podrucje" name="podrucje" class="form-control">
+          <option value="">— odaberite —</option>
+          {{range .Podrucja}}<option value="{{.ID}}"{{if eq .ID $z.AreaID}} selected{{end}}>BP {{.ID}} — {{.Name}}</option>{{end}}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="dionica" id="l-dionica">Dionica</label>
+        <select id="dionica" name="dionica" class="form-control" onchange="podrucjeIzDionice()">
+          <option value="">— po volji —</option>
+          {{range .Dionice}}<option value="{{.Code}}" data-area="{{.AreaID}}"{{if eq .Code $z.SectionCode}} selected{{end}}>{{.Code}} — {{.EffectiveDescription}}</option>{{end}}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="objekt">Objekt ili nasip iz registra</label>
+        <select id="objekt" name="objekt" class="form-control" onchange="podrucjeIzObjekta()">
+          <option value="">— po volji —</option>
+          {{range .Objekti}}<option value="{{.ID}}" data-area="{{.AreaID}}">{{.Name}}{{if .AreaID}} (BP {{.AreaID}}){{end}}</option>{{end}}
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group" style="flex:2;">
+        <label class="form-label" for="mjesto">Opis mjesta</label>
+        <input type="text" id="mjesto" name="mjesto" class="form-control" value="{{$z.Mjesto}}" placeholder="npr. kuća iza groblja, Kopačevo — kad nije dionica ni objekt">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="obrana">Obrana (dnevnik COP-a)</label>
+        <select id="obrana" name="obrana" class="form-control">
+          <option value="">— bez obrane —</option>
+          {{range .Obrane}}<option value="{{.ID}}"{{if eq .ID $z.JournalID}} selected{{end}}>{{.DisplayTitle}}</option>{{end}}
+        </select>
+      </div>
     </div>
   </div>
 
@@ -119,10 +148,27 @@ function pokaziPolja() {
   document.getElementById('p-oblik').style.display = imaOblike ? '' : 'none';
   document.getElementById('p-u-oblik').style.display = (imaOblike && v === 'PUNJENJE') ? '' : 'none';
   document.getElementById('p-teren').style.display = (v === 'IZDANO' || v === 'POVRAT' || v === 'UTROSAK' || (v === 'PUNJENJE' && imaOblike)) ? '' : 'none';
-  document.getElementById('l-dionica').textContent = v === 'PUNJENJE' ? 'Dionica (punjenje na terenu; prazno = u skladištu)' : 'Dionica na terenu';
+  document.getElementById('l-podrucje').textContent = v === 'PUNJENJE' ? 'Područje (samo za punjenje na terenu)' : 'Područje *';
+  document.getElementById('p-postojece').style.display = (v === 'POVRAT' || v === 'UTROSAK' || v === 'PUNJENJE') ? '' : 'none';
   document.getElementById('p-na-skladiste').style.display = v === 'PRIJENOS' ? '' : 'none';
   var l = {PRIMKA: 'Dopremio', IZDANO: 'Preuzeo', PRIJENOS: 'Preuzeo', POVRAT: 'Vratio', UTROSAK: 'Ugradio', OTPIS: 'Rashodovao'};
   document.getElementById('l-preuzeo').textContent = l[v] || 'Osoba';
+}
+function podrucjeIzDionice() {
+  var d = document.getElementById('dionica'); var o = d.options[d.selectedIndex];
+  if (o && o.getAttribute('data-area')) { document.getElementById('podrucje').value = o.getAttribute('data-area'); }
+}
+function podrucjeIzObjekta() {
+  var d = document.getElementById('objekt'); var o = d.options[d.selectedIndex];
+  if (o && o.getAttribute('data-area') && !document.getElementById('podrucje').value) { document.getElementById('podrucje').value = o.getAttribute('data-area'); }
+}
+function odaberiMjesto(sel) {
+  if (!sel.value) return;
+  var d = sel.value.split('|');
+  document.getElementById('podrucje').value = d[0];
+  document.getElementById('dionica').value = d[1];
+  document.getElementById('objekt').value = d[2];
+  document.getElementById('mjesto').value = d[3];
 }
 // zadani oblik po vrsti zahvata: na teren idu napunjene, u skladište stižu prazne
 function zadaniOblik() {

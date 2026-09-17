@@ -21,10 +21,14 @@ import (
 // zahvat ovdje piše retke, a ne mijenja količinu: tko je što uzeo i po
 // čijem nalogu ostaje zapisano, a zbroj se ne može razići s poviješću.
 type MtsService struct {
-	repo     *repository.MtsRepository
-	sections *repository.SectionRepository
-	users    *repository.UserRepository
+	repo       *repository.MtsRepository
+	sections   *repository.SectionRepository
+	users      *repository.UserRepository
+	structures *repository.StructureRepository
 }
+
+// SetStructures daje servisu registar objekata, za mjesta na terenu
+func (s *MtsService) SetStructures(r *repository.StructureRepository) { s.structures = r }
 
 func NewMtsService(repo *repository.MtsRepository, sections *repository.SectionRepository, users *repository.UserRepository) *MtsService {
 	return &MtsService{repo: repo, sections: sections, users: users}
@@ -243,8 +247,9 @@ func (s *MtsService) NaTerenu(ctx context.Context, journalID, sektor string) ([]
 	return out, nil
 }
 
-// kolikoIma javlja koliko jedne vrste u jednom obliku stoji na mjestu
-func (s *MtsService) kolikoIma(ctx context.Context, skladisteID, sectionCode, journalID, vrstaID, oblik string) (float64, error) {
+// kolikoIma javlja koliko jedne vrste u jednom obliku stoji na mjestu:
+// u skladištu, ili na mjestu na terenu
+func (s *MtsService) kolikoIma(ctx context.Context, skladisteID string, teren models.MjestoTerena, journalID, vrstaID, oblik string) (float64, error) {
 	var stanja []models.Stanje
 	var err error
 	if skladisteID != "" {
@@ -262,11 +267,63 @@ func (s *MtsService) kolikoIma(ctx context.Context, skladisteID, sectionCode, jo
 		if skladisteID != "" && st.SkladisteID == skladisteID {
 			return st.Kolicina, nil
 		}
-		if skladisteID == "" && st.SectionCode == sectionCode {
+		if skladisteID == "" && st.Teren() == teren {
 			return st.Kolicina, nil
 		}
 	}
 	return 0, nil
+}
+
+// MjestaNaTerenu vraća mjesta na kojima nešto stoji, za obrasce povrata i
+// punjenja: skladištar bira odakle vraća, ne prepisuje
+func (s *MtsService) MjestaNaTerenu(ctx context.Context, journalID, sektor string) []models.Stanje {
+	stanja, err := s.repo.StanjeNaTerenu(ctx, journalID, sektor)
+	if err != nil {
+		return nil
+	}
+	vidjeno := map[string]bool{}
+	var out []models.Stanje
+	for _, st := range stanja {
+		k := st.Teren().Kljuc()
+		if st.Kolicina != 0 && !vidjeno[k] {
+			vidjeno[k] = true
+			out = append(out, st)
+		}
+	}
+	return out
+}
+
+// mjestoTerena dopunjuje mjesto: dionica ili objekt iz registra daju
+// branjeno područje kad nije upisano; bez područja mjesto nije valjano
+func (s *MtsService) mjestoTerena(z Zahvat, sektor string) (models.MjestoTerena, error) {
+	m := models.MjestoTerena{AreaID: z.AreaID, SectionCode: strings.TrimSpace(z.SectionCode), StructureID: strings.TrimSpace(z.StructureID), Mjesto: strings.TrimSpace(z.Mjesto)}
+	if m.SectionCode != "" && s.sections != nil {
+		sec, err := s.sections.GetSectionByCode(m.SectionCode)
+		if err != nil {
+			return m, err
+		}
+		if sec == nil {
+			return m, fmt.Errorf("nepoznata dionica %s", m.SectionCode)
+		}
+		if m.AreaID == 0 {
+			m.AreaID = sec.AreaID
+		} else if sec.AreaID != m.AreaID {
+			return m, fmt.Errorf("dionica %s nije u branjenom području %d", m.SectionCode, m.AreaID)
+		}
+	}
+	if m.StructureID != "" && s.structures != nil {
+		if id, err := uuid.Parse(m.StructureID); err == nil {
+			if st, err := s.structures.GetStructure(context.Background(), id); err == nil && st != nil {
+				if m.AreaID == 0 {
+					m.AreaID = st.AreaID
+				}
+			}
+		}
+	}
+	if m.AreaID == 0 {
+		return m, errors.New("mjesto na terenu traži branjeno područje (a po volji dionicu, objekt ili opis)")
+	}
+	return m, nil
 }
 
 // ---- promet
@@ -283,7 +340,10 @@ type Zahvat struct {
 
 	// odredište, ovisno o vrsti
 	NaSkladisteID string // prijenos u drugo skladište
-	SectionCode   string // dionica na koju se izdaje ili s koje se vraća
+	AreaID        int    // teren: branjeno područje
+	SectionCode   string // teren: dionica, po volji
+	StructureID   string // teren: objekt ili nasip iz registra, po volji
+	Mjesto        string // teren: slobodan opis, po volji
 	JournalID     string // obrana uz koju izdavanje stoji
 	UOblik        string // punjenje: oblik u koji prelazi
 
@@ -333,9 +393,26 @@ func (s *MtsService) Provedi(ctx context.Context, u *models.User, perms *models.
 		Napomena: strings.TrimSpace(z.Napomena), UserID: u.ID.String(), UserName: u.FullName}
 	veza := uuid.New().String()
 
+	// mjesto na terenu, kad ga zahvat ima
+	naTeren := z.AreaID > 0 || z.SectionCode != "" || z.StructureID != "" || strings.TrimSpace(z.Mjesto) != ""
+	var teren models.MjestoTerena
+	switch z.Vrsta {
+	case models.PrometIzdano, models.PrometPovrat, models.PrometUtrosak:
+		naTeren = true
+	}
+	if naTeren {
+		if teren, err = s.mjestoTerena(z, sk.Sektor); err != nil {
+			return nil, err
+		}
+	}
+	naTerenu := func(p *models.Promet) {
+		p.SkladisteID = ""
+		p.AreaID, p.SectionCode, p.StructureID, p.Mjesto = teren.AreaID, teren.SectionCode, teren.StructureID, teren.Mjesto
+	}
+
 	// koliko se smije skinuti s mjesta
-	provjeriZalihu := func(skladisteID, sectionCode, oblik string, treba float64) error {
-		ima, err := s.kolikoIma(ctx, skladisteID, sectionCode, z.JournalID, z.VrstaID, oblik)
+	provjeriZalihu := func(skladisteID, oblik string, treba float64) error {
+		ima, err := s.kolikoIma(ctx, skladisteID, teren, z.JournalID, z.VrstaID, oblik)
 		if err != nil {
 			return err
 		}
@@ -359,7 +436,7 @@ func (s *MtsService) Provedi(ctx context.Context, u *models.User, perms *models.
 		redci = append(redci, r)
 
 	case models.PrometOtpis:
-		if err := provjeriZalihu(sk.ID, "", z.Oblik, z.Kolicina); err != nil {
+		if err := provjeriZalihu(sk.ID, z.Oblik, z.Kolicina); err != nil {
 			return nil, err
 		}
 		r := osnova
@@ -385,14 +462,16 @@ func (s *MtsService) Provedi(ctx context.Context, u *models.User, perms *models.
 			return nil, errors.New("punjenje mora mijenjati oblik")
 		}
 		a, b := osnova, osnova
-		if z.SectionCode != "" {
-			if err := provjeriZalihu("", z.SectionCode, iz, z.Kolicina); err != nil {
+		if naTeren {
+			if err := provjeriZalihu("", iz, z.Kolicina); err != nil {
 				return nil, err
 			}
-			a.SectionCode, a.Oblik, a.Kolicina, a.VezaID = z.SectionCode, iz, -z.Kolicina, veza
-			b.SectionCode, b.Oblik, b.Kolicina, b.VezaID = z.SectionCode, u, z.Kolicina, veza
+			naTerenu(&a)
+			naTerenu(&b)
+			a.Oblik, a.Kolicina, a.VezaID = iz, -z.Kolicina, veza
+			b.Oblik, b.Kolicina, b.VezaID = u, z.Kolicina, veza
 		} else {
-			if err := provjeriZalihu(sk.ID, "", iz, z.Kolicina); err != nil {
+			if err := provjeriZalihu(sk.ID, iz, z.Kolicina); err != nil {
 				return nil, err
 			}
 			a.SkladisteID, a.Oblik, a.Kolicina, a.VezaID = sk.ID, iz, -z.Kolicina, veza
@@ -408,7 +487,7 @@ func (s *MtsService) Provedi(ctx context.Context, u *models.User, perms *models.
 		if cilj == nil || cilj.ID == sk.ID {
 			return nil, errors.New("prijenos traži drugo skladište")
 		}
-		if err := provjeriZalihu(sk.ID, "", z.Oblik, z.Kolicina); err != nil {
+		if err := provjeriZalihu(sk.ID, z.Oblik, z.Kolicina); err != nil {
 			return nil, err
 		}
 		a, b := osnova, osnova
@@ -423,30 +502,33 @@ func (s *MtsService) Provedi(ctx context.Context, u *models.User, perms *models.
 		redci = append(redci, a, b)
 
 	case models.PrometIzdano:
-		if err := provjeriZalihu(sk.ID, "", z.Oblik, z.Kolicina); err != nil {
+		if err := provjeriZalihu(sk.ID, z.Oblik, z.Kolicina); err != nil {
 			return nil, err
 		}
 		a, b := osnova, osnova
 		a.SkladisteID, a.Kolicina, a.VezaID = sk.ID, -z.Kolicina, veza
-		b.SectionCode, b.Kolicina, b.VezaID = z.SectionCode, z.Kolicina, veza
+		naTerenu(&b)
+		b.Kolicina, b.VezaID = z.Kolicina, veza
 		redci = append(redci, a, b)
 
 	case models.PrometPovrat:
-		if err := provjeriZalihu("", z.SectionCode, z.Oblik, z.Kolicina); err != nil {
+		if err := provjeriZalihu("", z.Oblik, z.Kolicina); err != nil {
 			return nil, err
 		}
 		a, b := osnova, osnova
-		a.SectionCode, a.Kolicina, a.VezaID = z.SectionCode, -z.Kolicina, veza
+		naTerenu(&a)
+		a.Kolicina, a.VezaID = -z.Kolicina, veza
 		b.SkladisteID, b.Kolicina, b.VezaID = sk.ID, z.Kolicina, veza
 		redci = append(redci, a, b)
 
 	case models.PrometUtrosak:
 		// ugrađeno na terenu: odlazi s terena i ne vraća se
-		if err := provjeriZalihu("", z.SectionCode, z.Oblik, z.Kolicina); err != nil {
+		if err := provjeriZalihu("", z.Oblik, z.Kolicina); err != nil {
 			return nil, err
 		}
 		r := osnova
-		r.SectionCode, r.Kolicina = z.SectionCode, -z.Kolicina
+		naTerenu(&r)
+		r.Kolicina = -z.Kolicina
 		redci = append(redci, r)
 
 	default:
@@ -701,13 +783,29 @@ func (t TablicaSredstava) Izvor(skladisteID string) string {
 	return "inventura u nacrtu"
 }
 
+// TablicaSkladista slaže popis sredstava jednog skladišta na dan
+func (s *MtsService) TablicaSkladista(ctx context.Context, skladisteID string, dan time.Time) (*TablicaSredstava, error) {
+	sk, err := s.repo.GetSkladiste(ctx, skladisteID)
+	if err != nil {
+		return nil, err
+	}
+	if sk == nil {
+		return nil, errors.New("nepoznato skladište")
+	}
+	return s.tablica(ctx, sk.Sektor, []models.Skladiste{*sk}, dan)
+}
+
 // Tablica slaže popis sredstava sektora na dan
 func (s *MtsService) Tablica(ctx context.Context, sektor string, dan time.Time) (*TablicaSredstava, error) {
-	dan = pocetakDana(dan)
 	skladista, err := s.repo.ListSkladista(ctx, sektor, 0, false)
 	if err != nil {
 		return nil, err
 	}
+	return s.tablica(ctx, sektor, skladista, dan)
+}
+
+func (s *MtsService) tablica(ctx context.Context, sektor string, skladista []models.Skladiste, dan time.Time) (*TablicaSredstava, error) {
+	dan = pocetakDana(dan)
 	vrste, err := s.repo.ListVrste(ctx, false)
 	if err != nil {
 		return nil, err

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"gocop/internal/models"
+	"gocop/internal/repository"
 	"gocop/internal/service"
 	"gocop/internal/xlsxw"
 )
@@ -42,6 +43,123 @@ func (h *MtsHandler) IzvoziTablicu(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	posaljiXLSX(w, "MTS_"+strings.ToLower(data.Sektor)+"_"+dan.Format("2006-01-02")+".xlsx", KnjigaMts(t, nazivSektora, z))
+}
+
+// IzvoziSkladiste piše karticu skladišta kao .xlsx: stanje na dan po
+// vrstama s oblicima, potrebe iz inventure, i knjigu prometa na drugom listu
+func (h *MtsHandler) IzvoziSkladiste(w http.ResponseWriter, r *http.Request) {
+	data := h.pageData(r)
+	sk, ok := h.ucitajSkladiste(w, r, &data)
+	if !ok {
+		return
+	}
+	dan := time.Now().In(models.Zagreb)
+	if t, err := time.ParseInLocation("2006-01-02", r.URL.Query().Get("dan"), models.Zagreb); err == nil {
+		dan = t
+	}
+	stanje, err := h.svc().StanjeSkladista(r.Context(), sk.ID, &dan)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	var potrebe map[string]float64
+	if p, _ := h.svc().Popisi(r.Context(), "", sk.ID, 0); len(p) > 0 {
+		// potrebe iz zadnje inventure na taj dan ili prije
+		for _, x := range p {
+			if !x.Dan.After(dan) {
+				potrebe = map[string]float64{}
+				for _, st := range x.Stavke {
+					potrebe[st.VrstaID] += st.Potrebno
+				}
+				break
+			}
+		}
+	}
+	promet, _ := h.svc().Promet(r.Context(), repository.FiltarPrometa{SkladisteID: sk.ID, Do: &dan})
+	terms := models.Terms()
+	z := ZaglavljeIzvoza{Organizacija: terms.OrgName, Sektor: sk.Sektor, Datum: time.Now().In(models.Zagreb)}
+	if terms.HasLogo() && terms.LogoMime == "image/png" {
+		z.LogoPNG = terms.Logo
+	}
+	for _, x := range data.Sektori {
+		if x.ID == sk.Sektor {
+			z.Odjel, z.Centar = x.VgoName, x.CenterCop
+			z.Mjesto = strings.TrimSpace(strings.TrimPrefix(x.CenterCop, terms.CenterShort))
+		}
+	}
+	posaljiXLSX(w, "MTS_"+models.OznakaSredstva(sk.Naziv)+"_"+dan.Format("2006-01-02")+".xlsx", KnjigaSkladista(sk, dan, stanje, potrebe, promet, z))
+}
+
+// KnjigaSkladista slaže karticu jednog skladišta: list stanja na dan (redak
+// po vrsti, oblici u zasebnim stupcima, potrebe iz inventure) i list prometa
+func KnjigaSkladista(sk *models.Skladiste, dan time.Time, stanje []models.StanjeVrste, potrebe map[string]float64, promet []models.Promet, z ZaglavljeIzvoza) *xlsxw.Knjiga {
+	k := &xlsxw.Knjiga{LogoPNG: z.LogoPNG}
+	B := xlsxw.T
+	const stupaca = 8
+	l := k.NoviList("Stanje")
+	l.Uspravno = true
+	l.Sirine = []float64{6, 34, 7, 12, 12, 12, 12, 24}
+	podnaslov := sk.Naziv
+	if sk.AreaName != "" {
+		podnaslov = fmt.Sprintf("BP %d %s · %s", sk.AreaID, sk.AreaName, sk.Naziv)
+	}
+	if sk.Adresa != "" {
+		podnaslov += " · " + sk.Adresa
+	}
+	zaglavljeLista(l, z, "STANJE SREDSTAVA ZA OBRANU OD POPLAVA NA DAN "+dan.Format("02.01.2006."), podnaslov, stupaca)
+	r := l.Redak()
+	l.Dodaj(B("R. br.", xlsxw.Zaglavlje), B("Vrsta sredstava", xlsxw.Zaglavlje), B("Jed.", xlsxw.Zaglavlje), B("Stanje na dan", xlsxw.Zaglavlje),
+		B("od toga prazno", xlsxw.Zaglavlje), B("od toga napunjeno", xlsxw.Zaglavlje), B("Potrebe za nabavom", xlsxw.Zaglavlje), B("Napomena", xlsxw.Zaglavlje))
+	l.Visina(r, 30)
+	l.PonoviRetke(r, r)
+	broj := func(v float64, stil int) xlsxw.Celija {
+		if v == 0 {
+			return B("", stil)
+		}
+		return xlsxw.N(v, stil)
+	}
+	for _, g := range models.GrupeSredstava {
+		red := make([]xlsxw.Celija, stupaca)
+		for c := range red {
+			red[c] = B("", xlsxw.TablicaPod)
+		}
+		red[0], red[1] = B(g.Rimski, xlsxw.TablicaPod), B(g.Naziv, xlsxw.TablicaPod)
+		l.Dodaj(red...)
+		for _, sv := range stanje {
+			if sv.Vrsta.Grupa != g.ID {
+				continue
+			}
+			red := []xlsxw.Celija{B(strconv.Itoa(sv.Vrsta.Redoslijed)+".", xlsxw.TablicaSredina), B(sv.Vrsta.Naziv, xlsxw.Tablica), B(sv.Vrsta.Jedinica, xlsxw.TablicaSredina),
+				broj(sv.Ukupno, xlsxw.TablicaBrojPod), B("", xlsxw.TablicaBroj), B("", xlsxw.TablicaBroj), broj(potrebe[sv.Vrsta.ID], xlsxw.TablicaBroj), B("", xlsxw.Tablica)}
+			if sv.Vrsta.ImaOblike() {
+				red[4], red[5] = broj(sv.Oblik(models.OblikPrazno), xlsxw.TablicaBroj), broj(sv.Oblik(models.OblikPunjeno), xlsxw.TablicaBroj)
+			}
+			l.Dodaj(red...)
+		}
+	}
+	napomenaLista(l, "Stanje je zbroj prometa do toga dana. Potrebe za nabavom su iz zadnje inventure do toga dana. Iz programa goCOP.", stupaca, 24)
+	potpisiLista(l, z, stupaca, []PotpisnikIzvoza{{Funkcija: "skladištar"}, {Funkcija: "rukovoditelj branjenog područja"}})
+
+	// promet
+	p := k.NoviList("Promet")
+	p.Vodoravno = true
+	p.Sirine = []float64{11, 18, 30, 11, 11, 8, 30, 20, 20, 18, 18, 30}
+	zaglavljeLista(p, z, "KNJIGA PROMETA SREDSTAVA — "+sk.Naziv, "do "+dan.Format("02.01.2006.")+", najnoviji prvi", 12)
+	r = p.Redak()
+	p.Dodaj(B("Datum", xlsxw.Zaglavlje), B("Zahvat", xlsxw.Zaglavlje), B("Sredstvo", xlsxw.Zaglavlje), B("Oblik", xlsxw.Zaglavlje), B("Količina", xlsxw.Zaglavlje), B("Jed.", xlsxw.Zaglavlje),
+		B("Mjesto (teren / drugo skladište)", xlsxw.Zaglavlje), B("Naložio", xlsxw.Zaglavlje), B("Preuzeo / dopremio", xlsxw.Zaglavlje), B("Dokument", xlsxw.Zaglavlje), B("Upisao", xlsxw.Zaglavlje), B("Napomena", xlsxw.Zaglavlje))
+	p.Visina(r, 30)
+	p.PonoviRetke(r, r)
+	for _, x := range promet {
+		mjesto := ""
+		if x.SkladisteID == "" {
+			mjesto = x.MjestoNaziv()
+		}
+		p.Dodaj(B(x.Datum.Format("02.01.2006."), xlsxw.TablicaSredina), B(models.PrometNaziv(x.Vrsta), xlsxw.Tablica), B(x.VrstaNaziv, xlsxw.Tablica),
+			B(models.OblikNaziv(x.Oblik), xlsxw.TablicaSredina), xlsxw.N(x.Kolicina, xlsxw.TablicaBroj), B(x.Jedinica, xlsxw.TablicaSredina),
+			B(mjesto, xlsxw.TablicaTekst), B(x.Nalozio, xlsxw.TablicaTekst), B(x.Preuzeo, xlsxw.TablicaTekst), B(x.Dokument, xlsxw.Tablica), B(x.UserName, xlsxw.Tablica), B(x.Napomena, xlsxw.TablicaTekst))
+	}
+	return k
 }
 
 // KnjigaMts slaže popis sredstava po skladištima kao list na A4 vodoravno:

@@ -26,12 +26,12 @@
 {{$vrste := .Vrste}}
 <div class="table-card"><div class="table-responsive tablica-kartice">
   <table class="data-table">
-    <thead><tr><th>Dionica</th><th>Sredstvo</th><th>Oblik</th><th class="br">Količina</th></tr></thead>
+    <thead><tr><th>Mjesto</th><th>Sredstvo</th><th>Oblik</th><th class="br">Količina</th></tr></thead>
     <tbody>
     {{range .NaTerenu}}
     {{$st := .}}
     <tr>
-      <td data-stupac="Dionica" class="mono">{{if .SectionCode}}<a href="/sections/{{.SectionCode}}">{{.SectionCode}}</a>{{else}}nije razvrstano{{end}}</td>
+      <td data-stupac="Mjesto">{{.MjestoNaziv}}{{if .SectionCode}} <a href="/sections/{{.SectionCode}}" class="reg-card-sub">dionica</a>{{end}}</td>
       <td data-stupac="Sredstvo">{{range $vrste}}{{if eq .ID $st.VrstaID}}{{.Naziv}}{{end}}{{end}}</td>
       <td data-stupac="Oblik">{{if .Oblik}}{{oblik .Oblik}}{{end}}</td>
       <td data-stupac="Količina" class="mono br"><strong>{{kolicina .Kolicina}}</strong> {{range $vrste}}{{if eq .ID $st.VrstaID}}{{.Jedinica}}{{end}}{{end}}</td>
