@@ -22,7 +22,7 @@
     <label class="form-label">Vrsta zahvata *</label>
     <div class="mts-zahvati">
       {{range .VrstePrometa}}{{if ne .ID "POPIS"}}
-      <label class="mts-zahvat"><input type="radio" name="vrsta" value="{{.ID}}"{{if eq .ID $z.Vrsta}} checked{{end}} onchange="pokaziPolja()"> <strong>{{.Naziv}}</strong><small>{{.Opis}}</small></label>
+      <label class="mts-zahvat"><input type="radio" name="vrsta" value="{{.ID}}"{{if eq .ID $z.Vrsta}} checked{{end}} onchange="zadaniOblik()"> <strong>{{.Naziv}}</strong><small>{{.Opis}}</small></label>
       {{end}}{{end}}
     </div>
   </div>
@@ -122,7 +122,14 @@ function pokaziPolja() {
   document.getElementById('p-na-skladiste').style.display = v === 'PRIJENOS' ? '' : 'none';
   var l = {PRIMKA: 'Dopremio', IZDANO: 'Preuzeo', PRIJENOS: 'Preuzeo', POVRAT: 'Vratio', UTROSAK: 'Ugradio', OTPIS: 'Rashodovao'};
   document.getElementById('l-preuzeo').textContent = l[v] || 'Osoba';
-  if (imaOblike && v === 'PUNJENJE') { document.getElementById('oblik').value = 'PRAZNO'; }
+}
+// zadani oblik po vrsti zahvata: na teren idu napunjene, u skladište stižu prazne
+function zadaniOblik() {
+  var v = (document.querySelector('input[name=vrsta]:checked') || {}).value || '';
+  var o = document.getElementById('oblik');
+  if (v === 'PUNJENJE' || v === 'PRIMKA' || v === 'POCETNO') { o.value = 'PRAZNO'; }
+  else if (v === 'IZDANO' || v === 'POVRAT' || v === 'UTROSAK') { o.value = 'PUNJENO'; }
+  pokaziPolja();
 }
 pokaziPolja();
 </script>
