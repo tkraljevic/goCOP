@@ -48,6 +48,16 @@ prva računala. Kaže što program radi na računalu i mreži, što ne radi, i
   Popis se uvozi iz ugovora o održavanju (na stranici Održavanje ili
   zastavicom `-ugovor`) ili dopunjuje ručno; pozicije plana i cjenici se ne
   uvoze jer se mijenjaju sa svakim okvirnim sporazumom.
+- **Sredstva za obranu (MTS):** skladišta po branjenim područjima i
+  propisani popis od 66 vrsta sredstava (oprema, alat, materijal, pribor).
+  Stanje se ne upisuje nego zbraja iz prometa — primka, izdavanje na
+  dionicu, povrat, utrošak, prijenos među skladištima i sektorima,
+  punjenje vreća, otpis — a svaki redak pamti tko je naložio, tko preuzeo
+  ili dopremio i po kojem dokumentu. Godišnji popis po skladištu nudi
+  knjižno stanje, skladištar upiše prebrojano i potrebe za nabavom, a
+  zaključenjem se razlika proknjiži. Tablica za Glavni centar (redak po
+  vrsti, dva stupca po skladištu, zbroj sektora) izvozi se u Excel na
+  dan; „gdje ima“ pokazuje zalihe jedne vrste kroz sve sektore.
 - **Dnevnik COP-a:** dežurni zapisnik centra obrane od poplava, jedan po
   centru (sektoru) i po obrani — traje koliko i dežurstva. Otvara ga
   voditelj ili zamjenik centra; upisuju svi koji rade u sektoru, iz centra

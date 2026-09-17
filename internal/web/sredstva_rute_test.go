@@ -68,6 +68,7 @@ func TestSredstvaKrozRute(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /sredstva", h.ShowPregled)
 	mux.HandleFunc("GET /sredstva/promet", h.ShowPromet)
+	mux.HandleFunc("GET /sredstva/mts.xlsx", h.IzvoziTablicu)
 	mux.HandleFunc("GET /sredstva/na-terenu", h.ShowNaTerenu)
 	mux.HandleFunc("GET /sredstva/gdje/{vrsta}", h.ShowGdjeIma)
 	mux.HandleFunc("GET /sredstva/skladista/novo", h.ShowSkladisteForm)
@@ -168,5 +169,26 @@ func TestSredstvaKrozRute(t *testing.T) {
 	mora(zovi(http.MethodGet, "/sredstva/popisi?sektor=B", nil), http.StatusOK, "popisi", "Centralno skladište Osijek", "zaključen")
 	if w := zovi(http.MethodGet, "/sredstva/popisi/"+popis+"/uredi", nil); w.Code != http.StatusForbidden {
 		t.Errorf("uređivanje zaključenog: %d", w.Code)
+	}
+
+	// tablica za Glavni centar: redak po vrsti, stupci skladišta i zbroj sektora
+	w = zovi(http.MethodGet, "/sredstva/mts.xlsx?sektor=B&dan="+danas, nil)
+	if w.Code != http.StatusOK || !strings.Contains(w.Header().Get("Content-Disposition"), "MTS_b_"+danas) {
+		t.Fatalf("izvoz: %d %s", w.Code, w.Header().Get("Content-Disposition"))
+	}
+	redci, err := procitajXLSX(w.Body.Bytes())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var sve []string
+	for _, r := range redci {
+		sve = append(sve, strings.Join(r, "|"))
+	}
+	list := strings.Join(sve, "\n")
+	for _, want := range []string{"POPIS SREDSTAVA ZA OBRANU OD POPLAVA PO SKLADIŠTIMA", "BP 34 - DRAVA I DUNAV", "Centralno skladište Osijek", "Splavarska 2a",
+		"Dodatne potrebe za nabavom u", "III|Materijal", "9.|Vreće 50x80 cm|kom|95990|50000|95990|50000", "IV|Pribor i osobna zaštitna sredstva", "popis zaključen"} {
+		if !strings.Contains(list, want) {
+			t.Errorf("tablica nema %q\n%s", want, list)
+		}
 	}
 }

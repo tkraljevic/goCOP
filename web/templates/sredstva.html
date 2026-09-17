@@ -29,6 +29,14 @@
     {{range .Sektori}}{{if ne .ID "DIREKCIJA"}}<option value="{{.ID}}"{{if eq .ID $.Sektor}} selected{{end}}>{{.Name}}</option>{{end}}{{end}}
   </select>
 </form>
+{{if .Sektor}}
+<form method="GET" action="/sredstva/mts.xlsx" class="obracun-filtar">
+  <input type="hidden" name="sektor" value="{{.Sektor}}">
+  <label for="f-dan">Popis za Glavni centar na dan</label>
+  <input type="date" id="f-dan" name="dan" class="form-control" value="{{.Danas}}" max="{{.Danas}}">
+  <button type="submit" class="btn btn-secondary" title="Tablica po skladištima u obliku koji ide GCOP-u">{{icon "download"}} Excel za GCOP</button>
+</form>
+{{end}}
 
 <section class="detail-section">
   <h2>{{icon "building"}} Skladišta <span class="reg-chip">{{len .Skladista}}</span></h2>
