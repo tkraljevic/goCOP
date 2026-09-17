@@ -431,8 +431,13 @@ func TestDnevnikCOPKrozRute(t *testing.T) {
 		t.Errorf("planovi osobe: %+v, %v", planovi, err)
 	}
 
-	// Bez zadanog razdoblja obračun seže do kraja plana, pa 14.9. ulazi sam.
-	mora(zovi(http.MethodGet, "/dnevnici/"+dnevnik+"/obracun", nil), http.StatusOK, "zadano razdoblje", ">2,0<", "do kraja plana", "14.9.2026.")
+	// Bez zadanog razdoblja obračun seže do kraja plana (14.9.), a nikad
+	// prije danas — pa se očekivani kraj računa, ne piše.
+	krajPlana := time.Date(2026, 9, 14, 0, 0, 0, 0, models.Zagreb)
+	if danas := time.Now().In(models.Zagreb); danas.After(krajPlana) {
+		krajPlana = time.Date(danas.Year(), danas.Month(), danas.Day(), 0, 0, 0, 0, models.Zagreb)
+	}
+	mora(zovi(http.MethodGet, "/dnevnici/"+dnevnik+"/obracun", nil), http.StatusOK, "zadano razdoblje", ">2,0<", "do kraja plana", krajPlana.Format("2.1.2006."))
 	if strings.Contains(w.Body.String(), "čeka potvrdu") {
 		t.Error("poslije potvrde još nešto čeka")
 	}
