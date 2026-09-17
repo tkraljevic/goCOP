@@ -69,6 +69,9 @@ func TestSredstvaKrozRute(t *testing.T) {
 	mux.HandleFunc("GET /sredstva", h.ShowPregled)
 	mux.HandleFunc("GET /sredstva/promet", h.ShowPromet)
 	mux.HandleFunc("GET /sredstva/mts.xlsx", h.IzvoziTablicu)
+	mux.HandleFunc("GET /sredstva/katalog", h.ShowKatalog)
+	mux.HandleFunc("POST /sredstva/katalog", h.HandleSaveVrsta)
+	mux.HandleFunc("POST /sredstva/katalog/{id}", h.HandleSaveVrsta)
 	mux.HandleFunc("GET /sredstva/na-terenu", h.ShowNaTerenu)
 	mux.HandleFunc("GET /sredstva/gdje/{vrsta}", h.ShowGdjeIma)
 	mux.HandleFunc("GET /sredstva/skladista/novo", h.ShowSkladisteForm)
@@ -126,8 +129,18 @@ func TestSredstvaKrozRute(t *testing.T) {
 		return l
 	}
 
+	// katalog: nova vrsta ide na kraj skupine i odmah se nudi u obrascu zahvata; gašenje je vidljivo
+	mora(zovi(http.MethodGet, "/sredstva/katalog", nil), http.StatusOK, "katalog", "Nova vrsta sredstva", "16.</td>", "Čekić tesarski")
+	odredište(zovi(http.MethodPost, "/sredstva/katalog", url.Values{"naziv": {"Ćuskija velika"}, "grupa": {"ALAT"}, "jedinica": {"kom"}}), "nova vrsta")
+	mora(zovi(http.MethodGet, "/sredstva/katalog", nil), http.StatusOK, "katalog s novom", "Ćuskija velika", "17.</td>", "cuskija-velika")
+	odredište(zovi(http.MethodPost, "/sredstva/katalog/cuskija-velika", url.Values{"naziv": {"Ćuskija velika"}, "grupa": {"ALAT"}, "jedinica": {"kom"}, "aktivna": {"0"}}), "gašenje vrste")
+	mora(zovi(http.MethodGet, "/sredstva/katalog", nil), http.StatusOK, "ugašena", "ugašena")
+
 	// prazan pregled nudi novo skladište; katalog je već u tablici stanja
 	mora(zovi(http.MethodGet, "/sredstva?sektor=B", nil), http.StatusOK, "pregled", "Nema upisanih skladišta", "Novo skladište", "Vreće 50x80 cm", "Pribor i osobna zaštitna sredstva")
+	if w := zovi(http.MethodGet, "/sredstva?sektor=B", nil); strings.Contains(w.Body.String(), "Ćuskija") {
+		t.Error("ugašena vrsta se nudi u stanju")
+	}
 	mora(zovi(http.MethodGet, "/sredstva/skladista/novo?sektor=B", nil), http.StatusOK, "obrazac skladišta", `value="34"`, "Drava i Dunav")
 	kamo := odredište(zovi(http.MethodPost, "/sredstva/skladista", url.Values{"sektor": {"B"}, "area_id": {"34"}, "naziv": {"Centralno skladište Osijek"},
 		"adresa": {"Splavarska 2a"}, "centralno": {"1"}}), "novo skladište")

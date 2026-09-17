@@ -642,3 +642,68 @@ func obraneSektora(ctx context.Context, js *service.JournalService, sektor strin
 }
 
 var _ = fmt.Sprintf
+
+// ---- katalog vrsta
+
+// smijeKatalog: katalog je podatak organizacije, uređuje ga uprava sektora ili administrator
+func smijeKatalog(perms *models.UserPermissions) bool {
+	return perms != nil && (perms.IsGlobalAdmin || len(perms.AdminSectors) > 0)
+}
+
+// ShowKatalog prikazuje sve vrste sredstava, i ugašene, s obrascem za novu
+func (h *MtsHandler) ShowKatalog(w http.ResponseWriter, r *http.Request) {
+	data := h.pageData(r)
+	var err error
+	if data.Vrste, err = h.svc().SveVrste(r.Context()); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	data.SmijeUrediti = smijeKatalog(data.Permissions)
+	if id := r.URL.Query().Get("uredi"); id != "" && data.SmijeUrediti {
+		data.Vrsta, _ = h.svc().Vrsta(r.Context(), id)
+	}
+	h.render(w, "katalog.html", data)
+}
+
+// HandleSaveVrsta upisuje novu vrstu ili mijenja postojeću
+func (h *MtsHandler) HandleSaveVrsta(w http.ResponseWriter, r *http.Request) {
+	data := h.pageData(r)
+	if !smijeKatalog(data.Permissions) {
+		http.Error(w, "Katalog sredstava uređuje uprava sektora ili administrator", http.StatusForbidden)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		redirectWith(w, r, "/sredstva/katalog", "error", "Neispravan zahtjev")
+		return
+	}
+	f := func(k string) string { return strings.TrimSpace(r.FormValue(k)) }
+	v := &models.VrstaSredstva{ID: r.PathValue("id"), Grupa: f("grupa"), Naziv: f("naziv"), Jedinica: f("jedinica"),
+		Napomena: f("napomena"), Aktivna: r.FormValue("aktivna") != "0"}
+	v.Redoslijed, _ = strconv.Atoi(f("redoslijed"))
+	if r.FormValue("oblici") == "vrece" {
+		v.Oblici = []string{models.OblikPrazno, models.OblikPunjeno}
+	}
+	if v.ID != "" {
+		cur, err := h.svc().Vrsta(r.Context(), v.ID)
+		if err != nil || cur == nil {
+			http.NotFound(w, r)
+			return
+		}
+		if v.Redoslijed == 0 {
+			v.Redoslijed = cur.Redoslijed
+		}
+	} else if v.Redoslijed == 0 {
+		// nova vrsta ide na kraj svoje skupine
+		sve, _ := h.svc().SveVrste(r.Context())
+		for _, x := range sve {
+			if x.Grupa == v.Grupa && x.Redoslijed >= v.Redoslijed {
+				v.Redoslijed = x.Redoslijed + 1
+			}
+		}
+	}
+	if err := h.svc().SpremiVrstu(r.Context(), v); err != nil {
+		redirectWith(w, r, "/sredstva/katalog", "error", err.Error())
+		return
+	}
+	redirectWith(w, r, "/sredstva/katalog", "success", "Vrsta „"+v.Naziv+"“ je upisana.")
+}
