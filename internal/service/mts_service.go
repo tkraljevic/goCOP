@@ -30,13 +30,14 @@ func NewMtsService(repo *repository.MtsRepository, sections *repository.SectionR
 	return &MtsService{repo: repo, sections: sections, users: users}
 }
 
-// SmijePisati: sredstva vodi uprava područja i sektora, i tko ima pravo
-// pisanja na tom području — skladištar je na području, ne u centru
+// SmijePisati: promet i popis upisuje skladištar tog područja i uprava
+// područja i sektora. Vodočuvar ili strojar s dosegom na području ne —
+// sredstva vodi tko za njih odgovara.
 func (s *MtsService) SmijePisati(perms *models.UserPermissions, sk *models.Skladiste) bool {
 	if perms == nil || sk == nil {
 		return false
 	}
-	return perms.HasWriteAccess(sk.Sektor, sk.AreaID, "") || perms.CanAdminister(sk.Sektor, sk.AreaID)
+	return perms.CanAdminister(sk.Sektor, sk.AreaID) || perms.VodiSkladista(sk.Sektor, sk.AreaID)
 }
 
 // SmijeVidjeti: stanje sredstava vidi cijela obrana. Kad negdje ponestane,
