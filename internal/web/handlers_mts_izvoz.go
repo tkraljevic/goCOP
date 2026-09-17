@@ -89,10 +89,10 @@ func (h *MtsHandler) sektorskoPodaci(r *http.Request) MtsPageData { return h.pag
 func KnjigaInventure(p *models.Popis, sk *models.Skladiste, prosla *models.Popis, z ZaglavljeIzvoza) *xlsxw.Knjiga {
 	k := &xlsxw.Knjiga{LogoPNG: z.LogoPNG}
 	B := xlsxw.T
-	const stupaca = 11
+	const stupaca = 10
 	l := k.NoviList("Inventura")
 	l.Vodoravno = true
-	l.Sirine = []float64{6, 32, 7, 11, 11, 11, 11, 13, 13, 13, 30}
+	l.Sirine = []float64{6, 32, 7, 11, 11, 11, 11, 13, 13, 32}
 	podnaslov := sk.Naziv
 	if sk.AreaName != "" {
 		podnaslov = fmt.Sprintf("BP %d %s · %s", sk.AreaID, sk.AreaName, sk.Naziv)
@@ -112,7 +112,7 @@ func KnjigaInventure(p *models.Popis, sk *models.Skladiste, prosla *models.Popis
 		proslaOznaka += " " + prosla.Dan.Format("02.01.2006.")
 	}
 	l.Dodaj(B("R. br.", xlsxw.Zaglavlje), B("Vrsta sredstava", xlsxw.Zaglavlje), B("Jed.", xlsxw.Zaglavlje), B("Oblik", xlsxw.Zaglavlje), B("Knjižno", xlsxw.Zaglavlje),
-		B("Prebrojano", xlsxw.Zaglavlje), B("Razlika", xlsxw.Zaglavlje), B(proslaOznaka, xlsxw.Zaglavlje), B("Promjena prema prethodnoj", xlsxw.Zaglavlje), B("Potrebe za nabavom", xlsxw.Zaglavlje), B("Napomena", xlsxw.Zaglavlje))
+		B("Prebrojano", xlsxw.Zaglavlje), B("Razlika", xlsxw.Zaglavlje), B(proslaOznaka, xlsxw.Zaglavlje), B("Promjena prema prethodnoj", xlsxw.Zaglavlje), B("Napomena", xlsxw.Zaglavlje))
 	l.Visina(r, 32)
 	l.PonoviRetke(r, r)
 	broj := func(v float64, stil int) xlsxw.Celija {
@@ -127,7 +127,7 @@ func KnjigaInventure(p *models.Popis, sk *models.Skladiste, prosla *models.Popis
 			proslo[st.VrstaID+"|"+st.Oblik] = st.Utvrdjeno
 		}
 	}
-	var zbrojRazlika, zbrojPotreba int
+	var zbrojRazlika int
 	for _, g := range models.GrupeSredstava {
 		red := make([]xlsxw.Celija, stupaca)
 		for c := range red {
@@ -154,9 +154,6 @@ func KnjigaInventure(p *models.Popis, sk *models.Skladiste, prosla *models.Popis
 			if razlika != 0 {
 				zbrojRazlika++
 			}
-			if st.Potrebno != 0 {
-				zbrojPotreba++
-			}
 			var prije, promjena xlsxw.Celija = B("", xlsxw.TablicaBroj), B("", xlsxw.TablicaBroj)
 			if prosla != nil {
 				pr := proslo[st.VrstaID+"|"+st.Oblik]
@@ -165,11 +162,11 @@ func KnjigaInventure(p *models.Popis, sk *models.Skladiste, prosla *models.Popis
 			}
 			l.Dodaj(B(rb, xlsxw.TablicaSredina), B(st.VrstaNaziv, xlsxw.Tablica), B(st.Jedinica, xlsxw.TablicaSredina), B(oblik, xlsxw.TablicaSredina),
 				broj(st.Knjizno, xlsxw.TablicaBroj), broj(st.Utvrdjeno, xlsxw.TablicaBrojPod), broj(razlika, xlsxw.TablicaBroj), prije, promjena,
-				broj(st.Potrebno, xlsxw.TablicaBroj), B(st.Napomena, xlsxw.TablicaTekst))
+				B(st.Napomena, xlsxw.TablicaTekst))
 		}
 	}
-	napomenaLista(l, fmt.Sprintf("Knjižno je stanje iz prometa na dan inventure; razlika je prebrojano manje knjižno i zaključenjem se proknjižava kao usklađenje. Redaka s razlikom: %d; redaka s potrebama za nabavom: %d. Izradio: %s, %s.%s Iz programa goCOP.",
-		zbrojRazlika, zbrojPotreba, p.Izradio, p.IzradenoAt.Format("02.01.2006. 15:04"), naznaka(p.Napomena)), stupaca, 36)
+	napomenaLista(l, fmt.Sprintf("Knjižno je stanje iz prometa na dan inventure; razlika je prebrojano manje knjižno i zaključenjem se proknjižava kao usklađenje. Redaka s razlikom: %d. Izradio: %s, %s.%s Potrebe za nabavom vode se odvojeno, po godini. Iz programa goCOP.",
+		zbrojRazlika, p.Izradio, p.IzradenoAt.Format("02.01.2006. 15:04"), naznaka(p.Napomena)), stupaca, 36)
 	zp := z
 	zp.Datum = p.Dan
 	potpisiLista(l, zp, stupaca, []PotpisnikIzvoza{{Funkcija: "popis izvršio (skladištar)", Ime: p.Izradio}, {Funkcija: "član povjerenstva"}, {Funkcija: "rukovoditelj branjenog područja"}})
@@ -372,17 +369,10 @@ func (h *MtsHandler) IzvoziSkladiste(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	var potrebe map[string]float64
-	if p, _ := h.svc().Popisi(r.Context(), "", sk.ID, 0); len(p) > 0 {
-		// potrebe iz zadnje inventure na taj dan ili prije
-		for _, x := range p {
-			if !x.Dan.After(dan) {
-				potrebe = map[string]float64{}
-				for _, st := range x.Stavke {
-					potrebe[st.VrstaID] += st.Potrebno
-				}
-				break
-			}
+	potrebe := map[string]float64{}
+	if pp, err := h.svc().PotrebeSkladista(r.Context(), sk.ID, models.GodinaPotreba(dan)); err == nil {
+		for vrsta, x := range pp {
+			potrebe[vrsta] = x.Kolicina
 		}
 	}
 	promet, _ := h.svc().Promet(r.Context(), repository.FiltarPrometa{SkladisteID: sk.ID, Do: &dan})
@@ -419,7 +409,7 @@ func KnjigaSkladista(sk *models.Skladiste, dan time.Time, stanje []models.Stanje
 	zaglavljeLista(l, z, "STANJE SREDSTAVA ZA OBRANU OD POPLAVA NA DAN "+dan.Format("02.01.2006."), podnaslov, stupaca)
 	r := l.Redak()
 	l.Dodaj(B("R. br.", xlsxw.Zaglavlje), B("Vrsta sredstava", xlsxw.Zaglavlje), B("Jed.", xlsxw.Zaglavlje), B("Stanje na dan", xlsxw.Zaglavlje),
-		B("od toga prazno", xlsxw.Zaglavlje), B("od toga napunjeno", xlsxw.Zaglavlje), B("Potrebe za nabavom", xlsxw.Zaglavlje), B("Napomena", xlsxw.Zaglavlje))
+		B("od toga prazno", xlsxw.Zaglavlje), B("od toga napunjeno", xlsxw.Zaglavlje), B(fmt.Sprintf("Potrebe za nabavom u %d.", models.GodinaPotreba(dan)), xlsxw.Zaglavlje), B("Napomena", xlsxw.Zaglavlje))
 	l.Visina(r, 30)
 	l.PonoviRetke(r, r)
 	broj := func(v float64, stil int) xlsxw.Celija {
@@ -447,7 +437,7 @@ func KnjigaSkladista(sk *models.Skladiste, dan time.Time, stanje []models.Stanje
 			l.Dodaj(red...)
 		}
 	}
-	napomenaLista(l, "Stanje je zbroj prometa do toga dana. Potrebe za nabavom su iz zadnje inventure do toga dana. Iz programa goCOP.", stupaca, 24)
+	napomenaLista(l, "Stanje je zbroj prometa do toga dana. Potrebe za nabavom su iz evidencije potreba za godinu nabave. Iz programa goCOP.", stupaca, 24)
 	potpisiLista(l, z, stupaca, []PotpisnikIzvoza{{Funkcija: "skladištar"}, {Funkcija: "rukovoditelj branjenog područja"}})
 
 	listPrometa(k, "KNJIGA PROMETA SREDSTAVA — "+sk.Naziv, "do "+dan.Format("02.01.2006.")+", najnoviji prvi", promet, z, false)
@@ -564,7 +554,7 @@ func KnjigaMts(t *service.TablicaSredstava, nazivSektora string, z ZaglavljeIzvo
 	for c := 3; c < stupaca; c++ {
 		l.Sirine[c] = 10
 	}
-	godina := t.Dan.Year()
+	godina := t.Godina
 	zaglavljeLista(l, z, "POPIS SREDSTAVA ZA OBRANU OD POPLAVA PO SKLADIŠTIMA", strings.ToUpper(nazivSektora)+" · stanje na dan "+t.Dan.Format("02.01.2006."), stupaca)
 
 	// zaglavlje tablice: dva reda; skladišta spojena preko dva stupca
@@ -652,7 +642,7 @@ func KnjigaMts(t *service.TablicaSredstava, nazivSektora string, z ZaglavljeIzvo
 	for _, sk := range t.Skladista {
 		izvori = append(izvori, sk.Naziv+": "+t.Izvor(sk.ID))
 	}
-	napomenaLista(l, "Stupac skladišta je iz inventure na taj dan kad je ima (prebrojano i potrebe za nabavom), inače iz knjige prometa. "+
+	napomenaLista(l, fmt.Sprintf("Stupac stanja je iz inventure na taj dan kad je ima (prebrojano), inače iz knjige prometa; potrebe su iz evidencije potreba za nabavom za %d. ", t.Godina)+
 		strings.Join(izvori, "; ")+". Vreće su zbrojene prazne i napunjene. Iz programa goCOP.", stupaca, 40)
 	potpisiLista(l, z, stupaca, []PotpisnikIzvoza{{Funkcija: "sastavio"}, {Funkcija: "rukovoditelj obrane od poplava " + models.Terms().Lower("sektor") + "a " + t.Sektor}})
 	return k

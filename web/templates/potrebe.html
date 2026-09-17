@@ -1,0 +1,46 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Potrebe za nabavom{{end}}
+
+{{define "content"}}
+<div class="breadcrumb"><a href="/registri">Registri</a> › <a href="/sredstva?sektor={{.Sektor}}">Sredstva za obranu</a> › Potrebe za nabavom</div>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "notebook-pen"}} Potrebe za nabavom u {{.Godina}}.{{if .Sektor}} — {{term "sektor"}} {{.Sektor}}{{end}}</h1>
+    <p class="page-desc">Po skladištima i vrstama, sa zbrojem sektora. Upisuju se na kartici skladišta; ovdje se vide zajedno i idu u
+      tablicu za Glavni centar.</p>
+  </div>
+</div>
+
+<form method="GET" action="/sredstva/potrebe" class="obracun-filtar">
+  <input type="hidden" name="sektor" value="{{.Sektor}}">
+  <label for="f-godina">Godina nabave</label>
+  <input type="number" id="f-godina" name="godina" class="form-control" value="{{.Godina}}" min="2000" max="2200" style="max-width:7rem;" onchange="this.form.submit()">
+  {{range .GodinePotreba}}<a href="/sredstva/potrebe?sektor={{$.Sektor}}&godina={{.}}" class="btn btn-secondary btn-sm">{{.}}</a>{{end}}
+</form>
+
+{{if .PotrebeSektora}}
+<div class="table-card"><div class="table-responsive">
+  <table class="data-table mts-stanje">
+    <thead><tr><th>Vrsta sredstva</th><th>Jed.</th><th class="br">Ukupno</th>{{range .Skladista}}<th class="br">{{.Naziv}}</th>{{end}}</tr></thead>
+    <tbody>
+    {{range $g := .Grupe}}
+    {{$ima := false}}{{range $.Vrste}}{{if and (eq .Grupa $g.ID) ($.UkupnoPotreba .ID)}}{{$ima = true}}{{end}}{{end}}
+    {{if $ima}}
+    <tr class="mts-grupa"><td colspan="{{add 3 (len $.Skladista)}}">{{$g.Rimski}} {{$g.Naziv}}</td></tr>
+    {{range $.Vrste}}{{if eq .Grupa $g.ID}}{{$u := $.UkupnoPotreba .ID}}{{if $u}}
+    <tr>
+      <td>{{.Naziv}}</td><td>{{.Jedinica}}</td><td class="mono br"><strong>{{kolicina $u}}</strong></td>
+      {{$v := .}}{{range $.Skladista}}<td class="mono br">{{with $.PotrebaU .ID $v.ID}}{{kolicina .}}{{end}}</td>{{end}}
+    </tr>
+    {{end}}{{end}}{{end}}
+    {{end}}
+    {{end}}
+    </tbody>
+  </table>
+</div></div>
+{{else}}
+<div class="reg-empty">Za {{.Godina}}. još nema upisanih potreba. Upisuju se na kartici skladišta, gumb „Potrebe za nabavom“.</div>
+{{end}}
+{{end}}

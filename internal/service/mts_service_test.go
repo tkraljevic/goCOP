@@ -197,7 +197,6 @@ func TestMtsGodisnjiPopisUsklađuje(t *testing.T) {
 				t.Errorf("predložak za lopate: %+v", p.Stavke[i])
 			}
 			p.Stavke[i].Utvrdjeno = 44 // dvije nedostaju
-			p.Stavke[i].Potrebno = 15  // treba nabaviti
 			nasao = true
 		}
 	}
@@ -209,6 +208,19 @@ func TestMtsGodisnjiPopisUsklađuje(t *testing.T) {
 	}
 	if p.ID == "" || p.Zakljucen() {
 		t.Fatalf("spremljeno: %+v", p)
+	}
+	// potrebe za nabavom su odvojene od inventure: upišu se bilo kad, za godinu
+	if err := s.SpremiPotrebe(ctx, u, uprava, sk.ID, 2027, []models.Potreba{{VrstaID: lopata, Kolicina: 15, Napomena: "poslije obrane"}}); err != nil {
+		t.Fatal(err)
+	}
+	if pp, _ := s.PotrebeSkladista(ctx, sk.ID, 2027); pp[lopata].Kolicina != 15 || pp[lopata].Napomena != "poslije obrane" {
+		t.Errorf("potrebe: %+v", pp)
+	}
+	if err := s.SpremiPotrebe(ctx, u, &models.UserPermissions{AllowedAreas: map[int]bool{34: true}}, sk.ID, 2027, nil); err == nil {
+		t.Error("potrebe bez prava")
+	}
+	if g := s.GodinePotreba(ctx, "B"); len(g) != 1 || g[0] != 2027 {
+		t.Errorf("godine potreba: %v", g)
 	}
 	// nezaključen popis ne mijenja stanje
 	if k := kolicinaU(t, s, ctx, sk.ID, lopata); k != 46 {

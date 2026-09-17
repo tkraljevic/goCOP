@@ -502,3 +502,34 @@ func OznakaSredstva(naziv string) string {
 	}
 	return strings.Trim(b.String(), "-")
 }
+
+// Potreba je što u skladištu treba nabaviti u godini: plan nabave, odvojen
+// od inventure. Upisuje se kad se vidi da nešto nedostaje — poslije obrane,
+// kad se nešto potroši ili pokvari — a ne tek na godišnjem popisu. U
+// tablicu za Glavni centar ide uz stanje na dan kao „dodatne potrebe za
+// nabavom u godini“.
+type Potreba struct {
+	ID          string    `json:"id"` // skladište/godina/vrsta
+	SkladisteID string    `json:"skladiste_id"`
+	Godina      int       `json:"godina"`
+	VrstaID     string    `json:"vrsta_id"`
+	Kolicina    float64   `json:"kolicina"`
+	Napomena    string    `json:"napomena,omitempty"`
+	UserName    string    `json:"user_name,omitempty"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+// PotrebaID slaže ključ potrebe
+func PotrebaID(skladisteID string, godina int, vrstaID string) string {
+	return skladisteID + "/" + itoa(godina) + "/" + vrstaID
+}
+
+// GodinaPotreba je godina nabave za stanje na dan: stanje na 31. prosinca
+// nosi potrebe za iduću godinu, kako tablica za Glavni centar i traži;
+// stanje usred godine nosi potrebe za tu godinu
+func GodinaPotreba(dan time.Time) int {
+	if dan.Month() == time.December && dan.Day() == 31 {
+		return dan.Year() + 1
+	}
+	return dan.Year()
+}

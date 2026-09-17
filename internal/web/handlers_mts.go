@@ -66,6 +66,10 @@ type MtsPageData struct {
 	Objekti  []models.Structure // objekti i nasipi sektora, za mjesto na terenu
 	MjestaNa []models.Stanje    // mjesta na terenu na kojima nešto stoji
 
+	Potrebe        map[string]models.Potreba // po vrsti, za obrazac skladišta
+	PotrebeSektora []models.Potreba
+	GodinePotreba  []int
+
 	GdjeIma []service.MjestoZalihe
 
 	Potvrda      string // veza zahvata koji je upravo upisan, za ispis potvrde
@@ -574,9 +578,8 @@ func (h *MtsHandler) HandleSavePopis(w http.ResponseWriter, r *http.Request) {
 		for _, o := range v.SviOblici() {
 			kljuc := v.ID + ":" + o
 			u, _ := parseBroj(f("u:" + kljuc))
-			pot, _ := parseBroj(f("p:" + kljuc))
 			kn, _ := parseBroj(f("k:" + kljuc))
-			st := models.PopisnaStavka{VrstaID: v.ID, Oblik: o, Utvrdjeno: u, Knjizno: kn, Potrebno: pot, Napomena: f("n:" + kljuc)}
+			st := models.PopisnaStavka{VrstaID: v.ID, Oblik: o, Utvrdjeno: u, Knjizno: kn, Napomena: f("n:" + kljuc)}
 			p.Stavke = append(p.Stavke, st)
 		}
 	}
@@ -752,3 +755,94 @@ func (h *MtsHandler) HandleObrisiVrstu(w http.ResponseWriter, r *http.Request) {
 	}
 	redirectWith(w, r, "/sredstva/katalog", "success", "Vrsta je uklonjena iz kataloga.")
 }
+
+// ---- potrebe za nabavom
+
+// ShowPotrebe prikazuje obrazac potreba skladišta za godinu, uz stanje
+func (h *MtsHandler) ShowPotrebe(w http.ResponseWriter, r *http.Request) {
+	data := h.pageData(r)
+	sk, ok := h.ucitajSkladiste(w, r, &data)
+	if !ok {
+		return
+	}
+	data.Godina, _ = strconv.Atoi(r.URL.Query().Get("godina"))
+	if data.Godina == 0 {
+		data.Godina = models.GodinaPotreba(time.Now().In(models.Zagreb))
+	}
+	var err error
+	if data.Stanje, err = h.svc().StanjeSkladista(r.Context(), sk.ID, nil); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if data.Potrebe, err = h.svc().PotrebeSkladista(r.Context(), sk.ID, data.Godina); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	data.GodinePotreba = h.svc().GodinePotreba(r.Context(), sk.Sektor)
+	h.render(w, "potrebe_form.html", data)
+}
+
+// HandleSavePotrebe upisuje potrebe skladišta za godinu; polja su pt:<vrsta> i pn:<vrsta>
+func (h *MtsHandler) HandleSavePotrebe(w http.ResponseWriter, r *http.Request) {
+	data := h.pageData(r)
+	if err := r.ParseForm(); err != nil {
+		redirectWith(w, r, "/sredstva", "error", "Neispravan zahtjev")
+		return
+	}
+	id := r.PathValue("id")
+	f := func(k string) string { return strings.TrimSpace(r.FormValue(k)) }
+	godina, _ := strconv.Atoi(f("godina"))
+	vrste, _ := h.svc().Vrste(r.Context())
+	var potrebe []models.Potreba
+	for _, v := range vrste {
+		k, _ := parseBroj(f("pt:" + v.ID))
+		potrebe = append(potrebe, models.Potreba{VrstaID: v.ID, Kolicina: k, Napomena: f("pn:" + v.ID)})
+	}
+	if err := h.svc().SpremiPotrebe(r.Context(), data.CurrentUser, data.Permissions, id, godina, potrebe); err != nil {
+		redirectWith(w, r, "/sredstva/skladista/"+id+"/potrebe?godina="+strconv.Itoa(godina), "error", err.Error())
+		return
+	}
+	redirectWith(w, r, "/sredstva/skladista/"+id+"/potrebe?godina="+strconv.Itoa(godina), "success", "Potrebe za nabavom u "+strconv.Itoa(godina)+". su upisane.")
+}
+
+// ShowPotrebeSektora prikazuje potrebe sektora za godinu: vrsta × skladište
+func (h *MtsHandler) ShowPotrebeSektora(w http.ResponseWriter, r *http.Request) {
+	data := h.pageData(r)
+	data.Godina, _ = strconv.Atoi(r.URL.Query().Get("godina"))
+	if data.Godina == 0 {
+		data.Godina = models.GodinaPotreba(time.Now().In(models.Zagreb))
+	}
+	var err error
+	if data.PotrebeSektora, err = h.svc().PotrebeSektora(r.Context(), data.Sektor, data.Godina); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	data.Skladista, _ = h.svc().Skladista(r.Context(), data.Sektor, 0, false)
+	data.Vrste, _ = h.svc().Vrste(r.Context())
+	data.GodinePotreba = h.svc().GodinePotreba(r.Context(), data.Sektor)
+	h.render(w, "potrebe.html", data)
+}
+
+// PotrebaU vraća potrebu vrste u skladištu iz popisa sektora, za tablicu
+func (d MtsPageData) PotrebaU(skladisteID, vrstaID string) float64 {
+	for _, p := range d.PotrebeSektora {
+		if p.SkladisteID == skladisteID && p.VrstaID == vrstaID {
+			return p.Kolicina
+		}
+	}
+	return 0
+}
+
+// UkupnoPotreba zbraja potrebu vrste kroz skladišta
+func (d MtsPageData) UkupnoPotreba(vrstaID string) float64 {
+	var s float64
+	for _, p := range d.PotrebeSektora {
+		if p.VrstaID == vrstaID {
+			s += p.Kolicina
+		}
+	}
+	return s
+}
+
+// Potreba vraća potrebu vrste u obrascu skladišta
+func (d MtsPageData) Potreba(vrstaID string) models.Potreba { return d.Potrebe[vrstaID] }

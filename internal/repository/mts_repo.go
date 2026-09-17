@@ -249,7 +249,10 @@ func (r *MtsRepository) OsigurajKatalog(ctx context.Context) error {
 		if err := r.osigurajOblike(ctx); err != nil {
 			return err
 		}
-		return r.osigurajPodrucjaTerena(ctx)
+		if err := r.osigurajPodrucjaTerena(ctx); err != nil {
+			return err
+		}
+		return r.osigurajPotrebeIzInventura(ctx)
 	}
 	for _, v := range models.KatalogSredstava() {
 		kopija := v
@@ -745,4 +748,112 @@ func (r *MtsRepository) ArhivirajPopis(ctx context.Context, p *models.Popis) err
 		return err
 	}
 	return tx.Commit()
+}
+
+// ---- potrebe za nabavom
+
+// EntityMtsPotrebe je naziv entiteta potreba u knjizi verzija
+const EntityMtsPotrebe = "mts_potrebe"
+
+const potrebaUpsert = `INSERT INTO mts_potrebe (id, skladiste_id, godina, vrsta_id, kolicina, napomena, user_name, updated_at)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+	ON CONFLICT(id) DO UPDATE SET skladiste_id = excluded.skladiste_id, godina = excluded.godina, vrsta_id = excluded.vrsta_id,
+		kolicina = excluded.kolicina, napomena = excluded.napomena, user_name = excluded.user_name, updated_at = excluded.updated_at`
+
+func potrebaArgs(p *models.Potreba) []any {
+	return []any{p.ID, p.SkladisteID, p.Godina, p.VrstaID, p.Kolicina, p.Napomena, p.UserName, p.UpdatedAt.UTC()}
+}
+
+// Potrebe vraća potrebe po filtru: sektor (preko skladišta), skladište, godina; prazno ne sužava
+func (r *MtsRepository) Potrebe(ctx context.Context, sektor, skladisteID string, godina int) ([]models.Potreba, error) {
+	q := `SELECT p.id, p.skladiste_id, p.godina, p.vrsta_id, p.kolicina, p.napomena, p.user_name, p.updated_at
+		FROM mts_potrebe p LEFT JOIN mts_skladista s ON s.id = p.skladiste_id WHERE 1=1`
+	var args []any
+	if sektor != "" {
+		q += ` AND s.sektor = ?`
+		args = append(args, sektor)
+	}
+	if skladisteID != "" {
+		q += ` AND p.skladiste_id = ?`
+		args = append(args, skladisteID)
+	}
+	if godina > 0 {
+		q += ` AND p.godina = ?`
+		args = append(args, godina)
+	}
+	rows, err := r.db.QueryContext(ctx, q+` ORDER BY p.godina DESC, p.skladiste_id, p.vrsta_id`, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []models.Potreba
+	for rows.Next() {
+		var p models.Potreba
+		if err := rows.Scan(&p.ID, &p.SkladisteID, &p.Godina, &p.VrstaID, &p.Kolicina, &p.Napomena, &p.UserName, &p.UpdatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
+// SavePotrebe upisuje potrebe i bilježi svaku
+func (r *MtsRepository) SavePotrebe(ctx context.Context, potrebe []models.Potreba) error {
+	if len(potrebe) == 0 {
+		return nil
+	}
+	now := time.Now().UTC()
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for i := range potrebe {
+		p := &potrebe[i]
+		p.ID = models.PotrebaID(p.SkladisteID, p.Godina, p.VrstaID)
+		p.UpdatedAt = now
+		if _, err := tx.ExecContext(ctx, potrebaUpsert, potrebaArgs(p)...); err != nil {
+			return fmt.Errorf("upis potrebe: %w", err)
+		}
+		if _, err := r.rec.Record(ctx, tx, EntityMtsPotrebe, p.ID, p); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+// osigurajPotrebeIzInventura prenosi potrebe koje su ranije stajale u
+// stavkama inventure u zasebnu evidenciju, jednom: skladištu koje za tu
+// godinu još nema nijednu potrebu
+func (r *MtsRepository) osigurajPotrebeIzInventura(ctx context.Context) error {
+	popisi, err := r.ListPopisi(ctx, "", "", 0)
+	if err != nil {
+		return err
+	}
+	for _, p := range popisi {
+		godina := models.GodinaPotreba(p.Dan)
+		var potrebe []models.Potreba
+		zbroj := map[string]float64{}
+		for _, st := range p.Stavke {
+			if st.Potrebno != 0 {
+				zbroj[st.VrstaID] += st.Potrebno
+			}
+		}
+		if len(zbroj) == 0 {
+			continue
+		}
+		if vec, err := r.Potrebe(ctx, "", p.SkladisteID, godina); err != nil {
+			return err
+		} else if len(vec) > 0 {
+			continue
+		}
+		for vrsta, k := range zbroj {
+			potrebe = append(potrebe, models.Potreba{SkladisteID: p.SkladisteID, Godina: godina, VrstaID: vrsta, Kolicina: k,
+				Napomena: "iz inventure na dan " + p.Dan.Format("02.01.2006."), UserName: p.Izradio})
+		}
+		if err := r.SavePotrebe(ctx, potrebe); err != nil {
+			return err
+		}
+	}
+	return nil
 }

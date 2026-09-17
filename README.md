@@ -54,8 +54,9 @@ prva računala. Kaže što program radi na računalu i mreži, što ne radi, i
   dionicu, povrat, utrošak, prijenos među skladištima i sektorima,
   punjenje vreća, otpis — a svaki redak pamti tko je naložio, tko preuzeo
   ili dopremio i po kojem dokumentu. Godišnja inventura po skladištu nudi
-  knjižno stanje, skladištar upiše prebrojano i potrebe za nabavom, a
-  zaključenjem se razlika proknjiži. Tablica za Glavni centar (redak po
+  knjižno stanje, skladištar upiše prebrojano, a zaključenjem se razlika
+  proknjiži. Potrebe za nabavom vode se odvojeno, po skladištu i godini,
+  pa se upišu kad se vidi da nešto nedostaje, ne tek na inventuri. Tablica za Glavni centar (redak po
   vrsti, dva stupca po skladištu, zbroj sektora) izvozi se u Excel na
   dan; „gdje ima“ pokazuje zalihe jedne vrste kroz sve sektore. Promet i
   popis upisuje skladištar (dužnost po branjenom području) i uprava

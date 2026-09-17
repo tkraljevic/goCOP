@@ -195,6 +195,17 @@ func InitSchema(database *sql.DB) error {
 			updated_at DATETIME NOT NULL
 		);`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_mts_popisi_dan ON mts_popisi(skladiste_id, dan);`,
+		`CREATE TABLE IF NOT EXISTS mts_potrebe (
+			id TEXT PRIMARY KEY,
+			skladiste_id TEXT NOT NULL,
+			godina INTEGER NOT NULL,
+			vrsta_id TEXT NOT NULL,
+			kolicina REAL NOT NULL DEFAULT 0,
+			napomena TEXT NOT NULL DEFAULT '',
+			user_name TEXT NOT NULL DEFAULT '',
+			updated_at DATETIME NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_mts_potrebe_skladiste ON mts_potrebe(skladiste_id, godina);`,
 
 		`CREATE TABLE IF NOT EXISTS obracun_postavke (
 			id TEXT PRIMARY KEY,

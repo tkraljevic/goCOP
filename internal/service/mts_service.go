@@ -727,16 +727,97 @@ func (s *MtsService) Popisi(ctx context.Context, sektor, skladisteID string, god
 	return s.repo.ListPopisi(ctx, sektor, skladisteID, godina)
 }
 
+// ---- potrebe za nabavom
+
+// PotrebeSkladista vraća potrebe skladišta za godinu, po vrsti
+func (s *MtsService) PotrebeSkladista(ctx context.Context, skladisteID string, godina int) (map[string]models.Potreba, error) {
+	sve, err := s.repo.Potrebe(ctx, "", skladisteID, godina)
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]models.Potreba{}
+	for _, p := range sve {
+		out[p.VrstaID] = p
+	}
+	return out, nil
+}
+
+// PotrebeSektora vraća sve potrebe sektora za godinu
+func (s *MtsService) PotrebeSektora(ctx context.Context, sektor string, godina int) ([]models.Potreba, error) {
+	return s.repo.Potrebe(ctx, sektor, "", godina)
+}
+
+// GodinePotreba vraća godine za koje u sektoru ima upisanih potreba, najnovija prva
+func (s *MtsService) GodinePotreba(ctx context.Context, sektor string) []int {
+	sve, err := s.repo.Potrebe(ctx, sektor, "", 0)
+	if err != nil {
+		return nil
+	}
+	var out []int
+	vidjeno := map[int]bool{}
+	for _, p := range sve {
+		if !vidjeno[p.Godina] {
+			vidjeno[p.Godina] = true
+			out = append(out, p.Godina)
+		}
+	}
+	return out
+}
+
+// SpremiPotrebe upisuje potrebe skladišta za godinu: sve vrste odjednom,
+// kako obrazac nosi; nula znači da potrebe nema
+func (s *MtsService) SpremiPotrebe(ctx context.Context, u *models.User, perms *models.UserPermissions, skladisteID string, godina int, potrebe []models.Potreba) error {
+	if u == nil {
+		return errors.New("upis zahtijeva prijavu")
+	}
+	sk, err := s.repo.GetSkladiste(ctx, skladisteID)
+	if err != nil {
+		return err
+	}
+	if sk == nil {
+		return errors.New("nepoznato skladište")
+	}
+	if !s.SmijePisati(perms, sk) {
+		return errors.New("potrebe upisuje skladištar ili uprava branjenog područja i sektora")
+	}
+	if godina < 2000 || godina > 2200 {
+		return errors.New("godina nabave nije valjana")
+	}
+	postojece, err := s.PotrebeSkladista(ctx, skladisteID, godina)
+	if err != nil {
+		return err
+	}
+	var upis []models.Potreba
+	for _, p := range potrebe {
+		if p.Kolicina < 0 {
+			return errors.New("potreba ne može biti negativna")
+		}
+		p.SkladisteID, p.Godina, p.UserName = skladisteID, godina, u.FullName
+		p.Napomena = strings.TrimSpace(p.Napomena)
+		stara, bila := postojece[p.VrstaID]
+		if !bila && p.Kolicina == 0 && p.Napomena == "" {
+			continue
+		}
+		if bila && stara.Kolicina == p.Kolicina && stara.Napomena == p.Napomena {
+			continue
+		}
+		upis = append(upis, p)
+	}
+	return s.repo.SavePotrebe(ctx, upis)
+}
+
 // ---- tablica za Glavni centar
 
 // TablicaSredstava je popis sredstava po skladištima sektora na dan, kako
 // ga sektor jednom godišnje šalje Glavnom centru: redak po vrsti, dva
-// stupca po skladištu (stanje na dan, dodatne potrebe za nabavom) i zbroj
-// sektora. Skladište s popisom na taj dan daje prebrojano i potrebe;
-// skladište bez popisa daje knjižno stanje i nula potreba.
+// stupca po skladištu (stanje na dan, dodatne potrebe za nabavom u godini)
+// i zbroj sektora. Skladište s inventurom na taj dan daje prebrojano,
+// skladište bez nje knjižno stanje; potrebe su iz evidencije potreba za
+// godinu nabave koja pripada tom danu.
 type TablicaSredstava struct {
 	Sektor    string
 	Dan       time.Time
+	Godina    int // godina nabave za stupac potreba
 	Skladista []models.Skladiste
 	Vrste     []models.VrstaSredstva
 	stanje    map[string]map[string]float64 // skladište → vrsta → stanje
@@ -811,10 +892,15 @@ func (s *MtsService) tablica(ctx context.Context, sektor string, skladista []mod
 	if err != nil {
 		return nil, err
 	}
-	t := &TablicaSredstava{Sektor: sektor, Dan: dan, Skladista: skladista, Vrste: vrste,
+	t := &TablicaSredstava{Sektor: sektor, Dan: dan, Godina: models.GodinaPotreba(dan), Skladista: skladista, Vrste: vrste,
 		stanje: map[string]map[string]float64{}, potrebe: map[string]map[string]float64{}, Popisi: map[string]*models.Popis{}}
 	for _, sk := range skladista {
 		t.stanje[sk.ID], t.potrebe[sk.ID] = map[string]float64{}, map[string]float64{}
+		if potrebe, err := s.repo.Potrebe(ctx, "", sk.ID, t.Godina); err == nil {
+			for _, x := range potrebe {
+				t.potrebe[sk.ID][x.VrstaID] += x.Kolicina
+			}
+		}
 		p, err := s.repo.PopisZaDan(ctx, sk.ID, dan)
 		if err != nil {
 			return nil, err
@@ -823,7 +909,6 @@ func (s *MtsService) tablica(ctx context.Context, sektor string, skladista []mod
 			t.Popisi[sk.ID] = p
 			for _, st := range p.Stavke {
 				t.stanje[sk.ID][st.VrstaID] += st.Utvrdjeno
-				t.potrebe[sk.ID][st.VrstaID] += st.Potrebno
 			}
 			continue
 		}

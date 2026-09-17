@@ -201,14 +201,17 @@ func main() {
 				continue
 			}
 		}
-		potrebe := map[string]float64{}
+		var potrebe []models.Potreba
 		for _, st := range s.Stavke {
+			if st.Potrebe == 0 {
+				continue
+			}
 			v := poNazivu[strings.ToLower(strings.TrimSpace(st.Vrsta))]
-			potrebe[v.ID] += st.Potrebe
+			potrebe = append(potrebe, models.Potreba{VrstaID: v.ID, Kolicina: st.Potrebe, Napomena: "iz tablice za Glavni centar"})
 		}
-		for i := range p.Stavke {
-			if p.Stavke[i].Oblik == models.OblikOsnovni || p.Stavke[i].Oblik == models.OblikPrazno {
-				p.Stavke[i].Potrebno = potrebe[p.Stavke[i].VrstaID]
+		if len(potrebe) > 0 {
+			if err := svc.SpremiPotrebe(ctx, &autor, perms, sk.ID, models.GodinaPotreba(dan), potrebe); err != nil {
+				log.Fatalf("potrebe %s: %v", s.Naziv, err)
 			}
 		}
 		p.Napomena = "prijepis tablice za Glavni centar"

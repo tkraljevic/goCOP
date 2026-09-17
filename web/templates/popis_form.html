@@ -10,7 +10,7 @@
   <div>
     <h1 class="page-title">{{icon "list"}} Inventura — {{$sk.Naziv}}</h1>
     <p class="page-desc">Stanje na dan <strong>{{$p.Dan.Format "2.1.2006."}}</strong>. Stupac „knjižno“ je što promet pokazuje na taj dan; u
-      „prebrojano“ upišite što je na polici, u „potrebe“ koliko još treba nabaviti u godini. Nacrt se može mijenjati;
+      „prebrojano“ upišite što je na polici. Potrebe za nabavom vode se odvojeno, na kartici skladišta. Nacrt se može mijenjati;
       zaključenje proknjiži razlike i tada se više ne mijenja.</p>
   </div>
 </div>
@@ -22,10 +22,10 @@
   <input type="hidden" name="dan" value="{{$p.Dan.Format "2006-01-02"}}">
   <div class="table-card"><div class="table-responsive">
     <table class="data-table mts-popis">
-      <thead><tr><th>R. br.</th><th>Vrsta sredstva</th><th>Jed.</th><th>Oblik</th><th class="br">Knjižno</th><th class="br">Prebrojano</th><th class="br">Potrebe za nabavom</th><th>Napomena</th></tr></thead>
+      <thead><tr><th>R. br.</th><th>Vrsta sredstva</th><th>Jed.</th><th>Oblik</th><th class="br">Knjižno</th><th class="br">Prebrojano</th><th>Napomena</th></tr></thead>
       <tbody>
       {{range .StavkePoGrupama}}
-      <tr class="mts-grupa"><td>{{.Rimski}}</td><td colspan="7">{{.Naziv}}</td></tr>
+      <tr class="mts-grupa"><td>{{.Rimski}}</td><td colspan="6">{{.Naziv}}</td></tr>
       {{range .Stavke}}
       {{$k := printf "%s:%s" .VrstaID .Oblik}}
       <tr>
@@ -35,7 +35,6 @@
         <td>{{if .Oblik}}{{oblik .Oblik}}{{end}}</td>
         <td class="mono br">{{kolicina .Knjizno}}<input type="hidden" name="k:{{$k}}" value="{{.Knjizno}}"></td>
         <td class="br"><input type="text" name="u:{{$k}}" class="form-control mono mts-broj" inputmode="decimal" value="{{if .Utvrdjeno}}{{kolicinaPlain .Utvrdjeno}}{{end}}"></td>
-        <td class="br"><input type="text" name="p:{{$k}}" class="form-control mono mts-broj" inputmode="decimal" value="{{if .Potrebno}}{{kolicinaPlain .Potrebno}}{{end}}"></td>
         <td><input type="text" name="n:{{$k}}" class="form-control" value="{{.Napomena}}"></td>
       </tr>
       {{end}}
