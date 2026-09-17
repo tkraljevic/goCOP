@@ -1,15 +1,15 @@
 {{template "base.html" .}}
 
-{{define "title"}}goCOP — Godišnji popisi sredstava{{end}}
+{{define "title"}}goCOP — Inventura sredstava{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/registri">Registri</a> › <a href="/sredstva?sektor={{.Sektor}}">Sredstva za obranu</a> › Godišnji popisi</div>
+<div class="breadcrumb"><a href="/registri">Registri</a> › <a href="/sredstva?sektor={{.Sektor}}">Sredstva za obranu</a> › Inventura</div>
 
 <div class="page-header">
   <div>
-    <h1 class="page-title">{{icon "list"}} Godišnji popisi sredstava</h1>
-    <p class="page-desc">Popis po skladištu na dan, obično 31. prosinca: prebrojano na polici, knjižno iz prometa, razlika i dodatne
-      potrebe za nabavom. Zaključenjem se razlika proknjiži, a iz zaključenih popisa slaže se tablica za Glavni centar.</p>
+    <h1 class="page-title">{{icon "list"}} Inventura sredstava</h1>
+    <p class="page-desc">Inventura po skladištu na dan, obično 31. prosinca: prebrojano na polici, knjižno iz prometa, razlika i dodatne
+      potrebe za nabavom. Zaključenjem se razlika proknjiži, a iz zaključenih inventura slaže se tablica za Glavni centar.</p>
   </div>
 </div>
 
@@ -34,11 +34,11 @@
 {{if .Skladista}}
 <div class="sektorsko-ploca">
   <div class="sektorsko-ploca-glava">
-    <h2>{{icon "plus"}} Novi popis</h2>
+    <h2>{{icon "plus"}} Nova inventura</h2>
     <form method="GET" action="" class="obracun-filtar" style="margin:0;" onsubmit="this.action='/sredstva/skladista/'+this.skladiste.value+'/popis';">
       <select name="skladiste" class="form-control">{{range .Skladista}}<option value="{{.ID}}">{{.Naziv}}</option>{{end}}</select>
       <input type="date" name="dan" class="form-control" value="{{.Danas}}" max="{{.Danas}}">
-      <button type="submit" class="btn btn-primary">{{icon "list"}} Otvori popis na dan</button>
+      <button type="submit" class="btn btn-primary">{{icon "list"}} Otvori inventuru na dan</button>
     </form>
   </div>
 </div>
@@ -62,6 +62,6 @@
   </table>
 </div></div>
 {{else}}
-<div class="reg-empty">Još nema popisa{{if .Godina}} za {{.Godina}}.{{else}}.{{end}}</div>
+<div class="reg-empty">Još nema inventura{{if .Godina}} za {{.Godina}}.{{else}}.{{end}}</div>
 {{end}}
 {{end}}

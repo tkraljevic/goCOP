@@ -150,7 +150,7 @@ func KnjigaMts(t *service.TablicaSredstava, nazivSektora string, z ZaglavljeIzvo
 	for _, sk := range t.Skladista {
 		izvori = append(izvori, sk.Naziv+": "+t.Izvor(sk.ID))
 	}
-	napomenaLista(l, "Stupac skladišta je iz popisa na taj dan kad ga ima (prebrojano i potrebe za nabavom), inače iz knjige prometa. "+
+	napomenaLista(l, "Stupac skladišta je iz inventure na taj dan kad je ima (prebrojano i potrebe za nabavom), inače iz knjige prometa. "+
 		strings.Join(izvori, "; ")+". Vreće su zbrojene prazne i napunjene. Iz programa goCOP.", stupaca, 40)
 	potpisiLista(l, z, stupaca, []PotpisnikIzvoza{{Funkcija: "sastavio"}, {Funkcija: "rukovoditelj obrane od poplava " + models.Terms().Lower("sektor") + "a " + t.Sektor}})
 	return k

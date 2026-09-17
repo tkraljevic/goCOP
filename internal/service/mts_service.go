@@ -613,7 +613,7 @@ func (s *MtsService) ZakljuciPopis(ctx context.Context, u *models.User, perms *m
 		}
 		redci = append(redci, models.Promet{Datum: p.Dan, VrstaID: st.VrstaID, Oblik: st.Oblik, Kolicina: razlika,
 			Vrsta: models.PrometPopis, Sektor: sk.Sektor, SkladisteID: p.SkladisteID, PopisID: p.ID, UserID: u.ID.String(), UserName: u.FullName,
-			Napomena: "usklađenje po popisu na dan " + p.Dan.Format("2.1.2006.")})
+			Napomena: "usklađenje po inventuri na dan " + p.Dan.Format("2.1.2006.")})
 	}
 	if err := s.repo.SavePromet(ctx, redci); err != nil {
 		return err
@@ -686,9 +686,9 @@ func (t TablicaSredstava) Izvor(skladisteID string) string {
 	case !ok:
 		return "knjižno stanje"
 	case p.Zakljucen():
-		return "popis zaključen"
+		return "inventura zaključena"
 	}
-	return "popis u nacrtu"
+	return "inventura u nacrtu"
 }
 
 // Tablica slaže popis sredstava sektora na dan

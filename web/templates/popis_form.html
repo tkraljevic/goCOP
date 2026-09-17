@@ -1,14 +1,14 @@
 {{template "base.html" .}}
 
-{{define "title"}}goCOP — Popis sredstava na dan{{end}}
+{{define "title"}}goCOP — Inventura na dan{{end}}
 
 {{define "content"}}
 {{$p := .Popis}}{{$sk := .Skladiste}}
-<div class="breadcrumb"><a href="/registri">Registri</a> › <a href="/sredstva?sektor={{$sk.Sektor}}">Sredstva za obranu</a> › <a href="/sredstva/skladista/{{$sk.ID}}">{{$sk.Naziv}}</a> › Popis na dan {{$p.Dan.Format "2.1.2006."}}</div>
+<div class="breadcrumb"><a href="/registri">Registri</a> › <a href="/sredstva?sektor={{$sk.Sektor}}">Sredstva za obranu</a> › <a href="/sredstva/skladista/{{$sk.ID}}">{{$sk.Naziv}}</a> › Inventura na dan {{$p.Dan.Format "2.1.2006."}}</div>
 
 <div class="page-header">
   <div>
-    <h1 class="page-title">{{icon "list"}} Popis sredstava — {{$sk.Naziv}}</h1>
+    <h1 class="page-title">{{icon "list"}} Inventura — {{$sk.Naziv}}</h1>
     <p class="page-desc">Stanje na dan <strong>{{$p.Dan.Format "2.1.2006."}}</strong>. Stupac „knjižno“ je što promet pokazuje na taj dan; u
       „prebrojano“ upišite što je na polici, u „potrebe“ koliko još treba nabaviti u godini. Nacrt se može mijenjati;
       zaključenje proknjiži razlike i tada se više ne mijenja.</p>
@@ -44,12 +44,12 @@
     </table>
   </div></div>
   <div class="form-group" style="margin-top:0.75rem;">
-    <label class="form-label" for="napomena">Napomena uz popis</label>
+    <label class="form-label" for="napomena">Napomena uz inventuru</label>
     <input type="text" id="napomena" name="napomena" class="form-control" value="{{$p.Napomena}}" placeholder="tko je brojao, što nedostaje, što je oštećeno">
   </div>
   <div class="form-actions">
     <button type="submit" class="btn btn-secondary">{{icon "check"}} Spremi nacrt</button>
-    <button type="submit" name="zakljuci" value="1" class="btn btn-primary" onclick="return confirm('Zaključiti popis? Razlike prema knjizi bit će proknjižene i popis se više ne mijenja.');">{{icon "lock"}} Spremi i zaključi</button>
+    <button type="submit" name="zakljuci" value="1" class="btn btn-primary" onclick="return confirm('Zaključiti inventuru? Razlike prema knjizi bit će proknjižene i inventura se više ne mijenja.');">{{icon "lock"}} Spremi i zaključi</button>
     <a href="/sredstva/skladista/{{$sk.ID}}" class="btn btn-secondary">Odustani</a>
   </div>
 </form>

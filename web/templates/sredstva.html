@@ -14,7 +14,7 @@
   <div class="page-actions">
     <a href="/sredstva/promet?sektor={{.Sektor}}" class="btn btn-secondary">{{icon "notebook"}} Knjiga prometa</a>
     <a href="/sredstva/na-terenu?sektor={{.Sektor}}" class="btn btn-secondary">{{icon "map-pin"}} Na terenu</a>
-    <a href="/sredstva/popisi?sektor={{.Sektor}}" class="btn btn-secondary">{{icon "list"}} Godišnji popisi</a>
+    <a href="/sredstva/popisi?sektor={{.Sektor}}" class="btn btn-secondary">{{icon "list"}} Inventura</a>
     <a href="/sredstva/katalog" class="btn btn-secondary" title="vrste sredstava: dodavanje i gašenje">{{icon "book-open"}} Katalog vrsta</a>
     {{if .SmijeUrediti}}<a href="/sredstva/skladista/novo?sektor={{.Sektor}}" class="btn btn-primary">{{icon "plus"}} Novo skladište</a>{{end}}
   </div>
@@ -33,7 +33,7 @@
 {{if .Sektor}}
 <form method="GET" action="/sredstva/mts.xlsx" class="obracun-filtar">
   <input type="hidden" name="sektor" value="{{.Sektor}}">
-  <label for="f-dan">Popis za Glavni centar na dan</label>
+  <label for="f-dan">Tablica za Glavni centar na dan</label>
   <input type="date" id="f-dan" name="dan" class="form-control" value="{{.Danas}}" max="{{.Danas}}">
   <button type="submit" class="btn btn-secondary" title="Tablica po skladištima u obliku koji ide GCOP-u">{{icon "download"}} Excel za GCOP</button>
 </form>
