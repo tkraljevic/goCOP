@@ -8,8 +8,8 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">{{icon "list"}} Katalog vrsta sredstava</h1>
-    <p class="page-desc">Propisani popis kako ga traži obrazac za Glavni centar, isti za sve sektore. Vrsta se ne briše nego gasi, jer
-      stari promet i popisi na nju pokazuju; nova vrsta ide na kraj svoje skupine.</p>
+    <p class="page-desc">Propisani popis kako ga traži obrazac za Glavni centar, isti za sve sektore. Vrsta koju nitko nije koristio može se ukloniti;
+      korištena se gasi, jer promet i popisi na nju pokazuju. Nova vrsta ide na kraj svoje skupine.</p>
   </div>
 </div>
 
@@ -22,7 +22,7 @@
   <div class="sektorsko-ploca-glava"><h2>{{icon "plus"}} {{if $v}}Uredi vrstu: {{$v.Naziv}}{{else}}Nova vrsta sredstva{{end}}</h2></div>
   <form method="POST" action="{{if $v}}/sredstva/katalog/{{$v.ID}}{{else}}/sredstva/katalog{{end}}" class="form-page form-wide" style="margin:0;">
     <div class="form-row">
-      <div class="form-group" style="flex:2;"><label class="form-label" for="naziv">Naziv *</label><input type="text" id="naziv" name="naziv" class="form-control" value="{{if $v}}{{$v.Naziv}}{{end}}" required placeholder="npr. Ćuskija velika"></div>
+      <div class="form-group" style="flex:2;"><label class="form-label" for="naziv">Naziv *</label><input type="text" id="naziv" name="naziv" class="form-control" value="{{if $v}}{{$v.Naziv}}{{end}}" required placeholder="npr. Pumpa potopna 50 l/s"></div>
       <div class="form-group"><label class="form-label" for="grupa">Skupina *</label>
         <select id="grupa" name="grupa" class="form-control">{{range .Grupe}}<option value="{{.ID}}"{{if and $v (eq .ID $v.Grupa)}} selected{{end}}>{{.Rimski}} {{.Naziv}}</option>{{end}}</select></div>
       <div class="form-group"><label class="form-label" for="jedinica">Jedinica *</label>
@@ -53,7 +53,8 @@
       <td>{{if .ImaOblike}}{{range $i, $o := .Oblici}}{{if $i}}, {{end}}{{oblik $o}}{{end}}{{end}}</td>
       <td class="mono reg-card-sub">{{.ID}}</td>
       <td>{{.Napomena}}</td>
-      {{if $.SmijeUrediti}}<td><a href="/sredstva/katalog?uredi={{.ID}}" class="btn btn-secondary btn-sm" title="uredi">{{icon "pencil"}}</a></td>{{end}}
+      {{if $.SmijeUrediti}}<td style="white-space:nowrap;"><a href="/sredstva/katalog?uredi={{.ID}}" class="btn btn-secondary btn-sm" title="uredi">{{icon "pencil"}}</a>
+        <form method="POST" action="/sredstva/katalog/{{.ID}}/obrisi" style="display:inline;" onsubmit="return confirm('Ukloniti vrstu „{{.Naziv}}“ iz kataloga? Prolazi samo ako je nitko nije koristio; inače je ugasite.');"><button type="submit" class="btn btn-secondary btn-sm" title="ukloni nekorištenu">{{icon "trash"}}</button></form></td>{{end}}
     </tr>
     {{end}}{{end}}
     {{end}}

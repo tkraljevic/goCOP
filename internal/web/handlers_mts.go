@@ -707,3 +707,17 @@ func (h *MtsHandler) HandleSaveVrsta(w http.ResponseWriter, r *http.Request) {
 	}
 	redirectWith(w, r, "/sredstva/katalog", "success", "Vrsta „"+v.Naziv+"“ je upisana.")
 }
+
+// HandleObrisiVrstu miče nekorištenu vrstu iz kataloga
+func (h *MtsHandler) HandleObrisiVrstu(w http.ResponseWriter, r *http.Request) {
+	data := h.pageData(r)
+	if !smijeKatalog(data.Permissions) {
+		http.Error(w, "Katalog sredstava uređuje uprava sektora ili administrator", http.StatusForbidden)
+		return
+	}
+	if err := h.svc().ObrisiVrstu(r.Context(), r.PathValue("id")); err != nil {
+		redirectWith(w, r, "/sredstva/katalog", "error", err.Error())
+		return
+	}
+	redirectWith(w, r, "/sredstva/katalog", "success", "Vrsta je uklonjena iz kataloga.")
+}

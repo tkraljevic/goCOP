@@ -72,6 +72,7 @@ func TestSredstvaKrozRute(t *testing.T) {
 	mux.HandleFunc("GET /sredstva/katalog", h.ShowKatalog)
 	mux.HandleFunc("POST /sredstva/katalog", h.HandleSaveVrsta)
 	mux.HandleFunc("POST /sredstva/katalog/{id}", h.HandleSaveVrsta)
+	mux.HandleFunc("POST /sredstva/katalog/{id}/obrisi", h.HandleObrisiVrstu)
 	mux.HandleFunc("GET /sredstva/na-terenu", h.ShowNaTerenu)
 	mux.HandleFunc("GET /sredstva/gdje/{vrsta}", h.ShowGdjeIma)
 	mux.HandleFunc("GET /sredstva/skladista/novo", h.ShowSkladisteForm)
@@ -135,6 +136,11 @@ func TestSredstvaKrozRute(t *testing.T) {
 	mora(zovi(http.MethodGet, "/sredstva/katalog", nil), http.StatusOK, "katalog s novom", "Ćuskija velika", "17.</td>", "cuskija-velika")
 	odredište(zovi(http.MethodPost, "/sredstva/katalog/cuskija-velika", url.Values{"naziv": {"Ćuskija velika"}, "grupa": {"ALAT"}, "jedinica": {"kom"}, "aktivna": {"0"}}), "gašenje vrste")
 	mora(zovi(http.MethodGet, "/sredstva/katalog", nil), http.StatusOK, "ugašena", "ugašena")
+	// nekorištena vrsta se uklanja; korištena (poslije prometa) ne
+	odredište(zovi(http.MethodPost, "/sredstva/katalog/cuskija-velika/obrisi", url.Values{}), "uklanjanje nekorištene")
+	if w := zovi(http.MethodGet, "/sredstva/katalog", nil); strings.Contains(w.Body.String(), "Ćuskija") {
+		t.Error("uklonjena vrsta još stoji u katalogu")
+	}
 
 	// prazan pregled nudi novo skladište; katalog je već u tablici stanja
 	mora(zovi(http.MethodGet, "/sredstva?sektor=B", nil), http.StatusOK, "pregled", "Nema upisanih skladišta", "Novo skladište", "Vreće 50x80 cm", "Pribor i osobna zaštitna sredstva")
@@ -166,6 +172,9 @@ func TestSredstvaKrozRute(t *testing.T) {
 	mora(zovi(http.MethodGet, "/sredstva/na-terenu?sektor=B", nil), http.StatusOK, "na terenu", "B.34.1", "4 000")
 	mora(zovi(http.MethodGet, "/sredstva/promet?sektor=B", nil), http.StatusOK, "knjiga", "Izdano na teren", "teren · B.34.1", "−4 000", "&#43;4 000", "Preuzeo: vodočuvar")
 	mora(zovi(http.MethodGet, "/sredstva/gdje/vrece-50x80", nil), http.StatusOK, "gdje ima", "Centralno skladište Osijek", "96 000")
+	if l := zovi(http.MethodPost, "/sredstva/katalog/vrece-50x80/obrisi", url.Values{}).Header().Get("Location"); !strings.Contains(l, "error=") {
+		t.Errorf("korištena vrsta uklonjena: %s", l)
+	}
 	mora(zovi(http.MethodGet, "/sredstva?sektor=B", nil), http.StatusOK, "pregled sa stanjem", "96 000", "95 000", "1 000")
 
 	// popis: predložak nosi knjižno, spremi se s prebrojanim i potrebama, zaključi

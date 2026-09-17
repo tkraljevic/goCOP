@@ -727,3 +727,23 @@ func (s *MtsService) Tablica(ctx context.Context, sektor string, dan time.Time) 
 	}
 	return t, nil
 }
+
+// ObrisiVrstu miče vrstu iz kataloga, ali samo nekorištenu: na koju ne
+// pokazuje nijedan redak prometa ni popis s količinom. Korištena se gasi.
+func (s *MtsService) ObrisiVrstu(ctx context.Context, id string) error {
+	v, err := s.repo.GetVrsta(ctx, id)
+	if err != nil {
+		return err
+	}
+	if v == nil {
+		return errors.New("vrsta nije pronađena")
+	}
+	prometa, popisa, err := s.repo.UpotrebaVrste(ctx, id)
+	if err != nil {
+		return err
+	}
+	if prometa > 0 || popisa > 0 {
+		return fmt.Errorf("vrsta „%s“ se ne može ukloniti: na nju pokazuje %d redaka prometa i %d popisa — ugasite je umjesto toga", v.Naziv, prometa, popisa)
+	}
+	return s.repo.ArhivirajVrstu(ctx, v)
+}

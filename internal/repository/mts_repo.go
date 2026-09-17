@@ -581,3 +581,49 @@ func (r *MtsRepository) BrojSkladista(ctx context.Context) (int, error) {
 	err := r.db.QueryRowContext(ctx, `SELECT count(*) FROM mts_skladista WHERE aktivno = 1`).Scan(&n)
 	return n, err
 }
+
+// UpotrebaVrste javlja koliko redaka prometa i koliko popisa s upisanom
+// količinom pokazuje na vrstu — što se od toga našlo, vrsta se ne briše
+func (r *MtsRepository) UpotrebaVrste(ctx context.Context, vrstaID string) (prometa, popisa int, err error) {
+	if err = r.db.QueryRowContext(ctx, `SELECT count(*) FROM mts_promet WHERE vrsta_id = ?`, vrstaID).Scan(&prometa); err != nil {
+		return 0, 0, err
+	}
+	rows, err := r.db.QueryContext(ctx, `SELECT stavke FROM mts_popisi WHERE stavke LIKE ?`, `%"vrsta_id":"`+vrstaID+`"%`)
+	if err != nil {
+		return 0, 0, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var s string
+		if err := rows.Scan(&s); err != nil {
+			return 0, 0, err
+		}
+		var stavke []models.PopisnaStavka
+		if json.Unmarshal([]byte(s), &stavke) != nil {
+			continue
+		}
+		for _, st := range stavke {
+			if st.VrstaID == vrstaID && (st.Utvrdjeno != 0 || st.Potrebno != 0 || st.Knjizno != 0) {
+				popisa++
+				break
+			}
+		}
+	}
+	return prometa, popisa, rows.Err()
+}
+
+// ArhivirajVrstu miče vrstu iz kataloga; u knjizi verzija ostaje arhivirana
+func (r *MtsRepository) ArhivirajVrstu(ctx context.Context, v *models.VrstaSredstva) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `DELETE FROM mts_vrste WHERE id = ?`, v.ID); err != nil {
+		return err
+	}
+	if _, err := r.rec.Archive(ctx, tx, EntityMtsVrste, v.ID, v); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
