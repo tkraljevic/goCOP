@@ -238,6 +238,12 @@ func main() {
 		log.Fatalf("postavke obračuna sati: %v", err)
 	}
 	obracunService := service.NewObracunService(obracunRepo)
+	mtsRepo := repository.NewMtsRepository(database, recorder)
+	if err := mtsRepo.OsigurajKatalog(context.Background()); err != nil {
+		log.Fatalf("katalog sredstava za obranu: %v", err)
+	}
+	mtsService := service.NewMtsService(mtsRepo, sectionRepo, userRepo)
+	_ = mtsService
 	izvjescaService := service.NewIzvjescaService(repository.NewIzvjescaRepository(database, recorder), sectionRepo, stationRepo, readingRepo, episodeRepo, journalRepo)
 
 	// Uvoz tablice vodostaja. Bez -upisi je samo izvješće: koje su postaje

@@ -80,7 +80,8 @@ func KeepVersion(v ledger.Version) bool {
 var SurfaceEntities = []string{EntitySectors, EntityAreas, EntityOrgTerms, EntityContractors, EntityContractorAssignments,
 	EntityUsers, EntityDuties, "role_modules", "user_modules", EntityStations, EntitySections, EntityWatercourses,
 	EntityCounties, EntityMunicipalities, EntitySettlements, EntityStructures, "maintained_waters", "work_items", "journals",
-	EntityBlagdani, EntityKoeficijenti, EntityObracunPostavke}
+	EntityBlagdani, EntityKoeficijenti, EntityObracunPostavke,
+	EntityMtsVrste, EntityMtsSkladista, EntityMtsPromet, EntityMtsPopisi}
 
 // ReplaySurface ponovno primijeni zadnju verziju svakog zapisa iz knjige na
 // površinu. Služi kad je primjena primljenih verzija jednom zapela: knjiga je
@@ -362,6 +363,46 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 			return err
 		}
 		_, err := tx.ExecContext(ctx, postavkaUpsert, p.ID, p.Vrijednost, v.CreatedAt)
+		return err
+
+	case EntityMtsVrste:
+		var x models.VrstaSredstva
+		if err := json.Unmarshal(v.Payload, &x); err != nil {
+			return err
+		}
+		args, err := vrstaArgs(&x)
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, vrstaUpsert, args...)
+		return err
+
+	case EntityMtsSkladista:
+		var x models.Skladiste
+		if err := json.Unmarshal(v.Payload, &x); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, skladisteUpsert, skladisteArgs(&x)...)
+		return err
+
+	case EntityMtsPromet:
+		var x models.Promet
+		if err := json.Unmarshal(v.Payload, &x); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, prometUpsert, prometArgs(&x)...)
+		return err
+
+	case EntityMtsPopisi:
+		var x models.Popis
+		if err := json.Unmarshal(v.Payload, &x); err != nil {
+			return err
+		}
+		args, err := popisArgs(&x)
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, popisUpsert, args...)
 		return err
 
 	case EntityRoleModules:
@@ -693,6 +734,14 @@ func removeFromSurface(ctx context.Context, tx *sql.Tx, v ledger.Version) error 
 		stmt = `DELETE FROM koeficijenti WHERE id = ?`
 	case EntityObracunPostavke:
 		stmt = `DELETE FROM obracun_postavke WHERE id = ?`
+	case EntityMtsVrste:
+		stmt = `DELETE FROM mts_vrste WHERE id = ?`
+	case EntityMtsSkladista:
+		stmt = `DELETE FROM mts_skladista WHERE id = ?`
+	case EntityMtsPromet:
+		stmt = `DELETE FROM mts_promet WHERE id = ?`
+	case EntityMtsPopisi:
+		stmt = `DELETE FROM mts_popisi WHERE id = ?`
 	case EntityMaintainedWaters:
 		stmt = `DELETE FROM maintained_waters WHERE id = ?`
 	case EntityWorkItems:
