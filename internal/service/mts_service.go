@@ -368,7 +368,9 @@ func (s *MtsService) Provedi(ctx context.Context, u *models.User, perms *models.
 		redci = append(redci, r)
 
 	case models.PrometPunjenje:
-		// prazne vreće postaju napunjene: isti komad, drugi oblik
+		// prazno postaje napunjeno (ili obrnuto pri pražnjenju): isti komad,
+		// drugi oblik. Vreće se pune u skladištu; box barijere na dionici,
+		// bagerom — tada se puni ono što je na terenu.
 		if !vrsta.ImaOblike() {
 			return nil, errors.New("punjenje ima smisla samo za sredstvo koje se vodi u više oblika")
 		}
@@ -382,12 +384,20 @@ func (s *MtsService) Provedi(ctx context.Context, u *models.User, perms *models.
 		if iz == u {
 			return nil, errors.New("punjenje mora mijenjati oblik")
 		}
-		if err := provjeriZalihu(sk.ID, "", iz, z.Kolicina); err != nil {
-			return nil, err
-		}
 		a, b := osnova, osnova
-		a.SkladisteID, a.Oblik, a.Kolicina, a.VezaID = sk.ID, iz, -z.Kolicina, veza
-		b.SkladisteID, b.Oblik, b.Kolicina, b.VezaID = sk.ID, u, z.Kolicina, veza
+		if z.SectionCode != "" {
+			if err := provjeriZalihu("", z.SectionCode, iz, z.Kolicina); err != nil {
+				return nil, err
+			}
+			a.SectionCode, a.Oblik, a.Kolicina, a.VezaID = z.SectionCode, iz, -z.Kolicina, veza
+			b.SectionCode, b.Oblik, b.Kolicina, b.VezaID = z.SectionCode, u, z.Kolicina, veza
+		} else {
+			if err := provjeriZalihu(sk.ID, "", iz, z.Kolicina); err != nil {
+				return nil, err
+			}
+			a.SkladisteID, a.Oblik, a.Kolicina, a.VezaID = sk.ID, iz, -z.Kolicina, veza
+			b.SkladisteID, b.Oblik, b.Kolicina, b.VezaID = sk.ID, u, z.Kolicina, veza
+		}
 		redci = append(redci, a, b)
 
 	case models.PrometPrijenos:

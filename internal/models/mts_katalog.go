@@ -56,8 +56,10 @@ var katalogAlat = []katalogRedak{
 	{"cekic-tesarski", "Čekić tesarski", "kom", nil},
 }
 
-// Vreće se vode prazne i napunjene: u skladištu čekaju prazne, na nasip idu
-// pune, a između je punjenje — isti komad, druga upotrebljivost.
+// Vreće i box barijere vode se prazne i napunjene: isti komad, druga
+// upotrebljivost. Male vreće pune se u skladištu; jumbo vreće i barijere
+// odu prazne na dionicu i pune se ondje, bagerom, jer se pune ne daju
+// nositi — a pri rastavljanju se prazne i vrate.
 var katalogMaterijal = []katalogRedak{
 	{"cavli", "Čavli", "kg", nil},
 	{"daske", "Daske", "m³", nil},
@@ -81,10 +83,10 @@ var katalogMaterijal = []katalogRedak{
 	{"geomembrana-4x10", "Zašt. geomemb. 4x10 m", "kom", nil},
 	{"geomembrana-4x12", "Zašt. geomemb. 4x12 m", "kom", nil},
 	{"sandorove-grede", "Šandorove grede", "kom", nil},
-	{"box-barijera-1x1x1", "Box barijere 1x1x1", "m'", nil},
-	{"box-barijera-5x1x1", "Box barijere 5x1x1", "m'", nil},
-	{"box-barijera-3x1x1", "Box barijere 3x1x1", "m'", nil},
-	{"box-barijera-3x1x05", "Box barijere 3x1x0.5", "m'", nil},
+	{"box-barijera-1x1x1", "Box barijere 1x1x1", "m'", oblici2(OblikPrazno, OblikPunjeno)},
+	{"box-barijera-5x1x1", "Box barijere 5x1x1", "m'", oblici2(OblikPrazno, OblikPunjeno)},
+	{"box-barijera-3x1x1", "Box barijere 3x1x1", "m'", oblici2(OblikPrazno, OblikPunjeno)},
+	{"box-barijera-3x1x05", "Box barijere 3x1x0.5", "m'", oblici2(OblikPrazno, OblikPunjeno)},
 }
 
 var katalogPribor = []katalogRedak{

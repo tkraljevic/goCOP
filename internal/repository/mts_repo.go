@@ -244,11 +244,45 @@ func (r *MtsRepository) OsigurajKatalog(ctx context.Context) error {
 		return err
 	}
 	if n > 0 {
-		return nil
+		return r.osigurajOblike(ctx)
 	}
 	for _, v := range models.KatalogSredstava() {
 		kopija := v
 		if err := r.SaveVrsta(ctx, &kopija); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// osigurajOblike dopunjuje oblike vrstama koje su ih u propisanom popisu
+// dobile poslije prvog sijanja (box barijere). Postojeći promet bez oblika
+// prelazi u „prazno“, jer je to ono što je u skladištu i bilo.
+func (r *MtsRepository) osigurajOblike(ctx context.Context) error {
+	for _, k := range models.KatalogSredstava() {
+		if len(k.Oblici) == 0 {
+			continue
+		}
+		v, err := r.GetVrsta(ctx, k.ID)
+		if err != nil || v == nil || len(v.Oblici) > 0 {
+			continue
+		}
+		v.Oblici = k.Oblici
+		if err := r.SaveVrsta(ctx, v); err != nil {
+			return err
+		}
+		redci, err := r.ListPromet(ctx, FiltarPrometa{VrstaID: v.ID})
+		if err != nil {
+			return err
+		}
+		var prepravi []models.Promet
+		for _, p := range redci {
+			if p.Oblik == models.OblikOsnovni {
+				p.Oblik = models.OblikPrazno
+				prepravi = append(prepravi, p)
+			}
+		}
+		if err := r.SavePromet(ctx, prepravi); err != nil {
 			return err
 		}
 	}

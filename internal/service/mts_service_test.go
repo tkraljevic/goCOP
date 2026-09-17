@@ -88,6 +88,37 @@ func TestMtsPutVrecaKrozObranu(t *testing.T) {
 		t.Errorf("na kraju: prazno %v, punjeno %v", ima(models.OblikPrazno), ima(models.OblikPunjeno))
 	}
 
+	// box barijere: prazne odu na dionicu, ondje se napune bagerom, pri
+	// rastavljanju se isprazne i vrate
+	box := "box-barijera-3x1x1"
+	if _, err := s.Provedi(ctx, u, uprava, Zahvat{Vrsta: models.PrometPocetno, SkladisteID: sk.ID, VrstaID: box, Oblik: models.OblikPrazno, Kolicina: 300}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Provedi(ctx, u, uprava, Zahvat{Vrsta: models.PrometIzdano, SkladisteID: sk.ID, VrstaID: box, Oblik: models.OblikPrazno, Kolicina: 120, SectionCode: "B.34.1", JournalID: obrana}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Provedi(ctx, u, uprava, Zahvat{Vrsta: models.PrometPunjenje, SkladisteID: sk.ID, VrstaID: box, Oblik: models.OblikPrazno, UOblik: models.OblikPunjeno,
+		Kolicina: 100, SectionCode: "B.34.1", JournalID: obrana, Preuzeo: "bager Hidrogradnja"}); err != nil {
+		t.Fatalf("punjenje na terenu: %v", err)
+	}
+	teren, _ := s.NaTerenu(ctx, obrana, "")
+	punih, praznih := 0.0, 0.0
+	for _, st := range teren {
+		if st.VrstaID == box && st.Oblik == models.OblikPunjeno {
+			punih = st.Kolicina
+		}
+		if st.VrstaID == box && st.Oblik == models.OblikPrazno {
+			praznih = st.Kolicina
+		}
+	}
+	if punih != 100 || praznih != 20 {
+		t.Errorf("barijere na terenu: punih %v, praznih %v", punih, praznih)
+	}
+	if _, err := s.Provedi(ctx, u, uprava, Zahvat{Vrsta: models.PrometPunjenje, SkladisteID: sk.ID, VrstaID: box, Oblik: models.OblikPunjeno, UOblik: models.OblikPrazno,
+		Kolicina: 200, SectionCode: "B.34.1", JournalID: obrana}); err == nil {
+		t.Error("ispražnjeno više nego što je napunjeno")
+	}
+
 	// ne može se izdati više nego što stoji; poruka kaže koliko ima
 	_, err = s.Provedi(ctx, u, uprava, Zahvat{Vrsta: models.PrometIzdano, SkladisteID: sk.ID, VrstaID: vrece,
 		Oblik: models.OblikPunjeno, Kolicina: 9000, SectionCode: "B.34.1", JournalID: obrana})
