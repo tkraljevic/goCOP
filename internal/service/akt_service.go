@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"image"
 	_ "image/jpeg"
@@ -1057,4 +1058,55 @@ func (s *AktService) ObrisiPotpisSliku(ctx context.Context, u *models.User) erro
 		return ErrUnauthorized
 	}
 	return s.repo.DeletePotpisSlika(ctx, u.ID.String())
+}
+
+// ---- opće opcije ----
+
+// Opcije vraća opće prekidače programa
+func (s *AktService) Opcije(ctx context.Context) models.Opcije {
+	var o models.Opcije
+	if v, err := s.repo.GetPostavka(ctx, repository.PostavkaOpcije); err == nil && v != "" {
+		_ = json.Unmarshal([]byte(v), &o)
+	}
+	return o
+}
+
+// SpremiOpcije sprema prekidače; smije samo uprava organizacije
+func (s *AktService) SpremiOpcije(ctx context.Context, perms *models.UserPermissions, o models.Opcije) error {
+	if perms == nil || !perms.IsGlobalAdmin {
+		return ErrUnauthorized
+	}
+	b, err := json.Marshal(o)
+	if err != nil {
+		return err
+	}
+	return s.repo.SavePostavka(ctx, repository.PostavkaOpcije, string(b))
+}
+
+// SmijeObrisatiTrajno javlja smije li korisnik trajno obrisati ovjeren akt:
+// samo kad je prekidač uključen, i samo uprava organizacije ili sektora
+func (s *AktService) SmijeObrisatiTrajno(ctx context.Context, perms *models.UserPermissions, a *models.Akt) bool {
+	if perms == nil || a == nil || !a.Ovjeren() {
+		return false
+	}
+	if !s.Opcije(ctx).BrisanjeOvjerenihAkata {
+		return false
+	}
+	return perms.IsGlobalAdmin || perms.CanAdminister(a.Sektor, 0)
+}
+
+// ObrisiAktTrajno briše ovjeren akt s izvornikom i dnevnikom slanja. Stanje
+// obrane na dionicama koje je akt proglasio ne vraća se samo.
+func (s *AktService) ObrisiAktTrajno(ctx context.Context, perms *models.UserPermissions, id string) error {
+	a, err := s.repo.GetAkt(ctx, id)
+	if err != nil || a == nil {
+		return err
+	}
+	if !s.SmijeObrisatiTrajno(ctx, perms, a) {
+		if !s.Opcije(ctx).BrisanjeOvjerenihAkata {
+			return fmt.Errorf("ovjeren akt se ne briše; brisanje ovjerenih akata uključuje uprava u Administraciji › Opcije")
+		}
+		return ErrUnauthorized
+	}
+	return s.repo.DeleteAktTrajno(ctx, id)
 }

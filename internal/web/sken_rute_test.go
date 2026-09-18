@@ -99,6 +99,7 @@ func TestRucniPotpisISkenKrozRute(t *testing.T) {
 	mux.HandleFunc("GET /akti/{id}/akt.pdf", h.IzvoziPDF)
 	mux.HandleFunc("GET /akti/{id}/za-ispis.pdf", h.IzvoziZaIspis)
 	mux.HandleFunc("POST /akti/{id}/ovjeri", h.HandleOvjeri)
+	mux.HandleFunc("POST /akti/{id}/obrisi", h.HandleObrisi)
 	h.SetZig(tmpl("administracija_zig.html"))
 	mux.HandleFunc("GET /administracija/zig", h.ShowZig)
 	mux.HandleFunc("POST /administracija/zig", h.HandleZig)
@@ -273,6 +274,33 @@ func TestRucniPotpisISkenKrozRute(t *testing.T) {
 	}
 	if w := zovi(httptest.NewRequest(http.MethodGet, "/akti/"+id2+"/akt.pdf", nil)); bytes.Count(w.Body.Bytes(), []byte("/Subtype /Image")) < 2 {
 		t.Errorf("PDF ovjerenog akta mora nositi žig i potpis, slika: %d", bytes.Count(w.Body.Bytes(), []byte("/Subtype /Image")))
+	}
+
+	// trajno brisanje ovjerenog akta: samo uz uključenu opciju
+	rb := httptest.NewRequest(http.MethodPost, "/akti/"+id2+"/obrisi", strings.NewReader(""))
+	rb.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if loc := mustUnescape(zovi(rb).Header().Get("Location")); !strings.Contains(loc, "Opcije") {
+		t.Fatalf("bez opcije se ovjeren akt ne briše: %s", loc)
+	}
+	if err := akti.SpremiOpcije(ctx, &models.UserPermissions{}, models.Opcije{BrisanjeOvjerenihAkata: true}); err == nil {
+		t.Error("opcije smije mijenjati samo uprava organizacije")
+	}
+	if err := akti.SpremiOpcije(ctx, perms, models.Opcije{BrisanjeOvjerenihAkata: true}); err != nil {
+		t.Fatal(err)
+	}
+	if w := zovi(httptest.NewRequest(http.MethodGet, "/akti/"+id2, nil)); !strings.Contains(w.Body.String(), "Obriši trajno") {
+		t.Error("s uključenom opcijom stranica nudi trajno brisanje")
+	}
+	rb = httptest.NewRequest(http.MethodPost, "/akti/"+id2+"/obrisi", strings.NewReader(""))
+	rb.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if loc := mustUnescape(zovi(rb).Header().Get("Location")); !strings.Contains(loc, "trajno obrisan") {
+		t.Fatalf("trajno brisanje: %s", loc)
+	}
+	if a2, _ := akti.Get(ctx, id2); a2 != nil {
+		t.Error("akt nije obrisan")
+	}
+	if pdf, _ := akti.Izvornik(ctx, id2); pdf != nil {
+		t.Error("izvornik nije obrisan")
 	}
 }
 

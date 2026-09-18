@@ -32,6 +32,7 @@ type AktiHandler struct {
 	poslovi                                      *poslovi.Registar
 	tmplPotpis                                   *template.Template
 	tmplZig                                      *template.Template
+	tmplOpcije                                   *template.Template
 }
 
 // SetSpranca daje rukovatelju predložak stranice špranče
@@ -68,15 +69,16 @@ type AktiPageData struct {
 	Stupanj    models.DefensePhase
 
 	// jedan akt
-	Sektor          *models.Sector
-	Podrucje        *models.Area
-	SmijeOvjeriti   bool
-	SmijeObrisati   bool
-	Potpis          string // stanje elektroničkog potpisa: VRIJEDI, NE_VRIJEDI, NEMA
-	SmijePripremiti bool
-	MoguPotpisati   []models.User // za izbor potpisnika uz sken
-	Slanje          *SlanjeData   // slanje izvornika primateljima "na znanje"
-	Upozorenja      []string
+	Sektor              *models.Sector
+	Podrucje            *models.Area
+	SmijeOvjeriti       bool
+	SmijeObrisati       bool
+	SmijeObrisatiTrajno bool   // ovjeren akt, uz uključenu opciju
+	Potpis              string // stanje elektroničkog potpisa: VRIJEDI, NE_VRIJEDI, NEMA
+	SmijePripremiti     bool
+	MoguPotpisati       []models.User // za izbor potpisnika uz sken
+	Slanje              *SlanjeData   // slanje izvornika primateljima "na znanje"
+	Upozorenja          []string
 
 	// špranca
 	Spranca models.Spranca
@@ -273,6 +275,7 @@ func (h *AktiHandler) ShowAkt(w http.ResponseWriter, r *http.Request) {
 	data.Slanje = h.slanjeZaStranicu(r, s, perms, u, a)
 	data.SmijeOvjeriti = !a.Ovjeren() && s.SmijeOvjeriti(perms, a)
 	data.SmijeObrisati = !a.Ovjeren() && u != nil && (a.IzradioID == u.ID.String() || s.SmijeOvjeriti(perms, a))
+	data.SmijeObrisatiTrajno = s.SmijeObrisatiTrajno(r.Context(), perms, a)
 	for i := range data.Sektori {
 		if data.Sektori[i].ID == a.Sektor {
 			data.Sektor = &data.Sektori[i]
@@ -392,6 +395,14 @@ func (h *AktiHandler) HandleObrisi(w http.ResponseWriter, r *http.Request) {
 	u, perms, _ := h.base(r)
 	s, a := h.ucitaj(w, r)
 	if a == nil {
+		return
+	}
+	if a.Ovjeren() {
+		if err := s.ObrisiAktTrajno(r.Context(), perms, a.ID); err != nil {
+			redirectWith(w, r, "/akti/"+a.ID, "error", err.Error())
+			return
+		}
+		redirectWith(w, r, "/akti", "success", "Akt "+a.Oznaka()+" je trajno obrisan, s izvornikom i dnevnikom slanja. Stanje obrane na dionicama provjerite i po potrebi zaključite ručno.")
 		return
 	}
 	if err := s.Obrisi(r.Context(), perms, u, a.ID); err != nil {
