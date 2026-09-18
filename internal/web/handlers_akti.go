@@ -27,7 +27,7 @@ type AktiHandler struct {
 	tmplPopis, tmplForm, tmplAkt, tmplPrimatelji *template.Template
 	tmplSpranca                                  *template.Template
 	tmplPosta, tmplPostaAdmin                    *template.Template
-	tmplSanducic, tmplPismo                      *template.Template
+	tmplSanducic, tmplPismo, tmplNovoPismo       *template.Template
 }
 
 // SetSpranca daje rukovatelju predložak stranice špranče

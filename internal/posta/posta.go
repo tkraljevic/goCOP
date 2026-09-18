@@ -73,14 +73,35 @@ type Privitak struct {
 	Podaci []byte
 }
 
-// Poruka jednom primatelju
+// Poruka jednom primatelju; za pismo iz sandučića može imati više
+// primatelja i kopija, i biti odgovor na drugo pismo
 type Poruka struct {
-	Od       mail.Address
-	Za       mail.Address
-	Predmet  string
-	Tekst    string
-	Privitci []Privitak
-	Kad      time.Time
+	Od         mail.Address
+	Za         mail.Address
+	Primatelji []mail.Address // kad je više njih; Za se tada ne gleda
+	Kopija     []mail.Address
+	Predmet    string
+	Tekst      string
+	Privitci   []Privitak
+	Kad        time.Time
+	OdgovorNa  string // Message-ID pisma na koje se odgovara
+}
+
+// SviPrimatelji su adrese kojima se poruka predaje
+func (p Poruka) SviPrimatelji() []mail.Address {
+	out := append([]mail.Address{}, p.Primatelji...)
+	if len(out) == 0 && p.Za.Address != "" {
+		out = append(out, p.Za)
+	}
+	return append(out, p.Kopija...)
+}
+
+func adreseZaglavlje(a []mail.Address) string {
+	var s []string
+	for _, x := range a {
+		s = append(s, x.String())
+	}
+	return strings.Join(s, ", ")
 }
 
 // ErrPrijava: poslužitelj je odbio korisničko ime ili lozinku
@@ -95,8 +116,19 @@ func Sastavi(p Poruka) []byte {
 	var b bytes.Buffer
 	zaglavlje := func(k, v string) { fmt.Fprintf(&b, "%s: %s\r\n", k, v) }
 	zaglavlje("From", p.Od.String())
-	zaglavlje("To", p.Za.String())
+	if len(p.Primatelji) > 0 {
+		zaglavlje("To", adreseZaglavlje(p.Primatelji))
+	} else {
+		zaglavlje("To", p.Za.String())
+	}
+	if len(p.Kopija) > 0 {
+		zaglavlje("Cc", adreseZaglavlje(p.Kopija))
+	}
 	zaglavlje("Subject", mime.QEncoding.Encode("utf-8", p.Predmet))
+	if p.OdgovorNa != "" {
+		zaglavlje("In-Reply-To", p.OdgovorNa)
+		zaglavlje("References", p.OdgovorNa)
+	}
 	zaglavlje("Date", p.Kad.Format(time.RFC1123Z))
 	domena := "gocop"
 	if i := strings.LastIndex(p.Od.Address, "@"); i >= 0 {
@@ -214,8 +246,10 @@ func predaj(c *smtp.Client, m Poruka) error {
 	if err := c.Mail(m.Od.Address); err != nil {
 		return fmt.Errorf("pošiljatelj odbijen: %w", err)
 	}
-	if err := c.Rcpt(m.Za.Address); err != nil {
-		return fmt.Errorf("adresa odbijena: %w", err)
+	for _, a := range m.SviPrimatelji() {
+		if err := c.Rcpt(a.Address); err != nil {
+			return fmt.Errorf("adresa %s odbijena: %w", a.Address, err)
+		}
 	}
 	w, err := c.Data()
 	if err != nil {

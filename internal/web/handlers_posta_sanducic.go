@@ -3,6 +3,7 @@ package web
 import (
 	"errors"
 	"html/template"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -19,8 +20,8 @@ import (
 const pisamaPoStranici = 50
 
 // SetSanducic daje rukovatelju predloške sandučića
-func (h *AktiHandler) SetSanducic(popis, pismo *template.Template) {
-	h.tmplSanducic, h.tmplPismo = popis, pismo
+func (h *AktiHandler) SetSanducic(popis, pismo, novo *template.Template) {
+	h.tmplSanducic, h.tmplPismo, h.tmplNovoPismo = popis, pismo, novo
 }
 
 // SanducicData je stranica popisa pisama ili jednog pisma
@@ -33,6 +34,9 @@ type SanducicData struct {
 	ErrorMessage   string
 
 	Pisma           []posta.Pismo
+	Mapa            string
+	Mape            []struct{ ID, Naziv string }
+	Trazi           string
 	Ukupno          int
 	Stranica        int
 	Stranica_       int // sljedeća, 0 kad je nema
@@ -40,6 +44,9 @@ type SanducicData struct {
 	Pismo           *posta.Pismo
 	Nacrti          []models.Akt // nacrti koji čekaju potpisani PDF
 	OdabraniAkt     string
+	Novo            service.NovoPismo // obrazac novog pisma
+	Nacin           string            // odgovori, svima, proslijedi ili prazno
+	Izvorno         *posta.Pismo      // pismo na koje se odgovara
 	TrebaLozinku    bool
 	NijeUkljuceno   bool
 	LozinkaOdbijena bool
@@ -73,11 +80,16 @@ func (h *AktiHandler) ShowSanducic(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
 		return
 	}
-	d.Stranica, _ = strconv.Atoi(r.URL.Query().Get("stranica"))
+	q := r.URL.Query()
+	d.Stranica, _ = strconv.Atoi(q.Get("stranica"))
 	if d.Stranica < 1 {
 		d.Stranica = 1
 	}
-	pisma, ukupno, err := s.Sanducic(r.Context(), d.CurrentUser, d.Stranica, pisamaPoStranici)
+	d.Mapa, d.Trazi, d.Mape = q.Get("mapa"), strings.TrimSpace(q.Get("trazi")), posta.Mape
+	if !posta.MapaPostoji(d.Mapa) {
+		d.Mapa = "inbox"
+	}
+	pisma, ukupno, err := s.Sanducic(r.Context(), d.CurrentUser, d.Mapa, d.Trazi, d.Stranica, pisamaPoStranici)
 	if err != nil {
 		d.greska(err)
 	}
@@ -103,7 +115,14 @@ func (h *AktiHandler) ShowPismo(w http.ResponseWriter, r *http.Request) {
 		d.greska(err)
 	}
 	d.Pismo = pismo
+	d.Mapa = r.URL.Query().Get("mapa")
 	if pismo != nil {
+		if !pismo.Procitano {
+			// otvoreno pismo je pročitano, kao u Outlooku
+			if s.OznaciProcitano(r.Context(), d.CurrentUser, pismo.ID, pismo.ChangeKey, true) == nil {
+				pismo.Procitano = true
+			}
+		}
 		for _, p := range pismo.Privitci {
 			if p.JePDF() {
 				d.Nacrti = s.NacrtiZaPotpis(r.Context(), d.Permissions, d.CurrentUser)
@@ -172,4 +191,126 @@ func (h *AktiHandler) HandlePotpisaniIzPoste(w http.ResponseWriter, r *http.Requ
 		poruka += " Stanje obrane na dionicama: " + strings.Join(upozorenja, "; ")
 	}
 	redirectWith(w, r, "/akti/"+a.ID, "success", poruka)
+}
+
+// HandlePismoRadnja: označi nepročitano ili obriši
+func (h *AktiHandler) HandlePismoRadnja(w http.ResponseWriter, r *http.Request) {
+	u, _, _ := h.base(r)
+	s := h.svc(w)
+	if s == nil || u == nil {
+		return
+	}
+	id, ck := r.FormValue("id"), r.FormValue("ck")
+	natrag := "/posta/pismo?" + url.Values{"id": {id}}.Encode()
+	switch r.FormValue("radnja") {
+	case "neprocitano":
+		if err := s.OznaciProcitano(r.Context(), u, id, ck, false); err != nil {
+			redirectWith(w, r, natrag, "error", err.Error())
+			return
+		}
+		redirectWith(w, r, "/posta", "success", "Pismo je označeno kao nepročitano.")
+	case "obrisi":
+		if err := s.ObrisiPismo(r.Context(), u, id); err != nil {
+			redirectWith(w, r, natrag, "error", err.Error())
+			return
+		}
+		redirectWith(w, r, "/posta", "success", "Pismo je premješteno u Obrisano.")
+	default:
+		redirectWith(w, r, natrag, "error", "Nepoznata radnja")
+	}
+}
+
+// ShowNovoPismo prikazuje obrazac novog pisma, odgovora ili prosljeđivanja
+func (h *AktiHandler) ShowNovoPismo(w http.ResponseWriter, r *http.Request) {
+	s, d := h.sanducicData(r)
+	if s == nil || d.CurrentUser == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+	q := r.URL.Query()
+	d.Nacin = q.Get("nacin")
+	d.Novo = service.NovoPismo{Za: q.Get("za"), Predmet: q.Get("predmet"), Tekst: q.Get("tekst")}
+	if id := q.Get("id"); id != "" {
+		izv, err := s.Pismo(r.Context(), d.CurrentUser, id)
+		if err != nil {
+			d.greska(err)
+		} else {
+			d.Izvorno = izv
+			d.Novo = pripremiOdgovor(izv, d.Nacin, d.CurrentUser)
+		}
+	}
+	if err := h.tmplNovoPismo.ExecuteTemplate(w, "posta_novo.html", d); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+// pripremiOdgovor puni obrazac za odgovor, odgovor svima ili prosljeđivanje
+func pripremiOdgovor(izv *posta.Pismo, nacin string, u *models.User) service.NovoPismo {
+	n := service.NovoPismo{OdgovorNa: izv.MessageID}
+	navod := "\n\n" + strings.Repeat("-", 40) + "\nOd: " + izv.Od
+	if izv.OdAdresa != "" && izv.OdAdresa != izv.Od {
+		navod += " <" + izv.OdAdresa + ">"
+	}
+	navod += "\nPoslano: " + izv.Kad.In(models.Zagreb).Format("02.01.2006. 15:04") + "\nPredmet: " + izv.Predmet + "\n\n" + izv.Tekst + "\n"
+	predmet := izv.Predmet
+	switch nacin {
+	case "proslijedi":
+		if !strings.HasPrefix(strings.ToUpper(predmet), "FW:") {
+			predmet = "FW: " + predmet
+		}
+		n.Predmet, n.Tekst = predmet, navod
+		for _, p := range izv.Privitci {
+			n.Proslijedi = append(n.Proslijedi, p.ID)
+		}
+	default:
+		if !strings.HasPrefix(strings.ToUpper(predmet), "RE:") {
+			predmet = "RE: " + predmet
+		}
+		n.Predmet, n.Tekst, n.Za = predmet, navod, izv.OdAdresa
+		if nacin == "svima" {
+			var kopija []string
+			for _, a := range append(append([]string{}, izv.Za...), izv.Kopija...) {
+				adr := posta.Adrese(a)
+				if len(adr) == 1 && !strings.EqualFold(adr[0], u.Email) && !strings.EqualFold(adr[0], izv.OdAdresa) {
+					kopija = append(kopija, adr[0])
+				}
+			}
+			n.Kopija = strings.Join(kopija, ", ")
+		}
+	}
+	return n
+}
+
+// HandlePosaljiPismo šalje pismo iz obrasca
+func (h *AktiHandler) HandlePosaljiPismo(w http.ResponseWriter, r *http.Request) {
+	u, _, _ := h.base(r)
+	s := h.svc(w)
+	if s == nil || u == nil {
+		return
+	}
+	if err := r.ParseMultipartForm(32 << 20); err != nil {
+		redirectWith(w, r, "/posta/novo", "error", "Neispravan obrazac ili prevelik privitak (najviše 32 MB)")
+		return
+	}
+	n := service.NovoPismo{Za: r.FormValue("za"), Kopija: r.FormValue("kopija"), Predmet: r.FormValue("predmet"), Tekst: r.FormValue("tekst"),
+		OdgovorNa: r.FormValue("odgovor_na"), Proslijedi: r.Form["proslijedi"]}
+	if r.MultipartForm != nil {
+		for _, fh := range r.MultipartForm.File["privitak"] {
+			f, err := fh.Open()
+			if err != nil {
+				continue
+			}
+			podaci, _ := io.ReadAll(io.LimitReader(f, 32<<20))
+			f.Close()
+			if len(podaci) > 0 {
+				n.Privitci = append(n.Privitci, posta.Privitak{Ime: fh.Filename, Vrsta: fh.Header.Get("Content-Type"), Podaci: podaci})
+			}
+		}
+	}
+	if err := s.PosaljiPismo(r.Context(), u, n); err != nil {
+		natrag := "/posta/novo?" + url.Values{"za": {n.Za}, "predmet": {n.Predmet}, "tekst": {n.Tekst}}.Encode()
+		redirectWith(w, r, natrag, "error", err.Error())
+		return
+	}
+	redirectWith(w, r, "/posta?mapa=sentitems", "success", "Pismo je poslano.")
 }

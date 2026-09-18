@@ -3557,3 +3557,12 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .posta-u-akt { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin-top: 0.25rem; }
 .posta-u-akt select { max-width: 28rem; }
 .posta-tekst { white-space: pre-wrap; font-family: inherit; font-size: 0.95rem; margin: 0; }
+.posta-alat { display: flex; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; align-items: center; margin: 0 0 0.75rem; }
+.posta-mape { display: flex; gap: 0.25rem; flex-wrap: wrap; }
+.posta-mapa { padding: 0.35rem 0.75rem; border-radius: 999px; border: 1px solid var(--border, #d9dee5); text-decoration: none; font-size: 0.9rem; color: inherit; }
+.posta-mapa.active { background: var(--primary, #1f3b6e); color: #fff; border-color: transparent; }
+.posta-trazi { display: flex; gap: 0.35rem; align-items: center; }
+.posta-trazi input { min-width: 16rem; }
+.posta-radnje { display: flex; gap: 0.35rem; flex-wrap: wrap; margin: 0 0 0.75rem; }
+.posta-radnje form { margin: 0; }
+.posta-html { width: 100%; min-height: 200px; border: 1px solid var(--border, #d9dee5); border-radius: 8px; background: #fff; }

@@ -3,7 +3,7 @@
 {{define "title"}}goCOP — Pismo{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/posta">Sandučić</a> › Pismo</div>
+<div class="breadcrumb"><a href="/posta{{with .Mapa}}?mapa={{.}}{{end}}">Sandučić</a> › Pismo</div>
 
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
@@ -18,6 +18,14 @@
     {{with .Za}}<strong>Za:</strong> {{range $i, $x := .}}{{if $i}}, {{end}}{{$x}}{{end}}{{end}}
     {{with .Kopija}}<br><strong>Kopija:</strong> {{range $i, $x := .}}{{if $i}}, {{end}}{{$x}}{{end}}{{end}}</p>
   </div>
+</div>
+
+<div class="posta-radnje">
+  <a href="/posta/novo?nacin=odgovori&amp;id={{.ID | urlquery}}" class="btn btn-secondary btn-sm">{{icon "arrow-left"}} Odgovori</a>
+  <a href="/posta/novo?nacin=svima&amp;id={{.ID | urlquery}}" class="btn btn-secondary btn-sm">{{icon "users"}} Odgovori svima</a>
+  <a href="/posta/novo?nacin=proslijedi&amp;id={{.ID | urlquery}}" class="btn btn-secondary btn-sm">{{icon "arrow-right"}} Proslijedi</a>
+  <form method="POST" action="/posta/pismo"><input type="hidden" name="id" value="{{.ID}}"><input type="hidden" name="ck" value="{{.ChangeKey}}"><input type="hidden" name="radnja" value="neprocitano"><button type="submit" class="btn btn-secondary btn-sm">{{icon "eye-off"}} Nepročitano</button></form>
+  <form method="POST" action="/posta/pismo" onsubmit="return confirm('Premjestiti pismo u Obrisano?')"><input type="hidden" name="id" value="{{.ID}}"><input type="hidden" name="radnja" value="obrisi"><button type="submit" class="btn btn-secondary btn-sm">{{icon "trash"}} Obriši</button></form>
 </div>
 
 {{if .Privitci}}
@@ -48,8 +56,19 @@
 </section>
 {{end}}
 
-<section class="detail-section">
+<section class="detail-section posta-tijelo">
+  {{if .HTML}}
+  <iframe class="posta-html" sandbox="allow-same-origin" referrerpolicy="no-referrer" title="Sadržaj pisma" srcdoc="<!doctype html><html><head><meta charset=&quot;utf-8&quot;><meta http-equiv=&quot;Content-Security-Policy&quot; content=&quot;default-src 'none'; img-src data: https: http:; style-src 'unsafe-inline'; font-src data:&quot;><base target=&quot;_blank&quot;><style>body{font-family:system-ui,sans-serif;font-size:15px;margin:8px;color:#1a1a1a;background:#fff}</style></head><body>{{.HTML}}</body></html>"></iframe>
+  <script>
+    (function () {
+      var f = document.querySelector('.posta-html');
+      function visina() { try { f.style.height = Math.max(200, f.contentDocument.documentElement.scrollHeight + 24) + 'px'; } catch (e) {} }
+      f.addEventListener('load', visina); setTimeout(visina, 300); setTimeout(visina, 1500);
+    })();
+  </script>
+  {{else}}
   <pre class="posta-tekst">{{.Tekst}}</pre>
+  {{end}}
 </section>
 {{end}}
 {{end}}
