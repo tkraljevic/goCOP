@@ -3551,3 +3551,9 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .akt-slanje-tablica td { vertical-align: top; font-size: 0.85rem; }
 .akt-slanje-poruka { margin: 0.5rem 0; font-size: 0.85rem; }
 .akt-slanje-poruka pre { white-space: pre-wrap; background: var(--surface-2, #f5f7fa); padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.8rem; }
+.posta-tablica tr.neprocitano td { font-weight: 600; }
+.posta-tablica td { vertical-align: top; }
+.posta-privitci { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+.posta-u-akt { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin-top: 0.25rem; }
+.posta-u-akt select { max-width: 28rem; }
+.posta-tekst { white-space: pre-wrap; font-family: inherit; font-size: 0.95rem; margin: 0; }

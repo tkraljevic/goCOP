@@ -20,6 +20,7 @@ import (
 	"gocop/internal/db"
 	"gocop/internal/ledger"
 	"gocop/internal/models"
+	"gocop/internal/pdfpotpis"
 	"gocop/internal/posta"
 	"gocop/internal/repository"
 	"gocop/internal/service"
@@ -134,6 +135,11 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 
 	h.SetPosta(tmpl("posta_racun.html"), tmpl("administracija_posta.html"))
 	mux.HandleFunc("GET /administracija/posta", h.ShowAdminPosta)
+	h.SetSanducic(tmpl("posta_sanducic.html"), tmpl("posta_pismo.html"))
+	mux.HandleFunc("GET /posta", h.ShowSanducic)
+	mux.HandleFunc("GET /posta/pismo", h.ShowPismo)
+	mux.HandleFunc("GET /posta/privitak", h.Privitak)
+	mux.HandleFunc("POST /posta/u-akt", h.HandlePotpisaniIzPoste)
 	post := func(put string, v url.Values) string {
 		r := httptest.NewRequest(http.MethodPost, put, strings.NewReader(v.Encode()))
 		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -228,5 +234,56 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 		if !x.Poslano() {
 			t.Errorf("%s nije označena kao poslana", x.Adresa)
 		}
+	}
+
+	// Sandučić: SIGNATOR je potpisani PDF poslao e-poštom; učitava se ravno u nacrt
+	if w := zovi(httptest.NewRequest(http.MethodGet, "/posta", nil)); !strings.Contains(w.Body.String(), "Sandučić je prazan") {
+		t.Fatalf("prazan sandučić:\n%.600s", w.Body.String())
+	}
+	id2 := strings.TrimPrefix(strings.SplitN(post("/akti/novi", url.Values{"station_id": {st.ID.String()}, "radnja": {"PREKID"}, "stupanj": {"PRIPREMNO"}, "vrijedi": {"2026-09-16T09:00"}}), "?", 2)[0], "/akti/")
+	zaPotpis := zovi(httptest.NewRequest(http.MethodGet, "/akti/"+id2+"/za-potpis.pdf", nil)).Body.Bytes()
+	c, k, _ := pdfpotpis.ProbniCertifikat("KUNAC MILE", "12345678903", true)
+	potpisan, err := pdfpotpis.ProbnoPotpisi(zaPotpis, c, k)
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv.Pisma = []posta.Pismo{
+		{ID: "AAMk/1+=", Predmet: "Signator: dokument je potpisan", Od: "SIGNATOR", OdAdresa: "signator@voda.hr", Kad: time.Now(), Tekst: "Dokument je potpisan.\nU privitku.",
+			Privitci: []posta.PrivitakPisma{{ID: "AAMk/priv+1=", Ime: "akt-potpisan.pdf", Vrsta: "application/pdf", Velicina: len(potpisan)}}},
+		{ID: "AAMk/2=", Predmet: "Ručak", Od: "Kolega", OdAdresa: "kolega@voda.hr", Kad: time.Now().Add(-time.Hour), Procitano: true},
+	}
+	srv.Datoteke = map[string][]byte{"AAMk/priv+1=": potpisan}
+	popis := zovi(httptest.NewRequest(http.MethodGet, "/posta?akt="+id2, nil)).Body.String()
+	if !strings.Contains(popis, "Signator: dokument je potpisan") || !strings.Contains(popis, "Ručak") || !strings.Contains(popis, "Ukupno pisama: 2") {
+		t.Fatalf("popis sandučića:\n%.800s", popis)
+	}
+	pismo := zovi(httptest.NewRequest(http.MethodGet, "/posta/pismo?"+url.Values{"id": {"AAMk/1+="}, "akt": {id2}}.Encode(), nil)).Body.String()
+	if !strings.Contains(pismo, "akt-potpisan.pdf") || !strings.Contains(pismo, "Učitaj kao potpisani akt") || !strings.Contains(pismo, `value="`+id2+`" selected`) || !strings.Contains(pismo, "U privitku.") {
+		t.Fatalf("pismo:\n%.1200s", pismo)
+	}
+	w := zovi(httptest.NewRequest(http.MethodGet, "/posta/privitak?"+url.Values{"id": {"AAMk/priv+1="}}.Encode(), nil))
+	if w.Code != http.StatusOK || !bytes.Equal(w.Body.Bytes(), potpisan) || w.Header().Get("Content-Type") != "application/pdf" {
+		t.Fatalf("privitak: %d %s", w.Code, w.Header().Get("Content-Type"))
+	}
+	loc = post("/posta/u-akt", url.Values{"pismo": {"AAMk/1+="}, "privitak": {"AAMk/priv+1="}, "akt": {id2}})
+	if !strings.Contains(loc, "/akti/"+id2) || !strings.Contains(loc, "success") {
+		t.Fatalf("učitavanje iz sandučića: %s", loc)
+	}
+	if a2, _ := akti.Get(ctx, id2); !a2.Ovjeren() || a2.Kvalificirani == nil || a2.Ovjerio != "Mile Kunac" {
+		t.Fatalf("akt iz sandučića nije ovjeren: %+v", a2)
+	}
+	// krivi privitak: obično pismo bez potpisa ne prolazi
+	srv.Datoteke["AAMk/priv+1="] = []byte("%PDF-1.4 nepotpisan")
+	id3 := strings.TrimPrefix(strings.SplitN(post("/akti/novi", url.Values{"station_id": {st.ID.String()}, "radnja": {"USPOSTAVA"}, "stupanj": {"REDOVNA"}, "vrijedi": {"2026-09-17T09:00"}}), "?", 2)[0], "/akti/")
+	zovi(httptest.NewRequest(http.MethodGet, "/akti/"+id3+"/za-potpis.pdf", nil))
+	if loc := post("/posta/u-akt", url.Values{"pismo": {"AAMk/1+="}, "privitak": {"AAMk/priv+1="}, "akt": {id3}}); !strings.Contains(loc, "nema elektroničkog potpisa") {
+		t.Errorf("nepotpisan privitak: %s", loc)
+	}
+	// bez lozinke: stranica traži upis
+	if err := akti.ObrisiRacunPoste(ctx, voditelj); err != nil {
+		t.Fatal(err)
+	}
+	if w := zovi(httptest.NewRequest(http.MethodGet, "/posta", nil)); !strings.Contains(w.Body.String(), "upišite lozinku e-pošte") {
+		t.Error("bez lozinke sandučić mora tražiti upis")
 	}
 }

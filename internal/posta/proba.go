@@ -32,7 +32,9 @@ type ProbniPosluzitelj struct {
 	ln                net.Listener
 	cert              tls.Certificate
 	klijent           *tls.Config
-	web               *httptest.Server // probni EWS umjesto SMTP-a
+	web               *httptest.Server  // probni EWS umjesto SMTP-a
+	Pisma             []Pismo           // ulazna pošta probnog EWS-a
+	Datoteke          map[string][]byte // sadržaj privitaka po ID-u
 
 	mu     sync.Mutex
 	poruke []Primljena
@@ -116,6 +118,47 @@ func PokreniProbniEWS(korisnik, lozinka string) (*ProbniPosluzitelj, error) {
 		switch {
 		case bytes.Contains(tijelo, []byte("<m:GetFolder>")):
 			odgovor("GetFolder", "Success", "")
+		case bytes.Contains(tijelo, []byte("<m:FindItem")):
+			w.Header().Set("Content-Type", "text/xml; charset=utf-8")
+			var b bytes.Buffer
+			fmt.Fprintf(&b, `<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body><m:FindItemResponse xmlns:m="m" xmlns:t="t"><m:ResponseMessages><m:FindItemResponseMessage ResponseClass="Success"><m:ResponseCode>NoError</m:ResponseCode><m:RootFolder TotalItemsInView="%d"><t:Items>`, len(p.Pisma))
+			for _, x := range p.Pisma {
+				fmt.Fprintf(&b, `<t:Message><t:ItemId Id="%s" ChangeKey="x"/><t:Subject>%s</t:Subject><t:HasAttachments>%v</t:HasAttachments><t:Size>%d</t:Size><t:DateTimeReceived>%s</t:DateTimeReceived><t:From><t:Mailbox><t:Name>%s</t:Name><t:EmailAddress>%s</t:EmailAddress></t:Mailbox></t:From><t:IsRead>%v</t:IsRead></t:Message>`,
+					xmlAttr(x.ID), xmlAttr(x.Predmet), len(x.Privitci) > 0, x.Velicina, x.Kad.UTC().Format(time.RFC3339), xmlAttr(x.Od), xmlAttr(x.OdAdresa), x.Procitano)
+			}
+			b.WriteString(`</t:Items></m:RootFolder></m:FindItemResponseMessage></m:ResponseMessages></m:FindItemResponse></s:Body></s:Envelope>`)
+			_, _ = w.Write(b.Bytes())
+		case bytes.Contains(tijelo, []byte("<m:GetItem>")):
+			x := regexp.MustCompile(`<t:ItemId Id="([^"]*)"`).FindSubmatch(tijelo)
+			w.Header().Set("Content-Type", "text/xml; charset=utf-8")
+			for _, pi := range p.Pisma {
+				if x == nil || pi.ID != string(x[1]) {
+					continue
+				}
+				var b bytes.Buffer
+				fmt.Fprintf(&b, `<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body><m:GetItemResponse xmlns:m="m" xmlns:t="t"><m:ResponseMessages><m:GetItemResponseMessage ResponseClass="Success"><m:ResponseCode>NoError</m:ResponseCode><m:Items><t:Message><t:ItemId Id="%s"/><t:Subject>%s</t:Subject><t:Body BodyType="Text">%s</t:Body><t:DateTimeReceived>%s</t:DateTimeReceived><t:From><t:Mailbox><t:Name>%s</t:Name><t:EmailAddress>%s</t:EmailAddress></t:Mailbox></t:From><t:ToRecipients><t:Mailbox><t:EmailAddress>%s</t:EmailAddress></t:Mailbox></t:ToRecipients><t:Attachments>`,
+					xmlAttr(pi.ID), xmlAttr(pi.Predmet), xmlAttr(pi.Tekst), pi.Kad.UTC().Format(time.RFC3339), xmlAttr(pi.Od), xmlAttr(pi.OdAdresa), xmlAttr(p.Korisnik))
+				for _, a := range pi.Privitci {
+					fmt.Fprintf(&b, `<t:FileAttachment><t:AttachmentId Id="%s"/><t:Name>%s</t:Name><t:ContentType>%s</t:ContentType><t:Size>%d</t:Size></t:FileAttachment>`, xmlAttr(a.ID), xmlAttr(a.Ime), a.Vrsta, a.Velicina)
+				}
+				b.WriteString(`</t:Attachments></t:Message></m:Items></m:GetItemResponseMessage></m:ResponseMessages></m:GetItemResponse></s:Body></s:Envelope>`)
+				_, _ = w.Write(b.Bytes())
+				return
+			}
+			odgovor("GetItem", "Error", "The specified object was not found in the store.")
+		case bytes.Contains(tijelo, []byte("<m:GetAttachment>")):
+			x := regexp.MustCompile(`<t:AttachmentId Id="([^"]*)"`).FindSubmatch(tijelo)
+			w.Header().Set("Content-Type", "text/xml; charset=utf-8")
+			for _, pi := range p.Pisma {
+				for _, a := range pi.Privitci {
+					if x != nil && a.ID == string(x[1]) {
+						fmt.Fprintf(w, `<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body><m:GetAttachmentResponse xmlns:m="m" xmlns:t="t"><m:ResponseMessages><m:GetAttachmentResponseMessage ResponseClass="Success"><m:ResponseCode>NoError</m:ResponseCode><m:Attachments><t:FileAttachment><t:AttachmentId Id="%s"/><t:Name>%s</t:Name><t:ContentType>%s</t:ContentType><t:Content>%s</t:Content></t:FileAttachment></m:Attachments></m:GetAttachmentResponseMessage></m:ResponseMessages></m:GetAttachmentResponse></s:Body></s:Envelope>`,
+							xmlAttr(a.ID), xmlAttr(a.Ime), a.Vrsta, base64.StdEncoding.EncodeToString(p.Datoteke[a.ID]))
+						return
+					}
+				}
+			}
+			odgovor("GetAttachment", "Error", "The specified object was not found in the store.")
 		case bytes.Contains(tijelo, []byte("<m:CreateItem")):
 			x := regexp.MustCompile(`<t:MimeContent[^>]*>([^<]*)</t:MimeContent>`).FindSubmatch(tijelo)
 			if x == nil {

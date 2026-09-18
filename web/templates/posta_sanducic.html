@@ -1,0 +1,44 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Sandučić{{end}}
+
+{{define "content"}}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "mailbox"}} Sandučić</h1>
+    <p class="page-desc">Ulazna pošta vašeg računa {{with .CurrentUser.Email}}<strong>{{.}}</strong>{{end}} iz Exchangea. Potpisani PDF koji SIGNATOR pošalje e-poštom odavde se učitava ravno u nacrt akta.</p>
+  </div>
+</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
+{{if .NijeUkljuceno}}<div class="alert alert-warning">E-pošta nije uključena: administrator upisuje poslužitelj u <a href="/administracija/posta">Administraciji › E-pošta</a>.</div>{{end}}
+{{if .TrebaLozinku}}<div class="alert alert-warning">Za čitanje sandučića upišite lozinku e-pošte: <a href="/profile/posta">Profil › E-pošta za slanje akata</a>.</div>{{end}}
+{{if .LozinkaOdbijena}}<div class="alert alert-error">Poslužitelj je odbio vašu lozinku e-pošte. Ako ste je promijenili, <a href="/profile/posta">upišite novu</a>.</div>{{end}}
+{{if .OdabraniAkt}}<div class="alert alert-info">Otvorite pismo iz SIGNATOR-a s potpisanim PDF-om i učitajte ga u nacrt.</div>{{end}}
+
+{{if .Pisma}}
+<section class="detail-section" style="margin-top:0;">
+  <table class="table posta-tablica">
+    <thead><tr><th>Od</th><th>Predmet</th><th>Primljeno</th><th></th></tr></thead>
+    <tbody>
+    {{range .Pisma}}
+      <tr class="{{if not .Procitano}}neprocitano{{end}}">
+        <td data-stupac="Od">{{.Od}}</td>
+        <td data-stupac="Predmet"><a href="/posta/pismo?id={{.ID | urlquery}}{{with $.OdabraniAkt}}&amp;akt={{.}}{{end}}">{{if .Predmet}}{{.Predmet}}{{else}}(bez predmeta){{end}}</a></td>
+        <td data-stupac="Primljeno">{{formatDate (localTime .Kad)}}</td>
+        <td>{{if .ImaPrivitke}}{{icon "package"}}{{end}}</td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+  <div class="form-help" style="display:flex; gap:1rem; align-items:center;">
+    <span>Ukupno pisama: {{.Ukupno}}.</span>
+    {{if gt .Prethodna 0}}<a href="/posta?stranica={{.Prethodna}}{{with .OdabraniAkt}}&amp;akt={{.}}{{end}}">{{icon "chevron-left"}} Novija</a>{{end}}
+    {{if .Stranica_}}<a href="/posta?stranica={{.Stranica_}}{{with .OdabraniAkt}}&amp;akt={{.}}{{end}}">Starija {{icon "chevron-right"}}</a>{{end}}
+  </div>
+</section>
+{{else if not (or .NijeUkljuceno .TrebaLozinku .LozinkaOdbijena .ErrorMessage)}}
+<p class="form-help">Sandučić je prazan.</p>
+{{end}}
+{{end}}

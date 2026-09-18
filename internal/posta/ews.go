@@ -112,8 +112,19 @@ func ewsPozovi(ctx context.Context, p Postavke, r Racun, tijelo string) (*ewsOdg
 	return o, err
 }
 
+// ewsPozoviSirovo vraća cijelo tijelo odgovora (za FindItem, GetItem…)
+func ewsPozoviSirovo(ctx context.Context, p Postavke, r Racun, tijelo string) ([]byte, error) {
+	_, _, podaci, err := ewsRazgovor(ctx, p, r, tijelo)
+	return podaci, err
+}
+
 // ewsPozoviIzazov vraća i NTLM izazov poslužitelja, iz kojeg se čita domena
 func ewsPozoviIzazov(ctx context.Context, p Postavke, r Racun, tijelo string) (*ewsOdgovor, *ntlmIzazov, error) {
+	o, z, _, err := ewsRazgovor(ctx, p, r, tijelo)
+	return o, z, err
+}
+
+func ewsRazgovor(ctx context.Context, p Postavke, r Racun, tijelo string) (*ewsOdgovor, *ntlmIzazov, []byte, error) {
 	c := p.ewsKlijent()
 	omot := []byte(fmt.Sprintf(ewsOmot, tijelo))
 	var res *http.Response
@@ -129,21 +140,21 @@ func ewsPozoviIzazov(ctx context.Context, p Postavke, r Racun, tijelo string) (*
 		res, z, err = ntlmDo(ctx, c, p.ewsURL(), "text/xml; charset=utf-8", omot, r)
 	}
 	if err != nil {
-		return nil, z, fmt.Errorf("poslužitelj %s nije dostupan: %w", p.Posluzitelj, err)
+		return nil, z, nil, fmt.Errorf("poslužitelj %s nije dostupan: %w", p.Posluzitelj, err)
 	}
 	defer res.Body.Close()
 	podaci, _ := io.ReadAll(io.LimitReader(res.Body, 4<<20))
 	if res.StatusCode == http.StatusUnauthorized {
-		return nil, z, ErrPrijava
+		return nil, z, nil, ErrPrijava
 	}
 	o, err := citajEWS(podaci)
 	if err != nil || (res.StatusCode != http.StatusOK && o.Greska == "") {
-		return nil, z, fmt.Errorf("poslužitelj %s je odgovorio %s", p.Posluzitelj, res.Status)
+		return nil, z, podaci, fmt.Errorf("poslužitelj %s je odgovorio %s", p.Posluzitelj, res.Status)
 	}
 	if o.Greska != "" {
-		return nil, z, fmt.Errorf("Exchange: %s", o.Greska)
+		return nil, z, podaci, fmt.Errorf("Exchange: %s", o.Greska)
 	}
-	return o, z, nil
+	return o, z, podaci, nil
 }
 
 const ewsMapaPoslano = `<m:GetFolder><m:FolderShape><t:BaseShape>IdOnly</t:BaseShape></m:FolderShape><m:FolderIds><t:DistinguishedFolderId Id="sentitems"/></m:FolderIds></m:GetFolder>`

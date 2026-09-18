@@ -80,7 +80,7 @@
         <li><form method="POST" action="/akti/{{$a.ID}}/potpisani" enctype="multipart/form-data">
           <input type="file" name="potpisani" accept="application/pdf,.pdf" required class="form-control">
           <button type="submit" class="btn btn-sm btn-primary">{{icon "upload"}} Učitaj potpisani PDF</button></form>
-          <div class="form-help">goCOP provjeri da je potpis kvalificiran, da je potpisnik rukovoditelj s pravom ovjere i da je potpisan baš ovaj nacrt.</div></li>
+          <div class="form-help">goCOP provjeri da je potpis kvalificiran, da je potpisnik rukovoditelj s pravom ovjere i da je potpisan baš ovaj nacrt. Ako je SIGNATOR potpisani PDF poslao e-poštom, učitajte ga iz <a href="/posta?akt={{$a.ID}}">sandučića</a>.</div></li>
       </ol>
       {{with $a.ZaPotpis}}<p class="form-help" style="margin:0;">Preuzet za potpis: {{range $i, $z := .}}{{if $i}}; {{end}}{{$z.Tko}} {{formatDate (localTime $z.Kad)}}{{end}}.</p>{{end}}
     </div>
