@@ -332,6 +332,33 @@ func (s *AktService) Sanducic(ctx context.Context, u *models.User, mapa, trazi s
 	return posta.Sanducic(ctx, pp, r, mapa, trazi, (stranica-1)*poStranici, poStranici)
 }
 
+// MapeSanducica vraća mape s brojem nepročitanih
+func (s *AktService) MapeSanducica(ctx context.Context, u *models.User) ([]posta.Mapa, error) {
+	r, err := s.racunKorisnika(ctx, u)
+	if err != nil {
+		return nil, err
+	}
+	return posta.SveMape(ctx, s.Posta(ctx), r)
+}
+
+// PremjestiPisma seli pisma u mapu (deleteditems, archive ili Id korisnikove mape)
+func (s *AktService) PremjestiPisma(ctx context.Context, u *models.User, ids []string, mapa string) error {
+	r, err := s.racunKorisnika(ctx, u)
+	if err != nil {
+		return err
+	}
+	return posta.Premjesti(ctx, s.Posta(ctx), r, ids, mapa)
+}
+
+// OznaciProcitanoVise označi više pisama
+func (s *AktService) OznaciProcitanoVise(ctx context.Context, u *models.User, stavke []posta.Stavka, procitano bool) error {
+	r, err := s.racunKorisnika(ctx, u)
+	if err != nil {
+		return err
+	}
+	return posta.OznaciProcitanoVise(ctx, s.Posta(ctx), r, stavke, procitano)
+}
+
 // OznaciProcitano označi pismo pročitanim ili nepročitanim
 func (s *AktService) OznaciProcitano(ctx context.Context, u *models.User, id, changeKey string, procitano bool) error {
 	r, err := s.racunKorisnika(ctx, u)
