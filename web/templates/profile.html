@@ -109,7 +109,17 @@
 
     <section class="detail-section profil-kartica" id="vlastorucni">
       <h2>{{icon "pencil"}} Vlastoručni potpis</h2>
-      <p class="page-desc">Sken vašeg potpisa stoji na PDF-u svakog akta koji ovjerite u goCOP-u, iznad crte za potpis, uz blok elektroničke ovjere i žig centra. Čuva se samo na ovom računalu, šifriran ključem čvora; vidite ga samo vi, a drugi čvorovi dobivaju gotov PDF akta, ne sken.</p>
+      <p class="page-desc">Sken vašeg potpisa stoji na PDF-u svakog akta koji ovjerite u goCOP-u, iznad crte za potpis, uz blok elektroničke ovjere i žig centra.</p>
+      <details class="zastita">
+        <summary>{{icon "lock"}} Kako je vaš potpis zaštićen</summary>
+        <ul>
+          <li><strong>Samo na ovom računalu:</strong> sken se ne šalje drugim računalima ni u knjigu verzija. Na drugom računalu na kojem ovjeravate akte učitajte ga ponovno.</li>
+          <li><strong>Šifriran:</strong> u bazi je zapisan šifrirano (AES-256-GCM) ključem koji se izvodi iz tajnog ključa ovog računala. Kopija baze bez tog ključa ne otkriva potpis.</li>
+          <li><strong>Vidite ga samo vi:</strong> nitko drugi, ni administrator, ne može sliku pregledati ni preuzeti kroz program.</li>
+          <li><strong>Koristi se samo pri ovjeri:</strong> u trenutku kad vi ovjerite akt program izradi PDF s potpisom i spremi ga kao izvornik. Drugi čvorovi dobivaju gotov PDF, ne sken. Nikad na nacrtima, ispisima ni u izvozima.</li>
+          <li><strong>Možete ga ukloniti bilo kad;</strong> već ovjereni akti ostaju kakvi jesu.</li>
+        </ul>
+      </details>
       <div class="zig-pregled">
         {{if .ImaPotpisSliku}}<img src="/profile/potpis-slika?t={{.User.UpdatedAt.Unix}}" alt="Potpis" class="potpis-slika">{{else}}<div class="zig-prazno">Potpis još nije skeniran.</div>{{end}}
       </div>

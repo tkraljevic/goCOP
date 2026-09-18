@@ -99,13 +99,19 @@ func (h *AktiHandler) HandleZig(w http.ResponseWriter, r *http.Request) {
 	redirectWith(w, r, natrag, "success", "Žig je spremljen i od sada stoji na PDF-u svakog ovjerenog akta sektora.")
 }
 
-// ZigSlika daje sliku žiga za pregled
+// ZigSlika daje sliku žiga za pregled, samo upravi sektora
 func (h *AktiHandler) ZigSlika(w http.ResponseWriter, r *http.Request) {
+	_, perms, _ := h.base(r)
 	s := h.svc(w)
 	if s == nil {
 		return
 	}
-	z := s.Zig(r.Context(), r.URL.Query().Get("sektor"))
+	sektor := r.URL.Query().Get("sektor")
+	if perms == nil || !perms.CanAdminister(sektor, 0) {
+		http.Error(w, "žig smije pregledati samo uprava sektora", http.StatusForbidden)
+		return
+	}
+	z := s.Zig(r.Context(), sektor)
 	if z == nil {
 		http.NotFound(w, r)
 		return

@@ -215,6 +215,17 @@ func TestRucniPotpisISkenKrozRute(t *testing.T) {
 	if w := zovi(httptest.NewRequest(http.MethodGet, "/administracija/zig/slika?sektor=B", nil)); w.Header().Get("Content-Type") != "image/png" {
 		t.Error("slika žiga")
 	}
+	// sliku žiga ne vidi tko nije uprava sektora
+	perms.IsGlobalAdmin = false
+	obicni := &models.UserPermissions{AllowedSectors: map[string]bool{"B": true}, User: *voditelj}
+	rObicni := httptest.NewRequest(http.MethodGet, "/administracija/zig/slika?sektor=B", nil)
+	cObicni := context.WithValue(context.WithValue(rObicni.Context(), contextKeyUser, voditelj), contextKeyPerms, obicni)
+	wObicni := httptest.NewRecorder()
+	mux.ServeHTTP(wObicni, rObicni.WithContext(cObicni))
+	if wObicni.Code != http.StatusForbidden {
+		t.Errorf("žig smije vidjeti samo uprava sektora, a dobiveno %d", wObicni.Code)
+	}
+	perms.IsGlobalAdmin = true
 	// premala slika ne prolazi
 	var tijeloM bytes.Buffer
 	mwM := multipart.NewWriter(&tijeloM)
