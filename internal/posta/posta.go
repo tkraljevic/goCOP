@@ -228,6 +228,25 @@ func predaj(c *smtp.Client, m Poruka) error {
 }
 
 func spoji(ctx context.Context, p Postavke, r Racun) (*smtp.Client, error) {
+	c, err := spojiBezPrijave(ctx, p)
+	if err != nil {
+		return nil, err
+	}
+	if ok, _ := c.Extension("AUTH"); ok {
+		if err := c.Auth(&prijava{korisnik: r.Korisnik, lozinka: r.Lozinka}); err != nil {
+			c.Close()
+			var te *textproto.Error
+			if errors.As(err, &te) && (te.Code == 535 || te.Code == 534) {
+				return nil, ErrPrijava
+			}
+			return nil, fmt.Errorf("prijava na poslužitelj: %w", err)
+		}
+	}
+	return c, nil
+}
+
+// spojiBezPrijave otvori šifriranu vezu do prijave
+func spojiBezPrijave(ctx context.Context, p Postavke) (*smtp.Client, error) {
 	if !p.Podesena() {
 		return nil, fmt.Errorf("poslužitelj e-pošte nije upisan u gocop.toml ([posta])")
 	}
@@ -274,16 +293,6 @@ func spoji(ctx context.Context, p Postavke, r Racun) (*smtp.Client, error) {
 		if err := c.StartTLS(tlsCfg); err != nil {
 			c.Close()
 			return nil, fmt.Errorf("šifrirana veza s %s nije uspostavljena: %w", host, err)
-		}
-	}
-	if ok, _ := c.Extension("AUTH"); ok {
-		if err := c.Auth(&prijava{korisnik: r.Korisnik, lozinka: r.Lozinka}); err != nil {
-			c.Close()
-			var te *textproto.Error
-			if errors.As(err, &te) && (te.Code == 535 || te.Code == 534) {
-				return nil, ErrPrijava
-			}
-			return nil, fmt.Errorf("prijava na poslužitelj: %w", err)
 		}
 	}
 	return c, nil
@@ -340,4 +349,32 @@ func Adrese(s string) []string {
 		}
 	}
 	return out
+}
+
+// Ispitaj provjeri poslužitelj bez lozinke: je li dostupan, nudi li prijavu
+// i koju domenu objavljuje. Vraća opis za administratora.
+func Ispitaj(ctx context.Context, p Postavke) (string, error) {
+	if !p.Podesena() {
+		return "", errors.New("upišite poslužitelj")
+	}
+	if p.ews() {
+		_, z, err := ewsPozoviIzazov(ctx, p, Racun{Korisnik: "-", Lozinka: "-"}, ewsMapaPoslano)
+		if z != nil {
+			return fmt.Sprintf("Exchange na %s nudi prijavu sustava Windows; domena %s (%s).", p.Posluzitelj, z.NetBIOSDomena(), z.tekst(avDnsDomain)), nil
+		}
+		if errors.Is(err, ErrPrijava) {
+			return fmt.Sprintf("Poslužitelj %s traži prijavu, ali ne NTLM-om; provjerite adresu EWS-a.", p.Posluzitelj), nil
+		}
+		return "", err
+	}
+	c, err := spojiBezPrijave(ctx, p)
+	if err != nil {
+		return "", err
+	}
+	defer c.Close()
+	ok, mehanizmi := c.Extension("AUTH")
+	if !ok {
+		return fmt.Sprintf("SMTP na %s:%d radi šifrirano, ali ne nudi prijavu lozinkom.", p.Posluzitelj, p.port()), nil
+	}
+	return fmt.Sprintf("SMTP na %s:%d radi šifrirano; prijava: %s.", p.Posluzitelj, p.port(), mehanizmi), nil
 }

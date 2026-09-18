@@ -556,3 +556,40 @@ func (r *AktiRepository) DeleteRacunPoste(ctx context.Context, userID string) er
 	_, err := r.db.ExecContext(ctx, `DELETE FROM posta_racuni WHERE user_id = ?`, userID)
 	return err
 }
+
+// ---- opće postavke ----
+
+// EntityPostavke su opće postavke organizacije u knjizi verzija
+const EntityPostavke = "postavke"
+
+// PostavkaPosta je ključ postavki poslužitelja e-pošte (JSON)
+const PostavkaPosta = "posta"
+
+const opcaPostavkaUpsert = `INSERT INTO postavke (id, vrijednost, updated_at) VALUES (?, ?, ?)
+	ON CONFLICT(id) DO UPDATE SET vrijednost = excluded.vrijednost, updated_at = excluded.updated_at`
+
+// GetPostavka čita opću postavku; prazno kad je nema
+func (r *AktiRepository) GetPostavka(ctx context.Context, id string) (string, error) {
+	var v string
+	err := r.db.QueryRowContext(ctx, `SELECT vrijednost FROM postavke WHERE id = ?`, id).Scan(&v)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	return v, err
+}
+
+// SavePostavka sprema opću postavku, s verzijom u knjizi
+func (r *AktiRepository) SavePostavka(ctx context.Context, id, vrijednost string) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, opcaPostavkaUpsert, id, vrijednost, time.Now().UTC()); err != nil {
+		return err
+	}
+	if _, err := r.rec.Record(ctx, tx, EntityPostavke, id, Postavka{ID: id, Vrijednost: vrijednost}); err != nil {
+		return err
+	}
+	return tx.Commit()
+}

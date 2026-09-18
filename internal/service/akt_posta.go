@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/mail"
@@ -23,20 +24,69 @@ func (s *AktService) SmijeSlati(perms *models.UserPermissions, u *models.User, a
 	return s.smijePripremiti(perms, u, a)
 }
 
-// SetPosta daje servisu postavke poslužitelja e-pošte
+// SetPosta daje servisu zadane postavke poslužitelja e-pošte iz gocop.toml;
+// postavke spremljene u programu (Administracija) imaju prednost
 func (s *AktService) SetPosta(p posta.Postavke) { s.posta = p }
 
-// PostaPodesena javlja je li slanje e-poštom uključeno na ovom čvoru
-func (s *AktService) PostaPodesena() bool { return s.posta.Podesena() }
+// Posta vraća važeće postavke poslužitelja: iz baze ako su spremljene, inače zadane
+func (s *AktService) Posta(ctx context.Context) posta.Postavke {
+	v, err := s.repo.GetPostavka(ctx, repository.PostavkaPosta)
+	if err != nil || v == "" {
+		return s.posta
+	}
+	var p posta.Postavke
+	if json.Unmarshal([]byte(v), &p) != nil {
+		return s.posta
+	}
+	p.TLS, p.DopustiBasic, p.Istek = s.posta.TLS, s.posta.DopustiBasic, s.posta.Istek
+	return p
+}
+
+// PostaSpremljena javlja jesu li postavke spremljene u programu (a ne samo u datoteci)
+func (s *AktService) PostaSpremljena(ctx context.Context) bool {
+	v, _ := s.repo.GetPostavka(ctx, repository.PostavkaPosta)
+	return v != ""
+}
+
+// SpremiPostu sprema postavke poslužitelja; smije samo administrator
+func (s *AktService) SpremiPostu(ctx context.Context, perms *models.UserPermissions, p posta.Postavke) error {
+	if perms == nil || !perms.IsGlobalAdmin {
+		return ErrUnauthorized
+	}
+	p.Posluzitelj = strings.TrimSpace(p.Posluzitelj)
+	p.Domena = strings.TrimSpace(p.Domena)
+	if p.Nacin != posta.NacinSMTP {
+		p.Nacin = posta.NacinEWS
+	}
+	if p.Sigurnost != posta.TLS {
+		p.Sigurnost = posta.STARTTLS
+	}
+	if p.Port < 0 || p.Port > 65535 {
+		return fmt.Errorf("port mora biti između 1 i 65535")
+	}
+	b, err := json.Marshal(struct {
+		Nacin, Posluzitelj, Sigurnost, Domena string
+		Port                                  int
+	}{p.Nacin, p.Posluzitelj, p.Sigurnost, p.Domena, p.Port})
+	if err != nil {
+		return err
+	}
+	return s.repo.SavePostavka(ctx, repository.PostavkaPosta, string(b))
+}
+
+// PostaPodesena javlja je li slanje e-poštom uključeno
+func (s *AktService) PostaPodesena(ctx context.Context) bool { return s.Posta(ctx).Podesena() }
 
 // PostaSpremaPoslano javlja ostaje li poslana poruka u korisnikovoj mapi Poslano (EWS)
-func (s *AktService) PostaSpremaPoslano() bool { return s.posta.SpremaPoslano() }
+func (s *AktService) PostaSpremaPoslano(ctx context.Context) bool {
+	return s.Posta(ctx).SpremaPoslano()
+}
 
 // PostaDomena je domena sustava Windows za prijavu
-func (s *AktService) PostaDomena() string { return s.posta.Domena }
+func (s *AktService) PostaDomena(ctx context.Context) string { return s.Posta(ctx).Domena }
 
 // PostaPosluzitelj je naziv poslužitelja, za prikaz
-func (s *AktService) PostaPosluzitelj() string { return s.posta.Posluzitelj }
+func (s *AktService) PostaPosluzitelj(ctx context.Context) string { return s.Posta(ctx).Posluzitelj }
 
 func (s *AktService) kljucPoste() []byte {
 	if len(s.kljuc) == 0 {
@@ -70,13 +120,14 @@ func (s *AktService) SpremiRacunPoste(ctx context.Context, u *models.User, koris
 		return "", fmt.Errorf("ključ čvora nije učitan; lozinka se ne može sigurno spremiti")
 	}
 	upozorenje := ""
-	if s.posta.Podesena() {
+	pp := s.Posta(ctx)
+	if pp.Podesena() {
 		// pokušaj upisano ime, pa DOMENA\korisnik; spremi ono koje prođe
 		var err error
 		var pokusano []string
-		for _, ime := range s.posta.Imena(korisnik) {
+		for _, ime := range pp.Imena(korisnik) {
 			var proslo string
-			proslo, err = posta.Prijavi(ctx, s.posta, posta.Racun{Korisnik: ime, Lozinka: lozinka})
+			proslo, err = posta.Prijavi(ctx, pp, posta.Racun{Korisnik: ime, Lozinka: lozinka})
 			pokusano = append(pokusano, ime)
 			if err == nil {
 				korisnik = proslo
@@ -87,7 +138,7 @@ func (s *AktService) SpremiRacunPoste(ctx context.Context, u *models.User, koris
 			}
 		}
 		if errors.Is(err, posta.ErrPrijava) {
-			return "", fmt.Errorf("poslužitelj %s je odbio korisničko ime ili lozinku (pokušano: %s, i s domenom poslužitelja); ništa nije spremljeno. Provjerite lozinku prijavom na https://%s u pregledniku; više krivih pokušaja zaključava račun", s.posta.Posluzitelj, strings.Join(pokusano, ", "), s.posta.Posluzitelj)
+			return "", fmt.Errorf("poslužitelj %s je odbio korisničko ime ili lozinku (pokušano: %s, i s domenom poslužitelja); ništa nije spremljeno. Provjerite lozinku prijavom na https://%s u pregledniku; više krivih pokušaja zaključava račun", pp.Posluzitelj, strings.Join(pokusano, ", "), pp.Posluzitelj)
 		}
 		if err != nil {
 			upozorenje = "Lozinka je spremljena, ali prijava nije provjerena: " + err.Error()
@@ -174,8 +225,9 @@ func (s *AktService) PosaljiNaZnanje(ctx context.Context, perms *models.UserPerm
 	if !s.smijePripremiti(perms, u, a) {
 		return nil, ErrUnauthorized
 	}
-	if !s.posta.Podesena() {
-		return nil, fmt.Errorf("slanje e-poštom nije uključeno: upišite poslužitelj u gocop.toml, odjeljak [posta]")
+	pp := s.Posta(ctx)
+	if !pp.Podesena() {
+		return nil, fmt.Errorf("slanje e-poštom nije uključeno: administrator upisuje poslužitelj u Administraciji › E-pošta")
 	}
 	if u.Email == "" {
 		return nil, fmt.Errorf("u vašem profilu nema adrese e-pošte; s nje se akt šalje")
@@ -216,7 +268,7 @@ func (s *AktService) PosaljiNaZnanje(ctx context.Context, perms *models.UserPerm
 	if kopijaMeni {
 		poruke = append(poruke, posta.Poruka{Od: od, Za: od, Predmet: poruka.Predmet, Tekst: poruka.Tekst, Privitci: privitak})
 	}
-	greske, err := posta.Posalji(ctx, s.posta, posta.Racun{Korisnik: racun.Korisnik, Lozinka: lozinka}, poruke)
+	greske, err := posta.Posalji(ctx, pp, posta.Racun{Korisnik: racun.Korisnik, Lozinka: lozinka}, poruke)
 	if errors.Is(err, posta.ErrPrijava) {
 		return nil, fmt.Errorf("poslužitelj je odbio vašu lozinku e-pošte; ako ste je promijenili, upišite novu u profilu")
 	}

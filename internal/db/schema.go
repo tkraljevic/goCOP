@@ -300,6 +300,13 @@ func InitSchema(database *sql.DB) error {
 			lozinka BLOB NOT NULL,
 			updated_at DATETIME NOT NULL
 		);`,
+		// Opće postavke organizacije koje se uređuju u programu i dijele među
+		// čvorovima (npr. poslužitelj e-pošte); vrijednost je JSON ili tekst
+		`CREATE TABLE IF NOT EXISTS postavke (
+			id TEXT PRIMARY KEY,
+			vrijednost TEXT NOT NULL,
+			updated_at DATETIME NOT NULL
+		);`,
 		// Špranca akata po sektoru: pravna osnova, članci, završna rečenica
 		`CREATE TABLE IF NOT EXISTS akti_sprance (
 			sektor TEXT PRIMARY KEY,
