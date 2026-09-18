@@ -110,3 +110,20 @@ func TestPreuzimanjeSJavneStraniceKrozRute(t *testing.T) {
 		t.Errorf("ponovljeno preuzimanje udvostručilo očitanja: %d", len(popis))
 	}
 }
+
+// Broj postaje smije doći i kao zalijepljena adresa stranice
+func TestJavniIDIzAdrese(t *testing.T) {
+	for unos, zeli := range map[string]int{
+		"424": 424,
+		" 426 ": 426,
+		"https://mvodostaji.voda.hr/Home/PregledVodostajaPostaje?sektorID=2&bpID=34&postajaID=424": 424,
+		"https://vodostaji.voda.hr/?postajaid=426": 426,
+		"":   0,
+		"-5": 0,
+		"Batina": 0,
+	} {
+		if id := javniIDIzUnosa(unos); id != zeli {
+			t.Errorf("%q: %d, očekivano %d", unos, id, zeli)
+		}
+	}
+}
