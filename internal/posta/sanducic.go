@@ -110,17 +110,40 @@ func SveMape(ctx context.Context, p Postavke, r Racun) ([]Mapa, error) {
 	for _, x := range f.Mape {
 		n := strings.ToLower(x.DisplayName)
 		if x.Class != "" && x.Class != "IPF.Note" {
-			continue
+			continue // kalendar, kontakti, zadaci, bilješke, dnevnik…
 		}
-		// ugrađene mape Exchange vraća i ovdje, pod engleskim ili hrvatskim imenom
-		if ugradjene[n] || n == "inbox" || n == "sent items" || n == "drafts" || n == "deleted items" || n == "junk email" || n == "outbox" || n == "archive" ||
-			n == "ulazna pošta" || n == "poslane stavke" || n == "skice" || n == "izbrisane stavke" || n == "bezvrijedna e-pošta" || n == "otpremljena pošta" || n == "arhiva" ||
-			n == "conversation history" || n == "povijest razgovora" || n == "rss feeds" || n == "sync issues" || n == "problemi sa sinkronizacijom" {
+		if ugradjene[n] || sustavnaMapa(n) {
 			continue
 		}
 		out = append(out, Mapa{ID: x.ID.Id, Naziv: x.DisplayName, Neprocitano: x.Unread, Ukupno: x.Total})
 	}
 	return out, nil
+}
+
+// sustavnaMapa prepoznaje mape koje Exchange i Outlook drže za sebe, na
+// hrvatskom i engleskom; korisnika samo zbunjuju pa se ne nude
+func sustavnaMapa(n string) bool {
+	tocno := []string{
+		"inbox", "ulazna pošta", "sent items", "poslane stavke", "poslana pošta", "poslano", "drafts", "skice",
+		"deleted items", "izbrisane stavke", "obrisano", "junk email", "bezvrijedna e-pošta", "neželjena e-pošta", "outbox", "otpremljena pošta", "izlazna pošta",
+		"archive", "arhiva", "notes", "bilješke", "journal", "dnevnik", "files", "datoteke", "news feed", "rss feeds", "rss sažeci",
+		"sync issues", "problemi sa sinkronizacijom", "conversation history", "povijest razgovora", "quick step settings", "postavke brzih koraka",
+		"working set", "radni skup", "scheduled", "zakazano", "clutter", "nered", "yammer root", "korijenska mapa servisa", "conversation action settings",
+		"postavke radnji razgovora", "calendar", "kalendar", "contacts", "kontakti", "tasks", "zadaci", "suggested contacts", "predloženi kontakti",
+		"externalcontacts", "personmetadata", "recipient cache", "companies", "organizational contacts", "gal contacts", "skype for business contacts",
+		"unwanted", "snoozed", "odgođeno", "social activity notifications", "obavijesti o društvenim aktivnostima",
+	}
+	for _, t := range tocno {
+		if n == t {
+			return true
+		}
+	}
+	for _, dio := range []string{"settings", "postavke", "working set", "root", "korijen", "feed", "conversation", "razgovor", "quick step", "brzi korac", "metadata", "sync", "sinkroniz"} {
+		if strings.Contains(n, dio) {
+			return true
+		}
+	}
+	return false
 }
 
 // Pismo je primljena poruka

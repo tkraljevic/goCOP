@@ -171,3 +171,16 @@ func TestOblikovanoPismo(t *testing.T) {
 		t.Error("prazno oblikovano tijelo mora biti prazno")
 	}
 }
+
+func TestSustavneMapeSeSkrivaju(t *testing.T) {
+	for _, n := range []string{"Bilješke", "Conversation History", "Datoteke", "Dnevnik", "Korijenska mapa servisa", "News Feed", "Poslana pošta", "Quick Step Settings", "Working Set", "Zakazano", "Sync Issues"} {
+		if !sustavnaMapa(strings.ToLower(n)) {
+			t.Errorf("%q je sustavna mapa", n)
+		}
+	}
+	for _, n := range []string{"Projekti", "Batina 2026", "Obrana od poplava", "Računi"} {
+		if sustavnaMapa(strings.ToLower(n)) {
+			t.Errorf("%q je korisnikova mapa", n)
+		}
+	}
+}
