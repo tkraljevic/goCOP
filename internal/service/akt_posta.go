@@ -73,10 +73,13 @@ func (s *AktService) SpremiRacunPoste(ctx context.Context, u *models.User, koris
 	if s.posta.Podesena() {
 		// pokušaj upisano ime, pa DOMENA\korisnik; spremi ono koje prođe
 		var err error
+		var pokusano []string
 		for _, ime := range s.posta.Imena(korisnik) {
-			err = posta.Provjeri(ctx, s.posta, posta.Racun{Korisnik: ime, Lozinka: lozinka})
+			var proslo string
+			proslo, err = posta.Prijavi(ctx, s.posta, posta.Racun{Korisnik: ime, Lozinka: lozinka})
+			pokusano = append(pokusano, ime)
 			if err == nil {
-				korisnik = ime
+				korisnik = proslo
 				break
 			}
 			if !errors.Is(err, posta.ErrPrijava) {
@@ -84,7 +87,7 @@ func (s *AktService) SpremiRacunPoste(ctx context.Context, u *models.User, koris
 			}
 		}
 		if errors.Is(err, posta.ErrPrijava) {
-			return "", fmt.Errorf("poslužitelj %s je odbio korisničko ime ili lozinku (pokušano: %s); ništa nije spremljeno", s.posta.Posluzitelj, strings.Join(s.posta.Imena(korisnik), ", "))
+			return "", fmt.Errorf("poslužitelj %s je odbio korisničko ime ili lozinku (pokušano: %s, i s domenom poslužitelja); ništa nije spremljeno. Provjerite lozinku prijavom na https://%s u pregledniku; više krivih pokušaja zaključava račun", s.posta.Posluzitelj, strings.Join(pokusano, ", "), s.posta.Posluzitelj)
 		}
 		if err != nil {
 			upozorenje = "Lozinka je spremljena, ali prijava nije provjerena: " + err.Error()

@@ -11,8 +11,6 @@ import (
 	"net/http"
 	"strings"
 	"time"
-
-	"github.com/Azure/go-ntlmssp"
 )
 
 // Slanje preko Exchange Web Services (EWS): istim putem kojim šalje
@@ -48,7 +46,7 @@ func (p Postavke) ewsKlijent() *http.Client {
 	if istek <= 0 {
 		istek = 2 * time.Minute
 	}
-	return &http.Client{Timeout: istek, Transport: ntlmssp.Negotiator{RoundTripper: tr, AllowBasicAuth: p.DopustiBasic}}
+	return &http.Client{Timeout: istek, Transport: tr}
 }
 
 const ewsOmot = `<?xml version="1.0" encoding="utf-8"?>
@@ -110,29 +108,65 @@ func citajEWS(podaci []byte) (*ewsOdgovor, error) {
 }
 
 func ewsPozovi(ctx context.Context, p Postavke, r Racun, tijelo string) (*ewsOdgovor, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.ewsURL(), strings.NewReader(fmt.Sprintf(ewsOmot, tijelo)))
-	if err != nil {
-		return nil, err
+	o, _, err := ewsPozoviIzazov(ctx, p, r, tijelo)
+	return o, err
+}
+
+// ewsPozoviIzazov vraća i NTLM izazov poslužitelja, iz kojeg se čita domena
+func ewsPozoviIzazov(ctx context.Context, p Postavke, r Racun, tijelo string) (*ewsOdgovor, *ntlmIzazov, error) {
+	c := p.ewsKlijent()
+	omot := []byte(fmt.Sprintf(ewsOmot, tijelo))
+	var res *http.Response
+	var z *ntlmIzazov
+	var err error
+	if p.DopustiBasic {
+		// samo probni poslužitelj u testovima
+		req, _ := http.NewRequestWithContext(ctx, http.MethodPost, p.ewsURL(), bytes.NewReader(omot))
+		req.Header.Set("Content-Type", "text/xml; charset=utf-8")
+		req.SetBasicAuth(r.Korisnik, r.Lozinka)
+		res, err = c.Do(req)
+	} else {
+		res, z, err = ntlmDo(ctx, c, p.ewsURL(), "text/xml; charset=utf-8", omot, r)
 	}
-	req.Header.Set("Content-Type", "text/xml; charset=utf-8")
-	req.SetBasicAuth(r.Korisnik, r.Lozinka) // Negotiator ih pretvara u NTLM
-	res, err := p.ewsKlijent().Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("poslužitelj %s nije dostupan: %w", p.Posluzitelj, err)
+		return nil, z, fmt.Errorf("poslužitelj %s nije dostupan: %w", p.Posluzitelj, err)
 	}
 	defer res.Body.Close()
 	podaci, _ := io.ReadAll(io.LimitReader(res.Body, 4<<20))
 	if res.StatusCode == http.StatusUnauthorized {
-		return nil, ErrPrijava
+		return nil, z, ErrPrijava
 	}
 	o, err := citajEWS(podaci)
 	if err != nil || (res.StatusCode != http.StatusOK && o.Greska == "") {
-		return nil, fmt.Errorf("poslužitelj %s je odgovorio %s", p.Posluzitelj, res.Status)
+		return nil, z, fmt.Errorf("poslužitelj %s je odgovorio %s", p.Posluzitelj, res.Status)
 	}
 	if o.Greska != "" {
-		return nil, fmt.Errorf("Exchange: %s", o.Greska)
+		return nil, z, fmt.Errorf("Exchange: %s", o.Greska)
 	}
-	return o, nil
+	return o, z, nil
+}
+
+const ewsMapaPoslano = `<m:GetFolder><m:FolderShape><t:BaseShape>IdOnly</t:BaseShape></m:FolderShape><m:FolderIds><t:DistinguishedFolderId Id="sentitems"/></m:FolderIds></m:GetFolder>`
+
+// ewsPrijavi se prijavi bez slanja i vrati ime kojim je prijava prošla:
+// upisano, ili DOMENA\korisnik s domenom koju poslužitelj sam objavi
+func ewsPrijavi(ctx context.Context, p Postavke, r Racun) (string, error) {
+	err := ewsProvjeri(ctx, p, r)
+	if err == nil {
+		return r.Korisnik, nil
+	}
+	if !errors.Is(err, ErrPrijava) {
+		return "", err
+	}
+	_, z, _ := ewsPozoviIzazov(ctx, p, Racun{Korisnik: "-", Lozinka: "-"}, ewsMapaPoslano)
+	drugo := ntlmDrugoIme(r.Korisnik, z)
+	if drugo == "" {
+		return "", err
+	}
+	if err := ewsProvjeri(ctx, p, Racun{Korisnik: drugo, Lozinka: r.Lozinka}); err != nil {
+		return "", err
+	}
+	return drugo, nil
 }
 
 // ewsProvjeri se prijavi i pročita mapu Poslano, bez slanja
