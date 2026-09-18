@@ -15,10 +15,13 @@
   <div class="page-actions">
     <a href="/akti/{{$a.ID}}/akt.pdf" class="btn btn-secondary" target="_blank">{{icon "printer"}} PDF</a>
     {{if .SmijeOvjeriti}}
-    <form method="POST" action="/akti/{{$a.ID}}/ovjeri" style="display:inline;" onsubmit="return confirm('Ovjeriti u goCOP-u bez kvalificiranog potpisa? Koristi se kad nema vremena za SIGNATOR; izvornik tada ostaje ispis sa žigom i potpisom.');"><button type="submit" class="btn btn-secondary" title="Hitna ovjera u programu, bez kvalificiranog potpisa">{{icon "check"}} Ovjeri u goCOP-u</button></form>
+    <form method="POST" action="/akti/{{$a.ID}}/ovjeri" style="display:inline;" onsubmit="return confirm('Ovjeriti akt u goCOP-u? Ovjera se potpisuje ključem čvora, akt dobiva broj i kod ovjere, a PDF sa žigom i potpisom postaje izvornik.');"><button type="submit" class="btn btn-secondary" title="Hitna ovjera u programu, bez kvalificiranog potpisa">{{icon "check"}} Ovjeri u goCOP-u</button></form>
     {{end}}
     {{if .SmijeObrisati}}
     <form method="POST" action="/akti/{{$a.ID}}/obrisi" style="display:inline;" onsubmit="return confirm('Obrisati nacrt?');"><button type="submit" class="btn btn-secondary">{{icon "trash"}} Obriši nacrt</button></form>
+    {{end}}
+    {{if .SmijeObrisatiTrajno}}
+    <form method="POST" action="/akti/{{$a.ID}}/obrisi" style="display:inline;" onsubmit="return confirm('TRAJNO obrisati ovjereni akt {{$a.Oznaka}} s izvornikom i dnevnikom slanja? Ovo je dopušteno samo u testnom okruženju (Administracija › Opcije).');"><button type="submit" class="btn btn-secondary btn-opasno">{{icon "trash"}} Obriši trajno</button></form>
     {{end}}
   </div>
 </div>

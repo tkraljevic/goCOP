@@ -1,0 +1,35 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Opcije{{end}}
+
+{{define "content"}}
+<div class="breadcrumb"><a href="/administracija">Administracija</a> › Opcije</div>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "settings"}} Opcije</h1>
+    <p class="page-desc">Opći prekidači programa. Svaki nosi objašnjenje što uključuje i kada ga treba držati isključenim. Vrijede na svim čvorovima; mijenja ih samo uprava organizacije, a promjena ostaje u knjizi verzija.</p>
+  </div>
+</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
+
+<section class="detail-section" style="margin-top:0; max-width:48rem;">
+  <form method="POST" action="/administracija/opcije">
+    <div class="opcija">
+      <label class="opcija-red">
+        <input type="checkbox" name="brisanje_ovjerenih_akata" value="1" {{if .Opcije.BrisanjeOvjerenihAkata}}checked{{end}}>
+        <span class="opcija-naziv">Trajno brisanje ovjerenih rješenja i obavijesti</span>
+        <span class="badge {{if .Opcije.BrisanjeOvjerenihAkata}}badge-danger{{else}}badge-active{{end}}">{{if .Opcije.BrisanjeOvjerenihAkata}}uključeno{{else}}isključeno{{end}}</span>
+      </label>
+      <div class="opcija-opis">
+        <p><strong>Što radi:</strong> na ovjerenom aktu uprava organizacije i uprava sektora dobivaju gumb „Obriši trajno”. Briše se akt, njegov izvornik (PDF s ovjerom, žigom i potpisom) i dnevnik slanja primateljima. Brisanje ostaje zabilježeno u knjizi verzija, s imenom i vremenom.</p>
+        <p><strong>Što ne radi:</strong> ne povlači pisma koja su već poslana primateljima i ne vraća stanje obrane na dionicama koje je akt proglasio; to se po potrebi zaključuje ručno. Redni brojevi akata ostaju s prazninom.</p>
+        <p><strong>Kada uključiti:</strong> samo u testnom okruženju, dok se program isprobava probnim aktima. <strong>U operativnom radu držite isključeno:</strong> ovjereno rješenje ili obavijest ima pravni učinak i mora ostati u evidenciji, pa se ispravlja novim aktom, ne brisanjem.</p>
+      </div>
+    </div>
+    <div class="form-actions"><button type="submit" class="btn btn-primary">{{icon "check"}} Spremi opcije</button></div>
+  </form>
+</section>
+{{end}}

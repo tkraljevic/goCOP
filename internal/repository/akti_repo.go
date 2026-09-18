@@ -716,3 +716,45 @@ func (r *AktiRepository) DeletePotpisSlika(ctx context.Context, userID string) e
 	_, err := r.db.ExecContext(ctx, `DELETE FROM potpisi_slike WHERE user_id = ?`, userID)
 	return err
 }
+
+// PostavkaOpcije je ključ općih prekidača programa (JSON models.Opcije)
+const PostavkaOpcije = "opcije"
+
+// DeleteAktTrajno briše akt bez obzira na stanje, s izvornikom i dnevnikom
+// slanja; svako brisanje ostaje zabilježeno u knjizi verzija
+func (r *AktiRepository) DeleteAktTrajno(ctx context.Context, id string) error {
+	a, err := r.GetAkt(ctx, id)
+	if err != nil || a == nil {
+		return err
+	}
+	slanja, _ := r.ListSlanja(ctx, id)
+	iz, _ := r.GetIzvornik(ctx, id)
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for _, sl := range slanja {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM akti_slanja WHERE id = ?`, sl.ID); err != nil {
+			return err
+		}
+		if _, err := r.rec.Archive(ctx, tx, EntitySlanja, sl.ID, sl); err != nil {
+			return err
+		}
+	}
+	if iz != nil {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM akti_izvornici WHERE akt_id = ?`, id); err != nil {
+			return err
+		}
+		if _, err := r.rec.Archive(ctx, tx, EntityIzvornici, id, iz); err != nil {
+			return err
+		}
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM akti WHERE id = ?`, id); err != nil {
+		return err
+	}
+	if _, err := r.rec.Archive(ctx, tx, EntityAkti, id, a); err != nil {
+		return err
+	}
+	return tx.Commit()
+}

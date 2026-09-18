@@ -3665,3 +3665,8 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .zastita { margin: 0.75rem 0; border: 1px solid var(--border, #d9dee5); border-radius: 8px; padding: 0.5rem 0.8rem; background: var(--surface-2, #f7f9fb); font-size: 0.88rem; }
 .zastita summary { cursor: pointer; font-weight: 600; display: flex; gap: 0.35rem; align-items: center; }
 .zastita ul { margin: 0.5rem 0 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: 0.3rem; }
+.opcija { border: 1px solid var(--border, #d9dee5); border-radius: 10px; padding: 0.75rem 1rem; margin: 0 0 0.75rem; background: var(--surface, #fff); }
+.opcija-red { display: flex; gap: 0.6rem; align-items: center; cursor: pointer; flex-wrap: wrap; }
+.opcija-naziv { font-weight: 600; }
+.opcija-opis { margin-top: 0.5rem; font-size: 0.9rem; color: var(--muted, #4b5563); }
+.opcija-opis p { margin: 0 0 0.4rem; }
