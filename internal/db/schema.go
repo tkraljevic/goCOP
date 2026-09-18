@@ -319,6 +319,14 @@ func InitSchema(database *sql.DB) error {
 			uredio TEXT NOT NULL DEFAULT '',
 			updated_at DATETIME NOT NULL
 		);`,
+		// Skenirani vlastoručni potpis korisnika, šifriran ključem čvora; samo
+		// lokalno, ne ide u knjigu verzija
+		`CREATE TABLE IF NOT EXISTS potpisi_slike (
+			user_id TEXT PRIMARY KEY,
+			mime TEXT NOT NULL,
+			slika BLOB NOT NULL,
+			updated_at DATETIME NOT NULL
+		);`,
 		// Špranca akata po sektoru: pravna osnova, članci, završna rečenica
 		`CREATE TABLE IF NOT EXISTS akti_sprance (
 			sektor TEXT PRIMARY KEY,

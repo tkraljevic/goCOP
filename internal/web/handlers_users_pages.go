@@ -60,10 +60,11 @@ type UserPageData struct {
 	DutyExpires string
 	Prijasnja   []models.PrijasnjeZaduzenje // opozvana i istekla zaduženja, povijest profila
 
-	ModuleRows []ModuleOverrideRow // vidljivost modula za ovaj račun (samo globalni administrator)
-	Planovi    []models.PlanOsobe  // planovi dežurstava u kojima osoba ima sate
-	PostaRacun string              // korisničko ime računa e-pošte, prazno kad lozinka nije upisana
-	PostaKad   time.Time
+	ModuleRows     []ModuleOverrideRow // vidljivost modula za ovaj račun (samo globalni administrator)
+	Planovi        []models.PlanOsobe  // planovi dežurstava u kojima osoba ima sate
+	ImaPotpisSliku bool                // sken vlastoručnog potpisa je spremljen
+	PostaRacun     string              // korisničko ime računa e-pošte, prazno kad lozinka nije upisana
+	PostaKad       time.Time
 
 	// Privremena lozinka nakon poništavanja: pokazuje se jednom, na stranici
 	// koja slijedi odmah iza radnje. Ne ide u adresu ni u poruku o uspjehu,
@@ -107,6 +108,11 @@ func canManageUsers(p *models.UserPermissions) bool {
 
 // deletable javlja smije li se račun obrisati: samo onaj koji se nikad nije prijavio
 func deletable(u *models.User) bool { return u != nil && u.LastLoginAt == nil }
+
+// SetPotpisSlika daje rukovatelju uvid ima li osoba sken potpisa
+func (h *UsersHandler) SetPotpisSlika(f func(ctx context.Context, userID string) bool) {
+	h.potpisSlika = f
+}
 
 // SetPosta daje rukovatelju uvid u stanje računa e-pošte za profil
 func (h *UsersHandler) SetPosta(f func(ctx context.Context, userID string) (string, time.Time)) {
@@ -293,6 +299,9 @@ func (h *UsersHandler) ShowProfile(w http.ResponseWriter, r *http.Request) {
 	}
 	if h.postaRacun != nil {
 		data.PostaRacun, data.PostaKad = h.postaRacun(r.Context(), data.User.ID.String())
+	}
+	if h.potpisSlika != nil {
+		data.ImaPotpisSliku = h.potpisSlika(r.Context(), data.User.ID.String())
 	}
 
 	if err := h.tmplProfile.ExecuteTemplate(w, "profile.html", data); err != nil {

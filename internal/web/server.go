@@ -569,6 +569,9 @@ func (s *Server) setupRoutes() {
 	usersH := NewUsersHandler(s.userService, s.templates["users.html"])
 	usersH.SetPageTemplates(s.templates["user_detail.html"], s.templates["user_form.html"], s.templates["duty_form.html"], s.templates["profile.html"])
 	usersH.SetPlanovi(s.journalService.PlanoviOsobe)
+	usersH.SetPotpisSlika(func(ctx context.Context, userID string) bool {
+		return s.akti != nil && s.akti.PotpisSlika(ctx, userID) != nil
+	})
 	usersH.SetPosta(func(ctx context.Context, userID string) (string, time.Time) {
 		if s.akti == nil {
 			return "", time.Time{}
@@ -956,6 +959,8 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /administracija/zig", s.authMiddleware(http.HandlerFunc(aktiH.ShowZig)))
 	s.mux.Handle("POST /administracija/zig", s.authMiddleware(http.HandlerFunc(aktiH.HandleZig)))
 	s.mux.Handle("GET /administracija/zig/slika", s.authMiddleware(http.HandlerFunc(aktiH.ZigSlika)))
+	s.mux.Handle("POST /profile/potpis-slika", s.authMiddleware(http.HandlerFunc(aktiH.HandlePotpisSlika)))
+	s.mux.Handle("GET /profile/potpis-slika", s.authMiddleware(http.HandlerFunc(aktiH.PotpisSlika)))
 	s.mux.Handle("GET /posta/logo.png", s.authMiddleware(http.HandlerFunc(aktiH.Logo)))
 	s.mux.Handle("GET /profile/potpis", s.authMiddleware(http.HandlerFunc(aktiH.ShowPotpis)))
 	s.mux.Handle("POST /profile/potpis", s.authMiddleware(http.HandlerFunc(aktiH.HandlePotpis)))

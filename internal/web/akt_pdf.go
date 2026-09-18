@@ -14,18 +14,19 @@ import (
 // "O tome obavijest" sitnim slovima u dva stupca, naziv i e-pošta; poveznice
 // na dnu. Nacrt nosi vidljivu oznaku; ovjeren nosi tko, kad i kod za provjeru.
 func PDFAkta(a *models.Akt, t models.OrgTerms, sek *models.Sector, area *models.Area) []byte {
-	return pdfAkta(a, t, sek, area, nacinProgram, nil)
+	return pdfAkta(a, t, sek, area, nacinProgram, models.OtisciAkta{})
 }
 
-// PDFAktaSaZigom je PDF ovjerenog akta sa skeniranim žigom centra uz potpis
-func PDFAktaSaZigom(a *models.Akt, t models.OrgTerms, sek *models.Sector, area *models.Area, zig *models.Zig) []byte {
-	return pdfAkta(a, t, sek, area, nacinProgram, zig)
+// PDFAktaSaZigom je PDF ovjerenog akta sa skeniranim žigom centra i
+// skeniranim potpisom ovjeritelja uz blok elektroničke ovjere
+func PDFAktaSaZigom(a *models.Akt, t models.OrgTerms, sek *models.Sector, area *models.Area, o models.OtisciAkta) []byte {
+	return pdfAkta(a, t, sek, area, nacinProgram, o)
 }
 
 // PDFAktaZaIspis je PDF nacrta za ispis, vlastoručni potpis i žig: crta za
 // potpis, mjesto pečata, bez oznake nacrta
 func PDFAktaZaIspis(a *models.Akt, t models.OrgTerms, sek *models.Sector, area *models.Area) []byte {
-	return pdfAkta(a, t, sek, area, nacinIspis, nil)
+	return pdfAkta(a, t, sek, area, nacinIspis, models.OtisciAkta{})
 }
 
 // Načini PDF-a akta
@@ -34,7 +35,7 @@ const (
 	nacinIspis          // za ispis, vlastoručni potpis i žig
 )
 
-func pdfAkta(a *models.Akt, t models.OrgTerms, sek *models.Sector, area *models.Area, nacin int, zig *models.Zig) []byte {
+func pdfAkta(a *models.Akt, t models.OrgTerms, sek *models.Sector, area *models.Area, nacin int, otisci models.OtisciAkta) []byte {
 	zaPotpis := nacin == nacinIspis // ispis bez oznake nacrta, s mjestom za potpis i žig
 	naslov := a.Naslov() + " " + a.Oznaka()
 	if zaPotpis {
@@ -132,18 +133,19 @@ func pdfAkta(a *models.Akt, t models.OrgTerms, sek *models.Sector, area *models.
 		if a.Ovjeren() && a.OvjerenoAt != nil {
 			d.Razmak(4)
 			// skenirani žig centra lijevo od bloka potpisa, na mjestu pečata
-			if zig != nil && len(zig.Slika) > 0 {
+			if zig := otisci.Zig; zig != nil && len(zig.Slika) > 0 {
 				const zw = 96.0
-				zx, zy := potpisX-zw-18, d.Y-16
-				switch zig.Mime {
-				case "image/png":
-					_ = d.SlikaPNG(zig.Slika, zx, zy, zw, zw)
-				case "image/jpeg":
-					_ = d.SlikaJPEG(zig.Slika, zx, zy, zw, zw)
-				}
+				slika(d, zig.Mime, zig.Slika, potpisX-zw-18, d.Y-16, zw, zw)
 			}
 			blokPotpisa(d, a, potpisX+5, potpisW-10)
-			d.Razmak(16)
+			// skenirani vlastoručni potpis ovjeritelja, iznad crte za potpis
+			if p := otisci.Potpis; p != nil && len(p.Slika) > 0 {
+				d.Razmak(4)
+				slika(d, p.Mime, p.Slika, potpisX+potpisW/2-60, d.Y, 120, 36)
+				d.Razmak(38)
+			} else {
+				d.Razmak(16)
+			}
 		} else {
 			d.Razmak(24)
 		}
@@ -386,4 +388,14 @@ func tekstZaIspis(a *models.Akt, t models.OrgTerms, sek *models.Sector) string {
 		b += "."
 	}
 	return b + " Evidencijski broj u goCOP-u: " + strings.ToUpper(strings.ReplaceAll(a.ID, "-", "")[:12]) + "."
+}
+
+// slika crta PNG ili JPEG na zadano mjesto; drugu vrstu preskače
+func slika(d *pdfw.Doc, mime string, podaci []byte, x, y, w, h float64) {
+	switch mime {
+	case "image/png":
+		_ = d.SlikaPNG(podaci, x, y, w, h)
+	case "image/jpeg":
+		_ = d.SlikaJPEG(podaci, x, y, w, h)
+	}
 }

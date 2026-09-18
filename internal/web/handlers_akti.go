@@ -374,6 +374,12 @@ func (h *AktiHandler) HandleOvjeri(w http.ResponseWriter, r *http.Request) {
 		redirectWith(w, r, "/akti/"+r.PathValue("id"), "error", err.Error())
 		return
 	}
+	// PDF s otiskom žiga i skeniranog potpisa postaje izvornik i dijeli se
+	sek, area := h.sektorIPodrucje(a)
+	if err := s.SpremiIzvornikPDF(r.Context(), a, PDFAktaSaZigom(a, models.Terms(), sek, area, s.OtisciAkta(r.Context(), a))); err != nil {
+		redirectWith(w, r, "/akti/"+a.ID, "error", "Akt je ovjeren, ali izvornik nije spremljen: "+err.Error())
+		return
+	}
 	poruka := "Akt " + a.Oznaka() + " je ovjeren."
 	if len(upozorenja) > 0 {
 		poruka += " Stanje obrane na dionicama: " + strings.Join(upozorenja, "; ")
@@ -401,8 +407,9 @@ func (h *AktiHandler) IzvoziPDF(w http.ResponseWriter, r *http.Request) {
 	if a == nil {
 		return
 	}
-	// akt potpisan ručno pa skeniran: sken je izvornik, bajt za bajt
-	if a.ImaIzvornik() {
+	// ovjeren akt ima izvornik: PDF spremljen pri ovjeri ili sken s potpisom
+	// i žigom; služi se bajt za bajt, isti na svakom čvoru
+	if a.Ovjeren() {
 		if pdf, err := s.Izvornik(r.Context(), a.ID); err == nil && pdf != nil {
 			w.Header().Set("Content-Type", "application/pdf")
 			w.Header().Set("Content-Disposition", `inline; filename="`+imeDatotekeAkta(a)+`"`)
@@ -414,7 +421,7 @@ func (h *AktiHandler) IzvoziPDF(w http.ResponseWriter, r *http.Request) {
 	ime := imeDatotekeAkta(a)
 	w.Header().Set("Content-Type", "application/pdf")
 	w.Header().Set("Content-Disposition", `inline; filename="`+ime+`"`)
-	_, _ = w.Write(PDFAktaSaZigom(a, models.Terms(), sek, area, s.Zig(r.Context(), a.Sektor)))
+	_, _ = w.Write(PDFAktaSaZigom(a, models.Terms(), sek, area, s.OtisciAkta(r.Context(), a)))
 }
 
 // IzvoziZaIspis daje PDF nacrta za ispis, vlastoručni potpis i žig

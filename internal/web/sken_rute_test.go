@@ -3,6 +3,7 @@ package web
 import (
 	"bytes"
 	"context"
+	"crypto/ed25519"
 	"html/template"
 	"image"
 	"image/color"
@@ -89,6 +90,8 @@ func TestRucniPotpisISkenKrozRute(t *testing.T) {
 		}
 		return tp
 	}
+	_, kljucCvora, _ := ed25519.GenerateKey(nil)
+	akti.SetKljuc(kljucCvora)
 	h := NewAktiHandler(func() *service.AktService { return akti }, users, stations, tmpl("akti.html"), tmpl("akt_form.html"), tmpl("akt.html"), tmpl("primatelji.html"))
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /akti/novi", h.HandleCreate)
@@ -100,6 +103,8 @@ func TestRucniPotpisISkenKrozRute(t *testing.T) {
 	mux.HandleFunc("GET /administracija/zig", h.ShowZig)
 	mux.HandleFunc("POST /administracija/zig", h.HandleZig)
 	mux.HandleFunc("GET /administracija/zig/slika", h.ZigSlika)
+	mux.HandleFunc("POST /profile/potpis-slika", h.HandlePotpisSlika)
+	mux.HandleFunc("GET /profile/potpis-slika", h.PotpisSlika)
 	mux.HandleFunc("POST /akti/{id}/sken", h.HandleUcitajSken)
 	zovi := func(r *http.Request) *httptest.ResponseRecorder {
 		c := context.WithValue(r.Context(), contextKeyUser, voditelj)
@@ -222,7 +227,27 @@ func TestRucniPotpisISkenKrozRute(t *testing.T) {
 	if loc := mustUnescape(zovi(rm).Header().Get("Location")); !strings.Contains(loc, "premala") {
 		t.Errorf("premala slika: %s", loc)
 	}
-	// akt ovjeren u goCOP-u: PDF nosi žig, ispis za ruku ne
+	// sken vlastoručnog potpisa ovjeritelja
+	pot := image.NewRGBA(image.Rect(0, 0, 240, 60))
+	for x := 0; x < 240; x++ {
+		pot.Set(x, 30, color.Black)
+	}
+	var potPNG bytes.Buffer
+	_ = png.Encode(&potPNG, pot)
+	var tijeloP bytes.Buffer
+	mwP := multipart.NewWriter(&tijeloP)
+	fp, _ := mwP.CreateFormFile("slika", "potpis.png")
+	_, _ = fp.Write(potPNG.Bytes())
+	_ = mwP.Close()
+	rp := httptest.NewRequest(http.MethodPost, "/profile/potpis-slika", &tijeloP)
+	rp.Header.Set("Content-Type", mwP.FormDataContentType())
+	if loc := mustUnescape(zovi(rp).Header().Get("Location")); !strings.Contains(loc, "success") {
+		t.Fatalf("sken potpisa: %s", loc)
+	}
+	if w := zovi(httptest.NewRequest(http.MethodGet, "/profile/potpis-slika", nil)); w.Header().Get("Content-Type") != "image/png" {
+		t.Error("slika potpisa")
+	}
+	// akt ovjeren u goCOP-u: PDF nosi žig i potpis, ispis za ruku ne
 	forma2 := url.Values{"station_id": {st.ID.String()}, "radnja": {"PREKID"}, "stupanj": {"PRIPREMNO"}, "vrijedi": {"2026-09-16T09:00"}}
 	r2 := httptest.NewRequest(http.MethodPost, "/akti/novi", strings.NewReader(forma2.Encode()))
 	r2.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -235,8 +260,8 @@ func TestRucniPotpisISkenKrozRute(t *testing.T) {
 	if loc := mustUnescape(zovi(r3).Header().Get("Location")); !strings.Contains(loc, "success") {
 		t.Fatalf("ovjera u goCOP-u: %s", loc)
 	}
-	if w := zovi(httptest.NewRequest(http.MethodGet, "/akti/"+id2+"/akt.pdf", nil)); !bytes.Contains(w.Body.Bytes(), []byte("/Subtype /Image")) {
-		t.Error("PDF ovjerenog akta ne nosi žig")
+	if w := zovi(httptest.NewRequest(http.MethodGet, "/akti/"+id2+"/akt.pdf", nil)); bytes.Count(w.Body.Bytes(), []byte("/Subtype /Image")) < 2 {
+		t.Errorf("PDF ovjerenog akta mora nositi žig i potpis, slika: %d", bytes.Count(w.Body.Bytes(), []byte("/Subtype /Image")))
 	}
 }
 
