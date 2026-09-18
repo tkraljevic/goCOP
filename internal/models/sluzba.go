@@ -31,11 +31,15 @@ const (
 	SluzbaPolicija        = "POLICIJA"
 	SluzbaPolicijskaPost  = "POLICIJSKA_POSTAJA"
 	SluzbaLuckaKapetanija = "LUCKA_KAPETANIJA"
+	SluzbaStozerCZ        = "STOZER_CZ"
+	SluzbaVatrogasci      = "VATROGASCI"
+	SluzbaCrveniKriz      = "CRVENI_KRIZ"
 	SluzbaOstalo          = "OSTALO"
 )
 
 // VrsteSluzbi su vrste redom kojim ih obrazac nudi i akt ispisuje
-var VrsteSluzbi = []string{SluzbaCivilnaZastita, SluzbaPrevencija, SluzbaCentar112, SluzbaPolicija, SluzbaPolicijskaPost, SluzbaLuckaKapetanija, SluzbaOstalo}
+var VrsteSluzbi = []string{SluzbaCivilnaZastita, SluzbaPrevencija, SluzbaCentar112, SluzbaPolicija, SluzbaPolicijskaPost, SluzbaLuckaKapetanija,
+	SluzbaStozerCZ, SluzbaVatrogasci, SluzbaCrveniKriz, SluzbaOstalo}
 
 // SluzbaLabel je naziv vrste za prikaz
 func SluzbaLabel(v string) string {
@@ -52,6 +56,12 @@ func SluzbaLabel(v string) string {
 		return "Policijska postaja"
 	case SluzbaLuckaKapetanija:
 		return "Lučka kapetanija"
+	case SluzbaStozerCZ:
+		return "Stožer civilne zaštite županije"
+	case SluzbaVatrogasci:
+		return "Vatrogasna zajednica"
+	case SluzbaCrveniKriz:
+		return "Crveni križ"
 	case SluzbaOstalo:
 		return "ostalo"
 	}
@@ -72,6 +82,21 @@ func RedVrste(v string) int {
 // područnog ureda civilne zaštite (prevencija, 112), kao na dosadašnjim aktima
 func PodCivilnomZastitom(v string) bool {
 	return v == SluzbaPrevencija || v == SluzbaCentar112
+}
+
+// NaAktu javlja ide li služba te vrste na akt o obrani tog stupnja, kako je
+// na dosadašnjim aktima: civilna zaštita, 112, policija i lučke kapetanije
+// uvijek; stožer civilne zaštite od izvanrednog stanja, kad jedinice
+// samouprave aktiviraju stožere (Državni plan, XXV); vatrogasci i Crveni križ
+// stoje u imeniku, a na akt ne idu
+func NaAktu(vrsta string, stupanj DefensePhase) bool {
+	switch vrsta {
+	case SluzbaVatrogasci, SluzbaCrveniKriz:
+		return false
+	case SluzbaStozerCZ:
+		return stupanj == PhaseState
+	}
+	return true
 }
 
 // JeVrstaSluzbe javlja je li vrsta s popisa
