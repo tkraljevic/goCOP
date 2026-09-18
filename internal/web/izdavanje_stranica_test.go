@@ -304,9 +304,9 @@ func TestRazdjelnicaDnevnikaDijeliTriVrste(t *testing.T) {
 		}
 	}
 	// Svaka kartica ima ikonu, kao i na Administraciji: COP, dežurstva,
-	// izvješća, A.02, A.03.
-	if n := strings.Count(html, "dash-card-icon-box"); n != 5 {
-		t.Errorf("ikona na %d kartica, a ima ih pet", n)
+	// izvješća, događanja, A.02, A.03.
+	if n := strings.Count(html, "dash-card-icon-box"); n != 6 {
+		t.Errorf("ikona na %d kartica, a ima ih šest", n)
 	}
 }
 

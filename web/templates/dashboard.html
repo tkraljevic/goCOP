@@ -29,40 +29,61 @@
     </div>
   </div>
 
-  <!-- KPI brojači -->
-  <div class="kpi-grid">
-    <div class="kpi-card">
-      <div class="kpi-icon-wrap primary">{{icon "users"}} </div>
-      <div class="kpi-data">
-        <div class="kpi-number">{{.Stats.TotalUsers}}</div>
-        <div class="kpi-label">Djelatnika i sudionika</div>
-      </div>
+  <!-- Traka stanja: obrana, dežurstvo, izvješća, sredstva na terenu -->
+  {{if .Stanja}}
+  <div class="stanje-traka">
+    {{range .Stanja}}
+    <div class="stanje-kartica{{if not .Mirno}} zivo{{end}}">
+      <div class="stanje-glava">{{icon "shield"}} <strong>{{term "sektor"}} {{.Sektor}}</strong>{{if .Centar}} <span class="reg-card-sub">{{.Centar}}</span>{{end}}</div>
+      {{if .Mirno}}
+      <div class="stanje-redak reg-card-sub">Mirno: nema proglašene obrane ni otvorenog dnevnika.</div>
+      {{else}}
+      {{if .DionicaUObr}}<div class="stanje-redak"><span class="threshold-pill {{.Stadij.PillClass}}">{{stadijKratica .Stadij}}</span> {{.Stadij.Label}} · {{.DionicaUObr}} {{uzBroj .DionicaUObr "dionica" "dionice" "dionica"}} u obrani</div>{{else}}<div class="stanje-redak reg-card-sub">Nema proglašene obrane.</div>{{end}}
+      {{if .Dnevnik}}<div class="stanje-redak">{{icon "notebook"}} <a href="/dnevnici/{{.Dnevnik.ID}}">{{.Dnevnik.DisplayTitle}}</a>{{if .Dezurni}} · dežura <strong>{{.Dezurni}}</strong>{{else}} · <span class="reg-card-sub">nitko ne dežura</span>{{end}}</div>{{end}}
+      {{if .Dnevnik}}<div class="stanje-redak">{{icon "file-text"}} danas {{.DanasIzvjesca}} {{uzBroj .DanasIzvjesca "izvješće dionice" "izvješća dionica" "izvješća dionica"}}{{if .Sektorsko}} · sektorsko sastavljeno{{else}} · <a href="/sektorsko-izvjesce/novo?sektor={{.Sektor}}">sektorsko još nije</a>{{end}}</div>{{end}}
+      {{if .NaTerenu}}<div class="stanje-redak">{{icon "package"}} na terenu: {{range $i, $t := .NaTerenu}}{{if $i}}, {{end}}{{$t}}{{end}} · <a href="/sredstva/na-terenu?sektor={{.Sektor}}">pregled</a></div>{{end}}
+      {{end}}
     </div>
-
-    <div class="kpi-card">
-      <div class="kpi-icon-wrap success">{{icon "shield"}} </div>
-      <div class="kpi-data">
-        <div class="kpi-number">{{.Stats.TotalDuties}}</div>
-        <div class="kpi-label">Aktivnih funkcija i zaduženja</div>
-      </div>
-    </div>
-
-    <div class="kpi-card">
-      <div class="kpi-icon-wrap info">{{icon "waves"}} </div>
-      <div class="kpi-data">
-        <div class="kpi-number">{{.Stats.TotalAreas}}</div>
-        <div class="kpi-label">Branjenih područja (1–34)</div>
-      </div>
-    </div>
-
-    <div class="kpi-card">
-      <div class="kpi-icon-wrap warning">{{icon "building-2"}} </div>
-      <div class="kpi-data">
-        <div class="kpi-number">{{.Stats.TotalSectors}}</div>
-        <div class="kpi-label">6 sektora + Direkcija</div>
-      </div>
-    </div>
+    {{end}}
   </div>
+  {{end}}
+
+  {{if .Precaci}}
+  <div class="precaci">
+    {{range .Precaci}}<a href="{{.Link}}" class="btn btn-secondary">{{icon .Ikona}} {{.Naslov}}</a>{{end}}
+  </div>
+  {{end}}
+
+  <!-- Zid događanja -->
+  <div class="section-title-wrap" style="margin-top:1.5rem;">
+    <h2 class="section-title">Događanja</h2>
+    <p class="section-desc">Što se upravo upisuje u dnevnike, izvješća, skladišta i obranu. Cijela kronologija s filtrima i izvozom je na stranici <a href="/dogadjanja">Događanja</a>.</p>
+  </div>
+  <div class="zid-cipovi">
+    <a href="/" class="btn btn-secondary btn-sm">sve</a>
+    {{range .Moduli}}<a href="/?modul={{.ID}}" class="btn btn-secondary btn-sm">{{icon .Ikona}} {{.Naziv}}</a>{{end}}
+  </div>
+  {{if .Zid}}
+  <div class="zid">
+    {{range .PoDanima}}
+    <h3 class="zid-dan">{{danTjedna .Dan}} {{.Dan.Format "2.1.2006."}}</h3>
+    {{range .Dogadjaji}}
+    <article class="zid-redak{{if .Vazno}} vazno{{end}}">
+      <div class="zid-ikona" title="{{.ModulNaziv}}">{{icon .ModulIkona}}</div>
+      <div class="zid-tijelo">
+        <div class="zid-glava"><span class="zid-vrijeme mono">{{satHR .Kad}}</span> <strong>{{if .Link}}<a href="{{.Link}}">{{.Naslov}}</a>{{else}}{{.Naslov}}{{end}}</strong>
+          {{if .Sektor}}<span class="reg-chip">{{.Sektor}}{{if .AreaID}} · BP {{.AreaID}}{{end}}</span>{{end}}</div>
+        {{if .Tekst}}<div class="zid-tekst">{{.Tekst}}</div>{{end}}
+        {{if .Tko}}<div class="reg-card-sub">{{.Tko}}</div>{{end}}
+      </div>
+    </article>
+    {{end}}
+    {{end}}
+  </div>
+  <p style="margin-top:0.75rem;"><a href="/dogadjanja" class="btn btn-secondary">{{icon "arrow-right"}} Starije i filtri</a></p>
+  {{else}}
+  <div class="reg-empty">Još nema događanja koja biste vidjeli.</div>
+  {{end}}
 
   <!-- Mreža operativnih kartica -->
   <div class="section-title-wrap">
@@ -118,15 +139,15 @@
         <span class="dash-status-pill warning">EVIDENCIJA</span>
       </div>
       <div class="dash-card-body">
-        <h3 class="dash-card-title">Dnevnici</h3>
-        <p class="dash-card-desc">Građevinski dnevnici održavanja i obrane od poplava po branjenim područjima.</p>
+        <h3 class="dash-card-title">Dokumentacija</h3>
+        <p class="dash-card-desc">Dnevnik COP-a, plan dežurstava i obračun sati, dnevna izvješća dionica i sektora, dnevnici usluga.</p>
         <ul class="dash-card-list">
-          <li>Dnevnici A.02 i A.03 te obrane od poplava</li>
-          <li>Dnevni listovi, upisi, nalozi i potvrde</li>
+          <li>Dnevnik COP-a s dežurstvima i obračunom po IORS-u</li>
+          <li>Dnevna izvješća dionica i sektora, dnevnici A.02 i A.03</li>
         </ul>
       </div>
       <div class="dash-card-footer">
-        <a href="/dnevnici" class="btn btn-secondary dash-btn"><span>Otvori dnevnike</span><span class="arrow">{{icon "arrow-right"}}</span></a>
+        <a href="/dnevnici" class="btn btn-secondary dash-btn"><span>Otvori dokumentaciju</span><span class="arrow">{{icon "arrow-right"}}</span></a>
       </div>
     </div>
     {{end}}
@@ -155,14 +176,14 @@
     <div class="dash-card">
       <div class="dash-card-header">
         <div class="dash-card-icon-box secondary">{{icon "book-open"}}</div>
-        <span class="dash-status-pill default">6 REGISTARA</span>
+        <span class="dash-status-pill default">REGISTRI</span>
       </div>
       <div class="dash-card-body">
         <h3 class="dash-card-title">Registri</h3>
         <p class="dash-card-desc">Jedinstveno mjesto za temeljne prostorne, tehničke i organizacijske evidencije.</p>
         <ul class="dash-card-list">
-          <li>{{term "podrucja"}}, teritorijalne jedinice i postaje</li>
-          <li>Objekti, vodotoci i program održavanja</li>
+          <li>Dionice, {{terml "podrucja"}}, postaje, objekti i vodotoci</li>
+          <li>Skladišta i sredstva za obranu: stanje, inventura, potrebe</li>
         </ul>
       </div>
       <div class="dash-card-footer">

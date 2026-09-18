@@ -81,6 +81,7 @@ type Server struct {
 	obracunService     *service.ObracunService  // postavke obračuna sati; nil dok se ne postavi
 	izvjescaService    *service.IzvjescaService // dnevna izvješća; nil dok se ne postavi
 	mtsService         *service.MtsService      // sredstva za obranu; nil dok se ne postavi
+	zidService         *service.ZidService      // zid događanja; nil dok se ne postavi
 	orgService         *service.OrgService
 	support            SupportContact
 	followRepo         *repository.FollowRepository
@@ -381,6 +382,7 @@ func templateFuncs() template.FuncMap {
 		"strana":         models.StranaOznaka,
 		"grupa":          models.GrupaNaziv,
 		"vrijemeHR":      func(t time.Time) string { return t.In(models.Zagreb).Format("2.1.2006. 15:04") },
+		"satHR":          func(t time.Time) string { return t.In(models.Zagreb).Format("15:04") },
 		"structureKind":  models.StructureKindLabel,
 		"readingSource":  models.ReadingSourceLabel,
 		"structureState": models.StructureStateLabel,
@@ -498,7 +500,7 @@ func NewServer(
 	for _, page := range []string{"dashboard.html", "registri.html", "users.html", "user_detail.html", "user_form.html", "duty_form.html", "profile.html", "sections.html", "section_detail.html", "section_form.html", "territories.html", "county_form.html", "municipality_form.html", "municipality_detail.html", "stations.html", "station_detail.html", "station_form.html", "station_history.html", "station_history_form.html", "paket_pregled.html", "watercourses.html", "watercourse_detail.html", "watercourse_form.html", "structures.html", "structure_detail.html", "structure_form.html", "readings.html", "reading_history.html", "reading_form.html", "arhiva_ispravci.html", "uvoz_ocitanja.html", "teren.html", "moduli.html", "settings.html", "odrzavanje.html", "organizacija.html", "sector_form.html", "area_form.html", "contractor_form.html", "firme.html", "nazivi.html", "sudionici.html",
 		"administracija.html", "uvozi.html", "sinkronizacija.html", "pretplate.html", "baza.html", "izvori.html", "uvoz_niza.html",
 		"dnevnici.html", "dnevnici_izbor.html", "dnevnik_form.html", "dnevnik.html", "dnevnik_cop.html", "dnevnik_cop_form.html", "dnevnik_list.html", "dnevnik_obracun.html", "dnevnik_dezurstva.html", "dnevnik_iors.html", "izvjesca.html", "izvjesce_form.html", "izvjesce.html", "sektorsko_form.html", "sektorsko.html", "obracun_postavke.html",
-		"sredstva.html", "katalog.html", "skladiste.html", "potrebe_form.html", "potrebe.html", "skladiste_form.html", "promet_form.html", "promet.html", "gdje_ima.html", "na_terenu.html", "popisi.html", "popis_form.html", "popis.html", "pomoc.html", "ocitanja_ispravci.html"} {
+		"sredstva.html", "katalog.html", "skladiste.html", "potrebe_form.html", "potrebe.html", "dogadjanja.html", "skladiste_form.html", "promet_form.html", "promet.html", "gdje_ima.html", "na_terenu.html", "popisi.html", "popis_form.html", "popis.html", "pomoc.html", "ocitanja_ispravci.html"} {
 		t, err := template.New("base.html").Funcs(tmplFuncs).ParseFS(templatesFS, DijeloviPredloska(page)...)
 		if err != nil {
 			return nil, fmt.Errorf("greška pri parsiranju predloška %s: %w", page, err)
@@ -553,6 +555,10 @@ func (s *Server) setupRoutes() {
 	usersH.SetPageTemplates(s.templates["user_detail.html"], s.templates["user_form.html"], s.templates["duty_form.html"], s.templates["profile.html"])
 	usersH.SetPlanovi(s.journalService.PlanoviOsobe)
 	dashH := NewDashboardHandler(s.userService, s.templates["dashboard.html"], s.templates["registri.html"])
+	dashH.SetZid(func() *service.ZidService { return s.zidService }, func() *service.IzvjescaService { return s.izvjescaService }, func() *service.MtsService { return s.mtsService })
+	dogH := NewDogadjanjaHandler(func() *service.ZidService { return s.zidService }, s.userService, s.templates["dogadjanja.html"])
+	s.mux.Handle("GET /dogadjanja", s.authMiddleware(http.HandlerFunc(dogH.ShowDogadjanja)))
+	s.mux.Handle("GET /dogadjanja.xlsx", s.authMiddleware(http.HandlerFunc(dogH.IzvoziDogadjanja)))
 	sectionsH := NewSectionsHandler(s.sectionService, s.userService, s.templates["sections.html"])
 	sectionsH.SetPageTemplates(s.templates["section_detail.html"], s.templates["section_form.html"], s.stationService, s.territoryService)
 	sectionsH.episodeService = s.episodeService
@@ -1185,6 +1191,9 @@ func (s *Server) SetIzvjesca(i *service.IzvjescaService) { s.izvjescaService = i
 
 // SetMts daje poslužitelju evidenciju sredstava za obranu
 func (s *Server) SetMts(m *service.MtsService) { s.mtsService = m }
+
+// SetZid daje poslužitelju zid događanja iz knjige verzija
+func (s *Server) SetZid(z *service.ZidService) { s.zidService = z }
 
 func (s *Server) SetArhiva(a *repository.ArhivaRepository) {
 	s.zamijeniArhivu(a)

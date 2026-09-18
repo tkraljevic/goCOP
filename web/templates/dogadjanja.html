@@ -1,0 +1,51 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Događanja{{end}}
+
+{{define "content"}}
+<div class="breadcrumb"><a href="/dnevnici">Dokumentacija</a> › Događanja</div>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "activity"}} Događanja</h1>
+    <p class="page-desc">Kronologija iz knjige verzija: svaki upis u dnevnik, dežurstvo, izvješće, proglašena obrana, zahvat u
+      skladištu i očitanje iznad praga, s vremenom i osobom. Suzite razdoblje ili modul i izvezite kao prilog izvješću.</p>
+  </div>
+</div>
+
+<form method="GET" action="/dogadjanja" class="obracun-filtar">
+  <label for="f-od">od</label><input type="date" id="f-od" name="od" class="form-control" value="{{.Od}}">
+  <label for="f-do">do</label><input type="date" id="f-do" name="do" class="form-control" value="{{.Do}}">
+  <label for="f-modul">Modul</label>
+  <select id="f-modul" name="modul" class="form-control"><option value="">svi</option>{{range .Moduli}}<option value="{{.ID}}"{{if eq .ID $.Filtar.Modul}} selected{{end}}>{{.Naziv}}</option>{{end}}</select>
+  <label for="f-sektor">{{term "sektor"}}</label>
+  <select id="f-sektor" name="sektor" class="form-control"><option value="">svi</option>{{range .Sektori}}{{if ne .ID "DIREKCIJA"}}<option value="{{.ID}}"{{if eq .ID $.Filtar.Sektor}} selected{{end}}>{{.ID}}</option>{{end}}{{end}}</select>
+  <label for="f-podrucje">BP</label>
+  <select id="f-podrucje" name="podrucje" class="form-control"><option value="">sva</option>{{range .Podrucja}}<option value="{{.ID}}"{{if eq .ID $.Filtar.AreaID}} selected{{end}}>{{.ID}} {{.Name}}</option>{{end}}</select>
+  <label for="f-osoba">Osoba</label><input type="text" id="f-osoba" name="osoba" class="form-control" value="{{.Filtar.Osoba}}" placeholder="dio imena" style="max-width:11rem;">
+  <button type="submit" class="btn btn-secondary">{{icon "search"}} Prikaži</button>
+  <button type="submit" formaction="/dogadjanja.xlsx" class="btn btn-secondary" title="kronologija po istim filtrima, A4">{{icon "download"}} Excel</button>
+</form>
+
+{{if .Dogadjaji}}
+<div class="zid">
+  {{range .PoDanima}}
+  <h2 class="zid-dan">{{danTjedna .Dan}} {{.Dan.Format "2.1.2006."}}</h2>
+  {{range .Dogadjaji}}
+  <article class="zid-redak{{if .Vazno}} vazno{{end}}">
+    <div class="zid-ikona" title="{{.ModulNaziv}}">{{icon .ModulIkona}}</div>
+    <div class="zid-tijelo">
+      <div class="zid-glava"><span class="zid-vrijeme mono">{{satHR .Kad}}</span> <strong>{{if .Link}}<a href="{{.Link}}">{{.Naslov}}</a>{{else}}{{.Naslov}}{{end}}</strong>
+        {{if .Sektor}}<span class="reg-chip">{{.Sektor}}{{if .AreaID}} · BP {{.AreaID}}{{end}}</span>{{end}}</div>
+      {{if .Tekst}}<div class="zid-tekst">{{.Tekst}}</div>{{end}}
+      {{if .Tko}}<div class="reg-card-sub">{{.Tko}}</div>{{end}}
+    </div>
+  </article>
+  {{end}}
+  {{end}}
+</div>
+{{if .Dalje}}<p style="margin-top:1rem;"><a href="/dogadjanja?modul={{.Filtar.Modul}}&sektor={{.Filtar.Sektor}}&podrucje={{if .Filtar.AreaID}}{{.Filtar.AreaID}}{{end}}&osoba={{.Filtar.Osoba}}&od={{.Od}}&do={{.Do}}&prije={{.Dalje}}" class="btn btn-secondary">{{icon "arrow-right"}} Starije</a></p>{{end}}
+{{else}}
+<div class="reg-empty">Nema događanja za taj izbor.</div>
+{{end}}
+{{end}}

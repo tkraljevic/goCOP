@@ -396,6 +396,7 @@ func main() {
 	izvjescaService.SetSektorska(repository.NewSektorskaIzvjescaRepository(database, recorder))
 	server.SetIzvjesca(izvjescaService)
 	server.SetMts(mtsService)
+	server.SetZid(service.NewZidService(recorder, journalRepo, sectionRepo, mtsRepo, userRepo, stationRepo, episodeRepo))
 	server.SetKarta(cfg.Karta.Plocice, cfg.Karta.Zasluge, cfg.Karta.NajviseZ)
 
 	// Hidrološka arhiva stoji uz bazu, kao zasebna datoteka. Smije je ne biti:

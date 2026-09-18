@@ -3455,3 +3455,20 @@ textarea {
 
 .mts-stanje tr.mts-oblici td { padding-top: 0; font-size: 0.82rem; color: var(--text-muted, #667); border-top: 0; }
 .mts-stanje tr.mts-oblici .btn-sm { margin-left: 0.4rem; padding: 0.05rem 0.45rem; font-size: 0.75rem; }
+
+/* Naslovna: traka stanja, prečaci, zid događanja */
+.stanje-traka { display: grid; grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); gap: 0.75rem; margin: 1rem 0; }
+.stanje-kartica { border: 1px solid var(--border, #d9dee5); border-left: 4px solid var(--border, #d9dee5); border-radius: 10px; padding: 0.75rem 1rem; background: var(--surface, #fff); display: flex; flex-direction: column; gap: 0.35rem; }
+.stanje-kartica.zivo { border-left-color: var(--danger, #b3261e); }
+.stanje-glava { font-size: 1rem; display: flex; align-items: center; gap: 0.4rem; }
+.stanje-redak { font-size: 0.88rem; display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; }
+.precaci { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.5rem 0 1rem; }
+.zid-cipovi { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.75rem; }
+.zid { display: flex; flex-direction: column; gap: 0.35rem; }
+.zid-dan { font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted, #667); margin: 0.9rem 0 0.25rem; }
+.zid-redak { display: grid; grid-template-columns: 2rem 1fr; gap: 0.6rem; padding: 0.5rem 0.75rem; border: 1px solid var(--border, #e3e7ec); border-radius: 8px; background: var(--surface, #fff); }
+.zid-redak.vazno { border-left: 4px solid var(--danger, #b3261e); }
+.zid-ikona { display: flex; align-items: flex-start; justify-content: center; padding-top: 0.15rem; color: var(--primary, #173e74); }
+.zid-glava { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
+.zid-vrijeme { color: var(--text-muted, #667); font-size: 0.82rem; }
+.zid-tekst { font-size: 0.9rem; margin-top: 0.15rem; white-space: pre-line; }
