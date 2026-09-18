@@ -67,6 +67,11 @@ type Akt struct {
 	// potpisnika; na aktu uz ime stoji "u.z." (u zamjeni)
 	UZamjeni bool   `json:"u_zamjeni,omitempty"`
 	Cvor     string `json:"cvor,omitempty"` // čvor na kojem je ovjeren
+	// Potpis je Ed25519 potpis sadržaja i ovjere ključem čvora na kojem je
+	// akt ovjeren (base64); KljucCvora je javni ključ tog čvora. Po njima se
+	// na svakom čvoru provjerava da akt nije mijenjan nakon ovjere.
+	Potpis     string `json:"potpis,omitempty"`
+	KljucCvora string `json:"kljuc_cvora,omitempty"`
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
@@ -343,6 +348,26 @@ func (a Akt) Sazetak() string {
 		b.WriteString(p.Naziv + "<" + p.Email + ">;")
 	}
 	return b.String()
+}
+
+// PorukaPotpisa je ono što ključ čvora potpisuje: sav sadržaj akta, tko ga
+// je ovjerio i kada
+func (a Akt) PorukaPotpisa() []byte {
+	kad := ""
+	if a.OvjerenoAt != nil {
+		kad = a.OvjerenoAt.UTC().Format(time.RFC3339)
+	}
+	return []byte("goCOP-akt-v1|" + a.ID + "|" + a.Oznaka() + "|" + a.Sazetak() + "|" + a.OvjerioID + "|" + a.Ovjerio + "|" + kad)
+}
+
+// OtisakKljuca je kratki otisak javnog ključa čvora za ispis
+func (a Akt) OtisakKljuca() string {
+	if a.KljucCvora == "" {
+		return ""
+	}
+	h := sha256.Sum256([]byte(a.KljucCvora))
+	x := strings.ToUpper(hex.EncodeToString(h[:6]))
+	return x[:4] + " " + x[4:8] + " " + x[8:]
 }
 
 // KodOvjere je kratki sažetak sadržaja i ovjere, za ispis na aktu i provjeru

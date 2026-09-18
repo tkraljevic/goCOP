@@ -81,11 +81,18 @@ func PDFAkta(a *models.Akt, t models.OrgTerms, sek *models.Sector, area *models.
 	}
 	d.Razmak(14)
 
-	// potpisnik desno
-	d.Osiguraj(50)
+	// potpisnik desno; ovjeren akt nosi blok elektroničkog potpisa, a ispod
+	// ostaje crta za vlastoručni potpis i žig na ispisu
+	d.Osiguraj(100)
 	potpisX, potpisW := d.W-d.Desno-210, 210.0
 	d.OdlomakU(potpisX, potpisW, a.Potpisnik, 9, false, pdfw.Sredina)
-	d.Razmak(24)
+	if a.Ovjeren() && a.OvjerenoAt != nil {
+		d.Razmak(4)
+		blokPotpisa(d, a, potpisX+5, potpisW-10)
+		d.Razmak(16)
+	} else {
+		d.Razmak(24)
+	}
 	d.Crta(potpisX+15, d.Y, potpisX+potpisW-15, d.Y)
 	if a.Ovjeren() {
 		d.Razmak(2)
@@ -132,14 +139,13 @@ func PDFAkta(a *models.Akt, t models.OrgTerms, sek *models.Sector, area *models.
 		}
 	}
 
-	// ovjera
+	// ovjera i provjera, sitnim slovima
 	d.Razmak(10)
-	d.Osiguraj(24)
+	d.Osiguraj(34)
 	d.Crta(d.Lijevo, d.Y, d.W-d.Desno, d.Y)
 	d.Razmak(3)
 	if a.Ovjeren() && a.OvjerenoAt != nil {
-		d.Odlomak(fmt.Sprintf("Ovjereno u goCOP-u: %s, %s · akt %s · kod %s. Isti kod stoji uz akt u programu, pa se ispis može provjeriti.",
-			a.ImePotpisa(), a.OvjerenoAt.In(models.Zagreb).Format("02.01.2006. 15:04"), a.Oznaka(), a.OvjeraKod), 6.5, false, pdfw.Lijevo)
+		d.Odlomak(tekstOvjere(a, t, sek), 6.3, false, pdfw.Lijevo)
 	} else {
 		d.Odlomak(fmt.Sprintf("Nacrt sastavio: %s, %s. Vrijedi tek nakon ovjere u goCOP-u.", a.Izradio, a.IzradenoAt.In(models.Zagreb).Format("02.01.2006. 15:04")), 6.5, false, pdfw.Lijevo)
 	}
@@ -238,4 +244,65 @@ func adresaHR(a string) string {
 		}
 	}
 	return a
+}
+
+var (
+	plava     = pdfw.Boja{R: 0.09, G: 0.24, B: 0.45}
+	zelena    = pdfw.Boja{R: 0.11, G: 0.50, B: 0.23}
+	blijeda   = pdfw.Boja{R: 0.94, G: 0.97, B: 0.94}
+	sivaTekst = pdfw.Boja{R: 0.30, G: 0.33, B: 0.36}
+)
+
+// blokPotpisa crta okvir elektroničkog potpisa, kakav čitači PDF-a
+// prikazuju uz potpisan dokument: kvačica, tko je potpisao, kada, akt i
+// otisak ključa čvora
+func blokPotpisa(d *pdfw.Doc, a *models.Akt, x, w float64) {
+	const h = 58.0
+	y := d.Y
+	d.Okvir(x, y, w, h, blijeda, zelena)
+	// kvačica
+	d.CrtaBoja(x+9, y+24, x+15, y+31, 2.2, zelena)
+	d.CrtaBoja(x+15, y+31, x+27, y+15, 2.2, zelena)
+	tx := x + 36
+	d.TekstBoja(tx, y+11, 7, true, "ELEKTRONIČKI POTPISANO", zelena)
+	d.TekstBoja(tx, y+22, 8.5, true, a.ImePotpisa(), plava)
+	kad := a.OvjerenoAt.In(models.Zagreb)
+	d.TekstBoja(tx, y+32, 6.5, false, "Datum: "+kad.Format("02.01.2006. u 15:04:05")+" "+kad.Format("MST"), sivaTekst)
+	d.TekstBoja(tx, y+41, 6.5, false, "Akt "+a.Oznaka()+" · kod "+a.OvjeraKod, sivaTekst)
+	if a.KljucCvora != "" {
+		d.TekstBoja(tx, y+50, 6, false, "goCOP · čvor "+a.Cvor+" · ključ "+a.OtisakKljuca(), sivaTekst)
+	} else {
+		d.TekstBoja(tx, y+50, 6, false, "goCOP · čvor "+a.Cvor, sivaTekst)
+	}
+	d.Y = y + h
+}
+
+// tekstOvjere je sitni tekst na dnu ovjerenog akta: kako je ovjeren i kako
+// se ispravnost ispisa provjerava
+func tekstOvjere(a *models.Akt, t models.OrgTerms, sek *models.Sector) string {
+	org := t.OrgName
+	if org == "" {
+		org = "Hrvatske vode"
+	}
+	b := fmt.Sprintf("Akt je elektronički ovjeren u informacijskom sustavu obrane od poplava goCOP (%s): ovjerio %s, %s. ",
+		org, a.ImePotpisa(), a.OvjerenoAt.In(models.Zagreb).Format("02.01.2006. u 15:04"))
+	if a.Potpis != "" {
+		b += fmt.Sprintf("Sadržaj akta potpisan je ključem čvora %s (Ed25519, otisak ključa %s); svaka izmjena teksta nakon ovjere poništava potpis. ", a.Cvor, a.OtisakKljuca())
+	}
+	b += fmt.Sprintf("Ispravnost ispisa provjerava se u goCOP-u (Dokumentacija › Rješenja i obavijesti) upisom koda %s", a.OvjeraKod)
+	if sek != nil {
+		b += " ili upitom Centru obrane od poplava Sektora " + sek.ID
+		var k []string
+		if sek.Phone != "" {
+			k = append(k, "tel. "+sek.Phone)
+		}
+		if sek.Email != "" {
+			k = append(k, "e-pošta "+sek.Email)
+		}
+		if len(k) > 0 {
+			b += " (" + strings.Join(k, ", ") + ")"
+		}
+		b += ", uz navod oznake akta " + a.Oznaka()
+	}
+	return b + ". Na ispisu akt se ovjerava i žigom i vlastoručnim potpisom."
 }

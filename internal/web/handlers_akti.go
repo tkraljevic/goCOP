@@ -63,6 +63,7 @@ type AktiPageData struct {
 	Podrucje      *models.Area
 	SmijeOvjeriti bool
 	SmijeObrisati bool
+	Potpis        string // stanje elektroničkog potpisa: VRIJEDI, NE_VRIJEDI, NEMA
 	Upozorenja    []string
 
 	// špranca
@@ -251,6 +252,7 @@ func (h *AktiHandler) ShowAkt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data.Akt = a
+	data.Potpis = service.ProvjeriPotpis(a)
 	data.SmijeOvjeriti = !a.Ovjeren() && s.SmijeOvjeriti(perms, a)
 	data.SmijeObrisati = !a.Ovjeren() && u != nil && (a.IzradioID == u.ID.String() || s.SmijeOvjeriti(perms, a))
 	for i := range data.Sektori {

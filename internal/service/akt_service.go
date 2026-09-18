@@ -2,12 +2,15 @@ package service
 
 import (
 	"context"
+	"crypto/ed25519"
+	"encoding/base64"
 	"fmt"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/tkraljevic/syncnet"
 
 	"gocop/internal/models"
 	"gocop/internal/repository"
@@ -27,6 +30,37 @@ type AktService struct {
 	users       *UserService
 	episodes    *EpisodeService
 	cvor        string
+	kljuc       ed25519.PrivateKey // ključ čvora kojim se ovjera potpisuje
+}
+
+// SetKljuc daje servisu ključ čvora; bez njega se ovjera ne potpisuje
+func (s *AktService) SetKljuc(k ed25519.PrivateKey) { s.kljuc = k }
+
+// Stanja elektroničkog potpisa akta
+const (
+	PotpisVrijedi   = "VRIJEDI"
+	PotpisNeVrijedi = "NE_VRIJEDI"
+	PotpisNema      = "NEMA"
+)
+
+// ProvjeriPotpis provjerava potpis akta javnim ključem čvora koji ga je
+// ovjerio: vrijedi ako sadržaj od ovjere nije mijenjan
+func ProvjeriPotpis(a *models.Akt) string {
+	if a == nil || a.Potpis == "" || a.KljucCvora == "" {
+		return PotpisNema
+	}
+	pub, err := syncnet.ParsePublicKey(a.KljucCvora)
+	if err != nil {
+		return PotpisNeVrijedi
+	}
+	sig, err := base64.StdEncoding.DecodeString(a.Potpis)
+	if err != nil {
+		return PotpisNeVrijedi
+	}
+	if ed25519.Verify(pub, a.PorukaPotpisa(), sig) {
+		return PotpisVrijedi
+	}
+	return PotpisNeVrijedi
 }
 
 func NewAktService(repo *repository.AktiRepository, stations *repository.StationRepository, sections *repository.SectionRepository,
@@ -577,6 +611,10 @@ func (s *AktService) Ovjeri(ctx context.Context, perms *models.UserPermissions, 
 		a.UZamjeni = !a.NositeljFunkcije(u.Duties)
 	}
 	a.OvjeraKod = a.KodOvjere(a.OvjerioID, sad)
+	if len(s.kljuc) == ed25519.PrivateKeySize {
+		a.KljucCvora = syncnet.PublicKeyString(s.kljuc.Public().(ed25519.PublicKey))
+		a.Potpis = base64.StdEncoding.EncodeToString(ed25519.Sign(s.kljuc, a.PorukaPotpisa()))
+	}
 	if err := s.repo.SaveAkt(ctx, a); err != nil {
 		return nil, nil, err
 	}

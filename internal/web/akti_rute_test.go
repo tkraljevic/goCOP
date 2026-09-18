@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"crypto/ed25519"
 	"html/template"
 	"io/fs"
 	"net/http"
@@ -60,6 +61,8 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 	aktiRepo := repository.NewAktiRepository(baza, rec)
 	akti := service.NewAktService(aktiRepo, stationRepo, sectionRepo, repository.NewTerritoryRepository(baza, rec), readingRepo, users, episodes, "cop-osijek")
 	stations := service.NewStationService(stationRepo, sections, service.NewSSEBroker())
+	_, kljuc, _ := ed25519.GenerateKey(nil)
+	akti.SetKljuc(kljuc)
 
 	ctx := context.Background()
 	st := &models.Station{ID: uuid.New(), Code: "batina", Name: "Batina", Watercourse: "Dunav"}
@@ -240,6 +243,22 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 	if !a.Ovjeren() || a.Broj != 1 || a.Oznaka() != "B-1/2026" || a.OvjeraKod == "" || a.Ovjerio != "Uprava Sektora" {
 		t.Fatalf("ovjera nije upisana: %+v", a)
 	}
+	// elektronički potpis ključem čvora vrijedi, a izmjena u bazi ga ruši
+	if a.Potpis == "" || a.KljucCvora == "" || service.ProvjeriPotpis(a) != service.PotpisVrijedi {
+		t.Fatalf("potpis nije valjan odmah nakon ovjere: %+v", a)
+	}
+	mora(zovi(http.MethodGet, putanja, nil), "potpis vrijedi", "Elektronički potpis vrijedi", a.OtisakKljuca())
+	if _, err := baza.Exec(`UPDATE akti SET napomena = 'podmetnuto' WHERE id = ?`, id); err != nil {
+		t.Fatal(err)
+	}
+	if podmetnut, _ := akti.Get(ctx, id); service.ProvjeriPotpis(podmetnut) != service.PotpisNeVrijedi {
+		t.Error("izmjena teksta nakon ovjere mora poništiti potpis")
+	}
+	mora(zovi(http.MethodGet, putanja, nil), "potpis ne vrijedi", "Elektronički potpis ne vrijedi")
+	if _, err := baza.Exec(`UPDATE akti SET napomena = ? WHERE id = ?`, a.Napomena, id); err != nil {
+		t.Fatal(err)
+	}
+
 	// uprava bez zaduženja rukovoditelja sektora potpisuje u zamjeni
 	if !a.UZamjeni || a.ImePotpisa() != "u.z. Uprava Sektora" {
 		t.Errorf("ovjera bez nositelja funkcije bi trebala biti u zamjeni: %+v", a)
@@ -284,7 +303,8 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 		sirovo, _ := exec.Command("pdftotext", put, "-").Output()
 		// prijelom retka u PDF-u nije razlika u tekstu
 		out := []byte(strings.Join(strings.Fields(string(sirovo)), " "))
-		for _, zeli := range []string{"RJEŠENJE", "izvanredne obrane od poplava", "vodomjeru Batina", "652 cm", "B.34.2", "15.09.2026.", "12:00", "Rukovoditelj obrane od poplava Sektora B", "Glavni centar", "Pismohrana", "u.z. Uprava Sektora", "procjeni visokog stupnja ugroženosti", "ožujak 2025.", "O tome obavijest:", "GCOPRH@voda.hr", a.OvjeraKod} {
+		for _, zeli := range []string{"RJEŠENJE", "izvanredne obrane od poplava", "vodomjeru Batina", "652 cm", "B.34.2", "15.09.2026.", "12:00", "Rukovoditelj obrane od poplava Sektora B", "Glavni centar", "Pismohrana", "u.z. Uprava Sektora", "procjeni visokog stupnja ugroženosti", "ožujak 2025.", "O tome obavijest:", "GCOPRH@voda.hr", a.OvjeraKod,
+			"ELEKTRONIČKI POTPISANO", "Ispravnost ispisa provjerava se", "Centru obrane od poplava Sektora B", a.OtisakKljuca()} {
 			if !strings.Contains(string(out), zeli) {
 				t.Errorf("u PDF-u nema %q:\n%s", zeli, out)
 			}

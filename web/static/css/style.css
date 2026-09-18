@@ -3529,3 +3529,7 @@ table.akt-primatelji td.pod { padding-left: 0.9rem; }
 table.akt-primatelji td.mail { width: 44%; color: var(--text-muted); }
 table.akt-poveznice { margin-top: 0.75rem; }
 .akt-obavijest { font-size: 0.72rem; }
+
+.akt-potpis-stanje { max-width: 52rem; padding: 0.6rem 0.9rem; border-radius: 8px; margin: 0 0 1rem; border: 1px solid var(--border, #d9dee5); font-size: 0.88rem; }
+.akt-potpis-stanje.vrijedi { background: #eef7f0; border-color: #9fcfae; color: #14532d; }
+.akt-potpis-stanje.ne-vrijedi { background: #fdecea; border-color: #f2b8b5; color: #8c1d18; }
