@@ -306,32 +306,35 @@ func adresaHR(a string) string {
 }
 
 var (
-	plava     = pdfw.Boja{R: 0.09, G: 0.24, B: 0.45}
-	zelena    = pdfw.Boja{R: 0.11, G: 0.50, B: 0.23}
-	blijeda   = pdfw.Boja{R: 0.94, G: 0.97, B: 0.94}
-	sivaTekst = pdfw.Boja{R: 0.30, G: 0.33, B: 0.36}
+	plava        = pdfw.Boja{R: 0.09, G: 0.24, B: 0.45}
+	zelena       = pdfw.Boja{R: 0.11, G: 0.50, B: 0.23}
+	blijeda      = pdfw.Boja{R: 0.94, G: 0.97, B: 0.94}
+	sivaTekst    = pdfw.Boja{R: 0.30, G: 0.33, B: 0.36}
+	sivaSvijetla = pdfw.Boja{R: 0.50, G: 0.53, B: 0.56}
+	sivaRub      = pdfw.Boja{R: 0.78, G: 0.80, B: 0.82}
+	bijela       = pdfw.Boja{R: 1, G: 1, B: 1}
 )
 
 // blokPotpisa crta okvir elektroničkog potpisa, kakav čitači PDF-a
 // prikazuju uz potpisan dokument: kvačica, tko je potpisao, kada, akt i
 // otisak ključa čvora
 func blokPotpisa(d *pdfw.Doc, a *models.Akt, x, w float64) {
-	const h = 58.0
+	// tih i uredan: bez ispune, tanak sivi rub, mala kvačica, tekst u sivim
+	// tonovima; ime je jedino istaknuto
+	const h = 46.0
 	y := d.Y
-	d.Okvir(x, y, w, h, blijeda, zelena)
-	// kvačica
-	d.CrtaBoja(x+9, y+24, x+15, y+31, 2.2, zelena)
-	d.CrtaBoja(x+15, y+31, x+27, y+15, 2.2, zelena)
-	tx := x + 36
-	d.TekstBoja(tx, y+11, 7, true, "ELEKTRONIČKI POTPISANO", zelena)
-	d.TekstBoja(tx, y+22, 8.5, true, a.ImePotpisa(), plava)
+	d.Okvir(x, y, w, h, bijela, sivaRub)
+	d.CrtaBoja(x+9, y+21, x+13, y+26, 1.2, zelena)
+	d.CrtaBoja(x+13, y+26, x+21, y+15, 1.2, zelena)
+	tx := x + 29
+	d.TekstBoja(tx, y+10, 5.6, false, "ELEKTRONIČKI OVJERENO U goCOP-u", sivaTekst)
+	d.TekstBoja(tx, y+21, 8.5, true, a.ImePotpisa(), plava)
 	kad := a.OvjerenoAt.In(models.Zagreb)
-	d.TekstBoja(tx, y+32, 6.5, false, "Datum: "+kad.Format("02.01.2006. u 15:04:05")+" "+kad.Format("MST"), sivaTekst)
-	d.TekstBoja(tx, y+41, 6.5, false, "Akt "+a.Oznaka()+" · kod "+a.OvjeraKod, sivaTekst)
+	d.TekstBoja(tx, y+30, 6, false, kad.Format("02.01.2006. u 15:04")+" "+kad.Format("MST")+" · akt "+a.Oznaka()+" · kod "+a.OvjeraKod, sivaTekst)
 	if a.KljucCvora != "" {
-		d.TekstBoja(tx, y+50, 6, false, "goCOP · čvor "+a.Cvor+" · ključ "+a.OtisakKljuca(), sivaTekst)
+		d.TekstBoja(tx, y+39, 5.6, false, "čvor "+a.Cvor+" · ključ "+a.OtisakKljuca(), sivaSvijetla)
 	} else {
-		d.TekstBoja(tx, y+50, 6, false, "goCOP · čvor "+a.Cvor, sivaTekst)
+		d.TekstBoja(tx, y+39, 5.6, false, "čvor "+a.Cvor, sivaSvijetla)
 	}
 	d.Y = y + h
 }
