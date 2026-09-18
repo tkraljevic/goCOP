@@ -32,11 +32,12 @@
   {{end}}
 </div>
 
-{{if .Privitci}}
+{{$obicni := 0}}{{range .Privitci}}{{if not .Ugradjen}}{{$obicni = 1}}{{end}}{{end}}
+{{if $obicni}}
 <section class="detail-section" style="margin-top:0;">
   <h2>{{icon "package"}} Privitci</h2>
   <ul class="posta-privitci">
-  {{range .Privitci}}
+  {{range .Privitci}}{{if not .Ugradjen}}
     <li>
       <a href="/posta/privitak?id={{.ID | urlquery}}">{{icon "download"}} {{.Ime}}</a> <span class="form-help">{{.Velicina}} B</span>
       {{if .JePDF}}
@@ -55,7 +56,7 @@
       </form>
       {{end}}
     </li>
-  {{end}}
+  {{end}}{{end}}
   </ul>
 </section>
 {{end}}

@@ -674,3 +674,62 @@ func (s *AktService) PrimijeniKontakt(ctx context.Context, perms *models.UserPer
 	_, err = s.users.UpdateUser(perms, req)
 	return err
 }
+
+// PredlozenaAdresa je adresa koju obrazac pisma nudi dok korisnik tipka
+type PredlozenaAdresa struct {
+	Ime   string `json:"ime"`
+	Email string `json:"email"`
+	Izvor string `json:"izvor"` // djelatnik, primatelj, služba, adresar
+}
+
+// AdreseZaPismo traži adrese po dijelu imena ili adrese: među djelatnicima,
+// u registru primatelja i službi, pa u adresaru tvrtke (Exchange) kad je
+// korisnik povezan. Najviše 15 pogodaka, bez ponavljanja adrese.
+func (s *AktService) AdreseZaPismo(ctx context.Context, u *models.User, upit string) []PredlozenaAdresa {
+	upit = strings.ToLower(strings.TrimSpace(upit))
+	if len([]rune(upit)) < 2 {
+		return nil
+	}
+	var out []PredlozenaAdresa
+	vidjeno := map[string]bool{}
+	dodaj := func(ime, email, izvor string) {
+		email = strings.ToLower(strings.TrimSpace(email))
+		if email == "" || vidjeno[email] || len(out) >= 15 {
+			return
+		}
+		if !strings.Contains(strings.ToLower(ime), upit) && !strings.Contains(email, upit) {
+			return
+		}
+		vidjeno[email] = true
+		out = append(out, PredlozenaAdresa{Ime: strings.TrimSpace(ime), Email: email, Izvor: izvor})
+	}
+	if svi, err := s.users.ListUsers("", 0, "", "", "active"); err == nil {
+		for _, x := range svi {
+			dodaj(x.FullName, x.Email, "djelatnik")
+		}
+	}
+	if pr, err := s.repo.ListPrimatelji(ctx, ""); err == nil {
+		for _, p := range pr {
+			for _, a := range posta.Adrese(p.Email) {
+				dodaj(p.Naziv, a, "primatelj")
+			}
+		}
+	}
+	if s.territories != nil {
+		if sl, err := s.territories.ListSluzbe(ctx, 0); err == nil {
+			for _, x := range sl {
+				for _, a := range posta.Adrese(x.Email) {
+					dodaj(x.Naziv, a, "služba")
+				}
+			}
+		}
+	}
+	if len(out) < 15 && u != nil {
+		if k, err := s.Imenik(ctx, u, upit); err == nil {
+			for _, x := range k {
+				dodaj(x.Ime, x.Email, "adresar")
+			}
+		}
+	}
+	return out
+}

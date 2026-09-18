@@ -1,6 +1,7 @@
 package web
 
 import (
+	"encoding/json"
 	"errors"
 	"html/template"
 	"io"
@@ -128,6 +129,7 @@ func (h *AktiHandler) ShowPismo(w http.ResponseWriter, r *http.Request) {
 	d.Pismo = pismo
 	d.Mapa = r.URL.Query().Get("mapa")
 	if pismo != nil {
+		pismo.UgradiSlike(func(id string) string { return "/posta/privitak?" + url.Values{"id": {id}, "u": {"1"}}.Encode() })
 		if !pismo.Procitano {
 			// otvoreno pismo je pročitano, kao u Outlooku
 			if s.OznaciProcitano(r.Context(), d.CurrentUser, pismo.ID, pismo.ChangeKey, true) == nil {
@@ -163,7 +165,12 @@ func (h *AktiHandler) Privitak(w http.ResponseWriter, r *http.Request) {
 		vrsta = "application/octet-stream"
 	}
 	w.Header().Set("Content-Type", vrsta)
-	w.Header().Set("Content-Disposition", `attachment; filename="`+sigurnoIme(strings.TrimSuffix(p.Ime, ".pdf"))+pathExt(p.Ime)+`"`)
+	nacin := "attachment"
+	if r.URL.Query().Get("u") == "1" && strings.HasPrefix(vrsta, "image/") {
+		nacin = "inline" // ugrađena slika u tijelu pisma
+	}
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Content-Disposition", nacin+`; filename="`+sigurnoIme(strings.TrimSuffix(p.Ime, ".pdf"))+pathExt(p.Ime)+`"`)
 	_, _ = w.Write(podaci)
 }
 
@@ -407,4 +414,19 @@ func pismoRijec(n int) string {
 		return "pisma"
 	}
 	return "pisama"
+}
+
+// AdreseJSON daje prijedloge adresa za obrazac pisma
+func (h *AktiHandler) AdreseJSON(w http.ResponseWriter, r *http.Request) {
+	u, _, _ := h.base(r)
+	s := h.svc(w)
+	if s == nil || u == nil {
+		return
+	}
+	adrese := s.AdreseZaPismo(r.Context(), u, r.URL.Query().Get("q"))
+	if adrese == nil {
+		adrese = []service.PredlozenaAdresa{}
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_ = json.NewEncoder(w).Encode(adrese)
 }

@@ -20,13 +20,21 @@
   <form method="POST" action="/posta/novo" enctype="multipart/form-data">
     <input type="hidden" name="odgovor_na" value="{{.Novo.OdgovorNa}}">
     {{range .Novo.Proslijedi}}<input type="hidden" name="proslijedi" value="{{.}}">{{end}}
-    <div class="form-group">
+    <div class="form-group adresa-polje">
       <label class="form-label" for="za">Za</label>
-      <input class="form-control" id="za" name="za" value="{{.Novo.Za}}" required placeholder="adrese odvojene zarezom" autocapitalize="off" spellcheck="false">
+      <div class="adresa-red">
+        <input class="form-control" id="za" name="za" value="{{.Novo.Za}}" required placeholder="počnite tipkati ime ili adresu; više adresa odvojite zarezom" autocapitalize="off" autocomplete="off" spellcheck="false">
+        <button type="button" class="btn btn-secondary btn-sm adresa-imenik" data-za="za" title="Odaberi iz imenika">{{icon "book-open"}} Imenik</button>
+      </div>
+      <ul class="adresa-prijedlozi" hidden></ul>
     </div>
-    <div class="form-group">
+    <div class="form-group adresa-polje">
       <label class="form-label" for="kopija">Kopija</label>
-      <input class="form-control" id="kopija" name="kopija" value="{{.Novo.Kopija}}" placeholder="neobvezno" autocapitalize="off" spellcheck="false">
+      <div class="adresa-red">
+        <input class="form-control" id="kopija" name="kopija" value="{{.Novo.Kopija}}" placeholder="neobvezno" autocapitalize="off" autocomplete="off" spellcheck="false">
+        <button type="button" class="btn btn-secondary btn-sm adresa-imenik" data-za="kopija" title="Odaberi iz imenika">{{icon "book-open"}} Imenik</button>
+      </div>
+      <ul class="adresa-prijedlozi" hidden></ul>
     </div>
     <div class="form-group">
       <label class="form-label" for="predmet">Predmet</label>
@@ -36,6 +44,13 @@
       <label class="form-label" for="tekst">Tekst</label>
       <div class="urednik" id="urednik" hidden>
         <div class="urednik-alat" role="toolbar">
+          <select class="urednik-blok" title="Naslov ili odlomak">
+            <option value="p">Odlomak</option>
+            <option value="h1">Naslov 1</option>
+            <option value="h2">Naslov 2</option>
+            <option value="h3">Naslov 3</option>
+          </select>
+          <span class="urednik-crta"></span>
           <button type="button" data-cmd="bold" title="Podebljano (Ctrl+B)"><b>B</b></button>
           <button type="button" data-cmd="italic" title="Kurziv (Ctrl+I)"><i>I</i></button>
           <button type="button" data-cmd="underline" title="Podcrtano (Ctrl+U)"><u>U</u></button>
@@ -43,6 +58,7 @@
           <button type="button" data-cmd="insertUnorderedList" title="Popis">• popis</button>
           <button type="button" data-cmd="insertOrderedList" title="Numerirani popis">1. popis</button>
           <span class="urednik-crta"></span>
+          <label class="urednik-boja" title="Boja slova"><span>A</span><input type="color" value="#1a1a1a"></label>
           <button type="button" data-cmd="createLink" title="Poveznica">{{icon "link"}}</button>
           <button type="button" data-cmd="removeFormat" title="Ukloni oblikovanje">{{icon "x"}}</button>
         </div>
@@ -65,7 +81,92 @@
     </div>
   </form>
 </section>
+<div class="adresar-okno" id="adresar-okno" hidden>
+  <div class="adresar-okvir">
+    <div class="adresar-glava">
+      <strong>{{icon "book-open"}} Imenik</strong>
+      <button type="button" class="btn btn-secondary btn-sm" id="adresar-zatvori">{{icon "x"}} Zatvori</button>
+    </div>
+    <input type="search" class="form-control" id="adresar-trazi" placeholder="ime, prezime, služba ili adresa" autocomplete="off">
+    <div class="form-help">Djelatnici, registar primatelja i službi, adresar tvrtke iz Exchangea.</div>
+    <ul class="adresar-popis" id="adresar-popis"></ul>
+  </div>
+</div>
 <script>
+  (function () {
+    // Dopunjavanje adresa: dok se tipka zadnji dio iza zareza, traže se
+    // prijedlozi; odabir upiše "Ime <adresa>, ". Gumb Imenik otvara pretragu.
+    var izvori = { djelatnik: 'djelatnik', primatelj: 'primatelj akata', 'služba': 'služba', adresar: 'adresar tvrtke' };
+    var zadnjiUpit = '', odgoda;
+    function trazi(q, cb) {
+      fetch('/posta/adrese.json?q=' + encodeURIComponent(q), { credentials: 'same-origin' })
+        .then(function (r) { return r.ok ? r.json() : []; }).then(cb).catch(function () { cb([]); });
+    }
+    function escape(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+    function stavka(a) {
+      return '<span class="adresa-ime">' + escape(a.ime || a.email) + '</span> <span class="adresa-email">' + escape(a.email) + '</span> <span class="adresa-izvor">' + escape(izvori[a.izvor] || a.izvor) + '</span>';
+    }
+    function dodajU(polje, a) {
+      var dijelovi = polje.value.split(',');
+      dijelovi.pop(); // dio koji se tipkao
+      var vrijednost = a.ime && a.ime !== a.email ? a.ime + ' <' + a.email + '>' : a.email;
+      if (polje.value.toLowerCase().indexOf(a.email.toLowerCase()) >= 0) return;
+      dijelovi.push(' ' + vrijednost);
+      polje.value = dijelovi.map(function (d) { return d.trim(); }).filter(Boolean).join(', ') + ', ';
+      polje.focus();
+    }
+    document.querySelectorAll('.adresa-polje').forEach(function (okvir) {
+      var polje = okvir.querySelector('input');
+      var popis = okvir.querySelector('.adresa-prijedlozi');
+      function sakrij() { popis.hidden = true; popis.innerHTML = ''; }
+      polje.addEventListener('input', function () {
+        var dio = polje.value.split(',').pop().trim();
+        clearTimeout(odgoda);
+        if (dio.length < 2) { sakrij(); return; }
+        odgoda = setTimeout(function () {
+          trazi(dio, function (adrese) {
+            if (!adrese.length) { sakrij(); return; }
+            popis.innerHTML = adrese.map(function (a, i) { return '<li data-i="' + i + '">' + stavka(a) + '</li>'; }).join('');
+            popis.hidden = false;
+            popis.querySelectorAll('li').forEach(function (li) {
+              li.addEventListener('mousedown', function (e) { e.preventDefault(); dodajU(polje, adrese[li.dataset.i]); sakrij(); });
+            });
+          });
+        }, 200);
+      });
+      polje.addEventListener('blur', function () { setTimeout(sakrij, 150); });
+      polje.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') sakrij();
+        if (e.key === 'Enter' && !popis.hidden) { e.preventDefault(); var prvi = popis.querySelector('li'); if (prvi) prvi.dispatchEvent(new Event('mousedown')); }
+      });
+    });
+    // okno imenika
+    var okno = document.getElementById('adresar-okno');
+    var ulaz = document.getElementById('adresar-trazi');
+    var rezultati = document.getElementById('adresar-popis');
+    var cilj = null;
+    document.querySelectorAll('.adresa-imenik').forEach(function (b) {
+      b.addEventListener('click', function () {
+        cilj = document.getElementById(b.dataset.za);
+        okno.hidden = false; ulaz.value = ''; rezultati.innerHTML = ''; ulaz.focus();
+      });
+    });
+    document.getElementById('adresar-zatvori').addEventListener('click', function () { okno.hidden = true; });
+    okno.addEventListener('click', function (e) { if (e.target === okno) okno.hidden = true; });
+    ulaz.addEventListener('input', function () {
+      clearTimeout(odgoda);
+      var q = ulaz.value.trim();
+      if (q.length < 2) { rezultati.innerHTML = ''; return; }
+      odgoda = setTimeout(function () {
+        trazi(q, function (adrese) {
+          rezultati.innerHTML = adrese.length ? adrese.map(function (a, i) { return '<li data-i="' + i + '">' + stavka(a) + ' <button type="button" class="btn btn-sm btn-secondary">Dodaj</button></li>'; }).join('') : '<li class="form-help">Ništa nije pronađeno.</li>';
+          rezultati.querySelectorAll('li[data-i]').forEach(function (li) {
+            li.querySelector('button').addEventListener('click', function () { dodajU(cilj, adrese[li.dataset.i]); li.classList.add('dodano'); });
+          });
+        });
+      }, 200);
+    });
+  })();
   (function () {
     var urednik = document.getElementById('urednik');
     var polje = document.getElementById('urednik-polje');
@@ -96,6 +197,17 @@
         }
         polje.focus();
       });
+    });
+    var blok = urednik.querySelector('.urednik-blok');
+    blok.addEventListener('change', function () { document.execCommand('formatBlock', false, blok.value); polje.focus(); });
+    var boja = urednik.querySelector('.urednik-boja input');
+    boja.addEventListener('input', function () { document.execCommand('foreColor', false, boja.value); });
+    boja.addEventListener('change', function () { polje.focus(); });
+    polje.addEventListener('keyup', function () {
+      // izbornik pokazuje u kojem je bloku pokazivač
+      var n = window.getSelection().anchorNode;
+      while (n && n !== polje && !(n.tagName && /^(H1|H2|H3|P)$/.test(n.tagName))) n = n.parentNode;
+      blok.value = n && n.tagName ? n.tagName.toLowerCase() : 'p';
     });
     polje.closest('form').addEventListener('submit', function () {
       html.value = polje.innerHTML;

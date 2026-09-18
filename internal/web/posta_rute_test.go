@@ -140,6 +140,7 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	h.SetSanducic(tmpl("posta_sanducic.html"), tmpl("posta_pismo.html"), tmpl("posta_novo.html"))
 	mux.HandleFunc("POST /posta/pismo", h.HandlePismoRadnja)
 	mux.HandleFunc("POST /posta/radnja", h.HandleSkupnaRadnja)
+	mux.HandleFunc("GET /posta/adrese.json", h.AdreseJSON)
 	h.SetImenik(tmpl("imenik_exchange.html"), poslovi.NoviRegistar())
 	mux.HandleFunc("GET /users/exchange", h.ShowImenik)
 	mux.HandleFunc("POST /users/exchange", h.HandleImenikPrimijeni)
@@ -258,11 +259,12 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	}
 	srv.Pisma = []posta.Pismo{
 		{ID: "AAMk/1+=", MessageID: "<sig-1@voda.hr>", Predmet: "Signator: dokument je potpisan", Od: "SIGNATOR", OdAdresa: "signator@voda.hr", Kad: time.Now(), Tekst: "Dokument je potpisan.\nU privitku.",
-			HTML:     "<html><body><p>Dokument je <b>potpisan</b>.</p><script>alert(1)</script></body></html>",
-			Privitci: []posta.PrivitakPisma{{ID: "AAMk/priv+1=", Ime: "akt-potpisan.pdf", Vrsta: "application/pdf", Velicina: len(potpisan)}}},
+			HTML: `<html><body><p>Dokument je <b>potpisan</b>.</p><img src="cid:logo1@voda.hr"><script>alert(1)</script></body></html>`,
+			Privitci: []posta.PrivitakPisma{{ID: "AAMk/priv+1=", Ime: "akt-potpisan.pdf", Vrsta: "application/pdf", Velicina: len(potpisan)},
+				{ID: "AAMk/logo=", Ime: "logo.png", Vrsta: "image/png", Velicina: 3, ContentID: "logo1@voda.hr", Ugradjen: true}}},
 		{ID: "AAMk/2=", Predmet: "Ručak", Od: "Kolega", OdAdresa: "kolega@voda.hr", Kad: time.Now().Add(-time.Hour), Procitano: true},
 	}
-	srv.Datoteke = map[string][]byte{"AAMk/priv+1=": potpisan}
+	srv.Datoteke = map[string][]byte{"AAMk/priv+1=": potpisan, "AAMk/logo=": []byte("png")}
 	srv.Korisnikove = map[string]string{"AAMk/mapa-projekti=": "Projekti"}
 	popis := zovi(httptest.NewRequest(http.MethodGet, "/posta?akt="+id2, nil)).Body.String()
 	if !strings.Contains(popis, "Signator: dokument je potpisan") || !strings.Contains(popis, "Ručak") || !strings.Contains(popis, "ukupno 2") {
@@ -278,6 +280,13 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	}
 	if !srv.Pisma[0].Procitano {
 		t.Error("otvoreno pismo nije označeno pročitanim")
+	}
+	// ugrađena slika: cid: postaje adresa privitka, a slika nije među privitcima za preuzimanje
+	if strings.Contains(pismo, "cid:logo1") || !strings.Contains(pismo, "id=AAMk%2Flogo%3D&amp;u=1") || strings.Contains(pismo, ">logo.png<") {
+		t.Errorf("ugrađena slika:\n%.1500s", pismo)
+	}
+	if w := zovi(httptest.NewRequest(http.MethodGet, "/posta/privitak?id=AAMk%2Flogo%3D&u=1", nil)); !strings.HasPrefix(w.Header().Get("Content-Disposition"), "inline") || w.Header().Get("Content-Type") != "image/png" {
+		t.Errorf("ugrađena slika se poslužuje u tijelu: %s %s", w.Header().Get("Content-Disposition"), w.Header().Get("Content-Type"))
 	}
 	// mape i pretraga
 	if w := zovi(httptest.NewRequest(http.MethodGet, "/posta?trazi=ru%C4%8Dak", nil)); !strings.Contains(w.Body.String(), "Ručak") || strings.Contains(w.Body.String(), "Signator: dokument") {
@@ -314,6 +323,20 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	if !strings.Contains(zadnje, "To: <signator@voda.hr>, <kolega@voda.hr>") || !strings.Contains(zadnje, "In-Reply-To: <sig-1@voda.hr>") || !strings.Contains(zadnje, `filename="biljeska.txt"`) {
 		t.Errorf("poslani odgovor:\n%.800s", zadnje)
 	}
+	// prijedlozi adresa: djelatnici, registar, adresar tvrtke
+	srv.Adresar = []posta.Kontakt{{Ime: "Mile Kunac", Email: "mile.kunac@voda.hr"}}
+	wa := zovi(httptest.NewRequest(http.MethodGet, "/posta/adrese.json?q=kun", nil))
+	if wa.Code != http.StatusOK || !strings.Contains(wa.Body.String(), `"email":"mile.kunac@voda.hr"`) || !strings.Contains(wa.Body.String(), `"izvor":"adresar"`) {
+		t.Errorf("prijedlozi adresa: %d %s", wa.Code, wa.Body.String())
+	}
+	if w := zovi(httptest.NewRequest(http.MethodGet, "/posta/adrese.json?q=v", nil)); w.Body.String() != "[]\n" {
+		t.Errorf("prekratak upit mora dati prazan popis: %s", w.Body.String())
+	}
+	if w := zovi(httptest.NewRequest(http.MethodGet, "/posta/novo", nil)); !strings.Contains(w.Body.String(), "adresa-imenik") || !strings.Contains(w.Body.String(), "adresar-okno") {
+		t.Error("obrazac nema gumb imenika")
+	}
+	srv.Adresar = nil
+
 	// prosljeđivanje nosi privitke izvornog pisma
 	var tijeloF bytes.Buffer
 	mwF := multipart.NewWriter(&tijeloF)

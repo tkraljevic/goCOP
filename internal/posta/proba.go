@@ -234,7 +234,7 @@ func PokreniProbniEWS(korisnik, lozinka string) (*ProbniPosluzitelj, error) {
 				fmt.Fprintf(&b, `<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body><m:GetItemResponse xmlns:m="m" xmlns:t="t"><m:ResponseMessages><m:GetItemResponseMessage ResponseClass="Success"><m:ResponseCode>NoError</m:ResponseCode><m:Items><t:Message><t:ItemId Id="%s" ChangeKey="ck1"/><t:InternetMessageId>%s</t:InternetMessageId><t:Subject>%s</t:Subject><t:Body BodyType="HTML">%s</t:Body><t:TextBody>%s</t:TextBody><t:DateTimeReceived>%s</t:DateTimeReceived><t:From><t:Mailbox><t:Name>%s</t:Name><t:EmailAddress>%s</t:EmailAddress></t:Mailbox></t:From><t:ToRecipients><t:Mailbox><t:EmailAddress>%s</t:EmailAddress></t:Mailbox></t:ToRecipients><t:Attachments>`,
 					xmlAttr(pi.ID), xmlAttr(pi.MessageID), xmlAttr(pi.Predmet), xmlAttr(html), xmlAttr(pi.Tekst), pi.Kad.UTC().Format(time.RFC3339), xmlAttr(pi.Od), xmlAttr(pi.OdAdresa), xmlAttr(p.Korisnik))
 				for _, a := range pi.Privitci {
-					fmt.Fprintf(&b, `<t:FileAttachment><t:AttachmentId Id="%s"/><t:Name>%s</t:Name><t:ContentType>%s</t:ContentType><t:Size>%d</t:Size></t:FileAttachment>`, xmlAttr(a.ID), xmlAttr(a.Ime), a.Vrsta, a.Velicina)
+					fmt.Fprintf(&b, `<t:FileAttachment><t:AttachmentId Id="%s"/><t:Name>%s</t:Name><t:ContentType>%s</t:ContentType><t:ContentId>%s</t:ContentId><t:Size>%d</t:Size><t:IsInline>%v</t:IsInline></t:FileAttachment>`, xmlAttr(a.ID), xmlAttr(a.Ime), a.Vrsta, xmlAttr(a.ContentID), a.Velicina, a.Ugradjen)
 				}
 				b.WriteString(`</t:Attachments></t:Message></m:Items></m:GetItemResponseMessage></m:ResponseMessages></m:GetItemResponse></s:Body></s:Envelope>`)
 				_, _ = w.Write(b.Bytes())
