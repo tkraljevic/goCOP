@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -28,7 +29,24 @@ import (
 // stupciOcitanja je zaglavlje izvezene datoteke. Prva tri stupca ne diraj —
 // oni kažu koji je redak koji; ostali su ono što se ispravlja.
 var stupciOcitanja = []string{
-	"id", "vrijeme", "vodostaj_cm", "nizvodni_cm", "ocitao", "napomena", "obrisi", "izvor", "upisao",
+	"id", "vrijeme", "vodostaj_cm", "nizvodni_cm", "temperatura_c", "protok_m3s", "ocitao", "napomena", "obrisi", "izvor", "upisao",
+}
+
+// decimalaUDatoteku ispisuje decimalni broj za datoteku: decimalni zarez kao
+// u Excelu na hrvatskom, bez razdjelnika tisućica da se ne pomiješa s
+// decimalnom točkom pri vraćanju
+func decimalaUDatoteku(v *float64) string {
+	if v == nil {
+		return ""
+	}
+	return strings.Replace(strconv.FormatFloat(*v, 'f', -1, 64), ".", ",", 1)
+}
+
+func decimalaIliCrta(v *float64) string {
+	if v == nil {
+		return ""
+	}
+	return brojHRf(*v, 1)
 }
 
 // letvaIzPutanje čita letvu iz putanje, postaju ili objekt, kako je već
@@ -98,6 +116,8 @@ func (h *ReadingsHandler) HandleOcitanjaIzvoz(w http.ResponseWriter, r *http.Req
 			rd.LocalTime().Format("2006-01-02 15:04"),
 			cijeliBroj(rd.LevelCm),
 			cijeliBroj(rd.Level2Cm),
+			decimalaUDatoteku(rd.TempC),
+			decimalaUDatoteku(rd.FlowM3s),
 			rd.Observer,
 			rd.Note,
 			"", // ovdje se upisuje "da" za brisanje
@@ -189,6 +209,8 @@ func citajOcitanja(sadrzaj []byte, postojeca map[uuid.UUID]models.Reading) ([]Re
 	iID, iVrijeme := stupac("id"), stupac("vrijeme")
 	iVodostaj, iNizvodni := stupac("vodostaj_cm"), stupac("nizvodni_cm")
 	iOcitao, iNapomena, iObrisi := stupac("ocitao"), stupac("napomena"), stupac("obrisi")
+	// starija datoteka bez ovih stupaca ne dira temperaturu ni protok
+	iTemperatura, iProtok := stupac("temperatura_c"), stupac("protok_m3s")
 	if iID < 0 || iVrijeme < 0 || iVodostaj < 0 {
 		return nil, fmt.Errorf("datoteci nedostaje stupac „id“, „vrijeme“ ili „vodostaj_cm“ — je li izvezena odavde?")
 	}
@@ -261,14 +283,32 @@ func citajOcitanja(sadrzaj []byte, postojeca map[uuid.UUID]models.Reading) ([]Re
 		} else {
 			novo.Level2Cm = v
 		}
+		if iTemperatura >= 0 {
+			if v, err := decimalaIzObrasca(polje(r, iTemperatura)); err != nil {
+				red.Greska = "temperatura: " + err.Error()
+				out = append(out, red)
+				continue
+			} else {
+				novo.TempC = v
+			}
+		}
+		if iProtok >= 0 {
+			if v, err := decimalaIzObrasca(polje(r, iProtok)); err != nil {
+				red.Greska = "protok: " + err.Error()
+				out = append(out, red)
+				continue
+			} else {
+				novo.FlowM3s = v
+			}
+		}
 		if iOcitao >= 0 {
 			novo.Observer = polje(r, iOcitao)
 		}
 		if iNapomena >= 0 {
 			novo.Note = polje(r, iNapomena)
 		}
-		if novo.LevelCm == nil && novo.Level2Cm == nil {
-			red.Greska = "očitanje bez ijednog vodostaja — za brisanje upiši „da“ u stupac obrisi"
+		if !novo.HasAnyValue() {
+			red.Greska = "očitanje bez vodostaja, temperature i protoka — za brisanje upiši „da“ u stupac obrisi"
 			out = append(out, red)
 			continue
 		}
@@ -293,6 +333,12 @@ func razlike(staro, novo models.Reading) []Izmjena {
 	}
 	if !istiCm(staro.Level2Cm, novo.Level2Cm) {
 		out = append(out, Izmjena{"nizvodni", cmIliCrta(staro.Level2Cm), cmIliCrta(novo.Level2Cm)})
+	}
+	if !istaDecimala(staro.TempC, novo.TempC) {
+		out = append(out, Izmjena{"temperatura", decimalaIliCrta(staro.TempC), decimalaIliCrta(novo.TempC)})
+	}
+	if !istaDecimala(staro.FlowM3s, novo.FlowM3s) {
+		out = append(out, Izmjena{"protok", decimalaIliCrta(staro.FlowM3s), decimalaIliCrta(novo.FlowM3s)})
 	}
 	if staro.Observer != novo.Observer {
 		out = append(out, Izmjena{"očitao", staro.Observer, novo.Observer})
@@ -507,6 +553,8 @@ func (h *ReadingsHandler) HandleOcitanjaPotvrda(w http.ResponseWriter, r *http.R
 		novo.MeasuredAt = kad.UTC()
 		novo.LevelCm = cmIzObrasca(nth(r.Form["vodostaj"], i))
 		novo.Level2Cm = cmIzObrasca(nth(r.Form["nizvodni"], i))
+		novo.TempC, _ = decimalaIzObrasca(nth(r.Form["temperatura"], i))
+		novo.FlowM3s, _ = decimalaIzObrasca(nth(r.Form["protok"], i))
 		novo.Observer = strings.TrimSpace(nth(r.Form["ocitao"], i))
 		novo.Note = strings.TrimSpace(nth(r.Form["napomena"], i))
 		if len(razlike(staro, novo)) == 0 {
@@ -587,4 +635,11 @@ func ocitanja(n int) string {
 		return fmt.Sprintf("%d očitanja", n)
 	}
 	return fmt.Sprintf("%d očitanja", n)
+}
+
+func istaDecimala(a, b *float64) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return math.Abs(*a-*b) < 1e-9
 }

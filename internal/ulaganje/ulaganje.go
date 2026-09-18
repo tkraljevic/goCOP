@@ -70,6 +70,8 @@ type Pregled struct {
 	Mjereno        int
 	Rucno          int
 	Preracunato    int
+	Temperatura    int // očitanja s temperaturom vode, idu kao niz temperatura
+	Protok         int // očitanja s izmjerenim protokom, idu kao niz protok
 	Sumnjivo       int
 	BezVrijednosti int
 	SBiljeskom     int
@@ -86,15 +88,55 @@ type Pregled struct {
 
 // Ima javlja bi li ulaganje uopće nešto zapisalo.
 func (p *Pregled) Ima() bool {
-	return len(p.mjereno)+len(p.rucno)+len(p.preracunato) > 0
+	return len(p.mjereno)+len(p.rucno)+len(p.preracunato)+len(p.dodatne) > 0
 }
 
 type razvrstano struct {
 	mjereno     []arhiva.Redak
 	rucno       []arhiva.Redak
 	preracunato []arhiva.Redak
-	biljeske    []sBiljeskom
-	ulozeniID   []string
+	// Temperatura vode i izmjereni protok idu kao vlastiti nizovi iste
+	// letve, pod istim izvorom kao i vodostaj tog očitanja: ručno očitano
+	// pod ručnim, dojavljeno pod dojavom.
+	dodatne   []dodatniNiz
+	biljeske  []sBiljeskom
+	ulozeniID []string
+}
+
+// dodatniNiz je niz neke druge veličine uz vodostaj
+type dodatniNiz struct {
+	Velicina string
+	Rucno    bool
+	Redci    []arhiva.Redak
+}
+
+func (r *razvrstano) dodaj(velicina string, rucno bool, red arhiva.Redak) {
+	for i := range r.dodatne {
+		if r.dodatne[i].Velicina == velicina && r.dodatne[i].Rucno == rucno {
+			r.dodatne[i].Redci = append(r.dodatne[i].Redci, red)
+			return
+		}
+	}
+	r.dodatne = append(r.dodatne, dodatniNiz{Velicina: velicina, Rucno: rucno, Redci: []arhiva.Redak{red}})
+}
+
+// broj vraća koliko redaka ima neka veličina, ručno i dojavljeno zajedno
+func (r razvrstano) broj(velicina string) int {
+	n := 0
+	for _, d := range r.dodatne {
+		if d.Velicina == velicina {
+			n += len(d.Redci)
+		}
+	}
+	return n
+}
+
+// izvorNiza je pod kojim izvorom i vrstom dodatni niz stoji u arhivi
+func (p *Pregled) izvorNiza(d dodatniNiz) (izvor, vrsta string) {
+	if d.Rucno {
+		return p.IzvorRucnog, p.VrstaRucnog
+	}
+	return p.Izvor, p.Vrsta
 }
 
 type sBiljeskom struct {
@@ -128,6 +170,7 @@ func Pripremi(ctx context.Context, z Zahtjev) (*Pregled, error) {
 		Izvor: z.izvor(), IzvorRucnog: z.izvorRucnog()}
 	p.razvrstano, p.Sumnjivo, p.BezVrijednosti = razvrstaj(ocitanja)
 	p.Mjereno, p.Rucno, p.Preracunato = len(p.mjereno), len(p.rucno), len(p.preracunato)
+	p.Temperatura, p.Protok = p.broj("temperatura"), p.broj("protok")
 	p.SBiljeskom = len(p.biljeske)
 
 	p.Vrsta = z.Vrsta
@@ -147,6 +190,9 @@ func Pripremi(ctx context.Context, z Zahtjev) (*Pregled, error) {
 	}
 
 	svi := append(append(append([]arhiva.Redak{}, p.mjereno...), p.rucno...), p.preracunato...)
+	for _, d := range p.dodatne {
+		svi = append(svi, d.Redci...)
+	}
 	if len(svi) > 0 {
 		sort.Slice(svi, func(a, b int) bool { return svi[a].Vrijeme.Before(svi[b].Vrijeme) })
 		p.Od, p.Do = svi[0].Vrijeme, svi[len(svi)-1].Vrijeme
@@ -177,17 +223,20 @@ func (p *Pregled) Ulozi(ctx context.Context, z Zahtjev, zapisi io.Writer) (*Isho
 	}
 	iz := &Ishod{}
 
-	upisi := func(izvor, vrsta string, redci []arhiva.Redak) error {
+	upisiVelicinu := func(izvor, velicina, vrsta string, redci []arhiva.Redak) error {
 		if len(redci) == 0 {
 			return nil
 		}
-		put, err := arhiva.Dopuni(z.Koren, p.Sliv, p.Postaja.Code, izvor, "vodostaj", vrsta, redci)
+		put, err := arhiva.Dopuni(z.Koren, p.Sliv, p.Postaja.Code, izvor, velicina, vrsta, redci)
 		if err != nil {
 			return fmt.Errorf("ulaganje u %s: %w", izvor, err)
 		}
 		fmt.Fprintf(zapisi, "zapisano: %s (%d)\n", put, len(redci))
 		iz.Putovi = append(iz.Putovi, put)
 		return nil
+	}
+	upisi := func(izvor, vrsta string, redci []arhiva.Redak) error {
+		return upisiVelicinu(izvor, "vodostaj", vrsta, redci)
 	}
 
 	javi(zapisi, "zapisujem u stablo", 0, 0)
@@ -201,7 +250,15 @@ func (p *Pregled) Ulozi(ctx context.Context, z Zahtjev, zapisi io.Writer) (*Isho
 	if err := upisi(p.IzvorRucnog, p.VrstaRucnog, p.rucno); err != nil {
 		return nil, err
 	}
-	if len(p.rucno) > 0 {
+	imaRucno := len(p.rucno) > 0
+	for _, d := range p.dodatne {
+		izvor, vrsta := p.izvorNiza(d)
+		if err := upisiVelicinu(izvor, d.Velicina, vrsta, d.Redci); err != nil {
+			return nil, err
+		}
+		imaRucno = imaRucno || d.Rucno
+	}
+	if imaRucno {
 		if err := upisiIzvorRucnog(z.ArhivaPut, p.IzvorRucnog); err != nil {
 			return nil, fmt.Errorf("izvor %s: %w", p.IzvorRucnog, err)
 		}
@@ -267,11 +324,16 @@ func (p *Pregled) Ulozi(ctx context.Context, z Zahtjev, zapisi io.Writer) (*Isho
 // nizoviZaProvjeru kaže gdje svaka skupina mora završiti. Isti raspored po
 // kojem se i upisuje, pa se ne može razići s njim.
 func (p *Pregled) nizoviZaProvjeru() []UNizu {
-	return []UNizu{
+	out := []UNizu{
 		{Izvor: p.Izvor, Velicina: "vodostaj", Vrsta: p.Vrsta, Redci: p.mjereno},
 		{Izvor: p.IzvorRucnog, Velicina: "vodostaj", Vrsta: p.VrstaRucnog, Redci: p.rucno},
 		{Izvor: "preracun-" + p.Izvor, Velicina: "vodostaj", Vrsta: p.Vrsta, Redci: p.preracunato},
 	}
+	for _, d := range p.dodatne {
+		izvor, vrsta := p.izvorNiza(d)
+		out = append(out, UNizu{Izvor: izvor, Velicina: d.Velicina, Vrsta: vrsta, Redci: d.Redci})
+	}
+	return out
 }
 
 // javi šalje korak odredištu koje ga zna primiti; naredbeni redak ne mora.

@@ -206,3 +206,50 @@ func TestIzvozPrateOdabranoRazdoblje(t *testing.T) {
 		t.Errorf("sve: %d očitanja", n)
 	}
 }
+
+// Temperatura vode i izmjereni protok idu u datoteku i vraćaju se iz nje;
+// starija datoteka bez tih stupaca ih ne dira.
+func TestTemperaturaIProtokUDatoteci(t *testing.T) {
+	kad := time.Date(2026, 9, 7, 8, 0, 0, 0, models.Zagreb)
+	temp, q := 12.5, 1250.0
+	oc := ocitanjeZaTest(kad, -118)
+	oc.TempC, oc.FlowM3s = &temp, &q
+	postojeca := map[uuid.UUID]models.Reading{oc.ID: oc}
+
+	if s := decimalaUDatoteku(&q); s != "1250" {
+		t.Errorf("protok u datoteci: %q, bez razdjelnika tisućica", s)
+	}
+	if s := decimalaUDatoteku(&temp); s != "12,5" {
+		t.Errorf("temperatura u datoteci: %q", s)
+	}
+
+	// ispravak temperature, protok isti
+	csv := strings.Join(stupciOcitanja, ";") + "\n" +
+		oc.ID.String() + ";2026-09-07 08:00;-118;;13,1;1250;vodočuvar;;;;\n"
+	redci, err := citajOcitanja([]byte(csv), postojeca)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(redci) != 1 || len(redci[0].Izmjene) != 1 || redci[0].Izmjene[0].Polje != "temperatura" || *redci[0].Novo.TempC != 13.1 || *redci[0].Novo.FlowM3s != 1250 {
+		t.Errorf("izmjena temperature nije prepoznata: %+v", redci)
+	}
+
+	// stara datoteka bez stupaca: temperatura i protok ostaju
+	stari := "id;vrijeme;vodostaj_cm;nizvodni_cm;ocitao;napomena;obrisi\n" +
+		oc.ID.String() + ";2026-09-07 08:00;-118;;vodočuvar;;\n"
+	redci, err = citajOcitanja([]byte(stari), postojeca)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(redci) != 1 || len(redci[0].Izmjene) != 0 || redci[0].Novo.TempC == nil || *redci[0].Novo.TempC != 12.5 {
+		t.Errorf("stara datoteka je dirnula temperaturu: %+v", redci)
+	}
+
+	// samo temperatura, bez vodostaja, je valjan redak
+	samo := strings.Join(stupciOcitanja, ";") + "\n" +
+		oc.ID.String() + ";2026-09-07 08:00;;;13,1;;vodočuvar;;;;\n"
+	redci, _ = citajOcitanja([]byte(samo), postojeca)
+	if len(redci) != 1 || redci[0].Greska != "" {
+		t.Errorf("redak samo s temperaturom odbijen: %+v", redci)
+	}
+}

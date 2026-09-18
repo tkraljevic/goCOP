@@ -53,6 +53,8 @@
     <input type="hidden" name="vrijeme" value="{{.Novo.MeasuredAt.Format "2006-01-02T15:04:05Z07:00"}}">
     <input type="hidden" name="vodostaj" value="{{if .Novo.LevelCm}}{{intOf .Novo.LevelCm}}{{end}}">
     <input type="hidden" name="nizvodni" value="{{if .Novo.Level2Cm}}{{intOf .Novo.Level2Cm}}{{end}}">
+    <input type="hidden" name="temperatura" value="{{if .Novo.TempC}}{{deref .Novo.TempC}}{{end}}">
+    <input type="hidden" name="protok" value="{{if .Novo.FlowM3s}}{{deref .Novo.FlowM3s}}{{end}}">
     <input type="hidden" name="ocitao" value="{{.Novo.Observer}}">
     <input type="hidden" name="napomena" value="{{.Novo.Note}}">
     {{end}}

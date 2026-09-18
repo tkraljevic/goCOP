@@ -195,6 +195,18 @@
         <span>{{brojHR .Preracunato}} → <span class="mono">preracun-{{.Izvor}}</span>, odvojeno</span>
       </div>
       {{end}}
+      {{if .Temperatura}}
+      <div class="izdanje-red">
+        <span class="izdanje-letva">Temperatura vode</span>
+        <span>{{brojHR .Temperatura}} → niz <span class="mono">temperatura</span>, pod istim izvorom kao vodostaj</span>
+      </div>
+      {{end}}
+      {{if .Protok}}
+      <div class="izdanje-red">
+        <span class="izdanje-letva">Izmjereni protok</span>
+        <span>{{brojHR .Protok}} → niz <span class="mono">protok</span>, pod istim izvorom kao vodostaj</span>
+      </div>
+      {{end}}
       {{if .Sumnjivo}}
       <div class="izdanje-red">
         <span class="izdanje-letva">Sumnjivo</span>
@@ -204,7 +216,7 @@
       {{end}}
       {{if .BezVrijednosti}}
       <div class="izdanje-red">
-        <span class="izdanje-letva">Bez vodostaja</span>
+        <span class="izdanje-letva">Bez vrijednosti</span>
         <span class="izdanje-isto">{{brojHR .BezVrijednosti}} — ne ulaže se (građevine, prazna očitanja)</span>
       </div>
       {{end}}

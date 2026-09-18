@@ -92,3 +92,46 @@ func TestVrstaNizaSePogadjaIzGustoce(t *testing.T) {
 		t.Errorf("prazno → %q", got)
 	}
 }
+
+// Temperatura vode i izmjereni protok ulažu se kao vlastiti nizovi, pod
+// ručnim ili dojavnim izvorom kako je i vodostaj; očitanje koje ima samo
+// temperaturu nije "bez vrijednosti" i označava se kao uloženo.
+func TestTemperaturaIProtokIduKaoVlastitiNizovi(t *testing.T) {
+	temp, q := 12.5, 1250.0
+	rucno := ocit(6, -90, models.QualityMeasured, "", "")
+	rucno.Source, rucno.TempC, rucno.FlowM3s = models.ReadingSourceManual, &temp, &q
+	dojava := ocit(7, -91, models.QualityMeasured, "", "")
+	dojava.Source, dojava.TempC = models.ReadingSourceAutomatic, &temp
+	samoTemp := models.Reading{ID: uuid.New(), MeasuredAt: time.Date(2026, 9, 10, 8, 0, 0, 0, time.UTC), Source: models.ReadingSourceManual, TempC: &temp}
+	sumnjivo := ocit(9, -92, models.QualityUncertain, "", "")
+	sumnjivo.TempC = &temp
+
+	iz, sumnjivih, bez := razvrstaj([]models.Reading{rucno, dojava, samoTemp, sumnjivo})
+	if bez != 0 || sumnjivih != 1 {
+		t.Errorf("bez vrijednosti %d, sumnjivih %d", bez, sumnjivih)
+	}
+	if len(iz.rucno) != 1 || len(iz.mjereno) != 1 {
+		t.Errorf("vodostaji: ručno %d, dojava %d", len(iz.rucno), len(iz.mjereno))
+	}
+	if iz.broj("temperatura") != 3 || iz.broj("protok") != 1 {
+		t.Errorf("temperatura %d, protok %d", iz.broj("temperatura"), iz.broj("protok"))
+	}
+	for _, d := range iz.dodatne {
+		if d.Velicina == "temperatura" && d.Rucno && len(d.Redci) != 2 {
+			t.Errorf("ručna temperatura: %d redaka, očekivana dva", len(d.Redci))
+		}
+		if d.Velicina == "protok" && !d.Rucno {
+			t.Error("protok bi trebao biti pod ručnim izvorom")
+		}
+	}
+	if len(iz.ulozeniID) != 3 {
+		t.Errorf("označeno za ulaganje %d, očekivana tri", len(iz.ulozeniID))
+	}
+	p := &Pregled{Izvor: "cop", IzvorRucnog: "cop-rucno", Vrsta: "satni", VrstaRucnog: "satni", razvrstano: iz}
+	if !p.Ima() {
+		t.Error("pregled s temperaturom mora imati što uložiti")
+	}
+	if n := len(p.nizoviZaProvjeru()); n != 3+len(iz.dodatne) {
+		t.Errorf("nizova za provjeru %d", n)
+	}
+}

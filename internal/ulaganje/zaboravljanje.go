@@ -94,7 +94,7 @@ func Zaboravi(ctx context.Context, baza *sql.DB, arhivaPut, stationID string,
 	// biti. Brisanje se ne smije osloniti na to da je negdje u arhivi nešto s
 	// istim vremenom — mora biti baš ta vrijednost u baš tom nizu.
 	rows, err := baza.QueryContext(ctx, `
-		SELECT r.id, r.measured_at, r.level_cm, r.quality, r.source, s.code
+		SELECT r.id, r.measured_at, r.level_cm, r.temp_c, r.flow_m3s, r.quality, r.source, s.code
 		FROM readings r JOIN stations s ON s.id = r.station_id
 		WHERE r.station_id = ? AND r.izdanje IS NOT NULL AND r.izdanje <> ''
 		ORDER BY r.measured_at`, stationID)
@@ -108,7 +108,8 @@ func Zaboravi(ctx context.Context, baza *sql.DB, arhivaPut, stationID string,
 		var r models.Reading
 		var id, code string
 		var level sql.NullInt64
-		if err := rows.Scan(&id, &r.MeasuredAt, &level, &r.Quality, &r.Source, &code); err != nil {
+		var temp, flow sql.NullFloat64
+		if err := rows.Scan(&id, &r.MeasuredAt, &level, &temp, &flow, &r.Quality, &r.Source, &code); err != nil {
 			rows.Close()
 			return nil, err
 		}
@@ -117,6 +118,14 @@ func Zaboravi(ctx context.Context, baza *sql.DB, arhivaPut, stationID string,
 		if level.Valid {
 			v := int(level.Int64)
 			r.LevelCm = &v
+		}
+		if temp.Valid {
+			v := temp.Float64
+			r.TempC = &v
+		}
+		if flow.Valid {
+			v := flow.Float64
+			r.FlowM3s = &v
 		}
 		ocitanja = append(ocitanja, r)
 	}
@@ -136,6 +145,16 @@ func Zaboravi(ctx context.Context, baza *sql.DB, arhivaPut, stationID string,
 			Vrsta: zatecenaVrsta(arhivaPut, letva, IzvorRucnog), Redci: razvrstano.rucno},
 		{Izvor: "preracun-" + IzvorDojave, Velicina: "vodostaj",
 			Vrsta: zatecenaVrsta(arhivaPut, letva, "preracun-"+IzvorDojave), Redci: razvrstano.preracunato},
+	}
+	// temperatura i protok stoje pod istim izvorom i vrstom kao vodostaj
+	// tog očitanja
+	for _, d := range razvrstano.dodatne {
+		izvor := IzvorDojave
+		if d.Rucno {
+			izvor = IzvorRucnog
+		}
+		nizovi = append(nizovi, UNizu{Izvor: izvor, Velicina: d.Velicina,
+			Vrsta: zatecenaVrsta(arhivaPut, letva, izvor), Redci: d.Redci})
 	}
 	ukupno := 0
 	for _, n := range nizovi {
