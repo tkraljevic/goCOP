@@ -157,6 +157,13 @@ func TestOblikovanoPismo(t *testing.T) {
 			t.Errorf("nema %q:\n%s", x, s)
 		}
 	}
+	rel := string(Sastavi(Poruka{Od: mail.Address{Address: "a@voda.hr"}, Za: mail.Address{Address: "b@voda.hr"}, Predmet: "x", Tekst: "t", HTML: `<p>t</p><img src="cid:logo@gocop">`,
+		Ugradjene: []Privitak{{Ime: "logo.png", Vrsta: "image/png", Podaci: []byte("png"), ContentID: "logo@gocop"}}}))
+	for _, x := range []string{"multipart/related", "Content-ID: <logo@gocop>", "Content-Disposition: inline", `src=3D"cid:logo@gocop"`} {
+		if !strings.Contains(rel, x) {
+			t.Errorf("ugrađena slika: nema %q:\n%s", x, rel)
+		}
+	}
 	if got := OcistiHTML(`<p onclick="x()">a</p><script>zlo()</script><iframe src="x"></iframe>`); got != "<p>a</p>" {
 		t.Errorf("čišćenje: %q", got)
 	}

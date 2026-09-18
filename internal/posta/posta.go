@@ -68,9 +68,10 @@ type Racun struct {
 
 // Privitak poruke
 type Privitak struct {
-	Ime    string
-	Vrsta  string // npr. application/pdf
-	Podaci []byte
+	Ime       string
+	Vrsta     string // npr. application/pdf
+	Podaci    []byte
+	ContentID string // za sliku ugrađenu u HTML (cid:), prazno za običan privitak
 }
 
 // Poruka jednom primatelju; za pismo iz sandučića može imati više
@@ -82,7 +83,8 @@ type Poruka struct {
 	Kopija     []mail.Address
 	Predmet    string
 	Tekst      string
-	HTML       string // oblikovano tijelo; Tekst je tada inačica za stare klijente
+	HTML       string     // oblikovano tijelo; Tekst je tada inačica za stare klijente
+	Ugradjene  []Privitak // slike na koje se HTML poziva s cid: (logo u potpisu)
 	Privitci   []Privitak
 	Kad        time.Time
 	OdgovorNa  string // Message-ID pisma na koje se odgovara
@@ -151,14 +153,38 @@ func Sastavi(p Poruka) []byte {
 	}
 	fmt.Fprintf(&b, "--%s\r\n", granica)
 	if p.HTML != "" {
-		// oblikovano pismo: tekst i HTML kao alternative, klijent bira
+		// oblikovano pismo: tekst i HTML kao alternative, klijent bira;
+		// HTML s ugrađenim slikama ide kao multipart/related
 		alt := nasumicno(12)
 		zaglavlje("Content-Type", `multipart/alternative; boundary="`+alt+`"`)
 		b.WriteString("\r\n")
 		fmt.Fprintf(&b, "--%s\r\n", alt)
 		dioTeksta("text/plain", p.Tekst)
 		fmt.Fprintf(&b, "--%s\r\n", alt)
-		dioTeksta("text/html", "<html><body>"+p.HTML+"</body></html>")
+		if len(p.Ugradjene) > 0 {
+			rel := nasumicno(12)
+			zaglavlje("Content-Type", `multipart/related; boundary="`+rel+`"; type="text/html"`)
+			b.WriteString("\r\n")
+			fmt.Fprintf(&b, "--%s\r\n", rel)
+			dioTeksta("text/html", "<html><body>"+p.HTML+"</body></html>")
+			for _, u := range p.Ugradjene {
+				fmt.Fprintf(&b, "--%s\r\n", rel)
+				zaglavlje("Content-Type", u.Vrsta)
+				zaglavlje("Content-ID", "<"+u.ContentID+">")
+				zaglavlje("Content-Disposition", `inline; filename="`+mime.QEncoding.Encode("utf-8", u.Ime)+`"`)
+				zaglavlje("Content-Transfer-Encoding", "base64")
+				b.WriteString("\r\n")
+				enc := base64.StdEncoding.EncodeToString(u.Podaci)
+				for len(enc) > 76 {
+					b.WriteString(enc[:76] + "\r\n")
+					enc = enc[76:]
+				}
+				b.WriteString(enc + "\r\n")
+			}
+			fmt.Fprintf(&b, "--%s--\r\n", rel)
+		} else {
+			dioTeksta("text/html", "<html><body>"+p.HTML+"</body></html>")
+		}
 		fmt.Fprintf(&b, "--%s--\r\n", alt)
 	} else {
 		dioTeksta("text/plain", p.Tekst)

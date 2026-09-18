@@ -484,3 +484,15 @@ func (h *AktiHandler) HandlePotpis(w http.ResponseWriter, r *http.Request) {
 	}
 	redirectWith(w, r, "/profile/potpis", "success", "Potpis je spremljen i ubacuje se u svako novo pismo.")
 }
+
+// Logo daje znak organizacije za prikaz potpisa u uređivaču
+func (h *AktiHandler) Logo(w http.ResponseWriter, r *http.Request) {
+	t := models.Terms()
+	if !t.HasLogo() {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", t.LogoMime)
+	w.Header().Set("Cache-Control", "private, max-age=3600")
+	_, _ = w.Write(t.Logo)
+}

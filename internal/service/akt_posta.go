@@ -2,11 +2,13 @@ package service
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"html"
 	"net/mail"
+	"regexp"
 	"slices"
 	"strings"
 	"sync"
@@ -417,6 +419,7 @@ func (s *AktService) PosaljiPismo(ctx context.Context, u *models.User, n NovoPis
 		if strings.TrimSpace(m.Tekst) == "" {
 			m.Tekst = posta.TekstIzHTML(h)
 		}
+		ugradiSlike(&m)
 	}
 	for _, a := range posta.Adrese(n.Za) {
 		m.Primatelji = append(m.Primatelji, mail.Address{Address: a})
@@ -751,36 +754,114 @@ func (s *AktService) SpremiPotpis(ctx context.Context, u *models.User, html stri
 	return s.repo.SavePotpis(ctx, &repository.PotpisPoste{UserID: u.ID.String(), HTML: posta.OcistiHTML(html)})
 }
 
-// ZadaniPotpis slaže potpis iz podataka profila: ime i titula, funkcija,
-// organizacija, telefoni i e-pošta
+// LogoZaPotpis je adresa s koje se logo organizacije prikazuje u potpisu;
+// pri slanju se zamijeni ugrađenom slikom
+const LogoZaPotpis = "/posta/logo.png"
+
+// ZadaniPotpis slaže potpis po uzoru na potpis iz Outlooka: logo lijevo,
+// desno organizacija, VGO i centar, funkcija, ime s titulom, telefoni i
+// adresa
 func (s *AktService) ZadaniPotpis(u *models.User) string {
 	esc := html.EscapeString
-	var b strings.Builder
-	b.WriteString("<p>S poštovanjem,</p><p><b>" + esc(u.FullName) + "</b>")
-	if u.Title != "" {
-		b.WriteString(", " + esc(u.Title))
-	}
-	if d := u.PrimaryDuty(); d != nil && d.Title != "" {
-		b.WriteString("<br>" + esc(d.Title))
-	}
-	org := u.OrgName
+	t := models.Terms()
+	org := t.OrgName
 	if org == "" {
 		org = "Hrvatske vode"
 	}
-	b.WriteString("<br>" + esc(org))
-	var k []string
+	var jedinice []string
+	telCOP := ""
+	if d := u.PrimaryDuty(); d != nil && d.SectorID != nil {
+		if sektori, err := s.users.ListSectors(); err == nil {
+			for _, sek := range sektori {
+				if sek.ID == *d.SectorID {
+					if sek.VgoName != "" {
+						jedinice = append(jedinice, strings.ToUpper(sek.VgoName))
+					}
+					telCOP = sek.Phone
+				}
+			}
+		}
+	}
+	if len(jedinice) == 0 && u.OrgName != "" && !strings.EqualFold(u.OrgName, org) {
+		jedinice = append(jedinice, strings.ToUpper(u.OrgName))
+	}
+	if t.Center != "" {
+		jedinice = append(jedinice, strings.ToUpper(t.Center))
+	}
+	plava := "color:#003366"
+	var b strings.Builder
+	b.WriteString(`<p>Srdačan pozdrav,</p><table cellspacing="0" cellpadding="0" style="border-collapse:collapse"><tr>`)
+	if t.HasLogo() {
+		b.WriteString(`<td style="padding:6px 14px 0 0;vertical-align:top"><img src="` + LogoZaPotpis + `" alt="` + esc(org) + `" width="64" style="width:64px;height:auto"></td>`)
+	}
+	b.WriteString(`<td style="padding:6px 0 0 0;vertical-align:top;font-family:Arial,sans-serif;font-size:10.5pt">`)
+	b.WriteString(`<div style="` + plava + `"><b>` + strings.ToUpper(esc(org)) + `</b></div>`)
+	if len(jedinice) > 0 {
+		b.WriteString(`<div style="` + plava + `;font-size:10pt">` + esc(strings.Join(jedinice, "<br>")) + `</div>`)
+	}
+	if d := u.PrimaryDuty(); d != nil && d.Title != "" {
+		b.WriteString(`<div><b>` + esc(d.Title) + `</b></div>`)
+	}
+	b.WriteString(`<div><b>` + esc(u.FullName) + `</b>`)
+	if u.Title != "" {
+		b.WriteString(`, ` + esc(u.Title))
+	}
+	b.WriteString(`</div>`)
 	if u.Phone != "" {
-		k = append(k, "tel. "+esc(u.Phone))
+		b.WriteString(`<div>Tel: <span style="` + plava + `">` + esc(u.Phone) + `</span></div>`)
+	}
+	if telCOP != "" && posta.SamoZnamenke(telCOP) != posta.SamoZnamenke(u.Phone) {
+		b.WriteString(`<div>Tel (` + esc(t.Center) + `): <span style="` + plava + `">` + esc(telCOP) + `</span></div>`)
 	}
 	if u.MobilePhone != "" {
-		k = append(k, "mob. "+esc(u.MobilePhone))
-	}
-	if len(k) > 0 {
-		b.WriteString("<br>" + strings.Join(k, " · "))
+		b.WriteString(`<div>Gsm: <span style="` + plava + `">` + esc(u.MobilePhone) + `</span></div>`)
 	}
 	if u.Email != "" {
-		b.WriteString("<br>" + esc(u.Email))
+		b.WriteString(`<div><a href="mailto:` + esc(u.Email) + `" style="` + plava + `">` + esc(u.Email) + `</a></div>`)
 	}
-	b.WriteString("</p>")
-	return b.String()
+	b.WriteString(`</td></tr></table>`)
+	return strings.ReplaceAll(b.String(), esc("<br>"), "<br>")
+}
+
+// ugradiSlike zamjenjuje u HTML-u pisma logo organizacije i slike zapisane
+// kao data: URI ugrađenim slikama (cid:), jer ih klijenti tako prikazuju
+func ugradiSlike(m *posta.Poruka) {
+	if m.HTML == "" {
+		return
+	}
+	t := models.Terms()
+	if t.HasLogo() && strings.Contains(m.HTML, LogoZaPotpis) {
+		m.HTML = strings.ReplaceAll(m.HTML, `"`+LogoZaPotpis+`"`, `"cid:logo@gocop"`)
+		m.Ugradjene = append(m.Ugradjene, posta.Privitak{Ime: "logo" + nastavakSlike(t.LogoMime), Vrsta: t.LogoMime, Podaci: t.Logo, ContentID: "logo@gocop"})
+	}
+	n := 0
+	m.HTML = reDataSlika.ReplaceAllStringFunc(m.HTML, func(x string) string {
+		g := reDataSlika.FindStringSubmatch(x)
+		podaci, err := base64.StdEncoding.DecodeString(g[2])
+		if err != nil {
+			return x
+		}
+		n++
+		id := fmt.Sprintf("slika%d@gocop", n)
+		m.Ugradjene = append(m.Ugradjene, posta.Privitak{Ime: fmt.Sprintf("slika%d%s", n, nastavakSlike("image/"+g[1])), Vrsta: "image/" + g[1], Podaci: podaci, ContentID: id})
+		return `src="cid:` + id + `"`
+	})
+}
+
+var reDataSlika = regexp.MustCompile(`src="data:image/(png|jpeg|gif|webp);base64,([A-Za-z0-9+/=\s]+)"`)
+
+func nastavakSlike(mime string) string {
+	switch strings.ToLower(mime) {
+	case "image/png":
+		return ".png"
+	case "image/jpeg":
+		return ".jpg"
+	case "image/gif":
+		return ".gif"
+	case "image/svg+xml":
+		return ".svg"
+	case "image/webp":
+		return ".webp"
+	}
+	return ""
 }
