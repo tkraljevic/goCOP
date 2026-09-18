@@ -3656,3 +3656,7 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .urednik-polje img { max-width: 100%; }
 .akt-potpis-opcije ol { margin: 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: 0.5rem; }
 .akt-sken { display: flex; flex-direction: column; gap: 0.35rem; }
+
+.zig-pregled { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+.zig-slika { width: 140px; height: 140px; object-fit: contain; border: 1px dashed var(--border, #d9dee5); border-radius: 8px; background: #fff; padding: 6px; }
+.zig-prazno { padding: 1rem; border: 1px dashed var(--border, #d9dee5); border-radius: 8px; color: var(--muted, #6b7280); }

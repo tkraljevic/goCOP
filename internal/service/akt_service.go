@@ -8,6 +8,9 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"image"
+	_ "image/jpeg"
+	_ "image/png"
 	"sort"
 	"strings"
 	"time"
@@ -925,4 +928,48 @@ func (s *AktService) ObrisiPrimatelja(ctx context.Context, perms *models.UserPer
 		return ErrUnauthorized
 	}
 	return s.repo.DeletePrimatelj(ctx, id)
+}
+
+// ---- žig centra ----
+
+// Zig vraća skenirani žig sektora; nil kad ga nema
+func (s *AktService) Zig(ctx context.Context, sektor string) *models.Zig {
+	z, err := s.repo.GetZig(ctx, sektor)
+	if err != nil {
+		return nil
+	}
+	return z
+}
+
+// SpremiZig sprema sken žiga sektora: PNG ili JPEG do 2 MB; smije uprava sektora
+func (s *AktService) SpremiZig(ctx context.Context, perms *models.UserPermissions, u *models.User, sektor string, slika []byte) error {
+	if perms == nil || !perms.CanAdminister(sektor, 0) {
+		return ErrUnauthorized
+	}
+	if len(slika) == 0 {
+		return fmt.Errorf("odaberite sliku žiga")
+	}
+	if len(slika) > models.ZigMaxBytes {
+		return fmt.Errorf("slika žiga je prevelika (najviše 2 MB); smanjite razlučivost skena")
+	}
+	cfg, format, err := image.DecodeConfig(bytes.NewReader(slika))
+	if err != nil || (format != "png" && format != "jpeg") {
+		return fmt.Errorf("žig mora biti slika PNG ili JPEG")
+	}
+	if cfg.Width < 100 || cfg.Height < 100 {
+		return fmt.Errorf("slika žiga je premala (%d×%d); skenirajte s najmanje 300 dpi", cfg.Width, cfg.Height)
+	}
+	uredio := ""
+	if u != nil {
+		uredio = u.FullName
+	}
+	return s.repo.SaveZig(ctx, &models.Zig{Sektor: sektor, Mime: "image/" + format, Slika: slika, Uredio: uredio})
+}
+
+// ObrisiZig briše žig sektora; smije uprava sektora
+func (s *AktService) ObrisiZig(ctx context.Context, perms *models.UserPermissions, sektor string) error {
+	if perms == nil || !perms.CanAdminister(sektor, 0) {
+		return ErrUnauthorized
+	}
+	return s.repo.DeleteZig(ctx, sektor)
 }

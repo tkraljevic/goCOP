@@ -95,6 +95,11 @@ func TestRucniPotpisISkenKrozRute(t *testing.T) {
 	mux.HandleFunc("GET /akti/{id}", h.ShowAkt)
 	mux.HandleFunc("GET /akti/{id}/akt.pdf", h.IzvoziPDF)
 	mux.HandleFunc("GET /akti/{id}/za-ispis.pdf", h.IzvoziZaIspis)
+	mux.HandleFunc("POST /akti/{id}/ovjeri", h.HandleOvjeri)
+	h.SetZig(tmpl("administracija_zig.html"))
+	mux.HandleFunc("GET /administracija/zig", h.ShowZig)
+	mux.HandleFunc("POST /administracija/zig", h.HandleZig)
+	mux.HandleFunc("GET /administracija/zig/slika", h.ZigSlika)
 	mux.HandleFunc("POST /akti/{id}/sken", h.HandleUcitajSken)
 	zovi := func(r *http.Request) *httptest.ResponseRecorder {
 		c := context.WithValue(r.Context(), contextKeyUser, voditelj)
@@ -178,6 +183,60 @@ func TestRucniPotpisISkenKrozRute(t *testing.T) {
 	}
 	if loc := posalji(id, kunac.ID.String(), "sken.png", sken.Bytes()); !strings.Contains(loc, "već ovjeren") {
 		t.Errorf("ponovni sken: %s", loc)
+	}
+
+	// žig centra: uprava sektora učita sken, pa PDF akta ovjerenog u goCOP-u nosi otisak
+	perms.IsGlobalAdmin = true
+	zig := image.NewRGBA(image.Rect(0, 0, 120, 120))
+	for x := 0; x < 120; x++ {
+		zig.Set(x, 60, color.RGBA{0, 0, 200, 255})
+	}
+	var zigPNG bytes.Buffer
+	_ = png.Encode(&zigPNG, zig)
+	var tijeloZ bytes.Buffer
+	mwZ := multipart.NewWriter(&tijeloZ)
+	_ = mwZ.WriteField("sektor", "B")
+	fz, _ := mwZ.CreateFormFile("slika", "zig.png")
+	_, _ = fz.Write(zigPNG.Bytes())
+	_ = mwZ.Close()
+	rz := httptest.NewRequest(http.MethodPost, "/administracija/zig", &tijeloZ)
+	rz.Header.Set("Content-Type", mwZ.FormDataContentType())
+	if loc := mustUnescape(zovi(rz).Header().Get("Location")); !strings.Contains(loc, "success") {
+		t.Fatalf("žig: %s", loc)
+	}
+	if w := zovi(httptest.NewRequest(http.MethodGet, "/administracija/zig?sektor=B", nil)); !strings.Contains(w.Body.String(), "zig/slika?sektor=B") {
+		t.Error("stranica žiga ne pokazuje spremljeni žig")
+	}
+	if w := zovi(httptest.NewRequest(http.MethodGet, "/administracija/zig/slika?sektor=B", nil)); w.Header().Get("Content-Type") != "image/png" {
+		t.Error("slika žiga")
+	}
+	// premala slika ne prolazi
+	var tijeloM bytes.Buffer
+	mwM := multipart.NewWriter(&tijeloM)
+	_ = mwM.WriteField("sektor", "B")
+	fm, _ := mwM.CreateFormFile("slika", "m.png")
+	_, _ = fm.Write(sken.Bytes())
+	_ = mwM.Close()
+	rm := httptest.NewRequest(http.MethodPost, "/administracija/zig", &tijeloM)
+	rm.Header.Set("Content-Type", mwM.FormDataContentType())
+	if loc := mustUnescape(zovi(rm).Header().Get("Location")); !strings.Contains(loc, "premala") {
+		t.Errorf("premala slika: %s", loc)
+	}
+	// akt ovjeren u goCOP-u: PDF nosi žig, ispis za ruku ne
+	forma2 := url.Values{"station_id": {st.ID.String()}, "radnja": {"PREKID"}, "stupanj": {"PRIPREMNO"}, "vrijedi": {"2026-09-16T09:00"}}
+	r2 := httptest.NewRequest(http.MethodPost, "/akti/novi", strings.NewReader(forma2.Encode()))
+	r2.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	id2 := strings.TrimPrefix(strings.SplitN(zovi(r2).Header().Get("Location"), "?", 2)[0], "/akti/")
+	if w := zovi(httptest.NewRequest(http.MethodGet, "/akti/"+id2+"/za-ispis.pdf", nil)); bytes.Contains(w.Body.Bytes(), []byte("/Subtype /Image")) {
+		t.Error("ispis za vlastoručni potpis ne nosi skenirani žig")
+	}
+	r3 := httptest.NewRequest(http.MethodPost, "/akti/"+id2+"/ovjeri", strings.NewReader(""))
+	r3.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if loc := mustUnescape(zovi(r3).Header().Get("Location")); !strings.Contains(loc, "success") {
+		t.Fatalf("ovjera u goCOP-u: %s", loc)
+	}
+	if w := zovi(httptest.NewRequest(http.MethodGet, "/akti/"+id2+"/akt.pdf", nil)); !bytes.Contains(w.Body.Bytes(), []byte("/Subtype /Image")) {
+		t.Error("PDF ovjerenog akta ne nosi žig")
 	}
 }
 

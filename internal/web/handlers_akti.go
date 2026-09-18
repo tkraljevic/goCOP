@@ -31,6 +31,7 @@ type AktiHandler struct {
 	tmplImenik                                   *template.Template
 	poslovi                                      *poslovi.Registar
 	tmplPotpis                                   *template.Template
+	tmplZig                                      *template.Template
 }
 
 // SetSpranca daje rukovatelju predložak stranice špranče
@@ -413,7 +414,7 @@ func (h *AktiHandler) IzvoziPDF(w http.ResponseWriter, r *http.Request) {
 	ime := imeDatotekeAkta(a)
 	w.Header().Set("Content-Type", "application/pdf")
 	w.Header().Set("Content-Disposition", `inline; filename="`+ime+`"`)
-	_, _ = w.Write(PDFAkta(a, models.Terms(), sek, area))
+	_, _ = w.Write(PDFAktaSaZigom(a, models.Terms(), sek, area, s.Zig(r.Context(), a.Sektor)))
 }
 
 // IzvoziZaIspis daje PDF nacrta za ispis, vlastoručni potpis i žig

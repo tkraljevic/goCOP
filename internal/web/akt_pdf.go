@@ -14,13 +14,18 @@ import (
 // "O tome obavijest" sitnim slovima u dva stupca, naziv i e-pošta; poveznice
 // na dnu. Nacrt nosi vidljivu oznaku; ovjeren nosi tko, kad i kod za provjeru.
 func PDFAkta(a *models.Akt, t models.OrgTerms, sek *models.Sector, area *models.Area) []byte {
-	return pdfAkta(a, t, sek, area, nacinProgram)
+	return pdfAkta(a, t, sek, area, nacinProgram, nil)
+}
+
+// PDFAktaSaZigom je PDF ovjerenog akta sa skeniranim žigom centra uz potpis
+func PDFAktaSaZigom(a *models.Akt, t models.OrgTerms, sek *models.Sector, area *models.Area, zig *models.Zig) []byte {
+	return pdfAkta(a, t, sek, area, nacinProgram, zig)
 }
 
 // PDFAktaZaIspis je PDF nacrta za ispis, vlastoručni potpis i žig: crta za
 // potpis, mjesto pečata, bez oznake nacrta
 func PDFAktaZaIspis(a *models.Akt, t models.OrgTerms, sek *models.Sector, area *models.Area) []byte {
-	return pdfAkta(a, t, sek, area, nacinIspis)
+	return pdfAkta(a, t, sek, area, nacinIspis, nil)
 }
 
 // Načini PDF-a akta
@@ -29,7 +34,7 @@ const (
 	nacinIspis          // za ispis, vlastoručni potpis i žig
 )
 
-func pdfAkta(a *models.Akt, t models.OrgTerms, sek *models.Sector, area *models.Area, nacin int) []byte {
+func pdfAkta(a *models.Akt, t models.OrgTerms, sek *models.Sector, area *models.Area, nacin int, zig *models.Zig) []byte {
 	zaPotpis := nacin == nacinIspis // ispis bez oznake nacrta, s mjestom za potpis i žig
 	naslov := a.Naslov() + " " + a.Oznaka()
 	if zaPotpis {
@@ -126,6 +131,17 @@ func pdfAkta(a *models.Akt, t models.OrgTerms, sek *models.Sector, area *models.
 	default:
 		if a.Ovjeren() && a.OvjerenoAt != nil {
 			d.Razmak(4)
+			// skenirani žig centra lijevo od bloka potpisa, na mjestu pečata
+			if zig != nil && len(zig.Slika) > 0 {
+				const zw = 96.0
+				zx, zy := potpisX-zw-18, d.Y-16
+				switch zig.Mime {
+				case "image/png":
+					_ = d.SlikaPNG(zig.Slika, zx, zy, zw, zw)
+				case "image/jpeg":
+					_ = d.SlikaJPEG(zig.Slika, zx, zy, zw, zw)
+				}
+			}
 			blokPotpisa(d, a, potpisX+5, potpisW-10)
 			d.Razmak(16)
 		} else {
