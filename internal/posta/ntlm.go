@@ -14,7 +14,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
+	"net/http/httptrace"
 	"strings"
 	"time"
 	"unicode/utf16"
@@ -252,16 +254,32 @@ func ntlmAuthenticate(negotiate, challenge []byte, z *ntlmIzazov, korisnik, lozi
 // ntlmDo šalje HTTP zahtjev s prijavom NTLM: prazno → izazov → odgovor.
 // Vraća i izazov, iz kojeg se vidi domena poslužitelja.
 func ntlmDo(ctx context.Context, c *http.Client, url, contentType string, tijelo []byte, r Racun) (*http.Response, *ntlmIzazov, error) {
+	var trag []string // koraci razgovora, za dnevnik kad prijava ne prođe
 	posalji := func(auth string) (*http.Response, error) {
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(tijelo))
 		if err != nil {
 			return nil, err
 		}
 		req.Header.Set("Content-Type", contentType)
+		// tijelo se šalje tek kad poslužitelj prihvati zaglavlja: prije
+		// prijave ga ne čita, a veza ostaje čista za nastavak razgovora
+		req.Header.Set("Expect", "100-continue")
 		if auth != "" {
 			req.Header.Set("Authorization", auth)
 		}
-		return c.Do(req)
+		korak := ""
+		req = req.WithContext(httptrace.WithClientTrace(req.Context(), &httptrace.ClientTrace{
+			GotConn: func(i httptrace.GotConnInfo) {
+				korak = fmt.Sprintf("veza %s ponovno=%v", i.Conn.RemoteAddr(), i.Reused)
+			},
+		}))
+		res, err := c.Do(req)
+		if err != nil {
+			trag = append(trag, korak+" greška "+err.Error())
+			return nil, err
+		}
+		trag = append(trag, fmt.Sprintf("%s → %d %v", korak, res.StatusCode, res.Header.Values("Www-Authenticate")))
+		return res, nil
 	}
 	res, err := posalji("")
 	if err != nil {
@@ -279,6 +297,7 @@ func ntlmDo(ctx context.Context, c *http.Client, url, contentType string, tijelo
 			}
 		}
 	}
+	io.Copy(io.Discard, res.Body)
 	res.Body.Close()
 	if shema == "" {
 		return nil, nil, errors.New("poslužitelj ne nudi prijavu sustava Windows (NTLM)")
@@ -317,6 +336,9 @@ func ntlmDo(ctx context.Context, c *http.Client, url, contentType string, tijelo
 	res, err = posalji(shema + " " + base64.StdEncoding.EncodeToString(auth))
 	if err != nil {
 		return nil, z, err
+	}
+	if res.StatusCode == http.StatusUnauthorized {
+		log.Printf("NTLM prijava %s na %s nije prošla (%d B tijela): %s", r.Korisnik, url, len(tijelo), strings.Join(trag, "; "))
 	}
 	return res, z, nil
 }

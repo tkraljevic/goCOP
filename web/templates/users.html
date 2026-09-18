@@ -9,11 +9,14 @@
     <p class="page-desc">Evidencija rukovoditelja, centara obrane od poplava, zaduženja po sektorima, branjenim područjima i dionicama</p>
   </div>
 
+  <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+  <a href="/users/exchange" class="btn btn-secondary" style="display:inline-flex; align-items:center; gap:0.375rem;">{{icon "building"}} Adresar tvrtke</a>
   {{if or .Permissions.IsGlobalAdmin (gt (len .Permissions.AdminSectors) 0)}}
   <a href="/users/new" type="button" class="btn btn-primary"  style="display:inline-flex; align-items:center; gap:0.375rem;">
     {{icon "plus"}} Novi djelatnik
   </a>
   {{end}}
+  </div>
 </div>
 
 <!-- Filteri i Pretraga -->

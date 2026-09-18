@@ -1,0 +1,77 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Adresar tvrtke{{end}}
+
+{{define "content"}}
+<div class="breadcrumb"><a href="/users">Djelatnici</a> › Adresar tvrtke</div>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "building"}} Adresar tvrtke</h1>
+    <p class="page-desc">Osobe, adrese i telefoni iz adresara tvrtke (Exchange), kako ih vodi informatika. Čita se vašim računom e-pošte. Imenik goCOP-a može se usporediti s adresarom i uskladiti.</p>
+  </div>
+</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
+{{if .TrebaLozinku}}<div class="alert alert-warning">Za čitanje adresara upišite lozinku e-pošte: <a href="/profile/posta">Profil › E-pošta za slanje akata</a>.</div>{{end}}
+
+<div class="posta-alat">
+  <form method="GET" action="/users/exchange" class="posta-trazi">
+    <input type="search" name="trazi" class="form-control" value="{{.Upit}}" placeholder="ime, prezime ili adresa" autofocus>
+    <button type="submit" class="btn btn-secondary btn-sm">{{icon "search"}} Traži</button>
+  </form>
+  {{if .SmijeUskladiti}}
+  <form method="GET" action="/users/exchange" class="posta-trazi">
+    <input type="hidden" name="usporedi" value="1">
+    <select name="sektor" class="form-control">
+      <option value="">svi sektori</option>
+      {{range .Sektori}}<option value="{{.ID}}" {{if eq .ID $.Sektor}}selected{{end}}>{{.Name}}</option>{{end}}
+    </select>
+    <button type="submit" class="btn btn-secondary btn-sm">{{icon "refresh-cw"}} Usporedi imenik s adresarom</button>
+  </form>
+  {{end}}
+</div>
+
+{{if .Kontakti}}
+<section class="detail-section" style="margin-top:0;">
+  <table class="table">
+    <thead><tr><th>Ime</th><th>E-pošta</th><th>Mobitel</th><th>Telefon</th><th>Funkcija</th><th>Odjel</th></tr></thead>
+    <tbody>
+    {{range .Kontakti}}<tr><td data-stupac="Ime">{{.Ime}}</td><td data-stupac="E-pošta"><a href="/posta/novo?za={{.Email | urlquery}}">{{.Email}}</a></td><td data-stupac="Mobitel">{{.Mobitel}}</td><td data-stupac="Telefon">{{.Telefon}}</td><td data-stupac="Funkcija">{{.Funkcija}}</td><td data-stupac="Odjel">{{.Odjel}}{{with .Ured}} · {{.}}{{end}}</td></tr>{{end}}
+    </tbody>
+  </table>
+</section>
+{{else if .Upit}}{{if not .ErrorMessage}}<p class="form-help">Za „{{.Upit}}” u adresaru nema nikoga.</p>{{end}}{{end}}
+
+{{if .Usporedio}}
+<section class="detail-section" style="margin-top:0;">
+  <p class="form-help">Djelatnika: {{len .Usporedba}} · s razlikom: {{.SRazlikom}} · nisu pronađeni u adresaru: {{.NijeNadjeno}}. Označite što preuzeti iz adresara; ostalo ostaje kako je u goCOP-u.</p>
+  <form method="POST" action="/users/exchange">
+    <input type="hidden" name="sektor" value="{{.Sektor}}">
+    <table class="table imenik-usporedba">
+      <thead><tr><th>Djelatnik</th><th>Polje</th><th>goCOP</th><th>Adresar tvrtke</th><th>Preuzmi</th></tr></thead>
+      <tbody>
+      {{range .Usporedba}}
+        {{$u := .User}}
+        {{if not .Kontakt}}
+        <tr class="imenik-nema"><td data-stupac="Djelatnik"><a href="/users/{{$u.ID}}">{{$u.FullName}}</a></td><td colspan="4" class="form-help">{{if gt .Kandidati 1}}u adresaru je više osoba tog imena, upišite adresu pa ponovite{{else}}nije u adresaru tvrtke (vanjski suradnik ili drugo ime){{end}}</td></tr>
+        {{else if .Razlike}}
+        {{range $i, $r := .Razlike}}
+        <tr>
+          <td data-stupac="Djelatnik">{{if eq $i 0}}<a href="/users/{{$u.ID}}">{{$u.FullName}}</a>{{end}}</td>
+          <td data-stupac="Polje">{{$r.Naziv}}</td>
+          <td data-stupac="goCOP">{{if $r.GoCOP}}{{$r.GoCOP}}{{else}}<span class="form-help">prazno</span>{{end}}</td>
+          <td data-stupac="Adresar">{{$r.Exchange}}</td>
+          <td><input type="checkbox" name="p" value="{{$u.ID}}|{{$r.Polje}}" {{if not $r.GoCOP}}checked{{end}}><input type="hidden" name="v_{{$u.ID}}_{{$r.Polje}}" value="{{$r.Exchange}}"></td>
+        </tr>
+        {{end}}
+        {{end}}
+      {{end}}
+      </tbody>
+    </table>
+    {{if .SRazlikom}}<button type="submit" class="btn btn-primary">{{icon "check"}} Preuzmi označeno</button>{{else}}<p class="form-help">Adrese i telefoni pronađenih djelatnika slažu se s adresarom.</p>{{end}}
+  </form>
+</section>
+{{end}}
+{{end}}

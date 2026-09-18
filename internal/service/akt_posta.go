@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+
 	"gocop/internal/models"
 	"gocop/internal/posta"
 	"gocop/internal/repository"
@@ -435,4 +437,138 @@ func (s *AktService) NacrtiZaPotpis(ctx context.Context, perms *models.UserPermi
 		}
 	}
 	return out
+}
+
+// ---- adresar tvrtke ----
+
+// Imenik traži osobe u adresaru tvrtke (Exchange) po dijelu imena ili adrese
+func (s *AktService) Imenik(ctx context.Context, u *models.User, upit string) ([]posta.Kontakt, error) {
+	r, err := s.racunKorisnika(ctx, u)
+	if err != nil {
+		return nil, err
+	}
+	return posta.Imenik(ctx, s.Posta(ctx), r, upit)
+}
+
+// RazlikaKontakta je jedno polje u kojem se goCOP i adresar razlikuju
+type RazlikaKontakta struct {
+	Polje, Naziv, GoCOP, Exchange string
+}
+
+// UsporedbaKontakta je jedan djelatnik prema adresaru tvrtke
+type UsporedbaKontakta struct {
+	User      models.User
+	Kontakt   *posta.Kontakt // najbolji pogodak; nil kad nije pronađen
+	Kandidati int            // koliko je osoba adresar vratio za ime
+	Razlike   []RazlikaKontakta
+}
+
+// UsporediImenik prolazi djelatnike i za svakoga u adresaru tvrtke nađe
+// osobu istog imena, pa usporedi adresu i telefone. Čita se preko računa
+// prijavljenog korisnika.
+func (s *AktService) UsporediImenik(ctx context.Context, perms *models.UserPermissions, u *models.User, sektor string) ([]UsporedbaKontakta, error) {
+	if perms == nil || (!perms.IsGlobalAdmin && len(perms.AdminSectors) == 0) {
+		return nil, ErrUnauthorized
+	}
+	r, err := s.racunKorisnika(ctx, u)
+	if err != nil {
+		return nil, err
+	}
+	pp := s.Posta(ctx)
+	svi, err := s.users.ListUsers(sektor, 0, "", "", "active")
+	if err != nil {
+		return nil, err
+	}
+	var out []UsporedbaKontakta
+	for _, x := range svi {
+		if strings.TrimSpace(x.FullName) == "" {
+			continue
+		}
+		red := UsporedbaKontakta{User: x}
+		// najprije po adresi, jer je jednoznačna; onda po imenu
+		var kandidati []posta.Kontakt
+		if x.Email != "" {
+			kandidati, err = posta.Imenik(ctx, pp, r, x.Email)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if len(kandidati) == 0 {
+			kandidati, err = posta.Imenik(ctx, pp, r, x.FullName)
+			if err != nil {
+				return nil, err
+			}
+		}
+		red.Kandidati = len(kandidati)
+		if k := najboljiKontakt(kandidati, x); k != nil {
+			red.Kontakt = k
+			red.Razlike = razlikeKontakta(x, *k)
+		}
+		out = append(out, red)
+	}
+	return out, nil
+}
+
+// najboljiKontakt bira osobu iz adresara: istu adresu, pa isto ime; kad
+// je više osoba istog imena, ne pogađa
+func najboljiKontakt(k []posta.Kontakt, u models.User) *posta.Kontakt {
+	for i := range k {
+		if u.Email != "" && strings.EqualFold(k[i].Email, u.Email) {
+			return &k[i]
+		}
+	}
+	var istoIme []int
+	for i := range k {
+		if kljucImena(k[i].Ime) == kljucImena(u.FullName) {
+			istoIme = append(istoIme, i)
+		}
+	}
+	if len(istoIme) == 1 {
+		return &k[istoIme[0]]
+	}
+	if len(istoIme) == 0 && len(k) == 1 {
+		return &k[0]
+	}
+	return nil
+}
+
+func razlikeKontakta(u models.User, k posta.Kontakt) []RazlikaKontakta {
+	var out []RazlikaKontakta
+	if k.Email != "" && !strings.EqualFold(strings.TrimSpace(u.Email), k.Email) {
+		out = append(out, RazlikaKontakta{"email", "E-pošta", u.Email, k.Email})
+	}
+	if k.Mobitel != "" && posta.SamoZnamenke(u.MobilePhone) != posta.SamoZnamenke(k.Mobitel) {
+		out = append(out, RazlikaKontakta{"mobile_phone", "Mobitel", u.MobilePhone, k.Mobitel})
+	}
+	if k.Telefon != "" && posta.SamoZnamenke(u.Phone) != posta.SamoZnamenke(k.Telefon) {
+		out = append(out, RazlikaKontakta{"phone", "Fiksni telefon", u.Phone, k.Telefon})
+	}
+	return out
+}
+
+// PrimijeniKontakt upisuje odabrana polja iz adresara u djelatnika
+func (s *AktService) PrimijeniKontakt(ctx context.Context, perms *models.UserPermissions, userID string, polja map[string]string) error {
+	id, err := uuid.Parse(userID)
+	if err != nil {
+		return fmt.Errorf("nepoznat djelatnik")
+	}
+	x, err := s.users.GetUserByID(id)
+	if err != nil || x == nil {
+		return fmt.Errorf("nepoznat djelatnik")
+	}
+	req := UpdateUserRequest{ID: x.ID, Username: x.Username, FullName: x.FullName, Title: x.Title, IsGlobalAdmin: x.IsGlobalAdmin, OrgType: x.OrgType, OrgName: x.OrgName,
+		Phone: x.Phone, MobilePhone: x.MobilePhone, ShortPhone: x.ShortPhone, ShortMobile: x.ShortMobile, Email: x.Email, IsActive: x.IsActive}
+	for polje, v := range polja {
+		v = strings.TrimSpace(v)
+		switch polje {
+		case "email":
+			req.Email = strings.ToLower(v)
+		case "mobile_phone":
+			req.MobilePhone = v
+		case "phone":
+			req.Phone = v
+		}
+	}
+	_, err = s.users.UpdateUser(perms, req)
+	return err
 }

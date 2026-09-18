@@ -1,8 +1,10 @@
 package web
 
 import (
+	"context"
 	"html/template"
 	"net/http"
+	"time"
 
 	"gocop/internal/models"
 	"gocop/internal/service"
@@ -60,6 +62,8 @@ type UserPageData struct {
 
 	ModuleRows []ModuleOverrideRow // vidljivost modula za ovaj račun (samo globalni administrator)
 	Planovi    []models.PlanOsobe  // planovi dežurstava u kojima osoba ima sate
+	PostaRacun string              // korisničko ime računa e-pošte, prazno kad lozinka nije upisana
+	PostaKad   time.Time
 
 	// Privremena lozinka nakon poništavanja: pokazuje se jednom, na stranici
 	// koja slijedi odmah iza radnje. Ne ide u adresu ni u poruku o uspjehu,
@@ -103,6 +107,11 @@ func canManageUsers(p *models.UserPermissions) bool {
 
 // deletable javlja smije li se račun obrisati: samo onaj koji se nikad nije prijavio
 func deletable(u *models.User) bool { return u != nil && u.LastLoginAt == nil }
+
+// SetPosta daje rukovatelju uvid u stanje računa e-pošte za profil
+func (h *UsersHandler) SetPosta(f func(ctx context.Context, userID string) (string, time.Time)) {
+	h.postaRacun = f
+}
 
 func (h *UsersHandler) pageData(r *http.Request) UserPageData {
 	ctx := r.Context()
@@ -281,6 +290,9 @@ func (h *UsersHandler) ShowProfile(w http.ResponseWriter, r *http.Request) {
 	data.ActiveNav = "profile"
 	if h.planovi != nil {
 		data.Planovi, _ = h.planovi(r.Context(), data.User.ID.String())
+	}
+	if h.postaRacun != nil {
+		data.PostaRacun, data.PostaKad = h.postaRacun(r.Context(), data.User.ID.String())
 	}
 
 	if err := h.tmplProfile.ExecuteTemplate(w, "profile.html", data); err != nil {
