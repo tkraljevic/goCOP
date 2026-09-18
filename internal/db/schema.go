@@ -227,6 +227,8 @@ func InitSchema(database *sql.DB) error {
 			zavrsno TEXT NOT NULL DEFAULT '',
 			poveznice TEXT NOT NULL DEFAULT '',
 			prekida_akt_id TEXT NOT NULL DEFAULT '',
+			za_potpis TEXT NOT NULL DEFAULT '[]',
+			kvalificirani TEXT NOT NULL DEFAULT '',
 			izvan_snage TEXT NOT NULL DEFAULT '',
 			dionice TEXT NOT NULL DEFAULT '[]',
 			vrijedi DATETIME NOT NULL,
@@ -264,6 +266,14 @@ func InitSchema(database *sql.DB) error {
 			updated_at DATETIME NOT NULL
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_sluzbe_county ON sluzbe(county_id);`,
+		// Izvornik akta: PDF s kvalificiranim potpisom rukovoditelja, vraćen
+		// iz SIGNATOR-a; čuva se bajt za bajt i više se ne generira
+		`CREATE TABLE IF NOT EXISTS akti_izvornici (
+			akt_id TEXT PRIMARY KEY,
+			pdf BLOB NOT NULL,
+			sazetak TEXT NOT NULL,
+			created_at DATETIME NOT NULL
+		);`,
 		// Špranca akata po sektoru: pravna osnova, članci, završna rečenica
 		`CREATE TABLE IF NOT EXISTS akti_sprance (
 			sektor TEXT PRIMARY KEY,
@@ -1047,6 +1057,8 @@ func migrateSchema(database *sql.DB) error {
 		{"akti", "kljuc_cvora", "TEXT NOT NULL DEFAULT ''"},
 		{"akti", "prekida_akt_id", "TEXT NOT NULL DEFAULT ''"},
 		{"akti", "izvan_snage", "TEXT NOT NULL DEFAULT ''"},
+		{"akti", "za_potpis", "TEXT NOT NULL DEFAULT '[]'"},
+		{"akti", "kvalificirani", "TEXT NOT NULL DEFAULT ''"},
 		{"readings", "temp_note", "TEXT NOT NULL DEFAULT ''"},
 		{"readings", "flow_method", "TEXT NOT NULL DEFAULT ''"},
 		{"readings", "flow_note", "TEXT NOT NULL DEFAULT ''"},

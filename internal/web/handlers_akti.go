@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"html/template"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	"gocop/internal/models"
+	"gocop/internal/pdfpotpis"
 	"gocop/internal/repository"
 	"gocop/internal/service"
 )
@@ -60,12 +62,14 @@ type AktiPageData struct {
 	Stupanj    models.DefensePhase
 
 	// jedan akt
-	Sektor        *models.Sector
-	Podrucje      *models.Area
-	SmijeOvjeriti bool
-	SmijeObrisati bool
-	Potpis        string // stanje elektroničkog potpisa: VRIJEDI, NE_VRIJEDI, NEMA
-	Upozorenja    []string
+	Sektor          *models.Sector
+	Podrucje        *models.Area
+	SmijeOvjeriti   bool
+	SmijeObrisati   bool
+	Potpis          string            // stanje elektroničkog potpisa: VRIJEDI, NE_VRIJEDI, NEMA
+	Izvornik        *pdfpotpis.Potpis // ponovna provjera potpisa na izvorniku iz SIGNATOR-a
+	SmijePripremiti bool
+	Upozorenja      []string
 
 	// špranca
 	Spranca models.Spranca
@@ -255,6 +259,10 @@ func (h *AktiHandler) ShowAkt(w http.ResponseWriter, r *http.Request) {
 	}
 	data.Akt = a
 	data.Potpis = service.ProvjeriPotpis(a)
+	if a.Kvalificirani != nil {
+		data.Izvornik = s.ProvjeriIzvornik(r.Context(), a)
+	}
+	data.SmijePripremiti = !a.Ovjeren() && u != nil && (a.IzradioID == u.ID.String() || (perms != nil && perms.HasWriteAccess(a.Sektor, a.AreaID, "")) || s.SmijeOvjeriti(perms, a))
 	data.SmijeOvjeriti = !a.Ovjeren() && s.SmijeOvjeriti(perms, a)
 	data.SmijeObrisati = !a.Ovjeren() && u != nil && (a.IzradioID == u.ID.String() || s.SmijeOvjeriti(perms, a))
 	for i := range data.Sektori {
@@ -381,10 +389,84 @@ func (h *AktiHandler) HandleObrisi(w http.ResponseWriter, r *http.Request) {
 
 // IzvoziPDF daje akt kao PDF
 func (h *AktiHandler) IzvoziPDF(w http.ResponseWriter, r *http.Request) {
-	_, a := h.ucitaj(w, r)
+	s, a := h.ucitaj(w, r)
 	if a == nil {
 		return
 	}
+	// akt potpisan u SIGNATOR-u: izvornik je potpisani PDF, bajt za bajt
+	if a.Kvalificirani != nil {
+		if pdf, err := s.Izvornik(r.Context(), a.ID); err == nil && pdf != nil {
+			w.Header().Set("Content-Type", "application/pdf")
+			w.Header().Set("Content-Disposition", `inline; filename="`+imeDatotekeAkta(a)+`"`)
+			_, _ = w.Write(pdf)
+			return
+		}
+	}
+	sek, area := h.sektorIPodrucje(a)
+	ime := imeDatotekeAkta(a)
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition", `inline; filename="`+ime+`"`)
+	_, _ = w.Write(PDFAkta(a, models.Terms(), sek, area))
+}
+
+// IzvoziZaPotpis daje PDF nacrta za potpis u SIGNATOR-u i bilježi ga, da se
+// potpisani PDF po povratku može prepoznati
+func (h *AktiHandler) IzvoziZaPotpis(w http.ResponseWriter, r *http.Request) {
+	u, perms, _ := h.base(r)
+	s, a := h.ucitaj(w, r)
+	if a == nil {
+		return
+	}
+	sek, area := h.sektorIPodrucje(a)
+	pdf := PDFAktaZaPotpis(a, models.Terms(), sek, area)
+	if err := s.ZabiljeziZaPotpis(r.Context(), perms, u, a.ID, pdf); err != nil {
+		redirectWith(w, r, "/akti/"+a.ID, "error", err.Error())
+		return
+	}
+	ime := strings.TrimSuffix(imeDatotekeAkta(a), "_nacrt.pdf")
+	ime = strings.TrimSuffix(ime, "-nacrt.pdf")
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition", `attachment; filename="`+strings.TrimSuffix(ime, ".pdf")+"-za-potpis.pdf"+`"`)
+	_, _ = w.Write(pdf)
+}
+
+// HandleUcitajPotpisani prima PDF potpisan u SIGNATOR-u i njime ovjerava akt
+func (h *AktiHandler) HandleUcitajPotpisani(w http.ResponseWriter, r *http.Request) {
+	u, perms, _ := h.base(r)
+	s, a := h.ucitaj(w, r)
+	if a == nil {
+		return
+	}
+	natrag := "/akti/" + a.ID
+	if err := r.ParseMultipartForm(32 << 20); err != nil {
+		redirectWith(w, r, natrag, "error", "Odaberite potpisani PDF")
+		return
+	}
+	f, _, err := r.FormFile("potpisani")
+	if err != nil {
+		redirectWith(w, r, natrag, "error", "Odaberite potpisani PDF")
+		return
+	}
+	defer f.Close()
+	pdf, err := io.ReadAll(io.LimitReader(f, 32<<20))
+	if err != nil {
+		redirectWith(w, r, natrag, "error", "PDF nije čitljiv")
+		return
+	}
+	a, upozorenja, err := s.UcitajPotpisani(r.Context(), perms, u, a.ID, pdf)
+	if err != nil {
+		redirectWith(w, r, natrag, "error", err.Error())
+		return
+	}
+	poruka := "Akt " + a.Oznaka() + " je ovjeren kvalificiranim potpisom: " + a.Kvalificirani.Ime + ". Potpisani PDF je izvornik."
+	if len(upozorenja) > 0 {
+		poruka += " Stanje obrane na dionicama: " + strings.Join(upozorenja, "; ")
+	}
+	redirectWith(w, r, natrag, "success", poruka)
+}
+
+// sektorIPodrucje su podaci sektora i branjenog područja za zaglavlje akta
+func (h *AktiHandler) sektorIPodrucje(a *models.Akt) (*models.Sector, *models.Area) {
 	var sek *models.Sector
 	if sektori, err := h.users.ListSectors(); err == nil {
 		for i := range sektori {
@@ -401,10 +483,7 @@ func (h *AktiHandler) IzvoziPDF(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	ime := imeDatotekeAkta(a)
-	w.Header().Set("Content-Type", "application/pdf")
-	w.Header().Set("Content-Disposition", `inline; filename="`+ime+`"`)
-	_, _ = w.Write(PDFAkta(a, models.Terms(), sek, area))
+	return sek, area
 }
 
 // imeDatotekeAkta je naziv PDF-a po uzoru na dosadašnje: vodomjer, radnja,

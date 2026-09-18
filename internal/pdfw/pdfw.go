@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"image"
 	"image/png"
+	"sort"
 	"strings"
 	"sync"
 	"unicode/utf8"
@@ -107,8 +108,14 @@ type Doc struct {
 	stranice      []*bytes.Buffer
 	slike         []slika
 	naslov, autor string
+	// Predmet ide u metapodatke (/Subject); služi i kao oznaka po kojoj se
+	// dokument prepozna kad se vrati potpisan
+	Predmet       string
 	rednaStranica int
-	Podnozje      func(d *Doc, stranica, ukupno int) // crta se na kraju, na svakoj stranici
+	// glifovi koje ovaj dokument koristi, po rezu; font u dokumentu nosi
+	// samo njih, poredane, pa isti sadržaj daje isti PDF bajt za bajt
+	koristeno [2]map[rune]bool
+	Podnozje  func(d *Doc, stranica, ukupno int) // crta se na kraju, na svakoj stranici
 }
 
 type slika struct {
@@ -151,21 +158,26 @@ func (d *Doc) Tekst(x, y, size float64, bold bool, s string) {
 	if bold {
 		font = "/F2"
 	}
-	fmt.Fprintf(d.tok(), "BT %s %.1f Tf %.2f %.2f Td <%s> Tj ET\n", font, size, x, d.pdfY(y), glifovi(s, bold))
+	fmt.Fprintf(d.tok(), "BT %s %.1f Tf %.2f %.2f Td <%s> Tj ET\n", font, size, x, d.pdfY(y), d.glifovi(s, bold))
 }
 
-// glifovi kodira tekst kao niz dvobajtnih indeksa glifova (Identity-H)
-func glifovi(s string, bold bool) string {
+// glifovi kodira tekst kao niz dvobajtnih indeksa glifova (Identity-H) i
+// bilježi koje znakove dokument koristi
+func (d *Doc) glifovi(s string, bold bool) string {
 	ucitajPisma()
-	p := obicno
+	p, rez := obicno, 0
 	if bold {
-		p = podebljano
+		p, rez = podebljano, 1
+	}
+	if d.koristeno[rez] == nil {
+		d.koristeno[rez] = map[rune]bool{}
 	}
 	var b strings.Builder
 	for _, r := range s {
 		if r == '\n' || r == '\r' || r == '\t' || r == '\u00a0' {
 			r = ' '
 		}
+		d.koristeno[rez][r] = true
 		fmt.Fprintf(&b, "%04X", uint16(p.glif(r)))
 	}
 	return b.String()
@@ -241,7 +253,7 @@ func (d *Doc) TekstBoja(x, y, size float64, bold bool, s string, c Boja) {
 	if bold {
 		font = "/F2"
 	}
-	fmt.Fprintf(d.tok(), "q BT %.3f %.3f %.3f rg %s %.1f Tf %.2f %.2f Td <%s> Tj ET Q\n", c.R, c.G, c.B, font, size, x, d.pdfY(y), glifovi(s, bold))
+	fmt.Fprintf(d.tok(), "q BT %.3f %.3f %.3f rg %s %.1f Tf %.2f %.2f Td <%s> Tj ET Q\n", c.R, c.G, c.B, font, size, x, d.pdfY(y), d.glifovi(s, bold))
 }
 
 // SlikaPNG smješta PNG sliku; x i y od vrha su gornji lijevi kut. Prozirnost
@@ -299,7 +311,11 @@ func (d *Doc) Bajtovi() []byte {
 	obj("@@FONT1@@")
 	obj("@@FONT2@@")
 	fontObj := func(rezervirano string, p *pismo, naziv string) {
-		desc, toUni := fontDijelovi(p, naziv, obj)
+		rez := 0
+		if p == podebljano {
+			rez = 1
+		}
+		desc, toUni := fontDijelovi(p, naziv, d.koristeno[rez], obj)
 		font := fmt.Sprintf("<< /Type /Font /Subtype /Type0 /BaseFont /%s /Encoding /Identity-H /DescendantFonts [ %d 0 R ] /ToUnicode %d 0 R >>", naziv, desc, toUni)
 		zamjene = append(zamjene, zamjena{rezervirano, font})
 	}
@@ -328,7 +344,7 @@ func (d *Doc) Bajtovi() []byte {
 	for _, p := range pageIdx {
 		kids += fmt.Sprintf("%d 0 R ", p)
 	}
-	info := obj(fmt.Sprintf("<< /Title (%s) /Author (%s) /Producer (goCOP) >>", kodiraj(d.naslov), kodiraj(d.autor)))
+	info := obj(fmt.Sprintf("<< /Title (%s) /Author (%s) /Subject (%s) /Producer (goCOP) >>", kodiraj(d.naslov), kodiraj(d.autor), kodiraj(d.Predmet)))
 
 	// rezervirana mjesta (stranice, fontovi) zamjenjuju se pravim sadržajem;
 	// svaka zamjena pomiče pomake objekata iza sebe za razliku duljine
@@ -366,7 +382,7 @@ type zamjena struct{ od, na string }
 // fontDijelovi upisuje opisnik fonta, datoteku i tablicu prema Unicodeu i
 // vraća njihove brojeve; širine i tablica nose samo glifove koje dokument
 // koristi
-func fontDijelovi(p *pismo, naziv string, obj func(string) int) (desc, toUni int) {
+func fontDijelovi(p *pismo, naziv string, znakovi map[rune]bool, obj func(string) int) (desc, toUni int) {
 	var z bytes.Buffer
 	zw := zlib.NewWriter(&z)
 	_, _ = zw.Write(p.ttf)
@@ -380,16 +396,20 @@ func fontDijelovi(p *pismo, naziv string, obj func(string) int) (desc, toUni int
 	fd := obj(fmt.Sprintf("<< /Type /FontDescriptor /FontName /%s /Flags 32 /FontBBox [ %d %d %d %d ] /ItalicAngle 0 /Ascent %d /Descent %d /CapHeight %d /StemV 80 /FontFile2 %d 0 R >>",
 		naziv, skala(bbox.Min.X), -skala(bbox.Max.Y), skala(bbox.Max.X), -skala(bbox.Min.Y), skala(m.Ascent), -skala(m.Descent), skala(m.CapHeight), file))
 
-	p.mu.Lock()
+	redom := make([]rune, 0, len(znakovi))
+	for r := range znakovi {
+		redom = append(redom, r)
+	}
+	sort.Slice(redom, func(i, j int) bool { return redom[i] < redom[j] })
 	var w strings.Builder
 	var cmap strings.Builder
 	n := 0
-	for r, g := range p.gid {
-		fmt.Fprintf(&w, "%d [ %d ] ", g, p.sirin[g])
+	for _, r := range redom {
+		g := p.glif(r)
+		fmt.Fprintf(&w, "%d [ %d ] ", g, p.sirina(r))
 		fmt.Fprintf(&cmap, "<%04X> <%04X>\n", uint16(g), uint16(r))
 		n++
 	}
-	p.mu.Unlock()
 	desc = obj(fmt.Sprintf("<< /Type /Font /Subtype /CIDFontType2 /BaseFont /%s /CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> /FontDescriptor %d 0 R /DW 500 /W [ %s] /CIDToGIDMap /Identity >>", naziv, fd, w.String()))
 	tu := "/CIDInit /ProcSet findresource begin\n12 dict begin\nbegincmap\n/CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def\n/CMapName /Adobe-Identity-UCS def\n/CMapType 2 def\n1 begincodespacerange\n<0000> <FFFF>\nendcodespacerange\n" +
 		fmt.Sprintf("%d beginbfchar\n%sendbfchar\n", n, cmap.String()) + "endcmap\nCMapName currentdict /CMap defineresource pop\nend\nend"

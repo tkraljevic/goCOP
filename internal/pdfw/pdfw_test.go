@@ -86,3 +86,26 @@ func fmtInt(n int) string {
 	}
 	return s
 }
+
+// Isti sadržaj daje isti PDF bajt za bajt, bez obzira na to što je program
+// prije toga crtao: po tome se prepozna da je potpisan baš taj dokument
+func TestIstiSadrzajIstiPDF(t *testing.T) {
+	napravi := func() []byte {
+		d := Novi("Akt", "goCOP")
+		d.Predmet = "goCOP akt 1"
+		d.Odlomak("Obavijest o uspostavi pripremnog stanja — Čađavica, Đurđenovac", 10, true, Lijevo)
+		return d.Bajtovi()
+	}
+	a := napravi()
+	// drugi dokument s drugim znakovima između
+	d := Novi("Drugo", "goCOP")
+	d.Odlomak("ÆØÅ ž ž ž 12345 !?", 10, false, Lijevo)
+	_ = d.Bajtovi()
+	b := napravi()
+	if !bytes.Equal(a, b) {
+		t.Error("isti sadržaj dao je različit PDF")
+	}
+	if !bytes.Contains(a, []byte("/Subject (goCOP akt 1)")) {
+		t.Error("predmet nije u metapodacima")
+	}
+}

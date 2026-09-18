@@ -78,8 +78,38 @@ type Akt struct {
 	Potpis     string `json:"potpis,omitempty"`
 	KljucCvora string `json:"kljuc_cvora,omitempty"`
 
+	// ZaPotpis bilježi svaki PDF nacrta preuzet za potpis u SIGNATOR-u:
+	// duljinu i sažetak bajtova. Potpisani PDF koji se vrati mora počinjati
+	// jednim od njih, pa se zna da je potpisan baš taj tekst.
+	ZaPotpis []ZapisZaPotpis `json:"za_potpis,omitempty"`
+	// Kvalificirani je kvalificirani elektronički potpis rukovoditelja iz
+	// potpisanog PDF-a; tada je taj PDF izvornik akta
+	Kvalificirani *KvalificiraniPotpis `json:"kvalificirani,omitempty"`
+
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// ZapisZaPotpis je jedan PDF nacrta preuzet za potpis
+type ZapisZaPotpis struct {
+	Duljina int       `json:"duljina"`
+	Sazetak string    `json:"sazetak"` // sha256 bajtova, heksadecimalno
+	Kad     time.Time `json:"kad"`
+	Tko     string    `json:"tko"`
+}
+
+// KvalificiraniPotpis je potpis iz potpisanog PDF-a, kako ga je goCOP
+// provjerio pri učitavanju
+type KvalificiraniPotpis struct {
+	Ime        string    `json:"ime"`
+	OIB        string    `json:"oib,omitempty"`
+	Izdavatelj string    `json:"izdavatelj"`
+	Serijski   string    `json:"serijski"`
+	VrijediDo  time.Time `json:"vrijedi_do"`
+	Vrijeme    time.Time `json:"vrijeme"` // kad je potpisano
+	Sazetak    string    `json:"sazetak"` // sha256 potpisanog PDF-a
+	Ucitao     string    `json:"ucitao"`  // tko je potpisani PDF vratio u goCOP
+	UcitanoAt  time.Time `json:"ucitano_at"`
 }
 
 // AktDionica je dionica na koju se akt odnosi, s opisom kakav stoji na aktu
@@ -361,6 +391,9 @@ func (a Akt) Sazetak() string {
 	}
 	b.WriteString(a.Tendencija + "|" + a.Prognoza + "|" + a.Vrijedi.UTC().Format(time.RFC3339) + "|" + a.Napomena + "|" + a.Potpisnik + "|")
 	b.WriteString(a.TekstUvoda() + "|" + a.TekstZavrsni() + "|" + a.Poveznice + "|" + a.PrekidaAktID + "|" + a.IzvanSnage + "|")
+	if a.Kvalificirani != nil {
+		b.WriteString("izvornik:" + a.Kvalificirani.Sazetak + "|")
+	}
 	for _, d := range a.Dionice {
 		b.WriteString(d.Code + "=" + d.Opis + ";")
 	}
