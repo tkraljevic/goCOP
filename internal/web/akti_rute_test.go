@@ -98,7 +98,11 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 		return tp
 	}
 	h := NewAktiHandler(func() *service.AktService { return akti }, users, stations, tmpl("akti.html"), tmpl("akt_form.html"), tmpl("akt.html"), tmpl("primatelji.html"))
+	h.SetSpranca(tmpl("spranca.html"))
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /akti/spranca", h.ShowSpranca)
+	mux.HandleFunc("POST /akti/spranca", h.HandleSpranca)
+	mux.HandleFunc("POST /akti/{id}/tekst", h.HandleTekst)
 	mux.HandleFunc("GET /akti", h.ShowPopis)
 	mux.HandleFunc("GET /akti/novi", h.ShowForm)
 	mux.HandleFunc("POST /akti/novi", h.HandleCreate)
@@ -140,11 +144,33 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 
 	mora(zovi(http.MethodGet, "/akti", nil), "prazan popis", "Nema akata", "Novi akt")
 	mora(zovi(http.MethodGet, "/akti/novi", nil), "izbor vodomjera", "Batina", "B.34.1, B.34.2")
-	mora(zovi(http.MethodGet, "/akti/novi?station="+st.ID.String()+"&stupanj=IZVANREDNA", nil), "obrazac", "Akt po vodomjeru Batina", "652 cm", `value="B.34.1" checked`, `value="B.34.2" checked`)
+	mora(zovi(http.MethodGet, "/akti/novi?station="+st.ID.String()+"&stupanj=IZVANREDNA", nil), "obrazac", "Akt po vodomjeru Batina", "652 cm", "640 cm", `name="ocitanje_id"`, `name="tendencija"`, `value="B.34.1" checked`, `value="B.34.2" checked`)
+	mora(zovi(http.MethodGet, "/akti/spranca?sektor=B", nil), "špranca", "Pravna osnova", "XXIII", "N.N. br. 84/10", "Vrati zadano")
+
+	// špranca: izdanje Glavnog provedbenog plana iz 2025.
+	w0 := zovi(http.MethodPost, "/akti/spranca", url.Values{"sektor": {"B"},
+		"osnova":         {"Na temelju Zakona o vodama, članak 130. (N.N. br. 66/19, 84/21 i 47/23) te odredbi članka {clanak} Državnog plana obrane od poplava (N.N. br. 84/10) i Glavnog provedbenog plana obrane od poplava (Hrvatske vode, ožujak 2025.),"},
+		"zavrsno":        {"Za vrijeme provođenja mjera treba postupiti prema Glavnom provedbenom planu (ožujak 2025.)!"},
+		"clanak_REDOVNA": {"XXIII"}})
+	if !strings.Contains(w0.Header().Get("Location"), "success") {
+		t.Fatalf("špranca: %s", w0.Header().Get("Location"))
+	}
 	mora(zovi(http.MethodGet, "/akti/primatelji?sektor=B", nil), "primatelji", "Glavni centar obrane od poplava Zagreb", "Župan osječko-baranjski", "Izvanredno stanje")
 
 	// nacrt rješenja o izvanrednoj obrani
-	w := zovi(http.MethodPost, "/akti/novi", url.Values{"station_id": {st.ID.String()}, "radnja": {"USPOSTAVA"}, "stupanj": {"IZVANREDNA"}, "vrijedi": {"2026-09-15T12:00"}, "dionica": {"B.34.1", "B.34.2"}})
+	sva, _ := akti.OcitanjaZaAkt(ctx, st.ID.String(), 0)
+	if len(sva) != 2 || *sva[0].LevelCm != 652 {
+		t.Fatalf("očitanja za akt: %+v", sva)
+	}
+	// prvo sastavi po starijem očitanju (640) i tendenciji po izboru, pa obriši
+	w := zovi(http.MethodPost, "/akti/novi", url.Values{"station_id": {st.ID.String()}, "radnja": {"USPOSTAVA"}, "stupanj": {"IZVANREDNA"}, "vrijedi": {"2026-09-15T12:00"}, "ocitanje_id": {sva[1].ID.String()}, "tendencija": {models.TendencijaNagliPorast}})
+	stari := strings.TrimPrefix(strings.SplitN(w.Header().Get("Location"), "?", 2)[0], "/akti/")
+	if a, _ := akti.Get(ctx, stari); a == nil || *a.VodostajCm != 640 || a.Tendencija != models.TendencijaNagliPorast || !strings.Contains(a.Uvod, "od 640 cm u") || !strings.Contains(a.Uvod, "naglog porasta") {
+		t.Fatalf("nacrt po odabranom očitanju: %+v", a)
+	}
+	zovi(http.MethodPost, "/akti/"+stari+"/obrisi", url.Values{})
+
+	w = zovi(http.MethodPost, "/akti/novi", url.Values{"station_id": {st.ID.String()}, "radnja": {"USPOSTAVA"}, "stupanj": {"IZVANREDNA"}, "vrijedi": {"2026-09-15T12:00"}, "dionica": {"B.34.1", "B.34.2"}})
 	if w.Code != http.StatusSeeOther || !strings.Contains(w.Header().Get("Location"), "/akti/") {
 		t.Fatalf("nacrt: %d %s", w.Code, w.Header().Get("Location"))
 	}
@@ -164,7 +190,15 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 	if !strings.Contains(strings.Join(imena, ";"), "Glavni centar") || strings.Contains(strings.Join(imena, ";"), "Župan") || imena[len(imena)-1] != "Pismohrana" {
 		t.Errorf("primatelji: %v", imena)
 	}
-	mora(zovi(http.MethodGet, putanja, nil), "nacrt", "NACRT", "RJEŠENJE", "izvanredne obrane od poplava", "652 cm", "s tendencijom daljnjeg porasta", "B.34.1", "Zeleni otok", "Ovjeri", "Obriši nacrt")
+	mora(zovi(http.MethodGet, putanja, nil), "nacrt", "NACRT", "RJEŠENJE", "izvanredne obrane od poplava", "652 cm", "s tendencijom daljnjeg porasta", "B.34.1", "Zeleni otok", "Ovjeri", "Obriši nacrt", "ožujak 2025.", "članka XXIV", "Ispravi tekst nacrta")
+	w = zovi(http.MethodPost, putanja+"/tekst", url.Values{"uvod": {a.Uvod + " i sukladno procjeni visokog stupnja ugroženosti,"}, "zavrsno": {a.Zavrsno}, "napomena": {"Probna napomena."}})
+	if !strings.Contains(w.Header().Get("Location"), "success") {
+		t.Fatalf("ispravak nacrta: %s", w.Header().Get("Location"))
+	}
+	a, _ = akti.Get(ctx, id)
+	if !strings.Contains(a.Uvod, "procjeni visokog stupnja ugroženosti") || a.Napomena != "Probna napomena." {
+		t.Fatalf("ispravak nije spremljen: %+v", a)
+	}
 
 	// ovjera: broj, kod, epizode na dionicama
 	w = zovi(http.MethodPost, putanja+"/ovjeri", url.Values{})
@@ -200,6 +234,9 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 	if w := zovi(http.MethodPost, putanja+"/ovjeri", url.Values{}); !strings.Contains(w.Header().Get("Location"), "error") {
 		t.Error("dvostruka ovjera bi trebala biti odbijena")
 	}
+	if w := zovi(http.MethodPost, putanja+"/tekst", url.Values{"uvod": {"x"}, "zavrsno": {"y"}}); !strings.Contains(w.Header().Get("Location"), "error") {
+		t.Error("ovjeren akt ne smije se ispravljati")
+	}
 
 	// popis i pretraga
 	mora(zovi(http.MethodGet, "/akti?q=Batina&stupanj=IZVANREDNA", nil), "popis", "B-1/2026", "Uprava Sektora", "B.34.1, B.34.2")
@@ -214,7 +251,7 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 		put := filepath.Join(t.TempDir(), "akt.pdf")
 		_ = os.WriteFile(put, w.Body.Bytes(), 0o644)
 		out, _ := exec.Command("pdftotext", put, "-").Output()
-		for _, zeli := range []string{"RJEŠENJE", "izvanredne obrane od poplava", "vodomjeru Batina", "652 cm", "B.34.2", "15.09.2026.", "12:00", "Rukovoditelj obrane od poplava Sektora B", "Glavni centar", "Pismohrana", "u.z. Uprava Sektora", a.OvjeraKod} {
+		for _, zeli := range []string{"RJEŠENJE", "izvanredne obrane od poplava", "vodomjeru Batina", "652 cm", "B.34.2", "15.09.2026.", "12:00", "Rukovoditelj obrane od poplava Sektora B", "Glavni centar", "Pismohrana", "u.z. Uprava Sektora", "ugroženosti", "ožujak 2025.", a.OvjeraKod} {
 			if !strings.Contains(string(out), zeli) {
 				t.Errorf("u PDF-u nema %q:\n%s", zeli, out)
 			}
@@ -227,6 +264,9 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 	b, _ := akti.Get(ctx, id2)
 	if b == nil || b.Vrsta() != "OBAVIJEST" || b.Clanak() != "XXII" || b.Naslov() != "OBAVIJEST o prekidu pripremnog stanja obrane od poplava" {
 		t.Fatalf("obavijest o prekidu: %+v", b)
+	}
+	if (models.Akt{Stupanj: models.PhaseRegular}).Clanak() != "XXIII" {
+		t.Error("redovitu obranu uređuje članak XXIII Državnog plana")
 	}
 	zovi(http.MethodPost, "/akti/"+id2+"/ovjeri", url.Values{})
 	if e, _ := episodes.Open(ctx, "B.34.1"); e != nil {

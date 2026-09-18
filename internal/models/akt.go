@@ -39,6 +39,13 @@ type Akt struct {
 	Tendencija  string    `json:"tendencija,omitempty"` // TendencijaPorast, TendencijaOpadanje, TendencijaStagnacija
 	Prognoza    string    `json:"prognoza,omitempty"`   // tekst prognoze kad se donosi po njoj, umjesto vodostaja
 
+	// Uvod i Zavrsno su tekst akta sastavljen iz špranče pri sastavljanju
+	// nacrta; do ovjere se smiju ispraviti, poslije ovjere stoje kako su
+	// ovjereni. Prazno (akti prije špranče) znači da se tekst sastavlja iz
+	// zadane špranče pri prikazu.
+	Uvod    string `json:"uvod,omitempty"`
+	Zavrsno string `json:"zavrsno,omitempty"`
+
 	Dionice    []AktDionica   `json:"dionice"`
 	Vrijedi    time.Time      `json:"vrijedi"` // dan i sat od kojeg stupanj vrijedi
 	Napomena   string         `json:"napomena,omitempty"`
@@ -55,8 +62,8 @@ type Akt struct {
 	OvjeraKod  string     `json:"ovjera_kod,omitempty"` // sažetak sadržaja pri ovjeri, za provjeru ispisa
 	// UZamjeni: ovjerio je zamjenik ili druga razina, ne nositelj funkcije
 	// potpisnika; na aktu uz ime stoji "u.z." (u zamjeni)
-	UZamjeni bool `json:"u_zamjeni,omitempty"`
-	Cvor       string     `json:"cvor,omitempty"`       // čvor na kojem je ovjeren
+	UZamjeni bool   `json:"u_zamjeni,omitempty"`
+	Cvor     string `json:"cvor,omitempty"` // čvor na kojem je ovjeren
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
@@ -121,15 +128,84 @@ func (a Akt) Vrsta() string {
 	return "OBAVIJEST"
 }
 
-// Clanak je članak Državnog plana obrane od poplava na koji se akt poziva
-func (a Akt) Clanak() string {
-	switch a.Stupanj {
+// Clanak je članak Državnog plana obrane od poplava (NN 84/10) koji uređuje
+// stupanj: XXII pripremno stanje, XXIII redovita obrana, XXIV izvanredna
+// obrana, XXV izvanredno stanje. Dosadašnji akti za redovnu obranu zvali su
+// se na XXII, a redovitu uređuje XXIII.
+func (a Akt) Clanak() string { return ZadaniClanak(a.Stupanj) }
+
+// ZadaniClanak je članak Državnog plana za stupanj
+func ZadaniClanak(p DefensePhase) string {
+	switch p {
+	case PhaseRegular:
+		return "XXIII"
 	case PhaseEmergency:
 		return "XXIV"
 	case PhaseState:
 		return "XXV"
 	}
 	return "XXII"
+}
+
+// TekstUvoda je prvi odlomak akta: spremljen, ili iz zadane špranče
+func (a Akt) TekstUvoda() string {
+	if strings.TrimSpace(a.Uvod) != "" {
+		return a.Uvod
+	}
+	return ZadanaSpranca(a.Sektor).Uvod(a)
+}
+
+// TekstZavrsni je rečenica o postupanju na kraju akta
+func (a Akt) TekstZavrsni() string {
+	if strings.TrimSpace(a.Zavrsno) != "" {
+		return a.Zavrsno
+	}
+	return ZadanaSpranca(a.Sektor).Zavrsno
+}
+
+// Spranca je predložak teksta akata za sektor: pravna osnova, članci
+// Državnog plana po stupnju i završna rečenica. Uređuje je uprava sektora
+// kad se propis promijeni; pojedini nacrt se uz to smije ispraviti do ovjere.
+type Spranca struct {
+	Sektor string `json:"sektor"`
+	// Osnova je uvod do rečenice o vodostaju; {clanak} se zamjenjuje
+	// člankom Državnog plana za stupanj akta
+	Osnova  string                  `json:"osnova"`
+	Clanci  map[DefensePhase]string `json:"clanci"`
+	Zavrsno string                  `json:"zavrsno"`
+	// Uredio i kada, za prikaz; putuje knjigom verzija
+	Uredio    string    `json:"uredio,omitempty"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// ZadanaSpranca je špranca prema važećim propisima (provjereno 9/2026):
+// Zakon o vodama NN 66/19, 84/21, 47/23, čl. 130; Državni plan obrane od
+// poplava NN 84/10; Glavni provedbeni plan kako je objavljen na voda.hr
+func ZadanaSpranca(sektor string) Spranca {
+	return Spranca{
+		Sektor: sektor,
+		Osnova: "Na temelju Zakona o vodama, članak 130. (N.N. br. 66/19, 84/21 i 47/23) te odredbi članka {clanak} " +
+			"Državnog plana obrane od poplava (N.N. br. 84/10) i Glavnog provedbenog plana obrane od poplava (Hrvatske vode, ožujak 2022.),",
+		Clanci: map[DefensePhase]string{PhasePrep: "XXII", PhaseRegular: "XXIII", PhaseEmergency: "XXIV", PhaseState: "XXV"},
+		Zavrsno: "Za vrijeme provođenja mjera obrane od poplava treba postupiti prema odredbama Državnog plana obrane od poplava " +
+			"(N.N. br. 84/10) i Glavnog provedbenog plana obrane od poplava (Hrvatske vode, ožujak 2022.)!",
+	}
+}
+
+// ClanakZa je članak za stupanj po ovoj špranči, ili zadani
+func (sp Spranca) ClanakZa(p DefensePhase) string {
+	if c := strings.TrimSpace(sp.Clanci[p]); c != "" {
+		return c
+	}
+	return ZadaniClanak(p)
+}
+
+// Uvod sastavlja prvi odlomak akta: osnova s člankom, rečenica o vodostaju
+// ili prognozi, i "donosim"
+func (sp Spranca) Uvod(a Akt) string {
+	osnova := strings.TrimSpace(strings.ReplaceAll(sp.Osnova, "{clanak}", sp.ClanakZa(a.Stupanj)))
+	osnova = strings.TrimSuffix(osnova, ",")
+	return osnova + ", " + a.Osnova() + ", donosim"
 }
 
 // Predmet je ono što akt uspostavlja ili prekida, u genitivu, kako stoji u
@@ -252,6 +328,7 @@ func (a Akt) Sazetak() string {
 		fmt.Fprintf(&b, "%d@%s|", *a.VodostajCm, a.VodostajKad.UTC().Format(time.RFC3339))
 	}
 	b.WriteString(a.Tendencija + "|" + a.Prognoza + "|" + a.Vrijedi.UTC().Format(time.RFC3339) + "|" + a.Napomena + "|" + a.Potpisnik + "|")
+	b.WriteString(a.TekstUvoda() + "|" + a.TekstZavrsni() + "|")
 	for _, d := range a.Dionice {
 		b.WriteString(d.Code + "=" + d.Opis + ";")
 	}

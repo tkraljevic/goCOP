@@ -23,7 +23,11 @@ type AktiHandler struct {
 	users                                        *service.UserService
 	stations                                     *service.StationService
 	tmplPopis, tmplForm, tmplAkt, tmplPrimatelji *template.Template
+	tmplSpranca                                  *template.Template
 }
+
+// SetSpranca daje rukovatelju predložak stranice špranče
+func (h *AktiHandler) SetSpranca(t *template.Template) { h.tmplSpranca = t }
 
 func NewAktiHandler(akti func() *service.AktService, users *service.UserService, stations *service.StationService,
 	popis, form, akt, primatelji *template.Template) *AktiHandler {
@@ -48,6 +52,8 @@ type AktiPageData struct {
 	Stanice    []models.Station
 	Dionice    []models.Section
 	Zadnje     *models.Reading
+	Ocitanja   []models.Reading // za izbor očitanja na koje se akt poziva
+	Tendencije []struct{ Kod, Naziv string }
 	LocalValue string
 	Radnja     string
 	Stupanj    models.DefensePhase
@@ -58,6 +64,10 @@ type AktiPageData struct {
 	SmijeOvjeriti bool
 	SmijeObrisati bool
 	Upozorenja    []string
+
+	// špranca
+	Spranca models.Spranca
+	Zadana  models.Spranca
 
 	// registar primatelja
 	Primatelji   []models.Primatelj
@@ -146,6 +156,8 @@ func (h *AktiHandler) ShowForm(w http.ResponseWriter, r *http.Request) {
 				if zadnja, err := s.ZadnjeOcitanje(r.Context(), st.ID.String()); err == nil {
 					data.Zadnje = zadnja
 				}
+				data.Ocitanja, _ = s.OcitanjaZaAkt(r.Context(), st.ID.String(), 200)
+				data.Tendencije = models.Tendencije
 			}
 		}
 	}
@@ -200,6 +212,7 @@ func (h *AktiHandler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 	z := service.ZahtjevAkta{
 		StationID: r.FormValue("station_id"), Radnja: r.FormValue("radnja"), Stupanj: models.DefensePhase(r.FormValue("stupanj")),
 		Prognoza: r.FormValue("prognoza"), Napomena: r.FormValue("napomena"), Dionice: r.Form["dionica"],
+		OcitanjeID: r.FormValue("ocitanje_id"), Tendencija: r.FormValue("tendencija"),
 	}
 	if t, err := time.ParseInLocation("2006-01-02T15:04", r.FormValue("vrijedi"), models.Zagreb); err == nil {
 		z.Vrijedi = t
@@ -255,6 +268,78 @@ func (h *AktiHandler) ShowAkt(w http.ResponseWriter, r *http.Request) {
 	if err := h.tmplAkt.ExecuteTemplate(w, "akt.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// HandleTekst sprema ispravljeni tekst nacrta
+func (h *AktiHandler) HandleTekst(w http.ResponseWriter, r *http.Request) {
+	u, perms, _ := h.base(r)
+	s, a := h.ucitaj(w, r)
+	if a == nil {
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		redirectWith(w, r, "/akti/"+a.ID, "error", "Neispravan zahtjev")
+		return
+	}
+	if _, err := s.UrediTekst(r.Context(), perms, u, a.ID, r.FormValue("uvod"), r.FormValue("zavrsno"), r.FormValue("napomena")); err != nil {
+		redirectWith(w, r, "/akti/"+a.ID, "error", err.Error())
+		return
+	}
+	redirectWith(w, r, "/akti/"+a.ID, "success", "Tekst nacrta je spremljen.")
+}
+
+// ShowSpranca prikazuje šprancu sektora za uređivanje
+func (h *AktiHandler) ShowSpranca(w http.ResponseWriter, r *http.Request) {
+	_, perms, data := h.base(r)
+	s := h.svc(w)
+	if s == nil {
+		return
+	}
+	data.SektorID = r.URL.Query().Get("sektor")
+	if data.SektorID == "" && perms != nil {
+		for id := range perms.AllowedSectors {
+			data.SektorID = id
+			break
+		}
+		if data.SektorID == "" && len(data.Sektori) > 0 {
+			data.SektorID = data.Sektori[0].ID
+		}
+	}
+	data.Spranca, _ = s.Spranca(r.Context(), data.SektorID)
+	data.Zadana = models.ZadanaSpranca(data.SektorID)
+	data.SmijeUrediti = perms != nil && perms.CanAdminister(data.SektorID, 0)
+	if err := h.tmplSpranca.ExecuteTemplate(w, "spranca.html", data); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+// HandleSpranca sprema šprancu sektora; "zadano" vraća zadani tekst
+func (h *AktiHandler) HandleSpranca(w http.ResponseWriter, r *http.Request) {
+	u, perms, _ := h.base(r)
+	s := h.svc(w)
+	if s == nil {
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		redirectWith(w, r, "/akti/spranca", "error", "Neispravan zahtjev")
+		return
+	}
+	sektor := r.FormValue("sektor")
+	natrag := "/akti/spranca?sektor=" + sektor
+	sp := models.ZadanaSpranca(sektor)
+	if r.FormValue("zadano") == "" {
+		sp.Osnova, sp.Zavrsno = r.FormValue("osnova"), r.FormValue("zavrsno")
+		for _, p := range models.StupnjeviAkta {
+			if c := strings.TrimSpace(r.FormValue("clanak_" + string(p))); c != "" {
+				sp.Clanci[p] = c
+			}
+		}
+	}
+	if err := s.SpremiSprancu(r.Context(), perms, u, &sp); err != nil {
+		redirectWith(w, r, natrag, "error", err.Error())
+		return
+	}
+	redirectWith(w, r, natrag, "success", "Špranca je spremljena; vrijedi za nove nacrte.")
 }
 
 // HandleOvjeri ovjerava nacrt

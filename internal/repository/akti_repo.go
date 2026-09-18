@@ -18,6 +18,7 @@ import (
 const (
 	EntityAkti       = "akti"
 	EntityPrimatelji = "primatelji"
+	EntitySprance    = "akti_sprance"
 )
 
 // AktiRepository čuva akte i registar primatelja. Sve ide knjigom verzija:
@@ -33,20 +34,20 @@ func NewAktiRepository(db *sql.DB, rec *ledger.Recorder) *AktiRepository {
 }
 
 const aktUpsert = `INSERT INTO akti (id, sektor, area_id, broj, godina, radnja, stupanj, station_id, station_name, watercourse,
-	vodostaj_cm, vodostaj_kad, tendencija, prognoza, dionice, vrijedi, napomena, potpisnik, primatelji,
+	vodostaj_cm, vodostaj_kad, tendencija, prognoza, uvod, zavrsno, dionice, vrijedi, napomena, potpisnik, primatelji,
 	status, izradio_id, izradio, izradeno_at, ovjerio_id, ovjerio, ovjereno_at, ovjera_kod, u_zamjeni, cvor, created_at, updated_at)
-	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	ON CONFLICT(id) DO UPDATE SET sektor = excluded.sektor, area_id = excluded.area_id, broj = excluded.broj, godina = excluded.godina,
 		radnja = excluded.radnja, stupanj = excluded.stupanj, station_id = excluded.station_id, station_name = excluded.station_name,
 		watercourse = excluded.watercourse, vodostaj_cm = excluded.vodostaj_cm, vodostaj_kad = excluded.vodostaj_kad,
-		tendencija = excluded.tendencija, prognoza = excluded.prognoza, dionice = excluded.dionice, vrijedi = excluded.vrijedi,
+		tendencija = excluded.tendencija, prognoza = excluded.prognoza, uvod = excluded.uvod, zavrsno = excluded.zavrsno, dionice = excluded.dionice, vrijedi = excluded.vrijedi,
 		napomena = excluded.napomena, potpisnik = excluded.potpisnik, primatelji = excluded.primatelji, status = excluded.status,
 		izradio_id = excluded.izradio_id, izradio = excluded.izradio, izradeno_at = excluded.izradeno_at,
 		ovjerio_id = excluded.ovjerio_id, ovjerio = excluded.ovjerio, ovjereno_at = excluded.ovjereno_at,
 		ovjera_kod = excluded.ovjera_kod, u_zamjeni = excluded.u_zamjeni, cvor = excluded.cvor, created_at = excluded.created_at, updated_at = excluded.updated_at`
 
 const aktColumns = `id, sektor, area_id, broj, godina, radnja, stupanj, station_id, station_name, watercourse,
-	vodostaj_cm, vodostaj_kad, tendencija, prognoza, dionice, vrijedi, napomena, potpisnik, primatelji,
+	vodostaj_cm, vodostaj_kad, tendencija, prognoza, uvod, zavrsno, dionice, vrijedi, napomena, potpisnik, primatelji,
 	status, izradio_id, izradio, izradeno_at, ovjerio_id, ovjerio, ovjereno_at, ovjera_kod, u_zamjeni, cvor, created_at, updated_at`
 
 func aktArgs(a *models.Akt) []any {
@@ -60,7 +61,7 @@ func aktArgs(a *models.Akt) []any {
 		ovjerenoAt = a.OvjerenoAt.UTC()
 	}
 	return []any{a.ID, a.Sektor, a.AreaID, a.Broj, a.Godina, a.Radnja, string(a.Stupanj), a.StationID, a.StationName, a.Watercourse,
-		a.VodostajCm, vodostajKad, a.Tendencija, a.Prognoza, string(dionice), a.Vrijedi.UTC(), a.Napomena, a.Potpisnik, string(primatelji),
+		a.VodostajCm, vodostajKad, a.Tendencija, a.Prognoza, a.Uvod, a.Zavrsno, string(dionice), a.Vrijedi.UTC(), a.Napomena, a.Potpisnik, string(primatelji),
 		a.Status, a.IzradioID, a.Izradio, a.IzradenoAt.UTC(), a.OvjerioID, a.Ovjerio, ovjerenoAt, a.OvjeraKod, boolInt(a.UZamjeni), a.Cvor, a.CreatedAt.UTC(), a.UpdatedAt.UTC()}
 }
 
@@ -71,7 +72,7 @@ func scanAkt(sc interface{ Scan(...any) error }) (models.Akt, error) {
 	var vodostajKad, ovjerenoAt sql.NullTime
 	var uZamjeni int
 	err := sc.Scan(&a.ID, &a.Sektor, &a.AreaID, &a.Broj, &a.Godina, &a.Radnja, &stupanj, &a.StationID, &a.StationName, &a.Watercourse,
-		&vodostaj, &vodostajKad, &a.Tendencija, &a.Prognoza, &dionice, &a.Vrijedi, &a.Napomena, &a.Potpisnik, &primatelji,
+		&vodostaj, &vodostajKad, &a.Tendencija, &a.Prognoza, &a.Uvod, &a.Zavrsno, &dionice, &a.Vrijedi, &a.Napomena, &a.Potpisnik, &primatelji,
 		&a.Status, &a.IzradioID, &a.Izradio, &a.IzradenoAt, &a.OvjerioID, &a.Ovjerio, &ovjerenoAt, &a.OvjeraKod, &uZamjeni, &a.Cvor, &a.CreatedAt, &a.UpdatedAt)
 	if err != nil {
 		return a, err
@@ -325,6 +326,50 @@ func (r *AktiRepository) DeletePrimatelj(ctx context.Context, id string) error {
 	}
 	p.Archived = true
 	if _, err := r.rec.Archive(ctx, tx, EntityPrimatelji, id, p); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// ---- špranca ----
+
+const sprancaUpsert = `INSERT INTO akti_sprance (sektor, podaci, updated_at) VALUES (?, ?, ?)
+	ON CONFLICT(sektor) DO UPDATE SET podaci = excluded.podaci, updated_at = excluded.updated_at`
+
+func sprancaArgs(sp *models.Spranca) []any {
+	b, _ := json.Marshal(sp)
+	return []any{sp.Sektor, string(b), sp.UpdatedAt.UTC()}
+}
+
+// GetSpranca čita šprancu sektora; zadana kad je nitko nije uredio
+func (r *AktiRepository) GetSpranca(ctx context.Context, sektor string) (models.Spranca, error) {
+	var podaci string
+	err := r.db.QueryRowContext(ctx, `SELECT podaci FROM akti_sprance WHERE sektor = ?`, sektor).Scan(&podaci)
+	if err == sql.ErrNoRows {
+		return models.ZadanaSpranca(sektor), nil
+	}
+	if err != nil {
+		return models.ZadanaSpranca(sektor), err
+	}
+	sp := models.ZadanaSpranca(sektor)
+	if err := json.Unmarshal([]byte(podaci), &sp); err != nil {
+		return models.ZadanaSpranca(sektor), err
+	}
+	return sp, nil
+}
+
+// SaveSpranca upisuje šprancu sektora s verzijom u knjizi
+func (r *AktiRepository) SaveSpranca(ctx context.Context, sp *models.Spranca) error {
+	sp.UpdatedAt = time.Now().UTC()
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, sprancaUpsert, sprancaArgs(sp)...); err != nil {
+		return fmt.Errorf("upis špranče: %w", err)
+	}
+	if _, err := r.rec.Record(ctx, tx, EntitySprance, sp.Sektor, sp); err != nil {
 		return err
 	}
 	return tx.Commit()

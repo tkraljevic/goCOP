@@ -26,19 +26,42 @@
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
 
+{{if .SmijeObrisati}}
+<details class="akt-uredi"{{if .ErrorMessage}} open{{end}}>
+  <summary>{{icon "pencil"}} Ispravi tekst nacrta</summary>
+  <form method="POST" action="/akti/{{$a.ID}}/tekst" class="form-page" style="margin-top:0.75rem;">
+    <div class="form-group">
+      <label class="form-label" for="uvod">Uvod: pravna osnova i vodostaj</label>
+      <textarea id="uvod" name="uvod" class="form-control" rows="5" required>{{$a.TekstUvoda}}</textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="napomena">Napomena na aktu</label>
+      <textarea id="napomena" name="napomena" class="form-control" rows="2">{{$a.Napomena}}</textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="zavrsno">Završna rečenica</label>
+      <textarea id="zavrsno" name="zavrsno" class="form-control" rows="3" required>{{$a.TekstZavrsni}}</textarea>
+    </div>
+    <div class="form-help">Ispravak vrijedi samo za ovaj nacrt. Za sve buduće akte uredite <a href="/akti/spranca?sektor={{$a.Sektor}}">šprancu sektora</a>.</div>
+    <div class="form-actions"><button type="submit" class="btn btn-primary">Spremi tekst</button></div>
+  </form>
+</details>
+{{end}}
+
 <div class="akt-papir">
   {{with .Sektor}}<div class="akt-zaglavlje"><div><strong>{{term "org"}}</strong><br>{{.VgoName}}{{if .Address}}<br>{{.Address}}{{end}}</div><div style="text-align:right;">Centar obrane od poplava Sektora {{.ID}}{{if .CenterCop}}<br>{{.CenterCop}}{{end}}{{if .Email}}<br>{{.Email}}{{end}}</div></div>{{end}}
   {{if not $a.Ovjeren}}<p class="akt-nacrt">NACRT — nije ovjeren</p>{{end}}
-  <p>Na temelju Zakona o vodama, članak 130. (N.N. br. 66/19, 84/21 i 47/23) te odredbi članka {{$a.Clanak}} Državnog plana obrane od poplava (N.N. br. 84/10) i Glavnog provedbenog plana obrane od poplava (Hrvatske vode), {{$a.Osnova}}, donosim</p>
+  <p>{{$a.TekstUvoda}}</p>
   <h2 class="akt-naslov">{{$a.Vrsta}}</h2>
   <p class="akt-sredina">o {{$a.RadnjaLabel}}<br><strong>{{$a.Predmet}}</strong></p>
   <p class="akt-sredina">na branjenom području {{$a.AreaID}}{{with .Podrucje}}: {{.Name}}{{end}}</p>
   <p class="akt-sredina">{{if eq (len $a.Dionice) 1}}na dionici:{{else}}na dionicama:{{end}}</p>
   <dl class="akt-dionice">{{range $a.Dionice}}<dt class="mono">{{.Code}}</dt><dd>{{.Opis}}</dd>{{end}}</dl>
   <p class="akt-sredina">dana:<br><strong>{{formatDate (localTime $a.Vrijedi)}}</strong></p>
-  <p>Za vrijeme provođenja mjera obrane od poplava treba postupiti prema odredbama Državnog plana obrane od poplava (N.N. br. 84/10) i Glavnog provedbenog plana obrane od poplava (Hrvatske vode)!</p>
+  <p>{{$a.TekstZavrsni}}</p>
   {{if $a.Napomena}}<p>{{$a.Napomena}}</p>{{end}}
-  <div class="akt-potpis"><div>O tome obavijest:</div><div style="text-align:center;"><strong>{{$a.Potpisnik}}</strong>{{if $a.Ovjeren}}<br><span class="reg-card-sub">{{$a.ImePotpisa}}</span>{{end}}</div></div>
+  <div class="akt-potpis"><div></div><div style="text-align:center;"><strong>{{$a.Potpisnik}}</strong>{{if $a.Ovjeren}}<br><span class="reg-card-sub">{{$a.ImePotpisa}}</span>{{end}}</div></div>
+  <p class="akt-obavijest">O tome obavijest:</p>
   <ol class="akt-primatelji">{{range $a.Primatelji}}<li>{{.Naziv}}{{if .Email}} <span class="reg-card-sub">{{.Email}}</span>{{end}}</li>{{end}}</ol>
   <p class="form-help">{{if $a.Ovjeren}}Ovjereno u goCOP-u: {{$a.Ovjerio}}, {{formatDate (localTime (derefTime $a.OvjerenoAt))}} · akt {{$a.Oznaka}} · kod <span class="mono">{{$a.OvjeraKod}}</span>. Isti kod stoji na PDF-u, pa se ispis može provjeriti.{{else}}Nacrt sastavio {{$a.Izradio}}, {{formatDate (localTime $a.IzradenoAt)}}. Vrijedi tek nakon ovjere: {{$a.Potpisnik | lower}} ili nadređena razina.{{end}}</p>
 </div>

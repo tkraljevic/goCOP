@@ -1,0 +1,63 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Špranca akata{{end}}
+
+{{define "content"}}
+<div class="breadcrumb"><a href="/dnevnici">Dokumentacija</a> › <a href="/akti">Rješenja i obavijesti</a> › Špranca</div>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "file-text"}} Špranca akata, {{term "sektor"}} {{.SektorID}}</h1>
+    <p class="page-desc">Stalni tekst rješenja i obavijesti: pravna osnova, članak Državnog plana po stupnju i završna rečenica.
+      Vrijedi za nove nacrte; već sastavljeni i ovjereni akti zadržavaju svoj tekst. Pojedini nacrt se može ispraviti i na samom aktu.</p>
+  </div>
+</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
+
+<form method="GET" action="/akti/spranca" class="obracun-filtar">
+  <label for="f-sektor">{{term "sektor"}}</label>
+  <select id="f-sektor" name="sektor" class="form-control" onchange="this.form.submit()">{{range .Sektori}}{{if ne .ID "DIREKCIJA"}}<option value="{{.ID}}"{{if eq .ID $.SektorID}} selected{{end}}>{{.ID}} — {{.Name}}</option>{{end}}{{end}}</select>
+</form>
+
+<form method="POST" action="/akti/spranca" class="form-page">
+  <input type="hidden" name="sektor" value="{{.SektorID}}">
+  <div class="form-group">
+    <label class="form-label" for="osnova">Pravna osnova</label>
+    <textarea id="osnova" name="osnova" class="form-control" rows="4" {{if not .SmijeUrediti}}readonly{{end}}>{{.Spranca.Osnova}}</textarea>
+    <div class="form-help"><span class="mono">{clanak}</span> se zamjenjuje člankom Državnog plana za stupanj akta. Iza osnove program dodaje rečenicu o vodostaju ili prognozi i "donosim".</div>
+  </div>
+  <div class="form-row">
+    {{range .Stupnjevi}}
+    <div class="form-group">
+      <label class="form-label" for="clanak_{{.}}">Članak za {{.Label | lower}}</label>
+      <input type="text" id="clanak_{{.}}" name="clanak_{{.}}" class="form-control" value="{{$.Spranca.ClanakZa .}}" {{if not $.SmijeUrediti}}readonly{{end}}>
+    </div>
+    {{end}}
+  </div>
+  <div class="form-group">
+    <label class="form-label" for="zavrsno">Završna rečenica</label>
+    <textarea id="zavrsno" name="zavrsno" class="form-control" rows="3" {{if not .SmijeUrediti}}readonly{{end}}>{{.Spranca.Zavrsno}}</textarea>
+  </div>
+  {{if .Spranca.Uredio}}<p class="form-help">Zadnje uredio: {{.Spranca.Uredio}}, {{formatDate (localTime .Spranca.UpdatedAt)}}.</p>{{end}}
+  {{if .SmijeUrediti}}
+  <div class="form-actions">
+    <button type="submit" name="zadano" value="1" class="btn btn-secondary" onclick="return confirm('Vratiti zadani tekst prema važećim propisima?');">Vrati zadano</button>
+    <button type="submit" class="btn btn-primary">Spremi šprancu</button>
+  </div>
+  {{else}}
+  <p class="form-help">Šprancu uređuje uprava sektora.</p>
+  {{end}}
+</form>
+
+<div class="reg-card" style="padding:1rem; margin-top:1rem;">
+  <h2 style="font-size:1rem; margin:0 0 0.5rem;">Zadano prema važećim propisima (provjereno 9/2026)</h2>
+  <ul class="form-help" style="margin:0; padding-left:1.25rem;">
+    <li>Zakon o vodama, N.N. br. 66/19, 84/21 i 47/23, članak 130.: obrana od poplava može biti preventivna, redovita i izvanredna; Hrvatske vode upravljaju obranom.</li>
+    <li>Državni plan obrane od poplava, N.N. br. 84/10, bez izmjena: XXII. pripremno stanje (određuje rukovoditelj branjenog područja), XXIII. redovita obrana (rješenjem, rukovoditelj branjenog područja), XXIV. izvanredna obrana (rješenjem, rukovoditelj sektora), XXV. izvanredno stanje na zaštitnim vodnim građevinama (rješenjem, rukovoditelj sektora, u hitnim slučajevima rukovoditelj branjenog područja).</li>
+    <li>Dosadašnji akti za redovnu obranu zvali su se na članak XXII; redovitu obranu uređuje XXIII.</li>
+    <li>Glavni provedbeni plan obrane od poplava: na voda.hr je objavljeno izdanje od 1. ožujka 2022.; akti u mapi navode i prosinac 2022. i ožujak 2025. Upišite izdanje koje vrijedi.</li>
+  </ul>
+</div>
+{{end}}

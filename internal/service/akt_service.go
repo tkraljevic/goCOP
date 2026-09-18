@@ -43,6 +43,10 @@ type ZahtjevAkta struct {
 	Prognoza  string // prazno = po izmjerenom vodostaju
 	Napomena  string
 	Dionice   []string // prazno = sve za koje je vodomjer mjerodavan
+	// OcitanjeID je očitanje na koje se akt poziva; prazno = zadnje.
+	// Tendencija prazno = izračunata prema očitanju prije odabranoga.
+	OcitanjeID string
+	Tendencija string
 }
 
 // Pripremi sastavlja nacrt akta iz vodomjera: dionice, zadnji vodostaj s
@@ -121,14 +125,29 @@ func (s *AktService) Pripremi(ctx context.Context, perms *models.UserPermissions
 		return nil, fmt.Errorf("%w: akt za branjeno područje %d sastavlja tko ondje vodi obranu", ErrUnauthorized, a.AreaID)
 	}
 
-	// zadnji vodostaj i tendencija iz zadnja dva očitanja
+	// odabrano očitanje (ili zadnje) i tendencija prema očitanju prije njega
 	if a.Prognoza == "" {
-		if zadnja, err := s.readings.List(ctx, repository.ReadingFilter{StationID: st.ID.String(), Limit: 2}); err == nil && len(zadnja) > 0 && zadnja[0].LevelCm != nil {
-			v := *zadnja[0].LevelCm
-			a.VodostajCm, a.VodostajKad = &v, zadnja[0].MeasuredAt
+		izbor, err := s.OcitanjaZaAkt(ctx, st.ID.String(), 0)
+		if err != nil {
+			return nil, err
+		}
+		i := -1
+		for k, o := range izbor {
+			if z.OcitanjeID == "" || o.ID.String() == z.OcitanjeID {
+				i = k
+				break
+			}
+		}
+		if z.OcitanjeID != "" && i < 0 {
+			return nil, fmt.Errorf("odabrano očitanje nije među očitanjima vodomjera %s", st.Name)
+		}
+		if i >= 0 {
+			o := izbor[i]
+			v := *o.LevelCm
+			a.VodostajCm, a.VodostajKad = &v, o.MeasuredAt
 			a.Tendencija = models.TendencijaStagnacija
-			if len(zadnja) > 1 && zadnja[1].LevelCm != nil {
-				switch d := v - *zadnja[1].LevelCm; {
+			if i+1 < len(izbor) {
+				switch d := v - *izbor[i+1].LevelCm; {
 				case d > 0:
 					a.Tendencija = models.TendencijaPorast
 				case d < 0:
@@ -137,8 +156,62 @@ func (s *AktService) Pripremi(ctx context.Context, perms *models.UserPermissions
 			}
 		}
 	}
+	if z.Tendencija != "" && models.TendencijaNaziv(z.Tendencija) != "" {
+		a.Tendencija = z.Tendencija
+	}
 	a.Potpisnik = s.potpisnik(a)
 	a.Primatelji = s.primatelji(ctx, a)
+	sp, _ := s.repo.GetSpranca(ctx, a.Sektor)
+	a.Uvod, a.Zavrsno = sp.Uvod(*a), sp.Zavrsno
+	return a, nil
+}
+
+// Spranca vraća šprancu sektora
+func (s *AktService) Spranca(ctx context.Context, sektor string) (models.Spranca, error) {
+	return s.repo.GetSpranca(ctx, sektor)
+}
+
+// SpremiSprancu upisuje šprancu; smije uprava sektora. Vrijedi za nove
+// nacrte; već sastavljeni i ovjereni akti zadržavaju svoj tekst.
+func (s *AktService) SpremiSprancu(ctx context.Context, perms *models.UserPermissions, u *models.User, sp *models.Spranca) error {
+	if perms == nil || !perms.CanAdminister(sp.Sektor, 0) {
+		return fmt.Errorf("%w: šprancu uređuje uprava sektora", ErrUnauthorized)
+	}
+	sp.Osnova = strings.TrimSpace(sp.Osnova)
+	sp.Zavrsno = strings.TrimSpace(sp.Zavrsno)
+	if sp.Osnova == "" || sp.Zavrsno == "" {
+		return fmt.Errorf("pravna osnova i završna rečenica ne smiju biti prazne")
+	}
+	if u != nil {
+		sp.Uredio = u.FullName
+	}
+	return s.repo.SaveSpranca(ctx, sp)
+}
+
+// UrediTekst mijenja tekst nacrta: uvod, završnu rečenicu i napomenu. Smije
+// tko je nacrt sastavio ili tko ga smije ovjeriti; ovjeren akt se ne mijenja.
+func (s *AktService) UrediTekst(ctx context.Context, perms *models.UserPermissions, u *models.User, id, uvod, zavrsno, napomena string) (*models.Akt, error) {
+	a, err := s.repo.GetAkt(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if a == nil {
+		return nil, fmt.Errorf("akt ne postoji")
+	}
+	if a.Ovjeren() {
+		return nil, fmt.Errorf("akt %s je ovjeren i ne mijenja se; ispravak je novi akt", a.Oznaka())
+	}
+	if u == nil || (a.IzradioID != u.ID.String() && !s.SmijeOvjeriti(perms, a)) {
+		return nil, ErrUnauthorized
+	}
+	uvod, zavrsno = strings.TrimSpace(uvod), strings.TrimSpace(zavrsno)
+	if uvod == "" || zavrsno == "" {
+		return nil, fmt.Errorf("uvod i završna rečenica ne smiju biti prazni")
+	}
+	a.Uvod, a.Zavrsno, a.Napomena = uvod, zavrsno, strings.TrimSpace(napomena)
+	if err := s.repo.SaveAkt(ctx, a); err != nil {
+		return nil, err
+	}
 	return a, nil
 }
 
@@ -171,8 +244,13 @@ func (s *AktService) SmijeOvjeriti(perms *models.UserPermissions, a *models.Akt)
 	if perms == nil || a == nil {
 		return false
 	}
-	if a.Stupanj == models.PhaseEmergency || a.Stupanj == models.PhaseState {
+	switch a.Stupanj {
+	case models.PhaseEmergency:
 		return perms.CanAdminister(a.Sektor, 0)
+	case models.PhaseState:
+		// Državni plan, XXV: rukovoditelj sektora, a u hitnim slučajevima
+		// rukovoditelj branjenog područja
+		return perms.CanAdminister(a.Sektor, a.AreaID)
 	}
 	return perms.CanAdminister(a.Sektor, a.AreaID)
 }
@@ -354,7 +432,14 @@ func (s *AktService) Ovjeri(ctx context.Context, perms *models.UserPermissions, 
 	}
 	a.Status = models.AktOvjeren
 	a.OvjerioID, a.Ovjerio, a.OvjerenoAt, a.Cvor = u.ID.String(), u.FullName, &sad, s.cvor
-	a.UZamjeni = !a.NositeljFunkcije(u.Duties)
+	// Izvanredno stanje u hitnom slučaju proglašava rukovoditelj branjenog
+	// područja: tada je potpisnik on, a ne sektor
+	if a.Stupanj == models.PhaseState && !perms.CanAdminister(a.Sektor, 0) {
+		a.Potpisnik = fmt.Sprintf("Rukovoditelj obrane od poplava za branjeno područje %d", a.AreaID)
+		a.UZamjeni = !models.Akt{Stupanj: models.PhaseRegular, AreaID: a.AreaID, Sektor: a.Sektor}.NositeljFunkcije(u.Duties)
+	} else {
+		a.UZamjeni = !a.NositeljFunkcije(u.Duties)
+	}
 	a.OvjeraKod = a.KodOvjere(a.OvjerioID, sad)
 	if err := s.repo.SaveAkt(ctx, a); err != nil {
 		return nil, nil, err
@@ -387,6 +472,25 @@ func (s *AktService) Ovjeri(ctx context.Context, perms *models.UserPermissions, 
 		}
 	}
 	return a, upozorenja, nil
+}
+
+// OcitanjaZaAkt su očitanja letve s vodostajem, najnovije prvo, za izbor
+// u obrascu akta; limit 0 znači zadanih 200
+func (s *AktService) OcitanjaZaAkt(ctx context.Context, stationID string, limit int) ([]models.Reading, error) {
+	if limit <= 0 {
+		limit = 200
+	}
+	sva, err := s.readings.List(ctx, repository.ReadingFilter{StationID: stationID, Limit: limit})
+	if err != nil {
+		return nil, err
+	}
+	out := sva[:0]
+	for _, o := range sva {
+		if o.LevelCm != nil {
+			out = append(out, o)
+		}
+	}
+	return out, nil
 }
 
 // ZadnjeOcitanje je zadnje očitanje letve, za obrazac akta
