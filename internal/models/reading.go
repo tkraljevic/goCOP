@@ -25,6 +25,12 @@ type Reading struct {
 	LevelCm  *int `json:"level_cm,omitempty"`  // vodostaj; na ustavi uzvodni
 	Level2Cm *int `json:"level2_cm,omitempty"` // nizvodni vodostaj na ustavi
 
+	// Uz vodostaj se na letvi zna očitati i temperatura vode, a pri
+	// hidrometrijskom mjerenju i protok. Izmjereni protok je mjerenje, za
+	// razliku od procjene iz HQ krivulje koja se računa pri prikazu.
+	TempC   *float64 `json:"temp_c,omitempty"`   // temperatura vode, °C
+	FlowM3s *float64 `json:"flow_m3s,omitempty"` // izmjereni protok, m³/s
+
 	// Quality kaže je li vrijednost izmjerena na ovoj letvi ili dobivena
 	// računom iz druge postaje. Prazno je izmjereno: takvi su svi zapisi
 	// zatečeni prije nego što se razlika počela bilježiti. Rekonstruirano
@@ -136,6 +142,15 @@ func (r Reading) GaugeURL() string {
 
 // HasLevel javlja je li vodostaj uopće očitan (na ustavi bar jedan od dva)
 func (r Reading) HasLevel() bool { return r.LevelCm != nil || r.Level2Cm != nil }
+
+// HasTemp javlja je li uz očitanje zapisana temperatura vode
+func (r Reading) HasTemp() bool { return r.TempC != nil }
+
+// HasFlow javlja je li uz očitanje zapisan izmjereni protok
+func (r Reading) HasFlow() bool { return r.FlowM3s != nil }
+
+// HasAnyValue javlja nosi li očitanje bar jednu izmjerenu veličinu
+func (r Reading) HasAnyValue() bool { return r.HasLevel() || r.HasTemp() || r.HasFlow() }
 
 func (r Reading) SourceLabel() string { return ReadingSourceLabel(r.Source) }
 

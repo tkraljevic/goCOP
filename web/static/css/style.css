@@ -3490,3 +3490,11 @@ textarea {
 .zaduzenja-povijest { margin: 0.5rem 0 0; padding-left: 1.25rem; font-size: 0.875rem; }
 .zaduzenja-povijest li { margin: 0.25rem 0; }
 .text-muted { color: var(--text-muted); font-weight: 500; }
+
+/* Obrazac očitanja: kartice vodostaj / temperatura / protok */
+.kartice { display: flex; gap: 0.25rem; border-bottom: 2px solid var(--border, #d9dee5); margin: 0 0 1rem; }
+.kartica-gumb { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.6rem 0.9rem; margin-bottom: -2px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--text-muted); font: inherit; font-weight: 600; cursor: pointer; min-height: 44px; }
+.kartica-gumb[aria-selected="true"] { color: var(--primary, #173e74); border-bottom-color: var(--primary, #173e74); }
+.kartica-gumb.ima-vrijednost::after { content: ""; width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--success, #1b7f3b); }
+.kartica[hidden] { display: none; }
+.korito-protok { font-weight: 500; }

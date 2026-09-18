@@ -198,18 +198,7 @@ func templateFuncs() template.FuncMap {
 				n := int(math.Round(v))
 				cm = &n
 			}
-			if cm == nil {
-				return ""
-			}
-			k := krivuljaZa(krivulje, kad)
-			if k == nil {
-				return ""
-			}
-			q, ok := k.Protok(*cm)
-			if !ok {
-				return ""
-			}
-			return brojHRf(q, 0)
+			return protokIzKrivulje(krivulje, kad, cm)
 		},
 		// razmak za crtanje: širina umanjena za desni rub
 		"sub": func(a, b int) int { return a - b },

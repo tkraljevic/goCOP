@@ -19,6 +19,16 @@
   <input type="hidden" name="structure_id" value="{{.Reading.StructureID}}">
   <input type="hidden" name="back" value="{{.BackURL}}">
 
+  <!-- Kartice: vodostaj je ono što se očitava svaki dan, pa je prva i
+       otvorena; temperatura i protok su rjeđi, pa stoje sa strane, ali u
+       istom obrascu — sve se sprema jednim gumbom. -->
+  <div class="kartice" role="tablist" aria-label="Što upisujete">
+    <button type="button" class="kartica-gumb" role="tab" aria-selected="true" aria-controls="kartica-vodostaj" data-polja="level_cm,level2_cm">{{icon "waves"}} Vodostaj</button>
+    <button type="button" class="kartica-gumb" role="tab" aria-selected="false" aria-controls="kartica-temperatura" data-polja="temp_c">{{icon "sun"}} Temperatura</button>
+    <button type="button" class="kartica-gumb" role="tab" aria-selected="false" aria-controls="kartica-protok" data-polja="flow_m3s">{{icon "activity"}} Protok</button>
+  </div>
+
+  <div id="kartica-vodostaj" class="kartica" role="tabpanel">
   <div class="form-row">
     <div class="form-group">
       <label class="form-label" for="level_cm">{{if .IsSluice}}Uzvodni vodostaj (cm){{else}}Vodostaj (cm){{end}}</label>
@@ -64,6 +74,30 @@
   </details>
   {{end}}
 
+  </div>
+
+  <div id="kartica-temperatura" class="kartica" role="tabpanel">
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="temp_c">Temperatura vode (°C)</label>
+        <input type="text" inputmode="decimal" id="temp_c" name="temp_c" class="form-control level-input"
+               value="{{if .Reading.TempC}}{{brojHRf (deref .Reading.TempC) 1}}{{end}}" placeholder="npr. 12,5">
+        <div class="form-help">Očitana na letvi ili termometrom u vodi; jedna decimala je dovoljna.</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="kartica-protok" class="kartica" role="tabpanel">
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="flow_m3s">Izmjereni protok (m³/s)</label>
+        <input type="text" inputmode="decimal" id="flow_m3s" name="flow_m3s" class="form-control level-input"
+               value="{{if .Reading.FlowM3s}}{{brojHRf (deref .Reading.FlowM3s) 1}}{{end}}" placeholder="npr. 1250">
+        <div class="form-help">Iz hidrometrijskog mjerenja. {{if .ImaKrivulju}}Procjena iz HQ krivulje računa se sama uz svaki vodostaj{{if .ProtokIzKrivulje}}; za zadnje očitanje daje <strong>{{.ProtokIzKrivulje}} m³/s</strong>{{end}}.{{else}}Ova letva nema krivulju protoka, pa se protok zna samo kad se izmjeri.{{end}}</div>
+      </div>
+    </div>
+  </div>
+
   <div class="form-row">
     <div class="form-group">
       <label class="form-label" for="measured_at">Vrijeme očitanja</label>
@@ -105,6 +139,36 @@
       <div class="form-help" id="vrsta-opis">Ostaje uz vrijednost i kad očitanje jednom uđe u arhivu.</div>
     </div>
   </div>
+
+  <script>
+  // Kartice obrasca: bez skripte su sve tri otvorene, pa se ništa ne gubi.
+  (function () {
+    const gumbi = document.querySelectorAll('.kartica-gumb');
+    if (!gumbi.length) { return; }
+    const ima = (g) => (g.dataset.polja || '').split(',').some((id) => {
+      const el = document.getElementById(id);
+      return el && el.value.trim() !== '';
+    });
+    const oznaci = () => gumbi.forEach((g) => g.classList.toggle('ima-vrijednost', ima(g)));
+    // fokus tek na klik: pri otvaranju stranice na mobitelu ne skače tipkovnica
+    const otvori = (g, fokus) => {
+      gumbi.forEach((x) => {
+        const otvorena = x === g;
+        x.setAttribute('aria-selected', otvorena ? 'true' : 'false');
+        const panel = document.getElementById(x.getAttribute('aria-controls'));
+        if (panel) { panel.hidden = !otvorena; }
+      });
+      const prvo = document.querySelector('#' + g.getAttribute('aria-controls') + ' input');
+      if (fokus && prvo) { prvo.focus(); }
+    };
+    gumbi.forEach((g) => g.addEventListener('click', () => otvori(g, true)));
+    document.addEventListener('input', oznaci);
+    oznaci();
+    // pri uređivanju otvori karticu koja jedina ima vrijednost
+    const otvorene = Array.from(gumbi).filter(ima);
+    otvori(otvorene.length === 1 ? otvorene[0] : gumbi[0], false);
+  })();
+  </script>
 
   <script>
   // Vrijeme očitanja je podatak koliko i sam broj — na rekordu pogotovo.

@@ -60,7 +60,7 @@
 {{template "pager" .Pager}}
 
 <div class="reg-list">
-  {{range .Gauges}}
+  {{range .Gauges}}{{$g := .}}
   <article class="reg-card">
     <a class="reg-card-link" href="{{.URL}}" style="padding-bottom:0.5rem;">
       <div class="reg-card-head">
@@ -81,6 +81,8 @@
           {{else}}<span class="reading-trend flat">{{icon "minus"}} 0</span>{{end}}
         {{end}}
         {{if .Latest.Level2Cm}}<span class="reading-meta">nizvodno <strong>{{intOf .Latest.Level2Cm}} cm</strong></span>{{end}}
+        {{with index $.Protok .Key}}<span class="reading-meta" title="{{if $g.Latest.FlowM3s}}izmjereni protok{{else}}procjena iz HQ krivulje{{end}}">{{.}} m³/s{{if not $g.Latest.FlowM3s}} <span style="color:var(--text-muted);">iz krivulje</span>{{end}}</span>{{end}}
+        {{if .Latest.TempC}}<span class="reading-meta" title="temperatura vode">{{brojHRf (deref .Latest.TempC) 1}} °C</span>{{end}}
       </div>
       <div class="reading-meta" style="margin-top:0.25rem;">
         <span class="{{if .Stale}}reading-stale{{end}}" title="{{formatDate .Latest.LocalTime}}">{{ago .Latest.MeasuredAt}}</span>
