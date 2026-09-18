@@ -219,7 +219,8 @@ type IshodSlanja struct {
 }
 
 // PosaljiNaZnanje šalje izvornik akta odabranim adresama s popisa "na znanje"
-func (s *AktService) PosaljiNaZnanje(ctx context.Context, perms *models.UserPermissions, u *models.User, id string, adrese []string, kopijaMeni bool, poruka PorukaAkta) (*IshodSlanja, error) {
+// dodatne su adrese koje nisu na popisu "na znanje", upisane pri slanju.
+func (s *AktService) PosaljiNaZnanje(ctx context.Context, perms *models.UserPermissions, u *models.User, id string, adrese, dodatne []string, kopijaMeni bool, poruka PorukaAkta) (*IshodSlanja, error) {
 	a, err := s.repo.GetAkt(ctx, id)
 	if err != nil {
 		return nil, err
@@ -258,6 +259,17 @@ func (s *AktService) PosaljiNaZnanje(ctx context.Context, perms *models.UserPerm
 	for _, x := range svi {
 		if slices.Contains(adrese, x.Adresa) {
 			odabrani = append(odabrani, x)
+		}
+	}
+	for _, adr := range dodatne {
+		vec := false
+		for _, x := range odabrani {
+			if x.Adresa == adr {
+				vec = true
+			}
+		}
+		if !vec {
+			odabrani = append(odabrani, Adresat{Naziv: "dodatno upisano", Skupina: "", Adresa: adr})
 		}
 	}
 	if len(odabrani) == 0 && !kopijaMeni {

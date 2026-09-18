@@ -176,13 +176,25 @@ func (h *AktiHandler) HandlePosalji(w http.ResponseWriter, r *http.Request) {
 	sek, area := h.sektorIPodrucje(a)
 	por := porukaAkta(a, sek, u)
 	por.PDF = PDFAktaSaZigom(a, models.Terms(), sek, area, s.OtisciAkta(r.Context(), a))
-	ishod, err := s.PosaljiNaZnanje(r.Context(), perms, u, a.ID, r.Form["adresa"], r.FormValue("kopija") == "1", por)
+	dodatne := posta.Adrese(r.FormValue("dodatne"))
+	if r.FormValue("dodatne") != "" && len(dodatne) == 0 {
+		redirectWith(w, r, natrag+"#slanje", "error", "Dodatne adrese nisu ispravne: "+r.FormValue("dodatne"))
+		return
+	}
+	kopija := r.FormValue("kopija") == "1" || r.FormValue("proba") == "1"
+	adrese := r.Form["adresa"]
+	if r.FormValue("proba") == "1" {
+		adrese, dodatne = nil, nil // probno slanje ide samo pošiljatelju
+	}
+	ishod, err := s.PosaljiNaZnanje(r.Context(), perms, u, a.ID, adrese, dodatne, kopija, por)
 	if err != nil && ishod == nil {
 		redirectWith(w, r, natrag+"#slanje", "error", err.Error())
 		return
 	}
 	poruka := fmt.Sprintf("Akt %s poslan je na %d %s.", a.Oznaka(), ishod.Poslano, adresaRijec(ishod.Poslano))
-	if ishod.Kopija {
+	if r.FormValue("proba") == "1" {
+		poruka = "Probno pismo s aktom " + a.Oznaka() + " poslano je samo vama; primateljima nije otišlo ništa."
+	} else if ishod.Kopija {
 		poruka += " Kopija je poslana i vama."
 	}
 	if len(ishod.Greske) > 0 {
