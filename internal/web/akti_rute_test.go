@@ -86,6 +86,8 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 		{CountyID: 14, Vrsta: models.SluzbaCivilnaZastita, Naziv: "Područni ured civilne zaštite Osijek", Email: "cz@mup.hr"},
 		{CountyID: 14, Vrsta: models.SluzbaPolicija, Naziv: "PU Osječko-baranjska", Email: "pu@mup.hr"},
 		{CountyID: 14, MunicipalityID: 302, Vrsta: models.SluzbaPolicijskaPost, Naziv: "PP Beli Manastir"},
+		{CountyID: 14, Vrsta: models.SluzbaVatrogasci, Naziv: "Vatrogasna zajednica OBŽ"},
+		{CountyID: 14, Vrsta: models.SluzbaStozerCZ, Naziv: "Stožer civilne zaštite OBŽ"},
 	} {
 		x := x
 		if err := service.NewTerritoryService(teritorij, sections).SpremiSluzbu(ctx, &models.UserPermissions{IsGlobalAdmin: true}, &x); err != nil {
@@ -215,6 +217,9 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 	}
 	if strings.Contains(spojeno, "PP Beli Manastir") {
 		t.Error("postaja u gradu koji nije ugroženo područje ne ide na akt")
+	}
+	if strings.Contains(spojeno, "Vatrogasna zajednica") || strings.Contains(spojeno, "Stožer") {
+		t.Error("vatrogasci ne idu na akt, a stožer tek od izvanrednog stanja")
 	}
 	mora(zovi(http.MethodGet, putanja, nil), "nacrt", "NACRT", "RJEŠENJE", "izvanredne obrane od poplava", "652 cm", "s tendencijom daljnjeg porasta", "B.34.1", "Zeleni otok", "Ovjeri", "Obriši nacrt", "ožujak 2025.", "članka XXIV", "Ispravi tekst nacrta")
 	w = zovi(http.MethodPost, putanja+"/tekst", url.Values{"uvod": {a.Uvod + " i sukladno procjeni visokog stupnja ugroženosti,"}, "zavrsno": {a.Zavrsno}, "napomena": {"Probna napomena."}})

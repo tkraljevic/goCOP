@@ -314,6 +314,9 @@ func (s *AktService) primatelji(ctx context.Context, a *models.Akt) []models.Akt
 			if x.MunicipalityID != 0 && !opcineUgrozene[x.MunicipalityID] {
 				continue
 			}
+			if !models.NaAktu(x.Vrsta, a.Stupanj) {
+				continue
+			}
 			naziv := x.Naziv
 			if x.Vrsta == models.SluzbaCivilnaZastita {
 				imaCZ = true
