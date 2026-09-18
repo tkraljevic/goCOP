@@ -71,16 +71,16 @@ func (h *ReadingsHandler) HandlePreuzmiJavno(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	u := h.uvoznik()
-	if u == nil || station.JavniID <= 0 {
+	if u == nil || strings.TrimSpace(station.JavniURL) == "" {
 		redirectWith(w, r, back, "error", "Letva nije povezana s javnom stranicom; poveži je u obrascu letve")
 		return
 	}
 	s := u.Preuzmi(r.Context(), station)
 	if s.Greska != "" {
-		redirectWith(w, r, back, "error", "Preuzimanje s "+javnivodostaji.Podrijetlo+" nije uspjelo: "+s.Greska)
+		redirectWith(w, r, back, "error", "Preuzimanje s javne stranice nije uspjelo: "+s.Greska)
 		return
 	}
-	redirectWith(w, r, back, "success", fmt.Sprintf("Preuzeto %d očitanja s %s, novih %d.", s.Preuzeto, javnivodostaji.Podrijetlo, s.Novih))
+	redirectWith(w, r, back, "success", fmt.Sprintf("Preuzeto %d očitanja s javne stranice, novih %d.", s.Preuzeto, s.Novih))
 }
 
 // SetOcitanjaCSV daje rukovatelju predložak pregleda ispravaka iz CSV-a.
@@ -215,7 +215,8 @@ type ReadingHistoryData struct {
 
 	// Veza s javnom stranicom: je li letva povezana i što je zadnje
 	// preuzimanje napravilo na ovom čvoru
-	JavniID     int
+	JavniURL    string
+	JavniIzvor  string // naziv čitača za adresu, prazno kad ga nema
 	JavniUvoz   bool
 	JavniStanje *javnivodostaji.StanjeLetve
 
@@ -601,8 +602,11 @@ func (h *ReadingsHandler) podaciOcitanja(w http.ResponseWriter, r *http.Request)
 			data.Krivulje, _ = a.Krivulje(ctx, station.Code)
 			h.koritoUzGraf(ctx, &data, station, shown)
 		}
-		data.JavniID, data.JavniUvoz = station.JavniID, station.JavniUvoz
-		if u := h.uvoznik(); u != nil && station.JavniID > 0 {
+		data.JavniURL, data.JavniUvoz = station.JavniURL, station.JavniUvoz
+		if u := h.uvoznik(); u != nil && station.JavniURL != "" {
+			if iz := u.IzvorZa(station.JavniURL); iz != nil {
+				data.JavniIzvor = iz.Naziv()
+			}
 			if s, ok := u.Stanje(station.ID.String()); ok {
 				data.JavniStanje = &s
 			}

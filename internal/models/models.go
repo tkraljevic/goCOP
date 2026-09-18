@@ -136,11 +136,12 @@ type Station struct {
 	Latitude  *float64 `json:"latitude,omitempty"`
 	Longitude *float64 `json:"longitude,omitempty"`
 
-	// JavniID je ID postaje na javnoj stranici vodostaji.voda.hr; 0 kad
-	// letva ondje nije. JavniUvoz uključuje satno preuzimanje njezinih
-	// očitanja — isto što operater danas zalijepi rukom.
-	JavniID   int  `json:"javni_id,omitempty"`
-	JavniUvoz bool `json:"javni_uvoz,omitempty"`
+	// JavniURL je adresa javne stranice na kojoj ova letva ima očitanja:
+	// vodostaji.voda.hr za hrvatske, a za mađarske i srpske letve njihove
+	// službe, svaka sa svojim oblikom. Čitač se bira po adresi. JavniUvoz
+	// uključuje satno preuzimanje — isto što operater danas zalijepi rukom.
+	JavniURL  string `json:"javni_url,omitempty"`
+	JavniUvoz bool   `json:"javni_uvoz,omitempty"`
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`

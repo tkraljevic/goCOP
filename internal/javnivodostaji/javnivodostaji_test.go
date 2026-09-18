@@ -66,11 +66,11 @@ func (p probniPrijenos) RoundTrip(r *http.Request) (*http.Response, error) {
 
 // Uvoznik upisuje samo ono čega letva još nema, i pamti stanje po letvi
 func TestUvoznikUpisujeSamoNovo(t *testing.T) {
-	st := models.Station{ID: uuid.New(), Name: "Batina", Code: "batina", JavniID: 424, JavniUvoz: true}
+	st := models.Station{ID: uuid.New(), Name: "Batina", Code: "batina", JavniURL: "https://mvodostaji.voda.hr/Home/PregledVodostajaPostaje?sektorID=2&bpID=34&postajaID=424", JavniUvoz: true}
 	vecIma := time.Date(2026, 9, 18, 7, 0, 0, 0, time.UTC) // 09:00 lokalno, zalijepljeno ranije
 	sp := &probnoSpremiste{letve: []models.Station{st}, postojeca: map[int64]bool{vecIma.Unix(): true}}
 	u := NoviUvoznik(sp, nil)
-	u.Client = &Client{HTTP: &http.Client{Transport: probniPrijenos{probnaTablica}}}
+	u.Client.HTTP = &http.Client{Transport: probniPrijenos{probnaTablica}}
 
 	if n := u.PreuzmiSve(context.Background()); n != 2 {
 		t.Fatalf("novih %d, očekivano 2 (jedno već ima)", n)
@@ -88,9 +88,29 @@ func TestUvoznikUpisujeSamoNovo(t *testing.T) {
 		t.Errorf("stanje letve: %+v", s)
 	}
 	// isti identitet za isti trenutak: ponovno preuzimanje daje iste ID-eve
-	a := Ocitanje(&st, Redak{Kad: vecIma, Cm: -121})
-	b := Ocitanje(&st, Redak{Kad: vecIma, Cm: -121})
+	a := Ocitanje(&st, Redak{Kad: vecIma, Cm: -121}, Podrijetlo)
+	b := Ocitanje(&st, Redak{Kad: vecIma, Cm: -121}, Podrijetlo)
 	if a.ID != b.ID {
 		t.Error("identitet očitanja nije stabilan")
+	}
+	// nepoznata adresa je greška na letvi, ne tiho ništa
+	tudja := models.Station{ID: uuid.New(), Name: "Mohács", JavniURL: "https://www.hydroinfo.hu/Html/vizallas/mohacs.html"}
+	if s := u.Preuzmi(context.Background(), &tudja); s.Greska == "" {
+		t.Error("adresa bez čitača mora javiti grešku")
+	}
+}
+
+// Broj postaje se čita iz adrese Hrvatskih voda, u oba oblika
+func TestPostajaIzAdrese(t *testing.T) {
+	for adresa, zeli := range map[string]int{
+		"https://mvodostaji.voda.hr/Home/PregledVodostajaPostaje?sektorID=2&bpID=34&postajaID=424": 424,
+		"https://vodostaji.voda.hr/Home/PregledVodostajaPostaje?postajaID=426":                     426,
+		"https://www.hydroinfo.hu/?postajaID=5":                                                    0,
+		"424":                                                                                      0,
+		"":                                                                                         0,
+	} {
+		if id := PostajaIzAdrese(adresa); id != zeli {
+			t.Errorf("%q: %d, očekivano %d", adresa, id, zeli)
+		}
 	}
 }

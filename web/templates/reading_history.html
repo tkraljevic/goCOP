@@ -111,10 +111,10 @@
 <section class="detail-section">
   <div class="odjeljak-glava">
     <h2>{{icon "history"}} Svježa očitanja <span class="reg-chip">{{.Count}}</span>{{if .Followed}} <span class="reg-chip">{{icon "download"}} povijest se čuva</span>{{end}}</h2>
-    {{if and .Station .JavniID .CanEdit}}
+    {{if and .Station .JavniURL .CanEdit}}
     <form method="POST" action="/readings/station/{{.Station.ID}}/javni" style="margin:0;">
-      <button type="submit" class="btn btn-secondary btn-sm" title="Odmah preuzmi zadnja dva-tri dana s javne stranice vodostaji.voda.hr">
-        {{icon "refresh-cw"}} Preuzmi s vodostaji.voda.hr
+      <button type="submit" class="btn btn-secondary btn-sm" title="Odmah preuzmi zadnja očitanja s javne stranice {{.JavniURL}}">
+        {{icon "refresh-cw"}} Preuzmi s {{if .JavniIzvor}}{{.JavniIzvor}}{{else}}javne stranice{{end}}
       </button>
     </form>
     {{end}}
@@ -130,9 +130,10 @@
     </form>
     {{end}}
   </div>
-  {{if and .Station .JavniID}}
+  {{if and .Station .JavniURL}}
   <p class="form-help" style="margin:0 0 0.75rem;">
-    {{if .JavniUvoz}}Satno preuzimanje s vodostaji.voda.hr je uključeno.{{else}}Povezana s vodostaji.voda.hr, satno preuzimanje isključeno.{{end}}
+    Javna stranica: <a href="{{.JavniURL}}" target="_blank" rel="noopener">{{if .JavniIzvor}}{{.JavniIzvor}}{{else}}{{.JavniURL}}{{end}}</a>{{if not .JavniIzvor}} <span class="badge badge-inactive">{{icon "triangle-alert"}} nema čitača za tu adresu</span>{{end}}.
+    {{if .JavniUvoz}}Satno preuzimanje je uključeno.{{else}}Satno preuzimanje je isključeno.{{end}}
     {{with .JavniStanje}}{{if .Greska}}<span class="badge badge-inactive">{{icon "triangle-alert"}} zadnje preuzimanje {{satHR .Kad}} nije uspjelo: {{.Greska}}</span>{{else}}Zadnje preuzimanje {{satHR .Kad}}: {{.Preuzeto}} sa stranice, novih {{.Novih}}{{if not .ZadnjeKad.IsZero}}, najnovije {{formatDate (localTime .ZadnjeKad)}}{{end}}.{{end}}{{end}}
   </p>
   {{end}}
