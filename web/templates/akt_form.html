@@ -1,0 +1,77 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Novi akt{{end}}
+
+{{define "content"}}
+<div class="breadcrumb"><a href="/dnevnici">Dokumentacija</a> › <a href="/akti">Rješenja i obavijesti</a> › Novi akt</div>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "file-text"}} {{if .Station}}Akt po vodomjeru {{.Station.Name}}{{else}}Novi akt{{end}}</h1>
+    <p class="page-desc">Proglašava se po vodomjeru i branjenom području; dionice za koje je vodomjer mjerodavan slijede same.
+      Pripremno stanje ide obaviješću, ostali stupnjevi rješenjem. Nastaje nacrt koji se pregleda i ovjeri.</p>
+  </div>
+</div>
+
+{{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
+
+{{if not .Station}}
+<form method="GET" action="/akti/novi" class="form-page">
+  <div class="form-group">
+    <label class="form-label" for="station">Vodomjer</label>
+    <select id="station" name="station" class="form-control" required>
+      <option value="">— odaberi vodomjer —</option>
+      {{range .Stanice}}<option value="{{.ID}}">{{.Name}}{{if .Watercourse}} · {{.Watercourse}}{{end}} ({{join .SectionCodes ", "}})</option>{{end}}
+    </select>
+    <div class="form-help">Nude se vodomjeri koji su mjerodavni bar za jednu dionicu.</div>
+  </div>
+  <div class="form-actions"><button type="submit" class="btn btn-primary">Dalje</button></div>
+</form>
+{{else}}
+<form method="POST" action="/akti/novi" class="form-page">
+  <input type="hidden" name="station_id" value="{{.Station.ID}}">
+  {{with .Zadnje}}<p class="form-help">Zadnje očitanje: <strong>{{if .LevelCm}}{{intOf .LevelCm}} cm{{else}}bez vodostaja{{end}}</strong> {{formatDate .LocalTime}}. Vodostaj i tendencija idu u rečenicu akta sami, osim kad se donosi po prognozi.</p>{{end}}
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label">Radnja</label>
+      <div style="display:flex; gap:1rem; min-height:40px; align-items:center;">
+        <label><input type="radio" name="radnja" value="USPOSTAVA" {{if ne .Radnja "PREKID"}}checked{{end}}> uspostava</label>
+        <label><input type="radio" name="radnja" value="PREKID" {{if eq .Radnja "PREKID"}}checked{{end}}> prekid</label>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="stupanj">Stupanj obrane</label>
+      <select id="stupanj" name="stupanj" class="form-control">
+        {{range .Stupnjevi}}<option value="{{.}}" {{if eq . $.Stupanj}}selected{{end}}>{{.Label}}</option>{{end}}
+      </select>
+    </div>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Dionice</label>
+    {{range .Dionice}}
+    <label style="display:flex; gap:0.5rem; align-items:baseline; min-height:32px;"><input type="checkbox" name="dionica" value="{{.Code}}" checked> <strong class="mono">{{.Code}}</strong> <span class="reg-card-sub">{{.Description}}</span></label>
+    {{end}}
+    <div class="form-help">Sve dionice za koje je vodomjer mjerodavan; odznači one koje akt ne obuhvaća.</div>
+  </div>
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="vrijedi">Vrijedi od</label>
+      <input type="datetime-local" id="vrijedi" name="vrijedi" class="form-control" value="{{.LocalValue}}" required>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="prognoza">Po prognozi (umjesto po vodostaju)</label>
+      <input type="text" id="prognoza" name="prognoza" class="form-control" placeholder="npr. najavljen porast do 600 cm 20.9.">
+      <div class="form-help">Prazno znači po zadnjem izmjerenom vodostaju s tendencijom.</div>
+    </div>
+  </div>
+  <div class="form-group">
+    <label class="form-label" for="napomena">Napomena na aktu</label>
+    <textarea id="napomena" name="napomena" class="form-control" rows="2" placeholder="neobavezno"></textarea>
+  </div>
+  <div class="form-actions">
+    <a href="/akti" class="btn btn-secondary">Odustani</a>
+    <button type="submit" class="btn btn-primary">Sastavi nacrt</button>
+  </div>
+</form>
+{{end}}
+{{end}}

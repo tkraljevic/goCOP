@@ -3501,3 +3501,18 @@ textarea {
 
 /* Procjena protoka produljenjem krivulje preko umjerenog raspona */
 .izvan-krivulje { display: inline-block; padding: 0 0.4rem; border-radius: 4px; background: var(--warning-bg, #fff4d6); color: #8a5a00; font-size: 0.75rem; font-weight: 600; white-space: nowrap; }
+
+/* Akt: prikaz kako će stajati na papiru */
+.akt-papir { background: var(--surface, #fff); border: 1px solid var(--border, #d9dee5); border-radius: 10px; padding: 1.5rem 2rem; max-width: 52rem; font-size: 0.95rem; line-height: 1.5; }
+.akt-zaglavlje { display: flex; justify-content: space-between; gap: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border, #d9dee5); margin-bottom: 1rem; font-size: 0.85rem; }
+.akt-nacrt { text-align: right; font-weight: 700; color: #b3261e; }
+.akt-naslov { text-align: center; font-size: 1.5rem; letter-spacing: 0.08em; margin: 1rem 0 0.25rem; }
+.akt-sredina { text-align: center; margin: 0.4rem 0; }
+.akt-dionice { display: grid; grid-template-columns: 6rem 1fr; gap: 0.25rem 1rem; margin: 0.5rem auto; max-width: 40rem; }
+.akt-dionice dt { font-weight: 700; }
+.akt-dionice dd { margin: 0; }
+.akt-potpis { display: flex; justify-content: space-between; gap: 2rem; margin: 1.5rem 0 1rem; }
+.akt-potpis > div:last-child { min-width: 16rem; }
+.akt-primatelji { font-size: 0.85rem; padding-left: 1.5rem; }
+.akt-primatelji li { margin: 0.15rem 0; }
+@media (max-width: 600px) { .akt-papir { padding: 1rem; } .akt-dionice { grid-template-columns: 1fr; } .akt-potpis { flex-direction: column; } }

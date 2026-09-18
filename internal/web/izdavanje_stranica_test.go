@@ -297,16 +297,16 @@ func TestRazdjelnicaDnevnikaDijeliTriVrste(t *testing.T) {
 	for _, want := range []string{
 		"Dokumentacija", "Dnevnici COP-a", "Dnevna izvješća", "Dnevnici usluga A.02", "Dnevnici usluga A.03",
 		"/dnevnici/popis?vrsta=OBRANA", "/izvjesca", "/dnevnici/popis?vrsta=ODRZAVANJE_A02", "/dnevnici/popis?vrsta=ODRZAVANJE_A03",
-		"operateri", ">13<", ">4<",
+		"operateri", ">13<", ">4<", "Rješenja i obavijesti", "/akti",
 	} {
 		if !strings.Contains(html, want) {
 			t.Errorf("razdjelnica nema %q", want)
 		}
 	}
 	// Svaka kartica ima ikonu, kao i na Administraciji: COP, dežurstva,
-	// izvješća, događanja, A.02, A.03.
-	if n := strings.Count(html, "dash-card-icon-box"); n != 6 {
-		t.Errorf("ikona na %d kartica, a ima ih šest", n)
+	// izvješća, događanja, akti, A.02, A.03.
+	if n := strings.Count(html, "dash-card-icon-box"); n != 7 {
+		t.Errorf("ikona na %d kartica, a ima ih sedam", n)
 	}
 }
 
