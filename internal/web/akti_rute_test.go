@@ -304,7 +304,7 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 		// prijelom retka u PDF-u nije razlika u tekstu
 		out := []byte(strings.Join(strings.Fields(string(sirovo)), " "))
 		for _, zeli := range []string{"RJEŠENJE", "izvanredne obrane od poplava", "vodomjeru Batina", "652 cm", "B.34.2", "15.09.2026.", "12:00", "Rukovoditelj obrane od poplava Sektora B", "Glavni centar", "Pismohrana", "u.z. Uprava Sektora", "procjeni visokog stupnja ugroženosti", "ožujak 2025.", "O tome obavijest:", "GCOPRH@voda.hr", a.OvjeraKod,
-			"ELEKTRONIČKI POTPISANO", "Ispravnost ispisa provjerava se", "Centru obrane od poplava Sektora B", a.OtisakKljuca()} {
+			"ELEKTRONIČKI OVJERENO", "Ispravnost ispisa provjerava se", "Centru obrane od poplava Sektora B", a.OtisakKljuca()} {
 			if !strings.Contains(string(out), zeli) {
 				t.Errorf("u PDF-u nema %q:\n%s", zeli, out)
 			}
