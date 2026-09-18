@@ -8,6 +8,7 @@ import (
 	"net/mail"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -484,39 +485,69 @@ func (s *AktService) UsporediImenik(ctx context.Context, perms *models.UserPermi
 	if err != nil {
 		return nil, err
 	}
-	var out []UsporedbaKontakta
-	for _, x := range svi {
-		if strings.TrimSpace(x.FullName) == "" {
+	// adresar se pita za svakoga zasebno; nekoliko upita ide usporedno, jer
+	// ih je stotine, a svaki traje koliko i jedan zahtjev poslužitelju
+	out := make([]UsporedbaKontakta, len(svi))
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	var prva error
+	red := make(chan int)
+	for w := 0; w < 4; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := range red {
+				x := svi[i]
+				u := UsporedbaKontakta{User: x}
+				var kandidati []posta.Kontakt
+				var err error
+				if x.Email != "" {
+					kandidati, err = posta.Imenik(ctx, pp, r, x.Email)
+				}
+				if err == nil && len(kandidati) == 0 {
+					kandidati, err = posta.Imenik(ctx, pp, r, x.FullName)
+				}
+				if err != nil {
+					mu.Lock()
+					if prva == nil {
+						prva = err
+					}
+					mu.Unlock()
+					out[i] = u
+					continue
+				}
+				u.Kandidati = len(kandidati)
+				if k := najboljiKontakt(kandidati, x); k != nil {
+					u.Kontakt = k
+					u.Polja = poljaKontakta(x, *k)
+					for _, p := range u.Polja {
+						if p.Razlikuje() {
+							u.Razlike = append(u.Razlike, p)
+						}
+					}
+				}
+				out[i] = u
+			}
+		}()
+	}
+	for i := range svi {
+		if strings.TrimSpace(svi[i].FullName) == "" {
 			continue
 		}
-		red := UsporedbaKontakta{User: x}
-		// najprije po adresi, jer je jednoznačna; onda po imenu
-		var kandidati []posta.Kontakt
-		if x.Email != "" {
-			kandidati, err = posta.Imenik(ctx, pp, r, x.Email)
-			if err != nil {
-				return nil, err
-			}
-		}
-		if len(kandidati) == 0 {
-			kandidati, err = posta.Imenik(ctx, pp, r, x.FullName)
-			if err != nil {
-				return nil, err
-			}
-		}
-		red.Kandidati = len(kandidati)
-		if k := najboljiKontakt(kandidati, x); k != nil {
-			red.Kontakt = k
-			red.Polja = poljaKontakta(x, *k)
-			for _, p := range red.Polja {
-				if p.Razlikuje() {
-					red.Razlike = append(red.Razlike, p)
-				}
-			}
-		}
-		out = append(out, red)
+		red <- i
 	}
-	return out, nil
+	close(red)
+	wg.Wait()
+	if prva != nil {
+		return nil, prva
+	}
+	var puni []UsporedbaKontakta
+	for i := range out {
+		if strings.TrimSpace(svi[i].FullName) != "" {
+			puni = append(puni, out[i])
+		}
+	}
+	return puni, nil
 }
 
 // najboljiKontakt bira osobu iz adresara: istu adresu, pa isto ime; kad
