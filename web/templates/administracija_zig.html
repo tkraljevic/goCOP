@@ -46,6 +46,16 @@
       <button type="submit" class="btn btn-primary">{{icon "upload"}} Spremi žig</button>
     </div>
   </form>
+  <details class="zastita" open>
+    <summary>{{icon "lock"}} Kako je žig zaštićen</summary>
+    <ul>
+      <li><strong>Tko ga vidi:</strong> sliku žiga u programu može pregledati, promijeniti ili ukloniti samo uprava sektora. Ostali korisnici je ne mogu preuzeti ni vidjeti; drugima je vidljiv samo otisak na PDF-u ovjerenog akta.</li>
+      <li><strong>Gdje se čuva:</strong> u bazi programa i, kroz knjigu verzija, na računalima sektora s kojima je ovo računalo upareno. Mora biti na svakom računalu na kojem rukovoditelj ovjerava akte, jer ondje program radi PDF.</li>
+      <li><strong>Kad se koristi:</strong> samo u trenutku ovjere akta u goCOP-u, kad program izradi PDF i spremi ga kao izvornik. Nikad na nacrtima, ispisima za vlastoručni potpis ni u izvozima.</li>
+      <li><strong>Trag:</strong> svako spremanje i uklanjanje ostaje zapisano u knjizi verzija s imenom i vremenom; svaki ovjereni akt nosi kod ovjere po kojem se otisak može provjeriti u programu.</li>
+      <li><strong>Vaša odgovornost:</strong> tko ima pristup datoteci baze na disku, ima i sliku žiga, kao i svakoj drugoj tajni programa. Računala zaključavajte i čuvajte kao papirni žig.</li>
+    </ul>
+  </details>
   {{if .Ima}}
   <form method="POST" action="/administracija/zig" enctype="multipart/form-data" style="margin-top:0.75rem;" onsubmit="return confirm('Ukloniti žig? Akti će se izdavati bez otiska.')">
     <input type="hidden" name="sektor" value="{{.Sektor}}">
