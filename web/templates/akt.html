@@ -73,7 +73,7 @@
     {{else}}<label class="checkbox-label"><input type="checkbox" name="kopija" value="1" checked> Pošalji kopiju i meni (poslužitelj ne sprema poslanu poštu u Outlookovu mapu Poslano)</label>{{end}}
     <div style="margin-top:0.5rem; display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
       <button type="submit" class="btn btn-primary" id="akt-posalji" {{if or (not .Podesena) (not .Racun) (not .Posiljatelj)}}disabled{{end}}>{{icon "mail"}} Pošalji odabranima</button>
-      <button type="submit" class="btn btn-secondary" name="proba" value="1" {{if or (not .Podesena) (not .Racun) (not .Posiljatelj)}}disabled{{end}}>{{icon "user"}} Probno samo meni</button>
+      <button type="submit" class="btn btn-secondary" name="proba" value="1" formnovalidate {{if or (not .Podesena) (not .Racun) (not .Posiljatelj)}}disabled{{end}}>{{icon "user"}} Probno samo meni</button>
       {{if eq .NijePoslanoJos 0}}<span class="form-help">Svim adresama je već poslano.</span>{{end}}</div>
     <script>
       (function () {
@@ -98,8 +98,12 @@
         });
         kv.forEach(function (k) { k.addEventListener('change', osvjezi); });
         dodatne.addEventListener('input', osvjezi);
+        var pritisnut = '';
+        f.querySelectorAll('button[type="submit"]').forEach(function (b) { b.addEventListener('click', function () { pritisnut = b.name || ''; }); });
         f.addEventListener('submit', function (e) {
-          if (e.submitter && e.submitter.name === 'proba') return;
+          var proba = pritisnut === 'proba' || (e.submitter && e.submitter.name === 'proba');
+          pritisnut = '';
+          if (proba) return;
           var popis = [];
           kv.forEach(function (k) { if (k.checked) popis.push(k.value); });
           if (dodatne.value.trim()) popis.push(dodatne.value.trim());
