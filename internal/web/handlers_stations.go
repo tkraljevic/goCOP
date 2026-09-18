@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -387,7 +386,7 @@ type stationForm struct {
 	SourceName            string `json:"source_name"`
 	NeedsReview           string `json:"needs_review"`
 	ReviewNote            string `json:"review_note"`
-	JavniID               string `json:"javni_id"`
+	JavniURL              string `json:"javni_url"`
 	JavniUvoz             string `json:"javni_uvoz"`
 }
 
@@ -436,7 +435,7 @@ func decodeStationForm(r *http.Request) (stationForm, error) {
 	form.SourceName = r.FormValue("source_name")
 	form.NeedsReview = r.FormValue("needs_review")
 	form.ReviewNote = r.FormValue("review_note")
-	form.JavniID = r.FormValue("javni_id")
+	form.JavniURL = r.FormValue("javni_url")
 	form.JavniUvoz = r.FormValue("javni_uvoz")
 
 	return form, nil
@@ -486,36 +485,19 @@ func (f stationForm) primijeni(st *models.Station) {
 	st.SourceName = strings.TrimSpace(f.SourceName)
 	st.NeedsReview = f.NeedsReview == "1" || f.NeedsReview == "on" || f.NeedsReview == "true"
 	st.ReviewNote = strings.TrimSpace(f.ReviewNote)
-	st.JavniID, st.JavniUvoz = f.javnaVeza()
+	st.JavniURL, st.JavniUvoz = f.javnaVeza()
 }
 
-// javnaVeza čita vezu s javnom stranicom: ID postaje i je li preuzimanje
-// uključeno. Preuzimanje bez ID-a nema smisla, pa se tada gasi.
-func (f stationForm) javnaVeza() (int, bool) {
-	id := javniIDIzUnosa(f.JavniID)
+// javnaVeza čita vezu s javnom stranicom: adresu i je li preuzimanje
+// uključeno. Preuzimanje bez adrese nema smisla, pa se tada gasi. Goli
+// broj je stara navika s Hrvatskih voda, pa se pretvori u njihovu adresu.
+func (f stationForm) javnaVeza() (string, bool) {
+	adresa := strings.TrimSpace(f.JavniURL)
+	if id, err := strconv.Atoi(adresa); err == nil && id > 0 {
+		adresa = javnivodostaji.AdresaPostaje(javnivodostaji.Postaja{ID: id})
+	}
 	uvoz := f.JavniUvoz == "1" || f.JavniUvoz == "on" || f.JavniUvoz == "true"
-	return id, uvoz && id > 0
-}
-
-// reJavniID vadi broj postaje iz zalijepljene adrese javne stranice, npr.
-// .../PregledVodostajaPostaje?sektorID=2&bpID=34&postajaID=424
-var reJavniID = regexp.MustCompile(`(?i)postajaID=(\d+)`)
-
-// javniIDIzUnosa prima goli broj ili adresu stranice postaje: ljudi kopiraju
-// adresu iz preglednika, pa neka i to prođe. Nula je nepovezano.
-func javniIDIzUnosa(unos string) int {
-	unos = strings.TrimSpace(unos)
-	if id, err := strconv.Atoi(unos); err == nil {
-		if id < 0 {
-			return 0
-		}
-		return id
-	}
-	if m := reJavniID.FindStringSubmatch(unos); m != nil {
-		id, _ := strconv.Atoi(m[1])
-		return id
-	}
-	return 0
+	return adresa, uvoz && adresa != ""
 }
 
 func (f stationForm) toStation() models.Station {
@@ -549,7 +531,7 @@ func (f stationForm) toStation() models.Station {
 		NeedsReview:           f.NeedsReview == "1" || f.NeedsReview == "on" || f.NeedsReview == "true",
 		ReviewNote:            strings.TrimSpace(f.ReviewNote),
 	}
-	st.JavniID, st.JavniUvoz = f.javnaVeza()
+	st.JavniURL, st.JavniUvoz = f.javnaVeza()
 	return st
 }
 

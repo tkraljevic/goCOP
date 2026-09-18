@@ -1,12 +1,15 @@
-// Paket javnivodostaji preuzima očitanja s javne stranice Hrvatskih voda
-// (vodostaji.voda.hr), koja za svaku postaju daje zadnja dva-tri dana satnih
-// vodostaja. Isto što operater danas zalijepi rukom, samo da program to sam
-// napravi svaki sat za letve koje su za to označene.
+// Paket javnivodostaji preuzima očitanja s javnih stranica vodostaja. Isto
+// što operater danas zalijepi rukom, samo da program to sam napravi svaki sat
+// za letve koje su za to označene.
 //
-// Stranica nema službeni API: popis postaja je JSON koji hrani kartu, a
-// očitanja postaje su HTML tablica. Oboje se čita onako kako stranica sama
-// čita, pa promjena stranice ruši i ovo — zato se svaki neuspjeh vidi na
-// letvi, a ne guta tiho.
+// Letva pamti adresu svoje javne stranice, a čitač se bira po adresi: za
+// vodostaji.voda.hr Hrvatske vode, a za mađarske i srpske letve njihove
+// službe, svaka sa svojim oblikom stranice — dodaju se kao novi Izvor bez
+// diranja letve.
+//
+// Stranice nemaju službeni API: čitaju se onako kako ih čita i sam
+// preglednik, pa promjena stranice ruši i ovo — zato se svaki neuspjeh vidi
+// na letvi, a ne guta tiho.
 package javnivodostaji
 
 import (
@@ -26,11 +29,63 @@ import (
 	"gocop/internal/models"
 )
 
-// Podrijetlo je ono što stoji uz očitanje kao izvor
+// Podrijetlo je ono što stoji uz očitanje s Hrvatskih voda kao izvor
 const Podrijetlo = "vodostaji.voda.hr"
 
-// ZadaniBase je adresa javne stranice
+// ZadaniBase je adresa javne stranice Hrvatskih voda
 const ZadaniBase = "https://vodostaji.voda.hr"
+
+// Izvor je jedna javna stranica vodostaja: prepoznaje svoje adrese i zna
+// s njih pročitati očitanja letve
+type Izvor interface {
+	// Naziv je ono što stoji uz očitanje kao podrijetlo, npr. vodostaji.voda.hr
+	Naziv() string
+	// Prepoznaje javlja je li adresa s ove stranice
+	Prepoznaje(adresa string) bool
+	// Ocitanja čita zadnja očitanja letve s te adrese, najstarije prvo
+	Ocitanja(ctx context.Context, adresa string) ([]Redak, error)
+}
+
+// reHVPostaja vadi broj postaje iz adrese Hrvatskih voda, npr.
+// https://mvodostaji.voda.hr/Home/PregledVodostajaPostaje?sektorID=2&bpID=34&postajaID=424
+var reHVPostaja = regexp.MustCompile(`(?i)postajaID=(\d+)`)
+
+// Naziv je vodostaji.voda.hr
+func (c *Client) Naziv() string { return Podrijetlo }
+
+// Prepoznaje adrese s vodostaji.voda.hr i mvodostaji.voda.hr
+func (c *Client) Prepoznaje(adresa string) bool {
+	return PostajaIzAdrese(adresa) > 0
+}
+
+// PostajaIzAdrese vraća broj postaje iz adrese Hrvatskih voda; 0 kad
+// adresa nije njihova ili nema broja
+func PostajaIzAdrese(adresa string) int {
+	a := strings.ToLower(strings.TrimSpace(adresa))
+	if !strings.Contains(a, "vodostaji.voda.hr") {
+		return 0
+	}
+	m := reHVPostaja.FindStringSubmatch(adresa)
+	if m == nil {
+		return 0
+	}
+	id, _ := strconv.Atoi(m[1])
+	return id
+}
+
+// OcitanjaSAdrese čita očitanja postaje čija je adresa zadana
+func (c *Client) OcitanjaSAdrese(ctx context.Context, adresa string) ([]Redak, error) {
+	id := PostajaIzAdrese(adresa)
+	if id <= 0 {
+		return nil, fmt.Errorf("adresa nema broj postaje (postajaID=…)")
+	}
+	return c.Ocitanja(ctx, id)
+}
+
+// AdresaPostaje je adresa koju obrazac letve nudi za postaju s popisa
+func AdresaPostaje(p Postaja) string {
+	return ZadaniBase + "/Home/PregledVodostajaPostaje?postajaID=" + strconv.Itoa(p.ID)
+}
 
 // Postaja je jedna postaja s javnog popisa
 type Postaja struct {
@@ -144,18 +199,18 @@ func CitajTablicu(html string) ([]Redak, error) {
 
 // Ocitanje pretvara redak u očitanje kakvo ide u operativni zapis; isti
 // identitet za isti trenutak, pa ponovljeno preuzimanje ništa ne udvostručuje
-func Ocitanje(station *models.Station, r Redak) models.Reading {
+func Ocitanje(station *models.Station, r Redak, podrijetlo string) models.Reading {
 	cm := r.Cm
-	ref := Podrijetlo + ":" + r.Kad.UTC().Format(time.RFC3339)
+	ref := podrijetlo + ":" + r.Kad.UTC().Format(time.RFC3339)
 	return models.Reading{
 		ID:         db.StableID("reading", station.ID.String()+"|"+ref),
 		StationID:  station.ID.String(),
 		MeasuredAt: r.Kad.UTC(),
 		LevelCm:    &cm,
 		Source:     models.ReadingSourceImport,
-		Origin:     Podrijetlo,
+		Origin:     podrijetlo,
 		SourceRef:  ref,
-		Observer:   Podrijetlo,
+		Observer:   podrijetlo,
 	}
 }
 
@@ -183,7 +238,8 @@ type StanjeLetve struct {
 // Uvoznik svaki sat preuzme označene letve. Stanje po letvi drži u
 // memoriji: to je dnevnik rada ovog čvora, ne podatak koji putuje.
 type Uvoznik struct {
-	Client    *Client
+	Client    *Client // Hrvatske vode; i popis postaja za obrazac
+	Izvori    []Izvor // čitači po adresi; Client je uvijek među njima
 	Spremiste Spremiste
 	Svakih    time.Duration
 	Zapisnik  func(format string, args ...any)
@@ -199,7 +255,28 @@ func NoviUvoznik(s Spremiste, zapisnik func(string, ...any)) *Uvoznik {
 	if zapisnik == nil {
 		zapisnik = func(string, ...any) {}
 	}
-	return &Uvoznik{Client: &Client{}, Spremiste: s, Svakih: time.Hour, Zapisnik: zapisnik, stanja: map[string]StanjeLetve{}}
+	c := &Client{}
+	return &Uvoznik{Client: c, Izvori: []Izvor{hvIzvor{c}}, Spremiste: s, Svakih: time.Hour, Zapisnik: zapisnik, stanja: map[string]StanjeLetve{}}
+}
+
+// hvIzvor je Hrvatske vode kao Izvor, preko Clienta koji uvoznik drži;
+// zato se i zamjena Clienta u testu vidi kroz njega
+type hvIzvor struct{ c *Client }
+
+func (h hvIzvor) Naziv() string                 { return Podrijetlo }
+func (h hvIzvor) Prepoznaje(adresa string) bool { return PostajaIzAdrese(adresa) > 0 }
+func (h hvIzvor) Ocitanja(ctx context.Context, adresa string) ([]Redak, error) {
+	return h.c.OcitanjaSAdrese(ctx, adresa)
+}
+
+// IzvorZa bira čitač po adresi; nil kad nijedan ne prepoznaje adresu
+func (u *Uvoznik) IzvorZa(adresa string) Izvor {
+	for _, iz := range u.Izvori {
+		if iz.Prepoznaje(adresa) {
+			return iz
+		}
+	}
+	return nil
 }
 
 // Stanje vraća zadnje stanje preuzimanja letve, ako je preuzimana
@@ -291,13 +368,18 @@ func (u *Uvoznik) Preuzmi(ctx context.Context, st *models.Station) StanjeLetve {
 		u.stanja[st.ID.String()] = s
 		u.mu.Unlock()
 	}()
-	if st.JavniID <= 0 {
-		s.Greska = "letva nema javni ID"
+	if strings.TrimSpace(st.JavniURL) == "" {
+		s.Greska = "letva nema adresu javne stranice"
+		return s
+	}
+	izvor := u.IzvorZa(st.JavniURL)
+	if izvor == nil {
+		s.Greska = "nijedan čitač ne prepoznaje adresu " + st.JavniURL
 		return s
 	}
 	cctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	redci, err := u.Client.Ocitanja(cctx, st.JavniID)
+	redci, err := izvor.Ocitanja(cctx, st.JavniURL)
 	if err != nil {
 		s.Greska = err.Error()
 		u.Zapisnik("javni vodostaji: %s: %v", st.Name, err)
@@ -315,7 +397,7 @@ func (u *Uvoznik) Preuzmi(ctx context.Context, st *models.Station) StanjeLetve {
 		if postojeca[r.Kad.Unix()] {
 			continue
 		}
-		nova = append(nova, Ocitanje(st, r))
+		nova = append(nova, Ocitanje(st, r, izvor.Naziv()))
 	}
 	if len(nova) == 0 {
 		return s

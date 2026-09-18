@@ -29,15 +29,15 @@ func TestJavnaVezaLetveIPostojecaOcitanja(t *testing.T) {
 	readings := NewReadingRepository(baza, rec)
 	ctx := context.Background()
 
-	batina := &models.Station{ID: uuid.New(), Code: "batina", Name: "Batina", JavniID: 424, JavniUvoz: true}
-	vukovar := &models.Station{ID: uuid.New(), Code: "vukovar", Name: "Vukovar", JavniID: 426}
+	batina := &models.Station{ID: uuid.New(), Code: "batina", Name: "Batina", JavniURL: "https://vodostaji.voda.hr/Home/PregledVodostajaPostaje?postajaID=424", JavniUvoz: true}
+	vukovar := &models.Station{ID: uuid.New(), Code: "vukovar", Name: "Vukovar", JavniURL: "https://vodostaji.voda.hr/Home/PregledVodostajaPostaje?postajaID=426"}
 	for _, st := range []*models.Station{batina, vukovar} {
 		if err := stations.CreateStation(ctx, st); err != nil {
 			t.Fatal(err)
 		}
 	}
 	nazad, err := stations.GetStationByID(ctx, batina.ID)
-	if err != nil || nazad == nil || nazad.JavniID != 424 || !nazad.JavniUvoz {
+	if err != nil || nazad == nil || nazad.JavniURL == "" || !nazad.JavniUvoz {
 		t.Fatalf("veza nije spremljena: %+v (%v)", nazad, err)
 	}
 	// isključivanje kroz izmjenu

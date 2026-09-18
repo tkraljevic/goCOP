@@ -23,7 +23,7 @@ func NewJavniSpremiste(db *sql.DB, readings *ReadingRepository) *JavniSpremiste 
 // LetveZaPreuzimanje su postaje s javnim ID-om i uključenim preuzimanjem
 func (s *JavniSpremiste) LetveZaPreuzimanje(ctx context.Context) ([]models.Station, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT `+stationColumns+` FROM stations s
-		WHERE s.javni_uvoz = 1 AND s.javni_id > 0 ORDER BY s.name`)
+		WHERE s.javni_uvoz = 1 AND s.javni_url <> '' ORDER BY s.name`)
 	if err != nil {
 		return nil, err
 	}

@@ -234,11 +234,12 @@
   <h3 style="font-size:0.9rem; margin:1rem 0 0.25rem;">Javna stranica vodostaja</h3>
   <div class="form-row">
     <div class="form-group">
-      <label class="form-label" for="javni_id">Postaja na vodostaji.voda.hr</label>
-      <input type="text" inputmode="numeric" id="javni_id" name="javni_id" class="form-control" list="javne-postaje"
-             value="{{if .Station.JavniID}}{{.Station.JavniID}}{{end}}" placeholder="{{if .JavnePostaje}}upiši dio naziva ili ID{{else}}ID postaje, npr. 424{{end}}" autocomplete="off">
-      {{if .JavnePostaje}}<datalist id="javne-postaje">{{range .JavnePostaje}}<option value="{{.ID}}">{{.Naziv}}{{if .Sifra}} ({{.Sifra}}){{end}}</option>{{end}}</datalist>{{end}}
-      <div class="form-help">{{if .JavnePostaje}}Popis je s javne stranice; odaberi postaju pa ostaje njezin broj.{{else}}Javna stranica sad nije dostupna; broj se vidi u adresi postaje na vodostaji.voda.hr.{{end}} Prazno znači da letva ondje nije.</div>
+      <label class="form-label" for="javni_url">Adresa stranice ove letve</label>
+      <input type="url" id="javni_url" name="javni_url" class="form-control" list="javne-postaje"
+             value="{{.Station.JavniURL}}" placeholder="https://vodostaji.voda.hr/…?postajaID=424" autocomplete="off">
+      {{if .JavnePostaje}}<datalist id="javne-postaje">{{range .JavnePostaje}}<option value="{{javnaAdresa .}}">{{.Naziv}}{{if .Sifra}} ({{.Sifra}}){{end}}</option>{{end}}</datalist>{{end}}
+      <div class="form-help">Zalijepi adresu stranice letve iz preglednika{{if .JavnePostaje}} ili je odaberi s popisa Hrvatskih voda{{end}}.
+        Danas program čita vodostaji.voda.hr; mađarske i srpske stranice imaju svoj oblik i dodaju se kao novi čitač. Prazno znači da letva nema javnu stranicu.</div>
     </div>
   </div>
   <label class="form-check" style="display:flex; align-items:center; gap:0.5rem; margin-bottom:1rem;">
@@ -246,7 +247,7 @@
     <span>Preuzimaj očitanja s javne stranice svaki sat</span>
   </label>
   <p class="form-help" style="margin:-0.5rem 0 1rem;">
-    Isto što se danas zalijepi rukom: zadnja dva-tri dana satnih vodostaja, s podrijetlom vodostaji.voda.hr.
+    Isto što se danas zalijepi rukom: zadnja dva-tri dana satnih vodostaja, s podrijetlom te stranice.
     Sat na koji letva već ima očitanje, iz bilo kojeg izvora, ne dira se.
   </p>
 

@@ -62,7 +62,7 @@ func TestPreuzimanjeSJavneStraniceKrozRute(t *testing.T) {
 <tr> <td>18.09.2026.</td> <td>10:00 h</td> <td>-119 cm</td> <td>+2</td> </tr>
 <tr> <td>18.09.2026.</td> <td>09:00 h</td> <td>-121 cm</td> <td>0</td> </tr></table>`
 	uvoznik := javnivodostaji.NoviUvoznik(repository.NewJavniSpremiste(baza, readingRepo), nil)
-	uvoznik.Client = &javnivodostaji.Client{HTTP: &http.Client{Transport: javniPrijenos{tablica}}}
+	uvoznik.Client.HTTP = &http.Client{Transport: javniPrijenos{tablica}}
 
 	h := NewReadingsHandler(readings, stations, service.NewStructureService(structureRepo), users, tmpl("readings.html"), tmpl("reading_history.html"), tmpl("reading_form.html"))
 	h.SetJavniUvoz(func() *javnivodostaji.Uvoznik { return uvoznik })
@@ -71,7 +71,7 @@ func TestPreuzimanjeSJavneStraniceKrozRute(t *testing.T) {
 	mux.HandleFunc("POST /readings/station/{id}/javni", h.HandlePreuzmiJavno)
 
 	ctx := context.Background()
-	st := &models.Station{ID: uuid.New(), Code: "batina", Name: "Batina", JavniID: 424, JavniUvoz: true}
+	st := &models.Station{ID: uuid.New(), Code: "batina", Name: "Batina", JavniURL: "https://mvodostaji.voda.hr/Home/PregledVodostajaPostaje?sektorID=2&bpID=34&postajaID=424", JavniUvoz: true}
 	if err := stationRepo.CreateStation(ctx, st); err != nil {
 		t.Fatal(err)
 	}
@@ -89,7 +89,7 @@ func TestPreuzimanjeSJavneStraniceKrozRute(t *testing.T) {
 	putanja := "/readings/station/" + st.ID.String()
 
 	w := zovi(http.MethodGet, putanja)
-	if w.Code != 200 || !strings.Contains(w.Body.String(), "Preuzmi s vodostaji.voda.hr") || !strings.Contains(w.Body.String(), "Satno preuzimanje s vodostaji.voda.hr je uključeno") {
+	if w.Code != 200 || !strings.Contains(w.Body.String(), "Preuzmi s vodostaji.voda.hr") || !strings.Contains(w.Body.String(), "Satno preuzimanje je uključeno") {
 		t.Fatalf("stranica bez gumba ili stanja: %d\n%s", w.Code, w.Body.String())
 	}
 	w = zovi(http.MethodPost, putanja+"/javni")
@@ -111,19 +111,18 @@ func TestPreuzimanjeSJavneStraniceKrozRute(t *testing.T) {
 	}
 }
 
-// Broj postaje smije doći i kao zalijepljena adresa stranice
-func TestJavniIDIzAdrese(t *testing.T) {
-	for unos, zeli := range map[string]int{
-		"424": 424,
-		" 426 ": 426,
-		"https://mvodostaji.voda.hr/Home/PregledVodostajaPostaje?sektorID=2&bpID=34&postajaID=424": 424,
-		"https://vodostaji.voda.hr/?postajaid=426": 426,
-		"":   0,
-		"-5": 0,
-		"Batina": 0,
+// Adresa se sprema kakva je zalijepljena; goli broj je stara navika s
+// Hrvatskih voda i pretvara se u njihovu adresu
+func TestJavnaAdresaIzObrasca(t *testing.T) {
+	for unos, zeli := range map[string]string{
+		"https://mvodostaji.voda.hr/Home/PregledVodostajaPostaje?sektorID=2&bpID=34&postajaID=424": "https://mvodostaji.voda.hr/Home/PregledVodostajaPostaje?sektorID=2&bpID=34&postajaID=424",
+		"424": "https://vodostaji.voda.hr/Home/PregledVodostajaPostaje?postajaID=424",
+		"https://www.hydroinfo.hu/Html/vizallas/mohacs.html": "https://www.hydroinfo.hu/Html/vizallas/mohacs.html",
+		"  ": "",
 	} {
-		if id := javniIDIzUnosa(unos); id != zeli {
-			t.Errorf("%q: %d, očekivano %d", unos, id, zeli)
+		adresa, uvoz := stationForm{JavniURL: unos, JavniUvoz: "1"}.javnaVeza()
+		if adresa != zeli || uvoz != (zeli != "") {
+			t.Errorf("%q: %q (uvoz %v), očekivano %q", unos, adresa, uvoz, zeli)
 		}
 	}
 }
