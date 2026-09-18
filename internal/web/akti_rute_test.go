@@ -250,8 +250,10 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 	if _, err := exec.LookPath("pdftotext"); err == nil {
 		put := filepath.Join(t.TempDir(), "akt.pdf")
 		_ = os.WriteFile(put, w.Body.Bytes(), 0o644)
-		out, _ := exec.Command("pdftotext", put, "-").Output()
-		for _, zeli := range []string{"RJEŠENJE", "izvanredne obrane od poplava", "vodomjeru Batina", "652 cm", "B.34.2", "15.09.2026.", "12:00", "Rukovoditelj obrane od poplava Sektora B", "Glavni centar", "Pismohrana", "u.z. Uprava Sektora", "ugroženosti", "ožujak 2025.", a.OvjeraKod} {
+		sirovo, _ := exec.Command("pdftotext", put, "-").Output()
+		// prijelom retka u PDF-u nije razlika u tekstu
+		out := []byte(strings.Join(strings.Fields(string(sirovo)), " "))
+		for _, zeli := range []string{"RJEŠENJE", "izvanredne obrane od poplava", "vodomjeru Batina", "652 cm", "B.34.2", "15.09.2026.", "12:00", "Rukovoditelj obrane od poplava Sektora B", "Glavni centar", "Pismohrana", "u.z. Uprava Sektora", "procjeni visokog stupnja ugroženosti", "ožujak 2025.", "O tome obavijest:", "GCOPRH@voda.hr", a.OvjeraKod} {
 			if !strings.Contains(string(out), zeli) {
 				t.Errorf("u PDF-u nema %q:\n%s", zeli, out)
 			}

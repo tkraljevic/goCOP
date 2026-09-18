@@ -45,6 +45,9 @@ type Akt struct {
 	// zadane špranče pri prikazu.
 	Uvod    string `json:"uvod,omitempty"`
 	Zavrsno string `json:"zavrsno,omitempty"`
+	// Poveznice su retci na dnu akta, "naziv: adresa", kao na dosadašnjim
+	// aktima (Glavni provedbeni plan, Državni plan)
+	Poveznice string `json:"poveznice,omitempty"`
 
 	Dionice    []AktDionica   `json:"dionice"`
 	Vrijedi    time.Time      `json:"vrijedi"` // dan i sat od kojeg stupanj vrijedi
@@ -170,9 +173,10 @@ type Spranca struct {
 	Sektor string `json:"sektor"`
 	// Osnova je uvod do rečenice o vodostaju; {clanak} se zamjenjuje
 	// člankom Državnog plana za stupanj akta
-	Osnova  string                  `json:"osnova"`
-	Clanci  map[DefensePhase]string `json:"clanci"`
-	Zavrsno string                  `json:"zavrsno"`
+	Osnova    string                  `json:"osnova"`
+	Clanci    map[DefensePhase]string `json:"clanci"`
+	Zavrsno   string                  `json:"zavrsno"`
+	Poveznice string                  `json:"poveznice"`
 	// Uredio i kada, za prikaz; putuje knjigom verzija
 	Uredio    string    `json:"uredio,omitempty"`
 	UpdatedAt time.Time `json:"updated_at"`
@@ -189,6 +193,8 @@ func ZadanaSpranca(sektor string) Spranca {
 		Clanci: map[DefensePhase]string{PhasePrep: "XXII", PhaseRegular: "XXIII", PhaseEmergency: "XXIV", PhaseState: "XXV"},
 		Zavrsno: "Za vrijeme provođenja mjera obrane od poplava treba postupiti prema odredbama Državnog plana obrane od poplava " +
 			"(N.N. br. 84/10) i Glavnog provedbenog plana obrane od poplava (Hrvatske vode, ožujak 2022.)!",
+		Poveznice: "Glavni provedbeni plan obrane od poplava: https://www.voda.hr/hr/novost/glavni-provedbeni-plan-obrane-od-poplava\n" +
+			"Državni plan obrane od poplava: https://narodne-novine.nn.hr/clanci/sluzbeni/2010_07_84_2389.html",
 	}
 }
 
@@ -328,7 +334,7 @@ func (a Akt) Sazetak() string {
 		fmt.Fprintf(&b, "%d@%s|", *a.VodostajCm, a.VodostajKad.UTC().Format(time.RFC3339))
 	}
 	b.WriteString(a.Tendencija + "|" + a.Prognoza + "|" + a.Vrijedi.UTC().Format(time.RFC3339) + "|" + a.Napomena + "|" + a.Potpisnik + "|")
-	b.WriteString(a.TekstUvoda() + "|" + a.TekstZavrsni() + "|")
+	b.WriteString(a.TekstUvoda() + "|" + a.TekstZavrsni() + "|" + a.Poveznice + "|")
 	for _, d := range a.Dionice {
 		b.WriteString(d.Code + "=" + d.Opis + ";")
 	}
@@ -361,6 +367,48 @@ type Primatelj struct {
 	Aktivan    bool         `json:"aktivan"`
 	UpdatedAt  time.Time    `json:"updated_at"`
 	Archived   bool         `json:"archived,omitempty"`
+}
+
+// Podstavka javlja je li primatelj podstavka prethodnoga, kao "– Ured
+// generalnog direktora" ispod "Hrvatske vode, Direkcija Zagreb": na aktu je
+// uvučen i bez rednog broja
+func (p AktPrimatelj) Podstavka() bool {
+	return strings.HasPrefix(p.Naziv, "–") || strings.HasPrefix(p.Naziv, "-")
+}
+
+// NazivBezCrtice je naziv podstavke bez crtice na početku
+func (p AktPrimatelj) NazivBezCrtice() string {
+	return strings.TrimSpace(strings.TrimLeft(p.Naziv, "–- "))
+}
+
+// RedniBrojevi daje redni broj svakom primatelju koji nije podstavka; 0 za podstavke
+func RedniBrojevi(ps []AktPrimatelj) []int {
+	out := make([]int, len(ps))
+	n := 0
+	for i, p := range ps {
+		if !p.Podstavka() {
+			n++
+			out[i] = n
+		}
+	}
+	return out
+}
+
+// Retci su poveznice na dnu akta, rastavljene na naziv i adresu
+func (a Akt) Retci() [][2]string {
+	var out [][2]string
+	for _, l := range strings.Split(a.Poveznice, "\n") {
+		l = strings.TrimSpace(l)
+		if l == "" {
+			continue
+		}
+		if i := strings.Index(l, ": "); i > 0 {
+			out = append(out, [2]string{l[:i+1], strings.TrimSpace(l[i+2:])})
+		} else {
+			out = append(out, [2]string{l, ""})
+		}
+	}
+	return out
 }
 
 // Skupine primatelja, redom kako stoje na aktu

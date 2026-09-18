@@ -62,7 +62,10 @@
   {{if $a.Napomena}}<p>{{$a.Napomena}}</p>{{end}}
   <div class="akt-potpis"><div></div><div style="text-align:center;"><strong>{{$a.Potpisnik}}</strong>{{if $a.Ovjeren}}<br><span class="reg-card-sub">{{$a.ImePotpisa}}</span>{{end}}</div></div>
   <p class="akt-obavijest">O tome obavijest:</p>
-  <ol class="akt-primatelji">{{range $a.Primatelji}}<li>{{.Naziv}}{{if .Email}} <span class="reg-card-sub">{{.Email}}</span>{{end}}</li>{{end}}</ol>
+  <table class="akt-primatelji">{{$br := redniBrojevi $a.Primatelji}}{{range $i, $p := $a.Primatelji}}
+    <tr><td class="rb">{{if not $p.Podstavka}}{{index $br $i}}.{{end}}</td><td{{if $p.Podstavka}} class="pod"{{end}}>{{if $p.Podstavka}}– {{$p.NazivBezCrtice}}{{else}}{{$p.Naziv}}{{end}}</td><td class="mail">{{$p.Email}}</td></tr>{{end}}
+  </table>
+  {{with $a.Retci}}<table class="akt-primatelji akt-poveznice">{{range .}}<tr><td>{{index . 0}}</td><td class="mail">{{index . 1}}</td></tr>{{end}}</table>{{end}}
   <p class="form-help">{{if $a.Ovjeren}}Ovjereno u goCOP-u: {{$a.Ovjerio}}, {{formatDate (localTime (derefTime $a.OvjerenoAt))}} · akt {{$a.Oznaka}} · kod <span class="mono">{{$a.OvjeraKod}}</span>. Isti kod stoji na PDF-u, pa se ispis može provjeriti.{{else}}Nacrt sastavio {{$a.Izradio}}, {{formatDate (localTime $a.IzradenoAt)}}. Vrijedi tek nakon ovjere: {{$a.Potpisnik | lower}} ili nadređena razina.{{end}}</p>
 </div>
 {{end}}
