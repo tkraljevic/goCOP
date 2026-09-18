@@ -91,6 +91,12 @@ func main() {
 	if p.Preracunato > 0 {
 		fmt.Printf("  rekonstruirano:%d  → ulaže se odvojeno, kao preracun-%s\n", p.Preracunato, p.Izvor)
 	}
+	if p.Temperatura > 0 {
+		fmt.Printf("  temperatura:   %d  → niz temperatura, pod istim izvorom\n", p.Temperatura)
+	}
+	if p.Protok > 0 {
+		fmt.Printf("  izmjeren protok:%d → niz protok, pod istim izvorom\n", p.Protok)
+	}
 	if p.Sumnjivo > 0 {
 		fmt.Printf("  sumnjivo:      %d  → NE ulaže se; ostaje u operativi\n", p.Sumnjivo)
 	}

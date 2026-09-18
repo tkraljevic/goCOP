@@ -360,12 +360,15 @@ func TestIzvjesceOcitanjaNosiUpisano(t *testing.T) {
 	iz.Dio = izvjesceOcitanja
 	iz.Ocitanja = probnaOcitanja(time.Date(2026, 9, 8, 7, 0, 0, 0, models.Zagreb))
 	iz.OcitanjaOpis = "zadnjih 30 dana"
+	temp, q := 12.5, 1250.0
+	iz.Ocitanja[0].TempC, iz.Ocitanja[0].FlowM3s = &temp, &q
 
 	html := dokumentXML(t, iz)
 	for _, want := range []string{
 		"Vodomjerna postaja Batina — očitanja",
 		"Očitanja — zadnjih 30 dana",
 		"660 cm", "505 cm", "-118 cm",
+		"Temperatura vode", "12,5 °C", "Izmjereni protok", "1.250,0 m³/s",
 		"Ivan Horvat", "Marko Marić", "očitano s letve",
 		"8.9.2026. 07:00",
 		"stranica očitanja", // podnožje govori o pravoj stranici

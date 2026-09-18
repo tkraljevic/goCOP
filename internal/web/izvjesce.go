@@ -578,10 +578,17 @@ func (iz IzvjesceLetve) ocitanjaPoglavlje(d *docx.Dokument) {
 	if len(iz.Krivulje) > 0 {
 		glave = append(glave, "Protok")
 	}
-	imaStupanj, imaNapomenu := false, false
+	imaStupanj, imaNapomenu, imaTemp, imaIzmjeren := false, false, false, false
 	for _, o := range iz.Ocitanja {
 		imaStupanj = imaStupanj || o.Phase.InForce()
 		imaNapomenu = imaNapomenu || strings.TrimSpace(o.Note) != ""
+		imaTemp, imaIzmjeren = imaTemp || o.TempC != nil, imaIzmjeren || o.FlowM3s != nil
+	}
+	if imaTemp {
+		glave = append(glave, "Temperatura vode")
+	}
+	if imaIzmjeren {
+		glave = append(glave, "Izmjereni protok")
 	}
 	if imaStupanj {
 		glave = append(glave, "Stupanj obrane")
@@ -622,6 +629,20 @@ func (iz IzvjesceLetve) ocitanjaPoglavlje(d *docx.Dokument) {
 			}
 			red = append(red, q)
 		}
+		if imaTemp {
+			t := ""
+			if o.TempC != nil {
+				t = brojHRf(*o.TempC, 1) + " °C"
+			}
+			red = append(red, t)
+		}
+		if imaIzmjeren {
+			q := ""
+			if o.FlowM3s != nil {
+				q = brojHRf(*o.FlowM3s, 1) + " m³/s"
+			}
+			red = append(red, q)
+		}
 		if imaStupanj {
 			stupanj := ""
 			if o.Phase.InForce() {
@@ -643,7 +664,8 @@ func (iz IzvjesceLetve) ocitanjaPoglavlje(d *docx.Dokument) {
 
 	d.Napomena("Očitanja su ono što je upisano na ovoj letvi i po čemu se vodi obrana. " +
 		"Kota vode i protok nisu mjereni nego preračunati — kota iz kote nule vodomjera, " +
-		"protok iz službene krivulje koja je u trenutku očitanja vrijedila.")
+		"protok iz službene krivulje koja je u trenutku očitanja vrijedila. " +
+		"Temperatura vode i izmjereni protok su mjerenja upisana uz očitanje.")
 }
 
 // ogradeUzNizove ispisuje što se o pojedinom nizu zna, a iz brojki se ne vidi

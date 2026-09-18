@@ -17,7 +17,7 @@ import (
 // kao mjerenje.
 func razvrstaj(o []models.Reading) (iz razvrstano, sumnjivo, bezVrijednosti int) {
 	for _, r := range o {
-		if r.LevelCm == nil {
+		if !r.HasLevel() && !r.HasTemp() && !r.HasFlow() {
 			bezVrijednosti++
 			continue
 		}
@@ -25,17 +25,28 @@ func razvrstaj(o []models.Reading) (iz razvrstano, sumnjivo, bezVrijednosti int)
 			sumnjivo++
 			continue
 		}
-		red := arhiva.Redak{Vrijeme: r.MeasuredAt.UTC(), Vrijednost: float64(*r.LevelCm)}
-		switch {
-		case r.Quality == models.QualityReconstructed:
-			iz.preracunato = append(iz.preracunato, red)
-		case r.Source == models.ReadingSourceManual:
-			// Čovjek pred letvom nije dojava. Podrijetlo se ne smije stopiti:
-			// pri maloj vodi je ručno očitanje jedina neovisna provjera onoga
-			// što telemetrija javlja.
-			iz.rucno = append(iz.rucno, red)
-		default:
-			iz.mjereno = append(iz.mjereno, red)
+		rucno := r.Quality != models.QualityReconstructed && r.Source == models.ReadingSourceManual
+		if r.LevelCm != nil {
+			red := arhiva.Redak{Vrijeme: r.MeasuredAt.UTC(), Vrijednost: float64(*r.LevelCm)}
+			switch {
+			case r.Quality == models.QualityReconstructed:
+				iz.preracunato = append(iz.preracunato, red)
+			case rucno:
+				// Čovjek pred letvom nije dojava. Podrijetlo se ne smije stopiti:
+				// pri maloj vodi je ručno očitanje jedina neovisna provjera onoga
+				// što telemetrija javlja.
+				iz.rucno = append(iz.rucno, red)
+			default:
+				iz.mjereno = append(iz.mjereno, red)
+			}
+		}
+		// Temperatura i izmjereni protok su mjerenja, ne preračun, pa idu pod
+		// ručni ili dojavni izvor bez obzira je li vodostaj rekonstruiran.
+		if r.TempC != nil {
+			iz.dodaj("temperatura", rucno, arhiva.Redak{Vrijeme: r.MeasuredAt.UTC(), Vrijednost: *r.TempC})
+		}
+		if r.FlowM3s != nil {
+			iz.dodaj("protok", rucno, arhiva.Redak{Vrijeme: r.MeasuredAt.UTC(), Vrijednost: *r.FlowM3s})
 		}
 		if r.Note != "" || r.VrstaBiljeske != "" {
 			iz.biljeske = append(iz.biljeske, sBiljeskom{
@@ -136,7 +147,7 @@ func PostajaPoSifri(ctx context.Context, baza *sql.DB, sifra string) (models.Sta
 func ocitanjaZaUlaganje(ctx context.Context, baza *sql.DB, stationID string,
 	od, do time.Time) ([]models.Reading, error) {
 	rows, err := baza.QueryContext(ctx, `
-		SELECT id, measured_at, level_cm, quality, source, observer, note, vrsta_biljeske, izdanje
+		SELECT id, measured_at, level_cm, temp_c, flow_m3s, quality, source, observer, note, vrsta_biljeske, izdanje
 		FROM readings WHERE station_id = ? AND measured_at BETWEEN ? AND ?
 		ORDER BY measured_at`, stationID, od.UTC(), do.UTC())
 	if err != nil {
@@ -148,7 +159,8 @@ func ocitanjaZaUlaganje(ctx context.Context, baza *sql.DB, stationID string,
 		var r models.Reading
 		var id string
 		var level sql.NullInt64
-		if err := rows.Scan(&id, &r.MeasuredAt, &level, &r.Quality, &r.Source, &r.Observer,
+		var temp, flow sql.NullFloat64
+		if err := rows.Scan(&id, &r.MeasuredAt, &level, &temp, &flow, &r.Quality, &r.Source, &r.Observer,
 			&r.Note, &r.VrstaBiljeske, &r.Izdanje); err != nil {
 			return nil, err
 		}
@@ -158,6 +170,14 @@ func ocitanjaZaUlaganje(ctx context.Context, baza *sql.DB, stationID string,
 		if level.Valid {
 			v := int(level.Int64)
 			r.LevelCm = &v
+		}
+		if temp.Valid {
+			v := temp.Float64
+			r.TempC = &v
+		}
+		if flow.Valid {
+			v := flow.Float64
+			r.FlowM3s = &v
 		}
 		r.ID, _ = uuid.Parse(id)
 		out = append(out, r)

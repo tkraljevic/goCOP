@@ -296,6 +296,16 @@ func (x listLetve) ocitanja(iz IzvjesceLetve) {
 	if len(iz.Krivulje) > 0 {
 		glave = append(glave, "Protok (m³/s)")
 	}
+	imaTemp, imaIzmjeren := false, false
+	for _, o := range iz.Ocitanja {
+		imaTemp, imaIzmjeren = imaTemp || o.TempC != nil, imaIzmjeren || o.FlowM3s != nil
+	}
+	if imaTemp {
+		glave = append(glave, "Temperatura vode (°C)")
+	}
+	if imaIzmjeren {
+		glave = append(glave, "Izmjereni protok (m³/s)")
+	}
 	glave = append(glave, "Stupanj obrane", "Očitao", "Odakle", "Napomena")
 	zaglavlje := make([]xlsxw.Celija, len(glave))
 	for i, g := range glave {
@@ -336,6 +346,19 @@ func (x listLetve) ocitanja(iz IzvjesceLetve) {
 			}
 			if imaQ {
 				row = append(row, xlsxw.N(q, xlsxw.TablicaBroj))
+			} else {
+				row = append(row, xlsxw.T("", xlsxw.Tablica))
+			}
+		}
+		for _, d := range []struct {
+			ima bool
+			v   *float64
+		}{{imaTemp, o.TempC}, {imaIzmjeren, o.FlowM3s}} {
+			if !d.ima {
+				continue
+			}
+			if d.v != nil {
+				row = append(row, xlsxw.N(*d.v, xlsxw.TablicaBroj))
 			} else {
 				row = append(row, xlsxw.T("", xlsxw.Tablica))
 			}
