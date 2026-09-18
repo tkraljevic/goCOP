@@ -53,6 +53,9 @@ type Akt struct {
 	Ovjerio    string     `json:"ovjerio"` // ime i prezime onoga tko je ovjerio
 	OvjerenoAt *time.Time `json:"ovjereno_at,omitempty"`
 	OvjeraKod  string     `json:"ovjera_kod,omitempty"` // sažetak sadržaja pri ovjeri, za provjeru ispisa
+	// UZamjeni: ovjerio je zamjenik ili druga razina, ne nositelj funkcije
+	// potpisnika; na aktu uz ime stoji "u.z." (u zamjeni)
+	UZamjeni bool `json:"u_zamjeni,omitempty"`
 	Cvor       string     `json:"cvor,omitempty"`       // čvor na kojem je ovjeren
 
 	CreatedAt time.Time `json:"created_at"`
@@ -175,6 +178,37 @@ func (a Akt) Oznaka() string {
 
 // Ovjeren javlja je li akt ovjeren
 func (a Akt) Ovjeren() bool { return a.Status == AktOvjeren }
+
+// ImePotpisa je ime kako stoji ispod crte za potpis: s "u.z." kad je
+// ovjerio zamjenik
+func (a Akt) ImePotpisa() string {
+	if a.UZamjeni {
+		return "u.z. " + a.Ovjerio
+	}
+	return a.Ovjerio
+}
+
+// NositeljFunkcije javlja je li osoba s tim zaduženjima nositelj funkcije
+// potpisnika akta: rukovoditelj sektora za izvanrednu i izvanredno stanje,
+// rukovoditelj branjenog područja za pripremno i redovnu. Svi ostali koji
+// smiju ovjeriti potpisuju u zamjeni.
+func (a Akt) NositeljFunkcije(duties []Duty) bool {
+	for _, d := range duties {
+		if !d.IsActive {
+			continue
+		}
+		if a.Stupanj == PhaseEmergency || a.Stupanj == PhaseState {
+			if d.Role == RoleSectorLeader && d.SectorID != nil && *d.SectorID == a.Sektor {
+				return true
+			}
+			continue
+		}
+		if d.Role == RoleAreaLeader && d.AreaID != nil && *d.AreaID == a.AreaID {
+			return true
+		}
+	}
+	return false
+}
 
 // Osnova je rečenica o vodostaju ili prognozi po kojoj se akt donosi, bez
 // uvodnog "Na temelju…" i bez završnog "donosim"

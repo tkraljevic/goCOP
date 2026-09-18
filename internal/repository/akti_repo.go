@@ -34,8 +34,8 @@ func NewAktiRepository(db *sql.DB, rec *ledger.Recorder) *AktiRepository {
 
 const aktUpsert = `INSERT INTO akti (id, sektor, area_id, broj, godina, radnja, stupanj, station_id, station_name, watercourse,
 	vodostaj_cm, vodostaj_kad, tendencija, prognoza, dionice, vrijedi, napomena, potpisnik, primatelji,
-	status, izradio_id, izradio, izradeno_at, ovjerio_id, ovjerio, ovjereno_at, ovjera_kod, cvor, created_at, updated_at)
-	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	status, izradio_id, izradio, izradeno_at, ovjerio_id, ovjerio, ovjereno_at, ovjera_kod, u_zamjeni, cvor, created_at, updated_at)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	ON CONFLICT(id) DO UPDATE SET sektor = excluded.sektor, area_id = excluded.area_id, broj = excluded.broj, godina = excluded.godina,
 		radnja = excluded.radnja, stupanj = excluded.stupanj, station_id = excluded.station_id, station_name = excluded.station_name,
 		watercourse = excluded.watercourse, vodostaj_cm = excluded.vodostaj_cm, vodostaj_kad = excluded.vodostaj_kad,
@@ -43,11 +43,11 @@ const aktUpsert = `INSERT INTO akti (id, sektor, area_id, broj, godina, radnja, 
 		napomena = excluded.napomena, potpisnik = excluded.potpisnik, primatelji = excluded.primatelji, status = excluded.status,
 		izradio_id = excluded.izradio_id, izradio = excluded.izradio, izradeno_at = excluded.izradeno_at,
 		ovjerio_id = excluded.ovjerio_id, ovjerio = excluded.ovjerio, ovjereno_at = excluded.ovjereno_at,
-		ovjera_kod = excluded.ovjera_kod, cvor = excluded.cvor, created_at = excluded.created_at, updated_at = excluded.updated_at`
+		ovjera_kod = excluded.ovjera_kod, u_zamjeni = excluded.u_zamjeni, cvor = excluded.cvor, created_at = excluded.created_at, updated_at = excluded.updated_at`
 
 const aktColumns = `id, sektor, area_id, broj, godina, radnja, stupanj, station_id, station_name, watercourse,
 	vodostaj_cm, vodostaj_kad, tendencija, prognoza, dionice, vrijedi, napomena, potpisnik, primatelji,
-	status, izradio_id, izradio, izradeno_at, ovjerio_id, ovjerio, ovjereno_at, ovjera_kod, cvor, created_at, updated_at`
+	status, izradio_id, izradio, izradeno_at, ovjerio_id, ovjerio, ovjereno_at, ovjera_kod, u_zamjeni, cvor, created_at, updated_at`
 
 func aktArgs(a *models.Akt) []any {
 	dionice, _ := json.Marshal(a.Dionice)
@@ -61,7 +61,7 @@ func aktArgs(a *models.Akt) []any {
 	}
 	return []any{a.ID, a.Sektor, a.AreaID, a.Broj, a.Godina, a.Radnja, string(a.Stupanj), a.StationID, a.StationName, a.Watercourse,
 		a.VodostajCm, vodostajKad, a.Tendencija, a.Prognoza, string(dionice), a.Vrijedi.UTC(), a.Napomena, a.Potpisnik, string(primatelji),
-		a.Status, a.IzradioID, a.Izradio, a.IzradenoAt.UTC(), a.OvjerioID, a.Ovjerio, ovjerenoAt, a.OvjeraKod, a.Cvor, a.CreatedAt.UTC(), a.UpdatedAt.UTC()}
+		a.Status, a.IzradioID, a.Izradio, a.IzradenoAt.UTC(), a.OvjerioID, a.Ovjerio, ovjerenoAt, a.OvjeraKod, boolInt(a.UZamjeni), a.Cvor, a.CreatedAt.UTC(), a.UpdatedAt.UTC()}
 }
 
 func scanAkt(sc interface{ Scan(...any) error }) (models.Akt, error) {
@@ -69,12 +69,14 @@ func scanAkt(sc interface{ Scan(...any) error }) (models.Akt, error) {
 	var stupanj, dionice, primatelji string
 	var vodostaj sql.NullInt64
 	var vodostajKad, ovjerenoAt sql.NullTime
+	var uZamjeni int
 	err := sc.Scan(&a.ID, &a.Sektor, &a.AreaID, &a.Broj, &a.Godina, &a.Radnja, &stupanj, &a.StationID, &a.StationName, &a.Watercourse,
 		&vodostaj, &vodostajKad, &a.Tendencija, &a.Prognoza, &dionice, &a.Vrijedi, &a.Napomena, &a.Potpisnik, &primatelji,
-		&a.Status, &a.IzradioID, &a.Izradio, &a.IzradenoAt, &a.OvjerioID, &a.Ovjerio, &ovjerenoAt, &a.OvjeraKod, &a.Cvor, &a.CreatedAt, &a.UpdatedAt)
+		&a.Status, &a.IzradioID, &a.Izradio, &a.IzradenoAt, &a.OvjerioID, &a.Ovjerio, &ovjerenoAt, &a.OvjeraKod, &uZamjeni, &a.Cvor, &a.CreatedAt, &a.UpdatedAt)
 	if err != nil {
 		return a, err
 	}
+	a.UZamjeni = uZamjeni != 0
 	a.Stupanj = models.DefensePhase(stupanj)
 	if vodostaj.Valid {
 		v := int(vodostaj.Int64)

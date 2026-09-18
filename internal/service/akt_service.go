@@ -354,6 +354,7 @@ func (s *AktService) Ovjeri(ctx context.Context, perms *models.UserPermissions, 
 	}
 	a.Status = models.AktOvjeren
 	a.OvjerioID, a.Ovjerio, a.OvjerenoAt, a.Cvor = u.ID.String(), u.FullName, &sad, s.cvor
+	a.UZamjeni = !a.NositeljFunkcije(u.Duties)
 	a.OvjeraKod = a.KodOvjere(a.OvjerioID, sad)
 	if err := s.repo.SaveAkt(ctx, a); err != nil {
 		return nil, nil, err

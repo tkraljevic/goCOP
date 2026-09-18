@@ -175,6 +175,18 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 	if !a.Ovjeren() || a.Broj != 1 || a.Oznaka() != "B-1/2026" || a.OvjeraKod == "" || a.Ovjerio != "Uprava Sektora" {
 		t.Fatalf("ovjera nije upisana: %+v", a)
 	}
+	// uprava bez zaduženja rukovoditelja sektora potpisuje u zamjeni
+	if !a.UZamjeni || a.ImePotpisa() != "u.z. Uprava Sektora" {
+		t.Errorf("ovjera bez nositelja funkcije bi trebala biti u zamjeni: %+v", a)
+	}
+	sektor := "B"
+	nositelj := models.Akt{Sektor: "B", AreaID: 34, Stupanj: models.PhaseEmergency}
+	if !nositelj.NositeljFunkcije([]models.Duty{{Role: models.RoleSectorLeader, SectorID: &sektor, IsActive: true}}) {
+		t.Error("rukovoditelj sektora je nositelj funkcije za izvanrednu obranu")
+	}
+	if nositelj.NositeljFunkcije([]models.Duty{{Role: models.RoleSectorDeputy, SectorID: &sektor, IsActive: true}}) {
+		t.Error("zamjenik rukovoditelja sektora potpisuje u zamjeni")
+	}
 	for _, code := range []string{"B.34.1", "B.34.2"} {
 		e, _ := episodes.Open(ctx, code)
 		if e == nil || e.Phase != models.PhaseEmergency {
@@ -202,7 +214,7 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 		put := filepath.Join(t.TempDir(), "akt.pdf")
 		_ = os.WriteFile(put, w.Body.Bytes(), 0o644)
 		out, _ := exec.Command("pdftotext", put, "-").Output()
-		for _, zeli := range []string{"RJEŠENJE", "izvanredne obrane od poplava", "vodomjeru Batina", "652 cm", "B.34.2", "15.09.2026.", "12:00", "Rukovoditelj obrane od poplava Sektora B", "Glavni centar", "Pismohrana", a.OvjeraKod} {
+		for _, zeli := range []string{"RJEŠENJE", "izvanredne obrane od poplava", "vodomjeru Batina", "652 cm", "B.34.2", "15.09.2026.", "12:00", "Rukovoditelj obrane od poplava Sektora B", "Glavni centar", "Pismohrana", "u.z. Uprava Sektora", a.OvjeraKod} {
 			if !strings.Contains(string(out), zeli) {
 				t.Errorf("u PDF-u nema %q:\n%s", zeli, out)
 			}
