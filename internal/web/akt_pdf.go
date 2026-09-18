@@ -66,9 +66,7 @@ func PDFAkta(a *models.Akt, t models.OrgTerms, sek *models.Sector, area *models.
 	}
 
 	// pravna osnova
-	d.Odlomak("Na temelju Zakona o vodama, članak 130. (N.N. br. 66/19, 84/21 i 47/23) te odredbi članka "+a.Clanak()+
-		" Državnog plana obrane od poplava (N.N. br. 84/10) i Glavnog provedbenog plana obrane od poplava (Hrvatske vode), "+
-		a.Osnova()+", donosim", 10, false, pdfw.Lijevo)
+	d.Odlomak(a.TekstUvoda(), 10, false, pdfw.Lijevo)
 	d.Razmak(16)
 
 	// naslov
@@ -101,7 +99,7 @@ func PDFAkta(a *models.Akt, t models.OrgTerms, sek *models.Sector, area *models.
 	d.Odlomak("dana:", 10, false, pdfw.Sredina)
 	d.Odlomak(a.Vrijedi.In(models.Zagreb).Format("02.01.2006.")+"   u   "+a.Vrijedi.In(models.Zagreb).Format("15:04")+"  sati", 12, true, pdfw.Sredina)
 	d.Razmak(12)
-	d.Odlomak("Za vrijeme provođenja mjera obrane od poplava treba postupiti prema odredbama Državnog plana obrane od poplava (N.N. br. 84/10) i Glavnog provedbenog plana obrane od poplava (Hrvatske vode)!", 10, false, pdfw.Lijevo)
+	d.Odlomak(a.TekstZavrsni(), 10, false, pdfw.Lijevo)
 	if a.Napomena != "" {
 		d.Razmak(6)
 		d.Odlomak(a.Napomena, 10, false, pdfw.Lijevo)
@@ -111,7 +109,7 @@ func PDFAkta(a *models.Akt, t models.OrgTerms, sek *models.Sector, area *models.
 	// potpisnik desno, "O tome obavijest" lijevo
 	d.Osiguraj(60)
 	y0 := d.Y
-	d.Tekst(d.Lijevo, y0+10, 10, false, "O tome obavijest:")
+	d.Tekst(d.Lijevo, y0+10, 8, false, "O tome obavijest:")
 	d.OdlomakU(d.W-d.Desno-220, 220, a.Potpisnik, 10, true, pdfw.Sredina)
 	d.Razmak(28)
 	d.Crta(d.W-d.Desno-200, d.Y, d.W-d.Desno-20, d.Y)
@@ -121,16 +119,17 @@ func PDFAkta(a *models.Akt, t models.OrgTerms, sek *models.Sector, area *models.
 	}
 	d.Razmak(10)
 
+	// primatelji sitnijim slovima, kako je i na dosadašnjim aktima
 	for i, p := range a.Primatelji {
-		d.Osiguraj(14)
-		d.Y += 10
-		d.Tekst(d.Lijevo, d.Y, 9, false, fmt.Sprintf("%d.", i+1))
-		d.Y -= 10
+		d.Osiguraj(11)
+		d.Y += 7.5
+		d.Tekst(d.Lijevo, d.Y, 7.5, false, fmt.Sprintf("%d.", i+1))
+		d.Y -= 7.5
 		tekst := p.Naziv
 		if p.Email != "" {
 			tekst += "   " + p.Email
 		}
-		d.OdlomakU(d.Lijevo+24, d.Sirina()-24, tekst, 9, false, pdfw.Lijevo)
+		d.OdlomakU(d.Lijevo+18, d.Sirina()-18, tekst, 7.5, false, pdfw.Lijevo)
 	}
 
 	d.Razmak(16)

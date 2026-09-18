@@ -223,6 +223,8 @@ func InitSchema(database *sql.DB) error {
 			vodostaj_kad DATETIME,
 			tendencija TEXT NOT NULL DEFAULT '',
 			prognoza TEXT NOT NULL DEFAULT '',
+			uvod TEXT NOT NULL DEFAULT '',
+			zavrsno TEXT NOT NULL DEFAULT '',
 			dionice TEXT NOT NULL DEFAULT '[]',
 			vrijedi DATETIME NOT NULL,
 			napomena TEXT NOT NULL DEFAULT '',
@@ -242,6 +244,12 @@ func InitSchema(database *sql.DB) error {
 			updated_at DATETIME NOT NULL
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_akti_sektor_vrijedi ON akti(sektor, vrijedi DESC);`,
+		// Špranca akata po sektoru: pravna osnova, članci, završna rečenica
+		`CREATE TABLE IF NOT EXISTS akti_sprance (
+			sektor TEXT PRIMARY KEY,
+			podaci TEXT NOT NULL,
+			updated_at DATETIME NOT NULL
+		);`,
 		// Registar stalnih primatelja akata po sektoru i branjenom području
 		`CREATE TABLE IF NOT EXISTS primatelji (
 			id TEXT PRIMARY KEY,
@@ -1012,6 +1020,8 @@ func migrateSchema(database *sql.DB) error {
 		{"readings", "temp_c", "REAL"},
 		{"readings", "flow_m3s", "REAL"},
 		{"akti", "u_zamjeni", "INTEGER NOT NULL DEFAULT 0"},
+		{"akti", "uvod", "TEXT NOT NULL DEFAULT ''"},
+		{"akti", "zavrsno", "TEXT NOT NULL DEFAULT ''"},
 		{"readings", "temp_note", "TEXT NOT NULL DEFAULT ''"},
 		{"readings", "flow_method", "TEXT NOT NULL DEFAULT ''"},
 		{"readings", "flow_note", "TEXT NOT NULL DEFAULT ''"},

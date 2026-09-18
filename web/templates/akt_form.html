@@ -30,7 +30,6 @@
 {{else}}
 <form method="POST" action="/akti/novi" class="form-page">
   <input type="hidden" name="station_id" value="{{.Station.ID}}">
-  {{with .Zadnje}}<p class="form-help">Zadnje očitanje: <strong>{{if .LevelCm}}{{intOf .LevelCm}} cm{{else}}bez vodostaja{{end}}</strong> {{formatDate .LocalTime}}. Vodostaj i tendencija idu u rečenicu akta sami, osim kad se donosi po prognozi.</p>{{end}}
   <div class="form-row">
     <div class="form-group">
       <label class="form-label">Radnja</label>
@@ -55,19 +54,36 @@
   </div>
   <div class="form-row">
     <div class="form-group">
+      <label class="form-label" for="ocitanje_id">Očitanje na koje se akt poziva</label>
+      <select id="ocitanje_id" name="ocitanje_id" class="form-control">
+        {{range $i, $o := .Ocitanja}}<option value="{{$o.ID}}"{{if eq $i 0}} selected{{end}}>{{formatDate $o.LocalTime}} · {{intOf $o.LevelCm}} cm{{if $o.OriginLabel}} · {{$o.OriginLabel}}{{end}}</option>{{end}}
+      </select>
+      <div class="form-help">{{if .Ocitanja}}Zadano je zadnje; odaberite ono u kojem je vodostaj dosegao razinu. Tendencija se računa prema očitanju prije njega.{{else}}Vodomjer nema očitanja s vodostajem; akt se donosi po prognozi.{{end}}</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="tendencija">Tendencija</label>
+      <select id="tendencija" name="tendencija" class="form-control">
+        <option value="">prema očitanjima</option>
+        {{range .Tendencije}}<option value="{{.Kod}}">{{.Naziv}}</option>{{end}}
+      </select>
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="form-group">
       <label class="form-label" for="vrijedi">Vrijedi od</label>
       <input type="datetime-local" id="vrijedi" name="vrijedi" class="form-control" value="{{.LocalValue}}" required>
     </div>
     <div class="form-group">
       <label class="form-label" for="prognoza">Po prognozi (umjesto po vodostaju)</label>
       <input type="text" id="prognoza" name="prognoza" class="form-control" placeholder="npr. najavljen porast do 600 cm 20.9.">
-      <div class="form-help">Prazno znači po zadnjem izmjerenom vodostaju s tendencijom.</div>
+      <div class="form-help">Prazno znači po odabranom očitanju s tendencijom.</div>
     </div>
   </div>
   <div class="form-group">
     <label class="form-label" for="napomena">Napomena na aktu</label>
     <textarea id="napomena" name="napomena" class="form-control" rows="2" placeholder="neobavezno"></textarea>
   </div>
+  <p class="form-help">Tekst akta slaže se iz špranče sektora; u nacrtu ga možete ispraviti prije ovjere.</p>
   <div class="form-actions">
     <a href="/akti" class="btn btn-secondary">Odustani</a>
     <button type="submit" class="btn btn-primary">Sastavi nacrt</button>
