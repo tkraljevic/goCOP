@@ -205,6 +205,8 @@ func templateFuncs() template.FuncMap {
 		},
 		"prosirenjeKrivulje": func() int { return models.ProsirenjeKrivuljeCm },
 		"javnaAdresa":        javnivodostaji.AdresaPostaje,
+		"flowMethod":         models.FlowMethodLabel,
+		"flowMethods":        func() []string { return models.FlowMethods },
 		// je li procjena protoka produljenje krivulje preko umjerenog raspona
 		"protokIzvan": func(krivulje []models.HQKrivulja, kad time.Time, vodostaj any) bool {
 			var cm *int

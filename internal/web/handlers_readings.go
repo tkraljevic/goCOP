@@ -840,6 +840,11 @@ func readingFromForm(r *http.Request) (*models.Reading, error) {
 	if rd.FlowM3s, err = decimalaIzObrasca(r.FormValue("flow_m3s")); err != nil {
 		return nil, fmt.Errorf("protok: %w", err)
 	}
+	rd.TempNote = strings.TrimSpace(r.FormValue("temp_note"))
+	rd.FlowNote = strings.TrimSpace(r.FormValue("flow_note"))
+	if m := strings.ToUpper(strings.TrimSpace(r.FormValue("flow_method"))); models.JeFlowMethod(m) {
+		rd.FlowMethod = m
+	}
 	return rd, nil
 }
 

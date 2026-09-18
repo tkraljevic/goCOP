@@ -100,6 +100,7 @@ func TestTemperaturaIProtokIduKaoVlastitiNizovi(t *testing.T) {
 	temp, q := 12.5, 1250.0
 	rucno := ocit(6, -90, models.QualityMeasured, "", "")
 	rucno.Source, rucno.TempC, rucno.FlowM3s = models.ReadingSourceManual, &temp, &q
+	rucno.TempNote, rucno.FlowMethod, rucno.FlowNote = "led uz obalu", models.FlowMethodADCP, "profil kod mosta"
 	dojava := ocit(7, -91, models.QualityMeasured, "", "")
 	dojava.Source, dojava.TempC = models.ReadingSourceAutomatic, &temp
 	samoTemp := models.Reading{ID: uuid.New(), MeasuredAt: time.Date(2026, 9, 10, 8, 0, 0, 0, time.UTC), Source: models.ReadingSourceManual, TempC: &temp}
@@ -126,6 +127,15 @@ func TestTemperaturaIProtokIduKaoVlastitiNizovi(t *testing.T) {
 	}
 	if len(iz.ulozeniID) != 3 {
 		t.Errorf("označeno za ulaganje %d, očekivana tri", len(iz.ulozeniID))
+	}
+	// bilješke uz temperaturu i protok idu uz svoju veličinu
+	b := biljeskeZa("batina", "satni", iz.biljeske)
+	poVelicini := map[string]string{}
+	for _, x := range b {
+		poVelicini[x.Velicina] = x.Tekst
+	}
+	if poVelicini["temperatura"] != "led uz obalu" || poVelicini["protok"] != "ADCP; profil kod mosta" {
+		t.Errorf("bilješke po veličini: %v", poVelicini)
 	}
 	p := &Pregled{Izvor: "cop", IzvorRucnog: "cop-rucno", Vrsta: "satni", VrstaRucnog: "satni", razvrstano: iz}
 	if !p.Ima() {

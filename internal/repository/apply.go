@@ -443,10 +443,11 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		}
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO readings (`+readingColumns+`)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT(id) DO UPDATE SET
 				station_id = excluded.station_id, structure_id = excluded.structure_id, measured_at = excluded.measured_at,
 				level_cm = excluded.level_cm, level2_cm = excluded.level2_cm, temp_c = excluded.temp_c, flow_m3s = excluded.flow_m3s,
+				temp_note = excluded.temp_note, flow_method = excluded.flow_method, flow_note = excluded.flow_note,
 				source = excluded.source, origin = excluded.origin,
 				source_ref = excluded.source_ref,
 				quality = excluded.quality, derived_from = excluded.derived_from, method = excluded.method,

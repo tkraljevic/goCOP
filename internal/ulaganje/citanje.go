@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -44,9 +45,20 @@ func razvrstaj(o []models.Reading) (iz razvrstano, sumnjivo, bezVrijednosti int)
 		// ručni ili dojavni izvor bez obzira je li vodostaj rekonstruiran.
 		if r.TempC != nil {
 			iz.dodaj("temperatura", rucno, arhiva.Redak{Vrijeme: r.MeasuredAt.UTC(), Vrijednost: *r.TempC})
+			if r.TempNote != "" {
+				iz.biljeske = append(iz.biljeske, sBiljeskom{Vrijeme: r.MeasuredAt.UTC(), Velicina: "temperatura", Tekst: r.TempNote, Tko: r.Observer})
+			}
 		}
 		if r.FlowM3s != nil {
 			iz.dodaj("protok", rucno, arhiva.Redak{Vrijeme: r.MeasuredAt.UTC(), Vrijednost: *r.FlowM3s})
+			tekst := r.FlowNote
+			if r.FlowMethod != "" {
+				tekst = strings.TrimSpace(models.FlowMethodLabel(r.FlowMethod) + "; " + tekst)
+				tekst = strings.TrimSuffix(tekst, ";")
+			}
+			if tekst != "" {
+				iz.biljeske = append(iz.biljeske, sBiljeskom{Vrijeme: r.MeasuredAt.UTC(), Velicina: "protok", Tekst: tekst, Tko: r.Observer})
+			}
 		}
 		if r.Note != "" || r.VrstaBiljeske != "" {
 			iz.biljeske = append(iz.biljeske, sBiljeskom{
@@ -102,8 +114,12 @@ func biljeskeZa(letva, vrsta string, o []sBiljeskom) []models.ArhivaBiljeska {
 	}
 	out := make([]models.ArhivaBiljeska, 0, len(o))
 	for _, b := range o {
+		velicina := b.Velicina
+		if velicina == "" {
+			velicina = "vodostaj"
+		}
 		out = append(out, models.ArhivaBiljeska{
-			Letva: letva, Velicina: "vodostaj", Korak: korak,
+			Letva: letva, Velicina: velicina, Korak: korak,
 			Vrijeme: b.Vrijeme, Vrsta: b.Vrsta, Tekst: b.Tekst, Tko: b.Tko,
 		})
 	}
@@ -147,7 +163,7 @@ func PostajaPoSifri(ctx context.Context, baza *sql.DB, sifra string) (models.Sta
 func ocitanjaZaUlaganje(ctx context.Context, baza *sql.DB, stationID string,
 	od, do time.Time) ([]models.Reading, error) {
 	rows, err := baza.QueryContext(ctx, `
-		SELECT id, measured_at, level_cm, temp_c, flow_m3s, quality, source, observer, note, vrsta_biljeske, izdanje
+		SELECT id, measured_at, level_cm, temp_c, flow_m3s, temp_note, flow_method, flow_note, quality, source, observer, note, vrsta_biljeske, izdanje
 		FROM readings WHERE station_id = ? AND measured_at BETWEEN ? AND ?
 		ORDER BY measured_at`, stationID, od.UTC(), do.UTC())
 	if err != nil {
@@ -160,7 +176,7 @@ func ocitanjaZaUlaganje(ctx context.Context, baza *sql.DB, stationID string,
 		var id string
 		var level sql.NullInt64
 		var temp, flow sql.NullFloat64
-		if err := rows.Scan(&id, &r.MeasuredAt, &level, &temp, &flow, &r.Quality, &r.Source, &r.Observer,
+		if err := rows.Scan(&id, &r.MeasuredAt, &level, &temp, &flow, &r.TempNote, &r.FlowMethod, &r.FlowNote, &r.Quality, &r.Source, &r.Observer,
 			&r.Note, &r.VrstaBiljeske, &r.Izdanje); err != nil {
 			return nil, err
 		}

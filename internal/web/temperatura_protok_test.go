@@ -106,10 +106,12 @@ func TestTemperaturaIProtokKrozRute(t *testing.T) {
 
 	// obrazac ima tri kartice, vodostaj prva
 	mora(zovi(http.MethodGet, "/readings/new?station="+st.ID.String(), nil), "obrazac",
-		`aria-controls="kartica-vodostaj"`, "Temperatura", "Protok", `name="temp_c"`, `name="flow_m3s"`, "nema krivulju protoka")
+		`aria-controls="kartica-vodostaj"`, "Temperatura", "Protok", `name="temp_c"`, `name="flow_m3s"`, "nema krivulju protoka",
+		`name="temp_note"`, `name="flow_method"`, `name="flow_note"`, "Napomena uz vodostaj")
 
 	// upis s decimalnim zarezom
-	w := zovi(http.MethodPost, "/readings/create", url.Values{"station_id": {st.ID.String()}, "level_cm": {"300"}, "temp_c": {"12,5"}, "flow_m3s": {"1250"}, "measured_at": {"2026-09-18T07:00"}})
+	w := zovi(http.MethodPost, "/readings/create", url.Values{"station_id": {st.ID.String()}, "level_cm": {"300"}, "temp_c": {"12,5"}, "flow_m3s": {"1250"}, "measured_at": {"2026-09-18T07:00"},
+		"temp_note": {"led uz obalu"}, "flow_method": {"ADCP"}, "flow_note": {"profil kod mosta"}, "note": {"letva oštećena"}})
 	if w.Code != http.StatusSeeOther || !strings.Contains(w.Header().Get("Location"), "success") {
 		t.Fatalf("upis: %d %s", w.Code, w.Header().Get("Location"))
 	}
@@ -117,9 +119,12 @@ func TestTemperaturaIProtokKrozRute(t *testing.T) {
 	if len(popis) != 1 || popis[0].TempC == nil || *popis[0].TempC != 12.5 || popis[0].FlowM3s == nil || *popis[0].FlowM3s != 1250 {
 		t.Fatalf("temperatura i protok nisu spremljeni: %+v", popis)
 	}
+	if popis[0].TempNote != "led uz obalu" || popis[0].FlowMethod != models.FlowMethodADCP || popis[0].FlowNote != "profil kod mosta" || popis[0].Note != "letva oštećena" {
+		t.Fatalf("bilješke po veličini nisu spremljene: %+v", popis[0])
+	}
 
 	// povijest letve i pregled
-	mora(zovi(http.MethodGet, "/readings/station/"+st.ID.String(), nil), "povijest", "12,5 °C", "1.250,0 m³/s</strong> izmjereno")
+	mora(zovi(http.MethodGet, "/readings/station/"+st.ID.String(), nil), "povijest", "12,5 °C", "1.250,0 m³/s</strong> izmjereno", "led uz obalu", "ADCP", "profil kod mosta", "letva oštećena")
 	mora(zovi(http.MethodGet, "/readings", nil), "pregled", "1.250 m³/s", "12,5 °C")
 
 	// samo temperatura, bez vodostaja, je valjano očitanje

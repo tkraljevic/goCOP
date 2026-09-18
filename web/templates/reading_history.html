@@ -158,8 +158,8 @@
         {{if .LevelCm}}{{intOf .LevelCm}} cm{{else}}<span style="color:var(--text-muted); font-weight:500;">—</span>{{end}}
         {{if .Level2Cm}}<span class="reading-meta"> / {{intOf .Level2Cm}} cm nizvodno</span>{{end}}
         {{if and $.Station .LevelCm}}{{range $.Station.Kote (intOf .LevelCm)}}<span class="reading-meta"> · {{brojHRf .Kota 3}} m {{.Sustav}}</span>{{end}}{{end}}
-        {{if .FlowM3s}}<span class="reading-meta" title="izmjereni protok"> · {{brojHRf (deref .FlowM3s) 1}} m³/s izmjereno</span>{{else}}{{$r := .}}{{with protokHR $.Krivulje .LocalTime .LevelCm}}<span class="reading-meta" title="procjena protoka iz HQ krivulje{{if protokIzvan $.Krivulje $r.LocalTime $r.LevelCm}}, {{prosirenjeKrivulje}} cm izvan umjerenog raspona{{end}}"> · {{.}} m³/s{{if protokIzvan $.Krivulje $r.LocalTime $r.LevelCm}} <span class="izvan-krivulje">izvan raspona krivulje</span>{{end}}</span>{{end}}{{end}}
-        {{if .TempC}}<span class="reading-meta" title="temperatura vode"> · {{brojHRf (deref .TempC) 1}} °C</span>{{end}}
+        {{if .FlowM3s}}<span class="reading-meta" title="izmjereni protok"> · {{brojHRf (deref .FlowM3s) 1}} m³/s izmjereno{{if .FlowMethod}}, {{flowMethod .FlowMethod}}{{end}}{{if .FlowNote}} ({{.FlowNote}}){{end}}</span>{{else}}{{$r := .}}{{with protokHR $.Krivulje .LocalTime .LevelCm}}<span class="reading-meta" title="procjena protoka iz HQ krivulje{{if protokIzvan $.Krivulje $r.LocalTime $r.LevelCm}}, {{prosirenjeKrivulje}} cm izvan umjerenog raspona{{end}}"> · {{.}} m³/s{{if protokIzvan $.Krivulje $r.LocalTime $r.LevelCm}} <span class="izvan-krivulje">izvan raspona krivulje</span>{{end}}</span>{{end}}{{end}}
+        {{if .TempC}}<span class="reading-meta" title="temperatura vode"> · {{brojHRf (deref .TempC) 1}} °C{{if .TempNote}} ({{.TempNote}}){{end}}</span>{{end}}
         {{if .Phase.InForce}}<span class="badge {{.Phase.BadgeClass}}" style="margin-left:0.4rem; font-size:0.7rem;">{{.Phase.Label}}</span>{{end}}
       </span>
       <span>{{if $.CanEdit}}<a href="/readings/edit/{{.ID}}" class="btn btn-sm btn-link" style="padding:0; color:var(--text-muted);">{{icon "pencil"}}</a>{{end}}</span>
