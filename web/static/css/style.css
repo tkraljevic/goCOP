@@ -3521,3 +3521,11 @@ textarea {
 .akt-primatelji { font-size: 0.78rem; }
 .akt-uredi { margin: 0 0 1rem; max-width: 52rem; }
 .akt-uredi summary { cursor: pointer; font-weight: 600; }
+
+table.akt-primatelji { font-size: 0.7rem; border-collapse: collapse; margin: 0.25rem 0 0; width: 100%; }
+table.akt-primatelji td { padding: 0 0.4rem 0 0; vertical-align: top; }
+table.akt-primatelji td.rb { width: 1.5rem; text-align: right; }
+table.akt-primatelji td.pod { padding-left: 0.9rem; }
+table.akt-primatelji td.mail { width: 44%; color: var(--text-muted); }
+table.akt-poveznice { margin-top: 0.75rem; }
+.akt-obavijest { font-size: 0.72rem; }

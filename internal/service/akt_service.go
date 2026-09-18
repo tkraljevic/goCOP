@@ -162,7 +162,7 @@ func (s *AktService) Pripremi(ctx context.Context, perms *models.UserPermissions
 	a.Potpisnik = s.potpisnik(a)
 	a.Primatelji = s.primatelji(ctx, a)
 	sp, _ := s.repo.GetSpranca(ctx, a.Sektor)
-	a.Uvod, a.Zavrsno = sp.Uvod(*a), sp.Zavrsno
+	a.Uvod, a.Zavrsno, a.Poveznice = sp.Uvod(*a), sp.Zavrsno, strings.TrimSpace(sp.Poveznice)
 	return a, nil
 }
 
@@ -286,8 +286,13 @@ func (s *AktService) primatelji(ctx context.Context, a *models.Akt) []models.Akt
 			}
 		}
 	}
-	// ugovorna pravna osoba branjenog područja
-	if areas, err := s.users.ListAreas(a.Sektor); err == nil {
+	// licencirane pravne osobe za obranu na području, iz registra firmi;
+	// kad ih registar nema, ugovorna osoba upisana uz područje
+	if firme, err := s.repo.UgovorneFirme(ctx, a.AreaID); err == nil && len(firme) > 0 {
+		for _, f := range firme {
+			dodaj(models.SkupinaIspostava, f.Naziv, f.Email)
+		}
+	} else if areas, err := s.users.ListAreas(a.Sektor); err == nil {
 		for _, ar := range areas {
 			if ar.ID == a.AreaID && ar.ContractorName != "" {
 				dodaj(models.SkupinaIspostava, ar.ContractorName, "")
@@ -334,25 +339,51 @@ func (s *AktService) primatelji(ctx context.Context, a *models.Akt) []models.Akt
 			dodaj(models.SkupinaSamouprava, vrsta+" "+t.MunicipalityName, emailOpcine[t.MunicipalityID])
 		}
 	}
-	// rukovoditelji i zamjenici na dionicama
+	// rukovoditelji i zamjenici branjenog područja (razina 3) i dionica
+	// (razina 4), svaka osoba jednom sa svim svojim funkcijama. Sektor i
+	// Glavni centar primaju akt kao ustanove, pa njihovi ljudi ne idu
+	// poimence, kao ni teren.
+	type osoba struct {
+		naziv, email string
+		funkcije     []string
+	}
+	var redoslijed []string
+	osobe := map[string]*osoba{}
 	for _, d := range a.Dionice {
-		osobe, err := s.sections.GetSectionPersonnel(d.Code, a.AreaID, a.Sektor)
+		lista, err := s.sections.GetSectionPersonnel(d.Code, a.AreaID, a.Sektor)
 		if err != nil {
 			continue
 		}
-		for _, o := range osobe {
-			if o.Rank > 4 {
-				continue // teren i ostali ne primaju akt
+		for _, o := range lista {
+			if o.Rank != 3 && o.Rank != 4 {
+				continue
 			}
-			naziv := o.FullName
-			if o.Title != "" {
-				naziv += ", " + o.Title
+			x := osobe[o.UserID]
+			if x == nil {
+				naziv := o.FullName
+				if o.Title != "" {
+					naziv += ", " + o.Title
+				}
+				x = &osoba{naziv: naziv, email: o.Email}
+				osobe[o.UserID] = x
+				redoslijed = append(redoslijed, o.UserID)
 			}
-			if o.DutyTitle != "" {
-				naziv += ", " + o.DutyTitle
+			f := o.DutyTitle
+			if f == "" {
+				f = o.RoleLabel
 			}
-			dodaj(models.SkupinaOsobe, naziv, o.Email)
+			if f != "" && !sadrzi(x.funkcije, f) {
+				x.funkcije = append(x.funkcije, f)
+			}
 		}
+	}
+	for _, id := range redoslijed {
+		x := osobe[id]
+		naziv := x.naziv
+		if len(x.funkcije) > 0 {
+			naziv += ", " + strings.Join(x.funkcije, "; ")
+		}
+		dodaj(models.SkupinaOsobe, naziv, x.email)
 	}
 	dodaj(models.SkupinaPismohrana, "Pismohrana", "")
 	sort.SliceStable(out, func(i, j int) bool { return redSkupine(out[i].Skupina) < redSkupine(out[j].Skupina) })
@@ -365,6 +396,15 @@ func osnovaEpizode(a *models.Akt) string {
 		return models.BasisForecast
 	}
 	return models.BasisThreshold
+}
+
+func sadrzi(xs []string, x string) bool {
+	for _, y := range xs {
+		if y == x {
+			return true
+		}
+	}
+	return false
 }
 
 func redSkupine(s string) int {

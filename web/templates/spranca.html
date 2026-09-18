@@ -40,6 +40,11 @@
     <label class="form-label" for="zavrsno">Završna rečenica</label>
     <textarea id="zavrsno" name="zavrsno" class="form-control" rows="3" {{if not .SmijeUrediti}}readonly{{end}}>{{.Spranca.Zavrsno}}</textarea>
   </div>
+  <div class="form-group">
+    <label class="form-label" for="poveznice">Poveznice na dnu akta</label>
+    <textarea id="poveznice" name="poveznice" class="form-control" rows="3" {{if not .SmijeUrediti}}readonly{{end}}>{{.Spranca.Poveznice}}</textarea>
+    <div class="form-help">Jedan redak po poveznici, u obliku "naziv: adresa". Prazno znači bez poveznica.</div>
+  </div>
   {{if .Spranca.Uredio}}<p class="form-help">Zadnje uredio: {{.Spranca.Uredio}}, {{formatDate (localTime .Spranca.UpdatedAt)}}.</p>{{end}}
   {{if .SmijeUrediti}}
   <div class="form-actions">

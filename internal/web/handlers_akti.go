@@ -328,7 +328,7 @@ func (h *AktiHandler) HandleSpranca(w http.ResponseWriter, r *http.Request) {
 	natrag := "/akti/spranca?sektor=" + sektor
 	sp := models.ZadanaSpranca(sektor)
 	if r.FormValue("zadano") == "" {
-		sp.Osnova, sp.Zavrsno = r.FormValue("osnova"), r.FormValue("zavrsno")
+		sp.Osnova, sp.Zavrsno, sp.Poveznice = r.FormValue("osnova"), r.FormValue("zavrsno"), strings.TrimSpace(r.FormValue("poveznice"))
 		for _, p := range models.StupnjeviAkta {
 			if c := strings.TrimSpace(r.FormValue("clanak_" + string(p))); c != "" {
 				sp.Clanci[p] = c
