@@ -579,6 +579,40 @@ func (r *UserRepository) AddDuty(d *models.Duty) error {
 	return tx.Commit()
 }
 
+// UpdateDuty mijenja postojeće zaduženje u mjestu: naziv, ulogu, doseg,
+// dionice, trajanje. Zaduženje zadržava ID i tko ga je dodijelio, a svaka
+// izmjena ostavlja verziju u knjizi.
+func (r *UserRepository) UpdateDuty(d *models.Duty) error {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	ctx := context.Background()
+
+	var demoted []string
+	if d.IsPrimary {
+		demoted, err = idsOf(ctx, tx, "SELECT id FROM duties WHERE user_id = ? AND is_primary = 1 AND id <> ?", d.UserID.String(), d.ID.String())
+		if err != nil {
+			return err
+		}
+		_, _ = tx.Exec("UPDATE duties SET is_primary = 0 WHERE user_id = ? AND id <> ?", d.UserID.String(), d.ID.String())
+	}
+	_, err = tx.Exec(`
+		UPDATE duties SET title = ?, role = ?, scope_type = ?, sector_id = ?, area_id = ?, section_codes = ?,
+		       is_primary = ?, is_temporary = ?, reason = ?, expires_at = ?
+		WHERE id = ?`,
+		d.Title, string(d.Role), string(d.ScopeType), d.SectorID, d.AreaID, d.SectionCodes,
+		boolInt(d.IsPrimary), boolInt(d.IsTemporary), d.Reason, d.ExpiresAt, d.ID.String())
+	if err != nil {
+		return fmt.Errorf("greška pri spremanju dužnosti: %w", err)
+	}
+	if err := r.recordDuties(ctx, tx, append(demoted, d.ID.String())); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 // RevokeDuty opoziva funkciju ili privremenu ispomoć
 func (r *UserRepository) RevokeDuty(id uuid.UUID) error {
 	tx, err := r.db.Begin()
@@ -601,14 +635,40 @@ func (r *UserRepository) RevokeDuty(id uuid.UUID) error {
 
 // GetDutiesForUser dohvaća sve aktivne funkcije korisnika
 func (r *UserRepository) GetDutiesForUser(userID uuid.UUID) ([]models.Duty, error) {
+	return r.dutiesForUser(userID, `is_active = 1 AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)`, `is_primary DESC, created_at ASC`)
+}
+
+// GetPastDutiesForUser dohvaća opozvana i istekla zaduženja, najnovije prvo:
+// povijest koja ostaje kad se zaduženje makne s profila
+func (r *UserRepository) GetPastDutiesForUser(userID uuid.UUID) ([]models.PrijasnjeZaduzenje, error) {
+	duties, err := r.dutiesForUser(userID, `(is_active = 0 OR (expires_at IS NOT NULL AND expires_at <= CURRENT_TIMESTAMP))`, `created_at DESC`)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]models.PrijasnjeZaduzenje, 0, len(duties))
+	for _, d := range duties {
+		pz := models.PrijasnjeZaduzenje{Duty: d}
+		if !d.IsActive {
+			// vrijeme opoziva je vrijeme zadnje verzije zaduženja u knjizi verzija
+			var kad sql.NullTime
+			_ = r.db.QueryRow(`SELECT MAX(created_at) FROM record_versions WHERE entity = ? AND entity_id = ?`, EntityDuties, d.ID.String()).Scan(&kad)
+			if kad.Valid {
+				t := kad.Time
+				pz.OpozvanoAt = &t
+			}
+		}
+		out = append(out, pz)
+	}
+	return out, nil
+}
+
+func (r *UserRepository) dutiesForUser(userID uuid.UUID, uvjet, redoslijed string) ([]models.Duty, error) {
 	rows, err := r.db.Query(`
 		SELECT id, user_id, title, role, scope_type, sector_id, area_id, section_codes,
 		       is_primary, is_temporary, reason, assigned_by, created_at, expires_at, is_active
 		FROM duties
-		WHERE user_id = ? AND is_active = 1
-		  AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
-		ORDER BY is_primary DESC, created_at ASC
-	`, userID.String())
+		WHERE user_id = ? AND `+uvjet+`
+		ORDER BY `+redoslijed, userID.String())
 	if err != nil {
 		return nil, err
 	}

@@ -3482,3 +3482,11 @@ textarea {
 .modul-ikona.warning { color: #b4650b; }
 .modul-ikona.danger { color: var(--danger, #b3261e); }
 .modul-ikona.info { color: #0b6e99; }
+
+/* Profil: tablica zaduženja */
+.data-table.zaduzenja td { vertical-align: middle; }
+.data-table.zaduzenja td.radnje { white-space: nowrap; text-align: right; }
+.data-table.zaduzenja td.radnje .btn { margin-left: 0.25rem; }
+.zaduzenja-povijest { margin: 0.5rem 0 0; padding-left: 1.25rem; font-size: 0.875rem; }
+.zaduzenja-povijest li { margin: 0.25rem 0; }
+.text-muted { color: var(--text-muted); font-weight: 500; }
