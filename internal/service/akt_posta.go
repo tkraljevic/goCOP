@@ -350,6 +350,15 @@ func (s *AktService) PremjestiPisma(ctx context.Context, u *models.User, ids []s
 	return posta.Premjesti(ctx, s.Posta(ctx), r, ids, mapa)
 }
 
+// ObrisiTrajno briše pisma iz Obrisanog (u oporavljive stavke Exchangea)
+func (s *AktService) ObrisiTrajno(ctx context.Context, u *models.User, ids []string) error {
+	r, err := s.racunKorisnika(ctx, u)
+	if err != nil {
+		return err
+	}
+	return posta.ObrisiTrajno(ctx, s.Posta(ctx), r, ids)
+}
+
 // OznaciProcitanoVise označi više pisama
 func (s *AktService) OznaciProcitanoVise(ctx context.Context, u *models.User, stavke []posta.Stavka, procitano bool) error {
 	r, err := s.racunKorisnika(ctx, u)

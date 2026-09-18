@@ -255,6 +255,19 @@ func PokreniProbniEWS(korisnik, lozinka string) (*ProbniPosluzitelj, error) {
 				}
 			}
 			odgovor("UpdateItem", "Success", "")
+		case bytes.Contains(tijelo, []byte("<m:DeleteItem")):
+			brisi := map[string]bool{}
+			for _, x := range regexp.MustCompile(`<t:ItemId Id="([^"]*)"`).FindAllSubmatch(tijelo, -1) {
+				brisi[string(x[1])] = true
+			}
+			var ostaju []Pismo
+			for _, pi := range p.Pisma {
+				if !brisi[pi.ID] {
+					ostaju = append(ostaju, pi)
+				}
+			}
+			p.Pisma = ostaju
+			odgovor("DeleteItem", "Success", "")
 		case bytes.Contains(tijelo, []byte("<m:MoveItem>")):
 			cilj := regexp.MustCompile(`<m:ToFolderId><t:(?:Distinguished)?FolderId Id="([^"]*)"`).FindSubmatch(tijelo)
 			if cilj == nil || (string(cilj[1]) == "archive" && !p.ImaArhivu) {

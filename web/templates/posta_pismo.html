@@ -25,7 +25,11 @@
   <a href="/posta/novo?nacin=svima&amp;id={{.ID | urlquery}}" class="btn btn-secondary btn-sm">{{icon "users"}} Odgovori svima</a>
   <a href="/posta/novo?nacin=proslijedi&amp;id={{.ID | urlquery}}" class="btn btn-secondary btn-sm">{{icon "arrow-right"}} Proslijedi</a>
   <form method="POST" action="/posta/pismo"><input type="hidden" name="id" value="{{.ID}}"><input type="hidden" name="ck" value="{{.ChangeKey}}"><input type="hidden" name="radnja" value="neprocitano"><button type="submit" class="btn btn-secondary btn-sm">{{icon "eye-off"}} Nepročitano</button></form>
+  {{if eq $.Mapa "deleteditems"}}
+  <form method="POST" action="/posta/pismo" onsubmit="return confirm('Trajno obrisati pismo? Exchange ga još neko vrijeme čuva u oporavljivim stavkama.')"><input type="hidden" name="id" value="{{.ID}}"><input type="hidden" name="mapa" value="deleteditems"><input type="hidden" name="radnja" value="obrisi"><button type="submit" class="btn btn-secondary btn-sm btn-opasno">{{icon "trash"}} Obriši trajno</button></form>
+  {{else}}
   <form method="POST" action="/posta/pismo" onsubmit="return confirm('Premjestiti pismo u Obrisano?')"><input type="hidden" name="id" value="{{.ID}}"><input type="hidden" name="radnja" value="obrisi"><button type="submit" class="btn btn-secondary btn-sm">{{icon "trash"}} Obriši</button></form>
+  {{end}}
 </div>
 
 {{if .Privitci}}

@@ -361,6 +361,18 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	if w := zovi(httptest.NewRequest(http.MethodGet, "/posta", nil)); strings.Contains(w.Body.String(), "Ručak") {
 		t.Error("obrisano pismo je još u ulaznoj pošti")
 	}
+	if w := zovi(httptest.NewRequest(http.MethodGet, "/posta?mapa=deleteditems", nil)); !strings.Contains(w.Body.String(), "Obriši trajno") {
+		t.Error("u Obrisanom gumb mora biti Obriši trajno")
+	}
+	// trajno brisanje iz Obrisanog: pismo nestaje iz sandučića
+	if loc := post("/posta/radnja", url.Values{"p": {"AAMk/2=|ck1"}, "radnja": {"obrisi"}, "mapa": {"deleteditems"}}); !strings.Contains(loc, "trajno obrisano") {
+		t.Errorf("trajno brisanje: %s", loc)
+	}
+	for _, pi := range srv.Pisma {
+		if pi.ID == "AAMk/2=" {
+			t.Error("trajno obrisano pismo je još u sandučiću")
+		}
+	}
 	w := zovi(httptest.NewRequest(http.MethodGet, "/posta/privitak?"+url.Values{"id": {"AAMk/priv+1="}}.Encode(), nil))
 	if w.Code != http.StatusOK || !bytes.Equal(w.Body.Bytes(), potpisan) || w.Header().Get("Content-Type") != "application/pdf" {
 		t.Fatalf("privitak: %d %s", w.Code, w.Header().Get("Content-Type"))
