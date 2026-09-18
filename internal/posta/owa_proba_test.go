@@ -15,7 +15,7 @@ func TestProbaOWA(t *testing.T) {
 		t.Skip()
 	}
 	p := Postavke{Nacin: NacinEWS, Posluzitelj: host}
-	_, z, err := ewsPozoviIzazov(context.Background(), p, Racun{Korisnik: "tkraljevic@voda.hr", Lozinka: "izmisljena"}, ewsMapaPoslano)
+	_, z, err := ewsPozoviIzazov(context.Background(), p, Racun{Korisnik: "netko@voda.hr", Lozinka: "izmisljena"}, ewsMapaPoslano)
 	t.Logf("greška: %v", err)
 	if z != nil {
 		t.Logf("domena: %q, DNS: %q, KEY_EXCH: %v", z.NetBIOSDomena(), z.tekst(avDnsDomain), z.Zastavice&ntlmKeyExch != 0)
@@ -23,6 +23,6 @@ func TestProbaOWA(t *testing.T) {
 	if !errors.Is(err, ErrPrijava) || z == nil {
 		t.Fatal("očekivana odbijena prijava nakon cijelog razgovora")
 	}
-	ime, err := ewsPrijavi(context.Background(), p, Racun{Korisnik: "tkraljevic@voda.hr", Lozinka: "izmisljena"})
+	ime, err := ewsPrijavi(context.Background(), p, Racun{Korisnik: "netko@voda.hr", Lozinka: "izmisljena"})
 	t.Logf("prijavi: %q %v", ime, err)
 }
