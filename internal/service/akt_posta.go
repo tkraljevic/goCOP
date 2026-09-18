@@ -232,14 +232,7 @@ func (s *AktService) PosaljiNaZnanje(ctx context.Context, perms *models.UserPerm
 	if u.Email == "" {
 		return nil, fmt.Errorf("u vašem profilu nema adrese e-pošte; s nje se akt šalje")
 	}
-	racun, err := s.repo.GetRacunPoste(ctx, u.ID.String())
-	if err != nil {
-		return nil, err
-	}
-	if racun == nil {
-		return nil, fmt.Errorf("upišite lozinku e-pošte u profilu (Profil › E-pošta za slanje akata)")
-	}
-	lozinka, err := posta.Otkljucaj(s.kljucPoste(), racun.Lozinka)
+	racun, err := s.racunKorisnika(ctx, u)
 	if err != nil {
 		return nil, err
 	}
@@ -268,7 +261,7 @@ func (s *AktService) PosaljiNaZnanje(ctx context.Context, perms *models.UserPerm
 	if kopijaMeni {
 		poruke = append(poruke, posta.Poruka{Od: od, Za: od, Predmet: poruka.Predmet, Tekst: poruka.Tekst, Privitci: privitak})
 	}
-	greske, err := posta.Posalji(ctx, pp, posta.Racun{Korisnik: racun.Korisnik, Lozinka: lozinka}, poruke)
+	greske, err := posta.Posalji(ctx, pp, racun, poruke)
 	if errors.Is(err, posta.ErrPrijava) {
 		return nil, fmt.Errorf("poslužitelj je odbio vašu lozinku e-pošte; ako ste je promijenili, upišite novu u profilu")
 	}
@@ -296,4 +289,76 @@ func (s *AktService) PosaljiNaZnanje(ctx context.Context, perms *models.UserPerm
 		return ishod, fmt.Errorf("poslano, ali zapis slanja nije spremljen: %w", err)
 	}
 	return ishod, nil
+}
+
+// racunKorisnika vraća korisnikov račun e-pošte s otključanom lozinkom
+func (s *AktService) racunKorisnika(ctx context.Context, u *models.User) (posta.Racun, error) {
+	if u == nil {
+		return posta.Racun{}, ErrUnauthorized
+	}
+	racun, err := s.repo.GetRacunPoste(ctx, u.ID.String())
+	if err != nil {
+		return posta.Racun{}, err
+	}
+	if racun == nil {
+		return posta.Racun{}, ErrNemaLozinkePoste
+	}
+	lozinka, err := posta.Otkljucaj(s.kljucPoste(), racun.Lozinka)
+	if err != nil {
+		return posta.Racun{}, err
+	}
+	return posta.Racun{Korisnik: racun.Korisnik, Lozinka: lozinka}, nil
+}
+
+// ErrNemaLozinkePoste: korisnik još nije upisao lozinku e-pošte
+var ErrNemaLozinkePoste = errors.New("upišite lozinku e-pošte u profilu (Profil › E-pošta za slanje akata)")
+
+// Sanducic vraća stranicu korisnikove ulazne pošte, najnovije prvo
+func (s *AktService) Sanducic(ctx context.Context, u *models.User, stranica, poStranici int) ([]posta.Pismo, int, error) {
+	pp := s.Posta(ctx)
+	if !pp.Podesena() {
+		return nil, 0, fmt.Errorf("e-pošta nije uključena: administrator upisuje poslužitelj u Administraciji › E-pošta")
+	}
+	r, err := s.racunKorisnika(ctx, u)
+	if err != nil {
+		return nil, 0, err
+	}
+	if stranica < 1 {
+		stranica = 1
+	}
+	return posta.Sanducic(ctx, pp, r, (stranica-1)*poStranici, poStranici)
+}
+
+// Pismo otvara jedno pismo iz korisnikova sandučića
+func (s *AktService) Pismo(ctx context.Context, u *models.User, id string) (*posta.Pismo, error) {
+	r, err := s.racunKorisnika(ctx, u)
+	if err != nil {
+		return nil, err
+	}
+	return posta.ProcitajPismo(ctx, s.Posta(ctx), r, id)
+}
+
+// Privitak preuzima datoteku privitka iz korisnikova sandučića
+func (s *AktService) Privitak(ctx context.Context, u *models.User, id string) (*posta.PrivitakPisma, []byte, error) {
+	r, err := s.racunKorisnika(ctx, u)
+	if err != nil {
+		return nil, nil, err
+	}
+	return posta.PreuzmiPrivitak(ctx, s.Posta(ctx), r, id)
+}
+
+// NacrtiZaPotpis su nacrti za koje je preuzet PDF za potpis, a korisnik ih
+// smije pripremati: u njih se učitava potpisani PDF iz sandučića
+func (s *AktService) NacrtiZaPotpis(ctx context.Context, perms *models.UserPermissions, u *models.User) []models.Akt {
+	svi, err := s.List(ctx, perms, repository.FiltarAkata{Status: models.AktNacrt})
+	if err != nil {
+		return nil
+	}
+	var out []models.Akt
+	for _, a := range svi {
+		if len(a.ZaPotpis) > 0 && s.smijePripremiti(perms, u, &a) {
+			out = append(out, a)
+		}
+	}
+	return out
 }

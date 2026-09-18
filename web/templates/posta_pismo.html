@@ -1,0 +1,55 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Pismo{{end}}
+
+{{define "content"}}
+<div class="breadcrumb"><a href="/posta">Sandučić</a> › Pismo</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
+{{if .TrebaLozinku}}<div class="alert alert-warning">Upišite lozinku e-pošte: <a href="/profile/posta">Profil › E-pošta za slanje akata</a>.</div>{{end}}
+{{if .LozinkaOdbijena}}<div class="alert alert-error">Poslužitelj je odbio vašu lozinku e-pošte; <a href="/profile/posta">upišite novu</a>.</div>{{end}}
+
+{{with .Pismo}}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{if .Predmet}}{{.Predmet}}{{else}}(bez predmeta){{end}}</h1>
+    <p class="page-desc"><strong>Od:</strong> {{.Od}}{{if and .OdAdresa (ne .OdAdresa .Od)}} &lt;{{.OdAdresa}}&gt;{{end}} · {{formatDate (localTime .Kad)}}<br>
+    {{with .Za}}<strong>Za:</strong> {{range $i, $x := .}}{{if $i}}, {{end}}{{$x}}{{end}}{{end}}
+    {{with .Kopija}}<br><strong>Kopija:</strong> {{range $i, $x := .}}{{if $i}}, {{end}}{{$x}}{{end}}{{end}}</p>
+  </div>
+</div>
+
+{{if .Privitci}}
+<section class="detail-section" style="margin-top:0;">
+  <h2>{{icon "package"}} Privitci</h2>
+  <ul class="posta-privitci">
+  {{range .Privitci}}
+    <li>
+      <a href="/posta/privitak?id={{.ID | urlquery}}">{{icon "download"}} {{.Ime}}</a> <span class="form-help">{{.Velicina}} B</span>
+      {{if .JePDF}}
+      <form method="POST" action="/posta/u-akt" class="posta-u-akt">
+        <input type="hidden" name="pismo" value="{{$.Pismo.ID}}">
+        <input type="hidden" name="privitak" value="{{.ID}}">
+        {{if $.Nacrti}}
+        <select name="akt" class="form-control" required>
+          <option value="">— u koji nacrt —</option>
+          {{range $.Nacrti}}<option value="{{.ID}}" {{if eq .ID $.OdabraniAkt}}selected{{end}}>{{.Naslov}}, {{.StationName}}, {{formatDate (localTime .Vrijedi)}}</option>{{end}}
+        </select>
+        <button type="submit" class="btn btn-sm btn-primary">{{icon "upload"}} Učitaj kao potpisani akt</button>
+        {{else}}
+        <span class="form-help">Nema nacrta koji čeka potpis (za nacrt se prvo preuzima PDF za potpis).</span>
+        {{end}}
+      </form>
+      {{end}}
+    </li>
+  {{end}}
+  </ul>
+</section>
+{{end}}
+
+<section class="detail-section">
+  <pre class="posta-tekst">{{.Tekst}}</pre>
+</section>
+{{end}}
+{{end}}

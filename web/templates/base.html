@@ -86,6 +86,7 @@
           {{if .CurrentUser}}
           <div class="nav-mobile-actions">
             <a href="/profile" class="nav-link {{if eq .ActiveNav "profile"}}active{{end}}">{{icon "user"}} Moj profil</a>
+            <a href="/posta" class="nav-link {{if eq .ActiveNav "posta"}}active{{end}}">{{icon "mailbox"}} Sandučić</a>
             <a href="/profile#lozinka" class="nav-link">{{icon "key-round"}} Lozinka</a>
             <form action="/logout" method="POST"><button type="submit" class="nav-link">{{icon "log-out"}} Odjava</button></form>          </div>
           {{end}}
