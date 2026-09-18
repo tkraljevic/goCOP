@@ -310,3 +310,40 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 		t.Errorf("drugi akt u godini bi trebao imati broj 2, ima %d", b.Broj)
 	}
 }
+
+// Ovjeravaju rukovoditelji obrane po Državnom planu; voditelj usluga
+// izvođača upravlja područjem, ali akt ne ovjerava
+func TestTkoSmijeOvjeritiAkt(t *testing.T) {
+	akti := service.NewAktService(nil, nil, nil, nil, nil, nil, nil, "")
+	b, bp := "B", 34
+	osoba := func(r models.Role, sektor *string, podrucje *int) *models.UserPermissions {
+		u := models.User{Duties: []models.Duty{{Role: r, SectorID: sektor, AreaID: podrucje, IsActive: true}}}
+		return models.NewUserPermissions(u)
+	}
+	ps := &models.Akt{Sektor: "B", AreaID: 34, Stupanj: models.PhasePrep}
+	io := &models.Akt{Sektor: "B", AreaID: 34, Stupanj: models.PhaseEmergency}
+	is := &models.Akt{Sektor: "B", AreaID: 34, Stupanj: models.PhaseState}
+	druga := &models.Akt{Sektor: "B", AreaID: 17, Stupanj: models.PhasePrep}
+	for _, c := range []struct {
+		opis  string
+		perms *models.UserPermissions
+		akt   *models.Akt
+		smije bool
+	}{
+		{"rukovoditelj BP, pripremno", osoba(models.RoleAreaLeader, &b, &bp), ps, true},
+		{"zamjenik BP, pripremno", osoba(models.RoleAreaDeputy, &b, &bp), ps, true},
+		{"rukovoditelj BP, tuđe područje", osoba(models.RoleAreaLeader, &b, &bp), druga, false},
+		{"rukovoditelj BP, izvanredna", osoba(models.RoleAreaLeader, &b, &bp), io, false},
+		{"rukovoditelj BP, izvanredno stanje u hitnom", osoba(models.RoleAreaLeader, &b, &bp), is, true},
+		{"rukovoditelj sektora, izvanredna", osoba(models.RoleSectorLeader, &b, nil), io, true},
+		{"zamjenik sektora za BP 34, izvanredna", osoba(models.RoleSectorAreaDeputy, &b, &bp), io, true},
+		{"voditelj usluga A.02", osoba(models.RoleContractOfficerA2, &b, &bp), ps, false},
+		{"rukovoditelj dionice", osoba(models.RoleSectionLeader, &b, &bp), ps, false},
+		{"voditelj COP-a bez funkcije u obrani", osoba(models.RoleCopLeader, &b, nil), ps, false},
+		{"uprava organizacije", &models.UserPermissions{IsGlobalAdmin: true}, io, true},
+	} {
+		if got := akti.SmijeOvjeriti(c.perms, c.akt); got != c.smije {
+			t.Errorf("%s: smije=%v, očekivano %v", c.opis, got, c.smije)
+		}
+	}
+}

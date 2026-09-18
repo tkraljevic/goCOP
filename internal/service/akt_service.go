@@ -237,22 +237,73 @@ func (s *AktService) potpisnik(a *models.Akt) string {
 	return fmt.Sprintf("Rukovoditelj obrane od poplava za branjeno područje %d", a.AreaID)
 }
 
-// SmijeOvjeriti javlja smije li osoba ovjeriti akt: pripremno i redovnu
-// tko upravlja branjenim područjem ili sektorom, izvanrednu i izvanredno
-// stanje tko upravlja sektorom
+// SmijeOvjeriti javlja smije li osoba ovjeriti akt. Ovjeravaju samo
+// rukovoditelji obrane i njihovi zamjenici, po Državnom planu:
+//   - pripremno stanje i redovitu obranu rukovoditelj branjenog područja
+//     (XXII, XXIII), ili razina sektora;
+//   - izvanrednu obranu rukovoditelj sektora (XXIV);
+//   - izvanredno stanje rukovoditelj sektora, a u hitnim slučajevima i
+//     rukovoditelj branjenog područja (XXV).
+//
+// Uprava organizacije (glavni rukovoditelj, Glavni centar) smije uvijek.
+// Upravljanje područjem samo po sebi ne daje ovjeru: voditelj usluga
+// izvođača upravlja svojim područjem, a nije rukovoditelj obrane.
 func (s *AktService) SmijeOvjeriti(perms *models.UserPermissions, a *models.Akt) bool {
 	if perms == nil || a == nil {
 		return false
 	}
-	switch a.Stupanj {
-	case models.PhaseEmergency:
-		return perms.CanAdminister(a.Sektor, 0)
-	case models.PhaseState:
-		// Državni plan, XXV: rukovoditelj sektora, a u hitnim slučajevima
-		// rukovoditelj branjenog područja
-		return perms.CanAdminister(a.Sektor, a.AreaID)
+	if perms.IsGlobalAdmin {
+		return true
 	}
-	return perms.CanAdminister(a.Sektor, a.AreaID)
+	if razinaSektora(perms, a) {
+		return true
+	}
+	if a.Stupanj == models.PhaseEmergency {
+		return false
+	}
+	return razinaPodrucja(perms, a)
+}
+
+// aktivnaZaduzenja su zaduženja osobe koja vrijede sada
+func aktivnaZaduzenja(perms *models.UserPermissions) []models.Duty {
+	var out []models.Duty
+	for _, d := range perms.User.Duties {
+		if d.IsActive && (d.ExpiresAt == nil || d.ExpiresAt.After(time.Now())) {
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
+// razinaSektora javlja je li osoba rukovoditelj obrane sektora akta ili
+// njegov zamjenik; zamjenik rukovoditelja sektora za branjeno područje to
+// je samo za svoje područje
+func razinaSektora(perms *models.UserPermissions, a *models.Akt) bool {
+	for _, d := range aktivnaZaduzenja(perms) {
+		sektor := d.SectorID != nil && *d.SectorID == a.Sektor
+		switch d.Role {
+		case models.RoleSectorLeader, models.RoleSectorDeputy, models.RoleSectorMainDeputy:
+			if sektor {
+				return true
+			}
+		case models.RoleSectorAreaDeputy:
+			if d.AreaID != nil && *d.AreaID == a.AreaID {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// razinaPodrucja javlja je li osoba rukovoditelj obrane branjenog područja
+// akta ili njegov zamjenik
+func razinaPodrucja(perms *models.UserPermissions, a *models.Akt) bool {
+	for _, d := range aktivnaZaduzenja(perms) {
+		if (d.Role == models.RoleAreaLeader || d.Role == models.RoleAreaDeputy) && d.AreaID != nil && *d.AreaID == a.AreaID {
+			return true
+		}
+	}
+	return false
 }
 
 // primatelji slaže popis primatelja akta, po skupinama i bez ponavljanja
@@ -519,7 +570,7 @@ func (s *AktService) Ovjeri(ctx context.Context, perms *models.UserPermissions, 
 	a.OvjerioID, a.Ovjerio, a.OvjerenoAt, a.Cvor = u.ID.String(), u.FullName, &sad, s.cvor
 	// Izvanredno stanje u hitnom slučaju proglašava rukovoditelj branjenog
 	// područja: tada je potpisnik on, a ne sektor
-	if a.Stupanj == models.PhaseState && !perms.CanAdminister(a.Sektor, 0) {
+	if a.Stupanj == models.PhaseState && !perms.IsGlobalAdmin && !razinaSektora(perms, a) {
 		a.Potpisnik = fmt.Sprintf("Rukovoditelj obrane od poplava za branjeno područje %d", a.AreaID)
 		a.UZamjeni = !models.Akt{Stupanj: models.PhaseRegular, AreaID: a.AreaID, Sektor: a.Sektor}.NositeljFunkcije(u.Duties)
 	} else {
