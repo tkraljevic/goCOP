@@ -95,15 +95,56 @@ func Imenik(ctx context.Context, p Postavke, r Racun, upit string) ([]Kontakt, e
 	return out, nil
 }
 
-// SamoZnamenke ostavlja znamenke, za usporedbu telefona
+// SamoZnamenke ostavlja znamenke prvog broja i hrvatski pozivni +385
+// pretvara u vodeću nulu, pa su "+385 98 404 497" i "098-404-497" isti broj
 func SamoZnamenke(s string) string {
+	s = PrviBroj(s)
 	var b strings.Builder
 	for _, r := range s {
 		if r >= '0' && r <= '9' {
 			b.WriteRune(r)
 		}
 	}
-	return b.String()
+	z := b.String()
+	if strings.HasPrefix(z, "00385") {
+		z = "0" + z[5:]
+	} else if strings.HasPrefix(z, "385") && len(z) > 9 {
+		z = "0" + z[3:]
+	}
+	return z
+}
+
+// PrviBroj uzima prvi broj kad ih adresar navodi više, odvojene zarezom ili točka-zarezom
+func PrviBroj(s string) string {
+	if i := strings.IndexAny(s, ",;/"); i > 0 && strings.Count(s, " ") > 1 {
+		// kosa crta unutar broja (031/252-802) nije razdjelnik; zarez i točka-zarez jesu
+		if s[i] != '/' {
+			return strings.TrimSpace(s[:i])
+		}
+	}
+	if i := strings.IndexAny(s, ",;"); i > 0 {
+		return strings.TrimSpace(s[:i])
+	}
+	return strings.TrimSpace(s)
+}
+
+// FormatirajTelefon zapisuje broj kako ga goCOP vodi: 0xx-xxx-xxx, bez
+// pozivnog +385, s crticama umjesto razmaka i kosih crta
+func FormatirajTelefon(s string) string {
+	z := SamoZnamenke(s)
+	if z == "" {
+		return strings.TrimSpace(s)
+	}
+	if strings.HasPrefix(s, "+") && !strings.HasPrefix(z, "0") {
+		return "+" + z // strani broj ostaje međunarodni
+	}
+	switch {
+	case len(z) == 9 && strings.HasPrefix(z, "0"):
+		return z[:3] + "-" + z[3:6] + "-" + z[6:]
+	case len(z) == 10 && strings.HasPrefix(z, "0"):
+		return z[:3] + "-" + z[3:6] + "-" + z[6:]
+	}
+	return z
 }
 
 // Prijava sustava Windows vrijedi po vezi, pa se veze ne smiju dijeliti

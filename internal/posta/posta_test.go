@@ -132,3 +132,19 @@ func TestImenaZaPrijavu(t *testing.T) {
 		t.Errorf("%s", got)
 	}
 }
+
+func TestUsporedbaTelefona(t *testing.T) {
+	for _, c := range [][2]string{{"+385 98 404 497", "098-404-497"}, {"031/252-802", "031 252 802"}, {"031 632052, 031 285676", "031-632-052"}, {"00385 31 252 852", "031-252-852"}} {
+		if SamoZnamenke(c[0]) != SamoZnamenke(c[1]) {
+			t.Errorf("%q i %q moraju biti isti broj (%s, %s)", c[0], c[1], SamoZnamenke(c[0]), SamoZnamenke(c[1]))
+		}
+	}
+	if SamoZnamenke("098-404-497") == SamoZnamenke("098-404-499") {
+		t.Error("različiti brojevi")
+	}
+	for _, c := range [][2]string{{"+385 98 404 497", "098-404-497"}, {"031 252 886", "031-252-886"}, {"031 632052, 031 285676", "031-632-052"}, {"099 346 3075", "099-346-3075"}, {"+43 1 234", "+431234"}} {
+		if got := FormatirajTelefon(c[0]); got != c[1] {
+			t.Errorf("FormatirajTelefon(%q) = %q, očekivano %q", c[0], got, c[1])
+		}
+	}
+}

@@ -3578,3 +3578,22 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .imenik-usporedba td { vertical-align: top; }
 .imenik-nema td { color: var(--muted, #6b7280); }
 @media (max-width: 900px) { .profil-grid { grid-template-columns: 1fr; } }
+
+.imenik-sazetak { display: flex; gap: 0.5rem; flex-wrap: wrap; margin: 0 0 0.5rem; }
+.imenik-cip { padding: 0.3rem 0.7rem; border-radius: 999px; border: 1px solid var(--border, #d9dee5); font-size: 0.88rem; display: inline-flex; gap: 0.3rem; align-items: center; }
+.imenik-cip.isto { background: #e8f5ec; border-color: #bfe3c8; }
+.imenik-cip.razlika { background: #fff4d6; border-color: #f2d98a; }
+.imenik-cip.nema { background: #f1f2f4; }
+.imenik-oznaka { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.03em; padding: 0.1rem 0.4rem; border-radius: 4px; font-weight: 600; }
+.imenik-oznaka.novo { background: #dbeafe; color: #1e3a8a; }
+.imenik-oznaka.drugacije { background: #fff4d6; color: #7a5200; }
+.imenik-polje { vertical-align: top; }
+.imenik-polje.novo { background: #f3f8ff; }
+.imenik-polje.drugacije { background: #fffbea; }
+.imenik-isto { color: #2f7a3e; }
+.imenik-odluka { display: flex; gap: 0.4rem; align-items: flex-start; cursor: pointer; }
+.imenik-odluka input { margin-top: 0.25rem; }
+.imenik-vrijednosti s { color: var(--muted, #6b7280); }
+.imenik-detalji { margin-top: 0.75rem; }
+.imenik-detalji summary { cursor: pointer; font-weight: 600; font-size: 0.92rem; }
+.imenik-detalji ul { margin: 0.4rem 0 0; padding-left: 1.2rem; }

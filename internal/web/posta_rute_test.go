@@ -376,7 +376,7 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	if !strings.Contains(loc, "success") {
 		t.Fatalf("primjena iz adresara: %s", loc)
 	}
-	if k, _ := users.GetUserByID(kunac.ID); k.Email != "mile.kunac@voda.hr" || k.MobilePhone != "099 111 2222" || k.Phone != "" {
+	if k, _ := users.GetUserByID(kunac.ID); k.Email != "mile.kunac@voda.hr" || k.MobilePhone != "099-111-2222" || k.Phone != "" {
 		t.Errorf("djelatnik nakon usklađivanja: %+v", k)
 	}
 	if w := zovi(httptest.NewRequest(http.MethodGet, "/users/exchange?usporedi=1", nil)); strings.Contains(w.Body.String(), `|email"`) {
