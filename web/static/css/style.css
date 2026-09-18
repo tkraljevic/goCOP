@@ -3472,3 +3472,13 @@ textarea {
 .zid-glava { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
 .zid-vrijeme { color: var(--text-muted, #667); font-size: 0.82rem; }
 .zid-tekst { font-size: 0.9rem; margin-top: 0.15rem; white-space: pre-line; }
+
+/* Naslovna: moduli u jednom redu */
+.moduli-red { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 1rem 0 0.5rem; }
+.modul-gumb { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.9rem 0.5rem 0.5rem; border: 1px solid var(--border, #d9dee5); border-radius: 10px; background: var(--surface, #fff); color: var(--text, #1c2733); font-weight: 600; text-decoration: none; }
+.modul-gumb:hover { border-color: var(--primary, #173e74); }
+.modul-ikona { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; border-radius: 8px; background: var(--surface-2, #f3f5f8); color: var(--primary, #173e74); }
+.modul-ikona.success { color: var(--success, #1b7f3b); }
+.modul-ikona.warning { color: #b4650b; }
+.modul-ikona.danger { color: var(--danger, #b3261e); }
+.modul-ikona.info { color: #0b6e99; }

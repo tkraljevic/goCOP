@@ -48,6 +48,16 @@
   </div>
   {{end}}
 
+  <!-- Moduli: jedan red, kao izbornik samo krupnije -->
+  <div class="moduli-red">
+    {{if .Sees "teren"}}<a href="/teren" class="modul-gumb"><span class="modul-ikona success">{{icon "map-pin"}}</span><span>Teren</span></a>{{end}}
+    {{if .Sees "vodostaji"}}<a href="/readings" class="modul-gumb"><span class="modul-ikona info">{{icon "activity"}}</span><span>Očitanja</span></a>{{end}}
+    {{if .Sees "dnevnici"}}<a href="/dnevnici" class="modul-gumb"><span class="modul-ikona warning">{{icon "notebook"}}</span><span>Dokumentacija</span></a>{{end}}
+    {{if .Sees "registri"}}<a href="/registri" class="modul-gumb"><span class="modul-ikona secondary">{{icon "book-open"}}</span><span>Registri</span></a>{{end}}
+    {{if .Sees "djelatnici"}}<a href="/users" class="modul-gumb"><span class="modul-ikona primary">{{icon "users"}}</span><span>Djelatnici</span></a>{{end}}
+    {{if .Sees "administracija"}}<a href="/administracija" class="modul-gumb"><span class="modul-ikona danger">{{icon "settings"}}</span><span>Administracija</span></a>{{end}}
+  </div>
+
   {{if .Precaci}}
   <div class="precaci">
     {{range .Precaci}}<a href="{{.Link}}" class="btn btn-secondary">{{icon .Ikona}} {{.Naslov}}</a>{{end}}
@@ -85,112 +95,5 @@
   <div class="reg-empty">Još nema događanja koja biste vidjeli.</div>
   {{end}}
 
-  <!-- Mreža operativnih kartica -->
-  <div class="section-title-wrap">
-    <h2 class="section-title">Operativni moduli i evidencije</h2>
-    <p class="section-desc">Odaberite modul za pregled, administraciju i operativno rukovođenje na terenu</p>
-  </div>
-
-  <div class="dashboard-cards-grid">
-    {{if .Sees "teren"}}
-    <div class="dash-card featured">
-      <div class="dash-card-header">
-        <div class="dash-card-icon-box success">{{icon "map-pin"}}</div>
-        <span class="dash-status-pill success">TEREN</span>
-      </div>
-      <div class="dash-card-body">
-        <h3 class="dash-card-title">Teren</h3>
-        <p class="dash-card-desc">Brzi pregled mjernih mjesta i objekata za koje je djelatnik zadužen.</p>
-        <ul class="dash-card-list">
-          <li>Vlastite vodomjerne postaje i objekti</li>
-          <li>Upis očitanja prilagođen radu na mobitelu</li>
-        </ul>
-      </div>
-      <div class="dash-card-footer">
-        <a href="/teren" class="btn btn-secondary dash-btn"><span>Otvori teren</span><span class="arrow">{{icon "arrow-right"}}</span></a>
-      </div>
-    </div>
-    {{end}}
-
-    {{if .Sees "vodostaji"}}
-    <div class="dash-card">
-      <div class="dash-card-header">
-        <div class="dash-card-icon-box info">{{icon "activity"}}</div>
-        <span class="dash-status-pill info">OČITANJA</span>
-      </div>
-      <div class="dash-card-body">
-        <h3 class="dash-card-title">Očitanja</h3>
-        <p class="dash-card-desc">Aktualna i povijesna očitanja vodomjernih postaja i objekata.</p>
-        <ul class="dash-card-list">
-          <li>Zadnja očitanja i pragovi obrane</li>
-          <li>Povijest, grafovi i praćene postaje</li>
-        </ul>
-      </div>
-      <div class="dash-card-footer">
-        <a href="/readings" class="btn btn-secondary dash-btn"><span>Otvori očitanja</span><span class="arrow">{{icon "arrow-right"}}</span></a>
-      </div>
-    </div>
-    {{end}}
-
-    {{if .Sees "dnevnici"}}
-    <div class="dash-card">
-      <div class="dash-card-header">
-        <div class="dash-card-icon-box warning">{{icon "notebook"}}</div>
-        <span class="dash-status-pill warning">EVIDENCIJA</span>
-      </div>
-      <div class="dash-card-body">
-        <h3 class="dash-card-title">Dokumentacija</h3>
-        <p class="dash-card-desc">Dnevnik COP-a, plan dežurstava i obračun sati, dnevna izvješća dionica i sektora, dnevnici usluga.</p>
-        <ul class="dash-card-list">
-          <li>Dnevnik COP-a s dežurstvima i obračunom po IORS-u</li>
-          <li>Dnevna izvješća dionica i sektora, dnevnici A.02 i A.03</li>
-        </ul>
-      </div>
-      <div class="dash-card-footer">
-        <a href="/dnevnici" class="btn btn-secondary dash-btn"><span>Otvori dokumentaciju</span><span class="arrow">{{icon "arrow-right"}}</span></a>
-      </div>
-    </div>
-    {{end}}
-
-    {{if .Sees "djelatnici"}}
-    <div class="dash-card">
-      <div class="dash-card-header">
-        <div class="dash-card-icon-box primary">{{icon "users"}}</div>
-        <span class="dash-status-pill success">{{.Stats.TotalUsers}} DJELATNIKA</span>
-      </div>
-      <div class="dash-card-body">
-        <h3 class="dash-card-title">Djelatnici</h3>
-        <p class="dash-card-desc">Središnji imenik sudionika obrane od poplava, njihovih dužnosti i ovlasti.</p>
-        <ul class="dash-card-list">
-          <li>Rukovoditelji, centri i terensko osoblje</li>
-          <li>{{.Stats.TotalDuties}} aktivnih funkcija i zaduženja</li>
-        </ul>
-      </div>
-      <div class="dash-card-footer">
-        <a href="/users" class="btn btn-primary dash-btn"><span>Otvori djelatnike</span><span class="arrow">{{icon "arrow-right"}}</span></a>
-      </div>
-    </div>
-    {{end}}
-
-    {{if .Sees "registri"}}
-    <div class="dash-card">
-      <div class="dash-card-header">
-        <div class="dash-card-icon-box secondary">{{icon "book-open"}}</div>
-        <span class="dash-status-pill default">REGISTRI</span>
-      </div>
-      <div class="dash-card-body">
-        <h3 class="dash-card-title">Registri</h3>
-        <p class="dash-card-desc">Jedinstveno mjesto za temeljne prostorne, tehničke i organizacijske evidencije.</p>
-        <ul class="dash-card-list">
-          <li>Dionice, {{terml "podrucja"}}, postaje, objekti i vodotoci</li>
-          <li>Skladišta i sredstva za obranu: stanje, inventura, potrebe</li>
-        </ul>
-      </div>
-      <div class="dash-card-footer">
-        <a href="/registri" class="btn btn-secondary dash-btn"><span>Otvori registre</span><span class="arrow">{{icon "arrow-right"}}</span></a>
-      </div>
-    </div>
-    {{end}}
-  </div>
 </div>
 {{end}}
