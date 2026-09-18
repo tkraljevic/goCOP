@@ -78,44 +78,12 @@ type Akt struct {
 	Potpis     string `json:"potpis,omitempty"`
 	KljucCvora string `json:"kljuc_cvora,omitempty"`
 
-	// ZaPotpis bilježi svaki PDF nacrta preuzet za potpis u SIGNATOR-u:
-	// duljinu i sažetak bajtova. Potpisani PDF koji se vrati mora počinjati
-	// jednim od njih, pa se zna da je potpisan baš taj tekst.
-	ZaPotpis []ZapisZaPotpis `json:"za_potpis,omitempty"`
-	// Kvalificirani je kvalificirani elektronički potpis rukovoditelja iz
-	// potpisanog PDF-a; tada je taj PDF izvornik akta
-	Kvalificirani *KvalificiraniPotpis `json:"kvalificirani,omitempty"`
 	// Rucno je akt potpisan vlastoručno i ovjeren žigom, pa skeniran i
 	// učitan; tada je sken izvornik
 	Rucno *RucniPotpis `json:"rucno,omitempty"`
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
-}
-
-// ZapisZaPotpis je jedan PDF nacrta preuzet za potpis
-type ZapisZaPotpis struct {
-	Duljina int       `json:"duljina"`
-	Sazetak string    `json:"sazetak"` // sha256 bajtova, heksadecimalno
-	Kad     time.Time `json:"kad"`
-	Tko     string    `json:"tko"`
-}
-
-// KvalificiraniPotpis je potpis iz potpisanog PDF-a, kako ga je goCOP
-// provjerio pri učitavanju
-type KvalificiraniPotpis struct {
-	Ime          string        `json:"ime"`
-	OIB          string        `json:"oib,omitempty"`
-	Izdavatelj   string        `json:"izdavatelj"`
-	Serijski     string        `json:"serijski"`
-	VrijediDo    time.Time     `json:"vrijedi_do"`
-	Vrijeme      time.Time     `json:"vrijeme"`                 // kad je potpisano
-	Razina       string        `json:"razina,omitempty"`        // QES, AdES/QC, AES
-	VremenskiZig bool          `json:"vremenski_zig,omitempty"` // vrijeme je iz vremenskog žiga
-	Pecati       []PecatNaAktu `json:"pecati,omitempty"`        // pečati organizacije u izvorniku (SIGNATOR pečatom bilježi parafu)
-	Sazetak      string        `json:"sazetak"`                 // sha256 potpisanog PDF-a
-	Ucitao       string        `json:"ucitao"`                  // tko je potpisani PDF vratio u goCOP
-	UcitanoAt    time.Time     `json:"ucitano_at"`
 }
 
 // SlanjeAkta je jedan pokušaj slanja ovjerenog akta jednoj adresi
@@ -134,14 +102,6 @@ type SlanjeAkta struct {
 	Cvor        string    `json:"cvor,omitempty"`
 }
 
-// PecatNaAktu je kvalificirani elektronički pečat organizacije u izvorniku
-type PecatNaAktu struct {
-	Naziv   string    `json:"naziv"`            // npr. HRVATSKE VODE
-	Razlog  string    `json:"razlog,omitempty"` // npr. "Mario Spajić 12.02.2026. 07:03" (parafa, jednostavni potpis SES)
-	Razina  string    `json:"razina,omitempty"` // QSeal ili AdES pečat
-	Vrijeme time.Time `json:"vrijeme"`
-}
-
 // RucniPotpis je ispis potpisan vlastoručno i ovjeren žigom, vraćen kao sken
 type RucniPotpis struct {
 	PotpisnikID string    `json:"potpisnik_id"`
@@ -152,8 +112,8 @@ type RucniPotpis struct {
 }
 
 // ImaIzvornik javlja postoji li uz akt izvornik izvan programa: PDF iz
-// SIGNATOR-a ili sken ispisa s potpisom i žigom
-func (a Akt) ImaIzvornik() bool { return a.Kvalificirani != nil || a.Rucno != nil }
+// sken ispisa s potpisom i žigom
+func (a Akt) ImaIzvornik() bool { return a.Rucno != nil }
 
 // AktDionica je dionica na koju se akt odnosi, s opisom kakav stoji na aktu
 type AktDionica struct {
@@ -434,9 +394,6 @@ func (a Akt) Sazetak() string {
 	}
 	b.WriteString(a.Tendencija + "|" + a.Prognoza + "|" + a.Vrijedi.UTC().Format(time.RFC3339) + "|" + a.Napomena + "|" + a.Potpisnik + "|")
 	b.WriteString(a.TekstUvoda() + "|" + a.TekstZavrsni() + "|" + a.Poveznice + "|" + a.PrekidaAktID + "|" + a.IzvanSnage + "|")
-	if a.Kvalificirani != nil {
-		b.WriteString("izvornik:" + a.Kvalificirani.Sazetak + "|")
-	}
 	if a.Rucno != nil {
 		b.WriteString("sken:" + a.Rucno.Sazetak + "|")
 	}

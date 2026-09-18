@@ -94,8 +94,6 @@ func TestRucniPotpisISkenKrozRute(t *testing.T) {
 	mux.HandleFunc("POST /akti/novi", h.HandleCreate)
 	mux.HandleFunc("GET /akti/{id}", h.ShowAkt)
 	mux.HandleFunc("GET /akti/{id}/akt.pdf", h.IzvoziPDF)
-	mux.HandleFunc("GET /akti/{id}/za-potpis.pdf", h.IzvoziZaPotpis)
-	mux.HandleFunc("POST /akti/{id}/potpisani", h.HandleUcitajPotpisani)
 	mux.HandleFunc("GET /akti/{id}/za-ispis.pdf", h.IzvoziZaIspis)
 	mux.HandleFunc("POST /akti/{id}/sken", h.HandleUcitajSken)
 	zovi := func(r *http.Request) *httptest.ResponseRecorder {
@@ -165,7 +163,7 @@ func TestRucniPotpisISkenKrozRute(t *testing.T) {
 		t.Fatalf("sken odbijen: %s", loc)
 	}
 	a, _ := akti.Get(ctx, id)
-	if !a.Ovjeren() || a.Rucno == nil || a.Ovjerio != "Mile Kunac" || a.Broj != 1 || a.Kvalificirani != nil {
+	if !a.Ovjeren() || a.Rucno == nil || a.Ovjerio != "Mile Kunac" || a.Broj != 1 {
 		t.Fatalf("ovjera skenom: %+v", a)
 	}
 	if e, _ := episodes.Open(ctx, "B.34.1"); e == nil || e.Phase != models.PhasePrep {
@@ -181,4 +179,12 @@ func TestRucniPotpisISkenKrozRute(t *testing.T) {
 	if loc := posalji(id, kunac.ID.String(), "sken.png", sken.Bytes()); !strings.Contains(loc, "već ovjeren") {
 		t.Errorf("ponovni sken: %s", loc)
 	}
+}
+
+func mustUnescape(s string) string {
+	u, err := url.QueryUnescape(s)
+	if err != nil {
+		return s
+	}
+	return u
 }

@@ -23,7 +23,8 @@ import (
 
 // Slanje ovjerenog akta primateljima "na znanje" preko poslužitelja e-pošte
 // tvrtke (Exchange), s adrese i računa prijavljenog korisnika. Šalje se tek
-// kad akt ima izvornik: PDF potpisan u SIGNATOR-u ili sken s potpisom i žigom.
+// kad je akt ovjeren: privitak je sken s potpisom i žigom kad postoji, inače
+// PDF koji program izradi s elektroničkom ovjerom.
 
 // SmijeSlati javlja smije li korisnik slati akt: tko smije pripremati akt
 func (s *AktService) SmijeSlati(perms *models.UserPermissions, u *models.User, a *models.Akt) bool {
@@ -207,6 +208,7 @@ func (s *AktService) AdresatiAkta(ctx context.Context, a *models.Akt) ([]Adresat
 // PorukaAkta je predmet, tekst i privitak poruke kojom se akt šalje
 type PorukaAkta struct {
 	Predmet, Tekst, ImeDatoteke string
+	PDF                         []byte // PDF ovjerenog akta koji program izradi; sken ima prednost kad postoji
 }
 
 // IshodSlanja kaže koliko je adresa primilo akt i koje nisu
@@ -225,8 +227,8 @@ func (s *AktService) PosaljiNaZnanje(ctx context.Context, perms *models.UserPerm
 	if a == nil {
 		return nil, fmt.Errorf("akt ne postoji")
 	}
-	if !a.Ovjeren() || !a.ImaIzvornik() {
-		return nil, fmt.Errorf("akt se šalje tek kad je učitan izvornik: PDF potpisan u SIGNATOR-u ili sken s potpisom i žigom")
+	if !a.Ovjeren() {
+		return nil, fmt.Errorf("akt se šalje tek kad je ovjeren")
 	}
 	if !s.smijePripremiti(perms, u, a) {
 		return nil, ErrUnauthorized
@@ -244,7 +246,10 @@ func (s *AktService) PosaljiNaZnanje(ctx context.Context, perms *models.UserPerm
 	}
 	pdf, err := s.Izvornik(ctx, a.ID)
 	if err != nil || pdf == nil {
-		return nil, fmt.Errorf("izvornik akta nije pronađen na ovom čvoru")
+		pdf = poruka.PDF // program izrađuje PDF ovjerenog akta
+	}
+	if len(pdf) == 0 {
+		return nil, fmt.Errorf("PDF akta nije dostupan")
 	}
 
 	// šalje se samo na adrese s popisa "na znanje"
@@ -469,22 +474,6 @@ func (s *AktService) Privitak(ctx context.Context, u *models.User, id string) (*
 		return nil, nil, err
 	}
 	return posta.PreuzmiPrivitak(ctx, s.Posta(ctx), r, id)
-}
-
-// NacrtiZaPotpis su nacrti za koje je preuzet PDF za potpis, a korisnik ih
-// smije pripremati: u njih se učitava potpisani PDF iz sandučića
-func (s *AktService) NacrtiZaPotpis(ctx context.Context, perms *models.UserPermissions, u *models.User) []models.Akt {
-	svi, err := s.List(ctx, perms, repository.FiltarAkata{Status: models.AktNacrt})
-	if err != nil {
-		return nil
-	}
-	var out []models.Akt
-	for _, a := range svi {
-		if len(a.ZaPotpis) > 0 && s.smijePripremiti(perms, u, &a) {
-			out = append(out, a)
-		}
-	}
-	return out
 }
 
 // ---- adresar tvrtke ----

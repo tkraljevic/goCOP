@@ -40,21 +40,6 @@
   {{range .Privitci}}{{if not .Ugradjen}}
     <li>
       <a href="/posta/privitak?id={{.ID | urlquery}}">{{icon "download"}} {{.Ime}}</a> <span class="form-help">{{.Velicina}} B</span>
-      {{if .JePDF}}
-      <form method="POST" action="/posta/u-akt" class="posta-u-akt">
-        <input type="hidden" name="pismo" value="{{$.Pismo.ID}}">
-        <input type="hidden" name="privitak" value="{{.ID}}">
-        {{if $.Nacrti}}
-        <select name="akt" class="form-control" required>
-          <option value="">— u koji nacrt —</option>
-          {{range $.Nacrti}}<option value="{{.ID}}" {{if eq .ID $.OdabraniAkt}}selected{{end}}>{{.Naslov}}, {{.StationName}}, {{formatDate (localTime .Vrijedi)}}</option>{{end}}
-        </select>
-        <button type="submit" class="btn btn-sm btn-primary">{{icon "upload"}} Učitaj kao potpisani akt</button>
-        {{else}}
-        <span class="form-help">Nema nacrta koji čeka potpis (za nacrt se prvo preuzima PDF za potpis).</span>
-        {{end}}
-      </form>
-      {{end}}
     </li>
   {{end}}{{end}}
   </ul>

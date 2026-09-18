@@ -16,7 +16,6 @@ import (
 	"github.com/tkraljevic/syncnet"
 
 	"gocop/internal/models"
-	"gocop/internal/pdfpotpis"
 	"gocop/internal/pdfw"
 	"gocop/internal/posta"
 	"gocop/internal/repository"
@@ -261,7 +260,6 @@ func (s *AktService) UrediTekst(ctx context.Context, perms *models.UserPermissio
 	}
 	a.Uvod, a.Zavrsno, a.Napomena = uvod, zavrsno, strings.TrimSpace(napomena)
 	// tekst se promijenio: PDF-ovi preuzeti za potpis više ne vrijede
-	a.ZaPotpis = nil
 	if a.Radnja == models.AktPrekid {
 		a.IzvanSnage = strings.TrimSpace(izvanSnage)
 	}
@@ -696,111 +694,6 @@ func (s *AktService) smijePripremiti(perms *models.UserPermissions, u *models.Us
 	return a.IzradioID == u.ID.String() || perms.HasWriteAccess(a.Sektor, a.AreaID, "") || s.SmijeOvjeriti(perms, a)
 }
 
-// ZabiljeziZaPotpis bilježi PDF nacrta preuzet za potpis u SIGNATOR-u
-func (s *AktService) ZabiljeziZaPotpis(ctx context.Context, perms *models.UserPermissions, u *models.User, id string, pdf []byte) error {
-	a, err := s.repo.GetAkt(ctx, id)
-	if err != nil {
-		return err
-	}
-	if a == nil {
-		return fmt.Errorf("akt ne postoji")
-	}
-	if a.Ovjeren() {
-		return fmt.Errorf("akt %s je već ovjeren", a.Oznaka())
-	}
-	if !s.smijePripremiti(perms, u, a) {
-		return ErrUnauthorized
-	}
-	h := sha256.Sum256(pdf)
-	z := models.ZapisZaPotpis{Duljina: len(pdf), Sazetak: hex.EncodeToString(h[:]), Kad: time.Now(), Tko: u.FullName}
-	for _, x := range a.ZaPotpis {
-		if x.Sazetak == z.Sazetak {
-			return nil // isti PDF već je zabilježen
-		}
-	}
-	a.ZaPotpis = append(a.ZaPotpis, z)
-	if n := len(a.ZaPotpis); n > 20 {
-		a.ZaPotpis = a.ZaPotpis[n-20:]
-	}
-	return s.repo.SaveAkt(ctx, a)
-}
-
-// UcitajPotpisani prima PDF potpisan u SIGNATOR-u i njime ovjerava akt:
-// potpis mora biti ispravan, kvalificiran i pokrivati cijeli dokument;
-// dokument mora biti PDF za potpis baš ovog nacrta; potpisnik mora biti
-// rukovoditelj koji akt smije ovjeriti. Potpisani PDF postaje izvornik.
-func (s *AktService) UcitajPotpisani(ctx context.Context, perms *models.UserPermissions, u *models.User, id string, pdf []byte) (*models.Akt, []string, error) {
-	a, err := s.repo.GetAkt(ctx, id)
-	if err != nil {
-		return nil, nil, err
-	}
-	if a == nil {
-		return nil, nil, fmt.Errorf("akt ne postoji")
-	}
-	if a.Ovjeren() {
-		return nil, nil, fmt.Errorf("akt %s je već ovjeren", a.Oznaka())
-	}
-	if !s.smijePripremiti(perms, u, a) {
-		return nil, nil, ErrUnauthorized
-	}
-	if !bytes.HasPrefix(pdf, []byte("%PDF")) {
-		return nil, nil, fmt.Errorf("datoteka nije PDF")
-	}
-	ps := pdfpotpis.Pronadji(pdf)
-	if len(ps) == 0 {
-		return nil, nil, fmt.Errorf("u PDF-u nema elektroničkog potpisa; je li potpisan u SIGNATOR-u?")
-	}
-	for _, x := range ps {
-		if !x.Ispravan {
-			return nil, nil, fmt.Errorf("potpis %s nije ispravan: %s", x.Ime, x.Greska)
-		}
-	}
-	if pdfpotpis.Zadnji(ps) == nil {
-		return nil, nil, fmt.Errorf("PDF je mijenjan nakon zadnjeg potpisa; učitajte PDF točno kako ga je dao SIGNATOR")
-	}
-	p := pdfpotpis.Osobni(ps)
-	switch {
-	case p == nil:
-		return nil, nil, fmt.Errorf("u PDF-u je samo pečat organizacije, nema potpisa rukovoditelja")
-	case !p.Kvalificiran || !p.QSCD:
-		return nil, nil, fmt.Errorf("potpis %s je razine %s, a ne kvalificirani (QES; certifikat: %s); u SIGNATOR-u akt potpišite kvalificiranim potpisom", p.Ime, p.Razina(), p.Izdavatelj)
-	}
-	// potpisan je baš PDF za potpis ovog nacrta
-	nasao := false
-	for _, z := range a.ZaPotpis {
-		if len(pdf) >= z.Duljina {
-			h := sha256.Sum256(pdf[:z.Duljina])
-			if hex.EncodeToString(h[:]) == z.Sazetak {
-				nasao = true
-				break
-			}
-		}
-	}
-	if !nasao {
-		return nil, nil, fmt.Errorf("potpisani PDF nije PDF za potpis ovog nacrta: ili je nacrt mijenjan nakon preuzimanja, ili je potpisan drugi dokument. Preuzmite PDF za potpis ponovno i potpišite ga")
-	}
-	// potpisnik je rukovoditelj s pravom ovjere
-	potpisnik, err := s.potpisnikIzCertifikata(a, p)
-	if err != nil {
-		return nil, nil, err
-	}
-	potpisnikPerms := models.NewUserPermissions(*potpisnik)
-	kad := time.Now()
-	if !p.Vrijeme.IsZero() {
-		kad = p.Vrijeme
-	}
-	h := sha256.Sum256(pdf)
-	a.Kvalificirani = &models.KvalificiraniPotpis{Ime: p.Ime, OIB: p.OIB, Izdavatelj: p.Izdavatelj, Serijski: p.Serijski, VrijediDo: p.VrijediDo,
-		Vrijeme: kad, VremenskiZig: p.VremenskiZig, Razina: p.Razina(), Sazetak: hex.EncodeToString(h[:]), Ucitao: u.FullName, UcitanoAt: time.Now()}
-	for _, x := range pdfpotpis.Pecati(ps) {
-		a.Kvalificirani.Pecati = append(a.Kvalificirani.Pecati, models.PecatNaAktu{Naziv: x.Ime, Razlog: x.Razlog, Vrijeme: x.Vrijeme, Razina: x.Razina()})
-	}
-	if err := s.repo.SaveIzvornik(ctx, &repository.Izvornik{AktID: a.ID, PDF: pdf, Sazetak: a.Kvalificirani.Sazetak}); err != nil {
-		return nil, nil, err
-	}
-	return s.zakljuciOvjeru(ctx, perms, potpisnikPerms, potpisnik, a, kad)
-}
-
 // MoguPotpisati su korisnici koji po zaduženjima smiju ovjeriti akt, za
 // izbor potpisnika kad se učitava sken ručno potpisanog akta
 func (s *AktService) MoguPotpisati(a *models.Akt) []models.User {
@@ -869,30 +762,6 @@ func (s *AktService) UcitajSkenirani(ctx context.Context, perms *models.UserPerm
 	return s.zakljuciOvjeru(ctx, perms, potpisnikPerms, potpisnik, a, time.Now())
 }
 
-// potpisnikIzCertifikata pronalazi korisnika čije ime stoji u certifikatu
-// i koji akt smije ovjeriti
-func (s *AktService) potpisnikIzCertifikata(a *models.Akt, p *pdfpotpis.Potpis) (*models.User, error) {
-	svi, err := s.users.ListUsers("", 0, "", "", "")
-	if err != nil {
-		return nil, err
-	}
-	kljuc := kljucImena(p.Ime)
-	var istoIme []string
-	for i := range svi {
-		if kljucImena(svi[i].FullName) != kljuc {
-			continue
-		}
-		istoIme = append(istoIme, svi[i].FullName)
-		if s.SmijeOvjeriti(models.NewUserPermissions(svi[i]), a) {
-			return &svi[i], nil
-		}
-	}
-	if len(istoIme) > 0 {
-		return nil, fmt.Errorf("%s je potpisao akt, ali po zaduženjima ne smije ovjeriti %s; ovjerava %s", p.Ime, strings.ToLower(a.Naslov()), strings.ToLower(a.Potpisnik))
-	}
-	return nil, fmt.Errorf("potpisnik %s nije pronađen među korisnicima goCOP-a; ime u certifikatu mora odgovarati imenu na računu", p.Ime)
-}
-
 // kljucImena svodi ime na usporedivi oblik: mala slova, bez dijakritike,
 // dijelovi imena poredani ("KUNAC MILE" i "Mile Kunac" su isto)
 func kljucImena(s string) string {
@@ -909,30 +778,6 @@ func (s *AktService) Izvornik(ctx context.Context, id string) ([]byte, error) {
 		return nil, err
 	}
 	return iz.PDF, nil
-}
-
-// ProvjeriIzvornik ponovno provjerava potpis na spremljenom izvorniku
-func (s *AktService) ProvjeriIzvornik(ctx context.Context, a *models.Akt) *pdfpotpis.Potpis {
-	pdf, err := s.Izvornik(ctx, a.ID)
-	if err != nil || pdf == nil {
-		return nil
-	}
-	ps := pdfpotpis.Pronadji(pdf)
-	p := pdfpotpis.Osobni(ps)
-	if p == nil {
-		return nil
-	}
-	out := *p
-	// potpis vrijedi kad su svi potpisi ispravni i iza zadnjeg nema izmjena
-	if pdfpotpis.Zadnji(ps) == nil {
-		out.Ispravan, out.Greska = false, "dokument je mijenjan nakon zadnjeg potpisa"
-	}
-	for _, x := range ps {
-		if !x.Ispravan {
-			out.Ispravan, out.Greska = false, x.Greska
-		}
-	}
-	return &out
 }
 
 // OcitanjaZaAkt su očitanja letve s vodostajem, najnovije prvo, za izbor
