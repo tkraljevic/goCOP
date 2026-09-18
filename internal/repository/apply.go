@@ -802,8 +802,8 @@ func upsertStation(ctx context.Context, tx *sql.Tx, st models.Station) error {
 			zero_datum_history, extremes, return_levels,
 			prep_cm, prep_raw, regular_cm, regular_raw, emergency_cm, emergency_raw, state_cm, state_raw,
 			record_cm, record_raw, notes, source_name, needs_review, review_note,
-			latitude, longitude, created_at, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			latitude, longitude, created_at, updated_at, javni_id, javni_uvoz
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			code = excluded.code, name = excluded.name, watercourse = excluded.watercourse,
 			watercourse_code = excluded.watercourse_code, watercourse_source = excluded.watercourse_source,
@@ -820,7 +820,8 @@ func upsertStation(ctx context.Context, tx *sql.Tx, st models.Station) error {
 			state_cm = excluded.state_cm, state_raw = excluded.state_raw, record_cm = excluded.record_cm,
 			record_raw = excluded.record_raw, notes = excluded.notes, source_name = excluded.source_name,
 			needs_review = excluded.needs_review, review_note = excluded.review_note,
-			latitude = excluded.latitude, longitude = excluded.longitude, updated_at = excluded.updated_at
+			latitude = excluded.latitude, longitude = excluded.longitude, updated_at = excluded.updated_at,
+			javni_id = excluded.javni_id, javni_uvoz = excluded.javni_uvoz
 	`,
 		st.ID.String(), st.Code, st.Name, st.Watercourse, st.WatercourseCode, st.WatercourseSource, st.WaterArea, st.Stationing,
 		st.ZeroDatum, defaultSystem(st.ZeroDatumSystem, models.ZeroDatumSystemOld),
@@ -829,7 +830,7 @@ func upsertStation(ctx context.Context, tx *sql.Tx, st models.Station) error {
 		zeroDatumHistoryJSON(&st), extremesJSON(&st), returnLevelsJSON(&st),
 		st.Prep.Cm, st.Prep.Raw, st.Regular.Cm, st.Regular.Raw, st.Emergency.Cm, st.Emergency.Raw, st.State.Cm, st.State.Raw,
 		st.Record.Cm, st.Record.Raw, st.Notes, st.SourceName, boolToInt(st.NeedsReview), st.ReviewNote,
-		st.Latitude, st.Longitude, st.CreatedAt, st.UpdatedAt,
+		st.Latitude, st.Longitude, st.CreatedAt, st.UpdatedAt, st.JavniID, boolToInt(st.JavniUvoz),
 	)
 	return err
 }

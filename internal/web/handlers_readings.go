@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"gocop/internal/db"
+	"gocop/internal/javnivodostaji"
 	"gocop/internal/models"
 	"gocop/internal/repository"
 	"gocop/internal/service"
@@ -42,6 +43,44 @@ type ReadingsHandler struct {
 	tmplIspravci     *template.Template
 	tmplUvoz         *template.Template
 	tmplOcitanjaCSV  *template.Template
+	javni            func() *javnivodostaji.Uvoznik
+}
+
+// SetJavniUvoz daje rukovatelju uvoznika javnih vodostaja
+func (h *ReadingsHandler) SetJavniUvoz(f func() *javnivodostaji.Uvoznik) { h.javni = f }
+
+func (h *ReadingsHandler) uvoznik() *javnivodostaji.Uvoznik {
+	if h.javni == nil {
+		return nil
+	}
+	return h.javni()
+}
+
+// HandlePreuzmiJavno odmah preuzme očitanja letve s javne stranice, ne
+// čekajući sat; isto što radi i satno preuzimanje
+func (h *ReadingsHandler) HandlePreuzmiJavno(w http.ResponseWriter, r *http.Request) {
+	station, _ := h.gauge(r, r.PathValue("id"), "")
+	if station == nil {
+		http.NotFound(w, r)
+		return
+	}
+	back := "/readings/station/" + station.ID.String()
+	_, perms := h.base(r)
+	if !h.readingService.CanRecordStation(perms, station) {
+		redirectWith(w, r, back, "error", "Nemate pravo upisivati očitanja na "+station.Name)
+		return
+	}
+	u := h.uvoznik()
+	if u == nil || station.JavniID <= 0 {
+		redirectWith(w, r, back, "error", "Letva nije povezana s javnom stranicom; poveži je u obrascu letve")
+		return
+	}
+	s := u.Preuzmi(r.Context(), station)
+	if s.Greska != "" {
+		redirectWith(w, r, back, "error", "Preuzimanje s "+javnivodostaji.Podrijetlo+" nije uspjelo: "+s.Greska)
+		return
+	}
+	redirectWith(w, r, back, "success", fmt.Sprintf("Preuzeto %d očitanja s %s, novih %d.", s.Preuzeto, javnivodostaji.Podrijetlo, s.Novih))
 }
 
 // SetOcitanjaCSV daje rukovatelju predložak pregleda ispravaka iz CSV-a.
@@ -173,6 +212,12 @@ type ReadingHistoryData struct {
 	// procjenu protoka — dežurni tako uz visinu vidi i koliko vode prolazi,
 	// bez da mora otvarati arhivu.
 	Krivulje []models.HQKrivulja
+
+	// Veza s javnom stranicom: je li letva povezana i što je zadnje
+	// preuzimanje napravilo na ovom čvoru
+	JavniID     int
+	JavniUvoz   bool
+	JavniStanje *javnivodostaji.StanjeLetve
 
 	SuccessMessage string
 	ErrorMessage   string
@@ -555,6 +600,12 @@ func (h *ReadingsHandler) podaciOcitanja(w http.ResponseWriter, r *http.Request)
 		if a := h.arh(); a != nil && station.Code != "" {
 			data.Krivulje, _ = a.Krivulje(ctx, station.Code)
 			h.koritoUzGraf(ctx, &data, station, shown)
+		}
+		data.JavniID, data.JavniUvoz = station.JavniID, station.JavniUvoz
+		if u := h.uvoznik(); u != nil && station.JavniID > 0 {
+			if s, ok := u.Stanje(station.ID.String()); ok {
+				data.JavniStanje = &s
+			}
 		}
 	}
 

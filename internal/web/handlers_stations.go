@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 
 	"gocop/internal/arhiva"
+	"gocop/internal/javnivodostaji"
 	"gocop/internal/models"
 	"gocop/internal/repository"
 	"gocop/internal/service"
@@ -29,6 +30,7 @@ type StationsHandler struct {
 	biljeske           func() *repository.BiljeskaRepository
 	arhivaPutFn        func() string
 	cvorFn             func() string
+	javni              func() *javnivodostaji.Uvoznik
 	paketiDirFn        func() string
 	ugradi             func(*arhiva.Sadrzaj) error
 	tmplPaket          *template.Template
@@ -384,6 +386,8 @@ type stationForm struct {
 	SourceName            string `json:"source_name"`
 	NeedsReview           string `json:"needs_review"`
 	ReviewNote            string `json:"review_note"`
+	JavniID               string `json:"javni_id"`
+	JavniUvoz             string `json:"javni_uvoz"`
 }
 
 func decodeStationForm(r *http.Request) (stationForm, error) {
@@ -431,6 +435,8 @@ func decodeStationForm(r *http.Request) (stationForm, error) {
 	form.SourceName = r.FormValue("source_name")
 	form.NeedsReview = r.FormValue("needs_review")
 	form.ReviewNote = r.FormValue("review_note")
+	form.JavniID = r.FormValue("javni_id")
+	form.JavniUvoz = r.FormValue("javni_uvoz")
 
 	return form, nil
 }
@@ -479,10 +485,22 @@ func (f stationForm) primijeni(st *models.Station) {
 	st.SourceName = strings.TrimSpace(f.SourceName)
 	st.NeedsReview = f.NeedsReview == "1" || f.NeedsReview == "on" || f.NeedsReview == "true"
 	st.ReviewNote = strings.TrimSpace(f.ReviewNote)
+	st.JavniID, st.JavniUvoz = f.javnaVeza()
+}
+
+// javnaVeza čita vezu s javnom stranicom: ID postaje i je li preuzimanje
+// uključeno. Preuzimanje bez ID-a nema smisla, pa se tada gasi.
+func (f stationForm) javnaVeza() (int, bool) {
+	id, _ := strconv.Atoi(strings.TrimSpace(f.JavniID))
+	if id < 0 {
+		id = 0
+	}
+	uvoz := f.JavniUvoz == "1" || f.JavniUvoz == "on" || f.JavniUvoz == "true"
+	return id, uvoz && id > 0
 }
 
 func (f stationForm) toStation() models.Station {
-	return models.Station{
+	st := models.Station{
 		Code:               strings.TrimSpace(f.Code),
 		Name:               strings.TrimSpace(f.Name),
 		Watercourse:        strings.TrimSpace(f.Watercourse),
@@ -512,6 +530,8 @@ func (f stationForm) toStation() models.Station {
 		NeedsReview:           f.NeedsReview == "1" || f.NeedsReview == "on" || f.NeedsReview == "true",
 		ReviewNote:            strings.TrimSpace(f.ReviewNote),
 	}
+	st.JavniID, st.JavniUvoz = f.javnaVeza()
+	return st
 }
 
 // parseThresholdInput prihvaća prag u centimetrima, a svaki drugi zapis
