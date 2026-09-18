@@ -6,8 +6,9 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">{{icon "mailbox"}} Sandučić</h1>
-    <p class="page-desc">Ulazna pošta vašeg računa {{with .CurrentUser.Email}}<strong>{{.}}</strong>{{end}} iz Exchangea. Potpisani PDF koji SIGNATOR pošalje e-poštom odavde se učitava ravno u nacrt akta.</p>
+    <p class="page-desc">Pošta vašeg računa {{with .CurrentUser.Email}}<strong>{{.}}</strong>{{end}} iz Exchangea, kao u Outlooku. Potpisani PDF koji SIGNATOR pošalje e-poštom odavde se učitava ravno u nacrt akta.</p>
   </div>
+  <div class="page-actions"><a href="/posta/novo" class="btn btn-primary">{{icon "pencil"}} Novo pismo</a></div>
 </div>
 
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
@@ -17,15 +18,28 @@
 {{if .LozinkaOdbijena}}<div class="alert alert-error">Poslužitelj je odbio vašu lozinku e-pošte. Ako ste je promijenili, <a href="/profile/posta">upišite novu</a>.</div>{{end}}
 {{if .OdabraniAkt}}<div class="alert alert-info">Otvorite pismo iz SIGNATOR-a s potpisanim PDF-om i učitajte ga u nacrt.</div>{{end}}
 
+<div class="posta-alat">
+  <nav class="posta-mape">
+    {{range .Mape}}<a href="/posta?mapa={{.ID}}{{with $.OdabraniAkt}}&amp;akt={{.}}{{end}}" class="posta-mapa {{if eq .ID $.Mapa}}active{{end}}">{{.Naziv}}</a>{{end}}
+  </nav>
+  <form method="GET" action="/posta" class="posta-trazi">
+    <input type="hidden" name="mapa" value="{{.Mapa}}">
+    {{with .OdabraniAkt}}<input type="hidden" name="akt" value="{{.}}">{{end}}
+    <input type="search" name="trazi" class="form-control" value="{{.Trazi}}" placeholder="pretraži pošiljatelja, predmet, tekst">
+    <button type="submit" class="btn btn-secondary btn-sm">{{icon "search"}} Traži</button>
+    {{if .Trazi}}<a href="/posta?mapa={{.Mapa}}" class="btn btn-secondary btn-sm">{{icon "x"}}</a>{{end}}
+  </form>
+</div>
+
 {{if .Pisma}}
 <section class="detail-section" style="margin-top:0;">
   <table class="table posta-tablica">
-    <thead><tr><th>Od</th><th>Predmet</th><th>Primljeno</th><th></th></tr></thead>
+    <thead><tr><th>{{if eq .Mapa "sentitems" "drafts"}}Za{{else}}Od{{end}}</th><th>Predmet</th><th>Primljeno</th><th></th></tr></thead>
     <tbody>
     {{range .Pisma}}
       <tr class="{{if not .Procitano}}neprocitano{{end}}">
-        <td data-stupac="Od">{{.Od}}</td>
-        <td data-stupac="Predmet"><a href="/posta/pismo?id={{.ID | urlquery}}{{with $.OdabraniAkt}}&amp;akt={{.}}{{end}}">{{if .Predmet}}{{.Predmet}}{{else}}(bez predmeta){{end}}</a></td>
+        <td data-stupac="Od">{{if eq $.Mapa "sentitems" "drafts"}}{{range $i, $x := .Za}}{{if $i}}, {{end}}{{$x}}{{end}}{{else}}{{.Od}}{{end}}</td>
+        <td data-stupac="Predmet"><a href="/posta/pismo?id={{.ID | urlquery}}&amp;mapa={{$.Mapa}}{{with $.OdabraniAkt}}&amp;akt={{.}}{{end}}">{{if .Predmet}}{{.Predmet}}{{else}}(bez predmeta){{end}}</a></td>
         <td data-stupac="Primljeno">{{formatDate (localTime .Kad)}}</td>
         <td>{{if .ImaPrivitke}}{{icon "package"}}{{end}}</td>
       </tr>
@@ -34,11 +48,11 @@
   </table>
   <div class="form-help" style="display:flex; gap:1rem; align-items:center;">
     <span>Ukupno pisama: {{.Ukupno}}.</span>
-    {{if gt .Prethodna 0}}<a href="/posta?stranica={{.Prethodna}}{{with .OdabraniAkt}}&amp;akt={{.}}{{end}}">{{icon "chevron-left"}} Novija</a>{{end}}
-    {{if .Stranica_}}<a href="/posta?stranica={{.Stranica_}}{{with .OdabraniAkt}}&amp;akt={{.}}{{end}}">Starija {{icon "chevron-right"}}</a>{{end}}
+    {{if gt .Prethodna 0}}<a href="/posta?mapa={{.Mapa}}&amp;stranica={{.Prethodna}}{{with .Trazi}}&amp;trazi={{. | urlquery}}{{end}}{{with .OdabraniAkt}}&amp;akt={{.}}{{end}}">{{icon "chevron-left"}} Novija</a>{{end}}
+    {{if .Stranica_}}<a href="/posta?mapa={{.Mapa}}&amp;stranica={{.Stranica_}}{{with .Trazi}}&amp;trazi={{. | urlquery}}{{end}}{{with .OdabraniAkt}}&amp;akt={{.}}{{end}}">Starija {{icon "chevron-right"}}</a>{{end}}
   </div>
 </section>
 {{else if not (or .NijeUkljuceno .TrebaLozinku .LozinkaOdbijena .ErrorMessage)}}
-<p class="form-help">Sandučić je prazan.</p>
+<p class="form-help">{{if .Trazi}}Ništa nije pronađeno za „{{.Trazi}}”.{{else}}Mapa je prazna.{{end}}</p>
 {{end}}
 {{end}}

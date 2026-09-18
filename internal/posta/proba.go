@@ -33,7 +33,8 @@ type ProbniPosluzitelj struct {
 	cert              tls.Certificate
 	klijent           *tls.Config
 	web               *httptest.Server  // probni EWS umjesto SMTP-a
-	Pisma             []Pismo           // ulazna pošta probnog EWS-a
+	Pisma             []Pismo           // pošta probnog EWS-a; Mapa kaže u kojoj je mapi (prazno = inbox)
+	Mapa              map[string]string // ID pisma → mapa
 	Datoteke          map[string][]byte // sadržaj privitaka po ID-u
 
 	mu     sync.Mutex
@@ -120,10 +121,32 @@ func PokreniProbniEWS(korisnik, lozinka string) (*ProbniPosluzitelj, error) {
 			odgovor("GetFolder", "Success", "")
 		case bytes.Contains(tijelo, []byte("<m:FindItem")):
 			w.Header().Set("Content-Type", "text/xml; charset=utf-8")
-			var b bytes.Buffer
-			fmt.Fprintf(&b, `<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body><m:FindItemResponse xmlns:m="m" xmlns:t="t"><m:ResponseMessages><m:FindItemResponseMessage ResponseClass="Success"><m:ResponseCode>NoError</m:ResponseCode><m:RootFolder TotalItemsInView="%d"><t:Items>`, len(p.Pisma))
+			mapa := "inbox"
+			if x := regexp.MustCompile(`<t:DistinguishedFolderId Id="([^"]*)"`).FindSubmatch(tijelo); x != nil {
+				mapa = string(x[1])
+			}
+			upit := ""
+			if x := regexp.MustCompile(`<m:QueryString>([^<]*)</m:QueryString>`).FindSubmatch(tijelo); x != nil {
+				upit = strings.ToLower(string(x[1]))
+			}
+			var odabrana []Pismo
 			for _, x := range p.Pisma {
-				fmt.Fprintf(&b, `<t:Message><t:ItemId Id="%s" ChangeKey="x"/><t:Subject>%s</t:Subject><t:HasAttachments>%v</t:HasAttachments><t:Size>%d</t:Size><t:DateTimeReceived>%s</t:DateTimeReceived><t:From><t:Mailbox><t:Name>%s</t:Name><t:EmailAddress>%s</t:EmailAddress></t:Mailbox></t:From><t:IsRead>%v</t:IsRead></t:Message>`,
+				m := p.Mapa[x.ID]
+				if m == "" {
+					m = "inbox"
+				}
+				if m != mapa {
+					continue
+				}
+				if upit != "" && !strings.Contains(strings.ToLower(x.Predmet+" "+x.Od+" "+x.Tekst), upit) {
+					continue
+				}
+				odabrana = append(odabrana, x)
+			}
+			var b bytes.Buffer
+			fmt.Fprintf(&b, `<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body><m:FindItemResponse xmlns:m="m" xmlns:t="t"><m:ResponseMessages><m:FindItemResponseMessage ResponseClass="Success"><m:ResponseCode>NoError</m:ResponseCode><m:RootFolder TotalItemsInView="%d"><t:Items>`, len(odabrana))
+			for _, x := range odabrana {
+				fmt.Fprintf(&b, `<t:Message><t:ItemId Id="%s" ChangeKey="ck1"/><t:Subject>%s</t:Subject><t:HasAttachments>%v</t:HasAttachments><t:Size>%d</t:Size><t:DateTimeReceived>%s</t:DateTimeReceived><t:From><t:Mailbox><t:Name>%s</t:Name><t:EmailAddress>%s</t:EmailAddress></t:Mailbox></t:From><t:IsRead>%v</t:IsRead></t:Message>`,
 					xmlAttr(x.ID), xmlAttr(x.Predmet), len(x.Privitci) > 0, x.Velicina, x.Kad.UTC().Format(time.RFC3339), xmlAttr(x.Od), xmlAttr(x.OdAdresa), x.Procitano)
 			}
 			b.WriteString(`</t:Items></m:RootFolder></m:FindItemResponseMessage></m:ResponseMessages></m:FindItemResponse></s:Body></s:Envelope>`)
@@ -136,8 +159,12 @@ func PokreniProbniEWS(korisnik, lozinka string) (*ProbniPosluzitelj, error) {
 					continue
 				}
 				var b bytes.Buffer
-				fmt.Fprintf(&b, `<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body><m:GetItemResponse xmlns:m="m" xmlns:t="t"><m:ResponseMessages><m:GetItemResponseMessage ResponseClass="Success"><m:ResponseCode>NoError</m:ResponseCode><m:Items><t:Message><t:ItemId Id="%s"/><t:Subject>%s</t:Subject><t:Body BodyType="Text">%s</t:Body><t:DateTimeReceived>%s</t:DateTimeReceived><t:From><t:Mailbox><t:Name>%s</t:Name><t:EmailAddress>%s</t:EmailAddress></t:Mailbox></t:From><t:ToRecipients><t:Mailbox><t:EmailAddress>%s</t:EmailAddress></t:Mailbox></t:ToRecipients><t:Attachments>`,
-					xmlAttr(pi.ID), xmlAttr(pi.Predmet), xmlAttr(pi.Tekst), pi.Kad.UTC().Format(time.RFC3339), xmlAttr(pi.Od), xmlAttr(pi.OdAdresa), xmlAttr(p.Korisnik))
+				html := pi.HTML
+				if html == "" {
+					html = "<html><body><p>" + strings.ReplaceAll(xmlAttr(pi.Tekst), "\n", "<br>") + "</p></body></html>"
+				}
+				fmt.Fprintf(&b, `<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body><m:GetItemResponse xmlns:m="m" xmlns:t="t"><m:ResponseMessages><m:GetItemResponseMessage ResponseClass="Success"><m:ResponseCode>NoError</m:ResponseCode><m:Items><t:Message><t:ItemId Id="%s" ChangeKey="ck1"/><t:InternetMessageId>%s</t:InternetMessageId><t:Subject>%s</t:Subject><t:Body BodyType="HTML">%s</t:Body><t:TextBody>%s</t:TextBody><t:DateTimeReceived>%s</t:DateTimeReceived><t:From><t:Mailbox><t:Name>%s</t:Name><t:EmailAddress>%s</t:EmailAddress></t:Mailbox></t:From><t:ToRecipients><t:Mailbox><t:EmailAddress>%s</t:EmailAddress></t:Mailbox></t:ToRecipients><t:Attachments>`,
+					xmlAttr(pi.ID), xmlAttr(pi.MessageID), xmlAttr(pi.Predmet), xmlAttr(html), xmlAttr(pi.Tekst), pi.Kad.UTC().Format(time.RFC3339), xmlAttr(pi.Od), xmlAttr(pi.OdAdresa), xmlAttr(p.Korisnik))
 				for _, a := range pi.Privitci {
 					fmt.Fprintf(&b, `<t:FileAttachment><t:AttachmentId Id="%s"/><t:Name>%s</t:Name><t:ContentType>%s</t:ContentType><t:Size>%d</t:Size></t:FileAttachment>`, xmlAttr(a.ID), xmlAttr(a.Ime), a.Vrsta, a.Velicina)
 				}
@@ -146,6 +173,27 @@ func PokreniProbniEWS(korisnik, lozinka string) (*ProbniPosluzitelj, error) {
 				return
 			}
 			odgovor("GetItem", "Error", "The specified object was not found in the store.")
+		case bytes.Contains(tijelo, []byte("<m:UpdateItem")):
+			x := regexp.MustCompile(`<t:ItemId Id="([^"]*)" ChangeKey="([^"]*)"`).FindSubmatch(tijelo)
+			if x == nil || string(x[2]) != "ck1" {
+				odgovor("UpdateItem", "Error", "ErrorIrresolvableConflict")
+				return
+			}
+			for i := range p.Pisma {
+				if p.Pisma[i].ID == string(x[1]) {
+					p.Pisma[i].Procitano = bytes.Contains(tijelo, []byte("<t:IsRead>true</t:IsRead>"))
+				}
+			}
+			odgovor("UpdateItem", "Success", "")
+		case bytes.Contains(tijelo, []byte("<m:MoveItem>")):
+			x := regexp.MustCompile(`<t:ItemId Id="([^"]*)"`).FindSubmatch(tijelo)
+			if p.Mapa == nil {
+				p.Mapa = map[string]string{}
+			}
+			if x != nil {
+				p.Mapa[string(x[1])] = "deleteditems"
+			}
+			odgovor("MoveItem", "Success", "")
 		case bytes.Contains(tijelo, []byte("<m:GetAttachment>")):
 			x := regexp.MustCompile(`<t:AttachmentId Id="([^"]*)"`).FindSubmatch(tijelo)
 			w.Header().Set("Content-Type", "text/xml; charset=utf-8")
@@ -171,14 +219,26 @@ func PokreniProbniEWS(korisnik, lozinka string) (*ProbniPosluzitelj, error) {
 				odgovor("CreateItem", "Error", err.Error())
 				return
 			}
-			za, _ := mail.ParseAddress(m.Header.Get("To"))
+			za, _ := mail.ParseAddressList(m.Header.Get("To"))
+			if cc := m.Header.Get("Cc"); cc != "" {
+				k, _ := mail.ParseAddressList(cc)
+				za = append(za, k...)
+			}
 			od, _ := mail.ParseAddress(m.Header.Get("From"))
-			if za == nil || slices.Contains(p.Odbij, strings.ToLower(za.Address)) {
+			if len(za) == 0 || od == nil {
 				odgovor("CreateItem", "Error", "One or more recipients are invalid.")
 				return
 			}
+			for _, x := range za {
+				if slices.Contains(p.Odbij, strings.ToLower(x.Address)) {
+					odgovor("CreateItem", "Error", "One or more recipients are invalid.")
+					return
+				}
+			}
 			p.mu.Lock()
-			p.poruke = append(p.poruke, Primljena{Od: strings.ToLower(od.Address), Za: strings.ToLower(za.Address), Podaci: string(mimeP)})
+			for _, x := range za {
+				p.poruke = append(p.poruke, Primljena{Od: strings.ToLower(od.Address), Za: strings.ToLower(x.Address), Podaci: string(mimeP)})
+			}
 			p.mu.Unlock()
 			odgovor("CreateItem", "Success", "")
 		default:

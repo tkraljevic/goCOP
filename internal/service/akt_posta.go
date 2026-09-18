@@ -313,8 +313,8 @@ func (s *AktService) racunKorisnika(ctx context.Context, u *models.User) (posta.
 // ErrNemaLozinkePoste: korisnik još nije upisao lozinku e-pošte
 var ErrNemaLozinkePoste = errors.New("upišite lozinku e-pošte u profilu (Profil › E-pošta za slanje akata)")
 
-// Sanducic vraća stranicu korisnikove ulazne pošte, najnovije prvo
-func (s *AktService) Sanducic(ctx context.Context, u *models.User, stranica, poStranici int) ([]posta.Pismo, int, error) {
+// Sanducic vraća stranicu korisnikove pošte iz mape, najnovije prvo
+func (s *AktService) Sanducic(ctx context.Context, u *models.User, mapa, trazi string, stranica, poStranici int) ([]posta.Pismo, int, error) {
 	pp := s.Posta(ctx)
 	if !pp.Podesena() {
 		return nil, 0, fmt.Errorf("e-pošta nije uključena: administrator upisuje poslužitelj u Administraciji › E-pošta")
@@ -326,7 +326,81 @@ func (s *AktService) Sanducic(ctx context.Context, u *models.User, stranica, poS
 	if stranica < 1 {
 		stranica = 1
 	}
-	return posta.Sanducic(ctx, pp, r, (stranica-1)*poStranici, poStranici)
+	return posta.Sanducic(ctx, pp, r, mapa, trazi, (stranica-1)*poStranici, poStranici)
+}
+
+// OznaciProcitano označi pismo pročitanim ili nepročitanim
+func (s *AktService) OznaciProcitano(ctx context.Context, u *models.User, id, changeKey string, procitano bool) error {
+	r, err := s.racunKorisnika(ctx, u)
+	if err != nil {
+		return err
+	}
+	return posta.OznaciProcitano(ctx, s.Posta(ctx), r, id, changeKey, procitano)
+}
+
+// ObrisiPismo premješta pismo u Obrisano
+func (s *AktService) ObrisiPismo(ctx context.Context, u *models.User, id string) error {
+	r, err := s.racunKorisnika(ctx, u)
+	if err != nil {
+		return err
+	}
+	return posta.Obrisi(ctx, s.Posta(ctx), r, id)
+}
+
+// NovoPismo je pismo koje korisnik šalje iz sandučića
+type NovoPismo struct {
+	Za, Kopija string // adrese odvojene zarezom
+	Predmet    string
+	Tekst      string
+	OdgovorNa  string // Message-ID
+	Privitci   []posta.Privitak
+	Proslijedi []string // ID-ovi privitaka iz pisma koje se prosljeđuje
+}
+
+// PosaljiPismo šalje pismo s korisnikova računa
+func (s *AktService) PosaljiPismo(ctx context.Context, u *models.User, n NovoPismo) error {
+	pp := s.Posta(ctx)
+	if !pp.Podesena() {
+		return fmt.Errorf("e-pošta nije uključena")
+	}
+	if u.Email == "" {
+		return fmt.Errorf("u vašem profilu nema adrese e-pošte; s nje se šalje")
+	}
+	r, err := s.racunKorisnika(ctx, u)
+	if err != nil {
+		return err
+	}
+	m := posta.Poruka{Od: mail.Address{Name: u.FullName, Address: u.Email}, Predmet: strings.TrimSpace(n.Predmet), Tekst: n.Tekst, OdgovorNa: n.OdgovorNa, Privitci: n.Privitci}
+	for _, a := range posta.Adrese(n.Za) {
+		m.Primatelji = append(m.Primatelji, mail.Address{Address: a})
+	}
+	for _, a := range posta.Adrese(n.Kopija) {
+		m.Kopija = append(m.Kopija, mail.Address{Address: a})
+	}
+	if len(m.Primatelji) == 0 {
+		return fmt.Errorf("upišite barem jednu ispravnu adresu primatelja")
+	}
+	if m.Predmet == "" {
+		return fmt.Errorf("upišite predmet")
+	}
+	for _, id := range n.Proslijedi {
+		p, podaci, err := posta.PreuzmiPrivitak(ctx, pp, r, id)
+		if err != nil {
+			return fmt.Errorf("privitak za prosljeđivanje: %w", err)
+		}
+		m.Privitci = append(m.Privitci, posta.Privitak{Ime: p.Ime, Vrsta: p.Vrsta, Podaci: podaci})
+	}
+	greske, err := posta.Posalji(ctx, pp, r, []posta.Poruka{m})
+	if err != nil {
+		if errors.Is(err, posta.ErrPrijava) {
+			return fmt.Errorf("poslužitelj je odbio vašu lozinku e-pošte; ako ste je promijenili, upišite novu u profilu")
+		}
+		return err
+	}
+	if greske[0] != nil {
+		return greske[0]
+	}
+	return nil
 }
 
 // Pismo otvara jedno pismo iz korisnikova sandučića

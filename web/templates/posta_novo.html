@@ -1,0 +1,53 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Novo pismo{{end}}
+
+{{define "content"}}
+<div class="breadcrumb"><a href="/posta">Sandučić</a> › {{if eq .Nacin "proslijedi"}}Proslijedi{{else if .Nacin}}Odgovor{{else}}Novo pismo{{end}}</div>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "pencil"}} {{if eq .Nacin "proslijedi"}}Proslijedi pismo{{else if .Nacin}}Odgovor{{else}}Novo pismo{{end}}</h1>
+    <p class="page-desc">Šalje se s vaše adrese <strong>{{.CurrentUser.Email}}</strong> preko Exchangea i ostaje u mapi Poslano.</p>
+  </div>
+</div>
+
+{{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
+{{if .TrebaLozinku}}<div class="alert alert-warning">Upišite lozinku e-pošte: <a href="/profile/posta">Profil › E-pošta za slanje akata</a>.</div>{{end}}
+{{if .LozinkaOdbijena}}<div class="alert alert-error">Poslužitelj je odbio vašu lozinku e-pošte; <a href="/profile/posta">upišite novu</a>.</div>{{end}}
+
+<section class="detail-section" style="margin-top:0; max-width:52rem;">
+  <form method="POST" action="/posta/novo" enctype="multipart/form-data">
+    <input type="hidden" name="odgovor_na" value="{{.Novo.OdgovorNa}}">
+    {{range .Novo.Proslijedi}}<input type="hidden" name="proslijedi" value="{{.}}">{{end}}
+    <div class="form-group">
+      <label class="form-label" for="za">Za</label>
+      <input class="form-control" id="za" name="za" value="{{.Novo.Za}}" required placeholder="adrese odvojene zarezom" autocapitalize="off" spellcheck="false">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="kopija">Kopija</label>
+      <input class="form-control" id="kopija" name="kopija" value="{{.Novo.Kopija}}" placeholder="neobvezno" autocapitalize="off" spellcheck="false">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="predmet">Predmet</label>
+      <input class="form-control" id="predmet" name="predmet" value="{{.Novo.Predmet}}" required>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="tekst">Tekst</label>
+      <textarea class="form-control" id="tekst" name="tekst" rows="14">{{.Novo.Tekst}}</textarea>
+    </div>
+    {{with .Izvorno}}{{if and .Privitci (eq $.Nacin "proslijedi")}}
+    <p class="form-help">Prosljeđuju se i privitci: {{range $i, $p := .Privitci}}{{if $i}}, {{end}}{{$p.Ime}}{{end}}.</p>
+    {{end}}{{end}}
+    <div class="form-group">
+      <label class="form-label" for="privitak">Privitci</label>
+      <input type="file" class="form-control" id="privitak" name="privitak" multiple>
+      <div class="form-help">Ukupno do 32 MB.</div>
+    </div>
+    <div class="form-actions" style="display:flex; gap:0.5rem;">
+      <button type="submit" class="btn btn-primary">{{icon "mail"}} Pošalji</button>
+      <a href="/posta" class="btn btn-secondary">Odustani</a>
+    </div>
+  </form>
+</section>
+{{end}}
