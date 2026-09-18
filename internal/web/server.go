@@ -198,7 +198,24 @@ func templateFuncs() template.FuncMap {
 				n := int(math.Round(v))
 				cm = &n
 			}
-			return protokIzKrivulje(krivulje, kad, cm)
+			q, _ := protokIzKrivulje(krivulje, kad, cm)
+			return q
+		},
+		"prosirenjeKrivulje": func() int { return models.ProsirenjeKrivuljeCm },
+		// je li procjena protoka produljenje krivulje preko umjerenog raspona
+		"protokIzvan": func(krivulje []models.HQKrivulja, kad time.Time, vodostaj any) bool {
+			var cm *int
+			switch v := vodostaj.(type) {
+			case *int:
+				cm = v
+			case int:
+				cm = &v
+			case float64:
+				n := int(math.Round(v))
+				cm = &n
+			}
+			_, izvan := protokIzKrivulje(krivulje, kad, cm)
+			return izvan
 		},
 		// razmak za crtanje: širina umanjena za desni rub
 		"sub": func(a, b int) int { return a - b },

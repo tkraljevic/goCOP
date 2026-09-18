@@ -93,7 +93,7 @@
         <label class="form-label" for="flow_m3s">Izmjereni protok (m³/s)</label>
         <input type="text" inputmode="decimal" id="flow_m3s" name="flow_m3s" class="form-control level-input"
                value="{{if .Reading.FlowM3s}}{{brojHRf (deref .Reading.FlowM3s) 1}}{{end}}" placeholder="npr. 1250">
-        <div class="form-help">Iz hidrometrijskog mjerenja. {{if .ImaKrivulju}}Procjena iz HQ krivulje računa se sama uz svaki vodostaj{{if .ProtokIzKrivulje}}; za zadnje očitanje daje <strong>{{.ProtokIzKrivulje}} m³/s</strong>{{end}}.{{else}}Ova letva nema krivulju protoka, pa se protok zna samo kad se izmjeri.{{end}}</div>
+        <div class="form-help">Iz hidrometrijskog mjerenja. {{if .ImaKrivulju}}Procjena iz HQ krivulje računa se sama uz svaki vodostaj{{if .ProtokIzKrivulje}}; za zadnje očitanje daje <strong>{{.ProtokIzKrivulje}} m³/s</strong>{{if .ProtokIzvan}}, uz upozorenje da je vodostaj izvan raspona krivulje{{end}}{{end}}.{{else}}Ova letva nema krivulju protoka, pa se protok zna samo kad se izmjeri.{{end}}</div>
       </div>
     </div>
   </div>
