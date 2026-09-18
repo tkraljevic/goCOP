@@ -34,7 +34,22 @@
     </div>
     <div class="form-group">
       <label class="form-label" for="tekst">Tekst</label>
+      <div class="urednik" id="urednik" hidden>
+        <div class="urednik-alat" role="toolbar">
+          <button type="button" data-cmd="bold" title="Podebljano (Ctrl+B)"><b>B</b></button>
+          <button type="button" data-cmd="italic" title="Kurziv (Ctrl+I)"><i>I</i></button>
+          <button type="button" data-cmd="underline" title="Podcrtano (Ctrl+U)"><u>U</u></button>
+          <span class="urednik-crta"></span>
+          <button type="button" data-cmd="insertUnorderedList" title="Popis">• popis</button>
+          <button type="button" data-cmd="insertOrderedList" title="Numerirani popis">1. popis</button>
+          <span class="urednik-crta"></span>
+          <button type="button" data-cmd="createLink" title="Poveznica">{{icon "link"}}</button>
+          <button type="button" data-cmd="removeFormat" title="Ukloni oblikovanje">{{icon "x"}}</button>
+        </div>
+        <div class="urednik-polje form-control" id="urednik-polje" contenteditable="true" spellcheck="true"></div>
+      </div>
       <textarea class="form-control" id="tekst" name="tekst" rows="14">{{.Novo.Tekst}}</textarea>
+      <input type="hidden" name="html" id="html">
     </div>
     {{with .Izvorno}}{{if and .Privitci (eq $.Nacin "proslijedi")}}
     <p class="form-help">Prosljeđuju se i privitci: {{range $i, $p := .Privitci}}{{if $i}}, {{end}}{{$p.Ime}}{{end}}.</p>
@@ -50,4 +65,43 @@
     </div>
   </form>
 </section>
+<script>
+  (function () {
+    var urednik = document.getElementById('urednik');
+    var polje = document.getElementById('urednik-polje');
+    var tekst = document.getElementById('tekst');
+    var html = document.getElementById('html');
+    if (!urednik || !polje || !('contentEditable' in polje)) return;
+    // tekst iz obrasca (odgovor, prosljeđivanje) postaje oblikovani sadržaj:
+    // navod izvornog pisma ide u blockquote
+    function escape(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+    var dijelovi = tekst.value.split(/\n\n-{40}\n/);
+    var uvod = escape(dijelovi[0] || '').replace(/\n/g, '<br>');
+    var sadrzaj = '<p>' + (uvod || '<br>') + '</p>';
+    if (dijelovi.length > 1) sadrzaj += '<blockquote>' + escape(dijelovi.slice(1).join('\n')).replace(/\n/g, '<br>') + '</blockquote>';
+    polje.innerHTML = sadrzaj;
+    urednik.hidden = false;
+    tekst.hidden = true;
+    tekst.required = false;
+    urednik.querySelectorAll('button[data-cmd]').forEach(function (b) {
+      b.addEventListener('mousedown', function (e) { e.preventDefault(); });
+      b.addEventListener('click', function () {
+        var cmd = b.dataset.cmd;
+        if (cmd === 'createLink') {
+          var url = prompt('Adresa poveznice (https://…):');
+          if (!url) return;
+          document.execCommand('createLink', false, url);
+        } else {
+          document.execCommand(cmd, false, null);
+        }
+        polje.focus();
+      });
+    });
+    polje.closest('form').addEventListener('submit', function () {
+      html.value = polje.innerHTML;
+      tekst.value = polje.innerText;
+    });
+    polje.focus();
+  })();
+</script>
 {{end}}

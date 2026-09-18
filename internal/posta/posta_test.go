@@ -148,3 +148,19 @@ func TestUsporedbaTelefona(t *testing.T) {
 		}
 	}
 }
+
+func TestOblikovanoPismo(t *testing.T) {
+	m := Sastavi(Poruka{Od: mail.Address{Address: "a@voda.hr"}, Za: mail.Address{Address: "b@voda.hr"}, Predmet: "x", Tekst: "Poštovani,\nhvala.", HTML: "<p>Poštovani,</p><p><b>hvala</b>.</p>"})
+	s := string(m)
+	for _, x := range []string{"multipart/mixed", "multipart/alternative", "text/plain; charset=utf-8", "text/html; charset=utf-8", "<b>hvala</b>"} {
+		if !strings.Contains(s, x) {
+			t.Errorf("nema %q:\n%s", x, s)
+		}
+	}
+	if got := OcistiHTML(`<p onclick="x()">a</p><script>zlo()</script><iframe src="x"></iframe>`); got != "<p>a</p>" {
+		t.Errorf("čišćenje: %q", got)
+	}
+	if OcistiHTML("<p><br></p>") != "" {
+		t.Error("prazno oblikovano tijelo mora biti prazno")
+	}
+}

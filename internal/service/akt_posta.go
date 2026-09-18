@@ -391,6 +391,7 @@ type NovoPismo struct {
 	Za, Kopija string // adrese odvojene zarezom
 	Predmet    string
 	Tekst      string
+	HTML       string // oblikovano tijelo iz uređivača; Tekst se tada izvodi iz njega
 	OdgovorNa  string // Message-ID
 	Privitci   []posta.Privitak
 	Proslijedi []string // ID-ovi privitaka iz pisma koje se prosljeđuje
@@ -410,6 +411,12 @@ func (s *AktService) PosaljiPismo(ctx context.Context, u *models.User, n NovoPis
 		return err
 	}
 	m := posta.Poruka{Od: mail.Address{Name: u.FullName, Address: u.Email}, Predmet: strings.TrimSpace(n.Predmet), Tekst: n.Tekst, OdgovorNa: n.OdgovorNa, Privitci: n.Privitci}
+	if h := posta.OcistiHTML(n.HTML); h != "" {
+		m.HTML = h
+		if strings.TrimSpace(m.Tekst) == "" {
+			m.Tekst = posta.TekstIzHTML(h)
+		}
+	}
 	for _, a := range posta.Adrese(n.Za) {
 		m.Primatelji = append(m.Primatelji, mail.Address{Address: a})
 	}

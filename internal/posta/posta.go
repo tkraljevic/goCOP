@@ -82,6 +82,7 @@ type Poruka struct {
 	Kopija     []mail.Address
 	Predmet    string
 	Tekst      string
+	HTML       string // oblikovano tijelo; Tekst je tada inačica za stare klijente
 	Privitci   []Privitak
 	Kad        time.Time
 	OdgovorNa  string // Message-ID pisma na koje se odgovara
@@ -139,14 +140,29 @@ func Sastavi(p Poruka) []byte {
 	zaglavlje("Content-Type", `multipart/mixed; boundary="`+granica+`"`)
 	b.WriteString("\r\n")
 
+	dioTeksta := func(vrsta, sadrzaj string) {
+		zaglavlje("Content-Type", vrsta+"; charset=utf-8")
+		zaglavlje("Content-Transfer-Encoding", "quoted-printable")
+		b.WriteString("\r\n")
+		qp := quotedprintable.NewWriter(&b)
+		_, _ = qp.Write([]byte(strings.ReplaceAll(strings.ReplaceAll(sadrzaj, "\r\n", "\n"), "\n", "\r\n")))
+		_ = qp.Close()
+		b.WriteString("\r\n")
+	}
 	fmt.Fprintf(&b, "--%s\r\n", granica)
-	zaglavlje("Content-Type", "text/plain; charset=utf-8")
-	zaglavlje("Content-Transfer-Encoding", "quoted-printable")
-	b.WriteString("\r\n")
-	qp := quotedprintable.NewWriter(&b)
-	_, _ = qp.Write([]byte(strings.ReplaceAll(strings.ReplaceAll(p.Tekst, "\r\n", "\n"), "\n", "\r\n")))
-	_ = qp.Close()
-	b.WriteString("\r\n")
+	if p.HTML != "" {
+		// oblikovano pismo: tekst i HTML kao alternative, klijent bira
+		alt := nasumicno(12)
+		zaglavlje("Content-Type", `multipart/alternative; boundary="`+alt+`"`)
+		b.WriteString("\r\n")
+		fmt.Fprintf(&b, "--%s\r\n", alt)
+		dioTeksta("text/plain", p.Tekst)
+		fmt.Fprintf(&b, "--%s\r\n", alt)
+		dioTeksta("text/html", "<html><body>"+p.HTML+"</body></html>")
+		fmt.Fprintf(&b, "--%s--\r\n", alt)
+	} else {
+		dioTeksta("text/plain", p.Tekst)
+	}
 
 	for _, pr := range p.Privitci {
 		vrsta := pr.Vrsta

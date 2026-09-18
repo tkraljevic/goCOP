@@ -312,7 +312,10 @@ func (h *AktiHandler) HandlePosaljiPismo(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	n := service.NovoPismo{Za: r.FormValue("za"), Kopija: r.FormValue("kopija"), Predmet: r.FormValue("predmet"), Tekst: r.FormValue("tekst"),
-		OdgovorNa: r.FormValue("odgovor_na"), Proslijedi: r.Form["proslijedi"]}
+		HTML: r.FormValue("html"), OdgovorNa: r.FormValue("odgovor_na"), Proslijedi: r.Form["proslijedi"]}
+	if n.HTML != "" {
+		n.Tekst = "" // tekst se izvodi iz oblikovanog tijela
+	}
 	if r.MultipartForm != nil {
 		for _, fh := range r.MultipartForm.File["privitak"] {
 			f, err := fh.Open()

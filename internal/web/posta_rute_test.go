@@ -296,6 +296,7 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	_ = mwP.WriteField("za", "signator@voda.hr, kolega@voda.hr")
 	_ = mwP.WriteField("predmet", "RE: Signator: dokument je potpisan")
 	_ = mwP.WriteField("tekst", "Hvala, učitano.")
+	_ = mwP.WriteField("html", "<p>Hvala, <b>učitano</b>.</p><script>x()</script>")
 	_ = mwP.WriteField("odgovor_na", "<sig-1@voda.hr>")
 	fwP, _ := mwP.CreateFormFile("privitak", "biljeska.txt")
 	_, _ = fwP.Write([]byte("bilješka"))
@@ -307,6 +308,9 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	}
 	poslano := srv.Poruke()
 	zadnje := poslano[len(poslano)-1].Podaci
+	if !strings.Contains(zadnje, "multipart/alternative") || !strings.Contains(zadnje, "<b>u=C4=8Ditano</b>") || strings.Contains(zadnje, "<script>") || !strings.Contains(zadnje, "Hvala, u=C4=8Ditano.") {
+		t.Errorf("oblikovani odgovor:\n%.1200s", zadnje)
+	}
 	if !strings.Contains(zadnje, "To: <signator@voda.hr>, <kolega@voda.hr>") || !strings.Contains(zadnje, "In-Reply-To: <sig-1@voda.hr>") || !strings.Contains(zadnje, `filename="biljeska.txt"`) {
 		t.Errorf("poslani odgovor:\n%.800s", zadnje)
 	}

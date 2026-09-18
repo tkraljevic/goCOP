@@ -262,6 +262,30 @@ func ewsSirovo(ctx context.Context, p Postavke, r Racun, tijelo string) ([]byte,
 	return podaci, nil
 }
 
+// TekstIzHTML grubo izvuče tekst iz HTML-a, za tekstnu inačicu pisma
+func TekstIzHTML(h string) string { return tekstIzHTML(h) }
+
+// OcistiHTML miče iz oblikovanog pisma što u pismo ne spada: skripte,
+// stilove, okvire i rukovatelje događaja
+func OcistiHTML(h string) string {
+	h = strings.TrimSpace(h)
+	if h == "" {
+		return ""
+	}
+	h = reScript.ReplaceAllString(h, "")
+	h = reOpasno.ReplaceAllString(h, "")
+	h = reOnAtr.ReplaceAllString(h, "")
+	if strings.TrimSpace(tekstIzHTML(h)) == "" && !strings.Contains(h, "<img") {
+		return ""
+	}
+	return h
+}
+
+var (
+	reOpasno = regexp.MustCompile(`(?is)<(iframe|object|embed|form|meta|link)[^>]*>.*?</(iframe|object|embed|form)>|<(iframe|object|embed|form|meta|link)[^>]*/?>`)
+	reOnAtr  = regexp.MustCompile(`(?i)\s+on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)`)
+)
+
 // tekstIzHTML grubo izvuče tekst iz HTML-a, za navod u odgovoru
 func tekstIzHTML(h string) string {
 	h = reScript.ReplaceAllString(h, "")
