@@ -566,6 +566,8 @@ func InitSchema(database *sql.DB) error {
 			measured_at DATETIME NOT NULL,
 			level_cm INTEGER,
 			level2_cm INTEGER,
+			temp_c REAL,
+			flow_m3s REAL,
 			source TEXT NOT NULL DEFAULT 'RUČNO',
 			origin TEXT NOT NULL DEFAULT '',
 			quality TEXT NOT NULL DEFAULT '',
@@ -948,6 +950,9 @@ func migrateSchema(database *sql.DB) error {
 		// Uloženo očitanje prestaje se sinkronizirati i smije se zaboraviti —
 		// isto stoji u arhivi, u 48 bajta umjesto 1.360.
 		{"readings", "izdanje", "TEXT NOT NULL DEFAULT ''"},
+		// temperatura vode i izmjereni protok uz očitanje vodostaja
+		{"readings", "temp_c", "REAL"},
+		{"readings", "flow_m3s", "REAL"},
 		{"journals", "channel", "TEXT NOT NULL DEFAULT ''"},
 		{"journals", "dezurni_id", "TEXT NOT NULL DEFAULT ''"},
 		{"journals", "dezurni_ime", "TEXT NOT NULL DEFAULT ''"},

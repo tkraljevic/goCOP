@@ -16,7 +16,7 @@ import (
 // EntityReadings je naziv entiteta očitanja u knjizi verzija
 const EntityReadings = "readings"
 
-const readingColumns = `id, station_id, structure_id, measured_at, level_cm, level2_cm, source, origin, source_ref,
+const readingColumns = `id, station_id, structure_id, measured_at, level_cm, level2_cm, temp_c, flow_m3s, source, origin, source_ref,
 	quality, derived_from, method,
 	observer, user_id, structure_state, gate, ag_hours_1, ag_hours_2, ag_hours_3, note, vrsta_biljeske, izdanje,
 	created_at, updated_at`
@@ -49,7 +49,7 @@ func readingChannel(ctx context.Context, q rowQuerier, rd *models.Reading) strin
 
 func readingArgs(rd *models.Reading) []any {
 	return []any{
-		rd.ID.String(), rd.StationID, rd.StructureID, rd.MeasuredAt.UTC(), rd.LevelCm, rd.Level2Cm,
+		rd.ID.String(), rd.StationID, rd.StructureID, rd.MeasuredAt.UTC(), rd.LevelCm, rd.Level2Cm, rd.TempC, rd.FlowM3s,
 		rd.Source, rd.Origin, rd.SourceRef, rd.Quality, rd.DerivedFrom, rd.Method,
 		rd.Observer, rd.UserID, rd.StructureState, rd.Gate,
 		rd.AgHours1, rd.AgHours2, rd.AgHours3, rd.Note, rd.VrstaBiljeske, rd.Izdanje, rd.CreatedAt.UTC(), rd.UpdatedAt.UTC(),
@@ -60,7 +60,8 @@ func scanReading(scanner interface{ Scan(...any) error }) (models.Reading, error
 	var rd models.Reading
 	var id string
 	var level, level2, ag1, ag2, ag3 sql.NullInt64
-	err := scanner.Scan(&id, &rd.StationID, &rd.StructureID, &rd.MeasuredAt, &level, &level2,
+	var temp, flow sql.NullFloat64
+	err := scanner.Scan(&id, &rd.StationID, &rd.StructureID, &rd.MeasuredAt, &level, &level2, &temp, &flow,
 		&rd.Source, &rd.Origin, &rd.SourceRef, &rd.Quality, &rd.DerivedFrom, &rd.Method,
 		&rd.Observer, &rd.UserID, &rd.StructureState, &rd.Gate,
 		&ag1, &ag2, &ag3, &rd.Note, &rd.VrstaBiljeske, &rd.Izdanje, &rd.CreatedAt, &rd.UpdatedAt)
@@ -73,7 +74,17 @@ func scanReading(scanner interface{ Scan(...any) error }) (models.Reading, error
 	rd.AgHours1 = nullInt(ag1)
 	rd.AgHours2 = nullInt(ag2)
 	rd.AgHours3 = nullInt(ag3)
+	rd.TempC = nullFloat(temp)
+	rd.FlowM3s = nullFloat(flow)
 	return rd, nil
+}
+
+func nullFloat(n sql.NullFloat64) *float64 {
+	if !n.Valid {
+		return nil
+	}
+	v := n.Float64
+	return &v
 }
 
 func nullInt(n sql.NullInt64) *int {
@@ -214,7 +225,7 @@ func (r *ReadingRepository) Create(ctx context.Context, rd *models.Reading) erro
 	}
 	defer tx.Rollback()
 	if _, err := tx.ExecContext(ctx, `INSERT INTO readings (`+readingColumns+`)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, readingArgs(rd)...); err != nil {
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, readingArgs(rd)...); err != nil {
 		return fmt.Errorf("greška pri upisu očitanja: %w", err)
 	}
 	channel := readingChannel(ctx, tx, rd)
@@ -239,10 +250,10 @@ func (r *ReadingRepository) Update(ctx context.Context, rd *models.Reading) erro
 		return err
 	}
 	defer tx.Rollback()
-	res, err := tx.ExecContext(ctx, `UPDATE readings SET measured_at = ?, level_cm = ?, level2_cm = ?, source = ?,
+	res, err := tx.ExecContext(ctx, `UPDATE readings SET measured_at = ?, level_cm = ?, level2_cm = ?, temp_c = ?, flow_m3s = ?, source = ?,
 		observer = ?, structure_state = ?, gate = ?, ag_hours_1 = ?, ag_hours_2 = ?, ag_hours_3 = ?, note = ?, updated_at = ?
 		WHERE id = ?`,
-		rd.MeasuredAt.UTC(), rd.LevelCm, rd.Level2Cm, rd.Source, rd.Observer, rd.StructureState, rd.Gate,
+		rd.MeasuredAt.UTC(), rd.LevelCm, rd.Level2Cm, rd.TempC, rd.FlowM3s, rd.Source, rd.Observer, rd.StructureState, rd.Gate,
 		rd.AgHours1, rd.AgHours2, rd.AgHours3, rd.Note, rd.UpdatedAt, rd.ID.String())
 	if err != nil {
 		return fmt.Errorf("greška pri izmjeni očitanja: %w", err)
@@ -316,7 +327,7 @@ func (r *ReadingRepository) ImportBatch(ctx context.Context, readings []models.R
 	}
 	defer tx.Rollback()
 	stmt, err := tx.PrepareContext(ctx, `INSERT OR IGNORE INTO readings (`+readingColumns+`)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return 0, err
 	}

@@ -77,6 +77,10 @@ type KoritoCrtez struct {
 	VodaNatpis        string  // vodostaj i kota, ispisani na samoj plohi
 	VodaNatpisX       float64
 	VodaNatpisSidro   string
+	// Protok ispisan ispod natpisa vode, u vodi kad je ima dovoljno, inače
+	// iznad; prazno kad se protok ne zna
+	ProtokNatpis string
+	ProtokDy     float64
 	// Stacionaža krajeva snimka. Koja je to obala izvorne datoteke ne kažu,
 	// pa crtež govori ono što zna: koliko je metara od početka snimanja.
 	PocetakM, KrajM float64
@@ -149,6 +153,20 @@ func (c *KoritoCrtez) NatpisX() float64 { return c.Lijevo + c.SirinaPlohe*0.28 }
 // procjena — pogreška od nekoliko postotaka ne mijenja odluku sudaraju li se.
 func sirinaNatpisa(tekst string, font float64) float64 {
 	return float64(utf8.RuneCountInString(tekst)) * font * 0.55
+}
+
+// postaviProtok stavlja natpis protoka uz natpis vode: u vodu kad je
+// dovoljno duboka da ga primi, inače iznad, u drugi red
+func (c *KoritoCrtez) postaviProtok(natpis string) {
+	c.ProtokNatpis = natpis
+	if natpis == "" {
+		return
+	}
+	if float64(c.Visina)-c.YVode > 40 {
+		c.ProtokDy = 14
+	} else {
+		c.ProtokDy = -20
+	}
 }
 
 // smjestiVodaNatpis stavlja kotu vodne plohe na sredinu vode, a kad ondje već

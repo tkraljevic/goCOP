@@ -110,6 +110,7 @@ type ReadingsOverviewData struct {
 	CurrentUser    *models.User
 	Permissions    *models.UserPermissions
 	Gauges         []models.GaugeSummary
+	Protok         map[string]string // procjena ili mjerenje protoka po ključu letve, samo gdje ga ima
 	Sectors        []models.Sector
 	Areas          []models.Area
 	SelectedSector string
@@ -197,6 +198,10 @@ type ReadingFormData struct {
 	States      []string
 	Gates       []string
 	Latest      *models.Reading
+	// Procjena protoka iz HQ krivulje za zadnje očitanje: kartica Protok tako
+	// pokaže što bi krivulja rekla, da se izmjereno ima s čime usporediti.
+	ProtokIzKrivulje string
+	ImaKrivulju      bool
 
 	SuccessMessage string
 	ErrorMessage   string
@@ -324,6 +329,12 @@ func (h *ReadingsHandler) ShowOverview(w http.ResponseWriter, r *http.Request) {
 		shown = append(shown, g)
 	}
 	data.Gauges, data.Pager = paginate(shown, r, registryPerPage)
+	data.Protok = map[string]string{}
+	for _, g := range data.Gauges {
+		if q := h.protokLetve(ctx, g); q != "" {
+			data.Protok[g.Key] = q
+		}
+	}
 	data.TotalCount, _, data.LastAt, _ = h.readingService.Stats(ctx)
 	if err := h.tmplOverview.ExecuteTemplate(w, "readings.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -603,6 +614,18 @@ func (h *ReadingsHandler) koritoUzGraf(ctx context.Context, data *ReadingHistory
 	data.Profil = &profil
 	data.Korito = crtajKoritoP(profil, *zadnji.LevelCm, sirokoKorito.sKoritom(pragovi, najn, najv).uSustavu(*data.Station))
 	data.KoritoUzak = crtajKoritoP(profil, *zadnji.LevelCm, uskoKorito.sKoritom(pragovi, najn, najv).uSustavu(*data.Station))
+	// Protok na samoj slici: izmjeren ako ga očitanje nosi, inače iz krivulje
+	natpis := ""
+	if zadnji.FlowM3s != nil {
+		natpis = "Q " + brojHRf(*zadnji.FlowM3s, 0) + " m³/s izmjereno"
+	} else if q := protokIzKrivulje(data.Krivulje, zadnji.LocalTime(), zadnji.LevelCm); q != "" {
+		natpis = "Q ≈ " + q + " m³/s iz krivulje"
+	}
+	for _, k := range []*KoritoCrtez{data.Korito, data.KoritoUzak} {
+		if k != nil {
+			k.postaviProtok(natpis)
+		}
+	}
 	data.KoritoOpis = fmt.Sprintf("%d cm, %s", *zadnji.LevelCm,
 		zadnji.LocalTime().Format("2.1.2006. 15:04"))
 }
@@ -682,6 +705,14 @@ func (h *ReadingsHandler) ShowForm(w http.ResponseWriter, r *http.Request) {
 	}
 	data.IsField = u != nil && u.IsFieldUser()
 	data.LocalValue = rd.MeasuredAt.In(models.Zagreb).Format("2006-01-02T15:04")
+	if a := h.arh(); a != nil && data.Station != nil && data.Station.Code != "" {
+		if krivulje, _ := a.Krivulje(ctx, data.Station.Code); len(krivulje) > 0 {
+			data.ImaKrivulju = true
+			if data.Latest != nil {
+				data.ProtokIzKrivulje = protokIzKrivulje(krivulje, data.Latest.LocalTime(), data.Latest.LevelCm)
+			}
+		}
+	}
 
 	if err := h.tmplForm.ExecuteTemplate(w, "reading_form.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -744,7 +775,70 @@ func readingFromForm(r *http.Request) (*models.Reading, error) {
 	if rd.AgHours3, err = parseOptionalInt(r.FormValue("ag_hours_3")); err != nil {
 		return nil, fmt.Errorf("agregat 3: %w", err)
 	}
+	if rd.TempC, err = decimalaIzObrasca(r.FormValue("temp_c")); err != nil {
+		return nil, fmt.Errorf("temperatura: %w", err)
+	}
+	if rd.FlowM3s, err = decimalaIzObrasca(r.FormValue("flow_m3s")); err != nil {
+		return nil, fmt.Errorf("protok: %w", err)
+	}
 	return rd, nil
+}
+
+// decimalaIzObrasca čita decimalni broj iz obrasca; prazno je nema, a
+// decimalni zarez vrijedi koliko i točka. Neispravan tekst je greška, ne
+// tiho prazno: krivo utipkana temperatura ne smije nestati.
+func decimalaIzObrasca(s string) (*float64, error) {
+	if strings.TrimSpace(s) == "" {
+		return nil, nil
+	}
+	f, ok := parseBroj(s)
+	if !ok {
+		return nil, fmt.Errorf("„%s“ nije broj", strings.TrimSpace(s))
+	}
+	return &f, nil
+}
+
+// protokIzKrivulje je procjena protoka po HQ krivulji koja je vrijedila u
+// trenutku očitanja, ispisana bez decimala; prazno kad krivulje nema ili
+// vodostaj pada izvan njezinih odsječaka
+func protokIzKrivulje(krivulje []models.HQKrivulja, kad time.Time, cm *int) string {
+	if cm == nil {
+		return ""
+	}
+	k := krivuljaZa(krivulje, kad)
+	if k == nil {
+		return ""
+	}
+	q, ok := k.Protok(*cm)
+	if !ok {
+		return ""
+	}
+	return brojHRf(q, 0)
+}
+
+// protokLetve nalazi krivulje letve u arhivi i vraća procjenu protoka za
+// zadnje očitanje, za pregled svih letvi
+func (h *ReadingsHandler) protokLetve(ctx context.Context, g models.GaugeSummary) string {
+	if g.Latest == nil || g.StationID == "" {
+		return ""
+	}
+	if g.Latest.FlowM3s != nil {
+		return brojHRf(*g.Latest.FlowM3s, 0)
+	}
+	a := h.arh()
+	if a == nil || g.Latest.LevelCm == nil {
+		return ""
+	}
+	id, err := uuid.Parse(g.StationID)
+	if err != nil {
+		return ""
+	}
+	st, err := h.stationService.GetStation(ctx, id)
+	if err != nil || st == nil || st.Code == "" {
+		return ""
+	}
+	krivulje, _ := a.Krivulje(ctx, st.Code)
+	return protokIzKrivulje(krivulje, g.Latest.LocalTime(), g.Latest.LevelCm)
 }
 
 func (h *ReadingsHandler) HandleCreate(w http.ResponseWriter, r *http.Request) {
