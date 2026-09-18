@@ -49,13 +49,13 @@
         <li><a href="/akti/{{$a.ID}}/za-ispis.pdf" target="_blank" class="btn btn-sm btn-secondary">{{icon "printer"}} PDF za ispis</a>
           <div class="form-help">Ispišite, rukovoditelj potpiše, udarite žig i skenirajte.</div></li>
         <li><form method="POST" action="/akti/{{$a.ID}}/sken" enctype="multipart/form-data">
-          <input type="file" name="sken" accept="application/pdf,.pdf,image/jpeg,image/png" required class="form-control">
+          <input type="file" name="sken" accept="application/pdf,.pdf" required class="form-control">
           <select name="potpisnik_id" class="form-control" required>
             <option value="">— tko je potpisao —</option>
             {{range .MoguPotpisati}}<option value="{{.ID}}">{{.FullName}}{{with .PrimaryDuty}} · {{.Title}}{{end}}</option>{{end}}
           </select>
           <button type="submit" class="btn btn-sm btn-secondary">{{icon "upload"}} Učitaj sken</button></form>
-          <div class="form-help">PDF, JPG ili PNG. Sken se ne može provjeriti strojno; ovjera se bilježi na osobu koju odaberete i na onoga tko je sken učitao.</div></li>
+          <div class="form-help">Sken u PDF-u. Potpis na skenu program ne može provjeriti, pa ovjeru bilježi na osobu koju odaberete i na onoga tko je sken učitao.</div></li>
       </ol>
     </div>
   </div>
@@ -99,8 +99,10 @@
 {{with $a.Kvalificirani}}
 <div class="akt-potpis-stanje {{if and $.Izvornik $.Izvornik.Ispravan}}vrijedi{{else}}ne-vrijedi{{end}}">
   {{if and $.Izvornik $.Izvornik.Ispravan}}{{icon "check"}} <strong>Kvalificirano potpisan u SIGNATOR-u:</strong>{{else}}{{icon "triangle-alert"}} <strong>Potpis na izvorniku se ne može potvrditi:</strong>{{end}}
-  {{.Ime}}{{if .OIB}} (OIB …{{slice .OIB 7}}){{end}}, {{formatDate (localTime .Vrijeme)}}. Certifikat izdao {{.Izdavatelj}}, vrijedi do {{.VrijediDo.Format "02.01.2006."}}.
-  Izvornik je potpisani PDF; vratio ga je {{.Ucitao}}. <a href="/akti/{{$a.ID}}/akt.pdf" target="_blank">Otvori izvornik</a>
+  {{.Ime}}{{if .OIB}} (OIB …{{slice .OIB 7}}){{end}}, {{formatDate (localTime .Vrijeme)}}{{with .Razina}}, razina {{.}}{{end}}. Certifikat izdao {{.Izdavatelj}}, vrijedi do {{.VrijediDo.Format "02.01.2006."}}.
+  {{if .VremenskiZig}}Vrijeme je iz vremenskog žiga.{{end}}
+  {{range .Pecati}}<br>Pečat {{.Naziv}}{{with .Razina}} ({{.}}){{end}}, {{formatDate (localTime .Vrijeme)}}{{with .Razlog}}; njime je zapečaćena parafa (jednostavni potpis, SES): {{.}}{{end}}.{{end}}
+  <br>Izvornik je potpisani PDF; vratio ga je {{.Ucitao}}. <a href="/akti/{{$a.ID}}/akt.pdf" target="_blank">Otvori izvornik</a>
   <div class="form-help" style="margin-top:0.25rem;">goCOP je provjerio da je potpis ispravan, kvalificiran i da pokriva cijeli dokument; lanac certifikata i opoziv provjerava čitač PDF-a.</div>
 </div>
 {{end}}

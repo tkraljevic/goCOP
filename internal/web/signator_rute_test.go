@@ -153,7 +153,7 @@ func TestPotpisUSignatoruKrozRute(t *testing.T) {
 		pdf       []byte
 		greska    string
 	}{
-		{"nekvalificiran", "Mile Kunac", false, zaPotpis, "nije kvalificiran"},
+		{"nekvalificiran", "Mile Kunac", false, zaPotpis, "a ne kvalificirani"},
 		{"nepoznat", "Netko Treći", true, zaPotpis, "nije pronađen"},
 		{"bez prava", "Ivo Ivić", true, zaPotpis, "ne smije ovjeriti"},
 		{"drugi dokument", "Mile Kunac", true, []byte("%PDF-1.4\n% drugi\n%%EOF\n"), "nije PDF za potpis"},

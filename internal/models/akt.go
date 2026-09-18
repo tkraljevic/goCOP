@@ -104,15 +104,26 @@ type ZapisZaPotpis struct {
 // KvalificiraniPotpis je potpis iz potpisanog PDF-a, kako ga je goCOP
 // provjerio pri učitavanju
 type KvalificiraniPotpis struct {
-	Ime        string    `json:"ime"`
-	OIB        string    `json:"oib,omitempty"`
-	Izdavatelj string    `json:"izdavatelj"`
-	Serijski   string    `json:"serijski"`
-	VrijediDo  time.Time `json:"vrijedi_do"`
-	Vrijeme    time.Time `json:"vrijeme"` // kad je potpisano
-	Sazetak    string    `json:"sazetak"` // sha256 potpisanog PDF-a
-	Ucitao     string    `json:"ucitao"`  // tko je potpisani PDF vratio u goCOP
-	UcitanoAt  time.Time `json:"ucitano_at"`
+	Ime          string        `json:"ime"`
+	OIB          string        `json:"oib,omitempty"`
+	Izdavatelj   string        `json:"izdavatelj"`
+	Serijski     string        `json:"serijski"`
+	VrijediDo    time.Time     `json:"vrijedi_do"`
+	Vrijeme      time.Time     `json:"vrijeme"`                 // kad je potpisano
+	Razina       string        `json:"razina,omitempty"`        // QES, AdES/QC, AES
+	VremenskiZig bool          `json:"vremenski_zig,omitempty"` // vrijeme je iz vremenskog žiga
+	Pecati       []PecatNaAktu `json:"pecati,omitempty"`        // pečati organizacije u izvorniku (SIGNATOR pečatom bilježi parafu)
+	Sazetak      string        `json:"sazetak"`                 // sha256 potpisanog PDF-a
+	Ucitao       string        `json:"ucitao"`                  // tko je potpisani PDF vratio u goCOP
+	UcitanoAt    time.Time     `json:"ucitano_at"`
+}
+
+// PecatNaAktu je kvalificirani elektronički pečat organizacije u izvorniku
+type PecatNaAktu struct {
+	Naziv   string    `json:"naziv"`            // npr. HRVATSKE VODE
+	Razlog  string    `json:"razlog,omitempty"` // npr. "Mario Spajić 12.02.2026. 07:03" (parafa, jednostavni potpis SES)
+	Razina  string    `json:"razina,omitempty"` // QSeal ili AdES pečat
+	Vrijeme time.Time `json:"vrijeme"`
 }
 
 // RucniPotpis je ispis potpisan vlastoručno i ovjeren žigom, vraćen kao sken
