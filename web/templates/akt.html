@@ -33,13 +33,18 @@
   {{else if not .Posiljatelj}}<div class="alert alert-warning">U vašem profilu nema adrese e-pošte; s nje se akt šalje.</div>
   {{else if not .Racun}}<div class="alert alert-warning">Za slanje upišite lozinku e-pošte: <a href="/profile/posta">Profil › E-pošta za slanje akata</a>.</div>{{end}}
   {{if .Adresati}}
-  <form method="POST" action="/akti/{{$a.ID}}/posalji">
+  <form method="POST" action="/akti/{{$a.ID}}/posalji" id="akt-slanje-obrazac">
+    <div class="alert alert-warning" style="margin:0 0 0.5rem;">{{icon "triangle-alert"}} Ništa se ne šalje dok sami ne označite primatelje. Za probu koristite „Probno samo meni”: stvarnim primateljima ne odlazi ništa.</div>
+    <p class="form-help akt-slanje-odabir">
+      <a href="#" data-odaberi="sve">označi sve</a> · <a href="#" data-odaberi="nista">ništa</a> · <a href="#" data-odaberi="neposlane">samo one kojima još nije poslano</a>
+      <span class="akt-slanje-brojac"></span>
+    </p>
     <table class="table akt-slanje-tablica">
       <thead><tr><th></th><th>Primatelj</th><th>Adresa</th><th>Stanje</th></tr></thead>
       <tbody>
       {{range .Adresati}}
         <tr>
-          <td><input type="checkbox" name="adresa" value="{{.Adresa}}" {{if not .Poslano}}checked{{end}} {{if not $.Slanje.SmijeSlati}}disabled{{end}}></td>
+          <td><input type="checkbox" name="adresa" value="{{.Adresa}}" data-poslano="{{if .Poslano}}1{{else}}0{{end}}" {{if not $.Slanje.SmijeSlati}}disabled{{end}}></td>
           <td>{{.Naziv}}{{with .Skupina}} <span class="form-help">· {{.}}</span>{{end}}</td>
           <td class="mono">{{.Adresa}}</td>
           <td>{{with .Zadnje}}{{if .Uspjelo}}<span class="badge badge-active">poslano</span> {{formatDate (localTime .Kad)}}, {{.Poslao}}{{else}}<span class="badge badge-danger">nije prošlo</span> {{.Greska}}{{end}}{{else}}—{{end}}</td>
@@ -55,10 +60,76 @@
       <p class="form-help">Svaki primatelj dobiva zasebnu poruku, pa ne vidi ostale adrese.</p>
     </details>
     {{if .SmijeSlati}}
+    <div class="form-group adresa-polje" style="margin:0.5rem 0;">
+      <label class="form-label" for="dodatne">Dodatne adrese</label>
+      <input class="form-control" id="dodatne" name="dodatne" placeholder="tko još treba dobiti akt; više adresa odvojite zarezom" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <ul class="adresa-prijedlozi" hidden></ul>
+      <div class="form-help">Adrese koje nisu na popisu „na znanje”. Prijedlozi iz imenika dolaze dok tipkate.</div>
+    </div>
     {{if .SpremaPoslano}}<p class="form-help">Poruke se šalju preko Exchangea kao iz Outlooka i ostaju u vašoj mapi Poslano.</p>
     {{else}}<label class="checkbox-label"><input type="checkbox" name="kopija" value="1" checked> Pošalji kopiju i meni (poslužitelj ne sprema poslanu poštu u Outlookovu mapu Poslano)</label>{{end}}
-    <div style="margin-top:0.5rem;"><button type="submit" class="btn btn-primary" {{if or (not .Podesena) (not .Racun) (not .Posiljatelj)}}disabled{{end}}>{{icon "mail"}} Pošalji odabranima</button>
-      {{if eq .NijePoslanoJos 0}}<span class="form-help">Svim adresama je već poslano; označite koje želite poslati ponovno.</span>{{end}}</div>
+    <div style="margin-top:0.5rem; display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+      <button type="submit" class="btn btn-primary" id="akt-posalji" {{if or (not .Podesena) (not .Racun) (not .Posiljatelj)}}disabled{{end}}>{{icon "mail"}} Pošalji odabranima</button>
+      <button type="submit" class="btn btn-secondary" name="proba" value="1" {{if or (not .Podesena) (not .Racun) (not .Posiljatelj)}}disabled{{end}}>{{icon "user"}} Probno samo meni</button>
+      {{if eq .NijePoslanoJos 0}}<span class="form-help">Svim adresama je već poslano.</span>{{end}}</div>
+    <script>
+      (function () {
+        var f = document.getElementById('akt-slanje-obrazac');
+        var kv = f.querySelectorAll('input[name="adresa"]');
+        var dodatne = document.getElementById('dodatne');
+        var gumb = document.getElementById('akt-posalji');
+        var brojac = f.querySelector('.akt-slanje-brojac');
+        var moze = !gumb.hasAttribute('data-zakljucan') && !gumb.disabled;
+        function osvjezi() {
+          var n = 0; kv.forEach(function (k) { if (k.checked) n++; });
+          var ima = n > 0 || dodatne.value.trim() !== '';
+          if (moze) gumb.disabled = !ima;
+          brojac.textContent = n ? ' · označeno: ' + n : '';
+        }
+        f.querySelectorAll('[data-odaberi]').forEach(function (a) {
+          a.addEventListener('click', function (e) {
+            e.preventDefault();
+            kv.forEach(function (k) { k.checked = a.dataset.odaberi === 'sve' || (a.dataset.odaberi === 'neposlane' && k.dataset.poslano === '0'); });
+            osvjezi();
+          });
+        });
+        kv.forEach(function (k) { k.addEventListener('change', osvjezi); });
+        dodatne.addEventListener('input', osvjezi);
+        f.addEventListener('submit', function (e) {
+          if (e.submitter && e.submitter.name === 'proba') return;
+          var popis = [];
+          kv.forEach(function (k) { if (k.checked) popis.push(k.value); });
+          if (dodatne.value.trim()) popis.push(dodatne.value.trim());
+          if (!popis.length) { e.preventDefault(); alert('Označite primatelje ili upišite adresu.'); return; }
+          if (!confirm('Akt se ŠALJE STVARNIM primateljima:\n\n' + popis.join('\n') + '\n\nPoslati?')) e.preventDefault();
+        });
+        // dopunjavanje dodatnih adresa iz imenika
+        var popisP = f.querySelector('.adresa-prijedlozi'), odgoda;
+        function escape(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+        dodatne.addEventListener('input', function () {
+          var dio = dodatne.value.split(',').pop().trim();
+          clearTimeout(odgoda);
+          if (dio.length < 2) { popisP.hidden = true; return; }
+          odgoda = setTimeout(function () {
+            fetch('/posta/adrese.json?q=' + encodeURIComponent(dio), { credentials: 'same-origin' }).then(function (r) { return r.ok ? r.json() : []; }).then(function (adrese) {
+              if (!adrese.length) { popisP.hidden = true; return; }
+              popisP.innerHTML = adrese.map(function (a) { return '<li><span class="adresa-ime">' + escape(a.ime) + '</span> <span class="adresa-email">' + escape(a.email) + '</span></li>'; }).join('');
+              popisP.hidden = false;
+              popisP.querySelectorAll('li').forEach(function (li, i) {
+                li.addEventListener('mousedown', function (e) {
+                  e.preventDefault();
+                  var d = dodatne.value.split(','); d.pop(); d.push(' ' + adrese[i].email);
+                  dodatne.value = d.map(function (x) { return x.trim(); }).filter(Boolean).join(', ') + ', ';
+                  popisP.hidden = true; osvjezi();
+                });
+              });
+            });
+          }, 200);
+        });
+        dodatne.addEventListener('blur', function () { setTimeout(function () { popisP.hidden = true; }, 150); });
+        osvjezi();
+      })();
+    </script>
     {{end}}
   </form>
   {{else}}

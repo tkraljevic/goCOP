@@ -208,14 +208,34 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 
 	// slanje: jedna adresa je odbijena
 	srv.Odbij = []string{"nema@primjer.hr"}
-	sve := url.Values{"adresa": {"osjecko-baranjska@policija.hr", "kapetanija.osijek@mmpi.hr", "nema@primjer.hr", "tudja@adresa.hr"}, "kopija": {"1"}}
+	// probno slanje ide samo pošiljatelju, ma što bilo označeno
+	if loc := post("/akti/"+id+"/posalji", url.Values{"adresa": {"osjecko-baranjska@policija.hr"}, "proba": {"1"}}); !strings.Contains(loc, "samo vama") {
+		t.Fatalf("probno slanje: %s", loc)
+	}
+	if prim := srv.Poruke(); len(prim) != 1 || prim[0].Za != "voditelj@voda.hr" {
+		t.Fatalf("probno slanje mora otići samo pošiljatelju: %+v", prim)
+	}
+	if sl, _ := aktiRepo.ListSlanja(ctx, id); len(sl) != 0 {
+		t.Error("probno slanje se ne bilježi kao slanje primateljima")
+	}
+	// stvarno slanje: označene adrese i dodatna, jedna odbijena
+	sve := url.Values{"adresa": {"osjecko-baranjska@policija.hr", "kapetanija.osijek@mmpi.hr", "nema@primjer.hr", "tudja@adresa.hr"}, "dodatne": {"dodatni@primjer.hr, kriva adresa"}, "kopija": {"1"}}
 	loc := post("/akti/"+id+"/posalji", sve)
-	if !strings.Contains(loc, "poslan je na 2 adrese") || !strings.Contains(loc, "nema@primjer.hr") || !strings.Contains(loc, "Kopija") {
+	if !strings.Contains(loc, "poslan je na 3 adrese") || !strings.Contains(loc, "nema@primjer.hr") || !strings.Contains(loc, "Kopija") {
 		t.Fatalf("ishod slanja: %s", loc)
 	}
-	prim := srv.Poruke()
-	if len(prim) != 3 {
+	prim := srv.Poruke()[1:] // prva je probna
+	if len(prim) != 4 {
 		t.Fatalf("primljeno %d poruka: %+v", len(prim), prim)
+	}
+	dodatniStigao := false
+	for _, p := range prim {
+		if p.Za == "dodatni@primjer.hr" {
+			dodatniStigao = true
+		}
+	}
+	if !dodatniStigao {
+		t.Error("dodatna adresa nije dobila akt")
 	}
 	for _, p := range prim {
 		if p.Za == "tudja@adresa.hr" {
@@ -229,7 +249,7 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 		t.Error("stranica ne pokazuje stanje slanja")
 	}
 	sl, _ := aktiRepo.ListSlanja(ctx, id)
-	if len(sl) != 3 {
+	if len(sl) != 4 {
 		t.Fatalf("zapisa slanja: %d", len(sl))
 	}
 
