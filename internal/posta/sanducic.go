@@ -144,11 +144,16 @@ type Pismo struct {
 
 // PrivitakPisma je datoteka uz pismo
 type PrivitakPisma struct {
-	ID       string
-	Ime      string
-	Vrsta    string
-	Velicina int
+	ID        string
+	Ime       string
+	Vrsta     string
+	Velicina  int
+	ContentID string // oznaka ugrađene slike (cid:), prazna za obične privitke
+	Ugradjen  bool   // slika koja je dio tijela pisma, npr. logo u potpisu
 }
+
+// JeSlika javlja je li privitak slika
+func (p PrivitakPisma) JeSlika() bool { return strings.HasPrefix(strings.ToLower(p.Vrsta), "image/") }
 
 // JePDF javlja je li privitak PDF, pa može biti potpisani akt
 func (p PrivitakPisma) JePDF() bool {
@@ -191,6 +196,8 @@ type ewsMessage struct {
 		} `xml:"AttachmentId"`
 		Name        string `xml:"Name"`
 		ContentType string `xml:"ContentType"`
+		ContentId   string `xml:"ContentId"`
+		IsInline    bool   `xml:"IsInline"`
 		Size        int    `xml:"Size"`
 	} `xml:"Attachments>FileAttachment"`
 }
@@ -220,9 +227,31 @@ func (m ewsMessage) pismo() Pismo {
 		p.Kopija = append(p.Kopija, adresaSImenom(x))
 	}
 	for _, a := range m.Attachments {
-		p.Privitci = append(p.Privitci, PrivitakPisma{ID: a.AttachmentId.Id, Ime: a.Name, Vrsta: a.ContentType, Velicina: a.Size})
+		pr := PrivitakPisma{ID: a.AttachmentId.Id, Ime: a.Name, Vrsta: a.ContentType, Velicina: a.Size, ContentID: strings.Trim(a.ContentId, "<>")}
+		// ugrađena je slika na koju se tijelo poziva s cid:; poslužitelj je
+		// označi kao IsInline, a i kad ne označi, poziv u tijelu je dokaz
+		if pr.ContentID != "" && (a.IsInline || strings.Contains(p.HTML, "cid:"+pr.ContentID)) {
+			pr.Ugradjen = true
+		}
+		p.Privitci = append(p.Privitci, pr)
 	}
 	return p
+}
+
+// UgradiSlike zamjenjuje u HTML-u pozive cid: adresama s kojih se privitci
+// poslužuju, pa se ugrađene slike (logo, potpis) vide u pismu
+func (p *Pismo) UgradiSlike(adresa func(privitakID string) string) {
+	if p.HTML == "" {
+		return
+	}
+	for _, pr := range p.Privitci {
+		if pr.ContentID == "" {
+			continue
+		}
+		for _, oblik := range []string{`"cid:` + pr.ContentID + `"`, `'cid:` + pr.ContentID + `'`} {
+			p.HTML = strings.ReplaceAll(p.HTML, oblik, `"`+adresa(pr.ID)+`"`)
+		}
+	}
 }
 
 func adresaSImenom(m ewsMailbox) string {
