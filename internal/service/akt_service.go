@@ -272,6 +272,59 @@ func (s *AktService) primatelji(ctx context.Context, a *models.Akt) []models.Akt
 		out = append(out, models.AktPrimatelj{Naziv: naziv, Email: strings.TrimSpace(email), Skupina: skupina})
 	}
 
+	// ugroženo područje dionica: županije, gradovi i općine
+	zupanije := map[int]string{}
+	var zupRed []int
+	opcineUgrozene := map[int]bool{}
+	var opcine []models.SectionTerritory
+	if s.territories != nil {
+		for _, d := range a.Dionice {
+			ter, err := s.territories.GetSectionTerritories(ctx, d.Code)
+			if err != nil {
+				continue
+			}
+			for _, t := range ter {
+				if _, ok := zupanije[t.CountyID]; !ok {
+					zupRed = append(zupRed, t.CountyID)
+				}
+				zupanije[t.CountyID] = t.CountyName
+				if !opcineUgrozene[t.MunicipalityID] {
+					opcine = append(opcine, t)
+				}
+				opcineUgrozene[t.MunicipalityID] = true
+			}
+		}
+	}
+
+	// službe županija ugroženog područja, za svaki stupanj: civilna zaštita
+	// s prevencijom i 112 kao podstavkama, policija, lučke kapetanije
+	for _, id := range zupRed {
+		sluzbe, err := s.territories.ListSluzbe(ctx, id)
+		if err != nil {
+			continue
+		}
+		sort.SliceStable(sluzbe, func(i, j int) bool {
+			if models.RedVrste(sluzbe[i].Vrsta) != models.RedVrste(sluzbe[j].Vrsta) {
+				return models.RedVrste(sluzbe[i].Vrsta) < models.RedVrste(sluzbe[j].Vrsta)
+			}
+			return sluzbe[i].Redoslijed < sluzbe[j].Redoslijed
+		})
+		imaCZ := false
+		for _, x := range sluzbe {
+			if x.MunicipalityID != 0 && !opcineUgrozene[x.MunicipalityID] {
+				continue
+			}
+			naziv := x.Naziv
+			if x.Vrsta == models.SluzbaCivilnaZastita {
+				imaCZ = true
+			}
+			if imaCZ && models.PodCivilnomZastitom(x.Vrsta) {
+				naziv = "– " + naziv
+			}
+			dodaj(models.SkupinaSluzbe, naziv, x.Email)
+		}
+	}
+
 	// registar: sektor i područje, od stupnja
 	if reg, err := s.repo.ListPrimatelji(ctx, a.Sektor); err == nil {
 		sort.SliceStable(reg, func(i, j int) bool {
@@ -299,21 +352,10 @@ func (s *AktService) primatelji(ctx context.Context, a *models.Akt) []models.Akt
 			}
 		}
 	}
-	// županije i općine ugroženih područja, od izvanrednog stanja
+	// župan, gradovi i općine ugroženih područja, od izvanrednog stanja
 	if a.Stupanj == models.PhaseState && s.territories != nil {
-		zupanije := map[int]string{}
-		var opcine []models.SectionTerritory
-		for _, d := range a.Dionice {
-			ter, err := s.territories.GetSectionTerritories(ctx, d.Code)
-			if err != nil {
-				continue
-			}
-			for _, t := range ter {
-				zupanije[t.CountyID] = t.CountyName
-				opcine = append(opcine, t)
-			}
-		}
-		for id, naziv := range zupanije {
+		for _, id := range zupRed {
+			naziv := zupanije[id]
 			email := ""
 			if c, err := s.territories.GetCountyByID(ctx, id); err == nil && c != nil {
 				email = c.Email

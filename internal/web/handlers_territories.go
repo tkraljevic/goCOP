@@ -18,6 +18,7 @@ type TerritoriesHandler struct {
 	tmplCountyForm   *template.Template
 	tmplMuniForm     *template.Template
 	tmplMuniDetail   *template.Template
+	tmplCounty       *template.Template
 }
 
 func NewTerritoriesHandler(
@@ -43,6 +44,7 @@ type TerritoriesPageData struct {
 	TotalMunis       int
 	TotalCities      int
 	TotalSettlements int
+	BrojSluzbi       map[int]int // službe po županiji, za karticu
 	SuccessMessage   string
 	ErrorMessage     string
 	ActiveNav        string
@@ -104,6 +106,7 @@ func (h *TerritoriesHandler) ShowTerritories(w http.ResponseWriter, r *http.Requ
 		ViewAsBanner:     viewBanner(r),
 	}
 
+	data.BrojSluzbi = h.territoryService.BrojSluzbi(ctx)
 	if err := h.tmpl.Execute(w, data); err != nil {
 		http.Error(w, "Greška renderiranja: "+err.Error(), http.StatusInternalServerError)
 	}

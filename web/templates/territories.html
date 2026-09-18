@@ -190,7 +190,7 @@
         </div>
 
         <h3 style="font-size: 1.125rem; font-weight: 700; color: var(--secondary); margin-bottom: 0.75rem;">
-          {{.Name}}
+          <a href="/territories/counties/{{.ID}}" style="color:inherit; text-decoration:none;">{{.Name}}</a>
         </h3>
 
         <div style="display: flex; flex-direction: column; gap: 0.4rem; font-size: 0.875rem; margin-bottom: 1rem;">
@@ -228,8 +228,12 @@
           </a>
           {{end}}
         </div>
-        <a href="/territories?tab=municipalities&county_id={{.ID}}" class="btn btn-secondary btn-sm" style="font-size: 0.8125rem;">
-          Prikaži gradove i općine {{icon "arrow-right"}}         </a>
+        <span style="display:flex; gap:0.4rem; flex-wrap:wrap;">
+          <a href="/territories/counties/{{.ID}}" class="btn btn-secondary btn-sm" style="font-size: 0.8125rem;" title="civilna zaštita, 112, policija, lučke kapetanije">
+            {{icon "phone"}} Službe{{with index $.BrojSluzbi .ID}} ({{.}}){{end}}</a>
+          <a href="/territories?tab=municipalities&county_id={{.ID}}" class="btn btn-secondary btn-sm" style="font-size: 0.8125rem;">
+            Gradovi i općine {{icon "arrow-right"}}</a>
+        </span>
       </div>
     </div>
     {{end}}

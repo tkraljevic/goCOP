@@ -1,0 +1,65 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — {{.County.Name}}{{end}}
+
+{{define "content"}}
+<div class="breadcrumb"><a href="/territories">Teritorijalne jedinice</a> › {{.County.Name}}</div>
+
+<div class="detail-head">
+  <div>
+    <h1 class="page-title">{{icon "landmark"}} {{.County.Name}}</h1>
+    <p class="page-desc">{{if .County.Seat}}Sjedište {{.County.Seat}}{{end}}{{if .County.Prefect}} · župan/ica {{.County.Prefect}}{{end}}{{if .County.Email}} · <a href="mailto:{{.County.Email}}">{{.County.Email}}</a>{{end}}</p>
+  </div>
+  <div class="detail-actions">
+    {{if .Permissions.IsGlobalAdmin}}<a href="/territories/counties/{{.County.ID}}/edit" class="btn btn-secondary">{{icon "pencil"}} Uredi županiju</a>{{end}}
+    <a href="/territories?tab=municipalities&county_id={{.County.ID}}" class="btn btn-secondary">Gradovi i općine {{icon "arrow-right"}}</a>
+  </div>
+</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
+
+<section class="detail-section" style="margin-top:0;">
+  <h2>{{icon "phone"}} Službe <span class="reg-chip">{{len .Sluzbe}}</span></h2>
+  <p class="form-help" style="margin:0 0 0.75rem;">Kontakti koje rješenja i obavijesti o obrani obavještavaju kad dionica ima ugroženo područje u ovoj županiji:
+    područni ured civilne zaštite sa službom za prevenciju i pripravnost i županijskim centrom 112, policijska uprava i postaje, lučke kapetanije.
+    Služba vezana uz grad ili općinu, npr. policijska postaja, ide na akt samo kad je taj grad ili općina ugroženo područje.</p>
+  {{if .Sluzbe}}
+  <div class="table-card"><div class="table-responsive"><table class="data-table">
+    <thead><tr><th>Vrsta</th><th>Naziv</th><th>E-pošta</th><th>Telefon</th><th>Vrijedi za</th>{{if .SmijeSluzbe}}<th></th>{{end}}</tr></thead>
+    <tbody>{{range .Sluzbe}}
+      <tr><td>{{sluzbaLabel .Vrsta}}</td><td>{{.Naziv}}{{if .Napomena}}<div class="form-help">{{.Napomena}}</div>{{end}}</td><td class="mono">{{.Email}}</td><td class="mono">{{.Phone}}</td>
+        <td>{{if .MunicipalityID}}{{.MunicipalityName}}{{else}}cijela županija{{end}}</td>
+        {{if $.SmijeSluzbe}}<td class="radnje" style="white-space:nowrap;">
+          <a href="/territories/counties/{{$.County.ID}}?uredi={{.ID}}#sluzba" class="btn btn-sm btn-secondary" title="Uredi">{{icon "pencil"}}</a>
+          <form method="POST" action="/territories/counties/{{$.County.ID}}/sluzbe/{{.ID}}/obrisi" style="display:inline;" onsubmit="return confirm('Obrisati {{.Naziv}}?');"><button type="submit" class="btn btn-sm btn-secondary" title="Obriši">{{icon "x"}}</button></form>
+        </td>{{end}}</tr>{{end}}
+    </tbody>
+  </table></div></div>
+  {{else}}<div class="reg-empty">Još nije upisana nijedna služba.</div>{{end}}
+</section>
+
+{{if .SmijeSluzbe}}
+<section class="detail-section" id="sluzba">
+  <h2>{{if .Sluzba}}{{icon "pencil"}} Uredi službu{{else}}{{icon "plus"}} Nova služba{{end}}</h2>
+  <form method="POST" action="/territories/counties/{{.County.ID}}/sluzbe" class="form-page">
+    {{with .Sluzba}}<input type="hidden" name="sluzba_id" value="{{.ID}}">{{end}}
+    <div class="form-row">
+      <div class="form-group"><label class="form-label" for="vrsta">Vrsta *</label>
+        <select id="vrsta" name="vrsta" class="form-control" required>{{range .VrsteSluzbi}}<option value="{{.}}"{{if $.Sluzba}}{{if eq . $.Sluzba.Vrsta}} selected{{end}}{{end}}>{{sluzbaLabel .}}</option>{{end}}</select></div>
+      <div class="form-group"><label class="form-label" for="naziv">Naziv</label>
+        <input type="text" id="naziv" name="naziv" class="form-control" value="{{with .Sluzba}}{{.Naziv}}{{end}}" placeholder="npr. Područni ured civilne zaštite Osijek"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label" for="email">E-pošta</label><input type="email" id="email" name="email" class="form-control" value="{{with .Sluzba}}{{.Email}}{{end}}"></div>
+      <div class="form-group"><label class="form-label" for="phone">Telefon</label><input type="tel" id="phone" name="phone" class="form-control" value="{{with .Sluzba}}{{.Phone}}{{end}}"></div>
+      <div class="form-group"><label class="form-label" for="municipality_id">Vrijedi za</label>
+        <select id="municipality_id" name="municipality_id" class="form-control"><option value="0">cijelu županiju</option>{{range .Municipalities}}<option value="{{.ID}}"{{if $.Sluzba}}{{if eq .ID $.Sluzba.MunicipalityID}} selected{{end}}{{end}}>{{.Name}}</option>{{end}}</select></div>
+    </div>
+    <div class="form-group"><label class="form-label" for="napomena">Napomena</label><input type="text" id="napomena" name="napomena" class="form-control" value="{{with .Sluzba}}{{.Napomena}}{{end}}" placeholder="npr. nadležna za Dravu od Osijeka do ušća"></div>
+    <input type="hidden" name="redoslijed" value="{{with .Sluzba}}{{.Redoslijed}}{{end}}">
+    <div class="form-actions">{{if .Sluzba}}<a href="/territories/counties/{{.County.ID}}" class="btn btn-secondary">Odustani</a>{{end}}<button type="submit" class="btn btn-primary">{{if .Sluzba}}Spremi{{else}}Dodaj službu{{end}}</button></div>
+  </form>
+</section>
+{{end}}
+{{end}}
