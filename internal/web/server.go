@@ -515,7 +515,7 @@ func NewServer(
 	for _, page := range []string{"dashboard.html", "registri.html", "users.html", "user_detail.html", "user_form.html", "duty_form.html", "profile.html", "sections.html", "section_detail.html", "section_form.html", "territories.html", "county_form.html", "municipality_form.html", "municipality_detail.html", "stations.html", "station_detail.html", "station_form.html", "station_history.html", "station_history_form.html", "paket_pregled.html", "watercourses.html", "watercourse_detail.html", "watercourse_form.html", "structures.html", "structure_detail.html", "structure_form.html", "readings.html", "reading_history.html", "reading_form.html", "arhiva_ispravci.html", "uvoz_ocitanja.html", "teren.html", "moduli.html", "settings.html", "odrzavanje.html", "organizacija.html", "sector_form.html", "area_form.html", "contractor_form.html", "firme.html", "nazivi.html", "sudionici.html",
 		"administracija.html", "uvozi.html", "sinkronizacija.html", "pretplate.html", "baza.html", "izvori.html", "uvoz_niza.html",
 		"dnevnici.html", "dnevnici_izbor.html", "dnevnik_form.html", "dnevnik.html", "dnevnik_cop.html", "dnevnik_cop_form.html", "dnevnik_list.html", "dnevnik_obracun.html", "dnevnik_dezurstva.html", "dnevnik_iors.html", "izvjesca.html", "izvjesce_form.html", "izvjesce.html", "sektorsko_form.html", "sektorsko.html", "obracun_postavke.html",
-		"sredstva.html", "katalog.html", "skladiste.html", "potrebe_form.html", "potrebe.html", "dogadjanja.html", "skladiste_form.html", "promet_form.html", "promet.html", "gdje_ima.html", "na_terenu.html", "popisi.html", "popis_form.html", "popis.html", "pomoc.html", "ocitanja_ispravci.html", "akti.html", "akt_form.html", "akt.html", "primatelji.html", "spranca.html", "posta_racun.html", "administracija_posta.html", "posta_sanducic.html", "posta_pismo.html", "posta_novo.html", "county_detail.html"} {
+		"sredstva.html", "katalog.html", "skladiste.html", "potrebe_form.html", "potrebe.html", "dogadjanja.html", "skladiste_form.html", "promet_form.html", "promet.html", "gdje_ima.html", "na_terenu.html", "popisi.html", "popis_form.html", "popis.html", "pomoc.html", "ocitanja_ispravci.html", "akti.html", "akt_form.html", "akt.html", "primatelji.html", "spranca.html", "posta_racun.html", "administracija_posta.html", "posta_sanducic.html", "posta_pismo.html", "posta_novo.html", "imenik_exchange.html", "county_detail.html"} {
 		t, err := template.New("base.html").Funcs(tmplFuncs).ParseFS(templatesFS, DijeloviPredloska(page)...)
 		if err != nil {
 			return nil, fmt.Errorf("greška pri parsiranju predloška %s: %w", page, err)
@@ -569,6 +569,12 @@ func (s *Server) setupRoutes() {
 	usersH := NewUsersHandler(s.userService, s.templates["users.html"])
 	usersH.SetPageTemplates(s.templates["user_detail.html"], s.templates["user_form.html"], s.templates["duty_form.html"], s.templates["profile.html"])
 	usersH.SetPlanovi(s.journalService.PlanoviOsobe)
+	usersH.SetPosta(func(ctx context.Context, userID string) (string, time.Time) {
+		if s.akti == nil {
+			return "", time.Time{}
+		}
+		return s.akti.RacunPoste(ctx, userID)
+	})
 	dashH := NewDashboardHandler(s.userService, s.templates["dashboard.html"], s.templates["registri.html"])
 	dashH.SetZid(func() *service.ZidService { return s.zidService }, func() *service.IzvjescaService { return s.izvjescaService }, func() *service.MtsService { return s.mtsService })
 	dogH := NewDogadjanjaHandler(func() *service.ZidService { return s.zidService }, s.userService, s.templates["dogadjanja.html"])
@@ -943,6 +949,9 @@ func (s *Server) setupRoutes() {
 	aktiH.SetPosta(s.templates["posta_racun.html"], s.templates["administracija_posta.html"])
 	aktiH.SetSanducic(s.templates["posta_sanducic.html"], s.templates["posta_pismo.html"], s.templates["posta_novo.html"])
 	s.mux.Handle("POST /posta/pismo", s.authMiddleware(http.HandlerFunc(aktiH.HandlePismoRadnja)))
+	aktiH.SetImenik(s.templates["imenik_exchange.html"])
+	s.mux.Handle("GET /users/exchange", s.authMiddleware(http.HandlerFunc(aktiH.ShowImenik)))
+	s.mux.Handle("POST /users/exchange", s.authMiddleware(http.HandlerFunc(aktiH.HandleImenikPrimijeni)))
 	s.mux.Handle("GET /posta/novo", s.authMiddleware(http.HandlerFunc(aktiH.ShowNovoPismo)))
 	s.mux.Handle("POST /posta/novo", s.authMiddleware(http.HandlerFunc(aktiH.HandlePosaljiPismo)))
 	s.mux.Handle("GET /posta", s.authMiddleware(http.HandlerFunc(aktiH.ShowSanducic)))

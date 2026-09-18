@@ -3566,3 +3566,15 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .posta-radnje { display: flex; gap: 0.35rem; flex-wrap: wrap; margin: 0 0 0.75rem; }
 .posta-radnje form { margin: 0; }
 .posta-html { width: 100%; min-height: 200px; border: 1px solid var(--border, #d9dee5); border-radius: 8px; background: #fff; }
+.profil-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 1rem; align-items: start; }
+.profil-stupac { display: flex; flex-direction: column; gap: 1rem; min-width: 0; }
+.profil-kartica { margin: 0; border: 1px solid var(--border, #d9dee5); border-radius: 12px; padding: 1rem 1.15rem; background: var(--surface, #fff); }
+.profil-kartica h2 { font-size: 1rem; margin: 0 0 0.75rem; }
+.profil-kartica .form-page { max-width: none; }
+.profil-kartica .form-actions { margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border, #d9dee5); display: flex; justify-content: flex-end; }
+.profil-kartica .page-desc { margin: 0 0 0.6rem; font-size: 0.9rem; }
+.profil-stanje { margin: 0 0 0.5rem; display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; font-size: 0.92rem; }
+.profil-gumbi { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.imenik-usporedba td { vertical-align: top; }
+.imenik-nema td { color: var(--muted, #6b7280); }
+@media (max-width: 900px) { .profil-grid { grid-template-columns: 1fr; } }

@@ -10,7 +10,6 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"time"
 )
 
 // Slanje preko Exchange Web Services (EWS): istim putem kojim šalje
@@ -35,18 +34,6 @@ func (p Postavke) ewsURL() string {
 		return h
 	}
 	return "https://" + h + "/EWS/Exchange.asmx"
-}
-
-func (p Postavke) ewsKlijent() *http.Client {
-	tr := http.DefaultTransport.(*http.Transport).Clone()
-	if p.TLS != nil {
-		tr.TLSClientConfig = p.TLS
-	}
-	istek := p.Istek
-	if istek <= 0 {
-		istek = 2 * time.Minute
-	}
-	return &http.Client{Timeout: istek, Transport: tr}
 }
 
 const ewsOmot = `<?xml version="1.0" encoding="utf-8"?>
@@ -125,7 +112,7 @@ func ewsPozoviIzazov(ctx context.Context, p Postavke, r Racun, tijelo string) (*
 }
 
 func ewsRazgovor(ctx context.Context, p Postavke, r Racun, tijelo string) (*ewsOdgovor, *ntlmIzazov, []byte, error) {
-	c := p.ewsKlijent()
+	c := p.ewsKlijentZa(r.Korisnik)
 	omot := []byte(fmt.Sprintf(ewsOmot, tijelo))
 	var res *http.Response
 	var z *ntlmIzazov

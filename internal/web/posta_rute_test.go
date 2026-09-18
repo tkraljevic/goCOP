@@ -137,6 +137,9 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	mux.HandleFunc("GET /administracija/posta", h.ShowAdminPosta)
 	h.SetSanducic(tmpl("posta_sanducic.html"), tmpl("posta_pismo.html"), tmpl("posta_novo.html"))
 	mux.HandleFunc("POST /posta/pismo", h.HandlePismoRadnja)
+	h.SetImenik(tmpl("imenik_exchange.html"))
+	mux.HandleFunc("GET /users/exchange", h.ShowImenik)
+	mux.HandleFunc("POST /users/exchange", h.HandleImenikPrimijeni)
 	mux.HandleFunc("GET /posta/novo", h.ShowNovoPismo)
 	mux.HandleFunc("POST /posta/novo", h.HandlePosaljiPismo)
 	mux.HandleFunc("GET /posta", h.ShowSanducic)
@@ -349,5 +352,34 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	}
 	if w := zovi(httptest.NewRequest(http.MethodGet, "/posta", nil)); !strings.Contains(w.Body.String(), "upišite lozinku e-pošte") {
 		t.Error("bez lozinke sandučić mora tražiti upis")
+	}
+
+	// Adresar tvrtke: traženje i usporedba imenika (kao administrator)
+	if _, err := akti.SpremiRacunPoste(ctx, voditelj, "voditelj@voda.hr", "Lozinka-1"); err != nil {
+		t.Fatal(err)
+	}
+	srv.Adresar = []posta.Kontakt{
+		{Ime: "Mile Kunac", Email: "mile.kunac@voda.hr", Mobitel: "099 111 2222", Telefon: "031/252-802", Funkcija: "Rukovoditelj BP", Odjel: "VGO Osijek"},
+		{Ime: "Ivo Ivić", Email: "ivo.ivic@voda.hr", Mobitel: "099 333 4444"},
+		{Ime: "Ivo Ivić", Email: "ivo.ivic2@voda.hr"},
+	}
+	perms.IsGlobalAdmin = true
+	if w := zovi(httptest.NewRequest(http.MethodGet, "/users/exchange?trazi=kunac", nil)); !strings.Contains(w.Body.String(), "mile.kunac@voda.hr") || !strings.Contains(w.Body.String(), "Rukovoditelj BP") {
+		t.Fatalf("traženje u adresaru:\n%.800s", w.Body.String())
+	}
+	usp := zovi(httptest.NewRequest(http.MethodGet, "/users/exchange?usporedi=1", nil)).Body.String()
+	if !strings.Contains(usp, `value="`+kunac.ID.String()+`|email"`) || !strings.Contains(usp, "099 111 2222") || !strings.Contains(usp, "više osoba tog imena") {
+		t.Fatalf("usporedba:\n%.1500s", usp)
+	}
+	loc = post("/users/exchange", url.Values{"p": {kunac.ID.String() + "|email", kunac.ID.String() + "|mobile_phone"},
+		"v_" + kunac.ID.String() + "_email": {"mile.kunac@voda.hr"}, "v_" + kunac.ID.String() + "_mobile_phone": {"099 111 2222"}})
+	if !strings.Contains(loc, "success") {
+		t.Fatalf("primjena iz adresara: %s", loc)
+	}
+	if k, _ := users.GetUserByID(kunac.ID); k.Email != "mile.kunac@voda.hr" || k.MobilePhone != "099 111 2222" || k.Phone != "" {
+		t.Errorf("djelatnik nakon usklađivanja: %+v", k)
+	}
+	if w := zovi(httptest.NewRequest(http.MethodGet, "/users/exchange?usporedi=1", nil)); strings.Contains(w.Body.String(), `|email"`) {
+		t.Error("nakon usklađivanja adresa se više ne razlikuje")
 	}
 }

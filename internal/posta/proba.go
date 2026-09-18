@@ -36,6 +36,7 @@ type ProbniPosluzitelj struct {
 	Pisma             []Pismo           // pošta probnog EWS-a; Mapa kaže u kojoj je mapi (prazno = inbox)
 	Mapa              map[string]string // ID pisma → mapa
 	Datoteke          map[string][]byte // sadržaj privitaka po ID-u
+	Adresar           []Kontakt         // adresar tvrtke probnog EWS-a
 
 	mu     sync.Mutex
 	poruke []Primljena
@@ -119,6 +120,32 @@ func PokreniProbniEWS(korisnik, lozinka string) (*ProbniPosluzitelj, error) {
 		switch {
 		case bytes.Contains(tijelo, []byte("<m:GetFolder>")):
 			odgovor("GetFolder", "Success", "")
+		case bytes.Contains(tijelo, []byte("<m:ResolveNames")):
+			x := regexp.MustCompile(`<m:UnresolvedEntry>([^<]*)</m:UnresolvedEntry>`).FindSubmatch(tijelo)
+			upit := ""
+			if x != nil {
+				upit = strings.ToLower(string(x[1]))
+			}
+			w.Header().Set("Content-Type", "text/xml; charset=utf-8")
+			var b bytes.Buffer
+			var nadjeni []Kontakt
+			for _, k := range p.Adresar {
+				if strings.Contains(strings.ToLower(k.Ime+" "+k.Email), upit) {
+					nadjeni = append(nadjeni, k)
+				}
+			}
+			if len(nadjeni) == 0 {
+				fmt.Fprintf(&b, `<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body><m:ResolveNamesResponse xmlns:m="m" xmlns:t="t"><m:ResponseMessages><m:ResolveNamesResponseMessage ResponseClass="Error"><m:MessageText>No results were found.</m:MessageText><m:ResponseCode>ErrorNameResolutionNoResults</m:ResponseCode></m:ResolveNamesResponseMessage></m:ResponseMessages></m:ResolveNamesResponse></s:Body></s:Envelope>`)
+				_, _ = w.Write(b.Bytes())
+				return
+			}
+			fmt.Fprintf(&b, `<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body><m:ResolveNamesResponse xmlns:m="m" xmlns:t="t"><m:ResponseMessages><m:ResolveNamesResponseMessage ResponseClass="Success"><m:ResponseCode>NoError</m:ResponseCode><m:ResolutionSet TotalItemsInView="%d">`, len(nadjeni))
+			for _, k := range nadjeni {
+				fmt.Fprintf(&b, `<t:Resolution><t:Mailbox><t:Name>%s</t:Name><t:EmailAddress>%s</t:EmailAddress></t:Mailbox><t:Contact><t:DisplayName>%s</t:DisplayName><t:PhoneNumbers><t:Entry Key="BusinessPhone">%s</t:Entry><t:Entry Key="MobilePhone">%s</t:Entry></t:PhoneNumbers><t:JobTitle>%s</t:JobTitle><t:Department>%s</t:Department></t:Contact></t:Resolution>`,
+					xmlAttr(k.Ime), xmlAttr(k.Email), xmlAttr(k.Ime), xmlAttr(k.Telefon), xmlAttr(k.Mobitel), xmlAttr(k.Funkcija), xmlAttr(k.Odjel))
+			}
+			b.WriteString(`</m:ResolutionSet></m:ResolveNamesResponseMessage></m:ResponseMessages></m:ResolveNamesResponse></s:Body></s:Envelope>`)
+			_, _ = w.Write(b.Bytes())
 		case bytes.Contains(tijelo, []byte("<m:FindItem")):
 			w.Header().Set("Content-Type", "text/xml; charset=utf-8")
 			mapa := "inbox"

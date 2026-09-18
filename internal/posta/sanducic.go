@@ -84,6 +84,7 @@ type ewsMessage struct {
 	TextBody          string `xml:"TextBody"`
 	Subject           string `xml:"Subject"`
 	DateTimeReceived  string `xml:"DateTimeReceived"`
+	DateTimeSent      string `xml:"DateTimeSent"`
 	From              struct {
 		Mailbox ewsMailbox `xml:"Mailbox"`
 	} `xml:"From"`
@@ -118,6 +119,9 @@ func (m ewsMessage) pismo() Pismo {
 		p.Od = p.OdAdresa
 	}
 	p.Kad, _ = time.Parse(time.RFC3339, m.DateTimeReceived)
+	if p.Kad.IsZero() {
+		p.Kad, _ = time.Parse(time.RFC3339, m.DateTimeSent)
+	}
 	for _, x := range m.To {
 		p.Za = append(p.Za, adresaSImenom(x))
 	}
@@ -199,7 +203,7 @@ func Sanducic(ctx context.Context, p Postavke, r Racun, mapa, trazi string, poma
 		upit = `<m:QueryString>` + xmlAttr(t) + `</m:QueryString>`
 	}
 	podaci, err := ewsSirovo(ctx, p, r, fmt.Sprintf(`<m:FindItem Traversal="Shallow"><m:ItemShape><t:BaseShape>IdOnly</t:BaseShape><t:AdditionalProperties>`+
-		`<t:FieldURI FieldURI="item:Subject"/><t:FieldURI FieldURI="item:DateTimeReceived"/><t:FieldURI FieldURI="message:From"/><t:FieldURI FieldURI="message:ToRecipients"/>`+
+		`<t:FieldURI FieldURI="item:Subject"/><t:FieldURI FieldURI="item:DateTimeReceived"/><t:FieldURI FieldURI="item:DateTimeSent"/><t:FieldURI FieldURI="message:From"/><t:FieldURI FieldURI="message:ToRecipients"/>`+
 		`<t:FieldURI FieldURI="message:IsRead"/><t:FieldURI FieldURI="item:HasAttachments"/><t:FieldURI FieldURI="item:Size"/></t:AdditionalProperties></m:ItemShape>`+
 		`<m:IndexedPageItemView MaxEntriesReturned="%d" Offset="%d" BasePoint="Beginning"/>`+
 		`<m:SortOrder><t:FieldOrder Order="Descending"><t:FieldURI FieldURI="item:DateTimeReceived"/></t:FieldOrder></m:SortOrder>`+
