@@ -21,7 +21,6 @@ import (
 	"gocop/internal/db"
 	"gocop/internal/ledger"
 	"gocop/internal/models"
-	"gocop/internal/pdfpotpis"
 	"gocop/internal/poslovi"
 	"gocop/internal/posta"
 	"gocop/internal/repository"
@@ -120,8 +119,6 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	mux.HandleFunc("POST /akti/novi", h.HandleCreate)
 	mux.HandleFunc("GET /akti/{id}", h.ShowAkt)
 	mux.HandleFunc("GET /akti/{id}/akt.pdf", h.IzvoziPDF)
-	mux.HandleFunc("GET /akti/{id}/za-potpis.pdf", h.IzvoziZaPotpis)
-	mux.HandleFunc("POST /akti/{id}/potpisani", h.HandleUcitajPotpisani)
 	mux.HandleFunc("GET /akti/{id}/za-ispis.pdf", h.IzvoziZaIspis)
 	mux.HandleFunc("POST /akti/{id}/sken", h.HandleUcitajSken)
 	mux.HandleFunc("POST /akti/{id}/posalji", h.HandlePosalji)
@@ -152,7 +149,6 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	mux.HandleFunc("GET /posta", h.ShowSanducic)
 	mux.HandleFunc("GET /posta/pismo", h.ShowPismo)
 	mux.HandleFunc("GET /posta/privitak", h.Privitak)
-	mux.HandleFunc("POST /posta/u-akt", h.HandlePotpisaniIzPoste)
 	post := func(put string, v url.Values) string {
 		r := httptest.NewRequest(http.MethodPost, put, strings.NewReader(v.Encode()))
 		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -249,32 +245,26 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 		}
 	}
 
-	// Sandučić: SIGNATOR je potpisani PDF poslao e-poštom; učitava se ravno u nacrt
+	// Sandučić: pisma s privitcima, ugrađenim slikama i mapama
 	if w := zovi(httptest.NewRequest(http.MethodGet, "/posta", nil)); !strings.Contains(w.Body.String(), "Mapa je prazna") {
 		t.Fatalf("prazan sandučić:\n%.600s", w.Body.String())
 	}
-	id2 := strings.TrimPrefix(strings.SplitN(post("/akti/novi", url.Values{"station_id": {st.ID.String()}, "radnja": {"PREKID"}, "stupanj": {"PRIPREMNO"}, "vrijedi": {"2026-09-16T09:00"}}), "?", 2)[0], "/akti/")
-	zaPotpis := zovi(httptest.NewRequest(http.MethodGet, "/akti/"+id2+"/za-potpis.pdf", nil)).Body.Bytes()
-	c, k, _ := pdfpotpis.ProbniCertifikat("KUNAC MILE", "12345678903", true)
-	potpisan, err := pdfpotpis.ProbnoPotpisi(zaPotpis, c, k)
-	if err != nil {
-		t.Fatal(err)
-	}
+	potpisan := []byte("%PDF-1.4\n% obavijest\n%%EOF\n")
 	srv.Pisma = []posta.Pismo{
-		{ID: "AAMk/1+=", MessageID: "<sig-1@voda.hr>", Predmet: "Signator: dokument je potpisan", Od: "SIGNATOR", OdAdresa: "signator@voda.hr", Kad: time.Now(), Tekst: "Dokument je potpisan.\nU privitku.",
+		{ID: "AAMk/1+=", MessageID: "<sig-1@voda.hr>", Predmet: "Obavijest: dokument je potpisan", Od: "Pisarnica", OdAdresa: "signator@voda.hr", Kad: time.Now(), Tekst: "Dokument je potpisan.\nU privitku.",
 			HTML: `<html><body><p>Dokument je <b>potpisan</b>.</p><img src="cid:logo1@voda.hr"><script>alert(1)</script></body></html>`,
-			Privitci: []posta.PrivitakPisma{{ID: "AAMk/priv+1=", Ime: "akt-potpisan.pdf", Vrsta: "application/pdf", Velicina: len(potpisan)},
+			Privitci: []posta.PrivitakPisma{{ID: "AAMk/priv+1=", Ime: "obavijest.pdf", Vrsta: "application/pdf", Velicina: len(potpisan)},
 				{ID: "AAMk/logo=", Ime: "logo.png", Vrsta: "image/png", Velicina: 3, ContentID: "logo1@voda.hr", Ugradjen: true}}},
 		{ID: "AAMk/2=", Predmet: "Ručak", Od: "Kolega", OdAdresa: "kolega@voda.hr", Kad: time.Now().Add(-time.Hour), Procitano: true},
 	}
 	srv.Datoteke = map[string][]byte{"AAMk/priv+1=": potpisan, "AAMk/logo=": []byte("png")}
 	srv.Korisnikove = map[string]string{"AAMk/mapa-projekti=": "Projekti"}
-	popis := zovi(httptest.NewRequest(http.MethodGet, "/posta?akt="+id2, nil)).Body.String()
-	if !strings.Contains(popis, "Signator: dokument je potpisan") || !strings.Contains(popis, "Ručak") || !strings.Contains(popis, "ukupno 2") {
+	popis := zovi(httptest.NewRequest(http.MethodGet, "/posta", nil)).Body.String()
+	if !strings.Contains(popis, "Obavijest: dokument je potpisan") || !strings.Contains(popis, "Ručak") || !strings.Contains(popis, "ukupno 2") {
 		t.Fatalf("popis sandučića:\n%.800s", popis)
 	}
-	pismo := zovi(httptest.NewRequest(http.MethodGet, "/posta/pismo?"+url.Values{"id": {"AAMk/1+="}, "akt": {id2}}.Encode(), nil)).Body.String()
-	if !strings.Contains(pismo, "akt-potpisan.pdf") || !strings.Contains(pismo, "Učitaj kao potpisani akt") || !strings.Contains(pismo, `value="`+id2+`" selected`) {
+	pismo := zovi(httptest.NewRequest(http.MethodGet, "/posta/pismo?"+url.Values{"id": {"AAMk/1+="}}.Encode(), nil)).Body.String()
+	if !strings.Contains(pismo, "obavijest.pdf") || !strings.Contains(pismo, "posta/privitak") {
 		t.Fatalf("pismo:\n%.1200s", pismo)
 	}
 	// HTML tijelo ide u izolirani okvir, ne u stranicu; otvaranje označi pročitano
@@ -292,7 +282,7 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 		t.Errorf("ugrađena slika se poslužuje u tijelu: %s %s", w.Header().Get("Content-Disposition"), w.Header().Get("Content-Type"))
 	}
 	// mape i pretraga
-	if w := zovi(httptest.NewRequest(http.MethodGet, "/posta?trazi=ru%C4%8Dak", nil)); !strings.Contains(w.Body.String(), "Ručak") || strings.Contains(w.Body.String(), "Signator: dokument") {
+	if w := zovi(httptest.NewRequest(http.MethodGet, "/posta?trazi=ru%C4%8Dak", nil)); !strings.Contains(w.Body.String(), "Ručak") || strings.Contains(w.Body.String(), "Obavijest: dokument") {
 		t.Error("pretraga ne filtrira")
 	}
 	if w := zovi(httptest.NewRequest(http.MethodGet, "/posta?mapa=deleteditems", nil)); !strings.Contains(w.Body.String(), "Mapa je prazna") {
@@ -300,13 +290,13 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	}
 	// odgovor: obrazac je popunjen, pismo se pošalje kao odgovor s navodom
 	obrazac := zovi(httptest.NewRequest(http.MethodGet, "/posta/novo?nacin=odgovori&"+url.Values{"id": {"AAMk/1+="}}.Encode(), nil)).Body.String()
-	if !strings.Contains(obrazac, `value="signator@voda.hr"`) || !strings.Contains(obrazac, `value="RE: Signator: dokument je potpisan"`) || !strings.Contains(obrazac, "Dokument je potpisan.") || !strings.Contains(obrazac, `value="&lt;sig-1@voda.hr&gt;"`) {
+	if !strings.Contains(obrazac, `value="signator@voda.hr"`) || !strings.Contains(obrazac, `value="RE: Obavijest: dokument je potpisan"`) || !strings.Contains(obrazac, "Dokument je potpisan.") || !strings.Contains(obrazac, `value="&lt;sig-1@voda.hr&gt;"`) {
 		t.Fatalf("obrazac odgovora:\n%.1500s", obrazac)
 	}
 	var tijeloP bytes.Buffer
 	mwP := multipart.NewWriter(&tijeloP)
 	_ = mwP.WriteField("za", "signator@voda.hr, kolega@voda.hr")
-	_ = mwP.WriteField("predmet", "RE: Signator: dokument je potpisan")
+	_ = mwP.WriteField("predmet", "RE: Obavijest: dokument je potpisan")
 	_ = mwP.WriteField("tekst", "Hvala, učitano.")
 	_ = mwP.WriteField("html", `<p>Hvala, <b>učitano</b>.</p><script>x()</script><img src="data:image/png;base64,cG5n">`)
 	_ = mwP.WriteField("odgovor_na", "<sig-1@voda.hr>")
@@ -358,14 +348,14 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	var tijeloF bytes.Buffer
 	mwF := multipart.NewWriter(&tijeloF)
 	_ = mwF.WriteField("za", "kolega@voda.hr")
-	_ = mwF.WriteField("predmet", "FW: Signator")
+	_ = mwF.WriteField("predmet", "FW: Obavijest")
 	_ = mwF.WriteField("proslijedi", "AAMk/priv+1=")
 	_ = mwF.Close()
 	rF := httptest.NewRequest(http.MethodPost, "/posta/novo", &tijeloF)
 	rF.Header.Set("Content-Type", mwF.FormDataContentType())
 	zovi(rF)
 	poslano = srv.Poruke()
-	if !strings.Contains(poslano[len(poslano)-1].Podaci, `filename="akt-potpisan.pdf"`) {
+	if !strings.Contains(poslano[len(poslano)-1].Podaci, `filename="obavijest.pdf"`) {
 		t.Error("proslijeđeno pismo nema izvorni privitak")
 	}
 	// popis je u karticama s pregledom, mapama i korisnikovom mapom
@@ -393,7 +383,7 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	if w := zovi(httptest.NewRequest(http.MethodGet, "/posta?mapa="+url.QueryEscape("AAMk/mapa-projekti="), nil)); !strings.Contains(w.Body.String(), "Ručak") {
 		t.Error("pismo nije u korisnikovoj mapi")
 	}
-	if w := zovi(httptest.NewRequest(http.MethodGet, "/posta?mapa=archive", nil)); !strings.Contains(w.Body.String(), "Signator: dokument") {
+	if w := zovi(httptest.NewRequest(http.MethodGet, "/posta?mapa=archive", nil)); !strings.Contains(w.Body.String(), "Obavijest: dokument") {
 		t.Error("pismo nije u Arhivi")
 	}
 	// natrag u ulaznu poštu pa brisanje s pojedinačne stranice
@@ -420,20 +410,6 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	w := zovi(httptest.NewRequest(http.MethodGet, "/posta/privitak?"+url.Values{"id": {"AAMk/priv+1="}}.Encode(), nil))
 	if w.Code != http.StatusOK || !bytes.Equal(w.Body.Bytes(), potpisan) || w.Header().Get("Content-Type") != "application/pdf" {
 		t.Fatalf("privitak: %d %s", w.Code, w.Header().Get("Content-Type"))
-	}
-	loc = post("/posta/u-akt", url.Values{"pismo": {"AAMk/1+="}, "privitak": {"AAMk/priv+1="}, "akt": {id2}})
-	if !strings.Contains(loc, "/akti/"+id2) || !strings.Contains(loc, "success") {
-		t.Fatalf("učitavanje iz sandučića: %s", loc)
-	}
-	if a2, _ := akti.Get(ctx, id2); !a2.Ovjeren() || a2.Kvalificirani == nil || a2.Ovjerio != "Mile Kunac" {
-		t.Fatalf("akt iz sandučića nije ovjeren: %+v", a2)
-	}
-	// krivi privitak: obično pismo bez potpisa ne prolazi
-	srv.Datoteke["AAMk/priv+1="] = []byte("%PDF-1.4 nepotpisan")
-	id3 := strings.TrimPrefix(strings.SplitN(post("/akti/novi", url.Values{"station_id": {st.ID.String()}, "radnja": {"USPOSTAVA"}, "stupanj": {"REDOVNA"}, "vrijedi": {"2026-09-17T09:00"}}), "?", 2)[0], "/akti/")
-	zovi(httptest.NewRequest(http.MethodGet, "/akti/"+id3+"/za-potpis.pdf", nil))
-	if loc := post("/posta/u-akt", url.Values{"pismo": {"AAMk/1+="}, "privitak": {"AAMk/priv+1="}, "akt": {id3}}); !strings.Contains(loc, "nema elektroničkog potpisa") {
-		t.Errorf("nepotpisan privitak: %s", loc)
 	}
 	// bez lozinke: stranica traži upis
 	if err := akti.ObrisiRacunPoste(ctx, voditelj); err != nil {

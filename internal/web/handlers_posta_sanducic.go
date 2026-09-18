@@ -16,7 +16,7 @@ import (
 )
 
 // Sandučić: korisnikova ulazna pošta iz Exchangea, čitanje pisama i
-// privitaka, i učitavanje potpisanog PDF-a iz SIGNATOR-a ravno u nacrt akta.
+// privitaka, pisanje i odgovaranje.
 
 const pisamaPoStranici = 50
 
@@ -44,7 +44,6 @@ type SanducicData struct {
 	Stranica_       int // sljedeća, 0 kad je nema
 	Prethodna       int
 	Pismo           *posta.Pismo
-	Nacrti          []models.Akt // nacrti koji čekaju potpisani PDF
 	OdabraniAkt     string
 	Novo            service.NovoPismo // obrazac novog pisma
 	Nacin           string            // odgovori, svima, proslijedi ili prazno
@@ -137,12 +136,6 @@ func (h *AktiHandler) ShowPismo(w http.ResponseWriter, r *http.Request) {
 				pismo.Procitano = true
 			}
 		}
-		for _, p := range pismo.Privitci {
-			if p.JePDF() {
-				d.Nacrti = s.NacrtiZaPotpis(r.Context(), d.Permissions, d.CurrentUser)
-				break
-			}
-		}
 	}
 	if err := h.tmplPismo.ExecuteTemplate(w, "posta_pismo.html", d); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -180,36 +173,6 @@ func pathExt(ime string) string {
 		return strings.ToLower(ime[i:])
 	}
 	return ""
-}
-
-// HandlePotpisaniIzPoste učita PDF privitak iz sandučića kao potpisani akt
-func (h *AktiHandler) HandlePotpisaniIzPoste(w http.ResponseWriter, r *http.Request) {
-	u, perms, _ := h.base(r)
-	s := h.svc(w)
-	if s == nil || u == nil {
-		return
-	}
-	pismoID, privitakID, aktID := r.FormValue("pismo"), r.FormValue("privitak"), r.FormValue("akt")
-	natrag := "/posta/pismo?" + url.Values{"id": {pismoID}}.Encode()
-	if aktID == "" {
-		redirectWith(w, r, natrag, "error", "Odaberite nacrt akta u koji se potpisani PDF učitava")
-		return
-	}
-	_, pdf, err := s.Privitak(r.Context(), u, privitakID)
-	if err != nil {
-		redirectWith(w, r, natrag, "error", err.Error())
-		return
-	}
-	a, upozorenja, err := s.UcitajPotpisani(r.Context(), perms, u, aktID, pdf)
-	if err != nil {
-		redirectWith(w, r, natrag, "error", err.Error())
-		return
-	}
-	poruka := "Akt " + a.Oznaka() + " je ovjeren kvalificiranim potpisom (" + a.Kvalificirani.Ime + ") iz sandučića; potpisani PDF je izvornik."
-	if len(upozorenja) > 0 {
-		poruka += " Stanje obrane na dionicama: " + strings.Join(upozorenja, "; ")
-	}
-	redirectWith(w, r, "/akti/"+a.ID, "success", poruka)
 }
 
 // HandlePismoRadnja: označi nepročitano ili obriši

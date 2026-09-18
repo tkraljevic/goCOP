@@ -69,37 +69,19 @@
 
 {{if .SmijePripremiti}}
 <section class="akt-potpis-opcije">
-  <h2>{{icon "shield"}} Potpis akta</h2>
-  <p class="form-help" style="margin:0 0 0.75rem;">Akt potpisuje {{$a.Potpisnik | lower}} ili zamjenik. Kad se potpisani akt vrati u goCOP, postaje izvornik, akt je ovjeren i može se poslati primateljima "na znanje".</p>
-  <div class="akt-opcije">
-    <div class="akt-opcija">
-      <h3>A. SIGNATOR, kvalificirani potpis</h3>
-      <ol>
-        <li><a href="/akti/{{$a.ID}}/za-potpis.pdf" class="btn btn-sm btn-primary">{{icon "download"}} PDF za potpis</a>
-          <div class="form-help">Pošaljite ga u SIGNATOR rukovoditelju; nakon preuzimanja ne mijenjajte tekst nacrta.</div></li>
-        <li><form method="POST" action="/akti/{{$a.ID}}/potpisani" enctype="multipart/form-data">
-          <input type="file" name="potpisani" accept="application/pdf,.pdf" required class="form-control">
-          <button type="submit" class="btn btn-sm btn-primary">{{icon "upload"}} Učitaj potpisani PDF</button></form>
-          <div class="form-help">goCOP provjeri da je potpis kvalificiran, da je potpisnik rukovoditelj s pravom ovjere i da je potpisan baš ovaj nacrt. Ako je SIGNATOR potpisani PDF poslao e-poštom, učitajte ga iz <a href="/posta?akt={{$a.ID}}">sandučića</a>.</div></li>
-      </ol>
-      {{with $a.ZaPotpis}}<p class="form-help" style="margin:0;">Preuzet za potpis: {{range $i, $z := .}}{{if $i}}; {{end}}{{$z.Tko}} {{formatDate (localTime $z.Kad)}}{{end}}.</p>{{end}}
-    </div>
-    <div class="akt-opcija">
-      <h3>B. Ispis, potpis i žig</h3>
-      <ol>
-        <li><a href="/akti/{{$a.ID}}/za-ispis.pdf" target="_blank" class="btn btn-sm btn-secondary">{{icon "printer"}} PDF za ispis</a>
-          <div class="form-help">Ispišite, rukovoditelj potpiše, udarite žig i skenirajte.</div></li>
-        <li><form method="POST" action="/akti/{{$a.ID}}/sken" enctype="multipart/form-data">
-          <input type="file" name="sken" accept="application/pdf,.pdf" required class="form-control">
-          <select name="potpisnik_id" class="form-control" required>
-            <option value="">— tko je potpisao —</option>
-            {{range .MoguPotpisati}}<option value="{{.ID}}">{{.FullName}}{{with .PrimaryDuty}} · {{.Title}}{{end}}</option>{{end}}
-          </select>
-          <button type="submit" class="btn btn-sm btn-secondary">{{icon "upload"}} Učitaj sken</button></form>
-          <div class="form-help">Sken u PDF-u. Potpis na skenu program ne može provjeriti, pa ovjeru bilježi na osobu koju odaberete i na onoga tko je sken učitao.</div></li>
-      </ol>
-    </div>
-  </div>
+  <h2>{{icon "printer"}} Ispis, potpis i žig</h2>
+  <p class="form-help" style="margin:0 0 0.75rem;">Akt se ovjerava u goCOP-u gumbom Ovjeri (elektronička ovjera ključem čvora). Kad treba i papir sa žigom, ispišite nacrt, rukovoditelj ga potpiše, udarite žig i sken učitajte: sken tada postaje izvornik i akt je time ovjeren.</p>
+  <ol>
+    <li><a href="/akti/{{$a.ID}}/za-ispis.pdf" target="_blank" class="btn btn-sm btn-secondary">{{icon "printer"}} PDF za ispis</a></li>
+    <li><form method="POST" action="/akti/{{$a.ID}}/sken" enctype="multipart/form-data" class="akt-sken">
+      <input type="file" name="sken" accept="application/pdf,.pdf" required class="form-control">
+      <select name="potpisnik_id" class="form-control" required>
+        <option value="">— tko je potpisao —</option>
+        {{range .MoguPotpisati}}<option value="{{.ID}}">{{.FullName}}{{with .PrimaryDuty}} · {{.Title}}{{end}}</option>{{end}}
+      </select>
+      <button type="submit" class="btn btn-sm btn-secondary">{{icon "upload"}} Učitaj sken</button></form>
+      <div class="form-help">Sken u PDF-u. Potpis na skenu program ne može provjeriti, pa ovjeru bilježi na osobu koju odaberete i na onoga tko je sken učitao.</div></li>
+  </ol>
 </section>
 {{end}}
 
@@ -137,16 +119,7 @@
   <a href="/akti/{{$a.ID}}/akt.pdf" target="_blank">Otvori izvornik</a>
 </div>
 {{end}}
-{{with $a.Kvalificirani}}
-<div class="akt-potpis-stanje {{if and $.Izvornik $.Izvornik.Ispravan}}vrijedi{{else}}ne-vrijedi{{end}}">
-  {{if and $.Izvornik $.Izvornik.Ispravan}}{{icon "check"}} <strong>Kvalificirano potpisan u SIGNATOR-u:</strong>{{else}}{{icon "triangle-alert"}} <strong>Potpis na izvorniku se ne može potvrditi:</strong>{{end}}
-  {{.Ime}}{{if .OIB}} (OIB …{{slice .OIB 7}}){{end}}, {{formatDate (localTime .Vrijeme)}}{{with .Razina}}, razina {{.}}{{end}}. Certifikat izdao {{.Izdavatelj}}, vrijedi do {{.VrijediDo.Format "02.01.2006."}}.
-  {{if .VremenskiZig}}Vrijeme je iz vremenskog žiga.{{end}}
-  {{range .Pecati}}<br>Pečat {{.Naziv}}{{with .Razina}} ({{.}}){{end}}, {{formatDate (localTime .Vrijeme)}}{{with .Razlog}}; njime je zapečaćena parafa (jednostavni potpis, SES): {{.}}{{end}}.{{end}}
-  <br>Izvornik je potpisani PDF; vratio ga je {{.Ucitao}}. <a href="/akti/{{$a.ID}}/akt.pdf" target="_blank">Otvori izvornik</a>
-  <div class="form-help" style="margin-top:0.25rem;">goCOP je provjerio da je potpis ispravan, kvalificiran i da pokriva cijeli dokument; lanac certifikata i opoziv provjerava čitač PDF-a.</div>
-</div>
-{{end}}
+
 {{if $a.Ovjeren}}
 <div class="akt-potpis-stanje {{if eq .Potpis "VRIJEDI"}}vrijedi{{else if eq .Potpis "NE_VRIJEDI"}}ne-vrijedi{{end}}">
   {{if eq .Potpis "VRIJEDI"}}{{icon "check"}} <strong>Elektronički potpis vrijedi.</strong> Sadržaj akta nije mijenjan od ovjere:

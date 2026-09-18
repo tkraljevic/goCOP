@@ -111,10 +111,10 @@ func porukaAkta(a *models.Akt, sek *models.Sector, u *models.User) service.Poruk
 	}
 	fmt.Fprintf(&b, ", s važenjem od %s u %s sati, oznake %s.\n\n", v.Format("02.01.2006."), v.Format("15:04"), a.Oznaka())
 	switch {
-	case a.Kvalificirani != nil:
-		fmt.Fprintf(&b, "Akt je elektronički potpisan kvalificiranim potpisom (%s) u sustavu SIGNATOR Hrvatskih voda; privitak je izvornik.\n", a.Kvalificirani.Ime)
 	case a.Rucno != nil:
 		fmt.Fprintf(&b, "Akt je vlastoručno potpisao %s i ovjeren je žigom; privitak je sken izvornika.\n", a.Rucno.Potpisnik)
+	case a.Ovjeren():
+		fmt.Fprintf(&b, "Akt je elektronički ovjeren u informacijskom sustavu obrane od poplava goCOP (%s); kod ovjere %s stoji i na PDF-u, pa se ispravnost može provjeriti upitom centru.\n", a.ImePotpisa(), a.OvjeraKod)
 	}
 	if sek != nil {
 		b.WriteString("\nZa sve upite i provjeru vjerodostojnosti: Centar obrane od poplava")
@@ -142,7 +142,7 @@ func porukaAkta(a *models.Akt, sek *models.Sector, u *models.User) service.Poruk
 
 // slanjeZaStranicu puni dio stranice akta o slanju
 func (h *AktiHandler) slanjeZaStranicu(r *http.Request, s *service.AktService, perms *models.UserPermissions, u *models.User, a *models.Akt) *SlanjeData {
-	if !a.Ovjeren() || !a.ImaIzvornik() {
+	if !a.Ovjeren() {
 		return nil
 	}
 	d := &SlanjeData{Podesena: s.PostaPodesena(r.Context()), Posluzitelj: s.PostaPosluzitelj(r.Context()), SmijeSlati: s.SmijeSlati(perms, u, a), SpremaPoslano: s.PostaSpremaPoslano(r.Context())}
@@ -173,8 +173,10 @@ func (h *AktiHandler) HandlePosalji(w http.ResponseWriter, r *http.Request) {
 		redirectWith(w, r, natrag, "error", "Neispravan obrazac")
 		return
 	}
-	sek, _ := h.sektorIPodrucje(a)
-	ishod, err := s.PosaljiNaZnanje(r.Context(), perms, u, a.ID, r.Form["adresa"], r.FormValue("kopija") == "1", porukaAkta(a, sek, u))
+	sek, area := h.sektorIPodrucje(a)
+	por := porukaAkta(a, sek, u)
+	por.PDF = PDFAkta(a, models.Terms(), sek, area)
+	ishod, err := s.PosaljiNaZnanje(r.Context(), perms, u, a.ID, r.Form["adresa"], r.FormValue("kopija") == "1", por)
 	if err != nil && ishod == nil {
 		redirectWith(w, r, natrag+"#slanje", "error", err.Error())
 		return

@@ -17,13 +17,6 @@ func PDFAkta(a *models.Akt, t models.OrgTerms, sek *models.Sector, area *models.
 	return pdfAkta(a, t, sek, area, nacinProgram)
 }
 
-// PDFAktaZaPotpis je PDF nacrta za potpis u SIGNATOR-u: bez oznake nacrta
-// i bez ovjere iz goCOP-a, s mjestom za kvalificirani potpis rukovoditelja
-// i s oznakom akta u metapodacima. Isti nacrt daje isti PDF bajt za bajt.
-func PDFAktaZaPotpis(a *models.Akt, t models.OrgTerms, sek *models.Sector, area *models.Area) []byte {
-	return pdfAkta(a, t, sek, area, nacinSignator)
-}
-
 // PDFAktaZaIspis je PDF nacrta za ispis, vlastoručni potpis i žig: crta za
 // potpis, mjesto pečata, bez oznake nacrta
 func PDFAktaZaIspis(a *models.Akt, t models.OrgTerms, sek *models.Sector, area *models.Area) []byte {
@@ -32,13 +25,12 @@ func PDFAktaZaIspis(a *models.Akt, t models.OrgTerms, sek *models.Sector, area *
 
 // Načini PDF-a akta
 const (
-	nacinProgram  = iota // nacrt ili akt ovjeren u goCOP-u
-	nacinSignator        // za kvalificirani potpis u SIGNATOR-u
-	nacinIspis           // za ispis, vlastoručni potpis i žig
+	nacinProgram = iota // nacrt ili akt ovjeren u goCOP-u
+	nacinIspis          // za ispis, vlastoručni potpis i žig
 )
 
 func pdfAkta(a *models.Akt, t models.OrgTerms, sek *models.Sector, area *models.Area, nacin int) []byte {
-	zaPotpis := nacin != nacinProgram
+	zaPotpis := nacin == nacinIspis // ispis bez oznake nacrta, s mjestom za potpis i žig
 	naslov := a.Naslov() + " " + a.Oznaka()
 	if zaPotpis {
 		naslov = a.Naslov()
@@ -131,11 +123,6 @@ func pdfAkta(a *models.Akt, t models.OrgTerms, sek *models.Sector, area *models.
 		d.Tekst(potpisX-40, d.Y, 8, false, "M.P.")
 		d.Crta(potpisX+15, d.Y, potpisX+potpisW-15, d.Y)
 		d.Razmak(14)
-	case zaPotpis:
-		// mjesto za vidljivi potpis iz SIGNATOR-a
-		d.Razmak(48)
-		d.OdlomakU(potpisX, potpisW, "(kvalificirani elektronički potpis)", 6.5, false, pdfw.Sredina)
-		d.Razmak(8)
 	default:
 		if a.Ovjeren() && a.OvjerenoAt != nil {
 			d.Razmak(4)
@@ -198,8 +185,6 @@ func pdfAkta(a *models.Akt, t models.OrgTerms, sek *models.Sector, area *models.
 	d.Razmak(3)
 	if nacin == nacinIspis {
 		d.Odlomak(tekstZaIspis(a, t, sek), 6.3, false, pdfw.Lijevo)
-	} else if zaPotpis {
-		d.Odlomak(tekstZaPotpis(a, t, sek), 6.3, false, pdfw.Lijevo)
 	} else if a.Ovjeren() && a.OvjerenoAt != nil {
 		d.Odlomak(tekstOvjere(a, t, sek), 6.3, false, pdfw.Lijevo)
 	} else {
@@ -361,31 +346,6 @@ func tekstOvjere(a *models.Akt, t models.OrgTerms, sek *models.Sector) string {
 		b += ", uz navod oznake akta " + a.Oznaka()
 	}
 	return b + ". Na ispisu akt se ovjerava i žigom i vlastoručnim potpisom."
-}
-
-// tekstZaPotpis je sitni tekst na dnu akta koji se potpisuje u SIGNATOR-u
-func tekstZaPotpis(a *models.Akt, t models.OrgTerms, sek *models.Sector) string {
-	org := t.OrgName
-	if org == "" {
-		org = "Hrvatske vode"
-	}
-	b := fmt.Sprintf("Akt je sastavljen u informacijskom sustavu obrane od poplava goCOP (%s) i potpisan kvalificiranim elektroničkim potpisom "+
-		"u sustavu SIGNATOR. Potpis i njegovu valjanost prikazuje svaki čitač PDF-a (npr. Adobe Acrobat Reader).", org)
-	if sek != nil {
-		b += " Vjerodostojnost se može provjeriti i upitom Centru obrane od poplava Sektora " + sek.ID
-		var k []string
-		if sek.Phone != "" {
-			k = append(k, "tel. "+sek.Phone)
-		}
-		if sek.Email != "" {
-			k = append(k, "e-pošta "+sek.Email)
-		}
-		if len(k) > 0 {
-			b += " (" + strings.Join(k, ", ") + ")"
-		}
-		b += "."
-	}
-	return b + " Evidencijski broj u goCOP-u: " + strings.ToUpper(strings.ReplaceAll(a.ID, "-", "")[:12]) + "."
 }
 
 // tekstZaIspis je sitni tekst na dnu akta koji se potpisuje vlastoručno
