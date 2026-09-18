@@ -623,3 +623,61 @@ func (r *AktiRepository) SavePotpis(ctx context.Context, p *PotpisPoste) error {
 	}
 	return tx.Commit()
 }
+
+// ---- žig centra ----
+
+// EntityZigovi su skenirani žigovi centara u knjizi verzija
+const EntityZigovi = "zigovi"
+
+const zigUpsert = `INSERT INTO zigovi (sektor, mime, slika, uredio, updated_at) VALUES (?, ?, ?, ?, ?)
+	ON CONFLICT(sektor) DO UPDATE SET mime = excluded.mime, slika = excluded.slika, uredio = excluded.uredio, updated_at = excluded.updated_at`
+
+// GetZig čita žig sektora; nil kad ga nema
+func (r *AktiRepository) GetZig(ctx context.Context, sektor string) (*models.Zig, error) {
+	z := models.Zig{Sektor: sektor}
+	err := r.db.QueryRowContext(ctx, `SELECT mime, slika, uredio, updated_at FROM zigovi WHERE sektor = ?`, sektor).Scan(&z.Mime, &z.Slika, &z.Uredio, &z.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &z, nil
+}
+
+// SaveZig sprema žig, s verzijom u knjizi
+func (r *AktiRepository) SaveZig(ctx context.Context, z *models.Zig) error {
+	z.UpdatedAt = time.Now().UTC()
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, zigUpsert, z.Sektor, z.Mime, z.Slika, z.Uredio, z.UpdatedAt); err != nil {
+		return err
+	}
+	if _, err := r.rec.Record(ctx, tx, EntityZigovi, z.Sektor, z); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// DeleteZig briše žig sektora
+func (r *AktiRepository) DeleteZig(ctx context.Context, sektor string) error {
+	z, err := r.GetZig(ctx, sektor)
+	if err != nil || z == nil {
+		return err
+	}
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `DELETE FROM zigovi WHERE sektor = ?`, sektor); err != nil {
+		return err
+	}
+	if _, err := r.rec.Archive(ctx, tx, EntityZigovi, sektor, z); err != nil {
+		return err
+	}
+	return tx.Commit()
+}

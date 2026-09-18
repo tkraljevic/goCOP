@@ -81,7 +81,7 @@ var SurfaceEntities = []string{EntitySectors, EntityAreas, EntityOrgTerms, Entit
 	EntityUsers, EntityDuties, "role_modules", "user_modules", EntityStations, EntitySections, EntityWatercourses,
 	EntityCounties, EntityMunicipalities, EntitySettlements, EntityStructures, "maintained_waters", "work_items", "journals",
 	EntityBlagdani, EntityKoeficijenti, EntityObracunPostavke,
-	EntityMtsVrste, EntityMtsSkladista, EntityMtsPromet, EntityMtsPopisi, EntityMtsPotrebe, EntityAkti, EntityPrimatelji, EntitySprance, EntitySluzbe, EntityIzvornici, EntitySlanja, EntityPostavke, EntityPotpisi}
+	EntityMtsVrste, EntityMtsSkladista, EntityMtsPromet, EntityMtsPopisi, EntityMtsPotrebe, EntityAkti, EntityPrimatelji, EntitySprance, EntitySluzbe, EntityIzvornici, EntitySlanja, EntityPostavke, EntityPotpisi, EntityZigovi}
 
 // ReplaySurface ponovno primijeni zadnju verziju svakog zapisa iz knjige na
 // površinu. Služi kad je primjena primljenih verzija jednom zapela: knjiga je
@@ -419,6 +419,14 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 			return err
 		}
 		_, err := tx.ExecContext(ctx, aktUpsert, aktArgs(&a)...)
+		return err
+
+	case EntityZigovi:
+		var z models.Zig
+		if err := json.Unmarshal(v.Payload, &z); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, zigUpsert, z.Sektor, z.Mime, z.Slika, z.Uredio, v.CreatedAt)
 		return err
 
 	case EntityPotpisi:
@@ -834,6 +842,8 @@ func removeFromSurface(ctx context.Context, tx *sql.Tx, v ledger.Version) error 
 		stmt = `DELETE FROM postavke WHERE id = ?`
 	case EntityPotpisi:
 		stmt = `DELETE FROM posta_potpisi WHERE user_id = ?`
+	case EntityZigovi:
+		stmt = `DELETE FROM zigovi WHERE sektor = ?`
 	case EntityMaintainedWaters:
 		stmt = `DELETE FROM maintained_waters WHERE id = ?`
 	case EntityWorkItems:

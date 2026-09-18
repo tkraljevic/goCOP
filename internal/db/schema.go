@@ -311,6 +311,14 @@ func InitSchema(database *sql.DB) error {
 			html TEXT NOT NULL,
 			updated_at DATETIME NOT NULL
 		);`,
+		// Skenirani žig centra po sektoru, za PDF ovjerenog akta
+		`CREATE TABLE IF NOT EXISTS zigovi (
+			sektor TEXT PRIMARY KEY,
+			mime TEXT NOT NULL,
+			slika BLOB NOT NULL,
+			uredio TEXT NOT NULL DEFAULT '',
+			updated_at DATETIME NOT NULL
+		);`,
 		// Špranca akata po sektoru: pravna osnova, članci, završna rečenica
 		`CREATE TABLE IF NOT EXISTS akti_sprance (
 			sektor TEXT PRIMARY KEY,

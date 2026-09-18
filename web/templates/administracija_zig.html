@@ -1,0 +1,58 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Žig centra{{end}}
+
+{{define "content"}}
+<div class="breadcrumb"><a href="/administracija">Administracija</a> › Žig centra</div>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "shield"}} Žig centra</h1>
+    <p class="page-desc">Skenirani žig centra obrane od poplava stoji na PDF-u svakog akta ovjerenog u goCOP-u, uz blok elektroničke ovjere. Na ispisu za vlastoručni potpis ostaje prazno mjesto za pravi žig. Svaki centar ima svoj žig; vrijedi na svim čvorovima.</p>
+  </div>
+</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
+
+{{if not .Sektori}}
+<p class="form-help">Žig smije mijenjati uprava sektora.</p>
+{{else}}
+<section class="detail-section" style="margin-top:0; max-width:44rem;">
+  {{if gt (len .Sektori) 1}}
+  <form method="GET" action="/administracija/zig" class="posta-trazi" style="margin-bottom:1rem;">
+    <select name="sektor" class="form-control" onchange="this.form.submit()">
+      {{range .Sektori}}<option value="{{.ID}}" {{if eq .ID $.Sektor}}selected{{end}}>{{.Name}}</option>{{end}}
+    </select>
+    <noscript><button type="submit" class="btn btn-secondary btn-sm">Prikaži</button></noscript>
+  </form>
+  {{end}}
+  <div class="zig-pregled">
+    {{if .Ima}}
+    <img src="/administracija/zig/slika?sektor={{.Sektor}}&amp;t={{.Kad.Unix}}" alt="Žig" class="zig-slika">
+    <p class="form-help">Spremljen {{formatDate (localTime .Kad)}}{{with .Zig.Uredio}}, {{.}}{{end}}. Ovako će stajati na aktu, u širini oko 34 mm.</p>
+    {{else}}
+    <div class="zig-prazno">Žig još nije skeniran; akti sektora {{.Sektor}} izdaju se bez otiska.</div>
+    {{end}}
+  </div>
+  <form method="POST" action="/administracija/zig" enctype="multipart/form-data" class="form-page" style="margin-top:1rem;">
+    <input type="hidden" name="sektor" value="{{.Sektor}}">
+    <div class="form-group">
+      <label class="form-label" for="slika">{{if .Ima}}Novi sken žiga{{else}}Sken žiga{{end}}</label>
+      <input type="file" class="form-control" id="slika" name="slika" accept="image/png,image/jpeg" required>
+      <div class="form-help">Otisnite žig na bijeli papir i skenirajte s 300 dpi; izrežite na sam žig. PNG ili JPEG, najviše 2 MB. PNG s prozirnom pozadinom izgleda najbolje.</div>
+    </div>
+    <div class="form-actions" style="display:flex; gap:0.5rem;">
+      <button type="submit" class="btn btn-primary">{{icon "upload"}} Spremi žig</button>
+    </div>
+  </form>
+  {{if .Ima}}
+  <form method="POST" action="/administracija/zig" enctype="multipart/form-data" style="margin-top:0.75rem;" onsubmit="return confirm('Ukloniti žig? Akti će se izdavati bez otiska.')">
+    <input type="hidden" name="sektor" value="{{.Sektor}}">
+    <input type="hidden" name="obrisi" value="1">
+    <button type="submit" class="btn btn-sm btn-secondary">{{icon "trash"}} Ukloni žig</button>
+  </form>
+  {{end}}
+</section>
+{{end}}
+{{end}}
