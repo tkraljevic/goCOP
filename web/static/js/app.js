@@ -728,7 +728,8 @@ function renderMarkdown(md) {
       q.hidden = !protok;
       if (protok) {
         q.innerHTML = 'protok <strong>' + protok + ' m³/s</strong> ' +
-          '<span class="reg-card-sub">iz krivulje</span>';
+          '<span class="reg-card-sub">iz krivulje</span>' +
+          (izvor.getAttribute('data-protok-izvan') ? ' <span class="izvan-krivulje">izvan raspona krivulje</span>' : '');
       }
     }
 

@@ -625,6 +625,43 @@ func (k HQKrivulja) Protok(vodostajCm int) (float64, bool) {
 	return 0, false
 }
 
+// ProsirenjeKrivuljeCm je koliko se krivulja smije produljiti preko krajeva
+// svojih odsječaka. Pri niskoj vodi Dunav zna stajati koji centimetar ispod
+// donjeg ruba umjerene krivulje, i baš se tada protok gleda; produljenje
+// rubnog odsječka za tih par centimetara je još procjena, ali je označena
+// kao slabija.
+const ProsirenjeKrivuljeCm = 20
+
+// ProtokProsiren je Protok koji ide i malo izvan raspona krivulje, do
+// ProsirenjeKrivuljeCm ispod najnižeg i iznad najvišeg odsječka, rubnim
+// odsječkom. Izvan javlja da je vodostaj izvan umjerenog raspona.
+func (k HQKrivulja) ProtokProsiren(vodostajCm int) (q float64, izvan, ok bool) {
+	if q, ok := k.Protok(vodostajCm); ok {
+		return q, false, true
+	}
+	if len(k.Odsjecci) == 0 {
+		return 0, false, false
+	}
+	najn, najv := k.Odsjecci[0], k.Odsjecci[0]
+	for _, o := range k.Odsjecci {
+		if o.OdCm < najn.OdCm {
+			najn = o
+		}
+		if o.DoCm > najv.DoCm {
+			najv = o
+		}
+	}
+	switch {
+	case vodostajCm < najn.OdCm && vodostajCm >= najn.OdCm-ProsirenjeKrivuljeCm:
+		q, ok := najn.Protok(vodostajCm)
+		return q, true, ok && q >= 0
+	case vodostajCm > najv.DoCm && vodostajCm <= najv.DoCm+ProsirenjeKrivuljeCm:
+		q, ok := najv.Protok(vodostajCm)
+		return q, true, ok
+	}
+	return 0, false, false
+}
+
 // Raspon je najniži i najviši vodostaj koji krivulja pokriva.
 func (k HQKrivulja) Raspon() (int, int, bool) {
 	if len(k.Odsjecci) == 0 {

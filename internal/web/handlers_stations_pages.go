@@ -50,23 +50,24 @@ type StationPageData struct {
 	// Sazeto sklapa zabilježene ekstreme. Na kartici letve su predmet i stoje
 	// otvoreni, pa ostaje netočno; polje postoji da zajednički predložak radi
 	// s objema stranicama.
-	Sazeto           bool
-	Karta            KartaPostavke             // izvor pločica za kartu položaja
-	NizID            int64                     // koji je niz odabran
-	Spojevi          []models.SpojDoseg        // spojeni nizovi: jedan satni, jedan dnevni
-	Sada             *models.SpojenaVrijednost // zadnja vrijednost spojenog niza
-	Sazetak          []models.SazetakVelicine  // jedan redak po veličini
-	ArhivaPogled                               // povijest iz arhive na historijatu letve
-	Crtez            *KoritoCrtez              // korito s vodom u njemu
-	CrtezUzak        *KoritoCrtez              // isti presjek u obliku za telefon
-	Zadnji           *models.HidroTocka        // zadnja vrijednost iz arhive
-	ZadnjiProtok     float64                   // preračunat iz krivulje
-	ZadnjiIzvor      string
-	WaterRegistry    []models.Watercourse
-	CanEdit          bool
-	CanRecord        bool   // smije li upisati očitanje
-	LetvaStranica    string // koja je stranica letve otvorena: kartica, ocitanja, historijat
-	HistorijatPrazan bool   // letva još nema ništa od onoga što historijat pokazuje
+	Sazeto            bool
+	Karta             KartaPostavke             // izvor pločica za kartu položaja
+	NizID             int64                     // koji je niz odabran
+	Spojevi           []models.SpojDoseg        // spojeni nizovi: jedan satni, jedan dnevni
+	Sada              *models.SpojenaVrijednost // zadnja vrijednost spojenog niza
+	Sazetak           []models.SazetakVelicine  // jedan redak po veličini
+	ArhivaPogled                                // povijest iz arhive na historijatu letve
+	Crtez             *KoritoCrtez              // korito s vodom u njemu
+	CrtezUzak         *KoritoCrtez              // isti presjek u obliku za telefon
+	Zadnji            *models.HidroTocka        // zadnja vrijednost iz arhive
+	ZadnjiProtok      float64                   // preračunat iz krivulje
+	ZadnjiProtokIzvan bool                      // vodostaj je izvan umjerenog raspona krivulje
+	ZadnjiIzvor       string
+	WaterRegistry     []models.Watercourse
+	CanEdit           bool
+	CanRecord         bool   // smije li upisati očitanje
+	LetvaStranica     string // koja je stranica letve otvorena: kartica, ocitanja, historijat
+	HistorijatPrazan  bool   // letva još nema ništa od onoga što historijat pokazuje
 	// KrajnostiIzNiza su najviše i najniže što program ima u podacima. Stoje uz
 	// zabilježene ekstreme, ne umjesto njih: zabilježeni je tvrdnja s
 	// podrijetlom, ovo je najveće što u nizu stoji.
@@ -443,8 +444,8 @@ func (h *StationsHandler) podaciLetve(w http.ResponseWriter, r *http.Request) (S
 			dan := data.Zadnji.Kad.Format("2006-01-02")
 			for _, k := range data.Krivulje {
 				if k.VrijediOd <= dan && (k.VrijediDo == "" || dan <= k.VrijediDo) {
-					if q, ok := k.Protok(cm); ok {
-						data.ZadnjiProtok = q
+					if q, izvan, ok := k.ProtokProsiren(cm); ok {
+						data.ZadnjiProtok, data.ZadnjiProtokIzvan = q, izvan
 					}
 					break
 				}

@@ -3498,3 +3498,6 @@ textarea {
 .kartica-gumb.ima-vrijednost::after { content: ""; width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--success, #1b7f3b); }
 .kartica[hidden] { display: none; }
 .korito-protok { font-weight: 500; }
+
+/* Procjena protoka produljenjem krivulje preko umjerenog raspona */
+.izvan-krivulje { display: inline-block; padding: 0 0.4rem; border-radius: 4px; background: var(--warning-bg, #fff4d6); color: #8a5a00; font-size: 0.75rem; font-weight: 600; white-space: nowrap; }

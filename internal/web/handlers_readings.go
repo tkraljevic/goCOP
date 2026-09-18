@@ -110,7 +110,7 @@ type ReadingsOverviewData struct {
 	CurrentUser    *models.User
 	Permissions    *models.UserPermissions
 	Gauges         []models.GaugeSummary
-	Protok         map[string]string // procjena ili mjerenje protoka po ključu letve, samo gdje ga ima
+	Protok         map[string]ProtokLetve // procjena ili mjerenje protoka po ključu letve, samo gdje ga ima
 	Sectors        []models.Sector
 	Areas          []models.Area
 	SelectedSector string
@@ -201,6 +201,7 @@ type ReadingFormData struct {
 	// Procjena protoka iz HQ krivulje za zadnje očitanje: kartica Protok tako
 	// pokaže što bi krivulja rekla, da se izmjereno ima s čime usporediti.
 	ProtokIzKrivulje string
+	ProtokIzvan      bool
 	ImaKrivulju      bool
 
 	SuccessMessage string
@@ -329,10 +330,10 @@ func (h *ReadingsHandler) ShowOverview(w http.ResponseWriter, r *http.Request) {
 		shown = append(shown, g)
 	}
 	data.Gauges, data.Pager = paginate(shown, r, registryPerPage)
-	data.Protok = map[string]string{}
+	data.Protok = map[string]ProtokLetve{}
 	for _, g := range data.Gauges {
-		if q := h.protokLetve(ctx, g); q != "" {
-			data.Protok[g.Key] = q
+		if p := h.protokLetve(ctx, g); p.Q != "" {
+			data.Protok[g.Key] = p
 		}
 	}
 	data.TotalCount, _, data.LastAt, _ = h.readingService.Stats(ctx)
@@ -618,8 +619,11 @@ func (h *ReadingsHandler) koritoUzGraf(ctx context.Context, data *ReadingHistory
 	natpis := ""
 	if zadnji.FlowM3s != nil {
 		natpis = "Q " + brojHRf(*zadnji.FlowM3s, 0) + " m³/s izmjereno"
-	} else if q := protokIzKrivulje(data.Krivulje, zadnji.LocalTime(), zadnji.LevelCm); q != "" {
+	} else if q, izvan := protokIzKrivulje(data.Krivulje, zadnji.LocalTime(), zadnji.LevelCm); q != "" {
 		natpis = "Q ≈ " + q + " m³/s iz krivulje"
+		if izvan {
+			natpis = "Q ≈ " + q + " m³/s " + UpozorenjeIzvanKrivulje
+		}
 	}
 	for _, k := range []*KoritoCrtez{data.Korito, data.KoritoUzak} {
 		if k != nil {
@@ -709,7 +713,7 @@ func (h *ReadingsHandler) ShowForm(w http.ResponseWriter, r *http.Request) {
 		if krivulje, _ := a.Krivulje(ctx, data.Station.Code); len(krivulje) > 0 {
 			data.ImaKrivulju = true
 			if data.Latest != nil {
-				data.ProtokIzKrivulje = protokIzKrivulje(krivulje, data.Latest.LocalTime(), data.Latest.LevelCm)
+				data.ProtokIzKrivulje, data.ProtokIzvan = protokIzKrivulje(krivulje, data.Latest.LocalTime(), data.Latest.LevelCm)
 			}
 		}
 	}
@@ -800,45 +804,57 @@ func decimalaIzObrasca(s string) (*float64, error) {
 
 // protokIzKrivulje je procjena protoka po HQ krivulji koja je vrijedila u
 // trenutku očitanja, ispisana bez decimala; prazno kad krivulje nema ili
-// vodostaj pada izvan njezinih odsječaka
-func protokIzKrivulje(krivulje []models.HQKrivulja, kad time.Time, cm *int) string {
+// vodostaj pada dalje od dopuštenog produljenja njezinih odsječaka. Izvan
+// javlja da je procjena produljenje krivulje preko umjerenog raspona.
+func protokIzKrivulje(krivulje []models.HQKrivulja, kad time.Time, cm *int) (q string, izvan bool) {
 	if cm == nil {
-		return ""
+		return "", false
 	}
 	k := krivuljaZa(krivulje, kad)
 	if k == nil {
-		return ""
+		return "", false
 	}
-	q, ok := k.Protok(*cm)
+	v, izvan, ok := k.ProtokProsiren(*cm)
 	if !ok {
-		return ""
+		return "", false
 	}
-	return brojHRf(q, 0)
+	return brojHRf(v, 0), izvan
+}
+
+// UpozorenjeIzvanKrivulje je natpis uz procjenu koja je produljenje krivulje
+const UpozorenjeIzvanKrivulje = "izvan raspona krivulje"
+
+// ProtokLetve je procjena ili mjerenje protoka za pregled letvi
+type ProtokLetve struct {
+	Q        string
+	Izmjeren bool
+	Izvan    bool
 }
 
 // protokLetve nalazi krivulje letve u arhivi i vraća procjenu protoka za
 // zadnje očitanje, za pregled svih letvi
-func (h *ReadingsHandler) protokLetve(ctx context.Context, g models.GaugeSummary) string {
+func (h *ReadingsHandler) protokLetve(ctx context.Context, g models.GaugeSummary) ProtokLetve {
 	if g.Latest == nil || g.StationID == "" {
-		return ""
+		return ProtokLetve{}
 	}
 	if g.Latest.FlowM3s != nil {
-		return brojHRf(*g.Latest.FlowM3s, 0)
+		return ProtokLetve{Q: brojHRf(*g.Latest.FlowM3s, 0), Izmjeren: true}
 	}
 	a := h.arh()
 	if a == nil || g.Latest.LevelCm == nil {
-		return ""
+		return ProtokLetve{}
 	}
 	id, err := uuid.Parse(g.StationID)
 	if err != nil {
-		return ""
+		return ProtokLetve{}
 	}
 	st, err := h.stationService.GetStation(ctx, id)
 	if err != nil || st == nil || st.Code == "" {
-		return ""
+		return ProtokLetve{}
 	}
 	krivulje, _ := a.Krivulje(ctx, st.Code)
-	return protokIzKrivulje(krivulje, g.Latest.LocalTime(), g.Latest.LevelCm)
+	q, izvan := protokIzKrivulje(krivulje, g.Latest.LocalTime(), g.Latest.LevelCm)
+	return ProtokLetve{Q: q, Izvan: izvan}
 }
 
 func (h *ReadingsHandler) HandleCreate(w http.ResponseWriter, r *http.Request) {
