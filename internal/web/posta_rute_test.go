@@ -308,7 +308,7 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	_ = mwP.WriteField("za", "signator@voda.hr, kolega@voda.hr")
 	_ = mwP.WriteField("predmet", "RE: Signator: dokument je potpisan")
 	_ = mwP.WriteField("tekst", "Hvala, učitano.")
-	_ = mwP.WriteField("html", "<p>Hvala, <b>učitano</b>.</p><script>x()</script>")
+	_ = mwP.WriteField("html", `<p>Hvala, <b>učitano</b>.</p><script>x()</script><img src="data:image/png;base64,cG5n">`)
 	_ = mwP.WriteField("odgovor_na", "<sig-1@voda.hr>")
 	fwP, _ := mwP.CreateFormFile("privitak", "biljeska.txt")
 	_, _ = fwP.Write([]byte("bilješka"))
@@ -320,6 +320,9 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	}
 	poslano := srv.Poruke()
 	zadnje := poslano[len(poslano)-1].Podaci
+	if !strings.Contains(zadnje, "multipart/related") || !strings.Contains(zadnje, "Content-ID: <slika1@gocop>") || !strings.Contains(zadnje, `src=3D"cid:slika1@gocop"`) {
+		t.Errorf("slika iz uređivača mora ići kao ugrađeni privitak:\n%.1500s", zadnje)
+	}
 	if !strings.Contains(zadnje, "multipart/alternative") || !strings.Contains(zadnje, "<b>u=C4=8Ditano</b>") || strings.Contains(zadnje, "<script>") || !strings.Contains(zadnje, "Hvala, u=C4=8Ditano.") {
 		t.Errorf("oblikovani odgovor:\n%.1200s", zadnje)
 	}
@@ -341,7 +344,7 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	srv.Adresar = nil
 
 	// potpis: prijedlog iz profila, spremanje, ubacivanje u novo pismo
-	if w := zovi(httptest.NewRequest(http.MethodGet, "/profile/potpis", nil)); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "Voditelj COP-a") || !strings.Contains(w.Body.String(), "voditelj@voda.hr") {
+	if w := zovi(httptest.NewRequest(http.MethodGet, "/profile/potpis", nil)); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "Voditelj COP-a") || !strings.Contains(w.Body.String(), "voditelj@voda.hr") || !strings.Contains(w.Body.String(), "HRVATSKE VODE") {
 		t.Fatalf("stranica potpisa: %d\n%.800s", w.Code, w.Body.String())
 	}
 	if loc := post("/profile/potpis", url.Values{"html": {`<p><b>Voditelj</b> COP-a<script>x()</script></p>`}}); !strings.Contains(loc, "success") {

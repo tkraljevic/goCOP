@@ -952,6 +952,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /posta/radnja", s.authMiddleware(http.HandlerFunc(aktiH.HandleSkupnaRadnja)))
 	s.mux.Handle("GET /posta/adrese.json", s.authMiddleware(http.HandlerFunc(aktiH.AdreseJSON)))
 	aktiH.SetPotpis(s.templates["posta_potpis.html"])
+	s.mux.Handle("GET /posta/logo.png", s.authMiddleware(http.HandlerFunc(aktiH.Logo)))
 	s.mux.Handle("GET /profile/potpis", s.authMiddleware(http.HandlerFunc(aktiH.ShowPotpis)))
 	s.mux.Handle("POST /profile/potpis", s.authMiddleware(http.HandlerFunc(aktiH.HandlePotpis)))
 	aktiH.SetImenik(s.templates["imenik_exchange.html"], s.poslovi)
