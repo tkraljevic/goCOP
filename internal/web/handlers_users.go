@@ -262,40 +262,7 @@ func (h *UsersHandler) HandleAddDuty(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var sectorPtr *string
-	sectorVal := r.FormValue("sector_id")
-	if sectorVal != "" {
-		sectorPtr = &sectorVal
-	}
-
-	var areaPtr *int
-	areaVal, _ := strconv.Atoi(r.FormValue("area_id"))
-	if areaVal > 0 {
-		areaPtr = &areaVal
-	}
-
-	isPrimary := r.FormValue("is_primary") == "1" || r.FormValue("is_primary") == "on"
-	isTemp := r.FormValue("is_temporary") == "1" || r.FormValue("is_temporary") == "on"
-
-	var expiresPtr *time.Time
-	if expStr := r.FormValue("expires_at"); expStr != "" {
-		if t, err := time.Parse("2006-01-02", expStr); err == nil {
-			expiresPtr = &t
-		}
-	}
-
-	req := service.AddDutyRequest{
-		UserID:       userID,
-		Title:        r.FormValue("title"),
-		Role:         models.Role(r.FormValue("role")),
-		SectorID:     sectorPtr,
-		AreaID:       areaPtr,
-		SectionCodes: r.FormValue("section_codes"),
-		IsPrimary:    isPrimary,
-		IsTemporary:  isTemp,
-		Reason:       r.FormValue("reason"),
-		ExpiresAt:    expiresPtr,
-	}
+	req := dutyRequestFromForm(r, userID)
 
 	err = h.userService.AddDuty(perms, req)
 	if err != nil {
@@ -304,6 +271,60 @@ func (h *UsersHandler) HandleAddDuty(w http.ResponseWriter, r *http.Request) {
 	}
 
 	redirectWith(w, r, "/users/"+userID.String(), "success", "Zaduženje je dodano.")
+}
+
+// dutyRequestFromForm čita polja obrasca zaduženja, ista za novo i za izmjenu
+func dutyRequestFromForm(r *http.Request, userID uuid.UUID) service.AddDutyRequest {
+	var sectorPtr *string
+	if v := r.FormValue("sector_id"); v != "" {
+		sectorPtr = &v
+	}
+	var areaPtr *int
+	if v, _ := strconv.Atoi(r.FormValue("area_id")); v > 0 {
+		areaPtr = &v
+	}
+	var expiresPtr *time.Time
+	if expStr := r.FormValue("expires_at"); expStr != "" {
+		if t, err := time.Parse("2006-01-02", expStr); err == nil {
+			expiresPtr = &t
+		}
+	}
+	return service.AddDutyRequest{
+		UserID:       userID,
+		Title:        strings.TrimSpace(r.FormValue("title")),
+		Role:         models.Role(r.FormValue("role")),
+		SectorID:     sectorPtr,
+		AreaID:       areaPtr,
+		SectionCodes: strings.TrimSpace(r.FormValue("section_codes")),
+		IsPrimary:    r.FormValue("is_primary") == "1" || r.FormValue("is_primary") == "on",
+		IsTemporary:  r.FormValue("is_temporary") == "1" || r.FormValue("is_temporary") == "on",
+		Reason:       strings.TrimSpace(r.FormValue("reason")),
+		ExpiresAt:    expiresPtr,
+	}
+}
+
+// HandleUpdateDuty sprema izmjenu postojećeg zaduženja
+func (h *UsersHandler) HandleUpdateDuty(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/users?error=Neispravan+zahtjev", http.StatusSeeOther)
+		return
+	}
+	perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
+	dutyID, err := uuid.Parse(r.PathValue("duty"))
+	if err != nil {
+		http.Redirect(w, r, "/users?error=Neispravan+ID+dužnosti", http.StatusSeeOther)
+		return
+	}
+	userID, err := uuid.Parse(r.FormValue("user_id"))
+	if err != nil {
+		http.Redirect(w, r, "/users?error=Neispravan+korisnik", http.StatusSeeOther)
+		return
+	}
+	if err := h.userService.UpdateDuty(perms, dutyID, dutyRequestFromForm(r, userID)); err != nil {
+		redirectWith(w, r, "/users/duties/"+dutyID.String()+"/edit", "error", err.Error())
+		return
+	}
+	redirectWith(w, r, "/users/"+userID.String(), "success", "Zaduženje je izmijenjeno.")
 }
 
 // HandleRevokeDuty opoziva funkciju ili privremenu ispomoć

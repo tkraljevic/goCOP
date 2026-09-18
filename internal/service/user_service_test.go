@@ -1,7 +1,9 @@
 package service_test
 
 import (
+	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -427,5 +429,53 @@ func TestRegularUserCanEditOwnProfileNotOthersOrDuties(t *testing.T) {
 	err = userService.DeleteUser(userPerms, otherUser.ID)
 	if err != service.ErrUnauthorized {
 		t.Errorf("Očekivano ErrUnauthorized pri pokušaju brisanja korisnika, dobiveno: %v", err)
+	}
+}
+
+// Izmjena zaduženja: uprava mijenja dionice u mjestu, redovni korisnik ne smije
+func TestIzmjenaZaduzenja(t *testing.T) {
+	userService, _, _, userRepo := setupTestServices(t)
+	admin, _ := userRepo.GetUserByUsername("tkraljevic")
+	adminPerms, _ := userRepo.GetUserPermissions(admin.ID)
+
+	osoba, _ := userRepo.GetUserByUsername("jfucek")
+	if osoba == nil || len(osoba.Duties) == 0 {
+		t.Skip("nema osobe s dionicama u imeniku")
+	}
+	var zad *models.Duty
+	for i := range osoba.Duties {
+		if osoba.Duties[i].SectionCodes != "" {
+			zad = &osoba.Duties[i]
+			break
+		}
+	}
+	if zad == nil {
+		t.Skip("nema zaduženja s dionicama")
+	}
+	req := service.AddDutyRequest{UserID: osoba.ID, Title: zad.Title + " (izmjena)", Role: zad.Role, SectorID: zad.SectorID, AreaID: zad.AreaID, SectionCodes: zad.SectionCodes + ", A.99.9", IsPrimary: zad.IsPrimary}
+	if err := userService.UpdateDuty(adminPerms, zad.ID, req); err != nil {
+		t.Fatalf("uprava ne može izmijeniti zaduženje: %v", err)
+	}
+	poslije, _ := userRepo.GetDuty(zad.ID)
+	if poslije == nil || !strings.HasSuffix(poslije.SectionCodes, "A.99.9") || !strings.HasSuffix(poslije.Title, "(izmjena)") {
+		t.Fatalf("izmjena nije spremljena: %+v", poslije)
+	}
+
+	// redovni korisnik ne smije mijenjati zaduženja
+	osobaPerms, _ := userRepo.GetUserPermissions(osoba.ID)
+	if err := userService.UpdateDuty(osobaPerms, zad.ID, req); !errors.Is(err, service.ErrUnauthorized) {
+		t.Errorf("očekivano ErrUnauthorized, dobiveno: %v", err)
+	}
+
+	// opozvano se ne mijenja, a vidi se u povijesti
+	if err := userService.RevokeDuty(adminPerms, zad.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := userService.UpdateDuty(adminPerms, zad.ID, req); err == nil {
+		t.Error("izmjena opozvanog zaduženja bi trebala biti odbijena")
+	}
+	proslost, _ := userService.PastDuties(osoba.ID)
+	if len(proslost) != 1 || proslost[0].ID != zad.ID || proslost[0].OpozvanoAt == nil {
+		t.Errorf("očekivano jedno opozvano zaduženje s vremenom opoziva, dobiveno: %+v", proslost)
 	}
 }

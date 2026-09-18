@@ -61,40 +61,50 @@
 </section>
 
 <section class="detail-section">
-  <h2>{{icon "shield"}} Funkcije i zaduženja <span class="reg-chip">{{len .User.Duties}}</span></h2>
-  <div class="reg-list">
-    {{range .User.Duties}}
-    <article class="reg-card" style="padding:0.875rem 1rem; gap:0.4rem;">
-      <div class="reg-card-head">
-        <div>
-          <div class="reg-card-title" style="font-size:0.95rem;">{{.Title}}</div>
-          <div class="reg-card-sub">
-            {{if .SectorID}}{{term "sektor"}} {{derefString .SectorID}}{{end}}
-            {{if .AreaID}} · BP {{derefInt .AreaID}}{{if not .SectionCodes}} (sve dionice){{end}}{{end}}
-            {{if eq .ScopeType "ALL"}}Cijela organizacija: {{term "org"}}{{end}}
-          </div>
-        </div>
-        <span class="badge {{if .IsTemporary}}badge-ispomoc{{else}}badge-area-admin{{end}}">{{if .IsTemporary}}{{icon "zap"}} Ispomoć{{else}}{{roleLabel .Role}}{{end}}</span>
-      </div>
-      {{if .SectionCodes}}<div style="font-size:0.85rem;">Dionice: <strong>{{.SectionCodes}}</strong></div>{{end}}
-      {{if .Reason}}<div class="form-help">{{.Reason}}</div>{{end}}
-      <div class="reg-card-foot">
-        {{if .IsPrimary}}<span class="reg-chip">primarna</span>{{end}}
-        {{if .ExpiresAt}}<span class="reg-chip">do {{formatDateShort .ExpiresAt}}</span>{{end}}
+  <h2 style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">{{icon "shield"}} Zaduženja <span class="reg-chip">{{len .User.Duties}}</span>
+    {{if .CanManage}}<a href="/users/{{.User.ID}}/duties/new" class="btn btn-sm btn-primary" style="margin-left:auto;">{{icon "plus"}} Dodaj zaduženje</a>{{end}}</h2>
+  {{if .User.Duties}}
+  <div class="table-card"><div class="table-responsive">
+    <table class="data-table zaduzenja">
+      <thead><tr><th>Funkcija</th><th>Uloga</th><th>Doseg</th><th>Dionice</th><th>Vrijedi</th>{{if .CanManage}}<th class="radnje"></th>{{end}}</tr></thead>
+      <tbody>
+      {{range .User.Duties}}
+      <tr>
+        <td><strong>{{.Title}}</strong>{{if .IsPrimary}} <span class="reg-chip">primarna</span>{{end}}{{if .Reason}}<div class="form-help">{{.Reason}}</div>{{end}}</td>
+        <td><span class="badge {{if .IsTemporary}}badge-ispomoc{{else}}badge-area-admin{{end}}">{{if .IsTemporary}}{{icon "zap"}} Ispomoć{{else}}{{roleLabel .Role}}{{end}}</span></td>
+        <td>{{if eq .ScopeType "ALL"}}cijela organizacija{{else}}{{if .SectorID}}{{term "sektor"}} {{derefString .SectorID}}{{end}}{{if .AreaID}} · BP {{derefInt .AreaID}}{{end}}{{end}}</td>
+        <td class="mono">{{if .SectionCodes}}{{.SectionCodes}}{{else if .AreaID}}<span class="text-muted">sve</span>{{end}}</td>
+        <td>{{if .ExpiresAt}}do {{formatDateShort .ExpiresAt}}{{else}}<span class="text-muted">stalno</span>{{end}}</td>
         {{if $.CanManage}}
-        <form method="POST" action="/users/duty/revoke" style="margin:0; margin-left:auto;"
-              onsubmit="return confirm('Opozvati zaduženje „{{.Title}}“? Zapis ostaje u povijesti.')">
-          <input type="hidden" name="duty_id" value="{{.ID}}">
-          <input type="hidden" name="user_id" value="{{$.User.ID}}">
-          <button type="submit" class="btn btn-sm btn-link" style="padding:0; color:var(--text-muted);">Opozovi</button>
-        </form>
+        <td class="radnje">
+          <a href="/users/duties/{{.ID}}/edit" class="btn btn-sm btn-secondary" title="Promijeni naziv, ulogu, doseg ili dionice">{{icon "pencil"}} Uredi</a>
+          <form method="POST" action="/users/duty/revoke" style="display:inline; margin:0;"
+                onsubmit="return confirm('Opozvati zaduženje „{{.Title}}“? Nestaje s profila, a ostaje u povijesti.')">
+            <input type="hidden" name="duty_id" value="{{.ID}}">
+            <input type="hidden" name="user_id" value="{{$.User.ID}}">
+            <button type="submit" class="btn btn-sm btn-secondary" title="Opozovi zaduženje">{{icon "x"}} Opozovi</button>
+          </form>
+        </td>
         {{end}}
-      </div>
-    </article>
-    {{else}}
-    <div class="reg-empty">Nema aktivnih zaduženja.</div>
-    {{end}}
-  </div>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div></div>
+  {{else}}
+  <div class="reg-empty">Nema aktivnih zaduženja.{{if .CanManage}} Dodajte prvo gumbom gore.{{end}}</div>
+  {{end}}
+  {{if .Prijasnja}}
+  <details style="margin-top:0.75rem;">
+    <summary class="form-help" style="cursor:pointer;">{{icon "history"}} Prijašnja zaduženja ({{len .Prijasnja}})</summary>
+    <ul class="zaduzenja-povijest">
+      {{range .Prijasnja}}
+      <li><strong>{{.Title}}</strong> · {{roleLabel .Role}}{{if .SectorID}} · {{term "sektor"}} {{derefString .SectorID}}{{end}}{{if .AreaID}} · BP {{derefInt .AreaID}}{{end}}{{if .SectionCodes}} · {{.SectionCodes}}{{end}}
+        <span class="text-muted">· od {{.CreatedAt.Format "2.1.2006."}}{{if .Isteklo}}, isteklo {{formatDateShort .ExpiresAt}}{{else if .OpozvanoAt}}, opozvano {{.OpozvanoAt.Format "2.1.2006."}}{{else}}, opozvano{{end}}</span></li>
+      {{end}}
+    </ul>
+  </details>
+  {{end}}
 </section>
 
 {{if .ModuleRows}}

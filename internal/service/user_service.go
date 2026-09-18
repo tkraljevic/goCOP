@@ -304,6 +304,57 @@ func (s *UserService) AddDuty(actor *models.UserPermissions, req AddDutyRequest)
 	return nil
 }
 
+// UpdateDuty mijenja postojeće zaduženje; smije tko bi ga smio dati i tko bi
+// smio dati novo takvo. Vlastito zaduženje mijenja nadređena razina.
+func (s *UserService) UpdateDuty(actor *models.UserPermissions, dutyID uuid.UUID, req AddDutyRequest) error {
+	if actorRank(actor) == 0 {
+		return ErrUnauthorized
+	}
+	duty, err := s.userRepo.GetDuty(dutyID)
+	if err != nil {
+		return err
+	}
+	if duty == nil || !duty.IsActive {
+		return fmt.Errorf("zaduženje nije pronađeno ili je opozvano")
+	}
+	if !actor.IsGlobalAdmin && duty.UserID == actor.User.ID {
+		return fmt.Errorf("%w: vlastito zaduženje mijenja nadređena razina", ErrUnauthorized)
+	}
+	sectors := s.areaSectors()
+	if err := mayAssign(actor, duty.Role, duty.SectorID, duty.AreaID, sectors); err != nil {
+		return err
+	}
+	scope, sectorID, areaID, err := normalizeScope(req.Role, req.SectorID, req.AreaID, req.SectionCodes, sectors)
+	if err != nil {
+		return err
+	}
+	if err := mayAssign(actor, req.Role, sectorID, areaID, sectors); err != nil {
+		return err
+	}
+	if strings.TrimSpace(req.Title) == "" {
+		req.Title = req.Role.Label()
+	}
+	duty.Title, duty.Role, duty.ScopeType = req.Title, req.Role, scope
+	duty.SectorID, duty.AreaID, duty.SectionCodes = sectorID, areaID, req.SectionCodes
+	duty.IsPrimary, duty.IsTemporary, duty.Reason, duty.ExpiresAt = req.IsPrimary, req.IsTemporary, req.Reason, req.ExpiresAt
+	if !duty.IsTemporary {
+		duty.Reason, duty.ExpiresAt = "", nil
+	}
+	if err := s.userRepo.UpdateDuty(duty); err != nil {
+		return err
+	}
+	s.sse.Broadcast("duty_updated", fmt.Sprintf("Izmijenjeno zaduženje: %s", duty.Title), duty)
+	return nil
+}
+
+// GetDuty čita jedno zaduženje, aktivno ili opozvano
+func (s *UserService) GetDuty(id uuid.UUID) (*models.Duty, error) { return s.userRepo.GetDuty(id) }
+
+// PastDuties vraća opozvana i istekla zaduženja osobe, za povijest na profilu
+func (s *UserService) PastDuties(userID uuid.UUID) ([]models.PrijasnjeZaduzenje, error) {
+	return s.userRepo.GetPastDutiesForUser(userID)
+}
+
 // RevokeDuty opoziva funkciju ili privremenu ispomoć; smije tko bi je smio i dati
 func (s *UserService) RevokeDuty(actor *models.UserPermissions, dutyID uuid.UUID) error {
 	if actorRank(actor) == 0 {

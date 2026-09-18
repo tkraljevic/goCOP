@@ -50,6 +50,14 @@ type UserPageData struct {
 	Sectors []models.Sector
 	Areas   []models.Area
 
+	// Zaduženje koje se uređuje; prazno za novo. Pomoćna polja su za
+	// predodabir u obrascu.
+	Duty        *models.Duty
+	DutySector  string
+	DutyArea    int
+	DutyExpires string
+	Prijasnja   []models.PrijasnjeZaduzenje // opozvana i istekla zaduženja, povijest profila
+
 	ModuleRows []ModuleOverrideRow // vidljivost modula za ovaj račun (samo globalni administrator)
 	Planovi    []models.PlanOsobe  // planovi dežurstava u kojima osoba ima sate
 
@@ -159,6 +167,7 @@ func (h *UsersHandler) showUser(w http.ResponseWriter, r *http.Request, u *model
 	data.User = u
 	data.IsSelf = data.CurrentUser != nil && data.CurrentUser.ID == u.ID
 	data.CanDelete = deletable(u)
+	data.Prijasnja, _ = h.userService.PastDuties(u.ID)
 	if h.moduleService != nil && data.Permissions != nil && data.Permissions.IsGlobalAdmin && !u.IsGlobalAdmin {
 		data.ModuleRows = h.moduleRows(r, u)
 	}
@@ -208,6 +217,46 @@ func (h *UsersHandler) ShowDutyForm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data.User = u
+	data.Sectors, _ = h.userService.ListSectors()
+	data.Areas, _ = h.userService.ListAreas("")
+
+	if err := h.tmplDuty.ExecuteTemplate(w, "duty_form.html", data); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+// ShowDutyEditForm prikazuje postojeće zaduženje u obrascu za izmjenu
+func (h *UsersHandler) ShowDutyEditForm(w http.ResponseWriter, r *http.Request) {
+	data := h.pageData(r)
+	if !data.CanManage {
+		http.Error(w, "Zaduženja uređuju administratori sektora, područja ili sustava", http.StatusForbidden)
+		return
+	}
+	dutyID, err := uuid.Parse(r.PathValue("duty"))
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	duty, err := h.userService.GetDuty(dutyID)
+	if err != nil || duty == nil || !duty.IsActive {
+		http.NotFound(w, r)
+		return
+	}
+	u, err := h.userService.GetUserByID(duty.UserID)
+	if err != nil || u == nil {
+		http.NotFound(w, r)
+		return
+	}
+	data.User, data.Duty, data.IsEdit = u, duty, true
+	if duty.SectorID != nil {
+		data.DutySector = *duty.SectorID
+	}
+	if duty.AreaID != nil {
+		data.DutyArea = *duty.AreaID
+	}
+	if duty.ExpiresAt != nil {
+		data.DutyExpires = duty.ExpiresAt.Format("2006-01-02")
+	}
 	data.Sectors, _ = h.userService.ListSectors()
 	data.Areas, _ = h.userService.ListAreas("")
 

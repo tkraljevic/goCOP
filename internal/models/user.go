@@ -97,6 +97,16 @@ type Duty struct {
 	IsActive     bool       `json:"is_active"`
 }
 
+// PrijasnjeZaduzenje je opozvano ili isteklo zaduženje kako ostaje u povijesti
+// profila; OpozvanoAt je prazno kad je zaduženje samo isteklo
+type PrijasnjeZaduzenje struct {
+	Duty
+	OpozvanoAt *time.Time
+}
+
+// Isteklo javlja je li zaduženje prestalo istekom roka, a ne opozivom
+func (z PrijasnjeZaduzenje) Isteklo() bool { return z.IsActive && z.ExpiresAt != nil }
+
 // User predstavlja matični korisnički račun djelatnika ili vanjskog suradnika
 type User struct {
 	ID                 uuid.UUID  `json:"id"`
