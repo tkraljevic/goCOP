@@ -15,7 +15,7 @@
   <div class="page-actions">
     <a href="/akti/{{$a.ID}}/akt.pdf" class="btn btn-secondary" target="_blank">{{icon "printer"}} PDF</a>
     {{if .SmijeOvjeriti}}
-    <form method="POST" action="/akti/{{$a.ID}}/ovjeri" style="display:inline;" onsubmit="return confirm('Ovjeriti {{$a.Vrsta}} o {{$a.RadnjaLabel}} {{$a.Predmet}}? Nakon ovjere akt se ne mijenja, a obrana na dionicama se uskladi.');"><button type="submit" class="btn btn-primary">{{icon "check"}} Ovjeri</button></form>
+    <form method="POST" action="/akti/{{$a.ID}}/ovjeri" style="display:inline;" onsubmit="return confirm('Ovjeriti u goCOP-u bez kvalificiranog potpisa? Koristi se kad nema vremena za SIGNATOR; izvornik tada ostaje ispis sa žigom i potpisom.');"><button type="submit" class="btn btn-secondary" title="Hitna ovjera u programu, bez kvalificiranog potpisa">{{icon "check"}} Ovjeri u goCOP-u</button></form>
     {{end}}
     {{if .SmijeObrisati}}
     <form method="POST" action="/akti/{{$a.ID}}/obrisi" style="display:inline;" onsubmit="return confirm('Obrisati nacrt?');"><button type="submit" class="btn btn-secondary">{{icon "trash"}} Obriši nacrt</button></form>
@@ -25,6 +25,21 @@
 
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
+
+{{if .SmijePripremiti}}
+<section class="akt-signator">
+  <h2>{{icon "shield"}} Potpis u SIGNATOR-u</h2>
+  <ol>
+    <li><a href="/akti/{{$a.ID}}/za-potpis.pdf" class="btn btn-sm btn-primary">{{icon "download"}} Preuzmi PDF za potpis</a>
+      <span class="form-help">i pošaljite ga u SIGNATOR {{$a.Potpisnik | lower}} na kvalificirani potpis. Nakon preuzimanja ne mijenjajte tekst nacrta.</span></li>
+    <li><form method="POST" action="/akti/{{$a.ID}}/potpisani" enctype="multipart/form-data" style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; margin:0;">
+      <input type="file" name="potpisani" accept="application/pdf,.pdf" required class="form-control" style="max-width:22rem;">
+      <button type="submit" class="btn btn-sm btn-primary">{{icon "upload"}} Učitaj potpisani PDF</button></form>
+      <span class="form-help">goCOP provjeri da je potpis kvalificiran, da je potpisnik rukovoditelj s pravom ovjere i da je potpisan baš ovaj nacrt; potpisani PDF postaje izvornik i akt je ovjeren.</span></li>
+  </ol>
+  {{with $a.ZaPotpis}}<p class="form-help" style="margin:0;">PDF za potpis preuzet: {{range $i, $z := .}}{{if $i}}; {{end}}{{$z.Tko}} {{formatDate (localTime $z.Kad)}}{{end}}.</p>{{end}}
+</section>
+{{end}}
 
 {{if .SmijeObrisati}}
 <details class="akt-uredi"{{if .ErrorMessage}} open{{end}}>
@@ -54,6 +69,14 @@
 </details>
 {{end}}
 
+{{with $a.Kvalificirani}}
+<div class="akt-potpis-stanje {{if and $.Izvornik $.Izvornik.Ispravan}}vrijedi{{else}}ne-vrijedi{{end}}">
+  {{if and $.Izvornik $.Izvornik.Ispravan}}{{icon "check"}} <strong>Kvalificirano potpisan u SIGNATOR-u:</strong>{{else}}{{icon "triangle-alert"}} <strong>Potpis na izvorniku se ne može potvrditi:</strong>{{end}}
+  {{.Ime}}{{if .OIB}} (OIB …{{slice .OIB 7}}){{end}}, {{formatDate (localTime .Vrijeme)}}. Certifikat izdao {{.Izdavatelj}}, vrijedi do {{.VrijediDo.Format "02.01.2006."}}.
+  Izvornik je potpisani PDF; vratio ga je {{.Ucitao}}. <a href="/akti/{{$a.ID}}/akt.pdf" target="_blank">Otvori izvornik</a>
+  <div class="form-help" style="margin-top:0.25rem;">goCOP je provjerio da je potpis ispravan, kvalificiran i da pokriva cijeli dokument; lanac certifikata i opoziv provjerava čitač PDF-a.</div>
+</div>
+{{end}}
 {{if $a.Ovjeren}}
 <div class="akt-potpis-stanje {{if eq .Potpis "VRIJEDI"}}vrijedi{{else if eq .Potpis "NE_VRIJEDI"}}ne-vrijedi{{end}}">
   {{if eq .Potpis "VRIJEDI"}}{{icon "check"}} <strong>Elektronički potpis vrijedi.</strong> Sadržaj akta nije mijenjan od ovjere:

@@ -952,6 +952,8 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /akti/{id}/tekst", s.authMiddleware(http.HandlerFunc(aktiH.HandleTekst)))
 	s.mux.Handle("GET /akti/{id}/akt.pdf", s.authMiddleware(http.HandlerFunc(aktiH.IzvoziPDF)))
 	s.mux.Handle("POST /akti/{id}/ovjeri", s.authMiddleware(http.HandlerFunc(aktiH.HandleOvjeri)))
+	s.mux.Handle("GET /akti/{id}/za-potpis.pdf", s.authMiddleware(http.HandlerFunc(aktiH.IzvoziZaPotpis)))
+	s.mux.Handle("POST /akti/{id}/potpisani", s.authMiddleware(http.HandlerFunc(aktiH.HandleUcitajPotpisani)))
 	s.mux.Handle("POST /akti/{id}/obrisi", s.authMiddleware(http.HandlerFunc(aktiH.HandleObrisi)))
 
 	mtsH := NewMtsHandler(func() *service.MtsService { return s.mtsService }, s.userService, s.sectionService, s.journalService,
