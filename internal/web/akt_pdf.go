@@ -14,17 +14,31 @@ import (
 // "O tome obavijest" sitnim slovima u dva stupca, naziv i e-pošta; poveznice
 // na dnu. Nacrt nosi vidljivu oznaku; ovjeren nosi tko, kad i kod za provjeru.
 func PDFAkta(a *models.Akt, t models.OrgTerms, sek *models.Sector, area *models.Area) []byte {
-	return pdfAkta(a, t, sek, area, false)
+	return pdfAkta(a, t, sek, area, nacinProgram)
 }
 
 // PDFAktaZaPotpis je PDF nacrta za potpis u SIGNATOR-u: bez oznake nacrta
 // i bez ovjere iz goCOP-a, s mjestom za kvalificirani potpis rukovoditelja
 // i s oznakom akta u metapodacima. Isti nacrt daje isti PDF bajt za bajt.
 func PDFAktaZaPotpis(a *models.Akt, t models.OrgTerms, sek *models.Sector, area *models.Area) []byte {
-	return pdfAkta(a, t, sek, area, true)
+	return pdfAkta(a, t, sek, area, nacinSignator)
 }
 
-func pdfAkta(a *models.Akt, t models.OrgTerms, sek *models.Sector, area *models.Area, zaPotpis bool) []byte {
+// PDFAktaZaIspis je PDF nacrta za ispis, vlastoručni potpis i žig: crta za
+// potpis, mjesto pečata, bez oznake nacrta
+func PDFAktaZaIspis(a *models.Akt, t models.OrgTerms, sek *models.Sector, area *models.Area) []byte {
+	return pdfAkta(a, t, sek, area, nacinIspis)
+}
+
+// Načini PDF-a akta
+const (
+	nacinProgram  = iota // nacrt ili akt ovjeren u goCOP-u
+	nacinSignator        // za kvalificirani potpis u SIGNATOR-u
+	nacinIspis           // za ispis, vlastoručni potpis i žig
+)
+
+func pdfAkta(a *models.Akt, t models.OrgTerms, sek *models.Sector, area *models.Area, nacin int) []byte {
+	zaPotpis := nacin != nacinProgram
 	naslov := a.Naslov() + " " + a.Oznaka()
 	if zaPotpis {
 		naslov = a.Naslov()
@@ -111,6 +125,12 @@ func pdfAkta(a *models.Akt, t models.OrgTerms, sek *models.Sector, area *models.
 	potpisX, potpisW := d.W-d.Desno-210, 210.0
 	d.OdlomakU(potpisX, potpisW, a.Potpisnik, 9, false, pdfw.Sredina)
 	switch {
+	case nacin == nacinIspis:
+		// crta za vlastoručni potpis i mjesto pečata
+		d.Razmak(40)
+		d.Tekst(potpisX-40, d.Y, 8, false, "M.P.")
+		d.Crta(potpisX+15, d.Y, potpisX+potpisW-15, d.Y)
+		d.Razmak(14)
 	case zaPotpis:
 		// mjesto za vidljivi potpis iz SIGNATOR-a
 		d.Razmak(48)
@@ -176,7 +196,9 @@ func pdfAkta(a *models.Akt, t models.OrgTerms, sek *models.Sector, area *models.
 	d.Osiguraj(34)
 	d.Crta(d.Lijevo, d.Y, d.W-d.Desno, d.Y)
 	d.Razmak(3)
-	if zaPotpis {
+	if nacin == nacinIspis {
+		d.Odlomak(tekstZaIspis(a, t, sek), 6.3, false, pdfw.Lijevo)
+	} else if zaPotpis {
 		d.Odlomak(tekstZaPotpis(a, t, sek), 6.3, false, pdfw.Lijevo)
 	} else if a.Ovjeren() && a.OvjerenoAt != nil {
 		d.Odlomak(tekstOvjere(a, t, sek), 6.3, false, pdfw.Lijevo)
@@ -351,6 +373,30 @@ func tekstZaPotpis(a *models.Akt, t models.OrgTerms, sek *models.Sector) string 
 		"u sustavu SIGNATOR. Potpis i njegovu valjanost prikazuje svaki čitač PDF-a (npr. Adobe Acrobat Reader).", org)
 	if sek != nil {
 		b += " Vjerodostojnost se može provjeriti i upitom Centru obrane od poplava Sektora " + sek.ID
+		var k []string
+		if sek.Phone != "" {
+			k = append(k, "tel. "+sek.Phone)
+		}
+		if sek.Email != "" {
+			k = append(k, "e-pošta "+sek.Email)
+		}
+		if len(k) > 0 {
+			b += " (" + strings.Join(k, ", ") + ")"
+		}
+		b += "."
+	}
+	return b + " Evidencijski broj u goCOP-u: " + strings.ToUpper(strings.ReplaceAll(a.ID, "-", "")[:12]) + "."
+}
+
+// tekstZaIspis je sitni tekst na dnu akta koji se potpisuje vlastoručno
+func tekstZaIspis(a *models.Akt, t models.OrgTerms, sek *models.Sector) string {
+	org := t.OrgName
+	if org == "" {
+		org = "Hrvatske vode"
+	}
+	b := fmt.Sprintf("Akt je sastavljen u informacijskom sustavu obrane od poplava goCOP (%s). Izvornik je ispis s vlastoručnim potpisom i žigom.", org)
+	if sek != nil {
+		b += " Vjerodostojnost se može provjeriti upitom Centru obrane od poplava Sektora " + sek.ID
 		var k []string
 		if sek.Phone != "" {
 			k = append(k, "tel. "+sek.Phone)

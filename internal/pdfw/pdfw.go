@@ -13,6 +13,8 @@ import (
 	"compress/zlib"
 	"fmt"
 	"image"
+	"image/color"
+	"image/jpeg"
 	"image/png"
 	"sort"
 	"strings"
@@ -121,6 +123,8 @@ type Doc struct {
 type slika struct {
 	w, h int
 	rgb  []byte
+	jpeg []byte // JPEG ide u PDF kakav jest (DCTDecode)
+	komp int    // broj komponenti boje JPEG-a: 1 siva, 3 RGB, 4 CMYK
 }
 
 // Novi otvara A4 dokument s uobičajenim marginama
@@ -323,6 +327,14 @@ func (d *Doc) Bajtovi() []byte {
 	fontObj("@@FONT2@@", podebljano, "GoBold")
 	slikeIdx := make([]int, len(d.slike))
 	for i, s := range d.slike {
+		if s.jpeg != nil {
+			prostor := map[int]string{1: "/DeviceGray", 3: "/DeviceRGB", 4: "/DeviceCMYK"}[s.komp]
+			if prostor == "" {
+				prostor = "/DeviceRGB"
+			}
+			slikeIdx[i] = obj(fmt.Sprintf("<< /Type /XObject /Subtype /Image /Width %d /Height %d /ColorSpace %s /BitsPerComponent 8 /Filter /DCTDecode /Length %d >>\nstream\n%s\nendstream", s.w, s.h, prostor, len(s.jpeg), s.jpeg))
+			continue
+		}
 		var z bytes.Buffer
 		zw := zlib.NewWriter(&z)
 		_, _ = zw.Write(s.rgb)
@@ -484,3 +496,51 @@ func Prelomi(s string, sirina, size float64, bold bool) []string {
 func Duljina(s string) int { return utf8.RuneCountInString(s) }
 
 var _ = image.Rect
+
+// SlikaJPEG smješta JPEG sliku kakva jest, bez preračunavanja; x i y od vrha
+// su gornji lijevi kut
+func (d *Doc) SlikaJPEG(podaci []byte, x, y, w, h float64) error {
+	cfg, err := jpeg.DecodeConfig(bytes.NewReader(podaci))
+	if err != nil {
+		return err
+	}
+	komp := 3
+	switch cfg.ColorModel {
+	case color.GrayModel:
+		komp = 1
+	case color.CMYKModel:
+		komp = 4
+	}
+	d.slike = append(d.slike, slika{w: cfg.Width, h: cfg.Height, jpeg: podaci, komp: komp})
+	fmt.Fprintf(d.tok(), "q %.2f 0 0 %.2f %.2f %.2f cm /Im%d Do Q\n", w, h, x, d.pdfY(y+h), len(d.slike))
+	return nil
+}
+
+// PDFIzSlike slaže PDF od jedne skenirane stranice (JPEG ili PNG), položene
+// na A4 s očuvanim omjerom, za sken potpisanog akta poslan kao slika
+func PDFIzSlike(podaci []byte, naslov string) ([]byte, error) {
+	cfg, format, err := image.DecodeConfig(bytes.NewReader(podaci))
+	if err != nil {
+		return nil, fmt.Errorf("slika nije čitljiva: %w", err)
+	}
+	d := Novi(naslov, "goCOP")
+	w, h := d.W, d.H
+	if float64(cfg.Width)/float64(cfg.Height) > w/h {
+		h = w * float64(cfg.Height) / float64(cfg.Width)
+	} else {
+		w = h * float64(cfg.Width) / float64(cfg.Height)
+	}
+	x, y := (d.W-w)/2, (d.H-h)/2
+	switch format {
+	case "jpeg":
+		err = d.SlikaJPEG(podaci, x, y, w, h)
+	case "png":
+		err = d.SlikaPNG(podaci, x, y, w, h)
+	default:
+		err = fmt.Errorf("slika mora biti JPEG ili PNG, a ne %s", format)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return d.Bajtovi(), nil
+}

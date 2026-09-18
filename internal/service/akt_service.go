@@ -17,6 +17,7 @@ import (
 
 	"gocop/internal/models"
 	"gocop/internal/pdfpotpis"
+	"gocop/internal/pdfw"
 	"gocop/internal/repository"
 )
 
@@ -783,6 +784,74 @@ func (s *AktService) UcitajPotpisani(ctx context.Context, perms *models.UserPerm
 		return nil, nil, err
 	}
 	return s.zakljuciOvjeru(ctx, perms, potpisnikPerms, potpisnik, a, kad)
+}
+
+// MoguPotpisati su korisnici koji po zaduženjima smiju ovjeriti akt, za
+// izbor potpisnika kad se učitava sken ručno potpisanog akta
+func (s *AktService) MoguPotpisati(a *models.Akt) []models.User {
+	svi, err := s.users.ListUsers(a.Sektor, 0, "", "", "")
+	if err != nil {
+		return nil
+	}
+	var out []models.User
+	for _, x := range svi {
+		p := models.NewUserPermissions(x)
+		if p.IsGlobalAdmin {
+			continue // uprava organizacije smije sve, ali akt područja ne potpisuje
+		}
+		if s.SmijeOvjeriti(p, a) {
+			out = append(out, x)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].FullName < out[j].FullName })
+	return out
+}
+
+// UcitajSkenirani prima sken ispisa potpisanog vlastoručno i ovjerenog
+// žigom (PDF, JPEG ili PNG) i njime ovjerava akt. Sken se ne može
+// provjeriti strojno, pa onaj tko ga učitava navodi tko je potpisao; to
+// mora biti osoba koja akt smije ovjeriti. Sken postaje izvornik.
+func (s *AktService) UcitajSkenirani(ctx context.Context, perms *models.UserPermissions, u *models.User, id string, datoteka []byte, potpisnikID string) (*models.Akt, []string, error) {
+	a, err := s.repo.GetAkt(ctx, id)
+	if err != nil {
+		return nil, nil, err
+	}
+	if a == nil {
+		return nil, nil, fmt.Errorf("akt ne postoji")
+	}
+	if a.Ovjeren() {
+		return nil, nil, fmt.Errorf("akt %s je već ovjeren", a.Oznaka())
+	}
+	if !s.smijePripremiti(perms, u, a) {
+		return nil, nil, ErrUnauthorized
+	}
+	if len(datoteka) == 0 {
+		return nil, nil, fmt.Errorf("odaberite sken potpisanog akta")
+	}
+	pdf := datoteka
+	if !bytes.HasPrefix(datoteka, []byte("%PDF")) {
+		if pdf, err = pdfw.PDFIzSlike(datoteka, a.Naslov()); err != nil {
+			return nil, nil, fmt.Errorf("sken mora biti PDF, JPEG ili PNG: %w", err)
+		}
+	}
+	pid, err := uuid.Parse(potpisnikID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("odaberite tko je akt potpisao")
+	}
+	potpisnik, err := s.users.GetUserByID(pid)
+	if err != nil || potpisnik == nil {
+		return nil, nil, fmt.Errorf("potpisnik ne postoji")
+	}
+	potpisnikPerms := models.NewUserPermissions(*potpisnik)
+	if !s.SmijeOvjeriti(potpisnikPerms, a) {
+		return nil, nil, fmt.Errorf("%s po zaduženjima ne smije ovjeriti %s", potpisnik.FullName, strings.ToLower(a.Naslov()))
+	}
+	h := sha256.Sum256(pdf)
+	a.Rucno = &models.RucniPotpis{PotpisnikID: potpisnik.ID.String(), Potpisnik: potpisnik.FullName, Sazetak: hex.EncodeToString(h[:]), Ucitao: u.FullName, UcitanoAt: time.Now()}
+	if err := s.repo.SaveIzvornik(ctx, &repository.Izvornik{AktID: a.ID, PDF: pdf, Sazetak: a.Rucno.Sazetak}); err != nil {
+		return nil, nil, err
+	}
+	return s.zakljuciOvjeru(ctx, perms, potpisnikPerms, potpisnik, a, time.Now())
 }
 
 // potpisnikIzCertifikata pronalazi korisnika čije ime stoji u certifikatu

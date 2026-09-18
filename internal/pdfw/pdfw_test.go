@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"image"
 	"image/color"
+	"image/jpeg"
 	"image/png"
 	"os"
 	"os/exec"
@@ -107,5 +108,34 @@ func TestIstiSadrzajIstiPDF(t *testing.T) {
 	}
 	if !bytes.Contains(a, []byte("/Subject (goCOP akt 1)")) {
 		t.Error("predmet nije u metapodacima")
+	}
+}
+
+// Sken poslan kao JPEG ili PNG postaje PDF od jedne stranice
+func TestPDFIzSlike(t *testing.T) {
+	img := image.NewRGBA(image.Rect(0, 0, 60, 85))
+	for x := 0; x < 60; x++ {
+		img.Set(x, 40, color.RGBA{0, 0, 0, 255})
+	}
+	var j, p bytes.Buffer
+	if err := jpeg.Encode(&j, img, nil); err != nil {
+		t.Fatal(err)
+	}
+	_ = png.Encode(&p, img)
+	for _, c := range []struct {
+		ime   string
+		slika []byte
+		znak  string
+	}{{"jpeg", j.Bytes(), "/DCTDecode"}, {"png", p.Bytes(), "/FlateDecode"}} {
+		pdf, err := PDFIzSlike(c.slika, "Sken")
+		if err != nil {
+			t.Fatalf("%s: %v", c.ime, err)
+		}
+		if !bytes.HasPrefix(pdf, []byte("%PDF")) || !bytes.Contains(pdf, []byte(c.znak)) || !bytes.Contains(pdf, []byte("/Count 1")) {
+			t.Errorf("%s: PDF nije sastavljen kako treba", c.ime)
+		}
+	}
+	if _, err := PDFIzSlike([]byte("nije slika"), "x"); err == nil {
+		t.Error("tekst nije slika")
 	}
 }

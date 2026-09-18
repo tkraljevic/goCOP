@@ -3537,3 +3537,11 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .akt-signator { max-width: 52rem; border: 1px solid var(--border, #d9dee5); border-radius: 10px; padding: 0.75rem 1rem; margin: 0 0 1rem; background: var(--surface, #fff); }
 .akt-signator h2 { font-size: 1rem; margin: 0 0 0.5rem; }
 .akt-signator ol { margin: 0 0 0.5rem; padding-left: 1.25rem; display: flex; flex-direction: column; gap: 0.6rem; }
+
+.akt-potpis-opcije { max-width: 60rem; border: 1px solid var(--border, #d9dee5); border-radius: 10px; padding: 0.75rem 1rem; margin: 0 0 1rem; background: var(--surface, #fff); }
+.akt-potpis-opcije h2 { font-size: 1rem; margin: 0 0 0.35rem; }
+.akt-opcije { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); gap: 0.75rem; }
+.akt-opcija { border: 1px solid var(--border, #d9dee5); border-radius: 8px; padding: 0.6rem 0.8rem; }
+.akt-opcija h3 { font-size: 0.9rem; margin: 0 0 0.4rem; }
+.akt-opcija ol { margin: 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: 0.6rem; }
+.akt-opcija form { display: flex; flex-direction: column; gap: 0.35rem; margin: 0.35rem 0 0; }
