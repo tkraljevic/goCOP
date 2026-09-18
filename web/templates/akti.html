@@ -43,7 +43,7 @@
     {{range .Akti}}
     <tr{{if not .Ovjeren}} class="mts-prazno"{{end}}>
       <td class="mono">{{.Oznaka}}</td>
-      <td><a href="/akti/{{.ID}}"><strong>{{.Vrsta}}</strong> o {{.RadnjaLabel}} {{.Predmet}}</a></td>
+      <td><a href="/akti/{{.ID}}"><strong>{{.Vrsta}}</strong> o {{.RadnjaLabel}} {{.Predmet}}</a>{{if .IzvanSnage}}<div class="reg-card-sub">{{.IzvanSnage}}</div>{{end}}</td>
       <td>{{.StationName}}{{if .VodostajCm}} <span class="reg-card-sub">{{intOf .VodostajCm}} cm</span>{{end}}</td>
       <td>{{.AreaID}}</td>
       <td class="mono">{{join .Sifre ", "}}</td>

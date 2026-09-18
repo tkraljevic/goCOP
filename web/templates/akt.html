@@ -34,6 +34,12 @@
       <label class="form-label" for="uvod">Uvod: pravna osnova i vodostaj</label>
       <textarea id="uvod" name="uvod" class="form-control" rows="5" required>{{$a.TekstUvoda}}</textarea>
     </div>
+    {{if eq $a.Radnja "PREKID"}}
+    <div class="form-group">
+      <label class="form-label" for="izvan_snage">Akt koji se stavlja izvan snage</label>
+      <textarea id="izvan_snage" name="izvan_snage" class="form-control" rows="2" placeholder="Stavlja se izvan snage Obavijest o uspostavi … oznake … od … u … sati.">{{$a.IzvanSnage}}</textarea>
+    </div>
+    {{end}}
     <div class="form-group">
       <label class="form-label" for="napomena">Napomena na aktu</label>
       <textarea id="napomena" name="napomena" class="form-control" rows="2">{{$a.Napomena}}</textarea>
@@ -67,6 +73,7 @@
   <p class="akt-sredina">{{if eq (len $a.Dionice) 1}}na dionici:{{else}}na dionicama:{{end}}</p>
   <dl class="akt-dionice">{{range $a.Dionice}}<dt class="mono">{{.Code}}</dt><dd>{{.Opis}}</dd>{{end}}</dl>
   <p class="akt-sredina">dana:<br><strong>{{formatDate (localTime $a.Vrijedi)}}</strong></p>
+  {{if $a.IzvanSnage}}<p><strong>{{$a.IzvanSnage}}</strong>{{with $a.PrekidaAktID}} <a href="/akti/{{.}}" class="reg-card-sub">otvori akt</a>{{end}}</p>{{end}}
   <p>{{$a.TekstZavrsni}}</p>
   {{if $a.Napomena}}<p>{{$a.Napomena}}</p>{{end}}
   <div class="akt-potpis"><div></div><div style="text-align:center;"><strong>{{$a.Potpisnik}}</strong>{{if $a.Ovjeren}}<br><span class="reg-card-sub">{{$a.ImePotpisa}}</span>{{end}}</div></div>

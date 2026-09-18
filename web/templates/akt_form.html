@@ -45,6 +45,14 @@
       </select>
     </div>
   </div>
+  <div class="form-group" id="prekid-akt">
+    <label class="form-label" for="prekida_akt_id">Akt o uspostavi koji se stavlja izvan snage</label>
+    <select id="prekida_akt_id" name="prekida_akt_id" class="form-control">
+      <option value="">zadnji ovjereni istog stupnja</option>
+      {{range .ZaPrekid}}<option value="{{.ID}}">{{.Oznaka}} · {{.VrstaNaziv}} o uspostavi {{.Predmet}} · {{formatDate (localTime .Vrijedi)}}</option>{{end}}
+    </select>
+    <div class="form-help">Samo za prekid. {{if not .ZaPrekid}}Po ovom vodomjeru još nema ovjerenog akta o uspostavi; rečenicu možete upisati u nacrtu.{{end}}</div>
+  </div>
   <div class="form-group">
     <label class="form-label">Dionice</label>
     {{range .Dionice}}
@@ -84,6 +92,15 @@
     <textarea id="napomena" name="napomena" class="form-control" rows="2" placeholder="neobavezno"></textarea>
   </div>
   <p class="form-help">Tekst akta slaže se iz špranče sektora; u nacrtu ga možete ispraviti prije ovjere.</p>
+  <script>
+  (function () {
+    const blok = document.getElementById('prekid-akt');
+    const radnje = document.querySelectorAll('input[name="radnja"]');
+    const osvjezi = () => { blok.hidden = !Array.from(radnje).some((r) => r.checked && r.value === 'PREKID'); };
+    radnje.forEach((r) => r.addEventListener('change', osvjezi));
+    osvjezi();
+  })();
+  </script>
   <div class="form-actions">
     <a href="/akti" class="btn btn-secondary">Odustani</a>
     <button type="submit" class="btn btn-primary">Sastavi nacrt</button>
