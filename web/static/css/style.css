@@ -3617,3 +3617,4 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .posta-predmet { font-size: 0.98rem; margin-top: 0.1rem; }
 .posta-pregled { font-size: 0.85rem; color: var(--muted, #6b7280); margin-top: 0.15rem; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 @media (max-width: 560px) { .posta-radnje-traka { flex-direction: column; align-items: stretch; } .posta-premjesti select { max-width: none; flex: 1; } }
+.btn-opasno:not(:disabled) { color: #9b1c1c; border-color: #e5b4b4; }

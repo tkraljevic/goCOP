@@ -413,6 +413,22 @@ func Premjesti(ctx context.Context, p Postavke, r Racun, ids []string, mapa stri
 	return err
 }
 
+// ObrisiTrajno briše pisma iz Obrisanog kao Outlook: SoftDelete ih seli u
+// oporavljive stavke Exchangea, odakle ih se još neko vrijeme može vratiti
+func ObrisiTrajno(ctx context.Context, p Postavke, r Racun, ids []string) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	var b strings.Builder
+	b.WriteString(`<m:DeleteItem DeleteType="SoftDelete"><m:ItemIds>`)
+	for _, id := range ids {
+		b.WriteString(`<t:ItemId Id="` + xmlAttr(id) + `"/>`)
+	}
+	b.WriteString(`</m:ItemIds></m:DeleteItem>`)
+	_, err := ewsSirovo(ctx, p, r, b.String())
+	return err
+}
+
 // Obrisi premješta pismo u Obrisano
 func Obrisi(ctx context.Context, p Postavke, r Racun, id string) error {
 	return Premjesti(ctx, p, r, []string{id}, "deleteditems")

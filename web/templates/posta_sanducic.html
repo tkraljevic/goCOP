@@ -40,7 +40,7 @@
   <div class="posta-radnje-traka">
     <label class="posta-sve"><input type="checkbox" id="posta-sve"> <span>Označi sve</span> <span class="posta-oznaceno form-help"></span></label>
     <div class="posta-radnje-gumbi">
-      <button type="submit" name="radnja" value="obrisi" class="btn btn-secondary btn-sm" disabled>{{icon "trash"}} Obriši</button>
+      <button type="submit" name="radnja" value="obrisi" class="btn btn-secondary btn-sm {{if eq .Mapa "deleteditems"}}btn-opasno{{end}}" disabled>{{icon "trash"}} {{if eq .Mapa "deleteditems"}}Obriši trajno{{else}}Obriši{{end}}</button>
       <button type="submit" name="radnja" value="arhiviraj" class="btn btn-secondary btn-sm" disabled>{{icon "package"}} Arhiviraj</button>
       <button type="submit" name="radnja" value="procitano" class="btn btn-secondary btn-sm" disabled>{{icon "eye"}} Pročitano</button>
       <button type="submit" name="radnja" value="neprocitano" class="btn btn-secondary btn-sm" disabled>{{icon "eye-off"}} Nepročitano</button>
@@ -95,7 +95,7 @@
     kvacice.forEach(function (k) { k.addEventListener('change', osvjezi); });
     obrazac.addEventListener('submit', function (e) {
       var g = e.submitter;
-      if (g && g.value === 'obrisi' && !confirm('Premjestiti označena pisma u Obrisano?')) e.preventDefault();
+      if (g && g.value === 'obrisi' && !confirm({{if eq .Mapa "deleteditems"}}'Trajno obrisati označena pisma? Exchange ih još neko vrijeme čuva u oporavljivim stavkama.'{{else}}'Premjestiti označena pisma u Obrisano?'{{end}})) e.preventDefault();
       if (g && g.value === 'premjesti' && !obrazac.querySelector('select[name="mapa_u"]').value) { alert('Odaberite mapu.'); e.preventDefault(); }
     });
     osvjezi();

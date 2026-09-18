@@ -221,6 +221,14 @@ func (h *AktiHandler) HandlePismoRadnja(w http.ResponseWriter, r *http.Request) 
 		}
 		redirectWith(w, r, "/posta", "success", "Pismo je označeno kao nepročitano.")
 	case "obrisi":
+		if r.FormValue("mapa") == "deleteditems" {
+			if err := s.ObrisiTrajno(r.Context(), u, []string{id}); err != nil {
+				redirectWith(w, r, natrag, "error", err.Error())
+				return
+			}
+			redirectWith(w, r, "/posta?mapa=deleteditems", "success", "Pismo je trajno obrisano. Exchange ga još neko vrijeme čuva u oporavljivim stavkama.")
+			return
+		}
 		if err := s.ObrisiPismo(r.Context(), u, id); err != nil {
 			redirectWith(w, r, natrag, "error", err.Error())
 			return
@@ -358,7 +366,12 @@ func (h *AktiHandler) HandleSkupnaRadnja(w http.ResponseWriter, r *http.Request)
 	var poruka string
 	switch r.FormValue("radnja") {
 	case "obrisi":
-		err, poruka = s.PremjestiPisma(r.Context(), u, ids, "deleteditems"), n+" premješteno u Obrisano."
+		if r.FormValue("mapa") == "deleteditems" {
+			// iz Obrisanog se briše trajno, kao u Outlooku
+			err, poruka = s.ObrisiTrajno(r.Context(), u, ids), n+" trajno obrisano. Exchange ih još neko vrijeme čuva u oporavljivim stavkama."
+		} else {
+			err, poruka = s.PremjestiPisma(r.Context(), u, ids, "deleteditems"), n+" premješteno u Obrisano."
+		}
 	case "arhiviraj":
 		err, poruka = s.PremjestiPisma(r.Context(), u, ids, "archive"), n+" premješteno u Arhivu."
 	case "premjesti":
