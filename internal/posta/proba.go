@@ -37,6 +37,8 @@ type ProbniPosluzitelj struct {
 	Mapa              map[string]string // ID pisma → mapa
 	Datoteke          map[string][]byte // sadržaj privitaka po ID-u
 	Adresar           []Kontakt         // adresar tvrtke probnog EWS-a
+	Korisnikove       map[string]string // korisnikove mape: Id → naziv
+	ImaArhivu         bool              // postoji li mapa Arhiva
 
 	mu     sync.Mutex
 	poruke []Primljena
@@ -115,11 +117,50 @@ func PokreniProbniEWS(korisnik, lozinka string) (*ProbniPosluzitelj, error) {
 		odgovor := func(vrsta, ishod, tekst string) {
 			w.Header().Set("Content-Type", "text/xml; charset=utf-8")
 			fmt.Fprintf(w, `<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body><m:%sResponse xmlns:m="m" xmlns:t="t"><m:ResponseMessages><m:%sResponseMessage ResponseClass="%s"><m:MessageText>%s</m:MessageText><m:ResponseCode>%s</m:ResponseCode></m:%sResponseMessage></m:ResponseMessages></m:%sResponse></s:Body></s:Envelope>`,
-				vrsta, vrsta, ishod, tekst, map[bool]string{true: "NoError", false: "ErrorInvalidRecipients"}[ishod == "Success"], vrsta, vrsta)
+				vrsta, vrsta, ishod, tekst, kodGreske(ishod, tekst), vrsta, vrsta)
 		}
 		switch {
 		case bytes.Contains(tijelo, []byte("<m:GetFolder>")):
-			odgovor("GetFolder", "Success", "")
+			ids := regexp.MustCompile(`<t:DistinguishedFolderId Id="([^"]*)"`).FindAllSubmatch(tijelo, -1)
+			if len(ids) <= 1 {
+				odgovor("GetFolder", "Success", "")
+				return
+			}
+			w.Header().Set("Content-Type", "text/xml; charset=utf-8")
+			var b bytes.Buffer
+			b.WriteString(`<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body><m:GetFolderResponse xmlns:m="m" xmlns:t="t"><m:ResponseMessages>`)
+			for _, x := range ids {
+				mapa := string(x[1])
+				if mapa == "archive" && !p.ImaArhivu {
+					b.WriteString(`<m:GetFolderResponseMessage ResponseClass="Error"><m:MessageText>The specified folder could not be found in the store.</m:MessageText><m:ResponseCode>ErrorFolderNotFound</m:ResponseCode></m:GetFolderResponseMessage>`)
+					continue
+				}
+				nepr, uk := 0, 0
+				for _, pi := range p.Pisma {
+					m := p.Mapa[pi.ID]
+					if m == "" {
+						m = "inbox"
+					}
+					if m == mapa {
+						uk++
+						if !pi.Procitano {
+							nepr++
+						}
+					}
+				}
+				fmt.Fprintf(&b, `<m:GetFolderResponseMessage ResponseClass="Success"><m:ResponseCode>NoError</m:ResponseCode><m:Folders><t:Folder><t:DisplayName>%s</t:DisplayName><t:TotalCount>%d</t:TotalCount><t:UnreadCount>%d</t:UnreadCount></t:Folder></m:Folders></m:GetFolderResponseMessage>`, mapa, uk, nepr)
+			}
+			b.WriteString(`</m:ResponseMessages></m:GetFolderResponse></s:Body></s:Envelope>`)
+			_, _ = w.Write(b.Bytes())
+		case bytes.Contains(tijelo, []byte("<m:FindFolder")):
+			w.Header().Set("Content-Type", "text/xml; charset=utf-8")
+			var b bytes.Buffer
+			b.WriteString(`<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body><m:FindFolderResponse xmlns:m="m" xmlns:t="t"><m:ResponseMessages><m:FindFolderResponseMessage ResponseClass="Success"><m:ResponseCode>NoError</m:ResponseCode><m:RootFolder><t:Folders><t:Folder><t:FolderId Id="AAMk-inbox"/><t:DisplayName>Inbox</t:DisplayName><t:FolderClass>IPF.Note</t:FolderClass><t:TotalCount>0</t:TotalCount><t:UnreadCount>0</t:UnreadCount></t:Folder>`)
+			for id, naziv := range p.Korisnikove {
+				fmt.Fprintf(&b, `<t:Folder><t:FolderId Id="%s"/><t:DisplayName>%s</t:DisplayName><t:FolderClass>IPF.Note</t:FolderClass><t:TotalCount>0</t:TotalCount><t:UnreadCount>0</t:UnreadCount></t:Folder>`, xmlAttr(id), xmlAttr(naziv))
+			}
+			b.WriteString(`</t:Folders></m:RootFolder></m:FindFolderResponseMessage></m:ResponseMessages></m:FindFolderResponse></s:Body></s:Envelope>`)
+			_, _ = w.Write(b.Bytes())
 		case bytes.Contains(tijelo, []byte("<m:ResolveNames")):
 			x := regexp.MustCompile(`<m:UnresolvedEntry>([^<]*)</m:UnresolvedEntry>`).FindSubmatch(tijelo)
 			upit := ""
@@ -149,7 +190,7 @@ func PokreniProbniEWS(korisnik, lozinka string) (*ProbniPosluzitelj, error) {
 		case bytes.Contains(tijelo, []byte("<m:FindItem")):
 			w.Header().Set("Content-Type", "text/xml; charset=utf-8")
 			mapa := "inbox"
-			if x := regexp.MustCompile(`<t:DistinguishedFolderId Id="([^"]*)"`).FindSubmatch(tijelo); x != nil {
+			if x := regexp.MustCompile(`<t:(?:Distinguished)?FolderId Id="([^"]*)"`).FindSubmatch(tijelo); x != nil {
 				mapa = string(x[1])
 			}
 			upit := ""
@@ -173,8 +214,8 @@ func PokreniProbniEWS(korisnik, lozinka string) (*ProbniPosluzitelj, error) {
 			var b bytes.Buffer
 			fmt.Fprintf(&b, `<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body><m:FindItemResponse xmlns:m="m" xmlns:t="t"><m:ResponseMessages><m:FindItemResponseMessage ResponseClass="Success"><m:ResponseCode>NoError</m:ResponseCode><m:RootFolder TotalItemsInView="%d"><t:Items>`, len(odabrana))
 			for _, x := range odabrana {
-				fmt.Fprintf(&b, `<t:Message><t:ItemId Id="%s" ChangeKey="ck1"/><t:Subject>%s</t:Subject><t:HasAttachments>%v</t:HasAttachments><t:Size>%d</t:Size><t:DateTimeReceived>%s</t:DateTimeReceived><t:From><t:Mailbox><t:Name>%s</t:Name><t:EmailAddress>%s</t:EmailAddress></t:Mailbox></t:From><t:IsRead>%v</t:IsRead></t:Message>`,
-					xmlAttr(x.ID), xmlAttr(x.Predmet), len(x.Privitci) > 0, x.Velicina, x.Kad.UTC().Format(time.RFC3339), xmlAttr(x.Od), xmlAttr(x.OdAdresa), x.Procitano)
+				fmt.Fprintf(&b, `<t:Message><t:ItemId Id="%s" ChangeKey="ck1"/><t:Subject>%s</t:Subject><t:HasAttachments>%v</t:HasAttachments><t:Size>%d</t:Size><t:DateTimeReceived>%s</t:DateTimeReceived><t:From><t:Mailbox><t:Name>%s</t:Name><t:EmailAddress>%s</t:EmailAddress></t:Mailbox></t:From><t:IsRead>%v</t:IsRead><t:Preview>%s</t:Preview></t:Message>`,
+					xmlAttr(x.ID), xmlAttr(x.Predmet), len(x.Privitci) > 0, x.Velicina, x.Kad.UTC().Format(time.RFC3339), xmlAttr(x.Od), xmlAttr(x.OdAdresa), x.Procitano, xmlAttr(x.Tekst))
 			}
 			b.WriteString(`</t:Items></m:RootFolder></m:FindItemResponseMessage></m:ResponseMessages></m:FindItemResponse></s:Body></s:Envelope>`)
 			_, _ = w.Write(b.Bytes())
@@ -201,24 +242,30 @@ func PokreniProbniEWS(korisnik, lozinka string) (*ProbniPosluzitelj, error) {
 			}
 			odgovor("GetItem", "Error", "The specified object was not found in the store.")
 		case bytes.Contains(tijelo, []byte("<m:UpdateItem")):
-			x := regexp.MustCompile(`<t:ItemId Id="([^"]*)" ChangeKey="([^"]*)"`).FindSubmatch(tijelo)
-			if x == nil || string(x[2]) != "ck1" {
-				odgovor("UpdateItem", "Error", "ErrorIrresolvableConflict")
-				return
-			}
-			for i := range p.Pisma {
-				if p.Pisma[i].ID == string(x[1]) {
-					p.Pisma[i].Procitano = bytes.Contains(tijelo, []byte("<t:IsRead>true</t:IsRead>"))
+			xs := regexp.MustCompile(`<t:ItemId Id="([^"]*)" ChangeKey="([^"]*)"`).FindAllSubmatch(tijelo, -1)
+			for _, x := range xs {
+				if string(x[2]) != "ck1" {
+					odgovor("UpdateItem", "Error", "ErrorIrresolvableConflict")
+					return
+				}
+				for i := range p.Pisma {
+					if p.Pisma[i].ID == string(x[1]) {
+						p.Pisma[i].Procitano = bytes.Contains(tijelo, []byte("<t:IsRead>true</t:IsRead>"))
+					}
 				}
 			}
 			odgovor("UpdateItem", "Success", "")
 		case bytes.Contains(tijelo, []byte("<m:MoveItem>")):
-			x := regexp.MustCompile(`<t:ItemId Id="([^"]*)"`).FindSubmatch(tijelo)
+			cilj := regexp.MustCompile(`<m:ToFolderId><t:(?:Distinguished)?FolderId Id="([^"]*)"`).FindSubmatch(tijelo)
+			if cilj == nil || (string(cilj[1]) == "archive" && !p.ImaArhivu) {
+				odgovor("MoveItem", "Error", "The specified folder could not be found in the store. ErrorFolderNotFound")
+				return
+			}
 			if p.Mapa == nil {
 				p.Mapa = map[string]string{}
 			}
-			if x != nil {
-				p.Mapa[string(x[1])] = "deleteditems"
+			for _, x := range regexp.MustCompile(`<t:ItemId Id="([^"]*)"`).FindAllSubmatch(tijelo, -1) {
+				p.Mapa[string(x[1])] = string(cilj[1])
 			}
 			odgovor("MoveItem", "Success", "")
 		case bytes.Contains(tijelo, []byte("<m:GetAttachment>")):
@@ -383,4 +430,16 @@ func izmedju(s string) string {
 		}
 	}
 	return ""
+}
+
+func kodGreske(ishod, tekst string) string {
+	if ishod == "Success" {
+		return "NoError"
+	}
+	for _, r := range strings.Fields(tekst) {
+		if strings.HasPrefix(r, "Error") {
+			return r
+		}
+	}
+	return "ErrorInvalidRecipients"
 }

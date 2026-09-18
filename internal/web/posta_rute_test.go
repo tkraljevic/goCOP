@@ -139,6 +139,7 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	mux.HandleFunc("GET /administracija/posta", h.ShowAdminPosta)
 	h.SetSanducic(tmpl("posta_sanducic.html"), tmpl("posta_pismo.html"), tmpl("posta_novo.html"))
 	mux.HandleFunc("POST /posta/pismo", h.HandlePismoRadnja)
+	mux.HandleFunc("POST /posta/radnja", h.HandleSkupnaRadnja)
 	h.SetImenik(tmpl("imenik_exchange.html"), poslovi.NoviRegistar())
 	mux.HandleFunc("GET /users/exchange", h.ShowImenik)
 	mux.HandleFunc("POST /users/exchange", h.HandleImenikPrimijeni)
@@ -262,8 +263,9 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 		{ID: "AAMk/2=", Predmet: "Ručak", Od: "Kolega", OdAdresa: "kolega@voda.hr", Kad: time.Now().Add(-time.Hour), Procitano: true},
 	}
 	srv.Datoteke = map[string][]byte{"AAMk/priv+1=": potpisan}
+	srv.Korisnikove = map[string]string{"AAMk/mapa-projekti=": "Projekti"}
 	popis := zovi(httptest.NewRequest(http.MethodGet, "/posta?akt="+id2, nil)).Body.String()
-	if !strings.Contains(popis, "Signator: dokument je potpisan") || !strings.Contains(popis, "Ručak") || !strings.Contains(popis, "Ukupno pisama: 2") {
+	if !strings.Contains(popis, "Signator: dokument je potpisan") || !strings.Contains(popis, "Ručak") || !strings.Contains(popis, "ukupno 2") {
 		t.Fatalf("popis sandučića:\n%.800s", popis)
 	}
 	pismo := zovi(httptest.NewRequest(http.MethodGet, "/posta/pismo?"+url.Values{"id": {"AAMk/1+="}, "akt": {id2}}.Encode(), nil)).Body.String()
@@ -322,7 +324,36 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	if !strings.Contains(poslano[len(poslano)-1].Podaci, `filename="akt-potpisan.pdf"`) {
 		t.Error("proslijeđeno pismo nema izvorni privitak")
 	}
-	// brisanje premješta u Obrisano
+	// popis je u karticama s pregledom, mapama i korisnikovom mapom
+	popis = zovi(httptest.NewRequest(http.MethodGet, "/posta", nil)).Body.String()
+	if !strings.Contains(popis, "posta-kartica") || !strings.Contains(popis, "Dokument je potpisan.") || !strings.Contains(popis, "Projekti") || !strings.Contains(popis, `name="p" value="AAMk/2=|ck1"`) {
+		t.Fatalf("kartice popisa:\n%.1500s", popis)
+	}
+	// skupne radnje: nepročitano, arhiva bez mape Arhiva, premještanje u korisnikovu mapu
+	if loc := post("/posta/radnja", url.Values{"p": {"AAMk/1+=|ck1", "AAMk/2=|ck1"}, "radnja": {"neprocitano"}, "mapa": {"inbox"}}); !strings.Contains(loc, "2 pisma") {
+		t.Errorf("skupno nepročitano: %s", loc)
+	}
+	if srv.Pisma[0].Procitano || srv.Pisma[1].Procitano {
+		t.Error("pisma nisu označena nepročitanima")
+	}
+	if loc := post("/posta/radnja", url.Values{"p": {"AAMk/1+=|ck1"}, "radnja": {"arhiviraj"}}); !strings.Contains(loc, "nema mape Arhiva") {
+		t.Errorf("arhiva bez mape: %s", loc)
+	}
+	srv.ImaArhivu = true
+	if loc := post("/posta/radnja", url.Values{"p": {"AAMk/1+=|ck1"}, "radnja": {"arhiviraj"}}); !strings.Contains(loc, "Arhivu") {
+		t.Errorf("arhiviranje: %s", loc)
+	}
+	if loc := post("/posta/radnja", url.Values{"p": {"AAMk/2=|ck1"}, "radnja": {"premjesti"}, "mapa_u": {"AAMk/mapa-projekti="}}); !strings.Contains(loc, "premješteno") {
+		t.Errorf("premještanje: %s", loc)
+	}
+	if w := zovi(httptest.NewRequest(http.MethodGet, "/posta?mapa="+url.QueryEscape("AAMk/mapa-projekti="), nil)); !strings.Contains(w.Body.String(), "Ručak") {
+		t.Error("pismo nije u korisnikovoj mapi")
+	}
+	if w := zovi(httptest.NewRequest(http.MethodGet, "/posta?mapa=archive", nil)); !strings.Contains(w.Body.String(), "Signator: dokument") {
+		t.Error("pismo nije u Arhivi")
+	}
+	// natrag u ulaznu poštu pa brisanje s pojedinačne stranice
+	post("/posta/radnja", url.Values{"p": {"AAMk/2=|ck1"}, "radnja": {"premjesti"}, "mapa_u": {"inbox"}})
 	post("/posta/pismo", url.Values{"id": {"AAMk/2="}, "radnja": {"obrisi"}})
 	if w := zovi(httptest.NewRequest(http.MethodGet, "/posta?mapa=deleteditems", nil)); !strings.Contains(w.Body.String(), "Ručak") {
 		t.Error("obrisano pismo nije u Obrisano")

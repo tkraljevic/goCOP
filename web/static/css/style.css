@@ -3597,3 +3597,23 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .imenik-detalji { margin-top: 0.75rem; }
 .imenik-detalji summary { cursor: pointer; font-weight: 600; font-size: 0.92rem; }
 .imenik-detalji ul { margin: 0.4rem 0 0; padding-left: 1.2rem; }
+.posta-brojac { display: inline-block; min-width: 1.3em; padding: 0 0.35em; border-radius: 999px; background: var(--primary, #1f3b6e); color: #fff; font-size: 0.72rem; text-align: center; margin-left: 0.2rem; }
+.posta-mapa.active .posta-brojac { background: #fff; color: var(--primary, #1f3b6e); }
+.posta-radnje-traka { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap; padding: 0.5rem 0.75rem; border: 1px solid var(--border, #d9dee5); border-radius: 10px; background: var(--surface, #fff); margin-bottom: 0.5rem; }
+.posta-sve { display: flex; gap: 0.4rem; align-items: center; cursor: pointer; font-size: 0.9rem; }
+.posta-radnje-gumbi { display: flex; gap: 0.35rem; flex-wrap: wrap; align-items: center; }
+.posta-premjesti { display: inline-flex; gap: 0.3rem; align-items: center; }
+.posta-premjesti select { max-width: 14rem; padding: 0.3rem 0.5rem; }
+.posta-kartice { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.45rem; }
+.posta-kartica { display: flex; gap: 0.5rem; align-items: stretch; border: 1px solid var(--border, #d9dee5); border-radius: 10px; background: var(--surface, #fff); }
+.posta-kartica.neprocitano { border-left: 4px solid var(--primary, #1f3b6e); }
+.posta-kartica.neprocitano .posta-od, .posta-kartica.neprocitano .posta-predmet { font-weight: 700; }
+.posta-kartica.oznaceno { background: #eef4ff; }
+.posta-kvacica { display: flex; align-items: center; padding: 0 0 0 0.75rem; cursor: pointer; }
+.posta-kartica-tijelo { flex: 1; min-width: 0; padding: 0.6rem 0.8rem 0.6rem 0.25rem; text-decoration: none; color: inherit; display: block; }
+.posta-kartica-red { display: flex; justify-content: space-between; gap: 0.75rem; font-size: 0.85rem; color: var(--muted, #6b7280); }
+.posta-od { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.posta-kad { white-space: nowrap; display: inline-flex; gap: 0.25rem; align-items: center; }
+.posta-predmet { font-size: 0.98rem; margin-top: 0.1rem; }
+.posta-pregled { font-size: 0.85rem; color: var(--muted, #6b7280); margin-top: 0.15rem; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+@media (max-width: 560px) { .posta-radnje-traka { flex-direction: column; align-items: stretch; } .posta-premjesti select { max-width: none; flex: 1; } }

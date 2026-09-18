@@ -18,40 +18,89 @@
 {{if .LozinkaOdbijena}}<div class="alert alert-error">Poslužitelj je odbio vašu lozinku e-pošte. Ako ste je promijenili, <a href="/profile/posta">upišite novu</a>.</div>{{end}}
 {{if .OdabraniAkt}}<div class="alert alert-info">Otvorite pismo iz SIGNATOR-a s potpisanim PDF-om i učitajte ga u nacrt.</div>{{end}}
 
+{{if .Mape}}
 <div class="posta-alat">
   <nav class="posta-mape">
-    {{range .Mape}}<a href="/posta?mapa={{.ID}}{{with $.OdabraniAkt}}&amp;akt={{.}}{{end}}" class="posta-mapa {{if eq .ID $.Mapa}}active{{end}}">{{.Naziv}}</a>{{end}}
+    {{range .Mape}}<a href="/posta?mapa={{.ID | urlquery}}{{with $.OdabraniAkt}}&amp;akt={{.}}{{end}}" class="posta-mapa {{if eq .ID $.Mapa}}active{{end}}">{{.Naziv}}{{if .Neprocitano}} <span class="posta-brojac">{{.Neprocitano}}</span>{{end}}</a>{{end}}
   </nav>
   <form method="GET" action="/posta" class="posta-trazi">
     <input type="hidden" name="mapa" value="{{.Mapa}}">
     {{with .OdabraniAkt}}<input type="hidden" name="akt" value="{{.}}">{{end}}
     <input type="search" name="trazi" class="form-control" value="{{.Trazi}}" placeholder="pretraži pošiljatelja, predmet, tekst">
     <button type="submit" class="btn btn-secondary btn-sm">{{icon "search"}} Traži</button>
-    {{if .Trazi}}<a href="/posta?mapa={{.Mapa}}" class="btn btn-secondary btn-sm">{{icon "x"}}</a>{{end}}
+    {{if .Trazi}}<a href="/posta?mapa={{.Mapa | urlquery}}" class="btn btn-secondary btn-sm">{{icon "x"}}</a>{{end}}
   </form>
 </div>
+{{end}}
 
 {{if .Pisma}}
-<section class="detail-section" style="margin-top:0;">
-  <table class="table posta-tablica">
-    <thead><tr><th>{{if eq .Mapa "sentitems" "drafts"}}Za{{else}}Od{{end}}</th><th>Predmet</th><th>Primljeno</th><th></th></tr></thead>
-    <tbody>
-    {{range .Pisma}}
-      <tr class="{{if not .Procitano}}neprocitano{{end}}">
-        <td data-stupac="Od">{{if eq $.Mapa "sentitems" "drafts"}}{{range $i, $x := .Za}}{{if $i}}, {{end}}{{$x}}{{end}}{{else}}{{.Od}}{{end}}</td>
-        <td data-stupac="Predmet"><a href="/posta/pismo?id={{.ID | urlquery}}&amp;mapa={{$.Mapa}}{{with $.OdabraniAkt}}&amp;akt={{.}}{{end}}">{{if .Predmet}}{{.Predmet}}{{else}}(bez predmeta){{end}}</a></td>
-        <td data-stupac="Primljeno">{{formatDate (localTime .Kad)}}</td>
-        <td>{{if .ImaPrivitke}}{{icon "package"}}{{end}}</td>
-      </tr>
-    {{end}}
-    </tbody>
-  </table>
-  <div class="form-help" style="display:flex; gap:1rem; align-items:center;">
-    <span>Ukupno pisama: {{.Ukupno}}.</span>
-    {{if gt .Prethodna 0}}<a href="/posta?mapa={{.Mapa}}&amp;stranica={{.Prethodna}}{{with .Trazi}}&amp;trazi={{. | urlquery}}{{end}}{{with .OdabraniAkt}}&amp;akt={{.}}{{end}}">{{icon "chevron-left"}} Novija</a>{{end}}
-    {{if .Stranica_}}<a href="/posta?mapa={{.Mapa}}&amp;stranica={{.Stranica_}}{{with .Trazi}}&amp;trazi={{. | urlquery}}{{end}}{{with .OdabraniAkt}}&amp;akt={{.}}{{end}}">Starija {{icon "chevron-right"}}</a>{{end}}
+<form method="POST" action="/posta/radnja" id="posta-popis">
+  <input type="hidden" name="mapa" value="{{.Mapa}}">
+  <input type="hidden" name="trazi" value="{{.Trazi}}">
+  <div class="posta-radnje-traka">
+    <label class="posta-sve"><input type="checkbox" id="posta-sve"> <span>Označi sve</span> <span class="posta-oznaceno form-help"></span></label>
+    <div class="posta-radnje-gumbi">
+      <button type="submit" name="radnja" value="obrisi" class="btn btn-secondary btn-sm" disabled>{{icon "trash"}} Obriši</button>
+      <button type="submit" name="radnja" value="arhiviraj" class="btn btn-secondary btn-sm" disabled>{{icon "package"}} Arhiviraj</button>
+      <button type="submit" name="radnja" value="procitano" class="btn btn-secondary btn-sm" disabled>{{icon "eye"}} Pročitano</button>
+      <button type="submit" name="radnja" value="neprocitano" class="btn btn-secondary btn-sm" disabled>{{icon "eye-off"}} Nepročitano</button>
+      <span class="posta-premjesti">
+        <select name="mapa_u" class="form-control" disabled>
+          <option value="">— premjesti u —</option>
+          {{range .Mape}}{{if ne .ID $.Mapa}}<option value="{{.ID}}">{{.Naziv}}</option>{{end}}{{end}}
+        </select>
+        <button type="submit" name="radnja" value="premjesti" class="btn btn-secondary btn-sm" disabled>{{icon "arrow-right"}} Premjesti</button>
+      </span>
+    </div>
   </div>
-</section>
+
+  <ul class="posta-kartice">
+  {{range .Pisma}}
+    <li class="posta-kartica {{if not .Procitano}}neprocitano{{end}}">
+      <label class="posta-kvacica"><input type="checkbox" name="p" value="{{.ID}}|{{.ChangeKey}}"></label>
+      <a class="posta-kartica-tijelo" href="/posta/pismo?id={{.ID | urlquery}}&amp;mapa={{$.Mapa | urlquery}}{{with $.OdabraniAkt}}&amp;akt={{.}}{{end}}">
+        <div class="posta-kartica-red">
+          <span class="posta-od">{{if eq $.Mapa "sentitems" "drafts"}}Za: {{range $i, $x := .Za}}{{if $i}}, {{end}}{{$x}}{{end}}{{else}}{{.Od}}{{end}}</span>
+          <span class="posta-kad">{{if .ImaPrivitke}}{{icon "package"}} {{end}}{{formatDate (localTime .Kad)}}</span>
+        </div>
+        <div class="posta-predmet">{{if .Predmet}}{{.Predmet}}{{else}}(bez predmeta){{end}}</div>
+        {{with .Pregled}}<div class="posta-pregled">{{.}}</div>{{end}}
+      </a>
+    </li>
+  {{end}}
+  </ul>
+</form>
+<div class="form-help" style="display:flex; gap:1rem; align-items:center; margin-top:0.5rem;">
+  <span>{{.NazivMape}}: ukupno {{.Ukupno}}.</span>
+  {{if gt .Prethodna 0}}<a href="/posta?mapa={{.Mapa | urlquery}}&amp;stranica={{.Prethodna}}{{with .Trazi}}&amp;trazi={{. | urlquery}}{{end}}{{with .OdabraniAkt}}&amp;akt={{.}}{{end}}">{{icon "chevron-left"}} Novija</a>{{end}}
+  {{if .Stranica_}}<a href="/posta?mapa={{.Mapa | urlquery}}&amp;stranica={{.Stranica_}}{{with .Trazi}}&amp;trazi={{. | urlquery}}{{end}}{{with .OdabraniAkt}}&amp;akt={{.}}{{end}}">Starija {{icon "chevron-right"}}</a>{{end}}
+</div>
+<script>
+  (function () {
+    var obrazac = document.getElementById('posta-popis');
+    if (!obrazac) return;
+    var sve = document.getElementById('posta-sve');
+    var kvacice = obrazac.querySelectorAll('input[name="p"]');
+    var gumbi = obrazac.querySelectorAll('.posta-radnje-gumbi button, .posta-radnje-gumbi select');
+    var brojac = obrazac.querySelector('.posta-oznaceno');
+    function osvjezi() {
+      var n = 0;
+      kvacice.forEach(function (k) { if (k.checked) n++; k.closest('.posta-kartica').classList.toggle('oznaceno', k.checked); });
+      gumbi.forEach(function (g) { g.disabled = n === 0; });
+      brojac.textContent = n ? '(' + n + ')' : '';
+      sve.checked = n > 0 && n === kvacice.length;
+      sve.indeterminate = n > 0 && n < kvacice.length;
+    }
+    sve.addEventListener('change', function () { kvacice.forEach(function (k) { k.checked = sve.checked; }); osvjezi(); });
+    kvacice.forEach(function (k) { k.addEventListener('change', osvjezi); });
+    obrazac.addEventListener('submit', function (e) {
+      var g = e.submitter;
+      if (g && g.value === 'obrisi' && !confirm('Premjestiti označena pisma u Obrisano?')) e.preventDefault();
+      if (g && g.value === 'premjesti' && !obrazac.querySelector('select[name="mapa_u"]').value) { alert('Odaberite mapu.'); e.preventDefault(); }
+    });
+    osvjezi();
+  })();
+</script>
 {{else if not (or .NijeUkljuceno .TrebaLozinku .LozinkaOdbijena .ErrorMessage)}}
 <p class="form-help">{{if .Trazi}}Ništa nije pronađeno za „{{.Trazi}}”.{{else}}Mapa je prazna.{{end}}</p>
 {{end}}

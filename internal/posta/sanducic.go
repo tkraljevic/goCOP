@@ -15,16 +15,26 @@ import (
 // Čitanje sandučića preko Exchange Web Services: popis ulazne pošte,
 // jedno pismo s tekstom i privitcima, i preuzimanje privitka.
 
-// Mape sandučića (DistinguishedFolderId u EWS-u)
-var Mape = []struct{ ID, Naziv string }{
-	{"inbox", "Ulazna pošta"},
-	{"sentitems", "Poslano"},
-	{"drafts", "Skice"},
-	{"deleteditems", "Obrisano"},
-	{"junkemail", "Neželjeno"},
+// Mapa sandučića: ugrađena (DistinguishedFolderId) ili korisnikova (FolderId)
+type Mapa struct {
+	ID          string // ime ugrađene mape ili Id korisnikove
+	Naziv       string
+	Neprocitano int
+	Ukupno      int
+	Ugradjena   bool
 }
 
-// MapaPostoji javlja je li to poznata mapa
+// Mape su ugrađene mape sandučića, redom kako se prikazuju
+var Mape = []Mapa{
+	{ID: "inbox", Naziv: "Ulazna pošta", Ugradjena: true},
+	{ID: "sentitems", Naziv: "Poslano", Ugradjena: true},
+	{ID: "drafts", Naziv: "Skice", Ugradjena: true},
+	{ID: "archive", Naziv: "Arhiva", Ugradjena: true},
+	{ID: "deleteditems", Naziv: "Obrisano", Ugradjena: true},
+	{ID: "junkemail", Naziv: "Neželjeno", Ugradjena: true},
+}
+
+// MapaPostoji javlja je li to ugrađena mapa
 func MapaPostoji(id string) bool {
 	for _, m := range Mape {
 		if m.ID == id {
@@ -32,6 +42,85 @@ func MapaPostoji(id string) bool {
 		}
 	}
 	return false
+}
+
+// folderID daje XML oznaku mape: ugrađene po imenu, korisnikove po Id-u
+func folderID(mapa string) string {
+	if MapaPostoji(mapa) {
+		return `<t:DistinguishedFolderId Id="` + mapa + `"/>`
+	}
+	return `<t:FolderId Id="` + xmlAttr(mapa) + `"/>`
+}
+
+// SveMape vraća ugrađene mape s brojem nepročitanih i korisnikove mape
+func SveMape(ctx context.Context, p Postavke, r Racun) ([]Mapa, error) {
+	var ids strings.Builder
+	for _, m := range Mape {
+		ids.WriteString(`<t:DistinguishedFolderId Id="` + m.ID + `"/>`)
+	}
+	podaci, err := ewsPozoviSirovo(ctx, p, r, `<m:GetFolder><m:FolderShape><t:BaseShape>Default</t:BaseShape></m:FolderShape><m:FolderIds>`+ids.String()+`</m:FolderIds></m:GetFolder>`)
+	if err != nil {
+		return nil, err
+	}
+	var o struct {
+		Poruke []struct {
+			Ishod string `xml:"ResponseClass,attr"`
+			Mape  []struct {
+				DisplayName string `xml:"DisplayName"`
+				Unread      int    `xml:"UnreadCount"`
+				Total       int    `xml:"TotalCount"`
+			} `xml:"Folders>Folder"`
+		} `xml:"Body>GetFolderResponse>ResponseMessages>GetFolderResponseMessage"`
+	}
+	if err := xml.Unmarshal(podaci, &o); err != nil {
+		return nil, fmt.Errorf("odgovor Exchangea nije čitljiv: %w", err)
+	}
+	var out []Mapa
+	for i, m := range Mape {
+		if i < len(o.Poruke) && o.Poruke[i].Ishod == "Success" && len(o.Poruke[i].Mape) == 1 {
+			m.Neprocitano, m.Ukupno = o.Poruke[i].Mape[0].Unread, o.Poruke[i].Mape[0].Total
+			out = append(out, m)
+		} else if m.ID != "archive" {
+			out = append(out, m) // mapa bez podataka, ali postoji
+		}
+	}
+	// korisnikove mape prve razine
+	podaci, err = ewsPozoviSirovo(ctx, p, r, `<m:FindFolder Traversal="Shallow"><m:FolderShape><t:BaseShape>Default</t:BaseShape></m:FolderShape><m:ParentFolderIds><t:DistinguishedFolderId Id="msgfolderroot"/></m:ParentFolderIds></m:FindFolder>`)
+	if err != nil {
+		return out, nil
+	}
+	var f struct {
+		Mape []struct {
+			ID struct {
+				Id string `xml:"Id,attr"`
+			} `xml:"FolderId"`
+			DisplayName string `xml:"DisplayName"`
+			Unread      int    `xml:"UnreadCount"`
+			Total       int    `xml:"TotalCount"`
+			Class       string `xml:"FolderClass"`
+		} `xml:"Body>FindFolderResponse>ResponseMessages>FindFolderResponseMessage>RootFolder>Folders>Folder"`
+	}
+	if xml.Unmarshal(podaci, &f) != nil {
+		return out, nil
+	}
+	ugradjene := map[string]bool{}
+	for _, m := range out {
+		ugradjene[strings.ToLower(m.Naziv)] = true
+	}
+	for _, x := range f.Mape {
+		n := strings.ToLower(x.DisplayName)
+		if x.Class != "" && x.Class != "IPF.Note" {
+			continue
+		}
+		// ugrađene mape Exchange vraća i ovdje, pod engleskim ili hrvatskim imenom
+		if ugradjene[n] || n == "inbox" || n == "sent items" || n == "drafts" || n == "deleted items" || n == "junk email" || n == "outbox" || n == "archive" ||
+			n == "ulazna pošta" || n == "poslane stavke" || n == "skice" || n == "izbrisane stavke" || n == "bezvrijedna e-pošta" || n == "otpremljena pošta" || n == "arhiva" ||
+			n == "conversation history" || n == "povijest razgovora" || n == "rss feeds" || n == "sync issues" || n == "problemi sa sinkronizacijom" {
+			continue
+		}
+		out = append(out, Mapa{ID: x.ID.Id, Naziv: x.DisplayName, Neprocitano: x.Unread, Ukupno: x.Total})
+	}
+	return out, nil
 }
 
 // Pismo je primljena poruka
@@ -47,6 +136,7 @@ type Pismo struct {
 	Procitano   bool
 	ImaPrivitke bool
 	Velicina    int
+	Pregled     string // prvi redci pisma, za popis
 	Tekst       string // samo kad je pismo otvoreno
 	Za, Kopija  []string
 	Privitci    []PrivitakPisma
@@ -92,6 +182,7 @@ type ewsMessage struct {
 	HasAttachments bool         `xml:"HasAttachments"`
 	Size           int          `xml:"Size"`
 	Body           ewsBody      `xml:"Body"`
+	Preview        string       `xml:"Preview"`
 	To             []ewsMailbox `xml:"ToRecipients>Mailbox"`
 	Cc             []ewsMailbox `xml:"CcRecipients>Mailbox"`
 	Attachments    []struct {
@@ -106,7 +197,7 @@ type ewsMessage struct {
 
 func (m ewsMessage) pismo() Pismo {
 	p := Pismo{ID: m.ItemId.Id, ChangeKey: m.ItemId.ChangeKey, MessageID: m.InternetMessageId, Predmet: m.Subject, Od: m.From.Mailbox.Name, OdAdresa: m.From.Mailbox.EmailAddress,
-		Procitano: m.IsRead, ImaPrivitke: m.HasAttachments, Velicina: m.Size, Tekst: m.TextBody}
+		Procitano: m.IsRead, ImaPrivitke: m.HasAttachments, Velicina: m.Size, Tekst: m.TextBody, Pregled: strings.TrimSpace(m.Preview)}
 	if strings.EqualFold(m.Body.Tip, "HTML") {
 		p.HTML = m.Body.Tekst
 	} else if m.Body.Tekst != "" {
@@ -163,9 +254,9 @@ func ewsSirovo(ctx context.Context, p Postavke, r Racun, tijelo string) ([]byte,
 	for _, x := range o.Poruke {
 		if x.Ishod != "Success" {
 			if x.Tekst != "" {
-				return nil, fmt.Errorf("Exchange: %s", x.Tekst)
+				return nil, fmt.Errorf("Exchange: %s (%s)", x.Tekst, x.Kod)
 			}
-			return nil, errors.New("Exchange nije izvršio zahtjev")
+			return nil, fmt.Errorf("Exchange nije izvršio zahtjev (%s)", x.Kod)
 		}
 	}
 	return podaci, nil
@@ -195,7 +286,7 @@ func Sanducic(ctx context.Context, p Postavke, r Racun, mapa, trazi string, poma
 	if koliko <= 0 {
 		koliko = 50
 	}
-	if !MapaPostoji(mapa) {
+	if mapa == "" {
 		mapa = "inbox"
 	}
 	upit := ""
@@ -204,10 +295,10 @@ func Sanducic(ctx context.Context, p Postavke, r Racun, mapa, trazi string, poma
 	}
 	podaci, err := ewsSirovo(ctx, p, r, fmt.Sprintf(`<m:FindItem Traversal="Shallow"><m:ItemShape><t:BaseShape>IdOnly</t:BaseShape><t:AdditionalProperties>`+
 		`<t:FieldURI FieldURI="item:Subject"/><t:FieldURI FieldURI="item:DateTimeReceived"/><t:FieldURI FieldURI="item:DateTimeSent"/><t:FieldURI FieldURI="message:From"/><t:FieldURI FieldURI="message:ToRecipients"/>`+
-		`<t:FieldURI FieldURI="message:IsRead"/><t:FieldURI FieldURI="item:HasAttachments"/><t:FieldURI FieldURI="item:Size"/></t:AdditionalProperties></m:ItemShape>`+
+		`<t:FieldURI FieldURI="message:IsRead"/><t:FieldURI FieldURI="item:HasAttachments"/><t:FieldURI FieldURI="item:Size"/><t:FieldURI FieldURI="item:Preview"/></t:AdditionalProperties></m:ItemShape>`+
 		`<m:IndexedPageItemView MaxEntriesReturned="%d" Offset="%d" BasePoint="Beginning"/>`+
 		`<m:SortOrder><t:FieldOrder Order="Descending"><t:FieldURI FieldURI="item:DateTimeReceived"/></t:FieldOrder></m:SortOrder>`+
-		`<m:ParentFolderIds><t:DistinguishedFolderId Id="%s"/></m:ParentFolderIds>%s</m:FindItem>`, koliko, pomak, mapa, upit))
+		`<m:ParentFolderIds>%s</m:ParentFolderIds>%s</m:FindItem>`, koliko, pomak, folderID(mapa), upit))
 	if err != nil {
 		return nil, 0, err
 	}
@@ -280,17 +371,49 @@ var (
 	reTag    = regexp.MustCompile(`(?s)<[^>]*>`)
 )
 
+// Stavka je pismo s ključem promjene, za skupne radnje
+type Stavka struct{ ID, ChangeKey string }
+
 // OznaciProcitano postavlja je li pismo pročitano
 func OznaciProcitano(ctx context.Context, p Postavke, r Racun, id, changeKey string, procitano bool) error {
-	_, err := ewsSirovo(ctx, p, r, `<m:UpdateItem MessageDisposition="SaveOnly" ConflictResolution="AlwaysOverwrite"><m:ItemChanges><t:ItemChange>`+
-		`<t:ItemId Id="`+xmlAttr(id)+`" ChangeKey="`+xmlAttr(changeKey)+`"/><t:Updates><t:SetItemField><t:FieldURI FieldURI="message:IsRead"/>`+
-		`<t:Message><t:IsRead>`+fmt.Sprint(procitano)+`</t:IsRead></t:Message></t:SetItemField></t:Updates></t:ItemChange></m:ItemChanges></m:UpdateItem>`)
+	return OznaciProcitanoVise(ctx, p, r, []Stavka{{id, changeKey}}, procitano)
+}
+
+// OznaciProcitanoVise označi više pisama odjednom
+func OznaciProcitanoVise(ctx context.Context, p Postavke, r Racun, stavke []Stavka, procitano bool) error {
+	if len(stavke) == 0 {
+		return nil
+	}
+	var b strings.Builder
+	b.WriteString(`<m:UpdateItem MessageDisposition="SaveOnly" ConflictResolution="AlwaysOverwrite"><m:ItemChanges>`)
+	for _, s := range stavke {
+		b.WriteString(`<t:ItemChange><t:ItemId Id="` + xmlAttr(s.ID) + `" ChangeKey="` + xmlAttr(s.ChangeKey) + `"/><t:Updates><t:SetItemField><t:FieldURI FieldURI="message:IsRead"/>` +
+			`<t:Message><t:IsRead>` + fmt.Sprint(procitano) + `</t:IsRead></t:Message></t:SetItemField></t:Updates></t:ItemChange>`)
+	}
+	b.WriteString(`</m:ItemChanges></m:UpdateItem>`)
+	_, err := ewsSirovo(ctx, p, r, b.String())
+	return err
+}
+
+// Premjesti seli pisma u mapu: ugrađenu po imenu (deleteditems, archive…) ili korisnikovu po Id-u
+func Premjesti(ctx context.Context, p Postavke, r Racun, ids []string, mapa string) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	var b strings.Builder
+	b.WriteString(`<m:MoveItem><m:ToFolderId>` + folderID(mapa) + `</m:ToFolderId><m:ItemIds>`)
+	for _, id := range ids {
+		b.WriteString(`<t:ItemId Id="` + xmlAttr(id) + `"/>`)
+	}
+	b.WriteString(`</m:ItemIds></m:MoveItem>`)
+	_, err := ewsSirovo(ctx, p, r, b.String())
+	if err != nil && mapa == "archive" && strings.Contains(err.Error(), "ErrorFolderNotFound") {
+		return errors.New("u vašem sandučiću nema mape Arhiva; napravite je u Outlooku (gumb Arhiviraj) pa ponovite")
+	}
 	return err
 }
 
 // Obrisi premješta pismo u Obrisano
 func Obrisi(ctx context.Context, p Postavke, r Racun, id string) error {
-	_, err := ewsSirovo(ctx, p, r, `<m:MoveItem><m:ToFolderId><t:DistinguishedFolderId Id="deleteditems"/></m:ToFolderId>`+
-		`<m:ItemIds><t:ItemId Id="`+xmlAttr(id)+`"/></m:ItemIds></m:MoveItem>`)
-	return err
+	return Premjesti(ctx, p, r, []string{id}, "deleteditems")
 }

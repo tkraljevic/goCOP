@@ -35,8 +35,9 @@ type SanducicData struct {
 
 	Pisma           []posta.Pismo
 	Mapa            string
-	Mape            []struct{ ID, Naziv string }
+	Mape            []posta.Mapa
 	Trazi           string
+	NazivMape       string
 	Ukupno          int
 	Stranica        int
 	Stranica_       int // sljedeća, 0 kad je nema
@@ -85,13 +86,23 @@ func (h *AktiHandler) ShowSanducic(w http.ResponseWriter, r *http.Request) {
 	if d.Stranica < 1 {
 		d.Stranica = 1
 	}
-	d.Mapa, d.Trazi, d.Mape = q.Get("mapa"), strings.TrimSpace(q.Get("trazi")), posta.Mape
-	if !posta.MapaPostoji(d.Mapa) {
+	d.Mapa, d.Trazi = q.Get("mapa"), strings.TrimSpace(q.Get("trazi"))
+	if d.Mapa == "" {
 		d.Mapa = "inbox"
 	}
 	pisma, ukupno, err := s.Sanducic(r.Context(), d.CurrentUser, d.Mapa, d.Trazi, d.Stranica, pisamaPoStranici)
 	if err != nil {
 		d.greska(err)
+	} else {
+		if d.Mape, err = s.MapeSanducica(r.Context(), d.CurrentUser); err != nil {
+			d.Mape = posta.Mape
+		}
+	}
+	d.NazivMape = d.Mapa
+	for _, m := range d.Mape {
+		if m.ID == d.Mapa {
+			d.NazivMape = m.Naziv
+		}
 	}
 	d.Pisma, d.Ukupno = pisma, ukupno
 	if d.Stranica*pisamaPoStranici < ukupno {
@@ -313,4 +324,71 @@ func (h *AktiHandler) HandlePosaljiPismo(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	redirectWith(w, r, "/posta?mapa=sentitems", "success", "Pismo je poslano.")
+}
+
+// HandleSkupnaRadnja izvodi radnju nad označenim pismima: obriši, arhiviraj,
+// premjesti, pročitano, nepročitano
+func (h *AktiHandler) HandleSkupnaRadnja(w http.ResponseWriter, r *http.Request) {
+	u, _, _ := h.base(r)
+	s := h.svc(w)
+	if s == nil || u == nil {
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		redirectWith(w, r, "/posta", "error", "Neispravan obrazac")
+		return
+	}
+	natrag := "/posta?" + url.Values{"mapa": {r.FormValue("mapa")}, "trazi": {r.FormValue("trazi")}}.Encode()
+	var ids []string
+	var stavke []posta.Stavka
+	for _, v := range r.Form["p"] {
+		dio := strings.SplitN(v, "|", 2)
+		if len(dio) != 2 || dio[0] == "" {
+			continue
+		}
+		ids = append(ids, dio[0])
+		stavke = append(stavke, posta.Stavka{ID: dio[0], ChangeKey: dio[1]})
+	}
+	if len(ids) == 0 {
+		redirectWith(w, r, natrag, "error", "Označite barem jedno pismo")
+		return
+	}
+	n := strconv.Itoa(len(ids)) + " " + pismoRijec(len(ids))
+	var err error
+	var poruka string
+	switch r.FormValue("radnja") {
+	case "obrisi":
+		err, poruka = s.PremjestiPisma(r.Context(), u, ids, "deleteditems"), n+" premješteno u Obrisano."
+	case "arhiviraj":
+		err, poruka = s.PremjestiPisma(r.Context(), u, ids, "archive"), n+" premješteno u Arhivu."
+	case "premjesti":
+		mapa := r.FormValue("mapa_u")
+		if mapa == "" {
+			redirectWith(w, r, natrag, "error", "Odaberite mapu u koju se pisma premještaju")
+			return
+		}
+		err, poruka = s.PremjestiPisma(r.Context(), u, ids, mapa), n+" premješteno."
+	case "procitano":
+		err, poruka = s.OznaciProcitanoVise(r.Context(), u, stavke, true), n+" označeno kao pročitano."
+	case "neprocitano":
+		err, poruka = s.OznaciProcitanoVise(r.Context(), u, stavke, false), n+" označeno kao nepročitano."
+	default:
+		redirectWith(w, r, natrag, "error", "Nepoznata radnja")
+		return
+	}
+	if err != nil {
+		redirectWith(w, r, natrag, "error", err.Error())
+		return
+	}
+	redirectWith(w, r, natrag, "success", poruka)
+}
+
+func pismoRijec(n int) string {
+	switch {
+	case n%10 == 1 && n%100 != 11:
+		return "pismo"
+	case n%10 >= 2 && n%10 <= 4 && (n%100 < 12 || n%100 > 14):
+		return "pisma"
+	}
+	return "pisama"
 }
