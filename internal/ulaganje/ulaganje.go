@@ -140,10 +140,11 @@ func (p *Pregled) izvorNiza(d dodatniNiz) (izvor, vrsta string) {
 }
 
 type sBiljeskom struct {
-	Vrijeme time.Time
-	Vrsta   string
-	Tekst   string
-	Tko     string
+	Vrijeme  time.Time
+	Velicina string // vodostaj, temperatura, protok; prazno je vodostaj
+	Vrsta    string
+	Tekst    string
+	Tko      string
 }
 
 // Pripremi čita očitanja i razvrstava ih, ali ništa ne mijenja.

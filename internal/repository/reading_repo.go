@@ -16,7 +16,7 @@ import (
 // EntityReadings je naziv entiteta očitanja u knjizi verzija
 const EntityReadings = "readings"
 
-const readingColumns = `id, station_id, structure_id, measured_at, level_cm, level2_cm, temp_c, flow_m3s, source, origin, source_ref,
+const readingColumns = `id, station_id, structure_id, measured_at, level_cm, level2_cm, temp_c, flow_m3s, temp_note, flow_method, flow_note, source, origin, source_ref,
 	quality, derived_from, method,
 	observer, user_id, structure_state, gate, ag_hours_1, ag_hours_2, ag_hours_3, note, vrsta_biljeske, izdanje,
 	created_at, updated_at`
@@ -50,7 +50,7 @@ func readingChannel(ctx context.Context, q rowQuerier, rd *models.Reading) strin
 func readingArgs(rd *models.Reading) []any {
 	return []any{
 		rd.ID.String(), rd.StationID, rd.StructureID, rd.MeasuredAt.UTC(), rd.LevelCm, rd.Level2Cm, rd.TempC, rd.FlowM3s,
-		rd.Source, rd.Origin, rd.SourceRef, rd.Quality, rd.DerivedFrom, rd.Method,
+		rd.TempNote, rd.FlowMethod, rd.FlowNote, rd.Source, rd.Origin, rd.SourceRef, rd.Quality, rd.DerivedFrom, rd.Method,
 		rd.Observer, rd.UserID, rd.StructureState, rd.Gate,
 		rd.AgHours1, rd.AgHours2, rd.AgHours3, rd.Note, rd.VrstaBiljeske, rd.Izdanje, rd.CreatedAt.UTC(), rd.UpdatedAt.UTC(),
 	}
@@ -62,7 +62,7 @@ func scanReading(scanner interface{ Scan(...any) error }) (models.Reading, error
 	var level, level2, ag1, ag2, ag3 sql.NullInt64
 	var temp, flow sql.NullFloat64
 	err := scanner.Scan(&id, &rd.StationID, &rd.StructureID, &rd.MeasuredAt, &level, &level2, &temp, &flow,
-		&rd.Source, &rd.Origin, &rd.SourceRef, &rd.Quality, &rd.DerivedFrom, &rd.Method,
+		&rd.TempNote, &rd.FlowMethod, &rd.FlowNote, &rd.Source, &rd.Origin, &rd.SourceRef, &rd.Quality, &rd.DerivedFrom, &rd.Method,
 		&rd.Observer, &rd.UserID, &rd.StructureState, &rd.Gate,
 		&ag1, &ag2, &ag3, &rd.Note, &rd.VrstaBiljeske, &rd.Izdanje, &rd.CreatedAt, &rd.UpdatedAt)
 	if err != nil {
@@ -225,7 +225,7 @@ func (r *ReadingRepository) Create(ctx context.Context, rd *models.Reading) erro
 	}
 	defer tx.Rollback()
 	if _, err := tx.ExecContext(ctx, `INSERT INTO readings (`+readingColumns+`)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, readingArgs(rd)...); err != nil {
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, readingArgs(rd)...); err != nil {
 		return fmt.Errorf("greška pri upisu očitanja: %w", err)
 	}
 	channel := readingChannel(ctx, tx, rd)
@@ -250,10 +250,11 @@ func (r *ReadingRepository) Update(ctx context.Context, rd *models.Reading) erro
 		return err
 	}
 	defer tx.Rollback()
-	res, err := tx.ExecContext(ctx, `UPDATE readings SET measured_at = ?, level_cm = ?, level2_cm = ?, temp_c = ?, flow_m3s = ?, source = ?,
+	res, err := tx.ExecContext(ctx, `UPDATE readings SET measured_at = ?, level_cm = ?, level2_cm = ?, temp_c = ?, flow_m3s = ?,
+		temp_note = ?, flow_method = ?, flow_note = ?, source = ?,
 		observer = ?, structure_state = ?, gate = ?, ag_hours_1 = ?, ag_hours_2 = ?, ag_hours_3 = ?, note = ?, updated_at = ?
 		WHERE id = ?`,
-		rd.MeasuredAt.UTC(), rd.LevelCm, rd.Level2Cm, rd.TempC, rd.FlowM3s, rd.Source, rd.Observer, rd.StructureState, rd.Gate,
+		rd.MeasuredAt.UTC(), rd.LevelCm, rd.Level2Cm, rd.TempC, rd.FlowM3s, rd.TempNote, rd.FlowMethod, rd.FlowNote, rd.Source, rd.Observer, rd.StructureState, rd.Gate,
 		rd.AgHours1, rd.AgHours2, rd.AgHours3, rd.Note, rd.UpdatedAt, rd.ID.String())
 	if err != nil {
 		return fmt.Errorf("greška pri izmjeni očitanja: %w", err)
@@ -327,7 +328,7 @@ func (r *ReadingRepository) ImportBatch(ctx context.Context, readings []models.R
 	}
 	defer tx.Rollback()
 	stmt, err := tx.PrepareContext(ctx, `INSERT OR IGNORE INTO readings (`+readingColumns+`)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return 0, err
 	}

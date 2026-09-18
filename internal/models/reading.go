@@ -30,6 +30,11 @@ type Reading struct {
 	// razliku od procjene iz HQ krivulje koja se računa pri prikazu.
 	TempC   *float64 `json:"temp_c,omitempty"`   // temperatura vode, °C
 	FlowM3s *float64 `json:"flow_m3s,omitempty"` // izmjereni protok, m³/s
+	// Svaka veličina nosi svoju bilješku: ono što vrijedi uz vodostaj (očitan
+	// maksimum, voda preko letve) nema smisla uz temperaturu ili protok.
+	TempNote   string `json:"temp_note,omitempty"`   // uz temperaturu, npr. led uz obalu
+	FlowMethod string `json:"flow_method,omitempty"` // kako je protok izmjeren, FlowMethod*
+	FlowNote   string `json:"flow_note,omitempty"`   // uz protok, npr. mjerni profil
 
 	// Quality kaže je li vrijednost izmjerena na ovoj letvi ili dobivena
 	// računom iz druge postaje. Prazno je izmjereno: takvi su svi zapisi
@@ -68,6 +73,45 @@ type Reading struct {
 	GaugeName string       `json:"-"`
 	Phase     DefensePhase `json:"-"`
 	UserName  string       `json:"-"`
+}
+
+// Načini mjerenja protoka
+const (
+	FlowMethodADCP     = "ADCP"     // akustični profiler, s čamca ili s mosta
+	FlowMethodKrilo    = "KRILO"    // hidrometrijsko krilo
+	FlowMethodPlovak   = "PLOVAK"   // plovci, gruba metoda
+	FlowMethodProcjena = "PROCJENA" // procijenjeno, nije mjereno
+	FlowMethodDrugo    = "DRUGO"
+)
+
+// FlowMethods su načini mjerenja protoka redom kojim ih obrazac nudi
+var FlowMethods = []string{FlowMethodADCP, FlowMethodKrilo, FlowMethodPlovak, FlowMethodProcjena, FlowMethodDrugo}
+
+// FlowMethodLabel je naziv načina mjerenja protoka za prikaz
+func FlowMethodLabel(m string) string {
+	switch m {
+	case FlowMethodADCP:
+		return "ADCP"
+	case FlowMethodKrilo:
+		return "hidrometrijsko krilo"
+	case FlowMethodPlovak:
+		return "plovci"
+	case FlowMethodProcjena:
+		return "procjena"
+	case FlowMethodDrugo:
+		return "drugo"
+	}
+	return m
+}
+
+// JeFlowMethod javlja je li način mjerenja s popisa
+func JeFlowMethod(m string) bool {
+	for _, x := range FlowMethods {
+		if x == m {
+			return true
+		}
+	}
+	return false
 }
 
 // Načini dobivanja vrijednosti

@@ -23,9 +23,9 @@
        otvorena; temperatura i protok su rjeđi, pa stoje sa strane, ali u
        istom obrascu — sve se sprema jednim gumbom. -->
   <div class="kartice" role="tablist" aria-label="Što upisujete">
-    <button type="button" class="kartica-gumb" role="tab" aria-selected="true" aria-controls="kartica-vodostaj" data-polja="level_cm,level2_cm">{{icon "waves"}} Vodostaj</button>
-    <button type="button" class="kartica-gumb" role="tab" aria-selected="false" aria-controls="kartica-temperatura" data-polja="temp_c">{{icon "sun"}} Temperatura</button>
-    <button type="button" class="kartica-gumb" role="tab" aria-selected="false" aria-controls="kartica-protok" data-polja="flow_m3s">{{icon "activity"}} Protok</button>
+    <button type="button" class="kartica-gumb" role="tab" aria-selected="true" aria-controls="kartica-vodostaj" data-polja="level_cm,level2_cm,note">{{icon "waves"}} Vodostaj</button>
+    <button type="button" class="kartica-gumb" role="tab" aria-selected="false" aria-controls="kartica-temperatura" data-polja="temp_c,temp_note">{{icon "sun"}} Temperatura</button>
+    <button type="button" class="kartica-gumb" role="tab" aria-selected="false" aria-controls="kartica-protok" data-polja="flow_m3s,flow_method,flow_note">{{icon "activity"}} Protok</button>
   </div>
 
   <div id="kartica-vodostaj" class="kartica" role="tabpanel">
@@ -74,6 +74,19 @@
   </details>
   {{end}}
 
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="vrsta_biljeske">Što ovo očitanje jest</label>
+        <select id="vrsta_biljeske" name="vrsta_biljeske" class="form-control">
+          {{range vrsteBiljeske}}<option value="{{.Vrsta}}" {{if eq .Vrsta $.Reading.VrstaBiljeske}}selected{{end}}>{{.Naziv}}</option>{{end}}
+        </select>
+        <div class="form-help" id="vrsta-opis">Ostaje uz vodostaj i kad očitanje jednom uđe u arhivu.</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="note">Napomena uz vodostaj</label>
+        <textarea id="note" name="note" class="form-control" rows="2" placeholder="npr. letva oštećena, procjena">{{.Reading.Note}}</textarea>
+      </div>
+    </div>
   </div>
 
   <div id="kartica-temperatura" class="kartica" role="tabpanel">
@@ -83,6 +96,10 @@
         <input type="text" inputmode="decimal" id="temp_c" name="temp_c" class="form-control level-input"
                value="{{if .Reading.TempC}}{{brojHRf (deref .Reading.TempC) 1}}{{end}}" placeholder="npr. 12,5">
         <div class="form-help">Očitana na letvi ili termometrom u vodi; jedna decimala je dovoljna.</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="temp_note">Napomena uz temperaturu</label>
+        <textarea id="temp_note" name="temp_note" class="form-control" rows="2" placeholder="npr. led uz obalu, mjereno na sredini">{{.Reading.TempNote}}</textarea>
       </div>
     </div>
   </div>
@@ -94,6 +111,19 @@
         <input type="text" inputmode="decimal" id="flow_m3s" name="flow_m3s" class="form-control level-input"
                value="{{if .Reading.FlowM3s}}{{brojHRf (deref .Reading.FlowM3s) 1}}{{end}}" placeholder="npr. 1250">
         <div class="form-help">Iz hidrometrijskog mjerenja. {{if .ImaKrivulju}}Procjena iz HQ krivulje računa se sama uz svaki vodostaj{{if .ProtokIzKrivulje}}; za zadnje očitanje daje <strong>{{.ProtokIzKrivulje}} m³/s</strong>{{if .ProtokIzvan}}, uz upozorenje da je vodostaj izvan raspona krivulje{{end}}{{end}}.{{else}}Ova letva nema krivulju protoka, pa se protok zna samo kad se izmjeri.{{end}}</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="flow_method">Način mjerenja</label>
+        <select id="flow_method" name="flow_method" class="form-control">
+          <option value="">— nije zapisano —</option>
+          {{range flowMethods}}<option value="{{.}}" {{if eq . $.Reading.FlowMethod}}selected{{end}}>{{flowMethod .}}</option>{{end}}
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="flow_note">Napomena uz protok</label>
+        <textarea id="flow_note" name="flow_note" class="form-control" rows="2" placeholder="npr. mjerni profil kod mosta, 12 vertikala">{{.Reading.FlowNote}}</textarea>
       </div>
     </div>
   </div>
@@ -123,20 +153,6 @@
       <label class="form-label" for="observer">Očitao</label>
       <input type="text" id="observer" name="observer" class="form-control" value="{{.Reading.Observer}}" placeholder="{{if .CurrentUser}}{{.CurrentUser.FullName}}{{end}}" autocomplete="off">
       <div class="form-help">Prazno znači prijavljeni korisnik.</div>
-    </div>
-    <div class="form-group">
-      <label class="form-label" for="note">Napomena</label>
-      <textarea id="note" name="note" class="form-control" rows="2" placeholder="npr. letva oštećena, procjena">{{.Reading.Note}}</textarea>
-    </div>
-  </div>
-
-  <div class="form-row">
-    <div class="form-group">
-      <label class="form-label" for="vrsta_biljeske">Što ovo očitanje jest</label>
-      <select id="vrsta_biljeske" name="vrsta_biljeske" class="form-control">
-        {{range vrsteBiljeske}}<option value="{{.Vrsta}}" {{if eq .Vrsta $.Reading.VrstaBiljeske}}selected{{end}}>{{.Naziv}}</option>{{end}}
-      </select>
-      <div class="form-help" id="vrsta-opis">Ostaje uz vrijednost i kad očitanje jednom uđe u arhivu.</div>
     </div>
   </div>
 
