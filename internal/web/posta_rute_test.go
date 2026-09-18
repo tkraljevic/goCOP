@@ -99,7 +99,19 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	// kao u HV-u: prijava prolazi samo s domenom, a korisnik upiše tkraljevic@voda.hr
 	pp := srv.Postavke()
 	pp.Domena = "voda.int"
-	akti.SetPosta(pp)
+	// datoteka kaže krivi poslužitelj; postavke spremljene u Administraciji imaju prednost
+	krivo := pp
+	krivo.Posluzitelj = "https://krivi.primjer.hr/EWS/Exchange.asmx"
+	akti.SetPosta(krivo)
+	if err := akti.SpremiPostu(ctx, &models.UserPermissions{}, pp); err == nil {
+		t.Fatal("postavke smije spremiti samo administrator")
+	}
+	if err := akti.SpremiPostu(ctx, &models.UserPermissions{IsGlobalAdmin: true}, pp); err != nil {
+		t.Fatal(err)
+	}
+	if v := akti.Posta(ctx); v.Posluzitelj != pp.Posluzitelj || !v.DopustiBasic || v.Domena != "voda.int" {
+		t.Fatalf("postavke iz baze: %+v", v)
+	}
 	h := NewAktiHandler(func() *service.AktService { return akti }, users, stations, tmpl("akti.html"), tmpl("akt_form.html"), tmpl("akt.html"), tmpl("primatelji.html"))
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /akti/novi", h.HandleCreate)
@@ -120,11 +132,15 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 		return w
 	}
 
-	h.SetPosta(tmpl("posta_racun.html"))
+	h.SetPosta(tmpl("posta_racun.html"), tmpl("administracija_posta.html"))
+	mux.HandleFunc("GET /administracija/posta", h.ShowAdminPosta)
 	post := func(put string, v url.Values) string {
 		r := httptest.NewRequest(http.MethodPost, put, strings.NewReader(v.Encode()))
 		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		return mustUnescape(zovi(r).Header().Get("Location"))
+	}
+	if w := zovi(httptest.NewRequest(http.MethodGet, "/administracija/posta", nil)); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "Ispitaj poslužitelj") {
+		t.Fatalf("stranica postavki: %d", w.Code)
 	}
 	stranica := func(id string) string {
 		return zovi(httptest.NewRequest(http.MethodGet, "/akti/"+id, nil)).Body.String()

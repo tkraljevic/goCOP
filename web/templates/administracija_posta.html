@@ -1,0 +1,60 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — E-pošta{{end}}
+
+{{define "content"}}
+<div class="breadcrumb"><a href="/administracija">Administracija</a> › E-pošta</div>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "mail"}} Poslužitelj e-pošte</h1>
+    <p class="page-desc">Preko njega goCOP šalje ovjerene akte primateljima "na znanje" i čita korisnikov sandučić. Šalje se s adrese i računa prijavljenog korisnika; lozinku svatko upisuje u svom profilu. Postavke vrijede na svim čvorovima.</p>
+  </div>
+</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
+{{if .Nalaz}}<div class="alert alert-info">{{icon "check"}} {{.Nalaz}}</div>{{end}}
+{{if not .Spremljene}}{{if .Postavke.Podesena}}<div class="alert alert-info">Postavke su zasad iz datoteke <span class="mono">gocop.toml</span> ovog čvora. Spremite ih ovdje da vrijede svugdje.</div>{{end}}{{end}}
+
+<section class="detail-section" style="max-width:40rem;">
+  <form method="POST" action="/administracija/posta" id="posta-obrazac">
+    <div class="form-group">
+      <label class="form-label" for="nacin">Način slanja</label>
+      <select class="form-control" id="nacin" name="nacin">
+        <option value="ews" {{if ne .Postavke.Nacin "smtp"}}selected{{end}}>Exchange Web Services (kao Outlook, preporučeno)</option>
+        <option value="smtp" {{if eq .Postavke.Nacin "smtp"}}selected{{end}}>SMTP (port 587 ili 465)</option>
+      </select>
+      <div class="form-help">Exchange Web Services radi i izvan mreže tvrtke, prijavljuje se kao Outlook (sustav Windows) i sprema poslano u korisnikovu mapu Poslano. SMTP treba otvoren port na poslužitelju.</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="posluzitelj">Poslužitelj</label>
+      <input class="form-control" id="posluzitelj" name="posluzitelj" value="{{.Postavke.Posluzitelj}}" placeholder="npr. owa.voda.hr" autocapitalize="off" spellcheck="false">
+      <div class="form-help">Isti poslužitelj kao u postavkama računa e-pošte na mobitelu. Prazno isključuje slanje.</div>
+    </div>
+    <div class="form-row" style="display:flex; gap:1rem; flex-wrap:wrap;">
+      <div class="form-group" style="flex:1; min-width:10rem;">
+        <label class="form-label" for="port">Port (samo SMTP)</label>
+        <input class="form-control" id="port" name="port" type="number" min="0" max="65535" value="{{if .Postavke.Port}}{{.Postavke.Port}}{{end}}" placeholder="587">
+      </div>
+      <div class="form-group" style="flex:1; min-width:10rem;">
+        <label class="form-label" for="sigurnost">Šifriranje (samo SMTP)</label>
+        <select class="form-control" id="sigurnost" name="sigurnost">
+          <option value="starttls" {{if ne .Postavke.Sigurnost "tls"}}selected{{end}}>STARTTLS (587)</option>
+          <option value="tls" {{if eq .Postavke.Sigurnost "tls"}}selected{{end}}>TLS (465)</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="domena">Domena sustava Windows</label>
+      <input class="form-control" id="domena" name="domena" value="{{.Postavke.Domena}}" placeholder="obično prazno" autocapitalize="off" spellcheck="false">
+      <div class="form-help">Exchange domenu sam objavi pri prijavi, pa goCOP kad prijava adresom ne prođe pokuša i <span class="mono">DOMENA\korisnik</span>. Upišite samo ako to ne radi.</div>
+    </div>
+    <div class="form-actions" style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+      <button type="submit" class="btn btn-primary">{{icon "check"}} Spremi</button>
+      <button type="submit" class="btn btn-secondary" name="radnja" value="ispitaj">{{icon "search"}} Ispitaj poslužitelj</button>
+    </div>
+    <p class="form-help">Ispitivanje ne treba lozinku: provjeri je li poslužitelj dostupan, nudi li prijavu i koju domenu objavljuje.</p>
+  </form>
+</section>
+{{end}}

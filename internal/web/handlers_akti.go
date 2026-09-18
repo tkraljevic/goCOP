@@ -26,7 +26,7 @@ type AktiHandler struct {
 	stations                                     *service.StationService
 	tmplPopis, tmplForm, tmplAkt, tmplPrimatelji *template.Template
 	tmplSpranca                                  *template.Template
-	tmplPosta                                    *template.Template
+	tmplPosta, tmplPostaAdmin                    *template.Template
 }
 
 // SetSpranca daje rukovatelju predložak stranice špranče

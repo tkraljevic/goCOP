@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
 	"gocop/internal/models"
+	"gocop/internal/posta"
 	"gocop/internal/service"
 )
 
@@ -29,8 +31,70 @@ type SlanjeData struct {
 	NijePoslanoJos int
 }
 
-// SetPosta daje rukovatelju predložak stranice računa e-pošte
-func (h *AktiHandler) SetPosta(t *template.Template) { h.tmplPosta = t }
+// SetPosta daje rukovatelju predloške stranice računa e-pošte i postavki poslužitelja
+func (h *AktiHandler) SetPosta(racun, admin *template.Template) {
+	h.tmplPosta, h.tmplPostaAdmin = racun, admin
+}
+
+// AdminPostaData je stranica postavki poslužitelja e-pošte
+type AdminPostaData struct {
+	CurrentUser *models.User
+	Permissions *models.UserPermissions
+	ActiveNav   string
+	ViewAsBanner
+	SuccessMessage string
+	ErrorMessage   string
+
+	Postavke   posta.Postavke
+	Spremljene bool // spremljene u programu, ne samo u gocop.toml
+	Nalaz      string
+}
+
+// ShowAdminPosta prikazuje postavke poslužitelja e-pošte
+func (h *AktiHandler) ShowAdminPosta(w http.ResponseWriter, r *http.Request) {
+	u, perms, _ := h.base(r)
+	s := h.svc(w)
+	if s == nil {
+		return
+	}
+	q := r.URL.Query()
+	d := AdminPostaData{CurrentUser: u, Permissions: perms, ActiveNav: "admin", ViewAsBanner: viewBanner(r),
+		SuccessMessage: q.Get("success"), ErrorMessage: q.Get("error"), Nalaz: q.Get("nalaz"),
+		Postavke: s.Posta(r.Context()), Spremljene: s.PostaSpremljena(r.Context())}
+	if err := h.tmplPostaAdmin.ExecuteTemplate(w, "administracija_posta.html", d); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+// HandleAdminPosta sprema postavke poslužitelja ili ih ispita bez lozinke
+func (h *AktiHandler) HandleAdminPosta(w http.ResponseWriter, r *http.Request) {
+	_, perms, _ := h.base(r)
+	s := h.svc(w)
+	if s == nil {
+		return
+	}
+	port, _ := strconv.Atoi(strings.TrimSpace(r.FormValue("port")))
+	p := posta.Postavke{Nacin: r.FormValue("nacin"), Posluzitelj: r.FormValue("posluzitelj"), Port: port,
+		Sigurnost: r.FormValue("sigurnost"), Domena: r.FormValue("domena")}
+	if r.FormValue("radnja") == "ispitaj" {
+		nalaz, err := posta.Ispitaj(r.Context(), p)
+		if err != nil {
+			redirectWith(w, r, "/administracija/posta", "error", "Poslužitelj nije prošao provjeru: "+err.Error())
+			return
+		}
+		redirectWith(w, r, "/administracija/posta", "nalaz", nalaz)
+		return
+	}
+	if err := s.SpremiPostu(r.Context(), perms, p); err != nil {
+		redirectWith(w, r, "/administracija/posta", "error", err.Error())
+		return
+	}
+	if p.Podesena() {
+		redirectWith(w, r, "/administracija/posta", "success", "Postavke poslužitelja su spremljene i vrijede na svim čvorovima.")
+		return
+	}
+	redirectWith(w, r, "/administracija/posta", "success", "Slanje e-poštom je isključeno.")
+}
 
 // porukaAkta sastavlja predmet i tekst poruke kojom se akt šalje
 func porukaAkta(a *models.Akt, sek *models.Sector, u *models.User) service.PorukaAkta {
@@ -81,7 +145,7 @@ func (h *AktiHandler) slanjeZaStranicu(r *http.Request, s *service.AktService, p
 	if !a.Ovjeren() || !a.ImaIzvornik() {
 		return nil
 	}
-	d := &SlanjeData{Podesena: s.PostaPodesena(), Posluzitelj: s.PostaPosluzitelj(), SmijeSlati: s.SmijeSlati(perms, u, a), SpremaPoslano: s.PostaSpremaPoslano()}
+	d := &SlanjeData{Podesena: s.PostaPodesena(r.Context()), Posluzitelj: s.PostaPosluzitelj(r.Context()), SmijeSlati: s.SmijeSlati(perms, u, a), SpremaPoslano: s.PostaSpremaPoslano(r.Context())}
 	d.Adresati, d.BezAdrese, d.Slanja = s.AdresatiAkta(r.Context(), a)
 	for _, x := range d.Adresati {
 		if !x.Poslano() {
@@ -165,7 +229,7 @@ func (h *AktiHandler) ShowPosta(w http.ResponseWriter, r *http.Request) {
 	}
 	q := r.URL.Query()
 	d := PostaPageData{CurrentUser: u, Permissions: perms, ActiveNav: "profile", ViewAsBanner: viewBanner(r),
-		SuccessMessage: q.Get("success"), ErrorMessage: q.Get("error"), Podesena: s.PostaPodesena(), Posluzitelj: s.PostaPosluzitelj(), Domena: s.PostaDomena()}
+		SuccessMessage: q.Get("success"), ErrorMessage: q.Get("error"), Podesena: s.PostaPodesena(r.Context()), Posluzitelj: s.PostaPosluzitelj(r.Context()), Domena: s.PostaDomena(r.Context())}
 	d.Racun, d.RacunAt = s.RacunPoste(r.Context(), u.ID.String())
 	if err := h.tmplPosta.ExecuteTemplate(w, "posta_racun.html", d); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
