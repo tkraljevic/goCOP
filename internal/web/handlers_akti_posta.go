@@ -151,6 +151,7 @@ type PostaPageData struct {
 
 	Podesena    bool
 	Posluzitelj string
+	Domena      string
 	Racun       string
 	RacunAt     time.Time
 }
@@ -164,7 +165,7 @@ func (h *AktiHandler) ShowPosta(w http.ResponseWriter, r *http.Request) {
 	}
 	q := r.URL.Query()
 	d := PostaPageData{CurrentUser: u, Permissions: perms, ActiveNav: "profile", ViewAsBanner: viewBanner(r),
-		SuccessMessage: q.Get("success"), ErrorMessage: q.Get("error"), Podesena: s.PostaPodesena(), Posluzitelj: s.PostaPosluzitelj()}
+		SuccessMessage: q.Get("success"), ErrorMessage: q.Get("error"), Podesena: s.PostaPodesena(), Posluzitelj: s.PostaPosluzitelj(), Domena: s.PostaDomena()}
 	d.Racun, d.RacunAt = s.RacunPoste(r.Context(), u.ID.String())
 	if err := h.tmplPosta.ExecuteTemplate(w, "posta_racun.html", d); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

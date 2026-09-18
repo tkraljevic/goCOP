@@ -32,6 +32,9 @@ func (s *AktService) PostaPodesena() bool { return s.posta.Podesena() }
 // PostaSpremaPoslano javlja ostaje li poslana poruka u korisnikovoj mapi Poslano (EWS)
 func (s *AktService) PostaSpremaPoslano() bool { return s.posta.SpremaPoslano() }
 
+// PostaDomena je domena sustava Windows za prijavu
+func (s *AktService) PostaDomena() string { return s.posta.Domena }
+
 // PostaPosluzitelj je naziv poslužitelja, za prikaz
 func (s *AktService) PostaPosluzitelj() string { return s.posta.Posluzitelj }
 
@@ -68,9 +71,20 @@ func (s *AktService) SpremiRacunPoste(ctx context.Context, u *models.User, koris
 	}
 	upozorenje := ""
 	if s.posta.Podesena() {
-		err := posta.Provjeri(ctx, s.posta, posta.Racun{Korisnik: korisnik, Lozinka: lozinka})
+		// pokušaj upisano ime, pa DOMENA\korisnik; spremi ono koje prođe
+		var err error
+		for _, ime := range s.posta.Imena(korisnik) {
+			err = posta.Provjeri(ctx, s.posta, posta.Racun{Korisnik: ime, Lozinka: lozinka})
+			if err == nil {
+				korisnik = ime
+				break
+			}
+			if !errors.Is(err, posta.ErrPrijava) {
+				break
+			}
+		}
 		if errors.Is(err, posta.ErrPrijava) {
-			return "", fmt.Errorf("poslužitelj %s je odbio korisničko ime ili lozinku; ništa nije spremljeno", s.posta.Posluzitelj)
+			return "", fmt.Errorf("poslužitelj %s je odbio korisničko ime ili lozinku (pokušano: %s); ništa nije spremljeno", s.posta.Posluzitelj, strings.Join(s.posta.Imena(korisnik), ", "))
 		}
 		if err != nil {
 			upozorenje = "Lozinka je spremljena, ali prijava nije provjerena: " + err.Error()

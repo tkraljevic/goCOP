@@ -52,6 +52,7 @@ type Config struct {
 	Posta struct {
 		Nacin       string `toml:"nacin" comment:"ews (zadano): Exchange Web Services, isto kao Outlook, prijava sustava\nWindows (NTLM), radi i izvan mreže tvrtke i sprema poruku u Poslano.\nsmtp: slanje na port 587/465, kad ga tvrtka otvori."`
 		Posluzitelj string `toml:"posluzitelj" comment:"Poslužitelj e-pošte tvrtke (Exchange) preko kojeg goCOP šalje ovjerene akte\nprimateljima \"na znanje\", npr. \"owa.voda.hr\". Prazno isključuje slanje.\nŠalje se s adrese prijavljenog korisnika; lozinku svaki korisnik upisuje\nu svom profilu i ona ostaje samo na ovom računalu, šifrirana."`
+		Domena      string `toml:"domena" comment:"Domena sustava Windows, kao u postavkama računa na mobitelu, npr. \"voda.int\".\nKad prijava korisničkim imenom (tkraljevic@voda.hr) ne prođe, goCOP pokuša\ni DOMENA\\korisnik."`
 		Port        int    `toml:"port" comment:"Samo za smtp: 587 za STARTTLS (zadano), 465 za izravni TLS."`
 		Sigurnost   string `toml:"sigurnost" comment:"Samo za smtp: starttls (zadano) ili tls."`
 	} `toml:"posta"`
