@@ -593,3 +593,43 @@ func (r *AktiRepository) SavePostavka(ctx context.Context, id, vrijednost string
 	}
 	return tx.Commit()
 }
+
+// ---- potpis e-pošte ----
+
+// EntityPotpisi su potpisi e-pošte korisnika u knjizi verzija
+const EntityPotpisi = "posta_potpisi"
+
+// PotpisPoste je potpis kojim korisnik završava pisma
+type PotpisPoste struct {
+	UserID string `json:"user_id"`
+	HTML   string `json:"html"`
+}
+
+const potpisUpsert = `INSERT INTO posta_potpisi (user_id, html, updated_at) VALUES (?, ?, ?)
+	ON CONFLICT(user_id) DO UPDATE SET html = excluded.html, updated_at = excluded.updated_at`
+
+// GetPotpis čita potpis korisnika; prazno kad ga nema
+func (r *AktiRepository) GetPotpis(ctx context.Context, userID string) (string, error) {
+	var h string
+	err := r.db.QueryRowContext(ctx, `SELECT html FROM posta_potpisi WHERE user_id = ?`, userID).Scan(&h)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	return h, err
+}
+
+// SavePotpis sprema potpis, s verzijom u knjizi
+func (r *AktiRepository) SavePotpis(ctx context.Context, p *PotpisPoste) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, potpisUpsert, p.UserID, p.HTML, time.Now().UTC()); err != nil {
+		return err
+	}
+	if _, err := r.rec.Record(ctx, tx, EntityPotpisi, p.UserID, p); err != nil {
+		return err
+	}
+	return tx.Commit()
+}

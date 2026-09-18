@@ -1,0 +1,67 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Potpis e-pošte{{end}}
+
+{{define "content"}}
+<div class="breadcrumb"><a href="/profile">Profil</a> › Potpis e-pošte</div>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "pencil"}} Potpis e-pošte</h1>
+    <p class="page-desc">Ubacuje se na kraj svakog novog pisma, odgovora i prosljeđivanja iz sandučića. Vrijedi na svim vašim računalima.</p>
+  </div>
+</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
+
+<section class="detail-section" style="margin-top:0; max-width:52rem;">
+  <form method="POST" action="/profile/potpis" id="potpis-obrazac">
+    <div class="urednik" id="urednik">
+      <div class="urednik-alat" role="toolbar">
+        <button type="button" data-cmd="bold" title="Podebljano"><b>B</b></button>
+        <button type="button" data-cmd="italic" title="Kurziv"><i>I</i></button>
+        <button type="button" data-cmd="underline" title="Podcrtano"><u>U</u></button>
+        <label class="urednik-boja" title="Boja slova"><span>A</span><input type="color" value="#1a1a1a"></label>
+        <button type="button" data-cmd="createLink" title="Poveznica">{{icon "link"}}</button>
+        <button type="button" data-cmd="removeFormat" title="Ukloni oblikovanje">{{icon "x"}}</button>
+        <span class="urednik-crta"></span>
+        <button type="button" id="potpis-predlozi" title="Ispuni iz podataka profila">{{icon "user"}} Predloži iz profila</button>
+      </div>
+      <div class="urednik-polje form-control" id="urednik-polje" contenteditable="true"></div>
+    </div>
+    <input type="hidden" name="html" id="html">
+    <input type="hidden" id="potpis-spremljeni" value="{{.Potpis}}">
+    <input type="hidden" id="potpis-zadani" value="{{.Zadani}}">
+    <div class="form-help">Podaci za prijedlog uzimaju se iz <a href="/profile">profila</a>: ime, titula, funkcija, telefoni i adresa. Prazan potpis znači bez potpisa.</div>
+    <div class="form-actions" style="display:flex; gap:0.5rem;">
+      <button type="submit" class="btn btn-primary">{{icon "check"}} Spremi potpis</button>
+      <a href="/profile" class="btn btn-secondary">Natrag na profil</a>
+    </div>
+  </form>
+</section>
+<script>
+  (function () {
+    var polje = document.getElementById('urednik-polje');
+    var html = document.getElementById('html');
+    var spremljeni = document.getElementById('potpis-spremljeni').value;
+    var zadani = document.getElementById('potpis-zadani').value;
+    polje.innerHTML = spremljeni || zadani;
+    document.querySelectorAll('#urednik button[data-cmd]').forEach(function (b) {
+      b.addEventListener('mousedown', function (e) { e.preventDefault(); });
+      b.addEventListener('click', function () {
+        if (b.dataset.cmd === 'createLink') { var url = prompt('Adresa poveznice (https://…):'); if (url) document.execCommand('createLink', false, url); }
+        else document.execCommand(b.dataset.cmd, false, null);
+        polje.focus();
+      });
+    });
+    var boja = document.querySelector('.urednik-boja input');
+    boja.addEventListener('input', function () { document.execCommand('foreColor', false, boja.value); });
+    document.getElementById('potpis-predlozi').addEventListener('click', function () { polje.innerHTML = zadani; polje.focus(); });
+    document.getElementById('potpis-obrazac').addEventListener('submit', function () {
+      var t = polje.innerText.replace(/\s+/g, '');
+      html.value = t ? polje.innerHTML : '';
+    });
+  })();
+</script>
+{{end}}

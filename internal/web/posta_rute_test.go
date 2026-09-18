@@ -141,6 +141,9 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	mux.HandleFunc("POST /posta/pismo", h.HandlePismoRadnja)
 	mux.HandleFunc("POST /posta/radnja", h.HandleSkupnaRadnja)
 	mux.HandleFunc("GET /posta/adrese.json", h.AdreseJSON)
+	h.SetPotpis(tmpl("posta_potpis.html"))
+	mux.HandleFunc("GET /profile/potpis", h.ShowPotpis)
+	mux.HandleFunc("POST /profile/potpis", h.HandlePotpis)
 	h.SetImenik(tmpl("imenik_exchange.html"), poslovi.NoviRegistar())
 	mux.HandleFunc("GET /users/exchange", h.ShowImenik)
 	mux.HandleFunc("POST /users/exchange", h.HandleImenikPrimijeni)
@@ -336,6 +339,17 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 		t.Error("obrazac nema gumb imenika")
 	}
 	srv.Adresar = nil
+
+	// potpis: prijedlog iz profila, spremanje, ubacivanje u novo pismo
+	if w := zovi(httptest.NewRequest(http.MethodGet, "/profile/potpis", nil)); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "Voditelj COP-a") || !strings.Contains(w.Body.String(), "voditelj@voda.hr") {
+		t.Fatalf("stranica potpisa: %d\n%.800s", w.Code, w.Body.String())
+	}
+	if loc := post("/profile/potpis", url.Values{"html": {`<p><b>Voditelj</b> COP-a<script>x()</script></p>`}}); !strings.Contains(loc, "success") {
+		t.Fatalf("spremanje potpisa: %s", loc)
+	}
+	if w := zovi(httptest.NewRequest(http.MethodGet, "/posta/novo", nil)); !strings.Contains(w.Body.String(), `id="potpis-html" value="&lt;p&gt;&lt;b&gt;Voditelj&lt;/b&gt; COP-a&lt;/p&gt;"`) {
+		t.Errorf("potpis nije u obrascu novog pisma:\n%.800s", w.Body.String())
+	}
 
 	// prosljeđivanje nosi privitke izvornog pisma
 	var tijeloF bytes.Buffer
