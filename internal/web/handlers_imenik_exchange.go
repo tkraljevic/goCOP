@@ -1,12 +1,14 @@
 package web
 
 import (
+	"context"
 	"html/template"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"gocop/internal/models"
+	"gocop/internal/poslovi"
 	"gocop/internal/posta"
 	"gocop/internal/service"
 )
@@ -14,8 +16,10 @@ import (
 // Adresar tvrtke iz Exchangea: traženje kolega i usporedba imenika
 // goCOP-a s adresama i telefonima iz sustava Windows.
 
-// SetImenik daje rukovatelju predložak stranice adresara
-func (h *AktiHandler) SetImenik(t *template.Template) { h.tmplImenik = t }
+// SetImenik daje rukovatelju predložak stranice adresara i registar poslova
+func (h *AktiHandler) SetImenik(t *template.Template, p *poslovi.Registar) {
+	h.tmplImenik, h.poslovi = t, p
+}
 
 // ImenikData je stranica adresara
 type ImenikData struct {
@@ -38,6 +42,8 @@ type ImenikData struct {
 	NemaIh         []service.UsporedbaKontakta
 	TrebaLozinku   bool
 	SmijeUskladiti bool
+
+	PosaoID, PosaoNaziv string // usporedba u tijeku: traka napretka
 }
 
 // ShowImenik traži u adresaru i, na zahtjev, uspoređuje cijeli imenik
@@ -58,9 +64,34 @@ func (h *AktiHandler) ShowImenik(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case d.Upit != "":
 		d.Kontakti, err = s.Imenik(r.Context(), u, d.Upit)
-	case q.Get("usporedi") == "1" && d.SmijeUskladiti:
-		d.Usporedio = true
-		d.Usporedba, err = s.UsporediImenik(r.Context(), perms, u, d.Sektor)
+	case q.Get("usporedi") == "1" && d.SmijeUskladiti && h.poslovi != nil:
+		// stotine upita adresaru traju minutu: posao ide u pozadinu, a
+		// stranica pokazuje traku napretka i sama se osvježi kad završi
+		sektor := d.Sektor
+		p := h.poslovi.Pokreni("Usporedba imenika s adresarom tvrtke", u.ID.String(), "/users/exchange?rezultat={id}&sektor="+sektor, func(zad *poslovi.Posao) error {
+			rez, err := s.UsporediImenik(context.Background(), perms, u, sektor, func(sto string, gotovo, ukupno int) {
+				zad.Korak(sto, gotovo, ukupno)
+			})
+			if err != nil {
+				return err
+			}
+			zad.Zavrsi("uspoređeno djelatnika: "+strconv.Itoa(len(rez)), rez)
+			return nil
+		})
+		d.PosaoID, d.PosaoNaziv = p.ID, p.Naziv
+	case q.Get("rezultat") != "":
+		p, ima := h.poslovi.Nadi(q.Get("rezultat"), u.ID.String())
+		switch {
+		case !ima:
+			d.ErrorMessage = "Rezultat usporedbe više nije dostupan; pokrenite je ponovno."
+		case p.Traje():
+			d.PosaoID, d.PosaoNaziv = p.ID, p.Naziv
+		case p.Greska() != "":
+			d.ErrorMessage = p.Greska()
+		default:
+			d.Usporedio = true
+			d.Usporedba, _ = p.Plod().([]service.UsporedbaKontakta)
+		}
 		for _, x := range d.Usporedba {
 			switch {
 			case x.Kontakt == nil:

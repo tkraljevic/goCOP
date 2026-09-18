@@ -949,7 +949,7 @@ func (s *Server) setupRoutes() {
 	aktiH.SetPosta(s.templates["posta_racun.html"], s.templates["administracija_posta.html"])
 	aktiH.SetSanducic(s.templates["posta_sanducic.html"], s.templates["posta_pismo.html"], s.templates["posta_novo.html"])
 	s.mux.Handle("POST /posta/pismo", s.authMiddleware(http.HandlerFunc(aktiH.HandlePismoRadnja)))
-	aktiH.SetImenik(s.templates["imenik_exchange.html"])
+	aktiH.SetImenik(s.templates["imenik_exchange.html"], s.poslovi)
 	s.mux.Handle("GET /users/exchange", s.authMiddleware(http.HandlerFunc(aktiH.ShowImenik)))
 	s.mux.Handle("POST /users/exchange", s.authMiddleware(http.HandlerFunc(aktiH.HandleImenikPrimijeni)))
 	s.mux.Handle("GET /posta/novo", s.authMiddleware(http.HandlerFunc(aktiH.ShowNovoPismo)))
