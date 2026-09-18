@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"context"
 	"html/template"
+	"image"
+	"image/color"
+	"image/png"
 	"io"
 	"io/fs"
 	"mime/multipart"
@@ -20,17 +23,16 @@ import (
 	"gocop/internal/db"
 	"gocop/internal/ledger"
 	"gocop/internal/models"
-	"gocop/internal/pdfpotpis"
 	"gocop/internal/repository"
 	"gocop/internal/service"
 	webassets "gocop/web"
 )
 
-// Tok sa SIGNATOR-om: voditelj COP-a sastavi nacrt i preuzme PDF za potpis,
-// rukovoditelj ga potpiše kvalificiranim potpisom, potpisani PDF se vrati u
-// goCOP i postane izvornik. Tuđi, nekvalificiran ili zastario potpis ne prolazi.
-func TestPotpisUSignatoruKrozRute(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "sig.db"))
+// Drugi put: nacrt se ispiše, rukovoditelj ga vlastoručno potpiše, udari se
+// žig, sken se učita u goCOP i postane izvornik. Potpisnik mora imati pravo
+// ovjere; bez odabranog potpisnika ili sa slikom koja nije sken ne prolazi.
+func TestRucniPotpisISkenKrozRute(t *testing.T) {
+	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "sken.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -94,7 +96,8 @@ func TestPotpisUSignatoruKrozRute(t *testing.T) {
 	mux.HandleFunc("GET /akti/{id}/akt.pdf", h.IzvoziPDF)
 	mux.HandleFunc("GET /akti/{id}/za-potpis.pdf", h.IzvoziZaPotpis)
 	mux.HandleFunc("POST /akti/{id}/potpisani", h.HandleUcitajPotpisani)
-	mux.HandleFunc("POST /akti/{id}/tekst", h.HandleTekst)
+	mux.HandleFunc("GET /akti/{id}/za-ispis.pdf", h.IzvoziZaIspis)
+	mux.HandleFunc("POST /akti/{id}/sken", h.HandleUcitajSken)
 	zovi := func(r *http.Request) *httptest.ResponseRecorder {
 		c := context.WithValue(r.Context(), contextKeyUser, voditelj)
 		c = context.WithValue(c, contextKeyPerms, perms)
@@ -102,107 +105,78 @@ func TestPotpisUSignatoruKrozRute(t *testing.T) {
 		mux.ServeHTTP(w, r.WithContext(c))
 		return w
 	}
-	ucitaj := func(id string, pdf []byte) string {
+	posalji := func(id, potpisnik, ime string, podaci []byte) string {
 		var tijelo bytes.Buffer
 		mw := multipart.NewWriter(&tijelo)
-		fw, _ := mw.CreateFormFile("potpisani", "potpisan.pdf")
-		_, _ = fw.Write(pdf)
+		fw, _ := mw.CreateFormFile("sken", ime)
+		_, _ = fw.Write(podaci)
+		_ = mw.WriteField("potpisnik_id", potpisnik)
 		_ = mw.Close()
-		r := httptest.NewRequest(http.MethodPost, "/akti/"+id+"/potpisani", &tijelo)
+		r := httptest.NewRequest(http.MethodPost, "/akti/"+id+"/sken", &tijelo)
 		r.Header.Set("Content-Type", mw.FormDataContentType())
-		return zovi(r).Header().Get("Location")
+		return mustUnescape(zovi(r).Header().Get("Location"))
 	}
 
-	// voditelj COP-a sastavi nacrt
-	forma := url.Values{"station_id": {st.ID.String()}, "radnja": {"USPOSTAVA"}, "stupanj": {"PRIPREMNO"}, "vrijedi": {"2026-09-15T09:00"}, "prognoza": {"najavljen porast"}}
+	forma := url.Values{"station_id": {st.ID.String()}, "radnja": {"USPOSTAVA"}, "stupanj": {"PRIPREMNO"}, "vrijedi": {"2026-09-15T09:00"}}
 	r := httptest.NewRequest(http.MethodPost, "/akti/novi", strings.NewReader(forma.Encode()))
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	id := strings.TrimPrefix(strings.SplitN(zovi(r).Header().Get("Location"), "?", 2)[0], "/akti/")
-	if w := zovi(httptest.NewRequest(http.MethodGet, "/akti/"+id, nil)); !strings.Contains(w.Body.String(), "PDF za potpis") {
-		t.Fatalf("nacrt nema korake za SIGNATOR:\n%.400s", w.Body.String())
-	}
 
-	// PDF za potpis: isti dvaput, bez oznake nacrta, zabilježen
-	w := zovi(httptest.NewRequest(http.MethodGet, "/akti/"+id+"/za-potpis.pdf", nil))
-	zaPotpis := w.Body.Bytes()
-	w2 := zovi(httptest.NewRequest(http.MethodGet, "/akti/"+id+"/za-potpis.pdf", nil))
-	if !bytes.HasPrefix(zaPotpis, []byte("%PDF")) || !bytes.Equal(zaPotpis, w2.Body.Bytes()) {
-		t.Fatal("PDF za potpis nije isti pri ponovnom preuzimanju")
-	}
-	if a, _ := akti.Get(ctx, id); len(a.ZaPotpis) != 1 {
-		t.Fatalf("preuzimanje nije zabilježeno: %+v", a.ZaPotpis)
-	}
-
-	potpisi := func(ime string, kval bool, pdf []byte) []byte {
-		c, k, err := pdfpotpis.ProbniCertifikat(ime, "12345678903", kval)
-		if err != nil {
-			t.Fatal(err)
+	stranica := zovi(httptest.NewRequest(http.MethodGet, "/akti/"+id, nil)).Body.String()
+	for _, ocekivano := range []string{"PDF za ispis", "Učitaj sken", "Mile Kunac"} {
+		if !strings.Contains(stranica, ocekivano) {
+			t.Fatalf("stranica nacrta nema %q", ocekivano)
 		}
-		p, err := pdfpotpis.ProbnoPotpisi(pdf, c, k)
-		if err != nil {
-			t.Fatal(err)
-		}
-		return p
+	}
+	if strings.Contains(stranica, `value="`+dionica.ID.String()+`"`) {
+		t.Error("rukovoditelj dionice ne smije biti ponuđen kao potpisnik")
 	}
 
-	// ne prolaze: nekvalificiran, nepoznat potpisnik, potpisnik bez prava,
-	// dokument koji nije PDF za potpis
+	ispis := zovi(httptest.NewRequest(http.MethodGet, "/akti/"+id+"/za-ispis.pdf", nil)).Body.Bytes()
+	if !bytes.HasPrefix(ispis, []byte("%PDF")) || !bytes.Contains(ispis, []byte("/Subject")) {
+		t.Fatal("PDF za ispis nije PDF")
+	}
+
+	// sken fotografiran mobitelom: PNG
+	img := image.NewRGBA(image.Rect(0, 0, 40, 60))
+	for x := 0; x < 40; x++ {
+		img.Set(x, 30, color.Black)
+	}
+	var sken bytes.Buffer
+	_ = png.Encode(&sken, img)
+
 	for _, c := range []struct {
-		opis, ime string
-		kval      bool
-		pdf       []byte
-		greska    string
+		opis, potpisnik string
+		podaci          []byte
+		greska          string
 	}{
-		{"nekvalificiran", "Mile Kunac", false, zaPotpis, "nije kvalificiran"},
-		{"nepoznat", "Netko Treći", true, zaPotpis, "nije pronađen"},
-		{"bez prava", "Ivo Ivić", true, zaPotpis, "ne smije ovjeriti"},
-		{"drugi dokument", "Mile Kunac", true, []byte("%PDF-1.4\n% drugi\n%%EOF\n"), "nije PDF za potpis"},
+		{"bez potpisnika", "", sken.Bytes(), "potpis"},
+		{"bez prava", dionica.ID.String(), sken.Bytes(), "ne smije ovjeriti"},
+		{"nije sken", kunac.ID.String(), []byte("nešto"), "PDF"},
 	} {
-		if loc := ucitaj(id, potpisi(c.ime, c.kval, c.pdf)); !strings.Contains(loc, "error") || !strings.Contains(mustUnescape(loc), c.greska) {
-			t.Errorf("%s: %s", c.opis, mustUnescape(loc))
+		if loc := posalji(id, c.potpisnik, "sken.png", c.podaci); !strings.Contains(loc, "error") || !strings.Contains(loc, c.greska) {
+			t.Errorf("%s: %s", c.opis, loc)
 		}
 	}
 
-	// ispravak teksta poništava preuzeti PDF
+	if loc := posalji(id, kunac.ID.String(), "sken.png", sken.Bytes()); !strings.Contains(loc, "success") {
+		t.Fatalf("sken odbijen: %s", loc)
+	}
 	a, _ := akti.Get(ctx, id)
-	r = httptest.NewRequest(http.MethodPost, "/akti/"+id+"/tekst", strings.NewReader(url.Values{"uvod": {a.Uvod + " (ispravljeno)"}, "zavrsno": {a.Zavrsno}}.Encode()))
-	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	zovi(r)
-	if loc := ucitaj(id, potpisi("Mile Kunac", true, zaPotpis)); !strings.Contains(mustUnescape(loc), "nije PDF za potpis") {
-		t.Errorf("potpisan stari tekst prošao: %s", mustUnescape(loc))
-	}
-
-	// novi PDF za potpis, rukovoditelj potpiše, voditelj vrati u goCOP
-	zaPotpis = zovi(httptest.NewRequest(http.MethodGet, "/akti/"+id+"/za-potpis.pdf", nil)).Body.Bytes()
-	potpisan := potpisi("KUNAC MILE", true, zaPotpis)
-	if loc := ucitaj(id, potpisan); !strings.Contains(loc, "success") {
-		t.Fatalf("ispravno potpisan PDF odbijen: %s", mustUnescape(loc))
-	}
-	a, _ = akti.Get(ctx, id)
-	if !a.Ovjeren() || a.Kvalificirani == nil || a.Ovjerio != "Mile Kunac" || a.UZamjeni || a.Broj != 1 {
-		t.Fatalf("ovjera kvalificiranim potpisom: %+v", a)
+	if !a.Ovjeren() || a.Rucno == nil || a.Ovjerio != "Mile Kunac" || a.Broj != 1 || a.Kvalificirani != nil {
+		t.Fatalf("ovjera skenom: %+v", a)
 	}
 	if e, _ := episodes.Open(ctx, "B.34.1"); e == nil || e.Phase != models.PhasePrep {
-		t.Error("obrana nije proglašena ovjerom iz SIGNATOR-a")
+		t.Error("obrana nije proglašena ovjerom skena")
 	}
-	// izvornik je bajt za bajt potpisani PDF
-	w = zovi(httptest.NewRequest(http.MethodGet, "/akti/"+id+"/akt.pdf", nil))
-	izvornik, _ := io.ReadAll(w.Body)
-	if !bytes.Equal(izvornik, potpisan) {
-		t.Error("PDF ovjerenog akta nije potpisani izvornik")
+	izvornik, _ := io.ReadAll(zovi(httptest.NewRequest(http.MethodGet, "/akti/"+id+"/akt.pdf", nil)).Body)
+	if !bytes.HasPrefix(izvornik, []byte("%PDF")) || !bytes.Contains(izvornik, []byte("/Subtype /Image")) {
+		t.Error("PDF ovjerenog akta nije sken")
 	}
-	if w := zovi(httptest.NewRequest(http.MethodGet, "/akti/"+id, nil)); !strings.Contains(w.Body.String(), "Kvalificirano potpisan u SIGNATOR-u") {
-		t.Error("stranica ne pokazuje kvalificirani potpis")
+	if !strings.Contains(zovi(httptest.NewRequest(http.MethodGet, "/akti/"+id, nil)).Body.String(), "Potpisan vlastoručno i ovjeren žigom") {
+		t.Error("stranica ne pokazuje ručni potpis")
 	}
-	if loc := ucitaj(id, potpisan); !strings.Contains(mustUnescape(loc), "već ovjeren") {
-		t.Error("ponovno učitavanje mora javiti da je akt ovjeren")
+	if loc := posalji(id, kunac.ID.String(), "sken.png", sken.Bytes()); !strings.Contains(loc, "već ovjeren") {
+		t.Errorf("ponovni sken: %s", loc)
 	}
-}
-
-func mustUnescape(s string) string {
-	u, err := url.QueryUnescape(s)
-	if err != nil {
-		return s
-	}
-	return u
 }

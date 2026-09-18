@@ -27,17 +27,38 @@
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
 
 {{if .SmijePripremiti}}
-<section class="akt-signator">
-  <h2>{{icon "shield"}} Potpis u SIGNATOR-u</h2>
-  <ol>
-    <li><a href="/akti/{{$a.ID}}/za-potpis.pdf" class="btn btn-sm btn-primary">{{icon "download"}} Preuzmi PDF za potpis</a>
-      <span class="form-help">i pošaljite ga u SIGNATOR {{$a.Potpisnik | lower}} na kvalificirani potpis. Nakon preuzimanja ne mijenjajte tekst nacrta.</span></li>
-    <li><form method="POST" action="/akti/{{$a.ID}}/potpisani" enctype="multipart/form-data" style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; margin:0;">
-      <input type="file" name="potpisani" accept="application/pdf,.pdf" required class="form-control" style="max-width:22rem;">
-      <button type="submit" class="btn btn-sm btn-primary">{{icon "upload"}} Učitaj potpisani PDF</button></form>
-      <span class="form-help">goCOP provjeri da je potpis kvalificiran, da je potpisnik rukovoditelj s pravom ovjere i da je potpisan baš ovaj nacrt; potpisani PDF postaje izvornik i akt je ovjeren.</span></li>
-  </ol>
-  {{with $a.ZaPotpis}}<p class="form-help" style="margin:0;">PDF za potpis preuzet: {{range $i, $z := .}}{{if $i}}; {{end}}{{$z.Tko}} {{formatDate (localTime $z.Kad)}}{{end}}.</p>{{end}}
+<section class="akt-potpis-opcije">
+  <h2>{{icon "shield"}} Potpis akta</h2>
+  <p class="form-help" style="margin:0 0 0.75rem;">Akt potpisuje {{$a.Potpisnik | lower}} ili zamjenik. Kad se potpisani akt vrati u goCOP, postaje izvornik, akt je ovjeren i može se poslati primateljima "na znanje".</p>
+  <div class="akt-opcije">
+    <div class="akt-opcija">
+      <h3>A. SIGNATOR, kvalificirani potpis</h3>
+      <ol>
+        <li><a href="/akti/{{$a.ID}}/za-potpis.pdf" class="btn btn-sm btn-primary">{{icon "download"}} PDF za potpis</a>
+          <div class="form-help">Pošaljite ga u SIGNATOR rukovoditelju; nakon preuzimanja ne mijenjajte tekst nacrta.</div></li>
+        <li><form method="POST" action="/akti/{{$a.ID}}/potpisani" enctype="multipart/form-data">
+          <input type="file" name="potpisani" accept="application/pdf,.pdf" required class="form-control">
+          <button type="submit" class="btn btn-sm btn-primary">{{icon "upload"}} Učitaj potpisani PDF</button></form>
+          <div class="form-help">goCOP provjeri da je potpis kvalificiran, da je potpisnik rukovoditelj s pravom ovjere i da je potpisan baš ovaj nacrt.</div></li>
+      </ol>
+      {{with $a.ZaPotpis}}<p class="form-help" style="margin:0;">Preuzet za potpis: {{range $i, $z := .}}{{if $i}}; {{end}}{{$z.Tko}} {{formatDate (localTime $z.Kad)}}{{end}}.</p>{{end}}
+    </div>
+    <div class="akt-opcija">
+      <h3>B. Ispis, potpis i žig</h3>
+      <ol>
+        <li><a href="/akti/{{$a.ID}}/za-ispis.pdf" target="_blank" class="btn btn-sm btn-secondary">{{icon "printer"}} PDF za ispis</a>
+          <div class="form-help">Ispišite, rukovoditelj potpiše, udarite žig i skenirajte.</div></li>
+        <li><form method="POST" action="/akti/{{$a.ID}}/sken" enctype="multipart/form-data">
+          <input type="file" name="sken" accept="application/pdf,.pdf,image/jpeg,image/png" required class="form-control">
+          <select name="potpisnik_id" class="form-control" required>
+            <option value="">— tko je potpisao —</option>
+            {{range .MoguPotpisati}}<option value="{{.ID}}">{{.FullName}}{{with .PrimaryDuty}} · {{.Title}}{{end}}</option>{{end}}
+          </select>
+          <button type="submit" class="btn btn-sm btn-secondary">{{icon "upload"}} Učitaj sken</button></form>
+          <div class="form-help">PDF, JPG ili PNG. Sken se ne može provjeriti strojno; ovjera se bilježi na osobu koju odaberete i na onoga tko je sken učitao.</div></li>
+      </ol>
+    </div>
+  </div>
 </section>
 {{end}}
 
@@ -69,6 +90,12 @@
 </details>
 {{end}}
 
+{{with $a.Rucno}}
+<div class="akt-potpis-stanje vrijedi">
+  {{icon "check"}} <strong>Potpisan vlastoručno i ovjeren žigom:</strong> {{.Potpisnik}}. Izvornik je sken ispisa; učitao ga je {{.Ucitao}}, {{formatDate (localTime .UcitanoAt)}}.
+  <a href="/akti/{{$a.ID}}/akt.pdf" target="_blank">Otvori izvornik</a>
+</div>
+{{end}}
 {{with $a.Kvalificirani}}
 <div class="akt-potpis-stanje {{if and $.Izvornik $.Izvornik.Ispravan}}vrijedi{{else}}ne-vrijedi{{end}}">
   {{if and $.Izvornik $.Izvornik.Ispravan}}{{icon "check"}} <strong>Kvalificirano potpisan u SIGNATOR-u:</strong>{{else}}{{icon "triangle-alert"}} <strong>Potpis na izvorniku se ne može potvrditi:</strong>{{end}}

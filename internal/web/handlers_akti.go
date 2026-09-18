@@ -69,6 +69,7 @@ type AktiPageData struct {
 	Potpis          string            // stanje elektroničkog potpisa: VRIJEDI, NE_VRIJEDI, NEMA
 	Izvornik        *pdfpotpis.Potpis // ponovna provjera potpisa na izvorniku iz SIGNATOR-a
 	SmijePripremiti bool
+	MoguPotpisati   []models.User // za izbor potpisnika uz sken
 	Upozorenja      []string
 
 	// špranca
@@ -263,6 +264,9 @@ func (h *AktiHandler) ShowAkt(w http.ResponseWriter, r *http.Request) {
 		data.Izvornik = s.ProvjeriIzvornik(r.Context(), a)
 	}
 	data.SmijePripremiti = !a.Ovjeren() && u != nil && (a.IzradioID == u.ID.String() || (perms != nil && perms.HasWriteAccess(a.Sektor, a.AreaID, "")) || s.SmijeOvjeriti(perms, a))
+	if data.SmijePripremiti {
+		data.MoguPotpisati = s.MoguPotpisati(a)
+	}
 	data.SmijeOvjeriti = !a.Ovjeren() && s.SmijeOvjeriti(perms, a)
 	data.SmijeObrisati = !a.Ovjeren() && u != nil && (a.IzradioID == u.ID.String() || s.SmijeOvjeriti(perms, a))
 	for i := range data.Sektori {
@@ -393,8 +397,8 @@ func (h *AktiHandler) IzvoziPDF(w http.ResponseWriter, r *http.Request) {
 	if a == nil {
 		return
 	}
-	// akt potpisan u SIGNATOR-u: izvornik je potpisani PDF, bajt za bajt
-	if a.Kvalificirani != nil {
+	// akt potpisan u SIGNATOR-u ili ručno pa skeniran: izvornik, bajt za bajt
+	if a.ImaIzvornik() {
 		if pdf, err := s.Izvornik(r.Context(), a.ID); err == nil && pdf != nil {
 			w.Header().Set("Content-Type", "application/pdf")
 			w.Header().Set("Content-Disposition", `inline; filename="`+imeDatotekeAkta(a)+`"`)
@@ -428,6 +432,54 @@ func (h *AktiHandler) IzvoziZaPotpis(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/pdf")
 	w.Header().Set("Content-Disposition", `attachment; filename="`+strings.TrimSuffix(ime, ".pdf")+"-za-potpis.pdf"+`"`)
 	_, _ = w.Write(pdf)
+}
+
+// IzvoziZaIspis daje PDF nacrta za ispis, vlastoručni potpis i žig
+func (h *AktiHandler) IzvoziZaIspis(w http.ResponseWriter, r *http.Request) {
+	_, a := h.ucitaj(w, r)
+	if a == nil {
+		return
+	}
+	sek, area := h.sektorIPodrucje(a)
+	ime := strings.TrimSuffix(strings.TrimSuffix(imeDatotekeAkta(a), ".pdf"), "-nacrt")
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition", `inline; filename="`+ime+`-za-ispis.pdf"`)
+	_, _ = w.Write(PDFAktaZaIspis(a, models.Terms(), sek, area))
+}
+
+// HandleUcitajSken prima sken ispisa potpisanog vlastoručno i ovjerenog žigom
+func (h *AktiHandler) HandleUcitajSken(w http.ResponseWriter, r *http.Request) {
+	u, perms, _ := h.base(r)
+	s, a := h.ucitaj(w, r)
+	if a == nil {
+		return
+	}
+	natrag := "/akti/" + a.ID
+	if err := r.ParseMultipartForm(32 << 20); err != nil {
+		redirectWith(w, r, natrag, "error", "Odaberite sken potpisanog akta")
+		return
+	}
+	f, _, err := r.FormFile("sken")
+	if err != nil {
+		redirectWith(w, r, natrag, "error", "Odaberite sken potpisanog akta")
+		return
+	}
+	defer f.Close()
+	podaci, err := io.ReadAll(io.LimitReader(f, 32<<20))
+	if err != nil {
+		redirectWith(w, r, natrag, "error", "Sken nije čitljiv")
+		return
+	}
+	a, upozorenja, err := s.UcitajSkenirani(r.Context(), perms, u, a.ID, podaci, r.FormValue("potpisnik_id"))
+	if err != nil {
+		redirectWith(w, r, natrag, "error", err.Error())
+		return
+	}
+	poruka := "Akt " + a.Oznaka() + " je ovjeren: sken s potpisom i žigom (" + a.Rucno.Potpisnik + ") je izvornik."
+	if len(upozorenja) > 0 {
+		poruka += " Stanje obrane na dionicama: " + strings.Join(upozorenja, "; ")
+	}
+	redirectWith(w, r, natrag, "success", poruka)
 }
 
 // HandleUcitajPotpisani prima PDF potpisan u SIGNATOR-u i njime ovjerava akt

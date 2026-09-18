@@ -85,6 +85,9 @@ type Akt struct {
 	// Kvalificirani je kvalificirani elektronički potpis rukovoditelja iz
 	// potpisanog PDF-a; tada je taj PDF izvornik akta
 	Kvalificirani *KvalificiraniPotpis `json:"kvalificirani,omitempty"`
+	// Rucno je akt potpisan vlastoručno i ovjeren žigom, pa skeniran i
+	// učitan; tada je sken izvornik
+	Rucno *RucniPotpis `json:"rucno,omitempty"`
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
@@ -111,6 +114,19 @@ type KvalificiraniPotpis struct {
 	Ucitao     string    `json:"ucitao"`  // tko je potpisani PDF vratio u goCOP
 	UcitanoAt  time.Time `json:"ucitano_at"`
 }
+
+// RucniPotpis je ispis potpisan vlastoručno i ovjeren žigom, vraćen kao sken
+type RucniPotpis struct {
+	PotpisnikID string    `json:"potpisnik_id"`
+	Potpisnik   string    `json:"potpisnik"`
+	Sazetak     string    `json:"sazetak"` // sha256 skena
+	Ucitao      string    `json:"ucitao"`
+	UcitanoAt   time.Time `json:"ucitano_at"`
+}
+
+// ImaIzvornik javlja postoji li uz akt izvornik izvan programa: PDF iz
+// SIGNATOR-a ili sken ispisa s potpisom i žigom
+func (a Akt) ImaIzvornik() bool { return a.Kvalificirani != nil || a.Rucno != nil }
 
 // AktDionica je dionica na koju se akt odnosi, s opisom kakav stoji na aktu
 type AktDionica struct {
@@ -393,6 +409,9 @@ func (a Akt) Sazetak() string {
 	b.WriteString(a.TekstUvoda() + "|" + a.TekstZavrsni() + "|" + a.Poveznice + "|" + a.PrekidaAktID + "|" + a.IzvanSnage + "|")
 	if a.Kvalificirani != nil {
 		b.WriteString("izvornik:" + a.Kvalificirani.Sazetak + "|")
+	}
+	if a.Rucno != nil {
+		b.WriteString("sken:" + a.Rucno.Sazetak + "|")
 	}
 	for _, d := range a.Dionice {
 		b.WriteString(d.Code + "=" + d.Opis + ";")
