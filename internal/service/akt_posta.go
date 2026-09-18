@@ -450,17 +450,22 @@ func (s *AktService) Imenik(ctx context.Context, u *models.User, upit string) ([
 	return posta.Imenik(ctx, s.Posta(ctx), r, upit)
 }
 
-// RazlikaKontakta je jedno polje u kojem se goCOP i adresar razlikuju
+// RazlikaKontakta je jedno polje kontakta uspoređeno s adresarom
 type RazlikaKontakta struct {
 	Polje, Naziv, GoCOP, Exchange string
+	Stanje                        string // isto, novo (goCOP prazan), drugacije, nema (adresar nema)
 }
+
+// Razlikuje javlja treba li odluka: novo ili drugačije
+func (r RazlikaKontakta) Razlikuje() bool { return r.Stanje == "novo" || r.Stanje == "drugacije" }
 
 // UsporedbaKontakta je jedan djelatnik prema adresaru tvrtke
 type UsporedbaKontakta struct {
 	User      models.User
-	Kontakt   *posta.Kontakt // najbolji pogodak; nil kad nije pronađen
-	Kandidati int            // koliko je osoba adresar vratio za ime
-	Razlike   []RazlikaKontakta
+	Kontakt   *posta.Kontakt    // najbolji pogodak; nil kad nije pronađen
+	Kandidati int               // koliko je osoba adresar vratio za ime
+	Polja     []RazlikaKontakta // e-pošta, mobitel, fiksni, redom
+	Razlike   []RazlikaKontakta // samo polja koja traže odluku
 }
 
 // UsporediImenik prolazi djelatnike i za svakoga u adresaru tvrtke nađe
@@ -502,7 +507,12 @@ func (s *AktService) UsporediImenik(ctx context.Context, perms *models.UserPermi
 		red.Kandidati = len(kandidati)
 		if k := najboljiKontakt(kandidati, x); k != nil {
 			red.Kontakt = k
-			red.Razlike = razlikeKontakta(x, *k)
+			red.Polja = poljaKontakta(x, *k)
+			for _, p := range red.Polja {
+				if p.Razlikuje() {
+					red.Razlike = append(red.Razlike, p)
+				}
+			}
 		}
 		out = append(out, red)
 	}
@@ -532,18 +542,23 @@ func najboljiKontakt(k []posta.Kontakt, u models.User) *posta.Kontakt {
 	return nil
 }
 
-func razlikeKontakta(u models.User, k posta.Kontakt) []RazlikaKontakta {
-	var out []RazlikaKontakta
-	if k.Email != "" && !strings.EqualFold(strings.TrimSpace(u.Email), k.Email) {
-		out = append(out, RazlikaKontakta{"email", "E-pošta", u.Email, k.Email})
+func poljaKontakta(u models.User, k posta.Kontakt) []RazlikaKontakta {
+	stanje := func(gocop, exch string, isto bool) string {
+		switch {
+		case exch == "":
+			return "nema"
+		case strings.TrimSpace(gocop) == "":
+			return "novo"
+		case isto:
+			return "isto"
+		}
+		return "drugacije"
 	}
-	if k.Mobitel != "" && posta.SamoZnamenke(u.MobilePhone) != posta.SamoZnamenke(k.Mobitel) {
-		out = append(out, RazlikaKontakta{"mobile_phone", "Mobitel", u.MobilePhone, k.Mobitel})
+	return []RazlikaKontakta{
+		{"email", "E-pošta", u.Email, k.Email, stanje(u.Email, k.Email, strings.EqualFold(strings.TrimSpace(u.Email), k.Email))},
+		{"mobile_phone", "Mobitel", u.MobilePhone, k.Mobitel, stanje(u.MobilePhone, k.Mobitel, posta.SamoZnamenke(u.MobilePhone) == posta.SamoZnamenke(k.Mobitel))},
+		{"phone", "Fiksni telefon", u.Phone, k.Telefon, stanje(u.Phone, k.Telefon, posta.SamoZnamenke(u.Phone) == posta.SamoZnamenke(k.Telefon))},
 	}
-	if k.Telefon != "" && posta.SamoZnamenke(u.Phone) != posta.SamoZnamenke(k.Telefon) {
-		out = append(out, RazlikaKontakta{"phone", "Fiksni telefon", u.Phone, k.Telefon})
-	}
-	return out
 }
 
 // PrimijeniKontakt upisuje odabrana polja iz adresara u djelatnika
@@ -564,9 +579,9 @@ func (s *AktService) PrimijeniKontakt(ctx context.Context, perms *models.UserPer
 		case "email":
 			req.Email = strings.ToLower(v)
 		case "mobile_phone":
-			req.MobilePhone = v
+			req.MobilePhone = posta.FormatirajTelefon(v)
 		case "phone":
-			req.Phone = v
+			req.Phone = posta.FormatirajTelefon(v)
 		}
 	}
 	_, err = s.users.UpdateUser(perms, req)

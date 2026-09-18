@@ -34,6 +34,8 @@ type ImenikData struct {
 	Sektori        []models.Sector
 	SRazlikom      int
 	NijeNadjeno    int
+	SlazuSe        []models.User // pronađeni bez razlika
+	NemaIh         []service.UsporedbaKontakta
 	TrebaLozinku   bool
 	SmijeUskladiti bool
 }
@@ -60,10 +62,14 @@ func (h *AktiHandler) ShowImenik(w http.ResponseWriter, r *http.Request) {
 		d.Usporedio = true
 		d.Usporedba, err = s.UsporediImenik(r.Context(), perms, u, d.Sektor)
 		for _, x := range d.Usporedba {
-			if x.Kontakt == nil {
+			switch {
+			case x.Kontakt == nil:
 				d.NijeNadjeno++
-			} else if len(x.Razlike) > 0 {
+				d.NemaIh = append(d.NemaIh, x)
+			case len(x.Razlike) > 0:
 				d.SRazlikom++
+			default:
+				d.SlazuSe = append(d.SlazuSe, x.User)
 			}
 		}
 	}

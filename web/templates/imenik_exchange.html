@@ -46,32 +46,62 @@
 
 {{if .Usporedio}}
 <section class="detail-section" style="margin-top:0;">
-  <p class="form-help">Djelatnika: {{len .Usporedba}} · s razlikom: {{.SRazlikom}} · nisu pronađeni u adresaru: {{.NijeNadjeno}}. Označite što preuzeti iz adresara; ostalo ostaje kako je u goCOP-u.</p>
+  <div class="imenik-sazetak">
+    <span class="imenik-cip">Djelatnika: <strong>{{len .Usporedba}}</strong></span>
+    <span class="imenik-cip isto">{{icon "check"}} Slažu se: <strong>{{len .SlazuSe}}</strong></span>
+    <span class="imenik-cip razlika">Traže odluku: <strong>{{.SRazlikom}}</strong></span>
+    <span class="imenik-cip nema">Nema ih u adresaru: <strong>{{.NijeNadjeno}}</strong></span>
+  </div>
+  <p class="form-help">Uspoređuju se e-pošta, mobitel i fiksni telefon. Brojevi se uspoređuju bez obzira na zapis (+385 98… je isto što i 098-…). <span class="imenik-oznaka novo">novo</span> = goCOP nema podatak, adresar ima; unaprijed označeno. <span class="imenik-oznaka drugacije">drugačije</span> = oba imaju, a razlikuju se; odlučite sami, jer goCOP može imati točniji terenski broj. Preuzeti brojevi upisuju se u obliku 0xx-xxx-xxx.</p>
+
+  {{if .SRazlikom}}
   <form method="POST" action="/users/exchange">
     <input type="hidden" name="sektor" value="{{.Sektor}}">
     <table class="table imenik-usporedba">
-      <thead><tr><th>Djelatnik</th><th>Polje</th><th>goCOP</th><th>Adresar tvrtke</th><th>Preuzmi</th></tr></thead>
+      <thead><tr><th>Djelatnik</th><th>E-pošta</th><th>Mobitel</th><th>Fiksni telefon</th></tr></thead>
       <tbody>
-      {{range .Usporedba}}
+      {{range .Usporedba}}{{if .Razlike}}
         {{$u := .User}}
-        {{if not .Kontakt}}
-        <tr class="imenik-nema"><td data-stupac="Djelatnik"><a href="/users/{{$u.ID}}">{{$u.FullName}}</a></td><td colspan="4" class="form-help">{{if gt .Kandidati 1}}u adresaru je više osoba tog imena, upišite adresu pa ponovite{{else}}nije u adresaru tvrtke (vanjski suradnik ili drugo ime){{end}}</td></tr>
-        {{else if .Razlike}}
-        {{range $i, $r := .Razlike}}
         <tr>
-          <td data-stupac="Djelatnik">{{if eq $i 0}}<a href="/users/{{$u.ID}}">{{$u.FullName}}</a>{{end}}</td>
-          <td data-stupac="Polje">{{$r.Naziv}}</td>
-          <td data-stupac="goCOP">{{if $r.GoCOP}}{{$r.GoCOP}}{{else}}<span class="form-help">prazno</span>{{end}}</td>
-          <td data-stupac="Adresar">{{$r.Exchange}}</td>
-          <td><input type="checkbox" name="p" value="{{$u.ID}}|{{$r.Polje}}" {{if not $r.GoCOP}}checked{{end}}><input type="hidden" name="v_{{$u.ID}}_{{$r.Polje}}" value="{{$r.Exchange}}"></td>
+          <td data-stupac="Djelatnik"><a href="/users/{{$u.ID}}">{{$u.FullName}}</a>{{with .Kontakt.Funkcija}}<div class="form-help">{{.}}</div>{{end}}</td>
+          {{range .Polja}}
+          <td data-stupac="{{.Naziv}}" class="imenik-polje {{.Stanje}}">
+            {{if eq .Stanje "isto"}}<span class="imenik-isto">{{icon "check"}} {{.GoCOP}}</span>
+            {{else if eq .Stanje "nema"}}<span class="form-help">{{if .GoCOP}}{{.GoCOP}}<br>(adresar nema){{else}}—{{end}}</span>
+            {{else}}
+            <label class="imenik-odluka">
+              <input type="checkbox" name="p" value="{{$u.ID}}|{{.Polje}}" {{if eq .Stanje "novo"}}checked{{end}}>
+              <input type="hidden" name="v_{{$u.ID}}_{{.Polje}}" value="{{.Exchange}}">
+              <span class="imenik-oznaka {{.Stanje}}">{{if eq .Stanje "novo"}}novo{{else}}drugačije{{end}}</span>
+              <span class="imenik-vrijednosti">{{if .GoCOP}}<s>{{.GoCOP}}</s> → {{end}}<strong>{{.Exchange}}</strong></span>
+            </label>
+            {{end}}
+          </td>
+          {{end}}
         </tr>
-        {{end}}
-        {{end}}
-      {{end}}
+      {{end}}{{end}}
       </tbody>
     </table>
-    {{if .SRazlikom}}<button type="submit" class="btn btn-primary">{{icon "check"}} Preuzmi označeno</button>{{else}}<p class="form-help">Adrese i telefoni pronađenih djelatnika slažu se s adresarom.</p>{{end}}
+    <button type="submit" class="btn btn-primary">{{icon "check"}} Preuzmi označeno</button>
   </form>
+  {{else}}
+  <p class="form-help">Svi pronađeni djelatnici slažu se s adresarom.</p>
+  {{end}}
+
+  {{if .NemaIh}}
+  <details class="imenik-detalji" open>
+    <summary>Nema ih u adresaru tvrtke ({{.NijeNadjeno}})</summary>
+    <ul>
+    {{range .NemaIh}}<li><a href="/users/{{.User.ID}}">{{.User.FullName}}</a> <span class="form-help">{{if gt .Kandidati 1}}u adresaru je više osoba tog imena; upišite mu adresu e-pošte u goCOP-u pa ponovite{{else}}vanjski suradnik, umirovljenik ili drugačije napisano ime{{end}}</span></li>{{end}}
+    </ul>
+  </details>
+  {{end}}
+  {{if .SlazuSe}}
+  <details class="imenik-detalji">
+    <summary>Slažu se s adresarom ({{len .SlazuSe}})</summary>
+    <p class="form-help">{{range $i, $u := .SlazuSe}}{{if $i}}, {{end}}{{$u.FullName}}{{end}}</p>
+  </details>
+  {{end}}
 </section>
 {{end}}
 {{end}}
