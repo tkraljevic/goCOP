@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -491,12 +492,30 @@ func (f stationForm) primijeni(st *models.Station) {
 // javnaVeza čita vezu s javnom stranicom: ID postaje i je li preuzimanje
 // uključeno. Preuzimanje bez ID-a nema smisla, pa se tada gasi.
 func (f stationForm) javnaVeza() (int, bool) {
-	id, _ := strconv.Atoi(strings.TrimSpace(f.JavniID))
-	if id < 0 {
-		id = 0
-	}
+	id := javniIDIzUnosa(f.JavniID)
 	uvoz := f.JavniUvoz == "1" || f.JavniUvoz == "on" || f.JavniUvoz == "true"
 	return id, uvoz && id > 0
+}
+
+// reJavniID vadi broj postaje iz zalijepljene adrese javne stranice, npr.
+// .../PregledVodostajaPostaje?sektorID=2&bpID=34&postajaID=424
+var reJavniID = regexp.MustCompile(`(?i)postajaID=(\d+)`)
+
+// javniIDIzUnosa prima goli broj ili adresu stranice postaje: ljudi kopiraju
+// adresu iz preglednika, pa neka i to prođe. Nula je nepovezano.
+func javniIDIzUnosa(unos string) int {
+	unos = strings.TrimSpace(unos)
+	if id, err := strconv.Atoi(unos); err == nil {
+		if id < 0 {
+			return 0
+		}
+		return id
+	}
+	if m := reJavniID.FindStringSubmatch(unos); m != nil {
+		id, _ := strconv.Atoi(m[1])
+		return id
+	}
+	return 0
 }
 
 func (f stationForm) toStation() models.Station {
