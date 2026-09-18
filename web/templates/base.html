@@ -108,6 +108,7 @@
             <span class="user-role-label">{{roleLabel .CurrentUser.PrimaryRole}}{{if and .CurrentUser.IsGlobalAdmin .CurrentUser.PrimaryDuty}} · administrator{{end}} · {{.CurrentUser.OrgName}}</span>
           </div>
           <a href="/profile" class="btn btn-secondary btn-sm">{{icon "user"}} Moj profil</a>
+          <a href="/posta" class="btn btn-secondary btn-sm" title="Ulazna pošta iz Exchangea">{{icon "mailbox"}} Sandučić</a>
           <a href="/profile#lozinka" class="btn btn-secondary btn-sm">{{icon "key-round"}} Lozinka</a>
           <form action="/logout" method="POST" style="display:inline;">
             <button type="submit" class="btn btn-secondary btn-sm" title="Odjavi se">{{icon "log-out"}} Odjava</button>
