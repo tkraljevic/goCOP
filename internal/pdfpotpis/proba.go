@@ -21,6 +21,16 @@ import (
 // OIB u serijskom broju subjekta i, po želji, izjava o kvalificiranom
 // certifikatu. Nije za stvarno potpisivanje.
 func ProbniCertifikat(ime, oib string, kvalificiran bool) (*x509.Certificate, crypto.Signer, error) {
+	return probni(ime, oib, kvalificiran, false)
+}
+
+// ProbniPecat izrađuje kvalificirani certifikat pečata organizacije (QcType
+// eseal, oznaka organizacije u subjektu), kakvim SIGNATOR bilježi parafu
+func ProbniPecat(naziv, oib string) (*x509.Certificate, crypto.Signer, error) {
+	return probni(naziv, oib, true, true)
+}
+
+func probni(ime, oib string, kvalificiran, pecat bool) (*x509.Certificate, crypto.Signer, error) {
 	kljuc, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return nil, nil, err
@@ -33,11 +43,27 @@ func ProbniCertifikat(ime, oib string, kvalificiran bool) (*x509.Certificate, cr
 		NotAfter:     time.Now().Add(365 * 24 * time.Hour),
 		KeyUsage:     x509.KeyUsageDigitalSignature | x509.KeyUsageContentCommitment,
 	}
+	if pecat {
+		t.Subject.SerialNumber = ""
+		t.Subject.ExtraNames = []pkix.AttributeTypeAndValue{{Type: oidOrgIdent, Value: "VATHR-" + oib}}
+	}
 	if kvalificiran {
-		// QCStatements: SEQUENCE { SEQUENCE { QcCompliance } }
-		oid, _ := asn1.Marshal(oidQcCompliance)
-		izjava, _ := asn1.Marshal(asn1.RawValue{Class: 0, Tag: 16, IsCompound: true, Bytes: oid})
-		niz, _ := asn1.Marshal(asn1.RawValue{Class: 0, Tag: 16, IsCompound: true, Bytes: izjava})
+		// QCStatements: SEQUENCE { SEQUENCE { QcCompliance }, SEQUENCE { QcSSCD } }
+		var izjave []byte
+		for _, o := range []asn1.ObjectIdentifier{oidQcCompliance, oidQcSSCD} {
+			oid, _ := asn1.Marshal(o)
+			izjava, _ := asn1.Marshal(asn1.RawValue{Class: 0, Tag: 16, IsCompound: true, Bytes: oid})
+			izjave = append(izjave, izjava...)
+		}
+		if pecat {
+			// SEQUENCE { QcType, SEQUENCE { eseal } }
+			tip, _ := asn1.Marshal(asn1.ObjectIdentifier{0, 4, 0, 1862, 1, 6})
+			vrsta, _ := asn1.Marshal(oidQcTypeEseal)
+			vrste, _ := asn1.Marshal(asn1.RawValue{Class: 0, Tag: 16, IsCompound: true, Bytes: vrsta})
+			izjava, _ := asn1.Marshal(asn1.RawValue{Class: 0, Tag: 16, IsCompound: true, Bytes: append(tip, vrste...)})
+			izjave = append(izjave, izjava...)
+		}
+		niz, _ := asn1.Marshal(asn1.RawValue{Class: 0, Tag: 16, IsCompound: true, Bytes: izjave})
 		t.ExtraExtensions = append(t.ExtraExtensions, pkix.Extension{Id: oidQCStatements, Value: niz})
 	}
 	der, err := x509.CreateCertificate(rand.Reader, t, t, &kljuc.PublicKey, kljuc)
@@ -52,8 +78,14 @@ func ProbniCertifikat(ime, oib string, kvalificiran bool) (*x509.Certificate, cr
 // bajtovi ostaju netaknuti, a potpis pokriva cijeli dokument osim mjesta
 // za sam potpis. Za testove.
 func ProbnoPotpisi(pdf []byte, c *x509.Certificate, kljuc crypto.Signer) ([]byte, error) {
+	return ProbnoPotpisiS(pdf, c, kljuc, "")
+}
+
+// ProbnoPotpisiS potpisuje kao ProbnoPotpisi, s dodatnim unosima u rječniku
+// potpisa, npr. "/Reason <FEFF…> /M (D:20260212070319Z)"
+func ProbnoPotpisiS(pdf []byte, c *x509.Certificate, kljuc crypto.Signer, dodatak string) ([]byte, error) {
 	const mjesto = 8192 // heksadecimalnih znakova za potpis
-	glava := "\n9999 0 obj\n<< /Type /Sig /Filter /Adobe.PPKLite /SubFilter /ETSI.CAdES.detached /ByteRange [0 AAAAAAAAAA BBBBBBBBBB CCCCCCCCCC] /Contents <"
+	glava := "\n9999 0 obj\n<< /Type /Sig /Filter /Adobe.PPKLite /SubFilter /ETSI.CAdES.detached " + dodatak + " /ByteRange [0 AAAAAAAAAA BBBBBBBBBB CCCCCCCCCC] /Contents <"
 	rep := ">\n>>\nendobj\n%%EOF\n"
 	doc := append(append([]byte{}, pdf...), []byte(glava)...)
 	start := len(doc) - 1 // položaj '<'

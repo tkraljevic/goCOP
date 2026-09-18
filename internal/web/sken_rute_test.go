@@ -137,7 +137,7 @@ func TestRucniPotpisISkenKrozRute(t *testing.T) {
 		t.Fatal("PDF za ispis nije PDF")
 	}
 
-	// sken fotografiran mobitelom: PNG
+	// fotografija s mobitela prolazi kao rezerva, ali ovdje bez potpisnika ili prava
 	img := image.NewRGBA(image.Rect(0, 0, 40, 60))
 	for x := 0; x < 40; x++ {
 		img.Set(x, 30, color.Black)
@@ -159,7 +159,9 @@ func TestRucniPotpisISkenKrozRute(t *testing.T) {
 		}
 	}
 
-	if loc := posalji(id, kunac.ID.String(), "sken.png", sken.Bytes()); !strings.Contains(loc, "success") {
+	// skener daje PDF; on je izvornik bajt za bajt
+	skenPDF := []byte("%PDF-1.4\n% sken s potpisom i žigom\n%%EOF\n")
+	if loc := posalji(id, kunac.ID.String(), "sken.pdf", skenPDF); !strings.Contains(loc, "success") {
 		t.Fatalf("sken odbijen: %s", loc)
 	}
 	a, _ := akti.Get(ctx, id)
@@ -170,8 +172,8 @@ func TestRucniPotpisISkenKrozRute(t *testing.T) {
 		t.Error("obrana nije proglašena ovjerom skena")
 	}
 	izvornik, _ := io.ReadAll(zovi(httptest.NewRequest(http.MethodGet, "/akti/"+id+"/akt.pdf", nil)).Body)
-	if !bytes.HasPrefix(izvornik, []byte("%PDF")) || !bytes.Contains(izvornik, []byte("/Subtype /Image")) {
-		t.Error("PDF ovjerenog akta nije sken")
+	if !bytes.Equal(izvornik, skenPDF) {
+		t.Error("PDF ovjerenog akta nije učitani sken")
 	}
 	if !strings.Contains(zovi(httptest.NewRequest(http.MethodGet, "/akti/"+id, nil)).Body.String(), "Potpisan vlastoručno i ovjeren žigom") {
 		t.Error("stranica ne pokazuje ručni potpis")

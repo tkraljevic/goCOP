@@ -744,14 +744,24 @@ func (s *AktService) UcitajPotpisani(ctx context.Context, perms *models.UserPerm
 	if !bytes.HasPrefix(pdf, []byte("%PDF")) {
 		return nil, nil, fmt.Errorf("datoteka nije PDF")
 	}
-	p := pdfpotpis.Zadnji(pdfpotpis.Pronadji(pdf))
+	ps := pdfpotpis.Pronadji(pdf)
+	if len(ps) == 0 {
+		return nil, nil, fmt.Errorf("u PDF-u nema elektroničkog potpisa; je li potpisan u SIGNATOR-u?")
+	}
+	for _, x := range ps {
+		if !x.Ispravan {
+			return nil, nil, fmt.Errorf("potpis %s nije ispravan: %s", x.Ime, x.Greska)
+		}
+	}
+	if pdfpotpis.Zadnji(ps) == nil {
+		return nil, nil, fmt.Errorf("PDF je mijenjan nakon zadnjeg potpisa; učitajte PDF točno kako ga je dao SIGNATOR")
+	}
+	p := pdfpotpis.Osobni(ps)
 	switch {
 	case p == nil:
-		return nil, nil, fmt.Errorf("u PDF-u nema potpisa koji pokriva cijeli dokument; je li potpisan u SIGNATOR-u?")
-	case !p.Ispravan:
-		return nil, nil, fmt.Errorf("potpis nije ispravan: %s", p.Greska)
-	case !p.Kvalificiran:
-		return nil, nil, fmt.Errorf("potpis %s nije kvalificiran (certifikat: %s); akt se potpisuje kvalificiranim potpisom", p.Ime, p.Izdavatelj)
+		return nil, nil, fmt.Errorf("u PDF-u je samo pečat organizacije, nema potpisa rukovoditelja")
+	case !p.Kvalificiran || !p.QSCD:
+		return nil, nil, fmt.Errorf("potpis %s je razine %s, a ne kvalificirani (QES; certifikat: %s); u SIGNATOR-u akt potpišite kvalificiranim potpisom", p.Ime, p.Razina(), p.Izdavatelj)
 	}
 	// potpisan je baš PDF za potpis ovog nacrta
 	nasao := false
@@ -779,7 +789,10 @@ func (s *AktService) UcitajPotpisani(ctx context.Context, perms *models.UserPerm
 	}
 	h := sha256.Sum256(pdf)
 	a.Kvalificirani = &models.KvalificiraniPotpis{Ime: p.Ime, OIB: p.OIB, Izdavatelj: p.Izdavatelj, Serijski: p.Serijski, VrijediDo: p.VrijediDo,
-		Vrijeme: kad, Sazetak: hex.EncodeToString(h[:]), Ucitao: u.FullName, UcitanoAt: time.Now()}
+		Vrijeme: kad, VremenskiZig: p.VremenskiZig, Razina: p.Razina(), Sazetak: hex.EncodeToString(h[:]), Ucitao: u.FullName, UcitanoAt: time.Now()}
+	for _, x := range pdfpotpis.Pecati(ps) {
+		a.Kvalificirani.Pecati = append(a.Kvalificirani.Pecati, models.PecatNaAktu{Naziv: x.Ime, Razlog: x.Razlog, Vrijeme: x.Vrijeme, Razina: x.Razina()})
+	}
 	if err := s.repo.SaveIzvornik(ctx, &repository.Izvornik{AktID: a.ID, PDF: pdf, Sazetak: a.Kvalificirani.Sazetak}); err != nil {
 		return nil, nil, err
 	}
@@ -831,7 +844,7 @@ func (s *AktService) UcitajSkenirani(ctx context.Context, perms *models.UserPerm
 	pdf := datoteka
 	if !bytes.HasPrefix(datoteka, []byte("%PDF")) {
 		if pdf, err = pdfw.PDFIzSlike(datoteka, a.Naslov()); err != nil {
-			return nil, nil, fmt.Errorf("sken mora biti PDF, JPEG ili PNG: %w", err)
+			return nil, nil, fmt.Errorf("sken mora biti PDF")
 		}
 	}
 	pid, err := uuid.Parse(potpisnikID)
@@ -902,7 +915,22 @@ func (s *AktService) ProvjeriIzvornik(ctx context.Context, a *models.Akt) *pdfpo
 	if err != nil || pdf == nil {
 		return nil
 	}
-	return pdfpotpis.Zadnji(pdfpotpis.Pronadji(pdf))
+	ps := pdfpotpis.Pronadji(pdf)
+	p := pdfpotpis.Osobni(ps)
+	if p == nil {
+		return nil
+	}
+	out := *p
+	// potpis vrijedi kad su svi potpisi ispravni i iza zadnjeg nema izmjena
+	if pdfpotpis.Zadnji(ps) == nil {
+		out.Ispravan, out.Greska = false, "dokument je mijenjan nakon zadnjeg potpisa"
+	}
+	for _, x := range ps {
+		if !x.Ispravan {
+			out.Ispravan, out.Greska = false, x.Greska
+		}
+	}
+	return &out
 }
 
 // OcitanjaZaAkt su očitanja letve s vodostajem, najnovije prvo, za izbor
