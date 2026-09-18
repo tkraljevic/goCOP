@@ -159,6 +159,15 @@ func (p Postavke) Imena(korisnik string) []string {
 	return out
 }
 
+// Prijavi se spoji i prijavi bez slanja i vrati korisničko ime kojim je
+// prijava prošla; za Exchange to može biti i DOMENA\korisnik
+func Prijavi(ctx context.Context, p Postavke, r Racun) (string, error) {
+	if p.ews() {
+		return ewsPrijavi(ctx, p, r)
+	}
+	return r.Korisnik, Provjeri(ctx, p, r)
+}
+
 // Provjeri se spoji i prijavi, bez slanja: za provjeru nove lozinke
 func Provjeri(ctx context.Context, p Postavke, r Racun) error {
 	if p.ews() {
