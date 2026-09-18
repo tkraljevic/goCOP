@@ -144,7 +144,7 @@
     var okno = document.getElementById('adresar-okno');
     var ulaz = document.getElementById('adresar-trazi');
     var rezultati = document.getElementById('adresar-popis');
-    var cilj = null;
+    var cilj = document.getElementById('za');
     document.querySelectorAll('.adresa-imenik').forEach(function (b) {
       b.addEventListener('click', function () {
         cilj = document.getElementById(b.dataset.za);
@@ -153,6 +153,7 @@
     });
     document.getElementById('adresar-zatvori').addEventListener('click', function () { okno.hidden = true; });
     okno.addEventListener('click', function (e) { if (e.target === okno) okno.hidden = true; });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !okno.hidden) okno.hidden = true; });
     ulaz.addEventListener('input', function () {
       clearTimeout(odgoda);
       var q = ulaz.value.trim();
