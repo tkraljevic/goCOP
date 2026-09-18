@@ -44,6 +44,18 @@
 </section>
 {{else if .Upit}}{{if not .ErrorMessage}}<p class="form-help">Za „{{.Upit}}” u adresaru nema nikoga.</p>{{end}}{{end}}
 
+{{if .PosaoID}}
+<div class="posao" data-posao="{{.PosaoID}}">
+  <p class="posao-naslov">{{icon "clock"}} {{.PosaoNaziv}}</p>
+  <div class="posao-traka"><div class="posao-traka-crta"></div></div>
+  <div class="posao-crta">
+    <span class="posao-sto">počinjem</span>
+    <span class="posao-brojka"></span>
+  </div>
+  <p class="reading-meta" style="margin:0.6rem 0 0;">Svaki djelatnik traži se u adresaru zasebno. Kad usporedba završi, stranica se sama osvježi.</p>
+</div>
+{{end}}
+
 {{if .Usporedio}}
 <section class="detail-section" style="margin-top:0;">
   <div class="imenik-sazetak">

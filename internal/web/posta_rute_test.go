@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -21,6 +22,7 @@ import (
 	"gocop/internal/ledger"
 	"gocop/internal/models"
 	"gocop/internal/pdfpotpis"
+	"gocop/internal/poslovi"
 	"gocop/internal/posta"
 	"gocop/internal/repository"
 	"gocop/internal/service"
@@ -137,7 +139,7 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	mux.HandleFunc("GET /administracija/posta", h.ShowAdminPosta)
 	h.SetSanducic(tmpl("posta_sanducic.html"), tmpl("posta_pismo.html"), tmpl("posta_novo.html"))
 	mux.HandleFunc("POST /posta/pismo", h.HandlePismoRadnja)
-	h.SetImenik(tmpl("imenik_exchange.html"))
+	h.SetImenik(tmpl("imenik_exchange.html"), poslovi.NoviRegistar())
 	mux.HandleFunc("GET /users/exchange", h.ShowImenik)
 	mux.HandleFunc("POST /users/exchange", h.HandleImenikPrimijeni)
 	mux.HandleFunc("GET /posta/novo", h.ShowNovoPismo)
@@ -367,7 +369,24 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	if w := zovi(httptest.NewRequest(http.MethodGet, "/users/exchange?trazi=kunac", nil)); !strings.Contains(w.Body.String(), "mile.kunac@voda.hr") || !strings.Contains(w.Body.String(), "Rukovoditelj BP") {
 		t.Fatalf("traženje u adresaru:\n%.800s", w.Body.String())
 	}
-	usp := zovi(httptest.NewRequest(http.MethodGet, "/users/exchange?usporedi=1", nil)).Body.String()
+	// usporedba je posao u pozadini s trakom napretka; stranica rezultata čeka da završi
+	usporedi := func() string {
+		pocetak := zovi(httptest.NewRequest(http.MethodGet, "/users/exchange?usporedi=1", nil)).Body.String()
+		m := regexp.MustCompile(`data-posao="([^"]+)"`).FindStringSubmatch(pocetak)
+		if m == nil {
+			t.Fatalf("usporedba nije pokrenuta kao posao:\n%.600s", pocetak)
+		}
+		for i := 0; i < 100; i++ {
+			s := zovi(httptest.NewRequest(http.MethodGet, "/users/exchange?rezultat="+m[1], nil)).Body.String()
+			if !strings.Contains(s, "data-posao=") {
+				return s
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
+		t.Fatal("usporedba nije završila")
+		return ""
+	}
+	usp := usporedi()
 	if !strings.Contains(usp, `value="`+kunac.ID.String()+`|email"`) || !strings.Contains(usp, "099 111 2222") || !strings.Contains(usp, "više osoba tog imena") {
 		t.Fatalf("usporedba:\n%.1500s", usp)
 	}
@@ -379,7 +398,7 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	if k, _ := users.GetUserByID(kunac.ID); k.Email != "mile.kunac@voda.hr" || k.MobilePhone != "099-111-2222" || k.Phone != "" {
 		t.Errorf("djelatnik nakon usklađivanja: %+v", k)
 	}
-	if w := zovi(httptest.NewRequest(http.MethodGet, "/users/exchange?usporedi=1", nil)); strings.Contains(w.Body.String(), `|email"`) {
+	if s := usporedi(); strings.Contains(s, `|email"`) {
 		t.Error("nakon usklađivanja adresa se više ne razlikuje")
 	}
 }

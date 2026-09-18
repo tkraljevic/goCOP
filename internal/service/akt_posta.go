@@ -472,7 +472,8 @@ type UsporedbaKontakta struct {
 // UsporediImenik prolazi djelatnike i za svakoga u adresaru tvrtke nađe
 // osobu istog imena, pa usporedi adresu i telefone. Čita se preko računa
 // prijavljenog korisnika.
-func (s *AktService) UsporediImenik(ctx context.Context, perms *models.UserPermissions, u *models.User, sektor string) ([]UsporedbaKontakta, error) {
+// napredak, kad je zadan, javlja koliko je djelatnika obrađeno.
+func (s *AktService) UsporediImenik(ctx context.Context, perms *models.UserPermissions, u *models.User, sektor string, napredak func(sto string, gotovo, ukupno int)) ([]UsporedbaKontakta, error) {
 	if perms == nil || (!perms.IsGlobalAdmin && len(perms.AdminSectors) == 0) {
 		return nil, ErrUnauthorized
 	}
@@ -491,6 +492,16 @@ func (s *AktService) UsporediImenik(ctx context.Context, perms *models.UserPermi
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	var prva error
+	gotovo := 0
+	javi := func(ime string) {
+		mu.Lock()
+		gotovo++
+		g := gotovo
+		mu.Unlock()
+		if napredak != nil {
+			napredak(ime, g, len(svi))
+		}
+	}
 	red := make(chan int)
 	for w := 0; w < 4; w++ {
 		wg.Add(1)
@@ -514,6 +525,7 @@ func (s *AktService) UsporediImenik(ctx context.Context, perms *models.UserPermi
 					}
 					mu.Unlock()
 					out[i] = u
+					javi(x.FullName)
 					continue
 				}
 				u.Kandidati = len(kandidati)
@@ -527,6 +539,7 @@ func (s *AktService) UsporediImenik(ctx context.Context, perms *models.UserPermi
 					}
 				}
 				out[i] = u
+				javi(x.FullName)
 			}
 		}()
 	}

@@ -13,6 +13,7 @@ import (
 
 	"gocop/internal/models"
 	"gocop/internal/pdfpotpis"
+	"gocop/internal/poslovi"
 	"gocop/internal/repository"
 	"gocop/internal/service"
 )
@@ -29,6 +30,7 @@ type AktiHandler struct {
 	tmplPosta, tmplPostaAdmin                    *template.Template
 	tmplSanducic, tmplPismo, tmplNovoPismo       *template.Template
 	tmplImenik                                   *template.Template
+	poslovi                                      *poslovi.Registar
 }
 
 // SetSpranca daje rukovatelju predložak stranice špranče
