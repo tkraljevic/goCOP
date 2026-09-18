@@ -205,6 +205,55 @@ func InitSchema(database *sql.DB) error {
 			user_name TEXT NOT NULL DEFAULT '',
 			updated_at DATETIME NOT NULL
 		);`,
+		// Akti: rješenja i obavijesti o uspostavi ili prekidu stupnja obrane.
+		// Nacrt pa ovjera; ovjeren se ne mijenja. Dionice i primatelji su JSON,
+		// jer se čitaju samo s aktom, a broj im je malen.
+		`CREATE TABLE IF NOT EXISTS akti (
+			id TEXT PRIMARY KEY,
+			sektor TEXT NOT NULL,
+			area_id INTEGER NOT NULL DEFAULT 0,
+			broj INTEGER NOT NULL DEFAULT 0,
+			godina INTEGER NOT NULL DEFAULT 0,
+			radnja TEXT NOT NULL,
+			stupanj TEXT NOT NULL,
+			station_id TEXT NOT NULL DEFAULT '',
+			station_name TEXT NOT NULL DEFAULT '',
+			watercourse TEXT NOT NULL DEFAULT '',
+			vodostaj_cm INTEGER,
+			vodostaj_kad DATETIME,
+			tendencija TEXT NOT NULL DEFAULT '',
+			prognoza TEXT NOT NULL DEFAULT '',
+			dionice TEXT NOT NULL DEFAULT '[]',
+			vrijedi DATETIME NOT NULL,
+			napomena TEXT NOT NULL DEFAULT '',
+			potpisnik TEXT NOT NULL DEFAULT '',
+			primatelji TEXT NOT NULL DEFAULT '[]',
+			status TEXT NOT NULL DEFAULT 'NACRT',
+			izradio_id TEXT NOT NULL DEFAULT '',
+			izradio TEXT NOT NULL DEFAULT '',
+			izradeno_at DATETIME NOT NULL,
+			ovjerio_id TEXT NOT NULL DEFAULT '',
+			ovjerio TEXT NOT NULL DEFAULT '',
+			ovjereno_at DATETIME,
+			ovjera_kod TEXT NOT NULL DEFAULT '',
+			cvor TEXT NOT NULL DEFAULT '',
+			created_at DATETIME NOT NULL,
+			updated_at DATETIME NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_akti_sektor_vrijedi ON akti(sektor, vrijedi DESC);`,
+		// Registar stalnih primatelja akata po sektoru i branjenom području
+		`CREATE TABLE IF NOT EXISTS primatelji (
+			id TEXT PRIMARY KEY,
+			sektor TEXT NOT NULL,
+			area_id INTEGER NOT NULL DEFAULT 0,
+			naziv TEXT NOT NULL,
+			email TEXT NOT NULL DEFAULT '',
+			skupina TEXT NOT NULL DEFAULT '',
+			od_stupnja TEXT NOT NULL DEFAULT '',
+			redoslijed INTEGER NOT NULL DEFAULT 0,
+			aktivan INTEGER NOT NULL DEFAULT 1,
+			updated_at DATETIME NOT NULL
+		);`,
 		`CREATE INDEX IF NOT EXISTS idx_mts_potrebe_skladiste ON mts_potrebe(skladiste_id, godina);`,
 
 		`CREATE TABLE IF NOT EXISTS obracun_postavke (

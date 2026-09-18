@@ -76,6 +76,21 @@
 
     <div class="dash-card">
       <div class="dash-card-header">
+        <div class="dash-card-icon-box warning">{{icon "file-text"}}</div>
+        <span class="dash-status-pill warning">AKTI</span>
+      </div>
+      <div class="dash-card-body">
+        <h2 class="dash-card-title">Rješenja i obavijesti</h2>
+        <p class="dash-card-desc">
+          Uspostava i prekid stupnjeva obrane po vodomjeru i branjenom području: nacrt, ovjera u programu, PDF za ispis i
+          žig. Ovjerene akte vide svi; popis se pretražuje po vodomjeru, dionici, stupnju i godini.
+        </p>
+      </div>
+      <div class="dash-card-footer"><a href="/akti" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
+    </div>
+
+    <div class="dash-card">
+      <div class="dash-card-header">
         <div class="dash-card-icon-box teal">{{icon "waves"}}</div>
         <span class="dash-status-pill {{if .BrojA02}}info{{else}}default{{end}}">{{.BrojA02}}</span>
       </div>

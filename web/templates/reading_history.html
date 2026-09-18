@@ -111,6 +111,9 @@
 <section class="detail-section">
   <div class="odjeljak-glava">
     <h2>{{icon "history"}} Svježa očitanja <span class="reg-chip">{{.Count}}</span>{{if .Followed}} <span class="reg-chip">{{icon "download"}} povijest se čuva</span>{{end}}</h2>
+    {{if and .Station .CanEdit}}
+    <a href="/akti/novi?station={{.Station.ID}}" class="btn btn-secondary btn-sm" title="Rješenje ili obavijest o uspostavi ili prekidu stupnja obrane po ovom vodomjeru">{{icon "file-text"}} Proglasi / prekini</a>
+    {{end}}
     {{if and .Station .JavniURL .CanEdit}}
     <form method="POST" action="/readings/station/{{.Station.ID}}/javni" style="margin:0;">
       <button type="submit" class="btn btn-secondary btn-sm" title="Odmah preuzmi zadnja očitanja s javne stranice {{.JavniURL}}">

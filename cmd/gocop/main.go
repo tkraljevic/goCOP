@@ -21,8 +21,8 @@ import (
 	"gocop/internal/importer/bp16"
 	"gocop/internal/importer/csvlevels"
 	"gocop/internal/importer/ugovor"
-	"gocop/internal/ledger"
 	"gocop/internal/javnivodostaji"
+	"gocop/internal/ledger"
 	"gocop/internal/models"
 	"gocop/internal/peers"
 	"gocop/internal/repository"
@@ -397,6 +397,7 @@ func main() {
 	izvjescaService.SetSektorska(repository.NewSektorskaIzvjescaRepository(database, recorder))
 	server.SetIzvjesca(izvjescaService)
 	server.SetMts(mtsService)
+	server.SetAkti(service.NewAktService(repository.NewAktiRepository(database, recorder), stationRepo, sectionRepo, territoryRepo, readingRepo, userService, episodeService, node.ID))
 	server.SetZid(service.NewZidService(recorder, journalRepo, sectionRepo, mtsRepo, userRepo, stationRepo, episodeRepo))
 	server.SetKarta(cfg.Karta.Plocice, cfg.Karta.Zasluge, cfg.Karta.NajviseZ)
 

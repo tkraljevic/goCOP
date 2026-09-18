@@ -1,0 +1,299 @@
+package models
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"sort"
+	"strings"
+	"time"
+)
+
+// Akt je rješenje ili obavijest o uspostavi ili prekidu stupnja obrane od
+// poplava, kako ga COP izdaje: po mjerodavnom vodomjeru i branjenom
+// području, s dionicama koje iz toga slijede. Isti obrazac kao u mapi
+// rješenja sektora B: zaglavlje, pravna osnova s vodostajem, naslov, dionice,
+// datum i sat, standardna rečenica, potpisnik, primatelji.
+//
+// Akt se prvo sastavi kao nacrt, pa ga ovjeri onaj tko ga po stupnju smije
+// donijeti. Ovjeren akt se više ne mijenja: ispravak je novi akt. Hitni akti
+// COP-a nemaju klasu ni urudžbeni broj, pa ga nema ni ovdje; akt nosi redni
+// broj u godini po sektoru, da se u popisu i u razgovoru zna o kojem je riječ.
+type Akt struct {
+	ID     string `json:"id"`
+	Sektor string `json:"sektor"`
+	AreaID int    `json:"area_id"`
+	Broj   int    `json:"broj"` // redni broj u godini po sektoru, dodijeljen pri ovjeri; 0 na nacrtu
+	Godina int    `json:"godina"`
+
+	Radnja  string       `json:"radnja"`  // AktUspostava, AktPrekid
+	Stupanj DefensePhase `json:"stupanj"` // PRIPREMNO, REDOVNA, IZVANREDNA, IZVANREDNO_STANJE
+
+	StationID   string `json:"station_id"`
+	StationName string `json:"station_name"`
+	Watercourse string `json:"watercourse"` // npr. "r. Dunav"
+
+	// Po čemu se donosi: izmjeren vodostaj s tendencijom, ili prognoza
+	VodostajCm  *int      `json:"vodostaj_cm,omitempty"`
+	VodostajKad time.Time `json:"vodostaj_kad,omitempty"`
+	Tendencija  string    `json:"tendencija,omitempty"` // TendencijaPorast, TendencijaOpadanje, TendencijaStagnacija
+	Prognoza    string    `json:"prognoza,omitempty"`   // tekst prognoze kad se donosi po njoj, umjesto vodostaja
+
+	Dionice    []AktDionica   `json:"dionice"`
+	Vrijedi    time.Time      `json:"vrijedi"` // dan i sat od kojeg stupanj vrijedi
+	Napomena   string         `json:"napomena,omitempty"`
+	Potpisnik  string         `json:"potpisnik"` // funkcija potpisnika kako stoji na aktu
+	Primatelji []AktPrimatelj `json:"primatelji"`
+
+	Status     string     `json:"status"` // AktNacrt, AktOvjeren
+	IzradioID  string     `json:"izradio_id"`
+	Izradio    string     `json:"izradio"`
+	IzradenoAt time.Time  `json:"izradeno_at"`
+	OvjerioID  string     `json:"ovjerio_id,omitempty"`
+	Ovjerio    string     `json:"ovjerio"` // ime i prezime onoga tko je ovjerio
+	OvjerenoAt *time.Time `json:"ovjereno_at,omitempty"`
+	OvjeraKod  string     `json:"ovjera_kod,omitempty"` // sažetak sadržaja pri ovjeri, za provjeru ispisa
+	Cvor       string     `json:"cvor,omitempty"`       // čvor na kojem je ovjeren
+
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// AktDionica je dionica na koju se akt odnosi, s opisom kakav stoji na aktu
+type AktDionica struct {
+	Code string `json:"code"`
+	Opis string `json:"opis"` // npr. "d.o. r. Dunav, rkm 1433+060 – 1421+770 (državna granica – Zeleni otok)"
+}
+
+// AktPrimatelj je jedan primatelj na aktu; skupina drži redoslijed kao na
+// dosadašnjim aktima: Direkcija i GCOP, VGI i izvođač, službe, rukovoditelji
+type AktPrimatelj struct {
+	Naziv   string `json:"naziv"`
+	Email   string `json:"email,omitempty"`
+	Skupina string `json:"skupina,omitempty"`
+}
+
+// Radnje akta
+const (
+	AktUspostava = "USPOSTAVA"
+	AktPrekid    = "PREKID"
+)
+
+// Stanja akta
+const (
+	AktNacrt   = "NACRT"
+	AktOvjeren = "OVJEREN"
+)
+
+// Tendencije vodostaja su iste kao u dnevnom izvješću (TendencijaPorast,
+// TendencijaOpadanje, TendencijaStagnacija, TendencijaNagliPorast).
+
+// TendencijaLabel je tendencija kako se ispisuje u rečenici akta
+func TendencijaLabel(t string) string {
+	switch t {
+	case TendencijaPorast:
+		return "s tendencijom daljnjeg porasta"
+	case TendencijaOpadanje:
+		return "s tendencijom daljnjeg opadanja"
+	case TendencijaStagnacija:
+		return "sa stagnacijom"
+	case TendencijaNagliPorast:
+		return "s tendencijom daljnjeg naglog porasta"
+	}
+	return ""
+}
+
+// StupnjeviAkta su stupnjevi koje akt proglašava, od najnižeg
+var StupnjeviAkta = []DefensePhase{PhasePrep, PhaseRegular, PhaseEmergency, PhaseState}
+
+// JeRjesenje javlja donosi li se stupanj rješenjem; pripremno stanje ide
+// obaviješću, i uspostava i prekid, kako je i na dosadašnjim aktima
+func (a Akt) JeRjesenje() bool { return a.Stupanj != PhasePrep }
+
+// Vrsta je naziv akta: RJEŠENJE ili OBAVIJEST
+func (a Akt) Vrsta() string {
+	if a.JeRjesenje() {
+		return "RJEŠENJE"
+	}
+	return "OBAVIJEST"
+}
+
+// Clanak je članak Državnog plana obrane od poplava na koji se akt poziva
+func (a Akt) Clanak() string {
+	switch a.Stupanj {
+	case PhaseEmergency:
+		return "XXIV"
+	case PhaseState:
+		return "XXV"
+	}
+	return "XXII"
+}
+
+// Predmet je ono što akt uspostavlja ili prekida, u genitivu, kako stoji u
+// naslovu: "pripremnog stanja obrane od poplava", "izvanrednih mjera obrane
+// od poplava"
+func (a Akt) Predmet() string {
+	switch a.Stupanj {
+	case PhasePrep:
+		return "pripremnog stanja obrane od poplava"
+	case PhaseRegular:
+		if a.Radnja == AktPrekid {
+			return "redovnih mjera obrane od poplava"
+		}
+		return "redovne obrane od poplava"
+	case PhaseEmergency:
+		if a.Radnja == AktPrekid {
+			return "izvanrednih mjera obrane od poplava"
+		}
+		return "izvanredne obrane od poplava"
+	case PhaseState:
+		return "izvanrednog stanja obrane od poplava na zaštitnim vodnim građevinama"
+	}
+	return a.Stupanj.Label()
+}
+
+// RadnjaLabel je "uspostavi" ili "prekidu", kako stoji u naslovu "o uspostavi …"
+func (a Akt) RadnjaLabel() string {
+	if a.Radnja == AktPrekid {
+		return "prekidu"
+	}
+	return "uspostavi"
+}
+
+// Naslov je naslov akta u jednom retku, za popis i za naziv datoteke
+func (a Akt) Naslov() string {
+	return a.Vrsta() + " o " + a.RadnjaLabel() + " " + a.Predmet()
+}
+
+// Oznaka je kratka oznaka akta: sektor, redni broj i godina; nacrt je bez broja
+func (a Akt) Oznaka() string {
+	if a.Broj == 0 {
+		return "nacrt"
+	}
+	return fmt.Sprintf("%s-%d/%d", a.Sektor, a.Broj, a.Godina)
+}
+
+// Ovjeren javlja je li akt ovjeren
+func (a Akt) Ovjeren() bool { return a.Status == AktOvjeren }
+
+// Osnova je rečenica o vodostaju ili prognozi po kojoj se akt donosi, bez
+// uvodnog "Na temelju…" i bez završnog "donosim"
+func (a Akt) Osnova() string {
+	voda := a.Watercourse
+	if voda == "" {
+		voda = "vodotoka"
+	}
+	if a.Prognoza != "" {
+		return "a vezano na prognozu vodostaja " + voda + " na mjerodavnom vodomjeru " + a.StationName + ": " + strings.TrimSpace(a.Prognoza)
+	}
+	if a.VodostajCm == nil {
+		return "a vezano na stanje vodostaja " + voda + " na mjerodavnom vodomjeru " + a.StationName
+	}
+	s := fmt.Sprintf("a vezano na visinu vodostaja %s na mjerodavnom vodomjeru %s, na kojem je zabilježen vodostaj od %d cm", voda, a.StationName, *a.VodostajCm)
+	if !a.VodostajKad.IsZero() {
+		s += " u " + a.VodostajKad.In(Zagreb).Format("15:04") + " sati"
+	}
+	if t := TendencijaLabel(a.Tendencija); t != "" {
+		s += ", " + t
+	}
+	return s
+}
+
+// Sifre su šifre dionica akta, poredane
+func (a Akt) Sifre() []string {
+	out := make([]string, 0, len(a.Dionice))
+	for _, d := range a.Dionice {
+		out = append(out, d.Code)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// Sazetak je kanonski tekst iz kojeg se računa kod ovjere: sve što na aktu
+// piše i što se ne smije promijeniti poslije ovjere
+func (a Akt) Sazetak() string {
+	var b strings.Builder
+	b.WriteString(a.Sektor + "|" + fmt.Sprint(a.AreaID) + "|" + a.Radnja + "|" + string(a.Stupanj) + "|" + a.StationID + "|")
+	if a.VodostajCm != nil {
+		fmt.Fprintf(&b, "%d@%s|", *a.VodostajCm, a.VodostajKad.UTC().Format(time.RFC3339))
+	}
+	b.WriteString(a.Tendencija + "|" + a.Prognoza + "|" + a.Vrijedi.UTC().Format(time.RFC3339) + "|" + a.Napomena + "|" + a.Potpisnik + "|")
+	for _, d := range a.Dionice {
+		b.WriteString(d.Code + "=" + d.Opis + ";")
+	}
+	b.WriteString("|")
+	for _, p := range a.Primatelji {
+		b.WriteString(p.Naziv + "<" + p.Email + ">;")
+	}
+	return b.String()
+}
+
+// KodOvjere je kratki sažetak sadržaja i ovjere, za ispis na aktu i provjeru
+// da ispisani akt odgovara ovjerenome
+func (a Akt) KodOvjere(ovjerioID string, kad time.Time) string {
+	h := sha256.Sum256([]byte(a.Sazetak() + "|" + ovjerioID + "|" + kad.UTC().Format(time.RFC3339)))
+	return strings.ToUpper(hex.EncodeToString(h[:5]))
+}
+
+// Primatelj je stalni primatelj akata u registru: kome se šalje za sektor
+// ili za pojedino branjeno područje, i od kojeg stupnja. Županije, općine i
+// rukovoditelji dionica ne stoje ovdje nego dolaze iz registara.
+type Primatelj struct {
+	ID         string       `json:"id"`
+	Sektor     string       `json:"sektor"`
+	AreaID     int          `json:"area_id"` // 0 = cijeli sektor
+	Naziv      string       `json:"naziv"`
+	Email      string       `json:"email,omitempty"`
+	Skupina    string       `json:"skupina,omitempty"`    // za redoslijed na aktu: SkupinaPrimatelja*
+	OdStupnja  DefensePhase `json:"od_stupnja,omitempty"` // prazno = uvijek
+	Redoslijed int          `json:"redoslijed"`
+	Aktivan    bool         `json:"aktivan"`
+	UpdatedAt  time.Time    `json:"updated_at"`
+	Archived   bool         `json:"archived,omitempty"`
+}
+
+// Skupine primatelja, redom kako stoje na aktu
+const (
+	SkupinaUprava     = "UPRAVA"     // Direkcija, GCOP
+	SkupinaIspostava  = "ISPOSTAVA"  // VGI, ugovorna pravna osoba
+	SkupinaSluzbe     = "SLUZBE"     // civilna zaštita, 112, policija, lučke kapetanije
+	SkupinaSamouprava = "SAMOUPRAVA" // županije, gradovi i općine
+	SkupinaOsobe      = "OSOBE"      // rukovoditelji dionica i zamjenici
+	SkupinaPismohrana = "PISMOHRANA"
+)
+
+// SkupinePrimatelja su skupine redom kojim stoje na aktu
+var SkupinePrimatelja = []string{SkupinaUprava, SkupinaIspostava, SkupinaSluzbe, SkupinaSamouprava, SkupinaOsobe, SkupinaPismohrana}
+
+// SkupinaLabel je naziv skupine za prikaz
+func SkupinaLabel(s string) string {
+	switch s {
+	case SkupinaUprava:
+		return "uprava organizacije"
+	case SkupinaIspostava:
+		return "ispostava i izvođač"
+	case SkupinaSluzbe:
+		return "službe"
+	case SkupinaSamouprava:
+		return "županije, gradovi i općine"
+	case SkupinaOsobe:
+		return "rukovoditelji dionica"
+	case SkupinaPismohrana:
+		return "pismohrana"
+	}
+	return s
+}
+
+// Vrijedi javlja ide li primatelj na akt tog stupnja i područja
+func (p Primatelj) Vrijedi(areaID int, stupanj DefensePhase) bool {
+	if !p.Aktivan || p.Archived {
+		return false
+	}
+	if p.AreaID != 0 && p.AreaID != areaID {
+		return false
+	}
+	if p.OdStupnja != "" && stupanj.Severity() < p.OdStupnja.Severity() {
+		return false
+	}
+	return true
+}

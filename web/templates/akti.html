@@ -1,0 +1,60 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Rješenja i obavijesti{{end}}
+
+{{define "content"}}
+<div class="breadcrumb"><a href="/dnevnici">Dokumentacija</a> › Rješenja i obavijesti</div>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "file-text"}} Rješenja i obavijesti</h1>
+    <p class="page-desc">Akti o uspostavi i prekidu stupnjeva obrane, po vodomjeru i branjenom području. Nacrt se sastavi u
+      programu, ovjeri ga tko ga po stupnju donosi, pa se ispiše kao PDF. Ovjerene akte vide svi.</p>
+  </div>
+  <div class="page-actions">
+    <a href="/akti/primatelji{{if .Filtar.Sektor}}?sektor={{.Filtar.Sektor}}{{end}}" class="btn btn-secondary">{{icon "users"}} Primatelji</a>
+    <a href="/akti/novi" class="btn btn-primary">{{icon "plus"}} Novi akt</a>
+  </div>
+</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
+
+<form method="GET" action="/akti" class="obracun-filtar">
+  <label for="f-q">Traži</label><input type="text" id="f-q" name="q" class="form-control" value="{{.Filtar.Trazi}}" placeholder="vodomjer, dionica, osoba" style="max-width:14rem;">
+  <label for="f-sektor">{{term "sektor"}}</label>
+  <select id="f-sektor" name="sektor" class="form-control"><option value="">svi</option>{{range .Sektori}}{{if ne .ID "DIREKCIJA"}}<option value="{{.ID}}"{{if eq .ID $.Filtar.Sektor}} selected{{end}}>{{.ID}}</option>{{end}}{{end}}</select>
+  <label for="f-bp">BP</label>
+  <select id="f-bp" name="podrucje" class="form-control"><option value="">sva</option>{{range .Podrucja}}<option value="{{.ID}}"{{if eq .ID $.Filtar.AreaID}} selected{{end}}>{{.ID}} {{.Name}}</option>{{end}}</select>
+  <label for="f-stupanj">Stupanj</label>
+  <select id="f-stupanj" name="stupanj" class="form-control"><option value="">svi</option>{{range .Stupnjevi}}<option value="{{.}}"{{if eq . $.Filtar.Stupanj}} selected{{end}}>{{.Label}}</option>{{end}}</select>
+  <select name="radnja" class="form-control"><option value="">uspostava i prekid</option><option value="USPOSTAVA"{{if eq .Filtar.Radnja "USPOSTAVA"}} selected{{end}}>uspostava</option><option value="PREKID"{{if eq .Filtar.Radnja "PREKID"}} selected{{end}}>prekid</option></select>
+  <select name="status" class="form-control"><option value="">ovjereni i nacrti</option><option value="OVJEREN"{{if eq .Filtar.Status "OVJEREN"}} selected{{end}}>ovjereni</option><option value="NACRT"{{if eq .Filtar.Status "NACRT"}} selected{{end}}>nacrti</option></select>
+  <select name="godina" class="form-control"><option value="">sve godine</option>{{range .Godine}}<option value="{{.}}"{{if eq . $.Filtar.Godina}} selected{{end}}>{{.}}.</option>{{end}}</select>
+  <button type="submit" class="btn btn-secondary">{{icon "search"}} Prikaži</button>
+</form>
+
+{{if .Akti}}
+<div class="table-card"><div class="table-responsive">
+  <table class="data-table">
+    <thead><tr><th>Oznaka</th><th>Akt</th><th>Vodomjer</th><th>BP</th><th>Dionice</th><th>Vrijedi od</th><th>Ovjera</th><th></th></tr></thead>
+    <tbody>
+    {{range .Akti}}
+    <tr{{if not .Ovjeren}} class="mts-prazno"{{end}}>
+      <td class="mono">{{.Oznaka}}</td>
+      <td><a href="/akti/{{.ID}}"><strong>{{.Vrsta}}</strong> o {{.RadnjaLabel}} {{.Predmet}}</a></td>
+      <td>{{.StationName}}{{if .VodostajCm}} <span class="reg-card-sub">{{intOf .VodostajCm}} cm</span>{{end}}</td>
+      <td>{{.AreaID}}</td>
+      <td class="mono">{{join .Sifre ", "}}</td>
+      <td class="mono">{{formatDate (localTime .Vrijedi)}}</td>
+      <td>{{if .Ovjeren}}<span class="badge badge-area-admin">{{icon "check"}} {{.Ovjerio}}</span>{{else}}<span class="badge badge-pending">nacrt</span>{{end}}</td>
+      <td><a href="/akti/{{.ID}}/akt.pdf" class="btn btn-sm btn-secondary" title="PDF">{{icon "printer"}}</a></td>
+    </tr>
+    {{end}}
+    </tbody>
+  </table>
+</div></div>
+{{else}}
+<div class="reg-empty">Nema akata za taj izbor. Novi akt sastavlja se s vodomjera: gumb "Novi akt" ili na stranici očitanja letve.</div>
+{{end}}
+{{end}}
