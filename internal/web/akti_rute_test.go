@@ -318,6 +318,21 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 	if b == nil || b.Vrsta() != "OBAVIJEST" || b.Clanak() != "XXII" || b.Naslov() != "OBAVIJEST o prekidu pripremnog stanja obrane od poplava" {
 		t.Fatalf("obavijest o prekidu: %+v", b)
 	}
+	// po Batini još nema ovjerene obavijesti o uspostavi pripremnog stanja
+	if b.IzvanSnage != "" {
+		t.Errorf("prekid bez akta o uspostavi ne bi smio ništa stavljati izvan snage: %q", b.IzvanSnage)
+	}
+
+	// prekid izvanredne obrane stavlja izvan snage rješenje B-1/2026
+	w = zovi(http.MethodPost, "/akti/novi", url.Values{"station_id": {st.ID.String()}, "radnja": {"PREKID"}, "stupanj": {"IZVANREDNA"}, "vrijedi": {"2026-09-15T20:00"}})
+	id3 := strings.TrimPrefix(strings.SplitN(w.Header().Get("Location"), "?", 2)[0], "/akti/")
+	c, _ := akti.Get(ctx, id3)
+	if c == nil || c.PrekidaAktID != id || !strings.Contains(c.IzvanSnage, "Stavlja se izvan snage Rješenje o uspostavi izvanredne obrane od poplava oznake B-1/2026 od 15.09.2026. u 12:00 sati") {
+		t.Fatalf("prekid ne stavlja izvan snage akt o uspostavi: %+v", c)
+	}
+	mora(zovi(http.MethodGet, "/akti/"+id3, nil), "prekid", "Stavlja se izvan snage", "B-1/2026", "Akt koji se stavlja izvan snage")
+	mora(zovi(http.MethodGet, "/akti/novi?station="+st.ID.String()+"&radnja=PREKID", nil), "obrazac prekida", "Akt o uspostavi koji se stavlja izvan snage", "B-1/2026")
+	zovi(http.MethodPost, "/akti/"+id3+"/obrisi", url.Values{})
 	if (models.Akt{Stupanj: models.PhaseRegular}).Clanak() != "XXIII" {
 		t.Error("redovitu obranu uređuje članak XXIII Državnog plana")
 	}

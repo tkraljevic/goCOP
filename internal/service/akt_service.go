@@ -81,6 +81,9 @@ type ZahtjevAkta struct {
 	// Tendencija prazno = izračunata prema očitanju prije odabranoga.
 	OcitanjeID string
 	Tendencija string
+	// PrekidaAktID je akt o uspostavi koji prekid stavlja izvan snage;
+	// prazno = zadnji ovjereni akt o uspostavi istog stupnja po vodomjeru
+	PrekidaAktID string
 }
 
 // Pripremi sastavlja nacrt akta iz vodomjera: dionice, zadnji vodostaj s
@@ -193,6 +196,13 @@ func (s *AktService) Pripremi(ctx context.Context, perms *models.UserPermissions
 	if z.Tendencija != "" && models.TendencijaNaziv(z.Tendencija) != "" {
 		a.Tendencija = z.Tendencija
 	}
+	if a.Radnja == models.AktPrekid {
+		if u, err := s.aktKojiSePrekida(ctx, a, z.PrekidaAktID); err != nil {
+			return nil, err
+		} else if u != nil {
+			a.PrekidaAktID, a.IzvanSnage = u.ID, models.RecenicaIzvanSnage(*u)
+		}
+	}
 	a.Potpisnik = s.potpisnik(a)
 	a.Primatelji = s.primatelji(ctx, a)
 	sp, _ := s.repo.GetSpranca(ctx, a.Sektor)
@@ -224,7 +234,7 @@ func (s *AktService) SpremiSprancu(ctx context.Context, perms *models.UserPermis
 
 // UrediTekst mijenja tekst nacrta: uvod, završnu rečenicu i napomenu. Smije
 // tko je nacrt sastavio ili tko ga smije ovjeriti; ovjeren akt se ne mijenja.
-func (s *AktService) UrediTekst(ctx context.Context, perms *models.UserPermissions, u *models.User, id, uvod, zavrsno, napomena string) (*models.Akt, error) {
+func (s *AktService) UrediTekst(ctx context.Context, perms *models.UserPermissions, u *models.User, id, uvod, izvanSnage, zavrsno, napomena string) (*models.Akt, error) {
 	a, err := s.repo.GetAkt(ctx, id)
 	if err != nil {
 		return nil, err
@@ -243,6 +253,9 @@ func (s *AktService) UrediTekst(ctx context.Context, perms *models.UserPermissio
 		return nil, fmt.Errorf("uvod i završna rečenica ne smiju biti prazni")
 	}
 	a.Uvod, a.Zavrsno, a.Napomena = uvod, zavrsno, strings.TrimSpace(napomena)
+	if a.Radnja == models.AktPrekid {
+		a.IzvanSnage = strings.TrimSpace(izvanSnage)
+	}
 	if err := s.repo.SaveAkt(ctx, a); err != nil {
 		return nil, err
 	}
@@ -665,6 +678,32 @@ func (s *AktService) OcitanjaZaAkt(ctx context.Context, stationID string, limit 
 		}
 	}
 	return out, nil
+}
+
+// aktKojiSePrekida je ovjereni akt o uspostavi koji prekid stavlja izvan
+// snage: zadani, ili zadnji istog stupnja po istom vodomjeru
+func (s *AktService) aktKojiSePrekida(ctx context.Context, a *models.Akt, id string) (*models.Akt, error) {
+	if id != "" {
+		u, err := s.repo.GetAkt(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		if u == nil || !u.Ovjeren() || u.Radnja != models.AktUspostava {
+			return nil, fmt.Errorf("odabrani akt nije ovjereni akt o uspostavi")
+		}
+		return u, nil
+	}
+	kandidati, err := s.AktiZaPrekid(ctx, a.StationID, a.Stupanj)
+	if err != nil || len(kandidati) == 0 {
+		return nil, err
+	}
+	return &kandidati[0], nil
+}
+
+// AktiZaPrekid su ovjereni akti o uspostavi po vodomjeru, najnoviji prvo;
+// stupanj prazno = svi stupnjevi
+func (s *AktService) AktiZaPrekid(ctx context.Context, stationID string, stupanj models.DefensePhase) ([]models.Akt, error) {
+	return s.repo.ListAkti(ctx, repository.FiltarAkata{StationID: stationID, Stupanj: stupanj, Radnja: models.AktUspostava, Status: models.AktOvjeren, Limit: 20})
 }
 
 // ZadnjeOcitanje je zadnje očitanje letve, za obrazac akta

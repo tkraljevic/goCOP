@@ -45,6 +45,11 @@ type Akt struct {
 	// zadane špranče pri prikazu.
 	Uvod    string `json:"uvod,omitempty"`
 	Zavrsno string `json:"zavrsno,omitempty"`
+	// Akt o prekidu stavlja izvan snage akt o uspostavi: PrekidaAktID je
+	// taj akt, a IzvanSnage rečenica kako stoji na aktu ("Stavlja se izvan
+	// snage Obavijest o uspostavi … B-1/2026 od …"); do ovjere se ispravlja
+	PrekidaAktID string `json:"prekida_akt_id,omitempty"`
+	IzvanSnage   string `json:"izvan_snage,omitempty"`
 	// Poveznice su retci na dnu akta, "naziv: adresa", kao na dosadašnjim
 	// aktima (Glavni provedbeni plan, Državni plan)
 	Poveznice string `json:"poveznice,omitempty"`
@@ -127,6 +132,22 @@ var StupnjeviAkta = []DefensePhase{PhasePrep, PhaseRegular, PhaseEmergency, Phas
 // JeRjesenje javlja donosi li se stupanj rješenjem; pripremno stanje ide
 // obaviješću, i uspostava i prekid, kako je i na dosadašnjim aktima
 func (a Akt) JeRjesenje() bool { return a.Stupanj != PhasePrep }
+
+// VrstaNaziv je vrsta akta u rečenici: Rješenje ili Obavijest
+func (a Akt) VrstaNaziv() string {
+	if a.JeRjesenje() {
+		return "Rješenje"
+	}
+	return "Obavijest"
+}
+
+// RecenicaIzvanSnage je rečenica akta o prekidu kojom se akt o uspostavi
+// stavlja izvan snage
+func RecenicaIzvanSnage(u Akt) string {
+	v := u.Vrijedi.In(Zagreb)
+	return "Stavlja se izvan snage " + u.VrstaNaziv() + " o uspostavi " + u.Predmet() + " oznake " + u.Oznaka() +
+		" od " + v.Format("02.01.2006.") + " u " + v.Format("15:04") + " sati."
+}
 
 // Vrsta je naziv akta: RJEŠENJE ili OBAVIJEST
 func (a Akt) Vrsta() string {
@@ -339,7 +360,7 @@ func (a Akt) Sazetak() string {
 		fmt.Fprintf(&b, "%d@%s|", *a.VodostajCm, a.VodostajKad.UTC().Format(time.RFC3339))
 	}
 	b.WriteString(a.Tendencija + "|" + a.Prognoza + "|" + a.Vrijedi.UTC().Format(time.RFC3339) + "|" + a.Napomena + "|" + a.Potpisnik + "|")
-	b.WriteString(a.TekstUvoda() + "|" + a.TekstZavrsni() + "|" + a.Poveznice + "|")
+	b.WriteString(a.TekstUvoda() + "|" + a.TekstZavrsni() + "|" + a.Poveznice + "|" + a.PrekidaAktID + "|" + a.IzvanSnage + "|")
 	for _, d := range a.Dionice {
 		b.WriteString(d.Code + "=" + d.Opis + ";")
 	}

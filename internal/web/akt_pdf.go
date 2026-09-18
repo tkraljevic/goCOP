@@ -74,6 +74,10 @@ func PDFAkta(a *models.Akt, t models.OrgTerms, sek *models.Sector, area *models.
 	d.Tekst(stupac, d.Y, 10.5, true, a.Vrijedi.In(models.Zagreb).Format("02.01.2006.")+"   u   "+a.Vrijedi.In(models.Zagreb).Format("15:04")+"  sati")
 	d.Razmak(12)
 
+	if a.IzvanSnage != "" {
+		d.Odlomak(a.IzvanSnage, 9.5, true, pdfw.Lijevo)
+		d.Razmak(6)
+	}
 	d.Odlomak(a.TekstZavrsni(), 9.5, false, pdfw.Lijevo)
 	if a.Napomena != "" {
 		d.Razmak(4)

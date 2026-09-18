@@ -53,6 +53,7 @@ type AktiPageData struct {
 	Dionice    []models.Section
 	Zadnje     *models.Reading
 	Ocitanja   []models.Reading // za izbor očitanja na koje se akt poziva
+	ZaPrekid   []models.Akt     // ovjereni akti o uspostavi po vodomjeru, za prekid
 	Tendencije []struct{ Kod, Naziv string }
 	LocalValue string
 	Radnja     string
@@ -158,6 +159,7 @@ func (h *AktiHandler) ShowForm(w http.ResponseWriter, r *http.Request) {
 					data.Zadnje = zadnja
 				}
 				data.Ocitanja, _ = s.OcitanjaZaAkt(r.Context(), st.ID.String(), 200)
+				data.ZaPrekid, _ = s.AktiZaPrekid(r.Context(), st.ID.String(), "")
 				data.Tendencije = models.Tendencije
 			}
 		}
@@ -213,7 +215,7 @@ func (h *AktiHandler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 	z := service.ZahtjevAkta{
 		StationID: r.FormValue("station_id"), Radnja: r.FormValue("radnja"), Stupanj: models.DefensePhase(r.FormValue("stupanj")),
 		Prognoza: r.FormValue("prognoza"), Napomena: r.FormValue("napomena"), Dionice: r.Form["dionica"],
-		OcitanjeID: r.FormValue("ocitanje_id"), Tendencija: r.FormValue("tendencija"),
+		OcitanjeID: r.FormValue("ocitanje_id"), Tendencija: r.FormValue("tendencija"), PrekidaAktID: r.FormValue("prekida_akt_id"),
 	}
 	if t, err := time.ParseInLocation("2006-01-02T15:04", r.FormValue("vrijedi"), models.Zagreb); err == nil {
 		z.Vrijedi = t
@@ -283,7 +285,7 @@ func (h *AktiHandler) HandleTekst(w http.ResponseWriter, r *http.Request) {
 		redirectWith(w, r, "/akti/"+a.ID, "error", "Neispravan zahtjev")
 		return
 	}
-	if _, err := s.UrediTekst(r.Context(), perms, u, a.ID, r.FormValue("uvod"), r.FormValue("zavrsno"), r.FormValue("napomena")); err != nil {
+	if _, err := s.UrediTekst(r.Context(), perms, u, a.ID, r.FormValue("uvod"), r.FormValue("izvan_snage"), r.FormValue("zavrsno"), r.FormValue("napomena")); err != nil {
 		redirectWith(w, r, "/akti/"+a.ID, "error", err.Error())
 		return
 	}
