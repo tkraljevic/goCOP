@@ -2,9 +2,10 @@
 // podebljani), s hrvatskim znakovima, slika znaka organizacije i crte.
 // Dovoljno za akt na jednoj do dvije stranice A4, bez vanjskih ovisnosti.
 //
-// Slova su standardna Helvetica koju svaki čitač ima, s vlastitim kodiranjem
-// za č, ć, đ, š, ž: čitač ih uzima iz zamjenskog fonta po imenu glifa. Zato
-// se ništa ne ugrađuje, a dokument je malen.
+// Slova su Go Regular i Go Bold (Bigelow & Holmes, slobodna licenca), s
+// hrvatskim znakovima, ugrađena u dokument kao TrueType s Identity-H
+// kodiranjem: ispis je isti u svakom čitaču i na svakom pisaču, a tekst se
+// iz PDF-a može i kopirati jer dokument nosi tablicu prema Unicodeu.
 package pdfw
 
 import (
@@ -14,8 +15,82 @@ import (
 	"image"
 	"image/png"
 	"strings"
+	"sync"
 	"unicode/utf8"
+
+	"golang.org/x/image/font"
+	"golang.org/x/image/font/gofont/gobold"
+	"golang.org/x/image/font/gofont/goregular"
+	"golang.org/x/image/font/sfnt"
+	"golang.org/x/image/math/fixed"
 )
+
+// pismo je jedan ugrađeni font s tablicom glifova koje dokument koristi
+type pismo struct {
+	ttf   []byte
+	f     *sfnt.Font
+	upem  int
+	mu    sync.Mutex
+	gid   map[rune]sfnt.GlyphIndex
+	sirin map[sfnt.GlyphIndex]int // širina u tisućinkama em-a
+}
+
+var (
+	pismaJednom sync.Once
+	obicno      *pismo
+	podebljano  *pismo
+)
+
+func ucitajPisma() {
+	pismaJednom.Do(func() {
+		obicno = noviPismo(goregular.TTF)
+		podebljano = noviPismo(gobold.TTF)
+	})
+}
+
+func noviPismo(ttf []byte) *pismo {
+	f, err := sfnt.Parse(ttf)
+	if err != nil {
+		panic("pdfw: font: " + err.Error())
+	}
+	return &pismo{ttf: ttf, f: f, upem: int(f.UnitsPerEm()), gid: map[rune]sfnt.GlyphIndex{}, sirin: map[sfnt.GlyphIndex]int{}}
+}
+
+// glif vraća indeks glifa za znak i pamti ga; nepoznat znak je upitnik
+func (p *pismo) glif(r rune) sfnt.GlyphIndex {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if g, ok := p.gid[r]; ok {
+		return g
+	}
+	var buf sfnt.Buffer
+	g, err := p.f.GlyphIndex(&buf, r)
+	if err != nil || g == 0 {
+		if r == '?' {
+			g = 0
+		} else {
+			p.mu.Unlock()
+			g = p.glif('?')
+			p.mu.Lock()
+		}
+	}
+	p.gid[r] = g
+	if _, ok := p.sirin[g]; !ok {
+		adv, err := p.f.GlyphAdvance(&buf, g, fixed.Int26_6(p.upem<<6), font.HintingNone)
+		if err != nil {
+			adv = fixed.Int26_6(p.upem / 2 << 6)
+		}
+		p.sirin[g] = int(adv) * 1000 / (p.upem << 6)
+	}
+	return g
+}
+
+func (p *pismo) sirina(r rune) int {
+	g := p.glif(r)
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.sirin[g]
+}
 
 // A4 u točkama
 const (
@@ -76,7 +151,24 @@ func (d *Doc) Tekst(x, y, size float64, bold bool, s string) {
 	if bold {
 		font = "/F2"
 	}
-	fmt.Fprintf(d.tok(), "BT %s %.1f Tf %.2f %.2f Td (%s) Tj ET\n", font, size, x, d.pdfY(y), kodiraj(s))
+	fmt.Fprintf(d.tok(), "BT %s %.1f Tf %.2f %.2f Td <%s> Tj ET\n", font, size, x, d.pdfY(y), glifovi(s, bold))
+}
+
+// glifovi kodira tekst kao niz dvobajtnih indeksa glifova (Identity-H)
+func glifovi(s string, bold bool) string {
+	ucitajPisma()
+	p := obicno
+	if bold {
+		p = podebljano
+	}
+	var b strings.Builder
+	for _, r := range s {
+		if r == '\n' || r == '\r' || r == '\t' || r == '\u00a0' {
+			r = ' '
+		}
+		fmt.Fprintf(&b, "%04X", uint16(p.glif(r)))
+	}
+	return b.String()
 }
 
 // TekstDesno ispisuje redak poravnat udesno na x
@@ -165,6 +257,7 @@ func (d *Doc) Bajtovi() []byte {
 	}
 	var out bytes.Buffer
 	var offsets []int
+	var zamjene []zamjena
 	obj := func(sadrzaj string) int {
 		offsets = append(offsets, out.Len())
 		n := len(offsets)
@@ -173,12 +266,21 @@ func (d *Doc) Bajtovi() []byte {
 	}
 	out.WriteString("%PDF-1.4\n%\xe2\xe3\xcf\xd3\n")
 
-	// 1 katalog, 2 stranice, 3 kodiranje, 4 F1, 5 F2, pa slike, pa stranice sa sadržajem
+	// 1 katalog, 2 stranice, 3 F1, 4 F2 (svaki sa svojim opisnikom, datotekom i
+	// tablicom prema Unicodeu), pa slike, pa stranice sa sadržajem
+	ucitajPisma()
 	obj("<< /Type /Catalog /Pages 2 0 R >>")
-	pagesIdx := obj("PLACEHOLDER")
-	obj("<< /Type /Encoding /BaseEncoding /WinAnsiEncoding /Differences [ 129 /Ccaron 141 /Cacute 143 /Dcroat 144 /ccaron 157 /cacute 173 /dcroat ] >>")
-	obj("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding 3 0 R >>")
-	obj("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding 3 0 R >>")
+	obj("@@PAGES@@")
+	// F1 i F2 moraju biti 3 i 4: prvo rezervirano mjesto, pa pomoćni objekti
+	obj("@@FONT1@@")
+	obj("@@FONT2@@")
+	fontObj := func(rezervirano string, p *pismo, naziv string) {
+		desc, toUni := fontDijelovi(p, naziv, obj)
+		font := fmt.Sprintf("<< /Type /Font /Subtype /Type0 /BaseFont /%s /Encoding /Identity-H /DescendantFonts [ %d 0 R ] /ToUnicode %d 0 R >>", naziv, desc, toUni)
+		zamjene = append(zamjene, zamjena{rezervirano, font})
+	}
+	fontObj("@@FONT1@@", obicno, "GoRegular")
+	fontObj("@@FONT2@@", podebljano, "GoBold")
 	slikeIdx := make([]int, len(d.slike))
 	for i, s := range d.slike {
 		var z bytes.Buffer
@@ -191,7 +293,7 @@ func (d *Doc) Bajtovi() []byte {
 	for i, idx := range slikeIdx {
 		xobj += fmt.Sprintf("/Im%d %d 0 R ", i+1, idx)
 	}
-	resursi := fmt.Sprintf("<< /Font << /F1 4 0 R /F2 5 0 R >> /XObject << %s>> >>", xobj)
+	resursi := fmt.Sprintf("<< /Font << /F1 3 0 R /F2 4 0 R >> /XObject << %s>> >>", xobj)
 	var pageIdx []int
 	for _, tok := range d.stranice {
 		c := obj(fmt.Sprintf("<< /Length %d >>\nstream\n%s\nendstream", tok.Len(), tok.String()))
@@ -204,15 +306,23 @@ func (d *Doc) Bajtovi() []byte {
 	}
 	info := obj(fmt.Sprintf("<< /Title (%s) /Author (%s) /Producer (goCOP) >>", kodiraj(d.naslov), kodiraj(d.autor)))
 
-	// stranice: zamijeni rezervirano mjesto pravim sadržajem, s istim rednim brojem
+	// rezervirana mjesta (stranice, fontovi) zamjenjuju se pravim sadržajem;
+	// svaka zamjena pomiče pomake objekata iza sebe za razliku duljine
 	pages := fmt.Sprintf("<< /Type /Pages /Kids [ %s] /Count %d >>", kids, len(pageIdx))
-	final := bytes.Replace(out.Bytes(), []byte("PLACEHOLDER"), []byte(pages), 1)
-	// pomaci iza zamjene se pomiču za razliku duljine
-	pomak := len(pages) - len("PLACEHOLDER")
-	for i := range offsets {
-		if i > pagesIdx-1 {
-			offsets[i] += pomak
+	zamjene = append([]zamjena{{"@@PAGES@@", pages}}, zamjene...)
+	final := out.Bytes()
+	for _, z := range zamjene {
+		poz := bytes.Index(final, []byte(z.od))
+		if poz < 0 {
+			continue
 		}
+		pomak := len(z.na) - len(z.od)
+		for i := range offsets {
+			if offsets[i] > poz {
+				offsets[i] += pomak
+			}
+		}
+		final = bytes.Replace(final, []byte(z.od), []byte(z.na), 1)
 	}
 	var res bytes.Buffer
 	res.Write(final)
@@ -225,46 +335,57 @@ func (d *Doc) Bajtovi() []byte {
 	return res.Bytes()
 }
 
-// ---- kodiranje i širine ----
+// ---- fontovi ----
 
-// kodovi za znakove izvan ASCII-ja: WinAnsi gdje ih ima, a č ć đ na
-// slobodnim mjestima koja kodiranje dokumenta imenuje glifom
-var kodovi = map[rune]byte{
-	'Š': 0x8A, 'š': 0x9A, 'Ž': 0x8E, 'ž': 0x9E,
-	'Č': 0x81, 'č': 0x90, 'Ć': 0x8D, 'ć': 0x9D, 'Đ': 0x8F, 'đ': 0xAD,
-	'€': 0x80, '…': 0x85, '‘': 0x91, '’': 0x92, '“': 0x93, '”': 0x94, '„': 0x84, '•': 0x95, '–': 0x96, '—': 0x97,
-	'°': 0xB0, '²': 0xB2, '³': 0xB3, '·': 0xB7, '×': 0xD7, '§': 0xA7, '«': 0xAB, '»': 0xBB, ' ': 0x20,
-	'é': 0xE9, 'è': 0xE8, 'ä': 0xE4, 'ö': 0xF6, 'ü': 0xFC, 'Ä': 0xC4, 'Ö': 0xD6, 'Ü': 0xDC, 'ß': 0xDF, 'á': 0xE1, 'í': 0xED, 'ó': 0xF3, 'ú': 0xFA, 'ñ': 0xF1,
-	'ő': 'o', 'ű': 'u', 'Ő': 'O', 'Ű': 'U',
+type zamjena struct{ od, na string }
+
+// fontDijelovi upisuje opisnik fonta, datoteku i tablicu prema Unicodeu i
+// vraća njihove brojeve; širine i tablica nose samo glifove koje dokument
+// koristi
+func fontDijelovi(p *pismo, naziv string, obj func(string) int) (desc, toUni int) {
+	var z bytes.Buffer
+	zw := zlib.NewWriter(&z)
+	_, _ = zw.Write(p.ttf)
+	_ = zw.Close()
+	file := obj(fmt.Sprintf("<< /Length %d /Length1 %d /Filter /FlateDecode >>\nstream\n%s\nendstream", z.Len(), len(p.ttf), z.Bytes()))
+
+	var buf sfnt.Buffer
+	m, _ := p.f.Metrics(&buf, fixed.Int26_6(p.upem<<6), font.HintingNone)
+	skala := func(v fixed.Int26_6) int { return int(v) * 1000 / (p.upem << 6) }
+	bbox, _ := p.f.Bounds(&buf, fixed.Int26_6(p.upem<<6), font.HintingNone)
+	fd := obj(fmt.Sprintf("<< /Type /FontDescriptor /FontName /%s /Flags 32 /FontBBox [ %d %d %d %d ] /ItalicAngle 0 /Ascent %d /Descent %d /CapHeight %d /StemV 80 /FontFile2 %d 0 R >>",
+		naziv, skala(bbox.Min.X), -skala(bbox.Max.Y), skala(bbox.Max.X), -skala(bbox.Min.Y), skala(m.Ascent), -skala(m.Descent), skala(m.CapHeight), file))
+
+	p.mu.Lock()
+	var w strings.Builder
+	var cmap strings.Builder
+	n := 0
+	for r, g := range p.gid {
+		fmt.Fprintf(&w, "%d [ %d ] ", g, p.sirin[g])
+		fmt.Fprintf(&cmap, "<%04X> <%04X>\n", uint16(g), uint16(r))
+		n++
+	}
+	p.mu.Unlock()
+	desc = obj(fmt.Sprintf("<< /Type /Font /Subtype /CIDFontType2 /BaseFont /%s /CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> /FontDescriptor %d 0 R /DW 500 /W [ %s] /CIDToGIDMap /Identity >>", naziv, fd, w.String()))
+	tu := "/CIDInit /ProcSet findresource begin\n12 dict begin\nbegincmap\n/CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def\n/CMapName /Adobe-Identity-UCS def\n/CMapType 2 def\n1 begincodespacerange\n<0000> <FFFF>\nendcodespacerange\n" +
+		fmt.Sprintf("%d beginbfchar\n%sendbfchar\n", n, cmap.String()) + "endcmap\nCMapName currentdict /CMap defineresource pop\nend\nend"
+	toUni = obj(fmt.Sprintf("<< /Length %d >>\nstream\n%s\nendstream", len(tu), tu))
+	return desc, toUni
 }
 
-// kodiraj pretvara tekst u PDF niz u kodiranju dokumenta, s izbjegnutim
-// zagradama i kosom crtom
+// kodiraj pretvara tekst u PDF niz za metapodatke, sa znakovima izvan
+// ASCII-ja zamijenjenima
 func kodiraj(s string) string {
 	var b strings.Builder
 	for _, r := range s {
-		var c byte
 		switch {
 		case r == '(' || r == ')' || r == '\\':
 			b.WriteByte('\\')
-			c = byte(r)
+			b.WriteByte(byte(r))
 		case r < 0x80:
-			if r == '\n' || r == '\r' || r == '\t' {
-				c = ' '
-			} else {
-				c = byte(r)
-			}
+			b.WriteByte(byte(r))
 		default:
-			k, ok := kodovi[r]
-			if !ok {
-				k = '?'
-			}
-			c = k
-		}
-		if c >= 0x80 {
-			fmt.Fprintf(&b, "\\%03o", c)
-		} else {
-			b.WriteByte(c)
+			b.WriteByte('?')
 		}
 	}
 	return b.String()
@@ -272,57 +393,19 @@ func kodiraj(s string) string {
 
 // SirinaTeksta je širina teksta u točkama za zadanu veličinu
 func SirinaTeksta(s string, size float64, bold bool) float64 {
+	ucitajPisma()
+	p := obicno
+	if bold {
+		p = podebljano
+	}
 	w := 0
 	for _, r := range s {
-		w += sirinaZnaka(r, bold)
+		if r == '\u00a0' {
+			r = ' '
+		}
+		w += p.sirina(r)
 	}
 	return float64(w) * size / 1000
-}
-
-// osnovni oblik slova s dijakritikom, za širinu
-var osnova = map[rune]rune{'Š': 'S', 'š': 's', 'Ž': 'Z', 'ž': 'z', 'Č': 'C', 'č': 'c', 'Ć': 'C', 'ć': 'c', 'Đ': 'D', 'đ': 'd',
-	'é': 'e', 'è': 'e', 'ä': 'a', 'ö': 'o', 'ü': 'u', 'Ä': 'A', 'Ö': 'O', 'Ü': 'U', 'á': 'a', 'í': 'i', 'ó': 'o', 'ú': 'u', 'ñ': 'n', 'ő': 'o', 'ű': 'u', 'Ő': 'O', 'Ű': 'U', ' ': ' '}
-
-func sirinaZnaka(r rune, bold bool) int {
-	if o, ok := osnova[r]; ok {
-		r = o
-	}
-	tablica := helvetica
-	if bold {
-		tablica = helveticaBold
-	}
-	if r >= 32 && r < 127 {
-		return tablica[r-32]
-	}
-	switch r {
-	case '–':
-		return 556
-	case '—':
-		return 1000
-	case '…':
-		return 1000
-	case '„', '“', '”':
-		if bold {
-			return 500
-		}
-		return 333
-	case '‘', '’':
-		if bold {
-			return 278
-		}
-		return 222
-	case '°':
-		return 400
-	case '²', '³':
-		return 333
-	case '·', '•':
-		return 350
-	case '€':
-		return 556
-	case 'ß':
-		return 611
-	}
-	return 556
 }
 
 // Prelomi dijeli tekst na retke koji stanu u širinu; postojeći prijelomi
@@ -355,9 +438,5 @@ func Prelomi(s string, sirina, size float64, bold bool) []string {
 
 // Duljina je broj znakova, za grubu procjenu
 func Duljina(s string) int { return utf8.RuneCountInString(s) }
-
-// Širine Helvetice i Helvetice Bold za ASCII 32–126, iz AFM datoteka Adobea
-var helvetica = [95]int{278, 278, 355, 556, 556, 889, 667, 191, 333, 333, 389, 584, 278, 333, 278, 278, 556, 556, 556, 556, 556, 556, 556, 556, 556, 556, 278, 278, 584, 584, 584, 556, 1015, 667, 667, 722, 722, 667, 611, 778, 722, 278, 500, 667, 556, 833, 722, 778, 667, 778, 722, 667, 611, 722, 667, 944, 667, 667, 611, 278, 278, 278, 469, 556, 333, 556, 556, 500, 556, 556, 278, 556, 556, 222, 222, 500, 222, 833, 556, 556, 556, 556, 333, 500, 278, 556, 500, 722, 500, 500, 500, 334, 260, 334, 584}
-var helveticaBold = [95]int{278, 333, 474, 556, 556, 889, 722, 238, 333, 333, 389, 584, 278, 333, 278, 278, 556, 556, 556, 556, 556, 556, 556, 556, 556, 556, 333, 333, 584, 584, 584, 611, 975, 722, 722, 722, 722, 667, 611, 778, 722, 278, 556, 722, 611, 833, 722, 778, 667, 778, 722, 667, 611, 722, 667, 944, 667, 667, 611, 333, 278, 333, 584, 556, 333, 556, 611, 556, 611, 556, 333, 611, 611, 278, 278, 556, 278, 889, 611, 611, 611, 611, 389, 556, 333, 611, 556, 778, 556, 556, 500, 389, 280, 389, 584}
 
 var _ = image.Rect
