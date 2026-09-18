@@ -2,6 +2,7 @@ package web
 
 import (
 	"fmt"
+	"math"
 	"strings"
 
 	"gocop/internal/models"
@@ -324,8 +325,7 @@ func blokPotpisa(d *pdfw.Doc, a *models.Akt, x, w float64) {
 	const h = 46.0
 	y := d.Y
 	d.Okvir(x, y, w, h, bijela, sivaRub)
-	d.CrtaBoja(x+9, y+21, x+13, y+26, 1.2, zelena)
-	d.CrtaBoja(x+13, y+26, x+21, y+15, 1.2, zelena)
+	lokot(d, x+9, y+12, 13, plava)
 	tx := x + 29
 	d.TekstBoja(tx, y+10, 5.6, false, "ELEKTRONIČKI OVJERENO U goCOP-u", sivaTekst)
 	d.TekstBoja(tx, y+21, 8.5, true, a.ImePotpisa(), plava)
@@ -401,4 +401,27 @@ func slika(d *pdfw.Doc, mime string, podaci []byte, x, y, w, h float64) {
 	case "image/jpeg":
 		_ = d.SlikaJPEG(podaci, x, y, w, h)
 	}
+}
+
+// lokot crta mali lokot: tijelo kao ispunjen pravokutnik, luk kao niz kratkih
+// crta, i ključanicu; w je širina tijela
+func lokot(d *pdfw.Doc, x, y, w float64, c pdfw.Boja) {
+	tijeloH := w * 0.78
+	lukR := w * 0.3
+	lukY := y + lukR + 1 // središte luka
+	tijeloY := lukY + 1
+	// luk: polukrug od lijeve do desne strane, u 10 koraka
+	cx := x + w/2
+	prev := [2]float64{cx - lukR, lukY}
+	for i := 1; i <= 10; i++ {
+		t := math.Pi - math.Pi*float64(i)/10
+		p := [2]float64{cx + lukR*math.Cos(t), lukY - lukR*math.Sin(t)}
+		d.CrtaBoja(prev[0], prev[1], p[0], p[1], 1.3, c)
+		prev = p
+	}
+	d.CrtaBoja(cx-lukR, lukY, cx-lukR, tijeloY, 1.3, c)
+	d.CrtaBoja(cx+lukR, lukY, cx+lukR, tijeloY, 1.3, c)
+	d.Okvir(x, tijeloY, w, tijeloH, c, c)
+	// ključanica: bijela točka i kratka crta
+	d.CrtaBoja(cx, tijeloY+tijeloH*0.35, cx, tijeloY+tijeloH*0.7, 1.6, bijela)
 }
