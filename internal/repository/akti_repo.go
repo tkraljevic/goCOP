@@ -463,3 +463,96 @@ func (r *AktiRepository) GetIzvornik(ctx context.Context, aktID string) (*Izvorn
 	}
 	return &iz, nil
 }
+
+// ---- slanje na znanje ----
+
+// EntitySlanja su zapisi slanja akata e-poštom u knjizi verzija
+const EntitySlanja = "akti_slanja"
+
+const slanjeUpsert = `INSERT INTO akti_slanja (id, akt_id, adresa, naziv, skupina, poslao_id, poslao, posiljatelj, kad, uspjelo, greska, cvor)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	ON CONFLICT(id) DO UPDATE SET akt_id = excluded.akt_id, adresa = excluded.adresa, naziv = excluded.naziv, skupina = excluded.skupina,
+	poslao_id = excluded.poslao_id, poslao = excluded.poslao, posiljatelj = excluded.posiljatelj, kad = excluded.kad,
+	uspjelo = excluded.uspjelo, greska = excluded.greska, cvor = excluded.cvor`
+
+func slanjeArgs(x *models.SlanjeAkta) []any {
+	return []any{x.ID, x.AktID, x.Adresa, x.Naziv, x.Skupina, x.PoslaoID, x.Poslao, x.Posiljatelj, x.Kad.UTC(), boolInt(x.Uspjelo), x.Greska, x.Cvor}
+}
+
+// SaveSlanja upisuje zapise slanja, s verzijama u knjizi
+func (r *AktiRepository) SaveSlanja(ctx context.Context, slanja []models.SlanjeAkta) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for i := range slanja {
+		x := &slanja[i]
+		if x.ID == "" {
+			x.ID = uuid.Must(uuid.NewV7()).String()
+		}
+		if _, err := tx.ExecContext(ctx, slanjeUpsert, slanjeArgs(x)...); err != nil {
+			return fmt.Errorf("upis slanja: %w", err)
+		}
+		if _, err := r.rec.Record(ctx, tx, EntitySlanja, x.ID, x); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+// ListSlanja vraća slanja akta, najstarije prvo
+func (r *AktiRepository) ListSlanja(ctx context.Context, aktID string) ([]models.SlanjeAkta, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT id, akt_id, adresa, naziv, skupina, poslao_id, poslao, posiljatelj, kad, uspjelo, greska, cvor
+		FROM akti_slanja WHERE akt_id = ? ORDER BY kad, adresa`, aktID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []models.SlanjeAkta
+	for rows.Next() {
+		var x models.SlanjeAkta
+		var uspjelo int
+		if err := rows.Scan(&x.ID, &x.AktID, &x.Adresa, &x.Naziv, &x.Skupina, &x.PoslaoID, &x.Poslao, &x.Posiljatelj, &x.Kad, &uspjelo, &x.Greska, &x.Cvor); err != nil {
+			return nil, err
+		}
+		x.Uspjelo = uspjelo == 1
+		out = append(out, x)
+	}
+	return out, rows.Err()
+}
+
+// RacunPoste je korisnikov račun e-pošte na ovom čvoru
+type RacunPoste struct {
+	UserID    string
+	Korisnik  string
+	Lozinka   []byte // šifrirana
+	UpdatedAt time.Time
+}
+
+// SaveRacunPoste sprema račun; samo lokalno, bez knjige verzija
+func (r *AktiRepository) SaveRacunPoste(ctx context.Context, x *RacunPoste) error {
+	_, err := r.db.ExecContext(ctx, `INSERT INTO posta_racuni (user_id, korisnik, lozinka, updated_at) VALUES (?, ?, ?, ?)
+		ON CONFLICT(user_id) DO UPDATE SET korisnik = excluded.korisnik, lozinka = excluded.lozinka, updated_at = excluded.updated_at`,
+		x.UserID, x.Korisnik, x.Lozinka, time.Now().UTC())
+	return err
+}
+
+// GetRacunPoste čita račun; nil kad ga nema
+func (r *AktiRepository) GetRacunPoste(ctx context.Context, userID string) (*RacunPoste, error) {
+	x := RacunPoste{UserID: userID}
+	err := r.db.QueryRowContext(ctx, `SELECT korisnik, lozinka, updated_at FROM posta_racuni WHERE user_id = ?`, userID).Scan(&x.Korisnik, &x.Lozinka, &x.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &x, nil
+}
+
+// DeleteRacunPoste briše račun s ovog čvora
+func (r *AktiRepository) DeleteRacunPoste(ctx context.Context, userID string) error {
+	_, err := r.db.ExecContext(ctx, `DELETE FROM posta_racuni WHERE user_id = ?`, userID)
+	return err
+}

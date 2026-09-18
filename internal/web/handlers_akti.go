@@ -26,6 +26,7 @@ type AktiHandler struct {
 	stations                                     *service.StationService
 	tmplPopis, tmplForm, tmplAkt, tmplPrimatelji *template.Template
 	tmplSpranca                                  *template.Template
+	tmplPosta                                    *template.Template
 }
 
 // SetSpranca daje rukovatelju predložak stranice špranče
@@ -70,6 +71,7 @@ type AktiPageData struct {
 	Izvornik        *pdfpotpis.Potpis // ponovna provjera potpisa na izvorniku iz SIGNATOR-a
 	SmijePripremiti bool
 	MoguPotpisati   []models.User // za izbor potpisnika uz sken
+	Slanje          *SlanjeData   // slanje izvornika primateljima "na znanje"
 	Upozorenja      []string
 
 	// špranca
@@ -267,6 +269,7 @@ func (h *AktiHandler) ShowAkt(w http.ResponseWriter, r *http.Request) {
 	if data.SmijePripremiti {
 		data.MoguPotpisati = s.MoguPotpisati(a)
 	}
+	data.Slanje = h.slanjeZaStranicu(r, s, perms, u, a)
 	data.SmijeOvjeriti = !a.Ovjeren() && s.SmijeOvjeriti(perms, a)
 	data.SmijeObrisati = !a.Ovjeren() && u != nil && (a.IzradioID == u.ID.String() || s.SmijeOvjeriti(perms, a))
 	for i := range data.Sektori {

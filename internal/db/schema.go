@@ -275,6 +275,31 @@ func InitSchema(database *sql.DB) error {
 			sazetak TEXT NOT NULL,
 			created_at DATETIME NOT NULL
 		);`,
+		// Slanje ovjerenih akata primateljima "na znanje": jedan redak po
+		// adresi i pokušaju; ide u knjigu verzija pa ga vide svi čvorovi
+		`CREATE TABLE IF NOT EXISTS akti_slanja (
+			id TEXT PRIMARY KEY,
+			akt_id TEXT NOT NULL,
+			adresa TEXT NOT NULL,
+			naziv TEXT NOT NULL DEFAULT '',
+			skupina TEXT NOT NULL DEFAULT '',
+			poslao_id TEXT NOT NULL DEFAULT '',
+			poslao TEXT NOT NULL DEFAULT '',
+			posiljatelj TEXT NOT NULL DEFAULT '',
+			kad DATETIME NOT NULL,
+			uspjelo INTEGER NOT NULL DEFAULT 0,
+			greska TEXT NOT NULL DEFAULT '',
+			cvor TEXT NOT NULL DEFAULT ''
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_akti_slanja_akt ON akti_slanja(akt_id);`,
+		// Račun e-pošte korisnika za slanje akata: samo na ovom čvoru, lozinka
+		// šifrirana ključem izvedenim iz ključa čvora; ne ide u knjigu verzija
+		`CREATE TABLE IF NOT EXISTS posta_racuni (
+			user_id TEXT PRIMARY KEY,
+			korisnik TEXT NOT NULL,
+			lozinka BLOB NOT NULL,
+			updated_at DATETIME NOT NULL
+		);`,
 		// Špranca akata po sektoru: pravna osnova, članci, završna rečenica
 		`CREATE TABLE IF NOT EXISTS akti_sprance (
 			sektor TEXT PRIMARY KEY,
