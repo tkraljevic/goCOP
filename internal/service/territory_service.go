@@ -290,3 +290,46 @@ func (s *TerritoryService) DeleteSettlement(ctx context.Context, perms *models.U
 	_ = affected // tekst ugroženog područja slijedi iz poddionica, ne treba ga usklađivati
 	return nil
 }
+
+// ---- službe uz županije i gradove ----
+
+// Sluzbe vraća službe županije; 0 = sve
+func (s *TerritoryService) Sluzbe(ctx context.Context, countyID int) ([]models.Sluzba, error) {
+	return s.territoryRepo.ListSluzbe(ctx, countyID)
+}
+
+// BrojSluzbi vraća broj službi po županiji
+func (s *TerritoryService) BrojSluzbi(ctx context.Context) map[int]int {
+	n, _ := s.territoryRepo.BrojSluzbiPoZupaniji(ctx)
+	return n
+}
+
+// SpremiSluzbu upisuje službu; smije uprava organizacije ili sektora
+func (s *TerritoryService) SpremiSluzbu(ctx context.Context, perms *models.UserPermissions, x *models.Sluzba) error {
+	if perms == nil || !(perms.IsGlobalAdmin || len(perms.AdminSectors) > 0) {
+		return fmt.Errorf("službe uređuje uprava organizacije ili sektora")
+	}
+	x.Naziv = strings.TrimSpace(x.Naziv)
+	x.Email = strings.TrimSpace(x.Email)
+	if x.CountyID <= 0 {
+		return fmt.Errorf("služba mora pripadati županiji")
+	}
+	if !models.JeVrstaSluzbe(x.Vrsta) {
+		return fmt.Errorf("odaberi vrstu službe")
+	}
+	if x.Naziv == "" {
+		x.Naziv = models.SluzbaLabel(x.Vrsta)
+	}
+	if x.Redoslijed == 0 {
+		x.Redoslijed = (models.RedVrste(x.Vrsta) + 1) * 10
+	}
+	return s.territoryRepo.SaveSluzba(ctx, x)
+}
+
+// ObrisiSluzbu briše službu
+func (s *TerritoryService) ObrisiSluzbu(ctx context.Context, perms *models.UserPermissions, id string) error {
+	if perms == nil || !(perms.IsGlobalAdmin || len(perms.AdminSectors) > 0) {
+		return fmt.Errorf("službe uređuje uprava organizacije ili sektora")
+	}
+	return s.territoryRepo.DeleteSluzba(ctx, id)
+}

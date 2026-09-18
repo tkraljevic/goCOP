@@ -41,6 +41,9 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 		`INSERT INTO areas (id, sector_id, name, vgi_name, subcenter) VALUES (34, 'B', 'međudržavne rijeke Drava i Dunav', 'COP', 'Osijek')`,
 		`INSERT INTO sections (code, area_id, sector_id, description, created_at, updated_at) VALUES ('B.34.1', 34, 'B', 'd.o. r. Dunav, rkm 1433+060 – 1421+770 (državna granica – Zeleni otok)', '2026-01-01', '2026-01-01')`,
 		`INSERT INTO sections (code, area_id, sector_id, description, created_at, updated_at) VALUES ('B.34.2', 34, 'B', 'd.o. r. Dunav, rkm 1421+770 – 1403+000 (Zeleni otok – Ludaš)', '2026-01-01', '2026-01-01')`,
+		`INSERT INTO counties (id, code, name, seat, email) VALUES (14, 'OB', 'Osječko-baranjska županija', 'Osijek', 'zupan@obz.hr')`,
+		`INSERT INTO municipalities (id, county_id, name, type) VALUES (301, 14, 'Draž', 'OPCINA'), (302, 14, 'Beli Manastir', 'GRAD')`,
+		`INSERT INTO section_territories (id, section_code, county_id, municipality_id, created_at) VALUES ('t1', 'B.34.1', 14, 301, '2026-01-01')`,
 	} {
 		if _, err := baza.Exec(q); err != nil {
 			t.Fatal(err)
@@ -75,6 +78,21 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	// službe uz županiju: civilna zaštita s podstavkom 112, policija; postaja
+	// u gradu koji nije ugroženo područje ne ide na akt
+	teritorij := repository.NewTerritoryRepository(baza, rec)
+	for _, x := range []models.Sluzba{
+		{CountyID: 14, Vrsta: models.SluzbaCentar112, Naziv: "Županijski centar 112 Osijek", Email: "osijek112@mup.hr"},
+		{CountyID: 14, Vrsta: models.SluzbaCivilnaZastita, Naziv: "Područni ured civilne zaštite Osijek", Email: "cz@mup.hr"},
+		{CountyID: 14, Vrsta: models.SluzbaPolicija, Naziv: "PU Osječko-baranjska", Email: "pu@mup.hr"},
+		{CountyID: 14, MunicipalityID: 302, Vrsta: models.SluzbaPolicijskaPost, Naziv: "PP Beli Manastir"},
+	} {
+		x := x
+		if err := service.NewTerritoryService(teritorij, sections).SpremiSluzbu(ctx, &models.UserPermissions{IsGlobalAdmin: true}, &x); err != nil {
+			t.Fatal(err)
+		}
+	}
+
 	// registar primatelja: jedan uvijek, jedan od izvanrednog stanja
 	admin := &models.User{ID: uuid.New(), Username: "uprava", FullName: "Uprava Sektora", IsGlobalAdmin: true, IsActive: true}
 	perms := &models.UserPermissions{IsGlobalAdmin: true, User: *admin}
@@ -187,8 +205,16 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 	for _, p := range a.Primatelji {
 		imena = append(imena, p.Naziv)
 	}
-	if !strings.Contains(strings.Join(imena, ";"), "Glavni centar") || strings.Contains(strings.Join(imena, ";"), "Župan") || imena[len(imena)-1] != "Pismohrana" {
+	if !strings.Contains(strings.Join(imena, ";"), "Glavni centar") || strings.Contains(strings.Join(imena, ";"), "Župan osječko") || imena[len(imena)-1] != "Pismohrana" {
 		t.Errorf("primatelji: %v", imena)
+	}
+	// službe županije ugroženog područja, civilna zaštita prije 112 koji je podstavka
+	spojeno := strings.Join(imena, ";")
+	if !strings.Contains(spojeno, "Područni ured civilne zaštite Osijek;– Županijski centar 112 Osijek;PU Osječko-baranjska") {
+		t.Errorf("službe županije nisu na aktu kako treba: %v", imena)
+	}
+	if strings.Contains(spojeno, "PP Beli Manastir") {
+		t.Error("postaja u gradu koji nije ugroženo područje ne ide na akt")
 	}
 	mora(zovi(http.MethodGet, putanja, nil), "nacrt", "NACRT", "RJEŠENJE", "izvanredne obrane od poplava", "652 cm", "s tendencijom daljnjeg porasta", "B.34.1", "Zeleni otok", "Ovjeri", "Obriši nacrt", "ožujak 2025.", "članka XXIV", "Ispravi tekst nacrta")
 	w = zovi(http.MethodPost, putanja+"/tekst", url.Values{"uvod": {a.Uvod + " i sukladno procjeni visokog stupnja ugroženosti,"}, "zavrsno": {a.Zavrsno}, "napomena": {"Probna napomena."}})

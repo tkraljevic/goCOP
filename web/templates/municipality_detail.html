@@ -43,6 +43,17 @@
 </div>
 
 <section class="detail-section">
+  <h2>{{icon "phone"}} Službe <span class="reg-chip">{{len .Sluzbe}}</span>
+    <a href="/territories/counties/{{.Municipality.CountyID}}" class="btn btn-sm btn-secondary" style="margin-left:auto;">{{icon "pencil"}} Službe županije</a></h2>
+  {{if .Sluzbe}}
+  <div class="table-card"><div class="table-responsive"><table class="data-table">
+    <thead><tr><th>Vrsta</th><th>Naziv</th><th>E-pošta</th><th>Telefon</th><th>Vrijedi za</th></tr></thead>
+    <tbody>{{range .Sluzbe}}<tr><td>{{sluzbaLabel .Vrsta}}</td><td>{{.Naziv}}</td><td class="mono">{{.Email}}</td><td class="mono">{{.Phone}}</td><td>{{if .MunicipalityID}}{{.MunicipalityName}}{{else}}cijela županija{{end}}</td></tr>{{end}}</tbody>
+  </table></div></div>
+  {{else}}<div class="reg-empty">Za ovu županiju nije upisana nijedna služba.</div>{{end}}
+</section>
+
+<section class="detail-section">
   <h2>{{icon "map-pin"}} Naselja <span class="reg-chip">{{len .Settlements}}</span></h2>
   <div class="reg-list">
     {{range .Settlements}}

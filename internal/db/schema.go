@@ -245,6 +245,21 @@ func InitSchema(database *sql.DB) error {
 			updated_at DATETIME NOT NULL
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_akti_sektor_vrijedi ON akti(sektor, vrijedi DESC);`,
+		// Službe uz županije i gradove: civilna zaštita, 112, policija,
+		// lučke kapetanije — kontakti koje akti o obrani obavještavaju
+		`CREATE TABLE IF NOT EXISTS sluzbe (
+			id TEXT PRIMARY KEY,
+			county_id INTEGER NOT NULL,
+			municipality_id INTEGER NOT NULL DEFAULT 0,
+			vrsta TEXT NOT NULL,
+			naziv TEXT NOT NULL,
+			email TEXT NOT NULL DEFAULT '',
+			phone TEXT NOT NULL DEFAULT '',
+			napomena TEXT NOT NULL DEFAULT '',
+			redoslijed INTEGER NOT NULL DEFAULT 0,
+			updated_at DATETIME NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_sluzbe_county ON sluzbe(county_id);`,
 		// Špranca akata po sektoru: pravna osnova, članci, završna rečenica
 		`CREATE TABLE IF NOT EXISTS akti_sprance (
 			sektor TEXT PRIMARY KEY,
