@@ -117,7 +117,7 @@ func PDFAkta(a *models.Akt, t models.OrgTerms, sek *models.Sector, area *models.
 	d.Crta(d.W-d.Desno-200, d.Y, d.W-d.Desno-20, d.Y)
 	if a.Ovjeren() {
 		d.Razmak(3)
-		d.OdlomakU(d.W-d.Desno-220, 220, a.Ovjerio, 9, false, pdfw.Sredina)
+		d.OdlomakU(d.W-d.Desno-220, 220, a.ImePotpisa(), 9, false, pdfw.Sredina)
 	}
 	d.Razmak(10)
 

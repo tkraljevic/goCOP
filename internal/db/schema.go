@@ -236,6 +236,7 @@ func InitSchema(database *sql.DB) error {
 			ovjerio TEXT NOT NULL DEFAULT '',
 			ovjereno_at DATETIME,
 			ovjera_kod TEXT NOT NULL DEFAULT '',
+			u_zamjeni INTEGER NOT NULL DEFAULT 0,
 			cvor TEXT NOT NULL DEFAULT '',
 			created_at DATETIME NOT NULL,
 			updated_at DATETIME NOT NULL
@@ -1010,6 +1011,7 @@ func migrateSchema(database *sql.DB) error {
 		{"stations", "javni_uvoz", "INTEGER NOT NULL DEFAULT 0"},
 		{"readings", "temp_c", "REAL"},
 		{"readings", "flow_m3s", "REAL"},
+		{"akti", "u_zamjeni", "INTEGER NOT NULL DEFAULT 0"},
 		{"readings", "temp_note", "TEXT NOT NULL DEFAULT ''"},
 		{"readings", "flow_method", "TEXT NOT NULL DEFAULT ''"},
 		{"readings", "flow_note", "TEXT NOT NULL DEFAULT ''"},
