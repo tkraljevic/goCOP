@@ -24,6 +24,7 @@ import (
 	"gocop/internal/javnivodostaji"
 	"gocop/internal/ledger"
 	"gocop/internal/models"
+	"gocop/internal/posta"
 	"gocop/internal/peers"
 	"gocop/internal/repository"
 	"gocop/internal/service"
@@ -399,6 +400,7 @@ func main() {
 	server.SetMts(mtsService)
 	aktService := service.NewAktService(repository.NewAktiRepository(database, recorder), stationRepo, sectionRepo, territoryRepo, readingRepo, userService, episodeService, node.ID)
 	aktService.SetKljuc(node.PrivateKey())
+	aktService.SetPosta(posta.Postavke{Nacin: cfg.Posta.Nacin, Posluzitelj: cfg.Posta.Posluzitelj, Port: cfg.Posta.Port, Sigurnost: cfg.Posta.Sigurnost})
 	server.SetAkti(aktService)
 	server.SetZid(service.NewZidService(recorder, journalRepo, sectionRepo, mtsRepo, userRepo, stationRepo, episodeRepo))
 	server.SetKarta(cfg.Karta.Plocice, cfg.Karta.Zasluge, cfg.Karta.NajviseZ)

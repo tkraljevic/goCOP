@@ -1,0 +1,41 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — E-pošta za slanje akata{{end}}
+
+{{define "content"}}
+<div class="breadcrumb"><a href="/profile">Profil</a> › E-pošta za slanje akata</div>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "mail"}} E-pošta za slanje akata</h1>
+    <p class="page-desc">Ovjerena rješenja i obavijesti šalju se s vaše adrese <strong>{{with .CurrentUser.Email}}{{.}}{{else}}(nije upisana u profilu){{end}}</strong>{{if .Podesena}} preko poslužitelja <span class="mono">{{.Posluzitelj}}</span>{{end}}.</p>
+  </div>
+</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
+{{if not .Podesena}}<div class="alert alert-warning">Slanje e-poštom na ovom računalu nije uključeno: administrator upisuje poslužitelj u <span class="mono">gocop.toml</span>, odjeljak <span class="mono">[posta]</span>. Lozinku možete upisati i sada.</div>{{end}}
+
+<section class="detail-section" style="max-width:36rem;">
+  {{if .Racun}}<p>{{icon "check"}} Lozinka je upisana za <span class="mono">{{.Racun}}</span>, {{formatDate (localTime .RacunAt)}}.</p>{{else}}<p>Lozinka još nije upisana.</p>{{end}}
+  <form method="POST" action="/profile/posta" autocomplete="off">
+    <div class="form-group">
+      <label class="form-label" for="korisnik">Korisničko ime</label>
+      <input class="form-control" id="korisnik" name="korisnik" value="{{with .Racun}}{{.}}{{else}}{{.CurrentUser.Email}}{{end}}">
+      <div class="form-help">Kako se prijavljujete u Outlook ili na OWA: adresa e-pošte ili <span class="mono">DOMENA\korisnik</span>. Lozinka je ona od računala i e-pošte tvrtke.</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="lozinka">Lozinka</label>
+      <input class="form-control" type="password" id="lozinka" name="lozinka" required autocomplete="new-password">
+      <div class="form-help">goCOP je odmah provjeri na poslužitelju. Čuva se samo na ovom računalu, šifrirana; ne šalje se drugim čvorovima i nitko je ne može pročitati u programu.</div>
+    </div>
+    <button type="submit" class="btn btn-primary">{{icon "check"}} {{if .Racun}}Spremi novu lozinku{{else}}Spremi lozinku{{end}}</button>
+  </form>
+  {{if .Racun}}
+  <form method="POST" action="/profile/posta" style="margin-top:0.75rem;">
+    <input type="hidden" name="obrisi" value="1">
+    <button type="submit" class="btn btn-sm btn-secondary">{{icon "trash"}} Obriši lozinku s ovog računala</button>
+  </form>
+  {{end}}
+</section>
+{{end}}

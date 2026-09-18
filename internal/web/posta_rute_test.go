@@ -1,0 +1,213 @@
+package web
+
+import (
+	"bytes"
+	"context"
+	"crypto/ed25519"
+	"html/template"
+	"io/fs"
+	"mime/multipart"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+
+	"gocop/internal/db"
+	"gocop/internal/ledger"
+	"gocop/internal/models"
+	"gocop/internal/posta"
+	"gocop/internal/repository"
+	"gocop/internal/service"
+	webassets "gocop/web"
+)
+
+// Kad akt ima izvornik (ovdje sken s potpisom i žigom), goCOP ga šalje
+// primateljima "na znanje" s adrese prijavljenog korisnika preko poslužitelja
+// tvrtke. Lozinka se provjeri pri upisu; odbijena adresa ne ruši ostale i
+// može se poslati ponovno.
+func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
+	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "posta.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer baza.Close()
+	if err := db.InitSchema(baza); err != nil {
+		t.Fatal(err)
+	}
+	for _, q := range []string{
+		`INSERT INTO sectors (id, name, vgo_name, center_cop, address, phone, email) VALUES ('B', 'Sektor B', 'VGO za Dunav i donju Dravu, Osijek', 'COP Osijek', 'Splavarska 2a, 31000 Osijek', '031/252-802', 'copos@voda.hr')`,
+		`INSERT INTO areas (id, sector_id, name, vgi_name, subcenter) VALUES (34, 'B', 'međudržavne rijeke Drava i Dunav', 'COP', 'Osijek')`,
+		`INSERT INTO sections (code, area_id, sector_id, description, created_at, updated_at) VALUES ('B.34.1', 34, 'B', 'd.o. r. Dunav', '2026-01-01', '2026-01-01')`,
+	} {
+		if _, err := baza.Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	rec := ledger.New(baza, "cop-osijek")
+	userRepo := repository.NewUserRepository(baza, rec)
+	users := service.NewUserService(userRepo, service.NewAuthService(userRepo, repository.NewSessionRepository(baza)), service.NewSSEBroker())
+	sectionRepo := repository.NewSectionRepository(baza, rec)
+	sections := service.NewSectionService(sectionRepo, service.NewSSEBroker())
+	stationRepo := repository.NewStationRepository(baza, rec)
+	readingRepo := repository.NewReadingRepository(baza, rec)
+	episodes := service.NewEpisodeService(repository.NewEpisodeRepository(baza, rec), readingRepo, stationRepo)
+	aktiRepo := repository.NewAktiRepository(baza, rec)
+	akti := service.NewAktService(aktiRepo, stationRepo, sectionRepo, repository.NewTerritoryRepository(baza, rec), readingRepo, users, episodes, "cop-osijek")
+	stations := service.NewStationService(stationRepo, sections, service.NewSSEBroker())
+	ctx := context.Background()
+
+	st := &models.Station{ID: uuid.New(), Code: "batina", Name: "Batina", Watercourse: "Dunav"}
+	if err := stationRepo.CreateStation(ctx, st); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := baza.Exec(`INSERT INTO section_stations (id, section_code, station_id, created_at) VALUES (?, 'B.34.1', ?, ?)`, uuid.NewString(), st.ID.String(), time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	b, bp := "B", 34
+	kunac := &models.User{ID: uuid.New(), Username: "mkunac", FullName: "Mile Kunac", IsActive: true}
+	if err := userRepo.CreateUser(kunac, &models.Duty{Title: "Rukovoditelj BP 34", Role: models.RoleAreaLeader, ScopeType: models.ScopeArea, SectorID: &b, AreaID: &bp, IsPrimary: true}); err != nil {
+		t.Fatal(err)
+	}
+	dionica := &models.User{ID: uuid.New(), Username: "iivic", FullName: "Ivo Ivić", IsActive: true}
+	if err := userRepo.CreateUser(dionica, &models.Duty{Title: "Rukovoditelj dionice", Role: models.RoleSectionLeader, ScopeType: models.ScopeSection, SectorID: &b, AreaID: &bp, SectionCodes: "B.34.1"}); err != nil {
+		t.Fatal(err)
+	}
+	voditelj := &models.User{ID: uuid.New(), Username: "voditelj", FullName: "Voditelj COP-a", Email: "voditelj@voda.hr"}
+	perms := &models.UserPermissions{AdminSectors: map[string]bool{"B": true}, AllowedSectors: map[string]bool{"B": true}, User: *voditelj}
+
+	templatesFS, _ := fs.Sub(webassets.Files, "templates")
+	tmpl := func(stranica string) *template.Template {
+		t.Helper()
+		tp, err := template.New("base.html").Funcs(templateFuncs()).ParseFS(templatesFS, DijeloviPredloska(stranica)...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return tp
+	}
+	_, kljuc, _ := ed25519.GenerateKey(nil)
+	akti.SetKljuc(kljuc)
+	srv, err := posta.PokreniProbniEWS("voditelj@voda.hr", "Lozinka-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer srv.Zatvori()
+	akti.SetPosta(srv.Postavke())
+	h := NewAktiHandler(func() *service.AktService { return akti }, users, stations, tmpl("akti.html"), tmpl("akt_form.html"), tmpl("akt.html"), tmpl("primatelji.html"))
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST /akti/novi", h.HandleCreate)
+	mux.HandleFunc("GET /akti/{id}", h.ShowAkt)
+	mux.HandleFunc("GET /akti/{id}/akt.pdf", h.IzvoziPDF)
+	mux.HandleFunc("GET /akti/{id}/za-potpis.pdf", h.IzvoziZaPotpis)
+	mux.HandleFunc("POST /akti/{id}/potpisani", h.HandleUcitajPotpisani)
+	mux.HandleFunc("GET /akti/{id}/za-ispis.pdf", h.IzvoziZaIspis)
+	mux.HandleFunc("POST /akti/{id}/sken", h.HandleUcitajSken)
+	mux.HandleFunc("POST /akti/{id}/posalji", h.HandlePosalji)
+	mux.HandleFunc("GET /profile/posta", h.ShowPosta)
+	mux.HandleFunc("POST /profile/posta", h.HandlePosta)
+	zovi := func(r *http.Request) *httptest.ResponseRecorder {
+		c := context.WithValue(r.Context(), contextKeyUser, voditelj)
+		c = context.WithValue(c, contextKeyPerms, perms)
+		w := httptest.NewRecorder()
+		mux.ServeHTTP(w, r.WithContext(c))
+		return w
+	}
+
+	h.SetPosta(tmpl("posta_racun.html"))
+	post := func(put string, v url.Values) string {
+		r := httptest.NewRequest(http.MethodPost, put, strings.NewReader(v.Encode()))
+		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		return mustUnescape(zovi(r).Header().Get("Location"))
+	}
+	stranica := func(id string) string {
+		return zovi(httptest.NewRequest(http.MethodGet, "/akti/"+id, nil)).Body.String()
+	}
+
+	id := strings.TrimPrefix(strings.SplitN(post("/akti/novi", url.Values{"station_id": {st.ID.String()}, "radnja": {"USPOSTAVA"}, "stupanj": {"PRIPREMNO"}, "vrijedi": {"2026-09-15T09:00"}}), "?", 2)[0], "/akti/")
+	if strings.Contains(stranica(id), "Slanje na znanje") {
+		t.Error("nacrt se ne šalje")
+	}
+	// sken s potpisom i žigom
+	var tijelo bytes.Buffer
+	mw := multipart.NewWriter(&tijelo)
+	fw, _ := mw.CreateFormFile("sken", "sken.pdf")
+	_, _ = fw.Write([]byte("%PDF-1.4\n% sken\n%%EOF\n"))
+	_ = mw.WriteField("potpisnik_id", kunac.ID.String())
+	_ = mw.Close()
+	r := httptest.NewRequest(http.MethodPost, "/akti/"+id+"/sken", &tijelo)
+	r.Header.Set("Content-Type", mw.FormDataContentType())
+	if loc := zovi(r).Header().Get("Location"); !strings.Contains(loc, "success") {
+		t.Fatalf("sken: %s", mustUnescape(loc))
+	}
+	a, _ := akti.Get(ctx, id)
+	a.Primatelji = []models.AktPrimatelj{
+		{Naziv: "PU osječko-baranjska", Email: "osjecko-baranjska@policija.hr", Skupina: "MUP"},
+		{Naziv: "Lučka kapetanija Osijek", Email: "kapetanija.osijek@mmpi.hr; nema@primjer.hr"},
+		{Naziv: "Općina bez adrese"},
+	}
+	if err := aktiRepo.SaveAkt(ctx, a); err != nil {
+		t.Fatal(err)
+	}
+	if s := stranica(id); !strings.Contains(s, "upišite lozinku e-pošte") || !strings.Contains(s, "Općina bez adrese") {
+		t.Fatalf("stranica prije lozinke:\n%s", s)
+	}
+
+	// lozinka: kriva se ne sprema, ispravna se provjeri i spremi šifrirana
+	if loc := post("/profile/posta", url.Values{"korisnik": {"voditelj@voda.hr"}, "lozinka": {"stara"}}); !strings.Contains(loc, "odbio") {
+		t.Errorf("kriva lozinka: %s", loc)
+	}
+	if loc := post("/profile/posta", url.Values{"korisnik": {"voditelj@voda.hr"}, "lozinka": {"Lozinka-1"}}); !strings.Contains(loc, "success") {
+		t.Fatalf("ispravna lozinka: %s", loc)
+	}
+	if w := zovi(httptest.NewRequest(http.MethodGet, "/profile/posta", nil)); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "Lozinka je upisana") {
+		t.Fatalf("stranica računa e-pošte: %d\n%.500s", w.Code, w.Body.String())
+	}
+	var sifrirana []byte
+	_ = baza.QueryRow(`SELECT lozinka FROM posta_racuni`).Scan(&sifrirana)
+	if len(sifrirana) == 0 || bytes.Contains(sifrirana, []byte("Lozinka-1")) {
+		t.Error("lozinka nije spremljena šifrirana")
+	}
+
+	// slanje: jedna adresa je odbijena
+	srv.Odbij = []string{"nema@primjer.hr"}
+	sve := url.Values{"adresa": {"osjecko-baranjska@policija.hr", "kapetanija.osijek@mmpi.hr", "nema@primjer.hr", "tudja@adresa.hr"}, "kopija": {"1"}}
+	loc := post("/akti/"+id+"/posalji", sve)
+	if !strings.Contains(loc, "poslan je na 2 adrese") || !strings.Contains(loc, "nema@primjer.hr") || !strings.Contains(loc, "Kopija") {
+		t.Fatalf("ishod slanja: %s", loc)
+	}
+	prim := srv.Poruke()
+	if len(prim) != 3 {
+		t.Fatalf("primljeno %d poruka: %+v", len(prim), prim)
+	}
+	for _, p := range prim {
+		if p.Za == "tudja@adresa.hr" {
+			t.Error("poslano na adresu koje nema na popisu na znanje")
+		}
+		if p.Od != "voditelj@voda.hr" || !strings.Contains(p.Podaci, "application/pdf") || !strings.Contains(p.Podaci, "Content-Disposition: attachment") {
+			t.Errorf("poruka: %.300s", p.Podaci)
+		}
+	}
+	if s := stranica(id); !strings.Contains(s, "poslano") || !strings.Contains(s, "nije prošlo") {
+		t.Error("stranica ne pokazuje stanje slanja")
+	}
+	sl, _ := aktiRepo.ListSlanja(ctx, id)
+	if len(sl) != 3 {
+		t.Fatalf("zapisa slanja: %d", len(sl))
+	}
+
+	// ponovno samo neuspjela, nakon što je adresa ispravljena na poslužitelju
+	srv.Odbij = nil
+	if loc := post("/akti/"+id+"/posalji", url.Values{"adresa": {"nema@primjer.hr"}}); !strings.Contains(loc, "success") {
+		t.Fatalf("ponovno slanje: %s", loc)
+	}
+	adresati, _, _ := akti.AdresatiAkta(ctx, a)
+	for _, x := range adresati {
+		if !x.Poslano() {
+			t.Errorf("%s nije označena kao poslana", x.Adresa)
+		}
+	}
+}

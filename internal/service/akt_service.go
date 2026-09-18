@@ -18,6 +18,7 @@ import (
 	"gocop/internal/models"
 	"gocop/internal/pdfpotpis"
 	"gocop/internal/pdfw"
+	"gocop/internal/posta"
 	"gocop/internal/repository"
 )
 
@@ -36,6 +37,7 @@ type AktService struct {
 	episodes    *EpisodeService
 	cvor        string
 	kljuc       ed25519.PrivateKey // ključ čvora kojim se ovjera potpisuje
+	posta       posta.Postavke     // poslužitelj e-pošte za slanje akata
 }
 
 // SetKljuc daje servisu ključ čvora; bez njega se ovjera ne potpisuje

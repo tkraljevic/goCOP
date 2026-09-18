@@ -118,6 +118,22 @@ type KvalificiraniPotpis struct {
 	UcitanoAt    time.Time     `json:"ucitano_at"`
 }
 
+// SlanjeAkta je jedan pokušaj slanja ovjerenog akta jednoj adresi
+type SlanjeAkta struct {
+	ID          string    `json:"id"`
+	AktID       string    `json:"akt_id"`
+	Adresa      string    `json:"adresa"`
+	Naziv       string    `json:"naziv,omitempty"` // primatelj s popisa "na znanje"
+	Skupina     string    `json:"skupina,omitempty"`
+	PoslaoID    string    `json:"poslao_id"`
+	Poslao      string    `json:"poslao"`
+	Posiljatelj string    `json:"posiljatelj"` // adresa s koje je poslano
+	Kad         time.Time `json:"kad"`
+	Uspjelo     bool      `json:"uspjelo"`
+	Greska      string    `json:"greska,omitempty"`
+	Cvor        string    `json:"cvor,omitempty"`
+}
+
 // PecatNaAktu je kvalificirani elektronički pečat organizacije u izvorniku
 type PecatNaAktu struct {
 	Naziv   string    `json:"naziv"`            // npr. HRVATSKE VODE

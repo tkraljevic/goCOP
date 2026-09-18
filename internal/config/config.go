@@ -49,6 +49,13 @@ type Config struct {
 		NajviseZ int    `toml:"najvise_z" comment:"Najveće približavanje. Više od 17 rijetko treba, a povlači\nmnogo više pločica kad se jednom budu preuzimale."`
 	} `toml:"karta"`
 
+	Posta struct {
+		Nacin       string `toml:"nacin" comment:"ews (zadano): Exchange Web Services, isto kao Outlook, prijava sustava\nWindows (NTLM), radi i izvan mreže tvrtke i sprema poruku u Poslano.\nsmtp: slanje na port 587/465, kad ga tvrtka otvori."`
+		Posluzitelj string `toml:"posluzitelj" comment:"Poslužitelj e-pošte tvrtke (Exchange) preko kojeg goCOP šalje ovjerene akte\nprimateljima \"na znanje\", npr. \"owa.voda.hr\". Prazno isključuje slanje.\nŠalje se s adrese prijavljenog korisnika; lozinku svaki korisnik upisuje\nu svom profilu i ona ostaje samo na ovom računalu, šifrirana."`
+		Port        int    `toml:"port" comment:"Samo za smtp: 587 za STARTTLS (zadano), 465 za izravni TLS."`
+		Sigurnost   string `toml:"sigurnost" comment:"Samo za smtp: starttls (zadano) ili tls."`
+	} `toml:"posta"`
+
 	Sync struct {
 		ExchangePort  int      `toml:"exchange_port" comment:"Port razmjene verzija s drugim čvorovima. 0 isključuje razmjenu."`
 		PairPort      int      `toml:"pair_port" comment:"Port uparivanja (samo dok uparivanje traje)."`
@@ -73,6 +80,9 @@ func Default() Config {
 	c.Karta.Plocice = "https://maps.wikimedia.org/osm-intl/{z}/{x}/{y}.png"
 	c.Karta.Zasluge = "© OpenStreetMap, pločice Wikimedia"
 	c.Karta.NajviseZ = 17
+	c.Posta.Nacin = "ews"
+	c.Posta.Port = 587
+	c.Posta.Sigurnost = "starttls"
 	return c
 }
 

@@ -26,6 +26,47 @@
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
 
+{{with .Slanje}}
+<section class="akt-slanje" id="slanje">
+  <h2>{{icon "mail"}} Slanje na znanje</h2>
+  {{if not .Podesena}}<div class="alert alert-warning">Slanje e-poštom nije uključeno na ovom računalu (<span class="mono">gocop.toml</span>, odjeljak <span class="mono">[posta]</span>).</div>
+  {{else if not .Posiljatelj}}<div class="alert alert-warning">U vašem profilu nema adrese e-pošte; s nje se akt šalje.</div>
+  {{else if not .Racun}}<div class="alert alert-warning">Za slanje upišite lozinku e-pošte: <a href="/profile/posta">Profil › E-pošta za slanje akata</a>.</div>{{end}}
+  {{if .Adresati}}
+  <form method="POST" action="/akti/{{$a.ID}}/posalji">
+    <table class="table akt-slanje-tablica">
+      <thead><tr><th></th><th>Primatelj</th><th>Adresa</th><th>Stanje</th></tr></thead>
+      <tbody>
+      {{range .Adresati}}
+        <tr>
+          <td><input type="checkbox" name="adresa" value="{{.Adresa}}" {{if not .Poslano}}checked{{end}} {{if not $.Slanje.SmijeSlati}}disabled{{end}}></td>
+          <td>{{.Naziv}}{{with .Skupina}} <span class="form-help">· {{.}}</span>{{end}}</td>
+          <td class="mono">{{.Adresa}}</td>
+          <td>{{with .Zadnje}}{{if .Uspjelo}}<span class="badge badge-active">poslano</span> {{formatDate (localTime .Kad)}}, {{.Poslao}}{{else}}<span class="badge badge-danger">nije prošlo</span> {{.Greska}}{{end}}{{else}}—{{end}}</td>
+        </tr>
+      {{end}}
+      </tbody>
+    </table>
+    {{with .BezAdrese}}<p class="form-help">Bez adrese e-pošte u registru, ne šalje im se: {{range $i, $p := .}}{{if $i}}; {{end}}{{$p.Naziv}}{{end}}.</p>{{end}}
+    <details class="akt-slanje-poruka">
+      <summary>Poruka koja se šalje</summary>
+      <p><strong>Od:</strong> {{$.CurrentUser.FullName}} &lt;{{.Posiljatelj}}&gt;<br><strong>Predmet:</strong> {{.Poruka.Predmet}}<br><strong>Privitak:</strong> {{.Poruka.ImeDatoteke}} (izvornik)</p>
+      <pre>{{.Poruka.Tekst}}</pre>
+      <p class="form-help">Svaki primatelj dobiva zasebnu poruku, pa ne vidi ostale adrese.</p>
+    </details>
+    {{if .SmijeSlati}}
+    {{if .SpremaPoslano}}<p class="form-help">Poruke se šalju preko Exchangea kao iz Outlooka i ostaju u vašoj mapi Poslano.</p>
+    {{else}}<label class="checkbox-label"><input type="checkbox" name="kopija" value="1" checked> Pošalji kopiju i meni (poslužitelj ne sprema poslanu poštu u Outlookovu mapu Poslano)</label>{{end}}
+    <div style="margin-top:0.5rem;"><button type="submit" class="btn btn-primary" {{if or (not .Podesena) (not .Racun) (not .Posiljatelj)}}disabled{{end}}>{{icon "mail"}} Pošalji odabranima</button>
+      {{if eq .NijePoslanoJos 0}}<span class="form-help">Svim adresama je već poslano; označite koje želite poslati ponovno.</span>{{end}}</div>
+    {{end}}
+  </form>
+  {{else}}
+  <p class="form-help">Na popisu "na znanje" nema nijedne adrese e-pošte. Adrese se upisuju u registar primatelja i u službe po županijama.</p>
+  {{end}}
+</section>
+{{end}}
+
 {{if .SmijePripremiti}}
 <section class="akt-potpis-opcije">
   <h2>{{icon "shield"}} Potpis akta</h2>
