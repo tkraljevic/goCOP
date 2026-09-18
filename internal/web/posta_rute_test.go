@@ -91,12 +91,15 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	}
 	_, kljuc, _ := ed25519.GenerateKey(nil)
 	akti.SetKljuc(kljuc)
-	srv, err := posta.PokreniProbniEWS("voditelj@voda.hr", "Lozinka-1")
+	srv, err := posta.PokreniProbniEWS("voda.int\\voditelj", "Lozinka-1")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer srv.Zatvori()
-	akti.SetPosta(srv.Postavke())
+	// kao u HV-u: prijava prolazi samo s domenom, a korisnik upiše tkraljevic@voda.hr
+	pp := srv.Postavke()
+	pp.Domena = "voda.int"
+	akti.SetPosta(pp)
 	h := NewAktiHandler(func() *service.AktService { return akti }, users, stations, tmpl("akti.html"), tmpl("akt_form.html"), tmpl("akt.html"), tmpl("primatelji.html"))
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /akti/novi", h.HandleCreate)
@@ -163,7 +166,7 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	if loc := post("/profile/posta", url.Values{"korisnik": {"voditelj@voda.hr"}, "lozinka": {"Lozinka-1"}}); !strings.Contains(loc, "success") {
 		t.Fatalf("ispravna lozinka: %s", loc)
 	}
-	if w := zovi(httptest.NewRequest(http.MethodGet, "/profile/posta", nil)); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "Lozinka je upisana") {
+	if w := zovi(httptest.NewRequest(http.MethodGet, "/profile/posta", nil)); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "Lozinka je upisana") || !strings.Contains(w.Body.String(), `voda.int\voditelj`) {
 		t.Fatalf("stranica računa e-pošte: %d\n%.500s", w.Code, w.Body.String())
 	}
 	var sifrirana []byte

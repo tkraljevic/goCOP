@@ -36,6 +36,7 @@ const (
 type Postavke struct {
 	Nacin        string // ews (Exchange Web Services, kao Outlook) ili smtp
 	Posluzitelj  string // za EWS: poslužitelj (owa.voda.hr) ili puni URL; za SMTP: poslužitelj
+	Domena       string // domena sustava Windows (npr. voda.int), za prijavu DOMENA\korisnik
 	Port         int
 	Sigurnost    string
 	DopustiBasic bool          // samo za testove: EWS prijava Basic umjesto NTLM-a
@@ -141,6 +142,21 @@ func nasumicno(n int) string {
 	buf := make([]byte, n)
 	_, _ = rand.Read(buf)
 	return hex.EncodeToString(buf)
+}
+
+// Imena vraća korisnička imena kojima se vrijedi pokušati prijaviti: upisano
+// ime i, kad je upisano kao adresa, a domena je poznata, DOMENA\korisnik
+func (p Postavke) Imena(korisnik string) []string {
+	korisnik = strings.TrimSpace(korisnik)
+	out := []string{korisnik}
+	if p.Domena != "" && !strings.Contains(korisnik, "\\") {
+		if i := strings.Index(korisnik, "@"); i > 0 {
+			out = append(out, p.Domena+"\\"+korisnik[:i])
+		} else {
+			out = append(out, p.Domena+"\\"+korisnik)
+		}
+	}
+	return out
 }
 
 // Provjeri se spoji i prijavi, bez slanja: za provjeru nove lozinke

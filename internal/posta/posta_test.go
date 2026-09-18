@@ -122,3 +122,13 @@ func TestSlanjePrekoEWS(t *testing.T) {
 		t.Fatalf("primljeno: %+v", prim)
 	}
 }
+
+func TestImenaZaPrijavu(t *testing.T) {
+	p := Postavke{Domena: "voda.int"}
+	if got := strings.Join(p.Imena("tkraljevic@voda.hr"), "|"); got != `tkraljevic@voda.hr|voda.int\tkraljevic` {
+		t.Errorf("%s", got)
+	}
+	if got := strings.Join(p.Imena(`VODA\tkraljevic`), "|"); got != `VODA\tkraljevic` {
+		t.Errorf("%s", got)
+	}
+}
