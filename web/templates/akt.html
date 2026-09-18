@@ -48,6 +48,15 @@
 </details>
 {{end}}
 
+{{if $a.Ovjeren}}
+<div class="akt-potpis-stanje {{if eq .Potpis "VRIJEDI"}}vrijedi{{else if eq .Potpis "NE_VRIJEDI"}}ne-vrijedi{{end}}">
+  {{if eq .Potpis "VRIJEDI"}}{{icon "check"}} <strong>Elektronički potpis vrijedi.</strong> Sadržaj akta nije mijenjan od ovjere:
+    potpisao {{$a.ImePotpisa}}, {{formatDate (localTime (derefTime $a.OvjerenoAt))}}, ključem čvora <span class="mono">{{$a.Cvor}}</span> (otisak <span class="mono">{{$a.OtisakKljuca}}</span>).
+  {{else if eq .Potpis "NE_VRIJEDI"}}{{icon "triangle-alert"}} <strong>Elektronički potpis ne vrijedi.</strong> Sadržaj akta razlikuje se od ovjerenoga ili potpis nije ispravan; akt ne treba koristiti dok se ne provjeri.
+  {{else}}{{icon "info"}} Akt je ovjeren prije uvođenja elektroničkog potpisa; vrijedi kod ovjere <span class="mono">{{$a.OvjeraKod}}</span>.{{end}}
+</div>
+{{end}}
+
 <div class="akt-papir">
   {{with .Sektor}}<div class="akt-zaglavlje"><div><strong>{{term "org"}}</strong><br>{{.VgoName}}{{if .Address}}<br>{{.Address}}{{end}}</div><div style="text-align:right;">Centar obrane od poplava Sektora {{.ID}}{{if .CenterCop}}<br>{{.CenterCop}}{{end}}{{if .Email}}<br>{{.Email}}{{end}}</div></div>{{end}}
   {{if not $a.Ovjeren}}<p class="akt-nacrt">NACRT — nije ovjeren</p>{{end}}

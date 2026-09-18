@@ -397,7 +397,9 @@ func main() {
 	izvjescaService.SetSektorska(repository.NewSektorskaIzvjescaRepository(database, recorder))
 	server.SetIzvjesca(izvjescaService)
 	server.SetMts(mtsService)
-	server.SetAkti(service.NewAktService(repository.NewAktiRepository(database, recorder), stationRepo, sectionRepo, territoryRepo, readingRepo, userService, episodeService, node.ID))
+	aktService := service.NewAktService(repository.NewAktiRepository(database, recorder), stationRepo, sectionRepo, territoryRepo, readingRepo, userService, episodeService, node.ID)
+	aktService.SetKljuc(node.PrivateKey())
+	server.SetAkti(aktService)
 	server.SetZid(service.NewZidService(recorder, journalRepo, sectionRepo, mtsRepo, userRepo, stationRepo, episodeRepo))
 	server.SetKarta(cfg.Karta.Plocice, cfg.Karta.Zasluge, cfg.Karta.NajviseZ)
 

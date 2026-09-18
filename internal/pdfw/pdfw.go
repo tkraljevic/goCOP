@@ -220,6 +220,30 @@ func (d *Doc) Crta(x1, y1, x2, y2 float64) {
 	fmt.Fprintf(d.tok(), "0.5 w %.2f %.2f m %.2f %.2f l S\n", x1, d.pdfY(y1), x2, d.pdfY(y2))
 }
 
+// Boja je RGB boja od 0 do 1
+type Boja struct{ R, G, B float64 }
+
+// CrtaBoja povlači crtu zadane debljine i boje
+func (d *Doc) CrtaBoja(x1, y1, x2, y2, debljina float64, c Boja) {
+	fmt.Fprintf(d.tok(), "q %.2f w %.3f %.3f %.3f RG 1 J %.2f %.2f m %.2f %.2f l S Q\n", debljina, c.R, c.G, c.B, x1, d.pdfY(y1), x2, d.pdfY(y2))
+}
+
+// Okvir crta pravokutnik s gornjim lijevim kutom (x, y od vrha), s ispunom
+// i rubom zadanih boja
+func (d *Doc) Okvir(x, y, w, h float64, ispuna, rub Boja) {
+	fmt.Fprintf(d.tok(), "q 0.8 w %.3f %.3f %.3f rg %.3f %.3f %.3f RG %.2f %.2f %.2f %.2f re B Q\n",
+		ispuna.R, ispuna.G, ispuna.B, rub.R, rub.G, rub.B, x, d.pdfY(y+h), w, h)
+}
+
+// TekstBoja ispisuje redak u boji
+func (d *Doc) TekstBoja(x, y, size float64, bold bool, s string, c Boja) {
+	font := "/F1"
+	if bold {
+		font = "/F2"
+	}
+	fmt.Fprintf(d.tok(), "q BT %.3f %.3f %.3f rg %s %.1f Tf %.2f %.2f Td <%s> Tj ET Q\n", c.R, c.G, c.B, font, size, x, d.pdfY(y), glifovi(s, bold))
+}
+
 // SlikaPNG smješta PNG sliku; x i y od vrha su gornji lijevi kut. Prozirnost
 // se stapa s bijelom, jer akt ide na papir.
 func (d *Doc) SlikaPNG(podaci []byte, x, y, w, h float64) error {
