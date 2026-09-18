@@ -49,6 +49,7 @@ type SanducicData struct {
 	Novo            service.NovoPismo // obrazac novog pisma
 	Nacin           string            // odgovori, svima, proslijedi ili prazno
 	Izvorno         *posta.Pismo      // pismo na koje se odgovara
+	Potpis          string            // korisnikov potpis e-pošte, za novo pismo
 	TrebaLozinku    bool
 	NijeUkljuceno   bool
 	LozinkaOdbijena bool
@@ -255,6 +256,7 @@ func (h *AktiHandler) ShowNovoPismo(w http.ResponseWriter, r *http.Request) {
 	}
 	q := r.URL.Query()
 	d.Nacin = q.Get("nacin")
+	d.Potpis = s.Potpis(r.Context(), d.CurrentUser.ID.String())
 	d.Novo = service.NovoPismo{Za: q.Get("za"), Predmet: q.Get("predmet"), Tekst: q.Get("tekst")}
 	if id := q.Get("id"); id != "" {
 		izv, err := s.Pismo(r.Context(), d.CurrentUser, id)
@@ -429,4 +431,56 @@ func (h *AktiHandler) AdreseJSON(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	_ = json.NewEncoder(w).Encode(adrese)
+}
+
+// PotpisData je stranica potpisa e-pošte
+type PotpisData struct {
+	CurrentUser *models.User
+	Permissions *models.UserPermissions
+	ActiveNav   string
+	ViewAsBanner
+	SuccessMessage string
+	ErrorMessage   string
+
+	Potpis string // spremljeni potpis (HTML)
+	Zadani string // prijedlog iz profila (HTML)
+}
+
+// SetPotpis daje rukovatelju predložak stranice potpisa
+func (h *AktiHandler) SetPotpis(t *template.Template) { h.tmplPotpis = t }
+
+// ShowPotpis prikazuje uređivanje potpisa e-pošte
+func (h *AktiHandler) ShowPotpis(w http.ResponseWriter, r *http.Request) {
+	u, perms, base := h.base(r)
+	s := h.svc(w)
+	if s == nil || u == nil {
+		return
+	}
+	cijeli, err := h.users.GetUserByID(u.ID)
+	if err != nil || cijeli == nil {
+		cijeli = u
+	}
+	d := PotpisData{CurrentUser: u, Permissions: perms, ActiveNav: "profile", ViewAsBanner: viewBanner(r), SuccessMessage: base.SuccessMessage, ErrorMessage: base.ErrorMessage,
+		Potpis: s.Potpis(r.Context(), u.ID.String()), Zadani: s.ZadaniPotpis(cijeli)}
+	if err := h.tmplPotpis.ExecuteTemplate(w, "posta_potpis.html", d); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+// HandlePotpis sprema potpis
+func (h *AktiHandler) HandlePotpis(w http.ResponseWriter, r *http.Request) {
+	u, _, _ := h.base(r)
+	s := h.svc(w)
+	if s == nil || u == nil {
+		return
+	}
+	if err := s.SpremiPotpis(r.Context(), u, r.FormValue("html")); err != nil {
+		redirectWith(w, r, "/profile/potpis", "error", err.Error())
+		return
+	}
+	if strings.TrimSpace(r.FormValue("html")) == "" {
+		redirectWith(w, r, "/profile/potpis", "success", "Potpis je uklonjen.")
+		return
+	}
+	redirectWith(w, r, "/profile/potpis", "success", "Potpis je spremljen i ubacuje se u svako novo pismo.")
 }

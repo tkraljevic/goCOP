@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"net/mail"
 	"slices"
 	"strings"
@@ -732,4 +733,54 @@ func (s *AktService) AdreseZaPismo(ctx context.Context, u *models.User, upit str
 		}
 	}
 	return out
+}
+
+// ---- potpis e-pošte ----
+
+// Potpis vraća korisnikov potpis e-pošte (HTML); prazno kad ga nije spremio
+func (s *AktService) Potpis(ctx context.Context, userID string) string {
+	h, _ := s.repo.GetPotpis(ctx, userID)
+	return h
+}
+
+// SpremiPotpis sprema korisnikov potpis; prazan potpis ga briše
+func (s *AktService) SpremiPotpis(ctx context.Context, u *models.User, html string) error {
+	if u == nil {
+		return ErrUnauthorized
+	}
+	return s.repo.SavePotpis(ctx, &repository.PotpisPoste{UserID: u.ID.String(), HTML: posta.OcistiHTML(html)})
+}
+
+// ZadaniPotpis slaže potpis iz podataka profila: ime i titula, funkcija,
+// organizacija, telefoni i e-pošta
+func (s *AktService) ZadaniPotpis(u *models.User) string {
+	esc := html.EscapeString
+	var b strings.Builder
+	b.WriteString("<p>S poštovanjem,</p><p><b>" + esc(u.FullName) + "</b>")
+	if u.Title != "" {
+		b.WriteString(", " + esc(u.Title))
+	}
+	if d := u.PrimaryDuty(); d != nil && d.Title != "" {
+		b.WriteString("<br>" + esc(d.Title))
+	}
+	org := u.OrgName
+	if org == "" {
+		org = "Hrvatske vode"
+	}
+	b.WriteString("<br>" + esc(org))
+	var k []string
+	if u.Phone != "" {
+		k = append(k, "tel. "+esc(u.Phone))
+	}
+	if u.MobilePhone != "" {
+		k = append(k, "mob. "+esc(u.MobilePhone))
+	}
+	if len(k) > 0 {
+		b.WriteString("<br>" + strings.Join(k, " · "))
+	}
+	if u.Email != "" {
+		b.WriteString("<br>" + esc(u.Email))
+	}
+	b.WriteString("</p>")
+	return b.String()
 }

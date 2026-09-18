@@ -66,6 +66,8 @@
       </div>
       <textarea class="form-control" id="tekst" name="tekst" rows="14">{{.Novo.Tekst}}</textarea>
       <input type="hidden" name="html" id="html">
+      <input type="hidden" id="potpis-html" value="{{.Potpis}}">
+      <div class="form-help">{{if .Potpis}}Potpis se ubacuje sam; <a href="/profile/potpis">uredi potpis</a>.{{else}}Potpis još niste postavili: <a href="/profile/potpis">postavite ga u profilu</a> pa se ubacuje u svako pismo.{{end}}</div>
     </div>
     {{with .Izvorno}}{{if and .Privitci (eq $.Nacin "proslijedi")}}
     <p class="form-help">Prosljeđuju se i privitci: {{range $i, $p := .Privitci}}{{if $i}}, {{end}}{{$p.Ime}}{{end}}.</p>
@@ -180,6 +182,8 @@
     var dijelovi = tekst.value.split(/\n\n-{40}\n/);
     var uvod = escape(dijelovi[0] || '').replace(/\n/g, '<br>');
     var sadrzaj = '<p>' + (uvod || '<br>') + '</p>';
+    var potpis = document.getElementById('potpis-html');
+    if (potpis && potpis.value) sadrzaj += '<p><br></p><div class="potpis">' + potpis.value + '</div>';
     if (dijelovi.length > 1) sadrzaj += '<blockquote>' + escape(dijelovi.slice(1).join('\n')).replace(/\n/g, '<br>') + '</blockquote>';
     polje.innerHTML = sadrzaj;
     urednik.hidden = false;

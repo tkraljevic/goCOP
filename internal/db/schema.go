@@ -307,6 +307,12 @@ func InitSchema(database *sql.DB) error {
 			vrijednost TEXT NOT NULL,
 			updated_at DATETIME NOT NULL
 		);`,
+		// Potpis e-pošte korisnika (HTML iz uređivača); ide knjigom verzija
+		`CREATE TABLE IF NOT EXISTS posta_potpisi (
+			user_id TEXT PRIMARY KEY,
+			html TEXT NOT NULL,
+			updated_at DATETIME NOT NULL
+		);`,
 		// Špranca akata po sektoru: pravna osnova, članci, završna rečenica
 		`CREATE TABLE IF NOT EXISTS akti_sprance (
 			sektor TEXT PRIMARY KEY,
