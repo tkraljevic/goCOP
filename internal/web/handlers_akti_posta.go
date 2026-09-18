@@ -175,7 +175,7 @@ func (h *AktiHandler) HandlePosalji(w http.ResponseWriter, r *http.Request) {
 	}
 	sek, area := h.sektorIPodrucje(a)
 	por := porukaAkta(a, sek, u)
-	por.PDF = PDFAktaSaZigom(a, models.Terms(), sek, area, s.Zig(r.Context(), a.Sektor))
+	por.PDF = PDFAktaSaZigom(a, models.Terms(), sek, area, s.OtisciAkta(r.Context(), a))
 	ishod, err := s.PosaljiNaZnanje(r.Context(), perms, u, a.ID, r.Form["adresa"], r.FormValue("kopija") == "1", por)
 	if err != nil && ishod == nil {
 		redirectWith(w, r, natrag+"#slanje", "error", err.Error())

@@ -107,6 +107,29 @@
       </div>
     </section>
 
+    <section class="detail-section profil-kartica" id="vlastorucni">
+      <h2>{{icon "pencil"}} Vlastoručni potpis</h2>
+      <p class="page-desc">Sken vašeg potpisa stoji na PDF-u svakog akta koji ovjerite u goCOP-u, iznad crte za potpis, uz blok elektroničke ovjere i žig centra. Čuva se samo na ovom računalu, šifriran ključem čvora; vidite ga samo vi, a drugi čvorovi dobivaju gotov PDF akta, ne sken.</p>
+      <div class="zig-pregled">
+        {{if .ImaPotpisSliku}}<img src="/profile/potpis-slika?t={{.User.UpdatedAt.Unix}}" alt="Potpis" class="potpis-slika">{{else}}<div class="zig-prazno">Potpis još nije skeniran.</div>{{end}}
+      </div>
+      <form method="POST" action="/profile/potpis-slika" enctype="multipart/form-data" class="form-page" style="margin-top:0.75rem;">
+        <div class="form-group">
+          <input type="file" class="form-control" name="slika" accept="image/png,image/jpeg" required>
+          <div class="form-help">Potpišite se crnom olovkom na bijeli papir, skenirajte s 300 dpi i izrežite na sam potpis. PNG ili JPEG, do 1 MB.</div>
+        </div>
+        <div class="profil-gumbi">
+          <button type="submit" class="btn btn-secondary btn-sm">{{icon "upload"}} {{if .ImaPotpisSliku}}Novi sken{{else}}Spremi sken potpisa{{end}}</button>
+        </div>
+      </form>
+      {{if .ImaPotpisSliku}}
+      <form method="POST" action="/profile/potpis-slika" enctype="multipart/form-data" style="margin-top:0.5rem;" onsubmit="return confirm('Ukloniti sken potpisa?')">
+        <input type="hidden" name="obrisi" value="1">
+        <button type="submit" class="btn btn-sm btn-secondary">{{icon "trash"}} Ukloni</button>
+      </form>
+      {{end}}
+    </section>
+
     <section class="detail-section profil-kartica" id="dezurstva">
       <h2>{{icon "users"}} Moja dežurstva i sati</h2>
       {{if .Planovi}}

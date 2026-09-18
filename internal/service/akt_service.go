@@ -973,3 +973,88 @@ func (s *AktService) ObrisiZig(ctx context.Context, perms *models.UserPermission
 	}
 	return s.repo.DeleteZig(ctx, sektor)
 }
+
+// ---- sken vlastoručnog potpisa ----
+
+// kljucSlika je ključ kojim se sken potpisa šifrira na ovom čvoru
+func (s *AktService) kljucSlika() []byte {
+	if len(s.kljuc) == 0 {
+		return nil
+	}
+	return posta.Kljuc(append([]byte("sken potpisa\x00"), s.kljuc.Seed()...))
+}
+
+// PotpisSlika vraća sken potpisa korisnika, otključan; nil kad ga na ovom
+// čvoru nema ili je šifriran drugim ključem
+func (s *AktService) PotpisSlika(ctx context.Context, userID string) *models.PotpisSlika {
+	z, err := s.repo.GetPotpisSlika(ctx, userID)
+	if err != nil || z == nil {
+		return nil
+	}
+	slika, err := posta.Otkljucaj(s.kljucSlika(), z.Slika)
+	if err != nil {
+		return nil
+	}
+	z.Slika = []byte(slika)
+	return z
+}
+
+// OtisciAkta skuplja slike za PDF ovjerenog akta: žig sektora i potpis ovjeritelja
+func (s *AktService) OtisciAkta(ctx context.Context, a *models.Akt) models.OtisciAkta {
+	o := models.OtisciAkta{Zig: s.Zig(ctx, a.Sektor)}
+	if a.Ovjeren() && a.OvjerioID != "" {
+		o.Potpis = s.PotpisSlika(ctx, a.OvjerioID)
+	}
+	return o
+}
+
+// SpremiPotpisSliku sprema sken vlastitog potpisa: PNG ili JPEG do 1 MB
+func (s *AktService) SpremiPotpisSliku(ctx context.Context, u *models.User, slika []byte) error {
+	if u == nil {
+		return ErrUnauthorized
+	}
+	if len(slika) == 0 {
+		return fmt.Errorf("odaberite sliku potpisa")
+	}
+	if len(slika) > 1<<20 {
+		return fmt.Errorf("slika potpisa je prevelika (najviše 1 MB); izrežite je na sam potpis")
+	}
+	cfg, format, err := image.DecodeConfig(bytes.NewReader(slika))
+	if err != nil || (format != "png" && format != "jpeg") {
+		return fmt.Errorf("potpis mora biti slika PNG ili JPEG")
+	}
+	if cfg.Width < 120 || cfg.Height < 40 {
+		return fmt.Errorf("slika potpisa je premala (%d×%d); skenirajte s najmanje 300 dpi", cfg.Width, cfg.Height)
+	}
+	k := s.kljucSlika()
+	if k == nil {
+		return fmt.Errorf("ključ čvora nije učitan; sken se ne može sigurno spremiti")
+	}
+	sifrirano, err := posta.Zakljucaj(k, string(slika))
+	if err != nil {
+		return err
+	}
+	return s.repo.SavePotpisSlika(ctx, &models.PotpisSlika{UserID: u.ID.String(), Mime: "image/" + format, Slika: sifrirano})
+}
+
+// SpremiIzvornikPDF sprema PDF ovjerenog akta, s otiskom žiga i potpisa,
+// kao izvornik koji se dijeli među čvorovima; kad izvornik već postoji
+// (sken), ne dira ga
+func (s *AktService) SpremiIzvornikPDF(ctx context.Context, a *models.Akt, pdf []byte) error {
+	if !a.Ovjeren() || len(pdf) == 0 {
+		return nil
+	}
+	if iz, err := s.repo.GetIzvornik(ctx, a.ID); err != nil || iz != nil {
+		return err
+	}
+	h := sha256.Sum256(pdf)
+	return s.repo.SaveIzvornik(ctx, &repository.Izvornik{AktID: a.ID, PDF: pdf, Sazetak: hex.EncodeToString(h[:])})
+}
+
+// ObrisiPotpisSliku briše sken vlastitog potpisa
+func (s *AktService) ObrisiPotpisSliku(ctx context.Context, u *models.User) error {
+	if u == nil {
+		return ErrUnauthorized
+	}
+	return s.repo.DeletePotpisSlika(ctx, u.ID.String())
+}

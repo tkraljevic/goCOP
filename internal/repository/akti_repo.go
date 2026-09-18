@@ -681,3 +681,38 @@ func (r *AktiRepository) DeleteZig(ctx context.Context, sektor string) error {
 	}
 	return tx.Commit()
 }
+
+// ---- sken vlastoručnog potpisa ----
+
+// Sken potpisa ostaje samo na čvoru na kojem je učitan, šifriran ključem
+// čvora: ne ide u knjigu verzija ni drugim čvorovima. Na PDF akta dolazi
+// pri ovjeri, a PDF s otiskom se sprema kao izvornik i on se dijeli.
+
+const potpisSlikaUpsert = `INSERT INTO potpisi_slike (user_id, mime, slika, updated_at) VALUES (?, ?, ?, ?)
+	ON CONFLICT(user_id) DO UPDATE SET mime = excluded.mime, slika = excluded.slika, updated_at = excluded.updated_at`
+
+// GetPotpisSlika čita sken potpisa korisnika; nil kad ga nema
+func (r *AktiRepository) GetPotpisSlika(ctx context.Context, userID string) (*models.PotpisSlika, error) {
+	z := models.PotpisSlika{UserID: userID}
+	err := r.db.QueryRowContext(ctx, `SELECT mime, slika, updated_at FROM potpisi_slike WHERE user_id = ?`, userID).Scan(&z.Mime, &z.Slika, &z.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &z, nil
+}
+
+// SavePotpisSlika sprema šifrirani sken potpisa, samo lokalno
+func (r *AktiRepository) SavePotpisSlika(ctx context.Context, z *models.PotpisSlika) error {
+	z.UpdatedAt = time.Now().UTC()
+	_, err := r.db.ExecContext(ctx, potpisSlikaUpsert, z.UserID, z.Mime, z.Slika, z.UpdatedAt)
+	return err
+}
+
+// DeletePotpisSlika briše sken potpisa korisnika s ovog čvora
+func (r *AktiRepository) DeletePotpisSlika(ctx context.Context, userID string) error {
+	_, err := r.db.ExecContext(ctx, `DELETE FROM potpisi_slike WHERE user_id = ?`, userID)
+	return err
+}
