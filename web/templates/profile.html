@@ -54,6 +54,7 @@
     <div class="form-group">
       <label class="form-label" for="email">E-pošta</label>
       <input type="email" id="email" name="email" class="form-control" value="{{.User.Email}}" placeholder="ime.prezime@voda.hr">
+      <div class="form-help">Lozinku za slanje akata s ove adrese upisujete zasebno: <a href="/profile/posta">{{icon "key-round"}} Lozinka za e-poštu (Exchange)</a>.</div>
     </div>
     <div class="form-actions">
       <button type="submit" class="btn btn-primary">Spremi kontakte</button>
@@ -96,10 +97,10 @@
   <a href="/pretplate" class="btn btn-secondary">{{icon "download"}} Što ovo računalo prati</a>
 </section>
 
-<section class="detail-section">
+<section class="detail-section" id="posta">
   <h2>{{icon "mail"}} E-pošta za slanje akata</h2>
   <p class="page-desc">Ovjerena rješenja i obavijesti goCOP šalje primateljima "na znanje" s vaše adrese, preko poslužitelja tvrtke. Za to treba lozinka vašeg računa e-pošte; kad je u tvrtki promijenite, upišite novu.</p>
-  <a href="/profile/posta" class="btn btn-secondary">{{icon "key-round"}} Račun e-pošte</a>
+  <a href="/profile/posta" class="btn btn-secondary">{{icon "key-round"}} Upiši lozinku za e-poštu</a>
 </section>
 
 <section class="detail-section" id="lozinka">
