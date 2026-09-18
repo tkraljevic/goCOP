@@ -22,6 +22,7 @@ import (
 	"gocop/internal/importer/csvlevels"
 	"gocop/internal/importer/ugovor"
 	"gocop/internal/ledger"
+	"gocop/internal/javnivodostaji"
 	"gocop/internal/models"
 	"gocop/internal/peers"
 	"gocop/internal/repository"
@@ -435,6 +436,13 @@ func main() {
 		}()
 	}
 	go peersService.RunAutoSync(syncCtx, *autoSync)
+
+	// Javni vodostaji: svaki sat preuzmi očitanja letvi koje su povezane s
+	// vodostaji.voda.hr i označene za preuzimanje. Bez interneta samo javi
+	// grešku na letvi i pokuša za sat.
+	javniUvoznik := javnivodostaji.NoviUvoznik(repository.NewJavniSpremiste(database, readingRepo), log.Printf)
+	server.SetJavniUvoz(javniUvoznik)
+	go javniUvoznik.Pokreni(syncCtx)
 	log.Printf("Čvor %s (ključ %.12s…) — razmjena :%d, uparivanje :%d, pronalaženje :%d",
 		node.ID, node.PublicKey(), *syncPort, *pairPort, *discoveryPort)
 	if net := peersService.NetworkInfo(); net != nil {

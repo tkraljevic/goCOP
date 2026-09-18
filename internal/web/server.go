@@ -20,6 +20,7 @@ import (
 
 	"gocop/internal/arhiva"
 	"gocop/internal/hydro"
+	"gocop/internal/javnivodostaji"
 	"gocop/internal/ledger"
 	"gocop/internal/models"
 	"gocop/internal/peers"
@@ -55,6 +56,7 @@ type KartaPostavke struct {
 func (k KartaPostavke) Ima() bool { return k.Plocice != "" }
 
 type Server struct {
+	javni     *javnivodostaji.Uvoznik // preuzimanje javnih vodostaja; prazno kad nije uključeno
 	karta     KartaPostavke
 	arhivaPut string
 	podaciDir string // stablo s izvornim datotekama; prazno na čvoru koji samo prima pakete
@@ -576,6 +578,7 @@ func (s *Server) setupRoutes() {
 		s.sectionService, s.watercourseService)
 	stationsH.SetEpisodeService(s.episodeService)
 	stationsH.SetReadingService(s.readingService)
+	stationsH.SetJavniUvoz(func() *javnivodostaji.Uvoznik { return s.javni })
 	stationsH.SetArhiva(s.Arhiva)
 	stationsH.SetIspravci(func() *repository.IspravakRepository {
 		if s.db == nil {
@@ -640,6 +643,7 @@ func (s *Server) setupRoutes() {
 		return nil
 	})
 	readingsH.SetUvoz(s.templates["uvoz_ocitanja.html"])
+	readingsH.SetJavniUvoz(func() *javnivodostaji.Uvoznik { return s.javni })
 	readingsH.SetOcitanjaCSV(s.templates["ocitanja_ispravci.html"])
 	// Baza se poslužitelju daje tek nakon sastavljanja, pa se repozitorij gradi
 	// pri zahtjevu. Predana vrijednost bila bi zauvijek prazna.
@@ -867,6 +871,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /readings/station/{id}/uvoz", s.authMiddleware(http.HandlerFunc(readingsH.HandleArhivaUvoz)))
 	s.mux.Handle("POST /readings/station/{id}/zalijepi", s.authMiddleware(http.HandlerFunc(readingsH.HandleZalijepiPregled)))
 	s.mux.Handle("POST /readings/station/{id}/zalijepi/potvrdi", s.authMiddleware(http.HandlerFunc(readingsH.HandleZalijepiPotvrda)))
+	s.mux.Handle("POST /readings/station/{id}/javni", s.authMiddleware(http.HandlerFunc(readingsH.HandlePreuzmiJavno)))
 	s.mux.Handle("POST /readings/station/{id}/uvoz/potvrdi", s.authMiddleware(http.HandlerFunc(readingsH.HandleArhivaPotvrda)))
 
 	// Izvoz i ispravak operativnih očitanja. Iste tri rute i za postaju i za
@@ -1199,6 +1204,9 @@ func (s *Server) SetIzvjesca(i *service.IzvjescaService) { s.izvjescaService = i
 
 // SetMts daje poslužitelju evidenciju sredstava za obranu
 func (s *Server) SetMts(m *service.MtsService) { s.mtsService = m }
+
+// SetJavniUvoz daje poslužitelju uvoznika javnih vodostaja
+func (s *Server) SetJavniUvoz(u *javnivodostaji.Uvoznik) { s.javni = u }
 
 // SetZid daje poslužitelju zid događanja iz knjige verzija
 func (s *Server) SetZid(z *service.ZidService) { s.zidService = z }

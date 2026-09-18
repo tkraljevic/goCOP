@@ -373,6 +373,8 @@ func InitSchema(database *sql.DB) error {
 			zero_datum_history TEXT NOT NULL DEFAULT '[]',
 			extremes TEXT NOT NULL DEFAULT '[]',
 			return_levels TEXT NOT NULL DEFAULT '[]',
+			javni_id INTEGER NOT NULL DEFAULT 0,
+			javni_uvoz INTEGER NOT NULL DEFAULT 0,
 			zero_datum_source TEXT NOT NULL DEFAULT '',
 			zero_datum_method TEXT NOT NULL DEFAULT '',
 			zero_datum_survey_date TEXT NOT NULL DEFAULT '',
@@ -951,6 +953,9 @@ func migrateSchema(database *sql.DB) error {
 		// isto stoji u arhivi, u 48 bajta umjesto 1.360.
 		{"readings", "izdanje", "TEXT NOT NULL DEFAULT ''"},
 		// temperatura vode i izmjereni protok uz očitanje vodostaja
+		// veza letve s javnom stranicom vodostaji.voda.hr i satno preuzimanje
+		{"stations", "javni_id", "INTEGER NOT NULL DEFAULT 0"},
+		{"stations", "javni_uvoz", "INTEGER NOT NULL DEFAULT 0"},
 		{"readings", "temp_c", "REAL"},
 		{"readings", "flow_m3s", "REAL"},
 		{"journals", "channel", "TEXT NOT NULL DEFAULT ''"},

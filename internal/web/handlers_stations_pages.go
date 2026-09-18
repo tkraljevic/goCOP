@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"gocop/internal/arhiva"
+	"gocop/internal/javnivodostaji"
 	"gocop/internal/models"
 	"gocop/internal/repository"
 	"gocop/internal/service"
@@ -31,22 +32,23 @@ type StationPageData struct {
 	ExtremesJSON         template.JS // zabilježeni ekstremi za obrazac
 	ReturnLevelsJSON     template.JS // povratni vodostaji za obrazac
 	Sections             []models.Section
-	Episodes             []models.DefenseEpisode // obrane vođene po ovoj letvi, najnovija prva
-	Valovi               []models.Val            // valovi obrane izračunati iz niza, najnoviji prvi
-	ValoviSvi            []models.Val            // svi valovi, prije rezanja na stranicu — izvješće bira po vrhu
-	ValoviPager          Pager                   // listanje valova
-	ValoviZbroj          []models.ZbrojStupnja   // koliko je koje stanje ukupno trajalo
-	ValoviNiz            models.RazdobljeNiza    // na kojem je nizu računato
-	ValoviPragovi        []models.PragObrane     // pragovi koji su ušli u izračun
-	Nizovi               []models.HidroNiz       // što o ovoj letvi ima u arhivi
-	Pregled              *models.HidroPregled    // karakteristične vrijednosti odabranog niza
-	Profili              []models.ProfilKorita   // snimke poprečnog profila korita
-	Profil               *models.ProfilKorita    // onaj koji se crta
-	Krivulje             []models.HQKrivulja     // krivulje protoka po razdobljima
-	PragoviQ             []PragProtok            // isti pragovi iskazani u protoku
-	ImaProtok            bool                    // ima li ijedan prag protok, pa tablica treba stupac
-	BrojOcitanja         int                     // koliko je očitanja upisano na letvi — za upozorenje pri brisanju
-	PragoviKote          []PragKota              // isti pragovi kao apsolutna kota vodne plohe
+	Episodes             []models.DefenseEpisode  // obrane vođene po ovoj letvi, najnovija prva
+	Valovi               []models.Val             // valovi obrane izračunati iz niza, najnoviji prvi
+	ValoviSvi            []models.Val             // svi valovi, prije rezanja na stranicu — izvješće bira po vrhu
+	ValoviPager          Pager                    // listanje valova
+	ValoviZbroj          []models.ZbrojStupnja    // koliko je koje stanje ukupno trajalo
+	ValoviNiz            models.RazdobljeNiza     // na kojem je nizu računato
+	ValoviPragovi        []models.PragObrane      // pragovi koji su ušli u izračun
+	Nizovi               []models.HidroNiz        // što o ovoj letvi ima u arhivi
+	Pregled              *models.HidroPregled     // karakteristične vrijednosti odabranog niza
+	Profili              []models.ProfilKorita    // snimke poprečnog profila korita
+	Profil               *models.ProfilKorita     // onaj koji se crta
+	Krivulje             []models.HQKrivulja      // krivulje protoka po razdobljima
+	JavnePostaje         []javnivodostaji.Postaja // javni popis postaja za povezivanje; prazno bez interneta
+	PragoviQ             []PragProtok             // isti pragovi iskazani u protoku
+	ImaProtok            bool                     // ima li ijedan prag protok, pa tablica treba stupac
+	BrojOcitanja         int                      // koliko je očitanja upisano na letvi — za upozorenje pri brisanju
+	PragoviKote          []PragKota               // isti pragovi kao apsolutna kota vodne plohe
 	// Sazeto sklapa zabilježene ekstreme. Na kartici letve su predmet i stoje
 	// otvoreni, pa ostaje netočno; polje postoji da zajednički predložak radi
 	// s objema stranicama.
@@ -120,6 +122,9 @@ func (h *StationsHandler) SetKarta(f func() KartaPostavke) { h.karta = f }
 // SetReadingService daje rukovatelju pravo upisa očitanja, da zajednički
 // izbornik letve pokaže isti gumb kao i stranica očitanja.
 func (h *StationsHandler) SetReadingService(s *service.ReadingService) { h.readingService = s }
+
+// SetJavniUvoz daje rukovatelju uvoznika javnih vodostaja, za popis postaja u obrascu
+func (h *StationsHandler) SetJavniUvoz(f func() *javnivodostaji.Uvoznik) { h.javni = f }
 
 // SetPaket daje rukovatelju sve što treba za pakete historijata: gdje arhiva
 // stoji, kako se čvor zove i kako se paket ugrađuje.
@@ -552,6 +557,11 @@ func (h *StationsHandler) ShowStationForm(w http.ResponseWriter, r *http.Request
 	data.ZeroDatumHistoryJSON = template.JS("[]")
 	if b, err := json.Marshal(data.Station.ZeroDatumHistory); err == nil && len(data.Station.ZeroDatumHistory) > 0 {
 		data.ZeroDatumHistoryJSON = template.JS(b)
+	}
+	if h.javni != nil {
+		if u := h.javni(); u != nil {
+			data.JavnePostaje = u.Postaje(r.Context())
+		}
 	}
 	if err := h.tmplForm.ExecuteTemplate(w, "station_form.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

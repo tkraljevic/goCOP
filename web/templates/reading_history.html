@@ -111,6 +111,13 @@
 <section class="detail-section">
   <div class="odjeljak-glava">
     <h2>{{icon "history"}} Svježa očitanja <span class="reg-chip">{{.Count}}</span>{{if .Followed}} <span class="reg-chip">{{icon "download"}} povijest se čuva</span>{{end}}</h2>
+    {{if and .Station .JavniID .CanEdit}}
+    <form method="POST" action="/readings/station/{{.Station.ID}}/javni" style="margin:0;">
+      <button type="submit" class="btn btn-secondary btn-sm" title="Odmah preuzmi zadnja dva-tri dana s javne stranice vodostaji.voda.hr">
+        {{icon "refresh-cw"}} Preuzmi s vodostaji.voda.hr
+      </button>
+    </form>
+    {{end}}
     {{if .Permissions.IsGlobalAdmin}}
     <form method="POST" action="/readings/follow" style="margin:0;">
       <input type="hidden" name="gauge_key" value="{{.GaugeKey}}">
@@ -123,6 +130,12 @@
     </form>
     {{end}}
   </div>
+  {{if and .Station .JavniID}}
+  <p class="form-help" style="margin:0 0 0.75rem;">
+    {{if .JavniUvoz}}Satno preuzimanje s vodostaji.voda.hr je uključeno.{{else}}Povezana s vodostaji.voda.hr, satno preuzimanje isključeno.{{end}}
+    {{with .JavniStanje}}{{if .Greska}}<span class="badge badge-inactive">{{icon "triangle-alert"}} zadnje preuzimanje {{satHR .Kad}} nije uspjelo: {{.Greska}}</span>{{else}}Zadnje preuzimanje {{satHR .Kad}}: {{.Preuzeto}} sa stranice, novih {{.Novih}}{{if not .ZadnjeKad.IsZero}}, najnovije {{formatDate (localTime .ZadnjeKad)}}{{end}}.{{end}}{{end}}
+  </p>
+  {{end}}
   <form method="GET" action="" id="pogled" style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; margin-bottom:0.75rem;">
     <label class="filter-label" for="pogledSel" style="margin:0;">Pogled</label>
     <select id="pogledSel" name="pogled" class="filter-select" style="max-width:12rem;" onchange="this.form.submit()">
