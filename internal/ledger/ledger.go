@@ -511,3 +511,35 @@ func (r *Recorder) Stats(ctx context.Context) (Stats, error) {
 	st.ByEntity = counts
 	return st, nil
 }
+
+// Recent vraća najnovije verzije zadanih entiteta, najnovija prva — za zid
+// događanja. Prije sužava na verzije starije od te (listanje unatrag), a
+// od i do na zidni sat nastanka; nula znači bez granice.
+func (r *Recorder) Recent(ctx context.Context, entities []string, prije string, od, do time.Time, limit int) ([]Version, error) {
+	if len(entities) == 0 {
+		return nil, nil
+	}
+	q := `SELECT version_id, entity, entity_id, node_id, supersedes, archived, payload, created_at, schema_version, channel
+		FROM record_versions WHERE entity IN (?` + strings.Repeat(",?", len(entities)-1) + `)`
+	args := make([]any, 0, len(entities)+4)
+	for _, e := range entities {
+		args = append(args, e)
+	}
+	if prije != "" {
+		q += ` AND version_id < ?`
+		args = append(args, prije)
+	}
+	if !od.IsZero() {
+		q += ` AND created_at >= ?`
+		args = append(args, od.UTC())
+	}
+	if !do.IsZero() {
+		q += ` AND created_at < ?`
+		args = append(args, do.UTC())
+	}
+	q += ` ORDER BY version_id DESC`
+	if limit > 0 {
+		q += fmt.Sprintf(` LIMIT %d`, limit)
+	}
+	return r.query(ctx, q, args...)
+}

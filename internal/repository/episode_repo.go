@@ -221,3 +221,25 @@ func getEpisodeTx(ctx context.Context, tx *sql.Tx, id string) (models.DefenseEpi
 	row := tx.QueryRowContext(ctx, `SELECT `+episodeColumns+` FROM defense_episodes e WHERE e.id = ?`, id)
 	return scanEpisode(row)
 }
+
+// OpenEpisodesInSector vraća obrane koje traju na dionicama sektora, za
+// traku stanja: najviši stadij i koliko dionica
+func (r *EpisodeRepository) OpenEpisodesInSector(ctx context.Context, sektor string) ([]models.DefenseEpisode, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT e.id, e.section_code, e.phase, e.started_at FROM defense_episodes e
+		JOIN sections s ON s.code = e.section_code WHERE e.ended_at IS NULL AND s.sector_id = ? ORDER BY e.started_at`, sektor)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []models.DefenseEpisode
+	for rows.Next() {
+		var e models.DefenseEpisode
+		var id, phase string
+		if err := rows.Scan(&id, &e.SectionCode, &phase, &e.StartedAt); err != nil {
+			return nil, err
+		}
+		e.Phase = models.DefensePhase(phase)
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}

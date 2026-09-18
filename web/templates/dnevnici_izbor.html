@@ -61,6 +61,21 @@
 
     <div class="dash-card">
       <div class="dash-card-header">
+        <div class="dash-card-icon-box info">{{icon "activity"}}</div>
+        <span class="dash-status-pill info">KNJIGA</span>
+      </div>
+      <div class="dash-card-body">
+        <h2 class="dash-card-title">Događanja</h2>
+        <p class="dash-card-desc">
+          Kronologija iz knjige verzija: dnevnik, dežurstva, izvješća, obrana, sredstva i očitanja iznad praga, po
+          razdoblju, modulu i osobi, s izvozom kao prilog izvješću.
+        </p>
+      </div>
+      <div class="dash-card-footer"><a href="/dogadjanja" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
+    </div>
+
+    <div class="dash-card">
+      <div class="dash-card-header">
         <div class="dash-card-icon-box teal">{{icon "waves"}}</div>
         <span class="dash-status-pill {{if .BrojA02}}info{{else}}default{{end}}">{{.BrojA02}}</span>
       </div>
