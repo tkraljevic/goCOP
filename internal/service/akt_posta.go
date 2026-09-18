@@ -770,7 +770,8 @@ func (s *AktService) ZadaniPotpis(u *models.User) string {
 	}
 	var jedinice []string
 	telCOP := ""
-	if d := u.PrimaryDuty(); d != nil && d.SectorID != nil {
+	d := najvisaDuznost(u)
+	if d != nil && d.SectorID != nil {
 		if sektori, err := s.users.ListSectors(); err == nil {
 			for _, sek := range sektori {
 				if sek.ID == *d.SectorID {
@@ -799,7 +800,7 @@ func (s *AktService) ZadaniPotpis(u *models.User) string {
 	if len(jedinice) > 0 {
 		b.WriteString(`<div style="` + plava + `;font-size:10pt">` + esc(strings.Join(jedinice, "<br>")) + `</div>`)
 	}
-	if d := u.PrimaryDuty(); d != nil && d.Title != "" {
+	if d != nil && d.Title != "" {
 		b.WriteString(`<div><b>` + esc(d.Title) + `</b></div>`)
 	}
 	b.WriteString(`<div><b>` + esc(u.FullName) + `</b>`)
@@ -864,4 +865,40 @@ func nastavakSlike(mime string) string {
 		return ".webp"
 	}
 	return ""
+}
+
+// poredakUloga je red od najviše prema nižoj unutar iste razine: voditelj
+// prije zamjenika, sektor prije područja, područje prije dionice
+var poredakUloga = []models.Role{
+	models.RoleGlobalAdmin, models.RoleNationalLeader, models.RoleNationalDeputy, models.RoleMainCenterLeader, models.RoleMainCenterDeputy,
+	models.RoleSectorMainDeputy, models.RoleSectorLeader, models.RoleSectorDeputy, models.RoleSectorAreaDeputy, models.RoleCopLeader, models.RoleCopDeputy,
+	models.RoleAreaAdmin, models.RoleAreaLeader, models.RoleAreaDeputy, models.RoleSectionLeader, models.RoleSectionDeputy,
+}
+
+func mjestoUloge(r models.Role) int {
+	for i, x := range poredakUloga {
+		if x == r {
+			return i
+		}
+	}
+	return len(poredakUloga) + 1
+}
+
+// najvisaDuznost bira najvišu aktivnu dužnost osobe: po razini uloge, pa po
+// redu unutar razine; potpis nosi najvišu funkciju, ne nužno primarnu
+func najvisaDuznost(u *models.User) *models.Duty {
+	var naj *models.Duty
+	for i := range u.Duties {
+		d := &u.Duties[i]
+		if !d.IsActive {
+			continue
+		}
+		if naj == nil || d.Role.Rank() < naj.Role.Rank() || (d.Role.Rank() == naj.Role.Rank() && mjestoUloge(d.Role) < mjestoUloge(naj.Role)) {
+			naj = d
+		}
+	}
+	if naj == nil {
+		return u.PrimaryDuty()
+	}
+	return naj
 }
