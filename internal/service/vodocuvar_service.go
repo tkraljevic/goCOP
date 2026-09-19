@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strings"
@@ -460,6 +462,7 @@ func (s *VodocuvarService) Obrisi(ctx context.Context, u *models.User, id string
 	if l.UserID != u.ID.String() || l.Predan() {
 		return ErrUnauthorized
 	}
+	_ = s.repo.DeleteIzvornik(ctx, id)
 	return s.repo.Delete(ctx, id)
 }
 
@@ -581,4 +584,22 @@ func (s *VodocuvarService) Upisi(ctx context.Context, perms *models.UserPermissi
 	}
 	l.Upisi = append(l.Upisi, models.UpisRukovoditelja{UserID: u.ID.String(), Ime: u.FullName, Funkcija: funkcija, Kad: time.Now(), Tekst: tekst})
 	return l, s.repo.Save(ctx, l)
+}
+
+// Izvornik vraća potpisani PDF lista, ako ga osoba smije vidjeti
+func (s *VodocuvarService) Izvornik(ctx context.Context, perms *models.UserPermissions, id string) (*models.IzvornikLista, error) {
+	l, err := s.Get(ctx, perms, id)
+	if err != nil || l == nil {
+		return nil, err
+	}
+	return s.repo.GetIzvornik(ctx, id)
+}
+
+// SpremiIzvornik sprema PDF lista kako je potpisan
+func (s *VodocuvarService) SpremiIzvornik(ctx context.Context, listID string, pdf []byte) error {
+	if len(pdf) == 0 {
+		return nil
+	}
+	h := sha256.Sum256(pdf)
+	return s.repo.SaveIzvornik(ctx, &models.IzvornikLista{ListID: listID, PDF: pdf, Sazetak: hex.EncodeToString(h[:])})
 }

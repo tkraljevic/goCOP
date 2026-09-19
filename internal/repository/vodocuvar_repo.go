@@ -370,3 +370,55 @@ func (r *VodocuvarRepository) ZadaciURazdoblju(ctx context.Context, userID strin
 	}
 	return out, rows.Err()
 }
+
+// ---- izvornici ----
+
+// GetIzvornik čita potpisani PDF lista; nil kad ga nema
+func (r *VodocuvarRepository) GetIzvornik(ctx context.Context, listID string) (*models.IzvornikLista, error) {
+	iz := models.IzvornikLista{ListID: listID}
+	err := r.db.QueryRowContext(ctx, `SELECT pdf, sazetak, updated_at FROM vodocuvarski_izvornici WHERE list_id = ?`, listID).Scan(&iz.PDF, &iz.Sazetak, &iz.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &iz, nil
+}
+
+// SaveIzvornik sprema potpisani PDF lista, s verzijom u knjizi
+func (r *VodocuvarRepository) SaveIzvornik(ctx context.Context, iz *models.IzvornikLista) error {
+	iz.UpdatedAt = time.Now().UTC()
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, izvornikListaUpsert, iz.ListID, iz.PDF, iz.Sazetak, iz.UpdatedAt); err != nil {
+		return err
+	}
+	if _, err := r.rec.Record(ctx, tx, EntityVodocuvarskiIzvornici, iz.ListID, iz); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// DeleteIzvornik briše potpisani PDF lista, ako ga ima
+func (r *VodocuvarRepository) DeleteIzvornik(ctx context.Context, listID string) error {
+	iz, err := r.GetIzvornik(ctx, listID)
+	if err != nil || iz == nil {
+		return err
+	}
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `DELETE FROM vodocuvarski_izvornici WHERE list_id = ?`, listID); err != nil {
+		return err
+	}
+	if _, err := r.rec.Archive(ctx, tx, EntityVodocuvarskiIzvornici, listID, iz); err != nil {
+		return err
+	}
+	return tx.Commit()
+}

@@ -142,6 +142,9 @@ func (d *Doc) NovaStranica() {
 
 func (d *Doc) tok() *bytes.Buffer { return d.stranice[len(d.stranice)-1] }
 
+// Stranica je redni broj tekuće stranice, od 1
+func (d *Doc) Stranica() int { return len(d.stranice) }
+
 // Sirina je širina prostora za tekst između margina
 func (d *Doc) Sirina() float64 { return d.W - d.Lijevo - d.Desno }
 

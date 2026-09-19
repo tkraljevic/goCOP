@@ -327,6 +327,30 @@ func InitSchema(database *sql.DB) error {
 			slika BLOB NOT NULL,
 			updated_at DATETIME NOT NULL
 		);`,
+		// Elektronički potpis: osobni ključevi (privatni dio šifriran lozinkom
+		// osobe) i izdavatelji čvorova; oboje putuje knjigom verzija
+		`CREATE TABLE IF NOT EXISTS potpisni_kljucevi (
+			user_id TEXT PRIMARY KEY,
+			ime TEXT NOT NULL DEFAULT '',
+			cert BLOB NOT NULL,
+			kljuc BLOB NOT NULL,
+			sol BLOB NOT NULL,
+			izdao TEXT NOT NULL DEFAULT '',
+			created_at DATETIME NOT NULL,
+			updated_at DATETIME NOT NULL
+		);`,
+		`CREATE TABLE IF NOT EXISTS potpisni_izdavatelji (
+			cvor TEXT PRIMARY KEY,
+			cert BLOB NOT NULL,
+			created_at DATETIME NOT NULL
+		);`,
+		// Potpisani PDF dnevnog lista: vodočuvar pri predaji, rukovoditelj pri ovjeri
+		`CREATE TABLE IF NOT EXISTS vodocuvarski_izvornici (
+			list_id TEXT PRIMARY KEY,
+			pdf BLOB NOT NULL,
+			sazetak TEXT NOT NULL DEFAULT '',
+			updated_at DATETIME NOT NULL
+		);`,
 		// Vodočuvarski dnevnik: dnevni listovi po vodočuvaru, kao papirna knjiga
 		`CREATE TABLE IF NOT EXISTS vodocuvarski_listovi (
 			id TEXT PRIMARY KEY,

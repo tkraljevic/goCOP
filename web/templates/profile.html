@@ -140,6 +140,47 @@
       {{end}}
     </section>
 
+    <section class="detail-section profil-kartica" id="potpis">
+      <h2>{{icon "lock"}} Elektronički potpis</h2>
+      <p class="page-desc">Vaš osobni ključ kojim potpisujete dokumente u goCOP-u: dnevne listove pri predaji i ovjeri. Potpis je ugrađen u PDF (PAdES) i vidi ga svaki čitač; program provjerava da je dokument nepromijenjen i tko ga je potpisao. To je napredni elektronički potpis: unutar Hrvatskih voda vrijedi kako pravilnik odredi, a za akte prema van i dalje treba kvalificirani potpis.</p>
+      <details class="zastita">
+        <summary>{{icon "lock"}} Kako je ključ zaštićen</summary>
+        <ul>
+          <li><strong>Samo vi ga možete upotrijebiti:</strong> privatni ključ je zaključan vašom lozinkom računa (scrypt + AES-256-GCM). Pri svakom potpisu upisujete lozinku. Administrator, drugi čvor ni „tuđe oči” ne mogu potpisati u vaše ime.</li>
+          <li><strong>Certifikat izdaje čvor</strong> na kojem ste ključ napravili, s vašim imenom, funkcijom i sektorom; drugi čvorovi ga priznaju jer razmjenjuju certifikate izdavatelja.</li>
+          <li><strong>Promjena lozinke</strong> u profilu prekljuca ključ. Ako vam administrator poništi lozinku, stari ključ postaje neupotrebljiv: napravite novi; već potpisani dokumenti ostaju provjerljivi.</li>
+          <li><strong>Šifrirani zapis putuje knjigom verzija,</strong> pa potpisujete s bilo kojeg čvora; bez lozinke je bezvrijedan.</li>
+        </ul>
+      </details>
+      {{if .Kljuc.Ima}}
+      <dl class="vodocuvar-dl" style="margin-top:0.5rem;">
+        <dt>Certifikat</dt><dd>{{.Kljuc.Ime}}{{with .Kljuc.Funkcija}}, {{.}}{{end}}{{with .Kljuc.Sektor}}, Sektor {{.}}{{end}}</dd>
+        <dt>Izdao</dt><dd>goCOP {{.Kljuc.Izdao}}</dd>
+        <dt>Vrijedi</dt><dd>{{formatDate (localTime .Kljuc.Od)}} – {{formatDate (localTime .Kljuc.Do)}}{{if .Kljuc.Istekao}} <strong>(istekao)</strong>{{end}}</dd>
+        <dt>Otisak</dt><dd class="mono">{{.Kljuc.Otisak}}</dd>
+      </dl>
+      <form method="POST" action="/profile/potpisni-kljuc" class="form-page" style="margin-top:0.75rem;" onsubmit="return confirm('Ukloniti potpisni ključ? Već potpisani dokumenti ostaju.')">
+        <input type="hidden" name="radnja" value="obrisi">
+        <div class="profil-gumbi"><button type="submit" class="btn btn-sm btn-secondary">{{icon "trash"}} Ukloni ključ</button></div>
+      </form>
+      <form method="POST" action="/profile/potpisni-kljuc" class="form-page" style="margin-top:0.5rem;" onsubmit="return confirm('Napraviti novi ključ umjesto postojećeg?')">
+        <input type="hidden" name="radnja" value="novi">
+        <div class="form-group"><label class="form-label" for="kljuc-lozinka2">Lozinka računa</label><input type="password" class="form-control" id="kljuc-lozinka2" name="lozinka" autocomplete="current-password" required></div>
+        <div class="profil-gumbi"><button type="submit" class="btn btn-sm btn-secondary">{{icon "refresh-cw"}} Novi ključ</button></div>
+      </form>
+      {{else}}
+      <form method="POST" action="/profile/potpisni-kljuc" class="form-page" style="margin-top:0.75rem;">
+        <input type="hidden" name="radnja" value="novi">
+        <div class="form-group">
+          <label class="form-label" for="kljuc-lozinka">Lozinka računa</label>
+          <input type="password" class="form-control" id="kljuc-lozinka" name="lozinka" autocomplete="current-password" required>
+          <div class="form-help">Ključ se zaključava ovom lozinkom; program je provjerava prije izrade.</div>
+        </div>
+        <div class="profil-gumbi"><button type="submit" class="btn btn-primary btn-sm">{{icon "lock"}} Napravi potpisni ključ</button></div>
+      </form>
+      {{end}}
+    </section>
+
     <section class="detail-section profil-kartica" id="dezurstva">
       <h2>{{icon "users"}} Moja dežurstva i sati</h2>
       {{if .Planovi}}

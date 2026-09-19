@@ -412,6 +412,12 @@ func main() {
 		return rv.OdTekst(), rv.DoTekst()
 	})
 	server.SetVodocuvar(vodocuvarService, orgRepo)
+	potpisService := service.NewPotpisService(repository.NewPotpisRepository(database, recorder), userService, node.ID, node.PrivateKey(), authService.CheckPassword)
+	if err := potpisService.Pokreni(context.Background()); err != nil {
+		log.Printf("elektronički potpis nije dostupan: %v", err)
+	} else {
+		server.SetPotpis(potpisService)
+	}
 	server.SetZid(service.NewZidService(recorder, journalRepo, sectionRepo, mtsRepo, userRepo, stationRepo, episodeRepo))
 	server.SetKarta(cfg.Karta.Plocice, cfg.Karta.Zasluge, cfg.Karta.NajviseZ)
 

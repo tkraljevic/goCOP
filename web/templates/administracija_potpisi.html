@@ -1,0 +1,49 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Elektronički potpisi{{end}}
+
+{{define "content"}}
+<div class="breadcrumb"><a href="/administracija">Administracija</a> › Elektronički potpisi</div>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "lock"}} Elektronički potpisi</h1>
+    <p class="page-desc">Svaki čvor je izdavatelj certifikata: ključ izdavatelja izvodi se iz ključa čvora, a certifikat se objavljuje knjigom verzija pa ga svi čvorovi priznaju. Osobe u profilu naprave svoj ključ; certifikat im potpiše čvor na kojem su ga napravile. Potpisi su napredni elektronički potpisi (PAdES): svaki čitač PDF-a ih vidi i provjerava sadržaj, a izdavatelja priznaje kad se certifikat izdavatelja doda među pouzdane (u Adobe Readeru ili grupnom politikom domene).</p>
+  </div>
+</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
+
+<section class="detail-section" style="margin-top:0;">
+  <h2>{{icon "shield"}} Izdavatelj ovog čvora</h2>
+  {{if .Izdavatelj}}
+  <dl class="vodocuvar-dl">
+    <dt>Naziv</dt><dd>{{.Izdavatelj.Subject.CommonName}}{{range .Izdavatelj.Subject.Organization}}, {{.}}{{end}}</dd>
+    <dt>Vrijedi do</dt><dd>{{formatDate (localTime .Izdavatelj.NotAfter)}}</dd>
+    <dt>Otisak</dt><dd class="mono">{{.IzdavateljOt}}</dd>
+  </dl>
+  <a href="/potpis/izdavatelj.pem" class="btn btn-secondary btn-sm">{{icon "download"}} Preuzmi certifikat izdavatelja (PEM)</a>
+  <div class="form-help" style="margin-top:0.4rem;">Dodajte ga među pouzdane izdavatelje na računalima koja otvaraju potpisane PDF-ove, pa čitač uz „potpis valjan” pokaže i „izdavatelj pouzdan”.</div>
+  {{else}}<p class="form-help">Izdavatelj nije spreman: čvor nema ključ.</p>{{end}}
+</section>
+
+<section class="detail-section">
+  <h2>{{icon "shield"}} Izdavatelji svih čvorova</h2>
+  {{if .Izdavatelji}}
+  <table class="table"><thead><tr><th>Čvor</th><th>Naziv</th><th>Otisak</th><th>Vrijedi do</th></tr></thead><tbody>
+  {{range .Izdavatelji}}<tr><td>{{.Cvor}}{{if .Ovaj}} <span class="form-help">(ovaj)</span>{{end}}</td><td>{{.Naziv}}</td><td class="mono">{{.Otisak}}</td><td>{{formatDate (localTime .Do)}}</td></tr>{{end}}
+  </tbody></table>
+  {{else}}<p class="form-help">Još nema objavljenih izdavatelja.</p>{{end}}
+</section>
+
+<section class="detail-section">
+  <h2>{{icon "users"}} Izdani osobni ključevi</h2>
+  {{if .Kljucevi}}
+  <table class="table"><thead><tr><th>Osoba</th><th>Funkcija</th><th>Sektor</th><th>Izdao</th><th>Vrijedi do</th><th>Otisak</th></tr></thead><tbody>
+  {{range .Kljucevi}}<tr><td>{{.Ime}}</td><td>{{.Funkcija}}</td><td>{{.Sektor}}</td><td>{{.Izdao}}</td><td>{{formatDate (localTime .Do)}}{{if .Istekao}} <strong>(istekao)</strong>{{end}}</td><td class="mono">{{.Otisak}}</td></tr>{{end}}
+  </tbody></table>
+  {{else}}<p class="form-help">Nitko još nije napravio ključ; svatko ga pravi sam u svom profilu.</p>{{end}}
+  <div class="form-help" style="margin-top:0.4rem;">Privatni ključevi nisu ovdje ni igdje u čitljivom obliku: zaključani su lozinkom osobe. Administrator ključ ne može ni napraviti ni upotrijebiti umjesto osobe.</div>
+</section>
+{{end}}

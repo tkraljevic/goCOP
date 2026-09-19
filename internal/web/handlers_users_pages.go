@@ -63,6 +63,7 @@ type UserPageData struct {
 	ModuleRows     []ModuleOverrideRow // vidljivost modula za ovaj račun (samo globalni administrator)
 	Planovi        []models.PlanOsobe  // planovi dežurstava u kojima osoba ima sate
 	ImaPotpisSliku bool                // sken vlastoručnog potpisa je spremljen
+	Kljuc          PodaciKljuca        // osobni potpisni ključ, ako ga ima
 	PostaRacun     string              // korisničko ime računa e-pošte, prazno kad lozinka nije upisana
 	PostaKad       time.Time
 
@@ -108,6 +109,11 @@ func canManageUsers(p *models.UserPermissions) bool {
 
 // deletable javlja smije li se račun obrisati: samo onaj koji se nikad nije prijavio
 func deletable(u *models.User) bool { return u != nil && u.LastLoginAt == nil }
+
+// SetPotpisniKljuc daje rukovatelju uvid u potpisni ključ osobe
+func (h *UsersHandler) SetPotpisniKljuc(f func(ctx context.Context, userID string) PodaciKljuca) {
+	h.potpisniKljuc = f
+}
 
 // SetPotpisSlika daje rukovatelju uvid ima li osoba sken potpisa
 func (h *UsersHandler) SetPotpisSlika(f func(ctx context.Context, userID string) bool) {
@@ -302,6 +308,9 @@ func (h *UsersHandler) ShowProfile(w http.ResponseWriter, r *http.Request) {
 	}
 	if h.potpisSlika != nil {
 		data.ImaPotpisSliku = h.potpisSlika(r.Context(), data.User.ID.String())
+	}
+	if h.potpisniKljuc != nil {
+		data.Kljuc = h.potpisniKljuc(r.Context(), data.User.ID.String())
 	}
 
 	if err := h.tmplProfile.ExecuteTemplate(w, "profile.html", data); err != nil {
