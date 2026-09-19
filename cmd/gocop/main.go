@@ -414,6 +414,20 @@ func main() {
 	server.SetVodocuvar(vodocuvarService, orgRepo)
 	// akti samo u aktivnoj obrani (otvoren dnevnik COP-a), a ovjereni idu u dnevnike
 	aktService.SetObrana(journalService.AktivnaObrana, service.NewObjavaAkta(journalService, vodocuvarService).Objavi)
+	prijavaService := service.NewPrijavaService(repository.NewPrijavaRepository(database, recorder), userService, vodocuvarService, node.ID)
+	server.SetPrijave(prijavaService)
+	// izvorne fotografije s terena brišu se nakon roka iz opcija; PDF ih nosi trajno
+	go func() {
+		for {
+			dani := aktService.Opcije(context.Background()).CuvanjeSlika()
+			if n, err := prijavaService.ObrisiStareSlike(context.Background(), dani); err != nil {
+				log.Printf("brisanje starih fotografija: %v", err)
+			} else if n > 0 {
+				log.Printf("obrisano %d fotografija s terena starijih od %d dana (PDF ih nosi)", n, dani)
+			}
+			time.Sleep(24 * time.Hour)
+		}
+	}()
 	potpisService := service.NewPotpisService(repository.NewPotpisRepository(database, recorder), userService, node.ID, node.PrivateKey(), authService.CheckPassword)
 	if err := potpisService.Pokreni(context.Background()); err != nil {
 		log.Printf("elektronički potpis nije dostupan: %v", err)

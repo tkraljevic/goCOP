@@ -24,4 +24,16 @@ type Opcije struct {
 	// potpis nose oznaku SIMULACIJA, a PDF pečat BEZVRIJEDNO. Samo za
 	// testiranje toka potpisivanja.
 	SimulacijaKljuca bool `json:"simulacija_kljuca"`
+	// CuvanjeSlikaDana je koliko se dana nakon objave čuvaju izvorne
+	// fotografije uz prijave s terena; potpisani PDF ih nosi trajno.
+	// 0 znači zadanih 180.
+	CuvanjeSlikaDana int `json:"cuvanje_slika_dana,omitempty"`
+}
+
+// CuvanjeSlika vraća rok čuvanja fotografija u danima
+func (o Opcije) CuvanjeSlika() int {
+	if o.CuvanjeSlikaDana <= 0 {
+		return ZadanoCuvanjeSlikaDana
+	}
+	return o.CuvanjeSlikaDana
 }

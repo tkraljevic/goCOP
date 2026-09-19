@@ -168,6 +168,9 @@ func nacrtajList(d *pdfw.Doc, l *models.VodocuvarskiList, t models.OrgTerms, are
 	if l.Ocitanja != "" {
 		zap = append(zap, models.Stavke(l.Ocitanja)...)
 	}
+	for _, p := range l.Prijave {
+		zap = append(zap, p.Tekst()+" ("+p.Kad.In(models.Zagreb).Format("02.01. 15:04")+")")
+	}
 	okvir("Posebna zapažanja:", numerirano(zap), 160)
 
 	// potpisi: lijevo vodočuvar, desno rukovoditelj branjenog područja; tko je

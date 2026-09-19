@@ -305,8 +305,8 @@ func TestRazdjelnicaDnevnikaDijeliTriVrste(t *testing.T) {
 	}
 	// Svaka kartica ima ikonu, kao i na Administraciji: COP, dežurstva,
 	// izvješća, događanja, vodočuvarski dnevnik, akti, A.02, A.03.
-	if n := strings.Count(html, "dash-card-icon-box"); n != 8 {
-		t.Errorf("ikona na %d kartica, a ima ih osam", n)
+	if n := strings.Count(html, "dash-card-icon-box"); n != 9 {
+		t.Errorf("ikona na %d kartica, a ima ih devet", n)
 	}
 	// Strojar i skladištar vodočuvarski dnevnik ne vide uopće
 	for _, uloga := range []models.Role{models.RoleMachinist, models.RoleWarehouseKeeper} {
@@ -314,8 +314,8 @@ func TestRazdjelnicaDnevnikaDijeliTriVrste(t *testing.T) {
 			CurrentUser: &models.User{FullName: "P", Duties: []models.Duty{{Role: uloga, IsActive: true}}},
 			Permissions: &models.UserPermissions{},
 		})
-		if strings.Contains(html, "/vodocuvar") {
-			t.Errorf("%s vidi karticu vodočuvarskog dnevnika", uloga)
+		if strings.Contains(html, "/vodocuvar") || strings.Contains(html, "/prijave") {
+			t.Errorf("%s vidi karticu vodočuvarskog dnevnika ili prijava", uloga)
 		}
 	}
 }

@@ -81,7 +81,7 @@ var SurfaceEntities = []string{EntitySectors, EntityAreas, EntityOrgTerms, Entit
 	EntityUsers, EntityDuties, "role_modules", "user_modules", EntityStations, EntitySections, EntityWatercourses,
 	EntityCounties, EntityMunicipalities, EntitySettlements, EntityStructures, "maintained_waters", "work_items", "journals",
 	EntityBlagdani, EntityKoeficijenti, EntityObracunPostavke,
-	EntityMtsVrste, EntityMtsSkladista, EntityMtsPromet, EntityMtsPopisi, EntityMtsPotrebe, EntityAkti, EntityPrimatelji, EntitySprance, EntitySluzbe, EntityIzvornici, EntitySlanja, EntityPostavke, EntityPotpisi, EntityZigovi, EntityVodocuvarski, EntityZadaci, EntityPotpisniKljucevi, EntityPotpisniIzdavatelji, EntityVodocuvarskiIzvornici, EntityJournalIzvornici}
+	EntityMtsVrste, EntityMtsSkladista, EntityMtsPromet, EntityMtsPopisi, EntityMtsPotrebe, EntityAkti, EntityPrimatelji, EntitySprance, EntitySluzbe, EntityIzvornici, EntitySlanja, EntityPostavke, EntityPotpisi, EntityZigovi, EntityVodocuvarski, EntityZadaci, EntityPotpisniKljucevi, EntityPotpisniIzdavatelji, EntityVodocuvarskiIzvornici, EntityJournalIzvornici, EntityPrijave, EntityPrijaveIzvornici}
 
 // ReplaySurface ponovno primijeni zadnju verziju svakog zapisa iz knjige na
 // površinu. Služi kad je primjena primljenih verzija jednom zapela: knjiga je
@@ -443,6 +443,22 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 			return err
 		}
 		_, err := tx.ExecContext(ctx, zigUpsert, z.Sektor, z.Mime, z.Slika, z.Uredio, v.CreatedAt)
+		return err
+
+	case EntityPrijave:
+		var p models.PrijavaSTerena
+		if err := json.Unmarshal(v.Payload, &p); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, prijavaUpsert, prijavaArgs(&p)...)
+		return err
+
+	case EntityPrijaveIzvornici:
+		var iz models.IzvornikLista
+		if err := json.Unmarshal(v.Payload, &iz); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, prijavaIzvornikUpsert, iz.ListID, iz.PDF, iz.Sazetak, iz.UpdatedAt)
 		return err
 
 	case EntityPotpisniKljucevi:
@@ -897,6 +913,10 @@ func removeFromSurface(ctx context.Context, tx *sql.Tx, v ledger.Version) error 
 		stmt = `DELETE FROM vodocuvarski_listovi WHERE id = ?`
 	case EntityZadaci:
 		stmt = `DELETE FROM vodocuvarski_zadaci WHERE id = ?`
+	case EntityPrijave:
+		stmt = `DELETE FROM prijave WHERE id = ?`
+	case EntityPrijaveIzvornici:
+		stmt = `DELETE FROM prijave_izvornici WHERE prijava_id = ?`
 	case EntityPotpisniKljucevi:
 		stmt = `DELETE FROM potpisni_kljucevi WHERE user_id = ?`
 	case EntityPotpisniIzdavatelji:
