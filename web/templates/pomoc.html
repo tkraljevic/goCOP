@@ -26,7 +26,12 @@
 
 <div class="pomoc-brzi" aria-label="Česti zadaci">
   <a href="#ocitanja-popis">{{icon "waves"}} <span><strong>Upisati vodostaj</strong><small>Jedno očitanje na terenu</small></span></a>
-  <a href="#dnevnik-cop">{{icon "activity"}} <span><strong>Voditi dnevnik COP-a</strong><small>Nova dojava, storno i prijepis</small></span></a>
+  <a href="#tok-obrane">{{icon "shield"}} <span><strong>Pokrenuti obranu</strong><small>Dnevnik COP-a, akti i dežurstva</small></span></a>
+  <a href="#vodocuvar">{{icon "notebook-pen"}} <span><strong>Voditi dnevni list</strong><small>Zadaci, predaja i ovjera</small></span></a>
+  <a href="#akti">{{icon "file-text"}} <span><strong>Ovjeriti akt</strong><small>Potpis, žig i slanje na znanje</small></span></a>
+  <a href="#sredstva">{{icon "package"}} <span><strong>Evidentirati sredstva</strong><small>Promet, inventura i potrebe</small></span></a>
+  <a href="#posta">{{icon "mail"}} <span><strong>Otvoriti poštu</strong><small>Exchange, adresar i privitci</small></span></a>
+  <a href="#dnevnik-cop">{{icon "activity"}} <span><strong>Voditi dnevnik COP-a</strong><small>Nova dojava, storno i zaključivanje</small></span></a>
   <a href="#dnevnik-dezurstva">{{icon "users"}} <span><strong>Upisati dežurstvo</strong><small>Plan i potvrda uprave centra</small></span></a>
   <a href="#dnevnik-obracun">{{icon "calculator"}} <span><strong>Izvesti obračun</strong><small>IORS i Excel za računovodstvo</small></span></a>
   <a href="#arhiva-unos">{{icon "package"}} <span><strong>Uvesti hidrološki niz</strong><small>CSV, Excel i zatečeni podaci</small></span></a>
@@ -38,8 +43,9 @@
     <a class="kazalo-glava" href="#pocetak">Kako se program koristi</a>
     <a class="kazalo-glava" href="#dashboard">Početna</a>
     <a href="#dashboard-hero">Prijavljeni djelatnik i profil</a>
-    <a href="#dashboard-kpi">Operativni brojači</a>
-    <a href="#dashboard-kartice">Mreža modula i kartice</a>
+    <a href="#dashboard-stanje">Stanje obrane</a>
+    <a href="#dashboard-dogadjanja">Zid događanja</a>
+    <a href="#dashboard-kartice">Moduli</a>
     <a class="kazalo-glava" href="#teren">Teren</a>
   </div>
   <div class="kazalo-grupa">
@@ -80,14 +86,26 @@
     <a href="#arhiva-selidba">Prebacivanje u arhivu i pospremanje</a>
   </div>
   <div class="kazalo-grupa">
-    <a class="kazalo-glava" href="#journals">Dnevnici</a>
+    <a class="kazalo-glava" href="#journals">Dokumentacija</a>
+    <a href="#tok-obrane">Tok aktivne obrane</a>
     <a href="#dnevnik-cop">Dnevnik COP-a</a>
     <a href="#dnevnik-dezurstva">Plan dežurstava</a>
     <a href="#dnevnik-obracun">Obračun sati i IORS</a>
+    <a href="#izvjesca">Dnevna izvješća</a>
+    <a href="#dogadjanja">Događanja</a>
+    <a href="#vodocuvar">Vodočuvarski dnevnik</a>
+    <a href="#prijave">Prijave s terena</a>
+    <a href="#akti">Rješenja i obavijesti</a>
     <a href="#dnevnik-usluge">Dnevnici usluga A.02 i A.03</a>
+  </div>
+  <div class="kazalo-grupa">
+    <a class="kazalo-glava" href="#sredstva">Sredstva za obranu</a>
+    <a class="kazalo-glava" href="#posta">E-pošta i adresar</a>
+    <a class="kazalo-glava" href="#potpisi">Potpisi i izvornici</a>
     <a class="kazalo-glava" href="#users">Djelatnici</a>
     <a class="kazalo-glava" href="#registers">Registri</a>
     <a class="kazalo-glava" href="#admin">Administracija</a>
+    <a href="#admin-test">Testne opcije</a>
     <a class="kazalo-glava" href="#profile">Moj profil</a>
     <a class="kazalo-glava" href="#pojmovi">Pojmovnik</a>
   </div>
@@ -101,9 +119,10 @@
 <section class="detail-section" id="pocetak">
   <h2>{{icon "info"}} Kako se program koristi</h2>
   <div class="reg-card pomoc-tekst">
-    <p>goCOP vodi evidenciju obrane od poplava: vodostaje, dionice, objekte, dnevnike i ljude
-      koji su u obrani. Radi na računalu u uredu i na telefonu na terenu, i ne treba mu
-      internet — svaki ured drži svoju bazu, a računala se međusobno usklađuju kad se vide.</p>
+    <p>goCOP vodi evidenciju obrane od poplava: vodostaje, dionice, objekte, dnevnike, dokumente,
+      sredstva i ljude koji su u obrani. Osnovni rad ne treba internet — svaki čvor drži svoju
+      bazu, a računala se usklađuju kad se vide. Mrežne karte, javni vodostaji, vrijeme, Exchange
+      i sinkronizacija rade samo kada je njihova mreža dostupna.</p>
     <p><strong>Što vidite ovisi o ulozi.</strong> Izbornik ne pokazuje sve svima: dijelovi
       koje vaša uloga ne treba jednostavno nisu tu. Ako vam nešto nedostaje, a mislite da vam
       treba, to uređuje administrator pod <em>Administracija → Moduli i ovlasti</em>.</p>
@@ -121,10 +140,9 @@
 <section class="detail-section" id="dashboard">
   <h2>{{icon "house"}} Početna</h2>
   <div class="reg-card pomoc-tekst">
-    <p>Početna stranica je operativni preglednik i glavno polazište za rad u sustavu. Ovdje se
-      vidi tko je prijavljen, ključni pokazatelji sustava obrane od poplava te prečaci na module
-      za koje imate ovlasti. Sama stranica služi za orijentaciju i brzi prijelaz na radne
-      zadatke — na njoj se podaci ne unose izravno.</p>
+    <p>Početna stranica je operativna ploča: pokazuje način rada svakog sektora, najnovija
+      događanja i module za koje imate ovlasti. Služi za orijentaciju i brzi prijelaz na posao;
+      podatak se mijenja na stranici zapisa na koji događaj vodi.</p>
 
     <h3 id="dashboard-hero">Prijavljeni djelatnik i profil</h3>
     <p>Na vrhu stoji <strong>kartica prijavljenog djelatnika</strong> koja odmah potvrđuje vaš
@@ -139,29 +157,27 @@
         njihovih dužnosti i kontakata (prikazuje se onima čija uloga ima pristup imeniku).</li>
     </ul>
 
-    <h3 id="dashboard-kpi">Operativni brojači</h3>
-    <p>Četiri ključne brojke na vrhu daju sažeti uvid u obuhvat obrane od poplava u sustavu:</p>
-    <ul>
-      <li><strong>Djelatnika i sudionika</strong> — ukupan broj registriranih djelatnika Hrvatskih
-        voda i vanjskih sudionika obrane od poplava.</li>
-      <li><strong>Aktivnih funkcija i zaduženja</strong> — broj važećih operativnih zaduženja i
-        dužnosti raspoređenih po dionicama, sektorima i centrima.</li>
-      <li><strong>Branjenih područja (1–34)</strong> — 34 branjena područja u Republici Hrvatskoj,
-        ustrojena prema Državnom planu obrane od poplava.</li>
-      <li><strong>6 sektora + Direkcija</strong> — teritorijalni sektori obrane od poplava (A do F)
-        uz Glavni centar obrane od poplava u Zagrebu (Direkcija).</li>
-    </ul>
+    <h3 id="dashboard-stanje">Stanje obrane</h3>
+    <p>Traka stanja daje pregled sektora koje smijete vidjeti. Otvoren dnevnik COP-a znači
+      <strong>aktivnu obranu</strong>: vode se dežurstva, akti i izvješća. Bez otvorenog dnevnika
+      sektor je u <strong>preventivnoj obrani</strong>. Proglašeni stupnjevi i aktivni dnevnici
+      prikazuju se uz sektor i otvaraju se jednim pritiskom.</p>
 
-    <h3 id="dashboard-kartice">Mreža modula i kartice</h3>
-    <p>Ispod brojača nalazi se mreža prečaca na operativne evidencije. <strong>Prikazuju se samo one
-      kartice za koje vaša uloga ima ovlasti</strong>:</p>
+    <h3 id="dashboard-dogadjanja">Zid događanja</h3>
+    <p>Zid spaja posljednje promjene iz različitih modula u jednu kronologiju: očitanja, dnevnike,
+      akte, izvješća, sredstva i druge poslovne zapise. Naslov otvara izvorni zapis. Cijela
+      kronologija s filtrima i Excel izvozom nalazi se pod <em>Dokumentacija → Događanja</em>.</p>
+
+    <h3 id="dashboard-kartice">Moduli</h3>
+    <p>Iznad zida nalazi se red prečaca. <strong>Prikazuju se samo moduli za koje vaša uloga ima
+      ovlasti</strong>:</p>
     <ul>
       <li><strong>Teren</strong> — brzi popis vlastitih vodomjernih postaja i hidrotehničkih
         objekata, posebno prilagođen radu na mobitelu i upisu očitanja jednom rukom na terenu.</li>
       <li><strong>Očitanja</strong> — operativni vodostaji: zadnja očitana stanja, stupnjevi
         i pragovi obrane od poplava, grafikoni kretanja vodostaja i praćene postaje.</li>
-      <li><strong>Dnevnici</strong> — dnevnik COP-a po centru obrane, plan dežurstava i obračun
-        sati te dnevnici usluga održavanja A.02 i A.03 s dnevnim listovima i radnim nalozima.</li>
+      <li><strong>Dokumentacija</strong> — dnevnici, dežurstva, izvješća, događanja, akti i
+        vodočuvarska knjiga.</li>
       <li><strong>Djelatnici</strong> — operativni imenik svih sudionika obrane s kontaktima,
         funkcijama i rasporedom zaduženja po dionicama.</li>
       <li><strong>Registri</strong> — temeljne evidencije: branjena područja, teritorijalni ustroj
@@ -176,8 +192,9 @@
 <section class="detail-section" id="teren">
   <h2>{{icon "map-pin"}} Teren</h2>
   <div class="reg-card pomoc-tekst">
-    <p>Popis letvi za obilazak, složen za rad na telefonu s jednom rukom. <strong>Moje letve</strong>
-      su one za koje ste zaduženi, ispod su ostale letve područja.</p>
+    <p>Popis letvi i objekata za obilazak, složen za rad na telefonu s jednom rukom.
+      <strong>Moje</strong> su stavke za koje ste zaduženi. Sektor se bira prvi, zatim se nude
+      njegova branjena područja; izbor <em>Svi sektori</em> prikazuje sve što smijete vidjeti.</p>
     <p>Traka napretka pokazuje koliko je letvi danas očitano. Letva se otvara pritiskom, a
       očitanje se upisuje velikim poljem za broj — na terenu se ne pogađa sitna tipka.</p>
   </div>
@@ -380,8 +397,10 @@
         Po tome se na terenu računa koliko obranu treba nadvisiti vrećama.</li>
       <li><strong>Protok</strong> — koliko vode prolazi, u m³/s. Računa se službenom krivuljom
         DHMZ-a koja je vrijedila u trenutku tog očitanja. Krivulje nema za svaku letvu, a ni za
-        svaki vodostaj: kad je voda izvan raspona za koji je krivulja postavljena, ne piše se
-        ništa. Izmišljen protok gori je od nikakvog.</li>
+        svaki vodostaj. Do 20 cm izvan kraja krivulje program može prikazati procjenu uz jasno
+        upozorenje; dalje od toga protok ne izmišlja.</li>
+      <li><strong>Mjereni protok i temperatura vode</strong> — upisuju se kad su stvarno izmjereni.
+        Mjereni protok ima prednost pred izračunom iz HQ krivulje, ali oba ostaju objašnjena.</li>
       <li><strong>Pragovi</strong> — četiri stupnja obrane i najviši zabilježeni vodostaj.</li>
     </ul>
 
@@ -399,6 +418,9 @@
     <p>Popis upisanih očitanja, novije prvo. Uz svako stoji odakle je došlo (ručno, uvoz,
       telemetrija) i tko ga je upisao. Olovka otvara izmjenu. Na telefonu se očitanje upisuje
       velikim poljem za broj — na terenu se ne pogađa sitna tipka.</p>
+    <p>Svako očitanje može nositi vlastitu bilješku. Ako postaja ima adresu podržane javne
+      stranice, goCOP jednom na sat preuzima objavljeno očitanje; javni podatak uvijek zadržava
+      izvor i ne predstavlja se kao ručni upis vodočuvara.</p>
     <p><strong>Čuvaj povijest</strong> govori ovom računalu da drži cijelu povijest te letve, a
       ne samo zadnjih nekoliko očitanja. Odluka je lokalna — druga računala ostaju kakva jesu.</p>
 
@@ -534,12 +556,25 @@
 </section>
 
 <section class="detail-section" id="journals">
-  <h2>{{icon "notebook"}} Dnevnici</h2>
+  <h2>{{icon "notebook"}} Dokumentacija obrane</h2>
   <div class="reg-card pomoc-tekst">
-    <p>Ulaz u Dnevnike prvo razdvaja četiri različita posla: <strong>dnevnik COP-a</strong>,
-      <strong>plan dežurstava</strong> te dnevnike usluga <strong>A.02</strong> i
-      <strong>A.03</strong>. Ne vode ih isti ljudi i ne sadrže iste podatke, zato nisu pomiješani
-      u jednom popisu.</p>
+    <p>Ulaz u Dokumentaciju razdvaja povezane, ali različite poslove: dnevnike COP-a, plan
+      dežurstava, dnevna izvješća, događanja, vodočuvarsku knjigu, prijave s terena, rješenja i
+      obavijesti te dnevnike usluga A.02 i A.03. Prikazuju se samo kartice koje vaša uloga koristi.</p>
+
+    <h3 id="tok-obrane">Tok aktivne obrane</h3>
+    <ol>
+      <li>Dok nema otvorenog dnevnika COP-a, sektor je u <strong>preventivnoj obrani</strong>.</li>
+      <li>Voditelj ili zamjenik COP-a otvara dnevnik i time počinje <strong>aktivna obrana</strong>.</li>
+      <li>U aktivnoj obrani vode se dežurstva, proglašavaju i prekidaju stupnjevi te nastaju
+        dnevna izvješća.</li>
+      <li>Ovjereni akt automatski se bilježi u dnevniku COP-a, dnevnim listovima vodočuvara
+        područja i otvorenim dnevnicima održavanja tog područja.</li>
+      <li>Na završetku se predaju aktivna dežurstva, upisuje kraj dnevnika, provjerava obračun,
+        a voditelj COP-a dnevnik zaključuje i elektronički ovjerava.</li>
+    </ol>
+    <p>Prelazak praga na vodomjeru upozorenje je ljudima; sam po sebi ne proglašava obranu.
+      Odluka nastaje tek ovjerenim rješenjem ili obaviješću.</p>
 
     <h3 id="dnevnik-cop">Dnevnik COP-a</h3>
     <p>Dnevnik COP-a je kronološki zapisnik jednog centra obrane dok traje obrana. Otvara ga
@@ -554,6 +589,11 @@
     <p>Zapis se ne prepisuje i ne briše. Pogrešan zapis se <strong>stornira uz razlog</strong> i
       ostaje vidljiv u dnevniku. Prijepis iz stare evidencije može se ispraviti dok je označen
       kao prijepis; zaključen dnevnik više ne prima nove zapise.</p>
+    <p>Prije zaključivanja dnevnik mora imati upisan kraj i ne smije ostati aktivno dežurstvo.
+      <strong>Voditelj COP-a</strong>, odgovoran za dežurstva, zaključuje ga svojim osobnim
+      elektroničkim ključem. Tada nastaje trajni potpisani PDF izvornik i dnevnik se više ne
+      mijenja ni briše. Rukovoditelj sektora ne daje drugi potpis, nego zaključeni dnevnik dobiva
+      na znanje.</p>
 
     <h3 id="dnevnik-dezurstva">Plan dežurstava</h3>
     <p>Plan stoji uz dnevnik COP-a i govori <strong>tko je radio, od kada do kada, za cijeli
@@ -579,6 +619,53 @@
       <code>BP_&lt;broj&gt;</code>, ukupnim iznosima i mjestima za potpise.</p>
     <p><a class="btn btn-secondary btn-sm" href="/dnevnici/popis?vrsta=DEZURSTVA">{{icon "users"}} Otvori plan dežurstava</a></p>
 
+    <h3 id="izvjesca">Dnevna izvješća</h3>
+    <p>Rukovoditelj dionice ili zamjenik za svaki dan obrane dopunjava izvješće dionice i predaje
+      ga podcentru. Program unaprijed nudi dionicu, vodotok, stupanj obrane i očitanje oko 07:00,
+      a čovjek potvrđuje mjere, sudionike i stanje na poplavljenom području. Izvješće se izvozi
+      u Excel kao obrazac na A4.</p>
+    <p>Voditelj COP-a zatim slaže izvješće sektora iz predanih izvješća dionica i odabranih
+      zapisa dnevnika COP-a. Pri spremanju se snima sadržaj tablica, pa kasnija izmjena izvornog
+      izvješća ne prepisuje već izrađeni sektorski dokument.</p>
+
+    <h3 id="dogadjanja">Događanja</h3>
+    <p>Događanja su puna kronologija poslovnih promjena koje se na početnoj vide kao zid.
+      Filtriraju se po sektoru, području, modulu i razdoblju te izvoze u Excel. Brisanje zapisa
+      sa zida postoji samo kao izričita testna opcija; ne briše živi poslovni zapis i u
+      operativnom radu mora ostati isključeno.</p>
+
+    <h3 id="vodocuvar">Vodočuvarski dnevnik</h3>
+    <p>Svaki vodočuvar ima godišnju knjigu s jednim dnevnim listom po danu. List nosi redovno
+      radno vrijeme iz postavke obračuna, očitanja, stanje objekata, zadatke, bilješke i upise
+      rukovoditelja ili ovlaštenika. Zadaci se mogu planirati do 30 dana unaprijed i pregledati
+      u kalendaru.</p>
+    <p>Vodočuvar list predaje osobnim elektroničkim potpisom, a rukovoditelj branjenog područja
+      ga zatim ovjerava svojim. Potpisani PDF je izvornik; stranica provjerava svaki potpis i
+      pokazuje pokriva li cijeli dokument. Istekom godine knjiga prelazi u arhivu samo za čitanje
+      i ispis cijele knjige. Strojari i skladištari bez vodočuvarske dužnosti dnevnik ne vide.</p>
+
+    <h3 id="prijave">Prijave i obavijesti s terena</h3>
+    <p>Vodočuvar s terena sastavlja obavijest, prijavu, izvješće ili zahtjev: opisuje što je
+      zatekao, bira vodotok, objekt ili dionicu, označava mjesto na karti i prilaže fotografije.
+      Nacrt se može uređivati i obrisati samo prije objave.</p>
+    <p>Objavom prijava dobiva broj, osobni elektronički potpis i trajni PDF izvornik s ugrađenim
+      fotografijama. Istodobno se upisuje na vodočuvarov dnevni list za dan događaja. Uprava je
+      nakon pregleda može označiti riješenom i arhivirati, ali objavljeni sadržaj više ne mijenja.</p>
+    <p>Program fotografije odmah smanjuje radi prostora. Izvorne smanjene slike ostaju lokalno
+      onoliko dana koliko administrator zada u Opcijama, a zatim se brišu; potpisani PDF sa svim
+      slikama ostaje trajno i razmjenjuje se među odgovarajućim čvorovima.</p>
+
+    <h3 id="akti">Rješenja i obavijesti</h3>
+    <p>Akt se sastavlja po vodomjeru i branjenom području u aktivnoj obrani. Bira se očitanje ili
+      prognoza, dionice, vrijeme od kojeg vrijedi i primatelji. Nacrt se smije uređivati; nakon
+      ovjere dobiva oznaku, izvornik i trag slanja. Akt o prekidu povezuje se s aktom koji stavlja
+      izvan snage.</p>
+    <p>Postoje tri puta do izvornika: kvalificirani potpis u SIGNATOR-u, vlastoručni potpis sa
+      žigom i skenirani PDF ili hitna ovjera u goCOP-u potpisom ovlaštenog rukovoditelja. Program
+      provjerava da vraćeni SIGNATOR PDF pripada upravo tom nacrtu i da ga je potpisala ovlaštena
+      osoba. Ovjereni izvornik šalje se označenim primateljima pojedinačno; za probu postoji
+      radnja <em>Probno samo meni</em>.</p>
+
     <h3 id="dnevnik-usluge">Dnevnici usluga A.02 i A.03</h3>
     <p>Dnevnici A.02 i A.03 vode se po području i ugovoru. Imaju naslovnicu s izvođačem,
       voditeljem i nadzorom te dnevne listove s vremenskim prilikama, vodostajima, osobljem,
@@ -590,13 +677,78 @@
   </div>
 </section>
 
+<section class="detail-section" id="sredstva">
+  <h2>{{icon "package"}} Sredstva za obranu</h2>
+  <div class="reg-card pomoc-tekst">
+    <p>Sredstva se vode po skladištima branjenih područja. Stanje se ne prepisuje ručno nego se
+      računa iz knjige prometa: početno stanje i primka povećavaju zalihu, a izdavanje, utrošak i
+      otpis je smanjuju. Povrat vraća sredstvo, a prijenos stvara povezani izlaz iz jednog i ulaz
+      u drugo skladište.</p>
+    <ul>
+      <li><strong>Katalog vrsta</strong> određuje naziv, jedinicu i oblike sredstva. Korištena se
+        vrsta ne briše nego gasi.</li>
+      <li><strong>Promet</strong> pamti količinu, mjesto, nalog, osobu koja je preuzela ili
+        dopremila i dokument. Potvrda ili otpremnica te cijela knjiga izvoze se u Excel.</li>
+      <li><strong>Gdje ima</strong> pokazuje zalihu odabrane vrste kroz sva dostupna skladišta.</li>
+      <li><strong>Inventura</strong> uspoređuje prebrojano s knjižnim stanjem. Zaključivanjem se
+        razlika knjiži i dokument se više ne mijenja.</li>
+      <li><strong>Potrebe za nabavom</strong> vode se odvojeno po godini; nisu dio inventure.</li>
+    </ul>
+    <p>Skladištar piše za svoje područje, a uprava područja i sektora za svoj doseg. Excel za
+      Glavni centar daje stanje svih skladišta na odabrani dan.</p>
+  </div>
+</section>
+
+<section class="detail-section" id="posta">
+  <h2>{{icon "mail"}} E-pošta i adresar tvrtke</h2>
+  <div class="reg-card pomoc-tekst">
+    <p>Administrator pod <em>Administracija → E-pošta</em> postavlja Exchange/EWS ili SMTP
+      poslužitelj. Svaki korisnik zatim na profilu sprema vlastitu lozinku e-pošte. Lozinka se
+      provjerava pri upisu, šifrira ključem ovog računala i ne ulazi u zajedničku knjigu verzija;
+      na drugom računalu upisuje se ponovno.</p>
+    <p>Sandučić prikazuje mape, nepročitana pisma, pretragu, HTML sadržaj u izoliranom okviru i
+      privitke. Moguće je odgovoriti, odgovoriti svima, proslijediti, označiti više pisama i
+      premjestiti ih; iz mape Obrisano može se izvesti trajno brisanje. Novo pismo koristi adresar
+      djelatnika, uređivač oblikovanog teksta i potpis spremljen na profilu.</p>
+    <p>Adresar tvrtke pretražuje Exchange i uspoređuje službene kontakte s goCOP imenikom. Razlike
+      se ne prepisuju automatski: korisnik bira što želi preuzeti. Potpisani PDF koji SIGNATOR
+      vrati e-poštom može se iz sandučića učitati izravno u pripadajući nacrt akta.</p>
+    <p>Vanjske slike u pismu mogu poslužitelju pošiljatelja otkriti da je poruka otvorena. Ako je
+      domena nedostupna ili je lozinka pogrešna, to ne blokira lokalni rad ostalih modula.</p>
+  </div>
+</section>
+
+<section class="detail-section" id="potpisi">
+  <h2>{{icon "lock"}} Potpisi, žigovi i izvornici</h2>
+  <div class="reg-card pomoc-tekst">
+    <ul>
+      <li><strong>Osobni elektronički potpis</strong> izrađuje se na profilu. Privatni ključ
+        zaključan je lozinkom korisnika; lozinka se traži pri svakom potpisu. Certifikat izdaje
+        čvor i drugi upareni čvorovi priznaju njegova izdavatelja.</li>
+      <li><strong>Kvalificirani potpis</strong> nastaje izvan goCOP-a u SIGNATOR-u. goCOP provjerava
+        potpisnika, certifikat i podudara li se vraćeni PDF s preuzetim nacrtom.</li>
+      <li><strong>Vlastoručni potpis i žig</strong> koriste se kad se dokument ispiše i skenira.
+        Sken potpisa na profilu ostaje šifriran na tom čvoru; žig centra uređuje samo uprava
+        sektora. Drugima putuje gotovi PDF izvornik, ne nezaštićene slike.</li>
+      <li><strong>Simulirani potpis</strong> postoji isključivo za testiranje tuđim očima. Crven je,
+        nosi riječ SIMULACIJA i veliki žig „BEZVRIJEDNO”; nema pravnu ni poslovnu vrijednost.</li>
+    </ul>
+    <p>Izvornik je zaključani PDF koji sadrži potpise i otiske. Naknadna izmjena dokumenta ruši
+      provjeru. Brisanje ovjerenog izvornika dostupno je samo posebnom testnom opcijom i ne smije
+      biti uključeno u operativnom radu.</p>
+  </div>
+</section>
+
 <section class="detail-section" id="users">
   <h2>{{icon "users"}} Djelatnici</h2>
   <div class="reg-card pomoc-tekst">
     <p>Imenik ljudi u obrani s njihovim ulogama i operativnim funkcijama. Uloga određuje što
       tko vidi i smije mijenjati; dužnost određuje za koje je dionice zadužen.</p>
     <p>Administrator može <em>gledati program tuđim očima</em> — provjeriti što neki djelatnik
-      vidi. U tom pogledu program samo čita, ništa se ne može promijeniti.</p>
+      vidi. Zadano je taj pogled samo za čitanje. U testnom okruženju administrator može posebno
+      uključiti upise tuđim očima i simulirani ključ; stvarni administrator ostaje zabilježen, a
+      svaki simulirani potpis vidljivo je označen kao bezvrijedan. Te se opcije u operativnom
+      radu drže isključenima.</p>
   </div>
 </section>
 
@@ -611,6 +763,8 @@
       <li><strong>Dionice</strong> — branjene dionice s pripadajućim letvama, objektima i
         stupnjevima obrane. Razrađeno gore, <a href="#sections">Dionice</a>.</li>
       <li id="territories"><strong>Teritorijalne jedinice</strong> — županije, općine, naselja.</li>
+      <li><strong>Službe</strong> — stožeri, civilna zaštita, 112, policija, vatrogasci, Crveni
+        križ i druge službene adrese koje se mogu birati kao primatelji akata.</li>
       <li><strong>Vodomjerne postaje</strong> — letve: šifra, vodotok, stacionaža, kota nule i
         pragovi obrane. Razrađeno gore, <a href="#stations">Vodomjerne postaje</a>.</li>
       <li id="structures"><strong>Objekti</strong> — crpke, ustave, propusti i ostalo što ima
@@ -619,6 +773,8 @@
       <li id="firme"><strong>Licencirane firme</strong> — izvođači.</li>
       <li id="maintenance"><strong>Održavanje</strong> — lokacije izvršenja usluga i stavke
         radova.</li>
+      <li><strong>Sredstva za obranu</strong> — katalog, skladišta, promet, inventure i potrebe;
+        detaljno u odjeljku <a href="#sredstva">Sredstva za obranu</a>.</li>
     </ul>
   </div>
 </section>
@@ -646,20 +802,45 @@
         njihove pouzdanosti i točnosti.</li>
       <li id="obracun"><strong>Obračun sati</strong> — blagdani i koeficijenti za ured i teren.
         Nedjelja se računa kao blagdan; povijesno pravilo ne briše se nego mu se ograniči
-        razdoblje važenja kako bi stari obračuni ostali ponovljivi.</li>
+        razdoblje važenja kako bi stari obračuni ostali ponovljivi. Ovdje se postavlja i redovno
+        radno vrijeme, zadano 7:30–15:30.</li>
+      <li><strong>Opcije</strong> — osjetljive mogućnosti za čišćenje i testiranje. Njihovo značenje
+        opisano je niže; operativno se drže isključenima.</li>
+      <li><strong>Žig centra</strong> — slika žiga sektora i njezin trag promjena; vidi je samo
+        uprava sektora.</li>
+      <li><strong>Elektronički potpisi</strong> — izdavatelj ovog čvora, izdavatelji uparenih
+        čvorova i pregled osobnih certifikata.</li>
+      <li><strong>E-pošta</strong> — zajedničke postavke Exchange/EWS ili SMTP poslužitelja.</li>
       <li><strong>Uvozi podataka</strong> — jednokratni uvozi iz vanjskih evidencija.</li>
+      <li><strong>Računi i lozinke</strong> — aktivacija računa i postavljanje početne lozinke;
+        korisnik je pri prvoj prijavi mora zamijeniti.</li>
       <li><strong>Nazivi</strong> — kako se kuća i centar zovu na ispisima.</li>
     </ul>
+
+    <h3 id="admin-test">Testne opcije</h3>
+    <p>Opcije mogu privremeno dopustiti trajno brisanje probnih ovjerenih akata, potpuno čišćenje
+      tehničke povijesti, brisanje probnih zapisa s događanja, upis tuđim očima i simulirani
+      potpis. Ovdje se određuje i koliko se dana čuvaju lokalne fotografije objavljenih prijava s
+      terena; trajni PDF izvornik time se ne briše. Svaka stranica objašnjava što opcija radi i
+      što ne može poništiti. Prije stvarnog rada sve testne prekidače treba isključiti i provjeriti
+      da u bazi nema probnih izvornika.</p>
   </div>
 </section>
 
 <section class="detail-section" id="profile">
   <h2>{{icon "user"}} Moj profil</h2>
   <div class="reg-card pomoc-tekst">
-    <p>Vaši kontakti, oznaka računala i ureda na kojem radite, i promjena lozinke. Početna
-      lozinka mijenja se pri prvoj prijavi.</p>
+    <p>Na profilu su kontakti, aktivna zaduženja s poviješću, oznaka računala i ureda te promjena
+      lozinke. Početna lozinka mora se promijeniti pri prvoj prijavi; do tada ostatak programa
+      ostaje zatvoren.</p>
+    <p>Ovdje se postavljaju i lozinka službene e-pošte, potpis e-pošte, šifrirani sken
+      vlastoručnog potpisa i osobni elektronički ključ. Svaka od tih stavki uz sebe objašnjava
+      ostaje li samo na ovom čvoru ili se sigurno razmjenjuje.</p>
     <p>Ovdje su i vaša dežurstva uz dnevnike COP-a. Za svaki centar u kojem ste u planu možete
       otvoriti plan i vlastito izvješće o radnim satima bez traženja dnevnika u popisu.</p>
+    <p>Pod <strong>Što ovo računalo prati</strong> biraju se sektori, branjena područja i godine
+      koje ovaj čvor želi sinkronizirati. Uredski poslužitelj obično prati sve, a terenski laptop
+      samo ono što njegovu korisniku treba.</p>
   </div>
 </section>
 
@@ -679,6 +860,13 @@
         objavljuje s razlogom. Krivulja se postavlja iznova, najčešće svake godine.</dd>
       <dt>Stupnjevi obrane</dt><dd>Pripremno stanje, redovna obrana, izvanredna obrana,
         izvanredno stanje. Obranu proglašava čovjek; prijelaz praga je povod, ne odluka.</dd>
+      <dt>Preventivna i aktivna obrana</dt><dd>Bez otvorenog dnevnika COP-a sektor je u
+        preventivnoj obrani. Otvaranjem dnevnika počinje aktivna obrana u kojoj se vode
+        dežurstva, proglašavaju stupnjevi i izrađuju izvješća.</dd>
+      <dt>Izvornik</dt><dd>Zaključani PDF službenog dokumenta s potpisima, žigom ili drugim
+        dokazom ovjere. Naknadna izmjena ruši elektroničku provjeru.</dd>
+      <dt>Simulirani potpis</dt><dd>Tehnički potpis samo za testiranje tuđim očima. U PDF-u je
+        trajno označen kao SIMULACIJA i BEZVRIJEDNO.</dd>
       <dt>Dnevni srednjak</dt><dd>Prosjek dvadeset i četiri satna očitanja, ne jutarnje očitanje.</dd>
       <dt>Čvor</dt><dd>Jedno računalo s vlastitom bazom. Čvorovi se usklađuju kad se vide na mreži.</dd>
     </dl>

@@ -33,7 +33,7 @@ func TestSvakiModulImaSvojOdjeljakUPomoci(t *testing.T) {
 		"pocetak", "dashboard", "teren", "sections", "stations", "readings", "arhiva",
 		"journals", "users", "registers", "organizacija", "territories", "structures",
 		"watercourses", "firme", "maintenance", "admin", "moduli", "settings", "sync",
-		"profile", "pojmovi", "pomoc",
+		"sredstva", "posta", "profile", "pojmovi", "pomoc",
 	} {
 		if !sidra[modul] {
 			t.Errorf("pomoć nema odjeljak #%s — znak „?“ s te stranice vodi na vrh", modul)
@@ -125,6 +125,24 @@ func TestPomocImaPretraguICesteZadatke(t *testing.T) {
 	} {
 		if !strings.Contains(h, want) {
 			t.Errorf("pomoć nema tražilicu ili česti zadatak %q", want)
+		}
+	}
+}
+
+// Pomoć je korisnički priručnik za cijeli proizvodni tok, dok README ostaje
+// sažet vodič administratoru. Nestane li jedan od novih tokova iz pomoći,
+// korisniku ostane funkcija bez objašnjenja ovlasti, zaključavanja i izvornika.
+func TestPomocPratiOperativneTokove(t *testing.T) {
+	h := pomocHTML(t)
+	for _, want := range []string{
+		`id="tok-obrane"`, "preventivnoj obrani", "aktivna obrana",
+		`id="izvjesca"`, `id="dogadjanja"`, `id="vodocuvar"`,
+		`id="prijave"`, "PDF izvornik s ugrađenim", `id="akti"`,
+		`id="sredstva"`, `id="posta"`, `id="potpisi"`,
+		"Simulirani potpis", `id="admin-test"`,
+	} {
+		if !strings.Contains(h, want) {
+			t.Errorf("pomoć ne prati aktualni tok %q", want)
 		}
 	}
 }
