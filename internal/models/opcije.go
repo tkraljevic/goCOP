@@ -28,6 +28,10 @@ type Opcije struct {
 	// fotografije uz prijave s terena; potpisani PDF ih nosi trajno.
 	// 0 znači zadanih 180.
 	CuvanjeSlikaDana int `json:"cuvanje_slika_dana,omitempty"`
+	// SlikeOdmah briše izvorne fotografije odmah po objavi prijave (PDF ih
+	// nosi), umjesto nakon roka; štedi prostor, a stranica prijave slike
+	// pokazuje iz PDF-a
+	SlikeOdmah bool `json:"slike_odmah,omitempty"`
 }
 
 // CuvanjeSlika vraća rok čuvanja fotografija u danima

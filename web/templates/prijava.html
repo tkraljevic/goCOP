@@ -17,6 +17,7 @@
   </div>
 </div>
 
+{{if $p.Rekonstrukcija}}<div class="alert alert-warning">Rekonstrukcija: prijava je prenesena iz ranije evidencije (app.bp16.xyz); PDF je složen iz podataka i nema elektroničkog potpisa{{if $p.Sken}}; <a href="/prijave/{{$p.ID}}/sken.pdf" target="_blank">sken potpisanog ispisa</a> stoji kao prilog na ovom čvoru{{end}}.</div>{{end}}
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
 

@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"io"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -27,6 +28,7 @@ type PrijaveHandler struct {
 	adresa    func() string                       // javna adresa za QR
 	vode      func(ctx context.Context) []models.Watercourse
 	objekti   func(ctx context.Context, sektor string, area int) []models.Structure
+	skenovi   func() string // mapa sa skenovima iz ranije evidencije, uz bazu
 	tmplPopis *template.Template
 	tmplForm  *template.Template
 	tmplView  *template.Template
@@ -35,6 +37,26 @@ type PrijaveHandler struct {
 // NewPrijaveHandler sastavlja rukovatelja
 func NewPrijaveHandler(svc func() *service.PrijavaService, users *service.UserService, vod *VodocuvarHandler, popis, form, view *template.Template) *PrijaveHandler {
 	return &PrijaveHandler{svc: svc, users: users, vod: vod, tmplPopis: popis, tmplForm: form, tmplView: view, karta: func() KartaPostavke { return KartaPostavke{} }}
+}
+
+// SetSkenovi daje rukovatelju mapu sa skenovima potpisanih ispisa iz uvoza
+func (h *PrijaveHandler) SetSkenovi(f func() string) { h.skenovi = f }
+
+// Sken daje sken potpisanog ispisa iz ranije evidencije, kad ga ovaj čvor ima
+func (h *PrijaveHandler) Sken(w http.ResponseWriter, r *http.Request) {
+	u, perms, _ := h.base(r)
+	s := h.service(w)
+	if s == nil || u == nil {
+		return
+	}
+	p, err := s.Get(r.Context(), perms, r.PathValue("id"))
+	if err != nil || p == nil || p.Sken == "" || h.skenovi == nil || h.skenovi() == "" {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition", `inline; filename="sken-`+sigurnoIme(p.Oznaka())+`.pdf"`)
+	http.ServeFile(w, r, filepath.Join(h.skenovi(), filepath.Base(p.Sken)))
 }
 
 // SetKarta daje rukovatelju postavke karte
@@ -448,8 +470,11 @@ func (h *PrijaveHandler) IzvoziPDF(w http.ResponseWriter, r *http.Request) {
 			_, _ = w.Write(iz.PDF)
 			return
 		}
-		http.Error(w, "izvornik objavljene prijave nedostaje", http.StatusConflict)
-		return
+		if !p.Rekonstrukcija {
+			http.Error(w, "izvornik objavljene prijave nedostaje", http.StatusConflict)
+			return
+		}
+		// prenesena iz ranije evidencije bez skena: crta se iznova, bez potpisa
 	}
 	pdf, _ := pdfPrijave(p, h.prilog(r.Context(), r, s, p), models.Terms(), true)
 	_, _ = w.Write(pdf)

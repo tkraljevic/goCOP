@@ -47,6 +47,16 @@ type PrijavaSTerena struct {
 	Urbroj      string     `json:"urbroj,omitempty"`
 	PrimljenoAt *time.Time `json:"primljeno_at,omitempty"`
 
+	// Rekonstrukcija: prenesena iz ranije evidencije (Directus BP16); nema
+	// elektroničkog potpisa, sken potpisanog ispisa je izvornik gdje ga ima.
+	// Izvor je oznaka zapisa u toj evidenciji, da ponovni uvoz preskoči što ima.
+	Rekonstrukcija bool   `json:"rekonstrukcija,omitempty"`
+	Izvor          string `json:"izvor,omitempty"`
+	// Sken je naziv datoteke skena potpisanog ispisa iz ranije evidencije,
+	// spremljene uz bazu (lokalno, ne putuje knjigom): izvornik u programu je
+	// PDF iz podataka, sken je prilog
+	Sken string `json:"sken,omitempty"`
+
 	// Slike su podaci o fotografijama; same slike stoje lokalno u
 	// prijave_slike i brišu se nakon roka, a PDF ih nosi trajno
 	Slike []SlikaPrijave `json:"slike,omitempty"`

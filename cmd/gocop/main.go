@@ -50,6 +50,7 @@ func main() {
 	autoSyncFlag := flag.String("auto-sync", "", "Razmak automatske sinkronizacije, npr. 5m (0 isključuje)")
 	importBP16 := flag.Bool("import-bp16", false, "Uvezi očitanja vodostaja iz Directus evidencije VGI Baranja i završi")
 	importBP16Journals := flag.Bool("import-bp16-dnevnici", false, "Uvezi evidencije radova A.02 i A.03 iz Directusa kao rekonstruirane dnevnike (bez -upisi samo izvješće)")
+	importBP16Prijave := flag.Bool("import-bp16-prijave", false, "Uvezi obavijesti s terena (izvješća, prijave, obavijesti, zahtjevi vodočuvara) iz Directusa kao rekonstruirane prijave s terena (bez -upisi samo izvješće)")
 	bp16Dir := flag.String("bp16-dir", "", "Uvoz iz ranije skinutih JSON datoteka umjesto iz Directusa")
 	directusEnv := flag.String("directus-env", "", "Datoteka s DIRECTUS_URL i DIRECTUS_TOKEN (zadano ~/.config/gocop/directus.env)")
 	csvFile := flag.String("tablica", "", "Tablica dnevnih vodostaja (CSV): stupci su postaje, redci datumi")
@@ -326,7 +327,7 @@ func main() {
 	}
 
 	// Uvoz iz Directusa je zaseban način rada: uveze i završi
-	if *importBP16 || *importBP16Journals {
+	if *importBP16 || *importBP16Journals || *importBP16Prijave {
 		var src bp16.Source
 		if *bp16Dir != "" {
 			src = bp16.DirSource{Dir: *bp16Dir}
@@ -341,6 +342,65 @@ func main() {
 				log.Fatalf("Uvoz BP16: %v", err)
 			}
 			src = httpSrc
+		}
+		if *importBP16Prijave {
+			httpSrc, _ := src.(bp16.HTTPSource)
+			korisnici := map[string]bp16.KorisnikUvoza{}
+			if svi, err := userRepo.ListUsers("", 0, "", "", ""); err == nil {
+				for _, u := range svi {
+					k := bp16.KorisnikUvoza{ID: u.ID.String(), Ime: u.FullName, Sektor: "B"}
+					korisnici[u.FullName] = k
+				}
+			}
+			var datoteka func(ctx context.Context, id, upit string) ([]byte, error)
+			if httpSrc.URL != "" {
+				datoteka = httpSrc.Asset
+			}
+			rep, err := bp16.RunPrijave(context.Background(), src, bp16.PrijaveDeps{
+				Prijave: repository.NewPrijavaRepository(database, recorder), Korisnici: korisnici,
+				Podrucja: map[string]int{"KARAŠICA SEKTOR": 16, "DRAVSKI SEKTOR": 34, "DUNAVSKI SEKTOR - SJEVER": 34, "DUNAVSKI SEKTOR - JUG": 34},
+				Sektor:   "B", Cvor: node.ID, Datoteka: datoteka, DryRun: !*csvWrite, Log: log.Printf,
+				// uvezene prijave: PDF iz podataka nosi slike, pa se izvorne ne čuvaju;
+				// sken potpisanog ispisa ide uz bazu kao lokalni prilog
+				SlikeOdmah: true,
+				SpremiSken: func(p *models.PrijavaSTerena, pdf []byte) (string, error) {
+					dir := filepath.Join(filepath.Dir(*dbPath), "skenovi", "prijave")
+					if err := os.MkdirAll(dir, 0o755); err != nil {
+						return "", err
+					}
+					naziv := p.ID + ".pdf"
+					return naziv, os.WriteFile(filepath.Join(dir, naziv), pdf, 0o644)
+				},
+				IzradiPDF: func(p *models.PrijavaSTerena, slike map[string][]byte) []byte {
+					var sek *models.Sector
+					if sektori, err := userService.ListSectors(); err == nil {
+						for i := range sektori {
+							if sektori[i].ID == p.Sektor {
+								sek = &sektori[i]
+							}
+						}
+					}
+					area, _ := orgRepo.GetArea(context.Background(), p.AreaID)
+					return web.PDFPrijaveRekonstrukcija(p, slike, sek, area)
+				},
+			})
+			if err != nil {
+				log.Fatalf("Uvoz prijava nije uspio: %v (do greške %s)", err, rep.Summary())
+			}
+			log.Printf("Uvoz prijava s terena: %s", rep.Summary())
+			for k, n := range rep.PoKorisniku {
+				log.Printf("  %s: %d", k, n)
+			}
+			for k, n := range rep.PoPodrucju {
+				log.Printf("  %s: %d", k, n)
+			}
+			for k, n := range rep.Nepoznati {
+				log.Printf("  nepoznato %q: %d", k, n)
+			}
+			if rep.DryRun {
+				log.Printf("Ništa nije upisano. Dodajte -upisi za upis rekonstruiranih prijava.")
+			}
+			return
 		}
 		if *importBP16Journals {
 			areas, err := userService.ListAreas("")
@@ -415,6 +475,7 @@ func main() {
 	// akti samo u aktivnoj obrani (otvoren dnevnik COP-a), a ovjereni idu u dnevnike
 	aktService.SetObrana(journalService.AktivnaObrana, service.NewObjavaAkta(journalService, vodocuvarService).Objavi)
 	prijavaService := service.NewPrijavaService(repository.NewPrijavaRepository(database, recorder), userService, vodocuvarService, node.ID)
+	prijavaService.SetOpcije(aktService.Opcije)
 	server.SetPrijave(prijavaService)
 	// izvorne fotografije s terena brišu se nakon roka iz opcija; PDF ih nosi trajno
 	go func() {
@@ -437,6 +498,7 @@ func main() {
 	server.SetZid(service.NewZidService(recorder, journalRepo, sectionRepo, mtsRepo, userRepo, stationRepo, episodeRepo))
 	server.SetKarta(cfg.Karta.Plocice, cfg.Karta.Zasluge, cfg.Karta.NajviseZ)
 	server.SetJavnaAdresa(cfg.JavnaAdresa)
+	server.SetSkenovi(filepath.Join(filepath.Dir(*dbPath), "skenovi", "prijave"))
 
 	// Hidrološka arhiva stoji uz bazu, kao zasebna datoteka. Smije je ne biti:
 	// čvor koji je nije preuzeo radi bez povijesnih nizova, a ne pada.

@@ -33,32 +33,35 @@ const prijavaIzvornikUpsert = `INSERT INTO prijave_izvornici (prijava_id, pdf, s
 
 // podaciPrijave su polja koja se ne pretražuju, spremljena kao JSON
 type podaciPrijave struct {
-	VodotokCode  string                `json:"vodotok_code,omitempty"`
-	Vodotok      string                `json:"vodotok,omitempty"`
-	DionicaCode  string                `json:"dionica_code,omitempty"`
-	ObjektID     string                `json:"objekt_id,omitempty"`
-	Objekt       string                `json:"objekt,omitempty"`
-	Latitude     *float64              `json:"latitude,omitempty"`
-	Longitude    *float64              `json:"longitude,omitempty"`
-	Stacionaza   string                `json:"stacionaza,omitempty"`
-	Element      string                `json:"element,omitempty"`
-	Vaznost      string                `json:"vaznost,omitempty"`
-	Klasa        string                `json:"klasa,omitempty"`
-	Urbroj       string                `json:"urbroj,omitempty"`
-	PrimljenoAt  *time.Time            `json:"primljeno_at,omitempty"`
-	Slike        []models.SlikaPrijave `json:"slike,omitempty"`
-	ListID       string                `json:"list_id,omitempty"`
-	ListBroj     int                   `json:"list_broj,omitempty"`
-	ArhiviraoID  string                `json:"arhivirao_id,omitempty"`
-	Arhivirao    string                `json:"arhivirao,omitempty"`
-	ArhiviranoAt *time.Time            `json:"arhivirano_at,omitempty"`
-	Cvor         string                `json:"cvor,omitempty"`
+	VodotokCode    string                `json:"vodotok_code,omitempty"`
+	Vodotok        string                `json:"vodotok,omitempty"`
+	DionicaCode    string                `json:"dionica_code,omitempty"`
+	ObjektID       string                `json:"objekt_id,omitempty"`
+	Objekt         string                `json:"objekt,omitempty"`
+	Latitude       *float64              `json:"latitude,omitempty"`
+	Longitude      *float64              `json:"longitude,omitempty"`
+	Stacionaza     string                `json:"stacionaza,omitempty"`
+	Element        string                `json:"element,omitempty"`
+	Vaznost        string                `json:"vaznost,omitempty"`
+	Klasa          string                `json:"klasa,omitempty"`
+	Urbroj         string                `json:"urbroj,omitempty"`
+	PrimljenoAt    *time.Time            `json:"primljeno_at,omitempty"`
+	Rekonstrukcija bool                  `json:"rekonstrukcija,omitempty"`
+	Izvor          string                `json:"izvor,omitempty"`
+	Sken           string                `json:"sken,omitempty"`
+	Slike          []models.SlikaPrijave `json:"slike,omitempty"`
+	ListID         string                `json:"list_id,omitempty"`
+	ListBroj       int                   `json:"list_broj,omitempty"`
+	ArhiviraoID    string                `json:"arhivirao_id,omitempty"`
+	Arhivirao      string                `json:"arhivirao,omitempty"`
+	ArhiviranoAt   *time.Time            `json:"arhivirano_at,omitempty"`
+	Cvor           string                `json:"cvor,omitempty"`
 }
 
 func prijavaArgs(p *models.PrijavaSTerena) []any {
 	pod, _ := json.Marshal(podaciPrijave{VodotokCode: p.VodotokCode, Vodotok: p.Vodotok, DionicaCode: p.DionicaCode, ObjektID: p.ObjektID, Objekt: p.Objekt,
 		Latitude: p.Latitude, Longitude: p.Longitude, Stacionaza: p.Stacionaza, Element: p.Element, Vaznost: p.Vaznost,
-		Klasa: p.Klasa, Urbroj: p.Urbroj, PrimljenoAt: p.PrimljenoAt, Slike: p.Slike, ListID: p.ListID, ListBroj: p.ListBroj,
+		Klasa: p.Klasa, Urbroj: p.Urbroj, PrimljenoAt: p.PrimljenoAt, Rekonstrukcija: p.Rekonstrukcija, Izvor: p.Izvor, Sken: p.Sken, Slike: p.Slike, ListID: p.ListID, ListBroj: p.ListBroj,
 		ArhiviraoID: p.ArhiviraoID, Arhivirao: p.Arhivirao, ArhiviranoAt: p.ArhiviranoAt, Cvor: p.Cvor})
 	var objavljeno any
 	if p.ObjavljenoAt != nil {
@@ -85,6 +88,7 @@ func scanPrijava(row rowScanner) (*models.PrijavaSTerena, error) {
 	p.VodotokCode, p.Vodotok, p.DionicaCode, p.ObjektID, p.Objekt = x.VodotokCode, x.Vodotok, x.DionicaCode, x.ObjektID, x.Objekt
 	p.Latitude, p.Longitude, p.Stacionaza, p.Slike = x.Latitude, x.Longitude, x.Stacionaza, x.Slike
 	p.Element, p.Vaznost, p.Klasa, p.Urbroj, p.PrimljenoAt = x.Element, x.Vaznost, x.Klasa, x.Urbroj, x.PrimljenoAt
+	p.Rekonstrukcija, p.Izvor, p.Sken = x.Rekonstrukcija, x.Izvor, x.Sken
 	p.ListID, p.ListBroj, p.ArhiviraoID, p.Arhivirao, p.ArhiviranoAt, p.Cvor = x.ListID, x.ListBroj, x.ArhiviraoID, x.Arhivirao, x.ArhiviranoAt, x.Cvor
 	return &p, nil
 }
@@ -180,6 +184,35 @@ func (r *PrijavaRepository) Urudzbiraj(ctx context.Context, p *models.PrijavaSTe
 		if _, err := r.rec.Record(ctx, tx, EntityPrijaveIzvornici, p.ID, iz); err != nil {
 			return err
 		}
+	}
+	return tx.Commit()
+}
+
+// PoIzvoru nalazi prijavu prenesenu iz ranije evidencije po oznaci izvora
+func (r *PrijavaRepository) PoIzvoru(ctx context.Context, izvor string) (*models.PrijavaSTerena, error) {
+	oznaka, _ := json.Marshal(izvor)
+	p, err := scanPrijava(r.db.QueryRowContext(ctx, `SELECT `+prijavaColumns+` FROM prijave WHERE podaci LIKE ? LIMIT 1`, `%"izvor":`+string(oznaka)+`%`))
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	return p, err
+}
+
+// SpremiIzvornik sprema PDF kao izvornik prijave (sken potpisanog ispisa
+// pri uvozu), s verzijom u knjizi
+func (r *PrijavaRepository) SpremiIzvornik(ctx context.Context, id string, pdf []byte, sazetak string) error {
+	now := time.Now().UTC()
+	iz := models.IzvornikLista{ListID: id, PDF: pdf, Sazetak: sazetak, UpdatedAt: now}
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, prijavaIzvornikUpsert, id, pdf, sazetak, now); err != nil {
+		return err
+	}
+	if _, err := r.rec.Record(ctx, tx, EntityPrijaveIzvornici, id, iz); err != nil {
+		return err
 	}
 	return tx.Commit()
 }

@@ -82,9 +82,15 @@
         <span class="opcija-naziv">Čuvanje fotografija s terena</span>
         <input type="number" class="form-control" id="cuvanje_slika_dana" name="cuvanje_slika_dana" min="7" max="3650" value="{{.Opcije.CuvanjeSlika}}" style="max-width:7rem; margin-left:auto;"> <span>dana</span>
       </label>
+      <label class="opcija-red" style="margin-top:0.4rem;">
+        <input type="checkbox" name="slike_odmah" value="1" {{if .Opcije.SlikeOdmah}}checked{{end}}>
+        <span class="opcija-naziv">Obriši izvorne slike odmah po objavi</span>
+        <span class="badge {{if .Opcije.SlikeOdmah}}badge-danger{{else}}badge-active{{end}}">{{if .Opcije.SlikeOdmah}}uključeno{{else}}isključeno{{end}}</span>
+      </label>
       <div class="opcija-opis">
         <p><strong>Što radi:</strong> uz prijavu s terena vodočuvar prilaže fotografije; program ih odmah smanji (najdulja stranica 1 600 px, JPEG) i pri objavi ugradi u potpisani PDF, koji ostaje trajno i putuje među čvorovima. Izvorne smanjene slike ostaju na ovom čvoru još ovoliko dana nakon objave, za pregled na stranici, pa se brišu.</p>
-        <p><strong>Što ne radi:</strong> ne dira PDF ni nacrte; nacrt čuva svoje slike dok se ne objavi ili obriše. Nakon roka stranica prijave pokazuje slike iz PDF-a preko poveznice na dokument.</p>
+        <p><strong>Odmah po objavi:</strong> s uključenim prekidačem slike se brišu čim je PDF s njima spremljen (i pri uvozu iz ranije evidencije); baza tada nosi samo dokument, a stranica prijave slike pokazuje iz PDF-a. Rok u danima vrijedi kad je prekidač isključen.</p>
+        <p><strong>Što ne radi:</strong> ne dira PDF ni nacrte; nacrt čuva svoje slike dok se ne objavi ili obriše.</p>
         <p><strong>Zašto:</strong> u Directusu je Baranja u dva mjeseca skupila 4 GB fotografija; dokument s ugrađenim slikama nosi sve što treba za dokaz, a baza ostaje mala.</p>
       </div>
     </div>

@@ -63,6 +63,7 @@ type Server struct {
 	potpis      *service.PotpisService  // elektronički potpisi osoba
 	prijave     *service.PrijavaService // prijave i obavijesti s terena
 	javnaAdresa string                  // adresa programa izvana, za QR kodove; prazno dok je nema
+	skenoviDir  string                  // mapa sa skenovima prijava iz ranije evidencije
 	orgRepo     *repository.OrgRepository
 	karta       KartaPostavke
 	arhivaPut   string
@@ -670,6 +671,8 @@ func (s *Server) setupRoutes() {
 	prijaveH := NewPrijaveHandler(func() *service.PrijavaService { return s.prijave }, s.userService, vodH, s.templates["prijave.html"], s.templates["prijava_form.html"], s.templates["prijava.html"])
 	prijaveH.SetKarta(func() KartaPostavke { return s.karta })
 	prijaveH.SetJavnaAdresa(func() string { return s.javnaAdresa })
+	prijaveH.SetSkenovi(func() string { return s.skenoviDir })
+	s.mux.Handle("GET /prijave/{id}/sken.pdf", s.authMiddleware(http.HandlerFunc(prijaveH.Sken)))
 	prijaveH.SetRegistri(func(ctx context.Context) []models.Watercourse {
 		if s.watercourseService == nil {
 			return nil
@@ -1381,6 +1384,9 @@ func (s *Server) SetMts(m *service.MtsService) { s.mtsService = m }
 
 // SetAkti daje poslužitelju servis akata
 func (s *Server) SetAkti(a *service.AktService) { s.akti = a }
+
+// SetSkenovi daje poslužitelju mapu sa skenovima prijava iz uvoza
+func (s *Server) SetSkenovi(dir string) { s.skenoviDir = dir }
 
 // SetJavnaAdresa daje poslužitelju javnu adresu za QR kodove na dokumentima
 func (s *Server) SetJavnaAdresa(a string) {

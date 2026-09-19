@@ -108,6 +108,34 @@ func (s DirSource) Items(_ context.Context, collection string) ([]json.RawMessag
 	return out, nil
 }
 
+// Asset dohvaća datoteku iz Directusa (/assets/{id}); upit su Directusove
+// pretvorbe, npr. "width=1600&fit=inside&format=jpg", ili prazno za izvornu
+func (s HTTPSource) Asset(ctx context.Context, id, upit string) ([]byte, error) {
+	client := s.Client
+	if client == nil {
+		client = &http.Client{Timeout: 2 * time.Minute}
+	}
+	u := strings.TrimRight(s.URL, "/") + "/assets/" + url.PathEscape(id)
+	if upit != "" {
+		u += "?" + upit
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+s.Token)
+	req.Header.Set("User-Agent", "gocop-import/0.1")
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("assets/%s: Directus odgovorio %d", id, resp.StatusCode)
+	}
+	return io.ReadAll(io.LimitReader(resp.Body, 60<<20))
+}
+
 // LoadEnv čita DIRECTUS_URL i DIRECTUS_TOKEN iz datoteke oblika KLJUČ=vrijednost
 func LoadEnv(path string) (HTTPSource, error) {
 	f, err := os.Open(path)

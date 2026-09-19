@@ -24,6 +24,21 @@ type PrijavaService struct {
 	users     *UserService
 	vodocuvar *VodocuvarService
 	cvor      string
+	opcije    func(ctx context.Context) models.Opcije
+}
+
+// SetOpcije daje servisu čitanje općih opcija (brisanje slika po objavi)
+func (s *PrijavaService) SetOpcije(f func(ctx context.Context) models.Opcije) { s.opcije = f }
+
+// ObrisiSlikePoObjavi briše izvorne slike objavljene prijave kad opcija to
+// traži; PDF ih već nosi
+func (s *PrijavaService) ObrisiSlikePoObjavi(ctx context.Context, p *models.PrijavaSTerena) {
+	if s.opcije == nil || !s.opcije(ctx).SlikeOdmah {
+		return
+	}
+	for _, sl := range p.Slike {
+		_ = s.repo.DeleteSlika(ctx, sl.ID)
+	}
 }
 
 // NewPrijavaService sastavlja servis; dnevnik vodočuvara je obvezan jer je
@@ -271,6 +286,7 @@ func (s *PrijavaService) Objavi(ctx context.Context, u *models.User, id string, 
 	if err := s.repo.Objavi(ctx, p, pdf, hex.EncodeToString(h[:])); err != nil {
 		return nil, "", err
 	}
+	s.ObrisiSlikePoObjavi(ctx, p)
 	l.Prijave = append(l.Prijave, models.PrijavaNaListu{ID: p.ID, Oznaka: p.Oznaka(), Vrsta: p.Vrsta, Naslov: p.Naslov, Kad: sad})
 	if err := s.vodocuvar.repo.Save(ctx, l); err != nil {
 		return p, "prijava je objavljena, ali upis na dnevni list nije uspio: " + err.Error(), nil

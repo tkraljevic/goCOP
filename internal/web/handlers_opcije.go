@@ -54,6 +54,7 @@ func (h *AktiHandler) HandleOpcije(w http.ResponseWriter, r *http.Request) {
 		SimulacijaKljuca:         r.FormValue("simulacija_kljuca") == "1",
 	}
 	o.CuvanjeSlikaDana, _ = strconv.Atoi(r.FormValue("cuvanje_slika_dana"))
+	o.SlikeOdmah = r.FormValue("slike_odmah") == "1"
 	if err := s.SpremiOpcije(r.Context(), perms, o); err != nil {
 		redirectWith(w, r, "/administracija/opcije", "error", err.Error())
 		return

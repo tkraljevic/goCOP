@@ -28,8 +28,8 @@ type prilogPrijave struct {
 // dosadašnjim prijavama. Stalno je, pa se bilješka urudžbe poslije crta na
 // isto mjesto preko potpisanog PDF-a.
 const (
-	stambiljW = 190.0
-	stambiljH = 84.0
+	stambiljW = 200.0
+	stambiljH = 100.0
 	stambiljY = 56.0
 )
 
@@ -60,28 +60,42 @@ func crtajQR(d *pdfw.Doc, tekst string, x, y, w float64) {
 	}
 }
 
-// crtajStambilj crta okvir prijemnog štambilja s retcima; vrijednosti su
-// prazne dok pisarnica ne upiše klasu i urbroj (naljepnica ili bilješka)
+// crtajStambilj crta prijemni štambilj kao na urudžbenom zapisniku
+// Hrvatskih voda: naslov, redak „Primljeno”, pa klasifikacijska oznaka i
+// urudžbeni broj lijevo, organizacijska jedinica i prilog desno. Vrijednosti
+// su prazne dok pisarnica ne upiše ili ne zalijepi naljepnicu; upisane iz
+// programa stoje na svom mjestu.
 func crtajStambilj(d *pdfw.Doc, x, y float64, p *models.PrijavaSTerena, prilozi string) {
-	d.Okvir(x, y, stambiljW, stambiljH, bijela, sivaRub)
-	d.TekstBoja(x+8, y+11, 6, false, "PRIJEMNI ŠTAMBILJ (URUDŽBENI ZAPISNIK)", sivaSvijetla)
-	redak := func(i int, oznaka, vrijednost string) {
-		yy := y + 26 + float64(i)*15
-		d.TekstBoja(x+8, yy, 6.5, false, oznaka, sivaTekst)
-		if vrijednost != "" {
-			d.Tekst(x+62, yy, 8, false, vrijednost)
-		} else {
-			d.CrtaBoja(x+62, yy+1, x+stambiljW-8, yy+1, 0.4, sivaRub)
-		}
+	d.Okvir(x, y, stambiljW, stambiljH, bijela, crna)
+	d.TekstSredina(x+stambiljW/2, y+11, 7, true, "HRVATSKE VODE")
+	// vodoravne pregrade: naslov, primljeno, klasa, urbroj
+	for _, yy := range []float64{16, 34, 66} {
+		d.CrtaBoja(x, y+yy, x+stambiljW, y+yy, 0.6, crna)
 	}
+	// okomita pregrada desnog stupca ispod retka „Primljeno”
+	sx := x + stambiljW*0.62
+	d.CrtaBoja(sx, y+34, sx, y+stambiljH, 0.6, crna)
 	primljeno := ""
 	if p.PrimljenoAt != nil {
 		primljeno = p.PrimljenoAt.In(models.Zagreb).Format("02.01.2006.")
 	}
-	redak(0, "Primljeno:", primljeno)
-	redak(1, "Klasa:", p.Klasa)
-	redak(2, "Urbroj:", p.Urbroj)
-	redak(3, "Prilozi:", prilozi)
+	d.TekstBoja(x+5, y+28, 7, false, "Primljeno:", sivaTekst)
+	if primljeno != "" {
+		d.Tekst(x+60, y+28, 8.5, true, primljeno)
+	}
+	d.TekstBoja(x+5, y+45, 6.5, false, "Klasifikacijska oznaka", sivaTekst)
+	if p.Klasa != "" {
+		d.Tekst(x+5, y+59, 8.5, true, p.Klasa)
+	}
+	d.TekstBoja(sx+5, y+45, 6.5, false, "Org. jed.", sivaTekst)
+	d.TekstBoja(x+5, y+77, 6.5, false, "Urudžbeni broj", sivaTekst)
+	if p.Urbroj != "" {
+		d.Tekst(x+5, y+91, 8.5, true, p.Urbroj)
+	}
+	d.TekstBoja(sx+5, y+77, 6.5, false, "Prilog", sivaTekst)
+	if prilozi != "" {
+		d.TekstBoja(sx+5, y+91, 6.5, false, prilozi, sivaTekst)
+	}
 }
 
 // pdfPrijave crta prijavu s terena po uzoru na dosadašnju tiskanu prijavu
@@ -365,4 +379,11 @@ func uMjestu(m string) string {
 		return "Zagrebu"
 	}
 	return m
+}
+
+// PDFPrijaveRekonstrukcija crta prijavu prenesenu iz ranije evidencije kao
+// izvornik bez potpisa: za uvoz, gdje sken potpisanog ispisa ne postoji
+func PDFPrijaveRekonstrukcija(p *models.PrijavaSTerena, slike map[string][]byte, sek *models.Sector, area *models.Area) []byte {
+	pdf, _ := pdfPrijave(p, prilogPrijave{Sektor: sek, Podrucje: area, Slike: slike, Otisci: models.OtisciLista{}}, models.Terms(), true)
+	return pdf
 }
