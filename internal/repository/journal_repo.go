@@ -250,24 +250,61 @@ func (r *JournalRepository) SaveJournal(ctx context.Context, j *models.Journal) 
 	return tx.Commit()
 }
 
-// SaveJournalIzvornik čuva renderirani i potpisani PDF zaključenog dnevnika.
-func (r *JournalRepository) SaveJournalIzvornik(ctx context.Context, journalID string, pdf []byte) error {
+// SaveOvjeraCOP zaključuje dnevnik COP-a u jednoj transakciji: stanje
+// ovjere i potpisnik na dnevniku, potpisani PDF sa SHA-256 sažetkom, te obje
+// verzije u knjizi. Ili sve, ili ništa: dnevnik ne može ostati ovjeren bez
+// izvornika, ni izvornik bez ovjere. Već ovjeren dnevnik se ne ovjerava
+// ponovno, ni kad dva zahtjeva stignu istodobno.
+func (r *JournalRepository) SaveOvjeraCOP(ctx context.Context, j *models.Journal, pdf []byte) error {
+	if j == nil || j.ID == "" || j.CentarSektor == "" {
+		return errors.New("ovjera zahtijeva dnevnik COP-a")
+	}
+	if j.ZakljucenoAt == nil || j.ZakljucioID == "" {
+		return errors.New("ovjera bez potpisnika i vremena")
+	}
+	if len(pdf) < 8 || string(pdf[:4]) != "%PDF" {
+		return errors.New("izvornik nije PDF")
+	}
 	now := time.Now().UTC()
 	h := fmt.Sprintf("%x", sha256.Sum256(pdf))
-	iz := models.IzvornikDnevnika{JournalID: journalID, PDF: pdf, Sazetak: h, UpdatedAt: now}
+	iz := models.IzvornikDnevnika{JournalID: j.ID, PDF: pdf, Sazetak: h, UpdatedAt: now}
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
-	if _, err = tx.ExecContext(ctx, `INSERT INTO journal_izvornici (journal_id,pdf,sazetak,updated_at) VALUES (?,?,?,?)
-		ON CONFLICT(journal_id) DO UPDATE SET pdf=excluded.pdf,sazetak=excluded.sazetak,updated_at=excluded.updated_at`, journalID, pdf, h, now); err != nil {
+	res, err := tx.ExecContext(ctx, `UPDATE journals SET zakljucio_id = ?, zakljucio = ?, zakljuceno_at = ?, updated_at = ?
+		WHERE id = ? AND zakljuceno_at IS NULL`, j.ZakljucioID, j.Zakljucio, j.ZakljucenoAt.UTC(), now, j.ID)
+	if err != nil {
+		return fmt.Errorf("upis ovjere: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n != 1 {
+		return errors.New("dnevnik je već ovjeren ili ne postoji")
+	}
+	j.UpdatedAt = now
+	if _, err := r.rec.RecordIn(ctx, tx, journalChannel(j), EntityJournals, j.ID, j); err != nil {
 		return err
 	}
-	if _, err = r.rec.Record(ctx, tx, EntityJournalIzvornici, journalID, iz); err != nil {
+	if _, err = tx.ExecContext(ctx, `INSERT INTO journal_izvornici (journal_id,pdf,sazetak,updated_at) VALUES (?,?,?,?)`, j.ID, pdf, h, now); err != nil {
+		return fmt.Errorf("upis izvornika: %w", err)
+	}
+	if _, err = r.rec.Record(ctx, tx, EntityJournalIzvornici, j.ID, iz); err != nil {
 		return err
 	}
 	return tx.Commit()
+}
+
+// IzvornikDnevnika čita potpisani PDF sa sažetkom kakav je upisan; nil kad ga nema
+func (r *JournalRepository) IzvornikDnevnika(ctx context.Context, journalID string) (*models.IzvornikDnevnika, error) {
+	iz := models.IzvornikDnevnika{JournalID: journalID}
+	err := r.db.QueryRowContext(ctx, `SELECT pdf, sazetak, updated_at FROM journal_izvornici WHERE journal_id=?`, journalID).Scan(&iz.PDF, &iz.Sazetak, &iz.UpdatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &iz, nil
 }
 
 func (r *JournalRepository) JournalIzvornik(ctx context.Context, journalID string) ([]byte, error) {

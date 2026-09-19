@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"strings"
@@ -538,15 +539,48 @@ func (s *JournalService) VoditeljCOP(u *models.User, j *models.Journal) bool {
 	return false
 }
 
+// SpremiOvjeruCOP sprema ovjeru i potpisani izvornik kao jednu cjelinu;
+// pozivatelj je dnevnik pripremio s PripremiOvjeruCOP i PDF potpisao
 func (s *JournalService) SpremiOvjeruCOP(ctx context.Context, j *models.Journal, pdf []byte) error {
-	if err := s.repo.SaveJournal(ctx, j); err != nil {
-		return err
+	if j == nil || j.ZakljucenoAt == nil {
+		return errors.New("dnevnik nije pripremljen za ovjeru")
 	}
-	return s.repo.SaveJournalIzvornik(ctx, j.ID, pdf)
+	return s.repo.SaveOvjeraCOP(ctx, j, pdf)
 }
 
+// IzvornikCOP vraća potpisani PDF ovjerenog dnevnika; nil kad ga nema
 func (s *JournalService) IzvornikCOP(ctx context.Context, id string) ([]byte, error) {
 	return s.repo.JournalIzvornik(ctx, id)
+}
+
+// StanjeIzvornika je nalaz provjere izvornika ovjerenog dnevnika
+type StanjeIzvornika struct {
+	Ima      bool   // izvornik postoji
+	Ispravan bool   // sažetak PDF-a odgovara upisanom
+	Sazetak  string // upisani SHA-256
+	Greska   string
+}
+
+// ProvjeriIzvornikCOP provjerava da ovjeren dnevnik ima izvornik i da PDF
+// nije mijenjan otkad je upisan (sažetak iz knjige verzija)
+func (s *JournalService) ProvjeriIzvornikCOP(ctx context.Context, j *models.Journal) StanjeIzvornika {
+	if j == nil || !j.Ovjeren() {
+		return StanjeIzvornika{}
+	}
+	iz, err := s.repo.IzvornikDnevnika(ctx, j.ID)
+	if err != nil {
+		return StanjeIzvornika{Greska: err.Error()}
+	}
+	if iz == nil || len(iz.PDF) == 0 {
+		return StanjeIzvornika{Greska: "izvornik ovjerenog dnevnika nedostaje"}
+	}
+	st := StanjeIzvornika{Ima: true, Sazetak: iz.Sazetak}
+	if h := fmt.Sprintf("%x", sha256.Sum256(iz.PDF)); h != iz.Sazetak {
+		st.Greska = "izvornik je mijenjan nakon ovjere: sažetak PDF-a ne odgovara upisanom"
+		return st
+	}
+	st.Ispravan = true
+	return st
 }
 
 // CentriZaOtvaranje vraća centre u kojima osoba smije otvoriti dnevnik.
