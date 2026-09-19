@@ -404,6 +404,13 @@ func main() {
 	server.SetAkti(aktService)
 	vodocuvarService := service.NewVodocuvarService(repository.NewVodocuvarRepository(database, recorder), userService, node.ID)
 	vodocuvarService.SetOrg(orgRepo)
+	vodocuvarService.SetRadnoVrijeme(func(ctx context.Context) (string, string) {
+		rv, err := obracunRepo.RadnoVrijeme(ctx)
+		if err != nil {
+			return "", ""
+		}
+		return rv.OdTekst(), rv.DoTekst()
+	})
 	server.SetVodocuvar(vodocuvarService, orgRepo)
 	server.SetZid(service.NewZidService(recorder, journalRepo, sectionRepo, mtsRepo, userRepo, stationRepo, episodeRepo))
 	server.SetKarta(cfg.Karta.Plocice, cfg.Karta.Zasluge, cfg.Karta.NajviseZ)
