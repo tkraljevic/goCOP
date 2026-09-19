@@ -583,6 +583,8 @@ func (s *Server) setupRoutes() {
 	dogH := NewDogadjanjaHandler(func() *service.ZidService { return s.zidService }, s.userService, s.templates["dogadjanja.html"])
 	s.mux.Handle("GET /dogadjanja", s.authMiddleware(http.HandlerFunc(dogH.ShowDogadjanja)))
 	s.mux.Handle("GET /dogadjanja.xlsx", s.authMiddleware(http.HandlerFunc(dogH.IzvoziDogadjanja)))
+	s.mux.Handle("POST /dogadjanja/obrisi", s.samoAdmin(http.HandlerFunc(dogH.HandleObrisi)))
+	dogH.SetOpcije(s.opcije)
 	sectionsH := NewSectionsHandler(s.sectionService, s.userService, s.templates["sections.html"])
 	sectionsH.SetPageTemplates(s.templates["section_detail.html"], s.templates["section_form.html"], s.stationService, s.territoryService)
 	sectionsH.episodeService = s.episodeService
@@ -1074,6 +1076,8 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /administracija/baza/sazmi", s.authMiddleware(http.HandlerFunc(dbH.HandleCompact)))
 	s.mux.Handle("POST /administracija/baza/vacuum", s.authMiddleware(http.HandlerFunc(dbH.HandleVacuum)))
 	s.mux.Handle("POST /administracija/baza/obnovi", s.authMiddleware(http.HandlerFunc(dbH.HandleReplay)))
+	s.mux.Handle("POST /administracija/baza/spomenici", s.authMiddleware(http.HandlerFunc(dbH.HandlePurgeTombstones)))
+	dbH.SetOpcije(s.opcije)
 	s.mux.Handle("GET /administracija/baza/izvoz", s.authMiddleware(http.HandlerFunc(dbH.HandleExport)))
 	s.mux.Handle("POST /administracija/baza/uvoz", s.authMiddleware(http.HandlerFunc(dbH.HandleImport)))
 
@@ -1110,6 +1114,14 @@ func (s *Server) setupRoutes() {
 // vlastitoj datoteci jer ih koriste i kartica letve i kartica dionice koja se
 // po toj letvi vodi. Jedna definicija; dvije bi se s vremenom razišle, a
 // razlika bi se vidjela tek kad ista letva na dvije stranice pokaže dva praga.
+// opcije vraća opće prekidače; dok servis akata nije spojen, sve je isključeno
+func (s *Server) opcije(ctx context.Context) models.Opcije {
+	if s.akti == nil {
+		return models.Opcije{}
+	}
+	return s.akti.Opcije(ctx)
+}
+
 func DijeloviPredloska(stranica string) []string {
 	dijelovi := []string{"base.html", stranica}
 	switch stranica {

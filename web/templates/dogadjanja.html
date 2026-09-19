@@ -40,6 +40,7 @@
       {{if .Tekst}}<div class="zid-tekst">{{.Tekst}}</div>{{end}}
       {{if .Tko}}<div class="reg-card-sub">{{.Tko}}</div>{{end}}
     </div>
+    {{if $.SmijeBrisati}}<form method="POST" action="/dogadjanja/obrisi" class="zid-obrisi" onsubmit="return confirm('Obrisati ovaj zapis s oglasne ploče? Briše se ta verzija iz knjige na ovom čvoru.')"><input type="hidden" name="verzija" value="{{.VersionID}}"><button type="submit" class="btn btn-sm btn-secondary btn-opasno" title="Obriši s ploče">{{icon "trash"}}</button></form>{{end}}
   </article>
   {{end}}
   {{end}}

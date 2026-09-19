@@ -45,7 +45,11 @@ func (h *AktiHandler) HandleOpcije(w http.ResponseWriter, r *http.Request) {
 	if s == nil {
 		return
 	}
-	o := models.Opcije{BrisanjeOvjerenihAkata: r.FormValue("brisanje_ovjerenih_akata") == "1"}
+	o := models.Opcije{
+		BrisanjeOvjerenihAkata:   r.FormValue("brisanje_ovjerenih_akata") == "1",
+		BrisanjePovijestiVerzija: r.FormValue("brisanje_povijesti_verzija") == "1",
+		BrisanjeSOglasnePloce:    r.FormValue("brisanje_s_oglasne_ploce") == "1",
+	}
 	if err := s.SpremiOpcije(r.Context(), perms, o); err != nil {
 		redirectWith(w, r, "/administracija/opcije", "error", err.Error())
 		return

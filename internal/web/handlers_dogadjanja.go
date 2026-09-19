@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"html/template"
 	"net/http"
 	"strconv"
@@ -16,9 +17,33 @@ import (
 // i područjem, i s izvozom — kronologija obrane koja se prilaže izvješću.
 
 type DogadjanjaHandler struct {
-	zid   func() *service.ZidService
-	users *service.UserService
-	tmpl  *template.Template
+	zid    func() *service.ZidService
+	users  *service.UserService
+	tmpl   *template.Template
+	opcije func(ctx context.Context) models.Opcije // nil = sve isključeno
+}
+
+// SetOpcije daje rukovatelju uvid u opće prekidače
+func (h *DogadjanjaHandler) SetOpcije(f func(ctx context.Context) models.Opcije) { h.opcije = f }
+
+// HandleObrisi briše zapis s oglasne ploče, uz uključen prekidač
+func (h *DogadjanjaHandler) HandleObrisi(w http.ResponseWriter, r *http.Request) {
+	perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
+	natrag := "/dogadjanja"
+	if h.opcije == nil || !h.opcije(r.Context()).BrisanjeSOglasnePloce {
+		redirectWith(w, r, natrag, "error", "Brisanje s oglasne ploče je isključeno (Administracija › Opcije)")
+		return
+	}
+	z := h.zid()
+	if z == nil {
+		http.Error(w, "oglasna ploča nije spremna", http.StatusServiceUnavailable)
+		return
+	}
+	if err := z.ObrisiDogadjaj(r.Context(), perms, r.FormValue("verzija")); err != nil {
+		redirectWith(w, r, natrag, "error", err.Error())
+		return
+	}
+	redirectWith(w, r, natrag, "success", "Zapis je obrisan s oglasne ploče i iz knjige verzija na ovom čvoru.")
 }
 
 func NewDogadjanjaHandler(zid func() *service.ZidService, users *service.UserService, tmpl *template.Template) *DogadjanjaHandler {
@@ -42,6 +67,8 @@ type DogadjanjaPageData struct {
 	ErrorMessage   string
 	ActiveNav      string
 	ViewAsBanner
+
+	SmijeBrisati bool // uprava organizacije uz uključen prekidač
 }
 
 // PoDanima grupira događaje po danu, najnoviji dan prvi
@@ -103,6 +130,7 @@ func (h *DogadjanjaHandler) ShowDogadjanja(w http.ResponseWriter, r *http.Reques
 		ActiveNav: "journals", ViewAsBanner: viewBanner(r)}
 	data.Sektori, _ = h.users.ListSectors()
 	data.Podrucja, _ = h.users.ListAreas(f.Sektor)
+	data.SmijeBrisati = h.opcije != nil && perms != nil && perms.IsGlobalAdmin && h.opcije(r.Context()).BrisanjeSOglasnePloce
 	if err := h.tmpl.ExecuteTemplate(w, "dogadjanja.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}

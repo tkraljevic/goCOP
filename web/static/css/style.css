@@ -3670,3 +3670,5 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .opcija-naziv { font-weight: 600; }
 .opcija-opis { margin-top: 0.5rem; font-size: 0.9rem; color: var(--muted, #4b5563); }
 .opcija-opis p { margin: 0 0 0.4rem; }
+.zid-redak { position: relative; }
+.zid-obrisi { margin-left: auto; align-self: flex-start; }
