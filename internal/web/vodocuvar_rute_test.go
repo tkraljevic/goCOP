@@ -22,6 +22,7 @@ import (
 	"gocop/internal/db"
 	"gocop/internal/ledger"
 	"gocop/internal/models"
+	"gocop/internal/poslovi"
 	"gocop/internal/repository"
 	"gocop/internal/service"
 	"gocop/internal/weather"
@@ -287,6 +288,21 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 	}
 	if w := zovi(seit, http.MethodGet, "/organizacija/geokod?q=Osijek", nil); w.Code != http.StatusForbidden {
 		t.Error("geokodiranje je za administratore")
+	}
+	// skupno traženje ide kao posao s trakom napretka
+	h.SetPoslovi(poslovi.NoviRegistar(), tmpl("posao.html"))
+	mux.HandleFunc("POST /organizacija/podrucja/koordinate", h.HandleKoordinatePodrucja)
+	if w := zovi(admin, http.MethodPost, "/organizacija/podrucja/koordinate", url.Values{}); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "data-posao=") {
+		t.Errorf("koordinate kao posao: %d\n%.500s", w.Code, w.Body.String())
+	}
+	for i := 0; i < 100; i++ {
+		if a, _ := orgRepo.GetArea(ctx, 34); a != nil && a.ImaKoordinate() {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	if a, _ := orgRepo.GetArea(ctx, 34); a == nil || !a.ImaKoordinate() {
+		t.Error("područje nije dobilo koordinate iz posla")
 	}
 }
 

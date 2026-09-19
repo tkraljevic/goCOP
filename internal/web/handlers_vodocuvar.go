@@ -416,7 +416,8 @@ type PosaoData struct {
 	Permissions *models.UserPermissions
 	ActiveNav   string
 	ViewAsBanner
-	PosaoID, PosaoNaziv, Natrag string
+	SuccessMessage, ErrorMessage string
+	PosaoID, PosaoNaziv, Natrag  string
 }
 
 // HandleKoordinatePodrucja nalazi koordinate svim područjima bez njih, po
