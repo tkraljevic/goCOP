@@ -182,7 +182,7 @@ func TestPrijaveSTerenaKrozRute(t *testing.T) {
 	}
 	id := strings.TrimPrefix(strings.SplitN(l, "?", 2)[0], "/prijave/")
 	p, _ := prijave.Get(ctx, kao(seit), id)
-	if p == nil || p.Status != models.PrijavaNacrt || len(p.Slike) != 2 || p.Slike[0].Sirina != 1600 || p.Slike[0].Visina != 1200 || p.Slike[0].Bajtova > 300<<10 || !p.ImaKoordinate() || p.AreaID != 34 {
+	if p == nil || p.Status != models.PrijavaNacrt || len(p.Slike) != 2 || p.Slike[0].Sirina != 1400 || p.Slike[0].Visina != 1050 || p.Slike[0].Bajtova > 300<<10 || !p.ImaKoordinate() || p.AreaID != 34 {
 		t.Fatalf("nacrt: %+v", p)
 	}
 	if s := get(seit, "/prijave/"+id).Body.String(); !strings.Contains(s, "Oštećena rampa") || !strings.Contains(s, "Objavi i potpiši") || strings.Count(s, "/slika/") < 2 || !strings.Contains(s, "karta-letve") {

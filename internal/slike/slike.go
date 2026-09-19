@@ -14,10 +14,10 @@ import (
 )
 
 // NajvecaStranica je najdulja stranica smanjene slike u točkama
-const NajvecaStranica = 1600
+const NajvecaStranica = 1400
 
 // Kvaliteta JPEG-a smanjene slike
-const Kvaliteta = 78
+const Kvaliteta = 75
 
 // NajveciUlaz je najveća ulazna datoteka koju primamo (bajtova)
 const NajveciUlaz = 20 << 20

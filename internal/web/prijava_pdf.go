@@ -1,8 +1,12 @@
 package web
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"image"
+	"image/jpeg"
+	_ "image/png"
 	"strings"
 	"time"
 
@@ -10,6 +14,20 @@ import (
 	"gocop/internal/pdfw"
 	"gocop/internal/qr"
 )
+
+// kartaZaPDF prekodira PNG isječak karte u JPEG: pločice su fotografske, pa
+// je PNG od 400–700 KB, a JPEG od 60–100 KB bez vidljive razlike
+func kartaZaPDF(png []byte) []byte {
+	img, _, err := image.Decode(bytes.NewReader(png))
+	if err != nil {
+		return nil
+	}
+	var b bytes.Buffer
+	if err := jpeg.Encode(&b, img, &jpeg.Options{Quality: 80}); err != nil {
+		return nil
+	}
+	return b.Bytes()
+}
 
 // prilogPrijave je što uz prijavu ide u dokument: memorandum centra, sektor
 // i područje za zaglavlje, slike po oznaci, isječak karte kao PNG (prazno
@@ -204,7 +222,7 @@ func pdfPrijave(p *models.PrijavaSTerena, pr prilogPrijave, t models.OrgTerms, c
 			d.Y += 16
 			d.Tekst(d.Lijevo, d.Y, 8, true, "Lokacija na karti:")
 			d.Y += 6
-			if err := d.SlikaPNG(pr.Karta, d.Lijevo, d.Y, kartaW, kartaH); err == nil {
+			if err := d.SlikaJPEG(kartaZaPDF(pr.Karta), d.Lijevo, d.Y, kartaW, kartaH); err == nil {
 				d.Y += kartaH + 9
 				d.TekstBoja(d.Lijevo, d.Y, 6.5, false, kartaNapis(p, pr), sivaTekst)
 				kartaNacrtana = true
@@ -224,7 +242,7 @@ func pdfPrijave(p *models.PrijavaSTerena, pr prilogPrijave, t models.OrgTerms, c
 		kw := d.Sirina() - pw - 24
 		kh := kw * float64(visinaKarte) / float64(sirinaKarte)
 		d.Tekst(d.Lijevo, yPot, 8, true, "Lokacija na karti:")
-		if err := d.SlikaPNG(pr.Karta, d.Lijevo, yPot+6, kw, kh); err == nil {
+		if err := d.SlikaJPEG(kartaZaPDF(pr.Karta), d.Lijevo, yPot+6, kw, kh); err == nil {
 			d.TekstBoja(d.Lijevo, yPot+6+kh+9, 6, false, kartaNapis(p, pr), sivaTekst)
 			kartaNacrtana = true
 			if yPot+6+kh+20 > m.y+visinaPotpisa {
@@ -291,7 +309,7 @@ func pdfPrijave(p *models.PrijavaSTerena, pr prilogPrijave, t models.OrgTerms, c
 		d.Y = d.Gore + 10
 		d.Tekst(d.Lijevo, d.Y, 9, true, "Lokacija na karti:")
 		d.Y += 8
-		if err := d.SlikaPNG(pr.Karta, d.Lijevo, d.Y, kartaW, kartaH); err == nil {
+		if err := d.SlikaJPEG(kartaZaPDF(pr.Karta), d.Lijevo, d.Y, kartaW, kartaH); err == nil {
 			d.Y += kartaH + 12
 			d.TekstBoja(d.Lijevo, d.Y, 7.5, false, kartaNapis(p, pr), sivaTekst)
 		}
