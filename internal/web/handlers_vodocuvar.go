@@ -38,7 +38,8 @@ type KnjigaVodocuvara struct {
 	Ime     string
 	AreaID  int
 	Listovi []models.VodocuvarskiList
-	Cekaju  int // predani, a neovjereni
+	Cekaju  int              // predani, a neovjereni
+	Zadaci  []models.Zadatak // otvoreni zadaci koji čekaju vodočuvara
 }
 
 // VodocuvarPageData je stranica popisa ili jednog lista
@@ -147,7 +148,8 @@ func (h *VodocuvarHandler) ShowPopis(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	// vodočuvari kojima se zadaje: samo iz odabranog sektora i područja
+	// vodočuvari kojima se zadaje: samo iz odabranog sektora i područja;
+	// svaki ima svoju knjigu i kad je još prazna
 	for _, v := range s.Vodocuvari(r.Context(), perms) {
 		pd := v.PrimaryDuty()
 		if d.Filtar.Sektor != "" && (pd == nil || pd.SectorID == nil || *pd.SectorID != d.Filtar.Sektor) {
@@ -157,6 +159,22 @@ func (h *VodocuvarHandler) ShowPopis(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		d.Vodocuvari = append(d.Vodocuvari, v)
+		if v.ID.String() == u.ID.String() || poOsobi[v.ID.String()] != nil {
+			continue
+		}
+		k := KnjigaVodocuvara{UserID: v.ID.String(), Ime: v.FullName}
+		if pd != nil && pd.AreaID != nil {
+			k.AreaID = *pd.AreaID
+		}
+		poOsobi[k.UserID] = &k
+		d.Knjige = append(d.Knjige, k)
+	}
+	for i := range d.Knjige {
+		for _, z := range s.Zadaci(r.Context(), d.Knjige[i].UserID) {
+			if z.Otvoren() {
+				d.Knjige[i].Zadaci = append(d.Knjige[i].Zadaci, z)
+			}
+		}
 	}
 	if err := h.tmplPopis.ExecuteTemplate(w, "vodocuvar.html", d); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
