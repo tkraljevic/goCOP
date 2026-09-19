@@ -1,11 +1,10 @@
 # goCOP — Centar obrane od poplava
 
-Operativni program za obranu od poplava Hrvatskih voda: registri štićenih
-dionica, vodomjernih postaja, vodnih tijela i objekata, djelatnici i
-zaduženja, teritorijalne jedinice, očitanja vodostaja i građevinski
-dnevnici. Radi i bez interneta; kopije na različitim računalima se same
-usklađuju. Repozitorij nosi program i praznu shemu baze; podatke unosi ili
-uvozi organizacija koja program koristi.
+Operativni program za obranu od poplava Hrvatskih voda: povezuje organizaciju,
+teren, vodostaje, dokumentaciju obrane, službene akte, ljude i sredstva. Radi
+i bez interneta; kopije na različitim računalima međusobno se usklađuju.
+Repozitorij nosi program i praznu shemu baze, a podatke unosi ili uvozi
+organizacija koja ga koristi.
 
 > **Status: alfa (0.0.x), za testiranje i daljnji razvoj.** Nije za
 > operativnu upotrebu. Sve se još mijenja.
@@ -18,122 +17,29 @@ prva računala. Kaže što program radi na računalu i mreži, što ne radi, i
 
 ## Što već radi
 
-- **Registri:** štićene dionice, vodomjerne postaje s pragovima obrane,
-  vodna tijela, objekti (crpne stanice, ustave, sifoni, nasipi, brane),
-  teritorijalne jedinice te djelatnici i njihova zaduženja. Registri imaju
-  pretraživanje, detalje, unos i uređivanje, uz ovlasti prema području
-  odgovornosti. Program dolazi prazan.
-- **Administrativna organizacija:** sektori (vodnogospodarski odjeli s centrom
-  obrane) i branjena područja (mali slivovi s ispostavom) upisuju se prvi,
-  jer se na njih vežu ovlasti, dionice i zaduženja. Pregled i izlistanje su
-  u Registrima za svakoga; upisuje ih globalni administrator, program ih ne
-  zna sam. Nazivi razina su postavka mreže: druga organizacija istu podjelu
-  može zvati regija i slivno područje, a šifre i ovlasti rade isto.
-- **Dionica i poddionice:** dionica se sastoji od poddionica, a poddionica
-  je jedna voda iz registra s jednim obuhvatom: stacionaža (rkm, pkm, bkm,
-  kkm, po nasipu nkm) od–do, obala, obuhvat riječima, duljina. Na poddionici
-  se biraju ugroženo područje (grad, općina ili naselje), mjerodavni
-  vodomjeri, objekti (crpne stanice, ustave i sifoni vezani na registar
-  objekata; mostovi i propusti kao slobodni redak) te nasipi i brane iz
-  registra objekata s odsjecima. Brane nose naziv retencije ili akumulacije
-  koju zatvaraju. Opis dionice slaže se iz poddionica, uz mogućnost ručnog
-  opisa. Kazala veza (postaja–dionica, objekt–dionica, teritorij–dionica)
-  izvode se iz poddionica i ne razmjenjuju se zasebno. Kartica dionice
-  izvozi se u Excel (A4) sa svime što je na njoj: pragovi i kota nule
-  letvi, nasipi s objektima i ugroženim naseljima, obrana koja traje,
-  zaduženi djelatnici.
-- **Održavanje:** popis lokacija izvršenja usluga po branjenom području
-  (što se održava iz programa A.02 i pod kojom kategorijom: red vode,
-  skupina, vrsta) i stavke radova bez cijena, koje operateri dopunjuju.
-  Popis se uvozi iz ugovora o održavanju (na stranici Održavanje ili
-  zastavicom `-ugovor`) ili dopunjuje ručno; pozicije plana i cjenici se ne
-  uvoze jer se mijenjaju sa svakim okvirnim sporazumom.
-- **Sredstva za obranu (MTS):** skladišta po branjenim područjima i
-  propisani popis od 66 vrsta sredstava (oprema, alat, materijal, pribor).
-  Stanje se ne upisuje nego zbraja iz prometa — primka, izdavanje na
-  dionicu, povrat, utrošak, prijenos među skladištima i sektorima,
-  punjenje vreća, otpis — a svaki redak pamti tko je naložio, tko preuzeo
-  ili dopremio i po kojem dokumentu. Godišnja inventura po skladištu nudi
-  knjižno stanje, skladištar upiše prebrojano, a zaključenjem se razlika
-  proknjiži. Potrebe za nabavom vode se odvojeno, po skladištu i godini,
-  pa se upišu kad se vidi da nešto nedostaje, ne tek na inventuri. Tablica za Glavni centar (redak po
-  vrsti, dva stupca po skladištu, zbroj sektora) izvozi se u Excel na
-  dan; „gdje ima“ pokazuje zalihe jedne vrste kroz sve sektore. Promet i
-  popis upisuje skladištar (dužnost po branjenom području) i uprava
-  područja i sektora. Postojeća sektorska tablica uvozi se kao početno
-  stanje i zaključen popis alatom `go run ./cmd/uvoz-mts -iz tablica.json
-  -upisi` (JSON: skladišta po području sa stavkama stanje i potrebe).
-- **Dnevnik COP-a:** dežurni zapisnik centra obrane od poplava, jedan po
-  centru (sektoru) i po obrani — traje koliko i dežurstva. Otvara ga
-  voditelj ili zamjenik centra; upisuju svi koji rade u sektoru, iz centra
-  i s branjenih područja, u isti dnevnik. Zapis nosi vrijeme događaja i
-  vrijeme upisa, tko je javio i tko je upisao, vrstu (dojava, obavijest,
-  napomena, dežurstvo) i branjeno područje na koje se odnosi, pa se dnevnik
-  čita i po području. Zapisi se ne brišu nego storniraju uz razlog. Stari,
-  digitalizirani dnevnici uvoze se kao prijepis: ondje se krivo pročitano
-  ispravlja na mjestu, jer je dokument uvez na papiru; u živom dnevniku
-  ispravak je novi zapis.
-- **Plan dežurstava i obračun sati:** uz dnevnik COP-a vodi se plan — tko
-  dežura kad, gdje (ured ili teren), za koje branjeno područje ili za cijeli
-  sektor, s opisom rada iz obrasca IORS. Svatko upisuje sebe, od vodočuvara
-  do glavnog rukovoditelja; uprava centra upisuje bilo koga i potvrđuje tuđe
-  upise. Isti zapisi poslije obrane daju obračun sati: po zidnom satu, po
-  vrsti dana i pojasu (radni dan, subota, nedjelja i blagdan; redovno,
-  dnevni, noćni), pomnoženo koeficijentima za ured i teren, zaokruženo na
-  pola sata u korist djelatnika. Obračun se slaže po branjenom području s
-  rekapitulacijom; klik na ime otvara izvješće o radnim satima te osobe, a
-  na profilu svatko vidi svoje planove i izvješća. Blagdani (kao pravila, s
-  razdobljem važenja), redovno radno vrijeme (zadano 7:30–15:30) i
-  koeficijenti su podatak organizacije i uređuju se u Administraciji, ne
-  novom verzijom programa.
-- **Dnevno izvješće rukovoditelja dionice:** standardni obrazac iz
-  Privitka 4 Državnog plana, jedan po dionici i danu dok traje obrana,
-  predaje se do 08:00 u podcentar. Program unaprijed upiše što zna — vodotok
-  dionice, stadij iz otvorene obrane, vodostaje u 07:00 iz očitanja — a
-  rukovoditelj dionice ili zamjenik dopuni mjere, sudionike i stanje na
-  poplavljenom području te preda. Izvješće se ispisuje kao obrazac (Excel,
-  A4) s logotipom, nazivom odjela i potpisom.
-- **Dnevno izvješće sektora:** voditelj COP-a slaže ga za dan iz predanih
-  izvješća dionica i zapisa dnevnika COP-a: program zbroji ljude, strojeve i
-  stanje po branjenim područjima i vodotocima, predloži tekst, a voditelj
-  dopiše hidrometeorološke uvjete i ocjenu, odabere što ulazi i preda
-  Glavnom centru. Tablice se snimaju pri spremanju, pa dokument ostaje isti
-  i kad se izvješće dionice poslije popravi. Probne dionice i izvješća za
-  isprobavanje upisuje `go run ./cmd/probna-izvjesca -upisi`. Sve to
-  zajedno — dnevnici, plan dežurstava, obračun i izvješća — stoji pod
-  **Dokumentacijom**.
-- **Dnevnici usluga A.02 i A.03:** dnevnik održavanja voda I. i II. reda i
-  kanala III. i IV. reda, po branjenom području. Naslovnica (izvođač,
-  voditelj usluga, ovlaštenik ili nadzorni inženjer, akti), za svaki dan
-  list s uvjetima (vremenske prilike s Open-Meteo dok ima interneta,
-  vodostaji iz očitanja, ocjena uvjeta, osoblje i strojevi) i upisi: rad
-  izvođača, napomene, nalozi s rokom i ocjene nadzora. Upisi nose redni broj
-  bez rupa, razlikuju vrijeme događaja od vremena unosa te osobu koja je
-  javila od osobe koja je upisala. Ne brišu se nego storniraju; list potvrđuju
-  izvođač i nadzor, a ispisuje se u obliku obrasca. Izvođač (voditelj usluga /
-  poslovođa) vidi samo dnevnike.
-- **Rad bez interneta:** cijeli program, sučelje i podaci rade lokalno;
-  sučelje je prilagođeno i radu na mobitelu.
-- **Usklađivanje računala:** čvorovi se pronalaze u lokalnoj mreži, ručno
-  uparuju i razmjenjuju podatke šifriranom i obostrano autentificiranom vezom.
-- **Povijest:** svaka izmjena ostaje zabilježena kao nova verzija, a brisanje
-  je arhiviranje. Administratori mogu provjeriti ovlasti pogledom kroz račun
-  drugog djelatnika, bez mogućnosti izmjene u tom načinu rada.
-- **Hidrološka arhiva:** veliki nizovi vodostaja odvojeni su od operativne baze.
-  Administrator kroz sučelje uvozi CSV/XLSX, uspoređuje ga sa zatečenim nizom,
-  zadano ga nadopunjuje, gradi spojeni historijat te ulaže završena operativna
-  očitanja. Arhiva prepoznaje niz bez izvorne datoteke i ne briše ga sama.
-- **`.cop` izdanja:** historijat pojedine postaje izdaje se kao prijenosni paket.
-  Paket je ograničen pri raspakiravanju, ima otiske dijelova i Ed25519 potpis,
-  ugrađuje se atomski, a starije izdanje ne može automatski pregaziti novije.
-  Arhivske mutacije dostupne su samo globalnom administratoru i izvode se jedna
-  po jedna.
+- **Operativa obrane:** teren i očitanja, pragovi i akti o stupnjevima obrane,
+  dnevnik COP-a, dežurstva i obračun IORS, vodočuvarska knjiga, prijave s
+  terena, dnevna izvješća dionica i sektora te dnevnici usluga A.02 i A.03.
+- **Registri i resursi:** ustroj organizacije, dionice i poddionice, vodomjerne
+  postaje, vodotoci, objekti, teritorijalne jedinice, djelatnici i zaduženja,
+  izvođači, održavanje te materijalno-tehnička sredstva sa skladištima, prometom,
+  inventurom i potrebama za nabavom.
+- **Službeni dokumenti:** PDF i Excel obrasci, osobni PAdES potpisi, kvalificirani
+  potpis iz SIGNATOR-a, vlastoručni potpis i žig, slanje izvornika e-poštom te
+  Exchange sandučić i adresar tvrtke.
+- **Podaci i razmjena:** knjiga verzija, selektivna sinkronizacija između
+  uparenih čvorova, odvojena hidrološka arhiva i potpisana `.cop` izdanja.
+- **Rad bez interneta:** osnovno sučelje, podaci, unos i dokumenti rade lokalno.
+  Mrežne karte, vrijeme, javni vodostaji, Exchange i sinkronizacija dostupni su
+  samo kada postoji odgovarajuća mrežna veza.
+
+Detaljni postupci i ovlasti opisani su u ugrađenoj stranici **Pomoć**.
 
 ---
 
 ## 1. Što instalacija znači na računalu
 
-- **Jedan izvršni file (~18 MB), bez instalatera.** Nema pokretačkih
+- **Jedna izvršna datoteka, bez instalatera.** Nema pokretačkih
   programa, nema Windows servisa, nema unosa u registry, nema drugih
   ovisnosti. Kopira se u mapu i pokrene.
 - **Ne traži administratorska prava** (iznimka: port 80 na Linuxu i
@@ -173,10 +79,12 @@ iza tunela i dalje sluša HTTP.
 | **4711** | TCP, TLS 1.3 | dolazno | uparivanje — samo dok uparivanje traje |
 | **4712** | UDP, broadcast | lokalna mreža | pronalaženje drugih goCOP računala u istom segmentu |
 
-**Što ide izvan računala:** isključivo prema drugim goCOP računalima koja je
-administrator izričito uparen. Nema telemetrije, nema provjere verzije, nema
-cloud servisa, nema vanjskih fontova ni skripti — sučelje je ugrađeno u
-program. Sav promet između računala je obostrano autentificiran TLS 1.3.
+**Što ide izvan računala:** program nema telemetriju ni obvezni cloud; sučelje,
+fontovi i skripte ugrađeni su u program. Poslovni podaci sinkroniziraju se samo
+s izričito uparenim goCOP čvorovima, obostrano autentificiranim TLS-om 1.3.
+Ako ih administrator uključi, zasebne veze postoje prema poslužitelju e-pošte,
+javnim vodostajima, Open-Meteu i izvoru mrežnih karata. Bez njih osnovni rad
+ostaje dostupan.
 
 **Za vatrozid:** dopustiti dolazne TCP 80/8080, 4710 i 4711 te UDP 4712
 između računala koja sudjeluju u testu. Portovi se mijenjaju u `gocop.toml`.
@@ -204,10 +112,18 @@ između računala koja sudjeluju u testu. Portovi se mijenjaju u `gocop.toml`.
 - **Ključ računala** (`node-key`) je njegov identitet. Kopija baze bez
   ključa nije to računalo. Ključ se ne sinkronizira i ne smije u backup koji
   ide na drugo računalo.
+- **Tajne i službeni izvornici.** Lozinka Exchangea i sken vlastoručnog potpisa
+  šifrirani su ključem ovog čvora. Osobni potpisni ključ zaključan je lozinkom
+  korisnika; potpisani PDF, a ne nezaštićeni sken, postaje izvornik koji se
+  razmjenjuje. Žig centra dostupan je samo upravi sektora, ali je dio baze i
+  sigurnosne kopije pa mapu `data/` treba štititi kao službenu evidenciju.
 - **Poslovni zapisi ne nestaju običnim brisanjem.** Izmjena je nova verzija,
   a brisanje arhiviranje. Starije tehničke verzije i već uložena operativna
   očitanja mogu se pospremiti samo administratorskim postupkom koji najprije
   provjerava da je točan niz, vrijeme i vrijednost u arhivi.
+- **Testne mogućnosti** za upis i simulirani potpis „tuđim očima” služe samo
+  uvođenju i testiranju. Simulirani PDF ima veliki žig „BEZVRIJEDNO”; sve
+  testne prekidače u operativnom radu treba držati isključenima.
 
 ## 4. Poznata ograničenja alfa faze — pročitati prije odobrenja
 
@@ -257,11 +173,11 @@ preuzeti podatke. Kad stigne imenik, osoba se prijavljuje svojim računom;
 čarobnjak bez prijave tada se zatvara, a prijavljenima ostaje u profilu za
 dodatna računala i ručnu razmjenu.
 
-Sve što radi samo administrator stoji u modulu **Administracija**: ustroj
-obrane (sektori i branjena područja), moduli i ovlasti, čvor, mreža i
-sinkronizacija, postavke obračuna sati (blagdani i koeficijenti) te pregled
-uvoza podataka. Vidi ga zadano samo globalni
-administrator. Nadzorna ploča **Sinkronizacija** pokazuje tko je na mreži,
+Sve što radi samo administrator stoji u modulu **Administracija**: ustroj i
+nazivi, računi, moduli i ovlasti, čvorovi i sinkronizacija, održavanje baze,
+arhiva, obračun sati, e-pošta, žig, elektronički potpisi, testne opcije i
+uvozi. Vidi ga zadano samo globalni administrator. Nadzorna ploča
+**Sinkronizacija** pokazuje tko je na mreži,
 koliko računala odgovara, s kim je zadnja razmjena uspjela, tko zaostaje i
 što ne štima; razmjena ide s više čvorova istodobno, a čvorovi koji redom
 šute zovu se sve rjeđe. **Održavanje baze** pokazuje koliko je baza velika
