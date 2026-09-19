@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+
 	"gocop/internal/models"
 	"gocop/internal/repository"
 	"gocop/internal/service"
@@ -23,6 +25,7 @@ type VodocuvarHandler struct {
 	org                 *repository.OrgRepository
 	geokoder            *weather.Geokoder
 	tmplPopis, tmplList *template.Template
+	tmplKalendar        *template.Template
 }
 
 func NewVodocuvarHandler(svc func() *service.VodocuvarService, users *service.UserService, org *repository.OrgRepository, popis, list *template.Template) *VodocuvarHandler {
@@ -308,12 +311,20 @@ func (h *VodocuvarHandler) HandleZadatak(w http.ResponseWriter, r *http.Request)
 	if natrag == "" {
 		natrag = "/vodocuvar"
 	}
-	z, err := s.ZadajZadatak(r.Context(), perms, u, r.FormValue("vodocuvar"), r.FormValue("tekst"))
+	var za time.Time
+	if v := r.FormValue("za"); v != "" {
+		za, _ = time.ParseInLocation("2006-01-02", v, models.Zagreb)
+	}
+	z, err := s.ZadajZadatak(r.Context(), perms, u, r.FormValue("vodocuvar"), r.FormValue("tekst"), za)
 	if err != nil {
 		redirectWith(w, r, natrag, "error", err.Error())
 		return
 	}
-	redirectWith(w, r, natrag, "success", "Zadatak je zadan; pojavit će se na sljedećem listu vodočuvara pod naredbama, s vašim imenom, dok ga ne obavi ("+z.Tekst+").")
+	kad := "na sljedećem listu"
+	if !z.Za.IsZero() {
+		kad = "na listu za " + z.Za.Format("02.01.2006.")
+	}
+	redirectWith(w, r, natrag, "success", "Zadatak je zadan; pojavit će se "+kad+" pod naredbama, s vašim imenom, dok ga vodočuvar ne obavi ("+z.Tekst+").")
 }
 
 // IzvoziPDF daje list u obliku papirnate stranice
@@ -432,4 +443,114 @@ func (h *VodocuvarHandler) HandleKoordinatePodrucja(w http.ResponseWriter, r *ht
 		return
 	}
 	redirectWith(w, r, "/organizacija", "success", poruka)
+}
+
+// KalendarData je kalendarski pregled zadataka jednog vodočuvara
+type KalendarData struct {
+	CurrentUser *models.User
+	Permissions *models.UserPermissions
+	ActiveNav   string
+	ViewAsBanner
+	SuccessMessage string
+	ErrorMessage   string
+
+	Vodocuvar   *models.User
+	Vodocuvari  []models.User
+	Mjesec      time.Time
+	Prethodni   string
+	Sljedeci    string
+	Tjedni      [][]DanKalendara
+	Danas       string
+	Najdalje    string // zadnji dan do kojeg se smije planirati
+	SmijeZadati bool
+	Otvorenih   int
+}
+
+// DanKalendara je jedno polje kalendara
+type DanKalendara struct {
+	Datum     time.Time
+	Kljuc     string
+	UMjesecu  bool
+	Danas     bool
+	Proslost  bool
+	Predaleko bool
+	Zadaci    []models.Zadatak
+}
+
+// SetKalendar daje rukovatelju predložak kalendara
+func (h *VodocuvarHandler) SetKalendar(t *template.Template) { h.tmplKalendar = t }
+
+// ShowKalendar prikazuje zadatke vodočuvara po danima mjeseca
+func (h *VodocuvarHandler) ShowKalendar(w http.ResponseWriter, r *http.Request) {
+	u, perms, base := h.base(r)
+	s := h.service(w)
+	if s == nil || u == nil {
+		return
+	}
+	q := r.URL.Query()
+	d := KalendarData{CurrentUser: u, Permissions: perms, ActiveNav: "journals", ViewAsBanner: viewBanner(r), SuccessMessage: base.SuccessMessage, ErrorMessage: base.ErrorMessage}
+	n := time.Now().In(models.Zagreb)
+	danas := time.Date(n.Year(), n.Month(), n.Day(), 0, 0, 0, 0, models.Zagreb)
+	d.Danas = danas.Format("2006-01-02")
+	d.Najdalje = danas.AddDate(0, 0, models.NajdaljePlaniranje).Format("2006-01-02")
+	d.Mjesec = time.Date(n.Year(), n.Month(), 1, 0, 0, 0, 0, models.Zagreb)
+	if m, err := time.ParseInLocation("2006-01", q.Get("mjesec"), models.Zagreb); err == nil {
+		d.Mjesec = m
+	}
+	d.Prethodni = d.Mjesec.AddDate(0, -1, 0).Format("2006-01")
+	d.Sljedeci = d.Mjesec.AddDate(0, 1, 0).Format("2006-01")
+	d.Vodocuvari = s.Vodocuvari(r.Context(), perms)
+	id := q.Get("vodocuvar")
+	if id == "" {
+		if service.VodiDnevnik(u) {
+			id = u.ID.String()
+		} else if len(d.Vodocuvari) > 0 {
+			id = d.Vodocuvari[0].ID.String()
+		}
+	}
+	if id != "" {
+		if vid, err := uuid.Parse(id); err == nil {
+			d.Vodocuvar, _ = h.users.GetUserByID(vid)
+		}
+	}
+	zadaci := map[string][]models.Zadatak{}
+	if d.Vodocuvar != nil {
+		var err error
+		zadaci, err = s.Kalendar(r.Context(), perms, d.Vodocuvar.ID.String(), d.Mjesec)
+		if err != nil {
+			d.ErrorMessage = err.Error()
+		}
+		for _, v := range d.Vodocuvari {
+			if v.ID == d.Vodocuvar.ID {
+				d.SmijeZadati = true
+			}
+		}
+		for _, zs := range zadaci {
+			for _, z := range zs {
+				if z.Otvoren() {
+					d.Otvorenih++
+				}
+			}
+		}
+	}
+	// mreža: ponedjeljak do nedjelje
+	prvi := d.Mjesec
+	pomak := (int(prvi.Weekday()) + 6) % 7
+	dan := prvi.AddDate(0, 0, -pomak)
+	for t := 0; t < 6; t++ {
+		var tjedan []DanKalendara
+		for i := 0; i < 7; i++ {
+			k := dan.Format("2006-01-02")
+			tjedan = append(tjedan, DanKalendara{Datum: dan, Kljuc: k, UMjesecu: dan.Month() == d.Mjesec.Month(), Danas: k == d.Danas,
+				Proslost: dan.Before(danas), Predaleko: k > d.Najdalje, Zadaci: zadaci[k]})
+			dan = dan.AddDate(0, 0, 1)
+		}
+		d.Tjedni = append(d.Tjedni, tjedan)
+		if dan.Month() != d.Mjesec.Month() && dan.After(d.Mjesec.AddDate(0, 1, -1)) {
+			break
+		}
+	}
+	if err := h.tmplKalendar.ExecuteTemplate(w, "vodocuvar_kalendar.html", d); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }

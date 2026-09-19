@@ -34,15 +34,16 @@ func NewVodocuvarService(repo *repository.VodocuvarRepository, users *UserServic
 // SetWeather daje servisu klijent za vremenske prilike (za testove drugi)
 func (s *VodocuvarService) SetWeather(c *weather.Client) { s.weather = c }
 
-// ErrNijeVodocuvar: osoba nema terensko zaduženje pa nema ni dnevnik
-var ErrNijeVodocuvar = errors.New("dnevnik vodi tko ima terensko zaduženje (vodočuvar, strojar, rukovatelj, posada); nemate ga u zaduženjima")
+// ErrNijeVodocuvar: osoba nema zaduženje vodočuvara pa nema ni dnevnik
+var ErrNijeVodocuvar = errors.New("vodočuvarski dnevnik vodi tko ima zaduženje vodočuvara; strojari i rukovatelji imaju svoje dnevnike")
 
-// terenskaDuznost je zaduženje po kojem osoba vodi dnevnik: sektor i područje
+// terenskaDuznost je zaduženje vodočuvara po kojem osoba vodi dnevnik:
+// sektor i područje. Strojari i rukovatelji imaju svoje dnevnike.
 func terenskaDuznost(u *models.User) *models.Duty {
 	var prva *models.Duty
 	for i := range u.Duties {
 		d := &u.Duties[i]
-		if !d.IsActive || !d.Role.IsField() {
+		if !d.IsActive || d.Role != models.RoleWaterGuard {
 			continue
 		}
 		if d.IsPrimary {
@@ -336,10 +337,22 @@ func zaVodocuvara(v *models.User) *models.VodocuvarskiList {
 
 // ZadajZadatak zadaje zadatak vodočuvaru; smije tko smije parafirati ili
 // ovjeriti njegov list (rukovoditelji vezani uz područje i sektor)
-func (s *VodocuvarService) ZadajZadatak(ctx context.Context, perms *models.UserPermissions, u *models.User, vodocuvarID, tekst string) (*models.Zadatak, error) {
+// za je dan za koji se zadatak planira: danas ili do 30 dana unaprijed; nula = od danas
+func (s *VodocuvarService) ZadajZadatak(ctx context.Context, perms *models.UserPermissions, u *models.User, vodocuvarID, tekst string, za time.Time) (*models.Zadatak, error) {
 	tekst = strings.TrimSpace(tekst)
 	if tekst == "" {
 		return nil, fmt.Errorf("upišite zadatak")
+	}
+	if !za.IsZero() {
+		n := time.Now().In(models.Zagreb)
+		danas := time.Date(n.Year(), n.Month(), n.Day(), 0, 0, 0, 0, models.Zagreb)
+		za = time.Date(za.Year(), za.Month(), za.Day(), 0, 0, 0, 0, models.Zagreb)
+		if za.Before(danas) {
+			return nil, fmt.Errorf("zadatak se ne zadaje za prošli dan")
+		}
+		if za.After(danas.AddDate(0, 0, models.NajdaljePlaniranje)) {
+			return nil, fmt.Errorf("zadaci se planiraju najviše %d dana unaprijed", models.NajdaljePlaniranje)
+		}
 	}
 	vid, err := uuid.Parse(vodocuvarID)
 	if err != nil {
@@ -356,7 +369,7 @@ func (s *VodocuvarService) ZadajZadatak(ctx context.Context, perms *models.UserP
 	if !s.SmijeParafirati(perms, probni) {
 		return nil, ErrUnauthorized
 	}
-	z := &models.Zadatak{UserID: v.ID.String(), Sektor: probni.Sektor, AreaID: probni.AreaID, Tekst: tekst, ZadaoID: u.ID.String(), Zadao: u.FullName, ZadanoAt: time.Now(), Status: models.ZadatakOtvoren, Cvor: s.cvor}
+	z := &models.Zadatak{UserID: v.ID.String(), Sektor: probni.Sektor, AreaID: probni.AreaID, Tekst: tekst, ZadaoID: u.ID.String(), Zadao: u.FullName, ZadanoAt: time.Now(), Za: za, Status: models.ZadatakOtvoren, Cvor: s.cvor}
 	return z, s.repo.SaveZadatak(ctx, z)
 }
 
@@ -482,3 +495,33 @@ func (s *VodocuvarService) Knjiga(ctx context.Context, perms *models.UserPermiss
 
 // Arhivirana javlja je li knjiga te godine zaključena
 func Arhivirana(godina int) bool { return godina < time.Now().In(models.Zagreb).Year() }
+
+// Kalendar vraća zadatke vodočuvara po danima u mjesecu, za kalendarski pregled
+func (s *VodocuvarService) Kalendar(ctx context.Context, perms *models.UserPermissions, vodocuvarID string, mjesec time.Time) (map[string][]models.Zadatak, error) {
+	vid, err := uuid.Parse(vodocuvarID)
+	if err != nil {
+		return nil, fmt.Errorf("nepoznat vodočuvar")
+	}
+	v, err := s.users.GetUserByID(vid)
+	if err != nil || v == nil {
+		return nil, fmt.Errorf("nepoznat vodočuvar")
+	}
+	if perms.User.ID != v.ID {
+		probni := zaVodocuvara(v)
+		if probni == nil || !s.SmijeVidjeti(perms, probni) {
+			return nil, ErrUnauthorized
+		}
+	}
+	od := time.Date(mjesec.Year(), mjesec.Month(), 1, 0, 0, 0, 0, models.Zagreb)
+	do := od.AddDate(0, 1, 0)
+	zadaci, err := s.repo.ZadaciURazdoblju(ctx, vodocuvarID, od, do)
+	if err != nil {
+		return nil, err
+	}
+	out := map[string][]models.Zadatak{}
+	for _, z := range zadaci {
+		k := z.Dan().Format("2006-01-02")
+		out[k] = append(out[k], z)
+	}
+	return out, nil
+}

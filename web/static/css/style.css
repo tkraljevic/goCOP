@@ -3689,3 +3689,23 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .stavke { margin: 0; padding-left: 1.4rem; } .stavke li { margin: 0.15rem 0; }
 .knjiga { border: 1px solid var(--border, #d9dee5); border-radius: 10px; padding: 0.5rem 0.75rem; margin: 0 0 0.5rem; }
 .knjiga summary { cursor: pointer; }
+.kal-nav { display: flex; gap: 0.5rem; align-items: center; }
+.kalendar { border: 1px solid var(--border, #d9dee5); border-radius: 10px; overflow: hidden; background: var(--surface, #fff); }
+.kal-glava, .kal-tjedan { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.kal-glava span { padding: 0.35rem 0.5rem; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted, #6b7280); border-bottom: 1px solid var(--border, #d9dee5); background: var(--surface-2, #f7f9fb); }
+.kal-dan { min-height: 6.5rem; padding: 0.3rem 0.4rem; border-right: 1px solid var(--border, #d9dee5); border-bottom: 1px solid var(--border, #d9dee5); position: relative; font-size: 0.82rem; }
+.kal-dan:nth-child(7n) { border-right: 0; }
+.kal-dan.izvan { background: #fafafa; color: var(--muted, #9ca3af); }
+.kal-dan.danas { background: #eef4ff; }
+.kal-dan.proslost .kal-broj { color: var(--muted, #9ca3af); }
+.kal-broj { font-weight: 600; margin-bottom: 0.2rem; }
+.kal-zadaci { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.15rem; }
+.kal-zadatak { padding: 0.1rem 0.35rem; border-radius: 4px; background: #fff4d6; border-left: 3px solid #d9a400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kal-zadatak.OBAVLJEN { background: #e8f5ec; border-left-color: #2f7a3e; text-decoration: line-through; }
+.kal-zadatak.ODBACEN { background: #fde8e8; border-left-color: #9b1c1c; }
+.kal-dodaj { position: absolute; right: 0.25rem; top: 0.2rem; }
+.kal-dodaj summary { list-style: none; cursor: pointer; width: 1.4rem; height: 1.4rem; display: flex; align-items: center; justify-content: center; border-radius: 50%; border: 1px solid var(--border, #d9dee5); background: #fff; }
+.kal-dodaj summary::-webkit-details-marker { display: none; }
+.kal-dodaj[open] { position: absolute; left: 0.25rem; right: 0.25rem; top: 1.6rem; z-index: 5; background: #fff; border: 1px solid var(--border, #d9dee5); border-radius: 8px; padding: 0.4rem; box-shadow: 0 6px 20px rgba(0,0,0,0.12); }
+.kal-dodaj form { display: flex; flex-direction: column; gap: 0.3rem; margin-top: 0.3rem; }
+@media (max-width: 700px) { .kal-dan { min-height: 4.5rem; font-size: 0.72rem; } .kal-glava span { padding: 0.25rem; } }

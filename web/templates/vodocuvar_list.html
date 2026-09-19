@@ -86,8 +86,10 @@
     <input type="hidden" name="vodocuvar" value="{{$l.UserID}}">
     <input type="hidden" name="natrag" value="/vodocuvar/{{$l.ID}}">
     <input class="form-control" name="tekst" required placeholder="što treba obići, provjeriti ili napraviti" style="min-width:20rem; flex:1;">
+    <input type="date" class="form-control" name="za" value="{{.Danas}}" min="{{.Danas}}" title="za koji dan" style="max-width:11rem;">
     <button type="submit" class="btn btn-primary btn-sm">{{icon "plus"}} Zadaj</button>
   </form>
+  <div class="form-help"><a href="/vodocuvar/kalendar?vodocuvar={{$l.UserID}}">Kalendar zadataka</a> ove osobe.</div>
 </section>
 {{end}}{{end}}
 

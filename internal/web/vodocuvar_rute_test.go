@@ -112,6 +112,8 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 	mux.HandleFunc("POST /vodocuvar/{id}/radnja", h.HandleRadnja)
 	mux.HandleFunc("GET /vodocuvar/{id}/list.pdf", h.IzvoziPDF)
 	mux.HandleFunc("GET /vodocuvar/knjiga.pdf", h.IzvoziKnjigu)
+	h.SetKalendar(tmpl("vodocuvar_kalendar.html"))
+	mux.HandleFunc("GET /vodocuvar/kalendar", h.ShowKalendar)
 	mux.HandleFunc("GET /organizacija/geokod", h.GeokodJSON)
 	kao := func(u *models.User) *models.UserPermissions {
 		cijeli, _ := users.GetUserByID(u.ID)
@@ -144,6 +146,21 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 	if l := loc(zovi(seit, http.MethodPost, "/vodocuvar/zadatak", url.Values{"vodocuvar": {seit.ID.String()}, "tekst": {"sam sebi"}})); !strings.Contains(l, "error") {
 		t.Error("vodočuvar ne zadaje zadatke sam sebi")
 	}
+	// planirani zadatak: za prekosutra, ne dalje od 30 dana, ne u prošlost; na današnjem listu ga nema
+	prekosutra := time.Now().In(models.Zagreb).AddDate(0, 0, 2).Format("2006-01-02")
+	if l := loc(zovi(kunac, http.MethodPost, "/vodocuvar/zadatak", url.Values{"vodocuvar": {seit.ID.String()}, "tekst": {"Nasip Zmajevac"}, "za": {prekosutra}})); !strings.Contains(l, "na listu za") {
+		t.Fatalf("planirani zadatak: %s", l)
+	}
+	if l := loc(zovi(kunac, http.MethodPost, "/vodocuvar/zadatak", url.Values{"vodocuvar": {seit.ID.String()}, "tekst": {"predaleko"}, "za": {time.Now().AddDate(0, 0, 45).Format("2006-01-02")}})); !strings.Contains(l, "30 dana") {
+		t.Errorf("predaleko planiranje: %s", l)
+	}
+	if l := loc(zovi(kunac, http.MethodPost, "/vodocuvar/zadatak", url.Values{"vodocuvar": {seit.ID.String()}, "tekst": {"prošlost"}, "za": {"2020-01-01"}})); !strings.Contains(l, "prošli dan") {
+		t.Errorf("planiranje u prošlost: %s", l)
+	}
+	kal := zovi(kunac, http.MethodGet, "/vodocuvar/kalendar?vodocuvar="+seit.ID.String()+"&mjesec="+time.Now().In(models.Zagreb).AddDate(0, 0, 2).Format("2006-01"), nil)
+	if kal.Code != http.StatusOK || !strings.Contains(kal.Body.String(), "Nasip Zmajevac") || !strings.Contains(kal.Body.String(), "kal-dan") {
+		t.Fatalf("kalendar: %d\n%.600s", kal.Code, kal.Body.String())
+	}
 	// današnji list: zadaci s imenom tko ih je zadao, očitanje letve
 	dan := zovi(seit, http.MethodGet, "/vodocuvar/dan?datum="+danas, nil)
 	for _, x := range []string{"Deponija pijeska Batina", "Potok Karašica", "zadao Mile Kunac", "114 cm (", "Potpiši i predaj"} {
@@ -151,16 +168,20 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 			t.Fatalf("današnji list nema %q:\n%.1500s", x, dan.Body.String())
 		}
 	}
+	if strings.Count(dan.Body.String(), `name="zadatak_obavljeno_`) != 2 {
+		t.Errorf("na današnjem listu su samo dva zadatka, ne i planirani za prekosutra: %d", strings.Count(dan.Body.String(), `name="zadatak_obavljeno_`))
+	}
 	// zadatak ID-ovi iz obrasca
 	zadaci := vod.Zadaci(ctx, seit.ID.String())
-	if len(zadaci) != 2 {
+	if len(zadaci) != 3 {
 		t.Fatalf("zadataka: %d", len(zadaci))
 	}
 	var z1, z2 string
 	for _, z := range zadaci {
-		if z.Tekst == "Deponija pijeska Batina" {
+		switch z.Tekst {
+		case "Deponija pijeska Batina":
 			z1 = z.ID
-		} else {
+		case "Potok Karašica":
 			z2 = z.ID
 		}
 	}
@@ -191,6 +212,7 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 	dan2 := zovi(seit, http.MethodGet, "/vodocuvar/dan?datum="+sutra, nil).Body.String()
 	// u obrascu je samo neobavljeni zadatak; obavljeni ostaje u pregledu zadataka pri dnu
 	if !strings.Contains(dan2, "Potok Karašica") || strings.Count(dan2, "zadatak_status_") != 3 {
+		// prekosutrašnji zadatak nije još na sutrašnjem listu: samo Karašica
 		t.Errorf("prijenos zadatka na sljedeći list: potok=%v polja=%d", strings.Contains(dan2, "Potok Karašica"), strings.Count(dan2, "zadatak_status_"))
 	}
 	// ovjera: rukovoditelj dionice ne smije, rukovoditelj BP smije; dionica parafira

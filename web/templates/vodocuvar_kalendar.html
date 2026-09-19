@@ -1,0 +1,65 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Kalendar zadataka{{end}}
+
+{{define "content"}}
+<div class="breadcrumb"><a href="/dnevnici">Dokumentacija</a> › <a href="/vodocuvar">Vodočuvarski dnevnik</a> › Kalendar zadataka</div>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "calendar"}} Kalendar zadataka{{with .Vodocuvar}}: {{.FullName}}{{end}}</h1>
+    <p class="page-desc">Zadaci po danima, za tekući mjesec i do {{.Najdalje | localDate}} unaprijed. Zadatak stoji na dnevnom listu od planiranog dana; neobavljeni se prenosi dalje.</p>
+  </div>
+</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
+
+<div class="posta-alat">
+  <form method="GET" action="/vodocuvar/kalendar" class="posta-trazi">
+    {{if .Vodocuvari}}<select name="vodocuvar" class="form-control" onchange="this.form.submit()">
+      {{range .Vodocuvari}}<option value="{{.ID}}" {{if and $.Vodocuvar (eq .ID $.Vodocuvar.ID)}}selected{{end}}>{{.FullName}}{{with .PrimaryDuty}} · {{.Title}}{{end}}</option>{{end}}
+    </select>{{end}}
+    <input type="hidden" name="mjesec" value="{{.Mjesec.Format "2006-01"}}">
+    <noscript><button type="submit" class="btn btn-secondary btn-sm">Prikaži</button></noscript>
+  </form>
+  <div class="kal-nav">
+    <a class="btn btn-secondary btn-sm" href="/vodocuvar/kalendar?mjesec={{.Prethodni}}{{with .Vodocuvar}}&amp;vodocuvar={{.ID}}{{end}}">{{icon "chevron-left"}}</a>
+    <strong>{{mjesecHR .Mjesec}}</strong>
+    <a class="btn btn-secondary btn-sm" href="/vodocuvar/kalendar?mjesec={{.Sljedeci}}{{with .Vodocuvar}}&amp;vodocuvar={{.ID}}{{end}}">{{icon "chevron-right"}}</a>
+  </div>
+</div>
+
+{{if .Vodocuvar}}
+<div class="kalendar">
+  <div class="kal-glava"><span>pon</span><span>uto</span><span>sri</span><span>čet</span><span>pet</span><span>sub</span><span>ned</span></div>
+  {{range .Tjedni}}
+  <div class="kal-tjedan">
+    {{range .}}
+    <div class="kal-dan {{if not .UMjesecu}}izvan{{end}} {{if .Danas}}danas{{end}} {{if .Proslost}}proslost{{end}}">
+      <div class="kal-broj">{{.Datum.Day}}.</div>
+      <ul class="kal-zadaci">
+        {{range .Zadaci}}<li class="kal-zadatak {{.Status}}" title="zadao {{.Zadao}}{{with .Obavljeno}} · {{.}}{{end}}">{{.Tekst}}</li>{{end}}
+      </ul>
+      {{if and $.SmijeZadati (not .Proslost) (not .Predaleko)}}
+      <details class="kal-dodaj">
+        <summary title="Zadaj zadatak za ovaj dan">{{icon "plus"}}</summary>
+        <form method="POST" action="/vodocuvar/zadatak">
+          <input type="hidden" name="vodocuvar" value="{{$.Vodocuvar.ID}}">
+          <input type="hidden" name="za" value="{{.Kljuc}}">
+          <input type="hidden" name="natrag" value="/vodocuvar/kalendar?vodocuvar={{$.Vodocuvar.ID}}&mjesec={{$.Mjesec.Format "2006-01"}}">
+          <input class="form-control" name="tekst" required placeholder="zadatak za {{.Datum.Format "02.01."}}">
+          <button type="submit" class="btn btn-primary btn-sm">Zadaj</button>
+        </form>
+      </details>
+      {{end}}
+    </div>
+    {{end}}
+  </div>
+  {{end}}
+</div>
+<p class="form-help" style="margin-top:0.5rem;"><span class="zadatak-oznaka OTVOREN">otvoren</span> čeka na listu · <span class="zadatak-oznaka OBAVLJEN">obavljen</span> · <span class="zadatak-oznaka ODBACEN">nije obavljen</span> · otvorenih u mjesecu: {{.Otvorenih}}. Zadatak se zadaje klikom na + u danu.</p>
+{{else}}
+<p class="form-help">Nema vodočuvara kojemu biste vidjeli kalendar.</p>
+{{end}}
+{{end}}

@@ -119,6 +119,7 @@ type Zadatak struct {
 	ZadaoID     string     `json:"zadao_id"`
 	Zadao       string     `json:"zadao"`
 	ZadanoAt    time.Time  `json:"zadano_at"`
+	Za          time.Time  `json:"za,omitempty"`        // dan za koji je zadatak planiran; nula = od dana zadavanja
 	Status      string     `json:"status"`              // ZadatakOtvoren, ZadatakObavljen, ZadatakOdbacen
 	Obavljeno   string     `json:"obavljeno,omitempty"` // što je napravljeno, ili zašto nije
 	ObavljenoAt *time.Time `json:"obavljeno_at,omitempty"`
@@ -179,3 +180,15 @@ func Stavke(tekst string) []string {
 func (l VodocuvarskiList) OpisStavke() []string      { return Stavke(l.Opis) }
 func (l VodocuvarskiList) ZapazanjaStavke() []string { return Stavke(l.Zapazanja) }
 func (l VodocuvarskiList) NaredbeStavke() []string   { return Stavke(l.Naredbe) }
+
+// Dan je dan od kojeg zadatak stoji na listu: planirani, inače dan zadavanja
+func (z Zadatak) Dan() time.Time {
+	if !z.Za.IsZero() {
+		return z.Za
+	}
+	d := z.ZadanoAt.In(Zagreb)
+	return time.Date(d.Year(), d.Month(), d.Day(), 0, 0, 0, 0, Zagreb)
+}
+
+// NajdaljePlaniranje je koliko dana unaprijed se zadatak smije zadati
+const NajdaljePlaniranje = 30
