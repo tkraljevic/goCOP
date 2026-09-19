@@ -13,12 +13,12 @@ import (
 
 func probniManifest() (Manifest, []DioPaketa) {
 	return Manifest{
-			Inacica: 2, Letva: "batina", Izdanje: 3, Izdao: "cop-osijek-node",
-			Otisak: "6e0ed8df", Nizova: 15, Zapisa: 933732, Od: "1901-01-01", Do: "2026-09-11",
-		}, []DioPaketa{
-			{Ime: "nizovi.json", Otisak: "aa", Bajtova: 10},
-			{Ime: "ocitanja.bin", Otisak: "bb", Bajtova: 20},
-		}
+		Inacica: 2, Letva: "batina", Izdanje: 3, Izdao: "cop-osijek-node",
+		Otisak: "6e0ed8df", Nizova: 15, Zapisa: 933732, Od: "1901-01-01", Do: "2026-09-11",
+	}, []DioPaketa{
+		{Ime: "nizovi.json", Otisak: "aa", Bajtova: 10},
+		{Ime: "ocitanja.bin", Otisak: "bb", Bajtova: 20},
+	}
 }
 
 // Otisak dokazuje cjelovitost, potpis dokazuje tko je izdao. Tko promijeni
