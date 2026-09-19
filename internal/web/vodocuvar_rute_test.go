@@ -391,9 +391,13 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 	}
 	jucer := time.Now().In(models.Zagreb).AddDate(0, 0, -1).Format("2006-01-02")
 	formaJucer := url.Values{"datum": {jucer}, "od": {"07:30"}, "do": {"15:30"}, "opis": {"proba simulacije"}, "radnja": {"predaj"}}
-	// bez opcije: tuđim očima vrijedi pravi ključ, pa treba lozinka
-	if l := loc(tudjim(seit, http.MethodPost, "/vodocuvar/spremi", formaJucer)); !strings.Contains(l, "lozinku") {
+	// Bez opcije gledanje tuđim očima ne smije potpisati ni kad promatrana
+	// osoba ima pravi ključ: samo izričita simulacija stvara testni potpis.
+	if l := loc(tudjim(seit, http.MethodPost, "/vodocuvar/spremi", formaJucer)); !strings.Contains(l, "nije dopu") {
 		t.Fatalf("tuđim očima bez simulacije: %s", l)
+	}
+	if listovi, _ := vod.Moji(ctx, seit, time.Now().In(models.Zagreb).Year()); len(listovi) != 1 {
+		t.Fatalf("zabranjena predaja promijenila je dnevnik: %d listova", len(listovi))
 	}
 	simulacija = true
 	if s := tudjim(seit, http.MethodGet, "/vodocuvar/dan?datum="+jucer, nil).Body.String(); !strings.Contains(s, "simuliranim ključem") {

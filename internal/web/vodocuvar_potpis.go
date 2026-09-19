@@ -43,6 +43,14 @@ func (h *VodocuvarHandler) potpisnikZa(r *http.Request, u *models.User, lozinka 
 	if h.simulacijaKljuca(r) {
 		return ps.Simulirani(ctx, u)
 	}
+	// Gledanje tuđim očima služi provjeri prikaza i ovlasti, ali ne smije
+	// stvoriti zapis da je promatrana osoba nešto potpisala. Njezin pravi ključ
+	// ne otključavamo ni kad ga ima: za testno potpisivanje administrator mora
+	// izričito uključiti simulaciju, koja potpis i PDF vidljivo označava kao
+	// bezvrijedne.
+	if viewing, _ := ctx.Value(contextKeyViewing).(bool); viewing {
+		return nil, fmt.Errorf("gledanjem tuđim očima nije dopušteno potpisivanje; za test uključite Simulaciju ključa u postavkama")
+	}
 	if !ps.Ima(ctx, u.ID.String()) {
 		return nil, nil
 	}
