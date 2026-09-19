@@ -1004,6 +1004,7 @@ func (s *Server) setupRoutes() {
 	aktiH := NewAktiHandler(func() *service.AktService { return s.akti }, s.userService, s.stationService,
 		s.templates["akti.html"], s.templates["akt_form.html"], s.templates["akt.html"], s.templates["primatelji.html"])
 	aktiH.SetSpranca(s.templates["spranca.html"])
+	// akti su ovdje dnevnik-svjesni: aktivna obrana je otvoren dnevnik COP-a
 	aktiH.SetPosta(s.templates["posta_racun.html"], s.templates["administracija_posta.html"])
 	aktiH.SetSanducic(s.templates["posta_sanducic.html"], s.templates["posta_pismo.html"], s.templates["posta_novo.html"])
 	s.mux.Handle("POST /posta/pismo", s.authMiddleware(http.HandlerFunc(aktiH.HandlePismoRadnja)))
@@ -1180,6 +1181,8 @@ func DijeloviPredloska(stranica string) []string {
 	switch stranica {
 	case "station_detail.html", "section_detail.html":
 		dijelovi = append(dijelovi, "letva_blokovi.html")
+	case "akti.html", "akt_form.html":
+		dijelovi = append(dijelovi, "obrana_nacin.html")
 	}
 	return dijelovi
 }

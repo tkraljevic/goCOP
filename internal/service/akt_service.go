@@ -41,6 +41,37 @@ type AktService struct {
 	cvor        string
 	kljuc       ed25519.PrivateKey // ključ čvora kojim se ovjera potpisuje
 	posta       posta.Postavke     // poslužitelj e-pošte za slanje akata
+	// aktivna vraća otvoren dnevnik COP-a sektora: bez njega je obrana
+	// preventivna i akti se ne sastavljaju ni ne ovjeravaju; objavi upisuje
+	// ovjeren akt u dnevnike. Bez oboje (u testu) pravilo ne vrijedi.
+	aktivna func(ctx context.Context, sektor string) *models.Journal
+	objavi  func(ctx context.Context, u *models.User, a *models.Akt, j *models.Journal) []string
+}
+
+// SetObrana daje servisu pravilo aktivne obrane i objavu akata u dnevnike
+func (s *AktService) SetObrana(aktivna func(ctx context.Context, sektor string) *models.Journal, objavi func(ctx context.Context, u *models.User, a *models.Akt, j *models.Journal) []string) {
+	s.aktivna, s.objavi = aktivna, objavi
+}
+
+// AktivnaObrana vraća otvoren dnevnik COP-a sektora, ili nil kad je obrana
+// preventivna; bez pravila (nil) vraća nil, a ErrPreventivna se ne diže
+func (s *AktService) AktivnaObrana(ctx context.Context, sektor string) *models.Journal {
+	if s == nil || s.aktivna == nil {
+		return nil
+	}
+	return s.aktivna(ctx, sektor)
+}
+
+// trebaAktivnu provjerava da je obrana u sektoru akta aktivna
+func (s *AktService) trebaAktivnu(ctx context.Context, a *models.Akt) (*models.Journal, error) {
+	if s.aktivna == nil {
+		return nil, nil
+	}
+	j := s.aktivna(ctx, a.Sektor)
+	if j == nil {
+		return nil, ErrPreventivnaObrana{Sektor: a.Sektor}
+	}
+	return j, nil
 }
 
 // SetKljuc daje servisu ključ čvora; bez njega se ovjera ne potpisuje
@@ -587,6 +618,12 @@ func (s *AktService) Spremi(ctx context.Context, perms *models.UserPermissions, 
 	if !perms.HasWriteAccess(a.Sektor, a.AreaID, "") && !s.SmijeOvjeriti(perms, a) {
 		return ErrUnauthorized
 	}
+	if a.ID == "" {
+		// novi nacrt nastaje samo u aktivnoj obrani; postojeći se smije doraditi
+		if _, err := s.trebaAktivnu(ctx, a); err != nil {
+			return err
+		}
+	}
 	if len(a.Dionice) == 0 {
 		return fmt.Errorf("akt bez dionica")
 	}
@@ -618,6 +655,9 @@ func (s *AktService) Ovjeri(ctx context.Context, perms *models.UserPermissions, 
 	}
 	if !s.SmijeOvjeriti(perms, a) {
 		return nil, nil, fmt.Errorf("%w: %s ovjerava %s", ErrUnauthorized, a.Naslov(), strings.ToLower(a.Potpisnik))
+	}
+	if _, err := s.trebaAktivnu(ctx, a); err != nil {
+		return nil, nil, err
 	}
 	return s.zakljuciOvjeru(ctx, perms, perms, u, a, time.Now())
 }
@@ -685,6 +725,14 @@ func (s *AktService) zakljuciOvjeru(ctx context.Context, perms, potpisnikPerms *
 				upozorenja = append(upozorenja, d.Code+": "+err.Error())
 			}
 		}
+	}
+	// ovjeren akt ide u dnevnike: COP-a, vodočuvara i održavanja
+	if s.objavi != nil {
+		var j *models.Journal
+		if s.aktivna != nil {
+			j = s.aktivna(ctx, a.Sektor)
+		}
+		upozorenja = append(upozorenja, s.objavi(ctx, u, a, j)...)
 	}
 	return a, upozorenja, nil
 }

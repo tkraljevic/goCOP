@@ -412,6 +412,8 @@ func main() {
 		return rv.OdTekst(), rv.DoTekst()
 	})
 	server.SetVodocuvar(vodocuvarService, orgRepo)
+	// akti samo u aktivnoj obrani (otvoren dnevnik COP-a), a ovjereni idu u dnevnike
+	aktService.SetObrana(journalService.AktivnaObrana, service.NewObjavaAkta(journalService, vodocuvarService).Objavi)
 	potpisService := service.NewPotpisService(repository.NewPotpisRepository(database, recorder), userService, node.ID, node.PrivateKey(), authService.CheckPassword)
 	if err := potpisService.Pokreni(context.Background()); err != nil {
 		log.Printf("elektronički potpis nije dostupan: %v", err)

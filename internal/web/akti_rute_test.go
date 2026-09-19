@@ -63,6 +63,11 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 	stations := service.NewStationService(stationRepo, sections, service.NewSSEBroker())
 	_, kljuc, _ := ed25519.GenerateKey(nil)
 	akti.SetKljuc(kljuc)
+	// aktivna obrana = otvoren dnevnik COP-a; ovjeren akt ide u dnevnike
+	journalRepo := repository.NewJournalRepository(baza, rec)
+	js := service.NewJournalService(journalRepo, stationRepo, readingRepo)
+	vod := service.NewVodocuvarService(repository.NewVodocuvarRepository(baza, rec), users, "cop-osijek")
+	akti.SetObrana(js.AktivnaObrana, service.NewObjavaAkta(js, vod).Objavi)
 
 	ctx := context.Background()
 	st := &models.Station{ID: uuid.New(), Code: "batina", Name: "Batina", Watercourse: "Dunav"}
@@ -180,6 +185,28 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 	}
 	mora(zovi(http.MethodGet, "/akti/primatelji?sektor=B", nil), "primatelji", "Glavni centar obrane od poplava Zagreb", "Župan osječko-baranjski", "Izvanredno stanje")
 
+	// preventivna obrana: bez otvorenog dnevnika COP-a nacrt se ne sastavlja
+	if l := zovi(http.MethodPost, "/akti/novi", url.Values{"station_id": {st.ID.String()}, "radnja": {"USPOSTAVA"}, "stupanj": {"IZVANREDNA"}, "vrijedi": {"2026-09-15T12:00"}, "dionica": {"B.34.1", "B.34.2"}}).Header().Get("Location"); !strings.Contains(l, "preventivnoj") {
+		t.Fatalf("nacrt bez dnevnika COP-a: %s", l)
+	}
+	mora(zovi(http.MethodGet, "/akti", nil), "popis u preventivnoj", "preventivna obrana", "nema otvorenog dnevnika COP-a")
+	// voditelj otvori dnevnik COP-a: aktivna obrana; uz to vodočuvar područja i otvoren dnevnik održavanja
+	pocetakObrane := time.Date(2026, 9, 1, 0, 0, 0, 0, models.Zagreb)
+	dnevnikCOP := &models.Journal{Kind: models.JournalKindDefense, CentarSektor: "B", Title: "Dnevnik COP-a Osijek, rujan 2026.", Year: 2026, StartedAt: &pocetakObrane}
+	if err := journalRepo.SaveJournal(ctx, dnevnikCOP); err != nil {
+		t.Fatal(err)
+	}
+	a02 := &models.Journal{Kind: models.JournalKindMaintenanceA02, AreaID: 34, Title: "A.02 Dunav", Year: 2026, Contractor: "Vodogradnja", StartedAt: &pocetakObrane}
+	if err := journalRepo.SaveJournal(ctx, a02); err != nil {
+		t.Fatal(err)
+	}
+	sekB, bp34 := "B", 34
+	vodocuvar := &models.User{ID: uuid.New(), Username: "seit", FullName: "Seit Vodočuvar", IsActive: true}
+	if err := userRepo.CreateUser(vodocuvar, &models.Duty{Title: "Vodočuvar Batina", Role: models.RoleWaterGuard, ScopeType: models.ScopeSection, SectorID: &sekB, AreaID: &bp34, SectionCodes: "B.34.1", IsPrimary: true}); err != nil {
+		t.Fatal(err)
+	}
+	mora(zovi(http.MethodGet, "/akti", nil), "popis u aktivnoj", "aktivna obrana", "Dnevnik COP-a Osijek")
+
 	// nacrt rješenja o izvanrednoj obrani
 	sva, _ := akti.OcitanjaZaAkt(ctx, st.ID.String(), 0)
 	if len(sva) != 2 || *sva[0].LevelCm != 652 {
@@ -242,6 +269,18 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 	a, _ = akti.Get(ctx, id)
 	if !a.Ovjeren() || a.Broj != 1 || a.Oznaka() != "B-1/2026" || a.OvjeraKod == "" || a.Ovjerio != "Uprava Sektora" {
 		t.Fatalf("ovjera nije upisana: %+v", a)
+	}
+	// ovjeren akt je objavljen: obavijest u dnevniku COP-a, bilješka na listu vodočuvara, napomena nadzora u A.02
+	if zapisi, _ := js.EntriesForJournal(ctx, dnevnikCOP.ID); len(zapisi) != 1 || zapisi[0].Kind != models.EntryKindNotice || !strings.Contains(zapisi[0].Text, "B-1/2026") || zapisi[0].UserName != "Uprava Sektora" || zapisi[0].PodrucjeID() != 34 {
+		t.Errorf("zapis u dnevniku COP-a: %+v", zapisi)
+	}
+	if listovi, _ := vod.Moji(ctx, vodocuvar, 2026); len(listovi) != 1 || len(listovi[0].Upisi) != 1 || !strings.Contains(listovi[0].Upisi[0].Tekst, "B-1/2026") || listovi[0].Datum.In(models.Zagreb).Day() != 15 {
+		t.Errorf("list vodočuvara nakon akta: %+v", listovi)
+	}
+	if sh, _ := js.ListSheets(ctx, a02.ID); len(sh) != 1 {
+		t.Errorf("list dnevnika održavanja: %d", len(sh))
+	} else if e, _ := js.EntriesForSheet(ctx, sh[0].ID); len(e) != 1 || e[0].Side != models.EntrySideSupervisor || !strings.Contains(e[0].Text, "B-1/2026") {
+		t.Errorf("napomena nadzora u A.02: %+v", e)
 	}
 	// elektronički potpis ključem čvora vrijedi, a izmjena u bazi ga ruši
 	if a.Potpis == "" || a.KljucCvora == "" || service.ProvjeriPotpis(a) != service.PotpisVrijedi {

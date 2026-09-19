@@ -20,6 +20,7 @@
 
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
+{{template "obrana_nacin" .}}
 
 <form method="GET" action="/akti" class="obracun-filtar">
   <label for="f-q">Traži</label><input type="text" id="f-q" name="q" class="form-control" value="{{.Filtar.Trazi}}" placeholder="vodomjer, dionica, osoba" style="max-width:14rem;">
@@ -59,3 +60,4 @@
 <div class="reg-empty">Nema akata za taj izbor. Novi akt sastavlja se s vodomjera: gumb "Novi akt" ili na stranici očitanja letve.</div>
 {{end}}
 {{end}}
+
