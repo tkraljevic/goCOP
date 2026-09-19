@@ -94,6 +94,14 @@ func (h *JournalsHandler) IzvoziDnevnikPDF(w http.ResponseWriter, r *http.Reques
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	if j.Ovjeren() {
+		// ovjeren dnevnik ima samo jedan PDF: potpisani izvornik; bez njega ili
+		// s izmijenjenim ne daje se ništa što bi se moglo držati za izvornik
+		if st := h.journals.ProvjeriIzvornikCOP(r.Context(), j); !st.Ispravan {
+			http.Error(w, st.Greska, http.StatusConflict)
+			return
+		}
+	}
 	if len(pdf) == 0 {
 		zapisi, e := h.journals.EntriesForJournal(r.Context(), j.ID)
 		if e != nil {

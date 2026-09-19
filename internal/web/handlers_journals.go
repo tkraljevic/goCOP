@@ -119,9 +119,10 @@ type JournalPageData struct {
 	// UpravaCentra slaže plan dežurstava; CanManage (nadzor) za to nije dovoljan
 	UpravaCentra   bool
 	VoditeljCOP    bool
-	MozeSebe       bool // smije upisati vlastito dežurstvo
-	Podrucje       int  // filtar dnevnika COP-a po području; 0 = sve
-	ImaDanas       bool // dnevnik COP-a ima zapise za danas, za skok
+	IzvornikCOP    service.StanjeIzvornika // nalaz provjere izvornika ovjerenog dnevnika COP-a
+	MozeSebe       bool                    // smije upisati vlastito dežurstvo
+	Podrucje       int                     // filtar dnevnika COP-a po području; 0 = sve
+	ImaDanas       bool                    // dnevnik COP-a ima zapise za danas, za skok
 	OpisiRada      []models.OpisRada
 	Obracun        service.Obracun
 	IORS           service.IORS
@@ -464,6 +465,7 @@ func (h *JournalsHandler) ShowJournal(w http.ResponseWriter, r *http.Request) {
 		data.Dezurstva, _ = h.journals.Dezurstva(ctx, j.ID)
 		data.UpravaCentra = h.journals.UpravaCentra(data.Permissions, j)
 		data.VoditeljCOP = h.journals.VoditeljCOP(data.CurrentUser, j)
+		data.IzvornikCOP = h.journals.ProvjeriIzvornikCOP(ctx, j)
 		data.MozeSebe = h.journals.MozeSebeUPlan(data.Permissions, h.opseg(j, area), j)
 		h.render(w, h.tmplCOP, "dnevnik_cop.html", data)
 		return

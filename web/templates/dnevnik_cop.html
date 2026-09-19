@@ -45,10 +45,14 @@
 </div>
 
 {{if .Journal.Ovjeren}}
+{{if .IzvornikCOP.Ispravan}}
 <div class="alert alert-success">{{icon "lock"}} <strong>Dnevnik je ovjeren.</strong>
   Zaključio i potpisao {{.Journal.Zakljucio}}, {{.Journal.ZakljucenoAt.Format "2.1.2006. u 15:04"}}.
-  Rukovoditelj sektora dobiva zaključeni dnevnik na znanje.
+  Rukovoditelj sektora dobiva zaključeni dnevnik na znanje. Izvornik: <a href="/dnevnici/{{.Journal.ID}}/dnevnik.pdf">potpisani PDF</a>, SHA-256 <span class="mono">{{printf "%.16s" .IzvornikCOP.Sazetak}}…</span>, ispravan.
 </div>
+{{else}}
+<div class="alert alert-error">{{icon "x"}} <strong>Dnevnik je ovjeren ({{.Journal.Zakljucio}}, {{.Journal.ZakljucenoAt.Format "2.1.2006. u 15:04"}}), ali izvornik nije ispravan:</strong> {{.IzvornikCOP.Greska}}. Javite administratoru; izvornik se obnavlja iz knjige verzija drugog čvora.</div>
+{{end}}
 {{end}}
 
 {{if and .VoditeljCOP .Journal.EndedAt (not .Journal.Ovjeren)}}
