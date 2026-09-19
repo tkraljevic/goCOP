@@ -32,6 +32,15 @@ func NewVodocuvarHandler(svc func() *service.VodocuvarService, users *service.Us
 // SetGeokoder daje rukovatelju drugi geokoder (za testove)
 func (h *VodocuvarHandler) SetGeokoder(g *weather.Geokoder) { h.geokoder = g }
 
+// KnjigaVodocuvara su listovi jednog vodočuvara, jer svaki ima svoju knjigu
+type KnjigaVodocuvara struct {
+	UserID  string
+	Ime     string
+	AreaID  int
+	Listovi []models.VodocuvarskiList
+	Cekaju  int // predani, a neovjereni
+}
+
 // VodocuvarPageData je stranica popisa ili jednog lista
 type VodocuvarPageData struct {
 	CurrentUser *models.User
@@ -46,6 +55,8 @@ type VodocuvarPageData struct {
 	Godine      []int
 	Moji        []models.VodocuvarskiList
 	Tudji       []models.VodocuvarskiList
+	Knjige      []KnjigaVodocuvara // tuđi listovi po vodočuvaru
+	Podrucja    []models.Area
 	Sektori     []models.Sector
 	Filtar      repository.FiltarListova
 	Danas       string
@@ -102,10 +113,49 @@ func (h *VodocuvarHandler) ShowPopis(w http.ResponseWriter, r *http.Request) {
 	if d.VodiDnevnik {
 		d.Moji, _ = s.Moji(r.Context(), u, d.Godina)
 	}
-	d.Filtar = repository.FiltarListova{Sektor: q.Get("sektor"), Godina: d.Godina, CekaPotvrdu: q.Get("ceka") == "1", Limit: 200}
+	d.Filtar = repository.FiltarListova{Sektor: q.Get("sektor"), Godina: d.Godina, CekaPotvrdu: q.Get("ceka") == "1", Limit: 500}
 	d.Filtar.AreaID, _ = strconv.Atoi(q.Get("podrucje"))
+	if _, ima := q["sektor"]; !ima {
+		// zadano: sektor osobe po glavnom zaduženju
+		if pd := u.PrimaryDuty(); pd != nil && pd.SectorID != nil {
+			d.Filtar.Sektor = *pd.SectorID
+		}
+	}
+	if d.Filtar.Sektor != "" {
+		d.Podrucja, _ = h.users.ListAreas(d.Filtar.Sektor)
+	}
 	d.Tudji, _ = s.Tudji(r.Context(), perms, d.Filtar)
-	d.Vodocuvari = s.Vodocuvari(r.Context(), perms)
+	// po vodočuvaru: svaki ima svoju knjigu
+	poOsobi := map[string]*KnjigaVodocuvara{}
+	for _, l := range d.Tudji {
+		k := poOsobi[l.UserID]
+		if k == nil {
+			k = &KnjigaVodocuvara{UserID: l.UserID, Ime: l.Ime, AreaID: l.AreaID}
+			poOsobi[l.UserID] = k
+			d.Knjige = append(d.Knjige, *k)
+		}
+	}
+	for i := range d.Knjige {
+		for _, l := range d.Tudji {
+			if l.UserID == d.Knjige[i].UserID {
+				d.Knjige[i].Listovi = append(d.Knjige[i].Listovi, l)
+				if l.Predan() && !l.Potvrden() {
+					d.Knjige[i].Cekaju++
+				}
+			}
+		}
+	}
+	// vodočuvari kojima se zadaje: samo iz odabranog sektora i područja
+	for _, v := range s.Vodocuvari(r.Context(), perms) {
+		pd := v.PrimaryDuty()
+		if d.Filtar.Sektor != "" && (pd == nil || pd.SectorID == nil || *pd.SectorID != d.Filtar.Sektor) {
+			continue
+		}
+		if d.Filtar.AreaID > 0 && (pd == nil || pd.AreaID == nil || *pd.AreaID != d.Filtar.AreaID) {
+			continue
+		}
+		d.Vodocuvari = append(d.Vodocuvari, v)
+	}
 	if err := h.tmplPopis.ExecuteTemplate(w, "vodocuvar.html", d); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
