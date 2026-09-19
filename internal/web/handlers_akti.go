@@ -55,6 +55,7 @@ type AktiPageData struct {
 	Podrucja  []models.Area
 	Godine    []int
 	Stupnjevi []models.DefensePhase
+	Obrana    []ObranaSektora // način rada po sektoru: aktivna (otvoren dnevnik COP-a) ili preventivna
 
 	// obrazac
 	Station    *models.Station
@@ -103,6 +104,14 @@ func (h *AktiHandler) base(r *http.Request) (*models.User, *models.UserPermissio
 	data := AktiPageData{CurrentUser: u, Permissions: perms, SuccessMessage: q.Get("success"), ErrorMessage: q.Get("error"),
 		ActiveNav: "journals", ViewAsBanner: viewBanner(r), Stupnjevi: models.StupnjeviAkta, Skupine: models.SkupinePrimatelja}
 	data.Sektori, _ = h.users.ListSectors()
+	if s := h.akti(); s != nil && perms != nil {
+		for _, sk := range data.Sektori {
+			if sk.ID == "DIREKCIJA" || !(perms.IsGlobalAdmin || perms.AllowedSectors[sk.ID] || perms.AdminSectors[sk.ID] || sektorPodrucja(perms, sk.ID)) {
+				continue
+			}
+			data.Obrana = append(data.Obrana, ObranaSektora{Sektor: sk.ID, Centar: sk.CenterCop, Dnevnik: s.AktivnaObrana(r.Context(), sk.ID)})
+		}
+	}
 	return u, perms, data
 }
 
@@ -188,6 +197,27 @@ func (h *AktiHandler) ShowForm(w http.ResponseWriter, r *http.Request) {
 	if err := h.tmplForm.ExecuteTemplate(w, "akt_form.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// ObranaSektora je način rada sektora za stranice akata: otvoren dnevnik
+// COP-a znači aktivnu obranu, bez njega je preventivna
+type ObranaSektora struct {
+	Sektor  string
+	Centar  string
+	Dnevnik *models.Journal
+}
+
+// Aktivna javlja je li obrana u sektoru aktivna
+func (o ObranaSektora) Aktivna() bool { return o.Dnevnik != nil }
+
+// sektorPodrucja javlja ima li osoba zaduženje na nekom području sektora
+func sektorPodrucja(perms *models.UserPermissions, sektor string) bool {
+	for _, d := range perms.User.Duties {
+		if d.IsActive && d.SectorID != nil && *d.SectorID == sektor {
+			return true
+		}
+	}
+	return false
 }
 
 // smijeLetvu javlja može li osoba sastaviti akt po toj letvi: bar jedna od

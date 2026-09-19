@@ -1,0 +1,8 @@
+{{/* Način rada obrane po sektoru, na stranicama akata: aktivna je otvoren dnevnik COP-a, inače preventivna */}}
+{{define "obrana_nacin"}}{{if .Obrana}}
+<div class="obrana-nacin">
+  {{range .Obrana}}<div class="obrana-sektor {{if .Aktivna}}aktivna{{else}}preventivna{{end}}">
+    {{if .Aktivna}}{{icon "shield"}} <strong>{{term "sektor"}} {{.Sektor}}: aktivna obrana</strong> · <a href="/dnevnici/{{.Dnevnik.ID}}">{{.Dnevnik.DisplayTitle}}</a>{{else}}{{icon "shield"}} <strong>{{term "sektor"}} {{.Sektor}}: preventivna obrana</strong> · nema otvorenog dnevnika COP-a, pa se stupnjevi ne proglašavaju; voditelj COP-a otvara <a href="/dnevnici/novi-cop?sektor={{.Sektor}}">dnevnik</a>{{end}}
+  </div>{{end}}
+</div>
+{{end}}{{end}}

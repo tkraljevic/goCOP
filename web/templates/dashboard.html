@@ -34,7 +34,7 @@
   <div class="stanje-traka">
     {{range .Stanja}}
     <div class="stanje-kartica{{if not .Mirno}} zivo{{end}}">
-      <div class="stanje-glava">{{icon "shield"}} <strong>{{term "sektor"}} {{.Sektor}}</strong>{{if .Centar}} <span class="reg-card-sub">{{.Centar}}</span>{{end}}</div>
+      <div class="stanje-glava">{{icon "shield"}} <strong>{{term "sektor"}} {{.Sektor}}</strong>{{if .Centar}} <span class="reg-card-sub">{{.Centar}}</span>{{end}} {{if .Dnevnik}}<span class="badge badge-danger" title="Otvoren je dnevnik COP-a: proglašavaju se stupnjevi, vode dežurstva i obračunavaju sati">AKTIVNA OBRANA</span>{{else}}<span class="badge badge-active" title="Nema otvorenog dnevnika COP-a: bez proglašenja stupnjeva i obračuna sati">preventivna obrana</span>{{end}}</div>
       {{if .Mirno}}
       <div class="stanje-redak reg-card-sub">Mirno: nema proglašene obrane ni otvorenog dnevnika.</div>
       {{else}}
