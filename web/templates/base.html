@@ -125,7 +125,7 @@
     <span class="viewas-eye">{{icon "eye"}} </span>
     <span class="viewas-text">
       Gledaš program očima djelatnika <strong>{{.ViewedName}}</strong>{{if .ViewedTitle}} ({{.ViewedTitle}}){{end}}.
-      Prijavljen je <strong>{{.RealName}}</strong>. U ovom pogledu program samo čita.
+      Prijavljen je <strong>{{.RealName}}</strong>. {{if .UpisiDopusteni}}<strong>Upisi su dopušteni</strong> i nastaju pod imenom {{.ViewedName}} (Opcije).{{else}}U ovom pogledu program samo čita.{{end}}
     </span>
     <form method="POST" action="/view-as/stop" class="viewas-form">
       <input type="hidden" name="back" value="/users">

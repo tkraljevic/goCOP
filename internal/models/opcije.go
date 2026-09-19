@@ -15,4 +15,8 @@ type Opcije struct {
 	// BrisanjeSOglasnePloce dopušta upravi organizacije brisanje pojedinog
 	// zapisa s oglasne ploče (događanja), tj. te verzije iz knjige.
 	BrisanjeSOglasnePloce bool `json:"brisanje_s_oglasne_ploce"`
+	// UpisTudjimOcima dopušta administratoru da, dok gleda program očima
+	// drugog djelatnika, i upisuje u njegovo ime (npr. dnevni list
+	// vodočuvara). Za testiranje i pomoć; zapis nastaje pod tuđim imenom.
+	UpisTudjimOcima bool `json:"upis_tudjim_ocima"`
 }

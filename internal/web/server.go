@@ -36,12 +36,13 @@ import (
 type contextKey string
 
 const (
-	contextKeyUser    contextKey = "current_user"
-	contextKeyPerms   contextKey = "current_perms"
-	contextKeyRealUsr contextKey = "real_user"  // prijavljeni administrator
-	contextKeyViewing contextKey = "viewing_as" // gleda li se tuđim očima
-	contextKeySession contextKey = "session_id"
-	contextKeyModules contextKey = "modules"
+	contextKeyUser        contextKey = "current_user"
+	contextKeyPerms       contextKey = "current_perms"
+	contextKeyRealUsr     contextKey = "real_user"    // prijavljeni administrator
+	contextKeyViewing     contextKey = "viewing_as"   // gleda li se tuđim očima
+	contextKeyUpisiTudjim contextKey = "upisi_tudjim" // smiju li se u tom pogledu i upisi
+	contextKeySession     contextKey = "session_id"
+	contextKeyModules     contextKey = "modules"
 )
 
 // KartaPostavke je izvor pločica za kartu. Prazan predložak URL-a znači da se
@@ -1214,9 +1215,13 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 
 		// Tuđim se očima samo gleda. Zapis pod tuđim imenom ne smije nastati
 		// ni omaškom, pa se zaustavlja ovdje, prije svakog rukovatelja.
+		upisiTudjim := view.Viewing && s.opcije(r.Context()).UpisTudjimOcima
 		if view.Viewing && !readOnlyRequest(r) {
-			http.Error(w, "Dok gledaš tuđim očima program samo čita. Vrati se sebi pa ponovi.", http.StatusForbidden)
-			return
+			if !upisiTudjim {
+				http.Error(w, "Dok gledaš tuđim očima program samo čita. Vrati se sebi pa ponovi, ili neka uprava uključi „Upisi tuđim očima” u Administraciji › Opcije.", http.StatusForbidden)
+				return
+			}
+			log.Printf("upis tuđim očima: %s piše kao %s (%s %s)", view.RealUser.Username, view.User.Username, r.Method, r.URL.Path)
 		}
 
 		// Moduli: što račun vidi. Skriveni modul ne otvara se ni izravnom
@@ -1236,6 +1241,7 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 		ctx = context.WithValue(ctx, contextKeyPerms, view.Perms)
 		ctx = context.WithValue(ctx, contextKeyRealUsr, view.RealUser)
 		ctx = context.WithValue(ctx, contextKeyViewing, view.Viewing)
+		ctx = context.WithValue(ctx, contextKeyUpisiTudjim, upisiTudjim)
 		ctx = context.WithValue(ctx, contextKeySession, sessionID)
 
 		next.ServeHTTP(w, r.WithContext(ctx))
