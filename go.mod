@@ -1,8 +1,9 @@
 module gocop
 
-go 1.26.4
+go 1.27.1
 
 require (
+	github.com/digitorus/pkcs7 v0.0.0-20260914070511-d678ea5ea03f
 	github.com/google/uuid v1.6.0
 	github.com/pelletier/go-toml/v2 v2.4.3
 	github.com/tkraljevic/syncnet v0.0.0
@@ -13,7 +14,6 @@ require (
 )
 
 require (
-	github.com/digitorus/pkcs7 v0.0.0-20250730155240-ffadbf3f398c // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect

@@ -223,7 +223,7 @@ func Dodaj(pdf []byte, dod Dodatak) ([]byte, error) {
 		sljedeci++
 		widget = sljedeci
 		sljedeci++
-		obj(sig, fmt.Sprintf("<< /Type /Sig /Filter /Adobe.PPKLite /SubFilter /adbe.pkcs7.detached /ByteRange [0000000000 0000000000 0000000000 0000000000] /Contents <%s> /M (%s) /Name %s /Reason %s /Location %s >>",
+		obj(sig, fmt.Sprintf("<< /Type /Sig /Filter /Adobe.PPKLite /SubFilter /ETSI.CAdES.detached /ByteRange [0000000000 0000000000 0000000000 0000000000] /Contents <%s> /M (%s) /Name %s /Reason %s /Location %s >>",
 			strings.Repeat("0", rezerva*2), datum, tekstUTF16(dod.Ime), tekstUTF16(dod.Razlog), tekstUTF16(dod.Mjesto)))
 		obj(widget, fmt.Sprintf("<< /Type /Annot /Subtype /Widget /FT /Sig /T (Potpis%d) /V %d 0 R /Rect %s /F 132 /P %d 0 R%s >>", brojPolja+1, sig, rect, pageN, apDio))
 	} else {
