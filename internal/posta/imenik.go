@@ -161,7 +161,10 @@ func (p Postavke) ewsKlijentZa(korisnik string) *http.Client {
 	if p.TLS != nil {
 		tr.TLSClientConfig = p.TLS
 	}
-	tr.MaxIdleConnsPerHost = 4
+	// jedna veza po korisniku: NTLM prijava vrijedi po vezi, pa se koraci
+	// razgovora i svi kasniji zahtjevi nižu istom, već prijavljenom vezom
+	tr.MaxConnsPerHost = 1
+	tr.MaxIdleConnsPerHost = 1
 	tr.IdleConnTimeout = 5 * time.Minute
 	istek := p.Istek
 	if istek <= 0 {

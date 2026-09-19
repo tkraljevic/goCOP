@@ -255,15 +255,20 @@ func ntlmAuthenticate(negotiate, challenge []byte, z *ntlmIzazov, korisnik, lozi
 // Vraća i izazov, iz kojeg se vidi domena poslužitelja.
 func ntlmDo(ctx context.Context, c *http.Client, url, contentType string, tijelo []byte, r Racun) (*http.Response, *ntlmIzazov, error) {
 	var trag []string // koraci razgovora, za dnevnik kad prijava ne prođe
-	posalji := func(auth string) (*http.Response, error) {
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(tijelo))
+	// Prijava vrijedi po vezi, pa drugi i treći korak moraju ići istom vezom.
+	// Zato prvi korak s prijavom (tip 1) ide bez tijela: poslužitelj nema što
+	// čitati, veza ostaje otvorena, a tijelo nosi tek treći korak. Veliko
+	// tijelo uz odbijen zahtjev poslužitelj inače ne pročita i prekine vezu.
+	posalji := func(auth string, sTijelom bool) (*http.Response, error) {
+		var citac io.Reader = bytes.NewReader(tijelo)
+		if !sTijelom {
+			citac = http.NoBody
+		}
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, citac)
 		if err != nil {
 			return nil, err
 		}
 		req.Header.Set("Content-Type", contentType)
-		// tijelo se šalje tek kad poslužitelj prihvati zaglavlja: prije
-		// prijave ga ne čita, a veza ostaje čista za nastavak razgovora
-		req.Header.Set("Expect", "100-continue")
 		if auth != "" {
 			req.Header.Set("Authorization", auth)
 		}
@@ -281,7 +286,7 @@ func ntlmDo(ctx context.Context, c *http.Client, url, contentType string, tijelo
 		trag = append(trag, fmt.Sprintf("%s → %d %v", korak, res.StatusCode, res.Header.Values("Www-Authenticate")))
 		return res, nil
 	}
-	res, err := posalji("")
+	res, err := posalji("", true)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -303,7 +308,7 @@ func ntlmDo(ctx context.Context, c *http.Client, url, contentType string, tijelo
 		return nil, nil, errors.New("poslužitelj ne nudi prijavu sustava Windows (NTLM)")
 	}
 	neg := ntlmNegotiate()
-	res, err = posalji(shema + " " + base64.StdEncoding.EncodeToString(neg))
+	res, err = posalji(shema+" "+base64.StdEncoding.EncodeToString(neg), false)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -333,7 +338,7 @@ func ntlmDo(ctx context.Context, c *http.Client, url, contentType string, tijelo
 	if err != nil {
 		return nil, z, err
 	}
-	res, err = posalji(shema + " " + base64.StdEncoding.EncodeToString(auth))
+	res, err = posalji(shema+" "+base64.StdEncoding.EncodeToString(auth), true)
 	if err != nil {
 		return nil, z, err
 	}
