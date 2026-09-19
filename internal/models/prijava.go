@@ -38,6 +38,14 @@ type PrijavaSTerena struct {
 	Latitude    *float64 `json:"latitude,omitempty"`
 	Longitude   *float64 `json:"longitude,omitempty"`
 	Stacionaza  string   `json:"stacionaza,omitempty"` // npr. "25+500"
+	Element     string   `json:"element,omitempty"`    // konstrukcijski element: nasip, ustava, propust…
+	Vaznost     string   `json:"vaznost,omitempty"`    // važnost objekta: javno vodno dobro (JVD)…
+
+	// Urudžba: kad tiskana i potpisana prijava uđe u urudžbeni zapisnik kao
+	// dolazni akt, pisarnica joj da klasu i urbroj; upisuju se naknadno
+	Klasa       string     `json:"klasa,omitempty"`
+	Urbroj      string     `json:"urbroj,omitempty"`
+	PrimljenoAt *time.Time `json:"primljeno_at,omitempty"`
 
 	// Slike su podaci o fotografijama; same slike stoje lokalno u
 	// prijave_slike i brišu se nakon roka, a PDF ih nosi trajno
@@ -128,6 +136,9 @@ func (p PrijavaSTerena) StanjeLabel() string {
 	}
 	return "nacrt"
 }
+
+// Urudzbirana javlja je li prijava dobila klasu ili urbroj u urudžbenom zapisniku
+func (p PrijavaSTerena) Urudzbirana() bool { return p.Klasa != "" || p.Urbroj != "" }
 
 // ImaKoordinate javlja je li mjesto označeno na karti
 func (p PrijavaSTerena) ImaKoordinate() bool { return p.Latitude != nil && p.Longitude != nil }

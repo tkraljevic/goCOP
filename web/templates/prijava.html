@@ -27,7 +27,10 @@
     <dt>Vrsta</dt><dd>{{$p.VrstaLabel}}</dd>
     <dt>Naslov</dt><dd>{{$p.Naslov}}</dd>
     <dt>Opis</dt><dd style="white-space:pre-wrap;">{{$p.Opis}}</dd>
+    {{if $p.Element}}<dt>Građevina</dt><dd>{{$p.Element}}</dd>{{end}}
+    {{if $p.Vaznost}}<dt>Važnost objekta</dt><dd>{{$p.Vaznost}}</dd>{{end}}
     <dt>Mjesto</dt><dd>{{with $p.Mjesto}}{{.}}{{else}}—{{end}}{{if $p.ImaKoordinate}}<br><span class="mono">{{.Lat}}, {{.Lon}}</span> · <a href="https://www.openstreetmap.org/?mlat={{.Lat}}&amp;mlon={{.Lon}}#map=16/{{.Lat}}/{{.Lon}}" target="_blank" rel="noopener">na OpenStreetMapu</a>{{end}}</dd>
+    {{if $p.Urudzbirana}}<dt>Urudžbeni zapisnik</dt><dd>{{with $p.Klasa}}KLASA {{.}}{{end}}{{with $p.Urbroj}} · URBROJ {{.}}{{end}}{{if $p.PrimljenoAt}} · primljeno {{$p.PrimljenoAt.Format "02.01.2006."}}{{end}}</dd>{{end}}
     {{if $p.Objavljena}}<dt>Dnevni list</dt><dd>{{if $p.ListID}}<a href="/vodocuvar/{{$p.ListID}}">list {{printf "%03d" $p.ListBroj}}/{{$p.Godina}}</a>{{else}}—{{end}}</dd>{{end}}
     {{if .Izvornik.Ima}}<dt>Izvornik</dt><dd><a href="/prijave/{{$p.ID}}/prijava.pdf" target="_blank">{{icon "file-text"}} potpisani PDF</a>{{if .Izvornik.Potpisi}}<ul class="stavke" style="margin:0.25rem 0 0; padding-left:1rem;">{{range .Izvornik.Potpisi}}<li>{{if .Simulacija}}{{icon "x"}} <strong>SIMULIRANI potpis, bezvrijedan</strong> ({{.Ime}}){{else if .Valjan}}{{icon "lock"}} elektronički potpisao <strong>{{.Ime}}</strong>, {{formatDate (localTime .Kad)}} <span class="form-help">(potpis valjan{{if .Cijeli}}, pokriva cijeli dokument{{end}})</span>{{else}}{{icon "x"}} potpis {{.Ime}}: <strong>{{.Greska}}</strong>{{end}}</li>{{end}}</ul>{{else}} <span class="form-help">(bez elektroničkog potpisa)</span>{{end}}</dd>{{end}}
   </dl>
@@ -65,9 +68,17 @@
   <form method="POST" action="/prijave/{{$p.ID}}/radnja" style="margin-top:0.75rem;" onsubmit="return confirm('Obrisati nacrt?')"><input type="hidden" name="radnja" value="obrisi"><button type="submit" class="btn btn-secondary btn-opasno">{{icon "trash"}} Obriši nacrt</button></form>
 </section>
 {{end}}
-{{if .SmijeArhivirati}}
+{{if and $p.Objavljena (or .SmijeArhivirati .Moja)}}
 <section class="detail-section">
-  <form method="POST" action="/prijave/{{$p.ID}}/radnja" onsubmit="return confirm('Arhivirati prijavu? Time potvrđujete da je pregledana i riješena.')"><input type="hidden" name="radnja" value="arhiviraj"><button type="submit" class="btn btn-secondary">{{icon "check"}} Pregledano, arhiviraj</button></form>
+  <h2>{{icon "file-text"}} Urudžbeni zapisnik</h2>
+  <p class="page-desc">Ispisana i potpisana prijava ide u urudžbeni zapisnik kao dolazni akt; na PDF-u je gore desno mjesto za prijemni štambilj. Klasu i urudžbeni broj koje da pisarnica upišite ovdje, da ih prijava nosi{{if .SmijeArhivirati}}; arhiviranjem potvrđujete da je pregledana i riješena{{end}}.</p>
+  <form method="POST" action="/prijave/{{$p.ID}}/radnja" style="display:flex; gap:0.5rem; align-items:flex-end; flex-wrap:wrap;">
+    <div class="form-group" style="margin:0;"><label class="form-label" for="klasa">KLASA</label><input class="form-control" id="klasa" name="klasa" value="{{$p.Klasa}}" placeholder="325-02/24-01/0000513"></div>
+    <div class="form-group" style="margin:0;"><label class="form-label" for="urbroj">URBROJ</label><input class="form-control" id="urbroj" name="urbroj" value="{{$p.Urbroj}}" placeholder="374-24-274"></div>
+    <div class="form-group" style="margin:0;"><label class="form-label" for="primljeno">Primljeno</label><input type="date" class="form-control" id="primljeno" name="primljeno" value="{{if $p.PrimljenoAt}}{{$p.PrimljenoAt.Format "2006-01-02"}}{{end}}"></div>
+    <button type="submit" class="btn btn-secondary" name="radnja" value="urudzbiraj">{{icon "check"}} Upiši urudžbu</button>
+    {{if .SmijeArhivirati}}<button type="submit" class="btn btn-primary" name="radnja" value="arhiviraj" onclick="return confirm('Arhivirati prijavu? Time potvrđujete da je pregledana i riješena.')">{{icon "check"}} Pregledano, arhiviraj</button>{{end}}
+  </form>
 </section>
 {{end}}
 {{end}}

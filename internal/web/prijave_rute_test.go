@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -104,6 +105,20 @@ func TestPrijaveSTerenaKrozRute(t *testing.T) {
 	vodH.SetPotpis(func() *service.PotpisService { return potpisi })
 	vodH.SetOpcije(func(context.Context) models.Opcije { return models.Opcije{} })
 	h := NewPrijaveHandler(func() *service.PrijavaService { return prijave }, users, vodH, tmpl("prijave.html"), tmpl("prijava_form.html"), tmpl("prijava.html"))
+	// pločice karte s probnog poslužitelja: svaka je ista zelena pločica
+	plocica := probnaSlika(256, 256, color.RGBA{120, 170, 110, 255})
+	plocice := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.HasSuffix(r.URL.Path, ".png") || r.Header.Get("Referer") == "" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "image/png")
+		_, _ = w.Write(plocica)
+	}))
+	defer plocice.Close()
+	h.SetKarta(func() KartaPostavke {
+		return KartaPostavke{Plocice: plocice.URL + "/{z}/{x}/{y}.png", Zasluge: "probne pločice", NajviseZ: 17}
+	})
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /prijave", h.ShowPopis)
 	mux.HandleFunc("GET /prijave/nova", h.ShowForm)
@@ -151,7 +166,7 @@ func TestPrijaveSTerenaKrozRute(t *testing.T) {
 	mw := multipart.NewWriter(&tijelo)
 	danas := time.Now().In(models.Zagreb).Format("2006-01-02")
 	for k, v := range map[string]string{"vrsta": "PRIJAVA", "naslov": "Oštećena rampa na dravskom nasipu", "opis": "Rampa na st. 25+500 je odrezana brava; prolaz vozila slobodan.", "datum": danas,
-		"vodotok": "Drava", "dionica": "B.34.1", "stacionaza": "25+500", "lat": "45.6512", "lon": "18.7734"} {
+		"vodotok": "Drava", "dionica": "B.34.1", "stacionaza": "25+500", "lat": "45.6512", "lon": "18.7734", "element": "nasip", "vaznost": "HRVATSKE VODE – JVD"} {
 		_ = mw.WriteField(k, v)
 	}
 	for i, boja := range []color.RGBA{{200, 30, 30, 255}, {30, 30, 200, 255}} {
@@ -202,11 +217,19 @@ func TestPrijaveSTerenaKrozRute(t *testing.T) {
 	if iz == nil || len(iz.PDF) < 20<<10 {
 		t.Fatalf("izvornik: %v", iz != nil)
 	}
+	if put := os.Getenv("PROBA_PDF"); put != "" {
+		_ = os.WriteFile(put, iz.PDF, 0o644)
+	}
 	if ps := potpisi.Provjeri(ctx, iz.PDF); len(ps) != 1 || !ps[0].Valjan || !ps[0].Cijeli || ps[0].Ime != "Seit Vodočuvar" || !strings.Contains(ps[0].Razlog, "B-T-1") {
 		t.Fatalf("potpis izvornika: %+v", ps)
 	}
-	if tekst := pdfTekst(t, iz.PDF); strings.Contains(tekst, "DNEVNI LIST") == false && (!strings.Contains(tekst, "Oštećena rampa") || !strings.Contains(tekst, "Fotografije (2)") || !strings.Contains(tekst, "25+500") || !strings.Contains(tekst, "dnevni list 001")) {
-		t.Errorf("tekst PDF-a: %.400s", tekst)
+	// dokument kao dosadašnja tiskana prijava: zaglavlje, štambilj, podaci,
+	// opis, potpis; pa karta i po jedna stranica za svaku fotografiju
+	if !bytes.Contains(iz.PDF, []byte("/Count 4 >>")) {
+		t.Error("izvornik nema 4 stranice (prijava, karta, 2 fotografije)")
+	}
+	if tekst := pdfTekst(t, iz.PDF); !strings.Contains(tekst, "DNEVNI LIST") && (!strings.Contains(tekst, "OŠTEĆENA RAMPA") || !strings.Contains(tekst, "PRIJEMNI ŠTAMBILJ") || !strings.Contains(tekst, "Naziv vodotoka: Drava") || !strings.Contains(tekst, "NASIP") || !strings.Contains(tekst, "Lokacija na karti") || !strings.Contains(tekst, "Fotografija 2 od 2") || !strings.Contains(tekst, "dnevni list vodočuvara 001")) {
+		t.Errorf("tekst PDF-a: %.600s", tekst)
 	}
 	listovi, _ := vod.Moji(ctx, seit, time.Now().In(models.Zagreb).Year())
 	if len(listovi) != 1 || len(listovi[0].Prijave) != 1 || listovi[0].Prijave[0].Oznaka != p.Oznaka() || listovi[0].Broj != 1 {
@@ -233,8 +256,15 @@ func TestPrijaveSTerenaKrozRute(t *testing.T) {
 	if l := loc(forma(seit, http.MethodPost, "/prijave/"+id+"/radnja", url.Values{"radnja": {"arhiviraj"}})); !strings.Contains(l, "error") {
 		t.Error("vodočuvar arhivirao")
 	}
-	if l := loc(forma(kunac, http.MethodPost, "/prijave/"+id+"/radnja", url.Values{"radnja": {"arhiviraj"}})); !strings.Contains(l, "arhivirana") {
+	// urudžba: pisarnica dala klasu i urbroj; rukovoditelj ih upiše i arhivira
+	if l := loc(forma(kunac, http.MethodPost, "/prijave/"+id+"/radnja", url.Values{"radnja": {"arhiviraj"}, "klasa": {"325-02/26-01/0000513"}, "urbroj": {"374-26-274"}, "primljeno": {danas}})); !strings.Contains(l, "arhivirana") {
 		t.Fatalf("arhiviranje: %s", l)
+	}
+	if p, _ = prijave.Get(ctx, kao(kunac), id); !p.Arhivirana() || p.Klasa != "325-02/26-01/0000513" || p.Urbroj != "374-26-274" || p.PrimljenoAt == nil {
+		t.Fatalf("urudžba: %+v", p)
+	}
+	if s := get(kunac, "/prijave/"+id).Body.String(); !strings.Contains(s, "URBROJ 374-26-274") {
+		t.Error("stranica ne pokazuje urudžbu")
 	}
 
 	// izvorne slike se brišu nakon roka; PDF ih zadrži, stranica to kaže

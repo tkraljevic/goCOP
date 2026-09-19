@@ -37,6 +37,14 @@
       <datalist id="objekti">{{range .Objekti}}<option value="{{.Name}}">{{.Kind}}</option>{{end}}</datalist></div>
   </div>
   <div class="form-row">
+    <div class="form-group"><label class="form-label" for="element">Građevina / konstrukcijski element</label>
+      <input class="form-control" id="element" name="element" list="elementi" value="{{$p.Element}}" placeholder="nasip, ustava, propust…">
+      <datalist id="elementi"><option value="NASIP"><option value="KANAL"><option value="CRPNA STANICA"><option value="USTAVA"><option value="PROPUST"><option value="OBALOUTVRDA"><option value="RAMPA"><option value="ČUVARNICA"></datalist></div>
+    <div class="form-group"><label class="form-label" for="vaznost">Važnost objekta</label>
+      <input class="form-control" id="vaznost" name="vaznost" list="vaznosti" value="{{$p.Vaznost}}" placeholder="npr. Hrvatske vode – JVD">
+      <datalist id="vaznosti"><option value="HRVATSKE VODE – JVD"><option value="JAVNO VODNO DOBRO"><option value="ŽUPANIJSKO"><option value="OPĆINSKO"><option value="PRIVATNO"></datalist></div>
+  </div>
+  <div class="form-row">
     <div class="form-group"><label class="form-label" for="dionica">Dionica</label><input class="form-control" id="dionica" name="dionica" value="{{$p.DionicaCode}}" placeholder="npr. B.34.1"></div>
     <div class="form-group"><label class="form-label" for="stacionaza">Stacionaža</label><input class="form-control" id="stacionaza" name="stacionaza" value="{{$p.Stacionaza}}" placeholder="npr. 25+500"></div>
   </div>

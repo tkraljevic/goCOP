@@ -204,6 +204,7 @@ func (h *PrijaveHandler) HandleSpremi(w http.ResponseWriter, r *http.Request) {
 	unos := service.UnosPrijave{Vrsta: r.FormValue("vrsta"), Naslov: r.FormValue("naslov"), Opis: r.FormValue("opis"),
 		VodotokCode: r.FormValue("vodotok_code"), Vodotok: r.FormValue("vodotok"), DionicaCode: r.FormValue("dionica"),
 		ObjektID: r.FormValue("objekt_id"), Objekt: r.FormValue("objekt"), Stacionaza: r.FormValue("stacionaza"),
+		Element: r.FormValue("element"), Vaznost: r.FormValue("vaznost"),
 		Latitude: brojIzObrasca(r.FormValue("lat")), Longitude: brojIzObrasca(r.FormValue("lon"))}
 	if r.FormValue("vodotok_code") != "" && unos.Vodotok == "" {
 		unos.Vodotok = r.FormValue("vodotok_code")
@@ -282,7 +283,40 @@ func (h *PrijaveHandler) ShowPrijava(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// HandleRadnja: objavi (s lozinkom za potpis), arhiviraj, obriši nacrt, makni sliku
+// prilog skuplja što uz prijavu ide u dokument: sektor, područje, slike,
+// isječak karte s pločica programa i skenirani potpis
+func (h *PrijaveHandler) prilog(ctx context.Context, r *http.Request, s *service.PrijavaService, p *models.PrijavaSTerena) prilogPrijave {
+	pr := prilogPrijave{Slike: s.Slike(ctx, p), Otisci: models.OtisciLista{}}
+	if org := h.vod.org(); org != nil && p.AreaID > 0 {
+		pr.Podrucje, _ = org.GetArea(ctx, p.AreaID)
+	}
+	if sektori, err := h.users.ListSectors(); err == nil {
+		for i := range sektori {
+			if sektori[i].ID == p.Sektor {
+				pr.Sektor = &sektori[i]
+			}
+		}
+	}
+	if p.ImaKoordinate() {
+		if k := slozKartu(ctx, h.karta(), *p.Latitude, *p.Longitude, "http://"+r.Host+"/"); k != nil {
+			pr.Karta, pr.Zasluge = k.PNG, k.Zasluge
+		}
+	}
+	if h.vod.potpisSlika != nil {
+		pr.Otisci[p.UserID] = h.vod.potpisSlika(ctx, p.UserID)
+	}
+	return pr
+}
+
+func urudzbaIzObrasca(r *http.Request) service.Urudzba {
+	ur := service.Urudzba{Klasa: r.FormValue("klasa"), Urbroj: r.FormValue("urbroj")}
+	if t, err := time.ParseInLocation("2006-01-02", r.FormValue("primljeno"), models.Zagreb); err == nil {
+		ur.Primljeno = t
+	}
+	return ur
+}
+
+// HandleRadnja: objavi (s lozinkom za potpis), arhiviraj, urudžbiraj, obriši nacrt, makni sliku
 func (h *PrijaveHandler) HandleRadnja(w http.ResponseWriter, r *http.Request) {
 	u, perms, _ := h.base(r)
 	s := h.service(w)
@@ -302,15 +336,9 @@ func (h *PrijaveHandler) HandleRadnja(w http.ResponseWriter, r *http.Request) {
 		}
 		var upozorenje string
 		_, upozorenje, err = s.Objavi(r.Context(), u, id, func(p *models.PrijavaSTerena) ([]byte, error) {
-			var area *models.Area
-			if org := h.vod.org(); org != nil && p.AreaID > 0 {
-				area, _ = org.GetArea(r.Context(), p.AreaID)
-			}
-			otisci := models.OtisciLista{}
-			if h.vod.potpisSlika != nil {
-				otisci[p.UserID] = h.vod.potpisSlika(r.Context(), p.UserID)
-			}
-			pdf, m := pdfPrijave(p, s.Slike(r.Context(), p), models.Terms(), area, otisci, potpisnik == nil)
+			pr := h.prilog(r.Context(), r, s, p)
+			otisci := pr.Otisci
+			pdf, m := pdfPrijave(p, pr, models.Terms(), potpisnik == nil)
 			if potpisnik == nil {
 				return pdf, nil
 			}
@@ -334,8 +362,11 @@ func (h *PrijaveHandler) HandleRadnja(w http.ResponseWriter, r *http.Request) {
 			poruka += " " + upozorenje
 		}
 	case "arhiviraj":
-		_, err = s.Arhiviraj(r.Context(), perms, u, id)
+		_, err = s.Arhiviraj(r.Context(), perms, u, id, urudzbaIzObrasca(r))
 		poruka = "Prijava je arhivirana."
+	case "urudzbiraj":
+		_, err = s.Urudzbiraj(r.Context(), perms, u, id, urudzbaIzObrasca(r))
+		poruka = "Klasa i urudžbeni broj su upisani."
 	case "obrisi":
 		err = s.Obrisi(r.Context(), u, id)
 		poruka = "Nacrt je obrisan."
@@ -392,10 +423,6 @@ func (h *PrijaveHandler) IzvoziPDF(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "izvornik objavljene prijave nedostaje", http.StatusConflict)
 		return
 	}
-	var area *models.Area
-	if org := h.vod.org(); org != nil && p.AreaID > 0 {
-		area, _ = org.GetArea(r.Context(), p.AreaID)
-	}
-	pdf, _ := pdfPrijave(p, s.Slike(r.Context(), p), models.Terms(), area, nil, true)
+	pdf, _ := pdfPrijave(p, h.prilog(r.Context(), r, s, p), models.Terms(), true)
 	_, _ = w.Write(pdf)
 }

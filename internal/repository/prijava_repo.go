@@ -41,6 +41,11 @@ type podaciPrijave struct {
 	Latitude     *float64              `json:"latitude,omitempty"`
 	Longitude    *float64              `json:"longitude,omitempty"`
 	Stacionaza   string                `json:"stacionaza,omitempty"`
+	Element      string                `json:"element,omitempty"`
+	Vaznost      string                `json:"vaznost,omitempty"`
+	Klasa        string                `json:"klasa,omitempty"`
+	Urbroj       string                `json:"urbroj,omitempty"`
+	PrimljenoAt  *time.Time            `json:"primljeno_at,omitempty"`
 	Slike        []models.SlikaPrijave `json:"slike,omitempty"`
 	ListID       string                `json:"list_id,omitempty"`
 	ListBroj     int                   `json:"list_broj,omitempty"`
@@ -52,7 +57,8 @@ type podaciPrijave struct {
 
 func prijavaArgs(p *models.PrijavaSTerena) []any {
 	pod, _ := json.Marshal(podaciPrijave{VodotokCode: p.VodotokCode, Vodotok: p.Vodotok, DionicaCode: p.DionicaCode, ObjektID: p.ObjektID, Objekt: p.Objekt,
-		Latitude: p.Latitude, Longitude: p.Longitude, Stacionaza: p.Stacionaza, Slike: p.Slike, ListID: p.ListID, ListBroj: p.ListBroj,
+		Latitude: p.Latitude, Longitude: p.Longitude, Stacionaza: p.Stacionaza, Element: p.Element, Vaznost: p.Vaznost,
+		Klasa: p.Klasa, Urbroj: p.Urbroj, PrimljenoAt: p.PrimljenoAt, Slike: p.Slike, ListID: p.ListID, ListBroj: p.ListBroj,
 		ArhiviraoID: p.ArhiviraoID, Arhivirao: p.Arhivirao, ArhiviranoAt: p.ArhiviranoAt, Cvor: p.Cvor})
 	var objavljeno any
 	if p.ObjavljenoAt != nil {
@@ -78,6 +84,7 @@ func scanPrijava(row rowScanner) (*models.PrijavaSTerena, error) {
 	_ = json.Unmarshal([]byte(pod), &x)
 	p.VodotokCode, p.Vodotok, p.DionicaCode, p.ObjektID, p.Objekt = x.VodotokCode, x.Vodotok, x.DionicaCode, x.ObjektID, x.Objekt
 	p.Latitude, p.Longitude, p.Stacionaza, p.Slike = x.Latitude, x.Longitude, x.Stacionaza, x.Slike
+	p.Element, p.Vaznost, p.Klasa, p.Urbroj, p.PrimljenoAt = x.Element, x.Vaznost, x.Klasa, x.Urbroj, x.PrimljenoAt
 	p.ListID, p.ListBroj, p.ArhiviraoID, p.Arhivirao, p.ArhiviranoAt, p.Cvor = x.ListID, x.ListBroj, x.ArhiviraoID, x.Arhivirao, x.ArhiviranoAt, x.Cvor
 	return &p, nil
 }

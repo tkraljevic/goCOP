@@ -88,6 +88,7 @@ type UnosPrijave struct {
 	VodotokCode, Vodotok         string
 	DionicaCode                  string
 	ObjektID, Objekt, Stacionaza string
+	Element, Vaznost             string
 	Latitude, Longitude          *float64
 }
 
@@ -127,6 +128,7 @@ func (s *PrijavaService) Spremi(ctx context.Context, u *models.User, id string, 
 	p.VodotokCode, p.Vodotok = strings.TrimSpace(unos.VodotokCode), strings.TrimSpace(unos.Vodotok)
 	p.DionicaCode = strings.TrimSpace(unos.DionicaCode)
 	p.ObjektID, p.Objekt, p.Stacionaza = strings.TrimSpace(unos.ObjektID), strings.TrimSpace(unos.Objekt), strings.TrimSpace(unos.Stacionaza)
+	p.Element, p.Vaznost = strings.TrimSpace(unos.Element), strings.TrimSpace(unos.Vaznost)
 	p.Latitude, p.Longitude = unos.Latitude, unos.Longitude
 	if (p.Latitude == nil) != (p.Longitude == nil) {
 		return nil, fmt.Errorf("mjesto na karti treba obje koordinate")
@@ -311,14 +313,54 @@ func (s *PrijavaService) Izvornik(ctx context.Context, perms *models.UserPermiss
 	return s.repo.Izvornik(ctx, id)
 }
 
-// Arhiviraj zatvara objavljenu prijavu: rukovoditelj je pregledao i riješio
-func (s *PrijavaService) Arhiviraj(ctx context.Context, perms *models.UserPermissions, u *models.User, id string) (*models.PrijavaSTerena, error) {
+// Urudzba je što pisarnica upiše kad tiskana prijava uđe u urudžbeni
+// zapisnik kao dolazni akt
+type Urudzba struct {
+	Klasa, Urbroj string
+	Primljeno     time.Time
+}
+
+// Urudzbiraj upisuje klasu, urbroj i dan primitka na objavljenu prijavu;
+// smije tko smije i arhivirati, ili vodočuvar sam ako je prijavu nosio
+func (s *PrijavaService) Urudzbiraj(ctx context.Context, perms *models.UserPermissions, u *models.User, id string, ur Urudzba) (*models.PrijavaSTerena, error) {
+	p, err := s.repo.Get(ctx, id)
+	if err != nil || p == nil {
+		return nil, fmt.Errorf("prijava ne postoji")
+	}
+	if u == nil || !p.Objavljena() || !(s.SmijeArhivirati(perms, p) || p.Arhivirana() && s.vodocuvar.SmijeOvjeriti(perms, probniList(p)) || p.UserID == u.ID.String()) {
+		return nil, ErrUnauthorized
+	}
+	p.Klasa, p.Urbroj = strings.TrimSpace(ur.Klasa), strings.TrimSpace(ur.Urbroj)
+	if p.Klasa == "" && p.Urbroj == "" {
+		return nil, fmt.Errorf("upišite klasu ili urudžbeni broj")
+	}
+	if !ur.Primljeno.IsZero() {
+		t := ur.Primljeno
+		p.PrimljenoAt = &t
+	} else if p.PrimljenoAt == nil {
+		t := time.Now()
+		p.PrimljenoAt = &t
+	}
+	return p, s.repo.Save(ctx, p)
+}
+
+// Arhiviraj zatvara objavljenu prijavu: rukovoditelj je pregledao i riješio;
+// usput može upisati i urudžbu
+func (s *PrijavaService) Arhiviraj(ctx context.Context, perms *models.UserPermissions, u *models.User, id string, ur Urudzba) (*models.PrijavaSTerena, error) {
 	p, err := s.repo.Get(ctx, id)
 	if err != nil || p == nil {
 		return nil, fmt.Errorf("prijava ne postoji")
 	}
 	if u == nil || !s.SmijeArhivirati(perms, p) {
 		return nil, ErrUnauthorized
+	}
+	if ur.Klasa != "" || ur.Urbroj != "" {
+		p.Klasa, p.Urbroj = strings.TrimSpace(ur.Klasa), strings.TrimSpace(ur.Urbroj)
+		t := ur.Primljeno
+		if t.IsZero() {
+			t = time.Now()
+		}
+		p.PrimljenoAt = &t
 	}
 	sad := time.Now()
 	p.Status, p.ArhiviraoID, p.Arhivirao, p.ArhiviranoAt = models.PrijavaArhivirana, u.ID.String(), u.FullName, &sad
