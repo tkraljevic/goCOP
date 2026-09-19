@@ -408,6 +408,15 @@ func uMjestu(m string) string {
 // prijava ima točku i pločice su dostupne
 func PDFPrijaveRekonstrukcija(ctx context.Context, p *models.PrijavaSTerena, slike map[string][]byte, sek *models.Sector, area *models.Area, karta KartaPostavke) []byte {
 	pr := prilogPrijave{Sektor: sek, Podrucje: area, Slike: slike, Otisci: models.OtisciLista{}}
+	// memorandum kao na izvozima: znak organizacije (PNG), VGO sektora, centar
+	t := models.Terms()
+	pr.Zaglavlje = ZaglavljeIzvoza{Organizacija: t.OrgName}
+	if t.HasLogo() && t.LogoMime == "image/png" {
+		pr.Zaglavlje.LogoPNG = t.Logo
+	}
+	if sek != nil {
+		pr.Zaglavlje.Odjel, pr.Zaglavlje.Centar = sek.VgoName, sek.CenterCop
+	}
 	if p.ImaKoordinate() {
 		if k := slozKartu(ctx, karta, *p.Latitude, *p.Longitude, "http://localhost/"); k != nil {
 			pr.Karta, pr.Zasluge = k.PNG, k.Zasluge
