@@ -53,6 +53,18 @@
         <p><strong>Kada uključiti:</strong> za čišćenje probnih zapisa s ploče. <strong>U operativnom radu držite isključeno:</strong> ploča je dnevnik rada i ne smije se prepravljati.</p>
       </div>
     </div>
+    <div class="opcija">
+      <label class="opcija-red">
+        <input type="checkbox" name="upis_tudjim_ocima" value="1" {{if .Opcije.UpisTudjimOcima}}checked{{end}}>
+        <span class="opcija-naziv">Upisi tuđim očima</span>
+        <span class="badge {{if .Opcije.UpisTudjimOcima}}badge-danger{{else}}badge-active{{end}}">{{if .Opcije.UpisTudjimOcima}}uključeno{{else}}isključeno{{end}}</span>
+      </label>
+      <div class="opcija-opis">
+        <p><strong>Što radi:</strong> administrator koji gleda program očima drugog djelatnika (Djelatnici › „Pogledaj kao”) može u tom pogledu i upisivati: otvoriti dnevni list vodočuvara, upisati očitanje, predati list, kao da za tipkovnicom sjedi taj djelatnik. Zapis nastaje pod imenom djelatnika čijim se očima gleda; u dnevnik poslužitelja upisuje se tko je stvarno pisao.</p>
+        <p><strong>Što ne radi:</strong> ne daje administratoru više prava nego što ih ima taj djelatnik; ovlasti su njegove. Bez prekidača se tuđim očima samo čita.</p>
+        <p><strong>Kada uključiti:</strong> pri testiranju i uvođenju, da se tok isproba bez prijave na tuđi račun. <strong>U operativnom radu držite isključeno:</strong> potpis na listu mora biti djelatnikov, ne administratorov.</p>
+      </div>
+    </div>
     <div class="form-actions"><button type="submit" class="btn btn-primary">{{icon "check"}} Spremi opcije</button></div>
   </form>
 </section>

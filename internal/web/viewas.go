@@ -20,6 +20,8 @@ type ViewAsBanner struct {
 	// koje module račun vidi i je li za tipkovnicom globalni administrator
 	Modules models.Visibility
 	Admin   bool
+	// UpisiDopusteni: uprava je uključila upise tuđim očima
+	UpisiDopusteni bool
 }
 
 // Sees javlja vidi li račun modul (izbornik u base.html)
@@ -37,6 +39,7 @@ func viewBanner(r *http.Request) ViewAsBanner {
 		return ViewAsBanner{Modules: mods, Admin: admin}
 	}
 	b := ViewAsBanner{Viewing: true, Modules: mods, Admin: admin}
+	b.UpisiDopusteni, _ = r.Context().Value(contextKeyUpisiTudjim).(bool)
 	if u, ok := r.Context().Value(contextKeyUser).(*models.User); ok && u != nil {
 		b.ViewedName = u.FullName
 		if d := u.PrimaryDuty(); d != nil {
