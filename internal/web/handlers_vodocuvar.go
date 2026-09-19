@@ -105,6 +105,16 @@ func (h *VodocuvarHandler) base(r *http.Request) (*models.User, *models.UserPerm
 	return d.CurrentUser, perms, d
 }
 
+// pristup zatvara dnevnike onima koji u njih ne gledaju: strojar, rukovatelj,
+// terenski radnik i skladištar dobiju obavijest, ne popis
+func (h *VodocuvarHandler) pristup(w http.ResponseWriter, u *models.User) bool {
+	if u == nil || u.VidiVodocuvarskiDnevnik() {
+		return true
+	}
+	http.Error(w, "Vodočuvarski dnevnik vode vodočuvari, a čitaju ga rukovoditelji i ovlaštenici područja; strojari, rukovatelji i skladištari imaju svoje dnevnike.", http.StatusForbidden)
+	return false
+}
+
 func (h *VodocuvarHandler) service(w http.ResponseWriter) *service.VodocuvarService {
 	s := h.svc()
 	if s == nil {
@@ -118,6 +128,9 @@ func (h *VodocuvarHandler) ShowPopis(w http.ResponseWriter, r *http.Request) {
 	u, perms, d := h.base(r)
 	s := h.service(w)
 	if s == nil || u == nil {
+		return
+	}
+	if !h.pristup(w, u) {
 		return
 	}
 	q := r.URL.Query()
@@ -227,6 +240,9 @@ func (h *VodocuvarHandler) ShowList(w http.ResponseWriter, r *http.Request) {
 	if s == nil || u == nil {
 		return
 	}
+	if !h.pristup(w, u) {
+		return
+	}
 	l, err := s.Get(r.Context(), perms, r.PathValue("id"))
 	if err != nil || l == nil {
 		http.NotFound(w, r)
@@ -313,6 +329,25 @@ func (h *VodocuvarHandler) HandleRadnja(w http.ResponseWriter, r *http.Request) 
 	redirectWith(w, r, natrag, "success", poruka)
 }
 
+// HandleUpis upisuje bilješku rukovoditelja u dnevnik vodočuvara
+func (h *VodocuvarHandler) HandleUpis(w http.ResponseWriter, r *http.Request) {
+	u, perms, _ := h.base(r)
+	s := h.service(w)
+	if s == nil || u == nil {
+		return
+	}
+	natrag := r.FormValue("natrag")
+	if natrag == "" {
+		natrag = "/vodocuvar"
+	}
+	l, err := s.Upisi(r.Context(), perms, u, r.FormValue("vodocuvar"), danIzObrasca(r.FormValue("datum")), r.FormValue("tekst"))
+	if err != nil {
+		redirectWith(w, r, natrag, "error", err.Error())
+		return
+	}
+	redirectWith(w, r, "/vodocuvar/"+l.ID, "success", "Upis je u dnevniku, na listu "+strconv.Itoa(l.Broj)+" od "+l.Datum.Format("02.01.2006.")+", s vašim imenom i vremenom.")
+}
+
 // HandleZadatak zadaje zadatak vodočuvaru
 func (h *VodocuvarHandler) HandleZadatak(w http.ResponseWriter, r *http.Request) {
 	u, perms, _ := h.base(r)
@@ -347,6 +382,9 @@ func (h *VodocuvarHandler) IzvoziPDF(w http.ResponseWriter, r *http.Request) {
 	if s == nil || u == nil {
 		return
 	}
+	if !h.pristup(w, u) {
+		return
+	}
 	l, err := s.Get(r.Context(), perms, r.PathValue("id"))
 	if err != nil || l == nil {
 		http.NotFound(w, r)
@@ -366,6 +404,9 @@ func (h *VodocuvarHandler) IzvoziKnjigu(w http.ResponseWriter, r *http.Request) 
 	u, perms, _ := h.base(r)
 	s := h.service(w)
 	if s == nil || u == nil {
+		return
+	}
+	if !h.pristup(w, u) {
 		return
 	}
 	q := r.URL.Query()
@@ -540,6 +581,9 @@ func (h *VodocuvarHandler) ShowKalendar(w http.ResponseWriter, r *http.Request) 
 	u, perms, base := h.base(r)
 	s := h.service(w)
 	if s == nil || u == nil {
+		return
+	}
+	if !h.pristup(w, u) {
 		return
 	}
 	q := r.URL.Query()

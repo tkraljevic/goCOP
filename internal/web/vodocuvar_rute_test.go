@@ -79,6 +79,10 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 	if err := userRepo.CreateUser(ivic, &models.Duty{Title: "Rukovoditelj dionice B.34.1", Role: models.RoleSectionLeader, ScopeType: models.ScopeSection, SectorID: &b, AreaID: &bp, SectionCodes: "B.34.1", IsPrimary: true}); err != nil {
 		t.Fatal(err)
 	}
+	strojar := &models.User{ID: uuid.New(), Username: "strojar", FullName: "Stipe Strojar", IsActive: true}
+	if err := userRepo.CreateUser(strojar, &models.Duty{Title: "Strojar CS Batina", Role: models.RoleMachinist, ScopeType: models.ScopeSection, SectorID: &b, AreaID: &bp, SectionCodes: "B.34.1", IsPrimary: true}); err != nil {
+		t.Fatal(err)
+	}
 	seit := &models.User{ID: uuid.New(), Username: "seit", FullName: "Seit Vodočuvar", IsActive: true}
 	if err := userRepo.CreateUser(seit, &models.Duty{Title: "Vodočuvar Batina", Role: models.RoleWaterGuard, ScopeType: models.ScopeSection, SectorID: &b, AreaID: &bp, SectionCodes: "B.34.1", IsPrimary: true}); err != nil {
 		t.Fatal(err)
@@ -109,6 +113,7 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 	mux.HandleFunc("GET /vodocuvar/dan", h.ShowDan)
 	mux.HandleFunc("POST /vodocuvar/spremi", h.HandleSpremi)
 	mux.HandleFunc("POST /vodocuvar/zadatak", h.HandleZadatak)
+	mux.HandleFunc("POST /vodocuvar/upis", h.HandleUpis)
 	mux.HandleFunc("GET /vodocuvar/{id}", h.ShowList)
 	mux.HandleFunc("POST /vodocuvar/{id}/radnja", h.HandleRadnja)
 	mux.HandleFunc("GET /vodocuvar/{id}/list.pdf", h.IzvoziPDF)
@@ -162,9 +167,22 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 	if kal.Code != http.StatusOK || !strings.Contains(kal.Body.String(), "Nasip Zmajevac") || !strings.Contains(kal.Body.String(), "kal-dan") {
 		t.Fatalf("kalendar: %d\n%.600s", kal.Code, kal.Body.String())
 	}
+	// strojar s iste dionice u vodočuvarske dnevnike ne ulazi uopće
+	if rr := zovi(strojar, http.MethodGet, "/vodocuvar", nil); rr.Code != http.StatusForbidden {
+		t.Errorf("strojar na popisu dnevnika: %d", rr.Code)
+	}
+
+	// ovlaštenik/rukovoditelj dionice upisuje bilješku izravno u dnevnik, neovisno o zadacima
+	if l := loc(zovi(ivic, http.MethodPost, "/vodocuvar/upis", url.Values{"vodocuvar": {seit.ID.String()}, "datum": {danas}, "tekst": {"Obilazak nasipa s ovlaštenikom u 10 h"}})); !strings.Contains(l, "success") {
+		t.Fatalf("upis rukovoditelja: %s", l)
+	}
+	if l := loc(zovi(seit, http.MethodPost, "/vodocuvar/upis", url.Values{"vodocuvar": {seit.ID.String()}, "datum": {danas}, "tekst": {"sam sebi"}})); !strings.Contains(l, "error") {
+		t.Error("vodočuvar ne upisuje kao rukovoditelj")
+	}
+
 	// današnji list: zadaci s imenom tko ih je zadao, očitanje letve
 	dan := zovi(seit, http.MethodGet, "/vodocuvar/dan?datum="+danas, nil)
-	for _, x := range []string{"Deponija pijeska Batina", "Potok Karašica", "zadao Mile Kunac", "114 cm (", "Potpiši i predaj"} {
+	for _, x := range []string{"Deponija pijeska Batina", "Potok Karašica", "zadao Mile Kunac", "114 cm (", "Potpiši i predaj", "Obilazak nasipa s ovlaštenikom", "upisao Ivo Ivić"} {
 		if !strings.Contains(dan.Body.String(), x) {
 			t.Fatalf("današnji list nema %q:\n%.1500s", x, dan.Body.String())
 		}
@@ -236,7 +254,7 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 		t.Fatal("PDF lista")
 	}
 	tekst := pdfTekst(t, pdf.Body.Bytes())
-	for _, x := range []string{"DNEVNI LIST", "Naredbe rukovoditelja", "1. Deponija pijeska Batina", "2. Potok Karašica", "Opis radnih aktivnosti", "1. obilazak deponije", "Potpis vodočuvara", "Potpis rukovoditelja VGI", "001"} {
+	for _, x := range []string{"DNEVNI LIST", "Naredbe rukovoditelja", "1. Deponija pijeska Batina", "2. Potok Karašica", "3. Obilazak nasipa", "upisao Ivo Ivić", "Opis radnih aktivnosti", "1. obilazak deponije", "Potpis vodočuvara", "Potpis rukovoditelja VGI", "001"} {
 		if !strings.Contains(tekst, x) {
 			t.Errorf("PDF nema %q:\n%s", x, tekst)
 		}
@@ -312,7 +330,7 @@ func pdfTekst(t *testing.T, pdf []byte) string {
 	t.Helper()
 	if _, err := exec.LookPath("pdftotext"); err != nil {
 		t.Log("pdftotext nije dostupan; tekst PDF-a se ne provjerava")
-		return "DNEVNI LIST Naredbe rukovoditelja 1. Deponija pijeska Batina 2. Potok Karašica Opis radnih aktivnosti 1. obilazak deponije Potpis vodočuvara Potpis rukovoditelja VGI 001 VODOČUVARSKI DNEVNIK Seit Vodočuvar"
+		return "DNEVNI LIST Naredbe rukovoditelja 1. Deponija pijeska Batina 2. Potok Karašica 3. Obilazak nasipa upisao Ivo Ivić Opis radnih aktivnosti 1. obilazak deponije Potpis vodočuvara Potpis rukovoditelja VGI 001 VODOČUVARSKI DNEVNIK Seit Vodočuvar"
 	}
 	put := filepath.Join(t.TempDir(), "list.pdf")
 	_ = os.WriteFile(put, pdf, 0o644)

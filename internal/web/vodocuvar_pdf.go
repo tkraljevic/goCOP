@@ -136,6 +136,9 @@ func nacrtajList(d *pdfw.Doc, l *models.VodocuvarskiList, t models.OrgTerms, are
 		}
 		naredbe = append(naredbe, red)
 	}
+	for _, up := range l.Upisi {
+		naredbe = append(naredbe, up.Tekst+" (upisao "+up.Ime+ifNe(up.Funkcija)+", "+up.Kad.In(models.Zagreb).Format("02.01. 15:04")+")")
+	}
 	naredbe = append(naredbe, l.NaredbeStavke()...)
 	okvir("Naredbe rukovoditelja:", numerirano(naredbe), 120)
 	okvir("Opis radnih aktivnosti:", numerirano(l.OpisStavke()), 210)
@@ -174,4 +177,11 @@ func nacrtajList(d *pdfw.Doc, l *models.VodocuvarskiList, t models.OrgTerms, are
 	if l.Broj > 0 {
 		d.TekstDesno(d.W-d.Desno, d.H-d.Dolje+20, 9, true, fmt.Sprintf("%03d", l.Broj))
 	}
+}
+
+func ifNe(f string) string {
+	if f == "" {
+		return ""
+	}
+	return ", " + f
 }

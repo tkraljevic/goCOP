@@ -123,15 +123,19 @@ func (s *VodocuvarService) SmijeParafirati(perms *models.UserPermissions, l *mod
 
 // SmijeVidjeti javlja smije li osoba čitati list
 func (s *VodocuvarService) SmijeVidjeti(perms *models.UserPermissions, l *models.VodocuvarskiList) bool {
-	if perms == nil || l == nil {
+	if perms == nil || l == nil || !perms.User.VidiVodocuvarskiDnevnik() {
 		return false
 	}
 	return perms.User.ID.String() == l.UserID || s.SmijeParafirati(perms, l) || perms.HasWriteAccess(l.Sektor, l.AreaID, "") || perms.CanAdminister(l.Sektor, l.AreaID)
 }
 
 // Pripremi vraća list vodočuvara za dan: postojeći, ili novi popunjen onim
-// što program zna (radno vrijeme kao jučer, vremenske prilike, očitanja)
+// što program zna (radno vrijeme, vremenske prilike, očitanja, zadaci)
 func (s *VodocuvarService) Pripremi(ctx context.Context, u *models.User, dan time.Time) (*models.VodocuvarskiList, error) {
+	return s.pripremiZa(ctx, u, dan)
+}
+
+func (s *VodocuvarService) pripremiZa(ctx context.Context, u *models.User, dan time.Time) (*models.VodocuvarskiList, error) {
 	if u == nil {
 		return nil, ErrUnauthorized
 	}
@@ -534,4 +538,47 @@ func (s *VodocuvarService) Kalendar(ctx context.Context, perms *models.UserPermi
 		out[k] = append(out[k], z)
 	}
 	return out, nil
+}
+
+// Upisi upisuje bilješku rukovoditelja ili ovlaštenika u dnevnik vodočuvara
+// za zadani dan, neovisno o zadacima; list za taj dan nastaje ako ga nema.
+// Upis nosi ime, funkciju i vrijeme, i ne mijenja se.
+func (s *VodocuvarService) Upisi(ctx context.Context, perms *models.UserPermissions, u *models.User, vodocuvarID string, dan time.Time, tekst string) (*models.VodocuvarskiList, error) {
+	tekst = strings.TrimSpace(tekst)
+	if tekst == "" {
+		return nil, fmt.Errorf("upišite bilješku")
+	}
+	vid, err := uuid.Parse(vodocuvarID)
+	if err != nil {
+		return nil, fmt.Errorf("nepoznat vodočuvar")
+	}
+	v, err := s.users.GetUserByID(vid)
+	if err != nil || v == nil {
+		return nil, fmt.Errorf("nepoznat vodočuvar")
+	}
+	probni := zaVodocuvara(v)
+	if probni == nil {
+		return nil, fmt.Errorf("%s nema zaduženje vodočuvara pa nema ni dnevnik", v.FullName)
+	}
+	if !s.SmijeParafirati(perms, probni) {
+		return nil, ErrUnauthorized
+	}
+	if Arhivirana(dan.In(models.Zagreb).Year()) {
+		return nil, fmt.Errorf("knjiga za %d. je arhivirana", dan.In(models.Zagreb).Year())
+	}
+	l, err := s.pripremiZa(ctx, v, dan)
+	if err != nil {
+		return nil, err
+	}
+	if l.Broj == 0 {
+		if l.Broj, err = s.repo.SljedeciBroj(ctx, v.ID.String(), dan.In(models.Zagreb).Year()); err != nil {
+			return nil, err
+		}
+	}
+	funkcija := ""
+	if d := najvisaDuznost(u); d != nil {
+		funkcija = d.Title
+	}
+	l.Upisi = append(l.Upisi, models.UpisRukovoditelja{UserID: u.ID.String(), Ime: u.FullName, Funkcija: funkcija, Kad: time.Now(), Tekst: tekst})
+	return l, s.repo.Save(ctx, l)
 }

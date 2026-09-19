@@ -65,7 +65,13 @@
   <details class="knjiga" {{if or .Cekaju .Zadaci}}open{{end}}>
     <summary><strong>{{.Ime}}</strong> <span class="form-help">BP {{.AreaID}} · listova: {{len .Listovi}}{{if .Cekaju}} · <span class="badge badge-pending">{{.Cekaju}} čeka ovjeru</span>{{end}}{{if .Zadaci}} · <span class="badge badge-active">{{len .Zadaci}} otvorenih zadataka</span>{{end}}</span> <a href="/vodocuvar/kalendar?vodocuvar={{.UserID}}" class="btn btn-sm btn-secondary" style="margin-left:0.5rem;">{{icon "calendar"}} Kalendar</a> <a href="/vodocuvar/knjiga.pdf?vodocuvar={{.UserID}}&amp;godina={{$.Godina}}" target="_blank" class="btn btn-sm btn-secondary">{{icon "printer"}} Cijela knjiga</a></summary>
     {{if .Zadaci}}<div class="form-help" style="margin:0.4rem 0;">Otvoreni zadaci, pojavit će se na sljedećem listu: <ol class="stavke">{{range .Zadaci}}<li>{{.Tekst}} <span class="form-help">(zadao {{.Zadao}}, {{.ZadanoAt.Format "02.01.2006."}})</span></li>{{end}}</ol></div>{{end}}
-    {{if not .Listovi}}<p class="form-help">Još nema listova: list nastaje kad vodočuvar na Terenu otvori „Današnji list”.</p>{{end}}
+    {{if not .Listovi}}<p class="form-help">Još nema listova: list nastaje kad vodočuvar na Terenu otvori „Današnji list”, ili kad vi upišete bilješku.</p>{{end}}
+    <form method="POST" action="/vodocuvar/upis" class="posta-trazi" style="margin:0.4rem 0; align-items:center;">
+      <input type="hidden" name="vodocuvar" value="{{.UserID}}">
+      <input type="date" class="form-control" name="datum" value="{{$.Danas}}" style="max-width:11rem;" title="dan lista">
+      <input class="form-control" name="tekst" required placeholder="upis u dnevnik: naredba, napomena, nalaz obilaska" style="min-width:16rem; flex:1;">
+      <button type="submit" class="btn btn-secondary btn-sm">{{icon "pencil"}} Upiši</button>
+    </form>
     <ul class="posta-kartice" style="margin-top:0.5rem;">
     {{range .Listovi}}
       <li class="posta-kartica {{if and .Predan (not .Potvrden)}}neprocitano{{end}}"><a class="posta-kartica-tijelo" href="/vodocuvar/{{.ID}}">

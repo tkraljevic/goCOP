@@ -30,6 +30,9 @@ type VodocuvarskiList struct {
 	// Zadaci su zadaci rukovoditelja koji su taj dan stajali na listu, sa
 	// stanjem kako ih je vodočuvar označio; neobavljeni prelaze na sljedeći list
 	Zadaci []ZadatakNaListu `json:"zadaci,omitempty"`
+	// Upisi su bilješke rukovoditelja i ovlaštenika upisane izravno u dnevnik,
+	// neovisno o zadacima: naredba, napomena, nalaz obilaska
+	Upisi []UpisRukovoditelja `json:"upisi,omitempty"`
 
 	// Parafe su potpisi ostalih rukovoditelja vezanih uz područje (ovlaštenik za
 	// praćenje ugovora, zamjenici, rukovoditelji dionica, uprava sektora)
@@ -192,3 +195,12 @@ func (z Zadatak) Dan() time.Time {
 
 // NajdaljePlaniranje je koliko dana unaprijed se zadatak smije zadati
 const NajdaljePlaniranje = 30
+
+// UpisRukovoditelja je bilješka koju je u list upisao rukovoditelj ili ovlaštenik
+type UpisRukovoditelja struct {
+	UserID   string    `json:"user_id"`
+	Ime      string    `json:"ime"`
+	Funkcija string    `json:"funkcija,omitempty"`
+	Kad      time.Time `json:"kad"`
+	Tekst    string    `json:"tekst"`
+}

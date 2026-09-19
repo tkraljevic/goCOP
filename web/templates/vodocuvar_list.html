@@ -45,6 +45,7 @@
     {{end}}
     </ul>
     {{end}}
+    {{if $l.Upisi}}<ul class="zadaci">{{range $l.Upisi}}<li class="zadatak"><div class="zadatak-tekst">{{.Tekst}}</div><div class="form-help">upisao {{.Ime}}{{with .Funkcija}}, {{.}}{{end}}, {{formatDate (localTime .Kad)}}</div></li>{{end}}</ul>{{end}}
     <textarea class="form-control" name="naredbe" rows="3" placeholder="ostale naredbe, kako su vam rečene">{{$l.Naredbe}}</textarea>
   </div>
   <div class="form-group"><label class="form-label" for="opis">Opis radnih aktivnosti *</label><textarea class="form-control" id="opis" name="opis" rows="6" placeholder="– obilazak deponije pijeska u Batini&#10;– obilazak vodotoka i vodograđevina na potezu …">{{$l.Opis}}</textarea></div>
@@ -65,7 +66,7 @@
     <dt>Radno vrijeme</dt><dd>od {{$l.Od}} do {{$l.Do}}, ukupno {{$l.SatiTekst}} sati</dd>
     <dt>Vremenske prilike</dt><dd>{{if $l.Prilike}}{{$l.Prilike}}{{else}}—{{end}}</dd>
     <dt>Naredbe rukovoditelja</dt><dd>
-      {{if or $l.Zadaci $l.NaredbeStavke}}<ol class="stavke">{{range $l.Zadaci}}<li><strong>{{.Tekst}}</strong> <span class="form-help">(zadao {{.Zadao}}, {{.ZadanoAt.Format "02.01."}})</span>: <span class="zadatak-oznaka {{.Status}}">{{.Oznaka}}</span>{{with .Obavljeno}}; {{.}}{{end}}</li>{{end}}{{range $l.NaredbeStavke}}<li>{{.}}</li>{{end}}</ol>{{else}}—{{end}}</dd>
+      {{if or $l.Zadaci $l.Upisi $l.NaredbeStavke}}<ol class="stavke">{{range $l.Zadaci}}<li><strong>{{.Tekst}}</strong> <span class="form-help">(zadao {{.Zadao}}, {{.ZadanoAt.Format "02.01."}})</span>: <span class="zadatak-oznaka {{.Status}}">{{.Oznaka}}</span>{{with .Obavljeno}}; {{.}}{{end}}</li>{{end}}{{range $l.Upisi}}<li>{{.Tekst}} <span class="form-help">(upisao {{.Ime}}{{with .Funkcija}}, {{.}}{{end}}, {{formatDate (localTime .Kad)}})</span></li>{{end}}{{range $l.NaredbeStavke}}<li>{{.}}</li>{{end}}</ol>{{else}}—{{end}}</dd>
     <dt>Opis radnih aktivnosti</dt><dd>{{with $l.OpisStavke}}<ol class="stavke">{{range .}}<li>{{.}}</li>{{end}}</ol>{{else}}—{{end}}</dd>
     <dt>Posebna zapažanja</dt><dd>{{if or $l.ZapazanjaStavke $l.Ocitanja}}<ol class="stavke">{{range $l.ZapazanjaStavke}}<li>{{.}}</li>{{end}}{{range (stavke $l.Ocitanja)}}<li class="mono">{{.}}</li>{{end}}</ol>{{else}}—{{end}}</dd>
     <dt>Potpis vodočuvara</dt><dd>{{if $l.Predan}}{{$l.Ime}}, {{formatDate (localTime (derefTime $l.PredanoAt))}}{{else}}—{{end}}</dd>
@@ -76,6 +77,20 @@
     {{if .SmijeOvjeriti}}<form method="POST" action="/vodocuvar/{{$l.ID}}/radnja"><input type="hidden" name="radnja" value="ovjeri"><button type="submit" class="btn btn-primary">{{icon "check"}} Ovjeri list</button></form>{{end}}
     {{if and .SmijeParafirati (not .Parafirao)}}<form method="POST" action="/vodocuvar/{{$l.ID}}/radnja"><input type="hidden" name="radnja" value="parafiraj"><button type="submit" class="btn btn-secondary">{{icon "pencil"}} Parafiraj</button></form>{{end}}
   </div>
+</section>
+{{end}}
+
+{{if and .SmijeParafirati (not .Moj) (not (eq $l.ID ""))}}
+<section class="detail-section">
+  <h2>{{icon "pencil"}} Upis u dnevnik: {{$l.Ime}}, {{$l.Datum.Format "02.01.2006."}}</h2>
+  <form method="POST" action="/vodocuvar/upis" class="posta-trazi" style="align-items:flex-start;">
+    <input type="hidden" name="vodocuvar" value="{{$l.UserID}}">
+    <input type="hidden" name="datum" value="{{$l.Datum.Format "2006-01-02"}}">
+    <input type="hidden" name="natrag" value="/vodocuvar/{{$l.ID}}">
+    <input class="form-control" name="tekst" required placeholder="naredba, napomena ili nalaz obilaska" style="min-width:20rem; flex:1;">
+    <button type="submit" class="btn btn-primary btn-sm">{{icon "pencil"}} Upiši</button>
+  </form>
+  <div class="form-help">Upis stoji na ovom listu pod naredbama, s vašim imenom, funkcijom i vremenom, neovisno o zadacima; upisuje se i na predan list.</div>
 </section>
 {{end}}
 

@@ -217,6 +217,28 @@ func (u *User) IsFieldUser() bool {
 	return false
 }
 
+// VidiVodocuvarskiDnevnik javlja smije li korisnik uopće u vodočuvarske
+// dnevnike: vodočuvar u svoj, rukovoditelji, ovlaštenici i uprava u tuđe.
+// Strojari, rukovatelji, terenski radnici i skladištari nemaju što ondje
+// tražiti; oni će imati svoje dnevnike.
+func (u *User) VidiVodocuvarskiDnevnik() bool {
+	if u == nil {
+		return false
+	}
+	if u.IsGlobalAdmin {
+		return true
+	}
+	for _, d := range u.Duties {
+		if !d.IsActive {
+			continue
+		}
+		if d.Role == RoleWaterGuard || (!d.Role.IsField() && d.Role != RoleWarehouseKeeper) {
+			return true
+		}
+	}
+	return false
+}
+
 // PrimaryRole je uloga koja se pokazuje uz ime: primarna dužnost, jer je
 // administracija programa zastavica na računu, a ne mjesto u obrani. Tko
 // nema dužnosti, a administrira, pokazuje se kao administrator.

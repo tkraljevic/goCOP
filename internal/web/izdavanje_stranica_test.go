@@ -290,7 +290,7 @@ func TestObrazacDioniceNudiSljedecu(t *testing.T) {
 // na Administraciji.
 func TestRazdjelnicaDnevnikaDijeliTriVrste(t *testing.T) {
 	html := iscrtaj(t, "dnevnici_izbor.html", JournalPageData{
-		CurrentUser: &models.User{FullName: "P"},
+		CurrentUser: &models.User{FullName: "P", IsGlobalAdmin: true},
 		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
 		BrojCOP:     13, BrojA02: 2, BrojIzvjesca: 4,
 	})
@@ -307,6 +307,16 @@ func TestRazdjelnicaDnevnikaDijeliTriVrste(t *testing.T) {
 	// izvješća, događanja, vodočuvarski dnevnik, akti, A.02, A.03.
 	if n := strings.Count(html, "dash-card-icon-box"); n != 8 {
 		t.Errorf("ikona na %d kartica, a ima ih osam", n)
+	}
+	// Strojar i skladištar vodočuvarski dnevnik ne vide uopće
+	for _, uloga := range []models.Role{models.RoleMachinist, models.RoleWarehouseKeeper} {
+		html := iscrtaj(t, "dnevnici_izbor.html", JournalPageData{
+			CurrentUser: &models.User{FullName: "P", Duties: []models.Duty{{Role: uloga, IsActive: true}}},
+			Permissions: &models.UserPermissions{},
+		})
+		if strings.Contains(html, "/vodocuvar") {
+			t.Errorf("%s vidi karticu vodočuvarskog dnevnika", uloga)
+		}
 	}
 }
 
