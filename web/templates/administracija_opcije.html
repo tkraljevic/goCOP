@@ -65,6 +65,18 @@
         <p><strong>Kada uključiti:</strong> pri testiranju i uvođenju, da se tok isproba bez prijave na tuđi račun. <strong>U operativnom radu držite isključeno:</strong> potpis na listu mora biti djelatnikov, ne administratorov.</p>
       </div>
     </div>
+    <div class="opcija">
+      <label class="opcija-red">
+        <input type="checkbox" name="simulacija_kljuca" value="1" {{if .Opcije.SimulacijaKljuca}}checked{{end}}>
+        <span class="opcija-naziv">Simulacija potpisnog ključa</span>
+        <span class="badge {{if .Opcije.SimulacijaKljuca}}badge-danger{{else}}badge-active{{end}}">{{if .Opcije.SimulacijaKljuca}}uključeno{{else}}isključeno{{end}}</span>
+      </label>
+      <div class="opcija-opis">
+        <p><strong>Što radi:</strong> administrator koji gleda tuđim očima (uz uključene „Upise tuđim očima”) može u ime tog djelatnika potpisati dokument, npr. predati ili ovjeriti dnevni list, bez lozinke i bez pravog ključa. Program u tom trenutku napravi jednokratni simulirani ključ: certifikat nosi ime djelatnika s oznakom <strong>SIMULACIJA</strong>, blok potpisa je crven i piše „SIMULIRANI POTPIS · BEZVRIJEDNO”, a preko stranice PDF-a stoji pečat <strong>SIMULACIJA · BEZVRIJEDNO</strong> koji je dio potpisanog sadržaja pa se ne može ukloniti.</p>
+        <p><strong>Što ne radi:</strong> ne dira pravi ključ djelatnika ni njegovu lozinku; simulirani potpis se u programu i u čitaču PDF-a jasno razlikuje od pravog i nema nikakvu vrijednost. Bez pogleda tuđim očima prekidač ne mijenja ništa: svatko potpisuje samo svojim ključem i lozinkom.</p>
+        <p><strong>Kada uključiti:</strong> pri testiranju i uvođenju, da se cijeli tok potpisivanja (predaja, ovjera, izvornik, provjera) isproba bez tuđih lozinki. <strong>U operativnom radu držite isključeno.</strong></p>
+      </div>
+    </div>
     <div class="form-actions"><button type="submit" class="btn btn-primary">{{icon "check"}} Spremi opcije</button></div>
   </form>
 </section>

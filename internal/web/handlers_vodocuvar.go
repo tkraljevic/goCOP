@@ -34,7 +34,11 @@ type VodocuvarHandler struct {
 	tmplPosao           *template.Template
 	potpisSlika         func(ctx context.Context, userID string) *models.PotpisSlika // sken potpisa, za ispis
 	potpis              func() *service.PotpisService                                // elektronički potpisi; prazno bez servisa
+	opcije              func(ctx context.Context) models.Opcije                      // opće opcije (simulacija ključa)
 }
+
+// SetOpcije daje rukovatelju čitanje općih opcija
+func (h *VodocuvarHandler) SetOpcije(f func(ctx context.Context) models.Opcije) { h.opcije = f }
 
 // SetPotpis daje rukovatelju servis elektroničkih potpisa
 func (h *VodocuvarHandler) SetPotpis(f func() *service.PotpisService) { h.potpis = f }
@@ -114,6 +118,7 @@ type VodocuvarPageData struct {
 	List            *models.VodocuvarskiList
 	Moj             bool
 	ImaKljuc        bool             // osoba ima potpisni ključ, pa predaja i ovjera traže lozinku
+	Simulacija      bool             // tuđim očima uz opciju: potpisuje se simuliranim ključem, bez lozinke
 	Izvornik        potpisiIzvornika // potpisi u potpisanom PDF-u lista
 	SmijeOvjeriti   bool
 	SmijeParafirati bool
@@ -292,6 +297,7 @@ func (h *VodocuvarHandler) prikazi(w http.ResponseWriter, r *http.Request, d Vod
 			d.ImaKljuc = ps.Ima(r.Context(), perms.User.ID.String())
 		}
 	}
+	d.Simulacija = h.simulacijaKljuca(r)
 	if l.ID != "" && l.Predan() {
 		d.Izvornik = h.provjeriIzvornik(r.Context(), s, perms, l.ID)
 	}
@@ -330,7 +336,7 @@ func (h *VodocuvarHandler) HandleSpremi(w http.ResponseWriter, r *http.Request) 
 	if predaj {
 		// ključ se otključava prije predaje, da kriva lozinka ne ostavi list predan bez potpisa
 		var err error
-		if potpisnik, err = h.potpisnikZa(r.Context(), u, r.FormValue("lozinka")); err != nil {
+		if potpisnik, err = h.potpisnikZa(r, u, r.FormValue("lozinka")); err != nil {
 			redirectWith(w, r, "/vodocuvar/dan?datum="+dan.Format("2006-01-02"), "error", err.Error())
 			return
 		}
@@ -369,7 +375,7 @@ func (h *VodocuvarHandler) HandleRadnja(w http.ResponseWriter, r *http.Request) 
 	switch r.FormValue("radnja") {
 	case "ovjeri":
 		var potpisnik *potpis.Potpisnik
-		if potpisnik, err = h.potpisnikZa(r.Context(), u, r.FormValue("lozinka")); err != nil {
+		if potpisnik, err = h.potpisnikZa(r, u, r.FormValue("lozinka")); err != nil {
 			break
 		}
 		var l *models.VodocuvarskiList

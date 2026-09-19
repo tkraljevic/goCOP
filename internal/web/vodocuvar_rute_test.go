@@ -116,6 +116,10 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 		t.Fatal(err)
 	}
 	h.SetPotpis(func() *service.PotpisService { return potpisi })
+	simulacija := false
+	h.SetOpcije(func(context.Context) models.Opcije {
+		return models.Opcije{SimulacijaKljuca: simulacija, UpisTudjimOcima: true}
+	})
 	ph := NewPotpisHandler(func() *service.PotpisService { return potpisi }, users, tmpl("administracija_potpisi.html"))
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /profile/potpisni-kljuc", ph.HandleKljuc)
@@ -366,6 +370,58 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 	}
 	if w := zovi(kunac, http.MethodGet, "/administracija/potpisi", nil); w.Code != http.StatusForbidden {
 		t.Errorf("rukovoditelj BP u administraciji potpisa: %d", w.Code)
+	}
+
+	// simulacija ključa: administrator očima vodočuvara preda jučerašnji list bez
+	// lozinke; potpis i PDF nose oznaku SIMULACIJA, bezvrijedno
+	tudjim := func(u *models.User, metoda, putanja string, forma url.Values) *httptest.ResponseRecorder {
+		var r *http.Request
+		if forma != nil {
+			r = httptest.NewRequest(metoda, putanja, strings.NewReader(forma.Encode()))
+			r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		} else {
+			r = httptest.NewRequest(metoda, putanja, nil)
+		}
+		cijeli, _ := users.GetUserByID(u.ID)
+		c := context.WithValue(context.WithValue(r.Context(), contextKeyUser, cijeli), contextKeyPerms, kao(u))
+		c = context.WithValue(context.WithValue(c, contextKeyViewing, true), contextKeyUpisiTudjim, true)
+		w := httptest.NewRecorder()
+		mux.ServeHTTP(w, r.WithContext(c))
+		return w
+	}
+	jucer := time.Now().In(models.Zagreb).AddDate(0, 0, -1).Format("2006-01-02")
+	formaJucer := url.Values{"datum": {jucer}, "od": {"07:30"}, "do": {"15:30"}, "opis": {"proba simulacije"}, "radnja": {"predaj"}}
+	// bez opcije: tuđim očima vrijedi pravi ključ, pa treba lozinka
+	if l := loc(tudjim(seit, http.MethodPost, "/vodocuvar/spremi", formaJucer)); !strings.Contains(l, "lozinku") {
+		t.Fatalf("tuđim očima bez simulacije: %s", l)
+	}
+	simulacija = true
+	if s := tudjim(seit, http.MethodGet, "/vodocuvar/dan?datum="+jucer, nil).Body.String(); !strings.Contains(s, "simuliranim ključem") {
+		t.Error("obrazac ne najavljuje simulaciju")
+	}
+	lJucer := loc(tudjim(seit, http.MethodPost, "/vodocuvar/spremi", formaJucer))
+	if !strings.Contains(lJucer, "predan") {
+		t.Fatalf("predaja simulacijom: %s", lJucer)
+	}
+	idJucer := strings.TrimPrefix(strings.SplitN(lJucer, "?", 2)[0], "/vodocuvar/")
+	sim := mustIzvornik(t, vod, kao(kunac), idJucer)
+	if ps := potpisi.Provjeri(ctx, sim); len(ps) != 1 || !ps[0].Simulacija || !ps[0].Valjan || !strings.Contains(ps[0].Ime, "(SIMULACIJA)") || !strings.Contains(ps[0].Razlog, "SIMULACIJA") {
+		t.Fatalf("simulirani potpis: %+v", ps)
+	}
+	if s := zovi(kunac, http.MethodGet, "/vodocuvar/"+idJucer, nil).Body.String(); !strings.Contains(s, "SIMULIRANI potpis, bezvrijedan") {
+		t.Error("list ne označava simulirani potpis")
+	}
+	// ovjera simulacijom očima rukovoditelja: drugi potpis, pečat ostaje jedan
+	if l := loc(tudjim(kunac, http.MethodPost, "/vodocuvar/"+idJucer+"/radnja", url.Values{"radnja": {"ovjeri"}})); !strings.Contains(l, "ovjeren") {
+		t.Fatalf("ovjera simulacijom: %s", l)
+	}
+	sim = mustIzvornik(t, vod, kao(kunac), idJucer)
+	if ps := potpisi.Provjeri(ctx, sim); len(ps) != 2 || !ps[1].Simulacija || !ps[1].Valjan || !ps[0].Valjan {
+		t.Fatalf("potpisi nakon ovjere simulacijom: %+v", ps)
+	}
+	simulacija = false
+	if os.Getenv("PROBA_PDF") != "" {
+		_ = os.WriteFile(os.Getenv("PROBA_PDF"), sim, 0o644)
 	}
 	if w := zovi(seit, http.MethodGet, "/organizacija/geokod?q=Osijek", nil); w.Code != http.StatusForbidden {
 		t.Error("geokodiranje je za administratore")

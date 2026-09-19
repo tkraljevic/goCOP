@@ -181,7 +181,7 @@ func nacrtajList(d *pdfw.Doc, l *models.VodocuvarskiList, t models.OrgTerms, are
 	list := fmt.Sprintf("list %03d/%d", l.Broj, dan.Year())
 	potpis := func(x float64, naslov, ime string, kad *time.Time, kod, userID string, crtajBlok bool) {
 		d.TekstSredina(x+pw/2, y, 9, false, naslov)
-		crtajPotpisLista(d, x, m.y, pw, ime, kad, list, kod, l.Cvor, otisci[userID], crtajBlok)
+		crtajPotpisLista(d, x, m.y, pw, ime, kad, list, kod, l.Cvor, otisci[userID], crtajBlok, false)
 	}
 	potpis(m.xVodocuvar, "Vodočuvar", l.Ime, l.PredanoAt, l.KodPredaje(), l.UserID, crtaj.vodocuvar)
 	potpis(m.xRuk, "Rukovoditelj branjenog područja", l.Potvrdio, l.PotvrdenoAt, l.KodOvjere(), l.PotvrdioID, crtaj.rukovoditelj)
@@ -208,13 +208,18 @@ const visinaPotpisa = 46 + 42 + 11 + 12
 // potpisa (kad je list potpisan i blok se crta u sadržaju), skenirani potpis
 // ispod njega, crtu i ime. Isti crtež služi kao izgled polja potpisa koje se
 // dodaje naknadno, s x i y od nule.
-func crtajPotpisLista(d *pdfw.Doc, x, y, w float64, ime string, kad *time.Time, list, kod, cvor string, sken *models.PotpisSlika, crtajBlok bool) {
+func crtajPotpisLista(d *pdfw.Doc, x, y, w float64, ime string, kad *time.Time, list, kod, cvor string, sken *models.PotpisSlika, crtajBlok, simulacija bool) {
 	staro := d.Y
 	if kad != nil && crtajBlok {
 		d.Y = y
 		k := kad.In(models.Zagreb)
-		blokOvjere(d, x, w, "ELEKTRONIČKI POTPISANO U goCOP-u", ime,
-			k.Format("02.01.2006. u 15:04")+" "+k.Format("MST")+" · "+list+" · kod "+kod, "čvor "+cvor)
+		if simulacija {
+			blokOvjereBoja(d, x, w, "SIMULIRANI POTPIS · BEZVRIJEDNO", ime+" (SIMULACIJA)",
+				k.Format("02.01.2006. u 15:04")+" "+k.Format("MST")+" · "+list+" · samo za testiranje", "čvor "+cvor, crvena, crvena)
+		} else {
+			blokOvjere(d, x, w, "ELEKTRONIČKI POTPISANO U goCOP-u", ime,
+				k.Format("02.01.2006. u 15:04")+" "+k.Format("MST")+" · "+list+" · kod "+kod, "čvor "+cvor)
+		}
 		if sken != nil && len(sken.Slika) > 0 {
 			slika(d, sken.Mime, sken.Slika, x+w/2-60, y+50, 120, 36)
 		}
