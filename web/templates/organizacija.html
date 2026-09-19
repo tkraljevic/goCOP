@@ -151,6 +151,7 @@
     <div class="detail-actions" style="display:flex; gap:0.4rem;">
       <a href="/firme" class="btn btn-sm btn-secondary">{{icon "wrench"}} Firme</a>
       <a href="/organizacija/podrucja.csv" class="btn btn-sm btn-secondary" title="Izvoz u CSV (Excel)">{{icon "download"}} CSV</a>
+      {{if .Permissions.IsGlobalAdmin}}<form method="POST" action="/organizacija/podrucja/koordinate" style="display:inline;" onsubmit="return confirm('Pronaći koordinate svim područjima koja ih nemaju, po mjestu ispostave preko OpenStreetMapa? Treba internet; traje oko sekundu po području.')"><button type="submit" class="btn btn-sm btn-secondary" title="Koordinate za vremenske prilike u vodočuvarskom dnevniku">{{icon "map-pin"}} Koordinate</button></form>{{end}}
       {{if and .Permissions .Permissions.IsGlobalAdmin .Sectors}}<a href="/organizacija/podrucja/new" class="btn btn-sm btn-primary">{{icon "plus"}} Novo: {{terml "podrucje"}}</a>{{end}}
     </div>
   </div>
