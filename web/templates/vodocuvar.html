@@ -18,7 +18,8 @@
 
 <form method="GET" action="/vodocuvar" class="posta-trazi" style="margin-bottom:0.75rem;">
   <select name="godina" class="form-control" onchange="this.form.submit()">{{range .Godine}}<option value="{{.}}" {{if eq . $.Godina}}selected{{end}}>{{.}}</option>{{end}}</select>
-  {{if .Sektori}}<select name="sektor" class="form-control" onchange="this.form.submit()"><option value="">svi sektori</option>{{range .Sektori}}<option value="{{.ID}}" {{if eq .ID $.Filtar.Sektor}}selected{{end}}>{{.Name}}</option>{{end}}</select>{{end}}
+  {{if .Sektori}}<select name="sektor" class="form-control" onchange="this.form.podrucje.value=''; this.form.submit()"><option value="" {{if not .Filtar.Sektor}}selected{{end}}>svi sektori</option>{{range .Sektori}}<option value="{{.ID}}" {{if eq .ID $.Filtar.Sektor}}selected{{end}}>{{.Name}}</option>{{end}}</select>{{end}}
+  <select name="podrucje" class="form-control" onchange="this.form.submit()" {{if not .Podrucja}}disabled{{end}}><option value="">sva branjena područja</option>{{range .Podrucja}}<option value="{{.ID}}" {{if eq .ID $.Filtar.AreaID}}selected{{end}}>BP {{.ID}}: {{.Name}}</option>{{end}}</select>
   <label class="checkbox-label"><input type="checkbox" name="ceka" value="1" {{if .Filtar.CekaPotvrdu}}checked{{end}} onchange="this.form.submit()"> samo listovi koji čekaju ovjeru</label>
 </form>
 
@@ -55,17 +56,22 @@
 {{end}}
 
 <section class="detail-section">
-  <h2>{{icon "users"}} Listovi vodočuvara</h2>
-  {{if .Tudji}}
-  <ul class="posta-kartice">
-  {{range .Tudji}}
-    <li class="posta-kartica {{if and .Predan (not .Potvrden)}}neprocitano{{end}}"><a class="posta-kartica-tijelo" href="/vodocuvar/{{.ID}}">
-      <div class="posta-kartica-red"><span class="posta-od">{{.Ime}} · BP {{.AreaID}} · list {{if .Broj}}{{.Broj}}{{else}}—{{end}}</span><span class="posta-kad">{{.Datum.Format "02.01.2006."}} · {{.SatiTekst}} h</span></div>
-      <div class="posta-predmet">{{if .Opis}}{{.Opis}}{{else}}(bez opisa){{end}}</div>
-      <div class="posta-pregled">{{.Stanje}}{{with .Potvrdio}} · ovjerio {{.}}{{end}}</div>
-    </a></li>
+  <h2>{{icon "users"}} Knjige vodočuvara{{if .Filtar.AreaID}} · BP {{.Filtar.AreaID}}{{else if .Filtar.Sektor}} · {{terml "sektor"}} {{.Filtar.Sektor}}{{end}}</h2>
+  {{if .Knjige}}
+  {{range .Knjige}}
+  <details class="knjiga" {{if .Cekaju}}open{{end}}>
+    <summary><strong>{{.Ime}}</strong> <span class="form-help">BP {{.AreaID}} · listova: {{len .Listovi}}{{if .Cekaju}} · <span class="badge badge-pending">{{.Cekaju}} čeka ovjeru</span>{{end}}</span></summary>
+    <ul class="posta-kartice" style="margin-top:0.5rem;">
+    {{range .Listovi}}
+      <li class="posta-kartica {{if and .Predan (not .Potvrden)}}neprocitano{{end}}"><a class="posta-kartica-tijelo" href="/vodocuvar/{{.ID}}">
+        <div class="posta-kartica-red"><span class="posta-od">List {{if .Broj}}{{.Broj}}{{else}}—{{end}} · {{.DanUTjednu}}</span><span class="posta-kad">{{.Datum.Format "02.01.2006."}} · {{.SatiTekst}} h</span></div>
+        <div class="posta-predmet">{{if .Opis}}{{.Opis}}{{else}}(bez opisa){{end}}</div>
+        <div class="posta-pregled">{{.Stanje}}{{with .Potvrdio}} · ovjerio {{.}}{{end}}</div>
+      </a></li>
+    {{end}}
+    </ul>
+  </details>
   {{end}}
-  </ul>
   {{else}}<p class="form-help">Nema listova koje biste vidjeli po ovom filtru.</p>{{end}}
 </section>
 {{end}}

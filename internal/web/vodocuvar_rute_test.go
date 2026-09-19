@@ -217,10 +217,10 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 		}
 	}
 	// popis: vodočuvar vidi svoj dnevnik, rukovoditelj listove koji čekaju
-	if w := zovi(kunac, http.MethodGet, "/vodocuvar?ceka=1", nil); strings.Contains(w.Body.String(), "Seit Vodočuvar · BP 34") {
+	if w := zovi(kunac, http.MethodGet, "/vodocuvar?ceka=1", nil); strings.Contains(w.Body.String(), "čeka ovjeru</span>") {
 		t.Error("ovjeren list ne čeka ovjeru")
 	}
-	if w := zovi(kunac, http.MethodGet, "/vodocuvar", nil); !strings.Contains(w.Body.String(), "Seit Vodočuvar · BP 34") || !strings.Contains(w.Body.String(), "Zadaj zadatak") {
+	if w := zovi(kunac, http.MethodGet, "/vodocuvar?sektor=B&podrucje=34", nil); !strings.Contains(w.Body.String(), "Seit Vodočuvar") || !strings.Contains(w.Body.String(), "Zadaj zadatak") || !strings.Contains(w.Body.String(), "sva branjena područja") {
 		t.Error("rukovoditelj vidi listove vodočuvara i zadaje zadatke")
 	}
 	// geokodiranje preko probnog OpenStreetMapa
