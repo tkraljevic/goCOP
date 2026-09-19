@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -15,9 +16,10 @@ import (
 
 // Nazivi entiteta dnevnika u knjizi verzija
 const (
-	EntityJournals       = "journals"
-	EntityJournalSheets  = "journal_sheets"
-	EntityJournalEntries = "journal_entries"
+	EntityJournals         = "journals"
+	EntityJournalSheets    = "journal_sheets"
+	EntityJournalEntries   = "journal_entries"
+	EntityJournalIzvornici = "journal_izvornici"
 )
 
 // JournalRepository čuva građevinske dnevnike: naslovnice, listove i upise
@@ -52,18 +54,19 @@ func nullDay(t *time.Time) any {
 
 const journalColumns = `id, area_id, centar_sektor, centar_podrucje, kind, title, year, contract, reconstruction, section_code, structure_id, contractor, contractor_lead,
 	contractor_lead_act, supervisor, supervisor_act, supervisor_deputy, chief_supervisor, investor, started_at, ended_at,
-	latitude, longitude, gauges, notes, created_by, created_at, updated_at, dezurni_id, dezurni_ime, dezurni_od`
+	latitude, longitude, gauges, notes, created_by, created_at, updated_at, dezurni_id, dezurni_ime, dezurni_od,
+	zakljucio_id, zakljucio, zakljuceno_at`
 
 func scanJournal(row rowScanner) (models.Journal, error) {
 	var j models.Journal
-	var started, ended, dezurniOd sql.NullTime
+	var started, ended, dezurniOd, zakljuceno sql.NullTime
 	var recon int
 	var area, centarPodrucje sql.NullInt64
 	var centarSektor sql.NullString
 	err := row.Scan(&j.ID, &area, &centarSektor, &centarPodrucje, &j.Kind, &j.Title, &j.Year, &j.Contract, &recon, &j.SectionCode, &j.StructureID, &j.Contractor,
 		&j.ContractorLead, &j.ContractorLeadAct, &j.Supervisor, &j.SupervisorAct, &j.SupervisorDeputy, &j.ChiefSupervisor,
 		&j.Investor, &started, &ended, &j.Latitude, &j.Longitude, &j.Gauges, &j.Notes, &j.CreatedBy, &j.CreatedAt, &j.UpdatedAt,
-		&j.DezurniID, &j.DezurniIme, &dezurniOd)
+		&j.DezurniID, &j.DezurniIme, &dezurniOd, &j.ZakljucioID, &j.Zakljucio, &zakljuceno)
 	j.Reconstruction = recon != 0
 	if dezurniOd.Valid {
 		t := dezurniOd.Time.In(models.Zagreb)
@@ -83,6 +86,10 @@ func scanJournal(row rowScanner) (models.Journal, error) {
 		t := ended.Time
 		j.EndedAt = &t
 	}
+	if zakljuceno.Valid {
+		t := zakljuceno.Time
+		j.ZakljucenoAt = &t
+	}
 	return j, err
 }
 
@@ -99,11 +106,12 @@ func journalArgs(j *models.Journal) []any {
 	}
 	return []any{j.ID, area, centar, j.CentarPodrucje, j.Kind, j.Title, j.Year, j.Contract, boolInt(j.Reconstruction), j.SectionCode, j.StructureID, j.Contractor, j.ContractorLead,
 		j.ContractorLeadAct, j.Supervisor, j.SupervisorAct, j.SupervisorDeputy, j.ChiefSupervisor, j.Investor, j.StartedAt, j.EndedAt,
-		j.Latitude, j.Longitude, j.Gauges, j.Notes, j.CreatedBy, j.CreatedAt, j.UpdatedAt, j.DezurniID, j.DezurniIme, j.DezurniOd}
+		j.Latitude, j.Longitude, j.Gauges, j.Notes, j.CreatedBy, j.CreatedAt, j.UpdatedAt, j.DezurniID, j.DezurniIme, j.DezurniOd,
+		j.ZakljucioID, j.Zakljucio, j.ZakljucenoAt}
 }
 
 const journalUpsert = `INSERT INTO journals (` + journalColumns + `)
-	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	ON CONFLICT(id) DO UPDATE SET
 		area_id = excluded.area_id, centar_sektor = excluded.centar_sektor,
 		dezurni_id = excluded.dezurni_id, dezurni_ime = excluded.dezurni_ime, dezurni_od = excluded.dezurni_od,
@@ -113,7 +121,8 @@ const journalUpsert = `INSERT INTO journals (` + journalColumns + `)
 		contractor_lead = excluded.contractor_lead, contractor_lead_act = excluded.contractor_lead_act, supervisor = excluded.supervisor,
 		supervisor_act = excluded.supervisor_act, supervisor_deputy = excluded.supervisor_deputy, chief_supervisor = excluded.chief_supervisor,
 		investor = excluded.investor, started_at = excluded.started_at, ended_at = excluded.ended_at, latitude = excluded.latitude,
-		longitude = excluded.longitude, gauges = excluded.gauges, notes = excluded.notes, updated_at = excluded.updated_at`
+		longitude = excluded.longitude, gauges = excluded.gauges, notes = excluded.notes, updated_at = excluded.updated_at,
+		zakljucio_id = excluded.zakljucio_id, zakljucio = excluded.zakljucio, zakljuceno_at = excluded.zakljuceno_at`
 
 // ListJournals vraća dnevnike područja, najnoviji prvi; 0 = sva područja
 func (r *JournalRepository) ListJournals(ctx context.Context, areaID int) ([]models.Journal, error) {
@@ -239,6 +248,35 @@ func (r *JournalRepository) SaveJournal(ctx context.Context, j *models.Journal) 
 		return err
 	}
 	return tx.Commit()
+}
+
+// SaveJournalIzvornik čuva renderirani i potpisani PDF zaključenog dnevnika.
+func (r *JournalRepository) SaveJournalIzvornik(ctx context.Context, journalID string, pdf []byte) error {
+	now := time.Now().UTC()
+	h := fmt.Sprintf("%x", sha256.Sum256(pdf))
+	iz := models.IzvornikDnevnika{JournalID: journalID, PDF: pdf, Sazetak: h, UpdatedAt: now}
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err = tx.ExecContext(ctx, `INSERT INTO journal_izvornici (journal_id,pdf,sazetak,updated_at) VALUES (?,?,?,?)
+		ON CONFLICT(journal_id) DO UPDATE SET pdf=excluded.pdf,sazetak=excluded.sazetak,updated_at=excluded.updated_at`, journalID, pdf, h, now); err != nil {
+		return err
+	}
+	if _, err = r.rec.Record(ctx, tx, EntityJournalIzvornici, journalID, iz); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (r *JournalRepository) JournalIzvornik(ctx context.Context, journalID string) ([]byte, error) {
+	var pdf []byte
+	err := r.db.QueryRowContext(ctx, `SELECT pdf FROM journal_izvornici WHERE journal_id=?`, journalID).Scan(&pdf)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	return pdf, err
 }
 
 // --- list ---

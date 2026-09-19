@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -35,7 +36,12 @@ type JournalsHandler struct {
 	// obracun daje blagdane i koeficijente iz baze; nil znači ono što program nosi u sebi
 	obracun  func() *service.ObracunService
 	izvjesca func() *service.IzvjescaService
+	potpis   func() *service.PotpisService
+	opcije   func(context.Context) models.Opcije
 }
+
+func (h *JournalsHandler) SetPotpis(f func() *service.PotpisService)       { h.potpis = f }
+func (h *JournalsHandler) SetOpcije(f func(context.Context) models.Opcije) { h.opcije = f }
 
 // SetIzvjesca spaja razdjelnicu s dnevnim izvješćima, radi broja na kartici
 func (h *JournalsHandler) SetIzvjesca(f func() *service.IzvjescaService) { h.izvjesca = f }
@@ -112,6 +118,7 @@ type JournalPageData struct {
 	Osobe     []models.User // koga se može staviti u plan; samo za upravu centra
 	// UpravaCentra slaže plan dežurstava; CanManage (nadzor) za to nije dovoljan
 	UpravaCentra   bool
+	VoditeljCOP    bool
 	MozeSebe       bool // smije upisati vlastito dežurstvo
 	Podrucje       int  // filtar dnevnika COP-a po području; 0 = sve
 	ImaDanas       bool // dnevnik COP-a ima zapise za danas, za skok
@@ -456,6 +463,7 @@ func (h *JournalsHandler) ShowJournal(w http.ResponseWriter, r *http.Request) {
 		// Plan dežurstava ima svoju stranicu; ovdje samo koliko ih je, za gumb.
 		data.Dezurstva, _ = h.journals.Dezurstva(ctx, j.ID)
 		data.UpravaCentra = h.journals.UpravaCentra(data.Permissions, j)
+		data.VoditeljCOP = h.journals.VoditeljCOP(data.CurrentUser, j)
 		data.MozeSebe = h.journals.MozeSebeUPlan(data.Permissions, h.opseg(j, area), j)
 		h.render(w, h.tmplCOP, "dnevnik_cop.html", data)
 		return

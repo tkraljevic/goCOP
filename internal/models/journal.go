@@ -61,8 +61,11 @@ type Journal struct {
 	ChiefSupervisor   string `json:"chief_supervisor"` // glavni nadzorni inženjer
 	Investor          string `json:"investor"`
 
-	StartedAt *time.Time `json:"started_at,omitempty"`
-	EndedAt   *time.Time `json:"ended_at,omitempty"`
+	StartedAt    *time.Time `json:"started_at,omitempty"`
+	EndedAt      *time.Time `json:"ended_at,omitempty"`
+	ZakljucioID  string     `json:"zakljucio_id,omitempty"`
+	Zakljucio    string     `json:"zakljucio,omitempty"`
+	ZakljucenoAt *time.Time `json:"zakljuceno_at,omitempty"`
 
 	// Tko sad dežura u dnevniku COP-a. Operater dolaskom preuzme dežurstvo,
 	// odlaskom ga preda; tko dođe za njim preuzme ga opet. Preuzimanje i
@@ -145,6 +148,8 @@ func (j Journal) KindLabel() string { return JournalKindLabel(j.Kind) }
 
 // NetkoDezura javlja je li dežurstvo trenutno preuzeto
 func (j Journal) NetkoDezura() bool { return j.DezurniID != "" && j.DezurniOd != nil }
+
+func (j Journal) Ovjeren() bool { return j.ZakljucenoAt != nil }
 
 // IsDefense govori vodi li se dnevnik po dionici dok traju mjere obrane
 // SmijePrepravakZapisa javlja smije li se tekst zapisa mijenjati na mjestu.

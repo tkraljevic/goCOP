@@ -468,6 +468,9 @@ func (s *JournalService) SpremiCOPDnevnik(ctx context.Context, u *models.User, p
 		if cur == nil || cur.CentarSektor == "" {
 			return errors.New("dnevnik COP-a nije pronađen")
 		}
+		if cur.Ovjeren() {
+			return errors.New("ovjereni dnevnik više se ne mijenja")
+		}
 		if !s.MozeOtvoritiCOP(perms, cur.CentarSektor) {
 			return errors.New("zaglavlje dnevnika COP-a mijenja voditelj ili zamjenik centra")
 		}
@@ -494,6 +497,56 @@ func (s *JournalService) SpremiCOPDnevnik(ctx context.Context, u *models.User, p
 		j.Title = fmt.Sprintf("Dnevnik COP-a, %d.", j.Year)
 	}
 	return s.repo.SaveJournal(ctx, j)
+}
+
+// PripremiOvjeruCOP provjerava i označava završeni dnevnik za prvi potpis.
+// Pozivatelj tek nakon uspješnog renderiranja i potpisa sprema dnevnik.
+func (s *JournalService) PripremiOvjeruCOP(u *models.User, _ *models.UserPermissions, j *models.Journal, sad time.Time) error {
+	if u == nil || j == nil || j.CentarSektor == "" {
+		return errors.New("ovjera zahtijeva dnevnik COP-a i prijavljenu osobu")
+	}
+	if !s.VoditeljCOP(u, j) {
+		return errors.New("dnevnik ovjerava voditelj COP-a odgovoran za dežurstva")
+	}
+	if j.EndedAt == nil {
+		return errors.New("prije ovjere upišite kraj dežurstva")
+	}
+	if j.NetkoDezura() {
+		return errors.New("prije ovjere predajte aktivno dežurstvo")
+	}
+	if j.Ovjeren() {
+		return errors.New("dnevnik je već ovjeren")
+	}
+	j.ZakljucioID, j.Zakljucio = u.ID.String(), u.FullName
+	t := sad.UTC()
+	j.ZakljucenoAt = &t
+	return nil
+}
+
+func (s *JournalService) VoditeljCOP(u *models.User, j *models.Journal) bool {
+	if u == nil || j == nil {
+		return false
+	}
+	for _, d := range u.Duties {
+		if !d.IsActive || d.Role != models.RoleCopLeader || d.SectorID == nil || *d.SectorID != j.CentarSektor {
+			continue
+		}
+		if d.ExpiresAt == nil || d.ExpiresAt.After(time.Now()) {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *JournalService) SpremiOvjeruCOP(ctx context.Context, j *models.Journal, pdf []byte) error {
+	if err := s.repo.SaveJournal(ctx, j); err != nil {
+		return err
+	}
+	return s.repo.SaveJournalIzvornik(ctx, j.ID, pdf)
+}
+
+func (s *JournalService) IzvornikCOP(ctx context.Context, id string) ([]byte, error) {
+	return s.repo.JournalIzvornik(ctx, id)
 }
 
 // CentriZaOtvaranje vraća centre u kojima osoba smije otvoriti dnevnik.
@@ -625,6 +678,9 @@ func podrucjeUSektoru(podrucje *int, o models.Opseg) error {
 func (s *JournalService) ObrisiDnevnik(ctx context.Context, u *models.User, perms *models.UserPermissions, o models.Opseg, j *models.Journal) (int, error) {
 	if u == nil || j == nil {
 		return 0, errors.New("brisanje zahtijeva prijavu")
+	}
+	if j.Ovjeren() {
+		return 0, errors.New("ovjereni dnevnik je trajni izvornik i ne briše se")
 	}
 	if j.CentarSektor != "" {
 		if !s.UpravaCentra(perms, j) {

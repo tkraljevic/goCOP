@@ -32,3 +32,10 @@ type IzvornikLista struct {
 	Sazetak   string    `json:"sazetak"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
+
+type IzvornikDnevnika struct {
+	JournalID string    `json:"journal_id"`
+	PDF       []byte    `json:"pdf"`
+	Sazetak   string    `json:"sazetak"`
+	UpdatedAt time.Time `json:"updated_at"`
+}

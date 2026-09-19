@@ -953,7 +953,10 @@ func InitSchema(database *sql.DB) error {
 			channel TEXT NOT NULL DEFAULT '',
 			dezurni_id TEXT NOT NULL DEFAULT '',
 			dezurni_ime TEXT NOT NULL DEFAULT '',
-			dezurni_od DATETIME
+			dezurni_od DATETIME,
+			zakljucio_id TEXT NOT NULL DEFAULT '',
+			zakljucio TEXT NOT NULL DEFAULT '',
+			zakljuceno_at DATETIME
 		);`,
 		`CREATE TABLE IF NOT EXISTS journal_sheets (
 			id TEXT PRIMARY KEY,
@@ -1007,6 +1010,12 @@ func InitSchema(database *sql.DB) error {
 			user_id TEXT NOT NULL DEFAULT '',
 			user_name TEXT NOT NULL DEFAULT '',
 			created_at DATETIME NOT NULL,
+			updated_at DATETIME NOT NULL
+		);`,
+		`CREATE TABLE IF NOT EXISTS journal_izvornici (
+			journal_id TEXT PRIMARY KEY,
+			pdf BLOB NOT NULL,
+			sazetak TEXT NOT NULL DEFAULT '',
 			updated_at DATETIME NOT NULL
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_journals_area ON journals(area_id);`,
@@ -1120,6 +1129,9 @@ func migrateSchema(database *sql.DB) error {
 		{"sections", "length_km", "REAL"},
 		{"sections", "embankment_km", "REAL"},
 		{"journals", "reconstruction", "INTEGER NOT NULL DEFAULT 0"},
+		{"journals", "zakljucio_id", "TEXT NOT NULL DEFAULT ''"},
+		{"journals", "zakljucio", "TEXT NOT NULL DEFAULT ''"},
+		{"journals", "zakljuceno_at", "DATETIME"},
 		{"mts_promet", "area_id", "INTEGER NOT NULL DEFAULT 0"},
 		{"mts_promet", "structure_id", "TEXT NOT NULL DEFAULT ''"},
 		{"mts_promet", "mjesto", "TEXT NOT NULL DEFAULT ''"},
@@ -1546,18 +1558,21 @@ func preslozidnevnike(database *sql.DB) error {
 			channel TEXT NOT NULL DEFAULT '',
 			dezurni_id TEXT NOT NULL DEFAULT '',
 			dezurni_ime TEXT NOT NULL DEFAULT '',
-			dezurni_od DATETIME
+			dezurni_od DATETIME,
+			zakljucio_id TEXT NOT NULL DEFAULT '',
+			zakljucio TEXT NOT NULL DEFAULT '',
+			zakljuceno_at DATETIME
 		)`,
 		`INSERT INTO journals_novo (id, area_id, kind, title, year, contract, reconstruction,
 			section_code, structure_id, contractor, contractor_lead, contractor_lead_act,
 			supervisor, supervisor_act, supervisor_deputy, chief_supervisor, investor,
 			started_at, ended_at, latitude, longitude, gauges, notes, created_by,
-			created_at, updated_at, channel)
+			created_at, updated_at, channel, zakljucio_id, zakljucio, zakljuceno_at)
 		 SELECT id, area_id, kind, title, year, contract, reconstruction,
 			section_code, structure_id, contractor, contractor_lead, contractor_lead_act,
 			supervisor, supervisor_act, supervisor_deputy, chief_supervisor, investor,
 			started_at, ended_at, latitude, longitude, gauges, notes, created_by,
-			created_at, updated_at, channel
+			created_at, updated_at, channel, zakljucio_id, zakljucio, zakljuceno_at
 		 FROM journals`,
 		`DROP TABLE journals`,
 		`ALTER TABLE journals_novo RENAME TO journals`,
