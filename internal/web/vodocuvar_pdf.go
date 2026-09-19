@@ -13,6 +13,60 @@ import (
 func PDFVodocuvarskiList(l *models.VodocuvarskiList, t models.OrgTerms, area *models.Area) []byte {
 	d := pdfw.Novi("Vodočuvarski dnevnik, dnevni list "+l.Datum.In(models.Zagreb).Format("02.01.2006."), "goCOP")
 	d.Predmet = "Vodočuvarski dnevnik: " + l.Ime
+	nacrtajList(d, l, t, area)
+	return d.Bajtovi()
+}
+
+// PDFVodocuvarskaKnjiga je cijela godišnja knjiga: naslovna stranica pa
+// list po stranici, redom brojeva
+func PDFVodocuvarskaKnjiga(listovi []models.VodocuvarskiList, ime string, godina int, t models.OrgTerms, area *models.Area) []byte {
+	d := pdfw.Novi(fmt.Sprintf("Vodočuvarski dnevnik %d, %s", godina, ime), "goCOP")
+	d.Predmet = "Vodočuvarski dnevnik: " + ime
+	org := t.OrgName
+	if org == "" {
+		org = "Hrvatske vode"
+	}
+	d.Y += 120
+	d.TekstSredina(d.W/2, d.Y, 11, false, org)
+	d.Y += 40
+	d.TekstSredina(d.W/2, d.Y, 22, true, "VODOČUVARSKI DNEVNIK")
+	d.Y += 34
+	d.TekstSredina(d.W/2, d.Y, 16, false, fmt.Sprintf("%d.", godina))
+	d.Y += 60
+	d.TekstSredina(d.W/2, d.Y, 13, true, ime)
+	if area != nil {
+		d.Y += 20
+		d.TekstSredina(d.W/2, d.Y, 10, false, area.VgiName+" · branjeno područje "+fmt.Sprint(area.ID)+": "+area.Name)
+	}
+	d.Y += 60
+	d.TekstSredina(d.W/2, d.Y, 9, false, fmt.Sprintf("Listova: %d", len(listovi)))
+	d.Y += 14
+	if len(listovi) > 0 {
+		prvi, zadnji := listovi[len(listovi)-1], listovi[0]
+		if prvi.Datum.After(zadnji.Datum) {
+			prvi, zadnji = zadnji, prvi
+		}
+		d.TekstSredina(d.W/2, d.Y, 9, false, prvi.Datum.In(models.Zagreb).Format("02.01.2006.")+" – "+zadnji.Datum.In(models.Zagreb).Format("02.01.2006."))
+	}
+	d.TekstBoja(d.Lijevo, d.H-d.Dolje, 6.5, false, "Knjiga je zaključena istekom godine i čuva se u goCOP-u; ispis iz programa, listovi nose potpise kako su dani u programu.", sivaTekst)
+	// listovi od najstarijeg, po broju
+	poredani := append([]models.VodocuvarskiList{}, listovi...)
+	for i := 0; i < len(poredani); i++ {
+		for j := i + 1; j < len(poredani); j++ {
+			if poredani[j].Broj < poredani[i].Broj || (poredani[j].Broj == poredani[i].Broj && poredani[j].Datum.Before(poredani[i].Datum)) {
+				poredani[i], poredani[j] = poredani[j], poredani[i]
+			}
+		}
+	}
+	for i := range poredani {
+		d.NovaStranica()
+		nacrtajList(d, &poredani[i], t, area)
+	}
+	return d.Bajtovi()
+}
+
+// nacrtajList crta jedan dnevni list na tekuću stranicu
+func nacrtajList(d *pdfw.Doc, l *models.VodocuvarskiList, t models.OrgTerms, area *models.Area) {
 	dan := l.Datum.In(models.Zagreb)
 	// zaglavlje: organizacija i područje, sitno
 	org := t.OrgName
@@ -120,5 +174,4 @@ func PDFVodocuvarskiList(l *models.VodocuvarskiList, t models.OrgTerms, area *mo
 	if l.Broj > 0 {
 		d.TekstDesno(d.W-d.Desno, d.H-d.Dolje+20, 9, true, fmt.Sprintf("%03d", l.Broj))
 	}
-	return d.Bajtovi()
 }

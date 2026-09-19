@@ -245,6 +245,9 @@ func (s *VodocuvarService) Spremi(ctx context.Context, u *models.User, dan time.
 	if l.Predan() {
 		return nil, fmt.Errorf("list od %s je predan i više se ne mijenja", l.Datum.In(models.Zagreb).Format("02.01.2006."))
 	}
+	if dan.In(models.Zagreb).Year() < time.Now().In(models.Zagreb).Year() {
+		return nil, fmt.Errorf("knjiga za %d. je arhivirana istekom godine i u nju se više ne upisuje", dan.In(models.Zagreb).Year())
+	}
 	for _, v := range []string{unos.Od, unos.Do} {
 		if _, err := time.Parse("15:04", strings.TrimSpace(v)); err != nil {
 			return nil, fmt.Errorf("radno vrijeme upišite kao sate i minute, npr. 08:00")
@@ -464,3 +467,18 @@ func (s *VodocuvarService) Tudji(ctx context.Context, perms *models.UserPermissi
 	}
 	return out, nil
 }
+
+// Knjiga vraća listove jednog vodočuvara u godini, ako ih osoba smije vidjeti
+func (s *VodocuvarService) Knjiga(ctx context.Context, perms *models.UserPermissions, vodocuvarID string, godina int) ([]models.VodocuvarskiList, error) {
+	listovi, err := s.repo.List(ctx, repository.FiltarListova{UserID: vodocuvarID, Godina: godina})
+	if err != nil {
+		return nil, err
+	}
+	if len(listovi) > 0 && !s.SmijeVidjeti(perms, &listovi[0]) {
+		return nil, ErrUnauthorized
+	}
+	return listovi, nil
+}
+
+// Arhivirana javlja je li knjiga te godine zaključena
+func Arhivirana(godina int) bool { return godina < time.Now().In(models.Zagreb).Year() }

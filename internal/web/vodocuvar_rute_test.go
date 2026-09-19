@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -110,6 +111,7 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 	mux.HandleFunc("GET /vodocuvar/{id}", h.ShowList)
 	mux.HandleFunc("POST /vodocuvar/{id}/radnja", h.HandleRadnja)
 	mux.HandleFunc("GET /vodocuvar/{id}/list.pdf", h.IzvoziPDF)
+	mux.HandleFunc("GET /vodocuvar/knjiga.pdf", h.IzvoziKnjigu)
 	mux.HandleFunc("GET /organizacija/geokod", h.GeokodJSON)
 	kao := func(u *models.User) *models.UserPermissions {
 		cijeli, _ := users.GetUserByID(u.ID)
@@ -216,6 +218,31 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 			t.Errorf("PDF nema %q:\n%s", x, tekst)
 		}
 	}
+	// cijela knjiga: naslovna stranica i list po stranici; tuđu knjigu vidi rukovoditelj, ne bilo tko
+	godina := time.Now().In(models.Zagreb).Year()
+	knjiga := zovi(kunac, http.MethodGet, "/vodocuvar/knjiga.pdf?vodocuvar="+seit.ID.String()+"&godina="+strconv.Itoa(godina), nil)
+	if knjiga.Code != http.StatusOK || !bytes.HasPrefix(knjiga.Body.Bytes(), []byte("%PDF")) || bytes.Count(knjiga.Body.Bytes(), []byte("/Type /Page /Parent")) < 2 {
+		t.Errorf("knjiga: %d, stranica %d", knjiga.Code, bytes.Count(knjiga.Body.Bytes(), []byte("/Type /Page /Parent")))
+	}
+	if tk := pdfTekst(t, knjiga.Body.Bytes()); !strings.Contains(tk, "VODOČUVARSKI DNEVNIK") || !strings.Contains(tk, "Seit Vodočuvar") {
+		t.Errorf("knjiga bez naslovnice: %.300s", tk)
+	}
+	stranac := &models.User{ID: uuid.New(), Username: "stranac", FullName: "Netko Drugi", IsActive: true}
+	if err := userRepo.CreateUser(stranac, nil); err != nil {
+		t.Fatal(err)
+	}
+	if w := zovi(stranac, http.MethodGet, "/vodocuvar/knjiga.pdf?vodocuvar="+seit.ID.String(), nil); w.Code != http.StatusForbidden {
+		t.Errorf("tuđa knjiga bez prava: %d", w.Code)
+	}
+	// prošla godina je arhiva: u nju se ne upisuje
+	lani := time.Date(godina-1, 6, 1, 0, 0, 0, 0, models.Zagreb).Format("2006-01-02")
+	if l := loc(zovi(seit, http.MethodPost, "/vodocuvar/spremi", url.Values{"datum": {lani}, "od": {"08:00"}, "do": {"16:00"}, "opis": {"x"}, "radnja": {"spremi"}})); !strings.Contains(l, "arhivirana") {
+		t.Errorf("upis u arhiviranu knjigu: %s", l)
+	}
+	if w := zovi(seit, http.MethodGet, "/vodocuvar?godina="+strconv.Itoa(godina-1), nil); !strings.Contains(w.Body.String(), "zaključena istekom godine") {
+		t.Error("arhivirana godina nema oznaku")
+	}
+
 	// popis: vodočuvar vidi svoj dnevnik, rukovoditelj listove koji čekaju
 	if w := zovi(kunac, http.MethodGet, "/vodocuvar?ceka=1", nil); strings.Contains(w.Body.String(), "čeka ovjeru</span>") {
 		t.Error("ovjeren list ne čeka ovjeru")
@@ -247,7 +274,7 @@ func pdfTekst(t *testing.T, pdf []byte) string {
 	t.Helper()
 	if _, err := exec.LookPath("pdftotext"); err != nil {
 		t.Log("pdftotext nije dostupan; tekst PDF-a se ne provjerava")
-		return "DNEVNI LIST Naredbe rukovoditelja 1. Deponija pijeska Batina 2. Potok Karašica Opis radnih aktivnosti 1. obilazak deponije Potpis vodočuvara Potpis rukovoditelja VGI 001"
+		return "DNEVNI LIST Naredbe rukovoditelja 1. Deponija pijeska Batina 2. Potok Karašica Opis radnih aktivnosti 1. obilazak deponije Potpis vodočuvara Potpis rukovoditelja VGI 001 VODOČUVARSKI DNEVNIK Seit Vodočuvar"
 	}
 	put := filepath.Join(t.TempDir(), "list.pdf")
 	_ = os.WriteFile(put, pdf, 0o644)

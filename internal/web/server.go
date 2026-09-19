@@ -648,6 +648,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /vodocuvar/dan", s.authMiddleware(http.HandlerFunc(vodH.ShowDan)))
 	s.mux.Handle("POST /vodocuvar/spremi", s.authMiddleware(http.HandlerFunc(vodH.HandleSpremi)))
 	s.mux.Handle("POST /vodocuvar/zadatak", s.authMiddleware(http.HandlerFunc(vodH.HandleZadatak)))
+	s.mux.Handle("GET /vodocuvar/knjiga.pdf", s.authMiddleware(http.HandlerFunc(vodH.IzvoziKnjigu)))
 	s.mux.Handle("GET /vodocuvar/{id}", s.authMiddleware(http.HandlerFunc(vodH.ShowList)))
 	s.mux.Handle("POST /vodocuvar/{id}/radnja", s.authMiddleware(http.HandlerFunc(vodH.HandleRadnja)))
 	s.mux.Handle("GET /vodocuvar/{id}/list.pdf", s.authMiddleware(http.HandlerFunc(vodH.IzvoziPDF)))
