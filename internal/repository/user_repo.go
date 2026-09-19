@@ -649,12 +649,14 @@ func (r *UserRepository) GetPastDutiesForUser(userID uuid.UUID) ([]models.Prijas
 	for _, d := range duties {
 		pz := models.PrijasnjeZaduzenje{Duty: d}
 		if !d.IsActive {
-			// vrijeme opoziva je vrijeme zadnje verzije zaduženja u knjizi verzija
-			var kad sql.NullTime
+			// vrijeme opoziva je vrijeme zadnje verzije zaduženja u knjizi
+			// verzija; MAX() vraća tekst, ne DATETIME, pa se tumači ovdje
+			var kad sql.NullString
 			_ = r.db.QueryRow(`SELECT MAX(created_at) FROM record_versions WHERE entity = ? AND entity_id = ?`, EntityDuties, d.ID.String()).Scan(&kad)
 			if kad.Valid {
-				t := kad.Time
-				pz.OpozvanoAt = &t
+				if t, ok := parseDBTime(kad.String); ok {
+					pz.OpozvanoAt = &t
+				}
 			}
 		}
 		out = append(out, pz)

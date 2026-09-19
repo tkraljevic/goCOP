@@ -329,8 +329,9 @@ type signingCertificateV2 struct {
 	Certs []essCertIDv2
 }
 
-// CMS potpisuje podatke kao odvojeni PKCS#7/CMS SignedData sa SHA-256 i
-// atributom signing-certificate-v2, kako PAdES traži
+// CMS potpisuje podatke kao odvojeni CMS SignedData sa SHA-256 i atributom
+// signing-certificate-v2, bez signing-time, kako PAdES (ETSI EN 319 142)
+// traži; vrijeme potpisa nosi rječnik potpisa u PDF-u
 func (p *Potpisnik) CMS(podaci []byte) ([]byte, error) {
 	sd, err := pkcs7.NewSignedData(podaci)
 	if err != nil {
@@ -338,7 +339,7 @@ func (p *Potpisnik) CMS(podaci []byte) ([]byte, error) {
 	}
 	sd.SetDigestAlgorithm(pkcs7.OIDDigestAlgorithmSHA256)
 	h := sha256.Sum256(p.Cert.Raw)
-	cfg := pkcs7.SignerInfoConfig{ExtraSignedAttributes: []pkcs7.Attribute{{Type: oidSigningCertificateV2, Value: signingCertificateV2{Certs: []essCertIDv2{{CertHash: h[:]}}}}}}
+	cfg := pkcs7.SignerInfoConfig{SkipSigningTime: true, ExtraSignedAttributes: []pkcs7.Attribute{{Type: oidSigningCertificateV2, Value: signingCertificateV2{Certs: []essCertIDv2{{CertHash: h[:]}}}}}}
 	if err := sd.AddSignerChain(p.Cert, crypto.Signer(p.Kljuc), p.Lanac, cfg); err != nil {
 		return nil, err
 	}
