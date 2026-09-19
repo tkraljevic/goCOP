@@ -25,6 +25,14 @@ type VodocuvarService struct {
 	org     *repository.OrgRepository
 	weather *weather.Client
 	cvor    string
+	// radnoVrijeme daje redovno radno vrijeme organizacije (postavka
+	// obračuna, zadano 07:30–15:30) za novi list
+	radnoVrijeme func(ctx context.Context) (od, do string)
+}
+
+// SetRadnoVrijeme daje servisu izvor redovnog radnog vremena
+func (s *VodocuvarService) SetRadnoVrijeme(f func(ctx context.Context) (od, do string)) {
+	s.radnoVrijeme = f
 }
 
 func NewVodocuvarService(repo *repository.VodocuvarRepository, users *UserService, cvor string) *VodocuvarService {
@@ -134,15 +142,17 @@ func (s *VodocuvarService) Pripremi(ctx context.Context, u *models.User, dan tim
 	if l, err := s.repo.ZaDan(ctx, u.ID.String(), dan); err != nil || l != nil {
 		return l, err
 	}
-	l := &models.VodocuvarskiList{UserID: u.ID.String(), Ime: u.FullName, Datum: dan, Od: "08:00", Do: "16:00", Cvor: s.cvor}
+	l := &models.VodocuvarskiList{UserID: u.ID.String(), Ime: u.FullName, Datum: dan, Od: "07:30", Do: "15:30", Cvor: s.cvor}
+	if s.radnoVrijeme != nil {
+		if od, do := s.radnoVrijeme(ctx); od != "" && do != "" {
+			l.Od, l.Do = od, do
+		}
+	}
 	if d.SectorID != nil {
 		l.Sektor = *d.SectorID
 	}
 	if d.AreaID != nil {
 		l.AreaID = *d.AreaID
-	}
-	if zadnji, err := s.repo.List(ctx, repository.FiltarListova{UserID: u.ID.String(), Limit: 1}); err == nil && len(zadnji) == 1 {
-		l.Od, l.Do = zadnji[0].Od, zadnji[0].Do
 	}
 	l.Prilike = s.prilike(ctx, l)
 	l.Ocitanja = s.ocitanja(ctx, u.ID.String(), dan)
