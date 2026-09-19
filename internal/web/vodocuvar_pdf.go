@@ -12,10 +12,31 @@ import (
 // PDFVodocuvarskiList crta dnevni list kao papirnatu stranicu knjige:
 // datum, radno vrijeme, prilike, tri okvira, potpisi i broj stranice
 func PDFVodocuvarskiList(l *models.VodocuvarskiList, t models.OrgTerms, area *models.Area, otisci models.OtisciLista) []byte {
+	pdf, _ := pdfLista(l, t, area, otisci, crtajOba)
+	return pdf
+}
+
+// crtanjeBlokova kaže koji se blokovi potpisa crtaju u sadržaju stranice;
+// blok koji se ne crta ostavlja mjesto za polje elektroničkog potpisa
+type crtanjeBlokova struct{ vodocuvar, rukovoditelj bool }
+
+var crtajOba = crtanjeBlokova{true, true}
+
+// mjestaPotpisa su mjesta blokova potpisa na stranici, za polja potpisa
+type mjestaPotpisa struct {
+	stranica         int
+	y, w, h          float64
+	xVodocuvar, xRuk float64
+}
+
+// pdfLista crta list i vraća PDF pripremljen za naknadne potpise, s
+// mjestima na kojima blokovi stoje
+func pdfLista(l *models.VodocuvarskiList, t models.OrgTerms, area *models.Area, otisci models.OtisciLista, crtaj crtanjeBlokova) ([]byte, mjestaPotpisa) {
 	d := pdfw.Novi("Vodočuvarski dnevnik, dnevni list "+l.Datum.In(models.Zagreb).Format("02.01.2006."), "goCOP")
 	d.Predmet = "Vodočuvarski dnevnik: " + l.Ime
-	nacrtajList(d, l, t, area, otisci)
-	return d.Bajtovi()
+	d.SviZnakovi()
+	m := nacrtajList(d, l, t, area, otisci, crtaj)
+	return d.Bajtovi(), m
 }
 
 // PDFVodocuvarskaKnjiga je cijela godišnja knjiga: naslovna stranica pa
@@ -61,13 +82,13 @@ func PDFVodocuvarskaKnjiga(listovi []models.VodocuvarskiList, ime string, godina
 	}
 	for i := range poredani {
 		d.NovaStranica()
-		nacrtajList(d, &poredani[i], t, area, otisci)
+		nacrtajList(d, &poredani[i], t, area, otisci, crtajOba)
 	}
 	return d.Bajtovi()
 }
 
 // nacrtajList crta jedan dnevni list na tekuću stranicu
-func nacrtajList(d *pdfw.Doc, l *models.VodocuvarskiList, t models.OrgTerms, area *models.Area, otisci models.OtisciLista) {
+func nacrtajList(d *pdfw.Doc, l *models.VodocuvarskiList, t models.OrgTerms, area *models.Area, otisci models.OtisciLista, crtaj crtanjeBlokova) mjestaPotpisa {
 	dan := l.Datum.In(models.Zagreb)
 	// zaglavlje: organizacija i područje, sitno
 	org := t.OrgName
@@ -156,38 +177,15 @@ func nacrtajList(d *pdfw.Doc, l *models.VodocuvarskiList, t models.OrgTerms, are
 	d.Osiguraj(120)
 	y := d.Y
 	const pw = 215.0
+	m := mjestaPotpisa{stranica: d.Stranica(), y: y + 8, w: pw, h: visinaPotpisa, xVodocuvar: d.Lijevo, xRuk: d.W - d.Desno - pw}
 	list := fmt.Sprintf("list %03d/%d", l.Broj, dan.Year())
-	potpis := func(x float64, naslov, ime string, kad *time.Time, kod, userID string) {
-		d.Y = y
-		d.TekstSredina(x+pw/2, d.Y, 9, false, naslov)
-		d.Y += 8
-		if kad != nil {
-			k := kad.In(models.Zagreb)
-			blokOvjere(d, x, pw, "ELEKTRONIČKI POTPISANO U goCOP-u", ime,
-				k.Format("02.01.2006. u 15:04")+" "+k.Format("MST")+" · "+list+" · kod "+kod, "čvor "+l.Cvor)
-			if p := otisci[userID]; p != nil && len(p.Slika) > 0 {
-				d.Y += 4
-				slika(d, p.Mime, p.Slika, x+pw/2-60, d.Y, 120, 36)
-				d.Y += 38
-			} else {
-				d.Y += 16
-			}
-		} else {
-			d.Y += 50
-		}
-		d.Crta(x+10, d.Y, x+pw-10, d.Y)
-		d.Y += 11
-		if kad != nil {
-			d.TekstSredina(x+pw/2, d.Y, 9, false, ime)
-		}
+	potpis := func(x float64, naslov, ime string, kad *time.Time, kod, userID string, crtajBlok bool) {
+		d.TekstSredina(x+pw/2, y, 9, false, naslov)
+		crtajPotpisLista(d, x, m.y, pw, ime, kad, list, kod, l.Cvor, otisci[userID], crtajBlok)
 	}
-	potpis(d.Lijevo, "Vodočuvar", l.Ime, l.PredanoAt, l.KodPredaje(), l.UserID)
-	kraj := d.Y
-	potpis(d.W-d.Desno-pw, "Rukovoditelj branjenog područja", l.Potvrdio, l.PotvrdenoAt, l.KodOvjere(), l.PotvrdioID)
-	if d.Y < kraj {
-		d.Y = kraj
-	}
-	d.Y += 10
+	potpis(m.xVodocuvar, "Vodočuvar", l.Ime, l.PredanoAt, l.KodPredaje(), l.UserID, crtaj.vodocuvar)
+	potpis(m.xRuk, "Rukovoditelj branjenog područja", l.Potvrdio, l.PotvrdenoAt, l.KodOvjere(), l.PotvrdioID, crtaj.rukovoditelj)
+	d.Y = m.y + visinaPotpisa + 10
 	if len(l.Parafe) > 0 {
 		var p []string
 		for _, x := range l.Parafe {
@@ -199,6 +197,34 @@ func nacrtajList(d *pdfw.Doc, l *models.VodocuvarskiList, t models.OrgTerms, are
 	if l.Broj > 0 {
 		d.TekstDesno(d.W-d.Desno, d.H-d.Dolje+20, 9, true, fmt.Sprintf("%03d", l.Broj))
 	}
+	return m
+}
+
+// visinaPotpisa je visina mjesta za potpis: blok, prostor za skenirani
+// potpis, crta i ime
+const visinaPotpisa = 46 + 42 + 11 + 12
+
+// crtajPotpisLista crta mjesto potpisa dnevnog lista: blok elektroničkog
+// potpisa (kad je list potpisan i blok se crta u sadržaju), skenirani potpis
+// ispod njega, crtu i ime. Isti crtež služi kao izgled polja potpisa koje se
+// dodaje naknadno, s x i y od nule.
+func crtajPotpisLista(d *pdfw.Doc, x, y, w float64, ime string, kad *time.Time, list, kod, cvor string, sken *models.PotpisSlika, crtajBlok bool) {
+	staro := d.Y
+	if kad != nil && crtajBlok {
+		d.Y = y
+		k := kad.In(models.Zagreb)
+		blokOvjere(d, x, w, "ELEKTRONIČKI POTPISANO U goCOP-u", ime,
+			k.Format("02.01.2006. u 15:04")+" "+k.Format("MST")+" · "+list+" · kod "+kod, "čvor "+cvor)
+		if sken != nil && len(sken.Slika) > 0 {
+			slika(d, sken.Mime, sken.Slika, x+w/2-60, y+50, 120, 36)
+		}
+	}
+	crta := y + 46 + 42
+	d.Crta(x+10, crta, x+w-10, crta)
+	if kad != nil && crtajBlok {
+		d.TekstSredina(x+w/2, crta+11, 9, false, ime)
+	}
+	d.Y = staro
 }
 
 func ifNe(f string) string {

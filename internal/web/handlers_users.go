@@ -25,7 +25,8 @@ type UsersHandler struct {
 	tmplDuty      *template.Template // zaduženje
 	tmplProfile   *template.Template // vlastiti profil
 	// potpisSlika javlja ima li osoba sken potpisa, za profil; nil dok se ne spoji
-	potpisSlika func(ctx context.Context, userID string) bool
+	potpisSlika   func(ctx context.Context, userID string) bool
+	potpisniKljuc func(ctx context.Context, userID string) PodaciKljuca
 	// postaRacun daje stanje računa e-pošte osobe, za profil; nil dok se ne spoji
 	postaRacun func(ctx context.Context, userID string) (string, time.Time)
 	// planovi daje planove dežurstava osobe, za profil; nil dok se ne spoji

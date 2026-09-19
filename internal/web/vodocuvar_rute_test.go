@@ -3,6 +3,7 @@ package web
 import (
 	"bytes"
 	"context"
+	"crypto/ed25519"
 	"encoding/json"
 	"html/template"
 	"io/fs"
@@ -108,7 +109,18 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 		return tp
 	}
 	h := NewVodocuvarHandler(func() *service.VodocuvarService { return vod }, users, func() *repository.OrgRepository { return orgRepo }, tmpl("vodocuvar.html"), tmpl("vodocuvar_list.html"))
+	// elektronički potpis: izdavatelj čvora iz ključa čvora, lozinka računa se ne provjerava (nema je u testu)
+	_, kljucCvora, _ := ed25519.GenerateKey(nil)
+	potpisi := service.NewPotpisService(repository.NewPotpisRepository(baza, rec), users, "cop-osijek", kljucCvora, nil)
+	if err := potpisi.Pokreni(ctx); err != nil {
+		t.Fatal(err)
+	}
+	h.SetPotpis(func() *service.PotpisService { return potpisi })
+	ph := NewPotpisHandler(func() *service.PotpisService { return potpisi }, users, tmpl("administracija_potpisi.html"))
 	mux := http.NewServeMux()
+	mux.HandleFunc("POST /profile/potpisni-kljuc", ph.HandleKljuc)
+	mux.HandleFunc("GET /potpis/izdavatelj.pem", ph.Izdavatelj)
+	mux.HandleFunc("GET /administracija/potpisi", ph.ShowAdministracija)
 	mux.HandleFunc("GET /vodocuvar", h.ShowPopis)
 	mux.HandleFunc("GET /vodocuvar/dan", h.ShowDan)
 	mux.HandleFunc("POST /vodocuvar/spremi", h.HandleSpremi)
@@ -204,9 +216,31 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 			z2 = z.ID
 		}
 	}
+	// vodočuvar i rukovoditelj BP naprave potpisni ključ u profilu; bez lozinke ne ide
+	if l := loc(zovi(seit, http.MethodPost, "/profile/potpisni-kljuc", url.Values{"radnja": {"novi"}})); !strings.Contains(l, "error") {
+		t.Error("ključ bez lozinke")
+	}
+	for _, u := range []*models.User{seit, kunac} {
+		if l := loc(zovi(u, http.MethodPost, "/profile/potpisni-kljuc", url.Values{"radnja": {"novi"}, "lozinka": {"tajna" + u.Username}})); !strings.Contains(l, "success") {
+			t.Fatalf("ključ za %s: %s", u.Username, l)
+		}
+	}
+	if k := potpisi.Zapis(ctx, seit.ID.String()); k == nil || k.Izdao != "cop-osijek" {
+		t.Fatal("ključ vodočuvara nije spremljen")
+	}
+
 	// predaja bez obrazloženja neobavljenog ne prolazi
 	forma := url.Values{"datum": {danas}, "od": {"08:00"}, "do": {"16:00"}, "prilike": {"sunčano, vruće"}, "opis": {"- obilazak deponije pijeska u Batini\n- obilazak vodotoka"}, "zapazanja": {"Bilje: +114 (d.o.)"},
 		"zadatak_status_" + z1: {"OBAVLJEN"}, "zadatak_obavljeno_" + z1: {"obiđeno, deponija u redu"}, "zadatak_status_" + z2: {"OTVOREN"}, "radnja": {"predaj"}}
+	// s ključem predaja prvo traži lozinku, i to pravu; list dotad ostaje nepredan
+	if l := loc(zovi(seit, http.MethodPost, "/vodocuvar/spremi", forma)); !strings.Contains(l, "lozinku") {
+		t.Fatalf("predaja bez lozinke: %s", l)
+	}
+	forma.Set("lozinka", "kriva")
+	if l := loc(zovi(seit, http.MethodPost, "/vodocuvar/spremi", forma)); !strings.Contains(l, "error") {
+		t.Fatalf("predaja krivom lozinkom: %s", l)
+	}
+	forma.Set("lozinka", "tajnaseit")
 	if l := loc(zovi(seit, http.MethodPost, "/vodocuvar/spremi", forma)); !strings.Contains(l, "obrazložite") {
 		t.Fatalf("predaja bez obrazloženja: %s", l)
 	}
@@ -238,8 +272,20 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 	if l := loc(zovi(ivic, http.MethodPost, "/vodocuvar/"+id+"/radnja", url.Values{"radnja": {"ovjeri"}})); !strings.Contains(l, "error") {
 		t.Error("rukovoditelj dionice ne ovjerava list")
 	}
-	if l := loc(zovi(kunac, http.MethodPost, "/vodocuvar/"+id+"/radnja", url.Values{"radnja": {"ovjeri"}})); !strings.Contains(l, "ovjeren") {
+	// izvornik predaje: jedan valjan potpis vodočuvara, preko cijelog dokumenta
+	if ps := potpisi.Provjeri(ctx, mustIzvornik(t, vod, kao(kunac), id)); len(ps) != 1 || !ps[0].Valjan || !ps[0].Cijeli || ps[0].Ime != "Seit Vodočuvar" || !strings.Contains(ps[0].Razlog, "Predaja") {
+		t.Fatalf("potpis predaje: %+v", ps)
+	}
+	if l := loc(zovi(kunac, http.MethodPost, "/vodocuvar/"+id+"/radnja", url.Values{"radnja": {"ovjeri"}, "lozinka": {"kriva"}})); !strings.Contains(l, "error") {
+		t.Fatalf("ovjera krivom lozinkom: %s", l)
+	}
+	if l := loc(zovi(kunac, http.MethodPost, "/vodocuvar/"+id+"/radnja", url.Values{"radnja": {"ovjeri"}, "lozinka": {"tajnamkunac"}})); !strings.Contains(l, "ovjeren") {
 		t.Fatalf("ovjera: %s", l)
+	}
+	// izvornik ovjere: potpis vodočuvara i dalje valjan, ovjera preko cijelog dokumenta
+	izvornik := mustIzvornik(t, vod, kao(kunac), id)
+	if ps := potpisi.Provjeri(ctx, izvornik); len(ps) != 2 || !ps[0].Valjan || ps[0].Cijeli || !ps[1].Valjan || !ps[1].Cijeli || ps[1].Ime != "Mile Kunac" || ps[1].Funkcija != "Rukovoditelj BP 34" {
+		t.Fatalf("potpisi ovjere: %+v", ps)
 	}
 	if l := loc(zovi(ivic, http.MethodPost, "/vodocuvar/"+id+"/radnja", url.Values{"radnja": {"parafiraj"}})); !strings.Contains(l, "parafiran") {
 		t.Fatalf("parafa: %s", l)
@@ -248,7 +294,17 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 	if !strings.Contains(list, "ovjerio Mile Kunac") || !strings.Contains(list, "Ivo Ivić") {
 		t.Error("list ne pokazuje ovjeru i parafu")
 	}
-	// PDF kao papir
+	if strings.Count(list, "elektronički potpisao") != 2 || !strings.Contains(list, "pokriva cijeli dokument") {
+		t.Error("list ne pokazuje oba elektronička potpisa iz izvornika")
+	}
+	// PDF lista je izvornik s potpisima, ne novi crtež
+	if pdf := zovi(kunac, http.MethodGet, "/vodocuvar/"+id+"/list.pdf", nil); !bytes.Equal(pdf.Body.Bytes(), izvornik) {
+		t.Error("PDF lista nije izvornik")
+	}
+	if pem := zovi(kunac, http.MethodGet, "/potpis/izdavatelj.pem", nil).Body.String(); !strings.HasPrefix(pem, "-----BEGIN CERTIFICATE-----") {
+		t.Error("certifikat izdavatelja")
+	}
+	// PDF kao papir (crtež bez izvornika, za knjigu; ovdje list bez potpisa)
 	pdf := zovi(kunac, http.MethodGet, "/vodocuvar/"+id+"/list.pdf", nil)
 	if !bytes.HasPrefix(pdf.Body.Bytes(), []byte("%PDF")) {
 		t.Fatal("PDF lista")
@@ -304,6 +360,13 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 	if w := zovi(admin, http.MethodGet, "/organizacija/geokod?q=Osijek", nil); !strings.Contains(w.Body.String(), `"lat":45.555`) {
 		t.Errorf("geokod: %s", w.Body.String())
 	}
+	// administracija potpisa: izdavatelj ovog čvora i dva izdana ključa; rukovoditelj BP onamo ne ulazi
+	if w := zovi(admin, http.MethodGet, "/administracija/potpisi", nil); !strings.Contains(w.Body.String(), "goCOP cop-osijek") || strings.Count(w.Body.String(), "<tr><td>") != 3 {
+		t.Errorf("administracija potpisa: %d, %d redaka", w.Code, strings.Count(w.Body.String(), "<tr><td>"))
+	}
+	if w := zovi(kunac, http.MethodGet, "/administracija/potpisi", nil); w.Code != http.StatusForbidden {
+		t.Errorf("rukovoditelj BP u administraciji potpisa: %d", w.Code)
+	}
 	if w := zovi(seit, http.MethodGet, "/organizacija/geokod?q=Osijek", nil); w.Code != http.StatusForbidden {
 		t.Error("geokodiranje je za administratore")
 	}
@@ -322,6 +385,16 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 	if a, _ := orgRepo.GetArea(ctx, 34); a == nil || !a.ImaKoordinate() {
 		t.Error("područje nije dobilo koordinate iz posla")
 	}
+}
+
+// mustIzvornik čita potpisani PDF lista
+func mustIzvornik(t *testing.T, vod *service.VodocuvarService, perms *models.UserPermissions, id string) []byte {
+	t.Helper()
+	iz, err := vod.Izvornik(context.Background(), perms, id)
+	if err != nil || iz == nil {
+		t.Fatalf("izvornik lista: %v", err)
+	}
+	return iz.PDF
 }
 
 // pdfTekst vadi tekst iz PDF-a s pdftotext; bez njega vraća sve što se

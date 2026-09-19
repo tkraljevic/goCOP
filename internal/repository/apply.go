@@ -81,7 +81,7 @@ var SurfaceEntities = []string{EntitySectors, EntityAreas, EntityOrgTerms, Entit
 	EntityUsers, EntityDuties, "role_modules", "user_modules", EntityStations, EntitySections, EntityWatercourses,
 	EntityCounties, EntityMunicipalities, EntitySettlements, EntityStructures, "maintained_waters", "work_items", "journals",
 	EntityBlagdani, EntityKoeficijenti, EntityObracunPostavke,
-	EntityMtsVrste, EntityMtsSkladista, EntityMtsPromet, EntityMtsPopisi, EntityMtsPotrebe, EntityAkti, EntityPrimatelji, EntitySprance, EntitySluzbe, EntityIzvornici, EntitySlanja, EntityPostavke, EntityPotpisi, EntityZigovi, EntityVodocuvarski, EntityZadaci}
+	EntityMtsVrste, EntityMtsSkladista, EntityMtsPromet, EntityMtsPopisi, EntityMtsPotrebe, EntityAkti, EntityPrimatelji, EntitySprance, EntitySluzbe, EntityIzvornici, EntitySlanja, EntityPostavke, EntityPotpisi, EntityZigovi, EntityVodocuvarski, EntityZadaci, EntityPotpisniKljucevi, EntityPotpisniIzdavatelji, EntityVodocuvarskiIzvornici}
 
 // ReplaySurface ponovno primijeni zadnju verziju svakog zapisa iz knjige na
 // površinu. Služi kad je primjena primljenih verzija jednom zapela: knjiga je
@@ -443,6 +443,30 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 			return err
 		}
 		_, err := tx.ExecContext(ctx, zigUpsert, z.Sektor, z.Mime, z.Slika, z.Uredio, v.CreatedAt)
+		return err
+
+	case EntityPotpisniKljucevi:
+		var k models.PotpisniKljuc
+		if err := json.Unmarshal(v.Payload, &k); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, potpisniKljucUpsert, k.UserID, k.Ime, k.Cert, k.Kljuc, k.Sol, k.Izdao, k.CreatedAt, k.UpdatedAt)
+		return err
+
+	case EntityPotpisniIzdavatelji:
+		var i models.IzdavateljPotpisa
+		if err := json.Unmarshal(v.Payload, &i); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, izdavateljUpsert, i.Cvor, i.Cert, i.CreatedAt)
+		return err
+
+	case EntityVodocuvarskiIzvornici:
+		var iz models.IzvornikLista
+		if err := json.Unmarshal(v.Payload, &iz); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, izvornikListaUpsert, iz.ListID, iz.PDF, iz.Sazetak, iz.UpdatedAt)
 		return err
 
 	case EntityPotpisi:
@@ -864,6 +888,12 @@ func removeFromSurface(ctx context.Context, tx *sql.Tx, v ledger.Version) error 
 		stmt = `DELETE FROM vodocuvarski_listovi WHERE id = ?`
 	case EntityZadaci:
 		stmt = `DELETE FROM vodocuvarski_zadaci WHERE id = ?`
+	case EntityPotpisniKljucevi:
+		stmt = `DELETE FROM potpisni_kljucevi WHERE user_id = ?`
+	case EntityPotpisniIzdavatelji:
+		stmt = `DELETE FROM potpisni_izdavatelji WHERE cvor = ?`
+	case EntityVodocuvarskiIzvornici:
+		stmt = `DELETE FROM vodocuvarski_izvornici WHERE list_id = ?`
 	case EntityMaintainedWaters:
 		stmt = `DELETE FROM maintained_waters WHERE id = ?`
 	case EntityWorkItems:

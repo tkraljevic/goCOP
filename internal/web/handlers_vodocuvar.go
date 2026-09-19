@@ -15,6 +15,7 @@ import (
 
 	"gocop/internal/models"
 	"gocop/internal/poslovi"
+	"gocop/internal/potpis"
 	"gocop/internal/repository"
 	"gocop/internal/service"
 	"gocop/internal/weather"
@@ -32,7 +33,11 @@ type VodocuvarHandler struct {
 	tmplKalendar        *template.Template
 	tmplPosao           *template.Template
 	potpisSlika         func(ctx context.Context, userID string) *models.PotpisSlika // sken potpisa, za ispis
+	potpis              func() *service.PotpisService                                // elektronički potpisi; prazno bez servisa
 }
+
+// SetPotpis daje rukovatelju servis elektroničkih potpisa
+func (h *VodocuvarHandler) SetPotpis(f func() *service.PotpisService) { h.potpis = f }
 
 // SetPotpisSlika daje rukovatelju izvor skeniranih potpisa za ispis listova
 func (h *VodocuvarHandler) SetPotpisSlika(f func(ctx context.Context, userID string) *models.PotpisSlika) {
@@ -108,6 +113,8 @@ type VodocuvarPageData struct {
 	ZadaciOsobe     []models.Zadatak // zadaci vodočuvara čiji je list otvoren
 	List            *models.VodocuvarskiList
 	Moj             bool
+	ImaKljuc        bool             // osoba ima potpisni ključ, pa predaja i ovjera traže lozinku
+	Izvornik        potpisiIzvornika // potpisi u potpisanom PDF-u lista
 	SmijeOvjeriti   bool
 	SmijeParafirati bool
 	Parafirao       bool
@@ -280,6 +287,14 @@ func (h *VodocuvarHandler) prikazi(w http.ResponseWriter, r *http.Request, d Vod
 	s := h.svc()
 	d.List, d.Moj = l, moj
 	d.SmijeOvjeriti = s.SmijeOvjeriti(perms, l) && l.Predan() && !l.Potvrden()
+	if h.potpis != nil && perms != nil {
+		if ps := h.potpis(); ps != nil {
+			d.ImaKljuc = ps.Ima(r.Context(), perms.User.ID.String())
+		}
+	}
+	if l.ID != "" && l.Predan() {
+		d.Izvornik = h.provjeriIzvornik(r.Context(), s, perms, l.ID)
+	}
 	d.SmijeParafirati = s.SmijeParafirati(perms, l) && l.Predan()
 	d.Parafirao = perms != nil && l.Parafirao(perms.User.ID.String())
 	if org := h.org(); org != nil && l.AreaID > 0 {
@@ -310,13 +325,31 @@ func (h *VodocuvarHandler) HandleSpremi(w http.ResponseWriter, r *http.Request) 
 			unos.Zadaci[id] = service.UnosZadatka{Status: v[0], Obavljeno: r.FormValue("zadatak_obavljeno_" + id)}
 		}
 	}
-	l, err := s.Spremi(r.Context(), u, dan, unos, r.FormValue("radnja") == "predaj")
+	predaj := r.FormValue("radnja") == "predaj"
+	var potpisnik *potpis.Potpisnik
+	if predaj {
+		// ključ se otključava prije predaje, da kriva lozinka ne ostavi list predan bez potpisa
+		var err error
+		if potpisnik, err = h.potpisnikZa(r.Context(), u, r.FormValue("lozinka")); err != nil {
+			redirectWith(w, r, "/vodocuvar/dan?datum="+dan.Format("2006-01-02"), "error", err.Error())
+			return
+		}
+	}
+	l, err := s.Spremi(r.Context(), u, dan, unos, predaj)
 	if err != nil {
 		redirectWith(w, r, "/vodocuvar/dan?datum="+dan.Format("2006-01-02"), "error", err.Error())
 		return
 	}
 	if l.Predan() {
-		redirectWith(w, r, "/vodocuvar/"+l.ID, "success", "List "+strconv.Itoa(l.Broj)+" je potpisan i predan; čeka ovjeru rukovoditelja.")
+		if err := h.izvornikPredaje(r.Context(), s, l, potpisnik); err != nil {
+			redirectWith(w, r, "/vodocuvar/"+l.ID, "error", "List je predan, ali izvornik nije potpisan: "+err.Error())
+			return
+		}
+		poruka := "List " + strconv.Itoa(l.Broj) + " je potpisan i predan; čeka ovjeru rukovoditelja."
+		if potpisnik != nil {
+			poruka = "List " + strconv.Itoa(l.Broj) + " je elektronički potpisan vašim ključem i predan; čeka ovjeru rukovoditelja."
+		}
+		redirectWith(w, r, "/vodocuvar/"+l.ID, "success", poruka)
 		return
 	}
 	redirectWith(w, r, "/vodocuvar/"+l.ID, "success", "List je spremljen; predajte ga kad je dan gotov.")
@@ -335,8 +368,18 @@ func (h *VodocuvarHandler) HandleRadnja(w http.ResponseWriter, r *http.Request) 
 	poruka := ""
 	switch r.FormValue("radnja") {
 	case "ovjeri":
-		_, err = s.Ovjeri(r.Context(), perms, u, id)
+		var potpisnik *potpis.Potpisnik
+		if potpisnik, err = h.potpisnikZa(r.Context(), u, r.FormValue("lozinka")); err != nil {
+			break
+		}
+		var l *models.VodocuvarskiList
+		if l, err = s.Ovjeri(r.Context(), perms, u, id); err == nil {
+			err = h.izvornikOvjere(r.Context(), s, perms, l, potpisnik)
+		}
 		poruka = "List je ovjeren."
+		if potpisnik != nil {
+			poruka = "List je ovjeren i elektronički potpisan vašim ključem."
+		}
 	case "parafiraj":
 		_, err = s.Parafiraj(r.Context(), perms, u, id)
 		poruka = "List je parafiran."
@@ -421,6 +464,11 @@ func (h *VodocuvarHandler) IzvoziPDF(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/pdf")
 	w.Header().Set("Content-Disposition", `inline; filename="dnevni-list-`+l.Datum.In(models.Zagreb).Format("2006-01-02")+`.pdf"`)
+	// predan list ima izvornik s potpisima; nacrt se crta iznova
+	if iz, _ := s.Izvornik(r.Context(), perms, l.ID); iz != nil && len(iz.PDF) > 0 {
+		_, _ = w.Write(iz.PDF)
+		return
+	}
 	_, _ = w.Write(PDFVodocuvarskiList(l, models.Terms(), area, h.otisci(r.Context(), l)))
 }
 

@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -20,7 +21,14 @@ type AuthHandler struct {
 	limiter      *loginLimiter
 	support      SupportContact
 	adminContact func() (name, phone, email string, ok bool)
-	fresh        func() bool // čvor bez djelatnika: prijava nudi uparivanje s uredom
+	fresh        func() bool                                                 // čvor bez djelatnika: prijava nudi uparivanje s uredom
+	prekljucaj   func(ctx context.Context, userID, stara, nova string) error // potpisni ključ prati lozinku
+}
+
+// SetPrekljucaj daje rukovatelju način da uz promjenu lozinke prekljuca
+// potpisni ključ osobe
+func (h *AuthHandler) SetPrekljucaj(f func(ctx context.Context, userID, stara, nova string) error) {
+	h.prekljucaj = f
 }
 
 // SupportContact je kontakt za pomoć oko prijave. Osoba je glavni
@@ -217,6 +225,14 @@ func (h *AuthHandler) HandleChangePassword(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// potpisni ključ je zaključan lozinkom: prvo se prekljuca, pa se lozinka
+	// mijenja; ako prekljucavanje ne uspije, ni lozinka se ne mijenja
+	if h.prekljucaj != nil {
+		if err := h.prekljucaj(ctx, currUser.ID.String(), currentPassword, newPassword); err != nil {
+			http.Redirect(w, r, returnURL+"?error="+url.QueryEscape("potpisni ključ se ne da prekljucati: "+err.Error()), http.StatusSeeOther)
+			return
+		}
+	}
 	if err := h.authService.ChangePassword(currUser.ID, currentPassword, newPassword); err != nil {
 		http.Redirect(w, r, returnURL+"?error="+url.QueryEscape(err.Error()), http.StatusSeeOther)
 		return
