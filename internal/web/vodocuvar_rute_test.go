@@ -254,7 +254,7 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 		t.Fatal("PDF lista")
 	}
 	tekst := pdfTekst(t, pdf.Body.Bytes())
-	for _, x := range []string{"DNEVNI LIST", "Naredbe rukovoditelja", "1. Deponija pijeska Batina", "2. Potok Karašica", "3. Obilazak nasipa", "upisao Ivo Ivić", "Opis radnih aktivnosti", "1. obilazak deponije", "Potpis vodočuvara", "Potpis rukovoditelja VGI", "001"} {
+	for _, x := range []string{"DNEVNI LIST", "Naredbe rukovoditelja", "1. Deponija pijeska Batina", "2. Potok Karašica", "3. Obilazak nasipa", "upisao Ivo Ivić", "Opis radnih aktivnosti", "1. obilazak deponije", "Vodočuvar", "Rukovoditelj branjenog područja", "ELEKTRONIČKI POTPISANO U goCOP-u", "Seit Vodočuvar", "Mile Kunac", "001"} {
 		if !strings.Contains(tekst, x) {
 			t.Errorf("PDF nema %q:\n%s", x, tekst)
 		}
@@ -330,7 +330,7 @@ func pdfTekst(t *testing.T, pdf []byte) string {
 	t.Helper()
 	if _, err := exec.LookPath("pdftotext"); err != nil {
 		t.Log("pdftotext nije dostupan; tekst PDF-a se ne provjerava")
-		return "DNEVNI LIST Naredbe rukovoditelja 1. Deponija pijeska Batina 2. Potok Karašica 3. Obilazak nasipa upisao Ivo Ivić Opis radnih aktivnosti 1. obilazak deponije Potpis vodočuvara Potpis rukovoditelja VGI 001 VODOČUVARSKI DNEVNIK Seit Vodočuvar"
+		return "DNEVNI LIST Naredbe rukovoditelja 1. Deponija pijeska Batina 2. Potok Karašica 3. Obilazak nasipa upisao Ivo Ivić Opis radnih aktivnosti 1. obilazak deponije Vodočuvar Rukovoditelj branjenog područja ELEKTRONIČKI POTPISANO U goCOP-u Seit Vodočuvar Mile Kunac 001 VODOČUVARSKI DNEVNIK Seit Vodočuvar"
 	}
 	put := filepath.Join(t.TempDir(), "list.pdf")
 	_ = os.WriteFile(put, pdf, 0o644)

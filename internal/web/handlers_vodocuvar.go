@@ -31,6 +31,31 @@ type VodocuvarHandler struct {
 	tmplPopis, tmplList *template.Template
 	tmplKalendar        *template.Template
 	tmplPosao           *template.Template
+	potpisSlika         func(ctx context.Context, userID string) *models.PotpisSlika // sken potpisa, za ispis
+}
+
+// SetPotpisSlika daje rukovatelju izvor skeniranih potpisa za ispis listova
+func (h *VodocuvarHandler) SetPotpisSlika(f func(ctx context.Context, userID string) *models.PotpisSlika) {
+	h.potpisSlika = f
+}
+
+// otisci skuplja skenirane potpise svih koji su listove potpisali
+func (h *VodocuvarHandler) otisci(ctx context.Context, listovi ...*models.VodocuvarskiList) models.OtisciLista {
+	o := models.OtisciLista{}
+	if h.potpisSlika == nil {
+		return o
+	}
+	for _, l := range listovi {
+		for _, id := range []string{l.UserID, l.PotvrdioID} {
+			if id == "" {
+				continue
+			}
+			if _, ima := o[id]; !ima {
+				o[id] = h.potpisSlika(ctx, id)
+			}
+		}
+	}
+	return o
 }
 
 func NewVodocuvarHandler(svc func() *service.VodocuvarService, users *service.UserService, org func() *repository.OrgRepository, popis, list *template.Template) *VodocuvarHandler {
@@ -396,7 +421,7 @@ func (h *VodocuvarHandler) IzvoziPDF(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/pdf")
 	w.Header().Set("Content-Disposition", `inline; filename="dnevni-list-`+l.Datum.In(models.Zagreb).Format("2006-01-02")+`.pdf"`)
-	_, _ = w.Write(PDFVodocuvarskiList(l, models.Terms(), area))
+	_, _ = w.Write(PDFVodocuvarskiList(l, models.Terms(), area, h.otisci(r.Context(), l)))
 }
 
 // IzvoziKnjigu daje cijelu godišnju knjigu vodočuvara kao PDF
@@ -433,7 +458,11 @@ func (h *VodocuvarHandler) IzvoziKnjigu(w http.ResponseWriter, r *http.Request) 
 	}
 	w.Header().Set("Content-Type", "application/pdf")
 	w.Header().Set("Content-Disposition", `inline; filename="vodocuvarski-dnevnik-`+strconv.Itoa(godina)+`-`+sigurnoIme(ime)+`.pdf"`)
-	_, _ = w.Write(PDFVodocuvarskaKnjiga(listovi, ime, godina, models.Terms(), area))
+	pok := make([]*models.VodocuvarskiList, len(listovi))
+	for i := range listovi {
+		pok[i] = &listovi[i]
+	}
+	_, _ = w.Write(PDFVodocuvarskaKnjiga(listovi, ime, godina, models.Terms(), area, h.otisci(r.Context(), pok...)))
 }
 
 // GeokodJSON nalazi koordinate za adresu ili mjesto (obrazac područja)

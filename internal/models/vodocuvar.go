@@ -1,6 +1,8 @@
 package models
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"math"
 	"strings"
@@ -204,3 +206,38 @@ type UpisRukovoditelja struct {
 	Kad      time.Time `json:"kad"`
 	Tekst    string    `json:"tekst"`
 }
+
+// sazetakLista je sadržaj lista koji potpisi pokrivaju: tekst i zadaci
+func (l VodocuvarskiList) sazetakLista() string {
+	var b strings.Builder
+	b.WriteString(l.ID + "|" + l.UserID + "|" + l.Datum.UTC().Format("2006-01-02") + "|" + fmt.Sprint(l.Broj) + "|" + l.Od + "|" + l.Do + "|" + l.Prilike + "|" + l.Naredbe + "|" + l.Opis + "|" + l.Zapazanja + "|" + l.Ocitanja)
+	for _, z := range l.Zadaci {
+		b.WriteString("|z:" + z.ID + ":" + z.Status + ":" + z.Obavljeno)
+	}
+	for _, u := range l.Upisi {
+		b.WriteString("|u:" + u.UserID + ":" + u.Tekst)
+	}
+	return b.String()
+}
+
+func kodLista(sazetak, tko string, kad *time.Time) string {
+	if kad == nil {
+		return ""
+	}
+	h := sha256.Sum256([]byte(sazetak + "|" + tko + "|" + kad.UTC().Format(time.RFC3339)))
+	return strings.ToUpper(hex.EncodeToString(h[:5]))
+}
+
+// KodPredaje je kratki sažetak sadržaja i potpisa vodočuvara, za ispis na listu
+func (l VodocuvarskiList) KodPredaje() string {
+	return kodLista(l.sazetakLista(), l.UserID, l.PredanoAt)
+}
+
+// KodOvjere je kratki sažetak sadržaja i ovjere rukovoditelja, za ispis na listu
+func (l VodocuvarskiList) KodOvjere() string {
+	return kodLista(l.sazetakLista(), l.PotvrdioID, l.PotvrdenoAt)
+}
+
+// OtisciLista su skenirani potpisi za ispis lista: po korisniku, jer u knjizi
+// potpisuju vodočuvar i više rukovoditelja
+type OtisciLista map[string]*PotpisSlika
