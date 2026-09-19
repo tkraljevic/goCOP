@@ -33,15 +33,32 @@
         <form method="POST" action="/dnevnici/{{.Journal.ID}}/dezurstvo/preuzmi" style="display:inline;"><button type="submit" class="btn btn-primary">{{icon "user"}} Preuzimam dežurstvo</button></form>
       {{end}}
     {{end}}
-    <a href="/dnevnici/{{.Journal.ID}}/dnevnik.xlsx{{if .Podrucje}}?podrucje={{.Podrucje}}{{end}}" class="btn btn-secondary" title="Dnevnik kao dokument za ispis">{{icon "download"}} Excel</a>
-    {{if .CanManage}}<a href="/dnevnici/{{.Journal.ID}}/edit" class="btn btn-secondary">{{icon "pencil"}} Zaglavlje</a>{{end}}
-    {{if .UpravaCentra}}<form method="POST" action="/dnevnici/{{.Journal.ID}}/obrisi" style="display:inline;"
+    <a href="/dnevnici/{{.Journal.ID}}/dnevnik.pdf" class="btn btn-secondary" title="Renderirani dnevnik za ispis i ovjeru">{{icon "file-text"}} PDF</a>
+    <a href="/dnevnici/{{.Journal.ID}}/dnevnik.xlsx{{if .Podrucje}}?podrucje={{.Podrucje}}{{end}}" class="btn btn-secondary" title="Podaci dnevnika za analizu">{{icon "download"}} Excel</a>
+    {{if and .CanManage (not .Journal.Ovjeren)}}<a href="/dnevnici/{{.Journal.ID}}/edit" class="btn btn-secondary">{{icon "pencil"}} Zaglavlje</a>{{end}}
+    {{if and .UpravaCentra (not .Journal.Ovjeren)}}<form method="POST" action="/dnevnici/{{.Journal.ID}}/obrisi" style="display:inline;"
       onsubmit="return confirm('Obrisati dnevnik „{{.Journal.DisplayTitle}}“ sa svim zapisima i dežurstvima? U knjizi verzija ostaje arhiviran, ali s popisa nestaje.');"><button type="submit" class="btn btn-secondary" title="Obriši dnevnik">{{icon "trash"}}</button></form>{{end}}
     {{if .Dani}}<a href="#{{if .ImaDanas}}dan-{{.Today}}{{else}}kraj{{end}}" class="btn btn-secondary" title="{{if .ImaDanas}}Na današnje zapise{{else}}Na zadnji zapis{{end}}">{{icon "arrow-right"}} {{if .ImaDanas}}Danas{{else}}Na kraj{{end}}</a>{{end}}
     <a href="/dnevnici/{{.Journal.ID}}/dezurstva" class="btn btn-secondary">{{icon "users"}} Plan dežurstava{{if .Dezurstva}} <span class="reg-chip">{{len .Dezurstva}}</span>{{end}}</a>
     {{if .CanWrite}}<a href="#novi-zapis" class="btn btn-primary">{{icon "plus"}} Novi zapis</a>{{end}}
   </div>
 </div>
+
+{{if .Journal.Ovjeren}}
+<div class="alert alert-success">{{icon "lock"}} <strong>Dnevnik je ovjeren.</strong>
+  Zaključio i potpisao {{.Journal.Zakljucio}}, {{.Journal.ZakljucenoAt.Format "2.1.2006. u 15:04"}}.
+  Rukovoditelj sektora dobiva zaključeni dnevnik na znanje.
+</div>
+{{end}}
+
+{{if and .VoditeljCOP .Journal.EndedAt (not .Journal.Ovjeren)}}
+<form method="POST" action="/dnevnici/{{.Journal.ID}}/ovjera" class="form-inline card" onsubmit="return confirm('Zaključiti, renderirati i elektronički potpisati ovaj dnevnik? Nakon toga se više ne mijenja.');">
+  <input type="hidden" name="radnja" value="zakljuci">
+  <label class="form-label" for="lozinka-z">Lozinka za potpisni ključ</label>
+  <input id="lozinka-z" type="password" name="lozinka" class="form-control" autocomplete="current-password">
+  <button class="btn btn-primary" type="submit">{{icon "lock"}} Zaključi i ovjeri</button>
+</form>
+{{end}}
 
 
 {{if .Journal.Reconstruction}}

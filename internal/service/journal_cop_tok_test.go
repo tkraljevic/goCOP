@@ -40,6 +40,8 @@ func TestTokDnevnikaCOPa(t *testing.T) {
 	s := NewJournalService(repo, nil, nil)
 
 	voditelj := &models.User{ID: uuid.New(), FullName: "Voditelj COP-a"}
+	b := "B"
+	voditelj.Duties = []models.Duty{{Role: models.RoleCopLeader, SectorID: &b, IsActive: true}}
 	uprava := &models.UserPermissions{AdminSectors: map[string]bool{"B": true}, AllowedSectors: map[string]bool{"B": true}}
 	dezurni := &models.User{ID: uuid.New(), FullName: "Dežurni iz Virovitice"}
 	podrucni := &models.UserPermissions{AllowedAreas: map[int]bool{20: true}}
@@ -106,5 +108,24 @@ func TestTokDnevnikaCOPa(t *testing.T) {
 	kasno := models.JournalEntry{Kind: models.EntryKindReport, Date: kraj.AddDate(0, 0, 1), Text: "prekasno"}
 	if err := s.DodajZapisCOP(ctx, dezurni, podrucni, o, &izmjena, &kasno); err == nil {
 		t.Fatal("zaključen dnevnik primio zapis poslije kraja")
+	}
+	// Samo voditelj COP-a ovjerava završeni dnevnik. Uprava sektora ga prima
+	// na znanje, ali ne daje drugi potpis.
+	sektor := &models.User{ID: uuid.New(), FullName: "Rukovoditelj sektora", Duties: []models.Duty{{Role: models.RoleSectorLeader, SectorID: &b, IsActive: true}}}
+	if err := s.PripremiOvjeruCOP(sektor, uprava, &izmjena, time.Now()); err == nil {
+		t.Fatal("rukovoditelj sektora ovjerio dnevnik COP-a")
+	}
+	if err := s.PripremiOvjeruCOP(voditelj, uprava, &izmjena, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SpremiOvjeruCOP(ctx, &izmjena, []byte("%PDF-1.4\nprobni izvornik")); err != nil {
+		t.Fatal(err)
+	}
+	ponovno, _ := s.GetJournal(ctx, izmjena.ID)
+	if ponovno == nil || !ponovno.Ovjeren() || ponovno.Zakljucio != "Voditelj COP-a" {
+		t.Fatalf("ovjeren dnevnik: %+v", ponovno)
+	}
+	if err := s.SpremiCOPDnevnik(ctx, voditelj, uprava, ponovno); err == nil {
+		t.Fatal("ovjereni dnevnik se može mijenjati")
 	}
 }

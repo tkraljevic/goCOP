@@ -735,6 +735,8 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /odrzavanje/uvoz/upisi", s.authMiddleware(http.HandlerFunc(maintenanceH.HandleImportWrite)))
 	journalsH := NewJournalsHandler(s.journalService, s.userService, s.maintenanceService, s.sectionService, s.stationService,
 		s.templates["dnevnici_izbor.html"], s.templates["dnevnici.html"], s.templates["dnevnik_form.html"], s.templates["dnevnik.html"], s.templates["dnevnik_cop.html"], s.templates["dnevnik_cop_form.html"], s.templates["dnevnik_list.html"], s.templates["dnevnik_ispis.html"], s.templates["dnevnik_obracun.html"], s.templates["dnevnik_dezurstva.html"], s.templates["dnevnik_iors.html"])
+	journalsH.SetPotpis(func() *service.PotpisService { return s.potpis })
+	journalsH.SetOpcije(s.opcije)
 	s.mux.Handle("GET /dnevnici", s.authMiddleware(http.HandlerFunc(journalsH.ShowJournalKinds)))
 	// Popis je doslovna putanja, ne /dnevnici/vrsta/{kind}: ta bi se sudarila s
 	// /dnevnici/{id}/edit — obje hvataju "/dnevnici/vrsta/edit". Doslovni
@@ -760,6 +762,8 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /dnevnici/{id}/upisi/{entry}/storno", s.authMiddleware(http.HandlerFunc(journalsH.HandleVoidEntry)))
 	s.mux.Handle("POST /dnevnici/{id}/upisi/{entry}/ispravak", s.authMiddleware(http.HandlerFunc(journalsH.HandleIspraviPrijepis)))
 	s.mux.Handle("GET /dnevnici/{id}/dnevnik.xlsx", s.authMiddleware(http.HandlerFunc(journalsH.IzvoziDnevnik)))
+	s.mux.Handle("GET /dnevnici/{id}/dnevnik.pdf", s.authMiddleware(http.HandlerFunc(journalsH.IzvoziDnevnikPDF)))
+	s.mux.Handle("POST /dnevnici/{id}/ovjera", s.authMiddleware(http.HandlerFunc(journalsH.HandleOvjeraCOP)))
 	s.mux.Handle("POST /dnevnici/{id}/obrisi", s.authMiddleware(http.HandlerFunc(journalsH.HandleObrisiDnevnik)))
 	s.mux.Handle("POST /dnevnici/{id}/dezurstvo/preuzmi", s.authMiddleware(http.HandlerFunc(journalsH.HandlePreuzmiDezurstvo)))
 	s.mux.Handle("POST /dnevnici/{id}/dezurstvo/predaj", s.authMiddleware(http.HandlerFunc(journalsH.HandlePredajDezurstvo)))

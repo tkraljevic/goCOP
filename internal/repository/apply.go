@@ -81,7 +81,7 @@ var SurfaceEntities = []string{EntitySectors, EntityAreas, EntityOrgTerms, Entit
 	EntityUsers, EntityDuties, "role_modules", "user_modules", EntityStations, EntitySections, EntityWatercourses,
 	EntityCounties, EntityMunicipalities, EntitySettlements, EntityStructures, "maintained_waters", "work_items", "journals",
 	EntityBlagdani, EntityKoeficijenti, EntityObracunPostavke,
-	EntityMtsVrste, EntityMtsSkladista, EntityMtsPromet, EntityMtsPopisi, EntityMtsPotrebe, EntityAkti, EntityPrimatelji, EntitySprance, EntitySluzbe, EntityIzvornici, EntitySlanja, EntityPostavke, EntityPotpisi, EntityZigovi, EntityVodocuvarski, EntityZadaci, EntityPotpisniKljucevi, EntityPotpisniIzdavatelji, EntityVodocuvarskiIzvornici}
+	EntityMtsVrste, EntityMtsSkladista, EntityMtsPromet, EntityMtsPopisi, EntityMtsPotrebe, EntityAkti, EntityPrimatelji, EntitySprance, EntitySluzbe, EntityIzvornici, EntitySlanja, EntityPostavke, EntityPotpisi, EntityZigovi, EntityVodocuvarski, EntityZadaci, EntityPotpisniKljucevi, EntityPotpisniIzdavatelji, EntityVodocuvarskiIzvornici, EntityJournalIzvornici}
 
 // ReplaySurface ponovno primijeni zadnju verziju svakog zapisa iz knjige na
 // površinu. Služi kad je primjena primljenih verzija jednom zapela: knjiga je
@@ -467,6 +467,15 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 			return err
 		}
 		_, err := tx.ExecContext(ctx, izvornikListaUpsert, iz.ListID, iz.PDF, iz.Sazetak, iz.UpdatedAt)
+		return err
+
+	case EntityJournalIzvornici:
+		var iz models.IzvornikDnevnika
+		if err := json.Unmarshal(v.Payload, &iz); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, `INSERT INTO journal_izvornici (journal_id,pdf,sazetak,updated_at) VALUES (?,?,?,?)
+			ON CONFLICT(journal_id) DO UPDATE SET pdf=excluded.pdf,sazetak=excluded.sazetak,updated_at=excluded.updated_at`, iz.JournalID, iz.PDF, iz.Sazetak, iz.UpdatedAt)
 		return err
 
 	case EntityPotpisi:
@@ -894,6 +903,8 @@ func removeFromSurface(ctx context.Context, tx *sql.Tx, v ledger.Version) error 
 		stmt = `DELETE FROM potpisni_izdavatelji WHERE cvor = ?`
 	case EntityVodocuvarskiIzvornici:
 		stmt = `DELETE FROM vodocuvarski_izvornici WHERE list_id = ?`
+	case EntityJournalIzvornici:
+		stmt = `DELETE FROM journal_izvornici WHERE journal_id = ?`
 	case EntityMaintainedWaters:
 		stmt = `DELETE FROM maintained_waters WHERE id = ?`
 	case EntityWorkItems:
