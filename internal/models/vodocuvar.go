@@ -35,6 +35,9 @@ type VodocuvarskiList struct {
 	// Upisi su bilješke rukovoditelja i ovlaštenika upisane izravno u dnevnik,
 	// neovisno o zadacima: naredba, napomena, nalaz obilaska
 	Upisi []UpisRukovoditelja `json:"upisi,omitempty"`
+	// Prijave su prijave i obavijesti s terena koje je vodočuvar objavio taj
+	// dan; upis na listu je dokaz, dokument stoji uz prijavu
+	Prijave []PrijavaNaListu `json:"prijave,omitempty"`
 
 	// Parafe su potpisi ostalih rukovoditelja vezanih uz područje (ovlaštenik za
 	// praćenje ugovora, zamjenici, rukovoditelji dionica, uprava sektora)
@@ -216,6 +219,9 @@ func (l VodocuvarskiList) sazetakLista() string {
 	}
 	for _, u := range l.Upisi {
 		b.WriteString("|u:" + u.UserID + ":" + u.Tekst)
+	}
+	for _, p := range l.Prijave {
+		b.WriteString("|p:" + p.ID)
 	}
 	return b.String()
 }

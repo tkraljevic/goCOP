@@ -531,6 +531,53 @@ function renderMarkdown(md) {
   });
 })();
 
+// Karta-birač: klik na kartu označi mjesto prijave s terena i upiše
+// koordinate u obrazac; „Moj položaj” uzme GPS s telefona. Bez pločica
+// karta je prazna, ali se koordinate i dalje mogu upisati ručno.
+(function () {
+  document.addEventListener('DOMContentLoaded', function () {
+    if (typeof L === 'undefined') return;
+    document.querySelectorAll('.karta-izbor').forEach(function (okvir) {
+      var platno = okvir.querySelector('.karta-platno');
+      var lat = parseFloat(okvir.dataset.lat), lon = parseFloat(okvir.dataset.lon);
+      var uLat = document.getElementById('lat'), uLon = document.getElementById('lon');
+      if (!platno || !uLat || !uLon) return;
+      if (isNaN(lat) || isNaN(lon)) { lat = 45.55; lon = 18.7; }
+      var karta = L.map(platno).setView([lat, lon], okvir.dataset.oznaceno ? 15 : 11);
+      if (okvir.dataset.plocice) {
+        var promasaja = 0;
+        var sloj = L.tileLayer(okvir.dataset.plocice, { maxZoom: parseInt(okvir.dataset.najviseZ, 10) || 17, attribution: okvir.dataset.zasluge || '' });
+        sloj.on('tileerror', function () {
+          if (++promasaja < 3) return;
+          var poruka = okvir.querySelector('.karta-bez-mreze');
+          if (poruka) poruka.hidden = false;
+        });
+        sloj.addTo(karta);
+      }
+      var tocka = null;
+      function postavi(la, lo, zumiraj) {
+        if (tocka) tocka.setLatLng([la, lo]); else tocka = L.marker([la, lo], { draggable: true }).addTo(karta).on('dragend', function (e) { var p = e.target.getLatLng(); postavi(p.lat, p.lng, false); });
+        uLat.value = la.toFixed(6); uLon.value = lo.toFixed(6);
+        if (zumiraj) karta.setView([la, lo], Math.max(karta.getZoom(), 15));
+      }
+      if (okvir.dataset.oznaceno) postavi(lat, lon, false);
+      karta.on('click', function (e) { postavi(e.latlng.lat, e.latlng.lng, false); });
+      function izPolja() {
+        var la = parseFloat(uLat.value.replace(',', '.')), lo = parseFloat(uLon.value.replace(',', '.'));
+        if (!isNaN(la) && !isNaN(lo)) postavi(la, lo, true);
+      }
+      uLat.addEventListener('change', izPolja); uLon.addEventListener('change', izPolja);
+      var gps = document.getElementById('gps');
+      if (gps) gps.addEventListener('click', function () {
+        if (!navigator.geolocation) { alert('Uređaj ne daje položaj.'); return; }
+        navigator.geolocation.getCurrentPosition(function (poz) { postavi(poz.coords.latitude, poz.coords.longitude, true); }, function () { alert('Položaj nije dostupan; označite mjesto na karti.'); }, { enableHighAccuracy: true, timeout: 10000 });
+      });
+      var ocisti = document.getElementById('ocisti-tocku');
+      if (ocisti) ocisti.addEventListener('click', function () { if (tocka) { karta.removeLayer(tocka); tocka = null; } uLat.value = ''; uLon.value = ''; });
+    });
+  });
+})();
+
 // Tablice na uskom zaslonu. Vodoravno listanje unutar stranice znači da se
 // pola tablice nikad ne vidi — prst ne zna koji klizač hvata, a dežurni ne
 // zna da desno još nešto piše. Zato se tablica koja ne stane razlaže u

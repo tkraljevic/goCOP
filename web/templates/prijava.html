@@ -1,0 +1,73 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Prijava s terena{{end}}
+
+{{define "content"}}
+{{$p := .Prijava}}
+<div class="breadcrumb"><a href="/dnevnici">Dokumentacija</a> › <a href="/prijave">Prijave s terena</a> › {{$p.Oznaka}}</div>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "file-text"}} {{$p.VrstaLabel}} s terena {{$p.Oznaka}}</h1>
+    <p class="page-desc"><strong>{{$p.Naslov}}</strong><br>{{$p.Ime}} · {{$p.Datum.Format "02.01.2006."}} · BP {{$p.AreaID}}{{with .Podrucje}}, {{.Name}}{{end}} · <strong>{{$p.StanjeLabel}}</strong>{{if $p.Objavljena}} {{formatDate (localTime (derefTime $p.ObjavljenoAt))}}{{end}}{{if $p.Arhivirana}} · arhivirao {{$p.Arhivirao}}{{end}}</p>
+  </div>
+  <div class="page-actions">
+    <a href="/prijave/{{$p.ID}}/prijava.pdf" target="_blank" class="btn btn-secondary">{{icon "printer"}} PDF{{if not $p.Objavljena}} (pregled nacrta){{end}}</a>
+    {{if and .Moja (not $p.Objavljena)}}<a href="/prijave/{{$p.ID}}/uredi" class="btn btn-secondary">{{icon "pencil"}} Uredi</a>{{end}}
+  </div>
+</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
+
+<div class="profil-mreza">
+<section class="detail-section" style="margin-top:0;">
+  <h2>{{icon "info"}} Prijava</h2>
+  <dl class="vodocuvar-dl">
+    <dt>Vrsta</dt><dd>{{$p.VrstaLabel}}</dd>
+    <dt>Naslov</dt><dd>{{$p.Naslov}}</dd>
+    <dt>Opis</dt><dd style="white-space:pre-wrap;">{{$p.Opis}}</dd>
+    <dt>Mjesto</dt><dd>{{with $p.Mjesto}}{{.}}{{else}}—{{end}}{{if $p.ImaKoordinate}}<br><span class="mono">{{.Lat}}, {{.Lon}}</span> · <a href="https://www.openstreetmap.org/?mlat={{.Lat}}&amp;mlon={{.Lon}}#map=16/{{.Lat}}/{{.Lon}}" target="_blank" rel="noopener">na OpenStreetMapu</a>{{end}}</dd>
+    {{if $p.Objavljena}}<dt>Dnevni list</dt><dd>{{if $p.ListID}}<a href="/vodocuvar/{{$p.ListID}}">list {{printf "%03d" $p.ListBroj}}/{{$p.Godina}}</a>{{else}}—{{end}}</dd>{{end}}
+    {{if .Izvornik.Ima}}<dt>Izvornik</dt><dd><a href="/prijave/{{$p.ID}}/prijava.pdf" target="_blank">{{icon "file-text"}} potpisani PDF</a>{{if .Izvornik.Potpisi}}<ul class="stavke" style="margin:0.25rem 0 0; padding-left:1rem;">{{range .Izvornik.Potpisi}}<li>{{if .Simulacija}}{{icon "x"}} <strong>SIMULIRANI potpis, bezvrijedan</strong> ({{.Ime}}){{else if .Valjan}}{{icon "lock"}} elektronički potpisao <strong>{{.Ime}}</strong>, {{formatDate (localTime .Kad)}} <span class="form-help">(potpis valjan{{if .Cijeli}}, pokriva cijeli dokument{{end}})</span>{{else}}{{icon "x"}} potpis {{.Ime}}: <strong>{{.Greska}}</strong>{{end}}</li>{{end}}</ul>{{else}} <span class="form-help">(bez elektroničkog potpisa)</span>{{end}}</dd>{{end}}
+  </dl>
+  {{if $p.ImaKoordinate}}
+  <div class="karta-letve" data-lat="{{.Lat}}" data-lon="{{.Lon}}" data-naziv="{{$p.Naslov}}" data-plocice="{{.Karta.Plocice}}" data-zasluge="{{.Karta.Zasluge}}" data-najvise-z="{{.Karta.NajviseZ}}">
+    <div class="karta-platno"></div>
+    <p class="reg-card-sub karta-bez-mreze" hidden>{{icon "triangle-alert"}} Pločice karte nisu dostupne; koordinate iznad vrijede i dalje.</p>
+  </div>
+  {{end}}
+</section>
+
+<section class="detail-section" style="margin-top:0;">
+  <h2>{{icon "file-text"}} Fotografije ({{len $p.Slike}})</h2>
+  {{if $p.Slike}}
+  <div class="prijava-slike">
+    {{range $p.Slike}}<figure>
+      <a href="/prijave/{{$p.ID}}/slika/{{.ID}}" target="_blank"><img src="/prijave/{{$p.ID}}/slika/{{.ID}}" alt="{{.Naziv}}" loading="lazy" onerror="this.parentElement.parentElement.classList.add('nema')"></a>
+      <figcaption>{{.Naziv}} · {{.Sirina}}×{{.Visina}}{{if and $.Moja (not $p.Objavljena)}} <form method="POST" action="/prijave/{{$p.ID}}/radnja" style="display:inline;"><input type="hidden" name="radnja" value="obrisi-sliku"><input type="hidden" name="slika" value="{{.ID}}"><button type="submit" class="btn btn-sm btn-secondary">{{icon "trash"}}</button></form>{{end}}</figcaption>
+      <p class="form-help nema-slike">Izvorna slika više nije na ovom računalu; nalazi se u <a href="/prijave/{{$p.ID}}/prijava.pdf" target="_blank">PDF-u</a>.</p>
+    </figure>{{end}}
+  </div>
+  {{else}}<p class="form-help">Bez fotografija.</p>{{end}}
+</section>
+</div>
+
+{{if and .Moja (not $p.Objavljena)}}
+<section class="detail-section">
+  <h2>{{icon "lock"}} Objavi i potpiši</h2>
+  <p class="page-desc">Objavom prijava dobiva broj, PDF s ugrađenim fotografijama postaje izvornik{{if .ImaKljuc}} potpisan vašim ključem{{end}}, a upis ide na vaš dnevni list za {{$p.Datum.Format "02.01.2006."}}. Poslije objave se ne mijenja.</p>
+  <form method="POST" action="/prijave/{{$p.ID}}/radnja" style="display:flex; gap:0.5rem; align-items:flex-end; flex-wrap:wrap;" onsubmit="return confirm('Objaviti i potpisati prijavu? Poslije se ne mijenja.')">
+    <input type="hidden" name="radnja" value="objavi">
+    {{if .Simulacija}}<span class="form-help">simulirani ključ, bez lozinke</span>{{else if .ImaKljuc}}<div class="form-group" style="margin:0;"><label class="form-label" for="lozinka">Lozinka za potpis</label><input type="password" class="form-control" id="lozinka" name="lozinka" autocomplete="current-password" required></div>{{end}}
+    <button type="submit" class="btn btn-primary">{{icon "lock"}} Objavi i potpiši</button>
+  </form>
+  <form method="POST" action="/prijave/{{$p.ID}}/radnja" style="margin-top:0.75rem;" onsubmit="return confirm('Obrisati nacrt?')"><input type="hidden" name="radnja" value="obrisi"><button type="submit" class="btn btn-secondary btn-opasno">{{icon "trash"}} Obriši nacrt</button></form>
+</section>
+{{end}}
+{{if .SmijeArhivirati}}
+<section class="detail-section">
+  <form method="POST" action="/prijave/{{$p.ID}}/radnja" onsubmit="return confirm('Arhivirati prijavu? Time potvrđujete da je pregledana i riješena.')"><input type="hidden" name="radnja" value="arhiviraj"><button type="submit" class="btn btn-secondary">{{icon "check"}} Pregledano, arhiviraj</button></form>
+</section>
+{{end}}
+{{end}}

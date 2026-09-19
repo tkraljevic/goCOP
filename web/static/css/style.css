@@ -3715,3 +3715,13 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .obrana-sektor { padding: 0.5rem 0.75rem; border-radius: 8px; border: 1px solid var(--border, #d8dde3); font-size: 0.92rem; }
 .obrana-sektor.aktivna { border-color: #c0392b; background: #fdf2f1; }
 .obrana-sektor.preventivna { background: #f4f6f8; }
+
+/* Prijave s terena: fotografije i karta-birač */
+.prijava-slike { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.6rem; }
+.prijava-slike figure { margin: 0; }
+.prijava-slike img { width: 100%; height: 140px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border, #d8dde3); display: block; }
+.prijava-slike figcaption { font-size: 0.78rem; color: var(--text-muted, #5a6470); margin-top: 0.2rem; }
+.prijava-slike .nema-slike { display: none; }
+.prijava-slike figure.nema img { display: none; }
+.prijava-slike figure.nema .nema-slike { display: block; }
+.karta-platno-izbor { height: 320px; cursor: crosshair; }

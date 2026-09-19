@@ -351,6 +351,41 @@ func InitSchema(database *sql.DB) error {
 			sazetak TEXT NOT NULL DEFAULT '',
 			updated_at DATETIME NOT NULL
 		);`,
+		// Prijave i obavijesti s terena: dokument vodočuvara s fotografijama;
+		// prijava i potpisani PDF putuju knjigom, izvorne slike su lokalne i
+		// brišu se nakon roka
+		`CREATE TABLE IF NOT EXISTS prijave (
+			id TEXT PRIMARY KEY,
+			user_id TEXT NOT NULL,
+			ime TEXT NOT NULL DEFAULT '',
+			sektor TEXT NOT NULL DEFAULT '',
+			area_id INTEGER NOT NULL DEFAULT 0,
+			broj INTEGER NOT NULL DEFAULT 0,
+			godina INTEGER NOT NULL DEFAULT 0,
+			vrsta TEXT NOT NULL DEFAULT '',
+			naslov TEXT NOT NULL DEFAULT '',
+			opis TEXT NOT NULL DEFAULT '',
+			datum TEXT NOT NULL DEFAULT '',
+			status TEXT NOT NULL DEFAULT 'NACRT',
+			podaci TEXT NOT NULL DEFAULT '{}',
+			objavljeno_at DATETIME,
+			created_at DATETIME NOT NULL,
+			updated_at DATETIME NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_prijave_sektor ON prijave(sektor, area_id, datum);`,
+		`CREATE TABLE IF NOT EXISTS prijave_slike (
+			id TEXT PRIMARY KEY,
+			prijava_id TEXT NOT NULL,
+			slika BLOB NOT NULL,
+			created_at DATETIME NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_prijave_slike_prijava ON prijave_slike(prijava_id);`,
+		`CREATE TABLE IF NOT EXISTS prijave_izvornici (
+			prijava_id TEXT PRIMARY KEY,
+			pdf BLOB NOT NULL,
+			sazetak TEXT NOT NULL DEFAULT '',
+			updated_at DATETIME NOT NULL
+		);`,
 		// Vodočuvarski dnevnik: dnevni listovi po vodočuvaru, kao papirna knjiga
 		`CREATE TABLE IF NOT EXISTS vodocuvarski_listovi (
 			id TEXT PRIMARY KEY,
@@ -369,6 +404,7 @@ func InitSchema(database *sql.DB) error {
 			ocitanja TEXT NOT NULL DEFAULT '',
 			zadaci TEXT NOT NULL DEFAULT '[]',
 			upisi TEXT NOT NULL DEFAULT '[]',
+			prijave TEXT NOT NULL DEFAULT '[]',
 			parafe TEXT NOT NULL DEFAULT '[]',
 			predano_at DATETIME,
 			potvrdio_id TEXT NOT NULL DEFAULT '',
@@ -1163,6 +1199,7 @@ func migrateSchema(database *sql.DB) error {
 		{"areas", "direct_to_sector", "INTEGER NOT NULL DEFAULT 0"},
 		{"vodocuvarski_zadaci", "za", "TEXT NOT NULL DEFAULT ''"},
 		{"vodocuvarski_listovi", "upisi", "TEXT NOT NULL DEFAULT '[]'"},
+		{"vodocuvarski_listovi", "prijave", "TEXT NOT NULL DEFAULT '[]'"},
 		{"areas", "latitude", "REAL NOT NULL DEFAULT 0"},
 		{"areas", "longitude", "REAL NOT NULL DEFAULT 0"},
 		{"org_terms", "org_name", "TEXT NOT NULL DEFAULT ''"},

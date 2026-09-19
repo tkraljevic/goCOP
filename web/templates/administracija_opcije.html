@@ -77,6 +77,17 @@
         <p><strong>Kada uključiti:</strong> pri testiranju i uvođenju, da se cijeli tok potpisivanja (predaja, ovjera, izvornik, provjera) isproba bez tuđih lozinki. <strong>U operativnom radu držite isključeno.</strong></p>
       </div>
     </div>
+    <div class="opcija">
+      <label class="opcija-red" for="cuvanje_slika_dana">
+        <span class="opcija-naziv">Čuvanje fotografija s terena</span>
+        <input type="number" class="form-control" id="cuvanje_slika_dana" name="cuvanje_slika_dana" min="7" max="3650" value="{{.Opcije.CuvanjeSlika}}" style="max-width:7rem; margin-left:auto;"> <span>dana</span>
+      </label>
+      <div class="opcija-opis">
+        <p><strong>Što radi:</strong> uz prijavu s terena vodočuvar prilaže fotografije; program ih odmah smanji (najdulja stranica 1 600 px, JPEG) i pri objavi ugradi u potpisani PDF, koji ostaje trajno i putuje među čvorovima. Izvorne smanjene slike ostaju na ovom čvoru još ovoliko dana nakon objave, za pregled na stranici, pa se brišu.</p>
+        <p><strong>Što ne radi:</strong> ne dira PDF ni nacrte; nacrt čuva svoje slike dok se ne objavi ili obriše. Nakon roka stranica prijave pokazuje slike iz PDF-a preko poveznice na dokument.</p>
+        <p><strong>Zašto:</strong> u Directusu je Baranja u dva mjeseca skupila 4 GB fotografija; dokument s ugrađenim slikama nosi sve što treba za dokaz, a baza ostaje mala.</p>
+      </div>
+    </div>
     <div class="form-actions"><button type="submit" class="btn btn-primary">{{icon "check"}} Spremi opcije</button></div>
   </form>
 </section>
