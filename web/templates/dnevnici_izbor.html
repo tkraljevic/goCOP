@@ -74,6 +74,7 @@
       <div class="dash-card-footer"><a href="/dogadjanja" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
     </div>
 
+    {{if .CurrentUser.VidiVodocuvarskiDnevnik}}
     <div class="dash-card">
       <div class="dash-card-header">
         <div class="dash-card-icon-box">{{icon "notebook-pen"}}</div>
@@ -85,6 +86,7 @@
       </div>
       <div class="dash-card-footer"><a href="/vodocuvar" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
     </div>
+    {{end}}
 
     <div class="dash-card">
       <div class="dash-card-header">

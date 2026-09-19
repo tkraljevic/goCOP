@@ -32,12 +32,14 @@
   </div>
 </form>
 
+{{if .VodiDnevnik}}
 <section class="detail-section" style="margin-top:0;">
   <h2>{{icon "notebook-pen"}} Vodočuvarski dnevnik</h2>
   <p class="page-desc">Dnevni list: radno vrijeme, naredbe i zadaci rukovoditelja, opis rada, zapažanja; vodostaji koje danas očitate upisuju se sami.</p>
   <a href="/vodocuvar/dan?datum={{.Today}}" class="btn btn-primary btn-sm">{{icon "pencil"}} Današnji list</a>
   <a href="/vodocuvar" class="btn btn-secondary btn-sm">{{icon "notebook"}} Svi listovi</a>
 </section>
+{{end}}
 
 {{if .Overview.Mine}}
 <section class="detail-section" style="margin-top:0;">

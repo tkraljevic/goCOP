@@ -31,6 +31,7 @@ type FieldPageData struct {
 	Sectors        []models.Sector
 	SelectedSector string
 	Today          string
+	VodiDnevnik    bool // vodočuvar: gumb na današnji list; strojari imaju svoje dnevnike
 	Duty           *models.Duty
 	Percent        int
 	Remaining      int
@@ -94,6 +95,7 @@ func (h *FieldHandler) ShowField(w http.ResponseWriter, r *http.Request) {
 		fo.Areas = filtered
 	}
 	data.Overview = fo
+	data.VodiDnevnik = service.VodiDnevnik(data.CurrentUser)
 	if fo.Total > 0 {
 		data.Percent = fo.Done * 100 / fo.Total
 		data.Remaining = fo.Total - fo.Done
