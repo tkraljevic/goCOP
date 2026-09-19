@@ -20,52 +20,83 @@ Zato su razdvojene, i zato treba pravilo kad se što seli i kad se briše.
 | `gocop.db` → `readings` | ono što ured radi: dnevni vodostaji koje operater prikuplja, satni **dok traje obrana**, očitanje s terena u bilo koje doba | verzionirano, sinkronizira se |
 | `data/vodostaji.db` | povijest: HIS-2000, telemetrija, mađarski nizovi, rekonstrukcije, protok, temperatura, nanos | bez verzija, ne sinkronizira se, obnovljivo iz `vodostaji/` |
 
-Arhiva se **preuzima**, ne razmjenjuje. U redovnu sinkronizaciju ide samo
-katalog: koja letva, koji izvor, koje razdoblje, koliki otisak.
+Arhiva se **preuzima**, ne razmjenjuje kroz knjigu verzija. Cilj je da redovna
+sinkronizacija nosi samo katalog — koja letva, koje izdanje, koje razdoblje i
+koliki otisak — dok se `.cop` paket dohvaća zasebno. Lokalni katalog i paketi
+postoje; mrežna objava kataloga još ne.
 
-## Redoslijed posla
+## Stanje izvedbe
 
-### 1. Izdanje arhive  *(nije napravljeno)*
+### 1. Izdanje arhive  *(napravljeno)*
 
-Arhiva dobiva broj izdanja, zaključni datum i otisak. Objavljuje se jednom
-godišnje, kao godišnjak.
+Historijat svake letve izdaje se kao zaseban `.cop` paket. Paket nosi broj
+izdanja, razdoblje, izdavača, otisak sadržaja, otiske dijelova i Ed25519
+potpis. Broj raste samo kad se sadržaj promijeni; ponovno izdavanje istog
+sadržaja zadržava isti broj i otisak.
 
-Bez izdanja i otiska nema se što potvrđivati, pa je ovo prvo.
+Stara izdanja ostaju sačuvana jer su dokaz onoga što je korisnik u određenom
+trenutku imao pred sobom. Primatelj pamti zadnje ugrađeno izdanje, odbija
+nenamjerni povratak na starije i isto izdanje s drukčijim sadržajem. Namjerni
+povratak postoji, ali traži razlog.
 
-Novije izdanje **mijenja i stare godine**, ne samo dodaje nove: HIS-2000 kasni
-s ovjerom godinu do dvije, pa izdanje 2027. za 2026. ima samo operativne i
-telemetrijske vrijednosti, a tek izdanje 2029. donosi ovjerene. Preuzimanje
-zato nije „dodaj razliku" nego „zamijeni izdanje".
+Novije izdanje **može mijenjati i stare godine**, ne samo dodavati nove:
+HIS-2000 kasni s ovjerom godinu do dvije. Ugradnja zato zamjenjuje cjelovitu
+izjavu o letvi, a ne samo dodaje razliku.
 
-### 2. Katalog koji objavljuje izdanje  *(nije napravljeno)*
+### 2. Katalog koji objavljuje izdanje  *(djelomično)*
 
-Katalog putuje redovnom sinkronizacijom, pa svaki čvor vidi da postoji novije
-izdanje i ponudi preuzimanje. Pola te mehanike već stoji u `nizovi`.
+`katalog.json` već vodi zadnje izdanje svake letve, otisak, razdoblje, broj
+nizova i zapisa te ime paketa. Izdavanje je dostupno iz administratorskog
+sučelja i naredbenog retka, a paket se može preuzeti i ugraditi ručno.
 
-### 3. Godišnje ulaganje operative u arhivu  *(nije napravljeno)*
+Još nije napravljen distribucijski dio: katalog ne putuje redovnom
+sinkronizacijom, čvorovi sami ne nude novije izdanje i `.cop` paketi se ne
+preuzimaju izravno s drugog čvora.
+
+### 3. Ulaganje završene operative u arhivu  *(napravljeno, ručno pokretanje)*
 
 Kad se godina zatvori, operativna očitanja te godine postaju izvor u arhivi,
-uz oznaku `gocop` — odvojeno od HIS-a i telemetrije, jer to nije isto.
+uz oznake `cop` i `cop-rucno` — odvojeno od HIS-a i telemetrije, jer to nije
+isto.
 
 Time operativna baza prestaje rasti bez kraja: drži tekuću godinu i otvorene
 epizode. Dvadeset letava puta 365 dnevnih očitanja je 7.300 zapisa godišnje.
 
-**Ulaganje nije brisanje.** Zapisi se označe kao izdani i prestaju se
-sinkronizirati, ali ostaju dok se ne zaborave (korak 5).
+Administrator prvo vidi pregled, zatim program zapisuje očitanja u izvorno
+stablo, ponovno gradi pogođenu letvu i provjerava svaku vrijednost po izvoru,
+veličini, vrsti, vremenu i vrijednosti. Tek nakon uspješne provjere očitanja
+dobivaju oznaku ulaganja. Sumnjiva očitanja i zapisi bez vrijednosti ne ulažu
+se.
 
-Oznaka mora nešto značiti upitu. Zapis koji ostane u `readings` bez oznake
-koju upit poštuje i dalje se prikazuje i dalje raste — dakle treba stupac
-„ovo je ušlo u izdanje X" i upiti koji ga u operativnom pogledu preskaču.
+**Ulaganje nije brisanje.** Označeni zapisi ostaju u operativnoj bazi dok se
+posebno ne pokrene zaboravljanje (korak 5). Periodično automatsko pokretanje
+nakon zatvaranja godine još nije uvedeno.
 
-### 4. Automatsko povlačenje s letva.voda.hr  *(nije napravljeno)*
+### 4. Automatsko preuzimanje javnih vodostaja  *(napravljeno)*
 
-Pristup, pozivi i vjerodajnice opisani su u `vodostaji/PRISTUP letva-voda-hr/README.md`.
-Kad program sam povlači, lijepljenje ispisa postaje iznimka umjesto pravila.
+Vodomjerna postaja može biti povezana s javnim izvorom i označena za
+automatsko preuzimanje. Program prvi put pokušava minutu nakon pokretanja, a
+zatim svaki sat. Preuzima samo nova očitanja, bilježi izvor i ponovljenim
+preuzimanjem ne stvara duplikate.
 
-### 5. Zaborav  *(nije napravljeno)*
+Na kartici postaje vidi se stanje zadnjeg pokušaja, a preuzimanje se može
+pokrenuti i ručno. Ako nema interneta ili izvor ne odgovara, lokalni rad se
+nastavlja i program pokušava ponovno u sljedećem ciklusu. Čitač se bira prema
+adresi izvora, pa isti mehanizam podržava hrvatske, mađarske i srpske javne
+postaje.
 
-Označeni zapisi se brišu — i sami i njihove verzije — tek kad je sigurno da ih
-arhiva doista nosi svugdje.
+### 5. Zaborav  *(lokalno napravljen, mrežni dogovor nije)*
+
+Lokalni postupak postoji: neposredno prije brisanja ponovno provjerava da
+arhiva ovog čvora sadrži svako označeno očitanje u točnom izvornom nizu, pa u
+jednoj transakciji briše očitanja i njihove verzije. Ako ijedna vrijednost
+nedostaje ili se razlikuje, ne briše ništa.
+
+To još nije puni raspodijeljeni zaborav. Nema potvrde da izdanje drže svi
+aktivni čvorovi ni zapisa o zaboravu koji bi spriječio da drugi čvor kasnije
+vrati obrisane verzije. Zato je sadašnji postupak namijenjen kontroliranom
+pospremanju na čvoru koji drži provjerenu arhivu, a sljedeća pravila ostaju
+cilj mrežne izvedbe.
 
 **Uvjet je „svi", ne „većina".** Ako obriše većina, manjina je možda upravo
 čvor koji izdanje nikad nije preuzeo. Briše se kad **svaki aktivan član javi
@@ -122,3 +153,10 @@ da se otkrije tek kad zaborav stane.
 - ispravci arhive uz obvezan pregled, kroz knjigu verzija
 - uvoz očitanja iz zalijepljenog ispisa, CSV-a i Excela
 - vremenske zone po izvoru: hrvatski izvori u lokalnom, mađarski u UTC-u
+- potpisana `.cop` izdanja po letvi, katalog i zaštita od nenamjernog povratka
+  na starije izdanje
+- pregled, ulaganje i stroga provjera operativnih očitanja prije označavanja
+- lokalno zaboravljanje uloženih očitanja i njihovih verzija tek nakon ponovne
+  provjere arhive
+- automatsko satno preuzimanje javnih vodostaja, uz ručno pokretanje i zaštitu
+  od duplikata

@@ -82,9 +82,12 @@ Ovo nije početak iz prazna:
 | pronalaženje na LAN-u | radi (UDP broadcast) |
 | otisak niza za provjeru pri preuzimanju | radi (`nizovi.otisak`) |
 | rad bez interneta | radi |
-| dohvatljivost preko interneta | nema |
-| prijenos datoteka među čvorovima | nema |
-| opseg kao granica replikacije | nema |
+| dohvatljivost preko interneta | nema ugrađeno pronalaženje; radi preko unaprijed dohvatljive adrese ili vanjskog tunela |
+| selektivna replikacija | radi za očitanja i dnevnike po vrsti, sektoru ili branjenom području i godinama |
+| prijenos bez mreže | radi izvozom i uvozom odabranih kanala u SQLite datoteku |
+| izravni prijenos datoteka i blobova među čvorovima | nema |
+| opseg kao granica replikacije | djelomično: očitanja i dnevnici imaju kanale; zajednički registri dolaze svima |
+| izdanja hidrološke arhive | rade kao potpisani `.cop` paketi po letvi s lokalnim katalogom |
 | provenijencija i potpisi po zapisu | djelomično |
 
 ## Slojevi
@@ -138,14 +141,24 @@ LAN izravno → IPv6 izravno → internet P2P → relay preko čvora → središ
 
 ### 4. Sinkronizacija baze
 
-**SQLite se ne prenosi kao datoteka.** Prenose se logičke promjene: `record_uuid`,
-revizija, čvor podrijetla, vrijeme, vrsta zahvata, otisak i provenijencija.
+U živoj mrežnoj razmjeni **SQLite se ne prenosi kao datoteka**. Prenose se
+logičke verzije zapisa s čvorom podrijetla, vremenom, vrstom zahvata i kanalom.
 
 Svaki čvor radi offline. Kad opet nađe druge, radi anti-entropy usklađivanje i
 dohvaća ono što mu nedostaje.
 
-Na desetke čvorova **ne ide puna mreža** gdje svatko priča sa svima. Ide
-gossip s ograničenim brojem aktivnih susjeda:
+Očitanja i dnevnici već su podijeljeni u kanale
+`vrsta/područje/godina`. Uredski čvor može pratiti sve, a laptop samo odabrani
+sektor ili branjeno područje i godine. Kad pretplata više ne pokriva kanal,
+korisnik ga može lokalno obrisati; zajednički ustroj, registri i djelatnici
+ostaju izvan tih ograda i dolaze svim čvorovima.
+
+Za prijenos bez mreže odabrani se kanali mogu izvesti u zasebnu SQLite
+datoteku i uvesti na drugom čvoru. To je prijenos knjige verzija, ne kopiranje
+aktivne baze, pa uvoz prolazi istim pravilima kao mrežna razmjena.
+
+Na desetke čvorova sadašnja izravna razmjena sa svim poznatim čvorovima neće
+biti dovoljna. Tada treba gossip s ograničenim brojem aktivnih susjeda:
 
 ```
 A → B, C        B → D, E        C → F, G
@@ -214,21 +227,18 @@ jednog ne znači gubitak mjerenja.
 
 ### 7. Arhive
 
-Povijest koja se više ne mijenja izdvaja se iz aktivne baze u nepromjenjive
-SQLite arhive po razdoblju:
+Hidrološka povijest već je izdvojena iz operativne baze u
+`data/vodostaji.db`, a obnovljivi izvori ostaju u stablu `vodostaji/`. Ona se
+ne sinkronizira kroz knjigu verzija.
 
-```
-vodostaji_1900_1949.sqlite
-vodostaji_1950_1979.sqlite
-```
+`.cop` je **transportni paket historijata jedne letve**: ZIP s manifestom,
+komprimiranim nizovima, krivuljama, profilima, promjenama kote nule i
+postavkama izvora. Paket nosi otisak sadržaja, otiske dijelova i Ed25519
+potpis. Primatelj ga provjeri, ugradi u svoju lokalnu arhivu i ponovno izgradi
+izvedeni spojeni niz.
 
-Nepromjenjive, samo za čitanje, adresirane otiskom, opisane manifestom, i po
-potrebi priključene kroz `ATTACH` — pa **ostaju odmah upitljive** za analize
-dugih nizova.
-
-`.cop` je **transportni paket**: manifest + SQLite arhiva + otisak i potpis.
-Nakon preuzimanja se provjeri i arhiva se ugradi lokalno. Time `.cop` nije
-oblik pohrane, pa `CGO_ENABLED=0` i `modernc.org/sqlite` nisu prepreka.
+Lokalni `katalog.json` vodi zadnje izdanje svake letve, ali objava kataloga i
+automatsko dohvaćanje paketa još nisu dio mrežne razmjene.
 
 ### 8. Prijenos blobova
 
@@ -464,9 +474,9 @@ zanimljiviji.
 | korak | što | zašto tim redom |
 |---|---|---|
 | **0** | *(napravljeno)* lokalna baza, knjiga verzija, LAN, TLS, članstva | temelj već stoji |
-| **1** | **model podataka**: provenijencija, potpis, vrijeme potpisa, opseg kao granica replikacije, **i izrazivo poništavanje** | najskuplje naknadno — mijenja svaki zapis i svaku razmjenu |
+| **1** | *(djelomično)* **model podataka**: kanali i selektivna replikacija rade za očitanja i dnevnike; opća provenijencija, potpis svakog zapisa i izrazivo poništavanje nisu dovršeni | najskuplje naknadno — mijenja svaki zapis i svaku razmjenu |
 | **2** | **sučelje `PeerTransport`**, Tailscale iza njega | jeftino sada, oslobađa sve kasnije |
-| **3** | **izdanja arhive**: manifest, otisak, ime po otisku, popis izvora (Drive prvi) | rješava 471 MB i daje katalog |
+| **3** | *(jezgra napravljena)* **izdanja arhive**: potpisani manifest, otisci dijelova, katalog i `.cop` paket po letvi; objava i automatsko preuzimanje tek slijede | rješava veliku arhivu bez opterećenja redovne sinkronizacije |
 | **4** | **stanje podatka u sučelju** — koliko je star, odakle je, je li sporan | bez toga se pogreška ne vidi dok ne zaboli |
 | **5** | **gossip** umjesto razmjene sa svima | tek kad čvorova bude dovoljno da smeta |
 | **6** | **prijenos blobova** među čvorovima: nastavak, ranged, provjera | kad se pojave privitci |
@@ -482,6 +492,11 @@ odakle podatak dolazi.
 Ovo je jedini korak koji se ne može odgoditi bez cijene. Transport se mijenja
 iza sučelja, sučelje se prepravlja, ali **model podataka se naknadno mijenja
 samo prepisivanjem svakog zapisa i svake razmjene**.
+
+Prvi dio je uveden: knjiga verzija nosi kanal, a pretplate taj kanal koriste
+kao granicu razmjene za očitanja i dnevnike. Sljedeći popis zato opisuje ono
+što još treba ujednačiti na svim vrstama zapisa, ne ono što danas svaki zapis
+već nosi.
 
 Uz svaki zapis:
 

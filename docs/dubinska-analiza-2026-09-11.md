@@ -1,5 +1,9 @@
 # Dubinska analiza projekta goCOP
 
+> Povijesna snimka stanja 11. rujna 2026. Brojke, rizici i preporuke u ovom
+> dokumentu ne ažuriraju se naknadno. Za trenutačno stanje služe
+> [README](../README.md), ugrađena pomoć i aktivni planovi u ovoj mapi.
+
 ## Sažetak
 
 goCOP je prerastao početni CRUD sustav i postao ozbiljna domenska platforma za
