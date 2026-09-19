@@ -436,6 +436,7 @@ func main() {
 	}
 	server.SetZid(service.NewZidService(recorder, journalRepo, sectionRepo, mtsRepo, userRepo, stationRepo, episodeRepo))
 	server.SetKarta(cfg.Karta.Plocice, cfg.Karta.Zasluge, cfg.Karta.NajviseZ)
+	server.SetJavnaAdresa(cfg.JavnaAdresa)
 
 	// Hidrološka arhiva stoji uz bazu, kao zasebna datoteka. Smije je ne biti:
 	// čvor koji je nije preuzeo radi bez povijesnih nizova, a ne pada.

@@ -32,6 +32,7 @@ type Dodatak struct {
 	Razlog     string
 	Mjesto     string
 	Kad        time.Time
+	Pecat      string // naziv pečata (/Name) kad nema potpisnika; zadano goCOP
 }
 
 // rezervirano za CMS potpis u dokumentu, u bajtovima; ECDSA P-256 s dva
@@ -234,7 +235,11 @@ func Dodaj(pdf []byte, dod Dodatak) ([]byte, error) {
 			strings.Repeat("0", rezerva*2), datum, tekstUTF16(dod.Ime), tekstUTF16(dod.Razlog), tekstUTF16(dod.Mjesto)))
 		obj(widget, fmt.Sprintf("<< /Type /Annot /Subtype /Widget /FT /Sig /T (Potpis%d) /V %d 0 R /Rect %s /F 132 /P %d 0 R%s >>", brojPolja+1, sig, rect, pageN, apDio))
 	} else {
-		widget = novi(fmt.Sprintf("<< /Type /Annot /Subtype /Stamp /Name /goCOP /Rect %s /F 132 /P %d 0 R /M (%s) /T %s /Contents %s%s >>", rect, pageN, datum, tekstUTF16(dod.Ime), tekstUTF16(dod.Razlog), apDio))
+		pecat := dod.Pecat
+		if pecat == "" {
+			pecat = "goCOP"
+		}
+		widget = novi(fmt.Sprintf("<< /Type /Annot /Subtype /Stamp /Name /%s /Rect %s /F 132 /P %d 0 R /M (%s) /T %s /Contents %s%s >>", pecat, rect, pageN, datum, tekstUTF16(dod.Ime), tekstUTF16(dod.Razlog), apDio))
 	}
 
 	// stranica s dodanom bilješkom, katalog s poljem obrasca

@@ -23,6 +23,8 @@ type PrijaveHandler struct {
 	users     *service.UserService
 	vod       *VodocuvarHandler // potpis, skenirani potpisi, registar organizacije
 	karta     func() KartaPostavke
+	zaglavlje func(sektor string) ZaglavljeIzvoza // memorandum centra
+	adresa    func() string                       // javna adresa za QR
 	vode      func(ctx context.Context) []models.Watercourse
 	objekti   func(ctx context.Context, sektor string, area int) []models.Structure
 	tmplPopis *template.Template
@@ -37,6 +39,12 @@ func NewPrijaveHandler(svc func() *service.PrijavaService, users *service.UserSe
 
 // SetKarta daje rukovatelju postavke karte
 func (h *PrijaveHandler) SetKarta(f func() KartaPostavke) { h.karta = f }
+
+// SetZaglavlje daje rukovatelju memorandum centra za dokument
+func (h *PrijaveHandler) SetZaglavlje(f func(sektor string) ZaglavljeIzvoza) { h.zaglavlje = f }
+
+// SetJavnaAdresa daje rukovatelju javnu adresu programa za QR kod
+func (h *PrijaveHandler) SetJavnaAdresa(f func() string) { h.adresa = f }
 
 // SetRegistri daje rukovatelju vode i objekte za izbor mjesta
 func (h *PrijaveHandler) SetRegistri(vode func(ctx context.Context) []models.Watercourse, objekti func(ctx context.Context, sektor string, area int) []models.Structure) {
@@ -287,6 +295,12 @@ func (h *PrijaveHandler) ShowPrijava(w http.ResponseWriter, r *http.Request) {
 // isječak karte s pločica programa i skenirani potpis
 func (h *PrijaveHandler) prilog(ctx context.Context, r *http.Request, s *service.PrijavaService, p *models.PrijavaSTerena) prilogPrijave {
 	pr := prilogPrijave{Slike: s.Slike(ctx, p), Otisci: models.OtisciLista{}}
+	if h.zaglavlje != nil {
+		pr.Zaglavlje = h.zaglavlje(p.Sektor)
+	}
+	if h.adresa != nil {
+		pr.Adresa = h.adresa()
+	}
 	if org := h.vod.org(); org != nil && p.AreaID > 0 {
 		pr.Podrucje, _ = org.GetArea(ctx, p.AreaID)
 	}
@@ -314,6 +328,15 @@ func urudzbaIzObrasca(r *http.Request) service.Urudzba {
 		ur.Primljeno = t
 	}
 	return ur
+}
+
+// biljeskaUrudzbe dopisuje klasu i urbroj preko štambilja na potpisani
+// izvornik, kao bilješku bez potpisa: prijava ostaje isključivo dokument
+// vodočuvara i nitko je ne parafira
+func (h *PrijaveHandler) biljeskaUrudzbe(r *http.Request, s *service.PrijavaService, u *models.User) func(p *models.PrijavaSTerena, izvornik []byte) ([]byte, error) {
+	return func(p *models.PrijavaSTerena, izvornik []byte) ([]byte, error) {
+		return pdfw.Dodaj(izvornik, dodatakUrudzbe(p, u.FullName, time.Now(), prilozi(p, h.prilog(r.Context(), r, s, p))))
+	}
 }
 
 // HandleRadnja: objavi (s lozinkom za potpis), arhiviraj, urudžbiraj, obriši nacrt, makni sliku
@@ -362,11 +385,16 @@ func (h *PrijaveHandler) HandleRadnja(w http.ResponseWriter, r *http.Request) {
 			poruka += " " + upozorenje
 		}
 	case "arhiviraj":
-		_, err = s.Arhiviraj(r.Context(), perms, u, id, urudzbaIzObrasca(r))
+		if ur := urudzbaIzObrasca(r); ur.Klasa != "" || ur.Urbroj != "" {
+			if _, err = s.Urudzbiraj(r.Context(), perms, u, id, ur, h.biljeskaUrudzbe(r, s, u)); err != nil {
+				break
+			}
+		}
+		_, err = s.Arhiviraj(r.Context(), perms, u, id)
 		poruka = "Prijava je arhivirana."
 	case "urudzbiraj":
-		_, err = s.Urudzbiraj(r.Context(), perms, u, id, urudzbaIzObrasca(r))
-		poruka = "Klasa i urudžbeni broj su upisani."
+		_, err = s.Urudzbiraj(r.Context(), perms, u, id, urudzbaIzObrasca(r), h.biljeskaUrudzbe(r, s, u))
+		poruka = "Klasa i urudžbeni broj su upisani i dopisani na PDF; potpis vodočuvara ostaje kakav jest."
 	case "obrisi":
 		err = s.Obrisi(r.Context(), u, id)
 		poruka = "Nacrt je obrisan."

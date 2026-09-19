@@ -25,6 +25,10 @@ const FileName = "gocop.toml"
 type Config struct {
 	Addr string `toml:"addr" comment:"Adresa i port web sučelja. :80 da nitko ne mora upisivati port;\nako je 80 zauzet ili nedostupan, aplikacija sama prelazi na :8080.\nPromijenite ovdje ako je na ovom računalu 80 trajno zauzet."`
 	DB   string `toml:"db" comment:"Putanja do SQLite baze. Uz nju žive ključ čvora (node-key) i ova datoteka."`
+	// JavnaAdresa je adresa na kojoj je program dostupan izvana, npr.
+	// https://gocop.voda.hr; ide u QR kod na dokumentima. Prazno: QR nosi
+	// samo oznaku dokumenta.
+	JavnaAdresa string `toml:"javna_adresa" comment:"Javna adresa programa za QR kodove na dokumentima, npr. https://gocop.voda.hr.\nPrazno dok je nema."`
 
 	Node struct {
 		ID   string `toml:"id" comment:"Jedinstveni identifikator ovog čvora — npr. cop-osijek, laptop-vinkovci-1.\nNe mijenjajte nakon prvog uparivanja: drugi čvorovi ga pamte."`

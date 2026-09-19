@@ -156,6 +156,34 @@ func (r *PrijavaRepository) Objavi(ctx context.Context, p *models.PrijavaSTerena
 	return tx.Commit()
 }
 
+// Urudzbiraj sprema klasu i urbroj na objavljenu prijavu i, kad je zadan,
+// izvornik dopunjen bilješkom urudžbe, u jednoj transakciji
+func (r *PrijavaRepository) Urudzbiraj(ctx context.Context, p *models.PrijavaSTerena, pdf []byte, sazetak string) error {
+	now := time.Now().UTC()
+	p.UpdatedAt = now
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, prijavaUpsert, prijavaArgs(p)...); err != nil {
+		return fmt.Errorf("upis urudžbe: %w", err)
+	}
+	if _, err := r.rec.Record(ctx, tx, EntityPrijave, p.ID, p); err != nil {
+		return err
+	}
+	if len(pdf) > 0 {
+		iz := models.IzvornikLista{ListID: p.ID, PDF: pdf, Sazetak: sazetak, UpdatedAt: now}
+		if _, err := tx.ExecContext(ctx, prijavaIzvornikUpsert, p.ID, pdf, sazetak, now); err != nil {
+			return fmt.Errorf("upis izvornika: %w", err)
+		}
+		if _, err := r.rec.Record(ctx, tx, EntityPrijaveIzvornici, p.ID, iz); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
 // Get čita prijavu; nil kad je nema
 func (r *PrijavaRepository) Get(ctx context.Context, id string) (*models.PrijavaSTerena, error) {
 	p, err := scanPrijava(r.db.QueryRowContext(ctx, `SELECT `+prijavaColumns+` FROM prijave WHERE id = ?`, id))

@@ -3,28 +3,92 @@ package web
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"gocop/internal/models"
 	"gocop/internal/pdfw"
+	"gocop/internal/qr"
 )
 
-// prilogPrijave je što uz prijavu ide u dokument: sektor i područje za
-// zaglavlje, slike po oznaci, isječak karte kao PNG (prazno kad ga nema)
+// prilogPrijave je što uz prijavu ide u dokument: memorandum centra, sektor
+// i područje za zaglavlje, slike po oznaci, isječak karte kao PNG (prazno
+// kad ga nema), skenirani potpis, i adresa za QR kod
 type prilogPrijave struct {
-	Sektor   *models.Sector
-	Podrucje *models.Area
-	Slike    map[string][]byte
-	Karta    []byte
-	Zasluge  string
-	Otisci   models.OtisciLista
+	Zaglavlje ZaglavljeIzvoza
+	Sektor    *models.Sector
+	Podrucje  *models.Area
+	Slike     map[string][]byte
+	Karta     []byte
+	Zasluge   string
+	Otisci    models.OtisciLista
+	Adresa    string // javna adresa programa; prazno = QR nosi samo oznaku
+}
+
+// Mjesto prijemnog štambilja na prvoj stranici: gore desno, kao na
+// dosadašnjim prijavama. Stalno je, pa se bilješka urudžbe poslije crta na
+// isto mjesto preko potpisanog PDF-a.
+const (
+	stambiljW = 190.0
+	stambiljH = 84.0
+	stambiljY = 56.0
+)
+
+func stambiljX() float64 { return pdfw.A4W - 56 - stambiljW }
+
+// sadrzajQR je što QR kod nosi: adresu prijave u programu kad je javna
+// adresa postavljena, inače oznaku i kod dokumenta
+func sadrzajQR(p *models.PrijavaSTerena, adresa string) string {
+	if adresa != "" {
+		return adresa + "/prijave/" + p.ID
+	}
+	return "gocop://prijave/" + p.ID + "?kod=" + p.Kod()
+}
+
+// crtajQR crta QR kod s lijevim gornjim kutom u (x, y), veličine w
+func crtajQR(d *pdfw.Doc, tekst string, x, y, w float64) {
+	k, err := qr.Kodiraj(tekst)
+	if err != nil {
+		return
+	}
+	m := w / float64(k.Velicina)
+	for yy := 0; yy < k.Velicina; yy++ {
+		for xx := 0; xx < k.Velicina; xx++ {
+			if k.Moduli[yy][xx] {
+				d.Ispuna(x+float64(xx)*m, y+float64(yy)*m, m+0.05, m+0.05, crna)
+			}
+		}
+	}
+}
+
+// crtajStambilj crta okvir prijemnog štambilja s retcima; vrijednosti su
+// prazne dok pisarnica ne upiše klasu i urbroj (naljepnica ili bilješka)
+func crtajStambilj(d *pdfw.Doc, x, y float64, p *models.PrijavaSTerena, prilozi string) {
+	d.Okvir(x, y, stambiljW, stambiljH, bijela, sivaRub)
+	d.TekstBoja(x+8, y+11, 6, false, "PRIJEMNI ŠTAMBILJ (URUDŽBENI ZAPISNIK)", sivaSvijetla)
+	redak := func(i int, oznaka, vrijednost string) {
+		yy := y + 26 + float64(i)*15
+		d.TekstBoja(x+8, yy, 6.5, false, oznaka, sivaTekst)
+		if vrijednost != "" {
+			d.Tekst(x+62, yy, 8, false, vrijednost)
+		} else {
+			d.CrtaBoja(x+62, yy+1, x+stambiljW-8, yy+1, 0.4, sivaRub)
+		}
+	}
+	primljeno := ""
+	if p.PrimljenoAt != nil {
+		primljeno = p.PrimljenoAt.In(models.Zagreb).Format("02.01.2006.")
+	}
+	redak(0, "Primljeno:", primljeno)
+	redak(1, "Klasa:", p.Klasa)
+	redak(2, "Urbroj:", p.Urbroj)
+	redak(3, "Prilozi:", prilozi)
 }
 
 // pdfPrijave crta prijavu s terena po uzoru na dosadašnju tiskanu prijavu
-// vodočuvara koja ide u urudžbeni zapisnik kao dolazni akt: zaglavlje
-// organizacije i mjesto za prijemni štambilj, podaci o vodočuvaru, naslov,
-// tablica s danom, vodotokom, građevinom i opisom, mjesto i potpis; zatim
-// stranica s kartom i po jedna stranica za svaku fotografiju. Vraća PDF i
-// mjesto bloka potpisa za polje elektroničkog potpisa.
+// vodočuvara: memorandum, mjesto za prijemni štambilj (samo prijava ide iz
+// kuće), QR kod, podaci o vodočuvaru, naslov, tablica s danom, vodotokom,
+// građevinom i opisom, karta kad stane, mjesto i potpis; zatim fotografije
+// po dvije na stranici. Vraća PDF i mjesto bloka potpisa.
 func pdfPrijave(p *models.PrijavaSTerena, pr prilogPrijave, t models.OrgTerms, crtajBlok bool) ([]byte, mjestaPotpisa) {
 	d := pdfw.Novi(p.VrstaLabel()+" s terena "+p.Oznaka()+": "+p.Naslov, "goCOP")
 	d.Predmet = "Prijava s terena: " + p.Ime
@@ -33,38 +97,36 @@ func pdfPrijave(p *models.PrijavaSTerena, pr prilogPrijave, t models.OrgTerms, c
 	if org == "" {
 		org = "Hrvatske vode"
 	}
+	if pr.Zaglavlje.Organizacija != "" {
+		org = pr.Zaglavlje.Organizacija
+	}
 
-	// zaglavlje lijevo: organizacija, VGO, VGI; desno prijemni štambilj
+	// memorandum: znak i nazivi lijevo; desno štambilj (prijava) i QR
 	y := d.Gore + 8
-	d.Tekst(d.Lijevo, y+12, 11, true, strings.ToUpper(org))
-	if pr.Sektor != nil && pr.Sektor.VgoName != "" {
-		d.TekstBoja(d.Lijevo, y+26, 7.5, false, strings.ToUpper(pr.Sektor.VgoName), sivaTekst)
-	}
-	if pr.Podrucje != nil && pr.Podrucje.VgiName != "" {
-		d.TekstBoja(d.Lijevo, y+37, 7.5, false, strings.ToUpper(pr.Podrucje.VgiName), sivaTekst)
-	}
-	const sw, sh = 190.0, 84.0
-	sx := d.W - d.Desno - sw
-	d.Okvir(sx, y, sw, sh, bijela, sivaRub)
-	d.TekstBoja(sx+8, y+11, 6, false, "PRIJEMNI ŠTAMBILJ (URUDŽBENI ZAPISNIK)", sivaSvijetla)
-	stambilj := func(i int, oznaka, vrijednost string) {
-		yy := y + 26 + float64(i)*15
-		d.TekstBoja(sx+8, yy, 6.5, false, oznaka, sivaTekst)
-		if vrijednost != "" {
-			d.Tekst(sx+62, yy, 8, false, vrijednost)
-		} else {
-			d.CrtaBoja(sx+62, yy+1, sx+sw-8, yy+1, 0.4, sivaRub)
+	tx := d.Lijevo
+	if len(pr.Zaglavlje.LogoPNG) > 0 {
+		if err := d.SlikaPNG(pr.Zaglavlje.LogoPNG, d.Lijevo, y-2, 36, 36); err == nil {
+			tx = d.Lijevo + 44
 		}
 	}
-	primljeno := ""
-	if p.PrimljenoAt != nil {
-		primljeno = p.PrimljenoAt.In(models.Zagreb).Format("02.01.2006.")
+	d.Tekst(tx, y+12, 11, true, strings.ToUpper(org))
+	red := y + 26
+	for _, l := range []string{pr.Zaglavlje.Odjel, vgi(pr), pr.Zaglavlje.Centar} {
+		if l == "" {
+			continue
+		}
+		d.TekstBoja(tx, red, 7.5, false, strings.ToUpper(l), sivaTekst)
+		red += 11
 	}
-	stambilj(0, "Primljeno:", primljeno)
-	stambilj(1, "Klasa:", p.Klasa)
-	stambilj(2, "Urbroj:", p.Urbroj)
-	stambilj(3, "Prilozi:", prilozi(p, pr))
-	d.Y = y + sh + 22
+	sx := stambiljX()
+	if p.Vrsta == models.PrijavaPrijava {
+		crtajStambilj(d, sx, stambiljY, p, prilozi(p, pr))
+	}
+	crtajQR(d, sadrzajQR(p, pr.Adresa), sx-58, stambiljY, 44)
+	d.TekstBoja(sx-58, stambiljY+52, 5.2, false, "provjera u goCOP-u", sivaSvijetla)
+	d.Y = stambiljY + stambiljH + 18
+	d.Crta(d.Lijevo, d.Y, d.W-d.Desno, d.Y)
+	d.Y += 6
 
 	// tko i gdje, kao na obrascu
 	polje := func(oznaka, vrijednost string, bold bool) {
@@ -86,11 +148,11 @@ func pdfPrijave(p *models.PrijavaSTerena, pr prilogPrijave, t models.OrgTerms, c
 	polje("IME I PREZIME (vodočuvara):", p.Ime, true)
 
 	// naslov: vrsta i naslov, sredina
-	d.Y += 26
+	d.Y += 24
 	d.TekstSredina(d.W/2, d.Y, 15, true, strings.ToUpper(p.VrstaLabel()))
 	d.Y += 6
 	d.OdlomakU(d.Lijevo, d.Sirina(), strings.ToUpper(p.Naslov), 10, false, pdfw.Sredina)
-	d.Y += 10
+	d.Y += 8
 
 	// tablica podataka, pa opis
 	polje("Dan, mjesec i godina:", p.Datum.In(models.Zagreb).Format("02.01.2006."), true)
@@ -108,81 +170,156 @@ func pdfPrijave(p *models.PrijavaSTerena, pr prilogPrijave, t models.OrgTerms, c
 	if p.ImaKoordinate() {
 		polje("Koordinate (WGS84):", fmt.Sprintf("%.6f, %.6f", *p.Latitude, *p.Longitude), false)
 	}
-	d.Y += 12
+	d.Y += 10
 	d.Osiguraj(40)
 	d.Y += 10
 	d.Tekst(d.Lijevo, d.Y, 8, true, "Opis događanja:")
 	d.Y -= 9
 	d.OdlomakU(d.Lijevo+150, d.Sirina()-150, p.Opis, 9, false, pdfw.Lijevo)
 
-	// mjesto i datum lijevo, potpis vodočuvara desno
-	d.Y += 30
-	d.Osiguraj(visinaPotpisa + 30)
+	// karta: preko cijele širine kad stane s potpisom ispod, inače manja
+	// lijevo uz potpis desno, a tek kad ni to ne stane na svojoj stranici
 	const pw = 215.0
+	kartaW := d.Sirina()
+	kartaH := kartaW * float64(visinaKarte) / float64(sirinaKarte)
+	kartaNacrtana := false
+	kartaUzPotpis := false
+	if len(pr.Karta) > 0 {
+		if d.Y+16+kartaH+24+visinaPotpisa+40 <= d.H-d.Dolje {
+			d.Y += 16
+			d.Tekst(d.Lijevo, d.Y, 8, true, "Lokacija na karti:")
+			d.Y += 6
+			if err := d.SlikaPNG(pr.Karta, d.Lijevo, d.Y, kartaW, kartaH); err == nil {
+				d.Y += kartaH + 9
+				d.TekstBoja(d.Lijevo, d.Y, 6.5, false, kartaNapis(p, pr), sivaTekst)
+				kartaNacrtana = true
+			}
+		} else if kw := d.Sirina() - pw - 24; d.Y+26+kw*float64(visinaKarte)/float64(sirinaKarte)+40 <= d.H-d.Dolje {
+			kartaUzPotpis = true
+		}
+	}
+
+	// mjesto i datum lijevo, potpis vodočuvara desno; ispod bloka ostaje
+	// crta za vlastoručni potpis nakon ispisa
+	d.Y += 26
+	d.Osiguraj(visinaPotpisa + 30)
 	yPot := d.Y
 	m := mjestaPotpisa{stranica: d.Stranica(), y: yPot + 8, w: pw, h: visinaPotpisa, xVodocuvar: d.W - d.Desno - pw, xRuk: d.Lijevo}
+	if kartaUzPotpis {
+		kw := d.Sirina() - pw - 24
+		kh := kw * float64(visinaKarte) / float64(sirinaKarte)
+		d.Tekst(d.Lijevo, yPot, 8, true, "Lokacija na karti:")
+		if err := d.SlikaPNG(pr.Karta, d.Lijevo, yPot+6, kw, kh); err == nil {
+			d.TekstBoja(d.Lijevo, yPot+6+kh+9, 6, false, kartaNapis(p, pr), sivaTekst)
+			kartaNacrtana = true
+			if yPot+6+kh+20 > m.y+visinaPotpisa {
+				d.Y = yPot + 6 + kh + 20 - visinaPotpisa - 6
+			}
+		}
+	}
 	mjesto := ""
 	if pr.Podrucje != nil {
 		mjesto = strings.TrimSpace(strings.TrimPrefix(pr.Podrucje.Subcenter, "Podcentar "))
 	}
-	datum := p.Datum.In(models.Zagreb).Format("2.1.2006.")
-	if mjesto != "" {
-		d.Tekst(d.Lijevo, yPot+visinaPotpisa-20, 8.5, false, "U "+uMjestu(mjesto)+", "+datum)
-	} else {
-		d.Tekst(d.Lijevo, yPot+visinaPotpisa-20, 8.5, false, datum)
+	if mjesto == "" {
+		mjesto = pr.Zaglavlje.Mjesto
 	}
+	datum := p.Datum.In(models.Zagreb).Format("2.1.2006.")
+	mjestoDatum := datum
+	if mjesto != "" {
+		mjestoDatum = "U " + uMjestu(mjesto) + ", " + datum
+	}
+	yMD := yPot + visinaPotpisa - 20
+	if kartaUzPotpis {
+		yMD = d.Y + visinaPotpisa + 20
+	}
+	d.Tekst(d.Lijevo, yMD, 8.5, false, mjestoDatum)
 	d.TekstSredina(m.xVodocuvar+pw/2, yPot, 8.5, false, "potpis vodočuvara")
 	crtajPotpisLista(d, m.xVodocuvar, m.y, pw, p.Ime, p.ObjavljenoAt, "prijava "+p.Oznaka(), p.Kod(), p.Cvor, pr.Otisci[p.UserID], crtajBlok, false)
 	if p.ObjavljenoAt == nil {
 		d.TekstSredina(m.xVodocuvar+pw/2, m.y+46+42+11, 8, false, "( "+p.Ime+" )")
 	}
 	d.Y = m.y + visinaPotpisa + 6
+	if kartaUzPotpis && yMD+10 > d.Y {
+		d.Y = yMD + 10
+	}
 	if p.ListBroj > 0 {
-		d.TekstBoja(d.Lijevo, d.H-d.Dolje, 6.5, false, fmt.Sprintf("Upisano na dnevni list vodočuvara %03d/%d. Dokument je sastavljen u goCOP-u; fotografije su smanjene i ugrađene, pa ostaju s dokumentom trajno.", p.ListBroj, p.Godina), sivaTekst)
+		d.TekstBoja(d.Lijevo, d.H-d.Dolje, 6.5, false, fmt.Sprintf("Upisano na dnevni list vodočuvara %03d/%d. Sastavljeno u goCOP-u; elektronički potpis je vremenska oznaka, a ispis se potpisuje i vlastoručno. Fotografije su smanjene i ugrađene.", p.ListBroj, p.Godina), sivaTekst)
 	} else {
 		d.TekstBoja(d.Lijevo, d.H-d.Dolje, 6.5, false, "NACRT: prijava još nije objavljena ni potpisana.", sivaTekst)
 	}
 
-	// karta na svojoj stranici
-	if len(pr.Karta) > 0 {
+	// karta na svojoj stranici kad na prvu nije stala
+	if len(pr.Karta) > 0 && !kartaNacrtana {
 		d.NovaStranica()
 		d.Y = d.Gore + 10
 		d.Tekst(d.Lijevo, d.Y, 9, true, "Lokacija na karti:")
 		d.Y += 8
-		w := d.Sirina()
-		h := w * float64(visinaKarte) / float64(sirinaKarte)
-		if err := d.SlikaPNG(pr.Karta, d.Lijevo, d.Y, w, h); err == nil {
-			d.Y += h + 12
-			if p.ImaKoordinate() {
-				d.TekstBoja(d.Lijevo, d.Y, 7.5, false, fmt.Sprintf("Oznaka: %.6f, %.6f (WGS84). %s", *p.Latitude, *p.Longitude, pr.Zasluge), sivaTekst)
-			}
+		if err := d.SlikaPNG(pr.Karta, d.Lijevo, d.Y, kartaW, kartaH); err == nil {
+			d.Y += kartaH + 12
+			d.TekstBoja(d.Lijevo, d.Y, 7.5, false, kartaNapis(p, pr), sivaTekst)
 		}
 	}
 
-	// svaka fotografija na svojoj stranici
+	// fotografije: po dvije na stranici, s natpisom
 	for i, sl := range p.Slike {
-		b := pr.Slike[sl.ID]
-		d.NovaStranica()
-		d.Y = d.Gore + 10
+		if i%2 == 0 {
+			d.NovaStranica()
+			d.Y = d.Gore + 10
+		} else {
+			d.Y += 18
+		}
 		napis := fmt.Sprintf("Fotografija %d od %d", i+1, len(p.Slike))
 		if sl.Naziv != "" {
 			napis += ": " + sl.Naziv
 		}
 		d.Tekst(d.Lijevo, d.Y, 9, true, napis)
 		d.Y += 10
+		b := pr.Slike[sl.ID]
 		if len(b) == 0 || sl.Sirina == 0 || sl.Visina == 0 {
 			d.TekstBoja(d.Lijevo, d.Y+10, 8, false, "Fotografija nije dostupna na ovom čvoru.", sivaTekst)
+			d.Y += 24
 			continue
 		}
-		w, hMax := d.Sirina(), d.H-d.Dolje-d.Y-20
+		w := d.Sirina()
+		hMax := (d.H - d.Gore - d.Dolje - 70) / 2
 		sw, sh := w, w*float64(sl.Visina)/float64(sl.Sirina)
 		if sh > hMax {
 			sh = hMax
 			sw = sh * float64(sl.Sirina) / float64(sl.Visina)
 		}
 		_ = d.SlikaJPEG(b, d.Lijevo+(w-sw)/2, d.Y, sw, sh)
+		d.Y += sh
 	}
 	return d.Bajtovi(), m
+}
+
+// dodatakUrudzbe je bilješka urudžbe preko štambilja na potpisanom PDF-u:
+// ne mijenja potpisane bajtove, pa potpis vodočuvara vrijedi i dalje
+func dodatakUrudzbe(p *models.PrijavaSTerena, upisao string, kad time.Time, prilozi string) pdfw.Dodatak {
+	return pdfw.Dodatak{
+		Stranica: 1, X: stambiljX(), Y: stambiljY, W: stambiljW, H: stambiljH, Pecat: "goCOPUrudzba",
+		Ime: upisao, Razlog: "Urudžbeni zapisnik: KLASA " + p.Klasa + ", URBROJ " + p.Urbroj, Kad: kad,
+		Crtaj: func(d *pdfw.Doc) { crtajStambilj(d, 0, 0, p, prilozi) },
+	}
+}
+
+func vgi(pr prilogPrijave) string {
+	if pr.Podrucje != nil {
+		return pr.Podrucje.VgiName
+	}
+	return ""
+}
+
+func kartaNapis(p *models.PrijavaSTerena, pr prilogPrijave) string {
+	s := "Oznaka: mjesto događaja"
+	if p.ImaKoordinate() {
+		s = fmt.Sprintf("Oznaka: %.6f, %.6f (WGS84)", *p.Latitude, *p.Longitude)
+	}
+	if pr.Zasluge != "" {
+		s += ". " + pr.Zasluge
+	}
+	return s
 }
 
 // prilozi opisuje priloge za štambilj: karta i fotografije

@@ -225,10 +225,10 @@ func TestPrijaveSTerenaKrozRute(t *testing.T) {
 	}
 	// dokument kao dosadašnja tiskana prijava: zaglavlje, štambilj, podaci,
 	// opis, potpis; pa karta i po jedna stranica za svaku fotografiju
-	if !bytes.Contains(iz.PDF, []byte("/Count 4 >>")) {
-		t.Error("izvornik nema 4 stranice (prijava, karta, 2 fotografije)")
+	if !bytes.Contains(iz.PDF, []byte("/Count 2 >>")) {
+		t.Error("izvornik nema 2 stranice (prijava s kartom, pa dvije fotografije)")
 	}
-	if tekst := pdfTekst(t, iz.PDF); !strings.Contains(tekst, "DNEVNI LIST") && (!strings.Contains(tekst, "OŠTEĆENA RAMPA") || !strings.Contains(tekst, "PRIJEMNI ŠTAMBILJ") || !strings.Contains(tekst, "Naziv vodotoka: Drava") || !strings.Contains(tekst, "NASIP") || !strings.Contains(tekst, "Lokacija na karti") || !strings.Contains(tekst, "Fotografija 2 od 2") || !strings.Contains(tekst, "dnevni list vodočuvara 001")) {
+	if tekst := pdfTekst(t, iz.PDF); !strings.Contains(tekst, "DNEVNI LIST") && (!strings.Contains(tekst, "OŠTEĆENA RAMPA") || !strings.Contains(tekst, "PRIJEMNI ŠTAMBILJ") || !strings.Contains(tekst, "Naziv vodotoka: Drava") || !strings.Contains(tekst, "NASIP") || !strings.Contains(tekst, "Lokacija na karti") || !strings.Contains(tekst, "Fotografija 2 od 2") || !strings.Contains(tekst, "dnevni list vodočuvara 001") || !strings.Contains(tekst, "provjera u goCOP-u")) {
 		t.Errorf("tekst PDF-a: %.600s", tekst)
 	}
 	listovi, _ := vod.Moji(ctx, seit, time.Now().In(models.Zagreb).Year())
@@ -256,13 +256,28 @@ func TestPrijaveSTerenaKrozRute(t *testing.T) {
 	if l := loc(forma(seit, http.MethodPost, "/prijave/"+id+"/radnja", url.Values{"radnja": {"arhiviraj"}})); !strings.Contains(l, "error") {
 		t.Error("vodočuvar arhivirao")
 	}
-	// urudžba: pisarnica dala klasu i urbroj; rukovoditelj ih upiše i arhivira
-	if l := loc(forma(kunac, http.MethodPost, "/prijave/"+id+"/radnja", url.Values{"radnja": {"arhiviraj"}, "klasa": {"325-02/26-01/0000513"}, "urbroj": {"374-26-274"}, "primljeno": {danas}})); !strings.Contains(l, "arhivirana") {
-		t.Fatalf("arhiviranje: %s", l)
+	// urudžba: pisarnica dala klasu i urbroj; upisuju se naknadno kao bilješka
+	// preko štambilja na potpisanom PDF-u, bez parafa: potpis vodočuvara i dalje vrijedi
+	if l := loc(forma(kunac, http.MethodPost, "/prijave/"+id+"/radnja", url.Values{"radnja": {"urudzbiraj"}, "klasa": {"325-02/26-01/0000513"}, "urbroj": {"374-26-274"}, "primljeno": {danas}})); !strings.Contains(l, "upisani") {
+		t.Fatalf("urudžba: %s", l)
 	}
-	if p, _ = prijave.Get(ctx, kao(kunac), id); !p.Arhivirana() || p.Klasa != "325-02/26-01/0000513" || p.Urbroj != "374-26-274" || p.PrimljenoAt == nil {
+	if p, _ = prijave.Get(ctx, kao(kunac), id); p.Klasa != "325-02/26-01/0000513" || p.Urbroj != "374-26-274" || p.PrimljenoAt == nil || p.Arhivirana() {
 		t.Fatalf("urudžba: %+v", p)
 	}
+	iz2, _ := prijaveRepo.Izvornik(ctx, id)
+	if iz2 == nil || !bytes.HasPrefix(iz2.PDF, iz.PDF) || !bytes.Contains(iz2.PDF, []byte("/Name /goCOPUrudzba")) || bytes.Contains(iz.PDF, []byte("goCOPUrudzba")) {
+		t.Fatal("bilješka urudžbe nije dopisana na potpisani izvornik kao dodatak")
+	}
+	if ps := potpisi.Provjeri(ctx, iz2.PDF); len(ps) != 1 || !ps[0].Valjan || ps[0].Cijeli {
+		t.Fatalf("potpis vodočuvara nakon urudžbe: %+v", ps)
+	}
+	if l := loc(forma(kunac, http.MethodPost, "/prijave/"+id+"/radnja", url.Values{"radnja": {"arhiviraj"}})); !strings.Contains(l, "arhivirana") {
+		t.Fatalf("arhiviranje: %s", l)
+	}
+	if p, _ = prijave.Get(ctx, kao(kunac), id); !p.Arhivirana() {
+		t.Fatalf("arhiva: %+v", p)
+	}
+	iz = iz2
 	if s := get(kunac, "/prijave/"+id).Body.String(); !strings.Contains(s, "URBROJ 374-26-274") {
 		t.Error("stranica ne pokazuje urudžbu")
 	}

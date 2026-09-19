@@ -309,6 +309,7 @@ func adresaHR(a string) string {
 var (
 	plava        = pdfw.Boja{R: 0.09, G: 0.24, B: 0.45}
 	crvena       = pdfw.Boja{R: 0.75, G: 0.12, B: 0.12}
+	crna         = pdfw.Boja{R: 0.05, G: 0.05, B: 0.05}
 	zelena       = pdfw.Boja{R: 0.11, G: 0.50, B: 0.23}
 	blijeda      = pdfw.Boja{R: 0.94, G: 0.97, B: 0.94}
 	sivaTekst    = pdfw.Boja{R: 0.30, G: 0.33, B: 0.36}

@@ -57,17 +57,18 @@ type KartaPostavke struct {
 func (k KartaPostavke) Ima() bool { return k.Plocice != "" }
 
 type Server struct {
-	javni     *javnivodostaji.Uvoznik // preuzimanje javnih vodostaja; prazno kad nije uključeno
-	akti      *service.AktService     // rješenja i obavijesti o stupnju obrane
-	vodocuvar *service.VodocuvarService
-	potpis    *service.PotpisService  // elektronički potpisi osoba
-	prijave   *service.PrijavaService // prijave i obavijesti s terena
-	orgRepo   *repository.OrgRepository
-	karta     KartaPostavke
-	arhivaPut string
-	podaciDir string // stablo s izvornim datotekama; prazno na čvoru koji samo prima pakete
-	paketiDir string // mapa u koju se izdaju .cop paketi i u kojoj stoji katalog
-	poslovi   *poslovi.Registar
+	javni       *javnivodostaji.Uvoznik // preuzimanje javnih vodostaja; prazno kad nije uključeno
+	akti        *service.AktService     // rješenja i obavijesti o stupnju obrane
+	vodocuvar   *service.VodocuvarService
+	potpis      *service.PotpisService  // elektronički potpisi osoba
+	prijave     *service.PrijavaService // prijave i obavijesti s terena
+	javnaAdresa string                  // adresa programa izvana, za QR kodove; prazno dok je nema
+	orgRepo     *repository.OrgRepository
+	karta       KartaPostavke
+	arhivaPut   string
+	podaciDir   string // stablo s izvornim datotekama; prazno na čvoru koji samo prima pakete
+	paketiDir   string // mapa u koju se izdaju .cop paketi i u kojoj stoji katalog
+	poslovi     *poslovi.Registar
 	// arhivaMu čuva pokazivač na čitača arhive. Gradnja, ugradnja i micanje
 	// niza zamjenjuju ga iz pozadinske dretve posla, dok ga HTTP zahtjevi
 	// čitaju — bez brave je to utrka, a zatvaranje starog čitača može srušiti
@@ -668,6 +669,7 @@ func (s *Server) setupRoutes() {
 	vodH.SetOpcije(s.opcije)
 	prijaveH := NewPrijaveHandler(func() *service.PrijavaService { return s.prijave }, s.userService, vodH, s.templates["prijave.html"], s.templates["prijava_form.html"], s.templates["prijava.html"])
 	prijaveH.SetKarta(func() KartaPostavke { return s.karta })
+	prijaveH.SetJavnaAdresa(func() string { return s.javnaAdresa })
 	prijaveH.SetRegistri(func(ctx context.Context) []models.Watercourse {
 		if s.watercourseService == nil {
 			return nil
@@ -763,6 +765,9 @@ func (s *Server) setupRoutes() {
 		s.templates["dnevnici_izbor.html"], s.templates["dnevnici.html"], s.templates["dnevnik_form.html"], s.templates["dnevnik.html"], s.templates["dnevnik_cop.html"], s.templates["dnevnik_cop_form.html"], s.templates["dnevnik_list.html"], s.templates["dnevnik_ispis.html"], s.templates["dnevnik_obracun.html"], s.templates["dnevnik_dezurstva.html"], s.templates["dnevnik_iors.html"])
 	journalsH.SetPotpis(func() *service.PotpisService { return s.potpis })
 	journalsH.SetOpcije(s.opcije)
+	prijaveH.SetZaglavlje(func(sektor string) ZaglavljeIzvoza {
+		return journalsH.ZaglavljeIzvozaDnevnika(&models.Journal{CentarSektor: sektor})
+	})
 	s.mux.Handle("GET /dnevnici", s.authMiddleware(http.HandlerFunc(journalsH.ShowJournalKinds)))
 	// Popis je doslovna putanja, ne /dnevnici/vrsta/{kind}: ta bi se sudarila s
 	// /dnevnici/{id}/edit — obje hvataju "/dnevnici/vrsta/edit". Doslovni
@@ -1376,6 +1381,11 @@ func (s *Server) SetMts(m *service.MtsService) { s.mtsService = m }
 
 // SetAkti daje poslužitelju servis akata
 func (s *Server) SetAkti(a *service.AktService) { s.akti = a }
+
+// SetJavnaAdresa daje poslužitelju javnu adresu za QR kodove na dokumentima
+func (s *Server) SetJavnaAdresa(a string) {
+	s.javnaAdresa = strings.TrimRight(strings.TrimSpace(a), "/")
+}
 
 // SetPrijave daje poslužitelju servis prijava s terena
 func (s *Server) SetPrijave(p *service.PrijavaService) { s.prijave = p }

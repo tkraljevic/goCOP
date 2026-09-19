@@ -320,15 +320,21 @@ type Urudzba struct {
 	Primljeno     time.Time
 }
 
-// Urudzbiraj upisuje klasu, urbroj i dan primitka na objavljenu prijavu;
-// smije tko smije i arhivirati, ili vodočuvar sam ako je prijavu nosio
-func (s *PrijavaService) Urudzbiraj(ctx context.Context, perms *models.UserPermissions, u *models.User, id string, ur Urudzba) (*models.PrijavaSTerena, error) {
+// Urudzbiraj upisuje klasu, urbroj i dan primitka na objavljenu prijavu
+// (samo vrsta PRIJAVA ide iz kuće u urudžbeni zapisnik). Prijava je
+// isključivo dokument vodočuvara: nitko je ne parafira; urudžba se dopisuje
+// kao bilješka na potpisani PDF, koju pozivatelj izradi (izradi smije biti
+// nil). Smije vodočuvar sam, ili tko mu ovjerava listove.
+func (s *PrijavaService) Urudzbiraj(ctx context.Context, perms *models.UserPermissions, u *models.User, id string, ur Urudzba, izradi func(p *models.PrijavaSTerena, izvornik []byte) ([]byte, error)) (*models.PrijavaSTerena, error) {
 	p, err := s.repo.Get(ctx, id)
 	if err != nil || p == nil {
 		return nil, fmt.Errorf("prijava ne postoji")
 	}
-	if u == nil || !p.Objavljena() || !(s.SmijeArhivirati(perms, p) || p.Arhivirana() && s.vodocuvar.SmijeOvjeriti(perms, probniList(p)) || p.UserID == u.ID.String()) {
+	if u == nil || !p.Objavljena() || !(p.UserID == u.ID.String() || s.vodocuvar.SmijeOvjeriti(perms, probniList(p))) {
 		return nil, ErrUnauthorized
+	}
+	if p.Vrsta != models.PrijavaPrijava {
+		return nil, fmt.Errorf("u urudžbeni zapisnik ide samo prijava; %s ostaje u kući", strings.ToLower(p.VrstaLabel()))
 	}
 	p.Klasa, p.Urbroj = strings.TrimSpace(ur.Klasa), strings.TrimSpace(ur.Urbroj)
 	if p.Klasa == "" && p.Urbroj == "" {
@@ -341,26 +347,28 @@ func (s *PrijavaService) Urudzbiraj(ctx context.Context, perms *models.UserPermi
 		t := time.Now()
 		p.PrimljenoAt = &t
 	}
-	return p, s.repo.Save(ctx, p)
+	var pdf []byte
+	sazetak := ""
+	if izradi != nil {
+		if iz, _ := s.repo.Izvornik(ctx, p.ID); iz != nil && len(iz.PDF) > 0 {
+			if pdf, err = izradi(p, iz.PDF); err != nil {
+				return nil, err
+			}
+			h := sha256.Sum256(pdf)
+			sazetak = hex.EncodeToString(h[:])
+		}
+	}
+	return p, s.repo.Urudzbiraj(ctx, p, pdf, sazetak)
 }
 
-// Arhiviraj zatvara objavljenu prijavu: rukovoditelj je pregledao i riješio;
-// usput može upisati i urudžbu
-func (s *PrijavaService) Arhiviraj(ctx context.Context, perms *models.UserPermissions, u *models.User, id string, ur Urudzba) (*models.PrijavaSTerena, error) {
+// Arhiviraj zatvara objavljenu prijavu: rukovoditelj je pregledao i riješio
+func (s *PrijavaService) Arhiviraj(ctx context.Context, perms *models.UserPermissions, u *models.User, id string) (*models.PrijavaSTerena, error) {
 	p, err := s.repo.Get(ctx, id)
 	if err != nil || p == nil {
 		return nil, fmt.Errorf("prijava ne postoji")
 	}
 	if u == nil || !s.SmijeArhivirati(perms, p) {
 		return nil, ErrUnauthorized
-	}
-	if ur.Klasa != "" || ur.Urbroj != "" {
-		p.Klasa, p.Urbroj = strings.TrimSpace(ur.Klasa), strings.TrimSpace(ur.Urbroj)
-		t := ur.Primljeno
-		if t.IsZero() {
-			t = time.Now()
-		}
-		p.PrimljenoAt = &t
 	}
 	sad := time.Now()
 	p.Status, p.ArhiviraoID, p.Arhivirao, p.ArhiviranoAt = models.PrijavaArhivirana, u.ID.String(), u.FullName, &sad

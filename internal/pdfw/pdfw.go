@@ -254,6 +254,11 @@ func (d *Doc) Okvir(x, y, w, h float64, ispuna, rub Boja) {
 		ispuna.R, ispuna.G, ispuna.B, rub.R, rub.G, rub.B, x, d.pdfY(y+h), w, h)
 }
 
+// Ispuna crta ispunjen pravokutnik bez ruba (za QR kod, crtične kodove)
+func (d *Doc) Ispuna(x, y, w, h float64, c Boja) {
+	fmt.Fprintf(d.tok(), "q %.3f %.3f %.3f rg %.2f %.2f %.2f %.2f re f Q\n", c.R, c.G, c.B, x, d.pdfY(y+h), w, h)
+}
+
 // TekstBoja ispisuje redak u boji
 func (d *Doc) TekstBoja(x, y, size float64, bold bool, s string, c Boja) {
 	font := "/F1"
