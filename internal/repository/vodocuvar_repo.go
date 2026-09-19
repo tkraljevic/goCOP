@@ -232,10 +232,10 @@ func (r *VodocuvarRepository) OcitanjaDana(ctx context.Context, userID string, d
 // EntityZadaci su zadaci vodočuvarima u knjizi verzija
 const EntityZadaci = "vodocuvarski_zadaci"
 
-const zadatakUpsert = `INSERT INTO vodocuvarski_zadaci (id, user_id, sektor, area_id, tekst, zadao_id, zadao, zadano_at, status, obavljeno, obavljeno_at, list_id, cvor, updated_at)
-	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+const zadatakUpsert = `INSERT INTO vodocuvarski_zadaci (id, user_id, sektor, area_id, tekst, zadao_id, zadao, zadano_at, za, status, obavljeno, obavljeno_at, list_id, cvor, updated_at)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	ON CONFLICT(id) DO UPDATE SET user_id = excluded.user_id, sektor = excluded.sektor, area_id = excluded.area_id, tekst = excluded.tekst,
-	zadao_id = excluded.zadao_id, zadao = excluded.zadao, zadano_at = excluded.zadano_at, status = excluded.status, obavljeno = excluded.obavljeno,
+	zadao_id = excluded.zadao_id, zadao = excluded.zadao, zadano_at = excluded.zadano_at, za = excluded.za, status = excluded.status, obavljeno = excluded.obavljeno,
 	obavljeno_at = excluded.obavljeno_at, list_id = excluded.list_id, cvor = excluded.cvor, updated_at = excluded.updated_at`
 
 func zadatakArgs(z *models.Zadatak) []any {
@@ -247,15 +247,23 @@ func zadatakArgs(z *models.Zadatak) []any {
 	if status == "" {
 		status = models.ZadatakOtvoren
 	}
-	return []any{z.ID, z.UserID, z.Sektor, z.AreaID, z.Tekst, z.ZadaoID, z.Zadao, z.ZadanoAt.UTC(), status, z.Obavljeno, ob, z.ListID, z.Cvor, z.UpdatedAt.UTC()}
+	za := ""
+	if !z.Za.IsZero() {
+		za = z.Za.In(models.Zagreb).Format("2006-01-02")
+	}
+	return []any{z.ID, z.UserID, z.Sektor, z.AreaID, z.Tekst, z.ZadaoID, z.Zadao, z.ZadanoAt.UTC(), za, status, z.Obavljeno, ob, z.ListID, z.Cvor, z.UpdatedAt.UTC()}
 }
 
-const zadatakColumns = `id, user_id, sektor, area_id, tekst, zadao_id, zadao, zadano_at, status, obavljeno, obavljeno_at, list_id, cvor, updated_at`
+const zadatakColumns = `id, user_id, sektor, area_id, tekst, zadao_id, zadao, zadano_at, za, status, obavljeno, obavljeno_at, list_id, cvor, updated_at`
 
 func scanZadatak(sc interface{ Scan(...any) error }) (models.Zadatak, error) {
 	var z models.Zadatak
 	var ob sql.NullTime
-	err := sc.Scan(&z.ID, &z.UserID, &z.Sektor, &z.AreaID, &z.Tekst, &z.ZadaoID, &z.Zadao, &z.ZadanoAt, &z.Status, &z.Obavljeno, &ob, &z.ListID, &z.Cvor, &z.UpdatedAt)
+	var za string
+	err := sc.Scan(&z.ID, &z.UserID, &z.Sektor, &z.AreaID, &z.Tekst, &z.ZadaoID, &z.Zadao, &z.ZadanoAt, &za, &z.Status, &z.Obavljeno, &ob, &z.ListID, &z.Cvor, &z.UpdatedAt)
+	if za != "" {
+		z.Za, _ = time.ParseInLocation("2006-01-02", za, models.Zagreb)
+	}
 	if ob.Valid {
 		t := ob.Time
 		z.ObavljenoAt = &t
@@ -301,8 +309,10 @@ func (r *VodocuvarRepository) GetZadatak(ctx context.Context, id string) (*model
 // OtvoreniZadaci vraća otvorene zadatke vodočuvara zadane do kraja dana
 func (r *VodocuvarRepository) OtvoreniZadaci(ctx context.Context, userID string, doDana time.Time) ([]models.Zadatak, error) {
 	d := doDana.In(models.Zagreb)
-	kraj := time.Date(d.Year(), d.Month(), d.Day(), 0, 0, 0, 0, models.Zagreb).Add(24 * time.Hour)
-	rows, err := r.db.QueryContext(ctx, `SELECT `+zadatakColumns+` FROM vodocuvarski_zadaci WHERE user_id = ? AND status = ? AND zadano_at < ? ORDER BY zadano_at`, userID, models.ZadatakOtvoren, kraj.UTC())
+	dan := time.Date(d.Year(), d.Month(), d.Day(), 0, 0, 0, 0, models.Zagreb)
+	// planirani zadatak stoji na listu od planiranog dana; bez plana od dana zadavanja
+	rows, err := r.db.QueryContext(ctx, `SELECT `+zadatakColumns+` FROM vodocuvarski_zadaci WHERE user_id = ? AND status = ?
+		AND ((za <> '' AND za <= ?) OR (za = '' AND zadano_at < ?)) ORDER BY za, zadano_at`, userID, models.ZadatakOtvoren, dan.Format("2006-01-02"), dan.Add(24*time.Hour).UTC())
 	if err != nil {
 		return nil, err
 	}
@@ -335,6 +345,26 @@ func (r *VodocuvarRepository) ZadaciVodocuvara(ctx context.Context, userID strin
 			return nil, err
 		}
 		out = append(out, z)
+	}
+	return out, rows.Err()
+}
+
+// ZadaciUMjesecu vraća zadatke vodočuvara čiji dan pada u razdoblje, sve statuse
+func (r *VodocuvarRepository) ZadaciURazdoblju(ctx context.Context, userID string, od, do time.Time) ([]models.Zadatak, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT `+zadatakColumns+` FROM vodocuvarski_zadaci WHERE user_id = ? ORDER BY za, zadano_at`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []models.Zadatak
+	for rows.Next() {
+		z, err := scanZadatak(rows)
+		if err != nil {
+			return nil, err
+		}
+		if dan := z.Dan(); !dan.Before(od) && dan.Before(do) {
+			out = append(out, z)
+		}
 	}
 	return out, rows.Err()
 }

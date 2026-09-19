@@ -435,6 +435,15 @@ func templateFuncs() template.FuncMap {
 		// dio binarne datoteke, pa izgledaju isto na svakom uređaju i rade
 		// bez mreže — emoji su se crtali drukčije na svakom sustavu.
 		"stavke": models.Stavke,
+		"mjesecHR": func(t time.Time) string {
+			return []string{"", "siječanj", "veljača", "ožujak", "travanj", "svibanj", "lipanj", "srpanj", "kolovoz", "rujan", "listopad", "studeni", "prosinac"}[t.Month()] + " " + t.Format("2006.")
+		},
+		"localDate": func(s string) string {
+			if t, err := time.Parse("2006-01-02", s); err == nil {
+				return t.Format("02.01.2006.")
+			}
+			return s
+		},
 		"icon": func(name string) template.HTML {
 			return template.HTML(`<svg class="icon" aria-hidden="true"><use href="` +
 				statickaAdresa("img/icons.svg") + `#` +
@@ -517,7 +526,7 @@ func NewServer(
 	// Predlošci koji proširuju base.html
 	for _, page := range []string{"dashboard.html", "registri.html", "users.html", "user_detail.html", "user_form.html", "duty_form.html", "profile.html", "sections.html", "section_detail.html", "section_form.html", "territories.html", "county_form.html", "municipality_form.html", "municipality_detail.html", "stations.html", "station_detail.html", "station_form.html", "station_history.html", "station_history_form.html", "paket_pregled.html", "watercourses.html", "watercourse_detail.html", "watercourse_form.html", "structures.html", "structure_detail.html", "structure_form.html", "readings.html", "reading_history.html", "reading_form.html", "arhiva_ispravci.html", "uvoz_ocitanja.html", "teren.html", "moduli.html", "settings.html", "odrzavanje.html", "organizacija.html", "sector_form.html", "area_form.html", "contractor_form.html", "firme.html", "nazivi.html", "sudionici.html",
 		"administracija.html", "uvozi.html", "sinkronizacija.html", "pretplate.html", "baza.html", "izvori.html", "uvoz_niza.html",
-		"dnevnici.html", "dnevnici_izbor.html", "vodocuvar.html", "vodocuvar_list.html", "dnevnik_form.html", "dnevnik.html", "dnevnik_cop.html", "dnevnik_cop_form.html", "dnevnik_list.html", "dnevnik_obracun.html", "dnevnik_dezurstva.html", "dnevnik_iors.html", "izvjesca.html", "izvjesce_form.html", "izvjesce.html", "sektorsko_form.html", "sektorsko.html", "obracun_postavke.html",
+		"dnevnici.html", "dnevnici_izbor.html", "vodocuvar.html", "vodocuvar_list.html", "vodocuvar_kalendar.html", "dnevnik_form.html", "dnevnik.html", "dnevnik_cop.html", "dnevnik_cop_form.html", "dnevnik_list.html", "dnevnik_obracun.html", "dnevnik_dezurstva.html", "dnevnik_iors.html", "izvjesca.html", "izvjesce_form.html", "izvjesce.html", "sektorsko_form.html", "sektorsko.html", "obracun_postavke.html",
 		"sredstva.html", "katalog.html", "skladiste.html", "potrebe_form.html", "potrebe.html", "dogadjanja.html", "skladiste_form.html", "promet_form.html", "promet.html", "gdje_ima.html", "na_terenu.html", "popisi.html", "popis_form.html", "popis.html", "pomoc.html", "ocitanja_ispravci.html", "akti.html", "akt_form.html", "akt.html", "primatelji.html", "spranca.html", "posta_racun.html", "administracija_posta.html", "posta_sanducic.html", "posta_pismo.html", "posta_novo.html", "posta_potpis.html", "administracija_zig.html", "administracija_opcije.html", "imenik_exchange.html", "county_detail.html"} {
 		t, err := template.New("base.html").Funcs(tmplFuncs).ParseFS(templatesFS, DijeloviPredloska(page)...)
 		if err != nil {
@@ -649,6 +658,8 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /vodocuvar/spremi", s.authMiddleware(http.HandlerFunc(vodH.HandleSpremi)))
 	s.mux.Handle("POST /vodocuvar/zadatak", s.authMiddleware(http.HandlerFunc(vodH.HandleZadatak)))
 	s.mux.Handle("GET /vodocuvar/knjiga.pdf", s.authMiddleware(http.HandlerFunc(vodH.IzvoziKnjigu)))
+	vodH.SetKalendar(s.templates["vodocuvar_kalendar.html"])
+	s.mux.Handle("GET /vodocuvar/kalendar", s.authMiddleware(http.HandlerFunc(vodH.ShowKalendar)))
 	s.mux.Handle("GET /vodocuvar/{id}", s.authMiddleware(http.HandlerFunc(vodH.ShowList)))
 	s.mux.Handle("POST /vodocuvar/{id}/radnja", s.authMiddleware(http.HandlerFunc(vodH.HandleRadnja)))
 	s.mux.Handle("GET /vodocuvar/{id}/list.pdf", s.authMiddleware(http.HandlerFunc(vodH.IzvoziPDF)))

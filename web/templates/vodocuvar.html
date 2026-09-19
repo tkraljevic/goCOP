@@ -10,7 +10,8 @@
     <h1 class="page-title">{{icon "notebook-pen"}} Vodočuvarski dnevnik</h1>
     <p class="page-desc">Dnevni list po uzoru na papirnu knjigu: radno vrijeme, vremenske prilike, naredbe rukovoditelja, opis rada i posebna zapažanja s vodostajima. Vodočuvar list potpiše i preda, rukovoditelj branjenog područja ga ovjeri, a ostali rukovoditelji vezani uz područje mogu ga parafirati. Knjiga traje godinu dana, istekom godine se arhivira; ispisuje se cijela ili list po list.</p>
   </div>
-  {{if .VodiDnevnik}}<div class="page-actions"><a href="/vodocuvar/dan?datum={{.Danas}}" class="btn btn-primary">{{icon "pencil"}} Današnji list</a> <a href="/vodocuvar/knjiga.pdf?godina={{.Godina}}" target="_blank" class="btn btn-secondary">{{icon "printer"}} Cijela knjiga {{.Godina}}.</a></div>{{end}}
+  <div class="page-actions">{{if or .VodiDnevnik .Vodocuvari}}<a href="/vodocuvar/kalendar" class="btn btn-secondary">{{icon "calendar"}} Kalendar zadataka</a>{{end}}
+  {{if .VodiDnevnik}}<a href="/vodocuvar/dan?datum={{.Danas}}" class="btn btn-primary">{{icon "pencil"}} Današnji list</a> <a href="/vodocuvar/knjiga.pdf?godina={{.Godina}}" target="_blank" class="btn btn-secondary">{{icon "printer"}} Cijela knjiga {{.Godina}}.</a>{{end}}</div>
 </div>
 
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
@@ -50,9 +51,10 @@
       {{range .Vodocuvari}}<option value="{{.ID}}">{{.FullName}}{{with .PrimaryDuty}} · {{.Title}}{{end}}</option>{{end}}
     </select>
     <input class="form-control" name="tekst" required placeholder="što treba obići, provjeriti ili napraviti" style="min-width:20rem; flex:1;">
+    <input type="date" class="form-control" name="za" value="{{.Danas}}" min="{{.Danas}}" title="za koji dan" style="max-width:11rem;">
     <button type="submit" class="btn btn-primary btn-sm">{{icon "plus"}} Zadaj</button>
   </form>
-  <div class="form-help">Zadatak se pojavi na sljedećem dnevnom listu vodočuvara pod naredbama, s vašim imenom. Vodočuvar ga otkači kad ga obavi i upiše što je napravio; dok ga ne obavi, prenosi se na svaki novi list.</div>
+  <div class="form-help">Zadatak se pojavi na dnevnom listu vodočuvara za odabrani dan (do 30 dana unaprijed) pod naredbama, s vašim imenom. Vodočuvar ga otkači kad ga obavi i upiše što je napravio; dok ga ne obavi, prenosi se na svaki novi list. Pregled po danima: <a href="/vodocuvar/kalendar">kalendar zadataka</a>.</div>
 </section>
 {{end}}
 
@@ -61,7 +63,7 @@
   {{if .Knjige}}
   {{range .Knjige}}
   <details class="knjiga" {{if or .Cekaju .Zadaci}}open{{end}}>
-    <summary><strong>{{.Ime}}</strong> <span class="form-help">BP {{.AreaID}} · listova: {{len .Listovi}}{{if .Cekaju}} · <span class="badge badge-pending">{{.Cekaju}} čeka ovjeru</span>{{end}}{{if .Zadaci}} · <span class="badge badge-active">{{len .Zadaci}} otvorenih zadataka</span>{{end}}</span> <a href="/vodocuvar/knjiga.pdf?vodocuvar={{.UserID}}&amp;godina={{$.Godina}}" target="_blank" class="btn btn-sm btn-secondary" style="margin-left:0.5rem;">{{icon "printer"}} Cijela knjiga</a></summary>
+    <summary><strong>{{.Ime}}</strong> <span class="form-help">BP {{.AreaID}} · listova: {{len .Listovi}}{{if .Cekaju}} · <span class="badge badge-pending">{{.Cekaju}} čeka ovjeru</span>{{end}}{{if .Zadaci}} · <span class="badge badge-active">{{len .Zadaci}} otvorenih zadataka</span>{{end}}</span> <a href="/vodocuvar/kalendar?vodocuvar={{.UserID}}" class="btn btn-sm btn-secondary" style="margin-left:0.5rem;">{{icon "calendar"}} Kalendar</a> <a href="/vodocuvar/knjiga.pdf?vodocuvar={{.UserID}}&amp;godina={{$.Godina}}" target="_blank" class="btn btn-sm btn-secondary">{{icon "printer"}} Cijela knjiga</a></summary>
     {{if .Zadaci}}<div class="form-help" style="margin:0.4rem 0;">Otvoreni zadaci, pojavit će se na sljedećem listu: <ol class="stavke">{{range .Zadaci}}<li>{{.Tekst}} <span class="form-help">(zadao {{.Zadao}}, {{.ZadanoAt.Format "02.01.2006."}})</span></li>{{end}}</ol></div>{{end}}
     {{if not .Listovi}}<p class="form-help">Još nema listova: list nastaje kad vodočuvar na Terenu otvori „Današnji list”.</p>{{end}}
     <ul class="posta-kartice" style="margin-top:0.5rem;">
