@@ -106,18 +106,25 @@ func Dodaj(pdf []byte, dod Dodatak) ([]byte, error) {
 	if len(rep) > 2048 {
 		rep = rep[len(rep)-2048:]
 	}
-	m := reRoot.FindSubmatch(rep)
-	ms := reSize.FindSubmatch(rep)
-	mx := reXref.FindSubmatch(rep)
+	// zadnji trailer je mjerodavan: kratka ranija izmjena stane u isti rep
+	// s prethodnim trailerom, pa se uzima zadnje podudaranje
+	zadnji := func(re *regexp.Regexp) []byte {
+		sve := re.FindAllSubmatch(rep, -1)
+		if len(sve) == 0 {
+			return nil
+		}
+		return sve[len(sve)-1][1]
+	}
+	m, ms, mx := zadnji(reRoot), zadnji(reSize), reXref.FindSubmatch(rep)
 	if m == nil || ms == nil || mx == nil {
 		return nil, errors.New("pdf: nema zaglavlja tablice objekata")
 	}
-	root, _ := strconv.Atoi(string(m[1]))
-	size, _ := strconv.Atoi(string(ms[1]))
+	root, _ := strconv.Atoi(string(m))
+	size, _ := strconv.Atoi(string(ms))
 	prev, _ := strconv.Atoi(string(mx[1]))
 	info := ""
-	if mi := reInfo.FindSubmatch(rep); mi != nil {
-		info = " /Info " + string(mi[1]) + " 0 R"
+	if mi := zadnji(reInfo); mi != nil {
+		info = " /Info " + string(mi) + " 0 R"
 	}
 	katalog, err := objekt(pdf, root)
 	if err != nil {
