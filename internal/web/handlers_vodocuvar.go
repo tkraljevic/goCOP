@@ -60,6 +60,7 @@ type VodocuvarPageData struct {
 	Sektori     []models.Sector
 	Filtar      repository.FiltarListova
 	Danas       string
+	Arhivirana  bool // odabrana godina je zaključena
 
 	Vodocuvari      []models.User    // kojima osoba smije zadavati zadatke
 	ZadaciOsobe     []models.Zadatak // zadaci vodočuvara čiji je list otvoren
@@ -110,6 +111,7 @@ func (h *VodocuvarHandler) ShowPopis(w http.ResponseWriter, r *http.Request) {
 	for g := time.Now().In(models.Zagreb).Year(); g >= 2024; g-- {
 		d.Godine = append(d.Godine, g)
 	}
+	d.Arhivirana = service.Arhivirana(d.Godina)
 	if d.VodiDnevnik {
 		d.Moji, _ = s.Moji(r.Context(), u, d.Godina)
 	}
@@ -315,6 +317,40 @@ func (h *VodocuvarHandler) IzvoziPDF(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/pdf")
 	w.Header().Set("Content-Disposition", `inline; filename="dnevni-list-`+l.Datum.In(models.Zagreb).Format("2006-01-02")+`.pdf"`)
 	_, _ = w.Write(PDFVodocuvarskiList(l, models.Terms(), area))
+}
+
+// IzvoziKnjigu daje cijelu godišnju knjigu vodočuvara kao PDF
+func (h *VodocuvarHandler) IzvoziKnjigu(w http.ResponseWriter, r *http.Request) {
+	u, perms, _ := h.base(r)
+	s := h.service(w)
+	if s == nil || u == nil {
+		return
+	}
+	q := r.URL.Query()
+	vodocuvar := q.Get("vodocuvar")
+	if vodocuvar == "" {
+		vodocuvar = u.ID.String()
+	}
+	godina, _ := strconv.Atoi(q.Get("godina"))
+	if godina == 0 {
+		godina = time.Now().In(models.Zagreb).Year()
+	}
+	listovi, err := s.Knjiga(r.Context(), perms, vodocuvar, godina)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusForbidden)
+		return
+	}
+	ime := u.FullName
+	var area *models.Area
+	if len(listovi) > 0 {
+		ime = listovi[0].Ime
+		if h.org != nil && listovi[0].AreaID > 0 {
+			area, _ = h.org.GetArea(r.Context(), listovi[0].AreaID)
+		}
+	}
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition", `inline; filename="vodocuvarski-dnevnik-`+strconv.Itoa(godina)+`-`+sigurnoIme(ime)+`.pdf"`)
+	_, _ = w.Write(PDFVodocuvarskaKnjiga(listovi, ime, godina, models.Terms(), area))
 }
 
 // GeokodJSON nalazi koordinate za adresu ili mjesto (obrazac područja)
