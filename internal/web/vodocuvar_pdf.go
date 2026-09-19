@@ -3,6 +3,7 @@ package web
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"gocop/internal/models"
 	"gocop/internal/pdfw"
@@ -10,16 +11,16 @@ import (
 
 // PDFVodocuvarskiList crta dnevni list kao papirnatu stranicu knjige:
 // datum, radno vrijeme, prilike, tri okvira, potpisi i broj stranice
-func PDFVodocuvarskiList(l *models.VodocuvarskiList, t models.OrgTerms, area *models.Area) []byte {
+func PDFVodocuvarskiList(l *models.VodocuvarskiList, t models.OrgTerms, area *models.Area, otisci models.OtisciLista) []byte {
 	d := pdfw.Novi("Vodočuvarski dnevnik, dnevni list "+l.Datum.In(models.Zagreb).Format("02.01.2006."), "goCOP")
 	d.Predmet = "Vodočuvarski dnevnik: " + l.Ime
-	nacrtajList(d, l, t, area)
+	nacrtajList(d, l, t, area, otisci)
 	return d.Bajtovi()
 }
 
 // PDFVodocuvarskaKnjiga je cijela godišnja knjiga: naslovna stranica pa
 // list po stranici, redom brojeva
-func PDFVodocuvarskaKnjiga(listovi []models.VodocuvarskiList, ime string, godina int, t models.OrgTerms, area *models.Area) []byte {
+func PDFVodocuvarskaKnjiga(listovi []models.VodocuvarskiList, ime string, godina int, t models.OrgTerms, area *models.Area, otisci models.OtisciLista) []byte {
 	d := pdfw.Novi(fmt.Sprintf("Vodočuvarski dnevnik %d, %s", godina, ime), "goCOP")
 	d.Predmet = "Vodočuvarski dnevnik: " + ime
 	org := t.OrgName
@@ -60,13 +61,13 @@ func PDFVodocuvarskaKnjiga(listovi []models.VodocuvarskiList, ime string, godina
 	}
 	for i := range poredani {
 		d.NovaStranica()
-		nacrtajList(d, &poredani[i], t, area)
+		nacrtajList(d, &poredani[i], t, area, otisci)
 	}
 	return d.Bajtovi()
 }
 
 // nacrtajList crta jedan dnevni list na tekuću stranicu
-func nacrtajList(d *pdfw.Doc, l *models.VodocuvarskiList, t models.OrgTerms, area *models.Area) {
+func nacrtajList(d *pdfw.Doc, l *models.VodocuvarskiList, t models.OrgTerms, area *models.Area, otisci models.OtisciLista) {
 	dan := l.Datum.In(models.Zagreb)
 	// zaglavlje: organizacija i područje, sitno
 	org := t.OrgName
@@ -148,24 +149,45 @@ func nacrtajList(d *pdfw.Doc, l *models.VodocuvarskiList, t models.OrgTerms, are
 	}
 	okvir("Posebna zapažanja:", numerirano(zap), 160)
 
-	// potpisi
+	// potpisi: lijevo vodočuvar, desno rukovoditelj branjenog područja; tko je
+	// potpisao u programu nosi blok elektroničke ovjere kao na aktima, pa
+	// skenirani potpis ako ga ima, pa crtu s imenom
 	d.Y += 14
-	d.Osiguraj(60)
+	d.Osiguraj(120)
 	y := d.Y
-	d.Tekst(d.Lijevo, y, 9, false, "Potpis vodočuvara:")
-	d.Crta(d.Lijevo, y+30, d.Lijevo+170, y+30)
-	if l.Predan() {
-		d.Tekst(d.Lijevo+4, y+26, 9, true, l.Ime)
-		d.TekstBoja(d.Lijevo, y+40, 6.5, false, "predano u goCOP-u "+l.PredanoAt.In(models.Zagreb).Format("02.01.2006. 15:04"), sivaTekst)
+	const pw = 215.0
+	list := fmt.Sprintf("list %03d/%d", l.Broj, dan.Year())
+	potpis := func(x float64, naslov, ime string, kad *time.Time, kod, userID string) {
+		d.Y = y
+		d.TekstSredina(x+pw/2, d.Y, 9, false, naslov)
+		d.Y += 8
+		if kad != nil {
+			k := kad.In(models.Zagreb)
+			blokOvjere(d, x, pw, "ELEKTRONIČKI POTPISANO U goCOP-u", ime,
+				k.Format("02.01.2006. u 15:04")+" "+k.Format("MST")+" · "+list+" · kod "+kod, "čvor "+l.Cvor)
+			if p := otisci[userID]; p != nil && len(p.Slika) > 0 {
+				d.Y += 4
+				slika(d, p.Mime, p.Slika, x+pw/2-60, d.Y, 120, 36)
+				d.Y += 38
+			} else {
+				d.Y += 16
+			}
+		} else {
+			d.Y += 50
+		}
+		d.Crta(x+10, d.Y, x+pw-10, d.Y)
+		d.Y += 11
+		if kad != nil {
+			d.TekstSredina(x+pw/2, d.Y, 9, false, ime)
+		}
 	}
-	dx := d.W - d.Desno - 200
-	d.Tekst(dx, y, 9, false, "Potpis rukovoditelja VGI:")
-	d.Crta(dx, y+30, dx+200, y+30)
-	if l.Potvrden() {
-		d.Tekst(dx+4, y+26, 9, true, l.Potvrdio)
-		d.TekstBoja(dx, y+40, 6.5, false, "ovjereno u goCOP-u "+l.PotvrdenoAt.In(models.Zagreb).Format("02.01.2006. 15:04"), sivaTekst)
+	potpis(d.Lijevo, "Vodočuvar", l.Ime, l.PredanoAt, l.KodPredaje(), l.UserID)
+	kraj := d.Y
+	potpis(d.W-d.Desno-pw, "Rukovoditelj branjenog područja", l.Potvrdio, l.PotvrdenoAt, l.KodOvjere(), l.PotvrdioID)
+	if d.Y < kraj {
+		d.Y = kraj
 	}
-	d.Y = y + 50
+	d.Y += 10
 	if len(l.Parafe) > 0 {
 		var p []string
 		for _, x := range l.Parafe {

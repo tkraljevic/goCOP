@@ -654,6 +654,12 @@ func (s *Server) setupRoutes() {
 	usersH.SetModuleService(s.moduleService)
 	s.mux.Handle("POST /users/{id}/modules", s.authMiddleware(http.HandlerFunc(usersH.HandleUserModules)))
 	vodH := NewVodocuvarHandler(func() *service.VodocuvarService { return s.vodocuvar }, s.userService, func() *repository.OrgRepository { return s.orgRepo }, s.templates["vodocuvar.html"], s.templates["vodocuvar_list.html"])
+	vodH.SetPotpisSlika(func(ctx context.Context, userID string) *models.PotpisSlika {
+		if s.akti == nil {
+			return nil
+		}
+		return s.akti.PotpisSlika(ctx, userID)
+	})
 	vodH.SetPoslovi(s.poslovi, s.templates["posao.html"])
 	s.mux.Handle("GET /vodocuvar", s.authMiddleware(http.HandlerFunc(vodH.ShowPopis)))
 	s.mux.Handle("GET /vodocuvar/dan", s.authMiddleware(http.HandlerFunc(vodH.ShowDan)))

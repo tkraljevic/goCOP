@@ -320,22 +320,28 @@ var (
 // prikazuju uz potpisan dokument: kvačica, tko je potpisao, kada, akt i
 // otisak ključa čvora
 func blokPotpisa(d *pdfw.Doc, a *models.Akt, x, w float64) {
-	// tih i uredan: bez ispune, tanak sivi rub, mala kvačica, tekst u sivim
-	// tonovima; ime je jedino istaknuto
+	kad := a.OvjerenoAt.In(models.Zagreb)
+	cvor := "čvor " + a.Cvor
+	if a.KljucCvora != "" {
+		cvor += " · ključ " + a.OtisakKljuca()
+	}
+	blokOvjere(d, x, w, "ELEKTRONIČKI OVJERENO U goCOP-u", a.ImePotpisa(),
+		kad.Format("02.01.2006. u 15:04")+" "+kad.Format("MST")+" · akt "+a.Oznaka()+" · kod "+a.OvjeraKod, cvor)
+}
+
+// blokOvjere je blok elektroničkog potpisa kakav nose akti i dnevnici: tih i
+// uredan, bez ispune, tanak sivi rub, mali lokot, tekst u sivim tonovima; ime
+// je jedino istaknuto
+func blokOvjere(d *pdfw.Doc, x, w float64, naslov, ime, redak, sitno string) {
 	const h = 46.0
 	y := d.Y
 	d.Okvir(x, y, w, h, bijela, sivaRub)
 	lokot(d, x+9, y+12, 13, plava)
 	tx := x + 29
-	d.TekstBoja(tx, y+10, 5.6, false, "ELEKTRONIČKI OVJERENO U goCOP-u", sivaTekst)
-	d.TekstBoja(tx, y+21, 8.5, true, a.ImePotpisa(), plava)
-	kad := a.OvjerenoAt.In(models.Zagreb)
-	d.TekstBoja(tx, y+30, 6, false, kad.Format("02.01.2006. u 15:04")+" "+kad.Format("MST")+" · akt "+a.Oznaka()+" · kod "+a.OvjeraKod, sivaTekst)
-	if a.KljucCvora != "" {
-		d.TekstBoja(tx, y+39, 5.6, false, "čvor "+a.Cvor+" · ključ "+a.OtisakKljuca(), sivaSvijetla)
-	} else {
-		d.TekstBoja(tx, y+39, 5.6, false, "čvor "+a.Cvor, sivaSvijetla)
-	}
+	d.TekstBoja(tx, y+10, 5.6, false, naslov, sivaTekst)
+	d.TekstBoja(tx, y+21, 8.5, true, ime, plava)
+	d.TekstBoja(tx, y+30, 6, false, redak, sivaTekst)
+	d.TekstBoja(tx, y+39, 5.6, false, sitno, sivaSvijetla)
 	d.Y = y + h
 }
 
