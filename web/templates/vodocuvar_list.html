@@ -1,0 +1,102 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Dnevni list {{.List.Datum.Format "02.01.2006."}}{{end}}
+
+{{define "content"}}
+{{$l := .List}}
+<div class="breadcrumb"><a href="/dnevnici">Dokumentacija</a> › <a href="/vodocuvar">Vodočuvarski dnevnik</a> › {{$l.Datum.Format "02.01.2006."}}</div>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "notebook-pen"}} Dnevni list{{if $l.Broj}} {{$l.Broj}}{{end}} · {{$l.Datum.Day}}. {{$l.MjesecGenitiv}} {{$l.Datum.Year}}., {{$l.DanUTjednu}}</h1>
+    <p class="page-desc">{{$l.Ime}}{{with .Podrucje}} · {{.VgiName}} · BP {{.ID}}{{end}} · <strong>{{$l.Stanje}}</strong>{{with $l.Potvrdio}} · ovjerio {{.}}{{end}}</p>
+  </div>
+  <div class="page-actions">
+    {{if $l.ID}}<a href="/vodocuvar/{{$l.ID}}/list.pdf" target="_blank" class="btn btn-secondary">{{icon "printer"}} PDF lista</a>{{end}}
+    {{if .Moj}}<a href="/vodocuvar/dan?datum={{.Danas}}" class="btn btn-secondary">{{icon "pencil"}} Današnji</a>{{end}}
+  </div>
+</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
+
+{{if and .Moj (not $l.Predan)}}
+<form method="POST" action="/vodocuvar/spremi" class="form-page vodocuvar-obrazac">
+  <input type="hidden" name="datum" value="{{$l.Datum.Format "2006-01-02"}}">
+  <div class="form-row">
+    <div class="form-group"><label class="form-label" for="od">Početak rada</label><input class="form-control" id="od" name="od" value="{{$l.Od}}" placeholder="08:00" inputmode="numeric" required></div>
+    <div class="form-group"><label class="form-label" for="do">Svršetak rada</label><input class="form-control" id="do" name="do" value="{{$l.Do}}" placeholder="16:00" inputmode="numeric" required></div>
+  </div>
+  <div class="form-group"><label class="form-label" for="prilike">Vremenske prilike</label><input class="form-control" id="prilike" name="prilike" value="{{$l.Prilike}}" placeholder="sunčano, vruće"></div>
+  <div class="form-group">
+    <label class="form-label">Naredbe rukovoditelja</label>
+    {{if $l.Zadaci}}
+    <ul class="zadaci">
+    {{range $l.Zadaci}}
+      <li class="zadatak">
+        <div class="zadatak-tekst"><strong>{{.Tekst}}</strong> <span class="form-help">zadao {{.Zadao}}, {{.ZadanoAt.Format "02.01.2006."}}</span></div>
+        <div class="zadatak-stanje">
+          <label><input type="radio" name="zadatak_status_{{.ID}}" value="OBAVLJEN" {{if eq .Status "OBAVLJEN"}}checked{{end}}> obavljeno</label>
+          <label><input type="radio" name="zadatak_status_{{.ID}}" value="OTVOREN" {{if eq .Status "OTVOREN"}}checked{{end}}> nije obavljeno, prenosi se (obrazložite)</label>
+          <label><input type="radio" name="zadatak_status_{{.ID}}" value="ODBACEN" {{if eq .Status "ODBACEN"}}checked{{end}}> nije obavljeno, ne prenosi se</label>
+        </div>
+        <input class="form-control" name="zadatak_obavljeno_{{.ID}}" value="{{.Obavljeno}}" placeholder="što je napravljeno, ili zašto danas nije">
+      </li>
+    {{end}}
+    </ul>
+    {{end}}
+    <textarea class="form-control" name="naredbe" rows="3" placeholder="ostale naredbe, kako su vam rečene">{{$l.Naredbe}}</textarea>
+  </div>
+  <div class="form-group"><label class="form-label" for="opis">Opis radnih aktivnosti *</label><textarea class="form-control" id="opis" name="opis" rows="6" placeholder="– obilazak deponije pijeska u Batini&#10;– obilazak vodotoka i vodograđevina na potezu …">{{$l.Opis}}</textarea></div>
+  <div class="form-group">
+    <label class="form-label" for="zapazanja">Posebna zapažanja</label>
+    <textarea class="form-control" id="zapazanja" name="zapazanja" rows="4">{{$l.Zapazanja}}</textarea>
+    {{if $l.Ocitanja}}<div class="form-help">Vodostaji koje ste danas očitali upisuju se sami: <span class="mono">{{$l.Ocitanja}}</span></div>{{else}}<div class="form-help">Vodostaji koje danas očitate na letvama upisuju se sami pri predaji.</div>{{end}}
+  </div>
+  <div class="form-actions" style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+    <button type="submit" class="btn btn-secondary" name="radnja" value="spremi">{{icon "check"}} Spremi</button>
+    <button type="submit" class="btn btn-primary" name="radnja" value="predaj" onclick="return confirm('Potpisati i predati list? Nakon predaje se više ne mijenja.')">{{icon "pencil"}} Potpiši i predaj</button>
+    {{if $l.ID}}<button type="submit" formaction="/vodocuvar/{{$l.ID}}/radnja" name="radnja" value="obrisi" class="btn btn-secondary btn-opasno" onclick="return confirm('Obrisati ovaj nepredani list?')">{{icon "trash"}} Obriši</button>{{end}}
+  </div>
+</form>
+{{else}}
+<section class="detail-section vodocuvar-list" style="margin-top:0;">
+  <dl class="vodocuvar-dl">
+    <dt>Radno vrijeme</dt><dd>od {{$l.Od}} do {{$l.Do}}, ukupno {{$l.SatiTekst}} sati</dd>
+    <dt>Vremenske prilike</dt><dd>{{if $l.Prilike}}{{$l.Prilike}}{{else}}—{{end}}</dd>
+    <dt>Naredbe rukovoditelja</dt><dd>
+      {{if or $l.Zadaci $l.NaredbeStavke}}<ol class="stavke">{{range $l.Zadaci}}<li><strong>{{.Tekst}}</strong> <span class="form-help">(zadao {{.Zadao}}, {{.ZadanoAt.Format "02.01."}})</span>: <span class="zadatak-oznaka {{.Status}}">{{.Oznaka}}</span>{{with .Obavljeno}}; {{.}}{{end}}</li>{{end}}{{range $l.NaredbeStavke}}<li>{{.}}</li>{{end}}</ol>{{else}}—{{end}}</dd>
+    <dt>Opis radnih aktivnosti</dt><dd>{{with $l.OpisStavke}}<ol class="stavke">{{range .}}<li>{{.}}</li>{{end}}</ol>{{else}}—{{end}}</dd>
+    <dt>Posebna zapažanja</dt><dd>{{if or $l.ZapazanjaStavke $l.Ocitanja}}<ol class="stavke">{{range $l.ZapazanjaStavke}}<li>{{.}}</li>{{end}}{{range (stavke $l.Ocitanja)}}<li class="mono">{{.}}</li>{{end}}</ol>{{else}}—{{end}}</dd>
+    <dt>Potpis vodočuvara</dt><dd>{{if $l.Predan}}{{$l.Ime}}, {{formatDate (localTime (derefTime $l.PredanoAt))}}{{else}}—{{end}}</dd>
+    <dt>Ovjera rukovoditelja</dt><dd>{{if $l.Potvrden}}{{$l.Potvrdio}}, {{formatDate (localTime (derefTime $l.PotvrdenoAt))}}{{else}}čeka ovjeru{{end}}</dd>
+    {{if $l.Parafe}}<dt>Parafe</dt><dd>{{range $i, $p := $l.Parafe}}{{if $i}}; {{end}}{{$p.Ime}}{{with $p.Funkcija}} ({{.}}){{end}}, {{formatDate (localTime $p.Kad)}}{{end}}</dd>{{end}}
+  </dl>
+  <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:0.75rem;">
+    {{if .SmijeOvjeriti}}<form method="POST" action="/vodocuvar/{{$l.ID}}/radnja"><input type="hidden" name="radnja" value="ovjeri"><button type="submit" class="btn btn-primary">{{icon "check"}} Ovjeri list</button></form>{{end}}
+    {{if and .SmijeParafirati (not .Parafirao)}}<form method="POST" action="/vodocuvar/{{$l.ID}}/radnja"><input type="hidden" name="radnja" value="parafiraj"><button type="submit" class="btn btn-secondary">{{icon "pencil"}} Parafiraj</button></form>{{end}}
+  </div>
+</section>
+{{end}}
+
+{{if .Vodocuvari}}{{if not .Moj}}
+<section class="detail-section">
+  <h2>{{icon "clipboard-list"}} Zadaj zadatak: {{$l.Ime}}</h2>
+  <form method="POST" action="/vodocuvar/zadatak" class="posta-trazi">
+    <input type="hidden" name="vodocuvar" value="{{$l.UserID}}">
+    <input type="hidden" name="natrag" value="/vodocuvar/{{$l.ID}}">
+    <input class="form-control" name="tekst" required placeholder="što treba obići, provjeriti ili napraviti" style="min-width:20rem; flex:1;">
+    <button type="submit" class="btn btn-primary btn-sm">{{icon "plus"}} Zadaj</button>
+  </form>
+</section>
+{{end}}{{end}}
+
+{{if .ZadaciOsobe}}
+<section class="detail-section">
+  <h2>{{icon "clipboard-list"}} Zadaci{{if not .Moj}}: {{$l.Ime}}{{end}}</h2>
+  <ul class="zadaci-pregled">
+  {{range .ZadaciOsobe}}<li><strong>{{.Tekst}}</strong> <span class="form-help">zadao {{.Zadao}}, {{.ZadanoAt.Format "02.01.2006."}}</span> · {{if .Otvoren}}<span class="zadatak-oznaka OTVOREN">otvoren</span>{{else}}<span class="zadatak-oznaka {{.Status}}">{{if eq .Status "OBAVLJEN"}}obavljen{{else}}nije obavljen{{end}}</span>{{with .Obavljeno}}: {{.}}{{end}}{{if .ListID}} · <a href="/vodocuvar/{{.ListID}}">list</a>{{end}}{{end}}</li>{{end}}
+  </ul>
+</section>
+{{end}}
+{{end}}

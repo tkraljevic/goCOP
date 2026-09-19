@@ -32,7 +32,14 @@ type Area struct {
 	Subcenter      string `json:"subcenter"`                  // npr. "Podcentar Osijek"
 	ContractorName string `json:"contractor_name,omitempty"`  // ugovorna pravna osoba za obranu
 	DirectToSector bool   `json:"direct_to_sector,omitempty"` // bez ispostave: pripada izravno sektoru (npr. B.34)
+	// Latitude i Longitude su točka po kojoj se za područje dohvaćaju
+	// vremenske prilike (Open-Meteo), npr. sjedište ispostave; nula = nema
+	Latitude  float64 `json:"latitude,omitempty"`
+	Longitude float64 `json:"longitude,omitempty"`
 }
+
+// ImaKoordinate javlja je li za područje upisana točka za vremenske prilike
+func (a Area) ImaKoordinate() bool { return a.Latitude != 0 && a.Longitude != 0 }
 
 // SectionInfo predstavlja sažeti opis dionice
 type SectionInfo struct {

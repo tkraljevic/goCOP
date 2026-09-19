@@ -58,6 +58,8 @@ func (k KartaPostavke) Ima() bool { return k.Plocice != "" }
 type Server struct {
 	javni     *javnivodostaji.Uvoznik // preuzimanje javnih vodostaja; prazno kad nije uključeno
 	akti      *service.AktService     // rješenja i obavijesti o stupnju obrane
+	vodocuvar *service.VodocuvarService
+	orgRepo   *repository.OrgRepository
 	karta     KartaPostavke
 	arhivaPut string
 	podaciDir string // stablo s izvornim datotekama; prazno na čvoru koji samo prima pakete
@@ -432,6 +434,7 @@ func templateFuncs() template.FuncMap {
 		// icon crta ikonu iz ugrađenog SVG sprajta (Lucide, ISC). Ikone su
 		// dio binarne datoteke, pa izgledaju isto na svakom uređaju i rade
 		// bez mreže — emoji su se crtali drukčije na svakom sustavu.
+		"stavke": models.Stavke,
 		"icon": func(name string) template.HTML {
 			return template.HTML(`<svg class="icon" aria-hidden="true"><use href="` +
 				statickaAdresa("img/icons.svg") + `#` +
@@ -514,7 +517,7 @@ func NewServer(
 	// Predlošci koji proširuju base.html
 	for _, page := range []string{"dashboard.html", "registri.html", "users.html", "user_detail.html", "user_form.html", "duty_form.html", "profile.html", "sections.html", "section_detail.html", "section_form.html", "territories.html", "county_form.html", "municipality_form.html", "municipality_detail.html", "stations.html", "station_detail.html", "station_form.html", "station_history.html", "station_history_form.html", "paket_pregled.html", "watercourses.html", "watercourse_detail.html", "watercourse_form.html", "structures.html", "structure_detail.html", "structure_form.html", "readings.html", "reading_history.html", "reading_form.html", "arhiva_ispravci.html", "uvoz_ocitanja.html", "teren.html", "moduli.html", "settings.html", "odrzavanje.html", "organizacija.html", "sector_form.html", "area_form.html", "contractor_form.html", "firme.html", "nazivi.html", "sudionici.html",
 		"administracija.html", "uvozi.html", "sinkronizacija.html", "pretplate.html", "baza.html", "izvori.html", "uvoz_niza.html",
-		"dnevnici.html", "dnevnici_izbor.html", "dnevnik_form.html", "dnevnik.html", "dnevnik_cop.html", "dnevnik_cop_form.html", "dnevnik_list.html", "dnevnik_obracun.html", "dnevnik_dezurstva.html", "dnevnik_iors.html", "izvjesca.html", "izvjesce_form.html", "izvjesce.html", "sektorsko_form.html", "sektorsko.html", "obracun_postavke.html",
+		"dnevnici.html", "dnevnici_izbor.html", "vodocuvar.html", "vodocuvar_list.html", "dnevnik_form.html", "dnevnik.html", "dnevnik_cop.html", "dnevnik_cop_form.html", "dnevnik_list.html", "dnevnik_obracun.html", "dnevnik_dezurstva.html", "dnevnik_iors.html", "izvjesca.html", "izvjesce_form.html", "izvjesce.html", "sektorsko_form.html", "sektorsko.html", "obracun_postavke.html",
 		"sredstva.html", "katalog.html", "skladiste.html", "potrebe_form.html", "potrebe.html", "dogadjanja.html", "skladiste_form.html", "promet_form.html", "promet.html", "gdje_ima.html", "na_terenu.html", "popisi.html", "popis_form.html", "popis.html", "pomoc.html", "ocitanja_ispravci.html", "akti.html", "akt_form.html", "akt.html", "primatelji.html", "spranca.html", "posta_racun.html", "administracija_posta.html", "posta_sanducic.html", "posta_pismo.html", "posta_novo.html", "posta_potpis.html", "administracija_zig.html", "administracija_opcije.html", "imenik_exchange.html", "county_detail.html"} {
 		t, err := template.New("base.html").Funcs(tmplFuncs).ParseFS(templatesFS, DijeloviPredloska(page)...)
 		if err != nil {
@@ -640,6 +643,16 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /moduli/save", s.authMiddleware(http.HandlerFunc(modulesH.HandleSave)))
 	usersH.SetModuleService(s.moduleService)
 	s.mux.Handle("POST /users/{id}/modules", s.authMiddleware(http.HandlerFunc(usersH.HandleUserModules)))
+	vodH := NewVodocuvarHandler(func() *service.VodocuvarService { return s.vodocuvar }, s.userService, s.orgRepo, s.templates["vodocuvar.html"], s.templates["vodocuvar_list.html"])
+	s.mux.Handle("GET /vodocuvar", s.authMiddleware(http.HandlerFunc(vodH.ShowPopis)))
+	s.mux.Handle("GET /vodocuvar/dan", s.authMiddleware(http.HandlerFunc(vodH.ShowDan)))
+	s.mux.Handle("POST /vodocuvar/spremi", s.authMiddleware(http.HandlerFunc(vodH.HandleSpremi)))
+	s.mux.Handle("POST /vodocuvar/zadatak", s.authMiddleware(http.HandlerFunc(vodH.HandleZadatak)))
+	s.mux.Handle("GET /vodocuvar/{id}", s.authMiddleware(http.HandlerFunc(vodH.ShowList)))
+	s.mux.Handle("POST /vodocuvar/{id}/radnja", s.authMiddleware(http.HandlerFunc(vodH.HandleRadnja)))
+	s.mux.Handle("GET /vodocuvar/{id}/list.pdf", s.authMiddleware(http.HandlerFunc(vodH.IzvoziPDF)))
+	s.mux.Handle("GET /organizacija/geokod", s.authMiddleware(http.HandlerFunc(vodH.GeokodJSON)))
+	s.mux.Handle("POST /organizacija/podrucja/koordinate", s.authMiddleware(http.HandlerFunc(vodH.HandleKoordinatePodrucja)))
 	fieldH := NewFieldHandler(s.readingService, s.userService, s.templates["teren.html"])
 	s.mux.Handle("GET /teren", s.authMiddleware(http.HandlerFunc(fieldH.ShowField)))
 	readingsH := NewReadingsHandler(s.readingService, s.stationService, s.structureService, s.userService,
@@ -1289,6 +1302,11 @@ func (s *Server) SetMts(m *service.MtsService) { s.mtsService = m }
 
 // SetAkti daje poslužitelju servis akata
 func (s *Server) SetAkti(a *service.AktService) { s.akti = a }
+
+// SetVodocuvar daje poslužitelju servis vodočuvarskog dnevnika i registar organizacije
+func (s *Server) SetVodocuvar(v *service.VodocuvarService, org *repository.OrgRepository) {
+	s.vodocuvar, s.orgRepo = v, org
+}
 
 // SetJavniUvoz daje poslužitelju uvoznika javnih vodostaja
 func (s *Server) SetJavniUvoz(u *javnivodostaji.Uvoznik) { s.javni = u }

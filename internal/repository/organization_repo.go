@@ -128,13 +128,13 @@ func scanArea(row rowScannerOrg) (models.Area, error) {
 	var a models.Area
 	var sub, contractor sql.NullString
 	var direct int
-	err := row.Scan(&a.ID, &a.SectorID, &a.Name, &a.VgiName, &sub, &contractor, &direct)
+	err := row.Scan(&a.ID, &a.SectorID, &a.Name, &a.VgiName, &sub, &contractor, &direct, &a.Latitude, &a.Longitude)
 	a.Subcenter, a.ContractorName, a.DirectToSector = sub.String, contractor.String, direct != 0
 	return a, err
 }
 
 const sectorSelect = `SELECT id, name, vgo_name, center_cop, address, phone, email, level FROM sectors`
-const areaSelect = `SELECT id, sector_id, name, vgi_name, subcenter, contractor_name, direct_to_sector FROM areas`
+const areaSelect = `SELECT id, sector_id, name, vgi_name, subcenter, contractor_name, direct_to_sector, latitude, longitude FROM areas`
 
 // ListSectors vraća sektore; Direkcija prva, ostali po oznaci
 func (r *OrgRepository) ListSectors(ctx context.Context) ([]models.Sector, error) {
@@ -261,12 +261,12 @@ func (r *OrgRepository) SaveArea(ctx context.Context, a *models.Area) error {
 	}
 	defer tx.Rollback()
 	if _, err := tx.ExecContext(ctx, `
-		INSERT INTO areas (id, sector_id, name, vgi_name, subcenter, contractor_name, direct_to_sector)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO areas (id, sector_id, name, vgi_name, subcenter, contractor_name, direct_to_sector, latitude, longitude)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET sector_id = excluded.sector_id, name = excluded.name,
 			vgi_name = excluded.vgi_name, subcenter = excluded.subcenter, contractor_name = excluded.contractor_name,
-			direct_to_sector = excluded.direct_to_sector`,
-		a.ID, a.SectorID, a.Name, a.VgiName, a.Subcenter, a.ContractorName, boolToInt(a.DirectToSector)); err != nil {
+			direct_to_sector = excluded.direct_to_sector, latitude = excluded.latitude, longitude = excluded.longitude`,
+		a.ID, a.SectorID, a.Name, a.VgiName, a.Subcenter, a.ContractorName, boolToInt(a.DirectToSector), a.Latitude, a.Longitude); err != nil {
 		return fmt.Errorf("upis branjenog područja %d: %w", a.ID, err)
 	}
 	if _, err := r.rec.Record(ctx, tx, EntityAreas, strconv.Itoa(a.ID), a); err != nil {
