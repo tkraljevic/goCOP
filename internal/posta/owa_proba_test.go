@@ -1,9 +1,13 @@
 package posta
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"log"
 	"os"
+	"regexp"
+	"strings"
 	"testing"
 )
 
@@ -25,4 +29,16 @@ func TestProbaOWA(t *testing.T) {
 	}
 	ime, err := ewsPrijavi(context.Background(), p, Racun{Korisnik: "netko@voda.hr", Lozinka: "izmisljena"})
 	t.Logf("prijavi: %q %v", ime, err)
+	// veliko tijelo: drugi i treći korak moraju ići istom vezom
+	var dnevnik bytes.Buffer
+	log.SetOutput(&dnevnik)
+	defer log.SetOutput(os.Stderr)
+	veliko := ewsMapaPoslano + "<!-- " + strings.Repeat("x", 400000) + " -->"
+	_, _, err = ewsPozoviIzazov(context.Background(), p, Racun{Korisnik: "netko@voda.hr", Lozinka: "izmisljena"}, veliko)
+	t.Logf("veliko tijelo: %v", err)
+	trag := dnevnik.String()
+	if !errors.Is(err, ErrPrijava) || strings.Count(trag, "ponovno=true") < 1 {
+		t.Fatalf("treći korak mora ići istom vezom kao drugi:\n%s", trag)
+	}
+	t.Logf("trag: %s", regexp.MustCompile(`TlRMTVNT[A-Za-z0-9+/=]*`).ReplaceAllString(trag, "<izazov>"))
 }
