@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -403,8 +404,15 @@ func uMjestu(m string) string {
 }
 
 // PDFPrijaveRekonstrukcija crta prijavu prenesenu iz ranije evidencije kao
-// izvornik bez potpisa: za uvoz, gdje sken potpisanog ispisa ne postoji
-func PDFPrijaveRekonstrukcija(p *models.PrijavaSTerena, slike map[string][]byte, sek *models.Sector, area *models.Area) []byte {
-	pdf, _ := pdfPrijave(p, prilogPrijave{Sektor: sek, Podrucje: area, Slike: slike, Otisci: models.OtisciLista{}}, models.Terms(), true)
+// izvornik bez potpisa, za uvoz; karta se slaže s pločica iz postavki kad
+// prijava ima točku i pločice su dostupne
+func PDFPrijaveRekonstrukcija(ctx context.Context, p *models.PrijavaSTerena, slike map[string][]byte, sek *models.Sector, area *models.Area, karta KartaPostavke) []byte {
+	pr := prilogPrijave{Sektor: sek, Podrucje: area, Slike: slike, Otisci: models.OtisciLista{}}
+	if p.ImaKoordinate() {
+		if k := slozKartu(ctx, karta, *p.Latitude, *p.Longitude, "http://gocop.local/"); k != nil {
+			pr.Karta, pr.Zasluge = k.PNG, k.Zasluge
+		}
+	}
+	pdf, _ := pdfPrijave(p, pr, models.Terms(), true)
 	return pdf
 }

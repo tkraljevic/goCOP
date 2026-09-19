@@ -381,7 +381,7 @@ func main() {
 						}
 					}
 					area, _ := orgRepo.GetArea(context.Background(), p.AreaID)
-					return web.PDFPrijaveRekonstrukcija(p, slike, sek, area)
+					return web.PDFPrijaveRekonstrukcija(context.Background(), p, slike, sek, area, web.KartaPostavke{Plocice: cfg.Karta.Plocice, Zasluge: cfg.Karta.Zasluge, NajviseZ: cfg.Karta.NajviseZ})
 				},
 			})
 			if err != nil {
