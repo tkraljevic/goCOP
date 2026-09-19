@@ -409,7 +409,7 @@ func uMjestu(m string) string {
 func PDFPrijaveRekonstrukcija(ctx context.Context, p *models.PrijavaSTerena, slike map[string][]byte, sek *models.Sector, area *models.Area, karta KartaPostavke) []byte {
 	pr := prilogPrijave{Sektor: sek, Podrucje: area, Slike: slike, Otisci: models.OtisciLista{}}
 	if p.ImaKoordinate() {
-		if k := slozKartu(ctx, karta, *p.Latitude, *p.Longitude, "http://gocop.local/"); k != nil {
+		if k := slozKartu(ctx, karta, *p.Latitude, *p.Longitude, "http://localhost/"); k != nil {
 			pr.Karta, pr.Zasluge = k.PNG, k.Zasluge
 		}
 	}
