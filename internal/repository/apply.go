@@ -81,7 +81,7 @@ var SurfaceEntities = []string{EntitySectors, EntityAreas, EntityOrgTerms, Entit
 	EntityUsers, EntityDuties, "role_modules", "user_modules", EntityStations, EntitySections, EntityWatercourses,
 	EntityCounties, EntityMunicipalities, EntitySettlements, EntityStructures, "maintained_waters", "work_items", "journals",
 	EntityBlagdani, EntityKoeficijenti, EntityObracunPostavke,
-	EntityMtsVrste, EntityMtsSkladista, EntityMtsPromet, EntityMtsPopisi, EntityMtsPotrebe, EntityAkti, EntityPrimatelji, EntitySprance, EntitySluzbe, EntityIzvornici, EntitySlanja, EntityPostavke, EntityPotpisi, EntityZigovi}
+	EntityMtsVrste, EntityMtsSkladista, EntityMtsPromet, EntityMtsPopisi, EntityMtsPotrebe, EntityAkti, EntityPrimatelji, EntitySprance, EntitySluzbe, EntityIzvornici, EntitySlanja, EntityPostavke, EntityPotpisi, EntityZigovi, EntityVodocuvarski, EntityZadaci}
 
 // ReplaySurface ponovno primijeni zadnju verziju svakog zapisa iz knjige na
 // površinu. Služi kad je primjena primljenih verzija jednom zapela: knjiga je
@@ -421,6 +421,22 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		_, err := tx.ExecContext(ctx, aktUpsert, aktArgs(&a)...)
 		return err
 
+	case EntityZadaci:
+		var z models.Zadatak
+		if err := json.Unmarshal(v.Payload, &z); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, zadatakUpsert, zadatakArgs(&z)...)
+		return err
+
+	case EntityVodocuvarski:
+		var l models.VodocuvarskiList
+		if err := json.Unmarshal(v.Payload, &l); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, vodocuvarskiUpsert, vodocuvarskiArgs(&l)...)
+		return err
+
 	case EntityZigovi:
 		var z models.Zig
 		if err := json.Unmarshal(v.Payload, &z); err != nil {
@@ -653,12 +669,12 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 			return err
 		}
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO areas (id, sector_id, name, vgi_name, subcenter, contractor_name, direct_to_sector)
-			VALUES (?, ?, ?, ?, ?, ?, ?)
+			INSERT INTO areas (id, sector_id, name, vgi_name, subcenter, contractor_name, direct_to_sector, latitude, longitude)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT(id) DO UPDATE SET sector_id = excluded.sector_id, name = excluded.name,
 				vgi_name = excluded.vgi_name, subcenter = excluded.subcenter, contractor_name = excluded.contractor_name,
-				direct_to_sector = excluded.direct_to_sector
-		`, a.ID, a.SectorID, a.Name, a.VgiName, a.Subcenter, a.ContractorName, boolToInt(a.DirectToSector))
+				direct_to_sector = excluded.direct_to_sector, latitude = excluded.latitude, longitude = excluded.longitude
+		`, a.ID, a.SectorID, a.Name, a.VgiName, a.Subcenter, a.ContractorName, boolToInt(a.DirectToSector), a.Latitude, a.Longitude)
 		return err
 
 	case EntityContractors:
@@ -844,6 +860,10 @@ func removeFromSurface(ctx context.Context, tx *sql.Tx, v ledger.Version) error 
 		stmt = `DELETE FROM posta_potpisi WHERE user_id = ?`
 	case EntityZigovi:
 		stmt = `DELETE FROM zigovi WHERE sektor = ?`
+	case EntityVodocuvarski:
+		stmt = `DELETE FROM vodocuvarski_listovi WHERE id = ?`
+	case EntityZadaci:
+		stmt = `DELETE FROM vodocuvarski_zadaci WHERE id = ?`
 	case EntityMaintainedWaters:
 		stmt = `DELETE FROM maintained_waters WHERE id = ?`
 	case EntityWorkItems:

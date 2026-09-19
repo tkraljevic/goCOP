@@ -822,8 +822,10 @@ func sectorFromForm(r *http.Request) *models.Sector {
 func areaFromForm(r *http.Request) *models.Area {
 	f := func(k string) string { return strings.TrimSpace(r.FormValue(k)) }
 	id, _ := strconv.Atoi(f("id"))
+	lat, _ := strconv.ParseFloat(strings.ReplaceAll(f("latitude"), ",", "."), 64)
+	lon, _ := strconv.ParseFloat(strings.ReplaceAll(f("longitude"), ",", "."), 64)
 	return &models.Area{ID: id, SectorID: f("sector_id"), Name: f("name"), VgiName: f("vgi_name"),
-		Subcenter: f("subcenter"), DirectToSector: r.FormValue("direct_to_sector") == "1"}
+		Subcenter: f("subcenter"), DirectToSector: r.FormValue("direct_to_sector") == "1", Latitude: lat, Longitude: lon}
 }
 
 // HandleSaveSector upisuje sektor iz obrasca (nov ili izmijenjen)

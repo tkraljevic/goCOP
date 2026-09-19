@@ -43,6 +43,38 @@
       <input type="text" id="subcenter" name="subcenter" class="form-control" value="{{.Area.Subcenter}}" placeholder="npr. Podcentar Darda">
     </div>
   </div>
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="latitude">Zemljopisna širina</label>
+      <input type="text" inputmode="decimal" id="latitude" name="latitude" class="form-control" value="{{if .Area.Latitude}}{{printf "%.5f" .Area.Latitude}}{{end}}" placeholder="45.5550">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="longitude">Zemljopisna dužina</label>
+      <input type="text" inputmode="decimal" id="longitude" name="longitude" class="form-control" value="{{if .Area.Longitude}}{{printf "%.5f" .Area.Longitude}}{{end}}" placeholder="18.6955">
+    </div>
+  </div>
+  <div class="form-help" style="margin:-0.5rem 0 0.75rem; display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+    <span>Točka po kojoj se za područje dohvaćaju vremenske prilike (Open-Meteo) za vodočuvarski dnevnik.</span>
+    <button type="button" class="btn btn-secondary btn-sm" id="geokod">{{icon "map-pin"}} Pronađi koordinate po mjestu ispostave</button>
+    <span id="geokod-nalaz"></span>
+  </div>
+  <script>
+    (function () {
+      var b = document.getElementById('geokod'); if (!b) return;
+      b.addEventListener('click', function () {
+        var vgi = document.getElementById('vgi_name'), sub = document.getElementById('subcenter');
+        var upit = prompt('Mjesto ili adresa ispostave:', (vgi && vgi.value.split(',').pop().trim()) || (sub && sub.value) || '');
+        if (!upit) return;
+        var n = document.getElementById('geokod-nalaz'); n.textContent = 'tražim…';
+        fetch('/organizacija/geokod?q=' + encodeURIComponent(upit), { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (t) {
+          if (t.greska) { n.textContent = t.greska; return; }
+          document.getElementById('latitude').value = t.lat.toFixed(5);
+          document.getElementById('longitude').value = t.lon.toFixed(5);
+          n.textContent = 'nađeno: ' + t.naziv;
+        }).catch(function () { n.textContent = 'traženje nije uspjelo'; });
+      });
+    })();
+  </script>
   <div class="form-group">
     <label style="display:flex; gap:0.4rem; align-items:center; font-size:0.9rem;">
       <input type="checkbox" name="direct_to_sector" value="1" {{if .Area.DirectToSector}}checked{{end}}>

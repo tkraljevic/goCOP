@@ -1,0 +1,71 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Vodočuvarski dnevnik{{end}}
+
+{{define "content"}}
+<div class="breadcrumb"><a href="/dnevnici">Dokumentacija</a> › Vodočuvarski dnevnik</div>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "notebook-pen"}} Vodočuvarski dnevnik</h1>
+    <p class="page-desc">Dnevni list po uzoru na papirnu knjigu: radno vrijeme, vremenske prilike, naredbe rukovoditelja, opis rada i posebna zapažanja s vodostajima. Vodočuvar list potpiše i preda, rukovoditelj branjenog područja ga ovjeri, a ostali rukovoditelji vezani uz područje mogu ga parafirati.</p>
+  </div>
+  {{if .VodiDnevnik}}<div class="page-actions"><a href="/vodocuvar/dan?datum={{.Danas}}" class="btn btn-primary">{{icon "pencil"}} Današnji list</a></div>{{end}}
+</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
+
+<form method="GET" action="/vodocuvar" class="posta-trazi" style="margin-bottom:0.75rem;">
+  <select name="godina" class="form-control" onchange="this.form.submit()">{{range .Godine}}<option value="{{.}}" {{if eq . $.Godina}}selected{{end}}>{{.}}</option>{{end}}</select>
+  {{if .Sektori}}<select name="sektor" class="form-control" onchange="this.form.submit()"><option value="">svi sektori</option>{{range .Sektori}}<option value="{{.ID}}" {{if eq .ID $.Filtar.Sektor}}selected{{end}}>{{.Name}}</option>{{end}}</select>{{end}}
+  <label class="checkbox-label"><input type="checkbox" name="ceka" value="1" {{if .Filtar.CekaPotvrdu}}checked{{end}} onchange="this.form.submit()"> samo listovi koji čekaju ovjeru</label>
+</form>
+
+{{if .VodiDnevnik}}
+<section class="detail-section" style="margin-top:0;">
+  <h2>{{icon "user"}} Moj dnevnik {{.Godina}}</h2>
+  {{if .Moji}}
+  <ul class="posta-kartice">
+  {{range .Moji}}
+    <li class="posta-kartica"><a class="posta-kartica-tijelo" href="/vodocuvar/{{.ID}}">
+      <div class="posta-kartica-red"><span class="posta-od">List {{if .Broj}}{{.Broj}}{{else}}(nepredan){{end}} · {{.DanUTjednu}}</span><span class="posta-kad">{{.Datum.Format "02.01.2006."}} · {{.Od}}–{{.Do}} · {{.SatiTekst}} h</span></div>
+      <div class="posta-predmet">{{if .Opis}}{{.Opis}}{{else}}(bez opisa){{end}}</div>
+      <div class="posta-pregled">{{.Stanje}}{{with .Potvrdio}} · ovjerio {{.}}{{end}}{{if .Parafe}} · parafa: {{range $i, $p := .Parafe}}{{if $i}}, {{end}}{{$p.Ime}}{{end}}{{end}}</div>
+    </a></li>
+  {{end}}
+  </ul>
+  {{else}}<p class="form-help">U {{.Godina}}. još nema listova. Kliknite „Današnji list”.</p>{{end}}
+</section>
+{{end}}
+
+{{if .Vodocuvari}}
+<section class="detail-section">
+  <h2>{{icon "clipboard-list"}} Zadaj zadatak vodočuvaru</h2>
+  <form method="POST" action="/vodocuvar/zadatak" class="posta-trazi" style="align-items:flex-start; flex-wrap:wrap;">
+    <select name="vodocuvar" class="form-control" required>
+      <option value="">— vodočuvar —</option>
+      {{range .Vodocuvari}}<option value="{{.ID}}">{{.FullName}}{{with .PrimaryDuty}} · {{.Title}}{{end}}</option>{{end}}
+    </select>
+    <input class="form-control" name="tekst" required placeholder="što treba obići, provjeriti ili napraviti" style="min-width:20rem; flex:1;">
+    <button type="submit" class="btn btn-primary btn-sm">{{icon "plus"}} Zadaj</button>
+  </form>
+  <div class="form-help">Zadatak se pojavi na sljedećem dnevnom listu vodočuvara pod naredbama, s vašim imenom. Vodočuvar ga otkači kad ga obavi i upiše što je napravio; dok ga ne obavi, prenosi se na svaki novi list.</div>
+</section>
+{{end}}
+
+<section class="detail-section">
+  <h2>{{icon "users"}} Listovi vodočuvara</h2>
+  {{if .Tudji}}
+  <ul class="posta-kartice">
+  {{range .Tudji}}
+    <li class="posta-kartica {{if and .Predan (not .Potvrden)}}neprocitano{{end}}"><a class="posta-kartica-tijelo" href="/vodocuvar/{{.ID}}">
+      <div class="posta-kartica-red"><span class="posta-od">{{.Ime}} · BP {{.AreaID}} · list {{if .Broj}}{{.Broj}}{{else}}—{{end}}</span><span class="posta-kad">{{.Datum.Format "02.01.2006."}} · {{.SatiTekst}} h</span></div>
+      <div class="posta-predmet">{{if .Opis}}{{.Opis}}{{else}}(bez opisa){{end}}</div>
+      <div class="posta-pregled">{{.Stanje}}{{with .Potvrdio}} · ovjerio {{.}}{{end}}</div>
+    </a></li>
+  {{end}}
+  </ul>
+  {{else}}<p class="form-help">Nema listova koje biste vidjeli po ovom filtru.</p>{{end}}
+</section>
+{{end}}

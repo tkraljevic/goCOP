@@ -3672,3 +3672,18 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .opcija-opis p { margin: 0 0 0.4rem; }
 .zid-redak { position: relative; }
 .zid-obrisi { margin-left: auto; align-self: flex-start; }
+.vodocuvar-obrazac { max-width: 52rem; }
+.zadaci { list-style: none; margin: 0 0 0.5rem; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+.zadatak { border: 1px solid var(--border, #d9dee5); border-radius: 8px; padding: 0.5rem 0.75rem; background: var(--surface-2, #f7f9fb); display: flex; flex-direction: column; gap: 0.35rem; }
+.zadatak-stanje { display: flex; gap: 1rem; flex-wrap: wrap; font-size: 0.88rem; }
+.zadatak-stanje label { display: inline-flex; gap: 0.3rem; align-items: center; cursor: pointer; }
+.zadaci-pregled { margin: 0 0 0.4rem; padding-left: 1.1rem; }
+.zadatak-oznaka { font-size: 0.75rem; text-transform: uppercase; padding: 0.1rem 0.4rem; border-radius: 4px; font-weight: 600; }
+.zadatak-oznaka.OBAVLJEN { background: #e8f5ec; color: #2f7a3e; }
+.zadatak-oznaka.OTVOREN { background: #fff4d6; color: #7a5200; }
+.zadatak-oznaka.ODBACEN { background: #fde8e8; color: #9b1c1c; }
+.vodocuvar-dl { display: grid; grid-template-columns: 11rem 1fr; gap: 0.5rem 1rem; margin: 0; }
+.vodocuvar-dl dt { font-weight: 600; color: var(--muted, #4b5563); }
+.vodocuvar-dl dd { margin: 0; }
+@media (max-width: 560px) { .vodocuvar-dl { grid-template-columns: 1fr; } }
+.stavke { margin: 0; padding-left: 1.4rem; } .stavke li { margin: 0.15rem 0; }
