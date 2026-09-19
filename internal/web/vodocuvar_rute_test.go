@@ -102,7 +102,7 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 		}
 		return tp
 	}
-	h := NewVodocuvarHandler(func() *service.VodocuvarService { return vod }, users, orgRepo, tmpl("vodocuvar.html"), tmpl("vodocuvar_list.html"))
+	h := NewVodocuvarHandler(func() *service.VodocuvarService { return vod }, users, func() *repository.OrgRepository { return orgRepo }, tmpl("vodocuvar.html"), tmpl("vodocuvar_list.html"))
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /vodocuvar", h.ShowPopis)
 	mux.HandleFunc("GET /vodocuvar/dan", h.ShowDan)

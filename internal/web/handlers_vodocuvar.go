@@ -3,8 +3,10 @@ package web
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -12,6 +14,7 @@ import (
 	"github.com/google/uuid"
 
 	"gocop/internal/models"
+	"gocop/internal/poslovi"
 	"gocop/internal/repository"
 	"gocop/internal/service"
 	"gocop/internal/weather"
@@ -22,14 +25,24 @@ import (
 type VodocuvarHandler struct {
 	svc                 func() *service.VodocuvarService
 	users               *service.UserService
-	org                 *repository.OrgRepository
+	org                 func() *repository.OrgRepository // registar organizacije, spojen poslije pokretanja
 	geokoder            *weather.Geokoder
+	poslovi             *poslovi.Registar
 	tmplPopis, tmplList *template.Template
 	tmplKalendar        *template.Template
+	tmplPosao           *template.Template
 }
 
-func NewVodocuvarHandler(svc func() *service.VodocuvarService, users *service.UserService, org *repository.OrgRepository, popis, list *template.Template) *VodocuvarHandler {
+func NewVodocuvarHandler(svc func() *service.VodocuvarService, users *service.UserService, org func() *repository.OrgRepository, popis, list *template.Template) *VodocuvarHandler {
+	if org == nil {
+		org = func() *repository.OrgRepository { return nil }
+	}
 	return &VodocuvarHandler{svc: svc, users: users, org: org, geokoder: &weather.Geokoder{}, tmplPopis: popis, tmplList: list}
+}
+
+// SetPoslovi daje rukovatelju registar poslova i predložak stranice s trakom napretka
+func (h *VodocuvarHandler) SetPoslovi(p *poslovi.Registar, t *template.Template) {
+	h.poslovi, h.tmplPosao = p, t
 }
 
 // SetGeokoder daje rukovatelju drugi geokoder (za testove)
@@ -228,8 +241,8 @@ func (h *VodocuvarHandler) prikazi(w http.ResponseWriter, r *http.Request, d Vod
 	d.SmijeOvjeriti = s.SmijeOvjeriti(perms, l) && l.Predan() && !l.Potvrden()
 	d.SmijeParafirati = s.SmijeParafirati(perms, l) && l.Predan()
 	d.Parafirao = perms != nil && l.Parafirao(perms.User.ID.String())
-	if h.org != nil && l.AreaID > 0 {
-		d.Podrucje, _ = h.org.GetArea(r.Context(), l.AreaID)
+	if org := h.org(); org != nil && l.AreaID > 0 {
+		d.Podrucje, _ = org.GetArea(r.Context(), l.AreaID)
 	}
 	if s.SmijeParafirati(perms, l) || moj {
 		d.ZadaciOsobe = s.Zadaci(r.Context(), l.UserID)
@@ -340,8 +353,8 @@ func (h *VodocuvarHandler) IzvoziPDF(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var area *models.Area
-	if h.org != nil && l.AreaID > 0 {
-		area, _ = h.org.GetArea(r.Context(), l.AreaID)
+	if org := h.org(); org != nil && l.AreaID > 0 {
+		area, _ = org.GetArea(r.Context(), l.AreaID)
 	}
 	w.Header().Set("Content-Type", "application/pdf")
 	w.Header().Set("Content-Disposition", `inline; filename="dnevni-list-`+l.Datum.In(models.Zagreb).Format("2006-01-02")+`.pdf"`)
@@ -373,8 +386,8 @@ func (h *VodocuvarHandler) IzvoziKnjigu(w http.ResponseWriter, r *http.Request) 
 	var area *models.Area
 	if len(listovi) > 0 {
 		ime = listovi[0].Ime
-		if h.org != nil && listovi[0].AreaID > 0 {
-			area, _ = h.org.GetArea(r.Context(), listovi[0].AreaID)
+		if org := h.org(); org != nil && listovi[0].AreaID > 0 {
+			area, _ = org.GetArea(r.Context(), listovi[0].AreaID)
 		}
 	}
 	w.Header().Set("Content-Type", "application/pdf")
@@ -397,52 +410,93 @@ func (h *VodocuvarHandler) GeokodJSON(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(map[string]any{"lat": t.Lat, "lon": t.Lon, "naziv": t.Naziv})
 }
 
+// PosaoData je stranica s trakom napretka dugog posla
+type PosaoData struct {
+	CurrentUser *models.User
+	Permissions *models.UserPermissions
+	ActiveNav   string
+	ViewAsBanner
+	PosaoID, PosaoNaziv, Natrag string
+}
+
 // HandleKoordinatePodrucja nalazi koordinate svim područjima bez njih, po
-// mjestu ispostave ili podcentra
+// mjestu ispostave ili podcentra: posao u pozadini s trakom napretka, jer
+// OpenStreetMap dopušta jedan upit u sekundi
 func (h *VodocuvarHandler) HandleKoordinatePodrucja(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet {
+		http.Redirect(w, r, "/organizacija", http.StatusSeeOther)
+		return
+	}
 	if err := requireAdmin(r); err != nil {
 		http.Error(w, err.Error(), http.StatusForbidden)
 		return
 	}
-	areas, err := h.org.ListAreas(r.Context(), "")
+	u, perms, _ := h.base(r)
+	org := h.org()
+	if org == nil || h.poslovi == nil || h.tmplPosao == nil {
+		redirectWith(w, r, "/organizacija", "error", "Traženje koordinata nije spremno")
+		return
+	}
+	areas, err := org.ListAreas(r.Context(), "")
 	if err != nil {
 		redirectWith(w, r, "/organizacija", "error", err.Error())
 		return
 	}
-	n, greske := 0, []string{}
-	for i := range areas {
-		a := areas[i]
-		if a.ImaKoordinate() {
-			continue
+	var bez []models.Area
+	for _, a := range areas {
+		if !a.ImaKoordinate() {
+			bez = append(bez, a)
 		}
-		mjesto := weather.MjestoIzNaziva(a.VgiName)
-		if mjesto == "" {
-			mjesto = weather.MjestoIzNaziva(a.Subcenter)
-		}
-		if mjesto == "" {
-			continue
-		}
-		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
-		t, err := h.geokoder.Nadji(ctx, mjesto)
-		cancel()
-		if err != nil {
-			greske = append(greske, strconv.Itoa(a.ID)+" ("+mjesto+")")
-			continue
-		}
-		a.Latitude, a.Longitude = t.Lat, t.Lon
-		if err := h.org.SaveArea(r.Context(), &a); err != nil {
-			greske = append(greske, strconv.Itoa(a.ID))
-			continue
-		}
-		n++
-		time.Sleep(1100 * time.Millisecond) // OpenStreetMap traži najviše jedan upit u sekundi
 	}
-	poruka := "Koordinate su nađene za " + strconv.Itoa(n) + " područja po mjestu ispostave; provjerite ih na obrascu područja."
-	if len(greske) > 0 {
-		redirectWith(w, r, "/organizacija", "error", poruka+" Nije nađeno za: "+strings.Join(greske, ", "))
+	if len(bez) == 0 {
+		redirectWith(w, r, "/organizacija", "success", "Sva područja već imaju koordinate.")
 		return
 	}
-	redirectWith(w, r, "/organizacija", "success", poruka)
+	geo := h.geokoder
+	p := h.poslovi.Pokreni("Koordinate branjenih područja", u.ID.String(), "/organizacija", func(zad *poslovi.Posao) error {
+		n, greske := 0, []string{}
+		for i, a := range bez {
+			mjesto := weather.MjestoIzNaziva(a.VgiName)
+			if mjesto == "" {
+				mjesto = weather.MjestoIzNaziva(a.Subcenter)
+			}
+			zad.Korak(fmt.Sprintf("BP %d: %s", a.ID, mjesto), i, len(bez))
+			if mjesto == "" {
+				greske = append(greske, fmt.Sprintf("%d (nema mjesta)", a.ID))
+				continue
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			t, err := geo.Nadji(ctx, mjesto)
+			cancel()
+			if err != nil {
+				greske = append(greske, fmt.Sprintf("%d (%s)", a.ID, mjesto))
+				fmt.Fprintf(zad, "BP %d, %s: %v\n", a.ID, mjesto, err)
+			} else {
+				a.Latitude, a.Longitude = t.Lat, t.Lon
+				if err := org.SaveArea(context.Background(), &a); err != nil {
+					greske = append(greske, fmt.Sprint(a.ID))
+				} else {
+					n++
+					fmt.Fprintf(zad, "BP %d, %s: %.5f, %.5f (%s)\n", a.ID, mjesto, t.Lat, t.Lon, t.Naziv)
+				}
+			}
+			if i < len(bez)-1 {
+				time.Sleep(1100 * time.Millisecond) // OpenStreetMap traži najviše jedan upit u sekundi
+			}
+		}
+		poruka := fmt.Sprintf("Koordinate su nađene za %d područja po mjestu ispostave; provjerite ih na obrascu područja.", n)
+		if len(greske) > 0 {
+			zad.Odrediste = "/organizacija?" + url.Values{"error": {poruka + " Nije nađeno za: " + strings.Join(greske, ", ")}}.Encode()
+		} else {
+			zad.Odrediste = "/organizacija?" + url.Values{"success": {poruka}}.Encode()
+		}
+		zad.Zavrsi(poruka, nil)
+		return nil
+	})
+	d := PosaoData{CurrentUser: u, Permissions: perms, ActiveNav: "registers", ViewAsBanner: viewBanner(r), PosaoID: p.ID, PosaoNaziv: p.Naziv, Natrag: "/organizacija"}
+	if err := h.tmplPosao.ExecuteTemplate(w, "posao.html", d); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 // KalendarData je kalendarski pregled zadataka jednog vodočuvara
