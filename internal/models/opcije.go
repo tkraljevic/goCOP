@@ -19,4 +19,9 @@ type Opcije struct {
 	// drugog djelatnika, i upisuje u njegovo ime (npr. dnevni list
 	// vodočuvara). Za testiranje i pomoć; zapis nastaje pod tuđim imenom.
 	UpisTudjimOcima bool `json:"upis_tudjim_ocima"`
+	// SimulacijaKljuca dopušta da se, dok se gleda tuđim očima, dokumenti
+	// potpisuju simuliranim ključem te osobe, bez lozinke: certifikat i
+	// potpis nose oznaku SIMULACIJA, a PDF pečat BEZVRIJEDNO. Samo za
+	// testiranje toka potpisivanja.
+	SimulacijaKljuca bool `json:"simulacija_kljuca"`
 }

@@ -308,6 +308,7 @@ func adresaHR(a string) string {
 
 var (
 	plava        = pdfw.Boja{R: 0.09, G: 0.24, B: 0.45}
+	crvena       = pdfw.Boja{R: 0.75, G: 0.12, B: 0.12}
 	zelena       = pdfw.Boja{R: 0.11, G: 0.50, B: 0.23}
 	blijeda      = pdfw.Boja{R: 0.94, G: 0.97, B: 0.94}
 	sivaTekst    = pdfw.Boja{R: 0.30, G: 0.33, B: 0.36}
@@ -333,13 +334,18 @@ func blokPotpisa(d *pdfw.Doc, a *models.Akt, x, w float64) {
 // uredan, bez ispune, tanak sivi rub, mali lokot, tekst u sivim tonovima; ime
 // je jedino istaknuto
 func blokOvjere(d *pdfw.Doc, x, w float64, naslov, ime, redak, sitno string) {
+	blokOvjereBoja(d, x, w, naslov, ime, redak, sitno, sivaTekst, plava)
+}
+
+// blokOvjereBoja je blokOvjere sa zadanim bojama naslova i imena (i lokota)
+func blokOvjereBoja(d *pdfw.Doc, x, w float64, naslov, ime, redak, sitno string, naslovBoja, imeBoja pdfw.Boja) {
 	const h = 46.0
 	y := d.Y
 	d.Okvir(x, y, w, h, bijela, sivaRub)
-	lokot(d, x+9, y+12, 13, plava)
+	lokot(d, x+9, y+12, 13, imeBoja)
 	tx := x + 29
-	d.TekstBoja(tx, y+10, 5.6, false, naslov, sivaTekst)
-	d.TekstBoja(tx, y+21, 8.5, true, ime, plava)
+	d.TekstBoja(tx, y+10, 5.6, false, naslov, naslovBoja)
+	d.TekstBoja(tx, y+21, 8.5, true, ime, imeBoja)
 	d.TekstBoja(tx, y+30, 6, false, redak, sivaTekst)
 	d.TekstBoja(tx, y+39, 5.6, false, sitno, sivaSvijetla)
 	d.Y = y + h

@@ -662,6 +662,7 @@ func (s *Server) setupRoutes() {
 		return s.akti.PotpisSlika(ctx, userID)
 	})
 	vodH.SetPotpis(func() *service.PotpisService { return s.potpis })
+	vodH.SetOpcije(s.opcije)
 	potpisH := NewPotpisHandler(func() *service.PotpisService { return s.potpis }, s.userService, s.templates["administracija_potpisi.html"])
 	usersH.SetPotpisniKljuc(potpisH.Podaci)
 	authH.SetPrekljucaj(func(ctx context.Context, userID, stara, nova string) error {

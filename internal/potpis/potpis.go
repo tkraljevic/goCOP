@@ -115,11 +115,16 @@ func IzCert(cvor string, der []byte, kljucCvora ed25519.PrivateKey) (*CA, error)
 
 // Osoba je ono što certifikat govori o potpisniku
 type Osoba struct {
-	UserID   string
-	Ime      string
-	Funkcija string
-	Sektor   string
+	UserID     string
+	Ime        string
+	Funkcija   string
+	Sektor     string
+	Simulacija bool // certifikat nosi oznaku SIMULACIJA: potpis je bezvrijedan, za testiranje
 }
+
+// OznakaSimulacije stoji u certifikatu simuliranog ključa, u organizacijskoj
+// jedinici, pa se takav potpis nikad ne može zamijeniti s pravim
+const OznakaSimulacije = "SIMULACIJA - BEZVRIJEDNO"
 
 // Izdaj potpisuje certifikat osobe za zadani javni ključ, na pet godina
 func (ca *CA) Izdaj(o Osoba, javni *ecdsa.PublicKey, kad time.Time) ([]byte, error) {
@@ -128,6 +133,9 @@ func (ca *CA) Izdaj(o Osoba, javni *ecdsa.PublicKey, kad time.Time) ([]byte, err
 		return nil, err
 	}
 	ou := []string{}
+	if o.Simulacija {
+		ou = append(ou, OznakaSimulacije)
+	}
 	if o.Funkcija != "" {
 		ou = append(ou, o.Funkcija)
 	}
@@ -271,7 +279,9 @@ func (z *Zapis) Podaci() (Osoba, *x509.Certificate, error) {
 func osobaIz(c *x509.Certificate) Osoba {
 	o := Osoba{UserID: c.Subject.SerialNumber, Ime: c.Subject.CommonName}
 	for _, ou := range c.Subject.OrganizationalUnit {
-		if strings.HasPrefix(ou, "Sektor ") {
+		if ou == OznakaSimulacije {
+			o.Simulacija = true
+		} else if strings.HasPrefix(ou, "Sektor ") {
 			o.Sektor = strings.TrimPrefix(ou, "Sektor ")
 		} else if o.Funkcija == "" {
 			o.Funkcija = ou
@@ -291,9 +301,31 @@ func Otisak(der []byte) string {
 
 // Potpisnik je otključani ključ s certifikatom i lancem do izdavatelja
 type Potpisnik struct {
-	Kljuc *ecdsa.PrivateKey
-	Cert  *x509.Certificate
-	Lanac []*x509.Certificate
+	Kljuc      *ecdsa.PrivateKey
+	Cert       *x509.Certificate
+	Lanac      []*x509.Certificate
+	Simulacija bool // jednokratni simulirani ključ, za testiranje
+}
+
+// NoviSimulirani pravi jednokratni ključ u ime osobe s certifikatom koji
+// nosi oznaku SIMULACIJA; ne sprema se i ne traži lozinku. Služi da se tok
+// potpisivanja isproba tuđim očima, a potpis je bezvrijedan.
+func (ca *CA) NoviSimulirani(o Osoba, kad time.Time) (*Potpisnik, error) {
+	o.Simulacija = true
+	o.Ime += " (SIMULACIJA)"
+	k, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return nil, err
+	}
+	der, err := ca.Izdaj(o, &k.PublicKey, kad)
+	if err != nil {
+		return nil, err
+	}
+	c, err := x509.ParseCertificate(der)
+	if err != nil {
+		return nil, err
+	}
+	return &Potpisnik{Kljuc: k, Cert: c, Lanac: []*x509.Certificate{ca.Cert}, Simulacija: true}, nil
 }
 
 // NoviPotpisnik otključava zapis lozinkom i sastavlja potpisnika

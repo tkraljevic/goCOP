@@ -178,6 +178,29 @@ func (s *PotpisService) Potpisnik(ctx context.Context, u *models.User, lozinka s
 	return p, err
 }
 
+// Simulirani pravi jednokratni simulirani ključ u ime osobe, za testiranje
+// tuđim očima uz uključenu opciju; potpis nosi oznaku SIMULACIJA
+func (s *PotpisService) Simulirani(ctx context.Context, u *models.User) (*potpis.Potpisnik, error) {
+	if s == nil || s.ca == nil {
+		return nil, errors.New("izdavatelj potpisa nije spreman")
+	}
+	if u == nil {
+		return nil, ErrUnauthorized
+	}
+	cijeli, err := s.users.GetUserByID(u.ID)
+	if err != nil || cijeli == nil {
+		return nil, ErrUnauthorized
+	}
+	o := potpis.Osoba{UserID: u.ID.String(), Ime: cijeli.FullName}
+	if d := najvisaDuznost(cijeli); d != nil {
+		o.Funkcija = d.Title
+		if d.SectorID != nil {
+			o.Sektor = *d.SectorID
+		}
+	}
+	return s.ca.NoviSimulirani(o, time.Now())
+}
+
 // Prekljucaj zaključava ključ novom lozinkom kad osoba mijenja lozinku
 // računa; bez ključa nema što raditi
 func (s *PotpisService) Prekljucaj(ctx context.Context, userID, stara, nova string) error {
