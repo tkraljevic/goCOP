@@ -742,3 +742,13 @@ func (s *ZidService) Stanje(ctx context.Context, perms *models.UserPermissions, 
 func (s StanjeObrane) Mirno() bool {
 	return s.Dnevnik == nil && s.DionicaUObr == 0 && len(s.NaTerenu) == 0
 }
+
+// ObrisiDogadjaj briše zapis s oglasne ploče, tj. tu verziju iz knjige;
+// smije uprava organizacije, i samo kad je prekidač uključen (provjerava
+// rukovatelj)
+func (s *ZidService) ObrisiDogadjaj(ctx context.Context, perms *models.UserPermissions, versionID string) error {
+	if perms == nil || !perms.IsGlobalAdmin {
+		return ErrUnauthorized
+	}
+	return s.rec.DeleteVersion(ctx, versionID)
+}

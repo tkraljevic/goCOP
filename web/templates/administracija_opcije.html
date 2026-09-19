@@ -29,6 +29,30 @@
         <p><strong>Kada uključiti:</strong> samo u testnom okruženju, dok se program isprobava probnim aktima. <strong>U operativnom radu držite isključeno:</strong> ovjereno rješenje ili obavijest ima pravni učinak i mora ostati u evidenciji, pa se ispravlja novim aktom, ne brisanjem.</p>
       </div>
     </div>
+    <div class="opcija">
+      <label class="opcija-red">
+        <input type="checkbox" name="brisanje_povijesti_verzija" value="1" {{if .Opcije.BrisanjePovijestiVerzija}}checked{{end}}>
+        <span class="opcija-naziv">Brisanje povijesti verzija</span>
+        <span class="badge {{if .Opcije.BrisanjePovijestiVerzija}}badge-danger{{else}}badge-active{{end}}">{{if .Opcije.BrisanjePovijestiVerzija}}uključeno{{else}}isključeno{{end}}</span>
+      </label>
+      <div class="opcija-opis">
+        <p><strong>Što radi:</strong> u Administraciji › Održavanje baze otključava rok 0 dana (briše svu povijest izmjena odmah, ostaju samo zadnje verzije) i gumb „Obriši spomenike”, koji briše zapise o brisanju. Bez prekidača sažimanje čuva najmanje jedan dan povijesti i sve spomenike.</p>
+        <p><strong>Što ne radi:</strong> ne dira zadnju verziju nijednog zapisa, pa podaci u programu ostaju isti. Briše samo na ovom čvoru; drugi čvorovi zadržavaju što su primili.</p>
+        <p><strong>Kada uključiti:</strong> pri čišćenju testnog čvora. <strong>U operativnom radu držite isključeno:</strong> povijest izmjena je dokaz tko je što promijenio, a spomenici sprječavaju da zakašnjeli čvor vrati obrisani zapis.</p>
+      </div>
+    </div>
+    <div class="opcija">
+      <label class="opcija-red">
+        <input type="checkbox" name="brisanje_s_oglasne_ploce" value="1" {{if .Opcije.BrisanjeSOglasnePloce}}checked{{end}}>
+        <span class="opcija-naziv">Brisanje zapisa s oglasne ploče</span>
+        <span class="badge {{if .Opcije.BrisanjeSOglasnePloce}}badge-danger{{else}}badge-active{{end}}">{{if .Opcije.BrisanjeSOglasnePloce}}uključeno{{else}}isključeno{{end}}</span>
+      </label>
+      <div class="opcija-opis">
+        <p><strong>Što radi:</strong> uprava organizacije na stranici Događanja dobiva uz svaki zapis gumb za brisanje. Oglasna ploča čita knjigu verzija, pa se briše ta verzija iz knjige na ovom čvoru.</p>
+        <p><strong>Što ne radi:</strong> zadnja verzija živog zapisa ne može se obrisati (program to odbije), da podaci i knjiga ostanu usklađeni; takav se zapis briše na svom mjestu u programu. Zapis koji je drugi čvor već primio ondje ostaje.</p>
+        <p><strong>Kada uključiti:</strong> za čišćenje probnih zapisa s ploče. <strong>U operativnom radu držite isključeno:</strong> ploča je dnevnik rada i ne smije se prepravljati.</p>
+      </div>
+    </div>
     <div class="form-actions"><button type="submit" class="btn btn-primary">{{icon "check"}} Spremi opcije</button></div>
   </form>
 </section>

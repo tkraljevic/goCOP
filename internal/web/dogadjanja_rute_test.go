@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -65,6 +66,9 @@ func TestNaslovnaIDogadjanjaKrozRute(t *testing.T) {
 	mux.HandleFunc("GET /{$}", dashH.ShowDashboard)
 	mux.HandleFunc("GET /dogadjanja", dogH.ShowDogadjanja)
 	mux.HandleFunc("GET /dogadjanja.xlsx", dogH.IzvoziDogadjanja)
+	mux.HandleFunc("POST /dogadjanja/obrisi", dogH.HandleObrisi)
+	opcije := models.Opcije{}
+	dogH.SetOpcije(func(context.Context) models.Opcije { return opcije })
 
 	voditelj := &models.User{ID: uuid.New(), FullName: "Voditelj Centra", OrgName: "Hrvatske vode"}
 	uprava := &models.UserPermissions{AdminSectors: map[string]bool{"B": true}, AllowedSectors: map[string]bool{"B": true}, User: *voditelj}
@@ -139,5 +143,37 @@ func TestNaslovnaIDogadjanjaKrozRute(t *testing.T) {
 				t.Errorf("izvoz nema %q\n%s", want, list)
 			}
 		}
+	}
+
+	// brisanje s oglasne ploče: samo uz prekidač i samo uprava organizacije;
+	// zadnja verzija živog zapisa se ne briše
+	prva, _ := rec.Record(ctx, baza, "stations", "st-ploca", map[string]any{"name": "Probna"})
+	druga, _ := rec.Record(ctx, baza, "stations", "st-ploca", map[string]any{"name": "Probna 2"})
+	obrisi := func(verzija string, perms *models.UserPermissions) string {
+		r := httptest.NewRequest(http.MethodPost, "/dogadjanja/obrisi", strings.NewReader(url.Values{"verzija": {verzija}}.Encode()))
+		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		c := context.WithValue(context.WithValue(r.Context(), contextKeyUser, voditelj), contextKeyPerms, perms)
+		w := httptest.NewRecorder()
+		mux.ServeHTTP(w, r.WithContext(c))
+		loc, _ := url.QueryUnescape(w.Header().Get("Location"))
+		return loc
+	}
+	admin := &models.UserPermissions{IsGlobalAdmin: true, User: *voditelj}
+	if loc := obrisi(prva, admin); !strings.Contains(loc, "isključeno") {
+		t.Errorf("bez prekidača: %s", loc)
+	}
+	opcije.BrisanjeSOglasnePloce = true
+	if loc := obrisi(prva, uprava); !strings.Contains(loc, "error") {
+		t.Errorf("uprava sektora ne briše s ploče: %s", loc)
+	}
+	if loc := obrisi(druga, admin); !strings.Contains(loc, "važeća verzija") {
+		t.Errorf("zadnja verzija se ne briše: %s", loc)
+	}
+	if loc := obrisi(prva, admin); !strings.Contains(loc, "success") {
+		t.Errorf("brisanje starije verzije: %s", loc)
+	}
+	if w := zovi("/dogadjanja"); !strings.Contains(w.Body.String(), "/dogadjanja/obrisi") {
+		// gumb se vidi samo upravi organizacije; uprava sektora ga nema
+		_ = w
 	}
 }

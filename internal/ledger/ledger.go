@@ -543,3 +543,42 @@ func (r *Recorder) Recent(ctx context.Context, entities []string, prije string, 
 	}
 	return r.query(ctx, q, args...)
 }
+
+// PurgeArchived briše spomenike obrisanih zapisa (arhivirane verzije).
+// Bez spomenika zakašnjeli čvor može obrisani zapis vratiti; zato samo u
+// testnom okruženju.
+func (r *Recorder) PurgeArchived(ctx context.Context) (int64, error) {
+	res, err := r.db.ExecContext(ctx, `DELETE FROM record_versions WHERE archived = 1`)
+	if err != nil {
+		return 0, fmt.Errorf("brisanje spomenika: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	return n, nil
+}
+
+// ErrVazecaVerzija: verzija je zadnja verzija živog zapisa i ne briše se
+// zasebno; briše se zapis
+var ErrVazecaVerzija = errors.New("to je važeća verzija zapisa; obrišite sam zapis, ne povijest")
+
+// DeleteVersion briše jednu verziju iz knjige, npr. zapis s oglasne ploče.
+// Zadnja verzija živog zapisa ne briše se, jer bi površina i knjiga
+// ostale neusklađene.
+func (r *Recorder) DeleteVersion(ctx context.Context, versionID string) error {
+	var entity, entityID string
+	var archived int
+	err := r.db.QueryRowContext(ctx, `SELECT entity, entity_id, archived FROM record_versions WHERE version_id = ?`, versionID).Scan(&entity, &entityID, &archived)
+	if err == sql.ErrNoRows {
+		return errors.New("zapis više ne postoji")
+	}
+	if err != nil {
+		return err
+	}
+	if archived == 0 {
+		var zadnja string
+		if err := r.db.QueryRowContext(ctx, `SELECT MAX(version_id) FROM record_versions WHERE entity = ? AND entity_id = ?`, entity, entityID).Scan(&zadnja); err == nil && zadnja == versionID {
+			return ErrVazecaVerzija
+		}
+	}
+	_, err = r.db.ExecContext(ctx, `DELETE FROM record_versions WHERE version_id = ?`, versionID)
+	return err
+}

@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"html/template"
@@ -29,6 +30,32 @@ type DBMaintHandler struct {
 	peers  *peers.Service
 	dbPath func() string
 	tmpl   *template.Template
+	opcije func(ctx context.Context) models.Opcije // nil = sve isključeno
+}
+
+// SetOpcije daje rukovatelju uvid u opće prekidače
+func (h *DBMaintHandler) SetOpcije(f func(ctx context.Context) models.Opcije) { h.opcije = f }
+
+func (h *DBMaintHandler) brisanjePovijesti(ctx context.Context) bool {
+	return h.opcije != nil && h.opcije(ctx).BrisanjePovijestiVerzija
+}
+
+// HandlePurgeTombstones briše spomenike obrisanih zapisa, uz uključen prekidač
+func (h *DBMaintHandler) HandlePurgeTombstones(w http.ResponseWriter, r *http.Request) {
+	if err := requireAdmin(r); err != nil {
+		http.Error(w, err.Error(), http.StatusForbidden)
+		return
+	}
+	if !h.brisanjePovijesti(r.Context()) {
+		redirectWith(w, r, "/administracija/baza", "error", "Brisanje povijesti verzija je isključeno (Administracija › Opcije)")
+		return
+	}
+	n, err := h.rec.PurgeArchived(r.Context())
+	if err != nil {
+		redirectWith(w, r, "/administracija/baza", "error", err.Error())
+		return
+	}
+	redirectWith(w, r, "/administracija/baza", "success", fmt.Sprintf("Obrisano %d spomenika obrisanih zapisa.", n))
 }
 
 func NewDBMaintHandler(db func() *sql.DB, rec *ledger.Recorder, peersSvc *peers.Service, dbPath func() string, tmpl *template.Template) *DBMaintHandler {
@@ -39,17 +66,19 @@ type DBMaintPageData struct {
 	CurrentUser *models.User
 	Permissions *models.UserPermissions
 
-	DBPath      string
-	SizeBytes   int64
-	WALBytes    int64
-	Stats       ledger.Stats
-	Channels    []peers.ChannelStat
-	Compactable int // verzija koje bi sažimanje maknulo uz zadani rok
-	KeepDays    int
-	Readings    int
-	Journals    int
-	Sessions    int
-	Import      *peers.ImportReport
+	DBPath            string
+	SizeBytes         int64
+	WALBytes          int64
+	Stats             ledger.Stats
+	Channels          []peers.ChannelStat
+	Compactable       int // verzija koje bi sažimanje maknulo uz zadani rok
+	KeepDays          int
+	Spomenika         int  // arhiviranih verzija (spomenika)
+	BrisanjePovijesti bool // prekidač uključen
+	Readings          int
+	Journals          int
+	Sessions          int
+	Import            *peers.ImportReport
 
 	SuccessMessage string
 	ErrorMessage   string
@@ -75,7 +104,11 @@ func (h *DBMaintHandler) pageData(r *http.Request) DBMaintPageData {
 func (h *DBMaintHandler) ShowMaintenance(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	data := h.pageData(r)
-	if days, _ := strconv.Atoi(r.URL.Query().Get("days")); days > 0 {
+	data.BrisanjePovijesti = h.brisanjePovijesti(ctx)
+	if data.BrisanjePovijesti {
+		_ = h.db().QueryRowContext(ctx, `SELECT COUNT(*) FROM record_versions WHERE archived = 1`).Scan(&data.Spomenika)
+	}
+	if days, _ := strconv.Atoi(r.URL.Query().Get("days")); days > 0 || (days == 0 && r.URL.Query().Get("days") == "0" && data.BrisanjePovijesti) {
 		data.KeepDays = days
 	}
 	data.DBPath = h.dbPath()
@@ -114,7 +147,7 @@ func (h *DBMaintHandler) HandleCompact(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	days, _ := strconv.Atoi(r.FormValue("days"))
-	if days < 1 {
+	if days < 1 && !(r.FormValue("days") == "0" && h.brisanjePovijesti(r.Context())) {
 		days = DefaultKeepDays
 	}
 	n, err := h.rec.Compact(r.Context(), time.Now().AddDate(0, 0, -days))
