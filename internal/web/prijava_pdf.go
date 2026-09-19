@@ -233,7 +233,7 @@ func pdfPrijave(p *models.PrijavaSTerena, pr prilogPrijave, t models.OrgTerms, c
 	}
 	mjesto := ""
 	if pr.Podrucje != nil {
-		mjesto = strings.TrimSpace(strings.TrimPrefix(pr.Podrucje.Subcenter, "Podcentar "))
+		mjesto = strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(pr.Podrucje.Subcenter, "Podcentar "), "COP "))
 	}
 	if mjesto == "" {
 		mjesto = pr.Zaglavlje.Mjesto
@@ -249,17 +249,38 @@ func pdfPrijave(p *models.PrijavaSTerena, pr prilogPrijave, t models.OrgTerms, c
 	}
 	d.Tekst(d.Lijevo, yMD, 8.5, false, mjestoDatum)
 	d.TekstSredina(m.xVodocuvar+pw/2, yPot, 8.5, false, "potpis vodočuvara")
-	crtajPotpisLista(d, m.xVodocuvar, m.y, pw, p.Ime, p.ObjavljenoAt, "prijava "+p.Oznaka(), p.Kod(), p.Cvor, pr.Otisci[p.UserID], crtajBlok, false)
-	if p.ObjavljenoAt == nil {
-		d.TekstSredina(m.xVodocuvar+pw/2, m.y+46+42+11, 8, false, "( "+p.Ime+" )")
+	switch {
+	case p.Rekonstrukcija && p.ObjavljenoAt != nil:
+		// prenesena iz ranije evidencije: bez elektroničkog potpisa, siv blok
+		// koji to kaže, pa crta i ime kao na ispisu
+		staro := d.Y
+		d.Y = m.y
+		sitno := "sken potpisanog ispisa: prilog na čvoru"
+		if p.Sken == "" {
+			sitno = "bez skena potpisanog ispisa"
+		}
+		blokOvjereBoja(d, m.xVodocuvar, pw, "PRENESENO IZ RANIJE EVIDENCIJE (app.bp16.xyz)", p.Ime,
+			p.ObjavljenoAt.In(models.Zagreb).Format("02.01.2006. u 15:04")+" · prijava "+p.Oznaka()+" · bez e-potpisa", sitno, sivaTekst, sivaTekst)
+		d.Y = staro
+		crta := m.y + 46 + 42
+		d.Crta(m.xVodocuvar+10, crta, m.xVodocuvar+pw-10, crta)
+		d.TekstSredina(m.xVodocuvar+pw/2, crta+11, 9, false, p.Ime)
+	default:
+		crtajPotpisLista(d, m.xVodocuvar, m.y, pw, p.Ime, p.ObjavljenoAt, "prijava "+p.Oznaka(), p.Kod(), p.Cvor, pr.Otisci[p.UserID], crtajBlok, false)
+		if p.ObjavljenoAt == nil {
+			d.TekstSredina(m.xVodocuvar+pw/2, m.y+46+42+11, 8, false, "( "+p.Ime+" )")
+		}
 	}
 	d.Y = m.y + visinaPotpisa + 6
 	if kartaUzPotpis && yMD+10 > d.Y {
 		d.Y = yMD + 10
 	}
-	if p.ListBroj > 0 {
+	switch {
+	case p.Rekonstrukcija && p.ObjavljenoAt != nil:
+		d.TekstBoja(d.Lijevo, d.H-d.Dolje, 6.5, false, "Rekonstrukcija: prijava prenesena iz ranije evidencije VGI Baranja (app.bp16.xyz), složena iz podataka u goCOP-u; fotografije su smanjene i ugrađene.", sivaTekst)
+	case p.ObjavljenoAt != nil:
 		d.TekstBoja(d.Lijevo, d.H-d.Dolje, 6.5, false, fmt.Sprintf("Upisano na dnevni list vodočuvara %03d/%d. Sastavljeno u goCOP-u; elektronički potpis je vremenska oznaka, a ispis se potpisuje i vlastoručno. Fotografije su smanjene i ugrađene.", p.ListBroj, p.Godina), sivaTekst)
-	} else {
+	default:
 		d.TekstBoja(d.Lijevo, d.H-d.Dolje, 6.5, false, "NACRT: prijava još nije objavljena ni potpisana.", sivaTekst)
 	}
 
