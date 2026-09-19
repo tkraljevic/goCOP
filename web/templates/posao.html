@@ -1,0 +1,17 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — {{.PosaoNaziv}}{{end}}
+
+{{define "content"}}
+<div class="page-header"><div><h1 class="page-title">{{icon "clock"}} {{.PosaoNaziv}}</h1></div></div>
+<div class="posao" data-posao="{{.PosaoID}}">
+  <p class="posao-naslov">{{icon "clock"}} {{.PosaoNaziv}}</p>
+  <div class="posao-traka"><div class="posao-traka-crta"></div></div>
+  <div class="posao-crta">
+    <span class="posao-sto">počinjem</span>
+    <span class="posao-brojka"></span>
+  </div>
+  <pre class="posao-dnevnik"></pre>
+  <p class="reading-meta" style="margin:0.6rem 0 0;">Posao se vrti na poslužitelju i dovršit će se i ako zatvorite stranicu. Kad završi, stranica se sama vraća na <a href="{{.Natrag}}">{{.Natrag}}</a>.</p>
+</div>
+{{end}}
