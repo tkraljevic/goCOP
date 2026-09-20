@@ -315,7 +315,16 @@ Pravila, ista kao za letve:
    predloženo pravilo. Nema još: prijenosa po dijelovima za velike datoteke,
    dohvata na klik za otpušteni ili nepokriveni sadržaj, potvrde čuvara prije
    otpuštanja vlastitog sadržaja.
-5. `.cop` inačica 3 s kanalom `prijave`, pa ostali kanali *(nije napravljeno)*.
+5. `.cop` inačica 3 *(napravljeno za kanale očitanja, dnevnika i prijava)*:
+   ZIP s `manifest.json` (obuhvat, kanali, izdanje, prethodno, izdao,
+   otisak, potpis ključem čvora), `zapisi.jsonl`, `sadrzaji.json` i
+   `sadrzaj/<otisak>` po izboru; otisak izdanja ne ovisi o uključenim
+   bajtovima; katalog izdanja po obuhvatu (`cop_izdanja`), evidencija
+   primljenih (`cop_primljena`) odbija starije izdanje istog izdavača i isto
+   izdanje s drugim otiskom; ugradnja traži valjan potpis člana mreže,
+   verzije uzima po pretplati, uključeni sadržaj upiše, ostali na popis za
+   dohvat. Stranica Administracija → Baza izdaje i ugrađuje; stari `.db`
+   izvoz ostaje za starije čvorove. Vodostaji ostaju u inačici 2 po letvi.
 
 Točke 5 i 6 plana o arhivi (mrežni zaborav, umirovljenje čvora) ne ovise o
 ovome.

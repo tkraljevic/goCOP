@@ -71,19 +71,29 @@
 </section>
 
 <section class="detail-section">
-  <h2>{{icon "download"}} Izvoz kanala u datoteku</h2>
+  <h2>{{icon "download"}} Izdanje kanala kao .cop paket</h2>
   <p class="page-desc">
-    Godina jednog područja odloži se u zasebnu datoteku: arhiva na disku, prijenos štapićem na računalo bez
-    mreže, ili prostor na laptopu. Datoteka nosi knjigu verzija tih kanala i uvozi se u bilo koji čvor.
+    Godina jednog područja izda se kao potpisan <span class="mono">.cop</span> paket: arhiva na disku, prijenos
+    štapićem na računalo bez mreže, ili prostor na laptopu. Paket nosi verzije kanala (dnevnike s dnevnim
+    izvješćima, prijave, očitanja), popis sadržaja po otisku i, po izboru, same PDF-ove. Isti sadržaj daje isto
+    izdanje i isti otisak; potpisuje ga ključ ovog čvora, a primatelj traži da je izdavač član mreže.
   </p>
   {{if .Channels}}
   <form method="GET" action="/administracija/baza/izvoz" class="form-page" style="display:flex; gap:0.5rem; align-items:flex-end; flex-wrap:wrap;">
     <div class="form-group" style="margin:0;">
       <label class="form-label" for="kind">Što</label>
       <select id="kind" name="kind" class="form-control">
-        <option value="">Očitanja i dnevnici</option>
+        <option value="">Sve vrste</option>
         <option value="ocitanja">Očitanja</option>
         <option value="dnevnici">Dnevnici</option>
+        <option value="prijave">Prijave s terena</option>
+      </select>
+    </div>
+    <div class="form-group" style="margin:0;">
+      <label class="form-label" for="sadrzaj">Sadržaj</label>
+      <select id="sadrzaj" name="sadrzaj" class="form-control">
+        <option value="1">S PDF-ovima i slikama</option>
+        <option value="0">Samo zapisi i popis (kazalo)</option>
       </select>
     </div>
     <div class="form-group" style="margin:0;">
@@ -94,7 +104,8 @@
       <label class="form-label" for="year">Godina</label>
       <input type="text" inputmode="numeric" id="year" name="year" class="form-control" placeholder="npr. 2024 (prazno = sve)" style="max-width:10rem;">
     </div>
-    <button type="submit" class="btn btn-primary">{{icon "download"}} Izvezi</button>
+    <button type="submit" class="btn btn-primary">{{icon "download"}} Izdaj .cop</button>
+    <button type="submit" name="oblik" value="db" class="btn btn-secondary" title="Stara SQLite arhiva bez potpisa i sadržaja">Stari oblik (.db)</button>
   </form>
   <div class="table-card" style="margin-top:0.75rem;"><div class="table-responsive">
     <table class="data-table">
@@ -102,7 +113,7 @@
       <tbody>
       {{range .Channels}}
       <tr>
-        <td>{{if eq .Kind "ocitanja"}}Očitanja{{else if eq .Kind "dnevnici"}}Dnevnici{{else}}{{.Kind}}{{end}}</td>
+        <td>{{if eq .Kind "ocitanja"}}Očitanja{{else if eq .Kind "dnevnici"}}Dnevnici{{else if eq .Kind "prijave"}}Prijave{{else}}{{.Kind}}{{end}}</td>
         <td class="mono">{{.AreaID}}</td><td class="mono">{{.Year}}</td><td class="mono">{{.Versions}}</td>
         <td>{{if .Wanted}}<span class="badge badge-active">prati se</span>{{else}}<span class="badge badge-inactive">ne prati se</span>{{end}}</td>
       </tr>
@@ -111,22 +122,24 @@
     </table>
   </div></div>
   {{else}}
-  <div class="reg-empty">Ovaj čvor još ne drži nijedan kanal očitanja ni dnevnika.</div>
+  <div class="reg-empty">Ovaj čvor još ne drži nijedan kanal očitanja, dnevnika ni prijava.</div>
   {{end}}
 </section>
 
 <section class="detail-section">
-  <h2>{{icon "file-text"}} Uvoz iz datoteke</h2>
+  <h2>{{icon "file-text"}} Ugradnja paketa</h2>
   <p class="page-desc">
-    Arhiva izvezena s bilo kojeg čvora. Uvoz radi kao razmjena: verzije koje ovaj čvor nema uđu u knjigu, a
-    zapisi se osvježe iz najnovijih. Ponovljeni uvoz iste datoteke ne mijenja ništa.
+    <span class="mono">.cop</span> paket ili stara <span class="mono">.db</span> arhiva s bilo kojeg čvora. Ugradnja radi
+    kao razmjena: provjere otiska i potpisa, pa verzije koje ovaj čvor nema uđu u knjigu, zapisi se osvježe iz
+    najnovijih, uključeni sadržaj u spremište, ostali na popis za dohvat. Starije izdanje istog izdavača se odbija;
+    ponovljena ugradnja iste datoteke ne mijenja ništa.
   </p>
   <form method="POST" action="/administracija/baza/uvoz" enctype="multipart/form-data" class="form-page" style="display:flex; gap:0.5rem; align-items:flex-end; flex-wrap:wrap;">
     <div class="form-group" style="margin:0;">
-      <label class="form-label" for="archive">Datoteka (.db)</label>
-      <input type="file" id="archive" name="archive" class="form-control" accept=".db,.sqlite,application/vnd.sqlite3" required>
+      <label class="form-label" for="archive">Datoteka (.cop ili .db)</label>
+      <input type="file" id="archive" name="archive" class="form-control" accept=".cop,.db,.sqlite,application/octet-stream,application/vnd.sqlite3" required>
     </div>
-    <button type="submit" class="btn btn-primary">{{icon "download"}} Uvezi</button>
+    <button type="submit" class="btn btn-primary">{{icon "download"}} Ugradi</button>
   </form>
 </section>
 {{end}}

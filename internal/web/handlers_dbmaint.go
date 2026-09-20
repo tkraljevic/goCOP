@@ -1,6 +1,7 @@
 package web
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"fmt"
@@ -198,7 +199,8 @@ func (h *DBMaintHandler) HandleVacuum(w http.ResponseWriter, r *http.Request) {
 	redirectWith(w, r, "/administracija/baza", "success", fmt.Sprintf("Baza je sažeta na disku: %s → %s.", humanBytes(before), humanBytes(after)))
 }
 
-// HandleExport šalje kanale kao SQLite arhivu na preuzimanje
+// HandleExport šalje kanale kao potpisano .cop izdanje na preuzimanje; uz
+// oblik=db daje staru SQLite arhivu bez potpisa i sadržaja
 func (h *DBMaintHandler) HandleExport(w http.ResponseWriter, r *http.Request) {
 	if err := requireAdmin(r); err != nil {
 		http.Error(w, err.Error(), http.StatusForbidden)
@@ -214,6 +216,20 @@ func (h *DBMaintHandler) HandleExport(w http.ResponseWriter, r *http.Request) {
 	channels, err := h.peers.ChannelsFor(r.Context(), kind, area, year)
 	if err != nil || len(channels) == 0 {
 		redirectWith(w, r, "/administracija/baza", "error", "Nema nijednog kanala za taj odabir na ovom čvoru")
+		return
+	}
+	if r.URL.Query().Get("oblik") != "db" {
+		obuhvat := peers.CopObuhvat{Vrsta: kind, AreaID: area, Od: year, Do: year}
+		var b bytes.Buffer
+		m, err := h.peers.IzveziCop(r.Context(), obuhvat, channels, r.URL.Query().Get("sadrzaj") != "0", &b)
+		if err != nil {
+			redirectWith(w, r, "/administracija/baza", "error", err.Error())
+			return
+		}
+		w.Header().Set("Content-Type", "application/octet-stream")
+		w.Header().Set("Content-Disposition", `attachment; filename="`+peers.CopIme(m)+`"`)
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		_, _ = w.Write(b.Bytes())
 		return
 	}
 	name := peers.ArchiveFileName(kind, area, year)
@@ -263,6 +279,20 @@ func (h *DBMaintHandler) HandleImport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	out.Close()
+	if jeCop(tmp) {
+		rep, err := h.peers.UveziCop(r.Context(), tmp)
+		if err != nil {
+			redirectWith(w, r, "/administracija/baza", "error", err.Error())
+			return
+		}
+		poruka := fmt.Sprintf("Ugrađeno izdanje %d (%s) čvora %s: %d zapisa u paketu, %d novih; sadržaja upisano %d, za dohvat %d.",
+			rep.Manifest.Izdanje, rep.Manifest.Obuhvat.Kljuc(), rep.Manifest.Izdao, rep.Verzija, rep.Novih, rep.SadrzajaUpisano, rep.SadrzajaZeljeno)
+		if rep.Napomena != "" {
+			poruka += " " + rep.Napomena + "."
+		}
+		redirectWith(w, r, "/administracija/baza", "success", poruka)
+		return
+	}
 	rep, err := h.peers.ImportFile(r.Context(), tmp)
 	if err != nil {
 		redirectWith(w, r, "/administracija/baza", "error", err.Error())
@@ -274,6 +304,20 @@ func (h *DBMaintHandler) HandleImport(w http.ResponseWriter, r *http.Request) {
 	}
 	redirectWith(w, r, "/administracija/baza", "success",
 		fmt.Sprintf("Uvezena arhiva čvora %s: %d verzija u datoteci, %d novih (%s).", rep.From, rep.Versions, rep.Applied, strings.Join(parts, "; ")))
+}
+
+// jeCop prepoznaje .cop paket po ZIP zaglavlju; stara arhiva je SQLite
+func jeCop(put string) bool {
+	f, err := os.Open(put)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	var glava [4]byte
+	if _, err := io.ReadFull(f, glava[:]); err != nil {
+		return false
+	}
+	return glava[0] == 'P' && glava[1] == 'K'
 }
 
 func humanBytes(n int64) string {
