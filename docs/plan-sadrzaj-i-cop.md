@@ -30,6 +30,31 @@ prijava.
 | sadržaj | `data/sadrzaj.db` | PDF, fotografija, sken, potpis, karta: bajtovi po SHA-256 otisku | onim što čvor prati |
 | arhiva vodostaja | `data/vodostaji.db` | povijesni nizovi (već postoji) | izdanjima koja čvor drži |
 
+### Zašto ne baza po modulu
+
+Pitanje se vraća, pa odgovor stoji ovdje. Datoteke po modulu
+(`dnevnik.db`, `prijave.db`) ne rade se, jer:
+
+- **zapisi nisu ono što raste**: svih 14 256 verzija svih modula je 5 MB;
+  rastu bajtovi sadržaja, a njih rješava spremište po otisku, ne datoteka
+  po modulu;
+- **objava je jedna transakcija preko modula**: prijava, njezin izvornik,
+  upis na dnevni list i verzije u knjizi upisuju se sve ili ništa; SQLite u
+  WAL načinu ne jamči atomičnost preko više datoteka, pa bi podjela vratila
+  napola objavljene zapise;
+- **knjiga verzija je jedna**: granice razmjene, kanali i potvrde članstva
+  rade nad jednom knjigom, a selektivnost daju kanali (vrsta, područje,
+  godina) i pretplata, ne datoteke;
+- **prikazi spajaju module**: dnevni list pokazuje prijave, akt se upisuje
+  u dnevnike, nadzorna ploča čita sve.
+
+Dijeli se po obliku i životnom ciklusu: promjenjivi zapisi s verzijama u
+jednoj operativnoj bazi, nepromjenjivi bajtovi po otisku u spremištu,
+masovna mjerenja bez verzija u svojoj bazi (vodostaji, jer su bili 61 %
+baze u vlastitom obliku), snimke za prijenos u `.cop`. Novi modul dobiva
+svoju datoteku tek kad oblik njegovih podataka to traži, kao vodostaji, a
+ne zato što ima svoje ime.
+
 Pravilo koje sve drži: **knjiga verzija nikad ne nosi bajtove sadržaja.**
 Zapis u knjizi nosi otisak, veličinu i vrstu. Bajtovi žive u spremištu
 sadržaja i prenose se svojim putem. Tako ni migracija ni zaborav ne diraju
