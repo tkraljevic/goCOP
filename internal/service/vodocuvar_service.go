@@ -478,6 +478,12 @@ func (s *VodocuvarService) Get(ctx context.Context, perms *models.UserPermission
 	return l, nil
 }
 
+// NajstarijaGodina je godina najstarijeg lista na čvoru; 0 kad listova nema.
+// Popis godina se po njoj ravna, da prenesene starije knjige budu dohvatljive.
+func (s *VodocuvarService) NajstarijaGodina(ctx context.Context) int {
+	return s.repo.NajstarijaGodina(ctx)
+}
+
 // Moji vraća listove osobe u godini
 func (s *VodocuvarService) Moji(ctx context.Context, u *models.User, godina int) ([]models.VodocuvarskiList, error) {
 	return s.repo.List(ctx, repository.FiltarListova{UserID: u.ID.String(), Godina: godina})

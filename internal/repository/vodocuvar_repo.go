@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -183,6 +184,16 @@ func (r *VodocuvarRepository) SljedeciBroj(ctx context.Context, userID string, g
 	var n int
 	err := r.db.QueryRowContext(ctx, `SELECT COALESCE(MAX(broj), 0) + 1 FROM vodocuvarski_listovi WHERE user_id = ? AND substr(datum, 1, 4) = ?`, userID, fmt.Sprint(godina)).Scan(&n)
 	return n, err
+}
+
+// NajstarijaGodina je godina najstarijeg lista; 0 kad listova nema
+func (r *VodocuvarRepository) NajstarijaGodina(ctx context.Context) int {
+	var datum sql.NullString
+	if err := r.db.QueryRowContext(ctx, `SELECT min(datum) FROM vodocuvarski_listovi`).Scan(&datum); err != nil || !datum.Valid || len(datum.String) < 4 {
+		return 0
+	}
+	g, _ := strconv.Atoi(datum.String[:4])
+	return g
 }
 
 // Delete briše list (nacrt), sa spomenikom u knjizi

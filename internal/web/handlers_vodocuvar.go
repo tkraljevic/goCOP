@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -90,6 +91,19 @@ type KnjigaVodocuvara struct {
 	Listovi []models.VodocuvarskiList
 	Cekaju  int              // predani, a neovjereni
 	Zadaci  []models.Zadatak // otvoreni zadaci koji čekaju vodočuvara
+	// Mjeseci dijele godinu na mjesece: knjiga zna imati stotine listova, a
+	// odjednom se gleda jedan mjesec
+	Mjeseci   []MjesecKnjige
+	Preneseni int // listovi iz ranije evidencije, bez potpisa i broja
+}
+
+// MjesecKnjige je jedan mjesec knjige, s listovima tog mjeseca
+type MjesecKnjige struct {
+	Mjesec    time.Time
+	Listovi   []models.VodocuvarskiList
+	Cekaju    int
+	Preneseni int
+	Otvoren   bool // najnoviji mjesec je otvoren, ostali sklopljeni
 }
 
 // VodocuvarPageData je stranica popisa ili jednog lista
@@ -175,14 +189,17 @@ func (h *VodocuvarHandler) ShowPopis(w http.ResponseWriter, r *http.Request) {
 	if d.Godina == 0 {
 		d.Godina = time.Now().In(models.Zagreb).Year()
 	}
-	for g := time.Now().In(models.Zagreb).Year(); g >= 2024; g-- {
+	// godine idu do najstarijeg lista koji čvor ima, a ne do proizvoljne
+	// granice: prijenosom starije evidencije knjige sežu unatrag
+	najstarija := h.najstarijaGodina(r.Context())
+	for g := time.Now().In(models.Zagreb).Year(); g >= najstarija; g-- {
 		d.Godine = append(d.Godine, g)
 	}
 	d.Arhivirana = service.Arhivirana(d.Godina)
 	if d.VodiDnevnik {
 		d.Moji, _ = s.Moji(r.Context(), u, d.Godina)
 	}
-	d.Filtar = repository.FiltarListova{Sektor: q.Get("sektor"), Godina: d.Godina, CekaPotvrdu: q.Get("ceka") == "1", Limit: 500}
+	d.Filtar = repository.FiltarListova{Sektor: q.Get("sektor"), Godina: d.Godina, CekaPotvrdu: q.Get("ceka") == "1", Limit: 4000}
 	d.Filtar.AreaID, _ = strconv.Atoi(q.Get("podrucje"))
 	if _, ima := q["sektor"]; !ima {
 		// zadano: sektor osobe po glavnom zaduženju
@@ -211,8 +228,12 @@ func (h *VodocuvarHandler) ShowPopis(w http.ResponseWriter, r *http.Request) {
 				if l.Predan() && !l.Potvrden() {
 					d.Knjige[i].Cekaju++
 				}
+				if l.Rekonstrukcija {
+					d.Knjige[i].Preneseni++
+				}
 			}
 		}
+		d.Knjige[i].Mjeseci = poMjesecima(d.Knjige[i].Listovi)
 	}
 	// vodočuvari kojima se zadaje: samo iz odabranog sektora i područja;
 	// svaki ima svoju knjigu i kad je još prazna
@@ -624,7 +645,55 @@ func (h *VodocuvarHandler) HandleKoordinatePodrucja(w http.ResponseWriter, r *ht
 	}
 }
 
-// KalendarData je kalendarski pregled zadataka jednog vodočuvara
+// poMjesecima dijeli listove knjige na mjesece, najnoviji prvo; otvoren je
+// samo prvi, jer knjiga zna imati stotine listova
+func poMjesecima(listovi []models.VodocuvarskiList) []MjesecKnjige {
+	var out []MjesecKnjige
+	po := map[string]int{}
+	for _, l := range listovi {
+		dan := l.Datum.In(models.Zagreb)
+		kljuc := dan.Format("2006-01")
+		i, ima := po[kljuc]
+		if !ima {
+			out = append(out, MjesecKnjige{Mjesec: time.Date(dan.Year(), dan.Month(), 1, 0, 0, 0, 0, models.Zagreb)})
+			i = len(out) - 1
+			po[kljuc] = i
+		}
+		out[i].Listovi = append(out[i].Listovi, l)
+		if l.Predan() && !l.Potvrden() {
+			out[i].Cekaju++
+		}
+		if l.Rekonstrukcija {
+			out[i].Preneseni++
+		}
+	}
+	sort.Slice(out, func(a, b int) bool { return out[a].Mjesec.After(out[b].Mjesec) })
+	for i := range out {
+		// otvoren je najnoviji mjesec, i svaki koji nešto čeka na ovjeru
+		out[i].Otvoren = i == 0 || out[i].Cekaju > 0
+	}
+	return out
+}
+
+// najstarijaGodina je godina najstarijeg lista na ovom čvoru; kad listova
+// nema, tekuća
+func (h *VodocuvarHandler) najstarijaGodina(ctx context.Context) int {
+	sada := time.Now().In(models.Zagreb).Year()
+	if h.svc == nil {
+		return sada
+	}
+	s := h.svc()
+	if s == nil {
+		return sada
+	}
+	g := s.NajstarijaGodina(ctx)
+	if g <= 0 || g > sada {
+		return sada
+	}
+	return g
+}
+
+// KalendarData je kalendarski pregled zadataka jednog vodočuvara// KalendarData je kalendarski pregled zadataka jednog vodočuvara
 type KalendarData struct {
 	CurrentUser *models.User
 	Permissions *models.UserPermissions

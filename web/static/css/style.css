@@ -3780,3 +3780,11 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .prijava-pin { color: #c0392b; }
 .prijava-pin svg { width: 0.9em; height: 0.9em; vertical-align: -0.1em; }
 .prijave-listanje { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; margin-top: 0.9rem; }
+
+/* Mjeseci u knjizi vodočuvara: knjiga zna imati stotine listova, pa se
+   odjednom gleda jedan mjesec */
+.knjiga-mjesec { border-left: 2px solid var(--border, #d9dee5); padding: 0.25rem 0 0.25rem 0.6rem; margin: 0.35rem 0 0.35rem 0.2rem; }
+.knjiga-mjesec > summary { cursor: pointer; list-style: none; padding: 0.15rem 0; }
+.knjiga-mjesec > summary::-webkit-details-marker { display: none; }
+.knjiga-mjesec > summary::before { content: "▸"; display: inline-block; width: 1rem; color: var(--muted, #6b7280); }
+.knjiga-mjesec[open] > summary::before { content: "▾"; }
