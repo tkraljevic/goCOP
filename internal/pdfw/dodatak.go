@@ -326,6 +326,42 @@ func Dodaj(pdf []byte, dod Dodatak) ([]byte, error) {
 	return rez, nil
 }
 
+// bezDopune odbacuje dopunu iza CMS-a. Mjesto za potpis je unaprijed
+// rezervirano i popunjeno nulama, pa iza potpisa uvijek ostane rep nula.
+//
+// Rep se NE smije rezati brisanjem nula s kraja: potpis je DER zapis koji i
+// sam može završiti nulom — zadnji bajt ECDSA vrijednosti je slučajan, pa se
+// to dogodi otprilike jednom u sto potpisa. Takav potpis bi se skratio za
+// bajt ili dva i postao nečitljiv. Umjesto toga čita se duljina koju DER
+// zapis sam navodi u zaglavlju.
+func bezDopune(b []byte) []byte {
+	if n := duljinaDER(b); n > 0 && n <= len(b) {
+		return b[:n]
+	}
+	return bytes.TrimRight(b, "\x00")
+}
+
+// duljinaDER vraća ukupnu duljinu prvog DER zapisa (zaglavlje i sadržaj);
+// 0 kad zapis nije čitljiv ili je BER-a s neodređenom duljinom
+func duljinaDER(b []byte) int {
+	if len(b) < 2 {
+		return 0
+	}
+	duljina := int(b[1])
+	if duljina < 0x80 {
+		return 2 + duljina
+	}
+	bajtova := duljina & 0x7f
+	if bajtova == 0 || bajtova > 4 || len(b) < 2+bajtova {
+		return 0 // neodređena duljina ili zapis koji ne razumijemo
+	}
+	duljina = 0
+	for _, x := range b[2 : 2+bajtova] {
+		duljina = duljina<<8 | int(x)
+	}
+	return 2 + bajtova + duljina
+}
+
 // Potpis je jedan potpis nađen u dokumentu: raspon, CMS i podaci iz rječnika
 type Potpis struct {
 	CMS       []byte
@@ -362,7 +398,7 @@ func Potpisi(pdf []byte) []Potpis {
 		if err != nil {
 			continue
 		}
-		cms = bytes.TrimRight(cms, "\x00")
+		cms = bezDopune(cms)
 		p := Potpis{CMS: cms, Cijeli: c+d == len(pdf)}
 		p.Podaci = append(append([]byte{}, pdf[a:a+b]...), pdf[c:c+d]...)
 		// rječnik potpisa počinje pri zadnjem "<<" prije raspona
