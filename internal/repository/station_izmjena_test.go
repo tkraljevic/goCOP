@@ -39,4 +39,21 @@ func TestIzmjenaPostajeCuvaIzvorniNaziv(t *testing.T) {
 	if natrag.SourceName != st.SourceName {
 		t.Errorf("izvorni naziv: %q, očekivano %q", natrag.SourceName, st.SourceName)
 	}
+
+	// šifra vodotoka: upisana se poštuje, a mijenjanje vodotoka bez nove
+	// šifre briše vezu, jer se više ne zna na što je pokazivala
+	st.WatercourseCode = "rijeka-dunav"
+	if err := repo.UpdateStation(ctx, st); err != nil {
+		t.Fatal(err)
+	}
+	if natrag, _ := repo.GetStationByCode(ctx, "proba"); natrag == nil || natrag.WatercourseCode != "rijeka-dunav" {
+		t.Errorf("šifra vodotoka nije spremljena: %+v", natrag)
+	}
+	st.Watercourse, st.WatercourseCode = "Drava", ""
+	if err := repo.UpdateStation(ctx, st); err != nil {
+		t.Fatal(err)
+	}
+	if natrag, _ := repo.GetStationByCode(ctx, "proba"); natrag == nil || natrag.WatercourseCode != "" {
+		t.Errorf("stara veza na vodotok je ostala: %+v", natrag)
+	}
 }

@@ -385,9 +385,12 @@ func (r *StationRepository) UpdateStation(ctx context.Context, st *models.Statio
 	defer tx.Rollback()
 
 	res, err := tx.ExecContext(ctx, `
+		-- Šifra vodotoka: upisana vrijednost se poštuje; kad je nema, veza se
+		-- čuva dok je vodotok isti, a briše kad se vodotok promijeni, jer se
+		-- tada više ne zna na što je pokazivala.
 		UPDATE stations SET
 			code = ?, name = ?, watercourse = ?, watercourse_source = ?,
-			watercourse_code = CASE WHEN watercourse = ? THEN watercourse_code ELSE '' END,
+			watercourse_code = CASE WHEN ? <> '' THEN ? WHEN watercourse = ? THEN watercourse_code ELSE '' END,
 			water_area = ?, stationing = ?,
 			zero_datum = ?, zero_datum_system = ?, zero_datum_new = ?, zero_datum_new_system = ?,
 			zero_datum_source = ?, zero_datum_method = ?, zero_datum_survey_date = ?, zero_datum_document_date = ?,
@@ -399,7 +402,8 @@ func (r *StationRepository) UpdateStation(ctx context.Context, st *models.Statio
 			latitude = ?, longitude = ?, updated_at = ?, javni_url = ?, javni_uvoz = ?
 		WHERE id = ?
 	`,
-		st.Code, st.Name, st.Watercourse, st.WatercourseSource, st.Watercourse, st.WaterArea, st.Stationing,
+		st.Code, st.Name, st.Watercourse, st.WatercourseSource,
+		st.WatercourseCode, st.WatercourseCode, st.Watercourse, st.WaterArea, st.Stationing,
 		st.ZeroDatum, defaultSystem(st.ZeroDatumSystem, models.ZeroDatumSystemOld),
 		st.ZeroDatumNew, defaultSystem(st.ZeroDatumNewSystem, models.ZeroDatumSystemNew),
 		st.ZeroDatumSource, st.ZeroDatumMethod, st.ZeroDatumSurveyDate, st.ZeroDatumDocumentDate,

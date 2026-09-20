@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"gocop/internal/db"
+	"gocop/internal/javnivodostaji"
 	"gocop/internal/ledger"
 	"gocop/internal/models"
 	"gocop/internal/repository"
@@ -58,6 +59,8 @@ func main() {
 	napomena := flag.String("napomena", "", "opća napomena uz postaju")
 	pregled := flag.String("pregled", "", "označi za pregled: da ili ne; prazno ne mijenja")
 	napomenaPregleda := flag.String("napomena-pregleda", "", "upozorenje i razlog pregleda")
+	nova := flag.Bool("nova", false, "otvori postaju ako je nema (traži -naziv)")
+	javnaPostaja := flag.String("javna-postaja", "", "broj postaje na vodostaji.voda.hr; uključuje automatsko preuzimanje")
 	flag.Parse()
 
 	if strings.TrimSpace(*sifra) == "" {
@@ -88,8 +91,21 @@ func main() {
 			break
 		}
 	}
+	if letva == nil && !*nova {
+		log.Fatalf("postaja %q nije pronađena; otvorite ju kroz Registri › Vodomjerne postaje ili dodajte -nova", *sifra)
+	}
 	if letva == nil {
-		log.Fatalf("postaja %q nije pronađena; otvorite ju kroz Registri › Vodomjerne postaje", *sifra)
+		if strings.TrimSpace(*naziv) == "" {
+			log.Fatal("nova postaja treba -naziv")
+		}
+		letva = &models.Station{Code: strings.TrimSpace(*sifra), Name: strings.TrimSpace(*naziv)}
+		if *suho {
+			fmt.Printf("otvorila bi se postaja %q (%s)\n", letva.Name, letva.Code)
+		} else if err := svc.CreateStation(ctx, perms, letva, ""); err != nil {
+			log.Fatalf("otvaranje postaje: %v", err)
+		} else {
+			fmt.Printf("otvorena postaja %q (%s)\n", letva.Name, letva.Code)
+		}
 	}
 
 	var promjene []string
@@ -159,6 +175,18 @@ func main() {
 	tekst("datum dokumenta", &letva.ZeroDatumDocumentDate, *kotaDatumDokumenta)
 	tekst("napomena", &letva.Notes, *napomena)
 	tekst("napomena pregleda", &letva.ReviewNote, *napomenaPregleda)
+	if *javnaPostaja != "" {
+		id, err := strconv.Atoi(strings.TrimSpace(*javnaPostaja))
+		if err != nil || id <= 0 {
+			log.Fatalf("javna postaja: %q nije broj", *javnaPostaja)
+		}
+		adresa := javnivodostaji.AdresaPostaje(javnivodostaji.Postaja{ID: id})
+		tekst("javna postaja", &letva.JavniURL, adresa)
+		if !letva.JavniUvoz {
+			promjene = append(promjene, "automatsko preuzimanje  ne → da")
+			letva.JavniUvoz = true
+		}
+	}
 	broj("kota nule", &letva.ZeroDatum, *kota)
 	broj("kota nule (nova)", &letva.ZeroDatumNew, *kotaNova)
 	broj("širina", &letva.Latitude, *sirina)
