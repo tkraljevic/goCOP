@@ -28,6 +28,8 @@ type Sadrzaj struct {
 	Profil     *Profil    // kad je datoteka snimka korita
 	Postaja    Postaja    // zaglavlje uz krivulje: kota nule i koordinate
 	Preskoceno int        // sati koji lokalno ne postoje
+	OdGodine   int        // prva i zadnja godina koju datoteka pokriva, i kad
+	DoGodine   int        // je prazna: izvoz je prošao, mjerenja nema
 }
 
 // Vrijednost je jedno očitanje; Dan je true kad izvor daje samo datum.
@@ -122,6 +124,7 @@ func Procitaj(ime string, sirovo []byte) (*Sadrzaj, error) {
 		v.Gustoca = "satni"
 		s.Vrsta = v
 		s.Niz, s.Preskoceno = citajSatne(redci)
+		s.OdGodine, s.DoGodine = razdobljeSatnih(redci)
 		if len(s.Niz) == 0 && imaIspisPoMjesecima(redci) {
 			return nil, fmt.Errorf("satni podaci su u obliku ispisa, koji se ne čita; izvezite ih kao CSV")
 		}
@@ -137,6 +140,7 @@ func Procitaj(ime string, sirovo []byte) (*Sadrzaj, error) {
 		if s.Niz = citajDnevne(redci); len(s.Niz) == 0 {
 			s.Niz = citajIspisDnevni(redci)
 		}
+		s.OdGodine, s.DoGodine = razdobljeDnevnih(redci)
 		return s, nil
 	}
 	return nil, fmt.Errorf("zaglavlje ne kaže što je u datoteci: %.60q", prvi)
@@ -210,6 +214,38 @@ func citajDnevne(redci []string) []Vrijednost {
 		out = append(out, Vrijednost{Kad: kad, Dan: true, V: v})
 	}
 	return out
+}
+
+// razdobljeSatnih vraća prvu i zadnju godinu koju datoteka pokriva, bez
+// obzira ima li u njoj ijedne vrijednosti. Prazna datoteka tako i dalje kaže
+// za koje je razdoblje izvoz prošao.
+func razdobljeSatnih(redci []string) (int, int) {
+	return razdoblje(redci, reRedSat, 3)
+}
+
+// razdobljeDnevnih isto to za dnevne datoteke
+func razdobljeDnevnih(redci []string) (int, int) {
+	return razdoblje(redci, reRedDan, 3)
+}
+
+func razdoblje(redci []string, uzorak *regexp.Regexp, skupina int) (od, do_ int) {
+	for _, r := range redci {
+		m := uzorak.FindStringSubmatch(r)
+		if m == nil {
+			continue
+		}
+		g := broj(m[skupina])
+		if g == 0 {
+			continue
+		}
+		if od == 0 || g < od {
+			od = g
+		}
+		if g > do_ {
+			do_ = g
+		}
+	}
+	return od, do_
 }
 
 // nepostojeciSat javlja je li to sat koji u našoj zoni ne postoji — noć

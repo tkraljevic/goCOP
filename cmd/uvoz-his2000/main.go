@@ -93,7 +93,11 @@ func main() {
 		case len(s.Niz) > 0:
 			nizovi = append(nizovi, s)
 		default:
-			preskoceno = append(preskoceno, ime+" — nema nijedne vrijednosti")
+			raspon := ""
+			if s.OdGodine > 0 {
+				raspon = fmt.Sprintf(" za %d.-%d.", s.OdGodine, s.DoGodine)
+			}
+			preskoceno = append(preskoceno, fmt.Sprintf("%s — izvoz je prošao%s, ali mjerenja nema nijednog", ime, raspon))
 		}
 	}
 
