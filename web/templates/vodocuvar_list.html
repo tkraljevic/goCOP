@@ -118,6 +118,20 @@
 </section>
 {{end}}{{end}}
 
+{{if $l.Prilozi}}
+<section class="detail-section">
+  <h2>{{icon "file-text"}} Prilozi ({{len $l.Prilozi}})</h2>
+  <p class="page-desc">Fotografije uz zadatke ovog lista. Ispisuju se uz list, a ispod svake stoji što je fotoaparat zapisao.</p>
+  <div class="prijava-slike">
+    {{range $l.Prilozi}}<figure>
+      <a href="/vodocuvar/{{$l.ID}}/prilog/{{.ID}}" target="_blank"><img src="/vodocuvar/{{$l.ID}}/prilog/{{.ID}}" alt="{{.Naziv}}" loading="lazy" onerror="this.parentElement.parentElement.classList.add('nema')"></a>
+      <figcaption>{{.Naziv}}{{if .Sirina}} · {{.Sirina}}×{{.Visina}}{{end}}<br><span class="reading-meta">{{.Podaci}}</span></figcaption>
+      <p class="form-help nema-slike">Fotografija nije na ovom računalu; nosi je ispis lista.</p>
+    </figure>{{end}}
+  </div>
+</section>
+{{end}}
+
 {{if .ZadaciOsobe}}
 <section class="detail-section">
   <h2>{{icon "clipboard-list"}} Zadaci{{if not .Moj}}: {{$l.Ime}}{{end}}</h2>

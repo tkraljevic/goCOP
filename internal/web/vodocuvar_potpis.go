@@ -115,7 +115,7 @@ func (h *VodocuvarHandler) izvornikPredaje(ctx context.Context, s *service.Vodoc
 	}
 	area := h.podrucje(ctx, l)
 	otisci := h.otisci(ctx, l)
-	pdf, m := pdfLista(l, models.Terms(), area, otisci, crtanjeBlokova{vodocuvar: p == nil, rukovoditelj: true})
+	pdf, m := pdfLista(l, models.Terms(), area, otisci, crtanjeBlokova{vodocuvar: p == nil, rukovoditelj: true}, PrilogListaPDF{Slike: h.priloziLista(ctx, s, l)})
 	if p != nil {
 		var err error
 		pdf, err = potpisiIzvornik(pdf, p, h.dodatakPotpisa(m, m.xVodocuvar, l, l.Ime, *l.PredanoAt, l.KodPredaje(), "Predaja dnevnog lista,", otisci[l.UserID], p))
@@ -139,9 +139,9 @@ func (h *VodocuvarHandler) izvornikOvjere(ctx context.Context, s *service.Vodocu
 	var m mjestaPotpisa
 	if iz, _ := s.Izvornik(ctx, perms, l.ID); iz != nil && len(iz.PDF) > 0 {
 		pdf = iz.PDF
-		_, m = pdfLista(l, models.Terms(), area, otisci, crtanjeBlokova{vodocuvar: true, rukovoditelj: false})
+		_, m = pdfLista(l, models.Terms(), area, otisci, crtanjeBlokova{vodocuvar: true, rukovoditelj: false}, PrilogListaPDF{Slike: h.priloziLista(ctx, s, l)})
 	} else {
-		pdf, m = pdfLista(l, models.Terms(), area, otisci, crtanjeBlokova{vodocuvar: true, rukovoditelj: false})
+		pdf, m = pdfLista(l, models.Terms(), area, otisci, crtanjeBlokova{vodocuvar: true, rukovoditelj: false}, PrilogListaPDF{Slike: h.priloziLista(ctx, s, l)})
 	}
 	dod := h.dodatakPotpisa(m, m.xRuk, l, l.Potvrdio, *l.PotvrdenoAt, l.KodOvjere(), "Ovjera dnevnog lista,", otisci[l.PotvrdioID], p)
 	pdf, err := potpisiIzvornik(pdf, p, dod)

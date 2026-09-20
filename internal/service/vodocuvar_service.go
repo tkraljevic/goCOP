@@ -592,6 +592,45 @@ func (s *VodocuvarService) Upisi(ctx context.Context, perms *models.UserPermissi
 	return l, s.repo.Save(ctx, l)
 }
 
+// ZadaciLista vraća zadatke zaključene na listu, s obuhvatom obilaska
+func (s *VodocuvarService) ZadaciLista(ctx context.Context, listID string) []models.Zadatak {
+	z, err := s.repo.ZadaciZaList(ctx, listID)
+	if err != nil {
+		return nil
+	}
+	return z
+}
+
+// Prilozi vraća bajtove priloga lista po oznaci priloga; što ovaj čvor nema,
+// izostaje. Bajtovi žive u spremištu sadržaja, list nosi samo opis.
+func (s *VodocuvarService) Prilozi(ctx context.Context, l *models.VodocuvarskiList) map[string][]byte {
+	out := map[string][]byte{}
+	if l == nil {
+		return out
+	}
+	for _, p := range l.Prilozi {
+		if b, err := s.repo.Prilog(ctx, p.ID); err == nil && len(b) > 0 {
+			out[p.ID] = b
+		}
+	}
+	return out
+}
+
+// Prilog vraća bajtove jednog priloga lista koji osoba smije vidjeti
+func (s *VodocuvarService) Prilog(ctx context.Context, perms *models.UserPermissions, listID, prilogID string) ([]byte, string, error) {
+	l, err := s.Get(ctx, perms, listID)
+	if err != nil || l == nil {
+		return nil, "", err
+	}
+	for _, p := range l.Prilozi {
+		if p.ID == prilogID {
+			b, err := s.repo.Prilog(ctx, prilogID)
+			return b, p.Vrsta, err
+		}
+	}
+	return nil, "", nil
+}
+
 // Izvornik vraća potpisani PDF lista, ako ga osoba smije vidjeti
 func (s *VodocuvarService) Izvornik(ctx context.Context, perms *models.UserPermissions, id string) (*models.IzvornikLista, error) {
 	l, err := s.Get(ctx, perms, id)

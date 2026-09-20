@@ -379,6 +379,24 @@ func (r *VodocuvarRepository) OtvoreniZadaci(ctx context.Context, userID string,
 	return out, rows.Err()
 }
 
+// ZadaciZaList vraća zadatke zaključene na listu, za karte obuhvata
+func (r *VodocuvarRepository) ZadaciZaList(ctx context.Context, listID string) ([]models.Zadatak, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT `+zadatakColumns+` FROM vodocuvarski_zadaci WHERE list_id = ? ORDER BY zadano_at`, listID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []models.Zadatak
+	for rows.Next() {
+		z, err := scanZadatak(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, z)
+	}
+	return out, rows.Err()
+}
+
 // ZadaciVodocuvara vraća sve zadatke vodočuvara, najnoviji prvo
 func (r *VodocuvarRepository) ZadaciVodocuvara(ctx context.Context, userID string, limit int) ([]models.Zadatak, error) {
 	if limit <= 0 {

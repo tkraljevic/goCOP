@@ -33,6 +33,7 @@ type VodocuvarHandler struct {
 	tmplPopis, tmplList *template.Template
 	tmplKalendar        *template.Template
 	tmplPosao           *template.Template
+	karta               func() KartaPostavke                                         // izvor pločica za karte obuhvata
 	potpisSlika         func(ctx context.Context, userID string) *models.PotpisSlika // sken potpisa, za ispis
 	potpis              func() *service.PotpisService                                // elektronički potpisi; prazno bez servisa
 	opcije              func(ctx context.Context) models.Opcije                      // opće opcije (simulacija ključa)
@@ -470,6 +471,63 @@ func (h *VodocuvarHandler) HandleZadatak(w http.ResponseWriter, r *http.Request)
 	redirectWith(w, r, natrag, "success", "Zadatak je zadan; pojavit će se "+kad+" pod naredbama, s vašim imenom, dok ga vodočuvar ne obavi ("+z.Tekst+").")
 }
 
+// SetKarta daje rukovatelju postavke karte, za obuhvat obilaska u ispisu
+func (h *VodocuvarHandler) SetKarta(f func() KartaPostavke) { h.karta = f }
+
+// karteObuhvata crta karte za zadatke lista koji nose ucrtani obuhvat; bez
+// mreže ili postavki karte vraća prazno, pa se list ispisuje bez njih
+func (h *VodocuvarHandler) karteObuhvata(ctx context.Context, s *service.VodocuvarService, l *models.VodocuvarskiList) (map[string][]byte, string) {
+	if h.karta == nil || s == nil {
+		return nil, ""
+	}
+	k := h.karta()
+	if !k.Ima() {
+		return nil, ""
+	}
+	out := map[string][]byte{}
+	zasluge := ""
+	for _, z := range s.ZadaciLista(ctx, l.ID) {
+		if z.Obuhvat == "" {
+			continue
+		}
+		if karta := slozKartuObuhvata(ctx, k, z.Obuhvat, "http://localhost/"); karta != nil {
+			out[z.ID], zasluge = karta.PNG, karta.Zasluge
+		}
+	}
+	return out, zasluge
+}
+
+// priloziLista su bajtovi priloga lista, za ugradnju u dokument
+func (h *VodocuvarHandler) priloziLista(ctx context.Context, s *service.VodocuvarService, l *models.VodocuvarskiList) map[string][]byte {
+	if s == nil {
+		return nil
+	}
+	return s.Prilozi(ctx, l)
+}
+
+// Prilog daje fotografiju priloženu listu
+func (h *VodocuvarHandler) Prilog(w http.ResponseWriter, r *http.Request) {
+	u, perms, _ := h.base(r)
+	s := h.service(w)
+	if s == nil || u == nil {
+		return
+	}
+	if !h.pristup(w, u) {
+		return
+	}
+	b, vrsta, err := s.Prilog(r.Context(), perms, r.PathValue("id"), r.PathValue("prilog"))
+	if err != nil || len(b) == 0 {
+		http.NotFound(w, r)
+		return
+	}
+	if vrsta == "" {
+		vrsta = "image/jpeg"
+	}
+	w.Header().Set("Content-Type", vrsta)
+	w.Header().Set("Cache-Control", "private, max-age=86400")
+	_, _ = w.Write(b)
+}
+
 // IzvoziPDF daje list u obliku papirnate stranice
 func (h *VodocuvarHandler) IzvoziPDF(w http.ResponseWriter, r *http.Request) {
 	u, perms, _ := h.base(r)
@@ -496,7 +554,9 @@ func (h *VodocuvarHandler) IzvoziPDF(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write(iz.PDF)
 		return
 	}
-	_, _ = w.Write(PDFVodocuvarskiList(l, models.Terms(), area, h.otisci(r.Context(), l)))
+	pr := PrilogListaPDF{Slike: h.priloziLista(r.Context(), s, l)}
+	pr.Karte, pr.Zasluge = h.karteObuhvata(r.Context(), s, l)
+	_, _ = w.Write(PDFListaSPrilozima(l, models.Terms(), area, h.otisci(r.Context(), l), pr))
 }
 
 // IzvoziKnjigu daje cijelu godišnju knjigu vodočuvara kao PDF
@@ -537,7 +597,13 @@ func (h *VodocuvarHandler) IzvoziKnjigu(w http.ResponseWriter, r *http.Request) 
 	for i := range listovi {
 		pok[i] = &listovi[i]
 	}
-	_, _ = w.Write(PDFVodocuvarskaKnjiga(listovi, ime, godina, models.Terms(), area, h.otisci(r.Context(), pok...)))
+	prilozi := map[string][]byte{}
+	for i := range listovi {
+		for id, b := range s.Prilozi(r.Context(), &listovi[i]) {
+			prilozi[id] = b
+		}
+	}
+	_, _ = w.Write(PDFVodocuvarskaKnjiga(listovi, ime, godina, models.Terms(), area, h.otisci(r.Context(), pok...), prilozi))
 }
 
 // GeokodJSON nalazi koordinate za adresu ili mjesto (obrazac područja)

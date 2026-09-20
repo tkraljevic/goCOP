@@ -12,7 +12,7 @@ import (
 // PDFVodocuvarskiList crta dnevni list kao papirnatu stranicu knjige:
 // datum, radno vrijeme, prilike, tri okvira, potpisi i broj stranice
 func PDFVodocuvarskiList(l *models.VodocuvarskiList, t models.OrgTerms, area *models.Area, otisci models.OtisciLista) []byte {
-	pdf, _ := pdfLista(l, t, area, otisci, crtajOba)
+	pdf, _ := pdfLista(l, t, area, otisci, crtajOba, PrilogListaPDF{})
 	return pdf
 }
 
@@ -28,12 +28,8 @@ type PrilogListaPDF struct {
 // Prilozi su dio dokumenta, kao i kod prijave: kad se bajtovi jednom otpuste
 // sa spremišta, dokument ih i dalje nosi.
 func PDFListaSPrilozima(l *models.VodocuvarskiList, t models.OrgTerms, area *models.Area, otisci models.OtisciLista, pr PrilogListaPDF) []byte {
-	d := pdfw.Novi("Vodočuvarski dnevnik, dnevni list "+l.Datum.In(models.Zagreb).Format("02.01.2006."), "goCOP")
-	d.Predmet = "Vodočuvarski dnevnik: " + l.Ime
-	d.SviZnakovi()
-	nacrtajList(d, l, t, area, otisci, crtajOba)
-	nacrtajPriloge(d, l, pr)
-	return d.Bajtovi()
+	pdf, _ := pdfLista(l, t, area, otisci, crtajOba, pr)
+	return pdf
 }
 
 // nacrtajPriloge crta karte obuhvata i fotografije iza lista
@@ -117,17 +113,20 @@ type mjestaPotpisa struct {
 
 // pdfLista crta list i vraća PDF pripremljen za naknadne potpise, s
 // mjestima na kojima blokovi stoje
-func pdfLista(l *models.VodocuvarskiList, t models.OrgTerms, area *models.Area, otisci models.OtisciLista, crtaj crtanjeBlokova) ([]byte, mjestaPotpisa) {
+func pdfLista(l *models.VodocuvarskiList, t models.OrgTerms, area *models.Area, otisci models.OtisciLista, crtaj crtanjeBlokova, pr PrilogListaPDF) ([]byte, mjestaPotpisa) {
 	d := pdfw.Novi("Vodočuvarski dnevnik, dnevni list "+l.Datum.In(models.Zagreb).Format("02.01.2006."), "goCOP")
 	d.Predmet = "Vodočuvarski dnevnik: " + l.Ime
 	d.SviZnakovi()
 	m := nacrtajList(d, l, t, area, otisci, crtaj)
+	// Prilozi idu u same bajtove lista, i u onaj koji se potpisuje: kad se
+	// fotografije jednom otpuste sa spremišta, dokument ih i dalje nosi.
+	nacrtajPriloge(d, l, pr)
 	return d.Bajtovi(), m
 }
 
 // PDFVodocuvarskaKnjiga je cijela godišnja knjiga: naslovna stranica pa
 // list po stranici, redom brojeva
-func PDFVodocuvarskaKnjiga(listovi []models.VodocuvarskiList, ime string, godina int, t models.OrgTerms, area *models.Area, otisci models.OtisciLista) []byte {
+func PDFVodocuvarskaKnjiga(listovi []models.VodocuvarskiList, ime string, godina int, t models.OrgTerms, area *models.Area, otisci models.OtisciLista, prilozi map[string][]byte) []byte {
 	d := pdfw.Novi(fmt.Sprintf("Vodočuvarski dnevnik %d, %s", godina, ime), "goCOP")
 	d.Predmet = "Vodočuvarski dnevnik: " + ime
 	org := t.OrgName
@@ -166,9 +165,13 @@ func PDFVodocuvarskaKnjiga(listovi []models.VodocuvarskiList, ime string, godina
 			}
 		}
 	}
+	// knjiga nosi fotografije uz listove; karte obuhvata ne, jer se crtaju iz
+	// mreže i uvijek se mogu nacrtati iznova iz zapisa zadatka
+	pr := PrilogListaPDF{Slike: prilozi}
 	for i := range poredani {
 		d.NovaStranica()
 		nacrtajList(d, &poredani[i], t, area, otisci, crtajOba)
+		nacrtajPriloge(d, &poredani[i], pr)
 	}
 	return d.Bajtovi()
 }
