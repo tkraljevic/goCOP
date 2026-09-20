@@ -546,7 +546,7 @@ func (s *AktService) UsporediImenik(ctx context.Context, perms *models.UserPermi
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	var prva error
-	gotovo := 0
+	gotovo, uspjelo := 0, 0
 	javi := func(ime string) {
 		mu.Lock()
 		gotovo++
@@ -557,11 +557,24 @@ func (s *AktService) UsporediImenik(ctx context.Context, perms *models.UserPermi
 		}
 	}
 	red := make(chan int)
-	for w := 0; w < 4; w++ {
+	// Svaki upit adresaru nosi svoju NTLM prijavu, a djelatnika su stotine.
+	// Stotine prijava u pola minute Exchange razumije kao napad i zaključa
+	// račun, pa nakon toga ne prolazi ni jedan jedini upit, ni za mali
+	// sektor. Zato se ide polako: dva upita usporedno i najviše tri u
+	// sekundi. Usporedba svih sektora tako traje nekoliko minuta, što je za
+	// posao u pozadini prihvatljivo, a račun ostaje otključan.
+	takt := time.NewTicker(time.Second / 3)
+	defer takt.Stop()
+	for w := 0; w < 2; w++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			for i := range red {
+				select {
+				case <-takt.C:
+				case <-ctx.Done():
+					return
+				}
 				x := svi[i]
 				u := UsporedbaKontakta{User: x}
 				var kandidati []posta.Kontakt
@@ -579,6 +592,14 @@ func (s *AktService) UsporediImenik(ctx context.Context, perms *models.UserPermi
 					}
 					mu.Unlock()
 					if errors.Is(err, posta.ErrPrijava) {
+						// Prvi upit odbijen znači kriva lozinka. Odbijen nakon
+						// niza uspjelih ne znači to: poslužitelj je stao
+						// primati toliko prijava u kratkom vremenu.
+						mu.Lock()
+						if uspjelo > 0 {
+							prva = fmt.Errorf("poslužitelj e-pošte prestao je primati upite nakon %d djelatnika: previše prijava u kratkom vremenu. Lozinka je vjerojatno ispravna — pokušajte usporedbu po sektoru", uspjelo)
+						}
+						mu.Unlock()
 						odustani()
 					}
 					out[i] = u
@@ -595,6 +616,9 @@ func (s *AktService) UsporediImenik(ctx context.Context, perms *models.UserPermi
 						}
 					}
 				}
+				mu.Lock()
+				uspjelo++
+				mu.Unlock()
 				out[i] = u
 				javi(x.FullName)
 			}
