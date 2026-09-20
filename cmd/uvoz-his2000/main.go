@@ -145,17 +145,23 @@ func (p *Posao) Niz(s *Sadrzaj) {
 		if err != nil {
 			log.Fatalf("%s: %v", zat, err)
 		}
-		suk, samoStari := usporedi(stari, s.Niz)
-		switch {
-		case suk > 0 && !p.Zamijeni:
+		suk, samoStari, nepostojeci := usporedi(stari, s.Niz)
+		if suk > 0 && !p.Zamijeni {
 			fmt.Printf("              zatečeno %s: %d vrijednosti se razlikuje — ostavljam kako jest, -zamijeni ako treba drugačije\n", zat, suk)
 			p.Sporno++
 			return
-		case samoStari > 0:
+		}
+		if samoStari > 0 {
 			fmt.Printf("              zatečeno %s ima %d vrijednosti kojih u novom izvozu nema — ostavljam kako jest\n", zat, samoStari)
 			p.Ostavljeno++
 			return
-		case zat != filepath.Base(put):
+		}
+		if nepostojeci > 0 {
+			fmt.Printf("              zatečeno %s ima %d sati kojih u lokalnom vremenu nema — ne računaju se kao gubitak\n", zat, nepostojeci)
+		}
+		// naziv nosi godine, pa se pri proširenju niza datoteka zove drugačije
+		// i staru treba maknuti, inače bi arhiva čitala obje
+		if zat != filepath.Base(put) {
 			fmt.Printf("              zatečeno %s zamjenjujem novim rasponom\n", zat)
 			if !p.Probno {
 				if err := os.Remove(filepath.Join(p.Cilj, zat)); err != nil {
@@ -350,7 +356,7 @@ func ucitaj(put string) (map[time.Time]string, error) {
 // usporedi javlja koliko se vrijednosti razlikuje i koliko ih zatečeni niz
 // ima, a novi izvoz nema. Uspoređuje se broj, ne zapis: 1919,000 i 1919 isto
 // su mjerenje, a razlikuju se samo po tome koliko je decimala izvoz ispisao.
-func usporedi(stari map[time.Time]string, novi []Vrijednost) (sukoba, samoStari int) {
+func usporedi(stari map[time.Time]string, novi []Vrijednost) (sukoba, samoStari, nepostojeci int) {
 	imaNovi := make(map[time.Time]bool, len(novi))
 	for _, v := range novi {
 		imaNovi[v.Kad] = true
@@ -359,11 +365,19 @@ func usporedi(stari map[time.Time]string, novi []Vrijednost) (sukoba, samoStari 
 		}
 	}
 	for k := range stari {
-		if !imaNovi[k] {
-			samoStari++
+		if imaNovi[k] {
+			continue
 		}
+		// sat koji u našoj zoni ne postoji nismo ni htjeli: zatečena datoteka
+		// ga ima jer je nastala prije nego što se to znalo, pa njegov izostanak
+		// nije gubitak nego ispravak
+		if nepostojeciSat(k) {
+			nepostojeci++
+			continue
+		}
+		samoStari++
 	}
-	return sukoba, samoStari
+	return sukoba, samoStari, nepostojeci
 }
 
 // istiBroj javlja govore li dva zapisa isti broj; kad se ijedan ne čita kao
