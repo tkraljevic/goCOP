@@ -57,10 +57,14 @@ func stambiljX() float64 { return pdfw.A4W - 56 - stambiljW }
 // sadrzajQR je što QR kod nosi: adresu prijave u programu kad je javna
 // adresa postavljena, inače oznaku i kod dokumenta
 func sadrzajQR(p *models.PrijavaSTerena, adresa string) string {
+	// Kontrolni broj ide uz oznaku i kad adresa postoji: QR je u dokumentu
+	// zauvijek, pa mora nositi sve što provjera traži i onda kad provjera na
+	// javnoj adresi tek dođe. Isti broj stoji i uz potpis na papiru.
+	upit := "?kod=" + p.Kod()
 	if adresa != "" {
-		return adresa + "/prijave/" + p.ID
+		return strings.TrimRight(adresa, "/") + "/prijave/" + p.ID + upit
 	}
-	return "gocop://prijave/" + p.ID + "?kod=" + p.Kod()
+	return "gocop://prijave/" + p.ID + upit
 }
 
 // crtajQR crta QR kod s lijevim gornjim kutom u (x, y), veličine w
