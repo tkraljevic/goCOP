@@ -255,9 +255,14 @@ func TestPovijestPokazujeNapomenuOOdstupanju(t *testing.T) {
 		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
 		Station:     st,
 	})
-	for _, want := range []string{"poznato odstupanje", "3,7 cm ispod zadane kote", "Niz nije preračunavan"} {
+	for _, want := range []string{"poznato odstupanje", "3,7 cm ispod zadane kote"} {
 		if !strings.Contains(html, want) {
 			t.Errorf("povijest nema %q", want)
 		}
+	}
+	// zaključak o preračunu ovisi o postaji, pa ga predložak ne tvrdi sam:
+	// što stoji uz brojke, piše u napomeni koju operater uređuje
+	if strings.Contains(html, "unutar proglašene točnosti") {
+		t.Error("predložak i dalje sam zaključuje o preračunu niza")
 	}
 }
