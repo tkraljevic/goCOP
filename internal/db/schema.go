@@ -380,9 +380,13 @@ func InitSchema(database *sql.DB) error {
 			created_at DATETIME NOT NULL
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_prijave_slike_prijava ON prijave_slike(prijava_id);`,
+		// izvornici prijava: bajtovi PDF-a su u spremištu sadržaja (sadrzaj.db),
+		// ovdje samo otisak po kojem se čitaju
 		`CREATE TABLE IF NOT EXISTS prijave_izvornici (
 			prijava_id TEXT PRIMARY KEY,
-			pdf BLOB NOT NULL,
+			otisak TEXT NOT NULL,
+			bajtova INTEGER NOT NULL DEFAULT 0,
+			vrsta TEXT NOT NULL DEFAULT 'application/pdf',
 			sazetak TEXT NOT NULL DEFAULT '',
 			updated_at DATETIME NOT NULL
 		);`,
@@ -1112,6 +1116,28 @@ var renamedColumns = []struct {
 // terenskim laptopima koji se ne stvaraju iznova — bez ovoga bi stara baza
 // pucala na prvom upitu koji traži novi stupac.
 func migrateSchema(database *sql.DB) error {
+	// Izvornici prijava otprije spremišta sadržaja nose PDF u tablici; takva
+	// se tablica skloni pod starim imenom, a program pri pokretanju preseli
+	// bajtove u spremište (repository.PreseliIzvornikePrijava).
+	if imaPDF, err := columnExists(database, "prijave_izvornici", "pdf"); err != nil {
+		return err
+	} else if imaPDF {
+		for _, q := range []string{
+			`ALTER TABLE prijave_izvornici RENAME TO prijave_izvornici_stari`,
+			`CREATE TABLE prijave_izvornici (
+				prijava_id TEXT PRIMARY KEY,
+				otisak TEXT NOT NULL,
+				bajtova INTEGER NOT NULL DEFAULT 0,
+				vrsta TEXT NOT NULL DEFAULT 'application/pdf',
+				sazetak TEXT NOT NULL DEFAULT '',
+				updated_at DATETIME NOT NULL
+			)`,
+		} {
+			if _, err := database.Exec(q); err != nil {
+				return fmt.Errorf("izvornici prijava u spremište: %w", err)
+			}
+		}
+	}
 	for _, r := range renamedColumns {
 		oldExists, err := columnExists(database, r.table, r.from)
 		if err != nil {

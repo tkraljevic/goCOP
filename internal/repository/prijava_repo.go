@@ -28,8 +28,9 @@ const prijavaUpsert = `INSERT INTO prijave (` + prijavaColumns + `) VALUES (?, ?
 	broj = excluded.broj, godina = excluded.godina, vrsta = excluded.vrsta, naslov = excluded.naslov, opis = excluded.opis, datum = excluded.datum,
 	status = excluded.status, podaci = excluded.podaci, objavljeno_at = excluded.objavljeno_at, updated_at = excluded.updated_at`
 
-const prijavaIzvornikUpsert = `INSERT INTO prijave_izvornici (prijava_id, pdf, sazetak, updated_at) VALUES (?, ?, ?, ?)
-	ON CONFLICT(prijava_id) DO UPDATE SET pdf = excluded.pdf, sazetak = excluded.sazetak, updated_at = excluded.updated_at`
+const prijavaIzvornikUpsert = `INSERT INTO prijave_izvornici (prijava_id, otisak, bajtova, vrsta, sazetak, updated_at) VALUES (?, ?, ?, ?, ?, ?)
+	ON CONFLICT(prijava_id) DO UPDATE SET otisak = excluded.otisak, bajtova = excluded.bajtova, vrsta = excluded.vrsta,
+		sazetak = excluded.sazetak, updated_at = excluded.updated_at`
 
 // podaciPrijave su polja koja se ne pretražuju, spremljena kao JSON
 type podaciPrijave struct {
@@ -134,7 +135,13 @@ func (r *PrijavaRepository) Objavi(ctx context.Context, p *models.PrijavaSTerena
 	}
 	now := time.Now().UTC()
 	p.UpdatedAt = now
-	iz := models.IzvornikLista{ListID: p.ID, PDF: pdf, Sazetak: sazetak, UpdatedAt: now}
+	// bajtovi prvo u spremište (po otisku, ponovljivo), pa glavna baza u
+	// jednoj transakciji; ako ona ne prođe, sadržaj ostaje siroče koje
+	// pospremanje počisti, a prijava nije napola objavljena
+	iz, err := spremiPDF(ctx, EntityPrijave, p.ID, pdf, sazetak, now)
+	if err != nil {
+		return err
+	}
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -151,7 +158,7 @@ func (r *PrijavaRepository) Objavi(ctx context.Context, p *models.PrijavaSTerena
 	if _, err := r.rec.Record(ctx, tx, EntityPrijave, p.ID, p); err != nil {
 		return err
 	}
-	if _, err := tx.ExecContext(ctx, prijavaIzvornikUpsert, p.ID, pdf, sazetak, now); err != nil {
+	if _, err := tx.ExecContext(ctx, prijavaIzvornikUpsert, p.ID, iz.Otisak, iz.Bajtova, iz.Vrsta, sazetak, now); err != nil {
 		return fmt.Errorf("upis izvornika: %w", err)
 	}
 	if _, err := r.rec.Record(ctx, tx, EntityPrijaveIzvornici, p.ID, iz); err != nil {
@@ -165,6 +172,13 @@ func (r *PrijavaRepository) Objavi(ctx context.Context, p *models.PrijavaSTerena
 func (r *PrijavaRepository) Urudzbiraj(ctx context.Context, p *models.PrijavaSTerena, pdf []byte, sazetak string) error {
 	now := time.Now().UTC()
 	p.UpdatedAt = now
+	var iz models.IzvornikLista
+	if len(pdf) > 0 {
+		var err error
+		if iz, err = spremiPDF(ctx, EntityPrijave, p.ID, pdf, sazetak, now); err != nil {
+			return err
+		}
+	}
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -177,8 +191,7 @@ func (r *PrijavaRepository) Urudzbiraj(ctx context.Context, p *models.PrijavaSTe
 		return err
 	}
 	if len(pdf) > 0 {
-		iz := models.IzvornikLista{ListID: p.ID, PDF: pdf, Sazetak: sazetak, UpdatedAt: now}
-		if _, err := tx.ExecContext(ctx, prijavaIzvornikUpsert, p.ID, pdf, sazetak, now); err != nil {
+		if _, err := tx.ExecContext(ctx, prijavaIzvornikUpsert, p.ID, iz.Otisak, iz.Bajtova, iz.Vrsta, sazetak, now); err != nil {
 			return fmt.Errorf("upis izvornika: %w", err)
 		}
 		if _, err := r.rec.Record(ctx, tx, EntityPrijaveIzvornici, p.ID, iz); err != nil {
@@ -202,13 +215,16 @@ func (r *PrijavaRepository) PoIzvoru(ctx context.Context, izvor string) (*models
 // pri uvozu), s verzijom u knjizi
 func (r *PrijavaRepository) SpremiIzvornik(ctx context.Context, id string, pdf []byte, sazetak string) error {
 	now := time.Now().UTC()
-	iz := models.IzvornikLista{ListID: id, PDF: pdf, Sazetak: sazetak, UpdatedAt: now}
+	iz, err := spremiPDF(ctx, EntityPrijave, id, pdf, sazetak, now)
+	if err != nil {
+		return err
+	}
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
-	if _, err := tx.ExecContext(ctx, prijavaIzvornikUpsert, id, pdf, sazetak, now); err != nil {
+	if _, err := tx.ExecContext(ctx, prijavaIzvornikUpsert, id, iz.Otisak, iz.Bajtova, iz.Vrsta, sazetak, now); err != nil {
 		return err
 	}
 	if _, err := r.rec.Record(ctx, tx, EntityPrijaveIzvornici, id, iz); err != nil {
@@ -349,15 +365,17 @@ func (r *PrijavaRepository) ObrisiStareSlike(ctx context.Context, prije time.Tim
 	return res.RowsAffected()
 }
 
-// Izvornik čita potpisani PDF prijave; nil kad ga nema
+// Izvornik čita potpisani PDF prijave; nil kad ga nema. Zapis s otiskom a
+// bez bajtova znači da izvornik postoji, ali ga ovaj čvor još nije dohvatio.
 func (r *PrijavaRepository) Izvornik(ctx context.Context, id string) (*models.IzvornikLista, error) {
 	iz := models.IzvornikLista{ListID: id}
-	err := r.db.QueryRowContext(ctx, `SELECT pdf, sazetak, updated_at FROM prijave_izvornici WHERE prijava_id = ?`, id).Scan(&iz.PDF, &iz.Sazetak, &iz.UpdatedAt)
+	err := r.db.QueryRowContext(ctx, `SELECT otisak, bajtova, vrsta, sazetak, updated_at FROM prijave_izvornici WHERE prijava_id = ?`, id).Scan(&iz.Otisak, &iz.Bajtova, &iz.Vrsta, &iz.Sazetak, &iz.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
+	ucitajPDF(ctx, &iz)
 	return &iz, nil
 }

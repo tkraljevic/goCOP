@@ -27,6 +27,7 @@ import (
 	"gocop/internal/peers"
 	"gocop/internal/posta"
 	"gocop/internal/repository"
+	"gocop/internal/sadrzaj"
 	"gocop/internal/service"
 	"gocop/internal/web"
 )
@@ -142,6 +143,23 @@ func main() {
 	// 2. Inicijalizacija sheme
 	if err := db.InitSchema(database); err != nil {
 		log.Fatalf("Kritična greška pri inicijalizaciji sheme: %v", err)
+	}
+
+	// 2a. Spremište sadržaja: PDF-ovi i slike po otisku, u vlastitoj datoteci
+	// uz glavnu bazu, da glavna raste s brojem zapisa a ne s megabajtima
+	spremiste, err := sadrzaj.Otvori(filepath.Join(filepath.Dir(*dbPath), "sadrzaj.db"))
+	if err != nil {
+		log.Fatalf("Kritična greška pri otvaranju spremišta sadržaja: %v", err)
+	}
+	defer spremiste.Zatvori()
+	repository.SetSpremiste(spremiste)
+	if n, bajtova, err := repository.PreseliIzvornikePrijava(context.Background(), database); err != nil {
+		log.Fatalf("Seljenje izvornika prijava u spremište: %v", err)
+	} else if n > 0 {
+		log.Printf("Izvornici prijava preseljeni u spremište sadržaja: %d PDF-ova, %.1f MB", n, float64(bajtova)/1e6)
+	}
+	if st, err := spremiste.Stanje(context.Background()); err == nil {
+		log.Printf("Spremište sadržaja: %d sadržaja, %.1f MB, %d za dohvat", st.Sadrzaja, float64(st.Bajtova)/1e6, st.Zeljenih)
 	}
 
 	// 3. Popunjavanje početnih podataka (Sektori A-F, Branjena područja 1-34, Globalni admin Tomislav Kraljević)

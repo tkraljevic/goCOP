@@ -27,8 +27,13 @@ type IzdavateljPotpisa struct {
 // IzvornikLista je PDF dnevnog lista kako je potpisan: prvo vodočuvar pri
 // predaji, pa rukovoditelj pri ovjeri kao dodatak na iste bajtove
 type IzvornikLista struct {
-	ListID    string    `json:"list_id"`
-	PDF       []byte    `json:"pdf"`
+	ListID string `json:"list_id"`
+	// PDF su bajtovi izvornika: puni se pri čitanju iz spremišta sadržaja, a u
+	// knjigu verzija ne ide — tamo putuju samo otisak, veličina i vrsta
+	PDF       []byte    `json:"pdf,omitempty"`
+	Otisak    string    `json:"otisak,omitempty"`
+	Bajtova   int       `json:"bajtova,omitempty"`
+	Vrsta     string    `json:"vrsta,omitempty"`
 	Sazetak   string    `json:"sazetak"`
 	UpdatedAt time.Time `json:"updated_at"`
 }

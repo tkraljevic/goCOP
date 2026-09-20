@@ -458,7 +458,13 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		if err := json.Unmarshal(v.Payload, &iz); err != nil {
 			return err
 		}
-		_, err := tx.ExecContext(ctx, prijavaIzvornikUpsert, iz.ListID, iz.PDF, iz.Sazetak, iz.UpdatedAt)
+		if err := primiIzvornik(ctx, EntityPrijave, &iz); err != nil {
+			return err
+		}
+		if iz.Vrsta == "" {
+			iz.Vrsta = "application/pdf"
+		}
+		_, err := tx.ExecContext(ctx, prijavaIzvornikUpsert, iz.ListID, iz.Otisak, iz.Bajtova, iz.Vrsta, iz.Sazetak, iz.UpdatedAt)
 		return err
 
 	case EntityPotpisniKljucevi:

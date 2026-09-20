@@ -25,6 +25,7 @@ import (
 	"gocop/internal/ledger"
 	"gocop/internal/models"
 	"gocop/internal/repository"
+	"gocop/internal/sadrzaj"
 	"gocop/internal/service"
 	webassets "gocop/web"
 )
@@ -55,6 +56,12 @@ func TestPrijaveSTerenaKrozRute(t *testing.T) {
 	if err := db.InitSchema(baza); err != nil {
 		t.Fatal(err)
 	}
+	spremiste, err := sadrzaj.Otvori(filepath.Join(t.TempDir(), "sadrzaj.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer spremiste.Zatvori()
+	repository.SetSpremiste(spremiste)
 	for _, q := range []string{
 		`INSERT INTO sectors (id, name, vgo_name, center_cop, address, phone, email) VALUES ('B', 'Sektor B', 'VGO za Dunav i donju Dravu, Osijek', 'COP Osijek', 'Splavarska 2a, 31000 Osijek', '031/252-802', 'copos@voda.hr')`,
 		`INSERT INTO areas (id, sector_id, name, vgi_name, subcenter, latitude, longitude) VALUES (34, 'B', 'međudržavne rijeke Drava i Dunav', 'VGI Baranja', 'Osijek', 45.7, 18.8)`,

@@ -329,7 +329,7 @@ func (h *PrijaveHandler) ShowPrijava(w http.ResponseWriter, r *http.Request) {
 	}
 	d.Simulacija = h.vod.simulacijaKljuca(r)
 	if p.Objavljena() {
-		if iz, _ := s.Izvornik(r.Context(), perms, p.ID); iz != nil {
+		if iz, _ := s.Izvornik(r.Context(), perms, p.ID); iz != nil && len(iz.PDF) > 0 {
 			d.Izvornik.Ima = true
 			if h.vod.potpis != nil {
 				if ps := h.vod.potpis(); ps != nil {

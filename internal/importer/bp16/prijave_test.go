@@ -14,6 +14,7 @@ import (
 	"gocop/internal/ledger"
 	"gocop/internal/models"
 	"gocop/internal/repository"
+	"gocop/internal/sadrzaj"
 )
 
 // probniIzvor daje zbirke iz memorije, kao Directus
@@ -44,6 +45,12 @@ func TestUvozObavijestiSTerena(t *testing.T) {
 	if err := db.InitSchema(baza); err != nil {
 		t.Fatal(err)
 	}
+	spremiste, err := sadrzaj.Otvori(filepath.Join(t.TempDir(), "sadrzaj.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer spremiste.Zatvori()
+	repository.SetSpremiste(spremiste)
 	repo := repository.NewPrijavaRepository(baza, ledger.New(baza, "test"))
 	img := image.NewRGBA(image.Rect(0, 0, 2000, 1500))
 	for y := 0; y < 1500; y += 3 {
