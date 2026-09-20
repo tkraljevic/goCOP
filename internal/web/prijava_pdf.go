@@ -23,7 +23,7 @@ func kartaZaPDF(png []byte) []byte {
 		return nil
 	}
 	var b bytes.Buffer
-	if err := jpeg.Encode(&b, img, &jpeg.Options{Quality: 80}); err != nil {
+	if err := jpeg.Encode(&b, img, &jpeg.Options{Quality: 74}); err != nil {
 		return nil
 	}
 	return b.Bytes()

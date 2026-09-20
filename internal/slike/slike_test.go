@@ -24,14 +24,14 @@ func TestSmanjiFotografiju(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if w != 1400 || h != 1050 {
+	if w != 1000 || h != 750 {
 		t.Errorf("mjere: %dx%d", w, h)
 	}
 	if len(out) >= velika.Len() || len(out) > 600<<10 {
 		t.Errorf("smanjena slika: %d B (ulaz %d B)", len(out), velika.Len())
 	}
 	cfg, format, err := image.DecodeConfig(bytes.NewReader(out))
-	if err != nil || format != "jpeg" || cfg.Width != 1400 {
+	if err != nil || format != "jpeg" || cfg.Width != 1000 {
 		t.Errorf("izlaz: %s %dx%d %v", format, cfg.Width, cfg.Height, err)
 	}
 	// uspravna i mala PNG slika

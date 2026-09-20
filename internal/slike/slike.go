@@ -1,6 +1,7 @@
 // Package slike smanjuje fotografije s terena na mjeru koja stane u PDF i u
 // razmjenu među čvorovima: telefon daje 4–8 MB po slici, a dokumentu treba
-// 100–300 KB. Izlaz je uvijek JPEG.
+// 100–250 KB. Na A4 slika stoji pola stranice široko, pa je 1 000 px oko
+// 300 dpi; travnati teren se loše sažima, pa mjera vrijedi. Izlaz je JPEG.
 package slike
 
 import (
@@ -14,10 +15,10 @@ import (
 )
 
 // NajvecaStranica je najdulja stranica smanjene slike u točkama
-const NajvecaStranica = 1400
+const NajvecaStranica = 1000
 
 // Kvaliteta JPEG-a smanjene slike
-const Kvaliteta = 75
+const Kvaliteta = 70
 
 // NajveciUlaz je najveća ulazna datoteka koju primamo (bajtova)
 const NajveciUlaz = 20 << 20

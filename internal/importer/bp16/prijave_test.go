@@ -109,7 +109,7 @@ func TestUvozObavijestiSTerena(t *testing.T) {
 		!prijava.ImaKoordinate() || *prijava.Latitude != 45.65 || prijava.Status != models.PrijavaObjavljena || prijava.Broj != 1 || prijava.Godina != 2024 || !prijava.Rekonstrukcija || prijava.Objekt != "čuvarnica Darda" {
 		t.Fatalf("prijava: %+v", prijava)
 	}
-	if len(prijava.Slike) != 1 || prijava.Slike[0].Sirina != 1400 {
+	if len(prijava.Slike) != 1 || prijava.Slike[0].Sirina != 1000 {
 		t.Fatalf("slike prijave: %+v", prijava.Slike)
 	}
 	if iz, _ := repo.Izvornik(context.Background(), prijava.ID); iz == nil || !bytes.Contains(iz.PDF, []byte("rekonstrukcija B-T-1/2024")) || prijava.Sken != "" {
