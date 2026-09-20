@@ -38,7 +38,7 @@ func TestTablicaIzvoraNastajeSPostojecimVrijednostima(t *testing.T) {
 		{"letva-dhmz", 1, true},
 		{"cop", 3, true},
 		{"letva-hv", 5, true},
-		{"seba", 5, true},
+		{"geolux-seba", 5, true},
 		{"vituki", 5, true},
 		{"his2000-cs", 0, false},
 	} {
@@ -78,8 +78,8 @@ func TestIzvoriSuSravnjeniUTriSkupine(t *testing.T) {
 		"his2000": models.SkupinaOvjereno, "vituki": models.SkupinaOvjereno,
 		"his2000-cs": models.SkupinaOvjereno, "cop-rucno": models.SkupinaSLetve,
 		"letva-dhmz": models.SkupinaOperativno, "cop": models.SkupinaOperativno,
-		"letva-hv": models.SkupinaOperativno,
-		"seba":     models.SkupinaOperativno,
+		"letva-hv":    models.SkupinaOperativno,
+		"geolux-seba": models.SkupinaOperativno,
 	} {
 		if got := models.SkupinaIzvora(naziv, po[naziv]); got != ocekivanaSkupina {
 			t.Errorf("%s je u skupini %q, očekivano %q (red %d)", naziv, got, ocekivanaSkupina, po[naziv])
@@ -98,7 +98,7 @@ func TestIzvoriSuSravnjeniUTriSkupine(t *testing.T) {
 		}
 	}
 	// Izmjerene točnosti ostaju — one odlučuju unutar skupine i ispisuju se kao ±.
-	for naziv, ocekivano := range map[string]float64{"his2000": 0, "letva-dhmz": 1, "cop": 3, "letva-hv": 5, "seba": 5, "cop-rucno": 1} {
+	for naziv, ocekivano := range map[string]float64{"his2000": 0, "letva-dhmz": 1, "cop": 3, "letva-hv": 5, "geolux-seba": 5, "cop-rucno": 1} {
 		if tocnosti[naziv] != ocekivano {
 			t.Errorf("točnost %s: %v, očekivano %v", naziv, tocnosti[naziv], ocekivano)
 		}

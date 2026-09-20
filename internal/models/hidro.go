@@ -20,7 +20,7 @@ type HidroNiz struct {
 	ID       int64
 	Sliv     string
 	Letva    string
-	Izvor    string // his2000 | cop | letva-hv | letva-dhmz | vituki | preracun-*
+	Izvor    string // his2000 | cop | letva-hv | letva-dhmz | geolux-seba | vituki | preracun-*
 	Velicina string // vodostaj | protok | temperatura | koncentracija | pronos
 	Vrsta    string // satni | dvokratni | jutarnji | srednjak | dnevni
 	PoDanu   bool   // izvor daje samo datum, bez sata
@@ -107,6 +107,8 @@ func NazivIzvora(i string) string {
 		return "telemetrija, Hrvatske vode"
 	case i == "letva-dhmz":
 		return "telemetrija, DHMZ"
+	case i == "geolux-seba":
+		return "AVS, Geolux/SEBA"
 	case i == "vituki":
 		return "vizugy.hu, Mađarska"
 	case strings.HasSuffix(i, "-izvan"):

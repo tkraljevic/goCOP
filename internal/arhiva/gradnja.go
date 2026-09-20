@@ -1059,7 +1059,7 @@ var zadaniIzvori = []Izvor{
 	{"letva-dhmz", 1, 20, true, "", ""},
 	{"cop", 3, 20, true, "", ""},
 	{"letva-hv", 5, 20, true, "", "dobra većinu vremena; u zamrznutim razdobljima javlja istu vrijednost danima"},
-	{"seba", 5, 20, true, "", "Geolux/SEBA telemetrija; točnost je zasad proglašena, ne izmjerena"},
+	{"geolux-seba", 5, 20, true, "", "AVS Geolux/SEBA; točnost je zasad proglašena, ne izmjerena"},
 }
 
 // zadanaTocnost vrijedi za izvor kojeg u tablici nema. Preračun se prepoznaje

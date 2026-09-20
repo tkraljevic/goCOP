@@ -43,6 +43,8 @@ func main() {
 	kotaNova := flag.String("kota-nova", "", "kota nule u novom sustavu (HVRS71)")
 	kotaIzvor := flag.String("kota-izvor", "", "odakle je kota nule")
 	kotaNacin := flag.String("kota-nacin", "", "kako je kota nule dobivena")
+	kotaDatumMjerenja := flag.String("kota-datum-mjerenja", "", "datum terenskog mjerenja kote, YYYY-MM-DD")
+	kotaDatumDokumenta := flag.String("kota-datum-dokumenta", "", "datum elaborata, YYYY-MM-DD ili YYYY-MM")
 
 	pripremno := flag.String("pripremno", "", "prag pripremnog stanja, u cm")
 	redovna := flag.String("redovna", "", "prag redovne obrane, u cm")
@@ -53,6 +55,9 @@ func main() {
 	ograda := flag.String("ograda", "", "ograda uz niz: izvor|veličina|od|do|ispod|iznad|tekst")
 	sirina := flag.String("sirina", "", "zemljopisna širina, decimalni stupnjevi")
 	duzina := flag.String("duzina", "", "zemljopisna dužina, decimalni stupnjevi")
+	napomena := flag.String("napomena", "", "opća napomena uz postaju")
+	pregled := flag.String("pregled", "", "označi za pregled: da ili ne; prazno ne mijenja")
+	napomenaPregleda := flag.String("napomena-pregleda", "", "upozorenje i razlog pregleda")
 	flag.Parse()
 
 	if strings.TrimSpace(*sifra) == "" {
@@ -150,6 +155,10 @@ func main() {
 	tekst("izvorni naziv", &letva.SourceName, *izvorniNaziv)
 	tekst("izvor kote", &letva.ZeroDatumSource, *kotaIzvor)
 	tekst("način kote", &letva.ZeroDatumMethod, *kotaNacin)
+	tekst("datum mjerenja", &letva.ZeroDatumSurveyDate, *kotaDatumMjerenja)
+	tekst("datum dokumenta", &letva.ZeroDatumDocumentDate, *kotaDatumDokumenta)
+	tekst("napomena", &letva.Notes, *napomena)
+	tekst("napomena pregleda", &letva.ReviewNote, *napomenaPregleda)
 	broj("kota nule", &letva.ZeroDatum, *kota)
 	broj("kota nule (nova)", &letva.ZeroDatumNew, *kotaNova)
 	broj("širina", &letva.Latitude, *sirina)
@@ -159,6 +168,16 @@ func main() {
 	prag("izvanredna", &letva.Emergency, *izvanredna)
 	prag("izvanredno stanje", &letva.State, *stanje)
 	prag("rekord", &letva.Record, *rekord)
+	if *pregled != "" {
+		nova, err := daNe(*pregled)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if letva.NeedsReview != nova {
+			promjene = append(promjene, fmt.Sprintf("%-18s %t → %t", "za pregled", letva.NeedsReview, nova))
+			letva.NeedsReview = nova
+		}
+	}
 
 	if *ograda != "" {
 		o, err := ogradaIz(*ograda)
@@ -186,6 +205,17 @@ func main() {
 		os.Exit(1)
 	}
 	fmt.Printf("\nupisano, %d %s\n", len(promjene), uzBroj(len(promjene)))
+}
+
+func daNe(s string) (bool, error) {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "da", "d", "1", "true":
+		return true, nil
+	case "ne", "n", "0", "false":
+		return false, nil
+	default:
+		return false, fmt.Errorf("pregled treba biti da ili ne, dobiveno %q", s)
+	}
 }
 
 // ogradaIz čita ogradu iz jednog retka: izvor|veličina|od|do|ispod|iznad|tekst.
