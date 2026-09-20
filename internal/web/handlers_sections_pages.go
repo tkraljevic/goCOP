@@ -350,8 +350,15 @@ func (h *SectionsHandler) ShowSectionForm(w http.ResponseWriter, r *http.Request
 	if h.stationService != nil {
 		data.Stations, _ = h.stationService.ListStations(ctx, "", "", false)
 	}
-	if h.structureService != nil && data.Section.AreaID > 0 {
-		if all, err := h.structureService.List(ctx, "", data.Section.AreaID, "", ""); err == nil {
+	if h.structureService != nil && (data.Section.AreaID > 0 || !data.IsEdit) {
+		// Kod nove dionice područje se često odabere tek u otvorenom obrascu.
+		// Zato joj unaprijed dajemo objekte svih područja, a preglednik nakon
+		// odabira prikaže samo pripadajuće. U uređivanju je područje već stalno.
+		areaID := data.Section.AreaID
+		if !data.IsEdit {
+			areaID = 0
+		}
+		if all, err := h.structureService.List(ctx, "", areaID, "", ""); err == nil {
 			for _, s := range all {
 				if s.Kind == models.StructureKindEmbankment || s.Kind == models.StructureKindDam {
 					data.Embankments = append(data.Embankments, s)

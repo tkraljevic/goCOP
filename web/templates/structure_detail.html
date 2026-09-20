@@ -40,12 +40,18 @@
       <div><dt>Šifra</dt><dd style="font-family:ui-monospace, monospace; font-weight:500;">{{.Structure.Code}}</dd></div>
       {{if .Structure.Latitude}}<div><dt>Položaj</dt><dd class="mono">{{derefFloat .Structure.Latitude 5}}, {{derefFloat .Structure.Longitude 5}}</dd></div>{{end}}
     </dl>
-    {{if .Structure.Notes}}<p style="font-size:0.85rem; margin:0.75rem 0 0;">{{.Structure.Notes}}</p>{{end}}
     {{if .Structure.IsPumpingStation}}
     <p class="form-help" style="margin-top:0.75rem;">Vodostaji pogona su na letvi objekta. Kad dođu očitanja, program iz njih javlja treba li stanicu pokrenuti ili zaustaviti.</p>
     {{end}}
   </div>
 </section>
+
+{{if .Structure.Notes}}
+<section class="detail-section">
+  <h2>{{icon "file-text"}} Detaljni opis</h2>
+  <div class="reg-card markdown-body">{{renderMarkdown .Structure.Notes}}</div>
+</section>
+{{end}}
 
 <section class="detail-section">
   <h2>{{icon "ruler"}} Vodomjer na objektu</h2>

@@ -1,7 +1,8 @@
-# Arhiva, izdanja i zaborav
+# Službeni zapisi, arhiva, izdanja i zaborav
 
-Zapis odluka o tome gdje koji podatak živi, kako se objavljuje i kako se
-prestaje čuvati. Nastalo iz rada na Batini, rujan 2026.
+Zapis odluka o tome gdje koji podatak živi, kako iz nacrta postaje služben,
+što se čuva trajno i kako se prestaje čuvati. Nastalo iz rada na Batini,
+rujan 2026.
 
 ## Zašto uopće
 
@@ -13,12 +14,38 @@ morao prenijeti i držati.
 
 Zato su razdvojene, i zato treba pravilo kad se što seli i kad se briše.
 
+## Životni ciklus zapisa
+
+Pojam **arhiva** sam nije dovoljno širok za sve što goCOP čuva. Temeljni
+pojam je **repozitorij službenih zapisa**: uređeno spremište svega što je
+objavljeno ili ovjereno i zato više nije nacrt.
+
+`nacrt → objava ili ovjera → službeni zapis → trajno čuvanje ili kontrolirano izlučivanje`
+
+- **Nacrt (Draft)** pripada radnom prostoru. Može se mijenjati i nije dio
+  službene građe.
+- **Objavljen ili ovjeren zapis** zaključan je zajedno s prilozima, potpisom i
+  prikazom koji je korisnik potvrdio. Od tog trenutka pripada repozitoriju
+  službenih zapisa.
+- **Ispravak** ne prepisuje službeni zapis. Nastaje novi povezani zapis, a
+  prethodni ostaje čitljiv i označen kao zamijenjen ili povučen.
+- **Arhivska građa** dio je službenih zapisa određenih za dugoročno ili trajno
+  čuvanje.
+- **Službeni zapis s rokom čuvanja** jednako je nepromjenjiv, ali se nakon
+  propisanog roka može kontrolirano izlučiti. Zaborav zato nije obično
+  brisanje nego evidentirana odluka prema pravilima čuvanja.
+
+U tehničkom smislu svi objavljeni i ovjereni sadržaji mogu odmah prijeći iz
+radnog prostora u isto nepromjenjivo spremište. Njihov rok čuvanja ipak nije
+nužno isti: status službenog zapisa i odluka o trajnoj arhivskoj vrijednosti
+dvije su odvojene stvari.
+
 ## Podjela
 
 | | sadržaj | svojstva |
 |---|---|---|
 | `gocop.db` → `readings` | ono što ured radi: dnevni vodostaji koje operater prikuplja, satni **dok traje obrana**, očitanje s terena u bilo koje doba | verzionirano, sinkronizira se |
-| `data/vodostaji.db` | povijest: HIS-2000, telemetrija, mađarski nizovi, rekonstrukcije, protok, temperatura, nanos | bez verzija, ne sinkronizira se, obnovljivo iz `vodostaji/` |
+| `data/vodostaji.db` | povijest: HIS-2000, telemetrija, mađarski nizovi, rekonstrukcije, protok, temperatura, nanos | bez verzija; razmjenjuje se potpisanim `.cop` izdanjima, odvojeno od knjige verzija |
 
 Arhiva se **preuzima**, ne razmjenjuje kroz knjigu verzija. Cilj je da redovna
 sinkronizacija nosi samo katalog — koja letva, koje izdanje, koje razdoblje i
@@ -98,9 +125,13 @@ vrati obrisane verzije. Zato je sadašnji postupak namijenjen kontroliranom
 pospremanju na čvoru koji drži provjerenu arhivu, a sljedeća pravila ostaju
 cilj mrežne izvedbe.
 
-**Uvjet je „svi", ne „većina".** Ako obriše većina, manjina je možda upravo
-čvor koji izdanje nikad nije preuzeo. Briše se kad **svaki aktivan član javi
-da drži izdanje** koje te zapise sadrži.
+**Uvjet je „svi određeni čuvari arhive", ne „većina".** Nakon uvođenja
+selektivnih pretplata ne mora svaki prijenosnik držati svaku arhivu. Za svaki
+kanal unaprijed se određuju čvorovi koji su njegovi čuvari; briše se tek kad
+svaki aktivan čuvar potvrdi da drži izdanje koje zapise sadrži. Svi ostali
+aktivni čvorovi moraju primiti katalog i zapis o zaboravu, ali ne i veliki
+sadržaj. Tako prijenosnik vodočuvara ne zaustavlja zaborav arhive drugog
+sektora, a odluka o tome tko čuva jedini primjerak nije prepuštena slučaju.
 
 **Brisanje mora biti zapis koji putuje.** Ako čvor lokalno obriše očitanja, a
 drugi ih još ima, pri sljedećoj razmjeni dobije ih natrag — podaci uskrsnu, i
@@ -145,6 +176,81 @@ možda još drži; da nastavi gdje je stao, gurnuo bi ih natrag.
 **Upozorenje prije zastoja.** Program treba javiti „čvor Osijek nije potvrdio
 izdanje 2027.1 šest mjeseci", da se čvor potjera dok je to još sitnica — a ne
 da se otkrije tek kad zaborav stane.
+
+### 7. Objava i ovjera kao ulaz u repozitorij  *(odlučeno, nije napravljeno)*
+
+Starost nije glavni okidač za dokumente. **Objava ili ovjera trenutak je u
+kojem radni zapis postaje službeni zapis.** Do tada se nacrt i prilozi
+mijenjaju u operativnoj bazi. Objavom ili ovjerom izrađuje se konačni prikaz,
+zaključavaju sadržaj i prilozi, izračunava otisak te predmet ulazi u
+repozitorij službenih zapisa. Politika čuvanja zatim određuje čuva li se
+trajno kao arhivska građa ili do isteka propisanog roka.
+
+Postupak mora biti atomski:
+
+1. zapisati predmet i velike sadržaje u repozitorij;
+2. ponovno ih pročitati i provjeriti otiske;
+3. u glavnoj bazi ostaviti malo kazalo — identitet, vrstu, datum, autora,
+   doseg, stanje, otisak i mjesto arhive;
+4. tek tada ukloniti velike sadržaje iz glavne baze i njezine knjige verzija.
+
+Ako bilo koji korak ne uspije, predmet ne smije ostati napola ovjeren ili bez
+sadržaja. Knjiga verzija ne nosi kopije fotografija, skenova i PDF-ova, nego
+samo njihove identitete, veličine i kriptografske otiske.
+
+Službeni predmet ne otvara se za uređivanje. Pogreška se ispravlja novim
+objavljenim ili ovjerenim predmetom koji navodi što zamjenjuje; izvorni ostaje
+čitljiv i označen kao zamijenjen. Naknadno se mogu dodavati vanjske oznake za
+pretragu i pravila čuvanja, ali one ne mijenjaju zapečaćeni sadržaj.
+
+Prvo se ovako arhiviraju sadržajno veliki završeni predmeti:
+
+- ovjereni dnevni listovi, uključujući fotografije upisa vodočuvara i
+  rukovoditelja;
+- ovjerene prijave i izvješća s terena;
+- potpisani akti;
+- izvorne fotografije, skenovi, konačni PDF-ovi i drugi veliki prilozi.
+
+`gocop.db` ostaje operativna baza i zajedničko kazalo. Posebna arhivska baza
+uvodi se po modulu samo kad količina i način čitanja to opravdavaju — kao što
+je već slučaj s vodostajima. Veliki nepromjenjivi sadržaji čuvaju se jednom,
+po SHA-256 otisku, u zajedničkom spremištu; isti prilog se ne umnaža zato što
+ga prikazuju dnevnik, prijava i PDF.
+
+### 8. `.cop` kanali i selektivna sinkronizacija  *(odlučeno, nije napravljeno)*
+
+`.cop` nije nova neovisna aplikacijska baza. To je potpisano izdanje jednog
+kanala repozitorija službenih zapisa i njegove zajedničke povijesti, a ne samo
+paket stare arhive. Planirani kanali su najmanje jezgra i registri,
+vodostaji, dnevnici, prijave i izvješća, akti te održavanje. Paket se može
+dodatno suziti na sektor, branjeno područje, postaju i razdoblje, primjerice
+`dnevnici-BP34-2026.cop` ili `vodostaji-Batina-1985-2024.cop`.
+
+Paket nosi potpisani manifest, vrstu i verziju kanala, obuhvat, zapise,
+popis potrebnih sadržaja, njihove veličine i otiske te vezu na prethodno
+izdanje. Velike datoteke dijele se na provjerljive dijelove kako bi se prijenos
+mogao nastaviti nakon prekida i kako se već postojeći sadržaj ne bi preuzimao
+ponovno.
+
+Automatska razmjena koristi isti manifest i dijelove kao ručna `.cop`
+datoteka. Razlika je samo put: mreža ih prenosi izravno između uparenih i
+ovlaštenih čvorova, a `.cop` datoteka omogućuje USB ili drugi izvanmrežni
+prijenos. To je zatvoren, potpisan sustav nalik torrentu — nema javnih
+trackera ni nepoznatih sudionika, a primljeni sadržaj postaje izvor drugim
+ovlaštenim čvorovima tek nakon potpune provjere.
+
+Svaki čvor bira pretplatu:
+
+- module i arhivske kanale;
+- sektore, branjena područja i postaje;
+- razdoblje;
+- samo katalog, umanjene preglede ili pune izvornike;
+- koliko dugo pune sadržaje drži lokalno.
+
+Svi čvorovi dobivaju malo zajedničko kazalo pa znaju da predmet postoji.
+Puni PDF ili fotografiju čvor bez trajne pretplate može dohvatiti na zahtjev.
+Središnji čvorovi i određeni čuvari kanala drže trajne potpune primjerke;
+prijenosnici smiju imati samo svoj operativni doseg i privremene sadržaje.
 
 ## Što je već napravljeno
 

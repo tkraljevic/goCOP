@@ -93,8 +93,29 @@
   </div>
 
   <div class="form-group">
-    <label class="form-label" for="notes">Napomena</label>
-    <textarea id="notes" name="notes" class="form-control" rows="2">{{.Structure.Notes}}</textarea>
+    <label class="form-label" for="notes-editor">Detaljni opis</label>
+    <div class="urednik" id="notes-editor">
+      <div class="urednik-alat" role="toolbar" aria-label="Oblikovanje detaljnog opisa">
+        <select class="urednik-blok" title="Naslov ili odlomak">
+          <option value="p">Odlomak</option>
+          <option value="h2">Naslov</option>
+          <option value="h3">Podnaslov</option>
+        </select>
+        <span class="urednik-crta"></span>
+        <button type="button" data-cmd="bold" title="Podebljano (Ctrl+B)"><b>B</b></button>
+        <button type="button" data-cmd="italic" title="Kurziv (Ctrl+I)"><i>I</i></button>
+        <span class="urednik-crta"></span>
+        <button type="button" data-cmd="insertUnorderedList" title="Popis">• popis</button>
+        <button type="button" data-cmd="insertOrderedList" title="Numerirani popis">1. popis</button>
+        <button type="button" data-cmd="createLink" title="Poveznica">{{icon "link"}}</button>
+        <button type="button" data-cmd="removeFormat" title="Ukloni oblikovanje">{{icon "x"}}</button>
+        <span class="urednik-crta"></span>
+        <button type="button" id="notes-source" title="Uredi izvorni Markdown">Markdown</button>
+      </div>
+      <div class="urednik-polje form-control" id="notes-visual" contenteditable="true" spellcheck="true">{{renderMarkdown .Structure.Notes}}</div>
+      <textarea id="notes" name="notes" class="form-control mono" rows="14" hidden>{{.Structure.Notes}}</textarea>
+    </div>
+    <div class="form-help">Sprema se kao Markdown. Vizualni prikaz podržava naslove, podebljano, kurziv, popise i poveznice; gumb Markdown otvara izvorni tekst.</div>
   </div>
 
   <div class="form-actions">
@@ -102,4 +123,85 @@
     <button type="submit" class="btn btn-primary">{{if .IsEdit}}Spremi izmjene{{else}}Upiši u registar{{end}}</button>
   </div>
 </form>
+<script>
+  (function () {
+    var form = document.querySelector('form.form-page');
+    var editor = document.getElementById('notes-editor');
+    var visual = document.getElementById('notes-visual');
+    var source = document.getElementById('notes');
+    var toggle = document.getElementById('notes-source');
+    if (!form || !editor || !visual || !source || !toggle) return;
+
+    function text(node) {
+      return Array.from(node.childNodes).map(toMarkdown).join('');
+    }
+    function block(node, prefix) {
+      var value = text(node).trim();
+      return value ? prefix + value + '\n\n' : '';
+    }
+    function list(node, ordered) {
+      var rows = [];
+      Array.from(node.children).forEach(function (item, i) {
+        if (item.tagName !== 'LI') return;
+        rows.push((ordered ? (i + 1) + '. ' : '- ') + text(item).trim());
+      });
+      return rows.length ? rows.join('\n') + '\n\n' : '';
+    }
+    function toMarkdown(node) {
+      if (node.nodeType === Node.TEXT_NODE) return node.nodeValue || '';
+      if (node.nodeType !== Node.ELEMENT_NODE) return '';
+      var tag = node.tagName;
+      if (tag === 'H1') return block(node, '# ');
+      if (tag === 'H2') return block(node, '## ');
+      if (tag === 'H3') return block(node, '### ');
+      if (tag === 'P' || tag === 'DIV') return block(node, '');
+      if (tag === 'STRONG' || tag === 'B') return '**' + text(node) + '**';
+      if (tag === 'EM' || tag === 'I') return '*' + text(node) + '*';
+      if (tag === 'CODE') return '`' + text(node) + '`';
+      if (tag === 'A') return '[' + text(node) + '](' + (node.getAttribute('href') || '') + ')';
+      if (tag === 'UL') return list(node, false);
+      if (tag === 'OL') return list(node, true);
+      if (tag === 'LI') return text(node);
+      if (tag === 'BR') return '\n';
+      return text(node);
+    }
+    function markdown() {
+      return text(visual).replace(/\n{3,}/g, '\n\n').trim();
+    }
+    editor.querySelectorAll('[data-cmd]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        var cmd = button.dataset.cmd;
+        if (cmd === 'createLink') {
+          var url = prompt('Adresa poveznice (https://…):');
+          if (url) document.execCommand('createLink', false, url);
+        } else {
+          document.execCommand(cmd, false, null);
+        }
+        visual.focus();
+      });
+    });
+    editor.querySelector('.urednik-blok').addEventListener('change', function () {
+      document.execCommand('formatBlock', false, this.value);
+      visual.focus();
+    });
+    toggle.addEventListener('click', function () {
+      if (source.hidden) {
+        source.value = markdown();
+        visual.hidden = true;
+        source.hidden = false;
+        toggle.textContent = 'Vizualno';
+        source.focus();
+      } else {
+        visual.innerHTML = renderMarkdown(source.value);
+        source.hidden = true;
+        visual.hidden = false;
+        toggle.textContent = 'Markdown';
+        visual.focus();
+      }
+    });
+    form.addEventListener('submit', function () {
+      if (source.hidden) source.value = markdown();
+    });
+  })();
+</script>
 {{end}}

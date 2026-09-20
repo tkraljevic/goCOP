@@ -107,6 +107,22 @@ func TestDetaljVodotokaRenderiraMarkdownNapomenu(t *testing.T) {
 	}
 }
 
+func TestDetaljObjektaRenderiraMarkdownOpis(t *testing.T) {
+	s := &models.Structure{ID: uuid.New(), Code: "bp34-nasip-batina", Name: "Nasip Batina",
+		Kind: models.StructureKindEmbankment, SectorID: "B", AreaID: 34,
+		Notes: "## Kritična mjesta\n\n- stari proboj\n- čuvarnica"}
+	html := iscrtaj(t, "structure_detail.html", StructurePageData{
+		CurrentUser: &models.User{FullName: "Provjera"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Structure:   s,
+	})
+	for _, want := range []string{"Detaljni opis", "<h2>Kritična mjesta</h2>", "<li>stari proboj</li>"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("Markdown opis objekta nije ispravno prikazan; nema %q", want)
+		}
+	}
+}
+
 // U polju obrasca zarez da, razdjelnik tisućica ne — inače se vrijednost teško
 // uređuje, a i čitanje bi je moralo raspetljavati bez potrebe.
 //
@@ -140,12 +156,21 @@ func TestObrazacDioniceImaZaglavljeIPrijepis(t *testing.T) {
 		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
 		Section:     models.Section{Code: "B.34.1", AreaID: 34, SectorID: "B"},
 		IsEdit:      true,
+		Embankments: []models.Structure{{
+			ID: uuid.MustParse("48e0b16c-a025-42eb-82c7-3778efb74688"), Name: "Nasip Gomboš",
+			Kind: models.StructureKindEmbankment, AreaID: 34,
+		}},
 	})
 	if n := strings.Count(html, `class="rows-head"`); n != 2 {
 		t.Errorf("zaglavlja stupaca ima %d, očekivano 2 (nasipi i objekti)", n)
 	}
 	if strings.Count(html, "Prepiši iz dokumentacije") != 2 {
 		t.Error("nema gumba za prijepis u oba bloka")
+	}
+	for _, want := range []string{`data-field="embankment_choice"`, "+ Novi nasip ili brana", "Nasip Gomboš", "area: 34"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("izbor postojećeg nasipa nema %q", want)
+		}
 	}
 	// Naslov stupca ne smije se ponavljati uz svaki redak: u predlošku retka
 	// ostaju samo polja, a naslov nosi data-label, koji se vidi tek na uskom

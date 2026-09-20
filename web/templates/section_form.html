@@ -115,6 +115,7 @@
         <div data-role="emb-rows"></div>
       </div>
       <button type="button" class="btn btn-sm btn-secondary" onclick="addEmbankment(this)">{{icon "plus"}} Dodaj nasip ili branu</button>
+      <div class="form-help">Odaberite postojeći nasip ili branu iz registra. „Novi nasip ili brana” stvara novi zapis u registru tek pri spremanju dionice.</div>
     </details>
 
     <details open class="part-block">
@@ -162,8 +163,11 @@
 
 <template id="tpl-emb">
   <div class="emb-row">
-    <div data-label="Nasip ili brana">
-      <input type="text" class="form-control" data-field="name" list="embankments-list" placeholder="Lijevi nasip …" aria-label="Nasip ili brana iz registra ili novi naziv" autocomplete="off" onchange="renderChips(partOf(this))"><input type="hidden" data-field="structure_id"></div>
+    <div data-label="Nasip ili brana" style="display:grid; gap:0.35rem;">
+      <select class="form-control" data-field="embankment_choice" aria-label="Odaberi postojeći ili novi nasip ili branu" onchange="embankmentChoice(this)"></select>
+      <input type="text" class="form-control" data-field="name" placeholder="Naziv novog nasipa ili brane" aria-label="Naziv novog nasipa ili brane" autocomplete="off" oninput="renderChips(partOf(this))" hidden>
+      <input type="hidden" data-field="structure_id">
+    </div>
     <div data-label="Uz vodu od"><input type="text" class="form-control mono" data-field="water_from" placeholder="0+235" aria-label="Uz vodu od"></div>
     <div data-label="do"><input type="text" class="form-control mono" data-field="water_to" placeholder="0+855" aria-label="Uz vodu do"></div>
     <div data-label="Po nasipu od"><input type="text" class="form-control mono" data-field="emb_from" placeholder="0+000" aria-label="Po nasipu od"></div>
@@ -188,7 +192,6 @@
 
 <datalist id="stations-list">{{range .Stations}}<option value="{{.Name}}{{if .HasWatercourse}} · {{.Watercourse}}{{end}}">{{end}}</datalist>
 <datalist id="structures-list">{{range .Structures}}<option value="{{.Name}}">{{.KindLabel}}</option>{{end}}</datalist>
-<datalist id="embankments-list">{{range .Embankments}}<option value="{{.Name}}">{{.KindLabel}}</option>{{end}}</datalist>
 
 <script>
 // Obrazac slaže poddionice u JSON kakav program vodi. Registri su preneseni
@@ -198,7 +201,7 @@ const TERR_LABELS = {{.TerritoryLabels}};
 const WATERS = [{{range .Watercourses}}{code:{{.Code}}, name:{{.OfficialName}}, kind:{{.Kind}}},{{end}}];
 const STATIONS = [{{range .Stations}}{id:{{.ID.String}}, name:{{.Name}}, label:{{.Name}}{{if .HasWatercourse}} + " · " + {{.Watercourse}}{{end}}},{{end}}];
 const STRUCTURES = [{{range .Structures}}{id:{{.ID.String}}, name:{{.Name}}},{{end}}];
-const EMBANKMENTS = [{{range .Embankments}}{id:{{.ID.String}}, name:{{.Name}}},{{end}}];
+const EMBANKMENTS = [{{range .Embankments}}{id:{{.ID.String}}, name:{{.Name}}, area:{{.AreaID}}, kind:{{.KindLabel}}},{{end}}];
 
 function kmOf(text) {
   // stacionaža dolazi i s oznakom vrste ("rkm 1428+010"); parseFloat na njoj
@@ -422,7 +425,49 @@ function addEmbankment(btn, e) {
   row.querySelector('[data-field=water_from]').value = e.water_from != null ? kmText(e.water_from) : ''; row.querySelector('[data-field=water_to]').value = e.water_to != null ? kmText(e.water_to) : '';
   row.querySelector('[data-field=emb_from]').value = e.emb_from != null ? kmText(e.emb_from) : ''; row.querySelector('[data-field=emb_to]').value = e.emb_to != null ? kmText(e.emb_to) : '';
   row.querySelector('[data-field=length_km]').value = e.length_km != null ? num(e.length_km) : ''; row.dataset.waterKind = e.water_kind || ''; row.dataset.data = e.data || ''; row.dataset.protected = e.protected_text || '';
-  el.querySelector('[data-role=emb-rows]').appendChild(row); renderChips(el);
+  el.querySelector('[data-role=emb-rows]').appendChild(row); fillEmbankmentChoices(row); renderChips(el);
+}
+function selectedAreaID() {
+  const area = document.getElementById('area_id');
+  return area ? parseInt(area.value || '0', 10) : 0;
+}
+function fillEmbankmentChoices(row) {
+  const sel = row.querySelector('[data-field=embankment_choice]');
+  const input = row.querySelector('[data-field=name]');
+  const hidden = row.querySelector('[data-field=structure_id]');
+  const area = selectedAreaID();
+  const currentID = hidden.value;
+  const currentName = input.value.trim();
+  const choices = EMBANKMENTS.filter(e => !area || e.area === area);
+  sel.innerHTML = '';
+  const first = document.createElement('option'); first.value = ''; first.textContent = choices.length ? '— odaberi postojeći —' : '— nema postojećih u ovom području —'; sel.appendChild(first);
+  for (const e of choices) {
+    const o = document.createElement('option'); o.value = e.id; o.textContent = e.name + (e.kind ? ' · ' + e.kind : ''); sel.appendChild(o);
+  }
+  const novi = document.createElement('option'); novi.value = '__new__'; novi.textContent = '+ Novi nasip ili brana'; sel.appendChild(novi);
+  const known = choices.find(e => e.id === currentID) || (!currentID && choices.find(e => e.name.toLowerCase() === currentName.toLowerCase()));
+  if (known) {
+    sel.value = known.id; hidden.value = known.id; input.value = known.name; input.hidden = true;
+  } else if (currentName) {
+    sel.value = '__new__'; hidden.value = ''; input.hidden = false;
+  } else {
+    sel.value = ''; hidden.value = ''; input.hidden = true;
+  }
+}
+function embankmentChoice(sel) {
+  const row = sel.closest('.emb-row');
+  const input = row.querySelector('[data-field=name]');
+  const hidden = row.querySelector('[data-field=structure_id]');
+  if (sel.value === '__new__') {
+    if (hidden.value) input.value = '';
+    hidden.value = ''; input.hidden = false; input.focus();
+  } else if (sel.value) {
+    const e = EMBANKMENTS.find(x => x.id === sel.value);
+    hidden.value = sel.value; input.value = e ? e.name : ''; input.hidden = true;
+  } else {
+    hidden.value = ''; input.value = ''; input.hidden = true;
+  }
+  renderChips(partOf(sel));
 }
 // nasipi poddionice, kako su trenutno upisani — za izbornike "na nasipu" i "uz nasip"
 function embankmentNames(el) { return [...el.querySelectorAll('.emb-row')].map(r => r.querySelector('[data-field=name]').value.trim()).filter(Boolean); }
@@ -494,7 +539,10 @@ function collectParts() {
   refreshDescription();
   return true;
 }
-function areaChanged() { /* objekti i nasipi područja učitaju se nakon prvog upisa dionice */ }
+function areaChanged() {
+  document.querySelectorAll('.emb-row').forEach(fillEmbankmentChoices);
+  document.querySelectorAll('#parts .part-edit').forEach(renderChips);
+}
 document.addEventListener('input', e => { if (e.target.closest && e.target.closest('#parts')) { if (e.target.dataset.field === 'length_km') e.target.dataset.manual = '1'; refreshDescription(); } });
 document.addEventListener('change', e => { if (e.target.closest && e.target.closest('#parts')) refreshDescription(); });
 (SECTION.parts && SECTION.parts.length ? SECTION.parts : [{}]).forEach(p => addPart(p));
