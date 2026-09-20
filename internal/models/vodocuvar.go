@@ -142,6 +142,8 @@ func (l VodocuvarskiList) MjesecGenitiv() string {
 // Stanje za popis: nacrt, predan, potvrđen
 func (l VodocuvarskiList) Stanje() string {
 	switch {
+	case l.Rekonstrukcija:
+		return "ovjereno prijenosom"
 	case l.Potvrden():
 		return "potvrđen"
 	case l.Predan():
@@ -149,6 +151,12 @@ func (l VodocuvarskiList) Stanje() string {
 	}
 	return "u pisanju"
 }
+
+// Zakljucen javlja da se list više ne mijenja: predan je, ili je prenesen iz
+// ranije evidencije. Prenesen list nitko neće potpisati ni ovjeriti — nije
+// nastao u programu — pa ga sustav zatvara takvog kakav je došao i ne drži
+// ga u poslu koji nekoga čeka.
+func (l VodocuvarskiList) Zakljucen() bool { return l.Predan() || l.Rekonstrukcija }
 
 // Parafa je potpis jednog rukovoditelja na listu
 type Parafa struct {

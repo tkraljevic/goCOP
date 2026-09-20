@@ -264,6 +264,9 @@ func (s *VodocuvarService) Spremi(ctx context.Context, u *models.User, dan time.
 	if err != nil {
 		return nil, err
 	}
+	if l.Rekonstrukcija {
+		return nil, fmt.Errorf("list od %s prenesen je iz ranije evidencije i ne mijenja se", l.Datum.In(models.Zagreb).Format("02.01.2006."))
+	}
 	if l.Predan() {
 		return nil, fmt.Errorf("list od %s je predan i više se ne mijenja", l.Datum.In(models.Zagreb).Format("02.01.2006."))
 	}
@@ -421,6 +424,9 @@ func (s *VodocuvarService) Ovjeri(ctx context.Context, perms *models.UserPermiss
 	if err != nil || l == nil {
 		return nil, fmt.Errorf("list ne postoji")
 	}
+	if l.Rekonstrukcija {
+		return nil, fmt.Errorf("list je prenesen iz ranije evidencije: zaključen je prijenosom i ne ovjerava se")
+	}
 	if !l.Predan() {
 		return nil, fmt.Errorf("vodočuvar list još nije predao")
 	}
@@ -440,6 +446,9 @@ func (s *VodocuvarService) Parafiraj(ctx context.Context, perms *models.UserPerm
 	l, err := s.repo.Get(ctx, id)
 	if err != nil || l == nil {
 		return nil, fmt.Errorf("list ne postoji")
+	}
+	if l.Rekonstrukcija {
+		return nil, fmt.Errorf("list je prenesen iz ranije evidencije: ne parafira se")
 	}
 	if !l.Predan() {
 		return nil, fmt.Errorf("vodočuvar list još nije predao")
@@ -464,7 +473,7 @@ func (s *VodocuvarService) Obrisi(ctx context.Context, u *models.User, id string
 	if err != nil || l == nil {
 		return err
 	}
-	if l.UserID != u.ID.String() || l.Predan() {
+	if l.UserID != u.ID.String() || l.Zakljucen() {
 		return ErrUnauthorized
 	}
 	_ = s.repo.DeleteIzvornik(ctx, id)

@@ -20,7 +20,7 @@
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
 
-{{if and .Moj (not $l.Predan)}}
+{{if and .Moj (not $l.Zakljucen)}}
 <form method="POST" action="/vodocuvar/spremi" class="form-page vodocuvar-obrazac">
   <input type="hidden" name="datum" value="{{$l.Datum.Format "2006-01-02"}}">
   <div class="form-row">

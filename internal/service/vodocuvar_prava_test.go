@@ -2,6 +2,7 @@ package service
 
 import (
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -39,3 +40,24 @@ func TestTudjiDnevnikNeVidiKolegaSIstogPodrucja(t *testing.T) {
 		t.Error("rukovoditelj branjenog područja ne vidi list")
 	}
 }
+
+// Prenesen list zaključen je prijenosom: ne mijenja se, ne predaje, ne
+// ovjerava i ne parafira, jer ga nitko nikad neće potpisati.
+func TestPreneseniListJeZakljucen(t *testing.T) {
+	l := &models.VodocuvarskiList{Rekonstrukcija: true, Sektor: "B", AreaID: 16}
+	if !l.Zakljucen() {
+		t.Error("prenesen list nije zaključen")
+	}
+	if l.Stanje() != "ovjereno prijenosom" {
+		t.Errorf("stanje: %q", l.Stanje())
+	}
+	// predan list je isto zaključen, a nacrt nije
+	if !(&models.VodocuvarskiList{PredanoAt: &vrijemeProbe}).Zakljucen() {
+		t.Error("predan list nije zaključen")
+	}
+	if (&models.VodocuvarskiList{}).Zakljucen() {
+		t.Error("nacrt je zaključen")
+	}
+}
+
+var vrijemeProbe = time.Now()

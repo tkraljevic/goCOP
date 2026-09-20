@@ -334,8 +334,9 @@ func nacrtajList(d *pdfw.Doc, l *models.VodocuvarskiList, t models.OrgTerms, are
 	if l.Rekonstrukcija {
 		// prenesen list nema potpisa: ni vodočuvarev ni rukovoditeljev, jer
 		// ga nitko nije vodio ni ovjeravao u programu
-		blokOvjereBoja(d, d.Lijevo, d.Sirina(), "PRENESENO IZ RANIJE EVIDENCIJE",
-			l.Ime, "zadaci obilaska iz VGI Baranja (app.bp16.xyz)", "bez potpisa vodočuvara i ovjere rukovoditelja",
+		blokOvjereBoja(d, d.Lijevo, d.Sirina(), "PRENESENO IZ RANIJE EVIDENCIJE — ZAKLJUČENO PRIJENOSOM",
+			l.Ime, "zadaci obilaska iz VGI Baranja (app.bp16.xyz)",
+			"list nije nastao u goCOP-u: nema potpisa vodočuvara ni ovjere rukovoditelja i naknadno se ne ovjerava",
 			sivaTekst, sivaTekst)
 		d.Y = m.y + visinaPotpisa + 10
 		return m

@@ -320,7 +320,7 @@ func (h *VodocuvarHandler) ShowList(w http.ResponseWriter, r *http.Request) {
 func (h *VodocuvarHandler) prikazi(w http.ResponseWriter, r *http.Request, d VodocuvarPageData, perms *models.UserPermissions, l *models.VodocuvarskiList, moj bool) {
 	s := h.svc()
 	d.List, d.Moj = l, moj
-	d.SmijeOvjeriti = s.SmijeOvjeriti(perms, l) && l.Predan() && !l.Potvrden()
+	d.SmijeOvjeriti = s.SmijeOvjeriti(perms, l) && l.Predan() && !l.Potvrden() && !l.Rekonstrukcija
 	if h.potpis != nil && perms != nil {
 		if ps := h.potpis(); ps != nil {
 			d.ImaKljuc = ps.Ima(r.Context(), perms.User.ID.String())
@@ -330,7 +330,7 @@ func (h *VodocuvarHandler) prikazi(w http.ResponseWriter, r *http.Request, d Vod
 	if l.ID != "" && l.Predan() {
 		d.Izvornik = h.provjeriIzvornik(r.Context(), s, perms, l.ID)
 	}
-	d.SmijeParafirati = s.SmijeParafirati(perms, l) && l.Predan()
+	d.SmijeParafirati = s.SmijeParafirati(perms, l) && l.Predan() && !l.Rekonstrukcija
 	d.Parafirao = perms != nil && l.Parafirao(perms.User.ID.String())
 	if org := h.org(); org != nil && l.AreaID > 0 {
 		d.Podrucje, _ = org.GetArea(r.Context(), l.AreaID)

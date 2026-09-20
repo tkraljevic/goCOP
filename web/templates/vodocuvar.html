@@ -47,7 +47,7 @@
       <li class="posta-kartica"><a class="posta-kartica-tijelo" href="/vodocuvar/{{.ID}}">
         <div class="posta-kartica-red"><span class="posta-od">{{if .Broj}}List {{.Broj}}{{else if .Rekonstrukcija}}Preneseno{{else}}(nepredan){{end}} · {{.DanUTjednu}}</span><span class="posta-kad">{{.Datum.Format "02.01.2006."}}{{if not .Rekonstrukcija}} · {{.Od}}–{{.Do}} · {{.SatiTekst}} h{{end}}</span></div>
         <div class="posta-predmet">{{if .Opis}}{{.Opis}}{{else if .Zadaci}}{{range $i, $z := .Zadaci}}{{if $i}}; {{end}}{{$z.Tekst}}{{end}}{{else}}(bez opisa){{end}}</div>
-        <div class="posta-pregled">{{if .Rekonstrukcija}}iz ranije evidencije, bez potpisa{{else}}{{.Stanje}}{{with .Potvrdio}} · ovjerio {{.}}{{end}}{{if .Parafe}} · parafa: {{range $i, $p := .Parafe}}{{if $i}}, {{end}}{{$p.Ime}}{{end}}{{end}}{{end}}</div>
+        <div class="posta-pregled">{{if .Rekonstrukcija}}ovjereno prijenosom · iz ranije evidencije, bez potpisa vodočuvara{{else}}{{.Stanje}}{{with .Potvrdio}} · ovjerio {{.}}{{end}}{{if .Parafe}} · parafa: {{range $i, $p := .Parafe}}{{if $i}}, {{end}}{{$p.Ime}}{{end}}{{end}}{{end}}</div>
       </a></li>
     {{end}}
     </ul>
@@ -96,7 +96,7 @@
         <li class="posta-kartica {{if and .Predan (not .Potvrden)}}neprocitano{{end}}"><a class="posta-kartica-tijelo" href="/vodocuvar/{{.ID}}">
           <div class="posta-kartica-red"><span class="posta-od">{{if .Broj}}List {{.Broj}}{{else if .Rekonstrukcija}}Preneseno{{else}}List —{{end}} · {{.DanUTjednu}}</span><span class="posta-kad">{{.Datum.Format "02.01.2006."}}{{if not .Rekonstrukcija}} · {{.SatiTekst}} h{{end}}</span></div>
           <div class="posta-predmet">{{if .Opis}}{{.Opis}}{{else if .Zadaci}}{{range $i, $z := .Zadaci}}{{if $i}}; {{end}}{{$z.Tekst}}{{end}}{{else}}(bez opisa){{end}}</div>
-          <div class="posta-pregled">{{if .Rekonstrukcija}}iz ranije evidencije, bez potpisa{{else}}{{.Stanje}}{{with .Potvrdio}} · ovjerio {{.}}{{end}}{{end}}</div>
+          <div class="posta-pregled">{{if .Rekonstrukcija}}ovjereno prijenosom · iz ranije evidencije, bez potpisa vodočuvara{{else}}{{.Stanje}}{{with .Potvrdio}} · ovjerio {{.}}{{end}}{{end}}</div>
         </a></li>
       {{end}}
       </ul>
