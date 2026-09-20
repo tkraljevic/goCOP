@@ -125,6 +125,8 @@ type VodocuvarPageData struct {
 	Podrucja    []models.Area
 	Sektori     []models.Sector
 	Filtar      repository.FiltarListova
+	MojiMjeseci []MjesecKnjige // vlastiti listovi po mjesecima
+	SamoMoj     bool           // vodočuvar bez tuđih knjiga: zaslon bez filtara
 	Danas       string
 	Arhivirana  bool // odabrana godina je zaključena
 
@@ -264,6 +266,11 @@ func (h *VodocuvarHandler) ShowPopis(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	d.MojiMjeseci = poMjesecima(d.Moji)
+	// Vodočuvar koji ne vidi ničiji tuđi dnevnik i nikome ne zadaje zadatke
+	// dobiva samo svoju knjigu: filtri i tuđe knjige mu ništa ne znače, a
+	// svaki suvišan gumb je razlog manje da program uopće otvori.
+	d.SamoMoj = d.VodiDnevnik && len(d.Knjige) == 0 && len(d.Vodocuvari) == 0
 	if err := h.tmplPopis.ExecuteTemplate(w, "vodocuvar.html", d); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}

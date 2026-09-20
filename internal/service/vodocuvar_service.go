@@ -123,12 +123,17 @@ func (s *VodocuvarService) SmijeParafirati(perms *models.UserPermissions, l *mod
 	return false
 }
 
-// SmijeVidjeti javlja smije li osoba čitati list
+// SmijeVidjeti javlja smije li osoba čitati list.
+//
+// Dnevnik je vodočuvarev: čita ga on, oni koji ga ovjeravaju i parafiraju, i
+// administracija. Pravo pisanja na području NE otvara tuđi dnevnik — inače
+// bi svaki vodočuvar vidio dnevnike kolega s istog područja, a za to nema
+// potrebe ni osnove.
 func (s *VodocuvarService) SmijeVidjeti(perms *models.UserPermissions, l *models.VodocuvarskiList) bool {
 	if perms == nil || l == nil || !perms.User.VidiVodocuvarskiDnevnik() {
 		return false
 	}
-	return perms.User.ID.String() == l.UserID || s.SmijeParafirati(perms, l) || perms.HasWriteAccess(l.Sektor, l.AreaID, "") || perms.CanAdminister(l.Sektor, l.AreaID)
+	return perms.User.ID.String() == l.UserID || s.SmijeParafirati(perms, l) || perms.CanAdminister(l.Sektor, l.AreaID)
 }
 
 // Pripremi vraća list vodočuvara za dan: postojeći, ili novi popunjen onim

@@ -8,7 +8,8 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">{{icon "notebook-pen"}} Vodočuvarski dnevnik</h1>
-    <p class="page-desc">Dnevni list po uzoru na papirnu knjigu: radno vrijeme, vremenske prilike, naredbe rukovoditelja, opis rada i posebna zapažanja s vodostajima. Vodočuvar list potpiše i preda, rukovoditelj branjenog područja ga ovjeri, a ostali rukovoditelji vezani uz područje mogu ga parafirati. Knjiga traje godinu dana, istekom godine se arhivira; ispisuje se cijela ili list po list.</p>
+    {{if .SamoMoj}}<p class="page-desc">Vaša knjiga. Otvorite „Današnji list”, upišite što ste radili i predajte ga; rukovoditelj ga ovjerava. Knjiga traje godinu dana i može se ispisati cijela.</p>
+    {{else}}<p class="page-desc">Dnevni list po uzoru na papirnu knjigu: radno vrijeme, vremenske prilike, naredbe rukovoditelja, opis rada i posebna zapažanja s vodostajima. Vodočuvar list potpiše i preda, rukovoditelj branjenog područja ga ovjeri, a ostali rukovoditelji vezani uz područje mogu ga parafirati. Knjiga traje godinu dana, istekom godine se arhivira; ispisuje se cijela ili list po list.</p>{{end}}
   </div>
   <div class="page-actions">{{if or .VodiDnevnik .Vodocuvari}}<a href="/vodocuvar/kalendar" class="btn btn-secondary">{{icon "calendar"}} Kalendar zadataka</a>{{end}}
   {{if .VodiDnevnik}}<a href="/vodocuvar/dan?datum={{.Danas}}" class="btn btn-primary">{{icon "pencil"}} Današnji list</a> <a href="/vodocuvar/knjiga.pdf?godina={{.Godina}}" target="_blank" class="btn btn-secondary">{{icon "printer"}} Cijela knjiga {{.Godina}}.</a>{{end}}</div>
@@ -17,27 +18,41 @@
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
 
+{{if .SamoMoj}}
+{{if gt (len .Godine) 1}}
+<form method="GET" action="/vodocuvar" class="posta-trazi" style="margin-bottom:0.75rem;">
+  <label class="form-label" for="godina" style="margin:0 0.4rem 0 0;">Godina</label>
+  <select name="godina" id="godina" class="form-control" style="max-width:8rem;" onchange="this.form.submit()">{{range .Godine}}<option value="{{.}}" {{if eq . $.Godina}}selected{{end}}>{{.}}</option>{{end}}</select>
+</form>
+{{end}}
+{{else}}
 <form method="GET" action="/vodocuvar" class="posta-trazi" style="margin-bottom:0.75rem;">
   <select name="godina" class="form-control" onchange="this.form.submit()">{{range .Godine}}<option value="{{.}}" {{if eq . $.Godina}}selected{{end}}>{{.}}</option>{{end}}</select>
   {{if .Sektori}}<select name="sektor" class="form-control" onchange="this.form.podrucje.value=''; this.form.submit()"><option value="" {{if not .Filtar.Sektor}}selected{{end}}>svi sektori</option>{{range .Sektori}}<option value="{{.ID}}" {{if eq .ID $.Filtar.Sektor}}selected{{end}}>{{.Name}}</option>{{end}}</select>{{end}}
   <select name="podrucje" class="form-control" onchange="this.form.submit()" {{if not .Podrucja}}disabled{{end}}><option value="">sva branjena područja</option>{{range .Podrucja}}<option value="{{.ID}}" {{if eq .ID $.Filtar.AreaID}}selected{{end}}>BP {{.ID}}: {{.Name}}</option>{{end}}</select>
   <label class="checkbox-label"><input type="checkbox" name="ceka" value="1" {{if .Filtar.CekaPotvrdu}}checked{{end}} onchange="this.form.submit()"> samo listovi koji čekaju ovjeru</label>
 </form>
+{{end}}
 
 {{if .Arhivirana}}<div class="alert alert-info">{{icon "lock"}} Knjiga za {{.Godina}}. je zaključena istekom godine: čuva se u arhivi i može se samo čitati i ispisati.</div>{{end}}
 {{if .VodiDnevnik}}
 <section class="detail-section" style="margin-top:0;">
   <h2>{{icon "user"}} Moj dnevnik {{.Godina}}{{if .Arhivirana}} <span class="badge badge-pending">arhiva</span>{{end}}</h2>
   {{if .Moji}}
-  <ul class="posta-kartice">
-  {{range .Moji}}
-    <li class="posta-kartica"><a class="posta-kartica-tijelo" href="/vodocuvar/{{.ID}}">
-      <div class="posta-kartica-red"><span class="posta-od">List {{if .Broj}}{{.Broj}}{{else}}(nepredan){{end}} · {{.DanUTjednu}}</span><span class="posta-kad">{{.Datum.Format "02.01.2006."}} · {{.Od}}–{{.Do}} · {{.SatiTekst}} h</span></div>
-      <div class="posta-predmet">{{if .Opis}}{{.Opis}}{{else}}(bez opisa){{end}}</div>
-      <div class="posta-pregled">{{.Stanje}}{{with .Potvrdio}} · ovjerio {{.}}{{end}}{{if .Parafe}} · parafa: {{range $i, $p := .Parafe}}{{if $i}}, {{end}}{{$p.Ime}}{{end}}{{end}}</div>
-    </a></li>
+  {{range .MojiMjeseci}}
+  <details class="knjiga-mjesec" {{if .Otvoren}}open{{end}}>
+    <summary><strong>{{mjesecHR .Mjesec}}</strong> <span class="form-help">{{len .Listovi}} {{if eq (len .Listovi) 1}}list{{else}}listova{{end}}{{if .Preneseni}} · {{.Preneseni}} preneseno{{end}}</span></summary>
+    <ul class="posta-kartice" style="margin-top:0.5rem;">
+    {{range .Listovi}}
+      <li class="posta-kartica"><a class="posta-kartica-tijelo" href="/vodocuvar/{{.ID}}">
+        <div class="posta-kartica-red"><span class="posta-od">{{if .Broj}}List {{.Broj}}{{else if .Rekonstrukcija}}Preneseno{{else}}(nepredan){{end}} · {{.DanUTjednu}}</span><span class="posta-kad">{{.Datum.Format "02.01.2006."}}{{if not .Rekonstrukcija}} · {{.Od}}–{{.Do}} · {{.SatiTekst}} h{{end}}</span></div>
+        <div class="posta-predmet">{{if .Opis}}{{.Opis}}{{else if .Zadaci}}{{range $i, $z := .Zadaci}}{{if $i}}; {{end}}{{$z.Tekst}}{{end}}{{else}}(bez opisa){{end}}</div>
+        <div class="posta-pregled">{{if .Rekonstrukcija}}iz ranije evidencije, bez potpisa{{else}}{{.Stanje}}{{with .Potvrdio}} · ovjerio {{.}}{{end}}{{if .Parafe}} · parafa: {{range $i, $p := .Parafe}}{{if $i}}, {{end}}{{$p.Ime}}{{end}}{{end}}{{end}}</div>
+      </a></li>
+    {{end}}
+    </ul>
+  </details>
   {{end}}
-  </ul>
   {{else}}<p class="form-help">U {{.Godina}}. još nema listova. Kliknite „Današnji list”.</p>{{end}}
 </section>
 {{end}}
@@ -58,6 +73,7 @@
 </section>
 {{end}}
 
+{{if not .SamoMoj}}
 <section class="detail-section">
   <h2>{{icon "users"}} Knjige vodočuvara{{if .Filtar.AreaID}} · BP {{.Filtar.AreaID}}{{else if .Filtar.Sektor}} · {{terml "sektor"}} {{.Filtar.Sektor}}{{end}}</h2>
   {{if .Knjige}}
@@ -90,4 +106,5 @@
   {{end}}
   {{else}}<p class="form-help">U odabranom sektoru i području nema vodočuvara s terenskim zaduženjem, ni njihovih listova.</p>{{end}}
 </section>
+{{end}}
 {{end}}
