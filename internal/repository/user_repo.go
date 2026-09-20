@@ -756,7 +756,7 @@ func (r *UserRepository) GlobalAdminContact() (name, phone, email string, ok boo
 func (r *UserRepository) ListSectors() ([]models.Sector, error) {
 	// Adresa, telefon i e-mail smiju biti prazni: sektor bez njih je i dalje
 	// sektor, a NULL u string ruši cijeli popis.
-	rows, err := r.db.Query("SELECT id, name, vgo_name, center_cop, COALESCE(address, ''), COALESCE(phone, ''), COALESCE(email, ''), level FROM sectors ORDER BY CASE WHEN id = 'DIREKCIJA' THEN 0 ELSE 1 END, id ASC")
+	rows, err := r.db.Query("SELECT id, name, vgo_name, center_cop, COALESCE(address, ''), COALESCE(phone, ''), COALESCE(email, ''), level, COALESCE(vgo_phone, '') FROM sectors ORDER BY CASE WHEN id = 'DIREKCIJA' THEN 0 ELSE 1 END, id ASC")
 	if err != nil {
 		return nil, err
 	}
@@ -765,7 +765,7 @@ func (r *UserRepository) ListSectors() ([]models.Sector, error) {
 	var sectors []models.Sector
 	for rows.Next() {
 		var s models.Sector
-		if err := rows.Scan(&s.ID, &s.Name, &s.VgoName, &s.CenterCop, &s.Address, &s.Phone, &s.Email, &s.Level); err != nil {
+		if err := rows.Scan(&s.ID, &s.Name, &s.VgoName, &s.CenterCop, &s.Address, &s.Phone, &s.Email, &s.Level, &s.VgoPhone); err != nil {
 			return nil, err
 		}
 		sectors = append(sectors, s)
@@ -775,7 +775,7 @@ func (r *UserRepository) ListSectors() ([]models.Sector, error) {
 
 // ListAreas vraća branjena područja
 func (r *UserRepository) ListAreas(sectorID string) ([]models.Area, error) {
-	query := "SELECT id, sector_id, name, vgi_name, subcenter, COALESCE(contractor_name, '') FROM areas"
+	query := "SELECT id, sector_id, name, vgi_name, subcenter, COALESCE(contractor_name, ''), COALESCE(vgi_phone, '') FROM areas"
 	var args []any
 	if sectorID != "" {
 		query += " WHERE sector_id = ?"
@@ -792,7 +792,7 @@ func (r *UserRepository) ListAreas(sectorID string) ([]models.Area, error) {
 	var areas []models.Area
 	for rows.Next() {
 		var a models.Area
-		if err := rows.Scan(&a.ID, &a.SectorID, &a.Name, &a.VgiName, &a.Subcenter, &a.ContractorName); err != nil {
+		if err := rows.Scan(&a.ID, &a.SectorID, &a.Name, &a.VgiName, &a.Subcenter, &a.ContractorName, &a.VgiPhone); err != nil {
 			return nil, err
 		}
 		areas = append(areas, a)

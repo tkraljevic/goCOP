@@ -41,6 +41,11 @@
       <input type="text" id="vgo_name" name="vgo_name" class="form-control" value="{{.Sector.VgoName}}" placeholder="npr. VGO za Dunav i donju Dravu, Osijek">
     </div>
     <div class="form-group">
+      <label class="form-label" for="vgo_phone">Telefon odjela</label>
+      <input type="tel" id="vgo_phone" name="vgo_phone" class="form-control" value="{{.Sector.VgoPhone}}" placeholder="npr. 031/252-800">
+      <div class="form-help">Ide na memorandum uz naziv odjela; telefon centra piše se ispod, uz centar.</div>
+    </div>
+    <div class="form-group">
       <label class="form-label" for="center_cop">{{term "cop"}}</label>
       <input type="text" id="center_cop" name="center_cop" class="form-control" value="{{.Sector.CenterCop}}" placeholder="npr. COP Osijek">
     </div>

@@ -115,9 +115,9 @@ type rowScannerOrg interface {
 
 func scanSector(row rowScannerOrg) (models.Sector, error) {
 	var s models.Sector
-	var address, phone, email sql.NullString
-	err := row.Scan(&s.ID, &s.Name, &s.VgoName, &s.CenterCop, &address, &phone, &email, &s.Level)
-	s.Address, s.Phone, s.Email = address.String, phone.String, email.String
+	var address, phone, email, vgoPhone sql.NullString
+	err := row.Scan(&s.ID, &s.Name, &s.VgoName, &s.CenterCop, &address, &phone, &email, &s.Level, &vgoPhone)
+	s.Address, s.Phone, s.Email, s.VgoPhone = address.String, phone.String, email.String, vgoPhone.String
 	if s.Level == 0 {
 		s.Level = 2 // zapisi otprije razina: jedinica je sektor
 	}
@@ -126,15 +126,15 @@ func scanSector(row rowScannerOrg) (models.Sector, error) {
 
 func scanArea(row rowScannerOrg) (models.Area, error) {
 	var a models.Area
-	var sub, contractor sql.NullString
+	var sub, contractor, vgiPhone sql.NullString
 	var direct int
-	err := row.Scan(&a.ID, &a.SectorID, &a.Name, &a.VgiName, &sub, &contractor, &direct, &a.Latitude, &a.Longitude)
-	a.Subcenter, a.ContractorName, a.DirectToSector = sub.String, contractor.String, direct != 0
+	err := row.Scan(&a.ID, &a.SectorID, &a.Name, &a.VgiName, &sub, &contractor, &direct, &a.Latitude, &a.Longitude, &vgiPhone)
+	a.Subcenter, a.ContractorName, a.DirectToSector, a.VgiPhone = sub.String, contractor.String, direct != 0, vgiPhone.String
 	return a, err
 }
 
-const sectorSelect = `SELECT id, name, vgo_name, center_cop, address, phone, email, level FROM sectors`
-const areaSelect = `SELECT id, sector_id, name, vgi_name, subcenter, contractor_name, direct_to_sector, latitude, longitude FROM areas`
+const sectorSelect = `SELECT id, name, vgo_name, center_cop, address, phone, email, level, vgo_phone FROM sectors`
+const areaSelect = `SELECT id, sector_id, name, vgi_name, subcenter, contractor_name, direct_to_sector, latitude, longitude, vgi_phone FROM areas`
 
 // ListSectors vraća sektore; Direkcija prva, ostali po oznaci
 func (r *OrgRepository) ListSectors(ctx context.Context) ([]models.Sector, error) {
@@ -174,12 +174,12 @@ func (r *OrgRepository) SaveSector(ctx context.Context, s *models.Sector) error 
 	}
 	defer tx.Rollback()
 	if _, err := tx.ExecContext(ctx, `
-		INSERT INTO sectors (id, name, vgo_name, center_cop, address, phone, email, level)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO sectors (id, name, vgo_name, center_cop, address, phone, email, level, vgo_phone)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET name = excluded.name, vgo_name = excluded.vgo_name,
 			center_cop = excluded.center_cop, address = excluded.address, phone = excluded.phone,
-			email = excluded.email, level = excluded.level`,
-		s.ID, s.Name, s.VgoName, s.CenterCop, s.Address, s.Phone, s.Email, s.Level); err != nil {
+			email = excluded.email, level = excluded.level, vgo_phone = excluded.vgo_phone`,
+		s.ID, s.Name, s.VgoName, s.CenterCop, s.Address, s.Phone, s.Email, s.Level, s.VgoPhone); err != nil {
 		return fmt.Errorf("upis sektora %s: %w", s.ID, err)
 	}
 	if _, err := r.rec.Record(ctx, tx, EntitySectors, s.ID, s); err != nil {
@@ -261,12 +261,13 @@ func (r *OrgRepository) SaveArea(ctx context.Context, a *models.Area) error {
 	}
 	defer tx.Rollback()
 	if _, err := tx.ExecContext(ctx, `
-		INSERT INTO areas (id, sector_id, name, vgi_name, subcenter, contractor_name, direct_to_sector, latitude, longitude)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO areas (id, sector_id, name, vgi_name, subcenter, contractor_name, direct_to_sector, latitude, longitude, vgi_phone)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET sector_id = excluded.sector_id, name = excluded.name,
 			vgi_name = excluded.vgi_name, subcenter = excluded.subcenter, contractor_name = excluded.contractor_name,
-			direct_to_sector = excluded.direct_to_sector, latitude = excluded.latitude, longitude = excluded.longitude`,
-		a.ID, a.SectorID, a.Name, a.VgiName, a.Subcenter, a.ContractorName, boolToInt(a.DirectToSector), a.Latitude, a.Longitude); err != nil {
+			direct_to_sector = excluded.direct_to_sector, latitude = excluded.latitude, longitude = excluded.longitude,
+			vgi_phone = excluded.vgi_phone`,
+		a.ID, a.SectorID, a.Name, a.VgiName, a.Subcenter, a.ContractorName, boolToInt(a.DirectToSector), a.Latitude, a.Longitude, a.VgiPhone); err != nil {
 		return fmt.Errorf("upis branjenog područja %d: %w", a.ID, err)
 	}
 	if _, err := r.rec.Record(ctx, tx, EntityAreas, strconv.Itoa(a.ID), a); err != nil {

@@ -15,9 +15,10 @@ type Sector struct {
 	VgoName   string `json:"vgo_name"`   // npr. "VGO za Dunav i donju Dravu, Osijek"
 	CenterCop string `json:"center_cop"` // npr. "COP Osijek"
 	Address   string `json:"address"`
-	Phone     string `json:"phone"`
+	Phone     string `json:"phone"` // telefon centra obrane
 	Email     string `json:"email"`
-	Level     int    `json:"level"` // 1 krovna jedinica, 2 sektor (zadano)
+	VgoPhone  string `json:"vgo_phone,omitempty"` // telefon odjela (VGO), ide na memorandum uz naziv odjela
+	Level     int    `json:"level"`               // 1 krovna jedinica, 2 sektor (zadano)
 }
 
 // IsLevel1 javlja je li jedinica krovna (razina 1)
@@ -30,6 +31,7 @@ type Area struct {
 	Name           string `json:"name"`                       // npr. "Mali sliv Vuka", "Mali sliv Bistra"
 	VgiName        string `json:"vgi_name"`                   // npr. "VGI Vuka, Osijek"
 	Subcenter      string `json:"subcenter"`                  // npr. "Podcentar Osijek"
+	VgiPhone       string `json:"vgi_phone,omitempty"`        // telefon ispostave, ide na dokumente vodočuvara
 	ContractorName string `json:"contractor_name,omitempty"`  // ugovorna pravna osoba za obranu
 	DirectToSector bool   `json:"direct_to_sector,omitempty"` // bez ispostave: pripada izravno sektoru (npr. B.34)
 	// Latitude i Longitude su točka po kojoj se za područje dohvaćaju

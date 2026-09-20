@@ -237,8 +237,9 @@ func zaglavlje(d *pdfw.Doc, t models.OrgTerms, sek *models.Sector) {
 		y += 9.5
 		d.Tekst(x, y, 8, false, mjesto)
 	}
-	if sek != nil && sek.Phone != "" {
-		d.TekstDesno(d.W-d.Desno, top+40, 8, false, "Telefon: "+sek.Phone)
+	// desno uz odjel ide telefon odjela; telefon centra piše se ispod, uz centar
+	if sek != nil && sek.VgoPhone != "" {
+		d.TekstDesno(d.W-d.Desno, top+40, 8, false, "Telefon: "+sek.VgoPhone)
 	}
 	d.Y = max(y, top+51) + 14
 

@@ -214,9 +214,9 @@ func (h *OrgHandler) ExportSectorsCSV(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	t := models.Terms()
-	rows := [][]string{{"Oznaka", "Naziv", t.SectorOffice, t.Center, "Adresa", "Telefon", "E-pošta", "Razina"}}
+	rows := [][]string{{"Oznaka", "Naziv", t.SectorOffice, t.Center, "Adresa", "Telefon", "E-pošta", "Razina", "Telefon odjela"}}
 	for _, s := range sectors {
-		rows = append(rows, []string{s.ID, s.Name, s.VgoName, s.CenterCop, s.Address, s.Phone, s.Email, strconv.Itoa(s.Level)})
+		rows = append(rows, []string{s.ID, s.Name, s.VgoName, s.CenterCop, s.Address, s.Phone, s.Email, strconv.Itoa(s.Level), s.VgoPhone})
 	}
 	writeCSV(w, "sektori.csv", rows)
 }
@@ -240,7 +240,7 @@ func (h *OrgHandler) ExportAreasCSV(w http.ResponseWriter, r *http.Request) {
 		for _, c := range append(idx.BySector[a.SectorID], idx.ByArea[a.ID]...) {
 			names = append(names, c.Name)
 		}
-		rows = append(rows, []string{a.SectorID, strconv.Itoa(a.ID), a.Name, a.VgiName, a.Subcenter, strings.Join(names, ", "), direct})
+		rows = append(rows, []string{a.SectorID, strconv.Itoa(a.ID), a.Name, a.VgiName, a.Subcenter, strings.Join(names, ", "), direct, a.VgiPhone})
 	}
 	writeCSV(w, "branjena-podrucja.csv", rows)
 }
@@ -332,7 +332,7 @@ func (h *OrgHandler) HandleImportCSV(w http.ResponseWriter, r *http.Request) {
 			id, _ := strconv.Atoi(cell(row, 1))
 			direct := strings.ToLower(cell(row, 6))
 			a := &models.Area{SectorID: cell(row, 0), ID: id, Name: cell(row, 2), VgiName: cell(row, 3),
-				Subcenter: cell(row, 4), DirectToSector: direct == "da" || direct == "1" || direct == "x"}
+				Subcenter: cell(row, 4), DirectToSector: direct == "da" || direct == "1" || direct == "x", VgiPhone: cell(row, 7)}
 			existing, _ := h.org.GetArea(ctx, id)
 			if err = h.org.SaveArea(ctx, perms, a, existing == nil); err == nil {
 				if existing == nil {
@@ -344,7 +344,7 @@ func (h *OrgHandler) HandleImportCSV(w http.ResponseWriter, r *http.Request) {
 		default:
 			level, _ := strconv.Atoi(cell(row, 7))
 			s := &models.Sector{ID: cell(row, 0), Name: cell(row, 1), VgoName: cell(row, 2), CenterCop: cell(row, 3),
-				Address: cell(row, 4), Phone: cell(row, 5), Email: cell(row, 6), Level: level}
+				Address: cell(row, 4), Phone: cell(row, 5), Email: cell(row, 6), Level: level, VgoPhone: cell(row, 8)}
 			existing, _ := h.org.GetSector(ctx, strings.ToUpper(s.ID))
 			if err = h.org.SaveSector(ctx, perms, s, existing == nil); err == nil {
 				if existing == nil {
@@ -816,7 +816,7 @@ func sectorFromForm(r *http.Request) *models.Sector {
 	f := func(k string) string { return strings.TrimSpace(r.FormValue(k)) }
 	level, _ := strconv.Atoi(f("level"))
 	return &models.Sector{ID: f("id"), Name: f("name"), VgoName: f("vgo_name"), CenterCop: f("center_cop"),
-		Address: f("address"), Phone: f("phone"), Email: f("email"), Level: level}
+		Address: f("address"), Phone: f("phone"), Email: f("email"), Level: level, VgoPhone: f("vgo_phone")}
 }
 
 func areaFromForm(r *http.Request) *models.Area {
@@ -824,7 +824,7 @@ func areaFromForm(r *http.Request) *models.Area {
 	id, _ := strconv.Atoi(f("id"))
 	lat, _ := strconv.ParseFloat(strings.ReplaceAll(f("latitude"), ",", "."), 64)
 	lon, _ := strconv.ParseFloat(strings.ReplaceAll(f("longitude"), ",", "."), 64)
-	return &models.Area{ID: id, SectorID: f("sector_id"), Name: f("name"), VgiName: f("vgi_name"),
+	return &models.Area{ID: id, SectorID: f("sector_id"), Name: f("name"), VgiName: f("vgi_name"), VgiPhone: f("vgi_phone"),
 		Subcenter: f("subcenter"), DirectToSector: r.FormValue("direct_to_sector") == "1", Latitude: lat, Longitude: lon}
 }
 

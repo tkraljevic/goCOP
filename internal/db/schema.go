@@ -1177,6 +1177,8 @@ func migrateSchema(database *sql.DB) error {
 		{"users", "short_mobile", "TEXT"},
 		{"record_versions", "channel", "TEXT NOT NULL DEFAULT ''"},
 		{"sectors", "level", "INTEGER NOT NULL DEFAULT 2"},
+		{"sectors", "vgo_phone", "TEXT NOT NULL DEFAULT ''"},
+		{"areas", "vgi_phone", "TEXT NOT NULL DEFAULT ''"},
 		{"municipalities", "email", "TEXT NOT NULL DEFAULT ''"},
 		{"municipalities", "phone", "TEXT NOT NULL DEFAULT ''"},
 		{"municipalities", "website", "TEXT NOT NULL DEFAULT ''"},

@@ -158,7 +158,14 @@ func pdfPrijave(p *models.PrijavaSTerena, pr prilogPrijave, t models.OrgTerms, c
 	}
 	if pr.Podrucje != nil {
 		polje("BRANJENO PODRUČJE:", fmt.Sprintf("%d, %s", pr.Podrucje.ID, pr.Podrucje.Name), false)
-		polje("VGI:", pr.Podrucje.VgiName, false)
+		vgiRed := pr.Podrucje.VgiName
+		if pr.Podrucje.VgiPhone != "" {
+			if vgiRed != "" {
+				vgiRed += ", "
+			}
+			vgiRed += "tel. " + pr.Podrucje.VgiPhone
+		}
+		polje("VGI:", vgiRed, false)
 	} else if p.AreaID > 0 {
 		polje("BRANJENO PODRUČJE:", fmt.Sprint(p.AreaID), false)
 	}

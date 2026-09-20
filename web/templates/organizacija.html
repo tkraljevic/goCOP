@@ -57,7 +57,7 @@
       <tr>
         <td><span class="section-code-badge">{{.ID}}</span></td>
         <td><strong>{{.Name}}</strong></td>
-        <td>{{.VgoName}}</td>
+        <td>{{.VgoName}}{{if .VgoPhone}}<br><span class="reading-meta"><a href="tel:{{.VgoPhone}}">{{.VgoPhone}}</a></span>{{end}}</td>
         <td>{{.CenterCop}}</td>
         <td class="reading-meta">{{.Address}}</td>
         <td class="reading-meta" style="white-space:nowrap;">{{if .Phone}}<a href="tel:{{.Phone}}">{{.Phone}}</a>{{end}}{{if and .Phone .Email}}<br>{{end}}{{if .Email}}<a href="mailto:{{.Email}}">{{.Email}}</a>{{end}}</td>
@@ -101,7 +101,7 @@
       <tr>
         <td><span class="section-code-badge">{{.ID}}</span></td>
         <td><a href="/sections?sector={{.ID}}" style="color:var(--primary); font-weight:600;">{{.Name}}</a></td>
-        <td>{{.VgoName}}</td>
+        <td>{{.VgoName}}{{if .VgoPhone}}<br><span class="reading-meta"><a href="tel:{{.VgoPhone}}">{{.VgoPhone}}</a></span>{{end}}</td>
         <td>{{.CenterCop}}</td>
         <td class="reading-meta">{{.Address}}</td>
         <td class="reading-meta" style="white-space:nowrap;">{{if .Phone}}<a href="tel:{{.Phone}}">{{.Phone}}</a>{{end}}{{if and .Phone .Email}}<br>{{end}}{{if .Email}}<a href="mailto:{{.Email}}">{{.Email}}</a>{{end}}</td>
@@ -165,7 +165,7 @@
         <td><span class="section-code-badge">{{.SectorID}}</span></td>
         <td class="mono">{{.ID}}</td>
         <td><a href="/sections?sector={{.SectorID}}&area={{.ID}}" style="color:var(--primary); font-weight:600;">{{.Name}}</a></td>
-        <td>{{if .DirectToSector}}<span class="reg-chip" title="Nema vlastite ispostave: pripada izravno razini 2 ({{terml "sektor"}})">bez ispostave, izravno razina 2</span>{{else}}{{.VgiName}}{{end}}</td>
+        <td>{{if .DirectToSector}}<span class="reg-chip" title="Nema vlastite ispostave: pripada izravno razini 2 ({{terml "sektor"}})">bez ispostave, izravno razina 2</span>{{else}}{{.VgiName}}{{if .VgiPhone}}<br><span class="reading-meta"><a href="tel:{{.VgiPhone}}">{{.VgiPhone}}</a></span>{{end}}{{end}}</td>
         <td>{{.Subcenter}}</td>
         <td class="reading-meta">{{range $i, $c := .Contractors}}{{if $i}}, {{end}}<a href="/firme" title="{{$c.Name}}">{{$c.Label}}</a>{{end}}</td>
         {{if and $.Permissions $.Permissions.IsGlobalAdmin}}

@@ -29,7 +29,14 @@ func zaglavljeIzvjesca(t models.OrgTerms, s *models.Sector) docx.Zaglavlje {
 		z.Jedinica = append(z.Jedinica, ime)
 	}
 	z.Adresa = strings.TrimSpace(s.Address)
-	z.Kontakt = kontaktURetke(s.Phone, s.Email)
+	// telefon odjela pa telefon centra, svaki u svom retku
+	var telefoni []string
+	for _, t := range []string{s.VgoPhone, s.Phone} {
+		if t = strings.TrimSpace(t); t != "" {
+			telefoni = append(telefoni, t)
+		}
+	}
+	z.Kontakt = kontaktURetke(strings.Join(telefoni, ", "), s.Email)
 	return z
 }
 
