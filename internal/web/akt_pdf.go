@@ -55,7 +55,7 @@ func pdfAkta(a *models.Akt, t models.OrgTerms, sek *models.Sector, area *models.
 		d.TekstDesno(d.W-d.Desno, d.H-d.Dolje+30, 6.5, false, fmt.Sprintf("stranica %d od %d", stranica, ukupno))
 	}
 
-	zaglavlje(d, t, sek)
+	zaglavlje(d, t, sek, true)
 
 	if !a.Ovjeren() && !zaPotpis {
 		d.Odlomak("NACRT — nije ovjeren", 10, true, pdfw.Desno)
@@ -214,7 +214,9 @@ func pdfAkta(a *models.Akt, t models.OrgTerms, sek *models.Sector, area *models.
 
 // zaglavlje crta znak organizacije s odjelom lijevo, telefone desno i ispod
 // blok centra obrane od poplava, kao na dosadašnjim aktima
-func zaglavlje(d *pdfw.Doc, t models.OrgTerms, sek *models.Sector) {
+// zaglavlje crta memorandum; e-pošta centra ide samo na akte, dokumenti
+// vodočuvara je ne nose
+func zaglavlje(d *pdfw.Doc, t models.OrgTerms, sek *models.Sector, sEpostom bool) {
 	top := d.Y
 	x := d.Lijevo
 	if t.HasLogo() && t.LogoMime == "image/png" {
@@ -253,7 +255,7 @@ func zaglavlje(d *pdfw.Doc, t models.OrgTerms, sek *models.Sector) {
 			d.Y += 9
 			d.Tekst(d.Lijevo, d.Y, 7.5, false, "Telefon:  "+sek.Phone)
 		}
-		if sek.Email != "" {
+		if sEpostom && sek.Email != "" {
 			d.Y += 9
 			d.Tekst(d.Lijevo, d.Y, 7.5, false, "e-mail:  "+sek.Email)
 		}

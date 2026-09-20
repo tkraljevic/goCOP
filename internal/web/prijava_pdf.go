@@ -138,7 +138,7 @@ func pdfPrijave(p *models.PrijavaSTerena, pr prilogPrijave, t models.OrgTerms, c
 	// centar s adresom; ispod njega lijevo podaci o vodočuvaru, desno
 	// prijemni štambilj (samo prijava ide iz kuće)
 	d.Y = d.Gore
-	zaglavlje(d, t, pr.Sektor)
+	zaglavlje(d, t, pr.Sektor, false)
 	sx := stambiljX()
 	if p.Vrsta == models.PrijavaPrijava {
 		crtajStambilj(d, sx, stambiljY, p, prilozi(p, pr))
