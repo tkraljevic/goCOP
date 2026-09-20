@@ -452,9 +452,13 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	if w := zovi(httptest.NewRequest(http.MethodGet, "/users/exchange?trazi=kunac", nil)); !strings.Contains(w.Body.String(), "mile.kunac@voda.hr") || !strings.Contains(w.Body.String(), "Rukovoditelj BP") {
 		t.Fatalf("traženje u adresaru:\n%.800s", w.Body.String())
 	}
+	// bez sektora se usporedba ne pokreće: svi odjednom preopterete poslužitelj
+	if w := zovi(httptest.NewRequest(http.MethodGet, "/users/exchange?usporedi=1", nil)); !strings.Contains(w.Body.String(), "Odaberite sektor") || strings.Contains(w.Body.String(), "data-posao=") {
+		t.Errorf("usporedba bez sektora:\n%.400s", w.Body.String())
+	}
 	// usporedba je posao u pozadini s trakom napretka; stranica rezultata čeka da završi
 	usporedi := func() string {
-		pocetak := zovi(httptest.NewRequest(http.MethodGet, "/users/exchange?usporedi=1", nil)).Body.String()
+		pocetak := zovi(httptest.NewRequest(http.MethodGet, "/users/exchange?usporedi=1&sektor=B", nil)).Body.String()
 		m := regexp.MustCompile(`data-posao="([^"]+)"`).FindStringSubmatch(pocetak)
 		if m == nil {
 			t.Fatalf("usporedba nije pokrenuta kao posao:\n%.600s", pocetak)
