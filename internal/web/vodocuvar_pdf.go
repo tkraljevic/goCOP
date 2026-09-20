@@ -53,11 +53,12 @@ func nacrtajPriloge(d *pdfw.Doc, l *models.VodocuvarskiList, pr PrilogListaPDF) 
 			d.Y += 12
 		}
 		if len(karta) > 0 {
+			w := d.Sirina()
+			h := w * float64(visinaKarte) / float64(sirinaKarte)
+			d.Osiguraj(h + 28)
 			d.Y += 4
 			d.Tekst(d.Lijevo, d.Y, 8, true, "Obuhvat obilaska, ucrtan u ranijoj evidenciji")
 			d.Y += 10
-			w := d.Sirina()
-			h := w * float64(visinaKarte) / float64(sirinaKarte)
 			if jpg := kartaZaPDF(karta); jpg != nil {
 				_ = d.SlikaJPEG(jpg, d.Lijevo, d.Y, w, h)
 				d.Y += h + 4
@@ -72,20 +73,24 @@ func nacrtajPriloge(d *pdfw.Doc, l *models.VodocuvarskiList, pr PrilogListaPDF) 
 			if len(b) == 0 || sl.Sirina == 0 || sl.Visina == 0 {
 				continue
 			}
-			if d.Y > d.H-d.Dolje-160 {
-				d.NovaStranica()
-				d.Y = d.Gore + 10
-			}
-			d.Y += 6
-			d.Tekst(d.Lijevo, d.Y, 8, true, fmt.Sprintf("Fotografija %d od %d", i+1, len(slike)))
-			d.Y += 10
+			// Slika i njezin opis idu zajedno: prvo se izračuna koliko im
+			// treba, pa se prelomi stranica. Inače slika otkliže ispod ruba,
+			// a opis ostane na idućoj stranici ili nestane.
+			const naslov, ispod = 16.0, 26.0
 			w := d.Sirina()
-			hMax := (d.H - d.Gore - d.Dolje) / 2
 			sw, sh := w, w*float64(sl.Visina)/float64(sl.Sirina)
+			hMax := (d.H - d.Gore - d.Dolje) - naslov - ispod
+			if pola := (d.H - d.Gore - d.Dolje) / 2; pola < hMax {
+				hMax = pola
+			}
 			if sh > hMax {
 				sh = hMax
 				sw = sh * float64(sl.Sirina) / float64(sl.Visina)
 			}
+			d.Osiguraj(naslov + sh + ispod)
+			d.Y += 6
+			d.Tekst(d.Lijevo, d.Y, 8, true, fmt.Sprintf("Fotografija %d od %d", i+1, len(slike)))
+			d.Y += 10
 			_ = d.SlikaJPEG(b, d.Lijevo+(w-sw)/2, d.Y, sw, sh)
 			d.Y += sh + 9
 			d.TekstBoja(d.Lijevo, d.Y, 7.5, false, sl.Podaci(), sivaTekst)
