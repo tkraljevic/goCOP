@@ -51,6 +51,7 @@ func main() {
 	autoSyncFlag := flag.String("auto-sync", "", "Razmak automatske sinkronizacije, npr. 5m (0 isključuje)")
 	importBP16 := flag.Bool("import-bp16", false, "Uvezi očitanja vodostaja iz Directus evidencije VGI Baranja i završi")
 	importBP16Journals := flag.Bool("import-bp16-dnevnici", false, "Uvezi evidencije radova A.02 i A.03 iz Directusa kao rekonstruirane dnevnike (bez -upisi samo izvješće)")
+	importBP16Obilasci := flag.Bool("import-bp16-obilasci", false, "Uvezi obilaske terena iz Directusa kao zadatke vodočuvara i rekonstruirane dnevne listove (bez -upisi samo izvješće)")
 	importBP16Prijave := flag.Bool("import-bp16-prijave", false, "Uvezi obavijesti s terena (izvješća, prijave, obavijesti, zahtjevi vodočuvara) iz Directusa kao rekonstruirane prijave s terena (bez -upisi samo izvješće)")
 	bp16Dir := flag.String("bp16-dir", "", "Uvoz iz ranije skinutih JSON datoteka umjesto iz Directusa")
 	directusEnv := flag.String("directus-env", "", "Datoteka s DIRECTUS_URL i DIRECTUS_TOKEN (zadano ~/.config/gocop/directus.env)")
@@ -346,7 +347,7 @@ func main() {
 	}
 
 	// Uvoz iz Directusa je zaseban način rada: uveze i završi
-	if *importBP16 || *importBP16Journals || *importBP16Prijave {
+	if *importBP16 || *importBP16Journals || *importBP16Prijave || *importBP16Obilasci {
 		var src bp16.Source
 		if *bp16Dir != "" {
 			src = bp16.DirSource{Dir: *bp16Dir}
@@ -410,6 +411,42 @@ func main() {
 			}
 			if rep.DryRun {
 				log.Printf("Ništa nije upisano. Dodajte -upisi za upis rekonstruiranih prijava.")
+			}
+			return
+		}
+		if *importBP16Obilasci {
+			httpSrc, _ := src.(bp16.HTTPSource)
+			korisnici := map[string]bp16.KorisnikUvoza{}
+			if svi, err := userRepo.ListUsers("", 0, "", "", ""); err == nil {
+				for _, u := range svi {
+					k := bp16.KorisnikUvoza{ID: u.ID.String(), Ime: u.FullName, Sektor: "B"}
+					for _, d := range u.Duties {
+						if d.AreaID != nil && *d.AreaID > 0 {
+							k.AreaID = *d.AreaID
+							break
+						}
+					}
+					korisnici[u.FullName] = k
+				}
+			}
+			var datoteka func(ctx context.Context, id, upit string) ([]byte, error)
+			if httpSrc.URL != "" {
+				datoteka = httpSrc.Asset
+			}
+			rep, err := bp16.RunObilasci(context.Background(), src, bp16.ObilasciDeps{
+				Vodocuvar: repository.NewVodocuvarRepository(database, recorder),
+				Korisnici: korisnici, Sektor: "B", Cvor: node.ID, Datoteka: datoteka,
+				SamoArhivirane: true, DryRun: !*csvWrite, Log: log.Printf,
+			})
+			if err != nil {
+				log.Fatalf("Uvoz obilazaka nije uspio: %v (do greške %s)", err, rep.Summary())
+			}
+			log.Printf("Uvoz obilazaka: %s", rep.Summary())
+			for k, n := range rep.Nepoznati {
+				log.Printf("  nepoznato %q: %d", k, n)
+			}
+			if rep.DryRun {
+				log.Printf("Ništa nije upisano. Dodajte -upisi za upis zadataka i rekonstruiranih listova.")
 			}
 			return
 		}

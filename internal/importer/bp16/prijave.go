@@ -29,6 +29,7 @@ type KorisnikUvoza struct {
 	ID     string
 	Ime    string
 	Sektor string
+	AreaID int // branjeno područje iz zaduženja; 0 kad ga nema
 }
 
 // PrijaveDeps je što uvoz treba od programa

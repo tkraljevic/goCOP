@@ -12,23 +12,26 @@ import (
 
 	"gocop/internal/ledger"
 	"gocop/internal/models"
+	"gocop/internal/sadrzaj"
 )
 
 // EntityVodocuvarski su listovi vodočuvarskog dnevnika u knjizi verzija
 const EntityVodocuvarski = "vodocuvarski_listovi"
 
 const vodocuvarskiColumns = `id, user_id, ime, sektor, area_id, datum, broj, od, do_, prilike, naredbe, opis, zapazanja, ocitanja, zadaci, upisi, prijave, parafe,
-	predano_at, potvrdio_id, potvrdio, potvrdeno_at, cvor, created_at, updated_at`
+	predano_at, potvrdio_id, potvrdio, potvrdeno_at, cvor, created_at, updated_at, rekonstrukcija, izvor, prilozi`
 
 const vodocuvarskiUpsert = `INSERT INTO vodocuvarski_listovi (` + vodocuvarskiColumns + `)
-	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	ON CONFLICT(id) DO UPDATE SET user_id = excluded.user_id, ime = excluded.ime, sektor = excluded.sektor, area_id = excluded.area_id,
 	datum = excluded.datum, broj = excluded.broj, od = excluded.od, do_ = excluded.do_, prilike = excluded.prilike, naredbe = excluded.naredbe,
 	opis = excluded.opis, zapazanja = excluded.zapazanja, ocitanja = excluded.ocitanja, zadaci = excluded.zadaci, upisi = excluded.upisi, prijave = excluded.prijave, parafe = excluded.parafe, predano_at = excluded.predano_at,
-	potvrdio_id = excluded.potvrdio_id, potvrdio = excluded.potvrdio, potvrdeno_at = excluded.potvrdeno_at, cvor = excluded.cvor, updated_at = excluded.updated_at`
+	potvrdio_id = excluded.potvrdio_id, potvrdio = excluded.potvrdio, potvrdeno_at = excluded.potvrdeno_at, cvor = excluded.cvor, updated_at = excluded.updated_at,
+	rekonstrukcija = excluded.rekonstrukcija, izvor = excluded.izvor, prilozi = excluded.prilozi`
 
 func vodocuvarskiArgs(l *models.VodocuvarskiList) []any {
 	parafe, _ := json.Marshal(l.Parafe)
+	prilozi, _ := json.Marshal(l.Prilozi)
 	zadaci, _ := json.Marshal(l.Zadaci)
 	upisi, _ := json.Marshal(l.Upisi)
 	prijave, _ := json.Marshal(l.Prijave)
@@ -40,23 +43,26 @@ func vodocuvarskiArgs(l *models.VodocuvarskiList) []any {
 		potvrdeno = l.PotvrdenoAt.UTC()
 	}
 	return []any{l.ID, l.UserID, l.Ime, l.Sektor, l.AreaID, l.Datum.In(models.Zagreb).Format("2006-01-02"), l.Broj, l.Od, l.Do, l.Prilike, l.Naredbe, l.Opis, l.Zapazanja, l.Ocitanja, string(zadaci), string(upisi), string(prijave), string(parafe),
-		predano, l.PotvrdioID, l.Potvrdio, potvrdeno, l.Cvor, l.CreatedAt.UTC(), l.UpdatedAt.UTC()}
+		predano, l.PotvrdioID, l.Potvrdio, potvrdeno, l.Cvor, l.CreatedAt.UTC(), l.UpdatedAt.UTC(), boolToInt(l.Rekonstrukcija), l.Izvor, string(prilozi)}
 }
 
 func scanVodocuvarski(sc interface{ Scan(...any) error }) (models.VodocuvarskiList, error) {
 	var l models.VodocuvarskiList
-	var datum, parafe, zadaci, upisi, prijave string
+	var datum, parafe, zadaci, upisi, prijave, prilozi string
 	var predano, potvrdeno sql.NullTime
+	var rekonstrukcija int
 	err := sc.Scan(&l.ID, &l.UserID, &l.Ime, &l.Sektor, &l.AreaID, &datum, &l.Broj, &l.Od, &l.Do, &l.Prilike, &l.Naredbe, &l.Opis, &l.Zapazanja, &l.Ocitanja, &zadaci, &upisi, &prijave, &parafe,
-		&predano, &l.PotvrdioID, &l.Potvrdio, &potvrdeno, &l.Cvor, &l.CreatedAt, &l.UpdatedAt)
+		&predano, &l.PotvrdioID, &l.Potvrdio, &potvrdeno, &l.Cvor, &l.CreatedAt, &l.UpdatedAt, &rekonstrukcija, &l.Izvor, &prilozi)
 	if err != nil {
 		return l, err
 	}
+	l.Rekonstrukcija = rekonstrukcija != 0
 	l.Datum, _ = time.ParseInLocation("2006-01-02", datum[:10], models.Zagreb)
 	_ = json.Unmarshal([]byte(parafe), &l.Parafe)
 	_ = json.Unmarshal([]byte(zadaci), &l.Zadaci)
 	_ = json.Unmarshal([]byte(upisi), &l.Upisi)
 	_ = json.Unmarshal([]byte(prijave), &l.Prijave)
+	_ = json.Unmarshal([]byte(prilozi), &l.Prilozi)
 	if predano.Valid {
 		t := predano.Time
 		l.PredanoAt = &t
@@ -236,11 +242,11 @@ func (r *VodocuvarRepository) OcitanjaDana(ctx context.Context, userID string, d
 // EntityZadaci su zadaci vodočuvarima u knjizi verzija
 const EntityZadaci = "vodocuvarski_zadaci"
 
-const zadatakUpsert = `INSERT INTO vodocuvarski_zadaci (id, user_id, sektor, area_id, tekst, zadao_id, zadao, zadano_at, za, status, obavljeno, obavljeno_at, list_id, cvor, updated_at)
-	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+const zadatakUpsert = `INSERT INTO vodocuvarski_zadaci (id, user_id, sektor, area_id, tekst, zadao_id, zadao, zadano_at, za, status, obavljeno, obavljeno_at, list_id, cvor, updated_at, izvor, obilazak)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	ON CONFLICT(id) DO UPDATE SET user_id = excluded.user_id, sektor = excluded.sektor, area_id = excluded.area_id, tekst = excluded.tekst,
 	zadao_id = excluded.zadao_id, zadao = excluded.zadao, zadano_at = excluded.zadano_at, za = excluded.za, status = excluded.status, obavljeno = excluded.obavljeno,
-	obavljeno_at = excluded.obavljeno_at, list_id = excluded.list_id, cvor = excluded.cvor, updated_at = excluded.updated_at`
+	obavljeno_at = excluded.obavljeno_at, list_id = excluded.list_id, cvor = excluded.cvor, updated_at = excluded.updated_at, izvor = excluded.izvor, obilazak = excluded.obilazak`
 
 func zadatakArgs(z *models.Zadatak) []any {
 	var ob any
@@ -255,16 +261,33 @@ func zadatakArgs(z *models.Zadatak) []any {
 	if !z.Za.IsZero() {
 		za = z.Za.In(models.Zagreb).Format("2006-01-02")
 	}
-	return []any{z.ID, z.UserID, z.Sektor, z.AreaID, z.Tekst, z.ZadaoID, z.Zadao, z.ZadanoAt.UTC(), za, status, z.Obavljeno, ob, z.ListID, z.Cvor, z.UpdatedAt.UTC()}
+	obilazak, _ := json.Marshal(struct {
+		Od         string  `json:"od,omitempty"`
+		Do         string  `json:"do,omitempty"`
+		Udaljenost float64 `json:"udaljenost,omitempty"`
+		Obuhvat    string  `json:"obuhvat,omitempty"`
+	}{z.Od, z.Do, z.Udaljenost, z.Obuhvat})
+	return []any{z.ID, z.UserID, z.Sektor, z.AreaID, z.Tekst, z.ZadaoID, z.Zadao, z.ZadanoAt.UTC(), za, status, z.Obavljeno, ob, z.ListID, z.Cvor, z.UpdatedAt.UTC(), z.Izvor, string(obilazak)}
 }
 
-const zadatakColumns = `id, user_id, sektor, area_id, tekst, zadao_id, zadao, zadano_at, za, status, obavljeno, obavljeno_at, list_id, cvor, updated_at`
+const zadatakColumns = `id, user_id, sektor, area_id, tekst, zadao_id, zadao, zadano_at, za, status, obavljeno, obavljeno_at, list_id, cvor, updated_at, izvor, obilazak`
 
 func scanZadatak(sc interface{ Scan(...any) error }) (models.Zadatak, error) {
 	var z models.Zadatak
 	var ob sql.NullTime
 	var za string
-	err := sc.Scan(&z.ID, &z.UserID, &z.Sektor, &z.AreaID, &z.Tekst, &z.ZadaoID, &z.Zadao, &z.ZadanoAt, &za, &z.Status, &z.Obavljeno, &ob, &z.ListID, &z.Cvor, &z.UpdatedAt)
+	var obilazak string
+	err := sc.Scan(&z.ID, &z.UserID, &z.Sektor, &z.AreaID, &z.Tekst, &z.ZadaoID, &z.Zadao, &z.ZadanoAt, &za, &z.Status, &z.Obavljeno, &ob, &z.ListID, &z.Cvor, &z.UpdatedAt, &z.Izvor, &obilazak)
+	if obilazak != "" {
+		var x struct {
+			Od, Do     string
+			Udaljenost float64
+			Obuhvat    string
+		}
+		if json.Unmarshal([]byte(obilazak), &x) == nil {
+			z.Od, z.Do, z.Udaljenost, z.Obuhvat = x.Od, x.Do, x.Udaljenost, x.Obuhvat
+		}
+	}
 	if za != "" {
 		z.Za, _ = time.ParseInLocation("2006-01-02", za, models.Zagreb)
 	}
@@ -296,6 +319,19 @@ func (r *VodocuvarRepository) SaveZadatak(ctx context.Context, z *models.Zadatak
 		return err
 	}
 	return tx.Commit()
+}
+
+// ZadatakPoIzvoru nalazi zadatak prenesen iz ranije evidencije po oznaci
+// izvora; nil kad ga nema. Po njemu je ponovni uvoz bezopasan.
+func (r *VodocuvarRepository) ZadatakPoIzvoru(ctx context.Context, izvor string) (*models.Zadatak, error) {
+	z, err := scanZadatak(r.db.QueryRowContext(ctx, `SELECT `+zadatakColumns+` FROM vodocuvarski_zadaci WHERE izvor = ?`, izvor))
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &z, nil
 }
 
 // GetZadatak čita zadatak; nil kad ga nema
@@ -371,6 +407,31 @@ func (r *VodocuvarRepository) ZadaciURazdoblju(ctx context.Context, userID strin
 		}
 	}
 	return out, rows.Err()
+}
+
+// ---- prilozi lista ----
+
+// SavePrilog sprema prilog lista (fotografiju) u spremište sadržaja; opis
+// priloga stoji na samom listu, a bajtovi se nalaze po otisku
+func (r *VodocuvarRepository) SavePrilog(ctx context.Context, listID, prilogID string, b []byte) error {
+	_, err := spremiSadrzaj(ctx, "image/jpeg", b, sadrzaj.Veza{
+		Entitet: EntityVodocuvarski, EntitetID: listID, Uloga: ulogaPriloga(prilogID)})
+	return err
+}
+
+// ulogaPriloga je oznaka veze pod kojom prilog stoji u spremištu
+func ulogaPriloga(id string) string { return "prilog:" + id }
+
+// Prilog čita bajtove priloga; nil kad ih ovaj čvor nema
+func (r *VodocuvarRepository) Prilog(ctx context.Context, prilogID string) ([]byte, error) {
+	if spremiste == nil {
+		return nil, nil
+	}
+	otisak := spremiste.OtisakPoUlozi(ctx, EntityVodocuvarski, ulogaPriloga(prilogID))
+	if otisak == "" {
+		return nil, nil
+	}
+	return ucitajSadrzaj(ctx, otisak), nil
 }
 
 // ---- izvornici ----

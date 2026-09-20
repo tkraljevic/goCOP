@@ -39,9 +39,19 @@ type VodocuvarskiList struct {
 	// dan; upis na listu je dokaz, dokument stoji uz prijavu
 	Prijave []PrijavaNaListu `json:"prijave,omitempty"`
 
+	// Prilozi su fotografije uz zadatke i upise; bajtovi žive u spremištu
+	// sadržaja po otisku, list nosi samo opis
+	Prilozi []PrilogLista `json:"prilozi,omitempty"`
+
 	// Parafe su potpisi ostalih rukovoditelja vezanih uz područje (ovlaštenik za
 	// praćenje ugovora, zamjenici, rukovoditelji dionica, uprava sektora)
 	Parafe []Parafa `json:"parafe,omitempty"`
+
+	// Rekonstrukcija javlja da list nije vođen u goCOP-u nego je prenesen iz
+	// ranije evidencije: nosi samo ono što je ta evidencija imala, nema
+	// potpisa vodočuvara ni ovjere i ne ulazi u tekuću numeraciju knjige
+	Rekonstrukcija bool   `json:"rekonstrukcija,omitempty"`
+	Izvor          string `json:"izvor,omitempty"` // oznaka zapisa u ranijoj evidenciji
 
 	PredanoAt   *time.Time `json:"predano_at,omitempty"` // potpis vodočuvara
 	PotvrdioID  string     `json:"potvrdio_id,omitempty"`
@@ -50,6 +60,31 @@ type VodocuvarskiList struct {
 	Cvor        string     `json:"cvor,omitempty"`
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
+}
+
+// PrilogLista je fotografija ili datoteka priložena listu, uz zadatak ili
+// upis. Sadrzaj je otisak u spremištu sadržaja, po kojem se bajtovi čitaju
+// i dohvaćaju s drugog čvora.
+type PrilogLista struct {
+	ID        string `json:"id"`
+	Naziv     string `json:"naziv,omitempty"`
+	Vrsta     string `json:"vrsta"`
+	Bajtova   int    `json:"bajtova"`
+	Sirina    int    `json:"sirina,omitempty"`
+	Visina    int    `json:"visina,omitempty"`
+	Sadrzaj   string `json:"sadrzaj"`
+	ZadatakID string `json:"zadatak_id,omitempty"`
+}
+
+// PriloziZadatka vraća priloge koji stoje uz zadani zadatak
+func (l VodocuvarskiList) PriloziZadatka(zadatakID string) []PrilogLista {
+	var out []PrilogLista
+	for _, p := range l.Prilozi {
+		if p.ZadatakID == zadatakID {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 // Predan javlja je li vodočuvar list potpisao (predao)
@@ -132,8 +167,17 @@ type Zadatak struct {
 	Obavljeno   string     `json:"obavljeno,omitempty"` // što je napravljeno, ili zašto nije
 	ObavljenoAt *time.Time `json:"obavljeno_at,omitempty"`
 	ListID      string     `json:"list_id,omitempty"` // list na kojem je zaključen
-	Cvor        string     `json:"cvor,omitempty"`
-	UpdatedAt   time.Time  `json:"updated_at"`
+	Izvor       string     `json:"izvor,omitempty"`   // oznaka zapisa u ranijoj evidenciji
+	// Obilazak: kad je zadatak obilazak terena, ovo je što je od njega ostalo
+	Od         string  `json:"od,omitempty"` // početak, "07:00"
+	Do         string  `json:"do,omitempty"`
+	Udaljenost float64 `json:"udaljenost,omitempty"` // prijeđeni kilometri
+	// Obuhvat je ono što je u ranijoj evidenciji rukom ucrtano na karti uz
+	// obilazak: najčešće crta povučena po dionici, ponegdje samo točka ili
+	// poligon. Nije GPS trag i ne poklapa se s upisanim kilometrima.
+	Obuhvat   string    `json:"obuhvat,omitempty"`
+	Cvor      string    `json:"cvor,omitempty"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // Stanja zadatka
@@ -141,6 +185,10 @@ const (
 	ZadatakOtvoren  = "OTVOREN"
 	ZadatakObavljen = "OBAVLJEN"
 	ZadatakOdbacen  = "ODBACEN" // nije obavljen i ne prenosi se dalje, uz razlog
+	// ZadatakBezOdgovora je zadatak iz ranije evidencije kojemu odgovor nije
+	// upisan. Nije isto što i neobavljen: ne zna se je li obavljen, zna se
+	// samo da upisa nema.
+	ZadatakBezOdgovora = "BEZ_ODGOVORA"
 )
 
 // Otvoren javlja je li zadatak još na listu
@@ -154,6 +202,31 @@ type ZadatakNaListu struct {
 	ZadanoAt  time.Time `json:"zadano_at"`
 	Status    string    `json:"status"`
 	Obavljeno string    `json:"obavljeno,omitempty"`
+	// Od, Do i Udaljenost stoje uz obilazak; ImaObuhvat javlja da je uz
+	// zadatak na karti ucrtano gdje se išlo
+	Od         string  `json:"od,omitempty"`
+	Do         string  `json:"do,omitempty"`
+	Udaljenost float64 `json:"udaljenost,omitempty"`
+	ImaObuhvat bool    `json:"ima_obuhvat,omitempty"`
+}
+
+// NapomenaPrenesenogLista stoji na listu koji nije vođen u goCOP-u nego je
+// prenesen iz ranije evidencije
+const NapomenaPrenesenogLista = "Preneseno iz ranije evidencije (VGI Baranja, app.bp16.xyz). List nije vođen u goCOP-u: sadrži zadatke obilaska i ono što je stara evidencija uz njih imala, bez radnog vremena, vodostaja, potpisa vodočuvara i ovjere rukovoditelja."
+
+// UzObilazak sažima vrijeme i kilometre obilaska u jedan navod za list
+func (z ZadatakNaListu) UzObilazak() string {
+	var d []string
+	if z.Od != "" || z.Do != "" {
+		d = append(d, strings.TrimSpace(z.Od+"–"+z.Do))
+	}
+	if z.Udaljenost > 0 {
+		d = append(d, fmt.Sprintf("%g km", z.Udaljenost))
+	}
+	if z.ImaObuhvat {
+		d = append(d, "obuhvat ucrtan na karti")
+	}
+	return strings.Join(d, ", ")
 }
 
 // Oznaka kako se zadatak piše na listu: obavljen, nije, prenosi se
@@ -163,6 +236,8 @@ func (z ZadatakNaListu) Oznaka() string {
 		return "obavljeno"
 	case ZadatakOdbacen:
 		return "nije obavljeno"
+	case ZadatakBezOdgovora:
+		return "bez upisanog odgovora"
 	}
 	return "nije obavljeno, prenosi se na sljedeći list"
 }

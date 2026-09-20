@@ -16,6 +16,86 @@ func PDFVodocuvarskiList(l *models.VodocuvarskiList, t models.OrgTerms, area *mo
 	return pdf
 }
 
+// PrilogListaPDF je ono što uz list ide u dokument: fotografije po oznaci
+// priloga i karte ucrtanog obuhvata po oznaci zadatka
+type PrilogListaPDF struct {
+	Slike   map[string][]byte
+	Karte   map[string][]byte
+	Zasluge string
+}
+
+// PDFListaSPrilozima crta list, a iza njega karte obuhvata i fotografije.
+// Prilozi su dio dokumenta, kao i kod prijave: kad se bajtovi jednom otpuste
+// sa spremišta, dokument ih i dalje nosi.
+func PDFListaSPrilozima(l *models.VodocuvarskiList, t models.OrgTerms, area *models.Area, otisci models.OtisciLista, pr PrilogListaPDF) []byte {
+	d := pdfw.Novi("Vodočuvarski dnevnik, dnevni list "+l.Datum.In(models.Zagreb).Format("02.01.2006."), "goCOP")
+	d.Predmet = "Vodočuvarski dnevnik: " + l.Ime
+	d.SviZnakovi()
+	nacrtajList(d, l, t, area, otisci, crtajOba)
+	nacrtajPriloge(d, l, pr)
+	return d.Bajtovi()
+}
+
+// nacrtajPriloge crta karte obuhvata i fotografije iza lista
+func nacrtajPriloge(d *pdfw.Doc, l *models.VodocuvarskiList, pr PrilogListaPDF) {
+	for _, z := range l.Zadaci {
+		karta := pr.Karte[z.ID]
+		slike := l.PriloziZadatka(z.ID)
+		if len(karta) == 0 && len(slike) == 0 {
+			continue
+		}
+		d.NovaStranica()
+		d.Y = d.Gore + 10
+		d.Tekst(d.Lijevo, d.Y, 10, true, "Prilozi uz zadatak")
+		d.Y += 12
+		for _, redak := range pdfw.Prelomi(z.Tekst, d.Sirina(), 9, false) {
+			d.Tekst(d.Lijevo, d.Y, 9, false, redak)
+			d.Y += 11
+		}
+		if uz := z.UzObilazak(); uz != "" {
+			d.TekstBoja(d.Lijevo, d.Y, 7.5, false, uz, sivaTekst)
+			d.Y += 12
+		}
+		if len(karta) > 0 {
+			d.Y += 4
+			d.Tekst(d.Lijevo, d.Y, 8, true, "Obuhvat obilaska, ucrtan u ranijoj evidenciji")
+			d.Y += 10
+			w := d.Sirina()
+			h := w * float64(visinaKarte) / float64(sirinaKarte)
+			if jpg := kartaZaPDF(karta); jpg != nil {
+				_ = d.SlikaJPEG(jpg, d.Lijevo, d.Y, w, h)
+				d.Y += h + 4
+			}
+			if pr.Zasluge != "" {
+				d.TekstBoja(d.Lijevo, d.Y, 6, false, pr.Zasluge+". Ucrtano rukom u ranijoj evidenciji; nije zapis kretanja.", sivaTekst)
+				d.Y += 12
+			}
+		}
+		for i, sl := range slike {
+			b := pr.Slike[sl.ID]
+			if len(b) == 0 || sl.Sirina == 0 || sl.Visina == 0 {
+				continue
+			}
+			if d.Y > d.H-d.Dolje-160 {
+				d.NovaStranica()
+				d.Y = d.Gore + 10
+			}
+			d.Y += 6
+			d.Tekst(d.Lijevo, d.Y, 8, true, fmt.Sprintf("Fotografija %d od %d", i+1, len(slike)))
+			d.Y += 10
+			w := d.Sirina()
+			hMax := (d.H - d.Gore - d.Dolje) / 2
+			sw, sh := w, w*float64(sl.Visina)/float64(sl.Sirina)
+			if sh > hMax {
+				sh = hMax
+				sw = sh * float64(sl.Sirina) / float64(sl.Visina)
+			}
+			_ = d.SlikaJPEG(b, d.Lijevo+(w-sw)/2, d.Y, sw, sh)
+			d.Y += sh + 4
+		}
+	}
+}
+
 // crtanjeBlokova kaže koji se blokovi potpisa crtaju u sadržaju stranice;
 // blok koji se ne crta ostavlja mjesto za polje elektroničkog potpisa
 type crtanjeBlokova struct{ vodocuvar, rukovoditelj bool }
@@ -114,6 +194,17 @@ func nacrtajList(d *pdfw.Doc, l *models.VodocuvarskiList, t models.OrgTerms, are
 	d.Y += 30
 	d.TekstSredina(d.W/2, d.Y, 13, true, "DNEVNI LIST")
 	d.Y += 18
+	if l.Rekonstrukcija {
+		// list koji nije vođen u goCOP-u mora se i na prvi pogled razlikovati
+		// od onoga koji jest: nosi napomenu, a dolje sivi blok umjesto potpisa
+		d.Ispuna(d.Lijevo, d.Y-4, d.W-d.Lijevo-d.Desno, 30, pdfw.Boja{R: 0.95, G: 0.96, B: 0.97})
+		y := d.Y + 8
+		for _, redak := range pdfw.Prelomi(models.NapomenaPrenesenogLista, d.W-d.Lijevo-d.Desno-16, 7, false) {
+			d.TekstBoja(d.Lijevo+8, y, 7, false, redak, sivaTekst)
+			y += 9
+		}
+		d.Y = y + 6
+	}
 
 	sirina := d.W - d.Lijevo - d.Desno
 	// redak radnog vremena i prilika
@@ -124,7 +215,11 @@ func nacrtajList(d *pdfw.Doc, l *models.VodocuvarskiList, t models.OrgTerms, are
 	d.Tekst(d.Lijevo+215, okvirY+14, 9, true, "do")
 	d.Tekst(d.Lijevo+240, okvirY+14, 11, false, l.Do)
 	d.Tekst(d.Lijevo+340, okvirY+14, 9, true, "UKUPNO")
-	d.Tekst(d.Lijevo+395, okvirY+14, 11, false, l.SatiTekst())
+	// prenesen list nema radnog vremena; "0,0 sati" bi izgledalo kao tvrdnja
+	// da vodočuvar tog dana nije radio
+	if !l.Rekonstrukcija {
+		d.Tekst(d.Lijevo+395, okvirY+14, 11, false, l.SatiTekst())
+	}
 	d.Tekst(d.Lijevo+425, okvirY+14, 9, true, "sati")
 	d.Crta(d.Lijevo, okvirY+22, d.Lijevo+sirina, okvirY+22)
 	d.Tekst(d.Lijevo+8, okvirY+36, 9, true, "Vremenske prilike:")
@@ -153,6 +248,9 @@ func nacrtajList(d *pdfw.Doc, l *models.VodocuvarskiList, t models.OrgTerms, are
 	var naredbe []string
 	for _, z := range l.Zadaci {
 		red := z.Tekst + " (zadao " + z.Zadao + ", " + z.ZadanoAt.In(models.Zagreb).Format("02.01.") + "): " + z.Oznaka()
+		if uz := z.UzObilazak(); uz != "" {
+			red += "; " + uz
+		}
 		if z.Obavljeno != "" {
 			red += "; " + z.Obavljeno
 		}
@@ -185,6 +283,15 @@ func nacrtajList(d *pdfw.Doc, l *models.VodocuvarskiList, t models.OrgTerms, are
 	potpis := func(x float64, naslov, ime string, kad *time.Time, kod, userID string, crtajBlok bool) {
 		d.TekstSredina(x+pw/2, y, 9, false, naslov)
 		crtajPotpisLista(d, x, m.y, pw, ime, kad, list, kod, l.Cvor, otisci[userID], crtajBlok, false)
+	}
+	if l.Rekonstrukcija {
+		// prenesen list nema potpisa: ni vodočuvarev ni rukovoditeljev, jer
+		// ga nitko nije vodio ni ovjeravao u programu
+		blokOvjereBoja(d, d.Lijevo, d.Sirina(), "PRENESENO IZ RANIJE EVIDENCIJE",
+			l.Ime, "zadaci obilaska iz VGI Baranja (app.bp16.xyz)", "bez potpisa vodočuvara i ovjere rukovoditelja",
+			sivaTekst, sivaTekst)
+		d.Y = m.y + visinaPotpisa + 10
+		return m
 	}
 	potpis(m.xVodocuvar, "Vodočuvar", l.Ime, l.PredanoAt, l.KodPredaje(), l.UserID, crtaj.vodocuvar)
 	potpis(m.xRuk, "Rukovoditelj branjenog područja", l.Potvrdio, l.PotvrdenoAt, l.KodOvjere(), l.PotvrdioID, crtaj.rukovoditelj)
