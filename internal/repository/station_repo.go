@@ -395,7 +395,7 @@ func (r *StationRepository) UpdateStation(ctx context.Context, st *models.Statio
 			prep_cm = ?, prep_raw = ?, regular_cm = ?, regular_raw = ?,
 			emergency_cm = ?, emergency_raw = ?, state_cm = ?, state_raw = ?,
 			record_cm = ?, record_raw = ?,
-			notes = ?, needs_review = ?, review_note = ?,
+			notes = ?, source_name = ?, needs_review = ?, review_note = ?,
 			latitude = ?, longitude = ?, updated_at = ?, javni_url = ?, javni_uvoz = ?
 		WHERE id = ?
 	`,
@@ -407,7 +407,7 @@ func (r *StationRepository) UpdateStation(ctx context.Context, st *models.Statio
 		st.Prep.Cm, st.Prep.Raw, st.Regular.Cm, st.Regular.Raw,
 		st.Emergency.Cm, st.Emergency.Raw, st.State.Cm, st.State.Raw,
 		st.Record.Cm, st.Record.Raw,
-		st.Notes, boolToInt(st.NeedsReview), st.ReviewNote,
+		st.Notes, st.SourceName, boolToInt(st.NeedsReview), st.ReviewNote,
 		st.Latitude, st.Longitude, st.UpdatedAt, st.JavniURL, boolToInt(st.JavniUvoz), st.ID.String(),
 	)
 	if err != nil {
