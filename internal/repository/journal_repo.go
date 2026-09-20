@@ -267,7 +267,13 @@ func (r *JournalRepository) SaveOvjeraCOP(ctx context.Context, j *models.Journal
 	}
 	now := time.Now().UTC()
 	h := fmt.Sprintf("%x", sha256.Sum256(pdf))
-	iz := models.IzvornikDnevnika{JournalID: j.ID, PDF: pdf, Sazetak: h, UpdatedAt: now}
+	kanal := journalChannel(j)
+	opis, err := spremiPDF(ctx, EntityJournals, j.ID, kanal, pdf, h, now)
+	if err != nil {
+		return err
+	}
+	iz := models.IzvornikDnevnika{JournalID: j.ID, Otisak: opis.Otisak, Bajtova: opis.Bajtova,
+		Vrsta: opis.Vrsta, Sazetak: h, UpdatedAt: now}
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -282,38 +288,47 @@ func (r *JournalRepository) SaveOvjeraCOP(ctx context.Context, j *models.Journal
 		return errors.New("dnevnik je već ovjeren ili ne postoji")
 	}
 	j.UpdatedAt = now
-	if _, err := r.rec.RecordIn(ctx, tx, journalChannel(j), EntityJournals, j.ID, j); err != nil {
+	if _, err := r.rec.RecordIn(ctx, tx, kanal, EntityJournals, j.ID, j); err != nil {
 		return err
 	}
-	if _, err = tx.ExecContext(ctx, `INSERT INTO journal_izvornici (journal_id,pdf,sazetak,updated_at) VALUES (?,?,?,?)`, j.ID, pdf, h, now); err != nil {
+	if _, err = tx.ExecContext(ctx, journalIzvornikUpsert, j.ID, iz.Otisak, iz.Bajtova, iz.Vrsta, h, now); err != nil {
 		return fmt.Errorf("upis izvornika: %w", err)
 	}
-	if _, err = r.rec.Record(ctx, tx, EntityJournalIzvornici, j.ID, iz); err != nil {
+	if _, err = r.rec.RecordIn(ctx, tx, kanal, EntityJournalIzvornici, j.ID, iz); err != nil {
 		return err
 	}
 	return tx.Commit()
 }
 
+const journalIzvornikUpsert = `INSERT INTO journal_izvornici (journal_id, otisak, bajtova, vrsta, sazetak, updated_at) VALUES (?, ?, ?, ?, ?, ?)
+	ON CONFLICT(journal_id) DO UPDATE SET otisak = excluded.otisak, bajtova = excluded.bajtova, vrsta = excluded.vrsta,
+		sazetak = excluded.sazetak, updated_at = excluded.updated_at`
+
 // IzvornikDnevnika čita potpisani PDF sa sažetkom kakav je upisan; nil kad ga nema
 func (r *JournalRepository) IzvornikDnevnika(ctx context.Context, journalID string) (*models.IzvornikDnevnika, error) {
 	iz := models.IzvornikDnevnika{JournalID: journalID}
-	err := r.db.QueryRowContext(ctx, `SELECT pdf, sazetak, updated_at FROM journal_izvornici WHERE journal_id=?`, journalID).Scan(&iz.PDF, &iz.Sazetak, &iz.UpdatedAt)
+	err := r.db.QueryRowContext(ctx, `SELECT otisak, bajtova, vrsta, sazetak, updated_at FROM journal_izvornici WHERE journal_id=?`, journalID).
+		Scan(&iz.Otisak, &iz.Bajtova, &iz.Vrsta, &iz.Sazetak, &iz.UpdatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
+	iz.PDF = ucitajSadrzaj(ctx, iz.Otisak)
 	return &iz, nil
 }
 
 func (r *JournalRepository) JournalIzvornik(ctx context.Context, journalID string) ([]byte, error) {
-	var pdf []byte
-	err := r.db.QueryRowContext(ctx, `SELECT pdf FROM journal_izvornici WHERE journal_id=?`, journalID).Scan(&pdf)
+	var otisak string
+	err := r.db.QueryRowContext(ctx, `SELECT otisak FROM journal_izvornici WHERE journal_id=?`, journalID).Scan(&otisak)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
-	return pdf, err
+	if err != nil {
+		return nil, err
+	}
+	return ucitajSadrzaj(ctx, otisak), nil
 }
 
 // --- list ---

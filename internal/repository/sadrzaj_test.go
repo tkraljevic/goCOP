@@ -61,7 +61,7 @@ func TestSeljenjeIzvornikaPrijavaUSpremiste(t *testing.T) {
 	defer spremiste.Zatvori()
 	SetSpremiste(spremiste)
 	defer SetSpremiste(nil)
-	n, bajtova, err := PreseliIzvornikePrijava(context.Background(), baza)
+	n, bajtova, err := PreseliIzvornike(context.Background(), baza)
 	if err != nil || n != 1 || bajtova != int64(len(pdf)) {
 		t.Fatalf("seljenje: %d %d %v", n, bajtova, err)
 	}
@@ -90,7 +90,7 @@ func TestSeljenjeIzvornikaPrijavaUSpremiste(t *testing.T) {
 		t.Fatalf("čitanje: %v %+v", err, got)
 	}
 	// drugo pokretanje ne radi ništa
-	if n, _, err := PreseliIzvornikePrijava(context.Background(), baza); err != nil || n != 0 {
+	if n, _, err := PreseliIzvornike(context.Background(), baza); err != nil || n != 0 {
 		t.Errorf("ponovno seljenje: %d %v", n, err)
 	}
 }
@@ -138,5 +138,95 @@ func TestPrimljeniIzvornikSaIBezBajtova(t *testing.T) {
 	z, _ := spremiste.Zeljeni(ctx, 10)
 	if len(z) != 1 || z[0].Otisak != "ab12" || z[0].Bajtova != 5000 {
 		t.Errorf("za dohvat: %+v", z)
+	}
+}
+
+// Uz prijave, u spremište sele i izvornici dnevnih listova, COP dnevnika i
+// akata: svaka tablica s bajtovima skloni se pri pokretanju, bajtovi odu u
+// spremište, a zapis i verzija zadrže samo otisak.
+func TestSeljenjeSvihIzvornikaUSpremiste(t *testing.T) {
+	dir := t.TempDir()
+	baza, err := db.OpenDB(filepath.Join(dir, "gocop.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer baza.Close()
+	if err := db.InitSchema(baza); err != nil {
+		t.Fatal(err)
+	}
+	kad := time.Date(2026, 9, 20, 8, 0, 0, 0, time.UTC)
+	tablice := []struct{ tablica, kljuc, vrijeme, entitet string }{
+		{"vodocuvarski_izvornici", "list_id", "updated_at", EntityVodocuvarskiIzvornici},
+		{"journal_izvornici", "journal_id", "updated_at", EntityJournalIzvornici},
+		{"akti_izvornici", "akt_id", "created_at", EntityIzvornici},
+	}
+	rec := ledger.New(baza, "stari-cvor")
+	pdfZa := func(t string) []byte { return []byte("%PDF-1.4\nizvornik " + t) }
+	for _, x := range tablice {
+		for _, q := range []string{
+			`DROP TABLE ` + x.tablica,
+			`CREATE TABLE ` + x.tablica + ` (` + x.kljuc + ` TEXT PRIMARY KEY, pdf BLOB NOT NULL, sazetak TEXT NOT NULL DEFAULT '', ` + x.vrijeme + ` DATETIME NOT NULL)`,
+		} {
+			if _, err := baza.Exec(q); err != nil {
+				t.Fatalf("%s: %v", x.tablica, err)
+			}
+		}
+		tx, _ := baza.Begin()
+		if _, err := tx.Exec(`INSERT INTO `+x.tablica+` (`+x.kljuc+`, pdf, sazetak, `+x.vrijeme+`) VALUES (?, ?, ?, ?)`,
+			"z1", pdfZa(x.tablica), "sazetak", kad); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := rec.Record(context.Background(), tx, x.entitet, "z1",
+			map[string]any{"pdf": pdfZa(x.tablica), "sazetak": "sazetak"}); err != nil {
+			t.Fatal(err)
+		}
+		_ = tx.Commit()
+	}
+
+	if err := db.InitSchema(baza); err != nil {
+		t.Fatal(err)
+	}
+	spremiste, err := sadrzaj.Otvori(filepath.Join(dir, "sadrzaj.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer spremiste.Zatvori()
+	prijasnje := Spremiste()
+	SetSpremiste(spremiste)
+	defer SetSpremiste(prijasnje)
+	n, _, err := PreseliIzvornike(context.Background(), baza)
+	if err != nil || n != len(tablice) {
+		t.Fatalf("seljenje: %d %v", n, err)
+	}
+	for _, x := range tablice {
+		var ima int
+		_ = baza.QueryRow(`SELECT count(*) FROM sqlite_master WHERE name = ?`, x.tablica+"_stari").Scan(&ima)
+		if ima != 0 {
+			t.Errorf("%s: stara tablica je ostala", x.tablica)
+		}
+		var otisak string
+		var bajtova int
+		if err := baza.QueryRow(`SELECT otisak, bajtova FROM `+x.tablica+` WHERE `+x.kljuc+` = 'z1'`).Scan(&otisak, &bajtova); err != nil {
+			t.Fatalf("%s: %v", x.tablica, err)
+		}
+		if otisak != sadrzaj.Otisak(pdfZa(x.tablica)) || bajtova != len(pdfZa(x.tablica)) {
+			t.Errorf("%s: otisak %s, %d bajtova", x.tablica, otisak, bajtova)
+		}
+		b, _, err := spremiste.Citaj(context.Background(), otisak)
+		if err != nil || string(b) != string(pdfZa(x.tablica)) {
+			t.Errorf("%s: sadržaj u spremištu: %v", x.tablica, err)
+		}
+		var payload string
+		if err := baza.QueryRow(`SELECT payload FROM record_versions WHERE entity = ? AND entity_id = 'z1'`, x.entitet).Scan(&payload); err != nil {
+			t.Fatal(err)
+		}
+		var zapis map[string]any
+		_ = json.Unmarshal([]byte(payload), &zapis)
+		if _, ima := zapis["pdf"]; ima {
+			t.Errorf("%s: verzija još nosi bajtove", x.entitet)
+		}
+		if zapis["otisak"] != otisak {
+			t.Errorf("%s: verzija nema otisak", x.entitet)
+		}
 	}
 }

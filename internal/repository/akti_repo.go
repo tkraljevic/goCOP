@@ -411,16 +411,21 @@ func (r *AktiRepository) UgovorneFirme(ctx context.Context, areaID int) ([]model
 // EntityIzvornici su potpisani izvornici akata u knjizi verzija
 const EntityIzvornici = "akti_izvornici"
 
-// Izvornik je potpisani PDF akta
+// Izvornik je potpisani PDF akta; bajtovi žive u spremištu sadržaja, a
+// zapis nosi otisak po kojem se čitaju
 type Izvornik struct {
 	AktID     string    `json:"akt_id"`
-	PDF       []byte    `json:"pdf"`
+	PDF       []byte    `json:"pdf,omitempty"`
+	Otisak    string    `json:"otisak,omitempty"`
+	Bajtova   int       `json:"bajtova,omitempty"`
+	Vrsta     string    `json:"vrsta,omitempty"`
 	Sazetak   string    `json:"sazetak"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
-const izvornikUpsert = `INSERT INTO akti_izvornici (akt_id, pdf, sazetak, created_at) VALUES (?, ?, ?, ?)
-	ON CONFLICT(akt_id) DO UPDATE SET pdf = excluded.pdf, sazetak = excluded.sazetak, created_at = excluded.created_at`
+const izvornikUpsert = `INSERT INTO akti_izvornici (akt_id, otisak, bajtova, vrsta, sazetak, created_at) VALUES (?, ?, ?, ?, ?, ?)
+	ON CONFLICT(akt_id) DO UPDATE SET otisak = excluded.otisak, bajtova = excluded.bajtova, vrsta = excluded.vrsta,
+		sazetak = excluded.sazetak, created_at = excluded.created_at`
 
 // SaveIzvornik sprema potpisani PDF uz akt, s verzijom u knjizi
 func (r *AktiRepository) SaveIzvornik(ctx context.Context, iz *Izvornik) error {
@@ -432,25 +437,37 @@ func (r *AktiRepository) SaveIzvornik(ctx context.Context, iz *Izvornik) error {
 		return err
 	}
 	defer tx.Rollback()
-	if _, err := tx.ExecContext(ctx, izvornikUpsert, iz.AktID, iz.PDF, iz.Sazetak, iz.CreatedAt.UTC()); err != nil {
+	pdf := iz.PDF
+	opis, err := spremiPDF(ctx, EntityAkti, iz.AktID, "", pdf, iz.Sazetak, iz.CreatedAt.UTC())
+	if err != nil {
+		return err
+	}
+	iz.Otisak, iz.Bajtova, iz.Vrsta, iz.PDF = opis.Otisak, opis.Bajtova, opis.Vrsta, nil
+	if _, err := tx.ExecContext(ctx, izvornikUpsert, iz.AktID, iz.Otisak, iz.Bajtova, iz.Vrsta, iz.Sazetak, iz.CreatedAt.UTC()); err != nil {
 		return fmt.Errorf("upis izvornika: %w", err)
 	}
 	if _, err := r.rec.Record(ctx, tx, EntityIzvornici, iz.AktID, iz); err != nil {
 		return err
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	iz.PDF = pdf // pozivatelj je dao bajtove, neka ih i dalje ima
+	return nil
 }
 
 // GetIzvornik čita potpisani PDF akta; nil kad ga nema
 func (r *AktiRepository) GetIzvornik(ctx context.Context, aktID string) (*Izvornik, error) {
 	iz := Izvornik{AktID: aktID}
-	err := r.db.QueryRowContext(ctx, `SELECT pdf, sazetak, created_at FROM akti_izvornici WHERE akt_id = ?`, aktID).Scan(&iz.PDF, &iz.Sazetak, &iz.CreatedAt)
+	err := r.db.QueryRowContext(ctx, `SELECT otisak, bajtova, vrsta, sazetak, created_at FROM akti_izvornici WHERE akt_id = ?`, aktID).
+		Scan(&iz.Otisak, &iz.Bajtova, &iz.Vrsta, &iz.Sazetak, &iz.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
+	iz.PDF = ucitajSadrzaj(ctx, iz.Otisak)
 	return &iz, nil
 }
 

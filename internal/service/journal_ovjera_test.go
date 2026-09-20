@@ -16,6 +16,7 @@ import (
 	"gocop/internal/ledger"
 	"gocop/internal/models"
 	"gocop/internal/repository"
+	"gocop/internal/sadrzaj"
 )
 
 // cvorZaOvjeru otvara bazu jednog čvora s dnevnikom COP-a spremnim za ovjeru
@@ -184,8 +185,14 @@ func TestOvjeraDnevnikaCOPaJeAtomska(t *testing.T) {
 		t.Fatal("ovjeren dnevnik se na drugom čvoru dao mijenjati")
 	}
 
-	// 7) izmijenjen izvornik: sažetak iz knjige ne odgovara; obrisan: nedostaje
-	if _, err := d.db.Exec(`UPDATE journal_izvornici SET pdf = ? WHERE journal_id = ?`, []byte("%PDF-1.4\npodmetnut"), j.ID); err != nil {
+	// 7) izmijenjen izvornik: netko je u spremište podmetnuo drugi PDF i
+	// zapis usmjerio na njega — sažetak iz knjige tada ne odgovara
+	podmetnut, err := repository.Spremiste().Upisi(ctx, "application/pdf", []byte("%PDF-1.4\npodmetnut"), "ovdje",
+		sadrzaj.Veza{Entitet: repository.EntityJournals, EntitetID: j.ID, Uloga: "izvornik"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := d.db.Exec(`UPDATE journal_izvornici SET otisak = ? WHERE journal_id = ?`, podmetnut, j.ID); err != nil {
 		t.Fatal(err)
 	}
 	if st := d.s.ProvjeriIzvornikCOP(ctx, drugi); !st.Ima || st.Ispravan || !strings.Contains(st.Greska, "mijenjan") {

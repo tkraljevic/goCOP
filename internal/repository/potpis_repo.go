@@ -25,8 +25,9 @@ const potpisniKljucUpsert = `INSERT INTO potpisni_kljucevi (user_id, ime, cert, 
 const izdavateljUpsert = `INSERT INTO potpisni_izdavatelji (cvor, cert, created_at) VALUES (?, ?, ?)
 	ON CONFLICT(cvor) DO UPDATE SET cert = excluded.cert, created_at = excluded.created_at`
 
-const izvornikListaUpsert = `INSERT INTO vodocuvarski_izvornici (list_id, pdf, sazetak, updated_at) VALUES (?, ?, ?, ?)
-	ON CONFLICT(list_id) DO UPDATE SET pdf = excluded.pdf, sazetak = excluded.sazetak, updated_at = excluded.updated_at`
+const izvornikListaUpsert = `INSERT INTO vodocuvarski_izvornici (list_id, otisak, bajtova, vrsta, sazetak, updated_at) VALUES (?, ?, ?, ?, ?, ?)
+	ON CONFLICT(list_id) DO UPDATE SET otisak = excluded.otisak, bajtova = excluded.bajtova, vrsta = excluded.vrsta,
+		sazetak = excluded.sazetak, updated_at = excluded.updated_at`
 
 // PotpisRepository čuva ključeve osoba i izdavatelje čvorova
 type PotpisRepository struct {

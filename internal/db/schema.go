@@ -269,8 +269,10 @@ func InitSchema(database *sql.DB) error {
 		// bajt za bajt i više se ne generira
 		`CREATE TABLE IF NOT EXISTS akti_izvornici (
 			akt_id TEXT PRIMARY KEY,
-			pdf BLOB NOT NULL,
-			sazetak TEXT NOT NULL,
+			otisak TEXT NOT NULL,
+			bajtova INTEGER NOT NULL DEFAULT 0,
+			vrsta TEXT NOT NULL DEFAULT 'application/pdf',
+			sazetak TEXT NOT NULL DEFAULT '',
 			created_at DATETIME NOT NULL
 		);`,
 		// Slanje ovjerenih akata primateljima "na znanje": jedan redak po
@@ -347,7 +349,9 @@ func InitSchema(database *sql.DB) error {
 		// Potpisani PDF dnevnog lista: vodočuvar pri predaji, rukovoditelj pri ovjeri
 		`CREATE TABLE IF NOT EXISTS vodocuvarski_izvornici (
 			list_id TEXT PRIMARY KEY,
-			pdf BLOB NOT NULL,
+			otisak TEXT NOT NULL,
+			bajtova INTEGER NOT NULL DEFAULT 0,
+			vrsta TEXT NOT NULL DEFAULT 'application/pdf',
 			sazetak TEXT NOT NULL DEFAULT '',
 			updated_at DATETIME NOT NULL
 		);`,
@@ -1056,7 +1060,9 @@ func InitSchema(database *sql.DB) error {
 		);`,
 		`CREATE TABLE IF NOT EXISTS journal_izvornici (
 			journal_id TEXT PRIMARY KEY,
-			pdf BLOB NOT NULL,
+			otisak TEXT NOT NULL,
+			bajtova INTEGER NOT NULL DEFAULT 0,
+			vrsta TEXT NOT NULL DEFAULT 'application/pdf',
 			sazetak TEXT NOT NULL DEFAULT '',
 			updated_at DATETIME NOT NULL
 		);`,
@@ -1148,25 +1154,35 @@ func migrateSchema(database *sql.DB) error {
 			return fmt.Errorf("prijave: arhivirana u riješena: %w", err)
 		}
 	}
-	// Izvornici prijava otprije spremišta sadržaja nose PDF u tablici; takva
-	// se tablica skloni pod starim imenom, a program pri pokretanju preseli
-	// bajtove u spremište (repository.PreseliIzvornikePrijava).
-	if imaPDF, err := columnExists(database, "prijave_izvornici", "pdf"); err != nil {
-		return err
-	} else if imaPDF {
+	// Izvornici otprije spremišta sadržaja nose PDF u tablici; takva se
+	// tablica skloni pod starim imenom, a program pri pokretanju preseli
+	// bajtove u spremište (repository.PreseliIzvornike).
+	for _, t := range []struct{ tablica, kljuc, vrijeme string }{
+		{"prijave_izvornici", "prijava_id", "updated_at"},
+		{"vodocuvarski_izvornici", "list_id", "updated_at"},
+		{"journal_izvornici", "journal_id", "updated_at"},
+		{"akti_izvornici", "akt_id", "created_at"},
+	} {
+		imaPDF, err := columnExists(database, t.tablica, "pdf")
+		if err != nil {
+			return err
+		}
+		if !imaPDF {
+			continue
+		}
 		for _, q := range []string{
-			`ALTER TABLE prijave_izvornici RENAME TO prijave_izvornici_stari`,
-			`CREATE TABLE prijave_izvornici (
-				prijava_id TEXT PRIMARY KEY,
+			fmt.Sprintf(`ALTER TABLE %s RENAME TO %s_stari`, t.tablica, t.tablica),
+			fmt.Sprintf(`CREATE TABLE %s (
+				%s TEXT PRIMARY KEY,
 				otisak TEXT NOT NULL,
 				bajtova INTEGER NOT NULL DEFAULT 0,
 				vrsta TEXT NOT NULL DEFAULT 'application/pdf',
 				sazetak TEXT NOT NULL DEFAULT '',
-				updated_at DATETIME NOT NULL
-			)`,
+				%s DATETIME NOT NULL
+			)`, t.tablica, t.kljuc, t.vrijeme),
 		} {
 			if _, err := database.Exec(q); err != nil {
-				return fmt.Errorf("izvornici prijava u spremište: %w", err)
+				return fmt.Errorf("izvornici %s u spremište: %w", t.tablica, err)
 			}
 		}
 	}

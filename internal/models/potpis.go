@@ -39,8 +39,13 @@ type IzvornikLista struct {
 }
 
 type IzvornikDnevnika struct {
-	JournalID string    `json:"journal_id"`
-	PDF       []byte    `json:"pdf"`
+	JournalID string `json:"journal_id"`
+	// PDF su bajtovi izvornika: pune se iz spremišta sadržaja pri čitanju, a
+	// u knjigu verzija ne idu — tamo putuju samo otisak, veličina i vrsta
+	PDF       []byte    `json:"pdf,omitempty"`
+	Otisak    string    `json:"otisak,omitempty"`
+	Bajtova   int       `json:"bajtova,omitempty"`
+	Vrsta     string    `json:"vrsta,omitempty"`
 	Sazetak   string    `json:"sazetak"`
 	UpdatedAt time.Time `json:"updated_at"`
 }

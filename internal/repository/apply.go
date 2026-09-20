@@ -14,6 +14,7 @@ import (
 	"gocop/internal/ledger"
 	"gocop/internal/models"
 	"gocop/internal/obracun"
+	"gocop/internal/sadrzaj"
 )
 
 // ApplyVersions osvježava površinu (obične tablice) iz verzija primljenih
@@ -488,7 +489,10 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		if err := json.Unmarshal(v.Payload, &iz); err != nil {
 			return err
 		}
-		_, err := tx.ExecContext(ctx, izvornikListaUpsert, iz.ListID, iz.PDF, iz.Sazetak, iz.UpdatedAt)
+		if err := primiIzvornik(ctx, EntityVodocuvarski, v.Channel, &iz); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, izvornikListaUpsert, iz.ListID, iz.Otisak, iz.Bajtova, iz.Vrsta, iz.Sazetak, iz.UpdatedAt)
 		return err
 
 	case EntityJournalIzvornici:
@@ -496,8 +500,12 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		if err := json.Unmarshal(v.Payload, &iz); err != nil {
 			return err
 		}
-		_, err := tx.ExecContext(ctx, `INSERT INTO journal_izvornici (journal_id,pdf,sazetak,updated_at) VALUES (?,?,?,?)
-			ON CONFLICT(journal_id) DO UPDATE SET pdf=excluded.pdf,sazetak=excluded.sazetak,updated_at=excluded.updated_at`, iz.JournalID, iz.PDF, iz.Sazetak, iz.UpdatedAt)
+		popuniOpis(&iz.Otisak, &iz.Bajtova, &iz.Vrsta, iz.PDF)
+		if err := primiSadrzajZapisa(ctx, iz.Otisak, iz.Vrsta, iz.Bajtova, iz.PDF,
+			sadrzaj.Veza{Entitet: EntityJournals, EntitetID: iz.JournalID, Uloga: "izvornik", Kanal: v.Channel}); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, journalIzvornikUpsert, iz.JournalID, iz.Otisak, iz.Bajtova, iz.Vrsta, iz.Sazetak, iz.UpdatedAt)
 		return err
 
 	case EntityPotpisi:
@@ -529,7 +537,12 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		if err := json.Unmarshal(v.Payload, &iz); err != nil {
 			return err
 		}
-		_, err := tx.ExecContext(ctx, izvornikUpsert, iz.AktID, iz.PDF, iz.Sazetak, iz.CreatedAt.UTC())
+		popuniOpis(&iz.Otisak, &iz.Bajtova, &iz.Vrsta, iz.PDF)
+		if err := primiSadrzajZapisa(ctx, iz.Otisak, iz.Vrsta, iz.Bajtova, iz.PDF,
+			sadrzaj.Veza{Entitet: EntityAkti, EntitetID: iz.AktID, Uloga: "izvornik", Kanal: v.Channel}); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, izvornikUpsert, iz.AktID, iz.Otisak, iz.Bajtova, iz.Vrsta, iz.Sazetak, iz.CreatedAt.UTC())
 		return err
 
 	case EntitySluzbe:

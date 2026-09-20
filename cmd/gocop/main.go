@@ -153,10 +153,10 @@ func main() {
 	}
 	defer spremiste.Zatvori()
 	repository.SetSpremiste(spremiste)
-	if n, bajtova, err := repository.PreseliIzvornikePrijava(context.Background(), database); err != nil {
-		log.Fatalf("Seljenje izvornika prijava u spremište: %v", err)
+	if n, bajtova, err := repository.PreseliIzvornike(context.Background(), database); err != nil {
+		log.Fatalf("Seljenje izvornika u spremište: %v", err)
 	} else if n > 0 {
-		log.Printf("Izvornici prijava preseljeni u spremište sadržaja: %d PDF-ova, %.1f MB", n, float64(bajtova)/1e6)
+		log.Printf("Izvornici preseljeni u spremište sadržaja: %d PDF-ova, %.1f MB", n, float64(bajtova)/1e6)
 	}
 	if st, err := spremiste.Stanje(context.Background()); err == nil {
 		log.Printf("Spremište sadržaja: %d sadržaja, %.1f MB, %d za dohvat", st.Sadrzaja, float64(st.Bajtova)/1e6, st.Zeljenih)

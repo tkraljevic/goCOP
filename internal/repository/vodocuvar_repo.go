@@ -378,31 +378,43 @@ func (r *VodocuvarRepository) ZadaciURazdoblju(ctx context.Context, userID strin
 // GetIzvornik čita potpisani PDF lista; nil kad ga nema
 func (r *VodocuvarRepository) GetIzvornik(ctx context.Context, listID string) (*models.IzvornikLista, error) {
 	iz := models.IzvornikLista{ListID: listID}
-	err := r.db.QueryRowContext(ctx, `SELECT pdf, sazetak, updated_at FROM vodocuvarski_izvornici WHERE list_id = ?`, listID).Scan(&iz.PDF, &iz.Sazetak, &iz.UpdatedAt)
+	err := r.db.QueryRowContext(ctx, `SELECT otisak, bajtova, vrsta, sazetak, updated_at FROM vodocuvarski_izvornici WHERE list_id = ?`, listID).
+		Scan(&iz.Otisak, &iz.Bajtova, &iz.Vrsta, &iz.Sazetak, &iz.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
+	ucitajPDF(ctx, &iz)
 	return &iz, nil
 }
 
 // SaveIzvornik sprema potpisani PDF lista, s verzijom u knjizi
 func (r *VodocuvarRepository) SaveIzvornik(ctx context.Context, iz *models.IzvornikLista) error {
 	iz.UpdatedAt = time.Now().UTC()
+	pdf := iz.PDF
+	opis, err := spremiPDF(ctx, EntityVodocuvarski, iz.ListID, "", pdf, iz.Sazetak, iz.UpdatedAt)
+	if err != nil {
+		return err
+	}
+	iz.Otisak, iz.Bajtova, iz.Vrsta, iz.PDF = opis.Otisak, opis.Bajtova, opis.Vrsta, nil
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
-	if _, err := tx.ExecContext(ctx, izvornikListaUpsert, iz.ListID, iz.PDF, iz.Sazetak, iz.UpdatedAt); err != nil {
+	if _, err := tx.ExecContext(ctx, izvornikListaUpsert, iz.ListID, iz.Otisak, iz.Bajtova, iz.Vrsta, iz.Sazetak, iz.UpdatedAt); err != nil {
 		return err
 	}
 	if _, err := r.rec.Record(ctx, tx, EntityVodocuvarskiIzvornici, iz.ListID, iz); err != nil {
 		return err
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	iz.PDF = pdf
+	return nil
 }
 
 // DeleteIzvornik briše potpisani PDF lista, ako ga ima

@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -45,10 +46,14 @@ func Otisak(b []byte) string {
 	return hex.EncodeToString(h[:])
 }
 
+// probnih broji memorijska spremišta, da svako bude svoje: dva testa koja
+// otvore spremište u memoriji ne smiju dijeliti istu bazu
+var probnih atomic.Int64
+
 // Otvori otvara spremište na putu i stvara tablice ako ih nema; prazan put
 // daje spremište u memoriji, za probe
 func Otvori(put string) (*Spremiste, error) {
-	dsn := "file:sadrzaj-proba?mode=memory&cache=shared"
+	dsn := fmt.Sprintf("file:sadrzaj-proba-%d?mode=memory&cache=shared", probnih.Add(1))
 	if put != "" {
 		if dir := filepath.Dir(put); dir != "" && dir != "." {
 			if err := os.MkdirAll(dir, 0o755); err != nil {

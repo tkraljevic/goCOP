@@ -50,7 +50,9 @@ func TestUvozObavijestiSTerena(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer spremiste.Zatvori()
+	prijasnje := repository.Spremiste()
 	repository.SetSpremiste(spremiste)
+	defer repository.SetSpremiste(prijasnje)
 	repo := repository.NewPrijavaRepository(baza, ledger.New(baza, "test"))
 	img := image.NewRGBA(image.Rect(0, 0, 2000, 1500))
 	for y := 0; y < 1500; y += 3 {
