@@ -351,7 +351,7 @@ func pdfPrijave(p *models.PrijavaSTerena, pr prilogPrijave, t models.OrgTerms, c
 			continue
 		}
 		w := d.Sirina()
-		hMax := (d.H - d.Gore - d.Dolje - 70) / 2
+		hMax := (d.H - d.Gore - d.Dolje - 90) / 2
 		sw, sh := w, w*float64(sl.Visina)/float64(sl.Sirina)
 		if sh > hMax {
 			sh = hMax
@@ -359,6 +359,15 @@ func pdfPrijave(p *models.PrijavaSTerena, pr prilogPrijave, t models.OrgTerms, c
 		}
 		_ = d.SlikaJPEG(b, d.Lijevo+(w-sw)/2, d.Y, sw, sh)
 		d.Y += sh
+		// zapis fotoaparata ispod slike: kad, gdje, čime; pa otisak izvorne
+		// datoteke — da se slika može vezati uz original i da se vidi što
+		// fotoaparat jest, a što nije zapisao
+		d.Y += 9
+		d.TekstBoja(d.Lijevo, d.Y, 7.5, false, sl.Podaci(), sivaTekst)
+		if z := sl.Izvornik(); z != "" {
+			d.Y += 8
+			d.TekstBoja(d.Lijevo, d.Y, 6, false, z, sivaTekst)
+		}
 	}
 	return d.Bajtovi(), m
 }

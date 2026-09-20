@@ -271,11 +271,12 @@ func RunPrijave(ctx context.Context, src Source, deps PrijaveDeps) (PrijaveRepor
 			if sid == "" || deps.Datoteka == nil {
 				continue
 			}
-			// Directus smanji sliku sam; velike (preko 5 MB) odbija, pa se
-			// tada uzme izvorna i smanji ovdje
-			b, err := deps.Datoteka(ctx, sid, "width=1600&height=1600&fit=inside&quality=82&format=jpg")
+			// Uzima se izvorna datoteka, jer samo ona nosi zapis fotoaparata
+			// (kad je snimljeno, čime); Directusova smanjena ga briše. Tek kad
+			// izvorne nema, uzme se smanjena.
+			b, err := deps.Datoteka(ctx, sid, "")
 			if err != nil {
-				b, err = deps.Datoteka(ctx, sid, "")
+				b, err = deps.Datoteka(ctx, sid, "width=1600&height=1600&fit=inside&quality=82&format=jpg")
 			}
 			if err != nil {
 				logf("  obavijest %d: slika %s: %v", o.ID, sid, err)
@@ -286,7 +287,21 @@ func RunPrijave(ctx context.Context, src Source, deps PrijaveDeps) (PrijaveRepor
 				logf("  obavijest %d: slika %s: %v", o.ID, sid, err)
 				continue
 			}
-			p.Slike = append(p.Slike, models.SlikaPrijave{ID: uuid.NewSHA1(uuid.NameSpaceURL, []byte("gocop/"+izvor+"/"+sid)).String(), Naziv: "fotografija " + fmt.Sprint(len(p.Slike)+1), Sirina: w, Visina: h, Bajtova: len(jpg)})
+			sl := models.SlikaPrijave{ID: uuid.NewSHA1(uuid.NameSpaceURL, []byte("gocop/"+izvor+"/"+sid)).String(), Naziv: "fotografija " + fmt.Sprint(len(p.Slike)+1), Sirina: w, Visina: h, Bajtova: len(jpg)}
+			if e := slike.Procitaj(b); true {
+				if !e.Snimljeno.IsZero() {
+					k := e.Snimljeno
+					sl.Snimljeno = &k
+				}
+				sl.Lat, sl.Lon, sl.Uredjaj = e.Lat, e.Lon, e.Uredjaj
+				otisak := sha256.Sum256(b)
+				sl.IzvornoBajtova, sl.Otisak = len(b), hex.EncodeToString(otisak[:])
+				if !p.ImaKoordinate() && sl.ImaPolozaj() {
+					lat, lon := e.Lat, e.Lon
+					p.Latitude, p.Longitude = &lat, &lon
+				}
+			}
+			p.Slike = append(p.Slike, sl)
 			slikeBajtovi = append(slikeBajtovi, jpg)
 			rep.Slika++
 		}

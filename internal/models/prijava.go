@@ -81,6 +81,79 @@ type SlikaPrijave struct {
 	Sirina  int    `json:"sirina"`
 	Visina  int    `json:"visina"`
 	Bajtova int    `json:"bajtova"`
+	// što je fotoaparat zapisao: kad je snimljena, gdje i čime; prazno kad
+	// slika to ne nosi
+	Snimljeno *time.Time `json:"snimljeno,omitempty"`
+	Lat       float64    `json:"lat,omitempty"`
+	Lon       float64    `json:"lon,omitempty"`
+	Uredjaj   string     `json:"uredjaj,omitempty"`
+	// izvorna datoteka kakva je zaprimljena: veličina i SHA-256 otisak, da
+	// se smanjena slika u dokumentu može vezati uz original ako se pojavi
+	IzvornoBajtova int    `json:"izvorno_bajtova,omitempty"`
+	Otisak         string `json:"otisak,omitempty"`
+}
+
+// ImaPolozaj javlja je li uz fotografiju zapisan položaj
+func (s SlikaPrijave) ImaPolozaj() bool { return s.Lat != 0 || s.Lon != 0 }
+
+// Podaci sažimaju zapis fotoaparata u jedan redak ispod slike:
+// "Snimljeno 5.6.2024. u 11:43 · samsung SM-J415FN · 45.65120 N, 18.77340 E".
+// Kad fotoaparat nije zapisao ni vrijeme ni položaj, kaže se i to, jer je
+// za dokaz važno što slika nosi, a što ne.
+func (s SlikaPrijave) Podaci() string {
+	var d []string
+	if s.Snimljeno != nil && !s.Snimljeno.IsZero() {
+		d = append(d, "Snimljeno "+s.Snimljeno.In(Zagreb).Format("2.1.2006. u 15:04:05"))
+	}
+	if s.ImaPolozaj() {
+		d = append(d, Koordinate(s.Lat, s.Lon))
+	}
+	if s.Uredjaj != "" {
+		d = append(d, "uređaj "+s.Uredjaj)
+	}
+	if len(d) == 0 {
+		return "Fotoaparat uz sliku nije zapisao vrijeme, položaj ni uređaj."
+	}
+	return strings.Join(d, " · ")
+}
+
+// Izvornik opisuje zaprimljenu datoteku: "Izvorna datoteka IMG_1234.jpg,
+// 7,3 MB, SHA-256 ab12…"; prazno kad otisak nije uzet
+func (s SlikaPrijave) Izvornik() string {
+	if s.Otisak == "" {
+		return ""
+	}
+	z := "Izvorna datoteka"
+	if s.Naziv != "" {
+		z += " " + s.Naziv
+	}
+	if s.IzvornoBajtova > 0 {
+		z += fmt.Sprintf(", %s", VelicinaHR(s.IzvornoBajtova))
+	}
+	return z + ", SHA-256 " + s.Otisak
+}
+
+// Koordinate ispisuju položaj sa stranama svijeta: "45.65120 N, 18.77340 E"
+func Koordinate(lat, lon float64) string {
+	ns, ew := "N", "E"
+	if lat < 0 {
+		ns, lat = "S", -lat
+	}
+	if lon < 0 {
+		ew, lon = "W", -lon
+	}
+	return fmt.Sprintf("%.5f %s, %.5f %s", lat, ns, lon, ew)
+}
+
+// VelicinaHR ispisuje veličinu datoteke po naški: "7,3 MB", "248 KB"
+func VelicinaHR(b int) string {
+	switch {
+	case b >= 1<<20:
+		return strings.ReplaceAll(fmt.Sprintf("%.1f MB", float64(b)/(1<<20)), ".", ",")
+	case b >= 1<<10:
+		return fmt.Sprintf("%d KB", b>>10)
+	}
+	return fmt.Sprintf("%d B", b)
 }
 
 // Vrste prijava, kako ih vodočuvar bira

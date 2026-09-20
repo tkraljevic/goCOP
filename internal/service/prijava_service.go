@@ -183,11 +183,31 @@ func (s *PrijavaService) DodajSliku(ctx context.Context, u *models.User, id, naz
 		return nil, err
 	}
 	sl := models.SlikaPrijave{ID: uuid.Must(uuid.NewV7()).String(), Naziv: strings.TrimSpace(naziv), Sirina: w, Visina: h, Bajtova: len(jpg)}
+	sl.Snimljeno, sl.Lat, sl.Lon, sl.Uredjaj = podaciFotoaparata(slike.Procitaj(podaci))
+	otisak := sha256.Sum256(podaci)
+	sl.IzvornoBajtova, sl.Otisak = len(podaci), hex.EncodeToString(otisak[:])
 	if err := s.repo.SaveSlika(ctx, sl.ID, p.ID, jpg); err != nil {
 		return nil, err
 	}
 	p.Slike = append(p.Slike, sl)
+	// fotografija zna gdje je snimljena, a prijava još nema mjesto: uzme se
+	// njezino, vodočuvar ga na karti može pomaknuti
+	if !p.ImaKoordinate() && sl.ImaPolozaj() {
+		lat, lon := sl.Lat, sl.Lon
+		p.Latitude, p.Longitude = &lat, &lon
+	}
 	return p, s.repo.Save(ctx, p)
+}
+
+// podaciFotoaparata prenosi zapis fotoaparata u polja slike; nulto vrijeme
+// ostaje prazno
+func podaciFotoaparata(e slike.Podaci) (*time.Time, float64, float64, string) {
+	var kad *time.Time
+	if !e.Snimljeno.IsZero() {
+		k := e.Snimljeno
+		kad = &k
+	}
+	return kad, e.Lat, e.Lon, e.Uredjaj
 }
 
 // ObrisiSliku miče fotografiju s nacrta

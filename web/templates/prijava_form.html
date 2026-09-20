@@ -63,10 +63,11 @@
   </div>
 
   <h2 class="form-section-title">Fotografije</h2>
-  {{if $p.Slike}}<div class="prijava-slike">{{range $p.Slike}}<figure><img src="/prijave/{{$p.ID}}/slika/{{.ID}}" alt="{{.Naziv}}" loading="lazy"><figcaption>{{.Naziv}} · {{.Sirina}}×{{.Visina}}</figcaption></figure>{{end}}</div>{{end}}
+  {{if $p.Slike}}<div class="prijava-slike">{{range $p.Slike}}<figure><img src="/prijave/{{$p.ID}}/slika/{{.ID}}" alt="{{.Naziv}}" loading="lazy"><figcaption>{{.Naziv}} · {{.Sirina}}×{{.Visina}}{{with .Podaci}}<br><span class="reading-meta">{{.}}</span>{{end}}</figcaption></figure>{{end}}</div>{{end}}
   <div class="form-group">
     <input type="file" class="form-control" name="slike" accept="image/jpeg,image/png" multiple capture="environment">
     <div class="form-help">Do {{najviseSlika}} fotografija; svaka se odmah smanji (1 000 px, JPEG) i pri objavi ugradi u PDF. Izvorne slike ostaju na ovom računalu ograničeno vrijeme, dokument trajno.</div>
+    <div class="form-help"><strong>Snimajte s uključenim GPS-om (lokacijom) na telefonu.</strong> Ispod svake fotografije u dokumentu ispisuje se što je fotoaparat zapisao: vrijeme snimanja, položaj i uređaj, uz otisak izvorne datoteke. To je dokaz da slika nije izmišljena; bez uključene lokacije položaj ostaje prazan i dokument to kaže.</div>
   </div>
   <div class="form-actions" style="display:flex; gap:0.5rem; flex-wrap:wrap;">
     <button type="submit" class="btn btn-primary">{{icon "check"}} Spremi nacrt</button>

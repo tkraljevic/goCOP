@@ -49,7 +49,7 @@
   <div class="prijava-slike">
     {{range $p.Slike}}<figure>
       <a href="/prijave/{{$p.ID}}/slika/{{.ID}}" target="_blank"><img src="/prijave/{{$p.ID}}/slika/{{.ID}}" alt="{{.Naziv}}" loading="lazy" onerror="this.parentElement.parentElement.classList.add('nema')"></a>
-      <figcaption>{{.Naziv}} · {{.Sirina}}×{{.Visina}}{{if and $.Moja (not $p.Objavljena)}} <form method="POST" action="/prijave/{{$p.ID}}/radnja" style="display:inline;"><input type="hidden" name="radnja" value="obrisi-sliku"><input type="hidden" name="slika" value="{{.ID}}"><button type="submit" class="btn btn-sm btn-secondary">{{icon "trash"}}</button></form>{{end}}</figcaption>
+      <figcaption>{{.Naziv}} · {{.Sirina}}×{{.Visina}}{{with .Podaci}}<br><span class="reading-meta">{{.}}</span>{{end}}{{if and $.Moja (not $p.Objavljena)}} <form method="POST" action="/prijave/{{$p.ID}}/radnja" style="display:inline;"><input type="hidden" name="radnja" value="obrisi-sliku"><input type="hidden" name="slika" value="{{.ID}}"><button type="submit" class="btn btn-sm btn-secondary">{{icon "trash"}}</button></form>{{end}}</figcaption>
       <p class="form-help nema-slike">Izvorna slika više nije na ovom računalu; nalazi se u <a href="/prijave/{{$p.ID}}/prijava.pdf" target="_blank">PDF-u</a>.</p>
     </figure>{{end}}
   </div>

@@ -103,3 +103,82 @@ func TestSmanjiOkreceIzExifa(t *testing.T) {
 		t.Errorf("180°: %dx%d %v", w, h, err)
 	}
 }
+
+// sPunimExifom slaže APP1 s datumom snimanja, uređajem i GPS položajem, kako
+// ga telefon zapiše
+func sPunimExifom(t *testing.T, jpg []byte) []byte {
+	t.Helper()
+	be := func(v uint32) []byte { return []byte{byte(v >> 24), byte(v >> 16), byte(v >> 8), byte(v)} }
+	be16 := func(v uint16) []byte { return []byte{byte(v >> 8), byte(v)} }
+	stavka := func(tag, tip uint16, n uint32, v []byte) []byte {
+		s := append(be16(tag), be16(tip)...)
+		s = append(s, be(n)...)
+		return append(s, v...)
+	}
+	// raspored: IFD0 (4 stavke) @8, ExifIFD (1) @8+2+4*12+4=62, GPS (4) @62+2+12+4=80, podaci iza @80+2+48+4=134
+	podaci := []byte{}
+	pom := func(b []byte) []byte {
+		o := uint32(134 + len(podaci))
+		podaci = append(podaci, b...)
+		return be(o)
+	}
+	rac := func(br, naz uint32) []byte { return append(be(br), be(naz)...) }
+	make := []byte("samsung\x00")
+	model := []byte("SM-J415FN\x00")
+	datum := []byte("2024:06:05 11:43:48\x00")
+	lat := append(append(rac(45, 1), rac(39, 1)...), rac(4320, 100)...) // 45°39'43.2" = 45.66200
+	lon := append(append(rac(18, 1), rac(46, 1)...), rac(2400, 100)...) // 18°46'24.0" = 18.77333
+	ifd0 := be16(4)
+	ifd0 = append(ifd0, stavka(0x010F, 2, uint32(len(make)), pom(make))...)
+	ifd0 = append(ifd0, stavka(0x0110, 2, uint32(len(model)), pom(model))...)
+	ifd0 = append(ifd0, stavka(0x8769, 4, 1, be(62))...)
+	ifd0 = append(ifd0, stavka(0x8825, 4, 1, be(80))...)
+	ifd0 = append(ifd0, be(0)...)
+	exif := be16(1)
+	exif = append(exif, stavka(0x9003, 2, uint32(len(datum)), pom(datum))...)
+	exif = append(exif, be(0)...)
+	gps := be16(4)
+	gps = append(gps, stavka(0x0001, 2, 2, []byte("N\x00\x00\x00"))...)
+	gps = append(gps, stavka(0x0002, 5, 3, pom(lat))...)
+	gps = append(gps, stavka(0x0003, 2, 2, []byte("E\x00\x00\x00"))...)
+	gps = append(gps, stavka(0x0004, 5, 3, pom(lon))...)
+	gps = append(gps, be(0)...)
+	tiff := append([]byte{'M', 'M', 0, 42, 0, 0, 0, 8}, ifd0...)
+	tiff = append(tiff, exif...)
+	tiff = append(tiff, gps...)
+	if len(tiff) != 134 {
+		t.Fatalf("raspored TIFF-a: %d", len(tiff))
+	}
+	tiff = append(tiff, podaci...)
+	app1 := append([]byte("Exif\x00\x00"), tiff...)
+	seg := append([]byte{0xFF, 0xE1, byte((len(app1) + 2) >> 8), byte(len(app1) + 2)}, app1...)
+	out := append([]byte{0xFF, 0xD8}, seg...)
+	return append(out, jpg[2:]...)
+}
+
+// Iz slike se čita kad je snimljena, gdje i čime; bez EXIF-a sve je prazno.
+func TestProcitajPodatkeFotoaparata(t *testing.T) {
+	var b bytes.Buffer
+	_ = jpeg.Encode(&b, image.NewRGBA(image.Rect(0, 0, 8, 8)), nil)
+	if p := Procitaj(b.Bytes()); !p.Snimljeno.IsZero() || p.ImaPolozaj() || p.Uredjaj != "" || p.Okret != 1 {
+		t.Errorf("bez EXIF-a: %+v", p)
+	}
+	p := Procitaj(sPunimExifom(t, b.Bytes()))
+	if p.Snimljeno.Format("2006-01-02 15:04:05") != "2024-06-05 11:43:48" {
+		t.Errorf("snimljeno: %v", p.Snimljeno)
+	}
+	if p.Uredjaj != "samsung SM-J415FN" {
+		t.Errorf("uređaj: %q", p.Uredjaj)
+	}
+	if p.Lat < 45.6619 || p.Lat > 45.6621 || p.Lon < 18.7733 || p.Lon > 18.7734 {
+		t.Errorf("položaj: %.5f, %.5f", p.Lat, p.Lon)
+	}
+	// smanjena slika više ne nosi zapis: dokument ga ispisuje sam
+	out, _, _, err := Smanji(sPunimExifom(t, b.Bytes()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if q := Procitaj(out); q.ImaPolozaj() || !q.Snimljeno.IsZero() {
+		t.Error("smanjena slika još nosi EXIF")
+	}
+}
