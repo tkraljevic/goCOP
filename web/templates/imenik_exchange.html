@@ -24,11 +24,12 @@
   {{if .SmijeUskladiti}}
   <form method="GET" action="/users/exchange" class="posta-trazi">
     <input type="hidden" name="usporedi" value="1">
-    <select name="sektor" class="form-control">
-      <option value="">svi sektori</option>
+    <select name="sektor" class="form-control" required>
+      <option value="">— odaberite {{terml "sektor"}} —</option>
       {{range .Sektori}}<option value="{{.ID}}" {{if eq .ID $.Sektor}}selected{{end}}>{{.Name}}</option>{{end}}
     </select>
     <button type="submit" class="btn btn-secondary btn-sm">{{icon "refresh-cw"}} Usporedi imenik s adresarom</button>
+    <span class="form-help">Usporedba ide po {{terml "sektor"}}u: svi odjednom znače stotine prijava na poslužitelj e-pošte, koji ih odbija i zaključa račun.</span>
   </form>
   {{end}}
 </div>

@@ -525,6 +525,12 @@ func (s *AktService) UsporediImenik(ctx context.Context, perms *models.UserPermi
 	if perms == nil || (!perms.IsGlobalAdmin && len(perms.AdminSectors) == 0) {
 		return nil, ErrUnauthorized
 	}
+	// Imenik se uspoređuje po sektoru. Svi odjednom su stotine prijava na
+	// poslužitelj e-pošte u kratkom vremenu; on ih odbije i zaključa račun,
+	// pa poslije ne prolazi ni jedan jedini upit.
+	if strings.TrimSpace(sektor) == "" {
+		return nil, fmt.Errorf("odaberite sektor: imenik se uspoređuje po sektoru, jer svi odjednom preopterete poslužitelj e-pošte")
+	}
 	r, err := s.racunKorisnika(ctx, u)
 	if err != nil {
 		return nil, err

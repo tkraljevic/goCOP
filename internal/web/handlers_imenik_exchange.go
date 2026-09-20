@@ -64,6 +64,8 @@ func (h *AktiHandler) ShowImenik(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case d.Upit != "":
 		d.Kontakti, err = s.Imenik(r.Context(), u, d.Upit)
+	case q.Get("usporedi") == "1" && d.SmijeUskladiti && d.Sektor == "":
+		d.ErrorMessage = "Odaberite sektor: imenik se uspoređuje po sektoru, jer svi odjednom preopterete poslužitelj e-pošte i on odbije prijavu."
 	case q.Get("usporedi") == "1" && d.SmijeUskladiti && h.poslovi != nil:
 		// stotine upita adresaru traju minutu: posao ide u pozadinu, a
 		// stranica pokazuje traku napretka i sama se osvježi kad završi
