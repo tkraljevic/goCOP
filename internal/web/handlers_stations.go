@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -184,6 +185,7 @@ func (h *StationsHandler) HandleCreateStationAPI(w http.ResponseWriter, r *http.
 	}
 
 	station := form.toStation()
+	h.dopuniJavnuAdresu(ctx, &station)
 	if err := h.stationService.CreateStation(ctx, perms, &station, form.SectionCode); err != nil {
 		if wantsPage(r) {
 			redirectWith(w, r, "/stations/new", "error", err.Error())
@@ -238,6 +240,7 @@ func (h *StationsHandler) HandleUpdateStationAPI(w http.ResponseWriter, r *http.
 	station := *postojeca
 	form.primijeni(&station)
 	station.ID = stationID
+	h.dopuniJavnuAdresu(ctx, &station)
 
 	if err := h.stationService.UpdateStation(ctx, perms, &station); err != nil {
 		if wantsPage(r) {
@@ -498,6 +501,31 @@ func (f stationForm) javnaVeza() (string, bool) {
 	}
 	uvoz := f.JavniUvoz == "1" || f.JavniUvoz == "on" || f.JavniUvoz == "true"
 	return adresa, uvoz && adresa != ""
+}
+
+// dopuniJavnuAdresu dopisuje sektor u adresu javne postaje kad ga nema:
+// upisan goli broj daje adresu koju preuzimanje razumije, ali koju
+// preglednik ne otvara, a sektor se sazna s javnog popisa
+func (h *StationsHandler) dopuniJavnuAdresu(ctx context.Context, st *models.Station) {
+	id := javnivodostaji.PostajaIzAdrese(st.JavniURL)
+	if id <= 0 || strings.Contains(strings.ToLower(st.JavniURL), "sektorid=") {
+		return
+	}
+	u := h.javni
+	if u == nil {
+		return
+	}
+	uvoznik := u()
+	if uvoznik == nil || uvoznik.Client == nil {
+		return
+	}
+	ctx, prekid := context.WithTimeout(ctx, 15*time.Second)
+	defer prekid()
+	sektor, err := uvoznik.Client.NadjiSektor(ctx, id)
+	if err != nil || sektor <= 0 {
+		return
+	}
+	st.JavniURL = javnivodostaji.AdresaPostaje(javnivodostaji.Postaja{ID: id, Sektor: sektor})
 }
 
 func (f stationForm) toStation() models.Station {

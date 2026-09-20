@@ -180,7 +180,14 @@ func main() {
 		if err != nil || id <= 0 {
 			log.Fatalf("javna postaja: %q nije broj", *javnaPostaja)
 		}
-		adresa := javnivodostaji.AdresaPostaje(javnivodostaji.Postaja{ID: id})
+		postaja := javnivodostaji.Postaja{ID: id}
+		klijent := &javnivodostaji.Client{}
+		if sektor, err := klijent.NadjiSektor(ctx, id); err != nil {
+			fmt.Printf("upozorenje: sektor postaje %d nije pronađen (%v); adresa ostaje bez njega\n", id, err)
+		} else {
+			postaja.Sektor = sektor
+		}
+		adresa := javnivodostaji.AdresaPostaje(postaja)
 		tekst("javna postaja", &letva.JavniURL, adresa)
 		if !letva.JavniUvoz {
 			promjene = append(promjene, "automatsko preuzimanje  ne → da")

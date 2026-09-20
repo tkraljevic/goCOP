@@ -82,14 +82,97 @@ func (c *Client) OcitanjaSAdrese(ctx context.Context, adresa string) ([]Redak, e
 	return c.Ocitanja(ctx, id)
 }
 
-// AdresaPostaje je adresa koju obrazac letve nudi za postaju s popisa
+// AdresaStranice je adresa stranice postaje kakvu otvara preglednik.
+// Pregled po postaji postoji samo na mobilnoj stranici i traži sektor
+// obrane od poplava: bez njega, ili s tuđim, poslužitelj javi grešku.
+// Branjeno područje ne provjerava, pa ostaje nula.
+const AdresaStranice = "https://mvodostaji.voda.hr/Home/PregledVodostajaPostaje"
+
+// AdresaPopisa je popis postaja jednog sektora, odakle se vidi kojem
+// sektoru koja postaja pripada
+const AdresaPopisa = "https://mvodostaji.voda.hr/Home/PregledVodostaja"
+
+// Sektori su oznake sektora obrane od poplava na javnoj stranici, istim
+// redom kao i kod nas: A je 1, B je 2, sve do F
+var Sektori = []string{"A", "B", "C", "D", "E", "F"}
+
+// AdresaPostaje je adresa koju obrazac letve nudi za postaju s popisa.
+// Bez sektora ostaje stara adresa: preuzimanje iz nje čita broj postaje,
+// ali preglednik ju ne otvara, pa se sektor traži kad god se može.
 func AdresaPostaje(p Postaja) string {
-	return ZadaniBase + "/Home/PregledVodostajaPostaje?postajaID=" + strconv.Itoa(p.ID)
+	if p.Sektor <= 0 {
+		return ZadaniBase + "/Home/PregledVodostajaPostaje?postajaID=" + strconv.Itoa(p.ID)
+	}
+	return AdresaStranice + "?sektorID=" + strconv.Itoa(p.Sektor) +
+		"&bpID=0&postajaID=" + strconv.Itoa(p.ID)
+}
+
+// reStranicaPostaje vadi brojeve postaja s popisa jednog sektora
+var reStranicaPostaje = regexp.MustCompile(`postajaID=(\d+)`)
+
+// SektoriPostaja vraća u kojem je sektoru koja postaja. Popis se čita
+// jednom po sektoru i pamti: mijenja se onoliko rijetko koliko i sami
+// sektori obrane od poplava.
+func (c *Client) SektoriPostaja(ctx context.Context) (map[int]int, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.sektori != nil && time.Since(c.sektoriOd) < 24*time.Hour {
+		return c.sektori, nil
+	}
+	nadjeno := map[int]int{}
+	for sektor := 1; sektor <= len(Sektori); sektor++ {
+		b, err := c.dohvati(ctx, AdresaPopisa+"?sektorID="+strconv.Itoa(sektor)+"&bpID=0")
+		if err != nil {
+			return nil, err
+		}
+		for _, m := range reStranicaPostaje.FindAllStringSubmatch(string(b), -1) {
+			id, _ := strconv.Atoi(m[1])
+			if id > 0 {
+				nadjeno[id] = sektor
+			}
+		}
+	}
+	if len(nadjeno) == 0 {
+		return nil, fmt.Errorf("popis postaja po sektorima je prazan — je li se stranica promijenila?")
+	}
+	c.sektori, c.sektoriOd = nadjeno, time.Now()
+	return nadjeno, nil
+}
+
+// NadjiSektor javlja u kojem je sektoru zadana postaja
+func (c *Client) NadjiSektor(ctx context.Context, postajaID int) (int, error) {
+	po, err := c.SektoriPostaja(ctx)
+	if err != nil {
+		return 0, err
+	}
+	if s := po[postajaID]; s > 0 {
+		return s, nil
+	}
+	return 0, fmt.Errorf("postaje %d nema na javnom popisu po sektorima", postajaID)
+}
+
+// dohvati čita stranicu onako kako bi ju pročitao i preglednik
+func (c *Client) dohvati(ctx context.Context, adresa string) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, adresa, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", "goCOP (preuzimanje javnih vodostaja)")
+	resp, err := c.klijent().Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("%s: %s", adresa, resp.Status)
+	}
+	return io.ReadAll(io.LimitReader(resp.Body, 4<<20))
 }
 
 // Postaja je jedna postaja s javnog popisa
 type Postaja struct {
 	ID       int    `json:"PostajaID"`
+	Sektor   int    `json:"-"` // sektor obrane od poplava, za adresu stranice
 	Sifra    string `json:"Sifra"`
 	Naziv    string `json:"Naziv"`
 	ZadnjeCm *int   `json:"ZadnjeOcitanjeVrijednost"`
@@ -106,6 +189,10 @@ type Redak struct {
 type Client struct {
 	HTTP *http.Client
 	Base string
+
+	mu        sync.Mutex
+	sektori   map[int]int // broj postaje → sektor obrane od poplava
+	sektoriOd time.Time
 }
 
 func (c *Client) klijent() *http.Client {
@@ -152,6 +239,13 @@ func (c *Client) Postaje(ctx context.Context) ([]Postaja, error) {
 	var out []Postaja
 	if err := json.Unmarshal(b, &out); err != nil {
 		return nil, fmt.Errorf("popis postaja nije JSON: %w", err)
+	}
+	// sektor treba samo adresi stranice; kad se popis ne pročita, adresa
+	// ostaje stara i preuzimanje i dalje radi
+	if po, err := c.SektoriPostaja(ctx); err == nil {
+		for i := range out {
+			out[i].Sektor = po[out[i].ID]
+		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Naziv < out[j].Naziv })
 	return out, nil
