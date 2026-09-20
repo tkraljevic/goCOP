@@ -244,3 +244,20 @@ func TestOcitanjeKojeKasniSeOznacava(t *testing.T) {
 		t.Error("očitanje starije od dana nije označeno")
 	}
 }
+
+// Postaja označena za pregled nosi napomenu uz same vodostaje, ne samo na
+// kartici: tko čita niz mora znati da vrijednosti imaju poznato odstupanje.
+func TestPovijestPokazujeNapomenuOOdstupanju(t *testing.T) {
+	st := models.Station{ID: uuid.New(), Code: "tikves", Name: "Tikveš", Watercourse: "Dunav",
+		NeedsReview: true, ReviewNote: "Kontrolno je izmjereno 79,055 m HVRS71, odnosno 3,7 cm ispod zadane kote."}
+	html := iscrtaj(t, "station_history.html", StationPageData{
+		CurrentUser: &models.User{FullName: "Provjera"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Station:     st,
+	})
+	for _, want := range []string{"poznato odstupanje", "3,7 cm ispod zadane kote", "Niz nije preračunavan"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("povijest nema %q", want)
+		}
+	}
+}

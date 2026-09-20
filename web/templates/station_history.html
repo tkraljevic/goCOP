@@ -76,6 +76,14 @@
 </section>
 {{end}}
 
+{{if .Station.NeedsReview}}
+<div class="alert alert-warning">
+  {{icon "triangle-alert"}} <strong>Vrijednosti ove letve nose poznato odstupanje.</strong>
+  {{.Station.ReviewNote}}
+  Niz nije preračunavan: kota ostaje zadana, a odstupanje je unutar proglašene točnosti izvora.
+</div>
+{{end}}
+
 {{if .ArhVelicine}}
 <section class="detail-section" id="povijest">
   <h2>{{icon "activity"}} Povijest iz arhive</h2>
