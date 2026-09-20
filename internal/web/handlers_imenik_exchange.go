@@ -88,6 +88,11 @@ func (h *AktiHandler) ShowImenik(w http.ResponseWriter, r *http.Request) {
 			d.PosaoID, d.PosaoNaziv = p.ID, p.Naziv
 		case p.Greska() != "":
 			d.ErrorMessage = p.Greska()
+			// odbijena prijava: lozinka e-pošte je promijenjena ili kriva, pa
+			// se uz grešku nudi i mjesto gdje se upisuje nova
+			if strings.Contains(p.Greska(), posta.ErrPrijava.Error()) {
+				d.TrebaLozinku = true
+			}
 		default:
 			d.Usporedio = true
 			d.Usporedba, _ = p.Plod().([]service.UsporedbaKontakta)

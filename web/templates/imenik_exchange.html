@@ -14,7 +14,7 @@
 
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
-{{if .TrebaLozinku}}<div class="alert alert-warning">Za čitanje adresara upišite lozinku e-pošte: <a href="/profile/posta">Profil › E-pošta za slanje akata</a>.</div>{{end}}
+{{if .TrebaLozinku}}<div class="alert alert-warning">Za čitanje adresara treba važeća lozinka e-pošte. Upišite je u <a href="/profile/posta">Profil › E-pošta za slanje akata</a> pa pokušajte ponovno.</div>{{end}}
 
 <div class="posta-alat">
   <form method="GET" action="/users/exchange" class="posta-trazi">
@@ -52,7 +52,7 @@
     <span class="posao-sto">počinjem</span>
     <span class="posao-brojka"></span>
   </div>
-  <p class="reading-meta" style="margin:0.6rem 0 0;">Svaki djelatnik traži se u adresaru zasebno. Kad usporedba završi, stranica se sama osvježi.</p>
+  <p class="reading-meta" style="margin:0.6rem 0 0;">Svaki djelatnik traži se u adresaru zasebno. Kad usporedba završi ili stane, stranica se sama osvježi i pokaže kako je prošlo.</p>
 </div>
 {{end}}
 

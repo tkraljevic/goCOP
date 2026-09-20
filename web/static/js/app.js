@@ -867,9 +867,14 @@ function renderMarkdown(md) {
     okvir.classList.add(s.stanje === 'pao' ? 'posao-pao' : 'posao-gotov');
     var sto = okvir.querySelector('.posao-sto');
     if (sto) { sto.textContent = s.stanje === 'pao' ? (s.greska || 'posao je pao') : (s.sazetak || 'gotovo'); }
-    if (s.stanje !== 'pao' && s.odrediste) {
+    if (!s.odrediste) { return; }
+    if (s.stanje !== 'pao') {
       window.location.href = s.odrediste;
+      return;
     }
+    // I pali posao vodi na odredište: ondje greška stoji kao poruka, uz
+    // gumb kojim se pokušava ponovno. Kratka stanka da se vidi crvena traka.
+    setTimeout(function () { window.location.href = s.odrediste; }, 1500);
   }
 
   function prati(okvir) {

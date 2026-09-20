@@ -536,6 +536,12 @@ func (s *AktService) UsporediImenik(ctx context.Context, perms *models.UserPermi
 	}
 	// adresar se pita za svakoga zasebno; nekoliko upita ide usporedno, jer
 	// ih je stotine, a svaki traje koliko i jedan zahtjev poslužitelju
+	//
+	// Odbijena prijava prekida cijeli posao: lozinka neće postati ispravna
+	// usred prolaza, pa bi ostatak bio nekoliko stotina uzaludnih upita
+	// poslužitelju e-pošte i minuta čekanja na grešku koja je već poznata.
+	ctx, odustani := context.WithCancel(ctx)
+	defer odustani()
 	out := make([]UsporedbaKontakta, len(svi))
 	var wg sync.WaitGroup
 	var mu sync.Mutex
@@ -572,6 +578,9 @@ func (s *AktService) UsporediImenik(ctx context.Context, perms *models.UserPermi
 						prva = err
 					}
 					mu.Unlock()
+					if errors.Is(err, posta.ErrPrijava) {
+						odustani()
+					}
 					out[i] = u
 					javi(x.FullName)
 					continue
@@ -591,11 +600,16 @@ func (s *AktService) UsporediImenik(ctx context.Context, perms *models.UserPermi
 			}
 		}()
 	}
+punjenje:
 	for i := range svi {
 		if strings.TrimSpace(svi[i].FullName) == "" {
 			continue
 		}
-		red <- i
+		select {
+		case red <- i:
+		case <-ctx.Done():
+			break punjenje // prekinuto: ostatak se ne pita
+		}
 	}
 	close(red)
 	wg.Wait()
