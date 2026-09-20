@@ -54,6 +54,9 @@ func main() {
 	rekord := flag.String("rekord", "", "najviši zabilježeni vodostaj, u cm")
 
 	ograda := flag.String("ograda", "", "ograda uz niz: izvor|veličina|od|do|ispod|iznad|tekst")
+	rekordZapis := flag.String("rekord-zapis", "", "kako rekord piše na kartici, npr. „+958 (25. 6. 1965.), preračunato”")
+	ekstrem := flag.String("ekstrem", "", "zabilježeni ekstrem: MAX|MIN|cm|datum|kvaliteta|izvor|metoda|napomena")
+	ekstremiOcisti := flag.Bool("ekstremi-ocisti", false, "ukloni ponovljene ekstreme (ista vrsta, vrijednost i datum); ostaje zadnji upisani")
 	sirina := flag.String("sirina", "", "zemljopisna širina, decimalni stupnjevi")
 	duzina := flag.String("duzina", "", "zemljopisna dužina, decimalni stupnjevi")
 	napomena := flag.String("napomena", "", "opća napomena uz postaju")
@@ -214,6 +217,31 @@ func main() {
 		}
 	}
 
+	if *rekordZapis != "" {
+		zapis := strings.TrimSpace(*rekordZapis)
+		if letva.Record.Raw != zapis {
+			promjene = append(promjene, fmt.Sprintf("%-18s %q → %q", "zapis rekorda", letva.Record.Raw, zapis))
+			letva.Record.Raw = zapis
+		}
+	}
+
+	if *ekstrem != "" {
+		e, err := ekstremIz(*ekstrem)
+		if err != nil {
+			log.Fatal(err)
+		}
+		letva.Extremes = append(letva.Extremes, e)
+		promjene = append(promjene, fmt.Sprintf("%-18s + %s %d cm, %s, %s", "ekstrem", e.Kind, *e.LevelCm, e.OnDate, e.Quality))
+	}
+
+	if *ekstremiOcisti {
+		ostaje, maknuto := bezPonovljenih(letva.Extremes)
+		for _, e := range maknuto {
+			promjene = append(promjene, fmt.Sprintf("%-18s − %s %d cm, %s (%s)", "ekstrem", e.Kind, *e.LevelCm, e.OnDate, e.Source))
+		}
+		letva.Extremes = ostaje
+	}
+
 	if *ograda != "" {
 		o, err := ogradaIz(*ograda)
 		if err != nil {
@@ -251,6 +279,66 @@ func daNe(s string) (bool, error) {
 	default:
 		return false, fmt.Errorf("pregled treba biti da ili ne, dobiveno %q", s)
 	}
+}
+
+// bezPonovljenih miče ekstreme koji govore o istom događaju: ista vrsta,
+// ista vrijednost i isti datum. Ostaje zadnji upisani, jer je ručni upis
+// došao nakon onoga izvučenog iz podataka i nosi bolju podlogu.
+func bezPonovljenih(svi []models.StationExtreme) (ostaje, maknuto []models.StationExtreme) {
+	kljuc := func(e models.StationExtreme) string {
+		cm := "—"
+		if e.LevelCm != nil {
+			cm = strconv.Itoa(*e.LevelCm)
+		}
+		return e.Kind + "|" + cm + "|" + e.OnDate
+	}
+	zadnji := map[string]int{}
+	for i, e := range svi {
+		zadnji[kljuc(e)] = i
+	}
+	for i, e := range svi {
+		if zadnji[kljuc(e)] == i {
+			ostaje = append(ostaje, e)
+			continue
+		}
+		maknuto = append(maknuto, e)
+	}
+	return ostaje, maknuto
+}
+
+// ekstremIz čita zabilježeni ekstrem iz jednog retka:
+// MAX|MIN|cm|datum|kvaliteta|izvor|metoda|napomena. Kvaliteta kaže je li
+// vrijednost izmjerena na ovoj letvi ili dobivena računom, pa se bez nje ne
+// upisuje: na kartici bi inače preračun izgledao kao mjerenje.
+func ekstremIz(s string) (models.StationExtreme, error) {
+	dj := strings.Split(s, "|")
+	if len(dj) != 7 {
+		return models.StationExtreme{}, fmt.Errorf("ekstrem treba sedam polja odvojenih |, dobiveno %d", len(dj))
+	}
+	vrsta := strings.ToUpper(strings.TrimSpace(dj[0]))
+	if vrsta != models.ExtremeMax && vrsta != models.ExtremeMin {
+		return models.StationExtreme{}, fmt.Errorf("ekstrem je MAX ili MIN, ne %q", dj[0])
+	}
+	cm, err := strconv.Atoi(strings.TrimPrefix(strings.TrimSpace(dj[1]), "+"))
+	if err != nil {
+		return models.StationExtreme{}, fmt.Errorf("ekstrem: %v", err)
+	}
+	kvaliteta := strings.ToUpper(strings.TrimSpace(dj[3]))
+	switch kvaliteta {
+	case models.QualityMeasured, models.QualityReconstructed, models.QualityUncertain:
+	default:
+		return models.StationExtreme{}, fmt.Errorf("kvaliteta je %s, %s ili %s, ne %q",
+			models.QualityMeasured, models.QualityReconstructed, models.QualityUncertain, dj[3])
+	}
+	return models.StationExtreme{
+		Kind:    vrsta,
+		LevelCm: &cm,
+		OnDate:  strings.TrimSpace(dj[2]),
+		Quality: kvaliteta,
+		Source:  strings.TrimSpace(dj[4]),
+		Method:  strings.TrimSpace(dj[5]),
+		Note:    strings.TrimSpace(dj[6]),
+	}, nil
 }
 
 // ogradaIz čita ogradu iz jednog retka: izvor|veličina|od|do|ispod|iznad|tekst.
