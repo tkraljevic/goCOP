@@ -102,7 +102,48 @@ func Otvori(put string) (*Spremiste, error) {
 			return nil, fmt.Errorf("spremište sadržaja: %w", err)
 		}
 	}
+	// stupci uvedeni nakon što je spremište već stvoreno
+	for _, c := range []struct{ tablica, stupac, opis string }{
+		{"sadrzaj", "kanal", "TEXT NOT NULL DEFAULT ''"},
+		{"sadrzaj_zeljen", "kanal", "TEXT NOT NULL DEFAULT ''"},
+	} {
+		ima, err := imaStupac(db, c.tablica, c.stupac)
+		if err != nil {
+			db.Close()
+			return nil, err
+		}
+		if ima {
+			continue
+		}
+		if _, err := db.Exec(fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s", c.tablica, c.stupac, c.opis)); err != nil {
+			db.Close()
+			return nil, fmt.Errorf("spremište sadržaja, stupac %s.%s: %w", c.tablica, c.stupac, err)
+		}
+	}
 	return s, nil
+}
+
+// imaStupac javlja postoji li stupac u tablici
+func imaStupac(db *sql.DB, tablica, stupac string) (bool, error) {
+	rows, err := db.Query(fmt.Sprintf("PRAGMA table_info(%s)", tablica))
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var cid int
+		var ime, tip string
+		var notnull int
+		var zadano any
+		var pk int
+		if err := rows.Scan(&cid, &ime, &tip, &notnull, &zadano, &pk); err != nil {
+			return false, err
+		}
+		if ime == stupac {
+			return true, nil
+		}
+	}
+	return false, rows.Err()
 }
 
 // Zatvori zatvara datoteku
