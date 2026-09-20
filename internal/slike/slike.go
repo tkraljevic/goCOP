@@ -36,6 +36,7 @@ func Smanji(podaci []byte) (jpg []byte, w, h int, err error) {
 	if err != nil {
 		return nil, 0, 0, errors.New("slika nije čitljiv JPEG ili PNG")
 	}
+	o := orijentacija(podaci)
 	b := img.Bounds()
 	w, h = b.Dx(), b.Dy()
 	if w == 0 || h == 0 {
@@ -58,6 +59,11 @@ func Smanji(podaci []byte) (jpg []byte, w, h int, err error) {
 		dst := image.NewRGBA(image.Rect(0, 0, w, h))
 		draw.CatmullRom.Scale(dst, dst.Bounds(), img, b, draw.Over, nil)
 		img = dst
+	}
+	// okret ide nakon smanjenja, da se ne premještaju milijuni točaka
+	img = okreni(img, o)
+	if o >= 5 {
+		w, h = h, w
 	}
 	var out bytes.Buffer
 	if err := jpeg.Encode(&out, img, &jpeg.Options{Quality: Kvaliteta}); err != nil {

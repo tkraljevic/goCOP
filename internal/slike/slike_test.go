@@ -44,3 +44,62 @@ func TestSmanjiFotografiju(t *testing.T) {
 		t.Error("smeće prošlo kao slika")
 	}
 }
+
+// sExif umeće APP1 s jedinom EXIF oznakom Orientation u gotov JPEG
+func sExif(t *testing.T, jpg []byte, o uint16) []byte {
+	t.Helper()
+	tiff := []byte{'M', 'M', 0, 42, 0, 0, 0, 8, 0, 1,
+		0x01, 0x12, 0, 3, 0, 0, 0, 1, byte(o >> 8), byte(o), 0, 0, 0, 0, 0, 0}
+	app1 := append([]byte("Exif\x00\x00"), tiff...)
+	seg := append([]byte{0xFF, 0xE1, byte((len(app1) + 2) >> 8), byte(len(app1) + 2)}, app1...)
+	out := append([]byte{0xFF, 0xD8}, seg...)
+	return append(out, jpg[2:]...)
+}
+
+// Telefon sliku spremi položeno s uputom da se okrene: izlaz mora biti
+// uspravan, a boje na pravim mjestima.
+func TestSmanjiOkreceIzExifa(t *testing.T) {
+	img := image.NewRGBA(image.Rect(0, 0, 40, 20))
+	for y := 0; y < 20; y++ {
+		for x := 0; x < 40; x++ {
+			c := color.RGBA{255, 255, 255, 255}
+			if x < 20 {
+				c = color.RGBA{200, 0, 0, 255} // lijeva polovica crvena
+			}
+			img.Set(x, y, c)
+		}
+	}
+	var b bytes.Buffer
+	_ = jpeg.Encode(&b, img, &jpeg.Options{Quality: 95})
+	if o := orijentacija(b.Bytes()); o != 1 {
+		t.Fatalf("bez EXIF-a: %d", o)
+	}
+	ulaz := sExif(t, b.Bytes(), 6)
+	if o := orijentacija(ulaz); o != 6 {
+		t.Fatalf("orijentacija: %d", o)
+	}
+	out, w, h, err := Smanji(ulaz)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w != 20 || h != 40 {
+		t.Fatalf("mjere nakon okreta: %dx%d", w, h)
+	}
+	dek, err := jpeg.Decode(bytes.NewReader(out))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 90° u smjeru kazaljke: crvena lijeva polovica dolazi gore
+	_, gGore, _, _ := dek.At(10, 5).RGBA()
+	_, gDolje, _, _ := dek.At(10, 35).RGBA()
+	if gGore>>8 > 80 || gDolje>>8 < 200 {
+		t.Errorf("zelena gore %d (crveno polje), dolje %d (bijelo polje)", gGore>>8, gDolje>>8)
+	}
+	if o := orijentacija(out); o != 1 {
+		t.Errorf("izlaz još nosi orijentaciju %d", o)
+	}
+	// okret za 180° ne mijenja mjere
+	if _, w, h, err := Smanji(sExif(t, b.Bytes(), 3)); err != nil || w != 40 || h != 20 {
+		t.Errorf("180°: %dx%d %v", w, h, err)
+	}
+}
