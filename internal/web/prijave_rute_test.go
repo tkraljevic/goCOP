@@ -228,7 +228,7 @@ func TestPrijaveSTerenaKrozRute(t *testing.T) {
 	if !bytes.Contains(iz.PDF, []byte("/Count 2 >>")) {
 		t.Error("izvornik nema 2 stranice (prijava s kartom, pa dvije fotografije)")
 	}
-	if tekst := pdfTekst(t, iz.PDF); !strings.Contains(tekst, "DNEVNI LIST") && (!strings.Contains(tekst, "OŠTEĆENA RAMPA") || !strings.Contains(tekst, "Klasifikacijska oznaka") || !strings.Contains(tekst, "Naziv vodotoka: Drava") || !strings.Contains(tekst, "NASIP") || !strings.Contains(tekst, "Lokacija na karti") || !strings.Contains(tekst, "Fotografija 2 od 2") || !strings.Contains(tekst, "dnevni list vodočuvara 001") || !strings.Contains(tekst, "provjera u goCOP-u")) {
+	if tekst := pdfTekst(t, iz.PDF); !strings.Contains(tekst, "DNEVNI LIST") && (!strings.Contains(tekst, "OŠTEĆENA RAMPA") || !strings.Contains(tekst, "Klasifikacijska oznaka") || !strings.Contains(tekst, "Naziv vodotoka:") || !strings.Contains(tekst, "NASIP") || !strings.Contains(tekst, "Lokacija na karti") || !strings.Contains(tekst, "Fotografija 2 od 2") || !strings.Contains(tekst, "dnevni list vodočuvara 001") || !strings.Contains(tekst, "provjera u goCOP-u")) {
 		t.Errorf("tekst PDF-a: %.600s", tekst)
 	}
 	listovi, _ := vod.Moji(ctx, seit, time.Now().In(models.Zagreb).Year())

@@ -114,6 +114,7 @@ type Doc struct {
 	// dokument prepozna kad se vrati potpisan
 	Predmet       string
 	rednaStranica int
+	uPodnozju     bool // Podnozje se crta: tok() daje stranicu rednaStranica
 	// glifovi koje ovaj dokument koristi, po rezu; font u dokumentu nosi
 	// samo njih, poredane, pa isti sadržaj daje isti PDF bajt za bajt
 	koristeno [2]map[rune]bool
@@ -140,7 +141,14 @@ func (d *Doc) NovaStranica() {
 	d.Y = d.Gore
 }
 
-func (d *Doc) tok() *bytes.Buffer { return d.stranice[len(d.stranice)-1] }
+// tok je tok tekuće stranice: zadnje dok se dokument piše, a dok se crta
+// podnožje one stranice za koju se podnožje crta
+func (d *Doc) tok() *bytes.Buffer {
+	if d.uPodnozju {
+		return d.stranice[d.rednaStranica]
+	}
+	return d.stranice[len(d.stranice)-1]
+}
 
 // Stranica je redni broj tekuće stranice, od 1
 func (d *Doc) Stranica() int { return len(d.stranice) }
@@ -298,10 +306,12 @@ func stopi(c, a uint32) byte {
 func (d *Doc) Bajtovi() []byte {
 	if d.Podnozje != nil {
 		ukupno := len(d.stranice)
+		d.uPodnozju = true
 		for i := range d.stranice {
 			d.rednaStranica = i
 			d.Podnozje(d, i+1, ukupno)
 		}
+		d.uPodnozju = false
 	}
 	var out bytes.Buffer
 	var offsets []int
