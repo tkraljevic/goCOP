@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"gocop/internal/ledger"
 	"gocop/internal/models"
 	"gocop/internal/peers"
 	"gocop/internal/service"
@@ -37,6 +38,7 @@ type SubscriptionsPageData struct {
 	Sectors        []models.Sector
 	Areas          []models.Area
 	ThisYear       int
+	Predlog        *peers.Subscription // pravilo iz zaduženja korisnika, ako ga još nema
 	SuccessMessage string
 	ErrorMessage   string
 	ActiveNav      string
@@ -61,6 +63,7 @@ func (h *SubscriptionsHandler) ShowSubscriptions(w http.ResponseWriter, r *http.
 	}
 	data.Sectors, _ = h.org.ListSectors(ctx)
 	data.Areas, _ = h.org.ListAreas(ctx, "")
+	data.Predlog = predlogPretplate(currUser, data.Rules, data.ThisYear)
 	if err := h.tmpl.ExecuteTemplate(w, "pretplate.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -73,16 +76,25 @@ func (h *SubscriptionsHandler) HandleAdd(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	f := func(k string) string { return strings.TrimSpace(r.FormValue(k)) }
-	rule := peers.Subscription{Kind: f("kind"), SectorID: f("sector_id")}
+	rule := peers.Subscription{Kind: f("kind"), SectorID: f("sector_id"), Razina: f("razina")}
 	rule.AreaID, _ = strconv.Atoi(f("area_id"))
 	rule.YearFrom, _ = strconv.Atoi(f("year_from"))
 	rule.YearTo, _ = strconv.Atoi(f("year_to"))
+	rule.DrziDana, _ = strconv.Atoi(f("drzi_dana"))
 	if rule.AreaID > 0 {
 		rule.SectorID = "" // područje je uže od sektora
 	}
-	if _, err := h.peers.AddSubscription(r.Context(), rule); err != nil {
-		redirectWith(w, r, "/pretplate", "error", err.Error())
-		return
+	// prijedlog iz zaduženja: dnevnici i prijave vlastitog područja, u dva pravila
+	vrste := []string{rule.Kind}
+	if f("predlog") == "1" {
+		vrste = []string{ledger.ChannelJournals, ledger.ChannelPrijave}
+	}
+	for _, vrsta := range vrste {
+		rule.Kind = vrsta
+		if _, err := h.peers.AddSubscription(r.Context(), rule); err != nil {
+			redirectWith(w, r, "/pretplate", "error", err.Error())
+			return
+		}
 	}
 	if r.FormValue("sync") == "1" {
 		ctx, cancel := contextWithTimeout(r, 120*time.Second)
@@ -90,6 +102,39 @@ func (h *SubscriptionsHandler) HandleAdd(w http.ResponseWriter, r *http.Request)
 		h.peers.SyncAll(ctx)
 	}
 	redirectWith(w, r, "/pretplate", "success", "Pretplata je dodana: "+rule.Label())
+}
+
+// predlogPretplate slaže pravilo iz zaduženja: vodočuvar ili djelatnik s
+// područjem dobije prijedlog za svoje područje, dnevnike i prijave, od
+// prošle godine, s pregledima uvijek a izvornicima 90 dana. Bez zaduženog
+// područja ili s već postojećim pravilom za njega prijedloga nema.
+func predlogPretplate(u *models.User, postojeca []peers.Subscription, godina int) *peers.Subscription {
+	if u == nil {
+		return nil
+	}
+	// područje iz primarne dužnosti, inače prve dužnosti koja ga ima
+	var area int
+	var sektor string
+	if d := u.PrimaryDuty(); d != nil && d.AreaID != nil && *d.AreaID > 0 {
+		area = *d.AreaID
+	}
+	for _, d := range u.Duties {
+		if area == 0 && d.IsActive && d.AreaID != nil && *d.AreaID > 0 {
+			area = *d.AreaID
+		}
+		if sektor == "" && d.IsActive && d.SectorID != nil {
+			sektor = *d.SectorID
+		}
+	}
+	if area == 0 {
+		return nil
+	}
+	for _, r := range postojeca {
+		if r.AreaID == area || (r.AreaID == 0 && sektor != "" && r.SectorID == sektor) {
+			return nil
+		}
+	}
+	return &peers.Subscription{AreaID: area, YearFrom: godina - 1, Razina: peers.RazinaPregled, DrziDana: 90}
 }
 
 // HandleRemove miče pravilo; uz purge=1 briše i podatke koje više ništa ne pokriva

@@ -52,6 +52,7 @@ type Version struct {
 const (
 	ChannelReadings = "ocitanja"
 	ChannelJournals = "dnevnici"
+	ChannelPrijave  = "prijave"
 )
 
 // ChannelFor slaže kanal iz vrste, područja i godine; bez područja nema

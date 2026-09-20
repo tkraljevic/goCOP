@@ -72,7 +72,8 @@ func Otvori(put string) (*Spremiste, error) {
 			bajtova INTEGER NOT NULL,
 			podaci BLOB NOT NULL,
 			primljeno DATETIME NOT NULL,
-			izvor TEXT NOT NULL DEFAULT 'ovdje'
+			izvor TEXT NOT NULL DEFAULT 'ovdje',
+			kanal TEXT NOT NULL DEFAULT ''
 		)`,
 		`CREATE TABLE IF NOT EXISTS sadrzaj_veze (
 			otisak TEXT NOT NULL,
@@ -87,7 +88,8 @@ func Otvori(put string) (*Spremiste, error) {
 			vrsta TEXT NOT NULL,
 			bajtova INTEGER NOT NULL,
 			trazeno DATETIME,
-			razlog TEXT NOT NULL
+			razlog TEXT NOT NULL,
+			kanal TEXT NOT NULL DEFAULT ''
 		)`,
 	} {
 		if _, err := db.Exec(q); err != nil {
@@ -104,11 +106,13 @@ func (s *Spremiste) Zatvori() error { return s.db.Close() }
 // Put je putanja datoteke; prazno za memorijsko spremište
 func (s *Spremiste) Put() string { return s.put }
 
-// Veza kaže koji zapis sadržaj drži živim
+// Veza kaže koji zapis sadržaj drži živim; Kanal je kanal tog zapisa, po
+// kojem pretplata odlučuje dohvaća li se i koliko dugo ostaje
 type Veza struct {
 	Entitet   string
 	EntitetID string
 	Uloga     string // izvornik, slika, sken, potpis
+	Kanal     string
 }
 
 // Upisi sprema sadržaj i vraća njegov otisak. Isti sadržaj drugi put je
@@ -135,13 +139,23 @@ func (s *Spremiste) upisi(ctx context.Context, otisak, vrsta string, b []byte, i
 	if izvor == "" {
 		izvor = "ovdje"
 	}
+	kanal := ""
+	for _, v := range veze {
+		if v.Kanal != "" {
+			kanal = v.Kanal
+			break
+		}
+	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
-	if _, err := tx.ExecContext(ctx, `INSERT INTO sadrzaj (otisak, vrsta, bajtova, podaci, primljeno, izvor) VALUES (?, ?, ?, ?, ?, ?)
-		ON CONFLICT(otisak) DO NOTHING`, otisak, vrsta, len(b), b, time.Now().UTC(), izvor); err != nil {
+	if kanal == "" {
+		_ = tx.QueryRowContext(ctx, `SELECT kanal FROM sadrzaj_zeljen WHERE otisak = ?`, otisak).Scan(&kanal)
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO sadrzaj (otisak, vrsta, bajtova, podaci, primljeno, izvor, kanal) VALUES (?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(otisak) DO NOTHING`, otisak, vrsta, len(b), b, time.Now().UTC(), izvor, kanal); err != nil {
 		return fmt.Errorf("upis sadržaja: %w", err)
 	}
 	for _, v := range veze {
@@ -168,6 +182,20 @@ func (s *Spremiste) Citaj(ctx context.Context, otisak string) ([]byte, string, e
 		return nil, "", err
 	}
 	return b, vrsta, nil
+}
+
+// CitajSKanalom vraća bajtove, vrstu i kanal sadržaja; ErrNema kad ga nema
+func (s *Spremiste) CitajSKanalom(ctx context.Context, otisak string) ([]byte, string, string, error) {
+	var b []byte
+	var vrsta, kanal string
+	err := s.db.QueryRowContext(ctx, `SELECT podaci, vrsta, kanal FROM sadrzaj WHERE otisak = ?`, otisak).Scan(&b, &vrsta, &kanal)
+	if err == sql.ErrNoRows {
+		return nil, "", "", ErrNema
+	}
+	if err != nil {
+		return nil, "", "", err
+	}
+	return b, vrsta, kanal, nil
 }
 
 // Ima javlja drži li čvor sadržaj
@@ -197,22 +225,23 @@ type Zelja struct {
 	Vrsta   string
 	Bajtova int
 	Razlog  string
+	Kanal   string
 	Trazeno *time.Time
 }
 
 // Zeli bilježi sadržaj koji treba dohvatiti; ako ga čvor već drži, ništa
-func (s *Spremiste) Zeli(ctx context.Context, otisak, vrsta string, bajtova int, razlog string) error {
+func (s *Spremiste) Zeli(ctx context.Context, otisak, vrsta string, bajtova int, razlog, kanal string) error {
 	if s.Ima(ctx, otisak) {
 		return nil
 	}
-	_, err := s.db.ExecContext(ctx, `INSERT INTO sadrzaj_zeljen (otisak, vrsta, bajtova, razlog) VALUES (?, ?, ?, ?)
-		ON CONFLICT(otisak) DO UPDATE SET razlog = excluded.razlog`, otisak, vrsta, bajtova, razlog)
+	_, err := s.db.ExecContext(ctx, `INSERT INTO sadrzaj_zeljen (otisak, vrsta, bajtova, razlog, kanal) VALUES (?, ?, ?, ?, ?)
+		ON CONFLICT(otisak) DO UPDATE SET razlog = excluded.razlog, kanal = excluded.kanal`, otisak, vrsta, bajtova, razlog, kanal)
 	return err
 }
 
 // Zeljeni vraća što čvor još treba dohvatiti, najstarije traženo prvo
 func (s *Spremiste) Zeljeni(ctx context.Context, najvise int) ([]Zelja, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT otisak, vrsta, bajtova, razlog, trazeno FROM sadrzaj_zeljen
+	rows, err := s.db.QueryContext(ctx, `SELECT otisak, vrsta, bajtova, razlog, kanal, trazeno FROM sadrzaj_zeljen
 		ORDER BY trazeno IS NOT NULL, trazeno LIMIT ?`, najvise)
 	if err != nil {
 		return nil, err
@@ -222,7 +251,7 @@ func (s *Spremiste) Zeljeni(ctx context.Context, najvise int) ([]Zelja, error) {
 	for rows.Next() {
 		var z Zelja
 		var t sql.NullTime
-		if err := rows.Scan(&z.Otisak, &z.Vrsta, &z.Bajtova, &z.Razlog, &t); err != nil {
+		if err := rows.Scan(&z.Otisak, &z.Vrsta, &z.Bajtova, &z.Razlog, &z.Kanal, &t); err != nil {
 			return nil, err
 		}
 		if t.Valid {
@@ -237,6 +266,48 @@ func (s *Spremiste) Zeljeni(ctx context.Context, najvise int) ([]Zelja, error) {
 func (s *Spremiste) Trazeno(ctx context.Context, otisak string) error {
 	_, err := s.db.ExecContext(ctx, `UPDATE sadrzaj_zeljen SET trazeno = ? WHERE otisak = ?`, time.Now().UTC(), otisak)
 	return err
+}
+
+// Primljen je sadržaj koji je stigao s drugog čvora; po kanalu i vremenu
+// primitka pretplata odlučuje koliko dugo ostaje na ovom računalu
+type Primljen struct {
+	Otisak    string
+	Kanal     string
+	Bajtova   int
+	Primljeno time.Time
+}
+
+// PrimljeniPrije vraća sadržaje primljene s drugih čvorova prije zadanog
+// vremena; ono što je nastalo ovdje ne vraća, jer se ne otpušta
+func (s *Spremiste) PrimljeniPrije(ctx context.Context, prije time.Time) ([]Primljen, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT otisak, kanal, bajtova, primljeno FROM sadrzaj WHERE izvor <> 'ovdje' AND primljeno < ?`, prije.UTC())
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Primljen
+	for rows.Next() {
+		var p Primljen
+		if err := rows.Scan(&p.Otisak, &p.Kanal, &p.Bajtova, &p.Primljeno); err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
+// Otpusti miče bajtove primljenog sadržaja s ovog računala, a veze ostaju:
+// zapis i dalje zna svoj otisak i sadržaj se može opet dohvatiti. Što je
+// nastalo ovdje ne otpušta se, jer bi ovaj čvor mogao biti jedini koji ga ima.
+func (s *Spremiste) Otpusti(ctx context.Context, otisak string) error {
+	res, err := s.db.ExecContext(ctx, `DELETE FROM sadrzaj WHERE otisak = ? AND izvor <> 'ovdje'`, otisak)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return errors.New("sadržaj je nastao ovdje ili ga nema")
+	}
+	return nil
 }
 
 // Dio je jedan dio sadržaja za prijenos

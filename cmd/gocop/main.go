@@ -214,6 +214,7 @@ func main() {
 	arhiva.PostaviKljucIzdavaca(node.PrivateKey())
 	peersService.Accept(repository.KeepVersion)
 	peersService.SetWantsAll(cfg.Sync.All)
+	peersService.SetSpremiste(spremiste)
 	peersService.OnApplied(func(ctx context.Context, versions []ledger.Version) error {
 		return repository.ApplyVersions(ctx, database, recorder, versions)
 	})
@@ -487,6 +488,18 @@ func main() {
 	prijavaService := service.NewPrijavaService(repository.NewPrijavaRepository(database, recorder), userService, vodocuvarService, node.ID)
 	prijavaService.SetOpcije(aktService.Opcije)
 	server.SetPrijave(prijavaService)
+	// primljeni sadržaj kojem je po pretplati istekao rok držanja otpušta se
+	// s računala; zapisi ostaju i sadržaj se može opet dohvatiti
+	go func() {
+		for {
+			time.Sleep(6 * time.Hour)
+			if n, b, err := peersService.OtpustiStare(context.Background()); err != nil {
+				log.Printf("otpuštanje starog sadržaja: %v", err)
+			} else if n > 0 {
+				log.Printf("otpušteno %d primljenih sadržaja (%.1f MB) po roku pretplate", n, float64(b)/1e6)
+			}
+		}
+	}()
 	// izvorne fotografije s terena brišu se nakon roka iz opcija; PDF ih nosi trajno
 	go func() {
 		for {

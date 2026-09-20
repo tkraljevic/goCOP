@@ -103,6 +103,16 @@ type PrijavaRepository struct {
 	rec *ledger.Recorder
 }
 
+// prijavaChannel je kanal prijave: vrsta, područje i godina događaja, kao
+// kod dnevnika; čvor prima prijave samo za područja i godine koje prati
+func prijavaChannel(p *models.PrijavaSTerena) string {
+	g := p.Godina
+	if g == 0 {
+		g = p.Datum.In(models.Zagreb).Year()
+	}
+	return ledger.ChannelFor(ledger.ChannelPrijave, p.AreaID, g)
+}
+
 // NewPrijavaRepository otvara repozitorij prijava
 func NewPrijavaRepository(db *sql.DB, rec *ledger.Recorder) *PrijavaRepository {
 	return &PrijavaRepository{db: db, rec: rec}
@@ -124,7 +134,7 @@ func (r *PrijavaRepository) Save(ctx context.Context, p *models.PrijavaSTerena) 
 	if _, err := tx.ExecContext(ctx, prijavaUpsert, prijavaArgs(p)...); err != nil {
 		return fmt.Errorf("upis prijave: %w", err)
 	}
-	if _, err := r.rec.Record(ctx, tx, EntityPrijave, p.ID, p); err != nil {
+	if _, err := r.rec.RecordIn(ctx, tx, prijavaChannel(p), EntityPrijave, p.ID, p); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -141,7 +151,7 @@ func (r *PrijavaRepository) Objavi(ctx context.Context, p *models.PrijavaSTerena
 	// bajtovi prvo u spremište (po otisku, ponovljivo), pa glavna baza u
 	// jednoj transakciji; ako ona ne prođe, sadržaj ostaje siroče koje
 	// pospremanje počisti, a prijava nije napola objavljena
-	iz, err := spremiPDF(ctx, EntityPrijave, p.ID, pdf, sazetak, now)
+	iz, err := spremiPDF(ctx, EntityPrijave, p.ID, prijavaChannel(p), pdf, sazetak, now)
 	if err != nil {
 		return err
 	}
@@ -158,13 +168,13 @@ func (r *PrijavaRepository) Objavi(ctx context.Context, p *models.PrijavaSTerena
 	if n, _ := res.RowsAffected(); n != 1 {
 		return fmt.Errorf("prijava je već objavljena ili ne postoji")
 	}
-	if _, err := r.rec.Record(ctx, tx, EntityPrijave, p.ID, p); err != nil {
+	if _, err := r.rec.RecordIn(ctx, tx, prijavaChannel(p), EntityPrijave, p.ID, p); err != nil {
 		return err
 	}
 	if _, err := tx.ExecContext(ctx, prijavaIzvornikUpsert, p.ID, iz.Otisak, iz.Bajtova, iz.Vrsta, sazetak, now); err != nil {
 		return fmt.Errorf("upis izvornika: %w", err)
 	}
-	if _, err := r.rec.Record(ctx, tx, EntityPrijaveIzvornici, p.ID, iz); err != nil {
+	if _, err := r.rec.RecordIn(ctx, tx, prijavaChannel(p), EntityPrijaveIzvornici, p.ID, iz); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -178,7 +188,7 @@ func (r *PrijavaRepository) Urudzbiraj(ctx context.Context, p *models.PrijavaSTe
 	var iz models.IzvornikLista
 	if len(pdf) > 0 {
 		var err error
-		if iz, err = spremiPDF(ctx, EntityPrijave, p.ID, pdf, sazetak, now); err != nil {
+		if iz, err = spremiPDF(ctx, EntityPrijave, p.ID, prijavaChannel(p), pdf, sazetak, now); err != nil {
 			return err
 		}
 	}
@@ -190,14 +200,14 @@ func (r *PrijavaRepository) Urudzbiraj(ctx context.Context, p *models.PrijavaSTe
 	if _, err := tx.ExecContext(ctx, prijavaUpsert, prijavaArgs(p)...); err != nil {
 		return fmt.Errorf("upis urudžbe: %w", err)
 	}
-	if _, err := r.rec.Record(ctx, tx, EntityPrijave, p.ID, p); err != nil {
+	if _, err := r.rec.RecordIn(ctx, tx, prijavaChannel(p), EntityPrijave, p.ID, p); err != nil {
 		return err
 	}
 	if len(pdf) > 0 {
 		if _, err := tx.ExecContext(ctx, prijavaIzvornikUpsert, p.ID, iz.Otisak, iz.Bajtova, iz.Vrsta, sazetak, now); err != nil {
 			return fmt.Errorf("upis izvornika: %w", err)
 		}
-		if _, err := r.rec.Record(ctx, tx, EntityPrijaveIzvornici, p.ID, iz); err != nil {
+		if _, err := r.rec.RecordIn(ctx, tx, prijavaChannel(p), EntityPrijaveIzvornici, p.ID, iz); err != nil {
 			return err
 		}
 	}
@@ -218,7 +228,8 @@ func (r *PrijavaRepository) PoIzvoru(ctx context.Context, izvor string) (*models
 // pri uvozu), s verzijom u knjizi
 func (r *PrijavaRepository) SpremiIzvornik(ctx context.Context, id string, pdf []byte, sazetak string) error {
 	now := time.Now().UTC()
-	iz, err := spremiPDF(ctx, EntityPrijave, id, pdf, sazetak, now)
+	kanal := kanalPrijaveIz(ctx, r.db, id)
+	iz, err := spremiPDF(ctx, EntityPrijave, id, kanal, pdf, sazetak, now)
 	if err != nil {
 		return err
 	}
@@ -230,7 +241,7 @@ func (r *PrijavaRepository) SpremiIzvornik(ctx context.Context, id string, pdf [
 	if _, err := tx.ExecContext(ctx, prijavaIzvornikUpsert, id, iz.Otisak, iz.Bajtova, iz.Vrsta, sazetak, now); err != nil {
 		return err
 	}
-	if _, err := r.rec.Record(ctx, tx, EntityPrijaveIzvornici, id, iz); err != nil {
+	if _, err := r.rec.RecordIn(ctx, tx, kanal, EntityPrijaveIzvornici, id, iz); err != nil {
 		return err
 	}
 	return tx.Commit()

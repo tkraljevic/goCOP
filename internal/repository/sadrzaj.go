@@ -6,8 +6,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
+	"gocop/internal/ledger"
 	"gocop/internal/models"
 	"gocop/internal/sadrzaj"
 )
@@ -28,11 +30,11 @@ var errBezSpremista = errors.New("spremište sadržaja nije otvoreno")
 
 // spremiPDF upisuje PDF u spremište i vraća zapis izvornika bez bajtova,
 // kakav ide u glavnu bazu i knjigu verzija
-func spremiPDF(ctx context.Context, entitet, id string, pdf []byte, sazetak string, now time.Time) (models.IzvornikLista, error) {
+func spremiPDF(ctx context.Context, entitet, id, kanal string, pdf []byte, sazetak string, now time.Time) (models.IzvornikLista, error) {
 	if spremiste == nil {
 		return models.IzvornikLista{}, errBezSpremista
 	}
-	otisak, err := spremiste.Upisi(ctx, "application/pdf", pdf, "ovdje", sadrzaj.Veza{Entitet: entitet, EntitetID: id, Uloga: "izvornik"})
+	otisak, err := spremiste.Upisi(ctx, "application/pdf", pdf, "ovdje", sadrzaj.Veza{Entitet: entitet, EntitetID: id, Uloga: "izvornik", Kanal: kanal})
 	if err != nil {
 		return models.IzvornikLista{}, err
 	}
@@ -53,7 +55,7 @@ func ucitajPDF(ctx context.Context, iz *models.IzvornikLista) {
 // primiIzvornik ugrađuje izvornik primljen razmjenom: stariji čvorovi šalju
 // bajtove u zapisu, pa ih spremimo i dalje vodimo po otisku; noviji šalju
 // samo otisak, a bajtovi se traže posebno
-func primiIzvornik(ctx context.Context, entitet string, iz *models.IzvornikLista) error {
+func primiIzvornik(ctx context.Context, entitet, kanal string, iz *models.IzvornikLista) error {
 	if len(iz.PDF) > 0 {
 		if iz.Otisak == "" {
 			iz.Otisak = sadrzaj.Otisak(iz.PDF)
@@ -62,19 +64,30 @@ func primiIzvornik(ctx context.Context, entitet string, iz *models.IzvornikLista
 			iz.Bajtova = len(iz.PDF)
 		}
 		if spremiste != nil {
-			if err := spremiste.UpisiProvjereno(ctx, iz.Otisak, "application/pdf", iz.PDF, "razmjena", sadrzaj.Veza{Entitet: entitet, EntitetID: iz.ListID, Uloga: "izvornik"}); err != nil {
+			if err := spremiste.UpisiProvjereno(ctx, iz.Otisak, "application/pdf", iz.PDF, "razmjena", sadrzaj.Veza{Entitet: entitet, EntitetID: iz.ListID, Uloga: "izvornik", Kanal: kanal}); err != nil {
 				return err
 			}
 		}
 		return nil
 	}
 	if spremiste != nil && iz.Otisak != "" {
-		if err := spremiste.Vezi(ctx, iz.Otisak, sadrzaj.Veza{Entitet: entitet, EntitetID: iz.ListID, Uloga: "izvornik"}); err != nil {
+		if err := spremiste.Vezi(ctx, iz.Otisak, sadrzaj.Veza{Entitet: entitet, EntitetID: iz.ListID, Uloga: "izvornik", Kanal: kanal}); err != nil {
 			return err
 		}
-		return spremiste.Zeli(ctx, iz.Otisak, "application/pdf", iz.Bajtova, "pretplata")
+		return spremiste.Zeli(ctx, iz.Otisak, "application/pdf", iz.Bajtova, "pretplata", kanal)
 	}
 	return nil
+}
+
+// kanalPrijaveIz čita kanal prijave iz tablice, za seljenje izvornika
+func kanalPrijaveIz(ctx context.Context, db *sql.DB, id string) string {
+	var area int
+	var datum string
+	if err := db.QueryRowContext(ctx, `SELECT area_id, datum FROM prijave WHERE id = ?`, id).Scan(&area, &datum); err != nil || len(datum) < 4 {
+		return ""
+	}
+	g, _ := strconv.Atoi(datum[:4])
+	return ledger.ChannelFor(ledger.ChannelPrijave, area, g)
 }
 
 // PreseliIzvornikePrijava jednokratno seli PDF-ove prijava iz stare tablice
@@ -118,7 +131,7 @@ func PreseliIzvornikePrijava(ctx context.Context, db *sql.DB) (int, int64, error
 		if len(r.pdf) == 0 {
 			continue
 		}
-		otisak, err := spremiste.Upisi(ctx, "application/pdf", r.pdf, "ovdje", sadrzaj.Veza{Entitet: EntityPrijave, EntitetID: r.id, Uloga: "izvornik"})
+		otisak, err := spremiste.Upisi(ctx, "application/pdf", r.pdf, "ovdje", sadrzaj.Veza{Entitet: EntityPrijave, EntitetID: r.id, Uloga: "izvornik", Kanal: kanalPrijaveIz(ctx, db, r.id)})
 		if err != nil {
 			return n, bajtova, err
 		}

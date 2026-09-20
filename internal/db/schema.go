@@ -721,7 +721,9 @@ func InitSchema(database *sql.DB) error {
 			sector_id TEXT NOT NULL DEFAULT '',
 			area_id INTEGER NOT NULL DEFAULT 0,
 			year_from INTEGER NOT NULL DEFAULT 0,
-			year_to INTEGER NOT NULL DEFAULT 0
+			year_to INTEGER NOT NULL DEFAULT 0,
+			razina TEXT NOT NULL DEFAULT 'sve',
+			drzi_dana INTEGER NOT NULL DEFAULT 0
 		);`,
 
 		// Stanje razmjene s pojedinim čvorom: odnos ovog čvora s tim, ostaje
@@ -1120,7 +1122,12 @@ func migrateSchema(database *sql.DB) error {
 	// repozitorija događa se objavom, a ovo je rukovoditeljevo zatvaranje
 	// predmeta. Stanje i polja mijenjaju se u tablici, u podacima i u knjizi
 	// verzija (isti version_id), jednom.
+	// Prijave otprije kanala: verzije dobiju kanal "prijave/područje/godina"
+	// iz tablice, da ih pretplata može birati kao dnevnike.
 	for _, q := range []string{
+		`UPDATE record_versions SET channel = (SELECT 'prijave/' || p.area_id || '/' || substr(p.datum, 1, 4) FROM prijave p WHERE p.id = record_versions.entity_id)
+		 WHERE entity IN ('prijave', 'prijave_izvornici') AND channel = ''
+		   AND EXISTS (SELECT 1 FROM prijave p WHERE p.id = record_versions.entity_id AND p.area_id > 0)`,
 		`UPDATE prijave SET status = 'RIJESENA' WHERE status = 'ARHIVIRANA'`,
 		`UPDATE prijave SET podaci = json_remove(json_set(podaci,
 			'$.rijesio_id', json_extract(podaci, '$.arhivirao_id'),
@@ -1229,6 +1236,8 @@ func migrateSchema(database *sql.DB) error {
 		{"record_versions", "channel", "TEXT NOT NULL DEFAULT ''"},
 		{"sectors", "level", "INTEGER NOT NULL DEFAULT 2"},
 		{"sectors", "vgo_phone", "TEXT NOT NULL DEFAULT ''"},
+		{"subscriptions", "razina", "TEXT NOT NULL DEFAULT 'sve'"},
+		{"subscriptions", "drzi_dana", "INTEGER NOT NULL DEFAULT 0"},
 		{"areas", "vgi_phone", "TEXT NOT NULL DEFAULT ''"},
 		{"municipalities", "email", "TEXT NOT NULL DEFAULT ''"},
 		{"municipalities", "phone", "TEXT NOT NULL DEFAULT ''"},

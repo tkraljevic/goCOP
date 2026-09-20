@@ -458,7 +458,7 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		if err := json.Unmarshal(v.Payload, &iz); err != nil {
 			return err
 		}
-		if err := primiIzvornik(ctx, EntityPrijave, &iz); err != nil {
+		if err := primiIzvornik(ctx, EntityPrijave, v.Channel, &iz); err != nil {
 			return err
 		}
 		if iz.Vrsta == "" {

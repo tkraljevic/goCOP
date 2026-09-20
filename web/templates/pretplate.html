@@ -18,7 +18,7 @@
 
 
 {{if .All}}
-<div class="alert alert-warning">Ovaj čvor prati <b>sve</b>: sva očitanja i dnevnike svih područja i godina (postavka <span class="mono">sve = true</span> u gocop.toml). Pravila ispod tada ne vrijede.</div>
+<div class="alert alert-warning">Ovaj čvor prati <b>sve</b>: sva očitanja, dnevnike i prijave svih područja i godina, s cijelim sadržajem (postavka <span class="mono">sve = true</span> u gocop.toml). Pravila ispod tada ne vrijede.</div>
 {{end}}
 
 <section class="detail-section">
@@ -50,15 +50,24 @@
   <div class="reg-empty">Bez pretplate ovo računalo prima samo ustroj, registre i djelatnike.</div>
   {{end}}
 
+  {{with .Predlog}}
+  <form method="POST" action="/pretplate/dodaj" class="alert alert-info" style="display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap; margin-top:1rem;">
+    <input type="hidden" name="predlog" value="1"><input type="hidden" name="area_id" value="{{.AreaID}}"><input type="hidden" name="year_from" value="{{.YearFrom}}"><input type="hidden" name="razina" value="{{.Razina}}"><input type="hidden" name="drzi_dana" value="{{.DrziDana}}">
+    <span>Prijedlog iz vašeg zaduženja: <b>dnevnici i prijave, BP {{.AreaID}}, od {{.YearFrom}}.</b>, pregledi uvijek, izvornici {{.DrziDana}} dana na ovom računalu.</span>
+    <button type="submit" name="sync" value="1" class="btn btn-primary btn-sm">{{icon "download"}} Dodaj i preuzmi</button>
+  </form>
+  {{end}}
+
   <form class="form-page" method="POST" action="/pretplate/dodaj" style="margin-top:1rem;">
     <h3 style="font-size:0.95rem; margin:0 0 0.5rem;">Nova pretplata</h3>
     <div class="form-row">
       <div class="form-group">
         <label class="form-label" for="kind">Što</label>
         <select id="kind" name="kind" class="form-control">
-          <option value="">Očitanja i dnevnici</option>
+          <option value="">Sve vrste: očitanja, dnevnici, prijave</option>
           <option value="ocitanja">Samo očitanja vodostaja</option>
-          <option value="dnevnici">Samo građevinski dnevnici</option>
+          <option value="dnevnici">Samo dnevnici (s dnevnim izvješćima)</option>
+          <option value="prijave">Samo prijave s terena</option>
         </select>
       </div>
       <div class="form-group">
@@ -86,7 +95,21 @@
         <input type="text" inputmode="numeric" id="year_to" name="year_to" class="form-control" placeholder="prazno = i ubuduće">
       </div>
     </div>
-    <div class="form-help">Za laptop na terenu dovoljno je vlastito područje od prošle godine. Prazna godina znači bez ograde.</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="razina">Sadržaj uz zapise</label>
+        <select id="razina" name="razina" class="form-control">
+          <option value="sve">Sve: PDF-ovi i slike</option>
+          <option value="pregled">Samo pregledi (slike), PDF na zahtjev</option>
+          <option value="kazalo">Samo kazalo: zna da dokument postoji</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="drzi_dana">Primljeni sadržaj drži (dana)</label>
+        <input type="text" inputmode="numeric" id="drzi_dana" name="drzi_dana" class="form-control" placeholder="prazno = trajno">
+      </div>
+    </div>
+    <div class="form-help">Za laptop na terenu dovoljno je vlastito područje od prošle godine, s pregledima, a izvornici 90 dana. Prazna godina znači bez ograde. Zapisi uvijek stižu cijeli; razina i rok vrijede samo za PDF-ove i slike uz njih. Što je nastalo na ovom računalu ne otpušta se.</div>
     <div class="form-actions">
       <button type="submit" name="sync" value="1" class="btn btn-primary">{{icon "download"}} Dodaj i preuzmi sada</button>
       <button type="submit" class="btn btn-secondary">Samo dodaj</button>

@@ -21,21 +21,45 @@ import (
 // područje (prazno i 0 = sva), godine od-do (0 = bez ograde)
 type Subscription struct {
 	ID       int    `json:"id"`
-	Kind     string `json:"kind"`      // "", "ocitanja", "dnevnici"
+	Kind     string `json:"kind"`      // "", "ocitanja", "dnevnici", "prijave"
 	SectorID string `json:"sector_id"` // cijeli sektor
 	AreaID   int    `json:"area_id"`   // jedno područje
 	YearFrom int    `json:"year_from"`
 	YearTo   int    `json:"year_to"`
+	// Razina kaže koliko sadržaja uz zapise čvor dohvaća: "kazalo" ništa
+	// (zna da dokument postoji), "pregled" samo slike, "sve" i PDF-ove.
+	// DrziDana je koliko dana primljeni sadržaj ostaje na računalu; 0 = trajno.
+	Razina   string `json:"razina,omitempty"`
+	DrziDana int    `json:"drzi_dana,omitempty"`
+}
+
+// Razine sadržaja, od najmanje prema najvećoj
+const (
+	RazinaKazalo  = "kazalo"
+	RazinaPregled = "pregled"
+	RazinaSve     = "sve"
+)
+
+func razinaRed(r string) int {
+	switch r {
+	case RazinaKazalo:
+		return 0
+	case RazinaPregled:
+		return 1
+	}
+	return 2
 }
 
 // Label je pravilo ljudskim jezikom
 func (s Subscription) Label() string {
-	what := "očitanja i dnevnici"
+	what := "sve vrste"
 	switch s.Kind {
 	case ledger.ChannelReadings:
 		what = "očitanja"
 	case ledger.ChannelJournals:
 		what = "dnevnici"
+	case ledger.ChannelPrijave:
+		what = "prijave s terena"
 	}
 	where := "sva područja"
 	switch {
@@ -55,7 +79,17 @@ func (s Subscription) Label() string {
 	case s.YearTo > 0:
 		when = fmt.Sprintf("do %d.", s.YearTo)
 	}
-	return what + ", " + where + ", " + when
+	out := what + ", " + where + ", " + when
+	switch s.Razina {
+	case RazinaKazalo:
+		out += ", samo kazalo"
+	case RazinaPregled:
+		out += ", samo pregledi"
+	}
+	if s.DrziDana > 0 {
+		out += fmt.Sprintf(", sadržaj %d dana", s.DrziDana)
+	}
+	return out
 }
 
 // Wants je ono što čvor traži od drugoga u razmjeni: sve, ili po pravilima
@@ -98,6 +132,64 @@ func (w Wants) Match(channel string, sectorOf func(int) string) bool {
 	return false
 }
 
+// RazinaZa kaže koliko sadržaja čvor želi uz zapise kanala: najviša razina
+// među pravilima koja kanal pokrivaju; "sve" za zajednički kanal i za čvor
+// koji prati sve
+func (w Wants) RazinaZa(channel string, sectorOf func(int) string) string {
+	if channel == "" || w.All {
+		return RazinaSve
+	}
+	kind, areaID, year := ledger.SplitChannel(channel)
+	best := -1
+	for _, r := range w.Rules {
+		if r.matches(kind, areaID, year, sectorOf) && razinaRed(r.Razina) > best {
+			best = razinaRed(r.Razina)
+		}
+	}
+	switch best {
+	case 0:
+		return RazinaKazalo
+	case 1:
+		return RazinaPregled
+	case 2:
+		return RazinaSve
+	}
+	return RazinaKazalo
+}
+
+// DrziDanaZa kaže koliko dana primljeni sadržaj kanala ostaje: najdulje
+// među pravilima koja kanal pokrivaju; 0 znači trajno
+func (w Wants) DrziDanaZa(channel string, sectorOf func(int) string) int {
+	if channel == "" || w.All {
+		return 0
+	}
+	kind, areaID, year := ledger.SplitChannel(channel)
+	najdulje, ima := 0, false
+	for _, r := range w.Rules {
+		if !r.matches(kind, areaID, year, sectorOf) {
+			continue
+		}
+		if r.DrziDana == 0 {
+			return 0
+		}
+		if !ima || r.DrziDana > najdulje {
+			najdulje, ima = r.DrziDana, true
+		}
+	}
+	return najdulje
+}
+
+// zeliSadrzaj javlja dohvaća li čvor s tim pretplatama taj sadržaj
+func (w Wants) zeliSadrzaj(channel, vrsta string, sectorOf func(int) string) bool {
+	switch w.RazinaZa(channel, sectorOf) {
+	case RazinaSve:
+		return true
+	case RazinaPregled:
+		return strings.HasPrefix(vrsta, "image/")
+	}
+	return false
+}
+
 // ---------- što ovaj čvor prati ----------
 
 // SetWantsAll postavlja čvor da prati sve kanale (uredski čvor)
@@ -116,7 +208,7 @@ func (s *Service) WantsAll() bool {
 
 // ListSubscriptions vraća pravila ovog čvora
 func (s *Service) ListSubscriptions(ctx context.Context) ([]Subscription, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id, kind, sector_id, area_id, year_from, year_to FROM subscriptions ORDER BY id`)
+	rows, err := s.db.QueryContext(ctx, `SELECT id, kind, sector_id, area_id, year_from, year_to, razina, drzi_dana FROM subscriptions ORDER BY id`)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +216,7 @@ func (s *Service) ListSubscriptions(ctx context.Context) ([]Subscription, error)
 	var out []Subscription
 	for rows.Next() {
 		var r Subscription
-		if err := rows.Scan(&r.ID, &r.Kind, &r.SectorID, &r.AreaID, &r.YearFrom, &r.YearTo); err != nil {
+		if err := rows.Scan(&r.ID, &r.Kind, &r.SectorID, &r.AreaID, &r.YearFrom, &r.YearTo, &r.Razina, &r.DrziDana); err != nil {
 			return nil, err
 		}
 		out = append(out, r)
@@ -135,15 +227,25 @@ func (s *Service) ListSubscriptions(ctx context.Context) ([]Subscription, error)
 // AddSubscription upisuje pravilo; sljedeća razmjena donosi što mu pripada
 func (s *Service) AddSubscription(ctx context.Context, r Subscription) (Subscription, error) {
 	r.Kind = strings.TrimSpace(r.Kind)
-	if r.Kind != "" && r.Kind != ledger.ChannelReadings && r.Kind != ledger.ChannelJournals {
-		return r, fmt.Errorf("vrsta je očitanja, dnevnici ili oboje")
+	if r.Kind != "" && r.Kind != ledger.ChannelReadings && r.Kind != ledger.ChannelJournals && r.Kind != ledger.ChannelPrijave {
+		return r, fmt.Errorf("vrsta je očitanja, dnevnici, prijave ili sve")
+	}
+	switch r.Razina {
+	case "", RazinaSve:
+		r.Razina = RazinaSve
+	case RazinaKazalo, RazinaPregled:
+	default:
+		return r, fmt.Errorf("razina sadržaja je kazalo, pregled ili sve")
+	}
+	if r.DrziDana < 0 {
+		r.DrziDana = 0
 	}
 	r.SectorID = strings.ToUpper(strings.TrimSpace(r.SectorID))
 	if r.YearFrom > 0 && r.YearTo > 0 && r.YearTo < r.YearFrom {
 		return r, fmt.Errorf("godina do ne može biti prije godine od")
 	}
-	res, err := s.db.ExecContext(ctx, `INSERT INTO subscriptions (kind, sector_id, area_id, year_from, year_to) VALUES (?, ?, ?, ?, ?)`,
-		r.Kind, r.SectorID, r.AreaID, r.YearFrom, r.YearTo)
+	res, err := s.db.ExecContext(ctx, `INSERT INTO subscriptions (kind, sector_id, area_id, year_from, year_to, razina, drzi_dana) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		r.Kind, r.SectorID, r.AreaID, r.YearFrom, r.YearTo, r.Razina, r.DrziDana)
 	if err != nil {
 		return r, fmt.Errorf("upis pretplate: %w", err)
 	}
@@ -286,6 +388,17 @@ func (s *Service) PurgeChannel(ctx context.Context, channel string) (int64, erro
 			`DELETE FROM journals WHERE channel = ?`,
 		} {
 			if _, err := tx.ExecContext(ctx, stmt, channel); err != nil {
+				return 0, err
+			}
+		}
+	case ledger.ChannelPrijave:
+		_, area, year := ledger.SplitChannel(channel)
+		for _, stmt := range []string{
+			`DELETE FROM prijave_izvornici WHERE prijava_id IN (SELECT id FROM prijave WHERE area_id = ? AND substr(datum, 1, 4) = ?)`,
+			`DELETE FROM prijave_slike WHERE prijava_id IN (SELECT id FROM prijave WHERE area_id = ? AND substr(datum, 1, 4) = ?)`,
+			`DELETE FROM prijave WHERE area_id = ? AND substr(datum, 1, 4) = ?`,
+		} {
+			if _, err := tx.ExecContext(ctx, stmt, area, fmt.Sprint(year)); err != nil {
 				return 0, err
 			}
 		}

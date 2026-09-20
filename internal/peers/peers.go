@@ -25,6 +25,7 @@ import (
 	"gocop/internal/razmjena"
 
 	"gocop/internal/ledger"
+	"gocop/internal/sadrzaj"
 )
 
 // Protocol imenuje goCOP mrežu; čvorovi drugih aplikacija (npr. drugi program na
@@ -129,6 +130,10 @@ type Service struct {
 	// ne treba stoljeće očitanja svih letvi u zemlji, pa ono što ovdje
 	// otpadne ne ulazi ni u knjigu ni na površinu.
 	accept func(ledger.Version) bool
+
+	// spremiste sadržaja: PDF-ovi i slike koje razmjena prenosi po otisku,
+	// nakon verzija, prema razini pretplate
+	spremiste *sadrzaj.Spremiste
 
 	every    time.Duration // razmak automatske sinkronizacije (0 = isključena)
 	autoOn   bool
@@ -745,7 +750,65 @@ func (s *Service) exchange(ctx context.Context, c *razmjena.Conn, initiator bool
 		}
 	}
 
+	// Sadržaj: svaka strana kaže koje otiske želi, druga da što od toga ima.
+	// Primjena verzija je već upisala želje, pa se ovdje traže i one koje su
+	// upravo nastale. Stariji čvor bez sadržaja ovdje šalje done, i to je
+	// kraj razgovora bez sadržaja.
+	mojeZelje := zeljeMsg{s.zeljeniOtisci(ctx, myWants)}
+	var njihoveZelje zeljeMsg
 	var theirDone doneMsg
+	if initiator {
+		if err := send(kindZelje, mojeZelje); err != nil {
+			return applied, sent, theirs.Frontier, err
+		}
+		e, err := c.Receive()
+		if err != nil {
+			return applied, sent, theirs.Frontier, err
+		}
+		if e.Kind == kindDone {
+			_ = e.Decode(&theirDone)
+			_ = send(kindDone, doneMsg{applied})
+			return applied, sent, theirs.Frontier, nil
+		}
+		if e.Kind != kindZelje {
+			return applied, sent, theirs.Frontier, fmt.Errorf("očekivana poruka %q, stigla %q", kindZelje, e.Kind)
+		}
+		_ = e.Decode(&njihoveZelje)
+		if err := send(kindSadrzaj, sadrzajMsg{s.sadrzajZa(ctx, njihoveZelje.Otisci, theirs.Wants)}); err != nil {
+			return applied, sent, theirs.Frontier, err
+		}
+		var stigao sadrzajMsg
+		if err := expect(kindSadrzaj, &stigao); err != nil {
+			return applied, sent, theirs.Frontier, err
+		}
+		s.primiSadrzaj(ctx, razmjena.PublicKeyString(c.PeerKey), stigao.Stavke)
+	} else {
+		e, err := c.Receive()
+		if err != nil {
+			return applied, sent, theirs.Frontier, err
+		}
+		if e.Kind == kindDone {
+			_ = e.Decode(&theirDone)
+			_ = send(kindDone, doneMsg{applied})
+			return applied, sent, theirs.Frontier, nil
+		}
+		if e.Kind != kindZelje {
+			return applied, sent, theirs.Frontier, fmt.Errorf("očekivana poruka %q, stigla %q", kindZelje, e.Kind)
+		}
+		_ = e.Decode(&njihoveZelje)
+		if err := send(kindZelje, mojeZelje); err != nil {
+			return applied, sent, theirs.Frontier, err
+		}
+		var stigao sadrzajMsg
+		if err := expect(kindSadrzaj, &stigao); err != nil {
+			return applied, sent, theirs.Frontier, err
+		}
+		s.primiSadrzaj(ctx, razmjena.PublicKeyString(c.PeerKey), stigao.Stavke)
+		if err := send(kindSadrzaj, sadrzajMsg{s.sadrzajZa(ctx, njihoveZelje.Otisci, theirs.Wants)}); err != nil {
+			return applied, sent, theirs.Frontier, err
+		}
+	}
+
 	if initiator {
 		if err := send(kindDone, doneMsg{applied}); err != nil {
 			return applied, sent, theirs.Frontier, err

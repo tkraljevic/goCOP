@@ -5,6 +5,7 @@ import (
 	"context"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 // Sadržaj se sprema jednom bez obzira koliko ga zapisa navodi, čita se
@@ -17,11 +18,11 @@ func TestUpisPoOtisku(t *testing.T) {
 	defer s.Zatvori()
 	ctx := context.Background()
 	pdf := []byte("%PDF-1.4\nprobni izvornik")
-	o1, err := s.Upisi(ctx, "application/pdf", pdf, "", Veza{"prijave", "p1", "izvornik"})
+	o1, err := s.Upisi(ctx, "application/pdf", pdf, "", Veza{"prijave", "p1", "izvornik", "prijave/16/2026"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	o2, err := s.Upisi(ctx, "application/pdf", pdf, "", Veza{"vodocuvarski_listovi", "l1", "izvornik"})
+	o2, err := s.Upisi(ctx, "application/pdf", pdf, "", Veza{"vodocuvarski_listovi", "l1", "izvornik", ""})
 	if err != nil || o1 != o2 || o1 != Otisak(pdf) {
 		t.Fatalf("drugi upis: %v %s %s", err, o1, o2)
 	}
@@ -54,7 +55,7 @@ func TestVezeSirocadIZelje(t *testing.T) {
 	defer s.Zatvori()
 	ctx := context.Background()
 	b := []byte("fotografija")
-	o, _ := s.Upisi(ctx, "image/jpeg", b, "", Veza{"prijave", "p1", "slika"})
+	o, _ := s.Upisi(ctx, "image/jpeg", b, "", Veza{"prijave", "p1", "slika", ""})
 	if err := s.Ukloni(ctx, o); err == nil {
 		t.Error("vezani sadržaj je uklonjen")
 	}
@@ -72,24 +73,39 @@ func TestVezeSirocadIZelje(t *testing.T) {
 		t.Error("još ima")
 	}
 	// želja za sadržajem koji nemamo, pa stigne s drugog čvora
-	if err := s.Zeli(ctx, o, "image/jpeg", len(b), "pretplata"); err != nil {
+	if err := s.Zeli(ctx, o, "image/jpeg", len(b), "pretplata", "prijave/16/2026"); err != nil {
 		t.Fatal(err)
 	}
 	z, _ := s.Zeljeni(ctx, 10)
-	if len(z) != 1 || z[0].Otisak != o || z[0].Razlog != "pretplata" {
+	if len(z) != 1 || z[0].Otisak != o || z[0].Razlog != "pretplata" || z[0].Kanal != "prijave/16/2026" {
 		t.Fatalf("željeni: %+v", z)
 	}
-	if err := s.UpisiProvjereno(ctx, o, "image/jpeg", b, "cvor:osijek", Veza{"prijave", "p2", "slika"}); err != nil {
+	if err := s.UpisiProvjereno(ctx, o, "image/jpeg", b, "cvor:osijek", Veza{"prijave", "p2", "slika", ""}); err != nil {
 		t.Fatal(err)
 	}
 	if z, _ := s.Zeljeni(ctx, 10); len(z) != 0 {
 		t.Errorf("želja nije nestala: %+v", z)
 	}
-	if err := s.Zeli(ctx, o, "image/jpeg", len(b), "pretplata"); err != nil {
+	if err := s.Zeli(ctx, o, "image/jpeg", len(b), "pretplata", ""); err != nil {
 		t.Fatal(err)
 	}
 	if z, _ := s.Zeljeni(ctx, 10); len(z) != 0 {
 		t.Error("želja za sadržajem koji imamo")
+	}
+	// primljeni sadržaj nosi kanal iz želje i može se otpustiti; vlastiti ne
+	pr, _ := s.PrimljeniPrije(ctx, time.Now().Add(time.Minute))
+	if len(pr) != 1 || pr[0].Kanal != "prijave/16/2026" {
+		t.Errorf("primljeni: %+v", pr)
+	}
+	if err := s.Otpusti(ctx, o); err != nil {
+		t.Errorf("otpuštanje primljenog: %v", err)
+	}
+	if s.Ima(ctx, o) {
+		t.Error("otpušteni je još tu")
+	}
+	vl, _ := s.Upisi(ctx, "image/jpeg", []byte("vlastita"), "", Veza{"prijave", "p3", "slika", ""})
+	if err := s.Otpusti(ctx, vl); err == nil {
+		t.Error("vlastiti sadržaj se otpustio")
 	}
 }
 
