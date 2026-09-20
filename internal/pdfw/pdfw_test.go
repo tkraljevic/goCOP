@@ -139,3 +139,16 @@ func TestPDFIzSlike(t *testing.T) {
 		t.Error("tekst nije slika")
 	}
 }
+
+// Razmak nulte širine iz zalijepljenog teksta ne smije završiti kao upitnik
+// niti utjecati na širinu retka.
+func TestNevidljiviZnakoviSePreskacu(t *testing.T) {
+	if SirinaTeksta("\u200bRedovitim", 10, false) != SirinaTeksta("Redovitim", 10, false) {
+		t.Error("razmak nulte širine mijenja širinu teksta")
+	}
+	d := Novi("proba", "proba")
+	d.Tekst(50, 50, 10, false, "\u200bRedovitim\ufeff")
+	if d.koristeno[0]['\u200b'] || d.koristeno[0]['\ufeff'] || d.koristeno[0]['?'] {
+		t.Error("nevidljivi znak je ušao u dokument")
+	}
+}

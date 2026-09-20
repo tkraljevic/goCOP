@@ -192,6 +192,9 @@ func (d *Doc) glifovi(s string, bold bool) string {
 		if r == '\n' || r == '\r' || r == '\t' || r == '\u00a0' {
 			r = ' '
 		}
+		if nevidljiv(r) {
+			continue
+		}
 		d.koristeno[rez][r] = true
 		fmt.Fprintf(&b, "%04X", uint16(p.glif(r)))
 	}
@@ -465,6 +468,17 @@ func kodiraj(s string) string {
 	return b.String()
 }
 
+// nevidljiv javlja znak koji se u tekstu ne vidi (razmak nulte širine,
+// spojnice, oznaka poretka bajtova, meka spojnica): u pismu nema glifa, pa bi
+// se ispisao kao upitnik. Dolaze iz teksta zalijepljenog s weba.
+func nevidljiv(r rune) bool {
+	switch r {
+	case '\u200b', '\u200c', '\u200d', '\u2060', '\ufeff', '\u00ad':
+		return true
+	}
+	return false
+}
+
 // SirinaTeksta je širina teksta u točkama za zadanu veličinu
 func SirinaTeksta(s string, size float64, bold bool) float64 {
 	ucitajPisma()
@@ -476,6 +490,9 @@ func SirinaTeksta(s string, size float64, bold bool) float64 {
 	for _, r := range s {
 		if r == '\u00a0' {
 			r = ' '
+		}
+		if nevidljiv(r) {
+			continue
 		}
 		w += p.sirina(r)
 	}
