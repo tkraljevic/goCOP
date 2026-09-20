@@ -163,6 +163,64 @@ vodočuvara na *pregled* za svoje područje, ostalo na zahtjev. Zahtjev je
 klik na dokument: čvor ga tada dohvati od bilo kojeg uparenog čvora koji ga
 ima i zadrži ga onoliko koliko pretplata kaže.
 
+### Pretplata čvora
+
+Arhive se sinkroniziraju automatski prema pretplati svakog čvora, slično
+torrentu, ali unutar zatvorene i potpisane goCOP mreže. Svaki čvor određuje:
+
+- module (kanale);
+- sektore i branjena područja;
+- razdoblje;
+- samo kazalo, umanjene prikaze ili pune izvornike;
+- koliko dugo sadržaj drži lokalno.
+
+```
+Prijenosnik vodočuvara:  BP 16, dnevnici i prijave; pregledi uvijek,
+                         izvornici zadnjih 90 dana, stariji na zahtjev
+COP Osijek:              cijeli sektor B, svi izvornici i sve arhive; čuvar
+Središnji čvor:          svi sektori, trajna potpuna arhiva; čuvar
+```
+
+Koraci razmjene:
+
+1. Čvorovi razmjenjuju mala potpisana kazala (kazalo službenih zapisa i
+   katalog izdanja) redovnom sinkronizacijom knjige verzija.
+2. Čvor uspoređuje otiske iz kazala sa svojom pretplatom i onim što već
+   drži; što nedostaje a pretplata traži, ide u `sadrzaj_zeljen`.
+3. Nedostajući sadržaj traži od bilo kojeg uparenog i ovlaštenog čvora koji
+   ga ima.
+4. Velike datoteke prenose se u dijelovima; prijenos se nastavlja nakon
+   prekida.
+5. Svaki dio i cijeli sadržaj provjeravaju se otiskom; otisak je vezan
+   potpisanim zapisom čvora koji je sadržaj objavio, pa se ne potpisuje
+   svaki bajt nego zapis koji ga navodi.
+6. Tek nakon potpune provjere čvor sadržaj nudi drugim ovlaštenim
+   čvorovima.
+
+Što to nije: javni BitTorrent. Nema trackera ni nepoznatih sudionika,
+prenose samo upareni čvorovi s važećom potvrdom mreže, veza je TLS s
+prikovanim ključevima čvorova (već tako radi u `razmjena`), ovlasti se
+provjeravaju po modulu i području, a svaki zapis nosi potpis čvora koji ga
+je stvorio.
+
+Dva pravila koja iz pretplate slijede, da "koliko dugo lokalno" ne
+postane gubitak:
+
+- **Vlastiti sadržaj se ne uklanja dok ga ne drži čuvar.** Fotografija
+  koju je vodočuvar snimio na prijenosniku smije nestati s njega tek kad
+  barem jedan čuvar kanala potvrdi da je ima; do tada rok od 90 dana ne
+  teče. Inače bi prijenosnik koji tjednima nije bio na mreži bio jedini
+  primjerak.
+- **Bez mreže vrijedi ono što je preuzeto.** Prijenosnik koji je na terenu
+  otvara samo što je pretplata već dovukla; zato je za vodočuvara razina
+  *pregled* najmanje što ima smisla, a *samo kazalo* je za čvorove koji su
+  stalno na mreži.
+
+Čvor koji drži samo kazalo odmah vidi da dokument postoji, njegov datum,
+autora, doseg i veličinu; puni PDF ili fotografiju preuzima kad ga otvori.
+Tako mreža ima potpunu zajedničku arhivu, a nijedan prijenosnik ne mora
+nositi sve.
+
 ## 5. `.cop` izdanje kanala
 
 `.cop` je već ZIP s potpisanim manifestom, otiscima dijelova i podacima jedne
