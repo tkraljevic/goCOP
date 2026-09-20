@@ -295,19 +295,27 @@ Pravila, ista kao za letve:
   katalogu daje drugima isti popis dijelova; preuzimanje po dijelovima i
   provjera su isti kôd kao za `.cop` datoteku.
 
-## 6. Redoslijed izvedbe
+## 6. Redoslijed izvedbe i stanje
 
-1. `sadrzaj.db` i paket `internal/sadrzaj` (upis s provjerom, čitanje,
-   dijelovi, veze, siročad). Mali, testabilan sam za sebe.
-2. Prijave prelaze na spremište: objava upisuje PDF u `sadrzaj.db`, knjiga
-   nosi otisak; migracija 371 postojeća zapisa. Ovdje se vidi dobitak od
-   264 MB.
-3. Kazalo službenih zapisa; prijave ga pune prve, zatim dnevni listovi,
-   COP dnevnici i akti kad prelaze na spremište.
-4. Prijenos sadržaja između čvorova s razinom pretplate.
-5. `.cop` inačica 3 s kanalom `prijave`, pa ostali kanali; vodostaji ostaju
-   kako jesu dok se ne poopće.
+1. `sadrzaj.db` i paket `internal/sadrzaj` *(napravljeno 20. 9. 2026.)*: upis
+   s provjerom, čitanje, dijelovi, veze, siročad, željeni, otpuštanje.
+2. Prijave na spremištu *(napravljeno)*: objava, urudžba i uvoz pišu PDF u
+   spremište, knjiga nosi otisak; 371 postojeći PDF preseljen pri pokretanju
+   (glavna baza 481 MB → 34 MB, spremište 199 MB). Ostali moduli (dnevni
+   listovi, COP dnevnici, akti, fotografije prijava) čekaju.
+3. Kazalo službenih zapisa *(nije napravljeno)*.
+4. Prijenos sadržaja između čvorova s razinom pretplate *(napravljeno u
+   razmjeni, dohvat na klik nije)*: prijave imaju kanal
+   `prijave/područje/godina`; pravilo pretplate nosi vrstu (očitanja,
+   dnevnici, prijave, sve), sektor ili područje, godine, razinu sadržaja
+   (kazalo, pregled, sve) i rok držanja; razmjena nakon verzija prenosi
+   sadržaje po otisku u jednoj poruci po strani (do 48 MB, ostatak sljedećom),
+   uz provjeru otiska; primljeni sadržaj s isteklim rokom otpušta se svakih
+   šest sati, vlastiti nikad; korisnik sa zaduženim područjem dobiva
+   predloženo pravilo. Nema još: prijenosa po dijelovima za velike datoteke,
+   dohvata na klik za otpušteni ili nepokriveni sadržaj, potvrde čuvara prije
+   otpuštanja vlastitog sadržaja.
+5. `.cop` inačica 3 s kanalom `prijave`, pa ostali kanali *(nije napravljeno)*.
 
 Točke 5 i 6 plana o arhivi (mrežni zaborav, umirovljenje čvora) ne ovise o
-ovome i mogu čekati; s ovim redoslijedom glavna baza prestaje rasti s
-megabajtima već nakon koraka 2.
+ovome.
