@@ -112,8 +112,8 @@ func TestUvozObavijestiSTerena(t *testing.T) {
 	if len(prijava.Slike) != 1 || prijava.Slike[0].Sirina != 1400 {
 		t.Fatalf("slike prijave: %+v", prijava.Slike)
 	}
-	if iz, _ := repo.Izvornik(context.Background(), prijava.ID); iz == nil || !bytes.Contains(iz.PDF, []byte("sken potpisane")) {
-		t.Fatal("sken nije izvornik")
+	if iz, _ := repo.Izvornik(context.Background(), prijava.ID); iz == nil || !bytes.Contains(iz.PDF, []byte("rekonstrukcija B-T-1/2024")) || prijava.Sken != "" {
+		t.Fatal("izvornik treba biti PDF iz podataka, sken se ne preuzima kad ga nema kamo spremiti")
 	}
 	if obavijest == nil || obavijest.Status != models.PrijavaArhivirana || obavijest.AreaID != 16 || obavijest.Broj != 2 || obavijest.Objekt != "" {
 		t.Fatalf("obavijest: %+v", obavijest)
@@ -137,6 +137,10 @@ func TestUvozObavijestiSTerena(t *testing.T) {
 	src.zbirke["obavijesti_sa_terena"] = raw(`{"id":15,"status":"objavljeno","date_created":"2024-06-02T10:00:00.000Z","user_created":"u-1","vodocuvarsko_podrucje":"KARAŠICA SEKTOR","vrsta_dokumenta":"PRIJAVA","naslov":"Sa skenom","opis":"x","datoteka":"d1"}`)
 	if rep, _ = RunPrijave(context.Background(), src, deps); rep.Upisano != 1 || rep.Skenova != 1 {
 		t.Fatalf("uvoz sa skenom na disk: %+v", rep)
+	}
+	// prvi prolaz je bio bez mjesta za sken, pa ga nije ni brojio
+	if rep.Slika != 0 {
+		t.Fatalf("slike u prolazu sa skenom: %+v", rep)
 	}
 	if p, _ := repo.PoIzvoru(context.Background(), "bp16:obavijesti_sa_terena:15"); p == nil || p.Sken != p.ID+".pdf" || len(skenovi[p.ID]) == 0 {
 		t.Fatalf("sken na disku: %+v", p)

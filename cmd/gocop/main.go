@@ -361,16 +361,8 @@ func main() {
 				Podrucja: map[string]int{"KARAŠICA SEKTOR": 16, "DRAVSKI SEKTOR": 34, "DUNAVSKI SEKTOR - SJEVER": 34, "DUNAVSKI SEKTOR - JUG": 34},
 				Sektor:   "B", Cvor: node.ID, Datoteka: datoteka, DryRun: !*csvWrite, Log: log.Printf,
 				// uvezene prijave: PDF iz podataka nosi slike, pa se izvorne ne čuvaju;
-				// sken potpisanog ispisa ide uz bazu kao lokalni prilog
+				// skenovi potpisanih ispisa ostaju u staroj evidenciji
 				SlikeOdmah: true,
-				SpremiSken: func(p *models.PrijavaSTerena, pdf []byte) (string, error) {
-					dir := filepath.Join(filepath.Dir(*dbPath), "skenovi", "prijave")
-					if err := os.MkdirAll(dir, 0o755); err != nil {
-						return "", err
-					}
-					naziv := p.ID + ".pdf"
-					return naziv, os.WriteFile(filepath.Join(dir, naziv), pdf, 0o644)
-				},
 				IzradiPDF: func(p *models.PrijavaSTerena, slike map[string][]byte) []byte {
 					var sek *models.Sector
 					if sektori, err := userService.ListSectors(); err == nil {

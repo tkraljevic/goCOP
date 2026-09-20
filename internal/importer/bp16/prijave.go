@@ -290,8 +290,10 @@ func RunPrijave(ctx context.Context, src Source, deps PrijaveDeps) (PrijaveRepor
 			slikeBajtovi = append(slikeBajtovi, jpg)
 			rep.Slika++
 		}
+		// sken potpisanog ispisa preuzima se samo kad ga ima kamo spremiti ili
+		// kad PDF iz podataka nije moguć; inače ostaje u staroj evidenciji
 		var sken []byte
-		if o.Datoteka != "" && deps.Datoteka != nil {
+		if o.Datoteka != "" && deps.Datoteka != nil && (deps.SpremiSken != nil || deps.IzradiPDF == nil) {
 			b, err := deps.Datoteka(ctx, o.Datoteka, "")
 			if err != nil {
 				logf("  obavijest %d: datoteka %s: %v", o.ID, o.Datoteka, err)
