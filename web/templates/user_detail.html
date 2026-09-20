@@ -3,7 +3,7 @@
 {{define "title"}}goCOP — {{.User.FullName}}{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/users">Djelatnici</a> › {{.User.FullName}}</div>
+<div class="breadcrumb">{{if .VidiImenik}}<a href="/users">Djelatnici</a>{{else}}<a href="/profile">Moj profil</a>{{end}} › {{.User.FullName}}</div>
 
 <div class="detail-head">
   <div>

@@ -44,6 +44,7 @@ type UserPageData struct {
 	User        *models.User
 	IsSelf      bool
 	CanManage   bool // smije uređivati tuđe profile i zaduženja
+	VidiImenik  bool // ima modul „Djelatnici”; bez njega vidi samo svoj karton
 	IsEdit      bool
 	CanDelete   bool // račun se nitko nije prijavio, pa se smije obrisati
 
@@ -129,10 +130,12 @@ func (h *UsersHandler) pageData(r *http.Request) UserPageData {
 	ctx := r.Context()
 	currUser, _ := ctx.Value(contextKeyUser).(*models.User)
 	perms, _ := ctx.Value(contextKeyPerms).(*models.UserPermissions)
+	mods, _ := ctx.Value(contextKeyModules).(models.Visibility)
 	return UserPageData{
 		CurrentUser:    currUser,
 		Permissions:    perms,
 		CanManage:      canManageUsers(perms),
+		VidiImenik:     mods.Sees(models.ModuleUsers),
 		Roles:          roleOptions(),
 		Orgs:           orgOptions(),
 		SuccessMessage: r.URL.Query().Get("success"),

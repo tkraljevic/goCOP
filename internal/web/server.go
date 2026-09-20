@@ -1297,7 +1297,7 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 			http.Error(w, "Greška pri čitanju vidljivosti modula: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
-		if mod := moduleForPath(r.URL.Path); mod != "" && !visible.Sees(mod) {
+		if mod := moduleForPath(r.URL.Path); mod != "" && !visible.Sees(mod) && !vlastitiKarton(r, view.User) {
 			http.Error(w, "Modul „"+models.ModuleLabel(mod)+"“ nije uključen za vaš račun. Ako vam treba, javite se administratoru.", http.StatusForbidden)
 			return
 		}
@@ -1335,6 +1335,17 @@ var modulePaths = []struct{ prefix, module string }{
 	{"/moduli", models.ModuleAdmin}, {"/settings", models.ModuleAdmin},
 	{"/api/peers", models.ModuleAdmin}, {"/api/network", models.ModuleAdmin},
 	{"/api/history", models.ModuleAdmin},
+}
+
+// vlastitiKarton javlja gleda li osoba svoj zapis u imeniku. Svoja zaduženja
+// dio su profila, ne imenika djelatnika: vodočuvar koji modul „Djelatnici”
+// nema mora moći vidjeti tko je, što mu je zaduženje i tko mu je nadređen.
+// Tuđi karton i svaka izmjena ostaju iza modula.
+func vlastitiKarton(r *http.Request, u *models.User) bool {
+	if u == nil || !readOnlyRequest(r) {
+		return false
+	}
+	return r.URL.Path == "/users/"+u.ID.String()
 }
 
 func moduleForPath(path string) string {
