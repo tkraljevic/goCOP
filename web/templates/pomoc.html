@@ -126,10 +126,14 @@
     <p><strong>Što vidite ovisi o ulozi.</strong> Izbornik ne pokazuje sve svima: dijelovi
       koje vaša uloga ne treba jednostavno nisu tu. Ako vam nešto nedostaje, a mislite da vam
       treba, to uređuje administrator pod <em>Administracija → Moduli i ovlasti</em>.</p>
-    <p><strong>Poslovni zapis ne nestaje običnim brisanjem.</strong> Svaka izmjena ostaje zapisana
-      s time tko ju je i kad napravio. Stare tehničke verzije i operativna očitanja koja su već
-      sigurno uložena u arhivu posprema samo administrator, kroz postupak koji prvo provjerava
-      točan niz, vrijeme i vrijednost.</p>
+    <p><strong>Nacrt još nije službeni zapis.</strong> Može se mijenjati dok ga ovlaštena osoba
+      ne objavi ili ovjeri. Tada se sadržaj, prilozi i potvrđeni prikaz zaključavaju i ulaze u
+      repozitorij službenih zapisa. Pogreška se ne ispravlja prepisivanjem izvornika, nego novim
+      povezanim zapisom koji kaže što zamjenjuje ili povlači.</p>
+    <p><strong>Službeni zapis nije uvijek trajna arhivska građa.</strong> Objavljeni i ovjereni
+      zapisi više se ne mijenjaju, ali pravilo čuvanja određuje čuvaju li se trajno ili se nakon
+      propisanog roka kontrolirano izlučuju. Stare tehničke verzije i operativna očitanja koja su
+      već sigurno spremljena posprema samo administrator, nakon provjere sadržaja i otiska.</p>
     <p><strong>Na telefonu</strong> izbornik otvara gumb {{icon "menu"}} gore lijevo. Grafovi i
       tablice imaju svoj oblik za uski zaslon — isti podaci, drukčije složeni. Tablica koja ne
       stane u širinu zaslona razlaže se u kartice, s naslovom stupca uz svaku vrijednost, pa se
@@ -649,11 +653,14 @@
       zatekao, bira vodotok, objekt ili dionicu, označava mjesto na karti i prilaže fotografije.
       Nacrt se može uređivati i obrisati samo prije objave.</p>
     <p>Objavom prijava dobiva broj, osobni elektronički potpis i trajni PDF izvornik s ugrađenim
-      fotografijama. Istodobno se upisuje na vodočuvarov dnevni list za dan događaja. Uprava je
-      nakon pregleda može označiti riješenom i arhivirati, ali objavljeni sadržaj više ne mijenja.</p>
+      fotografijama. Tada postaje službeni zapis i istodobno se upisuje na vodočuvarov dnevni
+      list za dan događaja. Uprava je nakon pregleda može označiti <strong>pregledanom i
+      riješenom</strong>; to je stanje predmeta, a ne naknadno arhiviranje. Objavljeni sadržaj
+      time se ne mijenja.</p>
     <p>Program fotografije odmah smanjuje radi prostora. Izvorne smanjene slike ostaju lokalno
       onoliko dana koliko administrator zada u Opcijama, a zatim se brišu; potpisani PDF sa svim
-      slikama ostaje trajno i razmjenjuje se među odgovarajućim čvorovima.</p>
+      slikama ostaje službeni izvornik. PDF se u spremištu sadržaja čuva jednom po SHA-256 otisku
+      i prenosi odgovarajućim čvorovima prema njihovoj pretplati.</p>
 
     <h3 id="akti">Rješenja i obavijesti</h3>
     <p>Akt se sastavlja po vodomjeru i branjenom području u aktivnoj obrani. Bira se očitanje ili
@@ -791,9 +798,13 @@
         ključa mreže.</li>
       <li id="sync"><strong>Sinkronizacija</strong> — što se upravo vidi na lokalnoj mreži i
         kad je posljednji put razmijenjeno. Razmjena ide izravno među računalima, bez
-        posrednika; arhiva vodostaja u nju ne ulazi jer se preuzima zasebno.</li>
-      <li><strong>Održavanje baze</strong> — sažimanje, izvoz i obnova. Ovdje se vidi i knjiga
-        verzija: svaka izmjena u programu ima svoj zapis, pa se stanje može ponovno izgraditi.</li>
+        posrednika. Svako računalo pretplatom bira vrstu zapisa, sektor ili područje, godine,
+        razinu sadržaja i rok lokalnog držanja. Hidrološka arhiva ne ulazi u običnu knjigu
+        verzija, nego se preuzima zasebnim potpisanim <code>.cop</code> izdanjem.</li>
+      <li><strong>Održavanje baze</strong> — zauzeće operativne baze, sažimanje knjige verzija,
+        izvoz i obnova. Veliki službeni sadržaji odvojeno se čuvaju u
+        <code>sadrzaj.db</code>, jednom po otisku; knjiga verzija prenosi njihovo kazalo, a
+        bajtove samo čvorovima koji su ih pretplatom zatražili.</li>
       <li><strong>Unos u arhivu</strong> — vrata arhive za unos CSV i Excel datoteka, ulaganje
         operativnih očitanja u arhivsko stablo i izdavanje novih potpisanih <code>.cop</code>
         paketa. Ugradnja je atomska, starije izdanje ne može samo pregaziti novije, a istodobno
@@ -838,9 +849,11 @@
       ostaje li samo na ovom čvoru ili se sigurno razmjenjuje.</p>
     <p>Ovdje su i vaša dežurstva uz dnevnike COP-a. Za svaki centar u kojem ste u planu možete
       otvoriti plan i vlastito izvješće o radnim satima bez traženja dnevnika u popisu.</p>
-    <p>Pod <strong>Što ovo računalo prati</strong> biraju se sektori, branjena područja i godine
-      koje ovaj čvor želi sinkronizirati. Uredski poslužitelj obično prati sve, a terenski laptop
-      samo ono što njegovu korisniku treba.</p>
+    <p>Pod <strong>Što ovo računalo prati</strong> biraju se vrste zapisa, sektori, branjena
+      područja i godine koje ovaj čvor želi sinkronizirati. Za PDF-ove i slike bira se i razina:
+      samo kazalo, pregled ili puni sadržaj, te koliko se dana primljeni sadržaj lokalno drži.
+      Zapisi uvijek stižu cijeli, a sadržaj nastao na ovom računalu ne otpušta se. Uredski
+      poslužitelj obično prati sve, a terenski laptop samo ono što njegovu korisniku treba.</p>
   </div>
 </section>
 
@@ -865,6 +878,16 @@
         dežurstva, proglašavaju stupnjevi i izrađuju izvješća.</dd>
       <dt>Izvornik</dt><dd>Zaključani PDF službenog dokumenta s potpisima, žigom ili drugim
         dokazom ovjere. Naknadna izmjena ruši elektroničku provjeru.</dd>
+      <dt>Nacrt</dt><dd>Radni zapis koji se još može mijenjati i nije dio službene građe.</dd>
+      <dt>Službeni zapis</dt><dd>Objavljen ili ovjeren zapis zaključan zajedno s prilozima i
+        potvrđenim prikazom. Ispravlja se novim povezanim zapisom, ne prepisivanjem.</dd>
+      <dt>Repozitorij službenih zapisa</dt><dd>Spremište objavljenih i ovjerenih zapisa. Obuhvaća
+        i trajnu arhivsku građu i zapise koji imaju određeni rok čuvanja.</dd>
+      <dt>Arhivska građa</dt><dd>Dio službenih zapisa određen za dugoročno ili trajno čuvanje.</dd>
+      <dt>.cop izdanje</dt><dd>Potpisani paket jednog kanala službenih zapisa ili hidrološke
+        arhive, s opsegom, otiscima i zaštitom od nenamjernog povratka na starije izdanje.</dd>
+      <dt>Čuvar arhive</dt><dd>Čvor određen da trajno drži potpunu i provjerenu kopiju određenog
+        kanala; terenski laptop ne mora čuvati sve kanale.</dd>
       <dt>Simulirani potpis</dt><dd>Tehnički potpis samo za testiranje tuđim očima. U PDF-u je
         trajno označen kao SIMULACIJA i BEZVRIJEDNO.</dd>
       <dt>Dnevni srednjak</dt><dd>Prosjek dvadeset i četiri satna očitanja, ne jutarnje očitanje.</dd>

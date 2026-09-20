@@ -28,7 +28,8 @@ prva računala. Kaže što program radi na računalu i mreži, što ne radi, i
   potpis iz SIGNATOR-a, vlastoručni potpis i žig, slanje izvornika e-poštom te
   Exchange sandučić i adresar tvrtke.
 - **Podaci i razmjena:** knjiga verzija, selektivna sinkronizacija između
-  uparenih čvorova, odvojena hidrološka arhiva i potpisana `.cop` izdanja.
+  uparenih čvorova, spremište velikih sadržaja po SHA-256 otisku, odvojena
+  hidrološka arhiva i potpisana `.cop` izdanja.
 - **Rad bez interneta:** osnovno sučelje, podaci, unos i dokumenti rade lokalno.
   Mrežne karte, vrijeme, javni vodostaji, Exchange i sinkronizacija dostupni su
   samo kada postoji odgovarajuća mrežna veza.
@@ -50,6 +51,7 @@ Detaljni postupci i ovlasti opisani su u ugrađenoj stranici **Pomoć**.
   | datoteka | što je |
   |---|---|
   | `gocop.db` (+ `-wal`, `-shm`) | SQLite baza — operativa, registri, korisnici i knjiga verzija |
+  | `sadrzaj.db` (+ `-wal`, `-shm`) | PDF-ovi i drugi veliki službeni sadržaji, spremljeni jednom po SHA-256 otisku |
   | `vodostaji.db` (+ `-wal`, `-shm`) | obnovljiva hidrološka arhiva i evidencija primljenih izdanja |
   | `gocop.toml` | postavke, s komentarima; program je zapiše pri prvom pokretanju |
   | `node-key` | privatni ključ ovog računala (Ed25519), prava 0600 |
@@ -91,9 +93,11 @@ između računala koja sudjeluju u testu. Portovi se mijenjaju u `gocop.toml`.
 
 ## 3. Podaci i sigurnost
 
-- **Podaci su na računalu.** Operativa je u `gocop.db`, a velika hidrološka
+- **Podaci su na računalu.** Operativa i kazalo službenih zapisa su u
+  `gocop.db`, veliki PDF-ovi i drugi sadržaji u `sadrzaj.db`, a hidrološka
   povijest u `vodostaji.db` i izvornom stablu. Ne šalju se nikamo osim na
-  uparena računala ili u `.cop` paket koji administrator izričito izda.
+  uparena računala prema pretplati čvora ili u `.cop` paket koji administrator
+  izričito izda.
 - **Osobni podaci.** Registar djelatnika sadrži imena, funkcije, telefone i
   e-mail adrese djelatnika i sudionika obrane od poplava, kako ih
   organizacija unese ili uveze iz svog imenika. Tretirati mapu `data/` kao
@@ -117,10 +121,14 @@ između računala koja sudjeluju u testu. Portovi se mijenjaju u `gocop.toml`.
   korisnika; potpisani PDF, a ne nezaštićeni sken, postaje izvornik koji se
   razmjenjuje. Žig centra dostupan je samo upravi sektora, ali je dio baze i
   sigurnosne kopije pa mapu `data/` treba štititi kao službenu evidenciju.
-- **Poslovni zapisi ne nestaju običnim brisanjem.** Izmjena je nova verzija,
-  a brisanje arhiviranje. Starije tehničke verzije i već uložena operativna
-  očitanja mogu se pospremiti samo administratorskim postupkom koji najprije
-  provjerava da je točan niz, vrijeme i vrijednost u arhivi.
+- **Nacrt nije službeni zapis.** Može se mijenjati ili obrisati dok ne bude
+  objavljen ili ovjeren. Objava ili ovjera zaključava sadržaj i priloge te ih
+  uvodi u repozitorij službenih zapisa. Ispravak nastaje kao novi povezani
+  zapis; izvorni se ne prepisuje. Arhivska građa trajno je čuvani dio tog
+  repozitorija, dok drugi službeni zapisi mogu imati propisani rok čuvanja.
+- **Pospremanje nije obično brisanje.** Starije tehničke verzije i već uložena
+  operativna očitanja mogu se ukloniti samo administratorskim postupkom koji
+  najprije provjerava da je točan niz, vrijeme i vrijednost sigurno spremljen.
 - **Testne mogućnosti** za upis i simulirani potpis „tuđim očima” služe samo
   uvođenju i testiranju. Simulirani PDF ima veliki žig „BEZVRIJEDNO”; sve
   testne prekidače u operativnom radu treba držati isključenima.
@@ -147,6 +155,10 @@ između računala koja sudjeluju u testu. Portovi se mijenjaju u `gocop.toml`.
   stranici prijave, a prijavljenima u profilu.
 - Provjeriti SHA-256 preuzetog izdanja prema `SHA256SUMS` uz izdanje.
 - Program pokretati kao običan korisnik, iz vlastite mape.
+- Sigurnosna kopija mora obuhvatiti cijelu mapu `data/` i izvorno stablo
+  vodostaja. Povrat treba probno izvesti prije operativnog rada; ključeve
+  čvora čuvati odvojeno i ne pretvarati kopiju baze u drugi čvor kopiranjem
+  tuđeg identiteta.
 
 ## 6. Pokretanje
 
@@ -162,8 +174,10 @@ učita i njih. Otvoriti `http://localhost` (ili `http://localhost:8080`).
 Ustroj, registri i djelatnici stižu na svako računalo. Očitanja i dnevnici
 idu po kanalima „vrsta/područje/godina“ i računalo ih prima samo za ono
 što prati: na profilu, pod **Što ovo računalo prati**, osoba označi sektor
-ili područje i godine, a što joj više ne treba obriše s računala. Uredski
-poslužitelj prati sve (`sve = true` u `gocop.toml`) i tako je arhiva iz
+ili područje i godine te bira prima li samo kazalo, pregled ili puni sadržaj
+i koliko dugo primljene PDF-ove i slike drži. Što joj više ne treba može
+obrisati s računala; sadržaj nastao na tom računalu ne otpušta se. Uredski
+poslužitelj prati sve (`sve = true` u `gocop.toml`) i drži potpunu kopiju iz
 koje se svaki laptop može ponovno napuniti.
 
 Novo računalo prvo treba povezati s uredom. Dok u njemu nema djelatnika,
