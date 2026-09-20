@@ -61,7 +61,7 @@ func TestSeljenjeIzvornikaPrijavaUSpremiste(t *testing.T) {
 	defer spremiste.Zatvori()
 	SetSpremiste(spremiste)
 	defer SetSpremiste(nil)
-	n, bajtova, err := PreseliIzvornike(context.Background(), baza)
+	n, bajtova, err := PreseliSadrzaj(context.Background(), baza)
 	if err != nil || n != 1 || bajtova != int64(len(pdf)) {
 		t.Fatalf("seljenje: %d %d %v", n, bajtova, err)
 	}
@@ -90,7 +90,7 @@ func TestSeljenjeIzvornikaPrijavaUSpremiste(t *testing.T) {
 		t.Fatalf("čitanje: %v %+v", err, got)
 	}
 	// drugo pokretanje ne radi ništa
-	if n, _, err := PreseliIzvornike(context.Background(), baza); err != nil || n != 0 {
+	if n, _, err := PreseliSadrzaj(context.Background(), baza); err != nil || n != 0 {
 		t.Errorf("ponovno seljenje: %d %v", n, err)
 	}
 }
@@ -194,7 +194,7 @@ func TestSeljenjeSvihIzvornikaUSpremiste(t *testing.T) {
 	prijasnje := Spremiste()
 	SetSpremiste(spremiste)
 	defer SetSpremiste(prijasnje)
-	n, _, err := PreseliIzvornike(context.Background(), baza)
+	n, _, err := PreseliSadrzaj(context.Background(), baza)
 	if err != nil || n != len(tablice) {
 		t.Fatalf("seljenje: %d %v", n, err)
 	}
@@ -228,5 +228,78 @@ func TestSeljenjeSvihIzvornikaUSpremiste(t *testing.T) {
 		if zapis["otisak"] != otisak {
 			t.Errorf("%s: verzija nema otisak", x.entitet)
 		}
+	}
+}
+
+// Fotografije prijava žive u spremištu, vezane uz prijavu oznakom slike:
+// čitaju se natrag, po roku se otpuštaju, a stara tablica se preseli.
+func TestFotografijePrijavaUSpremistu(t *testing.T) {
+	dir := t.TempDir()
+	baza, err := db.OpenDB(filepath.Join(dir, "gocop.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer baza.Close()
+	if err := db.InitSchema(baza); err != nil {
+		t.Fatal(err)
+	}
+	// tablica fotografija kakvu je baza imala prije spremišta
+	if _, err := baza.Exec(`CREATE TABLE prijave_slike (id TEXT PRIMARY KEY, prijava_id TEXT NOT NULL, slika BLOB NOT NULL, created_at DATETIME NOT NULL)`); err != nil {
+		t.Fatal(err)
+	}
+	stara := []byte("stara fotografija")
+	if _, err := baza.Exec(`INSERT INTO prijave_slike (id, prijava_id, slika, created_at) VALUES ('s-stara', 'p-stara', ?, ?)`, stara, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.InitSchema(baza); err != nil {
+		t.Fatal(err)
+	}
+	spremiste, err := sadrzaj.Otvori(filepath.Join(dir, "sadrzaj.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer spremiste.Zatvori()
+	prijasnje := Spremiste()
+	SetSpremiste(spremiste)
+	defer SetSpremiste(prijasnje)
+	ctx := context.Background()
+	if _, _, err := PreseliSadrzaj(ctx, baza); err != nil {
+		t.Fatal(err)
+	}
+	repo := NewPrijavaRepository(baza, ledger.New(baza, "cvor"))
+	if b, _ := repo.Slika(ctx, "s-stara"); string(b) != string(stara) {
+		t.Errorf("preseljena fotografija: %q", b)
+	}
+	var ima int
+	_ = baza.QueryRow(`SELECT count(*) FROM sqlite_master WHERE name LIKE 'prijave_slike%'`).Scan(&ima)
+	if ima != 0 {
+		t.Error("tablica fotografija je ostala")
+	}
+
+	// nova fotografija: sprema se po otisku i čita natrag
+	objavljeno := time.Now().AddDate(0, 0, -400)
+	p := &models.PrijavaSTerena{ID: "p1", UserID: "u1", Sektor: "B", AreaID: 16, Vrsta: models.PrijavaObavijest,
+		Naslov: "Proba", Opis: "x", Datum: time.Now(), Status: models.PrijavaObjavljena, ObjavljenoAt: &objavljeno}
+	jpg := []byte("nova fotografija")
+	p.Slike = []models.SlikaPrijave{{ID: "s1", Bajtova: len(jpg), Sadrzaj: sadrzaj.Otisak(jpg)}}
+	if err := repo.Save(ctx, p); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.SaveSlika(ctx, "s1", p.ID, jpg); err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := repo.Slika(ctx, "s1"); string(b) != string(jpg) {
+		t.Fatalf("nova fotografija: %q", b)
+	}
+	// rok čuvanja: objavljena prijava starija od roka gubi fotografije
+	n, err := repo.ObrisiStareSlike(ctx, time.Now().AddDate(0, 0, -180))
+	if err != nil || n != 1 {
+		t.Fatalf("otpuštanje po roku: %d %v", n, err)
+	}
+	if b, _ := repo.Slika(ctx, "s1"); len(b) != 0 {
+		t.Error("fotografija je ostala nakon roka")
+	}
+	if st, _ := spremiste.Stanje(ctx); st.Sirocadi != 0 {
+		t.Errorf("siročad nakon otpuštanja: %+v", st)
 	}
 }

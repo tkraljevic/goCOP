@@ -93,6 +93,9 @@ type SlikaPrijave struct {
 	// se smanjena slika u dokumentu može vezati uz original ako se pojavi
 	IzvornoBajtova int    `json:"izvorno_bajtova,omitempty"`
 	Otisak         string `json:"otisak,omitempty"`
+	// Sadrzaj je otisak smanjene slike kakva stoji u spremištu sadržaja: po
+	// njemu je čvor koji prijavu primi razmjenom može dohvatiti
+	Sadrzaj string `json:"sadrzaj,omitempty"`
 }
 
 // ImaPolozaj javlja je li uz fotografiju zapisan položaj

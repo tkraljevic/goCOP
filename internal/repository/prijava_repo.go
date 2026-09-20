@@ -12,6 +12,7 @@ import (
 
 	"gocop/internal/ledger"
 	"gocop/internal/models"
+	"gocop/internal/sadrzaj"
 )
 
 // EntityPrijave su prijave i obavijesti s terena u knjizi verzija
@@ -334,10 +335,11 @@ func (r *PrijavaRepository) Delete(ctx context.Context, id string) error {
 		return err
 	}
 	defer tx.Rollback()
-	for _, t := range []string{`DELETE FROM prijave_slike WHERE prijava_id = ?`, `DELETE FROM prijave WHERE id = ?`} {
-		if _, err := tx.ExecContext(ctx, t, id); err != nil {
-			return err
-		}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM prijave WHERE id = ?`, id); err != nil {
+		return err
+	}
+	for _, sl := range p.Slike {
+		_ = r.DeleteSlika(ctx, sl.ID)
 	}
 	if _, err := r.rec.Archive(ctx, tx, EntityPrijave, id, p); err != nil {
 		return err
@@ -347,36 +349,82 @@ func (r *PrijavaRepository) Delete(ctx context.Context, id string) error {
 
 // ---- slike: lokalno, s rokom ----
 
-// SaveSlika sprema smanjenu fotografiju uz prijavu, samo na ovom čvoru
+// SaveSlika sprema smanjenu fotografiju u spremište sadržaja, vezanu uz
+// prijavu. Otisak je otisak samih bajtova, pa ga pozivatelj zna i unaprijed.
 func (r *PrijavaRepository) SaveSlika(ctx context.Context, id, prijavaID string, jpg []byte) error {
-	_, err := r.db.ExecContext(ctx, `INSERT INTO prijave_slike (id, prijava_id, slika, created_at) VALUES (?, ?, ?, ?)`, id, prijavaID, jpg, time.Now().UTC())
+	_, err := spremiSadrzaj(ctx, "image/jpeg", jpg, sadrzaj.Veza{
+		Entitet: EntityPrijave, EntitetID: prijavaID, Uloga: ulogaSlike(id), Kanal: kanalPrijaveIz(ctx, r.db, prijavaID)})
 	return err
 }
 
-// Slika čita jednu fotografiju; nil kad je nema (obrisana nakon roka ili na drugom čvoru)
+// ulogaSlike je oznaka veze pod kojom fotografija stoji u spremištu
+func ulogaSlike(id string) string { return "slika:" + id }
+
+// Slika čita jednu fotografiju; nil kad je nema (otpuštena nakon roka ili
+// je ovaj čvor nikad nije dohvatio)
 func (r *PrijavaRepository) Slika(ctx context.Context, id string) ([]byte, error) {
-	var b []byte
-	err := r.db.QueryRowContext(ctx, `SELECT slika FROM prijave_slike WHERE id = ?`, id).Scan(&b)
-	if err == sql.ErrNoRows {
+	if spremiste == nil {
 		return nil, nil
 	}
-	return b, err
+	otisak := spremiste.OtisakPoUlozi(ctx, EntityPrijave, ulogaSlike(id))
+	if otisak == "" {
+		return nil, nil
+	}
+	return ucitajSadrzaj(ctx, otisak), nil
 }
 
-// DeleteSlika briše jednu fotografiju
+// DeleteSlika miče jednu fotografiju s ovog računala
 func (r *PrijavaRepository) DeleteSlika(ctx context.Context, id string) error {
-	_, err := r.db.ExecContext(ctx, `DELETE FROM prijave_slike WHERE id = ?`, id)
-	return err
+	if spremiste == nil {
+		return nil
+	}
+	otisak := spremiste.OtisakPoUlozi(ctx, EntityPrijave, ulogaSlike(id))
+	if otisak == "" {
+		return nil
+	}
+	if err := spremiste.OdveziUlogu(ctx, EntityPrijave, ulogaSlike(id)); err != nil {
+		return err
+	}
+	_ = spremiste.Ukloni(ctx, otisak) // drži li je još koja prijava, ostaje
+	return nil
 }
 
-// ObrisiStareSlike briše izvorne fotografije objavljenih prijava starijih
-// od roka; PDF ih nosi dalje. Vraća koliko je obrisano.
+// ObrisiStareSlike miče fotografije objavljenih prijava starijih od roka;
+// PDF ih nosi dalje. Vraća koliko ih je maknuto.
 func (r *PrijavaRepository) ObrisiStareSlike(ctx context.Context, prije time.Time) (int64, error) {
-	res, err := r.db.ExecContext(ctx, `DELETE FROM prijave_slike WHERE created_at < ? AND prijava_id IN (SELECT id FROM prijave WHERE objavljeno_at IS NOT NULL AND objavljeno_at < ?)`, prije.UTC(), prije.UTC())
+	if spremiste == nil {
+		return 0, nil
+	}
+	rows, err := r.db.QueryContext(ctx, `SELECT podaci FROM prijave WHERE objavljeno_at IS NOT NULL AND objavljeno_at < ?`, prije.UTC())
 	if err != nil {
 		return 0, err
 	}
-	return res.RowsAffected()
+	var svi [][]models.SlikaPrijave
+	for rows.Next() {
+		var pod string
+		if err := rows.Scan(&pod); err != nil {
+			rows.Close()
+			return 0, err
+		}
+		var x podaciPrijave
+		if json.Unmarshal([]byte(pod), &x) == nil && len(x.Slike) > 0 {
+			svi = append(svi, x.Slike)
+		}
+	}
+	rows.Close()
+	var n int64
+	for _, slike := range svi {
+		for _, sl := range slike {
+			if spremiste.OtisakPoUlozi(ctx, EntityPrijave, ulogaSlike(sl.ID)) == "" {
+				continue
+			}
+			if err := r.DeleteSlika(ctx, sl.ID); err != nil {
+				return n, err
+			}
+			n++
+		}
+	}
+	return n, nil
 }
 
 // Izvornik čita potpisani PDF prijave; nil kad ga nema. Zapis s otiskom a

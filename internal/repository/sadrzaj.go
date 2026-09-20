@@ -113,6 +113,48 @@ func popuniOpis(otisak *string, bajtova *int, vrsta *string, b []byte) {
 	}
 }
 
+// ---- fotografije prijava ----
+
+// primiSlikePrijave veže fotografije primljene prijave uz njihov sadržaj i
+// upisuje što nedostaje na popis za dohvat. Fotografije objavljenih prijava
+// starijih od roka čuvanja ne traže se: ovaj čvor ih je namjerno otpustio,
+// pa bi ih razmjena inače vraćala u krug.
+func primiSlikePrijave(ctx context.Context, tx *sql.Tx, p *models.PrijavaSTerena, kanal string) {
+	if spremiste == nil || len(p.Slike) == 0 {
+		return
+	}
+	trazi := true
+	if p.ObjavljenoAt != nil {
+		dani := cuvanjeSlikaDana(ctx, tx)
+		trazi = p.ObjavljenoAt.After(time.Now().AddDate(0, 0, -dani))
+	}
+	for _, sl := range p.Slike {
+		if sl.Sadrzaj == "" {
+			continue // opis otprije spremišta: fotografija se ne da dohvatiti
+		}
+		veza := sadrzaj.Veza{Entitet: EntityPrijave, EntitetID: p.ID, Uloga: ulogaSlike(sl.ID), Kanal: kanal}
+		if err := spremiste.Vezi(ctx, sl.Sadrzaj, veza); err != nil {
+			continue
+		}
+		if trazi {
+			_ = spremiste.Zeli(ctx, sl.Sadrzaj, "image/jpeg", sl.Bajtova, "pretplata", kanal)
+		}
+	}
+}
+
+// cuvanjeSlikaDana čita rok čuvanja fotografija iz općih opcija
+func cuvanjeSlikaDana(ctx context.Context, tx *sql.Tx) int {
+	var vrijednost string
+	if err := tx.QueryRowContext(ctx, `SELECT vrijednost FROM postavke WHERE id = ?`, PostavkaOpcije).Scan(&vrijednost); err != nil {
+		return models.Opcije{}.CuvanjeSlika()
+	}
+	var o models.Opcije
+	if json.Unmarshal([]byte(vrijednost), &o) != nil {
+		return models.Opcije{}.CuvanjeSlika()
+	}
+	return o.CuvanjeSlika()
+}
+
 // ---- jednokratno seljenje izvornika u spremište ----
 
 // preseljenje opisuje jednu tablicu izvornika otprije spremišta sadržaja
@@ -155,12 +197,12 @@ func kanalDnevnikaIz(ctx context.Context, db *sql.DB, id string) string {
 	return kanal.String
 }
 
-// PreseliIzvornike seli PDF-ove iz tablica otprije spremišta sadržaja u
-// spremište i prepisuje njihove verzije u knjizi tako da nose samo otisak.
-// Jedina iznimka od pravila da se knjiga ne prepisuje: radi se jednom, na
-// svakom čvoru za njegove vlastite zapise, i verzija zadržava isti
-// version_id. Vraća koliko je izvornika preseljeno i koliko bajtova.
-func PreseliIzvornike(ctx context.Context, db *sql.DB) (int, int64, error) {
+// PreseliSadrzaj seli PDF-ove i fotografije iz tablica otprije spremišta
+// sadržaja u spremište i prepisuje njihove verzije u knjizi tako da nose
+// samo otisak. Jedina iznimka od pravila da se knjiga ne prepisuje: radi se
+// jednom, na svakom čvoru za njegove vlastite zapise, i verzija zadržava
+// isti version_id. Vraća koliko je datoteka preseljeno i koliko bajtova.
+func PreseliSadrzaj(ctx context.Context, db *sql.DB) (int, int64, error) {
 	var ukupno int
 	var bajtova int64
 	for _, p := range preseljenja {
@@ -171,7 +213,75 @@ func PreseliIzvornike(ctx context.Context, db *sql.DB) (int, int64, error) {
 			return ukupno, bajtova, fmt.Errorf("%s: %w", p.nova, err)
 		}
 	}
+	n, b, err := preseliSlike(ctx, db)
+	ukupno += n
+	bajtova += b
+	if err != nil {
+		return ukupno, bajtova, fmt.Errorf("fotografije prijava: %w", err)
+	}
 	return ukupno, bajtova, nil
+}
+
+// preseliSlike premješta fotografije prijava iz stare tablice u spremište.
+// Opis fotografije u knjizi verzija ostaje kakav je bio: otisak smanjene
+// slike u njemu nose tek fotografije snimljene nakon ove promjene, a stare
+// se nalaze po vezi s oznakom fotografije, pa i dalje rade na ovom čvoru.
+func preseliSlike(ctx context.Context, db *sql.DB) (int, int64, error) {
+	var ima int
+	if err := db.QueryRowContext(ctx, `SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'prijave_slike_stari'`).Scan(&ima); err != nil {
+		return 0, 0, err
+	}
+	if ima == 0 {
+		return 0, 0, nil
+	}
+	if spremiste == nil {
+		return 0, 0, errBezSpremista
+	}
+	rows, err := db.QueryContext(ctx, `SELECT id, prijava_id, slika FROM prijave_slike_stari`)
+	if err != nil {
+		return 0, 0, err
+	}
+	type red struct {
+		id, prijavaID string
+		jpg           []byte
+	}
+	var redovi []red
+	for rows.Next() {
+		var r red
+		if err := rows.Scan(&r.id, &r.prijavaID, &r.jpg); err != nil {
+			rows.Close()
+			return 0, 0, err
+		}
+		redovi = append(redovi, r)
+	}
+	rows.Close()
+	var n int
+	var bajtova int64
+	for _, r := range redovi {
+		if len(r.jpg) == 0 {
+			continue
+		}
+		if _, err := spremiSadrzaj(ctx, "image/jpeg", r.jpg, sadrzaj.Veza{
+			Entitet: EntityPrijave, EntitetID: r.prijavaID, Uloga: ulogaSlike(r.id),
+			Kanal: kanalPrijaveIz(ctx, db, r.prijavaID)}); err != nil {
+			return n, bajtova, err
+		}
+		if _, err := db.ExecContext(ctx, `DELETE FROM prijave_slike_stari WHERE id = ?`, r.id); err != nil {
+			return n, bajtova, err
+		}
+		n++
+		bajtova += int64(len(r.jpg))
+	}
+	var ostalo int
+	if err := db.QueryRowContext(ctx, `SELECT count(*) FROM prijave_slike_stari`).Scan(&ostalo); err != nil {
+		return n, bajtova, err
+	}
+	if ostalo == 0 {
+		if _, err := db.ExecContext(ctx, `DROP TABLE prijave_slike_stari`); err != nil {
+			return n, bajtova, err
+		}
+	}
+	return n, bajtova, nil
 }
 
 func preseliJednu(ctx context.Context, db *sql.DB, p preseljenje) (int, int64, error) {

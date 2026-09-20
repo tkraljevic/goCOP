@@ -14,6 +14,7 @@ import (
 
 	"gocop/internal/models"
 	"gocop/internal/repository"
+	"gocop/internal/sadrzaj"
 	"gocop/internal/slike"
 )
 
@@ -287,7 +288,7 @@ func RunPrijave(ctx context.Context, src Source, deps PrijaveDeps) (PrijaveRepor
 				logf("  obavijest %d: slika %s: %v", o.ID, sid, err)
 				continue
 			}
-			sl := models.SlikaPrijave{ID: uuid.NewSHA1(uuid.NameSpaceURL, []byte("gocop/"+izvor+"/"+sid)).String(), Naziv: "fotografija " + fmt.Sprint(len(p.Slike)+1), Sirina: w, Visina: h, Bajtova: len(jpg)}
+			sl := models.SlikaPrijave{ID: uuid.NewSHA1(uuid.NameSpaceURL, []byte("gocop/"+izvor+"/"+sid)).String(), Naziv: "fotografija " + fmt.Sprint(len(p.Slike)+1), Sirina: w, Visina: h, Bajtova: len(jpg), Sadrzaj: sadrzaj.Otisak(jpg)}
 			if e := slike.Procitaj(b); true {
 				if !e.Snimljeno.IsZero() {
 					k := e.Snimljeno

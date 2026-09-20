@@ -395,7 +395,6 @@ func (s *Service) PurgeChannel(ctx context.Context, channel string) (int64, erro
 		_, area, year := ledger.SplitChannel(channel)
 		for _, stmt := range []string{
 			`DELETE FROM prijave_izvornici WHERE prijava_id IN (SELECT id FROM prijave WHERE area_id = ? AND substr(datum, 1, 4) = ?)`,
-			`DELETE FROM prijave_slike WHERE prijava_id IN (SELECT id FROM prijave WHERE area_id = ? AND substr(datum, 1, 4) = ?)`,
 			`DELETE FROM prijave WHERE area_id = ? AND substr(datum, 1, 4) = ?`,
 		} {
 			if _, err := tx.ExecContext(ctx, stmt, area, fmt.Sprint(year)); err != nil {
@@ -409,7 +408,16 @@ func (s *Service) PurgeChannel(ctx context.Context, channel string) (int64, erro
 	if err != nil {
 		return 0, err
 	}
-	return n, tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	// sadržaj kanala (PDF-ovi, fotografije) više nema tko tražiti
+	if sp := s.spremisteSadrzaja(); sp != nil {
+		if _, _, err := sp.ObrisiKanal(ctx, channel); err != nil {
+			return n, err
+		}
+	}
+	return n, nil
 }
 
 // PurgeUnwanted briše sve kanale koje pretplata više ne pokriva

@@ -377,13 +377,6 @@ func InitSchema(database *sql.DB) error {
 			updated_at DATETIME NOT NULL
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_prijave_sektor ON prijave(sektor, area_id, datum);`,
-		`CREATE TABLE IF NOT EXISTS prijave_slike (
-			id TEXT PRIMARY KEY,
-			prijava_id TEXT NOT NULL,
-			slika BLOB NOT NULL,
-			created_at DATETIME NOT NULL
-		);`,
-		`CREATE INDEX IF NOT EXISTS idx_prijave_slike_prijava ON prijave_slike(prijava_id);`,
 		// izvornici prijava: bajtovi PDF-a su u spremištu sadržaja (sadrzaj.db),
 		// ovdje samo otisak po kojem se čitaju
 		`CREATE TABLE IF NOT EXISTS prijave_izvornici (
@@ -1154,6 +1147,16 @@ func migrateSchema(database *sql.DB) error {
 			return fmt.Errorf("prijave: arhivirana u riješena: %w", err)
 		}
 	}
+	// Fotografije prijava otprije spremišta sadržaja stoje u tablici; skloni
+	// se, a program ih pri pokretanju preseli (repository.PreseliSadrzaj).
+	if ima, err := columnExists(database, "prijave_slike", "slika"); err != nil {
+		return err
+	} else if ima {
+		if _, err := database.Exec(`ALTER TABLE prijave_slike RENAME TO prijave_slike_stari`); err != nil {
+			return fmt.Errorf("fotografije prijava u spremište: %w", err)
+		}
+	}
+
 	// Izvornici otprije spremišta sadržaja nose PDF u tablici; takva se
 	// tablica skloni pod starim imenom, a program pri pokretanju preseli
 	// bajtove u spremište (repository.PreseliIzvornike).

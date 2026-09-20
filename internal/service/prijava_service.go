@@ -13,6 +13,7 @@ import (
 
 	"gocop/internal/models"
 	"gocop/internal/repository"
+	"gocop/internal/sadrzaj"
 	"gocop/internal/slike"
 )
 
@@ -182,7 +183,7 @@ func (s *PrijavaService) DodajSliku(ctx context.Context, u *models.User, id, naz
 	if err != nil {
 		return nil, err
 	}
-	sl := models.SlikaPrijave{ID: uuid.Must(uuid.NewV7()).String(), Naziv: strings.TrimSpace(naziv), Sirina: w, Visina: h, Bajtova: len(jpg)}
+	sl := models.SlikaPrijave{ID: uuid.Must(uuid.NewV7()).String(), Naziv: strings.TrimSpace(naziv), Sirina: w, Visina: h, Bajtova: len(jpg), Sadrzaj: sadrzaj.Otisak(jpg)}
 	sl.Snimljeno, sl.Lat, sl.Lon, sl.Uredjaj = podaciFotoaparata(slike.Procitaj(podaci))
 	otisak := sha256.Sum256(podaci)
 	sl.IzvornoBajtova, sl.Otisak = len(podaci), hex.EncodeToString(otisak[:])

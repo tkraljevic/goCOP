@@ -451,8 +451,11 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		if err := json.Unmarshal(v.Payload, &p); err != nil {
 			return err
 		}
-		_, err := tx.ExecContext(ctx, prijavaUpsert, prijavaArgs(&p)...)
-		return err
+		if _, err := tx.ExecContext(ctx, prijavaUpsert, prijavaArgs(&p)...); err != nil {
+			return err
+		}
+		primiSlikePrijave(ctx, tx, &p, v.Channel)
+		return nil
 
 	case EntityPrijaveIzvornici:
 		var iz models.IzvornikLista

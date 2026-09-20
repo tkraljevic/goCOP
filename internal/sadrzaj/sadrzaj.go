@@ -258,6 +258,59 @@ func (s *Spremiste) Vezi(ctx context.Context, otisak string, v Veza) error {
 	return err
 }
 
+// OtisakPoUlozi vraća otisak sadržaja vezanog uz zapis u zadanoj ulozi;
+// prazno kad takve veze nema. Uloga fotografije nosi njezinu oznaku
+// ("slika:<id>"), pa se sadržaj nađe i bez znanja o otisku.
+func (s *Spremiste) OtisakPoUlozi(ctx context.Context, entitet, uloga string) string {
+	var otisak string
+	_ = s.db.QueryRowContext(ctx, `SELECT otisak FROM sadrzaj_veze WHERE entitet = ? AND uloga = ? LIMIT 1`, entitet, uloga).Scan(&otisak)
+	return otisak
+}
+
+// OdveziUlogu miče jednu vezu; sadržaj koji time ostane bez ijedne veze
+// smije se ukloniti
+func (s *Spremiste) OdveziUlogu(ctx context.Context, entitet, uloga string) error {
+	_, err := s.db.ExecContext(ctx, `DELETE FROM sadrzaj_veze WHERE entitet = ? AND uloga = ?`, entitet, uloga)
+	return err
+}
+
+// ObrisiKanal miče s računala sav sadržaj jednog kanala i njegove veze; radi
+// se kad se kanal briše s čvora, pa sadržaj više nema tko tražiti
+func (s *Spremiste) ObrisiKanal(ctx context.Context, kanal string) (int, int64, error) {
+	if kanal == "" {
+		return 0, 0, nil
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT otisak, bajtova FROM sadrzaj WHERE kanal = ?`, kanal)
+	if err != nil {
+		return 0, 0, err
+	}
+	var otisci []string
+	var bajtova int64
+	for rows.Next() {
+		var o string
+		var n int
+		if err := rows.Scan(&o, &n); err != nil {
+			rows.Close()
+			return 0, 0, err
+		}
+		otisci = append(otisci, o)
+		bajtova += int64(n)
+	}
+	rows.Close()
+	for _, o := range otisci {
+		if _, err := s.db.ExecContext(ctx, `DELETE FROM sadrzaj_veze WHERE otisak = ?`, o); err != nil {
+			return 0, 0, err
+		}
+		if _, err := s.db.ExecContext(ctx, `DELETE FROM sadrzaj WHERE otisak = ?`, o); err != nil {
+			return 0, 0, err
+		}
+	}
+	if _, err := s.db.ExecContext(ctx, `DELETE FROM sadrzaj_zeljen WHERE kanal = ?`, kanal); err != nil {
+		return 0, 0, err
+	}
+	return len(otisci), bajtova, nil
+}
+
 // Odvezi miče sve veze jednog zapisa (kad zapis nestane); sadržaj ostaje
 // dok ga pospremanje ne prepozna kao siroče
 func (s *Spremiste) Odvezi(ctx context.Context, entitet, entitetID string) error {
