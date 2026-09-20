@@ -61,13 +61,15 @@ type PrijavaSTerena struct {
 	// prijave_slike i brišu se nakon roka, a PDF ih nosi trajno
 	Slike []SlikaPrijave `json:"slike,omitempty"`
 
-	Status       string     `json:"status"` // PrijavaNacrt, PrijavaObjavljena, PrijavaArhivirana
+	Status       string     `json:"status"` // PrijavaNacrt, PrijavaObjavljena, PrijavaRijesena
 	ObjavljenoAt *time.Time `json:"objavljeno_at,omitempty"`
 	ListID       string     `json:"list_id,omitempty"` // dnevni list na koji je prijava upisana
 	ListBroj     int        `json:"list_broj,omitempty"`
-	ArhiviraoID  string     `json:"arhivirao_id,omitempty"`
-	Arhivirao    string     `json:"arhivirao,omitempty"`
-	ArhiviranoAt *time.Time `json:"arhivirano_at,omitempty"`
+	// rukovoditelj je prijavu pregledao i riješio; to nije arhiviranje u
+	// smislu repozitorija (službena je od objave), nego zatvaranje predmeta
+	RijesioID  string     `json:"rijesio_id,omitempty"`
+	Rijesio    string     `json:"rijesio,omitempty"`
+	RijesenoAt *time.Time `json:"rijeseno_at,omitempty"`
 
 	Cvor      string    `json:"cvor,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
@@ -171,7 +173,7 @@ var VrstePrijava = []string{PrijavaObavijest, PrijavaPrijava, PrijavaIzvjesce, P
 const (
 	PrijavaNacrt      = "NACRT"
 	PrijavaObjavljena = "OBJAVLJENA"
-	PrijavaArhivirana = "ARHIVIRANA"
+	PrijavaRijesena   = "RIJESENA"
 )
 
 // NajviseSlika je koliko fotografija prijava nosi
@@ -203,19 +205,19 @@ func (p PrijavaSTerena) Oznaka() string {
 	return fmt.Sprintf("%s-T-%d/%d", p.Sektor, p.Broj, p.Godina)
 }
 
-// Objavljena javlja je li prijava objavljena (ili poslije arhivirana)
+// Objavljena javlja je li prijava objavljena (ili poslije riješena)
 func (p PrijavaSTerena) Objavljena() bool { return p.ObjavljenoAt != nil }
 
-// Arhivirana javlja je li prijava arhivirana
-func (p PrijavaSTerena) Arhivirana() bool { return p.Status == PrijavaArhivirana }
+// Rijesena javlja je li rukovoditelj prijavu pregledao i riješio
+func (p PrijavaSTerena) Rijesena() bool { return p.Status == PrijavaRijesena }
 
 // StanjeLabel vraća stanje za prikaz
 func (p PrijavaSTerena) StanjeLabel() string {
 	switch p.Status {
 	case PrijavaObjavljena:
 		return "objavljena"
-	case PrijavaArhivirana:
-		return "arhivirana"
+	case PrijavaRijesena:
+		return "riješena"
 	}
 	return "nacrt"
 }

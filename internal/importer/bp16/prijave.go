@@ -230,7 +230,7 @@ func RunPrijave(ctx context.Context, src Source, deps PrijaveDeps) (PrijaveRepor
 		case "objavljeno":
 			p.Status = models.PrijavaObjavljena
 		case "arhivirano":
-			p.Status = models.PrijavaArhivirana
+			p.Status = models.PrijavaRijesena
 		default:
 			p.Status = models.PrijavaNacrt
 			rep.Nacrta++

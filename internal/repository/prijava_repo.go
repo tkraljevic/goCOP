@@ -53,9 +53,9 @@ type podaciPrijave struct {
 	Slike          []models.SlikaPrijave `json:"slike,omitempty"`
 	ListID         string                `json:"list_id,omitempty"`
 	ListBroj       int                   `json:"list_broj,omitempty"`
-	ArhiviraoID    string                `json:"arhivirao_id,omitempty"`
-	Arhivirao      string                `json:"arhivirao,omitempty"`
-	ArhiviranoAt   *time.Time            `json:"arhivirano_at,omitempty"`
+	RijesioID      string                `json:"rijesio_id,omitempty"`
+	Rijesio        string                `json:"rijesio,omitempty"`
+	RijesenoAt     *time.Time            `json:"rijeseno_at,omitempty"`
 	Cvor           string                `json:"cvor,omitempty"`
 }
 
@@ -63,7 +63,7 @@ func prijavaArgs(p *models.PrijavaSTerena) []any {
 	pod, _ := json.Marshal(podaciPrijave{VodotokCode: p.VodotokCode, Vodotok: p.Vodotok, DionicaCode: p.DionicaCode, ObjektID: p.ObjektID, Objekt: p.Objekt,
 		Latitude: p.Latitude, Longitude: p.Longitude, Stacionaza: p.Stacionaza, Element: p.Element, Vaznost: p.Vaznost,
 		Klasa: p.Klasa, Urbroj: p.Urbroj, PrimljenoAt: p.PrimljenoAt, Rekonstrukcija: p.Rekonstrukcija, Izvor: p.Izvor, Sken: p.Sken, Slike: p.Slike, ListID: p.ListID, ListBroj: p.ListBroj,
-		ArhiviraoID: p.ArhiviraoID, Arhivirao: p.Arhivirao, ArhiviranoAt: p.ArhiviranoAt, Cvor: p.Cvor})
+		RijesioID: p.RijesioID, Rijesio: p.Rijesio, RijesenoAt: p.RijesenoAt, Cvor: p.Cvor})
 	var objavljeno any
 	if p.ObjavljenoAt != nil {
 		objavljeno = p.ObjavljenoAt.UTC()
@@ -90,7 +90,10 @@ func scanPrijava(row rowScanner) (*models.PrijavaSTerena, error) {
 	p.Latitude, p.Longitude, p.Stacionaza, p.Slike = x.Latitude, x.Longitude, x.Stacionaza, x.Slike
 	p.Element, p.Vaznost, p.Klasa, p.Urbroj, p.PrimljenoAt = x.Element, x.Vaznost, x.Klasa, x.Urbroj, x.PrimljenoAt
 	p.Rekonstrukcija, p.Izvor, p.Sken = x.Rekonstrukcija, x.Izvor, x.Sken
-	p.ListID, p.ListBroj, p.ArhiviraoID, p.Arhivirao, p.ArhiviranoAt, p.Cvor = x.ListID, x.ListBroj, x.ArhiviraoID, x.Arhivirao, x.ArhiviranoAt, x.Cvor
+	p.ListID, p.ListBroj, p.RijesioID, p.Rijesio, p.RijesenoAt, p.Cvor = x.ListID, x.ListBroj, x.RijesioID, x.Rijesio, x.RijesenoAt, x.Cvor
+	if p.Status == "ARHIVIRANA" { // zapis otprije preimenovanja, s drugog čvora
+		p.Status = models.PrijavaRijesena
+	}
 	return &p, nil
 }
 

@@ -122,7 +122,7 @@ func TestUvozObavijestiSTerena(t *testing.T) {
 	if iz, _ := repo.Izvornik(context.Background(), prijava.ID); iz == nil || !bytes.Contains(iz.PDF, []byte("rekonstrukcija B-T-1/2024")) || prijava.Sken != "" {
 		t.Fatal("izvornik treba biti PDF iz podataka, sken se ne preuzima kad ga nema kamo spremiti")
 	}
-	if obavijest == nil || obavijest.Status != models.PrijavaArhivirana || obavijest.AreaID != 16 || obavijest.Broj != 2 || obavijest.Objekt != "" {
+	if obavijest == nil || obavijest.Status != models.PrijavaRijesena || obavijest.AreaID != 16 || obavijest.Broj != 2 || obavijest.Objekt != "" {
 		t.Fatalf("obavijest: %+v", obavijest)
 	}
 	if iz, _ := repo.Izvornik(context.Background(), obavijest.ID); iz == nil || !bytes.Contains(iz.PDF, []byte("rekonstrukcija B-T-2/2024")) {

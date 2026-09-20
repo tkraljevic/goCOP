@@ -73,9 +73,9 @@ func (s *PrijavaService) SmijeVidjeti(perms *models.UserPermissions, p *models.P
 	return s.vodocuvar.SmijeVidjeti(perms, probniList(p))
 }
 
-// SmijeArhivirati javlja smije li osoba arhivirati objavljenu prijavu:
+// SmijeRijesiti javlja smije li osoba označiti objavljenu prijavu riješenom:
 // rukovoditelji koji ovjeravaju listove tog vodočuvara
-func (s *PrijavaService) SmijeArhivirati(perms *models.UserPermissions, p *models.PrijavaSTerena) bool {
+func (s *PrijavaService) SmijeRijesiti(perms *models.UserPermissions, p *models.PrijavaSTerena) bool {
 	return perms != nil && p != nil && p.Status == models.PrijavaObjavljena && s.vodocuvar.SmijeOvjeriti(perms, probniList(p))
 }
 
@@ -397,17 +397,18 @@ func (s *PrijavaService) Urudzbiraj(ctx context.Context, perms *models.UserPermi
 	return p, s.repo.Urudzbiraj(ctx, p, pdf, sazetak)
 }
 
-// Arhiviraj zatvara objavljenu prijavu: rukovoditelj je pregledao i riješio
-func (s *PrijavaService) Arhiviraj(ctx context.Context, perms *models.UserPermissions, u *models.User, id string) (*models.PrijavaSTerena, error) {
+// Rijesi zatvara objavljenu prijavu: rukovoditelj je pregledao i riješio.
+// Sve ostalo (PDF, potpis, upis na list) ostaje kako jest.
+func (s *PrijavaService) Rijesi(ctx context.Context, perms *models.UserPermissions, u *models.User, id string) (*models.PrijavaSTerena, error) {
 	p, err := s.repo.Get(ctx, id)
 	if err != nil || p == nil {
 		return nil, fmt.Errorf("prijava ne postoji")
 	}
-	if u == nil || !s.SmijeArhivirati(perms, p) {
+	if u == nil || !s.SmijeRijesiti(perms, p) {
 		return nil, ErrUnauthorized
 	}
 	sad := time.Now()
-	p.Status, p.ArhiviraoID, p.Arhivirao, p.ArhiviranoAt = models.PrijavaArhivirana, u.ID.String(), u.FullName, &sad
+	p.Status, p.RijesioID, p.Rijesio, p.RijesenoAt = models.PrijavaRijesena, u.ID.String(), u.FullName, &sad
 	return p, s.repo.Save(ctx, p)
 }
 

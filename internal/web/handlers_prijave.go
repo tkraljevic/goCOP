@@ -18,7 +18,7 @@ import (
 
 // PrijaveHandler vodi prijave i obavijesti s terena: vodočuvar ih sastavlja
 // s fotografijama i mjestom na karti, objavi i potpiše; rukovoditelji ih
-// čitaju i arhiviraju. Potpis i sken dijeli s dnevnim listom.
+// čitaju i označe riješenima. Potpis i sken dijeli s dnevnim listom.
 type PrijaveHandler struct {
 	svc       func() *service.PrijavaService
 	users     *service.UserService
@@ -95,17 +95,17 @@ type PrijavePageData struct {
 	Upit                                  string // tekući izbor bez broja stranice, za poveznice
 
 	// jedna prijava
-	Prijava         *models.PrijavaSTerena
-	Moja            bool
-	Podrucje        *models.Area
-	Karta           KartaPostavke
-	Vode            []models.Watercourse
-	Objekti         []models.Structure
-	Izvornik        potpisiIzvornika
-	ImaKljuc        bool
-	Simulacija      bool
-	SmijeArhivirati bool
-	Lat, Lon        string
+	Prijava       *models.PrijavaSTerena
+	Moja          bool
+	Podrucje      *models.Area
+	Karta         KartaPostavke
+	Vode          []models.Watercourse
+	Objekti       []models.Structure
+	Izvornik      potpisiIzvornika
+	ImaKljuc      bool
+	Simulacija    bool
+	SmijeRijesiti bool
+	Lat, Lon      string
 }
 
 func (h *PrijaveHandler) base(r *http.Request) (*models.User, *models.UserPermissions, PrijavePageData) {
@@ -320,7 +320,7 @@ func (h *PrijaveHandler) ShowPrijava(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	d.Prijava, d.Moja = p, p.UserID == u.ID.String()
-	d.SmijeArhivirati = s.SmijeArhivirati(perms, p)
+	d.SmijeRijesiti = s.SmijeRijesiti(perms, p)
 	h.popuniMjesto(r.Context(), &d, p)
 	if h.vod.potpis != nil {
 		if ps := h.vod.potpis(); ps != nil {
@@ -391,7 +391,7 @@ func (h *PrijaveHandler) biljeskaUrudzbe(r *http.Request, s *service.PrijavaServ
 	}
 }
 
-// HandleRadnja: objavi (s lozinkom za potpis), arhiviraj, urudžbiraj, obriši nacrt, makni sliku
+// HandleRadnja: objavi (s lozinkom za potpis), riješi, urudžbiraj, obriši nacrt, makni sliku
 func (h *PrijaveHandler) HandleRadnja(w http.ResponseWriter, r *http.Request) {
 	u, perms, _ := h.base(r)
 	s := h.service(w)
@@ -436,14 +436,14 @@ func (h *PrijaveHandler) HandleRadnja(w http.ResponseWriter, r *http.Request) {
 		if upozorenje != "" {
 			poruka += " " + upozorenje
 		}
-	case "arhiviraj":
+	case "rijesi":
 		if ur := urudzbaIzObrasca(r); ur.Klasa != "" || ur.Urbroj != "" {
 			if _, err = s.Urudzbiraj(r.Context(), perms, u, id, ur, h.biljeskaUrudzbe(r, s, u)); err != nil {
 				break
 			}
 		}
-		_, err = s.Arhiviraj(r.Context(), perms, u, id)
-		poruka = "Prijava je arhivirana."
+		_, err = s.Rijesi(r.Context(), perms, u, id)
+		poruka = "Prijava je označena kao pregledana i riješena."
 	case "urudzbiraj":
 		_, err = s.Urudzbiraj(r.Context(), perms, u, id, urudzbaIzObrasca(r), h.biljeskaUrudzbe(r, s, u))
 		poruka = "Klasa i urudžbeni broj su upisani i dopisani na PDF; potpis vodočuvara ostaje kakav jest."

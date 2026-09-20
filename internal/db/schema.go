@@ -1116,6 +1116,31 @@ var renamedColumns = []struct {
 // terenskim laptopima koji se ne stvaraju iznova — bez ovoga bi stara baza
 // pucala na prvom upitu koji traži novi stupac.
 func migrateSchema(database *sql.DB) error {
+	// "Arhivirana" prijava preimenovana je u "riješena": arhiviranje u smislu
+	// repozitorija događa se objavom, a ovo je rukovoditeljevo zatvaranje
+	// predmeta. Stanje i polja mijenjaju se u tablici, u podacima i u knjizi
+	// verzija (isti version_id), jednom.
+	for _, q := range []string{
+		`UPDATE prijave SET status = 'RIJESENA' WHERE status = 'ARHIVIRANA'`,
+		`UPDATE prijave SET podaci = json_remove(json_set(podaci,
+			'$.rijesio_id', json_extract(podaci, '$.arhivirao_id'),
+			'$.rijesio', json_extract(podaci, '$.arhivirao'),
+			'$.rijeseno_at', json_extract(podaci, '$.arhivirano_at')),
+			'$.arhivirao_id', '$.arhivirao', '$.arhivirano_at')
+		 WHERE json_extract(podaci, '$.arhivirao_id') IS NOT NULL`,
+		`UPDATE record_versions SET payload = json_set(payload, '$.status', 'RIJESENA')
+		 WHERE entity = 'prijave' AND json_extract(payload, '$.status') = 'ARHIVIRANA'`,
+		`UPDATE record_versions SET payload = json_remove(json_set(payload,
+			'$.rijesio_id', json_extract(payload, '$.arhivirao_id'),
+			'$.rijesio', json_extract(payload, '$.arhivirao'),
+			'$.rijeseno_at', json_extract(payload, '$.arhivirano_at')),
+			'$.arhivirao_id', '$.arhivirao', '$.arhivirano_at')
+		 WHERE entity = 'prijave' AND json_extract(payload, '$.arhivirao_id') IS NOT NULL`,
+	} {
+		if _, err := database.Exec(q); err != nil {
+			return fmt.Errorf("prijave: arhivirana u riješena: %w", err)
+		}
+	}
 	// Izvornici prijava otprije spremišta sadržaja nose PDF u tablici; takva
 	// se tablica skloni pod starim imenom, a program pri pokretanju preseli
 	// bajtove u spremište (repository.PreseliIzvornikePrijava).

@@ -396,8 +396,8 @@ func (c *opisivac) opisi(v ledger.Version) (Dogadjaj, bool) {
 			return d, false
 		}
 		d.Sektor, d.AreaID, d.Tko, d.Link = p.Sektor, p.AreaID, p.Ime, "/prijave/"+p.ID
-		if p.Arhivirana() {
-			d.Naslov, d.Tekst = "Arhivirana prijava s terena", p.Oznaka()+": "+p.Naslov
+		if p.Rijesena() {
+			d.Naslov, d.Tekst = "Riješena prijava s terena", p.Oznaka()+": "+p.Naslov
 		} else {
 			d.Naslov, d.Tekst, d.Vazno = p.VrstaLabel()+" s terena "+p.Oznaka(), p.Naslov, p.Vrsta == models.PrijavaPrijava
 			if m := p.Mjesto(); m != "" {

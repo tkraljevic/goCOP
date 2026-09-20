@@ -9,7 +9,7 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">{{icon "file-text"}} {{$p.VrstaLabel}} s terena {{$p.Oznaka}}</h1>
-    <p class="page-desc"><strong>{{$p.Naslov}}</strong><br>{{$p.Ime}} · {{$p.Datum.Format "02.01.2006."}} · BP {{$p.AreaID}}{{with .Podrucje}}, {{.Name}}{{end}} · <strong>{{$p.StanjeLabel}}</strong>{{if $p.Objavljena}} {{formatDate (localTime (derefTime $p.ObjavljenoAt))}}{{end}}{{if $p.Arhivirana}} · arhivirao {{$p.Arhivirao}}{{end}}</p>
+    <p class="page-desc"><strong>{{$p.Naslov}}</strong><br>{{$p.Ime}} · {{$p.Datum.Format "02.01.2006."}} · BP {{$p.AreaID}}{{with .Podrucje}}, {{.Name}}{{end}} · <strong>{{$p.StanjeLabel}}</strong>{{if $p.Objavljena}} {{formatDate (localTime (derefTime $p.ObjavljenoAt))}}{{end}}{{if $p.Rijesena}} · riješio {{$p.Rijesio}}{{end}}</p>
   </div>
   <div class="page-actions">
     <a href="/prijave/{{$p.ID}}/prijava.pdf" target="_blank" class="btn btn-secondary">{{icon "printer"}} PDF{{if not $p.Objavljena}} (pregled nacrta){{end}}</a>
@@ -69,22 +69,22 @@
   <form method="POST" action="/prijave/{{$p.ID}}/radnja" style="margin-top:0.75rem;" onsubmit="return confirm('Obrisati nacrt?')"><input type="hidden" name="radnja" value="obrisi"><button type="submit" class="btn btn-secondary btn-opasno">{{icon "trash"}} Obriši nacrt</button></form>
 </section>
 {{end}}
-{{if and $p.Objavljena (eq $p.Vrsta "PRIJAVA") (or .SmijeArhivirati .Moja)}}
+{{if and $p.Objavljena (eq $p.Vrsta "PRIJAVA") (or .SmijeRijesiti .Moja)}}
 <section class="detail-section">
   <h2>{{icon "file-text"}} Urudžbeni zapisnik</h2>
-  <p class="page-desc">Jedino prijava ide iz kuće: ispisana i vlastoručno potpisana ulazi u urudžbeni zapisnik kao dolazni akt (ostale vrste ostaju u kući). Na PDF-u je gore desno mjesto za prijemni štambilj ili naljepnicu; klasu i urudžbeni broj koje da pisarnica upišite ovdje pa se dopišu na PDF kao bilješka, bez ičijeg parafa: potpis vodočuvara ostaje jedini i vrijedi dalje{{if .SmijeArhivirati}}; arhiviranjem potvrđujete da je pregledana i riješena{{end}}.</p>
+  <p class="page-desc">Jedino prijava ide iz kuće: ispisana i vlastoručno potpisana ulazi u urudžbeni zapisnik kao dolazni akt (ostale vrste ostaju u kući). Na PDF-u je gore desno mjesto za prijemni štambilj ili naljepnicu; klasu i urudžbeni broj koje da pisarnica upišite ovdje pa se dopišu na PDF kao bilješka, bez ičijeg parafa: potpis vodočuvara ostaje jedini i vrijedi dalje{{if .SmijeRijesiti}}; gumbom "Pregledano, riješeno" potvrđujete da je pregledana i riješena{{end}}.</p>
   <form method="POST" action="/prijave/{{$p.ID}}/radnja" style="display:flex; gap:0.5rem; align-items:flex-end; flex-wrap:wrap;">
     <div class="form-group" style="margin:0;"><label class="form-label" for="klasa">KLASA</label><input class="form-control" id="klasa" name="klasa" value="{{$p.Klasa}}" placeholder="325-02/24-01/0000513"></div>
     <div class="form-group" style="margin:0;"><label class="form-label" for="urbroj">URBROJ</label><input class="form-control" id="urbroj" name="urbroj" value="{{$p.Urbroj}}" placeholder="374-24-274"></div>
     <div class="form-group" style="margin:0;"><label class="form-label" for="primljeno">Primljeno</label><input type="date" class="form-control" id="primljeno" name="primljeno" value="{{if $p.PrimljenoAt}}{{$p.PrimljenoAt.Format "2006-01-02"}}{{end}}"></div>
     <button type="submit" class="btn btn-secondary" name="radnja" value="urudzbiraj">{{icon "check"}} Upiši urudžbu</button>
-    {{if .SmijeArhivirati}}<button type="submit" class="btn btn-primary" name="radnja" value="arhiviraj" onclick="return confirm('Arhivirati prijavu? Time potvrđujete da je pregledana i riješena.')">{{icon "check"}} Pregledano, arhiviraj</button>{{end}}
+    {{if .SmijeRijesiti}}<button type="submit" class="btn btn-primary" name="radnja" value="rijesi" onclick="return confirm('Označiti prijavu riješenom? Time potvrđujete da ste je pregledali i riješili.')">{{icon "check"}} Pregledano, riješeno</button>{{end}}
   </form>
 </section>
-{{else if and $p.Objavljena .SmijeArhivirati}}
+{{else if and $p.Objavljena .SmijeRijesiti}}
 <section class="detail-section">
   <p class="page-desc">{{$p.VrstaLabel}} ostaje u kući, bez urudžbe.</p>
-  <form method="POST" action="/prijave/{{$p.ID}}/radnja" onsubmit="return confirm('Arhivirati? Time potvrđujete da je pregledano i riješeno.')"><input type="hidden" name="radnja" value="arhiviraj"><button type="submit" class="btn btn-primary">{{icon "check"}} Pregledano, arhiviraj</button></form>
+  <form method="POST" action="/prijave/{{$p.ID}}/radnja" onsubmit="return confirm('Označiti riješenim? Time potvrđujete da ste pregledali i riješili.')"><input type="hidden" name="radnja" value="rijesi"><button type="submit" class="btn btn-primary">{{icon "check"}} Pregledano, riješeno</button></form>
 </section>
 {{end}}
 {{end}}
