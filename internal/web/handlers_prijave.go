@@ -90,6 +90,9 @@ type PrijavePageData struct {
 	Filtar      repository.FiltarPrijava
 	Prijave     []models.PrijavaSTerena
 	Vrste       []string
+	// listanje: po 24 kartice, s brojem svih koje izbor daje
+	Ukupno, Stranica, Prethodna, Sljedeca int
+	Upit                                  string // tekući izbor bez broja stranice, za poveznice
 
 	// jedna prijava
 	Prijava         *models.PrijavaSTerena
@@ -155,7 +158,34 @@ func (h *PrijaveHandler) ShowPopis(w http.ResponseWriter, r *http.Request) {
 	if d.Filtar.Sektor != "" {
 		d.Podrucja, _ = h.users.ListAreas(d.Filtar.Sektor)
 	}
-	d.Prijave, _ = s.List(r.Context(), perms, d.Filtar)
+	d.Filtar.Limit = 5000
+	sve, _ := s.List(r.Context(), perms, d.Filtar)
+	const poStranici = 24
+	d.Ukupno = len(sve)
+	d.Stranica, _ = strconv.Atoi(q.Get("stranica"))
+	if d.Stranica < 1 {
+		d.Stranica = 1
+	}
+	if (d.Stranica-1)*poStranici >= len(sve) && d.Stranica > 1 {
+		d.Stranica = (len(sve)-1)/poStranici + 1
+	}
+	od := (d.Stranica - 1) * poStranici
+	do := od + poStranici
+	if do > len(sve) {
+		do = len(sve)
+	}
+	if od < do {
+		d.Prijave = sve[od:do]
+	}
+	if d.Stranica > 1 {
+		d.Prethodna = d.Stranica - 1
+	}
+	if do < len(sve) {
+		d.Sljedeca = d.Stranica + 1
+	}
+	upit := r.URL.Query()
+	upit.Del("stranica")
+	d.Upit = upit.Encode()
 	if err := h.tmplPopis.ExecuteTemplate(w, "prijave.html", d); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}

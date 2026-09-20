@@ -16,41 +16,52 @@
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
 
-<form method="GET" action="/prijave" class="obracun-filtar">
-  <div class="form-row">
-    <div class="form-group"><label class="form-label" for="f-sektor">{{term "sektor"}}</label>
-      <select class="form-control" id="f-sektor" name="sektor" onchange="this.form.submit()"><option value="">svi</option>{{range .Sektori}}<option value="{{.ID}}" {{if eq .ID $.Filtar.Sektor}}selected{{end}}>{{.ID}} – {{.Name}}</option>{{end}}</select></div>
-    <div class="form-group"><label class="form-label" for="f-podrucje">Branjeno područje</label>
-      <select class="form-control" id="f-podrucje" name="podrucje" onchange="this.form.submit()"><option value="0">sva</option>{{range .Podrucja}}<option value="{{.ID}}" {{if eq .ID $.Filtar.AreaID}}selected{{end}}>{{.ID}} – {{.Name}}</option>{{end}}</select></div>
-    <div class="form-group"><label class="form-label" for="f-status">Stanje</label>
-      <select class="form-control" id="f-status" name="status" onchange="this.form.submit()"><option value="">sva</option><option value="NACRT" {{if eq .Filtar.Status "NACRT"}}selected{{end}}>nacrti</option><option value="OBJAVLJENA" {{if eq .Filtar.Status "OBJAVLJENA"}}selected{{end}}>objavljene</option><option value="ARHIVIRANA" {{if eq .Filtar.Status "ARHIVIRANA"}}selected{{end}}>arhivirane</option></select></div>
-    <div class="form-group"><label class="form-label" for="f-godina">Godina</label>
-      <select class="form-control" id="f-godina" name="godina" onchange="this.form.submit()"><option value="0">sve</option>{{range .Godine}}<option value="{{.}}" {{if eq . $.Filtar.Godina}}selected{{end}}>{{.}}</option>{{end}}</select></div>
-    <div class="form-group"><label class="form-label" for="f-q">Traži</label><input class="form-control" id="f-q" name="q" value="{{.Filtar.Trazi}}" placeholder="naslov, opis, mjesto"></div>
-    <div class="form-group" style="align-self:flex-end;"><button type="submit" class="btn btn-secondary">{{icon "search"}} Traži</button></div>
-  </div>
+<form method="GET" action="/prijave" class="obracun-filtar prijave-filtar">
+  <label for="f-sektor">{{term "sektor"}}</label>
+  <select class="form-control" id="f-sektor" name="sektor" onchange="this.form.submit()"><option value="">svi</option>{{range .Sektori}}<option value="{{.ID}}" {{if eq .ID $.Filtar.Sektor}}selected{{end}}>{{.ID}}</option>{{end}}</select>
+  <label for="f-podrucje">Područje</label>
+  <select class="form-control" id="f-podrucje" name="podrucje" onchange="this.form.submit()"><option value="0">sva</option>{{range .Podrucja}}<option value="{{.ID}}" {{if eq .ID $.Filtar.AreaID}}selected{{end}}>{{.ID}} – {{.Name}}</option>{{end}}</select>
+  <label for="f-status">Stanje</label>
+  <select class="form-control" id="f-status" name="status" onchange="this.form.submit()"><option value="">sva</option><option value="NACRT" {{if eq .Filtar.Status "NACRT"}}selected{{end}}>nacrti</option><option value="OBJAVLJENA" {{if eq .Filtar.Status "OBJAVLJENA"}}selected{{end}}>objavljene</option><option value="ARHIVIRANA" {{if eq .Filtar.Status "ARHIVIRANA"}}selected{{end}}>arhivirane</option></select>
+  <label for="f-godina">Godina</label>
+  <select class="form-control" id="f-godina" name="godina" onchange="this.form.submit()"><option value="0">sve</option>{{range .Godine}}<option value="{{.}}" {{if eq . $.Filtar.Godina}}selected{{end}}>{{.}}</option>{{end}}</select>
+  <input class="form-control" id="f-q" name="q" value="{{.Filtar.Trazi}}" placeholder="naslov, opis, mjesto" aria-label="Traži">
+  <button type="submit" class="btn btn-secondary btn-sm">{{icon "search"}} Traži</button>
+  <span class="form-help">{{.Ukupno}} {{uzBroj .Ukupno "prijava" "prijave" "prijava"}}{{if gt .Ukupno (len .Prijave)}}, prikazano {{len .Prijave}}{{end}}</span>
 </form>
 
 {{if .Prijave}}
-<section class="detail-section" style="margin-top:0;">
-  <table class="table">
-    <thead><tr><th>Oznaka</th><th>Dan</th><th>Vrsta</th><th>Naslov</th><th>Mjesto</th><th>Vodočuvar</th><th>Stanje</th><th>Slike</th></tr></thead>
-    <tbody>
-    {{range .Prijave}}
-      <tr>
-        <td data-stupac="Oznaka"><a href="/prijave/{{.ID}}">{{.Oznaka}}</a></td>
-        <td data-stupac="Dan">{{.Datum.Format "02.01.2006."}}</td>
-        <td data-stupac="Vrsta"><span class="badge {{if eq .Vrsta "PRIJAVA"}}badge-danger{{else}}badge-active{{end}}">{{.VrstaLabel}}</span></td>
-        <td data-stupac="Naslov"><a href="/prijave/{{.ID}}"><strong>{{.Naslov}}</strong></a></td>
-        <td data-stupac="Mjesto">{{.Mjesto}}{{if .ImaKoordinate}} {{icon "map-pin"}}{{end}}</td>
-        <td data-stupac="Vodočuvar">{{.Ime}}</td>
-        <td data-stupac="Stanje">{{.StanjeLabel}}</td>
-        <td data-stupac="Slike">{{len .Slike}}</td>
-      </tr>
-    {{end}}
-    </tbody>
-  </table>
-</section>
+<ul class="prijave-kartice">
+  {{range .Prijave}}
+  <li class="reg-card prijava-kartica vrsta-{{.Vrsta}} stanje-{{.Status}}">
+    <a class="reg-card-link" href="/prijave/{{.ID}}">
+      <div class="reg-card-head">
+        <span class="prijava-vrsta {{.Vrsta}}">{{.VrstaLabel}}</span>
+        <span class="reg-card-sub">{{.Oznaka}} · {{.Datum.Format "02.01.2006."}}</span>
+      </div>
+      <h3 class="reg-card-title prijava-naslov">{{.Naslov}}</h3>
+      <dl class="reg-facts">
+        <div><dt>Mjesto</dt><dd>{{with .Mjesto}}{{.}}{{else}}—{{end}}{{if .ImaKoordinate}} <span class="prijava-pin" title="označeno na karti">{{icon "map-pin"}}</span>{{end}}</dd></div>
+        <div><dt>Vodočuvar</dt><dd>{{.Ime}}</dd></div>
+        <div><dt>Područje</dt><dd>BP {{.AreaID}}</dd></div>
+      </dl>
+      <div class="reg-card-foot">
+        <span class="badge {{if eq .Status "OBJAVLJENA"}}badge-active{{else if eq .Status "ARHIVIRANA"}}badge-muted{{else}}badge-warning{{end}}">{{.StanjeLabel}}</span>
+        {{if .Slike}}<span>{{icon "file-text"}} {{len .Slike}} {{uzBroj (len .Slike) "fotografija" "fotografije" "fotografija"}}</span>{{end}}
+        {{if .Urudzbirana}}<span title="u urudžbenom zapisniku">{{icon "check"}} urudžbirano</span>{{end}}
+        {{if .Rekonstrukcija}}<span title="preneseno iz ranije evidencije">{{icon "clock"}} rekonstrukcija</span>{{end}}
+      </div>
+    </a>
+  </li>
+  {{end}}
+</ul>
+{{if or .Prethodna .Sljedeca}}
+<nav class="prijave-listanje" aria-label="Listanje">
+  {{if .Prethodna}}<a class="btn btn-secondary btn-sm" href="/prijave?{{.Upit}}&amp;stranica={{.Prethodna}}">{{icon "chevron-left"}} Novije</a>{{else}}<span></span>{{end}}
+  <span class="form-help">stranica {{.Stranica}}</span>
+  {{if .Sljedeca}}<a class="btn btn-secondary btn-sm" href="/prijave?{{.Upit}}&amp;stranica={{.Sljedeca}}">Starije {{icon "chevron-right"}}</a>{{else}}<span></span>{{end}}
+</nav>
+{{end}}
 {{else}}
 <p class="form-help">Nema prijava za odabrani izbor.{{if .VodiDnevnik}} Novu prijavu otvarate gumbom gore ili s Terena.{{end}}</p>
 {{end}}
