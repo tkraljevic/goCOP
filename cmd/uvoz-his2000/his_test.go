@@ -146,3 +146,55 @@ func TestUsporedbaIdePoBroju(t *testing.T) {
 		t.Errorf("sukoba %d — prava razlika mora se vidjeti", suk)
 	}
 }
+
+// Istu veličinu HIS zna dati i kao ispis za čitanje: dani u redcima, mjeseci
+// u stupcima. Vrijednosti su poravnate desno prema nazivu mjeseca, pa se
+// čitaju po stupcu; razmaci se ne smiju brojati, jer prazan mjesec nema ništa.
+func TestIspisPoMjesecima(t *testing.T) {
+	sadrzaj := "Dnevni podaci postaje DALJ - DUNAV,  KONCENTRACIJA  (g/m3)\r\n\r\n" +
+		"Šifra postaje: 5130\r\n\r\n" +
+		"      2018      I     II    III     IV      V     VI    VII   VIII     IX      X     XI    XII\r\n" +
+		"         1                               20.6   37.5   38.6   27.7   29.9   13.6   20.9   17.4\r\n" +
+		"         2                               30.7   40.4   38.9   19.2   36.2   12.1   28.4   6.40\r\n" +
+		"        31                               33.3          20.0   45.5          20.2          39.3\r\n" +
+		"        NK                               20.6   28.9   20.0   12.7   13.0   4.34   5.00   4.16\r\n"
+	s, err := Procitaj("nanosdnevni.txt", cp(sadrzaj))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Vrsta.Velicina != "koncentracija" || s.Vrsta.Gustoca != "dnevni" {
+		t.Fatalf("vrsta: %+v", s.Vrsta)
+	}
+	zeli := map[string]string{
+		"2018-05-01": "20,6", "2018-06-01": "37,5", "2018-12-01": "17,4",
+		"2018-05-02": "30,7", "2018-12-02": "6,40",
+		"2018-05-31": "33,3", "2018-07-31": "20,0", "2018-12-31": "39,3",
+	}
+	imamo := map[string]string{}
+	for _, v := range s.Niz {
+		imamo[v.Kad.Format("2006-01-02")] = v.V
+	}
+	for d, v := range zeli {
+		if imamo[d] != v {
+			t.Errorf("%s: %q, očekivano %q", d, imamo[d], v)
+		}
+	}
+	// 31. lipnja nema, a sažetak NK nije mjerenje
+	if _, ima := imamo["2018-06-31"]; ima {
+		t.Error("dan kojeg u mjesecu nema ušao je u niz")
+	}
+	// tri dana puta osam mjeseci koji imaju podatak, bez praznih polja
+	if len(imamo) != 21 {
+		t.Errorf("vrijednosti %d, očekivano 21: %v", len(imamo), imamo)
+	}
+}
+
+// Satni ispis ima sate u stupcima; iz njega se ne čita, jer bi krivo
+// poravnanje pomaknulo cijeli niz. Mora se javiti, a ne tiho preskočiti.
+func TestSatniIspisSeOdbija(t *testing.T) {
+	sadrzaj := "Satni podaci postaje DALJ  za godinu 2018,  KONCENTRACIJA  (g/m3)\r\n\r\n" +
+		"             1     2     3     4     5\r\n\r\n 1.  1.\r\n 2.  1.\r\n"
+	if _, err := Procitaj("nanos.txt", cp(sadrzaj)); err == nil {
+		t.Error("satni ispis mora biti odbijen s objašnjenjem")
+	}
+}

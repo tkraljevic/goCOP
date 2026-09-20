@@ -122,6 +122,9 @@ func Procitaj(ime string, sirovo []byte) (*Sadrzaj, error) {
 		v.Gustoca = "satni"
 		s.Vrsta = v
 		s.Niz, s.Preskoceno = citajSatne(redci)
+		if len(s.Niz) == 0 && imaIspisPoMjesecima(redci) {
+			return nil, fmt.Errorf("satni podaci su u obliku ispisa, koji se ne čita; izvezite ih kao CSV")
+		}
 		return s, nil
 	}
 	if m := reDnevni.FindStringSubmatch(prvi); m != nil {
@@ -130,7 +133,10 @@ func Procitaj(ime string, sirovo []byte) (*Sadrzaj, error) {
 			return nil, fmt.Errorf("nepoznata veličina %q", m[2])
 		}
 		s.Vrsta = v
-		s.Niz = citajDnevne(redci)
+		// ista veličina dolazi i kao popis redaka i kao ispis po mjesecima
+		if s.Niz = citajDnevne(redci); len(s.Niz) == 0 {
+			s.Niz = citajIspisDnevni(redci)
+		}
 		return s, nil
 	}
 	return nil, fmt.Errorf("zaglavlje ne kaže što je u datoteci: %.60q", prvi)

@@ -47,11 +47,13 @@ func main() {
 	var krivulje *Sadrzaj
 	var profili []*Sadrzaj
 	var preskoceno []string
+	var mjerenja []Mjerenje
 	vidjeniProfili := map[time.Time]string{} // snimka istog dana zna doći dvaput
 
 	imena := make([]string, 0, len(stavke))
 	for _, s := range stavke {
-		if !s.IsDir() && strings.EqualFold(filepath.Ext(s.Name()), ".csv") {
+		nastavak := strings.ToLower(filepath.Ext(s.Name()))
+		if !s.IsDir() && (nastavak == ".csv" || nastavak == ".xls" || nastavak == ".txt") {
 			imena = append(imena, s.Name())
 		}
 	}
@@ -61,6 +63,15 @@ func main() {
 		sirovo, err := os.ReadFile(filepath.Join(*iz, ime))
 		if err != nil {
 			log.Fatal(err)
+		}
+		if JeSylk(sirovo) {
+			m, err := ProcitajMjerenja(sirovo)
+			if err != nil {
+				preskoceno = append(preskoceno, fmt.Sprintf("%s — %v", ime, err))
+				continue
+			}
+			mjerenja = append(mjerenja, m...)
+			continue
 		}
 		s, err := Procitaj(ime, sirovo)
 		if err != nil {
@@ -95,6 +106,9 @@ func main() {
 	}
 	for _, s := range profili {
 		posao.Profil(s)
+	}
+	if len(mjerenja) > 0 {
+		posao.Mjerenja(mjerenja)
 	}
 	for _, r := range preskoceno {
 		fmt.Printf("  preskočeno: %s\n", r)
@@ -242,6 +256,31 @@ func (p *Posao) Profil(s *Sadrzaj) {
 	fmt.Fprintln(f, "stacionaza_m;visina_m")
 	for _, t := range pr.Tocke {
 		fmt.Fprintf(f, "%s;%s\n", t.Stacionaza, t.Visina)
+	}
+	p.Zapisano++
+}
+
+// Mjerenja zapisuje vodomjerenja uz krivulje, jer im ondje i služe.
+func (p *Posao) Mjerenja(m []Mjerenje) {
+	sort.SliceStable(m, func(i, j int) bool { return m[i].Datum.Before(m[j].Datum) })
+	ime := fmt.Sprintf("hq/%s_vodomjerenja_%d-%d.csv", p.Letva, m[0].Datum.Year(), m[len(m)-1].Datum.Year())
+	fmt.Printf("%-12s %-9s %7d  %s .. %s\n              → %s\n", "vodomjerenja", "protok", len(m),
+		m[0].Datum.Format("2006-01-02"), m[len(m)-1].Datum.Format("2006-01-02"), ime)
+	if p.Probno {
+		p.Zapisano++
+		return
+	}
+	if err := os.MkdirAll(filepath.Join(p.Cilj, "hq"), 0o755); err != nil {
+		log.Fatal(err)
+	}
+	f, err := os.Create(filepath.Join(p.Cilj, ime))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer f.Close()
+	fmt.Fprintln(f, "datum;vodostaj_cm;srednja_brzina_ms;protok_m3s;metoda")
+	for _, v := range m {
+		fmt.Fprintf(f, "%s;%s;%s;%s;%s\n", v.Datum.Format("2006-01-02"), v.Vodostaj, v.Brzina, v.Protok, v.Metoda)
 	}
 	p.Zapisano++
 }
