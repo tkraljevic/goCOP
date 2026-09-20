@@ -6,7 +6,8 @@ package bp16
 // Obilazak je zadatak: netko ga je zadao, vodočuvar ga je dobio za određeni
 // dan, i ponegdje je upisao što je zatekao. Dvije trećine nemaju taj upis, i
 // to nije propust vodočuvara: aplikacija u kojoj su zadatke dobivali nije
-// bila službena, pa upise nisu radili. Zato takav zadatak ne stoji kao
+// upisa nema. Upisi o izvršenju vodili su se, ali aplikacija nije bila
+// službena, pa ih dio vodočuvara nije radio. Zato takav zadatak ne stoji kao
 // neobavljen nego kao zadatak bez upisanog odgovora, s objašnjenjem zašto.
 //
 // Listovi koji iz ovoga nastanu su rekonstrukcija: nisu vođeni u goCOP-u,
@@ -29,7 +30,7 @@ import (
 
 // ObjasnjenjeBezOdgovora stoji uz zadatak kojem u ranijoj evidenciji nema
 // odgovora; bez njega bi prazan zadatak izgledao kao neobavljen posao
-const ObjasnjenjeBezOdgovora = "Odgovor ne postoji: zadatak je zadan u ranijoj aplikaciji koja nije bila službena, pa se upisi o izvršenju nisu vodili."
+const ObjasnjenjeBezOdgovora = "Odgovor nije upisan. Upisi o izvršenju vodili su se u ranijoj evidenciji, ali ta aplikacija nije bila službena, pa ih dio vodočuvara nije upisivao. Iz izostanka upisa ne slijedi da posao nije obavljen."
 
 // obilazakRow je zapis zbirke evidencije_obilaska
 type obilazakRow struct {
@@ -70,14 +71,18 @@ type ObilasciDeps struct {
 	// SamoArhivirane preskače obilaske koji su još u planu: oni su živi
 	// zadaci u staroj aplikaciji, a ne povijest
 	SamoArhivirane bool
-	DryRun         bool
-	Log            func(string, ...any)
+	// Meteo daje vremenske prilike za dan iz arhive (Open-Meteo) kad ih
+	// stara evidencija za taj dan nema; prazno kad se ne može dohvatiti
+	Meteo  func(ctx context.Context, dan time.Time) string
+	DryRun bool
+	Log    func(string, ...any)
 }
 
 // ObilasciReport je izvješće uvoza
 type ObilasciReport struct {
 	Ukupno, Upisano, Postoje, Preskoceno, BezKorisnika  int
 	Listova, SOdgovorom, BezOdgovora, Slika, SObuhvatom int
+	VrijemeIzEvidencije, VrijemeIzArhive                int
 	Nepoznati                                           map[string]int
 	DryRun                                              bool
 }
@@ -85,7 +90,8 @@ type ObilasciReport struct {
 // Summary sažima izvješće u jedan redak
 func (r ObilasciReport) Summary() string {
 	return fmt.Sprintf("%d obilazaka: %d upisano, %d već postoji, %d preskočeno, %d bez poznatog vodočuvara; %d listova, %d s odgovorom, %d bez odgovora, %d fotografija, %d s ucrtanim obuhvatom",
-		r.Ukupno, r.Upisano, r.Postoje, r.Preskoceno, r.BezKorisnika, r.Listova, r.SOdgovorom, r.BezOdgovora, r.Slika, r.SObuhvatom)
+		r.Ukupno, r.Upisano, r.Postoje, r.Preskoceno, r.BezKorisnika, r.Listova, r.SOdgovorom, r.BezOdgovora, r.Slika, r.SObuhvatom) +
+		fmt.Sprintf("; vrijeme: %d iz evidencije, %d iz arhive", r.VrijemeIzEvidencije, r.VrijemeIzArhive)
 }
 
 // RunObilasci prenosi obilaske u zadatke i rekonstruirane dnevne listove.
@@ -116,6 +122,26 @@ func RunObilasci(ctx context.Context, src Source, deps ObilasciDeps) (ObilasciRe
 			}
 		}
 	}
+	// vrijeme i vodostaji kakve je vodočuvar tog dana imao pred sobom
+	vrijeme := map[string]vrijemeDana{}
+	if raw, err := src.Items(ctx, "vrijeme_za_list"); err == nil {
+		for _, r := range raw {
+			var v struct {
+				Datum     string `json:"datum"`
+				Opisno    string `json:"vrijeme_opisno"`
+				Vodostaji string `json:"vodostaji_opisno"`
+			}
+			if json.Unmarshal(r, &v) != nil || v.Datum == "" {
+				continue
+			}
+			if _, ima := vrijeme[v.Datum]; !ima {
+				vrijeme[v.Datum] = vrijemeDana{Prilike: sredi(v.Opisno), Vodostaji: sredi(v.Vodostaji)}
+			}
+		}
+	} else {
+		logf("vrijeme za list: %v", err)
+	}
+
 	raw, err := src.Items(ctx, "evidencije_obilaska")
 	if err != nil {
 		return rep, err
@@ -236,6 +262,15 @@ func RunObilasci(ctx context.Context, src Source, deps ObilasciDeps) (ObilasciRe
 				Rekonstrukcija: true, Izvor: "bp16:evidencije_obilaska",
 				Cvor: deps.Cvor,
 			}
+			if v, ima := vrijeme[o.Datum]; ima && v.Prilike != "" {
+				l.Prilike, l.Ocitanja = v.Prilike, v.Vodostaji
+				rep.VrijemeIzEvidencije++
+			} else if deps.Meteo != nil {
+				if p := deps.Meteo(ctx, dan); p != "" {
+					l.Prilike = p
+					rep.VrijemeIzArhive++
+				}
+			}
 			rep.Listova++
 		}
 		z.ListID = l.ID
@@ -260,6 +295,9 @@ func RunObilasci(ctx context.Context, src Source, deps ObilasciDeps) (ObilasciRe
 	}
 	return rep, nil
 }
+
+// vrijemeDana je ono što je stara evidencija imala o danu
+type vrijemeDana struct{ Prilike, Vodostaji string }
 
 // sredi miče višak razmaka i tabulatora iz teksta stare evidencije
 func sredi(s string) string {

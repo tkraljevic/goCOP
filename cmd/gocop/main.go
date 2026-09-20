@@ -29,6 +29,7 @@ import (
 	"gocop/internal/repository"
 	"gocop/internal/sadrzaj"
 	"gocop/internal/service"
+	"gocop/internal/weather"
 	"gocop/internal/web"
 )
 
@@ -433,10 +434,24 @@ func main() {
 			if httpSrc.URL != "" {
 				datoteka = httpSrc.Asset
 			}
+			// vrijeme za dane kojih stara evidencija nema: arhiva Open-Meteo,
+			// po koordinatama branjenog područja
+			meteo := func(ctx context.Context, dan time.Time) string {
+				a, err := orgRepo.GetArea(ctx, 16)
+				if err != nil || a == nil || !a.ImaKoordinate() {
+					return ""
+				}
+				dnevno, err := (&weather.Client{}).Fetch(ctx, a.Latitude, a.Longitude, dan, 12)
+				if err != nil || dnevno == nil {
+					return ""
+				}
+				return strings.ReplaceAll(fmt.Sprintf("%.0f°C, vjetar %.0f–%.0f m/s, tlak %.0f hPa, oborine %.1f mm · Open-Meteo, naknadno",
+					dnevno.Temperature, dnevno.WindFrom, dnevno.WindTo, dnevno.Pressure, dnevno.Precipitation), ".", ",")
+			}
 			rep, err := bp16.RunObilasci(context.Background(), src, bp16.ObilasciDeps{
 				Vodocuvar: repository.NewVodocuvarRepository(database, recorder),
 				Korisnici: korisnici, Sektor: "B", Cvor: node.ID, Datoteka: datoteka,
-				SamoArhivirane: true, DryRun: !*csvWrite, Log: log.Printf,
+				SamoArhivirane: true, Meteo: meteo, DryRun: !*csvWrite, Log: log.Printf,
 			})
 			if err != nil {
 				log.Fatalf("Uvoz obilazaka nije uspio: %v (do greške %s)", err, rep.Summary())

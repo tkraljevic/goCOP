@@ -74,6 +74,23 @@ type PrilogLista struct {
 	Visina    int    `json:"visina,omitempty"`
 	Sadrzaj   string `json:"sadrzaj"`
 	ZadatakID string `json:"zadatak_id,omitempty"`
+	// što je fotoaparat zapisao uz sliku, i otisak izvorne datoteke
+	Snimljeno      *time.Time `json:"snimljeno,omitempty"`
+	Lat            float64    `json:"lat,omitempty"`
+	Lon            float64    `json:"lon,omitempty"`
+	Uredjaj        string     `json:"uredjaj,omitempty"`
+	IzvornoBajtova int        `json:"izvorno_bajtova,omitempty"`
+	Otisak         string     `json:"otisak,omitempty"`
+}
+
+// Podaci su redak o tome što je fotoaparat zapisao uz prilog
+func (p PrilogLista) Podaci() string {
+	return PodaciFotoaparata(p.Snimljeno, p.Lat, p.Lon, p.Uredjaj)
+}
+
+// Izvornik opisuje zaprimljenu datoteku i njezin otisak
+func (p PrilogLista) Izvornik() string {
+	return IzvornikFotografije(p.Naziv, p.Otisak, p.IzvornoBajtova)
 }
 
 // PriloziZadatka vraća priloge koji stoje uz zadani zadatak

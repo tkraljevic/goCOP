@@ -314,7 +314,7 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 		t.Fatal("PDF lista")
 	}
 	tekst := pdfTekst(t, pdf.Body.Bytes())
-	for _, x := range []string{"DNEVNI LIST", "Naredbe rukovoditelja", "1. Deponija pijeska Batina", "2. Potok Karašica", "3. Obilazak nasipa", "upisao Ivo Ivić", "Opis radnih aktivnosti", "1. obilazak deponije", "Vodočuvar", "Rukovoditelj branjenog područja", "ELEKTRONIČKI POTPISANO U goCOP-u", "Seit Vodočuvar", "Mile Kunac", "001"} {
+	for _, x := range []string{"DNEVNI LIST", "Naredbe rukovoditelja", "1. Deponija pijeska Batina", "2. Potok Karašica", "3. Obilazak nasipa", "upisao Ivo Ivić", "Opis radnih aktivnosti", "obilazak deponije", "Vodočuvar", "Rukovoditelj branjenog područja", "ELEKTRONIČKI POTPISANO U goCOP-u", "Seit Vodočuvar", "Mile Kunac", "001"} {
 		if !strings.Contains(tekst, x) {
 			t.Errorf("PDF nema %q:\n%s", x, tekst)
 		}

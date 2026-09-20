@@ -91,7 +91,13 @@ func nacrtajPriloge(d *pdfw.Doc, l *models.VodocuvarskiList, pr PrilogListaPDF) 
 				sw = sh * float64(sl.Sirina) / float64(sl.Visina)
 			}
 			_ = d.SlikaJPEG(b, d.Lijevo+(w-sw)/2, d.Y, sw, sh)
-			d.Y += sh + 4
+			d.Y += sh + 9
+			d.TekstBoja(d.Lijevo, d.Y, 7.5, false, sl.Podaci(), sivaTekst)
+			if z := sl.Izvornik(); z != "" {
+				d.Y += 8
+				d.TekstBoja(d.Lijevo, d.Y, 6, false, z, sivaTekst)
+			}
+			d.Y += 6
 		}
 	}
 }
@@ -223,10 +229,38 @@ func nacrtajList(d *pdfw.Doc, l *models.VodocuvarskiList, t models.OrgTerms, are
 	d.Tekst(d.Lijevo+425, okvirY+14, 9, true, "sati")
 	d.Crta(d.Lijevo, okvirY+22, d.Lijevo+sirina, okvirY+22)
 	d.Tekst(d.Lijevo+8, okvirY+36, 9, true, "Vremenske prilike:")
-	d.Tekst(d.Lijevo+105, okvirY+36, 10, false, l.Prilike)
+	// opis prilika zna biti dug (temperatura, vjetar, tlak, oborine), a redak
+	// je jedan: slovo se smanji dok ne stane, pa se tek onda krati
+	if l.Prilike != "" {
+		stane := sirina - 113
+		vel := 10.0
+		for vel > 6.5 && pdfw.SirinaTeksta(l.Prilike, vel, false) > stane {
+			vel -= 0.5
+		}
+		tekst := l.Prilike
+		for pdfw.SirinaTeksta(tekst, vel, false) > stane && len(tekst) > 4 {
+			tekst = tekst[:len(tekst)-2]
+		}
+		if tekst != l.Prilike {
+			tekst = strings.TrimSpace(tekst) + "…"
+		}
+		d.Tekst(d.Lijevo+105, okvirY+36, vel, false, tekst)
+	}
 	d.Y = okvirY + 44
 
+	// Prenesen list nema vremena rada, zapažanja ni opisa koje je vodočuvar
+	// tipkao, pa bi rubrike pune praznine potisnule potpis na sljedeću
+	// stranicu. Zato se tada visina rubrike ravna po sadržaju.
 	okvir := func(naslov, tekst string, visina float64) {
+		if l.Rekonstrukcija {
+			potrebno := 30.0
+			for _, redak := range strings.Split(tekst, "\n") {
+				potrebno += float64(len(pdfw.Prelomi(redak, sirina-20, 10, false))) * 13
+			}
+			if potrebno < visina {
+				visina = potrebno
+			}
+		}
 		y := d.Y
 		d.Okvir(d.Lijevo, y, sirina, visina, bijela, sivaTekst)
 		d.Tekst(d.Lijevo+8, y+14, 9, true, naslov)
@@ -245,23 +279,28 @@ func nacrtajList(d *pdfw.Doc, l *models.VodocuvarskiList, t models.OrgTerms, are
 		}
 		return strings.TrimSpace(b.String())
 	}
-	var naredbe []string
+	// Zadatak je naredba rukovoditelja; ono što je vodočuvar na njega
+	// odgovorio je njegov rad, pa ide u opis radnih aktivnosti. Brojevi u
+	// objema rubrikama se poklapaju, kao na papirnatom obrascu.
+	var naredbe, ucinjeno []string
 	for _, z := range l.Zadaci {
-		red := z.Tekst + " (zadao " + z.Zadao + ", " + z.ZadanoAt.In(models.Zagreb).Format("02.01.") + "): " + z.Oznaka()
+		naredbe = append(naredbe, z.Tekst+" (zadao "+z.Zadao+", "+z.ZadanoAt.In(models.Zagreb).Format("02.01.")+")")
+		red := z.Tekst + ": " + z.Oznaka()
 		if uz := z.UzObilazak(); uz != "" {
-			red += "; " + uz
+			red += ", " + uz
 		}
 		if z.Obavljeno != "" {
-			red += "; " + z.Obavljeno
+			red += ". " + z.Obavljeno
 		}
-		naredbe = append(naredbe, red)
+		ucinjeno = append(ucinjeno, red)
 	}
 	for _, up := range l.Upisi {
 		naredbe = append(naredbe, up.Tekst+" (upisao "+up.Ime+ifNe(up.Funkcija)+", "+up.Kad.In(models.Zagreb).Format("02.01. 15:04")+")")
 	}
 	naredbe = append(naredbe, l.NaredbeStavke()...)
+	ucinjeno = append(ucinjeno, l.OpisStavke()...)
 	okvir("Naredbe rukovoditelja:", numerirano(naredbe), 120)
-	okvir("Opis radnih aktivnosti:", numerirano(l.OpisStavke()), 210)
+	okvir("Opis radnih aktivnosti:", numerirano(ucinjeno), 210)
 	zap := l.ZapazanjaStavke()
 	if l.Ocitanja != "" {
 		zap = append(zap, models.Stavke(l.Ocitanja)...)

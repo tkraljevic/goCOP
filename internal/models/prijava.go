@@ -106,15 +106,21 @@ func (s SlikaPrijave) ImaPolozaj() bool { return s.Lat != 0 || s.Lon != 0 }
 // Kad fotoaparat nije zapisao ni vrijeme ni položaj, kaže se i to, jer je
 // za dokaz važno što slika nosi, a što ne.
 func (s SlikaPrijave) Podaci() string {
+	return PodaciFotoaparata(s.Snimljeno, s.Lat, s.Lon, s.Uredjaj)
+}
+
+// PodaciFotoaparata slaže redak o tome što je fotoaparat zapisao uz sliku;
+// isti redak stoji ispod fotografije na prijavi i ispod priloga na listu
+func PodaciFotoaparata(snimljeno *time.Time, lat, lon float64, uredjaj string) string {
 	var d []string
-	if s.Snimljeno != nil && !s.Snimljeno.IsZero() {
-		d = append(d, "Snimljeno "+s.Snimljeno.In(Zagreb).Format("2.1.2006. u 15:04:05"))
+	if snimljeno != nil && !snimljeno.IsZero() {
+		d = append(d, "Snimljeno "+snimljeno.In(Zagreb).Format("2.1.2006. u 15:04:05"))
 	}
-	if s.ImaPolozaj() {
-		d = append(d, Koordinate(s.Lat, s.Lon))
+	if lat != 0 || lon != 0 {
+		d = append(d, Koordinate(lat, lon))
 	}
-	if s.Uredjaj != "" {
-		d = append(d, "uređaj "+s.Uredjaj)
+	if uredjaj != "" {
+		d = append(d, "uređaj "+uredjaj)
 	}
 	if len(d) == 0 {
 		return "Fotoaparat uz sliku nije zapisao vrijeme, položaj ni uređaj."
@@ -122,20 +128,25 @@ func (s SlikaPrijave) Podaci() string {
 	return strings.Join(d, " · ")
 }
 
-// Izvornik opisuje zaprimljenu datoteku: "Izvorna datoteka IMG_1234.jpg,
-// 7,3 MB, SHA-256 ab12…"; prazno kad otisak nije uzet
-func (s SlikaPrijave) Izvornik() string {
-	if s.Otisak == "" {
+// IzvornikFotografije opisuje zaprimljenu datoteku i njezin otisak
+func IzvornikFotografije(naziv, otisak string, bajtova int) string {
+	if otisak == "" {
 		return ""
 	}
 	z := "Izvorna datoteka"
-	if s.Naziv != "" {
-		z += " " + s.Naziv
+	if naziv != "" {
+		z += " " + naziv
 	}
-	if s.IzvornoBajtova > 0 {
-		z += fmt.Sprintf(", %s", VelicinaHR(s.IzvornoBajtova))
+	if bajtova > 0 {
+		z += ", " + VelicinaHR(bajtova)
 	}
-	return z + ", SHA-256 " + s.Otisak
+	return z + ", SHA-256 " + otisak
+}
+
+// Izvornik opisuje zaprimljenu datoteku: "Izvorna datoteka IMG_1234.jpg,
+// 7,3 MB, SHA-256 ab12…"; prazno kad otisak nije uzet
+func (s SlikaPrijave) Izvornik() string {
+	return IzvornikFotografije(s.Naziv, s.Otisak, s.IzvornoBajtova)
 }
 
 // Koordinate ispisuju položaj sa stranama svijeta: "45.65120 N, 18.77340 E"
