@@ -226,6 +226,20 @@ func (r *UserRepository) GetUserByUsername(username string) (*models.User, error
 	return &u, nil
 }
 
+// PodrucjeDuznosti vraća branjeno područje iz dužnosti osobe, i kad je
+// dužnost neaktivna. Umirovljenom vodočuvaru dužnosti stoje ugašene, a
+// njegova povijest i dalje pripada području na kojem ju je stekao; popis
+// korisnika učitava samo aktivne dužnosti, pa se ovdje čita izravno.
+func (r *UserRepository) PodrucjeDuznosti(ctx context.Context, userID string) int {
+	var area int
+	err := r.db.QueryRowContext(ctx, `SELECT area_id FROM duties WHERE user_id = ? AND area_id IS NOT NULL AND area_id > 0
+		ORDER BY is_primary DESC, is_active DESC, created_at LIMIT 1`, userID).Scan(&area)
+	if err != nil {
+		return 0
+	}
+	return area
+}
+
 // ListUsers vraća korisnike, opcionalno filtrirane po sektoru, području,
 // ulozi, stanju računa ili tekstu pretrage
 func (r *UserRepository) ListUsers(sectorID string, areaID int, role, search, status string) ([]models.User, error) {

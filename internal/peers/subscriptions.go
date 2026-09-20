@@ -60,6 +60,8 @@ func (s Subscription) Label() string {
 		what = "dnevnici"
 	case ledger.ChannelPrijave:
 		what = "prijave s terena"
+	case ledger.ChannelVodocuvar:
+		what = "vodočuvarski dnevnik"
 	}
 	where := "sva područja"
 	switch {
@@ -227,8 +229,9 @@ func (s *Service) ListSubscriptions(ctx context.Context) ([]Subscription, error)
 // AddSubscription upisuje pravilo; sljedeća razmjena donosi što mu pripada
 func (s *Service) AddSubscription(ctx context.Context, r Subscription) (Subscription, error) {
 	r.Kind = strings.TrimSpace(r.Kind)
-	if r.Kind != "" && r.Kind != ledger.ChannelReadings && r.Kind != ledger.ChannelJournals && r.Kind != ledger.ChannelPrijave {
-		return r, fmt.Errorf("vrsta je očitanja, dnevnici, prijave ili sve")
+	if r.Kind != "" && r.Kind != ledger.ChannelReadings && r.Kind != ledger.ChannelJournals &&
+		r.Kind != ledger.ChannelPrijave && r.Kind != ledger.ChannelVodocuvar {
+		return r, fmt.Errorf("vrsta je očitanja, dnevnici, prijave, vodočuvarski dnevnik ili sve")
 	}
 	switch r.Razina {
 	case "", RazinaSve:
@@ -391,6 +394,18 @@ func (s *Service) PurgeChannel(ctx context.Context, channel string) (int64, erro
 				return 0, err
 			}
 		}
+	case ledger.ChannelVodocuvar:
+		_, area, year := ledger.SplitChannel(channel)
+		for _, stmt := range []string{
+			`DELETE FROM vodocuvarski_izvornici WHERE list_id IN (SELECT id FROM vodocuvarski_listovi WHERE area_id = ? AND substr(datum, 1, 4) = ?)`,
+			`DELETE FROM vodocuvarski_zadaci WHERE list_id IN (SELECT id FROM vodocuvarski_listovi WHERE area_id = ? AND substr(datum, 1, 4) = ?)`,
+			`DELETE FROM vodocuvarski_listovi WHERE area_id = ? AND substr(datum, 1, 4) = ?`,
+		} {
+			if _, err := tx.ExecContext(ctx, stmt, area, fmt.Sprint(year)); err != nil {
+				return 0, err
+			}
+		}
+
 	case ledger.ChannelPrijave:
 		_, area, year := ledger.SplitChannel(channel)
 		for _, stmt := range []string{

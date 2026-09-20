@@ -1121,6 +1121,28 @@ func migrateSchema(database *sql.DB) error {
 	// repozitorija događa se objavom, a ovo je rukovoditeljevo zatvaranje
 	// predmeta. Stanje i polja mijenjaju se u tablici, u podacima i u knjizi
 	// verzija (isti version_id), jednom.
+	// Vodočuvarski listovi, zadaci i njihovi izvornici otprije kanala: dobiju
+	// kanal "vodocuvarski/područje/godina", pa dnevnik jednog područja više
+	// ne putuje na svaki čvor u mreži.
+	for _, q := range []string{
+		`UPDATE record_versions SET channel = (SELECT 'vodocuvarski/' || l.area_id || '/' || substr(l.datum, 1, 4)
+			FROM vodocuvarski_listovi l WHERE l.id = record_versions.entity_id)
+		 WHERE entity = 'vodocuvarski_listovi' AND channel = ''
+		   AND EXISTS (SELECT 1 FROM vodocuvarski_listovi l WHERE l.id = record_versions.entity_id AND l.area_id > 0)`,
+		`UPDATE record_versions SET channel = (SELECT 'vodocuvarski/' || l.area_id || '/' || substr(l.datum, 1, 4)
+			FROM vodocuvarski_listovi l WHERE l.id = record_versions.entity_id)
+		 WHERE entity = 'vodocuvarski_izvornici' AND channel = ''
+		   AND EXISTS (SELECT 1 FROM vodocuvarski_listovi l WHERE l.id = record_versions.entity_id AND l.area_id > 0)`,
+		`UPDATE record_versions SET channel = (SELECT 'vodocuvarski/' || z.area_id || '/' || substr(coalesce(nullif(z.za, ''), z.zadano_at), 1, 4)
+			FROM vodocuvarski_zadaci z WHERE z.id = record_versions.entity_id)
+		 WHERE entity = 'vodocuvarski_zadaci' AND channel = ''
+		   AND EXISTS (SELECT 1 FROM vodocuvarski_zadaci z WHERE z.id = record_versions.entity_id AND z.area_id > 0)`,
+	} {
+		if _, err := database.Exec(q); err != nil {
+			return fmt.Errorf("kanal vodočuvarskog dnevnika: %w", err)
+		}
+	}
+
 	// Prijave otprije kanala: verzije dobiju kanal "prijave/područje/godina"
 	// iz tablice, da ih pretplata može birati kao dnevnike.
 	for _, q := range []string{

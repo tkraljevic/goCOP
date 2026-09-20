@@ -85,6 +85,34 @@ func NewVodocuvarRepository(db *sql.DB, rec *ledger.Recorder) *VodocuvarReposito
 	return &VodocuvarRepository{db: db, rec: rec}
 }
 
+// listChannel je kanal vodočuvarskog lista: vrsta, branjeno područje i
+// godina. Dnevnik jednog područja tako putuje samo čvorovima koji to
+// područje prate, kao očitanja i prijave.
+func listChannel(l *models.VodocuvarskiList) string {
+	return ledger.ChannelFor(ledger.ChannelVodocuvar, l.AreaID, l.Datum.In(models.Zagreb).Year())
+}
+
+// zadatakChannel je kanal zadatka: dan za koji je planiran, inače dan
+// zadavanja
+func zadatakChannel(z *models.Zadatak) string {
+	dan := z.Za
+	if dan.IsZero() {
+		dan = z.ZadanoAt
+	}
+	return ledger.ChannelFor(ledger.ChannelVodocuvar, z.AreaID, dan.In(models.Zagreb).Year())
+}
+
+// kanalListaIz čita kanal lista iz tablice, za izvornike i seljenje
+func kanalListaIz(ctx context.Context, db *sql.DB, listID string) string {
+	var area int
+	var datum string
+	if err := db.QueryRowContext(ctx, `SELECT area_id, datum FROM vodocuvarski_listovi WHERE id = ?`, listID).Scan(&area, &datum); err != nil || len(datum) < 4 {
+		return ""
+	}
+	g, _ := strconv.Atoi(datum[:4])
+	return ledger.ChannelFor(ledger.ChannelVodocuvar, area, g)
+}
+
 // Save upisuje list, s verzijom u knjizi
 func (r *VodocuvarRepository) Save(ctx context.Context, l *models.VodocuvarskiList) error {
 	now := time.Now().UTC()
@@ -101,7 +129,7 @@ func (r *VodocuvarRepository) Save(ctx context.Context, l *models.VodocuvarskiLi
 	if _, err := tx.ExecContext(ctx, vodocuvarskiUpsert, vodocuvarskiArgs(l)...); err != nil {
 		return fmt.Errorf("upis lista: %w", err)
 	}
-	if _, err := r.rec.Record(ctx, tx, EntityVodocuvarski, l.ID, l); err != nil {
+	if _, err := r.rec.RecordIn(ctx, tx, listChannel(l), EntityVodocuvarski, l.ID, l); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -326,7 +354,7 @@ func (r *VodocuvarRepository) SaveZadatak(ctx context.Context, z *models.Zadatak
 	if _, err := tx.ExecContext(ctx, zadatakUpsert, zadatakArgs(z)...); err != nil {
 		return fmt.Errorf("upis zadatka: %w", err)
 	}
-	if _, err := r.rec.Record(ctx, tx, EntityZadaci, z.ID, z); err != nil {
+	if _, err := r.rec.RecordIn(ctx, tx, zadatakChannel(z), EntityZadaci, z.ID, z); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -484,7 +512,8 @@ func (r *VodocuvarRepository) GetIzvornik(ctx context.Context, listID string) (*
 func (r *VodocuvarRepository) SaveIzvornik(ctx context.Context, iz *models.IzvornikLista) error {
 	iz.UpdatedAt = time.Now().UTC()
 	pdf := iz.PDF
-	opis, err := spremiPDF(ctx, EntityVodocuvarski, iz.ListID, "", pdf, iz.Sazetak, iz.UpdatedAt)
+	kanal := kanalListaIz(ctx, r.db, iz.ListID)
+	opis, err := spremiPDF(ctx, EntityVodocuvarski, iz.ListID, kanal, pdf, iz.Sazetak, iz.UpdatedAt)
 	if err != nil {
 		return err
 	}
@@ -497,7 +526,7 @@ func (r *VodocuvarRepository) SaveIzvornik(ctx context.Context, iz *models.Izvor
 	if _, err := tx.ExecContext(ctx, izvornikListaUpsert, iz.ListID, iz.Otisak, iz.Bajtova, iz.Vrsta, iz.Sazetak, iz.UpdatedAt); err != nil {
 		return err
 	}
-	if _, err := r.rec.Record(ctx, tx, EntityVodocuvarskiIzvornici, iz.ListID, iz); err != nil {
+	if _, err := r.rec.RecordIn(ctx, tx, kanal, EntityVodocuvarskiIzvornici, iz.ListID, iz); err != nil {
 		return err
 	}
 	if err := tx.Commit(); err != nil {
@@ -521,7 +550,7 @@ func (r *VodocuvarRepository) DeleteIzvornik(ctx context.Context, listID string)
 	if _, err := tx.ExecContext(ctx, `DELETE FROM vodocuvarski_izvornici WHERE list_id = ?`, listID); err != nil {
 		return err
 	}
-	if _, err := r.rec.Archive(ctx, tx, EntityVodocuvarskiIzvornici, listID, iz); err != nil {
+	if _, err := r.rec.ArchiveIn(ctx, tx, kanalListaIz(ctx, r.db, listID), EntityVodocuvarskiIzvornici, listID, iz); err != nil {
 		return err
 	}
 	return tx.Commit()

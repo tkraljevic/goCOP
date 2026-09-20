@@ -421,11 +421,22 @@ func main() {
 			if svi, err := userRepo.ListUsers("", 0, "", "", ""); err == nil {
 				for _, u := range svi {
 					k := bp16.KorisnikUvoza{ID: u.ID.String(), Ime: u.FullName, Sektor: "B"}
+					// područje iz glavne dužnosti, pa iz bilo koje; i neaktivna
+					// vrijedi, jer umirovljeni vodočuvar ima povijest na području
+					// koje mu je zaduženje nosilo
 					for _, d := range u.Duties {
-						if d.AreaID != nil && *d.AreaID > 0 {
+						if d.IsPrimary && d.AreaID != nil && *d.AreaID > 0 {
 							k.AreaID = *d.AreaID
 							break
 						}
+					}
+					for _, d := range u.Duties {
+						if k.AreaID == 0 && d.AreaID != nil && *d.AreaID > 0 {
+							k.AreaID = *d.AreaID
+						}
+					}
+					if k.AreaID == 0 {
+						k.AreaID = userRepo.PodrucjeDuznosti(context.Background(), u.ID.String())
 					}
 					korisnici[u.FullName] = k
 				}

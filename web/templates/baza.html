@@ -87,6 +87,7 @@
         <option value="ocitanja">Očitanja</option>
         <option value="dnevnici">Dnevnici</option>
         <option value="prijave">Prijave s terena</option>
+        <option value="vodocuvarski">Vodočuvarski dnevnik</option>
       </select>
     </div>
     <div class="form-group" style="margin:0;">
@@ -113,7 +114,7 @@
       <tbody>
       {{range .Channels}}
       <tr>
-        <td>{{if eq .Kind "ocitanja"}}Očitanja{{else if eq .Kind "dnevnici"}}Dnevnici{{else if eq .Kind "prijave"}}Prijave{{else}}{{.Kind}}{{end}}</td>
+        <td>{{if eq .Kind "ocitanja"}}Očitanja{{else if eq .Kind "dnevnici"}}Dnevnici{{else if eq .Kind "prijave"}}Prijave{{else if eq .Kind "vodocuvarski"}}Vodočuvarski dnevnik{{else}}{{.Kind}}{{end}}</td>
         <td class="mono">{{.AreaID}}</td><td class="mono">{{.Year}}</td><td class="mono">{{.Versions}}</td>
         <td>{{if .Wanted}}<span class="badge badge-active">prati se</span>{{else}}<span class="badge badge-inactive">ne prati se</span>{{end}}</td>
       </tr>

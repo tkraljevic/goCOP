@@ -50,9 +50,10 @@ type Version struct {
 // zadnje dvije godine, uredski čvor sve. Granica razmjene vodi se po
 // autoru i kanalu, pa ono što čvor ne prati ne ostavlja rupu u razmjeni.
 const (
-	ChannelReadings = "ocitanja"
-	ChannelJournals = "dnevnici"
-	ChannelPrijave  = "prijave"
+	ChannelReadings  = "ocitanja"
+	ChannelJournals  = "dnevnici"
+	ChannelPrijave   = "prijave"
+	ChannelVodocuvar = "vodocuvarski"
 )
 
 // ChannelFor slaže kanal iz vrste, područja i godine; bez područja nema
