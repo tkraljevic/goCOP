@@ -64,6 +64,7 @@ func main() {
 	napomenaPregleda := flag.String("napomena-pregleda", "", "upozorenje i razlog pregleda")
 	nova := flag.Bool("nova", false, "otvori postaju ako je nema (traži -naziv)")
 	javnaPostaja := flag.String("javna-postaja", "", "broj postaje na vodostaji.voda.hr; uključuje automatsko preuzimanje")
+	javnaAdresa := flag.String("javna-adresa", "", "adresa javne stranice letve, za izvore izvan Hrvatskih voda; uključuje automatsko preuzimanje")
 	flag.Parse()
 
 	if strings.TrimSpace(*sifra) == "" {
@@ -192,6 +193,14 @@ func main() {
 		}
 		adresa := javnivodostaji.AdresaPostaje(postaja)
 		tekst("javna postaja", &letva.JavniURL, adresa)
+		if !letva.JavniUvoz {
+			promjene = append(promjene, "automatsko preuzimanje  ne → da")
+			letva.JavniUvoz = true
+		}
+	}
+	if *javnaAdresa != "" {
+		adresa := strings.TrimSpace(*javnaAdresa)
+		tekst("javna adresa", &letva.JavniURL, adresa)
 		if !letva.JavniUvoz {
 			promjene = append(promjene, "automatsko preuzimanje  ne → da")
 			letva.JavniUvoz = true

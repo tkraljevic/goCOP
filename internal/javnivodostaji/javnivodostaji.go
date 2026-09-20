@@ -350,7 +350,14 @@ func NoviUvoznik(s Spremiste, zapisnik func(string, ...any)) *Uvoznik {
 		zapisnik = func(string, ...any) {}
 	}
 	c := &Client{}
-	return &Uvoznik{Client: c, Izvori: []Izvor{hvIzvor{c}}, Spremiste: s, Svakih: time.Hour, Zapisnik: zapisnik, stanja: map[string]StanjeLetve{}}
+	return &Uvoznik{
+		Client:    c,
+		Izvori:    []Izvor{hvIzvor{c}, Hidmet{Client: c}},
+		Spremiste: s,
+		Svakih:    time.Hour,
+		Zapisnik:  zapisnik,
+		stanja:    map[string]StanjeLetve{},
+	}
 }
 
 // hvIzvor je Hrvatske vode kao Izvor, preko Clienta koji uvoznik drži;
