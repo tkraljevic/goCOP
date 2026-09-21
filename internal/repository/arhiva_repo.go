@@ -20,6 +20,9 @@ type ArhivaRepository struct {
 	// imaNapomenu javlja podnosi li ova arhiva napomenu uz niz. Starija izdanja
 	// je nemaju, a čitanje mora raditi i s njima.
 	imaNapomenu bool
+	// imaCrtaj javlja zna li ova arhiva da se neka snimka profila ne crta.
+	// Starija izdanja to ne znaju i ondje se crtaju sve.
+	imaCrtaj bool
 }
 
 // OpenArhiva otvara arhivu za čitanje. Vraća nil bez greške kad datoteke nema.
@@ -45,6 +48,10 @@ func OpenArhiva(path string) (*ArhivaRepository, error) {
 	if err := db.QueryRow(
 		`SELECT count(*) FROM pragma_table_info('nizovi') WHERE name = 'napomena'`).Scan(&ima); err == nil {
 		r.imaNapomenu = ima > 0
+	}
+	if err := db.QueryRow(
+		`SELECT count(*) FROM pragma_table_info('profili') WHERE name = 'crtaj'`).Scan(&ima); err == nil {
+		r.imaCrtaj = ima > 0
 	}
 	return r, nil
 }
@@ -330,8 +337,12 @@ func (r *ArhivaRepository) Profili(ctx context.Context, letva string) ([]models.
 	if r == nil {
 		return nil, nil
 	}
+	uvjet := ""
+	if r.imaCrtaj {
+		uvjet = " AND crtaj <> 0"
+	}
 	rows, err := r.db.QueryContext(ctx, `SELECT id, datum, COALESCE(vodostaj,0), COALESCE(kota_nule,0), COALESCE(pomak_m,0)
-		FROM profili WHERE letva = ? AND crtaj <> 0 ORDER BY datum DESC`, letva)
+		FROM profili WHERE letva = ?`+uvjet+` ORDER BY datum DESC`, letva)
 	if err != nil {
 		return nil, fmt.Errorf("profili korita: %w", err)
 	}
