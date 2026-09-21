@@ -8,12 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"gocop/internal/hidroview"
 	"gocop/internal/ledger"
 	"gocop/internal/models"
 	"gocop/internal/peers"
-	"gocop/internal/posta"
-	"gocop/internal/repository"
 )
 
 // SettingsHandler je stranica Postavke: ovaj čvor, poznati čvorovi,
@@ -22,18 +19,6 @@ type SettingsHandler struct {
 	peers *peers.Service
 	rec   *ledger.Recorder
 	tmpl  *template.Template
-
-	// Račun za telemetriju na Geolux HydroViewu: jedan za cijeli čvor, da se
-	// ne upisuje uz svaku letvu. Letva koja treba drugi račun upisuje ga u
-	// svojoj kartici.
-	hidroviewRacuni func() *repository.HidroViewRepository
-	hidroviewKljuc  func() []byte
-}
-
-// SetHidroView daje stranici spremište računa za telemetriju i ključ kojim
-// se lozinka zaključava.
-func (h *SettingsHandler) SetHidroView(racuni func() *repository.HidroViewRepository, kljuc func() []byte) {
-	h.hidroviewRacuni, h.hidroviewKljuc = racuni, kljuc
 }
 
 func NewSettingsHandler(peersSvc *peers.Service, rec *ledger.Recorder, tmpl *template.Template) *SettingsHandler {
@@ -41,25 +26,20 @@ func NewSettingsHandler(peersSvc *peers.Service, rec *ledger.Recorder, tmpl *tem
 }
 
 type SettingsPageData struct {
-	CurrentUser   *models.User
-	Permissions   *models.UserPermissions
-	NodeID        string
-	NodeName      string
-	NodeVersion   string
-	NodePublicKey string
-	SchemaVersion int
-	Ports         peers.Ports
-	Peers         []peers.Peer
-	Self          peers.Peer // vlastiti zapis: javne adrese koje putuju drugima
-	Network       *peers.Network
-	Members       []peers.Member
-	VersionCounts map[string]int
-	TotalVersions int
-	// Račun za telemetriju na Geolux HydroViewu, upisan za cijeli čvor
-	HidroViewKorisnik string
-	HidroViewUpisano  time.Time
-	HidroViewAdresa   string
-
+	CurrentUser    *models.User
+	Permissions    *models.UserPermissions
+	NodeID         string
+	NodeName       string
+	NodeVersion    string
+	NodePublicKey  string
+	SchemaVersion  int
+	Ports          peers.Ports
+	Peers          []peers.Peer
+	Self           peers.Peer // vlastiti zapis: javne adrese koje putuju drugima
+	Network        *peers.Network
+	Members        []peers.Member
+	VersionCounts  map[string]int
+	TotalVersions  int
 	SuccessMessage string
 	ErrorMessage   string
 	ActiveNav      string
@@ -95,17 +75,6 @@ func (h *SettingsHandler) ShowSettings(w http.ResponseWriter, r *http.Request) {
 	if members, err := h.peers.ListMembers(ctx); err == nil {
 		data.Members = members
 	}
-	data.HidroViewAdresa = hidroview.ZadanaAdresa
-	if h.hidroviewRacuni != nil {
-		if repo := h.hidroviewRacuni(); repo != nil {
-			if r, err := repo.Racun(ctx, ""); err == nil && r != nil {
-				data.HidroViewKorisnik, data.HidroViewUpisano = r.Korisnik, r.UpdatedAt
-				if r.Adresa != "" {
-					data.HidroViewAdresa = r.Adresa
-				}
-			}
-		}
-	}
 	if counts, err := h.rec.Count(ctx); err == nil {
 		data.VersionCounts = counts
 		for _, n := range counts {
@@ -116,70 +85,6 @@ func (h *SettingsHandler) ShowSettings(w http.ResponseWriter, r *http.Request) {
 	if err := h.tmpl.ExecuteTemplate(w, "settings.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
-}
-
-// SpremiHidroView upisuje račun čvora za telemetriju. Prijava se prvo
-// provjeri na samom sustavu: bolje odbiti odmah nego da letve svaki sat
-// javljaju grešku koju nitko ne gleda. Prazno korisničko ime briše račun.
-func (h *SettingsHandler) SpremiHidroView(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	if h.hidroviewRacuni == nil || h.hidroviewKljuc == nil {
-		redirectWith(w, r, "/settings", "error", "Spremište računa nije dostupno.")
-		return
-	}
-	repo := h.hidroviewRacuni()
-	if repo == nil {
-		redirectWith(w, r, "/settings", "error", "Spremište računa nije dostupno.")
-		return
-	}
-	korisnik := strings.TrimSpace(r.FormValue("hidroview_korisnik"))
-	lozinka := r.FormValue("hidroview_lozinka")
-	adresa := strings.TrimSpace(r.FormValue("hidroview_adresa"))
-	if korisnik == "" {
-		if err := repo.Obrisi(ctx, ""); err != nil {
-			redirectWith(w, r, "/settings", "error", "Račun nije obrisan: "+err.Error())
-			return
-		}
-		redirectWith(w, r, "/settings", "success", "Račun za telemetriju je obrisan s ovog čvora.")
-		return
-	}
-	if lozinka == "" {
-		postojeci, _ := repo.Racun(ctx, "")
-		if postojeci == nil || postojeci.Letva != "" {
-			redirectWith(w, r, "/settings", "error", "Upišite i lozinku.")
-			return
-		}
-		postojeci.Korisnik, postojeci.Adresa = korisnik, adresa
-		if err := repo.Spremi(ctx, postojeci); err != nil {
-			redirectWith(w, r, "/settings", "error", err.Error())
-			return
-		}
-		redirectWith(w, r, "/settings", "success", "Račun je spremljen.")
-		return
-	}
-	provjera, otkazi := context.WithTimeout(ctx, 45*time.Second)
-	defer otkazi()
-	k := &hidroview.Klijent{Adresa: adresa}
-	if err := k.Prijava(provjera, korisnik, lozinka); err != nil {
-		redirectWith(w, r, "/settings", "error",
-			"Prijava na "+hidroview.Podrijetlo+" nije prošla, ništa nije spremljeno: "+err.Error())
-		return
-	}
-	kljuc := h.hidroviewKljuc()
-	if len(kljuc) == 0 {
-		redirectWith(w, r, "/settings", "error", "Ključ čvora nije učitan, pa se lozinka ne može sigurno spremiti.")
-		return
-	}
-	z, err := posta.Zakljucaj(kljuc, lozinka)
-	if err != nil {
-		redirectWith(w, r, "/settings", "error", err.Error())
-		return
-	}
-	if err := repo.Spremi(ctx, &repository.RacunHidroView{Korisnik: korisnik, Adresa: adresa, Lozinka: z}); err != nil {
-		redirectWith(w, r, "/settings", "error", err.Error())
-		return
-	}
-	redirectWith(w, r, "/settings", "success", "Prijava je provjerena i račun je spremljen na ovaj čvor.")
 }
 
 // --- uparivanje ---

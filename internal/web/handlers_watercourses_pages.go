@@ -31,17 +31,17 @@ type WatercourseStationMapItem struct {
 
 // WatercoursePageData je stranica jedne vode ili njezina obrasca
 type WatercoursePageData struct {
-	CurrentUser     *models.User
-	Permissions     *models.UserPermissions
-	Water           models.Watercourse
-	Sections        []models.Section
-	Stations        []models.Station
-	Kinds           []string
-	Maintenance     []models.MaintainedWater // popisi lokacija u kojima se voda održava
-	IsEdit          bool
-	SuccessMessage  string
-	ErrorMessage    string
-	ActiveNav       string
+	CurrentUser    *models.User
+	Permissions    *models.UserPermissions
+	Water          models.Watercourse
+	Sections       []models.Section
+	Stations       []models.Station
+	Kinds          []string
+	Maintenance    []models.MaintainedWater // popisi lokacija u kojima se voda održava
+	IsEdit         bool
+	SuccessMessage string
+	ErrorMessage   string
+	ActiveNav      string
 	ViewAsBanner
 	Karta           KartaPostavke
 	GeometryJSON    template.JS

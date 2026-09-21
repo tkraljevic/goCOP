@@ -537,7 +537,7 @@ func NewServer(
 	for _, page := range []string{"dashboard.html", "registri.html", "users.html", "user_detail.html", "user_form.html", "duty_form.html", "profile.html", "sections.html", "section_detail.html", "section_form.html", "territories.html", "county_form.html", "municipality_form.html", "municipality_detail.html", "stations.html", "station_detail.html", "station_form.html", "station_history.html", "station_history_form.html", "paket_pregled.html", "watercourses.html", "watercourse_detail.html", "watercourse_form.html", "structures.html", "structure_detail.html", "structure_form.html", "readings.html", "reading_history.html", "reading_form.html", "arhiva_ispravci.html", "uvoz_ocitanja.html", "teren.html", "moduli.html", "settings.html", "odrzavanje.html", "organizacija.html", "sector_form.html", "area_form.html", "contractor_form.html", "firme.html", "nazivi.html", "sudionici.html",
 		"administracija.html", "uvozi.html", "sinkronizacija.html", "pretplate.html", "baza.html", "izvori.html", "uvoz_niza.html",
 		"dnevnici.html", "dnevnici_izbor.html", "administracija_potpisi.html", "prijave.html", "prijava_form.html", "prijava.html", "vodocuvar.html", "vodocuvar_list.html", "vodocuvar_kalendar.html", "posao.html", "dnevnik_form.html", "dnevnik.html", "dnevnik_cop.html", "dnevnik_cop_form.html", "dnevnik_list.html", "dnevnik_obracun.html", "dnevnik_dezurstva.html", "dnevnik_iors.html", "izvjesca.html", "izvjesce_form.html", "izvjesce.html", "sektorsko_form.html", "sektorsko.html", "obracun_postavke.html",
-		"sredstva.html", "katalog.html", "skladiste.html", "potrebe_form.html", "potrebe.html", "dogadjanja.html", "skladiste_form.html", "promet_form.html", "promet.html", "gdje_ima.html", "na_terenu.html", "popisi.html", "popis_form.html", "popis.html", "pomoc.html", "ocitanja_ispravci.html", "akti.html", "akt_form.html", "akt.html", "primatelji.html", "spranca.html", "posta_racun.html", "administracija_posta.html", "posta_sanducic.html", "posta_pismo.html", "posta_novo.html", "posta_potpis.html", "administracija_zig.html", "administracija_opcije.html", "imenik_exchange.html", "county_detail.html"} {
+		"sredstva.html", "katalog.html", "skladiste.html", "potrebe_form.html", "potrebe.html", "dogadjanja.html", "skladiste_form.html", "promet_form.html", "promet.html", "gdje_ima.html", "na_terenu.html", "popisi.html", "popis_form.html", "popis.html", "pomoc.html", "ocitanja_ispravci.html", "akti.html", "akt_form.html", "akt.html", "primatelji.html", "spranca.html", "posta_racun.html", "administracija_posta.html", "posta_sanducic.html", "posta_pismo.html", "posta_novo.html", "posta_potpis.html", "administracija_zig.html", "administracija_opcije.html", "administracija_telemetrija.html", "imenik_exchange.html", "county_detail.html"} {
 		t, err := template.New("base.html").Funcs(tmplFuncs).ParseFS(templatesFS, DijeloviPredloska(page)...)
 		if err != nil {
 			return nil, fmt.Errorf("greška pri parsiranju predloška %s: %w", page, err)
@@ -823,12 +823,6 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /dnevnici/{id}/obracun", s.authMiddleware(http.HandlerFunc(journalsH.ShowObracun)))
 	s.mux.Handle("POST /dnevnici/{id}/upisi/{entry}/stanje", s.authMiddleware(http.HandlerFunc(journalsH.HandleTaskStatus)))
 	settingsH := NewSettingsHandler(s.peersService, s.recorder, s.templates["settings.html"])
-	settingsH.SetHidroView(func() *repository.HidroViewRepository {
-		if s.db == nil {
-			return nil
-		}
-		return repository.NewHidroViewRepository(s.db)
-	}, func() []byte { return s.hidroviewKljuc })
 	sseH := NewSSEHandler(s.sseBroker)
 
 	// Statičke datoteke (CSS, JS) poslužene iz embed.FS
@@ -1196,7 +1190,14 @@ func (s *Server) setupRoutes() {
 
 	// Postavke: čvor, uparivanje, pronalaženje, sinkronizacija, povijest
 	s.mux.Handle("GET /settings", s.authMiddleware(http.HandlerFunc(settingsH.ShowSettings)))
-	s.mux.Handle("POST /settings/hidroview", s.authMiddleware(http.HandlerFunc(settingsH.SpremiHidroView)))
+	telemetrijaH := NewTelemetrijaHandler(func() *repository.HidroViewRepository {
+		if s.db == nil {
+			return nil
+		}
+		return repository.NewHidroViewRepository(s.db)
+	}, func() []byte { return s.hidroviewKljuc }, s.stationService, s.templates["administracija_telemetrija.html"])
+	s.mux.Handle("GET /administracija/telemetrija", s.authMiddleware(http.HandlerFunc(telemetrijaH.Prikazi)))
+	s.mux.Handle("POST /administracija/telemetrija", s.authMiddleware(http.HandlerFunc(telemetrijaH.Spremi)))
 	s.mux.Handle("GET /api/peers/pair/status", s.authMiddleware(http.HandlerFunc(settingsH.HandlePairStatus)))
 	s.mux.Handle("POST /api/peers/pair/listen", s.authMiddleware(http.HandlerFunc(settingsH.HandlePairListen)))
 	s.mux.Handle("POST /api/peers/pair/stop", s.authMiddleware(http.HandlerFunc(settingsH.HandlePairStop)))

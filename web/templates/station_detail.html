@@ -43,6 +43,7 @@
        data-plocice="{{.Karta.Plocice}}"
        data-zasluge="{{.Karta.Zasluge}}"
        data-najvise-z="{{.Karta.NajviseZ}}">
+	{{if .MapStationJSON}}<script type="application/json" class="karta-letva-podaci">{{.MapStationJSON}}</script>{{end}}
     <div class="karta-platno"></div>
     <p class="reg-card-sub karta-bez-mreze" hidden>{{icon "triangle-alert"}} Pločice karte
       nisu dostupne — program radi bez interneta, a za ovo područje još nisu preuzete.
