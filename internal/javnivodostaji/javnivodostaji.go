@@ -352,7 +352,7 @@ func NoviUvoznik(s Spremiste, zapisnik func(string, ...any)) *Uvoznik {
 	c := &Client{}
 	return &Uvoznik{
 		Client:    c,
-		Izvori:    []Izvor{hvIzvor{c}, Hidmet{Client: c}, Vizugy{Client: c}},
+		Izvori:    []Izvor{hvIzvor{c}, Hidmet{Client: c}, Vizugy{Client: c}, SHMU{Client: c}},
 		Spremiste: s,
 		Svakih:    time.Hour,
 		Zapisnik:  zapisnik,
