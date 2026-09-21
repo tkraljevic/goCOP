@@ -26,7 +26,7 @@ func TestCitanjeTabliceSaStranice(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(redci) != 3 || redci[0].Cm != -121 || redci[2].Cm != -119 {
+	if len(redci) != 3 || redci[0].LevelCm == nil || *redci[0].LevelCm != -121 || redci[2].LevelCm == nil || *redci[2].LevelCm != -119 {
 		t.Fatalf("redci: %+v", redci)
 	}
 	// 18.9.2026. 10:00 ljetno vrijeme = 08:00 UTC
@@ -88,8 +88,8 @@ func TestUvoznikUpisujeSamoNovo(t *testing.T) {
 		t.Errorf("stanje letve: %+v", s)
 	}
 	// isti identitet za isti trenutak: ponovno preuzimanje daje iste ID-eve
-	a := Ocitanje(&st, Redak{Kad: vecIma, Cm: -121}, Podrijetlo)
-	b := Ocitanje(&st, Redak{Kad: vecIma, Cm: -121}, Podrijetlo)
+	a := Ocitanje(&st, Redak{Kad: vecIma, LevelCm: intPtr(-121)}, Podrijetlo)
+	b := Ocitanje(&st, Redak{Kad: vecIma, LevelCm: intPtr(-121)}, Podrijetlo)
 	if a.ID != b.ID {
 		t.Error("identitet očitanja nije stabilan")
 	}

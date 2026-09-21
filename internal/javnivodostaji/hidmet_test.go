@@ -38,11 +38,11 @@ func TestHidmetCitaUStalnomPomaku(t *testing.T) {
 		t.Fatalf("redaka %d, očekivano 3", len(r))
 	}
 	// najstariji prvi
-	if !r[0].Kad.Equal(time.Date(2026, 6, 20, 2, 0, 0, 0, time.UTC)) || r[0].Cm != 212 {
-		t.Errorf("ljetni redak: %s %d cm — 03:00 UTC+1 je 02:00 UTC, ne 01:00", r[0].Kad, r[0].Cm)
+	if !r[0].Kad.Equal(time.Date(2026, 6, 20, 2, 0, 0, 0, time.UTC)) || r[0].LevelCm == nil || *r[0].LevelCm != 212 {
+		t.Errorf("ljetni redak: %+v — 03:00 UTC+1 je 02:00 UTC, ne 01:00", r[0])
 	}
-	if !r[2].Kad.Equal(time.Date(2026, 9, 20, 20, 0, 0, 0, time.UTC)) || r[2].Cm != -115 {
-		t.Errorf("zadnji redak: %s %d cm", r[2].Kad, r[2].Cm)
+	if !r[2].Kad.Equal(time.Date(2026, 9, 20, 20, 0, 0, 0, time.UTC)) || r[2].LevelCm == nil || *r[2].LevelCm != -115 {
+		t.Errorf("zadnji redak: %+v", r[2])
 	}
 }
 

@@ -102,7 +102,7 @@ func CitajHidmet(html string) ([]Redak, error) {
 		min, _ := strconv.Atoi(m[5])
 		cm, _ := strconv.Atoi(m[6])
 		kad := time.Date(g, time.Month(mj), d, h, min, 0, 0, zonaHidmet)
-		out = append(out, Redak{Kad: kad.UTC(), Cm: cm})
+		out = append(out, Redak{Kad: kad.UTC(), LevelCm: intPtr(cm)})
 	}
 	if len(out) == 0 {
 		if strings.Contains(html, "Vodostaj") {

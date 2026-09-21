@@ -23,11 +23,11 @@ func TestSHMUUzimaPuneSate(t *testing.T) {
 	if len(r) != 2 {
 		t.Fatalf("redaka %d, očekivano 2: %+v", len(r), r)
 	}
-	if !r[0].Kad.Equal(time.Date(2026, 9, 21, 4, 0, 0, 0, time.UTC)) || r[0].Cm != 268 {
-		t.Errorf("prvi redak: %s %d cm — 06:00 po slovačkom je 04:00 UTC", r[0].Kad, r[0].Cm)
+	if !r[0].Kad.Equal(time.Date(2026, 9, 21, 4, 0, 0, 0, time.UTC)) || r[0].LevelCm == nil || *r[0].LevelCm != 268 {
+		t.Errorf("prvi redak: %+v — 06:00 po slovačkom je 04:00 UTC", r[0])
 	}
-	if !r[1].Kad.Equal(time.Date(2026, 9, 21, 5, 0, 0, 0, time.UTC)) || r[1].Cm != 266 {
-		t.Errorf("drugi redak: %s %d cm", r[1].Kad, r[1].Cm)
+	if !r[1].Kad.Equal(time.Date(2026, 9, 21, 5, 0, 0, 0, time.UTC)) || r[1].LevelCm == nil || *r[1].LevelCm != 266 {
+		t.Errorf("drugi redak: %+v", r[1])
 	}
 }
 

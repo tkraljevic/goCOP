@@ -360,7 +360,7 @@ func alias(zadane map[string]string, header string) string {
 
 func loadGauges(ctx context.Context, d Deps) (*gaugeIndex, error) {
 	idx := &gaugeIndex{byName: map[string][]gauge{}, byCode: map[string]*gauge{}}
-	stations, err := d.Stations.ListStations(ctx, "", "", false)
+	stations, err := d.Stations.ListStations(ctx, "", "", "", false)
 	if err != nil {
 		return nil, err
 	}

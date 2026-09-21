@@ -102,7 +102,7 @@ func CitajSHMU(html string) ([]Redak, error) {
 		h, _ := strconv.Atoi(m[4])
 		cm, _ := strconv.Atoi(m[6])
 		kad := time.Date(g, time.Month(mj), d, h, 0, 0, 0, models.Zagreb)
-		out = append(out, Redak{Kad: kad.UTC(), Cm: cm})
+		out = append(out, Redak{Kad: kad.UTC(), LevelCm: intPtr(cm)})
 	}
 	if len(out) == 0 {
 		if nadjeno > 0 {

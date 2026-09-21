@@ -25,14 +25,14 @@ func TestVizugyCitaPoljaIZonu(t *testing.T) {
 	if len(r) != 5 {
 		t.Fatalf("redaka %d, očekivano 5 (tri završne nule otpadaju): %+v", len(r), r)
 	}
-	if !r[0].Kad.Equal(time.Date(2026, 9, 5, 23, 0, 0, 0, time.UTC)) || r[0].Cm != 28 {
-		t.Errorf("prvi redak: %s %d cm — 01:00 po mađarskom je 23:00 UTC prethodnog dana", r[0].Kad, r[0].Cm)
+	if !r[0].Kad.Equal(time.Date(2026, 9, 5, 23, 0, 0, 0, time.UTC)) || r[0].LevelCm == nil || *r[0].LevelCm != 28 {
+		t.Errorf("prvi redak: %+v — 01:00 po mađarskom je 23:00 UTC prethodnog dana", r[0])
 	}
-	if r[3].Cm != 0 {
+	if r[3].LevelCm == nil || *r[3].LevelCm != 0 {
 		t.Errorf("nula usred niza je vodostaj i mora ostati: %+v", r[3])
 	}
-	if !r[4].Kad.Equal(time.Date(2026, 9, 6, 3, 0, 0, 0, time.UTC)) || r[4].Cm != 33 {
-		t.Errorf("zadnji redak: %s %d cm", r[4].Kad, r[4].Cm)
+	if !r[4].Kad.Equal(time.Date(2026, 9, 6, 3, 0, 0, 0, time.UTC)) || r[4].LevelCm == nil || *r[4].LevelCm != 33 {
+		t.Errorf("zadnji redak: %+v", r[4])
 	}
 }
 

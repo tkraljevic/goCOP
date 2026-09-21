@@ -161,7 +161,7 @@ func CitajVizugy(html string) ([]Redak, error) {
 		if err != nil {
 			continue
 		}
-		out = append(out, Redak{Kad: kad, Cm: cm})
+		out = append(out, Redak{Kad: kad, LevelCm: intPtr(cm)})
 	}
 	if len(out) == 0 {
 		return nil, fmt.Errorf("polja su prazna — postaja možda ne javlja vodostaj")

@@ -181,9 +181,14 @@ type Postaja struct {
 
 // Redak je jedno satno očitanje s javne stranice, vrijeme u UTC
 type Redak struct {
-	Kad time.Time
-	Cm  int
+	Kad     time.Time
+	LevelCm *int
+	TempC   *float64
+	FlowM3s *float64
 }
+
+func intPtr(v int) *int           { return &v }
+func floatPtr(v float64) *float64 { return &v }
 
 // Client čita javnu stranicu
 type Client struct {
@@ -279,7 +284,7 @@ func CitajTablicu(html string) ([]Redak, error) {
 		min, _ := strconv.Atoi(m[5])
 		cm, _ := strconv.Atoi(m[6])
 		kad := time.Date(g, time.Month(mj), d, h, min, 0, 0, models.Zagreb)
-		out = append(out, Redak{Kad: kad.UTC(), Cm: cm})
+		out = append(out, Redak{Kad: kad.UTC(), LevelCm: intPtr(cm)})
 	}
 	if len(out) == 0 {
 		if strings.Contains(html, "VODOSTAJ") {
@@ -294,13 +299,14 @@ func CitajTablicu(html string) ([]Redak, error) {
 // Ocitanje pretvara redak u očitanje kakvo ide u operativni zapis; isti
 // identitet za isti trenutak, pa ponovljeno preuzimanje ništa ne udvostručuje
 func Ocitanje(station *models.Station, r Redak, podrijetlo string) models.Reading {
-	cm := r.Cm
 	ref := podrijetlo + ":" + r.Kad.UTC().Format(time.RFC3339)
 	return models.Reading{
 		ID:         db.StableID("reading", station.ID.String()+"|"+ref),
 		StationID:  station.ID.String(),
 		MeasuredAt: r.Kad.UTC(),
-		LevelCm:    &cm,
+		LevelCm:    r.LevelCm,
+		TempC:      r.TempC,
+		FlowM3s:    r.FlowM3s,
 		Source:     models.ReadingSourceImport,
 		Origin:     podrijetlo,
 		SourceRef:  ref,
@@ -352,7 +358,7 @@ func NoviUvoznik(s Spremiste, zapisnik func(string, ...any)) *Uvoznik {
 	c := &Client{}
 	return &Uvoznik{
 		Client:    c,
-		Izvori:    []Izvor{hvIzvor{c}, Hidmet{Client: c}, Vizugy{Client: c}, SHMU{Client: c}},
+		Izvori:    []Izvor{hvIzvor{c}, Hidmet{Client: c}, Vizugy{Client: c}, SHMU{Client: c}, ARSO{Client: c}, PegelOnline{Client: c}, GKD{Client: c}, EHYD{Client: c}},
 		Spremiste: s,
 		Svakih:    time.Hour,
 		Zapisnik:  zapisnik,
@@ -484,6 +490,10 @@ func (u *Uvoznik) Preuzmi(ctx context.Context, st *models.Station) StanjeLetve {
 	if err != nil {
 		s.Greska = err.Error()
 		u.Zapisnik("javni vodostaji: %s: %v", st.Name, err)
+		return s
+	}
+	if len(redci) == 0 {
+		s.Greska = "izvor trenutačno nema valjano očitanje"
 		return s
 	}
 	s.Preuzeto = len(redci)
