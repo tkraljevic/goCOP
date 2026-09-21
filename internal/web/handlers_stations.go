@@ -16,6 +16,7 @@ import (
 	"gocop/internal/arhiva"
 	"gocop/internal/javnivodostaji"
 	"gocop/internal/models"
+	"gocop/internal/posta"
 	"gocop/internal/repository"
 	"gocop/internal/service"
 )
@@ -32,6 +33,8 @@ type StationsHandler struct {
 	arhivaPutFn        func() string
 	cvorFn             func() string
 	javni              func() *javnivodostaji.Uvoznik
+	hidroviewRacuni    func() *repository.HidroViewRepository
+	hidroviewKljuc     func() []byte
 	paketiDirFn        func() string
 	ugradi             func(*arhiva.Sadrzaj) error
 	tmplPaket          *template.Template
@@ -85,6 +88,7 @@ type StationsPageData struct {
 // StationMapItem predstavlja vodomjernu postaju na karti postaja
 type StationMapItem struct {
 	ID          string   `json:"id"`
+	Code        string   `json:"code"`
 	Name        string   `json:"name"`
 	Watercourse string   `json:"watercourse"`
 	Stationing  string   `json:"stationing"`
@@ -97,6 +101,63 @@ type StationMapItem struct {
 	Emergency   string   `json:"emergency"`
 	State       string   `json:"state"`
 	NeedsReview bool     `json:"needs_review"`
+	LatestLevel string   `json:"latest_level,omitempty"` // npr. "+412 cm"
+	LatestFlow  string   `json:"latest_flow,omitempty"`
+	LatestTime  string   `json:"latest_time,omitempty"` // npr. "21.09. 13:00"
+}
+
+// stationMapThreshold izostavlja prazne pragove samo iz prikaza karte.
+func (h *StationsHandler) stationMapItem(ctx context.Context, st models.Station) StationMapItem {
+	idStr := st.ID.String()
+	item := StationMapItem{
+		ID:          idStr,
+		Code:        st.Code,
+		Name:        st.Name,
+		Watercourse: st.Watercourse,
+		Stationing:  st.Stationing,
+		Country:     st.Zemlja(),
+		Lat:         st.Latitude,
+		Lon:         st.Longitude,
+		DetailURL:   "/stations/" + idStr,
+		Prep:        stationMapThreshold(st.Prep),
+		Regular:     stationMapThreshold(st.Regular),
+		Emergency:   stationMapThreshold(st.Emergency),
+		State:       stationMapThreshold(st.State),
+		NeedsReview: st.NeedsReview,
+	}
+	// Kao u pregledu očitanja: zadnje operativno očitanje, nikad historijat.
+	if h.readingService != nil {
+		if rs, err := h.readingService.List(ctx, repository.ReadingFilter{StationID: idStr, Limit: 1}); err == nil && len(rs) > 0 {
+			if rs[0].LevelCm != nil {
+				item.LatestLevel = fmt.Sprintf("%+d cm", *rs[0].LevelCm)
+			}
+			if rs[0].FlowM3s != nil {
+				item.LatestFlow = strings.ReplaceAll(strconv.FormatFloat(*rs[0].FlowM3s, 'f', -1, 64), ".", ",") + " m³/s"
+			} else if rs[0].LevelCm != nil && st.Code != "" {
+				if a := h.arh(); a != nil {
+					krivulje, _ := a.Krivulje(ctx, st.Code)
+					if q, izvan := protokIzKrivulje(krivulje, rs[0].LocalTime(), rs[0].LevelCm); q != "" {
+						item.LatestFlow = q + " m³/s (izračunato)"
+						if izvan {
+							item.LatestFlow += " — " + UpozorenjeIzvanKrivulje
+						}
+					}
+				}
+			}
+			if item.LatestLevel != "" || item.LatestFlow != "" {
+				item.LatestTime = rs[0].LocalTime().Format("02.01. 15:04")
+			}
+		}
+	}
+	return item
+}
+
+func stationMapThreshold(t models.Threshold) string {
+	label := t.Label()
+	if t.Cm == nil && (label == "—" || label == "–" || label == "-") {
+		return ""
+	}
+	return label
 }
 
 // ShowStations prikazuje registar vodomjernih postaja
@@ -159,10 +220,27 @@ func (h *StationsHandler) ShowStations(w http.ResponseWriter, r *http.Request) {
 
 	// Geometrije svih vodotoka za prikaz riječne mreže na karti
 	if h.watercourseService != nil {
+		codesSeen := make(map[string]bool)
+		var codesToFetch []string
+
 		waters, _ := h.watercourseService.ListWatercourses(ctx, "", "", false)
-		var allFeatures []json.RawMessage
 		for _, w := range waters {
-			geom, err := h.watercourseService.GetWatercourseGeometry(ctx, w.Code)
+			if !codesSeen[w.Code] {
+				codesSeen[w.Code] = true
+				codesToFetch = append(codesToFetch, w.Code)
+			}
+		}
+		// Uvijek provjeri i rijeke s ugrađenom geometrijom (Dunav, Drava, Mura)
+		for _, code := range []string{"rijeka-dunav", "rijeka-drava", "rijeka-mura"} {
+			if !codesSeen[code] {
+				codesSeen[code] = true
+				codesToFetch = append(codesToFetch, code)
+			}
+		}
+
+		var allFeatures []json.RawMessage
+		for _, code := range codesToFetch {
+			geom, err := h.watercourseService.GetWatercourseGeometry(ctx, code)
 			if err != nil || len(geom) == 0 {
 				continue
 			}
@@ -192,22 +270,8 @@ func (h *StationsHandler) ShowStations(w http.ResponseWriter, r *http.Request) {
 	var mapStations []StationMapItem
 	for _, st := range stations {
 		if st.ImaKoordinate() {
-			idStr := st.ID.String()
-			mapStations = append(mapStations, StationMapItem{
-				ID:          idStr,
-				Name:        st.Name,
-				Watercourse: st.Watercourse,
-				Stationing:  st.Stationing,
-				Country:     st.Zemlja(),
-				Lat:         st.Latitude,
-				Lon:         st.Longitude,
-				DetailURL:   "/stations/" + idStr,
-				Prep:        st.Prep.Label(),
-				Regular:     st.Regular.Label(),
-				Emergency:   st.Emergency.Label(),
-				State:       st.State.Label(),
-				NeedsReview: st.NeedsReview,
-			})
+			item := h.stationMapItem(ctx, st)
+			mapStations = append(mapStations, item)
 		}
 	}
 	if len(mapStations) > 0 {
@@ -363,6 +427,13 @@ func (h *StationsHandler) HandleUpdateStationAPI(w http.ResponseWriter, r *http.
 	station.ID = stationID
 	h.dopuniJavnuAdresu(ctx, &station)
 
+	// Račun za telemetriju ne ide u zapis postaje: on ostaje na ovom čvoru.
+	// Sprema se prije postaje, da se ne dogodi da postaja pokazuje na
+	// HydroView, a računa nema.
+	upozorenjeRacuna := ""
+	if form.Obrazac != obrazacHistorijat {
+		upozorenjeRacuna = h.spremiRacunHidroView(ctx, station.Code, form)
+	}
 	if err := h.stationService.UpdateStation(ctx, perms, &station); err != nil {
 		if wantsPage(r) {
 			natrag := "/stations/" + stationID.String() + "/edit"
@@ -380,6 +451,10 @@ func (h *StationsHandler) HandleUpdateStationAPI(w http.ResponseWriter, r *http.
 		natrag := "/stations/" + stationID.String()
 		if form.Obrazac == obrazacHistorijat {
 			natrag += "/historijat"
+		}
+		if upozorenjeRacuna != "" {
+			redirectWith(w, r, natrag, "error", "Izmjene su spremljene. "+upozorenjeRacuna)
+			return
 		}
 		redirectWith(w, r, natrag, "success", "Izmjene su spremljene.")
 		return
@@ -511,6 +586,8 @@ type stationForm struct {
 	NeedsReview           string `json:"needs_review"`
 	ReviewNote            string `json:"review_note"`
 	JavniURL              string `json:"javni_url"`
+	HidroViewKorisnik     string `json:"hidroview_korisnik"`
+	HidroViewLozinka      string `json:"hidroview_lozinka"`
 	JavniUvoz             string `json:"javni_uvoz"`
 }
 
@@ -561,6 +638,8 @@ func decodeStationForm(r *http.Request) (stationForm, error) {
 	form.ReviewNote = r.FormValue("review_note")
 	form.JavniURL = r.FormValue("javni_url")
 	form.JavniUvoz = r.FormValue("javni_uvoz")
+	form.HidroViewKorisnik = r.FormValue("hidroview_korisnik")
+	form.HidroViewLozinka = r.FormValue("hidroview_lozinka")
 
 	return form, nil
 }
@@ -610,6 +689,60 @@ func (f stationForm) primijeni(st *models.Station) {
 	st.NeedsReview = f.NeedsReview == "1" || f.NeedsReview == "on" || f.NeedsReview == "true"
 	st.ReviewNote = strings.TrimSpace(f.ReviewNote)
 	st.JavniURL, st.JavniUvoz = f.javnaVeza()
+}
+
+// spremiRacunHidroView upisuje ili miče račun kojim se čita telemetrija ove
+// letve. Prazno korisničko ime briše račun letve, pa opet vrijedi račun
+// čvora ako ga ima. Prazna lozinka uz upisano ime znači „ostavi kakva je“.
+// Vraća upozorenje kad se račun nije dao spremiti; spremanje postaje zbog
+// toga ne pada, jer letva i bez računa ima smisla.
+func (h *StationsHandler) spremiRacunHidroView(ctx context.Context, letva string, f stationForm) string {
+	if h.hidroviewRacuni == nil || h.hidroviewKljuc == nil {
+		return ""
+	}
+	korisnik := strings.TrimSpace(f.HidroViewKorisnik)
+	lozinka := f.HidroViewLozinka
+	repo := h.hidroviewRacuni()
+	if repo == nil {
+		return ""
+	}
+	postojeci, _ := repo.Racun(ctx, letva)
+	svoj := postojeci != nil && postojeci.Letva == letva && letva != ""
+	if korisnik == "" {
+		if svoj {
+			if err := repo.Obrisi(ctx, letva); err != nil {
+				return "Račun za telemetriju nije obrisan: " + err.Error()
+			}
+		}
+		return ""
+	}
+	if lozinka == "" {
+		if !svoj {
+			// Ime je samo ispis računa čvora; bez lozinke se ne može
+			// napraviti račun letve, a račun čvora se ovdje ne dira.
+			return ""
+		}
+		if korisnik == postojeci.Korisnik {
+			return ""
+		}
+		postojeci.Korisnik = korisnik
+		if err := repo.Spremi(ctx, postojeci); err != nil {
+			return "Račun za telemetriju nije spremljen: " + err.Error()
+		}
+		return ""
+	}
+	kljuc := h.hidroviewKljuc()
+	if len(kljuc) == 0 {
+		return "Ključ čvora nije učitan, pa se lozinka ne može sigurno spremiti."
+	}
+	z, err := posta.Zakljucaj(kljuc, lozinka)
+	if err != nil {
+		return "Lozinka za telemetriju nije spremljena: " + err.Error()
+	}
+	if err := repo.Spremi(ctx, &repository.RacunHidroView{Letva: letva, Korisnik: korisnik, Lozinka: z}); err != nil {
+		return "Račun za telemetriju nije spremljen: " + err.Error()
+	}
+	return ""
 }
 
 // javnaVeza čita vezu s javnom stranicom: adresu i je li preuzimanje

@@ -23,6 +23,7 @@ import (
 
 // StationPageData je stranica jedne postaje ili njezina obrasca
 type StationPageData struct {
+	MapStationJSON       template.JS
 	CurrentUser          *models.User
 	Permissions          *models.UserPermissions
 	Station              models.Station
@@ -45,10 +46,15 @@ type StationPageData struct {
 	Profil               *models.ProfilKorita     // onaj koji se crta
 	Krivulje             []models.HQKrivulja      // krivulje protoka po razdobljima
 	JavnePostaje         []javnivodostaji.Postaja // javni popis postaja za povezivanje; prazno bez interneta
-	PragoviQ             []PragProtok             // isti pragovi iskazani u protoku
-	ImaProtok            bool                     // ima li ijedan prag protok, pa tablica treba stupac
-	BrojOcitanja         int                      // koliko je očitanja upisano na letvi — za upozorenje pri brisanju
-	PragoviKote          []PragKota               // isti pragovi kao apsolutna kota vodne plohe
+	// Račun za telemetriju na Geolux HydroViewu: korisničko ime upisano na
+	// ovom čvoru za ovu letvu, i otkud vrijedi. Lozinka se nikamo ne šalje.
+	HidroViewKorisnik string
+	HidroViewOdakle   string // "letva" ili "čvor"; prazno kad računa nema
+	HidroViewUpisano  time.Time
+	PragoviQ          []PragProtok // isti pragovi iskazani u protoku
+	ImaProtok         bool         // ima li ijedan prag protok, pa tablica treba stupac
+	BrojOcitanja      int          // koliko je očitanja upisano na letvi — za upozorenje pri brisanju
+	PragoviKote       []PragKota   // isti pragovi kao apsolutna kota vodne plohe
 	// Sazeto sklapa zabilježene ekstreme. Na kartici letve su predmet i stoje
 	// otvoreni, pa ostaje netočno; polje postoji da zajednički predložak radi
 	// s objema stranicama.
@@ -126,6 +132,13 @@ func (h *StationsHandler) SetReadingService(s *service.ReadingService) { h.readi
 // SetJavniUvoz daje rukovatelju uvoznika javnih vodostaja, za popis postaja u obrascu
 func (h *StationsHandler) SetJavniUvoz(f func() *javnivodostaji.Uvoznik) { h.javni = f }
 
+// SetHidroView daje rukovatelju spremište računa za Geolux HydroView i ključ
+// kojim se lozinke zaključavaju. Bez toga kartica ne nudi upis računa, a
+// letva koja je na tom sustavu javlja da račun nije upisan.
+func (h *StationsHandler) SetHidroView(racuni func() *repository.HidroViewRepository, kljuc func() []byte) {
+	h.hidroviewRacuni, h.hidroviewKljuc = racuni, kljuc
+}
+
 // SetPaket daje rukovatelju sve što treba za pakete historijata: gdje arhiva
 // stoji, kako se čvor zove i kako se paket ugrađuje.
 func (h *StationsHandler) SetPaket(put func() string, cvor func() string,
@@ -198,6 +211,11 @@ func (h *StationsHandler) ShowStation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data.LetvaStranica = "kartica"
+	if data.Station.ImaKoordinate() {
+		if b, err := json.Marshal(h.stationMapItem(r.Context(), data.Station)); err == nil {
+			data.MapStationJSON = template.JS(b)
+		}
+	}
 	if err := h.tmplDetail.ExecuteTemplate(w, "station_detail.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -563,9 +581,32 @@ func (h *StationsHandler) ShowStationForm(w http.ResponseWriter, r *http.Request
 			data.JavnePostaje = u.Postaje(r.Context())
 		}
 	}
+	data.HidroViewKorisnik, data.HidroViewOdakle, data.HidroViewUpisano =
+		h.racunHidroView(r.Context(), data.Station.Code)
 	if err := h.tmplForm.ExecuteTemplate(w, "station_form.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// racunHidroView javlja je li za letvu upisan račun za telemetriju i vrijedi
+// li on samo za nju ili za cijeli čvor. Lozinka se ne čita.
+func (h *StationsHandler) racunHidroView(ctx context.Context, letva string) (string, string, time.Time) {
+	if h.hidroviewRacuni == nil {
+		return "", "", time.Time{}
+	}
+	repo := h.hidroviewRacuni()
+	if repo == nil {
+		return "", "", time.Time{}
+	}
+	r, err := repo.Racun(ctx, letva)
+	if err != nil || r == nil {
+		return "", "", time.Time{}
+	}
+	odakle := "čvor"
+	if r.Letva != "" {
+		odakle = "letva"
+	}
+	return r.Korisnik, odakle, r.UpdatedAt
 }
 
 // odabraniNiz bira niz čije se karakteristične vrijednosti prikazuju: onaj iz

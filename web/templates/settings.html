@@ -50,6 +50,35 @@
   </div>
 
   <div class="card">
+    <h2>Telemetrija (Geolux HydroView)</h2>
+    <p class="page-desc">Letve koje nemaju javnu stranicu vodostaja, a jesu na
+      <a href="{{.HidroViewAdresa}}" target="_blank" rel="noopener">{{.HidroViewAdresa}}</a>, čitaju se odande.
+      Račun se upisuje ovdje jednom za cijeli čvor, a letva samo uključi preuzimanje. Letva koja treba
+      drugi račun — recimo kad sektor čita svoje postaje — upisuje ga u svojoj kartici.</p>
+    <form method="post" action="/settings/hidroview" class="form-row" style="align-items:flex-end; gap:0.75rem;">
+      <div class="form-group">
+        <label class="form-label" for="hidroview_korisnik">Korisničko ime</label>
+        <input type="text" id="hidroview_korisnik" name="hidroview_korisnik" class="form-control"
+               value="{{.HidroViewKorisnik}}" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="hidroview_lozinka">Lozinka</label>
+        <input type="password" id="hidroview_lozinka" name="hidroview_lozinka" class="form-control"
+               autocomplete="new-password"
+               placeholder="{{if .HidroViewKorisnik}}upisana — ostavi prazno da ostane{{else}}lozinka za taj sustav{{end}}">
+      </div>
+      <input type="hidden" name="hidroview_adresa" value="{{.HidroViewAdresa}}">
+      <div class="form-group" style="flex:0 0 auto;">
+        <button type="submit" class="btn btn-primary">Spremi račun</button>
+      </div>
+    </form>
+    <p class="form-help">
+      {{if .HidroViewKorisnik}}Upisan je račun <strong>{{.HidroViewKorisnik}}</strong>, od {{formatDate .HidroViewUpisano}}.
+      Prazno korisničko ime briše ga s ovog čvora.{{else}}Račun još nije upisan, pa letve na tom sustavu ne mogu preuzimati.{{end}}
+      Prijava se provjeri prije spremanja. Lozinka se sprema zaključana ključem ovog čvora, ostaje samo na ovom
+      računalu i ne putuje razmjenom među čvorovima.
+    </p>
+
     <h2>Domenski čvorovi</h2>
     <p class="desc">Čvor sa stalnom adresom (domena ili javni IP) dostupan je i izvan lokalne mreže: preko njega se ostali usklađuju kad nisu u istoj zgradi. Adresa putuje razmjenom, pa je dovoljno upisati je jednom, na bilo kojem čvoru.</p>
     <div class="peer">

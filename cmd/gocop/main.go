@@ -18,6 +18,7 @@ import (
 	"gocop/internal/arhiva"
 	"gocop/internal/config"
 	"gocop/internal/db"
+	"gocop/internal/hidroview"
 	"gocop/internal/importer/bp16"
 	"gocop/internal/importer/csvlevels"
 	"gocop/internal/importer/ugovor"
@@ -627,7 +628,28 @@ func main() {
 	// vodostaji.voda.hr i označene za preuzimanje. Bez interneta samo javi
 	// grešku na letvi i pokuša za sat.
 	javniUvoznik := javnivodostaji.NoviUvoznik(repository.NewJavniSpremiste(database, readingRepo), log.Printf)
+	// Letve na Geolux HydroViewu traže prijavu. Račun stoji na ovom čvoru,
+	// šifriran ključem čvora, i traži se pri svakom preuzimanju — tako
+	// promjena lozinke odmah vrijedi, bez ponovnog pokretanja. Letva može
+	// imati svoj račun; kad nema, vrijedi račun čvora.
+	hidroviewRepo := repository.NewHidroViewRepository(database)
+	hidroviewKljuc := hidroview.Kljuc(node.PrivateKey().Seed())
+	javniUvoznik.PostaviHidroViewRacun(func(adresa string) (string, string, bool) {
+		var letva string
+		_ = database.QueryRow(`SELECT code FROM stations WHERE javni_url = ?`, adresa).Scan(&letva)
+		r, err := hidroviewRepo.Racun(context.Background(), letva)
+		if err != nil || r == nil {
+			return "", "", false
+		}
+		lozinka, err := posta.Otkljucaj(hidroviewKljuc, r.Lozinka)
+		if err != nil {
+			log.Printf("HydroView: lozinka za %q se ne da otključati: %v", letva, err)
+			return "", "", false
+		}
+		return r.Korisnik, lozinka, true
+	})
 	server.SetJavniUvoz(javniUvoznik)
+	server.SetHidroViewKljuc(hidroviewKljuc)
 	go javniUvoznik.Pokreni(syncCtx)
 	log.Printf("Čvor %s (ključ %.12s…) — razmjena :%d, uparivanje :%d, pronalaženje :%d",
 		node.ID, node.PublicKey(), *syncPort, *pairPort, *discoveryPort)

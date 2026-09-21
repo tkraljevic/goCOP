@@ -377,8 +377,9 @@ func NoviUvoznik(s Spremiste, zapisnik func(string, ...any)) *Uvoznik {
 	}
 	c := &Client{}
 	return &Uvoznik{
-		Client:    c,
-		Izvori:    []Izvor{hvIzvor{c}, Hidmet{Client: c}, Vizugy{Client: c}, SHMU{Client: c}, ARSO{Client: c}, PegelOnline{Client: c}, GKD{Client: c}, EHYD{Client: c}},
+		Client: c,
+		Izvori: []Izvor{hvIzvor{c}, Hidmet{Client: c}, Vizugy{Client: c}, SHMU{Client: c}, ARSO{Client: c},
+			PegelOnline{Client: c}, GKD{Client: c}, EHYD{Client: c}, &HidroView{}},
 		Spremiste: s,
 		Svakih:    time.Hour,
 		Zapisnik:  zapisnik,
@@ -404,6 +405,17 @@ func (u *Uvoznik) IzvorZa(adresa string) Izvor {
 		}
 	}
 	return nil
+}
+
+// PostaviHidroViewRacun kaže uvozniku odakle uzeti vjerodajnice za letve
+// koje su na Geolux HydroViewu. Bez toga takve letve javljaju da račun nije
+// upisan, a ostale rade kao i dosad.
+func (u *Uvoznik) PostaviHidroViewRacun(f Vjerodajnice) {
+	for _, iz := range u.Izvori {
+		if h, ok := iz.(*HidroView); ok {
+			h.Racun = f
+		}
+	}
 }
 
 // Stanje vraća zadnje stanje preuzimanja letve, ako je preuzimana

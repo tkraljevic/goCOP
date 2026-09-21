@@ -301,6 +301,18 @@ func InitSchema(database *sql.DB) error {
 			lozinka BLOB NOT NULL,
 			updated_at DATETIME NOT NULL
 		);`,
+		// Račun za telemetriju na Geolux HydroViewu (hdv.voda.hr). Ključ je
+		// šifra letve, a prazna šifra je račun čvora, koji vrijedi za svaku
+		// letvu bez vlastitoga — tako svaki sektor može dodati svoj račun za
+		// svoje postaje. Lozinka je šifrirana ključem izvedenim iz ključa
+		// čvora i ostaje samo ovdje; ne ide ni u knjigu verzija ni u razmjenu.
+		`CREATE TABLE IF NOT EXISTS hidroview_racuni (
+			letva TEXT PRIMARY KEY,
+			adresa TEXT NOT NULL DEFAULT '',
+			korisnik TEXT NOT NULL,
+			lozinka BLOB NOT NULL,
+			updated_at DATETIME NOT NULL
+		);`,
 		// Opće postavke organizacije koje se uređuju u programu i dijele među
 		// čvorovima (npr. poslužitelj e-pošte); vrijednost je JSON ili tekst
 		`CREATE TABLE IF NOT EXISTS postavke (

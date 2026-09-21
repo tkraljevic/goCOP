@@ -57,19 +57,22 @@ type KartaPostavke struct {
 func (k KartaPostavke) Ima() bool { return k.Plocice != "" }
 
 type Server struct {
-	javni       *javnivodostaji.Uvoznik // preuzimanje javnih vodostaja; prazno kad nije uključeno
-	akti        *service.AktService     // rješenja i obavijesti o stupnju obrane
-	vodocuvar   *service.VodocuvarService
-	potpis      *service.PotpisService  // elektronički potpisi osoba
-	prijave     *service.PrijavaService // prijave i obavijesti s terena
-	javnaAdresa string                  // adresa programa izvana, za QR kodove; prazno dok je nema
-	skenoviDir  string                  // mapa sa skenovima prijava iz ranije evidencije
-	orgRepo     *repository.OrgRepository
-	karta       KartaPostavke
-	arhivaPut   string
-	podaciDir   string // stablo s izvornim datotekama; prazno na čvoru koji samo prima pakete
-	paketiDir   string // mapa u koju se izdaju .cop paketi i u kojoj stoji katalog
-	poslovi     *poslovi.Registar
+	javni *javnivodostaji.Uvoznik // preuzimanje javnih vodostaja; prazno kad nije uključeno
+	// ključ kojim se zaključavaju lozinke za Geolux HydroView; izveden iz
+	// ključa čvora, pa lozinka vrijedi samo na ovom računalu
+	hidroviewKljuc []byte
+	akti           *service.AktService // rješenja i obavijesti o stupnju obrane
+	vodocuvar      *service.VodocuvarService
+	potpis         *service.PotpisService  // elektronički potpisi osoba
+	prijave        *service.PrijavaService // prijave i obavijesti s terena
+	javnaAdresa    string                  // adresa programa izvana, za QR kodove; prazno dok je nema
+	skenoviDir     string                  // mapa sa skenovima prijava iz ranije evidencije
+	orgRepo        *repository.OrgRepository
+	karta          KartaPostavke
+	arhivaPut      string
+	podaciDir      string // stablo s izvornim datotekama; prazno na čvoru koji samo prima pakete
+	paketiDir      string // mapa u koju se izdaju .cop paketi i u kojoj stoji katalog
+	poslovi        *poslovi.Registar
 	// arhivaMu čuva pokazivač na čitača arhive. Gradnja, ugradnja i micanje
 	// niza zamjenjuju ga iz pozadinske dretve posla, dok ga HTTP zahtjevi
 	// čitaju — bez brave je to utrka, a zatvaranje starog čitača može srušiti
@@ -617,6 +620,12 @@ func (s *Server) setupRoutes() {
 	stationsH.SetEpisodeService(s.episodeService)
 	stationsH.SetReadingService(s.readingService)
 	stationsH.SetJavniUvoz(func() *javnivodostaji.Uvoznik { return s.javni })
+	stationsH.SetHidroView(func() *repository.HidroViewRepository {
+		if s.db == nil {
+			return nil
+		}
+		return repository.NewHidroViewRepository(s.db)
+	}, func() []byte { return s.hidroviewKljuc })
 	stationsH.SetArhiva(s.Arhiva)
 	stationsH.SetIspravci(func() *repository.IspravakRepository {
 		if s.db == nil {
@@ -814,6 +823,12 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /dnevnici/{id}/obracun", s.authMiddleware(http.HandlerFunc(journalsH.ShowObracun)))
 	s.mux.Handle("POST /dnevnici/{id}/upisi/{entry}/stanje", s.authMiddleware(http.HandlerFunc(journalsH.HandleTaskStatus)))
 	settingsH := NewSettingsHandler(s.peersService, s.recorder, s.templates["settings.html"])
+	settingsH.SetHidroView(func() *repository.HidroViewRepository {
+		if s.db == nil {
+			return nil
+		}
+		return repository.NewHidroViewRepository(s.db)
+	}, func() []byte { return s.hidroviewKljuc })
 	sseH := NewSSEHandler(s.sseBroker)
 
 	// Statičke datoteke (CSS, JS) poslužene iz embed.FS
@@ -1181,6 +1196,7 @@ func (s *Server) setupRoutes() {
 
 	// Postavke: čvor, uparivanje, pronalaženje, sinkronizacija, povijest
 	s.mux.Handle("GET /settings", s.authMiddleware(http.HandlerFunc(settingsH.ShowSettings)))
+	s.mux.Handle("POST /settings/hidroview", s.authMiddleware(http.HandlerFunc(settingsH.SpremiHidroView)))
 	s.mux.Handle("GET /api/peers/pair/status", s.authMiddleware(http.HandlerFunc(settingsH.HandlePairStatus)))
 	s.mux.Handle("POST /api/peers/pair/listen", s.authMiddleware(http.HandlerFunc(settingsH.HandlePairListen)))
 	s.mux.Handle("POST /api/peers/pair/stop", s.authMiddleware(http.HandlerFunc(settingsH.HandlePairStop)))
@@ -1421,6 +1437,11 @@ func (s *Server) SetVodocuvar(v *service.VodocuvarService, org *repository.OrgRe
 
 // SetJavniUvoz daje poslužitelju uvoznika javnih vodostaja
 func (s *Server) SetJavniUvoz(u *javnivodostaji.Uvoznik) { s.javni = u }
+
+// SetHidroViewKljuc daje poslužitelju ključ kojim se zaključavaju lozinke za
+// Geolux HydroView. Izvodi se iz ključa čvora, pa lozinka vrijedi samo na
+// ovom računalu.
+func (s *Server) SetHidroViewKljuc(k []byte) { s.hidroviewKljuc = k }
 
 // SetZid daje poslužitelju zid događanja iz knjige verzija
 func (s *Server) SetZid(z *service.ZidService) { s.zidService = z }
