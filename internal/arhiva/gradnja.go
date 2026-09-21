@@ -1112,6 +1112,7 @@ var zadaniIzvori = []Izvor{
 	{"cop", 3, 20, true, "", ""},
 	{"letva-hv", 5, 20, true, "", "dobra većinu vremena; u zamrznutim razdobljima javlja istu vrijednost danima"},
 	{"geolux-seba", 5, 20, true, "", "AVS Geolux/SEBA; točnost je zasad proglašena, ne izmjerena"},
+	{"geolux", 5, 20, true, "", "zapisivač na Geolux HydroViewu kojem se iz naziva instrumenata ne vidi je li tlačni ili radarski"},
 	// Gotovo svaka postaja ima dva zapisivača — tlačni i radarski — pa se
 	// radarski vodi kao zaseban izvor iza tlačnog. Kad tlačni zašuti, a to se
 	// događa, praznina se popunjava radarom umjesto da ostane rupa.

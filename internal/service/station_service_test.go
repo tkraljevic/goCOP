@@ -369,4 +369,3 @@ func TestFilterPostajaPoDrzavi(t *testing.T) {
 		t.Errorf("ListStations Hrvatska = %+v, want [batina]", hr)
 	}
 }
-

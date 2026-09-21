@@ -78,7 +78,7 @@ Ovo nije početak iz prazna:
 | knjiga verzija s revizijama | radi (`internal/ledger`) |
 | ključ mreže, potpisana članstva s rokom | radi (`memberships`, ima `expires_at`) |
 | UUID i par ključeva po čvoru | radi |
-| šifrirana veza među čvorovima | radi (TLS, `razmjena`) |
+| šifrirana veza među čvorovima | radi (TLS, `internal/razmjena`) |
 | pronalaženje na LAN-u | radi (UDP broadcast) |
 | otisak niza za provjeru pri preuzimanju | radi (`nizovi.otisak`) |
 | rad bez interneta | radi |

@@ -163,16 +163,21 @@ func vrijemeIliNikad(sek int64) string {
 	return time.Unix(sek, 0).Format("2006-01-02 15:04")
 }
 
-// prepoznajIzvor razlikuje tlačni zapisivač od radarskog po tome što na
-// njima visi. Radar je kod nas Geoluxov LX, tlačni je Sebin bubbler.
+// prepoznajIzvor imenuje izvor po tome što na zapisivaču visi: Geoluxov LX
+// je radar razine, Sebin bubbler tlačni cjevovod. Kad se ne vidi ni jedno ni
+// drugo — a događa se, jer instrumenti ondje znaju biti bez naziva — izvor
+// ostaje samo „geolux“, da mu se ne pripiše uređaj koji možda nije ondje.
 func prepoznajIzvor(mjerenja []hidroview.Mjerenje) string {
 	for _, m := range mjerenja {
 		o := strings.ToUpper(m.Odakle)
 		if strings.Contains(o, "LX-") || strings.Contains(o, "RADAR") {
 			return "geolux-radar"
 		}
+		if strings.Contains(o, "BUBBLER") || strings.Contains(o, "SEBA") {
+			return "geolux-seba"
+		}
 	}
-	return "geolux-seba"
+	return "geolux"
 }
 
 // nadjiPostaje vraća sve zapisivače koji nose traženi naziv, onaj koji se

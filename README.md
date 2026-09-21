@@ -244,10 +244,9 @@ go build -ldflags "-X main.version=0.0.1" -o gocop ./cmd/gocop
 go test ./...
 ```
 
-Sinkronizacijski transport (ključevi, uparivanje, TLS razmjena, LAN
-pronalaženje) je zasebna biblioteka
-[razmjena](https://gocop/internal/razmjena), zajednička s projektom
-drugi program. Kote nule vodomjera vode se u sustavu Trst, a HVRS71 kote zasebno.
+Sinkronizacijski transport — ključevi, uparivanje, TLS razmjena i
+pronalaženje na lokalnoj mreži — stoji u `internal/razmjena`, odvojen od
+ostatka programa da se mreža može mijenjati bez diranja operative. Kote nule vodomjera vode se u sustavu Trst, a HVRS71 kote zasebno.
 Testovi koji trebaju stvarne registre i imenik preskaču se kad tih datoteka
 nema u mapi `data/`.
 

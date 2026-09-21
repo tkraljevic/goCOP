@@ -224,7 +224,7 @@ Koraci razmjene:
 
 Što to nije: javni BitTorrent. Nema trackera ni nepoznatih sudionika,
 prenose samo upareni čvorovi s važećom potvrdom mreže, veza je TLS s
-prikovanim ključevima čvorova (već tako radi u `razmjena`), ovlasti se
+prikovanim ključevima čvorova (već tako radi sloj razmjene), ovlasti se
 provjeravaju po modulu i području, a svaki zapis nosi potpis čvora koji ga
 je stvorio.
 

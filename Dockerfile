@@ -1,21 +1,18 @@
-# goCOP u spremniku. Gradi se iz nadređene mape, jer go.mod pokazuje na
-# susjedni razmjena:
+# goCOP u spremniku:
 #
-#   docker build -f goCOP/Dockerfile -t gocop:alfa .
+#   docker build -t gocop:alfa .
 #
 # Sve sučelje (predlošci, CSS, JS) ugrađeno je u binarnu datoteku, pa slika
 # nosi samo nju. Na disku ostaje jedino mapa /data: baza, ključ čvora,
 # ključ mreže i postavke.
 
-FROM golang:1.26-alpine AS gradnja
+FROM golang:1.27-alpine AS gradnja
 WORKDIR /src
 
-# razmjena je zaseban repozitorij na koji go.mod pokazuje kroz replace
-COPY razmjena/ /razmjena/
-COPY goCOP/go.mod goCOP/go.sum ./
+COPY go.mod go.sum ./
 RUN go mod download
 
-COPY goCOP/ ./
+COPY . ./
 ARG VERSION=alfa
 # Bez C-a: modernc.org/sqlite je čisti Go, pa je binarna datoteka samostalna
 RUN CGO_ENABLED=0 go build -trimpath \

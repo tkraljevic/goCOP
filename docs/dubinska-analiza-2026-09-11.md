@@ -59,12 +59,12 @@ Glavne cjeline su:
 | `internal/repository` | glavna SQLite baza i knjiga verzija |
 | `internal/arhiva` | gradnja hidrološke arhive, spajanje izvora i `.cop` paket |
 | `internal/ulaganje` | ulaganje završene operative u arhivu i kontrolirani zaborav |
-| `internal/peers` + `razmjena` | identitet čvora, uparivanje i razmjena |
+| `internal/peers` + `internal/razmjena` | identitet čvora, uparivanje i razmjena |
 | `internal/poslovi` | novi memorijski registar dugih pozadinskih poslova |
 | `internal/docx` i uvoznici | dokumenti i migracija vanjskih podataka |
 
 Ovisnosti su suzdržane: `google/uuid`, TOML, Goldmark, `x/crypto`, čisti Go
-SQLite i izdvojeni `razmjena`. To je dobar izbor za prijenosni Windows program i
+SQLite i izdvojeni sloj razmjene. To je dobar izbor za prijenosni Windows program i
 rad bez instalacijskog ekosustava.^1
 
 ---

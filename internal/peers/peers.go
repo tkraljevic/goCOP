@@ -28,12 +28,12 @@ import (
 	"gocop/internal/sadrzaj"
 )
 
-// Protocol imenuje goCOP mrežu; čvorovi drugih aplikacija (npr. drugi program na
-// istom laptopu) se ne uparuju s goCOP-om i ne odgovaraju na njegove probe.
+// Protocol imenuje goCOP mrežu: čvor druge aplikacije koja se služi istim
+// slojem razmjene ne upari se s goCOP-om i ne odgovara na njegove pozive.
 const Protocol = "gocop"
 
-// Portovi kao obitelj: razmjena, uparivanje, pronalaženje. Drukčiji od
-// drugih (4610–4612) da oba mogu raditi na istom stroju.
+// Portovi kao obitelj: razmjena, uparivanje, pronalaženje. Namjerno pomaknuti
+// od 4610–4612, da program koji ih zauzima može raditi na istom stroju.
 const (
 	DefaultExchangePort  = 4710
 	DefaultPairPort      = 4711
@@ -430,12 +430,12 @@ func (s *Service) Discover(ctx context.Context, timeout time.Duration) ([]Discov
 
 // PairStatus je stanje uparivanja za ekran
 type PairStatus struct {
-	Waiting  bool          `json:"waiting"` // ovaj čvor čeka da ga netko nazove
-	Pending  bool          `json:"pending"` // netko se javio, čeka odluku
-	SAS      string        `json:"sas,omitempty"`
+	Waiting  bool           `json:"waiting"` // ovaj čvor čeka da ga netko nazove
+	Pending  bool           `json:"pending"` // netko se javio, čeka odluku
+	SAS      string         `json:"sas,omitempty"`
 	Peer     razmjena.Hello `json:"peer,omitempty"`
-	PeerHost string        `json:"peer_host,omitempty"`
-	Error    string        `json:"error,omitempty"`
+	PeerHost string         `json:"peer_host,omitempty"`
+	Error    string         `json:"error,omitempty"`
 }
 
 func (s *Service) PairStatus() PairStatus {

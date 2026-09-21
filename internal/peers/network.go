@@ -46,8 +46,8 @@ type Network struct {
 // potvrda (da me drugi može provjeriti) i, kad je mogu izdati, potvrda za
 // drugoga — pa je član onog trena kad oba čovjeka potvrde kod.
 type welcomePack struct {
-	NetworkName string              `json:"network_name,omitempty"`
-	NetworkKey  string              `json:"network_key,omitempty"`
+	NetworkName string               `json:"network_name,omitempty"`
+	NetworkKey  string               `json:"network_key,omitempty"`
 	Mine        *razmjena.Membership `json:"mine,omitempty"`
 	ForYou      *razmjena.Membership `json:"for_you,omitempty"`
 }

@@ -9,7 +9,7 @@ PROGRAM
   Autor:              Tomislav Kraljević — osmislio i izgradio program.
                       Ovo navođenje je uvjet korištenja i ostaje u svakoj
                       izvedenici (EUPL-1.2, čl. 5, obveza navođenja autora).
-  Sinkronizacija:     gocop/internal/razmjena — MIT,
+  Sloj razmjene:      internal/razmjena — MIT,
                       © Tomislav Kraljević i Mario Kraljević
 
 PODACI KOJI SE ČITAJU UZ BAZU (data/*.json)
