@@ -143,6 +143,13 @@ type Station struct {
 	JavniURL  string `json:"javni_url,omitempty"`
 	JavniUvoz bool   `json:"javni_uvoz,omitempty"`
 
+	// TelemetrijaSite je šifra ove postaje na Geolux HydroViewu, a
+	// TelemetrijaUvoz sklopka koja kaže da se vodostaj čita odande umjesto s
+	// javne stranice. Račun kojim se to čita upisan je na čvoru, u
+	// Administraciji, pa ga letva ne nosi.
+	TelemetrijaSite string `json:"telemetrija_site,omitempty"`
+	TelemetrijaUvoz bool   `json:"telemetrija_uvoz,omitempty"`
+
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 

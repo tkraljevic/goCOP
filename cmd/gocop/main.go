@@ -635,8 +635,12 @@ func main() {
 	hidroviewRepo := repository.NewHidroViewRepository(database)
 	hidroviewKljuc := hidroview.Kljuc(node.PrivateKey().Seed())
 	javniUvoznik.PostaviHidroViewRacun(func(adresa string) (string, string, bool) {
+		// Letva se traži i po adresi javne stranice i po šifri postaje na
+		// telemetriji, jer se adresa u drugom slučaju sastavlja iz šifre.
 		var letva string
-		_ = database.QueryRow(`SELECT code FROM stations WHERE javni_url = ?`, adresa).Scan(&letva)
+		_ = database.QueryRow(`SELECT code FROM stations
+			WHERE javni_url = ? OR (telemetrija_site <> '' AND instr(?, telemetrija_site) > 0)
+			LIMIT 1`, adresa, adresa).Scan(&letva)
 		r, err := hidroviewRepo.Racun(context.Background(), letva)
 		if err != nil || r == nil {
 			return "", "", false

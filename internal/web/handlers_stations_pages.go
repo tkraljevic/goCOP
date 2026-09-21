@@ -46,11 +46,10 @@ type StationPageData struct {
 	Profil               *models.ProfilKorita     // onaj koji se crta
 	Krivulje             []models.HQKrivulja      // krivulje protoka po razdobljima
 	JavnePostaje         []javnivodostaji.Postaja // javni popis postaja za povezivanje; prazno bez interneta
-	// Račun za telemetriju na Geolux HydroViewu: korisničko ime upisano na
-	// ovom čvoru za ovu letvu, i otkud vrijedi. Lozinka se nikamo ne šalje.
-	HidroViewKorisnik string
-	HidroViewOdakle   string // "letva" ili "čvor"; prazno kad računa nema
-	HidroViewUpisano  time.Time
+	// Telemetrija: je li na čvoru upisan račun kojim se smije čitati, i koji
+	// je to račun. Bez njega sklopka na kartici stoji zasivljena.
+	TelemetrijaMoguca bool
+	TelemetrijaRacun  string
 	PragoviQ          []PragProtok // isti pragovi iskazani u protoku
 	ImaProtok         bool         // ima li ijedan prag protok, pa tablica treba stupac
 	BrojOcitanja      int          // koliko je očitanja upisano na letvi — za upozorenje pri brisanju
@@ -581,32 +580,28 @@ func (h *StationsHandler) ShowStationForm(w http.ResponseWriter, r *http.Request
 			data.JavnePostaje = u.Postaje(r.Context())
 		}
 	}
-	data.HidroViewKorisnik, data.HidroViewOdakle, data.HidroViewUpisano =
-		h.racunHidroView(r.Context(), data.Station.Code)
+	data.TelemetrijaRacun = h.racunHidroView(r.Context(), data.Station.Code)
+	data.TelemetrijaMoguca = data.TelemetrijaRacun != ""
 	if err := h.tmplForm.ExecuteTemplate(w, "station_form.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
 
-// racunHidroView javlja je li za letvu upisan račun za telemetriju i vrijedi
-// li on samo za nju ili za cijeli čvor. Lozinka se ne čita.
-func (h *StationsHandler) racunHidroView(ctx context.Context, letva string) (string, string, time.Time) {
+// racunHidroView javlja kojim se računom ova letva smije čitati s
+// telemetrije; prazno kad račun nije upisan. Lozinka se ne čita.
+func (h *StationsHandler) racunHidroView(ctx context.Context, letva string) string {
 	if h.hidroviewRacuni == nil {
-		return "", "", time.Time{}
+		return ""
 	}
 	repo := h.hidroviewRacuni()
 	if repo == nil {
-		return "", "", time.Time{}
+		return ""
 	}
 	r, err := repo.Racun(ctx, letva)
 	if err != nil || r == nil {
-		return "", "", time.Time{}
+		return ""
 	}
-	odakle := "čvor"
-	if r.Letva != "" {
-		odakle = "letva"
-	}
-	return r.Korisnik, odakle, r.UpdatedAt
+	return r.Korisnik
 }
 
 // odabraniNiz bira niz čije se karakteristične vrijednosti prikazuju: onaj iz

@@ -507,18 +507,24 @@ func (u *Uvoznik) Preuzmi(ctx context.Context, st *models.Station) StanjeLetve {
 		u.stanja[st.ID.String()] = s
 		u.mu.Unlock()
 	}()
-	if strings.TrimSpace(st.JavniURL) == "" {
+	// Letva prebačena na telemetriju čita se odande, bez obzira ima li i
+	// javnu stranicu: sklopku je netko namjerno prebacio.
+	adresa := strings.TrimSpace(st.JavniURL)
+	if st.TelemetrijaUvoz && strings.TrimSpace(st.TelemetrijaSite) != "" {
+		adresa = AdresaHidroView(strings.TrimSpace(st.TelemetrijaSite))
+	}
+	if adresa == "" {
 		s.Greska = "letva nema adresu javne stranice"
 		return s
 	}
-	izvor := u.IzvorZa(st.JavniURL)
+	izvor := u.IzvorZa(adresa)
 	if izvor == nil {
-		s.Greska = "nijedan čitač ne prepoznaje adresu " + st.JavniURL
+		s.Greska = "nijedan čitač ne prepoznaje adresu " + adresa
 		return s
 	}
-	cctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	cctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
-	redci, err := izvor.Ocitanja(cctx, st.JavniURL)
+	redci, err := izvor.Ocitanja(cctx, adresa)
 	if err != nil {
 		s.Greska = err.Error()
 		u.Zapisnik("javni vodostaji: %s: %v", st.Name, err)

@@ -248,29 +248,25 @@
   </label>
 
   <h3 style="font-size:0.9rem; margin:1rem 0 0.25rem;">Telemetrija na Geolux HydroViewu</h3>
-  <div class="form-row">
-    <div class="form-group">
-      <label class="form-label" for="hidroview_korisnik">Korisničko ime</label>
-      <input type="text" id="hidroview_korisnik" name="hidroview_korisnik" class="form-control"
-             value="{{.HidroViewKorisnik}}" autocomplete="off"
-             {{if eq .HidroViewOdakle "čvor"}}placeholder="{{.HidroViewKorisnik}} (račun čvora)"{{end}}>
-    </div>
-    <div class="form-group">
-      <label class="form-label" for="hidroview_lozinka">Lozinka</label>
-      <input type="password" id="hidroview_lozinka" name="hidroview_lozinka" class="form-control"
-             autocomplete="new-password"
-             placeholder="{{if .HidroViewKorisnik}}upisana — ostavi prazno da ostane{{else}}lozinka za hdv.voda.hr{{end}}">
-    </div>
-  </div>
+  <label class="form-check" style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.25rem;
+         {{if not .TelemetrijaMoguca}}opacity:0.55;{{end}}">
+    <input type="checkbox" name="telemetrija_uvoz" value="1"
+           {{if .Station.TelemetrijaUvoz}}checked{{end}} {{if not .TelemetrijaMoguca}}disabled{{end}}>
+    <span>Čitaj vodostaj s telemetrije umjesto s javne stranice</span>
+  </label>
   <div class="form-help" style="margin-bottom:1rem;">
-    Za letvu koja nema javnu stranicu, a jest na <a href="https://hdv.voda.hr/" target="_blank" rel="noopener">hdv.voda.hr</a>:
-    upiši adresu njezine postaje ondje kao adresu gore, a ovdje račun kojim se ta postaja smije čitati.
-    Program tada svaki sat uzima najsvježiji vodostaj i temperaturu vode s te postaje.
-    {{if .HidroViewOdakle}}Sada vrijedi račun <strong>{{.HidroViewKorisnik}}</strong>
-      {{if eq .HidroViewOdakle "čvor"}}upisan za cijeli čvor{{else}}upisan za ovu letvu{{end}},
-      od {{formatDate .HidroViewUpisano}}.{{end}}
-    Lozinka se sprema zaključana ključem ovog čvora, ostaje samo na ovom računalu i ne ide u razmjenu
-    među čvorovima. Ostavi korisničko ime prazno da se račun ove letve obriše.
+    {{if .TelemetrijaMoguca}}
+      Za letvu koja nema javnu stranicu, a jest na
+      <a href="https://hdv.voda.hr/" target="_blank" rel="noopener">hdv.voda.hr</a>. Postaja se ondje traži po
+      nazivu letve kad se sklopka uključi{{if .Station.TelemetrijaSite}}; sada je vezana na postaju
+      <span class="mono">{{.Station.TelemetrijaSite}}</span>{{end}}. Uzima se vodostaj sveden na nulu letve,
+      uz temperaturu vode i protok gdje ih postaja mjeri.
+      Čita se računom <strong>{{.TelemetrijaRacun}}</strong>, upisanim u
+      <a href="/administracija/telemetrija">Administraciji</a>.
+    {{else}}
+      Sklopka je zasivljena jer na ovom čvoru nije upisan račun za telemetriju. Upiši ga u
+      <a href="/administracija/telemetrija">Administracija › Telemetrija</a>, pa se ovdje može uključiti.
+    {{end}}
   </div>
   <p class="form-help" style="margin:-0.5rem 0 1rem;">
     Isto što se danas zalijepi rukom: zadnja dva-tri dana satnih vodostaja, s podrijetlom te stranice.

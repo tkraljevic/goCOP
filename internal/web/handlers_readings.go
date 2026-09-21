@@ -71,8 +71,10 @@ func (h *ReadingsHandler) HandlePreuzmiJavno(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	u := h.uvoznik()
-	if u == nil || strings.TrimSpace(station.JavniURL) == "" {
-		redirectWith(w, r, back, "error", "Letva nije povezana s javnom stranicom; poveži je u obrascu letve")
+	povezana := strings.TrimSpace(station.JavniURL) != "" ||
+		(station.TelemetrijaUvoz && strings.TrimSpace(station.TelemetrijaSite) != "")
+	if u == nil || !povezana {
+		redirectWith(w, r, back, "error", "Letva nije povezana ni s javnom stranicom ni s telemetrijom; poveži je u obrascu letve")
 		return
 	}
 	s := u.Preuzmi(r.Context(), station)
@@ -603,8 +605,13 @@ func (h *ReadingsHandler) podaciOcitanja(w http.ResponseWriter, r *http.Request)
 			h.koritoUzGraf(ctx, &data, station, shown)
 		}
 		data.JavniURL, data.JavniUvoz = station.JavniURL, station.JavniUvoz
-		if u := h.uvoznik(); u != nil && station.JavniURL != "" {
-			if iz := u.IzvorZa(station.JavniURL); iz != nil {
+		adresa := station.JavniURL
+		if station.TelemetrijaUvoz && strings.TrimSpace(station.TelemetrijaSite) != "" {
+			adresa = javnivodostaji.AdresaHidroView(strings.TrimSpace(station.TelemetrijaSite))
+			data.JavniURL, data.JavniUvoz = adresa, true
+		}
+		if u := h.uvoznik(); u != nil && adresa != "" {
+			if iz := u.IzvorZa(adresa); iz != nil {
 				data.JavniIzvor = iz.Naziv()
 			}
 			if s, ok := u.Stanje(station.ID.String()); ok {

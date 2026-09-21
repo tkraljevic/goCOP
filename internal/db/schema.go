@@ -638,6 +638,8 @@ func InitSchema(database *sql.DB) error {
 			return_levels TEXT NOT NULL DEFAULT '[]',
 			javni_url TEXT NOT NULL DEFAULT '',
 			javni_uvoz INTEGER NOT NULL DEFAULT 0,
+			telemetrija_site TEXT NOT NULL DEFAULT '',
+			telemetrija_uvoz INTEGER NOT NULL DEFAULT 0,
 			zero_datum_source TEXT NOT NULL DEFAULT '',
 			zero_datum_method TEXT NOT NULL DEFAULT '',
 			zero_datum_survey_date TEXT NOT NULL DEFAULT '',
@@ -1348,6 +1350,10 @@ func migrateSchema(database *sql.DB) error {
 		// veza letve s javnom stranicom vodostaji.voda.hr i satno preuzimanje
 		{"stations", "javni_url", "TEXT NOT NULL DEFAULT ''"},
 		{"stations", "javni_uvoz", "INTEGER NOT NULL DEFAULT 0"},
+		// Letva koja nema javnu stranicu čita se s telemetrije: šifra njezine
+		// postaje ondje i sklopka koja to uključuje.
+		{"stations", "telemetrija_site", "TEXT NOT NULL DEFAULT ''"},
+		{"stations", "telemetrija_uvoz", "INTEGER NOT NULL DEFAULT 0"},
 		{"readings", "temp_c", "REAL"},
 		{"readings", "flow_m3s", "REAL"},
 		{"akti", "u_zamjeni", "INTEGER NOT NULL DEFAULT 0"},
