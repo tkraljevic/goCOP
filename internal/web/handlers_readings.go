@@ -217,10 +217,13 @@ type ReadingHistoryData struct {
 
 	// Veza s javnom stranicom: je li letva povezana i što je zadnje
 	// preuzimanje napravilo na ovom čvoru
-	JavniURL    string
-	JavniIzvor  string // naziv čitača za adresu, prazno kad ga nema
-	JavniUvoz   bool
-	JavniStanje *javnivodostaji.StanjeLetve
+	JavniURL string
+	// JavniTelemetrija javlja da se letva ne čita s javne stranice nego s
+	// telemetrije, pa stranica to tako i zove.
+	JavniTelemetrija bool
+	JavniIzvor       string // naziv čitača za adresu, prazno kad ga nema
+	JavniUvoz        bool
+	JavniStanje      *javnivodostaji.StanjeLetve
 
 	SuccessMessage string
 	ErrorMessage   string
@@ -608,7 +611,7 @@ func (h *ReadingsHandler) podaciOcitanja(w http.ResponseWriter, r *http.Request)
 		adresa := station.JavniURL
 		if station.TelemetrijaUvoz && strings.TrimSpace(station.TelemetrijaSite) != "" {
 			adresa = javnivodostaji.AdresaHidroView(strings.TrimSpace(station.TelemetrijaSite))
-			data.JavniURL, data.JavniUvoz = adresa, true
+			data.JavniURL, data.JavniUvoz, data.JavniTelemetrija = adresa, true, true
 		}
 		if u := h.uvoznik(); u != nil && adresa != "" {
 			if iz := u.IzvorZa(adresa); iz != nil {
