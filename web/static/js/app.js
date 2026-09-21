@@ -1,3 +1,50 @@
+function escapeHtml(text) {
+  return String(text == null ? '' : text).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+
+function stationMapPopup(st, hideDetails) {
+  var pragoviHtml = '';
+  if (st.prep || st.regular || st.emergency || st.state) {
+    pragoviHtml = '<div class="karta-popup-pragovi" style="margin-top:6px; font-size:0.75rem; border-top:1px solid #e2e8f0; padding-top:4px;">' +
+      '<div style="font-weight:600; color:#64748b; margin-bottom:3px;">Pragovi obrane:</div>' +
+      '<div style="display:grid; grid-template-columns:1fr 1fr; gap:3px 8px;">' +
+      (st.prep ? '<div><span style="color:#16a34a; font-weight:600;">P:</span> ' + escapeHtml(st.prep) + '</div>' : '') +
+      (st.regular ? '<div><span style="color:#ca8a04; font-weight:600;">R:</span> ' + escapeHtml(st.regular) + '</div>' : '') +
+      (st.emergency ? '<div><span style="color:#ea580c; font-weight:600;">I:</span> ' + escapeHtml(st.emergency) + '</div>' : '') +
+      (st.state ? '<div><span style="color:#dc2626; font-weight:600;">IS:</span> ' + escapeHtml(st.state) + '</div>' : '') +
+      '</div></div>';
+  }
+
+  var reviewHtml = st.needs_review ? '<div style="margin-top:4px;"><span class="badge badge-inactive" style="font-size:0.7rem; padding:1px 5px;">⚠️ traži pregled</span></div>' : '';
+
+  var latestHtml = '';
+  if (st.latest_level || st.latest_flow) {
+    latestHtml = '<div style="margin-top:6px; padding:5px 8px; background:#f0f9ff; border-radius:4px; border:1px solid #bae6fd;">' +
+      (st.latest_level ? '<div style="font-size:0.7rem; color:#64748b; font-weight:500;">Najsvježiji vodostaj:</div>' +
+      '<div style="font-size:1rem; font-weight:700; color:#0c4a6e;">' + escapeHtml(st.latest_level) + '</div>' : '') +
+      (st.latest_flow ? '<div style="font-size:0.75rem; color:#0c4a6e;">Protok: <strong>' + escapeHtml(st.latest_flow) + '</strong></div>' : '') +
+      (st.latest_time ? '<div style="font-size:0.65rem; color:#94a3b8;">' + escapeHtml(st.latest_time) + '</div>' : '') +
+      '</div>';
+  }
+
+  var popupHtml = '<div class="karta-postaja-popup" style="min-width:190px;">' +
+    '<div style="font-weight:700; font-size:0.95rem; margin-bottom:2px;"><a href="' + escapeHtml(st.detail_url) + '">' + escapeHtml(st.name) + '</a></div>' +
+    '<div style="font-size:0.8rem; color:#475569;">' +
+    (st.watercourse ? '<strong>' + escapeHtml(st.watercourse) + '</strong>' : '') +
+    (st.stationing ? ' · ' + escapeHtml(st.stationing) : '') +
+    '</div>' +
+    (st.country ? '<div style="font-size:0.75rem; color:#64748b; margin-top:2px;">📍 ' + escapeHtml(st.country) + '</div>' : '') +
+    (Number.isFinite(st.lat) && Number.isFinite(st.lon) ? '<div style="font-size:0.7rem; color:#64748b;">Koordinate: ' + st.lat.toFixed(6) + ', ' + st.lon.toFixed(6) + '</div>' : '') +
+    reviewHtml +
+    latestHtml +
+    pragoviHtml +
+    (hideDetails ? '' : '<div style="margin-top:8px;"><a href="' + escapeHtml(st.detail_url) + '" style="display:inline-block; font-size:0.75rem; padding:5px 10px; width:100%; text-align:center; background:#0284c7; color:#ffffff; border-radius:4px; text-decoration:none; font-weight:500; box-sizing:border-box;">Prikaži detalje postaje</a></div>') +
+    '</div>';
+  return popupHtml;
+}
+
 // goCOP klijentska skripta — SSE sinkronizacija i responzivna interakcija
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -524,7 +571,9 @@ function renderMarkdown(md) {
       });
       sloj.addTo(karta);
 
-      L.marker([lat, lon]).addTo(karta).bindPopup(okvir.dataset.naziv || '');
+      var podaci = okvir.querySelector('.karta-letva-podaci');
+      var popup = podaci ? stationMapPopup(JSON.parse(podaci.textContent), true) : escapeHtml(okvir.dataset.naziv || '');
+      L.marker([lat, lon]).addTo(karta).bindPopup(popup);
       // kotačić miša lista stranicu; karta se približava tek na klik
       karta.on('click', function () { karta.scrollWheelZoom.enable(); });
     });
@@ -888,6 +937,130 @@ function renderMarkdown(md) {
           });
         }
       }
+    });
+  });
+})();
+
+// Karta svih vodomjernih postaja i vodotoka (Faza 2)
+(function () {
+  function escapeHtml(text) {
+    if (!text) return '';
+    var div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    if (typeof L === 'undefined') return;
+
+    document.querySelectorAll('.karta-sve-postaje').forEach(function (okvir) {
+      var platno = okvir.querySelector('.karta-platno');
+      if (!platno || !okvir.dataset.plocice) return;
+
+      var geoEl = okvir.querySelector('.karta-geometrija-podaci');
+      var stationsEl = okvir.querySelector('.karta-postaje-podaci');
+
+      var geoData = null;
+      if (geoEl) {
+        try {
+          geoData = JSON.parse(geoEl.textContent);
+        } catch (e) {}
+      }
+
+      var stationsData = [];
+      if (stationsEl) {
+        try {
+          stationsData = JSON.parse(stationsEl.textContent) || [];
+        } catch (e) {}
+      }
+
+      var najvise = parseInt(okvir.dataset.najviseZ, 10) || 17;
+      var karta = L.map(platno, { scrollWheelZoom: false });
+      var sloj = L.tileLayer(okvir.dataset.plocice, {
+        maxZoom: najvise,
+        attribution: okvir.dataset.zasluge || ''
+      });
+
+      var promasaja = 0;
+      sloj.on('tileerror', function () {
+        if (++promasaja < 3) return;
+        var poruka = okvir.querySelector('.karta-bez-mreze');
+        if (poruka) poruka.hidden = false;
+        okvir.classList.add('karta-prazna');
+      });
+      sloj.addTo(karta);
+
+      var allBounds = L.latLngBounds();
+
+      // Crtanje riječnih tokova i stacionaža (rkm)
+      if (geoData) {
+        var rijekeSloj = L.geoJSON(geoData, {
+          style: function (feat) {
+            if (feat.geometry.type === 'LineString' || feat.geometry.type === 'MultiLineString') {
+              return {
+                color: '#0284c7',
+                weight: 4,
+                opacity: 0.85,
+                className: 'rijeka-linija'
+              };
+            }
+          },
+          pointToLayer: function (feat, latlng) {
+            if (feat.properties && feat.properties.tip === 'rkm') {
+              var marker = L.circleMarker(latlng, {
+                radius: 3,
+                fillColor: '#ffffff',
+                color: '#0369a1',
+                weight: 1.5,
+                opacity: 0.9,
+                fillOpacity: 0.9
+              });
+              var oznaka = feat.properties.oznaka || ('rkm ' + feat.properties.rkm);
+              marker.bindTooltip(oznaka, {
+                permanent: false,
+                direction: 'top',
+                className: 'rkm-tooltip'
+              });
+              return marker;
+            }
+            return L.marker(latlng);
+          },
+          onEachFeature: function (feat, layer) {
+            if (feat.properties && (feat.geometry.type === 'LineString' || feat.geometry.type === 'MultiLineString')) {
+              var naziv = feat.properties.naziv || 'Vodotok';
+              layer.bindPopup('<strong>' + escapeHtml(naziv) + '</strong>');
+            }
+          }
+        }).addTo(karta);
+
+        var rBounds = rijekeSloj.getBounds();
+        if (rBounds.isValid()) {
+          allBounds.extend(rBounds);
+        }
+      }
+
+      // Crtanje vodomjernih postaja s pragovima obrane
+      var markerGroup = L.featureGroup();
+      stationsData.forEach(function (st) {
+        if (typeof st.lat !== 'number' || typeof st.lon !== 'number') return;
+        var stMarker = L.marker([st.lat, st.lon]);
+
+        var popupHtml = stationMapPopup(st);
+
+        stMarker.bindPopup(popupHtml);
+        markerGroup.addLayer(stMarker);
+        allBounds.extend([st.lat, st.lon]);
+      });
+      markerGroup.addTo(karta);
+
+      // Centriranje i zumiranje prema svim postajama i rijekama
+      if (allBounds.isValid()) {
+        karta.fitBounds(allBounds, { padding: [35, 35] });
+      } else {
+        karta.setView([45.5, 18.2], 8);
+      }
+
+      karta.on('click', function () { karta.scrollWheelZoom.enable(); });
     });
   });
 })();

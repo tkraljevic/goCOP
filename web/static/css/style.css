@@ -2888,10 +2888,57 @@ textarea {
 .karta-letve.karta-prazna .karta-platno { opacity: 0.45; }
 .karta-vodotoka .karta-platno { height: 440px; }
 .karta-vodotoka.karta-prazna .karta-platno { opacity: 0.65; }
+.karta-sve-postaje .karta-platno { height: 65vh; min-height: 520px; }
+.karta-sve-postaje.karta-prazna .karta-platno { opacity: 0.65; }
 .leaflet-container { background: var(--bg-subtle); font: inherit; }
 @media (max-width: 700px) {
   .karta-platno { height: 240px; }
   .karta-vodotoka .karta-platno { height: 300px; }
+  .karta-sve-postaje .karta-platno { height: 400px; min-height: 350px; }
+}
+
+/* Preklopnik prikaza (Popis / Karta) */
+.prikaz-preklopnik {
+  display: inline-flex;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--border, #cbd5e1);
+  background: var(--surface-sunken, #f1f5f9);
+}
+.prikaz-preklopnik .btn {
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
+  padding: 0.35rem 0.75rem;
+  font-weight: 500;
+  font-size: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.prikaz-preklopnik .btn-secondary {
+  background: transparent;
+  color: var(--text-muted, #64748b);
+}
+.prikaz-preklopnik .btn-secondary:hover {
+  background: var(--surface-hover, #e2e8f0);
+  color: var(--text, #1e293b);
+}
+.prikaz-preklopnik .btn-primary {
+  background: var(--primary, #0284c7);
+  color: #ffffff;
+}
+
+.karta-postaja-popup {
+  font-size: 0.85rem;
+  line-height: 1.35;
+}
+.karta-postaja-popup a {
+  color: var(--primary, #0284c7);
+  text-decoration: none;
+}
+.karta-postaja-popup a:hover {
+  text-decoration: underline;
 }
 .rkm-tooltip {
   background: var(--surface, #ffffff);
