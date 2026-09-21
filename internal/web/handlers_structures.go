@@ -186,7 +186,7 @@ func (h *StructuresHandler) ShowStructureForm(w http.ResponseWriter, r *http.Req
 	}
 	data.Sectors, _ = h.userService.ListSectors()
 	data.Areas, _ = h.userService.ListAreas("")
-	data.Stations, _ = h.stationService.ListStations(ctx, "", "", false)
+	data.Stations, _ = h.stationService.ListStations(ctx, "", "", "", false)
 
 	if err := h.tmplForm.ExecuteTemplate(w, "structure_form.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

@@ -58,8 +58,10 @@ type StationsPageData struct {
 	Permissions        *models.UserPermissions
 	Stations           []models.Station
 	Watercourses       []string
+	Countries          []string
 	SearchQuery        string
 	SelectedRiver      string
+	SelectedCountry    string
 	OnlyNeedsReview    bool
 	TotalStations      int
 	NeedsReview        int
@@ -70,6 +72,31 @@ type StationsPageData struct {
 	ActiveNav          string
 	Pager              Pager
 	ViewAsBanner
+
+	ViewMode         string        // "list" ili "map"
+	MapURL           string        // poveznica na kartu s istim filtrima
+	ListURL          string        // poveznica na popis s istim filtrima
+	Karta            KartaPostavke // izvor pločica
+	AllRiversJSON    template.JS   // FeatureCollection svih rijeka s tokom i rkm točkama
+	MapStationsJSON  template.JS   // filtrirane postaje s koordinatama i pragovima
+	MapStationsCount int           // broj postaja s koordinatama na karti
+}
+
+// StationMapItem predstavlja vodomjernu postaju na karti postaja
+type StationMapItem struct {
+	ID          string   `json:"id"`
+	Name        string   `json:"name"`
+	Watercourse string   `json:"watercourse"`
+	Stationing  string   `json:"stationing"`
+	Country     string   `json:"country"`
+	Lat         *float64 `json:"lat"`
+	Lon         *float64 `json:"lon"`
+	DetailURL   string   `json:"detail_url"`
+	Prep        string   `json:"prep"`
+	Regular     string   `json:"regular"`
+	Emergency   string   `json:"emergency"`
+	State       string   `json:"state"`
+	NeedsReview bool     `json:"needs_review"`
 }
 
 // ShowStations prikazuje registar vodomjernih postaja
@@ -80,21 +107,47 @@ func (h *StationsHandler) ShowStations(w http.ResponseWriter, r *http.Request) {
 
 	search := strings.TrimSpace(r.URL.Query().Get("q"))
 	river := strings.TrimSpace(r.URL.Query().Get("watercourse"))
+	country := strings.TrimSpace(r.URL.Query().Get("country"))
+	if country == "" {
+		country = strings.TrimSpace(r.URL.Query().Get("zemlja"))
+	}
 	onlyReview := r.URL.Query().Get("review") == "1"
+
+	viewMode := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("view")))
+	if viewMode != "map" {
+		viewMode = "list"
+	}
+
+	qMap := r.URL.Query()
+	qMap.Set("view", "map")
+	qMap.Del("stranica") // prebacivanje na kartu gleda cijeli obuhvat
+	mapURL := "/stations?" + qMap.Encode()
+
+	qList := r.URL.Query()
+	qList.Set("view", "list")
+	listURL := "/stations?" + qList.Encode()
 
 	data := StationsPageData{
 		CurrentUser:     currUser,
 		Permissions:     perms,
 		SearchQuery:     search,
 		SelectedRiver:   river,
+		SelectedCountry: country,
 		OnlyNeedsReview: onlyReview,
 		SuccessMessage:  r.URL.Query().Get("success"),
 		ErrorMessage:    r.URL.Query().Get("error"),
 		ActiveNav:       "stations",
 		ViewAsBanner:    viewBanner(r),
+		ViewMode:        viewMode,
+		MapURL:          mapURL,
+		ListURL:         listURL,
 	}
 
-	stations, err := h.stationService.ListStations(ctx, search, river, onlyReview)
+	if h.karta != nil {
+		data.Karta = h.karta()
+	}
+
+	stations, err := h.stationService.ListStations(ctx, search, river, country, onlyReview)
 	if err != nil {
 		data.ErrorMessage = err.Error()
 	}
@@ -103,10 +156,74 @@ func (h *StationsHandler) ShowStations(w http.ResponseWriter, r *http.Request) {
 			data.WithoutWatercourse++
 		}
 	}
+
+	// Geometrije svih vodotoka za prikaz riječne mreže na karti
+	if h.watercourseService != nil {
+		waters, _ := h.watercourseService.ListWatercourses(ctx, "", "", false)
+		var allFeatures []json.RawMessage
+		for _, w := range waters {
+			geom, err := h.watercourseService.GetWatercourseGeometry(ctx, w.Code)
+			if err != nil || len(geom) == 0 {
+				continue
+			}
+			var fc struct {
+				Type     string            `json:"type"`
+				Features []json.RawMessage `json:"features"`
+			}
+			if err := json.Unmarshal(geom, &fc); err == nil && len(fc.Features) > 0 {
+				allFeatures = append(allFeatures, fc.Features...)
+			}
+		}
+		if len(allFeatures) > 0 {
+			combined := struct {
+				Type     string            `json:"type"`
+				Features []json.RawMessage `json:"features"`
+			}{
+				Type:     "FeatureCollection",
+				Features: allFeatures,
+			}
+			if b, err := json.Marshal(combined); err == nil {
+				data.AllRiversJSON = template.JS(b)
+			}
+		}
+	}
+
+	// Postaje koje ulaze u kartu (sve filtrirane postaje s koordinatama, neovisno o paginaciji)
+	var mapStations []StationMapItem
+	for _, st := range stations {
+		if st.ImaKoordinate() {
+			idStr := st.ID.String()
+			mapStations = append(mapStations, StationMapItem{
+				ID:          idStr,
+				Name:        st.Name,
+				Watercourse: st.Watercourse,
+				Stationing:  st.Stationing,
+				Country:     st.Zemlja(),
+				Lat:         st.Latitude,
+				Lon:         st.Longitude,
+				DetailURL:   "/stations/" + idStr,
+				Prep:        st.Prep.Label(),
+				Regular:     st.Regular.Label(),
+				Emergency:   st.Emergency.Label(),
+				State:       st.State.Label(),
+				NeedsReview: st.NeedsReview,
+			})
+		}
+	}
+	if len(mapStations) > 0 {
+		if b, err := json.Marshal(mapStations); err == nil {
+			data.MapStationsJSON = template.JS(b)
+		}
+	}
+	data.MapStationsCount = len(mapStations)
+
 	data.Stations, data.Pager = paginate(stations, r, registryPerPage)
 
 	if rivers, err := h.stationService.ListWatercourses(ctx); err == nil {
 		data.Watercourses = rivers
+	}
+	if countries, err := h.stationService.ListCountries(ctx); err == nil {
+		data.Countries = countries
 	}
 	if total, review, links, err := h.stationService.Counts(ctx); err == nil {
 		data.TotalStations, data.NeedsReview, data.SectionLinks = total, review, links
@@ -137,8 +254,12 @@ func (h *StationsHandler) HandleListStationsAPI(w http.ResponseWriter, r *http.R
 
 	search := strings.TrimSpace(r.URL.Query().Get("q"))
 	river := strings.TrimSpace(r.URL.Query().Get("watercourse"))
+	country := strings.TrimSpace(r.URL.Query().Get("country"))
+	if country == "" {
+		country = strings.TrimSpace(r.URL.Query().Get("zemlja"))
+	}
 
-	stations, err := h.stationService.ListStations(ctx, search, river, false)
+	stations, err := h.stationService.ListStations(ctx, search, river, country, false)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

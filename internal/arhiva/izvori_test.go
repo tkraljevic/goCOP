@@ -39,7 +39,13 @@ func TestTablicaIzvoraNastajeSPostojecimVrijednostima(t *testing.T) {
 		{"cop", 3, true},
 		{"letva-hv", 5, true},
 		{"geolux-seba", 5, true},
+		{"pegelonline", 5, true},
 		{"vituki", 5, true},
+		{"arso", 5, true},
+		{"arso-borl", 5, true},
+		{"arso-borl-i", 5, true},
+		{"ehyd", 5, true},
+		{"gkd", 5, true},
 		{"his2000-cs", 0, false},
 	} {
 		var t2 float64
@@ -75,7 +81,7 @@ func TestIzvoriSuSravnjeniUTriSkupine(t *testing.T) {
 		po[i.Naziv] = i.Red
 	}
 	for naziv, ocekivanaSkupina := range map[string]string{
-		"his2000": models.SkupinaOvjereno, "vituki": models.SkupinaOvjereno,
+		"his2000": models.SkupinaOvjereno, "vituki": models.SkupinaOvjereno, "arso": models.SkupinaOvjereno,
 		"his2000-cs": models.SkupinaOvjereno, "cop-rucno": models.SkupinaSLetve,
 		"letva-dhmz": models.SkupinaOperativno, "cop": models.SkupinaOperativno,
 		"letva-hv":    models.SkupinaOperativno,

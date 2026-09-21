@@ -12,6 +12,7 @@
       {{if .Station.HasWatercourse}}{{if .Station.WatercourseCode}}<a href="/watercourses/{{.Station.WatercourseCode}}">{{.Station.Watercourse}}</a>{{else}}{{.Station.Watercourse}}{{end}}{{with .Station.PodrijetloVodotoka}} <span title="kako je utvrđeno na kojoj vodi letva stoji">({{.}})</span>{{end}}{{else}}vodotok nije određen{{end}}
       {{if .Station.Stationing}} · {{.Station.Stationing}}{{end}}
       {{if .Station.WaterArea}} · {{.Station.WaterArea}}{{end}}
+      {{if .Station.JeInozemna}} · <span title="Država">{{icon "map"}} {{.Station.Zemlja}}</span>{{end}}
       {{if .Station.NeedsReview}} · <span class="badge badge-inactive" title="{{.Station.ReviewNote}}">{{icon "triangle-alert"}} traži pregled</span>{{end}}
     </p>
   </div>

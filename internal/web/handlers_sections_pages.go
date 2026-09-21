@@ -348,7 +348,7 @@ func (h *SectionsHandler) ShowSectionForm(w http.ResponseWriter, r *http.Request
 		data.Watercourses, _ = h.watercourseService.ListWatercourses(ctx, "", "", false)
 	}
 	if h.stationService != nil {
-		data.Stations, _ = h.stationService.ListStations(ctx, "", "", false)
+		data.Stations, _ = h.stationService.ListStations(ctx, "", "", "", false)
 	}
 	if h.structureService != nil && (data.Section.AreaID > 0 || !data.IsEdit) {
 		// Kod nove dionice područje se često odabere tek u otvorenom obrascu.

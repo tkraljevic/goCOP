@@ -233,6 +233,110 @@ func (s Station) HasNewZeroDatum() bool {
 	return s.ZeroDatumNew != nil
 }
 
+// Zemlja vraća državu u kojoj se vodomjerna postaja nalazi.
+// Za inozemne postaje država je navedena u zagradama u nazivu (npr. "Bezdan (Srbija)",
+// "Bratislava (Slovačka)", "Budapest (Mađarska)") ili se prepoznaje po javnoj domeni.
+// Ako postaja nije inozemna, podrazumijeva se "Hrvatska".
+func (s Station) Zemlja() string {
+	// 1. Provjeri tekst u zagradama naziva i izvornog naziva
+	for _, text := range []string{s.Name, s.SourceName} {
+		if z := prepoznajZemljuIzTeksta(text); z != "" {
+			return z
+		}
+	}
+
+	// 2. Provjeri domenu javne adrese
+	if s.JavniURL != "" {
+		u := strings.ToLower(s.JavniURL)
+		switch {
+		case strings.Contains(u, "vizugy.hu") || strings.Contains(u, ".hu/") || strings.HasSuffix(u, ".hu"):
+			return "Mađarska"
+		case strings.Contains(u, "hidmet.gov.rs") || strings.Contains(u, ".rs/") || strings.HasSuffix(u, ".rs"):
+			return "Srbija"
+		case strings.Contains(u, "shmu.sk") || strings.Contains(u, ".sk/") || strings.HasSuffix(u, ".sk"):
+			return "Slovačka"
+		case strings.Contains(u, "arso.gov.si") || strings.Contains(u, ".si/") || strings.HasSuffix(u, ".si"):
+			return "Slovenija"
+		case strings.Contains(u, ".at/") || strings.HasSuffix(u, ".at"):
+			return "Austrija"
+		case strings.Contains(u, ".ba/") || strings.HasSuffix(u, ".ba"):
+			return "Bosna i Hercegovina"
+		case strings.Contains(u, ".me/") || strings.HasSuffix(u, ".me"):
+			return "Crna Gora"
+		case strings.Contains(u, ".de/") || strings.HasSuffix(u, ".de"):
+			return "Njemačka"
+		}
+	}
+
+	return "Hrvatska"
+}
+
+// JeInozemna govori nalazi li se postaja izvan Republike Hrvatske.
+func (s Station) JeInozemna() bool {
+	return s.Zemlja() != "Hrvatska"
+}
+
+func prepoznajZemljuIzTeksta(text string) string {
+	for {
+		start := strings.Index(text, "(")
+		if start == -1 {
+			break
+		}
+		end := strings.Index(text[start:], ")")
+		if end == -1 {
+			break
+		}
+		inside := text[start+1 : start+end]
+		text = text[start+end+1:]
+
+		if z := normirajZemlju(inside); z != "" {
+			return z
+		}
+	}
+	return ""
+}
+
+func normirajZemlju(s string) string {
+	norm := strings.ToLower(strings.TrimSpace(s))
+	switch norm {
+	case "hrvatska", "croatia", "hr":
+		return "Hrvatska"
+	case "mađarska", "madarska", "hungary", "magyarország", "magyarorszag", "hu":
+		return "Mađarska"
+	case "srbija", "serbia", "rs":
+		return "Srbija"
+	case "slovačka", "slovacka", "slovakia", "slovensko", "sk":
+		return "Slovačka"
+	case "slovenija", "slovenia", "si":
+		return "Slovenija"
+	case "austrija", "austria", "österreich", "osterreich", "at":
+		return "Austrija"
+	case "bosna i hercegovina", "bih", "ba", "bosnia", "bosnia and herzegovina":
+		return "Bosna i Hercegovina"
+	case "crna gora", "montenegro", "me":
+		return "Crna Gora"
+	case "njemačka", "njemacka", "germany", "deutschland", "de":
+		return "Njemačka"
+	case "italija", "italy", "italia", "it":
+		return "Italija"
+	}
+
+	if strings.ContainsAny(norm, "-/,;") {
+		for _, part := range strings.FieldsFunc(norm, func(r rune) bool {
+			return r == '-' || r == '/' || r == ',' || r == ';'
+		}) {
+			part = strings.TrimSpace(part)
+			if part != "" && part != norm {
+				if z := normirajZemlju(part); z != "" {
+					return z
+				}
+			}
+		}
+	}
+	return ""
+}
+
+
 // KotaVode je vodna ploha u apsolutnoj visini, u jednom visinskom sustavu.
 type KotaVode struct {
 	Kota   float64 // metara nad morem

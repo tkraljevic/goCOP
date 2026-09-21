@@ -11,9 +11,15 @@
       Postaje se na dionice dodaju iz modula dionica — isti vodomjer mjerodavan je za više dionica.
     </p>
   </div>
-  {{if .Permissions.IsGlobalAdmin}}
-  <a href="/stations/new" class="btn btn-primary">{{icon "plus"}} Nova postaja</a>
-  {{end}}
+  <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+    <div class="prikaz-preklopnik">
+      <a href="{{.ListURL}}" class="btn btn-sm {{if ne .ViewMode "map"}}btn-primary{{else}}btn-secondary{{end}}">{{icon "list"}} Popis</a>
+      <a href="{{.MapURL}}" class="btn btn-sm {{if eq .ViewMode "map"}}btn-primary{{else}}btn-secondary{{end}}">{{icon "map"}} Karta</a>
+    </div>
+    {{if and .Permissions .Permissions.IsGlobalAdmin}}
+    <a href="/stations/new" class="btn btn-primary">{{icon "plus"}} Nova postaja</a>
+    {{end}}
+  </div>
 </div>
 
 <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1.25rem;">
@@ -26,6 +32,7 @@
 
 <div class="filter-card">
   <form action="/stations" method="GET">
+    <input type="hidden" name="view" value="{{.ViewMode}}">
     <div class="search-bar-row">
       <div class="search-input-wrapper">
         <span class="search-icon">{{icon "search"}} </span>
@@ -33,12 +40,21 @@
                placeholder="Naziv vodomjera (Županja, Crnac, Ustava Trebež)…" autocomplete="off">
       </div>
       <button type="submit" class="btn btn-primary">Pretraži</button>
-      {{if or .SearchQuery .SelectedRiver .OnlyNeedsReview}}
-      <a href="/stations" class="btn btn-secondary">{{icon "x"}} </a>
+      {{if or .SearchQuery .SelectedRiver .SelectedCountry .OnlyNeedsReview}}
+      <a href="/stations?view={{.ViewMode}}" class="btn btn-secondary">{{icon "x"}} </a>
       {{end}}
     </div>
 
-    <div class="filters-row" style="grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));">
+    <div class="filters-row" style="grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));">
+      <div class="filter-group">
+        <label for="country-select" class="filter-label">{{icon "map"}} Država</label>
+        <select id="country-select" name="country" class="filter-select" onchange="this.form.submit()">
+          <option value="">Sve države</option>
+          {{range .Countries}}
+          <option value="{{.}}" {{if eq . $.SelectedCountry}}selected{{end}}>{{.}}</option>
+          {{end}}
+        </select>
+      </div>
       <div class="filter-group">
         <label for="watercourse-select" class="filter-label">{{icon "waves"}} Vodotok</label>
         <select id="watercourse-select" name="watercourse" class="filter-select" onchange="this.form.submit()">
@@ -59,6 +75,34 @@
   </form>
 </div>
 
+{{if eq .ViewMode "map"}}
+<div class="karta-sve-postaje-sekcija" style="margin-bottom: 1.5rem;">
+  <div class="karta-sve-postaje"
+       data-plocice="{{.Karta.Plocice}}"
+       data-zasluge="{{.Karta.Zasluge}}"
+       data-najvise-z="{{.Karta.NajviseZ}}">
+    <div class="karta-platno" style="min-height: 550px; height: 65vh; border-radius: 8px; border: 1px solid var(--border-color, #cbd5e1);"></div>
+    {{if .AllRiversJSON}}<script type="application/json" class="karta-geometrija-podaci">{{.AllRiversJSON}}</script>{{end}}
+    {{if .MapStationsJSON}}<script type="application/json" class="karta-postaje-podaci">{{.MapStationsJSON}}</script>{{end}}
+    <p class="reg-card-sub karta-bez-mreze" hidden>{{icon "triangle-alert"}} Pločice karte
+      nisu dostupne — program radi bez interneta, a za ovo područje još nisu preuzete.
+      Prikaz toka rijeka, stacionaža i vodomjernih postaja ucrtan je i vidljiv.</p>
+  </div>
+  <div class="karta-podnozje" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-top:0.6rem; font-size:0.85rem; color:#64748b;">
+    <div>
+      {{icon "map-pin"}} <strong>{{.MapStationsCount}}</strong> postaja prikazano na karti
+      {{if .SelectedRiver}} · vodotok: <strong>{{.SelectedRiver}}</strong>{{end}}
+      {{if .SelectedCountry}} · država: <strong>{{.SelectedCountry}}</strong>{{end}}
+      {{if .SearchQuery}} · pretraga: <strong>„{{.SearchQuery}}”</strong>{{end}}
+    </div>
+    <div style="display:flex; gap:1rem; align-items:center; flex-wrap:wrap;">
+      <span><span style="display:inline-block; width:14px; height:4px; background:#0284c7; vertical-align:middle; margin-right:4px; border-radius:2px;"></span> Tok rijeke</span>
+      <span><span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#fff; border:2px solid #0369a1; vertical-align:middle; margin-right:4px;"></span> rkm točke</span>
+      <span><span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#2563eb; vertical-align:middle; margin-right:4px;"></span> Vodomjerna postaja</span>
+    </div>
+  </div>
+</div>
+{{else}}
 <div data-listanje="popis">
 {{template "pager" .Pager}}
 
@@ -72,6 +116,7 @@
           <div class="reg-card-sub">
             {{if .HasWatercourse}}{{.Watercourse}}{{else}}<span title="Dokumentacija ne kaže na kojoj vodi vodomjer stoji">vodotok nije određen</span>{{end}}
             {{if .Stationing}} · {{.Stationing}}{{end}}
+            {{if .JeInozemna}} · {{.Zemlja}}{{end}}
           </div>
         </div>
         {{if .NeedsReview}}<span class="badge badge-inactive" title="{{.ReviewNote}}">{{icon "triangle-alert"}} pregled</span>{{end}}
@@ -88,6 +133,7 @@
         <span class="reg-chip {{if eq (len .SectionCodes) 0}}empty{{end}}" title="{{range .SectionCodes}}{{.}} {{end}}">{{icon "file-text"}} {{dionice (len .SectionCodes)}}</span>
         {{if .ZeroDatum}}<span class="reg-chip">„0“ {{brojHRd .ZeroDatum 2}} m</span>{{end}}
         {{if .Record.Cm}}<span class="reg-chip" title="Najviši zabilježeni vodostaj">max {{.Record.Label}}</span>{{end}}
+        {{if .JeInozemna}}<span class="reg-chip">{{icon "map"}} {{.Zemlja}}</span>{{end}}
       </div>
     </a>
   </article>
@@ -98,6 +144,7 @@
 
 {{template "pager" .Pager}}
 </div>
+{{end}}
 
 <div class="page-desc">
   <p style="margin:0 0 0.4rem;">

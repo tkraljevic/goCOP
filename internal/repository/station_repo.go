@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -143,7 +144,7 @@ func nullFloatPtr(v sql.NullFloat64) *float64 {
 }
 
 // ListStations vraća registar postaja uz opcionalne filtre
-func (r *StationRepository) ListStations(ctx context.Context, search, watercourse string, onlyNeedsReview bool) ([]models.Station, error) {
+func (r *StationRepository) ListStations(ctx context.Context, search, watercourse, country string, onlyNeedsReview bool) ([]models.Station, error) {
 	query := `SELECT ` + stationColumns + ` FROM stations s WHERE 1=1`
 	var args []any
 
@@ -167,11 +168,15 @@ func (r *StationRepository) ListStations(ctx context.Context, search, watercours
 	}
 	defer rows.Close()
 
+	countryFilter := strings.TrimSpace(country)
 	var stations []models.Station
 	for rows.Next() {
 		st, err := scanStation(rows)
 		if err != nil {
 			return nil, err
+		}
+		if countryFilter != "" && !strings.EqualFold(st.Zemlja(), countryFilter) {
+			continue
 		}
 		stations = append(stations, st)
 	}
@@ -527,6 +532,52 @@ func (r *StationRepository) ListWatercourses(ctx context.Context) ([]string, err
 		list = append(list, wc)
 	}
 	return list, rows.Err()
+}
+
+// ListCountries vraća države zastupljene u registru postaja, radi filtra
+func (r *StationRepository) ListCountries(ctx context.Context) ([]string, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT COALESCE(name, ''), COALESCE(source_name, ''), COALESCE(javni_url, '')
+		FROM stations
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("greška pri dohvaćanju država postaja: %w", err)
+	}
+	defer rows.Close()
+
+	seen := make(map[string]bool)
+	for rows.Next() {
+		var name, sourceName, javniURL string
+		if err := rows.Scan(&name, &sourceName, &javniURL); err != nil {
+			return nil, err
+		}
+		st := models.Station{Name: name, SourceName: sourceName, JavniURL: javniURL}
+		z := st.Zemlja()
+		if z != "" {
+			seen[z] = true
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	var others []string
+	hasHR := false
+	for c := range seen {
+		if c == "Hrvatska" {
+			hasHR = true
+		} else {
+			others = append(others, c)
+		}
+	}
+	sort.Strings(others)
+
+	var list []string
+	if hasHR {
+		list = append(list, "Hrvatska")
+	}
+	list = append(list, others...)
+	return list, nil
 }
 
 // defaultSystem osigurava da oznaka visinskog sustava nikad ne ostane prazna,

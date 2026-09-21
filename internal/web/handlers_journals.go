@@ -356,7 +356,7 @@ func (h *JournalsHandler) ShowJournalForm(w http.ResponseWriter, r *http.Request
 	if data.Area != nil {
 		data.Sections, _ = h.sections.ListSections("", data.Area.ID, "")
 	}
-	data.Stations, _ = h.stations.ListStations(r.Context(), "", "", false)
+	data.Stations, _ = h.stations.ListStations(r.Context(), "", "", "", false)
 	h.render(w, h.tmplForm, "dnevnik_form.html", data)
 }
 

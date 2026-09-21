@@ -248,7 +248,7 @@ func (s *ReadingService) Overview(ctx context.Context) ([]models.GaugeSummary, e
 	if err != nil {
 		return nil, err
 	}
-	stations, err := s.stationRepo.ListStations(ctx, "", "", false)
+	stations, err := s.stationRepo.ListStations(ctx, "", "", "", false)
 	if err != nil {
 		return nil, err
 	}

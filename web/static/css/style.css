@@ -2886,8 +2886,85 @@ textarea {
 /* Karta položaja letve */
 .karta-platno { height: 320px; border: 1px solid var(--border); border-radius: 4px; }
 .karta-letve.karta-prazna .karta-platno { opacity: 0.45; }
+.karta-vodotoka .karta-platno { height: 440px; }
+.karta-vodotoka.karta-prazna .karta-platno { opacity: 0.65; }
 .leaflet-container { background: var(--bg-subtle); font: inherit; }
-@media (max-width: 700px) { .karta-platno { height: 240px; } }
+@media (max-width: 700px) {
+  .karta-platno { height: 240px; }
+  .karta-vodotoka .karta-platno { height: 300px; }
+}
+.rkm-tooltip {
+  background: var(--surface, #ffffff);
+  border: 1px solid var(--border, #cbd5e1);
+  color: var(--text, #334155);
+  font-size: 0.72rem;
+  font-family: ui-monospace, monospace;
+  font-weight: 600;
+  padding: 1px 4px;
+  border-radius: 3px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+/* Uređivač toka rijeke na karti */
+.karta-editor-traka {
+  background: var(--surface-sunken, #f1f5f9);
+  border: 1px solid var(--border, #cbd5e1);
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
+  padding: 0.6rem 0.85rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+.karta-editor-upute {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--text, #334155);
+}
+.karta-editor-upute svg {
+  width: 1.1rem;
+  height: 1.1rem;
+  color: var(--primary, #0284c7);
+  flex-shrink: 0;
+}
+.karta-editor-status {
+  font-size: 0.8rem;
+  color: var(--muted, #64748b);
+  font-weight: 500;
+}
+.karta-vodotoka.u-uredjivanju .karta-platno {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  border-color: #0284c7;
+  box-shadow: 0 0 0 1px #0284c7;
+}
+.karta-tocka-rucica {
+  width: 12px;
+  height: 12px;
+  background: #ffffff;
+  border: 2px solid #0284c7;
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.35);
+  cursor: grab;
+  transition: transform 0.1s ease, border-color 0.1s ease, background 0.1s ease;
+}
+.karta-tocka-rucica:hover {
+  transform: scale(1.35);
+  border-color: #0369a1;
+  background: #e0f2fe;
+}
+.karta-tocka-rucica.rucica-aktivna {
+  background: #0284c7;
+  border-color: #ffffff;
+  cursor: grabbing;
+}
+.karta-vodotoka.u-uredjivanju .leaflet-interactive.rijeka-linija {
+  cursor: crosshair;
+}
 
 /* Od čega je spojeni niz sastavljen: jedan redak po izvoru. Prelama se kad
    nema mjesta umjesto da se stisne u stupac fiksne širine — izvora zna biti

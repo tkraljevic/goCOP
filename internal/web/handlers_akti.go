@@ -187,7 +187,7 @@ func (h *AktiHandler) ShowForm(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if data.Station == nil {
-		sve, _ := h.stations.ListStations(r.Context(), "", "", false)
+		sve, _ := h.stations.ListStations(r.Context(), "", "", "", false)
 		for _, st := range sve {
 			if len(st.SectionCodes) > 0 && (perms == nil || perms.IsGlobalAdmin || smijeLetvu(perms, st)) {
 				data.Stanice = append(data.Stanice, st)

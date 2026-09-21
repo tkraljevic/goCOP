@@ -45,7 +45,7 @@ func globalAdmin() *models.UserPermissions {
 
 func findStation(t *testing.T, repo *repository.StationRepository, name string) *models.Station {
 	t.Helper()
-	stations, err := repo.ListStations(context.Background(), name, "", false)
+	stations, err := repo.ListStations(context.Background(), name, "", "", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -317,3 +317,56 @@ func TestKvacicaZaProvjeruImaUcinak(t *testing.T) {
 		t.Error("letva bez pragova mora tražiti pregled bez obzira na kvačicu")
 	}
 }
+
+func TestFilterPostajaPoDrzavi(t *testing.T) {
+	database, err := db.OpenDB(filepath.Join(t.TempDir(), "test_svc_stations.db"))
+	if err != nil {
+		t.Fatalf("baza: %v", err)
+	}
+	defer database.Close()
+
+	if err := db.InitSchema(database); err != nil {
+		t.Fatalf("shema: %v", err)
+	}
+
+	sse := service.NewSSEBroker()
+	rec := ledger.New(database, "test-node")
+	secRepo := repository.NewSectionRepository(database, rec)
+	stationRepo := repository.NewStationRepository(database, rec)
+	svc := service.NewStationService(stationRepo, service.NewSectionService(secRepo, sse), sse)
+	ctx := context.Background()
+
+	st1 := &models.Station{Code: "batina", Name: "Batina", Watercourse: "Dunav"}
+	st2 := &models.Station{Code: "bezdan", Name: "Bezdan (Srbija)", Watercourse: "Dunav"}
+	if err := stationRepo.CreateStation(ctx, st1); err != nil {
+		t.Fatal(err)
+	}
+	if err := stationRepo.CreateStation(ctx, st2); err != nil {
+		t.Fatal(err)
+	}
+
+	countries, err := svc.ListCountries(ctx)
+	if err != nil {
+		t.Fatalf("ListCountries greška: %v", err)
+	}
+	if len(countries) != 2 || countries[0] != "Hrvatska" || countries[1] != "Srbija" {
+		t.Errorf("ListCountries = %v, want [Hrvatska Srbija]", countries)
+	}
+
+	srb, err := svc.ListStations(ctx, "", "", "Srbija", false)
+	if err != nil {
+		t.Fatalf("ListStations Srbija: %v", err)
+	}
+	if len(srb) != 1 || srb[0].Code != "bezdan" {
+		t.Errorf("ListStations Srbija = %+v, want [bezdan]", srb)
+	}
+
+	hr, err := svc.ListStations(ctx, "", "", "Hrvatska", false)
+	if err != nil {
+		t.Fatalf("ListStations Hrvatska: %v", err)
+	}
+	if len(hr) != 1 || hr[0].Code != "batina" {
+		t.Errorf("ListStations Hrvatska = %+v, want [batina]", hr)
+	}
+}
+

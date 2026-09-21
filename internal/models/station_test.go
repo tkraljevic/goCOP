@@ -118,3 +118,86 @@ func TestHasNewZeroDatum(t *testing.T) {
 		t.Error("upisana kota u novom sustavu nije prepoznata")
 	}
 }
+
+func TestStationZemlja(t *testing.T) {
+	tests := []struct {
+		name     string
+		station  Station
+		want     string
+		inozemna bool
+	}{
+		{
+			name:     "hrvatska postaja bez zagrada",
+			station:  Station{Name: "Županja"},
+			want:     "Hrvatska",
+			inozemna: false,
+		},
+		{
+			name:     "hrvatska postaja s dhmz u zagradi",
+			station:  Station{Name: "Dunav - Batina (DHMZ)"},
+			want:     "Hrvatska",
+			inozemna: false,
+		},
+		{
+			name:     "srpska postaja u zagradi",
+			station:  Station{Name: "Bezdan (Srbija)"},
+			want:     "Srbija",
+			inozemna: true,
+		},
+		{
+			name:     "mađarska postaja u zagradi",
+			station:  Station{Name: "Budapest (Mađarska)"},
+			want:     "Mađarska",
+			inozemna: true,
+		},
+		{
+			name:     "mađarska postaja bez dijakritika",
+			station:  Station{Name: "Baja (Madarska)"},
+			want:     "Mađarska",
+			inozemna: true,
+		},
+		{
+			name:     "slovačka postaja u zagradi",
+			station:  Station{Name: "Bratislava (Slovačka)"},
+			want:     "Slovačka",
+			inozemna: true,
+		},
+		{
+			name:     "slovenska postaja u zagradi",
+			station:  Station{Name: "Gornja Radgona (Slovenija)"},
+			want:     "Slovenija",
+			inozemna: true,
+		},
+		{
+			name:     "prepoznavanje po mađarskoj javnoj domeni",
+			station:  Station{Name: "Baja", JavniURL: "https://www.vizugy.hu/?mapModule=OpGrafikon"},
+			want:     "Mađarska",
+			inozemna: true,
+		},
+		{
+			name:     "prepoznavanje po srpskoj javnoj domeni",
+			station:  Station{Name: "Bezdan", JavniURL: "https://www.hidmet.gov.rs/latin/osmotreni/nrt_tabela_grafik.php"},
+			want:     "Srbija",
+			inozemna: true,
+		},
+		{
+			name:     "prepoznavanje po slovačkoj domeni",
+			station:  Station{Name: "Komárno", JavniURL: "https://www.shmu.sk/sk/?page=765"},
+			want:     "Slovačka",
+			inozemna: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := tc.station.Zemlja()
+			if got != tc.want {
+				t.Errorf("Zemlja() = %q, want %q", got, tc.want)
+			}
+			if tc.station.JeInozemna() != tc.inozemna {
+				t.Errorf("JeInozemna() = %v, want %v", tc.station.JeInozemna(), tc.inozemna)
+			}
+		})
+	}
+}
+

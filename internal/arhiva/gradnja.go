@@ -1048,6 +1048,11 @@ var zadaniIzvori = []Izvor{
 	// ovjereno — službeni, revidirani nizovi
 	{"his2000", 0, 10, true, "", "referenca — po njoj su ostali izmjereni"},
 	{"vituki", 5, 10, true, "", "mađarska služba, na tamošnjim letvama jedini izvor; točnost proglašena, ne izmjerena"},
+	{"arso", 5, 10, true, "", "slovenska služba, javno objavljene dnevne vrijednosti; točnost proglašena, ne izmjerena"},
+	{"arso-borl", 5, 10, true, "", "ARSO, stari Borl do 1981.; odvojeno od Borla I zbog HE Formin"},
+	{"arso-borl-i", 5, 10, true, "", "ARSO, Borl I od 1989.; odvojeno od starog Borla zbog HE Formin"},
+	{"ehyd", 5, 10, true, "", "austrijska hidrološka služba, javno objavljeni srednjaci; točnost proglašena, ne izmjerena"},
+	{"gkd", 5, 10, true, "", "bavarska hidrološka služba, provjereni dnevni protoci; točnost proglašena, ne izmjerena"},
 	{"his2000-cs", 0, 10, false, "", "Donji Miholjac — odlučuje se kad dođe Drava"},
 	{"his2000-spojeno", 0, 10, false, "", "Donji Miholjac — odlučuje se kad dođe Drava"},
 	{"his2000-ukinuta-nizv", 0, 10, false, "", "Donji Miholjac — odlučuje se kad dođe Drava"},
@@ -1060,6 +1065,7 @@ var zadaniIzvori = []Izvor{
 	{"cop", 3, 20, true, "", ""},
 	{"letva-hv", 5, 20, true, "", "dobra većinu vremena; u zamrznutim razdobljima javlja istu vrijednost danima"},
 	{"geolux-seba", 5, 20, true, "", "AVS Geolux/SEBA; točnost je zasad proglašena, ne izmjerena"},
+	{"pegelonline", 5, 20, true, "", "javni operativni vodostaji; u arhivu se uzimaju stvarna očitanja na punom satu"},
 }
 
 // zadanaTocnost vrijedi za izvor kojeg u tablici nema. Preračun se prepoznaje
@@ -1098,7 +1104,7 @@ func upisiZadaneIzvore(db Izvrsitelj) error {
 // stranici na kojoj se uređuju; gradnja koristi citajIzvore.
 func Izvori(db *sql.DB) ([]Izvor, error) {
 	rows, err := db.Query(`SELECT naziv, tocnost, red, ukljucen, ` + stupacMape(db) + `, napomena
-		FROM izvori ORDER BY red, naziv`)
+		FROM izvori ORDER BY red, tocnost, naziv`)
 	if err != nil {
 		return nil, fmt.Errorf("čitanje izvora: %w", err)
 	}

@@ -84,7 +84,7 @@ func main() {
 	perms := &models.UserPermissions{IsGlobalAdmin: true}
 	ctx := context.Background()
 
-	postaje, err := svc.ListStations(ctx, *sifra, "", false)
+	postaje, err := svc.ListStations(ctx, *sifra, "", "", false)
 	if err != nil {
 		log.Fatal(err)
 	}

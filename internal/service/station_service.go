@@ -34,8 +34,8 @@ func NewStationService(
 	}
 }
 
-func (s *StationService) ListStations(ctx context.Context, search, watercourse string, onlyNeedsReview bool) ([]models.Station, error) {
-	return s.stationRepo.ListStations(ctx, search, watercourse, onlyNeedsReview)
+func (s *StationService) ListStations(ctx context.Context, search, watercourse, country string, onlyNeedsReview bool) ([]models.Station, error) {
+	return s.stationRepo.ListStations(ctx, search, watercourse, country, onlyNeedsReview)
 }
 
 // BrojOcitanja govori koliko je očitanja upisano na letvi.
@@ -49,6 +49,10 @@ func (s *StationService) GetStation(ctx context.Context, id uuid.UUID) (*models.
 
 func (s *StationService) ListWatercourses(ctx context.Context) ([]string, error) {
 	return s.stationRepo.ListWatercourses(ctx)
+}
+
+func (s *StationService) ListCountries(ctx context.Context) ([]string, error) {
+	return s.stationRepo.ListCountries(ctx)
 }
 
 func (s *StationService) Counts(ctx context.Context) (total, needsReview, links int, err error) {

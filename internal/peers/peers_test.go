@@ -131,7 +131,7 @@ func founder(t *testing.T, ctx context.Context, n *node, name string) {
 
 func stationNote(t *testing.T, n *node, name string) string {
 	t.Helper()
-	list, err := n.stations.ListStations(context.Background(), name, "", false)
+	list, err := n.stations.ListStations(context.Background(), name, "", "", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -147,7 +147,7 @@ func stationNote(t *testing.T, n *node, name string) string {
 func editStationNote(t *testing.T, n *node, name, note string) {
 	t.Helper()
 	ctx := context.Background()
-	list, _ := n.stations.ListStations(ctx, name, "", false)
+	list, _ := n.stations.ListStations(ctx, name, "", "", false)
 	for _, s := range list {
 		if s.Name == name {
 			s.Notes = note
@@ -221,7 +221,7 @@ func TestDvaCvoraSeUpareISinkroniziraju(t *testing.T) {
 
 	// povijest na oba čvora nosi obje izmjene, s izvornim autorima
 	var stID string
-	list, _ := a.stations.ListStations(ctx, "Županja", "", false)
+	list, _ := a.stations.ListStations(ctx, "Županja", "", "", false)
 	for _, s := range list {
 		if s.Name == "Županja" {
 			stID = s.ID.String()
@@ -274,7 +274,7 @@ func TestArhiviranjePutujeMedjuCvorovima(t *testing.T) {
 	pair(t, ctx, a, b)
 
 	var st models.Station
-	list, _ := a.stations.ListStations(ctx, "Županja", "", false)
+	list, _ := a.stations.ListStations(ctx, "Županja", "", "", false)
 	for _, s := range list {
 		if s.Name == "Županja" {
 			st = s

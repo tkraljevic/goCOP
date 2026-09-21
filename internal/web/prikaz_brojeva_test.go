@@ -2046,6 +2046,64 @@ func TestKartaSeCrtaSamoKadImaOboje(t *testing.T) {
 	}
 }
 
+// Karta vodotoka prikazuje se kad vodotok ima geometriju i kad su pločice
+// uključene; bez geometrije ili bez pločica karta se ne prikazuje.
+func TestWatercourseDetailKarta(t *testing.T) {
+	karta := KartaPostavke{
+		Plocice:  "https://maps.wikimedia.org/osm-intl/{z}/{x}/{y}.png",
+		Zasluge:  "pločice Wikimedia",
+		NajviseZ: 17,
+	}
+	water := models.Watercourse{
+		Code:         "rijeka-dunav",
+		Name:         "Dunav",
+		OfficialName: "rijeka Dunav",
+	}
+
+	// S geometrijom i kartom
+	sKartom := iscrtaj(t, "watercourse_detail.html", WatercoursePageData{
+		CurrentUser:     &models.User{FullName: "P"},
+		Permissions:     &models.UserPermissions{IsGlobalAdmin: true},
+		Water:           water,
+		Karta:           karta,
+		GeometryJSON:    `{"type":"FeatureCollection","features":[]}`,
+		MapStationsJSON: `[{"id":"1","name":"Batina","lat":45.8,"lon":18.8}]`,
+	})
+	for _, want := range []string{
+		`class="karta-vodotoka"`,
+		`Karta vodotoka`,
+		`class="karta-geometrija-podaci"`,
+		`class="karta-postaje-podaci"`,
+		`data-naziv="Dunav"`,
+	} {
+		if !strings.Contains(sKartom, want) {
+			t.Errorf("karta vodotoka nema %q", want)
+		}
+	}
+
+	// Bez geometrije nema okvira karte
+	bezGeom := iscrtaj(t, "watercourse_detail.html", WatercoursePageData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Water:       water,
+		Karta:       karta,
+	})
+	if strings.Contains(bezGeom, "karta-vodotoka") {
+		t.Error("vodotok bez geometrije dobio je kartu")
+	}
+
+	// Bez pločica nema okvira karte
+	bezPlocica := iscrtaj(t, "watercourse_detail.html", WatercoursePageData{
+		CurrentUser:  &models.User{FullName: "P"},
+		Permissions:  &models.UserPermissions{IsGlobalAdmin: true},
+		Water:        water,
+		GeometryJSON: `{"type":"FeatureCollection","features":[]}`,
+	})
+	if strings.Contains(bezPlocica, "karta-vodotoka") {
+		t.Error("vodotok bez pločica dobio je kartu")
+	}
+}
+
 // Obrazac postaje mora nuditi sve što se o postaji vodi. Ono što se ne može
 // upisati završi kao popravak u kodu — a podaci jedne letve ne pripadaju
 // programu nego bazi.

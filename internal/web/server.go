@@ -756,6 +756,7 @@ func (s *Server) setupRoutes() {
 	}, s.templates["arhiva_ispravci.html"])
 	watercoursesH.SetPageTemplates(s.templates["watercourse_detail.html"], s.templates["watercourse_form.html"], s.stationService)
 	watercoursesH.SetMaintenanceService(s.maintenanceService)
+	watercoursesH.SetKarta(func() KartaPostavke { return s.karta })
 	maintenanceH := NewMaintenanceHandler(s.maintenanceService, s.userService, s.watercourseService, s.structureService, s.templates["odrzavanje.html"])
 	s.mux.Handle("GET /odrzavanje", s.authMiddleware(http.HandlerFunc(maintenanceH.ShowMaintenance)))
 	s.mux.Handle("POST /odrzavanje/stavke", s.authMiddleware(http.HandlerFunc(maintenanceH.HandleSaveItem)))
@@ -1009,6 +1010,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /api/watercourses", s.authMiddleware(http.HandlerFunc(watercoursesH.HandleListWatercoursesAPI)))
 	s.mux.Handle("POST /api/watercourses/create", s.authMiddleware(http.HandlerFunc(watercoursesH.HandleCreateWatercourseAPI)))
 	s.mux.Handle("POST /api/watercourses/update", s.authMiddleware(http.HandlerFunc(watercoursesH.HandleUpdateWatercourseAPI)))
+	s.mux.Handle("POST /api/watercourses/geometry", s.authMiddleware(http.HandlerFunc(watercoursesH.HandleUpdateWatercourseGeometryAPI)))
 	s.mux.Handle("POST /api/watercourses/delete", s.authMiddleware(http.HandlerFunc(watercoursesH.HandleDeleteWatercourseAPI)))
 	s.mux.Handle("POST /api/stations/watercourse", s.authMiddleware(http.HandlerFunc(watercoursesH.HandleAssignStationWatercourseAPI)))
 
