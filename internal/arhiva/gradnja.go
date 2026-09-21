@@ -1112,6 +1112,10 @@ var zadaniIzvori = []Izvor{
 	{"cop", 3, 20, true, "", ""},
 	{"letva-hv", 5, 20, true, "", "dobra većinu vremena; u zamrznutim razdobljima javlja istu vrijednost danima"},
 	{"geolux-seba", 5, 20, true, "", "AVS Geolux/SEBA; točnost je zasad proglašena, ne izmjerena"},
+	// Gotovo svaka postaja ima dva zapisivača — tlačni i radarski — pa se
+	// radarski vodi kao zaseban izvor iza tlačnog. Kad tlačni zašuti, a to se
+	// događa, praznina se popunjava radarom umjesto da ostane rupa.
+	{"geolux-radar", 5, 21, false, "", "rezervni radarski zapisivač iste postaje; kod Tikveša je prvu godinu pratio tlačni unutar 2 cm, a onda odlutao do 22 cm i u svibnju 2026. utihnuo — zato stoji isključen dok se ne provjeri po razdobljima"},
 	{"pegelonline", 5, 20, true, "", "javni operativni vodostaji; u arhivu se uzimaju stvarna očitanja na punom satu"},
 }
 
