@@ -14,7 +14,9 @@ package javnivodostaji
 
 import (
 	"context"
+	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -160,13 +162,31 @@ func (c *Client) dohvati(ctx context.Context, adresa string) ([]byte, error) {
 	req.Header.Set("User-Agent", "goCOP (preuzimanje javnih vodostaja)")
 	resp, err := c.klijent().Do(req)
 	if err != nil {
-		return nil, err
+		return nil, objasniTLS(err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("%s: %s", adresa, resp.Status)
 	}
 	return io.ReadAll(io.LimitReader(resp.Body, 4<<20))
+}
+
+// objasniTLS dopisuje uz grešku provjere certifikata tko ga je potpisao.
+// Bez toga poruka glasi samo „signed by unknown authority“ i ne razlikuje
+// dva posve različita slučaja: da tuđa stranica šalje manjkav lanac, i da
+// promet netko usput presreće — službena mreža s pregledom prometa svaki
+// certifikat zamijeni svojim. Ime potpisnika odmah kaže koji je.
+func objasniTLS(err error) error {
+	var nepoznat x509.UnknownAuthorityError
+	if !errors.As(err, &nepoznat) || nepoznat.Cert == nil {
+		return err
+	}
+	potpisnik := strings.TrimSpace(nepoznat.Cert.Issuer.CommonName)
+	if potpisnik == "" {
+		potpisnik = nepoznat.Cert.Issuer.String()
+	}
+	return fmt.Errorf("%w — certifikat je potpisao %q, a ovom računalu taj potpisnik nije poznat"+
+		" (ili mreža presreće promet, ili računalu nedostaje korijenski certifikat)", err, potpisnik)
 }
 
 // Postaja je jedna postaja s javnog popisa
