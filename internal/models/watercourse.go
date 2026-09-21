@@ -29,10 +29,16 @@ type Watercourse struct {
 	Mouth      string   `json:"mouth,omitempty"`      // ušće
 	FlowsInto  string   `json:"flows_into,omitempty"` // ulijeva se u
 	Notes      string   `json:"notes,omitempty"`      // napomena i atribucija izvora
+	Geometry   string   `json:"geometry,omitempty"`   // GeoJSON polilinije toka i stacionaže (rkm)
 
 	// Izvedeno pri čitanju
 	SectionCount int `json:"section_count"`
 	StationCount int `json:"station_count"`
+}
+
+// HasGeometry javlja ima li vodotok definiranu geometriju (tok i stacionaže)
+func (w Watercourse) HasGeometry() bool {
+	return strings.TrimSpace(w.Geometry) != ""
 }
 
 // Oznake podrijetla zapisa u registru vodnih tijela

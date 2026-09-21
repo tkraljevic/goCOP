@@ -46,6 +46,41 @@
   {{end}}
 </div>
 
+{{if and .Karta.Ima .GeometryJSON}}
+<section class="detail-section" id="karta">
+  <div class="detail-section-head" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+    <h2>{{icon "map"}} Karta vodotoka</h2>
+    {{if .Permissions.IsGlobalAdmin}}
+    <div class="karta-akcije" style="display:flex; gap:0.5rem; align-items:center;">
+      <button type="button" class="btn btn-sm btn-secondary karta-uredi-btn">{{icon "pencil"}} Uredi tok na karti</button>
+      <button type="button" class="btn btn-sm btn-primary karta-spremi-btn" style="display:none;">{{icon "check"}} Spremi geometriju</button>
+      <button type="button" class="btn btn-sm btn-secondary karta-ponisti-btn" style="display:none;" title="Poništi trenutne izmjene na točkama">Poništi</button>
+      <button type="button" class="btn btn-sm btn-secondary karta-odustani-btn" style="display:none;">Odustani</button>
+    </div>
+    {{end}}
+  </div>
+  <div class="karta-editor-traka" style="display:none;">
+    <div class="karta-editor-upute">
+      {{icon "info"}} <strong>Uređivanje toka rijeke:</strong> Povucite točku za promjenu smjera toka. Kliknite na liniju za dodavanje nove točke. Desni klik na točku za brisanje točke.
+    </div>
+    <div class="karta-editor-status"></div>
+  </div>
+  <div class="karta-vodotoka"
+       data-sifra="{{.Water.Code}}"
+       data-naziv="{{.Water.Name}}"
+       data-plocice="{{.Karta.Plocice}}"
+       data-zasluge="{{.Karta.Zasluge}}"
+       data-najvise-z="{{.Karta.NajviseZ}}">
+    <div class="karta-platno"></div>
+    <script type="application/json" class="karta-geometrija-podaci">{{.GeometryJSON}}</script>
+    {{if .MapStationsJSON}}<script type="application/json" class="karta-postaje-podaci">{{.MapStationsJSON}}</script>{{end}}
+    <p class="reg-card-sub karta-bez-mreze" hidden>{{icon "triangle-alert"}} Pločice karte
+      nisu dostupne — program radi bez interneta, a za ovo područje još nisu preuzete.
+      Prikaz toka rijeke, stacionaža i postaja ucrtan je i vidljiv.</p>
+  </div>
+</section>
+{{end}}
+
 {{if .Water.Notes}}
 <section class="detail-section">
   <h2>{{icon "file-text"}} Napomena</h2>
@@ -112,7 +147,7 @@
         <div class="reg-card-head">
           <div>
             <h3 class="reg-card-title">{{.Name}}</h3>
-            <div class="reg-card-sub">{{if .Stationing}}{{.Stationing}}{{else}}{{.WaterArea}}{{end}}</div>
+            <div class="reg-card-sub">{{if .Stationing}}{{.Stationing}}{{else}}{{.WaterArea}}{{end}}{{if .JeInozemna}} · {{.Zemlja}}{{end}}</div>
           </div>
           {{if .NeedsReview}}<span class="badge badge-inactive" title="{{.ReviewNote}}">{{icon "triangle-alert"}} pregled</span>{{end}}
         </div>

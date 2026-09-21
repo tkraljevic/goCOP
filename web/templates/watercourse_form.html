@@ -18,6 +18,15 @@
   </div>
 </div>
 
+{{if and .IsEdit .Water.HasGeometry}}
+<div class="reg-card" style="padding:0.75rem 1rem; margin-bottom:1.5rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; background:var(--surface-sunken, #f8fafc);">
+  <div>
+    <strong>{{icon "map"}} Geometrija toka rijeke</strong>
+    <p class="page-desc" style="margin:0.25rem 0 0 0; font-size:0.85rem;">Za grafičko premještanje, dodavanje i brisanje točaka pravaca toka rijeke koristite interaktivnu kartu.</p>
+  </div>
+  <a href="/watercourses/{{.Water.Code}}#karta" class="btn btn-sm btn-secondary">{{icon "pencil"}} Uredi tok na karti</a>
+</div>
+{{end}}
 
 <form class="form-page" method="POST" action="{{if .IsEdit}}/api/watercourses/update{{else}}/api/watercourses/create{{end}}">
   {{if .IsEdit}}<input type="hidden" name="code" value="{{.Water.Code}}">{{end}}

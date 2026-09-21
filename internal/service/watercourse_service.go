@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"gocop/internal/geometrija"
 	"gocop/internal/hydro"
 	"gocop/internal/models"
 	"gocop/internal/repository"
@@ -15,11 +16,52 @@ import (
 // Registar je preslika službenog izvora (Odluka o popisu voda I. reda), pa se
 // ovdje samo čita — mijenja se osvježavanjem izvora, ne kroz sučelje.
 type WatercourseService struct {
-	repo *repository.WatercourseRepository
+	repo          *repository.WatercourseRepository
+	geometrijaDir string
 }
 
 func NewWatercourseService(repo *repository.WatercourseRepository) *WatercourseService {
 	return &WatercourseService{repo: repo}
+}
+
+// SetGeometrijaDir postavlja stazu do mape s GeoJSON geometrijama vodotoka na disku.
+func (s *WatercourseService) SetGeometrijaDir(dir string) {
+	s.geometrijaDir = dir
+}
+
+// GetWatercourseGeometry vraća GeoJSON geometriju (tok rijeke i rkm točke) za vodno tijelo.
+// Primarno čita iz baze podataka (kako bi vrijedila sinkronizacija među čvorovima),
+// a ako u bazi nije upisano, poseže za datotekom na disku ili ugrađenim paketom geometrija.
+func (s *WatercourseService) GetWatercourseGeometry(ctx context.Context, code string) ([]byte, error) {
+	if w, err := s.GetWatercourse(ctx, code); err == nil && w != nil && strings.TrimSpace(w.Geometry) != "" {
+		return []byte(w.Geometry), nil
+	}
+	return geometrija.Ucitaj(s.geometrijaDir, code)
+}
+
+// HasGeometry provjerava postoji li dostupna geometrija za vodno tijelo.
+func (s *WatercourseService) HasGeometry(ctx context.Context, code string) bool {
+	if w, err := s.GetWatercourse(ctx, code); err == nil && w != nil && w.HasGeometry() {
+		return true
+	}
+	return geometrija.Ima(s.geometrijaDir, code)
+}
+
+// SetWatercourseGeometry postavlja ili mijenja GeoJSON geometriju vodnog tijela u bazi.
+// Zapis se bilježi u knjizi verzija i sinkronizira na druge čvorove.
+func (s *WatercourseService) SetWatercourseGeometry(ctx context.Context, perms *models.UserPermissions, code, geojson string) error {
+	if err := requireGlobalAdmin(perms, "izmjenu geometrije vodnog tijela"); err != nil {
+		return err
+	}
+	w, err := s.repo.GetWatercourse(ctx, code)
+	if err != nil {
+		return err
+	}
+	if w == nil {
+		return fmt.Errorf("vodno tijelo %q ne postoji", code)
+	}
+	w.Geometry = geojson
+	return s.repo.UpdateWatercourse(ctx, w)
 }
 
 func (s *WatercourseService) ListWatercourses(ctx context.Context, search, category string, onlyUsed bool) ([]models.Watercourse, error) {

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 
+	"gocop/internal/geometrija"
 	"gocop/internal/hydro"
 	"gocop/internal/models"
 )
@@ -87,6 +88,11 @@ func seedWatercourses(database *sql.DB) error {
 
 		if err := tx.Commit(); err != nil {
 			return err
+		}
+		for _, code := range []string{"rijeka-dunav", "rijeka-drava", "rijeka-mura"} {
+			if geo, err := geometrija.Ucitaj("", code); err == nil && len(geo) > 0 {
+				_, _ = database.Exec(`UPDATE watercourses SET geometry = ? WHERE code = ? AND (geometry = '' OR geometry IS NULL)`, string(geo), code)
+			}
 		}
 		log.Printf("Registar vodnih tijela: %d voda", len(waters))
 	}

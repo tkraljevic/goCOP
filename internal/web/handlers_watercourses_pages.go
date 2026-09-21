@@ -1,6 +1,7 @@
 package web
 
 import (
+	"encoding/json"
 	"html/template"
 	"net/http"
 	"net/url"
@@ -17,20 +18,34 @@ import (
 // običnim obrascem na isto sučelje koje koriste i JSON pozivi; razlika je
 // samo u tome što obrazac dobije preusmjeravanje umjesto JSON odgovora.
 
+// WatercourseStationMapItem predstavlja postaju prikazanu na karti vodotoka
+type WatercourseStationMapItem struct {
+	ID         string   `json:"id"`
+	Name       string   `json:"name"`
+	Stationing string   `json:"stationing"`
+	Country    string   `json:"country"`
+	Lat        *float64 `json:"lat"`
+	Lon        *float64 `json:"lon"`
+	DetailURL  string   `json:"detail_url"`
+}
+
 // WatercoursePageData je stranica jedne vode ili njezina obrasca
 type WatercoursePageData struct {
-	CurrentUser    *models.User
-	Permissions    *models.UserPermissions
-	Water          models.Watercourse
-	Sections       []models.Section
-	Stations       []models.Station
-	Kinds          []string
-	Maintenance    []models.MaintainedWater // popisi lokacija u kojima se voda održava
-	IsEdit         bool
-	SuccessMessage string
-	ErrorMessage   string
-	ActiveNav      string
+	CurrentUser     *models.User
+	Permissions     *models.UserPermissions
+	Water           models.Watercourse
+	Sections        []models.Section
+	Stations        []models.Station
+	Kinds           []string
+	Maintenance     []models.MaintainedWater // popisi lokacija u kojima se voda održava
+	IsEdit          bool
+	SuccessMessage  string
+	ErrorMessage    string
+	ActiveNav       string
 	ViewAsBanner
+	Karta           KartaPostavke
+	GeometryJSON    template.JS
+	MapStationsJSON template.JS
 }
 
 // watercourseKinds su vrste voda koje obrazac nudi
@@ -52,6 +67,10 @@ func (h *WatercoursesHandler) pageData(r *http.Request) WatercoursePageData {
 	ctx := r.Context()
 	currUser, _ := ctx.Value(contextKeyUser).(*models.User)
 	perms, _ := ctx.Value(contextKeyPerms).(*models.UserPermissions)
+	var kp KartaPostavke
+	if h.karta != nil {
+		kp = h.karta()
+	}
 	return WatercoursePageData{
 		CurrentUser:    currUser,
 		Permissions:    perms,
@@ -60,6 +79,7 @@ func (h *WatercoursesHandler) pageData(r *http.Request) WatercoursePageData {
 		ErrorMessage:   r.URL.Query().Get("error"),
 		ActiveNav:      "watercourses",
 		ViewAsBanner:   viewBanner(r),
+		Karta:          kp,
 	}
 }
 
@@ -87,13 +107,38 @@ func (h *WatercoursesHandler) ShowWatercourse(w http.ResponseWriter, r *http.Req
 		}
 	}
 	if h.stationService != nil {
-		if st, err := h.stationService.ListStations(ctx, "", water.Name, false); err == nil {
-			// popis po nazivu vode hvata i istoimene vode; zadrži samo one s ovom šifrom
+		if st, err := h.stationService.ListStations(ctx, "", water.Name, "", false); err == nil {
+			// popis po nazivu vode hvata i istoimene vode; zadrži samo one s ovom šifrom ili povezanim nazivom
 			for _, s := range st {
-				if s.WatercourseCode == water.Code {
+				if s.WatercourseCode == water.Code || (s.WatercourseCode == "" && s.Watercourse == water.Name) {
 					data.Stations = append(data.Stations, s)
 				}
 			}
+		}
+	}
+
+	if geom, err := h.watercourseService.GetWatercourseGeometry(ctx, water.Code); err == nil && len(geom) > 0 {
+		data.GeometryJSON = template.JS(geom)
+	}
+
+	var mapStations []WatercourseStationMapItem
+	for _, s := range data.Stations {
+		if s.ImaKoordinate() {
+			idStr := s.ID.String()
+			mapStations = append(mapStations, WatercourseStationMapItem{
+				ID:         idStr,
+				Name:       s.Name,
+				Stationing: s.Stationing,
+				Country:    s.Zemlja(),
+				Lat:        s.Latitude,
+				Lon:        s.Longitude,
+				DetailURL:  "/stations/" + idStr,
+			})
+		}
+	}
+	if len(mapStations) > 0 {
+		if b, err := json.Marshal(mapStations); err == nil {
+			data.MapStationsJSON = template.JS(b)
 		}
 	}
 

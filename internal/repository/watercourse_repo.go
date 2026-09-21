@@ -26,6 +26,7 @@ func NewWatercourseRepository(db *sql.DB, rec *ledger.Recorder) *WatercourseRepo
 const watercourseColumns = `
 	w.code, w.official_name, w.name, w.kind, w.category, w.subcategory, w.wiki_slug, w.origin,
 	w.length_km, w.basin_km2, w.avg_flow_m3s, w.source, w.mouth, w.flows_into, w.notes,
+	COALESCE(w.geometry, ''),
 	(SELECT COUNT(*) FROM sections s WHERE s.watercourse_code = w.code),
 	(SELECT COUNT(*) FROM stations st WHERE st.watercourse_code = w.code)
 `
@@ -41,6 +42,7 @@ func scanWatercourse(scanner interface{ Scan(...any) error }) (models.Watercours
 	err := scanner.Scan(
 		&w.Code, &w.OfficialName, &w.Name, &w.Kind, &w.Category, &w.Subcategory, &w.WikiSlug, &w.Origin,
 		&length, &basin, &flow, &w.Source, &w.Mouth, &w.FlowsInto, &w.Notes,
+		&w.Geometry,
 		&w.SectionCount, &w.StationCount,
 	)
 	if err != nil {
@@ -162,11 +164,11 @@ func (r *WatercourseRepository) CreateWatercourse(ctx context.Context, w *models
 	_, err = tx.ExecContext(ctx, `
 		INSERT INTO watercourses (
 			code, official_name, name, kind, category, subcategory, wiki_slug, origin,
-			length_km, basin_km2, avg_flow_m3s, source, mouth, flows_into, notes
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			length_km, basin_km2, avg_flow_m3s, source, mouth, flows_into, notes, geometry
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`,
 		w.Code, w.OfficialName, w.Name, w.Kind, w.Category, w.Subcategory, w.WikiSlug, w.Origin,
-		w.LengthKm, w.BasinKm2, w.AvgFlowM3S, w.Source, w.Mouth, w.FlowsInto, w.Notes,
+		w.LengthKm, w.BasinKm2, w.AvgFlowM3S, w.Source, w.Mouth, w.FlowsInto, w.Notes, w.Geometry,
 	)
 	if err != nil {
 		return fmt.Errorf("greška pri unosu vodnog tijela %q: %w", w.OfficialName, err)
@@ -189,11 +191,11 @@ func (r *WatercourseRepository) UpdateWatercourse(ctx context.Context, w *models
 	res, err := tx.ExecContext(ctx, `
 		UPDATE watercourses SET
 			official_name = ?, name = ?, kind = ?, category = ?, subcategory = ?, wiki_slug = ?,
-			length_km = ?, basin_km2 = ?, avg_flow_m3s = ?, source = ?, mouth = ?, flows_into = ?, notes = ?
+			length_km = ?, basin_km2 = ?, avg_flow_m3s = ?, source = ?, mouth = ?, flows_into = ?, notes = ?, geometry = ?
 		WHERE code = ?
 	`,
 		w.OfficialName, w.Name, w.Kind, w.Category, w.Subcategory, w.WikiSlug,
-		w.LengthKm, w.BasinKm2, w.AvgFlowM3S, w.Source, w.Mouth, w.FlowsInto, w.Notes, w.Code,
+		w.LengthKm, w.BasinKm2, w.AvgFlowM3S, w.Source, w.Mouth, w.FlowsInto, w.Notes, w.Geometry, w.Code,
 	)
 	if err != nil {
 		return fmt.Errorf("greška pri izmjeni vodnog tijela %q: %w", w.OfficialName, err)

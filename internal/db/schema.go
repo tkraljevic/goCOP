@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	"gocop/internal/geometrija"
 	"gocop/internal/ledger"
 )
 
@@ -668,7 +669,8 @@ func InitSchema(database *sql.DB) error {
 			source TEXT NOT NULL DEFAULT '',
 			mouth TEXT NOT NULL DEFAULT '',
 			flows_into TEXT NOT NULL DEFAULT '',
-			notes TEXT NOT NULL DEFAULT ''
+			notes TEXT NOT NULL DEFAULT '',
+			geometry TEXT NOT NULL DEFAULT ''
 		);`,
 
 		// Mjerodavni vodomjeri pojedine dionice
@@ -1244,6 +1246,7 @@ func migrateSchema(database *sql.DB) error {
 		{"sections", "rkm_to", "REAL"},
 		{"watercourses", "origin", "TEXT NOT NULL DEFAULT ''"},
 		{"watercourses", "notes", "TEXT NOT NULL DEFAULT ''"},
+		{"watercourses", "geometry", "TEXT NOT NULL DEFAULT ''"},
 		{"journal_sheets", "label", "TEXT NOT NULL DEFAULT ''"},
 		{"journal_entries", "side", "TEXT NOT NULL DEFAULT ''"},
 		// Dnevnik COP-a bilježi dvije stvari koje građevinski ne treba.
@@ -1400,6 +1403,49 @@ func migrateSchema(database *sql.DB) error {
 			"Opisni podaci (duljina, površina sliva, protok, izvor, ušće) potječu iz članka na hrvatskoj Wikipediji: [rijeka Dunav](https://hr.wikipedia.org/wiki/Dunav), suradnici Wikipedije, licenca [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/deed.hr)."); err != nil {
 			return fmt.Errorf("greška pri prijenosu napomene Dunava: %w", err)
 		}
+	}
+
+	// Geometrija vodotoka s polilinijom i stacionažama (rkm) popunjava se
+	// iz ugrađenog paketa u bazu ako u bazi još nije upisana, kako bi
+	// vrijedila distribuirana sinkronizacija među čvorovima.
+	for _, code := range []string{"rijeka-dunav", "rijeka-drava", "rijeka-mura"} {
+		if geo, err := geometrija.Ucitaj("", code); err == nil && len(geo) > 0 {
+			_, _ = database.Exec(`UPDATE watercourses SET geometry = ? WHERE code = ? AND (geometry = '' OR geometry IS NULL)`, string(geo), code)
+		}
+	}
+
+	// Zadane koordinate za postaje na Dunavu, Dravi i Muri ako još nisu postavljene.
+	for _, st := range []struct {
+		code string
+		lat  float64
+		lon  float64
+	}{
+		{"ilok", 45.231083, 19.401583},
+		{"bezdan", 45.850278, 18.867500},
+		{"apatin", 45.670556, 18.966944},
+		{"bogojevo", 45.526944, 19.088611},
+		{"mohacs", 45.992222, 18.688889},
+		{"dunaszekcso", 46.084722, 18.761944},
+		{"baja", 46.177222, 18.948333},
+		{"paks", 46.626111, 18.866944},
+		{"dunafoldvar", 46.808056, 18.932778},
+		{"budapest", 47.494722, 19.049444},
+		{"esztergom", 47.796111, 18.735000},
+		{"komarno", 47.753889, 18.128611},
+		{"nagybajcs", 47.765556, 17.697778},
+		{"bratislava", 48.140833, 17.110556},
+		{"backa-palanka", 45.241667, 19.390000},
+		// Drava
+		{"barcs", 45.945278, 17.461667},
+		{"dravaszabolcs", 45.761111, 18.165000},
+		{"szentborbas", 45.863118, 17.650239},
+		{"vizvar", 46.085000, 17.224000},
+		{"ortilos", 46.311000, 16.883000},
+		// Mura
+		{"gornja-radgona", 46.675200, 15.992600},
+		{"letenye", 46.425940, 16.690180},
+	} {
+		_, _ = database.Exec(`UPDATE stations SET latitude = ?, longitude = ?, updated_at = CURRENT_TIMESTAMP WHERE code = ? AND (latitude IS NULL OR longitude IS NULL)`, st.lat, st.lon, st.code)
 	}
 
 	// Kanali za zapise otprije stupca: očitanje ide u područje svoje letve

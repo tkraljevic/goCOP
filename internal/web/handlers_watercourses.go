@@ -18,6 +18,7 @@ type WatercoursesHandler struct {
 	tmpl               *template.Template // popis
 	tmplDetail         *template.Template // jedna voda
 	tmplForm           *template.Template // obrazac
+	karta              func() KartaPostavke
 }
 
 func NewWatercoursesHandler(
@@ -30,6 +31,11 @@ func NewWatercoursesHandler(
 		sectionService:     sectionService,
 		tmpl:               tmpl,
 	}
+}
+
+// SetKarta daje rukovatelju izvor pločica za kartu.
+func (h *WatercoursesHandler) SetKarta(f func() KartaPostavke) {
+	h.karta = f
 }
 
 type WatercoursesPageData struct {
@@ -215,12 +221,18 @@ func (h *WatercoursesHandler) HandleUpdateWatercourseAPI(w http.ResponseWriter, 
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if strings.TrimSpace(form.Code) == "" {
+	code := strings.TrimSpace(form.Code)
+	if code == "" {
 		http.Error(w, "Šifra vodnog tijela je obavezna", http.StatusBadRequest)
 		return
 	}
 
 	water := form.toWatercourse()
+	// Sačuvaj postojeću geometriju ako obrazac ne šalje novu
+	if existing, err := h.watercourseService.GetWatercourse(ctx, code); err == nil && existing != nil {
+		water.Geometry = existing.Geometry
+	}
+
 	if err := h.watercourseService.UpdateWatercourse(ctx, perms, &water); err != nil {
 		if wantsPage(r) {
 			redirectWith(w, r, "/watercourses/"+water.Code+"/edit", "error", err.Error())
@@ -235,6 +247,52 @@ func (h *WatercoursesHandler) HandleUpdateWatercourseAPI(w http.ResponseWriter, 
 		return
 	}
 	writeJSON(w, map[string]any{"success": true, "watercourse": water})
+}
+
+type watercourseGeometryForm struct {
+	Code    string `json:"code"`
+	GeoJSON string `json:"geojson"`
+}
+
+// HandleUpdateWatercourseGeometryAPI sprema ažurirani GeoJSON toka rijeke
+func (h *WatercoursesHandler) HandleUpdateWatercourseGeometryAPI(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	perms, _ := ctx.Value(contextKeyPerms).(*models.UserPermissions)
+
+	var req watercourseGeometryForm
+	if strings.Contains(r.Header.Get("Content-Type"), "application/json") {
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Neispravan JSON format", http.StatusBadRequest)
+			return
+		}
+	} else {
+		req.Code = r.FormValue("code")
+		req.GeoJSON = r.FormValue("geojson")
+	}
+
+	req.Code = strings.TrimSpace(req.Code)
+	if req.Code == "" {
+		http.Error(w, "Šifra vodnog tijela je obavezna", http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(req.GeoJSON) == "" {
+		http.Error(w, "GeoJSON geometrija je obavezna", http.StatusBadRequest)
+		return
+	}
+
+	// Provjera ispravnosti JSON formata
+	var js json.RawMessage
+	if err := json.Unmarshal([]byte(req.GeoJSON), &js); err != nil {
+		http.Error(w, "Neispravan GeoJSON sadržaj", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.watercourseService.SetWatercourseGeometry(ctx, perms, req.Code, req.GeoJSON); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	writeJSON(w, map[string]any{"success": true, "message": "Geometrija toka vodotoka je uspješno spremljena."})
 }
 
 // HandleDeleteWatercourseAPI briše vodno tijelo koje nije u upotrebi
