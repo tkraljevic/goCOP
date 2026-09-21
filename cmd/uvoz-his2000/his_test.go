@@ -209,3 +209,24 @@ func TestSatniIspisSeOdbija(t *testing.T) {
 		t.Error("satni ispis mora biti odbijen s objašnjenjem")
 	}
 }
+
+// HIS piše datum i s točkama i s kosim crtama, a red dana i mjeseca nije
+// svuda isti: dnevne tablice daju dan prvi, razdoblja krivulja mjesec prvi.
+// Zato se red utvrđuje iz podataka, a ne pretpostavlja.
+func TestDnevniDatumSKosimCrtama(t *testing.T) {
+	sadrzaj := "Dnevni podaci postaje BELIŠĆE - DRAVA,  VODOSTAJ  (cm)\r\n" +
+		"01/01/1962;176;\r\n02/01/1962;186;\r\n13/01/1962;206;\r\n"
+	s, err := Procitaj("Dnevni.csv", cp(sadrzaj))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(s.Niz) != 3 {
+		t.Fatalf("vrijednosti %d, očekivano 3", len(s.Niz))
+	}
+	if got := s.Niz[2].Kad.Format("2006-01-02"); got != "1962-01-13" {
+		t.Errorf("treći dan: %s — trinaesti je dan, ne mjesec", got)
+	}
+	if s.Niz[0].Kad.Format("2006-01-02") != "1962-01-01" || s.Niz[0].V != "176" {
+		t.Errorf("prvi dan: %+v", s.Niz[0])
+	}
+}

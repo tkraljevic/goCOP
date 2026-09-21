@@ -70,10 +70,11 @@ type Postaja struct {
 }
 
 var (
-	reSatni   = regexp.MustCompile(`(?i)^Satni podaci postaje\s+(.+?)\s+za godinu\s+\d{4},\s+(\p{L}+)`)
-	reDnevni  = regexp.MustCompile(`(?i)^Dnevni podaci postaje\s+(.+?),\s+(\p{L}+)`)
-	reRedSat  = regexp.MustCompile(`^\s*(\d{1,2})\.\s*(\d{1,2})\.(\d{4})\s+(\d{1,2});([^;]*);`)
-	reRedDan  = regexp.MustCompile(`^\s*(\d{1,2})\.(\d{1,2})\.(\d{4});([^;]*);`)
+	reSatni  = regexp.MustCompile(`(?i)^Satni podaci postaje\s+(.+?)\s+za godinu\s+\d{4},\s+(\p{L}+)`)
+	reDnevni = regexp.MustCompile(`(?i)^Dnevni podaci postaje\s+(.+?),\s+(\p{L}+)`)
+	reRedSat = regexp.MustCompile(`^\s*(\d{1,2})\.\s*(\d{1,2})\.(\d{4})\s+(\d{1,2});([^;]*);`)
+	// dnevni redak: 01.01.1962;176; ili 01/01/1962;176;
+	reRedDan  = regexp.MustCompile(`^\s*(\d{1,2})[./](\d{1,2})[./](\d{4});([^;]*);`)
 	reRazdob  = regexp.MustCompile(`^(\d{1,2})/(\d{1,2})/(\d{4})\s*-\s*(\d{1,2})/(\d{1,2})/(\d{4})`)
 	reDatumUS = regexp.MustCompile(`^(\d{1,2})/(\d{1,2})/(\d{4})$`)
 )
@@ -200,20 +201,41 @@ func citajSatne(redci []string) ([]Vrijednost, int) {
 }
 
 func citajDnevne(redci []string) []Vrijednost {
-	var out []Vrijednost
+	var polja [][4]string
 	for _, r := range redci {
-		m := reRedDan.FindStringSubmatch(r)
-		if m == nil {
+		if m := reRedDan.FindStringSubmatch(r); m != nil && strings.TrimSpace(m[4]) != "" {
+			polja = append(polja, [4]string{m[1], m[2], m[3], strings.TrimSpace(m[4])})
+		}
+	}
+	danPrvi := danIdePrvi(polja)
+	var out []Vrijednost
+	for _, p := range polja {
+		d, mj := broj(p[0]), broj(p[1])
+		if !danPrvi {
+			d, mj = mj, d
+		}
+		if d < 1 || d > 31 || mj < 1 || mj > 12 {
 			continue
 		}
-		v := strings.TrimSpace(m[4])
-		if v == "" {
-			continue
-		}
-		kad := time.Date(broj(m[3]), time.Month(broj(m[2])), broj(m[1]), 0, 0, 0, 0, time.UTC)
-		out = append(out, Vrijednost{Kad: kad, Dan: true, V: v})
+		out = append(out, Vrijednost{Kad: time.Date(broj(p[2]), time.Month(mj), d, 0, 0, 0, 0, time.UTC), Dan: true, V: p[3]})
 	}
 	return out
+}
+
+// danIdePrvi javlja piše li izvoz datum kao dan.mjesec ili mjesec.dan. HIS
+// oba oblika koristi: dnevne tablice daju dan prvi, a razdoblja krivulja
+// mjesec prvi. Odlučuje se po podacima: vrijednost veća od dvanaest može biti
+// samo dan.
+func danIdePrvi(polja [][4]string) bool {
+	for _, p := range polja {
+		if broj(p[0]) > 12 {
+			return true
+		}
+		if broj(p[1]) > 12 {
+			return false
+		}
+	}
+	return true
 }
 
 // razdobljeSatnih vraća prvu i zadnju godinu koju datoteka pokriva, bez
