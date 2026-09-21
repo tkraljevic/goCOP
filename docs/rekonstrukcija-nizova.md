@@ -193,7 +193,20 @@ odstupanje između snimaka iznosi 6,33 m, s njim **0,39 m** — šesnaest puta
 manje. Ta 0,39 m je i sve što se korito promijenilo u deset godina.
 
 Poravnanja se vode u `vodostaji/poravnanje-profila.csv` i idu u arhivu
-(stupac `profili.pomak_m`).
+(stupac `profili.pomak_m`). Izmjerena su za svih sedam letava koje imaju više
+snimaka: gotovo svaka snimka ima vlastito polazište stacionaže, od nekoliko
+metara (Dalj 2018., −5,4 m) do pola kilometra (Ilok 2010., −544,5 m, jer
+snimka obuhvaća cijelu inundaciju). Odstupanje između snimaka pritom pada s
+2–8 m na 0,4–1,6 m, koliko korito i promijeni kroz te godine.
+
+Snimka koja se ni poravnanjem ne da složiti s ostalima dobiva u istoj
+datoteci oznaku `crtaj` = `ne`: ostaje u arhivi i u paketu, ali ne ulazi u
+crtež. Dosad su dvije takve. Donjomiholjačka od 12. srpnja 2001. nosi visine
+oko 3,15 m više od svih ostalih snimaka iste letve (dno 84,24 umjesto 81,09),
+dakle nije na istoj visinskoj osnovi. Daljska od 11. studenoga 2015. ima
+točke desne obale upisane redom kako su snimane, a ne po stacionaži: podnožje
+obalnog zida stoji između dviju točaka njegove krune, pa posloženo po
+stacionaži daje zarez dubok 2,25 m i širok 40 cm, kakvog na terenu nema.
 
 ### Spajanje
 
@@ -206,6 +219,24 @@ Za Batinu to daje 96 točaka na 0–505,6 m umjesto 82 na 0–398,9: dno 72,81 m
 iz 2020., lijeva obala 90,11 m iz 2010. Visina korita raste sa 16,43 na
 17,30 m, a vodoravno se dobiva cijela lijeva terasa koju snimka iz 2020.
 uopće ne pokriva.
+
+Krilo starije snimke uzima se **samo ako se doista nadovezuje**. Provjeravaju
+se dvije stvari: prilijeze li krilo uz nacrtanu liniju — razmak do nje ne
+smije biti veći od koraka same snimke, inače bi se između povuklo dugo ravno
+spajanje kroz prostor koji nitko nije snimio — i drži li se visina na spoju,
+pri čemu korak na spoju ne smije biti strmiji od terena koji spaja. Tako
+prolazi obala koja se i inače diže, a zaustavlja se skok na ravnom.
+
+Bez te provjere Donji Miholjac je lijevo od nule dobivao obalu iz 2011., koja
+ondje leži 2,2 m niže od one iz 2014., pa je crtež u jednom koraku skakao
+preko dva metra. Sada se ondje crta samo ono što ima snimka iz 2014. Kod
+Belišća nijedno krilo ne prolazi provjeru, pa se crta sama zadnja snimka;
+kod Iloka, Vukovara i Aljmaša krila iz 2010. prolaze i profil se širi na
+cijelu inundaciju (Ilok 0–834 m umjesto 0–416 m).
+
+Snimka od koje ništa nije ušlo u crtež ipak zauzima svoj raspon: ako se ne
+nadovezuje ona, koja je presjeku najbliža po vremenu, neće ni starija, a
+obala sklopljena od komadića raznih godina nije presjek.
 
 Uz crtež piše iz kojih je snimaka sastavljen i koji je dio dala koja.
 

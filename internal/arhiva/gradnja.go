@@ -47,8 +47,20 @@ func dopuniShemu(db *sql.DB) error {
 	stupci := []struct{ tablica, stupac, opis string }{
 		{"nizovi", "napomena", "TEXT NOT NULL DEFAULT ''"},
 		{"izvori", "mapa", "TEXT NOT NULL DEFAULT ''"},
+		{"profili", "crtaj", "INTEGER NOT NULL DEFAULT 1"},
 	}
 	for _, c := range stupci {
+		// Zatečena arhiva ne mora imati svaku tablicu; stupac se dodaje samo
+		// onoj koja postoji, a ostale nastaju iz sheme pri prvoj gradnji.
+		var imaTablicu int
+		if err := db.QueryRow(
+			`SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = ?`,
+			c.tablica).Scan(&imaTablicu); err != nil {
+			return fmt.Errorf("provjera tablice %s: %w", c.tablica, err)
+		}
+		if imaTablicu == 0 {
+			continue
+		}
 		var ima int
 		if err := db.QueryRow(
 			`SELECT count(*) FROM pragma_table_info(?) WHERE name = ?`,
@@ -126,6 +138,9 @@ CREATE TABLE IF NOT EXISTS profili (
 	-- se s godinama iznova stacioniraju: Batinina iz 2020. počinje 104,5 m
 	-- desno od one iz 2010. Bez poravnanja se ne mogu ni usporediti ni spojiti.
 	pomak_m REAL NOT NULL DEFAULT 0,
+	-- Snimka koja se ni poravnanjem ne da složiti s ostalima ostaje u arhivi
+	-- kao podatak, ali ne ulazi u crtež korita, da ne prikazuje lažan oblik.
+	crtaj INTEGER NOT NULL DEFAULT 1,
 	UNIQUE(letva, datum)
 );
 CREATE TABLE IF NOT EXISTS profil_tocke (
@@ -822,7 +837,14 @@ func bezSiljaka(velicina string, z []zapis) []zapis {
 // jer arhiva mora putovati kao jedna cjelina.
 // poravnanjaProfila učitava koliko koju snimku treba pomaknuti da legne na
 // zajedničku stacionažu, po letvi i datumu.
-func poravnanjaProfila(koren string) (map[string]float64, error) {
+// Poravnanje je što datoteka kaže o jednoj snimci: koliko je pomaknuti i
+// ulazi li uopće u crtež.
+type Poravnanje struct {
+	PomakM float64
+	Crtaj  bool
+}
+
+func poravnanjaProfila(koren string) (map[string]Poravnanje, error) {
 	f, err := os.Open(filepath.Join(koren, "poravnanje-profila.csv"))
 	if os.IsNotExist(err) {
 		return nil, nil
@@ -837,7 +859,7 @@ func poravnanjaProfila(koren string) (map[string]float64, error) {
 	if err != nil {
 		return nil, fmt.Errorf("poravnanje profila: %w", err)
 	}
-	out := map[string]float64{}
+	out := map[string]Poravnanje{}
 	for i, r := range sve {
 		if i == 0 || len(r) < 3 {
 			continue
@@ -847,12 +869,23 @@ func poravnanjaProfila(koren string) (map[string]float64, error) {
 		if err != nil {
 			return nil, fmt.Errorf("poravnanje profila, redak %d: pomak %q", i+1, r[2])
 		}
-		out[letva+"|"+strings.TrimSpace(r[1])] = v
+		p := Poravnanje{PomakM: v, Crtaj: true}
+		// Stupac „crtaj" je neobavezan; prazno znači da se snimka crta.
+		if len(r) >= 4 {
+			switch strings.ToLower(strings.TrimSpace(r[3])) {
+			case "ne", "0", "false":
+				p.Crtaj = false
+			case "", "da", "1", "true":
+			default:
+				return nil, fmt.Errorf("poravnanje profila, redak %d: crtaj %q (očekivano da ili ne)", i+1, r[3])
+			}
+		}
+		out[letva+"|"+strings.TrimSpace(r[1])] = p
 	}
 	return out, nil
 }
 
-func profili(db *sql.DB, koren, samo string, poravnanja map[string]float64) error {
+func profili(db *sql.DB, koren, samo string, poravnanja map[string]Poravnanje) error {
 	puts, err := filepath.Glob(filepath.Join(koren, "*", "*", "profil", "*.csv"))
 	if err != nil {
 		return err
@@ -879,12 +912,20 @@ func profili(db *sql.DB, koren, samo string, poravnanja map[string]float64) erro
 		// upisa na toj vezi — a to je ovdje bila promjena kote nule, iz druge
 		// tablice. Točke korita tako su odlazile pod tuđi broj: bez provjere
 		// stranih ključeva tiho, u siročad, a s provjerom gradnja padne.
+		por, imaPor := poravnanja[letva+"|"+datum]
+		if !imaPor {
+			por = Poravnanje{Crtaj: true}
+		}
+		crtaj := 1
+		if !por.Crtaj {
+			crtaj = 0
+		}
 		var id int64
-		if err := db.QueryRow(`INSERT INTO profili (letva, datum, vodostaj, kota_nule, pomak_m) VALUES (?,?,?,?,?)
+		if err := db.QueryRow(`INSERT INTO profili (letva, datum, vodostaj, kota_nule, pomak_m, crtaj) VALUES (?,?,?,?,?,?)
 			ON CONFLICT(letva, datum) DO UPDATE SET vodostaj=excluded.vodostaj, kota_nule=excluded.kota_nule,
-				pomak_m=excluded.pomak_m
+				pomak_m=excluded.pomak_m, crtaj=excluded.crtaj
 			RETURNING id`,
-			letva, datum, vod, kota, poravnanja[letva+"|"+datum]).Scan(&id); err != nil {
+			letva, datum, vod, kota, por.PomakM, crtaj).Scan(&id); err != nil {
 			return fmt.Errorf("profil %s %s: %w", letva, datum, err)
 		}
 		if _, err := db.Exec(`DELETE FROM profil_tocke WHERE profil = ?`, id); err != nil {
@@ -896,7 +937,13 @@ func profili(db *sql.DB, koren, samo string, poravnanja map[string]float64) erro
 				return err
 			}
 		}
-		fmt.Printf("%-8s %-16s profil korita %s   %d točaka, vodostaj %d cm\n", "", letva, datum, len(tocke), vod)
+		oznaka := ""
+		if !por.Crtaj {
+			oznaka = "  — ne crta se"
+		} else if por.PomakM != 0 {
+			oznaka = fmt.Sprintf("  — pomak %+.1f m", por.PomakM)
+		}
+		fmt.Printf("%-8s %-16s profil korita %s   %d točaka, vodostaj %d cm%s\n", "", letva, datum, len(tocke), vod, oznaka)
 	}
 	return nil
 }

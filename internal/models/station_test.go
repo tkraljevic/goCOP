@@ -200,4 +200,3 @@ func TestStationZemlja(t *testing.T) {
 		})
 	}
 }
-

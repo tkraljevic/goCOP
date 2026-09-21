@@ -336,7 +336,6 @@ func normirajZemlju(s string) string {
 	return ""
 }
 
-
 // KotaVode je vodna ploha u apsolutnoj visini, u jednom visinskom sustavu.
 type KotaVode struct {
 	Kota   float64 // metara nad morem

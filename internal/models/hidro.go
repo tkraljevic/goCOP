@@ -440,6 +440,12 @@ type DioProfila struct {
 // Spojen javlja je li profil sastavljen iz više snimaka.
 func (p ProfilKorita) Spojen() bool { return len(p.Sastav) > 1 }
 
+// DopustenoNaSpoju je najveća visinska razlika na mjestu gdje se starija
+// snimka nastavlja na noviju. Snimke istog presjeka nikad ne padnu jedna na
+// drugu do centimetra, ali pola metra na samom spoju već se vidi kao
+// stepenica u crtežu i znači da starija snimka ondje ne opisuje isto tlo.
+const DopustenoNaSpoju = 0.5
+
 // SpojiProfile slaže jedan profil od više snimaka istog presjeka. Novija
 // snimka ima prednost svugdje gdje seže; starija se uzima samo ondje gdje
 // novije nema. Tako se dobiva cijela visina korita — obale koje je zahvatila
@@ -447,6 +453,10 @@ func (p ProfilKorita) Spojen() bool { return len(p.Sastav) > 1 }
 //
 // Stacionaže se prije toga svode na zajedničku mrežu: snimke se s godinama
 // iznova stacioniraju, pa se bez poravnanja spajaju dva različita mjesta.
+//
+// Krilo starije snimke uzima se samo ako se na spoju nastavlja na već
+// nacrtanu liniju. Ondje gdje se ne nastavlja crta se samo ono što ima
+// novija snimka: bolje kraći profil nego korito s izmišljenom stepenicom.
 func SpojiProfile(snimke []ProfilKorita) ProfilKorita {
 	if len(snimke) == 0 {
 		return ProfilKorita{}
@@ -469,36 +479,192 @@ func SpojiProfile(snimke []ProfilKorita) ProfilKorita {
 		}
 		return false
 	}
-	for _, sn := range redom {
+	for i, sn := range redom {
 		if len(sn.Tocke) == 0 {
 			continue
 		}
+		// snimka na zajedničkoj mreži
+		tocke := make([]TockaProfila, 0, len(sn.Tocke))
+		for _, t := range sn.Tocke {
+			tocke = append(tocke, TockaProfila{Stacionaza: t.Stacionaza + sn.PomakM, Visina: t.Visina})
+		}
 		dio := DioProfila{Datum: sn.Datum}
 		prvi := true
-		for _, t := range sn.Tocke {
-			s := t.Stacionaza + sn.PomakM
-			if unutar(s) {
-				continue
-			}
-			spoj.Tocke = append(spoj.Tocke, TockaProfila{Stacionaza: s, Visina: t.Visina})
+		uzmi := func(t TockaProfila) {
+			spoj.Tocke = append(spoj.Tocke, t)
 			if prvi {
-				dio.OdM, prvi = s, false
+				dio.OdM, prvi = t.Stacionaza, false
 			}
-			dio.DoM = s
+			dio.DoM = t.Stacionaza
 			dio.Tocaka++
+		}
+		if i == 0 {
+			for _, t := range tocke {
+				uzmi(t)
+			}
+		} else {
+			// Krila se gledaju u cjelini: niz uzastopnih točaka koje padaju
+			// izvan već pokrivenog dijela ide u crtež ili ne ide, zajedno.
+			for a := 0; a < len(tocke); {
+				if unutar(tocke[a].Stacionaza) {
+					a++
+					continue
+				}
+				b := a
+				for b+1 < len(tocke) && !unutar(tocke[b+1].Stacionaza) {
+					b++
+				}
+				// Provjera traži nacrtano poredano po stacionaži, a
+				// prethodno uzeto krilo moglo je doći s druge strane.
+				sort.Slice(spoj.Tocke, func(x, y int) bool {
+					return spoj.Tocke[x].Stacionaza < spoj.Tocke[y].Stacionaza
+				})
+				if nastavljaSe(spoj.Tocke, tocke, a, b) {
+					for k := a; k <= b; k++ {
+						uzmi(tocke[k])
+					}
+				}
+				a = b + 1
+			}
 		}
 		if dio.Tocaka > 0 {
 			spoj.Sastav = append(spoj.Sastav, dio)
 		}
-		prva := sn.Tocke[0].Stacionaza + sn.PomakM
-		zadnja := sn.Tocke[len(sn.Tocke)-1].Stacionaza + sn.PomakM
-		pokriveno = append(pokriveno, struct{ od, do float64 }{prva, zadnja})
+		// Snimka zauzima svoj raspon i kad joj krilo nije ušlo u crtež: ako
+		// se ne nastavlja ona, koja je presjeku najbliža po vremenu, neće ni
+		// starija, a obala sklopljena od komadića raznih godina nije presjek.
+		pokriveno = append(pokriveno, struct{ od, do float64 }{tocke[0].Stacionaza, tocke[len(tocke)-1].Stacionaza})
 	}
 	sort.Slice(spoj.Tocke, func(a, b int) bool {
 		return spoj.Tocke[a].Stacionaza < spoj.Tocke[b].Stacionaza
 	})
 	sort.SliceStable(spoj.Sastav, func(a, b int) bool { return spoj.Sastav[a].OdM < spoj.Sastav[b].OdM })
 	return spoj
+}
+
+// nastavljaSe javlja nastavlja li se krilo tocke[a..b] na već nacrtanu
+// liniju. Gleda se korak s posljednje nacrtane točke na prvu točku krila:
+// on ne smije biti strmiji od terena koji spaja. Tako se propušta obala
+// koja se i inače diže metar po metru, a zaustavlja skok na ravnom, koji
+// znači da starija snimka ondje ne opisuje isto tlo.
+//
+// Krilo koje ne dodiruje ništa nacrtano nema se s čime provjeriti i ne
+// crta se.
+func nastavljaSe(nacrtano, snimka []TockaProfila, a, b int) bool {
+	dodirnulo := false
+	// lijevo od krila
+	if i := zadnjaPrije(nacrtano, snimka[a].Stacionaza); i >= 0 {
+		if !prilijeze(snimka, a, -1, nacrtano[i].Stacionaza) {
+			return false
+		}
+		nagib := veci(blagiNagib, veci(nagibDo(nacrtano, i, -1), nagibDo(snimka, a, 1)))
+		if !spojDrzi(nacrtano[i], snimka[a], nagib) {
+			return false
+		}
+		dodirnulo = true
+	}
+	// desno od krila
+	if i := prvaPoslije(nacrtano, snimka[b].Stacionaza); i >= 0 {
+		if !prilijeze(snimka, b, 1, nacrtano[i].Stacionaza) {
+			return false
+		}
+		nagib := veci(blagiNagib, veci(nagibDo(nacrtano, i, 1), nagibDo(snimka, b, -1)))
+		if !spojDrzi(nacrtano[i], snimka[b], nagib) {
+			return false
+		}
+		dodirnulo = true
+	}
+	return dodirnulo
+}
+
+// prilijeze javlja dodiruje li krilo nacrtanu liniju ili samo stoji negdje
+// u blizini. Mjerilo je korak same snimke: dokle god je do nacrtanog bliže
+// nego što su njezine vlastite točke razmaknute, krilo se nastavlja. Kad je
+// dalje, između bi se povuklo dugo ravno spajanje kroz prostor koji nitko
+// nije snimio, a to nije presjek nego crta.
+func prilijeze(snimka []TockaProfila, i, smjer int, nacrtanaX float64) bool {
+	korak := 0.0
+	if j := i + smjer; j >= 0 && j < len(snimka) {
+		korak = absF(snimka[j].Stacionaza - snimka[i].Stacionaza)
+	} else if j := i - smjer; j >= 0 && j < len(snimka) {
+		korak = absF(snimka[j].Stacionaza - snimka[i].Stacionaza)
+	}
+	return absF(nacrtanaX-snimka[i].Stacionaza) <= korak
+}
+
+// spojDrzi javlja je li korak između dviju susjednih točaka u granicama
+// onoga što teren tog nagiba može napraviti na tom razmaku.
+func spojDrzi(x, y TockaProfila, nagib float64) bool {
+	dx := absF(y.Stacionaza - x.Stacionaza)
+	return absF(y.Visina-x.Visina) <= DopustenoNaSpoju+nagib*dx
+}
+
+// nagibDo je nagib terena uz točku i, gledano u zadanom smjeru. Mjeri se
+// preko barem metra, jer snimke znaju imati dvije točke na centimetar
+// razmaka — rub obalnog zida — iz kojih ispada nagib od dvadeset prema
+// jedan, a to nije nagib terena nego debljina ruba.
+func nagibDo(t []TockaProfila, i, smjer int) float64 {
+	for j := i + smjer; j >= 0 && j < len(t); j += smjer {
+		dx := absF(t[j].Stacionaza - t[i].Stacionaza)
+		if dx < 1 {
+			continue
+		}
+		return manji(absF(t[j].Visina-t[i].Visina)/dx, najveciNagib)
+	}
+	return blagiNagib
+}
+
+// blagiNagib je najmanji nagib s kojim se računa: i ondje gdje su obje
+// snimke ravne, teren između njih može se blago dizati, pa metar razlike na
+// trideset metara razmaka nije stepenica. NajveciNagib je granica preko koje
+// teren više nije pokos nego zid, pa se na njega ne smije pozvati snimka
+// koja se inače ne slaže.
+const (
+	blagiNagib   = 0.2
+	najveciNagib = 1.0
+)
+
+func manji(a, b float64) float64 {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func veci(a, b float64) float64 {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+// zadnjaPrije je zadnja nacrtana točka lijevo od zadane stacionaže; -1 kad
+// takve nema. Niz je poredan po stacionaži.
+func zadnjaPrije(t []TockaProfila, x float64) int {
+	for i := len(t) - 1; i >= 0; i-- {
+		if t[i].Stacionaza < x {
+			return i
+		}
+	}
+	return -1
+}
+
+// prvaPoslije je prva nacrtana točka desno od zadane stacionaže; -1 kad
+// takve nema.
+func prvaPoslije(t []TockaProfila, x float64) int {
+	for i := range t {
+		if t[i].Stacionaza > x {
+			return i
+		}
+	}
+	return -1
+}
+
+func absF(x float64) float64 {
+	if x < 0 {
+		return -x
+	}
+	return x
 }
 
 // TockaProfila je jedna izmjerena točka. Stacionaža se mjeri od lijeve

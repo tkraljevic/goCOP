@@ -331,7 +331,7 @@ func (r *ArhivaRepository) Profili(ctx context.Context, letva string) ([]models.
 		return nil, nil
 	}
 	rows, err := r.db.QueryContext(ctx, `SELECT id, datum, COALESCE(vodostaj,0), COALESCE(kota_nule,0), COALESCE(pomak_m,0)
-		FROM profili WHERE letva = ? ORDER BY datum DESC`, letva)
+		FROM profili WHERE letva = ? AND crtaj <> 0 ORDER BY datum DESC`, letva)
 	if err != nil {
 		return nil, fmt.Errorf("profili korita: %w", err)
 	}

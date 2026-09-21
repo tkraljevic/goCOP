@@ -98,11 +98,14 @@ type odsjecakUPaketu struct {
 }
 
 type profilUPaketu struct {
-	Datum    string       `json:"datum"`
-	Vodostaj int          `json:"vodostaj"`
-	KotaNule float64      `json:"kota_nule"`
-	PomakM   float64      `json:"pomak_m"`
-	Tocke    [][2]float64 `json:"tocke"`
+	Datum    string  `json:"datum"`
+	Vodostaj int     `json:"vodostaj"`
+	KotaNule float64 `json:"kota_nule"`
+	PomakM   float64 `json:"pomak_m"`
+	// Zapisuje se samo kad se snimka ne crta, da stariji paketi, koji polja
+	// nemaju, ostanu ispravni: tamo se sve snimke crtaju.
+	NeCrtaj bool         `json:"ne_crtaj,omitempty"`
+	Tocke   [][2]float64 `json:"tocke"`
 }
 
 type promjenaUPaketu struct {
@@ -602,7 +605,7 @@ func ucitajKrivulje(db *sql.DB, letva string) ([]krivuljaUPaketu, error) {
 }
 
 func ucitajProfile(db *sql.DB, letva string) ([]profilUPaketu, error) {
-	rows, err := db.Query(`SELECT id, datum, vodostaj, kota_nule, pomak_m FROM profili
+	rows, err := db.Query(`SELECT id, datum, vodostaj, kota_nule, pomak_m, crtaj FROM profili
 		WHERE letva = ? ORDER BY datum`, letva)
 	if err != nil {
 		return nil, err
@@ -613,9 +616,11 @@ func ucitajProfile(db *sql.DB, letva string) ([]profilUPaketu, error) {
 	for rows.Next() {
 		var p profilUPaketu
 		var id int64
-		if err := rows.Scan(&id, &p.Datum, &p.Vodostaj, &p.KotaNule, &p.PomakM); err != nil {
+		var crtaj int
+		if err := rows.Scan(&id, &p.Datum, &p.Vodostaj, &p.KotaNule, &p.PomakM, &crtaj); err != nil {
 			return nil, err
 		}
+		p.NeCrtaj = crtaj == 0
 		out = append(out, p)
 		ids = append(ids, id)
 	}
@@ -945,8 +950,12 @@ func Ugradi(db *sql.DB, baza string, s *Sadrzaj) error {
 	}
 
 	for _, p := range s.profili {
-		res, err := tx.Exec(`INSERT INTO profili (letva, datum, vodostaj, kota_nule, pomak_m)
-			VALUES (?,?,?,?,?)`, letva, p.Datum, p.Vodostaj, p.KotaNule, p.PomakM)
+		crtaj := 1
+		if p.NeCrtaj {
+			crtaj = 0
+		}
+		res, err := tx.Exec(`INSERT INTO profili (letva, datum, vodostaj, kota_nule, pomak_m, crtaj)
+			VALUES (?,?,?,?,?,?)`, letva, p.Datum, p.Vodostaj, p.KotaNule, p.PomakM, crtaj)
 		if err != nil {
 			return err
 		}
