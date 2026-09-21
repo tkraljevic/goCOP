@@ -145,6 +145,10 @@ type Mjerenje struct {
 	ID       string // msr_id
 	Velicina string // qty_id, npr. #hydro-$7
 	Odakle   string // zapisivač, naziv instrumenta ili naknadna obrada
+	// Postavke naknadne obrade, ondje gdje je ima: ondje stoji pomak kojim
+	// se izmjereno svodi na nulu letve. Nije kota nule — ona dolazi iz
+	// geodetskog elaborata — ali pokazuje s čime njihov sustav računa.
+	Postavke map[string]string
 }
 
 // Alarm je prag upisan u sustav. Kod Tikveša su to stupnjevi obrane od
@@ -226,9 +230,13 @@ func (k *Klijent) Oprema(ctx context.Context, siteID string) ([]Mjerenje, []Alar
 				} `json:"measurements"`
 			} `json:"instruments"`
 			Obrada []struct {
-				MsrID string `json:"msr_id"`
-				QtyID string `json:"qty_id"`
-				Opis  string `json:"description"`
+				MsrID    string `json:"msr_id"`
+				QtyID    string `json:"qty_id"`
+				Opis     string `json:"description"`
+				Postavke []struct {
+					ValidFrom int64             `json:"valid_from"`
+					Settings  map[string]string `json:"settings"`
+				} `json:"param_sets"`
 			} `json:"postprocessing"`
 			Alarmi []Alarm `json:"alarms"`
 		} `json:"installed_equipment"`
@@ -250,7 +258,11 @@ func (k *Klijent) Oprema(ctx context.Context, siteID string) ([]Mjerenje, []Alar
 		}
 	}
 	for _, p := range o.Obrada {
-		mjerenja = append(mjerenja, Mjerenje{ID: p.MsrID, Velicina: p.QtyID, Odakle: "obrada: " + p.Opis})
+		m := Mjerenje{ID: p.MsrID, Velicina: p.QtyID, Odakle: "obrada: " + p.Opis}
+		if len(p.Postavke) > 0 {
+			m.Postavke = p.Postavke[len(p.Postavke)-1].Settings // zadnja koja vrijedi
+		}
+		mjerenja = append(mjerenja, m)
 	}
 	return mjerenja, o.Alarmi, nil
 }

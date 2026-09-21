@@ -96,15 +96,33 @@ func main() {
 	// uzimaju oba. Svaki ide u svoj izvor, a arhiva pri spajanju sama uzme
 	// bolji i rezervnim popuni ono što bolji nije javio.
 	fmt.Printf("nađeno zapisivača: %d\n", len(postaje))
-	for _, postaja := range postaje {
-		mjerenja, alarmi, err := k.Oprema(ctx, postaja.SiteID)
+	// Oprema se čita unaprijed, jer o njoj ovisi i ime izvora: kad postaja
+	// ima dva uređaja iste vrste — Podravska Moslavina ima dva tlačna — ime
+	// izvora dobiva i broj zapisivača, da se dva niza ne sliju u jedan.
+	oprema := make([][]hidroview.Mjerenje, len(postaje))
+	alarmiPo := make([][]hidroview.Alarm, len(postaje))
+	imena := make([]string, len(postaje))
+	koliko := map[string]int{}
+	for i, postaja := range postaje {
+		m, a, err := k.Oprema(ctx, postaja.SiteID)
 		if err != nil {
 			log.Fatal(err)
 		}
-		oznaka := *izvor
-		if oznaka == "" {
-			oznaka = prepoznajIzvor(mjerenja)
+		oprema[i], alarmiPo[i] = m, a
+		imena[i] = *izvor
+		if imena[i] == "" {
+			imena[i] = prepoznajIzvor(m)
 		}
+		koliko[imena[i]]++
+	}
+	for i := range imena {
+		if koliko[imena[i]] > 1 {
+			imena[i] += "-" + postaje[i].LoggerID
+		}
+	}
+	for i, postaja := range postaje {
+		mjerenja, alarmi := oprema[i], alarmiPo[i]
+		oznaka := imena[i]
 		// Zapisivač javlja koju sekundu prije ili poslije punog koraka —
 		// 17:45:56 umjesto 17:45:00 — pa bi svako preuzimanje dodalo novi
 		// trenutak umjesto da dopuni postojeći. Vrijeme se zato svodi na

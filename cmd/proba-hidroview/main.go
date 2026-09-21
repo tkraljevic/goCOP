@@ -98,6 +98,16 @@ func opisiPostaju(ctx context.Context, k *hidroview.Klijent, p hidroview.Postaja
 			continue
 		}
 		fmt.Printf("  mjeri      %-16s %-24s %s\n", m.Velicina, naziviVelicina[m.Velicina], m.Odakle)
+		if len(m.Postavke) > 0 {
+			kljucevi := make([]string, 0, len(m.Postavke))
+			for k := range m.Postavke {
+				kljucevi = append(kljucevi, k)
+			}
+			sort.Strings(kljucevi)
+			for _, k := range kljucevi {
+				fmt.Printf("             postavka %s = %s\n", k, m.Postavke[k])
+			}
+		}
 	}
 	for _, a := range alarmi {
 		fmt.Printf("  prag       %-22s %s %.2f\n", a.Opis, a.Odnos, a.Prag)

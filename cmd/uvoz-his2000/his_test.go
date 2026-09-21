@@ -230,3 +230,22 @@ func TestDnevniDatumSKosimCrtama(t *testing.T) {
 		t.Errorf("prvi dan: %+v", s.Niz[0])
 	}
 }
+
+// Izvoz iz HIS-a decimale obično piše zarezom, ali zna doći i s točkom —
+// Podravska Moslavina tako. Broj mora ispasti isti, jer arhiva ga vodi
+// zarezom; inače „0.00" prođe kao cijeli broj i dobije još jednu decimalu,
+// pa iz „0.00;93.620" ispadne „0.00,0;93.620,0".
+func TestMjeraPrimaITockuIZarez(t *testing.T) {
+	for _, p := range []struct{ ulaz, zelim string }{
+		{"0,00", "0,0"},
+		{"0.00", "0,0"},
+		{"93.620", "93,62"},
+		{"93,620", "93,62"},
+		{"110.00", "110,0"},
+		{"45", "45,0"},
+	} {
+		if got := mjera(p.ulaz); got != p.zelim {
+			t.Errorf("mjera(%q) = %q, očekivano %q", p.ulaz, got, p.zelim)
+		}
+	}
+}

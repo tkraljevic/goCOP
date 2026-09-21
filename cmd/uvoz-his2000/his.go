@@ -375,6 +375,12 @@ func cijeli(s string) int {
 // koeficijent se poslije čita kao broj.
 func bezNula(s string) string {
 	s = strings.TrimSpace(s)
+	// HIS decimale piše zarezom, ali izvoz zna doći i s točkom — Podravska
+	// Moslavina tako. Arhiva ih vodi zarezom, pa se točka prvo pretvori;
+	// bez toga bi „0.00" prošlo kao cijeli broj i dobilo još jednu decimalu.
+	if strings.Contains(s, ".") && !strings.Contains(s, ",") {
+		s = strings.ReplaceAll(s, ".", ",")
+	}
 	if !strings.Contains(s, ",") {
 		return s
 	}
