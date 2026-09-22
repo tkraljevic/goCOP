@@ -1159,13 +1159,19 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /administracija/izvori", s.samoAdmin(http.HandlerFunc(izvoriH.SpremiIzvor)))
 	uvozH := NewUvozHandler(func() string { return s.arhivaPut }, func() string { return s.podaciDir },
 		s.IzgradiLetvu, s.templates["uvoz_niza.html"])
-	s.mux.Handle("GET /administracija/uvoz-niza", s.samoAdmin(http.HandlerFunc(uvozH.ShowUvoz)))
-	s.mux.Handle("POST /administracija/uvoz-niza/pregled", s.samoAdmin(http.HandlerFunc(uvozH.PregledUvoza)))
-	s.mux.Handle("POST /administracija/uvoz-niza/pregled-opet", s.samoAdmin(http.HandlerFunc(uvozH.PonoviPregled)))
+	// Uvoz podataka jedne letve nije pravo nad programom nego nad letvom, pa
+	// vrata puštaju svakog prijavljenog, a rukovatelj traži pravo na tu letvu
+	// — isto ono koje treba i za uređivanje njezine kartice. Zahvati nad
+	// cijelom arhivom (sirotani, ulaganje, izdavanje) ostaju na globalnom
+	// administratoru: njih doseg po dionici ne može ograničiti.
+	uvozH.SetOvlastiLetve(s.smijeUrediLetvu)
+	s.mux.Handle("GET /administracija/uvoz-niza", s.authMiddleware(http.HandlerFunc(uvozH.ShowUvoz)))
+	s.mux.Handle("POST /administracija/uvoz-niza/pregled", s.authMiddleware(http.HandlerFunc(uvozH.PregledUvoza)))
+	s.mux.Handle("POST /administracija/uvoz-niza/pregled-opet", s.authMiddleware(http.HandlerFunc(uvozH.PonoviPregled)))
 	uvozH.SetMakniNiz(s.MakniNiz)
 	s.mux.Handle("POST /administracija/uvoz-niza/makni-niz", s.samoAdmin(http.HandlerFunc(uvozH.MakniSirotana)))
-	s.mux.Handle("POST /administracija/uvoz-niza/zatecen", s.samoAdmin(http.HandlerFunc(uvozH.Zatecen)))
-	s.mux.Handle("POST /administracija/uvoz-niza/upisi", s.samoAdmin(http.HandlerFunc(uvozH.UpisiUvoz)))
+	s.mux.Handle("POST /administracija/uvoz-niza/zatecen", s.authMiddleware(http.HandlerFunc(uvozH.Zatecen)))
+	s.mux.Handle("POST /administracija/uvoz-niza/upisi", s.authMiddleware(http.HandlerFunc(uvozH.UpisiUvoz)))
 	uvozH.SetIzdavanje(func() string { return s.paketiDir }, s.IzdajArhivu, s.KatalogIzdanja, s.poslovi)
 	uvozH.SetOcitanja(func() *sql.DB { return s.db }, func() string { return s.recorder.Cvor() })
 	s.mux.Handle("POST /administracija/ulaganje/pregled", s.samoAdmin(http.HandlerFunc(uvozH.PregledUlaganja)))
@@ -1656,4 +1662,34 @@ func uzBrojHR(n int, jednina, dvojina, mnozina string) string {
 		return dvojina
 	}
 	return mnozina
+}
+
+// smijeUrediLetvu javlja smije li osoba dirati podatke letve zadane šifrom.
+// Pravilo je isto kao za uređivanje kartice: globalni administrator smije
+// sve, a ostali samo letve koje stoje na njihovim dionicama. Arhiva je
+// zajednička i sinkronizira se na sve čvorove, pa uvoz tuđe letve nije
+// nered nego tuđi podatak prepisan tuđom rukom.
+//
+// Letva koju registar ne poznaje ne pripada nikome, pa je smije dirati samo
+// globalni administrator.
+func (s *Server) smijeUrediLetvu(perms *models.UserPermissions, letva string) bool {
+	if perms == nil {
+		return false
+	}
+	if perms.IsGlobalAdmin {
+		return true
+	}
+	if s.stationService == nil || strings.TrimSpace(letva) == "" {
+		return false
+	}
+	st, err := s.stationService.GetStationByCode(context.Background(), strings.TrimSpace(letva))
+	if err != nil || st == nil {
+		return false
+	}
+	for _, code := range st.SectionCodes {
+		if perms.AllowedSections[code] {
+			return true
+		}
+	}
+	return false
 }

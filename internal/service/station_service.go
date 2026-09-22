@@ -47,6 +47,13 @@ func (s *StationService) GetStation(ctx context.Context, id uuid.UUID) (*models.
 	return s.stationRepo.GetStationByID(ctx, id)
 }
 
+// GetStationByCode vraća postaju po šifri. Arhiva letvu zna samo po šifri —
+// stablo vodostaji/ je po njoj i složeno — pa se preko nje dolazi do dionica
+// na kojima letva stoji, a time i do toga smije li je netko dirati.
+func (s *StationService) GetStationByCode(ctx context.Context, code string) (*models.Station, error) {
+	return s.stationRepo.GetStationByCode(ctx, code)
+}
+
 func (s *StationService) ListWatercourses(ctx context.Context) ([]string, error) {
 	return s.stationRepo.ListWatercourses(ctx)
 }

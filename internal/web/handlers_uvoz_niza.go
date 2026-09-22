@@ -81,6 +81,11 @@ type UvozHandler struct {
 	baza      func() *sql.DB
 	cvor      func() string
 	tmpl      *template.Template
+	// smijeLetvu javlja smije li osoba dirati podatke te letve. Arhiva je
+	// zajednička i sinkronizira se na sve čvorove, pa uvoz nije pravo nad
+	// programom nego nad letvom: administrator područja uvozi svoje, kao što
+	// i kartice svojih letava uređuje.
+	smijeLetvu func(perms *models.UserPermissions, letva string) bool
 }
 
 func NewUvozHandler(arhivaPut, podaciDir func() string,
@@ -196,6 +201,12 @@ func (h *UvozHandler) pageData(r *http.Request) UvozPageData {
 	if letve, err := arhiva.Letve(d.PodaciDir); err == nil {
 		d.SlivZa = letve
 		for l := range letve {
+			// Popis nudi samo ono što ta osoba smije dirati. Letva koju ne
+			// smije ne treba joj ni na izborniku: inače bi je odabrala pa
+			// dobila odbijenicu tek nakon što je datoteku već poslala.
+			if !h.smijeZa(d.Permissions, l) {
+				continue
+			}
 			d.Letve = append(d.Letve, l)
 		}
 		sort.Strings(d.Letve)
@@ -289,7 +300,44 @@ func (h *UvozHandler) izvorUlaziUSpoj(naziv string) bool {
 	return false
 }
 
+// SetOvlastiLetve daje vratima provjeru smije li netko dirati pojedinu letvu.
+// Bez nje ostaje staro pravilo — samo globalni administrator — pa čvor koji
+// provjeru ne preda ne otvara ništa nenamjerno.
+func (h *UvozHandler) SetOvlastiLetve(f func(perms *models.UserPermissions, letva string) bool) {
+	h.smijeLetvu = f
+}
+
+// smije javlja smije li osoba uopće otvoriti uvoz: globalni administrator
+// smije, a administrator područja samo ako mu je barem jedna letva dostupna.
 func (h *UvozHandler) smije(d UvozPageData) bool {
+	if d.Permissions == nil {
+		return false
+	}
+	if d.Permissions.IsGlobalAdmin {
+		return true
+	}
+	return len(d.Letve) > 0
+}
+
+// smijeZa javlja smije li osoba dirati baš tu letvu. Ovo je provjera koja
+// štiti upis; smije() samo otvara stranicu.
+func (h *UvozHandler) smijeZa(perms *models.UserPermissions, letva string) bool {
+	if perms == nil {
+		return false
+	}
+	if perms.IsGlobalAdmin {
+		return true
+	}
+	if h.smijeLetvu == nil || strings.TrimSpace(letva) == "" {
+		return false
+	}
+	return h.smijeLetvu(perms, letva)
+}
+
+// samoGlobalni čuva zahvate nad cijelom arhivom — izdavanje paketa, ulaganje
+// očitanja, uklanjanje sirotana. Oni nisu vezani uz jednu letvu, pa ih doseg
+// po dionici ne može ograničiti.
+func (h *UvozHandler) samoGlobalni(d UvozPageData) bool {
 	return d.Permissions != nil && d.Permissions.IsGlobalAdmin
 }
 
@@ -417,6 +465,15 @@ func (h *UvozHandler) popuniPregled(d *UvozPageData, ime string, sadrzaj []byte,
 	// Prijedlog se prepisuje onim što je čovjek već ispravio, kad se pregled
 	// osvježava s promijenjenim izborom.
 	primiIzObrasca(&d.Prijedlg, r)
+
+	// Čija je letva, zna se tek ovdje — prije toga je datoteka samo hrpa
+	// bajtova. Zato provjera stoji na ovom jednom mjestu kroz koje prolaze
+	// svi: i pregled, i osvježavanje, i upis. Rukovatelj koji je zaboravi
+	// dodati kod sebe ostaje pokriven.
+	if d.Prijedlg.Letva != "" && !h.smijeZa(d.Permissions, d.Prijedlg.Letva) {
+		return fmt.Errorf("letva %s nije na vašim dionicama — njezine podatke uvozi administrator njezina područja",
+			d.Prijedlg.Letva)
+	}
 
 	redci, preskoceno, err := pretvori(tijelo, d.Prijedlg)
 	if err != nil {
@@ -654,6 +711,13 @@ func (h *UvozHandler) UpisiUvoz(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	u := d.Prijedlg
+	// Letva se zna tek kad je datoteka pročitana, pa provjera prava stoji
+	// ovdje, a ne na vratima: dotad se ne zna ni čije se podatke dira.
+	if !h.smijeZa(d.Permissions, u.Letva) {
+		d.ErrorMessage = "Nemate pravo uvoziti podatke letve " + u.Letva + " — uvozi ih administrator njezina područja."
+		h.pisi(w, d)
+		return
+	}
 	if err := arhiva.ProvjeriDjelove(u.Letva, u.Izvor, u.Velicina, u.Vrsta); err != nil {
 		d.ErrorMessage = err.Error()
 		h.pisi(w, d)
@@ -753,8 +817,8 @@ func (h *UvozHandler) Izdaj(w http.ResponseWriter, r *http.Request) {
 
 func (h *UvozHandler) izdavanje(w http.ResponseWriter, r *http.Request, probno bool) {
 	d := h.pageData(r)
-	if !h.smije(d) {
-		http.Error(w, "Arhivu izdaje administrator", http.StatusForbidden)
+	if !h.samoGlobalni(d) {
+		http.Error(w, "Arhivu izdaje globalni administrator", http.StatusForbidden)
 		return
 	}
 	if !h.izdavanjeRadi() {

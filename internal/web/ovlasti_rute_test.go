@@ -88,8 +88,6 @@ func TestSveArhivskeRuteIduKrozOgradu(t *testing.T) {
 		"/stations/{id}/paket.cop",
 		"/stations/{id}/paket/pregled",
 		"/stations/{id}/paket/ugradi",
-		"/administracija/uvoz-niza",
-		"/administracija/uvoz-niza/upisi",
 		"/administracija/uvoz-niza/makni-niz",
 		"/administracija/ulaganje",
 		"/administracija/ulaganje/pospremi",
@@ -107,6 +105,44 @@ func TestSveArhivskeRuteIduKrozOgradu(t *testing.T) {
 			if !strings.Contains(redak, "s.samoAdmin(") {
 				t.Errorf("ruta %s nije registrirana kroz samoAdmin: %s", put, strings.TrimSpace(redak))
 			}
+		}
+	}
+}
+
+// Uvoz podataka jedne letve namjerno je izuzet iz gornje ograde: njega radi i
+// administrator svog područja, jer inače za svoje podatke mora nekoga zvati.
+// Ta rupa je zatvorena drugdje — provjerom prava na tu letvu — pa ovaj test
+// pazi da provjera bude predana. Bez nje bi rute ostale otvorene svakom
+// prijavljenom.
+func TestUvozLetveImaProvjeruPravaNaLetvu(t *testing.T) {
+	b, err := os.ReadFile("server.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	izvor := string(b)
+	if !strings.Contains(izvor, "uvozH.SetOvlastiLetve(s.smijeUrediLetvu)") {
+		t.Fatal("uvozu nije predana provjera prava na letvu — rute po letvi tada stoje otvorene")
+	}
+	poLetvi := []string{
+		"/administracija/uvoz-niza",
+		"/administracija/uvoz-niza/pregled",
+		"/administracija/uvoz-niza/pregled-opet",
+		"/administracija/uvoz-niza/zatecen",
+		"/administracija/uvoz-niza/upisi",
+	}
+	for _, put := range poLetvi {
+		nadjena := false
+		for _, redak := range strings.Split(izvor, "\n") {
+			if !strings.Contains(redak, put+`"`) {
+				continue
+			}
+			nadjena = true
+			if !strings.Contains(redak, "s.authMiddleware(") {
+				t.Errorf("ruta %s nije ni za prijavljene ni za administratora: %s", put, strings.TrimSpace(redak))
+			}
+		}
+		if !nadjena {
+			t.Errorf("ruta %s više nije registrirana — provjeri je li uvoz preseljen", put)
 		}
 	}
 }
