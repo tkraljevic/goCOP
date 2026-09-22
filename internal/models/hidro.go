@@ -773,13 +773,36 @@ func (o HQOdsjecak) Zapis() string {
 		}
 		return s
 	}
-	return "Q = " + zarezHR(o.P1, 4) + "·H²" + znak(o.P2) + "H" +
-		strings.TrimSuffix(znak(o.P3), "·")
+	// Kvadratni član kojem je koeficijent nula nije dio formule nego šum:
+	// DHMZ pravac zapisuje istim stupcima kao parabolu, s nulom na prvom
+	// mjestu. Ispisan, taj „0·H²" samo otežava čitanje.
+	s := "Q = "
+	if o.P1 != 0 {
+		s += zarezHR(o.P1, 4) + "·H²" + znak(o.P2) + "H"
+	} else {
+		s += zarezHR(o.P2, 4) + "·H"
+	}
+	if o.P3 != 0 {
+		s += strings.TrimSuffix(znak(o.P3), "·")
+	}
+	return s
 }
 
 // Raspon je raspon vodostaja u kojem odsječak vrijedi, ispisan.
 func (o HQOdsjecak) Raspon() string {
 	return strconv.Itoa(o.OdCm) + " do " + strconv.Itoa(o.DoCm) + " cm"
+}
+
+// Granica ispisuje raspon kao nejednakost, onako kako ga ispisuje i DHMZ.
+// Donji rub je uključen samo kod prvog odsječka; kod ostalih pripada
+// prethodnome, pa se piše strogom nejednakošću. Bez te razlike ne bi se
+// vidjelo kojem odsječku pripada sam rub, a ondje se dvije formule sastaju.
+func (o HQOdsjecak) Granica(prvi bool) string {
+	znak := "<"
+	if prvi {
+		znak = "≤"
+	}
+	return strconv.Itoa(o.OdCm) + " " + znak + " H ≤ " + strconv.Itoa(o.DoCm) + " cm"
 }
 
 // zarezHR ispisuje broj s decimalnim zarezom, bez suvišnih nula.

@@ -401,23 +401,22 @@
   <p class="page-desc">Korito se mijenja, pa se krivulja postavlja iznova — najčešće svake godine.
     Protok se računa krivuljom koja je vrijedila na dan očitanja, i samo unutar raspona vodostaja
     za koji je postavljena; izvan njega se ne pogađa.</p>
-  <div class="table-card"><div class="table-responsive">
-    <table class="data-table">
-      <thead><tr><th>Vrijedi</th><th>Raspon</th><th>Odsječak</th><th>Izvor</th></tr></thead>
-      <tbody>
-      {{range .Krivulje}}{{$k := .}}
-      {{range $i, $o := .Odsjecci}}
-      <tr>
-        <td class="mono naslov">{{if eq $i 0}}{{slice $k.VrijediOd 0 4}}.{{if $k.VrijediDo}}{{if ne (slice $k.VrijediDo 0 4) (slice $k.VrijediOd 0 4)}} – {{slice $k.VrijediDo 0 4}}.{{end}}{{else}} – danas{{end}}{{end}}</td>
-        <td class="mono" data-stupac="Raspon">{{$o.Raspon}}</td>
-        <td class="mono" data-stupac="Odsječak">{{$o.Zapis}}</td>
-        <td class="reg-card-sub" data-stupac="Izvor">{{if eq $i 0}}{{$k.Izvor}}{{end}} {{$k.Napomena}}</td>
-      </tr>
+  <div class="hq-popis">
+    {{range .Krivulje}}{{$k := .}}
+    <div class="hq-krivulja">
+      <div class="hq-razdoblje">
+        <span class="hq-godine mono">{{slice $k.VrijediOd 0 4}}.{{if $k.VrijediDo}}{{if ne (slice $k.VrijediDo 0 4) (slice $k.VrijediOd 0 4)}} – {{slice $k.VrijediDo 0 4}}.{{end}}{{else}} – danas{{end}}</span>
+        <span class="reg-card-sub">{{len $k.Odsjecci}} odsječ{{if eq (len $k.Odsjecci) 1}}ak{{else}}ka{{end}}{{if $k.Izvor}} · {{$k.Izvor}}{{end}}{{if $k.Napomena}} · {{$k.Napomena}}{{end}}</span>
+      </div>
+      {{range $i, $o := $k.Odsjecci}}
+      <div class="hq-odsjecak">
+        <span class="hq-granica mono">{{$o.Granica (eq $i 0)}}</span>
+        <span class="hq-formula mono">{{$o.Zapis}}</span>
+      </div>
       {{end}}
-      {{end}}
-      </tbody>
-    </table>
-  </div></div>
+    </div>
+    {{end}}
+  </div>
   <p class="form-help" style="margin-top:0.5rem;">H je vodostaj u metrima na letvi, Q protok u m³/s.</p>
   </details>
   {{end}}

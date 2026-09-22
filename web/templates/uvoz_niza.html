@@ -328,22 +328,21 @@
 
   <details>
     <summary style="cursor:pointer; font-weight:600;">Sve krivulje po razdobljima <span class="reg-chip">{{.Krivulje.Krivulja}}</span></summary>
-    <div class="table-responsive" style="margin-top:0.5rem;">
-      <table class="data-table">
-        <thead><tr><th>Vrijedi</th><th>Raspon</th><th>Formula</th></tr></thead>
-        <tbody>
-        {{range .Krivulje.Popis}}
-          {{$k := .}}
-          {{range $i, $o := .Odsjecci}}
-          <tr>
-            <td class="mono">{{if eq $i 0}}{{$k.Od}} .. {{$k.Do}}{{end}}</td>
-            <td class="mono">{{$o.Raspon}}</td>
-            <td class="mono">{{$o.Zapis}}</td>
-          </tr>
-          {{end}}
+    <div class="hq-popis" style="margin-top:0.5rem;">
+      {{range .Krivulje.Popis}}{{$k := .}}
+      <div class="hq-krivulja">
+        <div class="hq-razdoblje">
+          <span class="hq-godine mono">{{$k.Od}} .. {{$k.Do}}</span>
+          <span class="reg-card-sub">{{len $k.Odsjecci}} odsječ{{if eq (len $k.Odsjecci) 1}}ak{{else}}ka{{end}}</span>
+        </div>
+        {{range $i, $o := $k.Odsjecci}}
+        <div class="hq-odsjecak">
+          <span class="hq-granica mono">{{$o.Granica (eq $i 0)}}</span>
+          <span class="hq-formula mono">{{$o.Zapis}}</span>
+        </div>
         {{end}}
-        </tbody>
-      </table>
+      </div>
+      {{end}}
     </div>
   </details>
 

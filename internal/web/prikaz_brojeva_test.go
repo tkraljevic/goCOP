@@ -585,7 +585,9 @@ func TestHistorijatCrtaArhivu(t *testing.T) {
 		"DHMZ, ovjereno", "2.939 m³/s",
 		"Izvorni nizovi", "222.624", "nije mjereno ovdje",
 		// predložak plus ispisuje kao &#43;, pa se traži oblik kakav vidi preglednik
-		"Krivulje protoka", "DHMZ, HIS-2000", "-85 do 300 cm",
+		// Raspon odsječka piše se kao nejednakost, kako ga ispisuje i DHMZ:
+		// donji rub je uključen samo kod prvog, jer inače pripada prethodnome.
+		"Krivulje protoka", "DHMZ, HIS-2000", "-85 ≤ H ≤ 300 cm", "300 &lt; H ≤ 560 cm",
 	} {
 		if !strings.Contains(html, want) {
 			t.Errorf("u historijatu letve nema %q", want)

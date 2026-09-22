@@ -1,0 +1,31 @@
+
+/* Krivulje protoka na letvi. Krivulja se čita po razdoblju pa po granicama
+   odsječaka, kao što je i DHMZ ispisuje — zato blok po razdoblju, a ne
+   tablica u kojoj se razdoblje ponavlja ili se ne ponavlja. */
+.hq-popis { display: flex; flex-direction: column; gap: 0.75rem; }
+.hq-krivulja {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.6rem 0.85rem;
+  background: var(--surface);
+}
+.hq-razdoblje {
+  display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: baseline;
+  margin-bottom: 0.35rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid var(--border);
+}
+.hq-godine { font-weight: 600; font-size: 0.95rem; }
+.hq-odsjecak {
+  display: grid;
+  grid-template-columns: 13rem 1fr;
+  gap: 0.75rem;
+  padding: 0.15rem 0;
+  font-size: 0.9rem;
+}
+.hq-granica { color: var(--text-muted); text-align: right; white-space: nowrap; }
+.hq-formula { white-space: nowrap; overflow-x: auto; }
+@media (max-width: 640px) {
+  .hq-odsjecak { grid-template-columns: 1fr; gap: 0.1rem; }
+  .hq-granica { text-align: left; }
+}
