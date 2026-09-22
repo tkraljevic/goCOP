@@ -205,6 +205,10 @@ type Redak struct {
 	LevelCm *int
 	TempC   *float64
 	FlowM3s *float64
+	// Kako je protok nastao kod onoga tko ga objavljuje. Izvor koji to zna
+	// neka to i kaže: preuzet protok inače poslije izgleda kao mjeren.
+	FlowMetoda   string
+	FlowBiljeska string
 }
 
 func intPtr(v int) *int           { return &v }
@@ -327,6 +331,8 @@ func Ocitanje(station *models.Station, r Redak, podrijetlo string) models.Readin
 		LevelCm:    r.LevelCm,
 		TempC:      r.TempC,
 		FlowM3s:    r.FlowM3s,
+		FlowMethod: r.FlowMetoda,
+		FlowNote:   r.FlowBiljeska,
 		Source:     models.ReadingSourceImport,
 		Origin:     podrijetlo,
 		SourceRef:  ref,

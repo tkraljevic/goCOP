@@ -82,9 +82,15 @@ const (
 	FlowMethodPlovak   = "PLOVAK"   // plovci, gruba metoda
 	FlowMethodProcjena = "PROCJENA" // procijenjeno, nije mjereno
 	FlowMethodDrugo    = "DRUGO"
+	// Protok koji nitko nije mjerio nego je vodostaj provučen kroz krivulju.
+	// Takav protok nosi točno onoliko obavijesti koliko i vodostaj iz kojeg
+	// je nastao, pa se mora prepoznati kao izveden i kad ga preuzmemo gotovog
+	// s tuđe stranice.
+	FlowMethodKrivulja = "KRIVULJA"
 )
 
-// FlowMethods su načini mjerenja protoka redom kojim ih obrazac nudi
+// FlowMethods su načini mjerenja protoka redom kojim ih obrazac nudi. Krivulje
+// nema na popisu: nju čovjek pred letvom ne bira, ona stiže uvozom.
 var FlowMethods = []string{FlowMethodADCP, FlowMethodKrilo, FlowMethodPlovak, FlowMethodProcjena, FlowMethodDrugo}
 
 // FlowMethodLabel je naziv načina mjerenja protoka za prikaz
@@ -100,6 +106,8 @@ func FlowMethodLabel(m string) string {
 		return "procjena"
 	case FlowMethodDrugo:
 		return "drugo"
+	case FlowMethodKrivulja:
+		return "iz krivulje"
 	}
 	return m
 }

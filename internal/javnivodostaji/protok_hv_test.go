@@ -3,6 +3,8 @@ package javnivodostaji
 import (
 	"testing"
 	"time"
+
+	"gocop/internal/models"
 )
 
 // Isječak stranice protoka kakav ona stvarno daje: dvoznamenkasta godina,
@@ -61,5 +63,16 @@ func TestDopuniProtokom(t *testing.T) {
 	}
 	if out[1].FlowM3s != nil {
 		t.Errorf("drugom retku pridružen protok kojeg za taj sat nema: %+v", out[1])
+	}
+	// Preuzeti protok mora reći odakle mu vrijednost, inače se poslije čita
+	// kao da ga je netko izmjerio.
+	if out[0].FlowMetoda != models.FlowMethodKrivulja {
+		t.Errorf("protok s javne stranice nije označen kao izveden: %q", out[0].FlowMetoda)
+	}
+	if out[0].FlowBiljeska == "" {
+		t.Error("uz izvedeni protok ne stoji bilješka odakle je")
+	}
+	if out[1].FlowMetoda != "" {
+		t.Errorf("redak bez protoka dobio je oznaku načina: %q", out[1].FlowMetoda)
 	}
 }

@@ -111,6 +111,11 @@ func dopuniProtokom(vodostaji, protoci []Redak) []Redak {
 	for i := range vodostaji {
 		if q, ima := po[vodostaji[i].Kad.Unix()]; ima {
 			vodostaji[i].FlowM3s = floatPtr(q)
+			// Ondje se protok ne mjeri nego računa: isti vodostaj daje isti
+			// protok, uvijek. Bez te oznake bi se poslije čitao kao mjerenje
+			// jednako vrijedno onome s elektrane ili s krila.
+			vodostaji[i].FlowMetoda = models.FlowMethodKrivulja
+			vodostaji[i].FlowBiljeska = "preračunat iz vodostaja krivuljom službe, s javne stranice"
 		}
 	}
 	return vodostaji
