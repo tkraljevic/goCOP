@@ -48,7 +48,7 @@ func main() {
 	var profili []*his2000.Sadrzaj
 	var preskoceno []string
 	var mjerenja []his2000.Mjerenje
-	vidjeniProfili := map[time.Time]string{} // snimka istog dana zna doći dvaput
+	vidjeniProfili := map[time.Time]int{} // snimka istog dana zna doći dvaput; broj je mjesto u popisu
 
 	imena := make([]string, 0, len(stavke))
 	for _, s := range stavke {
@@ -80,11 +80,24 @@ func main() {
 		}
 		switch {
 		case s.Profil != nil:
-			if prije, ima := vidjeniProfili[s.Profil.Datum]; ima {
-				preskoceno = append(preskoceno, fmt.Sprintf("%s — ista snimka korita kao %s", ime, prije))
+			// Dvije snimke istog dana nisu nužno ista snimka: Botovo je
+			// 15.03.2016. imalo jednu s 211 i jednu sa 153 točke. Zadržava se
+			// bogatija, a ne prva po redu — inače ishod ovisi o tome kojim je
+			// redoslijedom izvoz složen.
+			if j, ima := vidjeniProfili[s.Profil.Datum]; ima {
+				if len(s.Profil.Tocke) <= len(profili[j].Profil.Tocke) {
+					preskoceno = append(preskoceno, fmt.Sprintf(
+						"%s (%d točaka) — ista snimka korita kao %s, koja ih ima %d",
+						ime, len(s.Profil.Tocke), profili[j].Ime, len(profili[j].Profil.Tocke)))
+					continue
+				}
+				preskoceno = append(preskoceno, fmt.Sprintf(
+					"%s (%d točaka) — ista snimka korita kao %s, koja ih ima %d",
+					profili[j].Ime, len(profili[j].Profil.Tocke), ime, len(s.Profil.Tocke)))
+				profili[j] = s
 				continue
 			}
-			vidjeniProfili[s.Profil.Datum] = ime
+			vidjeniProfili[s.Profil.Datum] = len(profili)
 			profili = append(profili, s)
 		case s.Krivulje != nil:
 			if krivulje == nil || len(s.Krivulje) > len(krivulje.Krivulje) {

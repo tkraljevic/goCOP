@@ -82,10 +82,18 @@ func (h *UvozHandler) PregledUvozaProfila(w http.ResponseWriter, r *http.Request
 		h.pisi(w, d)
 		return
 	}
-	// Snimka istog dana zna doći dvaput, pod dva imena — tada je druga
-	// dvojnik, ne nova snimka.
-	vidjeni := map[string]string{}
-	for i, zag := range dat {
+	// Snimka istog dana zna doći dvaput, pod dva imena. Prvo se pročita sve,
+	// pa se za svaki dan zadrži ona s najviše točaka — dvije izmjere istog
+	// dana nisu nužno ista snimka: Botovo je 15.03.2016. imalo jednu s 211 i
+	// jednu sa 153 točke. Zadrži li se prva po redu, ishod ovisi o tome kojim
+	// je redoslijedom izvoz složen, a to nije mjerilo.
+	type procitana struct {
+		ime     string
+		sadrzaj []byte
+		profil  *his2000.Profil
+	}
+	var sve []procitana
+	for _, zag := range dat {
 		f, err := zag.Open()
 		if err != nil {
 			p.Odbijeno = append(p.Odbijeno, zag.Filename+" — "+err.Error())
@@ -106,29 +114,40 @@ func (h *UvozHandler) PregledUvozaProfila(w http.ResponseWriter, r *http.Request
 			p.Odbijeno = append(p.Odbijeno, zag.Filename+" — nije snimka korita")
 			continue
 		}
-		pr := s.Profil
-		datum := pr.Datum.Format("2006-01-02")
-		ciljna := his2000.ImeProfila(letva, pr)
-		snimka := SnimkaZaPrikaz{
-			Ime: zag.Filename, Datum: datum, Tocaka: len(pr.Tocke),
-			Vodostaj: pr.Vodostaj, KotaNule: pr.KotaNule, Ciljna: ciljna,
+		sve = append(sve, procitana{zag.Filename, sadrzaj, s.Profil})
+	}
+	// najbogatija po danu; kod jednakog broja točaka ostaje prva
+	najbolja := map[string]int{}
+	for i, c := range sve {
+		datum := c.profil.Datum.Format("2006-01-02")
+		if j, ima := najbolja[datum]; !ima || len(c.profil.Tocke) > len(sve[j].profil.Tocke) {
+			najbolja[datum] = i
 		}
-		switch {
-		case vidjeni[datum] != "":
+	}
+	for i, c := range sve {
+		datum := c.profil.Datum.Format("2006-01-02")
+		ciljna := his2000.ImeProfila(letva, c.profil)
+		snimka := SnimkaZaPrikaz{
+			Ime: c.ime, Datum: datum, Tocaka: len(c.profil.Tocke),
+			Vodostaj: c.profil.Vodostaj, KotaNule: c.profil.KotaNule, Ciljna: ciljna,
+		}
+		if najbolja[datum] != i {
 			snimka.Stanje = "dvojnik"
-			p.Odbijeno = append(p.Odbijeno,
-				fmt.Sprintf("%s — ista snimka korita kao %s", zag.Filename, vidjeni[datum]))
+			zadrzana := sve[najbolja[datum]]
+			p.Odbijeno = append(p.Odbijeno, fmt.Sprintf(
+				"%s (%d točaka) — ista snimka korita kao %s, koja ih ima %d",
+				c.ime, len(c.profil.Tocke), zadrzana.ime, len(zadrzana.profil.Tocke)))
 			p.Snimke = append(p.Snimke, snimka)
 			continue
-		case postoji(filepath.Join(mapa, ciljna)):
+		}
+		if postoji(filepath.Join(mapa, ciljna)) {
 			snimka.Stanje = "zamjena"
-		default:
+		} else {
 			snimka.Stanje = "nova"
 		}
-		vidjeni[datum] = zag.Filename
 		// Svaka snimka čeka potvrdu pod svojim brojem; na potvrdu se čitaju
 		// istim redom kojim su ovdje složene.
-		uvozi.spremi(fmt.Sprintf("%s-%d", id, i), zag.Filename, sadrzaj, korisnik)
+		uvozi.spremi(fmt.Sprintf("%s-%d", id, i), c.ime, c.sadrzaj, korisnik)
 		p.Snimke = append(p.Snimke, snimka)
 	}
 	sort.SliceStable(p.Snimke, func(a, b int) bool { return p.Snimke[a].Datum < p.Snimke[b].Datum })
