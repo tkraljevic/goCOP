@@ -40,3 +40,25 @@ func BrojOdsjecaka(s *Sadrzaj) int {
 	}
 	return n
 }
+
+// ProfilCSV slaže datoteku jedne snimke poprečnog profila korita.
+//
+// Uz točke ide i zaglavlje s datumom, vodostajem pri mjerenju i kotom nule:
+// bez njih se ne zna na što se visine odnose, a snimka bez toga nije podatak
+// nego niz brojeva.
+func ProfilCSV(p *Profil) []byte {
+	var b bytes.Buffer
+	fmt.Fprintf(&b, "# poprečni profil korita, mjereno %s, vodostaj pri mjerenju %d cm, kota nule %s\n",
+		p.Datum.Format("2006-01-02"), p.Vodostaj, p.KotaNule)
+	fmt.Fprintln(&b, "stacionaza_m;visina_m")
+	for _, t := range p.Tocke {
+		fmt.Fprintf(&b, "%s;%s\n", t.Stacionaza, t.Visina)
+	}
+	return b.Bytes()
+}
+
+// ImeProfila je naziv pod kojim snimka stoji u stablu. Datum mjerenja je u
+// imenu jer snimka i jest jedan dan: dvije snimke istog dana su ista snimka.
+func ImeProfila(letva string, p *Profil) string {
+	return fmt.Sprintf("%s_profil_%s.csv", letva, p.Datum.Format("2006-01-02"))
+}

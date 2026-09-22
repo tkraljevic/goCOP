@@ -1176,6 +1176,8 @@ func (s *Server) setupRoutes() {
 	// putem, ali kroz istu ogradu po letvi i isti red pregled-pa-potvrda.
 	s.mux.Handle("POST /administracija/uvoz-krivulja/pregled", s.authMiddleware(http.HandlerFunc(uvozH.PregledUvozaKrivulja)))
 	s.mux.Handle("POST /administracija/uvoz-krivulja/upisi", s.authMiddleware(http.HandlerFunc(uvozH.UpisiKrivulje)))
+	s.mux.Handle("POST /administracija/uvoz-profila/pregled", s.authMiddleware(http.HandlerFunc(uvozH.PregledUvozaProfila)))
+	s.mux.Handle("POST /administracija/uvoz-profila/upisi", s.authMiddleware(http.HandlerFunc(uvozH.UpisiProfile)))
 	uvozH.SetIzdavanje(func() string { return s.paketiDir }, s.IzdajArhivu, s.KatalogIzdanja, s.poslovi)
 	uvozH.SetOcitanja(func() *sql.DB { return s.db }, func() string { return s.recorder.Cvor() })
 	s.mux.Handle("POST /administracija/ulaganje/pregled", s.samoAdmin(http.HandlerFunc(uvozH.PregledUlaganja)))

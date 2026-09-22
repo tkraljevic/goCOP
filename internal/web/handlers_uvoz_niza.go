@@ -163,6 +163,9 @@ type UvozPageData struct {
 	// ide svojim putem, ali kroz isti pregled-pa-potvrda.
 	Krivulje *PregledKrivulja
 
+	// Snimke poprečnog profila korita poslane na uvoz, prije potvrde.
+	Profili *PregledProfila
+
 	// Dugi posao u tijeku: stranica crta traku i pita poslužitelja kako stoji.
 	PosaoID    string
 	PosaoNaziv string

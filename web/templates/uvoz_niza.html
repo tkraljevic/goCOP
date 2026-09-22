@@ -301,6 +301,66 @@
     <button type="submit" class="btn btn-primary">{{icon "eye"}} Pogledaj krivulje</button>
   </div>
 </form>
+
+<form method="POST" action="/administracija/uvoz-profila/pregled" enctype="multipart/form-data"
+      class="reg-card" style="padding:1rem; margin-bottom:1rem;">
+  <h2 class="izvor-naziv">{{icon "activity"}} Snimke poprečnog profila korita</h2>
+  <p class="page-desc" style="margin:0.25rem 0 0.75rem 0;">
+    Svaka snimka je svoja datoteka <span class="mono">profil1.csv</span>, <span class="mono">profil2.csv</span> …,
+    pa ih odaberite više odjednom. Snimka nosi datum mjerenja i vodostaj pri mjerenju; bez njih se ne zna na što
+    se visine odnose i takva se odbija. Dvije snimke istog dana su ista snimka.
+  </p>
+  <div style="display:flex; gap:0.75rem; flex-wrap:wrap; align-items:flex-end;">
+    <label class="izvor-napomena" style="margin:0;">
+      <span class="part-label">Letva</span>
+      <input list="popis-letvi-krivulje" name="letva" required class="form-control" style="max-width:14rem;"
+             value="{{if .Profili}}{{.Profili.Letva}}{{end}}">
+    </label>
+    <label class="izvor-napomena" style="margin:0;">
+      <span class="part-label">Datoteke s diska</span>
+      <input type="file" name="datoteke" accept=".csv,.txt" multiple required class="form-control" style="max-width:20rem;">
+    </label>
+    <button type="submit" class="btn btn-primary">{{icon "eye"}} Pogledaj snimke</button>
+  </div>
+</form>
+{{end}}
+
+{{if .Profili}}
+<form method="POST" action="/administracija/uvoz-profila/upisi" class="reg-card" style="padding:1rem; margin-bottom:1rem;">
+  <input type="hidden" name="id" value="{{.Profili.Id}}">
+  <input type="hidden" name="letva" value="{{.Profili.Letva}}">
+  <h2 class="izvor-naziv">Koje su snimke prepoznate</h2>
+  <p class="izvor-obujam mono">{{.Profili.Letva}} — poslano {{.Profili.Poslano}} datoteka</p>
+  <div class="table-card"><div class="table-responsive">
+    <table class="data-table">
+      <thead><tr><th>Mjereno</th><th style="text-align:right;">Točaka</th><th style="text-align:right;">Vodostaj</th><th>Kota nule</th><th>U stablu</th></tr></thead>
+      <tbody>
+      {{range .Profili.Snimke}}
+      <tr>
+        <td class="mono" data-stupac="Mjereno">{{.Datum}}</td>
+        <td class="mono" style="text-align:right;" data-stupac="Točaka">{{.Tocaka}}</td>
+        <td class="mono" style="text-align:right;" data-stupac="Vodostaj">{{.Vodostaj}} cm</td>
+        <td class="mono" data-stupac="Kota nule">{{if .KotaNule}}{{.KotaNule}} m{{else}}—{{end}}</td>
+        <td data-stupac="U stablu">
+          {{if .JeNova}}<span class="reg-chip">nova</span>
+          {{else if eq .Stanje "zamjena"}}<span class="reg-card-sub">zamjenjuje zatečenu</span>
+          {{else}}<span class="reg-card-sub">dvojnik, ne upisuje se</span>{{end}}
+        </td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div></div>
+  {{if .Profili.Odbijeno}}
+  <p class="page-desc" style="margin:0.6rem 0 0 0;"><strong>Preskočeno:</strong></p>
+  <ul class="page-desc" style="margin:0.2rem 0 0 1rem;">
+    {{range .Profili.Odbijeno}}<li class="mono">{{.}}</li>{{end}}
+  </ul>
+  {{end}}
+  <div style="margin-top:0.75rem;">
+    <button type="submit" class="btn btn-primary">{{icon "check"}} Upiši i izgradi</button>
+  </div>
+</form>
 {{end}}
 
 {{if .Krivulje}}

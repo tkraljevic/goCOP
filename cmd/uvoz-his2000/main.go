@@ -240,16 +240,8 @@ func (p *Posao) Profil(s *his2000.Sadrzaj) {
 	if err := os.MkdirAll(filepath.Join(p.Cilj, "profil"), 0o755); err != nil {
 		log.Fatal(err)
 	}
-	f, err := os.Create(filepath.Join(p.Cilj, ime))
-	if err != nil {
+	if err := os.WriteFile(filepath.Join(p.Cilj, ime), his2000.ProfilCSV(pr), 0o644); err != nil {
 		log.Fatal(err)
-	}
-	defer f.Close()
-	fmt.Fprintf(f, "# poprečni profil korita, mjereno %s, vodostaj pri mjerenju %d cm, kota nule %s\n",
-		pr.Datum.Format("2006-01-02"), pr.Vodostaj, pr.KotaNule)
-	fmt.Fprintln(f, "stacionaza_m;visina_m")
-	for _, t := range pr.Tocke {
-		fmt.Fprintf(f, "%s;%s\n", t.Stacionaza, t.Visina)
 	}
 	p.Zapisano++
 }
