@@ -1,5 +1,5 @@
 // Čitanje HIS-2000 izvoza: prepoznavanje po zaglavlju i razlaganje datoteka.
-package main
+package his2000
 
 import (
 	"bufio"
@@ -191,7 +191,7 @@ func citajSatne(redci []string) ([]Vrijednost, int) {
 		}
 		d, mj, g, h := broj(m[1]), broj(m[2]), broj(m[3]), broj(m[4])
 		kad := time.Date(g, time.Month(mj), d, h, 0, 0, 0, time.UTC)
-		if nepostojeciSat(kad) {
+		if NepostojeciSat(kad) {
 			preskoceno++
 			continue
 		}
@@ -270,10 +270,10 @@ func razdoblje(redci []string, uzorak *regexp.Regexp, skupina int) (od, do_ int)
 	return od, do_
 }
 
-// nepostojeciSat javlja je li to sat koji u našoj zoni ne postoji — noć
+// NepostojeciSat javlja je li to sat koji u našoj zoni ne postoji — noć
 // prelaska na ljetno vrijeme. HIS ga svejedno ispiše, a mi ga preskačemo,
 // jer bi se pri pretvorbi u UTC slio sa sljedećim satom i pregazio ga.
-func nepostojeciSat(kad time.Time) bool {
+func NepostojeciSat(kad time.Time) bool {
 	lokalno := time.Date(kad.Year(), kad.Month(), kad.Day(), kad.Hour(), 0, 0, 0, models.Zagreb)
 	return lokalno.Hour() != kad.Hour()
 }

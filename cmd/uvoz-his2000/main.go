@@ -15,11 +15,11 @@ package main
 import (
 	"flag"
 	"fmt"
+	"gocop/internal/uvoz/his2000"
 	"log"
 	"os"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -43,11 +43,11 @@ func main() {
 	}
 	cilj := filepath.Join(*u, *sliv, *letva)
 
-	var nizovi []*Sadrzaj
-	var krivulje *Sadrzaj
-	var profili []*Sadrzaj
+	var nizovi []*his2000.Sadrzaj
+	var krivulje *his2000.Sadrzaj
+	var profili []*his2000.Sadrzaj
 	var preskoceno []string
-	var mjerenja []Mjerenje
+	var mjerenja []his2000.Mjerenje
 	vidjeniProfili := map[time.Time]string{} // snimka istog dana zna doći dvaput
 
 	imena := make([]string, 0, len(stavke))
@@ -64,8 +64,8 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		if JeSylk(sirovo) {
-			m, err := ProcitajMjerenja(sirovo)
+		if his2000.JeSylk(sirovo) {
+			m, err := his2000.ProcitajMjerenja(sirovo)
 			if err != nil {
 				preskoceno = append(preskoceno, fmt.Sprintf("%s — %v", ime, err))
 				continue
@@ -73,7 +73,7 @@ func main() {
 			mjerenja = append(mjerenja, m...)
 			continue
 		}
-		s, err := Procitaj(ime, sirovo)
+		s, err := his2000.Procitaj(ime, sirovo)
 		if err != nil {
 			preskoceno = append(preskoceno, fmt.Sprintf("%s — %v", ime, err))
 			continue
@@ -129,7 +129,7 @@ type Posao struct {
 }
 
 // Niz zapisuje jedan vremenski niz pod dogovorenim nazivom.
-func (p *Posao) Niz(s *Sadrzaj) {
+func (p *Posao) Niz(s *his2000.Sadrzaj) {
 	od, do_ := s.Niz[0].Kad.Year(), s.Niz[len(s.Niz)-1].Kad.Year()
 	ime := fmt.Sprintf("%s_%s_%s_%s_%d-%d.csv", p.Letva, p.Izvor, s.Vrsta.Velicina, s.Vrsta.Gustoca, od, do_)
 	put := filepath.Join(p.Cilj, ime)
@@ -145,7 +145,7 @@ func (p *Posao) Niz(s *Sadrzaj) {
 		if err != nil {
 			log.Fatalf("%s: %v", zat, err)
 		}
-		suk, samoStari, nepostojeci := usporedi(stari, s.Niz)
+		suk, samoStari, nepostojeci := his2000.Usporedi(stari, s.Niz)
 		if suk > 0 && !p.Zamijeni {
 			fmt.Printf("              zatečeno %s: %d vrijednosti se razlikuje — ostavljam kako jest, -zamijeni ako treba drugačije\n", zat, suk)
 			p.Sporno++
@@ -198,7 +198,7 @@ func (p *Posao) Niz(s *Sadrzaj) {
 }
 
 // Krivulje zapisuje odsječke u dogovoreni oblik i čuva izvornik.
-func (p *Posao) Krivulje(s *Sadrzaj, izvornik string) {
+func (p *Posao) Krivulje(s *his2000.Sadrzaj, izvornik string) {
 	odsjecaka := 0
 	for _, k := range s.Krivulje {
 		odsjecaka += len(k.Odsjecci)
@@ -244,7 +244,7 @@ func (p *Posao) Krivulje(s *Sadrzaj, izvornik string) {
 }
 
 // Profil zapisuje jednu snimku korita pod datumom mjerenja.
-func (p *Posao) Profil(s *Sadrzaj) {
+func (p *Posao) Profil(s *his2000.Sadrzaj) {
 	pr := s.Profil
 	ime := fmt.Sprintf("profil/%s_profil_%s.csv", p.Letva, pr.Datum.Format("2006-01-02"))
 	fmt.Printf("%-12s %-9s %7d  %s, vodostaj %d cm\n              → %s\n",
@@ -271,7 +271,7 @@ func (p *Posao) Profil(s *Sadrzaj) {
 }
 
 // Mjerenja zapisuje vodomjerenja uz krivulje, jer im ondje i služe.
-func (p *Posao) Mjerenja(m []Mjerenje) {
+func (p *Posao) Mjerenja(m []his2000.Mjerenje) {
 	sort.SliceStable(m, func(i, j int) bool { return m[i].Datum.Before(m[j].Datum) })
 	ime := fmt.Sprintf("hq/%s_vodomjerenja_%d-%d.csv", p.Letva, m[0].Datum.Year(), m[len(m)-1].Datum.Year())
 	fmt.Printf("%-12s %-9s %7d  %s .. %s\n              → %s\n", "vodomjerenja", "protok", len(m),
@@ -313,7 +313,7 @@ func (p *Posao) Sazetak() string {
 
 // zatecen traži datoteku iste letve, izvora, veličine i gustoće, bez obzira
 // na godine u nazivu.
-func zatecen(cilj, letva, izvor string, v Vrsta) (string, error) {
+func zatecen(cilj, letva, izvor string, v his2000.Vrsta) (string, error) {
 	predmetak := fmt.Sprintf("%s_%s_%s_%s_", letva, izvor, v.Velicina, v.Gustoca)
 	stavke, err := os.ReadDir(cilj)
 	if err != nil {
@@ -351,47 +351,6 @@ func ucitaj(put string) (map[time.Time]string, error) {
 		out[kad] = d[1]
 	}
 	return out, nil
-}
-
-// usporedi javlja koliko se vrijednosti razlikuje i koliko ih zatečeni niz
-// ima, a novi izvoz nema. Uspoređuje se broj, ne zapis: 1919,000 i 1919 isto
-// su mjerenje, a razlikuju se samo po tome koliko je decimala izvoz ispisao.
-func usporedi(stari map[time.Time]string, novi []Vrijednost) (sukoba, samoStari, nepostojeci int) {
-	imaNovi := make(map[time.Time]bool, len(novi))
-	for _, v := range novi {
-		imaNovi[v.Kad] = true
-		if s, ok := stari[v.Kad]; ok && !istiBroj(s, v.V) {
-			sukoba++
-		}
-	}
-	for k := range stari {
-		if imaNovi[k] {
-			continue
-		}
-		// sat koji u našoj zoni ne postoji nismo ni htjeli: zatečena datoteka
-		// ga ima jer je nastala prije nego što se to znalo, pa njegov izostanak
-		// nije gubitak nego ispravak
-		if nepostojeciSat(k) {
-			nepostojeci++
-			continue
-		}
-		samoStari++
-	}
-	return sukoba, samoStari, nepostojeci
-}
-
-// istiBroj javlja govore li dva zapisa isti broj; kad se ijedan ne čita kao
-// broj, ostaje usporedba zapisa.
-func istiBroj(a, b string) bool {
-	if a == b {
-		return true
-	}
-	x, err1 := strconv.ParseFloat(strings.Replace(strings.TrimSpace(a), ",", ".", 1), 64)
-	y, err2 := strconv.ParseFloat(strings.Replace(strings.TrimSpace(b), ",", ".", 1), 64)
-	if err1 != nil || err2 != nil {
-		return false
-	}
-	return x == y
 }
 
 func prepisi(iz, u string) error {

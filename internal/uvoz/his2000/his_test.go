@@ -1,4 +1,4 @@
-package main
+package his2000
 
 import (
 	"testing"
@@ -137,11 +137,11 @@ func TestProfilKorita(t *testing.T) {
 func TestUsporedbaIdePoBroju(t *testing.T) {
 	kad := time.Date(2001, 3, 9, 0, 0, 0, 0, time.UTC)
 	stari := map[time.Time]string{kad: "1919,000"}
-	suk, samo, _ := usporedi(stari, []Vrijednost{{Kad: kad, V: "1919"}})
+	suk, samo, _ := Usporedi(stari, []Vrijednost{{Kad: kad, V: "1919"}})
 	if suk != 0 || samo != 0 {
 		t.Errorf("sukoba %d, samo u starom %d — 1919,000 i 1919 isto su mjerenje", suk, samo)
 	}
-	suk, _, _ = usporedi(stari, []Vrijednost{{Kad: kad, V: "1920"}})
+	suk, _, _ = Usporedi(stari, []Vrijednost{{Kad: kad, V: "1920"}})
 	if suk != 1 {
 		t.Errorf("sukoba %d — prava razlika mora se vidjeti", suk)
 	}
@@ -150,7 +150,7 @@ func TestUsporedbaIdePoBroju(t *testing.T) {
 	// nastala prije nego što se to znalo; njegov izostanak nije gubitak
 	ljetni := time.Date(2026, 3, 29, 2, 0, 0, 0, time.UTC)
 	pravi := time.Date(2026, 3, 29, 3, 0, 0, 0, time.UTC)
-	_, samo, nepostojeci := usporedi(
+	_, samo, nepostojeci := Usporedi(
 		map[time.Time]string{ljetni: "207", pravi: "208"},
 		[]Vrijednost{{Kad: pravi, V: "208"}})
 	if samo != 0 || nepostojeci != 1 {

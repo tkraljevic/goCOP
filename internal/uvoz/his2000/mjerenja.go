@@ -4,7 +4,7 @@
 //
 // Njima se krivulje ne postavljaju — to radi DHMZ — ali služe za provjeru i
 // za razdoblja u kojima službene krivulje nema.
-package main
+package his2000
 
 import (
 	"fmt"

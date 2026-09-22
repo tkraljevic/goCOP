@@ -8,7 +8,7 @@
 // Vrijednosti su poravnate desno prema nazivu mjeseca, a ne razdvojene
 // razmakom istog broja, pa se čitaju po stupcima. Ispod dana stoje sažeci
 // (NK, SK, VK, Ekstrem), koji nisu mjerenja i preskaču se.
-package main
+package his2000
 
 import (
 	"regexp"
