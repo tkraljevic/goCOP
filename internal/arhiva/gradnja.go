@@ -48,6 +48,7 @@ func dopuniShemu(db *sql.DB) error {
 		{"nizovi", "napomena", "TEXT NOT NULL DEFAULT ''"},
 		{"izvori", "mapa", "TEXT NOT NULL DEFAULT ''"},
 		{"profili", "crtaj", "INTEGER NOT NULL DEFAULT 1"},
+		{"hq_odsjecci", "p4", "REAL NOT NULL DEFAULT 0"},
 	}
 	for _, c := range stupci {
 		// Zatečena arhiva ne mora imati svaku tablicu; stupac se dodaje samo
@@ -181,6 +182,8 @@ CREATE TABLE IF NOT EXISTS hq_odsjecci (
 	p1       REAL NOT NULL,
 	p2       REAL NOT NULL,
 	p3       REAL NOT NULL,
+	-- zbrojni član potencije; polinom ga nema, pa mu je nula
+	p4       REAL NOT NULL DEFAULT 0,
 	PRIMARY KEY (krivulja, od_cm)
 ) WITHOUT ROWID;
 CREATE TABLE IF NOT EXISTS ocitanja (
@@ -1021,6 +1024,26 @@ func krivulje(db *sql.DB, koren, samo string) error {
 			v, _ := strconv.Atoi(strings.TrimSpace(x))
 			return v
 		}
+		// Stupac p4 je došao naknadno, s potencijskim odsječcima. Zatečena
+		// datoteka bez njega mora se i dalje čitati, pa se stupci traže po
+		// zaglavlju umjesto da se broje.
+		stupac := map[string]int{}
+		if len(sve) > 0 {
+			for i, ime := range sve[0] {
+				stupac[strings.ToLower(strings.TrimSpace(ime))] = i
+			}
+		}
+		imaP4 := false
+		if _, ok := stupac["p4"]; ok {
+			imaP4 = true
+		}
+		polje := func(r []string, ime string) string {
+			i, ok := stupac[ime]
+			if !ok || i >= len(r) {
+				return ""
+			}
+			return strings.TrimSpace(r[i])
+		}
 		// Datoteka nosi po jedan redak za svaki odsječak; zaglavlje krivulje se
 		// ponavlja. Krivulja se prvo obriše pa iznova složi, da uklonjeni
 		// odsječak ne ostane visjeti.
@@ -1037,7 +1060,7 @@ func krivulje(db *sql.DB, koren, samo string) error {
 					return err
 				}
 				res, err := db.Exec(`INSERT INTO hq_krivulje (letva, vrijedi_od, vrijedi_do, izvor, napomena)
-					VALUES (?,?,?,?,?)`, letva, od, do, nth(r, 8), nth(r, 9))
+					VALUES (?,?,?,?,?)`, letva, od, do, polje(r, "izvor"), polje(r, "napomena"))
 				if err != nil {
 					return err
 				}
@@ -1045,13 +1068,18 @@ func krivulje(db *sql.DB, koren, samo string) error {
 				vidjeno[od] = id
 				n++
 			}
-			oblik := strings.TrimSpace(r[4])
+			oblik := polje(r, "oblik")
 			if oblik != models.OblikPotencija {
 				oblik = models.OblikPolinom
 			}
+			p4 := 0.0
+			if imaP4 {
+				p4 = br(polje(r, "p4"))
+			}
 			if _, err := db.Exec(`INSERT OR REPLACE INTO hq_odsjecci
-				(krivulja, od_cm, do_cm, oblik, p1, p2, p3) VALUES (?,?,?,?,?,?,?)`,
-				id, cijeli(r[2]), cijeli(r[3]), oblik, br(r[5]), br(r[6]), br(r[7])); err != nil {
+				(krivulja, od_cm, do_cm, oblik, p1, p2, p3, p4) VALUES (?,?,?,?,?,?,?,?)`,
+				id, cijeli(polje(r, "od_cm")), cijeli(polje(r, "do_cm")), oblik,
+				br(polje(r, "p1")), br(polje(r, "p2")), br(polje(r, "p3")), p4); err != nil {
 				return err
 			}
 		}

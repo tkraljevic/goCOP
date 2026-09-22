@@ -428,7 +428,7 @@ func (r *ArhivaRepository) Krivulje(ctx context.Context, letva string) ([]models
 	}
 	// Odsječci se dohvaćaju jednim upitom, ne po krivulji: dvanaest krivulja
 	// znači dvanaest odlazaka u bazu pri svakom otvaranju stranice.
-	od, err := r.db.QueryContext(ctx, `SELECT o.krivulja, o.od_cm, o.do_cm, o.oblik, o.p1, o.p2, o.p3
+	od, err := r.db.QueryContext(ctx, `SELECT o.krivulja, o.od_cm, o.do_cm, o.oblik, o.p1, o.p2, o.p3, o.p4
 		FROM hq_odsjecci o JOIN hq_krivulje k ON k.id = o.krivulja
 		WHERE k.letva = ? ORDER BY o.krivulja, o.od_cm`, letva)
 	if err != nil {
@@ -438,7 +438,7 @@ func (r *ArhivaRepository) Krivulje(ctx context.Context, letva string) ([]models
 	for od.Next() {
 		var id int64
 		var o models.HQOdsjecak
-		if err := od.Scan(&id, &o.OdCm, &o.DoCm, &o.Oblik, &o.P1, &o.P2, &o.P3); err != nil {
+		if err := od.Scan(&id, &o.OdCm, &o.DoCm, &o.Oblik, &o.P1, &o.P2, &o.P3, &o.P4); err != nil {
 			return nil, err
 		}
 		if i, ima := po[id]; ima {

@@ -729,7 +729,7 @@ type HQKrivulja struct {
 // Oblici odsječka.
 const (
 	OblikPolinom   = "polinom"   // Q = p1·H² + p2·H + p3, H u metrima na letvi
-	OblikPotencija = "potencija" // Q = p1·(H + p3)^p2, H u metrima na letvi
+	OblikPotencija = "potencija" // Q = p1·(H + p3)^p2 + p4, H u metrima na letvi
 )
 
 // HQOdsjecak je jedan dio krivulje, s rasponom vodostaja u kojem vrijedi.
@@ -739,6 +739,11 @@ type HQOdsjecak struct {
 	OdCm, DoCm int
 	Oblik      string
 	P1, P2, P3 float64
+	// P4 je zbrojni član potencije. DHMZ ga postavlja na donjem dijelu
+	// krivulje, ondje gdje korito ima mrtvi prostor: bez njega bi protok pri
+	// malom vodostaju pao prema nuli, a rijeka teče i tada. Na Novom Virju
+	// ga ima 40 od 44 potencijska odsječka.
+	P4 float64
 }
 
 // Protok računa protok iz odsječka.
@@ -748,21 +753,25 @@ func (o HQOdsjecak) Protok(vodostajCm int) (float64, bool) {
 		if h+o.P3 <= 0 {
 			return 0, false
 		}
-		return o.P1 * math.Pow(h+o.P3, o.P2), true
+		return o.P1*math.Pow(h+o.P3, o.P2) + o.P4, true
 	}
 	return o.P1*h*h + o.P2*h + o.P3, true
 }
 
 // Zapis je odsječak ispisan onako kako se i citira, s decimalnim zarezom.
 func (o HQOdsjecak) Zapis() string {
-	if o.Oblik == OblikPotencija {
-		return "Q = " + zarezHR(o.P1, 4) + " · (H + " + zarezHR(o.P3, 2) + ")^" + zarezHR(o.P2, 6)
-	}
 	znak := func(v float64) string {
 		if v < 0 {
 			return " − " + zarezHR(-v, 4) + "·"
 		}
 		return " + " + zarezHR(v, 4) + "·"
+	}
+	if o.Oblik == OblikPotencija {
+		s := "Q = " + zarezHR(o.P1, 4) + " · (H + " + zarezHR(o.P3, 2) + ")^" + zarezHR(o.P2, 6)
+		if o.P4 != 0 {
+			s += strings.TrimSuffix(znak(o.P4), "·")
+		}
+		return s
 	}
 	return "Q = " + zarezHR(o.P1, 4) + "·H²" + znak(o.P2) + "H" +
 		strings.TrimSuffix(znak(o.P3), "·")

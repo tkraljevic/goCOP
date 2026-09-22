@@ -45,10 +45,21 @@ type Krivulja struct {
 	Odsjecci []Odsjecak
 }
 
-// Odsjecak vrijedi u rasponu vodostaja i nosi koeficijente polinoma.
+// Odsjecak vrijedi u rasponu vodostaja i nosi koeficijente.
+//
+// HIS krivulju slaže od dva oblika, a stupac „Tip" kaže od kojeg:
+//
+//	Tip 0   Q = A(H + B)^C + D     potencija, s pomakom
+//	Tip 1   Q = A·H² + B·H + C     polinom
+//
+// Potencija je gotovo uvijek najniži odsječak krivulje, a pomak D drži protok
+// na malom vodostaju. Dugo se čitao samo polinom, pa je malom vodostaju
+// ispadala krivulja: na Novom Virju 45 od 131 odsječka, i šest godina bez
+// ijedne krivulje.
 type Odsjecak struct {
-	OdCm, DoCm int
-	P1, P2, P3 string
+	OdCm, DoCm     int
+	Oblik          string // models.OblikPolinom ili models.OblikPotencija
+	P1, P2, P3, P4 string
 }
 
 // Profil je snimka poprečnog profila korita.
@@ -301,13 +312,30 @@ func citajKrivulje(redci []string) ([]Krivulja, Postaja, error) {
 			continue
 		}
 		d := strings.Split(r, ";")
-		if tek == nil || len(d) < 7 || strings.TrimSpace(d[0]) != "1" {
+		if tek == nil || len(d) < 7 {
 			continue
 		}
-		tek.Odsjecci = append(tek.Odsjecci, Odsjecak{
-			OdCm: cijeli(d[1]), DoCm: cijeli(d[2]),
-			P1: bezNula(d[3]), P2: bezNula(d[4]), P3: bezNula(d[5]),
-		})
+		// HIS oba oblika piše istim stupcima A;B;C;D, ali im značenje nije
+		// isto, pa se ne smiju prepisati redom:
+		//
+		//	Tip 1   Q = A·H² + B·H + C        → p1=A, p2=B, p3=C
+		//	Tip 0   Q = A(H + B)^C + D        → p1=A, p2=C, p3=B, p4=D
+		//
+		// Kod potencije su eksponent i pomak zamijenjeni, jer naš zapis drži
+		// pomak uz H, a eksponent izvan zagrade. Prepiše li ih se redom,
+		// protok ispadne kriv, a ništa ne pukne.
+		o := Odsjecak{OdCm: cijeli(d[1]), DoCm: cijeli(d[2]), P1: bezNula(d[3])}
+		switch strings.TrimSpace(d[0]) {
+		case "1":
+			o.Oblik = models.OblikPolinom
+			o.P2, o.P3 = bezNula(d[4]), bezNula(d[5])
+		case "0":
+			o.Oblik = models.OblikPotencija
+			o.P2, o.P3, o.P4 = bezNula(d[5]), bezNula(d[4]), bezNula(d[6])
+		default:
+			continue
+		}
+		tek.Odsjecci = append(tek.Odsjecci, o)
 	}
 	if tek != nil {
 		out = append(out, *tek)

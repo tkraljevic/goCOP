@@ -95,6 +95,7 @@ type odsjecakUPaketu struct {
 	P1    float64 `json:"p1"`
 	P2    float64 `json:"p2"`
 	P3    float64 `json:"p3"`
+	P4    float64 `json:"p4,omitempty"`
 }
 
 type profilUPaketu struct {
@@ -586,14 +587,14 @@ func ucitajKrivulje(db *sql.DB, letva string) ([]krivuljaUPaketu, error) {
 		ids = append(ids, id)
 	}
 	for i, id := range ids {
-		o, err := db.Query(`SELECT od_cm, do_cm, oblik, p1, p2, p3 FROM hq_odsjecci
+		o, err := db.Query(`SELECT od_cm, do_cm, oblik, p1, p2, p3, p4 FROM hq_odsjecci
 			WHERE krivulja = ? ORDER BY od_cm`, id)
 		if err != nil {
 			return nil, err
 		}
 		for o.Next() {
 			var s odsjecakUPaketu
-			if err := o.Scan(&s.OdCm, &s.DoCm, &s.Oblik, &s.P1, &s.P2, &s.P3); err != nil {
+			if err := o.Scan(&s.OdCm, &s.DoCm, &s.Oblik, &s.P1, &s.P2, &s.P3, &s.P4); err != nil {
 				o.Close()
 				return nil, err
 			}
@@ -942,8 +943,8 @@ func Ugradi(db *sql.DB, baza string, s *Sadrzaj) error {
 			return fmt.Errorf("upis krivulje %s: %w", k.VrijediOd, err)
 		}
 		for _, o := range k.Odsjecci {
-			if _, err := tx.Exec(`INSERT INTO hq_odsjecci (krivulja, od_cm, do_cm, oblik, p1, p2, p3)
-				VALUES (?,?,?,?,?,?,?)`, id, o.OdCm, o.DoCm, o.Oblik, o.P1, o.P2, o.P3); err != nil {
+			if _, err := tx.Exec(`INSERT INTO hq_odsjecci (krivulja, od_cm, do_cm, oblik, p1, p2, p3, p4)
+				VALUES (?,?,?,?,?,?,?,?)`, id, o.OdCm, o.DoCm, o.Oblik, o.P1, o.P2, o.P3, o.P4); err != nil {
 				return err
 			}
 		}

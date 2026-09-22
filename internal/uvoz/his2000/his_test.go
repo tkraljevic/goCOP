@@ -3,6 +3,8 @@ package his2000
 import (
 	"testing"
 	"time"
+
+	"gocop/internal/models"
 )
 
 // cp pretvara naš tekst u cp1250, kakav HIS i piše, da test ide kroz istu
@@ -247,5 +249,45 @@ func TestMjeraPrimaITockuIZarez(t *testing.T) {
 		if got := mjera(p.ulaz); got != p.zelim {
 			t.Errorf("mjera(%q) = %q, očekivano %q", p.ulaz, got, p.zelim)
 		}
+	}
+}
+
+// HIS krivulju slaže od dva oblika i oba moraju ući. Potencija je gotovo
+// uvijek najniži odsječak, pa se dugim čitanjem samo polinoma gubio protok
+// pri malom vodostaju — na Novom Virju 45 od 131 odsječka i šest godina bez
+// ijedne krivulje.
+//
+// Podaci su stvarna krivulja Novog Virja za 1979./1980.
+func TestPotencijskiOdsjecakUlaziSPomakom(t *testing.T) {
+	sadrzaj := "Krivulje protoka\r\nŠifra;Podsifra;Stare šifre;Naziv;Vodotok;Kota \"0\";Širina;Dužina;\r\n" +
+		"5098;1;;NOVO VIRJE SKELA;DRAVA;108,86;46 6 36;17 9 9;\r\n\r\n" +
+		"1/1/1979 - 12/31/1980\r\nTip;H1;H2;A;B;C;D;\r\n" +
+		"0;0,0000;120,0000;71,0880;0,4000;2,4630;131,3000;\r\n" +
+		"1;120,0000;200,0000;0,0000;336,3300;-46,4600;0,0000;\r\n"
+	s, err := Procitaj("krivulje.csv", cp(sadrzaj))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(s.Krivulje) != 1 || len(s.Krivulje[0].Odsjecci) != 2 {
+		t.Fatalf("oba oblika moraju ući, dobiveno: %+v", s.Krivulje)
+	}
+	// HIS oba oblika piše stupcima A;B;C;D, ali potenciji su eksponent i
+	// pomak zamijenjeni u odnosu na naš zapis. Prepišu li se redom, protok
+	// ispadne kriv a ništa ne pukne — zato se ovdje provjeravaju poimence.
+	pot := s.Krivulje[0].Odsjecci[0]
+	if pot.Oblik != models.OblikPotencija {
+		t.Errorf("Tip 0 nije potencija nego %q", pot.Oblik)
+	}
+	if pot.P1 != "71,088" || pot.P2 != "2,463" || pot.P3 != "0,4" || pot.P4 != "131,3" {
+		t.Errorf("potencija: %+v — očekivano p1=71,088 p2=2,463 (eksponent) p3=0,4 (pomak u zagradi) p4=131,3", pot)
+	}
+	pol := s.Krivulje[0].Odsjecci[1]
+	if pol.Oblik != models.OblikPolinom {
+		t.Errorf("Tip 1 nije polinom nego %q", pol.Oblik)
+	}
+	// Polinom četvrti koeficijent nema, pa mu polje ostaje prazno umjesto da
+	// piše nulu: prazno kaže „ovaj oblik ga nema", a nula bi bila vrijednost.
+	if pol.P1 != "0" || pol.P2 != "336,33" || pol.P3 != "-46,46" || pol.P4 != "" {
+		t.Errorf("polinom: %+v — koeficijenti idu redom kako stoje, a p4 ostaje prazan", pol)
 	}
 }
