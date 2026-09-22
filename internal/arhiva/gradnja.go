@@ -49,6 +49,7 @@ func dopuniShemu(db *sql.DB) error {
 		{"izvori", "mapa", "TEXT NOT NULL DEFAULT ''"},
 		{"profili", "crtaj", "INTEGER NOT NULL DEFAULT 1"},
 		{"hq_odsjecci", "p4", "REAL NOT NULL DEFAULT 0"},
+		{"profili", "sustav_kote", "TEXT NOT NULL DEFAULT ''"},
 	}
 	for _, c := range stupci {
 		// Zatečena arhiva ne mora imati svaku tablicu; stupac se dodaje samo
@@ -135,6 +136,8 @@ CREATE TABLE IF NOT EXISTS profili (
 	datum    TEXT NOT NULL,          -- kad je korito snimljeno
 	vodostaj INTEGER,                -- vodostaj pri snimanju, cm
 	kota_nule REAL,
+	-- sustav visina u kojem su kote snimke; prazno = ne zna se
+	sustav_kote TEXT NOT NULL DEFAULT '',
 	-- Koliko dodati stacionaži da snimka legne na zajedničku mrežu. Snimke
 	-- se s godinama iznova stacioniraju: Batinina iz 2020. počinje 104,5 m
 	-- desno od one iz 2010. Bez poravnanja se ne mogu ni usporediti ni spojiti.
@@ -902,7 +905,7 @@ func profili(db *sql.DB, koren, samo string, poravnanja map[string]Poravnanje) e
 		if err != nil {
 			return err
 		}
-		datum, vod, kota, tocke, err := citajProfil(f)
+		datum, vod, kota, sustavKote, tocke, err := citajProfil(f)
 		f.Close()
 		if err != nil {
 			return fmt.Errorf("%s: %w", filepath.Base(p), err)
@@ -924,11 +927,12 @@ func profili(db *sql.DB, koren, samo string, poravnanja map[string]Poravnanje) e
 			crtaj = 0
 		}
 		var id int64
-		if err := db.QueryRow(`INSERT INTO profili (letva, datum, vodostaj, kota_nule, pomak_m, crtaj) VALUES (?,?,?,?,?,?)
+		if err := db.QueryRow(`INSERT INTO profili (letva, datum, vodostaj, kota_nule, pomak_m, crtaj, sustav_kote) VALUES (?,?,?,?,?,?,?)
 			ON CONFLICT(letva, datum) DO UPDATE SET vodostaj=excluded.vodostaj, kota_nule=excluded.kota_nule,
+			sustav_kote=excluded.sustav_kote,
 				pomak_m=excluded.pomak_m, crtaj=excluded.crtaj
 			RETURNING id`,
-			letva, datum, vod, kota, por.PomakM, crtaj).Scan(&id); err != nil {
+			letva, datum, vod, kota, por.PomakM, crtaj, sustavKote).Scan(&id); err != nil {
 			return fmt.Errorf("profil %s %s: %w", letva, datum, err)
 		}
 		if _, err := db.Exec(`DELETE FROM profil_tocke WHERE profil = ?`, id); err != nil {
@@ -951,14 +955,14 @@ func profili(db *sql.DB, koren, samo string, poravnanja map[string]Poravnanje) e
 	return nil
 }
 
-func citajProfil(f *os.File) (datum string, vodostaj int, kota float64, tocke [][2]float64, err error) {
+func citajProfil(f *os.File) (datum string, vodostaj int, kota float64, sustavKote string, tocke [][2]float64, err error) {
 	cr := csv.NewReader(f)
 	cr.Comma = ';'
 	cr.FieldsPerRecord = -1
 	cr.Comment = 0
 	sve, err := cr.ReadAll()
 	if err != nil {
-		return "", 0, 0, nil, err
+		return "", 0, 0, "", nil, err
 	}
 	for _, r := range sve {
 		if len(r) == 0 {
@@ -974,7 +978,12 @@ func citajProfil(f *os.File) (datum string, vodostaj int, kota float64, tocke []
 				case strings.HasPrefix(d, "vodostaj pri mjerenju "):
 					fmt.Sscanf(strings.TrimPrefix(d, "vodostaj pri mjerenju "), "%d", &vodostaj)
 				case strings.HasPrefix(d, "kota nule "):
-					fmt.Sscanf(strings.TrimPrefix(d, "kota nule "), "%f", &kota)
+					// iza broja zna stajati sustav: „121.55 TRST"
+					ostatak := strings.TrimPrefix(d, "kota nule ")
+					fmt.Sscanf(ostatak, "%f", &kota)
+					if dj := strings.Fields(ostatak); len(dj) > 1 {
+						sustavKote = dj[1]
+					}
 				}
 			}
 			continue
@@ -989,7 +998,7 @@ func citajProfil(f *os.File) (datum string, vodostaj int, kota float64, tocke []
 		}
 		tocke = append(tocke, [2]float64{s, v})
 	}
-	return datum, vodostaj, kota, tocke, nil
+	return datum, vodostaj, kota, sustavKote, tocke, nil
 }
 
 // krivulje učitava HQ krivulje s razdobljem valjanosti. Krivulja se povremeno

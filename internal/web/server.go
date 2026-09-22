@@ -1165,6 +1165,7 @@ func (s *Server) setupRoutes() {
 	// cijelom arhivom (sirotani, ulaganje, izdavanje) ostaju na globalnom
 	// administratoru: njih doseg po dionici ne može ograničiti.
 	uvozH.SetOvlastiLetve(s.smijeUrediLetvu)
+	uvozH.SetKoteLetve(s.koteNuleLetve)
 	s.mux.Handle("GET /administracija/uvoz-niza", s.authMiddleware(http.HandlerFunc(uvozH.ShowUvoz)))
 	s.mux.Handle("POST /administracija/uvoz-niza/pregled", s.authMiddleware(http.HandlerFunc(uvozH.PregledUvoza)))
 	s.mux.Handle("POST /administracija/uvoz-niza/pregled-opet", s.authMiddleware(http.HandlerFunc(uvozH.PonoviPregled)))
@@ -1698,4 +1699,26 @@ func (s *Server) smijeUrediLetvu(perms *models.UserPermissions, letva string) bo
 		}
 	}
 	return false
+}
+
+// koteNuleLetve vraća kote nule letve u starom i novom sustavu. Snimka korita
+// nosi kotu nule u zaglavlju, ali ne i sustav — pa se sustav prepoznaje tako
+// da se ta brojka usporedi s ove dvije. Razlika je na Dravi dvadesetak
+// centimetara: premalo da iskoči kao greška, dovoljno da izgleda kao da se
+// korito produbilo.
+func (s *Server) koteNuleLetve(letva string) (stara, nova float64, ok bool) {
+	if s.stationService == nil || strings.TrimSpace(letva) == "" {
+		return 0, 0, false
+	}
+	st, err := s.stationService.GetStationByCode(context.Background(), strings.TrimSpace(letva))
+	if err != nil || st == nil {
+		return 0, 0, false
+	}
+	if st.ZeroDatum != nil {
+		stara = *st.ZeroDatum
+	}
+	if st.ZeroDatumNew != nil {
+		nova = *st.ZeroDatumNew
+	}
+	return stara, nova, stara != 0 || nova != 0
 }

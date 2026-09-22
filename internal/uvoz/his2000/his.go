@@ -67,7 +67,13 @@ type Profil struct {
 	Datum    time.Time
 	Vodostaj int    // vodostaj pri mjerenju, cm
 	KotaNule string // kota nule kakvu uz snimku vodi HIS
-	Tocke    []Tocka
+	// Sustav visina u kojem su kote snimke. HIS ga ne piše — izvodi se pri
+	// uvozu, usporedbom kote nule s onom koju letva vodi. Bez njega se ne zna
+	// je li snimka u trščanskom ili HVRS71, a razlika je na Dravi dvadesetak
+	// centimetara: premalo da iskoči kao greška, dovoljno da izgleda kao da
+	// se korito produbilo.
+	Sustav string
+	Tocke  []Tocka
 }
 
 // Tocka je udaljenost od početka i apsolutna kota dna.

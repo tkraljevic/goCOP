@@ -7,8 +7,10 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
+	"gocop/internal/models"
 	"gocop/internal/poslovi"
 	"gocop/internal/uvoz/his2000"
 )
@@ -29,6 +31,10 @@ type PregledProfila struct {
 	Poslano   int
 	Snimke    []SnimkaZaPrikaz
 	Odbijeno  []string
+	// Kote koje letva vodi, da se u pregledu vidi s čime se uspoređivalo.
+	KotaStara, KotaNova float64
+	// Neprepoznatih je koliko snimki traži odgovor o sustavu.
+	Neprepoznatih int
 }
 
 // SnimkaZaPrikaz je jedna snimka i što bi se s njom dogodilo.
@@ -40,7 +46,14 @@ type SnimkaZaPrikaz struct {
 	KotaNule string
 	Ciljna   string // kako će se zvati u stablu
 	Stanje   string // nova | zamjena | dvojnik
+	// Sustav je prepoznat iz kote nule: snimka koja kaže 121,55 je trščanska,
+	// koja kaže 121,36 je HVRS71. Prazno znači da se ne poklapa ni s jednom
+	// kotom koju letva vodi — tada se ne nagađa nego pita.
+	Sustav string
 }
+
+// TraziOdgovor javlja da se sustav snimke nije dao prepoznati.
+func (s SnimkaZaPrikaz) TraziOdgovor() bool { return s.Sustav == "" && s.Stanje != "dvojnik" }
 
 // JeNova javlja treba li snimku istaknuti kao novu.
 func (s SnimkaZaPrikaz) JeNova() bool { return s.Stanje == "nova" }
@@ -81,6 +94,9 @@ func (h *UvozHandler) PregledUvozaProfila(w http.ResponseWriter, r *http.Request
 		d.ErrorMessage = err.Error()
 		h.pisi(w, d)
 		return
+	}
+	if h.koteLetve != nil {
+		p.KotaStara, p.KotaNova, _ = h.koteLetve(letva)
 	}
 	// Snimka istog dana zna doći dvaput, pod dva imena. Prvo se pročita sve,
 	// pa se za svaki dan zadrži ona s najviše točaka — dvije izmjere istog
@@ -139,6 +155,10 @@ func (h *UvozHandler) PregledUvozaProfila(w http.ResponseWriter, r *http.Request
 				c.ime, len(c.profil.Tocke), zadrzana.ime, len(zadrzana.profil.Tocke)))
 			p.Snimke = append(p.Snimke, snimka)
 			continue
+		}
+		snimka.Sustav = prepoznajSustav(c.profil.KotaNule, p.KotaStara, p.KotaNova)
+		if snimka.Sustav == "" {
+			p.Neprepoznatih++
 		}
 		if postoji(filepath.Join(mapa, ciljna)) {
 			snimka.Stanje = "zamjena"
@@ -209,6 +229,13 @@ func (h *UvozHandler) UpisiProfile(w http.ResponseWriter, r *http.Request) {
 		h.pisi(w, d)
 		return
 	}
+	var kotaStara, kotaNova float64
+	if h.koteLetve != nil {
+		kotaStara, kotaNova, _ = h.koteLetve(letva)
+	}
+	// Sustav se prepoznaje iz kote nule; odabir s obrasca vrijedi samo za one
+	// koje se nisu prepoznale.
+	odabrani := strings.TrimSpace(r.FormValue("sustav"))
 	id := r.FormValue("id")
 	zapisano := 0
 	var greske []string
@@ -223,6 +250,15 @@ func (h *UvozHandler) UpisiProfile(w http.ResponseWriter, r *http.Request) {
 		if err != nil || s.Profil == nil {
 			greske = append(greske, ceka.ime+" — više se ne čita kao snimka korita")
 			continue
+		}
+		s.Profil.Sustav = prepoznajSustav(s.Profil.KotaNule, kotaStara, kotaNova)
+		if s.Profil.Sustav == "" {
+			if odabrani == "" {
+				greske = append(greske, ceka.ime+" — kota nule "+s.Profil.KotaNule+
+					" ne odgovara nijednoj koju letva vodi, a sustav nije odabran")
+				continue
+			}
+			s.Profil.Sustav = odabrani
 		}
 		put := filepath.Join(mapa, his2000.ImeProfila(letva, s.Profil))
 		if err := os.WriteFile(put, his2000.ProfilCSV(s.Profil), 0o644); err != nil {
@@ -254,4 +290,32 @@ func (h *UvozHandler) UpisiProfile(w http.ResponseWriter, r *http.Request) {
 		})
 	d.PosaoID, d.PosaoNaziv = p.ID, p.Naziv
 	h.pisi(w, d)
+}
+
+// prepoznajSustav kaže u kojem su sustavu kote snimke, usporedbom njezine kote
+// nule s onima koje letva vodi. Razlika između sustava je na Dravi dvadesetak
+// centimetara, a mjerenja se podudaraju na milimetre, pa je milimetar dovoljno
+// široka mjera. Prazan odgovor znači da se ne poklapa ni s jednom — tada se ne
+// nagađa: snimka je ili s druge letve, ili joj je nula premještena, ili je
+// netko kotu prepisao krivo.
+func prepoznajSustav(kotaSnimke string, stara, nova float64) string {
+	k, err := strconv.ParseFloat(strings.ReplaceAll(strings.TrimSpace(kotaSnimke), ",", "."), 64)
+	if err != nil || k == 0 {
+		return ""
+	}
+	const dopusteno = 0.005 // pola centimetra
+	switch {
+	case stara != 0 && absF(k-stara) <= dopusteno:
+		return models.ZeroDatumSystemOld
+	case nova != 0 && absF(k-nova) <= dopusteno:
+		return models.ZeroDatumSystemNew
+	}
+	return ""
+}
+
+func absF(v float64) float64 {
+	if v < 0 {
+		return -v
+	}
+	return v
 }

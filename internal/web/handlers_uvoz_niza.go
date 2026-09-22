@@ -86,6 +86,11 @@ type UvozHandler struct {
 	// programom nego nad letvom: administrator područja uvozi svoje, kao što
 	// i kartice svojih letava uređuje.
 	smijeLetvu func(perms *models.UserPermissions, letva string) bool
+	// koteLetve vraća kote nule te letve u starom i novom sustavu. Služi da
+	// se sustav snimke korita prepozna iz same brojke umjesto da ga čovjek
+	// tvrdi: snimka koja kaže 121,55 je trščanska, koja kaže 121,36 je
+	// HVRS71. Kad se ne poklopi ni s jednom, program stane i pita.
+	koteLetve func(letva string) (stara, nova float64, ok bool)
 }
 
 func NewUvozHandler(arhivaPut, podaciDir func() string,
@@ -305,6 +310,11 @@ func (h *UvozHandler) izvorUlaziUSpoj(naziv string) bool {
 		}
 	}
 	return false
+}
+
+// SetKoteLetve daje vratima kote nule letve, za prepoznavanje sustava snimke.
+func (h *UvozHandler) SetKoteLetve(f func(letva string) (stara, nova float64, ok bool)) {
+	h.koteLetve = f
 }
 
 // SetOvlastiLetve daje vratima provjeru smije li netko dirati pojedinu letvu.

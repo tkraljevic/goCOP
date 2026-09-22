@@ -48,8 +48,12 @@ func BrojOdsjecaka(s *Sadrzaj) int {
 // nego niz brojeva.
 func ProfilCSV(p *Profil) []byte {
 	var b bytes.Buffer
+	kota := p.KotaNule
+	if p.Sustav != "" {
+		kota += " " + p.Sustav
+	}
 	fmt.Fprintf(&b, "# poprečni profil korita, mjereno %s, vodostaj pri mjerenju %d cm, kota nule %s\n",
-		p.Datum.Format("2006-01-02"), p.Vodostaj, p.KotaNule)
+		p.Datum.Format("2006-01-02"), p.Vodostaj, kota)
 	fmt.Fprintln(&b, "stacionaza_m;visina_m")
 	for _, t := range p.Tocke {
 		fmt.Fprintf(&b, "%s;%s\n", t.Stacionaza, t.Visina)
