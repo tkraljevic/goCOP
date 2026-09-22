@@ -218,24 +218,8 @@ func (p *Posao) Krivulje(s *his2000.Sadrzaj, izvornik string) {
 	if err := os.MkdirAll(filepath.Join(hq, "izvornik"), 0o755); err != nil {
 		log.Fatal(err)
 	}
-	f, err := os.Create(filepath.Join(p.Cilj, ime))
-	if err != nil {
+	if err := os.WriteFile(filepath.Join(p.Cilj, ime), his2000.KrivuljeCSV(s), 0o644); err != nil {
 		log.Fatal(err)
-	}
-	defer f.Close()
-	fmt.Fprintln(f, "vrijedi_od;vrijedi_do;od_cm;do_cm;oblik;p1;p2;p3;p4;izvor;napomena")
-	for i, k := range s.Krivulje {
-		// Zadnjoj krivulji kraj ostaje otvoren: DHMZ ga upiše na kraj tekuće
-		// godine, a krivulja vrijedi dok ne objave novu. Sa zapisanim krajem
-		// protok bi na Silvestrovo prestao imati krivulju.
-		do_ := k.Do.Format("2006-01-02")
-		if i == len(s.Krivulje)-1 {
-			do_ = ""
-		}
-		for _, o := range k.Odsjecci {
-			fmt.Fprintf(f, "%s;%s;%d;%d;%s;%s;%s;%s;%s;DHMZ, HIS-2000;\n",
-				k.Od.Format("2006-01-02"), do_, o.OdCm, o.DoCm, o.Oblik, o.P1, o.P2, o.P3, o.P4)
-		}
 	}
 	if err := prepisi(izvornik, filepath.Join(hq, "izvornik", filepath.Base(izvornik))); err != nil {
 		log.Fatal(err)

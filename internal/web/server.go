@@ -1172,6 +1172,10 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /administracija/uvoz-niza/makni-niz", s.samoAdmin(http.HandlerFunc(uvozH.MakniSirotana)))
 	s.mux.Handle("POST /administracija/uvoz-niza/zatecen", s.authMiddleware(http.HandlerFunc(uvozH.Zatecen)))
 	s.mux.Handle("POST /administracija/uvoz-niza/upisi", s.authMiddleware(http.HandlerFunc(uvozH.UpisiUvoz)))
+	// Krivulja nije vremenski niz pa ne prolazi kroz uvoz niza; ide svojim
+	// putem, ali kroz istu ogradu po letvi i isti red pregled-pa-potvrda.
+	s.mux.Handle("POST /administracija/uvoz-krivulja/pregled", s.authMiddleware(http.HandlerFunc(uvozH.PregledUvozaKrivulja)))
+	s.mux.Handle("POST /administracija/uvoz-krivulja/upisi", s.authMiddleware(http.HandlerFunc(uvozH.UpisiKrivulje)))
 	uvozH.SetIzdavanje(func() string { return s.paketiDir }, s.IzdajArhivu, s.KatalogIzdanja, s.poslovi)
 	uvozH.SetOcitanja(func() *sql.DB { return s.db }, func() string { return s.recorder.Cvor() })
 	s.mux.Handle("POST /administracija/ulaganje/pregled", s.samoAdmin(http.HandlerFunc(uvozH.PregledUlaganja)))

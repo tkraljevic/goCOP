@@ -276,6 +276,81 @@
     <button type="submit" class="btn btn-primary">{{icon "eye"}} Pogledaj što je u njoj</button>
   </div>
 </form>
+
+<form method="POST" action="/administracija/uvoz-krivulja/pregled" enctype="multipart/form-data"
+      class="reg-card" style="padding:1rem; margin-bottom:1rem;">
+  <h2 class="izvor-naziv">{{icon "trending-up"}} Krivulje protoka iz HIS-2000</h2>
+  <p class="page-desc" style="margin:0.25rem 0 0.75rem 0;">
+    Jedna datoteka <span class="mono">krivulje.csv</span> nosi sve krivulje te letve — svaku sa svojim
+    razdobljem valjanosti i odsječcima — a uz njih i kotu nule s koordinatama. Pojedinačne
+    <span class="mono">krivulja1.rtf</span> ne trebaju: u njima su iste brojke, samo ispisane za čitanje.
+  </p>
+  <div style="display:flex; gap:0.75rem; flex-wrap:wrap; align-items:flex-end;">
+    <label class="izvor-napomena" style="margin:0;">
+      <span class="part-label">Letva</span>
+      <input list="popis-letvi-krivulje" name="letva" required class="form-control" style="max-width:14rem;"
+             value="{{if .Krivulje}}{{.Krivulje.Letva}}{{end}}">
+      <datalist id="popis-letvi-krivulje">
+        {{range .Letve}}<option value="{{.}}">{{end}}
+      </datalist>
+    </label>
+    <label class="izvor-napomena" style="margin:0;">
+      <span class="part-label">Datoteka s diska</span>
+      <input type="file" name="datoteka" accept=".csv,.txt" required class="form-control" style="max-width:20rem;">
+    </label>
+    <button type="submit" class="btn btn-primary">{{icon "eye"}} Pogledaj krivulje</button>
+  </div>
+</form>
+{{end}}
+
+{{if .Krivulje}}
+<form method="POST" action="/administracija/uvoz-krivulja/upisi" class="reg-card" style="padding:1rem; margin-bottom:1rem;">
+  <input type="hidden" name="id" value="{{.Krivulje.Id}}">
+  <input type="hidden" name="letva" value="{{.Krivulje.Letva}}">
+  <h2 class="izvor-naziv">Što je u datoteci</h2>
+  <p class="izvor-obujam mono">{{.Krivulje.Letva}} — {{.Krivulje.Ime}}</p>
+  <dl class="reg-facts" style="margin:0.5rem 0;">
+    <div><dt>Krivulja</dt><dd>{{.Krivulje.Krivulja}}
+      {{if .Krivulje.ZatecenihKrivulja}}<span class="reg-card-sub">zatečeno {{.Krivulje.ZatecenihKrivulja}}</span>{{else}}<span class="reg-card-sub">letva ih dosad nije imala</span>{{end}}</dd></div>
+    <div><dt>Odsječaka</dt><dd>{{.Krivulje.Odsjecaka}}
+      {{if .Krivulje.ZatecenihOdsjecaka}}<span class="reg-card-sub">zatečeno {{.Krivulje.ZatecenihOdsjecaka}}</span>{{end}}</dd></div>
+    <div><dt>Potencija</dt><dd>{{.Krivulje.Potencija}} <span class="reg-card-sub">donji dio krivulje</span></dd></div>
+    <div><dt>Razdoblje</dt><dd class="mono">{{.Krivulje.Od}} .. {{.Krivulje.Do}}</dd></div>
+    {{if .Krivulje.KotaNule}}
+    <div><dt>Kota nule uz krivulje</dt><dd class="mono">{{.Krivulje.KotaNule}} m
+      {{if .Krivulje.Sirina}}<span class="reg-card-sub">{{.Krivulje.Sirina}} / {{.Krivulje.Duzina}}</span>{{end}}</dd></div>
+    {{end}}
+  </dl>
+  <p class="page-desc" style="margin:0.25rem 0 0.75rem 0;">
+    Kota nule se <strong>ne upisuje</strong> u karticu letve — ovdje stoji samo da se vidi slaže li se s onom
+    koju registar već vodi. Zadnjoj krivulji kraj ostaje otvoren jer vrijedi dok ne objave novu.
+  </p>
+
+  <details>
+    <summary style="cursor:pointer; font-weight:600;">Sve krivulje po razdobljima <span class="reg-chip">{{.Krivulje.Krivulja}}</span></summary>
+    <div class="table-responsive" style="margin-top:0.5rem;">
+      <table class="data-table">
+        <thead><tr><th>Vrijedi</th><th>Raspon</th><th>Formula</th></tr></thead>
+        <tbody>
+        {{range .Krivulje.Popis}}
+          {{$k := .}}
+          {{range $i, $o := .Odsjecci}}
+          <tr>
+            <td class="mono">{{if eq $i 0}}{{$k.Od}} .. {{$k.Do}}{{end}}</td>
+            <td class="mono">{{$o.Raspon}}</td>
+            <td class="mono">{{$o.Zapis}}</td>
+          </tr>
+          {{end}}
+        {{end}}
+        </tbody>
+      </table>
+    </div>
+  </details>
+
+  <div style="margin-top:0.75rem;">
+    <button type="submit" class="btn btn-primary">{{icon "check"}} Upiši i izgradi</button>
+  </div>
+</form>
 {{end}}
 
 {{if .Pogodak}}

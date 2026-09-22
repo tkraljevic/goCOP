@@ -159,6 +159,10 @@ type UvozPageData struct {
 	Dnevnik   string // ispis gradnje nakon upisa
 	Cekaizvor string // izvor koji je upisan a još ne ulazi u spojeni niz
 
+	// Krivulje protoka poslane na uvoz, prije potvrde. Krivulja nije niz pa
+	// ide svojim putem, ali kroz isti pregled-pa-potvrda.
+	Krivulje *PregledKrivulja
+
 	// Dugi posao u tijeku: stranica crta traku i pita poslužitelja kako stoji.
 	PosaoID    string
 	PosaoNaziv string
