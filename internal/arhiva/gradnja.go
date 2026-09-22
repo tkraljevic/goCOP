@@ -1118,6 +1118,11 @@ var zadaniIzvori = []Izvor{
 	// događa, praznina se popunjava radarom umjesto da ostane rupa.
 	{"geolux-radar", 5, 21, false, "", "rezervni radarski zapisivač iste postaje; kod Tikveša je prvu godinu pratio tlačni unutar 2 cm, a onda odlutao do 22 cm i u svibnju 2026. utihnuo — zato stoji isključen dok se ne provjeri po razdobljima"},
 	{"pegelonline", 5, 20, true, "", "javni operativni vodostaji; u arhivu se uzimaju stvarna očitanja na punom satu"},
+	// Hidroelektrana mjeri vlastito istjecanje i taj broj nitko drugi ne
+	// mjeri. Kad takav niz stoji uz letvu, u imenu izvora piše koja ga je
+	// elektrana dala: vrijednost nije očitana na letvi nego na elektrani, a
+	// to se iz same brojke više ne vidi.
+	{"hep-he-dubrava", 5, 20, true, "", "istjecanje HE Dubrave, kako ga HEP objavljuje; mjereno na elektrani, ne na letvi — preljev se vodi zasebno, točnost proglašena, ne izmjerena"},
 }
 
 // zadanaTocnost vrijedi za izvor kojeg u tablici nema. Preračun se prepoznaje
