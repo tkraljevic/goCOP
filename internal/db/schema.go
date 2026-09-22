@@ -1593,9 +1593,17 @@ func rekeySeedIdentities(database *sql.DB) error {
 	}
 
 	for _, r := range stations {
+		// Sve što pokazuje na postaju mora poći za njom. Očitanja, građevine,
+		// epizode obrane i akti ostali su jednom iza, i letva se digla prazna
+		// dok joj je sedamnaest godina niza visjelo o identitetu kojeg više
+		// nema. Novu tablicu sa station_id dopisati i ovdje.
 		if err := replaceEverywhere(r.old, r.new,
 			`UPDATE stations SET id = ? WHERE id = ?`,
 			`UPDATE section_stations SET station_id = ? WHERE station_id = ?`,
+			`UPDATE readings SET station_id = ? WHERE station_id = ?`,
+			`UPDATE structures SET station_id = ? WHERE station_id = ?`,
+			`UPDATE defense_episodes SET station_id = ? WHERE station_id = ?`,
+			`UPDATE akti SET station_id = ? WHERE station_id = ?`,
 		); err != nil {
 			return err
 		}
