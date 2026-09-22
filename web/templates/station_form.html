@@ -231,6 +231,31 @@
            placeholder="ono što se o letvi mora znati, a nije brojka">
   </div>
 
+  <h3 style="font-size:0.9rem; margin:1.5rem 0 0.25rem;">Povijest postaje</h3>
+  <p class="form-help" style="margin:0 0 0.5rem;">
+    Ono što o postaji piše u dokumentaciji službe, a iz brojki se ne vidi: tko ju je i zašto osnovao, gdje
+    točno stoji, koji su uređaji kad došli i otišli, na koje je stalne točke vezana. Zamjena limnigrafa ili
+    premještanje letve ostave trag u nizu, a razlog ostane izvan njega.
+  </p>
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="datum_osnivanja">Počela s radom</label>
+      <input type="text" id="datum_osnivanja" name="datum_osnivanja" class="form-control"
+             value="{{.Station.DatumOsnivanja}}" placeholder="1977-12-28 ili 1977-12">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="opis_vodokaza">Opis vodokaza</label>
+      <input type="text" id="opis_vodokaza" name="opis_vodokaza" class="form-control"
+             value="{{.Station.OpisVodokaza}}"
+             placeholder="npr. vertikalan četverodijelni, −70 do 300 cm, desna obala">
+    </div>
+  </div>
+  <div class="form-group">
+    <label class="form-label" for="povijest">Povijest</label>
+    <textarea id="povijest" name="povijest" class="form-control" rows="6"
+              placeholder="osnivanje, položaj, uređaji kroz vrijeme, stalne točke i reperi">{{.Station.Povijest}}</textarea>
+  </div>
+
   <h3 style="font-size:0.9rem; margin:1rem 0 0.25rem;">Javna stranica vodostaja</h3>
   <div class="form-row">
     <div class="form-group">

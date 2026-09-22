@@ -128,6 +128,22 @@ type Station struct {
 	Notes      string `json:"notes"`
 	SourceName string `json:"source_name"` // izvorni zapis naziva iz dokumentacije dionice
 
+	// Povijest je ono što o postaji piše u dokumentaciji službe, a iz brojki
+	// se ne vidi: tko ju je i zašto osnovao, gdje točno stoji, koji su
+	// uređaji kad došli i otišli, na koje je stalne točke vezana. Bez toga se
+	// poslije ne zna zašto niz izgleda kako izgleda — zamjena limnigrafa ili
+	// premještanje letve ostavljaju trag u podacima, a razlog ostaje izvan
+	// njih. Stoji odvojeno od napomene, koja govori o današnjem stanju.
+	Povijest string `json:"povijest,omitempty"`
+	// OpisVodokaza je sama letva: kakva je, koliko dijelova ima, koji raspon
+	// pokriva, na kojoj je obali. Raspon je važan jer očitanje izvan njega
+	// nije očitano s letve nego izmjereno uređajem.
+	OpisVodokaza string `json:"opis_vodokaza,omitempty"`
+	// DatumOsnivanja je dan kad je postaja počela raditi, YYYY-MM-DD ili
+	// YYYY-MM kad se dan ne zna. Niz koji seže ispred tog datuma dolazi
+	// odnekud drugdje i to treba objasniti.
+	DatumOsnivanja string `json:"datum_osnivanja,omitempty"`
+
 	// NeedsReview označava postaju čiji podaci nisu u cijelosti strojno
 	// pročitani i traže potvrdu operatera prije oslanjanja na automatiku.
 	NeedsReview bool   `json:"needs_review"`

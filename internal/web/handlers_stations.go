@@ -573,6 +573,9 @@ type stationForm struct {
 	State              string `json:"state"`
 	Record             string `json:"record"`
 	Notes              string `json:"notes"`
+	Povijest           string `json:"povijest"`
+	OpisVodokaza       string `json:"opis_vodokaza"`
+	DatumOsnivanja     string `json:"datum_osnivanja"`
 
 	// Položaj letve i podrijetlo kote nule. Dotad se upisivalo popravkom u
 	// kodu, dakle nije se moglo ni vidjeti ni promijeniti iz programa.
@@ -626,6 +629,9 @@ func decodeStationForm(r *http.Request) (stationForm, error) {
 	form.State = r.FormValue("state")
 	form.Record = r.FormValue("record")
 	form.Notes = r.FormValue("notes")
+	form.Povijest = r.FormValue("povijest")
+	form.OpisVodokaza = r.FormValue("opis_vodokaza")
+	form.DatumOsnivanja = r.FormValue("datum_osnivanja")
 	form.Latitude = r.FormValue("latitude")
 	form.Longitude = r.FormValue("longitude")
 	form.ZeroDatumSource = r.FormValue("zero_datum_source")
@@ -683,6 +689,9 @@ func (f stationForm) primijeni(st *models.Station) {
 	st.ZeroDatumSurveyDate = strings.TrimSpace(f.ZeroDatumSurveyDate)
 	st.ZeroDatumDocumentDate = strings.TrimSpace(f.ZeroDatumDocumentDate)
 	st.Notes = strings.TrimSpace(f.Notes)
+	st.Povijest = strings.TrimSpace(f.Povijest)
+	st.OpisVodokaza = strings.TrimSpace(f.OpisVodokaza)
+	st.DatumOsnivanja = strings.TrimSpace(f.DatumOsnivanja)
 	st.SourceName = strings.TrimSpace(f.SourceName)
 	st.NeedsReview = f.NeedsReview == "1" || f.NeedsReview == "on" || f.NeedsReview == "true"
 	st.ReviewNote = strings.TrimSpace(f.ReviewNote)

@@ -640,6 +640,9 @@ func InitSchema(database *sql.DB) error {
 			javni_uvoz INTEGER NOT NULL DEFAULT 0,
 			telemetrija_site TEXT NOT NULL DEFAULT '',
 			telemetrija_uvoz INTEGER NOT NULL DEFAULT 0,
+			povijest TEXT NOT NULL DEFAULT '',
+			opis_vodokaza TEXT NOT NULL DEFAULT '',
+			datum_osnivanja TEXT NOT NULL DEFAULT '',
 			zero_datum_source TEXT NOT NULL DEFAULT '',
 			zero_datum_method TEXT NOT NULL DEFAULT '',
 			zero_datum_survey_date TEXT NOT NULL DEFAULT '',
@@ -1354,6 +1357,13 @@ func migrateSchema(database *sql.DB) error {
 		// postaje ondje i sklopka koja to uključuje.
 		{"stations", "telemetrija_site", "TEXT NOT NULL DEFAULT ''"},
 		{"stations", "telemetrija_uvoz", "INTEGER NOT NULL DEFAULT 0"},
+		// Povijest postaje, opis same letve i dan kad je počela raditi. To
+		// stoji u dokumentaciji službe, a iz niza se ne vidi: zamjena
+		// limnigrafa ili premještanje letve ostave trag u podacima, a razlog
+		// ostane izvan njih.
+		{"stations", "povijest", "TEXT NOT NULL DEFAULT ''"},
+		{"stations", "opis_vodokaza", "TEXT NOT NULL DEFAULT ''"},
+		{"stations", "datum_osnivanja", "TEXT NOT NULL DEFAULT ''"},
 		{"readings", "temp_c", "REAL"},
 		{"readings", "flow_m3s", "REAL"},
 		{"akti", "u_zamjeni", "INTEGER NOT NULL DEFAULT 0"},

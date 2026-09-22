@@ -62,6 +62,21 @@
 </section>
 {{end}}
 
+{{if or .Station.Povijest .Station.OpisVodokaza .Station.DatumOsnivanja}}
+<section class="detail-section">
+  <h2>{{icon "history"}} Povijest postaje</h2>
+  <div class="reg-card" style="padding:1rem;">
+    {{if or .Station.DatumOsnivanja .Station.OpisVodokaza}}
+    <dl class="reg-facts" style="margin:0 0 0.75rem;">
+      {{if .Station.DatumOsnivanja}}<div><dt>Počela s radom</dt><dd class="mono">{{.Station.DatumOsnivanja}}</dd></div>{{end}}
+      {{if .Station.OpisVodokaza}}<div><dt>Vodokaz</dt><dd>{{.Station.OpisVodokaza}}</dd></div>{{end}}
+    </dl>
+    {{end}}
+    {{if .Station.Povijest}}<p style="margin:0; white-space:pre-line;">{{.Station.Povijest}}</p>{{end}}
+  </div>
+</section>
+{{end}}
+
 
 
 <section class="detail-section">

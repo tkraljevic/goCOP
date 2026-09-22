@@ -60,6 +60,9 @@ func main() {
 	sirina := flag.String("sirina", "", "zemljopisna širina, decimalni stupnjevi")
 	duzina := flag.String("duzina", "", "zemljopisna dužina, decimalni stupnjevi")
 	napomena := flag.String("napomena", "", "opća napomena uz postaju")
+	povijest := flag.String("povijest", "", "povijest postaje iz dokumentacije službe")
+	opisVodokaza := flag.String("opis-vodokaza", "", "kakav je vodokaz i koji raspon pokriva")
+	datumOsnivanja := flag.String("datum-osnivanja", "", "kad je postaja počela raditi, YYYY-MM-DD ili YYYY-MM")
 	pregled := flag.String("pregled", "", "označi za pregled: da ili ne; prazno ne mijenja")
 	napomenaPregleda := flag.String("napomena-pregleda", "", "upozorenje i razlog pregleda")
 	nova := flag.Bool("nova", false, "otvori postaju ako je nema (traži -naziv)")
@@ -75,6 +78,11 @@ func main() {
 		log.Fatal(err)
 	}
 	defer database.Close()
+	// Shema se dopunjava i ovdje: naredba zna biti prva koja bazu otvori
+	// nakon nadogradnje, a upis u stupac kojeg još nema pukne na pola posla.
+	if err := db.InitSchema(database); err != nil {
+		log.Fatal(err)
+	}
 
 	rec := ledger.New(database, *nodeID)
 	repo := repository.NewStationRepository(database, rec)
@@ -179,6 +187,9 @@ func main() {
 	tekst("datum dokumenta", &letva.ZeroDatumDocumentDate, *kotaDatumDokumenta)
 	tekst("napomena", &letva.Notes, *napomena)
 	tekst("napomena pregleda", &letva.ReviewNote, *napomenaPregleda)
+	tekst("povijest", &letva.Povijest, *povijest)
+	tekst("opis vodokaza", &letva.OpisVodokaza, *opisVodokaza)
+	tekst("datum osnivanja", &letva.DatumOsnivanja, *datumOsnivanja)
 	if *javnaPostaja != "" {
 		id, err := strconv.Atoi(strings.TrimSpace(*javnaPostaja))
 		if err != nil || id <= 0 {

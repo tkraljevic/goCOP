@@ -55,7 +55,8 @@ const stationColumns = `
 	s.record_cm, s.record_raw,
 	s.notes, s.source_name, s.needs_review, s.review_note,
 	s.latitude, s.longitude, s.created_at, s.updated_at, s.javni_url, s.javni_uvoz,
-	s.telemetrija_site, s.telemetrija_uvoz
+	s.telemetrija_site, s.telemetrija_uvoz,
+	s.povijest, s.opis_vodokaza, s.datum_osnivanja
 `
 
 // scanStation čita jedan redak registra postaja
@@ -92,6 +93,7 @@ func scanStation(scanner interface{ Scan(...any) error }) (models.Station, error
 		&st.Notes, &st.SourceName, &needsRev, &st.ReviewNote,
 		&lat, &lon, &st.CreatedAt, &st.UpdatedAt, &st.JavniURL, &javniUvoz,
 		&st.TelemetrijaSite, &telUvoz,
+		&st.Povijest, &st.OpisVodokaza, &st.DatumOsnivanja,
 	)
 	if err != nil {
 		return st, err
@@ -360,8 +362,9 @@ func (r *StationRepository) CreateStation(ctx context.Context, st *models.Statio
 			record_cm, record_raw,
 			notes, source_name, needs_review, review_note,
 			latitude, longitude, created_at, updated_at, javni_url, javni_uvoz,
-			telemetrija_site, telemetrija_uvoz
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			telemetrija_site, telemetrija_uvoz,
+			povijest, opis_vodokaza, datum_osnivanja
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`,
 		st.ID.String(), st.Code, st.Name, st.Watercourse, st.WatercourseCode, st.WatercourseSource, st.WaterArea, st.Stationing,
 		st.ZeroDatum, defaultSystem(st.ZeroDatumSystem, models.ZeroDatumSystemOld),
@@ -374,6 +377,7 @@ func (r *StationRepository) CreateStation(ctx context.Context, st *models.Statio
 		st.Notes, st.SourceName, boolToInt(st.NeedsReview), st.ReviewNote,
 		st.Latitude, st.Longitude, st.CreatedAt, st.UpdatedAt, st.JavniURL, boolToInt(st.JavniUvoz),
 		st.TelemetrijaSite, boolToInt(st.TelemetrijaUvoz),
+		st.Povijest, st.OpisVodokaza, st.DatumOsnivanja,
 	)
 	if err != nil {
 		return fmt.Errorf("greška pri unosu vodomjerne postaje %q: %w", st.Name, err)
@@ -411,7 +415,8 @@ func (r *StationRepository) UpdateStation(ctx context.Context, st *models.Statio
 			record_cm = ?, record_raw = ?,
 			notes = ?, source_name = ?, needs_review = ?, review_note = ?,
 			latitude = ?, longitude = ?, updated_at = ?, javni_url = ?, javni_uvoz = ?,
-			telemetrija_site = ?, telemetrija_uvoz = ?
+			telemetrija_site = ?, telemetrija_uvoz = ?,
+			povijest = ?, opis_vodokaza = ?, datum_osnivanja = ?
 		WHERE id = ?
 	`,
 		st.Code, st.Name, st.Watercourse, st.WatercourseSource,
@@ -425,7 +430,8 @@ func (r *StationRepository) UpdateStation(ctx context.Context, st *models.Statio
 		st.Record.Cm, st.Record.Raw,
 		st.Notes, st.SourceName, boolToInt(st.NeedsReview), st.ReviewNote,
 		st.Latitude, st.Longitude, st.UpdatedAt, st.JavniURL, boolToInt(st.JavniUvoz),
-		st.TelemetrijaSite, boolToInt(st.TelemetrijaUvoz), st.ID.String(),
+		st.TelemetrijaSite, boolToInt(st.TelemetrijaUvoz),
+		st.Povijest, st.OpisVodokaza, st.DatumOsnivanja, st.ID.String(),
 	)
 	if err != nil {
 		return fmt.Errorf("greška pri izmjeni vodomjerne postaje %q: %w", st.Name, err)
