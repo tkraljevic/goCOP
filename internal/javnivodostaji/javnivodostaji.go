@@ -394,7 +394,20 @@ type hvIzvor struct{ c *Client }
 func (h hvIzvor) Naziv() string                 { return Podrijetlo }
 func (h hvIzvor) Prepoznaje(adresa string) bool { return PostajaIzAdrese(adresa) > 0 }
 func (h hvIzvor) Ocitanja(ctx context.Context, adresa string) ([]Redak, error) {
-	return h.c.OcitanjaSAdrese(ctx, adresa)
+	redci, err := h.c.OcitanjaSAdrese(ctx, adresa)
+	if err != nil {
+		return nil, err
+	}
+	// Protok stoji na drugoj stranici i nema ga svaka letva. Kad ga nema, ili
+	// kad se ta stranica ne javi, vodostaj se svejedno vraća — protok je
+	// dodatak, a ne uvjet.
+	p := Postaja{ID: PostajaIzAdrese(adresa), Sektor: SektorIzAdrese(adresa)}
+	if p.ID > 0 {
+		if protoci, err := h.c.Protoci(ctx, p); err == nil {
+			redci = dopuniProtokom(redci, protoci)
+		}
+	}
+	return redci, nil
 }
 
 // IzvorZa bira čitač po adresi; nil kad nijedan ne prepoznaje adresu
