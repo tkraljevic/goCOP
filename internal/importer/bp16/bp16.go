@@ -259,7 +259,7 @@ var gaugeStations = map[string]stationSpec{
 	"Dunav - Budapest (HU)":              {Code: "budapest", Name: "Budapest (HU)", Watercourse: "Dunav", Note: "Mađarska uzvodna postaja na Dunavu; očitanja se prepisuju iz mađarskog hidrološkog servisa."},
 	"Menetfok":                           {Code: "menetfok", Name: "Menetfok (HU)", Note: "Mađarska uzvodna postaja iz evidencije VGI Baranja; voda nije utvrđena."},
 	"Dunav - Zlatna Greda":               {Code: "zlatna-greda", Name: "Zlatna Greda", Watercourse: "Dunav", Note: "Letva na Dunavu kod CS Zlatna Greda, iz evidencije VGI Baranja."},
-	"Dunav - Zmajevac":                   {Code: "dunav-zmajevac", Name: "Zmajevac (Dunav)", Watercourse: "Dunav", Note: "Letva na Dunavu kod Zmajevca, iz evidencije VGI Baranja; nije isto što i letva na lateralnom kanalu."},
+	"Dunav - Zmajevac":                   {Code: "dunav-zmajevac", Name: "Ustava Zmajevac (nizvodno)", Watercourse: "Zmajevački Dunavac", Note: "Nizvodna letva Ustave Zmajevac, na Zmajevačkom Dunavcu u inundaciji Dunava (BP 34); evidencija VGI Baranja je vodi kao „Dunav – Zmajevac“. Nije isto što i letva na lateralnom kanalu."},
 	"P. Karašica - Villány (HU)":         {Code: "villany", Name: "Villány (HU)", Watercourse: "Karašica", Note: "Mađarska uzvodna postaja na Karašici."},
 	"P. Karašica - Szederkény (HU)":      {Code: "szederkeny", Name: "Szederkény (HU)", Watercourse: "Karašica", Note: "Mađarska uzvodna postaja na Karašici."},
 	"Dunav - Sakadaš (Kopačevo vanjski)": {Code: "sakadas", Name: "Sakadaš (Kopačevo vanjski)", Watercourse: "Dunav", Note: "Vanjska letva kod Kopačeva, iz evidencije VGI Baranja."},
