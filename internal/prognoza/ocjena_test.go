@@ -2,6 +2,7 @@ package prognoza
 
 import (
 	"math"
+	"path/filepath"
 	"testing"
 )
 
@@ -85,4 +86,34 @@ func sviSati(cilj map[int64]float64) []int64 {
 		out = append(out, t)
 	}
 	return out
+}
+
+// Letva se vodi u točno jednoj veličini. Kad je promijeni, stari pojasi moraju
+// otići — inače ostanu visjeti uz nove i račun posegne za krivima.
+func TestSpremanjeMicePojaseStareVelicine(t *testing.T) {
+	db, err := Otvori(filepath.Join(t.TempDir(), "p.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	stari := []Pojas{{Letva: "aljmas", Velicina: "protok", Od: 0, Do: 100,
+		Ulazi: []Ulaz{{Letva: "batina", Velicina: "protok", Nagib: 1}}}}
+	if err := Spremi(db, stari, "jučer"); err != nil {
+		t.Fatal(err)
+	}
+	novi := []Pojas{{Letva: "aljmas", Velicina: "vodostaj", Od: 0, Do: 100,
+		Ulazi: []Ulaz{{Letva: "batina", Velicina: "vodostaj", Nagib: 1}}}}
+	if err := Spremi(db, novi, "danas"); err != nil {
+		t.Fatal(err)
+	}
+	p, err := ZaLetvu(db, "aljmas")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(p) != 1 {
+		t.Fatalf("%d pojasa umjesto 1: %+v", len(p), p)
+	}
+	if p[0].Velicina != "vodostaj" {
+		t.Errorf("ostala je %s", p[0].Velicina)
+	}
 }

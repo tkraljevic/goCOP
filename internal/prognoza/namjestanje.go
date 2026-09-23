@@ -61,31 +61,6 @@ func koliko(db *sql.DB, letva, velicina string) int {
 	return n
 }
 
-// ZajednickaVelicina bira po čemu se glavni ulaz uspoređuje s ciljem: protok
-// kad ga obje letve imaju, inače vodostaj.
-func ZajednickaVelicina(db *sql.DB, uzvodna, nizvodna string) string {
-	for _, vel := range []string{"protok", "vodostaj"} {
-		if koliko(db, uzvodna, vel) > 5000 && koliko(db, nizvodna, vel) > 5000 {
-			return vel
-		}
-	}
-	return ""
-}
-
-// VlastitaVelicina bira najbolju veličinu koju letva ima. Za sporedni ulaz ne
-// traži se ista veličina kao cilju: Letenye nema protoka, a njegov vodostaj
-// Botovo objašnjava bolje nego išta drugo što o Muri imamo. Nagib tada nosi
-// mjerne jedinice prijelaza, m³/s po centimetru, i to je u redu — dokle god se
-// ne zbraja s nečim drugim, a ne zbraja se.
-func VlastitaVelicina(db *sql.DB, letva string) string {
-	for _, vel := range []string{"protok", "vodostaj"} {
-		if koliko(db, letva, vel) > 5000 {
-			return vel
-		}
-	}
-	return ""
-}
-
 type ulazNiz struct {
 	ime      string
 	velicina string
@@ -126,37 +101,47 @@ func samoPuni(u ulazNiz, sati []int64) []int64 {
 	return out
 }
 
+// Izvor je jedna uzvodna letva i veličina u kojoj se uzima.
+//
+// Veličina se zadaje, ne pogađa. Protok je na gornjoj Dravi neusporedivo
+// bolji jer se korito ispod lanca hidroelektrana produbljuje, pa vodostaj kroz
+// desetljeća mijenja značenje: Novo Virje iz vodostaja drži r 0,49–0,61, a iz
+// protoka 0,87–0,97. Na Dunavu je obrnuto — ondje je vodostaj bolji. A Vrbovka,
+// Moslavina i Osijek protok uopće nemaju, pa im izbora ni nema.
+type Izvor struct {
+	Letva    string
+	Velicina string
+}
+
 // NamjestiLetvu mjeri kako se jedna letva slaže sa svojim uzvodnim ulazima.
 // Prvi ulaz je glavni tok: po njemu se dijele pojasi i po njemu se pravac
 // lomi. Ostali ulaze pravocrtno, svaki sa svojim kašnjenjem.
-func NamjestiLetvu(arhiva *sql.DB, ciljna string, imena []string) ([]Pojas, error) {
-	if len(imena) == 0 {
+func NamjestiLetvu(arhiva *sql.DB, ciljna, vel string, izvori []Izvor) ([]Pojas, error) {
+	if len(izvori) == 0 {
 		return nil, fmt.Errorf("%s: nijedan ulaz", ciljna)
-	}
-	vel := ZajednickaVelicina(arhiva, imena[0], ciljna)
-	if vel == "" {
-		return nil, fmt.Errorf("%s i %s nemaju zajedničku satnu veličinu", imena[0], ciljna)
 	}
 	cilj, err := NizIzArhive(arhiva, ciljna, vel)
 	if err != nil {
 		return nil, err
 	}
-	ulazi := make([]ulazNiz, len(imena))
-	for i, ime := range imena {
-		uv := vel
+	if len(cilj) < 5000 {
+		return nil, fmt.Errorf("%s: samo %d satnih vrijednosti u %s", ciljna, len(cilj), vel)
+	}
+	ulazi := make([]ulazNiz, len(izvori))
+	for i, iz := range izvori {
 		najdulje := NajveciPomak
 		if i > 0 {
-			uv = VlastitaVelicina(arhiva, ime)
 			najdulje = NajveciPomakPritoka
 		}
-		if uv == "" {
-			return nil, fmt.Errorf("%s: %s nema satnog niza", ciljna, ime)
-		}
-		n, err := NizIzArhive(arhiva, ime, uv)
+		n, err := NizIzArhive(arhiva, iz.Letva, iz.Velicina)
 		if err != nil {
 			return nil, err
 		}
-		ulazi[i] = ulazNiz{ime: ime, velicina: uv, niz: n, najdulje: najdulje}
+		if len(n) < 5000 {
+			return nil, fmt.Errorf("%s: %s ima samo %d satnih vrijednosti u %s",
+				ciljna, iz.Letva, len(n), iz.Velicina)
+		}
+		ulazi[i] = ulazNiz{ime: iz.Letva, velicina: iz.Velicina, niz: n, najdulje: najdulje}
 	}
 
 	var sati []int64
@@ -180,12 +165,12 @@ func NamjestiLetvu(arhiva *sql.DB, ciljna string, imena []string) ([]Pojas, erro
 		}
 	}
 	if len(poredak) < 5000 {
-		return nil, fmt.Errorf("%s ← %s: samo %d zajedničkih sati", ciljna, imena[0], len(poredak))
+		return nil, fmt.Errorf("%s ← %s: samo %d zajedničkih sati", ciljna, izvori[0].Letva, len(poredak))
 	}
 	sort.Float64s(poredak)
 	cvorovi := Cvorovi(poredak)
 	if len(cvorovi) < 2 {
-		return nil, fmt.Errorf("%s ← %s: glavni ulaz je ravan", ciljna, imena[0])
+		return nil, fmt.Errorf("%s ← %s: glavni ulaz je ravan", ciljna, izvori[0].Letva)
 	}
 
 	// Kašnjenja sporednih ulaza traže se jednom, na svim satima. Ona su

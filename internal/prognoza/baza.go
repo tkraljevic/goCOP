@@ -25,7 +25,9 @@ const shema = `
 -- rit puni i val uspori. Jedan pomak za sve vode dao bi prognozu koja je pri
 -- velikoj vodi — kad je jedino važna — sustavno preuranjena.
 --
--- Granice pojasa mjere se u prvom ulazu, onom na glavnom toku.
+-- Granice pojasa mjere se u prvom ulazu, onom na glavnom toku, i u njegovoj
+-- veličini — koja ne mora biti ista kao ciljeva: Vrbovka se vodi u
+-- centimetrima, a pojasi su joj u kubicima Terezina Polja.
 CREATE TABLE IF NOT EXISTS pojasi (
 	letva      TEXT NOT NULL,          -- ona koja se prognozira
 	velicina   TEXT NOT NULL,          -- vodostaj | protok
@@ -59,25 +61,46 @@ CREATE TABLE IF NOT EXISTS ulazi (
 -- ura prognozira iznova sa svakim novim satom očitanja — a pogrešnik treba
 -- znati što smo mislili kad.
 CREATE TABLE IF NOT EXISTS izdane (
-	letva   TEXT NOT NULL,
-	izdano  INTEGER NOT NULL,         -- sat kad je prognoza izdana, UTC
-	ciljni  INTEGER NOT NULL,         -- sat na koji se odnosi, UTC
-	cm      REAL NOT NULL,
-	raspon  REAL NOT NULL,            -- koliko se očekuje da promaši
-	model   TEXT NOT NULL,
+	letva      TEXT NOT NULL,
+	velicina   TEXT NOT NULL,         -- vodostaj | protok; gornja Drava ide u protoku
+	izdano     INTEGER NOT NULL,      -- sat kad je prognoza izdana, UTC
+	ciljni     INTEGER NOT NULL,      -- sat na koji se odnosi, UTC
+	vrijednost REAL NOT NULL,
+	raspon     REAL NOT NULL,         -- koliko se očekuje da promaši
+	model      TEXT NOT NULL,
 	PRIMARY KEY (letva, izdano, ciljni)
 ) WITHOUT ROWID;
 CREATE INDEX IF NOT EXISTS izdane_ciljni ON izdane(letva, ciljni);
 
+-- Koliko prognoza promašuje, izmjereno puštanjem unatrag po arhivi. Raspon uz
+-- izdanu prognozu dolazi odavde, a ne iz rasapa namještanja: ispravak prema
+-- mjerenju u trenutku izdavanja ukloni velik dio te pogreške, pa bi rasap
+-- namještanja obećavao lošije nego što doista jest — pokrivenost je bila 100 %
+-- ondje gdje bi trebala biti oko 68.
+--
+-- Uz svaki doseg stoji i promašaj postojanosti, prognoze da se ništa neće
+-- promijeniti. Ondje gdje je naš veći, prognozu ne treba izdavati.
+CREATE TABLE IF NOT EXISTS promasaji (
+	letva       TEXT NOT NULL,
+	velicina    TEXT NOT NULL,
+	doseg_h     INTEGER NOT NULL,
+	pomak       REAL NOT NULL,     -- sustavni, prosječni promašaj
+	rasap       REAL NOT NULL,     -- standardno odstupanje promašaja
+	postojanost REAL NOT NULL,     -- promašaj prognoze da se ništa ne mijenja
+	slucaja     INTEGER NOT NULL,
+	mjereno     TEXT NOT NULL DEFAULT '',
+	PRIMARY KEY (letva, velicina, doseg_h)
+) WITHOUT ROWID;
+
 -- Tuđe prognoze, radi usporedbe. Nikad ne ulaze u naš račun: prognoza koja se
 -- oslanja na tuđu ne može biti provjera tuđoj.
 CREATE TABLE IF NOT EXISTS tude (
-	izvor   TEXT NOT NULL,            -- hydroinfo.hu …
-	letva   TEXT NOT NULL,
-	izdano  INTEGER NOT NULL,
-	ciljni  INTEGER NOT NULL,
-	cm      REAL NOT NULL,
-	raspon  REAL NOT NULL DEFAULT 0,
+	izvor      TEXT NOT NULL,         -- hydroinfo.hu …
+	letva      TEXT NOT NULL,
+	izdano     INTEGER NOT NULL,
+	ciljni     INTEGER NOT NULL,
+	vrijednost REAL NOT NULL,
+	raspon     REAL NOT NULL DEFAULT 0,
 	PRIMARY KEY (izvor, letva, izdano, ciljni)
 ) WITHOUT ROWID;
 CREATE INDEX IF NOT EXISTS tude_ciljni ON tude(letva, ciljni);
@@ -93,7 +116,53 @@ func Otvori(put string) (*sql.DB, error) {
 		db.Close()
 		return nil, fmt.Errorf("shema baze prognoza: %w", err)
 	}
+	if err := uskladi(db); err != nil {
+		db.Close()
+		return nil, err
+	}
 	return db, nil
+}
+
+// uskladi dograđuje tablice koje su nastale prije nego što su dobile sve
+// stupce. CREATE TABLE IF NOT EXISTS zatečenu tablicu ne dira, pa bi inače
+// baza nastala jučer danas pucala na upisu.
+func uskladi(db *sql.DB) error {
+	for tablica, stupac := range map[string]string{"izdane": "velicina", "tude": "vrijednost"} {
+		ima, err := imaStupac(db, tablica, stupac)
+		if err != nil {
+			return err
+		}
+		if ima {
+			continue
+		}
+		// Prognoza je račun, ne zapis: izgubi li se, ponovno se izračuna iz
+		// istih ulaza. Zato se stara tablica smije jednostavno odbaciti.
+		if _, err := db.Exec(`DROP TABLE ` + tablica); err != nil {
+			return fmt.Errorf("uklanjanje stare tablice %s: %w", tablica, err)
+		}
+		if _, err := db.Exec(shema); err != nil {
+			return fmt.Errorf("ponovna gradnja %s: %w", tablica, err)
+		}
+	}
+	return nil
+}
+
+func imaStupac(db *sql.DB, tablica, stupac string) (bool, error) {
+	r, err := db.Query(`SELECT name FROM pragma_table_info(?)`, tablica)
+	if err != nil {
+		return false, err
+	}
+	defer r.Close()
+	for r.Next() {
+		var ime string
+		if err := r.Scan(&ime); err != nil {
+			return false, err
+		}
+		if ime == stupac {
+			return true, nil
+		}
+	}
+	return false, r.Err()
 }
 
 // Ulaz je jedna uzvodna letva koja ulazi u račun, s vlastitim kašnjenjem.
@@ -115,7 +184,8 @@ type Pojas struct {
 	Sati     int
 }
 
-// Vrijedi javlja pripada li vrijednost glavnog ulaza ovom pojasu.
+// Vrijedi javlja pripada li vrijednost glavnog ulaza ovom pojasu. Vrijednost
+// se mjeri u veličini glavnog ulaza, ne cilja.
 func (p Pojas) Vrijedi(vrijednost float64) bool {
 	return vrijednost >= p.Od && vrijednost <= p.Do
 }
@@ -141,19 +211,19 @@ func Spremi(db *sql.DB, pojasi []Pojas, kad string) error {
 	}
 	defer tx.Rollback()
 
-	// Stari pojasi letve moraju otići: nova podjela ne mora imati iste
-	// granice, pa bi inače ostali visjeti pojasi kojima više ništa ne
-	// odgovara.
+	// Stari pojasi letve moraju otići, i to svi: nova podjela ne mora imati
+	// iste granice, a letva može promijeniti i veličinu u kojoj se vodi.
+	// Aljmaš, Dalj i Vukovar prešli su s protoka na vodostaj, i njihovi su
+	// protočni pojasi ostali visjeti jer se brisalo po letvi i veličini
+	// zajedno — a letva se vodi u točno jednoj veličini.
 	ocisceno := map[string]bool{}
 	for _, p := range pojasi {
-		k := p.Letva + "\x00" + p.Velicina
-		if ocisceno[k] {
+		if ocisceno[p.Letva] {
 			continue
 		}
-		ocisceno[k] = true
+		ocisceno[p.Letva] = true
 		for _, t := range []string{"pojasi", "ulazi"} {
-			if _, err := tx.Exec(`DELETE FROM `+t+` WHERE letva = ? AND velicina = ?`,
-				p.Letva, p.Velicina); err != nil {
+			if _, err := tx.Exec(`DELETE FROM `+t+` WHERE letva = ?`, p.Letva); err != nil {
 				return fmt.Errorf("čišćenje %s za %s: %w", t, p.Letva, err)
 			}
 		}
@@ -222,6 +292,121 @@ func ulaziPojasa(db *sql.DB, p Pojas) ([]Ulaz, error) {
 			return nil, err
 		}
 		out = append(out, u)
+	}
+	return out, r.Err()
+}
+
+// SpremiIzdane zapisuje izdane prognoze. Ista ciljna ura prognozira se iznova
+// sa svakim novim satom očitanja, pa se zapisi ne gaze: ključ nosi i trenutak
+// izdavanja, a pogrešnik poslije uspoređuje što smo mislili kad.
+func SpremiIzdane(db *sql.DB, izdane []Izdana) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for _, i := range izdane {
+		if _, err := tx.Exec(`INSERT INTO izdane
+			(letva, velicina, izdano, ciljni, vrijednost, raspon, model)
+			VALUES (?,?,?,?,?,?,?)
+			ON CONFLICT(letva, izdano, ciljni) DO UPDATE SET
+				velicina=excluded.velicina, vrijednost=excluded.vrijednost,
+				raspon=excluded.raspon, model=excluded.model`,
+			i.Letva, i.Velicina, i.Izdano, i.Ciljni, i.Vrijednost, i.Raspon, i.Model); err != nil {
+			return fmt.Errorf("izdana %s za %d: %w", i.Letva, i.Ciljni, err)
+		}
+	}
+	return tx.Commit()
+}
+
+// SviPojasi čita namještene pojase svih letvi, složene po letvi.
+func SviPojasi(db *sql.DB) (map[string][]Pojas, error) {
+	r, err := db.Query(`SELECT DISTINCT letva FROM pojasi`)
+	if err != nil {
+		return nil, err
+	}
+	var imena []string
+	for r.Next() {
+		var l string
+		if err := r.Scan(&l); err != nil {
+			r.Close()
+			return nil, err
+		}
+		imena = append(imena, l)
+	}
+	r.Close()
+	if err := r.Err(); err != nil {
+		return nil, err
+	}
+	out := make(map[string][]Pojas, len(imena))
+	for _, l := range imena {
+		p, err := ZaLetvu(db, l)
+		if err != nil {
+			return nil, err
+		}
+		out[l] = p
+	}
+	return out, nil
+}
+
+// Promasaj je izmjereno koliko prognoza promašuje na jednom dosegu.
+type Promasaj struct {
+	Letva       string
+	Velicina    string
+	DosegH      int
+	Pomak       float64
+	Rasap       float64
+	Postojanost float64
+	Slucaja     int
+}
+
+// BoljaOdPostojanosti javlja isplati li se prognoza na tom dosegu.
+func (p Promasaj) BoljaOdPostojanosti() bool {
+	return p.Postojanost > 0 && p.Rasap < p.Postojanost
+}
+
+// SpremiPromasaje zapisuje izmjerene promašaje, zamjenjujući zatečene.
+func SpremiPromasaje(db *sql.DB, promasaji []Promasaj, kad string) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for _, p := range promasaji {
+		if _, err := tx.Exec(`INSERT INTO promasaji
+			(letva, velicina, doseg_h, pomak, rasap, postojanost, slucaja, mjereno)
+			VALUES (?,?,?,?,?,?,?,?)
+			ON CONFLICT(letva, velicina, doseg_h) DO UPDATE SET
+				pomak=excluded.pomak, rasap=excluded.rasap,
+				postojanost=excluded.postojanost, slucaja=excluded.slucaja,
+				mjereno=excluded.mjereno`,
+			p.Letva, p.Velicina, p.DosegH, p.Pomak, p.Rasap, p.Postojanost,
+			p.Slucaja, kad); err != nil {
+			return fmt.Errorf("promašaj %s na %d h: %w", p.Letva, p.DosegH, err)
+		}
+	}
+	return tx.Commit()
+}
+
+// Promasaji čita izmjerene promašaje: letva → doseg u satima → promašaj.
+func Promasaji(db *sql.DB) (map[string]map[int]Promasaj, error) {
+	r, err := db.Query(`SELECT letva, velicina, doseg_h, pomak, rasap, postojanost, slucaja
+		FROM promasaji ORDER BY letva, doseg_h`)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+	out := map[string]map[int]Promasaj{}
+	for r.Next() {
+		var p Promasaj
+		if err := r.Scan(&p.Letva, &p.Velicina, &p.DosegH, &p.Pomak, &p.Rasap,
+			&p.Postojanost, &p.Slucaja); err != nil {
+			return nil, err
+		}
+		if out[p.Letva] == nil {
+			out[p.Letva] = map[int]Promasaj{}
+		}
+		out[p.Letva][p.DosegH] = p
 	}
 	return out, r.Err()
 }
