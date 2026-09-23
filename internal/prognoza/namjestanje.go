@@ -47,13 +47,25 @@ var Pojasi = [][2]float64{
 // na valu na kojem se uspoređuje unaprijed zna odgovor.
 var NamjestiDo int64
 
+// NamjestiBez su razdoblja (sat od epohe, [od, do)) koja namještanje ne vidi.
+// Tako se model provjerava na valu koji nije vidio, a da mu se ne uzme sve
+// što je došlo poslije — u valovima je pojas visoke vode, a njih je malo.
+var NamjestiBez [][2]int64
+
 func doGranice(n map[int64]float64) map[int64]float64 {
-	if NamjestiDo == 0 {
+	if NamjestiDo == 0 && len(NamjestiBez) == 0 {
 		return n
 	}
 	for t := range n {
-		if t >= NamjestiDo {
+		if NamjestiDo != 0 && t >= NamjestiDo {
 			delete(n, t)
+			continue
+		}
+		for _, r := range NamjestiBez {
+			if t >= r[0] && t < r[1] {
+				delete(n, t)
+				break
+			}
 		}
 	}
 	return n

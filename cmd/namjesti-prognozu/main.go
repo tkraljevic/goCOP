@@ -252,6 +252,7 @@ func main() {
 	arhivaPut := flag.String("arhiva", "data/vodostaji.db", "arhiva vodostaja")
 	bazaPut := flag.String("baza", "data/prognoze.db", "baza prognoza")
 	probno := flag.Bool("probno", false, "samo ispiši što bi se namjestilo")
+	bezS := flag.String("bez", "", "razdoblja koja namještanje ne vidi, npr. 2013-05-25..2013-07-05,2024-09-01..2024-10-15")
 	doS := flag.String("do", "", "namješta samo na podacima prije tog datuma (YYYY-MM-DD), za poštenu usporedbu")
 	proba := flag.String("proba", "", `isprobaj jednu postavku, npr. "aljmas = batina + belisce"`)
 	// Sporednom ulazu pretraga stane na 48 sati, jer dulje kašnjenje na našim
@@ -262,6 +263,18 @@ func main() {
 		"dokle se traži kašnjenje sporednog ulaza, u satima")
 	flag.Parse()
 	prognoza.NajveciPomakPritoka = *pomakPritoke
+	for _, r := range strings.Split(*bezS, ",") {
+		if r = strings.TrimSpace(r); r == "" {
+			continue
+		}
+		a, b, ok := strings.Cut(r, "..")
+		od, err1 := time.Parse("2006-01-02", a)
+		do, err2 := time.Parse("2006-01-02", b)
+		if !ok || err1 != nil || err2 != nil {
+			log.Fatalf("-bez: %q nije oblika 2013-05-25..2013-07-05", r)
+		}
+		prognoza.NamjestiBez = append(prognoza.NamjestiBez, [2]int64{od.Unix() / 3600, do.Unix() / 3600})
+	}
 	if *doS != "" {
 		do, err := time.Parse("2006-01-02", *doS)
 		if err != nil {
