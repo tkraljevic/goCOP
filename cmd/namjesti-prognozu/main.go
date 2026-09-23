@@ -33,6 +33,7 @@ import (
 // Belišće, Ilok i Osijek protok u arhivi nemaju, pa im izbora ni nema.
 var Velicine = map[string]string{
 	"donja-dubrava":    "protok",
+	"he-dubrava":       "protok",
 	"letenye":          "vodostaj",
 	"zeleznica":        "protok",
 	"tuhovec":          "protok",
@@ -139,12 +140,18 @@ var Tokovi = []struct {
 		// ostane ništa: pogreška Botova s Bednjom i bez nje je 51,5/51,7,
 		// 74,7/74,7, 95,4/95,0, 146,5/146,6 i 181,3/181,4 m³/s na 6, 12, 24,
 		// 48 i 72 sata, mjereno 2023.–2025., dakle i preko svibnja 2023. kad
-		// je Bednja imala pravi val. Nije ni dvostruko brojenje: ulaz
-		// donja-dubrava u protoku je HEP-ovo ispuštanje elektrane (izvor
-		// hep-he-dubrava, isti niz kao he-dubrava), a Bednja i Plitvica ulaze
-		// u staro korito ispod njega. Botovu nedostaje raspored ispuštanja HE
-		// Dubrava unaprijed, a to nijedna pritoka ne nadomješta.
-		{"botovo", []string{"donja-dubrava", "letenye"}},
+		// je Bednja imala pravi val. Nije ni dvostruko brojenje: ulaz je
+		// ispuštanje elektrane, a Bednja i Plitvica ulaze u staro korito ispod
+		// njega. Botovu nedostaje raspored ispuštanja HE Dubrava unaprijed, a
+		// to nijedna pritoka ne nadomješta. (Ti brojevi su mjereni dok je niz
+		// elektrane u arhivi stajao sat-dva prerano; na ispravljenom nizu
+		// pogreška je 61,6/79,3/100,0/149,5/183,0 m³/s.)
+		//
+		// Ulaz je he-dubrava, istjecanje elektrane s mletva.voda.hr, a ne
+		// donja-dubrava. U arhivi su to isti brojevi, ali uživo Donja Dubrava
+		// javlja protok preračunat iz vodostaja krivuljom, a model je namješten
+		// na istjecanje elektrane.
+		{"botovo", []string{"he-dubrava", "letenye"}},
 		{"novo-virje", []string{"botovo"}},
 		{"terezino-polje", []string{"novo-virje"}},
 		// Szentborbás i Drávaszabolcs leže na samoj Dravi, između naših letvi,

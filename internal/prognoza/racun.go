@@ -94,6 +94,15 @@ func (n Niz) ZadnjiDo(t int64) (float64, bool) {
 	return n.Iznosi[i], true
 }
 
+// ZadnjiSatDo vraća sat zadnjeg očitanja koje nije kasnije od zadanog sata.
+func (n Niz) ZadnjiSatDo(t int64) (int64, bool) {
+	i := sort.Search(len(n.Sati), func(i int) bool { return n.Sati[i] > t }) - 1
+	if i < 0 {
+		return 0, false
+	}
+	return n.Sati[i], true
+}
+
 // Vrijednost je jedan broj u nizu, izmjeren ili izračunat.
 type Vrijednost struct {
 	Iznos    float64
@@ -180,8 +189,14 @@ func (r *Racunalo) U(iz Izvor, t int64) (Vrijednost, bool) {
 	// vremenom postaje sve slabija — ali granica dokle vrijedi ne postavlja se
 	// ovdje, nego je mjeri provjera: ondje gdje prognoza prestane pobjeđivati
 	// postojanost, prestaje i smisao izdavanja.
-	if t > r.sada && len(r.poVelicini[iz]) == 0 {
-		if v, ima := r.mjereno[iz].ZadnjiDo(r.sada); ima {
+	//
+	// Isto vrijedi i za sate prije izdavanja kad vrh kasni, ali najviše
+	// ZaostatakVrha: elektrane na mletva.voda.hr javljaju sat-dva iza
+	// ostalih letvi, a bez toga bi ih se čekalo s cijelom prognozom.
+	if len(r.poVelicini[iz]) == 0 {
+		if z, ima := r.mjereno[iz].ZadnjiSatDo(r.sada); ima && t > z &&
+			(t > r.sada || r.sada-z <= ZaostatakVrha) {
+			v, _ := r.mjereno[iz].ZadnjiDo(r.sada)
 			return r.zapamti(k, Vrijednost{Iznos: v, Prognoza: true}, true)
 		}
 	}

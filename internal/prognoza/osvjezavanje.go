@@ -187,21 +187,33 @@ func TrebaniIzvori(pojasi map[string][]Pojas) (svi, vrhovi map[Izvor]bool) {
 	return svi, vrhovi
 }
 
-// ZadnjiZajednicki je zadnji sat koji imaju sve ulazne letve. Uzeti kasniji
+// ZaostatakVrha je koliko sati vrh lanca smije kasniti za ostalima, a da se
+// prognoza ipak izda za sat najsvježijih. U satima koji mu nedostaju drži se
+// njegova zadnja vrijednost, kao i za sate poslije izdavanja. Izdati prognozu
+// ranije, za sat kad je i on javio, ne bi dalo ništa više od te iste
+// vrijednosti — a izgubilo bi zadnja mjerenja svih ostalih letvi.
+const ZaostatakVrha = 3
+
+// ZadnjiZajednicki je sat za koji se prognoza izdaje: zadnji koji imaju sve
+// ulazne letve, s tim da vrh smije kasniti do ZaostatakVrha. Uzeti kasniji
 // značilo bi računati iz onoga čega još nema.
 func ZadnjiZajednicki(nizovi map[Izvor]Niz, vrhovi map[Izvor]bool) (int64, bool) {
-	var naj int64
+	var najkasniji, granica int64
 	prvi := true
 	for iz := range vrhovi {
 		z, ima := nizovi[iz].Zadnji()
 		if !ima {
 			return 0, false
 		}
-		if prvi || z < naj {
-			naj, prvi = z, false
+		if prvi || z > najkasniji {
+			najkasniji = z
 		}
+		if prvi || z+ZaostatakVrha < granica {
+			granica = z + ZaostatakVrha
+		}
+		prvi = false
 	}
-	return naj, !prvi
+	return min(najkasniji, granica), !prvi
 }
 
 // ucitajNiz čita satni niz iz očitanja. Protok se uzima kako je izmjeren, a

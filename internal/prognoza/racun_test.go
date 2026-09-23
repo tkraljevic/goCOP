@@ -196,3 +196,32 @@ func TestLetvaBezMjerenjaNeZaustavljaLanac(t *testing.T) {
 		t.Error("izračunata vrijednost nije označena kao računata")
 	}
 }
+
+// Vrh koji kasni do ZaostatakVrha ne vuče izdanje unatrag: prognoza se izda
+// za sat najsvježijeg vrha, a vrhu koji kasni drži se zadnja vrijednost. Vrh
+// koji kasni više od toga i dalje određuje sat izdanja.
+func TestVrhKojiKasniNeVuceIzdanje(t *testing.T) {
+	PoluvijekIspravka = 0
+	gornja := Izvor{Letva: "gornja", Velicina: "vodostaj"}
+	druga := Izvor{Letva: "druga", Velicina: "vodostaj"}
+	vrhovi := map[Izvor]bool{gornja: true, druga: true}
+	nizovi := map[Izvor]Niz{gornja: ravanNiz(900, 998, 100, 1), druga: ravanNiz(900, 1000, 50, 0)}
+	sada, ok := ZadnjiZajednicki(nizovi, vrhovi)
+	if !ok || sada != 1000 {
+		t.Fatalf("izdano za %d umjesto 1000", sada)
+	}
+	r := NovoRacunalo(lanac(1, 0, 1, 3), nizovi, sada)
+	izdane, err := r.Prognoziraj("donja", 6, "proba")
+	if err != nil || len(izdane) != 7 {
+		t.Fatalf("doseg %d, %v", len(izdane), err)
+	}
+	zadnja, _ := nizovi[gornja].U(998)
+	if d := math.Abs(izdane[0].Vrijednost - zadnja); d > 1e-9 {
+		t.Errorf("u satu izdanja %g umjesto zadnje javljene %g", izdane[0].Vrijednost, zadnja)
+	}
+
+	nizovi[gornja] = ravanNiz(900, 990, 100, 1)
+	if sada, _ := ZadnjiZajednicki(nizovi, vrhovi); sada != 990+ZaostatakVrha {
+		t.Errorf("s vrhom deset sati iza izdano za %d umjesto %d", sada, 990+ZaostatakVrha)
+	}
+}
