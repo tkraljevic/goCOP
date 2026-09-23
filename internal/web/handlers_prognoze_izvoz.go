@@ -186,14 +186,29 @@ func listPrognoze(k *xlsxw.Knjiga, z ZaglavljeIzvoza, data PrognozePageData, t T
 		}
 	}
 	l.Dodaj()
-	izdaje := "Prognoza centra obrane"
+	izdaje := "centra obrane od poplava"
 	if z.Centar != "" {
-		izdaje = "Prognoza " + z.Centar
+		izdaje = z.Centar
 	}
-	napomenaLista(l, izdaje+": satni lanac prve dane, dnevni model dalje, već prema tome koji je za tu "+
-		"letvu provjerom točniji (redak „model”). Raspon je ± kad je simetričan, a granice kad je prošao kroz "+
-		"krivulju protoka. HU je prognoza mađarske službe (hydroinfo.hu) i nije naša.",
-		stupaca, 30)
+	napomena := "Prognoza " + izdaje + ". " +
+		"Metoda: prvih dana (redak „model”: satni) hidrološki lanac vodomjernih postaja — vodostaj, odnosno protok " +
+		"nizvodne postaje izvodi se iz uzvodnih, uz izmjereno vrijeme propagacije vala i po dijelovima linearnu vezu " +
+		"ovisnu o vodnosti, ispravljeno prema zadnjem mjerenju; dalje (dnevni) statistički model na dnevnim vodostajima " +
+		"od 1901. — višestruka regresija i metoda analognih situacija. Vodostaj i protok međusobno su preračunati " +
+		"krivuljom protoka postaje. Na vrhu lanca Mura (Letenye) i Dunav (Komárom) slijede prognozu mađarske službe.\n" +
+		"Raspon je interval od ±1 standardnog odstupanja pogreške prognoze, određenog usporedbom s mjerenjima " +
+		"(satni lanac) odnosno rasipanjem analognih situacija (dnevni model): stvarna vrijednost ostaje u rasponu " +
+		"u 68 % slučajeva, a u 32 % izlazi iz njega, podjednako iznad i ispod. Zapisan je kao ± kad je " +
+		"simetričan, a granicama kad ga preračun krivuljom protoka učini nesimetričnim.\n" +
+		"HU — prognoza mađarske hidrološke službe (hydroinfo.hu), uz našu radi usporedbe; njihov raspon " +
+		"obuhvaća 70 % slučajeva, pa su dva raspona gotovo izravno usporediva."
+	var sirina float64
+	for _, w := range l.Sirine {
+		sirina += w
+	}
+	// Napomena je sitnijim slovima, pa u redak stane više znakova nego što
+	// kaže širina stupaca.
+	napomenaLista(l, napomena, stupaca, visinaTeksta(napomena, int(sirina*1.3), 30, 0))
 	potpisiLista(l, z, max(stupaca, 8), z.Potpisnici) // dva potpisa trebaju mjesta i kad je letvi malo
 }
 
