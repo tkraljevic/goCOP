@@ -86,7 +86,14 @@ func main() {
 	arhivaPut := flag.String("arhiva", "data/vodostaji.db", "arhiva vodostaja")
 	kasnjenje := flag.Int("kasnjenje", 1, "koliko sati prije njihova izdanja završavaju naša mjerenja")
 	ispisi := flag.String("ispisi", "", "ispiši svako izdanje za ovu letvu")
+	vrhoviS := flag.String("vrh", "", "vrhovi lanca kojima se za budućnost daje tuđa prognoza, npr. komarom,letenye")
 	flag.Parse()
+	vrhoviTudi := map[string]bool{}
+	for _, v := range strings.Split(*vrhoviS, ",") {
+		if v = strings.TrimSpace(v); v != "" {
+			vrhoviTudi[v] = true
+		}
+	}
 
 	tude, err := citajTude(*tudePut)
 	if err != nil {
@@ -163,36 +170,66 @@ func main() {
 	}
 	sort.Slice(izdanja, func(i, j int) bool { return izdanja[i] < izdanja[j] })
 
+	tudiVrh := map[int64]map[string]prognoza.Niz{}
+	tocke := map[int64]map[string]map[int64]float64{}
+	for _, t := range tude {
+		if !vrhoviTudi[t.letva] {
+			continue
+		}
+		if tocke[t.izdano] == nil {
+			tocke[t.izdano] = map[string]map[int64]float64{}
+		}
+		if tocke[t.izdano][t.letva] == nil {
+			tocke[t.izdano][t.letva] = map[int64]float64{}
+		}
+		tocke[t.izdano][t.letva][t.ciljni] = t.cm
+	}
+	for izd, poLetvi := range tocke {
+		tudiVrh[izd] = map[string]prognoza.Niz{}
+		for l, tt := range poLetvi {
+			tudiVrh[izd][l] = prognoza.NizIzTocaka(tt)
+		}
+	}
+
 	po := map[string]map[int]*zbroj{}
+	poVrh := map[string]map[int]*zbroj{}
 	for _, izd := range izdanja {
 		sada := izd - int64(*kasnjenje)
 		r := prognoza.NovoRacunalo(pojasi, nizovi, sada)
-		nasi := map[string]map[int64]float64{}
-		for _, t := range poIzdanju[izd] {
-			if _, ima := nasi[t.letva]; ima || len(pojasi[t.letva]) == 0 {
-				continue
-			}
-			nasi[t.letva] = map[int64]float64{}
-			izdane, err := r.Prognoziraj(t.letva, 170, "usporedba")
-			if err != nil {
-				continue
-			}
-			for _, i := range izdane {
-				v := i.Vrijednost
-				if i.Velicina == "protok" {
-					k := prognoza.KrivuljaZa(krivulje[t.letva], time.Unix(i.Ciljni*3600, 0).UTC())
-					if k == nil {
-						continue
-					}
-					cm, _, ok := prognoza.Pretvori(k, "vodostaj", v)
-					if !ok {
-						continue
-					}
-					v = cm
-				}
-				nasi[t.letva][i.Ciljni] = v
-			}
+		rv := prognoza.NovoRacunalo(pojasi, nizovi, sada)
+		for l, n := range tudiVrh[izd] {
+			rv.PostaviBuducnostVrha(prognoza.Izvor{Letva: l, Velicina: "vodostaj"}, n)
 		}
+		racunaj := func(r *prognoza.Racunalo) map[string]map[int64]float64 {
+			nasi := map[string]map[int64]float64{}
+			for _, t := range poIzdanju[izd] {
+				if _, ima := nasi[t.letva]; ima || len(pojasi[t.letva]) == 0 {
+					continue
+				}
+				nasi[t.letva] = map[int64]float64{}
+				izdane, err := r.Prognoziraj(t.letva, 170, "usporedba")
+				if err != nil {
+					continue
+				}
+				for _, i := range izdane {
+					v := i.Vrijednost
+					if i.Velicina == "protok" {
+						k := prognoza.KrivuljaZa(krivulje[t.letva], time.Unix(i.Ciljni*3600, 0).UTC())
+						if k == nil {
+							continue
+						}
+						cm, _, ok := prognoza.Pretvori(k, "vodostaj", v)
+						if !ok {
+							continue
+						}
+						v = cm
+					}
+					nasi[t.letva][i.Ciljni] = v
+				}
+			}
+			return nasi
+		}
+		nasi, nasiVrh := racunaj(r), racunaj(rv)
 		for _, t := range poIzdanju[izd] {
 			vod := nizovi[prognoza.Izvor{Letva: t.letva, Velicina: "vodostaj"}]
 			stvarno, ima := vod.U(t.ciljni)
@@ -217,6 +254,15 @@ func main() {
 				po[t.letva][dan] = &zbroj{}
 			}
 			po[t.letva][dan].dodaj(oni-stvarno, mi-stvarno, post-stvarno)
+			if mv, ima := nasiVrh[t.letva][t.ciljni]; ima && len(vrhoviTudi) > 0 {
+				if poVrh[t.letva] == nil {
+					poVrh[t.letva] = map[int]*zbroj{}
+				}
+				if poVrh[t.letva][dan] == nil {
+					poVrh[t.letva][dan] = &zbroj{}
+				}
+				poVrh[t.letva][dan].dodaj(oni-stvarno, mv-stvarno, post-stvarno)
+			}
 			if t.letva == *ispisi {
 				fmt.Printf("%s → %s  izmjereno %5.0f  oni %5.0f  mi %5.0f  postojanost %5.0f\n",
 					vrijeme(izd), vrijeme(t.ciljni), stvarno, oni, mi, post)
@@ -227,8 +273,8 @@ func main() {
 	fmt.Printf("\n%d izdanja, od %s do %s; naša mjerenja završavaju %d h prije njihova izdanja\n",
 		len(izdanja), vrijeme(izdanja[0]), vrijeme(izdanja[len(izdanja)-1]), *kasnjenje)
 	fmt.Println("promašaj je srednja apsolutna pogreška u cm; „mi bolji\" broji slučajeve u kojima smo bliže")
-	fmt.Printf("\n%-15s %6s %4s %9s %9s %9s %9s %9s %11s\n",
-		"letva", "nula", "dan", "slučaja", "oni", "mi", "postoj.", "pomak mi", "mi bolji")
+	fmt.Printf("\n%-15s %6s %4s %9s %9s %9s %9s %9s %11s %9s\n",
+		"letva", "nula", "dan", "slučaja", "oni", "mi", "postoj.", "pomak mi", "mi bolji", "mi+njihov vrh")
 	letve := make([]string, 0, len(po))
 	for l := range po {
 		letve = append(letve, l)
@@ -241,8 +287,12 @@ func main() {
 				continue
 			}
 			n := float64(z.n)
-			fmt.Printf("%-15s %+6.0f %4d %9d %9.1f %9.1f %9.1f %+9.1f %6d/%-4d\n",
-				l, medijan(nula[l]), dan, z.n, z.oni/n, z.mi/n, z.post/n, z.miPomak/n, z.miBoljih, z.n)
+			vrh := ""
+			if zv := poVrh[l][dan]; zv != nil && zv.n > 0 {
+				vrh = fmt.Sprintf("%9.1f", zv.mi/float64(zv.n))
+			}
+			fmt.Printf("%-15s %+6.0f %4d %9d %9.1f %9.1f %9.1f %+9.1f %6d/%-4d %s\n",
+				l, medijan(nula[l]), dan, z.n, z.oni/n, z.mi/n, z.post/n, z.miPomak/n, z.miBoljih, z.n, vrh)
 		}
 	}
 }

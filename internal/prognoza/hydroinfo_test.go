@@ -1,6 +1,7 @@
 package prognoza
 
 import (
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -64,5 +65,29 @@ func TestCitaTablicuPrognoze(t *testing.T) {
 func TestPraznaTablicaJavljaGresku(t *testing.T) {
 	if _, err := Citaj("<html><body>ništa</body></html>"); err == nil {
 		t.Error("stranica bez tablice mora javiti grešku")
+	}
+}
+
+// Tuđa prognoza zapisuje se samo za letve koje vodimo, i samo jednom po
+// izdanju — isto izdanje stiže sa svakim satom dok ne izađe novo.
+func TestSpremiTudeJednomPoIzdanju(t *testing.T) {
+	db, err := Otvori(filepath.Join(t.TempDir(), "p.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	izd := time.Date(2026, 9, 23, 9, 8, 0, 0, time.UTC)
+	letve := []Letva{
+		{Naziv: "Komárom", Izdano: izd, Dani: []Dan{{Kad: izd.Add(22 * time.Hour), Cm: 150, PlusMin: 9}}},
+		{Naziv: "Gönyű", Izdano: izd, Dani: []Dan{{Kad: izd.Add(22 * time.Hour), Cm: 120}}},
+	}
+	for i, treba := range []int{1, 0} { // jedna prognoza; jutarnjeg mjerenja ovdje nema
+		n, err := SpremiTude(db, Podrijetlo, letve)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if n != treba {
+			t.Errorf("%d. upis: %d novih, a treba %d", i+1, n, treba)
+		}
 	}
 }

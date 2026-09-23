@@ -121,6 +121,19 @@ type Racunalo struct {
 	uTijeku    map[kljuc]bool
 	ostaci     map[Izvor]ostatak
 	uOstatku   map[Izvor]bool
+	buducnost  map[Izvor]Niz // tuđa prognoza vrha lanca, satno
+}
+
+// PostaviBuducnostVrha daje vrhu lanca tuđu prognozu za sate poslije
+// izdavanja. Vrh tada ne stoji na zadnjem mjerenju, nego se zadnjem mjerenju
+// dodaje promjena koju tuđa prognoza predviđa od sata izdavanja — njezina
+// razina ne mora se slagati s našom nulom ni s našim zadnjim satom, ali njezin
+// hod od tog trenutka je ono što nam nedostaje.
+func (r *Racunalo) PostaviBuducnostVrha(iz Izvor, prognoza Niz) {
+	if r.buducnost == nil {
+		r.buducnost = map[Izvor]Niz{}
+	}
+	r.buducnost[iz] = prognoza
 }
 
 // ostatak je razlika između mjerenja i modela u trenutku izdavanja.
@@ -197,6 +210,16 @@ func (r *Racunalo) U(iz Izvor, t int64) (Vrijednost, bool) {
 		if z, ima := r.mjereno[iz].ZadnjiSatDo(r.sada); ima && t > z &&
 			(t > r.sada || r.sada-z <= ZaostatakVrha) {
 			v, _ := r.mjereno[iz].ZadnjiDo(r.sada)
+			if f, ima := r.buducnost[iz]; ima && t > r.sada {
+				ft, ok1 := f.U(t)
+				if !ok1 {
+					ft, ok1 = f.ZadnjiDo(t)
+				}
+				f0, ok2 := f.U(r.sada)
+				if ok1 && ok2 {
+					v += ft - f0
+				}
+			}
 			return r.zapamti(k, Vrijednost{Iznos: v, Prognoza: true}, true)
 		}
 	}

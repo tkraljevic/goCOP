@@ -162,7 +162,9 @@ func Dohvati(ctx context.Context, klijent *http.Client) ([]Letva, error) {
 }
 
 // NaseLetve preslikava njihove nazive u naše šifre postaja. Njihova tablica
-// pokriva i hrvatske letve, jer ih po međudržavnom dogovoru i prognoziraju.
+// pokriva i hrvatske letve, jer ih po međudržavnom dogovoru i prognoziraju,
+// a uz njih i mađarske letve koje stoje u našim lancima — one su ondje vrh
+// ili karika, pa njihova prognoza može ući u našu.
 var NaseLetve = map[string]string{
 	"Aljmaš":         "aljmas",
 	"Botovo":         "botovo",
@@ -170,6 +172,20 @@ var NaseLetve = map[string]string{
 	"Donji Miholjac": "donji-miholjac",
 	"Belišće":        "belisce",
 	"Osijek":         "osijek",
+	"Letenye":        "letenye",
+	"Őrtilos":        "ortilos",
+	"Barcs":          "barcs",
+	"Szentborbás":    "szentborbas",
+	"Drávaszabolcs":  "dravaszabolcs",
+	"Nagybajcs":      "nagybajcs",
+	"Komárom":        "komarom",
+	"Esztergom":      "esztergom",
+	"Budapest":       "budapest",
+	"Dunaföldvár":    "dunafoldvar",
+	"Paks":           "paks",
+	"Baja":           "baja",
+	"Dunaszekcső":    "dunaszekcso",
+	"Mohács":         "mohacs",
 }
 
 // Sifra vraća našu šifru postaje za njihov naziv; prazno kad letva nije naša

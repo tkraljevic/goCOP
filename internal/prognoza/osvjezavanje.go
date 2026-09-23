@@ -19,6 +19,19 @@ import (
 // jednom na dan zastarjela je devetnaest sati od dvadeset četiri; ova se
 // obnavlja kako voda stiže.
 
+// VrhoviSTudomPrognozom su vrhovi lanca kojima se za sate poslije izdavanja
+// uzima hod mađarske prognoze umjesto zadnjeg mjerenja. Mjereno na 29 njihovih
+// izdanja 2024.–2026. modelom naučenim prije njih: s njihovim Letenyeom naš
+// lanac Botovu skida pogrešku 1.–4. dan s 30, 36, 48 i 60 cm na 22, 29, 41 i
+// 49 — manje i od njihove vlastite prognoze Botova (24, 37, 42, 51) — a
+// Donjem Miholjcu i Drávaszabolcsu 3.–4. dan za 4–7 cm. Njihov Komárom
+// Aljmašu 5. dan skida 6 cm, a mađarskim letvama puno više. Starija od dva
+// dana ne uzima se.
+var VrhoviSTudomPrognozom = map[string]string{
+	"letenye": Podrijetlo,
+	"komarom": Podrijetlo,
+}
+
 // Unatrag je koliko se očitanja čita unatrag. Dva tjedna su dosta i najduljem
 // lancu, a manje bi ostavilo rupe kod letvi koje se očitavaju rjeđe.
 const Unatrag = 14 * 24 * time.Hour
@@ -44,6 +57,7 @@ type Ishod struct {
 	Preskoceno  bool             // isti sat već je izdan, ništa se nije mijenjalo
 	BezPrognoze map[string]error // letve koje nisu dale nijedan sat
 	Dnevne      []DnevnaIzdana   // dnevna prognoza za 1.–6. dan
+	TudiVrhovi  []string         // vrhovi kojima je budućnost dala tuđa prognoza
 	BezDnevne   map[string]error // letve s dnevnim modelom koje ga nisu dale
 }
 
@@ -122,6 +136,16 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 	}
 
 	r := NovoRacunalo(pojasi, nizovi, sada)
+	for letva, izvor := range VrhoviSTudomPrognozom {
+		iz := Izvor{Letva: letva, Velicina: "vodostaj"}
+		if !vrhovi[iz] {
+			continue
+		}
+		if n, ima, err := TudaPrognoza(o.Baza, izvor, letva, sada-48, sada+6); err == nil && ima {
+			r.PostaviBuducnostVrha(iz, n)
+			ishod.TudiVrhovi = append(ishod.TudiVrhovi, letva)
+		}
+	}
 	najdalje := o.Najdalje
 	if najdalje <= 0 {
 		najdalje = 96

@@ -656,6 +656,18 @@ func main() {
 		osvjezivac := &prognoza.Osvjezivac{Baza: pb, Ocitanja: ocitanjaRO,
 			Arhiva: arhivaRO, Najdalje: 96, Model: prognoza.ModelLanac}
 		javniUvoznik.NakonPreuzimanja = func(ctx context.Context) {
+			// Mađarska prognoza izlazi jednom dnevno, ali ne uvijek u isti
+			// sat; čita se svaki krug, a zapisuje samo novo. Treba je i za
+			// usporedbu i kao ulaz tamo gdje nam lanac nema ništa uzvodno.
+			hu, otkazi := context.WithTimeout(ctx, time.Minute)
+			if letve, err := prognoza.Dohvati(hu, nil); err != nil {
+				log.Printf("%s: %v", prognoza.Podrijetlo, err)
+			} else if n, err := prognoza.SpremiTude(pb, prognoza.Podrijetlo, letve); err != nil {
+				log.Printf("%s: zapis: %v", prognoza.Podrijetlo, err)
+			} else if n > 0 {
+				log.Printf("%s: zapisano %d novih vrijednosti", prognoza.Podrijetlo, n)
+			}
+			otkazi()
 			ishod, err := osvjezivac.Osvjezi(ctx)
 			if err != nil {
 				log.Printf("prognoza: %v", err)

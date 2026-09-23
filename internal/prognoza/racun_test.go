@@ -225,3 +225,30 @@ func TestVrhKojiKasniNeVuceIzdanje(t *testing.T) {
 		t.Errorf("s vrhom deset sati iza izdano za %d umjesto %d", sada, 990+ZaostatakVrha)
 	}
 }
+
+// Vrh s tuđom prognozom ne stoji na zadnjem mjerenju: zadnjem mjerenju dodaje
+// se hod tuđe prognoze od sata izdavanja, a njezina razina ne smeta.
+func TestVrhSlijediTuduPrognozu(t *testing.T) {
+	PoluvijekIspravka = 0
+	sada := int64(1000)
+	gornja := Izvor{Letva: "gornja", Velicina: "vodostaj"}
+	nizovi := map[Izvor]Niz{gornja: ravanNiz(900, sada, 100, 0)} // stoji na 100
+	r := NovoRacunalo(lanac(1, 0, 2, 3), nizovi, sada)
+	// Tuđa prognoza je 40 cm viša od našeg mjerenja i raste 2 cm na sat.
+	r.PostaviBuducnostVrha(gornja, NizIzTocaka(map[int64]float64{sada - 2: 136, sada + 24: 188}))
+	izdane, err := r.Prognoziraj("donja", 12, "proba")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// donja(t) = gornja(t-2); gornja(sada+k) = 100 + 2k
+	for _, i := range izdane {
+		k := i.Ciljni - 2 - sada
+		treba := 100.0
+		if k > 0 {
+			treba += 2 * float64(k)
+		}
+		if math.Abs(i.Vrijednost-treba) > 1e-9 {
+			t.Fatalf("u %+d h %g umjesto %g", i.Ciljni-sada, i.Vrijednost, treba)
+		}
+	}
+}

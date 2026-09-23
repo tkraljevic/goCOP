@@ -14,7 +14,9 @@ package prognoza
 import (
 	"database/sql"
 	"fmt"
+	"gocop/internal/models"
 	"sort"
+	"time"
 
 	_ "modernc.org/sqlite"
 )
@@ -404,6 +406,96 @@ func ZadnjeDnevno(db *sql.DB) (int64, map[string][]DnevnaIzdana, error) {
 		out[d.Letva] = append(out[d.Letva], d)
 	}
 	return izdano.Int64, out, r.Err()
+}
+
+// SpremiTude zapisuje tuđu prognozu za letve koje i mi vodimo. Isto izdanje
+// dolazi sa svakim satom dok ne izađe novo, pa se ponovljeni zapis preskače.
+// Vraća koliko je novih vrijednosti upisano.
+func SpremiTude(db *sql.DB, izvor string, letve []Letva) (int, error) {
+	tx, err := db.Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+	novih := 0
+	for _, l := range letve {
+		sifra := Sifra(l.Naziv)
+		if sifra == "" || l.Izdano.IsZero() {
+			continue
+		}
+		izdano := l.Izdano.UTC().Unix() / 3600
+		dani := l.Dani
+		// Jutarnje mjerenje iz njihove tablice stoji uz prognozu kao sidro:
+		// ciljni sat mu je 07 h dana izdanja, dakle prije izdanja, pa se po
+		// tome i razlikuje od prognoze. Hod tuđe prognoze od sata izdanja
+		// računa se od njega.
+		if l.ImaDanas {
+			lok := l.Izdano.In(models.Zagreb)
+			jutro := time.Date(lok.Year(), lok.Month(), lok.Day(), 7, 0, 0, 0, models.Zagreb)
+			dani = append([]Dan{{Kad: jutro, Cm: l.Danas}}, dani...)
+		}
+		for _, d := range dani {
+			r, err := tx.Exec(`INSERT OR IGNORE INTO tude (izvor, letva, izdano, ciljni, vrijednost, raspon)
+				VALUES (?,?,?,?,?,?)`, izvor, sifra, izdano, d.Kad.UTC().Unix()/3600, d.Cm, d.PlusMin)
+			if err != nil {
+				return 0, fmt.Errorf("%s %s: %w", izvor, sifra, err)
+			}
+			if n, _ := r.RowsAffected(); n > 0 {
+				novih += int(n)
+			}
+		}
+	}
+	return novih, tx.Commit()
+}
+
+// TudaPrognoza vraća najnoviju tuđu prognozu letve izdanu u zadanom
+// razdoblju, satno pravocrtno između njezinih točaka; ok je netočno kad je
+// nema.
+func TudaPrognoza(db *sql.DB, izvor, letva string, od, do int64) (Niz, bool, error) {
+	var izdano sql.NullInt64
+	if err := db.QueryRow(`SELECT max(izdano) FROM tude WHERE izvor = ? AND letva = ?
+		AND izdano BETWEEN ? AND ?`, izvor, letva, od, do).Scan(&izdano); err != nil || !izdano.Valid {
+		return Niz{}, false, err
+	}
+	r, err := db.Query(`SELECT ciljni, vrijednost FROM tude WHERE izvor = ? AND letva = ? AND izdano = ?`,
+		izvor, letva, izdano.Int64)
+	if err != nil {
+		return Niz{}, false, err
+	}
+	defer r.Close()
+	tocke := map[int64]float64{}
+	for r.Next() {
+		var t int64
+		var v float64
+		if err := r.Scan(&t, &v); err != nil {
+			return Niz{}, false, err
+		}
+		tocke[t] = v
+	}
+	if len(tocke) < 2 {
+		return Niz{}, false, r.Err()
+	}
+	return NizIzTocaka(tocke), true, r.Err()
+}
+
+// NizIzTocaka slaže satni niz iz rijetkih točaka, pravocrtno između njih.
+func NizIzTocaka(tocke map[int64]float64) Niz {
+	sati := make([]int64, 0, len(tocke))
+	for t := range tocke {
+		sati = append(sati, t)
+	}
+	sort.Slice(sati, func(i, j int) bool { return sati[i] < sati[j] })
+	v := map[int64]float64{}
+	for i := 0; i+1 < len(sati); i++ {
+		a, b := sati[i], sati[i+1]
+		for t := a; t <= b; t++ {
+			v[t] = tocke[a] + (tocke[b]-tocke[a])*float64(t-a)/float64(b-a)
+		}
+	}
+	if len(sati) == 1 {
+		v[sati[0]] = tocke[sati[0]]
+	}
+	return NoviNiz(v)
 }
 
 // SviPojasi čita namještene pojase svih letvi, složene po letvi.

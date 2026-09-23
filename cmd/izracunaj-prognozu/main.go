@@ -67,6 +67,9 @@ func main() {
 		fmt.Printf("   %-16s %-9s zadnje %s\n", iz.Letva, iz.Velicina,
 			time.Unix(z*3600, 0).UTC().Format("02.01. 15:04"))
 	}
+	if len(ishod.TudiVrhovi) > 0 {
+		fmt.Printf("   budućnost vrha iz tuđe prognoze: %v\n", ishod.TudiVrhovi)
+	}
 	ispisi_ := *ispisi
 	fmt.Printf("\n%-16s %-9s %8s %10s %12s\n", "letva", "veličina", "doseg", "za 6 h", "na kraju")
 	for _, letva := range redom(ishod) {
