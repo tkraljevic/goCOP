@@ -152,7 +152,7 @@ func opisiPostaju(ctx context.Context, k *hidroview.Klijent, p hidroview.Postaja
 		prvi, zadnji := v[0], v[len(v)-1]
 		fmt.Printf("  %-16s %d vrijednosti, %s … %s, zadnja %.5f\n",
 			naziviVelicina[m.Velicina], len(v),
-			prvi.Kad.Local().Format("02.01. 15:04"), zadnji.Kad.Local().Format("02.01. 15:04"),
+			prvi.Kad.Local().Format("02.01.2006. 15:04"), zadnji.Kad.Local().Format("02.01.2006. 15:04"),
 			zadnji.Vrijednost)
 	}
 }
