@@ -52,6 +52,7 @@ var Velicine = map[string]string{
 	"mohovo":         "vodostaj",
 	"ilok":           "vodostaj",
 	"osijek":         "vodostaj",
+	"jelengrad":      "vodostaj",
 	"siga":           "vodostaj",
 	"petres":         "vodostaj",
 	// Mađarske letve uzvodno od Batine i uz lijevu obalu Drave. Nisu naše, ali
@@ -194,6 +195,12 @@ var Tokovi = []struct {
 		// treba i Dunav — razinu mu jednako drži uspor odozdo koliko dotok
 		// odozgo.
 		{"osijek", []string{"belisce", "aljmas"}},
+		// Jelengrad kod Petrijevaca, pet kilometara od ušća Karašice i Vučice,
+		// nije ulaz nego izlaz Drave: na visokoj vodi prati Osijek s nagibom
+		// 0,90 bez kašnjenja (uspor), a Poreč uzvodno ne prati uopće (r 0,06
+		// do 0,19). Iz Osijeka i Belišća drži r 0,92 na najvišem pojasu, pa
+		// Petrijevci dobivaju prognozu iz Drave koju već imamo.
+		{"jelengrad", []string{"osijek", "belisce"}},
 	}},
 }
 
