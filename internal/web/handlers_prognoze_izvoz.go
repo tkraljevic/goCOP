@@ -208,23 +208,46 @@ func (h *PrognozeHandler) zaglavljeIzvoza(u *models.User) ZaglavljeIzvoza {
 		}
 	}
 	z.Mjesto = strings.TrimSpace(strings.TrimPrefix(z.Centar, t.CenterShort))
-	for _, p := range []struct {
-		uloga    models.Role
-		funkcija string
-	}{
-		{models.RoleCopLeader, "voditelj Centra obrane od poplava"},
-		{models.RoleCopDeputy, "zamjenik voditelja Centra obrane od poplava"},
-	} {
-		ime := ""
-		if osobe, err := h.users.ListUsers(sektor, 0, string(p.uloga), "", ""); err == nil && len(osobe) > 0 {
-			ime = osobe[0].FullName
-			if osobe[0].Title != "" {
-				ime += ", " + osobe[0].Title
+	z.Potpisnici = []PotpisnikIzvoza{h.izdavac(u, sektor)}
+	return z
+}
+
+// funkcijeIzdavaca su dužnosti koje prognozu izdaju, redom prednosti.
+var funkcijeIzdavaca = []struct {
+	uloga    models.Role
+	funkcija string
+}{
+	{models.RoleCopLeader, "voditelj Centra obrane od poplava"},
+	{models.RoleCopDeputy, "zamjenik voditelja Centra obrane od poplava"},
+}
+
+// izdavac je onaj tko tablicu potpisuje: prognozu izdaje ili voditelj centra
+// obrane ili njegov zamjenik, ne obojica. Kad izvoz radi jedan od njih,
+// potpisuje on; inače potpis stoji na voditelju centra.
+func (h *PrognozeHandler) izdavac(u *models.User, sektor string) PotpisnikIzvoza {
+	imeOsobe := func(o models.User) string {
+		if o.Title != "" {
+			return o.FullName + ", " + o.Title
+		}
+		return o.FullName
+	}
+	if u != nil {
+		for _, f := range funkcijeIzdavaca {
+			for _, d := range u.Duties {
+				if d.Role == f.uloga && (d.SectorID == nil || *d.SectorID == sektor) {
+					return PotpisnikIzvoza{Funkcija: f.funkcija, Ime: imeOsobe(*u)}
+				}
 			}
 		}
-		z.Potpisnici = append(z.Potpisnici, PotpisnikIzvoza{Funkcija: p.funkcija, Ime: ime})
 	}
-	return z
+	p := PotpisnikIzvoza{Funkcija: funkcijeIzdavaca[0].funkcija}
+	if h.users == nil {
+		return p
+	}
+	if osobe, err := h.users.ListUsers(sektor, 0, string(models.RoleCopLeader), "", ""); err == nil && len(osobe) > 0 {
+		p.Ime = imeOsobe(osobe[0])
+	}
+	return p
 }
 
 func tekstBroja(n int) string { return brojHRf(float64(n), 0) }

@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"gocop/internal/models"
 	"gocop/internal/xlsxw"
 )
 
@@ -31,8 +32,7 @@ func TestIzvozPrognozeUExcel(t *testing.T) {
 	}}
 	z := ZaglavljeIzvoza{Organizacija: "Hrvatske vode", Odjel: "VGO za Dunav i donju Dravu, Osijek",
 		Centar: "COP Osijek", Mjesto: "Osijek", Datum: time.Date(2026, 9, 24, 8, 0, 0, 0, time.UTC),
-		Potpisnici: []PotpisnikIzvoza{{Funkcija: "voditelj Centra obrane od poplava", Ime: "Pero Perić"},
-			{Funkcija: "zamjenik voditelja Centra obrane od poplava"}}}
+		Potpisnici: []PotpisnikIzvoza{{Funkcija: "zamjenik voditelja Centra obrane od poplava", Ime: "Pero Perić"}}}
 	k := &xlsxw.Knjiga{}
 	listPrognoze(k, z, data, tab)
 	var b bytes.Buffer
@@ -53,10 +53,27 @@ func TestIzvozPrognozeUExcel(t *testing.T) {
 	txt := sve.String()
 	for _, want := range []string{"PROGNOZA VODOSTAJA — Dunav", "VGO za Dunav i donju Dravu, Osijek", "COP Osijek",
 		">Bezdan<", "RS · 1.425,59", "Batina", "čet 24.9. 07 h", "±5", ">160<", "dnevni", "satni", ">2250<", ">158<", ">131<",
-		"voditelj Centra obrane od poplava", "zamjenik voditelja Centra obrane od poplava", "Pero Perić",
+		"zamjenik voditelja Centra obrane od poplava", "Pero Perić",
 		`s="15"`, `s="16"`, `s="17"`, `s="20"`} { // raspon sivo, protok ukošeno, početak razdoblja crtom
 		if !strings.Contains(txt, want) {
 			t.Errorf("u izvozu nema %q", want)
 		}
+	}
+}
+
+// Tablicu potpisuje jedan: onaj od voditelja i zamjenika koji je izvozi;
+// kad je izvozi netko treći, potpis stoji na voditelju centra.
+func TestIzdavacPrognoze(t *testing.T) {
+	b := "B"
+	zamjenik := &models.User{FullName: "Pero Perić", Title: "dipl.ing.građ.",
+		Duties: []models.Duty{{Role: models.RoleCopDeputy, SectorID: &b}}}
+	h := &PrognozeHandler{}
+	p := h.izdavac(zamjenik, "B")
+	if p.Funkcija != "zamjenik voditelja Centra obrane od poplava" || p.Ime != "Pero Perić, dipl.ing.građ." {
+		t.Errorf("zamjenik izdaje: %+v", p)
+	}
+	drugi := &models.User{FullName: "Ivo Ivić", Duties: []models.Duty{{Role: models.RoleOperator, SectorID: &b}}}
+	if p := h.izdavac(drugi, "B"); p.Funkcija != "voditelj Centra obrane od poplava" || p.Ime == "Ivo Ivić" {
+		t.Errorf("izvozi operater: %+v — potpis treba stajati na voditelju centra", p)
 	}
 }
