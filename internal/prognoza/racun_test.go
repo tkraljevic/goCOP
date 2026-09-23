@@ -74,13 +74,17 @@ func TestRasponNosiNagib(t *testing.T) {
 	if len(izdane) == 0 {
 		t.Fatal("nijedan sat")
 	}
-	// U satu izdavanja cilj je izmjeren, pa raspona nema.
-	if izdane[0].Raspon != 0 {
-		t.Errorf("u satu izdavanja raspon %g", izdane[0].Raspon)
+	// U satu izdavanja cilj je izmjeren, pa granice padaju na samu vrijednost.
+	if izdane[0].Raspon() != 0 {
+		t.Errorf("u satu izdavanja raspon %g", izdane[0].Raspon())
 	}
 	// Sat poslije ulaz je još izmjeren, pa raspon nosi samo rasap same dionice.
-	if d := math.Abs(izdane[1].Raspon - 4); d > 1e-9 {
-		t.Errorf("raspon %g umjesto 4", izdane[1].Raspon)
+	if d := math.Abs(izdane[1].Raspon() - 4); d > 1e-9 {
+		t.Errorf("raspon %g umjesto 4", izdane[1].Raspon())
+	}
+	// Granice moraju stajati oko vrijednosti, ne bilo gdje.
+	if g, v, d := izdane[1].Gore, izdane[1].Vrijednost, izdane[1].Dolje; g <= v || v <= d {
+		t.Errorf("granice %g … %g ne obuhvaćaju %g", d, g, v)
 	}
 }
 

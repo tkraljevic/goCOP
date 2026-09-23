@@ -38,12 +38,14 @@ var (
 	uskiGraf = geometrija{W: 620, H: 460, Lijevo: 76, Desno: 26, Vrh: 20, Dno: 44, Font: 20, Uzak: true}
 )
 
-// TockaPrognoze je jedna prognozirana vrijednost s rasponom unutar kojeg se
-// očekuje da ostane.
+// TockaPrognoze je jedna prognozirana vrijednost s granicama unutar kojih se
+// očekuje da ostane. Granice, a ne jedna simetrična brojka: kroz krivulju se
+// raspon prenosi rubovima, a krivulja je zakrivljena, pa u drugoj veličini
+// ispadne nesimetričan.
 type TockaPrognoze struct {
-	Kad        time.Time
-	Vrijednost float64
-	Raspon     float64
+	Kad         time.Time
+	Vrijednost  float64
+	Dolje, Gore float64
 }
 
 // PrognozaNiza je prognoza kakva ide na graf. Udio je koliki dio promašaja
@@ -103,8 +105,8 @@ func crtajNizG(g geometrija, vals []models.SpojenaVrijednost, velicina string, s
 	// dolazi, zajedno s pojasom oko njega, inače bi crta izlazila iz slike.
 	if prog != nil && len(prog.Tocke) > 0 {
 		for _, q := range prog.Tocke {
-			najn = math.Min(najn, q.Vrijednost-q.Raspon)
-			najv = math.Max(najv, q.Vrijednost+q.Raspon)
+			najn = math.Min(najn, q.Dolje)
+			najv = math.Max(najv, q.Gore)
 			if q.Kad.After(c.To) {
 				c.To = q.Kad
 			}
@@ -281,19 +283,19 @@ func nacrtajPrognozu(c *Chart, prog *PrognozaNiza, xOf func(time.Time) float64,
 			potez = "M"
 		}
 		fmt.Fprintf(&crta, "%s%.1f %.1f", potez, x, y)
-		fmt.Fprintf(&pojas, "%s%.1f %.1f", potez, x, yOf(q.Vrijednost+q.Raspon))
+		fmt.Fprintf(&pojas, "%s%.1f %.1f", potez, x, yOf(q.Gore))
 		if i > 0 {
 			sj.WriteByte(',')
 		}
 		oznaka := brojHRf(q.Vrijednost, dec) + " " + jed
-		if q.Raspon > 0 {
-			oznaka += " ± " + brojHRf(q.Raspon, dec) + " " + jed
+		if q.Gore > q.Dolje {
+			oznaka += " (" + brojHRf(q.Dolje, dec) + "–" + brojHRf(q.Gore, dec) + ")"
 		}
 		zapisiTocku(&sj, x, y, q.Kad, oznaka, true)
 	}
 	// Donji rub pojasa ide unatrag, pa se ploha zatvori sama.
 	for i := len(tocke) - 1; i >= 0; i-- {
-		fmt.Fprintf(&pojas, " L%.1f %.1f", xOf(tocke[i].Kad), yOf(tocke[i].Vrijednost-tocke[i].Raspon))
+		fmt.Fprintf(&pojas, " L%.1f %.1f", xOf(tocke[i].Kad), yOf(tocke[i].Dolje))
 	}
 	sj.WriteByte(']')
 

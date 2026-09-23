@@ -13,6 +13,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math"
 	"time"
 
 	"gocop/internal/models"
@@ -110,14 +111,20 @@ func main() {
 				continue
 			}
 			izdane[i].Vrijednost -= p.Pomak
-			izdane[i].Raspon = p.Rasap
+			izdane[i].Dolje = izdane[i].Vrijednost - p.Rasap
+			izdane[i].Gore = izdane[i].Vrijednost + p.Rasap
 		}
 		sve = append(sve, izdane...)
+		// Ista prognoza i u drugoj veličini, ondje gdje krivulja postoji.
+		// Model radi u jednoj, a dežurni čita onu koju je navikao gledati.
+		if druga := uDrugojVelicini(arhiva, izdane); len(druga) > 0 {
+			sve = append(sve, druga...)
+		}
 		if *ispisi == letva {
 			for _, i := range izdane {
 				fmt.Printf("   %s  %+3d h  %8.1f ± %-6.1f %s\n",
 					time.Unix(i.Ciljni*3600, 0).UTC().Format("02.01. 15:04"),
-					i.Ciljni-sada, i.Vrijednost, i.Raspon, jedinica(i.Velicina))
+					i.Ciljni-sada, i.Vrijednost, i.Raspon(), jedinica(i.Velicina))
 			}
 		}
 		jed := jedinica(izdane[0].Velicina)
@@ -125,7 +132,7 @@ func main() {
 		sest := izdane[min(6, len(izdane)-1)]
 		fmt.Printf("%-16s %-9s %6d h %7.0f±%-3.0f %7.0f±%-3.0f %s%s\n",
 			letva, izdane[0].Velicina, len(izdane),
-			sest.Vrijednost, sest.Raspon, zad.Vrijednost, zad.Raspon, jed,
+			sest.Vrijednost, sest.Raspon(), zad.Vrijednost, zad.Raspon(), jed,
 			slabija(promasaji[letva], len(izdane)))
 	}
 
@@ -318,6 +325,57 @@ func slabija(po map[int]prognoza.Promasaj, doseg int) string {
 		return fmt.Sprintf("   slabija od postojanosti na %d h", od)
 	}
 	return fmt.Sprintf("   slabija od postojanosti od %d do %d h", od, do)
+}
+
+// uDrugojVelicini pretvara prognozu krivuljom: protok u vodostaj i obrnuto.
+// Granice raspona idu kroz krivulju jednako kao i sama vrijednost — krivulja
+// je rastuća, pa granica od 68 % ostaje granica od 68 %. Množenje nagibom bi
+// pri maloj vodi, gdje je krivulja najzakrivljenija, dalo krivu širinu.
+func uDrugojVelicini(arhiva *sql.DB, izdane []prognoza.Izdana) []prognoza.Izdana {
+	if len(izdane) == 0 {
+		return nil
+	}
+	krivulje, err := ucitajKrivulje(arhiva, izdane[0].Letva)
+	if err != nil || len(krivulje) == 0 {
+		return nil
+	}
+	ciljna := "vodostaj"
+	if izdane[0].Velicina == "vodostaj" {
+		ciljna = "protok"
+	}
+	out := make([]prognoza.Izdana, 0, len(izdane))
+	for _, i := range izdane {
+		k := krivuljaZa(krivulje, time.Unix(i.Ciljni*3600, 0).UTC())
+		if k == nil {
+			continue
+		}
+		v, izvanV, ok := pretvori(k, ciljna, i.Vrijednost)
+		if !ok {
+			continue
+		}
+		d, izvanD, okD := pretvori(k, ciljna, i.Dolje)
+		g, izvanG, okG := pretvori(k, ciljna, i.Gore)
+		if !okD || !okG {
+			d, g = v, v
+			izvanD, izvanG = izvanV, izvanV
+		}
+		n := i
+		n.Velicina, n.Vrijednost, n.Dolje, n.Gore = ciljna, v, d, g
+		n.Racunata = true
+		n.Izvan = izvanV || izvanD || izvanG
+		out = append(out, n)
+	}
+	return out
+}
+
+// pretvori vodi jednu vrijednost kroz krivulju u traženu veličinu.
+func pretvori(k *models.HQKrivulja, ciljna string, v float64) (float64, bool, bool) {
+	if ciljna == "vodostaj" {
+		cm, izvan, ok := k.Vodostaj(v)
+		return float64(cm), izvan, ok
+	}
+	q, izvan, ok := k.ProtokProsiren(int(math.Round(v)))
+	return q, izvan, ok
 }
 
 func jedinica(velicina string) string {

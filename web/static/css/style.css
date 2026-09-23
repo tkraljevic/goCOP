@@ -3970,7 +3970,10 @@ table.akt-poveznice { margin-top: 0.75rem; }
    Raspon stoji uz brojku, ali sitnije: on je ograda, a ne podatak. Doseg na
    kojem prognoza ne pobjeđuje postojanost blijedi — nije kriv, samo nije
    koristan, pa neka se i ne čita prvi. */
-.prognoze-tablica .prog-raspon { font-size: 0.8em; color: var(--text-muted); }
+.prognoze-tablica .prog-raspon { font-size: 0.78em; color: var(--text-muted); white-space: nowrap; }
 .prognoze-tablica .prog-jed { font-size: 0.8em; color: var(--text-muted); }
+/* Druga veličina stoji pod prvom: ista prognoza, drugim mjerilom. Sitnija je
+   jer se u obrani čita vodostaj, a protok je uz njega. */
+.prognoze-tablica .prog-druga { font-size: 0.82em; color: var(--text-muted); margin-top: 1px; }
 .prognoze-tablica .prog-slabija { opacity: 0.45; }
 .graf-natpis .prog-slabija { opacity: 0.45; }

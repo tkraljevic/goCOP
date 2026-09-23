@@ -32,13 +32,22 @@
       <tr>
         <td>
           {{if .URL}}<a href="{{.URL}}">{{.Naziv}}</a>{{else}}{{.Naziv}}{{end}}
-          {{if .Voda}}<div class="reg-card-sub">{{.Voda}}{{if .Stacionaza}} · {{.Stacionaza}}{{end}}</div>{{end}}
+          <div class="reg-card-sub">
+            {{if .Voda}}{{.Voda}}{{if .Stacionaza}} · {{.Stacionaza}}{{end}}{{end}}
+            {{if .Racuna}}· računa se u {{if eq .Racuna "protok"}}protoku{{else}}vodostaju{{end}}{{end}}
+          </div>
         </td>
-        <td class="mono" style="text-align:right;">{{.Sada}} <span class="prog-jed">{{.Jedinica}}</span></td>
+        <td class="mono" style="text-align:right;">
+          {{if .SadaCm}}<div>{{.SadaCm}} <span class="prog-jed">cm</span></div>{{end}}
+          {{if .SadaQ}}<div class="prog-druga">{{.SadaQ}} m³/s</div>{{end}}
+        </td>
         {{range .Vrijednosti}}
         <td class="mono{{if .Slabija}} prog-slabija{{end}}" style="text-align:right;"
             {{if .Slabija}}title="Na tom dosegu prognoza ne pobjeđuje pretpostavku da se ništa neće promijeniti"{{end}}>
-          {{if .Ima}}{{.Iznos}}<span class="prog-raspon"> ± {{.Raspon}}</span>{{else}}—{{end}}
+          {{if .Ima}}
+            {{if .Cm}}<div>{{.Cm}}{{if .CmRaspon}} <span class="prog-raspon">{{.CmRaspon}}</span>{{end}}</div>{{end}}
+            {{if .Q}}<div class="prog-druga">{{.Q}}{{if .QRaspon}} <span class="prog-raspon">{{.QRaspon}}</span>{{end}}</div>{{end}}
+          {{else}}—{{end}}
         </td>
         {{end}}
         <td class="mono reg-card-sub" style="text-align:right;">{{.Doseg}} h</td>
@@ -49,10 +58,11 @@
 </div></div>
 
 <p class="graf-natpis">
-  Brojka pisana <span class="prog-slabija">svjetlije</span> znači da na tom dosegu prognoza ne
-  pobjeđuje pretpostavku da se ništa neće promijeniti — ondje je bolje vjerovati zadnjem
-  očitanju. Gornja Drava se prognozira u protoku, jer joj se korito ispod lanca hidroelektrana
-  produbljuje pa vodostaj kroz desetljeća mijenja značenje.
+  Gornji redak u ćeliji je vodostaj u centimetrima, donji protok u m³/s; uz svaki stoje
+  granice unutar kojih se očekuje da vrijednost ostane. Letva se računa u jednoj veličini,
+  a drugu daje krivulja protoka — gdje krivulje nema, nema ni druge brojke.
+  Ćelija pisana <span class="prog-slabija">svjetlije</span> znači da na tom dosegu prognoza ne
+  pobjeđuje pretpostavku da se ništa neće promijeniti; ondje je bolje vjerovati zadnjem očitanju.
 </p>
 {{end}}
 {{end}}

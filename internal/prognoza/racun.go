@@ -362,14 +362,19 @@ func (r *Racunalo) prosjek(iz Izvor, t, pomak int64, sirina int) (Vrijednost, bo
 
 // Izdana je jedna prognozirana vrijednost, onakva kakva ide u zapis.
 type Izdana struct {
-	Letva      string
-	Velicina   string
-	Izdano     int64
-	Ciljni     int64
-	Vrijednost float64
-	Raspon     float64
-	Model      string
+	Letva       string
+	Velicina    string
+	Izdano      int64
+	Ciljni      int64
+	Vrijednost  float64
+	Dolje, Gore float64 // granice raspona
+	Racunata    bool    // dobivena iz krivulje, ne iz modela
+	Izvan       bool    // krivulja je pritom produljena preko svojeg ruba
+	Model       string
 }
+
+// Raspon je pola širine, za ispis ondje gdje je granica simetrična.
+func (i Izdana) Raspon() float64 { return (i.Gore - i.Dolje) / 2 }
 
 // Prognoziraj računa niz po satu unaprijed, počevši od sata izdavanja.
 // Zaustavi se na prvom satu za koji ulaza više nema.
@@ -391,7 +396,8 @@ func (r *Racunalo) Prognoziraj(letva string, najdalje int, model string) ([]Izda
 		}
 		out = append(out, Izdana{
 			Letva: letva, Velicina: iz.Velicina, Izdano: r.sada, Ciljni: t,
-			Vrijednost: v.Iznos, Raspon: v.Raspon, Model: model,
+			Vrijednost: v.Iznos, Dolje: v.Iznos - v.Raspon, Gore: v.Iznos + v.Raspon,
+			Model: model,
 		})
 	}
 	return out, nil

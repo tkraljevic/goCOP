@@ -825,6 +825,65 @@ func (k HQKrivulja) Protok(vodostajCm int) (float64, bool) {
 	return 0, false
 }
 
+// Vodostaj je obrat krivulje: iz protoka natrag u centimetre na letvi.
+//
+// Krivulja je po vodostaju rastuća — više vode, veći protok — pa se obrat nađe
+// raspolavljanjem. Rješenje se ne traži analitički jer krivulja nije jedna
+// formula nego niz odsječaka različitih oblika, a i tamo gdje jest, potencija s
+// lomljenim eksponentom nema zatvoren obrat.
+//
+// Traži se i preko rubova, koliko i ProtokProsiren dopušta, pa se vrati je li
+// se izašlo iz umjerenog raspona. Prognoza koja pada niže od najniže umjerene
+// vode i dalje treba broj, ali mora reći da je slabija.
+func (k HQKrivulja) Vodostaj(protok float64) (cm int, izvan, ok bool) {
+	if len(k.Odsjecci) == 0 {
+		return 0, false, false
+	}
+	najn, najv := k.Odsjecci[0].OdCm, k.Odsjecci[0].DoCm
+	for _, o := range k.Odsjecci {
+		if o.OdCm < najn {
+			najn = o.OdCm
+		}
+		if o.DoCm > najv {
+			najv = o.DoCm
+		}
+	}
+	q := func(cm int) (float64, bool) {
+		v, _, ok := k.ProtokProsiren(cm)
+		return v, ok
+	}
+	dolje, gore := najn-ProsirenjeKrivuljeCm, najv+ProsirenjeKrivuljeCm
+	qDolje, okD := q(dolje)
+	qGore, okG := q(gore)
+	if !okD || !okG {
+		return 0, false, false
+	}
+	if protok <= qDolje {
+		return dolje, true, true
+	}
+	if protok >= qGore {
+		return gore, true, true
+	}
+	for gore-dolje > 1 {
+		sr := (dolje + gore) / 2
+		v, ok := q(sr)
+		if !ok {
+			return 0, false, false
+		}
+		if v <= protok {
+			dolje, qDolje = sr, v
+		} else {
+			gore, qGore = sr, v
+		}
+	}
+	// Bira se rub koji je bliži traženom protoku; razlika je pola centimetra.
+	cm = dolje
+	if math.Abs(qGore-protok) < math.Abs(qDolje-protok) {
+		cm = gore
+	}
+	return cm, cm < najn || cm > najv, true
+}
+
 // ProsirenjeKrivuljeCm je koliko se krivulja smije produljiti preko krajeva
 // svojih odsječaka. Pri niskoj vodi Dunav zna stajati koji centimetar ispod
 // donjeg ruba umjerene krivulje, i baš se tada protok gleda; produljenje

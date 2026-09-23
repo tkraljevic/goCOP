@@ -37,10 +37,10 @@ func (c *CitacPrognoza) Close() error {
 	return c.db.Close()
 }
 
-// ZaLetvu vraća najnoviju prognozu jedne letve, ali samo u traženoj veličini.
-// Gornja Drava se prognozira u protoku jer se korito ispod lanca
-// hidroelektrana produbljuje, pa joj vodostaj kroz desetljeća mijenja
-// značenje — na grafu vodostaja ondje prognoze zasad nema.
+// ZaLetvu vraća najnoviju prognozu jedne letve u traženoj veličini. Letva je
+// ima u obje ondje gdje postoji krivulja: model radi u jednoj, a krivulja daje
+// drugu. Gdje krivulje nema — Vrbovka, Moslavina, Sotin, Mohovo, Osijek —
+// postoji samo ona u kojoj se računa.
 func (c *CitacPrognoza) ZaLetvu(letva, velicina string) *PrognozaNiza {
 	if c == nil || c.db == nil || letva == "" {
 		return nil
@@ -51,7 +51,7 @@ func (c *CitacPrognoza) ZaLetvu(letva, velicina string) *PrognozaNiza {
 	if err != nil || !izdano.Valid {
 		return nil
 	}
-	r, err := c.db.Query(`SELECT ciljni, vrijednost, raspon FROM izdane
+	r, err := c.db.Query(`SELECT ciljni, vrijednost, dolje, gore FROM izdane
 		WHERE letva = ? AND velicina = ? AND izdano = ? ORDER BY ciljni`,
 		letva, velicina, izdano.Int64)
 	if err != nil {
@@ -64,12 +64,12 @@ func (c *CitacPrognoza) ZaLetvu(letva, velicina string) *PrognozaNiza {
 	}
 	for r.Next() {
 		var ciljni int64
-		var v, raspon float64
-		if err := r.Scan(&ciljni, &v, &raspon); err != nil {
+		var v, dolje, gore float64
+		if err := r.Scan(&ciljni, &v, &dolje, &gore); err != nil {
 			return nil
 		}
 		p.Tocke = append(p.Tocke, TockaPrognoze{
-			Kad: time.Unix(ciljni*3600, 0).UTC(), Vrijednost: v, Raspon: raspon,
+			Kad: time.Unix(ciljni*3600, 0).UTC(), Vrijednost: v, Dolje: dolje, Gore: gore,
 		})
 	}
 	if r.Err() != nil || len(p.Tocke) < 2 {

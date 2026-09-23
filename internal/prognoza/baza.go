@@ -69,13 +69,24 @@ CREATE TABLE IF NOT EXISTS ulazi (
 -- znati što smo mislili kad.
 CREATE TABLE IF NOT EXISTS izdane (
 	letva      TEXT NOT NULL,
-	velicina   TEXT NOT NULL,         -- vodostaj | protok; gornja Drava ide u protoku
+	-- Ista letva stoji u obje veličine: model radi u jednoj, a krivulja daje
+	-- drugu. Gornja Drava se računa u protoku jer joj se korito produbljuje pa
+	-- vodostaj kroz desetljeća mijenja značenje, a dežurni ipak čita
+	-- centimetre. Gdje krivulje nema, stoji samo ona u kojoj se računa.
+	velicina   TEXT NOT NULL,         -- vodostaj | protok
 	izdano     INTEGER NOT NULL,      -- sat kad je prognoza izdana, UTC
 	ciljni     INTEGER NOT NULL,      -- sat na koji se odnosi, UTC
 	vrijednost REAL NOT NULL,
-	raspon     REAL NOT NULL,         -- koliko se očekuje da promaši
+	-- Granice raspona, a ne jedna simetrična brojka: kroz krivulju se raspon
+	-- prenosi rubovima, a krivulja je zakrivljena, pa u drugoj veličini
+	-- ispadne nesimetričan. Raspored se pritom ne mijenja — granica od 68 %
+	-- ostaje granica od 68 % i nakon rastuće preslike.
+	dolje      REAL NOT NULL,
+	gore       REAL NOT NULL,
+	racunata   INTEGER NOT NULL DEFAULT 0, -- 1 kad je dobivena iz krivulje
+	izvan      INTEGER NOT NULL DEFAULT 0, -- 1 kad je krivulja produljena preko ruba
 	model      TEXT NOT NULL,
-	PRIMARY KEY (letva, izdano, ciljni)
+	PRIMARY KEY (letva, velicina, izdano, ciljni)
 ) WITHOUT ROWID;
 CREATE INDEX IF NOT EXISTS izdane_ciljni ON izdane(letva, ciljni);
 
@@ -136,7 +147,7 @@ func Otvori(put string) (*sql.DB, error) {
 func uskladi(db *sql.DB) error {
 	// Pojasi i ulazi su izračunati podaci: namjesti-prognozu ih izgradi iznova.
 	for tablica, stupac := range map[string]string{
-		"izdane": "velicina", "tude": "vrijednost", "ulazi": "sirina_h"} {
+		"izdane": "gore", "tude": "vrijednost", "ulazi": "sirina_h"} {
 		ima, err := imaStupac(db, tablica, stupac)
 		if err != nil {
 			return err
@@ -323,12 +334,13 @@ func SpremiIzdane(db *sql.DB, izdane []Izdana) error {
 	defer tx.Rollback()
 	for _, i := range izdane {
 		if _, err := tx.Exec(`INSERT INTO izdane
-			(letva, velicina, izdano, ciljni, vrijednost, raspon, model)
-			VALUES (?,?,?,?,?,?,?)
-			ON CONFLICT(letva, izdano, ciljni) DO UPDATE SET
-				velicina=excluded.velicina, vrijednost=excluded.vrijednost,
-				raspon=excluded.raspon, model=excluded.model`,
-			i.Letva, i.Velicina, i.Izdano, i.Ciljni, i.Vrijednost, i.Raspon, i.Model); err != nil {
+			(letva, velicina, izdano, ciljni, vrijednost, dolje, gore, racunata, izvan, model)
+			VALUES (?,?,?,?,?,?,?,?,?,?)
+			ON CONFLICT(letva, velicina, izdano, ciljni) DO UPDATE SET
+				vrijednost=excluded.vrijednost, dolje=excluded.dolje, gore=excluded.gore,
+				racunata=excluded.racunata, izvan=excluded.izvan, model=excluded.model`,
+			i.Letva, i.Velicina, i.Izdano, i.Ciljni, i.Vrijednost, i.Dolje, i.Gore,
+			i.Racunata, i.Izvan, i.Model); err != nil {
 			return fmt.Errorf("izdana %s za %d: %w", i.Letva, i.Ciljni, err)
 		}
 	}
@@ -377,8 +389,8 @@ func ZadnjeIzdanje(db *sql.DB) (int64, bool, error) {
 // Izdanje čita sve prognoze jednog izdanja, složene po letvi i poredane po
 // ciljnom satu.
 func Izdanje(db *sql.DB, izdano int64) (map[string][]Izdana, error) {
-	r, err := db.Query(`SELECT letva, velicina, izdano, ciljni, vrijednost, raspon, model
-		FROM izdane WHERE izdano = ? ORDER BY letva, ciljni`, izdano)
+	r, err := db.Query(`SELECT letva, velicina, izdano, ciljni, vrijednost, dolje, gore,
+		racunata, izvan, model FROM izdane WHERE izdano = ? ORDER BY letva, velicina, ciljni`, izdano)
 	if err != nil {
 		return nil, err
 	}
@@ -387,7 +399,7 @@ func Izdanje(db *sql.DB, izdano int64) (map[string][]Izdana, error) {
 	for r.Next() {
 		var i Izdana
 		if err := r.Scan(&i.Letva, &i.Velicina, &i.Izdano, &i.Ciljni,
-			&i.Vrijednost, &i.Raspon, &i.Model); err != nil {
+			&i.Vrijednost, &i.Dolje, &i.Gore, &i.Racunata, &i.Izvan, &i.Model); err != nil {
 			return nil, err
 		}
 		out[i.Letva] = append(out[i.Letva], i)

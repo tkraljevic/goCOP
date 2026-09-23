@@ -34,13 +34,17 @@ func NewPrognozeHandler(tmpl *template.Template, citac func() *CitacPrognoza,
 	return &PrognozeHandler{tmpl: tmpl, citac: citac, stations: stations}
 }
 
-// VrijednostPrognoze je jedna brojka na pregledu.
+// VrijednostPrognoze je jedna brojka na pregledu, u obje veličine. Vodostaj je
+// glavni jer se u obrani čita on; protok stoji ispod, sitnije. Ondje gdje
+// krivulje nema, druge veličine nema ni na pregledu.
 type VrijednostPrognoze struct {
-	DosegH  int
-	Ima     bool
-	Iznos   string
-	Raspon  string
-	Slabija bool // na tom dosegu postojanost je bolja
+	DosegH   int
+	Ima      bool
+	Cm       string
+	CmRaspon string
+	Q        string
+	QRaspon  string
+	Slabija  bool // na tom dosegu postojanost je bolja
 }
 
 // LetvaPrognoze je jedan redak pregleda.
@@ -48,10 +52,10 @@ type LetvaPrognoze struct {
 	Kod, Naziv  string
 	Voda        string
 	Stacionaza  string
-	Velicina    string
-	Jedinica    string
+	Racuna      string // u čemu model radi; druga veličina dolazi iz krivulje
 	URL         string
-	Sada        string
+	SadaCm      string
+	SadaQ       string
 	Vrijednosti []VrijednostPrognoze
 	Doseg       int // dokle prognoza ide, u satima
 }
@@ -122,42 +126,67 @@ func (h *PrognozeHandler) opisiLetve(ctx context.Context, letve []PregledLetve) 
 	out := make([]LetvaPrognoze, 0, len(letve))
 	for _, l := range letve {
 		red := LetvaPrognoze{
-			Kod: l.Letva, Naziv: l.Letva, Velicina: l.Velicina,
-			Jedinica: models.JedinicaVelicine(l.Velicina),
-			Doseg:    l.Doseg, Sada: brojHRf(l.Sada, 0),
+			Kod: l.Letva, Naziv: l.Letva, Racuna: l.Racuna, Doseg: l.Doseg,
+			SadaCm: uVelicini(l.Sada, "vodostaj"), SadaQ: uVelicini(l.Sada, "protok"),
 		}
 		if st, ima := popis[l.Letva]; ima {
 			red.Naziv, red.Voda, red.Stacionaza = st.Name, st.Watercourse, st.Stationing
 			red.URL = "/readings/station/" + st.ID.String()
 		}
 		for _, d := range DoseziPregleda {
-			v, ima := l.Po[d]
-			red.Vrijednosti = append(red.Vrijednosti, VrijednostPrognoze{
-				DosegH: d, Ima: ima,
-				Iznos:   brojHRf(v.Vrijednost, 0),
-				Raspon:  brojHRf(v.Raspon, 0),
-				Slabija: ima && !v.BoljaOdPostojanosti,
-			})
+			cm, imaCm := l.Po["vodostaj"][d]
+			q, imaQ := l.Po["protok"][d]
+			v := VrijednostPrognoze{DosegH: d, Ima: imaCm || imaQ}
+			if imaCm {
+				v.Cm, v.CmRaspon = brojHRf(cm.Vrijednost, 0), granice(cm)
+				v.Slabija = !cm.BoljaOdPostojanosti
+			}
+			if imaQ {
+				v.Q, v.QRaspon = brojHRf(q.Vrijednost, 0), granice(q)
+				if !imaCm {
+					v.Slabija = !q.BoljaOdPostojanosti
+				}
+			}
+			red.Vrijednosti = append(red.Vrijednosti, v)
 		}
 		out = append(out, red)
 	}
 	return out
 }
 
+// granice ispisuje raspon kao dvije brojke. Simetričan bi se dao pisati i s ±,
+// ali onaj dobiven krivuljom to nije, pa bi dvije vrste zapisa u istoj tablici
+// zbunjivale više nego što bi skratile.
+func granice(v PregledVrijednost) string {
+	if v.Gore <= v.Dolje {
+		return ""
+	}
+	return brojHRf(v.Dolje, 0) + "–" + brojHRf(v.Gore, 0)
+}
+
+func uVelicini(sada map[string]float64, velicina string) string {
+	v, ima := sada[velicina]
+	if !ima {
+		return ""
+	}
+	return brojHRf(v, 0)
+}
+
 // PregledVrijednost je jedna prognozirana vrijednost na pregledu.
 type PregledVrijednost struct {
 	Vrijednost          float64
-	Raspon              float64
+	Dolje, Gore         float64
 	BoljaOdPostojanosti bool
 }
 
-// PregledLetve je prognoza jedne letve, složena po dosezima.
+// PregledLetve je prognoza jedne letve, po veličini pa po dosegu. Racuna kaže
+// u kojoj veličini model doista radi; druga dolazi iz krivulje.
 type PregledLetve struct {
-	Letva    string
-	Velicina string
-	Sada     float64
-	Doseg    int
-	Po       map[int]PregledVrijednost
+	Letva  string
+	Racuna string
+	Sada   map[string]float64
+	Doseg  int
+	Po     map[string]map[int]PregledVrijednost
 }
 
 // Pregled čita najnovije izdanje: za svaku letvu vrijednost u satu izdavanja i
@@ -193,22 +222,33 @@ func (c *CitacPrognoza) Pregled() (time.Time, []PregledLetve, error) {
 		if len(niz) == 0 {
 			continue
 		}
-		p := PregledLetve{Letva: letva, Velicina: niz[0].Velicina,
-			Sada: niz[0].Vrijednost, Po: map[int]PregledVrijednost{}}
+		p := PregledLetve{Letva: letva, Sada: map[string]float64{},
+			Po: map[string]map[int]PregledVrijednost{}}
+		if len(pojasi[letva]) > 0 {
+			p.Racuna = pojasi[letva][0].Velicina
+		}
 		for _, i := range niz {
 			d := int(i.Ciljni - izdano)
 			if d > p.Doseg {
 				p.Doseg = d
 			}
+			if d == 0 {
+				p.Sada[i.Velicina] = i.Vrijednost
+			}
 			if !uDosezima(d) {
 				continue
 			}
+			// Je li prognoza bolja od postojanosti mjereno je u veličini u
+			// kojoj model radi; krivulja to ne mijenja, samo preslikava.
 			bolja := true
 			if pr, ima := promasaji[letva][d]; ima {
 				bolja = pr.BoljaOdPostojanosti()
 			}
-			p.Po[d] = PregledVrijednost{Vrijednost: i.Vrijednost, Raspon: i.Raspon,
-				BoljaOdPostojanosti: bolja}
+			if p.Po[i.Velicina] == nil {
+				p.Po[i.Velicina] = map[int]PregledVrijednost{}
+			}
+			p.Po[i.Velicina][d] = PregledVrijednost{Vrijednost: i.Vrijednost,
+				Dolje: i.Dolje, Gore: i.Gore, BoljaOdPostojanosti: bolja}
 		}
 		out = append(out, p)
 	}

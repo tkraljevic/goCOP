@@ -113,7 +113,7 @@ func main() {
 					promasaji[letva][d] = &zbroj{}
 				}
 				z := promasaji[letva][d]
-				z.dodaj(i.Vrijednost-stvarno, i.Raspon)
+				z.dodaj(i.Vrijednost-stvarno, i.Raspon())
 				if imaSad {
 					z.dodajPostojanost(sada - stvarno)
 				}

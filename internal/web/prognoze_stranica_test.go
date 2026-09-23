@@ -34,9 +34,11 @@ func bazaPrognoza(t *testing.T, izdano int64) string {
 	var izdane []prognoza.Izdana
 	for _, letva := range []string{"belisce", "donji-miholjac"} {
 		for sat := int64(0); sat <= 72; sat++ {
+			v := 30 + float64(sat)
 			izdane = append(izdane, prognoza.Izdana{
 				Letva: letva, Velicina: "vodostaj", Izdano: izdano, Ciljni: izdano + sat,
-				Vrijednost: 30 + float64(sat), Raspon: float64(sat) / 2, Model: "proba",
+				Vrijednost: v, Dolje: v - float64(sat)/2, Gore: v + float64(sat)/2,
+				Model: "proba",
 			})
 		}
 	}
@@ -81,8 +83,8 @@ func TestPregledSlazeLetveKakoVodaTece(t *testing.T) {
 		t.Errorf("doseg %d h umjesto 72", letve[0].Doseg)
 	}
 	// Vrijednost u satu izdavanja je sidro prognoze, ne prva prognozirana ura.
-	if letve[0].Sada != 30 {
-		t.Errorf("sad %g umjesto 30", letve[0].Sada)
+	if letve[0].Sada["vodostaj"] != 30 {
+		t.Errorf("sad %g umjesto 30", letve[0].Sada["vodostaj"])
 	}
 }
 
@@ -103,14 +105,14 @@ func TestPregledOznaciDosegSlabijiOdPostojanosti(t *testing.T) {
 			belisce = l
 		}
 	}
-	if belisce.Po[24].BoljaOdPostojanosti != true {
+	if belisce.Po["vodostaj"][24].BoljaOdPostojanosti != true {
 		t.Error("na 24 h Belišće pobjeđuje postojanost, a nije tako označeno")
 	}
-	if belisce.Po[48].BoljaOdPostojanosti != false {
+	if belisce.Po["vodostaj"][48].BoljaOdPostojanosti != false {
 		t.Error("na 48 h Belišće ne pobjeđuje postojanost, a označeno je kao da pobjeđuje")
 	}
 	// Doseg za koji promašaj nije izmjeren ne smije ispasti kao slabiji.
-	if belisce.Po[6].BoljaOdPostojanosti != true {
+	if belisce.Po["vodostaj"][6].BoljaOdPostojanosti != true {
 		t.Error("neizmjeren doseg proglašen slabijim")
 	}
 }
@@ -123,19 +125,20 @@ func TestStranicaPrognozaPokazujeIzdanjeIRaspon(t *testing.T) {
 		ActiveNav:   "prognoze", Dosezi: DoseziPregleda, Udio: 68,
 		Izdano: "23.9.2026. u 07:00",
 		Letve: []LetvaPrognoze{{
-			Kod: "belisce", Naziv: "Belišće", Voda: "Drava", Jedinica: "cm",
-			URL: "/readings/station/x", Sada: "35", Doseg: 96,
+			Kod: "belisce", Naziv: "Belišće", Voda: "Drava", Racuna: "vodostaj",
+			URL: "/readings/station/x", SadaCm: "35", SadaQ: "231", Doseg: 96,
 			Vrijednosti: []VrijednostPrognoze{
-				{DosegH: 6, Ima: true, Iznos: "41", Raspon: "2"},
-				{DosegH: 12, Ima: true, Iznos: "48", Raspon: "4"},
-				{DosegH: 24, Ima: true, Iznos: "57", Raspon: "8"},
-				{DosegH: 48, Ima: true, Iznos: "62", Raspon: "24", Slabija: true},
+				{DosegH: 6, Ima: true, Cm: "41", CmRaspon: "39–43", Q: "245", QRaspon: "240–251"},
+				{DosegH: 12, Ima: true, Cm: "48", CmRaspon: "44–52"},
+				{DosegH: 24, Ima: true, Cm: "57", CmRaspon: "49–65"},
+				{DosegH: 48, Ima: true, Cm: "62", CmRaspon: "38–86", Slabija: true},
 				{DosegH: 72, Ima: false},
 			},
 		}},
 	})
 	for _, want := range []string{"Belišće", "Drava", "23.9.2026. u 07:00", "68 %",
-		"± 8", "prog-slabija", "96 h", "/readings/station/x"} {
+		"49–65", "245", "240–251", "prog-slabija", "96 h", "/readings/station/x",
+		"računa se u vodostaju"} {
 		if !strings.Contains(html, want) {
 			t.Errorf("stranica prognoza nema %q", want)
 		}

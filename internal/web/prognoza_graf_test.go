@@ -12,10 +12,11 @@ import (
 func nizPrognoze(izdano time.Time, sati int) *PrognozaNiza {
 	p := &PrognozaNiza{Izdano: izdano, Udio: 68}
 	for i := 0; i <= sati; i++ {
+		v := 300 + float64(i)*2
+		raspon := float64(i) * 1.5 // raspon raste s dosegom
 		p.Tocke = append(p.Tocke, TockaPrognoze{
 			Kad:        izdano.Add(time.Duration(i) * time.Hour),
-			Vrijednost: 300 + float64(i)*2,
-			Raspon:     float64(i) * 1.5, // raspon raste s dosegom
+			Vrijednost: v, Dolje: v - raspon, Gore: v + raspon,
 		})
 	}
 	return p
@@ -63,7 +64,7 @@ func TestPojasObuhvacaCrtuPrognoze(t *testing.T) {
 	if c == nil || !c.ImaPrognozu {
 		t.Fatal("nema prognoze na grafu")
 	}
-	// Prva točka pojasa ima raspon nula, pa gornji i donji rub padaju na crtu.
+	// Prva točka ima granice na samoj vrijednosti, pa rubovi padaju na crtu.
 	if !strings.HasPrefix(c.PrognozaPojas, "M") || !strings.HasSuffix(c.PrognozaPojas, " Z") {
 		t.Errorf("pojas nije zatvorena ploha: %.40s…", c.PrognozaPojas)
 	}
