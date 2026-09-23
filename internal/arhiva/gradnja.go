@@ -733,6 +733,10 @@ func mogucaVrijednost(velicina string, v float64) bool {
 		return v >= -2 && v <= 45 // °C
 	case "koncentracija", "pronos":
 		return v >= 0
+	case "kota":
+		// apsolutna kota vodnog lica, cm n. m. — HEP tako vodi svoje letve na
+		// Dravi; najniža je Donji Miholjac oko 90 m, najviša Formin oko 220 m
+		return v > 5000 && v < 40000
 	}
 	return true
 }
