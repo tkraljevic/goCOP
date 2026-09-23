@@ -35,7 +35,28 @@ const (
 	TablicaSivo    = 15 // ćelija tablice: obrub, sredina, sivi font — sporedna brojka uz glavnu
 	TablicaKurziv  = 16 // ćelija tablice: obrub, kurziv — druga veličina uz glavnu
 	TablicaPodRub  = 17 // kao TablicaPod, s debelom crtom gore — početak skupine redaka
+
+	// Isti stilovi s blagom plavom podlogom, za svaku drugu skupinu redaka.
+	TablicaPojas        = 18
+	TablicaSredinaPojas = 19
+	TablicaSivoPojas    = 20
+	TablicaKurzivPojas  = 21
 )
+
+// UPojasu vraća stil s podlogom skupine; stil koji podlogu nema ostaje isti.
+func UPojasu(stil int) int {
+	switch stil {
+	case Tablica:
+		return TablicaPojas
+	case TablicaSredina:
+		return TablicaSredinaPojas
+	case TablicaSivo:
+		return TablicaSivoPojas
+	case TablicaKurziv:
+		return TablicaKurzivPojas
+	}
+	return stil
+}
 
 // Celija je jedna ćelija: tekst, broj ili formula s izračunatom vrijednosti
 type Celija struct {
@@ -274,14 +295,15 @@ const stilovi = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSh
 	`<font><sz val="10"/><color rgb="FF808080"/><name val="Arial"/></font>` +
 	`<font><i/><sz val="10"/><name val="Arial"/></font>` +
 	`</fonts>` +
-	`<fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>` +
+	`<fills count="5"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>` +
 	`<fill><patternFill patternType="solid"><fgColor rgb="FFDCE6F2"/><bgColor indexed="64"/></patternFill></fill>` +
-	`<fill><patternFill patternType="solid"><fgColor rgb="FFF2F2F2"/><bgColor indexed="64"/></patternFill></fill></fills>` +
+	`<fill><patternFill patternType="solid"><fgColor rgb="FFF2F2F2"/><bgColor indexed="64"/></patternFill></fill>` +
+	`<fill><patternFill patternType="solid"><fgColor rgb="FFEAF1FB"/><bgColor indexed="64"/></patternFill></fill></fills>` +
 	`<borders count="3"><border><left/><right/><top/><bottom/><diagonal/></border>` +
 	`<border><left style="thin"><color rgb="FF999999"/></left><right style="thin"><color rgb="FF999999"/></right><top style="thin"><color rgb="FF999999"/></top><bottom style="thin"><color rgb="FF999999"/></bottom><diagonal/></border>` +
 	`<border><left style="thin"><color rgb="FF999999"/></left><right style="thin"><color rgb="FF999999"/></right><top style="medium"><color rgb="FF333333"/></top><bottom style="thin"><color rgb="FF999999"/></bottom><diagonal/></border></borders>` +
 	`<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>` +
-	`<cellXfs count="18">` +
+	`<cellXfs count="22">` +
 	`<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center"/></xf>` + // 0
 	`<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="center"/></xf>` + // 1
 	`<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>` + // 2
@@ -300,6 +322,10 @@ const stilovi = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSh
 	`<xf numFmtId="0" fontId="5" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>` + // 15
 	`<xf numFmtId="0" fontId="6" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>` + // 16
 	`<xf numFmtId="0" fontId="1" fillId="3" borderId="2" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>` + // 17
+	`<xf numFmtId="0" fontId="0" fillId="4" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>` + // 18
+	`<xf numFmtId="0" fontId="0" fillId="4" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>` + // 19
+	`<xf numFmtId="0" fontId="5" fillId="4" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>` + // 20
+	`<xf numFmtId="0" fontId="6" fillId="4" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>` + // 21
 	`</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`
 
 func (l *List) xml(logo bool) string {

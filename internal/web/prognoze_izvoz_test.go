@@ -54,7 +54,7 @@ func TestIzvozPrognozeUExcel(t *testing.T) {
 	for _, want := range []string{"PROGNOZA VODOSTAJA — Dunav", "VGO za Dunav i donju Dravu, Osijek", "COP Osijek",
 		">Bezdan<", "RS · 1.425,59", "Batina", "čet 24.9. 07 h", "±5", ">160<", "dnevni", "satni", ">2250<", ">158<", ">131<",
 		"voditelj Centra obrane od poplava", "zamjenik voditelja Centra obrane od poplava", "Pero Perić",
-		`s="15"`, `s="16"`, `s="17"`} { // raspon sivo, protok ukošeno, početak razdoblja crtom
+		`s="15"`, `s="16"`, `s="17"`, `s="20"`} { // raspon sivo, protok ukošeno, početak razdoblja crtom
 		if !strings.Contains(txt, want) {
 			t.Errorf("u izvozu nema %q", want)
 		}

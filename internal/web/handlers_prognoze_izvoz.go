@@ -72,7 +72,19 @@ func listPrognoze(k *xlsxw.Knjiga, z ZaglavljeIzvoza, data PrognozePageData, t T
 		}
 		return N(math.Round(*v), stil) // cijeli centimetri i m³/s, kao u uredskoj tablici
 	}
+	// Razdoblja se odvajaju debelom crtom na početku i podlogom svakog
+	// drugog; redak naše vrijednosti ima svoju ispunu u oba.
+	razdoblje := -1
 	redak := func(termin, sto string, stil int, celija func(LetvaPrognoze) xlsxw.Celija) {
+		if termin != "" {
+			razdoblje++
+		}
+		pojas := func(st int) int {
+			if razdoblje%2 == 1 {
+				return xlsxw.UPojasu(st)
+			}
+			return st
+		}
 		// Termin počinje debelom crtom: prvi redak svakog razdoblja nosi
 		// njegov naziv, pa se po njemu razdoblja i odvajaju.
 		prvi := termin != ""
@@ -80,12 +92,13 @@ func listPrognoze(k *xlsxw.Knjiga, z ZaglavljeIzvoza, data PrognozePageData, t T
 		if prvi {
 			stil, stilTermina = xlsxw.TablicaPodRub, xlsxw.TablicaPodRub
 		}
-		red := []xlsxw.Celija{T(termin, stilTermina), T(sto, stil)}
+		red := []xlsxw.Celija{T(termin, pojas(stilTermina)), T(sto, pojas(stil))}
 		for _, x := range letve {
 			c := celija(x)
 			if prvi {
 				c.Stil = xlsxw.TablicaPodRub
 			}
+			c.Stil = pojas(c.Stil)
 			red = append(red, c)
 		}
 		l.Dodaj(red...)
