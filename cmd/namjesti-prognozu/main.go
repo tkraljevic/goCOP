@@ -90,16 +90,16 @@ var Tokovi = []struct {
 		// Donjom Dubravom drži svega R² 0,24–0,45 po pojasu, a Dubravi ispadne
 		// nagib 2,07 — protok koji se na dvadeset kilometara udvostruči. To
 		// nije bio val nego Mura koja se u njemu skrivala.
-		// Bednja se ulijeva u Dravu kod Donje Dubrave, ispod te letve a iznad
-		// Botova. Lanac joj ide Železnica (rkm 70,4) → Tuhovec (31,4) →
-		// Ludbreg (12,7). Tuhovec Ludbregu drži r
+		// Bednja se ulijeva u staro korito Drave, koje se s odvodnim kanalom
+		// HE Dubrava spaja kod Donje Dubrave. Lanac joj ide Železnica (rkm
+		// 70,4) → Tuhovec (31,4) → Ludbreg (12,7). Tuhovec Ludbregu drži r
 		// 0,92 uz kašnjenje 5 h, Železnica Tuhovcu slabije (r 0,79, rasap 12,9
 		// m³/s), ali kašnjenje joj raste s vodnošću 0→4 h, pa produljuje lanac:
 		// Ludbreg s njom ide 37/40/26/7/2 % bolje od postojanosti umjesto
 		// 32/21/7/1/lošije.
 		//
 		// Plitvica u Bednju ne utječe. Teče usporedno s njom, sjevernije, i
-		// ulijeva se u Dravu tek kod Donje Dubrave — kao i Bednja. Zato joj
+		// ulijeva se u staro korito Drave uz Bednju, kod Donje Dubrave. Zato joj
 		// ni na jednoj bednjanskoj letvi nije mjesto među ulazima, iako u
 		// namještanju izgleda kao pritoka: Ludbregu ulazi s kašnjenjem 0 h,
 		// prozorom od sata i nagibom 0,63 (Krkanec) odnosno 0,70 (Vidovićev
@@ -133,8 +133,12 @@ var Tokovi = []struct {
 		// sati, a 49 je gornja granica pretrage. Izvan namještanja od toga ne
 		// ostane ništa: pogreška Botova s Bednjom i bez nje je 51,5/51,7,
 		// 74,7/74,7, 95,4/95,0, 146,5/146,6 i 181,3/181,4 m³/s na 6, 12, 24,
-		// 48 i 72 sata. Botovu nedostaje raspored ispuštanja HE Dubrava, a to
-		// nijedna pritoka ne nadomješta.
+		// 48 i 72 sata, mjereno 2023.–2025., dakle i preko svibnja 2023. kad
+		// je Bednja imala pravi val. Nije ni dvostruko brojenje: ulaz
+		// donja-dubrava u protoku je HEP-ovo ispuštanje elektrane (izvor
+		// hep-he-dubrava, isti niz kao he-dubrava), a Bednja i Plitvica ulaze
+		// u staro korito ispod njega. Botovu nedostaje raspored ispuštanja HE
+		// Dubrava unaprijed, a to nijedna pritoka ne nadomješta.
 		{"botovo", []string{"donja-dubrava", "letenye"}},
 		{"novo-virje", []string{"botovo"}},
 		{"terezino-polje", []string{"novo-virje"}},
