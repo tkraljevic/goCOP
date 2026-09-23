@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"fmt"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -134,6 +135,19 @@ func Procitaj(ime string, sirovo []byte) (*Sadrzaj, error) {
 		s.Profil = p
 		return s, nil
 	}
+	if strings.HasPrefix(prvi, "# letva.voda.hr") {
+		// Satni vodostaj preuzet s letva.voda.hr (Hidrologija → Satni podaci
+		// → Tekst. datoteka), godina po godinu u jednu datoteku. Vrijeme je
+		// lokalno, kao u HIS-u.
+		v := velicine["VODOSTAJ"]
+		v.Gustoca = "satni"
+		s.Vrsta = v
+		s.Niz, s.Preskoceno = citajLetvu(redci)
+		if len(s.Niz) > 0 {
+			s.OdGodine, s.DoGodine = s.Niz[0].Kad.Year(), s.Niz[len(s.Niz)-1].Kad.Year()
+		}
+		return s, nil
+	}
 	if m := reSatni.FindStringSubmatch(prvi); m != nil {
 		v, ok := velicine[strings.ToUpper(m[2])]
 		if !ok {
@@ -214,6 +228,33 @@ func citajSatne(redci []string) ([]Vrijednost, int) {
 		}
 		out = append(out, Vrijednost{Kad: kad, V: v})
 	}
+	return out, preskoceno
+}
+
+// reRedLetva je redak satnih podataka s letva.voda.hr: "01.06.2010. 00 h     134"
+var reRedLetva = regexp.MustCompile(`^(\d{2})\.(\d{2})\.(\d{4})\. (\d{2}) h\s+(-?\d+)\s*$`)
+
+// citajLetvu čita satne retke s letva.voda.hr. Sat koji se pri prelasku na
+// zimsko vrijeme ponovi uzima se jednom, prvi put — lokalni sat ga ne može
+// razlikovati, a vrijeme niza je lokalno.
+func citajLetvu(redci []string) ([]Vrijednost, int) {
+	var out []Vrijednost
+	vidjeno := map[time.Time]bool{}
+	preskoceno := 0
+	for _, r := range redci {
+		m := reRedLetva.FindStringSubmatch(strings.TrimSpace(r))
+		if m == nil {
+			continue
+		}
+		kad := time.Date(broj(m[3]), time.Month(broj(m[2])), broj(m[1]), broj(m[4]), 0, 0, 0, time.UTC)
+		if NepostojeciSat(kad) || vidjeno[kad] {
+			preskoceno++
+			continue
+		}
+		vidjeno[kad] = true
+		out = append(out, Vrijednost{Kad: kad, V: m[5]})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Kad.Before(out[j].Kad) })
 	return out, preskoceno
 }
 
