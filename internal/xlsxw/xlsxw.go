@@ -34,6 +34,7 @@ const (
 	TablicaTekst   = 14 // ćelija tablice: obrub, prelamanje, gore — za dulji tekst
 	TablicaSivo    = 15 // ćelija tablice: obrub, sredina, sivi font — sporedna brojka uz glavnu
 	TablicaKurziv  = 16 // ćelija tablice: obrub, kurziv — druga veličina uz glavnu
+	TablicaPodRub  = 17 // kao TablicaPod, s debelom crtom gore — početak skupine redaka
 )
 
 // Celija je jedna ćelija: tekst, broj ili formula s izračunatom vrijednosti
@@ -276,10 +277,11 @@ const stilovi = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSh
 	`<fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>` +
 	`<fill><patternFill patternType="solid"><fgColor rgb="FFDCE6F2"/><bgColor indexed="64"/></patternFill></fill>` +
 	`<fill><patternFill patternType="solid"><fgColor rgb="FFF2F2F2"/><bgColor indexed="64"/></patternFill></fill></fills>` +
-	`<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border>` +
-	`<border><left style="thin"><color rgb="FF999999"/></left><right style="thin"><color rgb="FF999999"/></right><top style="thin"><color rgb="FF999999"/></top><bottom style="thin"><color rgb="FF999999"/></bottom><diagonal/></border></borders>` +
+	`<borders count="3"><border><left/><right/><top/><bottom/><diagonal/></border>` +
+	`<border><left style="thin"><color rgb="FF999999"/></left><right style="thin"><color rgb="FF999999"/></right><top style="thin"><color rgb="FF999999"/></top><bottom style="thin"><color rgb="FF999999"/></bottom><diagonal/></border>` +
+	`<border><left style="thin"><color rgb="FF999999"/></left><right style="thin"><color rgb="FF999999"/></right><top style="medium"><color rgb="FF333333"/></top><bottom style="thin"><color rgb="FF999999"/></bottom><diagonal/></border></borders>` +
 	`<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>` +
-	`<cellXfs count="17">` +
+	`<cellXfs count="18">` +
 	`<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center"/></xf>` + // 0
 	`<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="center"/></xf>` + // 1
 	`<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>` + // 2
@@ -297,6 +299,7 @@ const stilovi = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSh
 	`<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>` + // 14
 	`<xf numFmtId="0" fontId="5" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>` + // 15
 	`<xf numFmtId="0" fontId="6" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>` + // 16
+	`<xf numFmtId="0" fontId="1" fillId="3" borderId="2" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>` + // 17
 	`</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`
 
 func (l *List) xml(logo bool) string {

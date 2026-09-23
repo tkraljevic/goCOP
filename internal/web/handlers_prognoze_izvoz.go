@@ -73,9 +73,20 @@ func listPrognoze(k *xlsxw.Knjiga, z ZaglavljeIzvoza, data PrognozePageData, t T
 		return N(math.Round(*v), stil) // cijeli centimetri i m³/s, kao u uredskoj tablici
 	}
 	redak := func(termin, sto string, stil int, celija func(LetvaPrognoze) xlsxw.Celija) {
-		red := []xlsxw.Celija{T(termin, xlsxw.TablicaPod), T(sto, stil)}
+		// Termin počinje debelom crtom: prvi redak svakog razdoblja nosi
+		// njegov naziv, pa se po njemu razdoblja i odvajaju.
+		prvi := termin != ""
+		stilTermina := xlsxw.TablicaPod
+		if prvi {
+			stil, stilTermina = xlsxw.TablicaPodRub, xlsxw.TablicaPodRub
+		}
+		red := []xlsxw.Celija{T(termin, stilTermina), T(sto, stil)}
 		for _, x := range letve {
-			red = append(red, celija(x))
+			c := celija(x)
+			if prvi {
+				c.Stil = xlsxw.TablicaPodRub
+			}
+			red = append(red, c)
 		}
 		l.Dodaj(red...)
 	}
