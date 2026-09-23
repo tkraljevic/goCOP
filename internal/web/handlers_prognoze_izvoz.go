@@ -34,7 +34,19 @@ func (h *PrognozeHandler) IzvoziPrognoze(w http.ResponseWriter, r *http.Request)
 // listPrognoze piše jednu vodu.
 func listPrognoze(k *xlsxw.Knjiga, z ZaglavljeIzvoza, data PrognozePageData, t TablicaPrognoza) {
 	T, N := xlsxw.T, xlsxw.N
-	letve := t.Letve
+	// U izvoz ulaze letve s našom prognozom, i srpske nasuprot našima zbog
+	// srpske prognoze; letve samo s mjerenjem (Bratislava, Komárno) ili
+	// samo s tuđom prognozom na vrhu lanca (Komárom, Letenye) ostaju na
+	// stranici, ali u tablicu koja se izdaje ne idu.
+	var letve []LetvaPrognoze
+	for _, x := range t.Letve {
+		if x.Racuna != "" || imaSrpsku(x) {
+			letve = append(letve, x)
+		}
+	}
+	if len(letve) == 0 {
+		return
+	}
 	stupaca := 2 + len(letve)
 	l := k.NoviList(t.Naslov)
 	l.Vodoravno = true
@@ -287,4 +299,15 @@ func drugiRedak(x LetvaPrognoze, naslovLista string) string {
 		d = append(d, km)
 	}
 	return strings.Join(d, " · ")
+}
+
+func imaSrpsku(x LetvaPrognoze) bool {
+	for _, d := range x.Dani {
+		for _, tc := range d.Tude {
+			if tc.Oznaka == "RS" {
+				return true
+			}
+		}
+	}
+	return false
 }

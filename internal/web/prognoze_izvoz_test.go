@@ -21,6 +21,9 @@ func TestIzvozPrognozeUExcel(t *testing.T) {
 		Izdano: "24.9.2026. u 08:00", Bliski: BliziDosezi, Dani: []string{"čet 24.9.", "pet 25.9."},
 	}
 	tab := TablicaPrognoza{Naslov: "Dunav", Letve: []LetvaPrognoze{
+		{Kod: "bratislava", Naziv: "Bratislava (Slovačka)", Voda: "Dunav", Pregledna: true, SadaCmV: v(300)},
+		{Kod: "komarom", Naziv: "Komárom (Mađarska)", Voda: "Dunav", TudiVrh: true, SadaCmV: v(80),
+			Dani: []CelijaDana{{Tude: []TudaCelija{{Oznaka: "HU", CmV: 85}}}, {}}},
 		{Kod: "bezdan", Naziv: "Bezdan (Srbija)", Voda: "Dunav", Stacionaza: "rkm 1.425,59", Pregledna: true,
 			SadaCmV: v(120), Dani: []CelijaDana{{Tude: []TudaCelija{{Oznaka: "RS", CmV: 131}}}, {}}},
 		{Kod: "batina", Naziv: "Batina", Voda: "Dunav", Racuna: "vodostaj", SadaCmV: v(150), SadaQV: v(2100),
@@ -51,6 +54,11 @@ func TestIzvozPrognozeUExcel(t *testing.T) {
 		sve.Write(x)
 	}
 	txt := sve.String()
+	for _, nema := range []string{"Bratislava", "Komárom"} {
+		if strings.Contains(txt, nema) {
+			t.Errorf("u izvozu je %s, a za nju nemamo prognozu", nema)
+		}
+	}
 	for _, want := range []string{"PROGNOZA VODOSTAJA — Dunav", "VGO za Dunav i donju Dravu, Osijek", "COP Osijek",
 		">Bezdan<", "RS · 1.425,59", "Batina", "čet 24.9. 07 h", "±5", ">160<", "dnevni", "satni", ">2250<", ">158<", ">131<",
 		"zamjenik voditelja Centra obrane od poplava", "Pero Perić",
