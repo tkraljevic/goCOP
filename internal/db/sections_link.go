@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -152,6 +153,7 @@ type Linker struct {
 	tx        Execer
 	waters    map[string][]hydro.Candidate
 	stations  map[string][]string // ključ naziva → id postaje
+	kmPostaje map[string]float64  // id postaje → stacionaža u km, kad je upisana
 	areas     map[int]models.Area
 	territory map[string][]territoryRow // dionica → naslijeđene veze
 	names     map[int]string            // id općine/naselja → naziv (za razdiobu po poddionicama)
@@ -168,23 +170,26 @@ type territoryRow struct {
 
 // NewLinker učitava registre potrebne za vezanje
 func NewLinker(ctx context.Context, tx Execer) (*Linker, error) {
-	l := &Linker{tx: tx, stations: map[string][]string{}, areas: map[int]models.Area{}, territory: map[string][]territoryRow{}}
+	l := &Linker{tx: tx, stations: map[string][]string{}, kmPostaje: map[string]float64{}, areas: map[int]models.Area{}, territory: map[string][]territoryRow{}}
 	var err error
 	if l.waters, err = watercourseIndexTx(ctx, tx); err != nil {
 		return nil, err
 	}
-	rows, err := tx.QueryContext(ctx, `SELECT id, name FROM stations`)
+	rows, err := tx.QueryContext(ctx, `SELECT id, name, stationing FROM stations`)
 	if err != nil {
 		return nil, err
 	}
 	for rows.Next() {
-		var id, name string
-		if err := rows.Scan(&id, &name); err != nil {
+		var id, name, stac string
+		if err := rows.Scan(&id, &name, &stac); err != nil {
 			rows.Close()
 			return nil, err
 		}
 		k := hydro.StationKey(name)
 		l.stations[k] = append(l.stations[k], id)
+		if km, ok := hydro.ParseStationingKm(stac); ok {
+			l.kmPostaje[id] = km
+		}
 	}
 	rows.Close()
 	rows, err = tx.QueryContext(ctx, `SELECT id, sector_id, name, vgi_name, subcenter FROM areas`)
@@ -339,7 +344,7 @@ func (l *Linker) linkStations(p *models.SectionPart) {
 		if !g.IsGauge() {
 			continue
 		}
-		name, _ := hydro.ParseStationName(g.StationName)
+		name, stac := hydro.ParseStationName(g.StationName)
 		key := hydro.StationKey(name)
 		if key == "" {
 			key = hydro.StationKey(g.StationName)
@@ -350,6 +355,9 @@ func (l *Linker) linkStations(p *models.SectionPart) {
 				ids = l.stations[strings.TrimSpace(base)]
 			}
 		}
+		if len(ids) > 1 {
+			ids = l.poStacionazi(ids, stac)
+		}
 		for _, id := range ids {
 			if !have[id] {
 				have[id] = true
@@ -358,6 +366,28 @@ func (l *Linker) linkStations(p *models.SectionPart) {
 			break
 		}
 	}
+}
+
+// poStacionazi bira među istoimenim postajama onu čija je stacionaža ona iz
+// plana. Istog imena ima više letvi — Čačinci na Vojlovici (km 13,50) i na
+// Krajni (km 9,240), CS Dvor na dovodnom kanalu i na ušću u Vuku — a plan ih
+// razlikuje samo stacionažom. Kad se ona ne da pročitati ili ne pogodi
+// nijednu, ne veže se ništa: bolje prazna veza nego tuđa letva uz dionicu.
+func (l *Linker) poStacionazi(ids []string, stac string) []string {
+	km, ok := hydro.ParseStationingKm(stac)
+	if !ok {
+		return nil
+	}
+	var out []string
+	for _, id := range ids {
+		if k, ima := l.kmPostaje[id]; ima && math.Abs(k-km) < 0.01 {
+			out = append(out, id)
+		}
+	}
+	if len(out) != 1 {
+		return nil
+	}
+	return out
 }
 
 // linkStructures veže nasipe i brane na registar objekata (upisuje ih kad ih
