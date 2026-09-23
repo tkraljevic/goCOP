@@ -38,7 +38,8 @@ import (
 // preglednika, s pogrešnim znakovima (Belišæe, Dunaszekcsõ), pa se navode
 // takvi kakvi jesu.
 var sifre = map[string]string{
-	"Botovo": "botovo", "Terezino Polje": "terezino-polje", "Donji Miholjac": "donji-miholjac",
+	"Botovo": "botovo", "Novo Virje": "novo-virje", "Vrbovka": "vrbovka", "Moslavina": "moslavina",
+	"Terezino Polje": "terezino-polje", "Donji Miholjac": "donji-miholjac",
 	"Belišæe": "belisce", "Belišće": "belisce", "Osijek": "osijek", "Aljmaš": "aljmas",
 	"Szentborbás": "szentborbas", "Drávaszabolcs": "dravaszabolcs", "Barcs": "barcs",
 	"Letenye": "letenye", "Mohács": "mohacs", "Baja": "baja", "Dunaszekcsõ": "dunaszekcso",
