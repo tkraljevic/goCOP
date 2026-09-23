@@ -112,11 +112,14 @@ func TestPreuzimanjeSJavneStraniceKrozRute(t *testing.T) {
 }
 
 // Adresa se sprema kakva je zalijepljena; goli broj je stara navika s
-// Hrvatskih voda i pretvara se u njihovu adresu
+// Hrvatskih voda i pretvara se u njihovu adresu. Sektor u njoj ostaje nula jer
+// se iz golog broja ne zna — stranica tada ne radi, ali se očitanje uzme s
+// popisa postaja. Prije je takva adresa išla na vodostaji.voda.hr, gdje ta
+// putanja vraća 404 za svaku postaju, pa i za one koje inače rade.
 func TestJavnaAdresaIzObrasca(t *testing.T) {
 	for unos, zeli := range map[string]string{
 		"https://mvodostaji.voda.hr/Home/PregledVodostajaPostaje?sektorID=2&bpID=34&postajaID=424": "https://mvodostaji.voda.hr/Home/PregledVodostajaPostaje?sektorID=2&bpID=34&postajaID=424",
-		"424": "https://vodostaji.voda.hr/Home/PregledVodostajaPostaje?postajaID=424",
+		"424": "https://mvodostaji.voda.hr/Home/PregledVodostajaPostaje?sektorID=0&bpID=0&postajaID=424",
 		"https://www.hydroinfo.hu/Html/vizallas/mohacs.html": "https://www.hydroinfo.hu/Html/vizallas/mohacs.html",
 		"  ": "",
 	} {

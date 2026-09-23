@@ -102,11 +102,56 @@ var Sektori = []string{"A", "B", "C", "D", "E", "F"}
 // Bez sektora ostaje stara adresa: preuzimanje iz nje čita broj postaje,
 // ali preglednik ju ne otvara, pa se sektor traži kad god se može.
 func AdresaPostaje(p Postaja) string {
-	if p.Sektor <= 0 {
-		return ZadaniBase + "/Home/PregledVodostajaPostaje?postajaID=" + strconv.Itoa(p.ID)
-	}
+	// Bez sektora stranica postaje ne radi, ali adresa ipak ide na isti
+	// poslužitelj i nosi broj postaje: po njemu se očitanje uzme s popisa.
+	// Stara zamjenska adresa na vodostaji.voda.hr vraćala je 404 za svaku
+	// postaju, pa i za one koje inače rade — letva upisana bez sektora
+	// dobivala je mrtvu adresu.
 	return AdresaStranice + "?sektorID=" + strconv.Itoa(p.Sektor) +
 		"&bpID=0&postajaID=" + strconv.Itoa(p.ID)
+}
+
+// SPopisa vraća zadnje očitanje postaje s javnog popisa. Stranice nekih
+// postaja pucaju — Sotin, Mohovo, Siga i Petreš, jedine četiri koje nisu ni u
+// jednom sektoru obrane, javljaju grešku u svih šest sektora — a popis im
+// vrijednost ipak nosi. Jedno očitanje na sat dovoljno je da se letva u
+// prognozi ispravi prema mjerenju; niza unatrag odande nema.
+func (u *Uvoznik) SPopisa(ctx context.Context, adresa string) ([]Redak, bool) {
+	m := reStranicaPostaje.FindStringSubmatch(adresa)
+	if m == nil {
+		return nil, false
+	}
+	id, err := strconv.Atoi(m[1])
+	if err != nil {
+		return nil, false
+	}
+	for _, p := range u.Postaje(ctx) {
+		if p.ID != id || p.ZadnjeCm == nil {
+			continue
+		}
+		kad, ok := vrijemeSPopisa(p.Zadnje)
+		if !ok {
+			return nil, false
+		}
+		return []Redak{{Kad: kad, LevelCm: p.ZadnjeCm}}, true
+	}
+	return nil, false
+}
+
+// reVrijemePopisa čita "23.09.2026. 12:00 h" kako popis piše vrijeme.
+var reVrijemePopisa = regexp.MustCompile(`(\d{1,2})\.(\d{1,2})\.(\d{4})\.?\s+(\d{1,2}):(\d{2})`)
+
+func vrijemeSPopisa(s string) (time.Time, bool) {
+	m := reVrijemePopisa.FindStringSubmatch(s)
+	if m == nil {
+		return time.Time{}, false
+	}
+	d, _ := strconv.Atoi(m[1])
+	mj, _ := strconv.Atoi(m[2])
+	g, _ := strconv.Atoi(m[3])
+	h, _ := strconv.Atoi(m[4])
+	min, _ := strconv.Atoi(m[5])
+	return time.Date(g, time.Month(mj), d, h, min, 0, 0, models.Zagreb).UTC(), true
 }
 
 // reStranicaPostaje vadi brojeve postaja s popisa jednog sektora
@@ -552,6 +597,14 @@ func (u *Uvoznik) Preuzmi(ctx context.Context, st *models.Station) StanjeLetve {
 	cctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
 	redci, err := izvor.Ocitanja(cctx, adresa)
+	if err != nil || len(redci) == 0 {
+		// Kad stranica postaje pukne, vrijednost se uzme s popisa. Ondje je
+		// samo zadnje očitanje, ali bolje jedno na sat nego nijedno — i ne
+		// stoji greška u dnevniku za nešto što je zapravo riješeno.
+		if sp, ok := u.SPopisa(cctx, adresa); ok {
+			redci, err = sp, nil
+		}
+	}
 	if err != nil {
 		s.Greska = err.Error()
 		u.Zapisnik("javni vodostaji: %s: %v", st.Name, err)

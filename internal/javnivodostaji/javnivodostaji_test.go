@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -112,5 +113,35 @@ func TestPostajaIzAdrese(t *testing.T) {
 		if id := PostajaIzAdrese(adresa); id != zeli {
 			t.Errorf("%q: %d, očekivano %d", adresa, id, zeli)
 		}
+	}
+}
+
+// Adresa postaje bez sektora išla je na vodostaji.voda.hr, gdje ta putanja
+// vraća 404 za svaku postaju — pa i za one koje inače rade. Letva upisana bez
+// sektora dobivala je mrtvu adresu.
+func TestAdresaPostajeNikadNeIdeNaMrtvuPutanju(t *testing.T) {
+	for _, p := range []Postaja{{ID: 737, Sektor: 0}, {ID: 424, Sektor: 2}} {
+		a := AdresaPostaje(p)
+		if !strings.HasPrefix(a, AdresaStranice) {
+			t.Errorf("postaja %d: adresa %q nije na %s", p.ID, a, AdresaStranice)
+		}
+		if !strings.Contains(a, "postajaID="+strconv.Itoa(p.ID)) {
+			t.Errorf("postaja %d: adresa %q nema broj postaje", p.ID, a)
+		}
+	}
+}
+
+// Vrijeme s popisa piše se drukčije nego u tablici postaje.
+func TestVrijemeSPopisa(t *testing.T) {
+	kad, ok := vrijemeSPopisa("23.09.2026. 12:00 h")
+	if !ok {
+		t.Fatal("vrijeme se ne čita")
+	}
+	// 12:00 po zagrebačkom ljetnom vremenu je 10:00 UTC.
+	if kad.UTC().Format("2006-01-02 15:04") != "2026-09-23 10:00" {
+		t.Errorf("pročitano %s", kad.UTC().Format("2006-01-02 15:04"))
+	}
+	if _, ok := vrijemeSPopisa("nema vremena"); ok {
+		t.Error("besmislica je pročitana kao vrijeme")
 	}
 }
