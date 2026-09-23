@@ -191,6 +191,8 @@ type Report struct {
 	Unmapped    map[string]int
 	NewStations []string
 	NoviObjekti []string
+	// DopunjeneVeze su postojeći objekti koji su dobili letvu koju nisu imali
+	DopunjeneVeze []string
 }
 
 type lookupRow struct {
@@ -375,8 +377,10 @@ func Run(ctx context.Context, src Source, deps Deps) (Report, error) {
 		return rep, err
 	}
 	structByName := map[string]string{}
+	postojeci := map[string]models.Structure{}
 	for _, st := range structures {
 		structByName[strings.ToLower(st.Name)] = st.ID.String()
+		postojeci[strings.ToLower(st.Name)] = st
 	}
 	letve, err := deps.Stations.ListStations(ctx, "", "", "", false)
 	if err != nil {
@@ -392,6 +396,27 @@ func Run(ctx context.Context, src Source, deps Deps) (Report, error) {
 			naziv := strings.TrimSpace(r.Naziv)
 			if id, ok := structByName[strings.ToLower(naziv)]; ok {
 				out[r.ID] = id
+				// objekt postoji, ali mu letva možda tek sad postoji: dopuni
+				// samo prazne veze, ručno postavljene se ne diraju
+				if st, ima := postojeci[strings.ToLower(naziv)]; ima && deps.StvoriObjekte {
+					o, _ := noviObjekt(naziv, vrsta, letvaPoImenu)
+					izmjena := false
+					if st.StationID == "" && o.StationID != "" {
+						st.StationID, izmjena = o.StationID, true
+					}
+					if st.StationDownID == "" && o.StationDownID != "" {
+						st.StationDownID, izmjena = o.StationDownID, true
+					}
+					if izmjena {
+						if !deps.DryRun {
+							if err := deps.Structures.UpdateStructure(ctx, &st); err != nil {
+								return out, fmt.Errorf("letve objekta %s: %w", naziv, err)
+							}
+						}
+						rep.DopunjeneVeze = append(rep.DopunjeneVeze, opisObjekta(&st, letve))
+						logf("Uvoz BP16: objekt „%s“ dobiva letve (%s)", naziv, opisObjekta(&st, letve))
+					}
+				}
 				continue
 			}
 			if r.Status == "archived" {
@@ -618,6 +643,9 @@ func (r Report) Summary() string {
 	}
 	if len(r.NoviObjekti) > 0 {
 		s += fmt.Sprintf(", novih objekata %d", len(r.NoviObjekti))
+	}
+	if len(r.DopunjeneVeze) > 0 {
+		s += fmt.Sprintf(", objekata s dopunjenim letvama %d", len(r.DopunjeneVeze))
 	}
 	if len(r.Unmapped) > 0 {
 		var parts []string
