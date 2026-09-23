@@ -215,12 +215,14 @@ type zbroj struct {
 	n, np, uRasp int
 	zbir, kvad   float64
 	kvadP        float64
+	promasaji    []float64 // svi, da se raspon dobije brojanjem a ne pretpostavkom
 }
 
 func (z *zbroj) dodaj(promasaj, raspon float64) {
 	z.n++
 	z.zbir += promasaj
 	z.kvad += promasaj * promasaj
+	z.promasaji = append(z.promasaji, promasaj)
 	if raspon > 0 && math.Abs(promasaj) <= raspon {
 		z.uRasp++
 	}
@@ -230,16 +232,26 @@ func (z *zbroj) dodajPostojanost(p float64) { z.np++; z.kvadP += p * p }
 
 func (z *zbroj) pomak() float64 { return z.zbir / float64(z.n) }
 
-// odstupanje je rasap oko sustavnog pomaka. Raspon uz prognozu ide odavde jer
-// se sam pomak posebno oduzima — nema smisla u raspon uračunavati ono što se
-// zna i unaprijed ispraviti.
+// odstupanje je raspon unutar kojeg promašaj ostane u UdioURasponu slučajeva,
+// mjeren brojanjem. Standardno odstupanje bi tu vrijedilo samo kad bi promašaji
+// bili normalno raspoređeni, a nisu — velike vode ostavljaju dug rep. Ovako
+// tvrdnja "ostaje unutar raspona u 68 % slučajeva" vrijedi po izgradnji, kao
+// izmjerena činjenica, a ne kao pretpostavka.
 func (z *zbroj) odstupanje() float64 {
-	m := z.pomak()
-	v := z.kvad/float64(z.n) - m*m
-	if v <= 0 {
+	if len(z.promasaji) == 0 {
 		return 0
 	}
-	return math.Sqrt(v)
+	m := z.pomak()
+	odmaci := make([]float64, len(z.promasaji))
+	for i, p := range z.promasaji {
+		odmaci[i] = math.Abs(p - m)
+	}
+	sort.Float64s(odmaci)
+	i := int(float64(len(odmaci)) * prognoza.UdioURasponu)
+	if i >= len(odmaci) {
+		i = len(odmaci) - 1
+	}
+	return odmaci[i]
 }
 func (z *zbroj) rms() float64 { return math.Sqrt(z.kvad / float64(z.n)) }
 func (z *zbroj) rmsP() float64 {

@@ -589,6 +589,14 @@ func main() {
 
 	// Hidrološka arhiva stoji uz bazu, kao zasebna datoteka. Smije je ne biti:
 	// čvor koji je nije preuzeo radi bez povijesnih nizova, a ne pada.
+	prognozePut := filepath.Join(filepath.Dir(*dbPath), "prognoze.db")
+	if c, err := web.OtvoriPrognoze(prognozePut); err != nil {
+		log.Printf("Baza prognoza nije pronađena (%s) — grafovi rade bez prognoze", prognozePut)
+	} else {
+		server.SetPrognoze(c)
+		log.Printf("Baza prognoza: %s", prognozePut)
+	}
+
 	arhivaPut := filepath.Join(filepath.Dir(*dbPath), "vodostaji.db")
 	server.SetPodaciDir(*podaciFlag)
 	server.SetPaketiDir(*paketiFlag)

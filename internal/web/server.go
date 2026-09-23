@@ -103,6 +103,7 @@ type Server struct {
 	db                 *sql.DB
 	dbPath             string
 	arhiva             *repository.ArhivaRepository
+	prognoze           *CitacPrognoza
 	recorder           *ledger.Recorder
 	sseBroker          *service.SSEBroker
 	templates          map[string]*template.Template
@@ -737,6 +738,7 @@ func (s *Server) setupRoutes() {
 		s.templates["readings.html"], s.templates["reading_history.html"], s.templates["reading_form.html"])
 	readingsH.SetFollow(s.followRepo, s.onFollowChange)
 	readingsH.SetArhiva(s.Arhiva)
+	readingsH.SetPrognoze(s.Prognoze)
 	readingsH.SetSektorZaLetvu(func(ctx context.Context, st *models.Station) *models.Sector {
 		if st == nil || s.sectionService == nil || s.orgService == nil {
 			return nil
@@ -1477,6 +1479,22 @@ func (s *Server) Arhiva() *repository.ArhivaRepository {
 	s.arhivaMu.RLock()
 	defer s.arhivaMu.RUnlock()
 	return s.arhiva
+}
+
+// Prognoze vraća čitača baze prognoza, ili nil kad baze nema. Prognoza je
+// račun, ne zapis: program mora raditi i bez nje, samo bez crte koja ide dalje
+// od zadnjeg očitanja.
+func (s *Server) Prognoze() *CitacPrognoza {
+	s.arhivaMu.RLock()
+	defer s.arhivaMu.RUnlock()
+	return s.prognoze
+}
+
+// SetPrognoze daje poslužitelju čitača baze prognoza.
+func (s *Server) SetPrognoze(c *CitacPrognoza) {
+	s.arhivaMu.Lock()
+	defer s.arhivaMu.Unlock()
+	s.prognoze = c
 }
 
 // zamijeniArhivu stavlja novog čitača i zatvara starog. Zatvaranje ide pod

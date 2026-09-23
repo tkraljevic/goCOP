@@ -44,6 +44,22 @@ type ReadingsHandler struct {
 	tmplUvoz         *template.Template
 	tmplOcitanjaCSV  *template.Template
 	javni            func() *javnivodostaji.Uvoznik
+	prognoze         func() *CitacPrognoza
+}
+
+// SetPrognoze daje rukovatelju čitač prognoza. Bez njega graf radi kao i dosad,
+// samo bez crte koja ide dalje od zadnjeg očitanja.
+func (h *ReadingsHandler) SetPrognoze(f func() *CitacPrognoza) { h.prognoze = f }
+
+func (h *ReadingsHandler) prognozaZa(st *models.Station, velicina string) *PrognozaNiza {
+	if h.prognoze == nil || st == nil || st.Code == "" {
+		return nil
+	}
+	c := h.prognoze()
+	if c == nil {
+		return nil
+	}
+	return c.ZaLetvu(st.Code, velicina)
 }
 
 // SetJavniUvoz daje rukovatelju uvoznika javnih vodostaja
@@ -284,6 +300,18 @@ type Chart struct {
 	Lijevo, Desno, Vrh, Dno float64
 	Uzak                    bool   // graf za telefon: oznake pragova idu iznad crte
 	Opis                    string // što graf prikazuje, za čitač zaslona
+
+	// Prognoza: crta koja ide dalje od zadnjeg očitanja, pojas unutar kojeg se
+	// očekuje da ostane, i sjena preko razdoblja koje se prognozira. Sjena je
+	// ondje da se na prvi pogled vidi dokle je mjereno, a odakle nadalje
+	// računato — to dvoje ne smije izgledati jednako.
+	ImaPrognozu    bool
+	PrognozaPut    string
+	PrognozaPojas  string
+	PrognozaOd     float64 // x na kojem prognoza počinje
+	PrognozaSir    float64
+	PrognozaTocke  string // točke prognoze kao JSON, za pokazivač uz miša
+	PrognozaNatpis string // što piše ispod grafa
 
 	// Koliko je puta crta prekinuta zbog praznine u nizu
 	Praznina int
@@ -592,8 +620,9 @@ func (h *ReadingsHandler) podaciOcitanja(w http.ResponseWriter, r *http.Request)
 			Izvor: rd.Origin, Vrsta: "trenutna",
 		})
 	}
-	data.Chart = crtajNiz(prorijediNiz(zaGraf, 700), "vodostaj", thresholdStation, nil)
-	data.ChartUzak = crtajNizUzak(prorijediNiz(zaGraf, 260), "vodostaj", thresholdStation, nil)
+	prog := h.prognozaZa(station, "vodostaj")
+	data.Chart = crtajNizSPrognozom(prorijediNiz(zaGraf, 700), "vodostaj", thresholdStation, nil, prog)
+	data.ChartUzak = crtajNizUzakSPrognozom(prorijediNiz(zaGraf, 260), "vodostaj", thresholdStation, nil, prog)
 	data.Svi = shown // izvješće uzima cijelo razdoblje, ne samo prikazanu stranicu
 	data.Readings, data.Pager = paginate(shown, r, readingsPerPage)
 	// na grafu se istakne ono što je upravo u tablici

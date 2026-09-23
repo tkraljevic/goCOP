@@ -371,17 +371,19 @@ type Izdana struct {
 	Model      string
 }
 
-// Prognoziraj računa niz po satu unaprijed, dokle lanac seže. Zaustavi se na
-// prvom satu za koji ulaza više nema: dalje od toga nije prognoza nego
-// nagađanje.
+// Prognoziraj računa niz po satu unaprijed, počevši od sata izdavanja.
+// Zaustavi se na prvom satu za koji ulaza više nema.
 func (r *Racunalo) Prognoziraj(letva string, najdalje int, model string) ([]Izdana, error) {
 	pojasi := r.pojasi[letva]
 	if len(pojasi) == 0 {
 		return nil, fmt.Errorf("%s: nema namještenih pojasa", letva)
 	}
 	iz := Izvor{letva, pojasi[0].Velicina}
+	// Niz počinje u samom satu izdavanja, gdje je vrijednost izmjerena. Tako
+	// prognoza nosi i svoje sidro: prikaz ne mora nikamo drugamo po ono od
+	// čega je krenula, a pogrešnik na tom satu mjeri nulu, kako i treba.
 	var out []Izdana
-	for sat := int64(1); sat <= int64(najdalje); sat++ {
+	for sat := int64(0); sat <= int64(najdalje); sat++ {
 		t := r.sada + sat
 		v, ok := r.U(iz, t)
 		if !ok {

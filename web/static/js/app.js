@@ -411,8 +411,16 @@ function renderMarkdown(md) {
     var pokazivac = box.querySelector('.pokazivac');
     if (!svg || !oblacic || !pokazivac) return;
 
-    var tocke;
-    try { tocke = JSON.parse(box.dataset.tocke || '[]'); } catch (e) { return; }
+    // Prognoza se nastavlja na očitanja, pa pokazivač ide i preko nje: gledatelj
+    // koji hoće znati koliko će biti u utorak u 6 h ne smije ostati bez odgovora
+    // samo zato što taj utorak još nije došao. Obje skupine već su poredane po
+    // vodoravnoj osi i prognoza počinje ondje gdje očitanja prestaju.
+    var tocke, prognoza;
+    try {
+      tocke = JSON.parse(box.dataset.tocke || '[]');
+      prognoza = JSON.parse(box.dataset.prognoza || '[]');
+    } catch (e) { return; }
+    if (prognoza.length) tocke = tocke.concat(prognoza);
     if (!tocke.length) return;
 
     var vodilja = pokazivac.querySelector('.vodilja');
@@ -440,8 +448,17 @@ function renderMarkdown(md) {
       biljeg.setAttribute('cx', t[0]);
       biljeg.setAttribute('cy', t[1]);
 
+      var jePrognoza = t[5] === 1;
+      biljeg.classList.toggle('prognoza', jePrognoza);
+      vodilja.classList.toggle('prognoza', jePrognoza);
+
       oblacic.hidden = false;
-      oblacic.innerHTML = '<strong>' + t[3] + '</strong><span>' + t[2] + '</span>';
+      // Ura ide pod datum: na satnom nizu sam datum ne kaže koje se od dvadeset
+      // četiri očitanja gleda.
+      oblacic.classList.toggle('prognoza', jePrognoza);
+      oblacic.innerHTML = '<strong>' + t[3] + '</strong><span>' + t[2] + '</span>' +
+        (t[4] ? '<span class="ura">' + t[4] + '</span>' : '') +
+        (jePrognoza ? '<span class="znak">prognoza</span>' : '');
       // oblačić prati miša, ali ne izlazi iz okvira
       var lijevo = (t[0] / vb.width) * r.width;
       var sirina = oblacic.offsetWidth || 120;

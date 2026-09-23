@@ -161,13 +161,13 @@
   {{if .ArhChart}}
   <h3 class="part-label" style="margin:0 0 0.35rem 0;">{{velicinaLabel .ArhVelicina}} <span class="reg-card-sub">{{.ArhJedinica}}</span> — {{if .ArhMjesec}}{{mjesecIme .ArhMjesec}} {{end}}{{.ArhGodina}}.{{if eq .ArhKorak "satni"}}, svaki sat{{else}}, dnevni srednjak{{end}}{{if .ArhChart.Praznina}} <span class="reg-chip">{{.ArhChart.Praznina}} prekid{{if gt .ArhChart.Praznina 1}}a{{end}}</span>{{end}}</h3>
   <div class="reg-card chart graf-niza graf-siroki" style="padding:0.75rem 0.5rem 0.25rem; margin-bottom:1rem;"
-       data-tocke="{{.ArhChart.Tocke}}">
+       data-tocke="{{.ArhChart.Tocke}}" data-prognoza="{{.ArhChart.PrognozaTocke}}">
     {{template "grafNiza" .ArhChart}}
     <div class="graf-oblacic" hidden></div>
   </div>
   {{if .ArhChartUzak}}
   <div class="reg-card chart graf-niza graf-uski" style="padding:0.75rem 0.5rem 0.25rem; margin-bottom:1rem;"
-       data-tocke="{{.ArhChartUzak.Tocke}}">
+       data-tocke="{{.ArhChartUzak.Tocke}}" data-prognoza="{{.ArhChartUzak.PrognozaTocke}}">
     {{template "grafNiza" .ArhChartUzak}}
     <div class="graf-oblacic" hidden></div>
   </div>

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -37,21 +38,49 @@ var (
 	uskiGraf = geometrija{W: 620, H: 460, Lijevo: 76, Desno: 26, Vrh: 20, Dno: 44, Font: 20, Uzak: true}
 )
 
+// TockaPrognoze je jedna prognozirana vrijednost s rasponom unutar kojeg se
+// očekuje da ostane.
+type TockaPrognoze struct {
+	Kad        time.Time
+	Vrijednost float64
+	Raspon     float64
+}
+
+// PrognozaNiza je prognoza kakva ide na graf. Udio je koliki dio promašaja
+// doista stane u raspon — izmjeren puštanjem prognoze unatrag, ne pretpostavljen.
+type PrognozaNiza struct {
+	Izdano time.Time
+	Udio   int
+	Tocke  []TockaPrognoze
+}
+
 // crtajNiz gradi graf iz spojenih vrijednosti. Pragovi se crtaju samo za
 // vodostaj i samo kad je letva poznata.
 func crtajNiz(vals []models.SpojenaVrijednost, velicina string, station *models.Station,
 	krivulje []models.HQKrivulja) *Chart {
-	return crtajNizG(sirokiGraf, vals, velicina, station, krivulje)
+	return crtajNizG(sirokiGraf, vals, velicina, station, krivulje, nil)
 }
 
 // crtajNizUzak je isti graf u obliku za telefon.
 func crtajNizUzak(vals []models.SpojenaVrijednost, velicina string, station *models.Station,
 	krivulje []models.HQKrivulja) *Chart {
-	return crtajNizG(uskiGraf, vals, velicina, station, krivulje)
+	return crtajNizG(uskiGraf, vals, velicina, station, krivulje, nil)
+}
+
+// crtajNizSPrognozom je isti graf, s prognozom nastavljenom na zadnje očitanje.
+func crtajNizSPrognozom(vals []models.SpojenaVrijednost, velicina string, station *models.Station,
+	krivulje []models.HQKrivulja, prog *PrognozaNiza) *Chart {
+	return crtajNizG(sirokiGraf, vals, velicina, station, krivulje, prog)
+}
+
+// crtajNizUzakSPrognozom je isto, u obliku za telefon.
+func crtajNizUzakSPrognozom(vals []models.SpojenaVrijednost, velicina string, station *models.Station,
+	krivulje []models.HQKrivulja, prog *PrognozaNiza) *Chart {
+	return crtajNizG(uskiGraf, vals, velicina, station, krivulje, prog)
 }
 
 func crtajNizG(g geometrija, vals []models.SpojenaVrijednost, velicina string, station *models.Station,
-	krivulje []models.HQKrivulja) *Chart {
+	krivulje []models.HQKrivulja, prog *PrognozaNiza) *Chart {
 	if len(vals) < 2 {
 		return nil
 	}
@@ -69,6 +98,17 @@ func crtajNizG(g geometrija, vals []models.SpojenaVrijednost, velicina string, s
 	for _, p := range pts {
 		najn = math.Min(najn, p.Vrijednost)
 		najv = math.Max(najv, p.Vrijednost)
+	}
+	// Prognoza razvlači i vrijeme i visinu: os mora obuhvatiti i ono što tek
+	// dolazi, zajedno s pojasom oko njega, inače bi crta izlazila iz slike.
+	if prog != nil && len(prog.Tocke) > 0 {
+		for _, q := range prog.Tocke {
+			najn = math.Min(najn, q.Vrijednost-q.Raspon)
+			najv = math.Max(najv, q.Vrijednost+q.Raspon)
+			if q.Kad.After(c.To) {
+				c.To = q.Kad
+			}
+		}
 	}
 	// pragovi ulaze u raspon samo kad su blizu, da jedan visok prag ne
 	// spljošti cijeli graf
@@ -181,6 +221,10 @@ bezPragova:
 	c.Path = strings.TrimSpace(crta.String())
 	c.Area = strings.TrimSpace(ploha.String())
 
+	if prog != nil && len(prog.Tocke) > 0 {
+		nacrtajPrognozu(c, prog, xOf, yOf, left+plotW, dec, jed)
+	}
+
 	// Deset podjela umjesto pet: vodostaj time dobiva korak od 100 cm, koji se
 	// i inače čita, umjesto 200.
 	korak := niceStep(float64(c.Max-c.Min) / 10)
@@ -198,15 +242,15 @@ bezPragova:
 
 	// Točke za pokazivač uz miša. Sam SVG ih ne crta — sedamsto kružića je
 	// teška slika i nečitljiva crta — nego ih čita skripta i pokazuje onu nad
-	// kojom je miš.
+	// kojom je miš. Uz datum ide i ura: na satnom nizu sam datum ne kaže koje
+	// se od dvadeset četiri očitanja gleda.
 	var sj strings.Builder
 	sj.WriteByte('[')
 	for i, p := range c.Points {
 		if i > 0 {
 			sj.WriteByte(',')
 		}
-		fmt.Fprintf(&sj, `[%.1f,%.1f,%q,%q]`, p.X, p.Y,
-			p.At.Format("2.1.2006."), p.Oznaka)
+		zapisiTocku(&sj, p.X, p.Y, p.At, p.Oznaka, false)
 	}
 	sj.WriteByte(']')
 	c.Tocke = sj.String()
@@ -215,7 +259,70 @@ bezPragova:
 	// graf slika bez imena, a slijepom dežurnom ostaje samo tablica.
 	c.Opis = "Graf: " + models.NazivVelicine(velicina) + ", " +
 		c.From.In(models.Zagreb).Format("2.1.2006.") + " – " + c.To.In(models.Zagreb).Format("2.1.2006.")
+	if c.ImaPrognozu {
+		c.Opis += ", s prognozom do kraja razdoblja"
+	}
 	return c
+}
+
+// nacrtajPrognozu dodaje crtu prognoze, pojas oko nje i sjenu preko
+// prognoziranog razdoblja. Pojas se crta ispod crte, da je ne prekriva.
+func nacrtajPrognozu(c *Chart, prog *PrognozaNiza, xOf func(time.Time) float64,
+	yOf func(float64) float64, desniRub float64, dec int, jed string) {
+	tocke := append([]TockaPrognoze(nil), prog.Tocke...)
+	sort.Slice(tocke, func(i, j int) bool { return tocke[i].Kad.Before(tocke[j].Kad) })
+
+	var crta, pojas, sj strings.Builder
+	sj.WriteByte('[')
+	for i, q := range tocke {
+		x, y := xOf(q.Kad), yOf(q.Vrijednost)
+		potez := " L"
+		if i == 0 {
+			potez = "M"
+		}
+		fmt.Fprintf(&crta, "%s%.1f %.1f", potez, x, y)
+		fmt.Fprintf(&pojas, "%s%.1f %.1f", potez, x, yOf(q.Vrijednost+q.Raspon))
+		if i > 0 {
+			sj.WriteByte(',')
+		}
+		oznaka := brojHRf(q.Vrijednost, dec) + " " + jed
+		if q.Raspon > 0 {
+			oznaka += " ± " + brojHRf(q.Raspon, dec) + " " + jed
+		}
+		zapisiTocku(&sj, x, y, q.Kad, oznaka, true)
+	}
+	// Donji rub pojasa ide unatrag, pa se ploha zatvori sama.
+	for i := len(tocke) - 1; i >= 0; i-- {
+		fmt.Fprintf(&pojas, " L%.1f %.1f", xOf(tocke[i].Kad), yOf(tocke[i].Vrijednost-tocke[i].Raspon))
+	}
+	sj.WriteByte(']')
+
+	pocetak := tocke[0].Kad
+	if !prog.Izdano.IsZero() {
+		pocetak = prog.Izdano
+	}
+	c.ImaPrognozu = true
+	c.PrognozaPut = crta.String()
+	c.PrognozaPojas = pojas.String() + " Z"
+	c.PrognozaOd = xOf(pocetak)
+	c.PrognozaSir = math.Max(0, desniRub-c.PrognozaOd)
+	c.PrognozaTocke = sj.String()
+	c.PrognozaNatpis = "Prognoza izdana " + pocetak.In(models.Zagreb).Format("2.1.2006. u 15:04") +
+		". Očekuje se da vrijednost ostane unutar raspona u " +
+		strconv.Itoa(prog.Udio) + " % slučajeva."
+}
+
+// zapisiTocku ispisuje jednu točku za pokazivač: mjesto, datum, ura, vrijednost
+// i je li prognozirana. Zadnje polje skripta treba da prognozu označi drukčije
+// — pokazivač koji mjereno i računato pokazuje jednako obmanjuje.
+func zapisiTocku(sj *strings.Builder, x, y float64, kad time.Time, oznaka string, prognoza bool) {
+	pr := 0
+	if prognoza {
+		pr = 1
+	}
+	uZagrebu := kad.In(models.Zagreb)
+	fmt.Fprintf(sj, `[%.1f,%.1f,%q,%q,%q,%d]`, x, y,
+		uZagrebu.Format("2.1.2006."), oznaka, uZagrebu.Format("15:04"), pr)
 }
 
 // vodoravneOznake bira oznake na vremenskoj osi prema rasponu: mjeseci za

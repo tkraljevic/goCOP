@@ -59,17 +59,18 @@
 
 {{if .Chart}}
 <section class="detail-section">
-  <h2>{{icon "chart-column"}} Kretanje vodostaja <span class="reg-chip">{{.PogledOpis}}</span>{{if .Chart.Praznina}} <span class="reg-chip">{{.Chart.Praznina}} prekid{{if gt .Chart.Praznina 1}}a{{end}} u nizu</span>{{end}}</h2>
-  <div class="reg-card chart graf-niza graf-siroki" style="padding:0.75rem 0.5rem 0.25rem;" data-tocke="{{.Chart.Tocke}}">
+  <h2>{{icon "chart-column"}} Kretanje vodostaja <span class="reg-chip">{{.PogledOpis}}</span>{{if .Chart.Praznina}} <span class="reg-chip">{{.Chart.Praznina}} prekid{{if gt .Chart.Praznina 1}}a{{end}} u nizu</span>{{end}}{{if .Chart.ImaPrognozu}} <span class="reg-chip">s prognozom</span>{{end}}</h2>
+  <div class="reg-card chart graf-niza graf-siroki" style="padding:0.75rem 0.5rem 0.25rem;" data-tocke="{{.Chart.Tocke}}" data-prognoza="{{.Chart.PrognozaTocke}}">
     {{template "grafNiza" .Chart}}
     <div class="graf-oblacic" hidden></div>
   </div>
   {{if .ChartUzak}}
-  <div class="reg-card chart graf-niza graf-uski" style="padding:0.75rem 0.5rem 0.25rem;" data-tocke="{{.ChartUzak.Tocke}}">
+  <div class="reg-card chart graf-niza graf-uski" style="padding:0.75rem 0.5rem 0.25rem;" data-tocke="{{.ChartUzak.Tocke}}" data-prognoza="{{.ChartUzak.PrognozaTocke}}">
     {{template "grafNiza" .ChartUzak}}
     <div class="graf-oblacic" hidden></div>
   </div>
   {{end}}
+  {{if .Chart.ImaPrognozu}}<p class="graf-natpis">{{.Chart.PrognozaNatpis}}</p>{{end}}
 
   {{with .Korito}}
   <h3 class="part-label" style="margin:1rem 0 0.35rem 0;">Gdje je voda u koritu</h3>

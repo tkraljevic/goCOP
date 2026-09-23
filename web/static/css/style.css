@@ -3943,3 +3943,25 @@ table.akt-poveznice { margin-top: 0.75rem; }
   .hq-odsjecak { grid-template-columns: 1fr; gap: 0.1rem; }
   .hq-granica { text-align: left; }
 }
+
+/* ── Prognoza na grafu niza ──────────────────────────────────────────────
+   Mjereno i računato ne smiju izgledati jednako, pa prognozirano razdoblje
+   nosi sjenu, crta prognoze drugu boju od očitanja, a oko nje stoji pojas
+   unutar kojeg se očekuje da vrijednost ostane. Pojas je namjerno blijed:
+   on je ograda, ne podatak. */
+.chart .prognoza-polje,
+.graf-niza .prognoza-polje { fill: var(--text); fill-opacity: 0.045; }
+.chart .prognoza-pojas,
+.graf-niza .prognoza-pojas { fill: var(--faza-i-crta); fill-opacity: 0.14; stroke: none; }
+.chart .prognoza-crta,
+.graf-niza .prognoza-crta { fill: none; stroke: var(--faza-i-crta); stroke-width: 2;
+  stroke-linejoin: round; stroke-linecap: round; }
+.graf-natpis { margin: 4px 0 0; font-size: 0.82rem; color: var(--text-muted); }
+
+/* Pokazivač nad prognozom: ista oznaka drugom bojom, da se mjereno i računato
+   ne pomiješaju ni kad se gleda jedna jedina točka. */
+.graf-niza .biljeg.prognoza { fill: var(--faza-i-crta); }
+.graf-niza .vodilja.prognoza { stroke: var(--faza-i-crta); }
+.graf-oblacic .ura { display: block; font-variant-numeric: tabular-nums; }
+.graf-oblacic .znak { display: block; margin-top: 2px; font-size: 0.72rem;
+  text-transform: uppercase; letter-spacing: 0.04em; color: var(--faza-i-crta); }

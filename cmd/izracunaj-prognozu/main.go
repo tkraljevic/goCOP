@@ -94,7 +94,7 @@ func main() {
 	r := prognoza.NovoRacunalo(pojasi, nizovi, sada)
 	var sve []prognoza.Izdana
 	fmt.Printf("\n%-16s %-9s %8s %10s %12s\n", "letva", "veličina", "doseg", "za 6 h", "na kraju")
-	for _, letva := range redom(pojasi) {
+	for _, letva := range prognoza.Redom(pojasi) {
 		izdane, err := r.Prognoziraj(letva, *najdalje, Model)
 		if err != nil {
 			fmt.Printf("%-16s %v\n", letva, err)
@@ -122,7 +122,7 @@ func main() {
 		}
 		jed := jedinica(izdane[0].Velicina)
 		zad := izdane[len(izdane)-1]
-		sest := izdane[min(5, len(izdane)-1)]
+		sest := izdane[min(6, len(izdane)-1)]
 		fmt.Printf("%-16s %-9s %6d h %7.0f±%-3.0f %7.0f±%-3.0f %s%s\n",
 			letva, izdane[0].Velicina, len(izdane),
 			sest.Vrijednost, sest.Raspon, zad.Vrijednost, zad.Raspon, jed,
@@ -295,28 +295,6 @@ func ucitajKrivulje(arhiva *sql.DB, letva string) ([]models.HQKrivulja, error) {
 		o.Close()
 	}
 	return out, nil
-}
-
-// redom slaže letve tako da uzvodne idu prije nizvodnih, koliko se dade iz
-// samih veza. Ispis je time čitljiv kao lanac, a ne kao abecedni popis.
-func redom(pojasi map[string][]prognoza.Pojas) []string {
-	gotovo := map[string]bool{}
-	var out []string
-	var stavi func(string)
-	stavi = func(l string) {
-		if gotovo[l] || len(pojasi[l]) == 0 {
-			return
-		}
-		gotovo[l] = true
-		for _, u := range pojasi[l][0].Ulazi {
-			stavi(u.Letva)
-		}
-		out = append(out, l)
-	}
-	for l := range pojasi {
-		stavi(l)
-	}
-	return out
 }
 
 // slabija javlja na kojim dosezima prognoza ne pobjeđuje postojanost. Ondje

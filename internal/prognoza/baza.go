@@ -14,6 +14,7 @@ package prognoza
 import (
 	"database/sql"
 	"fmt"
+	"sort"
 
 	_ "modernc.org/sqlite"
 )
@@ -363,6 +364,70 @@ func SviPojasi(db *sql.DB) (map[string][]Pojas, error) {
 	}
 	return out, nil
 }
+
+// ZadnjeIzdanje vraća sat najnovijeg izdanja.
+func ZadnjeIzdanje(db *sql.DB) (int64, bool, error) {
+	var sat sql.NullInt64
+	if err := db.QueryRow(`SELECT max(izdano) FROM izdane`).Scan(&sat); err != nil {
+		return 0, false, err
+	}
+	return sat.Int64, sat.Valid, nil
+}
+
+// Izdanje čita sve prognoze jednog izdanja, složene po letvi i poredane po
+// ciljnom satu.
+func Izdanje(db *sql.DB, izdano int64) (map[string][]Izdana, error) {
+	r, err := db.Query(`SELECT letva, velicina, izdano, ciljni, vrijednost, raspon, model
+		FROM izdane WHERE izdano = ? ORDER BY letva, ciljni`, izdano)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+	out := map[string][]Izdana{}
+	for r.Next() {
+		var i Izdana
+		if err := r.Scan(&i.Letva, &i.Velicina, &i.Izdano, &i.Ciljni,
+			&i.Vrijednost, &i.Raspon, &i.Model); err != nil {
+			return nil, err
+		}
+		out[i.Letva] = append(out[i.Letva], i)
+	}
+	return out, r.Err()
+}
+
+// Redom slaže letve tako da uzvodne idu prije nizvodnih. Popis se time čita kao
+// lanac, onako kako voda i teče, a ne po abecedi.
+func Redom(pojasi map[string][]Pojas) []string {
+	gotovo := map[string]bool{}
+	var out []string
+	var stavi func(string)
+	stavi = func(l string) {
+		if gotovo[l] || len(pojasi[l]) == 0 {
+			return
+		}
+		gotovo[l] = true
+		for _, u := range pojasi[l][0].Ulazi {
+			stavi(u.Letva)
+		}
+		out = append(out, l)
+	}
+	imena := make([]string, 0, len(pojasi))
+	for l := range pojasi {
+		imena = append(imena, l)
+	}
+	sort.Strings(imena)
+	for _, l := range imena {
+		stavi(l)
+	}
+	return out
+}
+
+// UdioURasponu je koliki dio promašaja mora stati u raspon koji uz prognozu
+// piše. Raspon se po njemu mjeri brojanjem, pa tvrdnja "ostaje unutar raspona
+// u 68 % slučajeva" vrijedi kao izmjerena činjenica, a ne kao pretpostavka o
+// rasporedu pogrešaka. Mađarska služba uz svoj graf navodi 70 %; 68 se poklapa
+// s jednim standardnim odstupanjem, pa se dvije mjere daju uspoređivati.
+const UdioURasponu = 0.68
 
 // Promasaj je izmjereno koliko prognoza promašuje na jednom dosegu.
 type Promasaj struct {

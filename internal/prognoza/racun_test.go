@@ -40,18 +40,22 @@ func TestVrhLancaSeDrziZadnjeVrijednosti(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(izdane) != 12 {
-		t.Fatalf("doseg %d sati umjesto 12", len(izdane))
+	// Niz nosi i sat izdavanja, pa ih je trinaest.
+	if len(izdane) != 13 {
+		t.Fatalf("doseg %d sati umjesto 13", len(izdane))
+	}
+	if izdane[0].Ciljni != sada {
+		t.Errorf("niz počinje u %d umjesto u satu izdavanja %d", izdane[0].Ciljni, sada)
 	}
 	zadnja, _ := nizovi[gornja].U(sada)
 	// Dok ima izmjerenog, prognoza ga slijedi.
-	if d := math.Abs(izdane[0].Vrijednost - (zadnja - 4)); d > 1e-9 {
-		t.Errorf("na +1 h %g umjesto %g", izdane[0].Vrijednost, zadnja-4)
+	if d := math.Abs(izdane[1].Vrijednost - (zadnja - 4)); d > 1e-9 {
+		t.Errorf("na +1 h %g umjesto %g", izdane[1].Vrijednost, zadnja-4)
 	}
 	// Od +5 h nadalje gornja letva stoji, pa stoji i donja.
-	for i := 4; i < len(izdane); i++ {
+	for i := 5; i < len(izdane); i++ {
 		if d := math.Abs(izdane[i].Vrijednost - zadnja); d > 1e-9 {
-			t.Fatalf("na +%d h %g umjesto %g", i+1, izdane[i].Vrijednost, zadnja)
+			t.Fatalf("na +%d h %g umjesto %g", i, izdane[i].Vrijednost, zadnja)
 		}
 	}
 }
@@ -63,15 +67,20 @@ func TestRasponNosiNagib(t *testing.T) {
 	sada := int64(1000)
 	nizovi := map[Izvor]Niz{
 		{Letva: "gornja", Velicina: "vodostaj"}: ravanNiz(900, sada, 100, 0),
+		{Letva: "donja", Velicina: "vodostaj"}:  ravanNiz(900, sada, 100, 0),
 	}
 	r := NovoRacunalo(lanac(1, 0, 5, 4), nizovi, sada)
 	izdane, _ := r.Prognoziraj("donja", 96, "proba")
 	if len(izdane) == 0 {
 		t.Fatal("nijedan sat")
 	}
-	// Ulaz je izmjeren, pa raspon nosi samo rasap same dionice.
-	if d := math.Abs(izdane[0].Raspon - 4); d > 1e-9 {
-		t.Errorf("raspon %g umjesto 4", izdane[0].Raspon)
+	// U satu izdavanja cilj je izmjeren, pa raspona nema.
+	if izdane[0].Raspon != 0 {
+		t.Errorf("u satu izdavanja raspon %g", izdane[0].Raspon)
+	}
+	// Sat poslije ulaz je još izmjeren, pa raspon nosi samo rasap same dionice.
+	if d := math.Abs(izdane[1].Raspon - 4); d > 1e-9 {
+		t.Errorf("raspon %g umjesto 4", izdane[1].Raspon)
 	}
 }
 
@@ -88,15 +97,15 @@ func TestIspravakNosiRazlikuPremaMjerenju(t *testing.T) {
 	}
 	r := NovoRacunalo(lanac(1, 0, 5, 3), nizovi, sada)
 	izdane, _ := r.Prognoziraj("donja", 96, "proba")
-	if len(izdane) < 5 {
+	if len(izdane) < 6 {
 		t.Fatalf("doseg %d sati", len(izdane))
 	}
 	// Na +1 h ispravak je gotovo cijeli, na +24 h upravo polovica.
-	if d := math.Abs(izdane[0].Vrijednost - (100 + 30*math.Exp2(-1.0/24))); d > 1e-9 {
-		t.Errorf("na +1 h %g", izdane[0].Vrijednost)
+	if d := math.Abs(izdane[1].Vrijednost - (100 + 30*math.Exp2(-1.0/24))); d > 1e-9 {
+		t.Errorf("na +1 h %g", izdane[1].Vrijednost)
 	}
-	if d := math.Abs(izdane[4].Vrijednost - (100 + 30*math.Exp2(-5.0/24))); d > 1e-9 {
-		t.Errorf("na +5 h %g", izdane[4].Vrijednost)
+	if d := math.Abs(izdane[5].Vrijednost - (100 + 30*math.Exp2(-5.0/24))); d > 1e-9 {
+		t.Errorf("na +5 h %g", izdane[5].Vrijednost)
 	}
 }
 
@@ -125,14 +134,14 @@ func TestVrhLancaNeCitaIzBuducnosti(t *testing.T) {
 	n := ravanNiz(900, sada+500, 100, 1)
 	r := NovoRacunalo(lanac(1, 0, 5, 3), map[Izvor]Niz{gornja: n}, sada)
 	izdane, err := r.Prognoziraj("donja", 12, "proba")
-	if err != nil || len(izdane) != 12 {
+	if err != nil || len(izdane) != 13 {
 		t.Fatalf("doseg %d, %v", len(izdane), err)
 	}
 	uIzdanju, _ := n.U(sada)
-	for i := 4; i < len(izdane); i++ {
+	for i := 5; i < len(izdane); i++ {
 		if izdane[i].Vrijednost > uIzdanju+1e-9 {
 			t.Fatalf("na +%d h %g, iznad %g poznatog u trenutku izdavanja",
-				i+1, izdane[i].Vrijednost, uIzdanju)
+				i, izdane[i].Vrijednost, uIzdanju)
 		}
 	}
 }
