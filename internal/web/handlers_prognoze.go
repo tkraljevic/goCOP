@@ -253,14 +253,24 @@ func (h *PrognozeHandler) opisiLetve(popis map[string]models.Station, letve []Pr
 	return out
 }
 
-// granice ispisuje raspon kao dvije brojke. Simetričan bi se dao pisati i s ±,
-// ali onaj dobiven krivuljom to nije, pa bi dvije vrste zapisa u istoj tablici
-// zbunjivale više nego što bi skratile.
+// granice ispisuje raspon uz prognozu.
 func granice(v PregledVrijednost) string {
-	if v.Gore <= v.Dolje {
+	return rasponUz(v.Vrijednost, v.Dolje, v.Gore)
+}
+
+// rasponUz piše raspon kao ±, kao i mađarska prognoza, kad je simetričan;
+// kad nije — a nije ondje gdje je vrijednost prošla kroz krivulju protoka, pa
+// je Botovu u centimetrima raspon ispod vrijednosti kraći nego iznad — piše
+// obje granice, jer bi ± ondje lagao.
+func rasponUz(v, dolje, gore float64) string {
+	if gore <= dolje {
 		return ""
 	}
-	return rasponHR(v.Dolje, v.Gore, 0)
+	d, g := math.Round(v)-math.Round(dolje), math.Round(gore)-math.Round(v)
+	if math.Abs(d-g) <= 1 {
+		return "±" + brojHRf(math.Max(d, g), 0)
+	}
+	return rasponHR(dolje, gore, 0)
 }
 
 func uVelicini(sada map[string]float64, velicina string) string {
@@ -524,15 +534,11 @@ func celijeDana(letva string, l PregledLetve, ciljevi []int64, dnevne []prognoza
 		}
 		if imaQ {
 			c.Q = brojHRf(q.Vrijednost, 0)
-			if q.Gore > q.Dolje {
-				c.QRaspon = rasponHR(q.Dolje, q.Gore, 0)
-			}
+			c.QRaspon = rasponUz(q.Vrijednost, q.Dolje, q.Gore)
 		}
 		if ima {
 			c.Cm = brojHRf(v, 0)
-			if gore > dolje {
-				c.Raspon = rasponHR(dolje, gore, 0)
-			}
+			c.Raspon = rasponUz(v, dolje, gore)
 			c.Razina = razinaObrane(st, v)
 			if g := razinaObrane(st, gore); g != c.Razina {
 				c.Moguce = g

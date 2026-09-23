@@ -96,3 +96,25 @@ func TestPoVodama(t *testing.T) {
 		t.Errorf("redoslijed\n%v\numjesto\n%v", got, want)
 	}
 }
+
+// Simetričan raspon piše se s ±, kao kod Mađara; onaj koji je prošao kroz
+// krivulju protoka nije simetričan i piše se granicama, jer bi ± lagao.
+func TestRasponUz(t *testing.T) {
+	for _, c := range []struct {
+		v, d, g float64
+		treba   string
+	}{
+		{57, 49, 65, "±8"},
+		{57, 49, 66, "±9"}, // razlika od centimetra je zaokruživanje
+		{41, 22, 60, "±19"},
+		{-315, -341, -290, "±26"},
+		{43, 8, 76, "8 do 76"}, // Botovo kroz krivulju: 35 ispod, 33 iznad
+		{48, 29, 67, "±19"},
+		{-364, -370, -330, "-370 do -330"},
+		{10, 10, 10, ""},
+	} {
+		if got := rasponUz(c.v, c.d, c.g); got != c.treba {
+			t.Errorf("rasponUz(%g, %g, %g) = %q, a treba %q", c.v, c.d, c.g, got, c.treba)
+		}
+	}
+}
