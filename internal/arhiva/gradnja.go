@@ -790,7 +790,38 @@ func citaj(put string, zona *time.Location, velicina string) ([]zapis, bool, err
 		}
 		out = append(out, zapis{t: t.UTC().Unix(), v: v})
 	}
-	return bezSiljaka(velicina, out), poDanu, nil
+	return bezSiljaka(velicina, bezDalekih(velicina, out)), poDanu, nil
+}
+
+// bezDalekih izbacuje kote vodnog lica koje su predaleko od uobičajene
+// razine letve. HEP-ov niz ima udvostručene i srezane vrijednosti — 368 m uz
+// medijan od 190 m na repu akumulacije Varaždin, 111 m uz 149 m na gornjoj
+// vodi HE Dubrava. Nijedna naša letva ne mijenja kotu za 15 posto od
+// uobičajene; staro korito kod Svibovca, koje se pri preljevu diže i po
+// devet metara, ostaje unutar toga.
+func bezDalekih(velicina string, z []zapis) []zapis {
+	if velicina != "kota" || len(z) < 100 {
+		return z
+	}
+	v := make([]float64, len(z))
+	for i := range z {
+		v[i] = z[i].v
+	}
+	sort.Float64s(v)
+	med := v[len(v)/2]
+	out := z[:0:0]
+	izbaceno := 0
+	for _, x := range z {
+		if x.v < med*0.85 || x.v > med*1.15 {
+			izbaceno++
+			continue
+		}
+		out = append(out, x)
+	}
+	if izbaceno > 0 {
+		fmt.Printf("%-8s %-16s izbačeno kota daleko od uobičajene: %d\n", "", "", izbaceno)
+	}
+	return out
 }
 
 // bezSiljaka izbacuje pojedinačne ispade telemetrije. Prepoznaju se po tome

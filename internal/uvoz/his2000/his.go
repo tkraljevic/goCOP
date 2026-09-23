@@ -139,7 +139,11 @@ func Procitaj(ime string, sirovo []byte) (*Sadrzaj, error) {
 		// Satni vodostaj preuzet s letva.voda.hr (Hidrologija → Satni podaci
 		// → Tekst. datoteka), godina po godinu u jednu datoteku. Vrijeme je
 		// lokalno, kao u HIS-u.
+		// isti oblik daje i protok elektrana iz Obrane od poplava
 		v := velicine["VODOSTAJ"]
+		if strings.Contains(prvi, "Protok") {
+			v = velicine["PROTOK"]
+		}
 		v.Gustoca = "satni"
 		s.Vrsta = v
 		s.Niz, s.Preskoceno = citajLetvu(redci)
@@ -232,7 +236,7 @@ func citajSatne(redci []string) ([]Vrijednost, int) {
 }
 
 // reRedLetva je redak satnih podataka s letva.voda.hr: "01.06.2010. 00 h     134"
-var reRedLetva = regexp.MustCompile(`^(\d{2})\.(\d{2})\.(\d{4})\. (\d{2}) h\s+(-?\d+)\s*$`)
+var reRedLetva = regexp.MustCompile(`^(\d{2})\.(\d{2})\.(\d{4})\. (\d{2}) h\s+(-?\d+(?:,\d+)?)\s*$`)
 
 // citajLetvu čita satne retke s letva.voda.hr. Sat koji se pri prelasku na
 // zimsko vrijeme ponovi uzima se jednom, prvi put — lokalni sat ga ne može
