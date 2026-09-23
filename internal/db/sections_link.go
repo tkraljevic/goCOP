@@ -300,6 +300,7 @@ func (l *Linker) LinkRegistries(ctx context.Context, sec *models.Section) error 
 		if err := l.linkStructures(ctx, p, area); err != nil {
 			return err
 		}
+		l.linkStations(p)
 	}
 	return nil
 }

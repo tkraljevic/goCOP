@@ -24,6 +24,7 @@ func main() {
 	src := flag.String("prijepis", "", "JSON prijepis dionica")
 	only := flag.String("sifre", "", "šifre dionica odvojene zarezom; prazno = sve iz prijepisa")
 	suho := flag.Bool("probno", false, "samo ispiši što bi se upisalo")
+	obnovi := flag.Bool("obnovi", false, "postojeće dionice upiši iznova iz prijepisa; ručno uređene se preskaču")
 	flag.Parse()
 
 	raw, err := os.ReadFile(*src)
@@ -63,7 +64,23 @@ func main() {
 			upisano++
 			continue
 		}
-		if err := svc.SaveSection(ctx, perms, sec, true); err != nil {
+		nova := true
+		if *obnovi {
+			postojeca, err := repo.GetSectionByCode(sec.Code)
+			if err != nil {
+				log.Printf("%s: %v", sec.Code, err)
+				continue
+			}
+			if postojeca != nil {
+				// Opis koji je netko uredio rukom ne smije pregaziti prijepis.
+				if postojeca.DescriptionCustom {
+					fmt.Printf("%-10s preskočeno — ručno uređena\n", sec.Code)
+					continue
+				}
+				nova = false
+			}
+		}
+		if err := svc.SaveSection(ctx, perms, sec, nova); err != nil {
 			log.Printf("%s: %v", sec.Code, err)
 			continue
 		}
