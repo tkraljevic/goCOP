@@ -434,6 +434,11 @@ func Redom(pojasi map[string][]Pojas) []string {
 	return out
 }
 
+// ModelLanac je oznaka pod kojom se prognoza zapisuje, da se poslije zna po
+// čemu je izdana. Mijenja se kad se promijeni oblik računa, ne kad se samo
+// osvježe koeficijenti.
+const ModelLanac = "lanac-1"
+
 // UdioURasponu je koliki dio promašaja mora stati u raspon koji uz prognozu
 // piše. Raspon se po njemu mjeri brojanjem, pa tvrdnja "ostaje unutar raspona
 // u 68 % slučajeva" vrijedi kao izmjerena činjenica, a ne kao pretpostavka o

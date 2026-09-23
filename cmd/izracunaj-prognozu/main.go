@@ -4,28 +4,22 @@
 //	izracunaj-prognozu -probno    samo ispiši
 //	izracunaj-prognozu            izračunaj i zapiši
 //
-// Lanac se sam zaustavi ondje gdje mu ponestane ulaza, i to je doseg
-// prognoze. Bez oborine dalje od toga nema što reći.
+// Sam račun stoji u paketu prognoza, jer ga zove i poslužitelj čim preuzme
+// nove vodostaje. Ova naredba služi za ručno pokretanje i za pogled u niz.
 package main
 
 import (
+	"context"
 	"database/sql"
 	"flag"
 	"fmt"
 	"log"
-	"math"
 	"time"
 
-	"gocop/internal/models"
 	"gocop/internal/prognoza"
 
 	_ "modernc.org/sqlite"
 )
-
-// Model je oznaka pod kojom se prognoza zapisuje, da se poslije zna po čemu je
-// izdana. Mijenja se kad se promijeni oblik računa, ne kad se samo osvježe
-// koeficijenti.
-const Model = "lanac-1"
 
 func main() {
 	ocitanjaPut := flag.String("ocitanja", "data/gocop.db", "baza očitanja")
@@ -36,6 +30,7 @@ func main() {
 	poluvijek := flag.Float64("poluvijek", prognoza.PoluvijekIspravka,
 		"za koliko sati ispravak prema mjerenju oslabi na pola; 0 isključuje")
 	ispisi := flag.String("ispisi", "", "ispiši niz po satu za jednu letvu")
+	iznova := flag.Bool("iznova", false, "izračunaj i kad je za taj sat prognoza već izdana")
 	flag.Parse()
 	prognoza.PoluvijekIspravka = *poluvijek
 
@@ -44,21 +39,6 @@ func main() {
 		log.Fatal(err)
 	}
 	defer baza.Close()
-	pojasi, err := prognoza.SviPojasi(baza)
-	if err != nil {
-		log.Fatal(err)
-	}
-	// Promašaji su izmjereni puštanjem prognoze unatrag po arhivi. Ondje gdje
-	// ih ima, oni kažu i koliko treba oduzeti i koliko se smije obećati —
-	// bolje od rasapa namještanja, koji ne zna za ispravak.
-	promasaji, err := prognoza.Promasaji(baza)
-	if err != nil {
-		log.Fatal(err)
-	}
-	if len(pojasi) == 0 {
-		log.Fatal("baza prognoza je prazna; prvo pokreni namjesti-prognozu")
-	}
-
 	ocitanja, err := sql.Open("sqlite", *ocitanjaPut+"?mode=ro")
 	if err != nil {
 		log.Fatal(err)
@@ -70,260 +50,86 @@ func main() {
 	}
 	defer arhiva.Close()
 
-	trebani, vrhovi := trebaniIzvori(pojasi)
-	od := time.Now().UTC().AddDate(0, 0, -14)
-	nizovi := map[prognoza.Izvor]prognoza.Niz{}
-	for iz := range trebani {
-		n, err := ucitajNiz(ocitanja, arhiva, iz, od)
-		if err != nil {
-			log.Fatalf("%s (%s): %v", iz.Letva, iz.Velicina, err)
-		}
-		nizovi[iz] = n
-	}
-
-	// Vrh lanca se vodi u jednoj veličini, ali letva ima obje. Donja Dubrava
-	// nema krivulju, pa joj se vodostaj ne da izračunati — a mjeren jest, i na
-	// uzdužnom profilu treba stajati.
-	druge := map[prognoza.Izvor]prognoza.Niz{}
-	for iz := range vrhovi {
-		suprotna := prognoza.Izvor{Letva: iz.Letva, Velicina: "vodostaj"}
-		if iz.Velicina == "vodostaj" {
-			suprotna.Velicina = "protok"
-		}
-		if n, err := ucitajNiz(ocitanja, arhiva, suprotna, od); err == nil {
-			if _, ima := n.Zadnji(); ima {
-				druge[suprotna] = n
-			}
-		}
-	}
-
-	sada, ok := zadnjiZajednicki(nizovi, vrhovi)
-	if !ok {
-		log.Fatal("nijedna ulazna letva nema svježa očitanja")
-	}
-	fmt.Printf("izdano za %s UTC\n", time.Unix(sada*3600, 0).UTC().Format("2006-01-02 15:04"))
-	for iz := range vrhovi {
-		z, _ := nizovi[iz].Zadnji()
-		fmt.Printf("   %-16s %s  zadnje %s\n", iz.Letva, iz.Velicina,
-			time.Unix(z*3600, 0).UTC().Format("02.01. 15:04"))
-	}
-
-	r := prognoza.NovoRacunalo(pojasi, nizovi, sada)
-	var sve []prognoza.Izdana
-	fmt.Printf("\n%-16s %-9s %8s %10s %12s\n", "letva", "veličina", "doseg", "za 6 h", "na kraju")
-	for _, letva := range prognoza.Redom(pojasi) {
-		izdane, err := r.Prognoziraj(letva, *najdalje, Model)
-		if err != nil {
-			fmt.Printf("%-16s %v\n", letva, err)
-			continue
-		}
-		if len(izdane) == 0 {
-			fmt.Printf("%-16s nema ulaza za nijedan sat unaprijed\n", letva)
-			continue
-		}
-		for i := range izdane {
-			p, ima := promasaji[letva][int(izdane[i].Ciljni-sada)]
-			if !ima {
-				continue
-			}
-			izdane[i].Vrijednost -= p.Pomak
-			izdane[i].Dolje = izdane[i].Vrijednost - p.Rasap
-			izdane[i].Gore = izdane[i].Vrijednost + p.Rasap
-		}
-		sve = append(sve, izdane...)
-		// Ista prognoza i u drugoj veličini, ondje gdje krivulja postoji.
-		// Model radi u jednoj, a dežurni čita onu koju je navikao gledati.
-		if druga := uDrugojVelicini(arhiva, izdane); len(druga) > 0 {
-			sve = append(sve, druga...)
-		}
-		if *ispisi == letva {
-			for _, i := range izdane {
-				fmt.Printf("   %s  %+3d h  %8.1f ± %-6.1f %s\n",
-					time.Unix(i.Ciljni*3600, 0).UTC().Format("02.01. 15:04"),
-					i.Ciljni-sada, i.Vrijednost, i.Raspon(), jedinica(i.Velicina))
-			}
-		}
-		jed := jedinica(izdane[0].Velicina)
-		zad := izdane[len(izdane)-1]
-		sest := izdane[min(6, len(izdane)-1)]
-		fmt.Printf("%-16s %-9s %6d h %7.0f±%-3.0f %7.0f±%-3.0f %s%s\n",
-			letva, izdane[0].Velicina, len(izdane),
-			sest.Vrijednost, sest.Raspon(), zad.Vrijednost, zad.Raspon(), jed,
-			slabija(promasaji[letva], len(izdane)))
-	}
-
-	// Vrhovi lanca nemaju svoju prognozu, ali imaju mjerenje. Bez njih bi
-	// uzdužni profil počinjao od druge letve — Dunav bez Batine, Drava bez
-	// Donje Dubrave — a upravo su to mjesta na kojima val ulazi u naš sliv.
-	sve = append(sve, sidraVrhova(arhiva, nizovi, vrhovi, sada)...)
-	sve = append(sve, sidraDrugih(druge, sada)...)
-
-	if *probno {
-		fmt.Printf("\nproba — ništa nije zapisano; %d vrijednosti bi ušlo\n", len(sve))
-		return
-	}
-	if err := prognoza.SpremiIzdane(baza, sve); err != nil {
+	o := &prognoza.Osvjezivac{Baza: baza, Ocitanja: ocitanja, Arhiva: arhiva,
+		Najdalje: *najdalje, Model: prognoza.ModelLanac}
+	ishod, err := o.Osvjezi(context.Background())
+	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Printf("\nzapisano %d vrijednosti\n", len(sve))
-}
-
-// trebaniIzvori nabraja sve letve koje račun dira, i posebno one koje nemaju
-// svoj račun — vrhove lanca, o kojima ovisi dokle prognoza seže.
-func trebaniIzvori(pojasi map[string][]prognoza.Pojas) (svi, vrhovi map[prognoza.Izvor]bool) {
-	svi = map[prognoza.Izvor]bool{}
-	vrhovi = map[prognoza.Izvor]bool{}
-	for letva, ps := range pojasi {
-		for _, p := range ps {
-			svi[prognoza.Izvor{Letva: letva, Velicina: p.Velicina}] = true
-			for _, u := range p.Ulazi {
-				iz := prognoza.Izvor{Letva: u.Letva, Velicina: u.Velicina}
-				svi[iz] = true
-				if len(pojasi[u.Letva]) == 0 {
-					vrhovi[iz] = true
-				}
-			}
-		}
+	if ishod.Preskoceno && !*iznova {
+		fmt.Printf("za %s UTC prognoza je već izdana; -iznova računa unatoč tome\n",
+			time.Unix(ishod.Sada*3600, 0).UTC().Format("2006-01-02 15:04"))
+		return
 	}
-	return svi, vrhovi
-}
 
-// zadnjiZajednicki je zadnji sat koji imaju sve ulazne letve. Uzeti kasniji
-// značilo bi računati iz onoga čega još nema.
-func zadnjiZajednicki(nizovi map[prognoza.Izvor]prognoza.Niz, vrhovi map[prognoza.Izvor]bool) (int64, bool) {
-	var naj int64
-	prvi := true
-	for iz := range vrhovi {
-		z, ima := nizovi[iz].Zadnji()
-		if !ima {
-			return 0, false
-		}
-		if prvi || z < naj {
-			naj, prvi = z, false
-		}
+	fmt.Printf("izdano za %s UTC\n", time.Unix(ishod.Sada*3600, 0).UTC().Format("2006-01-02 15:04"))
+	for iz, z := range ishod.Vrhovi {
+		fmt.Printf("   %-16s %-9s zadnje %s\n", iz.Letva, iz.Velicina,
+			time.Unix(z*3600, 0).UTC().Format("02.01. 15:04"))
 	}
-	return naj, !prvi
-}
-
-// ucitajNiz čita satni niz iz očitanja. Protok se uzima kako je izmjeren, a
-// gdje ga nema računa se iz krivulje — Terezino Polje šalje samo centimetre, a
-// model mu traži kubike.
-func ucitajNiz(ocitanja, arhiva *sql.DB, iz prognoza.Izvor, od time.Time) (prognoza.Niz, error) {
-	var krivulje []models.HQKrivulja
-	if iz.Velicina == "protok" {
-		var err error
-		if krivulje, err = ucitajKrivulje(arhiva, iz.Letva); err != nil {
-			return prognoza.Niz{}, err
-		}
-	}
-	r, err := ocitanja.Query(`SELECT o.measured_at, o.level_cm, o.flow_m3s
-		FROM readings o JOIN stations s ON s.id = o.station_id
-		WHERE s.code = ? AND o.measured_at >= ?`, iz.Letva, od)
-	if err != nil {
-		return prognoza.Niz{}, err
-	}
-	defer r.Close()
-
-	vrijednosti := map[int64]float64{}
-	odmak := map[int64]time.Duration{}
-	for r.Next() {
-		// Stupac je DATETIME, pa ga upravljač sam pretvara u vrijeme; čitan
-		// kao tekst dolazi u drugom zapisu nego što u bazi stoji.
-		var t time.Time
-		var cm sql.NullInt64
-		var q sql.NullFloat64
-		if err := r.Scan(&t, &cm, &q); err != nil {
-			return prognoza.Niz{}, err
-		}
-		t = t.UTC()
-		v, ima := uVelicini(iz.Velicina, cm, q, krivulje, t)
-		if !ima {
+	ispisi_ := *ispisi
+	fmt.Printf("\n%-16s %-9s %8s %10s %12s\n", "letva", "veličina", "doseg", "za 6 h", "na kraju")
+	for _, letva := range redom(ishod) {
+		niz := zaLetvu(ishod, letva)
+		if len(niz) == 0 {
 			continue
 		}
-		// Očitanje s pola sata pripada najbližem satu; kad ih na isti sat
-		// padne više, ostaje ono bliže punoj uri.
-		sat := int64(t.Add(30*time.Minute).Unix() / 3600)
-		raz := t.Sub(time.Unix(sat*3600, 0))
-		if raz < 0 {
-			raz = -raz
-		}
-		if prije, bilo := odmak[sat]; !bilo || raz < prije {
-			vrijednosti[sat] = v
-			odmak[sat] = raz
-		}
-	}
-	return prognoza.NoviNiz(vrijednosti), r.Err()
-}
-
-func uVelicini(velicina string, cm sql.NullInt64, q sql.NullFloat64,
-	krivulje []models.HQKrivulja, kad time.Time) (float64, bool) {
-	if velicina == "vodostaj" {
-		if !cm.Valid {
-			return 0, false
-		}
-		return float64(cm.Int64), true
-	}
-	if q.Valid {
-		return q.Float64, true
-	}
-	if !cm.Valid {
-		return 0, false
-	}
-	k := krivuljaZa(krivulje, kad)
-	if k == nil {
-		return 0, false
-	}
-	v, _, ok := k.ProtokProsiren(int(cm.Int64))
-	return v, ok
-}
-
-func krivuljaZa(krivulje []models.HQKrivulja, kad time.Time) *models.HQKrivulja {
-	d := kad.Format("2006-01-02")
-	for i := range krivulje {
-		k := &krivulje[i]
-		if k.VrijediOd <= d && (k.VrijediDo == "" || d <= k.VrijediDo) {
-			return k
-		}
-	}
-	return nil
-}
-
-func ucitajKrivulje(arhiva *sql.DB, letva string) ([]models.HQKrivulja, error) {
-	r, err := arhiva.Query(`SELECT id, vrijedi_od, vrijedi_do FROM hq_krivulje
-		WHERE letva = ? ORDER BY vrijedi_od DESC`, letva)
-	if err != nil {
-		return nil, err
-	}
-	defer r.Close()
-	var out []models.HQKrivulja
-	for r.Next() {
-		var k models.HQKrivulja
-		if err := r.Scan(&k.ID, &k.VrijediOd, &k.VrijediDo); err != nil {
-			return nil, err
-		}
-		k.Letva = letva
-		out = append(out, k)
-	}
-	if err := r.Err(); err != nil {
-		return nil, err
-	}
-	for i := range out {
-		o, err := arhiva.Query(`SELECT od_cm, do_cm, oblik, p1, p2, p3, p4
-			FROM hq_odsjecci WHERE krivulja = ? ORDER BY od_cm`, out[i].ID)
-		if err != nil {
-			return nil, err
-		}
-		for o.Next() {
-			var s models.HQOdsjecak
-			if err := o.Scan(&s.OdCm, &s.DoCm, &s.Oblik, &s.P1, &s.P2, &s.P3, &s.P4); err != nil {
-				o.Close()
-				return nil, err
+		if ispisi_ == letva {
+			for _, i := range niz {
+				fmt.Printf("   %s  %+3d h  %8.1f ± %-6.1f %s\n",
+					time.Unix(i.Ciljni*3600, 0).UTC().Format("02.01. 15:04"),
+					i.Ciljni-ishod.Sada, i.Vrijednost, i.Raspon(), jedinica(i.Velicina))
 			}
-			out[i].Odsjecci = append(out[i].Odsjecci, s)
 		}
-		o.Close()
+		zad, sest := niz[len(niz)-1], niz[min(6, len(niz)-1)]
+		fmt.Printf("%-16s %-9s %6d h %7.0f±%-3.0f %7.0f±%-3.0f %s%s\n",
+			letva, niz[0].Velicina, len(niz),
+			sest.Vrijednost, sest.Raspon(), zad.Vrijednost, zad.Raspon(),
+			jedinica(niz[0].Velicina), slabija(ishod.Promasaji[letva], len(niz)))
 	}
-	return out, nil
+	for letva, err := range ishod.BezPrognoze {
+		fmt.Printf("%-16s %v\n", letva, err)
+	}
+
+	if *probno {
+		fmt.Printf("\nproba — ništa nije zapisano; %d vrijednosti bi ušlo\n", len(ishod.Izdane))
+		return
+	}
+	if err := prognoza.SpremiIzdane(baza, ishod.Izdane); err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("\nzapisano %d vrijednosti\n", len(ishod.Izdane))
+}
+
+// zaLetvu vadi niz jedne letve u veličini u kojoj se računa, poredan po satu.
+func zaLetvu(ishod *prognoza.Ishod, letva string) []prognoza.Izdana {
+	var out []prognoza.Izdana
+	var vel string
+	for _, i := range ishod.Izdane {
+		if i.Letva != letva || i.Racunata {
+			continue
+		}
+		if vel == "" {
+			vel = i.Velicina
+		}
+		if i.Velicina == vel {
+			out = append(out, i)
+		}
+	}
+	return out
+}
+
+// redom slaže letve onako kako se pojavljuju u ishodu, dakle kako voda teče.
+func redom(ishod *prognoza.Ishod) []string {
+	vidjeno := map[string]bool{}
+	var out []string
+	for _, i := range ishod.Izdane {
+		if !vidjeno[i.Letva] {
+			vidjeno[i.Letva] = true
+			out = append(out, i.Letva)
+		}
+	}
+	return out
 }
 
 // slabija javlja na kojim dosezima prognoza ne pobjeđuje postojanost. Ondje
@@ -347,95 +153,6 @@ func slabija(po map[int]prognoza.Promasaj, doseg int) string {
 		return fmt.Sprintf("   slabija od postojanosti na %d h", od)
 	}
 	return fmt.Sprintf("   slabija od postojanosti od %d do %d h", od, do)
-}
-
-// sidraVrhova zapisuje zadnju izmjerenu vrijednost letvi koje nemaju svoj
-// račun. To nije prognoza nego sidro: jedan jedini sat, onaj izdavanja, da se
-// zna odakle val ulazi.
-func sidraVrhova(arhiva *sql.DB, nizovi map[prognoza.Izvor]prognoza.Niz,
-	vrhovi map[prognoza.Izvor]bool, sada int64) []prognoza.Izdana {
-	var out []prognoza.Izdana
-	for iz := range vrhovi {
-		v, ima := nizovi[iz].U(sada)
-		if !ima {
-			continue
-		}
-		i := prognoza.Izdana{
-			Letva: iz.Letva, Velicina: iz.Velicina, Izdano: sada, Ciljni: sada,
-			Vrijednost: v, Dolje: v, Gore: v, Model: Model,
-		}
-		out = append(out, i)
-		out = append(out, uDrugojVelicini(arhiva, []prognoza.Izdana{i})...)
-	}
-	return out
-}
-
-// sidraDrugih zapisuje mjerenje vrha lanca u onoj veličini u kojoj se ne
-// računa. Ne prolazi kroz krivulju — mjereno je, pa ga nema smisla računati.
-func sidraDrugih(druge map[prognoza.Izvor]prognoza.Niz, sada int64) []prognoza.Izdana {
-	var out []prognoza.Izdana
-	for iz, n := range druge {
-		v, ima := n.U(sada)
-		if !ima {
-			continue
-		}
-		out = append(out, prognoza.Izdana{
-			Letva: iz.Letva, Velicina: iz.Velicina, Izdano: sada, Ciljni: sada,
-			Vrijednost: v, Dolje: v, Gore: v, Model: Model,
-		})
-	}
-	return out
-}
-
-// uDrugojVelicini pretvara prognozu krivuljom: protok u vodostaj i obrnuto.
-// Granice raspona idu kroz krivulju jednako kao i sama vrijednost — krivulja
-// je rastuća, pa granica od 68 % ostaje granica od 68 %. Množenje nagibom bi
-// pri maloj vodi, gdje je krivulja najzakrivljenija, dalo krivu širinu.
-func uDrugojVelicini(arhiva *sql.DB, izdane []prognoza.Izdana) []prognoza.Izdana {
-	if len(izdane) == 0 {
-		return nil
-	}
-	krivulje, err := ucitajKrivulje(arhiva, izdane[0].Letva)
-	if err != nil || len(krivulje) == 0 {
-		return nil
-	}
-	ciljna := "vodostaj"
-	if izdane[0].Velicina == "vodostaj" {
-		ciljna = "protok"
-	}
-	out := make([]prognoza.Izdana, 0, len(izdane))
-	for _, i := range izdane {
-		k := krivuljaZa(krivulje, time.Unix(i.Ciljni*3600, 0).UTC())
-		if k == nil {
-			continue
-		}
-		v, izvanV, ok := pretvori(k, ciljna, i.Vrijednost)
-		if !ok {
-			continue
-		}
-		d, izvanD, okD := pretvori(k, ciljna, i.Dolje)
-		g, izvanG, okG := pretvori(k, ciljna, i.Gore)
-		if !okD || !okG {
-			d, g = v, v
-			izvanD, izvanG = izvanV, izvanV
-		}
-		n := i
-		n.Velicina, n.Vrijednost, n.Dolje, n.Gore = ciljna, v, d, g
-		n.Racunata = true
-		n.Izvan = izvanV || izvanD || izvanG
-		out = append(out, n)
-	}
-	return out
-}
-
-// pretvori vodi jednu vrijednost kroz krivulju u traženu veličinu.
-func pretvori(k *models.HQKrivulja, ciljna string, v float64) (float64, bool, bool) {
-	if ciljna == "vodostaj" {
-		cm, izvan, ok := k.Vodostaj(v)
-		return float64(cm), izvan, ok
-	}
-	q, izvan, ok := k.ProtokProsiren(int(math.Round(v)))
-	return q, izvan, ok
 }
 
 func jedinica(velicina string) string {

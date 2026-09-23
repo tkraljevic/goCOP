@@ -4,6 +4,7 @@ import (
 	_ "time/tzdata"
 
 	"context"
+	"database/sql"
 	"flag"
 	"fmt"
 	"log"
@@ -27,6 +28,7 @@ import (
 	"gocop/internal/models"
 	"gocop/internal/peers"
 	"gocop/internal/posta"
+	"gocop/internal/prognoza"
 	"gocop/internal/repository"
 	"gocop/internal/sadrzaj"
 	"gocop/internal/service"
@@ -636,6 +638,38 @@ func main() {
 	// vodostaji.voda.hr i označene za preuzimanje. Bez interneta samo javi
 	// grešku na letvi i pokuša za sat.
 	javniUvoznik := javnivodostaji.NoviUvoznik(repository.NewJavniSpremiste(database, readingRepo), log.Printf)
+
+	// Prognoza se obnavlja čim stignu novi vodostaji, a ne po vlastitom satu:
+	// inače bi pola vremena stajala na starim brojkama a izgledala kao da je
+	// današnja. Kad baze prognoza nema ili je prazna, poslužitelj radi kao i
+	// dosad — samo bez prognoze.
+	if pb, err := prognoza.Otvori(prognozePut); err != nil {
+		log.Printf("Prognoza se neće obnavljati: %v", err)
+	} else if ocitanjaRO, err := sql.Open("sqlite", *dbPath+"?mode=ro"); err != nil {
+		log.Printf("Prognoza se neće obnavljati: očitanja: %v", err)
+	} else if arhivaRO, err := sql.Open("sqlite", arhivaPut+"?mode=ro"); err != nil {
+		log.Printf("Prognoza se neće obnavljati: arhiva: %v", err)
+	} else {
+		osvjezivac := &prognoza.Osvjezivac{Baza: pb, Ocitanja: ocitanjaRO,
+			Arhiva: arhivaRO, Najdalje: 96, Model: prognoza.ModelLanac}
+		javniUvoznik.NakonPreuzimanja = func(ctx context.Context) {
+			ishod, err := osvjezivac.Osvjezi(ctx)
+			if err != nil {
+				log.Printf("prognoza: %v", err)
+				return
+			}
+			if ishod.Preskoceno {
+				return
+			}
+			if err := osvjezivac.Zapisi(ishod); err != nil {
+				log.Printf("prognoza: zapis: %v", err)
+				return
+			}
+			log.Printf("prognoza: izdana za %s UTC (%.0f h unatrag), %d letvi, %d vrijednosti",
+				time.Unix(ishod.Sada*3600, 0).UTC().Format("2006-01-02 15:04"),
+				ishod.Zaostatak(time.Now()).Hours(), ishod.Letvi(), len(ishod.Izdane))
+		}
+	}
 	// Letve na Geolux HydroViewu traže prijavu. Račun stoji na ovom čvoru,
 	// šifriran ključem čvora, i traži se pri svakom preuzimanju — tako
 	// promjena lozinke odmah vrijedi, bez ponovnog pokretanja. Letva može

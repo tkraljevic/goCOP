@@ -370,6 +370,11 @@ type Uvoznik struct {
 	Svakih    time.Duration
 	Zapisnik  func(format string, args ...any)
 
+	// NakonPreuzimanja se zove kad prođe jedan krug. Prognoza se time obnavlja
+	// čim stignu novi vodostaji, a ne po vlastitom satu — inače bi pola
+	// vremena stajala na starim brojkama a izgledala kao da je današnja.
+	NakonPreuzimanja func(context.Context)
+
 	mu      sync.Mutex
 	stanja  map[string]StanjeLetve // po ID-u postaje
 	postaje []Postaja              // javni popis, predmemoriran
@@ -510,6 +515,9 @@ func (u *Uvoznik) PreuzmiSve(ctx context.Context) int {
 	}
 	if len(letve) > 0 {
 		u.Zapisnik("javni vodostaji: %d letvi, %d novih očitanja", len(letve), ukupno)
+	}
+	if u.NakonPreuzimanja != nil && ctx.Err() == nil {
+		u.NakonPreuzimanja(ctx)
 	}
 	return ukupno
 }
