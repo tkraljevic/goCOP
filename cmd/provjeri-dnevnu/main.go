@@ -35,7 +35,19 @@ func main() {
 	uciDo := flag.String("uci-do", "2012-01-01", "učenje vidi samo dane prije ovoga")
 	kraj := flag.String("kraj", "2025-01-01", "provjera do ovog dana")
 	valoviPut := flag.String("valovi", "", "CSV s vrhovima valova (neobavezno)")
+	ciljeviS := flag.String("ciljevi", "", `isprobaj druge ciljeve, npr. "botovo=letenye,borl-i;belisce=botovo"`)
 	flag.Parse()
+	ciljevi := prognoza.DnevniCiljevi
+	if *ciljeviS != "" {
+		ciljevi = nil
+		for _, c := range strings.Split(*ciljeviS, ";") {
+			l, u, ok := strings.Cut(c, "=")
+			if !ok {
+				log.Fatalf("-ciljevi: %q nije oblika letva=ulaz,ulaz", c)
+			}
+			ciljevi = append(ciljevi, prognoza.DnevniCilj{Letva: strings.TrimSpace(l), Ulazi: strings.Split(u, ",")})
+		}
+	}
 
 	arhiva, err := sql.Open("sqlite", *arhivaPut+"?mode=ro")
 	if err != nil {
@@ -43,7 +55,7 @@ func main() {
 	}
 	defer arhiva.Close()
 	nizovi := map[string]prognoza.DnevniNiz{}
-	for _, c := range prognoza.DnevniCiljevi {
+	for _, c := range ciljevi {
 		for _, l := range append([]string{c.Letva}, c.Ulazi...) {
 			if nizovi[l] == nil {
 				if nizovi[l], err = prognoza.DnevniIzArhive(arhiva, l); err != nil {
@@ -71,7 +83,7 @@ func main() {
 
 	od, do := dan(*uciDo), dan(*kraj)
 	fmt.Printf("učeno do %s, provjereno %s – %s\n", *uciDo, *uciDo, *kraj)
-	for _, c := range prognoza.DnevniCiljevi {
+	for _, c := range ciljevi {
 		m, err := prognoza.NamjestiDnevni(nizovi, c, od)
 		if err != nil {
 			fmt.Println(err)

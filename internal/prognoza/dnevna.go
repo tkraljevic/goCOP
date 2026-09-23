@@ -23,6 +23,9 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"time"
+
+	"gocop/internal/models"
 )
 
 // ModelDnevni je oznaka pod kojom se dnevna prognoza zapisuje.
@@ -40,9 +43,22 @@ type DnevniCilj struct {
 	Ulazi []string
 }
 
-// DnevniCiljevi su letve s dnevnom prognozom. Nizvodno od Batine ulazi i
-// Drava, jer ušće stoji između.
+// DnevniCiljevi su letve s dnevnom prognozom, redom kako voda teče. Nizvodno
+// od Batine ulazi i Drava, jer ušće stoji između.
+//
+// Na Dravi je dobitak manji nego na Dunavu. Učeno do 2012. i mjereno na
+// dravskim valovima 2012.–2024., Botovu Borl i Letenye skidaju pogrešku
+// dnevnog vrha 1. dan s 46 cm satnog lanca na 21, a 2. dan sa 139 na 79 —
+// ali od 3.–4. dana veliki val ostaje podcijenjen, jer nastaje iz kiše koju
+// još nijedna letva ne vidi. Lavamünd ne dodaje ništa povrh Borla. Belišću,
+// Donjem Miholjcu i Osijeku satni lanac prva 3–4 dana pogađa bolje; dnevni
+// im vrijedi za 5.–6. dan, gdje postojanosti prepolovi pogrešku.
 var DnevniCiljevi = []DnevniCilj{
+	{"botovo", []string{"letenye", "borl-i"}},
+	{"terezino-polje", []string{"botovo", "letenye", "borl-i"}},
+	{"donji-miholjac", []string{"terezino-polje", "botovo", "letenye", "borl-i"}},
+	{"belisce", []string{"donji-miholjac", "terezino-polje", "botovo", "borl-i"}},
+	{"osijek", []string{"belisce", "donji-miholjac", "botovo", "aljmas"}},
 	{"batina", []string{"komarom", "budapest", "mohacs"}},
 	{"aljmas", []string{"komarom", "budapest", "mohacs", "batina", "osijek", "donji-miholjac"}},
 	{"vukovar", []string{"komarom", "budapest", "mohacs", "batina", "osijek", "donji-miholjac"}},
@@ -111,7 +127,48 @@ func DnevniIzArhive(arhiva *sql.DB, letva string) (DnevniNiz, error) {
 		// pomaka svodi ga na njegov datum bez obzira na ljetno računanje.
 		n[(t+43200)/86400] = v
 	}
-	return n, r.Err()
+	if err := r.Err(); err != nil {
+		return nil, err
+	}
+	// Dan kojeg u dnevnom nizu nema, a satnih ima dovoljno, dobiva srednjak
+	// satnih po lokalnom danu. Letenye u dnevnom nizu 2004.–2017. ima tek
+	// 120–320 dana na godinu, a satni mu je potpun od 1984.
+	s, err := arhiva.Query(`SELECT vrijeme, vrijednost FROM spoj
+		WHERE letva = ? AND velicina = 'vodostaj' AND korak = 'satni'`, letva)
+	if err != nil {
+		return nil, err
+	}
+	defer s.Close()
+	type zbroj struct {
+		s float64
+		n int
+	}
+	satni := map[int64]*zbroj{}
+	for s.Next() {
+		var t int64
+		var v float64
+		if err := s.Scan(&t, &v); err != nil {
+			return nil, err
+		}
+		lok := time.Unix(t, 0).In(models.Zagreb)
+		d := time.Date(lok.Year(), lok.Month(), lok.Day(), 0, 0, 0, 0, time.UTC).Unix() / 86400
+		if _, ima := n[d]; ima {
+			continue
+		}
+		z := satni[d]
+		if z == nil {
+			z = &zbroj{}
+			satni[d] = z
+		}
+		z.s += v
+		z.n++
+	}
+	for d, z := range satni {
+		if z.n >= 18 {
+			n[d] = z.s / float64(z.n)
+		}
+	}
+	return n, s.Err()
 }
 
 // NamjestiDnevni uči model iz dnevnih nizova. doDana je prvi dan koji učenje
