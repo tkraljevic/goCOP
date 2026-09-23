@@ -682,6 +682,13 @@ func noviObjekt(naziv, vrsta string, letvaPoImenu map[string]string) (*models.St
 			}
 		}
 	}
+	// crpna stanica bez vlastite letve crpi iz glavnog dovodnog kanala, a on je
+	// uzvodna strana istoimene ustave: CS Puškaš i Ustava Puškaš dijele GDK
+	if vrsta == models.StructureKindPumpingStation && o.StationID == "" && strings.HasPrefix(k, "cs ") {
+		if id, ok := letvaPoImenu["ustava "+strings.TrimPrefix(k, "cs ")+" (uzvodno)"]; ok {
+			o.StationID = id
+		}
+	}
 	if vrsta == models.StructureKindSluice {
 		if id, ok := letvaPoImenu[k+" (uzvodno)"]; ok {
 			o.StationID = id
