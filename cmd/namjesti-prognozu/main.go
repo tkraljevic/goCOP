@@ -97,6 +97,16 @@ var Tokovi = []struct {
 		// Ludbreg s njom ide 37/40/26/7/2 % bolje od postojanosti umjesto
 		// 32/21/7/1/lošije.
 		//
+		// Ni Plitvica nije ulaz, ni ovdje ni na Botovu. Ludbregu ulazi kao
+		// prava pritoka — kašnjenje 0 h, prozor 1 sat, nagib 0,63, bez
+		// izglađivanja — i u namještanju mu digne r s 0,924 na 0,965 a rasap
+		// spusti s 8,0 na 5,2 m³/s. Ali kašnjenje nula znači da je model od
+		// prvog sata nadalje mora pogađati, pa je drži nepomičnom: izvan
+		// namještanja Ludbreg ide 1,6/2,6/5,2/8,9/10,6 m³/s umjesto
+		// 1,7/2,6/5,2/8,9/10,6, uz nešto lošiju pokrivenost raspona. Botovu je
+		// pak štetna: ulazi s kašnjenjem 33 h i prozorom 49 sati, a r pada s
+		// 0,907 na 0,892. Krkanec ostaje upisan i uvozi se, samo nije ulaz.
+		//
 		// Lepoglava ostaje vani. Kao sporedni ulaz Ludbregu ne vrijedi ništa
 		// (8,0 → 7,7 m³/s rasapa), a ni Železnici iznad koje leži: ondje joj je
 		// kašnjenje 0 h na svim pojasima uz prozor od 21 sat, dakle model je
