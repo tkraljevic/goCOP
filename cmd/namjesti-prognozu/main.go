@@ -190,7 +190,14 @@ func main() {
 	bazaPut := flag.String("baza", "data/prognoze.db", "baza prognoza")
 	probno := flag.Bool("probno", false, "samo ispiši što bi se namjestilo")
 	proba := flag.String("proba", "", `isprobaj jednu postavku, npr. "aljmas = batina + belisce"`)
+	// Sporednom ulazu pretraga stane na 48 sati, jer dulje kašnjenje na našim
+	// pritokama i nema — osim Karašice, kojoj je od Poreča do ušća pedesetak
+	// kilometara spore nizinske rijeke pa Dravom do Osijeka. Za takvu probu
+	// granica se smije pomaknuti; namještanje ostaje na zadanoj.
+	pomakPritoke := flag.Int("pomak-pritoke", prognoza.NajveciPomakPritoka,
+		"dokle se traži kašnjenje sporednog ulaza, u satima")
 	flag.Parse()
+	prognoza.NajveciPomakPritoka = *pomakPritoke
 
 	arhiva, err := sql.Open("sqlite", *arhivaPut+"?mode=ro")
 	if err != nil {

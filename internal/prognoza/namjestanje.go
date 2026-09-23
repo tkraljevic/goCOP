@@ -22,7 +22,7 @@ import (
 
 // NajveciPomak je dokle se traži za glavni tok; dulje od toga nijedna naša
 // dionica ne traje. Pritoci se traže kraće jer su bliže.
-const (
+var (
 	NajveciPomak        = 72
 	NajveciPomakPritoka = 48
 )
