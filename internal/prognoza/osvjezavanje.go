@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"math"
+	"sync"
 	"time"
 
 	"gocop/internal/models"
@@ -42,6 +43,8 @@ type Ishod struct {
 	Promasaji   map[string]map[int]Promasaj
 	Preskoceno  bool             // isti sat već je izdan, ništa se nije mijenjalo
 	BezPrognoze map[string]error // letve koje nisu dale nijedan sat
+	Dnevne      []DnevnaIzdana   // dnevna prognoza za 1.–6. dan
+	BezDnevne   map[string]error // letve s dnevnim modelom koje ga nisu dale
 }
 
 // Letvi je koliko ih je prognoza dotaknula.
@@ -156,7 +159,87 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 	// Donje Dubrave — a upravo su to mjesta na kojima val ulazi u naš sliv.
 	ishod.Izdane = append(ishod.Izdane, o.sidraVrhova(ctx, nizovi, vrhovi, sada)...)
 	ishod.Izdane = append(ishod.Izdane, sidraDrugih(druge, sada)...)
+	ishod.Dnevne, ishod.BezDnevne = o.dnevno(ctx, sada, od)
 	return ishod, nil
+}
+
+// dnevniModeli drži naučene dnevne modele. Uče se iz arhive jednom dnevno:
+// arhiva se mijenja rijetko, a učenje traje sekundu-dvije.
+var dnevniModeli struct {
+	sync.Mutex
+	dan    string
+	modeli map[string]*DnevniModel
+	greske map[string]error
+}
+
+func (o *Osvjezivac) dnevniModeliZaDanas() (map[string]*DnevniModel, map[string]error) {
+	danas := time.Now().Format("2006-01-02")
+	dnevniModeli.Lock()
+	defer dnevniModeli.Unlock()
+	if dnevniModeli.dan == danas {
+		return dnevniModeli.modeli, dnevniModeli.greske
+	}
+	modeli, greske := map[string]*DnevniModel{}, map[string]error{}
+	nizovi := map[string]DnevniNiz{}
+	for _, c := range DnevniCiljevi {
+		for _, l := range c.letve() {
+			if _, ima := nizovi[l]; ima {
+				continue
+			}
+			n, err := DnevniIzArhive(o.Arhiva, l)
+			if err != nil {
+				greske[c.Letva] = err
+				continue
+			}
+			nizovi[l] = n
+		}
+		m, err := NamjestiDnevni(nizovi, c, 0)
+		if err != nil {
+			greske[c.Letva] = err
+			continue
+		}
+		modeli[c.Letva] = m
+	}
+	dnevniModeli.dan, dnevniModeli.modeli, dnevniModeli.greske = danas, modeli, greske
+	return modeli, greske
+}
+
+// dnevno izdaje dnevnu prognozu iz satnih očitanja do sata izdavanja.
+func (o *Osvjezivac) dnevno(ctx context.Context, sada int64, od time.Time) ([]DnevnaIzdana, map[string]error) {
+	bez := map[string]error{}
+	if o.Arhiva == nil {
+		return nil, bez
+	}
+	modeli, greske := o.dnevniModeliZaDanas()
+	for l, err := range greske {
+		bez[l] = err
+	}
+	satni := map[string]Niz{}
+	var out []DnevnaIzdana
+	for _, c := range DnevniCiljevi {
+		m := modeli[c.Letva]
+		if m == nil {
+			continue
+		}
+		for _, l := range c.letve() {
+			if _, ima := satni[l]; ima {
+				continue
+			}
+			n, err := o.ucitajNiz(ctx, Izvor{Letva: l, Velicina: "vodostaj"}, od)
+			if err != nil {
+				bez[c.Letva] = err
+				continue
+			}
+			satni[l] = n
+		}
+		d, err := PrognozirajDnevno(m, satni, sada)
+		if err != nil {
+			bez[c.Letva] = err
+			continue
+		}
+		out = append(out, d...)
+	}
+	return out, bez
 }
 
 // Zapisi sprema izračunato.
@@ -164,7 +247,10 @@ func (o *Osvjezivac) Zapisi(ishod *Ishod) error {
 	if ishod == nil || ishod.Preskoceno || len(ishod.Izdane) == 0 {
 		return nil
 	}
-	return SpremiIzdane(o.Baza, ishod.Izdane)
+	if err := SpremiIzdane(o.Baza, ishod.Izdane); err != nil {
+		return err
+	}
+	return SpremiDnevne(o.Baza, ishod.Dnevne)
 }
 
 // TrebaniIzvori nabraja sve letve koje račun dira, i posebno one koje nemaju

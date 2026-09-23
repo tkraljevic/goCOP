@@ -77,3 +77,16 @@ func (c *CitacPrognoza) ZaLetvu(letva, velicina string) *PrognozaNiza {
 	}
 	return p
 }
+
+// Dnevno čita najnovije dnevno izdanje: za svaku letvu dan 0 (izmjereno) i
+// 1.–6. dan.
+func (c *CitacPrognoza) Dnevno() (time.Time, map[string][]prognoza.DnevnaIzdana, error) {
+	if c == nil || c.db == nil {
+		return time.Time{}, nil, nil
+	}
+	izdano, sve, err := prognoza.ZadnjeDnevno(c.db)
+	if err != nil || len(sve) == 0 {
+		return time.Time{}, nil, err
+	}
+	return time.Unix(izdano*3600, 0).UTC(), sve, nil
+}

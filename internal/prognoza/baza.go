@@ -90,6 +90,22 @@ CREATE TABLE IF NOT EXISTS izdane (
 ) WITHOUT ROWID;
 CREATE INDEX IF NOT EXISTS izdane_ciljni ON izdane(letva, ciljni);
 
+-- Dnevna prognoza za 1.–6. dan, uz satnu. Stoji zasebno jer se ne odnosi na
+-- sat nego na 24 sata koja završavaju u satu ciljni; u istoj tablici sudarala
+-- bi se sa satnom na istom ciljnom satu. Dan 0 je izmjereni srednjak zadnjih
+-- 24 sata, od kojeg prognoza kreće.
+CREATE TABLE IF NOT EXISTS dnevne (
+	letva      TEXT NOT NULL,
+	izdano     INTEGER NOT NULL,      -- sat izdavanja, UTC
+	dan        INTEGER NOT NULL,      -- 0 … 6
+	ciljni     INTEGER NOT NULL,      -- sat kojim dan završava, UTC
+	vrijednost REAL NOT NULL,         -- cm
+	dolje      REAL NOT NULL,
+	gore       REAL NOT NULL,
+	model      TEXT NOT NULL,
+	PRIMARY KEY (letva, izdano, dan)
+) WITHOUT ROWID;
+
 -- Koliko prognoza promašuje, izmjereno puštanjem unatrag po arhivi. Raspon uz
 -- izdanu prognozu dolazi odavde, a ne iz rasapa namještanja: ispravak prema
 -- mjerenju u trenutku izdavanja ukloni velik dio te pogreške, pa bi rasap
@@ -343,6 +359,51 @@ func SpremiIzdane(db *sql.DB, izdane []Izdana) error {
 		}
 	}
 	return tx.Commit()
+}
+
+// SpremiDnevne zapisuje dnevnu prognozu.
+func SpremiDnevne(db *sql.DB, dnevne []DnevnaIzdana) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for _, d := range dnevne {
+		if _, err := tx.Exec(`INSERT INTO dnevne
+			(letva, izdano, dan, ciljni, vrijednost, dolje, gore, model)
+			VALUES (?,?,?,?,?,?,?,?)
+			ON CONFLICT(letva, izdano, dan) DO UPDATE SET ciljni=excluded.ciljni,
+				vrijednost=excluded.vrijednost, dolje=excluded.dolje, gore=excluded.gore,
+				model=excluded.model`,
+			d.Letva, d.Izdano, d.Dan, d.Ciljni, d.Vrijednost, d.Dolje, d.Gore, d.Model); err != nil {
+			return fmt.Errorf("dnevna %s, %d. dan: %w", d.Letva, d.Dan, err)
+		}
+	}
+	return tx.Commit()
+}
+
+// ZadnjeDnevno čita najnovije dnevno izdanje, složeno po letvi i danu.
+func ZadnjeDnevno(db *sql.DB) (int64, map[string][]DnevnaIzdana, error) {
+	var izdano sql.NullInt64
+	if err := db.QueryRow(`SELECT max(izdano) FROM dnevne`).Scan(&izdano); err != nil || !izdano.Valid {
+		return 0, nil, err
+	}
+	r, err := db.Query(`SELECT letva, izdano, dan, ciljni, vrijednost, dolje, gore, model
+		FROM dnevne WHERE izdano = ? ORDER BY letva, dan`, izdano.Int64)
+	if err != nil {
+		return 0, nil, err
+	}
+	defer r.Close()
+	out := map[string][]DnevnaIzdana{}
+	for r.Next() {
+		var d DnevnaIzdana
+		if err := r.Scan(&d.Letva, &d.Izdano, &d.Dan, &d.Ciljni, &d.Vrijednost,
+			&d.Dolje, &d.Gore, &d.Model); err != nil {
+			return 0, nil, err
+		}
+		out[d.Letva] = append(out[d.Letva], d)
+	}
+	return izdano.Int64, out, r.Err()
 }
 
 // SviPojasi čita namještene pojase svih letvi, složene po letvi.

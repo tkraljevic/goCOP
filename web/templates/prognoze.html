@@ -86,5 +86,44 @@
   Ćelija pisana <span class="prog-slabija">svjetlije</span> znači da na tom dosegu prognoza ne
   pobjeđuje pretpostavku da se ništa neće promijeniti; ondje je bolje vjerovati zadnjem očitanju.
 </p>
+
+{{if .Dnevno}}
+<section class="detail-section">
+  <h2>{{icon "calendar"}} Dugoročno, po danima</h2>
+  <p class="reg-card-sub">Izdano {{.DnevnoIzdano}} · srednji vodostaj dana u centimetrima, s granicama
+    unutar kojih je ostajao u dvije trećine sličnih situacija iz povijesti</p>
+  <div class="table-card"><div class="table-responsive">
+    <table class="data-table prognoze-tablica dnevna-tablica">
+      <thead><tr>
+        <th>Letva</th>
+        <th style="text-align:right;">Zadnja 24 h</th>
+        {{range .DnevniDani}}<th style="text-align:right;">{{.}}</th>{{end}}
+      </tr></thead>
+      <tbody>
+        {{range .Dnevno}}
+        <tr>
+          <td>{{if .URL}}<a href="{{.URL}}">{{.Naziv}}</a>{{else}}{{.Naziv}}{{end}}
+            {{if .Voda}}<div class="reg-card-sub">{{.Voda}}</div>{{end}}</td>
+          <td class="mono" style="text-align:right;">{{.Sada}}</td>
+          {{range .Dani}}
+          <td class="mono dan-{{.Razina}}{{if .Moguce}} dan-moguce-{{.Moguce}}{{end}}" style="text-align:right;"
+              {{if .Moguce}}title="Gornja granica raspona doseže prag obrane"{{end}}>
+            {{if .Cm}}<div><span class="prog-trend">{{.Trend}}</span> {{.Cm}}</div>
+            <div class="prog-raspon">{{.Raspon}}</div>{{else}}—{{end}}
+          </td>
+          {{end}}
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div></div>
+  <p class="graf-natpis">
+    Dnevna prognoza gleda sve uzvodne letve odjednom i uči se na dnevnim vodostajima od 1901.
+    Satna tablica gore točnija je za prva dva dana i za sat vrha; ova daje trend do šestog dana.
+    Obojena ćelija je dan kad prognoza doseže prag obrane, a obrub dan kad ga doseže tek gornja
+    granica raspona.
+  </p>
+</section>
+{{end}}
 {{end}}
 {{end}}

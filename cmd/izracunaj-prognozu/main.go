@@ -90,15 +90,37 @@ func main() {
 	for letva, err := range ishod.BezPrognoze {
 		fmt.Printf("%-16s %v\n", letva, err)
 	}
+	if len(ishod.Dnevne) > 0 {
+		fmt.Printf("\ndnevno (cm)      zadnja 24 h")
+		for k := 1; k <= prognoza.DnevniDosezi; k++ {
+			fmt.Printf("  %7d. dan", k)
+		}
+		for _, c := range prognoza.DnevniCiljevi {
+			for _, d := range ishod.Dnevne {
+				if d.Letva != c.Letva {
+					continue
+				}
+				if d.Dan == 0 {
+					fmt.Printf("\n%-16s %11.0f", c.Letva, d.Vrijednost)
+					continue
+				}
+				fmt.Printf("  %5.0f ±%-4.0f", d.Vrijednost, d.Raspon())
+			}
+		}
+		fmt.Println()
+	}
+	for letva, err := range ishod.BezDnevne {
+		fmt.Printf("dnevno %-16s %v\n", letva, err)
+	}
 
 	if *probno {
 		fmt.Printf("\nproba — ništa nije zapisano; %d vrijednosti bi ušlo\n", len(ishod.Izdane))
 		return
 	}
-	if err := prognoza.SpremiIzdane(baza, ishod.Izdane); err != nil {
+	if err := o.Zapisi(ishod); err != nil {
 		log.Fatal(err)
 	}
-	fmt.Printf("\nzapisano %d vrijednosti\n", len(ishod.Izdane))
+	fmt.Printf("\nzapisano %d satnih i %d dnevnih vrijednosti\n", len(ishod.Izdane), len(ishod.Dnevne))
 }
 
 // zaLetvu vadi niz jedne letve u veličini u kojoj se računa, poredan po satu.

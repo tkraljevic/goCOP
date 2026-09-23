@@ -79,6 +79,28 @@ type PrognozePageData struct {
 	Letve      []LetvaPrognoze
 	Profili    []*UzduzniProfil
 	BezProfila string // zašto profila nema, kad ga nema
+
+	DnevnoIzdano string
+	DnevniDani   []string // naslovi stupaca: dan u tjednu i datum
+	Dnevno       []RedDnevni
+}
+
+// RedDnevni je jedna letva u dnevnoj prognozi: izmjereni srednjak zadnjih 24
+// sata i 1.–6. dan.
+type RedDnevni struct {
+	Naziv, URL, Voda string
+	Sada             string
+	Dani             []DanDnevni
+}
+
+// DanDnevni je jedan dan dnevne prognoze. Razina je faza obrane koju
+// vrijednost doseže; Moguce kaže da je doseže gornja granica raspona, iako
+// sama vrijednost ne.
+type DanDnevni struct {
+	Cm, Raspon string
+	Trend      string
+	Razina     string // "", prep, regular, emerg, crit
+	Moguce     string
 }
 
 func (h *PrognozeHandler) ShowPrognoze(w http.ResponseWriter, r *http.Request) {
@@ -109,6 +131,10 @@ func (h *PrognozeHandler) ShowPrognoze(w http.ResponseWriter, r *http.Request) {
 	postaje := h.postaje(r.Context())
 	data.Letve = h.opisiLetve(postaje, letve)
 	data.Profili = uzduzniProfili(postaje, letve)
+	if izd, dnevne, err := c.Dnevno(); err == nil && len(dnevne) > 0 {
+		data.DnevnoIzdano = izd.In(models.Zagreb).Format("2.1.2006. u 15:04")
+		data.DnevniDani, data.Dnevno = dnevniPregled(postaje, izd, dnevne)
+	}
 	if len(data.Profili) == 0 {
 		data.BezProfila = "Za uzdužni profil treba barem dvije letve s poznatom " +
 			"stacionažom i kotom nule u novom visinskom sustavu."
@@ -344,4 +370,78 @@ func uzduzniProfili(postaje map[string]models.Station, letve []PregledLetve) []*
 		}
 	}
 	return out
+}
+
+var daniUTjednu = []string{"ned", "pon", "uto", "sri", "čet", "pet", "sub"}
+
+// dnevniPregled slaže dnevnu prognozu u retke, redom kojim ciljevi stoje u
+// modelu — nizvodno, kako voda teče.
+func dnevniPregled(postaje map[string]models.Station, izdano time.Time,
+	dnevne map[string][]prognoza.DnevnaIzdana) ([]string, []RedDnevni) {
+	var dani []string
+	for k := 1; k <= prognoza.DnevniDosezi; k++ {
+		// Dan je 24 sata do sata izdavanja pomaknutog za k dana; naslov nosi
+		// datum njegove sredine.
+		sredina := izdano.Add(time.Duration(24*k-12) * time.Hour).In(models.Zagreb)
+		dani = append(dani, daniUTjednu[sredina.Weekday()]+" "+sredina.Format("2.1."))
+	}
+	var out []RedDnevni
+	for _, c := range prognoza.DnevniCiljevi {
+		niz := dnevne[c.Letva]
+		if len(niz) == 0 {
+			continue
+		}
+		red := RedDnevni{Naziv: c.Letva}
+		st, ima := postaje[c.Letva]
+		if ima {
+			red.Naziv, red.Voda = st.Name, st.Watercourse
+			red.URL = "/readings/station/" + st.ID.String()
+		}
+		po := map[int]prognoza.DnevnaIzdana{}
+		for _, d := range niz {
+			po[d.Dan] = d
+		}
+		prije, imaPrije := po[0]
+		if imaPrije {
+			red.Sada = brojHRf(prije.Vrijednost, 0)
+		}
+		for k := 1; k <= prognoza.DnevniDosezi; k++ {
+			d, ima := po[k]
+			if !ima {
+				red.Dani = append(red.Dani, DanDnevni{})
+				continue
+			}
+			dan := DanDnevni{Cm: brojHRf(d.Vrijednost, 0), Raspon: rasponHR(d.Dolje, d.Gore, 0), Trend: "→"}
+			if imaPrije {
+				switch r := d.Vrijednost - prije.Vrijednost; {
+				case r > 5:
+					dan.Trend = "↑"
+				case r < -5:
+					dan.Trend = "↓"
+				}
+			}
+			dan.Razina = razinaObrane(st, d.Vrijednost)
+			if g := razinaObrane(st, d.Gore); g != dan.Razina {
+				dan.Moguce = g
+			}
+			red.Dani = append(red.Dani, dan)
+			prije, imaPrije = d, true
+		}
+		out = append(out, red)
+	}
+	return dani, out
+}
+
+// razinaObrane je najviša faza obrane čiji je prag dosegnut.
+func razinaObrane(st models.Station, cm float64) string {
+	razina := ""
+	for _, p := range []struct {
+		ime  string
+		prag models.Threshold
+	}{{"prep", st.Prep}, {"regular", st.Regular}, {"emerg", st.Emergency}, {"crit", st.State}} {
+		if p.prag.IsUsable() && cm >= float64(*p.prag.Cm) {
+			razina = p.ime
+		}
+	}
+	return razina
 }

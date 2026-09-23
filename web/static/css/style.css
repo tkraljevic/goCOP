@@ -3977,6 +3977,15 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .prognoze-tablica .prog-druga { font-size: 0.82em; color: var(--text-muted); margin-top: 1px; }
 .prognoze-tablica .prog-slabija { opacity: 0.45; }
 .graf-natpis .prog-slabija { opacity: 0.45; }
+.dnevna-tablica .prog-trend { color: var(--text-muted); }
+.dnevna-tablica td.dan-prep { background: var(--faza-p-bg); color: var(--faza-p-fg); }
+.dnevna-tablica td.dan-regular { background: var(--faza-r-bg); color: var(--faza-r-fg); }
+.dnevna-tablica td.dan-emerg { background: var(--faza-i-bg); color: var(--faza-i-fg); }
+.dnevna-tablica td.dan-crit { background: var(--faza-s-bg); color: var(--faza-s-fg); }
+.dnevna-tablica td.dan-moguce-prep { box-shadow: inset 0 0 0 2px var(--faza-p-crta); }
+.dnevna-tablica td.dan-moguce-regular { box-shadow: inset 0 0 0 2px var(--faza-r-crta); }
+.dnevna-tablica td.dan-moguce-emerg { box-shadow: inset 0 0 0 2px var(--faza-i-crta); }
+.dnevna-tablica td.dan-moguce-crit { box-shadow: inset 0 0 0 2px var(--faza-s-crta); }
 
 /* ── Uzdužni profil ──────────────────────────────────────────────────────
    Vodno lice uzduž toka. Današnja crta je puna i tamna, prognoze su svjetlije
