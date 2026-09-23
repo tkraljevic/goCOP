@@ -15,6 +15,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -30,6 +31,7 @@ func main() {
 	adresa := flag.String("adresa", hidroview.ZadanaAdresa, "adresa sustava")
 	trazi := flag.String("postaja", "", "dio naziva postaje; prazno ispisuje sve")
 	pregled := flag.Bool("pregled", false, "prođi sve postaje i prebroji koje veličine mjere")
+	jsonIspis := flag.Bool("json", false, "ispiši svaki zapisivač kao redak JSON-a, sa stanjem srednjeg vodostaja u zadnjih -dana dana")
 	dana := flag.Int("dana", 2, "koliko dana podataka dohvatiti za prikaz")
 	dbPath := flag.String("db", "data/gocop.db", "baza čvora, zbog računa upisanog u aplikaciju")
 	flag.Parse()
@@ -64,10 +66,14 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	fmt.Printf("postaja: %d\n", len(postaje))
+	fmt.Fprintf(os.Stderr, "postaja: %d\n", len(postaje))
 
 	if *pregled {
 		prebroji(ctx, k, postaje)
+		return
+	}
+	if *jsonIspis {
+		ispisiJSON(ctx, k, postaje, *dana)
 		return
 	}
 
@@ -219,4 +225,55 @@ var naziviVelicina = map[string]string{
 	hidroview.VelicinaProtok:          "protok",
 	hidroview.VelicinaOborina:         "oborina",
 	hidroview.VelicinaBrzina:          "površinska brzina",
+}
+
+// ispisiJSON ispisuje svaki zapisivač kao jedan redak JSON-a: gdje stoji,
+// kad se zadnji javio i koliko je srednjeg vodostaja dao u zadnjih dana
+// dana. Služi da se letve iz plana spare sa zapisivačima strojno, a ne
+// čitanjem ispisa — i da se među dva zapisivača iste postaje vidi koji radi.
+func ispisiJSON(ctx context.Context, k *hidroview.Klijent, postaje []hidroview.Postaja, dana int) {
+	do := time.Now()
+	od := do.AddDate(0, 0, -dana)
+	enc := json.NewEncoder(os.Stdout)
+	for _, p := range postaje {
+		red := map[string]any{
+			"naziv": p.Site.Naziv, "opis": p.Site.Opis, "site_id": p.SiteID,
+			"zapisivac": p.LoggerID, "sifra": p.Site.SifraPostaje, "projekt": p.Site.SifraProjekta,
+			"sirina": p.Site.Sirina, "duzina": p.Site.Duzina, "zadnje": vrijemeIliNikad(p.Zadnje),
+		}
+		mjerenja, _, err := k.Oprema(ctx, p.SiteID)
+		if err != nil {
+			red["greska"] = err.Error()
+			_ = enc.Encode(red)
+			continue
+		}
+		// Isti izbor kao uvoznik: obrađeni vodostaj je sveden na nulu letve,
+		// sirovi s instrumenta nije.
+		var izabrano *hidroview.Mjerenje
+		for i := range mjerenja {
+			if mjerenja[i].Velicina != hidroview.VelicinaSrednjiVodostaj {
+				continue
+			}
+			if izabrano == nil || (strings.HasPrefix(mjerenja[i].Odakle, "obrada:") && !strings.HasPrefix(izabrano.Odakle, "obrada:")) {
+				izabrano = &mjerenja[i]
+			}
+		}
+		for _, m := range mjerenja {
+			if izabrano == nil || m.ID != izabrano.ID {
+				continue
+			}
+			red["instrument"] = m.Odakle
+			v, err := k.Vrijednosti(ctx, m.ID, od, do)
+			if err != nil {
+				red["greska"] = err.Error()
+				break
+			}
+			red["vrijednosti"] = len(v)
+			if len(v) > 0 {
+				red["zadnja_m"] = v[len(v)-1].Vrijednost
+			}
+			break
+		}
+		_ = enc.Encode(red)
+	}
 }
