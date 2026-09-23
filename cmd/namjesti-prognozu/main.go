@@ -97,15 +97,26 @@ var Tokovi = []struct {
 		// Ludbreg s njom ide 37/40/26/7/2 % bolje od postojanosti umjesto
 		// 32/21/7/1/lošije.
 		//
-		// Ni Plitvica nije ulaz, ni ovdje ni na Botovu. Ludbregu ulazi kao
-		// prava pritoka — kašnjenje 0 h, prozor 1 sat, nagib 0,63, bez
-		// izglađivanja — i u namještanju mu digne r s 0,924 na 0,965 a rasap
-		// spusti s 8,0 na 5,2 m³/s. Ali kašnjenje nula znači da je model od
-		// prvog sata nadalje mora pogađati, pa je drži nepomičnom: izvan
-		// namještanja Ludbreg ide 1,6/2,6/5,2/8,9/10,6 m³/s umjesto
-		// 1,7/2,6/5,2/8,9/10,6, uz nešto lošiju pokrivenost raspona. Botovu je
-		// pak štetna: ulazi s kašnjenjem 33 h i prozorom 49 sati, a r pada s
-		// 0,907 na 0,892. Krkanec ostaje upisan i uvozi se, samo nije ulaz.
+		// Cijela Plitvica ostaje izvan lanaca, i to zbog svoje duljine. Obje
+		// letve Ludbregu u namještanju izgledaju kao prava pritoka —
+		// kašnjenje 0 h, prozor 1 sat, nagib 0,63 odnosno 0,70, bez
+		// izglađivanja — i dižu mu r s 0,924 na 0,965 odnosno 0,952. Ali
+		// kašnjenje nula ne daje prednost u vremenu: model pritoku od prvog
+		// sata nadalje mora pogađati pa je drži nepomičnom, i izvan
+		// namještanja Ludbreg ostaje na 1,7/2,6/5,2/8,9/10,6 m³/s.
+		//
+		// Ne pomaže ni dati Plitvici vlastiti lanac. Krkanec je 16,8 km iznad
+		// Vidovićeva Mlina, a i ondje je kašnjenje 0 h uz r 0,21–0,33 na
+		// srednjim vodama; Vidovićev Mlin iz njega ide svega 15/13/5/3/4 %
+		// bolje od postojanosti, pa Ludbregu i dalje ne vrijedi ništa.
+		// Plitvica je duga pedesetak kilometara i svi su joj podsljevovi
+		// sitni, pa kiša padne na cijeli sliv odjednom: val se ne prenosi
+		// nizvodno nego nastaje posvuda istodobno. Bednja kašnjenje ima jer
+		// je dulja i strmija.
+		//
+		// Botovu je Plitvica k tome štetna: ulazi s kašnjenjem 33 h i
+		// prozorom od 49 sati, a r pada s 0,907 na 0,892. Obje letve ostaju
+		// upisane i uvoze se, samo nisu ulaz.
 		//
 		// Lepoglava ostaje vani. Kao sporedni ulaz Ludbregu ne vrijedi ništa
 		// (8,0 → 7,7 m³/s rasapa), a ni Železnici iznad koje leži: ondje joj je

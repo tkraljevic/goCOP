@@ -238,21 +238,19 @@ func Spremi(db *sql.DB, pojasi []Pojas, kad string) error {
 	}
 	defer tx.Rollback()
 
-	// Stari pojasi letve moraju otići, i to svi: nova podjela ne mora imati
-	// iste granice, a letva može promijeniti i veličinu u kojoj se vodi.
-	// Aljmaš, Dalj i Vukovar prešli su s protoka na vodostaj, i njihovi su
-	// protočni pojasi ostali visjeti jer se brisalo po letvi i veličini
-	// zajedno — a letva se vodi u točno jednoj veličini.
-	ocisceno := map[string]bool{}
-	for _, p := range pojasi {
-		if ocisceno[p.Letva] {
-			continue
-		}
-		ocisceno[p.Letva] = true
-		for _, t := range []string{"pojasi", "ulazi"} {
-			if _, err := tx.Exec(`DELETE FROM `+t+` WHERE letva = ?`, p.Letva); err != nil {
-				return fmt.Errorf("čišćenje %s za %s: %w", t, p.Letva, err)
-			}
+	// Zatečeno stanje odlazi u cijelosti, jer pojasi su jedna cjelina: ono
+	// što u novom namještanju nema svoj račun nema ga ni u bazi.
+	//
+	// Brisalo se najprije po letvi i veličini zajedno, pa su Aljmašu, Dalju i
+	// Vukovaru pri prelasku s protoka na vodostaj ostali visjeti protočni
+	// pojasi. Brisanje po letvi to je riješilo, ali ne i teži slučaj: izbaci
+	// li se karika iz lanca, njezini pojasi ostaju jer ih novi skup više ne
+	// spominje. Tako je Vidovićev Mlin nakon probe s Plitvicom ostao u bazi s
+	// Krkancem kao vrhom lanca, a Krkanec očitanja nije imao — i cijela
+	// prognoza je pala na "nijedna ulazna letva nema svježa očitanja".
+	for _, t := range []string{"pojasi", "ulazi"} {
+		if _, err := tx.Exec(`DELETE FROM ` + t); err != nil {
+			return fmt.Errorf("čišćenje %s: %w", t, err)
 		}
 	}
 	for _, p := range pojasi {
