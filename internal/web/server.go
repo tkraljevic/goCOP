@@ -869,7 +869,9 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /pomoc", s.authMiddleware(http.HandlerFunc(pomocH.ShowPomoc)))
 
 	prognozeH := NewPrognozeHandler(s.templates["prognoze.html"], s.Prognoze, s.stationService)
+	prognozeH.SetUsers(s.userService)
 	s.mux.Handle("GET /prognoze", s.authMiddleware(http.HandlerFunc(prognozeH.ShowPrognoze)))
+	s.mux.Handle("GET /prognoze.xlsx", s.authMiddleware(http.HandlerFunc(prognozeH.IzvoziPrognoze)))
 
 	// Administracija: ulazna stranica i sve što radi samo administrator
 	adminH := NewAdminHandler(s.orgService, s.userService, s.peersService, s.templates["administracija.html"], s.templates["uvozi.html"])

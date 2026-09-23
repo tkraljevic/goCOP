@@ -31,7 +31,11 @@ type PrognozeHandler struct {
 	tmpl     *template.Template
 	citac    func() *CitacPrognoza
 	stations *service.StationService
+	users    *service.UserService // zaglavlje i potpisnici izvoza
 }
+
+// SetUsers daje izvozu sektore i osobe za zaglavlje i potpise.
+func (h *PrognozeHandler) SetUsers(u *service.UserService) { h.users = u }
 
 func NewPrognozeHandler(tmpl *template.Template, citac func() *CitacPrognoza,
 	stations *service.StationService) *PrognozeHandler {
@@ -42,6 +46,7 @@ func NewPrognozeHandler(tmpl *template.Template, citac func() *CitacPrognoza,
 // glavni jer se u obrani čita on; protok stoji ispod, sitnije. Ondje gdje
 // krivulje nema, druge veličine nema ni na pregledu.
 type VrijednostPrognoze struct {
+	CmV, QV  *float64 // iste vrijednosti kao broj, za izvoz
 	DosegH   int
 	Ima      bool
 	Cm       string
@@ -53,26 +58,28 @@ type VrijednostPrognoze struct {
 
 // LetvaPrognoze je jedan redak pregleda.
 type LetvaPrognoze struct {
-	Kod, Naziv  string
-	Voda        string
-	Stacionaza  string
-	Racuna      string // u čemu model radi; druga veličina dolazi iz krivulje
-	Vrh         bool   // vrh lanca: stoji samo mjerenje, prognoze nema
-	URL         string
-	SadaCm      string
-	SadaQ       string
-	Vrijednosti []VrijednostPrognoze
-	Doseg       int  // dokle prognoza ide, u satima
-	Ulaz        bool // ulaz dnevne prognoze: stoji samo mjerenje
-	Pregledna   bool // u model ne ulazi, stoji radi pregleda
-	Ulazi       []string
-	ImaTermina  bool // ima ijednu prognozu, svoju ili tuđu
-	TudiVrh     bool // vrh lanca koji dalje ide po mađarskoj prognozi
-	Dani        []CelijaDana
+	Kod, Naziv      string
+	Voda            string
+	Stacionaza      string
+	Racuna          string // u čemu model radi; druga veličina dolazi iz krivulje
+	Vrh             bool   // vrh lanca: stoji samo mjerenje, prognoze nema
+	URL             string
+	SadaCm          string
+	SadaQ           string
+	SadaCmV, SadaQV *float64
+	Vrijednosti     []VrijednostPrognoze
+	Doseg           int  // dokle prognoza ide, u satima
+	Ulaz            bool // ulaz dnevne prognoze: stoji samo mjerenje
+	Pregledna       bool // u model ne ulazi, stoji radi pregleda
+	Ulazi           []string
+	ImaTermina      bool // ima ijednu prognozu, svoju ili tuđu
+	TudiVrh         bool // vrh lanca koji dalje ide po mađarskoj prognozi
+	Dani            []CelijaDana
 }
 
 // TudaCelija je tuđa prognoza u ćeliji dana: mađarska ili srpska.
 type TudaCelija struct {
+	CmV                   float64
 	Oznaka, Klasa, Naslov string
 	Cm, Raspon            string
 }
@@ -88,7 +95,8 @@ var tudiIzvori = []struct{ izvor, oznaka, klasa, naslov string }{
 // modela, već prema tome koji je na tom danu za tu letvu provjerom točniji;
 // ispod stoji mađarska prognoza za isti termin, gdje je imaju.
 type CelijaDana struct {
-	Naslov         string // dan u tjednu i datum
+	CmV, QV        *float64 // iste vrijednosti kao broj, za izvoz
+	Naslov         string   // dan u tjednu i datum
 	Cm, Raspon     string
 	Q, QRaspon     string       // protok, gdje letva ima krivulju
 	Tude           []TudaCelija // tuđe prognoze za isti termin, svaka svojom bojom
@@ -128,6 +136,11 @@ type TablicaPrognoza struct {
 }
 
 func (h *PrognozeHandler) ShowPrognoze(w http.ResponseWriter, r *http.Request) {
+	h.iscrtaj(w, h.podaci(r))
+}
+
+// podaci slaže sve što pregled prognoza pokazuje; isto služi i izvozu.
+func (h *PrognozeHandler) podaci(r *http.Request) PrognozePageData {
 	u, _ := r.Context().Value(contextKeyUser).(*models.User)
 	perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
 	data := PrognozePageData{
@@ -142,14 +155,12 @@ func (h *PrognozeHandler) ShowPrognoze(w http.ResponseWriter, r *http.Request) {
 	}
 	if c == nil {
 		data.Nema, data.Razlog = true, "Baza prognoza nije otvorena."
-		h.iscrtaj(w, data)
-		return
+		return data
 	}
 	izdano, letve, err := c.Pregled()
 	if err != nil || len(letve) == 0 {
 		data.Nema, data.Razlog = true, "Nijedna prognoza još nije izdana."
-		h.iscrtaj(w, data)
-		return
+		return data
 	}
 	data.Izdano = izdano.In(models.Zagreb).Format("2.1.2006. u 15:04")
 	postaje := h.postaje(r.Context())
@@ -191,7 +202,7 @@ func (h *PrognozeHandler) ShowPrognoze(w http.ResponseWriter, r *http.Request) {
 		data.BezProfila = "Za uzdužni profil treba barem dvije letve s poznatom " +
 			"stacionažom i kotom nule u novom visinskom sustavu."
 	}
-	h.iscrtaj(w, data)
+	return data
 }
 
 func (h *PrognozeHandler) iscrtaj(w http.ResponseWriter, data PrognozePageData) {
@@ -221,12 +232,15 @@ func (h *PrognozeHandler) opisiLetve(popis map[string]models.Station, letve []Pr
 		ulaz := l.Racuna == "" && !l.UlazLanca && jeDnevniUlaz(l.Letva)
 		pregledna := l.Racuna == "" && !l.UlazLanca && !ulaz && jePregledna(l.Letva)
 		_, tudi := prognoza.VrhoviSTudomPrognozom[l.Letva]
+		sadaCm, imaSadaCm := l.Sada["vodostaj"]
+		sadaQ, imaSadaQ := l.Sada["protok"]
 		red := LetvaPrognoze{
 			Kod: l.Letva, Naziv: l.Letva, Racuna: l.Racuna, Doseg: l.Doseg,
 			Vrh: l.Racuna == "" && !ulaz && !pregledna, Ulaz: ulaz, Pregledna: pregledna,
 			TudiVrh: l.Racuna == "" && tudi,
 			SadaCm:  uVelicini(l.Sada, "vodostaj"), SadaQ: uVelicini(l.Sada, "protok"),
-			Ulazi: l.Ulazi,
+			Ulazi:   l.Ulazi,
+			SadaCmV: ptr(sadaCm, imaSadaCm), SadaQV: ptr(sadaQ, imaSadaQ),
 		}
 		if st, ima := popis[l.Letva]; ima {
 			red.Naziv, red.Voda, red.Stacionaza = st.Name, st.Watercourse, st.Stationing
@@ -238,10 +252,12 @@ func (h *PrognozeHandler) opisiLetve(popis map[string]models.Station, letve []Pr
 			v := VrijednostPrognoze{DosegH: d, Ima: imaCm || imaQ}
 			if imaCm {
 				v.Cm, v.CmRaspon = brojHRf(cm.Vrijednost, 0), granice(cm)
+				v.CmV = ptr(cm.Vrijednost, true)
 				v.Slabija = !cm.BoljaOdPostojanosti
 			}
 			if imaQ {
 				v.Q, v.QRaspon = brojHRf(q.Vrijednost, 0), granice(q)
+				v.QV = ptr(q.Vrijednost, true)
 				if !imaCm {
 					v.Slabija = !q.BoljaOdPostojanosti
 				}
@@ -534,10 +550,12 @@ func celijeDana(letva string, l PregledLetve, ciljevi []int64, dnevne []prognoza
 		}
 		if imaQ {
 			c.Q = brojHRf(q.Vrijednost, 0)
+			c.QV = ptr(q.Vrijednost, true)
 			c.QRaspon = rasponUz(q.Vrijednost, q.Dolje, q.Gore)
 		}
 		if ima {
 			c.Cm = brojHRf(v, 0)
+			c.CmV = ptr(v, true)
 			c.Raspon = rasponUz(v, dolje, gore)
 			c.Razina = razinaObrane(st, v)
 			if g := razinaObrane(st, gore); g != c.Razina {
@@ -549,7 +567,7 @@ func celijeDana(letva string, l PregledLetve, ciljevi []int64, dnevne []prognoza
 			if !ima {
 				continue
 			}
-			tc := TudaCelija{Oznaka: iz.oznaka, Klasa: iz.klasa, Naslov: iz.naslov, Cm: brojHRf(v.Cm, 0)}
+			tc := TudaCelija{Oznaka: iz.oznaka, Klasa: iz.klasa, Naslov: iz.naslov, Cm: brojHRf(v.Cm, 0), CmV: v.Cm}
 			if v.PlusMin > 0 {
 				tc.Raspon = "±" + brojHRf(v.PlusMin, 0)
 			}
@@ -696,4 +714,11 @@ func dnevniQU(dnevne []prognoza.DnevnaIzdana, t int64) (PregledVrijednost, bool)
 			Gore: ip(a.QGore, b.QGore)}, true
 	}
 	return PregledVrijednost{}, false
+}
+
+func ptr(v float64, ima bool) *float64 {
+	if !ima {
+		return nil
+	}
+	return &v
 }

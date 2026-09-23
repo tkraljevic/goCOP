@@ -9,6 +9,8 @@
     {{if .Izdano}}<p class="reg-card-sub">Izdano {{.Izdano}} · vrijednost ostaje unutar raspona
       u {{.Udio}} % slučajeva</p>{{end}}
   </div>
+  {{if .Tablice}}<div class="page-actions"><a href="/prognoze.xlsx" class="btn btn-secondary"
+    title="Prognoza po vodama, u obliku uredske tablice">{{icon "download"}} Izvoz u Excel</a></div>{{end}}
 </div>
 
 {{if .Nema}}
