@@ -162,7 +162,12 @@ var Tokovi = []struct {
 		// nost, ne val. Dvadesetak kubika Karašice u tisuću dravskih, uz
 		// dunavski uspor s Aljmaša, u ostatku Osijeka nema se što naći. Ni
 		// Belišću ne pomaže (kašnjenje 48 h, prozor 49 h), jer je ušće ispod
-		// njega. Karašica ima svoj lanac, Kapelna → Poreč (vodostaj r 0,89,
+		// njega. Isto vrijedi za Vučicu, koja se s Karašicom sastaje pred
+		// ušćem: Beničanci-Prkos na devetnaest godina satnog preklopa s
+		// Osijekom (2003.–2021.) i pretragom do 96 sati ulaze u vodostaju s
+		// nagibom 0,02 uz prozor od 49 sati, a u protoku s kašnjenjem 96 h —
+		// rasap Osijeka ne pomakne se ni za desetinku. Nije analogija nego
+		// mjerenje. Karašica ima svoj lanac, Kapelna → Poreč (vodostaj r 0,89,
 		// kašnjenje 6–17 h; protok r 0,88, 8 h), ali ulazi tek kad Kapelna i
 		// Poreč budu imali živa očitanja u bazi — vrh lanca bez očitanja ruši
 		// cijelu prognozu, ne samo svoj krak.
