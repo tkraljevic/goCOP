@@ -73,7 +73,7 @@ func listPrognoze(k *xlsxw.Knjiga, z ZaglavljeIzvoza, data PrognozePageData, t T
 		return N(math.Round(*v), stil) // cijeli centimetri i m³/s, kao u uredskoj tablici
 	}
 	redak := func(termin, sto string, stil int, celija func(LetvaPrognoze) xlsxw.Celija) {
-		red := []xlsxw.Celija{T(termin, xlsxw.TablicaPod), T(sto, xlsxw.Tablica)}
+		red := []xlsxw.Celija{T(termin, xlsxw.TablicaPod), T(sto, stil)}
 		for _, x := range letve {
 			red = append(red, celija(x))
 		}
@@ -90,7 +90,7 @@ func listPrognoze(k *xlsxw.Knjiga, z ZaglavljeIzvoza, data PrognozePageData, t T
 
 	redak("Sada", "cm", xlsxw.TablicaPod, func(x LetvaPrognoze) xlsxw.Celija { return broj(x.SadaCmV, xlsxw.TablicaPod) })
 	if ima(func(x LetvaPrognoze) bool { return x.SadaQV != nil }) {
-		redak("", "m³/s", xlsxw.Tablica, func(x LetvaPrognoze) xlsxw.Celija { return broj(x.SadaQV, xlsxw.Tablica) })
+		redak("", "m³/s", xlsxw.TablicaKurziv, func(x LetvaPrognoze) xlsxw.Celija { return broj(x.SadaQV, xlsxw.TablicaKurziv) })
 	}
 	for i, d := range data.Bliski {
 		termin := "+" + tekstBroja(d) + " h"
@@ -101,9 +101,9 @@ func listPrognoze(k *xlsxw.Knjiga, z ZaglavljeIzvoza, data PrognozePageData, t T
 			return VrijednostPrognoze{}
 		}
 		redak(termin, "cm", xlsxw.TablicaPod, func(x LetvaPrognoze) xlsxw.Celija { return broj(vr(x).CmV, xlsxw.TablicaPod) })
-		redak("", "raspon", xlsxw.Tablica, func(x LetvaPrognoze) xlsxw.Celija { return T(vr(x).CmRaspon, xlsxw.TablicaSredina) })
+		redak("", "raspon", xlsxw.TablicaSivo, func(x LetvaPrognoze) xlsxw.Celija { return T(vr(x).CmRaspon, xlsxw.TablicaSivo) })
 		if ima(func(x LetvaPrognoze) bool { return vr(x).QV != nil }) {
-			redak("", "m³/s", xlsxw.Tablica, func(x LetvaPrognoze) xlsxw.Celija { return broj(vr(x).QV, xlsxw.Tablica) })
+			redak("", "m³/s", xlsxw.TablicaKurziv, func(x LetvaPrognoze) xlsxw.Celija { return broj(vr(x).QV, xlsxw.TablicaKurziv) })
 		}
 	}
 	for i, naslov := range data.Dani {
@@ -114,9 +114,9 @@ func listPrognoze(k *xlsxw.Knjiga, z ZaglavljeIzvoza, data PrognozePageData, t T
 			return CelijaDana{}
 		}
 		redak(naslov+" 07 h", "cm", xlsxw.TablicaPod, func(x LetvaPrognoze) xlsxw.Celija { return broj(dan(x).CmV, xlsxw.TablicaPod) })
-		redak("", "raspon", xlsxw.Tablica, func(x LetvaPrognoze) xlsxw.Celija { return T(dan(x).Raspon, xlsxw.TablicaSredina) })
+		redak("", "raspon", xlsxw.TablicaSivo, func(x LetvaPrognoze) xlsxw.Celija { return T(dan(x).Raspon, xlsxw.TablicaSivo) })
 		if ima(func(x LetvaPrognoze) bool { return dan(x).QV != nil }) {
-			redak("", "m³/s", xlsxw.Tablica, func(x LetvaPrognoze) xlsxw.Celija { return broj(dan(x).QV, xlsxw.Tablica) })
+			redak("", "m³/s", xlsxw.TablicaKurziv, func(x LetvaPrognoze) xlsxw.Celija { return broj(dan(x).QV, xlsxw.TablicaKurziv) })
 		}
 		redak("", "model", xlsxw.Tablica, func(x LetvaPrognoze) xlsxw.Celija {
 			d := dan(x)
