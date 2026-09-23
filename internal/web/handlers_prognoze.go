@@ -127,6 +127,7 @@ type PrognozePageData struct {
 	Dani     []string // naslovi stupaca po danima
 	ImaTudih bool
 	Tablice  []TablicaPrognoza
+	Izdaje   string // centar koji prognozu izdaje, npr. COP Osijek
 }
 
 // TablicaPrognoza je jedna voda na pregledu, letve od uzvodne prema nizvodnoj.
@@ -197,6 +198,7 @@ func (h *PrognozeHandler) podaci(r *http.Request) PrognozePageData {
 		}
 	}
 	data.Tablice = poVodama(data.Letve, postaje)
+	data.Izdaje = h.centar(u)
 	data.Profili = uzduzniProfili(postaje, letve)
 	if len(data.Profili) == 0 {
 		data.BezProfila = "Za uzdužni profil treba barem dvije letve s poznatom " +

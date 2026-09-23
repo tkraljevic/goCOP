@@ -3978,6 +3978,9 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .prognoze-tablica .prog-slabija { opacity: 0.45; }
 .graf-natpis .prog-slabija { opacity: 0.45; }
 .prog-voda { margin: 1.25rem 0 0.5rem; font-size: 1.1rem; }
+.prog-o dl { margin: 0; max-width: 60rem; font-size: 0.88rem; line-height: 1.5; }
+.prog-o dt { font-weight: 600; margin-top: 0.7rem; }
+.prog-o dd { margin: 0.15rem 0 0; color: var(--text-muted); }
 .prog-kartice { display: flex; flex-direction: column; gap: 0.5rem; }
 .prog-kartica {
   background: var(--surface);

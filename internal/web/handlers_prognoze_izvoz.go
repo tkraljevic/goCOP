@@ -218,12 +218,7 @@ func listPrognoze(k *xlsxw.Knjiga, z ZaglavljeIzvoza, data PrognozePageData, t T
 // Osijek, koji prognozu i izdaje.
 func (h *PrognozeHandler) zaglavljeIzvoza(u *models.User) ZaglavljeIzvoza {
 	t := models.Terms()
-	sektor := "B"
-	if u != nil {
-		if d := u.PrimaryDuty(); d != nil && d.SectorID != nil && *d.SectorID != "" {
-			sektor = *d.SectorID
-		}
-	}
+	sektor := sektorIzdavaca(u)
 	z := ZaglavljeIzvoza{Organizacija: t.OrgName, Sektor: sektor, Datum: time.Now().In(models.Zagreb)}
 	if t.HasLogo() && t.LogoMime == "image/png" {
 		z.LogoPNG = t.Logo
@@ -241,6 +236,32 @@ func (h *PrognozeHandler) zaglavljeIzvoza(u *models.User) ZaglavljeIzvoza {
 	z.Mjesto = strings.TrimSpace(strings.TrimPrefix(z.Centar, t.CenterShort))
 	z.Potpisnici = []PotpisnikIzvoza{h.izdavac(u, sektor)}
 	return z
+}
+
+// sektorIzdavaca je sektor primarne dužnosti korisnika, a bez nje B.
+func sektorIzdavaca(u *models.User) string {
+	if u != nil {
+		if d := u.PrimaryDuty(); d != nil && d.SectorID != nil && *d.SectorID != "" {
+			return *d.SectorID
+		}
+	}
+	return "B"
+}
+
+// centar je naziv centra obrane koji prognozu izdaje, iz sektora korisnika.
+func (h *PrognozeHandler) centar(u *models.User) string {
+	if h.users == nil {
+		return ""
+	}
+	sektor := sektorIzdavaca(u)
+	if sektori, err := h.users.ListSectors(); err == nil {
+		for _, sk := range sektori {
+			if sk.ID == sektor {
+				return sk.CenterCop
+			}
+		}
+	}
+	return ""
 }
 
 // funkcijeIzdavaca su dužnosti koje prognozu izdaju, redom prednosti.

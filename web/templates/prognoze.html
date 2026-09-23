@@ -94,26 +94,43 @@
 </div>
 {{end}}
 
-<p class="graf-natpis">
-  Svaka kartica je jedna letva: gore mjerenje sada, ispod +6 i +12 sati pa dani, svi za 07 h, kao i u
-  mađarskoj i uredskoj prognozi. Svaki dan daje onaj od dvaju modela koji
-  je na njemu za tu letvu točniji: satni lanac prve dane i sat vrha, dnevni model (oznaka <sup class="prog-oznaka">d</sup>)
-  dalje — na Dunavu od drugog dana, na Dravi od trećeg do petog, već prema letvi. Dnevni se uči na
-  vodostajima od 1901. i gleda sve uzvodne letve odjednom. Ispod vrijednosti je raspon, a
-  sitno, svaka svojom bojom, tuđe prognoze za isti termin:
-  <span class="prog-tuda-hu">HU</span> mađarska (hydroinfo.hu, s njihovim rasponom) i
-  <span class="prog-tuda-rs">RS</span> srpska (hidmet.gov.rs) — nisu naše, pa stoje odvojeno. Obojena ćelija je dan u kojem prognoza doseže prag
-  obrane, a obrub dan u kojem ga doseže tek gornja granica raspona. Veliki dravski val od trećeg dana
-  ostaje podcijenjen, jer nastaje iz kiše koju još nijedna letva ne vidi — ondje vrijedi pratiti obrub.
-</p>
+<section class="detail-section prog-o">
+  <h2>{{icon "info"}} O prognozi{{if .Izdaje}} — {{.Izdaje}}{{end}}</h2>
+  <dl>
+    <dt>Kako čitati karticu</dt>
+    <dd>Svaka kartica je jedna vodomjerna postaja: gore mjerenje sada, ispod prognoza za +6 i +12 sati
+      te za šest dana u 07 h, kao i u mađarskoj i uredskoj prognozi. U svakom terminu gore je vodostaj
+      u centimetrima, ispod raspon i protok u m³/s. Postaja se računa u jednoj veličini, a drugu daje
+      krivulja protoka — gdje krivulje nema, nema ni druge brojke.</dd>
 
-<p class="graf-natpis">
-  U svakom terminu gore je vodostaj u centimetrima, ispod raspon i protok u m³/s; uz svaki stoje
-  granice unutar kojih se očekuje da vrijednost ostane. Letva se računa u jednoj veličini,
-  a drugu daje krivulja protoka — gdje krivulje nema, nema ni druge brojke.
-  Ćelija pisana <span class="prog-slabija">svjetlije</span> znači da na tom dosegu prognoza ne
-  pobjeđuje pretpostavku da se ništa neće promijeniti; ondje je bolje vjerovati zadnjem očitanju.
-</p>
+    <dt>Metoda</dt>
+    <dd>Prvih dana hidrološki lanac vodomjernih postaja: vodostaj, odnosno protok nizvodne postaje izvodi
+      se iz uzvodnih, uz izmjereno vrijeme propagacije vala i po dijelovima linearnu vezu ovisnu o vodnosti,
+      ispravljeno prema zadnjem mjerenju. Dalje statistički model na dnevnim vodostajima od 1901. —
+      višestruka regresija i metoda analognih situacija (oznaka <sup class="prog-oznaka">d</sup>). Koji model
+      daje koji dan određeno je provjerom na poplavnim valovima: na Dunavu dnevni od drugog dana, na Dravi od
+      trećeg do petog, već prema postaji. Na vrhu lanca Mura (Letenye) i Dunav (Komárom) slijede prognozu
+      mađarske službe.</dd>
+
+    <dt>Raspon</dt>
+    <dd>Interval od ±1 standardnog odstupanja pogreške prognoze, određenog usporedbom s mjerenjima
+      (satni lanac) odnosno rasipanjem analognih situacija (dnevni model): stvarna vrijednost ostaje u
+      rasponu u {{.Udio}} % slučajeva, a u {{sub 100 .Udio}} % izlazi iz njega, podjednako iznad i ispod.
+      Zapisan je kao ± kad je simetričan, a granicama kad ga preračun krivuljom protoka učini
+      nesimetričnim.</dd>
+
+    <dt>Oznake</dt>
+    <dd>Sitno ispod naše vrijednosti, svaka svojom bojom, tuđe prognoze za isti termin:
+      <span class="prog-tuda-hu">HU</span> mađarska (hydroinfo.hu; njihov raspon obuhvaća 70 % slučajeva,
+      pa je s našim gotovo izravno usporediv) i <span class="prog-tuda-rs">RS</span> srpska (hidmet.gov.rs) —
+      nisu naše, pa stoje odvojeno. Termin obojen bojom faze obrane je onaj u kojem prognoza doseže prag, a
+      obrubljen onaj u kojem ga doseže tek gornja granica raspona. Termin pisan
+      <span class="prog-slabija">svjetlije</span> je onaj na kojem prognoza ne pobjeđuje pretpostavku da
+      se ništa neće promijeniti — ondje je bolje vjerovati zadnjem mjerenju. Veliki dravski val od trećeg
+      dana prognoza podcjenjuje, jer nastaje iz kiše koju još nijedna postaja ne vidi — ondje vrijedi
+      pratiti obrub.</dd>
+  </dl>
+</section>
 
 
 {{end}}
