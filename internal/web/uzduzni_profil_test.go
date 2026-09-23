@@ -1,6 +1,8 @@
 package web
 
 import (
+	"fmt"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -94,6 +96,125 @@ func TestPojasSRupomSeNeCrta(t *testing.T) {
 	for _, c := range p.Crte {
 		if c.Naziv == "za 24 h" && c.Pojas != "" {
 			t.Error("pojas nacrtan preko letve bez granica")
+		}
+	}
+}
+
+// Na gornjoj plohi val se ne vidi: Drava pada 49 metara, a val nosi tridesetak
+// centimetara. Donja ploha oduzme pad, pa mora razvući upravo taj val.
+func TestDonjaPlohaRazvlaciVal(t *testing.T) {
+	// Dvije letve s velikom razlikom kota, a malom promjenom vode.
+	a := letvaProfila("uzvodna", 200, 120, 50)
+	b := letvaProfila("nizvodna", 100, 80, 50) // 40 m niže
+	a.Cm = map[int]float64{24: 55, 48: 80}     // +5 i +30 cm
+	b.Cm = map[int]float64{24: 51, 48: 53}     // +1 i +3 cm
+	a.Granice = map[int][2]float64{24: {53, 57}, 48: {70, 90}}
+	b.Granice = map[int][2]float64{24: {50, 52}, 48: {51, 55}}
+	p := crtajUzduzni("Drava", []LetvaProfila{a, b})
+	if p == nil || !p.ImaOdstupanja {
+		t.Fatal("nema donje plohe")
+	}
+	if p.NulaY <= p.OdstupanjeVrh || p.NulaY >= p.OdstupanjeDno {
+		t.Errorf("crta današnjeg stanja na %.0f, izvan plohe %.0f–%.0f",
+			p.NulaY, p.OdstupanjeVrh, p.OdstupanjeDno)
+	}
+	// Crta za 48 h mora zauzeti dobar dio visine plohe; inače je crtež
+	// beskoristan jednako kao i gornja ploha.
+	visina := p.OdstupanjeVisina()
+	for _, c := range p.Odstupanja {
+		if c.Naziv != "za 48 h" {
+			continue
+		}
+		var najn, najv float64 = 1e9, -1e9
+		for _, par := range razlomiPoteze(c.Put) {
+			najn, najv = min(najn, par), max(najv, par)
+		}
+		if najv-najn < visina/4 {
+			t.Errorf("crta za 48 h zauzima %.0f od %.0f točaka visine", najv-najn, visina)
+		}
+	}
+}
+
+// Na mirnoj vodi mjerilo se ne smije rastegnuti na šum: dva centimetra
+// promjene ne smiju izgledati kao val.
+func TestMirnaVodaNeRastegneMjerilo(t *testing.T) {
+	a := letvaProfila("uzvodna", 200, 120, 50)
+	b := letvaProfila("nizvodna", 100, 80, 50)
+	a.Cm = map[int]float64{24: 51, 48: 52}
+	b.Cm = map[int]float64{24: 50, 48: 51}
+	a.Granice, b.Granice = nil, nil
+	p := crtajUzduzni("Drava", []LetvaProfila{a, b})
+	if p == nil || !p.ImaOdstupanja {
+		t.Fatal("nema donje plohe")
+	}
+	visina := p.OdstupanjeVisina()
+	for _, c := range p.Odstupanja {
+		var najn, najv float64 = 1e9, -1e9
+		for _, par := range razlomiPoteze(c.Put) {
+			najn, najv = min(najn, par), max(najv, par)
+		}
+		if najv-najn > visina/2 {
+			t.Errorf("crta %q zauzima %.0f od %.0f — dva centimetra izgledaju kao val",
+				c.Naziv, najv-najn, visina)
+		}
+	}
+}
+
+// obrniPoteze mora okrenuti redoslijed, da se donji rub pojasa vrati unatrag i
+// ploha zatvori sama.
+func TestObrniPotezeVracaUnatrag(t *testing.T) {
+	got := obrniPoteze(" L1.0 2.0 L3.0 4.0 L5.0 6.0")
+	if got != " L5.0 6.0 L3.0 4.0 L1.0 2.0" {
+		t.Errorf("obrnuto %q", got)
+	}
+	if obrniPoteze("") != "" {
+		t.Error("prazno mora ostati prazno")
+	}
+}
+
+// razlomiPoteze vadi okomite položaje iz puta, za mjeru visine.
+func razlomiPoteze(put string) []float64 {
+	var out []float64
+	for _, dio := range strings.Fields(strings.NewReplacer("M", " ", "L", " ").Replace(put)) {
+		var v float64
+		if _, err := fmt.Sscanf(dio, "%g", &v); err == nil {
+			out = append(out, v)
+		}
+	}
+	// Svaki drugi broj je okomiti položaj.
+	var y []float64
+	for i := 1; i < len(out); i += 2 {
+		y = append(y, out[i])
+	}
+	return y
+}
+
+// Put pojasa mora biti valjan SVG: dva slova jedno do drugoga ("LL") preglednik
+// odbacuje, pa se pojas ne nacrta, a greške nigdje nema.
+func TestPojasDonjePloheJeValjanPut(t *testing.T) {
+	a := letvaProfila("uzvodna", 200, 120, 50)
+	b := letvaProfila("nizvodna", 100, 80, 50)
+	p := crtajUzduzni("Drava", []LetvaProfila{a, b})
+	if p == nil || len(p.Odstupanja) == 0 {
+		t.Fatal("nema donje plohe")
+	}
+	loše := regexp.MustCompile(`[MLZ]\s*[MLZ]`)
+	for _, c := range p.Odstupanja {
+		if c.Pojas == "" {
+			continue
+		}
+		if m := loše.FindString(c.Pojas); m != "" {
+			t.Errorf("pojas %q ima dva poteza zaredom: %q", c.Naziv, m)
+		}
+		if !strings.HasPrefix(c.Pojas, "M") || !strings.HasSuffix(c.Pojas, " Z") {
+			t.Errorf("pojas %q nije zatvorena ploha", c.Naziv)
+		}
+	}
+	for _, c := range p.Crte {
+		if c.Pojas != "" {
+			if m := loše.FindString(c.Pojas); m != "" {
+				t.Errorf("pojas gornje plohe %q ima dva poteza zaredom: %q", c.Naziv, m)
+			}
 		}
 	}
 }

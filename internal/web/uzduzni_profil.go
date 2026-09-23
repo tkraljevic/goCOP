@@ -47,7 +47,13 @@ type TockaUzduznog struct {
 	Sidro string
 }
 
-// UzduzniProfil je gotov crtež jednog toka.
+// UzduzniProfil je gotov crtež jednog toka. Dvije plohe dijele vodoravnu os:
+// gornja pokazuje gdje voda jest, donja koliko se mijenja.
+//
+// Dvije su potrebne jer se ne daju spojiti. Drava pada 49 metara, a val u dva
+// dana nosi 33 centimetra — sedam tisućinki visine crteža, dva i pol piksela.
+// Na jednoj plohi crta za sutra leži na današnjoj i ne vidi se ništa; upravo
+// ono zbog čega profil i postoji.
 type UzduzniProfil struct {
 	Ime                     string
 	Width, Height           int
@@ -58,7 +64,18 @@ type UzduzniProfil struct {
 	YTicks                  []ChartTick
 	XTicks                  []ChartTick
 	Opis                    string
+
+	// Donja ploha: odstupanje od današnjeg stanja, u centimetrima.
+	OdstupanjeVrh float64
+	OdstupanjeDno float64
+	Odstupanja    []ProfilCrta
+	OdstupanjeOsi []ChartTick
+	NulaY         float64 // današnje stanje, vodoravna crta
+	ImaOdstupanja bool
 }
+
+// PlohaLijevo i ostali daju predlošku rubove donje plohe.
+func (p *UzduzniProfil) OdstupanjeVisina() float64 { return p.OdstupanjeDno - p.OdstupanjeVrh }
 
 func (p *UzduzniProfil) LijevoX() float64 { return p.Lijevo }
 func (p *UzduzniProfil) DesnoX() float64  { return float64(p.Width) - p.Desno }
@@ -91,8 +108,10 @@ func crtajUzduzni(ime string, letve []LetvaProfila) *UzduzniProfil {
 	// Nizvodno ide udesno, a rkm nizvodno pada.
 	sort.Slice(korisne, func(i, j int) bool { return korisne[i].Rkm > korisne[j].Rkm })
 
-	p := &UzduzniProfil{Ime: ime, Width: 1600, Height: 420,
+	p := &UzduzniProfil{Ime: ime, Width: 1600, Height: 560,
 		Lijevo: 86, Desno: 96, Vrh: 24, Dno: 56}
+	const razmakPloha = 46 // mjesto za oznake vodoravne osi gornje plohe
+	visinaDonje := 120.0
 	najn, najv := math.Inf(1), math.Inf(-1)
 	uzmi := func(kota float64) {
 		najn, najv = math.Min(najn, kota), math.Max(najv, kota)
@@ -126,7 +145,9 @@ func crtajUzduzni(ime string, letve []LetvaProfila) *UzduzniProfil {
 	najn, najv = najn-pad, najv+pad
 
 	plotW := float64(p.Width) - p.Lijevo - p.Desno
-	plotH := float64(p.Height) - p.Vrh - p.Dno
+	plotH := float64(p.Height) - p.Vrh - p.Dno - visinaDonje - razmakPloha
+	p.OdstupanjeVrh = p.Vrh + plotH + razmakPloha
+	p.OdstupanjeDno = p.OdstupanjeVrh + visinaDonje
 	odRkm, doRkm := korisne[0].Rkm, korisne[len(korisne)-1].Rkm
 	raspon := odRkm - doRkm
 	if raspon <= 0 {
@@ -168,6 +189,70 @@ func crtajUzduzni(ime string, letve []LetvaProfila) *UzduzniProfil {
 		}
 	}
 
+	// Donja ploha: koliko se voda mijenja u odnosu na sada, u centimetrima.
+	// Ovdje se val vidi, jer je pad rijeke oduzet.
+	najOd, najDo := 0.0, 0.0
+	for _, l := range korisne {
+		for _, d := range dosezniProfila {
+			if v, ima := l.Cm[d]; ima {
+				najOd = math.Min(najOd, v-l.SadaCm)
+				najDo = math.Max(najDo, v-l.SadaCm)
+			}
+			if g, ima := l.Granice[d]; ima {
+				najOd = math.Min(najOd, g[0]-l.SadaCm)
+				najDo = math.Max(najDo, g[1]-l.SadaCm)
+			}
+		}
+	}
+	// Na mirnoj vodi ploha bi inače pokazala šum kao da je val; deset
+	// centimetara na svaku stranu drži mjerilo pošteno.
+	if najDo-najOd < 20 {
+		sredina := (najOd + najDo) / 2
+		najOd, najDo = sredina-10, sredina+10
+	}
+	rub := (najDo - najOd) / 10
+	najOd, najDo = najOd-rub, najDo+rub
+	yOd := func(cm float64) float64 {
+		return p.OdstupanjeVrh + (najDo-cm)/(najDo-najOd)*(p.OdstupanjeDno-p.OdstupanjeVrh)
+	}
+	p.NulaY = yOd(0)
+	for i, d := range dosezniProfila {
+		var crtaB, gornji, donji strings.Builder
+		potez := "M"
+		imaGranice := true
+		for _, l := range korisne {
+			v, ima := l.Cm[d]
+			if !ima {
+				potez = "M"
+				imaGranice = false
+				continue
+			}
+			fmt.Fprintf(&crtaB, "%s%.1f %.1f", potez, xOf(l.Rkm), yOd(v-l.SadaCm))
+			potez = " L"
+			g, imaG := l.Granice[d]
+			if !imaG {
+				imaGranice = false
+				continue
+			}
+			fmt.Fprintf(&gornji, "%s%.1f %.1f", map[bool]string{true: "M", false: " L"}[gornji.Len() == 0],
+				xOf(l.Rkm), yOd(g[1]-l.SadaCm))
+			fmt.Fprintf(&donji, " L%.1f %.1f", xOf(l.Rkm), yOd(g[0]-l.SadaCm))
+		}
+		if crtaB.Len() == 0 {
+			continue
+		}
+		c := ProfilCrta{Naziv: fmt.Sprintf("za %d h", d),
+			Class: fmt.Sprintf("prog%d", i+1), Put: crtaB.String()}
+		if imaGranice && gornji.Len() > 0 {
+			c.Pojas = gornji.String() + obrniPoteze(donji.String()) + " Z"
+		}
+		p.Odstupanja = append(p.Odstupanja, c)
+	}
+	p.ImaOdstupanja = len(p.Odstupanja) > 0
+	for _, cm := range odstupanjeOznake(najOd, najDo) {
+		p.OdstupanjeOsi = append(p.OdstupanjeOsi, ChartTick{Pos: yOd(cm), Label: brojHRf(cm, 0)})
+	}
+
 	for i, l := range korisne {
 		kota := l.KotaNule + l.SadaCm/100
 		sidro := "middle"
@@ -190,6 +275,35 @@ func crtajUzduzni(ime string, letve []LetvaProfila) *UzduzniProfil {
 	p.Opis = "Uzdužni profil " + ime + ": kota vodnog lica od " +
 		korisne[0].Naziv + " do " + korisne[len(korisne)-1].Naziv + ", u metrima HVRS71"
 	return p
+}
+
+// obrniPoteze okreće niz poteza "L x y" unatrag, da donji rub pojasa ide u
+// suprotnom smjeru i ploha se zatvori sama.
+func obrniPoteze(put string) string {
+	dijelovi := strings.Split(strings.TrimSpace(put), " L")
+	var out []string
+	for i := len(dijelovi) - 1; i >= 0; i-- {
+		// Prvi komad zadrži svoje slovo jer se dijeli po razmaku pred njim.
+		d := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(dijelovi[i]), "L"))
+		if d != "" {
+			out = append(out, d)
+		}
+	}
+	if len(out) == 0 {
+		return ""
+	}
+	return " L" + strings.Join(out, " L")
+}
+
+// odstupanjeOznake bira oznake donje osi. Nula je uvijek među njima: ona je
+// današnje stanje, mjera prema kojoj se sve ostalo čita.
+func odstupanjeOznake(od, do float64) []float64 {
+	korak := niceStep((do - od) / 4)
+	var out []float64
+	for v := math.Ceil(od/korak) * korak; v <= do; v += korak {
+		out = append(out, v)
+	}
+	return out
 }
 
 // plohaGranica gradi pojas između donje i gornje granice prognoze.
