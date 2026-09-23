@@ -153,6 +153,18 @@ var Tokovi = []struct {
 		{"donji-miholjac", []string{"moslavina"}},
 		{"dravaszabolcs", []string{"donji-miholjac"}},
 		{"belisce", []string{"dravaszabolcs"}},
+		// Karašica Osijeku nije ulaz, iako se u Dravu ulijeva između Belišća i
+		// Osijeka (kod Petrijevaca; letva Belišće 5152 je 24,5 km uzvodno od
+		// ušća, s dnevnim očitanjem u 7:30). Poreč i Kapelna traženi su i do
+		// 96 sati: u vodostaju nagib −0,00, u protoku kašnjenje na granici
+		// pretrage uz prozor 31–49 h i nagib 0,15–0,38 cm po m³/s — natoplje-
+		// nost, ne val. Dvadesetak kubika Karašice u tisuću dravskih, uz
+		// dunavski uspor s Aljmaša, u ostatku Osijeka nema se što naći. Ni
+		// Belišću ne pomaže (kašnjenje 48 h, prozor 49 h), jer je ušće ispod
+		// njega. Karašica ima svoj lanac, Kapelna → Poreč (vodostaj r 0,89,
+		// kašnjenje 6–17 h; protok r 0,88, 8 h), ali ulazi tek kad Kapelna i
+		// Poreč budu imali živa očitanja u bazi — vrh lanca bez očitanja ruši
+		// cijelu prognozu, ne samo svoj krak.
 	}},
 	{"Dunav", []Racun{
 		// Uzvodno od Batine ide niz mađarskih letvi. Batina je dugo bila vrh
