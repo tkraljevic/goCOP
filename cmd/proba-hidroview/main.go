@@ -2,8 +2,10 @@
 // postaje račun vidi, koje veličine mjere i kakvi su pragovi upisani uz njih.
 // Ne mijenja ništa ni ondje ni kod nas — služi da se prije uvoza vidi stanje.
 //
-// Vjerodajnice se ne upisuju u naredbeni redak nego se čitaju iz okoline, da
-// ne ostanu u povijesti ljuske:
+// Vjerodajnice se ne upisuju u naredbeni redak. Bez ičega u okolini uzima se
+// račun čvora upisan u aplikaciju (upis-hidroview-racuna) — isti koji
+// poslužitelj koristi za preuzimanje, zaključan ključem čvora pa vrijedi
+// samo na ovom računalu. Okolina ima prednost, za probu tuđim računom:
 //
 //	read "?Korisnik: " HDV_KORISNIK
 //	read -s "?Lozinka: " HDV_LOZINKA
@@ -13,14 +15,22 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
 
 	"gocop/internal/hidroview"
+	"gocop/internal/peers"
+	"gocop/internal/posta"
+	"gocop/internal/razmjena"
+	"gocop/internal/repository"
+
+	_ "modernc.org/sqlite"
 )
 
 func main() {
@@ -28,15 +38,25 @@ func main() {
 	trazi := flag.String("postaja", "", "dio naziva postaje; prazno ispisuje sve")
 	pregled := flag.Bool("pregled", false, "prođi sve postaje i prebroji koje veličine mjere")
 	dana := flag.Int("dana", 2, "koliko dana podataka dohvatiti za prikaz")
+	dbPath := flag.String("db", "data/gocop.db", "baza čvora, zbog računa upisanog u aplikaciju")
 	flag.Parse()
 
 	korisnik, lozinka := os.Getenv("HDV_KORISNIK"), os.Getenv("HDV_LOZINKA")
 	if korisnik == "" || lozinka == "" {
-		fmt.Fprintln(os.Stderr, "Nedostaju HDV_KORISNIK i HDV_LOZINKA u okolini:")
-		fmt.Fprintln(os.Stderr, `  read "?Korisnik: " HDV_KORISNIK`)
-		fmt.Fprintln(os.Stderr, `  read -s "?Lozinka: " HDV_LOZINKA`)
-		fmt.Fprintln(os.Stderr, "  export HDV_KORISNIK HDV_LOZINKA")
-		os.Exit(2)
+		r, err := racunCvora(*dbPath)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "račun čvora:", err)
+			fmt.Fprintln(os.Stderr, "Upiši ga naredbom upis-hidroview-racuna, ili postavi u okolini:")
+			fmt.Fprintln(os.Stderr, `  read "?Korisnik: " HDV_KORISNIK`)
+			fmt.Fprintln(os.Stderr, `  read -s "?Lozinka: " HDV_LOZINKA`)
+			fmt.Fprintln(os.Stderr, "  export HDV_KORISNIK HDV_LOZINKA")
+			os.Exit(2)
+		}
+		korisnik, lozinka = r.korisnik, r.lozinka
+		if r.adresa != "" && *adresa == hidroview.ZadanaAdresa {
+			*adresa = r.adresa
+		}
+		fmt.Fprintf(os.Stderr, "račun čvora: %s (%s)\n", korisnik, *adresa)
 	}
 
 	ctx, otkazi := context.WithTimeout(context.Background(), 20*time.Minute)
@@ -206,4 +226,35 @@ var naziviVelicina = map[string]string{
 	hidroview.VelicinaProtok:          "protok",
 	hidroview.VelicinaOborina:         "oborina",
 	hidroview.VelicinaBrzina:          "površinska brzina",
+}
+
+// racun je otključan račun za HydroView.
+type racun struct{ korisnik, lozinka, adresa string }
+
+// racunCvora otključava račun čvora upisan u aplikaciju, onako kako to radi
+// poslužitelj: ključ čvora leži uz bazu, a lozinka je zaključana ključem
+// izvedenim iz njega. Ključ se samo čita — proba ne smije stvoriti novi
+// identitet čvora.
+func racunCvora(db string) (racun, error) {
+	kljuc, err := razmjena.LoadKey(filepath.Join(filepath.Dir(db), peers.KeyFileName))
+	if err != nil {
+		return racun{}, fmt.Errorf("ključ čvora: %w", err)
+	}
+	baza, err := sql.Open("sqlite", db+"?mode=ro")
+	if err != nil {
+		return racun{}, err
+	}
+	defer baza.Close()
+	r, err := repository.NewHidroViewRepository(baza).Racun(context.Background(), "")
+	if err != nil {
+		return racun{}, err
+	}
+	if r == nil {
+		return racun{}, fmt.Errorf("u aplikaciji nije upisan račun čvora za HydroView")
+	}
+	lozinka, err := posta.Otkljucaj(hidroview.Kljuc(kljuc.Seed()), r.Lozinka)
+	if err != nil {
+		return racun{}, fmt.Errorf("lozinka se ne da otključati: %w", err)
+	}
+	return racun{korisnik: r.Korisnik, lozinka: lozinka, adresa: r.Adresa}, nil
 }
