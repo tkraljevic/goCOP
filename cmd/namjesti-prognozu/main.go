@@ -90,33 +90,35 @@ var Tokovi = []struct {
 		// Donjom Dubravom drži svega R² 0,24–0,45 po pojasu, a Dubravi ispadne
 		// nagib 2,07 — protok koji se na dvadeset kilometara udvostruči. To
 		// nije bio val nego Mura koja se u njemu skrivala.
-		// Bednja utječe u Dravu iznad Botova. Lanac joj ide Železnica (rkm
-		// 70,4) → Tuhovec (31,4) → Ludbreg (12,7). Tuhovec Ludbregu drži r
+		// Bednja se ulijeva u Dravu kod Donje Dubrave, ispod te letve a iznad
+		// Botova. Lanac joj ide Železnica (rkm 70,4) → Tuhovec (31,4) →
+		// Ludbreg (12,7). Tuhovec Ludbregu drži r
 		// 0,92 uz kašnjenje 5 h, Železnica Tuhovcu slabije (r 0,79, rasap 12,9
 		// m³/s), ali kašnjenje joj raste s vodnošću 0→4 h, pa produljuje lanac:
 		// Ludbreg s njom ide 37/40/26/7/2 % bolje od postojanosti umjesto
 		// 32/21/7/1/lošije.
 		//
-		// Cijela Plitvica ostaje izvan lanaca, i to zbog svoje duljine. Obje
-		// letve Ludbregu u namještanju izgledaju kao prava pritoka —
-		// kašnjenje 0 h, prozor 1 sat, nagib 0,63 odnosno 0,70, bez
-		// izglađivanja — i dižu mu r s 0,924 na 0,965 odnosno 0,952. Ali
-		// kašnjenje nula ne daje prednost u vremenu: model pritoku od prvog
-		// sata nadalje mora pogađati pa je drži nepomičnom, i izvan
-		// namještanja Ludbreg ostaje na 1,7/2,6/5,2/8,9/10,6 m³/s.
+		// Plitvica u Bednju ne utječe. Teče usporedno s njom, sjevernije, i
+		// ulijeva se u Dravu tek kod Donje Dubrave — kao i Bednja. Zato joj
+		// ni na jednoj bednjanskoj letvi nije mjesto među ulazima, iako u
+		// namještanju izgleda kao pritoka: Ludbregu ulazi s kašnjenjem 0 h,
+		// prozorom od sata i nagibom 0,63 (Krkanec) odnosno 0,70 (Vidovićev
+		// Mlin) i diže mu r s 0,924 na 0,965 odnosno 0,952. To nije voda koja
+		// stiže nego ista kiša na dva susjedna sliva, i izvan namještanja od
+		// toga ne ostane ništa: Ludbreg ostaje na 1,7/2,6/5,2/8,9/10,6 m³/s.
 		//
-		// Ne pomaže ni dati Plitvici vlastiti lanac. Krkanec je 16,8 km iznad
-		// Vidovićeva Mlina, a i ondje je kašnjenje 0 h uz r 0,21–0,33 na
-		// srednjim vodama; Vidovićev Mlin iz njega ide svega 15/13/5/3/4 %
-		// bolje od postojanosti, pa Ludbregu i dalje ne vrijedi ništa.
-		// Plitvica je duga pedesetak kilometara i svi su joj podsljevovi
-		// sitni, pa kiša padne na cijeli sliv odjednom: val se ne prenosi
-		// nizvodno nego nastaje posvuda istodobno. Bednja kašnjenje ima jer
-		// je dulja i strmija.
-		//
-		// Botovu je Plitvica k tome štetna: ulazi s kašnjenjem 33 h i
-		// prozorom od 49 sati, a r pada s 0,907 na 0,892. Obje letve ostaju
-		// upisane i uvoze se, samo nisu ulaz.
+		// Botovu, kamo Plitvica stvarno pripada, ulazi kao natopljenost:
+		// Vidovićev Mlin s kašnjenjem 32 h i prozorom od 49 sati (gornja
+		// granica pretrage) uz nagib 7,14, Krkanec s 33 h i istim prozorom —
+		// isti potpis koji je Bednja imala na Botovu, a taj izvan namještanja
+		// nije donio ništa. Ni vlastiti lanac joj ne pomaže: od Krkanca do
+		// Vidovićeva Mlina je 16,8 km, a kašnjenje je opet 0 h uz r 0,21–0,33
+		// na srednjim vodama, pa Vidovićev Mlin iz Krkanca ide svega
+		// 15/13/5/3/4 % bolje od postojanosti. Plitvica je duga pedesetak
+		// kilometara sa sitnim podsljevovima: kiša padne na cijeli sliv
+		// odjednom i val nastaje posvuda istodobno umjesto da putuje. Bednja
+		// kašnjenje ima jer je dulja i strmija. Obje letve ostaju upisane i
+		// uvoze se, samo nisu ulaz.
 		//
 		// Lepoglava ostaje vani. Kao sporedni ulaz Ludbregu ne vrijedi ništa
 		// (8,0 → 7,7 m³/s rasapa), a ni Železnici iznad koje leži: ondje joj je
