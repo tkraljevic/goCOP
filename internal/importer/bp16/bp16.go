@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"gocop/internal/db"
+	"gocop/internal/hydro"
 	"gocop/internal/models"
 	"gocop/internal/repository"
 )
@@ -174,6 +175,12 @@ type Deps struct {
 	Stations   *repository.StationRepository
 	Structures *repository.StructureRepository
 	Log        func(format string, args ...any)
+	// DryRun samo broji: ne stvara postaje ni objekte i ne upisuje očitanja
+	DryRun bool
+	// StvoriObjekte upisuje crpnu stanicu ili ustavu koje registar nema, s
+	// istom šifrom kakvu daje sjeme (bp16-…), i veže je na letve istog
+	// imena. Bez toga se njihova očitanja preskaču.
+	StvoriObjekte bool
 }
 
 // Report je sažetak jednog uvoza
@@ -183,6 +190,7 @@ type Report struct {
 	Skipped     int // već postojala
 	Unmapped    map[string]int
 	NewStations []string
+	NoviObjekti []string
 }
 
 type lookupRow struct {
@@ -370,14 +378,42 @@ func Run(ctx context.Context, src Source, deps Deps) (Report, error) {
 	for _, st := range structures {
 		structByName[strings.ToLower(st.Name)] = st.ID.String()
 	}
-	resolveStructure := func(collection string, rows []lookupRow) (map[int]string, error) {
+	letve, err := deps.Stations.ListStations(ctx, "", "", "", false)
+	if err != nil {
+		return rep, err
+	}
+	letvaPoImenu := map[string]string{}
+	for _, l := range letve {
+		letvaPoImenu[strings.ToLower(strings.TrimSpace(l.Name))] = l.ID.String()
+	}
+	resolveStructure := func(collection, vrsta string, rows []lookupRow) (map[int]string, error) {
 		out := map[int]string{}
 		for _, r := range rows {
-			if id, ok := structByName[strings.ToLower(strings.TrimSpace(r.Naziv))]; ok {
+			naziv := strings.TrimSpace(r.Naziv)
+			if id, ok := structByName[strings.ToLower(naziv)]; ok {
 				out[r.ID] = id
-			} else if r.Status != "archived" {
-				logf("Uvoz BP16: %s „%s“ nema objekt u registru — očitanja se preskaču", collection, r.Naziv)
+				continue
 			}
+			if r.Status == "archived" {
+				continue
+			}
+			if !deps.StvoriObjekte {
+				logf("Uvoz BP16: %s „%s“ nema objekt u registru — očitanja se preskaču", collection, r.Naziv)
+				continue
+			}
+			o, err := noviObjekt(naziv, vrsta, letvaPoImenu)
+			if err != nil {
+				return out, err
+			}
+			if !deps.DryRun {
+				if err := deps.Structures.CreateStructure(ctx, o); err != nil {
+					return out, fmt.Errorf("stvaranje objekta %s: %w", naziv, err)
+				}
+			}
+			structByName[strings.ToLower(naziv)] = o.ID.String()
+			out[r.ID] = o.ID.String()
+			rep.NoviObjekti = append(rep.NoviObjekti, opisObjekta(o, letve))
+			logf("Uvoz BP16: stvoren objekt „%s“ (%s)", naziv, opisObjekta(o, letve))
 		}
 		return out, nil
 	}
@@ -392,8 +428,14 @@ func Run(ctx context.Context, src Source, deps Deps) (Report, error) {
 	if err := fetchInto(ctx, src, "vodomjerna_letva", &gaugeLookup); err != nil {
 		return rep, err
 	}
-	csMap, _ := resolveStructure("crpna stanica", csLookup)
-	ustavaMap, _ := resolveStructure("ustava", ustavaLookup)
+	csMap, err := resolveStructure("crpna stanica", models.StructureKindPumpingStation, csLookup)
+	if err != nil {
+		return rep, err
+	}
+	ustavaMap, err := resolveStructure("ustava", models.StructureKindSluice, ustavaLookup)
+	if err != nil {
+		return rep, err
+	}
 
 	gaugeMap := map[int]string{}
 	for _, g := range gaugeLookup {
@@ -418,8 +460,10 @@ func Run(ctx context.Context, src Source, deps Deps) (Report, error) {
 				ReviewNote:      "postaja uvezena iz evidencije VGI Baranja bez pragova obrane",
 				ZeroDatumSystem: "TRST", ZeroDatumNewSystem: "HVRS71",
 			}
-			if err := deps.Stations.CreateStation(ctx, st); err != nil {
-				return rep, fmt.Errorf("stvaranje postaje %s: %w", spec.Code, err)
+			if !deps.DryRun {
+				if err := deps.Stations.CreateStation(ctx, st); err != nil {
+					return rep, fmt.Errorf("stvaranje postaje %s: %w", spec.Code, err)
+				}
 			}
 			rep.NewStations = append(rep.NewStations, spec.Name)
 			logf("Uvoz BP16: stvorena postaja „%s“ (%s)", spec.Name, spec.Code)
@@ -435,6 +479,11 @@ func Run(ctx context.Context, src Source, deps Deps) (Report, error) {
 	var batch []models.Reading
 	flush := func() error {
 		if len(batch) == 0 {
+			return nil
+		}
+		if deps.DryRun {
+			rep.Inserted += len(batch)
+			batch = batch[:0]
 			return nil
 		}
 		n, err := deps.Readings.ImportBatch(ctx, batch)
@@ -567,12 +616,73 @@ func (r Report) Summary() string {
 	if len(r.NewStations) > 0 {
 		s += ", nove postaje: " + strings.Join(r.NewStations, ", ")
 	}
+	if len(r.NoviObjekti) > 0 {
+		s += fmt.Sprintf(", novih objekata %d", len(r.NoviObjekti))
+	}
 	if len(r.Unmapped) > 0 {
 		var parts []string
 		for k, v := range r.Unmapped {
 			parts = append(parts, fmt.Sprintf("%s (%d)", k, v))
 		}
 		s += ", preskočeno bez veze: " + strings.Join(parts, ", ")
+	}
+	return s
+}
+
+// noviObjekt gradi crpnu stanicu ili ustavu iz naziva u evidenciji Baranje.
+// Šifra je ona koju daje sjeme registra (bp16-cs-draz, bp16-ustava-…), pa
+// objekt dobiva isti identitet na svakom čvoru. Letva se traži po imenu:
+// ista kao objekt, a kod ustave par „(uzvodno)“ i „(nizvodno)“ — Ustava
+// Kopačevo drži Kanal Kopačevo s jedne strane i Dunavac u Kopačkom ritu s
+// druge, i očitanje nosi oba vodostaja.
+func noviObjekt(naziv, vrsta string, letvaPoImenu map[string]string) (*models.Structure, error) {
+	code := "bp16-" + hydro.Slug(naziv)
+	o := &models.Structure{
+		ID: db.StableID("structure", code), Code: code, Name: naziv, Kind: vrsta,
+		SectorID: "B", AreaID: 16, Origin: models.ReadingOriginBP16,
+	}
+	k := strings.ToLower(naziv)
+	if id, ok := letvaPoImenu[k]; ok {
+		o.StationID = id
+	}
+	// crpna stanica i ustava na istom mjestu dijele letvu: „CS i ustava
+	// Zmajevac“ je jedna letva za oba objekta
+	for _, pred := range []string{"cs ", "ustava "} {
+		if o.StationID == "" && strings.HasPrefix(k, pred) {
+			if id, ok := letvaPoImenu["cs i ustava "+strings.TrimPrefix(k, pred)]; ok {
+				o.StationID = id
+			}
+		}
+	}
+	if vrsta == models.StructureKindSluice {
+		if id, ok := letvaPoImenu[k+" (uzvodno)"]; ok {
+			o.StationID = id
+		}
+		if id, ok := letvaPoImenu[k+" (nizvodno)"]; ok {
+			o.StationDownID = id
+		}
+	}
+	return o, nil
+}
+
+func opisObjekta(o *models.Structure, letve []models.Station) string {
+	ime := func(id string) string {
+		for _, l := range letve {
+			if l.ID.String() == id {
+				return l.Code
+			}
+		}
+		return ""
+	}
+	s := o.Code
+	if o.StationID != "" {
+		s += " → " + ime(o.StationID)
+	}
+	if o.StationDownID != "" {
+		s += " / nizvodno " + ime(o.StationDownID)
+	}
+	if o.StationID == "" && o.StationDownID == "" {
+		s += " (bez letve)"
 	}
 	return s
 }

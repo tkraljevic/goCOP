@@ -53,6 +53,7 @@ func main() {
 	pairPortFlag := flag.Int("pair-port", -1, "Port uparivanja")
 	discoveryPortFlag := flag.Int("discovery-port", -1, "UDP port pronalaženja na lokalnoj mreži (0 isključuje)")
 	autoSyncFlag := flag.String("auto-sync", "", "Razmak automatske sinkronizacije, npr. 5m (0 isključuje)")
+	bp16Objekti := flag.Bool("bp16-objekti", false, "Uvoz BP16: stvori crpne stanice i ustave koje registar nema i veži ih na letve istog imena")
 	importBP16 := flag.Bool("import-bp16", false, "Uvezi očitanja vodostaja iz Directus evidencije VGI Baranja i završi")
 	importBP16Journals := flag.Bool("import-bp16-dnevnici", false, "Uvezi evidencije radova A.02 i A.03 iz Directusa kao rekonstruirane dnevnike (bez -upisi samo izvješće)")
 	importBP16Obilasci := flag.Bool("import-bp16-obilasci", false, "Uvezi obilaske terena iz Directusa kao zadatke vodočuvara i rekonstruirane dnevne listove (bez -upisi samo izvješće)")
@@ -508,6 +509,7 @@ func main() {
 		}
 		rep, err := bp16.Run(context.Background(), src, bp16.Deps{
 			Readings: readingRepo, Stations: stationRepo, Structures: structureRepo, Log: log.Printf,
+			DryRun: !*csvWrite, StvoriObjekte: *bp16Objekti,
 		})
 		if err != nil {
 			log.Fatalf("Uvoz BP16 nije uspio: %v (do greške %s)", err, rep.Summary())
