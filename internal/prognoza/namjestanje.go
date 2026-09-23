@@ -416,7 +416,11 @@ func najboljiLagovi(cilj map[int64]float64, ulazi []ulazNiz, sati []int64,
 			}
 			lagovi[i] = najPom
 			najSir := stariSir
+			osnova := pokriva(ulazi[i], sati, najPom, 1)
 			for _, sir := range Sirine {
+				if pokriva(ulazi[i], sati, najPom, sir)*4 < osnova*3 {
+					continue
+				}
 				sirine[i] = sir
 				if r2, ok := ocjena(cilj, ulazi, lagovi, sirine, usporedivi); ok && r2 > najR2 {
 					najR2, najSir = r2, sir
@@ -432,6 +436,24 @@ func najboljiLagovi(cilj map[int64]float64, ulazi []ulazNiz, sati []int64,
 		}
 	}
 	return lagovi, sirine
+}
+
+// pokriva broji sate u kojima ulaz uz zadano kašnjenje ima pun prozor.
+//
+// Širina se bira na satima koji podnose svaku širinu, a to su na Letenyeu samo
+// godine s mjerenjem svaki sat — ranije je VITUKI javljao rjeđe. Ondje je
+// prozor od 21 sat bio malo bolji, pa je pobijedio, a u pravom računu je
+// odbacio četiri petine povijesti: Botovu su ostala dva pojasa od pet, a
+// visoka voda nijedan. Zato širina smije uzeti najviše četvrtinu sati koje
+// pokriva prozor od jednog sata.
+func pokriva(u ulazNiz, sati []int64, pom, sirina int) int {
+	n := 0
+	for _, t := range sati {
+		if _, ima := u.prosjek(t-int64(pom), sirina); ima {
+			n++
+		}
+	}
+	return n
 }
 
 // ocjena vraća R² pravocrtne regresije cilja na sve ulaze pri zadanim

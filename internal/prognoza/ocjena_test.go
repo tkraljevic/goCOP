@@ -120,3 +120,32 @@ func TestSpremanjeMicePojaseStareVelicine(t *testing.T) {
 		t.Errorf("ostala je %s", p[0].Velicina)
 	}
 }
+
+// Sporedni ulaz koji je dugo javljao svaki drugi sat, a tek zadnjih godina
+// svaki sat: širok prozor ondje stvarno bolje pogađa, ali u pravom računu
+// odbaci sve rjeđe godine. Takva širina ne smije pobijediti.
+func TestSirinaNeOdbacujePovijest(t *testing.T) {
+	const n = 24000
+	glavni := map[int64]float64{}
+	sporedni := map[int64]float64{}
+	for t := int64(0); t < n; t++ {
+		glavni[t] = 300 + 120*math.Sin(float64(t)/53) + 40*math.Sin(float64(t)/7)
+		if t >= n-4000 || t%2 == 0 {
+			sporedni[t] = 50 + 30*math.Sin(float64(t)/5) + 20*math.Sin(float64(t)/97)
+		}
+	}
+	cilj := map[int64]float64{}
+	for t := int64(200); t < n; t++ {
+		var s float64
+		for k := int64(0); k < 21; k++ {
+			s += 50 + 30*math.Sin(float64(t-k)/5) + 20*math.Sin(float64(t-k)/97)
+		}
+		cilj[t] = glavni[t] + 2*s/21
+	}
+	ulazi := []ulazNiz{noviUlazNiz("glavni", "protok", glavni, 20),
+		noviUlazNiz("sporedni", "protok", sporedni, 20)}
+	_, sirine := najboljiLagovi(cilj, ulazi, sviSati(cilj), []int{0, 0}, []int{1, 1}, []int{0, 1})
+	if sirine[1] != 1 {
+		t.Errorf("sporedni ulaz dobio prozor od %d sati i s njim izgubio rjeđe godine", sirine[1])
+	}
+}
