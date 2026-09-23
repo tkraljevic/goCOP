@@ -34,6 +34,8 @@ import (
 var Velicine = map[string]string{
 	"donja-dubrava":  "protok",
 	"letenye":        "vodostaj",
+	"tuhovec":        "protok",
+	"ludbreg":        "protok",
 	"botovo":         "protok",
 	"novo-virje":     "protok",
 	"terezino-polje": "protok",
@@ -87,6 +89,20 @@ var Tokovi = []struct {
 		// Donjom Dubravom drži svega R² 0,24–0,45 po pojasu, a Dubravi ispadne
 		// nagib 2,07 — protok koji se na dvadeset kilometara udvostruči. To
 		// nije bio val nego Mura koja se u njemu skrivala.
+		// Bednja utječe u Dravu iznad Botova. Ludbreg joj je zadnja letva,
+		// Tuhovec 18,7 km iznad njega: na velikoj vodi r 0,92, kašnjenje 5 h,
+		// nagib 0,98 — pravi članak. Lepoglava je previsoko (89,8 od oko 600
+		// km² sliva) i model iz nje čita prosjek od 43 sata, dakle oborinu, a
+		// ne val; Ludbregu donese 8,0 → 7,7 m³/s rasapa i zato je izostavljena.
+		{"ludbreg", []string{"tuhovec"}},
+		// Bednja Botovu nije ulaz. U namještanju izgleda kao da jest — na
+		// najvišem pojasu skida rasap s 93,5 na 83,9 m³/s — ali model je čita
+		// kao natopljenost sliva, ne kao val: kašnjenje 26 h uz prozor od 49
+		// sati, a 49 je gornja granica pretrage. Izvan namještanja od toga ne
+		// ostane ništa: pogreška Botova s Bednjom i bez nje je 51,5/51,7,
+		// 74,7/74,7, 95,4/95,0, 146,5/146,6 i 181,3/181,4 m³/s na 6, 12, 24,
+		// 48 i 72 sata. Botovu nedostaje raspored ispuštanja HE Dubrava, a to
+		// nijedna pritoka ne nadomješta.
 		{"botovo", []string{"donja-dubrava", "letenye"}},
 		{"novo-virje", []string{"botovo"}},
 		{"terezino-polje", []string{"novo-virje"}},
