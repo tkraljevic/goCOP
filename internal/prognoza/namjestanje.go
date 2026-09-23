@@ -27,6 +27,14 @@ const (
 	NajveciPomakPritoka = 48
 )
 
+// NajvecaSirina je najširi prozor kojim se ulaz može zagladiti. Rijeka kratke
+// valove guši: dnevni val hidroelektrane nosi na Donjoj Dubravi 21,6 m³/s
+// promjene po satu, na Terezinu Polju još 4,1, a na Vrbovki 1,3 cm — Belišće se
+// nikad nije pomaknulo više od 9 cm u satu. Pomak i množenje val samo prenesu,
+// pa bi prognoza Belišću davala poskoke od pola metra kakve ta letva ne poznaje.
+// Prozor gleda unatrag, kako i spremnica radi — i ne troši doseg.
+const NajvecaSirina = 49
+
 // Pojasi su granice po percentilima. Gusti su pri vrhu jer se ondje ponašanje
 // mijenja: na Batini → Aljmaš pomak raste s 4 na 38 sati, jer se Kopački rit
 // puni i val uspori.
@@ -64,37 +72,78 @@ func koliko(db *sql.DB, letva, velicina string) int {
 type ulazNiz struct {
 	ime      string
 	velicina string
-	niz      map[int64]float64
 	najdulje int
-	puni     map[int64]bool // sati u kojima ulaz ima podatak pri svakom kašnjenju
+	od       int64     // prvi sat koji niz pokriva
+	zbroj    []float64 // prefiksni zbroj, zbog prosjeka po prozoru
+	broj     []int     // koliko ih je u tom rasponu doista bilo
 }
 
-// uvijekDostupni bilježi sate u kojima ulaz ima podatak pri svakom kandidatu za
-// kašnjenje. Bez toga se kašnjenja uspoređuju na različitim skupovima sati, pa
-// pobijedi ono kojem su sati lakši, a ne ono koje val doista treba: Letenye je
-// tako sjeo na 48 sati, točno na rub pretrage.
-func uvijekDostupni(u ulazNiz, sati []int64) map[int64]bool {
-	out := make(map[int64]bool, len(sati))
-	for _, t := range sati {
-		ima := true
-		for pom := 0; pom <= u.najdulje; pom++ {
-			if _, jest := u.niz[t-int64(pom)]; !jest {
-				ima = false
-				break
-			}
+// noviUlazNiz slaže niz u gusti oblik, da se prosjek po prozoru dobije u dva
+// oduzimanja umjesto u onoliko čitanja kolika je širina.
+func noviUlazNiz(ime, velicina string, niz map[int64]float64, najdulje int) ulazNiz {
+	u := ulazNiz{ime: ime, velicina: velicina, najdulje: najdulje}
+	if len(niz) == 0 {
+		return u
+	}
+	prvi, zadnji := int64(math.MaxInt64), int64(math.MinInt64)
+	for t := range niz {
+		if t < prvi {
+			prvi = t
 		}
-		if ima {
-			out[t] = true
+		if t > zadnji {
+			zadnji = t
 		}
 	}
-	return out
+	n := int(zadnji-prvi) + 1
+	u.od = prvi
+	u.zbroj = make([]float64, n+1)
+	u.broj = make([]int, n+1)
+	for i := 0; i < n; i++ {
+		v, ima := niz[prvi+int64(i)]
+		u.zbroj[i+1] = u.zbroj[i]
+		u.broj[i+1] = u.broj[i]
+		if ima {
+			u.zbroj[i+1] += v
+			u.broj[i+1]++
+		}
+	}
+	return u
 }
 
-// samoPuni zadržava sate u kojima zadani ulaz podnosi svako kašnjenje.
+// prosjek je srednja vrijednost prozora koji završava u satu t. Prozor mora
+// biti pun: rupa u njemu značila bi da se prosjek računa iz manje vode nego
+// što je bilo.
+func (u ulazNiz) prosjek(t int64, sirina int) (float64, bool) {
+	a := int(t-u.od) - sirina + 1
+	b := int(t - u.od)
+	if sirina < 1 || a < 0 || b+1 >= len(u.zbroj) {
+		return 0, false
+	}
+	if u.broj[b+1]-u.broj[a] != sirina {
+		return 0, false
+	}
+	return (u.zbroj[b+1] - u.zbroj[a]) / float64(sirina), true
+}
+
+// pun javlja pokriva li niz bez rupe sve sate koje bi ijedno kašnjenje i ijedna
+// širina prozora zatražili. Bez toga se kašnjenja uspoređuju na različitim
+// skupovima sati, pa pobijedi ono kojem su sati lakši, a ne ono koje val doista
+// treba: Letenye je tako sjeo na 48 sati, točno na rub pretrage.
+func (u ulazNiz) pun(t int64) bool {
+	a := int(t-u.od) - u.najdulje - NajvecaSirina + 1
+	b := int(t - u.od)
+	if a < 0 || b+1 >= len(u.broj) {
+		return false
+	}
+	return u.broj[b+1]-u.broj[a] == b+1-a
+}
+
+// samoPuni zadržava sate u kojima zadani ulaz podnosi svako kašnjenje i svaku
+// širinu prozora.
 func samoPuni(u ulazNiz, sati []int64) []int64 {
 	out := make([]int64, 0, len(sati))
 	for _, t := range sati {
-		if u.puni[t] {
+		if u.pun(t) {
 			out = append(out, t)
 		}
 	}
@@ -141,7 +190,7 @@ func NamjestiLetvu(arhiva *sql.DB, ciljna, vel string, izvori []Izvor) ([]Pojas,
 			return nil, fmt.Errorf("%s: %s ima samo %d satnih vrijednosti u %s",
 				ciljna, iz.Letva, len(n), iz.Velicina)
 		}
-		ulazi[i] = ulazNiz{ime: iz.Letva, velicina: iz.Velicina, niz: n, najdulje: najdulje}
+		ulazi[i] = noviUlazNiz(iz.Letva, iz.Velicina, n, najdulje)
 	}
 
 	var sati []int64
@@ -149,18 +198,19 @@ func NamjestiLetvu(arhiva *sql.DB, ciljna, vel string, izvori []Izvor) ([]Pojas,
 		sati = append(sati, t)
 	}
 	sort.Slice(sati, func(i, j int) bool { return sati[i] < sati[j] })
-	for i := range ulazi {
-		ulazi[i].puni = uvijekDostupni(ulazi[i], sati)
-	}
 
 	// Pojasi se mjere u glavnom ulazu, pomaknutom za jedno kašnjenje koje
 	// vrijedi za sve. Po pojasu se kašnjenje poslije traži iznova, ali granice
 	// moraju stajati prije toga — inače bi svaki pojas pomicao vlastiti rub.
 	pocetni := make([]int, len(ulazi))
+	sirine := make([]int, len(ulazi))
+	for i := range sirine {
+		sirine[i] = 1
+	}
 	pocetni[0] = najboljiSam(cilj, ulazi[0], samoPuni(ulazi[0], sati))
 	var poredak []float64
 	for _, t := range sati {
-		if v, ima := ulazi[0].niz[t-int64(pocetni[0])]; ima {
+		if v, ima := ulazi[0].prosjek(t-int64(pocetni[0]), 1); ima {
 			poredak = append(poredak, v)
 		}
 	}
@@ -182,7 +232,7 @@ func NamjestiLetvu(arhiva *sql.DB, ciljna, vel string, izvori []Izvor) ([]Pojas,
 	for i := range svi {
 		svi[i] = i
 	}
-	globalni := najboljiLagovi(cilj, ulazi, sati, pocetni, svi)
+	globalni, globalneSirine := najboljiLagovi(cilj, ulazi, sati, pocetni, sirine, svi)
 	if globalni == nil {
 		return nil, fmt.Errorf("%s: kašnjenja se nisu dala izmjeriti", ciljna)
 	}
@@ -199,7 +249,7 @@ func NamjestiLetvu(arhiva *sql.DB, ciljna, vel string, izvori []Izvor) ([]Pojas,
 		zadnji := i+2 == len(cvorovi)
 		var uPojasu []int64
 		for _, t := range sati {
-			v, ima := ulazi[0].niz[t-int64(pocetni[0])]
+			v, ima := ulazi[0].prosjek(t-int64(pocetni[0]), 1)
 			if ima && v >= od && (v < do || (zadnji && v <= do)) {
 				uPojasu = append(uPojasu, t)
 			}
@@ -207,7 +257,9 @@ func NamjestiLetvu(arhiva *sql.DB, ciljna, vel string, izvori []Izvor) ([]Pojas,
 		if len(uPojasu) < 2000 {
 			continue
 		}
-		lagovi := najboljiLagovi(cilj, ulazi, uPojasu, globalni, []int{0})
+		// Po pojasu se traži samo kašnjenje glavnog toka. Širina prozora je
+		// svojstvo dionice, ne vodnosti, pa ostaje kakvu je dao opći prolaz.
+		lagovi, _ := najboljiLagovi(cilj, ulazi, uPojasu, globalni, globalneSirine, []int{0})
 		if lagovi == nil {
 			continue
 		}
@@ -228,7 +280,7 @@ func NamjestiLetvu(arhiva *sql.DB, ciljna, vel string, izvori []Izvor) ([]Pojas,
 	x := make([]float64, len(ulazi))
 	for _, pj := range pojasi {
 		for _, t := range pj.sati {
-			y, ok := uzorak(cilj, ulazi, pj.lagovi, t, x)
+			y, ok := uzorak(cilj, ulazi, pj.lagovi, globalneSirine, t, x)
 			if !ok {
 				continue
 			}
@@ -252,10 +304,11 @@ func NamjestiLetvu(arhiva *sql.DB, ciljna, vel string, izvori []Izvor) ([]Pojas,
 				n = k[m+j-1]
 			}
 			pojas.Ulazi = append(pojas.Ulazi, Ulaz{
-				Letva: u.ime, Velicina: u.velicina, PomakH: pj.lagovi[j], Nagib: n,
+				Letva: u.ime, Velicina: u.velicina, PomakH: pj.lagovi[j],
+				Sirina: globalneSirine[j], Nagib: n,
 			})
 		}
-		pojas.R, pojas.Rasap, pojas.Sati = kakoDrzi(cilj, ulazi, pj.lagovi, pj.sati, pojas)
+		pojas.R, pojas.Rasap, pojas.Sati = kakoDrzi(cilj, ulazi, pj.lagovi, globalneSirine, pj.sati, pojas)
 		out = append(out, pojas)
 	}
 	return out, nil
@@ -263,11 +316,11 @@ func NamjestiLetvu(arhiva *sql.DB, ciljna, vel string, izvori []Izvor) ([]Pojas,
 
 // kakoDrzi mjeri koliko namješteni pojas pogađa: korelacija računatog s
 // izmjerenim, i standardno odstupanje promašaja.
-func kakoDrzi(cilj map[int64]float64, ulazi []ulazNiz, lagovi []int, sati []int64, p Pojas) (float64, float64, int) {
+func kakoDrzi(cilj map[int64]float64, ulazi []ulazNiz, lagovi, sirine []int, sati []int64, p Pojas) (float64, float64, int) {
 	x := make([]float64, len(ulazi))
 	var racunato, mjereno []float64
 	for _, t := range sati {
-		y, ok := uzorak(cilj, ulazi, lagovi, t, x)
+		y, ok := uzorak(cilj, ulazi, lagovi, sirine, t, x)
 		if !ok {
 			continue
 		}
@@ -289,14 +342,15 @@ func kakoDrzi(cilj map[int64]float64, ulazi []ulazNiz, lagovi []int, sati []int6
 	return korelacija(racunato, mjereno), math.Sqrt(s / float64(len(mjereno))), len(mjereno)
 }
 
-// uzorak vadi vrijednosti svih ulaza u njihovim satima i cilj u ciljnom satu.
-func uzorak(cilj map[int64]float64, ulazi []ulazNiz, lagovi []int, t int64, x []float64) (float64, bool) {
+// uzorak vadi vrijednosti svih ulaza — svaku kao prosjek prozora koji završava
+// u njezinu satu — i cilj u ciljnom satu.
+func uzorak(cilj map[int64]float64, ulazi []ulazNiz, lagovi, sirine []int, t int64, x []float64) (float64, bool) {
 	y, ok := cilj[t]
 	if !ok {
 		return 0, false
 	}
 	for i := range ulazi {
-		v, ima := ulazi[i].niz[t-int64(lagovi[i])]
+		v, ima := ulazi[i].prosjek(t-int64(lagovi[i]), sirine[i])
 		if !ima {
 			return 0, false
 		}
@@ -311,7 +365,7 @@ func najboljiSam(cilj map[int64]float64, u ulazNiz, sati []int64) int {
 	for pom := 0; pom <= u.najdulje; pom++ {
 		var a, c []float64
 		for _, t := range sati {
-			if v, ima := u.niz[t-int64(pom)]; ima {
+			if v, ima := u.prosjek(t-int64(pom), 1); ima {
 				a = append(a, v)
 				c = append(c, cilj[t])
 			}
@@ -326,33 +380,50 @@ func najboljiSam(cilj map[int64]float64, u ulazNiz, sati []int64) int {
 	return naj
 }
 
-// najboljiLagovi traži kašnjenja zadanih ulaza naizmjence: jedan se pomiče dok
-// ostali stoje, pa se krug ponovi. Potpuna pretraga svih kombinacija stajala
-// bi 73^n prolaza, a dobiva se isto — kašnjenja se međusobno slabo vuku.
-func najboljiLagovi(cilj map[int64]float64, ulazi []ulazNiz, sati []int64, pocetni, koje []int) []int {
+// Sirine su širine prozora koje se isprobavaju. Neparne su da prozor ima
+// sredinu, a rijetke pri vrhu jer se razlika između 33 i 35 sati ne vidi.
+var Sirine = []int{1, 3, 5, 7, 9, 13, 17, 21, 25, 31, 37, 43, 49}
+
+// najboljiLagovi traži kašnjenja i širine prozora zadanih ulaza naizmjence:
+// jedno se mijenja dok ostalo stoji, pa se krug ponovi. Potpuna pretraga svih
+// kombinacija stajala bi 73^n·13^n prolaza, a dobiva se isto — kašnjenje i
+// prigušenje se međusobno slabo vuku.
+func najboljiLagovi(cilj map[int64]float64, ulazi []ulazNiz, sati []int64,
+	pocetni, pocetneSirine, koje []int) ([]int, []int) {
 	lagovi := append([]int(nil), pocetni...)
-	najR2, ok := ocjena(cilj, ulazi, lagovi, sati)
-	if !ok {
-		return nil
+	sirine := append([]int(nil), pocetneSirine...)
+	if _, ok := ocjena(cilj, ulazi, lagovi, sirine, sati); !ok {
+		return nil, nil
 	}
-	// Svaki se ulaz traži na satima koje podnosi pri svakom kašnjenju, pa se
-	// kandidati uspoređuju na istome. Zato se i najbolji rezultat mjeri
-	// iznova kad se prijeđe na sljedeći ulaz.
 	for krug := 0; krug < 3; krug++ {
 		promjena := false
 		for _, i := range koje {
-			stari := lagovi[i]
-			najPom := stari
+			// Svaki se ulaz traži na satima koje podnosi pri svakom kašnjenju
+			// i svakoj širini, pa se kandidati uspoređuju na istome. Inače
+			// pobijedi ono kojem su sati lakši, a ne ono koje val doista treba.
 			usporedivi := samoPuni(ulazi[i], sati)
-			najR2, _ = ocjena(cilj, ulazi, lagovi, usporedivi)
+			najR2, ok := ocjena(cilj, ulazi, lagovi, sirine, usporedivi)
+			if !ok {
+				continue
+			}
+			stariPom, stariSir := lagovi[i], sirine[i]
+			najPom := stariPom
 			for pom := 0; pom <= ulazi[i].najdulje; pom++ {
 				lagovi[i] = pom
-				if r2, ok := ocjena(cilj, ulazi, lagovi, usporedivi); ok && r2 > najR2 {
+				if r2, ok := ocjena(cilj, ulazi, lagovi, sirine, usporedivi); ok && r2 > najR2 {
 					najR2, najPom = r2, pom
 				}
 			}
 			lagovi[i] = najPom
-			if najPom != stari {
+			najSir := stariSir
+			for _, sir := range Sirine {
+				sirine[i] = sir
+				if r2, ok := ocjena(cilj, ulazi, lagovi, sirine, usporedivi); ok && r2 > najR2 {
+					najR2, najSir = r2, sir
+				}
+			}
+			sirine[i] = najSir
+			if najPom != stariPom || najSir != stariSir {
 				promjena = true
 			}
 		}
@@ -360,12 +431,12 @@ func najboljiLagovi(cilj map[int64]float64, ulazi []ulazNiz, sati []int64, pocet
 			break
 		}
 	}
-	return lagovi
+	return lagovi, sirine
 }
 
 // ocjena vraća R² pravocrtne regresije cilja na sve ulaze pri zadanim
 // kašnjenjima. Služi samo za biranje kašnjenja — konačni pravac se lomi.
-func ocjena(cilj map[int64]float64, ulazi []ulazNiz, lagovi []int, sati []int64) (float64, bool) {
+func ocjena(cilj map[int64]float64, ulazi []ulazNiz, lagovi, sirine []int, sati []int64) (float64, bool) {
 	p := len(ulazi) + 1
 	A, b := prazneJednadzbe(p)
 	red := make([]float64, p)
@@ -374,7 +445,7 @@ func ocjena(cilj map[int64]float64, ulazi []ulazNiz, lagovi []int, sati []int64)
 	var sy, syy float64
 	n := 0
 	for _, t := range sati {
-		y, ok := uzorak(cilj, ulazi, lagovi, t, x)
+		y, ok := uzorak(cilj, ulazi, lagovi, sirine, t, x)
 		if !ok {
 			continue
 		}

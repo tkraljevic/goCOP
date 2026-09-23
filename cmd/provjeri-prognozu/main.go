@@ -33,6 +33,7 @@ func main() {
 	korak := flag.Int("korak", 12, "koliko sati između dva izdanja")
 	najdalje := flag.Int("najdalje", 96, "dokle se mjeri, u satima")
 	zapisi := flag.Bool("zapisi", false, "zapiši izmjerene promašaje u bazu prognoza")
+	glacenje := flag.Int("glacenje", 6, "koliko sati na svaku stranu pri glačanju ispravka; 0 isključuje")
 	ispravi := flag.Bool("ispravi", false, "oduzmi zapisane sustavne pomake, da se vidi vrijede li")
 	poluvijek := flag.Float64("poluvijek", prognoza.PoluvijekIspravka,
 		"za koliko sati ispravak prema mjerenju oslabi na pola; 0 isključuje")
@@ -165,12 +166,49 @@ func main() {
 			})
 		}
 	}
+	upis = zagladi(upis, *glacenje)
 	kad := fmt.Sprintf("%s..%s, svakih %d h, poluvijek %.0f h",
 		*odS, *doS, *korak, *poluvijek)
 	if err := prognoza.SpremiPromasaje(baza, upis, kad); err != nil {
 		log.Fatal(err)
 	}
 	fmt.Printf("\nzapisano %d izmjerenih promašaja\n", len(upis))
+}
+
+// zagladi izravnava ispravak po dosegu. Izmjereni pomak zna skočiti između
+// dva susjedna sata — na Belišću s 25,7 na 48,8 cm — jer lanac na tom dosegu
+// prestaje imati izmjeren ulaz za jednu kariku i prelazi na prognoziran, pa
+// pogreška naraste stubom. Stuba vrijedi za prosjek mnogih izdanja, ali jedan
+// niz ne smije po njoj skakati: rijeka ne zna da je nama ponestalo mjerenja.
+func zagladi(p []prognoza.Promasaj, sirina int) []prognoza.Promasaj {
+	if sirina <= 0 {
+		return p
+	}
+	po := map[string]map[int]prognoza.Promasaj{}
+	for _, x := range p {
+		if po[x.Letva] == nil {
+			po[x.Letva] = map[int]prognoza.Promasaj{}
+		}
+		po[x.Letva][x.DosegH] = x
+	}
+	out := make([]prognoza.Promasaj, 0, len(p))
+	for _, x := range p {
+		var zbirP, zbirR float64
+		n := 0
+		for d := x.DosegH - sirina; d <= x.DosegH+sirina; d++ {
+			s, ima := po[x.Letva][d]
+			if !ima {
+				continue
+			}
+			zbirP += s.Pomak
+			zbirR += s.Rasap
+			n++
+		}
+		x.Pomak = zbirP / float64(n)
+		x.Rasap = zbirR / float64(n)
+		out = append(out, x)
+	}
+	return out
 }
 
 type zbroj struct {

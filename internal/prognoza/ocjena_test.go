@@ -39,7 +39,7 @@ func TestOcjenaNijeNegativna(t *testing.T) {
 	ulazi := []ulazNiz{u}
 	sati := sviSati(cilj)
 	for pom := 0; pom <= 20; pom++ {
-		r2, ok := ocjena(cilj, ulazi, []int{pom}, sati)
+		r2, ok := ocjena(cilj, ulazi, []int{pom}, []int{1}, sati)
 		if !ok {
 			t.Fatalf("pomak %d: nema ocjene", pom)
 		}
@@ -55,15 +55,18 @@ func TestOcjenaNadeTocnoKasnjenje(t *testing.T) {
 	cilj, u := izmisljen(7, 2, 3)
 	ulazi := []ulazNiz{u}
 	sati := sviSati(cilj)
-	ulazi[0].puni = uvijekDostupni(ulazi[0], sati)
 
-	r2, _ := ocjena(cilj, ulazi, []int{7}, sati)
+	r2, _ := ocjena(cilj, ulazi, []int{7}, []int{1}, sati)
 	if r2 < 0.999 {
 		t.Errorf("na točnom kašnjenju R² %.4f", r2)
 	}
-	lagovi := najboljiLagovi(cilj, ulazi, sati, []int{0}, []int{0})
+	lagovi, sirine := najboljiLagovi(cilj, ulazi, sati, []int{0}, []int{1}, []int{0})
 	if lagovi[0] != 7 {
 		t.Errorf("našao kašnjenje %d umjesto 7", lagovi[0])
+	}
+	// Veza je čista, bez prigušenja, pa prozor ne smije biti širok.
+	if sirine[0] > 3 {
+		t.Errorf("zagladio prozorom od %d sati na nizu bez prigušenja", sirine[0])
 	}
 }
 
@@ -77,7 +80,7 @@ func izmisljen(pomak int, nagib, odsjecak float64) (map[int64]float64, ulazNiz) 
 	for t := int64(pomak); t < 12000; t++ {
 		cilj[t] = nagib*niz[t-int64(pomak)] + odsjecak
 	}
-	return cilj, ulazNiz{ime: "proba", velicina: "protok", niz: niz, najdulje: 20}
+	return cilj, noviUlazNiz("proba", "protok", niz, 20)
 }
 
 func sviSati(cilj map[int64]float64) []int64 {

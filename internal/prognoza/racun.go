@@ -82,6 +82,18 @@ func (n Niz) Zadnji() (int64, bool) {
 	return n.Sati[len(n.Sati)-1], true
 }
 
+// ZadnjiDo vraća zadnje očitanje koje nije kasnije od zadanog sata. Račun smije
+// posegnuti samo za onim što je u trenutku izdavanja već bilo poznato; uzeti
+// zadnje očitanje cijelog niza značilo bi, pri puštanju unatrag, čitati iz
+// budućnosti.
+func (n Niz) ZadnjiDo(t int64) (float64, bool) {
+	i := sort.Search(len(n.Sati), func(i int) bool { return n.Sati[i] > t }) - 1
+	if i < 0 {
+		return 0, false
+	}
+	return n.Iznosi[i], true
+}
+
 // Vrijednost je jedan broj u nizu, izmjeren ili izračunat.
 type Vrijednost struct {
 	Iznos    float64
@@ -92,13 +104,14 @@ type Vrijednost struct {
 // Racunalo drži sve što treba za jedan prolaz: namještene pojase, izmjerene
 // nizove i sat do kojeg se mjerenju vjeruje.
 type Racunalo struct {
-	pojasi    map[string][]Pojas
-	mjereno   map[Izvor]Niz
-	sada      int64
-	zapamceno map[kljuc]upamceno
-	uTijeku   map[kljuc]bool
-	ostaci    map[Izvor]ostatak
-	uOstatku  map[Izvor]bool
+	pojasi     map[string][]Pojas
+	poVelicini map[Izvor][]Pojas
+	mjereno    map[Izvor]Niz
+	sada       int64
+	zapamceno  map[kljuc]upamceno
+	uTijeku    map[kljuc]bool
+	ostaci     map[Izvor]ostatak
+	uOstatku   map[Izvor]bool
 }
 
 // ostatak je razlika između mjerenja i modela u trenutku izdavanja.
@@ -122,8 +135,17 @@ type kljuc struct {
 // NovoRacunalo slaže račun. Pojasi dolaze iz baze prognoza, nizovi iz
 // očitanja, a sada je zadnji sat kojem se vjeruje kao izmjerenom.
 func NovoRacunalo(pojasi map[string][]Pojas, mjereno map[Izvor]Niz, sada int64) *Racunalo {
+	po := map[Izvor][]Pojas{}
+	for letva, ps := range pojasi {
+		for _, x := range ps {
+			if len(x.Ulazi) > 0 {
+				iz := Izvor{Letva: letva, Velicina: x.Velicina}
+				po[iz] = append(po[iz], x)
+			}
+		}
+	}
 	return &Racunalo{
-		pojasi: pojasi, mjereno: mjereno, sada: sada,
+		pojasi: pojasi, poVelicini: po, mjereno: mjereno, sada: sada,
 		zapamceno: map[kljuc]upamceno{},
 		uTijeku:   map[kljuc]bool{},
 		ostaci:    map[Izvor]ostatak{},
@@ -150,6 +172,17 @@ func (r *Racunalo) U(iz Izvor, t int64) (Vrijednost, bool) {
 	if t <= r.sada {
 		if v, ima := r.mjereno[iz].U(t); ima {
 			return r.zapamti(k, Vrijednost{Iznos: v}, true)
+		}
+	}
+	// Letva bez vlastitog računa je vrh lanca: uzvodno od nje nemamo ništa.
+	// Za sate koji dolaze drži se zadnja izmjerena vrijednost. To nije
+	// prognoza nego pretpostavka da se gore ništa neće promijeniti, i ona s
+	// vremenom postaje sve slabija — ali granica dokle vrijedi ne postavlja se
+	// ovdje, nego je mjeri provjera: ondje gdje prognoza prestane pobjeđivati
+	// postojanost, prestaje i smisao izdavanja.
+	if t > r.sada && len(r.poVelicini[iz]) == 0 {
+		if v, ima := r.mjereno[iz].ZadnjiDo(r.sada); ima {
+			return r.zapamti(k, Vrijednost{Iznos: v, Prognoza: true}, true)
 		}
 	}
 	r.uTijeku[k] = true
@@ -196,16 +229,51 @@ func (r *Racunalo) ostatakZa(iz Izvor) ostatak {
 	return o
 }
 
+func (r *Racunalo) zapamti(k kljuc, v Vrijednost, ok bool) (Vrijednost, bool) {
+	r.zapamceno[k] = upamceno{v, ok}
+	return v, ok
+}
+
 // izracunaj vrti sam model, bez ispravka i bez posezanja za mjerenjem cilja.
 func (r *Racunalo) izracunaj(iz Izvor, t int64) (Vrijednost, bool) {
-	p, ima := r.pojasZa(iz, t)
+	svi := r.poVelicini[iz]
+	if len(svi) == 0 {
+		return Vrijednost{}, false
+	}
+	prvi := svi[0].Ulazi[0]
+	glavni := Izvor{Letva: prvi.Letva, Velicina: prvi.Velicina}
+
+	// Kašnjenje ovisi o vodnosti, a vodnost se čita tek kad se zna kašnjenje.
+	// Krene se od kašnjenja prvog pojasa pa se popravi; dva kruga su dosta jer
+	// je kašnjenje po vodnosti blago.
+	pomak := float64(prvi.PomakH)
+	var glavna Vrijednost
+	for krug := 0; krug < 3; krug++ {
+		v, ok := r.uPomaku(glavni, t, pomak, prvi.Sirina)
+		if !ok {
+			return Vrijednost{}, false
+		}
+		glavna = v
+		novi := Kasnjenje(svi, v.Iznos)
+		if math.Abs(novi-pomak) < 0.01 {
+			break
+		}
+		pomak = novi
+	}
+
+	p, ima := ZaVrijednost(svi, glavna.Iznos)
 	if !ima {
 		return Vrijednost{}, false
 	}
 	iznosi := make([]float64, len(p.Ulazi))
 	raspon := p.Rasap * p.Rasap
-	for i, u := range p.Ulazi {
-		v, ok := r.U(Izvor{u.Letva, u.Velicina}, t-int64(u.PomakH))
+	iznosi[0] = glavna.Iznos
+	raspon += (p.Ulazi[0].Nagib * glavna.Raspon) * (p.Ulazi[0].Nagib * glavna.Raspon)
+	// Sporedni ulazi imaju jedno kašnjenje za sve pojase, pa se čitaju ravno.
+	for i := 1; i < len(p.Ulazi); i++ {
+		u := p.Ulazi[i]
+		v, ok := r.uPomaku(Izvor{Letva: u.Letva, Velicina: u.Velicina},
+			t, float64(u.PomakH), u.Sirina)
 		if !ok {
 			return Vrijednost{}, false
 		}
@@ -219,42 +287,77 @@ func (r *Racunalo) izracunaj(iz Izvor, t int64) (Vrijednost, bool) {
 	return Vrijednost{Iznos: iznos, Raspon: math.Sqrt(raspon), Prognoza: true}, true
 }
 
-func (r *Racunalo) zapamti(k kljuc, v Vrijednost, ok bool) (Vrijednost, bool) {
-	r.zapamceno[k] = upamceno{v, ok}
-	return v, ok
+// Kasnjenje je koliko val putuje pri zadanoj vodnosti glavnog ulaza. Između
+// pojasa se prelijeva pravocrtno, jer se kašnjenje s vodnošću mijenja polako, a
+// po pojasu bi skakalo: na Terezinu Polju ide s 10 na 16 sati, i taj skok na
+// hidroelektranskom valu pomakne očitanje za pola vala — prognoza mu je iz sata
+// u sat poskakivala i po 50 m³/s, a Belišću i po pola metra.
+func Kasnjenje(pojasi []Pojas, vrijednost float64) float64 {
+	if len(pojasi) == 0 {
+		return 0
+	}
+	pomak := func(p Pojas) float64 { return float64(p.Ulazi[0].PomakH) }
+	sredina := func(p Pojas) float64 { return (p.Od + p.Do) / 2 }
+	if vrijednost <= sredina(pojasi[0]) {
+		return pomak(pojasi[0])
+	}
+	for i := 1; i < len(pojasi); i++ {
+		a, b := pojasi[i-1], pojasi[i]
+		if sirina := sredina(b) - sredina(a); vrijednost <= sredina(b) && sirina > 0 {
+			u := (vrijednost - sredina(a)) / sirina
+			return pomak(a) + u*(pomak(b)-pomak(a))
+		}
+	}
+	return pomak(pojasi[len(pojasi)-1])
 }
 
-// pojasZa bira pojas kojem pripada vrijednost glavnog ulaza. Kašnjenje se
-// razlikuje po pojasu, pa se glavni ulaz čita onoliko unatrag koliko taj pojas
-// traži — i tek se onda gleda pripada li mu.
-func (r *Racunalo) pojasZa(iz Izvor, t int64) (Pojas, bool) {
-	svi := r.pojasi[iz.Letva]
-	var moguci []Pojas
-	for _, p := range svi {
-		if p.Velicina != iz.Velicina || len(p.Ulazi) == 0 {
-			continue
-		}
-		g := p.Ulazi[0]
-		v, ok := r.U(Izvor{g.Letva, g.Velicina}, t-int64(g.PomakH))
+// uPomaku čita ulaz s kašnjenjem koje ne mora biti cijeli broj sati, kao
+// prosjek prozora koji mu prethodi. Kašnjenje se zaokruživanjem opet lomi, pa
+// se prelijeva između dva susjedna sata; prozor guši kratke valove koje rijeka
+// na putu izgubi.
+func (r *Racunalo) uPomaku(iz Izvor, t int64, pomak float64, sirina int) (Vrijednost, bool) {
+	dolje := int64(math.Floor(pomak))
+	gore := int64(math.Ceil(pomak))
+	blize, ok := r.prosjek(iz, t, dolje, sirina)
+	if !ok {
+		return Vrijednost{}, false
+	}
+	if gore == dolje {
+		return blize, true
+	}
+	dalje, ok := r.prosjek(iz, t, gore, sirina)
+	if !ok {
+		return Vrijednost{}, false
+	}
+	u := pomak - float64(dolje)
+	return Vrijednost{
+		Iznos:    blize.Iznos + u*(dalje.Iznos-blize.Iznos),
+		Raspon:   blize.Raspon + u*(dalje.Raspon-blize.Raspon),
+		Prognoza: blize.Prognoza || dalje.Prognoza,
+	}, true
+}
+
+// prosjek je srednja vrijednost prozora koji završava u satu t-pomak. Promašaji
+// susjednih sati nisu neovisni — isti val ih nosi — pa se raspon ne smanjuje
+// prosjekom, nego ostaje najveći od njih.
+func (r *Racunalo) prosjek(iz Izvor, t, pomak int64, sirina int) (Vrijednost, bool) {
+	if sirina < 1 {
+		sirina = 1
+	}
+	var zbroj, najRaspon float64
+	prognoza := false
+	for k := int64(0); k < int64(sirina); k++ {
+		v, ok := r.U(iz, t-pomak-k)
 		if !ok {
-			continue
+			return Vrijednost{}, false
 		}
-		if p.Vrijedi(v.Iznos) {
-			return p, true
+		zbroj += v.Iznos
+		if v.Raspon > najRaspon {
+			najRaspon = v.Raspon
 		}
-		moguci = append(moguci, p)
+		prognoza = prognoza || v.Prognoza
 	}
-	// Voda kakvu nismo vidjeli: uzima se najbliži rub. Prognoza ondje nije
-	// pouzdana, ali šutjeti o njoj bilo bi gore — raspon uz nju to i kaže.
-	if len(moguci) == 0 {
-		return Pojas{}, false
-	}
-	g := moguci[0].Ulazi[0]
-	v, _ := r.U(Izvor{g.Letva, g.Velicina}, t-int64(g.PomakH))
-	if v.Iznos < moguci[0].Od {
-		return moguci[0], true
-	}
-	return moguci[len(moguci)-1], true
+	return Vrijednost{Iznos: zbroj / float64(sirina), Raspon: najRaspon, Prognoza: prognoza}, true
 }
 
 // Izdana je jedna prognozirana vrijednost, onakva kakva ide u zapis.

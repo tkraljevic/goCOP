@@ -53,6 +53,12 @@ CREATE TABLE IF NOT EXISTS ulazi (
 	uzvodna     TEXT NOT NULL,
 	uz_velicina TEXT NOT NULL,         -- ne mora biti ista: Letenye daje cm, Botovo m³/s
 	pomak_h     INTEGER NOT NULL,
+	-- Koliko sati unatrag se ulaz prosječi prije nego uđe u račun. Rijeka
+	-- kratke valove guši: dnevni val hidroelektrane nosi na Donjoj Dubravi
+	-- 21,6 m³/s promjene po satu, a Belišće se nikad nije pomaknulo više od 9
+	-- cm. Bez prozora pomak i množenje val samo prenesu, pa prognoza poskakuje
+	-- kako ta letva ne poznaje.
+	sirina_h    INTEGER NOT NULL DEFAULT 1,
 	nagib       REAL NOT NULL,
 	PRIMARY KEY (letva, velicina, pojas_od, redni)
 ) WITHOUT ROWID;
@@ -127,7 +133,9 @@ func Otvori(put string) (*sql.DB, error) {
 // stupce. CREATE TABLE IF NOT EXISTS zatečenu tablicu ne dira, pa bi inače
 // baza nastala jučer danas pucala na upisu.
 func uskladi(db *sql.DB) error {
-	for tablica, stupac := range map[string]string{"izdane": "velicina", "tude": "vrijednost"} {
+	// Pojasi i ulazi su izračunati podaci: namjesti-prognozu ih izgradi iznova.
+	for tablica, stupac := range map[string]string{
+		"izdane": "velicina", "tude": "vrijednost", "ulazi": "sirina_h"} {
 		ima, err := imaStupac(db, tablica, stupac)
 		if err != nil {
 			return err
@@ -137,8 +145,14 @@ func uskladi(db *sql.DB) error {
 		}
 		// Prognoza je račun, ne zapis: izgubi li se, ponovno se izračuna iz
 		// istih ulaza. Zato se stara tablica smije jednostavno odbaciti.
-		if _, err := db.Exec(`DROP TABLE ` + tablica); err != nil {
-			return fmt.Errorf("uklanjanje stare tablice %s: %w", tablica, err)
+		odbaci := []string{tablica}
+		if tablica == "ulazi" {
+			odbaci = append(odbaci, "pojasi") // idu zajedno; bez ulaza pojas ništa ne znači
+		}
+		for _, x := range odbaci {
+			if _, err := db.Exec(`DROP TABLE IF EXISTS ` + x); err != nil {
+				return fmt.Errorf("uklanjanje stare tablice %s: %w", x, err)
+			}
 		}
 		if _, err := db.Exec(shema); err != nil {
 			return fmt.Errorf("ponovna gradnja %s: %w", tablica, err)
@@ -170,6 +184,7 @@ type Ulaz struct {
 	Letva    string
 	Velicina string
 	PomakH   int
+	Sirina   int // koliko sati unatrag se prosječi; 1 je bez glačanja
 	Nagib    float64
 }
 
@@ -237,9 +252,9 @@ func Spremi(db *sql.DB, pojasi []Pojas, kad string) error {
 		}
 		for i, u := range p.Ulazi {
 			if _, err := tx.Exec(`INSERT INTO ulazi
-				(letva, velicina, pojas_od, redni, uzvodna, uz_velicina, pomak_h, nagib)
-				VALUES (?,?,?,?,?,?,?,?)`,
-				p.Letva, p.Velicina, p.Od, i, u.Letva, u.Velicina, u.PomakH, u.Nagib); err != nil {
+				(letva, velicina, pojas_od, redni, uzvodna, uz_velicina, pomak_h, sirina_h, nagib)
+				VALUES (?,?,?,?,?,?,?,?,?)`,
+				p.Letva, p.Velicina, p.Od, i, u.Letva, u.Velicina, u.PomakH, u.Sirina, u.Nagib); err != nil {
 				return fmt.Errorf("ulaz %s ← %s: %w", p.Letva, u.Letva, err)
 			}
 		}
@@ -278,7 +293,7 @@ func ZaLetvu(db *sql.DB, letva string) ([]Pojas, error) {
 }
 
 func ulaziPojasa(db *sql.DB, p Pojas) ([]Ulaz, error) {
-	r, err := db.Query(`SELECT uzvodna, uz_velicina, pomak_h, nagib FROM ulazi
+	r, err := db.Query(`SELECT uzvodna, uz_velicina, pomak_h, sirina_h, nagib FROM ulazi
 		WHERE letva = ? AND velicina = ? AND pojas_od = ? ORDER BY redni`,
 		p.Letva, p.Velicina, p.Od)
 	if err != nil {
@@ -288,7 +303,7 @@ func ulaziPojasa(db *sql.DB, p Pojas) ([]Ulaz, error) {
 	var out []Ulaz
 	for r.Next() {
 		var u Ulaz
-		if err := r.Scan(&u.Letva, &u.Velicina, &u.PomakH, &u.Nagib); err != nil {
+		if err := r.Scan(&u.Letva, &u.Velicina, &u.PomakH, &u.Sirina, &u.Nagib); err != nil {
 			return nil, err
 		}
 		out = append(out, u)

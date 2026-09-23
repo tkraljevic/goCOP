@@ -208,8 +208,8 @@ func namjesti(arhiva *sql.DB, r Racun) []prognoza.Pojas {
 		fmt.Printf("   %8.0f – %8.0f %-4s  r %.3f   rasap %7.1f %-4s  (%d sati)\n",
 			p.Od, p.Do, jedinica(p.Ulazi[0].Velicina), p.R, p.Rasap, jedinica(p.Velicina), p.Sati)
 		for _, u := range p.Ulazi {
-			fmt.Printf("        %-16s -%2d h   nagib %6.2f %s\n",
-				u.Letva, u.PomakH, u.Nagib, poJedinici(p.Velicina, u.Velicina))
+			fmt.Printf("        %-16s -%2d h   prozor %2d h   nagib %6.2f %s\n",
+				u.Letva, u.PomakH, u.Sirina, u.Nagib, poJedinici(p.Velicina, u.Velicina))
 		}
 	}
 	return pojasi

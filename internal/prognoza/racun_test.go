@@ -25,27 +25,34 @@ func ravanNiz(od, do int64, pocetak, korak float64) Niz {
 	return NoviNiz(v)
 }
 
-// Lanac mora stati ondje gdje mu ponestane ulaza, i ni sat dalje. To nije
-// nedostatak nego doseg: bez oborine dalje od toga nema što reći.
-func TestLanacStaneKadNestaneUlaza(t *testing.T) {
+// Vrh lanca nema svoj račun, pa se za sate koji dolaze drži njegova zadnja
+// vrijednost. Prije toga lanac je na tom satu jednostavno stao — a stao bi
+// prerano: doseg određuje najranija voda koja stigne, ne prosječna, pa je
+// prigušenje prozorom doseg prepolovilo. Dokle pretpostavka vrijedi ne
+// postavlja se ovdje nego se mjeri provjerom.
+func TestVrhLancaSeDrziZadnjeVrijednosti(t *testing.T) {
 	PoluvijekIspravka = 0
 	sada := int64(1000)
-	nizovi := map[Izvor]Niz{
-		{Letva: "gornja", Velicina: "vodostaj"}: ravanNiz(900, sada, 100, 1),
-	}
+	gornja := Izvor{Letva: "gornja", Velicina: "vodostaj"}
+	nizovi := map[Izvor]Niz{gornja: ravanNiz(900, sada, 100, 1)}
 	r := NovoRacunalo(lanac(1, 0, 5, 3), nizovi, sada)
-	izdane, err := r.Prognoziraj("donja", 96, "proba")
+	izdane, err := r.Prognoziraj("donja", 12, "proba")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(izdane) != 5 {
-		t.Fatalf("doseg %d sati umjesto 5", len(izdane))
+	if len(izdane) != 12 {
+		t.Fatalf("doseg %d sati umjesto 12", len(izdane))
 	}
-	// Zadnja prognoza računa se iz gornje letve u samom satu izdavanja.
-	zadnja := izdane[len(izdane)-1]
-	gornja, _ := nizovi[Izvor{Letva: "gornja", Velicina: "vodostaj"}].U(sada)
-	if math.Abs(zadnja.Vrijednost-gornja) > 1e-9 {
-		t.Errorf("na +5 h %g umjesto %g", zadnja.Vrijednost, gornja)
+	zadnja, _ := nizovi[gornja].U(sada)
+	// Dok ima izmjerenog, prognoza ga slijedi.
+	if d := math.Abs(izdane[0].Vrijednost - (zadnja - 4)); d > 1e-9 {
+		t.Errorf("na +1 h %g umjesto %g", izdane[0].Vrijednost, zadnja-4)
+	}
+	// Od +5 h nadalje gornja letva stoji, pa stoji i donja.
+	for i := 4; i < len(izdane); i++ {
+		if d := math.Abs(izdane[i].Vrijednost - zadnja); d > 1e-9 {
+			t.Fatalf("na +%d h %g umjesto %g", i+1, izdane[i].Vrijednost, zadnja)
+		}
 	}
 }
 
@@ -103,5 +110,29 @@ func TestPrevelikaRupaSeNePremoscuje(t *testing.T) {
 	}
 	if _, ima := n.U(200 + NajveciRazmak/2); ima {
 		t.Error("duga rupa je premoštena")
+	}
+}
+
+// Račun smije posegnuti samo za onim što je u trenutku izdavanja bilo poznato.
+// Kad se prognoza pušta unatrag po arhivi, niz ima i kasnija očitanja — i ako
+// se uzme zadnje od njih, čita se iz budućnosti. Aljmašu je tako ispao pomak od
+// 287 cm, a izgledalo je kao da produžetak uzvodne letve ne valja.
+func TestVrhLancaNeCitaIzBuducnosti(t *testing.T) {
+	PoluvijekIspravka = 0
+	sada := int64(1000)
+	gornja := Izvor{Letva: "gornja", Velicina: "vodostaj"}
+	// Niz ide i daleko poslije sata izdavanja, i ondje je posve drugačiji.
+	n := ravanNiz(900, sada+500, 100, 1)
+	r := NovoRacunalo(lanac(1, 0, 5, 3), map[Izvor]Niz{gornja: n}, sada)
+	izdane, err := r.Prognoziraj("donja", 12, "proba")
+	if err != nil || len(izdane) != 12 {
+		t.Fatalf("doseg %d, %v", len(izdane), err)
+	}
+	uIzdanju, _ := n.U(sada)
+	for i := 4; i < len(izdane); i++ {
+		if izdane[i].Vrijednost > uIzdanju+1e-9 {
+			t.Fatalf("na +%d h %g, iznad %g poznatog u trenutku izdavanja",
+				i+1, izdane[i].Vrijednost, uIzdanju)
+		}
 	}
 }
