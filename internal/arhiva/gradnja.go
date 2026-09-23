@@ -1190,6 +1190,7 @@ var zadaniIzvori = []Izvor{
 	// događa, praznina se popunjava radarom umjesto da ostane rupa.
 	{"geolux-radar", 5, 21, false, "", "rezervni radarski zapisivač iste postaje; kod Tikveša je prvu godinu pratio tlačni unutar 2 cm, a onda odlutao do 22 cm i u svibnju 2026. utihnuo — zato stoji isključen dok se ne provjeri po razdobljima"},
 	{"pegelonline", 5, 20, true, "", "javni operativni vodostaji; u arhivu se uzimaju stvarna očitanja na punom satu"},
+	{"viadonau", 5, 20, true, "", "austrijski Dunav od Achleitena do Thebnerstraßla, javni satni vodostaji od 2012. (od 2024. svakih 15 minuta, u arhivu puni sat); lokalno vrijeme, sat po sat isto što i PegelOnline; točnost proglašena, ne izmjerena"},
 	// Hidroelektrana mjeri vlastito istjecanje i taj broj nitko drugi ne
 	// mjeri. Kad takav niz stoji uz letvu, u imenu izvora piše koja ga je
 	// elektrana dala: vrijednost nije očitana na letvi nego na elektrani, a
