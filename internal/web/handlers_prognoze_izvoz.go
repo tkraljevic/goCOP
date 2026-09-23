@@ -39,8 +39,10 @@ func listPrognoze(k *xlsxw.Knjiga, z ZaglavljeIzvoza, data PrognozePageData, t T
 	l := k.NoviList(t.Naslov)
 	l.Vodoravno = true
 	l.Sirine = []float64{14, 8}
-	for range letve {
-		l.Sirine = append(l.Sirine, 9)
+	for _, x := range letve {
+		ime, _ := imeIDrzava(x.Naziv)
+		l.Sirine = append(l.Sirine, max(10, float64(len([]rune(ime)))+2,
+			float64(len([]rune(drugiRedak(x, t.Naslov))))+2))
 	}
 	zaglavljeLista(l, z, "PROGNOZA VODOSTAJA — "+t.Naslov,
 		"izdano "+data.Izdano+" · dani za 07 h · vodostaj u cm, protok u m³/s", stupaca)
@@ -49,20 +51,19 @@ func listPrognoze(k *xlsxw.Knjiga, z ZaglavljeIzvoza, data PrognozePageData, t T
 	r := l.Redak()
 	red := []xlsxw.Celija{T("Termin", xlsxw.Zaglavlje), T("", xlsxw.Zaglavlje)}
 	for _, x := range letve {
-		red = append(red, T(x.Naziv, xlsxw.Zaglavlje))
+		ime, _ := imeIDrzava(x.Naziv)
+		red = append(red, T(ime, xlsxw.Zaglavlje))
 	}
 	l.Dodaj(red...)
-	l.Visina(r, 42)
-	red = []xlsxw.Celija{T("", xlsxw.Tablica), T("", xlsxw.Tablica)}
+	l.Visina(r, 24)
+	// Drugi redak: država kraticom (naše letve bez nje), voda gdje nije ista
+	// kao naslov lista, i riječni kilometar.
+	red = []xlsxw.Celija{T("", xlsxw.Tablica), T("rkm", xlsxw.TablicaSredina)}
 	for _, x := range letve {
-		opis := x.Voda
-		if x.Stacionaza != "" {
-			opis += " " + x.Stacionaza
-		}
-		red = append(red, T(opis, xlsxw.Napomena))
+		red = append(red, T(drugiRedak(x, t.Naslov), xlsxw.TablicaSredina))
 	}
 	l.Dodaj(red...)
-	l.Visina(l.Redak()-1, 26)
+	l.Visina(l.Redak()-1, 18)
 	l.PonoviRetke(r, r+1)
 
 	broj := func(v *float64, stil int) xlsxw.Celija {
@@ -203,3 +204,40 @@ func (h *PrognozeHandler) zaglavljeIzvoza(u *models.User) ZaglavljeIzvoza {
 }
 
 func tekstBroja(n int) string { return brojHRf(float64(n), 0) }
+
+// drzave su kratice za zagradu u nazivu strane letve.
+var drzave = map[string]string{
+	"Mađarska": "HU", "Srbija": "RS", "Slovačka": "SK", "Slovenija": "SI", "Austrija": "AT",
+}
+
+// imeIDrzava rastavlja „Komárom (Mađarska)" na ime i kraticu države; naša
+// letva nema zagradu i vraća samo ime.
+func imeIDrzava(naziv string) (string, string) {
+	i := strings.LastIndex(naziv, " (")
+	if i < 0 || !strings.HasSuffix(naziv, ")") {
+		return naziv, ""
+	}
+	drzava := naziv[i+2 : len(naziv)-1]
+	if k, ima := drzave[drzava]; ima {
+		drzava = k
+	}
+	return naziv[:i], drzava
+}
+
+// drugiRedak je ono što pod imenom letve stoji u zaglavlju: država kraticom
+// (naše letve bez nje), voda ondje gdje nije ista kao naslov lista, i riječni
+// kilometar bez „rkm", koji stoji jednom, u oznaci retka.
+func drugiRedak(x LetvaPrognoze, naslovLista string) string {
+	_, drzava := imeIDrzava(x.Naziv)
+	var d []string
+	if drzava != "" {
+		d = append(d, drzava)
+	}
+	if x.Voda != "" && !strings.Contains(naslovLista, x.Voda) {
+		d = append(d, x.Voda)
+	}
+	if km := strings.TrimSpace(strings.TrimPrefix(x.Stacionaza, "rkm")); km != "" {
+		d = append(d, km)
+	}
+	return strings.Join(d, " · ")
+}
