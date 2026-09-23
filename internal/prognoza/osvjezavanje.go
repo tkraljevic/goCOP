@@ -29,6 +29,9 @@ type Osvjezivac struct {
 	Arhiva   *sql.DB // arhiva, zbog krivulja protoka
 	Najdalje int     // dokle se računa, u satima
 	Model    string  // oznaka pod kojom se prognoza zapisuje
+	// Iznova računa i kad je za taj sat prognoza već izdana. Treba nakon
+	// namještanja: bez toga se učinak novih pojasa ne vidi do idućeg sata.
+	Iznova bool
 }
 
 // Ishod je što je jedno osvježavanje dalo.
@@ -110,7 +113,7 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 			ishod.Vrhovi[iz] = z
 		}
 	}
-	if zadnje, ima, err := ZadnjeIzdanje(o.Baza); err == nil && ima && zadnje == sada {
+	if zadnje, ima, err := ZadnjeIzdanje(o.Baza); err == nil && ima && zadnje == sada && !o.Iznova {
 		ishod.Preskoceno = true
 		return ishod, nil
 	}

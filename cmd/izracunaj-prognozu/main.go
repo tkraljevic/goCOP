@@ -51,7 +51,7 @@ func main() {
 	defer arhiva.Close()
 
 	o := &prognoza.Osvjezivac{Baza: baza, Ocitanja: ocitanja, Arhiva: arhiva,
-		Najdalje: *najdalje, Model: prognoza.ModelLanac}
+		Najdalje: *najdalje, Model: prognoza.ModelLanac, Iznova: *iznova}
 	ishod, err := o.Osvjezi(context.Background())
 	if err != nil {
 		log.Fatal(err)

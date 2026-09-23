@@ -168,3 +168,31 @@ func TestIshodBrojiLetveIZaostatak(t *testing.T) {
 		t.Errorf("zaostatak %v, očekivano 3h", z)
 	}
 }
+
+// Nakon namještanja isti sat treba preračunati, inače se učinak novih pojasa
+// ne vidi do idućeg očitanja. Zastavica je jednom već bila mrtva: naredba ju
+// je imala, Osvjezivac nije, pa je -iznova samo ispisivala praznu tablicu.
+func TestIznovaPreracunavaIstiSat(t *testing.T) {
+	PoluvijekIspravka = 0
+	zadnji := time.Now().UTC().Truncate(time.Hour)
+	o := probniOsvjezivac(t, probneOcitanja(t, 48, zadnji))
+	prvi, err := o.Osvjezi(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := o.Zapisi(prvi); err != nil {
+		t.Fatal(err)
+	}
+	o.Iznova = true
+	drugi, err := o.Osvjezi(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if drugi.Preskoceno {
+		t.Fatal("-iznova je ipak preskočilo isti sat")
+	}
+	if len(drugi.Izdane) != len(prvi.Izdane) {
+		t.Errorf("preračunato %d vrijednosti, prvi put %d",
+			len(drugi.Izdane), len(prvi.Izdane))
+	}
+}
