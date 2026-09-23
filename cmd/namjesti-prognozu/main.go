@@ -51,6 +51,21 @@ var Velicine = map[string]string{
 	"osijek":         "vodostaj",
 	"siga":           "vodostaj",
 	"petres":         "vodostaj",
+	// Mađarske letve uzvodno od Batine i uz lijevu obalu Drave. Nisu naše, ali
+	// su na istoj vodi i imaju satnu povijest — a val ne mari za granicu.
+	"nagybajcs":     "vodostaj",
+	"esztergom":     "vodostaj",
+	"budapest":      "vodostaj",
+	"dunafoldvar":   "vodostaj",
+	"paks":          "vodostaj",
+	"baja":          "vodostaj",
+	"dunaszekcso":   "vodostaj",
+	"mohacs":        "vodostaj",
+	"szentborbas":   "vodostaj",
+	"dravaszabolcs": "vodostaj",
+	"ortilos":       "vodostaj",
+	"vizvar":        "vodostaj",
+	"barcs":         "vodostaj",
 }
 
 // Racun je jedna letva i ono iz čega se računa. Prvi ulaz je glavni tok: po
@@ -74,12 +89,30 @@ var Tokovi = []struct {
 		{"botovo", []string{"donja-dubrava", "letenye"}},
 		{"novo-virje", []string{"botovo"}},
 		{"terezino-polje", []string{"novo-virje"}},
-		{"vrbovka", []string{"terezino-polje"}},
+		// Szentborbás i Drávaszabolcs leže na samoj Dravi, između naših letvi,
+		// pa ulaze kao karike a ne kao sporedni ulazi. Kao sporedni ulaz letva
+		// nema vlastiti račun, pa je se na dugom dosegu drži nepomičnom — i to
+		// košta više nego što u namještanju donese: Belišće je tako na 48 sati
+		// palo s 18,9 na 26,0 cm.
+		{"szentborbas", []string{"terezino-polje"}},
+		{"vrbovka", []string{"szentborbas"}},
 		{"moslavina", []string{"vrbovka"}},
 		{"donji-miholjac", []string{"moslavina"}},
-		{"belisce", []string{"donji-miholjac"}},
+		{"dravaszabolcs", []string{"donji-miholjac"}},
+		{"belisce", []string{"dravaszabolcs"}},
 	}},
 	{"Dunav", []Racun{
+		// Uzvodno od Batine ide niz mađarskih letvi. Batina je dugo bila vrh
+		// lanca, ali samo zato što se nije pogledalo iznad nje: Mohács je 22 km
+		// uzvodno, a Esztergom 294. Zbroj kašnjenja od Esztergoma do Batine je
+		// 45–66 sati, i to nasljeđuje cijeli krak nizvodno.
+		{"budapest", []string{"esztergom"}},
+		{"dunafoldvar", []string{"budapest"}},
+		{"paks", []string{"dunafoldvar"}},
+		{"baja", []string{"paks"}},
+		{"dunaszekcso", []string{"baja"}},
+		{"mohacs", []string{"dunaszekcso"}},
+		{"batina", []string{"mohacs"}},
 		// Drava se ulijeva u Dunav kod Aljmaša, pa Aljmaš nije samo dunavska
 		// letva. Ovdje se dva kraka sastaju.
 		{"aljmas", []string{"batina", "belisce"}},

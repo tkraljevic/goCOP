@@ -149,3 +149,50 @@ func TestVrhLancaNeCitaIzBuducnosti(t *testing.T) {
 		}
 	}
 }
+
+// Letva kojoj mjerenje otkaže ne smije zaustaviti lanac: račun je izračuna iz
+// njezinih uzvodnih i nastavi dalje. Zato gusti lanac nije samo doseg nego i
+// zaliha — kad jedna letva stane, susjedna je pokriva.
+func TestLetvaBezMjerenjaNeZaustavljaLanac(t *testing.T) {
+	PoluvijekIspravka = 0
+	sada := int64(1000)
+	gornja := Izvor{Letva: "gornja", Velicina: "vodostaj"}
+	srednja := Izvor{Letva: "srednja", Velicina: "vodostaj"}
+	donja := Izvor{Letva: "donja", Velicina: "vodostaj"}
+
+	pojasi := map[string][]Pojas{
+		"srednja": {{Letva: "srednja", Velicina: "vodostaj", Od: -1000, Do: 1000, Rasap: 2,
+			Ulazi: []Ulaz{{Letva: "gornja", Velicina: "vodostaj", PomakH: 3, Sirina: 1, Nagib: 1}}}},
+		"donja": {{Letva: "donja", Velicina: "vodostaj", Od: -1000, Do: 1000, Rasap: 3,
+			Ulazi: []Ulaz{{Letva: "srednja", Velicina: "vodostaj", PomakH: 4, Sirina: 1, Nagib: 1}}}},
+	}
+	// Srednja letva ne šalje ništa — telemetrija joj je stala.
+	nizovi := map[Izvor]Niz{
+		gornja: ravanNiz(900, sada, 100, 1),
+		donja:  ravanNiz(900, sada, 100, 1),
+	}
+	r := NovoRacunalo(pojasi, nizovi, sada)
+	izdane, err := r.Prognoziraj("donja", 12, "proba")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Doseg je zbroj kašnjenja obiju karika, iako srednja ne mjeri ništa.
+	if len(izdane) < 8 {
+		t.Fatalf("doseg %d sati; srednja letva je zaustavila lanac", len(izdane))
+	}
+	if _, ok := nizovi[srednja]; ok {
+		t.Fatal("proba je pogrešno postavljena: srednja letva ipak ima niz")
+	}
+	// I sama srednja letva mora dati vrijednost, računatu iz gornje.
+	v, ok := r.U(srednja, sada)
+	if !ok {
+		t.Fatal("srednja letva bez mjerenja nije izračunata")
+	}
+	uGornjoj, _ := nizovi[gornja].U(sada - 3)
+	if math.Abs(v.Iznos-uGornjoj) > 1e-9 {
+		t.Errorf("srednja izračunata %g, a gornja prije tri sata je %g", v.Iznos, uGornjoj)
+	}
+	if !v.Prognoza {
+		t.Error("izračunata vrijednost nije označena kao računata")
+	}
+}
