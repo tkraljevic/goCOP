@@ -186,9 +186,13 @@ func listPrognoze(k *xlsxw.Knjiga, z ZaglavljeIzvoza, data PrognozePageData, t T
 		}
 	}
 	l.Dodaj()
-	napomenaLista(l, "Naša prognoza: satni lanac prve dane, dnevni model dalje, već prema tome koji je za tu "+
+	izdaje := "Prognoza centra obrane"
+	if z.Centar != "" {
+		izdaje = "Prognoza " + z.Centar
+	}
+	napomenaLista(l, izdaje+": satni lanac prve dane, dnevni model dalje, već prema tome koji je za tu "+
 		"letvu provjerom točniji (redak „model”). Raspon je ± kad je simetričan, a granice kad je prošao kroz "+
-		"krivulju protoka. HU je prognoza mađarske službe (hydroinfo.hu), RS srpske (hidmet.gov.rs) — nisu naše.",
+		"krivulju protoka. HU je prognoza mađarske službe (hydroinfo.hu) i nije naša.",
 		stupaca, 30)
 	potpisiLista(l, z, max(stupaca, 8), z.Potpisnici) // dva potpisa trebaju mjesta i kad je letvi malo
 }
