@@ -104,6 +104,11 @@ CREATE TABLE IF NOT EXISTS dnevne (
 	vrijednost REAL NOT NULL,         -- cm
 	dolje      REAL NOT NULL,
 	gore       REAL NOT NULL,
+	-- Protok iz krivulje letve, s granicama provučenima kroz nju; NULL gdje
+	-- krivulje nema.
+	protok       REAL,
+	protok_dolje REAL,
+	protok_gore  REAL,
 	model      TEXT NOT NULL,
 	PRIMARY KEY (letva, izdano, dan)
 ) WITHOUT ROWID;
@@ -165,7 +170,7 @@ func Otvori(put string) (*sql.DB, error) {
 func uskladi(db *sql.DB) error {
 	// Pojasi i ulazi su izračunati podaci: namjesti-prognozu ih izgradi iznova.
 	for tablica, stupac := range map[string]string{
-		"izdane": "gore", "tude": "vrijednost", "ulazi": "sirina_h"} {
+		"izdane": "gore", "tude": "vrijednost", "ulazi": "sirina_h", "dnevne": "protok"} {
 		ima, err := imaStupac(db, tablica, stupac)
 		if err != nil {
 			return err
@@ -371,13 +376,18 @@ func SpremiDnevne(db *sql.DB, dnevne []DnevnaIzdana) error {
 	}
 	defer tx.Rollback()
 	for _, d := range dnevne {
+		var q, qd, qg any
+		if d.ImaQ {
+			q, qd, qg = d.Q, d.QDolje, d.QGore
+		}
 		if _, err := tx.Exec(`INSERT INTO dnevne
-			(letva, izdano, dan, ciljni, vrijednost, dolje, gore, model)
-			VALUES (?,?,?,?,?,?,?,?)
+			(letva, izdano, dan, ciljni, vrijednost, dolje, gore, protok, protok_dolje, protok_gore, model)
+			VALUES (?,?,?,?,?,?,?,?,?,?,?)
 			ON CONFLICT(letva, izdano, dan) DO UPDATE SET ciljni=excluded.ciljni,
 				vrijednost=excluded.vrijednost, dolje=excluded.dolje, gore=excluded.gore,
-				model=excluded.model`,
-			d.Letva, d.Izdano, d.Dan, d.Ciljni, d.Vrijednost, d.Dolje, d.Gore, d.Model); err != nil {
+				protok=excluded.protok, protok_dolje=excluded.protok_dolje,
+				protok_gore=excluded.protok_gore, model=excluded.model`,
+			d.Letva, d.Izdano, d.Dan, d.Ciljni, d.Vrijednost, d.Dolje, d.Gore, q, qd, qg, d.Model); err != nil {
 			return fmt.Errorf("dnevna %s, %d. dan: %w", d.Letva, d.Dan, err)
 		}
 	}
@@ -390,7 +400,8 @@ func ZadnjeDnevno(db *sql.DB) (int64, map[string][]DnevnaIzdana, error) {
 	if err := db.QueryRow(`SELECT max(izdano) FROM dnevne`).Scan(&izdano); err != nil || !izdano.Valid {
 		return 0, nil, err
 	}
-	r, err := db.Query(`SELECT letva, izdano, dan, ciljni, vrijednost, dolje, gore, model
+	r, err := db.Query(`SELECT letva, izdano, dan, ciljni, vrijednost, dolje, gore,
+		protok, protok_dolje, protok_gore, model
 		FROM dnevne WHERE izdano = ? ORDER BY letva, dan`, izdano.Int64)
 	if err != nil {
 		return 0, nil, err
@@ -399,9 +410,13 @@ func ZadnjeDnevno(db *sql.DB) (int64, map[string][]DnevnaIzdana, error) {
 	out := map[string][]DnevnaIzdana{}
 	for r.Next() {
 		var d DnevnaIzdana
+		var q, qd, qg sql.NullFloat64
 		if err := r.Scan(&d.Letva, &d.Izdano, &d.Dan, &d.Ciljni, &d.Vrijednost,
-			&d.Dolje, &d.Gore, &d.Model); err != nil {
+			&d.Dolje, &d.Gore, &q, &qd, &qg, &d.Model); err != nil {
 			return 0, nil, err
+		}
+		if q.Valid {
+			d.Q, d.QDolje, d.QGore, d.ImaQ = q.Float64, qd.Float64, qg.Float64, true
 		}
 		out[d.Letva] = append(out[d.Letva], d)
 	}

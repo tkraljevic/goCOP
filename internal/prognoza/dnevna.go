@@ -364,7 +364,10 @@ type DnevnaIzdana struct {
 	Ciljni      int64 // sat kojim završava dan
 	Vrijednost  float64
 	Dolje, Gore float64
-	Model       string
+	// Protok iz krivulje letve, gdje je ima.
+	Q, QDolje, QGore float64
+	ImaQ             bool
+	Model            string
 }
 
 // Raspon je polovina širine raspona.

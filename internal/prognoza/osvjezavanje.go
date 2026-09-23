@@ -298,6 +298,22 @@ func (o *Osvjezivac) dnevno(ctx context.Context, sada int64, od time.Time) ([]Dn
 			bez[c.Letva] = err
 			continue
 		}
+		// Protok kroz krivulju letve, kao i satna prognoza u drugoj veličini:
+		// granice idu kroz krivulju, jer je ona rastuća.
+		if krivulje, err := o.ucitajKrivulje(ctx, c.Letva); err == nil && len(krivulje) > 0 {
+			for i := range d {
+				k := KrivuljaZa(krivulje, time.Unix(d[i].Ciljni*3600, 0).UTC())
+				if k == nil {
+					continue
+				}
+				q, _, ok := pretvori(k, "protok", d[i].Vrijednost)
+				qd, _, okD := pretvori(k, "protok", d[i].Dolje)
+				qg, _, okG := pretvori(k, "protok", d[i].Gore)
+				if ok && okD && okG {
+					d[i].Q, d[i].QDolje, d[i].QGore, d[i].ImaQ = q, qd, qg, true
+				}
+			}
+		}
 		out = append(out, d...)
 	}
 	var sidra []Izdana

@@ -127,7 +127,7 @@ func TestStranicaPrognozaPokazujeIzdanjeIRaspon(t *testing.T) {
 		ImaTudih: true,
 		Tablice: []TablicaPrognoza{{Naslov: "Drava i Mura", Letve: []LetvaPrognoze{{
 			Kod: "belisce", Naziv: "Belišće", Voda: "Drava", Racuna: "vodostaj",
-			URL: "/readings/station/x", SadaCm: "35", SadaQ: "231", Doseg: 96,
+			URL: "/readings/station/x", SadaCm: "35", SadaQ: "231", Doseg: 96, ImaTermina: true,
 			Vrijednosti: []VrijednostPrognoze{
 				{DosegH: 6, Ima: true, Cm: "41", CmRaspon: "39 do 43", Q: "245", QRaspon: "240 do 251"},
 				{DosegH: 12, Ima: true, Cm: "48", CmRaspon: "44 do 52"},
@@ -136,7 +136,7 @@ func TestStranicaPrognozaPokazujeIzdanjeIRaspon(t *testing.T) {
 				{DosegH: 72, Ima: false},
 			},
 			Dani: []CelijaDana{
-				{Cm: "57", Raspon: "49 do 65", Razina: "prep", Tude: []TudaCelija{
+				{Naslov: "čet 24.9.", Cm: "57", Raspon: "49 do 65", Q: "301", Razina: "prep", Tude: []TudaCelija{
 					{Oznaka: "HU", Klasa: "hu", Cm: "60", Raspon: "±9"}, {Oznaka: "RS", Klasa: "rs", Cm: "58"}}},
 				{Cm: "-62", Raspon: "-86 do -38", Dnevna: true, Moguce: "regular"},
 			},
@@ -144,7 +144,7 @@ func TestStranicaPrognozaPokazujeIzdanjeIRaspon(t *testing.T) {
 	})
 	for _, want := range []string{"Belišće", "Drava", "23.9.2026. u 07:00", "68 %",
 		"49 do 65", "245", "240 do 251", "-86 do -38", "prog-slabija", "čet 24.9.",
-		"HU 60 ±9", "prog-tuda-rs", "RS 58", "dan-prep", "dan-moguce-regular", "prog-oznaka", "Drava i Mura",
+		"HU 60 ±9", "prog-tuda-rs", "RS 58", "301 m³/s", "prog-kartica", "dan-prep", "dan-moguce-regular", "prog-oznaka", "Drava i Mura",
 		"/readings/station/x",
 		"računa se u vodostaju"} {
 		if !strings.Contains(html, want) {

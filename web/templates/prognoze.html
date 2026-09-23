@@ -42,58 +42,59 @@
 
 {{range .Tablice}}
 <h2 class="prog-voda">{{icon "waves"}} {{.Naslov}}</h2>
-<div class="table-card"><div class="table-responsive">
-  <table class="data-table prognoze-tablica">
-    <thead><tr>
-      <th>Letva</th>
-      <th style="text-align:right;">Sad</th>
-      {{range $.Bliski}}<th style="text-align:right;">+{{.}} h</th>{{end}}
-      {{range $.Dani}}<th style="text-align:right;">{{.}}<div class="prog-druga">07 h</div></th>{{end}}
-    </tr></thead>
-    <tbody>
-      {{range .Letve}}
-      <tr>
-        <td>
-          {{if .URL}}<a href="{{.URL}}">{{.Naziv}}</a>{{else}}{{.Naziv}}{{end}}
-          <div class="reg-card-sub">
-            {{if .Voda}}{{.Voda}}{{if .Stacionaza}} · {{.Stacionaza}}{{end}}{{end}}
-            {{if .Racuna}}· računa se u {{if eq .Racuna "protok"}}protoku{{else}}vodostaju{{end}}
-            {{else if .Ulaz}}· ulaz dnevne prognoze
-            {{else if .Pregledna}}· mjerenje, u model ne ulazi
-            {{else if .TudiVrh}}· vrh lanca; dalje od mjerenja ide po mađarskoj prognozi
-            {{else}}· vrh lanca, uzvodno nemamo ništa{{end}}
-          </div>
-        </td>
-        <td class="mono" style="text-align:right;">
-          {{if .SadaCm}}<div>{{.SadaCm}} <span class="prog-jed">cm</span></div>{{end}}
-          {{if .SadaQ}}<div class="prog-druga">{{.SadaQ}} m³/s</div>{{end}}
-        </td>
-        {{range .Vrijednosti}}
-        <td class="mono{{if .Slabija}} prog-slabija{{end}}" style="text-align:right;"
-            {{if .Slabija}}title="Na tom dosegu prognoza ne pobjeđuje pretpostavku da se ništa neće promijeniti"{{end}}>
-          {{if .Ima}}
-            {{if .Cm}}<div>{{.Cm}}{{if .CmRaspon}} <span class="prog-raspon">{{.CmRaspon}}</span>{{end}}</div>{{end}}
-            {{if .Q}}<div class="prog-druga">{{.Q}}{{if .QRaspon}} <span class="prog-raspon">{{.QRaspon}}</span>{{end}}</div>{{end}}
-          {{else}}—{{end}}
-        </td>
-        {{end}}
-        {{range .Dani}}
-        <td class="mono dan-{{.Razina}}{{if .Moguce}} dan-moguce-{{.Moguce}}{{end}}{{if .Slabija}} prog-slabija{{end}}" style="text-align:right;"
-            {{if .Moguce}}title="Gornja granica raspona doseže prag obrane"{{end}}>
-          {{if .Cm}}<div>{{.Cm}}{{if .Dnevna}}<sup class="prog-oznaka" title="iz dnevnog modela">d</sup>{{end}}</div>
-            {{if .Raspon}}<div class="prog-raspon">{{.Raspon}}</div>{{end}}{{else}}—{{end}}
-          {{range .Tude}}<div class="prog-tuda prog-tuda-{{.Klasa}}" title="{{.Naslov}}">{{.Oznaka}} {{.Cm}}{{if .Raspon}} {{.Raspon}}{{end}}</div>{{end}}
-        </td>
-        {{end}}
-      </tr>
+<div class="prog-kartice">
+  {{range .Letve}}
+  <article class="prog-kartica{{if or .Pregledna .Ulaz}} prog-sporedna{{end}}">
+    <header class="prog-glava">
+      <div class="prog-ime">
+        {{if .URL}}<a href="{{.URL}}">{{.Naziv}}</a>{{else}}{{.Naziv}}{{end}}
+        <div class="reg-card-sub">
+          {{if .Voda}}{{.Voda}}{{if .Stacionaza}} · {{.Stacionaza}}{{end}}{{end}}
+          {{if .Racuna}}· računa se u {{if eq .Racuna "protok"}}protoku{{else}}vodostaju{{end}}
+          {{else if .Ulaz}}· ulaz dnevne prognoze
+          {{else if .Pregledna}}· mjerenje, u model ne ulazi
+          {{else if .TudiVrh}}· vrh lanca; dalje od mjerenja ide po mađarskoj prognozi
+          {{else}}· vrh lanca, uzvodno nemamo ništa{{end}}
+        </div>
+      </div>
+      <div class="prog-sad">
+        {{if .SadaCm}}<div><span class="prog-sad-cm">{{.SadaCm}}</span> <span class="prog-jed">cm</span></div>{{end}}
+        {{if .SadaQ}}<div class="prog-druga">{{.SadaQ}} m³/s</div>{{end}}
+      </div>
+    </header>
+    {{if .ImaTermina}}
+    <div class="prog-termini">
+      {{range .Vrijednosti}}
+      <div class="prog-termin{{if .Slabija}} prog-slabija{{end}}"
+           {{if .Slabija}}title="Na tom dosegu prognoza ne pobjeđuje pretpostavku da se ništa neće promijeniti"{{end}}>
+        <div class="prog-termin-naslov">+{{.DosegH}} h</div>
+        {{if .Ima}}
+          {{if .Cm}}<div class="prog-vr">{{.Cm}}</div>{{if .CmRaspon}}<div class="prog-raspon">{{.CmRaspon}}</div>{{end}}{{end}}
+          {{if .Q}}<div class="prog-druga"{{if .QRaspon}} title="protok {{.QRaspon}} m³/s"{{end}}>{{.Q}} m³/s</div>{{end}}
+        {{else}}<div class="prog-vr prog-nema">—</div>{{end}}
+      </div>
       {{end}}
-    </tbody>
-  </table>
-</div></div>
+      {{range .Dani}}
+      <div class="prog-termin dan-{{.Razina}}{{if .Moguce}} dan-moguce-{{.Moguce}}{{end}}{{if .Slabija}} prog-slabija{{end}}"
+           {{if .Moguce}}title="Gornja granica raspona doseže prag obrane"{{end}}>
+        <div class="prog-termin-naslov">{{.Naslov}}</div>
+        {{if .Cm}}<div class="prog-vr">{{.Cm}}{{if .Dnevna}}<sup class="prog-oznaka" title="iz dnevnog modela">d</sup>{{end}}</div>
+          {{if .Raspon}}<div class="prog-raspon">{{.Raspon}}</div>{{end}}
+          {{if .Q}}<div class="prog-druga"{{if .QRaspon}} title="protok {{.QRaspon}} m³/s"{{end}}>{{.Q}} m³/s</div>{{end}}
+        {{else}}<div class="prog-vr prog-nema">—</div>{{end}}
+        {{range .Tude}}<div class="prog-tuda prog-tuda-{{.Klasa}}" title="{{.Naslov}}">{{.Oznaka}} {{.Cm}}{{if .Raspon}} {{.Raspon}}{{end}}</div>{{end}}
+      </div>
+      {{end}}
+    </div>
+    {{end}}
+  </article>
+  {{end}}
+</div>
 {{end}}
 
 <p class="graf-natpis">
-  Dani su za 07 h, kao i u mađarskoj i uredskoj prognozi. Svaki dan daje onaj od dvaju modela koji
+  Svaka kartica je jedna letva: gore mjerenje sada, ispod +6 i +12 sati pa dani, svi za 07 h, kao i u
+  mađarskoj i uredskoj prognozi. Svaki dan daje onaj od dvaju modela koji
   je na njemu za tu letvu točniji: satni lanac prve dane i sat vrha, dnevni model (oznaka <sup class="prog-oznaka">d</sup>)
   dalje — na Dunavu od drugog dana, na Dravi od trećeg do petog, već prema letvi. Dnevni se uči na
   vodostajima od 1901. i gleda sve uzvodne letve odjednom. Ispod vrijednosti je raspon, a
@@ -105,7 +106,7 @@
 </p>
 
 <p class="graf-natpis">
-  Gornji redak u ćeliji je vodostaj u centimetrima, donji protok u m³/s; uz svaki stoje
+  U svakom terminu gore je vodostaj u centimetrima, ispod raspon i protok u m³/s; uz svaki stoje
   granice unutar kojih se očekuje da vrijednost ostane. Letva se računa u jednoj veličini,
   a drugu daje krivulja protoka — gdje krivulje nema, nema ni druge brojke.
   Ćelija pisana <span class="prog-slabija">svjetlije</span> znači da na tom dosegu prognoza ne

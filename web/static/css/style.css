@@ -3978,6 +3978,52 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .prognoze-tablica .prog-slabija { opacity: 0.45; }
 .graf-natpis .prog-slabija { opacity: 0.45; }
 .prog-voda { margin: 1.25rem 0 0.5rem; font-size: 1.1rem; }
+.prog-kartice { display: flex; flex-direction: column; gap: 0.5rem; }
+.prog-kartica {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 0.6rem 0.75rem 0.7rem;
+}
+.prog-kartica.prog-sporedna { box-shadow: none; opacity: 0.92; }
+.prog-glava { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; }
+.prog-ime a { font-weight: 600; }
+.prog-sad { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.prog-sad-cm { font-size: 1.35rem; font-weight: 700; }
+.prog-termini {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(5.6rem, 1fr));
+  gap: 0.35rem;
+  margin-top: 0.55rem;
+}
+.prog-termin {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.3rem 0.4rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.25;
+}
+.prog-termin-naslov { font-size: 0.72em; color: var(--text-muted); white-space: nowrap; }
+.prog-vr { font-size: 1.05rem; font-weight: 600; }
+.prog-nema { color: var(--text-muted); font-weight: 400; }
+.prog-termin .prog-raspon, .prog-termin .prog-druga { font-size: 0.74em; color: var(--text-muted); white-space: nowrap; }
+.prog-termin.prog-slabija { opacity: 0.45; }
+.prog-termin .prog-tuda { font-size: 0.74em; white-space: nowrap; }
+.prog-termin.dan-prep { background: var(--faza-p-bg); color: var(--faza-p-fg); }
+.prog-termin.dan-regular { background: var(--faza-r-bg); color: var(--faza-r-fg); }
+.prog-termin.dan-emerg { background: var(--faza-i-bg); color: var(--faza-i-fg); }
+.prog-termin.dan-crit { background: var(--faza-s-bg); color: var(--faza-s-fg); }
+.prog-termin.dan-moguce-prep { box-shadow: inset 0 0 0 2px var(--faza-p-crta); }
+.prog-termin.dan-moguce-regular { box-shadow: inset 0 0 0 2px var(--faza-r-crta); }
+.prog-termin.dan-moguce-emerg { box-shadow: inset 0 0 0 2px var(--faza-i-crta); }
+.prog-termin.dan-moguce-crit { box-shadow: inset 0 0 0 2px var(--faza-s-crta); }
+@media (max-width: 520px) {
+  .prog-kartica { padding: 0.5rem 0.55rem 0.6rem; }
+  .prog-termini { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.3rem; }
+  .prog-sad-cm { font-size: 1.15rem; }
+}
 .prognoze-tablica .prog-tuda { font-size: 0.78em; margin-top: 2px; white-space: nowrap; }
 .prog-tuda-hu { color: #b45309; }
 .prog-tuda-rs { color: #7c3aed; }

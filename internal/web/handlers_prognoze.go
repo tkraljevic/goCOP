@@ -66,6 +66,7 @@ type LetvaPrognoze struct {
 	Ulaz        bool // ulaz dnevne prognoze: stoji samo mjerenje
 	Pregledna   bool // u model ne ulazi, stoji radi pregleda
 	Ulazi       []string
+	ImaTermina  bool // ima ijednu prognozu, svoju ili tuđu
 	TudiVrh     bool // vrh lanca koji dalje ide po mađarskoj prognozi
 	Dani        []CelijaDana
 }
@@ -87,7 +88,9 @@ var tudiIzvori = []struct{ izvor, oznaka, klasa, naslov string }{
 // modela, već prema tome koji je na tom danu za tu letvu provjerom točniji;
 // ispod stoji mađarska prognoza za isti termin, gdje je imaju.
 type CelijaDana struct {
+	Naslov         string // dan u tjednu i datum
 	Cm, Raspon     string
+	Q, QRaspon     string       // protok, gdje letva ima krivulju
 	Tude           []TudaCelija // tuđe prognoze za isti termin, svaka svojom bojom
 	Dnevna         bool         // vrijednost daje dnevni model
 	Slabija        bool
@@ -166,9 +169,19 @@ func (h *PrognozeHandler) ShowPrognoze(w http.ResponseWriter, r *http.Request) {
 			poIzvoru[izvor] = sve[kod]
 		}
 		data.Letve[i].Dani = celijeDana(kod, letve[i], ciljevi, dnevne[kod], poIzvoru, postaje[kod])
-		for _, d := range data.Letve[i].Dani {
+		for k := range data.Letve[i].Dani {
+			d := &data.Letve[i].Dani[k]
+			d.Naslov = data.Dani[k]
 			if len(d.Tude) > 0 {
 				data.ImaTudih = true
+			}
+			if d.Cm != "" || len(d.Tude) > 0 {
+				data.Letve[i].ImaTermina = true
+			}
+		}
+		for _, v := range data.Letve[i].Vrijednosti {
+			if v.Ima {
+				data.Letve[i].ImaTermina = true
 			}
 		}
 	}
@@ -274,6 +287,7 @@ type PregledLetve struct {
 	Doseg     int
 	Po        map[string]map[int]PregledVrijednost
 	Satno     map[int64]PregledVrijednost // vodostaj po ciljnom satu, za dane na pregledu
+	SatnoQ    map[int64]PregledVrijednost // protok po ciljnom satu
 	UlazLanca bool                        // letva ulazi u neki pojas satnog lanca
 	Ulazi     []string                    // letve iz kojih se ova računa
 }
@@ -320,7 +334,8 @@ func (c *CitacPrognoza) Pregled() (time.Time, []PregledLetve, error) {
 			continue
 		}
 		p := PregledLetve{Letva: letva, UlazLanca: ulazLanca[letva], Sada: map[string]float64{},
-			Po: map[string]map[int]PregledVrijednost{}, Satno: map[int64]PregledVrijednost{}}
+			Po: map[string]map[int]PregledVrijednost{}, Satno: map[int64]PregledVrijednost{},
+			SatnoQ: map[int64]PregledVrijednost{}}
 		if len(pojasi[letva]) > 0 {
 			p.Racuna = pojasi[letva][0].Velicina
 			for _, u := range pojasi[letva][0].Ulazi {
@@ -341,9 +356,14 @@ func (c *CitacPrognoza) Pregled() (time.Time, []PregledLetve, error) {
 			if pr, ima := promasaji[letva][d]; ima {
 				bolja = pr.BoljaOdPostojanosti()
 			}
-			if i.Velicina == "vodostaj" && d > 0 {
-				p.Satno[i.Ciljni] = PregledVrijednost{Vrijednost: i.Vrijednost,
+			if d > 0 {
+				v := PregledVrijednost{Vrijednost: i.Vrijednost,
 					Dolje: i.Dolje, Gore: i.Gore, BoljaOdPostojanosti: bolja}
+				if i.Velicina == "vodostaj" {
+					p.Satno[i.Ciljni] = v
+				} else {
+					p.SatnoQ[i.Ciljni] = v
+				}
 			}
 			if !uDosezima(d) {
 				continue
@@ -488,14 +508,25 @@ func celijeDana(letva string, l PregledLetve, ciljevi []int64, dnevne []prognoza
 		ima := false
 		satni, imaSatni := l.Satno[t]
 		dnevni, imaDnevni := dnevniU(dnevne, t)
+		var q PregledVrijednost
+		imaQ := false
 		switch {
 		case imaDnevni && odDana > 0 && k+1 >= odDana:
 			v, dolje, gore, ima, c.Dnevna = dnevni.Vrijednost, dnevni.Dolje, dnevni.Gore, true, true
+			q, imaQ = dnevniQU(dnevne, t)
 		case imaSatni:
 			v, dolje, gore, ima = satni.Vrijednost, satni.Dolje, satni.Gore, true
 			c.Slabija = !satni.BoljaOdPostojanosti
+			q, imaQ = l.SatnoQ[t]
 		case imaDnevni:
 			v, dolje, gore, ima, c.Dnevna = dnevni.Vrijednost, dnevni.Dolje, dnevni.Gore, true, true
+			q, imaQ = dnevniQU(dnevne, t)
+		}
+		if imaQ {
+			c.Q = brojHRf(q.Vrijednost, 0)
+			if q.Gore > q.Dolje {
+				c.QRaspon = rasponHR(q.Dolje, q.Gore, 0)
+			}
 		}
 		if ima {
 			c.Cm = brojHRf(v, 0)
@@ -639,4 +670,24 @@ func poVodama(letve []LetvaPrognoze, postaje map[string]models.Station) []Tablic
 		}
 	}
 	return out
+}
+
+// dnevniQU je protok dnevne prognoze u zadanom satu, pravocrtno između
+// sredina dvaju dana; samo gdje oba dana imaju protok iz krivulje.
+func dnevniQU(dnevne []prognoza.DnevnaIzdana, t int64) (PregledVrijednost, bool) {
+	for i := 0; i+1 < len(dnevne); i++ {
+		a, b := dnevne[i], dnevne[i+1]
+		ca, cb := a.Ciljni-12, b.Ciljni-12
+		if t < ca || t > cb || cb == ca {
+			continue
+		}
+		if !a.ImaQ || !b.ImaQ {
+			return PregledVrijednost{}, false
+		}
+		u := float64(t-ca) / float64(cb-ca)
+		ip := func(x, y float64) float64 { return x + u*(y-x) }
+		return PregledVrijednost{Vrijednost: ip(a.Q, b.Q), Dolje: ip(a.QDolje, b.QDolje),
+			Gore: ip(a.QGore, b.QGore)}, true
+	}
+	return PregledVrijednost{}, false
 }
