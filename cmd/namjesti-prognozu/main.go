@@ -54,6 +54,7 @@ var Velicine = map[string]string{
 	// Mađarske letve uzvodno od Batine i uz lijevu obalu Drave. Nisu naše, ali
 	// su na istoj vodi i imaju satnu povijest — a val ne mari za granicu.
 	"nagybajcs":     "vodostaj",
+	"komarom":       "vodostaj",
 	"esztergom":     "vodostaj",
 	"budapest":      "vodostaj",
 	"dunafoldvar":   "vodostaj",
@@ -106,6 +107,7 @@ var Tokovi = []struct {
 		// lanca, ali samo zato što se nije pogledalo iznad nje: Mohács je 22 km
 		// uzvodno, a Esztergom 294. Zbroj kašnjenja od Esztergoma do Batine je
 		// 45–66 sati, i to nasljeđuje cijeli krak nizvodno.
+		{"esztergom", []string{"komarom"}},
 		{"budapest", []string{"esztergom"}},
 		{"dunafoldvar", []string{"budapest"}},
 		{"paks", []string{"dunafoldvar"}},
