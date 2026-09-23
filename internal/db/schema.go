@@ -313,6 +313,15 @@ func InitSchema(database *sql.DB) error {
 			lozinka BLOB NOT NULL,
 			updated_at DATETIME NOT NULL
 		);`,
+		// Računi čvora za zatvorene sustave koji nisu po letvi, npr.
+		// mletva.voda.hr. Ključ je naziv sustava. Lozinka je šifrirana ključem
+		// izvedenim iz ključa čvora, kao i za HydroView, i ne putuje razmjenom.
+		`CREATE TABLE IF NOT EXISTS racuni_sustava (
+			sustav TEXT PRIMARY KEY,
+			korisnik TEXT NOT NULL,
+			lozinka BLOB NOT NULL,
+			updated_at DATETIME NOT NULL
+		);`,
 		// Opće postavke organizacije koje se uređuju u programu i dijele među
 		// čvorovima (npr. poslužitelj e-pošte); vrijednost je JSON ili tekst
 		`CREATE TABLE IF NOT EXISTS postavke (

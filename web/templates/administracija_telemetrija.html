@@ -49,6 +49,37 @@
   </p>
 </section>
 
+<section class="detail-section" style="max-width:40rem;">
+  <h2 class="detail-section-title">Mobilna stranica Hrvatskih voda</h2>
+  <p class="form-help" style="margin-top:0;">Na <a href="{{.MLetva}}" target="_blank" rel="noopener">{{.MLetva}}</a>
+    su uz javne i postaje koje javnost ne vidi: istjecanje i preljev hidroelektrana na Dravi, gornja voda
+    i rep akumulacija. Prijava je računom domene, istim kao za e-poštu.</p>
+  <form method="post" action="/administracija/telemetrija/mletva">
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="mletva_korisnik">Korisničko ime</label>
+        <input type="text" id="mletva_korisnik" name="mletva_korisnik" class="form-control"
+               value="{{.MLetvaKorisnik}}" autocomplete="off" placeholder="bez @voda.hr">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="mletva_lozinka">Lozinka</label>
+        <input type="password" id="mletva_lozinka" name="mletva_lozinka" class="form-control"
+               autocomplete="new-password" placeholder="lozinka domene">
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">{{icon "check"}} Spremi račun</button>
+      <button type="submit" name="iz_poste" value="1" class="btn">{{icon "mail"}} Uzmi moj račun e-pošte</button>
+    </div>
+  </form>
+  <p class="form-help">
+    {{if .MLetvaKorisnik}}Upisan je račun <strong>{{.MLetvaKorisnik}}</strong>, od {{formatDate .MLetvaUpisano}}.
+      Prazno korisničko ime briše ga s ovog čvora.{{else}}Račun još nije upisan.{{end}}
+    „Uzmi moj račun e-pošte“ upiše tvoj račun iz profila, bez „@voda.hr“. Prijava se i ovdje provjeri
+    prije spremanja, a lozinka ostaje zaključana ključem ovog čvora.
+  </p>
+</section>
+
 {{if .Letve}}
 <section class="detail-section" style="max-width:40rem;">
   <h2 class="detail-section-title">Letve koje se odande čitaju</h2>

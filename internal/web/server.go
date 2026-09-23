@@ -1215,7 +1215,20 @@ func (s *Server) setupRoutes() {
 		return repository.NewHidroViewRepository(s.db)
 	}, func() []byte { return s.hidroviewKljuc }, s.stationService, s.templates["administracija_telemetrija.html"])
 	s.mux.Handle("GET /administracija/telemetrija", s.authMiddleware(http.HandlerFunc(telemetrijaH.Prikazi)))
+	telemetrijaH.sustavi = func() *repository.RacuniSustavaRepository {
+		if s.db == nil {
+			return nil
+		}
+		return repository.NewRacuniSustavaRepository(s.db)
+	}
+	telemetrijaH.racunPoste = func(ctx context.Context, u *models.User) (string, string, error) {
+		if s.akti == nil {
+			return "", "", fmt.Errorf("e-pošta nije uključena")
+		}
+		return s.akti.RacunPosteOtkljucan(ctx, u)
+	}
 	s.mux.Handle("POST /administracija/telemetrija", s.authMiddleware(http.HandlerFunc(telemetrijaH.Spremi)))
+	s.mux.Handle("POST /administracija/telemetrija/mletva", s.authMiddleware(http.HandlerFunc(telemetrijaH.SpremiMLetvu)))
 	s.mux.Handle("GET /api/peers/pair/status", s.authMiddleware(http.HandlerFunc(settingsH.HandlePairStatus)))
 	s.mux.Handle("POST /api/peers/pair/listen", s.authMiddleware(http.HandlerFunc(settingsH.HandlePairListen)))
 	s.mux.Handle("POST /api/peers/pair/stop", s.authMiddleware(http.HandlerFunc(settingsH.HandlePairStop)))

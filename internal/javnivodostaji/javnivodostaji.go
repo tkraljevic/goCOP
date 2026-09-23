@@ -435,7 +435,7 @@ func NoviUvoznik(s Spremiste, zapisnik func(string, ...any)) *Uvoznik {
 	return &Uvoznik{
 		Client: c,
 		Izvori: []Izvor{hvIzvor{c}, Hidmet{Client: c}, Vizugy{Client: c}, SHMU{Client: c}, ARSO{Client: c},
-			PegelOnline{Client: c}, GKD{Client: c}, EHYD{Client: c}, &HidroView{}},
+			PegelOnline{Client: c}, GKD{Client: c}, EHYD{Client: c}, &HidroView{}, &MLetva{}},
 		Spremiste: s,
 		Svakih:    time.Hour,
 		Zapisnik:  zapisnik,
@@ -483,6 +483,16 @@ func (u *Uvoznik) PostaviHidroViewRacun(f Vjerodajnice) {
 	for _, iz := range u.Izvori {
 		if h, ok := iz.(*HidroView); ok {
 			h.Racun = f
+		}
+	}
+}
+
+// PostaviMLetvaRacun kaže uvozniku odakle uzeti račun za mletva.voda.hr.
+// Bez toga letve odande javljaju da račun nije upisan, a ostale rade.
+func (u *Uvoznik) PostaviMLetvaRacun(f RacunSustava) {
+	for _, iz := range u.Izvori {
+		if m, ok := iz.(*MLetva); ok {
+			m.Racun = f
 		}
 	}
 }

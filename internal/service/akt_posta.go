@@ -333,6 +333,17 @@ func (s *AktService) racunKorisnika(ctx context.Context, u *models.User) (posta.
 	return posta.Racun{Korisnik: racun.Korisnik, Lozinka: lozinka}, nil
 }
 
+// RacunPosteOtkljucan vraća korisnikov račun e-pošte s lozinkom. Služi kad
+// korisnik sam traži da se isti račun domene upiše i drugdje, npr. za
+// mletva.voda.hr — ne za potiho posuđivanje tuđe lozinke.
+func (s *AktService) RacunPosteOtkljucan(ctx context.Context, u *models.User) (korisnik, lozinka string, err error) {
+	r, err := s.racunKorisnika(ctx, u)
+	if err != nil {
+		return "", "", err
+	}
+	return r.Korisnik, r.Lozinka, nil
+}
+
 // ErrNemaLozinkePoste: korisnik još nije upisao lozinku e-pošte
 var ErrNemaLozinkePoste = errors.New("upišite lozinku e-pošte u profilu (Profil › E-pošta za slanje akata)")
 

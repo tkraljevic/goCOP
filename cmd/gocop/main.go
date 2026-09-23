@@ -25,6 +25,7 @@ import (
 	"gocop/internal/importer/ugovor"
 	"gocop/internal/javnivodostaji"
 	"gocop/internal/ledger"
+	"gocop/internal/mletva"
 	"gocop/internal/models"
 	"gocop/internal/peers"
 	"gocop/internal/posta"
@@ -692,6 +693,22 @@ func main() {
 		lozinka, err := posta.Otkljucaj(hidroviewKljuc, r.Lozinka)
 		if err != nil {
 			log.Printf("HydroView: lozinka za %q se ne da otključati: %v", letva, err)
+			return "", "", false
+		}
+		return r.Korisnik, lozinka, true
+	})
+	// mletva.voda.hr, zatvorena mobilna stranica Hrvatskih voda, ima jedan
+	// račun čvora za sve postaje: ondje su istjecanja hidroelektrana na Dravi.
+	// Lozinka se zaključava istim ključem kao HydroView.
+	racuniSustava := repository.NewRacuniSustavaRepository(database)
+	javniUvoznik.PostaviMLetvaRacun(func() (string, string, bool) {
+		r, err := racuniSustava.Racun(context.Background(), mletva.Podrijetlo)
+		if err != nil || r == nil {
+			return "", "", false
+		}
+		lozinka, err := posta.Otkljucaj(hidroviewKljuc, r.Lozinka)
+		if err != nil {
+			log.Printf("%s: lozinka se ne da otključati: %v", mletva.Podrijetlo, err)
 			return "", "", false
 		}
 		return r.Korisnik, lozinka, true
