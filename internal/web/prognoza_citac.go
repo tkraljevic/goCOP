@@ -90,3 +90,40 @@ func (c *CitacPrognoza) Dnevno() (time.Time, map[string][]prognoza.DnevnaIzdana,
 	}
 	return time.Unix(izdano*3600, 0).UTC(), sve, nil
 }
+
+// TudaVrijednost je jedna vrijednost tuđe prognoze.
+type TudaVrijednost struct {
+	Cm, PlusMin float64
+}
+
+// Tude čita najnovije izdanje tuđe prognoze za svaku letvu, ako nije starije
+// od dva dana: letva → ciljni sat → vrijednost. Jutarnje mjerenje koje stoji
+// uz izdanje kao sidro ne vraća se — to nije prognoza.
+func (c *CitacPrognoza) Tude(izvor string, sada time.Time) map[string]map[int64]TudaVrijednost {
+	out := map[string]map[int64]TudaVrijednost{}
+	if c == nil || c.db == nil {
+		return out
+	}
+	od := sada.Add(-48*time.Hour).Unix() / 3600
+	r, err := c.db.Query(`SELECT t.letva, t.ciljni, t.vrijednost, t.raspon FROM tude t
+		JOIN (SELECT letva, max(izdano) AS izdano FROM tude WHERE izvor = ? AND izdano >= ?
+			GROUP BY letva) z ON z.letva = t.letva AND z.izdano = t.izdano
+		WHERE t.izvor = ? AND t.ciljni > t.izdano`, izvor, od, izvor)
+	if err != nil {
+		return out
+	}
+	defer r.Close()
+	for r.Next() {
+		var l string
+		var t int64
+		var v TudaVrijednost
+		if r.Scan(&l, &t, &v.Cm, &v.PlusMin) != nil {
+			continue
+		}
+		if out[l] == nil {
+			out[l] = map[int64]TudaVrijednost{}
+		}
+		out[l][t] = v
+	}
+	return out
+}

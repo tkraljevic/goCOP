@@ -136,9 +136,10 @@ func (r *Racunalo) PostaviBuducnostVrha(iz Izvor, prognoza Niz) {
 	r.buducnost[iz] = prognoza
 }
 
-// ostatak je razlika između mjerenja i modela u trenutku izdavanja.
+// ostatak je razlika između mjerenja i modela u zadnjem izmjerenom satu letve.
 type ostatak struct {
 	iznos float64
+	sat   int64 // sat mjerenja od kojeg se ispravak nosi naprijed
 	ima   bool
 }
 
@@ -230,11 +231,13 @@ func (r *Racunalo) U(iz Izvor, t int64) (Vrijednost, bool) {
 	if !ok {
 		return r.zapamti(k, Vrijednost{}, false)
 	}
-	// Ispravak se nosi samo naprijed: za sat koji je prošao mjerenje je već
-	// rečeno svoje, a ondje gdje ga nema nemamo ni s čim usporediti.
-	if t > r.sada && PoluvijekIspravka > 0 {
-		if o := r.ostatakZa(iz); o.ima {
-			v.Iznos += o.iznos * math.Exp2(-float64(t-r.sada)/PoluvijekIspravka)
+	// Ispravak se nosi samo naprijed od zadnjeg mjerenja: za sat koji je
+	// izmjeren mjerenje je već reklo svoje. Letva koja kasni sat-dva za satom
+	// izdavanja ispravlja se od svog zadnjeg sata — inače bi baš ondje ostao
+	// goli model, a Baja je tako krenula od 59 cm dok je stajala na 15.
+	if PoluvijekIspravka > 0 {
+		if o := r.ostatakZa(iz); o.ima && t > o.sat {
+			v.Iznos += o.iznos * math.Exp2(-float64(t-o.sat)/PoluvijekIspravka)
 		}
 	}
 	return r.zapamti(k, v, true)
@@ -252,12 +255,22 @@ func (r *Racunalo) ostatakZa(iz Izvor) ostatak {
 	defer delete(r.uOstatku, iz)
 
 	o := ostatak{}
-	if mj, ima := r.mjereno[iz].U(r.sada); ima {
-		k := kljuc{iz, r.sada}
+	sat := r.sada
+	mj, ima := r.mjereno[iz].U(sat)
+	if !ima {
+		// Letva nema mjerenje u satu izdavanja; uzima se njezin zadnji sat,
+		// ako nije stariji od onoga što smije kasniti i vrh lanca.
+		if z, imaZ := r.mjereno[iz].ZadnjiSatDo(r.sada); imaZ && r.sada-z <= ZaostatakVrha {
+			sat = z
+			mj, ima = r.mjereno[iz].U(z)
+		}
+	}
+	if ima {
+		k := kljuc{iz, sat}
 		bilo := r.uTijeku[k]
 		r.uTijeku[k] = true
-		if v, ok := r.izracunaj(iz, r.sada); ok {
-			o = ostatak{iznos: mj - v.Iznos, ima: true}
+		if v, ok := r.izracunaj(iz, sat); ok {
+			o = ostatak{iznos: mj - v.Iznos, sat: sat, ima: true}
 		}
 		if !bilo {
 			delete(r.uTijeku, k)

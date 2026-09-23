@@ -8,32 +8,40 @@ import (
 	"gocop/internal/prognoza"
 )
 
-// Dan se boji fazom obrane koju doseže prognoza, a obrubljuje kad je doseže
-// tek gornja granica raspona — to je upozorenje na trend prije nego što ga
-// prognoza sama potvrdi.
-func TestDnevniPregledBojiPragove(t *testing.T) {
+// Dan daje satni lanac dok je on provjerom točniji, a dnevni model od dana
+// koji kaže prognoza.DnevnaOdDana; dan se boji fazom obrane, obrubljuje kad
+// prag doseže tek gornja granica, a mađarska prognoza stoji uz isti termin.
+func TestCelijeDana(t *testing.T) {
 	cm := func(v int) *int { return &v }
 	st := models.Station{Code: "batina", Name: "Batina",
 		Prep: models.Threshold{Cm: cm(300)}, Regular: models.Threshold{Cm: cm(500)}}
-	izd := time.Date(2026, 9, 23, 20, 0, 0, 0, time.UTC)
-	sat := izd.Unix() / 3600
-	dnevne := map[string][]prognoza.DnevnaIzdana{"batina": {
-		{Letva: "batina", Izdano: sat, Dan: 0, Vrijednost: 250},
-		{Letva: "batina", Izdano: sat, Dan: 1, Vrijednost: 280, Dolje: 270, Gore: 310},
-		{Letva: "batina", Izdano: sat, Dan: 2, Vrijednost: 520, Dolje: 480, Gore: 560},
+	izdano := time.Date(2026, 9, 23, 20, 0, 0, 0, time.UTC) // 22 h po lokalnom
+	naslovi, ciljevi := daniPregleda(izdano)
+	if naslovi[0] != "čet 24.9." || len(ciljevi) != prognoza.DnevniDosezi {
+		t.Fatalf("dani %v", naslovi)
+	}
+	sat := izdano.Unix() / 3600
+	l := PregledLetve{Satno: map[int64]PregledVrijednost{
+		ciljevi[0]: {Vrijednost: 280, Dolje: 270, Gore: 310, BoljaOdPostojanosti: true},
+		ciljevi[1]: {Vrijednost: 999, Dolje: 999, Gore: 999, BoljaOdPostojanosti: true},
 	}}
-	_, redovi := dnevniPregled(map[string]models.Station{"batina": st}, izd, dnevne)
-	if len(redovi) != 1 || len(redovi[0].Dani) != prognoza.DnevniDosezi {
-		t.Fatalf("redovi %+v", redovi)
+	var dnevne []prognoza.DnevnaIzdana
+	for k := 0; k <= prognoza.DnevniDosezi; k++ {
+		v := 250 + 60*float64(k)
+		dnevne = append(dnevne, prognoza.DnevnaIzdana{Letva: "batina", Izdano: sat, Dan: k,
+			Ciljni: sat + int64(24*k), Vrijednost: v, Dolje: v - 20, Gore: v + 20})
 	}
-	d1, d2 := redovi[0].Dani[0], redovi[0].Dani[1]
-	if d1.Razina != "" || d1.Moguce != "prep" || d1.Trend != "↑" {
-		t.Errorf("1. dan %+v: treba bez boje, obrub pripremnog, rast", d1)
+	tude := map[int64]TudaVrijednost{ciljevi[0]: {Cm: 275, PlusMin: 9}}
+	dani := celijeDana("batina", l, ciljevi, dnevne, tude, st)
+
+	if d := dani[0]; d.Dnevna || d.Cm != "280" || d.Razina != "" || d.Moguce != "prep" || d.HU != "275" {
+		t.Errorf("1. dan %+v: treba satni 280, obrub pripremnog, HU 275", d)
 	}
-	if d2.Razina != "regular" || d2.Moguce != "" {
-		t.Errorf("2. dan %+v: treba redovna obrana", d2)
+	// Batini dnevni model daje vrijednost od drugog dana, iako satni postoji.
+	if d := dani[1]; !d.Dnevna || d.Cm == "999" {
+		t.Errorf("2. dan %+v: treba dnevni model", d)
 	}
-	if redovi[0].Dani[2].Cm != "" {
-		t.Errorf("dan bez prognoze mora ostati prazan")
+	if d := dani[5]; !d.Dnevna || d.Razina != "regular" {
+		t.Errorf("6. dan %+v: treba dnevni, redovna obrana", d)
 	}
 }

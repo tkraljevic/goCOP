@@ -183,7 +183,20 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 	// Donje Dubrave — a upravo su to mjesta na kojima val ulazi u naš sliv.
 	ishod.Izdane = append(ishod.Izdane, o.sidraVrhova(ctx, nizovi, vrhovi, sada)...)
 	ishod.Izdane = append(ishod.Izdane, sidraDrugih(druge, sada)...)
-	ishod.Dnevne, ishod.BezDnevne = o.dnevno(ctx, sada, od)
+	var sidra []Izdana
+	ishod.Dnevne, sidra, ishod.BezDnevne = o.dnevno(ctx, sada, od)
+	// Ulazi dnevnog modela koji nisu u lancu nemaju svoju prognozu, ali na
+	// pregledu moraju stajati — iz njih se računa. Zapisuje se njihovo
+	// mjerenje u satu izdavanja, kao i za vrhove lanca.
+	ima := map[string]bool{}
+	for _, i := range ishod.Izdane {
+		ima[i.Letva] = true
+	}
+	for _, i := range sidra {
+		if !ima[i.Letva] {
+			ishod.Izdane = append(ishod.Izdane, i)
+		}
+	}
 	return ishod, nil
 }
 
@@ -229,10 +242,10 @@ func (o *Osvjezivac) dnevniModeliZaDanas() (map[string]*DnevniModel, map[string]
 }
 
 // dnevno izdaje dnevnu prognozu iz satnih očitanja do sata izdavanja.
-func (o *Osvjezivac) dnevno(ctx context.Context, sada int64, od time.Time) ([]DnevnaIzdana, map[string]error) {
+func (o *Osvjezivac) dnevno(ctx context.Context, sada int64, od time.Time) ([]DnevnaIzdana, []Izdana, map[string]error) {
 	bez := map[string]error{}
 	if o.Arhiva == nil {
-		return nil, bez
+		return nil, nil, bez
 	}
 	modeli, greske := o.dnevniModeliZaDanas()
 	for l, err := range greske {
@@ -263,7 +276,18 @@ func (o *Osvjezivac) dnevno(ctx context.Context, sada int64, od time.Time) ([]Dn
 		}
 		out = append(out, d...)
 	}
-	return out, bez
+	var sidra []Izdana
+	for _, l := range DnevniUlazi() {
+		n, ucitan := satni[l]
+		if !ucitan {
+			continue
+		}
+		if v, ima := n.ZadnjiDo(sada); ima {
+			sidra = append(sidra, Izdana{Letva: l, Velicina: "vodostaj", Izdano: sada, Ciljni: sada,
+				Vrijednost: v, Dolje: v, Gore: v, Model: ModelDnevni})
+		}
+	}
+	return out, sidra, bez
 }
 
 // Zapisi sprema izračunato.

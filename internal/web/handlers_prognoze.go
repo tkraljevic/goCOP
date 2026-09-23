@@ -24,6 +24,9 @@ import (
 // dalje postoji, ali se na jednom retku ne da čitati.
 var DoseziPregleda = []int{6, 12, 24, 48, 72}
 
+// BliziDosezi su satni stupci pregleda prije stupaca po danima.
+var BliziDosezi = []int{6, 12}
+
 type PrognozeHandler struct {
 	tmpl     *template.Template
 	citac    func() *CitacPrognoza
@@ -59,7 +62,22 @@ type LetvaPrognoze struct {
 	SadaCm      string
 	SadaQ       string
 	Vrijednosti []VrijednostPrognoze
-	Doseg       int // dokle prognoza ide, u satima
+	Doseg       int  // dokle prognoza ide, u satima
+	Ulaz        bool // ulaz dnevne prognoze: stoji samo mjerenje
+	TudiVrh     bool // vrh lanca koji dalje ide po mađarskoj prognozi
+	Dani        []CelijaDana
+}
+
+// CelijaDana je jedan dan pregleda, za 07 h — termin u kojem prognozu daju i
+// Mađari i uredska tablica. Vrijednost je iz satnog lanca ili iz dnevnog
+// modela, već prema tome koji je na tom danu za tu letvu provjerom točniji;
+// ispod stoji mađarska prognoza za isti termin, gdje je imaju.
+type CelijaDana struct {
+	Cm, Raspon     string
+	HU, HURaspon   string
+	Dnevna         bool // vrijednost daje dnevni model
+	Slabija        bool
+	Razina, Moguce string
 }
 
 type PrognozePageData struct {
@@ -80,27 +98,9 @@ type PrognozePageData struct {
 	Profili    []*UzduzniProfil
 	BezProfila string // zašto profila nema, kad ga nema
 
-	DnevnoIzdano string
-	DnevniDani   []string // naslovi stupaca: dan u tjednu i datum
-	Dnevno       []RedDnevni
-}
-
-// RedDnevni je jedna letva u dnevnoj prognozi: izmjereni srednjak zadnjih 24
-// sata i 1.–6. dan.
-type RedDnevni struct {
-	Naziv, URL, Voda string
-	Sada             string
-	Dani             []DanDnevni
-}
-
-// DanDnevni je jedan dan dnevne prognoze. Razina je faza obrane koju
-// vrijednost doseže; Moguce kaže da je doseže gornja granica raspona, iako
-// sama vrijednost ne.
-type DanDnevni struct {
-	Cm, Raspon string
-	Trend      string
-	Razina     string // "", prep, regular, emerg, crit
-	Moguce     string
+	Bliski   []int
+	Dani     []string // naslovi stupaca po danima
+	ImaTudih bool
 }
 
 func (h *PrognozeHandler) ShowPrognoze(w http.ResponseWriter, r *http.Request) {
@@ -130,11 +130,21 @@ func (h *PrognozeHandler) ShowPrognoze(w http.ResponseWriter, r *http.Request) {
 	data.Izdano = izdano.In(models.Zagreb).Format("2.1.2006. u 15:04")
 	postaje := h.postaje(r.Context())
 	data.Letve = h.opisiLetve(postaje, letve)
-	data.Profili = uzduzniProfili(postaje, letve)
-	if izd, dnevne, err := c.Dnevno(); err == nil && len(dnevne) > 0 {
-		data.DnevnoIzdano = izd.In(models.Zagreb).Format("2.1.2006. u 15:04")
-		data.DnevniDani, data.Dnevno = dnevniPregled(postaje, izd, dnevne)
+	data.Bliski = BliziDosezi
+	_, dnevne, _ := c.Dnevno()
+	tude := c.Tude(prognoza.Podrijetlo, izdano)
+	var ciljevi []int64
+	data.Dani, ciljevi = daniPregleda(izdano)
+	for i := range data.Letve {
+		data.Letve[i].Dani = celijeDana(data.Letve[i].Kod, letve[i], ciljevi,
+			dnevne[data.Letve[i].Kod], tude[data.Letve[i].Kod], postaje[data.Letve[i].Kod])
+		for _, d := range data.Letve[i].Dani {
+			if d.HU != "" {
+				data.ImaTudih = true
+			}
+		}
 	}
+	data.Profili = uzduzniProfili(postaje, letve)
 	if len(data.Profili) == 0 {
 		data.BezProfila = "Za uzdužni profil treba barem dvije letve s poznatom " +
 			"stacionažom i kotom nule u novom visinskom sustavu."
@@ -166,16 +176,18 @@ func (h *PrognozeHandler) postaje(ctx context.Context) map[string]models.Station
 func (h *PrognozeHandler) opisiLetve(popis map[string]models.Station, letve []PregledLetve) []LetvaPrognoze {
 	out := make([]LetvaPrognoze, 0, len(letve))
 	for _, l := range letve {
+		ulaz := l.Racuna == "" && !l.UlazLanca && jeDnevniUlaz(l.Letva)
+		_, tudi := prognoza.VrhoviSTudomPrognozom[l.Letva]
 		red := LetvaPrognoze{
 			Kod: l.Letva, Naziv: l.Letva, Racuna: l.Racuna, Doseg: l.Doseg,
-			Vrh:    l.Racuna == "",
+			Vrh: l.Racuna == "" && !ulaz, Ulaz: ulaz, TudiVrh: l.Racuna == "" && tudi,
 			SadaCm: uVelicini(l.Sada, "vodostaj"), SadaQ: uVelicini(l.Sada, "protok"),
 		}
 		if st, ima := popis[l.Letva]; ima {
 			red.Naziv, red.Voda, red.Stacionaza = st.Name, st.Watercourse, st.Stationing
 			red.URL = "/readings/station/" + st.ID.String()
 		}
-		for _, d := range DoseziPregleda {
+		for _, d := range BliziDosezi {
 			cm, imaCm := l.Po["vodostaj"][d]
 			q, imaQ := l.Po["protok"][d]
 			v := VrijednostPrognoze{DosegH: d, Ima: imaCm || imaQ}
@@ -224,11 +236,13 @@ type PregledVrijednost struct {
 // PregledLetve je prognoza jedne letve, po veličini pa po dosegu. Racuna kaže
 // u kojoj veličini model doista radi; druga dolazi iz krivulje.
 type PregledLetve struct {
-	Letva  string
-	Racuna string
-	Sada   map[string]float64
-	Doseg  int
-	Po     map[string]map[int]PregledVrijednost
+	Letva     string
+	Racuna    string
+	Sada      map[string]float64
+	Doseg     int
+	Po        map[string]map[int]PregledVrijednost
+	Satno     map[int64]PregledVrijednost // vodostaj po ciljnom satu, za dane na pregledu
+	UlazLanca bool                        // letva ulazi u neki pojas satnog lanca
 }
 
 // Pregled čita najnovije izdanje: za svaku letvu vrijednost u satu izdavanja i
@@ -254,6 +268,14 @@ func (c *CitacPrognoza) Pregled() (time.Time, []PregledLetve, error) {
 		return time.Time{}, nil, err
 	}
 
+	ulazLanca := map[string]bool{}
+	for _, ps := range pojasi {
+		for _, p := range ps {
+			for _, u := range p.Ulazi {
+				ulazLanca[u.Letva] = true
+			}
+		}
+	}
 	redom := prognoza.Redom(pojasi)
 	mjesto := map[string]int{}
 	for i, l := range redom {
@@ -264,8 +286,8 @@ func (c *CitacPrognoza) Pregled() (time.Time, []PregledLetve, error) {
 		if len(niz) == 0 {
 			continue
 		}
-		p := PregledLetve{Letva: letva, Sada: map[string]float64{},
-			Po: map[string]map[int]PregledVrijednost{}}
+		p := PregledLetve{Letva: letva, UlazLanca: ulazLanca[letva], Sada: map[string]float64{},
+			Po: map[string]map[int]PregledVrijednost{}, Satno: map[int64]PregledVrijednost{}}
 		if len(pojasi[letva]) > 0 {
 			p.Racuna = pojasi[letva][0].Velicina
 		}
@@ -277,14 +299,18 @@ func (c *CitacPrognoza) Pregled() (time.Time, []PregledLetve, error) {
 			if d == 0 {
 				p.Sada[i.Velicina] = i.Vrijednost
 			}
-			if !uDosezima(d) {
-				continue
-			}
 			// Je li prognoza bolja od postojanosti mjereno je u veličini u
 			// kojoj model radi; krivulja to ne mijenja, samo preslikava.
 			bolja := true
 			if pr, ima := promasaji[letva][d]; ima {
 				bolja = pr.BoljaOdPostojanosti()
+			}
+			if i.Velicina == "vodostaj" && d > 0 {
+				p.Satno[i.Ciljni] = PregledVrijednost{Vrijednost: i.Vrijednost,
+					Dolje: i.Dolje, Gore: i.Gore, BoljaOdPostojanosti: bolja}
+			}
+			if !uDosezima(d) {
+				continue
 			}
 			if p.Po[i.Velicina] == nil {
 				p.Po[i.Velicina] = map[int]PregledVrijednost{}
@@ -372,66 +398,6 @@ func uzduzniProfili(postaje map[string]models.Station, letve []PregledLetve) []*
 	return out
 }
 
-var daniUTjednu = []string{"ned", "pon", "uto", "sri", "čet", "pet", "sub"}
-
-// dnevniPregled slaže dnevnu prognozu u retke, redom kojim ciljevi stoje u
-// modelu — nizvodno, kako voda teče.
-func dnevniPregled(postaje map[string]models.Station, izdano time.Time,
-	dnevne map[string][]prognoza.DnevnaIzdana) ([]string, []RedDnevni) {
-	var dani []string
-	for k := 1; k <= prognoza.DnevniDosezi; k++ {
-		// Dan je 24 sata do sata izdavanja pomaknutog za k dana; naslov nosi
-		// datum njegove sredine.
-		sredina := izdano.Add(time.Duration(24*k-12) * time.Hour).In(models.Zagreb)
-		dani = append(dani, daniUTjednu[sredina.Weekday()]+" "+sredina.Format("2.1."))
-	}
-	var out []RedDnevni
-	for _, c := range prognoza.DnevniCiljevi {
-		niz := dnevne[c.Letva]
-		if len(niz) == 0 {
-			continue
-		}
-		red := RedDnevni{Naziv: c.Letva}
-		st, ima := postaje[c.Letva]
-		if ima {
-			red.Naziv, red.Voda = st.Name, st.Watercourse
-			red.URL = "/readings/station/" + st.ID.String()
-		}
-		po := map[int]prognoza.DnevnaIzdana{}
-		for _, d := range niz {
-			po[d.Dan] = d
-		}
-		prije, imaPrije := po[0]
-		if imaPrije {
-			red.Sada = brojHRf(prije.Vrijednost, 0)
-		}
-		for k := 1; k <= prognoza.DnevniDosezi; k++ {
-			d, ima := po[k]
-			if !ima {
-				red.Dani = append(red.Dani, DanDnevni{})
-				continue
-			}
-			dan := DanDnevni{Cm: brojHRf(d.Vrijednost, 0), Raspon: rasponHR(d.Dolje, d.Gore, 0), Trend: "→"}
-			if imaPrije {
-				switch r := d.Vrijednost - prije.Vrijednost; {
-				case r > 5:
-					dan.Trend = "↑"
-				case r < -5:
-					dan.Trend = "↓"
-				}
-			}
-			dan.Razina = razinaObrane(st, d.Vrijednost)
-			if g := razinaObrane(st, d.Gore); g != dan.Razina {
-				dan.Moguce = g
-			}
-			red.Dani = append(red.Dani, dan)
-			prije, imaPrije = d, true
-		}
-		out = append(out, red)
-	}
-	return dani, out
-}
-
 // razinaObrane je najviša faza obrane čiji je prag dosegnut.
 func razinaObrane(st models.Station, cm float64) string {
 	razina := ""
@@ -444,4 +410,91 @@ func razinaObrane(st models.Station, cm float64) string {
 		}
 	}
 	return razina
+}
+
+var daniUTjednu = []string{"ned", "pon", "uto", "sri", "čet", "pet", "sub"}
+
+// daniPregleda su termini stupaca po danima: prvih šest 07 h poslije izdanja.
+func daniPregleda(izdano time.Time) ([]string, []int64) {
+	lok := izdano.In(models.Zagreb)
+	jutro := time.Date(lok.Year(), lok.Month(), lok.Day(), 7, 0, 0, 0, models.Zagreb)
+	if !jutro.After(lok) {
+		jutro = jutro.AddDate(0, 0, 1)
+	}
+	var naslovi []string
+	var sati []int64
+	for k := 0; k < prognoza.DnevniDosezi; k++ {
+		d := jutro.AddDate(0, 0, k)
+		naslovi = append(naslovi, daniUTjednu[d.Weekday()]+" "+d.Format("2.1."))
+		sati = append(sati, d.UTC().Unix()/3600)
+	}
+	return naslovi, sati
+}
+
+func jeDnevniUlaz(letva string) bool {
+	for _, u := range prognoza.DnevniUlazi() {
+		if u == letva {
+			return true
+		}
+	}
+	return false
+}
+
+// celijeDana slaže dane jedne letve: za svaki termin vrijednost iz modela koji
+// je ondje točniji, raspon, mađarsku prognozu i fazu obrane.
+func celijeDana(letva string, l PregledLetve, ciljevi []int64, dnevne []prognoza.DnevnaIzdana,
+	tude map[int64]TudaVrijednost, st models.Station) []CelijaDana {
+	odDana := prognoza.DnevnaOdDana[letva]
+	out := make([]CelijaDana, len(ciljevi))
+	for k, t := range ciljevi {
+		c := &out[k]
+		var v, dolje, gore float64
+		ima := false
+		satni, imaSatni := l.Satno[t]
+		dnevni, imaDnevni := dnevniU(dnevne, t)
+		switch {
+		case imaDnevni && odDana > 0 && k+1 >= odDana:
+			v, dolje, gore, ima, c.Dnevna = dnevni.Vrijednost, dnevni.Dolje, dnevni.Gore, true, true
+		case imaSatni:
+			v, dolje, gore, ima = satni.Vrijednost, satni.Dolje, satni.Gore, true
+			c.Slabija = !satni.BoljaOdPostojanosti
+		case imaDnevni:
+			v, dolje, gore, ima, c.Dnevna = dnevni.Vrijednost, dnevni.Dolje, dnevni.Gore, true, true
+		}
+		if ima {
+			c.Cm = brojHRf(v, 0)
+			if gore > dolje {
+				c.Raspon = rasponHR(dolje, gore, 0)
+			}
+			c.Razina = razinaObrane(st, v)
+			if g := razinaObrane(st, gore); g != c.Razina {
+				c.Moguce = g
+			}
+		}
+		if hu, imaHU := tude[t]; imaHU {
+			c.HU = brojHRf(hu.Cm, 0)
+			if hu.PlusMin > 0 {
+				c.HURaspon = "±" + brojHRf(hu.PlusMin, 0)
+			}
+		}
+	}
+	return out
+}
+
+// dnevniU procjenjuje dnevnu prognozu u zadanom satu. Dnevna vrijednost je
+// srednjak 24 sata, pa se pripisuje njihovoj sredini, a između dviju sredina
+// ide pravocrtno.
+func dnevniU(dnevne []prognoza.DnevnaIzdana, t int64) (PregledVrijednost, bool) {
+	for i := 0; i+1 < len(dnevne); i++ {
+		a, b := dnevne[i], dnevne[i+1]
+		ca, cb := a.Ciljni-12, b.Ciljni-12
+		if t < ca || t > cb || cb == ca {
+			continue
+		}
+		u := float64(t-ca) / float64(cb-ca)
+		ip := func(x, y float64) float64 { return x + u*(y-x) }
+		return PregledVrijednost{Vrijednost: ip(a.Vrijednost, b.Vrijednost),
+			Dolje: ip(a.Dolje, b.Dolje), Gore: ip(a.Gore, b.Gore), BoljaOdPostojanosti: true}, true
+	}
+	return PregledVrijednost{}, false
 }

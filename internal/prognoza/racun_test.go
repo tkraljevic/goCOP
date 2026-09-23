@@ -252,3 +252,25 @@ func TestVrhSlijediTuduPrognozu(t *testing.T) {
 		}
 	}
 }
+
+// Letva u lancu koja kasni sat za satom izdavanja ispravlja se od svog zadnjeg
+// mjerenja. Bez toga bi u satu izdavanja ostao goli model.
+func TestIspravakOdZadnjegMjerenjaKadLetvaKasni(t *testing.T) {
+	PoluvijekIspravka = 48
+	defer func() { PoluvijekIspravka = 48 }()
+	sada := int64(1000)
+	gornja := Izvor{Letva: "gornja", Velicina: "vodostaj"}
+	donja := Izvor{Letva: "donja", Velicina: "vodostaj"}
+	nizovi := map[Izvor]Niz{
+		gornja: ravanNiz(900, sada, 100, 0),  // model donje daje 100
+		donja:  ravanNiz(900, sada-1, 60, 0), // a donja stoji na 60 i kasni sat
+	}
+	r := NovoRacunalo(lanac(1, 0, 1, 3), nizovi, sada)
+	izdane, err := r.Prognoziraj("donja", 6, "proba")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v := izdane[0].Vrijednost; math.Abs(v-60) > 1 {
+		t.Errorf("u satu izdavanja %g, a letva stoji na 60 — ispravak nije uzet", v)
+	}
+}

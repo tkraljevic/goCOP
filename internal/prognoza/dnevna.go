@@ -65,6 +65,36 @@ var DnevniCiljevi = []DnevniCilj{
 	{"ilok", []string{"komarom", "budapest", "mohacs", "batina", "osijek", "donji-miholjac"}},
 }
 
+// DnevnaOdDana kaže od kojeg dana na pregledu vrijednost daje dnevni model;
+// prije toga satni lanac. Granica je ondje gdje je provjera na valovima
+// pokazala da dnevni počinje pogađati bolje: na Dunavu je satni lanac bolji
+// samo prvi dan, a na Dravi dulje, jer ondje satni lanac nosi i istjecanje
+// HE Dubrava i mađarsku prognozu Letenyea. Satni lanac seže do 96 sati, pa
+// dalje od toga ionako stoji dnevni.
+var DnevnaOdDana = map[string]int{
+	"batina": 2, "aljmas": 2, "vukovar": 2, "ilok": 2,
+	"botovo": 5, "terezino-polje": 3, "donji-miholjac": 4, "belisce": 5, "osijek": 5,
+}
+
+// DnevniUlazi su letve koje dnevni model čita, a koje nisu i same njegov cilj.
+func DnevniUlazi() []string {
+	cilj := map[string]bool{}
+	for _, c := range DnevniCiljevi {
+		cilj[c.Letva] = true
+	}
+	vidjeno := map[string]bool{}
+	var out []string
+	for _, c := range DnevniCiljevi {
+		for _, u := range c.Ulazi {
+			if !cilj[u] && !vidjeno[u] {
+				vidjeno[u] = true
+				out = append(out, u)
+			}
+		}
+	}
+	return out
+}
+
 // DnevniNiz je dnevni vodostaj: redni broj dana → cm. Značajke gledaju samo
 // razmake među danima, pa brojanje može početi bilo gdje.
 type DnevniNiz map[int64]float64

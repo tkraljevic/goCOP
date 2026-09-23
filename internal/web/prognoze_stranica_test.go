@@ -123,7 +123,8 @@ func TestStranicaPrognozaPokazujeIzdanjeIRaspon(t *testing.T) {
 		CurrentUser: &models.User{FullName: "P"},
 		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
 		ActiveNav:   "prognoze", Dosezi: DoseziPregleda, Udio: 68,
-		Izdano: "23.9.2026. u 07:00",
+		Izdano: "23.9.2026. u 07:00", Bliski: BliziDosezi, Dani: []string{"čet 24.9.", "pet 25.9."},
+		ImaTudih: true,
 		Letve: []LetvaPrognoze{{
 			Kod: "belisce", Naziv: "Belišće", Voda: "Drava", Racuna: "vodostaj",
 			URL: "/readings/station/x", SadaCm: "35", SadaQ: "231", Doseg: 96,
@@ -134,10 +135,15 @@ func TestStranicaPrognozaPokazujeIzdanjeIRaspon(t *testing.T) {
 				{DosegH: 48, Ima: true, Cm: "-62", CmRaspon: "-86 do -38", Slabija: true},
 				{DosegH: 72, Ima: false},
 			},
+			Dani: []CelijaDana{
+				{Cm: "57", Raspon: "49 do 65", HU: "60", HURaspon: "±9", Razina: "prep"},
+				{Cm: "-62", Raspon: "-86 do -38", Dnevna: true, Moguce: "regular"},
+			},
 		}},
 	})
 	for _, want := range []string{"Belišće", "Drava", "23.9.2026. u 07:00", "68 %",
-		"49 do 65", "245", "240 do 251", "-86 do -38", "prog-slabija", "96 h",
+		"49 do 65", "245", "240 do 251", "-86 do -38", "prog-slabija", "čet 24.9.",
+		"HU 60 ±9", "dan-prep", "dan-moguce-regular", "prog-oznaka",
 		"/readings/station/x",
 		"računa se u vodostaju"} {
 		if !strings.Contains(html, want) {
