@@ -15,22 +15,15 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"flag"
 	"fmt"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"time"
 
 	"gocop/internal/hidroview"
-	"gocop/internal/peers"
-	"gocop/internal/posta"
-	"gocop/internal/razmjena"
-	"gocop/internal/repository"
-
-	_ "modernc.org/sqlite"
+	"gocop/internal/hidroview/racun"
 )
 
 func main() {
@@ -43,7 +36,7 @@ func main() {
 
 	korisnik, lozinka := os.Getenv("HDV_KORISNIK"), os.Getenv("HDV_LOZINKA")
 	if korisnik == "" || lozinka == "" {
-		r, err := racunCvora(*dbPath)
+		r, err := racun.Cvora(*dbPath)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "račun čvora:", err)
 			fmt.Fprintln(os.Stderr, "Upiši ga naredbom upis-hidroview-racuna, ili postavi u okolini:")
@@ -52,9 +45,9 @@ func main() {
 			fmt.Fprintln(os.Stderr, "  export HDV_KORISNIK HDV_LOZINKA")
 			os.Exit(2)
 		}
-		korisnik, lozinka = r.korisnik, r.lozinka
-		if r.adresa != "" && *adresa == hidroview.ZadanaAdresa {
-			*adresa = r.adresa
+		korisnik, lozinka = r.Korisnik, r.Lozinka
+		if r.Adresa != "" && *adresa == hidroview.ZadanaAdresa {
+			*adresa = r.Adresa
 		}
 		fmt.Fprintf(os.Stderr, "račun čvora: %s (%s)\n", korisnik, *adresa)
 	}
@@ -226,35 +219,4 @@ var naziviVelicina = map[string]string{
 	hidroview.VelicinaProtok:          "protok",
 	hidroview.VelicinaOborina:         "oborina",
 	hidroview.VelicinaBrzina:          "površinska brzina",
-}
-
-// racun je otključan račun za HydroView.
-type racun struct{ korisnik, lozinka, adresa string }
-
-// racunCvora otključava račun čvora upisan u aplikaciju, onako kako to radi
-// poslužitelj: ključ čvora leži uz bazu, a lozinka je zaključana ključem
-// izvedenim iz njega. Ključ se samo čita — proba ne smije stvoriti novi
-// identitet čvora.
-func racunCvora(db string) (racun, error) {
-	kljuc, err := razmjena.LoadKey(filepath.Join(filepath.Dir(db), peers.KeyFileName))
-	if err != nil {
-		return racun{}, fmt.Errorf("ključ čvora: %w", err)
-	}
-	baza, err := sql.Open("sqlite", db+"?mode=ro")
-	if err != nil {
-		return racun{}, err
-	}
-	defer baza.Close()
-	r, err := repository.NewHidroViewRepository(baza).Racun(context.Background(), "")
-	if err != nil {
-		return racun{}, err
-	}
-	if r == nil {
-		return racun{}, fmt.Errorf("u aplikaciji nije upisan račun čvora za HydroView")
-	}
-	lozinka, err := posta.Otkljucaj(hidroview.Kljuc(kljuc.Seed()), r.Lozinka)
-	if err != nil {
-		return racun{}, fmt.Errorf("lozinka se ne da otključati: %w", err)
-	}
-	return racun{korisnik: r.Korisnik, lozinka: lozinka, adresa: r.Adresa}, nil
 }

@@ -7,7 +7,10 @@
 // koja je svedena na nulu letve. Vrijednosti stižu u metrima i ovdje se
 // pretvaraju u centimetre, kako ih arhiva vodi.
 //
-// Vjerodajnice se čitaju iz okoline, da ne ostanu u povijesti ljuske:
+// Vjerodajnice se ne upisuju u naredbeni redak. Bez ičega u okolini uzima se
+// račun čvora upisan u aplikaciju (upis-hidroview-racuna) — isti koji
+// poslužitelj koristi za preuzimanje. Okolina ima prednost, za uvoz tuđim
+// računom:
 //
 //	read "?Korisnik: " HDV_KORISNIK
 //	read -s "?Lozinka: " HDV_LOZINKA
@@ -27,6 +30,7 @@ import (
 
 	"gocop/internal/arhiva"
 	"gocop/internal/hidroview"
+	"gocop/internal/hidroview/racun"
 )
 
 // veličine koje uzimamo i kako se zovu u arhivi
@@ -53,6 +57,7 @@ func main() {
 	komad := flag.Int("komad", 30, "koliko dana po zahtjevu")
 	zaokruzi := flag.Int("zaokruzi", -1, "na koliko minuta svesti vrijeme; -1 znači po mjernom koraku postaje, 0 ne zaokružuje")
 	probno := flag.Bool("probno", true, "samo ispiši što bi se upisalo")
+	dbPath := flag.String("db", "data/gocop.db", "baza čvora, zbog računa upisanog u aplikaciju")
 	flag.Parse()
 	if *sliv == "" || *letva == "" {
 		log.Fatal("trebaju -sliv i -letva")
@@ -79,7 +84,15 @@ func main() {
 
 	korisnik, lozinka := os.Getenv("HDV_KORISNIK"), os.Getenv("HDV_LOZINKA")
 	if korisnik == "" || lozinka == "" {
-		log.Fatal("nedostaju HDV_KORISNIK i HDV_LOZINKA u okolini")
+		r, err := racun.Cvora(*dbPath)
+		if err != nil {
+			log.Fatalf("račun čvora: %v — upiši ga naredbom upis-hidroview-racuna ili postavi HDV_KORISNIK i HDV_LOZINKA u okolini", err)
+		}
+		korisnik, lozinka = r.Korisnik, r.Lozinka
+		if r.Adresa != "" && *adresa == hidroview.ZadanaAdresa {
+			*adresa = r.Adresa
+		}
+		log.Printf("račun čvora: %s (%s)", korisnik, *adresa)
 	}
 	ctx, otkazi := context.WithTimeout(context.Background(), 30*time.Minute)
 	defer otkazi()
