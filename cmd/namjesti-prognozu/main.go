@@ -213,6 +213,9 @@ var Tokovi = []struct {
 		// Osijeku do 72 h ne mijenja ništa, a Paksu, Baji i Mohácsu je na 72 h
 		// pokvari za 2–4 cm. Rajka nije karika: leži na starom koritu ispod
 		// Čunova, pa pravu vodu vidi tek kad se kanal Gabčíkovo prelijeva.
+		// Ni Bavarska ne pomaže: Achleiten iz Hofkirchena i Inna u
+		// Passau-Inglingu (GKD, satno od 2012.) kasni 0–2 h — leži dva
+		// kilometra ispod ušća Inna.
 		{"esztergom", []string{"komarom"}},
 		{"budapest", []string{"esztergom"}},
 		{"dunafoldvar", []string{"budapest"}},
