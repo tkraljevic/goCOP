@@ -310,6 +310,38 @@
 </svg>
 {{end}}
 
+{{/* Uzdužni profil — prima UzduzniProfil. Vodno lice uzduž toka, u apsolutnim
+     kotama: svaka letva ima svoju nulu, pa bi crta kroz centimetre pokazivala
+     razliku nula, a ne nagib vodnog lica. */}}
+{{define "uzduzniProfil"}}
+<svg viewBox="0 0 {{.Width}} {{.Height}}" role="img" aria-label="{{.Opis}}">
+  {{range .YTicks}}
+  <line class="grid" x1="{{printf "%.1f" $.LijevoX}}" x2="{{printf "%.1f" $.DesnoX}}"
+        y1="{{printf "%.1f" .Pos}}" y2="{{printf "%.1f" .Pos}}"/>
+  <text class="tick" x="{{printf "%.1f" $.OsY}}" y="{{printf "%.1f" .Pos}}"
+        text-anchor="end" dominant-baseline="middle">{{.Label}}</text>
+  {{end}}
+  {{range .Pragovi}}
+  <path class="uzd-prag {{.Class}}" d="{{.Put}}"/>
+  {{end}}
+  {{range .Crte}}{{if .Pojas}}<path class="uzd-pojas {{.Class}}" d="{{.Pojas}}"/>{{end}}{{end}}
+  {{range .Crte}}
+  <path class="uzd-crta {{.Class}}" d="{{.Put}}"/>
+  {{end}}
+  {{range .Tocke}}
+  <circle class="uzd-tocka" cx="{{printf "%.1f" .X}}" cy="{{printf "%.1f" .Y}}" r="3.5"/>
+  <text class="uzd-natpis" x="{{printf "%.1f" .X}}" y="{{printf "%.1f" .Y}}" dy="-9"
+        text-anchor="{{.Sidro}}">{{.Naziv}}</text>
+  <text class="uzd-kota" x="{{printf "%.1f" .X}}" y="{{printf "%.1f" .Y}}" dy="16"
+        text-anchor="{{.Sidro}}">{{.Kota}} m</text>
+  {{end}}
+  {{range .XTicks}}
+  <text class="tick" x="{{printf "%.1f" .Pos}}" y="{{printf "%.1f" $.OsX}}"
+        text-anchor="{{.Anchor}}">{{.Label}}</text>
+  {{end}}
+</svg>
+{{end}}
+
 {{/* Presjek korita — prima KoritoCrtez. Isti crtež služi širokom i uskom;
      razlika je u koordinatama koje crtež sam nosi. */}}
 {{define "presjekKorita"}}

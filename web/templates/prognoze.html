@@ -19,6 +19,28 @@
 </div>
 {{else}}
 
+{{range .Profili}}
+<section class="detail-section">
+  <h2>{{icon "waves"}} Uzdužni profil — {{.Ime}}</h2>
+  <div class="reg-card uzduzni" style="padding:0.75rem 0.5rem 0.25rem;">
+    {{template "uzduzniProfil" .}}
+  </div>
+  <p class="graf-natpis">
+    <span class="uzd-znak sad"></span> sad ·
+    <span class="uzd-znak prog1"></span> za 24 h ·
+    <span class="uzd-znak prog2"></span> za 48 h ·
+    <span class="uzd-znak prep"></span> pripremna ·
+    <span class="uzd-znak regular"></span> redovna ·
+    <span class="uzd-znak emerg"></span> izvanredna obrana.
+    Kote vodnog lica u metrima, HVRS71; nizvodno je desno, a brojka pod crtežom je
+    riječni kilometar. Val se vidi kako putuje: crta za sutra leži iznad današnje
+    ondje gdje val stiže, a ispod nje ondje odakle je otišao.
+  </p>
+</section>
+{{else}}
+{{if .BezProfila}}<p class="graf-natpis">{{.BezProfila}}</p>{{end}}
+{{end}}
+
 <div class="table-card"><div class="table-responsive">
   <table class="data-table prognoze-tablica">
     <thead><tr>
@@ -34,7 +56,8 @@
           {{if .URL}}<a href="{{.URL}}">{{.Naziv}}</a>{{else}}{{.Naziv}}{{end}}
           <div class="reg-card-sub">
             {{if .Voda}}{{.Voda}}{{if .Stacionaza}} · {{.Stacionaza}}{{end}}{{end}}
-            {{if .Racuna}}· računa se u {{if eq .Racuna "protok"}}protoku{{else}}vodostaju{{end}}{{end}}
+            {{if .Racuna}}· računa se u {{if eq .Racuna "protok"}}protoku{{else}}vodostaju{{end}}
+            {{else}}· vrh lanca, uzvodno nemamo ništa{{end}}
           </div>
         </td>
         <td class="mono" style="text-align:right;">
@@ -50,7 +73,7 @@
           {{else}}—{{end}}
         </td>
         {{end}}
-        <td class="mono reg-card-sub" style="text-align:right;">{{.Doseg}} h</td>
+        <td class="mono reg-card-sub" style="text-align:right;">{{if .Vrh}}—{{else}}{{.Doseg}} h{{end}}</td>
       </tr>
       {{end}}
     </tbody>

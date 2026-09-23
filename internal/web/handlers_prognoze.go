@@ -8,6 +8,7 @@ import (
 	"sort"
 	"time"
 
+	"gocop/internal/hydro"
 	"gocop/internal/models"
 	"gocop/internal/prognoza"
 	"gocop/internal/service"
@@ -53,6 +54,7 @@ type LetvaPrognoze struct {
 	Voda        string
 	Stacionaza  string
 	Racuna      string // u čemu model radi; druga veličina dolazi iz krivulje
+	Vrh         bool   // vrh lanca: stoji samo mjerenje, prognoze nema
 	URL         string
 	SadaCm      string
 	SadaQ       string
@@ -69,12 +71,14 @@ type PrognozePageData struct {
 	ActiveNav      string
 	ViewAsBanner
 
-	Izdano string
-	Nema   bool
-	Razlog string
-	Udio   int
-	Dosezi []int
-	Letve  []LetvaPrognoze
+	Izdano     string
+	Nema       bool
+	Razlog     string
+	Udio       int
+	Dosezi     []int
+	Letve      []LetvaPrognoze
+	Profili    []*UzduzniProfil
+	BezProfila string // zašto profila nema, kad ga nema
 }
 
 func (h *PrognozeHandler) ShowPrognoze(w http.ResponseWriter, r *http.Request) {
@@ -102,7 +106,13 @@ func (h *PrognozeHandler) ShowPrognoze(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data.Izdano = izdano.In(models.Zagreb).Format("2.1.2006. u 15:04")
-	data.Letve = h.opisiLetve(r.Context(), letve)
+	postaje := h.postaje(r.Context())
+	data.Letve = h.opisiLetve(postaje, letve)
+	data.Profili = uzduzniProfili(postaje, letve)
+	if len(data.Profili) == 0 {
+		data.BezProfila = "Za uzdužni profil treba barem dvije letve s poznatom " +
+			"stacionažom i kotom nule u novom visinskom sustavu."
+	}
 	h.iscrtaj(w, data)
 }
 
@@ -114,19 +124,25 @@ func (h *PrognozeHandler) iscrtaj(w http.ResponseWriter, data PrognozePageData) 
 
 // opisiLetve dodaje ono što u bazi prognoza ne stoji: kako se letva zove, na
 // kojoj je vodi i gdje joj je stranica.
-func (h *PrognozeHandler) opisiLetve(ctx context.Context, letve []PregledLetve) []LetvaPrognoze {
+func (h *PrognozeHandler) postaje(ctx context.Context) map[string]models.Station {
 	popis := map[string]models.Station{}
-	if h.stations != nil {
-		if sve, err := h.stations.ListStations(ctx, "", "", "", false); err == nil {
-			for _, st := range sve {
-				popis[st.Code] = st
-			}
+	if h.stations == nil {
+		return popis
+	}
+	if sve, err := h.stations.ListStations(ctx, "", "", "", false); err == nil {
+		for _, st := range sve {
+			popis[st.Code] = st
 		}
 	}
+	return popis
+}
+
+func (h *PrognozeHandler) opisiLetve(popis map[string]models.Station, letve []PregledLetve) []LetvaPrognoze {
 	out := make([]LetvaPrognoze, 0, len(letve))
 	for _, l := range letve {
 		red := LetvaPrognoze{
 			Kod: l.Letva, Naziv: l.Letva, Racuna: l.Racuna, Doseg: l.Doseg,
+			Vrh:    l.Racuna == "",
 			SadaCm: uVelicini(l.Sada, "vodostaj"), SadaQ: uVelicini(l.Sada, "protok"),
 		}
 		if st, ima := popis[l.Letva]; ima {
@@ -276,4 +292,56 @@ func uDosezima(d int) bool {
 		}
 	}
 	return false
+}
+
+// uzduzniProfili slaže profil za svaki tok na kojem ima dovoljno letvi.
+// Rijeke se ne miješaju: Drava i Dunav imaju svoje kote i svoj nagib, a jedan
+// crtež kroz obje pokazivao bi skok na ušću koji nije val nego spoj dvaju
+// tokova.
+func uzduzniProfili(postaje map[string]models.Station, letve []PregledLetve) []*UzduzniProfil {
+	poVodi := map[string][]LetvaProfila{}
+	var redom []string
+	for _, l := range letve {
+		st, ima := postaje[l.Letva]
+		if !ima || st.ZeroDatumNew == nil {
+			continue
+		}
+		rkm, ok := hydro.ParseStationingKm(st.Stationing)
+		if !ok {
+			continue
+		}
+		lp := LetvaProfila{
+			Letva: l.Letva, Naziv: st.Name, Rkm: rkm, KotaNule: *st.ZeroDatumNew,
+			Cm: map[int]float64{}, Granice: map[int][2]float64{},
+			Pragovi: map[string]float64{},
+		}
+		if v, ima := l.Sada["vodostaj"]; ima {
+			lp.SadaCm, lp.ImaSada = v, true
+		}
+		for d, v := range l.Po["vodostaj"] {
+			lp.Cm[d] = v.Vrijednost
+			lp.Granice[d] = [2]float64{v.Dolje, v.Gore}
+		}
+		for kljuc, prag := range map[string]models.Threshold{
+			"prep": st.Prep, "regular": st.Regular, "emerg": st.Emergency} {
+			if prag.IsUsable() {
+				lp.Pragovi[kljuc] = float64(*prag.Cm)
+			}
+		}
+		voda := st.Watercourse
+		if voda == "" {
+			voda = "ostalo"
+		}
+		if _, bilo := poVodi[voda]; !bilo {
+			redom = append(redom, voda)
+		}
+		poVodi[voda] = append(poVodi[voda], lp)
+	}
+	var out []*UzduzniProfil
+	for _, voda := range redom {
+		if p := crtajUzduzni(voda, poVodi[voda]); p != nil {
+			out = append(out, p)
+		}
+	}
+	return out
 }

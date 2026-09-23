@@ -81,6 +81,22 @@ func main() {
 		nizovi[iz] = n
 	}
 
+	// Vrh lanca se vodi u jednoj veličini, ali letva ima obje. Donja Dubrava
+	// nema krivulju, pa joj se vodostaj ne da izračunati — a mjeren jest, i na
+	// uzdužnom profilu treba stajati.
+	druge := map[prognoza.Izvor]prognoza.Niz{}
+	for iz := range vrhovi {
+		suprotna := prognoza.Izvor{Letva: iz.Letva, Velicina: "vodostaj"}
+		if iz.Velicina == "vodostaj" {
+			suprotna.Velicina = "protok"
+		}
+		if n, err := ucitajNiz(ocitanja, arhiva, suprotna, od); err == nil {
+			if _, ima := n.Zadnji(); ima {
+				druge[suprotna] = n
+			}
+		}
+	}
+
 	sada, ok := zadnjiZajednicki(nizovi, vrhovi)
 	if !ok {
 		log.Fatal("nijedna ulazna letva nema svježa očitanja")
@@ -135,6 +151,12 @@ func main() {
 			sest.Vrijednost, sest.Raspon(), zad.Vrijednost, zad.Raspon(), jed,
 			slabija(promasaji[letva], len(izdane)))
 	}
+
+	// Vrhovi lanca nemaju svoju prognozu, ali imaju mjerenje. Bez njih bi
+	// uzdužni profil počinjao od druge letve — Dunav bez Batine, Drava bez
+	// Donje Dubrave — a upravo su to mjesta na kojima val ulazi u naš sliv.
+	sve = append(sve, sidraVrhova(arhiva, nizovi, vrhovi, sada)...)
+	sve = append(sve, sidraDrugih(druge, sada)...)
 
 	if *probno {
 		fmt.Printf("\nproba — ništa nije zapisano; %d vrijednosti bi ušlo\n", len(sve))
@@ -325,6 +347,44 @@ func slabija(po map[int]prognoza.Promasaj, doseg int) string {
 		return fmt.Sprintf("   slabija od postojanosti na %d h", od)
 	}
 	return fmt.Sprintf("   slabija od postojanosti od %d do %d h", od, do)
+}
+
+// sidraVrhova zapisuje zadnju izmjerenu vrijednost letvi koje nemaju svoj
+// račun. To nije prognoza nego sidro: jedan jedini sat, onaj izdavanja, da se
+// zna odakle val ulazi.
+func sidraVrhova(arhiva *sql.DB, nizovi map[prognoza.Izvor]prognoza.Niz,
+	vrhovi map[prognoza.Izvor]bool, sada int64) []prognoza.Izdana {
+	var out []prognoza.Izdana
+	for iz := range vrhovi {
+		v, ima := nizovi[iz].U(sada)
+		if !ima {
+			continue
+		}
+		i := prognoza.Izdana{
+			Letva: iz.Letva, Velicina: iz.Velicina, Izdano: sada, Ciljni: sada,
+			Vrijednost: v, Dolje: v, Gore: v, Model: Model,
+		}
+		out = append(out, i)
+		out = append(out, uDrugojVelicini(arhiva, []prognoza.Izdana{i})...)
+	}
+	return out
+}
+
+// sidraDrugih zapisuje mjerenje vrha lanca u onoj veličini u kojoj se ne
+// računa. Ne prolazi kroz krivulju — mjereno je, pa ga nema smisla računati.
+func sidraDrugih(druge map[prognoza.Izvor]prognoza.Niz, sada int64) []prognoza.Izdana {
+	var out []prognoza.Izdana
+	for iz, n := range druge {
+		v, ima := n.U(sada)
+		if !ima {
+			continue
+		}
+		out = append(out, prognoza.Izdana{
+			Letva: iz.Letva, Velicina: iz.Velicina, Izdano: sada, Ciljni: sada,
+			Vrijednost: v, Dolje: v, Gore: v, Model: Model,
+		})
+	}
+	return out
 }
 
 // uDrugojVelicini pretvara prognozu krivuljom: protok u vodostaj i obrnuto.
