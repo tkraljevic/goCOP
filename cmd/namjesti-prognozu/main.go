@@ -174,8 +174,11 @@ var Tokovi = []struct {
 		// Marjančaci na poplavnom pojasu drži r 0,82 uz kašnjenje 6 h i nagib
 		// 0,96 (2008.–2021.; na tri godine radara bilo je 0,47, jer poplava
 		// nije bilo), a u hindcastu 2015.–2021. ide 17/29/28/13/7 % bolje od
-		// postojanosti. Probni lanci namještaju se u zasebnu bazu (-baza), da
-		// živoj prognozi ne podmetnu vrh bez očitanja.
+		// postojanosti. Orahovica joj nije vrh: prema Beničancima na 2003.–2021.
+		// drži r 0,60 uz kašnjenje 0 h, prozor 31–37 h i nagib 6–14 —
+		// natopljenost, jer Vučica vodu dobiva od Krndije ispod Orahovice.
+		// Probni lanci namještaju se u zasebnu bazu (-baza), da živoj prognozi
+		// ne podmetnu vrh bez očitanja.
 	}},
 	{"Dunav", []Racun{
 		// Uzvodno od Batine ide niz mađarskih letvi. Batina je dugo bila vrh
