@@ -128,16 +128,17 @@ func TestStranicaPrognozaPokazujeIzdanjeIRaspon(t *testing.T) {
 			Kod: "belisce", Naziv: "Belišće", Voda: "Drava", Racuna: "vodostaj",
 			URL: "/readings/station/x", SadaCm: "35", SadaQ: "231", Doseg: 96,
 			Vrijednosti: []VrijednostPrognoze{
-				{DosegH: 6, Ima: true, Cm: "41", CmRaspon: "39–43", Q: "245", QRaspon: "240–251"},
-				{DosegH: 12, Ima: true, Cm: "48", CmRaspon: "44–52"},
-				{DosegH: 24, Ima: true, Cm: "57", CmRaspon: "49–65"},
-				{DosegH: 48, Ima: true, Cm: "62", CmRaspon: "38–86", Slabija: true},
+				{DosegH: 6, Ima: true, Cm: "41", CmRaspon: "39 do 43", Q: "245", QRaspon: "240 do 251"},
+				{DosegH: 12, Ima: true, Cm: "48", CmRaspon: "44 do 52"},
+				{DosegH: 24, Ima: true, Cm: "57", CmRaspon: "49 do 65"},
+				{DosegH: 48, Ima: true, Cm: "-62", CmRaspon: "-86 do -38", Slabija: true},
 				{DosegH: 72, Ima: false},
 			},
 		}},
 	})
 	for _, want := range []string{"Belišće", "Drava", "23.9.2026. u 07:00", "68 %",
-		"49–65", "245", "240–251", "prog-slabija", "96 h", "/readings/station/x",
+		"49 do 65", "245", "240 do 251", "-86 do -38", "prog-slabija", "96 h",
+		"/readings/station/x",
 		"računa se u vodostaju"} {
 		if !strings.Contains(html, want) {
 			t.Errorf("stranica prognoza nema %q", want)

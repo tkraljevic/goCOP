@@ -144,6 +144,13 @@ func grupiraj(intPart string) string {
 func brojHR(n int) string { return grupiraj(strconv.Itoa(n)) }
 
 // brojHRf piše razlomljeni broj za prikaz: 1234.5 → 1.234,5
+// rasponHR ispisuje raspon dviju vrijednosti. Razdjelnik je riječ "do", a ne
+// crtica: vodostaji su često negativni, pa bi crtica dala "-379–-339", gdje se
+// ne vidi gdje raspon počinje a gdje se predznak nastavlja.
+func rasponHR(od, do float64, decimals int) string {
+	return brojHRf(od, decimals) + " do " + brojHRf(do, decimals)
+}
+
 func brojHRf(v float64, decimals int) string {
 	s := strconv.FormatFloat(v, 'f', decimals, 64)
 	cijeli, dec := s, ""

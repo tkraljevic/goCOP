@@ -2,6 +2,7 @@ package web
 
 import (
 	"fmt"
+	"math"
 	"regexp"
 	"strings"
 	"testing"
@@ -17,35 +18,127 @@ func letvaProfila(letva string, rkm, kota, sada float64) LetvaProfila {
 	}
 }
 
-// Profil se crta u apsolutnim kotama: letva s višom nulom mora ležati više, i
-// kad joj je vodostaj niži. Kroz centimetre bi crta pokazivala razliku nula, a
-// ne nagib vodnog lica.
-func TestProfilCrtaUApsolutnimKotama(t *testing.T) {
-	p := crtajUzduzni("Drava", []LetvaProfila{
-		letvaProfila("uzvodna", 200, 120, 10),  // kota vode 120,10
-		letvaProfila("nizvodna", 100, 90, 300), // kota vode 93,00
-	})
+// visinaCrte je koliko okomitog prostora crta zauzima.
+func visinaCrte(put string) float64 {
+	najn, najv := math.Inf(1), math.Inf(-1)
+	polja := strings.Fields(strings.NewReplacer("M", " ", "L", " ", "Z", " ").Replace(put))
+	for i := 1; i < len(polja); i += 2 {
+		var v float64
+		if _, err := fmt.Sscanf(polja[i], "%g", &v); err == nil {
+			najn, najv = math.Min(najn, v), math.Max(najv, v)
+		}
+	}
+	if math.IsInf(najn, 1) {
+		return 0
+	}
+	return najv - najn
+}
+
+// Profil crta promjenu, ne kotu. Dvije letve s posve različitim kotama, a
+// jednakom promjenom vode, moraju ležati na istoj visini — inače crtež pokazuje
+// pad rijeke umjesto vala.
+func TestProfilCrtaPromjenuANeKotu(t *testing.T) {
+	a := letvaProfila("uzvodna", 200, 120, 50)
+	b := letvaProfila("nizvodna", 100, 80, 50) // 40 m niža kota nule
+	p := crtajUzduzni("Drava", []LetvaProfila{a, b})
 	if p == nil {
 		t.Fatal("nema profila")
 	}
-	if len(p.Tocke) != 2 {
-		t.Fatalf("%d točaka", len(p.Tocke))
+	// Obje letve sjede na crti današnjeg stanja.
+	for _, tk := range p.Tocke {
+		if math.Abs(tk.Y-p.NulaY) > 1e-9 {
+			t.Errorf("%s nije na crti današnjeg stanja", tk.Naziv)
+		}
 	}
-	// Nizvodno ide udesno, i leži niže.
+	// Ali kota se ne gubi — piše uz letvu.
+	if p.Tocke[0].Kota != "120,50" {
+		t.Errorf("kota uzvodne letve %q, očekivano 120,50", p.Tocke[0].Kota)
+	}
+	// Nizvodno je desno.
 	if p.Tocke[0].X >= p.Tocke[1].X {
 		t.Error("nizvodna letva nije desno od uzvodne")
 	}
-	if p.Tocke[0].Y >= p.Tocke[1].Y {
-		t.Error("uzvodna letva nije iznad nizvodne, iako joj je kota vode viša")
+}
+
+// Mjerilo se ravna prema valu: promjena od četrdesetak centimetara mora
+// zauzeti dobar dio visine, inače crtež ne pokazuje ono zbog čega postoji.
+func TestMjeriloSeRavnaPremaValu(t *testing.T) {
+	p := crtajUzduzni("Drava", []LetvaProfila{
+		letvaProfila("a", 200, 120, 50), letvaProfila("b", 100, 80, 50),
+	})
+	if p == nil || len(p.Crte) == 0 {
+		t.Fatal("nema crta")
+	}
+	visina := float64(p.Height) - p.Vrh - p.Dno
+	for _, c := range p.Crte {
+		if c.Naziv != "za 48 h" {
+			continue
+		}
+		// Crta ide od nule do +40 cm; mora zauzeti barem trećinu plohe.
+		if v := math.Abs(p.NulaY - visinaKrajnje(c.Put)); v < visina/3 {
+			t.Errorf("crta za 48 h odmaknuta %.0f od %.0f točaka visine", v, visina)
+		}
+	}
+}
+
+// Na mirnoj vodi mjerilo se ne smije rastegnuti na šum: dva centimetra
+// promjene ne smiju izgledati kao val.
+func TestMirnaVodaNeRastegneMjerilo(t *testing.T) {
+	a := letvaProfila("a", 200, 120, 50)
+	b := letvaProfila("b", 100, 80, 50)
+	a.Cm = map[int]float64{24: 51, 48: 52}
+	b.Cm = map[int]float64{24: 50, 48: 51}
+	a.Granice, b.Granice = nil, nil
+	p := crtajUzduzni("Drava", []LetvaProfila{a, b})
+	if p == nil {
+		t.Fatal("nema profila")
+	}
+	visina := float64(p.Height) - p.Vrh - p.Dno
+	for _, c := range p.Crte {
+		if v := visinaCrte(c.Put); v > visina/2 {
+			t.Errorf("crta %q zauzima %.0f od %.0f — dva centimetra izgledaju kao val",
+				c.Naziv, v, visina)
+		}
+	}
+}
+
+// Pri maloj vodi prag je metrima iznad i spljoštio bi crtež, pa se ne crta.
+func TestDalekiPragNeUlaziUSliku(t *testing.T) {
+	p := crtajUzduzni("Drava", []LetvaProfila{
+		letvaProfila("a", 200, 120, 50), letvaProfila("b", 100, 80, 50),
+	})
+	if len(p.Pragovi) != 0 {
+		t.Errorf("nacrtano %d pragova, a pripremna je 250 cm iznad vode", len(p.Pragovi))
+	}
+}
+
+// Kad voda naraste, prag sam uđe u sliku — i to je trenutak kad ga treba
+// vidjeti.
+func TestBliskiPragUlaziUSliku(t *testing.T) {
+	a := letvaProfila("a", 200, 120, 290)
+	b := letvaProfila("b", 100, 80, 285)
+	p := crtajUzduzni("Drava", []LetvaProfila{a, b})
+	if len(p.Pragovi) == 0 {
+		t.Fatal("pripremna je desetak centimetara iznad vode, a nije nacrtana")
+	}
+	if p.Pragovi[0].Naziv != "pripremna" {
+		t.Errorf("prvi nacrtani prag je %q", p.Pragovi[0].Naziv)
+	}
+	// Izvanredna je i dalje dva metra iznad; nju ne treba crtati.
+	for _, pr := range p.Pragovi {
+		if pr.Naziv == "izvanredna" {
+			t.Error("izvanredna obrana nacrtana iako je dva metra iznad")
+		}
 	}
 }
 
 // Letva bez kote nule ili bez stacionaže ne može na profil: ne zna se ni gdje
 // je ni koliko visoko. Ispuštanje je poštenije od nagađanja.
 func TestProfilIzostavljaLetvuBezKote(t *testing.T) {
-	bez := letvaProfila("bez-kote", 150, 0, 50)
 	p := crtajUzduzni("Drava", []LetvaProfila{
-		letvaProfila("a", 200, 120, 10), bez, letvaProfila("b", 100, 90, 300),
+		letvaProfila("a", 200, 120, 10),
+		letvaProfila("bez-kote", 150, 0, 50),
+		letvaProfila("b", 100, 90, 300),
 	})
 	if p == nil {
 		t.Fatal("nema profila")
@@ -55,151 +148,21 @@ func TestProfilIzostavljaLetvuBezKote(t *testing.T) {
 	}
 }
 
-// S jednom letvom profila nema — jedna točka ne pokazuje nagib.
+// S jednom letvom profila nema — jedna točka ne pokazuje kako val putuje.
 func TestProfilTraziBaremDvijeLetve(t *testing.T) {
 	if crtajUzduzni("Drava", []LetvaProfila{letvaProfila("a", 200, 120, 10)}) != nil {
 		t.Error("profil nacrtan iz jedne letve")
 	}
 }
 
-// Crte prognoze i pragova moraju doći na crtež, svaka sa svojim razredom.
-func TestProfilNosiPrognozuIPragove(t *testing.T) {
-	p := crtajUzduzni("Drava", []LetvaProfila{
-		letvaProfila("a", 200, 120, 350), letvaProfila("b", 100, 90, 380),
-	})
-	if len(p.Crte) != 3 {
-		t.Fatalf("%d crta umjesto tri (sad, 24 h, 48 h)", len(p.Crte))
-	}
-	for _, c := range p.Crte {
-		if !strings.HasPrefix(c.Put, "M") {
-			t.Errorf("crta %q ne počinje potezom M", c.Naziv)
-		}
-	}
-	// Uz prognozu ide i pojas granica, zatvoren.
-	for _, c := range p.Crte[1:] {
-		if !strings.HasSuffix(c.Pojas, " Z") {
-			t.Errorf("crta %q nema zatvoren pojas", c.Naziv)
-		}
-	}
-	if len(p.Pragovi) != 3 {
-		t.Errorf("%d pragova umjesto tri", len(p.Pragovi))
-	}
-}
-
-// Pojas s rupom ne smije se nacrtati: spojio bi granice preko letve za koju se
-// ne zna, i pokazao ogradu koja ne postoji.
-func TestPojasSRupomSeNeCrta(t *testing.T) {
-	a := letvaProfila("a", 200, 120, 350)
-	b := letvaProfila("b", 100, 90, 380)
-	delete(b.Granice, 24)
-	p := crtajUzduzni("Drava", []LetvaProfila{a, b})
-	for _, c := range p.Crte {
-		if c.Naziv == "za 24 h" && c.Pojas != "" {
-			t.Error("pojas nacrtan preko letve bez granica")
-		}
-	}
-}
-
-// Na gornjoj plohi val se ne vidi: Drava pada 49 metara, a val nosi tridesetak
-// centimetara. Donja ploha oduzme pad, pa mora razvući upravo taj val.
-func TestDonjaPlohaRazvlaciVal(t *testing.T) {
-	// Dvije letve s velikom razlikom kota, a malom promjenom vode.
-	a := letvaProfila("uzvodna", 200, 120, 50)
-	b := letvaProfila("nizvodna", 100, 80, 50) // 40 m niže
-	a.Cm = map[int]float64{24: 55, 48: 80}     // +5 i +30 cm
-	b.Cm = map[int]float64{24: 51, 48: 53}     // +1 i +3 cm
-	a.Granice = map[int][2]float64{24: {53, 57}, 48: {70, 90}}
-	b.Granice = map[int][2]float64{24: {50, 52}, 48: {51, 55}}
-	p := crtajUzduzni("Drava", []LetvaProfila{a, b})
-	if p == nil || !p.ImaOdstupanja {
-		t.Fatal("nema donje plohe")
-	}
-	if p.NulaY <= p.OdstupanjeVrh || p.NulaY >= p.OdstupanjeDno {
-		t.Errorf("crta današnjeg stanja na %.0f, izvan plohe %.0f–%.0f",
-			p.NulaY, p.OdstupanjeVrh, p.OdstupanjeDno)
-	}
-	// Crta za 48 h mora zauzeti dobar dio visine plohe; inače je crtež
-	// beskoristan jednako kao i gornja ploha.
-	visina := p.OdstupanjeVisina()
-	for _, c := range p.Odstupanja {
-		if c.Naziv != "za 48 h" {
-			continue
-		}
-		var najn, najv float64 = 1e9, -1e9
-		for _, par := range razlomiPoteze(c.Put) {
-			najn, najv = min(najn, par), max(najv, par)
-		}
-		if najv-najn < visina/4 {
-			t.Errorf("crta za 48 h zauzima %.0f od %.0f točaka visine", najv-najn, visina)
-		}
-	}
-}
-
-// Na mirnoj vodi mjerilo se ne smije rastegnuti na šum: dva centimetra
-// promjene ne smiju izgledati kao val.
-func TestMirnaVodaNeRastegneMjerilo(t *testing.T) {
-	a := letvaProfila("uzvodna", 200, 120, 50)
-	b := letvaProfila("nizvodna", 100, 80, 50)
-	a.Cm = map[int]float64{24: 51, 48: 52}
-	b.Cm = map[int]float64{24: 50, 48: 51}
-	a.Granice, b.Granice = nil, nil
-	p := crtajUzduzni("Drava", []LetvaProfila{a, b})
-	if p == nil || !p.ImaOdstupanja {
-		t.Fatal("nema donje plohe")
-	}
-	visina := p.OdstupanjeVisina()
-	for _, c := range p.Odstupanja {
-		var najn, najv float64 = 1e9, -1e9
-		for _, par := range razlomiPoteze(c.Put) {
-			najn, najv = min(najn, par), max(najv, par)
-		}
-		if najv-najn > visina/2 {
-			t.Errorf("crta %q zauzima %.0f od %.0f — dva centimetra izgledaju kao val",
-				c.Naziv, najv-najn, visina)
-		}
-	}
-}
-
-// obrniPoteze mora okrenuti redoslijed, da se donji rub pojasa vrati unatrag i
-// ploha zatvori sama.
-func TestObrniPotezeVracaUnatrag(t *testing.T) {
-	got := obrniPoteze(" L1.0 2.0 L3.0 4.0 L5.0 6.0")
-	if got != " L5.0 6.0 L3.0 4.0 L1.0 2.0" {
-		t.Errorf("obrnuto %q", got)
-	}
-	if obrniPoteze("") != "" {
-		t.Error("prazno mora ostati prazno")
-	}
-}
-
-// razlomiPoteze vadi okomite položaje iz puta, za mjeru visine.
-func razlomiPoteze(put string) []float64 {
-	var out []float64
-	for _, dio := range strings.Fields(strings.NewReplacer("M", " ", "L", " ").Replace(put)) {
-		var v float64
-		if _, err := fmt.Sscanf(dio, "%g", &v); err == nil {
-			out = append(out, v)
-		}
-	}
-	// Svaki drugi broj je okomiti položaj.
-	var y []float64
-	for i := 1; i < len(out); i += 2 {
-		y = append(y, out[i])
-	}
-	return y
-}
-
-// Put pojasa mora biti valjan SVG: dva slova jedno do drugoga ("LL") preglednik
+// Put pojasa mora biti valjan SVG: dva slova jedno do drugoga preglednik
 // odbacuje, pa se pojas ne nacrta, a greške nigdje nema.
-func TestPojasDonjePloheJeValjanPut(t *testing.T) {
-	a := letvaProfila("uzvodna", 200, 120, 50)
-	b := letvaProfila("nizvodna", 100, 80, 50)
-	p := crtajUzduzni("Drava", []LetvaProfila{a, b})
-	if p == nil || len(p.Odstupanja) == 0 {
-		t.Fatal("nema donje plohe")
-	}
+func TestPojasJeValjanPut(t *testing.T) {
+	p := crtajUzduzni("Drava", []LetvaProfila{
+		letvaProfila("a", 200, 120, 50), letvaProfila("b", 100, 80, 50),
+	})
 	loše := regexp.MustCompile(`[MLZ]\s*[MLZ]`)
-	for _, c := range p.Odstupanja {
+	for _, c := range p.Crte {
 		if c.Pojas == "" {
 			continue
 		}
@@ -210,11 +173,29 @@ func TestPojasDonjePloheJeValjanPut(t *testing.T) {
 			t.Errorf("pojas %q nije zatvorena ploha", c.Naziv)
 		}
 	}
+}
+
+// Pojas s rupom ne smije se nacrtati: spojio bi granice preko letve za koju se
+// ne zna, i pokazao ogradu koja ne postoji.
+func TestPojasSRupomSeNeCrta(t *testing.T) {
+	a := letvaProfila("a", 200, 120, 50)
+	b := letvaProfila("b", 100, 80, 50)
+	delete(b.Granice, 24)
+	p := crtajUzduzni("Drava", []LetvaProfila{a, b})
 	for _, c := range p.Crte {
-		if c.Pojas != "" {
-			if m := loše.FindString(c.Pojas); m != "" {
-				t.Errorf("pojas gornje plohe %q ima dva poteza zaredom: %q", c.Naziv, m)
-			}
+		if c.Naziv == "za 24 h" && c.Pojas != "" {
+			t.Error("pojas nacrtan preko letve bez granica")
 		}
 	}
+}
+
+// visinaKrajnje vraća okomiti položaj zadnje točke puta.
+func visinaKrajnje(put string) float64 {
+	polja := strings.Fields(strings.NewReplacer("M", " ", "L", " ").Replace(put))
+	if len(polja) < 2 {
+		return 0
+	}
+	var v float64
+	fmt.Sscanf(polja[len(polja)-1], "%g", &v)
+	return v
 }

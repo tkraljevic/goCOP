@@ -177,7 +177,7 @@ func granice(v PregledVrijednost) string {
 	if v.Gore <= v.Dolje {
 		return ""
 	}
-	return brojHRf(v.Dolje, 0) + "–" + brojHRf(v.Gore, 0)
+	return rasponHR(v.Dolje, v.Gore, 0)
 }
 
 func uVelicini(sada map[string]float64, velicina string) string {

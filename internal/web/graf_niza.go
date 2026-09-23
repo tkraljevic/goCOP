@@ -289,7 +289,7 @@ func nacrtajPrognozu(c *Chart, prog *PrognozaNiza, xOf func(time.Time) float64,
 		}
 		oznaka := brojHRf(q.Vrijednost, dec) + " " + jed
 		if q.Gore > q.Dolje {
-			oznaka += " (" + brojHRf(q.Dolje, dec) + "–" + brojHRf(q.Gore, dec) + ")"
+			oznaka += " (" + rasponHR(q.Dolje, q.Gore, dec) + ")"
 		}
 		zapisiTocku(&sj, x, y, q.Kad, oznaka, true)
 	}

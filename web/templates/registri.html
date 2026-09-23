@@ -11,6 +11,14 @@
   </div>
 
   <div class="dashboard-cards-grid">
+    {{if .Sees "djelatnici"}}
+    <div class="dash-card">
+      <div class="dash-card-header"><div class="dash-card-icon-box primary">{{icon "users"}}</div><span class="dash-status-pill default">IMENIK</span></div>
+      <div class="dash-card-body"><h2 class="dash-card-title">Djelatnici</h2><p class="dash-card-desc">Imenik djelatnika i sudionika obrane, njihove funkcije, kontakti, zaduženja i ovlasti.</p></div>
+      <div class="dash-card-footer"><a href="/users" class="btn btn-secondary dash-btn"><span>Otvori registar</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
+    </div>
+    {{end}}
+
     <div class="dash-card">
       <div class="dash-card-header"><div class="dash-card-icon-box primary">{{icon "building"}}</div><span class="dash-status-pill default">USTROJ</span></div>
       <div class="dash-card-body"><h2 class="dash-card-title">Administrativna organizacija</h2><p class="dash-card-desc">{{term "sektori"}} i {{terml "podrucja"}}: pregled i izlistanje za sve, unos za administratora, nazivi razina po organizaciji.</p></div>

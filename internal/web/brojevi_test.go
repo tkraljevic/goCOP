@@ -150,3 +150,20 @@ func TestParseBrojOdbijaSmece(t *testing.T) {
 		}
 	}
 }
+
+// Vodostaji su često negativni, pa crtica kao razdjelnik daje "-379–-339", gdje
+// se ne vidi gdje raspon počinje a gdje se predznak nastavlja.
+func TestRasponPiseDoUmjestoCrtice(t *testing.T) {
+	for _, s := range []struct {
+		od, do float64
+		want   string
+	}{
+		{-379, -339, "-379 do -339"},
+		{49, 65, "49 do 65"},
+		{-25, 34, "-25 do 34"},
+	} {
+		if got := rasponHR(s.od, s.do, 0); got != s.want {
+			t.Errorf("rasponHR(%g, %g) = %q, očekivano %q", s.od, s.do, got, s.want)
+		}
+	}
+}

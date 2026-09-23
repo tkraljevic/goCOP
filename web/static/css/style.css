@@ -3986,8 +3986,7 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .uzduzni .grid { stroke: var(--border); stroke-width: 1; }
 .uzduzni .tick { font-size: 12px; fill: var(--text-muted); }
 .uzd-crta { fill: none; stroke-width: 2.25; stroke-linejoin: round; stroke-linecap: round; }
-.uzd-crta.sad { stroke: var(--primary); }
-.uzd-crta.prog1 { stroke: var(--faza-i-crta); stroke-width: 2; }
+.uzd-crta.prog1 { stroke: var(--faza-i-crta); stroke-width: 2.25; }
 .uzd-crta.prog2 { stroke: var(--faza-i-crta); stroke-width: 2; stroke-dasharray: 6 4; opacity: 0.75; }
 .uzd-pojas { fill: var(--faza-i-crta); fill-opacity: 0.10; stroke: none; }
 .uzd-prag { fill: none; stroke-width: 1.5; stroke-dasharray: 4 3; }
@@ -3995,9 +3994,11 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .uzd-prag.regular { stroke: var(--faza-r-crta); }
 .uzd-prag.emerg { stroke: var(--faza-i-crta); }
 .uzd-tocka { fill: var(--primary); }
-.uzd-natpis { font-size: 12px; font-weight: 600; fill: var(--text); }
+.uzd-natpis { font-size: 12.5px; font-weight: 600; fill: var(--text); }
 .uzd-kota { font-size: 11px; fill: var(--text-muted); font-variant-numeric: tabular-nums; }
-.uzd-nula { stroke: var(--primary); stroke-width: 1.5; }
+/* Današnje stanje je vodoravna crta na nuli: mjera prema kojoj se sve ostalo
+   čita, pa je puna i u glavnoj boji. */
+.uzd-nula { stroke: var(--primary); stroke-width: 2; }
 .uzd-osnaziv { font-size: 11px; fill: var(--text-muted); }
 .uzd-znak { display: inline-block; width: 1.1rem; height: 0; vertical-align: middle;
   margin-right: 0.15rem; border-top-width: 2.5px; border-top-style: solid; }
