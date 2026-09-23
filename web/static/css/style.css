@@ -3977,7 +3977,16 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .prognoze-tablica .prog-druga { font-size: 0.82em; color: var(--text-muted); margin-top: 1px; }
 .prognoze-tablica .prog-slabija { opacity: 0.45; }
 .graf-natpis .prog-slabija { opacity: 0.45; }
-.prognoze-tablica .prog-hu { font-size: 0.78em; color: var(--text-muted); margin-top: 2px; white-space: nowrap; }
+.prog-voda { margin: 1.25rem 0 0.5rem; font-size: 1.1rem; }
+.prognoze-tablica .prog-tuda { font-size: 0.78em; margin-top: 2px; white-space: nowrap; }
+.prog-tuda-hu { color: #b45309; }
+.prog-tuda-rs { color: #7c3aed; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .prog-tuda-hu { color: #f0b35a; }
+  :root:not([data-theme="light"]) .prog-tuda-rs { color: #c4b5fd; }
+}
+:root[data-theme="dark"] .prog-tuda-hu { color: #f0b35a; }
+:root[data-theme="dark"] .prog-tuda-rs { color: #c4b5fd; }
 .prognoze-tablica .prog-oznaka, .graf-natpis .prog-oznaka { font-size: 0.7em; color: var(--text-muted); margin-left: 1px; }
 .prognoze-tablica td.dan-prep { background: var(--faza-p-bg); color: var(--faza-p-fg); }
 .prognoze-tablica td.dan-regular { background: var(--faza-r-bg); color: var(--faza-r-fg); }

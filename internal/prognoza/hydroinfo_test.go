@@ -82,7 +82,7 @@ func TestSpremiTudeJednomPoIzdanju(t *testing.T) {
 		{Naziv: "Gönyű", Izdano: izd, Dani: []Dan{{Kad: izd.Add(22 * time.Hour), Cm: 120}}},
 	}
 	for i, treba := range []int{1, 0} { // jedna prognoza; jutarnjeg mjerenja ovdje nema
-		n, err := SpremiTude(db, Podrijetlo, letve)
+		n, err := SpremiTude(db, Podrijetlo, letve, Sifra)
 		if err != nil {
 			t.Fatal(err)
 		}

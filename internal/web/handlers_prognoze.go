@@ -64,8 +64,22 @@ type LetvaPrognoze struct {
 	Vrijednosti []VrijednostPrognoze
 	Doseg       int  // dokle prognoza ide, u satima
 	Ulaz        bool // ulaz dnevne prognoze: stoji samo mjerenje
+	Pregledna   bool // u model ne ulazi, stoji radi pregleda
+	Ulazi       []string
 	TudiVrh     bool // vrh lanca koji dalje ide po mađarskoj prognozi
 	Dani        []CelijaDana
+}
+
+// TudaCelija je tuđa prognoza u ćeliji dana: mađarska ili srpska.
+type TudaCelija struct {
+	Oznaka, Klasa, Naslov string
+	Cm, Raspon            string
+}
+
+// tudiIzvori su tuđe prognoze koje se na pregledu stavljaju uz naše.
+var tudiIzvori = []struct{ izvor, oznaka, klasa, naslov string }{
+	{prognoza.Podrijetlo, "HU", "hu", "Mađarska prognoza (hydroinfo.hu) za isti termin"},
+	{prognoza.PodrijetloHidmet, "RS", "rs", "Srpska prognoza (hidmet.gov.rs) za isti termin"},
 }
 
 // CelijaDana je jedan dan pregleda, za 07 h — termin u kojem prognozu daju i
@@ -74,8 +88,8 @@ type LetvaPrognoze struct {
 // ispod stoji mađarska prognoza za isti termin, gdje je imaju.
 type CelijaDana struct {
 	Cm, Raspon     string
-	HU, HURaspon   string
-	Dnevna         bool // vrijednost daje dnevni model
+	Tude           []TudaCelija // tuđe prognoze za isti termin, svaka svojom bojom
+	Dnevna         bool         // vrijednost daje dnevni model
 	Slabija        bool
 	Razina, Moguce string
 }
@@ -101,6 +115,13 @@ type PrognozePageData struct {
 	Bliski   []int
 	Dani     []string // naslovi stupaca po danima
 	ImaTudih bool
+	Tablice  []TablicaPrognoza
+}
+
+// TablicaPrognoza je jedna voda na pregledu, letve od uzvodne prema nizvodnoj.
+type TablicaPrognoza struct {
+	Naslov string
+	Letve  []LetvaPrognoze
 }
 
 func (h *PrognozeHandler) ShowPrognoze(w http.ResponseWriter, r *http.Request) {
@@ -132,18 +153,26 @@ func (h *PrognozeHandler) ShowPrognoze(w http.ResponseWriter, r *http.Request) {
 	data.Letve = h.opisiLetve(postaje, letve)
 	data.Bliski = BliziDosezi
 	_, dnevne, _ := c.Dnevno()
-	tude := c.Tude(prognoza.Podrijetlo, izdano)
+	tude := map[string]map[string]map[int64]TudaVrijednost{}
+	for _, t := range tudiIzvori {
+		tude[t.izvor] = c.Tude(t.izvor, izdano)
+	}
 	var ciljevi []int64
 	data.Dani, ciljevi = daniPregleda(izdano)
 	for i := range data.Letve {
-		data.Letve[i].Dani = celijeDana(data.Letve[i].Kod, letve[i], ciljevi,
-			dnevne[data.Letve[i].Kod], tude[data.Letve[i].Kod], postaje[data.Letve[i].Kod])
+		kod := data.Letve[i].Kod
+		poIzvoru := map[string]map[int64]TudaVrijednost{}
+		for izvor, sve := range tude {
+			poIzvoru[izvor] = sve[kod]
+		}
+		data.Letve[i].Dani = celijeDana(kod, letve[i], ciljevi, dnevne[kod], poIzvoru, postaje[kod])
 		for _, d := range data.Letve[i].Dani {
-			if d.HU != "" {
+			if len(d.Tude) > 0 {
 				data.ImaTudih = true
 			}
 		}
 	}
+	data.Tablice = poVodama(data.Letve, postaje)
 	data.Profili = uzduzniProfili(postaje, letve)
 	if len(data.Profili) == 0 {
 		data.BezProfila = "Za uzdužni profil treba barem dvije letve s poznatom " +
@@ -177,11 +206,14 @@ func (h *PrognozeHandler) opisiLetve(popis map[string]models.Station, letve []Pr
 	out := make([]LetvaPrognoze, 0, len(letve))
 	for _, l := range letve {
 		ulaz := l.Racuna == "" && !l.UlazLanca && jeDnevniUlaz(l.Letva)
+		pregledna := l.Racuna == "" && !l.UlazLanca && !ulaz && jePregledna(l.Letva)
 		_, tudi := prognoza.VrhoviSTudomPrognozom[l.Letva]
 		red := LetvaPrognoze{
 			Kod: l.Letva, Naziv: l.Letva, Racuna: l.Racuna, Doseg: l.Doseg,
-			Vrh: l.Racuna == "" && !ulaz, Ulaz: ulaz, TudiVrh: l.Racuna == "" && tudi,
-			SadaCm: uVelicini(l.Sada, "vodostaj"), SadaQ: uVelicini(l.Sada, "protok"),
+			Vrh: l.Racuna == "" && !ulaz && !pregledna, Ulaz: ulaz, Pregledna: pregledna,
+			TudiVrh: l.Racuna == "" && tudi,
+			SadaCm:  uVelicini(l.Sada, "vodostaj"), SadaQ: uVelicini(l.Sada, "protok"),
+			Ulazi: l.Ulazi,
 		}
 		if st, ima := popis[l.Letva]; ima {
 			red.Naziv, red.Voda, red.Stacionaza = st.Name, st.Watercourse, st.Stationing
@@ -243,6 +275,7 @@ type PregledLetve struct {
 	Po        map[string]map[int]PregledVrijednost
 	Satno     map[int64]PregledVrijednost // vodostaj po ciljnom satu, za dane na pregledu
 	UlazLanca bool                        // letva ulazi u neki pojas satnog lanca
+	Ulazi     []string                    // letve iz kojih se ova računa
 }
 
 // Pregled čita najnovije izdanje: za svaku letvu vrijednost u satu izdavanja i
@@ -290,6 +323,9 @@ func (c *CitacPrognoza) Pregled() (time.Time, []PregledLetve, error) {
 			Po: map[string]map[int]PregledVrijednost{}, Satno: map[int64]PregledVrijednost{}}
 		if len(pojasi[letva]) > 0 {
 			p.Racuna = pojasi[letva][0].Velicina
+			for _, u := range pojasi[letva][0].Ulazi {
+				p.Ulazi = append(p.Ulazi, u.Letva)
+			}
 		}
 		for _, i := range niz {
 			d := int(i.Ciljni - izdano)
@@ -443,7 +479,7 @@ func jeDnevniUlaz(letva string) bool {
 // celijeDana slaže dane jedne letve: za svaki termin vrijednost iz modela koji
 // je ondje točniji, raspon, mađarsku prognozu i fazu obrane.
 func celijeDana(letva string, l PregledLetve, ciljevi []int64, dnevne []prognoza.DnevnaIzdana,
-	tude map[int64]TudaVrijednost, st models.Station) []CelijaDana {
+	tude map[string]map[int64]TudaVrijednost, st models.Station) []CelijaDana {
 	odDana := prognoza.DnevnaOdDana[letva]
 	out := make([]CelijaDana, len(ciljevi))
 	for k, t := range ciljevi {
@@ -471,11 +507,16 @@ func celijeDana(letva string, l PregledLetve, ciljevi []int64, dnevne []prognoza
 				c.Moguce = g
 			}
 		}
-		if hu, imaHU := tude[t]; imaHU {
-			c.HU = brojHRf(hu.Cm, 0)
-			if hu.PlusMin > 0 {
-				c.HURaspon = "±" + brojHRf(hu.PlusMin, 0)
+		for _, iz := range tudiIzvori {
+			v, ima := tude[iz.izvor][t]
+			if !ima {
+				continue
 			}
+			tc := TudaCelija{Oznaka: iz.oznaka, Klasa: iz.klasa, Naslov: iz.naslov, Cm: brojHRf(v.Cm, 0)}
+			if v.PlusMin > 0 {
+				tc.Raspon = "±" + brojHRf(v.PlusMin, 0)
+			}
+			c.Tude = append(c.Tude, tc)
 		}
 	}
 	return out
@@ -497,4 +538,105 @@ func dnevniU(dnevne []prognoza.DnevnaIzdana, t int64) (PregledVrijednost, bool) 
 			Dolje: ip(a.Dolje, b.Dolje), Gore: ip(a.Gore, b.Gore), BoljaOdPostojanosti: true}, true
 	}
 	return PregledVrijednost{}, false
+}
+
+func jePregledna(letva string) bool {
+	for _, l := range prognoza.PregledneLetve {
+		if l == letva {
+			return true
+		}
+	}
+	return false
+}
+
+// poVodama dijeli pregled u tablice po vodi — Dunav, Drava s Murom, pa
+// pritoke — i u svakoj slaže letve od uzvodne prema nizvodnoj. Letve u lancu
+// već dolaze redom toka. Vrh lanca stavlja se neposredno ispred prve letve
+// kojoj je ulaz; letva koja je samo za pregled ili ulaz dnevnog modela umeće
+// se po riječnom kilometru ispred prve nizvodnije na istoj vodi, a bez
+// kilometra na početak. Pritoke idu voda po voda.
+func poVodama(letve []LetvaPrognoze, postaje map[string]models.Station) []TablicaPrognoza {
+	skupina := func(voda string) int {
+		switch voda {
+		case "Dunav":
+			return 0
+		case "Drava", "Mura":
+			return 1
+		}
+		return 2
+	}
+	naslovi := []string{"Dunav", "Drava i Mura", "Pritoke"}
+	var lanac, vrhovi, izvan [3][]LetvaPrognoze
+	for _, l := range letve {
+		g := skupina(l.Voda)
+		switch {
+		case l.Pregledna || l.Ulaz:
+			izvan[g] = append(izvan[g], l)
+		case l.Racuna == "":
+			vrhovi[g] = append(vrhovi[g], l)
+		default:
+			lanac[g] = append(lanac[g], l)
+		}
+	}
+	umetni := func(redovi []LetvaPrognoze, i int, x LetvaPrognoze) []LetvaPrognoze {
+		return append(redovi[:i], append([]LetvaPrognoze{x}, redovi[i:]...)...)
+	}
+	rkm := func(l LetvaPrognoze) (float64, bool) {
+		return hydro.ParseStationingKm(postaje[l.Kod].Stationing)
+	}
+	// Više vrhova istog cilja ide redom ulaza u lancu: glavni tok prvi,
+	// pritoka iza njega — HE Dubrava, pa Mura, pa Botovo.
+	redUlaza := func(kod string) int {
+		for _, r := range letve {
+			for i, u := range r.Ulazi {
+				if u == kod {
+					return i
+				}
+			}
+		}
+		return 0
+	}
+	var out []TablicaPrognoza
+	for g := range naslovi {
+		redovi := lanac[g]
+		sort.SliceStable(vrhovi[g], func(i, j int) bool { return redUlaza(vrhovi[g][i].Kod) < redUlaza(vrhovi[g][j].Kod) })
+		for _, v := range vrhovi[g] {
+			mjesto := len(redovi)
+		trazi:
+			for i, r := range redovi {
+				for _, u := range r.Ulazi {
+					if u == v.Kod {
+						mjesto = i
+						break trazi
+					}
+				}
+			}
+			redovi = umetni(redovi, mjesto, v)
+		}
+		for _, x := range izvan[g] {
+			km, imaKm := rkm(x)
+			mjesto := 0
+			if imaKm {
+				mjesto = len(redovi)
+				for i, r := range redovi {
+					if r.Voda != x.Voda {
+						continue
+					}
+					if k, ok := rkm(r); ok && k < km {
+						mjesto = i
+						break
+					}
+				}
+			}
+			redovi = umetni(redovi, mjesto, x)
+		}
+		if g == 2 {
+			// Pritoke voda po voda, a unutar vode redom kojim su već složene.
+			sort.SliceStable(redovi, func(i, j int) bool { return redovi[i].Voda < redovi[j].Voda })
+		}
+		if len(redovi) > 0 {
+			out = append(out, TablicaPrognoza{Naslov: naslovi[g], Letve: redovi})
+		}
+	}
+	return out
 }

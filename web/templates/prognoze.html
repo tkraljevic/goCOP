@@ -40,13 +40,15 @@
 {{if .BezProfila}}<p class="graf-natpis">{{.BezProfila}}</p>{{end}}
 {{end}}
 
+{{range .Tablice}}
+<h2 class="prog-voda">{{icon "waves"}} {{.Naslov}}</h2>
 <div class="table-card"><div class="table-responsive">
   <table class="data-table prognoze-tablica">
     <thead><tr>
       <th>Letva</th>
       <th style="text-align:right;">Sad</th>
-      {{range .Bliski}}<th style="text-align:right;">+{{.}} h</th>{{end}}
-      {{range .Dani}}<th style="text-align:right;">{{.}}<div class="prog-druga">07 h</div></th>{{end}}
+      {{range $.Bliski}}<th style="text-align:right;">+{{.}} h</th>{{end}}
+      {{range $.Dani}}<th style="text-align:right;">{{.}}<div class="prog-druga">07 h</div></th>{{end}}
     </tr></thead>
     <tbody>
       {{range .Letve}}
@@ -57,6 +59,7 @@
             {{if .Voda}}{{.Voda}}{{if .Stacionaza}} · {{.Stacionaza}}{{end}}{{end}}
             {{if .Racuna}}· računa se u {{if eq .Racuna "protok"}}protoku{{else}}vodostaju{{end}}
             {{else if .Ulaz}}· ulaz dnevne prognoze
+            {{else if .Pregledna}}· mjerenje, u model ne ulazi
             {{else if .TudiVrh}}· vrh lanca; dalje od mjerenja ide po mađarskoj prognozi
             {{else}}· vrh lanca, uzvodno nemamo ništa{{end}}
           </div>
@@ -79,7 +82,7 @@
             {{if .Moguce}}title="Gornja granica raspona doseže prag obrane"{{end}}>
           {{if .Cm}}<div>{{.Cm}}{{if .Dnevna}}<sup class="prog-oznaka" title="iz dnevnog modela">d</sup>{{end}}</div>
             {{if .Raspon}}<div class="prog-raspon">{{.Raspon}}</div>{{end}}{{else}}—{{end}}
-          {{if .HU}}<div class="prog-hu" title="Mađarska prognoza (hydroinfo.hu) za isti termin">HU {{.HU}}{{if .HURaspon}} {{.HURaspon}}{{end}}</div>{{end}}
+          {{range .Tude}}<div class="prog-tuda prog-tuda-{{.Klasa}}" title="{{.Naslov}}">{{.Oznaka}} {{.Cm}}{{if .Raspon}} {{.Raspon}}{{end}}</div>{{end}}
         </td>
         {{end}}
       </tr>
@@ -87,14 +90,16 @@
     </tbody>
   </table>
 </div></div>
+{{end}}
 
 <p class="graf-natpis">
   Dani su za 07 h, kao i u mađarskoj i uredskoj prognozi. Svaki dan daje onaj od dvaju modela koji
   je na njemu za tu letvu točniji: satni lanac prve dane i sat vrha, dnevni model (oznaka <sup class="prog-oznaka">d</sup>)
   dalje — na Dunavu od drugog dana, na Dravi od trećeg do petog, već prema letvi. Dnevni se uči na
   vodostajima od 1901. i gleda sve uzvodne letve odjednom. Ispod vrijednosti je raspon, a
-  {{if .ImaTudih}}sitno <span class="prog-hu">HU</span> mađarska prognoza za isti termin s njihovim rasponom.{{else}}gdje je
-  ima, mađarska prognoza za isti termin.{{end}} Obojena ćelija je dan u kojem prognoza doseže prag
+  sitno, svaka svojom bojom, tuđe prognoze za isti termin:
+  <span class="prog-tuda-hu">HU</span> mađarska (hydroinfo.hu, s njihovim rasponom) i
+  <span class="prog-tuda-rs">RS</span> srpska (hidmet.gov.rs) — nisu naše, pa stoje odvojeno. Obojena ćelija je dan u kojem prognoza doseže prag
   obrane, a obrub dan u kojem ga doseže tek gornja granica raspona. Veliki dravski val od trećeg dana
   ostaje podcijenjen, jer nastaje iz kiše koju još nijedna letva ne vidi — ondje vrijedi pratiti obrub.
 </p>

@@ -411,7 +411,7 @@ func ZadnjeDnevno(db *sql.DB) (int64, map[string][]DnevnaIzdana, error) {
 // SpremiTude zapisuje tuđu prognozu za letve koje i mi vodimo. Isto izdanje
 // dolazi sa svakim satom dok ne izađe novo, pa se ponovljeni zapis preskače.
 // Vraća koliko je novih vrijednosti upisano.
-func SpremiTude(db *sql.DB, izvor string, letve []Letva) (int, error) {
+func SpremiTude(db *sql.DB, izvor string, letve []Letva, sifra func(string) string) (int, error) {
 	tx, err := db.Begin()
 	if err != nil {
 		return 0, err
@@ -419,8 +419,8 @@ func SpremiTude(db *sql.DB, izvor string, letve []Letva) (int, error) {
 	defer tx.Rollback()
 	novih := 0
 	for _, l := range letve {
-		sifra := Sifra(l.Naziv)
-		if sifra == "" || l.Izdano.IsZero() {
+		kod := sifra(l.Naziv)
+		if kod == "" || l.Izdano.IsZero() {
 			continue
 		}
 		izdano := l.Izdano.UTC().Unix() / 3600
@@ -436,9 +436,9 @@ func SpremiTude(db *sql.DB, izvor string, letve []Letva) (int, error) {
 		}
 		for _, d := range dani {
 			r, err := tx.Exec(`INSERT OR IGNORE INTO tude (izvor, letva, izdano, ciljni, vrijednost, raspon)
-				VALUES (?,?,?,?,?,?)`, izvor, sifra, izdano, d.Kad.UTC().Unix()/3600, d.Cm, d.PlusMin)
+				VALUES (?,?,?,?,?,?)`, izvor, kod, izdano, d.Kad.UTC().Unix()/3600, d.Cm, d.PlusMin)
 			if err != nil {
-				return 0, fmt.Errorf("%s %s: %w", izvor, sifra, err)
+				return 0, fmt.Errorf("%s %s: %w", izvor, kod, err)
 			}
 			if n, _ := r.RowsAffected(); n > 0 {
 				novih += int(n)

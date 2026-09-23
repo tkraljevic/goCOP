@@ -32,6 +32,13 @@ var VrhoviSTudomPrognozom = map[string]string{
 	"komarom": Podrijetlo,
 }
 
+// PregledneLetve se na pregledu prognoza pokazuju s mjerenjem, iako u model ne
+// ulaze: Bratislava i Komárno stoje u svakoj uredskoj tablici za Dunav,
+// Mursko Središće za Muru, a srpske letve nasuprot našima nose srpsku
+// prognozu.
+var PregledneLetve = []string{"bratislava", "komarno", "mursko-sredisce",
+	"bezdan", "apatin", "bogojevo", "backa-palanka"}
+
 // Unatrag je koliko se očitanja čita unatrag. Dva tjedna su dosta i najduljem
 // lancu, a manje bi ostavilo rupe kod letvi koje se očitavaju rjeđe.
 const Unatrag = 14 * 24 * time.Hour
@@ -195,6 +202,23 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 	for _, i := range sidra {
 		if !ima[i.Letva] {
 			ishod.Izdane = append(ishod.Izdane, i)
+			ima[i.Letva] = true
+		}
+	}
+	// Pregledne letve u model ne ulaze, ali ih dežurni navikao gledati uz
+	// ostale; stoji njihovo mjerenje u satu izdavanja.
+	for _, l := range PregledneLetve {
+		if ima[l] {
+			continue
+		}
+		n, err := o.ucitajNiz(ctx, Izvor{Letva: l, Velicina: "vodostaj"}, od)
+		if err != nil {
+			continue
+		}
+		if z, imaZ := n.ZadnjiSatDo(sada); imaZ && sada-z <= ZaostatakVrha {
+			v, _ := n.U(z)
+			ishod.Izdane = append(ishod.Izdane, Izdana{Letva: l, Velicina: "vodostaj", Izdano: sada,
+				Ciljni: sada, Vrijednost: v, Dolje: v, Gore: v, Model: o.Model})
 		}
 	}
 	return ishod, nil
@@ -486,7 +510,14 @@ func KrivuljeIzArhive(ctx context.Context, arhiva *sql.DB, letva string) ([]mode
 func (o *Osvjezivac) sidraVrhova(ctx context.Context, nizovi map[Izvor]Niz, vrhovi map[Izvor]bool, sada int64) []Izdana {
 	var out []Izdana
 	for iz := range vrhovi {
+		// Vrh smije kasniti do ZaostatakVrha; tada stoji njegovo zadnje
+		// mjerenje, inače bi s pregleda nestao baš vrh koji vodi lanac.
 		v, ima := nizovi[iz].U(sada)
+		if !ima {
+			if z, imaZ := nizovi[iz].ZadnjiSatDo(sada); imaZ && sada-z <= ZaostatakVrha {
+				v, ima = nizovi[iz].U(z)
+			}
+		}
 		if !ima {
 			continue
 		}

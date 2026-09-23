@@ -662,10 +662,18 @@ func main() {
 			hu, otkazi := context.WithTimeout(ctx, time.Minute)
 			if letve, err := prognoza.Dohvati(hu, nil); err != nil {
 				log.Printf("%s: %v", prognoza.Podrijetlo, err)
-			} else if n, err := prognoza.SpremiTude(pb, prognoza.Podrijetlo, letve); err != nil {
+			} else if n, err := prognoza.SpremiTude(pb, prognoza.Podrijetlo, letve, prognoza.Sifra); err != nil {
 				log.Printf("%s: zapis: %v", prognoza.Podrijetlo, err)
 			} else if n > 0 {
 				log.Printf("%s: zapisano %d novih vrijednosti", prognoza.Podrijetlo, n)
+			}
+			// Srpska prognoza izlazi u 12 h; uz naše letve stoji drugom bojom.
+			if letve, err := prognoza.DohvatiHidmet(hu, nil); err != nil {
+				log.Printf("%s: %v", prognoza.PodrijetloHidmet, err)
+			} else if n, err := prognoza.SpremiTude(pb, prognoza.PodrijetloHidmet, letve, prognoza.SifraSrpske); err != nil {
+				log.Printf("%s: zapis: %v", prognoza.PodrijetloHidmet, err)
+			} else if n > 0 {
+				log.Printf("%s: zapisano %d novih vrijednosti", prognoza.PodrijetloHidmet, n)
 			}
 			otkazi()
 			ishod, err := osvjezivac.Osvjezi(ctx)
