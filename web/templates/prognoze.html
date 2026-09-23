@@ -1,0 +1,58 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Prognoze{{end}}
+
+{{define "content"}}
+<div class="detail-head">
+  <div>
+    <h1>{{icon "trending-up"}} Prognoze</h1>
+    {{if .Izdano}}<p class="reg-card-sub">Izdano {{.Izdano}} · vrijednost ostaje unutar raspona
+      u {{.Udio}} % slučajeva</p>{{end}}
+  </div>
+</div>
+
+{{if .Nema}}
+<div class="table-card" style="padding:1.25rem;">
+  <p>{{.Razlog}}</p>
+  <p class="reg-card-sub">Prognoza je račun, ne zapis: izgubi li se, ponovno se izračuna iz
+    istih ulaza.</p>
+</div>
+{{else}}
+
+<div class="table-card"><div class="table-responsive">
+  <table class="data-table prognoze-tablica">
+    <thead><tr>
+      <th>Letva</th>
+      <th style="text-align:right;">Sad</th>
+      {{range .Dosezi}}<th style="text-align:right;">+{{.}} h</th>{{end}}
+      <th style="text-align:right;">Doseg</th>
+    </tr></thead>
+    <tbody>
+      {{range .Letve}}
+      <tr>
+        <td>
+          {{if .URL}}<a href="{{.URL}}">{{.Naziv}}</a>{{else}}{{.Naziv}}{{end}}
+          {{if .Voda}}<div class="reg-card-sub">{{.Voda}}{{if .Stacionaza}} · {{.Stacionaza}}{{end}}</div>{{end}}
+        </td>
+        <td class="mono" style="text-align:right;">{{.Sada}} <span class="prog-jed">{{.Jedinica}}</span></td>
+        {{range .Vrijednosti}}
+        <td class="mono{{if .Slabija}} prog-slabija{{end}}" style="text-align:right;"
+            {{if .Slabija}}title="Na tom dosegu prognoza ne pobjeđuje pretpostavku da se ništa neće promijeniti"{{end}}>
+          {{if .Ima}}{{.Iznos}}<span class="prog-raspon"> ± {{.Raspon}}</span>{{else}}—{{end}}
+        </td>
+        {{end}}
+        <td class="mono reg-card-sub" style="text-align:right;">{{.Doseg}} h</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+</div></div>
+
+<p class="graf-natpis">
+  Brojka pisana <span class="prog-slabija">svjetlije</span> znači da na tom dosegu prognoza ne
+  pobjeđuje pretpostavku da se ništa neće promijeniti — ondje je bolje vjerovati zadnjem
+  očitanju. Gornja Drava se prognozira u protoku, jer joj se korito ispod lanca hidroelektrana
+  produbljuje pa vodostaj kroz desetljeća mijenja značenje.
+</p>
+{{end}}
+{{end}}

@@ -3965,3 +3965,12 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .graf-oblacic .ura { display: block; font-variant-numeric: tabular-nums; }
 .graf-oblacic .znak { display: block; margin-top: 2px; font-size: 0.72rem;
   text-transform: uppercase; letter-spacing: 0.04em; color: var(--faza-i-crta); }
+
+/* ── Pregled prognoza ────────────────────────────────────────────────────
+   Raspon stoji uz brojku, ali sitnije: on je ograda, a ne podatak. Doseg na
+   kojem prognoza ne pobjeđuje postojanost blijedi — nije kriv, samo nije
+   koristan, pa neka se i ne čita prvi. */
+.prognoze-tablica .prog-raspon { font-size: 0.8em; color: var(--text-muted); }
+.prognoze-tablica .prog-jed { font-size: 0.8em; color: var(--text-muted); }
+.prognoze-tablica .prog-slabija { opacity: 0.45; }
+.graf-natpis .prog-slabija { opacity: 0.45; }
