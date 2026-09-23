@@ -34,6 +34,7 @@ import (
 var Velicine = map[string]string{
 	"donja-dubrava":  "protok",
 	"letenye":        "vodostaj",
+	"zeleznica":      "protok",
 	"tuhovec":        "protok",
 	"ludbreg":        "protok",
 	"botovo":         "protok",
@@ -89,11 +90,19 @@ var Tokovi = []struct {
 		// Donjom Dubravom drži svega R² 0,24–0,45 po pojasu, a Dubravi ispadne
 		// nagib 2,07 — protok koji se na dvadeset kilometara udvostruči. To
 		// nije bio val nego Mura koja se u njemu skrivala.
-		// Bednja utječe u Dravu iznad Botova. Ludbreg joj je zadnja letva,
-		// Tuhovec 18,7 km iznad njega: na velikoj vodi r 0,92, kašnjenje 5 h,
-		// nagib 0,98 — pravi članak. Lepoglava je previsoko (89,8 od oko 600
-		// km² sliva) i model iz nje čita prosjek od 43 sata, dakle oborinu, a
-		// ne val; Ludbregu donese 8,0 → 7,7 m³/s rasapa i zato je izostavljena.
+		// Bednja utječe u Dravu iznad Botova. Lanac joj ide Železnica (rkm
+		// 70,4) → Tuhovec (31,4) → Ludbreg (12,7). Tuhovec Ludbregu drži r
+		// 0,92 uz kašnjenje 5 h, Železnica Tuhovcu slabije (r 0,79, rasap 12,9
+		// m³/s), ali kašnjenje joj raste s vodnošću 0→4 h, pa produljuje lanac:
+		// Ludbreg s njom ide 37/40/26/7/2 % bolje od postojanosti umjesto
+		// 32/21/7/1/lošije.
+		//
+		// Lepoglava ostaje vani. Kao sporedni ulaz Ludbregu ne vrijedi ništa
+		// (8,0 → 7,7 m³/s rasapa), a ni Železnici iznad koje leži: ondje joj je
+		// kašnjenje 0 h na svim pojasima uz prozor od 21 sat, dakle model je
+		// čita kao oborinu. Kašnjenje nula znači i da prognoza Železnice iz nje
+		// traži prognozu same Lepoglave, pa lanac ne produljuje ni za sat.
+		{"tuhovec", []string{"zeleznica"}},
 		{"ludbreg", []string{"tuhovec"}},
 		// Bednja Botovu nije ulaz. U namještanju izgleda kao da jest — na
 		// najvišem pojasu skida rasap s 93,5 na 83,9 m³/s — ali model je čita
