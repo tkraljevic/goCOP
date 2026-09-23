@@ -54,13 +54,13 @@ func TestIzvozPrognozeUExcel(t *testing.T) {
 		sve.Write(x)
 	}
 	txt := sve.String()
-	for _, nema := range []string{"Bratislava", "Komárom"} {
+	for _, nema := range []string{"Bratislava", "Komárom", "Bezdan", ">131<"} {
 		if strings.Contains(txt, nema) {
 			t.Errorf("u izvozu je %s, a za nju nemamo prognozu", nema)
 		}
 	}
 	for _, want := range []string{"PROGNOZA VODOSTAJA — Dunav", "VGO za Dunav i donju Dravu, Osijek", "COP Osijek",
-		">Bezdan<", "RS · 1.425,59", "Batina", "čet 24.9. 07 h", "±5", ">160<", "dnevni", "satni", ">2250<", ">158<", ">131<",
+		"Batina", "čet 24.9. 07 h", "±5", ">160<", "dnevni", "satni", ">2250<", ">158<",
 		"zamjenik voditelja Centra obrane od poplava", "Pero Perić",
 		`s="15"`, `s="16"`, `s="17"`, `s="20"`} { // raspon sivo, protok ukošeno, početak razdoblja crtom
 		if !strings.Contains(txt, want) {
