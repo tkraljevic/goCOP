@@ -42,6 +42,23 @@ var Pojasi = [][2]float64{
 	{0.00, 0.33}, {0.33, 0.67}, {0.67, 0.85}, {0.85, 0.95}, {0.95, 1.00},
 }
 
+// NamjestiDo je prvi sat (od epohe) koji namještanje više ne vidi; nula znači
+// bez granice. Služi usporedbi s tuđim prognozama: model koji je namješten i
+// na valu na kojem se uspoređuje unaprijed zna odgovor.
+var NamjestiDo int64
+
+func doGranice(n map[int64]float64) map[int64]float64 {
+	if NamjestiDo == 0 {
+		return n
+	}
+	for t := range n {
+		if t >= NamjestiDo {
+			delete(n, t)
+		}
+	}
+	return n
+}
+
 // NizIzArhive čita satni niz iz spojenog niza arhive: sat od epohe → vrijednost.
 func NizIzArhive(db *sql.DB, letva, velicina string) (map[int64]float64, error) {
 	r, err := db.Query(`SELECT vrijeme, vrijednost FROM spoj
@@ -173,6 +190,7 @@ func NamjestiLetvu(arhiva *sql.DB, ciljna, vel string, izvori []Izvor) ([]Pojas,
 	if err != nil {
 		return nil, err
 	}
+	cilj = doGranice(cilj)
 	if len(cilj) < 5000 {
 		return nil, fmt.Errorf("%s: samo %d satnih vrijednosti u %s", ciljna, len(cilj), vel)
 	}
@@ -186,6 +204,7 @@ func NamjestiLetvu(arhiva *sql.DB, ciljna, vel string, izvori []Izvor) ([]Pojas,
 		if err != nil {
 			return nil, err
 		}
+		n = doGranice(n)
 		if len(n) < 5000 {
 			return nil, fmt.Errorf("%s: %s ima samo %d satnih vrijednosti u %s",
 				ciljna, iz.Letva, len(n), iz.Velicina)

@@ -304,7 +304,12 @@ func (o *Osvjezivac) ucitajKrivulje(ctx context.Context, letva string) ([]models
 	if o.Arhiva == nil {
 		return nil, nil
 	}
-	r, err := o.Arhiva.QueryContext(ctx, `SELECT id, vrijedi_od, vrijedi_do FROM hq_krivulje
+	return KrivuljeIzArhive(ctx, o.Arhiva, letva)
+}
+
+// KrivuljeIzArhive čita krivulje protoka letve iz arhive, najnovija prva.
+func KrivuljeIzArhive(ctx context.Context, arhiva *sql.DB, letva string) ([]models.HQKrivulja, error) {
+	r, err := arhiva.QueryContext(ctx, `SELECT id, vrijedi_od, vrijedi_do FROM hq_krivulje
 		WHERE letva = ? ORDER BY vrijedi_od DESC`, letva)
 	if err != nil {
 		return nil, err
@@ -323,7 +328,7 @@ func (o *Osvjezivac) ucitajKrivulje(ctx context.Context, letva string) ([]models
 		return nil, err
 	}
 	for i := range out {
-		s, err := o.Arhiva.QueryContext(ctx, `SELECT od_cm, do_cm, oblik, p1, p2, p3, p4
+		s, err := arhiva.QueryContext(ctx, `SELECT od_cm, do_cm, oblik, p1, p2, p3, p4
 			FROM hq_odsjecci WHERE krivulja = ? ORDER BY od_cm`, out[i].ID)
 		if err != nil {
 			return nil, err
@@ -413,6 +418,12 @@ func (o *Osvjezivac) uDrugojVelicini(ctx context.Context, izdane []Izdana) []Izd
 		out = append(out, n)
 	}
 	return out
+}
+
+// Pretvori vodi jednu vrijednost kroz krivulju u traženu veličinu (vodostaj
+// ili protok); izvan javlja da je krivulja produljena preko mjerenog.
+func Pretvori(k *models.HQKrivulja, ciljna string, v float64) (vrijednost float64, izvan, ok bool) {
+	return pretvori(k, ciljna, v)
 }
 
 // pretvori vodi jednu vrijednost kroz krivulju u traženu veličinu.

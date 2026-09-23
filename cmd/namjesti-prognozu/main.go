@@ -236,6 +236,7 @@ func main() {
 	arhivaPut := flag.String("arhiva", "data/vodostaji.db", "arhiva vodostaja")
 	bazaPut := flag.String("baza", "data/prognoze.db", "baza prognoza")
 	probno := flag.Bool("probno", false, "samo ispiši što bi se namjestilo")
+	doS := flag.String("do", "", "namješta samo na podacima prije tog datuma (YYYY-MM-DD), za poštenu usporedbu")
 	proba := flag.String("proba", "", `isprobaj jednu postavku, npr. "aljmas = batina + belisce"`)
 	// Sporednom ulazu pretraga stane na 48 sati, jer dulje kašnjenje na našim
 	// pritokama i nema — osim Karašice, kojoj je od Poreča do ušća pedesetak
@@ -245,6 +246,13 @@ func main() {
 		"dokle se traži kašnjenje sporednog ulaza, u satima")
 	flag.Parse()
 	prognoza.NajveciPomakPritoka = *pomakPritoke
+	if *doS != "" {
+		do, err := time.Parse("2006-01-02", *doS)
+		if err != nil {
+			log.Fatal(err)
+		}
+		prognoza.NamjestiDo = do.Unix() / 3600
+	}
 
 	arhiva, err := sql.Open("sqlite", *arhivaPut+"?mode=ro")
 	if err != nil {
