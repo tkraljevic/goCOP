@@ -58,6 +58,7 @@ type StructurePageData struct {
 	Structure   *models.Structure
 	Sections    []models.Section
 	Station     *models.Station
+	StationDown *models.Station // nizvodna letva ustave
 	CanEdit     bool
 	IsEdit      bool
 
@@ -153,6 +154,11 @@ func (h *StructuresHandler) ShowStructure(w http.ResponseWriter, r *http.Request
 			data.Station, _ = h.stationService.GetStation(ctx, sid)
 		}
 	}
+	if st.StationDownID != "" {
+		if sid, err := uuid.Parse(st.StationDownID); err == nil {
+			data.StationDown, _ = h.stationService.GetStation(ctx, sid)
+		}
+	}
 	if err := h.tmplDetail.ExecuteTemplate(w, "structure_detail.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -203,6 +209,7 @@ func structureFromForm(r *http.Request) models.Structure {
 		AreaID:          areaID,
 		WatercourseCode: strings.TrimSpace(r.FormValue("watercourse_code")),
 		StationID:       strings.TrimSpace(r.FormValue("station_id")),
+		StationDownID:   strings.TrimSpace(r.FormValue("station_down_id")),
 		ZeroDatum:       parseOptionalFloat(r.FormValue("zero_datum")),
 		ZeroDatumSystem: strings.TrimSpace(r.FormValue("zero_datum_system")),
 		CapacityText:    strings.TrimSpace(r.FormValue("capacity_text")),

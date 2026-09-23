@@ -150,16 +150,18 @@ func RebuildSectionIndexes(ctx context.Context, tx Execer, sec *models.Section) 
 // na više dionica: vode po nazivu, postaje po nazivu vodomjera, teritorij iz
 // naslijeđenih veza dionice, nasipi i objekti po nazivu unutar područja.
 type Linker struct {
-	tx        Execer
-	waters    map[string][]hydro.Candidate
-	stations  map[string][]string // ključ naziva → id postaje
-	kmPostaje map[string]float64  // id postaje → stacionaža u km, kad je upisana
-	areas     map[int]models.Area
-	territory map[string][]territoryRow // dionica → naslijeđene veze
-	names     map[int]string            // id općine/naselja → naziv (za razdiobu po poddionicama)
-	Added     struct{ Waters, Embankments int }
-	Created   []string // identiteti objekata koje je vezanje upisalo u registar
-	Origin    string   // podrijetlo objekata koje vezanje upisuje; prazno je dokumentacija dionica
+	tx          Execer
+	waters      map[string][]hydro.Candidate
+	stations    map[string][]string // ključ naziva → id postaje
+	kmPostaje   map[string]float64  // id postaje → stacionaža u km, kad je upisana
+	vodaPostaje map[string]string   // id postaje → šifra vodotoka, kad je upisana
+	osnova      map[string][]string // ključ naziva bez dodatka u zagradi → id postaje
+	areas       map[int]models.Area
+	territory   map[string][]territoryRow // dionica → naslijeđene veze
+	names       map[int]string            // id općine/naselja → naziv (za razdiobu po poddionicama)
+	Added       struct{ Waters, Embankments int }
+	Created     []string // identiteti objekata koje je vezanje upisalo u registar
+	Origin      string   // podrijetlo objekata koje vezanje upisuje; prazno je dokumentacija dionica
 }
 
 type territoryRow struct {
@@ -170,18 +172,18 @@ type territoryRow struct {
 
 // NewLinker učitava registre potrebne za vezanje
 func NewLinker(ctx context.Context, tx Execer) (*Linker, error) {
-	l := &Linker{tx: tx, stations: map[string][]string{}, kmPostaje: map[string]float64{}, areas: map[int]models.Area{}, territory: map[string][]territoryRow{}}
+	l := &Linker{tx: tx, stations: map[string][]string{}, kmPostaje: map[string]float64{}, vodaPostaje: map[string]string{}, osnova: map[string][]string{}, areas: map[int]models.Area{}, territory: map[string][]territoryRow{}}
 	var err error
 	if l.waters, err = watercourseIndexTx(ctx, tx); err != nil {
 		return nil, err
 	}
-	rows, err := tx.QueryContext(ctx, `SELECT id, name, stationing FROM stations`)
+	rows, err := tx.QueryContext(ctx, `SELECT id, name, stationing, watercourse_code FROM stations`)
 	if err != nil {
 		return nil, err
 	}
 	for rows.Next() {
-		var id, name, stac string
-		if err := rows.Scan(&id, &name, &stac); err != nil {
+		var id, name, stac, voda string
+		if err := rows.Scan(&id, &name, &stac, &voda); err != nil {
 			rows.Close()
 			return nil, err
 		}
@@ -189,6 +191,13 @@ func NewLinker(ctx context.Context, tx Execer) (*Linker, error) {
 		l.stations[k] = append(l.stations[k], id)
 		if km, ok := hydro.ParseStationingKm(stac); ok {
 			l.kmPostaje[id] = km
+		}
+		if voda != "" {
+			l.vodaPostaje[id] = voda
+		}
+		if i := strings.Index(name, "("); i > 0 {
+			ko := hydro.StationKey(name[:i])
+			l.osnova[ko] = append(l.osnova[ko], id)
 		}
 	}
 	rows.Close()
@@ -355,8 +364,13 @@ func (l *Linker) linkStations(p *models.SectionPart) {
 				ids = l.stations[strings.TrimSpace(base)]
 			}
 		}
+		if len(ids) == 0 {
+			// "Ustava Kopačevo" u planu, a u registru dvije letve s dodatkom:
+			// (uzvodno) na Kanalu Kopačevo i (nizvodno) na Kopačkom ritu
+			ids = l.osnova[key]
+		}
 		if len(ids) > 1 {
-			ids = l.poStacionazi(ids, stac)
+			ids = l.poStacionazi(ids, stac, p.WatercourseCode)
 		}
 		for _, id := range ids {
 			if !have[id] {
@@ -373,14 +387,30 @@ func (l *Linker) linkStations(p *models.SectionPart) {
 // Krajni (km 9,240), CS Dvor na dovodnom kanalu i na ušću u Vuku — a plan ih
 // razlikuje samo stacionažom. Kad se ona ne da pročitati ili ne pogodi
 // nijednu, ne veže se ništa: bolje prazna veza nego tuđa letva uz dionicu.
-func (l *Linker) poStacionazi(ids []string, stac string) []string {
-	km, ok := hydro.ParseStationingKm(stac)
-	if !ok {
+//
+// Kad ni stacionaža ne razluči — dvije strane iste ustave imaju istu —
+// odlučuje voda poddionice: letva na toj vodi.
+func (l *Linker) poStacionazi(ids []string, stac, voda string) []string {
+	if km, ok := hydro.ParseStationingKm(stac); ok {
+		var out []string
+		for _, id := range ids {
+			if k, ima := l.kmPostaje[id]; ima && math.Abs(k-km) < 0.01 {
+				out = append(out, id)
+			}
+		}
+		if len(out) == 1 {
+			return out
+		}
+		if len(out) > 1 {
+			ids = out
+		}
+	}
+	if voda == "" {
 		return nil
 	}
 	var out []string
 	for _, id := range ids {
-		if k, ima := l.kmPostaje[id]; ima && math.Abs(k-km) < 0.01 {
+		if l.vodaPostaje[id] == voda {
 			out = append(out, id)
 		}
 	}

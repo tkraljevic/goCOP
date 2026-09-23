@@ -630,18 +630,19 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO structures (id, code, name, kind, sector_id, area_id, watercourse_code, station_id,
 				zero_datum, zero_datum_system, capacity_text, start_cm, start_text, stop_cm, stop_text,
-				notes, origin, latitude, longitude, created_at, updated_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				notes, origin, latitude, longitude, created_at, updated_at, station_down_id)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT(id) DO UPDATE SET
 				code = excluded.code, name = excluded.name, kind = excluded.kind, sector_id = excluded.sector_id,
 				area_id = excluded.area_id, watercourse_code = excluded.watercourse_code, station_id = excluded.station_id,
 				zero_datum = excluded.zero_datum, zero_datum_system = excluded.zero_datum_system,
 				capacity_text = excluded.capacity_text, start_cm = excluded.start_cm, start_text = excluded.start_text,
 				stop_cm = excluded.stop_cm, stop_text = excluded.stop_text, notes = excluded.notes, origin = excluded.origin,
-				latitude = excluded.latitude, longitude = excluded.longitude, updated_at = excluded.updated_at
+				latitude = excluded.latitude, longitude = excluded.longitude, updated_at = excluded.updated_at,
+				station_down_id = excluded.station_down_id
 		`, st.ID.String(), st.Code, st.Name, st.Kind, st.SectorID, st.AreaID, st.WatercourseCode, st.StationID,
 			st.ZeroDatum, st.ZeroDatumSystem, st.CapacityText, st.StartCm, st.StartText, st.StopCm, st.StopText,
-			st.Notes, st.Origin, st.Latitude, st.Longitude, st.CreatedAt, st.UpdatedAt)
+			st.Notes, st.Origin, st.Latitude, st.Longitude, st.CreatedAt, st.UpdatedAt, st.StationDownID)
 		return err
 
 	case EntityUsers:

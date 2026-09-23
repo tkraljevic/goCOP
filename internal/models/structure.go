@@ -20,7 +20,11 @@ type Structure struct {
 	AreaID   int       `json:"area_id"`
 
 	WatercourseCode string `json:"watercourse_code,omitempty"` // voda na kojoj objekt stoji
-	StationID       string `json:"station_id,omitempty"`       // vodomjer na objektu, ako postoji
+	StationID       string `json:"station_id,omitempty"`       // vodomjer na objektu, ako postoji; kod ustave uzvodni
+	// StationDownID je nizvodna letva ustave. Ustava drži dvije vode i ima
+	// letvu s obje strane — Ustava Kopačevo uzvodno na Kanalu Kopačevo,
+	// nizvodno na Kopačkom ritu — a očitanje na objektu nosi oba vodostaja.
+	StationDownID string `json:"station_down_id,omitempty"`
 
 	ZeroDatum       *float64 `json:"zero_datum,omitempty"`        // kota nule letve, m n. m., sustav Trst
 	ZeroDatumSystem string   `json:"zero_datum_system,omitempty"` // TRST ili HVRS71
@@ -39,9 +43,10 @@ type Structure struct {
 	UpdatedAt time.Time `json:"updated_at"`
 
 	// Izvedeno pri čitanju
-	SectionCodes []string `json:"section_codes,omitempty"`
-	StationName  string   `json:"station_name,omitempty"`
-	AreaName     string   `json:"area_name,omitempty"`
+	SectionCodes    []string `json:"section_codes,omitempty"`
+	StationName     string   `json:"station_name,omitempty"`
+	StationDownName string   `json:"station_down_name,omitempty"`
+	AreaName        string   `json:"area_name,omitempty"`
 }
 
 // Vrste objekata

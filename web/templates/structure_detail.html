@@ -54,25 +54,45 @@
 {{end}}
 
 <section class="detail-section">
-  <h2>{{icon "ruler"}} Vodomjer na objektu</h2>
-  {{if .Station}}
+  <h2>{{icon "ruler"}} {{if .StationDown}}Vodomjeri na objektu{{else}}Vodomjer na objektu{{end}}</h2>
+  {{if or .Station .StationDown}}
   <div class="reg-list">
+    {{with $l := .Station}}
     <article class="reg-card">
-      <a class="reg-card-link" href="/stations/{{.Station.ID}}">
+      <a class="reg-card-link" href="/stations/{{$l.ID}}">
         <div class="reg-card-head">
           <div>
-            <h3 class="reg-card-title">{{.Station.Name}}</h3>
-            <div class="reg-card-sub">{{if .Station.HasWatercourse}}{{.Station.Watercourse}}{{end}}{{if .Station.Stationing}} · {{.Station.Stationing}}{{end}}</div>
+            <h3 class="reg-card-title">{{$l.Name}}{{if $.StationDown}} <span class="reg-chip">uzvodno</span>{{end}}</h3>
+            <div class="reg-card-sub">{{if $l.HasWatercourse}}{{$l.Watercourse}}{{end}}{{if $l.Stationing}} · {{$l.Stationing}}{{end}}</div>
           </div>
         </div>
         <dl class="reg-facts">
-          <div><dt>P</dt><dd><span class="threshold-pill prep">{{.Station.Prep.Label}}</span></dd></div>
-          <div><dt>R</dt><dd><span class="threshold-pill regular">{{.Station.Regular.Label}}</span></dd></div>
-          <div><dt>I</dt><dd><span class="threshold-pill emerg">{{.Station.Emergency.Label}}</span></dd></div>
-          <div><dt>IS</dt><dd><span class="threshold-pill crit">{{.Station.State.Label}}</span></dd></div>
+          <div><dt>P</dt><dd><span class="threshold-pill prep">{{$l.Prep.Label}}</span></dd></div>
+          <div><dt>R</dt><dd><span class="threshold-pill regular">{{$l.Regular.Label}}</span></dd></div>
+          <div><dt>I</dt><dd><span class="threshold-pill emerg">{{$l.Emergency.Label}}</span></dd></div>
+          <div><dt>IS</dt><dd><span class="threshold-pill crit">{{$l.State.Label}}</span></dd></div>
         </dl>
       </a>
     </article>
+    {{end}}
+    {{with $l := .StationDown}}
+    <article class="reg-card">
+      <a class="reg-card-link" href="/stations/{{$l.ID}}">
+        <div class="reg-card-head">
+          <div>
+            <h3 class="reg-card-title">{{$l.Name}} <span class="reg-chip">nizvodno</span></h3>
+            <div class="reg-card-sub">{{if $l.HasWatercourse}}{{$l.Watercourse}}{{end}}{{if $l.Stationing}} · {{$l.Stationing}}{{end}}</div>
+          </div>
+        </div>
+        <dl class="reg-facts">
+          <div><dt>P</dt><dd><span class="threshold-pill prep">{{$l.Prep.Label}}</span></dd></div>
+          <div><dt>R</dt><dd><span class="threshold-pill regular">{{$l.Regular.Label}}</span></dd></div>
+          <div><dt>I</dt><dd><span class="threshold-pill emerg">{{$l.Emergency.Label}}</span></dd></div>
+          <div><dt>IS</dt><dd><span class="threshold-pill crit">{{$l.State.Label}}</span></dd></div>
+        </dl>
+      </a>
+    </article>
+    {{end}}
   </div>
   {{else}}
   <div class="reg-empty">Objekt nema pridružen vodomjer. Pridružuje se u uređivanju objekta.</div>

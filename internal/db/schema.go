@@ -1368,6 +1368,8 @@ func migrateSchema(database *sql.DB) error {
 		{"readings", "flow_m3s", "REAL"},
 		{"akti", "u_zamjeni", "INTEGER NOT NULL DEFAULT 0"},
 		{"akti", "uvod", "TEXT NOT NULL DEFAULT ''"},
+		// ustava ima letvu s obje strane; station_id je uzvodna ili jedina
+		{"structures", "station_down_id", "TEXT NOT NULL DEFAULT ''"},
 		{"akti", "zavrsno", "TEXT NOT NULL DEFAULT ''"},
 		{"akti", "poveznice", "TEXT NOT NULL DEFAULT ''"},
 		{"akti", "potpis", "TEXT NOT NULL DEFAULT ''"},

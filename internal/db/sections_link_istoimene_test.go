@@ -11,8 +11,10 @@ import (
 // ne smije pogađati.
 func TestIstoimeneLetveRazlikujeStacionaza(t *testing.T) {
 	l := &Linker{
-		stations:  map[string][]string{"cacinci": {"vojlovica", "krajna"}},
-		kmPostaje: map[string]float64{"vojlovica": 13.5, "krajna": 9.24},
+		stations:    map[string][]string{"cacinci": {"vojlovica", "krajna"}},
+		kmPostaje:   map[string]float64{"vojlovica": 13.5, "krajna": 9.24},
+		vodaPostaje: map[string]string{},
+		osnova:      map[string][]string{},
 	}
 	for _, c := range []struct {
 		plan, zelim string
@@ -32,6 +34,32 @@ func TestIstoimeneLetveRazlikujeStacionaza(t *testing.T) {
 		}
 		if got != c.zelim {
 			t.Errorf("%q vezan na %q, očekivano %q", c.plan, got, c.zelim)
+		}
+	}
+}
+
+// Dvije strane iste ustave: plan ih zove jednim imenom, u registru nose
+// dodatak u zagradi, a stacionaža im je ista. Odlučuje voda poddionice.
+func TestStraneUstaveRazlikujeVoda(t *testing.T) {
+	l := &Linker{
+		stations:    map[string][]string{},
+		osnova:      map[string][]string{"ustava kopacevo": {"uzvodno", "nizvodno"}},
+		kmPostaje:   map[string]float64{"uzvodno": 0, "nizvodno": 0},
+		vodaPostaje: map[string]string{"uzvodno": "kanal-kopacevo", "nizvodno": "kopacki-rit"},
+	}
+	for _, c := range []struct{ voda, zelim string }{
+		{"kanal-kopacevo", "uzvodno"},
+		{"stari-rukavac-r-drave", ""},
+	} {
+		p := &models.SectionPart{WatercourseCode: c.voda,
+			Gauges: []models.GaugeItem{{StationName: "ustava Kopačevo , km 0,00 (79,090)", PrepCm: "+180"}}}
+		l.linkStations(p)
+		got := ""
+		if len(p.StationIDs) == 1 {
+			got = p.StationIDs[0]
+		}
+		if got != c.zelim {
+			t.Errorf("poddionica na %s vezana na %q, očekivano %q", c.voda, got, c.zelim)
 		}
 	}
 }
