@@ -1,6 +1,11 @@
 package javnivodostaji
 
-import "testing"
+import (
+	"testing"
+	"time"
+
+	"gocop/internal/hidroview"
+)
 
 // Adresa letve je poveznica na postaju u njihovu sučelju; iz nje se mora
 // pročitati šifra postaje, a tuđe adrese ne smiju završiti kod ovog čitača.
@@ -40,5 +45,41 @@ func TestHidroViewBezRacunaJavljaSto(t *testing.T) {
 	}
 	if got := err.Error(); got == "" {
 		t.Error("greška nema poruku")
+	}
+}
+
+// Tlačni zapisivač javlja samo promjenu, pa puni sat često nema svoju
+// vrijednost. Tada vrijedi zadnja javljena — ali ne dovijeka: nakon šest sati
+// šutnje sat ostaje prazan, da se prekid dojave ne pretvori u ravnu crtu.
+func TestPuniSatiDrziZadnjuJavljenu(t *testing.T) {
+	t0 := time.Date(2000, 1, 3, 8, 0, 0, 0, time.UTC)
+	u := func(min int) time.Time { return t0.Add(time.Duration(min) * time.Minute) }
+	v := []hidroview.Vrijednost{
+		{Kad: u(75), Vrijednost: 1.00},  // 09:15
+		{Kad: u(150), Vrijednost: 1.20}, // 10:30
+		{Kad: u(360), Vrijednost: 0.90}, // 14:00, točno na sat
+		{Kad: u(902), Vrijednost: 0.50}, // 23:02, unutar pet minuta
+	}
+	got := puniSati(v, u(30), u(930)) // 08:30 … 23:30
+	zelim := map[int]float64{
+		10: 1.00, 11: 1.20, 12: 1.20, 13: 1.20, // zadržano
+		14: 0.90, 15: 0.90, 16: 0.90, 17: 0.90, 18: 0.90, 19: 0.90, 20: 0.90, // 20:00 je točno šest sati
+		23: 0.50,
+	}
+	for sat := 8; sat <= 23; sat++ {
+		kad := time.Date(2000, 1, 3, sat, 0, 0, 0, time.UTC).Unix()
+		v, ima := got[kad]
+		z, treba := zelim[sat]
+		switch {
+		case treba && !ima:
+			t.Errorf("%02d:00 nema vrijednosti, očekivano %.2f", sat, z)
+		case !treba && ima:
+			t.Errorf("%02d:00 ima %.2f, a sat mora ostati prazan", sat, v)
+		case treba && v != z:
+			t.Errorf("%02d:00 = %.2f, očekivano %.2f", sat, v, z)
+		}
+	}
+	if len(puniSati(nil, u(0), u(60))) != 0 {
+		t.Error("bez vrijednosti mora vratiti prazno")
 	}
 }

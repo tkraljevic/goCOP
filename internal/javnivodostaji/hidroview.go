@@ -105,19 +105,13 @@ func (h *HidroView) Ocitanja(ctx context.Context, adresa string) ([]Redak, error
 		if err != nil {
 			return err
 		}
-		for _, x := range v {
-			// Puni sat: zapisivač javlja koju sekundu uz njega, pa se
-			// vrijeme prvo svede na sat i uzme samo ono što ondje padne.
-			kad := x.Kad.Round(time.Hour)
-			if kad.Sub(x.Kad) > 5*time.Minute || x.Kad.Sub(kad) > 5*time.Minute {
-				continue
-			}
-			r := po[kad.Unix()]
+		for kad, vr := range puniSati(v, od, do) {
+			r := po[kad]
 			if r == nil {
-				r = &Redak{Kad: kad}
-				po[kad.Unix()] = r
+				r = &Redak{Kad: time.Unix(kad, 0).UTC()}
+				po[kad] = r
 			}
-			upisi(r, x.Vrijednost)
+			upisi(r, vr)
 		}
 		return nil
 	}
@@ -216,4 +210,44 @@ func (h *HidroView) opremaPostaje(ctx context.Context, k *hidroview.Klijent, sit
 	h.mjerenja[siteID] = m
 	h.mu.Unlock()
 	return m, nil
+}
+
+// puniSatiZadrzavanje je koliko se dugo zadnja javljena vrijednost smije
+// držati kad zapisivač oko punog sata ništa ne javi. Radarski zapisivači
+// javljaju svakih petnaest minuta pa im zadržavanje nikad ne treba; tlačni
+// SEBA javlja samo promjenu, pa Kapelna u mirnom danu javi desetak puta u
+// 09:15, 10:30, 14:00 — i bez zadržavanja puni sati ostanu prazni, a niz s
+// rupom duljom od dvanaest sati prognozi ne vrijedi.
+const puniSatiZadrzavanje = 6 * time.Hour
+
+// puniSati svodi javljene vrijednosti na pune sate, sat u sekundama →
+// vrijednost. Sat dobiva vrijednost javljenu unutar pet minuta oko njega;
+// kad takve nema, zadnju javljenu prije njega, ako nije starija od
+// zadržavanja. Vrijednost koja se od tada nije promijenila i jest vodostaj u
+// tom satu — zapisivač ju zato nije ni ponovio.
+func puniSati(v []hidroview.Vrijednost, od, do time.Time) map[int64]float64 {
+	out := map[int64]float64{}
+	if len(v) == 0 {
+		return out
+	}
+	sort.Slice(v, func(i, j int) bool { return v[i].Kad.Before(v[j].Kad) })
+	prvi := od.Truncate(time.Hour)
+	if prvi.Before(od) {
+		prvi = prvi.Add(time.Hour)
+	}
+	zadnji := do.Truncate(time.Hour)
+	i := 0
+	for h := prvi; !h.After(zadnji); h = h.Add(time.Hour) {
+		for i < len(v) && !v[i].Kad.After(h.Add(5*time.Minute)) {
+			i++
+		}
+		if i == 0 {
+			continue
+		}
+		x := v[i-1] // zadnja javljena do pet minuta iza punog sata
+		if !x.Kad.Before(h.Add(-5*time.Minute)) || h.Sub(x.Kad) <= puniSatiZadrzavanje {
+			out[h.Unix()] = x.Vrijednost
+		}
+	}
+	return out
 }
