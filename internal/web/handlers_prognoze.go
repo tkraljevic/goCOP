@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"fmt"
 	"html/template"
 	"math"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"gocop/internal/hydro"
+	"gocop/internal/javnivodostaji"
 	"gocop/internal/models"
 	"gocop/internal/prognoza"
 	"gocop/internal/repository"
@@ -37,6 +39,8 @@ type PrognozeHandler struct {
 
 	watercourses *service.WatercourseService // geometrija tokova, za ušća na profilu
 
+	javni func() *javnivodostaji.Uvoznik // krug preuzimanja, za gumb „Generiraj”
+
 	metodaTmpl *template.Template // stranica „O prognozi”
 }
 
@@ -45,6 +49,10 @@ func (h *PrognozeHandler) SetUsers(u *service.UserService) { h.users = u }
 
 // SetReadings daje profilu mjerenja unatrag, da klizač vremena pokaže odakle je val došao.
 func (h *PrognozeHandler) SetReadings(r *service.ReadingService) { h.readings = r }
+
+// SetJavniUvoz daje stranici krug preuzimanja vodostaja, da ga dežurni može
+// pokrenuti gumbom; traži se pri svakom pozivu jer se uvoznik veže poslije ruta.
+func (h *PrognozeHandler) SetJavniUvoz(u func() *javnivodostaji.Uvoznik) { h.javni = u }
 
 // SetWatercourses daje profilu registar vodotoka s geometrijom, za ušća.
 func (h *PrognozeHandler) SetWatercourses(w *service.WatercourseService) { h.watercourses = w }
@@ -144,6 +152,10 @@ type PrognozePageData struct {
 	ImaTudih bool
 	Tablice  []TablicaPrognoza
 	Izdaje   string // centar koji prognozu izdaje, npr. COP Osijek
+
+	MozeGenerirati bool   // ima krug preuzimanja, pa gumb „Generiraj” ima što pokrenuti
+	Generira       bool   // krug upravo traje
+	ZadnjiKrug     string // kad je zadnji krug prošao i što je donio
 }
 
 // TablicaPrognoza je jedna voda na pregledu, letve od uzvodne prema nizvodnoj.
@@ -163,7 +175,15 @@ func (h *PrognozeHandler) podaci(r *http.Request) PrognozePageData {
 	data := PrognozePageData{
 		CurrentUser: u, Permissions: perms,
 		ActiveNav: "prognoze", ViewAsBanner: viewBanner(r),
+		SuccessMessage: r.URL.Query().Get("success"), ErrorMessage: r.URL.Query().Get("error"),
 		Dosezi: DoseziPregleda, Udio: int(math.Round(prognoza.UdioURasponu * 100)),
+	}
+	if u := h.uvoznik(); u != nil {
+		data.MozeGenerirati, data.Generira = true, u.UTijeku()
+		if k, ima := u.ZadnjiKrug(); ima {
+			data.ZadnjiKrug = fmt.Sprintf("zadnji krug %s: %d letvi, %d novih očitanja, %s",
+				k.Kad.In(models.Zagreb).Format("2.1. u 15:04"), k.Letvi, k.Novih, trajanjeKruga(k.Trajanje))
+		}
 	}
 
 	var c *CitacPrognoza
@@ -223,6 +243,42 @@ func (h *PrognozeHandler) podaci(r *http.Request) PrognozePageData {
 			"stacionažom i kotom nule u novom visinskom sustavu."
 	}
 	return data
+}
+
+func (h *PrognozeHandler) uvoznik() *javnivodostaji.Uvoznik {
+	if h.javni == nil {
+		return nil
+	}
+	return h.javni()
+}
+
+func trajanjeKruga(d time.Duration) string {
+	if d < time.Minute {
+		return fmt.Sprintf("%d s", int(d.Seconds()))
+	}
+	return fmt.Sprintf("%d min %d s", int(d.Minutes()), int(d.Seconds())%60)
+}
+
+// Generiraj pokreće cijeli krug rukom, kao što ga poslužitelj pokreće svaki
+// sat: preuzme vodostaje svih povezanih letvi, tuđe prognoze, pa izračuna i
+// zapiše našu. Krug ide u pozadini, jer traje i po minutu; stranica se sama
+// osvježi kad prođe. Dok jedan krug traje, drugi se ne pokreće.
+func (h *PrognozeHandler) Generiraj(w http.ResponseWriter, r *http.Request) {
+	u := h.uvoznik()
+	if u == nil {
+		redirectWith(w, r, "/prognoze", "error", "Preuzimanje vodostaja nije uključeno na ovom čvoru.")
+		return
+	}
+	if u.UTijeku() {
+		redirectWith(w, r, "/prognoze", "success", "Krug preuzimanja već traje; stranica će se osvježiti kad prođe.")
+		return
+	}
+	go func() {
+		ctx, otkazi := context.WithTimeout(context.Background(), 15*time.Minute)
+		defer otkazi()
+		u.PreuzmiSve(ctx)
+	}()
+	redirectWith(w, r, "/prognoze", "success", "Pokrenuto: preuzimanje vodostaja svih letvi, tuđih prognoza i izračun naše. Stranica će se osvježiti kad prođe.")
 }
 
 func (h *PrognozeHandler) iscrtaj(w http.ResponseWriter, data PrognozePageData) {

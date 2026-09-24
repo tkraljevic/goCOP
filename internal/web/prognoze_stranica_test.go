@@ -164,3 +164,26 @@ func TestStranicaPrognozaBezBazeKaze(t *testing.T) {
 		t.Error("stranica ne kaže zašto je prazna")
 	}
 }
+
+// Gumb „Generiraj” stoji uz izvoz kad čvor ima krug preuzimanja; dok krug
+// traje, gumb je ugašen i stranica se sama osvježava.
+func TestStranicaPrognozaGumbGeneriraj(t *testing.T) {
+	osnova := PrognozePageData{
+		CurrentUser: &models.User{FullName: "P"}, Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		ActiveNav: "prognoze", Nema: true, Razlog: "još ništa",
+	}
+	html := iscrtaj(t, "prognoze.html", osnova)
+	if strings.Contains(html, "/prognoze/generiraj") {
+		t.Error("gumb Generiraj stoji, a čvor nema krug preuzimanja")
+	}
+	osnova.MozeGenerirati = true
+	html = iscrtaj(t, "prognoze.html", osnova)
+	if !strings.Contains(html, `action="/prognoze/generiraj"`) || strings.Contains(html, "disabled") {
+		t.Error("gumb Generiraj nije spreman za klik")
+	}
+	osnova.Generira = true
+	html = iscrtaj(t, "prognoze.html", osnova)
+	if !strings.Contains(html, "Generiranje u tijeku") || !strings.Contains(html, "disabled") || !strings.Contains(html, "location.replace('/prognoze')") {
+		t.Error("dok krug traje gumb mora biti ugašen, a stranica se sama osvježiti")
+	}
+}

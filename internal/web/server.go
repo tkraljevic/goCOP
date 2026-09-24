@@ -873,9 +873,11 @@ func (s *Server) setupRoutes() {
 	prognozeH.SetMetoda(s.templates["prognoze_metoda.html"])
 	prognozeH.SetReadings(s.readingService)
 	prognozeH.SetWatercourses(s.watercourseService)
+	prognozeH.SetJavniUvoz(func() *javnivodostaji.Uvoznik { return s.javni })
 	s.mux.Handle("GET /prognoze", s.authMiddleware(http.HandlerFunc(prognozeH.ShowPrognoze)))
 	s.mux.Handle("GET /prognoze.xlsx", s.authMiddleware(http.HandlerFunc(prognozeH.IzvoziPrognoze)))
 	s.mux.Handle("GET /prognoze/o-prognozi", s.authMiddleware(http.HandlerFunc(prognozeH.ShowMetoda)))
+	s.mux.Handle("POST /prognoze/generiraj", s.authMiddleware(http.HandlerFunc(prognozeH.Generiraj)))
 
 	// Administracija: ulazna stranica i sve što radi samo administrator
 	adminH := NewAdminHandler(s.orgService, s.userService, s.peersService, s.templates["administracija.html"], s.templates["uvozi.html"])

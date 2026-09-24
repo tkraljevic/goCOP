@@ -423,7 +423,10 @@ type Uvoznik struct {
 	mu      sync.Mutex
 	stanja  map[string]StanjeLetve // po ID-u postaje
 	postaje []Postaja              // javni popis, predmemoriran
-	popisOd time.Time
+
+	krug       sync.Mutex // drži se dok traje jedan krug preuzimanja; drugi krug u to vrijeme ne počinje
+	zadnjiKrug Krug
+	popisOd    time.Time
 }
 
 // NoviUvoznik sastavlja uvoznika s javnom stranicom i satnim korakom
@@ -553,8 +556,23 @@ func (u *Uvoznik) Pokreni(ctx context.Context) {
 	}
 }
 
-// PreuzmiSve preuzme sve označene letve jednom; vraća koliko je novih upisano
+// Krug je ishod jednog prolaza kroz sve letve.
+type Krug struct {
+	Kad      time.Time // kad je krug završio
+	Letvi    int
+	Novih    int
+	Trajanje time.Duration
+}
+
+// PreuzmiSve preuzme sve označene letve jednom, pa pozove NakonPreuzimanja;
+// vraća koliko je novih upisano. Dva kruga ne idu odjednom: kad jedan već
+// traje — satni ili pokrenut rukom — drugi se ne pokreće i vraća nulu.
 func (u *Uvoznik) PreuzmiSve(ctx context.Context) int {
+	if !u.krug.TryLock() {
+		return 0
+	}
+	defer u.krug.Unlock()
+	pocetak := time.Now()
 	letve, err := u.Spremiste.LetveZaPreuzimanje(ctx)
 	if err != nil {
 		u.Zapisnik("javni vodostaji: popis letvi: %v", err)
@@ -574,7 +592,27 @@ func (u *Uvoznik) PreuzmiSve(ctx context.Context) int {
 	if u.NakonPreuzimanja != nil && ctx.Err() == nil {
 		u.NakonPreuzimanja(ctx)
 	}
+	u.mu.Lock()
+	u.zadnjiKrug = Krug{Kad: time.Now(), Letvi: len(letve), Novih: ukupno, Trajanje: time.Since(pocetak)}
+	u.mu.Unlock()
 	return ukupno
+}
+
+// UTijeku javlja traje li upravo krug preuzimanja.
+func (u *Uvoznik) UTijeku() bool {
+	if u.krug.TryLock() {
+		u.krug.Unlock()
+		return false
+	}
+	return true
+}
+
+// ZadnjiKrug vraća ishod zadnjeg dovršenog kruga; ok je netočno dok nijedan
+// nije prošao.
+func (u *Uvoznik) ZadnjiKrug() (Krug, bool) {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	return u.zadnjiKrug, !u.zadnjiKrug.Kad.IsZero()
 }
 
 // Preuzmi preuzme jednu letvu i upiše što još nema. Očitanje na trenutak

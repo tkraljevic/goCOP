@@ -145,3 +145,29 @@ func TestVrijemeSPopisa(t *testing.T) {
 		t.Error("besmislica je pročitana kao vrijeme")
 	}
 }
+
+// Dva kruga ne idu odjednom: dok jedan traje, drugi se ne pokreće; poslije
+// kruga zna se kad je završio i koliko je letvi prošao.
+func TestKrugPreuzimanjaNeIdeDvaputOdjednom(t *testing.T) {
+	u := NoviUvoznik(&probnoSpremiste{}, nil)
+	if _, ima := u.ZadnjiKrug(); ima || u.UTijeku() {
+		t.Fatal("prije prvog kruga ne smije biti ni ishoda ni kruga u tijeku")
+	}
+	usao, pusti := make(chan struct{}), make(chan struct{})
+	u.NakonPreuzimanja = func(context.Context) { close(usao); <-pusti }
+	gotov := make(chan int)
+	go func() { gotov <- u.PreuzmiSve(context.Background()) }()
+	<-usao
+	if !u.UTijeku() {
+		t.Error("krug traje, a UTijeku kaže da ne")
+	}
+	if n := u.PreuzmiSve(context.Background()); n != 0 {
+		t.Errorf("drugi krug usred prvoga vratio %d umjesto 0", n)
+	}
+	close(pusti)
+	<-gotov
+	k, ima := u.ZadnjiKrug()
+	if !ima || k.Kad.IsZero() || k.Letvi != 0 || u.UTijeku() {
+		t.Errorf("poslije kruga: %+v, ima=%v, uTijeku=%v", k, ima, u.UTijeku())
+	}
+}

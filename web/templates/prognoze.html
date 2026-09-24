@@ -7,15 +7,24 @@
   <div>
     <h1>{{icon "trending-up"}} Prognoze</h1>
     {{if .Izdano}}<p class="reg-card-sub">Izdano {{.Izdano}} · vrijednost ostaje unutar raspona
-      u {{.Udio}} % slučajeva</p>{{end}}
+      u {{.Udio}} % slučajeva{{if .ZadnjiKrug}} · {{.ZadnjiKrug}}{{end}}</p>{{end}}
   </div>
   <div class="page-actions">
+    {{if .MozeGenerirati}}
+    <form method="POST" action="/prognoze/generiraj" style="margin:0;">
+      <button type="submit" class="btn btn-primary"{{if .Generira}} disabled{{end}}
+        title="Preuzmi vodostaje svih letvi i tuđe prognoze, pa izračunaj našu — isto što poslužitelj radi svaki sat">
+        {{icon "refresh-cw"}} {{if .Generira}}Generiranje u tijeku…{{else}}Generiraj{{end}}</button>
+    </form>
+    {{end}}
     <a href="/prognoze/o-prognozi" class="btn btn-secondary"
       title="Kojim je modelom i računom prognoza izvedena">{{icon "info"}} O prognozi</a>
     {{if .Tablice}}<a href="/prognoze.xlsx" class="btn btn-secondary"
       title="Prognoza po vodama, u obliku uredske tablice">{{icon "download"}} Izvoz u Excel</a>{{end}}
   </div>
 </div>
+
+{{if .Generira}}<script>setTimeout(function () { location.replace('/prognoze'); }, 10000);</script>{{end}}
 
 {{if .Nema}}
 <div class="table-card" style="padding:1.25rem;">
