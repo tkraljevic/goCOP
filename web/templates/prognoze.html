@@ -207,7 +207,15 @@
       tocke.innerHTML = krugovi;
       svg.classList.toggle('uzd-klizac-aktivan', h !== 0);
       natpis.textContent = opisSata(h);
+      // Kad klizač stigne na sat ucrtanog dosega, ta crta i njezin raspon
+      // zabljesnu: pokretna crta legne točno na njih, i to se vidi.
+      var stigao = false;
+      svg.querySelectorAll('.uzd-crta[data-doseg="' + h + '"], .uzd-pojas[data-doseg="' + h + '"]').forEach(function (el) {
+        el.classList.remove('uzd-bljesak'); void el.getBoundingClientRect(); el.classList.add('uzd-bljesak'); stigao = true;
+      });
+      return stigao;
     }
+    svg.addEventListener('animationend', function (ev) { ev.target.classList.remove('uzd-bljesak'); });
     raspon.addEventListener('input', function () { zaustavi(); nacrtaj(Number(raspon.value)); });
 
     // Kretanje vala: sat po sat, od početka do kraja, pa opet.
@@ -217,10 +225,13 @@
       if (tajmer) { zaustavi(); return; }
       igraj.classList.add('uzd-igra'); igraj.textContent = '❚❚';
       if (Number(raspon.value) >= Number(raspon.max)) { raspon.value = raspon.min; }
+      var zadrzi = 0; // na satu dosega val zastane, da se bljesak vidi
       tajmer = setInterval(function () {
+        if (zadrzi > 0) { zadrzi--; return; }
         var h = Number(raspon.value) + 1;
         if (h > Number(raspon.max)) { zaustavi(); return; }
-        raspon.value = h; nacrtaj(h);
+        raspon.value = h;
+        if (nacrtaj(h)) { zadrzi = 7; }
       }, 90);
     });
 

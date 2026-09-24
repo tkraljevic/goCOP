@@ -4082,6 +4082,13 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .uzd-klizac-tocke circle { fill: var(--surface); stroke: var(--text); stroke-width: 2.5; }
 .uzd-svg.uzd-klizac-aktivan .uzd-crta { opacity: 0.35; }
 .uzd-svg.uzd-klizac-aktivan .uzd-pojas { opacity: 0.5; }
+/* Bljesak: crta dosega na koju je pokretna crta legla zasvijetli i ugasi se,
+   a s njom i njezin raspon (68 % slučajeva). */
+@keyframes uzd-bljesak-crta { 0% { opacity: 1; stroke-width: 7; } 35% { opacity: 1; stroke-width: 5; } 100% { opacity: 0.35; stroke-width: 2; } }
+@keyframes uzd-bljesak-pojas { 0% { opacity: 1; fill-opacity: 0.4; } 100% { opacity: 0.5; fill-opacity: 0.13; } }
+.uzd-svg .uzd-crta.uzd-bljesak { animation: uzd-bljesak-crta 1.1s ease-out; }
+.uzd-svg .uzd-pojas.uzd-bljesak { display: block; animation: uzd-bljesak-pojas 1.1s ease-out; }
+@media (prefers-reduced-motion: reduce) { .uzd-svg .uzd-crta.uzd-bljesak, .uzd-svg .uzd-pojas.uzd-bljesak { animation-duration: 0.01s; } }
 .uzd-legenda { display: flex; flex-wrap: wrap; gap: 0.35rem 1rem; margin: 0 0 0.5rem; font-size: 0.85rem; color: var(--text-muted); }
 .uzd-legenda-gumb { background: none; border: 1px solid transparent; border-radius: 4px; padding: 0.1rem 0.4rem; color: inherit; font: inherit; cursor: pointer; }
 .uzd-legenda-gumb:hover { border-color: var(--border); }
