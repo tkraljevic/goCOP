@@ -25,22 +25,44 @@
 </div>
 {{else}}
 
-{{range .Profili}}
-<section class="detail-section">
-  <h2>{{icon "waves"}} Uzdužni profil — {{.Ime}}</h2>
-  <div class="reg-card uzduzni" style="padding:0.75rem 0.5rem 0.25rem;">
-    {{template "uzduzniProfil" .}}
+{{if .Profili}}
+<section class="detail-section prog-profili" data-izdano="{{.IzdanoSat}}">
+  <h2>{{icon "waves"}} Uzdužni profil</h2>
+  {{if gt (len .Profili) 1}}
+  <div class="kartice" role="tablist" aria-label="Vodotok">
+    {{range $i, $p := .Profili}}
+    <button type="button" class="kartica-gumb" role="tab" aria-selected="{{if eq $i 0}}true{{else}}false{{end}}"
+            aria-controls="profil-{{$p.Oznaka}}">{{$p.Ime}}</button>
+    {{end}}
   </div>
-  <p class="graf-natpis">
-    <span class="uzd-znak sad"></span> sad ·
-    <span class="uzd-znak prog1"></span> za 24 h ·
-    <span class="uzd-znak prog2"></span> za 48 h.
-    Okomita os je promjena u centimetrima prema današnjem stanju, a ne kota: u kotama se
-    val ne bi vidio, jer Drava pada 49 metara a val u dva dana nosi tridesetak centimetara.
-    Kota i vodostaj svake letve pišu iznad nje. Nizvodno je desno, a brojka pod crtežom je
-    riječni kilometar. Pragovi obrane ulaze u sliku tek kad se voda približi — pri maloj
-    vodi pripremna je tri metra iznad i spljoštila bi crtež.
-  </p>
+  {{end}}
+  {{range $i, $p := .Profili}}
+  <div id="profil-{{$p.Oznaka}}" class="kartica uzd-profil" role="tabpanel"{{if ne $i 0}} hidden{{end}}>
+    <div class="uzd-legenda" role="group" aria-label="Dosezi prognoze">
+      <span class="uzd-legenda-stavka"><span class="uzd-znak sad"></span> sad</span>
+      {{range $p.Crte}}
+      <button type="button" class="uzd-legenda-stavka uzd-legenda-gumb" data-doseg="{{.Doseg}}"
+              title="Pokaži raspon prognoze za ovaj doseg"><span class="uzd-znak {{.Class}}"></span> {{.Naziv}}</button>
+      {{end}}
+      {{range $p.Pragovi}}<span class="uzd-legenda-stavka"><span class="uzd-znak {{.Class}}"></span> {{.Naziv}} obrana</span>{{end}}
+    </div>
+    <div class="reg-card uzduzni" style="padding:0.75rem 0.5rem 0.25rem; position:relative;">
+      {{template "uzduzniProfil" $p}}
+      <div class="uzd-oblacic" hidden></div>
+    </div>
+    <div class="uzd-klizac" data-od="{{$p.SatOd}}" data-do="{{$p.SatDo}}">
+      <button type="button" class="btn btn-secondary uzd-klizac-igraj" aria-label="Pokreni kretanje vala" title="Pokreni ili zaustavi kretanje vala">▶</button>
+      <input type="range" class="uzd-klizac-raspon" min="{{$p.SatOd}}" max="{{$p.SatDo}}" step="1" value="0"
+             aria-label="Sat prema izdanju prognoze">
+      <span class="uzd-klizac-natpis">sad</span>
+    </div>
+    <p class="graf-natpis">{{$p.Pad}}. Okomita os je promjena u centimetrima prema današnjem stanju, a ne kota:
+      u kotama se val ne bi vidio. Kota i vodostaj svake letve pišu iznad nje, a boja točke je faza obrane.
+      Klizač pomiče vrijeme: lijevo od „sad” su mjerenja, desno prognoza — crta putuje nizvodno kako
+      val putuje. Klik na doseg u legendi pokazuje njegov raspon. Pragovi obrane ulaze u sliku tek kad se
+      voda približi.</p>
+  </div>
+  {{end}}
 </section>
 {{else}}
 {{if .BezProfila}}<p class="graf-natpis">{{.BezProfila}}</p>{{end}}
@@ -97,6 +119,137 @@
   {{end}}
 </div>
 {{end}}
+
+<script>
+// Uzdužni profil: kartice po vodotoku, raspon po odabranom dosegu, klizač
+// vremena i oblačić s vrijednostima letve. Bez skripte ostaje statični crtež.
+(function () {
+  document.querySelectorAll('.prog-profili').forEach(function (odjeljak) {
+    var gumbi = odjeljak.querySelectorAll('.kartica-gumb');
+    gumbi.forEach(function (g) {
+      g.addEventListener('click', function () {
+        gumbi.forEach(function (x) {
+          var otvorena = x === g;
+          x.setAttribute('aria-selected', otvorena ? 'true' : 'false');
+          var panel = document.getElementById(x.getAttribute('aria-controls'));
+          if (panel) { panel.hidden = !otvorena; }
+        });
+      });
+    });
+    var izdano = Number(odjeljak.dataset.izdano || 0);
+    odjeljak.querySelectorAll('.uzd-profil').forEach(function (panel) { profil(panel, izdano); });
+  });
+
+  function profil(panel, izdanoSat) {
+    var svg = panel.querySelector('.uzd-svg');
+    var niz = null;
+    try { niz = JSON.parse(svg.dataset.niz); } catch (e) { niz = null; }
+
+    // Raspon: samo za odabrani doseg, da se pojasi ne slažu jedan na drugi.
+    panel.querySelectorAll('.uzd-legenda-gumb').forEach(function (g) {
+      g.addEventListener('click', function () {
+        var d = g.dataset.doseg;
+        svg.querySelectorAll('.uzd-pojas').forEach(function (p) { p.classList.toggle('uzd-aktivna', p.dataset.doseg === d); });
+        panel.querySelectorAll('.uzd-legenda-gumb').forEach(function (x) { x.classList.toggle('uzd-odabran', x === g); });
+        svg.querySelectorAll('.uzd-crta').forEach(function (c) { c.classList.toggle('uzd-istaknuta', c.dataset.doseg === d); });
+      });
+    });
+
+    if (!niz || !niz.sati || !niz.sati.length) { return; }
+    var crta = svg.querySelector('.uzd-klizac-crta');
+    var tocke = svg.querySelector('.uzd-klizac-tocke');
+    var raspon = panel.querySelector('.uzd-klizac-raspon');
+    var natpis = panel.querySelector('.uzd-klizac-natpis');
+    var igraj = panel.querySelector('.uzd-klizac-igraj');
+    var dani = ['ned', 'pon', 'uto', 'sri', 'čet', 'pet', 'sub'];
+
+    function y(v) { return niz.nulaY - v * niz.poCm; }
+    // Ista glatka krivulja kao u crtežu: centripetalni Catmull–Rom u Bézierove lukove.
+    function krivulja(t) {
+      if (!t.length) { return ''; }
+      var s = 'M' + t[0][0].toFixed(1) + ' ' + t[0][1].toFixed(1);
+      if (t.length === 2) { return s + ' L' + t[1][0].toFixed(1) + ' ' + t[1][1].toFixed(1); }
+      var ud = function (a, b) { return Math.sqrt(Math.hypot(b[0] - a[0], b[1] - a[1])); };
+      for (var i = 0; i + 1 < t.length; i++) {
+        var p1 = t[i], p2 = t[i + 1], p0 = i > 0 ? t[i - 1] : p1, p3 = i + 2 < t.length ? t[i + 2] : p2;
+        var d1 = ud(p0, p1), d2 = ud(p1, p2), d3 = ud(p2, p3), b1 = [0, 0], b2 = [0, 0];
+        for (var k = 0; k < 2; k++) {
+          b1[k] = d1 < 1e-9 ? p1[k] : (p2[k] * d1 * d1 - p0[k] * d2 * d2 + p1[k] * (2 * d1 * d1 + 3 * d1 * d2 + d2 * d2)) / (3 * d1 * (d1 + d2));
+          b2[k] = d3 < 1e-9 ? p2[k] : (p1[k] * d3 * d3 - p3[k] * d2 * d2 + p2[k] * (2 * d3 * d3 + 3 * d3 * d2 + d2 * d2)) / (3 * d3 * (d3 + d2));
+        }
+        s += ' C' + b1[0].toFixed(1) + ' ' + b1[1].toFixed(1) + ' ' + b2[0].toFixed(1) + ' ' + b2[1].toFixed(1) + ' ' + p2[0].toFixed(1) + ' ' + p2[1].toFixed(1);
+      }
+      return s;
+    }
+    function opisSata(h) {
+      var kad = '';
+      if (izdanoSat) {
+        var d = new Date((izdanoSat + h) * 3600000);
+        kad = ' · ' + dani[d.getDay()] + ' ' + d.getDate() + '.' + (d.getMonth() + 1) + '. ' + String(d.getHours()).padStart(2, '0') + ' h';
+      }
+      if (h === 0) { return 'sad' + kad; }
+      if (h < 0) { return 'prije ' + (-h) + ' h (mjereno)' + kad; }
+      return 'za ' + h + ' h' + kad;
+    }
+    function nacrtaj(h) {
+      var i = niz.sati.indexOf(h);
+      var dijelovi = [], tekuci = [], krugovi = '';
+      niz.v.forEach(function (red, k) {
+        var v = i >= 0 ? red[i] : null;
+        if (v === null || v === undefined) { if (tekuci.length) { dijelovi.push(krivulja(tekuci)); } tekuci = []; return; }
+        var px = niz.x[k], py = y(v);
+        tekuci.push([px, py]);
+        krugovi += '<circle cx="' + px.toFixed(1) + '" cy="' + py.toFixed(1) + '" r="4.5"><title>' + niz.letve[k] + ': ' + (v > 0 ? '+' : '') + Math.round(v) + ' cm</title></circle>';
+      });
+      if (tekuci.length) { dijelovi.push(krivulja(tekuci)); }
+      crta.setAttribute('d', dijelovi.join(' '));
+      crta.classList.toggle('mjereno', h < 0);
+      tocke.innerHTML = krugovi;
+      svg.classList.toggle('uzd-klizac-aktivan', h !== 0);
+      natpis.textContent = opisSata(h);
+    }
+    raspon.addEventListener('input', function () { zaustavi(); nacrtaj(Number(raspon.value)); });
+
+    // Kretanje vala: sat po sat, od početka do kraja, pa opet.
+    var tajmer = null;
+    function zaustavi() { if (tajmer) { clearInterval(tajmer); tajmer = null; igraj.classList.remove('uzd-igra'); igraj.textContent = '▶'; } }
+    igraj.addEventListener('click', function () {
+      if (tajmer) { zaustavi(); return; }
+      igraj.classList.add('uzd-igra'); igraj.textContent = '❚❚';
+      if (Number(raspon.value) >= Number(raspon.max)) { raspon.value = raspon.min; }
+      tajmer = setInterval(function () {
+        var h = Number(raspon.value) + 1;
+        if (h > Number(raspon.max)) { zaustavi(); return; }
+        raspon.value = h; nacrtaj(h);
+      }, 90);
+    });
+
+    // Oblačić: najbliža letva po vodoravnom položaju, sa svim dosezima.
+    var oblacic = panel.querySelector('.uzd-oblacic');
+    var crte = Array.prototype.slice.call(svg.querySelectorAll('.uzd-crta'));
+    var dosezi = crte.map(function (c) { return Number(c.dataset.doseg); });
+    svg.addEventListener('mousemove', function (ev) {
+      var okvir = svg.getBoundingClientRect();
+      var mx = (ev.clientX - okvir.left) / okvir.width * svg.viewBox.baseVal.width;
+      var naj = -1, najD = Infinity;
+      niz.x.forEach(function (x, k) { var d = Math.abs(x - mx); if (d < najD) { najD = d; naj = k; } });
+      if (naj < 0 || najD > 120) { oblacic.hidden = true; return; }
+      var redci = ['<strong>' + niz.letve[naj] + '</strong> · sad ' + Math.round(niz.sada[naj]) + ' cm'];
+      dosezi.forEach(function (d, j) {
+        var i = niz.sati.indexOf(d); var v = i >= 0 ? niz.v[naj][i] : null;
+        if (v === null || v === undefined) { return; }
+        redci.push('<span class="uzd-znak ' + crte[j].classList[1] + '"></span> ' + (d > 96 ? 'za ' + (d / 24) + ' d' : 'za ' + d + ' h') + ': ' + (v > 0 ? '+' : '') + Math.round(v) + ' cm → ' + Math.round(niz.sada[naj] + v) + ' cm');
+      });
+      oblacic.innerHTML = redci.join('<br>');
+      oblacic.hidden = false;
+      var lijevo = (niz.x[naj] / svg.viewBox.baseVal.width) * okvir.width;
+      oblacic.style.left = Math.min(lijevo + 12, okvir.width - oblacic.offsetWidth - 8) + 'px';
+      oblacic.style.top = '2.5rem';
+    });
+    svg.addEventListener('mouseleave', function () { oblacic.hidden = true; });
+  }
+})();
+</script>
 
 <section class="detail-section prog-o">
   <h2>{{icon "info"}} O prognozi{{if .Izdaje}} — {{.Izdaje}}{{end}}</h2>

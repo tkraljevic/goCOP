@@ -1,6 +1,7 @@
 package web
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"regexp"
@@ -21,7 +22,7 @@ func letvaProfila(letva string, rkm, kota, sada float64) LetvaProfila {
 // visinaCrte je koliko okomitog prostora crta zauzima.
 func visinaCrte(put string) float64 {
 	najn, najv := math.Inf(1), math.Inf(-1)
-	polja := strings.Fields(strings.NewReplacer("M", " ", "L", " ", "Z", " ").Replace(put))
+	polja := strings.Fields(strings.NewReplacer("M", " ", "L", " ", "C", " ", "Z", " ").Replace(put))
 	for i := 1; i < len(polja); i += 2 {
 		var v float64
 		if _, err := fmt.Sscanf(polja[i], "%g", &v); err == nil {
@@ -161,7 +162,7 @@ func TestPojasJeValjanPut(t *testing.T) {
 	p := crtajUzduzni("Drava", []LetvaProfila{
 		letvaProfila("a", 200, 120, 50), letvaProfila("b", 100, 80, 50),
 	})
-	loše := regexp.MustCompile(`[MLZ]\s*[MLZ]`)
+	loše := regexp.MustCompile(`[MLCZ]\s*[MLCZ]`)
 	for _, c := range p.Crte {
 		if c.Pojas == "" {
 			continue
@@ -191,11 +192,119 @@ func TestPojasSRupomSeNeCrta(t *testing.T) {
 
 // visinaKrajnje vraća okomiti položaj zadnje točke puta.
 func visinaKrajnje(put string) float64 {
-	polja := strings.Fields(strings.NewReplacer("M", " ", "L", " ").Replace(put))
+	polja := strings.Fields(strings.NewReplacer("M", " ", "L", " ", "C", " ").Replace(put))
 	if len(polja) < 2 {
 		return 0
 	}
 	var v float64
 	fmt.Sscanf(polja[len(polja)-1], "%g", &v)
+	return v
+}
+
+// Crta kroz tri i više letvi je glatka (Bézierovi lukovi), ali prolazi točno
+// kroz svaku letvu: krajevi luka su same letve.
+func TestCrtaJeGlatkaIProlaziKrozLetve(t *testing.T) {
+	p := crtajUzduzni("Drava", []LetvaProfila{
+		letvaProfila("a", 300, 130, 50), letvaProfila("b", 200, 120, 50), letvaProfila("c", 100, 80, 50),
+	})
+	if p == nil || len(p.Crte) == 0 {
+		t.Fatal("nema crta")
+	}
+	put := p.Crte[0].Put
+	if !strings.Contains(put, " C") {
+		t.Errorf("crta kroz tri letve nije glatka: %q", put)
+	}
+	// Zadnja točka puta je zadnja letva.
+	if x := xKrajnje(put); math.Abs(x-p.Tocke[2].X) > 0.11 {
+		t.Errorf("crta završava na %.1f, a zadnja letva je na %.1f", x, p.Tocke[2].X)
+	}
+	// Dvije letve: ravna crta, bez luka.
+	p2 := crtajUzduzni("Drava", []LetvaProfila{letvaProfila("a", 200, 120, 50), letvaProfila("b", 100, 80, 50)})
+	if strings.Contains(p2.Crte[0].Put, "C") {
+		t.Error("kroz dvije letve nema što glačati, a put ima luk")
+	}
+}
+
+// Svaki doseg ima svoju crtu, redom od sutra do šestog dana, a peti i šesti
+// dan pišu se u danima.
+func TestSvakiDosegImaSvojuCrtu(t *testing.T) {
+	a, b := letvaProfila("a", 200, 120, 50), letvaProfila("b", 100, 80, 50)
+	for _, l := range []*LetvaProfila{&a, &b} {
+		for _, d := range dosezniProfila {
+			l.Cm[d] = l.SadaCm + float64(d)/4
+		}
+	}
+	p := crtajUzduzni("Drava", []LetvaProfila{a, b})
+	if len(p.Crte) != len(dosezniProfila) {
+		t.Fatalf("%d crta za %d dosega", len(p.Crte), len(dosezniProfila))
+	}
+	if p.Crte[0].Naziv != "za 24 h" || p.Crte[0].Class != "h1" {
+		t.Errorf("prva crta %q/%q", p.Crte[0].Naziv, p.Crte[0].Class)
+	}
+	if zadnja := p.Crte[len(p.Crte)-1]; zadnja.Naziv != "za 6 d" || zadnja.Class != "h6" {
+		t.Errorf("zadnja crta %q/%q", zadnja.Naziv, zadnja.Class)
+	}
+}
+
+// Klizač dobiva niz po satu: mjerenja unatrag, nulu u satu izdanja i prognozu
+// naprijed, preslikano u koordinate crteža; sat bez vrijednosti je null.
+func TestNizZaKlizac(t *testing.T) {
+	a, b := letvaProfila("a", 200, 120, 50), letvaProfila("b", 100, 80, 50)
+	a.Niz = map[int]float64{-48: 30, -1: 48, 24: 70, 96: 90}
+	b.Niz = map[int]float64{-24: 40, 24: 60}
+	p := crtajUzduzni("Drava", []LetvaProfila{a, b})
+	if p.SatOd != KlizacOd || p.SatDo != 96 {
+		t.Errorf("raspon klizača %d..%d", p.SatOd, p.SatDo)
+	}
+	var n nizProfila
+	if err := json.Unmarshal([]byte(p.Niz), &n); err != nil {
+		t.Fatalf("niz nije JSON: %v", err)
+	}
+	if len(n.Sati) != 96-KlizacOd+1 || n.Sati[0] != KlizacOd || len(n.V) != 2 {
+		t.Fatalf("sati %d (prvi %d), letvi %d", len(n.Sati), n.Sati[0], len(n.V))
+	}
+	i0 := -KlizacOd // sat izdanja
+	if n.V[0][i0] == nil || *n.V[0][i0] != 0 {
+		t.Error("u satu izdanja odstupanje nije nula")
+	}
+	if n.V[0][0] == nil || *n.V[0][0] != -20 {
+		t.Errorf("prije 48 h letva a bila je 20 cm niže, a niz kaže %v", n.V[0][0])
+	}
+	if n.V[1][0] != nil {
+		t.Error("letva b prije 48 h nema mjerenje, a niz ima vrijednost")
+	}
+	// Mjerenje od prije dva dana ulazi u mjerilo: −20 cm mora stati u sliku.
+	if n.NulaY-(-20)*n.PoCm > float64(p.Height)-p.Dno {
+		t.Error("mjerenje unatrag ispada iz crteža")
+	}
+}
+
+// Letve preblizu jedna drugoj dobiju natpis u drugom redu; udaljene ostaju u prvom.
+func TestNatpisiSeNePreklapaju(t *testing.T) {
+	p := crtajUzduzni("Dunav", []LetvaProfila{
+		letvaProfila("a", 300, 100, 50), letvaProfila("b", 110, 90, 50),
+		letvaProfila("c", 105, 89, 50), letvaProfila("d", 100, 88, 50),
+	})
+	// a, b gore; c dolje; d ne stane nigdje pa ide gdje je susjed dalje — dolje je c preblizu, gore b još bliže: dolje.
+	if p.Tocke[0].Dolje || p.Tocke[1].Dolje || !p.Tocke[2].Dolje {
+		t.Errorf("redovi natpisa: %v %v %v %v", p.Tocke[0].Dolje, p.Tocke[1].Dolje, p.Tocke[2].Dolje, p.Tocke[3].Dolje)
+	}
+}
+
+// Natpis ispod crteža govori o toj rijeci, ne o nekoj drugoj.
+func TestPadPoRijeci(t *testing.T) {
+	p := crtajUzduzni("Dunav", []LetvaProfila{letvaProfila("Batina", 1425, 79.15, -104), letvaProfila("Ilok", 1299, 73.34, -36)})
+	if p.Pad != "Dunav, Batina → Ilok: vodno lice pada 5,1 m na 126 km" {
+		t.Errorf("pad: %q", p.Pad)
+	}
+}
+
+func xKrajnje(put string) float64 {
+	polja := strings.Fields(strings.NewReplacer("M", " ", "L", " ", "C", " ").Replace(put))
+	if len(polja) < 2 {
+		return 0
+	}
+	var v float64
+	fmt.Sscanf(polja[len(polja)-2], "%g", &v)
 	return v
 }

@@ -11,6 +11,7 @@ import (
 	"gocop/internal/hydro"
 	"gocop/internal/models"
 	"gocop/internal/prognoza"
+	"gocop/internal/repository"
 	"gocop/internal/service"
 )
 
@@ -31,13 +32,17 @@ type PrognozeHandler struct {
 	tmpl     *template.Template
 	citac    func() *CitacPrognoza
 	stations *service.StationService
-	users    *service.UserService // zaglavlje i potpisnici izvoza
+	users    *service.UserService    // zaglavlje i potpisnici izvoza
+	readings *service.ReadingService // mjerenja unatrag, za klizač vremena na profilu
 
 	metodaTmpl *template.Template // stranica „O prognozi”
 }
 
 // SetUsers daje izvozu sektore i osobe za zaglavlje i potpise.
 func (h *PrognozeHandler) SetUsers(u *service.UserService) { h.users = u }
+
+// SetReadings daje profilu mjerenja unatrag, da klizač vremena pokaže odakle je val došao.
+func (h *PrognozeHandler) SetReadings(r *service.ReadingService) { h.readings = r }
 
 // SetMetoda daje predložak stranice „O prognozi”.
 func (h *PrognozeHandler) SetMetoda(t *template.Template) { h.metodaTmpl = t }
@@ -120,6 +125,7 @@ type PrognozePageData struct {
 	ViewAsBanner
 
 	Izdano     string
+	IzdanoSat  int64 // sat izdanja od epohe, za klizač vremena na profilu
 	Nema       bool
 	Razlog     string
 	Udio       int
@@ -169,6 +175,7 @@ func (h *PrognozeHandler) podaci(r *http.Request) PrognozePageData {
 		return data
 	}
 	data.Izdano = izdano.In(models.Zagreb).Format("2.1.2006. u 15:04")
+	data.IzdanoSat = izdano.Unix() / 3600
 	postaje := h.postaje(r.Context())
 	data.Letve = h.opisiLetve(postaje, letve)
 	data.Bliski = BliziDosezi
@@ -204,7 +211,8 @@ func (h *PrognozeHandler) podaci(r *http.Request) PrognozePageData {
 	}
 	data.Tablice = poVodama(data.Letve, postaje)
 	data.Izdaje = h.centar(u)
-	data.Profili = uzduzniProfili(postaje, letve)
+	data.Profili = uzduzniProfili(postaje, letve, dnevne, izdano,
+		h.mjerenoUnatrag(r.Context(), postaje, letve, izdano))
 	if len(data.Profili) == 0 {
 		data.BezProfila = "Za uzdužni profil treba barem dvije letve s poznatom " +
 			"stacionažom i kotom nule u novom visinskom sustavu."
@@ -439,9 +447,16 @@ func uDosezima(d int) bool {
 // Rijeke se ne miješaju: Drava i Dunav imaju svoje kote i svoj nagib, a jedan
 // crtež kroz obje pokazivao bi skok na ušću koji nije val nego spoj dvaju
 // tokova.
-func uzduzniProfili(postaje map[string]models.Station, letve []PregledLetve) []*UzduzniProfil {
+//
+// Uz prognozu po dosezima svaka letva nosi i niz po satu za klizač vremena:
+// mjerenja unatrag, satni lanac do 96 h, dnevni model dalje. Peti i šesti dan
+// na crtežu dolaze iz dnevnog modela, jer satni lanac dotle ne seže.
+func uzduzniProfili(postaje map[string]models.Station, letve []PregledLetve,
+	dnevne map[string][]prognoza.DnevnaIzdana, izdano time.Time,
+	mjereno map[string]map[int]float64) []*UzduzniProfil {
 	poVodi := map[string][]LetvaProfila{}
 	var redom []string
+	izdanoH := izdano.Unix() / 3600
 	for _, l := range letve {
 		st, ima := postaje[l.Letva]
 		if !ima || st.ZeroDatumNew == nil {
@@ -454,14 +469,47 @@ func uzduzniProfili(postaje map[string]models.Station, letve []PregledLetve) []*
 		lp := LetvaProfila{
 			Letva: l.Letva, Naziv: st.Name, Rkm: rkm, KotaNule: *st.ZeroDatumNew,
 			Cm: map[int]float64{}, Granice: map[int][2]float64{},
-			Pragovi: map[string]float64{},
+			Pragovi: map[string]float64{}, Niz: map[int]float64{},
 		}
 		if v, ima := l.Sada["vodostaj"]; ima {
 			lp.SadaCm, lp.ImaSada = v, true
+			lp.Razina = razinaObrane(st, v)
 		}
 		for d, v := range l.Po["vodostaj"] {
 			lp.Cm[d] = v.Vrijednost
 			lp.Granice[d] = [2]float64{v.Dolje, v.Gore}
+		}
+		for h, v := range mjereno[l.Letva] {
+			lp.Niz[h] = v
+		}
+		for t, v := range l.Satno {
+			if h := int(t - izdanoH); h > 0 {
+				lp.Niz[h] = v.Vrijednost
+			}
+		}
+		// Pregled po dosezima ne nosi 96 h, ali satni niz nosi: satni lanac
+		// ima prednost pred dnevnim modelom svugdje gdje seže.
+		for _, d := range dosezniProfila {
+			if _, ima := lp.Cm[d]; ima {
+				continue
+			}
+			if v, ima := l.Satno[izdanoH+int64(d)]; ima {
+				lp.Cm[d] = v.Vrijednost
+				lp.Granice[d] = [2]float64{v.Dolje, v.Gore}
+				continue
+			}
+			if v, ima := dnevniU(dnevne[l.Letva], izdanoH+int64(d)); ima {
+				lp.Cm[d] = v.Vrijednost
+				lp.Granice[d] = [2]float64{v.Dolje, v.Gore}
+			}
+		}
+		for h := 1; h <= prognoza.DnevniDosezi*24; h++ {
+			if _, ima := lp.Niz[h]; ima {
+				continue
+			}
+			if v, ima := dnevniU(dnevne[l.Letva], izdanoH+int64(h)); ima {
+				lp.Niz[h] = v.Vrijednost
+			}
 		}
 		for kljuc, prag := range map[string]models.Threshold{
 			"prep": st.Prep, "regular": st.Regular, "emerg": st.Emergency} {
@@ -482,6 +530,48 @@ func uzduzniProfili(postaje map[string]models.Station, letve []PregledLetve) []*
 	for _, voda := range redom {
 		if p := crtajUzduzni(voda, poVodi[voda]); p != nil {
 			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// mjerenoUnatrag čita vodostaje zadnjih dva dana za letve na profilu, po
+// satu prema izdanju: klizač vremena njima pokazuje odakle je val došao. Kad
+// očitanja nisu na puni sat, uzima se najbliže punom satu.
+func (h *PrognozeHandler) mjerenoUnatrag(ctx context.Context, postaje map[string]models.Station,
+	letve []PregledLetve, izdano time.Time) map[string]map[int]float64 {
+	if h.readings == nil {
+		return nil
+	}
+	out := map[string]map[int]float64{}
+	od := izdano.Add(time.Duration(KlizacOd) * time.Hour).Add(-30 * time.Minute)
+	for _, l := range letve {
+		st, ima := postaje[l.Letva]
+		if !ima || st.ZeroDatumNew == nil {
+			continue
+		}
+		rs, err := h.readings.List(ctx, repository.ReadingFilter{StationID: st.ID.String(), From: od, To: izdano})
+		if err != nil {
+			continue
+		}
+		poSatu := map[int]float64{}
+		odmak := map[int]time.Duration{}
+		for _, rd := range rs {
+			if rd.LevelCm == nil {
+				continue
+			}
+			razmak := rd.MeasuredAt.Sub(izdano)
+			sat := int(math.Round(razmak.Hours()))
+			if sat >= 0 || sat < KlizacOd {
+				continue
+			}
+			o := (razmak - time.Duration(sat)*time.Hour).Abs()
+			if prije, bio := odmak[sat]; !bio || o < prije {
+				poSatu[sat], odmak[sat] = float64(*rd.LevelCm), o
+			}
+		}
+		if len(poSatu) > 0 {
+			out[l.Letva] = poSatu
 		}
 	}
 	return out

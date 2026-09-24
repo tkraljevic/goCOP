@@ -4053,10 +4053,43 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .uzduzni svg { width: 100%; height: auto; }
 .uzduzni .grid { stroke: var(--border); stroke-width: 1; }
 .uzduzni .tick { font-size: 12px; fill: var(--text-muted); }
-.uzd-crta { fill: none; stroke-width: 2.25; stroke-linejoin: round; stroke-linecap: round; }
-.uzd-crta.prog1 { stroke: var(--faza-i-crta); stroke-width: 2.25; }
-.uzd-crta.prog2 { stroke: var(--faza-i-crta); stroke-width: 2; stroke-dasharray: 6 4; opacity: 0.75; }
-.uzd-pojas { fill: var(--faza-i-crta); fill-opacity: 0.10; stroke: none; }
+/* Dosezi: jedna boja od svjetlije prema tamnijoj kako doseg raste; paleta
+   provjerena za svijetlu i tamnu podlogu (jedan ton, jednoliki koraci). */
+:root { --prog-h1: #ef8c5c; --prog-h2: #e86b34; --prog-h3: #d3531f; --prog-h4: #b04217; --prog-h5: #8a3211; --prog-h6: #62230b; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --prog-h1: #f9d2ba; --prog-h2: #f5ab86; --prog-h3: #ef8756; --prog-h4: #e5642c; --prog-h5: #c94d1d; --prog-h6: #a03a14; }
+}
+:root[data-theme="dark"] { --prog-h1: #f9d2ba; --prog-h2: #f5ab86; --prog-h3: #ef8756; --prog-h4: #e5642c; --prog-h5: #c94d1d; --prog-h6: #a03a14; }
+.uzd-crta { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; transition: opacity 0.15s; }
+.uzd-crta.h1 { stroke: var(--prog-h1); } .uzd-crta.h2 { stroke: var(--prog-h2); } .uzd-crta.h3 { stroke: var(--prog-h3); }
+.uzd-crta.h4 { stroke: var(--prog-h4); } .uzd-crta.h5 { stroke: var(--prog-h5); } .uzd-crta.h6 { stroke: var(--prog-h6); }
+.uzd-crta.h5, .uzd-crta.h6 { stroke-dasharray: 7 4; }
+.uzd-svg:has(.uzd-istaknuta) .uzd-crta:not(.uzd-istaknuta) { opacity: 0.3; }
+.uzd-crta.uzd-istaknuta { stroke-width: 3; }
+.uzd-pojas { display: none; fill-opacity: 0.13; stroke: none; }
+.uzd-pojas.uzd-aktivna { display: block; }
+.uzd-pojas.h1 { fill: var(--prog-h1); } .uzd-pojas.h2 { fill: var(--prog-h2); } .uzd-pojas.h3 { fill: var(--prog-h3); }
+.uzd-pojas.h4 { fill: var(--prog-h4); } .uzd-pojas.h5 { fill: var(--prog-h5); } .uzd-pojas.h6 { fill: var(--prog-h6); }
+.uzd-svg { width: 100%; height: auto; display: block; }
+.uzd-vodilica { stroke: var(--border); stroke-width: 1; stroke-dasharray: 2 4; }
+.uzd-tocka.stanje-prep { fill: var(--faza-p-crta); } .uzd-tocka.stanje-regular { fill: var(--faza-r-crta); }
+.uzd-tocka.stanje-emerg, .uzd-tocka.stanje-crit { fill: var(--faza-i-crta); }
+.uzd-klizac-crta { fill: none; stroke: var(--text); stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
+.uzd-klizac-crta.mjereno { stroke: var(--primary); }
+.uzd-klizac-tocke circle { fill: var(--surface); stroke: var(--text); stroke-width: 2.5; }
+.uzd-svg.uzd-klizac-aktivan .uzd-crta { opacity: 0.35; }
+.uzd-svg.uzd-klizac-aktivan .uzd-pojas { opacity: 0.5; }
+.uzd-legenda { display: flex; flex-wrap: wrap; gap: 0.35rem 1rem; margin: 0 0 0.5rem; font-size: 0.85rem; color: var(--text-muted); }
+.uzd-legenda-gumb { background: none; border: 1px solid transparent; border-radius: 4px; padding: 0.1rem 0.4rem; color: inherit; font: inherit; cursor: pointer; }
+.uzd-legenda-gumb:hover { border-color: var(--border); }
+.uzd-legenda-gumb.uzd-odabran { border-color: var(--primary); color: var(--text); }
+.uzd-klizac { display: flex; align-items: center; gap: 0.75rem; margin: 0.5rem 0 0.25rem; }
+.uzd-klizac-raspon { flex: 1; accent-color: var(--primary); }
+.uzd-klizac-natpis { min-width: 13rem; font-size: 0.85rem; font-variant-numeric: tabular-nums; color: var(--text-muted); }
+.uzd-klizac-igraj { padding: 0.3rem 0.55rem; }
+.uzd-klizac-igraj.uzd-igra { background: var(--primary); color: #fff; }
+.uzd-oblacic { position: absolute; z-index: 3; background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+  box-shadow: var(--shadow); padding: 0.4rem 0.6rem; font-size: 0.8rem; line-height: 1.55; pointer-events: none; white-space: nowrap; }
 .uzd-prag { fill: none; stroke-width: 1.5; stroke-dasharray: 4 3; }
 .uzd-prag.prep { stroke: var(--faza-p-crta); }
 .uzd-prag.regular { stroke: var(--faza-r-crta); }
@@ -4071,8 +4104,9 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .uzd-znak { display: inline-block; width: 1.1rem; height: 0; vertical-align: middle;
   margin-right: 0.15rem; border-top-width: 2.5px; border-top-style: solid; }
 .uzd-znak.sad { border-color: var(--primary); }
-.uzd-znak.prog1 { border-color: var(--faza-i-crta); }
-.uzd-znak.prog2 { border-color: var(--faza-i-crta); border-top-style: dashed; }
+.uzd-znak.h1 { border-color: var(--prog-h1); } .uzd-znak.h2 { border-color: var(--prog-h2); } .uzd-znak.h3 { border-color: var(--prog-h3); }
+.uzd-znak.h4 { border-color: var(--prog-h4); } .uzd-znak.h5 { border-color: var(--prog-h5); border-top-style: dashed; }
+.uzd-znak.h6 { border-color: var(--prog-h6); border-top-style: dashed; }
 .uzd-znak.prep { border-color: var(--faza-p-crta); border-top-style: dashed; }
 .uzd-znak.regular { border-color: var(--faza-r-crta); border-top-style: dashed; }
 .uzd-znak.emerg { border-color: var(--faza-i-crta); border-top-style: dashed; }
