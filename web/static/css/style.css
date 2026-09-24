@@ -4076,3 +4076,15 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .uzd-znak.prep { border-color: var(--faza-p-crta); border-top-style: dashed; }
 .uzd-znak.regular { border-color: var(--faza-r-crta); border-top-style: dashed; }
 .uzd-znak.emerg { border-color: var(--faza-i-crta); border-top-style: dashed; }
+
+/* O prognozi: opis metode */
+.prog-metoda p { font-size: 0.92rem; line-height: 1.6; margin: 0.4rem 0; max-width: 62rem; }
+.prog-formula {
+  font-family: "Cambria Math", "STIX Two Math", "Times New Roman", serif;
+  font-style: italic; font-size: 1rem;
+  margin: 0.5rem 0 0.6rem; padding: 0.45rem 0.9rem;
+  background: var(--bg-subtle); border-left: 3px solid var(--primary);
+  border-radius: 4px; overflow-x: auto; white-space: nowrap; max-width: 62rem;
+}
+.prog-metoda-tablica td { vertical-align: top; font-size: 0.82rem; }
+.prog-metoda-tablica td.nowrap { white-space: nowrap; }

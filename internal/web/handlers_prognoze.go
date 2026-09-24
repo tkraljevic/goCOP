@@ -32,10 +32,15 @@ type PrognozeHandler struct {
 	citac    func() *CitacPrognoza
 	stations *service.StationService
 	users    *service.UserService // zaglavlje i potpisnici izvoza
+
+	metodaTmpl *template.Template // stranica „O prognozi”
 }
 
 // SetUsers daje izvozu sektore i osobe za zaglavlje i potpise.
 func (h *PrognozeHandler) SetUsers(u *service.UserService) { h.users = u }
+
+// SetMetoda daje predložak stranice „O prognozi”.
+func (h *PrognozeHandler) SetMetoda(t *template.Template) { h.metodaTmpl = t }
 
 func NewPrognozeHandler(tmpl *template.Template, citac func() *CitacPrognoza,
 	stations *service.StationService) *PrognozeHandler {

@@ -34,8 +34,8 @@ const ModelDnevni = "dnevni-1"
 // DnevniDosezi je koliko se dana unaprijed prognozira.
 const DnevniDosezi = 6
 
-// dnevnihAnalogija je koliko se najsličnijih dana iz povijesti uzima.
-const dnevnihAnalogija = 25
+// DnevnihAnalogija je koliko se najsličnijih dana iz povijesti uzima.
+const DnevnihAnalogija = 25
 
 // DnevniCilj je letva i letve iz kojih se njezin dnevni vodostaj prognozira.
 type DnevniCilj struct {
@@ -316,7 +316,7 @@ func (m *DnevniModel) Prognoziraj(x []float64) (promjena, raspon [DnevniDosezi +
 			zbroj += u.y[k]
 			kv += u.y[k] * u.y[k]
 			n++
-			if n == dnevnihAnalogija {
+			if n == DnevnihAnalogija {
 				break
 			}
 		}

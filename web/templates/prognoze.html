@@ -9,8 +9,12 @@
     {{if .Izdano}}<p class="reg-card-sub">Izdano {{.Izdano}} · vrijednost ostaje unutar raspona
       u {{.Udio}} % slučajeva</p>{{end}}
   </div>
-  {{if .Tablice}}<div class="page-actions"><a href="/prognoze.xlsx" class="btn btn-secondary"
-    title="Prognoza po vodama, u obliku uredske tablice">{{icon "download"}} Izvoz u Excel</a></div>{{end}}
+  <div class="page-actions">
+    <a href="/prognoze/o-prognozi" class="btn btn-secondary"
+      title="Kojim je modelom i računom prognoza izvedena">{{icon "info"}} O prognozi</a>
+    {{if .Tablice}}<a href="/prognoze.xlsx" class="btn btn-secondary"
+      title="Prognoza po vodama, u obliku uredske tablice">{{icon "download"}} Izvoz u Excel</a>{{end}}
+  </div>
 </div>
 
 {{if .Nema}}
@@ -113,9 +117,9 @@
       mađarske službe.</dd>
 
     <dt>Raspon</dt>
-    <dd>Interval od ±1 standardnog odstupanja pogreške prognoze, određenog usporedbom s mjerenjima
-      (satni lanac) odnosno rasipanjem analognih situacija (dnevni model): stvarna vrijednost ostaje u
-      rasponu u {{.Udio}} % slučajeva, a u {{sub 100 .Udio}} % izlazi iz njega, podjednako iznad i ispod.
+    <dd>Interval koji obuhvaća {{.Udio}} % pogrešaka prognoze, izmjerenih puštanjem prognoze unatrag kroz
+      arhivu (satni lanac), odnosno ±1 standardno odstupanje analognih situacija (dnevni model): stvarna
+      vrijednost ostaje u rasponu u {{.Udio}} % slučajeva, a u {{sub 100 .Udio}} % izlazi iz njega, podjednako iznad i ispod.
       Zapisan je kao ± kad je simetričan, a granicama kad ga preračun krivuljom protoka učini
       nesimetričnim.</dd>
 
@@ -130,6 +134,7 @@
       dana prognoza podcjenjuje, jer nastaje iz kiše koju još nijedna postaja ne vidi — ondje vrijedi
       pratiti obrub.</dd>
   </dl>
+  <p class="reg-card-sub"><a href="/prognoze/o-prognozi">Detaljan opis modela i računa, s ulazima svake postaje →</a></p>
 </section>
 
 

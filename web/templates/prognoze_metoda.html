@@ -1,0 +1,55 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — O prognozi{{end}}
+
+{{define "content"}}
+<div class="detail-head">
+  <div>
+    <h1>{{icon "info"}} O prognozi</h1>
+    <p class="reg-card-sub">Kako prognoza {{if .Izdaje}}{{.Izdaje}} {{end}}nastaje: odakle su brojevi i kojim su
+      računom izvedeni{{if .Izdano}} · zadnje izdanje {{.Izdano}}{{end}}</p>
+  </div>
+  <div class="page-actions">
+    <a href="/prognoze" class="btn btn-secondary">{{icon "trending-up"}} Prognoze</a>
+    <a href="/prognoze.xlsx" class="btn btn-secondary" title="Prognoza po vodama, s ovim opisom na zasebnom listu">{{icon "download"}} Izvoz u Excel</a>
+  </div>
+</div>
+
+<div class="prog-metoda">
+  {{range .Odjeljci}}
+  <section class="detail-section">
+    <h2>{{.Naslov}}</h2>
+    {{range .Odlomci}}{{if .Formula}}<div class="prog-formula">{{.Tekst}}</div>{{else}}<p>{{.Tekst}}</p>{{end}}{{end}}
+  </section>
+  {{end}}
+
+  <section class="detail-section">
+    <h2>Postaje</h2>
+    {{if .Letve}}
+    <p>Iz čega se svaka postaja računa. Kod satnog lanca uz ulaz stoji veličina, kašnjenje (raspon po pojasima
+      vodnosti kod glavnog ulaza) i prozor glačanja; R je koeficijent korelacije računa s mjerenjima, a raspon
+      polovina širine raspona na {{range $i, $d := .RasponDo}}{{if $i}} / {{end}}{{$d}}{{end}} h. Postaje bez satnog
+      lanca imaju samo dnevni model.</p>
+    <div class="table-card"><div class="table-responsive">
+      <table class="data-table prog-metoda-tablica">
+        <thead><tr>
+          <th>Postaja</th><th>Satni lanac — ulazi</th><th>R</th><th>Raspon</th><th>Dnevni model — ulazi</th><th>Dnevni od</th>
+        </tr></thead>
+        <tbody>
+        {{range .Letve}}
+        <tr>
+          <td><strong>{{.Naziv}}</strong>{{if .Voda}}<div class="reg-card-sub">{{.Voda}}{{if .Racuna}} · u {{if eq .Racuna "protok"}}protoku{{else}}vodostaju{{end}}{{end}}</div>{{end}}</td>
+          <td>{{range .Satni}}<div>{{.}}</div>{{else}}—{{end}}</td>
+          <td>{{if .Slaganje}}{{.Slaganje}}{{else}}—{{end}}</td>
+          <td class="nowrap">{{if .Raspon}}{{.Raspon}}{{else}}—{{end}}</td>
+          <td>{{if .Dnevni}}{{range $i, $u := .Dnevni}}{{if $i}}, {{end}}{{$u}}{{end}}{{else}}—{{end}}</td>
+          <td class="nowrap">{{if .DnevniOd}}{{.DnevniOd}}{{else}}—{{end}}</td>
+        </tr>
+        {{end}}
+        </tbody>
+      </table>
+    </div></div>
+    {{else}}<p class="reg-card-sub">{{.BezLetvi}}</p>{{end}}
+  </section>
+</div>
+{{end}}

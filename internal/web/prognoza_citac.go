@@ -127,3 +127,17 @@ func (c *CitacPrognoza) Tude(izvor string, sada time.Time) map[string]map[int64]
 	}
 	return out
 }
+
+// Namjesteno vraća namještene pojase satnog lanca i izmjerene promašaje po
+// dosegu — ono iz čega stranica „O prognozi” opisuje svaku postaju.
+func (c *CitacPrognoza) Namjesteno() (map[string][]prognoza.Pojas, map[string]map[int]prognoza.Promasaj) {
+	if c == nil || c.db == nil {
+		return nil, nil
+	}
+	pojasi, err := prognoza.SviPojasi(c.db)
+	if err != nil {
+		return nil, nil
+	}
+	promasaji, _ := prognoza.Promasaji(c.db)
+	return pojasi, promasaji
+}

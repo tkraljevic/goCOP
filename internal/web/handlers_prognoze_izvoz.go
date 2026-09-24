@@ -28,6 +28,7 @@ func (h *PrognozeHandler) IzvoziPrognoze(w http.ResponseWriter, r *http.Request)
 	for _, t := range data.Tablice {
 		listPrognoze(k, z, data, t)
 	}
+	listMetode(k, z, h.metoda(r))
 	posaljiXLSX(w, "prognoza_"+time.Now().In(models.Zagreb).Format("2006-01-02_15h")+".xlsx", k)
 }
 
@@ -196,12 +197,13 @@ func listPrognoze(k *xlsxw.Knjiga, z ZaglavljeIzvoza, data PrognozePageData, t T
 		"ovisnu o vodnosti, ispravljeno prema zadnjem mjerenju; dalje (dnevni) statistički model na dnevnim vodostajima " +
 		"od 1901. — višestruka regresija i metoda analognih situacija. Vodostaj i protok međusobno su preračunati " +
 		"krivuljom protoka postaje. Na vrhu lanca Mura (Letenye) i Dunav (Komárom) slijede prognozu mađarske službe.\n" +
-		"Raspon je interval od ±1 standardnog odstupanja pogreške prognoze, određenog usporedbom s mjerenjima " +
-		"(satni lanac) odnosno rasipanjem analognih situacija (dnevni model): stvarna vrijednost ostaje u rasponu " +
-		"u 68 % slučajeva, a u 32 % izlazi iz njega, podjednako iznad i ispod. Zapisan je kao ± kad je " +
+		"Raspon obuhvaća 68 % pogrešaka prognoze, izmjerenih puštanjem prognoze unatrag kroz arhivu (satni " +
+		"lanac), odnosno ±1 standardno odstupanje analognih situacija (dnevni model): stvarna vrijednost ostaje " +
+		"u rasponu u 68 % slučajeva, a u 32 % izlazi iz njega, podjednako iznad i ispod. Zapisan je kao ± kad je " +
 		"simetričan, a granicama kad ga preračun krivuljom protoka učini nesimetričnim.\n" +
 		"HU — prognoza mađarske hidrološke službe (hydroinfo.hu), uz našu radi usporedbe; njihov raspon " +
-		"obuhvaća 70 % slučajeva, pa su dva raspona gotovo izravno usporediva."
+		"obuhvaća 70 % slučajeva, pa su dva raspona gotovo izravno usporediva. Potpun opis modela i računa, " +
+		"s ulazima svake postaje, na listu „O prognozi”."
 	var sirina float64
 	for _, w := range l.Sirine {
 		sirina += w
@@ -339,4 +341,84 @@ func drugiRedak(x LetvaPrognoze, naslovLista string) string {
 		d = append(d, km)
 	}
 	return strings.Join(d, " · ")
+}
+
+// listMetode piše list „O prognozi”: isti opis metode kao na stranici, i
+// tablicu postaja s ulazima i rasponom, da se uz izdanu tablicu uvijek zna
+// odakle su brojevi i kako su izvedeni.
+func listMetode(k *xlsxw.Knjiga, z ZaglavljeIzvoza, m PrognozeMetodaData) {
+	T := xlsxw.T
+	l := k.NoviList("O prognozi")
+	l.Vodoravno = true
+	l.Sirine = []float64{20, 46, 11, 18, 38, 11}
+	stupaca := len(l.Sirine)
+	var sirina float64
+	for _, w := range l.Sirine {
+		sirina += w
+	}
+	podnaslov := "metoda i račun prognoze"
+	if m.Izdano != "" {
+		podnaslov += " · izdanje " + m.Izdano
+	}
+	zaglavljeLista(l, z, "O PROGNOZI", podnaslov, stupaca)
+
+	preko := func(c xlsxw.Celija, visina float64) {
+		r := l.Redak()
+		red := make([]xlsxw.Celija, stupaca)
+		red[0] = c
+		l.Dodaj(red...)
+		l.Spoji(0, r, stupaca-1, r)
+		l.Visina(r, visina)
+	}
+	for _, o := range m.Odjeljci {
+		preko(T(o.Naslov, xlsxw.Podnaslov), 22)
+		for _, od := range o.Odlomci {
+			if od.Formula {
+				preko(T(od.Tekst, xlsxw.Formula), 20)
+				continue
+			}
+			preko(T(od.Tekst, xlsxw.Tekst), visinaTeksta(od.Tekst, int(sirina*1.35), 15, 0))
+		}
+	}
+
+	preko(T("Postaje", xlsxw.Podnaslov), 22)
+	if len(m.Letve) == 0 {
+		preko(T(m.BezLetvi, xlsxw.Tekst), 18)
+		return
+	}
+	dosezi := make([]string, len(m.RasponDo))
+	for i, d := range m.RasponDo {
+		dosezi[i] = tekstBroja(d)
+	}
+	uvod := "Kod satnog lanca uz ulaz stoji veličina, kašnjenje (raspon po pojasima vodnosti kod glavnog " +
+		"ulaza) i prozor glačanja; R je koeficijent korelacije računa s mjerenjima, a raspon polovina širine " +
+		"raspona na " + strings.Join(dosezi, " / ") + " h. Postaje bez satnog lanca imaju samo dnevni model."
+	preko(T(uvod, xlsxw.Tekst), visinaTeksta(uvod, int(sirina*1.35), 15, 0))
+	r := l.Redak()
+	l.Dodaj(T("Postaja", xlsxw.Zaglavlje), T("Satni lanac — ulazi", xlsxw.Zaglavlje), T("R", xlsxw.Zaglavlje),
+		T("Raspon", xlsxw.Zaglavlje), T("Dnevni model — ulazi", xlsxw.Zaglavlje), T("Dnevni od", xlsxw.Zaglavlje))
+	l.Visina(r, 20)
+	crtica := func(s string) string {
+		if s == "" {
+			return "—"
+		}
+		return s
+	}
+	for _, x := range m.Letve {
+		postaja := x.Naziv
+		if x.Voda != "" {
+			postaja += "\n" + x.Voda
+		}
+		if x.Racuna != "" {
+			postaja += ", u " + map[bool]string{true: "protoku", false: "vodostaju"}[x.Racuna == "protok"]
+		}
+		satni := strings.Join(x.Satni, "\n")
+		dnevni := strings.Join(x.Dnevni, ", ")
+		redaka := max(2, len(x.Satni), len([]rune(dnevni))/int(l.Sirine[4])+1)
+		r := l.Redak()
+		l.Dodaj(T(postaja, xlsxw.TablicaTekst), T(crtica(satni), xlsxw.TablicaTekst),
+			T(crtica(x.Slaganje), xlsxw.TablicaTekst), T(crtica(x.Raspon), xlsxw.TablicaTekst),
+			T(crtica(dnevni), xlsxw.TablicaTekst), T(crtica(x.DnevniOd), xlsxw.TablicaTekst))
+		l.Visina(r, float64(redaka)*13.5+5)
+	}
 }
