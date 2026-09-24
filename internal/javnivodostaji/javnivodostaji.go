@@ -426,6 +426,7 @@ type Uvoznik struct {
 
 	krug       sync.Mutex // drži se dok traje jedan krug preuzimanja; drugi krug u to vrijeme ne počinje
 	zadnjiKrug Krug
+	napredak   Napredak
 	popisOd    time.Time
 }
 
@@ -564,6 +565,62 @@ type Krug struct {
 	Trajanje time.Duration
 }
 
+// Napredak je stanje kruga koji traje, za traku napretka: letve nose 90 %
+// posla, tuđe prognoze i naš izračun ostatak. Redci su ispis koraka, redom,
+// da dežurni vidi što je krug donio i gdje je zapelo.
+type Napredak struct {
+	UTijeku  bool     `json:"uTijeku"`
+	Faza     string   `json:"faza"`
+	Gotovo   int      `json:"gotovo"`
+	Ukupno   int      `json:"ukupno"`
+	Novih    int      `json:"novih"`
+	Postotak int      `json:"postotak"`
+	Redci    []string `json:"redci"`
+	Trajanje string   `json:"trajanje"`
+	pocetak  time.Time
+}
+
+// najviseRedaka ispisa čuva se u napretku; stariji otpadaju.
+const najviseRedaka = 200
+
+// Napredak vraća presliku stanja kruga.
+func (u *Uvoznik) Napredak() Napredak {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	n := u.napredak
+	n.Redci = append([]string(nil), n.Redci...)
+	if n.UTijeku && !n.pocetak.IsZero() {
+		n.Trajanje = time.Since(n.pocetak).Round(time.Second).String()
+	}
+	return n
+}
+
+// Korak javlja fazu kruga koja ne ide po letvama — tuđe prognoze, izračun,
+// zapis — i koliko je posla time gotovo. Zove ga NakonPreuzimanja.
+func (u *Uvoznik) Korak(faza string, postotak int) {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	u.napredak.Faza = faza
+	if postotak > u.napredak.Postotak {
+		u.napredak.Postotak = postotak
+	}
+	u.dodajRedak(faza)
+}
+
+// Redak dopisuje jedan redak u ispis kruga, npr. ishod tuđe prognoze.
+func (u *Uvoznik) Redak(format string, args ...any) {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	u.dodajRedak(fmt.Sprintf(format, args...))
+}
+
+func (u *Uvoznik) dodajRedak(r string) {
+	u.napredak.Redci = append(u.napredak.Redci, r)
+	if len(u.napredak.Redci) > najviseRedaka {
+		u.napredak.Redci = u.napredak.Redci[len(u.napredak.Redci)-najviseRedaka:]
+	}
+}
+
 // PreuzmiSve preuzme sve označene letve jednom, pa pozove NakonPreuzimanja;
 // vraća koliko je novih upisano. Dva kruga ne idu odjednom: kad jedan već
 // traje — satni ili pokrenut rukom — drugi se ne pokreće i vraća nulu.
@@ -573,15 +630,34 @@ func (u *Uvoznik) PreuzmiSve(ctx context.Context) int {
 	}
 	defer u.krug.Unlock()
 	pocetak := time.Now()
+	u.mu.Lock()
+	u.napredak = Napredak{UTijeku: true, Faza: "popis letvi", pocetak: pocetak}
+	u.mu.Unlock()
 	letve, err := u.Spremiste.LetveZaPreuzimanje(ctx)
 	if err != nil {
 		u.Zapisnik("javni vodostaji: popis letvi: %v", err)
+		u.zavrsiKrug(pocetak, 0, 0, "popis letvi nije uspio: "+err.Error())
 		return 0
 	}
+	u.mu.Lock()
+	u.napredak.Ukupno, u.napredak.Faza = len(letve), "preuzimanje vodostaja"
+	u.mu.Unlock()
 	ukupno := 0
 	for i := range letve {
 		s := u.Preuzmi(ctx, &letve[i])
 		ukupno += s.Novih
+		u.mu.Lock()
+		u.napredak.Gotovo, u.napredak.Novih = i+1, ukupno
+		u.napredak.Postotak = 90 * (i + 1) / len(letve)
+		switch {
+		case s.Greska != "":
+			u.dodajRedak(letve[i].Name + ": " + s.Greska)
+		case s.Novih > 0:
+			u.dodajRedak(fmt.Sprintf("%s: %d novih", letve[i].Name, s.Novih))
+		default:
+			u.dodajRedak(letve[i].Name + ": ništa novo")
+		}
+		u.mu.Unlock()
 		if ctx.Err() != nil {
 			break
 		}
@@ -589,13 +665,21 @@ func (u *Uvoznik) PreuzmiSve(ctx context.Context) int {
 	if len(letve) > 0 {
 		u.Zapisnik("javni vodostaji: %d letvi, %d novih očitanja", len(letve), ukupno)
 	}
+	u.Korak(fmt.Sprintf("vodostaji preuzeti: %d letvi, %d novih očitanja", len(letve), ukupno), 90)
 	if u.NakonPreuzimanja != nil && ctx.Err() == nil {
 		u.NakonPreuzimanja(ctx)
 	}
-	u.mu.Lock()
-	u.zadnjiKrug = Krug{Kad: time.Now(), Letvi: len(letve), Novih: ukupno, Trajanje: time.Since(pocetak)}
-	u.mu.Unlock()
+	u.zavrsiKrug(pocetak, len(letve), ukupno, "gotovo")
 	return ukupno
+}
+
+func (u *Uvoznik) zavrsiKrug(pocetak time.Time, letvi, novih int, zavrsni string) {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	u.zadnjiKrug = Krug{Kad: time.Now(), Letvi: letvi, Novih: novih, Trajanje: time.Since(pocetak)}
+	u.napredak.UTijeku, u.napredak.Postotak, u.napredak.Faza = false, 100, zavrsni
+	u.napredak.Trajanje = u.zadnjiKrug.Trajanje.Round(time.Second).String()
+	u.dodajRedak(zavrsni + " · " + u.napredak.Trajanje)
 }
 
 // UTijeku javlja traje li upravo krug preuzimanja.

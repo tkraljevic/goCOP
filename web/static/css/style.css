@@ -4132,3 +4132,14 @@ table.akt-poveznice { margin-top: 0.75rem; }
 }
 .prog-metoda-tablica td { vertical-align: top; font-size: 0.82rem; }
 .prog-metoda-tablica td.nowrap { white-space: nowrap; }
+
+/* Generiranje prognoze: traka napretka i ispis koraka */
+.prog-generiraj-obrazac { margin: 0.5rem 0 0.75rem; }
+.prog-napredak-traka { height: 0.6rem; background: var(--bg-subtle); border: 1px solid var(--border); border-radius: 999px; overflow: hidden; }
+.prog-napredak-ispuna { height: 100%; background: var(--primary); border-radius: 999px; transition: width 0.4s ease; }
+.prog-napredak-tekst { margin-top: 0.35rem; font-size: 0.85rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.prog-napredak-postotak { font-weight: 600; color: var(--text); }
+.prog-napredak-detalji { margin-top: 0.6rem; font-size: 0.85rem; }
+.prog-napredak-detalji summary { cursor: pointer; color: var(--text-muted); }
+.prog-napredak-ispis { max-height: 16rem; overflow: auto; margin: 0.4rem 0 0; padding: 0.5rem 0.7rem; background: var(--bg-subtle);
+  border: 1px solid var(--border); border-radius: 6px; font-size: 0.78rem; line-height: 1.5; white-space: pre-wrap; }

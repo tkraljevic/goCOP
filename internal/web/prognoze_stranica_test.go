@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"gocop/internal/javnivodostaji"
 	"gocop/internal/models"
 	"gocop/internal/prognoza"
 )
@@ -181,9 +182,20 @@ func TestStranicaPrognozaGumbGeneriraj(t *testing.T) {
 	if !strings.Contains(html, `action="/prognoze/generiraj"`) || strings.Contains(html, "disabled") {
 		t.Error("gumb Generiraj nije spreman za klik")
 	}
+	// Odjeljak je na dnu, ispod svega, ne među gumbima u zaglavlju.
+	if strings.Index(html, `id="generiraj"`) < strings.Index(html, "O prognozi") {
+		t.Error("generiranje nije na dnu stranice")
+	}
+	if strings.Contains(html[:strings.Index(html, `id="generiraj"`)], "/prognoze/generiraj") {
+		t.Error("gumb Generiraj stoji i u zaglavlju")
+	}
 	osnova.Generira = true
+	osnova.Napredak = javnivodostaji.Napredak{UTijeku: true, Faza: "preuzimanje vodostaja", Gotovo: 7, Ukupno: 113, Novih: 12, Postotak: 5,
+		Redci: []string{"Batina: 3 novih", "Aljmaš: ništa novo"}}
 	html = iscrtaj(t, "prognoze.html", osnova)
-	if !strings.Contains(html, "Generiranje u tijeku") || !strings.Contains(html, "disabled") || !strings.Contains(html, "location.replace('/prognoze')") {
-		t.Error("dok krug traje gumb mora biti ugašen, a stranica se sama osvježiti")
+	for _, want := range []string{"Generiranje u tijeku", "disabled", `data-u-tijeku="1"`, "width:5%", "5 %", "letva 7 od 113", "Batina: 3 novih", "/prognoze/napredak"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("dok krug traje stranica nema %q", want)
+		}
 	}
 }

@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"math"
@@ -156,6 +157,7 @@ type PrognozePageData struct {
 	MozeGenerirati bool   // ima krug preuzimanja, pa gumb „Generiraj” ima što pokrenuti
 	Generira       bool   // krug upravo traje
 	ZadnjiKrug     string // kad je zadnji krug prošao i što je donio
+	Napredak       javnivodostaji.Napredak
 }
 
 // TablicaPrognoza je jedna voda na pregledu, letve od uzvodne prema nizvodnoj.
@@ -180,8 +182,9 @@ func (h *PrognozeHandler) podaci(r *http.Request) PrognozePageData {
 	}
 	if u := h.uvoznik(); u != nil {
 		data.MozeGenerirati, data.Generira = true, u.UTijeku()
+		data.Napredak = u.Napredak()
 		if k, ima := u.ZadnjiKrug(); ima {
-			data.ZadnjiKrug = fmt.Sprintf("zadnji krug %s: %d letvi, %d novih očitanja, %s",
+			data.ZadnjiKrug = fmt.Sprintf("%s: %d letvi, %d novih očitanja, %s",
 				k.Kad.In(models.Zagreb).Format("2.1. u 15:04"), k.Letvi, k.Novih, trajanjeKruga(k.Trajanje))
 		}
 	}
@@ -266,11 +269,11 @@ func trajanjeKruga(d time.Duration) string {
 func (h *PrognozeHandler) Generiraj(w http.ResponseWriter, r *http.Request) {
 	u := h.uvoznik()
 	if u == nil {
-		redirectWith(w, r, "/prognoze", "error", "Preuzimanje vodostaja nije uključeno na ovom čvoru.")
+		redirectWith(w, r, "/prognoze#generiraj", "error", "Preuzimanje vodostaja nije uključeno na ovom čvoru.")
 		return
 	}
 	if u.UTijeku() {
-		redirectWith(w, r, "/prognoze", "success", "Krug preuzimanja već traje; stranica će se osvježiti kad prođe.")
+		redirectWith(w, r, "/prognoze#generiraj", "success", "Krug preuzimanja već traje.")
 		return
 	}
 	go func() {
@@ -278,7 +281,19 @@ func (h *PrognozeHandler) Generiraj(w http.ResponseWriter, r *http.Request) {
 		defer otkazi()
 		u.PreuzmiSve(ctx)
 	}()
-	redirectWith(w, r, "/prognoze", "success", "Pokrenuto: preuzimanje vodostaja svih letvi, tuđih prognoza i izračun naše. Stranica će se osvježiti kad prođe.")
+	redirectWith(w, r, "/prognoze#generiraj", "success", "Pokrenuto: preuzimanje vodostaja svih letvi, tuđih prognoza i izračun naše.")
+}
+
+// NapredakJSON daje stanje kruga koji traje, za traku napretka na stranici.
+func (h *PrognozeHandler) NapredakJSON(w http.ResponseWriter, r *http.Request) {
+	u := h.uvoznik()
+	if u == nil {
+		http.Error(w, "nema kruga preuzimanja", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	json.NewEncoder(w).Encode(u.Napredak())
 }
 
 func (h *PrognozeHandler) iscrtaj(w http.ResponseWriter, data PrognozePageData) {

@@ -164,10 +164,18 @@ func TestKrugPreuzimanjaNeIdeDvaputOdjednom(t *testing.T) {
 	if n := u.PreuzmiSve(context.Background()); n != 0 {
 		t.Errorf("drugi krug usred prvoga vratio %d umjesto 0", n)
 	}
+	// Usred kruga: letve su prošle (90 %), faza je ona koju je javio korak.
+	u.Korak("izračun prognoze", 96)
+	if n := u.Napredak(); !n.UTijeku || n.Postotak != 96 || n.Faza != "izračun prognoze" {
+		t.Errorf("napredak usred kruga: %+v", n)
+	}
 	close(pusti)
 	<-gotov
 	k, ima := u.ZadnjiKrug()
 	if !ima || k.Kad.IsZero() || k.Letvi != 0 || u.UTijeku() {
 		t.Errorf("poslije kruga: %+v, ima=%v, uTijeku=%v", k, ima, u.UTijeku())
+	}
+	if n := u.Napredak(); n.UTijeku || n.Postotak != 100 || n.Faza != "gotovo" || len(n.Redci) == 0 {
+		t.Errorf("napredak poslije kruga: %+v", n)
 	}
 }
