@@ -99,6 +99,7 @@ type LetvaPrognoze struct {
 	ImaTermina      bool // ima ijednu prognozu, svoju ili tuđu
 	TudiVrh         bool // vrh lanca koji dalje ide po mađarskoj prognozi
 	Dani            []CelijaDana
+	Nepovezana      string // poruka kad letva nije povezana sa živom vodom, pa prognoze nema
 }
 
 // TudaCelija je tuđa prognoza u ćeliji dana: mađarska ili srpska.
@@ -333,6 +334,21 @@ func (h *PrognozeHandler) opisiLetve(popis map[string]models.Station, letve []Pr
 			Ulazi:   l.Ulazi,
 			SadaCmV: ptr(sadaCm, imaSadaCm), SadaQV: ptr(sadaQ, imaSadaQ),
 		}
+		if l.Nepovezana {
+			ulaz := ""
+			if len(l.Ulazi) > 0 {
+				ulaz = l.Ulazi[0]
+				if st, ima := popis[ulaz]; ima {
+					ulaz, _ = imeIDrzava(st.Name)
+				}
+			}
+			naziv := l.Letva
+			if st, ima := popis[l.Letva]; ima {
+				naziv = st.Name
+			}
+			red.Nepovezana = fmt.Sprintf("%s trenutno nije povezan sa živom vodom (%s ispod %s cm), pa se ne može ni prognozirati.",
+				naziv, ulaz, brojHRf(l.PragPovezanosti, 0))
+		}
 		if st, ima := popis[l.Letva]; ima {
 			red.Naziv, red.Voda, red.Stacionaza = st.Name, st.Watercourse, st.Stationing
 			red.URL = "/readings/station/" + st.ID.String()
@@ -407,6 +423,11 @@ type PregledLetve struct {
 	SatnoQ    map[int64]PregledVrijednost // protok po ciljnom satu
 	UlazLanca bool                        // letva ulazi u neki pojas satnog lanca
 	Ulazi     []string                    // letve iz kojih se ova računa
+	// Nepovezana kaže da u satu izdanja letva nije slijedila glavni ulaz
+	// (nepovezan pojas), pa prognoze nema; PragPovezanosti je vrijednost
+	// glavnog ulaza od koje veza drži.
+	Nepovezana      bool
+	PragPovezanosti float64
 }
 
 // Pregled čita najnovije izdanje: za svaku letvu vrijednost u satu izdavanja i
@@ -457,6 +478,25 @@ func (c *CitacPrognoza) Pregled() (time.Time, []PregledLetve, error) {
 			p.Racuna = pojasi[letva][0].Velicina
 			for _, u := range pojasi[letva][0].Ulazi {
 				p.Ulazi = append(p.Ulazi, u.Letva)
+			}
+			// Letva s nepovezanim pojasima koja ima samo sat izdanja, a ništa
+			// unaprijed: nije bila povezana sa živom vodom.
+			unaprijed := 0
+			for _, i := range niz {
+				if i.Ciljni > izdano {
+					unaprijed++
+				}
+			}
+			for _, pj := range pojasi[letva] {
+				if pj.Nepovezan && unaprijed == 0 {
+					p.Nepovezana = true
+				}
+				if !pj.Nepovezan && (p.PragPovezanosti == 0 || pj.Od < p.PragPovezanosti) {
+					p.PragPovezanosti = pj.Od
+				}
+			}
+			if !p.Nepovezana {
+				p.PragPovezanosti = 0
 			}
 		}
 		for _, i := range niz {

@@ -199,3 +199,18 @@ func TestStranicaPrognozaGumbGeneriraj(t *testing.T) {
 		}
 	}
 }
+
+// Letva koja nije povezana sa živom vodom kaže to na kartici umjesto brojki.
+func TestStranicaPrognozaNepovezanaLetva(t *testing.T) {
+	html := iscrtaj(t, "prognoze.html", PrognozePageData{
+		CurrentUser: &models.User{FullName: "P"}, Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		ActiveNav: "prognoze", Izdano: "24.9.2026. u 21:00", Udio: 70,
+		Tablice: []TablicaPrognoza{{Naslov: "Dunav", Letve: []LetvaPrognoze{{
+			Kod: "tikves", Naziv: "Tikveš", Voda: "Dunav", Racuna: "vodostaj", SadaCm: "41",
+			Nepovezana: "Tikveš trenutno nije povezan sa živom vodom (Batina ispod 123 cm), pa se ne može ni prognozirati.",
+		}}}},
+	})
+	if !strings.Contains(html, "nije povezan sa živom vodom (Batina ispod 123 cm)") || !strings.Contains(html, "prog-nepovezana") {
+		t.Error("kartica nepovezane letve nema poruku")
+	}
+}

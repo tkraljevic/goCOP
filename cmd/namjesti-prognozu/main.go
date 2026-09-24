@@ -35,6 +35,7 @@ var Velicine = map[string]string{
 	"donja-dubrava":    "protok",
 	"he-dubrava":       "protok",
 	"letenye":          "vodostaj",
+	"tikves":           "vodostaj",
 	"zeleznica":        "protok",
 	"tuhovec":          "protok",
 	"ludbreg":          "protok",
@@ -87,6 +88,16 @@ type Racun struct {
 	Letva string
 	Ulazi []string
 }
+
+// SamoPovezane su letve koje slijede ulaz samo pri dovoljnoj vodi: pojasi u
+// kojima veza ne drži (r ispod NajmanjeSlaganje) označe se nepovezanima i u
+// njima se prognoza ne izdaje — kartica tada kaže da letva nije povezana sa
+// živom vodom.
+var SamoPovezane = map[string]bool{"tikves": true}
+
+// NajmanjeSlaganje je r ispod kojeg pojas letve iz SamoPovezane vrijedi kao
+// nepovezan. Na Tikvešu su odvojeni pojasi na 0,12–0,20, povezani na 0,93+.
+const NajmanjeSlaganje = 0.5
 
 // Batina, Donja Dubrava i Letenye nemaju svoj račun: ništa uzvodno od njih
 // nemamo u arhivi. Oni su ulaz, i oni određuju dokle prognoza seže.
@@ -232,6 +243,12 @@ var Tokovi = []struct {
 		{"sotin", []string{"vukovar"}},
 		{"mohovo", []string{"sotin"}},
 		{"ilok", []string{"mohovo"}},
+		// Tikveš u Kopačkom ritu: pri maloj i srednjoj vodi rit je odvojen od
+		// Dunava (r 0,15), a kad Batina prijeđe oko 120 cm uspor uđe u rit i
+		// Tikveš ga slijedi (r 0,93–0,99, s Osijekom ±8 cm u najvišem pojasu).
+		// Zato je SamoPovezan: donji pojasi se označe nepovezanima i ondje se
+		// ne prognozira. Crpna stanica se zanemaruje.
+		{"tikves", []string{"batina", "osijek"}},
 	}},
 	{"ušće", []Racun{
 		// Osijek nema krivulje protoka i nikad je neće imati: blizu ušća veza
@@ -380,11 +397,20 @@ func namjesti(arhiva *sql.DB, r Racun) []prognoza.Pojas {
 		return nil
 	}
 	fmt.Printf("%-56s %s\n", zaglavlje, vel)
+	if SamoPovezane[letva] {
+		for i := range pojasi {
+			pojasi[i].Nepovezan = pojasi[i].R < NajmanjeSlaganje
+		}
+	}
 	for _, p := range pojasi {
 		// Granice pojasa mjere se u glavnom ulazu, pa nose njegovu jedinicu,
 		// a rasap nosi jedinicu cilja.
-		fmt.Printf("   %8.0f – %8.0f %-4s  r %.3f   rasap %7.1f %-4s  (%d sati)\n",
-			p.Od, p.Do, jedinica(p.Ulazi[0].Velicina), p.R, p.Rasap, jedinica(p.Velicina), p.Sati)
+		oznaka := ""
+		if p.Nepovezan {
+			oznaka = "  nepovezan — ne prognozira se"
+		}
+		fmt.Printf("   %8.0f – %8.0f %-4s  r %.3f   rasap %7.1f %-4s  (%d sati)%s\n",
+			p.Od, p.Do, jedinica(p.Ulazi[0].Velicina), p.R, p.Rasap, jedinica(p.Velicina), p.Sati, oznaka)
 		for _, u := range p.Ulazi {
 			fmt.Printf("        %-16s -%2d h   prozor %2d h   nagib %6.2f %s\n",
 				u.Letva, u.PomakH, u.Sirina, u.Nagib, poJedinici(p.Velicina, u.Velicina))

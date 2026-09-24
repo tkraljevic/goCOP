@@ -90,6 +90,7 @@
         {{if .SadaQ}}<div class="prog-druga">{{.SadaQ}} m³/s</div>{{end}}
       </div>
     </header>
+    {{if .Nepovezana}}<p class="prog-nepovezana">{{icon "info"}} {{.Nepovezana}}</p>{{end}}
     {{if .ImaTermina}}
     <div class="prog-termini">
       {{range .Vrijednosti}}

@@ -4143,3 +4143,7 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .prog-napredak-detalji summary { cursor: pointer; color: var(--text-muted); }
 .prog-napredak-ispis { max-height: 16rem; overflow: auto; margin: 0.4rem 0 0; padding: 0.5rem 0.7rem; background: var(--bg-subtle);
   border: 1px solid var(--border); border-radius: 6px; font-size: 0.78rem; line-height: 1.5; white-space: pre-wrap; }
+
+/* Letva koja u satu izdanja nije povezana sa živom vodom (Tikveš pri maloj vodi) */
+.prog-nepovezana { margin: 0.5rem 0 0; padding: 0.45rem 0.7rem; font-size: 0.85rem; color: var(--text-muted);
+  background: var(--bg-subtle); border-left: 3px solid var(--border); border-radius: 4px; }

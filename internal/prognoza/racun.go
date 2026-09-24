@@ -313,7 +313,9 @@ func (r *Racunalo) izracunaj(iz Izvor, t int64) (Vrijednost, bool) {
 	}
 
 	p, ima := ZaVrijednost(svi, glavna.Iznos)
-	if !ima {
+	if !ima || p.Nepovezan {
+		// U nepovezanom pojasu letva ne slijedi ulaz: prognoze nema, a ne
+		// nagađanja iz susjednog pojasa.
 		return Vrijednost{}, false
 	}
 	iznosi := make([]float64, len(p.Ulazi))

@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS pojasi (
 	r          REAL NOT NULL,          -- koliko veza drži
 	rasap      REAL NOT NULL,          -- standardno odstupanje ostatka
 	sati       INTEGER NOT NULL,       -- na koliko je sati namješteno
+	nepovezan  INTEGER NOT NULL DEFAULT 0, -- u tom pojasu letva ne slijedi ulaz, pa se ne prognozira (Tikveš pri maloj vodi)
 	namjesteno TEXT NOT NULL DEFAULT '',
 	PRIMARY KEY (letva, velicina, pojas_od)
 ) WITHOUT ROWID;
@@ -170,7 +171,7 @@ func Otvori(put string) (*sql.DB, error) {
 func uskladi(db *sql.DB) error {
 	// Pojasi i ulazi su izračunati podaci: namjesti-prognozu ih izgradi iznova.
 	for tablica, stupac := range map[string]string{
-		"izdane": "gore", "tude": "vrijednost", "ulazi": "sirina_h", "dnevne": "protok"} {
+		"izdane": "gore", "tude": "vrijednost", "ulazi": "sirina_h", "dnevne": "protok", "pojasi": "nepovezan"} {
 		ima, err := imaStupac(db, tablica, stupac)
 		if err != nil {
 			return err
@@ -181,8 +182,11 @@ func uskladi(db *sql.DB) error {
 		// Prognoza je račun, ne zapis: izgubi li se, ponovno se izračuna iz
 		// istih ulaza. Zato se stara tablica smije jednostavno odbaciti.
 		odbaci := []string{tablica}
-		if tablica == "ulazi" {
+		switch tablica {
+		case "ulazi":
 			odbaci = append(odbaci, "pojasi") // idu zajedno; bez ulaza pojas ništa ne znači
+		case "pojasi":
+			odbaci = append(odbaci, "ulazi")
 		}
 		for _, x := range odbaci {
 			if _, err := db.Exec(`DROP TABLE IF EXISTS ` + x); err != nil {
@@ -232,6 +236,10 @@ type Pojas struct {
 	Odsjecak float64
 	R, Rasap float64
 	Sati     int
+	// Nepovezan kaže da u tom pojasu letva ne slijedi glavni ulaz, pa se
+	// prognoza ne izdaje: Tikveš u Kopačkom ritu živi svoj život dok uspor
+	// Dunava ne uđe u rit. Namještanje ga označi po slaganju (r).
+	Nepovezan bool
 }
 
 // Vrijedi javlja pripada li vrijednost glavnog ulaza ovom pojasu. Vrijednost
@@ -278,9 +286,9 @@ func Spremi(db *sql.DB, pojasi []Pojas, kad string) error {
 	}
 	for _, p := range pojasi {
 		if _, err := tx.Exec(`INSERT INTO pojasi
-			(letva, velicina, pojas_od, pojas_do, odsjecak, r, rasap, sati, namjesteno)
-			VALUES (?,?,?,?,?,?,?,?,?)`,
-			p.Letva, p.Velicina, p.Od, p.Do, p.Odsjecak, p.R, p.Rasap, p.Sati, kad); err != nil {
+			(letva, velicina, pojas_od, pojas_do, odsjecak, r, rasap, sati, nepovezan, namjesteno)
+			VALUES (?,?,?,?,?,?,?,?,?,?)`,
+			p.Letva, p.Velicina, p.Od, p.Do, p.Odsjecak, p.R, p.Rasap, p.Sati, p.Nepovezan, kad); err != nil {
 			return fmt.Errorf("pojas %s %.0f: %w", p.Letva, p.Od, err)
 		}
 		for i, u := range p.Ulazi {
@@ -297,7 +305,7 @@ func Spremi(db *sql.DB, pojasi []Pojas, kad string) error {
 
 // ZaLetvu čita namještene pojase jedne letve, po granicama.
 func ZaLetvu(db *sql.DB, letva string) ([]Pojas, error) {
-	r, err := db.Query(`SELECT letva, velicina, pojas_od, pojas_do, odsjecak, r, rasap, sati
+	r, err := db.Query(`SELECT letva, velicina, pojas_od, pojas_do, odsjecak, r, rasap, sati, nepovezan
 		FROM pojasi WHERE letva = ? ORDER BY pojas_od`, letva)
 	if err != nil {
 		return nil, err
@@ -307,7 +315,7 @@ func ZaLetvu(db *sql.DB, letva string) ([]Pojas, error) {
 	for r.Next() {
 		var p Pojas
 		if err := r.Scan(&p.Letva, &p.Velicina, &p.Od, &p.Do,
-			&p.Odsjecak, &p.R, &p.Rasap, &p.Sati); err != nil {
+			&p.Odsjecak, &p.R, &p.Rasap, &p.Sati, &p.Nepovezan); err != nil {
 			return nil, err
 		}
 		out = append(out, p)

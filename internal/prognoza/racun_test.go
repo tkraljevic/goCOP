@@ -274,3 +274,33 @@ func TestIspravakOdZadnjegMjerenjaKadLetvaKasni(t *testing.T) {
 		t.Errorf("u satu izdavanja %g, a letva stoji na 60 — ispravak nije uzet", v)
 	}
 }
+
+// U nepovezanom pojasu prognoze nema: Tikveš pri maloj vodi ne slijedi Dunav,
+// pa se ne smije ni nagađati iz susjednog pojasa. Kad voda naraste u povezani
+// pojas, prognoza se izdaje.
+func TestNepovezanPojasNeDajePrognozu(t *testing.T) {
+	pojasi := map[string][]Pojas{
+		"donja": {
+			{Letva: "donja", Velicina: "vodostaj", Od: -1000, Do: 100, Nepovezan: true,
+				Ulazi: []Ulaz{{Letva: "gornja", Velicina: "vodostaj", PomakH: 1, Nagib: 1}}, R: 0.1, Rasap: 20, Sati: 5000},
+			{Letva: "donja", Velicina: "vodostaj", Od: 100, Do: 1000,
+				Ulazi: []Ulaz{{Letva: "gornja", Velicina: "vodostaj", PomakH: 1, Nagib: 1}}, R: 0.95, Rasap: 5, Sati: 5000},
+		},
+	}
+	gornja := Izvor{"gornja", "vodostaj"}
+	donja := Izvor{"donja", "vodostaj"}
+	// Gornja stoji na 50 cm: nepovezano.
+	r := NovoRacunalo(pojasi, map[Izvor]Niz{gornja: ravanNiz(0, 100, 50, 0), donja: ravanNiz(0, 100, 30, 0)}, 100)
+	izdane, err := r.Prognoziraj("donja", 24, "proba")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(izdane) != 1 {
+		t.Errorf("nepovezana letva dobila je %d sati prognoze, a smije samo sat izdanja", len(izdane))
+	}
+	// Gornja na 300 cm: povezano, prognoza ide.
+	r = NovoRacunalo(pojasi, map[Izvor]Niz{gornja: ravanNiz(0, 100, 300, 0), donja: ravanNiz(0, 100, 300, 0)}, 100)
+	if izdane, _ = r.Prognoziraj("donja", 24, "proba"); len(izdane) < 10 {
+		t.Errorf("povezana letva dobila je samo %d sati prognoze", len(izdane))
+	}
+}
