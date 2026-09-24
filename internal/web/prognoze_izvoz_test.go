@@ -18,6 +18,7 @@ import (
 func TestIzvozPrognozeUExcel(t *testing.T) {
 	v := func(x float64) *float64 { return &x }
 	data := PrognozePageData{
+		Udio:   70,
 		Izdano: "24.9.2026. u 08:00", Bliski: BliziDosezi, Dani: []string{"čet 24.9.", "pet 25.9."},
 	}
 	tab := TablicaPrognoza{Naslov: "Dunav", Letve: []LetvaPrognoze{
@@ -60,7 +61,7 @@ func TestIzvozPrognozeUExcel(t *testing.T) {
 		}
 	}
 	for _, want := range []string{"PROGNOZA VODOSTAJA — Dunav", "VGO za Dunav i donju Dravu, Osijek", "COP Osijek",
-		"Batina", "čet 24.9. 07 h", "±5", ">160<", "Prognoza COP Osijek.", "metoda analognih situacija", "u 68 % slučajeva", "obuhvaća 70 %", "dnevni", "satni", ">2250<", ">158<",
+		"Batina", "čet 24.9. 07 h", "±5", ">160<", "Prognoza COP Osijek.", "metoda analognih situacija", "u 70 % slučajeva", "obuhvaća isti udio (70 %)", "dnevni", "satni", ">2250<", ">158<",
 		"zamjenik voditelja Centra obrane od poplava", "Pero Perić",
 		`s="15"`, `s="16"`, `s="17"`, `s="20"`} { // raspon sivo, protok ukošeno, početak razdoblja crtom
 		if !strings.Contains(txt, want) {

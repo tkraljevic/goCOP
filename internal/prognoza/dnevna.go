@@ -37,6 +37,13 @@ const DnevniDosezi = 6
 // DnevnihAnalogija je koliko se najsličnijih dana iz povijesti uzima.
 const DnevnihAnalogija = 25
 
+// DnevniRasponMnozitelj množi standardno odstupanje analogija da raspon
+// dnevnog modela cilja isti udio kao satni lanac (UdioURasponu): jedno
+// odstupanje pokriva 68 %, a 70 % traži 1,04 odstupanja pri normalnoj
+// raspodjeli. Izmjereno na valovima 2012.–2024., raspon od jednog odstupanja
+// pokrivao je 66–92 %, više na bliskim danima — množitelj ga ne kvari.
+const DnevniRasponMnozitelj = 1.04
+
 // DnevniCilj je letva i letve iz kojih se njezin dnevni vodostaj prognozira.
 type DnevniCilj struct {
 	Letva string
@@ -333,7 +340,7 @@ func (m *DnevniModel) Prognoziraj(x []float64) (promjena, raspon [DnevniDosezi +
 			raspon[k] = math.Sqrt(math.Max(kv/float64(n)-analog*analog, 0))
 		}
 		promjena[k] = (regr[k] + analog) / 2
-		raspon[k] = math.Max(raspon[k], 1)
+		raspon[k] = math.Max(DnevniRasponMnozitelj*raspon[k], 1)
 	}
 	return promjena, raspon
 }

@@ -153,7 +153,7 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 			formulaM(fmt.Sprintf("r(τ) = Q_%s( |eᵢ(τ) − b(τ)| ),   prognoza = ŷ*(t₀ + τ) − b(τ) ± r(τ)",
 				brojHRf(float64(udio)/100, 2))),
 			tekstM("Raspon se dakle ne izvodi iz pretpostavke o normalnoj raspodjeli pogrešaka, nego brojanjem. " +
-				"Kad bi pogreške bile normalne, r bi bio jednak jednom standardnom odstupanju."),
+				"Kad bi pogreške bile normalne, r bi bio 1,04 standardna odstupanja."),
 			tekstM("Ista provjera daje i korijen srednje kvadratne pogreške postojanosti — pretpostavke da se " +
 				"ništa neće promijeniti. Termin na kojem prognoza nju ne pobjeđuje pisan je na stranici svjetlije: " +
 				"ondje je bolje vjerovati zadnjem mjerenju."),
@@ -179,9 +179,10 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 			formulaM("d²(t, u) = 2 · ((h_T(t) − h_T(u)) / σ_h)² + Σᵢ ((zᵢ(t) − zᵢ(u)) / σᵢ)²"),
 			tekstM(fmt.Sprintf("Uzima se K = %d povijesnih dana najbližih današnjem; njihove stvarne promjene Δₖ "+
 				"daju procjenu (srednjak) i rasipanje (standardno odstupanje sₖ).", prognoza.DnevnihAnalogija)),
-			tekstM("Prognoza je srednjak dviju procjena, a raspon rasipanje analogija, najmanje 1 cm. Dvije " +
-				"procjene u provjeri griješe u suprotnom smjeru, pa srednjak ima manju pristranost od svake zasebno:"),
-			formulaM("Δ̂ₖ = ½ · (Δₖ_reg + Δₖ_kNN),   ĥ_T(t + k) = h_T(t) + Δ̂ₖ ± sₖ"),
+			tekstM(fmt.Sprintf("Prognoza je srednjak dviju procjena, a raspon rasipanje analogija pomnoženo s %s, "+
+				"da cilja isti udio kao satni lanac, najmanje 1 cm. Dvije procjene u provjeri griješe u suprotnom "+
+				"smjeru, pa srednjak ima manju pristranost od svake zasebno:", brojHRf(prognoza.DnevniRasponMnozitelj, 2))),
+			formulaM("Δ̂ₖ = ½ · (Δₖ_reg + Δₖ_kNN),   ĥ_T(t + k) = h_T(t) + Δ̂ₖ ± " + brojHRf(prognoza.DnevniRasponMnozitelj, 2) + " · sₖ"),
 			tekstM("Uživo je „dan” srednjak 24 sata koji završavaju u satu izdavanja, pa se dnevna prognoza " +
 				"obnavlja svaki sat, a ne tek u ponoć; vrijednost za dan k srednjak je 24 sata koji završavaju " +
 				"k dana poslije."),
@@ -203,8 +204,8 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 			tekstM(fmt.Sprintf("Raspon obuhvaća %d %% slučajeva: u %d %% stvarna vrijednost izlazi iz njega, "+
 				"podjednako iznad i ispod. Raspon nije granica mogućeg — otprilike jednom u tri termina "+
 				"vrijednost je izvan njega; za 95 %% slučajeva, uz normalnu raspodjelu, trebao bi otprilike "+
-				"dvostruko širi. Mađarska služba uz svoju prognozu navodi raspon od 70 %%, pa su dva raspona "+
-				"gotovo izravno usporediva.", udio, 100-udio)),
+				"dvostruko širi. Mađarska hidrološka služba uz svoju prognozu navodi isti udio (70 %%), pa "+
+				"naš i njihov raspon znače isto i izravno su usporedivi.", udio, 100-udio)),
 		}},
 		{"Provjera", []OdlomakMetode{
 			tekstM("Svaki dio modela provjeren je na podacima koje pri učenju nije vidio. Dnevni model učen je do " +

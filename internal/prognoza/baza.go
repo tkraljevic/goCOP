@@ -607,10 +607,14 @@ const ModelLanac = "lanac-1"
 
 // UdioURasponu je koliki dio promašaja mora stati u raspon koji uz prognozu
 // piše. Raspon se po njemu mjeri brojanjem, pa tvrdnja "ostaje unutar raspona
-// u 68 % slučajeva" vrijedi kao izmjerena činjenica, a ne kao pretpostavka o
-// rasporedu pogrešaka. Mađarska služba uz svoj graf navodi 70 %; 68 se poklapa
-// s jednim standardnim odstupanjem, pa se dvije mjere daju uspoređivati.
-const UdioURasponu = 0.68
+// u 70 % slučajeva" vrijedi kao izmjerena činjenica, a ne kao pretpostavka o
+// rasporedu pogrešaka. Isti udio navodi mađarska služba uz svoj graf, pa dva
+// raspona znače isto. Do 24. 9. 2026. bilo je 68 % (jedno standardno
+// odstupanje); 70 % je raspon širi za 5 %, a živi rasponi od 68 % izvan
+// razdoblja mjerenja (siječanj–rujan 2026.) pokrivali su 66–75 %, pa promjena
+// ne traži drugo mjerenje nego samo drugu kvantilu. Nakon promjene rasponi se
+// računaju iznova: provjeri-prognozu -od … -do … -zapisi.
+const UdioURasponu = 0.70
 
 // Promasaj je izmjereno koliko prognoza promašuje na jednom dosegu.
 type Promasaj struct {

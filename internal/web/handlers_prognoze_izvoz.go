@@ -1,12 +1,14 @@
 package web
 
 import (
+	"fmt"
 	"math"
 	"net/http"
 	"strings"
 	"time"
 
 	"gocop/internal/models"
+	"gocop/internal/prognoza"
 	"gocop/internal/xlsxw"
 )
 
@@ -197,12 +199,13 @@ func listPrognoze(k *xlsxw.Knjiga, z ZaglavljeIzvoza, data PrognozePageData, t T
 		"ovisnu o vodnosti, ispravljeno prema zadnjem mjerenju; dalje (dnevni) statistički model na dnevnim vodostajima " +
 		"od 1901. — višestruka regresija i metoda analognih situacija. Vodostaj i protok međusobno su preračunati " +
 		"krivuljom protoka postaje. Na vrhu lanca Mura (Letenye) i Dunav (Komárom) slijede prognozu mađarske službe.\n" +
-		"Raspon obuhvaća 68 % pogrešaka prognoze, izmjerenih puštanjem prognoze unatrag kroz arhivu (satni " +
-		"lanac), odnosno ±1 standardno odstupanje analognih situacija (dnevni model): stvarna vrijednost ostaje " +
-		"u rasponu u 68 % slučajeva, a u 32 % izlazi iz njega, podjednako iznad i ispod. Zapisan je kao ± kad je " +
-		"simetričan, a granicama kad ga preračun krivuljom protoka učini nesimetričnim.\n" +
+		fmt.Sprintf("Raspon obuhvaća %d %% pogrešaka prognoze, izmjerenih puštanjem prognoze unatrag kroz arhivu (satni "+
+			"lanac), odnosno %s standardna odstupanja analognih situacija (dnevni model): stvarna vrijednost ostaje "+
+			"u rasponu u %d %% slučajeva, a u %d %% izlazi iz njega, podjednako iznad i ispod. Zapisan je kao ± kad je "+
+			"simetričan, a granicama kad ga preračun krivuljom protoka učini nesimetričnim.\n",
+			data.Udio, brojHRf(prognoza.DnevniRasponMnozitelj, 2), data.Udio, 100-data.Udio) +
 		"HU — prognoza mađarske hidrološke službe (hydroinfo.hu), uz našu radi usporedbe; njihov raspon " +
-		"obuhvaća 70 % slučajeva, pa su dva raspona gotovo izravno usporediva. Potpun opis modela i računa, " +
+		"obuhvaća isti udio (70 %), pa dva raspona znače isto. Potpun opis modela i računa, " +
 		"s ulazima svake postaje, na listu „O prognozi”."
 	var sirina float64
 	for _, w := range l.Sirine {
