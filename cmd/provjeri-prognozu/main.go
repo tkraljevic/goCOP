@@ -15,6 +15,8 @@ import (
 	"log"
 	"math"
 	"sort"
+	"strconv"
+	"strings"
 	"time"
 
 	"gocop/internal/prognoza"
@@ -34,7 +36,8 @@ func main() {
 	najdalje := flag.Int("najdalje", 96, "dokle se mjeri, u satima")
 	zapisi := flag.Bool("zapisi", false, "zapiši izmjerene promašaje u bazu prognoza")
 	glacenje := flag.Int("glacenje", 6, "koliko sati na svaku stranu pri glačanju ispravka; 0 isključuje")
-	ispravi := flag.Bool("ispravi", false, "oduzmi zapisane sustavne pomake, da se vidi vrijede li")
+	ispravi := flag.Bool("ispravi", false, "primijeni zapisane pomake i raspone, kao živa prognoza — da se vidi vrijede li izvan razdoblja na kojem su mjereni")
+	udjeliS := flag.String("udjeli", "", "uz tablicu ispiši polovinu raspona za zadane udjele, npr. 0.68,0.70,0.80,0.90")
 	poluvijek := flag.Float64("poluvijek", prognoza.PoluvijekIspravka,
 		"za koliko sati ispravak prema mjerenju oslabi na pola; 0 isključuje")
 	flag.Parse()
@@ -99,7 +102,10 @@ func main() {
 			sada, imaSad := nizovi[iz].U(t)
 			for _, i := range izdane {
 				if p, ima := zapisani[letva][int(i.Ciljni-t)]; ima {
+					// Isto što radi živa prognoza: pomak se oduzme, a raspon
+					// je zapisani — pa „u rasponu” mjeri baš njega.
 					i.Vrijednost -= p.Pomak
+					i.Dolje, i.Gore = i.Vrijednost-p.Rasap, i.Vrijednost+p.Rasap
 				}
 				stvarno, ima := nizovi[iz].U(i.Ciljni)
 				if !ima {
@@ -147,6 +153,38 @@ func main() {
 				letva, d, z.n, z.pomak(), z.rms(), z.rmsP(), 100*z.uRasponu(), bolje)
 		}
 		fmt.Printf("%-16s %s\n", "", jedinica(vel))
+	}
+
+	if *udjeliS != "" {
+		var udjeli []float64
+		for _, u := range strings.Split(*udjeliS, ",") {
+			v, err := strconv.ParseFloat(strings.TrimSpace(u), 64)
+			if err != nil {
+				log.Fatalf("udio %q: %v", u, err)
+			}
+			udjeli = append(udjeli, v)
+		}
+		fmt.Printf("\npolovina raspona po udjelu (brojanjem), i koliko je šira od one za %.0f %%\n", 100*prognoza.UdioURasponu)
+		fmt.Printf("%-16s %5s", "letva", "doseg")
+		for _, u := range udjeli {
+			fmt.Printf(" %13s", fmt.Sprintf("%.0f %%", 100*u))
+		}
+		fmt.Println()
+		for _, letva := range poredane(promasaji) {
+			for _, d := range Dosezi {
+				z := promasaji[letva][d]
+				if z == nil || z.n < 100 {
+					continue
+				}
+				osnova := z.odstupanjeUdio(prognoza.UdioURasponu)
+				fmt.Printf("%-16s %4d h", letva, d)
+				for _, u := range udjeli {
+					r := z.odstupanjeUdio(u)
+					fmt.Printf(" %7.1f ×%4.2f", r, r/osnova)
+				}
+				fmt.Println()
+			}
+		}
 	}
 
 	if !*zapisi {
@@ -237,7 +275,10 @@ func (z *zbroj) pomak() float64 { return z.zbir / float64(z.n) }
 // bili normalno raspoređeni, a nisu — velike vode ostavljaju dug rep. Ovako
 // tvrdnja "ostaje unutar raspona u 68 % slučajeva" vrijedi po izgradnji, kao
 // izmjerena činjenica, a ne kao pretpostavka.
-func (z *zbroj) odstupanje() float64 {
+func (z *zbroj) odstupanje() float64 { return z.odstupanjeUdio(prognoza.UdioURasponu) }
+
+// odstupanjeUdio je polovina raspona u kojoj ostane zadani udio promašaja.
+func (z *zbroj) odstupanjeUdio(udio float64) float64 {
 	if len(z.promasaji) == 0 {
 		return 0
 	}
@@ -247,7 +288,7 @@ func (z *zbroj) odstupanje() float64 {
 		odmaci[i] = math.Abs(p - m)
 	}
 	sort.Float64s(odmaci)
-	i := int(float64(len(odmaci)) * prognoza.UdioURasponu)
+	i := int(float64(len(odmaci)) * udio)
 	if i >= len(odmaci) {
 		i = len(odmaci) - 1
 	}
