@@ -41,7 +41,7 @@ func visinaCrte(put string) float64 {
 func TestProfilCrtaPromjenuANeKotu(t *testing.T) {
 	a := letvaProfila("uzvodna", 200, 120, 50)
 	b := letvaProfila("nizvodna", 100, 80, 50) // 40 m niža kota nule
-	p := crtajUzduzni("Drava", []LetvaProfila{a, b})
+	p := crtajUzduzni("Drava", []LetvaProfila{a, b}, nil)
 	if p == nil {
 		t.Fatal("nema profila")
 	}
@@ -66,7 +66,7 @@ func TestProfilCrtaPromjenuANeKotu(t *testing.T) {
 func TestMjeriloSeRavnaPremaValu(t *testing.T) {
 	p := crtajUzduzni("Drava", []LetvaProfila{
 		letvaProfila("a", 200, 120, 50), letvaProfila("b", 100, 80, 50),
-	})
+	}, nil)
 	if p == nil || len(p.Crte) == 0 {
 		t.Fatal("nema crta")
 	}
@@ -90,7 +90,7 @@ func TestMirnaVodaNeRastegneMjerilo(t *testing.T) {
 	a.Cm = map[int]float64{24: 51, 48: 52}
 	b.Cm = map[int]float64{24: 50, 48: 51}
 	a.Granice, b.Granice = nil, nil
-	p := crtajUzduzni("Drava", []LetvaProfila{a, b})
+	p := crtajUzduzni("Drava", []LetvaProfila{a, b}, nil)
 	if p == nil {
 		t.Fatal("nema profila")
 	}
@@ -107,7 +107,7 @@ func TestMirnaVodaNeRastegneMjerilo(t *testing.T) {
 func TestDalekiPragNeUlaziUSliku(t *testing.T) {
 	p := crtajUzduzni("Drava", []LetvaProfila{
 		letvaProfila("a", 200, 120, 50), letvaProfila("b", 100, 80, 50),
-	})
+	}, nil)
 	if len(p.Pragovi) != 0 {
 		t.Errorf("nacrtano %d pragova, a pripremna je 250 cm iznad vode", len(p.Pragovi))
 	}
@@ -118,7 +118,7 @@ func TestDalekiPragNeUlaziUSliku(t *testing.T) {
 func TestBliskiPragUlaziUSliku(t *testing.T) {
 	a := letvaProfila("a", 200, 120, 290)
 	b := letvaProfila("b", 100, 80, 285)
-	p := crtajUzduzni("Drava", []LetvaProfila{a, b})
+	p := crtajUzduzni("Drava", []LetvaProfila{a, b}, nil)
 	if len(p.Pragovi) == 0 {
 		t.Fatal("pripremna je desetak centimetara iznad vode, a nije nacrtana")
 	}
@@ -140,7 +140,7 @@ func TestProfilIzostavljaLetvuBezKote(t *testing.T) {
 		letvaProfila("a", 200, 120, 10),
 		letvaProfila("bez-kote", 150, 0, 50),
 		letvaProfila("b", 100, 90, 300),
-	})
+	}, nil)
 	if p == nil {
 		t.Fatal("nema profila")
 	}
@@ -151,7 +151,7 @@ func TestProfilIzostavljaLetvuBezKote(t *testing.T) {
 
 // S jednom letvom profila nema — jedna točka ne pokazuje kako val putuje.
 func TestProfilTraziBaremDvijeLetve(t *testing.T) {
-	if crtajUzduzni("Drava", []LetvaProfila{letvaProfila("a", 200, 120, 10)}) != nil {
+	if crtajUzduzni("Drava", []LetvaProfila{letvaProfila("a", 200, 120, 10)}, nil) != nil {
 		t.Error("profil nacrtan iz jedne letve")
 	}
 }
@@ -161,7 +161,7 @@ func TestProfilTraziBaremDvijeLetve(t *testing.T) {
 func TestPojasJeValjanPut(t *testing.T) {
 	p := crtajUzduzni("Drava", []LetvaProfila{
 		letvaProfila("a", 200, 120, 50), letvaProfila("b", 100, 80, 50),
-	})
+	}, nil)
 	loše := regexp.MustCompile(`[MLCZ]\s*[MLCZ]`)
 	for _, c := range p.Crte {
 		if c.Pojas == "" {
@@ -182,7 +182,7 @@ func TestPojasSRupomSeNeCrta(t *testing.T) {
 	a := letvaProfila("a", 200, 120, 50)
 	b := letvaProfila("b", 100, 80, 50)
 	delete(b.Granice, 24)
-	p := crtajUzduzni("Drava", []LetvaProfila{a, b})
+	p := crtajUzduzni("Drava", []LetvaProfila{a, b}, nil)
 	for _, c := range p.Crte {
 		if c.Naziv == "za 24 h" && c.Pojas != "" {
 			t.Error("pojas nacrtan preko letve bez granica")
@@ -206,7 +206,7 @@ func visinaKrajnje(put string) float64 {
 func TestCrtaJeGlatkaIProlaziKrozLetve(t *testing.T) {
 	p := crtajUzduzni("Drava", []LetvaProfila{
 		letvaProfila("a", 300, 130, 50), letvaProfila("b", 200, 120, 50), letvaProfila("c", 100, 80, 50),
-	})
+	}, nil)
 	if p == nil || len(p.Crte) == 0 {
 		t.Fatal("nema crta")
 	}
@@ -219,7 +219,7 @@ func TestCrtaJeGlatkaIProlaziKrozLetve(t *testing.T) {
 		t.Errorf("crta završava na %.1f, a zadnja letva je na %.1f", x, p.Tocke[2].X)
 	}
 	// Dvije letve: ravna crta, bez luka.
-	p2 := crtajUzduzni("Drava", []LetvaProfila{letvaProfila("a", 200, 120, 50), letvaProfila("b", 100, 80, 50)})
+	p2 := crtajUzduzni("Drava", []LetvaProfila{letvaProfila("a", 200, 120, 50), letvaProfila("b", 100, 80, 50)}, nil)
 	if strings.Contains(p2.Crte[0].Put, "C") {
 		t.Error("kroz dvije letve nema što glačati, a put ima luk")
 	}
@@ -234,7 +234,7 @@ func TestSvakiDosegImaSvojuCrtu(t *testing.T) {
 			l.Cm[d] = l.SadaCm + float64(d)/4
 		}
 	}
-	p := crtajUzduzni("Drava", []LetvaProfila{a, b})
+	p := crtajUzduzni("Drava", []LetvaProfila{a, b}, nil)
 	if len(p.Crte) != len(dosezniProfila) {
 		t.Fatalf("%d crta za %d dosega", len(p.Crte), len(dosezniProfila))
 	}
@@ -252,7 +252,7 @@ func TestNizZaKlizac(t *testing.T) {
 	a, b := letvaProfila("a", 200, 120, 50), letvaProfila("b", 100, 80, 50)
 	a.Niz = map[int]float64{-48: 30, -1: 48, 24: 70, 96: 90}
 	b.Niz = map[int]float64{-24: 40, 24: 60}
-	p := crtajUzduzni("Drava", []LetvaProfila{a, b})
+	p := crtajUzduzni("Drava", []LetvaProfila{a, b}, nil)
 	if p.SatOd != KlizacOd || p.SatDo != 96 {
 		t.Errorf("raspon klizača %d..%d", p.SatOd, p.SatDo)
 	}
@@ -284,7 +284,7 @@ func TestNatpisiSeNePreklapaju(t *testing.T) {
 	p := crtajUzduzni("Dunav", []LetvaProfila{
 		letvaProfila("a", 300, 100, 50), letvaProfila("b", 110, 90, 50),
 		letvaProfila("c", 105, 89, 50), letvaProfila("d", 100, 88, 50),
-	})
+	}, nil)
 	// a, b gore; c dolje; d ne stane nigdje pa ide gdje je susjed dalje — dolje je c preblizu, gore b još bliže: dolje.
 	if p.Tocke[0].Dolje || p.Tocke[1].Dolje || !p.Tocke[2].Dolje {
 		t.Errorf("redovi natpisa: %v %v %v %v", p.Tocke[0].Dolje, p.Tocke[1].Dolje, p.Tocke[2].Dolje, p.Tocke[3].Dolje)
@@ -293,7 +293,7 @@ func TestNatpisiSeNePreklapaju(t *testing.T) {
 
 // Natpis ispod crteža govori o toj rijeci, ne o nekoj drugoj.
 func TestPadPoRijeci(t *testing.T) {
-	p := crtajUzduzni("Dunav", []LetvaProfila{letvaProfila("Batina", 1425, 79.15, -104), letvaProfila("Ilok", 1299, 73.34, -36)})
+	p := crtajUzduzni("Dunav", []LetvaProfila{letvaProfila("Batina", 1425, 79.15, -104), letvaProfila("Ilok", 1299, 73.34, -36)}, nil)
 	if p.Pad != "Dunav, Batina → Ilok: vodno lice pada 5,1 m na 126 km" {
 		t.Errorf("pad: %q", p.Pad)
 	}
@@ -307,4 +307,39 @@ func xKrajnje(put string) float64 {
 	var v float64
 	fmt.Sscanf(polja[len(polja)-2], "%g", &v)
 	return v
+}
+
+// Ušće blizu krajnje letve uđe u sliku i produži crtež do sebe; daleko ne.
+func TestUsceUlaziUSlikuKadJeBlizu(t *testing.T) {
+	letve := []LetvaProfila{letvaProfila("Botovo", 226.8, 121.3, -3), letvaProfila("Osijek", 19.1, 79.8, -143)}
+	p := crtajUzduzni("Drava", letve, []UsceUlaz{
+		{Naziv: "ušće u Dunav", Rkm: 0, Tekst: "Aljmaš -45 cm", Vezano: true},
+		{Naziv: "ušće Mure", Rkm: 236.3, Vezano: true},
+		{Naziv: "ušće Plitvice", Rkm: 250, Vezano: false}, // blizu, ali bez letvi s druge strane
+		{Naziv: "predaleko", Rkm: 400, Vezano: true},
+	})
+	if len(p.Usca) != 2 {
+		t.Fatalf("%d ušća u slici, očekivano 2: %+v", len(p.Usca), p.Usca)
+	}
+	// Ušće u Dunav je desno od Osijeka (rkm 0 je nizvodno), ušće Mure lijevo od Botova.
+	if !(p.Usca[1].X > p.Tocke[1].X) || !(p.Usca[0].X < p.Tocke[0].X) {
+		t.Errorf("ušća nisu na svojim stranama: %v %v prema letvama %v %v", p.Usca[0].X, p.Usca[1].X, p.Tocke[0].X, p.Tocke[1].X)
+	}
+	// Ušća idu redom toka: Mura prvo, ušće u Dunav zadnje.
+	if p.Usca[0].Naziv != "ušće Mure" || p.Usca[1].Tekst != "Aljmaš -45 cm" || p.Usca[1].Sidro != "end" {
+		t.Errorf("ušća: %+v", p.Usca)
+	}
+}
+
+// Ušće između letvi ne mijenja mjerilo, samo dobije oznaku.
+func TestUsceIzmeduLetvi(t *testing.T) {
+	letve := []LetvaProfila{letvaProfila("Batina", 1424.8, 79.15, -104), letvaProfila("Ilok", 1298.7, 73.34, -36)}
+	bez := crtajUzduzni("Dunav", letve, nil)
+	sa := crtajUzduzni("Dunav", letve, []UsceUlaz{{Naziv: "ušće Drave", Rkm: 1382.5, Tekst: "Osijek -143 cm"}})
+	if sa.Tocke[0].X != bez.Tocke[0].X || sa.Tocke[1].X != bez.Tocke[1].X {
+		t.Error("ušće između letvi pomaknulo je letve")
+	}
+	if len(sa.Usca) != 1 || sa.Usca[0].X <= sa.Tocke[0].X || sa.Usca[0].X >= sa.Tocke[1].X {
+		t.Errorf("ušće Drave nije između Batine i Iloka: %+v", sa.Usca)
+	}
 }

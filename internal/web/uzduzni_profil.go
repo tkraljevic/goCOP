@@ -73,7 +73,8 @@ type UzduzniProfil struct {
 	NulaY                   float64 // današnje stanje: vodoravna crta na nuli
 	Opis                    string
 	Pad                     string // koliko voda pada od prve do zadnje letve
-	SatOd, SatDo            int    // raspon klizača, sati prema izdanju
+	Usca                    []UsceProfila
+	SatOd, SatDo            int // raspon klizača, sati prema izdanju
 	Niz                     template.JS
 }
 
@@ -122,7 +123,7 @@ const razmakNatpisa = 170.0
 
 // crtajUzduzni slaže profil jednog toka. Letve bez kote nule ili bez
 // stacionaže ispadaju: bez njih se ne zna ni gdje su ni koliko visoko.
-func crtajUzduzni(ime string, letve []LetvaProfila) *UzduzniProfil {
+func crtajUzduzni(ime string, letve []LetvaProfila, usca []UsceUlaz) *UzduzniProfil {
 	var korisne []LetvaProfila
 	for _, l := range letve {
 		if l.KotaNule != 0 && l.Rkm != 0 && l.ImaSada {
@@ -136,7 +137,7 @@ func crtajUzduzni(ime string, letve []LetvaProfila) *UzduzniProfil {
 	sort.Slice(korisne, func(i, j int) bool { return korisne[i].Rkm > korisne[j].Rkm })
 
 	p := &UzduzniProfil{Ime: ime, Oznaka: oznakaImena(ime), Width: 1600, Height: 560,
-		Lijevo: 86, Desno: 96, Vrh: 64, Dno: 66, SatOd: KlizacOd}
+		Lijevo: 86, Desno: 96, Vrh: 64, Dno: 76, SatOd: KlizacOd}
 
 	najOd, najDo := 0.0, 0.0
 	uzmi := func(cm float64) {
@@ -199,6 +200,20 @@ func crtajUzduzni(ime string, letve []LetvaProfila) *UzduzniProfil {
 	plotW := float64(p.Width) - p.Lijevo - p.Desno
 	plotH := float64(p.Height) - p.Vrh - p.Dno
 	odRkm, doRkm := korisne[0].Rkm, korisne[len(korisne)-1].Rkm
+	// Ušće među letvama uvijek je u slici. Ušće malo izvan krajnjih letvi
+	// uđe u sliku i produži crtež do sebe samo kad s druge strane ima letvi
+	// na pregledu — inače bi Plitvica i Bednja iznad Botova samo gomilale
+	// natpise. Daleko ušće ne pripada ovom crtežu.
+	dopust := (odRkm - doRkm) * KolikoIzvanZaUsce
+	var uscaUSlici []UsceUlaz
+	for _, u := range usca {
+		izvan := u.Rkm > odRkm || u.Rkm < doRkm
+		if u.Rkm > odRkm+dopust || u.Rkm < doRkm-dopust || (izvan && !u.Vezano) {
+			continue
+		}
+		odRkm, doRkm = math.Max(odRkm, u.Rkm), math.Min(doRkm, u.Rkm)
+		uscaUSlici = append(uscaUSlici, u)
+	}
 	raspon := odRkm - doRkm
 	if raspon <= 0 {
 		raspon = 1
@@ -259,6 +274,32 @@ func crtajUzduzni(ime string, letve []LetvaProfila) *UzduzniProfil {
 			Kota: brojHRf(l.KotaNule+l.SadaCm/100, 2), Cm: brojHRf(l.SadaCm, 0),
 		})
 		p.XTicks = append(p.XTicks, ChartTick{Pos: x, Label: brojHRf(l.Rkm, 1), Anchor: sidro})
+	}
+
+	sort.Slice(uscaUSlici, func(i, j int) bool { return uscaUSlici[i].Rkm > uscaUSlici[j].Rkm })
+	zadnjiGore, zadnjiDolje = math.Inf(-1), math.Inf(-1)
+	for _, u := range uscaUSlici {
+		x := xOf(u.Rkm)
+		sidro := "middle"
+		if x-p.Lijevo < 60 {
+			sidro = "start"
+		} else if float64(p.Width)-p.Desno-x < 60 {
+			sidro = "end"
+		}
+		dolje := false
+		switch {
+		case x-zadnjiGore >= razmakNatpisa:
+		case x-zadnjiDolje >= razmakNatpisa:
+			dolje = true
+		default:
+			dolje = x-zadnjiDolje > x-zadnjiGore
+		}
+		if dolje {
+			zadnjiDolje = x
+		} else {
+			zadnjiGore = x
+		}
+		p.Usca = append(p.Usca, UsceProfila{Naziv: u.Naziv, Tekst: u.Tekst, X: x, Sidro: sidro, Dolje: dolje})
 	}
 
 	korak := niceStep((najDo - najOd) / 5)

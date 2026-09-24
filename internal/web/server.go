@@ -872,6 +872,7 @@ func (s *Server) setupRoutes() {
 	prognozeH.SetUsers(s.userService)
 	prognozeH.SetMetoda(s.templates["prognoze_metoda.html"])
 	prognozeH.SetReadings(s.readingService)
+	prognozeH.SetWatercourses(s.watercourseService)
 	s.mux.Handle("GET /prognoze", s.authMiddleware(http.HandlerFunc(prognozeH.ShowPrognoze)))
 	s.mux.Handle("GET /prognoze.xlsx", s.authMiddleware(http.HandlerFunc(prognozeH.IzvoziPrognoze)))
 	s.mux.Handle("GET /prognoze/o-prognozi", s.authMiddleware(http.HandlerFunc(prognozeH.ShowMetoda)))

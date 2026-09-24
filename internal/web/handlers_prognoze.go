@@ -35,6 +35,8 @@ type PrognozeHandler struct {
 	users    *service.UserService    // zaglavlje i potpisnici izvoza
 	readings *service.ReadingService // mjerenja unatrag, za klizač vremena na profilu
 
+	watercourses *service.WatercourseService // geometrija tokova, za ušća na profilu
+
 	metodaTmpl *template.Template // stranica „O prognozi”
 }
 
@@ -43,6 +45,9 @@ func (h *PrognozeHandler) SetUsers(u *service.UserService) { h.users = u }
 
 // SetReadings daje profilu mjerenja unatrag, da klizač vremena pokaže odakle je val došao.
 func (h *PrognozeHandler) SetReadings(r *service.ReadingService) { h.readings = r }
+
+// SetWatercourses daje profilu registar vodotoka s geometrijom, za ušća.
+func (h *PrognozeHandler) SetWatercourses(w *service.WatercourseService) { h.watercourses = w }
 
 // SetMetoda daje predložak stranice „O prognozi”.
 func (h *PrognozeHandler) SetMetoda(t *template.Template) { h.metodaTmpl = t }
@@ -212,7 +217,7 @@ func (h *PrognozeHandler) podaci(r *http.Request) PrognozePageData {
 	data.Tablice = poVodama(data.Letve, postaje)
 	data.Izdaje = h.centar(u)
 	data.Profili = uzduzniProfili(postaje, letve, dnevne, izdano,
-		h.mjerenoUnatrag(r.Context(), postaje, letve, izdano))
+		h.mjerenoUnatrag(r.Context(), postaje, letve, izdano), h.usca(r.Context(), postaje, letve))
 	if len(data.Profili) == 0 {
 		data.BezProfila = "Za uzdužni profil treba barem dvije letve s poznatom " +
 			"stacionažom i kotom nule u novom visinskom sustavu."
@@ -453,7 +458,7 @@ func uDosezima(d int) bool {
 // na crtežu dolaze iz dnevnog modela, jer satni lanac dotle ne seže.
 func uzduzniProfili(postaje map[string]models.Station, letve []PregledLetve,
 	dnevne map[string][]prognoza.DnevnaIzdana, izdano time.Time,
-	mjereno map[string]map[int]float64) []*UzduzniProfil {
+	mjereno map[string]map[int]float64, usca map[string][]UsceUlaz) []*UzduzniProfil {
 	poVodi := map[string][]LetvaProfila{}
 	var redom []string
 	izdanoH := izdano.Unix() / 3600
@@ -528,8 +533,113 @@ func uzduzniProfili(postaje map[string]models.Station, letve []PregledLetve,
 	}
 	var out []*UzduzniProfil
 	for _, voda := range redom {
-		if p := crtajUzduzni(voda, poVodi[voda]); p != nil {
+		if p := crtajUzduzni(voda, poVodi[voda], usca[voda]); p != nil {
 			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// usca nalazi ušća za svaki tok koji ima letve na pregledu: pritoke koje se
+// u njega ulijevaju, s kilometrom ušća iz geometrije ili iz opisa ušća u
+// registru. Na tok ide oznaka s vodostajem zadnje letve pritoke, a na pritoku
+// oznaka na njezinu kraju s vodostajem najbliže letve toka — tako Osijek i
+// Aljmaš stoje jedan uz drugoga ondje gdje se Drava i Dunav sastaju.
+func (h *PrognozeHandler) usca(ctx context.Context, postaje map[string]models.Station,
+	letve []PregledLetve) map[string][]UsceUlaz {
+	if h.watercourses == nil {
+		return nil
+	}
+	sve, err := h.watercourses.ListWatercourses(ctx, "", "", false)
+	if err != nil {
+		return nil
+	}
+	poImenu := map[string]models.Watercourse{}
+	for _, w := range sve {
+		poImenu[w.Name] = w
+	}
+	type letvaToka struct {
+		naziv     string
+		rkm, sada float64
+	}
+	poToku := map[string][]letvaToka{}
+	for _, l := range letve {
+		st, ima := postaje[l.Letva]
+		if !ima {
+			continue
+		}
+		rkm, ok := hydro.ParseStationingKm(st.Stationing)
+		if !ok {
+			continue
+		}
+		sada, ima := l.Sada["vodostaj"]
+		if !ima {
+			continue
+		}
+		poToku[st.Watercourse] = append(poToku[st.Watercourse], letvaToka{st.Name, rkm, sada})
+	}
+	geometrije := map[string]*geoTok{}
+	geometrija := func(code string) (geoTok, bool) {
+		if g, bilo := geometrije[code]; bilo {
+			return *g, g.linija != nil
+		}
+		g := geoTok{}
+		if b, err := h.watercourses.GetWatercourseGeometry(ctx, code); err == nil {
+			g, _ = citajGeoTok(b)
+		}
+		geometrije[code] = &g
+		return g, g.linija != nil
+	}
+	kilometar := func(pritoka, glavni models.Watercourse) (float64, bool) {
+		if gp, ok := geometrija(pritoka.Code); ok {
+			if gg, ok := geometrija(glavni.Code); ok {
+				if rkm, ok := usceNaToku(gp, gg); ok {
+					return rkm, true
+				}
+			}
+		}
+		return kilometarIzOpisa(pritoka.Mouth)
+	}
+	vodostaj := func(l letvaToka) string {
+		ime, _ := imeIDrzava(l.naziv) // „Letenye (Mađarska)” → „Letenye”; država je u oblačiću letve
+		return ime + " " + brojHRf(l.sada, 0) + " cm"
+	}
+	out := map[string][]UsceUlaz{}
+	for ime := range poToku {
+		glavni, ima := poImenu[ime]
+		if !ima {
+			continue
+		}
+		for _, w := range sve {
+			if w.FlowsInto != ime || w.Name == ime {
+				continue
+			}
+			rkm, ok := kilometar(w, glavni)
+			if !ok {
+				continue
+			}
+			u := UsceUlaz{Naziv: "ušće " + genitiv(w.Name), Rkm: rkm}
+			if pl := poToku[w.Name]; len(pl) > 0 {
+				u.Vezano = true
+				zadnja := pl[0]
+				for _, l := range pl[1:] {
+					if l.rkm < zadnja.rkm {
+						zadnja = l
+					}
+				}
+				u.Tekst = vodostaj(zadnja)
+			}
+			out[ime] = append(out[ime], u)
+			if _, ima := poToku[w.Name]; ima {
+				gl := poToku[ime]
+				najbliza := gl[0]
+				for _, l := range gl[1:] {
+					if math.Abs(l.rkm-rkm) < math.Abs(najbliza.rkm-rkm) {
+						najbliza = l
+					}
+				}
+				out[w.Name] = append(out[w.Name], UsceUlaz{Naziv: "ušće u " + akuzativ(ime), Rkm: 0, Tekst: vodostaj(najbliza), Vezano: true})
+			}
 		}
 	}
 	return out

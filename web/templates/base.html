@@ -351,8 +351,15 @@
   <text class="uzd-kota" x="{{printf "%.1f" .X}}" y="{{printf "%.1f" $.Vrh}}" dy="{{if .Dolje}}1{{else}}-27{{end}}"
         text-anchor="{{.Sidro}}">{{.Kota}} m · {{.Cm}} cm</text>
   {{end}}
+  {{range .Usca}}
+  <line class="uzd-usce-crta" x1="{{printf "%.1f" .X}}" x2="{{printf "%.1f" .X}}"
+        y1="{{printf "%.1f" $.NulaY}}" y2="{{printf "%.1f" $.DnoY}}"/>
+  <path class="uzd-usce" d="M{{printf "%.1f" .X}} {{printf "%.1f" $.NulaY}} m0 -7 l-6 -10 h12 z"/>
+  <text class="uzd-usce-natpis" x="{{printf "%.1f" .X}}" y="{{printf "%.1f" $.DnoY}}" dy="{{if .Dolje}}29{{else}}15{{end}}"
+        text-anchor="{{.Sidro}}">{{.Naziv}}{{if .Tekst}} · {{.Tekst}}{{end}}</text>
+  {{end}}
   <text class="uzd-osnaziv" x="{{printf "%.1f" .LijevoX}}" y="{{printf "%.1f" .DnoY}}"
-        dy="34">riječni kilometar · nizvodno je desno →</text>
+        dy="44">riječni kilometar · nizvodno je desno →</text>
   {{range .XTicks}}
   <text class="tick" x="{{printf "%.1f" .Pos}}" y="{{printf "%.1f" $.OsX}}"
         text-anchor="{{.Anchor}}">{{.Label}}</text>
