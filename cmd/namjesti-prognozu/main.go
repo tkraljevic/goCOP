@@ -36,6 +36,11 @@ var Velicine = map[string]string{
 	"he-dubrava":       "protok",
 	"letenye":          "vodostaj",
 	"tikves":           "vodostaj",
+	"mursko-sredisce":  "protok",
+	"komarno":          "vodostaj",
+	"bogojevo":         "vodostaj",
+	"bezdan":           "vodostaj",
+	"kotoriba":         "vodostaj",
 	"zeleznica":        "protok",
 	"tuhovec":          "protok",
 	"ludbreg":          "protok",
@@ -87,6 +92,39 @@ var Velicine = map[string]string{
 type Racun struct {
 	Letva string
 	Ulazi []string
+}
+
+// Rezerve su drugi ulazi za istu kariku, redom kojim se uzimaju kad glavni
+// ulaz zakaže. Svaka se namješta zasebno (inačica 1, 2, …) i čeka u bazi;
+// pri izdavanju se uzme prva čiji su ulazi svježi. Pravilo je „preskoči
+// jednu”: iduća uzvodna letva, pa srpske i mađarske letve preko puta. Kad
+// arhiva za rezervu nema dovoljno zajedničkih sati, namještanje je preskoči
+// i javi; tablicu je potvrdio korisnik 24. 9. 2026.
+var Rezerve = map[string][][]string{
+	"esztergom":      {{"komarno"}},
+	"budapest":       {{"komarom"}},
+	"dunafoldvar":    {{"esztergom"}},
+	"paks":           {{"budapest"}},
+	"baja":           {{"dunafoldvar"}},
+	"dunaszekcso":    {{"paks"}},
+	"mohacs":         {{"baja"}},
+	"batina":         {{"dunaszekcso"}},
+	"aljmas":         {{"mohacs", "belisce"}, {"bezdan", "belisce"}},
+	"dalj":           {{"batina"}, {"bogojevo"}},
+	"vukovar":        {{"aljmas"}, {"bogojevo"}},
+	"sotin":          {{"dalj"}},
+	"mohovo":         {{"vukovar"}},
+	"ilok":           {{"sotin"}},
+	"botovo":         {{"donja-dubrava", "letenye"}, {"he-dubrava", "kotoriba"}, {"he-dubrava", "mursko-sredisce"}},
+	"novo-virje":     {{"he-dubrava", "letenye"}},
+	"terezino-polje": {{"botovo"}, {"vizvar"}},
+	"szentborbas":    {{"barcs"}},
+	"vrbovka":        {{"terezino-polje"}},
+	"moslavina":      {{"szentborbas"}},
+	"donji-miholjac": {{"vrbovka"}},
+	"dravaszabolcs":  {{"moslavina"}},
+	"belisce":        {{"donji-miholjac"}},
+	"osijek":         {{"dravaszabolcs", "aljmas"}, {"belisce", "batina"}, {"belisce", "dalj"}},
 }
 
 // SamoPovezane su letve koje slijede ulaz samo pri dovoljnoj vodi: pojasi u
@@ -397,6 +435,45 @@ func namjesti(arhiva *sql.DB, r Racun) []prognoza.Pojas {
 		return nil
 	}
 	fmt.Printf("%-56s %s\n", zaglavlje, vel)
+	ispisi(pojasi, letva)
+	// Rezerve: isti cilj, drugi ulazi, zasebna inačica. Neuspjeh rezerve ne
+	// ruši glavni račun — samo se javi.
+	for i, rez := range Rezerve[letva] {
+		rezervni, err := namjestiInacicu(arhiva, letva, vel, rez, i+1)
+		if err != nil {
+			fmt.Printf("   rezerva %d (%s): %v\n", i+1, strings.Join(rez, " + "), err)
+			continue
+		}
+		fmt.Printf("   rezerva %d:\n", i+1)
+		ispisi(rezervni, letva)
+		pojasi = append(pojasi, rezervni...)
+	}
+	return pojasi
+}
+
+// namjestiInacicu namješta jednu rezervnu inačicu računa.
+func namjestiInacicu(arhiva *sql.DB, letva, vel string, ulazi []string, inacica int) ([]prognoza.Pojas, error) {
+	izvori := make([]prognoza.Izvor, 0, len(ulazi))
+	for _, u := range ulazi {
+		l, v, err := rastavi(u)
+		if err != nil {
+			return nil, err
+		}
+		izvori = append(izvori, prognoza.Izvor{Letva: l, Velicina: v})
+	}
+	pojasi, err := prognoza.NamjestiLetvu(arhiva, letva, vel, izvori)
+	if err != nil {
+		return nil, err
+	}
+	for i := range pojasi {
+		pojasi[i].Inacica = inacica
+	}
+	return pojasi, nil
+}
+
+// ispisi označi nepovezane pojase letvi koje slijede ulaz samo pri dovoljnoj
+// vodi i ispiše pojase.
+func ispisi(pojasi []prognoza.Pojas, letva string) {
 	if SamoPovezane[letva] {
 		for i := range pojasi {
 			pojasi[i].Nepovezan = pojasi[i].R < NajmanjeSlaganje
@@ -416,7 +493,6 @@ func namjesti(arhiva *sql.DB, r Racun) []prognoza.Pojas {
 				u.Letva, u.PomakH, u.Sirina, u.Nagib, poJedinici(p.Velicina, u.Velicina))
 		}
 	}
-	return pojasi
 }
 
 func jedinica(velicina string) string {

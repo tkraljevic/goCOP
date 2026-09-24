@@ -91,6 +91,7 @@
       </div>
     </header>
     {{if .Nepovezana}}<p class="prog-nepovezana">{{icon "info"}} {{.Nepovezana}}</p>{{end}}
+    {{if .Rezerva}}<p class="prog-nepovezana prog-rezerva">{{icon "refresh-cw"}} {{.Rezerva}}</p>{{end}}
     {{if .ImaTermina}}
     <div class="prog-termini">
       {{range .Vrijednosti}}

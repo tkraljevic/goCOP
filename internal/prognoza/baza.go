@@ -41,8 +41,11 @@ CREATE TABLE IF NOT EXISTS pojasi (
 	rasap      REAL NOT NULL,          -- standardno odstupanje ostatka
 	sati       INTEGER NOT NULL,       -- na koliko je sati namješteno
 	nepovezan  INTEGER NOT NULL DEFAULT 0, -- u tom pojasu letva ne slijedi ulaz, pa se ne prognozira (Tikveš pri maloj vodi)
+	-- Inačica računa: 0 je glavna, 1, 2, … rezerve s drugim ulazima, za
+	-- slučaj da glavni ulaz zakaže. Svaka je namještena zasebno.
+	inacica    INTEGER NOT NULL DEFAULT 0,
 	namjesteno TEXT NOT NULL DEFAULT '',
-	PRIMARY KEY (letva, velicina, pojas_od)
+	PRIMARY KEY (letva, velicina, inacica, pojas_od)
 ) WITHOUT ROWID;
 
 -- Ulazi jednog pojasa. Letva ih može imati više: Botovo bez Mure drži svega
@@ -64,7 +67,19 @@ CREATE TABLE IF NOT EXISTS ulazi (
 	-- kako ta letva ne poznaje.
 	sirina_h    INTEGER NOT NULL DEFAULT 1,
 	nagib       REAL NOT NULL,
-	PRIMARY KEY (letva, velicina, pojas_od, redni)
+	inacica     INTEGER NOT NULL DEFAULT 0,
+	PRIMARY KEY (letva, velicina, inacica, pojas_od, redni)
+) WITHOUT ROWID;
+
+-- Koja je inačica računa uzeta za koju letvu pri izdavanju: rezerva ulazi u
+-- igru kad glavni ulaz zakaže, a dežurni mora vidjeti da prognoza ne ide
+-- uobičajenim putem.
+CREATE TABLE IF NOT EXISTS izbor (
+	izdano  INTEGER NOT NULL,
+	letva   TEXT NOT NULL,
+	inacica INTEGER NOT NULL,
+	opis    TEXT NOT NULL DEFAULT '',
+	PRIMARY KEY (izdano, letva)
 ) WITHOUT ROWID;
 
 -- Svaka izdana prognoza. Ključ nosi i trenutak izdavanja jer se ista ciljna
@@ -171,7 +186,7 @@ func Otvori(put string) (*sql.DB, error) {
 func uskladi(db *sql.DB) error {
 	// Pojasi i ulazi su izračunati podaci: namjesti-prognozu ih izgradi iznova.
 	for tablica, stupac := range map[string]string{
-		"izdane": "gore", "tude": "vrijednost", "ulazi": "sirina_h", "dnevne": "protok", "pojasi": "nepovezan"} {
+		"izdane": "gore", "tude": "vrijednost", "ulazi": "inacica", "dnevne": "protok", "pojasi": "inacica"} {
 		ima, err := imaStupac(db, tablica, stupac)
 		if err != nil {
 			return err
@@ -240,6 +255,14 @@ type Pojas struct {
 	// prognoza ne izdaje: Tikveš u Kopačkom ritu živi svoj život dok uspor
 	// Dunava ne uđe u rit. Namještanje ga označi po slaganju (r).
 	Nepovezan bool
+	// Inacica je 0 za glavni račun, a 1, 2, … za rezerve s drugim ulazima.
+	Inacica int
+}
+
+// Izbor je koja je inačica računa uzeta za letvu pri izdavanju.
+type Izbor struct {
+	Inacica int
+	Opis    string // npr. „rezerva: bezdan + belisce umjesto batina + belisce”
 }
 
 // Vrijedi javlja pripada li vrijednost glavnog ulaza ovom pojasu. Vrijednost
@@ -286,16 +309,16 @@ func Spremi(db *sql.DB, pojasi []Pojas, kad string) error {
 	}
 	for _, p := range pojasi {
 		if _, err := tx.Exec(`INSERT INTO pojasi
-			(letva, velicina, pojas_od, pojas_do, odsjecak, r, rasap, sati, nepovezan, namjesteno)
-			VALUES (?,?,?,?,?,?,?,?,?,?)`,
-			p.Letva, p.Velicina, p.Od, p.Do, p.Odsjecak, p.R, p.Rasap, p.Sati, p.Nepovezan, kad); err != nil {
+			(letva, velicina, pojas_od, pojas_do, odsjecak, r, rasap, sati, nepovezan, inacica, namjesteno)
+			VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+			p.Letva, p.Velicina, p.Od, p.Do, p.Odsjecak, p.R, p.Rasap, p.Sati, p.Nepovezan, p.Inacica, kad); err != nil {
 			return fmt.Errorf("pojas %s %.0f: %w", p.Letva, p.Od, err)
 		}
 		for i, u := range p.Ulazi {
 			if _, err := tx.Exec(`INSERT INTO ulazi
-				(letva, velicina, pojas_od, redni, uzvodna, uz_velicina, pomak_h, sirina_h, nagib)
-				VALUES (?,?,?,?,?,?,?,?,?)`,
-				p.Letva, p.Velicina, p.Od, i, u.Letva, u.Velicina, u.PomakH, u.Sirina, u.Nagib); err != nil {
+				(letva, velicina, pojas_od, redni, uzvodna, uz_velicina, pomak_h, sirina_h, nagib, inacica)
+				VALUES (?,?,?,?,?,?,?,?,?,?)`,
+				p.Letva, p.Velicina, p.Od, i, u.Letva, u.Velicina, u.PomakH, u.Sirina, u.Nagib, p.Inacica); err != nil {
 				return fmt.Errorf("ulaz %s ← %s: %w", p.Letva, u.Letva, err)
 			}
 		}
@@ -303,10 +326,62 @@ func Spremi(db *sql.DB, pojasi []Pojas, kad string) error {
 	return tx.Commit()
 }
 
-// ZaLetvu čita namještene pojase jedne letve, po granicama.
-func ZaLetvu(db *sql.DB, letva string) ([]Pojas, error) {
-	r, err := db.Query(`SELECT letva, velicina, pojas_od, pojas_do, odsjecak, r, rasap, sati, nepovezan
-		FROM pojasi WHERE letva = ? ORDER BY pojas_od`, letva)
+// ZaLetvu čita namještene pojase glavnog računa jedne letve, po granicama.
+func ZaLetvu(db *sql.DB, letva string) ([]Pojas, error) { return inacicaLetve(db, letva, 0) }
+
+// InaciceLetve čita sve inačice računa jedne letve: na indeksu 0 glavna, dalje
+// rezerve redom. Letva bez računa vraća prazno.
+func InaciceLetve(db *sql.DB, letva string) ([][]Pojas, error) {
+	r, err := db.Query(`SELECT DISTINCT inacica FROM pojasi WHERE letva = ? ORDER BY inacica`, letva)
+	if err != nil {
+		return nil, err
+	}
+	var redni []int
+	for r.Next() {
+		var i int
+		if err := r.Scan(&i); err != nil {
+			r.Close()
+			return nil, err
+		}
+		redni = append(redni, i)
+	}
+	r.Close()
+	if err := r.Err(); err != nil {
+		return nil, err
+	}
+	var out [][]Pojas
+	for _, i := range redni {
+		ps, err := inacicaLetve(db, letva, i)
+		if err != nil {
+			return nil, err
+		}
+		if len(ps) > 0 {
+			out = append(out, ps)
+		}
+	}
+	return out, nil
+}
+
+// SveInacice čita inačice svih letvi koje imaju račun.
+func SveInacice(db *sql.DB) (map[string][][]Pojas, error) {
+	glavne, err := SviPojasi(db)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string][][]Pojas, len(glavne))
+	for l := range glavne {
+		in, err := InaciceLetve(db, l)
+		if err != nil {
+			return nil, err
+		}
+		out[l] = in
+	}
+	return out, nil
+}
+
+func inacicaLetve(db *sql.DB, letva string, inacica int) ([]Pojas, error) {
+	r, err := db.Query(`SELECT letva, velicina, pojas_od, pojas_do, odsjecak, r, rasap, sati, nepovezan, inacica
+		FROM pojasi WHERE letva = ? AND inacica = ? ORDER BY pojas_od`, letva, inacica)
 	if err != nil {
 		return nil, err
 	}
@@ -315,7 +390,7 @@ func ZaLetvu(db *sql.DB, letva string) ([]Pojas, error) {
 	for r.Next() {
 		var p Pojas
 		if err := r.Scan(&p.Letva, &p.Velicina, &p.Od, &p.Do,
-			&p.Odsjecak, &p.R, &p.Rasap, &p.Sati, &p.Nepovezan); err != nil {
+			&p.Odsjecak, &p.R, &p.Rasap, &p.Sati, &p.Nepovezan, &p.Inacica); err != nil {
 			return nil, err
 		}
 		out = append(out, p)
@@ -335,8 +410,8 @@ func ZaLetvu(db *sql.DB, letva string) ([]Pojas, error) {
 
 func ulaziPojasa(db *sql.DB, p Pojas) ([]Ulaz, error) {
 	r, err := db.Query(`SELECT uzvodna, uz_velicina, pomak_h, sirina_h, nagib FROM ulazi
-		WHERE letva = ? AND velicina = ? AND pojas_od = ? ORDER BY redni`,
-		p.Letva, p.Velicina, p.Od)
+		WHERE letva = ? AND velicina = ? AND inacica = ? AND pojas_od = ? ORDER BY redni`,
+		p.Letva, p.Velicina, p.Inacica, p.Od)
 	if err != nil {
 		return nil, err
 	}
@@ -348,6 +423,45 @@ func ulaziPojasa(db *sql.DB, p Pojas) ([]Ulaz, error) {
 			return nil, err
 		}
 		out = append(out, u)
+	}
+	return out, r.Err()
+}
+
+// SpremiIzbor zapisuje koja je inačica uzeta za koju letvu u izdanju; glavna
+// (0) se ne zapisuje, jer je ona pravilo.
+func SpremiIzbor(db *sql.DB, izdano int64, izbor map[string]Izbor) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for letva, i := range izbor {
+		if i.Inacica == 0 {
+			continue
+		}
+		if _, err := tx.Exec(`INSERT OR REPLACE INTO izbor (izdano, letva, inacica, opis) VALUES (?,?,?,?)`,
+			izdano, letva, i.Inacica, i.Opis); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+// IzborIzdanja čita rezerve uzete u zadanom izdanju, po letvi.
+func IzborIzdanja(db *sql.DB, izdano int64) (map[string]Izbor, error) {
+	r, err := db.Query(`SELECT letva, inacica, opis FROM izbor WHERE izdano = ?`, izdano)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+	out := map[string]Izbor{}
+	for r.Next() {
+		var l string
+		var i Izbor
+		if err := r.Scan(&l, &i.Inacica, &i.Opis); err != nil {
+			return nil, err
+		}
+		out[l] = i
 	}
 	return out, r.Err()
 }

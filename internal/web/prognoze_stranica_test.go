@@ -214,3 +214,20 @@ func TestStranicaPrognozaNepovezanaLetva(t *testing.T) {
 		t.Error("kartica nepovezane letve nema poruku")
 	}
 }
+
+// Letva računata iz rezerve to kaže na kartici, imenima letvi.
+func TestStranicaPrognozaRezerva(t *testing.T) {
+	postaje := map[string]models.Station{"bezdan": {Name: "Bezdan (Srbija)"}, "batina": {Name: "Batina"}, "belisce": {Name: "Belišće"}}
+	poruka := opisRezerve("rezerva: bezdan + belisce umjesto batina + belisce", postaje)
+	if !strings.HasPrefix(poruka, "Računa se iz rezerve: Bezdan (Srbija) + Belišće umjesto Batina + Belišće") {
+		t.Errorf("opis rezerve: %q", poruka)
+	}
+	html := iscrtaj(t, "prognoze.html", PrognozePageData{
+		CurrentUser: &models.User{FullName: "P"}, Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		ActiveNav: "prognoze", Izdano: "x", Udio: 70,
+		Tablice: []TablicaPrognoza{{Naslov: "Dunav", Letve: []LetvaPrognoze{{Kod: "aljmas", Naziv: "Aljmaš", Racuna: "vodostaj", Rezerva: poruka}}}},
+	})
+	if !strings.Contains(html, "prog-rezerva") || !strings.Contains(html, "Bezdan (Srbija)") {
+		t.Error("kartica ne kaže da se računa iz rezerve")
+	}
+}

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"math"
+	"strings"
 	"sync"
 	"time"
 
@@ -66,6 +67,7 @@ type Ishod struct {
 	Dnevne      []DnevnaIzdana   // dnevna prognoza za 1.–6. dan
 	TudiVrhovi  []string         // vrhovi kojima je budućnost dala tuđa prognoza
 	BezDnevne   map[string]error // letve s dnevnim modelom koje ga nisu dale
+	Izbor       map[string]Izbor // letve koje su računate iz rezerve, i iz koje
 }
 
 // Letvi je koliko ih je prognoza dotaknula.
@@ -88,11 +90,11 @@ func (i *Ishod) Zaostatak(sada time.Time) time.Duration {
 // sat prognoza već izdana, ne računa ništa: ista očitanja daju istu prognozu,
 // pa bi ponovni upis bio samo trošak.
 func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
-	pojasi, err := SviPojasi(o.Baza)
+	inacice, err := SveInacice(o.Baza)
 	if err != nil {
 		return nil, err
 	}
-	if len(pojasi) == 0 {
+	if len(inacice) == 0 {
 		return nil, fmt.Errorf("baza prognoza je prazna; prvo pokreni namjesti-prognozu")
 	}
 	promasaji, err := Promasaji(o.Baza)
@@ -100,7 +102,15 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 		return nil, err
 	}
 
-	trebani, vrhovi := TrebaniIzvori(pojasi)
+	// Nizovi se čitaju za ulaze svih inačica, glavnih i rezervnih: tek po
+	// njihovoj svježini bira se kojim putem prognoza ide.
+	svePojase := map[string][]Pojas{}
+	for letva, in := range inacice {
+		for _, ps := range in {
+			svePojase[letva] = append(svePojase[letva], ps...)
+		}
+	}
+	trebani, _ := TrebaniIzvori(svePojase)
 	od := time.Now().UTC().Add(-Unatrag)
 	nizovi := map[Izvor]Niz{}
 	for iz := range trebani {
@@ -110,6 +120,8 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 		}
 		nizovi[iz] = n
 	}
+	pojasi, izbor := OdaberiInacice(inacice, nizovi)
+	_, vrhovi := TrebaniIzvori(pojasi)
 	// Vrh lanca se vodi u jednoj veličini, ali letva ima obje. Donja Dubrava
 	// nema krivulju, pa joj se vodostaj ne da izračunati — a mjeren jest, i na
 	// uzdužnom profilu treba stajati.
@@ -130,7 +142,7 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 	if !ok {
 		return nil, fmt.Errorf("nijedna ulazna letva nema svježa očitanja")
 	}
-	ishod := &Ishod{Sada: sada, Promasaji: promasaji,
+	ishod := &Ishod{Sada: sada, Promasaji: promasaji, Izbor: izbor,
 		Vrhovi: map[Izvor]int64{}, BezPrognoze: map[string]error{}}
 	for iz := range vrhovi {
 		if z, ima := nizovi[iz].Zadnji(); ima {
@@ -170,7 +182,11 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 		// Promašaji su izmjereni puštanjem prognoze unatrag po arhivi. Ondje
 		// gdje ih ima, oni kažu i koliko treba oduzeti i koliko se smije
 		// obećati — bolje od rasapa namještanja, koji ne zna za ispravak.
+		// Mjereni su za glavni račun; rezervi ostaje rasap namještanja.
 		for i := range izdane {
+			if izbor[letva].Inacica != 0 {
+				break
+			}
 			p, ima := promasaji[letva][int(izdane[i].Ciljni-sada)]
 			if !ima {
 				continue
@@ -338,7 +354,74 @@ func (o *Osvjezivac) Zapisi(ishod *Ishod) error {
 	if err := SpremiIzdane(o.Baza, ishod.Izdane); err != nil {
 		return err
 	}
+	if err := SpremiIzbor(o.Baza, ishod.Sada, ishod.Izbor); err != nil {
+		return err
+	}
 	return SpremiDnevne(o.Baza, ishod.Dnevne)
+}
+
+// OdaberiInacice bira za svaku letvu kojim putem se računa. Lanac se obilazi
+// od uzvodnih prema nizvodnima; za kariku se uzme prva inačica čiji je svaki
+// ulaz ili svjež — očitan najviše ZaostatakVrha sati prije najsvježijeg
+// očitanja u cijelom lancu — ili već sam ima svoj račun, pa dolazi
+// izračunat. Kad nijedna ne prolazi, ostaje glavna: prognoza tada ide kako
+// je išla i dosad, iz zadnjeg što ulaz ima.
+func OdaberiInacice(inacice map[string][][]Pojas, nizovi map[Izvor]Niz) (map[string][]Pojas, map[string]Izbor) {
+	glavne := map[string][]Pojas{}
+	for letva, in := range inacice {
+		if len(in) > 0 {
+			glavne[letva] = in[0]
+		}
+	}
+	var najsvjezije int64
+	for _, n := range nizovi {
+		if z, ima := n.Zadnji(); ima && z > najsvjezije {
+			najsvjezije = z
+		}
+	}
+	svjez := func(iz Izvor) bool {
+		z, ima := nizovi[iz].Zadnji()
+		return ima && z+ZaostatakVrha >= najsvjezije
+	}
+	odabrano := map[string][]Pojas{}
+	izbor := map[string]Izbor{}
+	for _, letva := range Redom(glavne) {
+		in := inacice[letva]
+		uzeta := 0
+		for i, ps := range in {
+			if len(ps) == 0 || len(ps[0].Ulazi) == 0 {
+				continue
+			}
+			prolazi := true
+			for _, u := range ps[0].Ulazi {
+				_, racunata := odabrano[u.Letva]
+				if !racunata && !svjez(Izvor{Letva: u.Letva, Velicina: u.Velicina}) {
+					prolazi = false
+					break
+				}
+			}
+			if prolazi {
+				uzeta = i
+				break
+			}
+		}
+		odabrano[letva] = in[uzeta]
+		if uzeta > 0 {
+			izbor[letva] = Izbor{Inacica: uzeta, Opis: "rezerva: " + imenaUlaza(in[uzeta]) + " umjesto " + imenaUlaza(in[0])}
+		}
+	}
+	return odabrano, izbor
+}
+
+func imenaUlaza(ps []Pojas) string {
+	if len(ps) == 0 {
+		return ""
+	}
+	var s []string
+	for _, u := range ps[0].Ulazi {
+		s = append(s, u.Letva)
+	}
+	return strings.Join(s, " + ")
 }
 
 // TrebaniIzvori nabraja sve letve koje račun dira, i posebno one koje nemaju

@@ -70,6 +70,9 @@ func main() {
 	if len(ishod.TudiVrhovi) > 0 {
 		fmt.Printf("   budućnost vrha iz tuđe prognoze: %v\n", ishod.TudiVrhovi)
 	}
+	for letva, i := range ishod.Izbor {
+		fmt.Printf("   %-16s %s (inačica %d)\n", letva, i.Opis, i.Inacica)
+	}
 	ispisi_ := *ispisi
 	fmt.Printf("\n%-16s %-9s %8s %10s %12s\n", "letva", "veličina", "doseg", "za 6 h", "na kraju")
 	for _, letva := range redom(ishod) {

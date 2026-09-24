@@ -141,3 +141,15 @@ func (c *CitacPrognoza) Namjesteno() (map[string][]prognoza.Pojas, map[string]ma
 	promasaji, _ := prognoza.Promasaji(c.db)
 	return pojasi, promasaji
 }
+
+// Izbor vraća letve koje su u zadanom izdanju računate iz rezerve.
+func (c *CitacPrognoza) Izbor(izdano time.Time) map[string]prognoza.Izbor {
+	if c == nil || c.db == nil {
+		return nil
+	}
+	out, err := prognoza.IzborIzdanja(c.db, izdano.Unix()/3600)
+	if err != nil {
+		return nil
+	}
+	return out
+}

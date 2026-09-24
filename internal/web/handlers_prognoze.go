@@ -101,6 +101,7 @@ type LetvaPrognoze struct {
 	TudiVrh         bool // vrh lanca koji dalje ide po mađarskoj prognozi
 	Dani            []CelijaDana
 	Nepovezana      string // poruka kad letva nije povezana sa živom vodom, pa prognoze nema
+	Rezerva         string // poruka kad se letva računa iz rezervnih ulaza
 }
 
 // TudaCelija je tuđa prognoza u ćeliji dana: mađarska ili srpska.
@@ -208,6 +209,11 @@ func (h *PrognozeHandler) podaci(r *http.Request) PrognozePageData {
 	data.IzdanoSat = izdano.Unix() / 3600
 	postaje := h.postaje(r.Context())
 	data.Letve = h.opisiLetve(postaje, letve)
+	for i := range data.Letve {
+		if iz, ima := c.Izbor(izdano)[data.Letve[i].Kod]; ima {
+			data.Letve[i].Rezerva = opisRezerve(iz.Opis, postaje)
+		}
+	}
 	data.Bliski = BliziDosezi
 	_, dnevne, _ := c.Dnevno()
 	tude := map[string]map[string]map[int64]TudaVrijednost{}
@@ -778,6 +784,20 @@ func (h *PrognozeHandler) usca(ctx context.Context, postaje map[string]models.St
 		}
 	}
 	return out
+}
+
+// opisRezerve prepisuje šifre letvi iz opisa izbora u nazive: „rezerva:
+// bezdan + belisce umjesto batina + belisce” → „Bezdan (Srbija) + Belišće
+// umjesto Batina + Belišće”.
+func opisRezerve(opis string, postaje map[string]models.Station) string {
+	opis = strings.TrimPrefix(opis, "rezerva: ")
+	rijeci := strings.Fields(opis)
+	for i, r := range rijeci {
+		if st, ima := postaje[r]; ima {
+			rijeci[i] = st.Name
+		}
+	}
+	return "Računa se iz rezerve: " + strings.Join(rijeci, " ") + ". Raspon je iz namještanja, ne iz provjere unatrag."
 }
 
 // rijecniKm čita riječni kilometar letve, a samo njega: Tikveš stoji na

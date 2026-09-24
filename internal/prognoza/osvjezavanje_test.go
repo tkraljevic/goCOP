@@ -196,3 +196,47 @@ func TestIznovaPreracunavaIstiSat(t *testing.T) {
 			len(drugi.Izdane), len(prvi.Izdane))
 	}
 }
+
+// Izbor inačice: kad glavni ulaz zakaže, karika prelazi na rezervu; ulaz koji
+// sam ima račun vrijedi kao dostupan i kad mu je mjerenje staro, jer dolazi
+// izračunat; kad je sve svježe, ostaje glavna.
+func TestOdaberiInacicePrelaziNaRezervu(t *testing.T) {
+	pojas := func(letva string, inacica int, ulazi ...string) []Pojas {
+		var u []Ulaz
+		for _, x := range ulazi {
+			u = append(u, Ulaz{Letva: x, Velicina: "vodostaj", Nagib: 1})
+		}
+		return []Pojas{{Letva: letva, Velicina: "vodostaj", Od: -1000, Do: 1000, Ulazi: u, Inacica: inacica, R: 0.9, Rasap: 5}}
+	}
+	inacice := map[string][][]Pojas{
+		"batina": {pojas("batina", 0, "mohacs"), pojas("batina", 1, "dunaszekcso")},
+		"aljmas": {pojas("aljmas", 0, "batina"), pojas("aljmas", 1, "bezdan")},
+	}
+	niz := func(do int64) Niz { return ravanNiz(do-200, do, 100, 0) }
+	iz := func(l string) Izvor { return Izvor{l, "vodostaj"} }
+	// Sve svježe: glavne inačice.
+	svjeze := map[Izvor]Niz{iz("mohacs"): niz(1000), iz("dunaszekcso"): niz(1000), iz("batina"): niz(1000), iz("bezdan"): niz(1000), iz("aljmas"): niz(1000)}
+	odabrano, izbor := OdaberiInacice(inacice, svjeze)
+	if len(izbor) != 0 || odabrano["batina"][0].Inacica != 0 {
+		t.Errorf("sa svježim ulazima uzeta je rezerva: %+v", izbor)
+	}
+	// Mohács stao prije 12 h: Batina ide iz Dunaszekcsőa; Aljmaš ostaje na
+	// Batini, jer Batina ima svoj račun pa dolazi izračunata.
+	mohacsStao := map[Izvor]Niz{iz("mohacs"): niz(988), iz("dunaszekcso"): niz(1000), iz("batina"): niz(990), iz("bezdan"): niz(1000), iz("aljmas"): niz(1000)}
+	odabrano, izbor = OdaberiInacice(inacice, mohacsStao)
+	if odabrano["batina"][0].Inacica != 1 || izbor["batina"].Inacica != 1 {
+		t.Errorf("Batina nije prešla na rezervu: %+v", izbor)
+	}
+	if odabrano["aljmas"][0].Inacica != 0 {
+		t.Errorf("Aljmaš prešao na rezervu iako Batina ima račun: %+v", izbor)
+	}
+	if izbor["batina"].Opis != "rezerva: dunaszekcso umjesto mohacs" {
+		t.Errorf("opis izbora: %q", izbor["batina"].Opis)
+	}
+	// Ništa svježe za glavnu ni rezervu: ostaje glavna, bez zapisa izbora.
+	sveStalo := map[Izvor]Niz{iz("mohacs"): niz(900), iz("dunaszekcso"): niz(900), iz("batina"): niz(900), iz("bezdan"): niz(900), iz("aljmas"): niz(1000)}
+	odabrano, izbor = OdaberiInacice(inacice, sveStalo)
+	if odabrano["batina"][0].Inacica != 0 || len(izbor) != 0 {
+		t.Errorf("bez ijednog svježeg ulaza trebala je ostati glavna: %+v", izbor)
+	}
+}
