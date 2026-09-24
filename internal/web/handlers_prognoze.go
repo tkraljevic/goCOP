@@ -531,6 +531,28 @@ func uzduzniProfili(postaje map[string]models.Station, letve []PregledLetve,
 		}
 		poVodi[voda] = append(poVodi[voda], lp)
 	}
+	// Kraj pritoke dobije vrijednosti najbliže letve glavnog toka: vodostaj
+	// Drave na ušću diktira Dunav, pa se krivulja Drave provuče do ušća s
+	// promjenom Aljmaša. To nije letva — natpisa i oznake nema, ali crta,
+	// raspon i klizač do ušća idu.
+	svaka := map[string]LetvaProfila{}
+	for _, ls := range poVodi {
+		for _, l := range ls {
+			svaka[l.Letva] = l
+		}
+	}
+	for voda, us := range usca {
+		for _, u := range us {
+			src, ima := svaka[u.Letva]
+			if !ima || u.Letva == "" || !src.ImaSada {
+				continue
+			}
+			kopija := src
+			kopija.Letva, kopija.Naziv, kopija.Rkm, kopija.Usce = "usce:"+src.Letva, u.Naziv+" · "+src.Naziv, u.Rkm, true
+			kopija.Pragovi = map[string]float64{} // pragovi druge rijeke ovdje ne vrijede
+			poVodi[voda] = append(poVodi[voda], kopija)
+		}
+	}
 	var out []*UzduzniProfil
 	for _, voda := range redom {
 		if p := crtajUzduzni(voda, poVodi[voda], usca[voda]); p != nil {
@@ -559,8 +581,8 @@ func (h *PrognozeHandler) usca(ctx context.Context, postaje map[string]models.St
 		poImenu[w.Name] = w
 	}
 	type letvaToka struct {
-		naziv     string
-		rkm, sada float64
+		sifra, naziv string
+		rkm, sada    float64
 	}
 	poToku := map[string][]letvaToka{}
 	for _, l := range letve {
@@ -576,7 +598,7 @@ func (h *PrognozeHandler) usca(ctx context.Context, postaje map[string]models.St
 		if !ima {
 			continue
 		}
-		poToku[st.Watercourse] = append(poToku[st.Watercourse], letvaToka{st.Name, rkm, sada})
+		poToku[st.Watercourse] = append(poToku[st.Watercourse], letvaToka{l.Letva, st.Name, rkm, sada})
 	}
 	geometrije := map[string]*geoTok{}
 	geometrija := func(code string) (geoTok, bool) {
@@ -638,7 +660,8 @@ func (h *PrognozeHandler) usca(ctx context.Context, postaje map[string]models.St
 						najbliza = l
 					}
 				}
-				out[w.Name] = append(out[w.Name], UsceUlaz{Naziv: "ušće u " + akuzativ(ime), Rkm: 0, Tekst: vodostaj(najbliza), Vezano: true})
+				out[w.Name] = append(out[w.Name], UsceUlaz{Naziv: "ušće u " + akuzativ(ime), Rkm: 0,
+					Tekst: vodostaj(najbliza), Vezano: true, Letva: najbliza.sifra})
 			}
 		}
 	}

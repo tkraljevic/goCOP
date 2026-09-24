@@ -176,17 +176,49 @@ func TestPojasJeValjanPut(t *testing.T) {
 	}
 }
 
-// Pojas s rupom ne smije se nacrtati: spojio bi granice preko letve za koju se
-// ne zna, i pokazao ogradu koja ne postoji.
-func TestPojasSRupomSeNeCrta(t *testing.T) {
-	a := letvaProfila("a", 200, 120, 50)
-	b := letvaProfila("b", 100, 80, 50)
+// Letva bez vrijednosti se preskače, a susjedi se spoje: crta i pojas prolaze
+// kroz dvije od tri letve umjesto da se prekinu. S jednom letvom nema crte.
+func TestLetvaBezVrijednostiSePreskace(t *testing.T) {
+	a, b, c := letvaProfila("a", 300, 130, 50), letvaProfila("b", 200, 120, 50), letvaProfila("c", 100, 80, 50)
+	delete(b.Cm, 24)
 	delete(b.Granice, 24)
-	p := crtajUzduzni("Drava", []LetvaProfila{a, b}, nil)
-	for _, c := range p.Crte {
-		if c.Naziv == "za 24 h" && c.Pojas != "" {
-			t.Error("pojas nacrtan preko letve bez granica")
+	p := crtajUzduzni("Drava", []LetvaProfila{a, b, c}, nil)
+	for _, cr := range p.Crte {
+		if cr.Naziv != "za 24 h" {
+			continue
 		}
+		if strings.Count(cr.Put, "M") != 1 || strings.Contains(cr.Put, "C") {
+			t.Errorf("crta za 24 h nije jedan ravan potez kroz a i c: %q", cr.Put)
+		}
+		if cr.Pojas == "" {
+			t.Error("pojas za 24 h nije nacrtan kroz a i c")
+		}
+	}
+	delete(c.Cm, 24)
+	p = crtajUzduzni("Drava", []LetvaProfila{a, b, c}, nil)
+	for _, cr := range p.Crte {
+		if cr.Naziv == "za 24 h" {
+			t.Error("crta kroz jednu letvu ne postoji, a nacrtana je")
+		}
+	}
+}
+
+// Kraj pritoke s vrijednostima letve glavnog toka produžuje krivulju do ušća,
+// ali nema natpisa, oznake ni utjecaja na pad.
+func TestKrajPritokeProduzujeKrivulju(t *testing.T) {
+	botovo, osijek := letvaProfila("Botovo", 226.8, 121.3, -3), letvaProfila("Osijek", 19.1, 79.8, -144)
+	aljmas := letvaProfila("Aljmaš", 0, 77.4, -47)
+	aljmas.Usce, aljmas.Naziv = true, "ušće u Dunav · Aljmaš"
+	p := crtajUzduzni("Drava", []LetvaProfila{botovo, osijek, aljmas},
+		[]UsceUlaz{{Naziv: "ušće u Dunav", Rkm: 0, Tekst: "Aljmaš -47 cm", Vezano: true, Letva: "Aljmaš"}})
+	if len(p.Tocke) != 2 || p.Tocke[1].Naziv != "Osijek" || p.Tocke[1].Sidro != "end" {
+		t.Errorf("točke: %+v", p.Tocke)
+	}
+	if x := xKrajnje(p.Crte[0].Put); math.Abs(x-p.Usca[0].X) > 0.11 {
+		t.Errorf("crta završava na %.1f, a ušće je na %.1f", x, p.Usca[0].X)
+	}
+	if !strings.HasPrefix(p.Pad, "Drava, Botovo → Osijek") {
+		t.Errorf("pad računa ušće kao letvu: %q", p.Pad)
 	}
 }
 

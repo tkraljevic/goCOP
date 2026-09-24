@@ -29,6 +29,7 @@ type UsceUlaz struct {
 	Rkm    float64 // kilometar na toku koji se crta
 	Tekst  string  // vodostaj s druge strane ušća, npr. „Osijek −143 cm”; prazno kad ga nema
 	Vezano bool    // s druge strane ušća ima letvi na pregledu, pa oznaka nekamo vodi
+	Letva  string  // šifra letve s druge strane; na kraju pritoke njezine vrijednosti produžuju krivulju do ušća
 }
 
 // UsceProfila je ušće na crtežu.

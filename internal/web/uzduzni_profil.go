@@ -37,6 +37,7 @@ type LetvaProfila struct {
 	Pragovi      map[string]float64 // prep | regular | emerg → cm
 	Niz          map[int]float64    // sat prema izdanju (SatOd … SatDo) → vodostaj, za klizač
 	Razina       string             // faza obrane danas: prep | regular | emerg | crit
+	Usce         bool               // nije letva nego kraj pritoke s vrijednostima letve glavnog toka: u krivulji jest, natpisa nema
 }
 
 // ProfilCrta je jedna crta uzduž toka.
@@ -125,12 +126,16 @@ const razmakNatpisa = 170.0
 // stacionaže ispadaju: bez njih se ne zna ni gdje su ni koliko visoko.
 func crtajUzduzni(ime string, letve []LetvaProfila, usca []UsceUlaz) *UzduzniProfil {
 	var korisne []LetvaProfila
+	var pravih int
 	for _, l := range letve {
-		if l.KotaNule != 0 && l.Rkm != 0 && l.ImaSada {
+		if l.KotaNule != 0 && (l.Rkm != 0 || l.Usce) && l.ImaSada {
 			korisne = append(korisne, l)
+			if !l.Usce {
+				pravih++
+			}
 		}
 	}
-	if len(korisne) < 2 {
+	if pravih < 2 {
 		return nil
 	}
 	// Nizvodno ide udesno, a rkm nizvodno pada.
@@ -199,7 +204,15 @@ func crtajUzduzni(ime string, letve []LetvaProfila, usca []UsceUlaz) *UzduzniPro
 
 	plotW := float64(p.Width) - p.Lijevo - p.Desno
 	plotH := float64(p.Height) - p.Vrh - p.Dno
-	odRkm, doRkm := korisne[0].Rkm, korisne[len(korisne)-1].Rkm
+	prava := func(i int) LetvaProfila { // krajnja prava letva, bez točke ušća
+		for ; i >= 0 && i < len(korisne); i += 1 - 2*boolInt(i == len(korisne)-1) {
+			if !korisne[i].Usce {
+				return korisne[i]
+			}
+		}
+		return korisne[0]
+	}
+	odRkm, doRkm := prava(0).Rkm, prava(len(korisne)-1).Rkm
 	// Ušće među letvama uvijek je u slici. Ušće malo izvan krajnjih letvi
 	// uđe u sliku i produži crtež do sebe samo kad s druge strane ima letvi
 	// na pregledu — inače bi Plitvica i Bednja iznad Botova samo gomilale
@@ -247,10 +260,13 @@ func crtajUzduzni(ime string, letve []LetvaProfila, usca []UsceUlaz) *UzduzniPro
 	// red, da se imena ne preklapaju.
 	zadnjiGore, zadnjiDolje := math.Inf(-1), math.Inf(-1)
 	for i, l := range korisne {
+		if l.Usce {
+			continue
+		}
 		sidro := "middle"
 		if i == 0 {
 			sidro = "start"
-		} else if i == len(korisne)-1 {
+		} else if i == len(korisne)-1 || korisne[i+1].Usce {
 			sidro = "end"
 		}
 		x := xOf(l.Rkm)
@@ -306,7 +322,7 @@ func crtajUzduzni(ime string, letve []LetvaProfila, usca []UsceUlaz) *UzduzniPro
 	for v := math.Ceil(najOd/korak) * korak; v <= najDo; v += korak {
 		p.YTicks = append(p.YTicks, ChartTick{Pos: yOf(v), Label: brojHRf(v, 0)})
 	}
-	prva, zadnja := korisne[0], korisne[len(korisne)-1]
+	prva, zadnja := prava(0), prava(len(korisne)-1)
 	pad := (prva.KotaNule + prva.SadaCm/100) - (zadnja.KotaNule + zadnja.SadaCm/100)
 	p.Pad = fmt.Sprintf("%s, %s → %s: vodno lice pada %s m na %s km", ime, prva.Naziv, zadnja.Naziv,
 		brojHRf(pad, 1), brojHRf(prva.Rkm-zadnja.Rkm, 0))
@@ -380,38 +396,32 @@ func odmaciPraga(letve []LetvaProfila, kljuc string) ([]float64, bool) {
 	return out, true
 }
 
-// crtaOdstupanja povlači glatku crtu kroz letve; ondje gdje vrijednosti nema,
-// crta se prekida umjesto da preskoči letvu.
+// crtaOdstupanja povlači glatku crtu kroz letve; letva bez vrijednosti se
+// preskače, a susjedi se spoje — dežurni gleda kako val putuje, a rupa u
+// jednom dosegu (dnevni model samo na dijelu letvi) ne smije prekinuti val.
 func crtaOdstupanja(letve []LetvaProfila, xOf, yOf func(float64) float64,
 	vrijednost func(LetvaProfila) (float64, bool)) string {
-	var dijelovi []string
 	var tocke [][2]float64
-	zavrsi := func() {
-		if len(tocke) > 0 {
-			dijelovi = append(dijelovi, krivulja(tocke))
-		}
-		tocke = nil
-	}
 	for _, l := range letve {
-		v, ima := vrijednost(l)
-		if !ima {
-			zavrsi()
-			continue
+		if v, ima := vrijednost(l); ima {
+			tocke = append(tocke, [2]float64{xOf(l.Rkm), yOf(v)})
 		}
-		tocke = append(tocke, [2]float64{xOf(l.Rkm), yOf(v)})
 	}
-	zavrsi()
-	return strings.Join(dijelovi, " ")
+	if len(tocke) < 2 {
+		return ""
+	}
+	return krivulja(tocke)
 }
 
 // plohaGranica gradi pojas između donje i gornje granice prognoze: gornjim
-// rubom naprijed, donjim natrag, oba glatka kao i crta.
+// rubom naprijed, donjim natrag, oba glatka kao i crta. Letva bez granica se
+// preskače, kao i u crti.
 func plohaGranica(letve []LetvaProfila, doseg int, xOf, yOf func(float64) float64) string {
 	var gornji, donji [][2]float64
 	for _, l := range letve {
 		g, ima := l.Granice[doseg]
 		if !ima {
-			return "" // pojas s rupom bio bi kriv, pa se ne crta nijedan
+			continue
 		}
 		gornji = append(gornji, [2]float64{xOf(l.Rkm), yOf(g[1] - l.SadaCm)})
 		donji = append(donji, [2]float64{xOf(l.Rkm), yOf(g[0] - l.SadaCm)})
@@ -473,4 +483,11 @@ func krivulja(t [][2]float64) string {
 		fmt.Fprintf(&b, " C%.1f %.1f %.1f %.1f %.1f %.1f", b1[0], b1[1], b2[0], b2[1], p2[0], p2[1])
 	}
 	return b.String()
+}
+
+func boolInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
 }

@@ -193,16 +193,16 @@
     }
     function nacrtaj(h) {
       var i = niz.sati.indexOf(h);
-      var dijelovi = [], tekuci = [], krugovi = '';
+      // Letva bez vrijednosti u tom satu se preskače, susjedi se spoje.
+      var tekuci = [], krugovi = '';
       niz.v.forEach(function (red, k) {
         var v = i >= 0 ? red[i] : null;
-        if (v === null || v === undefined) { if (tekuci.length) { dijelovi.push(krivulja(tekuci)); } tekuci = []; return; }
+        if (v === null || v === undefined) { return; }
         var px = niz.x[k], py = y(v);
         tekuci.push([px, py]);
         krugovi += '<circle cx="' + px.toFixed(1) + '" cy="' + py.toFixed(1) + '" r="4.5"><title>' + niz.letve[k] + ': ' + (v > 0 ? '+' : '') + Math.round(v) + ' cm</title></circle>';
       });
-      if (tekuci.length) { dijelovi.push(krivulja(tekuci)); }
-      crta.setAttribute('d', dijelovi.join(' '));
+      crta.setAttribute('d', tekuci.length >= 2 ? krivulja(tekuci) : '');
       crta.classList.toggle('mjereno', h < 0);
       tocke.innerHTML = krugovi;
       svg.classList.toggle('uzd-klizac-aktivan', h !== 0);
