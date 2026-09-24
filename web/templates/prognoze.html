@@ -194,15 +194,23 @@
     function nacrtaj(h) {
       var i = niz.sati.indexOf(h);
       // Letva bez vrijednosti u tom satu se preskače, susjedi se spoje.
-      var tekuci = [], krugovi = '';
+      // Točka ušća krivulju samo produžuje: bez barem dvije prave letve
+      // nema ni crte ni točke ušća.
+      var tekuci = [], krugovi = '', pravih = 0;
       niz.v.forEach(function (red, k) {
         var v = i >= 0 ? red[i] : null;
         if (v === null || v === undefined) { return; }
+        if (!(niz.usce && niz.usce[k])) { pravih++; }
+      });
+      niz.v.forEach(function (red, k) {
+        var v = i >= 0 ? red[i] : null;
+        if (v === null || v === undefined) { return; }
+        if (pravih < 2 && niz.usce && niz.usce[k]) { return; }
         var px = niz.x[k], py = y(v);
         tekuci.push([px, py]);
         krugovi += '<circle cx="' + px.toFixed(1) + '" cy="' + py.toFixed(1) + '" r="4.5"><title>' + niz.letve[k] + ': ' + (v > 0 ? '+' : '') + Math.round(v) + ' cm</title></circle>';
       });
-      crta.setAttribute('d', tekuci.length >= 2 ? krivulja(tekuci) : '');
+      crta.setAttribute('d', pravih >= 2 ? krivulja(tekuci) : '');
       crta.classList.toggle('mjereno', h < 0);
       tocke.innerHTML = krugovi;
       svg.classList.toggle('uzd-klizac-aktivan', h !== 0);

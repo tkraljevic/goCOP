@@ -375,3 +375,23 @@ func TestUsceIzmeduLetvi(t *testing.T) {
 		t.Errorf("ušće Drave nije između Batine i Iloka: %+v", sa.Usca)
 	}
 }
+
+// Točka ušća ne smije sama tvoriti crtu: kad vrijednost ima samo jedna prava
+// letva, crte za taj doseg nema — ni u crtežu ni u nizu za klizač.
+func TestUsceSamoProduzujeKrivulju(t *testing.T) {
+	botovo, osijek := letvaProfila("Botovo", 226.8, 121.3, -3), letvaProfila("Osijek", 19.1, 79.8, -144)
+	aljmas := letvaProfila("Aljmaš", 0, 77.4, -47)
+	aljmas.Usce = true
+	delete(botovo.Cm, 48)
+	delete(botovo.Granice, 48)
+	p := crtajUzduzni("Drava", []LetvaProfila{botovo, osijek, aljmas}, nil)
+	for _, c := range p.Crte {
+		if c.Naziv == "za 48 h" {
+			t.Errorf("crta za 48 h razapeta između Osijeka i ušća: %q", c.Put)
+		}
+	}
+	var n nizProfila
+	if err := json.Unmarshal([]byte(p.Niz), &n); err != nil || len(n.Usce) != 3 || !n.Usce[2] || n.Usce[0] {
+		t.Errorf("niz ne označava točku ušća: %v %v", n.Usce, err)
+	}
+}

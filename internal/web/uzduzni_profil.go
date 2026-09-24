@@ -341,6 +341,7 @@ type nizProfila struct {
 	Sada  []float64    `json:"sada"`
 	NulaY float64      `json:"nulaY"`
 	PoCm  float64      `json:"poCm"` // točaka crteža po centimetru
+	Usce  []bool       `json:"usce"` // po letvi: točka ušća, koja krivulju samo produžuje
 	V     [][]*float64 `json:"v"`    // po letvi, po satu; null gdje nema
 }
 
@@ -351,6 +352,7 @@ func nizZaKlizac(korisne []LetvaProfila, p *UzduzniProfil, xOf, yOf func(float64
 	}
 	for _, l := range korisne {
 		n.Letve = append(n.Letve, l.Naziv)
+		n.Usce = append(n.Usce, l.Usce)
 		n.X = append(n.X, math.Round(xOf(l.Rkm)*10)/10)
 		n.Sada = append(n.Sada, l.SadaCm)
 		red := make([]*float64, len(n.Sati))
@@ -402,12 +404,19 @@ func odmaciPraga(letve []LetvaProfila, kljuc string) ([]float64, bool) {
 func crtaOdstupanja(letve []LetvaProfila, xOf, yOf func(float64) float64,
 	vrijednost func(LetvaProfila) (float64, bool)) string {
 	var tocke [][2]float64
+	pravih := 0
 	for _, l := range letve {
 		if v, ima := vrijednost(l); ima {
 			tocke = append(tocke, [2]float64{xOf(l.Rkm), yOf(v)})
+			if !l.Usce {
+				pravih++
+			}
 		}
 	}
-	if len(tocke) < 2 {
+	// Točka ušća smije krivulju samo produžiti, ne i sama tvoriti: kad
+	// vrijednost ima jedna letva, potez od nje do ušća ne bi bio val nego
+	// razapeta crta između dvije rijeke.
+	if pravih < 2 {
 		return ""
 	}
 	return krivulja(tocke)
@@ -418,6 +427,7 @@ func crtaOdstupanja(letve []LetvaProfila, xOf, yOf func(float64) float64,
 // preskače, kao i u crti.
 func plohaGranica(letve []LetvaProfila, doseg int, xOf, yOf func(float64) float64) string {
 	var gornji, donji [][2]float64
+	pravih := 0
 	for _, l := range letve {
 		g, ima := l.Granice[doseg]
 		if !ima {
@@ -425,8 +435,11 @@ func plohaGranica(letve []LetvaProfila, doseg int, xOf, yOf func(float64) float6
 		}
 		gornji = append(gornji, [2]float64{xOf(l.Rkm), yOf(g[1] - l.SadaCm)})
 		donji = append(donji, [2]float64{xOf(l.Rkm), yOf(g[0] - l.SadaCm)})
+		if !l.Usce {
+			pravih++
+		}
 	}
-	if len(gornji) < 2 {
+	if pravih < 2 {
 		return ""
 	}
 	for i, j := 0, len(donji)-1; i < j; i, j = i+1, j-1 {
