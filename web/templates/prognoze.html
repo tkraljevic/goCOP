@@ -194,8 +194,8 @@
     function nacrtaj(h) {
       var i = niz.sati.indexOf(h);
       // Letva bez vrijednosti u tom satu se preskače, susjedi se spoje.
-      // Točka ušća krivulju samo produžuje: bez barem dvije prave letve
-      // nema ni crte ni točke ušća.
+      // Bez barem dvije prave letve nema ničega — ni crte, ni točke ušća,
+      // ni usamljene točke jedne letve: jedna točka ne kaže kamo val ide.
       var tekuci = [], krugovi = '', pravih = 0;
       niz.v.forEach(function (red, k) {
         var v = i >= 0 ? red[i] : null;
@@ -204,8 +204,7 @@
       });
       niz.v.forEach(function (red, k) {
         var v = i >= 0 ? red[i] : null;
-        if (v === null || v === undefined) { return; }
-        if (pravih < 2 && niz.usce && niz.usce[k]) { return; }
+        if (v === null || v === undefined || pravih < 2) { return; }
         var px = niz.x[k], py = y(v);
         tekuci.push([px, py]);
         krugovi += '<circle cx="' + px.toFixed(1) + '" cy="' + py.toFixed(1) + '" r="4.5"><title>' + niz.letve[k] + ': ' + (v > 0 ? '+' : '') + Math.round(v) + ' cm</title></circle>';
