@@ -53,10 +53,17 @@ type DnevniCilj struct {
 // još nijedna letva ne vidi. Lavamünd ne dodaje ništa povrh Borla. Belišću,
 // Donjem Miholjcu i Osijeku satni lanac prva 3–4 dana pogađa bolje; dnevni
 // im vrijedi za 5.–6. dan, gdje postojanosti prepolovi pogrešku.
+//
+// Muru nosi Mursko Središće, a ne Letenye. Na istoj provjeri Botovu daje
+// 17,9, 30,6, 39,4 i 52,5 cm pogreške 1., 2., 3. i 6. dan, prema 18,9, 31,0,
+// 39,9 i 52,9 s Letenyeom; oba zajedno ne dodaju ništa. Niz mu je potpuniji
+// (11 dravskih valova prema 8), a letva je naša i javna, pa dnevna prognoza
+// Drave ne čeka mađarske podatke. Letenye ostaje u satnom lancu, gdje nosi
+// mađarsku prognozu.
 var DnevniCiljevi = []DnevniCilj{
-	{"botovo", []string{"letenye", "borl-i"}},
-	{"terezino-polje", []string{"botovo", "letenye", "borl-i"}},
-	{"donji-miholjac", []string{"terezino-polje", "botovo", "letenye", "borl-i"}},
+	{"botovo", []string{"mursko-sredisce", "borl-i"}},
+	{"terezino-polje", []string{"botovo", "mursko-sredisce", "borl-i"}},
+	{"donji-miholjac", []string{"terezino-polje", "botovo", "mursko-sredisce", "borl-i"}},
 	{"belisce", []string{"donji-miholjac", "terezino-polje", "botovo", "borl-i"}},
 	{"osijek", []string{"belisce", "donji-miholjac", "botovo", "aljmas"}},
 	{"batina", []string{"komarom", "budapest", "mohacs"}},

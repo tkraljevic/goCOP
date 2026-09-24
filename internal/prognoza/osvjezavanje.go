@@ -33,10 +33,10 @@ var VrhoviSTudomPrognozom = map[string]string{
 }
 
 // PregledneLetve se na pregledu prognoza pokazuju s mjerenjem, iako u model ne
-// ulaze: Bratislava i Komárno stoje u svakoj uredskoj tablici za Dunav,
-// Mursko Središće za Muru, a srpske letve nasuprot našima nose srpsku
-// prognozu.
-var PregledneLetve = []string{"bratislava", "komarno", "mursko-sredisce",
+// ulaze: Bratislava i Komárno stoje u svakoj uredskoj tablici za Dunav, a
+// srpske letve nasuprot našima nose srpsku prognozu. Mursko Središće tu više
+// ne stoji, jer je ulaz dnevne prognoze Drave.
+var PregledneLetve = []string{"bratislava", "komarno",
 	"bezdan", "apatin", "bogojevo", "backa-palanka"}
 
 // Unatrag je koliko se očitanja čita unatrag. Dva tjedna su dosta i najduljem
