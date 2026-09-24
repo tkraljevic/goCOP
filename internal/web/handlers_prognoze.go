@@ -8,6 +8,7 @@ import (
 	"math"
 	"net/http"
 	"sort"
+	"strings"
 	"time"
 
 	"gocop/internal/hydro"
@@ -578,7 +579,7 @@ func uzduzniProfili(postaje map[string]models.Station, letve []PregledLetve,
 		if !ima || st.ZeroDatumNew == nil {
 			continue
 		}
-		rkm, ok := hydro.ParseStationingKm(st.Stationing)
+		rkm, ok := rijecniKm(st.Stationing)
 		if !ok {
 			continue
 		}
@@ -701,7 +702,7 @@ func (h *PrognozeHandler) usca(ctx context.Context, postaje map[string]models.St
 		if !ima {
 			continue
 		}
-		rkm, ok := hydro.ParseStationingKm(st.Stationing)
+		rkm, ok := rijecniKm(st.Stationing)
 		if !ok {
 			continue
 		}
@@ -777,6 +778,16 @@ func (h *PrognozeHandler) usca(ctx context.Context, postaje map[string]models.St
 		}
 	}
 	return out
+}
+
+// rijecniKm čita riječni kilometar letve, a samo njega: Tikveš stoji na
+// „nkm 19,55” kanala u Kopačkom ritu, i to nije mjesto na Dunavu — na
+// uzdužnom profilu i među ušćima nema ga što tražiti.
+func rijecniKm(stacionaza string) (float64, bool) {
+	if !strings.Contains(strings.ToLower(stacionaza), "rkm") {
+		return 0, false
+	}
+	return hydro.ParseStationingKm(stacionaza)
 }
 
 // mjerenoUnatrag čita vodostaje zadnjih dva dana za letve na profilu, po

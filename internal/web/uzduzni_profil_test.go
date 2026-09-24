@@ -395,3 +395,14 @@ func TestUsceSamoProduzujeKrivulju(t *testing.T) {
 		t.Errorf("niz ne označava točku ušća: %v %v", n.Usce, err)
 	}
 }
+
+// Letva na kanalu („nkm”) nije na rijeci: profil je ne uzima, ma koliko
+// kilometar izgledao kao riječni.
+func TestRijecniKmOdbijaKanal(t *testing.T) {
+	if _, ok := rijecniKm("nkm 19,55"); ok {
+		t.Error("nkm pročitan kao riječni kilometar")
+	}
+	if km, ok := rijecniKm("rkm 1424+850"); !ok || km < 1424 || km > 1425 {
+		t.Errorf("rkm 1424+850 → %v %v", km, ok)
+	}
+}
