@@ -101,29 +101,29 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 			tekstM("Prognoza " + izdaje + " je statistička, a ne hidraulička: ne rješava jednadžbe tečenja, " +
 				"nego iz dugih nizova mjerenja uči kako se val prenosi od postaje do postaje. Rade dva modela. " +
 				"Prvih dana satni hidrološki lanac — regresija nizvodne postaje na zakašnjele vrijednosti " +
-				"uzvodnih; dalje dnevni statistički model na dnevnim srednjacima od 1901. — regresija s pragom " +
-				"i metoda analognih situacija. Koji model daje koji dan određeno je provjerom na poplavnim " +
-				"valovima, zasebno za svaku postaju (tablica postaja na kraju)."),
-			tekstM("Model ne zna za oborinu koja tek pada ni za budući rad hidroelektrana: sve što zna, zna iz " +
-				"vode koja je već izmjerena uzvodno, a na vrhu Mure i Dunava iz prognoze mađarske hidrološke službe."),
+				"uzvodnih; dalje dnevni statistički model na dnevnim srednjacima od 1901. s kišom po međuslivovima — " +
+				"regresija s pragom i metoda analognih situacija. Koji model daje koji dan određeno je provjerom na " +
+				"poplavnim valovima, zasebno za svaku postaju (tablica postaja na kraju)."),
+			tekstM("Ono što model ne može izmjeriti, uzima iz najboljeg dostupnog izvora: na vrhu Drave iz " +
+				"naučenog ponašanja hidroelektrana, na vrhu Mure iz vlastitog dnevnog modela s kišom, na vrhu Dunava " +
+				"iz mađarske prognoze Komároma dok je svježa, inače iz austrijske prognoze Wildungsmauera; kišu koja " +
+				"tek pada iz prognoza Open-Meteo. Kad izvora nema, vrh lanca drži zadnje mjerenje."),
 		}},
 		{"Ulazni podaci", []OdlomakMetode{
 			tekstM("Satni vodostaji i protoci iz arhive goCOP-a, koja se puni s mjernih sustava Hrvatskih voda " +
-				"(uključivo istjecanje HE Dubrava sa zatvorene mobilne stranice) i sa stranica hidroloških " +
-				"službi susjednih država: Slovenije (ARSO), Mađarske (vizugy.hu, hydroinfo.hu), Slovačke (SHMÚ), " +
-				"Austrije (eHYD, viadonau) i Njemačke (GKD, Pegelonline). Očitanja rjeđa od satnih premošćuju " +
-				"se linearno, ali ne preko " + tekstBroja(prognoza.NajveciRazmak) + " sati — dulja rupa ostaje rupa."),
-			tekstM("Mađarska (hydroinfo.hu) i srpska (hidmet.gov.rs) prognoza preuzimaju se kako ih službe " +
-				"izdaju, jednom dnevno. Mađarska ulazi u račun na vrhu lanca Dunava, Komáromu (vidi dolje); " +
-				"srpska stoji samo radi usporedbe. Vrh lanca Mure je od 25. 9. 2026. Goričan, naša letva nasuprot " +
-				"Letenyeu (isti rkm, javni izvor, satni niz od 1982.), u protoku kroz vlastitu krivulju; budućnost mu " +
-				"daje naš dnevni model (Mursko Središće i kiša nad Murom), a Letenye je rezerva. Na 28 mađarskih " +
-				"izdanja 2024.–2026. naš dnevni model Letenyea griješi 13, 22, 18, 22, 30 i 24 cm za 1.–6. dan, " +
-				"njihova prognoza 13, 23, 28, 37, 42 i 50; Goričan iz istih ulaza 7, 14, 15, 19, 20 i 23. Tako i Mura " +
-				"ima svoju dnevnu prognozu: Mursko Središće iz vlastite razine i kiše nad Murom (uzvodno nema satne " +
-				"letve), Letenye i Kotoriba iz uzvodnih letvi i iste kiše; na 2024.–2026. Mursko Središće griješi " +
-				"9, 13, 15, 17, 18 i 21 cm za 1.–6. dan uz postojanost 14–28, Kotoriba 11, 17, 20, 24, 26 i 29 uz " +
-				"postojanost 18–41."),
+				"(uključivo istjecanje i razine akumulacija HE Varaždin, Čakovec i Dubrava sa zatvorene mobilne " +
+				"stranice) i sa stranica hidroloških službi susjednih država: Slovenije (ARSO), Mađarske (vizugy.hu), " +
+				"Slovačke (SHMÚ), Austrije (eHYD, viadonau, noel.gv.at) i Njemačke (GKD, Pegelonline). Očitanja rjeđa " +
+				"od satnih premošćuju se linearno, ali ne preko " + tekstBroja(prognoza.NajveciRazmak) + " sati — " +
+				"dulja rupa ostaje rupa."),
+			tekstM("Tuđe prognoze preuzimaju se kako ih službe izdaju: mađarska (hydroinfo.hu) i srpska " +
+				"(hidmet.gov.rs) jednom dnevno za šest, odnosno četiri dana, austrijska (Donja Austrija, noel.gv.at) " +
+				"više puta dnevno za 48 sati. Mađarska vodi Komárom, austrijska Wildungsmauer, srpska stoji samo " +
+				"radi usporedbe; sve se pamte, da se s našom prognozom uspoređuju i unatrag."),
+			tekstM("Oborina: kvazi-kišomjeri registra slivova po međuslivovima između letvi (Drava A–G, Dunav H–J " +
+				"od Komároma do Aljmaša, gornji Dunav K–O od Bavarske do Komároma, Mura B), po visinskim pojasima. " +
+				"Povijest je reanaliza ERA5 (Open-Meteo) od 1990.; uživo zadnjih sedam dana daje analiza, a sljedećih " +
+				"sedam prognoza prognostičkih modela Open-Meteo, preuzeta svaki sat u zasebnu bazu."),
 		}},
 		{"Satni lanac — građa", []OdlomakMetode{
 			tekstM("Postaje su složene u lanac niz tok. Svaka postaja y ima glavni ulaz x₁ — uzvodnu postaju na " +
@@ -144,6 +144,13 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"βₖ je tako vrijednost veze u čvoru cₖ, a pravci susjednih pojasa vodnosti sastaju se na " +
 				"granici — val koji raste ne dobiva skok kakvog u rijeci nema. Pojasi su gušći pri velikoj vodi, " +
 				"jer se ondje ponašanje mijenja: voda izlazi u inundaciju, a Kopački rit se puni i val uspori."),
+			tekstM("Lanac Drave počinje na Varaždinu (iz istjecanja HE Varaždin i preljeva brane) i na istjecanju " +
+				"HE Dubrava, kojemu se kod Legrada pridružuje Mura preko Goričana; lanac Dunava počinje na " +
+				"Wildungsmaueru (Austrija) i ide preko Nagybajcsa i Komároma mađarskim letvama do Batine, Aljmaša, " +
+				"Vukovara i Iloka. Karika Nagybajcs ← Wildungsmauer namještena je na 5–7 sati kašnjenja, što vrijedi " +
+				"pri običnoj vodi; pri velikoj vodi val kroz Szigetköz, akumulaciju Gabčíkovo i rukavce putuje tri " +
+				"dana, a pridružuje mu se Morava, pa se satna povijest Angerna na Moravi i Bratislave skuplja da se " +
+				"ta dionica jednom namjesti po režimima."),
 		}},
 		{"Satni lanac — procjena", []OdlomakMetode{
 			tekstM("Koeficijenti β i γ procjenjuju se metodom najmanjih kvadrata, zajednički za sve pojase, " +
@@ -156,39 +163,47 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"38 sati. Kašnjenje pritoka i širina prozora svojstvo su dionice, pa ostaju ista u svim pojasima.",
 				prognoza.NajveciPomak, prognoza.NajveciPomakPritoka, strings.Join(sirine, ", "))),
 		}},
-		{"Satni lanac — izdavanje prognoze", []OdlomakMetode{
-			tekstM("Vrh lanca. Za sate poslije zadnjeg mjerenja postaja na vrhu lanca drži zadnje izmjereno " +
-				"stanje (postojanost). Vrh Dunava, Wildungsmauer, umjesto toga slijedi promjenu 48-satne prognoze " +
-				"Donje Austrije (noel.gv.at) od trenutka izdavanja; odande lanac ide preko Nagybajcsa (6–7 h) do " +
-				"Komároma (3–4 h). Komárom ipak, dok je mađarska prognoza svježa, slijedi nju: na njihovih 27 izdanja " +
-				"2024.–2026., uglavnom valova, naš lanac od Wildungsmauera griješi 18, 38, 61, 90, 113 i 131 cm za 1.–6. " +
-				"dan prema njihovih 12, 20, 28, 38, 47 i 59, a ni savršena austrijska prognoza vrha to ne popravlja, jer " +
-				"pri velikoj vodi val od Wildungsmauera do Nagybajcsa putuje tri dana (Szigetköz, Gabčíkovo, rukavci, " +
-				"Morava), ne 5–7 sati kako je karika namještena. Lanac iz Austrije je rezerva za sate kad mađarske nema; " +
-				"satna povijest Morave (Angern) i Bratislave skuplja se da se ta dionica jednom namjesti. Vrh Drave, " +
-				"istjecanje HE Dubrava, kao i HE Čakovec i HE Varaždin, dobiva budućnost iz modela ispuštanja elektrane: " +
-				"regresija po dosegu 1–96 h i po režimu (obična ili velika voda, granica 90. percentil istjecanja) iz " +
-				"vlastitog istjecanja, dotoka uzvodnih elektrana te sata i dana u tjednu sada i u ciljnom satu, jer HE " +
-				"Varaždin vrši (u 20 h 150 % dnevnog srednjaka, noću polovina), a pri velikoj vodi elektrane propuštaju " +
-				"dotok s nekoliko sati kašnjenja. Provjereno na 2024.–2026. modelom naučenim prije: pri velikoj vodi " +
-				"istjecanje HE Dubrava 6, 12, 18 i 24 h unaprijed griješi 42, 50, 58 i 72 m³/s umjesto 56, 80, 97 i 105 " +
-				"postojanosti; pri običnoj vodi model pobjeđuje tek od 18 h. Za svaki doseg i režim pamti se je li " +
-				"pobijedio postojanost; gdje nije, vrh drži zadnje mjerenje. Razina akumulacije ne ulazi, jer ne mijenja " +
-				"brojke. U provjeri unatrag 2023.–2025. to Botovu skida pogrešku 24 h s 85 na 71 m³/s, 48 h sa 116 na 99 " +
-				"i 96 h sa 150 na 130, Terezinom Polju 48 h s 81 na 66, a Varaždin s 27–36 cm dolazi na 21–27, koliko i " +
-				"postojanost. Vrhovi Mure, " +
-				"Letenye i Goričan, budućnost dobivaju iz našeg dnevnog " +
-				"modela; kad ga nema, Letenye slijedi mađarsku prognozu. Tuđa prognoza ne uzima se starija od dva dana:"),
+		{"Satni lanac — vrhovi lanca", []OdlomakMetode{
+			tekstM("Za sate poslije zadnjeg mjerenja postaja na vrhu lanca drži zadnje izmjereno stanje " +
+				"(postojanost), osim gdje ima bolji izvor. Svaki takav izvor F ulazi kao promjena od trenutka " +
+				"zadnjeg mjerenja, ne kao gotova vrijednost, pa se vrh nikad ne odvoji od onoga što je izmjereno:"),
 			formulaM("x(t) = x_mj(t₀) + [F(t) − F(t₀)]",
 				`x(t)=x_{\mathrm{mj}}(t_0)+\left[F(t)-F(t_0)\right]`),
+			tekstM("Drava: model ispuštanja elektrane. Istjecanje HE Dubrava (vrh lanca Botova), HE Čakovec i HE " +
+				"Varaždin predviđa regresija po dosegu 1–96 h i po režimu — obična ili velika voda, granica je 90. " +
+				"percentil istjecanja — iz vlastitog istjecanja, dotoka uzvodnih elektrana te sata i dana u tjednu " +
+				"sada i u ciljnom satu. HE Varaždin vrši: navečer u 20 h ide 150 % dnevnog srednjaka, noću polovina, " +
+				"u svim godišnjim dobima; nizvodne stepenice to izravnaju, a pri velikoj vodi sve tri propuštaju dotok " +
+				"s nekoliko sati kašnjenja. Provjereno na 2024.–2026. modelom naučenim prije: pri velikoj vodi " +
+				"istjecanje HE Dubrava 6, 12, 18 i 24 h unaprijed griješi 39, 48, 57 i 77 m³/s umjesto 64, 98, 114 i " +
+				"121 postojanosti; pri običnoj vodi model pobjeđuje tek od 18 h. Za svaki doseg i režim pamti se je li " +
+				"u provjeri pobijedio postojanost; gdje nije, vrh drži zadnje mjerenje. Razina akumulacije ne ulazi, " +
+				"jer ne mijenja brojke. U provjeri unatrag 2023.–2025. to Botovu skida pogrešku 24 h s 85 na 71 m³/s, " +
+				"48 h sa 116 na 99 i 96 h sa 150 na 130, Terezinom Polju 48 h s 81 na 66, a Varaždin s 27–36 cm dolazi " +
+				"na 21–27, koliko i postojanost."),
+			tekstM("Mura: naš dnevni model. Goričan, naša letva nasuprot Letenyeu (isti rkm, javni izvor, satni niz " +
+				"od 1982.), u protoku kroz vlastitu krivulju daje vrh lanca Botova; budućnost mu daje dnevni model iz " +
+				"Murskog Središća i kiše nad Murom, Letenye je rezerva, a mađarska prognoza rezerva rezervi. Na 28 " +
+				"mađarskih izdanja 2024.–2026. naš dnevni model Letenyea griješi 13, 22, 18, 22, 30 i 24 cm za 1.–6. " +
+				"dan, njihova prognoza 13, 23, 28, 37, 42 i 50; Goričan iz istih ulaza 7, 14, 15, 19, 20 i 23."),
+			tekstM("Dunav: mađarska prognoza dok je svježa. Komárom se računa iz Nagybajcsa i Wildungsmauera, a " +
+				"Wildungsmauer slijedi 48-satnu prognozu Donje Austrije; ipak, dok je mađarska prognoza Komároma " +
+				"svježa (ne starija od dva dana), Komárom postaje vrh i slijedi nju. Na njihovih 27 izdanja " +
+				"2024.–2026., uglavnom valova, naš lanac od Wildungsmauera griješi 18, 38, 61, 90, 113 i 131 cm za " +
+				"1.–6. dan prema njihovih 12, 20, 28, 38, 47 i 59, a ni savršena austrijska prognoza vrha to ne " +
+				"popravlja, jer karika do Nagybajcsa pri velikoj vodi kasni tri dana umjesto namještenih 5–7 sati. " +
+				"Lanac iz Austrije je rezerva za sate kad mađarske nema. Cilj ostaje potpuna neovisnost, ali ne po " +
+				"cijenu lošije prognoze: dok se ne skupi povijest za tu dionicu, vrijedi ono što daje bolji rezultat."),
+		}},
+		{"Satni lanac — izdavanje prognoze", []OdlomakMetode{
 			tekstM("Ispravak prema mjerenju. Razlika između modela i zadnjeg mjerenja postaje (ne starijeg od " +
 				tekstBroja(prognoza.ZaostatakVrha) + " sata) nosi se naprijed i eksponencijalno slabi, s " +
 				"poluvremenom od " + poluvrijeme + " sati:"),
 			formulaM("ŷ*(t₀ + τ) = ŷ(t₀ + τ) + r₀ · 2^(−τ / "+poluvrijeme+"),   r₀ = y_mj(t₀) − ŷ(t₀)",
 				`\hat{y}^{*}(t_0+\tau)=\hat{y}(t_0+\tau)+r_0\,2^{-\tau/`+texBroj(poluvrijeme)+`},\qquad r_0=y_{\mathrm{mj}}(t_0)-\hat{y}(t_0)`),
 			tekstM("Sustavna pogreška. Prognoza je puštena unatrag kroz arhivu — izdanje svakih 12 sati kroz " +
-				"više godina, svako samo s onim što je u tom trenutku bilo izmjereno — i za svaku postaju i " +
-				"doseg τ izmjerena je srednja pogreška b(τ). Ona se od prognoze oduzima."),
+				"više godina, svako samo s onim što je u tom trenutku bilo izmjereno, s istim vrhovima lanca kao " +
+				"uživo — i za svaku postaju i doseg τ izmjerena je srednja pogreška b(τ). Ona se od prognoze oduzima."),
 		}},
 		{"Satni lanac — raspon", []OdlomakMetode{
 			tekstM(fmt.Sprintf("Polovina širine raspona r(τ) je empirijski %d. percentil apsolutnog odstupanja "+
@@ -206,8 +221,8 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 			tekstM("Uči se na dnevnim srednjacima vodostaja od 1901.; dan kojem u arhivi nema dnevnog srednjaka " +
 				"dopunjuje se srednjakom satnih vrijednosti, ako ih ima barem 18. Za ciljnu postaju T i njezine " +
 				"ulaze s (tablica postaja) značajke dana t su:"),
-			formulaM("z(t) = [ 1,  h_T(t),  { Δ¹h_s(t), Δ²h_s(t) } za s ∈ {T} ∪ ulazi ]",
-				`\mathbf z(t)=\left[1,\ h_T(t),\ \left\{\Delta^1h_s(t),\Delta^2h_s(t)\right\}_{s\in\{T\}\cup\mathrm{ulazi}}\right]`),
+			formulaM("z(t) = [ 1,  h_T(t),  { Δ¹h_s(t), Δ²h_s(t) } za s ∈ {T} ∪ ulazi,  kiša ]",
+				`\mathbf z(t)=\left[1,\ h_T(t),\ \left\{\Delta^1h_s(t),\Delta^2h_s(t)\right\}_{s\in\{T\}\cup\mathrm{ulazi}},\ \mathrm{ki\check{s}a}\right]`),
 			formulaM("Δ¹h(t) = h(t) − h(t−1),   Δ²h(t) = h(t−1) − h(t−3)",
 				`\Delta^1h(t)=h(t)-h(t-1),\qquad \Delta^2h(t)=h(t-1)-h(t-3)`),
 			tekstM("Uz razinu cilja ulaze samo promjene, jer one ne ovise o nuli vodokaza, a nule su se kroz " +
@@ -215,14 +230,20 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"modelom (izravna višekoračna prognoza, bez rekurzije):"),
 			formulaM("Δₖ(t) = h_T(t + k) − h_T(t)",
 				`\Delta_k(t)=h_T(t+k)-h_T(t)`),
-			tekstM("Na Dravi i Dunavu u značajke ulazi i oborina: za svaki međusliv uzvodno od cilja (registar " +
-				"slivova: na Dravi međuslivovi A–G između letvi, na Dunavu H Komárom → Budimpešta s Váhom, Hronom i " +
-				"Ipeľom, I Budimpešta → Mohács i J Mohács → Aljmaš bez Drave) zbroj kiše zadnjeg dana, zadnja tri dana i zadnjih sedam dana te " +
-				"prognozirana kiša sljedeća dva, četiri i šest dana, u mm, kao težinski srednjak kvazi-kišomjera " +
-				"međusliva po visinskim pojasima. Povijest je reanaliza ERA5 (Open-Meteo) od 1990., pa model s " +
-				"oborinom uči od tada, i to na kiši koja je doista pala i poslije (savršena prognoza); uživo zadnjih " +
-				"sedam dana daje analiza, a sljedećih šest prognoza prognostičkih modela (Open-Meteo). Kad oborine " +
-				"nema, uzima se inačica bez nje. U udaljenosti analogija oborina nosi polovicu težine promjena vodostaja."),
+			tekstM("Kiša: za svaki međusliv uzvodno od cilja zbroj kiše zadnjeg dana, zadnja tri dana i zadnjih " +
+				"sedam dana te prognozirana kiša sljedeća dva, četiri i šest dana, u mm, kao težinski srednjak " +
+				"kvazi-kišomjera međusliva po visinskim pojasima. Model s kišom uči od 1990., na kiši koja je doista " +
+				"pala i poslije (savršena prognoza); uživo ulazi analiza i prognoza. Kad oborine nema, uzima se " +
+				"inačica bez nje. U udaljenosti analogija oborina nosi polovicu težine promjena vodostaja."),
+			tekstM("Ciljevi i ulazi: na Muri Mursko Središće iz vlastite razine i kiše (uzvodno nema satne letve), " +
+				"Goričan, Letenye i Kotoriba iz uzvodnih; na Dravi Botovo do Osijeka iz uzvodnih letvi, Murskog " +
+				"Središća i Borla; Osijek uz to iz Mohácsa, Budimpešte i Komároma s dunavskom kišom, jer ondje odlučuje " +
+				"uspor Dunava koji te letve vide dva-tri dana prije Batine; na Dunavu Batina, Aljmaš, Vukovar i Ilok iz " +
+				"Komároma, Budimpešte, Mohácsa i međusobno, s dravskim ulazima za letve ispod ušća. Komárom nije dnevni " +
+				"cilj: s kišom gornjeg Dunava griješi preko svih dana 10, 20, 29, 35, 39 i 43 cm, ali na mađarskim " +
+				"izdanjima 25–119 prema njihovih 12–59, jer oni nose cijeli austrijsko-njemački prognostički lanac."),
+		}},
+		{"Dnevni model — što kiša donosi", []OdlomakMetode{
 			tekstM("Provjereno na dravskim valovima 2012.–2024. modelom naučenim 1990.–2011. Sama pala kiša: srednja " +
 				"pogreška vrha 5. i 6. dana pada u Osijeku sa 70 i 108 cm na 54 i 71, u Belišću s 80 i 119 na 60 i 94, " +
 				"u Donjem Miholjcu sa 110 i 172 na 86 i 141. S budućom kišom iz arhive umjesto prognoze, što je " +
@@ -238,25 +259,8 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"do kraja 2023., s arhiviranim prognozama kiše: pogreška preko svih dana 4.–6. dan pada na Batini " +
 				"s 23, 37 i 50 cm na 21, 31 i 40, na Aljmašu s 23, 34 i 45 na 21, 28 i 35, na Vukovaru sa 17, 26 i 35 " +
 				"na 16, 22 i 28, na Iloku sa 16, 24 i 33 na 16, 21 i 27; prva tri dana lošija su za pola do jedan " +
-				"centimetar. Dravski međuslivovi uz dunavske nizvodnim letvama ne pomažu, pa ne ulaze."),
-			tekstM("Za vrh Dunava, Komárom, registar ima i međuslivove gornjeg Dunava (O iznad Hofkirchena, K " +
-				"Hofkirchen → Achleiten, L Achleiten → Kienstock, M Kienstock → Wildungsmauer, N Wildungsmauer → " +
-				"Komárom) s 25 kvazi-kišomjera. Dnevni model Komároma iz Wildungsmauera, Kienstocka, Achleitena i " +
-				"Hofkirchena s tom kišom griješi preko svih dana 2024.–2026. 10, 20, 29, 35, 39 i 43 cm (bez kiše " +
-				"10, 24, 39, 50, 59 i 66; sa savršenom kišom 41 šesti dan), ali na 27 mađarskih izdanja, uglavnom " +
-				"valova, 25, 52, 68, 89, 104 i 119 prema njihovih 12, 20, 28, 38, 47 i 59: oni nose cijeli " +
-				"austrijsko-njemački prognostički lanac. Komárom zato ostaje na mađarskoj prognozi; put do " +
-				"neovisnosti je satni lanac od Wildungsmauera i javne austrijske i bavarske prognoze."),
-			tekstM("Prema mađarskoj prognozi (hydroinfo.hu, 28 izdanja od rujna 2024. do rujna 2026., model naučen do " +
-				"rujna 2024., s arhiviranim prognozama kiše), srednja pogreška 1.–6. dana u cm, oni prema nama: Botovo " +
-				"24, 37, 41, 51, 52, 58 prema 16, 26, 27, 25, 34, 36; Terezino Polje 14, 28, 40, 48, 52, 60 prema 11, " +
-				"23, 31, 29, 30, 37; Donji Miholjac 7, 20, 36, 47, 55, 52 prema 7, 18, 29, 34, 32, 37; Belišće 6, 10, " +
-				"20, 29, 42, 44 prema 6, 13, 23, 29, 29, 28. Bez kiše Botovo je bilo 20, 35, 38, 46, 52, 58. Osijek " +
-				"im ostaje bolji (12–62 prema 13–81), jer ondje odlučuje uspor Dunava; Aljmaš je naš bolji do 3. dana, " +
-				"njihov od 5. (alat usporedi-dnevnu). Osijek zato uz dravske ulaze dobiva i Mohács, Budimpeštu i Komárom " +
-				"te dunavsku kišu H, I, J, jer val Dunava tamo stiže dva-tri dana prije Batine: pogreška preko svih dana " +
-				"4.–6. dan pada s 32, 37 i 42 cm na 29, 34 i 38, a na mađarskim izdanjima 5.–6. dan sa 70 i 81 na 60 i 67, " +
-				"prema njihovih 58 i 62."),
+				"centimetar. Dravski međuslivovi dunavskim letvama ne pomažu, pa ne ulaze. Osijeku dunavski ulazi i " +
+				"kiša skidaju pogrešku 4.–6. dana s 32, 37 i 42 cm na 29, 34 i 38."),
 			tekstM("Je li dnevna prognoza računata s kišom, piše uz vrijeme izdanja na stranici Prognoze, uz razlog " +
 				"kad nije (oborine nisu preuzete, kvota ili mreža). U izvozu izdanja i u Excelu svaka dnevna vrijednost " +
 				"nosi oznaku modela: dnevni-1-kisa kad je računata s kišom, dnevni-1 bez nje."),
@@ -289,9 +293,9 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 		{"Koji model daje koji dan", []OdlomakMetode{
 			tekstM("Satni lanac seže do 96 sati. Od kojeg dana vrijednost daje dnevni model određeno je " +
 				"provjerom na poplavnim valovima, zasebno za svaku postaju: na Dunavu od " + dunav + ", na Dravi od " +
-				drava + ". Na Dravi satni lanac dulje pogađa bolje jer nosi istjecanje HE Dubrava i mađarsku " +
-				"prognozu Letenyea. Vrijednost iz dnevnog modela na stranici je označena slovom d, a u Excelu " +
-				"retkom „model”."),
+				drava + ". Na Dravi satni lanac dulje pogađa bolje jer nosi istjecanje HE Dubrava s modelom " +
+				"ispuštanja i Goričan iz dnevnog modela. Vrijednost iz dnevnog modela na stranici je označena slovom " +
+				"d, a u Excelu retkom „model”."),
 		}},
 		{"Vodostaj i protok", []OdlomakMetode{
 			tekstM("Postaja se računa u jednoj veličini, a drugu daje važeća krivulja protoka (Q–H) postaje. " +
@@ -306,23 +310,39 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"dvostruko širi. Mađarska hidrološka služba uz svoju prognozu navodi isti udio (70 %%), pa "+
 				"naš i njihov raspon znače isto i izravno su usporedivi.", udio, 100-udio)),
 		}},
-		{"Provjera", []OdlomakMetode{
+		{"Prikaz", []OdlomakMetode{
+			tekstM("Uz vrh lanca na pregledu piše čime mu je dana budućnost: model ispuštanja elektrane, naš dnevni " +
+				"model ili tuđa prognoza s izvorom. Ispod naših vrijednosti sitno stoje tuđe prognoze za isti termin: " +
+				"HU mađarska, RS srpska, AT austrijska. Uzdužni profil crta promjenu prema danas po toku, s branama " +
+				"kao okomitim crtama; strane letve koje nemaju našu kotu nego samo baltičku (mađarske letve Dunava i " +
+				"Drave) dobivaju zaseban profil, jer se kote dvaju visinskih sustava ne miješaju na istom crtežu."),
+		}},
+		{"Provjera i usporedbe", []OdlomakMetode{
 			tekstM("Svaki dio modela provjeren je na podacima koje pri učenju nije vidio. Dnevni model učen je do " +
-				"2012. i mjeren na valovima 2012.–2024. Satni lanac provjeren je na 34 poplavna vala od 2012. " +
-				"metodom izostavljanja skupine (četiri skupine valova): svaki val prognozira model namješten bez " +
-				"njega i bez dvadesetak dana oko njega. Mjeri se pogreška vrha vala (srednja apsolutna i " +
-				"pristranost) na 24, 48, 72 i 96 h, korijen srednje kvadratne pogreške kroz val i udio mjerenja " +
-				"unutar raspona. Sve se uspoređuje s postojanošću, s mađarskom prognozom (29 izdanja), s uredskom " +
-				"prognozom (55) i s modelom MIKE (48)."),
-			tekstM("Primjer: na Botovu lanac koji na vrhu slijedi mađarsku prognozu Letenyea promaši vrh vala " +
-				"1.–4. dan prosječno za 22, 29, 41 i 49 cm — s postojanošću na vrhu bilo bi 30, 36, 48 i 60 cm, " +
-				"a mađarska prognoza samog Botova 24, 37, 42 i 51 cm."),
+				"2012. i mjeren na valovima 2012.–2024., a s kišom do 2023. i mjeren na 2024.–2026. s tada izdanim " +
+				"prognozama kiše. Satni lanac provjeren je na 34 poplavna vala od 2012. metodom izostavljanja skupine " +
+				"(četiri skupine valova): svaki val prognozira model namješten bez njega i bez dvadesetak dana oko " +
+				"njega. Mjeri se pogreška vrha vala (srednja apsolutna i pristranost) na 24, 48, 72 i 96 h, korijen " +
+				"srednje kvadratne pogreške kroz val i udio mjerenja unutar raspona. Sve se uspoređuje s postojanošću, " +
+				"s mađarskom prognozom, s uredskom prognozom (55 izdanja) i s modelom MIKE (48)."),
+			tekstM("Prema mađarskoj prognozi (hydroinfo.hu, 28 izdanja od rujna 2024. do rujna 2026., modeli naučeni " +
+				"do rujna 2024.), srednja pogreška 1.–6. dana u cm, oni prema nama. Drava, dnevni model s kišom: Botovo " +
+				"24, 37, 41, 51, 52, 58 prema 16, 26, 27, 28, 37, 38; Terezino Polje 14, 28, 40, 48, 52, 60 prema 10, " +
+				"24, 30, 29, 32, 39; Donji Miholjac 7, 20, 36, 47, 55, 52 prema 5, 16, 29, 34, 33, 38; Belišće 6, 10, " +
+				"20, 29, 42, 44 prema 5, 13, 24, 30, 29, 30; Osijek 12, 23, 36, 46, 58, 62 prema 14, 28, 41, 53, 60, 67. " +
+				"Dunav, satni lanac od Wildungsmauera bez mađarske: Komárom 12, 20, 28, 38, 47, 59 prema 18, 38, 61, 90, " +
+				"113, 131, Mohács 7, 14, 20, 24, 28, 31 prema 12, 33, 51, 57, 66, 73 — zato Komárom vodi njihova " +
+				"prognoza. Aljmaš: naš 9, 18, 31, 49, 68, 76 prema njihovih 29, 31, 31, 32, 37, 43, s tim da je njihova " +
+				"prognoza Aljmaša sustavno 25 cm previsoka. Alati usporedi-dnevnu i usporedi-prognoze."),
 		}},
 		{"Ograničenja", []OdlomakMetode{
-			tekstM("Veliki dravski val od trećeg dana prognoza podcjenjuje, jer nastaje iz kiše koju još nijedna " +
-				"postaja ne vidi — ondje vrijedi pratiti gornju granicu raspona. Rad hidroelektrana unaprijed se " +
-				"ne zna. Vrijednost izvan svega viđenoga u arhivi model procjenjuje produženjem zadnjeg pravca, " +
-				"pa pri rekordnoj vodi valja biti oprezan. Oborine kao ulaz tek se pripremaju."),
+			tekstM("Veliki dravski val od trećeg dana prognoza podcjenjuje: na 11 valova 2012.–2023. vrh Botova " +
+				"3.–5. dan promaši 76, 94 i 122 cm i sa savršenom kišom — ondje vrijedi pratiti gornju granicu raspona. " +
+				"Rad hidroelektrana unaprijed se zna samo koliko ga model ispuštanja nauči; unutar dana odluke " +
+				"elektrane ostaju nepredvidive, a Varaždin ispod HE Varaždin ovisi o njima cijeli. Na Dunavu je " +
+				"prognoza za valove ovisna o mađarskoj službi dok se dionica Wildungsmauer → Nagybajcs ne namjesti " +
+				"po režimima. Vrijednost izvan svega viđenoga u arhivi model procjenjuje produženjem zadnjeg pravca, " +
+				"pa pri rekordnoj vodi valja biti oprezan."),
 		}},
 	}
 }
