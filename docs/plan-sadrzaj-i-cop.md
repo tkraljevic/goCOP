@@ -297,6 +297,9 @@ Pravila, ista kao za letve:
 
 ## 6. Redoslijed izvedbe i stanje
 
+Ovaj odjeljak je mjerodavno operativno stanje izvedbe plana na dan
+25. 9. 2026.; opći opis u `plan-arhiva-i-zaborav.md` daje širi cilj.
+
 1. `sadrzaj.db` i paket `internal/sadrzaj` *(napravljeno 20. 9. 2026.)*: upis
    s provjerom, čitanje, dijelovi, veze, siročad, željeni, otpuštanje.
 2. Prijave na spremištu *(napravljeno)*: objava, urudžba i uvoz pišu PDF u

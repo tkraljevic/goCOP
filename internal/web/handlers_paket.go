@@ -159,7 +159,7 @@ func (h *StationsHandler) PregledPaketa(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	pd := PaketData{CurrentUser: data.CurrentUser, Permissions: data.Permissions,
-		Station: data.Station, ActiveNav: "registri"}
+		Station: data.Station, ActiveNav: "registers"}
 
 	if err := r.ParseMultipartForm(najveciPaket); err != nil {
 		pd.Greska = "datoteka se nije dala pročitati: " + err.Error()

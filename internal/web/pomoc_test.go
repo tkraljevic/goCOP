@@ -31,12 +31,39 @@ func TestSvakiModulImaSvojOdjeljakUPomoci(t *testing.T) {
 	// vrijednosti ActiveNav koje stranice postavljaju
 	for _, modul := range []string{
 		"pocetak", "dashboard", "teren", "sections", "stations", "readings", "arhiva",
-		"journals", "users", "registers", "organizacija", "territories", "structures",
+		"prognoze", "journals", "users", "registers", "slivovi", "organizacija", "territories", "structures",
 		"watercourses", "firme", "maintenance", "admin", "moduli", "settings", "sync",
-		"sredstva", "posta", "profile", "pojmovi", "pomoc",
+		"sredstva", "posta", "profile", "pojmovi", "o-programu", "pomoc",
 	} {
 		if !sidra[modul] {
 			t.Errorf("pomoć nema odjeljak #%s — znak „?“ s te stranice vodi na vrh", modul)
+		}
+	}
+}
+
+// Završna stranica pomoći ujedno je čitljiva obavijest o programu. Licenca
+// koda ne smije se pomiješati s licencama ovisnosti i vanjskih podataka.
+func TestPomocImaOProgramuLicenceIZahvale(t *testing.T) {
+	h := pomocHTML(t)
+	for _, want := range []string{
+		`id="o-programu"`, "Što je goCOP", "EUPL‑1.2", "LICENSE_hr.txt",
+		"KaTeX", "Leaflet", "Lucide", "goldmark", "modernc.org/sqlite",
+		"OpenStreetMap", "Open‑Meteo", "CC BY‑SA 4.0", "Zahvale",
+		"HydroBASINS", "Tomislav Kraljević", "Mario Kraljević", "Nenadu Šuvaku",
+	} {
+		if !strings.Contains(h, want) {
+			t.Errorf("odjeljak O programu nema %q", want)
+		}
+	}
+}
+
+func TestPomocObjasnjavaKontroleKarte(t *testing.T) {
+	h := pomocHTML(t)
+	for _, want := range []string{
+		"puni zaslon", "vaš položaj", "Kotačić miša", "dva prsta", "četiri strelice", "ne sprema se", "Moj položaj", "HTTPS veze",
+	} {
+		if !strings.Contains(h, want) {
+			t.Errorf("pomoć ne objašnjava kontrolu karte %q", want)
 		}
 	}
 }
@@ -125,6 +152,22 @@ func TestPomocImaPretraguICesteZadatke(t *testing.T) {
 	} {
 		if !strings.Contains(h, want) {
 			t.Errorf("pomoć nema tražilicu ili česti zadatak %q", want)
+		}
+	}
+}
+
+// Na kraju dugog poglavlja korisnik ne smije ostati u slijepoj ulici. Svako
+// glavno poglavlje vodi na susjedne teme i natrag na kazalo.
+func TestSvakoPoglavljePomociImaNavigaciju(t *testing.T) {
+	h := pomocHTML(t)
+	poglavlja := strings.Count(h, `<section class="detail-section" id="`)
+	navigacije := strings.Count(h, `{{template "pomocPoglavljeNav"`)
+	if navigacije != poglavlja {
+		t.Errorf("%d poglavlja, a %d završnih navigacija", poglavlja, navigacije)
+	}
+	for _, want := range []string{`id="pomoc-kazalo"`, `href="#pomoc-kazalo"`, "← {{$prethodni}}", "{{$sljedeci}} →"} {
+		if !strings.Contains(h, want) {
+			t.Errorf("navigacija poglavlja nema %q", want)
 		}
 	}
 }

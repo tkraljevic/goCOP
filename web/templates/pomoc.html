@@ -2,6 +2,17 @@
 
 {{define "title"}}goCOP — Pomoć{{end}}
 
+{{/* Navigacija na dnu svakog glavnog poglavlja. Parametri su naziv i sidro
+     prethodne teme, pa naziv i sidro sljedeće; prazan naziv skriva vezu. */}}
+{{define "pomocPoglavljeNav"}}
+{{$prethodni := index . 0}}{{$prethodniURL := index . 1}}{{$sljedeci := index . 2}}{{$sljedeciURL := index . 3}}
+<nav class="pomoc-poglavlje-nav" aria-label="Ostale teme pomoći">
+  {{if $prethodni}}<a class="pomoc-prethodna" href="{{$prethodniURL}}">← {{$prethodni}}</a>{{else}}<span></span>{{end}}
+  <a class="pomoc-sve-teme" href="#pomoc-kazalo">↑ Sve teme</a>
+  {{if $sljedeci}}<a class="pomoc-sljedeca" href="{{$sljedeciURL}}">{{$sljedeci}} →</a>{{else}}<span></span>{{end}}
+</nav>
+{{end}}
+
 {{define "content"}}
 <div class="breadcrumb"><a href="/">Početna</a> › Pomoć</div>
 
@@ -35,10 +46,11 @@
   <a href="#dnevnik-dezurstva">{{icon "users"}} <span><strong>Upisati dežurstvo</strong><small>Plan i potvrda uprave centra</small></span></a>
   <a href="#dnevnik-obracun">{{icon "calculator"}} <span><strong>Izvesti obračun</strong><small>IORS i Excel za računovodstvo</small></span></a>
   <a href="#arhiva-unos">{{icon "package"}} <span><strong>Uvesti hidrološki niz</strong><small>CSV, Excel i zatečeni podaci</small></span></a>
+  <a href="#prognoze">{{icon "trending-up"}} <span><strong>Provjeriti prognozu</strong><small>Rasponi, pouzdanost i put vala</small></span></a>
   <a href="#settings">{{icon "radio-tower"}} <span><strong>Povezati računalo</strong><small>Čvor, mreža i sinkronizacija</small></span></a>
 </div>
 
-<nav class="pomoc-kazalo" aria-label="Sadržaj">
+<nav class="pomoc-kazalo" id="pomoc-kazalo" aria-label="Sadržaj">
   <div class="kazalo-grupa">
     <a class="kazalo-glava" href="#pocetak">Kako se program koristi</a>
     <a class="kazalo-glava" href="#dashboard">Početna</a>
@@ -86,6 +98,13 @@
     <a href="#arhiva-selidba">Prebacivanje u arhivu i pospremanje</a>
   </div>
   <div class="kazalo-grupa">
+    <a class="kazalo-glava" href="#prognoze">Prognoze</a>
+    <a href="#prognoze-citanje">Kako čitati prognozu</a>
+    <a href="#prognoze-profil">Uzdužni profil</a>
+    <a href="#prognoze-metoda">Kako nastaje</a>
+    <a href="#prognoze-ogranicenja">Ograničenja i provjera</a>
+  </div>
+  <div class="kazalo-grupa">
     <a class="kazalo-glava" href="#journals">Dokumentacija</a>
     <a href="#tok-obrane">Tok aktivne obrane</a>
     <a href="#dnevnik-cop">Dnevnik COP-a</a>
@@ -104,10 +123,14 @@
     <a class="kazalo-glava" href="#potpisi">Potpisi i izvornici</a>
     <a class="kazalo-glava" href="#users">Djelatnici</a>
     <a class="kazalo-glava" href="#registers">Registri</a>
+    <a class="kazalo-glava" href="#slivovi">Slivovi</a>
+    <a href="#slivovi-kisomjeri">Kvazi-kišomjeri</a>
     <a class="kazalo-glava" href="#admin">Administracija</a>
+    <a href="#telemetrija">Telemetrija letava</a>
     <a href="#admin-test">Testne opcije</a>
     <a class="kazalo-glava" href="#profile">Moj profil</a>
     <a class="kazalo-glava" href="#pojmovi">Pojmovnik</a>
+    <a class="kazalo-glava" href="#o-programu">O programu</a>
   </div>
 </nav>
 
@@ -138,7 +161,16 @@
       tablice imaju svoj oblik za uski zaslon — isti podaci, drukčije složeni. Tablica koja ne
       stane u širinu zaslona razlaže se u kartice, s naslovom stupca uz svaku vrijednost, pa se
       ništa ne mora listati ustranu. Tablice koje stanu ostaju tablice.</p>
+    <h3>Karte</h3>
+    <p>Gumbi gore desno na karti uključuju i isključuju <strong>puni zaslon</strong> te, uz
+      dopuštenje preglednika, centriraju kartu na <strong>vaš položaj</strong>. Plavi krug pokazuje
+      približnu točnost. Kotačić miša ili pomak s dva prsta povećava i smanjuje kartu kao gumbi
+      <strong>+</strong> i <strong>−</strong>, a četiri strelice pomiču je gore, dolje, lijevo i desno.
+      Položaj služi samo za orijentaciju: ne sprema se i ne šalje programu.
+      Na obrascu prijave poseban gumb <em>Moj položaj</em> namjerno upisuje koordinate u obrazac.
+      Određivanje položaja radi na lokalnom računalu ili preko zaštićene HTTPS veze.</p>
   </div>
+  {{template "pomocPoglavljeNav" (list "" "" "Početna" "#dashboard")}}
 </section>
 
 <section class="detail-section" id="dashboard">
@@ -191,6 +223,7 @@
       pojedini modul potreban za rad, ovlasti uređuje administrator pod <em>Administracija → Moduli
       i ovlasti</em>.</p>
   </div>
+  {{template "pomocPoglavljeNav" (list "Kako se program koristi" "#pocetak" "Teren" "#teren")}}
 </section>
 
 <section class="detail-section" id="teren">
@@ -202,6 +235,7 @@
     <p>Traka napretka pokazuje koliko je letvi danas očitano. Letva se otvara pritiskom, a
       očitanje se upisuje velikim poljem za broj — na terenu se ne pogađa sitna tipka.</p>
   </div>
+  {{template "pomocPoglavljeNav" (list "Početna" "#dashboard" "Dionice" "#sections")}}
 </section>
 
 <section class="detail-section" id="sections">
@@ -256,6 +290,7 @@
       dobiva dužnost na dionici ili na cijelom branjenom području, i time pravo da po njoj
       upisuje. Popis zaduženih vidi se na kartici dionice, s funkcijom i brojem telefona.</p>
   </div>
+  {{template "pomocPoglavljeNav" (list "Teren" "#teren" "Vodomjerne postaje" "#stations")}}
 </section>
 
 <section class="detail-section" id="stations">
@@ -382,6 +417,7 @@
     <p>Na stranici očitanja Excel prati odabrano razdoblje. CSV ostaje za sirovu obradu i povrat
       ispravaka, a <code>.cop</code> za prijenos cijelog historijata među čvorovima.</p>
   </div>
+  {{template "pomocPoglavljeNav" (list "Dionice" "#sections" "Operativni vodostaji" "#readings")}}
 </section>
 
 <section class="detail-section" id="readings">
@@ -445,6 +481,7 @@
       se stvarno mijenja, kroz istu knjigu verzija kao izmjena jednog po jednog. Poslije se zna
       tko je i kad što promijenio.</p>
   </div>
+  {{template "pomocPoglavljeNav" (list "Vodomjerne postaje" "#stations" "Arhiva vodostaja" "#arhiva")}}
 </section>
 
 <section class="detail-section" id="arhiva">
@@ -557,6 +594,47 @@
       kroz <em>Administracija → Unos u arhivu → Očitanja iz programa</em>, gdje radi za sve letve uz
       pregled i provjeru. Alat <code>selidba-arhive</code> u naredbenom retku služi za izravan rad na poslužitelju.</p>
   </div>
+  {{template "pomocPoglavljeNav" (list "Operativni vodostaji" "#readings" "Prognoze" "#prognoze")}}
+</section>
+
+<section class="detail-section" id="prognoze">
+  <h2>{{icon "trending-up"}} Prognoze</h2>
+  <div class="reg-card pomoc-tekst">
+    <p>Prognoza povezuje zadnja mjerenja s povijesnim ponašanjem postaja i procjenjuje kako bi se
+      vodni val mogao kretati. Prikazuje sadašnje stanje, satne dosege <strong>+6 i +12 sati</strong>
+      te dnevne vrijednosti za sljedećih šest dana. To je operativno pomagalo, a ne službeni
+      hidraulički model ni zamjena za procjenu stručne osobe.</p>
+
+    <h3 id="prognoze-citanje">Kako čitati prognozu</h3>
+    <p>Svaka kartica postaje pokazuje zadnji vodostaj, a gdje je moguće i protok. Ispod procijenjene
+      vrijednosti stoji <strong>raspon neizvjesnosti</strong>; boje upozoravaju približava li se taj
+      raspon pragu obrane. Svjetlije prikazana vrijednost znači da na tom dosegu prognoza u provjeri
+      nije bila bolja od jednostavne pretpostavke da će stanje ostati isto. Mađarske i srpske javne
+      prognoze prikazuju se zasebno kada su raspoložive i ne predstavljaju mjerenje goCOP-a.</p>
+
+    <h3 id="prognoze-profil">Uzdužni profil</h3>
+    <p>Profil slaže postaje redom niz vodotok. Lijevo od oznake „sad” prikazana su mjerenja, desno
+      prognoza. Klizač pomiče vrijeme sat po sat pa se vidi put vala, a odabirom dosega prikazuje se
+      njegov raspon. Okomita os pokazuje promjenu prema današnjem stanju, ne apsolutnu kotu.</p>
+
+    <h3 id="prognoze-metoda">Kako nastaje</h3>
+    <p>Satni model prenosi izmjereni val lancem postaja prema povijesno utvrđenom kašnjenju i vezi,
+      uz korekciju zadnjim stvarnim mjerenjem. Dnevni model povezuje više uzvodnih ulaza i slične
+      povijesne situacije. Za svaku postaju i doseg zadržava se inačica koja se u provjeri na starim
+      podacima pokazala boljom. Novi račun pokreće se kada stignu svježa očitanja; ovlaštena osoba
+      može gumbom <em>Generiraj</em> odmah ponoviti cijeli ciklus.</p>
+    <p>Stranica <em>O prognozi</em> pokazuje ulazne postaje, jednadžbe i rezultate provjere, a izvoz
+      u Excel daje tablični pregled. <code>prognoze.db</code> čuva izvedene rezultate i parametre:
+      nije službena knjiga ni <code>.cop</code> kanal i može se ponovno izračunati iz ulaznih nizova.</p>
+
+    <h3 id="prognoze-ogranicenja">Ograničenja i provjera</h3>
+    <p>Najviše vrijedi unutar raspona vodostaja i događaja koje je model već vidio. Nagla promjena
+      rada akumulacije, led, kvar postaje, uspor ili rijetka kombinacija pritoka mogu ga učiniti
+      slabijim. Zato se uvijek gledaju raspon, svježina mjerenja i usporedba s postojanošću, a odluka
+      se ne donosi samo iz jedne brojke. Modeli se provjeravaju unatrag i na odabranim poplavnim
+      valovima; provjerljivi parovi prognoza–mjerenje mogu se izvesti u CSV.</p>
+  </div>
+  {{template "pomocPoglavljeNav" (list "Arhiva vodostaja" "#arhiva" "Dokumentacija" "#journals")}}
 </section>
 
 <section class="detail-section" id="journals">
@@ -682,6 +760,7 @@
       obliku obrasca za potpis.</p>
     <p><a class="btn btn-secondary btn-sm" href="/dnevnici">{{icon "notebook"}} Otvori Dnevnike</a></p>
   </div>
+  {{template "pomocPoglavljeNav" (list "Prognoze" "#prognoze" "Sredstva za obranu" "#sredstva")}}
 </section>
 
 <section class="detail-section" id="sredstva">
@@ -704,6 +783,7 @@
     <p>Skladištar piše za svoje područje, a uprava područja i sektora za svoj doseg. Excel za
       Glavni centar daje stanje svih skladišta na odabrani dan.</p>
   </div>
+  {{template "pomocPoglavljeNav" (list "Dokumentacija" "#journals" "E-pošta i adresar" "#posta")}}
 </section>
 
 <section class="detail-section" id="posta">
@@ -723,6 +803,7 @@
     <p>Vanjske slike u pismu mogu poslužitelju pošiljatelja otkriti da je poruka otvorena. Ako je
       domena nedostupna ili je lozinka pogrešna, to ne blokira lokalni rad ostalih modula.</p>
   </div>
+  {{template "pomocPoglavljeNav" (list "Sredstva za obranu" "#sredstva" "Potpisi i izvornici" "#potpisi")}}
 </section>
 
 <section class="detail-section" id="potpisi">
@@ -744,6 +825,7 @@
       provjeru. Brisanje ovjerenog izvornika dostupno je samo posebnom testnom opcijom i ne smije
       biti uključeno u operativnom radu.</p>
   </div>
+  {{template "pomocPoglavljeNav" (list "E-pošta i adresar" "#posta" "Djelatnici" "#users")}}
 </section>
 
 <section class="detail-section" id="users">
@@ -757,6 +839,7 @@
       svaki simulirani potpis vidljivo je označen kao bezvrijedan. Te se opcije u operativnom
       radu drže isključenima.</p>
   </div>
+  {{template "pomocPoglavljeNav" (list "Potpisi i izvornici" "#potpisi" "Registri" "#registers")}}
 </section>
 
 <section class="detail-section" id="registers">
@@ -784,6 +867,28 @@
         detaljno u odjeljku <a href="#sredstva">Sredstva za obranu</a>.</li>
     </ul>
   </div>
+  {{template "pomocPoglavljeNav" (list "Djelatnici" "#users" "Slivovi" "#slivovi")}}
+</section>
+
+<section class="detail-section" id="slivovi">
+  <h2>{{icon "cloud-rain"}} Slivovi</h2>
+  <div class="reg-card pomoc-tekst">
+    <p>Registar prikazuje <strong>međuslivove između susjednih vodomjernih postaja</strong>: dio
+      prostora s kojega voda pritječe između gornje i donje letve. Na karti su zajedno poligoni
+      međuslivova, tokovi rijeka, postaje i točke meteoroloških ulaza, pa se može provjeriti što
+      pripada kojem dijelu prognostičkog lanca.</p>
+
+    <h3 id="slivovi-kisomjeri">Kvazi-kišomjeri</h3>
+    <p>To nisu fizički uređaji. Točke predstavljaju dijelove međusliva i visinske pojaseve na kojima
+      program iz Open‑Metea preuzima oborinu, snijeg i temperaturu iz ERA5‑Land reanalize i vremenske
+      prognoze. Težina govori koliki dio međusliva točka zastupa; zbroj težina aktivnih točaka treba
+      biti približno 1. Meteorološki nizovi čuvaju se odvojeno od registra.</p>
+    <p>Globalni administrator može dodati i urediti točku ili je premjestiti izravno na karti.
+      Nakon izmjene treba provjeriti koordinate, visinski pojas, površinu i zbroj težina. Poligoni
+      potječu iz HydroBASINS/HydroSHEDS skupa (CC BY 4.0), a tokovi iz OpenStreetMapa (ODbL); izvor
+      ostaje naveden uz prikaz.</p>
+  </div>
+  {{template "pomocPoglavljeNav" (list "Registri" "#registers" "Administracija" "#admin")}}
 </section>
 
 <section class="detail-section" id="admin">
@@ -822,6 +927,10 @@
       <li><strong>Elektronički potpisi</strong> — izdavatelj ovog čvora, izdavatelji uparenih
         čvorova i pregled osobnih certifikata.</li>
       <li><strong>E-pošta</strong> — zajedničke postavke Exchange/EWS ili SMTP poslužitelja.</li>
+      <li id="telemetrija"><strong>Telemetrija letava</strong> — račun za HydroView i mobilnu
+        stranicu Hrvatskih voda. Lozinke su šifrirane ključem čvora i ne sinkroniziraju se, pa se
+        na svakom računalu upisuju zasebno. Za mobilnu stranicu može se preuzeti korisnikov račun
+        e-pošte; pojedina postaja zatim uključuje izvor i po potrebi dobiva vlastiti račun.</li>
       <li><strong>Uvozi podataka</strong> — jednokratni uvozi iz vanjskih evidencija.</li>
       <li><strong>Računi i lozinke</strong> — aktivacija računa i postavljanje početne lozinke;
         korisnik je pri prvoj prijavi mora zamijeniti.</li>
@@ -836,6 +945,7 @@
       što ne može poništiti. Prije stvarnog rada sve testne prekidače treba isključiti i provjeriti
       da u bazi nema probnih izvornika.</p>
   </div>
+  {{template "pomocPoglavljeNav" (list "Slivovi" "#slivovi" "Moj profil" "#profile")}}
 </section>
 
 <section class="detail-section" id="profile">
@@ -855,6 +965,7 @@
       Zapisi uvijek stižu cijeli, a sadržaj nastao na ovom računalu ne otpušta se. Uredski
       poslužitelj obično prati sve, a terenski laptop samo ono što njegovu korisniku treba.</p>
   </div>
+  {{template "pomocPoglavljeNav" (list "Administracija" "#admin" "Pojmovnik" "#pojmovi")}}
 </section>
 
 <section class="detail-section" id="pojmovi">
@@ -894,6 +1005,87 @@
       <dt>Čvor</dt><dd>Jedno računalo s vlastitom bazom. Čvorovi se usklađuju kad se vide na mreži.</dd>
     </dl>
   </div>
+  {{template "pomocPoglavljeNav" (list "Moj profil" "#profile" "O programu" "#o-programu")}}
+</section>
+
+<section class="detail-section" id="o-programu">
+  <h2>{{icon "info"}} O programu</h2>
+  <div class="reg-card pomoc-tekst">
+    <h3>Što je goCOP</h3>
+    <p><strong>goCOP je otvoreni, lokalno usmjeren informacijski sustav za obranu od poplava.</strong>
+      Na jednom mjestu povezuje operativne vodostaje i hidrološku arhivu, branjene dionice,
+      vodne građevine, teren, dnevnike, izvješća, akte, sredstva i ljude koji sudjeluju u obrani.
+      Svako računalo može raditi sa svojom bazom i bez stalne veze s internetom, a odabrani se
+      sadržaj među ovlaštenim čvorovima usklađuje kada je mreža dostupna.</p>
+    <p>Program je prvenstveno nastao za potrebe Hrvatskih voda, ali je zamišljen tako da ga mogu
+      prilagoditi i druge vodoprivredne organizacije. goCOP pomaže urediti podatke, postupke i
+      dokazni trag; ne zamjenjuje stručnu prosudbu, službene hidrološke prognoze ni odluke
+      odgovornih osoba.</p>
+    <p>Nositelj prava na program naveden u repozitoriju su <strong>Hrvatske vode</strong>.
+      Program je osmislio i izgradio <strong>Tomislav Kraljević</strong>. Sloj razmjene
+      <code>internal/razmjena</code> razvili su Tomislav Kraljević i Mario Kraljević.</p>
+
+    <h3>Licenca programa</h3>
+    <p>Izvorni kod goCOP-a objavljen je pod licencom
+      <a href="https://interoperable-europe.ec.europa.eu/collection/eupl/eupl-text-eupl-12"
+        target="_blank" rel="noopener"><strong>European Union Public Licence 1.2
+        (EUPL‑1.2)</strong></a>. Licenca dopušta uporabu, proučavanje, izmjenu i daljnju
+      distribuciju uz poštovanje njezinih uvjeta, uključujući očuvanje obavijesti o autorstvu i
+      odgovarajuće licenciranje izvedenica. Program se daje bez jamstva, u granicama dopuštenim
+      zakonom. U distribuciji su mjerodavni tekst <code>LICENSE</code>, hrvatska inačica
+      <code>LICENSE_hr.txt</code> i obavijesti u datoteci <code>NOTICE</code>.</p>
+    <p>EUPL pokriva programski kod goCOP-a. Ne prenosi prava na službeni naziv i znak Hrvatskih
+      voda, niti mijenja prava nad podacima, kartama, fotografijama, dokumentima i drugim
+      sadržajem koji korisnik unese ili preuzme iz vanjskog izvora.</p>
+
+    <h3>Korišteni otvoreni kod i ugrađeni resursi</h3>
+    <p>goCOP se oslanja na sljedeće komponente. Svaka zadržava vlastitu licencu; njihove pune
+      obavijesti nalaze se uz izvorni kod ili u pripadajućem modulu.</p>
+    <dl class="pomoc-licence">
+      <div><dt>EUPL‑1.2</dt><dd>goCOP, osim posebno označenih dijelova.</dd></div>
+      <div><dt>MIT</dt><dd>sloj <code>internal/razmjena</code>, <code>digitorus/pkcs7</code>, <code>go-toml/v2</code>,
+        <code>goldmark</code>, <code>go-humanize</code>, <code>go-isatty</code>,
+        <code>go-strftime</code> i KaTeX.</dd></div>
+      <div><dt>BSD 3-Clause</dt><dd>Go i njegova standardna biblioteka, <code>google/uuid</code>,
+        <code>golang.org/x/crypto</code>, <code>x/image</code>, <code>x/text</code> i
+        <code>x/sys</code>, <code>bigfft</code>, modernc biblioteke
+        (<code>sqlite</code>, <code>libc</code>, <code>mathutil</code> i <code>memory</code>)
+        te ugrađeni Go fontovi.</dd></div>
+      <div><dt>BSD 2-Clause</dt><dd>Leaflet, biblioteka za interaktivne karte.</dd></div>
+      <div><dt>ISC / MIT</dt><dd>Lucide ikone; dio ikona izveden je iz projekta Feather pod
+        licencom MIT.</dd></div>
+      <div><dt>Javno vlasništvo</dt><dd>Jezgra SQLite; Go omotač modernc.org/sqlite zasebno je
+        pod licencom BSD 3-Clause.</dd></div>
+    </dl>
+
+    <h3>Karte, vanjski podaci i mrežne usluge</h3>
+    <ul>
+      <li><strong>OpenStreetMap</strong> — kartografski podaci © suradnici OpenStreetMapa,
+        licenca ODbL; zadane mrežne pločice pruža Wikimedia Maps, a pretraživanje mjesta
+        Nominatim. Zasluga se prikazuje i na samoj karti.</li>
+      <li><strong>Open‑Meteo</strong> — meteorološki podaci dostupni su pod licencom CC BY 4.0.
+        Usluga radi samo kada je internet dostupan.</li>
+      <li><strong>HydroBASINS / HydroSHEDS</strong> — poligoni međuslivova dostupni su pod
+        licencom CC BY 4.0.</li>
+      <li><strong>Wikipedija</strong> — opisni podaci o pojedinim vodotocima nose izvor i
+        licencu CC BY‑SA 4.0 uz sam zapis.</li>
+      <li><strong>Službeni i operativni podaci</strong> — podaci Hrvatskih voda, DHMZ-a i drugih
+        pružatelja zadržavaju svoje izvorne uvjete uporabe. Nisu automatski obuhvaćeni licencom
+        programa niti se objavljuju samo zato što ih goCOP može prikazati ili uvesti.</li>
+    </ul>
+
+    <h3>Zahvale</h3>
+    <p>Hvala djelatnicima Hrvatskih voda koji su svojim iskustvom s terena, vođenjem evidencija,
+      provjerom postupaka i strpljivim prijedlozima oblikovali stvarne radne tokove programa;
+      posebno kolegicama i kolegama VGI Baranja koji su godinama stvarali podatkovnu podlogu iz
+      koje je projekt izrastao. Hvala Mariju Kraljeviću na radu na sloju razmjene i
+      prof. dr. Nenadu Šuvaku na suradnji pri razvoju i provjeri prognostičkog modela, te
+      autorima i suradnicima svih projekata otvorenog koda na kojima goCOP počiva.</p>
+    <p>Hvala i ustanovama koje javno objavljuju hidrološke, meteorološke, prostorne i druge
+      stručne podatke, kao i suradnicima OpenStreetMapa i Wikipedije. Bez njihova rada ovakav
+      povezani pregled prostora i voda ne bi bio moguć.</p>
+  </div>
+  {{template "pomocPoglavljeNav" (list "Pojmovnik" "#pojmovi" "" "")}}
 </section>
 <a class="pomoc-na-vrh" href="#pomoc" aria-label="Na vrh pomoći" title="Na vrh">↑</a>
 {{end}}

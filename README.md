@@ -22,8 +22,10 @@ prva računala. Kaže što program radi na računalu i mreži, što ne radi, i
   terena, dnevna izvješća dionica i sektora te dnevnici usluga A.02 i A.03.
 - **Registri i resursi:** ustroj organizacije, dionice i poddionice, vodomjerne
   postaje, vodotoci, objekti, teritorijalne jedinice, djelatnici i zaduženja,
-  izvođači, održavanje te materijalno-tehnička sredstva sa skladištima, prometom,
-  inventurom i potrebama za nabavom.
+  izvođači, održavanje, međuslivovi i meteorološke točke te materijalno-tehnička
+  sredstva sa skladištima, prometom, inventurom i potrebama za nabavom.
+- **Hidrološka prognoza:** satne i dnevne procjene s rasponom neizvjesnosti,
+  uzdužnim profilom vodnog vala, povijesnom provjerom i izvozom u Excel.
 - **Službeni dokumenti:** PDF i Excel obrasci, osobni PAdES potpisi, kvalificirani
   potpis iz SIGNATOR-a, vlastoručni potpis i žig, slanje izvornika e-poštom te
   Exchange sandučić i adresar tvrtke.
@@ -53,6 +55,7 @@ Detaljni postupci i ovlasti opisani su u ugrađenoj stranici **Pomoć**.
   | `gocop.db` (+ `-wal`, `-shm`) | SQLite baza — operativa, registri, korisnici i knjiga verzija |
   | `sadrzaj.db` (+ `-wal`, `-shm`) | PDF-ovi i drugi veliki službeni sadržaji, spremljeni jednom po SHA-256 otisku |
   | `vodostaji.db` (+ `-wal`, `-shm`) | obnovljiva hidrološka arhiva i evidencija primljenih izdanja |
+  | `prognoze.db` (+ `-wal`, `-shm`) | izvedene prognoze, parametri i rezultati provjere; obnovljivi iz ulaznih nizova |
   | `gocop.toml` | postavke, s komentarima; program je zapiše pri prvom pokretanju |
   | `node-key` | privatni ključ ovog računala (Ed25519), prava 0600 |
   | `network-key` | ključ mreže, kod čvora koji ju je osnovao |
@@ -81,12 +84,13 @@ iza tunela i dalje sluša HTTP.
 | **4711** | TCP, TLS 1.3 | dolazno | uparivanje — samo dok uparivanje traje |
 | **4712** | UDP, broadcast | lokalna mreža | pronalaženje drugih goCOP računala u istom segmentu |
 
-**Što ide izvan računala:** program nema telemetriju ni obvezni cloud; sučelje,
-fontovi i skripte ugrađeni su u program. Poslovni podaci sinkroniziraju se samo
+**Što ide izvan računala:** program nema telemetriju o uporabi ni obvezni cloud;
+sučelje, fontovi i skripte ugrađeni su u program. Poslovni podaci sinkroniziraju se samo
 s izričito uparenim goCOP čvorovima, obostrano autentificiranim TLS-om 1.3.
 Ako ih administrator uključi, zasebne veze postoje prema poslužitelju e-pošte,
-javnim vodostajima, Open-Meteu i izvoru mrežnih karata. Bez njih osnovni rad
-ostaje dostupan.
+javnim i prijavljenim izvorima vodostaja (HydroView i mLetva), vanjskim
+prognozama, Open-Meteu i izvoru mrežnih karata. Lozinke vanjskih izvora ostaju
+šifrirane na tom čvoru i ne sinkroniziraju se. Bez tih veza osnovni rad ostaje dostupan.
 
 **Za vatrozid:** dopustiti dolazne TCP 80/8080, 4710 i 4711 te UDP 4712
 između računala koja sudjeluju u testu. Portovi se mijenjaju u `gocop.toml`.
@@ -95,7 +99,9 @@ između računala koja sudjeluju u testu. Portovi se mijenjaju u `gocop.toml`.
 
 - **Podaci su na računalu.** Operativa i kazalo službenih zapisa su u
   `gocop.db`, veliki PDF-ovi i drugi sadržaji u `sadrzaj.db`, a hidrološka
-  povijest u `vodostaji.db` i izvornom stablu. Ne šalju se nikamo osim na
+  povijest u `vodostaji.db` i izvornom stablu. `prognoze.db` je izvedeni,
+  obnovljivi rezultat i ne ulazi u knjigu verzija ni `.cop` kanal. Podaci se
+  ne šalju nikamo osim na
   uparena računala prema pretplati čvora ili u `.cop` paket koji administrator
   izričito izda.
 - **Osobni podaci.** Registar djelatnika sadrži imena, funkcije, telefone i

@@ -177,7 +177,14 @@ možda još drži; da nastavi gdje je stao, gurnuo bi ih natrag.
 izdanje 2027.1 šest mjeseci", da se čvor potjera dok je to još sitnica — a ne
 da se otkrije tek kad zaborav stane.
 
-### 7. Objava i ovjera kao ulaz u repozitorij  *(odlučeno, nije napravljeno)*
+### 7. Objava i ovjera kao ulaz u repozitorij  *(djelomično napravljeno)*
+
+**Stanje 25. 9. 2026.** Spremište velikih sadržaja u `sadrzaj.db` radi, a
+objavljene prijave s terena i njihovi PDF-ovi već se zaključavaju i odvajaju
+od operativne baze. Pojedini ovjereni tokovi (dnevni listovi, dnevnici COP-a i
+akti) također izrađuju nepromjenjivi potpisani izvornik. Još nije napravljeno
+jedinstveno kazalo svih službenih zapisa ni isti atomski prijelaz za svaki
+modul, pa tekst ispod ostaje cilj zajedničkog modela.
 
 Starost nije glavni okidač za dokumente. **Objava ili ovjera trenutak je u
 kojem radni zapis postaje službeni zapis.** Do tada se nacrt i prilozi
@@ -217,7 +224,15 @@ je već slučaj s vodostajima. Veliki nepromjenjivi sadržaji čuvaju se jednom,
 po SHA-256 otisku, u zajedničkom spremištu; isti prilog se ne umnaža zato što
 ga prikazuju dnevnik, prijava i PDF.
 
-### 8. `.cop` kanali i selektivna sinkronizacija  *(odlučeno, nije napravljeno)*
+### 8. `.cop` kanali i selektivna sinkronizacija  *(djelomično napravljeno)*
+
+**Stanje 25. 9. 2026.** `.cop` inačica 3 već radi za kanale očitanja,
+dnevnika i prijava: paket nosi potpisani manifest, zapise, popis sadržaja i po
+izboru same sadržaje, a uvoz provjerava potpis, otiske i red izdanja. Pretplate
+po vrsti, području, godinama i razini sadržaja rade i u mrežnoj razmjeni.
+Hidrološka arhiva ostaje u svojoj inačici 2 po postaji. Nisu još dovršeni svi
+planirani kanali, zajednički katalog na mreži, prijenos sadržaja po dijelovima
+ni dohvat na zahtjev.
 
 `.cop` nije nova neovisna aplikacijska baza. To je potpisano izdanje jednog
 kanala repozitorija službenih zapisa i njegove zajedničke povijesti, a ne samo
@@ -228,9 +243,10 @@ dodatno suziti na sektor, branjeno područje, postaju i razdoblje, primjerice
 
 Paket nosi potpisani manifest, vrstu i verziju kanala, obuhvat, zapise,
 popis potrebnih sadržaja, njihove veličine i otiske te vezu na prethodno
-izdanje. Velike datoteke dijele se na provjerljive dijelove kako bi se prijenos
-mogao nastaviti nakon prekida i kako se već postojeći sadržaj ne bi preuzimao
-ponovno.
+izdanje. Danas se sadržaji prenose cijeli, uz ograničenje količine po jednom
+krugu razmjene. Plan je velike datoteke dijeliti na provjerljive dijelove kako
+bi se prijenos mogao nastaviti nakon prekida i kako se već postojeći sadržaj
+ne bi preuzimao ponovno.
 
 Automatska razmjena koristi isti manifest i dijelove kao ručna `.cop`
 datoteka. Razlika je samo put: mreža ih prenosi izravno između uparenih i

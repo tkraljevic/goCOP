@@ -15,6 +15,13 @@ izričite suglasnosti.
   Osijek od 2005. godine; ti dnevnici su povijesna građa za modul dnevnika
   i rješenja.
 
+## Razvoj programa
+
+- Mario Kraljević sudjelovao je u razvoju sloja za sigurnu razmjenu podataka
+  među goCOP čvorovima (`internal/razmjena`).
+- Prof. dr. Nenad Šuvak sudjelovao je u neslužbenoj stručnoj suradnji pri
+  razvoju i provjeri prognostičkog modela.
+
 ## Unos podataka u aplikaciju app.bp16.xyz (Baranja)
 
 Prije goCOP-a podaci o obrani od poplava za Baranju unosili su se u

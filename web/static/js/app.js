@@ -558,6 +558,192 @@ function renderMarkdown(md) {
   }
 })();
 
+// Zajedničke kontrole svih Leaflet karata. Položaj služi samo za orijentaciju
+// i ne sprema se; obrasci koji preuzimaju GPS u svoja polja imaju zaseban gumb.
+function dodajKontroleKarte(karta, platno, opcije) {
+  if (!karta || !platno || typeof L === 'undefined') return;
+  opcije = opcije || {};
+
+  var kontrola = L.control({ position: 'topright' });
+  var smjerovi = L.control({ position: 'topleft' });
+  var puni = null;
+  var lokacija = null;
+  var cssPuniZaslon = false;
+  var slojPolozaja = null;
+  var traziPolozaj = false;
+
+  function ikonaPuni(izlaz) {
+    return izlaz
+      ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg>'
+      : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5"/></svg>';
+  }
+
+  function elementPunogZaslona() {
+    return document.fullscreenElement || document.webkitFullscreenElement || null;
+  }
+
+  function uPunomZaslonu() {
+    return elementPunogZaslona() === platno || cssPuniZaslon;
+  }
+
+  function osvjeziPuniZaslon() {
+    var aktivan = uPunomZaslonu();
+    if (puni) {
+      puni.innerHTML = ikonaPuni(aktivan);
+      puni.title = aktivan ? 'Izađi iz punog zaslona' : 'Prikaži kartu preko cijelog zaslona';
+      puni.setAttribute('aria-label', puni.title);
+      puni.setAttribute('aria-pressed', aktivan ? 'true' : 'false');
+    }
+    karta.invalidateSize();
+    window.setTimeout(function () { karta.invalidateSize(); }, 120);
+  }
+
+  function ukljuciCSSPuniZaslon() {
+    cssPuniZaslon = true;
+    platno.classList.add('karta-puni-zaslon');
+    document.body.classList.add('karta-puni-zaslon-otvoren');
+    osvjeziPuniZaslon();
+  }
+
+  function iskljuciCSSPuniZaslon() {
+    cssPuniZaslon = false;
+    platno.classList.remove('karta-puni-zaslon');
+    document.body.classList.remove('karta-puni-zaslon-otvoren');
+    osvjeziPuniZaslon();
+  }
+
+  function promijeniPuniZaslon() {
+    if (cssPuniZaslon) {
+      iskljuciCSSPuniZaslon();
+      return;
+    }
+    if (elementPunogZaslona() === platno) {
+      var izlaz = document.exitFullscreen || document.webkitExitFullscreen;
+      if (izlaz) izlaz.call(document);
+      return;
+    }
+    var zahtjev = platno.requestFullscreen || platno.webkitRequestFullscreen;
+    if (!zahtjev) {
+      ukljuciCSSPuniZaslon();
+      return;
+    }
+    try {
+      var rezultat = zahtjev.call(platno);
+      if (rezultat && typeof rezultat.catch === 'function') {
+        rezultat.catch(ukljuciCSSPuniZaslon);
+      }
+    } catch (e) {
+      ukljuciCSSPuniZaslon();
+    }
+  }
+
+  function porukaPolozaja(greska) {
+    if (!greska) return 'Položaj nije dostupan.';
+    if (greska.code === 1) return 'Pristup položaju nije dopušten. Omogućite lokaciju u postavkama preglednika.';
+    if (greska.code === 3) return 'Traženje položaja je isteklo. Pokušajte ponovno.';
+    return 'Položaj trenutačno nije dostupan.';
+  }
+
+  function pronadiPolozaj() {
+    if (traziPolozaj) return;
+    if (!navigator.geolocation) {
+      alert('Ovaj uređaj ili preglednik ne daje položaj.');
+      return;
+    }
+    traziPolozaj = true;
+    lokacija.classList.add('trazi-lokaciju');
+    lokacija.title = 'Tražim položaj…';
+    navigator.geolocation.getCurrentPosition(function (poz) {
+      var latlng = [poz.coords.latitude, poz.coords.longitude];
+      if (slojPolozaja) karta.removeLayer(slojPolozaja);
+      var tocnost = Math.max(0, poz.coords.accuracy || 0);
+      slojPolozaja = L.layerGroup([
+        L.circle(latlng, {
+          radius: tocnost,
+          color: '#2563eb',
+          weight: 1,
+          opacity: 0.65,
+          fillColor: '#60a5fa',
+          fillOpacity: 0.12,
+          interactive: false
+        }),
+        L.circleMarker(latlng, {
+          radius: 7,
+          color: '#ffffff',
+          weight: 3,
+          fillColor: '#2563eb',
+          fillOpacity: 1
+        }).bindPopup('<strong>Vaš položaj</strong>' + (tocnost ? '<br>Točnost približno ' + Math.round(tocnost) + ' m' : ''))
+      ]).addTo(karta);
+      karta.setView(latlng, Math.max(karta.getZoom(), 15));
+      traziPolozaj = false;
+      lokacija.classList.remove('trazi-lokaciju');
+      lokacija.title = 'Prikaži moj položaj';
+    }, function (greska) {
+      traziPolozaj = false;
+      lokacija.classList.remove('trazi-lokaciju');
+      lokacija.title = 'Prikaži moj položaj';
+      alert(porukaPolozaja(greska));
+    }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 });
+  }
+
+  kontrola.onAdd = function () {
+    var okvir = L.DomUtil.create('div', 'leaflet-bar gocop-karta-kontrole');
+    puni = L.DomUtil.create('button', 'gocop-karta-kontrola', okvir);
+    puni.type = 'button';
+    puni.innerHTML = ikonaPuni(false);
+    puni.title = 'Prikaži kartu preko cijelog zaslona';
+    puni.setAttribute('aria-label', puni.title);
+    puni.setAttribute('aria-pressed', 'false');
+    L.DomEvent.on(puni, 'click', L.DomEvent.stop).on(puni, 'click', promijeniPuniZaslon);
+
+    if (opcije.lokacija !== false) {
+      lokacija = L.DomUtil.create('button', 'gocop-karta-kontrola', okvir);
+      lokacija.type = 'button';
+      lokacija.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5.64 5.64l2.12 2.12M16.24 16.24l2.12 2.12M18.36 5.64l-2.12 2.12M7.76 16.24l-2.12 2.12"/></svg>';
+      lokacija.title = 'Prikaži moj položaj';
+      lokacija.setAttribute('aria-label', lokacija.title);
+      L.DomEvent.on(lokacija, 'click', L.DomEvent.stop).on(lokacija, 'click', pronadiPolozaj);
+    }
+    L.DomEvent.disableClickPropagation(okvir);
+    L.DomEvent.disableScrollPropagation(okvir);
+    return okvir;
+  };
+  kontrola.addTo(karta);
+
+  smjerovi.onAdd = function () {
+    var okvir = L.DomUtil.create('div', 'leaflet-bar gocop-karta-smjerovi');
+    function dodajSmjer(klasa, naslov, x, y, putanja) {
+      var gumb = L.DomUtil.create('button', 'gocop-karta-smjer ' + klasa, okvir);
+      gumb.type = 'button';
+      gumb.title = naslov;
+      gumb.setAttribute('aria-label', naslov);
+      gumb.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + putanja + '"/></svg>';
+      L.DomEvent.on(gumb, 'click', L.DomEvent.stop).on(gumb, 'click', function () {
+        var velicina = karta.getSize();
+        karta.panBy([
+          x * Math.max(90, Math.round(velicina.x * 0.3)),
+          y * Math.max(90, Math.round(velicina.y * 0.3))
+        ], { animate: true, duration: 0.25 });
+      });
+    }
+    dodajSmjer('smjer-gore', 'Pomakni kartu gore', 0, -1, 'M6 15l6-6 6 6');
+    dodajSmjer('smjer-lijevo', 'Pomakni kartu lijevo', -1, 0, 'M15 6l-6 6 6 6');
+    dodajSmjer('smjer-desno', 'Pomakni kartu desno', 1, 0, 'M9 6l6 6-6 6');
+    dodajSmjer('smjer-dolje', 'Pomakni kartu dolje', 0, 1, 'M6 9l6 6 6-6');
+    L.DomEvent.disableClickPropagation(okvir);
+    L.DomEvent.disableScrollPropagation(okvir);
+    return okvir;
+  };
+  smjerovi.addTo(karta);
+
+  document.addEventListener('fullscreenchange', osvjeziPuniZaslon);
+  document.addEventListener('webkitfullscreenchange', osvjeziPuniZaslon);
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && cssPuniZaslon) iskljuciCSSPuniZaslon();
+  });
+}
+
 // Karta položaja letve. Pločice dolaze s mreže, sve ostalo je lokalno — pa
 // program bez interneta i dalje radi, samo bez podloge. Kad se pločice jednom
 // preuzmu za područje obrane, u postavkama se upiše lokalna putanja i karta
@@ -571,7 +757,8 @@ function renderMarkdown(md) {
       if (!platno || isNaN(lat) || isNaN(lon) || !okvir.dataset.plocice) return;
 
       var najvise = parseInt(okvir.dataset.najviseZ, 10) || 17;
-      var karta = L.map(platno, { scrollWheelZoom: false }).setView([lat, lon], 14);
+      var karta = L.map(platno, { scrollWheelZoom: true }).setView([lat, lon], 14);
+      dodajKontroleKarte(karta, platno);
       var sloj = L.tileLayer(okvir.dataset.plocice, {
         maxZoom: najvise,
         attribution: okvir.dataset.zasluge || ''
@@ -591,8 +778,6 @@ function renderMarkdown(md) {
       var podaci = okvir.querySelector('.karta-letva-podaci');
       var popup = podaci ? stationMapPopup(JSON.parse(podaci.textContent), true) : escapeHtml(okvir.dataset.naziv || '');
       L.marker([lat, lon]).addTo(karta).bindPopup(popup);
-      // kotačić miša lista stranicu; karta se približava tek na klik
-      karta.on('click', function () { karta.scrollWheelZoom.enable(); });
     });
   });
 })();
@@ -630,7 +815,8 @@ function renderMarkdown(md) {
       }
 
       var najvise = parseInt(okvir.dataset.najviseZ, 10) || 17;
-      var karta = L.map(platno, { scrollWheelZoom: false });
+      var karta = L.map(platno, { scrollWheelZoom: true });
+      dodajKontroleKarte(karta, platno);
       var sloj = L.tileLayer(okvir.dataset.plocice, {
         maxZoom: najvise,
         attribution: okvir.dataset.zasluge || ''
@@ -713,7 +899,6 @@ function renderMarkdown(md) {
         karta.setView([45.5, 18.0], 8);
       }
 
-      karta.on('click', function () { karta.scrollWheelZoom.enable(); });
 
       // Kontrole za uređivanje geometrije toka rijeke
       var sekcija = okvir.closest('.detail-section') || okvir.parentElement;
@@ -992,7 +1177,8 @@ function renderMarkdown(md) {
       }
 
       var najvise = parseInt(okvir.dataset.najviseZ, 10) || 17;
-      var karta = L.map(platno, { scrollWheelZoom: false });
+      var karta = L.map(platno, { scrollWheelZoom: true });
+      dodajKontroleKarte(karta, platno);
       var sloj = L.tileLayer(okvir.dataset.plocice, {
         maxZoom: najvise,
         attribution: okvir.dataset.zasluge || ''
@@ -1077,7 +1263,6 @@ function renderMarkdown(md) {
         karta.setView([45.5, 18.2], 8);
       }
 
-      karta.on('click', function () { karta.scrollWheelZoom.enable(); });
     });
   });
 })();
@@ -1095,6 +1280,7 @@ function renderMarkdown(md) {
       if (!platno || !uLat || !uLon) return;
       if (isNaN(lat) || isNaN(lon)) { lat = 45.55; lon = 18.7; }
       var karta = L.map(platno).setView([lat, lon], okvir.dataset.oznaceno ? 15 : 11);
+      dodajKontroleKarte(karta, platno, { lokacija: false });
       if (okvir.dataset.plocice) {
         var promasaja = 0;
         var sloj = L.tileLayer(okvir.dataset.plocice, { maxZoom: parseInt(okvir.dataset.najviseZ, 10) || 17, attribution: okvir.dataset.zasluge || '' });
@@ -1566,7 +1752,8 @@ function renderMarkdown(md) {
       var slivovi = jsonIz('.karta-slivovi-podaci');
       var postaje = jsonIz('.karta-postaje-podaci') || [];
 
-      var karta = L.map(platno, { scrollWheelZoom: false });
+      var karta = L.map(platno, { scrollWheelZoom: true });
+      dodajKontroleKarte(karta, platno);
       var promasaja = 0;
       var sloj = L.tileLayer(okvir.dataset.plocice, { maxZoom: parseInt(okvir.dataset.najviseZ, 10) || 17, attribution: okvir.dataset.zasluge || '' });
       sloj.on('tileerror', function () {
@@ -1665,7 +1852,6 @@ function renderMarkdown(md) {
       });
 
       if (obuhvat.isValid()) karta.fitBounds(obuhvat, { padding: [25, 25] }); else karta.setView([46.2, 16.5], 7);
-      karta.on('click', function () { karta.scrollWheelZoom.enable(); });
 
       // premještanje: isti gumbi kao kod toka rijeke
       var sekcija = okvir.closest('.detail-section') || okvir.parentElement;

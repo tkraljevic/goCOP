@@ -74,7 +74,7 @@ func (h *TelemetrijaHandler) Prikazi(w http.ResponseWriter, r *http.Request) {
 	data := TelemetrijaPageData{
 		CurrentUser:  currUser,
 		Permissions:  perms,
-		ActiveNav:    "administracija",
+		ActiveNav:    "admin",
 		Adresa:       hidroview.ZadanaAdresa,
 		ViewAsBanner: viewBanner(r),
 	}

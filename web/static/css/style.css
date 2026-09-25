@@ -2818,6 +2818,27 @@ textarea {
 .pomoc-tekst li { margin-bottom: 0.4rem; }
 .pomoc-pojmovi dt { font-weight: 700; color: var(--text-strong); margin-top: 0.6rem; }
 .pomoc-pojmovi dd { margin: 0.1rem 0 0; color: var(--text-secondary); }
+.pomoc-licence {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: 0.65rem; margin: 0 0 0.9rem;
+}
+.pomoc-licence > div {
+  min-width: 0; padding: 0.75rem 0.85rem; border: 1px solid var(--border);
+  border-radius: 6px; background: var(--bg-subtle);
+}
+.pomoc-licence dt { margin: 0 0 0.2rem; font-weight: 750; color: var(--text-strong); }
+.pomoc-licence dd { margin: 0; color: var(--text-secondary); }
+.pomoc-licence code { overflow-wrap: anywhere; }
+.pomoc-poglavlje-nav {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center; gap: 0.6rem 1rem; max-width: 62rem;
+  margin-top: 0.65rem; padding: 0.65rem 0.8rem;
+  border-top: 1px solid var(--border); color: var(--text-secondary);
+}
+.pomoc-poglavlje-nav a { color: var(--text-secondary); font-size: 0.82rem; text-decoration: none; }
+.pomoc-poglavlje-nav a:hover { color: var(--primary); text-decoration: underline; }
+.pomoc-poglavlje-nav .pomoc-sve-teme { color: var(--primary); font-weight: 700; text-align: center; }
+.pomoc-poglavlje-nav .pomoc-sljedeca { text-align: right; }
 .pomoc-na-vrh {
   position: fixed; right: 1rem; bottom: 1rem; z-index: 4; display: flex;
   align-items: center; justify-content: center; width: 2.5rem; height: 2.5rem;
@@ -2840,6 +2861,8 @@ textarea {
 }
 @media (max-width: 390px) {
   .pomoc-brzi, .pomoc-kazalo { grid-template-columns: 1fr; }
+  .pomoc-poglavlje-nav { grid-template-columns: 1fr 1fr; }
+  .pomoc-poglavlje-nav .pomoc-sve-teme { grid-column: 1 / -1; grid-row: 1; }
 }
 
 /* Presjek korita ispod grafa očitanja */
@@ -2892,6 +2915,96 @@ textarea {
 .karta-sve-postaje.karta-prazna .karta-platno { opacity: 0.65; }
 /* isolate: slojevi karte (z-index do 1000) ostaju unutar karte, pa ne prekrivaju ljepljivu navigaciju */
 .leaflet-container { background: var(--bg-subtle); font: inherit; isolation: isolate; }
+.gocop-karta-kontrole {
+  overflow: hidden;
+  border: 1px solid rgb(0 0 0 / 20%);
+  border-radius: 4px;
+  box-shadow: 0 1px 5px rgb(0 0 0 / 20%);
+}
+.gocop-karta-kontrola {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid #ccc;
+  background: #fff;
+  color: #173f73;
+  cursor: pointer;
+}
+.gocop-karta-kontrola:last-child { border-bottom: 0; }
+.gocop-karta-kontrola:hover,
+.gocop-karta-kontrola:focus-visible,
+.gocop-karta-kontrola[aria-pressed="true"] { background: #f0f6ff; color: #075da8; }
+.gocop-karta-kontrola:focus-visible { outline: 3px solid #f4b942; outline-offset: -3px; }
+.gocop-karta-kontrola svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.gocop-karta-kontrola.trazi-lokaciju svg { animation: karta-trazi-lokaciju 1s linear infinite; }
+@keyframes karta-trazi-lokaciju { to { transform: rotate(360deg); } }
+.gocop-karta-smjerovi {
+  display: grid;
+  grid-template-columns: repeat(3, 28px);
+  grid-template-rows: repeat(3, 28px);
+  overflow: hidden;
+  border: 1px solid rgb(0 0 0 / 20%);
+  border-radius: 4px;
+  box-shadow: 0 1px 5px rgb(0 0 0 / 20%);
+  background: #fff;
+}
+.gocop-karta-smjer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  background: #fff;
+  color: #173f73;
+  cursor: pointer;
+}
+.gocop-karta-smjer:hover,
+.gocop-karta-smjer:focus-visible { background: #f0f6ff; color: #075da8; }
+.gocop-karta-smjer:focus-visible { outline: 3px solid #f4b942; outline-offset: -3px; }
+.gocop-karta-smjer svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.gocop-karta-smjer.smjer-gore { grid-column: 2; grid-row: 1; }
+.gocop-karta-smjer.smjer-lijevo { grid-column: 1; grid-row: 2; }
+.gocop-karta-smjer.smjer-desno { grid-column: 3; grid-row: 2; }
+.gocop-karta-smjer.smjer-dolje { grid-column: 2; grid-row: 3; }
+.karta-platno:fullscreen,
+.karta-platno:-webkit-full-screen,
+.karta-platno.karta-puni-zaslon {
+  width: 100vw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  min-height: 0 !important;
+  border: 0;
+  border-radius: 0;
+  background: var(--bg-subtle);
+}
+.karta-platno.karta-puni-zaslon {
+  position: fixed !important;
+  inset: 0;
+  z-index: 10000;
+}
+body.karta-puni-zaslon-otvoren { overflow: hidden; }
 @media (max-width: 700px) {
   .karta-platno { height: 240px; }
   .karta-vodotoka .karta-platno { height: 300px; }

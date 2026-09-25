@@ -76,7 +76,26 @@ GRAFIČKI ZNAKOVI
     © Lucide Icons and Contributors — vidi web/static/img/LICENSE-lucide.txt;
     simbol "waves" je vlastiti, u istom stilu.
 
-OVISNOSTI (Go moduli, permisivne licence spojive s EUPL-1.2)
-  modernc.org/sqlite (BSD-3), github.com/google/uuid (BSD-3),
-  github.com/pelletier/go-toml/v2 (MIT), github.com/yuin/goldmark (MIT),
-  golang.org/x/crypto (BSD-3) — pune licence u modulima.
+OVISNOSTI I UGRAĐENI RESURSI
+  MIT: github.com/digitorus/pkcs7, github.com/pelletier/go-toml/v2,
+       github.com/yuin/goldmark, github.com/dustin/go-humanize,
+       github.com/mattn/go-isatty, github.com/ncruces/go-strftime i KaTeX.
+  BSD-3: Go i standardna biblioteka, github.com/google/uuid,
+         github.com/remyoudompheng/bigfft, golang.org/x/crypto,
+         golang.org/x/image, golang.org/x/text, golang.org/x/sys,
+         modernc.org/sqlite, modernc.org/libc, modernc.org/mathutil,
+         modernc.org/memory i Go fontovi.
+  BSD-2: Leaflet.
+  ISC/MIT: Lucide ikone; dio izveden iz projekta Feather pod licencom MIT.
+  SQLite jezgra je u javnom vlasništvu; Go omotač modernc.org/sqlite zasebno
+  je pod licencom BSD-3. Pune licence dolaze uz pripadajuće module, a licence
+  ugrađenih mrežnih biblioteka nalaze se u web/static/vendor.
+
+VANJSKE MREŽNE USLUGE
+  OpenStreetMap: kartografski podaci © suradnici OpenStreetMapa, ODbL;
+                 mrežne pločice zadano pruža Wikimedia Maps, a pretraživanje
+                 mjesta Nominatim. Zasluga se prikazuje na karti.
+  Open-Meteo: meteorološki podaci CC BY 4.0.
+  HydroBASINS / HydroSHEDS: poligoni međuslivova CC BY 4.0.
+  Podaci vanjskih usluga zadržavaju uvjete svojih pružatelja i nisu
+  relicencirani EUPL-om samo zato što ih program prikazuje.

@@ -83,10 +83,10 @@ Ovo nije početak iz prazna:
 | otisak niza za provjeru pri preuzimanju | radi (`nizovi.otisak`) |
 | rad bez interneta | radi |
 | dohvatljivost preko interneta | nema ugrađeno pronalaženje; radi preko unaprijed dohvatljive adrese ili vanjskog tunela |
-| selektivna replikacija | radi za očitanja i dnevnike po vrsti, sektoru ili branjenom području i godinama |
-| prijenos bez mreže | radi izvozom i uvozom odabranih kanala u SQLite datoteku |
-| izravni prijenos datoteka i blobova među čvorovima | nema |
-| opseg kao granica replikacije | djelomično: očitanja i dnevnici imaju kanale; zajednički registri dolaze svima |
+| selektivna replikacija | radi za očitanja, dnevnike i prijave po vrsti, sektoru ili branjenom području, godinama i razini sadržaja |
+| prijenos bez mreže | radi potpisanim `.cop` v3 paketima za očitanja, dnevnike i prijave; stari SQLite izvoz ostaje radi kompatibilnosti |
+| izravni prijenos datoteka i blobova među čvorovima | djelomično: sadržaj iz `sadrzaj.db` prenosi se po SHA-256 otisku u ograničenim porukama; nema nastavka po dijelovima ni dohvata na klik |
+| opseg kao granica replikacije | djelomično: očitanja, dnevnici i prijave imaju kanale i pretplate; zajednički registri dolaze svima |
 | izdanja hidrološke arhive | rade kao potpisani `.cop` paketi po letvi s lokalnim katalogom |
 | provenijencija i potpisi po zapisu | djelomično |
 
