@@ -212,6 +212,13 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"s 23, 37 i 50 cm na 21, 31 i 40, na Aljmašu s 23, 34 i 45 na 21, 28 i 35, na Vukovaru sa 17, 26 i 35 " +
 				"na 16, 22 i 28, na Iloku sa 16, 24 i 33 na 16, 21 i 27; prva tri dana lošija su za pola do jedan " +
 				"centimetar. Dravski međuslivovi uz dunavske nizvodnim letvama ne pomažu, pa ne ulaze."),
+			tekstM("Prema mađarskoj prognozi (hydroinfo.hu, 28 izdanja od rujna 2024. do rujna 2026., model naučen do " +
+				"rujna 2024., s arhiviranim prognozama kiše), srednja pogreška 1.–6. dana u cm, oni prema nama: Botovo " +
+				"24, 37, 41, 51, 52, 58 prema 16, 26, 27, 25, 34, 36; Terezino Polje 14, 28, 40, 48, 52, 60 prema 11, " +
+				"23, 31, 29, 30, 37; Donji Miholjac 7, 20, 36, 47, 55, 52 prema 7, 18, 29, 34, 32, 37; Belišće 6, 10, " +
+				"20, 29, 42, 44 prema 6, 13, 23, 29, 29, 28. Bez kiše Botovo je bilo 20, 35, 38, 46, 52, 58. Osijek " +
+				"im ostaje bolji (12–62 prema 13–81), jer ondje odlučuje uspor Dunava; Aljmaš je naš bolji do 3. dana, " +
+				"njihov od 5. (alat usporedi-dnevnu)."),
 			tekstM("Je li dnevna prognoza računata s kišom, piše uz vrijeme izdanja na stranici Prognoze, uz razlog " +
 				"kad nije (oborine nisu preuzete, kvota ili mreža). U izvozu izdanja i u Excelu svaka dnevna vrijednost " +
 				"nosi oznaku modela: dnevni-1-kisa kad je računata s kišom, dnevni-1 bez nje."),
