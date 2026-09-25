@@ -48,6 +48,12 @@ func JedinicaVelicine(v string) string {
 		return "g/m³"
 	case "pronos":
 		return "t"
+	case "oborina", "snijeg":
+		return "mm"
+	case "visina-snijega":
+		return "cm"
+	case "temperatura-zraka":
+		return "°C"
 	}
 	return ""
 }

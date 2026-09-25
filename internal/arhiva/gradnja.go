@@ -226,7 +226,8 @@ var Zagreb = func() *time.Location {
 // Pravo putovanje vala je oko 5 sati.
 func zonaIzvora(izvor string) *time.Location {
 	switch {
-	case izvor == "vituki", izvor == "danubehis", strings.HasPrefix(izvor, "preracun-"):
+	case izvor == "vituki", izvor == "danubehis", strings.HasPrefix(izvor, "preracun-"), strings.HasPrefix(izvor, "openmeteo"):
+		// Open-Meteo vraća sat kakav se zatraži; kišomjeri se preuzimaju u UTC
 		return time.UTC
 	}
 	return Zagreb
@@ -733,6 +734,12 @@ func mogucaVrijednost(velicina string, v float64) bool {
 		return v >= -2 && v <= 45 // °C
 	case "koncentracija", "pronos":
 		return v >= 0
+	case "oborina", "snijeg":
+		return v >= 0 && v < 1000 // mm u satu ili danu; najveća satna u nas je ispod 100
+	case "visina-snijega":
+		return v >= 0 && v < 2000 // cm
+	case "temperatura-zraka":
+		return v >= -50 && v <= 50 // °C
 	case "kota":
 		// apsolutna kota vodnog lica, cm n. m. — HEP tako vodi svoje letve na
 		// Dravi; najniža je Donji Miholjac oko 90 m, najviša Formin oko 220 m
@@ -828,6 +835,10 @@ func bezDalekih(velicina string, z []zapis) []zapis {
 // što susjedi oko njih mirno stoje: 65, −640, 63 nije pad vodostaja nego kvar
 // mjerila. Traže se oba susjeda, i to bliska u vremenu — vrijednost uz
 // prazninu u nizu ne dira se, jer ondje ne znamo što je između.
+// zbrajaSe javlja skuplja li se veličina po danu zbrojem, a ne srednjakom:
+// oborina i snijeg su količine koje padnu, ne stanja koja se očitaju.
+func zbrajaSe(velicina string) bool { return velicina == "oborina" || velicina == "snijeg" }
+
 func bezSiljaka(velicina string, z []zapis) []zapis {
 	if velicina != "vodostaj" || len(z) < 3 {
 		return z
@@ -1171,6 +1182,13 @@ var zadaniIzvori = []Izvor{
 	{"arso-borl", 5, 10, true, "", "ARSO, stari Borl do 1981.; odvojeno od Borla I zbog HE Formin"},
 	{"arso-borl-i", 5, 10, true, "", "ARSO, Borl I od 1989.; odvojeno od starog Borla zbog HE Formin"},
 	{"ehyd", 5, 10, true, "", "austrijska hidrološka služba, javno objavljeni srednjaci; točnost proglašena, ne izmjerena"},
+	// kvazi-kišomjeri — reanalize s Open-Meteo, po točkama iz registra slivova.
+	// ERA5 (25 km) ide do danas, pa spojeni niz stoji na njemu; CERRA (5,5 km)
+	// staje sredinom 2021. i bolje vidi planine, pa ostaje zaseban niz za
+	// usporedbu — na 1350 m u Alpama daje 60 % više oborine od ERA5
+	{"openmeteo-era5", 0, 10, true, "", "ECMWF ERA5 reanaliza, 25 km, od 1940.; oborina i snijeg"},
+	{"openmeteo-era5land", 0, 10, true, "", "ECMWF ERA5-Land reanaliza, 11 km, od 1950.; temperatura zraka i visina snijega"},
+	{"openmeteo-cerra", 0, 20, true, "", "Copernicus CERRA reanaliza, 5,5 km, 1985.–6/2021.; zaseban niz, ne ulazi u spoj ispred ERA5"},
 	{"gkd", 5, 10, true, "", "bavarska hidrološka služba, provjereni dnevni protoci; točnost proglašena, ne izmjerena"},
 	{"his2000-cs", 0, 10, false, "", "Donji Miholjac — odlučuje se kad dođe Drava"},
 	{"his2000-spojeno", 0, 10, false, "", "Donji Miholjac — odlučuje se kad dođe Drava"},
@@ -1522,11 +1540,20 @@ func spojiJedan(db Izvrsitelj, letva, velicina string, redSpajanja []string, toc
 			if n < 20 { // nepotpun dan ne daje srednjak
 				continue
 			}
+			v, vrsta := zbroj[d]/float64(n), "srednjak"
+			if zbrajaSe(velicina) {
+				// oborina i snijeg se po danu zbrajaju, a zbroj nepotpunog dana
+				// bio bi premalen, pa mora biti svih 24 sata
+				if n < 24 {
+					continue
+				}
+				v, vrsta = zbroj[d], "zbroj"
+			}
 			t := najgora[d]
 			if prije, ima := dnevni[d]; ima && prije.tocnost <= t {
 				continue
 			}
-			dnevni[d] = spojena{v: zbroj[d] / float64(n), izvor: izvorDana[d], vrsta: "srednjak", tocnost: t}
+			dnevni[d] = spojena{v: v, izvor: izvorDana[d], vrsta: vrsta, tocnost: t}
 		}
 	}
 	for _, izvor := range redSpajanja {

@@ -435,7 +435,7 @@ func krivuljaZa(krivulje []models.HQKrivulja, kad time.Time) *models.HQKrivulja 
 // decimalaVelicine je koliko decimala veličina traži da bi značila ono što piše.
 func decimalaVelicine(v string) int {
 	switch v {
-	case "temperatura", "koncentracija":
+	case "temperatura", "koncentracija", "oborina", "snijeg", "temperatura-zraka":
 		return 1
 	}
 	return 0

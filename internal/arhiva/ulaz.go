@@ -18,7 +18,11 @@ import (
 
 // Velicine i Vrste su ono što gradnja razumije.
 var (
-	Velicine = []string{"vodostaj", "protok", "temperatura", "koncentracija", "pronos"}
+	// Uz veličine s letve tu su i one s kvazi-kišomjera (registar slivova):
+	// oborina i snijeg u mm vodenog ekvivalenta, visina snijega u cm i
+	// temperatura zraka — odvojena od temperature vode, jer im rasponi i
+	// smisao nisu isti.
+	Velicine = []string{"vodostaj", "protok", "temperatura", "koncentracija", "pronos", "oborina", "snijeg", "visina-snijega", "temperatura-zraka"}
 	Vrste    = []string{"satni", "srednjak", "jutarnji", "dnevni", "dvokratni"}
 	Zone     = []string{"Europe/Zagreb", "UTC"}
 )
@@ -277,6 +281,7 @@ func zaglavlje(velicina string, redci []Redak) string {
 	drugi := map[string]string{
 		"vodostaj": "vodostaj_cm", "protok": "protok_m3s", "temperatura": "temperatura_c",
 		"koncentracija": "koncentracija_gl", "pronos": "pronos_kgs",
+		"oborina": "oborina_mm", "snijeg": "snijeg_mm", "visina-snijega": "visina_snijega_cm", "temperatura-zraka": "temperatura_zraka_c",
 	}[velicina]
 	if drugi == "" {
 		drugi = velicina
