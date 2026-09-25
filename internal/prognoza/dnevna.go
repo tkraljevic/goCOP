@@ -104,14 +104,18 @@ type DnevniCilj struct {
 // (VrhoviIzDnevnog).
 //
 // Mura ima svoju dnevnu prognozu: Mursko Središće samo iz vlastite razine i
-// kiše nad Murom (uzvodno nema satne letve), Letenye i Kotoriba iz uzvodnih.
-// Na 2024.–2026. s tada izdanim prognozama kiše, pogreška 1.–6. dan: Mursko
-// Središće 9, 13, 15, 17, 18 i 21 cm (postojanost 14–28), Kotoriba 11, 17,
-// 20, 24, 26 i 29 (postojanost 18–41).
+// kiše nad Murom (uzvodno nema satne letve), Goričan, Letenye i Kotoriba iz
+// uzvodnih. Goričan je naša letva nasuprot Letenyeu (isti rkm, javni izvor,
+// satni niz od 1982.) i u dnevnom modelu nosi Kotoribu; Letenye ostaje vrh
+// satnog lanca Botova. Na 2024.–2026. s tada izdanim prognozama kiše,
+// pogreška 1.–6. dan: Mursko Središće 9, 13, 15, 17, 18 i 21 cm (postojanost
+// 14–28), Goričan 7, 14, 15, 19, 20 i 23 (postojanost 14–31), Kotoriba 11,
+// 18, 20, 23, 26 i 29 (postojanost 18–41).
 var DnevniCiljevi = []DnevniCilj{
 	{"mursko-sredisce", nil, []string{"B"}},
+	{"gorican", []string{"mursko-sredisce"}, []string{"B"}},
 	{"letenye", []string{"mursko-sredisce"}, []string{"B"}},
-	{"kotoriba", []string{"letenye", "mursko-sredisce"}, []string{"B"}},
+	{"kotoriba", []string{"gorican", "mursko-sredisce"}, []string{"B"}},
 	{"botovo", []string{"mursko-sredisce", "borl-i"}, []string{"A", "B", "C"}},
 	{"terezino-polje", []string{"botovo", "mursko-sredisce", "borl-i"}, []string{"A", "B", "C", "D"}},
 	{"donji-miholjac", []string{"terezino-polje", "botovo", "mursko-sredisce", "borl-i"}, []string{"A", "B", "C", "D", "E"}},
