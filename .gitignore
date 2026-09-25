@@ -39,6 +39,7 @@ ocitanja/
 
 # radne datoteke alata za razvoj
 .claude/
+.venv/
 pakete/
 
 # Uvoznik starih dnevnika COP-a radi nad digitaliziranim uvezom s imenima

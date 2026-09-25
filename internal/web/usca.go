@@ -2,11 +2,10 @@ package web
 
 import (
 	"encoding/json"
-	"math"
 	"regexp"
-	"sort"
 	"strings"
 
+	geom "gocop/internal/geometrija"
 	"gocop/internal/hydro"
 )
 
@@ -101,87 +100,37 @@ func citajGeoTok(b []byte) (geoTok, bool) {
 	return t, len(t.linija) >= 2
 }
 
-// ravnina preslikava zemljopisne koordinate u približne metre oko zadane
-// širine, da se udaljenosti i projekcije računaju ravno. Na 46° stupanj
-// dužine je kraći od stupnja širine za trećinu.
-func ravnina(sirina float64) func([2]float64) [2]float64 {
-	k := math.Cos(sirina * math.Pi / 180)
-	return func(p [2]float64) [2]float64 { return [2]float64{p[0] * k * 111320, p[1] * 111320} }
-}
-
-// projekcija vraća položaj točke uzduž linije (duljina od početka) i njezinu
-// udaljenost od linije, oboje u jedinicama ravnine.
-func projekcija(linija [][2]float64, p [2]float64) (uzduz, udaljenost float64) {
-	najbolje := math.Inf(1)
-	var duljina, mjesto float64
-	for i := 0; i+1 < len(linija); i++ {
-		a, b := linija[i], linija[i+1]
-		dx, dy := b[0]-a[0], b[1]-a[1]
-		seg := math.Hypot(dx, dy)
-		t := 0.0
-		if seg > 0 {
-			t = ((p[0]-a[0])*dx + (p[1]-a[1])*dy) / (seg * seg)
-			t = math.Max(0, math.Min(1, t))
-		}
-		q := [2]float64{a[0] + t*dx, a[1] + t*dy}
-		d := math.Hypot(p[0]-q[0], p[1]-q[1])
-		if d < najbolje {
-			najbolje, mjesto = d, duljina+t*seg
-		}
-		duljina += seg
-	}
-	return mjesto, najbolje
-}
-
 // usceNaToku računa kilometar glavnog toka na kojem pritoka u njega ulazi.
 // Kraj pritoke je onaj njezin kraj koji je bliže glavnom toku; kilometar se
-// interpolira između dviju oznaka rkm između kojih projekcija padne. Bez
+// interpolira između dviju susjednih rkm sidara između kojih projekcija padne. Bez
 // barem dviju oznaka ili s krajem pritoke dalje od dva kilometra od toka
 // ušća nema — takva geometrija ne kaže gdje se vode sastaju.
 func usceNaToku(pritoka, glavni geoTok) (float64, bool) {
 	if len(glavni.oznake) < 2 || len(pritoka.linija) == 0 {
 		return 0, false
 	}
-	u := ravnina(glavni.linija[0][1])
-	linija := make([][2]float64, len(glavni.linija))
-	for i, p := range glavni.linija {
-		linija[i] = u(p)
-	}
-	kraj, najD := 0.0, math.Inf(1)
-	for _, k := range [][2]float64{pritoka.linija[0], pritoka.linija[len(pritoka.linija)-1]} {
-		s, d := projekcija(linija, u(k))
-		if d < najD {
-			kraj, najD = s, d
-		}
-	}
-	if najD > 2000 {
-		return 0, false
-	}
-	type oznaka struct{ s, rkm float64 }
-	var o []oznaka
+	sidra := make([]geom.Sidro, 0, len(glavni.oznake))
 	for _, z := range glavni.oznake {
-		s, d := projekcija(linija, u(z.xy))
-		if d > 2000 {
-			continue
-		}
-		o = append(o, oznaka{s, z.rkm})
+		sidra = append(sidra, geom.Sidro{Rkm: z.rkm, Tocka: z.xy, Izvor: "GeoJSON rkm sidro"})
 	}
-	if len(o) < 2 {
+	kalibracija, err := geom.NovaKalibracija(glavni.linija, sidra)
+	if err != nil {
 		return 0, false
 	}
-	sort.Slice(o, func(i, j int) bool { return o[i].s < o[j].s })
-	i := sort.Search(len(o), func(i int) bool { return o[i].s >= kraj })
-	switch {
-	case i == 0:
-		i = 1
-	case i == len(o):
-		i = len(o) - 1
+	kraj, najD := 0.0, 1e9
+	for _, k := range [][2]float64{pritoka.linija[0], pritoka.linija[len(pritoka.linija)-1]} {
+		p, err := geom.Projektiraj(glavni.linija, k)
+		if err != nil {
+			return 0, false
+		}
+		if p.UdaljenostKM < najD {
+			kraj, najD = p.UzduzKM, p.UdaljenostKM
+		}
 	}
-	a, b := o[i-1], o[i]
-	if b.s == a.s {
-		return a.rkm, true
+	if najD > 2 {
+		return 0, false
 	}
-	return a.rkm + (kraj-a.s)/(b.s-a.s)*(b.rkm-a.rkm), true
+	return kalibracija.RKM(kraj)
 }
 
 var reRkmUOpisu = regexp.MustCompile(`(?i)rkm\s*[0-9]+(?:[+.,][0-9]+)?`)
