@@ -36,6 +36,9 @@ func main() {
 	uciDo := flag.String("uci-do", "2012-01-01", "učenje vidi samo dane prije ovoga")
 	kraj := flag.String("kraj", "2025-01-01", "provjera do ovog dana")
 	valoviPut := flag.String("valovi", "", "CSV s vrhovima valova (neobavezno)")
+	udioRegr := flag.Float64("udio-regresije", prognoza.DnevniUdioRegresije, "udio regresije u srednjaku procjena (0 = samo analogije, 1 = samo regresija)")
+	analogija := flag.Int("analogija", prognoza.DnevnihAnalogija, "koliko se analogija uzima")
+	tezinske := flag.Bool("analogije-tezinske", false, "analogije s težinom obrnuto razmjernom udaljenosti")
 	ciljeviS := flag.String("ciljevi", "", `isprobaj druge ciljeve, npr. "botovo=letenye,borl-i;belisce=botovo+A,B,C" (+ međuslivovi čija oborina ulazi)`)
 	registarPut := flag.String("registar", "data/gocop.db", "registar s kišomjerima (za oborinu)")
 	uciOd := flag.String("uci-od", "", "učenje vidi samo dane od ovoga (prazno = od početka niza)")
@@ -44,6 +47,9 @@ func main() {
 	unaprijed := flag.Bool("prognoza-kise", true, "i prognozirana kiša (u provjeri: stvarna buduća kiša iz arhive, gornja granica)")
 	prognozePut := flag.String("prognoze-kise", "", "CSV arhiviranih prognoza kiše (sliv;datum;dan;mm): provjera s onim što se tada doista prognoziralo")
 	flag.Parse()
+	prognoza.DnevniUdioRegresije = *udioRegr
+	prognoza.DnevnihAnalogija = *analogija
+	prognoza.DnevneAnalogijeTezinske = *tezinske
 	prognoza.OborinaKorijen, prognoza.OborinaTezinaKNN, prognoza.OborinaUnaprijed = *korijen, *tezinaKNN, *unaprijed
 	ciljevi := prognoza.DnevniCiljevi
 	if *ciljeviS != "" {

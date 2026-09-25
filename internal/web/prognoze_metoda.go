@@ -261,11 +261,16 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				`d^2(t,u)=2\left(\frac{h_T(t)-h_T(u)}{\sigma_h}\right)^2+\sum_i\left(\frac{z_i(t)-z_i(u)}{\sigma_i}\right)^2`),
 			tekstM(fmt.Sprintf("Uzima se K = %d povijesnih dana najbližih današnjem; njihove stvarne promjene Δₖ "+
 				"daju procjenu (srednjak) i rasipanje (standardno odstupanje sₖ).", prognoza.DnevnihAnalogija)),
-			tekstM(fmt.Sprintf("Prognoza je srednjak dviju procjena, a raspon rasipanje analogija pomnoženo s %s, "+
-				"da cilja isti udio kao satni lanac, najmanje 1 cm. Dvije procjene u provjeri griješe u suprotnom "+
-				"smjeru, pa srednjak ima manju pristranost od svake zasebno:", brojHRf(prognoza.DnevniRasponMnozitelj, 2))),
-			formulaM("Δ̂ₖ = ½ · (Δₖ_reg + Δₖ_kNN),   ĥ_T(t + k) = h_T(t) + Δ̂ₖ ± "+brojHRf(prognoza.DnevniRasponMnozitelj, 2)+" · sₖ",
-				`\widehat{\Delta}_k=\frac{1}{2}\left(\Delta_{k,\mathrm{reg}}+\Delta_{k,\mathrm{kNN}}\right),\qquad \hat{h}_T(t+k)=h_T(t)+\widehat{\Delta}_k\pm `+texBroj(brojHRf(prognoza.DnevniRasponMnozitelj, 2))+`\,s_k`),
+			tekstM(fmt.Sprintf("Prognoza je spoj dviju procjena, tri četvrtine regresije i četvrtina analogija, a raspon "+
+				"rasipanje analogija pomnoženo s %s, da cilja isti udio kao satni lanac, najmanje 1 cm. Analogije "+
+				"vrh velikog vala vuku prema srednjem danu, jer rijetkoj velikoj kiši nema dovoljno sličnih dana: na 11 "+
+				"dravskih valova 2012.–2023. vrh Botova 2.–6. dan same analogije promaše 64, 102, 119, 156 i 143 cm, "+
+				"sama regresija 33, 68, 87, 111 i 104, pola-pola 48, 85, 102, 134 i 123. Sama regresija pak s pravim "+
+				"prognozama kiše pojačava njihovu pogrešku 4.–6. dan, pa je omjer tri četvrtine: vrh Botova 41, 76, 94, "+
+				"122 i 114, prvi dani bolji (Donji Miholjac 7 → 5, Belišće 6 → 4), 4.–6. dan bez gubitka:",
+				brojHRf(prognoza.DnevniRasponMnozitelj, 2))),
+			formulaM("Δ̂ₖ = ¾ · Δₖ_reg + ¼ · Δₖ_kNN,   ĥ_T(t + k) = h_T(t) + Δ̂ₖ ± "+brojHRf(prognoza.DnevniRasponMnozitelj, 2)+" · sₖ",
+				`\widehat{\Delta}_k=\tfrac{3}{4}\,\Delta_{k,\mathrm{reg}}+\tfrac{1}{4}\,\Delta_{k,\mathrm{kNN}},\qquad \hat{h}_T(t+k)=h_T(t)+\widehat{\Delta}_k\pm `+texBroj(brojHRf(prognoza.DnevniRasponMnozitelj, 2))+`\,s_k`),
 			tekstM("Uživo je „dan” srednjak 24 sata koji završavaju u satu izdavanja, pa se dnevna prognoza " +
 				"obnavlja svaki sat, a ne tek u ponoć; vrijednost za dan k srednjak je 24 sata koji završavaju " +
 				"k dana poslije."),

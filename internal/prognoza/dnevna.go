@@ -40,7 +40,27 @@ const (
 const DnevniDosezi = 6
 
 // DnevnihAnalogija je koliko se najsličnijih dana iz povijesti uzima.
-const DnevnihAnalogija = 25
+var DnevnihAnalogija = 25
+
+// DnevniUdioRegresije je udio linearne regresije u spoju dviju procjena;
+// ostatak nosi srednjak analogija. Analogije vrh velikog vala vuku prema
+// srednjem danu, jer rijetkoj velikoj kiši nema dovoljno sličnih dana: na 11
+// dravskih valova 2012.–2023. (naučeno do 2012., kiša iz arhive) vrh Botova
+// 2.–6. dan sam srednjak analogija promaši 64, 102, 119, 156 i 143 cm, sama
+// regresija 33, 68, 87, 111 i 104, pola-pola 48, 85, 102, 134 i 123. Sama
+// regresija pak s pravim prognozama kiše 2024.–2026. pojačava njihovu
+// pogrešku 4.–6. dan (Botovo 37 → 40 cm preko svih dana, na mađarskim
+// izdanjima 25, 34, 36 → 32, 41, 43). Tri četvrtine regresije zadržava
+// dobitak prvih dana (Donji Miholjac 1. dan 7 → 5, Belišće 6 → 4), 4.–6. dan
+// ne gubi (Botovo 38, Aljmaš 35 → 34), a vrh Botova hvata za 8–12 cm bolje
+// (41, 76, 94, 122 i 114). Težinske analogije, manji broj analogija i veća
+// težina kiše u udaljenosti ne mijenjaju ništa. Alat provjeri-dnevnu i
+// usporedi-dnevnu imaju kotačić -udio-regresije.
+var DnevniUdioRegresije = 0.75
+
+// DnevneAnalogijeTezinske kaže da se analogije usrednjavaju s težinom
+// obrnuto razmjernom udaljenosti, umjesto običnim srednjakom. Pokusni kotačić.
+var DnevneAnalogijeTezinske = false
 
 // DnevniRasponMnozitelj množi standardno odstupanje analogija da raspon
 // dnevnog modela cilja isti udio kao satni lanac (UdioURasponu): jedno
@@ -687,15 +707,20 @@ func (m *DnevniModel) Prognoziraj(x []float64) (promjena, raspon [DnevniDosezi +
 	sort.Slice(bl, func(a, b int) bool { return bl[a].d < bl[b].d })
 
 	for k := 1; k <= DnevniDosezi; k++ {
-		var zbroj, kv float64
+		var zbroj, kv, tez float64
 		n := 0
 		for _, b := range bl {
 			u := m.uzorci[b.i]
 			if !u.ok[k] {
 				continue
 			}
-			zbroj += u.y[k]
-			kv += u.y[k] * u.y[k]
+			w := 1.0
+			if DnevneAnalogijeTezinske {
+				w = 1 / (math.Sqrt(b.d) + 0.5)
+			}
+			zbroj += w * u.y[k]
+			kv += w * u.y[k] * u.y[k]
+			tez += w
 			n++
 			if n == DnevnihAnalogija {
 				break
@@ -703,10 +728,10 @@ func (m *DnevniModel) Prognoziraj(x []float64) (promjena, raspon [DnevniDosezi +
 		}
 		analog := regr[k]
 		if n > 0 {
-			analog = zbroj / float64(n)
-			raspon[k] = math.Sqrt(math.Max(kv/float64(n)-analog*analog, 0))
+			analog = zbroj / tez
+			raspon[k] = math.Sqrt(math.Max(kv/tez-analog*analog, 0))
 		}
-		promjena[k] = (regr[k] + analog) / 2
+		promjena[k] = DnevniUdioRegresije*regr[k] + (1-DnevniUdioRegresije)*analog
 		raspon[k] = math.Max(DnevniRasponMnozitelj*raspon[k], 1)
 	}
 	return promjena, raspon

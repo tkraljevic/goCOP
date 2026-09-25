@@ -61,7 +61,9 @@ func main() {
 	kasnjenje := flag.Int("kasnjenje", 1, "koliko sati prije njihova izdanja završavaju naša mjerenja")
 	bezKise := flag.Bool("bez-kise", false, "model bez oborine, za usporedbu")
 	ciljeviS := flag.String("ciljevi", "", `umjesto ugrađenih ciljeva, npr. "letenye=mursko-sredisce+B;komarom=wildungsmauer,kienstock+O,K,L,M,N"`)
+	udioRegr := flag.Float64("udio-regresije", prognoza.DnevniUdioRegresije, "udio regresije u srednjaku procjena (0 = samo analogije, 1 = samo regresija)")
 	flag.Parse()
+	prognoza.DnevniUdioRegresije = *udioRegr
 
 	tude, err := citajTude(*tudePut)
 	if err != nil {
