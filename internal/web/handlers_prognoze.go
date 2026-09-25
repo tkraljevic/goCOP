@@ -968,7 +968,10 @@ func (h *PrognozeHandler) mjerenoUnatrag(ctx context.Context, postaje map[string
 	od := izdano.Add(time.Duration(KlizacOd) * time.Hour).Add(-30 * time.Minute)
 	for _, l := range letve {
 		st, ima := postaje[l.Letva]
-		if !ima || st.ZeroDatumNew == nil {
+		if !ima {
+			continue
+		}
+		if _, _, naProfilu := profilVode(st); !naProfilu || IzvanProfila[l.Letva] {
 			continue
 		}
 		rs, err := h.readings.List(ctx, repository.ReadingFilter{StationID: st.ID.String(), From: od, To: izdano})
