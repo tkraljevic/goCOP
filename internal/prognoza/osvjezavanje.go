@@ -70,6 +70,7 @@ type Ishod struct {
 	BezPrognoze map[string]error // letve koje nisu dale nijedan sat
 	Dnevne      []DnevnaIzdana   // dnevna prognoza za 1.–6. dan
 	TudiVrhovi  []string         // vrhovi kojima je budućnost dala tuđa prognoza
+	NasiVrhovi  []string         // vrhovi kojima je budućnost dao naš dnevni model
 	BezDnevne   map[string]error // letve s dnevnim modelom koje ga nisu dale
 	Izbor       map[string]Izbor // letve koje su računate iz rezerve, i iz koje
 }
@@ -159,9 +160,19 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 	}
 
 	r := NovoRacunalo(pojasi, nizovi, sada)
+	if ishod.Izbor == nil {
+		ishod.Izbor = map[string]Izbor{}
+	}
+	nasi := o.vrhoviIzDnevnog(ctx, sada, od)
 	for letva, izvor := range VrhoviSTudomPrognozom {
 		iz := Izvor{Letva: letva, Velicina: "vodostaj"}
 		if !vrhovi[iz] {
+			continue
+		}
+		if n, ima := nasi[letva]; ima {
+			r.PostaviBuducnostVrha(iz, n)
+			ishod.NasiVrhovi = append(ishod.NasiVrhovi, letva)
+			ishod.Izbor["vrh:"+letva] = Izbor{Inacica: 1, Opis: "budućnost vrha lanca iz našeg dnevnog modela s kišom, ne iz tuđe prognoze"}
 			continue
 		}
 		if n, ima, err := TudaPrognoza(o.Baza, izvor, letva, sada-48, sada+6); err == nil && ima {
@@ -310,6 +321,73 @@ func (o *Osvjezivac) dnevniModeliZaDanas() (map[string][]*DnevniModel, map[strin
 	return modeli, greske
 }
 
+// oborinskiDosezi su koliko dana kiše unatrag i unaprijed dnevni model traži.
+func oborinskiDosezi() (unatrag, unaprijed int) {
+	for _, d := range OborinskiDani {
+		unatrag = max(unatrag, d)
+	}
+	for _, d := range OborinskiDaniUnaprijed {
+		unaprijed = max(unaprijed, d)
+	}
+	return unatrag, unaprijed
+}
+
+// vrhoviIzDnevnog računa dnevnu prognozu vrhova lanca iz VrhoviIzDnevnog i
+// slaže je u satni niz za lanac: zadnje mjerenje vrha, pa srednjaci dana
+// smješteni u sredinu svojih 24 sata, pravocrtno između njih.
+func (o *Osvjezivac) vrhoviIzDnevnog(ctx context.Context, sada int64, od time.Time) map[string]Niz {
+	out := map[string]Niz{}
+	if o.Arhiva == nil || len(VrhoviIzDnevnog) == 0 {
+		return out
+	}
+	modeli, _ := o.dnevniModeliZaDanas()
+	unatrag, unaprijed := oborinskiDosezi()
+	oborine, err := OborineOkoSada(o.Oborine, sada, unatrag, unaprijed)
+	if err != nil {
+		oborine = nil
+	}
+	for _, c := range DnevniCiljevi {
+		if !VrhoviIzDnevnog[c.Letva] {
+			continue
+		}
+		satni := map[string]Niz{}
+		for _, in := range c.Inacice() {
+			for _, l := range in.letve() {
+				if _, ima := satni[l]; ima {
+					continue
+				}
+				if n, err := o.ucitajNiz(ctx, Izvor{Letva: l, Velicina: "vodostaj"}, od); err == nil {
+					satni[l] = n
+				}
+			}
+		}
+		for _, m := range modeli[c.Letva] {
+			if m == nil {
+				continue
+			}
+			d, err := PrognozirajDnevno(m, satni, oborine, sada)
+			if err != nil {
+				continue
+			}
+			tocke := map[int64]float64{}
+			if z, ima := satni[c.Letva].ZadnjiSatDo(sada); ima {
+				v, _ := satni[c.Letva].U(z)
+				tocke[z] = v
+			}
+			for _, x := range d {
+				if x.Dan > 0 {
+					tocke[x.Ciljni-12] = x.Vrijednost
+				}
+			}
+			if len(tocke) >= 2 {
+				out[c.Letva] = NizIzTocaka(tocke)
+			}
+			break
+		}
+	}
+	return out
+}
+
 // dnevno izdaje dnevnu prognozu iz satnih očitanja do sata izdavanja.
 //
 // Kad glavni ulaz nema zadnja četiri dana (Borl I zna stati danima), ide
@@ -325,13 +403,7 @@ func (o *Osvjezivac) dnevno(ctx context.Context, sada int64, od time.Time) ([]Dn
 		bez[l] = err
 	}
 	satni := map[string]Niz{}
-	unatrag, unaprijed := 0, 0
-	for _, d := range OborinskiDani {
-		unatrag = max(unatrag, d)
-	}
-	for _, d := range OborinskiDaniUnaprijed {
-		unaprijed = max(unaprijed, d)
-	}
+	unatrag, unaprijed := oborinskiDosezi()
 	oborine, err := OborineOkoSada(o.Oborine, sada, unatrag, unaprijed)
 	if err != nil {
 		log.Printf("dnevni model: oborina uživo: %v", err)

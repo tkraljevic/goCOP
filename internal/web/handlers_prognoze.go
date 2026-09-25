@@ -228,6 +228,12 @@ func (h *PrognozeHandler) podaci(r *http.Request) PrognozePageData {
 			}
 			data.Letve[i].Rezerva += opisRezerve(iz.Opis, postaje)
 		}
+		if iz, ima := izbor["vrh:"+kod]; ima {
+			if data.Letve[i].Rezerva != "" {
+				data.Letve[i].Rezerva += " "
+			}
+			data.Letve[i].Rezerva += iz.Opis
+		}
 	}
 	data.Bliski = BliziDosezi
 	_, dnevne, _ := c.Dnevno()

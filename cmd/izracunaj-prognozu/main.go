@@ -83,6 +83,9 @@ func main() {
 	if len(ishod.TudiVrhovi) > 0 {
 		fmt.Printf("   budućnost vrha iz tuđe prognoze: %v\n", ishod.TudiVrhovi)
 	}
+	if len(ishod.NasiVrhovi) > 0 {
+		fmt.Printf("   budućnost vrha iz našeg dnevnog modela: %v\n", ishod.NasiVrhovi)
+	}
 	for letva, i := range ishod.Izbor {
 		fmt.Printf("   %-16s %s (inačica %d)\n", letva, i.Opis, i.Inacica)
 	}

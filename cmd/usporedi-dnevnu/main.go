@@ -34,6 +34,7 @@ import (
 var sifre = map[string]string{
 	"Botovo": "botovo", "Terezino Polje": "terezino-polje", "Donji Miholjac": "donji-miholjac",
 	"Belišæe": "belisce", "Belišće": "belisce", "Osijek": "osijek", "Aljmaš": "aljmas",
+	"Letenye": "letenye", "Komárom": "komarom", "Mohács": "mohacs", "Budapest": "budapest",
 }
 
 type tuda struct {
@@ -59,6 +60,7 @@ func main() {
 	odS := flag.String("od", "1990-01-01", "i od ovoga")
 	kasnjenje := flag.Int("kasnjenje", 1, "koliko sati prije njihova izdanja završavaju naša mjerenja")
 	bezKise := flag.Bool("bez-kise", false, "model bez oborine, za usporedbu")
+	ciljeviS := flag.String("ciljevi", "", `umjesto ugrađenih ciljeva, npr. "letenye=mursko-sredisce+B;komarom=wildungsmauer,kienstock+O,K,L,M,N"`)
 	flag.Parse()
 
 	tude, err := citajTude(*tudePut)
@@ -77,7 +79,23 @@ func main() {
 		imaTude[t.letva] = true
 	}
 	var ciljevi []prognoza.DnevniCilj
-	for _, c := range prognoza.DnevniCiljevi {
+	ugradjeni := prognoza.DnevniCiljevi
+	if *ciljeviS != "" {
+		ugradjeni = nil
+		for _, c := range strings.Split(*ciljeviS, ";") {
+			l, u, ok := strings.Cut(c, "=")
+			if !ok {
+				log.Fatalf("-ciljevi: %q nije oblika letva=ulaz,ulaz+sliv,sliv", c)
+			}
+			u, slivovi, _ := strings.Cut(u, "+")
+			cilj := prognoza.DnevniCilj{Letva: strings.TrimSpace(l), Ulazi: strings.Split(u, ",")}
+			if slivovi != "" {
+				cilj.Slivovi = strings.Split(slivovi, ",")
+			}
+			ugradjeni = append(ugradjeni, cilj)
+		}
+	}
+	for _, c := range ugradjeni {
 		if imaTude[c.Letva] {
 			if *bezKise {
 				c.Slivovi = nil

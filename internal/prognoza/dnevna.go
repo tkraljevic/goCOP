@@ -98,7 +98,12 @@ type DnevniCilj struct {
 // 39; Aljmaš 23, 34, 45 → 21, 28, 35; Vukovar 17, 26, 35 → 16, 22, 28; Ilok 16,
 // 24, 33 → 16, 21, 27. Prva tri dana lošija su za pola do jedan centimetar.
 // Dravski međuslivovi uz dunavske nizvodnim letvama ne pomažu.
+//
+// Letenye je vrh satnog lanca Mure; njegov dnevni model iz Murskog Središća i
+// kiše nad Murom (B) daje lancu budućnost vrha umjesto mađarske prognoze
+// (VrhoviIzDnevnog).
 var DnevniCiljevi = []DnevniCilj{
+	{"letenye", []string{"mursko-sredisce"}, []string{"B"}},
 	{"botovo", []string{"mursko-sredisce", "borl-i"}, []string{"A", "B", "C"}},
 	{"terezino-polje", []string{"botovo", "mursko-sredisce", "borl-i"}, []string{"A", "B", "C", "D"}},
 	{"donji-miholjac", []string{"terezino-polje", "botovo", "mursko-sredisce", "borl-i"}, []string{"A", "B", "C", "D", "E"}},
@@ -109,6 +114,16 @@ var DnevniCiljevi = []DnevniCilj{
 	{"vukovar", []string{"komarom", "budapest", "mohacs", "batina", "osijek", "donji-miholjac"}, []string{"H", "I", "J"}},
 	{"ilok", []string{"komarom", "budapest", "mohacs", "batina", "osijek", "donji-miholjac"}, []string{"H", "I", "J"}},
 }
+
+// VrhoviIzDnevnog su vrhovi satnog lanca kojima budućnost daje naš dnevni
+// model umjesto tuđe prognoze, da lanac ne ovisi o njoj. Provjereno na 28
+// mađarskih izdanja 2024.–2026. modelom naučenim prije njih: naš dnevni model
+// Letenyea (Mursko Središće + kiša nad Murom, tada izdana prognoza kiše)
+// griješi 13, 22, 18, 22, 30 i 24 cm za 1.–6. dan, njihova prognoza Letenyea
+// 13, 23, 28, 37, 42 i 50. Komárom ostaje na tuđoj prognozi dok naš dnevni
+// model Dunava iznad njega ne dostigne njihovu (bez kiše griješi 27–142 cm
+// prema njihovih 12–59). Kad našeg nema, uzima se tuđa.
+var VrhoviIzDnevnog = map[string]bool{"letenye": true}
 
 // DnevneRezerve su drugi ulazi dnevnog modela za istu letvu, redom kojim se
 // uzimaju kad glavni ulaz nema zadnja četiri dana. Borl I (ARSO) zna

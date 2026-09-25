@@ -114,8 +114,11 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"Austrije (eHYD, viadonau) i Njemačke (GKD, Pegelonline). Očitanja rjeđa od satnih premošćuju " +
 				"se linearno, ali ne preko " + tekstBroja(prognoza.NajveciRazmak) + " sati — dulja rupa ostaje rupa."),
 			tekstM("Mađarska (hydroinfo.hu) i srpska (hidmet.gov.rs) prognoza preuzimaju se kako ih službe " +
-				"izdaju, jednom dnevno. Mađarska ulazi u račun na vrhu lanca (vidi dolje); srpska stoji samo " +
-				"radi usporedbe."),
+				"izdaju, jednom dnevno. Mađarska ulazi u račun na vrhu lanca Dunava, Komáromu (vidi dolje); " +
+				"srpska stoji samo radi usporedbe. Vrh lanca Mure, Letenye, od 25. 9. 2026. budućnost dobiva iz " +
+				"našeg dnevnog modela (Mursko Središće i kiša nad Murom): na 28 mađarskih izdanja 2024.–2026. " +
+				"naš dnevni model Letenyea griješi 13, 22, 18, 22, 30 i 24 cm za 1.–6. dan, njihova prognoza " +
+				"13, 23, 28, 37, 42 i 50. Mađarska prognoza Letenyea ostaje rezerva kad našega nema."),
 		}},
 		{"Satni lanac — građa", []OdlomakMetode{
 			tekstM("Postaje su složene u lanac niz tok. Svaka postaja y ima glavni ulaz x₁ — uzvodnu postaju na " +
