@@ -62,6 +62,24 @@ var DnevniUdioRegresije = 0.75
 // obrnuto razmjernom udaljenosti, umjesto običnim srednjakom. Pokusni kotačić.
 var DnevneAnalogijeTezinske = false
 
+// DnevniRezimKise je udio dana (kvantil) iznad kojega dan po zbroju kiše —
+// pala tri dana i prognozirana četiri, po svim međuslivovima — ulazi u
+// zaseban, treći režim regresije, bez obzira na razinu; 0 isključuje.
+// Pokusni kotačić: na 11 dravskih valova 2012.–2023. sa savršenom kišom
+// režim 0,9 vrh Botova 4.–6. dan skida s 94, 122 i 114 na 80, 105 i 88 cm,
+// ali s pravim prognozama kiše 2024.–2026. je preko svih dana 1–2 cm
+// lošiji, a prema mađarskoj prognozi Belišće 30 → 33, Osijek 64 → 70 i
+// Aljmaš 62 → 67 cm 6. dan: dobitak postoji samo kad je prognoza kiše
+// dobra, pa ne ulazi.
+var DnevniRezimKise = 0.0
+
+// DnevneKvadratneKise dodaje regresiji kvadrate značajki kiše, da veća kiša
+// smije dizati vodu više nego razmjerno; u udaljenost analogija ne ulaze.
+// Pokusni kotačić: sa savršenom kišom vrh Botova 2.–6. dan 28, 70, 80, 109 i
+// 85 cm (bolje od 41, 76, 94, 122 i 114), s pravim prognozama preko svih
+// dana jasno lošije (Botovo 6. dan 38 → 43), pa ne ulazi.
+var DnevneKvadratneKise = false
+
 // DnevniRasponMnozitelj množi standardno odstupanje analogija da raspon
 // dnevnog modela cilja isti udio kao satni lanac (UdioURasponu): jedno
 // odstupanje pokriva 68 %, a 70 % traži 1,04 odstupanja pri normalnoj
@@ -251,11 +269,53 @@ type DnevniNiz map[int64]float64
 
 // DnevniModel je naučeni model jedne letve.
 type DnevniModel struct {
-	Cilj   DnevniCilj
-	prag   float64 // razina iznad koje vrijedi zasebna regresija za visoku vodu
-	koef   [DnevniDosezi + 1][2][]float64
-	uzorci []dnevniUzorak
-	sd     []float64
+	Cilj     DnevniCilj
+	prag     float64 // razina iznad koje vrijedi zasebna regresija za visoku vodu
+	pragKise float64 // zbroj kiše iznad kojega vrijedi treći režim; 0 kad ga nema
+	koef     [DnevniDosezi + 1][3][]float64
+	uzorci   []dnevniUzorak
+	sd       []float64
+}
+
+// kvadratiOd je prva kvadratna značajka kiše (iza svih linearnih); jednako
+// duljini značajki kad kvadrata nema.
+func (m *DnevniModel) kvadratiOd() int {
+	n := m.oborinaOd() + len(m.Cilj.Slivovi)*len(OborinskiDani)
+	if OborinaUnaprijed {
+		n += len(m.Cilj.Slivovi) * len(OborinskiDaniUnaprijed)
+	}
+	return n
+}
+
+// zbrojKise je mjera kišnog dana za treći režim: po svakom međuslivu pala
+// kiša tri dana i prognozirana četiri.
+func (m *DnevniModel) zbrojKise(x []float64) float64 {
+	var z float64
+	po := len(OborinskiDani)
+	if OborinaUnaprijed {
+		po += len(OborinskiDaniUnaprijed)
+	}
+	for i := 0; i < len(m.Cilj.Slivovi); i++ {
+		o := m.oborinaOd() + i*po
+		if o+1 < len(x) {
+			z += x[o+1] // tri dana unatrag
+		}
+		if OborinaUnaprijed && o+len(OborinskiDani)+1 < len(x) {
+			z += x[o+len(OborinskiDani)+1] // četiri dana unaprijed
+		}
+	}
+	return z
+}
+
+// rezim bira regresiju za dan: 2 kad je kišni, inače 1 pri visokoj vodi, 0 inače.
+func (m *DnevniModel) rezim(x []float64) int {
+	if m.pragKise > 0 && m.zbrojKise(x) >= m.pragKise {
+		return 2
+	}
+	if x[1] >= m.prag {
+		return 1
+	}
+	return 0
 }
 
 // Uzoraka je koliko je dana ušlo u učenje.
@@ -368,6 +428,13 @@ func DnevneZnacajke(c DnevniCilj, nizovi map[string]DnevniNiz, t int64) ([]float
 				zbroj = math.Sqrt(zbroj)
 			}
 			x = append(x, zbroj)
+		}
+	}
+	if DnevneKvadratneKise {
+		od := 2 + 2*len(c.letve())
+		n := len(x)
+		for i := od; i < n; i++ {
+			x = append(x, x[i]*x[i]/100)
 		}
 	}
 	return x, true
@@ -639,17 +706,29 @@ func NamjestiDnevniOd(nizovi map[string]DnevniNiz, c DnevniCilj, odDana, doDana 
 	}
 	sort.Float64s(razine)
 	m.prag = razine[len(razine)*3/4]
+	rezima := 2
+	if DnevniRezimKise > 0 && len(c.Slivovi) > 0 {
+		kise := make([]float64, len(m.uzorci))
+		for i, u := range m.uzorci {
+			kise[i] = m.zbrojKise(u.x)
+		}
+		sort.Float64s(kise)
+		m.pragKise = kise[int(float64(len(kise))*DnevniRezimKise)]
+		if m.pragKise > 0 {
+			rezima = 3
+		}
+	}
 	for k := 1; k <= DnevniDosezi; k++ {
-		for g := 0; g < 2; g++ {
+		for g := 0; g < rezima; g++ {
 			var X [][]float64
 			var Y []float64
 			for _, u := range m.uzorci {
-				if u.ok[k] && (u.x[1] >= m.prag) == (g == 1) {
+				if u.ok[k] && m.rezim(u.x) == g {
 					X, Y = append(X, u.x), append(Y, u.y[k])
 				}
 			}
 			if len(X) < 200 {
-				return nil, fmt.Errorf("%s: premalo dana za %d. dan", c.Letva, k)
+				return nil, fmt.Errorf("%s: premalo dana za %d. dan (režim %d)", c.Letva, k, g)
 			}
 			m.koef[k][g] = najmanjiKvadrati(X, Y)
 		}
@@ -672,10 +751,7 @@ func NamjestiDnevniOd(nizovi map[string]DnevniNiz, c DnevniCilj, odDana, doDana 
 // Prognoziraj vraća promjenu dnevnog vodostaja cilja za 1.–6. dan u odnosu na
 // dan značajki, i raspon (±) za svaki dan.
 func (m *DnevniModel) Prognoziraj(x []float64) (promjena, raspon [DnevniDosezi + 1]float64) {
-	g := 0
-	if x[1] >= m.prag {
-		g = 1
-	}
+	g := m.rezim(x)
 	var regr [DnevniDosezi + 1]float64
 	for k := 1; k <= DnevniDosezi; k++ {
 		b := m.koef[k][g]
@@ -689,9 +765,13 @@ func (m *DnevniModel) Prognoziraj(x []float64) (promjena, raspon [DnevniDosezi +
 		i int
 	}
 	bl := make([]blizina, len(m.uzorci))
+	doKvadrata := len(x)
+	if DnevneKvadratneKise {
+		doKvadrata = m.kvadratiOd()
+	}
 	for j, u := range m.uzorci {
 		var s float64
-		for i := 1; i < len(x); i++ {
+		for i := 1; i < doKvadrata; i++ {
 			z := (x[i] - u.x[i]) / m.sd[i]
 			w := 1.0
 			if i == 1 {

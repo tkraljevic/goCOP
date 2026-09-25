@@ -39,6 +39,8 @@ func main() {
 	udioRegr := flag.Float64("udio-regresije", prognoza.DnevniUdioRegresije, "udio regresije u srednjaku procjena (0 = samo analogije, 1 = samo regresija)")
 	analogija := flag.Int("analogija", prognoza.DnevnihAnalogija, "koliko se analogija uzima")
 	tezinske := flag.Bool("analogije-tezinske", false, "analogije s težinom obrnuto razmjernom udaljenosti")
+	rezimKise := flag.Float64("rezim-kise", 0, "kvantil zbroja kiše iznad kojega vrijedi treći režim regresije, npr. 0.9; 0 isključuje")
+	kvadrati := flag.Bool("kvadratna-kisa", false, "regresiji dodaj kvadrate značajki kiše")
 	ciljeviS := flag.String("ciljevi", "", `isprobaj druge ciljeve, npr. "botovo=letenye,borl-i;belisce=botovo+A,B,C" (+ međuslivovi čija oborina ulazi)`)
 	registarPut := flag.String("registar", "data/gocop.db", "registar s kišomjerima (za oborinu)")
 	uciOd := flag.String("uci-od", "", "učenje vidi samo dane od ovoga (prazno = od početka niza)")
@@ -50,6 +52,8 @@ func main() {
 	prognoza.DnevniUdioRegresije = *udioRegr
 	prognoza.DnevnihAnalogija = *analogija
 	prognoza.DnevneAnalogijeTezinske = *tezinske
+	prognoza.DnevniRezimKise = *rezimKise
+	prognoza.DnevneKvadratneKise = *kvadrati
 	prognoza.OborinaKorijen, prognoza.OborinaTezinaKNN, prognoza.OborinaUnaprijed = *korijen, *tezinaKNN, *unaprijed
 	ciljevi := prognoza.DnevniCiljevi
 	if *ciljeviS != "" {

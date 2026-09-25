@@ -62,8 +62,10 @@ func main() {
 	bezKise := flag.Bool("bez-kise", false, "model bez oborine, za usporedbu")
 	ciljeviS := flag.String("ciljevi", "", `umjesto ugrađenih ciljeva, npr. "letenye=mursko-sredisce+B;komarom=wildungsmauer,kienstock+O,K,L,M,N"`)
 	udioRegr := flag.Float64("udio-regresije", prognoza.DnevniUdioRegresije, "udio regresije u srednjaku procjena (0 = samo analogije, 1 = samo regresija)")
+	rezimKise := flag.Float64("rezim-kise", 0, "kvantil zbroja kiše iznad kojega vrijedi treći režim regresije; 0 isključuje")
 	flag.Parse()
 	prognoza.DnevniUdioRegresije = *udioRegr
+	prognoza.DnevniRezimKise = *rezimKise
 
 	tude, err := citajTude(*tudePut)
 	if err != nil {

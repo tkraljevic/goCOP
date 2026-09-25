@@ -32,41 +32,44 @@ import (
 // obrnuto, ondje je vodostaj bolji. Vrbovka, Moslavina, Donji Miholjac,
 // Belišće, Ilok i Osijek protok u arhivi nemaju, pa im izbora ni nema.
 var Velicine = map[string]string{
-	"donja-dubrava":    "protok",
-	"he-dubrava":       "protok",
-	"letenye":          "vodostaj",
-	"gorican":          "protok",
-	"tikves":           "vodostaj",
-	"mursko-sredisce":  "protok",
-	"komarno":          "vodostaj",
-	"bogojevo":         "vodostaj",
-	"bezdan":           "vodostaj",
-	"kotoriba":         "vodostaj",
-	"zeleznica":        "protok",
-	"tuhovec":          "protok",
-	"ludbreg":          "protok",
-	"botovo":           "protok",
-	"novo-virje":       "protok",
-	"terezino-polje":   "protok",
-	"vrbovka":          "vodostaj",
-	"moslavina":        "vodostaj",
-	"donji-miholjac":   "vodostaj",
-	"belisce":          "vodostaj",
-	"batina":           "vodostaj",
-	"aljmas":           "vodostaj",
-	"dalj":             "vodostaj",
-	"vukovar":          "vodostaj",
-	"sotin":            "vodostaj",
-	"mohovo":           "vodostaj",
-	"ilok":             "vodostaj",
-	"osijek":           "vodostaj",
-	"kapelna":          "vodostaj",
-	"miholjacki-porec": "vodostaj",
-	"benicanci-prkos":  "vodostaj",
-	"marjancaci":       "vodostaj",
-	"jelengrad":        "vodostaj",
-	"siga":             "vodostaj",
-	"petres":           "vodostaj",
+	"donja-dubrava":     "protok",
+	"he-dubrava":        "protok",
+	"he-varazdin":       "protok",
+	"brana-he-varazdin": "protok",
+	"varazdin":          "vodostaj",
+	"letenye":           "vodostaj",
+	"gorican":           "protok",
+	"tikves":            "vodostaj",
+	"mursko-sredisce":   "protok",
+	"komarno":           "vodostaj",
+	"bogojevo":          "vodostaj",
+	"bezdan":            "vodostaj",
+	"kotoriba":          "vodostaj",
+	"zeleznica":         "protok",
+	"tuhovec":           "protok",
+	"ludbreg":           "protok",
+	"botovo":            "protok",
+	"novo-virje":        "protok",
+	"terezino-polje":    "protok",
+	"vrbovka":           "vodostaj",
+	"moslavina":         "vodostaj",
+	"donji-miholjac":    "vodostaj",
+	"belisce":           "vodostaj",
+	"batina":            "vodostaj",
+	"aljmas":            "vodostaj",
+	"dalj":              "vodostaj",
+	"vukovar":           "vodostaj",
+	"sotin":             "vodostaj",
+	"mohovo":            "vodostaj",
+	"ilok":              "vodostaj",
+	"osijek":            "vodostaj",
+	"kapelna":           "vodostaj",
+	"miholjacki-porec":  "vodostaj",
+	"benicanci-prkos":   "vodostaj",
+	"marjancaci":        "vodostaj",
+	"jelengrad":         "vodostaj",
+	"siga":              "vodostaj",
+	"petres":            "vodostaj",
 	// Mađarske letve uzvodno od Batine i uz lijevu obalu Drave. Nisu naše, ali
 	// su na istoj vodi i imaju satnu povijest — a val ne mari za granicu.
 	"nagybajcs":     "vodostaj",
@@ -102,6 +105,7 @@ type Racun struct {
 // arhiva za rezervu nema dovoljno zajedničkih sati, namještanje je preskoči
 // i javi; tablicu je potvrdio korisnik 24. 9. 2026.
 var Rezerve = map[string][][]string{
+	"varazdin":       {{"he-varazdin"}},
 	"komarom":        {{"wildungsmauer"}},
 	"esztergom":      {{"komarno"}},
 	"budapest":       {{"komarom"}},
@@ -185,6 +189,17 @@ var Tokovi = []struct {
 		// kašnjenje 0 h na svim pojasima uz prozor od 21 sat, dakle model je
 		// čita kao oborinu. Kašnjenje nula znači i da prognoza Železnice iz nje
 		// traži prognozu same Lepoglave, pa lanac ne produljuje ni za sat.
+		// Varaždin leži u starom koritu ispod spoja s odvodnim kanalom HE
+		// Varaždin, pa mu vodostaj vodi istjecanje elektrane (turbine i
+		// preljev) i preljev brane, oboje satno s mletva.voda.hr od 2013.
+		// Pri običnim vodama veza je slaba (r 0,2–0,4, rasap 24–37 cm,
+		// prozor 31 h) — razina uz isto istjecanje po godinama luta 138–165
+		// cm — a iznad 650 m³/s dobra (r 0,87, 14 cm). Dnevni model iz Borla
+		// i kiše nad gornjom Dravom ne pobjeđuje postojanost od 4. dana:
+		// Varaždinom upravlja elektrana, ne voda koja dolazi. Karika vrijedi
+		// u valu, dok elektrana drži istjecanje; ostalo pregled označi
+		// svjetlije. Korisnik ju je tražio radi pregleda, 26. 9. 2026.
+		{"varazdin", []string{"he-varazdin", "brana-he-varazdin"}},
 		{"tuhovec", []string{"zeleznica"}},
 		{"ludbreg", []string{"tuhovec"}},
 		// Bednja Botovu nije ulaz. U namještanju izgleda kao da jest — na
