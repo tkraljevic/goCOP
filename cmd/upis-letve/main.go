@@ -42,6 +42,9 @@ func main() {
 
 	kota := flag.String("kota", "", "kota nule u starom sustavu (TRST)")
 	kotaNova := flag.String("kota-nova", "", "kota nule u novom sustavu (HVRS71)")
+	kotaBaltic := flag.String("kota-balticka", "", "izvorna kota nule u baltičkom sustavu")
+	kotaBalticSystem := flag.String("kota-balticka-sustav", "", "točna oznaka baltičkog sustava")
+	kotaBalticSource := flag.String("kota-balticka-izvor", "", "izvor baltičke kote")
 	kotaIzvor := flag.String("kota-izvor", "", "odakle je kota nule")
 	kotaNacin := flag.String("kota-nacin", "", "kako je kota nule dobivena")
 	kotaDatumMjerenja := flag.String("kota-datum-mjerenja", "", "datum terenskog mjerenja kote, YYYY-MM-DD")
@@ -219,6 +222,9 @@ func main() {
 	}
 	broj("kota nule", &letva.ZeroDatum, *kota)
 	broj("kota nule (nova)", &letva.ZeroDatumNew, *kotaNova)
+	broj("kota nule (baltička)", &letva.ZeroDatumBaltic, *kotaBaltic)
+	tekst("baltički sustav", &letva.ZeroDatumBalticSystem, *kotaBalticSystem)
+	tekst("izvor baltičke kote", &letva.ZeroDatumBalticSource, *kotaBalticSource)
 	broj("širina", &letva.Latitude, *sirina)
 	broj("dužina", &letva.Longitude, *duzina)
 	prag("pripremno", &letva.Prep, *pripremno)

@@ -48,6 +48,7 @@ func sectionStationKey(sectionCode string, stationID uuid.UUID) string {
 const stationColumns = `
 	s.id, s.code, s.name, s.watercourse, s.watercourse_code, s.watercourse_source, s.water_area, s.stationing,
 	s.zero_datum, s.zero_datum_system, s.zero_datum_new, s.zero_datum_new_system,
+	s.zero_datum_baltic, s.zero_datum_baltic_system, s.zero_datum_baltic_source,
 	s.zero_datum_source, s.zero_datum_method, s.zero_datum_survey_date, s.zero_datum_document_date,
 	s.zero_datum_history, s.ograde_niza, s.extremes, s.return_levels,
 	s.prep_cm, s.prep_raw, s.regular_cm, s.regular_raw,
@@ -62,29 +63,31 @@ const stationColumns = `
 // scanStation čita jedan redak registra postaja
 func scanStation(scanner interface{ Scan(...any) error }) (models.Station, error) {
 	var (
-		st        models.Station
-		idStr     string
-		zeroDatum sql.NullFloat64
-		zeroNew   sql.NullFloat64
-		prepCm    sql.NullInt64
-		regCm     sql.NullInt64
-		emgCm     sql.NullInt64
-		stateCm   sql.NullInt64
-		recordCm  sql.NullInt64
-		lat       sql.NullFloat64
-		lon       sql.NullFloat64
-		needsRev  int
-		history   string
-		ograde    string
-		extremes  string
-		povratni  string
-		javniUvoz int
-		telUvoz   int
+		st         models.Station
+		idStr      string
+		zeroDatum  sql.NullFloat64
+		zeroNew    sql.NullFloat64
+		zeroBaltic sql.NullFloat64
+		prepCm     sql.NullInt64
+		regCm      sql.NullInt64
+		emgCm      sql.NullInt64
+		stateCm    sql.NullInt64
+		recordCm   sql.NullInt64
+		lat        sql.NullFloat64
+		lon        sql.NullFloat64
+		needsRev   int
+		history    string
+		ograde     string
+		extremes   string
+		povratni   string
+		javniUvoz  int
+		telUvoz    int
 	)
 
 	err := scanner.Scan(
 		&idStr, &st.Code, &st.Name, &st.Watercourse, &st.WatercourseCode, &st.WatercourseSource, &st.WaterArea, &st.Stationing,
 		&zeroDatum, &st.ZeroDatumSystem, &zeroNew, &st.ZeroDatumNewSystem,
+		&zeroBaltic, &st.ZeroDatumBalticSystem, &st.ZeroDatumBalticSource,
 		&st.ZeroDatumSource, &st.ZeroDatumMethod, &st.ZeroDatumSurveyDate, &st.ZeroDatumDocumentDate,
 		&history, &ograde, &extremes, &povratni,
 		&prepCm, &st.Prep.Raw, &regCm, &st.Regular.Raw,
@@ -110,6 +113,7 @@ func scanStation(scanner interface{ Scan(...any) error }) (models.Station, error
 
 	st.ZeroDatum = nullFloatPtr(zeroDatum)
 	st.ZeroDatumNew = nullFloatPtr(zeroNew)
+	st.ZeroDatumBaltic = nullFloatPtr(zeroBaltic)
 	if history != "" && history != "[]" {
 		_ = json.Unmarshal([]byte(history), &st.ZeroDatumHistory)
 	}
@@ -356,6 +360,7 @@ func (r *StationRepository) CreateStation(ctx context.Context, st *models.Statio
 			id, code, name, watercourse, watercourse_code, watercourse_source, water_area, stationing,
 			zero_datum, zero_datum_system, zero_datum_new, zero_datum_new_system,
 			zero_datum_source, zero_datum_method, zero_datum_survey_date, zero_datum_document_date,
+			zero_datum_baltic, zero_datum_baltic_system, zero_datum_baltic_source,
 			zero_datum_history, ograde_niza, extremes, return_levels,
 			prep_cm, prep_raw, regular_cm, regular_raw,
 			emergency_cm, emergency_raw, state_cm, state_raw,
@@ -364,12 +369,13 @@ func (r *StationRepository) CreateStation(ctx context.Context, st *models.Statio
 			latitude, longitude, created_at, updated_at, javni_url, javni_uvoz,
 			telemetrija_site, telemetrija_uvoz,
 			povijest, opis_vodokaza, datum_osnivanja
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`,
 		st.ID.String(), st.Code, st.Name, st.Watercourse, st.WatercourseCode, st.WatercourseSource, st.WaterArea, st.Stationing,
 		st.ZeroDatum, defaultSystem(st.ZeroDatumSystem, models.ZeroDatumSystemOld),
 		st.ZeroDatumNew, defaultSystem(st.ZeroDatumNewSystem, models.ZeroDatumSystemNew),
 		st.ZeroDatumSource, st.ZeroDatumMethod, st.ZeroDatumSurveyDate, st.ZeroDatumDocumentDate,
+		st.ZeroDatumBaltic, st.ZeroDatumBalticSystem, st.ZeroDatumBalticSource,
 		zeroDatumHistoryJSON(st), ogradeNizaJSON(st), extremesJSON(st), returnLevelsJSON(st),
 		st.Prep.Cm, st.Prep.Raw, st.Regular.Cm, st.Regular.Raw,
 		st.Emergency.Cm, st.Emergency.Raw, st.State.Cm, st.State.Raw,
@@ -408,6 +414,7 @@ func (r *StationRepository) UpdateStation(ctx context.Context, st *models.Statio
 			watercourse_code = CASE WHEN ? <> '' THEN ? WHEN watercourse = ? THEN watercourse_code ELSE '' END,
 			water_area = ?, stationing = ?,
 			zero_datum = ?, zero_datum_system = ?, zero_datum_new = ?, zero_datum_new_system = ?,
+			zero_datum_baltic = ?, zero_datum_baltic_system = ?, zero_datum_baltic_source = ?,
 			zero_datum_source = ?, zero_datum_method = ?, zero_datum_survey_date = ?, zero_datum_document_date = ?,
 			zero_datum_history = ?, ograde_niza = ?, extremes = ?, return_levels = ?,
 			prep_cm = ?, prep_raw = ?, regular_cm = ?, regular_raw = ?,
@@ -423,6 +430,7 @@ func (r *StationRepository) UpdateStation(ctx context.Context, st *models.Statio
 		st.WatercourseCode, st.WatercourseCode, st.Watercourse, st.WaterArea, st.Stationing,
 		st.ZeroDatum, defaultSystem(st.ZeroDatumSystem, models.ZeroDatumSystemOld),
 		st.ZeroDatumNew, defaultSystem(st.ZeroDatumNewSystem, models.ZeroDatumSystemNew),
+		st.ZeroDatumBaltic, st.ZeroDatumBalticSystem, st.ZeroDatumBalticSource,
 		st.ZeroDatumSource, st.ZeroDatumMethod, st.ZeroDatumSurveyDate, st.ZeroDatumDocumentDate,
 		zeroDatumHistoryJSON(st), ogradeNizaJSON(st), extremesJSON(st), returnLevelsJSON(st),
 		st.Prep.Cm, st.Prep.Raw, st.Regular.Cm, st.Regular.Raw,

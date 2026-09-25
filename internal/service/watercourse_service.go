@@ -34,9 +34,13 @@ func (s *WatercourseService) SetGeometrijaDir(dir string) {
 // a ako u bazi nije upisano, poseže za datotekom na disku ili ugrađenim paketom geometrija.
 func (s *WatercourseService) GetWatercourseGeometry(ctx context.Context, code string) ([]byte, error) {
 	if w, err := s.GetWatercourse(ctx, code); err == nil && w != nil && strings.TrimSpace(w.Geometry) != "" {
-		return []byte(w.Geometry), nil
+		return geometrija.PrimijeniStacionazu(code, []byte(w.Geometry))
 	}
-	return geometrija.Ucitaj(s.geometrijaDir, code)
+	data, err := geometrija.Ucitaj(s.geometrijaDir, code)
+	if err != nil {
+		return nil, err
+	}
+	return geometrija.PrimijeniStacionazu(code, data)
 }
 
 // HasGeometry provjerava postoji li dostupna geometrija za vodno tijelo.

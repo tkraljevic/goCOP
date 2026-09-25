@@ -856,7 +856,7 @@ function dodajKontroleKarte(karta, platno, opcije) {
               fillOpacity: 0.9
             });
             var oznaka = feat.properties.oznaka || ('rkm ' + feat.properties.rkm);
-            marker.bindTooltip(oznaka, {
+            marker.bindTooltip(escapeHtml(oznaka), {
               permanent: false,
               direction: 'top',
               className: 'rkm-tooltip'
@@ -872,7 +872,8 @@ function dodajKontroleKarte(karta, platno, opcije) {
               riverFeature = feat;
             }
               var naziv = feat.properties.naziv || feat.properties.name || okvir.dataset.naziv || 'Vodotok';
-            layer.bindPopup('<strong>' + escapeHtml(naziv) + '</strong>');
+            layer.bindPopup('<strong>' + escapeHtml(naziv) + '</strong>' +
+              (feat.properties.stacionaza_napomena ? '<br>' + escapeHtml(feat.properties.stacionaza_napomena) : ''));
           }
         }
       }).addTo(karta);
@@ -1219,7 +1220,7 @@ function dodajKontroleKarte(karta, platno, opcije) {
                 fillOpacity: 0.9
               });
               var oznaka = feat.properties.oznaka || ('rkm ' + feat.properties.rkm);
-              marker.bindTooltip(oznaka, {
+              marker.bindTooltip(escapeHtml(oznaka), {
                 permanent: false,
                 direction: 'top',
                 className: 'rkm-tooltip'
@@ -1231,7 +1232,8 @@ function dodajKontroleKarte(karta, platno, opcije) {
           onEachFeature: function (feat, layer) {
             if (feat.properties && (feat.geometry.type === 'LineString' || feat.geometry.type === 'MultiLineString')) {
                 var naziv = feat.properties.naziv || feat.properties.name || 'Vodotok';
-              layer.bindPopup('<strong>' + escapeHtml(naziv) + '</strong>');
+              layer.bindPopup('<strong>' + escapeHtml(naziv) + '</strong>' +
+                (feat.properties.stacionaza_napomena ? '<br>' + escapeHtml(feat.properties.stacionaza_napomena) : ''));
             }
           }
         }).addTo(karta);

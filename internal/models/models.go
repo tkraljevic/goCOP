@@ -77,17 +77,17 @@ type Station struct {
 	WaterArea         string `json:"water_area"`         // npr. Srednja Sava, Sliv Drave i Dunava
 	Stationing        string `json:"stationing"`         // stacionaža vodomjera, npr. "rkm 271+900"
 
-	// Kota nule vodomjera vodi se u dva visinska sustava. ZeroDatum je kota
-	// preuzeta iz dokumentacije dionica i zapisana je u starom visinskom sustavu;
-	// ZeroDatumNew je kota u novom sustavu i upisuje se ručno.
-	//
-	// Jedna se NE izvodi iz druge: razlika visinskih sustava je konstanta koja se
-	// upisuje iz službenog izvora, a pogrešna kota nule pomiče cijelu ljestvicu
-	// pragova obrane.
-	ZeroDatum             *float64 `json:"zero_datum,omitempty"`
-	ZeroDatumSystem       string   `json:"zero_datum_system"`
-	ZeroDatumNew          *float64 `json:"zero_datum_new,omitempty"`
-	ZeroDatumNewSystem    string   `json:"zero_datum_new_system"`
+	// ZeroDatum je Trst, ZeroDatumNew HVRS71, a ZeroDatumBaltic izvorna
+	// baltička kota s vlastitom oznakom sustava i izvorom. Ne preračunavaju se
+	// automatski: transformacija mora biti potvrđena za konkretnu lokaciju.
+	ZeroDatum          *float64 `json:"zero_datum,omitempty"`
+	ZeroDatumSystem    string   `json:"zero_datum_system"`
+	ZeroDatumNew       *float64 `json:"zero_datum_new,omitempty"`
+	ZeroDatumNewSystem string   `json:"zero_datum_new_system"`
+	// Izvorna baltička kota čuva se neovisno; ne koristi se kao Trst.
+	ZeroDatumBaltic       *float64 `json:"zero_datum_baltic,omitempty"`
+	ZeroDatumBalticSystem string   `json:"zero_datum_baltic_system,omitempty"`
+	ZeroDatumBalticSource string   `json:"zero_datum_baltic_source,omitempty"`
 	ZeroDatumSource       string   `json:"zero_datum_source,omitempty"`
 	ZeroDatumMethod       string   `json:"zero_datum_method,omitempty"`
 	ZeroDatumSurveyDate   string   `json:"zero_datum_survey_date,omitempty"`

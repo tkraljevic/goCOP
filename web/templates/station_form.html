@@ -100,6 +100,21 @@
   </div>
   <div class="form-row">
     <div class="form-group">
+      <label class="form-label" for="zero_datum_baltic">Kota „0“ — Baltička (m)</label>
+      <input type="text" inputmode="decimal" id="zero_datum_baltic" name="zero_datum_baltic" class="form-control" value="{{if .Station.ZeroDatumBaltic}}{{unosD .Station.ZeroDatumBaltic 3}}{{end}}">
+      <div class="form-help">Izvorna kota. Ne preračunava se automatski u Trst ili HVRS71.</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="zero_datum_baltic_system">Baltički sustav / oznaka izvora</label>
+      <input type="text" id="zero_datum_baltic_system" name="zero_datum_baltic_system" class="form-control" value="{{.Station.ZeroDatumBalticSystem}}" placeholder="mBf, Bpv, točna realizacija ako je poznata">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="zero_datum_baltic_source">Izvor baltičke kote</label>
+      <input type="text" id="zero_datum_baltic_source" name="zero_datum_baltic_source" class="form-control" value="{{.Station.ZeroDatumBalticSource}}">
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="form-group">
       <label class="form-label" for="zero_datum_source">Odakle kota</label>
       <input type="text" id="zero_datum_source" name="zero_datum_source" class="form-control"
              value="{{.Station.ZeroDatumSource}}" placeholder="Geodetski elaborat, tehnički zapisnik DHMZ-a…">

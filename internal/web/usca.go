@@ -62,8 +62,9 @@ func citajGeoTok(b []byte) (geoTok, bool) {
 	var fc struct {
 		Features []struct {
 			Properties struct {
-				Tip string          `json:"tip"`
-				Rkm json.RawMessage `json:"rkm"`
+				Tip    string          `json:"tip"`
+				Status string          `json:"status"`
+				Rkm    json.RawMessage `json:"rkm"`
 			} `json:"properties"`
 			Geometry struct {
 				Type        string          `json:"type"`
@@ -86,6 +87,9 @@ func citajGeoTok(b []byte) (geoTok, bool) {
 				t.linija = c
 			}
 		case "Point":
+			if f.Properties.Status == "orijentacijski" {
+				continue
+			}
 			var xy [2]float64
 			var rkm float64
 			if err := json.Unmarshal(f.Geometry.Coordinates, &xy); err != nil {

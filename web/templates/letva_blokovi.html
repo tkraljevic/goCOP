@@ -38,8 +38,11 @@
     <dl class="reg-facts station-zero-grid">
       <div><dt>HVRS71 (novi sustav)</dt><dd>{{if .Station.HasNewZeroDatum}}{{brojHRd .Station.ZeroDatumNew 3}} m{{else}}<span class="nema-podatka">nije upisana</span>{{end}}</dd></div>
       <div><dt>Trst (stari sustav)</dt><dd>{{if .Station.ZeroDatum}}{{brojHRd .Station.ZeroDatum 3}} m{{else}}<span class="nema-podatka">nije upisana</span>{{end}}</dd></div>
+      <div><dt>Baltička{{if .Station.ZeroDatumBalticSystem}} ({{.Station.ZeroDatumBalticSystem}}){{end}}</dt><dd>{{if .Station.ZeroDatumBaltic}}{{brojHRd .Station.ZeroDatumBaltic 3}} m{{else}}<span class="nema-podatka">nije upisana</span>{{end}}</dd></div>
       <div><dt>Razlika sustava</dt><dd>{{if .Station.RazlikaVisinskihSustava}}{{brojHRf .Station.RazlikaVisinskihSustava 3}} m{{else}}<span class="nema-podatka">—</span>{{end}}</dd></div>
     </dl>
+    {{if .Station.ZeroDatumBaltic}}<p class="form-help">Izvor baltičke kote: {{if .Station.ZeroDatumBalticSource}}{{.Station.ZeroDatumBalticSource}}{{else}}nije naveden{{end}}. Čuva se odvojeno, bez automatskog preračuna u Trst.</p>{{end}}
+    {{if and .Station.ZeroDatumBaltic .Station.ZeroDatumMethod}}<details><summary>Metoda postojećih kota Trst / HVRS71</summary><p>{{.Station.ZeroDatumMethod}}</p></details>{{end}}
   </div>
 </section>
 {{end}}

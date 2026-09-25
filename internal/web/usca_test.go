@@ -6,6 +6,23 @@ import (
 	"testing"
 )
 
+func TestCitajGeoTokNeKoristiOrijentacijskeOznake(t *testing.T) {
+	b := []byte(`{"features":[
+		{"geometry":{"type":"LineString","coordinates":[[18,45],[19,45]]}},
+		{"properties":{"rkm":100,"status":"orijentacijski"},"geometry":{"type":"Point","coordinates":[18,45]}},
+		{"properties":{"rkm":90,"status":"kalibrirano"},"geometry":{"type":"Point","coordinates":[18.5,45]}},
+		{"properties":{"rkm":80,"status":"kalibrirano"},"geometry":{"type":"Point","coordinates":[19,45]}}
+	]}`)
+	tok, ok := citajGeoTok(b)
+	if !ok || len(tok.oznake) != 2 {
+		t.Fatalf("dobiveno %d sidara (%v)", len(tok.oznake), ok)
+	}
+	pritoka := geoTok{linija: [][2]float64{{18.1, 45.1}, {18.1, 45}}}
+	if r, ok := usceNaToku(pritoka, tok); ok {
+		t.Fatalf("ne smije ekstrapolirati do orijentacijskog sidra: %g", r)
+	}
+}
+
 // Sintetični tokovi: glavni ide ravno prema istoku uz 45,5° sa oznakama rkm
 // svakih pola stupnja, pritoka mu prilazi sa sjevera i završava tik uz njega.
 func sintetickiGlavni() geoTok {

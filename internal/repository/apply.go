@@ -1015,16 +1015,20 @@ func upsertStation(ctx context.Context, tx *sql.Tx, st models.Station) error {
 			zero_datum, zero_datum_system, zero_datum_new, zero_datum_new_system,
 			zero_datum_source, zero_datum_method, zero_datum_survey_date, zero_datum_document_date,
 			zero_datum_history, extremes, return_levels,
+			zero_datum_baltic, zero_datum_baltic_system, zero_datum_baltic_source,
 			prep_cm, prep_raw, regular_cm, regular_raw, emergency_cm, emergency_raw, state_cm, state_raw,
 			record_cm, record_raw, notes, source_name, needs_review, review_note,
 			latitude, longitude, created_at, updated_at, javni_url, javni_uvoz
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			code = excluded.code, name = excluded.name, watercourse = excluded.watercourse,
 			watercourse_code = excluded.watercourse_code, watercourse_source = excluded.watercourse_source,
 			water_area = excluded.water_area, stationing = excluded.stationing,
 			zero_datum = excluded.zero_datum, zero_datum_system = excluded.zero_datum_system,
 			zero_datum_new = excluded.zero_datum_new, zero_datum_new_system = excluded.zero_datum_new_system,
+			zero_datum_baltic = excluded.zero_datum_baltic,
+			zero_datum_baltic_system = excluded.zero_datum_baltic_system,
+			zero_datum_baltic_source = excluded.zero_datum_baltic_source,
 			zero_datum_history = excluded.zero_datum_history, extremes = excluded.extremes,
 			return_levels = excluded.return_levels,
 			zero_datum_source = excluded.zero_datum_source, zero_datum_method = excluded.zero_datum_method,
@@ -1043,6 +1047,7 @@ func upsertStation(ctx context.Context, tx *sql.Tx, st models.Station) error {
 		st.ZeroDatumNew, defaultSystem(st.ZeroDatumNewSystem, models.ZeroDatumSystemNew),
 		st.ZeroDatumSource, st.ZeroDatumMethod, st.ZeroDatumSurveyDate, st.ZeroDatumDocumentDate,
 		zeroDatumHistoryJSON(&st), extremesJSON(&st), returnLevelsJSON(&st),
+		st.ZeroDatumBaltic, st.ZeroDatumBalticSystem, st.ZeroDatumBalticSource,
 		st.Prep.Cm, st.Prep.Raw, st.Regular.Cm, st.Regular.Raw, st.Emergency.Cm, st.Emergency.Raw, st.State.Cm, st.State.Raw,
 		st.Record.Cm, st.Record.Raw, st.Notes, st.SourceName, boolToInt(st.NeedsReview), st.ReviewNote,
 		st.Latitude, st.Longitude, st.CreatedAt, st.UpdatedAt, st.JavniURL, boolToInt(st.JavniUvoz),

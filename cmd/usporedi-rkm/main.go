@@ -47,6 +47,7 @@ func main() {
 	bazaPut := flag.String("baza", "data/gocop.db", "goCOP baza podataka")
 	geoDir := flag.String("geometrija", "internal/geometrija", "imenik GeoJSON geometrija")
 	vodotok := flag.String("vodotok", "rijeka-drava", "šifra vodotoka")
+	enc := flag.Bool("enc", false, "usporedi s lokalnom ENC kalibracijom; geometrija baze ima prednost")
 	flag.Parse()
 
 	linija, err := ucitajLiniju(*geoDir, *vodotok)
@@ -58,10 +59,26 @@ func main() {
 		log.Fatal(err)
 	}
 	defer db.Close()
+	if *enc {
+		var stored sql.NullString
+		if err := db.QueryRow("SELECT geometry FROM watercourses WHERE code=?", *vodotok).Scan(&stored); err != nil && err != sql.ErrNoRows {
+			log.Fatal(err)
+		}
+		if strings.TrimSpace(stored.String) != "" {
+			linija, err = linijaIzGeoJSON([]byte(stored.String))
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
+	}
 
 	postaje, err := ucitajPostaje(db, *vodotok, linija)
 	if err != nil {
 		log.Fatal(err)
+	}
+	if *enc {
+		ispisiENC(*vodotok, linija, postaje)
+		return
 	}
 	ispisi(*vodotok, geometrija.DuljinaKM(linija), postaje)
 }
@@ -74,6 +91,10 @@ func ucitajLiniju(dir, code string) ([][2]float64, error) {
 	if len(podaci) == 0 {
 		return nil, fmt.Errorf("vodotok %q nema GeoJSON geometriju", code)
 	}
+	return linijaIzGeoJSON(podaci)
+}
+
+func linijaIzGeoJSON(podaci []byte) ([][2]float64, error) {
 	var geo geoJSON
 	if err := json.Unmarshal(podaci, &geo); err != nil {
 		return nil, err
@@ -90,6 +111,36 @@ func ucitajLiniju(dir, code string) ([][2]float64, error) {
 		}
 	}
 	return nil, errors.New("GeoJSON nema LineString značajku vodotoka")
+}
+
+func ispisiENC(code string, linija [][2]float64, postaje []postaja) {
+	izvor, err := geometrija.SluzbenaSidra(code)
+	if err != nil {
+		log.Fatal(err)
+	}
+	k, err := geometrija.NovaKalibracija(linija, izvor.Sidra)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("# ENC usporedba — %s\n\nIzvor: %s (izdanje %s). Bez izmjene postaja.\n\n", code, izvor.Izvor, izvor.Izdanje)
+	fmt.Println("| Postaja | Upisani rkm | Kalibrirani rkm | Razlika km | Od OSM linije km |")
+	fmt.Println("|---|---:|---:|---:|---:|")
+	for _, p := range postaje {
+		if !p.lat.Valid || !p.lon.Valid {
+			fmt.Printf("| %s | %.3f | nema koordinata | — | — |\n", p.naziv, p.uneseni)
+			continue
+		}
+		proj, err := geometrija.Projektiraj(linija, [2]float64{p.lon.Float64, p.lat.Float64})
+		if err != nil {
+			log.Fatal(err)
+		}
+		r, ok := k.RKM(proj.UzduzKM)
+		if !ok {
+			fmt.Printf("| %s | %.3f | izvan ENC pokrivenosti | — | %.3f |\n", p.naziv, p.uneseni, proj.UdaljenostKM)
+			continue
+		}
+		fmt.Printf("| %s | %.3f | %.3f | %+.3f | %.3f |\n", p.naziv, p.uneseni, r, r-p.uneseni, proj.UdaljenostKM)
+	}
 }
 
 func ucitajPostaje(db *sql.DB, vodotok string, linija [][2]float64) ([]postaja, error) {

@@ -551,31 +551,34 @@ func parseStationIDs(r *http.Request) ([]uuid.UUID, error) {
 
 // stationForm su podaci obrasca za unos i izmjenu postaje
 type stationForm struct {
-	ID                 string `json:"id"`
-	SectionCode        string `json:"section_code"`
-	Code               string `json:"code"`
-	Name               string `json:"name"`
-	Watercourse        string `json:"watercourse"`
-	WaterArea          string `json:"water_area"`
-	Stationing         string `json:"stationing"`
-	ZeroDatum          string `json:"zero_datum"`
-	ZeroDatumSystem    string `json:"zero_datum_system"`
-	ZeroDatumNew       string `json:"zero_datum_new"`
-	ZeroDatumNewSystem string `json:"zero_datum_new_system"`
-	ZeroDatumHistory   string `json:"zero_datum_history"` // JSON popis promjena kote, iz obrasca
-	OgradeNiza         string `json:"ograde_niza"`        // JSON popis vlastitih ograda uz nizove
-	Extremes           string `json:"extremes"`           // JSON popis ekstrema, iz obrasca
-	ReturnLevels       string `json:"return_levels"`      // JSON popis povratnih vodostaja, iz obrasca
-	Obrazac            string `json:"obrazac"`            // koji je obrazac poslan: kartica ili historijat
-	Prep               string `json:"prep"`
-	Regular            string `json:"regular"`
-	Emergency          string `json:"emergency"`
-	State              string `json:"state"`
-	Record             string `json:"record"`
-	Notes              string `json:"notes"`
-	Povijest           string `json:"povijest"`
-	OpisVodokaza       string `json:"opis_vodokaza"`
-	DatumOsnivanja     string `json:"datum_osnivanja"`
+	ID                    string `json:"id"`
+	SectionCode           string `json:"section_code"`
+	Code                  string `json:"code"`
+	Name                  string `json:"name"`
+	Watercourse           string `json:"watercourse"`
+	WaterArea             string `json:"water_area"`
+	Stationing            string `json:"stationing"`
+	ZeroDatum             string `json:"zero_datum"`
+	ZeroDatumSystem       string `json:"zero_datum_system"`
+	ZeroDatumNew          string `json:"zero_datum_new"`
+	ZeroDatumNewSystem    string `json:"zero_datum_new_system"`
+	ZeroDatumBaltic       string `json:"zero_datum_baltic"`
+	ZeroDatumBalticSystem string `json:"zero_datum_baltic_system"`
+	ZeroDatumBalticSource string `json:"zero_datum_baltic_source"`
+	ZeroDatumHistory      string `json:"zero_datum_history"` // JSON popis promjena kote, iz obrasca
+	OgradeNiza            string `json:"ograde_niza"`        // JSON popis vlastitih ograda uz nizove
+	Extremes              string `json:"extremes"`           // JSON popis ekstrema, iz obrasca
+	ReturnLevels          string `json:"return_levels"`      // JSON popis povratnih vodostaja, iz obrasca
+	Obrazac               string `json:"obrazac"`            // koji je obrazac poslan: kartica ili historijat
+	Prep                  string `json:"prep"`
+	Regular               string `json:"regular"`
+	Emergency             string `json:"emergency"`
+	State                 string `json:"state"`
+	Record                string `json:"record"`
+	Notes                 string `json:"notes"`
+	Povijest              string `json:"povijest"`
+	OpisVodokaza          string `json:"opis_vodokaza"`
+	DatumOsnivanja        string `json:"datum_osnivanja"`
 
 	// Položaj letve i podrijetlo kote nule. Dotad se upisivalo popravkom u
 	// kodu, dakle nije se moglo ni vidjeti ni promijeniti iz programa.
@@ -618,6 +621,9 @@ func decodeStationForm(r *http.Request) (stationForm, error) {
 	form.ZeroDatumSystem = r.FormValue("zero_datum_system")
 	form.ZeroDatumNew = r.FormValue("zero_datum_new")
 	form.ZeroDatumNewSystem = r.FormValue("zero_datum_new_system")
+	form.ZeroDatumBaltic = r.FormValue("zero_datum_baltic")
+	form.ZeroDatumBalticSystem = r.FormValue("zero_datum_baltic_system")
+	form.ZeroDatumBalticSource = r.FormValue("zero_datum_baltic_source")
 	form.ZeroDatumHistory = r.FormValue("zero_datum_history")
 	form.OgradeNiza = r.FormValue("ograde_niza")
 	form.Extremes = r.FormValue("extremes")
@@ -684,6 +690,9 @@ func (f stationForm) primijeni(st *models.Station) {
 	st.ZeroDatumSystem = strings.TrimSpace(f.ZeroDatumSystem)
 	st.ZeroDatumNew = parseOptionalFloat(f.ZeroDatumNew)
 	st.ZeroDatumNewSystem = strings.TrimSpace(f.ZeroDatumNewSystem)
+	st.ZeroDatumBaltic = parseOptionalFloat(f.ZeroDatumBaltic)
+	st.ZeroDatumBalticSystem = strings.TrimSpace(f.ZeroDatumBalticSystem)
+	st.ZeroDatumBalticSource = strings.TrimSpace(f.ZeroDatumBalticSource)
 	st.ZeroDatumSource = strings.TrimSpace(f.ZeroDatumSource)
 	st.ZeroDatumMethod = strings.TrimSpace(f.ZeroDatumMethod)
 	st.ZeroDatumSurveyDate = strings.TrimSpace(f.ZeroDatumSurveyDate)
@@ -814,24 +823,27 @@ func (h *StationsHandler) dopuniJavnuAdresu(ctx context.Context, st *models.Stat
 
 func (f stationForm) toStation() models.Station {
 	st := models.Station{
-		Code:               strings.TrimSpace(f.Code),
-		Name:               strings.TrimSpace(f.Name),
-		Watercourse:        strings.TrimSpace(f.Watercourse),
-		WaterArea:          strings.TrimSpace(f.WaterArea),
-		Stationing:         strings.TrimSpace(f.Stationing),
-		ZeroDatum:          parseOptionalFloat(f.ZeroDatum),
-		ZeroDatumSystem:    strings.TrimSpace(f.ZeroDatumSystem),
-		ZeroDatumNew:       parseOptionalFloat(f.ZeroDatumNew),
-		ZeroDatumNewSystem: strings.TrimSpace(f.ZeroDatumNewSystem),
-		ZeroDatumHistory:   parseZeroDatumHistory(f.ZeroDatumHistory),
-		Extremes:           parseExtremes(f.Extremes),
-		ReturnLevels:       parseReturnLevels(f.ReturnLevels),
-		Prep:               parseThresholdInput(f.Prep),
-		Regular:            parseThresholdInput(f.Regular),
-		Emergency:          parseThresholdInput(f.Emergency),
-		State:              parseThresholdInput(f.State),
-		Record:             parseThresholdInput(f.Record),
-		Notes:              strings.TrimSpace(f.Notes),
+		Code:                  strings.TrimSpace(f.Code),
+		Name:                  strings.TrimSpace(f.Name),
+		Watercourse:           strings.TrimSpace(f.Watercourse),
+		WaterArea:             strings.TrimSpace(f.WaterArea),
+		Stationing:            strings.TrimSpace(f.Stationing),
+		ZeroDatum:             parseOptionalFloat(f.ZeroDatum),
+		ZeroDatumSystem:       strings.TrimSpace(f.ZeroDatumSystem),
+		ZeroDatumNew:          parseOptionalFloat(f.ZeroDatumNew),
+		ZeroDatumNewSystem:    strings.TrimSpace(f.ZeroDatumNewSystem),
+		ZeroDatumBaltic:       parseOptionalFloat(f.ZeroDatumBaltic),
+		ZeroDatumBalticSystem: strings.TrimSpace(f.ZeroDatumBalticSystem),
+		ZeroDatumBalticSource: strings.TrimSpace(f.ZeroDatumBalticSource),
+		ZeroDatumHistory:      parseZeroDatumHistory(f.ZeroDatumHistory),
+		Extremes:              parseExtremes(f.Extremes),
+		ReturnLevels:          parseReturnLevels(f.ReturnLevels),
+		Prep:                  parseThresholdInput(f.Prep),
+		Regular:               parseThresholdInput(f.Regular),
+		Emergency:             parseThresholdInput(f.Emergency),
+		State:                 parseThresholdInput(f.State),
+		Record:                parseThresholdInput(f.Record),
+		Notes:                 strings.TrimSpace(f.Notes),
 
 		Latitude:              parseOptionalFloat(f.Latitude),
 		Longitude:             parseOptionalFloat(f.Longitude),

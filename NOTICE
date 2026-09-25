@@ -92,6 +92,10 @@ OVISNOSTI I UGRAĐENI RESURSI
   ugrađenih mrežnih biblioteka nalaze se u web/static/vendor.
 
 VANJSKE MREŽNE USLUGE
+  Inland ENC vodniputovi.hr: izvadak kilometarskih sidara Dunava i Drave,
+    izdanja 2018.; izvorne ćelije, URL i otisak ZIP-a u internal/geometrija/sidra.
+    Podaci izvora nisu relicencirani EUPL-om. Izvedena OSM stacionaža služi
+    informativnom prikazu, nije za navigaciju. Vidi docs/stacionaza-enc.md.
   OpenStreetMap: kartografski podaci © suradnici OpenStreetMapa, ODbL;
                  mrežne pločice zadano pruža Wikimedia Maps, a pretraživanje
                  mjesta Nominatim. Zasluga se prikazuje na karti.

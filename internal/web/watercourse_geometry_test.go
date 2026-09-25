@@ -74,12 +74,21 @@ func TestWatercourseGeometryAPI(t *testing.T) {
 	}
 
 	// Provjeri u bazi
-	savedGeom, err := waterSvc.GetWatercourseGeometry(ctx, "rijeka-dunav")
+	savedWater, err := waterSvc.GetWatercourse(ctx, "rijeka-dunav")
 	if err != nil {
 		t.Fatalf("GetWatercourseGeometry: %v", err)
 	}
-	if string(savedGeom) != updatedGeo {
-		t.Errorf("Geometrija u bazi = %s, want %s", string(savedGeom), updatedGeo)
+	if savedWater.Geometry != updatedGeo {
+		t.Errorf("Geometrija u bazi = %s, want %s", savedWater.Geometry, updatedGeo)
+	}
+	// Izvedeni prikaz smije dodati metapodatke, ali ne smije odbiti kratku
+	// ručno uređenu liniju koja ne pokriva cijeli raspon ENC sidara.
+	rendered, err := waterSvc.GetWatercourseGeometry(ctx, "rijeka-dunav")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(rendered), "nije_kalibrirano") {
+		t.Fatal("nepotpuna geometrija mora imati upozorenje")
 	}
 
 	// 3. Provjeri da HandleUpdateWatercourseAPI čuva postojeću geometriju

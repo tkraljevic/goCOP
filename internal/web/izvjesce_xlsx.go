@@ -152,10 +152,15 @@ func (x listLetve) kartica(iz IzvjesceLetve) {
 		}
 		x.tablica([]string{"Stupanj", "Vodostaj (cm)", "Kota vodne plohe", "Protok"}, rows)
 	}
-	if st.ImaKotuNule() {
+	if st.ImaKotuNule() || st.ZeroDatumBaltic != nil {
 		x.naslov("Kota nule vodomjera")
 		for _, k := range st.Kote(0) {
 			x.polje(k.Sustav, brojHRf(k.Kota, 3)+" m")
+		}
+		if st.ZeroDatumBaltic != nil {
+			x.polje("Baltička", brojHRf(*st.ZeroDatumBaltic, 3)+" m")
+			x.polje("Baltički sustav", st.ZeroDatumBalticSystem)
+			x.polje("Izvor baltičke kote", st.ZeroDatumBalticSource)
 		}
 		x.polje("Izvor", st.ZeroDatumSource)
 		x.polje("Način", st.ZeroDatumMethod)

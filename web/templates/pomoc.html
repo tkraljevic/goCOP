@@ -304,9 +304,11 @@
 
     <h3 id="letva-kota">Kota nule i visinski sustavi</h3>
     <p>Letva mjeri od svoje nule; kota nule kaže koliko je ta nula visoka nad morem. Vodi se u
-      <strong>dva visinska sustava</strong> — starom (Trst) i novom (HVRS71) — i jedna se
-      <em>ne</em> izvodi iz druge. Razlika je konstanta iz službenog izvora; na Batini je
-      0,261 m. Pogrešna kota nule pomiče cijelu ljestvicu pragova.</p>
+      odvojenim poljima <strong>Trst, HVRS71 i Baltička</strong>. Baltička čuva izvornu
+      vrijednost, oznaku sustava i izvor; nije zamjena za Trst i ne ulazi automatski u
+      izračun kota u hrvatskim sustavima. Preračun zahtijeva potvrđenu transformaciju za
+      konkretnu lokaciju, a ne zajedničku korekciju za sve države. Na Batini razlika
+      upisanih kota Trst i HVRS71 iznosi 0,261 m.</p>
     <p>Kota se s vremenom mijenja: letva se premjesti, obnovi ili dobije novi elaborat. Te
       promjene se upisuju s datumom od kojeg vrijede. Vodostaji u bazi <strong>svi su svedeni na
       zadnju kotu</strong> i ne preračunavaju se; povijest promjena služi da se zna što je koja
@@ -859,7 +861,11 @@
         pragovi obrane. Razrađeno gore, <a href="#stations">Vodomjerne postaje</a>.</li>
       <li id="structures"><strong>Objekti</strong> — crpke, ustave, propusti i ostalo što ima
         svoje stanje i zapornice.</li>
-      <li id="watercourses"><strong>Vodotoci i vodna tijela</strong> — rijeke i kanali.</li>
+      <li id="watercourses"><strong>Vodotoci i vodna tijela</strong> — rijeke i kanali.
+        Oznake rkm na detaljnoj OSM liniji kalibriraju se između susjednih sidara iz ENC-a:
+        Dunav 1295,600–1432,900 i Drava 0,100–23,200 (izdanja 2018.). Klik na liniju
+        pokazuje pokrivenost, a oznake izvan nje označene su kao orijentacijske.
+        Izračun ne mijenja koordinate ni upisani rkm postaja i nije za navigaciju.</li>
       <li id="firme"><strong>Licencirane firme</strong> — izvođači.</li>
       <li id="maintenance"><strong>Održavanje</strong> — lokacije izvršenja usluga i stavke
         radova.</li>
