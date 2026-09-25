@@ -35,6 +35,7 @@ var Velicine = map[string]string{
 	"donja-dubrava":    "protok",
 	"he-dubrava":       "protok",
 	"letenye":          "vodostaj",
+	"gorican":          "protok",
 	"tikves":           "vodostaj",
 	"mursko-sredisce":  "protok",
 	"komarno":          "vodostaj",
@@ -115,8 +116,8 @@ var Rezerve = map[string][][]string{
 	"sotin":          {{"dalj"}},
 	"mohovo":         {{"vukovar"}},
 	"ilok":           {{"sotin"}},
-	"botovo":         {{"donja-dubrava", "letenye"}, {"he-dubrava", "kotoriba"}, {"he-dubrava", "mursko-sredisce"}},
-	"novo-virje":     {{"he-dubrava", "letenye"}},
+	"botovo":         {{"he-dubrava", "letenye"}, {"donja-dubrava", "gorican"}, {"he-dubrava", "kotoriba"}, {"he-dubrava", "mursko-sredisce"}},
+	"novo-virje":     {{"he-dubrava", "gorican"}, {"he-dubrava", "letenye"}},
 	"terezino-polje": {{"botovo"}, {"vizvar"}},
 	"szentborbas":    {{"barcs"}},
 	"vrbovka":        {{"terezino-polje"}},
@@ -203,7 +204,14 @@ var Tokovi = []struct {
 		// donja-dubrava. U arhivi su to isti brojevi, ali uživo Donja Dubrava
 		// javlja protok preračunat iz vodostaja krivuljom, a model je namješten
 		// na istjecanje elektrane.
-		{"botovo", []string{"he-dubrava", "letenye"}},
+		//
+		// Muru nosi Goričan, naša letva nasuprot Letenyeu (isti rkm), s
+		// javnim izvorom i satnim nizom od 1982.: u probi je Botovu u
+		// najvišem pojasu rasap 77,8 m³/s prema 97,0 s Letenyeom, na nižima
+		// 29,5–47,1 prema 26,7–44,7 (Letenye ima kraće preklapanje s
+		// elektranom). Letenye je prva rezerva; njegova mađarska prognoza
+		// ostaje samo za usporedbu.
+		{"botovo", []string{"he-dubrava", "gorican"}},
 		{"novo-virje", []string{"botovo"}},
 		{"terezino-polje", []string{"novo-virje"}},
 		// Szentborbás i Drávaszabolcs leže na samoj Dravi, između naših letvi,

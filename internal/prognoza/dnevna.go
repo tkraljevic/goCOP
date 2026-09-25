@@ -135,7 +135,10 @@ var DnevniCiljevi = []DnevniCilj{
 // 13, 23, 28, 37, 42 i 50. Komárom ostaje na tuđoj prognozi dok naš dnevni
 // model Dunava iznad njega ne dostigne njihovu (bez kiše griješi 27–142 cm
 // prema njihovih 12–59). Kad našeg nema, uzima se tuđa.
-var VrhoviIzDnevnog = map[string]bool{"letenye": true}
+//
+// Goričan je vrh lanca Botova u protoku: dnevna prognoza vodostaja ide kroz
+// njegovu krivulju protoka, kao i sve dnevne vrijednosti letvi s krivuljom.
+var VrhoviIzDnevnog = map[string]bool{"letenye": true, "gorican": true}
 
 // DnevneRezerve su drugi ulazi dnevnog modela za istu letvu, redom kojim se
 // uzimaju kad glavni ulaz nema zadnja četiri dana. Borl I (ARSO) zna

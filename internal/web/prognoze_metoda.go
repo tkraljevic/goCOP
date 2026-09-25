@@ -115,10 +115,11 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"se linearno, ali ne preko " + tekstBroja(prognoza.NajveciRazmak) + " sati — dulja rupa ostaje rupa."),
 			tekstM("Mađarska (hydroinfo.hu) i srpska (hidmet.gov.rs) prognoza preuzimaju se kako ih službe " +
 				"izdaju, jednom dnevno. Mađarska ulazi u račun na vrhu lanca Dunava, Komáromu (vidi dolje); " +
-				"srpska stoji samo radi usporedbe. Vrh lanca Mure, Letenye, od 25. 9. 2026. budućnost dobiva iz " +
-				"našeg dnevnog modela (Mursko Središće i kiša nad Murom): na 28 mađarskih izdanja 2024.–2026. " +
-				"naš dnevni model Letenyea griješi 13, 22, 18, 22, 30 i 24 cm za 1.–6. dan, njihova prognoza " +
-				"13, 23, 28, 37, 42 i 50. Mađarska prognoza Letenyea ostaje rezerva kad našega nema. Tako i Mura " +
+				"srpska stoji samo radi usporedbe. Vrh lanca Mure je od 25. 9. 2026. Goričan, naša letva nasuprot " +
+				"Letenyeu (isti rkm, javni izvor, satni niz od 1982.), u protoku kroz vlastitu krivulju; budućnost mu " +
+				"daje naš dnevni model (Mursko Središće i kiša nad Murom), a Letenye je rezerva. Na 28 mađarskih " +
+				"izdanja 2024.–2026. naš dnevni model Letenyea griješi 13, 22, 18, 22, 30 i 24 cm za 1.–6. dan, " +
+				"njihova prognoza 13, 23, 28, 37, 42 i 50; Goričan iz istih ulaza 7, 14, 15, 19, 20 i 23. Tako i Mura " +
 				"ima svoju dnevnu prognozu: Mursko Središće iz vlastite razine i kiše nad Murom (uzvodno nema satne " +
 				"letve), Letenye i Kotoriba iz uzvodnih letvi i iste kiše; na 2024.–2026. Mursko Središće griješi " +
 				"9, 13, 15, 17, 18 i 21 cm za 1.–6. dan uz postojanost 14–28, Kotoriba 11, 17, 20, 24, 26 i 29 uz " +
