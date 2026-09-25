@@ -73,11 +73,15 @@ type DnevniCilj struct {
 // mađarsku prognozu.
 //
 // Na Dravi ulazi i oborina međuslivova uzvodno od cilja (registar slivova):
-// kiša koja je pala, a nijedna letva je još ne vidi. Provjereno na dravskim
-// valovima 2012.–2024. modelom naučenim 1990.–2011.: pogreška vrha 5. i 6.
-// dan pada u Osijeku sa 70 i 108 cm na 54 i 71, u Belišću s 80 i 119 na 60 i
-// 94, u Donjem Miholjcu sa 110 i 172 na 86 i 141; 1.–2. dan se ne mijenja.
-// Bez oborine (nema je uživo, ili je registar prazan) ide inačica bez nje.
+// kiša koja je pala, a nijedna letva je još ne vidi, i prognozirana kiša
+// sljedećih dana. Provjereno na dravskim valovima 2012.–2024. modelom
+// naučenim 1990.–2011.: sama pala kiša skida pogrešku vrha 5. i 6. dana u
+// Osijeku sa 70 i 108 cm na 54 i 71, u Belišću s 80 i 119 na 60 i 94, u
+// Donjem Miholjcu sa 110 i 172 na 86 i 141; sa stvarnom budućom kišom
+// umjesto prognoze (gornja granica) Botovo 3.–6. dan pada sa 90, 134, 156 i
+// 166 na 62, 74, 100 i 96, Belišće 6. dan na 70, Donji Miholjac na 92.
+// 1.–2. dan se ne mijenja. Bez oborine (nema je uživo, ili je registar
+// prazan) ide inačica bez nje.
 var DnevniCiljevi = []DnevniCilj{
 	{"botovo", []string{"mursko-sredisce", "borl-i"}, []string{"A", "B", "C"}},
 	{"terezino-polje", []string{"botovo", "mursko-sredisce", "borl-i"}, []string{"A", "B", "C", "D"}},
@@ -201,6 +205,16 @@ func OborinaKljuc(sliv string) string { return "oborina:" + sliv }
 // prozor nosi val koji tek kreće, dugi zasićenost tla.
 var OborinskiDani = []int{1, 3, 7}
 
+// OborinskiDaniUnaprijed su prozori prognozirane kiše: zbroj sljedeća dva,
+// četiri i šest dana. Model se uči na kiši koja je doista pala (savršena
+// prognoza iz arhive), a uživo dobiva prognozu s Open-Meteo — pa je
+// provjera iz arhive gornja granica onoga što prognoza kiše može dati.
+var OborinskiDaniUnaprijed = []int{2, 4, 6}
+
+// OborinaUnaprijed uključuje prognoziranu kišu u značajke; isključuje se
+// samo za usporedbu u provjeri.
+var OborinaUnaprijed = true
+
 // OborinaKorijen kaže ulazi li oborina u značajke kao korijen zbroja: velike
 // kiše su rijetke i teške u repu, a korijen ih primakne ostalima.
 var OborinaKorijen = false
@@ -238,6 +252,23 @@ func DnevneZnacajke(c DnevniCilj, nizovi map[string]DnevniNiz, t int64) ([]float
 			var zbroj float64
 			for d := 0; d < dana; d++ {
 				v, ok := n[t-int64(d)]
+				if !ok {
+					return nil, false
+				}
+				zbroj += v
+			}
+			if OborinaKorijen {
+				zbroj = math.Sqrt(zbroj)
+			}
+			x = append(x, zbroj)
+		}
+		if !OborinaUnaprijed {
+			continue
+		}
+		for _, dana := range OborinskiDaniUnaprijed {
+			var zbroj float64
+			for d := 1; d <= dana; d++ {
+				v, ok := n[t+int64(d)]
 				if !ok {
 					return nil, false
 				}
@@ -286,17 +317,18 @@ type OborinskiIzvor struct {
 	Satne func(od, do int64) (map[string]map[int64]float64, error)
 }
 
-// OborineUnatrag slaže dnevnu oborinu međuslivova za živu prognozu, kao
+// OborineOkoSada slaže dnevnu oborinu međuslivova za živu prognozu, kao
 // DnevniIzSatnog: dan 0 je zbroj 24 sata koji završavaju u satu izdavanja,
-// dan -1 prethodna 24 sata i tako dana unatrag. Dan bez ijednog sata na
-// točki izostaje s te točke; međusliv dobiva dan kad ima barem polovicu
-// težine. Ključevi su OborinaKljuc(sliv).
-func OborineUnatrag(iz *OborinskiIzvor, sada int64, dana int) (map[string]DnevniNiz, error) {
+// dan -1 prethodna 24 sata i tako unatrag dana, a dan +1 sljedeća 24 sata iz
+// prognoze i tako unaprijed dana. Dan kojem na točki fali ijedan sat izostaje
+// s te točke; međusliv dobiva dan kad ima barem polovicu težine. Ključevi su
+// OborinaKljuc(sliv).
+func OborineOkoSada(iz *OborinskiIzvor, sada int64, unatrag, unaprijed int) (map[string]DnevniNiz, error) {
 	out := map[string]DnevniNiz{}
 	if iz == nil || len(iz.Tocke) == 0 || iz.Satne == nil {
 		return out, nil
 	}
-	satne, err := iz.Satne(sada-int64(24*dana)+1, sada)
+	satne, err := iz.Satne(sada-int64(24*unatrag)+1, sada+int64(24*unaprijed))
 	if err != nil {
 		return nil, err
 	}
@@ -309,7 +341,7 @@ func OborineUnatrag(iz *OborinskiIzvor, sada int64, dana int) (map[string]Dnevni
 		}
 		ukupno[t.Sliv] += t.Tezina
 		n := satne[t.Code]
-		for d := 0; d < dana; d++ {
+		for d := -(unaprijed); d < unatrag; d++ {
 			kraj := sada - int64(24*d)
 			var s float64
 			k := 0
@@ -653,7 +685,7 @@ type DnevnaIzdana struct {
 func (d DnevnaIzdana) Raspon() float64 { return (d.Gore - d.Dolje) / 2 }
 
 // PrognozirajDnevno izdaje dnevnu prognozu cilja iz satnih nizova uživo.
-// oborine su dnevni zbrojevi međuslivova unatrag (OborineUnatrag); bez njih
+// oborine su dnevni zbrojevi međuslivova unatrag i unaprijed (OborineOkoSada); bez njih
 // inačica s oborinom javlja što joj fali.
 func PrognozirajDnevno(m *DnevniModel, satni map[string]Niz, oborine map[string]DnevniNiz, sada int64) ([]DnevnaIzdana, error) {
 	dnevni := map[string]DnevniNiz{}
@@ -671,12 +703,8 @@ func PrognozirajDnevno(m *DnevniModel, satni map[string]Niz, oborine map[string]
 				fali = append(fali, l)
 			}
 		}
-		najdulje := 0
-		for _, d := range OborinskiDani {
-			najdulje = max(najdulje, d)
-		}
 		for _, s := range m.Cilj.Slivovi {
-			if len(dnevni[OborinaKljuc(s)]) < najdulje {
+			if _, ok := DnevneZnacajke(DnevniCilj{Letva: m.Cilj.Letva, Slivovi: []string{s}}, dnevni, 0); !ok {
 				fali = append(fali, "oborina "+s)
 			}
 		}

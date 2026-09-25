@@ -39,9 +39,10 @@ func main() {
 	registarPut := flag.String("registar", "data/gocop.db", "registar s kišomjerima (za oborinu)")
 	uciOd := flag.String("uci-od", "", "učenje vidi samo dane od ovoga (prazno = od početka niza)")
 	korijen := flag.Bool("korijen", false, "oborina u značajke kao korijen zbroja")
-	tezinaKNN := flag.Float64("oborina-knn", 1, "težina oborine u udaljenosti analogija (0 = samo regresija)")
+	tezinaKNN := flag.Float64("oborina-knn", prognoza.OborinaTezinaKNN, "težina oborine u udaljenosti analogija (0 = samo regresija)")
+	unaprijed := flag.Bool("prognoza-kise", true, "i prognozirana kiša (u provjeri: stvarna buduća kiša iz arhive, gornja granica)")
 	flag.Parse()
-	prognoza.OborinaKorijen, prognoza.OborinaTezinaKNN = *korijen, *tezinaKNN
+	prognoza.OborinaKorijen, prognoza.OborinaTezinaKNN, prognoza.OborinaUnaprijed = *korijen, *tezinaKNN, *unaprijed
 	ciljevi := prognoza.DnevniCiljevi
 	if *ciljeviS != "" {
 		ciljevi = nil

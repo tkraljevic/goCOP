@@ -325,11 +325,14 @@ func (o *Osvjezivac) dnevno(ctx context.Context, sada int64, od time.Time) ([]Dn
 		bez[l] = err
 	}
 	satni := map[string]Niz{}
-	najdulje := 0
+	unatrag, unaprijed := 0, 0
 	for _, d := range OborinskiDani {
-		najdulje = max(najdulje, d)
+		unatrag = max(unatrag, d)
 	}
-	oborine, err := OborineUnatrag(o.Oborine, sada, najdulje)
+	for _, d := range OborinskiDaniUnaprijed {
+		unaprijed = max(unaprijed, d)
+	}
+	oborine, err := OborineOkoSada(o.Oborine, sada, unatrag, unaprijed)
 	if err != nil {
 		log.Printf("dnevni model: oborina uživo: %v", err)
 		oborine = nil
