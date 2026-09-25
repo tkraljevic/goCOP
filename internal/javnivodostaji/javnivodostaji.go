@@ -642,9 +642,16 @@ func (u *Uvoznik) PreuzmiSve(ctx context.Context) int {
 	u.mu.Lock()
 	u.napredak.Ukupno, u.napredak.Faza = len(letve), "preuzimanje vodostaja"
 	u.mu.Unlock()
+	// Letve dobivaju dvije trećine roka kruga: kad neki izvor ne odgovara,
+	// ostatak mora ostati za tuđe prognoze, oborinu i izračun.
+	zaLetve, otkazi := ctx, context.CancelFunc(func() {})
+	if rok, ima := ctx.Deadline(); ima {
+		zaLetve, otkazi = context.WithDeadline(ctx, time.Now().Add(time.Until(rok)*2/3))
+	}
+	defer otkazi()
 	ukupno := 0
 	for i := range letve {
-		s := u.Preuzmi(ctx, &letve[i])
+		s := u.Preuzmi(zaLetve, &letve[i])
 		ukupno += s.Novih
 		u.mu.Lock()
 		u.napredak.Gotovo, u.napredak.Novih = i+1, ukupno
@@ -658,7 +665,8 @@ func (u *Uvoznik) PreuzmiSve(ctx context.Context) int {
 			u.dodajRedak(letve[i].Name + ": ništa novo")
 		}
 		u.mu.Unlock()
-		if ctx.Err() != nil {
+		if zaLetve.Err() != nil {
+			u.dodajRedak("preuzimanje letvi prekinuto: istekao rok, ostatak kruga ide dalje")
 			break
 		}
 	}

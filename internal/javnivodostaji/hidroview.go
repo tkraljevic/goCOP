@@ -17,8 +17,11 @@ package javnivodostaji
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
+	"net"
+	"net/url"
 	"regexp"
 	"sort"
 	"strings"
@@ -45,7 +48,15 @@ type HidroView struct {
 	mu       sync.Mutex
 	klijenti map[string]*hidroview.Klijent // po adresi sustava, da token traje
 	mjerenja map[string][]hidroview.Mjerenje
+	// nedostupan pamti kad se sustav zadnji put nije dao dosegnuti. Dok
+	// traje Predah, ostale letve istog sustava ne čekaju svoje istek vremena:
+	// mreža bez hdv.voda.hr znala je pojesti cijeli krug preuzimanja, pa
+	// prognoza nije ni došla na red.
+	nedostupan map[string]time.Time
 }
+
+// Predah je koliko se nakon neuspjele prijave sustav ne pokušava iznova.
+const Predah = 10 * time.Minute
 
 var reHidroViewPostaja = regexp.MustCompile(`(?i)(?:#/site/|site_id=)([A-Za-z0-9_-]{16,})`)
 
@@ -182,12 +193,34 @@ func (h *HidroView) klijent(ctx context.Context, adresa string) (*hidroview.Klij
 	if k != nil && k.Prijavljen() {
 		return k, nil
 	}
+	if kad, bilo := h.nedostupan[osnova]; bilo && time.Since(kad) < Predah {
+		return nil, fmt.Errorf("%s nedostupan od %s, ne pokušava se do %s", PodrijetloHidroView,
+			kad.Local().Format("15:04"), kad.Add(Predah).Local().Format("15:04"))
+	}
 	k = &hidroview.Klijent{Adresa: osnova}
 	if err := k.Prijava(ctx, korisnik, lozinka); err != nil {
+		if mrezna(err) {
+			if h.nedostupan == nil {
+				h.nedostupan = map[string]time.Time{}
+			}
+			h.nedostupan[osnova] = time.Now()
+		}
 		return nil, err
 	}
+	delete(h.nedostupan, osnova)
 	h.klijenti[kljuc] = k
 	return k, nil
+}
+
+// mrezna javlja je li greška u mreži (nema veze, istek), a ne u odgovoru
+// sustava — kriva lozinka ne smije zatvoriti sustav ostalima.
+func mrezna(err error) bool {
+	var ue *url.Error
+	if errors.As(err, &ue) {
+		return true
+	}
+	var ne net.Error
+	return errors.As(err, &ne) || errors.Is(err, context.DeadlineExceeded)
 }
 
 // opremaPostaje pamti koja mjerenja postaja ima, da se svaki sat ne pita

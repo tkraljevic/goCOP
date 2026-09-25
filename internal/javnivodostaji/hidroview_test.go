@@ -1,6 +1,9 @@
 package javnivodostaji
 
 import (
+	"context"
+	"net"
+	"strings"
 	"testing"
 	"time"
 
@@ -81,5 +84,35 @@ func TestPuniSatiDrziZadnjuJavljenu(t *testing.T) {
 	}
 	if len(puniSati(nil, u(0), u(60))) != 0 {
 		t.Error("bez vrijednosti mora vratiti prazno")
+	}
+}
+
+// Kad se sustav ne da dosegnuti, druga letva istog sustava ne čeka nego
+// odmah dobije odgovor da je sustav nedostupan; kriva lozinka to ne radi.
+func TestHidroViewOsiguracNakonMrezneGreske(t *testing.T) {
+	// zatvorena vrata: veza se odbija odmah
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	adresa := "http://" + l.Addr().String()
+	l.Close()
+	h := &HidroView{Base: adresa, Racun: func(string) (string, string, bool) { return "k", "l", true }}
+	ctx := context.Background()
+	_, err = h.Ocitanja(ctx, "https://hdv.voda.hr/#/site/AAAAAAAAAAAAAAAAAAAA/latest")
+	if err == nil || strings.Contains(err.Error(), "nedostupan od") {
+		t.Fatalf("prva letva: %v", err)
+	}
+	_, err = h.Ocitanja(ctx, "https://hdv.voda.hr/#/site/BBBBBBBBBBBBBBBBBBBB/latest")
+	if err == nil || !strings.Contains(err.Error(), "nedostupan od") {
+		t.Fatalf("druga letva mora dobiti osigurač: %v", err)
+	}
+	// istekao predah: pokušava iznova
+	for k := range h.nedostupan {
+		h.nedostupan[k] = time.Now().Add(-Predah - time.Second)
+	}
+	_, err = h.Ocitanja(ctx, "https://hdv.voda.hr/#/site/BBBBBBBBBBBBBBBBBBBB/latest")
+	if err == nil || strings.Contains(err.Error(), "nedostupan od") {
+		t.Fatalf("nakon predaha opet se pokušava: %v", err)
 	}
 }
