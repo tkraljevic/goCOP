@@ -439,7 +439,7 @@ func NoviUvoznik(s Spremiste, zapisnik func(string, ...any)) *Uvoznik {
 	return &Uvoznik{
 		Client: c,
 		Izvori: []Izvor{hvIzvor{c}, Hidmet{Client: c}, Vizugy{Client: c}, SHMU{Client: c}, ARSO{Client: c},
-			PegelOnline{Client: c}, GKD{Client: c}, EHYD{Client: c}, &HidroView{}, &MLetva{}},
+			PegelOnline{Client: c}, GKD{Client: c}, EHYD{Client: c}, NOEL{Client: c}, &HidroView{}, &MLetva{}},
 		Spremiste: s,
 		Svakih:    time.Hour,
 		Zapisnik:  zapisnik,
