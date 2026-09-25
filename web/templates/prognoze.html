@@ -81,7 +81,7 @@
           {{if .Voda}}{{.Voda}}{{if .Stacionaza}} · {{.Stacionaza}}{{end}}{{end}}
           {{if .Racuna}}· računa se u {{if eq .Racuna "protok"}}protoku{{else}}vodostaju{{end}}
           {{else if .NasVrh}}· vrh lanca; dalje od mjerenja ide po našem dnevnom modelu{{if .DnevniOpis}} ({{.DnevniOpis}}){{end}}
-          {{else if .TudiVrh}}· vrh lanca; dalje od mjerenja ide po tuđoj prognozi (Wildungsmauer austrijskoj, Letenye mađarskoj)
+          {{else if .TudiVrh}}· vrh lanca; dalje od mjerenja ide po tuđoj prognozi ({{.TudiIzvor}})
           {{else if .DnevniOpis}}· {{.DnevniOpis}}
           {{else if .Ulaz}}· ulaz dnevne prognoze
           {{else if .Pregledna}}· mjerenje, u model ne ulazi

@@ -101,6 +101,7 @@ type LetvaPrognoze struct {
 	Ulazi           []string
 	ImaTermina      bool   // ima ijednu prognozu, svoju ili tuđu
 	TudiVrh         bool   // vrh lanca koji dalje ide po tuđoj prognozi (mađarskoj ili austrijskoj)
+	TudiIzvor       string // čija je ta prognoza (hydroinfo.hu, noel.gv.at)
 	NasVrh          bool   // vrh lanca koji dalje ide po našem dnevnom modelu
 	DnevniOpis      string // letva koju prognozira samo dnevni model: iz čega
 	Dani            []CelijaDana
@@ -355,13 +356,14 @@ func (h *PrognozeHandler) opisiLetve(popis map[string]models.Station, letve []Pr
 	for _, l := range letve {
 		ulaz := l.Racuna == "" && !l.UlazLanca && jeDnevniUlaz(l.Letva)
 		pregledna := l.Racuna == "" && !l.UlazLanca && !ulaz && jePregledna(l.Letva)
-		_, tudi := prognoza.VrhoviSTudomPrognozom[l.Letva]
+		tudiIzvor, tudi := prognoza.VrhoviSTudomPrognozom[l.Letva]
 		sadaCm, imaSadaCm := l.Sada["vodostaj"]
 		sadaQ, imaSadaQ := l.Sada["protok"]
 		red := LetvaPrognoze{
 			Kod: l.Letva, Naziv: l.Letva, Racuna: l.Racuna, Doseg: l.Doseg,
 			Vrh: l.Racuna == "" && !ulaz && !pregledna, Ulaz: ulaz, Pregledna: pregledna,
 			TudiVrh:    l.Racuna == "" && tudi,
+			TudiIzvor:  tudiIzvor,
 			DnevniOpis: opisDnevnogCilja(l.Letva, popis),
 			SadaCm:     uVelicini(l.Sada, "vodostaj"), SadaQ: uVelicini(l.Sada, "protok"),
 			Ulazi:   l.Ulazi,
