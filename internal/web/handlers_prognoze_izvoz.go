@@ -384,6 +384,13 @@ func listMetode(k *xlsxw.Knjiga, z ZaglavljeIzvoza, m PrognozeMetodaData) {
 		}
 	}
 
+	if m.Suradnja != "" {
+		preko(T("Suradnja i podaci", xlsxw.Podnaslov), 22)
+		tekst := m.Suradnja + " Za ponavljanje računa izvan aplikacije na stranici „O prognozi” u goCOP-u stoje " +
+			"sirovi parovi prognoza–mjerenje: izdane prognoze iz žive baze i datoteke provjere unatrag (CSV)."
+		preko(T(tekst, xlsxw.Tekst), visinaTeksta(tekst, int(sirina*1.35), 15, 0))
+	}
+
 	preko(T("Postaje", xlsxw.Podnaslov), 22)
 	if len(m.Letve) == 0 {
 		preko(T(m.BezLetvi, xlsxw.Tekst), 18)

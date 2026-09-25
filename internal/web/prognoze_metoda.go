@@ -223,10 +223,6 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"1.–4. dan prosječno za 22, 29, 41 i 49 cm — s postojanošću na vrhu bilo bi 30, 36, 48 i 60 cm, " +
 				"a mađarska prognoza samog Botova 24, 37, 42 i 51 cm."),
 		}},
-		{"Suradnja i podaci", []OdlomakMetode{
-			tekstM(suradnja + " Za ponavljanje računa izvan aplikacije daju se sirovi parovi prognoza–mjerenje: " +
-				"izdane prognoze iz žive baze i datoteke provjere unatrag (na stranici „O prognozi” u aplikaciji)."),
-		}},
 		{"Ograničenja", []OdlomakMetode{
 			tekstM("Veliki dravski val od trećeg dana prognoza podcjenjuje, jer nastaje iz kiše koju još nijedna " +
 				"postaja ne vidi — ondje vrijedi pratiti gornju granicu raspona. Rad hidroelektrana unaprijed se " +
