@@ -111,6 +111,12 @@ type DnevniCilj struct {
 // pogreška 1.–6. dan: Mursko Središće 9, 13, 15, 17, 18 i 21 cm (postojanost
 // 14–28), Goričan 7, 14, 15, 19, 20 i 23 (postojanost 14–31), Kotoriba 11,
 // 18, 20, 23, 26 i 29 (postojanost 18–41).
+// Osijek nosi uspor Dunava, pa uz dravske ulaze dobiva i mađarske dunavske
+// letve (Mohács, Budimpešta, Komárom), koje val vide dva-tri dana prije
+// Batine, te dunavsku kišu H, I, J. Provjereno 2024.–2026. modelom naučenim
+// do 2024. s tada izdanim prognozama kiše: pogreška preko svih dana 4.–6.
+// dan 32, 37 i 42 cm → 29, 34 i 38; na 28 mađarskih izdanja 5.–6. dan 70 i
+// 81 → 60 i 67 (njihovih 58 i 62).
 var DnevniCiljevi = []DnevniCilj{
 	{"mursko-sredisce", nil, []string{"B"}},
 	{"gorican", []string{"mursko-sredisce"}, []string{"B"}},
@@ -120,7 +126,7 @@ var DnevniCiljevi = []DnevniCilj{
 	{"terezino-polje", []string{"botovo", "mursko-sredisce", "borl-i"}, []string{"A", "B", "C", "D"}},
 	{"donji-miholjac", []string{"terezino-polje", "botovo", "mursko-sredisce", "borl-i"}, []string{"A", "B", "C", "D", "E"}},
 	{"belisce", []string{"donji-miholjac", "terezino-polje", "botovo", "borl-i"}, []string{"A", "B", "C", "D", "E", "F"}},
-	{"osijek", []string{"belisce", "donji-miholjac", "botovo", "aljmas"}, []string{"A", "B", "C", "D", "E", "F", "G"}},
+	{"osijek", []string{"belisce", "donji-miholjac", "botovo", "aljmas", "mohacs", "budapest", "komarom"}, []string{"A", "B", "C", "D", "E", "F", "G", "H", "I", "J"}},
 	{"batina", []string{"komarom", "budapest", "mohacs"}, []string{"H", "I", "J"}},
 	{"aljmas", []string{"komarom", "budapest", "mohacs", "batina", "osijek", "donji-miholjac"}, []string{"H", "I", "J"}},
 	{"vukovar", []string{"komarom", "budapest", "mohacs", "batina", "osijek", "donji-miholjac"}, []string{"H", "I", "J"}},

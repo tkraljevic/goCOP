@@ -237,7 +237,10 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"23, 31, 29, 30, 37; Donji Miholjac 7, 20, 36, 47, 55, 52 prema 7, 18, 29, 34, 32, 37; Belišće 6, 10, " +
 				"20, 29, 42, 44 prema 6, 13, 23, 29, 29, 28. Bez kiše Botovo je bilo 20, 35, 38, 46, 52, 58. Osijek " +
 				"im ostaje bolji (12–62 prema 13–81), jer ondje odlučuje uspor Dunava; Aljmaš je naš bolji do 3. dana, " +
-				"njihov od 5. (alat usporedi-dnevnu)."),
+				"njihov od 5. (alat usporedi-dnevnu). Osijek zato uz dravske ulaze dobiva i Mohács, Budimpeštu i Komárom " +
+				"te dunavsku kišu H, I, J, jer val Dunava tamo stiže dva-tri dana prije Batine: pogreška preko svih dana " +
+				"4.–6. dan pada s 32, 37 i 42 cm na 29, 34 i 38, a na mađarskim izdanjima 5.–6. dan sa 70 i 81 na 60 i 67, " +
+				"prema njihovih 58 i 62."),
 			tekstM("Je li dnevna prognoza računata s kišom, piše uz vrijeme izdanja na stranici Prognoze, uz razlog " +
 				"kad nije (oborine nisu preuzete, kvota ili mreža). U izvozu izdanja i u Excelu svaka dnevna vrijednost " +
 				"nosi oznaku modela: dnevni-1-kisa kad je računata s kišom, dnevni-1 bez nje."),

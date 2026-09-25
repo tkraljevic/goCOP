@@ -44,7 +44,7 @@ var sifre = map[string]string{
 	"Szentborbás": "szentborbas", "Drávaszabolcs": "dravaszabolcs", "Barcs": "barcs",
 	"Letenye": "letenye", "Mohács": "mohacs", "Baja": "baja", "Dunaszekcsõ": "dunaszekcso",
 	"Dunaszekcső": "dunaszekcso", "Paks": "paks", "Dunaföldvár": "dunafoldvar",
-	"Budapest": "budapest", "Esztergom": "esztergom", "Komárom": "komarom", "Nagybajcs": "nagybajcs",
+	"Budapest": "budapest", "Esztergom": "esztergom", "Komárom": "komarom", "Nagybajcs": "nagybajcs", "Wildungsmauer": "wildungsmauer",
 }
 
 type tuda struct {
