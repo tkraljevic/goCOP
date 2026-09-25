@@ -102,6 +102,7 @@ type LetvaPrognoze struct {
 	ImaTermina      bool   // ima ijednu prognozu, svoju ili tuđu
 	TudiVrh         bool   // vrh lanca koji dalje ide po tuđoj prognozi (mađarskoj ili austrijskoj)
 	TudiIzvor       string // čija je ta prognoza (hydroinfo.hu, noel.gv.at)
+	OperaterVrh     bool   // vrh lanca kojemu budućnost daje model ispuštanja elektrane
 	NasVrh          bool   // vrh lanca koji dalje ide po našem dnevnom modelu
 	DnevniOpis      string // letva koju prognozira samo dnevni model: iz čega
 	Dani            []CelijaDana
@@ -240,6 +241,8 @@ func (h *PrognozeHandler) podaci(r *http.Request) PrognozePageData {
 			if iz.Inacica == 2 {
 				// tuđa prognoza ispred računa: letva je ovaj put vrh
 				data.Letve[i].TudiVrh, data.Letve[i].NasVrh, data.Letve[i].Racuna = true, false, ""
+			} else if iz.Inacica == 3 {
+				data.Letve[i].OperaterVrh, data.Letve[i].NasVrh, data.Letve[i].TudiVrh = true, false, false
 			} else {
 				data.Letve[i].NasVrh, data.Letve[i].TudiVrh = true, false
 			}

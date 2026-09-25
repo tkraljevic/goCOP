@@ -165,7 +165,18 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"dan prema njihovih 12, 20, 28, 38, 47 i 59, a ni savršena austrijska prognoza vrha to ne popravlja, jer " +
 				"pri velikoj vodi val od Wildungsmauera do Nagybajcsa putuje tri dana (Szigetköz, Gabčíkovo, rukavci, " +
 				"Morava), ne 5–7 sati kako je karika namještena. Lanac iz Austrije je rezerva za sate kad mađarske nema; " +
-				"satna povijest Morave (Angern) i Bratislave skuplja se da se ta dionica jednom namjesti. Vrhovi Mure, " +
+				"satna povijest Morave (Angern) i Bratislave skuplja se da se ta dionica jednom namjesti. Vrh Drave, " +
+				"istjecanje HE Dubrava, kao i HE Čakovec i HE Varaždin, dobiva budućnost iz modela ispuštanja elektrane: " +
+				"regresija po dosegu 1–96 h i po režimu (obična ili velika voda, granica 90. percentil istjecanja) iz " +
+				"vlastitog istjecanja, dotoka uzvodnih elektrana te sata i dana u tjednu sada i u ciljnom satu, jer HE " +
+				"Varaždin vrši (u 20 h 150 % dnevnog srednjaka, noću polovina), a pri velikoj vodi elektrane propuštaju " +
+				"dotok s nekoliko sati kašnjenja. Provjereno na 2024.–2026. modelom naučenim prije: pri velikoj vodi " +
+				"istjecanje HE Dubrava 6, 12, 18 i 24 h unaprijed griješi 42, 50, 58 i 72 m³/s umjesto 56, 80, 97 i 105 " +
+				"postojanosti; pri običnoj vodi model pobjeđuje tek od 18 h. Za svaki doseg i režim pamti se je li " +
+				"pobijedio postojanost; gdje nije, vrh drži zadnje mjerenje. Razina akumulacije ne ulazi, jer ne mijenja " +
+				"brojke. U provjeri unatrag 2023.–2025. to Botovu skida pogrešku 24 h s 85 na 71 m³/s, 48 h sa 116 na 99 " +
+				"i 96 h sa 150 na 130, Terezinom Polju 48 h s 81 na 66, a Varaždin s 27–36 cm dolazi na 21–27, koliko i " +
+				"postojanost. Vrhovi Mure, " +
 				"Letenye i Goričan, budućnost dobivaju iz našeg dnevnog " +
 				"modela; kad ga nema, Letenye slijedi mađarsku prognozu. Tuđa prognoza ne uzima se starija od dva dana:"),
 			formulaM("x(t) = x_mj(t₀) + [F(t) − F(t₀)]",

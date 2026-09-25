@@ -90,8 +90,18 @@ func main() {
 	}
 	defer arhiva.Close()
 
+	// Modeli ispuštanja elektrana: vrh lanca u provjeri dobiva istu budućnost
+	// kao uživo, iz nizova koji u sam lanac ne ulaze.
+	operateri, err := prognoza.UcitajOperatere(baza)
+	if err != nil {
+		log.Fatal(err)
+	}
+	potrebni := trebani(svePojase)
+	for _, iz := range prognoza.OperaterIzvori(operateri) {
+		potrebni[iz] = true
+	}
 	nizovi := map[prognoza.Izvor]prognoza.Niz{}
-	for iz := range trebani(svePojase) {
+	for iz := range potrebni {
 		v, err := prognoza.NizIzArhive(arhiva, iz.Letva, iz.Velicina)
 		if err != nil {
 			log.Fatal(err)
@@ -124,6 +134,12 @@ func main() {
 		// isključivo do sada.
 		odabrani, _ := prognoza.OdaberiInacice(inacice, nizovi, t)
 		r := prognoza.NovoRacunalo(odabrani, nizovi, t)
+		_, vrhovi := prognoza.TrebaniIzvori(odabrani)
+		for iz, n := range prognoza.BuducnostOperatera(operateri, nizovi, t) {
+			if vrhovi[iz] {
+				r.PostaviBuducnostVrha(iz, n)
+			}
+		}
 		imalo := false
 		for letva, ps := range pojasi {
 			izdane, err := r.Prognoziraj(letva, *najdalje, "provjera")

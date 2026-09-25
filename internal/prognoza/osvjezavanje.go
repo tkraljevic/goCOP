@@ -91,17 +91,18 @@ type Osvjezivac struct {
 
 // Ishod je što je jedno osvježavanje dalo.
 type Ishod struct {
-	Sada        int64           // sat za koji je prognoza izdana
-	Vrhovi      map[Izvor]int64 // zadnji izmjereni sat svakog vrha lanca
-	Izdane      []Izdana        // sve izračunate vrijednosti
-	Promasaji   map[string]map[int]Promasaj
-	Preskoceno  bool             // isti sat već je izdan, ništa se nije mijenjalo
-	BezPrognoze map[string]error // letve koje nisu dale nijedan sat
-	Dnevne      []DnevnaIzdana   // dnevna prognoza za 1.–6. dan
-	TudiVrhovi  []string         // vrhovi kojima je budućnost dala tuđa prognoza
-	NasiVrhovi  []string         // vrhovi kojima je budućnost dao naš dnevni model
-	BezDnevne   map[string]error // letve s dnevnim modelom koje ga nisu dale
-	Izbor       map[string]Izbor // letve koje su računate iz rezerve, i iz koje
+	Sada           int64           // sat za koji je prognoza izdana
+	Vrhovi         map[Izvor]int64 // zadnji izmjereni sat svakog vrha lanca
+	Izdane         []Izdana        // sve izračunate vrijednosti
+	Promasaji      map[string]map[int]Promasaj
+	Preskoceno     bool             // isti sat već je izdan, ništa se nije mijenjalo
+	BezPrognoze    map[string]error // letve koje nisu dale nijedan sat
+	Dnevne         []DnevnaIzdana   // dnevna prognoza za 1.–6. dan
+	TudiVrhovi     []string         // vrhovi kojima je budućnost dala tuđa prognoza
+	OperaterVrhovi []string         // vrhovi kojima je budućnost dao model ispuštanja elektrane
+	NasiVrhovi     []string         // vrhovi kojima je budućnost dao naš dnevni model
+	BezDnevne      map[string]error // letve s dnevnim modelom koje ga nisu dale
+	Izbor          map[string]Izbor // letve koje su računate iz rezerve, i iz koje
 }
 
 // Letvi je koliko ih je prognoza dotaknula.
@@ -145,6 +146,15 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 		}
 	}
 	trebani, _ := TrebaniIzvori(svePojase)
+	// Modeli ispuštanja elektrana trebaju i nizove koji u lanac ne ulaze
+	// (dotok uzvodnih elektrana); bez modela nema ni tih nizova.
+	operateri, err := UcitajOperatere(o.Baza)
+	if err != nil {
+		return nil, fmt.Errorf("modeli ispuštanja: %w", err)
+	}
+	for _, iz := range OperaterIzvori(operateri) {
+		trebani[iz] = true
+	}
 	od := time.Now().UTC().Add(-Unatrag)
 	nizovi := map[Izvor]Niz{}
 	for iz := range trebani {
@@ -234,6 +244,25 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 			ishod.TudiVrhovi = append(ishod.TudiVrhovi, letva)
 		}
 	}
+	// Elektrana na vrhu lanca: budućnost iz modela ispuštanja, gdje ga ima i
+	// gdje je u provjeri bio bolji od zadnjeg mjerenja.
+	zauzeto := map[string]bool{}
+	for iz := range nasi {
+		zauzeto[iz.Letva] = true
+	}
+	for _, l := range ishod.TudiVrhovi {
+		zauzeto[l] = true
+	}
+	for iz, n := range BuducnostOperatera(operateri, nizovi, sada) {
+		if !vrhovi[iz] || zauzeto[iz.Letva] {
+			continue
+		}
+		r.PostaviBuducnostVrha(iz, n)
+		ishod.OperaterVrhovi = append(ishod.OperaterVrhovi, iz.Letva)
+		q0, _ := nizovi[iz].ZadnjiDo(sada)
+		ishod.Izbor["vrh:"+iz.Letva] = Izbor{Inacica: 3, Opis: OpisOperatera(operateri[iz.Letva], q0)}
+	}
+	sort.Strings(ishod.OperaterVrhovi)
 	najdalje := o.Najdalje
 	if najdalje <= 0 {
 		najdalje = 96

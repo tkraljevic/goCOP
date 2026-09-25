@@ -402,6 +402,38 @@ func main() {
 		log.Fatal(err)
 	}
 	fmt.Printf("\nspremljeno %d pojasa u %s\n", len(sve), *bazaPut)
+
+	// Modeli ispuštanja elektrana: uče se na svemu do granice (-do ili
+	// danas), a odluka je li doseg bolji od postojanosti donosi se na zadnje
+	// dvije godine prije granice, modelom naučenim prije njih.
+	granica := time.Now().Unix() / 3600
+	if prognoza.NamjestiDo > 0 {
+		granica = prognoza.NamjestiDo
+	}
+	ocjenaOd := granica - 2*365*24
+	for _, o := range prognoza.Operateri {
+		m, err := prognoza.NamjestiOperatera(arhiva, o, ocjenaOd)
+		if err != nil {
+			fmt.Printf("model ispuštanja %s: %v\n", o.Letva, err)
+			continue
+		}
+		if err := prognoza.SpremiOperatera(baza, m); err != nil {
+			log.Fatal(err)
+		}
+		fmt.Printf("\nmodel ispuštanja %s ← %s, prag velike vode %.0f m³/s (MAE m³/s u ocjeni, model/postojanost; * = koristi se)\n",
+			m.Letva, strings.Join(m.Ulazi, " + "), m.Prag)
+		for g, ime := range []string{"obična voda", "velika voda"} {
+			fmt.Printf("  %-12s", ime)
+			for _, k := range []int{3, 6, 12, 18, 24, 36, 48, 72, 96} {
+				z := " "
+				if m.Koristi[g][k] {
+					z = "*"
+				}
+				fmt.Printf("  %2dh %5.1f/%5.1f%s", k, m.MAE[g][k], m.MAEPost[g][k], z)
+			}
+			fmt.Println()
+		}
+	}
 }
 
 // razaberi čita "letva = ulaz + ulaz".

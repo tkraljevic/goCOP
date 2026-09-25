@@ -161,6 +161,24 @@ CREATE TABLE IF NOT EXISTS tude (
 	PRIMARY KEY (izvor, letva, izdano, ciljni)
 ) WITHOUT ROWID;
 CREATE INDEX IF NOT EXISTS tude_ciljni ON tude(letva, ciljni);
+-- Model ispuštanja elektrane (operater): po režimu i dosegu koeficijenti
+-- regresije i je li u provjeri pobijedio postojanost.
+CREATE TABLE IF NOT EXISTS operateri (
+	letva      TEXT PRIMARY KEY,
+	ulazi      TEXT NOT NULL,
+	prag       REAL NOT NULL,
+	namjesteno INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS operater (
+	letva    TEXT NOT NULL,
+	rezim    INTEGER NOT NULL,
+	doseg    INTEGER NOT NULL,
+	koef     TEXT NOT NULL,
+	koristi  INTEGER NOT NULL,
+	mae      REAL,
+	mae_post REAL,
+	PRIMARY KEY (letva, rezim, doseg)
+) WITHOUT ROWID;
 `
 
 // Otvori otvara bazu prognoza i slaže shemu ako je nema.

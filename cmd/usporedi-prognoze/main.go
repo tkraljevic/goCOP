@@ -126,6 +126,13 @@ func main() {
 		}
 		nizovi[iz] = prognoza.NoviNiz(v)
 	}
+	operateri, err := prognoza.UcitajOperatere(baza)
+	if err != nil {
+		log.Fatal(err)
+	}
+	for _, iz := range prognoza.OperaterIzvori(operateri) {
+		ucitaj(iz)
+	}
 	for letva, ps := range pojasi {
 		ucitaj(prognoza.Izvor{Letva: letva, Velicina: ps[0].Velicina})
 		for _, p := range ps {
@@ -197,6 +204,13 @@ func main() {
 		sada := izd - int64(*kasnjenje)
 		r := prognoza.NovoRacunalo(pojasi, nizovi, sada)
 		rv := prognoza.NovoRacunalo(pojasi, nizovi, sada)
+		_, vrhovi := prognoza.TrebaniIzvori(pojasi)
+		for iz, n := range prognoza.BuducnostOperatera(operateri, nizovi, sada) {
+			if vrhovi[iz] {
+				r.PostaviBuducnostVrha(iz, n)
+				rv.PostaviBuducnostVrha(iz, n)
+			}
+		}
 		for l, n := range tudiVrh[izd] {
 			rv.PostaviBuducnostVrha(prognoza.Izvor{Letva: l, Velicina: "vodostaj"}, n)
 		}
