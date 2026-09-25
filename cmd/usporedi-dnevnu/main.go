@@ -88,7 +88,10 @@ func main() {
 				log.Fatalf("-ciljevi: %q nije oblika letva=ulaz,ulaz+sliv,sliv", c)
 			}
 			u, slivovi, _ := strings.Cut(u, "+")
-			cilj := prognoza.DnevniCilj{Letva: strings.TrimSpace(l), Ulazi: strings.Split(u, ",")}
+			cilj := prognoza.DnevniCilj{Letva: strings.TrimSpace(l)}
+			if u = strings.TrimSpace(u); u != "" { // vrh bez uzvodne letve: samo vlastita razina i kiša
+				cilj.Ulazi = strings.Split(u, ",")
+			}
 			if slivovi != "" {
 				cilj.Slivovi = strings.Split(slivovi, ",")
 			}

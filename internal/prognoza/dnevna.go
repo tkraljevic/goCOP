@@ -102,8 +102,16 @@ type DnevniCilj struct {
 // Letenye je vrh satnog lanca Mure; njegov dnevni model iz Murskog Središća i
 // kiše nad Murom (B) daje lancu budućnost vrha umjesto mađarske prognoze
 // (VrhoviIzDnevnog).
+//
+// Mura ima svoju dnevnu prognozu: Mursko Središće samo iz vlastite razine i
+// kiše nad Murom (uzvodno nema satne letve), Letenye i Kotoriba iz uzvodnih.
+// Na 2024.–2026. s tada izdanim prognozama kiše, pogreška 1.–6. dan: Mursko
+// Središće 9, 13, 15, 17, 18 i 21 cm (postojanost 14–28), Kotoriba 11, 17,
+// 20, 24, 26 i 29 (postojanost 18–41).
 var DnevniCiljevi = []DnevniCilj{
+	{"mursko-sredisce", nil, []string{"B"}},
 	{"letenye", []string{"mursko-sredisce"}, []string{"B"}},
+	{"kotoriba", []string{"letenye", "mursko-sredisce"}, []string{"B"}},
 	{"botovo", []string{"mursko-sredisce", "borl-i"}, []string{"A", "B", "C"}},
 	{"terezino-polje", []string{"botovo", "mursko-sredisce", "borl-i"}, []string{"A", "B", "C", "D"}},
 	{"donji-miholjac", []string{"terezino-polje", "botovo", "mursko-sredisce", "borl-i"}, []string{"A", "B", "C", "D", "E"}},
