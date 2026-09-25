@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
 	"math"
 	"strings"
 	"sync"
@@ -54,6 +55,9 @@ type Osvjezivac struct {
 	// Iznova računa i kad je za taj sat prognoza već izdana. Treba nakon
 	// namještanja: bez toga se učinak novih pojasa ne vidi do idućeg sata.
 	Iznova bool
+	// Oborine daju dnevnom modelu kišu po međuslivovima; nil znači da se
+	// dnevni model uči i izdaje bez oborine.
+	Oborine *OborinskiIzvor
 }
 
 // Ishod je što je jedno osvježavanje dalo.
@@ -262,6 +266,15 @@ func (o *Osvjezivac) dnevniModeliZaDanas() (map[string][]*DnevniModel, map[strin
 	}
 	modeli, greske := map[string][]*DnevniModel{}, map[string]error{}
 	nizovi := map[string]DnevniNiz{}
+	if o.Oborine != nil && len(o.Oborine.Tocke) > 0 {
+		if ob, err := DnevneOborine(o.Arhiva, o.Oborine.Tocke); err != nil {
+			log.Printf("dnevni model: oborina iz arhive: %v", err)
+		} else {
+			for k, n := range ob {
+				nizovi[k] = n
+			}
+		}
+	}
 	for _, c := range DnevniCiljevi {
 		var in []*DnevniModel
 		for _, cilj := range c.Inacice() {
@@ -312,10 +325,29 @@ func (o *Osvjezivac) dnevno(ctx context.Context, sada int64, od time.Time) ([]Dn
 		bez[l] = err
 	}
 	satni := map[string]Niz{}
+	najdulje := 0
+	for _, d := range OborinskiDani {
+		najdulje = max(najdulje, d)
+	}
+	oborine, err := OborineUnatrag(o.Oborine, sada, najdulje)
+	if err != nil {
+		log.Printf("dnevni model: oborina uživo: %v", err)
+		oborine = nil
+	}
 	var out []DnevnaIzdana
 	for _, c := range DnevniCiljevi {
 		in := modeli[c.Letva]
-		if len(in) == 0 || in[0] == nil {
+		if len(in) == 0 {
+			continue
+		}
+		var prvi *DnevniModel
+		for _, m := range in {
+			if m != nil {
+				prvi = m
+				break
+			}
+		}
+		if prvi == nil {
 			continue
 		}
 		for _, cilj := range c.Inacice() {
@@ -336,10 +368,14 @@ func (o *Osvjezivac) dnevno(ctx context.Context, sada int64, od time.Time) ([]Dn
 			if m == nil {
 				continue
 			}
-			if d, err = PrognozirajDnevno(m, satni, sada); err == nil {
+			if d, err = PrognozirajDnevno(m, satni, oborine, sada); err == nil {
 				if i > 0 {
-					izbor["dnevni:"+c.Letva] = Izbor{Inacica: i, Opis: "dnevni model: " + strings.Join(m.Cilj.Ulazi, " + ") +
-						" umjesto " + strings.Join(in[0].Cilj.Ulazi, " + ")}
+					opis := "dnevni model: " + strings.Join(m.Cilj.Ulazi, " + ")
+					if m.Cilj.BezOborine() {
+						opis += " bez oborine"
+					}
+					izbor["dnevni:"+c.Letva] = Izbor{Inacica: i, Opis: opis + " umjesto " + strings.Join(c.Ulazi, " + ") +
+						map[bool]string{true: " s oborinom", false: ""}[len(c.Slivovi) > 0]}
 				}
 				break
 			}

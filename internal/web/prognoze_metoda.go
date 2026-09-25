@@ -188,6 +188,16 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"modelom (izravna višekoračna prognoza, bez rekurzije):"),
 			formulaM("Δₖ(t) = h_T(t + k) − h_T(t)",
 				`\Delta_k(t)=h_T(t+k)-h_T(t)`),
+			tekstM("Na Dravi u značajke ulazi i oborina: za svaki međusliv uzvodno od cilja (registar slivova, " +
+				"međuslivovi A–G između letvi) zbroj kiše zadnjeg dana, zadnja tri dana i zadnjih sedam dana, u mm, " +
+				"kao težinski srednjak kvazi-kišomjera međusliva po visinskim pojasima. Povijest je reanaliza ERA5 " +
+				"(Open-Meteo) od 1990., pa model s oborinom uči od tada; uživo zadnjih sedam dana daje analiza " +
+				"prognostičkih modela (Open-Meteo), a kad oborine nema, uzima se inačica bez nje. U udaljenosti " +
+				"analogija oborina nosi polovicu težine promjena vodostaja."),
+			tekstM("Provjereno na dravskim valovima 2012.–2024. modelom naučenim 1990.–2011.: srednja pogreška " +
+				"vrha 5. i 6. dana pada u Osijeku sa 70 i 108 cm na 54 i 71, u Belišću s 80 i 119 na 60 i 94, " +
+				"u Donjem Miholjcu sa 110 i 172 na 86 i 141; 1.–2. dan se ne mijenja. Podcjenjivanje velikih " +
+				"valova od 4. dana dalje ostaje, jer ga nosi kiša koja tek treba pasti."),
 		}},
 		{"Dnevni model — procjena", []OdlomakMetode{
 			tekstM("(a) Linearna regresija s pragom. Dani se dijele na dva režima po 75. percentilu razine h_T; " +

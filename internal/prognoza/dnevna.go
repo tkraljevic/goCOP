@@ -48,6 +48,10 @@ const DnevniRasponMnozitelj = 1.04
 type DnevniCilj struct {
 	Letva string
 	Ulazi []string
+	// Slivovi su međuslivovi (oznake iz registra slivova) čija oborina ulazi
+	// u značajke: kiša koja je pala, a nijedna letva je još ne vidi. Prazno
+	// znači bez oborine.
+	Slivovi []string
 }
 
 // DnevniCiljevi su letve s dnevnom prognozom, redom kako voda teče. Nizvodno
@@ -67,16 +71,23 @@ type DnevniCilj struct {
 // (11 dravskih valova prema 8), a letva je naša i javna, pa dnevna prognoza
 // Drave ne čeka mađarske podatke. Letenye ostaje u satnom lancu, gdje nosi
 // mađarsku prognozu.
+//
+// Na Dravi ulazi i oborina međuslivova uzvodno od cilja (registar slivova):
+// kiša koja je pala, a nijedna letva je još ne vidi. Provjereno na dravskim
+// valovima 2012.–2024. modelom naučenim 1990.–2011.: pogreška vrha 5. i 6.
+// dan pada u Osijeku sa 70 i 108 cm na 54 i 71, u Belišću s 80 i 119 na 60 i
+// 94, u Donjem Miholjcu sa 110 i 172 na 86 i 141; 1.–2. dan se ne mijenja.
+// Bez oborine (nema je uživo, ili je registar prazan) ide inačica bez nje.
 var DnevniCiljevi = []DnevniCilj{
-	{"botovo", []string{"mursko-sredisce", "borl-i"}},
-	{"terezino-polje", []string{"botovo", "mursko-sredisce", "borl-i"}},
-	{"donji-miholjac", []string{"terezino-polje", "botovo", "mursko-sredisce", "borl-i"}},
-	{"belisce", []string{"donji-miholjac", "terezino-polje", "botovo", "borl-i"}},
-	{"osijek", []string{"belisce", "donji-miholjac", "botovo", "aljmas"}},
-	{"batina", []string{"komarom", "budapest", "mohacs"}},
-	{"aljmas", []string{"komarom", "budapest", "mohacs", "batina", "osijek", "donji-miholjac"}},
-	{"vukovar", []string{"komarom", "budapest", "mohacs", "batina", "osijek", "donji-miholjac"}},
-	{"ilok", []string{"komarom", "budapest", "mohacs", "batina", "osijek", "donji-miholjac"}},
+	{"botovo", []string{"mursko-sredisce", "borl-i"}, []string{"A", "B", "C"}},
+	{"terezino-polje", []string{"botovo", "mursko-sredisce", "borl-i"}, []string{"A", "B", "C", "D"}},
+	{"donji-miholjac", []string{"terezino-polje", "botovo", "mursko-sredisce", "borl-i"}, []string{"A", "B", "C", "D", "E"}},
+	{"belisce", []string{"donji-miholjac", "terezino-polje", "botovo", "borl-i"}, []string{"A", "B", "C", "D", "E", "F"}},
+	{"osijek", []string{"belisce", "donji-miholjac", "botovo", "aljmas"}, []string{"A", "B", "C", "D", "E", "F", "G"}},
+	{"batina", []string{"komarom", "budapest", "mohacs"}, nil},
+	{"aljmas", []string{"komarom", "budapest", "mohacs", "batina", "osijek", "donji-miholjac"}, nil},
+	{"vukovar", []string{"komarom", "budapest", "mohacs", "batina", "osijek", "donji-miholjac"}, nil},
+	{"ilok", []string{"komarom", "budapest", "mohacs", "batina", "osijek", "donji-miholjac"}, nil},
 }
 
 // DnevneRezerve su drugi ulazi dnevnog modela za istu letvu, redom kojim se
@@ -91,13 +102,33 @@ var DnevneRezerve = map[string][][]string{
 }
 
 // Inacice vraća cilj i njegove rezerve kao zasebne ciljeve, redom: glavni pa
-// rezerve.
+// rezerve, a kad cilj ima oborinu, za njima isti redom bez oborine — jer
+// rezerva s oborinom vrijedi više od glavnog ulaza bez nje.
 func (c DnevniCilj) Inacice() []DnevniCilj {
 	out := []DnevniCilj{c}
 	for _, r := range DnevneRezerve[c.Letva] {
-		out = append(out, DnevniCilj{Letva: c.Letva, Ulazi: r})
+		out = append(out, DnevniCilj{Letva: c.Letva, Ulazi: r, Slivovi: c.Slivovi})
+	}
+	if len(c.Slivovi) > 0 {
+		out = append(out, DnevniCilj{Letva: c.Letva, Ulazi: c.Ulazi})
+		for _, r := range DnevneRezerve[c.Letva] {
+			out = append(out, DnevniCilj{Letva: c.Letva, Ulazi: r})
+		}
 	}
 	return out
+}
+
+// BezOborine javlja da inačica nema oborinu, a glavni cilj je ima.
+func (c DnevniCilj) BezOborine() bool {
+	if len(c.Slivovi) > 0 {
+		return false
+	}
+	for _, g := range DnevniCiljevi {
+		if g.Letva == c.Letva {
+			return len(g.Slivovi) > 0
+		}
+	}
+	return false
 }
 
 // DnevnaOdDana kaže od kojeg dana na pregledu vrijednost daje dnevni model;
@@ -145,6 +176,13 @@ type DnevniModel struct {
 	sd     []float64
 }
 
+// Uzoraka je koliko je dana ušlo u učenje.
+func (m *DnevniModel) Uzoraka() int { return len(m.uzorci) }
+
+// oborinaOd je prva značajka oborine: iza jedinice, razine cilja i dviju
+// promjena po letvi.
+func (m *DnevniModel) oborinaOd() int { return 2 + 2*len(m.Cilj.letve()) }
+
 type dnevniUzorak struct {
 	x  []float64
 	y  [DnevniDosezi + 1]float64 // promjena cilja k dana unaprijed
@@ -154,9 +192,31 @@ type dnevniUzorak struct {
 // letve su cilj pa ulazi, redom kojim ulaze u značajke.
 func (c DnevniCilj) letve() []string { return append([]string{c.Letva}, c.Ulazi...) }
 
+// OborinaKljuc je ključ pod kojim dnevna oborina međusliva stoji među
+// dnevnim nizovima, uz letve: „oborina:A”.
+func OborinaKljuc(sliv string) string { return "oborina:" + sliv }
+
+// OborinskiDani su prozori, u danima, u kojima se oborina međusliva zbraja u
+// značajke: jučerašnja kiša, kiša zadnja tri dana i zadnjeg tjedna. Kratki
+// prozor nosi val koji tek kreće, dugi zasićenost tla.
+var OborinskiDani = []int{1, 3, 7}
+
+// OborinaKorijen kaže ulazi li oborina u značajke kao korijen zbroja: velike
+// kiše su rijetke i teške u repu, a korijen ih primakne ostalima.
+var OborinaKorijen = false
+
+// OborinaTezinaKNN je težina značajki oborine u udaljenosti analogija; 1 kao
+// promjene letvi, 0 znači da analogije oborinu ne gledaju (samo regresija).
+// Mjereno na dravskim valovima 2012.–2024.: s 1 su 1.–2. dan lošiji za
+// 1–2 cm nego bez oborine, s 0 se gubi trećina dobitka 5.–6. dana; polovica
+// zadrži dobitak, a 1.–2. dan vrati na staro.
+var OborinaTezinaKNN = 0.5
+
 // DnevneZnacajke slaže značajke za dan t: razinu cilja, pa za svaku letvu
 // promjenu zadnjeg dana i promjenu u dva dana prije toga. Promjene ne ovise o
-// nuli letve, a nula se kroz stoljeće i mijenjala.
+// nuli letve, a nula se kroz stoljeće i mijenjala. Za svaki međusliv cilja
+// slijede zbrojevi oborine po prozorima; dan bez oborine za koji međusliv
+// nema značajke, pa učenje s oborinom počinje gdje oborina počinje.
 func DnevneZnacajke(c DnevniCilj, nizovi map[string]DnevniNiz, t int64) ([]float64, bool) {
 	x := []float64{1}
 	for i, l := range c.letve() {
@@ -172,7 +232,179 @@ func DnevneZnacajke(c DnevniCilj, nizovi map[string]DnevniNiz, t int64) ([]float
 		}
 		x = append(x, a-b, b-d)
 	}
+	for _, s := range c.Slivovi {
+		n := nizovi[OborinaKljuc(s)]
+		for _, dana := range OborinskiDani {
+			var zbroj float64
+			for d := 0; d < dana; d++ {
+				v, ok := n[t-int64(d)]
+				if !ok {
+					return nil, false
+				}
+				zbroj += v
+			}
+			if OborinaKorijen {
+				zbroj = math.Sqrt(zbroj)
+			}
+			x = append(x, zbroj)
+		}
+	}
 	return x, true
+}
+
+// OborinskaTocka je kvazi-kišomjer iz registra slivova: kojem međuslivu
+// pripada i s kojom težinom u njemu sudjeluje.
+type OborinskaTocka struct {
+	Code   string
+	Sliv   string
+	Tezina float64
+}
+
+// OborinskeTocke čita aktivne kišomjere iz registra (gocop.db).
+func OborinskeTocke(registar *sql.DB) ([]OborinskaTocka, error) {
+	r, err := registar.Query(`SELECT code, sliv, COALESCE(tezina, 0) FROM kisomjeri WHERE aktivan = 1 AND sliv <> ''`)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+	var out []OborinskaTocka
+	for r.Next() {
+		var t OborinskaTocka
+		if err := r.Scan(&t.Code, &t.Sliv, &t.Tezina); err != nil {
+			return nil, err
+		}
+		out = append(out, t)
+	}
+	return out, r.Err()
+}
+
+// OborinskiIzvor je odakle živi rad uzima oborinu: točke s težinama iz
+// registra i satni nizovi zadnjih dana (oborine.db).
+type OborinskiIzvor struct {
+	Tocke []OborinskaTocka
+	// Satne vraća oborinu po kišomjeru i satu (mm) za sate od–do, uključivo.
+	Satne func(od, do int64) (map[string]map[int64]float64, error)
+}
+
+// OborineUnatrag slaže dnevnu oborinu međuslivova za živu prognozu, kao
+// DnevniIzSatnog: dan 0 je zbroj 24 sata koji završavaju u satu izdavanja,
+// dan -1 prethodna 24 sata i tako dana unatrag. Dan bez ijednog sata na
+// točki izostaje s te točke; međusliv dobiva dan kad ima barem polovicu
+// težine. Ključevi su OborinaKljuc(sliv).
+func OborineUnatrag(iz *OborinskiIzvor, sada int64, dana int) (map[string]DnevniNiz, error) {
+	out := map[string]DnevniNiz{}
+	if iz == nil || len(iz.Tocke) == 0 || iz.Satne == nil {
+		return out, nil
+	}
+	satne, err := iz.Satne(sada-int64(24*dana)+1, sada)
+	if err != nil {
+		return nil, err
+	}
+	type dio struct{ zbroj, tezina float64 }
+	poSlivu := map[string]map[int64]*dio{}
+	ukupno := map[string]float64{}
+	for _, t := range iz.Tocke {
+		if t.Tezina <= 0 {
+			continue
+		}
+		ukupno[t.Sliv] += t.Tezina
+		n := satne[t.Code]
+		for d := 0; d < dana; d++ {
+			kraj := sada - int64(24*d)
+			var s float64
+			k := 0
+			for h := kraj - 23; h <= kraj; h++ {
+				if v, ima := n[h]; ima {
+					s += v
+					k++
+				}
+			}
+			if k < 24 {
+				continue
+			}
+			m := poSlivu[t.Sliv]
+			if m == nil {
+				m = map[int64]*dio{}
+				poSlivu[t.Sliv] = m
+			}
+			z := m[int64(-d)]
+			if z == nil {
+				z = &dio{}
+				m[int64(-d)] = z
+			}
+			z.zbroj += t.Tezina * s
+			z.tezina += t.Tezina
+		}
+	}
+	for sliv, m := range poSlivu {
+		n := DnevniNiz{}
+		for d, z := range m {
+			if z.tezina >= ukupno[sliv]/2 {
+				n[d] = z.zbroj / z.tezina
+			}
+		}
+		out[OborinaKljuc(sliv)] = n
+	}
+	return out, nil
+}
+
+// DnevneOborine slaže dnevnu oborinu po međuslivu iz arhive: težinski
+// srednjak dnevnih zbrojeva kišomjera međusliva, u mm. Dan ulazi kad ga
+// ima barem polovica težine međusliva; težine se svedu na one prisutne.
+// Ključevi su OborinaKljuc(sliv), da nizovi stanu uz letve u istu mapu.
+func DnevneOborine(arhiva *sql.DB, tocke []OborinskaTocka) (map[string]DnevniNiz, error) {
+	type dio struct{ zbroj, tezina float64 }
+	poSlivu := map[string]map[int64]*dio{}
+	ukupno := map[string]float64{}
+	for _, t := range tocke {
+		if t.Tezina <= 0 {
+			continue
+		}
+		ukupno[t.Sliv] += t.Tezina
+		r, err := arhiva.Query(`SELECT vrijeme, vrijednost FROM spoj
+			WHERE letva = ? AND velicina = 'oborina' AND korak = 'dnevni'`, t.Code)
+		if err != nil {
+			return nil, err
+		}
+		m := poSlivu[t.Sliv]
+		if m == nil {
+			m = map[int64]*dio{}
+			poSlivu[t.Sliv] = m
+		}
+		for r.Next() {
+			var kad int64
+			var v float64
+			if err := r.Scan(&kad, &v); err != nil {
+				r.Close()
+				return nil, err
+			}
+			// dnevni zbroj oborine stoji na ponoći UTC svog dana
+			d := kad / 86400
+			z := m[d]
+			if z == nil {
+				z = &dio{}
+				m[d] = z
+			}
+			z.zbroj += t.Tezina * v
+			z.tezina += t.Tezina
+		}
+		if err := r.Err(); err != nil {
+			r.Close()
+			return nil, err
+		}
+		r.Close()
+	}
+	out := map[string]DnevniNiz{}
+	for sliv, m := range poSlivu {
+		n := DnevniNiz{}
+		for d, z := range m {
+			if z.tezina >= ukupno[sliv]/2 {
+				n[d] = z.zbroj / z.tezina
+			}
+		}
+		out[OborinaKljuc(sliv)] = n
+	}
+	return out, nil
 }
 
 // DnevniIzArhive čita dnevne srednjake vodostaja iz arhive.
@@ -242,13 +474,20 @@ func DnevniIzArhive(arhiva *sql.DB, letva string) (DnevniNiz, error) {
 // više ne vidi (0 znači sve), da se model može provjeriti na valovima koje
 // nije vidio.
 func NamjestiDnevni(nizovi map[string]DnevniNiz, c DnevniCilj, doDana int64) (*DnevniModel, error) {
+	return NamjestiDnevniOd(nizovi, c, 0, doDana)
+}
+
+// NamjestiDnevniOd uči kao NamjestiDnevni, ali tek od dana odDana (0 znači
+// od početka niza) — da se model bez oborine može pošteno usporediti s onim
+// s oborinom, koji uči samo otkad oborine ima.
+func NamjestiDnevniOd(nizovi map[string]DnevniNiz, c DnevniCilj, odDana, doDana int64) (*DnevniModel, error) {
 	cilj := nizovi[c.Letva]
 	if len(cilj) == 0 {
 		return nil, fmt.Errorf("%s: nema dnevnog niza", c.Letva)
 	}
 	dani := make([]int64, 0, len(cilj))
 	for t := range cilj {
-		if doDana == 0 || t+DnevniDosezi < doDana {
+		if (doDana == 0 || t+DnevniDosezi < doDana) && t >= odDana {
 			dani = append(dani, t)
 		}
 	}
@@ -336,6 +575,9 @@ func (m *DnevniModel) Prognoziraj(x []float64) (promjena, raspon [DnevniDosezi +
 			if i == 1 {
 				w = 2 // razina cilja teže: isti porast drukčije završi pri visokoj vodi
 			}
+			if i >= m.oborinaOd() {
+				w = OborinaTezinaKNN
+			}
 			s += w * z * z
 		}
 		bl[j] = blizina{s, j}
@@ -411,10 +653,15 @@ type DnevnaIzdana struct {
 func (d DnevnaIzdana) Raspon() float64 { return (d.Gore - d.Dolje) / 2 }
 
 // PrognozirajDnevno izdaje dnevnu prognozu cilja iz satnih nizova uživo.
-func PrognozirajDnevno(m *DnevniModel, satni map[string]Niz, sada int64) ([]DnevnaIzdana, error) {
+// oborine su dnevni zbrojevi međuslivova unatrag (OborineUnatrag); bez njih
+// inačica s oborinom javlja što joj fali.
+func PrognozirajDnevno(m *DnevniModel, satni map[string]Niz, oborine map[string]DnevniNiz, sada int64) ([]DnevnaIzdana, error) {
 	dnevni := map[string]DnevniNiz{}
 	for _, l := range m.Cilj.letve() {
 		dnevni[l] = DnevniIzSatnog(satni[l], sada, 4)
+	}
+	for _, s := range m.Cilj.Slivovi {
+		dnevni[OborinaKljuc(s)] = oborine[OborinaKljuc(s)]
 	}
 	x, ok := DnevneZnacajke(m.Cilj, dnevni, 0)
 	if !ok {
@@ -422,6 +669,15 @@ func PrognozirajDnevno(m *DnevniModel, satni map[string]Niz, sada int64) ([]Dnev
 		for _, l := range m.Cilj.letve() {
 			if len(dnevni[l]) < 4 {
 				fali = append(fali, l)
+			}
+		}
+		najdulje := 0
+		for _, d := range OborinskiDani {
+			najdulje = max(najdulje, d)
+		}
+		for _, s := range m.Cilj.Slivovi {
+			if len(dnevni[OborinaKljuc(s)]) < najdulje {
+				fali = append(fali, "oborina "+s)
 			}
 		}
 		return nil, fmt.Errorf("%s: nepotpuna zadnja četiri dana na %v", m.Cilj.Letva, fali)

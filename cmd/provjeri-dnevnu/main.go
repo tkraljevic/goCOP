@@ -35,8 +35,13 @@ func main() {
 	uciDo := flag.String("uci-do", "2012-01-01", "učenje vidi samo dane prije ovoga")
 	kraj := flag.String("kraj", "2025-01-01", "provjera do ovog dana")
 	valoviPut := flag.String("valovi", "", "CSV s vrhovima valova (neobavezno)")
-	ciljeviS := flag.String("ciljevi", "", `isprobaj druge ciljeve, npr. "botovo=letenye,borl-i;belisce=botovo"`)
+	ciljeviS := flag.String("ciljevi", "", `isprobaj druge ciljeve, npr. "botovo=letenye,borl-i;belisce=botovo+A,B,C" (+ međuslivovi čija oborina ulazi)`)
+	registarPut := flag.String("registar", "data/gocop.db", "registar s kišomjerima (za oborinu)")
+	uciOd := flag.String("uci-od", "", "učenje vidi samo dane od ovoga (prazno = od početka niza)")
+	korijen := flag.Bool("korijen", false, "oborina u značajke kao korijen zbroja")
+	tezinaKNN := flag.Float64("oborina-knn", 1, "težina oborine u udaljenosti analogija (0 = samo regresija)")
 	flag.Parse()
+	prognoza.OborinaKorijen, prognoza.OborinaTezinaKNN = *korijen, *tezinaKNN
 	ciljevi := prognoza.DnevniCiljevi
 	if *ciljeviS != "" {
 		ciljevi = nil
@@ -45,7 +50,12 @@ func main() {
 			if !ok {
 				log.Fatalf("-ciljevi: %q nije oblika letva=ulaz,ulaz", c)
 			}
-			ciljevi = append(ciljevi, prognoza.DnevniCilj{Letva: strings.TrimSpace(l), Ulazi: strings.Split(u, ",")})
+			u, slivovi, _ := strings.Cut(u, "+")
+			cilj := prognoza.DnevniCilj{Letva: strings.TrimSpace(l), Ulazi: strings.Split(u, ",")}
+			if slivovi != "" {
+				cilj.Slivovi = strings.Split(slivovi, ",")
+			}
+			ciljevi = append(ciljevi, cilj)
 		}
 	}
 
@@ -63,6 +73,33 @@ func main() {
 				}
 			}
 		}
+	}
+	trebaOborina := false
+	for _, c := range ciljevi {
+		trebaOborina = trebaOborina || len(c.Slivovi) > 0
+	}
+	if trebaOborina {
+		registar, err := sql.Open("sqlite", *registarPut+"?mode=ro")
+		if err != nil {
+			log.Fatal(err)
+		}
+		tocke, err := prognoza.OborinskeTocke(registar)
+		registar.Close()
+		if err != nil {
+			log.Fatal(err)
+		}
+		oborine, err := prognoza.DnevneOborine(arhiva, tocke)
+		if err != nil {
+			log.Fatal(err)
+		}
+		for k, n := range oborine {
+			nizovi[k] = n
+		}
+		fmt.Printf("oborina: %d kišomjera, međuslivovi", len(tocke))
+		for k, n := range oborine {
+			fmt.Printf(" %s (%d dana)", strings.TrimPrefix(k, "oborina:"), len(n))
+		}
+		fmt.Println()
 	}
 	vrhovi := map[string][]int64{}
 	if *valoviPut != "" {
@@ -82,9 +119,13 @@ func main() {
 	}
 
 	od, do := dan(*uciDo), dan(*kraj)
-	fmt.Printf("učeno do %s, provjereno %s – %s\n", *uciDo, *uciDo, *kraj)
+	var odDana int64
+	if *uciOd != "" {
+		odDana = dan(*uciOd)
+	}
+	fmt.Printf("učeno %s– do %s, provjereno %s – %s\n", *uciOd, *uciDo, *uciDo, *kraj)
 	for _, c := range ciljevi {
-		m, err := prognoza.NamjestiDnevni(nizovi, c, od)
+		m, err := prognoza.NamjestiDnevniOd(nizovi, c, odDana, od)
 		if err != nil {
 			fmt.Println(err)
 			continue
@@ -112,7 +153,8 @@ func main() {
 				n[k]++
 			}
 		}
-		fmt.Printf("\n%s (ulazi: %s)\n  %-24s", c.Letva, strings.Join(c.Ulazi, ", "), "dan")
+		fmt.Printf("\n%s (ulazi: %s%s; %d dana učenja)\n  %-24s", c.Letva, strings.Join(c.Ulazi, ", "),
+			map[bool]string{true: " + oborina " + strings.Join(c.Slivovi, ","), false: ""}[len(c.Slivovi) > 0], m.Uzoraka(), "dan")
 		for k := 1; k <= prognoza.DnevniDosezi; k++ {
 			fmt.Printf("%8d", k)
 		}

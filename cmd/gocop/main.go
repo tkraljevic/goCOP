@@ -27,6 +27,7 @@ import (
 	"gocop/internal/ledger"
 	"gocop/internal/mletva"
 	"gocop/internal/models"
+	"gocop/internal/oborine"
 	"gocop/internal/peers"
 	"gocop/internal/posta"
 	"gocop/internal/prognoza"
@@ -656,6 +657,20 @@ func main() {
 	} else {
 		osvjezivac := &prognoza.Osvjezivac{Baza: pb, Ocitanja: ocitanjaRO,
 			Arhiva: arhivaRO, Najdalje: 96, Model: prognoza.ModelLanac}
+		// Oborina za dnevni model: kišomjeri iz registra slivova, živi sati s
+		// Open-Meteo u zasebnoj bazi uz bazu prognoza. Bez nje dnevni model
+		// radi kao i prije, bez oborine.
+		var oborineUvoznik *oborine.Uvoznik
+		if ob, err := oborine.Otvori(filepath.Join(filepath.Dir(*dbPath), "oborine.db")); err != nil {
+			log.Printf("Oborine se neće preuzimati: %v", err)
+		} else {
+			oborineUvoznik = &oborine.Uvoznik{DB: ob, Tocke: oborine.TockeIzRegistra(database)}
+			if tocke, err := prognoza.OborinskeTocke(database); err != nil {
+				log.Printf("Oborine: registar: %v", err)
+			} else if len(tocke) > 0 {
+				osvjezivac.Oborine = &prognoza.OborinskiIzvor{Tocke: tocke, Satne: oborineUvoznik.Satne}
+			}
+		}
 		javniUvoznik.NakonPreuzimanja = func(ctx context.Context) {
 			// Mađarska prognoza izlazi jednom dnevno, ali ne uvijek u isti
 			// sat; čita se svaki krug, a zapisuje samo novo. Treba je i za
@@ -689,6 +704,21 @@ func main() {
 				javniUvoznik.Redak("%s: %d letvi, %d novih vrijednosti", prognoza.PodrijetloHidmet, len(letve), n)
 			}
 			otkazi()
+			if oborineUvoznik != nil {
+				javniUvoznik.Korak("oborine (Open-Meteo)", 95)
+				ob, otkazi := context.WithTimeout(ctx, 2*time.Minute)
+				if n, err := oborineUvoznik.Preuzmi(ob); err != nil {
+					log.Printf("oborine: %v", err)
+					javniUvoznik.Redak("oborine: %v", err)
+				} else {
+					javniUvoznik.Redak("oborine: %d sati za kišomjere", n)
+				}
+				otkazi()
+				// registar se mogao promijeniti (nova ili premještena točka)
+				if tocke, err := prognoza.OborinskeTocke(database); err == nil && len(tocke) > 0 {
+					osvjezivac.Oborine = &prognoza.OborinskiIzvor{Tocke: tocke, Satne: oborineUvoznik.Satne}
+				}
+			}
 			javniUvoznik.Korak("izračun prognoze", 96)
 			ishod, err := osvjezivac.Osvjezi(ctx)
 			if err != nil {

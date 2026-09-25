@@ -16,6 +16,7 @@ import (
 	"log"
 	"time"
 
+	"gocop/internal/oborine"
 	"gocop/internal/prognoza"
 
 	_ "modernc.org/sqlite"
@@ -31,6 +32,7 @@ func main() {
 		"za koliko sati ispravak prema mjerenju oslabi na pola; 0 isključuje")
 	ispisi := flag.String("ispisi", "", "ispiši niz po satu za jednu letvu")
 	iznova := flag.Bool("iznova", false, "izračunaj i kad je za taj sat prognoza već izdana")
+	oborinePut := flag.String("oborine", "data/oborine.db", "živa oborina za dnevni model; prazno = bez oborine")
 	flag.Parse()
 	prognoza.PoluvijekIspravka = *poluvijek
 
@@ -52,6 +54,17 @@ func main() {
 
 	o := &prognoza.Osvjezivac{Baza: baza, Ocitanja: ocitanja, Arhiva: arhiva,
 		Najdalje: *najdalje, Model: prognoza.ModelLanac, Iznova: *iznova}
+	if *oborinePut != "" {
+		if ob, err := sql.Open("sqlite", *oborinePut+"?mode=ro"); err != nil {
+			log.Printf("oborine: %v", err)
+		} else if tocke, err := prognoza.OborinskeTocke(ocitanja); err != nil {
+			log.Printf("oborine: registar: %v", err)
+		} else if len(tocke) > 0 {
+			defer ob.Close()
+			o.Oborine = &prognoza.OborinskiIzvor{Tocke: tocke, Satne: (&oborine.Uvoznik{DB: ob}).Satne}
+			fmt.Printf("oborina: %d kišomjera iz registra\n", len(tocke))
+		}
+	}
 	ishod, err := o.Osvjezi(context.Background())
 	if err != nil {
 		log.Fatal(err)

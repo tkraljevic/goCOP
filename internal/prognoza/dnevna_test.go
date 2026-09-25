@@ -83,7 +83,11 @@ func TestDnevneRezerveUlazeUUlaze(t *testing.T) {
 	for _, c := range DnevniCiljevi {
 		if c.Letva == "botovo" {
 			in := c.Inacice()
-			if len(in) != 2 || in[0].Ulazi[1] != "borl-i" || in[1].Ulazi[1] != "varazdin" {
+			// glavni i rezerva s oborinom, pa isti redom bez oborine
+			if len(in) != 4 || in[0].Ulazi[1] != "borl-i" || in[1].Ulazi[1] != "varazdin" ||
+				len(in[0].Slivovi) != 3 || len(in[1].Slivovi) != 3 ||
+				in[2].Ulazi[1] != "borl-i" || in[3].Ulazi[1] != "varazdin" || in[2].Slivovi != nil || in[3].Slivovi != nil ||
+				!in[2].BezOborine() || in[0].BezOborine() {
 				t.Errorf("inačice Botova: %+v", in)
 			}
 		}
