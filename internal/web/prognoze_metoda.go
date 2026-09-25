@@ -21,6 +21,7 @@ import (
 type OdlomakMetode struct {
 	Tekst   string
 	Formula bool
+	TeX     string // matematički zapis za KaTeX; Tekst ostaje za Excel i rezervni prikaz
 }
 
 // OdjeljakMetode je naslov s odlomcima.
@@ -68,8 +69,14 @@ type PrognozeMetodaData struct {
 // DoseziRaspona su dosezi za koje tablica postaja navodi raspon.
 var DoseziRaspona = []int{24, 48, 72}
 
-func tekstM(s string) OdlomakMetode   { return OdlomakMetode{Tekst: s} }
-func formulaM(s string) OdlomakMetode { return OdlomakMetode{Tekst: s, Formula: true} }
+func tekstM(s string) OdlomakMetode { return OdlomakMetode{Tekst: s} }
+func formulaM(tekst, tex string) OdlomakMetode {
+	return OdlomakMetode{Tekst: tekst, Formula: true, TeX: tex}
+}
+
+// texBroj decimalni zarez štiti vitičastim zagradama da ga TeX ne tretira
+// kao interpunkciju i ne doda razmak iza njega.
+func texBroj(s string) string { return strings.ReplaceAll(s, ",", "{,}") }
 
 // OpisMetode je opis računa, od podataka do raspona. udio je postotak
 // slučajeva koji ostaju u rasponu, izdaje centar koji prognozu izdaje.
@@ -116,13 +123,15 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"računa u onoj veličini u kojoj je veza najčvršća, vodostaju ili protoku. Prognoza nizvodne " +
 				"postaje računa se iz prognoza uzvodnih, rekurzivno, pa se pogreška uzvodno nosi nizvodno — i " +
 				"ulazi u izmjereni raspon. Svaki ulaz uzima se zakašnjen i zaglađen kliznim prosjekom:"),
-			formulaM("x̄ⱼ(t) = (1 / wⱼ) · Σᵢ xⱼ(t − Lⱼ − i),   i = 0 … wⱼ − 1"),
+			formulaM("x̄ⱼ(t) = (1 / wⱼ) · Σᵢ xⱼ(t − Lⱼ − i),   i = 0 … wⱼ − 1",
+				`\bar{x}_j(t)=\frac{1}{w_j}\sum_{i=0}^{w_j-1}x_j(t-L_j-i)`),
 			tekstM("Lⱼ je vrijeme propagacije vala u satima, a wⱼ širina prozora kojim se ulaz zagladi: rijeka " +
 				"kratke valove guši, pa se dnevni val hidroelektrane ne smije prenijeti nizvodno neprigušen."),
 			tekstM("Veza s glavnim ulazom je neprekinuta, po dijelovima linearna funkcija (linearni spline) s " +
 				"čvorovima c₀ < c₁ < … < c_K na percentilima " + strings.Join(pojasi, ", ") + " glavnog ulaza. " +
 				"Sporedni ulazi ulaze linearno, jednim nagibom:"),
-			formulaM("y(t) = Σₖ βₖ · φₖ(x̄₁(t)) + Σⱼ γⱼ · x̄ⱼ(t) + ε(t),   k = 0 … K,   j = 2 … m"),
+			formulaM("y(t) = Σₖ βₖ · φₖ(x̄₁(t)) + Σⱼ γⱼ · x̄ⱼ(t) + ε(t),   k = 0 … K,   j = 2 … m",
+				`y(t)=\sum_{k=0}^{K}\beta_k\varphi_k\!\left(\bar{x}_1(t)\right)+\sum_{j=2}^{m}\gamma_j\bar{x}_j(t)+\varepsilon(t)`),
 			tekstM("φₖ su „šatorske” bazne funkcije: φₖ(cₖ) = 1, u susjednim čvorovima 0, linearno između. " +
 				"βₖ je tako vrijednost veze u čvoru cₖ, a pravci susjednih pojasa vodnosti sastaju se na " +
 				"granici — val koji raste ne dobiva skok kakvog u rijeci nema. Pojasi su gušći pri velikoj vodi, " +
@@ -143,11 +152,13 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 			tekstM("Vrh lanca. Za sate poslije zadnjeg mjerenja postaja na vrhu lanca drži zadnje izmjereno " +
 				"stanje (postojanost). Na Muri (Letenye) i Dunavu (Komárom) umjesto toga slijedi promjenu " +
 				"mađarske prognoze od trenutka izdavanja, ne stariju od dva dana:"),
-			formulaM("x(t) = x_mj(t₀) + [F_HU(t) − F_HU(t₀)]"),
+			formulaM("x(t) = x_mj(t₀) + [F_HU(t) − F_HU(t₀)]",
+				`x(t)=x_{\mathrm{mj}}(t_0)+\left[F_{\mathrm{HU}}(t)-F_{\mathrm{HU}}(t_0)\right]`),
 			tekstM("Ispravak prema mjerenju. Razlika između modela i zadnjeg mjerenja postaje (ne starijeg od " +
 				tekstBroja(prognoza.ZaostatakVrha) + " sata) nosi se naprijed i eksponencijalno slabi, s " +
 				"poluvremenom od " + poluvrijeme + " sati:"),
-			formulaM("ŷ*(t₀ + τ) = ŷ(t₀ + τ) + r₀ · 2^(−τ / " + poluvrijeme + "),   r₀ = y_mj(t₀) − ŷ(t₀)"),
+			formulaM("ŷ*(t₀ + τ) = ŷ(t₀ + τ) + r₀ · 2^(−τ / "+poluvrijeme+"),   r₀ = y_mj(t₀) − ŷ(t₀)",
+				`\hat{y}^{*}(t_0+\tau)=\hat{y}(t_0+\tau)+r_0\,2^{-\tau/`+texBroj(poluvrijeme)+`},\qquad r_0=y_{\mathrm{mj}}(t_0)-\hat{y}(t_0)`),
 			tekstM("Sustavna pogreška. Prognoza je puštena unatrag kroz arhivu — izdanje svakih 12 sati kroz " +
 				"više godina, svako samo s onim što je u tom trenutku bilo izmjereno — i za svaku postaju i " +
 				"doseg τ izmjerena je srednja pogreška b(τ). Ona se od prognoze oduzima."),
@@ -156,7 +167,8 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 			tekstM(fmt.Sprintf("Polovina širine raspona r(τ) je empirijski %d. percentil apsolutnog odstupanja "+
 				"pogreške od njezine srednje vrijednosti, iz iste provjere unatrag, izravnan po dosegu (±6 h):", udio)),
 			formulaM(fmt.Sprintf("r(τ) = Q_%s( |eᵢ(τ) − b(τ)| ),   prognoza = ŷ*(t₀ + τ) − b(τ) ± r(τ)",
-				brojHRf(float64(udio)/100, 2))),
+				brojHRf(float64(udio)/100, 2)),
+				`r(\tau)=Q_{`+texBroj(brojHRf(float64(udio)/100, 2))+`}\!\left(\left|e_i(\tau)-b(\tau)\right|\right),\qquad \mathrm{prognoza}=\hat{y}^{*}(t_0+\tau)-b(\tau)\pm r(\tau)`),
 			tekstM("Raspon se dakle ne izvodi iz pretpostavke o normalnoj raspodjeli pogrešaka, nego brojanjem. " +
 				"Kad bi pogreške bile normalne, r bi bio 1,04 standardna odstupanja."),
 			tekstM("Ista provjera daje i korijen srednje kvadratne pogreške postojanosti — pretpostavke da se " +
@@ -167,12 +179,15 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 			tekstM("Uči se na dnevnim srednjacima vodostaja od 1901.; dan kojem u arhivi nema dnevnog srednjaka " +
 				"dopunjuje se srednjakom satnih vrijednosti, ako ih ima barem 18. Za ciljnu postaju T i njezine " +
 				"ulaze s (tablica postaja) značajke dana t su:"),
-			formulaM("z(t) = [ 1,  h_T(t),  { Δ¹h_s(t), Δ²h_s(t) } za s ∈ {T} ∪ ulazi ]"),
-			formulaM("Δ¹h(t) = h(t) − h(t−1),   Δ²h(t) = h(t−1) − h(t−3)"),
+			formulaM("z(t) = [ 1,  h_T(t),  { Δ¹h_s(t), Δ²h_s(t) } za s ∈ {T} ∪ ulazi ]",
+				`\mathbf z(t)=\left[1,\ h_T(t),\ \left\{\Delta^1h_s(t),\Delta^2h_s(t)\right\}_{s\in\{T\}\cup\mathrm{ulazi}}\right]`),
+			formulaM("Δ¹h(t) = h(t) − h(t−1),   Δ²h(t) = h(t−1) − h(t−3)",
+				`\Delta^1h(t)=h(t)-h(t-1),\qquad \Delta^2h(t)=h(t-1)-h(t-3)`),
 			tekstM("Uz razinu cilja ulaze samo promjene, jer one ne ovise o nuli vodokaza, a nule su se kroz " +
 				fmt.Sprintf("stoljeće mijenjale. Cilj je promjena na dosegu k = 1 … %d dana, svaki doseg sa svojim ", prognoza.DnevniDosezi) +
 				"modelom (izravna višekoračna prognoza, bez rekurzije):"),
-			formulaM("Δₖ(t) = h_T(t + k) − h_T(t)"),
+			formulaM("Δₖ(t) = h_T(t + k) − h_T(t)",
+				`\Delta_k(t)=h_T(t+k)-h_T(t)`),
 		}},
 		{"Dnevni model — procjena", []OdlomakMetode{
 			tekstM("(a) Linearna regresija s pragom. Dani se dijele na dva režima po 75. percentilu razine h_T; " +
@@ -181,13 +196,15 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 			tekstM("(b) Metoda analognih situacija (k najbližih susjeda). Značajke se standardiziraju, a u " +
 				"euklidskoj udaljenosti razina cilja nosi dvostruku težinu, jer isti porast drukčije završi " +
 				"pri velikoj vodi:"),
-			formulaM("d²(t, u) = 2 · ((h_T(t) − h_T(u)) / σ_h)² + Σᵢ ((zᵢ(t) − zᵢ(u)) / σᵢ)²"),
+			formulaM("d²(t, u) = 2 · ((h_T(t) − h_T(u)) / σ_h)² + Σᵢ ((zᵢ(t) − zᵢ(u)) / σᵢ)²",
+				`d^2(t,u)=2\left(\frac{h_T(t)-h_T(u)}{\sigma_h}\right)^2+\sum_i\left(\frac{z_i(t)-z_i(u)}{\sigma_i}\right)^2`),
 			tekstM(fmt.Sprintf("Uzima se K = %d povijesnih dana najbližih današnjem; njihove stvarne promjene Δₖ "+
 				"daju procjenu (srednjak) i rasipanje (standardno odstupanje sₖ).", prognoza.DnevnihAnalogija)),
 			tekstM(fmt.Sprintf("Prognoza je srednjak dviju procjena, a raspon rasipanje analogija pomnoženo s %s, "+
 				"da cilja isti udio kao satni lanac, najmanje 1 cm. Dvije procjene u provjeri griješe u suprotnom "+
 				"smjeru, pa srednjak ima manju pristranost od svake zasebno:", brojHRf(prognoza.DnevniRasponMnozitelj, 2))),
-			formulaM("Δ̂ₖ = ½ · (Δₖ_reg + Δₖ_kNN),   ĥ_T(t + k) = h_T(t) + Δ̂ₖ ± " + brojHRf(prognoza.DnevniRasponMnozitelj, 2) + " · sₖ"),
+			formulaM("Δ̂ₖ = ½ · (Δₖ_reg + Δₖ_kNN),   ĥ_T(t + k) = h_T(t) + Δ̂ₖ ± "+brojHRf(prognoza.DnevniRasponMnozitelj, 2)+" · sₖ",
+				`\widehat{\Delta}_k=\frac{1}{2}\left(\Delta_{k,\mathrm{reg}}+\Delta_{k,\mathrm{kNN}}\right),\qquad \hat{h}_T(t+k)=h_T(t)+\widehat{\Delta}_k\pm `+texBroj(brojHRf(prognoza.DnevniRasponMnozitelj, 2))+`\,s_k`),
 			tekstM("Uživo je „dan” srednjak 24 sata koji završavaju u satu izdavanja, pa se dnevna prognoza " +
 				"obnavlja svaki sat, a ne tek u ponoć; vrijednost za dan k srednjak je 24 sata koji završavaju " +
 				"k dana poslije."),

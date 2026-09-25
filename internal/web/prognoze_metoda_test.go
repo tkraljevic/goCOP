@@ -85,7 +85,8 @@ func TestStranicaOPrognozi(t *testing.T) {
 			Satni: []string{"Gornja · protok · 12–20 h · prozor 5 h"}, Raspon: "±6 / ±11 / ±17 cm",
 			Dnevni: []string{"Gornja", "Pritok"}, DnevniOd: "3. dana"}},
 	})
-	for _, want := range []string{"O prognozi", "Satni lanac — građa", "prog-formula", "Nenada Šuvaka", suradnjaVeza, "izdanja.csv",
+	for _, want := range []string{"O prognozi", "Satni lanac — građa", "prog-formula", "data-tex=", `\frac`,
+		"vendor/katex/katex.min.css", "vendor/katex/katex.min.js", "katex.render", "Nenada Šuvaka", suradnjaVeza, "izdanja.csv",
 		"Gornja · protok · 12–20 h · prozor 5 h", "±6 / ±11 / ±17 cm", "Gornja, Pritok", "3. dana",
 		"/prognoze.xlsx"} {
 		if !strings.Contains(html, want) {

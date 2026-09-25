@@ -2,6 +2,11 @@
 
 {{define "title"}}goCOP — O prognozi{{end}}
 
+{{define "head"}}
+  <link rel="stylesheet" href="{{statika "vendor/katex/katex.min.css"}}">
+  <script src="{{statika "vendor/katex/katex.min.js"}}" defer></script>
+{{end}}
+
 {{define "content"}}
 <div class="detail-head">
   <div>
@@ -19,7 +24,7 @@
   {{range .Odjeljci}}
   <section class="detail-section">
     <h2>{{.Naslov}}</h2>
-    {{range .Odlomci}}{{if .Formula}}<div class="prog-formula">{{.Tekst}}</div>{{else}}<p>{{.Tekst}}</p>{{end}}{{end}}
+    {{range .Odlomci}}{{if .Formula}}<div class="prog-formula" data-tex="{{.TeX}}">{{.Tekst}}</div>{{else}}<p>{{.Tekst}}</p>{{end}}{{end}}
   </section>
   {{end}}
 
@@ -116,4 +121,19 @@
     {{else}}<p class="reg-card-sub">{{.BezLetvi}}</p>{{end}}
   </section>
 </div>
+{{end}}
+
+{{define "scripts"}}
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.prog-formula[data-tex]').forEach(function (formula) {
+      if (!window.katex) return;
+      katex.render(formula.dataset.tex, formula, {
+        displayMode: true,
+        throwOnError: false,
+        strict: 'warn'
+      });
+    });
+  });
+</script>
 {{end}}

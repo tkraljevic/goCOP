@@ -11,6 +11,7 @@
   </script>
   <link rel="stylesheet" href="{{statika "vendor/leaflet/leaflet.css"}}">
   <link rel="stylesheet" href="{{statika "css/style.css"}}">
+  {{block "head" .}}{{end}}
   <script src="{{statika "vendor/leaflet/leaflet.js"}}" defer></script>
   <script src="{{statika "js/app.js"}}" defer></script>
 </head>
@@ -213,6 +214,7 @@
 </body>
 </html>
 
+  {{block "scripts" .}}{{end}}
 {{/* Listanje popisa — zajedničko svim registrima. Prima Pager. */}}
 {{define "letvaIzbornik"}}
 {{/* Isti izbornik na kartici, očitanjima i historijatu. Stranica na kojoj se

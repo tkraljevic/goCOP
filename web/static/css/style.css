@@ -4125,12 +4125,13 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .prog-metoda p { font-size: 0.92rem; line-height: 1.6; margin: 0.4rem 0; max-width: 62rem; }
 .prog-formula {
   font-family: "Cambria Math", "STIX Two Math", "Times New Roman", serif;
-  font-style: italic; font-size: 1rem;
+  font-size: 1rem; text-align: center;
   margin: 0.5rem 0 0.6rem; padding: 0.45rem 0.9rem;
   background: var(--bg-subtle); border-left: 3px solid var(--primary);
   border-radius: 4px; overflow-x: auto; white-space: nowrap; max-width: 62rem;
 }
 .prog-metoda-tablica td { vertical-align: top; font-size: 0.82rem; }
+.prog-formula .katex-display { margin: 0.2rem 0; }
 .prog-metoda-tablica td.nowrap { white-space: nowrap; }
 
 /* Generiranje prognoze: traka napretka i ispis koraka */
