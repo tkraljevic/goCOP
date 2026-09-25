@@ -99,9 +99,10 @@ type LetvaPrognoze struct {
 	Ulaz            bool // ulaz dnevne prognoze: stoji samo mjerenje
 	Pregledna       bool // u model ne ulazi, stoji radi pregleda
 	Ulazi           []string
-	ImaTermina      bool // ima ijednu prognozu, svoju ili tuđu
-	TudiVrh         bool // vrh lanca koji dalje ide po mađarskoj prognozi
-	NasVrh          bool // vrh lanca koji dalje ide po našem dnevnom modelu
+	ImaTermina      bool   // ima ijednu prognozu, svoju ili tuđu
+	TudiVrh         bool   // vrh lanca koji dalje ide po mađarskoj prognozi
+	NasVrh          bool   // vrh lanca koji dalje ide po našem dnevnom modelu
+	DnevniOpis      string // letva koju prognozira samo dnevni model: iz čega
 	Dani            []CelijaDana
 	Nepovezana      string // poruka kad letva nije povezana sa živom vodom, pa prognoze nema
 	Rezerva         string // poruka kad se letva računa iz rezervnih ulaza
@@ -359,8 +360,9 @@ func (h *PrognozeHandler) opisiLetve(popis map[string]models.Station, letve []Pr
 		red := LetvaPrognoze{
 			Kod: l.Letva, Naziv: l.Letva, Racuna: l.Racuna, Doseg: l.Doseg,
 			Vrh: l.Racuna == "" && !ulaz && !pregledna, Ulaz: ulaz, Pregledna: pregledna,
-			TudiVrh: l.Racuna == "" && tudi,
-			SadaCm:  uVelicini(l.Sada, "vodostaj"), SadaQ: uVelicini(l.Sada, "protok"),
+			TudiVrh:    l.Racuna == "" && tudi,
+			DnevniOpis: opisDnevnogCilja(l.Letva, popis),
+			SadaCm:     uVelicini(l.Sada, "vodostaj"), SadaQ: uVelicini(l.Sada, "protok"),
 			Ulazi:   l.Ulazi,
 			SadaCmV: ptr(sadaCm, imaSadaCm), SadaQV: ptr(sadaQ, imaSadaQ),
 		}
@@ -807,6 +809,37 @@ func (h *PrognozeHandler) usca(ctx context.Context, postaje map[string]models.St
 		}
 	}
 	return out
+}
+
+// opisDnevnogCilja kaže iz čega dnevni model računa letvu koja nema satni
+// lanac: „dnevni model: Letenye, Mursko Središće i kiša”. Imena stoje u
+// nominativu, jer se ne sklanjaju sama od sebe. Prazno za letve koje nisu
+// cilj dnevnog modela.
+func opisDnevnogCilja(letva string, popis map[string]models.Station) string {
+	for _, c := range prognoza.DnevniCiljevi {
+		if c.Letva != letva {
+			continue
+		}
+		var dijelovi []string
+		for _, u := range c.Ulazi {
+			ime := u
+			if st, ima := popis[u]; ima {
+				ime = st.Name
+			}
+			dijelovi = append(dijelovi, ime)
+		}
+		if len(dijelovi) == 0 {
+			dijelovi = append(dijelovi, "vlastita razina")
+		}
+		if len(c.Slivovi) > 0 {
+			dijelovi = append(dijelovi, "kiša")
+		}
+		if len(dijelovi) == 1 {
+			return "dnevni model: " + dijelovi[0]
+		}
+		return "dnevni model: " + strings.Join(dijelovi[:len(dijelovi)-1], ", ") + " i " + dijelovi[len(dijelovi)-1]
+	}
+	return ""
 }
 
 // opisRezerve prepisuje šifre letvi iz opisa izbora u nazive: „rezerva:
