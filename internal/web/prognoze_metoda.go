@@ -220,6 +220,14 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"s 23, 37 i 50 cm na 21, 31 i 40, na Aljmašu s 23, 34 i 45 na 21, 28 i 35, na Vukovaru sa 17, 26 i 35 " +
 				"na 16, 22 i 28, na Iloku sa 16, 24 i 33 na 16, 21 i 27; prva tri dana lošija su za pola do jedan " +
 				"centimetar. Dravski međuslivovi uz dunavske nizvodnim letvama ne pomažu, pa ne ulaze."),
+			tekstM("Za vrh Dunava, Komárom, registar ima i međuslivove gornjeg Dunava (O iznad Hofkirchena, K " +
+				"Hofkirchen → Achleiten, L Achleiten → Kienstock, M Kienstock → Wildungsmauer, N Wildungsmauer → " +
+				"Komárom) s 25 kvazi-kišomjera. Dnevni model Komároma iz Wildungsmauera, Kienstocka, Achleitena i " +
+				"Hofkirchena s tom kišom griješi preko svih dana 2024.–2026. 10, 20, 29, 35, 39 i 43 cm (bez kiše " +
+				"10, 24, 39, 50, 59 i 66; sa savršenom kišom 41 šesti dan), ali na 27 mađarskih izdanja, uglavnom " +
+				"valova, 25, 52, 68, 89, 104 i 119 prema njihovih 12, 20, 28, 38, 47 i 59: oni nose cijeli " +
+				"austrijsko-njemački prognostički lanac. Komárom zato ostaje na mađarskoj prognozi; put do " +
+				"neovisnosti je satni lanac od Wildungsmauera i javne austrijske i bavarske prognoze."),
 			tekstM("Prema mađarskoj prognozi (hydroinfo.hu, 28 izdanja od rujna 2024. do rujna 2026., model naučen do " +
 				"rujna 2024., s arhiviranim prognozama kiše), srednja pogreška 1.–6. dana u cm, oni prema nama: Botovo " +
 				"24, 37, 41, 51, 52, 58 prema 16, 26, 27, 25, 34, 36; Terezino Polje 14, 28, 40, 48, 52, 60 prema 11, " +

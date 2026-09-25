@@ -133,8 +133,12 @@ var DnevniCiljevi = []DnevniCilj{
 // Letenyea (Mursko Središće + kiša nad Murom, tada izdana prognoza kiše)
 // griješi 13, 22, 18, 22, 30 i 24 cm za 1.–6. dan, njihova prognoza Letenyea
 // 13, 23, 28, 37, 42 i 50. Komárom ostaje na tuđoj prognozi dok naš dnevni
-// model Dunava iznad njega ne dostigne njihovu (bez kiše griješi 27–142 cm
-// prema njihovih 12–59). Kad našeg nema, uzima se tuđa.
+// model Dunava iznad njega ne dostigne njihovu: s kišom gornjeg Dunava
+// (međuslivovi O–N, ulazi Wildungsmauer, Kienstock, Achleiten, Hofkirchen)
+// preko svih dana griješi 10, 20, 29, 35, 39 i 43 cm (bez kiše 10–66), ali
+// na njihovih 27 izdanja, uglavnom valova, 25, 52, 68, 89, 104 i 119 prema
+// njihovih 12, 20, 28, 38, 47 i 59 — oni nose cijeli austrijsko-njemački
+// prognostički lanac. Kad našeg nema, uzima se tuđa.
 //
 // Goričan je vrh lanca Botova u protoku: dnevna prognoza vodostaja ide kroz
 // njegovu krivulju protoka, kao i sve dnevne vrijednosti letvi s krivuljom.
