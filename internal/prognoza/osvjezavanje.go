@@ -509,8 +509,14 @@ func (o *Osvjezivac) dnevno(ctx context.Context, sada int64, od time.Time) ([]Dn
 	case bezKise > 0:
 		izbor["oborina"] = Izbor{Inacica: 2, Opis: "dnevni model računa bez kiše: " + razlogBezKise}
 	}
+	// Sidra: ulazi dnevnog modela i njegovi ciljevi koji nisu u lancu
+	// (Kotoriba) dobivaju mjerenje u satu izdavanja, da na pregledu stoje.
 	var sidra []Izdana
-	for _, l := range DnevniUlazi() {
+	sidrene := DnevniUlazi()
+	for _, c := range DnevniCiljevi {
+		sidrene = append(sidrene, c.Letva)
+	}
+	for _, l := range sidrene {
 		n, ucitan := satni[l]
 		if !ucitan {
 			continue

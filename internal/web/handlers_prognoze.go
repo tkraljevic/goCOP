@@ -101,6 +101,7 @@ type LetvaPrognoze struct {
 	Ulazi           []string
 	ImaTermina      bool // ima ijednu prognozu, svoju ili tuđu
 	TudiVrh         bool // vrh lanca koji dalje ide po mađarskoj prognozi
+	NasVrh          bool // vrh lanca koji dalje ide po našem dnevnom modelu
 	Dani            []CelijaDana
 	Nepovezana      string // poruka kad letva nije povezana sa živom vodom, pa prognoze nema
 	Rezerva         string // poruka kad se letva računa iz rezervnih ulaza
@@ -233,6 +234,7 @@ func (h *PrognozeHandler) podaci(r *http.Request) PrognozePageData {
 				data.Letve[i].Rezerva += " "
 			}
 			data.Letve[i].Rezerva += iz.Opis
+			data.Letve[i].NasVrh, data.Letve[i].TudiVrh = true, false
 		}
 	}
 	data.Bliski = BliziDosezi
