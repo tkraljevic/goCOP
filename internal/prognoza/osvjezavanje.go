@@ -429,13 +429,13 @@ func (o *Osvjezivac) dnevno(ctx context.Context, sada int64, od time.Time) ([]Dn
 	// kad je sve u redu, ne samo kad je pao na inačicu bez nje.
 	switch {
 	case sKisom > 0 && bezKise == 0:
-		izbor["oborina"] = Izbor{Inacica: 1, Opis: fmt.Sprintf("dnevni model Drave računa s kišom: pala kiša %d dana unatrag i prognoza %d dana unaprijed (Open-Meteo, %d kišomjera)",
+		izbor["oborina"] = Izbor{Inacica: 1, Opis: fmt.Sprintf("dnevni model računa s kišom: pala kiša %d dana unatrag i prognoza %d dana unaprijed (Open-Meteo, %d kišomjera)",
 			unatrag, unaprijed, len(o.Oborine.Tocke))}
 	case sKisom > 0:
-		izbor["oborina"] = Izbor{Inacica: 1, Opis: fmt.Sprintf("dnevni model Drave računa s kišom na %d letvi, bez kiše na %d — %s",
+		izbor["oborina"] = Izbor{Inacica: 1, Opis: fmt.Sprintf("dnevni model računa s kišom na %d letvi, bez kiše na %d — %s",
 			sKisom, bezKise, razlogBezKise)}
 	case bezKise > 0:
-		izbor["oborina"] = Izbor{Inacica: 2, Opis: "dnevni model Drave računa bez kiše: " + razlogBezKise}
+		izbor["oborina"] = Izbor{Inacica: 2, Opis: "dnevni model računa bez kiše: " + razlogBezKise}
 	}
 	var sidra []Izdana
 	for _, l := range DnevniUlazi() {

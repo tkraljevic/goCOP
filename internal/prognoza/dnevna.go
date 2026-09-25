@@ -90,16 +90,24 @@ type DnevniCilj struct {
 // prognozom 24, 28, 32, 37, sa savršenom 24, 27, 29, 29 — prognoza donese
 // gotovo sve do 4. dana, pola 6. dana. 1.–2. dan se ne mijenja. Bez oborine
 // (nema je uživo, ili je registar prazan) ide inačica bez nje.
+//
+// Na Dunavu ulaze međuslivovi H (Komárom → Budimpešta, s Váhom, Hronom i
+// Ipeľom), I (Budimpešta → Mohács) i J (Mohács → Aljmaš bez Drave). Dunavske
+// dnevne ulaze imamo tek od 2000-ih, pa je provjera samo 2024.–2026. (učeno do
+// 2023.), sa stvarnom budućom kišom: Batina 4.–6. dan 23, 37 i 50 cm → 21, 30 i
+// 39; Aljmaš 23, 34, 45 → 21, 28, 35; Vukovar 17, 26, 35 → 16, 22, 28; Ilok 16,
+// 24, 33 → 16, 21, 27. Prva tri dana lošija su za pola do jedan centimetar.
+// Dravski međuslivovi uz dunavske nizvodnim letvama ne pomažu.
 var DnevniCiljevi = []DnevniCilj{
 	{"botovo", []string{"mursko-sredisce", "borl-i"}, []string{"A", "B", "C"}},
 	{"terezino-polje", []string{"botovo", "mursko-sredisce", "borl-i"}, []string{"A", "B", "C", "D"}},
 	{"donji-miholjac", []string{"terezino-polje", "botovo", "mursko-sredisce", "borl-i"}, []string{"A", "B", "C", "D", "E"}},
 	{"belisce", []string{"donji-miholjac", "terezino-polje", "botovo", "borl-i"}, []string{"A", "B", "C", "D", "E", "F"}},
 	{"osijek", []string{"belisce", "donji-miholjac", "botovo", "aljmas"}, []string{"A", "B", "C", "D", "E", "F", "G"}},
-	{"batina", []string{"komarom", "budapest", "mohacs"}, nil},
-	{"aljmas", []string{"komarom", "budapest", "mohacs", "batina", "osijek", "donji-miholjac"}, nil},
-	{"vukovar", []string{"komarom", "budapest", "mohacs", "batina", "osijek", "donji-miholjac"}, nil},
-	{"ilok", []string{"komarom", "budapest", "mohacs", "batina", "osijek", "donji-miholjac"}, nil},
+	{"batina", []string{"komarom", "budapest", "mohacs"}, []string{"H", "I", "J"}},
+	{"aljmas", []string{"komarom", "budapest", "mohacs", "batina", "osijek", "donji-miholjac"}, []string{"H", "I", "J"}},
+	{"vukovar", []string{"komarom", "budapest", "mohacs", "batina", "osijek", "donji-miholjac"}, []string{"H", "I", "J"}},
+	{"ilok", []string{"komarom", "budapest", "mohacs", "batina", "osijek", "donji-miholjac"}, []string{"H", "I", "J"}},
 }
 
 // DnevneRezerve su drugi ulazi dnevnog modela za istu letvu, redom kojim se

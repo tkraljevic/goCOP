@@ -188,8 +188,9 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"modelom (izravna višekoračna prognoza, bez rekurzije):"),
 			formulaM("Δₖ(t) = h_T(t + k) − h_T(t)",
 				`\Delta_k(t)=h_T(t+k)-h_T(t)`),
-			tekstM("Na Dravi u značajke ulazi i oborina: za svaki međusliv uzvodno od cilja (registar slivova, " +
-				"međuslivovi A–G između letvi) zbroj kiše zadnjeg dana, zadnja tri dana i zadnjih sedam dana te " +
+			tekstM("Na Dravi i Dunavu u značajke ulazi i oborina: za svaki međusliv uzvodno od cilja (registar " +
+				"slivova: na Dravi međuslivovi A–G između letvi, na Dunavu H Komárom → Budimpešta s Váhom, Hronom i " +
+				"Ipeľom, I Budimpešta → Mohács i J Mohács → Aljmaš bez Drave) zbroj kiše zadnjeg dana, zadnja tri dana i zadnjih sedam dana te " +
 				"prognozirana kiša sljedeća dva, četiri i šest dana, u mm, kao težinski srednjak kvazi-kišomjera " +
 				"međusliva po visinskim pojasima. Povijest je reanaliza ERA5 (Open-Meteo) od 1990., pa model s " +
 				"oborinom uči od tada, i to na kiši koja je doista pala i poslije (savršena prognoza); uživo zadnjih " +
@@ -206,6 +207,11 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"27, 29 i 29. Prognoza kiše dakle treći i četvrti dan donese gotovo sve, peti tri četvrtine, šesti " +
 				"polovicu. Umjeravanje prognoze na razinu reanalize po točkama provjeru pogoršava, pa se prognoza " +
 				"uzima kakva jest."),
+			tekstM("Na Dunavu su dnevni ulazi tek od 2000-ih, pa je provjera samo na 2024.–2026. modelom naučenim " +
+				"do kraja 2023., s arhiviranim prognozama kiše: pogreška preko svih dana 4.–6. dan pada na Batini " +
+				"s 23, 37 i 50 cm na 21, 31 i 40, na Aljmašu s 23, 34 i 45 na 21, 28 i 35, na Vukovaru sa 17, 26 i 35 " +
+				"na 16, 22 i 28, na Iloku sa 16, 24 i 33 na 16, 21 i 27; prva tri dana lošija su za pola do jedan " +
+				"centimetar. Dravski međuslivovi uz dunavske nizvodnim letvama ne pomažu, pa ne ulaze."),
 			tekstM("Je li dnevna prognoza računata s kišom, piše uz vrijeme izdanja na stranici Prognoze, uz razlog " +
 				"kad nije (oborine nisu preuzete, kvota ili mreža). U izvozu izdanja i u Excelu svaka dnevna vrijednost " +
 				"nosi oznaku modela: dnevni-1-kisa kad je računata s kišom, dnevni-1 bez nje."),
