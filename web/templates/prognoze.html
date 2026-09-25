@@ -220,7 +220,13 @@
         if (v === null || v === undefined || pravih < 2) { return; }
         var px = niz.x[k], py = y(v);
         tekuci.push([px, py]);
-        krugovi += '<circle cx="' + px.toFixed(1) + '" cy="' + py.toFixed(1) + '" r="4.5"><title>' + niz.letve[k] + ': ' + (v > 0 ? '+' : '') + Math.round(v) + ' cm</title></circle>';
+        var broj = Math.round(v), predznak = broj > 0 ? '+' : (broj < 0 ? '−' : '±');
+        krugovi += '<circle cx="' + px.toFixed(1) + '" cy="' + py.toFixed(1) + '" r="4.5"><title>' + niz.letve[k] + ': ' + (v > 0 ? '+' : '') + broj + ' cm</title></circle>';
+        // Uz svaku točku piše koliko se od sadašnjeg vodostaja diglo ili spustilo;
+        // pri „sad” su sve nule, pa se brojevi ne pišu.
+        if (h !== 0) {
+          krugovi += '<text class="uzd-klizac-broj" x="' + px.toFixed(1) + '" y="' + (py - 9).toFixed(1) + '" text-anchor="middle">' + predznak + Math.abs(broj) + '</text>';
+        }
       });
       crta.setAttribute('d', pravih >= 2 ? krivulja(tekuci) : '');
       crta.classList.toggle('mjereno', h < 0);

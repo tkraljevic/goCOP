@@ -4217,6 +4217,7 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .uzd-klizac-natpis { min-width: 13rem; font-size: 0.85rem; font-variant-numeric: tabular-nums; color: var(--text-muted); }
 .uzd-klizac-igraj { padding: 0.3rem 0.55rem; }
 .uzd-klizac-igraj.uzd-igra { background: var(--primary); color: #fff; }
+.uzd-klizac-broj { font-size: 12px; font-weight: 700; fill: var(--text); paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
 .uzd-gumbi { position: absolute; top: 0.5rem; right: 0.5rem; z-index: 4; display: flex; gap: 0.25rem; }
 .uzd-gumb { width: 32px; height: 32px; padding: 5px; border: 1px solid var(--border); border-radius: 6px;
   background: var(--surface); color: var(--text); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
