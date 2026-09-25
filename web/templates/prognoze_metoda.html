@@ -23,6 +23,50 @@
   </section>
   {{end}}
 
+  {{with .Valovi}}
+  <section class="detail-section">
+    <h2>Provjera na poplavnim valovima</h2>
+    <p>{{.Valova}} valova iz arhive (vrh iznad pripremne obrane), svaki provjeren modelom koji ga nije vidio:
+      valove do 2013. model namješten na podacima od 2014., valove od 2014. model namješten na podacima do
+      2013. Pogreška najavljenog vrha je razlika najvišeg prognoziranog vodostaja unutar ±24 h od vrha i
+      izmjerenog vrha, u centimetrima; pristranost je ista razlika s predznakom — negativno znači da je
+      prognoza preniska. Postojanost je pretpostavka da se ništa neće promijeniti. U provjeri vrh lanca ne
+      slijedi mađarsku prognozu i ne primjenjuje se ispravak sustavnog pomaka, pa je živa prognoza na 72 i
+      96 h nešto bolja od ovih brojki.</p>
+    <div class="table-card"><div class="table-responsive">
+      <table class="data-table prog-metoda-tablica">
+        <thead><tr><th>Rijeka · model</th><th>Valova</th><th>Doseg</th><th>Pogreška vrha</th><th>Pristranost</th><th>Postojanost</th></tr></thead>
+        <tbody>
+        {{range .Skupine}}{{$s := .}}{{range $i, $d := .Dosezi}}
+        <tr>
+          {{if eq $i 0}}<td rowspan="{{len $s.Dosezi}}"><strong>{{$s.Rijeka}}</strong><div class="reg-card-sub">{{$s.Model}}</div></td>
+          <td rowspan="{{len $s.Dosezi}}">{{$s.Valova}}</td>{{end}}
+          <td class="nowrap">{{$d.Doseg}} h</td>
+          <td class="nowrap">{{brojHRf $d.MAE 0}} cm</td>
+          <td class="nowrap">{{if ge $d.Pristranost 0.0}}+{{end}}{{brojHRf $d.Pristranost 0}} cm</td>
+          <td class="nowrap">{{brojHRf $d.MAEPostojanost 0}} cm</td>
+        </tr>
+        {{end}}{{end}}
+        </tbody>
+      </table>
+    </div></div>
+    {{if .Najveci}}
+    <p style="margin-top:1rem">Najveći valovi, pogreška najavljenog vrha (prognoza − izmjereno), cm:</p>
+    <div class="table-card"><div class="table-responsive">
+      <table class="data-table prog-metoda-tablica">
+        <thead><tr><th>Val</th><th>Letva</th><th>Vrh</th>{{range .DoseziVrh}}<th>{{.}} h</th>{{end}}</tr></thead>
+        <tbody>
+        {{range .Najveci}}
+        <tr><td class="nowrap">{{.Val}}</td><td>{{.Letva}}</td><td class="nowrap">{{brojHRf .Vrh 0}} cm</td>{{range .Pogreske}}<td class="nowrap">{{.}}</td>{{end}}</tr>
+        {{end}}
+        </tbody>
+      </table>
+    </div></div>
+    {{end}}
+    <p class="reg-card-sub">Iz datoteke {{.Datoteka}} (zapisano {{.Zapisano}}); ista je za preuzimanje dolje.</p>
+  </section>
+  {{end}}
+
   <section class="detail-section">
     <h2>Suradnja i podaci</h2>
     <p>Model je nastao u neslužbenoj suradnji Tomislava Kraljevića i

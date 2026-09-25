@@ -62,6 +62,7 @@ type PrognozeMetodaData struct {
 	Suradnja     string          // tko model radi i proučava
 	SuradnjaVeza string          // adresa profila profesora
 	Izvozi       []IzvozDatoteka // podaci za ponavljanje računa
+	Valovi       *ProvjeraValova // provjera na poplavnim valovima, iz sažetka u mapi podataka
 }
 
 // DoseziRaspona su dosezi za koje tablica postaja navodi raspon.
@@ -358,6 +359,9 @@ func (h *PrognozeHandler) metoda(r *http.Request) PrognozeMetodaData {
 		Odjeljci: OpisMetode(int(math.Round(prognoza.UdioURasponu*100)), izdaje),
 		RasponDo: DoseziRaspona,
 		Suradnja: suradnja, SuradnjaVeza: suradnjaVeza, Izvozi: h.izvozi(),
+	}
+	if h.podaciDir != nil {
+		m.Valovi = provjeraValovaIz(h.podaciDir())
 	}
 	var c *CitacPrognoza
 	if h.citac != nil {

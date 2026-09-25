@@ -350,7 +350,7 @@ func drugiRedak(x LetvaPrognoze, naslovLista string) string {
 // tablicu postaja s ulazima i rasponom, da se uz izdanu tablicu uvijek zna
 // odakle su brojevi i kako su izvedeni.
 func listMetode(k *xlsxw.Knjiga, z ZaglavljeIzvoza, m PrognozeMetodaData) {
-	T := xlsxw.T
+	T, N := xlsxw.T, xlsxw.N
 	l := k.NoviList("O prognozi")
 	l.Vodoravno = true
 	l.Sirine = []float64{20, 46, 11, 18, 38, 11}
@@ -382,6 +382,30 @@ func listMetode(k *xlsxw.Knjiga, z ZaglavljeIzvoza, m PrognozeMetodaData) {
 			}
 			preko(T(od.Tekst, xlsxw.Tekst), visinaTeksta(od.Tekst, int(sirina*1.35), 15, 0))
 		}
+	}
+
+	if v := m.Valovi; v != nil {
+		preko(T("Provjera na poplavnim valovima", xlsxw.Podnaslov), 22)
+		uvod := fmt.Sprintf("%d valova iz arhive, svaki provjeren modelom koji ga nije vidio. Pogreška najavljenog vrha "+
+			"(srednja apsolutna, cm) i pristranost (negativno = prognoza preniska); postojanost = pretpostavka da se "+
+			"ništa ne mijenja. U provjeri vrh lanca ne slijedi mađarsku prognozu i nema ispravka pomaka.", v.Valova)
+		preko(T(uvod, xlsxw.Tekst), visinaTeksta(uvod, int(sirina*1.35), 15, 0))
+		r := l.Redak()
+		l.Dodaj(T("Rijeka · model", xlsxw.Zaglavlje), T("Valova", xlsxw.Zaglavlje), T("Doseg", xlsxw.Zaglavlje),
+			T("Pogreška vrha (cm)", xlsxw.Zaglavlje), T("Pristranost (cm)", xlsxw.Zaglavlje), T("Postojanost (cm)", xlsxw.Zaglavlje))
+		l.Visina(r, 20)
+		for _, sk := range v.Skupine {
+			for i, d := range sk.Dosezi {
+				naziv := ""
+				if i == 0 {
+					naziv = sk.Rijeka + " · " + sk.Model
+				}
+				l.Dodaj(T(naziv, xlsxw.Tablica), N(float64(sk.Valova), xlsxw.TablicaSredina), T(tekstBroja(d.Doseg)+" h", xlsxw.TablicaSredina),
+					N(math.Round(d.MAE), xlsxw.TablicaSredina), N(math.Round(d.Pristranost), xlsxw.TablicaSredina),
+					N(math.Round(d.MAEPostojanost), xlsxw.TablicaSredina))
+			}
+		}
+		l.Dodaj()
 	}
 
 	if m.Suradnja != "" {

@@ -178,3 +178,35 @@ func TestPodaciSamoHindcast(t *testing.T) {
 		}
 	}
 }
+
+// Sažetak provjere na valovima čita se u tablicu: po rijeci i modelu, po
+// dosegu, s pogreškom, pristranošću i postojanošću; najveći valovi po sidru.
+func TestProvjeraValovaIzSazetka(t *testing.T) {
+	dir := t.TempDir()
+	csv := "\ufeffvrsta;val;letva;doseg_h;izmjereno;prognoza;vrh_prognoze;postojanost;model\n" +
+		"vrh;Dunav-2013-06-13;batina;24;772;770;774;760;A\n" +
+		"vrh;Dunav-2013-06-13;batina;48;772;760;766;720;A\n" +
+		"vrh;Dunav-2006-04-09;batina;24;754;750;752;740;A\n" +
+		"vrh;Drava-2014-09-16;belisce;24;591;585;592;570;B\n" +
+		"vrh;Drava-2014-09-16;belisce;48;591;570;577;540;B\n" +
+		"kroz;Drava-2014-09-16;belisce;24;500;490;;480;B\n"
+	os.WriteFile(filepath.Join(dir, "hindcast_valovi_sazetak.csv"), []byte(csv), 0o644)
+	p := provjeraValovaIz(dir)
+	if p == nil || p.Valova != 3 || len(p.Skupine) != 2 {
+		t.Fatalf("provjera: %+v", p)
+	}
+	d := p.Skupine[0]
+	if d.Rijeka != "Dunav" || d.Valova != 2 || len(d.Dosezi) != 2 {
+		t.Fatalf("Dunav: %+v", d)
+	}
+	// 24 h: pogreške +2 i −2 → MAE 2, pristranost 0, postojanost (12+14)/2 = 13.
+	if x := d.Dosezi[0]; x.Doseg != 24 || x.N != 2 || x.MAE != 2 || x.Pristranost != 0 || x.MAEPostojanost != 13 {
+		t.Errorf("Dunav 24 h: %+v", x)
+	}
+	if len(p.Najveci) < 2 || p.Najveci[0].Val != "Dunav-2013-06-13" || p.Najveci[0].Pogreske[1] != "-6" || p.Najveci[0].Pogreske[2] != "—" {
+		t.Errorf("najveći: %+v", p.Najveci)
+	}
+	if provjeraValovaIz(t.TempDir()) != nil {
+		t.Error("bez datoteke mora biti nil")
+	}
+}
