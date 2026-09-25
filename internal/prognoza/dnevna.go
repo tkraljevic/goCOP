@@ -80,8 +80,11 @@ type DnevniCilj struct {
 // Donjem Miholjcu sa 110 i 172 na 86 i 141; sa stvarnom budućom kišom
 // umjesto prognoze (gornja granica) Botovo 3.–6. dan pada sa 90, 134, 156 i
 // 166 na 62, 74, 100 i 96, Belišće 6. dan na 70, Donji Miholjac na 92.
-// 1.–2. dan se ne mijenja. Bez oborine (nema je uživo, ili je registar
-// prazan) ide inačica bez nje.
+// S arhiviranim prognozama Open-Meteo 2024.–2026. (učeno do 2023.) Botovo
+// preko svih dana 3.–6. dan: bez prognoze kiše 33, 40, 44, 46 cm, s pravom
+// prognozom 24, 28, 32, 37, sa savršenom 24, 27, 29, 29 — prognoza donese
+// gotovo sve do 4. dana, pola 6. dana. 1.–2. dan se ne mijenja. Bez oborine
+// (nema je uživo, ili je registar prazan) ide inačica bez nje.
 var DnevniCiljevi = []DnevniCilj{
 	{"botovo", []string{"mursko-sredisce", "borl-i"}, []string{"A", "B", "C"}},
 	{"terezino-polje", []string{"botovo", "mursko-sredisce", "borl-i"}, []string{"A", "B", "C", "D"}},
@@ -215,6 +218,12 @@ var OborinskiDaniUnaprijed = []int{2, 4, 6}
 // samo za usporedbu u provjeri.
 var OborinaUnaprijed = true
 
+// PrognozaKise, kad je zadana, daje kišu međusliva za dan t+d kakva je bila
+// prognozirana na dan t (d = 1 …), umjesto kiše koja je poslije doista pala.
+// Služi provjeri na arhiviranim prognozama; uživo je nil, jer ondje
+// buduće dane nosi sam niz.
+var PrognozaKise func(sliv string, t int64, d int) (float64, bool)
+
 // OborinaKorijen kaže ulazi li oborina u značajke kao korijen zbroja: velike
 // kiše su rijetke i teške u repu, a korijen ih primakne ostalima.
 var OborinaKorijen = false
@@ -268,7 +277,13 @@ func DnevneZnacajke(c DnevniCilj, nizovi map[string]DnevniNiz, t int64) ([]float
 		for _, dana := range OborinskiDaniUnaprijed {
 			var zbroj float64
 			for d := 1; d <= dana; d++ {
-				v, ok := n[t+int64(d)]
+				var v float64
+				var ok bool
+				if PrognozaKise != nil {
+					v, ok = PrognozaKise(s, t, d)
+				} else {
+					v, ok = n[t+int64(d)]
+				}
 				if !ok {
 					return nil, false
 				}

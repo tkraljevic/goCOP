@@ -199,8 +199,13 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"pogreška vrha 5. i 6. dana pada u Osijeku sa 70 i 108 cm na 54 i 71, u Belišću s 80 i 119 na 60 i 94, " +
 				"u Donjem Miholjcu sa 110 i 172 na 86 i 141. S budućom kišom iz arhive umjesto prognoze, što je " +
 				"gornja granica: Botovo 3.–6. dan sa 90, 134, 156 i 166 na 62, 74, 100 i 96, Belišće 6. dan na 70, " +
-				"Donji Miholjac na 92, Osijek na 67. Prva dva dana se ne mijenjaju, a koliko od toga prognoza kiše " +
-				"doista donese, pokazat će provjera na arhiviranim prognozama."),
+				"Donji Miholjac na 92, Osijek na 67. Prva dva dana se ne mijenjaju."),
+			tekstM("Koliko od toga prava prognoza kiše donese, provjereno je na arhiviranim prognozama Open-Meteo " +
+				"2024.–2026. modelom naučenim do kraja 2023.: pogreška preko svih dana za Botovo 3.–6. dan bez " +
+				"prognoze kiše 33, 40, 44 i 46 cm, s pravim prognozama 24, 28, 32 i 37, sa savršenom prognozom 24, " +
+				"27, 29 i 29. Prognoza kiše dakle treći i četvrti dan donese gotovo sve, peti tri četvrtine, šesti " +
+				"polovicu. Umjeravanje prognoze na razinu reanalize po točkama provjeru pogoršava, pa se prognoza " +
+				"uzima kakva jest."),
 		}},
 		{"Dnevni model — procjena", []OdlomakMetode{
 			tekstM("(a) Linearna regresija s pragom. Dani se dijele na dva režima po 75. percentilu razine h_T; " +

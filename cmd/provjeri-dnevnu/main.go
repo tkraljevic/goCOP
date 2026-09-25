@@ -14,6 +14,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -41,6 +42,7 @@ func main() {
 	korijen := flag.Bool("korijen", false, "oborina u značajke kao korijen zbroja")
 	tezinaKNN := flag.Float64("oborina-knn", prognoza.OborinaTezinaKNN, "težina oborine u udaljenosti analogija (0 = samo regresija)")
 	unaprijed := flag.Bool("prognoza-kise", true, "i prognozirana kiša (u provjeri: stvarna buduća kiša iz arhive, gornja granica)")
+	prognozePut := flag.String("prognoze-kise", "", "CSV arhiviranih prognoza kiše (sliv;datum;dan;mm): provjera s onim što se tada doista prognoziralo")
 	flag.Parse()
 	prognoza.OborinaKorijen, prognoza.OborinaTezinaKNN, prognoza.OborinaUnaprijed = *korijen, *tezinaKNN, *unaprijed
 	ciljevi := prognoza.DnevniCiljevi
@@ -119,6 +121,17 @@ func main() {
 		}
 	}
 
+	if *prognozePut != "" {
+		p, err := citajPrognozeKise(*prognozePut)
+		if err != nil {
+			log.Fatal(err)
+		}
+		prognoza.PrognozaKise = func(sliv string, t int64, d int) (float64, bool) {
+			v, ok := p[kljucPrognoze{sliv, t, d}]
+			return v, ok
+		}
+		fmt.Printf("arhivirane prognoze kiše: %d vrijednosti\n", len(p))
+	}
 	od, do := dan(*uciDo), dan(*kraj)
 	var odDana int64
 	if *uciOd != "" {
@@ -126,7 +139,11 @@ func main() {
 	}
 	fmt.Printf("učeno %s– do %s, provjereno %s – %s\n", *uciOd, *uciDo, *uciDo, *kraj)
 	for _, c := range ciljevi {
+		// učenje uvijek na stvarnoj budućoj kiši; prognoze samo u provjeri
+		hook := prognoza.PrognozaKise
+		prognoza.PrognozaKise = nil
 		m, err := prognoza.NamjestiDnevniOd(nizovi, c, odDana, od)
+		prognoza.PrognozaKise = hook
 		if err != nil {
 			fmt.Println(err)
 			continue
@@ -205,4 +222,40 @@ func main() {
 		}
 		fmt.Println()
 	}
+}
+
+type kljucPrognoze struct {
+	sliv string
+	t    int64 // dan izdavanja
+	d    int   // koliko dana unaprijed
+}
+
+// citajPrognozeKise čita CSV sliv;datum;dan;mm — datum je dan izdavanja
+// prognoze, dan koliko dana unaprijed vrijedi zbroj mm.
+func citajPrognozeKise(put string) (map[kljucPrognoze]float64, error) {
+	b, err := os.ReadFile(put)
+	if err != nil {
+		return nil, err
+	}
+	out := map[kljucPrognoze]float64{}
+	for i, red := range strings.Split(strings.TrimPrefix(string(b), "\ufeff"), "\n") {
+		p := strings.Split(strings.TrimSpace(red), ";")
+		if i == 0 || len(p) < 4 {
+			continue
+		}
+		t, err := time.Parse("2006-01-02", p[1])
+		if err != nil {
+			return nil, fmt.Errorf("%s redak %d: %w", put, i+1, err)
+		}
+		d, err := strconv.Atoi(p[2])
+		if err != nil {
+			return nil, fmt.Errorf("%s redak %d: %w", put, i+1, err)
+		}
+		v, err := strconv.ParseFloat(strings.ReplaceAll(p[3], ",", "."), 64)
+		if err != nil {
+			return nil, fmt.Errorf("%s redak %d: %w", put, i+1, err)
+		}
+		out[kljucPrognoze{p[0], (t.Unix() + 43200) / 86400, d}] = v
+	}
+	return out, nil
 }
