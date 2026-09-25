@@ -31,7 +31,7 @@ type IzvozDatoteka struct {
 }
 
 // reHindcast dopušta samo datoteke koje alat zapisuje, i samo po imenu — nikakav put.
-var reHindcast = regexp.MustCompile(`^hindcast[A-Za-z0-9_.-]*\.csv$`)
+var reHindcast = regexp.MustCompile(`^hindcast[A-Za-z0-9_.-]*\.(csv|zip)$`)
 
 // SetPodaciDir daje stranici mapu u kojoj alati ostavljaju datoteke provjere
 // unatrag; traži se pri svakom pozivu, jer se putanja baze veže poslije ruta.
@@ -67,10 +67,16 @@ func (h *PrognozeHandler) izvozi() []IzvozDatoteka {
 		if err != nil {
 			continue
 		}
+		opis := "provjera unatrag: prognoza puštena kroz arhivu, izdanje po izdanje, uz izmjerenu vrijednost i postojanost"
+		switch {
+		case strings.Contains(u.Name(), "valovi_nizovi"):
+			opis = "provjera na poplavnim valovima: za svaki val zaseban CSV s cijelim nizom — svako izdanje kroz val (svakih 6 h, od 10 dana prije vrha do 3 poslije), svaki sat unaprijed do 96 h, uz izmjereno; model koji val nije vidio"
+		case strings.Contains(u.Name(), "valovi_sazetak"):
+			opis = "provjera na poplavnim valovima, sažetak: najavljeni vrh 24/48/72/96 h unaprijed (vrsta „vrh”) i promašaj kroz val (vrsta „kroz”), uz postojanost; model koji val nije vidio"
+		}
 		datoteke = append(datoteke, IzvozDatoteka{
 			Naziv: u.Name(), URL: "/prognoze/podaci/" + u.Name(),
-			Opis: "provjera unatrag: prognoza puštena kroz arhivu, izdanje po izdanje, uz izmjerenu vrijednost i postojanost " +
-				"(zapisano " + info.ModTime().In(models.Zagreb).Format("2.1.2006.") + ")",
+			Opis:     opis + " (zapisano " + info.ModTime().In(models.Zagreb).Format("2.1.2006.") + ")",
 			Velicina: velicinaDatoteke(info.Size()),
 		})
 	}
@@ -100,7 +106,11 @@ func (h *PrognozeHandler) PosluziPodatke(w http.ResponseWriter, r *http.Request)
 		http.NotFound(w, r)
 		return
 	}
-	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	if strings.HasSuffix(ime, ".zip") {
+		w.Header().Set("Content-Type", "application/zip")
+	} else {
+		w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	}
 	w.Header().Set("Content-Disposition", `attachment; filename="`+ime+`"`)
 	http.ServeFile(w, r, put)
 }
@@ -228,5 +238,3 @@ const suradnja = "Model je nastao u neslužbenoj suradnji Tomislava Kraljevića 
 
 // suradnjaVeza je adresa profila profesora, za poveznicu na stranici.
 const suradnjaVeza = "https://www.mathos.unios.hr/moj_profil/nenad-suvak/"
-
-var _ = strings.TrimSpace
