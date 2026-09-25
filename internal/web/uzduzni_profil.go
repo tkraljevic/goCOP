@@ -75,6 +75,7 @@ type UzduzniProfil struct {
 	Opis                    string
 	Pad                     string // koliko voda pada od prve do zadnje letve
 	Usca                    []UsceProfila
+	Brane                   []BranaProfila
 	SatOd, SatDo            int // raspon klizača, sati prema izdanju
 	Niz                     template.JS
 }
@@ -124,7 +125,22 @@ const razmakNatpisa = 170.0
 
 // crtajUzduzni slaže profil jednog toka. Letve bez kote nule ili bez
 // stacionaže ispadaju: bez njih se ne zna ni gdje su ni koliko visoko.
-func crtajUzduzni(ime string, letve []LetvaProfila, usca []UsceUlaz) *UzduzniProfil {
+// BranaUlaz je brana na toku koji se crta: okomita crta na svojem
+// kilometru, da se vidi gdje val prolazi kroz akumulaciju i elektranu.
+type BranaUlaz struct {
+	Naziv string
+	Rkm   float64
+}
+
+// BranaProfila je brana na crtežu.
+type BranaProfila struct {
+	Naziv string
+	X     float64
+	Sidro string
+	Dolje bool // natpis u drugom redu, da se susjedne brane ne preklapaju
+}
+
+func crtajUzduzni(ime string, letve []LetvaProfila, usca []UsceUlaz, brane ...BranaUlaz) *UzduzniProfil {
 	var korisne []LetvaProfila
 	var pravih int
 	for _, l := range letve {
@@ -316,6 +332,30 @@ func crtajUzduzni(ime string, letve []LetvaProfila, usca []UsceUlaz) *UzduzniPro
 			zadnjiGore = x
 		}
 		p.Usca = append(p.Usca, UsceProfila{Naziv: u.Naziv, Tekst: u.Tekst, X: x, Sidro: sidro, Dolje: dolje})
+	}
+
+	// Brana ulazi u sliku samo među letvama: brana iznad prve letve ne
+	// pripada crtežu, jer voda iznad nje nije na njemu.
+	sort.Slice(brane, func(i, j int) bool { return brane[i].Rkm > brane[j].Rkm })
+	zadnjiGore, zadnjiDolje = math.Inf(-1), math.Inf(-1)
+	for _, b := range brane {
+		if b.Rkm > odRkm || b.Rkm < doRkm {
+			continue
+		}
+		x := xOf(b.Rkm)
+		sidro := "middle"
+		if x-p.Lijevo < 60 {
+			sidro = "start"
+		} else if float64(p.Width)-p.Desno-x < 60 {
+			sidro = "end"
+		}
+		dolje := x-zadnjiGore < razmakNatpisa && x-zadnjiDolje >= razmakNatpisa
+		if dolje {
+			zadnjiDolje = x
+		} else {
+			zadnjiGore = x
+		}
+		p.Brane = append(p.Brane, BranaProfila{Naziv: b.Naziv, X: x, Sidro: sidro, Dolje: dolje})
 	}
 
 	korak := niceStep((najDo - najOd) / 5)

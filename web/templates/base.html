@@ -363,6 +363,12 @@
   <text class="uzd-usce-natpis" x="{{printf "%.1f" .X}}" y="{{printf "%.1f" $.DnoY}}" dy="{{if .Dolje}}29{{else}}15{{end}}"
         text-anchor="{{.Sidro}}">{{.Naziv}}{{if .Tekst}} · {{.Tekst}}{{end}}</text>
   {{end}}
+  {{range .Brane}}
+  <line class="uzd-brana-crta" x1="{{printf "%.1f" .X}}" x2="{{printf "%.1f" .X}}"
+        y1="{{printf "%.1f" $.Vrh}}" y2="{{printf "%.1f" $.DnoY}}"/>
+  <text class="uzd-brana-natpis" x="{{printf "%.1f" .X}}" y="{{printf "%.1f" $.Vrh}}" dy="{{if .Dolje}}28{{else}}14{{end}}"
+        text-anchor="{{.Sidro}}">{{.Naziv}}</text>
+  {{end}}
   <text class="uzd-osnaziv" x="{{printf "%.1f" .LijevoX}}" y="{{printf "%.1f" .DnoY}}"
         dy="44">riječni kilometar · nizvodno je desno →</text>
   {{range .XTicks}}

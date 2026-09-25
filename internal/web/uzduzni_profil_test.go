@@ -406,3 +406,23 @@ func TestRijecniKmOdbijaKanal(t *testing.T) {
 		t.Errorf("rkm 1424+850 → %v %v", km, ok)
 	}
 }
+
+// Brana među letvama dobije okomitu crtu na svojem kilometru; brana iznad
+// prve letve ne ulazi u crtež.
+func TestBraneMeduLetvamaUlazeUProfil(t *testing.T) {
+	a, b := letvaProfila("varazdin", 288, 165, 100), letvaProfila("botovo", 227, 122, 100)
+	p := crtajUzduzni("Drava", []LetvaProfila{a, b}, nil,
+		BranaUlaz{Naziv: "Brana HE Varaždin", Rkm: 308.6},
+		BranaUlaz{Naziv: "Brana HE Čakovec", Rkm: 278.6},
+		BranaUlaz{Naziv: "Brana HE Dubrava", Rkm: 255.05})
+	if p == nil {
+		t.Fatal("profila nema")
+	}
+	if len(p.Brane) != 2 || p.Brane[0].Naziv != "Brana HE Čakovec" || p.Brane[1].Naziv != "Brana HE Dubrava" {
+		t.Fatalf("brane %+v — Varaždin je iznad prve letve", p.Brane)
+	}
+	xa, xb := p.Tocke[0].X, p.Tocke[1].X
+	if x := p.Brane[0].X; x <= xa || x >= p.Brane[1].X || p.Brane[1].X >= xb {
+		t.Errorf("brane moraju stajati redom među letvama: %.0f < %.0f < %.0f < %.0f", xa, x, p.Brane[1].X, xb)
+	}
+}

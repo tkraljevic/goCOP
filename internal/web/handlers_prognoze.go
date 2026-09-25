@@ -704,9 +704,20 @@ func uzduzniProfili(postaje map[string]models.Station, letve []PregledLetve,
 			poVodi[voda] = append(poVodi[voda], kopija)
 		}
 	}
+	// Brane iz registra: postaje „Brana …” (preljev brane) s riječnim
+	// kilometrom, po toku. Elektrana stoji uz njih, ali nju ne crtamo.
+	brane := map[string][]BranaUlaz{}
+	for _, st := range postaje {
+		if !strings.HasPrefix(st.Code, "brana-") {
+			continue
+		}
+		if rkm, ok := rijecniKm(st.Stationing); ok && st.Watercourse != "" {
+			brane[st.Watercourse] = append(brane[st.Watercourse], BranaUlaz{Naziv: st.Name, Rkm: rkm})
+		}
+	}
 	var out []*UzduzniProfil
 	for _, voda := range redom {
-		if p := crtajUzduzni(voda, poVodi[voda], usca[voda]); p != nil {
+		if p := crtajUzduzni(voda, poVodi[voda], usca[voda], brane[voda]...); p != nil {
 			out = append(out, p)
 		}
 	}

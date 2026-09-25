@@ -4192,6 +4192,8 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .uzd-usce { fill: var(--primary); }
 .uzd-usce-crta { stroke: var(--primary); stroke-width: 1; stroke-dasharray: 3 3; opacity: 0.6; }
 .uzd-usce-natpis { font-size: 11px; fill: var(--primary); font-weight: 600; }
+.uzd-brana-crta { stroke: var(--text-muted); stroke-width: 2; stroke-dasharray: 8 5; opacity: 0.75; }
+.uzd-brana-natpis { font-size: 11px; fill: var(--text-muted); font-weight: 600; }
 .uzd-tocka.stanje-prep { fill: var(--faza-p-crta); } .uzd-tocka.stanje-regular { fill: var(--faza-r-crta); }
 .uzd-tocka.stanje-emerg, .uzd-tocka.stanje-crit { fill: var(--faza-i-crta); }
 .uzd-klizac-crta { fill: none; stroke: var(--text); stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
