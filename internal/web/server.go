@@ -13,6 +13,7 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -874,11 +875,19 @@ func (s *Server) setupRoutes() {
 	prognozeH.SetReadings(s.readingService)
 	prognozeH.SetWatercourses(s.watercourseService)
 	prognozeH.SetJavniUvoz(func() *javnivodostaji.Uvoznik { return s.javni })
+	prognozeH.SetPodaciDir(func() string {
+		if s.dbPath == "" {
+			return ""
+		}
+		return filepath.Dir(s.dbPath)
+	})
 	s.mux.Handle("GET /prognoze", s.authMiddleware(http.HandlerFunc(prognozeH.ShowPrognoze)))
 	s.mux.Handle("GET /prognoze.xlsx", s.authMiddleware(http.HandlerFunc(prognozeH.IzvoziPrognoze)))
 	s.mux.Handle("GET /prognoze/o-prognozi", s.authMiddleware(http.HandlerFunc(prognozeH.ShowMetoda)))
 	s.mux.Handle("POST /prognoze/generiraj", s.authMiddleware(http.HandlerFunc(prognozeH.Generiraj)))
 	s.mux.Handle("GET /prognoze/napredak", s.authMiddleware(http.HandlerFunc(prognozeH.NapredakJSON)))
+	s.mux.Handle("GET /prognoze/izdanja.csv", s.authMiddleware(http.HandlerFunc(prognozeH.IzvoziIzdanja)))
+	s.mux.Handle("GET /prognoze/podaci/{ime}", s.authMiddleware(http.HandlerFunc(prognozeH.PosluziPodatke)))
 
 	// Administracija: ulazna stranica i sve što radi samo administrator
 	adminH := NewAdminHandler(s.orgService, s.userService, s.peersService, s.templates["administracija.html"], s.templates["uvozi.html"])

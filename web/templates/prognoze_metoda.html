@@ -24,6 +24,26 @@
   {{end}}
 
   <section class="detail-section">
+    <h2>Suradnja i podaci</h2>
+    <p>Model je nastao u neslužbenoj suradnji Tomislava Kraljevića i
+      <a href="{{.SuradnjaVeza}}" target="_blank" rel="noopener">prof. dr. Nenada Šuvaka</a>
+      s Fakulteta primijenjene matematike i informatike Sveučilišta u Osijeku.</p>
+    <p>Za ponavljanje računa izvan aplikacije daju se sirovi parovi prognoza–mjerenje, u CSV-u s točka-zarezom
+      (kako ga čitaju hrvatske postavke Excela; R i Python čitaju ga uz <code>sep=";"</code>). Vremena su u UTC,
+      vodostaji u cm na nuli letve, protoci u m³/s.</p>
+    <ul class="prog-izvozi">
+      {{range .Izvozi}}
+      <li><a href="{{.URL}}">{{icon "download"}} {{.Naziv}}</a>{{if .Velicina}} <span class="reg-card-sub">({{.Velicina}})</span>{{end}}
+        <div class="reg-card-sub">{{.Opis}}</div></li>
+      {{end}}
+    </ul>
+    <p class="reg-card-sub">Stupci: izdano_utc, letva, velicina, ciljni_utc, doseg_h, prognoza, dolje, gore (granice raspona),
+      model (lanac ili dnevni), iz_krivulje (da kad je vrijednost preračunata krivuljom protoka), izmjereno (prazno dok
+      mjerenje ne stigne). Provjera unatrag ima još stupac postojanost — vrijednost u satu izdanja, kao pretpostavka da
+      se ništa neće promijeniti.</p>
+  </section>
+
+  <section class="detail-section">
     <h2>Postaje</h2>
     {{if .Letve}}
     <p>Iz čega se svaka postaja računa. Kod satnog lanca uz ulaz stoji veličina, kašnjenje (raspon po pojasima

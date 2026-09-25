@@ -2,6 +2,9 @@ package web
 
 import (
 	"bytes"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -76,11 +79,13 @@ func TestStranicaOPrognozi(t *testing.T) {
 		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
 		ActiveNav:   "prognoze", Izdaje: "COP Osijek", Izdano: "24.9.2026. u 07:00",
 		Odjeljci: OpisMetode(68, "COP Osijek"), RasponDo: DoseziRaspona,
+		Suradnja: suradnja, SuradnjaVeza: suradnjaVeza,
+		Izvozi: []IzvozDatoteka{{Naziv: "izdanja.csv", URL: "/prognoze/izdanja.csv"}},
 		Letve: []LetvaMetode{{Naziv: "Donja", Voda: "Rijeka", Racuna: "vodostaj",
 			Satni: []string{"Gornja · protok · 12–20 h · prozor 5 h"}, Raspon: "±6 / ±11 / ±17 cm",
 			Dnevni: []string{"Gornja", "Pritok"}, DnevniOd: "3. dana"}},
 	})
-	for _, want := range []string{"O prognozi", "Satni lanac — građa", "prog-formula",
+	for _, want := range []string{"O prognozi", "Satni lanac — građa", "prog-formula", "Nenada Šuvaka", suradnjaVeza, "izdanja.csv",
 		"Gornja · protok · 12–20 h · prozor 5 h", "±6 / ±11 / ±17 cm", "Gornja, Pritok", "3. dana",
 		"/prognoze.xlsx"} {
 		if !strings.Contains(html, want) {
@@ -114,5 +119,62 @@ func TestListMetodeUIzvozu(t *testing.T) {
 	var buf bytes.Buffer
 	if err := k.Zapisi(&buf); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// Izvoz izdanja: CSV s točka-zarezom, svaka izdana vrijednost s dosegom;
+// izmjereno prazno dok nema očitanja.
+func TestIzvozIzdanjaCSV(t *testing.T) {
+	put := filepath.Join(t.TempDir(), "p.db")
+	db, err := prognoza.Otvori(put)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := prognoza.SpremiIzdane(db, []prognoza.Izdana{
+		{Letva: "batina", Velicina: "vodostaj", Izdano: 496832, Ciljni: 496832, Vrijednost: -100, Dolje: -100, Gore: -100, Model: "lanac-1"},
+		{Letva: "batina", Velicina: "vodostaj", Izdano: 496832, Ciljni: 496856, Vrijednost: -95.26, Dolje: -101, Gore: -89, Model: "lanac-1"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	db.Close()
+	c, err := OtvoriPrognoze(put)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+	h := &PrognozeHandler{citac: func() *CitacPrognoza { return c }}
+	rec := httptest.NewRecorder()
+	h.IzvoziIzdanja(rec, httptest.NewRequest("GET", "/prognoze/izdanja.csv?od=2026-09-01&do=2026-09-30", nil))
+	tijelo := rec.Body.String()
+	if rec.Code != 200 || !strings.HasPrefix(tijelo, "\ufeffizdano_utc;letva;velicina;ciljni_utc;doseg_h;") {
+		t.Fatalf("zaglavlje: %d %q", rec.Code, tijelo[:min(80, len(tijelo))])
+	}
+	if !strings.Contains(tijelo, "2026-09-05 08:00;batina;vodostaj;2026-09-06 08:00;24;-95.3;-101;-89;lanac-1;ne;") {
+		t.Errorf("nema retka za 24 h:\n%s", tijelo)
+	}
+	if strings.Count(tijelo, "\n") != 3 {
+		t.Errorf("očekivana 2 retka podataka, tijelo:\n%s", tijelo)
+	}
+}
+
+// Datoteke provjere unatrag poslužuju se samo po imenu koje alat zapisuje.
+func TestPodaciSamoHindcast(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "hindcast_2023-2025.csv"), []byte("a;b\n"), 0o644)
+	os.WriteFile(filepath.Join(dir, "gocop.db"), []byte("x"), 0o644)
+	h := &PrognozeHandler{}
+	h.SetPodaciDir(func() string { return dir })
+	iz := h.izvozi()
+	if len(iz) != 2 || iz[1].Naziv != "hindcast_2023-2025.csv" {
+		t.Fatalf("izvozi: %+v", iz)
+	}
+	for ime, kod := range map[string]int{"hindcast_2023-2025.csv": 200, "gocop.db": 404, "../gocop.db": 404} {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest("GET", "/prognoze/podaci/x", nil)
+		req.SetPathValue("ime", ime)
+		h.PosluziPodatke(rec, req)
+		if rec.Code != kod {
+			t.Errorf("%s: %d, očekivano %d", ime, rec.Code, kod)
+		}
 	}
 }

@@ -695,6 +695,28 @@ func Izdanje(db *sql.DB, izdano int64) (map[string][]Izdana, error) {
 	return out, r.Err()
 }
 
+// IzdaneURazdoblju čita sve izdane vrijednosti čiji je sat izdanja u zadanom
+// razdoblju (sati od epohe, uključivo), redom izdanja — za izvoz podataka.
+func IzdaneURazdoblju(db *sql.DB, od, do int64) ([]Izdana, error) {
+	r, err := db.Query(`SELECT letva, velicina, izdano, ciljni, vrijednost, dolje, gore,
+		racunata, izvan, model FROM izdane WHERE izdano BETWEEN ? AND ?
+		ORDER BY izdano, letva, velicina, ciljni`, od, do)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+	var out []Izdana
+	for r.Next() {
+		var i Izdana
+		if err := r.Scan(&i.Letva, &i.Velicina, &i.Izdano, &i.Ciljni,
+			&i.Vrijednost, &i.Dolje, &i.Gore, &i.Racunata, &i.Izvan, &i.Model); err != nil {
+			return nil, err
+		}
+		out = append(out, i)
+	}
+	return out, r.Err()
+}
+
 // Redom slaže letve tako da uzvodne idu prije nizvodnih. Popis se time čita kao
 // lanac, onako kako voda i teče, a ne po abecedi.
 func Redom(pojasi map[string][]Pojas) []string {

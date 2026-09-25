@@ -153,3 +153,15 @@ func (c *CitacPrognoza) Izbor(izdano time.Time) map[string]prognoza.Izbor {
 	}
 	return out
 }
+
+// Izdanja vraća sve izdane vrijednosti u razdoblju, za izvoz podataka.
+func (c *CitacPrognoza) Izdanja(od, do time.Time) []prognoza.Izdana {
+	if c == nil || c.db == nil {
+		return nil
+	}
+	out, err := prognoza.IzdaneURazdoblju(c.db, od.Unix()/3600, do.Unix()/3600)
+	if err != nil {
+		return nil
+	}
+	return out
+}

@@ -10,10 +10,12 @@ package main
 
 import (
 	"database/sql"
+	"encoding/csv"
 	"flag"
 	"fmt"
 	"log"
 	"math"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -38,6 +40,7 @@ func main() {
 	glacenje := flag.Int("glacenje", 6, "koliko sati na svaku stranu pri glačanju ispravka; 0 isključuje")
 	ispravi := flag.Bool("ispravi", false, "primijeni zapisane pomake i raspone, kao živa prognoza — da se vidi vrijede li izvan razdoblja na kojem su mjereni")
 	udjeliS := flag.String("udjeli", "", "uz tablicu ispiši polovinu raspona za zadane udjele, npr. 0.68,0.70,0.80,0.90")
+	csvPut := flag.String("csv", "", "zapiši svaki par prognoza–mjerenje (na dosezima iz tablice) u CSV, za ponavljanje računa izvan aplikacije")
 	poluvijek := flag.Float64("poluvijek", prognoza.PoluvijekIspravka,
 		"za koliko sati ispravak prema mjerenju oslabi na pola; 0 isključuje")
 	flag.Parse()
@@ -84,6 +87,23 @@ func main() {
 		nizovi[iz] = prognoza.NoviNiz(v)
 	}
 
+	var csvW *csv.Writer
+	if *csvPut != "" {
+		f, err := os.Create(*csvPut)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer f.Close()
+		f.WriteString("\ufeff")
+		csvW = csv.NewWriter(f)
+		csvW.Comma = ';'
+		csvW.Write([]string{"izdano_utc", "letva", "velicina", "ciljni_utc", "doseg_h", "prognoza", "dolje", "gore", "izmjereno", "postojanost"})
+		defer csvW.Flush()
+	}
+	uDosezima := map[int]bool{}
+	for _, d := range Dosezi {
+		uDosezima[d] = true
+	}
 	promasaji := map[string]map[int]*zbroj{}
 	izdanja := 0
 	for t := od.Unix() / 3600; t <= do.Unix()/3600; t += int64(*korak) {
@@ -122,6 +142,20 @@ func main() {
 				z.dodaj(i.Vrijednost-stvarno, i.Raspon())
 				if imaSad {
 					z.dodajPostojanost(sada - stvarno)
+				}
+				if csvW != nil && uDosezima[d] {
+					post := ""
+					if imaSad {
+						post = strconv.FormatFloat(math.Round(sada*10)/10, 'f', -1, 64)
+					}
+					csvW.Write([]string{
+						time.Unix(t*3600, 0).UTC().Format("2006-01-02 15:04"), letva, iz.Velicina,
+						time.Unix(i.Ciljni*3600, 0).UTC().Format("2006-01-02 15:04"), strconv.Itoa(d),
+						strconv.FormatFloat(math.Round(i.Vrijednost*10)/10, 'f', -1, 64),
+						strconv.FormatFloat(math.Round(i.Dolje*10)/10, 'f', -1, 64),
+						strconv.FormatFloat(math.Round(i.Gore*10)/10, 'f', -1, 64),
+						strconv.FormatFloat(math.Round(stvarno*10)/10, 'f', -1, 64), post,
+					})
 				}
 			}
 		}

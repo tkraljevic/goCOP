@@ -43,6 +43,8 @@ type PrognozeHandler struct {
 
 	javni func() *javnivodostaji.Uvoznik // krug preuzimanja, za gumb „Generiraj”
 
+	podaciDir func() string // mapa s datotekama provjere unatrag, za preuzimanje
+
 	metodaTmpl *template.Template // stranica „O prognozi”
 }
 
