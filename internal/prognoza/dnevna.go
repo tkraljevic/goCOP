@@ -28,8 +28,13 @@ import (
 	"gocop/internal/models"
 )
 
-// ModelDnevni je oznaka pod kojom se dnevna prognoza zapisuje.
-const ModelDnevni = "dnevni-1"
+// ModelDnevni je oznaka pod kojom se dnevna prognoza zapisuje; ModelDnevniKisa
+// kad je računata s kišom (palom i prognoziranom), da se u svakom izdanju i
+// izvozu vidi s čime je vrijednost dobivena.
+const (
+	ModelDnevni     = "dnevni-1"
+	ModelDnevniKisa = "dnevni-1-kisa"
+)
 
 // DnevniDosezi je koliko se dana unaprijed prognozira.
 const DnevniDosezi = 6
@@ -727,13 +732,17 @@ func PrognozirajDnevno(m *DnevniModel, satni map[string]Niz, oborine map[string]
 	}
 	promjena, raspon := m.Prognoziraj(x)
 	sad := x[1]
+	model := ModelDnevni
+	if len(m.Cilj.Slivovi) > 0 {
+		model = ModelDnevniKisa
+	}
 	out := []DnevnaIzdana{{Letva: m.Cilj.Letva, Izdano: sada, Dan: 0, Ciljni: sada,
-		Vrijednost: sad, Dolje: sad, Gore: sad, Model: ModelDnevni}}
+		Vrijednost: sad, Dolje: sad, Gore: sad, Model: model}}
 	for k := 1; k <= DnevniDosezi; k++ {
 		v := sad + promjena[k]
 		out = append(out, DnevnaIzdana{Letva: m.Cilj.Letva, Izdano: sada, Dan: k,
 			Ciljni: sada + int64(24*k), Vrijednost: v, Dolje: v - raspon[k], Gore: v + raspon[k],
-			Model: ModelDnevni})
+			Model: model})
 	}
 	return out, nil
 }

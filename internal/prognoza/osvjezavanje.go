@@ -337,6 +337,16 @@ func (o *Osvjezivac) dnevno(ctx context.Context, sada int64, od time.Time) ([]Dn
 		log.Printf("dnevni model: oborina uživo: %v", err)
 		oborine = nil
 	}
+	razlogBezKise := ""
+	switch {
+	case o.Oborine == nil || len(o.Oborine.Tocke) == 0:
+		razlogBezKise = "oborine nisu uključene (registar slivova bez kišomjera)"
+	case err != nil:
+		razlogBezKise = "oborine se nisu dale pročitati: " + err.Error()
+	default:
+		razlogBezKise = fmt.Sprintf("oborine nisu preuzete za svih %d dana unatrag i %d unaprijed", unatrag, unaprijed)
+	}
+	sKisom, bezKise := 0, 0
 	var out []DnevnaIzdana
 	for _, c := range DnevniCiljevi {
 		in := modeli[c.Letva]
@@ -372,6 +382,13 @@ func (o *Osvjezivac) dnevno(ctx context.Context, sada int64, od time.Time) ([]Dn
 				continue
 			}
 			if d, err = PrognozirajDnevno(m, satni, oborine, sada); err == nil {
+				if len(c.Slivovi) > 0 {
+					if len(m.Cilj.Slivovi) > 0 {
+						sKisom++
+					} else {
+						bezKise++
+					}
+				}
 				if i > 0 {
 					opis := "dnevni model: " + strings.Join(m.Cilj.Ulazi, " + ")
 					if m.Cilj.BezOborine() {
@@ -407,6 +424,18 @@ func (o *Osvjezivac) dnevno(ctx context.Context, sada int64, od time.Time) ([]Dn
 			}
 		}
 		out = append(out, d...)
+	}
+	// Je li dnevni model računao s kišom, mora pisati uz svako izdanje — i
+	// kad je sve u redu, ne samo kad je pao na inačicu bez nje.
+	switch {
+	case sKisom > 0 && bezKise == 0:
+		izbor["oborina"] = Izbor{Inacica: 1, Opis: fmt.Sprintf("dnevni model Drave računa s kišom: pala kiša %d dana unatrag i prognoza %d dana unaprijed (Open-Meteo, %d kišomjera)",
+			unatrag, unaprijed, len(o.Oborine.Tocke))}
+	case sKisom > 0:
+		izbor["oborina"] = Izbor{Inacica: 1, Opis: fmt.Sprintf("dnevni model Drave računa s kišom na %d letvi, bez kiše na %d — %s",
+			sKisom, bezKise, razlogBezKise)}
+	case bezKise > 0:
+		izbor["oborina"] = Izbor{Inacica: 2, Opis: "dnevni model Drave računa bez kiše: " + razlogBezKise}
 	}
 	var sidra []Izdana
 	for _, l := range DnevniUlazi() {

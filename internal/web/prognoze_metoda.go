@@ -206,6 +206,9 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"27, 29 i 29. Prognoza kiše dakle treći i četvrti dan donese gotovo sve, peti tri četvrtine, šesti " +
 				"polovicu. Umjeravanje prognoze na razinu reanalize po točkama provjeru pogoršava, pa se prognoza " +
 				"uzima kakva jest."),
+			tekstM("Je li dnevna prognoza računata s kišom, piše uz vrijeme izdanja na stranici Prognoze, uz razlog " +
+				"kad nije (oborine nisu preuzete, kvota ili mreža). U izvozu izdanja i u Excelu svaka dnevna vrijednost " +
+				"nosi oznaku modela: dnevni-1-kisa kad je računata s kišom, dnevni-1 bez nje."),
 		}},
 		{"Dnevni model — procjena", []OdlomakMetode{
 			tekstM("(a) Linearna regresija s pragom. Dani se dijele na dva režima po 75. percentilu razine h_T; " +

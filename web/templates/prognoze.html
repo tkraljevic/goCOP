@@ -8,6 +8,7 @@
     <h1>{{icon "trending-up"}} Prognoze</h1>
     {{if .Izdano}}<p class="reg-card-sub">Izdano {{.Izdano}} · vrijednost ostaje unutar raspona
       u {{.Udio}} % slučajeva</p>{{end}}
+    {{if .Oborina}}<p class="reg-card-sub prog-oborina{{if .BezKise}} prog-oborina-bez{{end}}">{{icon "cloud-rain"}} {{.Oborina}}</p>{{end}}
   </div>
   <div class="page-actions">
     <a href="/prognoze/o-prognozi" class="btn btn-secondary"

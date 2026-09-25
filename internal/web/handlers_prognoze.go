@@ -144,7 +144,9 @@ type PrognozePageData struct {
 	ViewAsBanner
 
 	Izdano     string
-	IzdanoSat  int64 // sat izdanja od epohe, za klizač vremena na profilu
+	IzdanoSat  int64  // sat izdanja od epohe, za klizač vremena na profilu
+	Oborina    string // je li dnevni model računao s kišom, i zašto ne
+	BezKise    bool
 	Nema       bool
 	Razlog     string
 	Udio       int
@@ -212,6 +214,9 @@ func (h *PrognozeHandler) podaci(r *http.Request) PrognozePageData {
 	postaje := h.postaje(r.Context())
 	data.Letve = h.opisiLetve(postaje, letve)
 	izbor := c.Izbor(izdano)
+	if iz, ima := izbor["oborina"]; ima {
+		data.Oborina, data.BezKise = iz.Opis, iz.Inacica == 2
+	}
 	for i := range data.Letve {
 		kod := data.Letve[i].Kod
 		if iz, ima := izbor[kod]; ima {
