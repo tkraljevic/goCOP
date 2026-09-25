@@ -207,7 +207,11 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 	ishod.Izdane = append(ishod.Izdane, o.sidraVrhova(ctx, nizovi, vrhovi, sada)...)
 	ishod.Izdane = append(ishod.Izdane, sidraDrugih(druge, sada)...)
 	var sidra []Izdana
-	ishod.Dnevne, sidra, ishod.BezDnevne = o.dnevno(ctx, sada, od)
+	var izborDnevni map[string]Izbor
+	ishod.Dnevne, sidra, ishod.BezDnevne, izborDnevni = o.dnevno(ctx, sada, od)
+	for k, v := range izborDnevni {
+		ishod.Izbor[k] = v
+	}
 	// Ulazi dnevnog modela koji nisu u lancu nemaju svoju prognozu, ali na
 	// pregledu moraju stajati — iz njih se računa. Zapisuje se njihovo
 	// mjerenje u satu izdavanja, kao i za vrhove lanca.
@@ -245,47 +249,63 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 var dnevniModeli struct {
 	sync.Mutex
 	dan    string
-	modeli map[string]*DnevniModel
+	modeli map[string][]*DnevniModel // po letvi: glavni pa rezerve; nil gdje učenje nije prošlo
 	greske map[string]error
 }
 
-func (o *Osvjezivac) dnevniModeliZaDanas() (map[string]*DnevniModel, map[string]error) {
+func (o *Osvjezivac) dnevniModeliZaDanas() (map[string][]*DnevniModel, map[string]error) {
 	danas := time.Now().Format("2006-01-02")
 	dnevniModeli.Lock()
 	defer dnevniModeli.Unlock()
 	if dnevniModeli.dan == danas {
 		return dnevniModeli.modeli, dnevniModeli.greske
 	}
-	modeli, greske := map[string]*DnevniModel{}, map[string]error{}
+	modeli, greske := map[string][]*DnevniModel{}, map[string]error{}
 	nizovi := map[string]DnevniNiz{}
 	for _, c := range DnevniCiljevi {
-		for _, l := range c.letve() {
-			if _, ima := nizovi[l]; ima {
-				continue
+		var in []*DnevniModel
+		for _, cilj := range c.Inacice() {
+			var m *DnevniModel
+			ok := true
+			for _, l := range cilj.letve() {
+				if _, ima := nizovi[l]; ima {
+					continue
+				}
+				n, err := DnevniIzArhive(o.Arhiva, l)
+				if err != nil {
+					greske[c.Letva] = err
+					ok = false
+					break
+				}
+				nizovi[l] = n
 			}
-			n, err := DnevniIzArhive(o.Arhiva, l)
-			if err != nil {
-				greske[c.Letva] = err
-				continue
+			if ok {
+				var err error
+				if m, err = NamjestiDnevni(nizovi, cilj, 0); err != nil {
+					greske[c.Letva] = err
+					m = nil
+				}
 			}
-			nizovi[l] = n
+			in = append(in, m)
 		}
-		m, err := NamjestiDnevni(nizovi, c, 0)
-		if err != nil {
-			greske[c.Letva] = err
-			continue
+		if in[0] != nil {
+			delete(greske, c.Letva) // glavni je prošao; greška rezerve nije greška letve
 		}
-		modeli[c.Letva] = m
+		modeli[c.Letva] = in
 	}
 	dnevniModeli.dan, dnevniModeli.modeli, dnevniModeli.greske = danas, modeli, greske
 	return modeli, greske
 }
 
 // dnevno izdaje dnevnu prognozu iz satnih očitanja do sata izdavanja.
-func (o *Osvjezivac) dnevno(ctx context.Context, sada int64, od time.Time) ([]DnevnaIzdana, []Izdana, map[string]error) {
+//
+// Kad glavni ulaz nema zadnja četiri dana (Borl I zna stati danima), ide
+// prva rezerva koja ih ima; izbor se zapiše pod ključem „dnevni:letva”.
+func (o *Osvjezivac) dnevno(ctx context.Context, sada int64, od time.Time) ([]DnevnaIzdana, []Izdana, map[string]error, map[string]Izbor) {
 	bez := map[string]error{}
+	izbor := map[string]Izbor{}
 	if o.Arhiva == nil {
-		return nil, nil, bez
+		return nil, nil, bez, izbor
 	}
 	modeli, greske := o.dnevniModeliZaDanas()
 	for l, err := range greske {
@@ -294,24 +314,41 @@ func (o *Osvjezivac) dnevno(ctx context.Context, sada int64, od time.Time) ([]Dn
 	satni := map[string]Niz{}
 	var out []DnevnaIzdana
 	for _, c := range DnevniCiljevi {
-		m := modeli[c.Letva]
-		if m == nil {
+		in := modeli[c.Letva]
+		if len(in) == 0 || in[0] == nil {
 			continue
 		}
-		for _, l := range c.letve() {
-			if _, ima := satni[l]; ima {
-				continue
+		for _, cilj := range c.Inacice() {
+			for _, l := range cilj.letve() {
+				if _, ima := satni[l]; ima {
+					continue
+				}
+				n, err := o.ucitajNiz(ctx, Izvor{Letva: l, Velicina: "vodostaj"}, od)
+				if err != nil {
+					continue
+				}
+				satni[l] = n
 			}
-			n, err := o.ucitajNiz(ctx, Izvor{Letva: l, Velicina: "vodostaj"}, od)
-			if err != nil {
-				bez[c.Letva] = err
-				continue
-			}
-			satni[l] = n
 		}
-		d, err := PrognozirajDnevno(m, satni, sada)
+		var d []DnevnaIzdana
+		var err error
+		for i, m := range in {
+			if m == nil {
+				continue
+			}
+			if d, err = PrognozirajDnevno(m, satni, sada); err == nil {
+				if i > 0 {
+					izbor["dnevni:"+c.Letva] = Izbor{Inacica: i, Opis: "dnevni model: " + strings.Join(m.Cilj.Ulazi, " + ") +
+						" umjesto " + strings.Join(in[0].Cilj.Ulazi, " + ")}
+				}
+				break
+			}
+		}
 		if err != nil {
 			bez[c.Letva] = err
+			continue
+		}
+		if d == nil {
 			continue
 		}
 		// Protok kroz krivulju letve, kao i satna prognoza u drugoj veličini:
@@ -343,7 +380,7 @@ func (o *Osvjezivac) dnevno(ctx context.Context, sada int64, od time.Time) ([]Dn
 				Vrijednost: v, Dolje: v, Gore: v, Model: ModelDnevni})
 		}
 	}
-	return out, sidra, bez
+	return out, sidra, bez, izbor
 }
 
 // Zapisi sprema izračunato.

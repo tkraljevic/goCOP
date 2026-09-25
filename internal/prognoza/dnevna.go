@@ -79,6 +79,27 @@ var DnevniCiljevi = []DnevniCilj{
 	{"ilok", []string{"komarom", "budapest", "mohacs", "batina", "osijek", "donji-miholjac"}},
 }
 
+// DnevneRezerve su drugi ulazi dnevnog modela za istu letvu, redom kojim se
+// uzimaju kad glavni ulaz nema zadnja četiri dana. Borl I (ARSO) zna
+// zakazati danima; Varaždin je između Borla i Botova, dnevni niz ima od
+// 1900. i javna je letva uživo. Svaka rezerva je zaseban naučen model.
+var DnevneRezerve = map[string][][]string{
+	"botovo":         {{"mursko-sredisce", "varazdin"}},
+	"terezino-polje": {{"botovo", "mursko-sredisce", "varazdin"}},
+	"donji-miholjac": {{"terezino-polje", "botovo", "mursko-sredisce", "varazdin"}},
+	"belisce":        {{"donji-miholjac", "terezino-polje", "botovo", "varazdin"}},
+}
+
+// Inacice vraća cilj i njegove rezerve kao zasebne ciljeve, redom: glavni pa
+// rezerve.
+func (c DnevniCilj) Inacice() []DnevniCilj {
+	out := []DnevniCilj{c}
+	for _, r := range DnevneRezerve[c.Letva] {
+		out = append(out, DnevniCilj{Letva: c.Letva, Ulazi: r})
+	}
+	return out
+}
+
 // DnevnaOdDana kaže od kojeg dana na pregledu vrijednost daje dnevni model;
 // prije toga satni lanac. Granica je ondje gdje je provjera na valovima
 // pokazala da dnevni počinje pogađati bolje: na Dunavu je satni lanac bolji
@@ -99,10 +120,12 @@ func DnevniUlazi() []string {
 	vidjeno := map[string]bool{}
 	var out []string
 	for _, c := range DnevniCiljevi {
-		for _, u := range c.Ulazi {
-			if !cilj[u] && !vidjeno[u] {
-				vidjeno[u] = true
-				out = append(out, u)
+		for _, in := range c.Inacice() {
+			for _, u := range in.Ulazi {
+				if !cilj[u] && !vidjeno[u] {
+					vidjeno[u] = true
+					out = append(out, u)
+				}
 			}
 		}
 	}

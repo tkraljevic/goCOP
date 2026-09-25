@@ -211,9 +211,17 @@ func (h *PrognozeHandler) podaci(r *http.Request) PrognozePageData {
 	data.IzdanoSat = izdano.Unix() / 3600
 	postaje := h.postaje(r.Context())
 	data.Letve = h.opisiLetve(postaje, letve)
+	izbor := c.Izbor(izdano)
 	for i := range data.Letve {
-		if iz, ima := c.Izbor(izdano)[data.Letve[i].Kod]; ima {
+		kod := data.Letve[i].Kod
+		if iz, ima := izbor[kod]; ima {
 			data.Letve[i].Rezerva = opisRezerve(iz.Opis, postaje)
+		}
+		if iz, ima := izbor["dnevni:"+kod]; ima {
+			if data.Letve[i].Rezerva != "" {
+				data.Letve[i].Rezerva += " "
+			}
+			data.Letve[i].Rezerva += opisRezerve(iz.Opis, postaje)
 		}
 	}
 	data.Bliski = BliziDosezi
@@ -792,14 +800,22 @@ func (h *PrognozeHandler) usca(ctx context.Context, postaje map[string]models.St
 // bezdan + belisce umjesto batina + belisce” → „Bezdan (Srbija) + Belišće
 // umjesto Batina + Belišće”.
 func opisRezerve(opis string, postaje map[string]models.Station) string {
-	opis = strings.TrimPrefix(opis, "rezerva: ")
-	rijeci := strings.Fields(opis)
-	for i, r := range rijeci {
-		if st, ima := postaje[r]; ima {
-			rijeci[i] = st.Name
+	imena := func(tekst string) string {
+		rijeci := strings.Fields(tekst)
+		for i, r := range rijeci {
+			if st, ima := postaje[r]; ima {
+				rijeci[i] = st.Name
+			}
 		}
+		return strings.Join(rijeci, " ")
 	}
-	return "Računa se iz rezerve: " + strings.Join(rijeci, " ") + ". Raspon je iz namještanja, ne iz provjere unatrag."
+	switch {
+	case strings.HasPrefix(opis, "dnevni model: "):
+		return "Dnevna prognoza iz rezerve: " + imena(strings.TrimPrefix(opis, "dnevni model: ")) + "."
+	case strings.HasPrefix(opis, "bez svježeg ulaza"):
+		return imena(opis) + "."
+	}
+	return "Računa se iz rezerve: " + imena(strings.TrimPrefix(opis, "rezerva: ")) + ". Raspon je iz namještanja, ne iz provjere unatrag."
 }
 
 // rijecniKm čita riječni kilometar letve, a samo njega: Tikveš stoji na

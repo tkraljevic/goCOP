@@ -65,3 +65,27 @@ func TestDnevniIzSatnog(t *testing.T) {
 		t.Errorf("dan -2 ima rupu od 16 sati, a ipak je izračunat: %g", d[-2])
 	}
 }
+
+// Ulazi dnevnog modela obuhvaćaju i rezerve, a inačice idu glavna pa rezerve.
+func TestDnevneRezerveUlazeUUlaze(t *testing.T) {
+	ulazi := DnevniUlazi()
+	ima := func(l string) bool {
+		for _, u := range ulazi {
+			if u == l {
+				return true
+			}
+		}
+		return false
+	}
+	if !ima("borl-i") || !ima("varazdin") {
+		t.Errorf("ulazi dnevnog modela: %v", ulazi)
+	}
+	for _, c := range DnevniCiljevi {
+		if c.Letva == "botovo" {
+			in := c.Inacice()
+			if len(in) != 2 || in[0].Ulazi[1] != "borl-i" || in[1].Ulazi[1] != "varazdin" {
+				t.Errorf("inačice Botova: %+v", in)
+			}
+		}
+	}
+}

@@ -222,6 +222,10 @@ func TestStranicaPrognozaRezerva(t *testing.T) {
 	if !strings.HasPrefix(poruka, "Računa se iz rezerve: Bezdan (Srbija) + Belišće umjesto Batina + Belišće") {
 		t.Errorf("opis rezerve: %q", poruka)
 	}
+	postaje["varazdin"], postaje["borl-i"] = models.Station{Name: "Varaždin"}, models.Station{Name: "Borl I (Slovenija)"}
+	if d := opisRezerve("dnevni model: mursko-sredisce + varazdin umjesto mursko-sredisce + borl-i", postaje); d != "Dnevna prognoza iz rezerve: mursko-sredisce + Varaždin umjesto mursko-sredisce + Borl I (Slovenija)." {
+		t.Errorf("opis dnevne rezerve: %q", d)
+	}
 	html := iscrtaj(t, "prognoze.html", PrognozePageData{
 		CurrentUser: &models.User{FullName: "P"}, Permissions: &models.UserPermissions{IsGlobalAdmin: true},
 		ActiveNav: "prognoze", Izdano: "x", Udio: 70,
