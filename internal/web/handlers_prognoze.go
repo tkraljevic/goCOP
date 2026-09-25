@@ -619,7 +619,7 @@ func uzduzniProfili(postaje map[string]models.Station, letve []PregledLetve,
 			continue
 		}
 		vodaProfila, kotaNule, imaKotu := profilVode(st)
-		if !imaKotu {
+		if !imaKotu || IzvanProfila[l.Letva] {
 			continue
 		}
 		rkm, ok := rijecniKm(st.Stationing)
@@ -883,6 +883,14 @@ func opisRezerve(opis string, postaje map[string]models.Station) string {
 		return imena(opis) + "."
 	}
 	return "Računa se iz rezerve: " + imena(strings.TrimPrefix(opis, "rezerva: ")) + ". Raspon je iz namještanja, ne iz provjere unatrag."
+}
+
+// IzvanProfila su letve koje se prognoziraju i stoje na pregledu, ali se na
+// uzdužni profil ne crtaju, jer bi se s susjedima preklapale: Dunaszekcső je
+// 13 km iznad Mohácsa i 19 ispod Baje, pa natpisi nemaju kamo. Prognoza
+// letve ostaje; samo crtež ide bez nje.
+var IzvanProfila = map[string]bool{
+	"dunaszekcso": true,
 }
 
 // profilVode kaže na koji profil letva ide i s kojom kotom nule. Naše letve
