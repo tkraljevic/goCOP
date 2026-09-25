@@ -60,9 +60,21 @@ func main() {
 		log.Fatal(err)
 	}
 	defer baza.Close()
-	pojasi, err := prognoza.SviPojasi(baza)
+	inacice, err := prognoza.SveInacice(baza)
 	if err != nil {
 		log.Fatal(err)
+	}
+	// pojasi su glavne inačice (za veličine i popis letvi); ulazi se čitaju
+	// za sve inačice, a za svako izdanje bira se kao uživo.
+	pojasi := map[string][]prognoza.Pojas{}
+	svePojase := map[string][]prognoza.Pojas{}
+	for letva, in := range inacice {
+		if len(in) > 0 {
+			pojasi[letva] = in[0]
+		}
+		for _, ps := range in {
+			svePojase[letva] = append(svePojase[letva], ps...)
+		}
 	}
 	// Zapisani promašaji smiju se primijeniti samo na razdoblju na kojem nisu
 	// mjereni; inače se provjerava sam sebe i svaka brojka izlazi bolja.
@@ -79,7 +91,7 @@ func main() {
 	defer arhiva.Close()
 
 	nizovi := map[prognoza.Izvor]prognoza.Niz{}
-	for iz := range trebani(pojasi) {
+	for iz := range trebani(svePojase) {
 		v, err := prognoza.NizIzArhive(arhiva, iz.Letva, iz.Velicina)
 		if err != nil {
 			log.Fatal(err)
@@ -110,7 +122,8 @@ func main() {
 		// Izdanje se ne smije osloniti na ono što tek dolazi: račun vidi samo
 		// ono do svojeg sata. NovoRacunalo to poštuje jer izmjereno uzima
 		// isključivo do sada.
-		r := prognoza.NovoRacunalo(pojasi, nizovi, t)
+		odabrani, _ := prognoza.OdaberiInacice(inacice, nizovi, t)
+		r := prognoza.NovoRacunalo(odabrani, nizovi, t)
 		imalo := false
 		for letva, ps := range pojasi {
 			izdane, err := r.Prognoziraj(letva, *najdalje, "provjera")

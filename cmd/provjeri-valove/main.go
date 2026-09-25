@@ -20,6 +20,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -45,6 +46,7 @@ func main() {
 	prije := flag.Int("prije", 240, "koliko sati prije vrha počinje provjera kroz val")
 	poslije := flag.Int("poslije", 72, "koliko sati poslije vrha završava")
 	korak := flag.Int("korak", 6, "sati između dva izdanja kroz val")
+	nizoviDir := flag.String("nizovi", "", "mapa u koju se za svaki val zapiše CSV s cijelim nizom: svako izdanje kroz val, svaki sat unaprijed, uz izmjereno")
 	flag.Parse()
 
 	valovi, err := citaj(*valoviPut)
@@ -56,9 +58,17 @@ func main() {
 		log.Fatal(err)
 	}
 	defer baza.Close()
-	pojasi, err := prognoza.SviPojasi(baza)
+	// Inačice računa: za svako izdanje bira se ista kao uživo, po tome što je
+	// u tom satu bilo svježe — rezerva kad glavnog ulaza za taj val nema.
+	inacice, err := prognoza.SveInacice(baza)
 	if err != nil {
 		log.Fatal(err)
+	}
+	pojasi := map[string][]prognoza.Pojas{}
+	for letva, in := range inacice {
+		for _, ps := range in {
+			pojasi[letva] = append(pojasi[letva], ps...)
+		}
 	}
 	arhiva, err := sql.Open("sqlite", *arhivaPut+"?mode=ro")
 	if err != nil {
@@ -99,7 +109,8 @@ func main() {
 
 	// prognoza vraća naš niz za letvu u centimetrima, izdan u satu sada.
 	prognozaCm := func(letva string, sada int64, najdalje int) map[int64]float64 {
-		r := prognoza.NovoRacunalo(pojasi, nizovi, sada)
+		odabrani, _ := prognoza.OdaberiInacice(inacice, nizovi, sada)
+		r := prognoza.NovoRacunalo(odabrani, nizovi, sada)
 		izdane, err := r.Prognoziraj(letva, najdalje, "valovi")
 		if err != nil {
 			return nil
@@ -152,9 +163,37 @@ func main() {
 			w.Write([]string{"vrh", v.id, v.letva, strconv.Itoa(d), f(v.vrhCm), f(uVrhu), f(najvise), f(post)})
 		}
 		// Kroz cijeli val: izdanje svakih korak sati, promašaj na svakom dosegu.
+		var nizW *csv.Writer
+		if *nizoviDir != "" {
+			os.MkdirAll(*nizoviDir, 0o755)
+			fh, err := os.OpenFile(filepath.Join(*nizoviDir, "hindcast_val_"+v.id+".csv"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+			if err != nil {
+				log.Fatal(err)
+			}
+			if st, _ := fh.Stat(); st.Size() == 0 {
+				fh.WriteString("\ufeffval;letva;izdano_utc;ciljni_utc;doseg_h;prognoza;izmjereno\n")
+			}
+			nizW = csv.NewWriter(fh)
+			nizW.Comma = ';'
+			defer func() { nizW.Flush(); fh.Close() }()
+		}
 		for sada := v.vrh - int64(*prije); sada <= v.vrh+int64(*poslije); sada += int64(*korak) {
 			p := prognozaCm(v.letva, sada, 96)
 			post, imaPost := vod.ZadnjiDo(sada)
+			if nizW != nil {
+				for h := int64(1); h <= 96; h++ {
+					x, ima := p[sada+h]
+					if !ima {
+						continue
+					}
+					izm := ""
+					if stv, ok := vod.U(sada + h); ok {
+						izm = f(stv)
+					}
+					nizW.Write([]string{v.id, v.letva, time.Unix(sada*3600, 0).UTC().Format("2006-01-02 15:04"),
+						time.Unix((sada+h)*3600, 0).UTC().Format("2006-01-02 15:04"), strconv.FormatInt(h, 10), f(x), izm})
+				}
+			}
 			for _, d := range Dosezi {
 				x, ima := p[sada+int64(d)]
 				stvarno, imaS := vod.U(sada + int64(d))

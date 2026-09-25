@@ -120,7 +120,7 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 		}
 		nizovi[iz] = n
 	}
-	pojasi, izbor := OdaberiInacice(inacice, nizovi)
+	pojasi, izbor := OdaberiInacice(inacice, nizovi, 0)
 	_, vrhovi := TrebaniIzvori(pojasi)
 	// Vrh lanca se vodi u jednoj veličini, ali letva ima obje. Donja Dubrava
 	// nema krivulju, pa joj se vodostaj ne da izračunati — a mjeren jest, i na
@@ -360,34 +360,37 @@ func (o *Osvjezivac) Zapisi(ishod *Ishod) error {
 	return SpremiDnevne(o.Baza, ishod.Dnevne)
 }
 
-// OdaberiInacice bira za svaku letvu kojim putem se računa. Lanac se obilazi
-// od uzvodnih prema nizvodnima; za kariku se uzme prva inačica čiji je svaki
-// ulaz ili svjež — očitan najviše ZaostatakVrha sati prije najsvježijeg
-// očitanja u cijelom lancu — ili već sam ima svoj račun, pa dolazi
-// izračunat. Kad nijedna ne prolazi, ostaje glavna: prognoza tada ide kako
-// je išla i dosad, iz zadnjeg što ulaz ima.
-func OdaberiInacice(inacice map[string][][]Pojas, nizovi map[Izvor]Niz) (map[string][]Pojas, map[string]Izbor) {
+// OdaberiInacice bira za svaku letvu kojim putem se računa u satu sada
+// (nula znači: u satu najsvježijeg očitanja). Lanac se obilazi od uzvodnih
+// prema nizvodnima; za kariku se uzme prva inačica čiji je svaki ulaz ili
+// svjež — očitan najviše ZaostatakVrha sati prije sada — ili već sam ima svoj
+// račun, pa dolazi izračunat. Kad nijedna ne prolazi, a letva sama ima
+// svježe mjerenje, ona za to izdanje postaje vrh lanca: drži se zadnjeg
+// mjerenja, kao svaki vrh, umjesto da nizvodne karike ostanu bez ičega.
+// Kad ni toga nema, ostaje glavna, pa prognoza ide dokle ulaz seže.
+func OdaberiInacice(inacice map[string][][]Pojas, nizovi map[Izvor]Niz, sada int64) (map[string][]Pojas, map[string]Izbor) {
 	glavne := map[string][]Pojas{}
 	for letva, in := range inacice {
 		if len(in) > 0 {
 			glavne[letva] = in[0]
 		}
 	}
-	var najsvjezije int64
-	for _, n := range nizovi {
-		if z, ima := n.Zadnji(); ima && z > najsvjezije {
-			najsvjezije = z
+	if sada == 0 {
+		for _, n := range nizovi {
+			if z, ima := n.Zadnji(); ima && z > sada {
+				sada = z
+			}
 		}
 	}
 	svjez := func(iz Izvor) bool {
-		z, ima := nizovi[iz].Zadnji()
-		return ima && z+ZaostatakVrha >= najsvjezije
+		z, ima := nizovi[iz].ZadnjiSatDo(sada)
+		return ima && z+ZaostatakVrha >= sada
 	}
 	odabrano := map[string][]Pojas{}
 	izbor := map[string]Izbor{}
 	for _, letva := range Redom(glavne) {
 		in := inacice[letva]
-		uzeta := 0
+		uzeta := -1
 		for i, ps := range in {
 			if len(ps) == 0 || len(ps[0].Ulazi) == 0 {
 				continue
@@ -405,9 +408,17 @@ func OdaberiInacice(inacice map[string][][]Pojas, nizovi map[Izvor]Niz) (map[str
 				break
 			}
 		}
-		odabrano[letva] = in[uzeta]
-		if uzeta > 0 {
+		switch {
+		case uzeta > 0:
+			odabrano[letva] = in[uzeta]
 			izbor[letva] = Izbor{Inacica: uzeta, Opis: "rezerva: " + imenaUlaza(in[uzeta]) + " umjesto " + imenaUlaza(in[0])}
+		case uzeta == 0:
+			odabrano[letva] = in[0]
+		case svjez(Izvor{Letva: letva, Velicina: in[0][0].Velicina}):
+			// Nijedan ulaz nije svjež, a letva jest: vrh lanca za ovo izdanje.
+			izbor[letva] = Izbor{Inacica: -1, Opis: "bez svježeg ulaza (" + imenaUlaza(in[0]) + "): drži se zadnje mjerenje"}
+		default:
+			odabrano[letva] = in[0]
 		}
 	}
 	return odabrano, izbor
