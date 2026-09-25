@@ -38,7 +38,7 @@
   </div>
   {{end}}
   {{range $i, $p := .Profili}}
-  <div id="profil-{{$p.Oznaka}}" class="kartica uzd-profil" role="tabpanel"{{if ne $i 0}} hidden{{end}}>
+  <div id="profil-{{$p.Oznaka}}" class="kartica uzd-profil" role="tabpanel" data-ime="{{$p.Ime}}"{{if ne $i 0}} hidden{{end}}>
     <div class="uzd-legenda" role="group" aria-label="Dosezi prognoze">
       <span class="uzd-legenda-stavka"><span class="uzd-znak sad"></span> sad</span>
       {{range $p.Crte}}
@@ -48,6 +48,14 @@
       {{range $p.Pragovi}}<span class="uzd-legenda-stavka"><span class="uzd-znak {{.Class}}"></span> {{.Naziv}} obrana</span>{{end}}
     </div>
     <div class="reg-card uzduzni" style="padding:0.75rem 0.5rem 0.25rem; position:relative;">
+      <div class="uzd-gumbi">
+        <button type="button" class="uzd-gumb uzd-ispis" title="Ispiši crtež u ovom trenutku vala (bijela pozadina)" aria-label="Ispiši crtež">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V3h12v6M6 18H3v-7h18v7h-3M6 14h12v7H6z"/></svg>
+        </button>
+        <button type="button" class="uzd-gumb uzd-puni" title="Prikaži profil preko cijelog zaslona" aria-label="Prikaži profil preko cijelog zaslona" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5"/></svg>
+        </button>
+      </div>
       {{template "uzduzniProfil" $p}}
       <div class="uzd-oblacic" hidden></div>
     </div>
@@ -229,6 +237,75 @@
     }
     svg.addEventListener('animationend', function (ev) { ev.target.classList.remove('uzd-bljesak'); });
     raspon.addEventListener('input', function () { zaustavi(); nacrtaj(Number(raspon.value)); });
+
+    // Puni zaslon: cijela kartica profila, s legendom i klizačem, kao i karta.
+    // Kad preglednik ne da pravi puni zaslon, kartica se raširi preko stranice.
+    var puni = panel.querySelector('.uzd-puni');
+    var cssPuni = false;
+    function ikonaPuni(izlaz) {
+      return izlaz
+        ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg>'
+        : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5"/></svg>';
+    }
+    function uPunom() { return (document.fullscreenElement || document.webkitFullscreenElement) === panel || cssPuni; }
+    function osvjeziPuni() {
+      var aktivan = uPunom();
+      puni.innerHTML = ikonaPuni(aktivan);
+      puni.title = aktivan ? 'Izađi iz punog zaslona' : 'Prikaži profil preko cijelog zaslona';
+      puni.setAttribute('aria-label', puni.title);
+      puni.setAttribute('aria-pressed', aktivan ? 'true' : 'false');
+      panel.classList.toggle('uzd-puni-zaslon', aktivan);
+      document.body.classList.toggle('uzd-puni-zaslon-otvoren', aktivan);
+    }
+    puni.addEventListener('click', function () {
+      if (cssPuni) { cssPuni = false; osvjeziPuni(); return; }
+      if ((document.fullscreenElement || document.webkitFullscreenElement) === panel) {
+        var izlaz = document.exitFullscreen || document.webkitExitFullscreen;
+        if (izlaz) { izlaz.call(document); }
+        return;
+      }
+      var zahtjev = panel.requestFullscreen || panel.webkitRequestFullscreen;
+      var zamjena = function () { cssPuni = true; osvjeziPuni(); };
+      if (!zahtjev) { zamjena(); return; }
+      try {
+        var r = zahtjev.call(panel);
+        if (r && typeof r.catch === 'function') { r.catch(zamjena); }
+      } catch (e) { zamjena(); }
+    });
+    document.addEventListener('fullscreenchange', osvjeziPuni);
+    document.addEventListener('webkitfullscreenchange', osvjeziPuni);
+    document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape' && cssPuni) { cssPuni = false; osvjeziPuni(); } });
+
+    // Ispis: zaustavi val i ispiši crtež kakav je u tom trenutku, uvijek na
+    // bijeloj pozadini — novi prozor sa svijetlom temom, bez ostatka stranice.
+    var ispis = panel.querySelector('.uzd-ispis');
+    ispis.addEventListener('click', function () {
+      zaustavi();
+      var naslov = panel.querySelector('.uzd-legenda') ? (panel.getAttribute('data-ime') || '') : '';
+      var izdano = '';
+      Array.prototype.some.call(document.querySelectorAll('p.reg-card-sub'), function (p) {
+        var t = p.textContent.replace(/\s+/g, ' ').trim();
+        if (t.indexOf('Izdano') === 0) { izdano = t.split(' · ')[0]; return true; }
+        return false;
+      });
+      var legenda = Array.prototype.map.call(panel.querySelectorAll('.uzd-legenda-stavka'), function (l) { return l.textContent.trim(); }).join(' · ');
+      var pad = panel.querySelector('.graf-natpis') ? panel.querySelector('.graf-natpis').textContent.split('.')[0] : '';
+      var w = window.open('', '_blank');
+      if (!w) { window.alert('Preglednik je zaustavio otvaranje prozora za ispis.'); return; }
+      var css = document.querySelector('link[href*="style.css"]');
+      w.document.write('<!DOCTYPE html><html lang="hr" data-theme="light"><head><meta charset="utf-8"><title>Uzdužni profil ' + naslov + '</title>' +
+        (css ? '<link rel="stylesheet" href="' + css.getAttribute('href') + '">' : '') +
+        '<style>html,body{background:#fff !important;color:#111 !important;margin:0}body{padding:10mm;font-family:system-ui,sans-serif}' +
+        'h1{font-size:16pt;margin:0 0 4pt}p{font-size:10pt;margin:2pt 0;color:#333}svg{width:100%;height:auto;background:#fff}' +
+        '@page{size:A4 landscape;margin:10mm}@media print{.ne-ispisuj{display:none}}</style></head><body>' +
+        '<h1>Uzdužni profil ' + naslov + '</h1>' +
+        '<p>' + izdano + (izdano ? ' · ' : '') + 'trenutak: ' + natpis.textContent + '</p>' +
+        svg.outerHTML +
+        '<p>' + legenda + '</p><p>' + pad + '.</p>' +
+        '<p class="ne-ispisuj"><button onclick="window.print()">Ispiši</button></p></body></html>');
+      w.document.close();
+      w.addEventListener('load', function () { w.setTimeout(function () { w.focus(); w.print(); }, 250); });
+    });
 
     // Kretanje vala: sat po sat, od početka do kraja, pa opet.
     var tajmer = null;
