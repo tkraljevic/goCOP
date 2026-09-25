@@ -14,6 +14,9 @@ package prognoza
 import (
 	"bufio"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
+	_ "embed"
 	"errors"
 	"fmt"
 	"io"
@@ -24,6 +27,26 @@ import (
 	"strings"
 	"time"
 )
+
+// Korijenski certifikat HARICA (Hellenic Academic and Research Institutions
+// CA, grčka akademska mreža) kojim je preko GÉANT-a potpisan noel.gv.at.
+// Go na macOS-u ga ne prihvaća iako stoji u sustavskom spremištu, pa se
+// dodaje u bazen povjerenja uz sustavske korijene; vrijedi do 2045. Izvezen
+// iz Appleova spremišta korijena, otisak SHA-256 D9:5D:0E:8E:DA:79:52:5B:….
+//
+//go:embed harica_tls_rsa_root_2021.pem
+var korijenHARICA []byte
+
+// klijentNOEL je HTTP klijent koji uz sustavske korijene vjeruje i HARICA-i.
+func klijentNOEL() *http.Client {
+	bazen, err := x509.SystemCertPool()
+	if err != nil || bazen == nil {
+		bazen = x509.NewCertPool()
+	}
+	bazen.AppendCertsFromPEM(korijenHARICA)
+	return &http.Client{Timeout: 30 * time.Second, Transport: &http.Transport{
+		TLSClientConfig: &tls.Config{RootCAs: bazen}}}
+}
 
 // PodrijetloNOEL je ono što stoji uz austrijsku prognozu kao izvor.
 const PodrijetloNOEL = "noel.gv.at"
@@ -111,7 +134,7 @@ func DohvatiNOEL(ctx context.Context, klijent *http.Client) ([]Letva, error) {
 
 func dohvatiNOEL(ctx context.Context, klijent *http.Client, adresa string) ([]Letva, error) {
 	if klijent == nil {
-		klijent = &http.Client{Timeout: 30 * time.Second}
+		klijent = klijentNOEL()
 	}
 	brojevi := make([]string, 0, len(LetveNOEL))
 	for b := range LetveNOEL {
