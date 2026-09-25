@@ -3,6 +3,7 @@ package web
 import (
 	"encoding/json"
 	"fmt"
+	"gocop/internal/models"
 	"math"
 	"regexp"
 	"strings"
@@ -424,5 +425,27 @@ func TestBraneMeduLetvamaUlazeUProfil(t *testing.T) {
 	xa, xb := p.Tocke[0].X, p.Tocke[1].X
 	if x := p.Brane[0].X; x <= xa || x >= p.Brane[1].X || p.Brane[1].X >= xb {
 		t.Errorf("brane moraju stajati redom među letvama: %.0f < %.0f < %.0f < %.0f", xa, x, p.Brane[1].X, xb)
+	}
+}
+
+// Mađarska letva bez naše kote, ali s baltičkom, ide na zaseban profil svojeg
+// toka; naša letva s HVRS71 na profil toka. Inačica stoji iza svojeg toka.
+func TestProfilVodeRazdvajaVisinskeSustave(t *testing.T) {
+	hv := 80.189
+	nasa := models.Station{Watercourse: "Dunav", ZeroDatumNew: &hv}
+	if v, k, ok := profilVode(nasa); !ok || v != "Dunav" || k != hv {
+		t.Errorf("naša letva: %q %v %v", v, k, ok)
+	}
+	mbf := 103.88
+	hu := models.Station{Watercourse: "Dunav", ZeroDatumBaltic: &mbf, ZeroDatumBalticSystem: "mBf (Mađarska)"}
+	if v, k, ok := profilVode(hu); !ok || v != "Dunav (Mađarska)" || k != mbf {
+		t.Errorf("mađarska letva: %q %v %v", v, k, ok)
+	}
+	if _, _, ok := profilVode(models.Station{Watercourse: "Dunav"}); ok {
+		t.Error("letva bez ijedne kote ne ide na profil")
+	}
+	got := poredakProfila([]string{"Dunav (Mađarska)", "Dunav", "Drava", "Mura"})
+	if strings.Join(got, ",") != "Dunav,Dunav (Mađarska),Drava,Mura" {
+		t.Errorf("poredak %v", got)
 	}
 }

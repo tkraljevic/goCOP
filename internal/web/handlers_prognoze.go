@@ -615,7 +615,11 @@ func uzduzniProfili(postaje map[string]models.Station, letve []PregledLetve,
 	izdanoH := izdano.Unix() / 3600
 	for _, l := range letve {
 		st, ima := postaje[l.Letva]
-		if !ima || st.ZeroDatumNew == nil {
+		if !ima {
+			continue
+		}
+		vodaProfila, kotaNule, imaKotu := profilVode(st)
+		if !imaKotu {
 			continue
 		}
 		rkm, ok := rijecniKm(st.Stationing)
@@ -623,7 +627,7 @@ func uzduzniProfili(postaje map[string]models.Station, letve []PregledLetve,
 			continue
 		}
 		lp := LetvaProfila{
-			Letva: l.Letva, Naziv: st.Name, Rkm: rkm, KotaNule: *st.ZeroDatumNew,
+			Letva: l.Letva, Naziv: st.Name, Rkm: rkm, KotaNule: kotaNule,
 			Cm: map[int]float64{}, Granice: map[int][2]float64{},
 			Pragovi: map[string]float64{}, Niz: map[int]float64{},
 		}
@@ -673,15 +677,13 @@ func uzduzniProfili(postaje map[string]models.Station, letve []PregledLetve,
 				lp.Pragovi[kljuc] = float64(*prag.Cm)
 			}
 		}
-		voda := st.Watercourse
-		if voda == "" {
-			voda = "ostalo"
-		}
+		voda := vodaProfila
 		if _, bilo := poVodi[voda]; !bilo {
 			redom = append(redom, voda)
 		}
 		poVodi[voda] = append(poVodi[voda], lp)
 	}
+	redom = poredakProfila(redom)
 	// Kraj pritoke dobije vrijednosti najbliže letve glavnog toka: vodostaj
 	// Drave na ušću diktira Dunav, pa se krivulja Drave provuče do ušća s
 	// promjenom Aljmaša. To nije letva — natpisa i oznake nema, ali crta,
@@ -881,6 +883,59 @@ func opisRezerve(opis string, postaje map[string]models.Station) string {
 		return imena(opis) + "."
 	}
 	return "Računa se iz rezerve: " + imena(strings.TrimPrefix(opis, "rezerva: ")) + ". Raspon je iz namještanja, ne iz provjere unatrag."
+}
+
+// profilVode kaže na koji profil letva ide i s kojom kotom nule. Naše letve
+// idu na profil svojeg toka s kotom HVRS71. Strane letve koje nemaju našu
+// kotu nego samo izvornu baltičku (mađarske letve Dunava, mBf) dobivaju
+// zaseban profil istog toka, jer se kote dvaju sustava ne smiju miješati na
+// istom crtežu — razlika nije val nego visinski sustav.
+func profilVode(st models.Station) (voda string, kota float64, ok bool) {
+	voda = st.Watercourse
+	if voda == "" {
+		voda = "ostalo"
+	}
+	if st.ZeroDatumNew != nil {
+		return voda, *st.ZeroDatumNew, true
+	}
+	if st.ZeroDatumBaltic != nil {
+		sustav := strings.TrimSpace(st.ZeroDatumBalticSystem)
+		if i := strings.Index(sustav, "("); i >= 0 && strings.HasSuffix(sustav, ")") {
+			sustav = strings.TrimSpace(sustav[i+1 : len(sustav)-1]) // „mBf (Mađarska)” → „Mađarska”
+		}
+		if sustav == "" {
+			sustav = "baltički sustav"
+		}
+		return voda + " (" + sustav + ")", *st.ZeroDatumBaltic, true
+	}
+	return "", 0, false
+}
+
+// poredakProfila slaže profile tako da inačica toka u drugom visinskom
+// sustavu („Dunav (Mađarska)”) stoji odmah iza svojeg toka, a ne ispred
+// njega, iako mađarske letve u lancu dolaze prve.
+func poredakProfila(redom []string) []string {
+	var out []string
+	uzeto := map[string]bool{}
+	for _, v := range redom {
+		if strings.Contains(v, " (") {
+			continue
+		}
+		out = append(out, v)
+		uzeto[v] = true
+		for _, w := range redom {
+			if !uzeto[w] && strings.HasPrefix(w, v+" (") {
+				out = append(out, w)
+				uzeto[w] = true
+			}
+		}
+	}
+	for _, v := range redom {
+		if !uzeto[v] {
+			out = append(out, v)
+		}
+	}
+	return out
 }
 
 // rijecniKm čita riječni kilometar letve, a samo njega: Tikveš stoji na
