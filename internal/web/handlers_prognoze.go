@@ -100,7 +100,7 @@ type LetvaPrognoze struct {
 	Pregledna       bool // u model ne ulazi, stoji radi pregleda
 	Ulazi           []string
 	ImaTermina      bool   // ima ijednu prognozu, svoju ili tuđu
-	TudiVrh         bool   // vrh lanca koji dalje ide po mađarskoj prognozi
+	TudiVrh         bool   // vrh lanca koji dalje ide po tuđoj prognozi (mađarskoj ili austrijskoj)
 	NasVrh          bool   // vrh lanca koji dalje ide po našem dnevnom modelu
 	DnevniOpis      string // letva koju prognozira samo dnevni model: iz čega
 	Dani            []CelijaDana
@@ -108,7 +108,7 @@ type LetvaPrognoze struct {
 	Rezerva         string // poruka kad se letva računa iz rezervnih ulaza
 }
 
-// TudaCelija je tuđa prognoza u ćeliji dana: mađarska ili srpska.
+// TudaCelija je tuđa prognoza u ćeliji dana: mađarska, srpska ili austrijska.
 type TudaCelija struct {
 	CmV                   float64
 	Oznaka, Klasa, Naslov string
@@ -119,6 +119,7 @@ type TudaCelija struct {
 var tudiIzvori = []struct{ izvor, oznaka, klasa, naslov string }{
 	{prognoza.Podrijetlo, "HU", "hu", "Mađarska prognoza (hydroinfo.hu) za isti termin"},
 	{prognoza.PodrijetloHidmet, "RS", "rs", "Srpska prognoza (hidmet.gov.rs) za isti termin"},
+	{prognoza.PodrijetloNOEL, "AT", "at", "Austrijska prognoza (noel.gv.at, Donja Austrija) za isti termin"},
 }
 
 // CelijaDana je jedan dan pregleda, za 07 h — termin u kojem prognozu daju i

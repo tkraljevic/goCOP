@@ -102,6 +102,7 @@ type Racun struct {
 // arhiva za rezervu nema dovoljno zajedničkih sati, namještanje je preskoči
 // i javi; tablicu je potvrdio korisnik 24. 9. 2026.
 var Rezerve = map[string][][]string{
+	"komarom":        {{"wildungsmauer"}},
 	"esztergom":      {{"komarno"}},
 	"budapest":       {{"komarom"}},
 	"dunafoldvar":    {{"esztergom"}},
@@ -260,19 +261,23 @@ var Tokovi = []struct {
 		// lanca, ali samo zato što se nije pogledalo iznad nje: Mohács je 22 km
 		// uzvodno, a Esztergom 294. Zbroj kašnjenja od Esztergoma do Batine je
 		// 45–66 sati, i to nasljeđuje cijeli krak nizvodno.
-		// Komárom ostaje vrh. Probani lanac u Austriju — achleiten → kienstock
-		// → wildungsmauer → nagybajcs → komarom, satni vodostaji s viadonaua
-		// od 2012. — dodaje samo 12–17 sati: austrijski Dunav je niz
-		// akumulacija i val kroz njih prolazi brzo (2–5, 2–4, 6–7 i 0–3 h po
-		// karici). Namješten do rujna 2024. i provjeren na 1 470 izdanja do
-		// rujna 2026., Esztergomu na 72 h skida pogrešku s 46,5 na 38,4 cm i
-		// Budimpešti s 40,3 na 32,4, ali Batini, Aljmašu, Vukovaru, Iloku i
-		// Osijeku do 72 h ne mijenja ništa, a Paksu, Baji i Mohácsu je na 72 h
-		// pokvari za 2–4 cm. Rajka nije karika: leži na starom koritu ispod
-		// Čunova, pa pravu vodu vidi tek kad se kanal Gabčíkovo prelijeva.
-		// Ni Bavarska ne pomaže: Achleiten iz Hofkirchena i Inna u
-		// Passau-Inglingu (GKD, satno od 2012.) kasni 0–2 h — leži dva
-		// kilometra ispod ušća Inna.
+		// Vrh je Wildungsmauer, s 48-satnom prognozom Donje Austrije
+		// (noel.gv.at), da lanac ne ovisi o mađarskoj prognozi Komároma.
+		// Austrijski Dunav iznad njega niz je akumulacija kroz koje val
+		// prolazi brzo (Achleiten → Kienstock → Wildungsmauer 2–5, 2–4 i
+		// 6–7 h), pa uzvodnije karike ne dodaju ništa što prognoza vrha
+		// već ne nosi. Između Wildungsmauera i Nagybajcsa ulaze Morava i
+		// Gabčíkovo, koje karika nosi u rasapu (14–20 cm; namješteno do
+		// rujna 2024.: r 0,76–0,89, kašnjenje 6–7 h); Angern na Moravi
+		// ući će kao pritok kad se skupi satna povijest. Komárom iz
+		// Nagybajcsa (3–4 h) i Wildungsmauera drži r 0,85–0,97 uz rasap
+		// 8–15 cm; sam Nagybajcs 10–18 cm. Rajka nije karika: leži na
+		// starom koritu ispod Čunova, pa pravu vodu vidi tek kad se kanal
+		// Gabčíkovo prelijeva. Ni Bavarska ne pomaže: Achleiten iz
+		// Hofkirchena i Inna u Passau-Inglingu (GKD, satno od 2012.) kasni
+		// 0–2 h — leži dva kilometra ispod ušća Inna.
+		{"nagybajcs", []string{"wildungsmauer"}},
+		{"komarom", []string{"nagybajcs", "wildungsmauer"}},
 		{"esztergom", []string{"komarom"}},
 		{"budapest", []string{"esztergom"}},
 		{"dunafoldvar", []string{"budapest"}},

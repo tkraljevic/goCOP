@@ -689,6 +689,21 @@ func main() {
 				}
 				javniUvoznik.Redak("%s: %d letvi, %d novih vrijednosti", prognoza.Podrijetlo, len(letve), n)
 			}
+			// Austrijska prognoza (Donja Austrija) daje vrhu Dunava,
+			// Wildungsmaueru, 48 sati unaprijed; izlazi više puta dnevno.
+			javniUvoznik.Korak("austrijska prognoza (noel.gv.at)", 92)
+			if letve, err := prognoza.DohvatiNOEL(hu, nil); err != nil {
+				log.Printf("%s: %v", prognoza.PodrijetloNOEL, err)
+				javniUvoznik.Redak("%s: %v", prognoza.PodrijetloNOEL, err)
+			} else if n, err := prognoza.SpremiTude(pb, prognoza.PodrijetloNOEL, letve, prognoza.SifraNOEL); err != nil {
+				log.Printf("%s: zapis: %v", prognoza.PodrijetloNOEL, err)
+				javniUvoznik.Redak("%s: zapis: %v", prognoza.PodrijetloNOEL, err)
+			} else {
+				if n > 0 {
+					log.Printf("%s: zapisano %d novih vrijednosti", prognoza.PodrijetloNOEL, n)
+				}
+				javniUvoznik.Redak("%s: %d letvi, %d novih vrijednosti", prognoza.PodrijetloNOEL, len(letve), n)
+			}
 			// Srpska prognoza izlazi u 12 h; uz naše letve stoji drugom bojom.
 			javniUvoznik.Korak("srpska prognoza (hidmet.gov.rs)", 94)
 			if letve, err := prognoza.DohvatiHidmet(hu, nil); err != nil {

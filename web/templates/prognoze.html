@@ -81,7 +81,7 @@
           {{if .Voda}}{{.Voda}}{{if .Stacionaza}} · {{.Stacionaza}}{{end}}{{end}}
           {{if .Racuna}}· računa se u {{if eq .Racuna "protok"}}protoku{{else}}vodostaju{{end}}
           {{else if .NasVrh}}· vrh lanca; dalje od mjerenja ide po našem dnevnom modelu{{if .DnevniOpis}} ({{.DnevniOpis}}){{end}}
-          {{else if .TudiVrh}}· vrh lanca; dalje od mjerenja ide po mađarskoj prognozi
+          {{else if .TudiVrh}}· vrh lanca; dalje od mjerenja ide po tuđoj prognozi (Wildungsmauer austrijskoj, Letenye mađarskoj)
           {{else if .DnevniOpis}}· {{.DnevniOpis}}
           {{else if .Ulaz}}· ulaz dnevne prognoze
           {{else if .Pregledna}}· mjerenje, u model ne ulazi
@@ -302,7 +302,8 @@
     <dt>Oznake</dt>
     <dd>Sitno ispod naše vrijednosti, svaka svojom bojom, tuđe prognoze za isti termin:
       <span class="prog-tuda-hu">HU</span> mađarska (hydroinfo.hu; njihov raspon obuhvaća isti udio slučajeva
-      kao naš, {{.Udio}} %, pa znače isto) i <span class="prog-tuda-rs">RS</span> srpska (hidmet.gov.rs) —
+      kao naš, {{.Udio}} %, pa znače isto), <span class="prog-tuda-rs">RS</span> srpska (hidmet.gov.rs) i
+      <span class="prog-tuda-at">AT</span> austrijska (noel.gv.at, 48 sati za Wildungsmauer, vrh dunavskog lanca) —
       nisu naše, pa stoje odvojeno. Termin obojen bojom faze obrane je onaj u kojem prognoza doseže prag, a
       obrubljen onaj u kojem ga doseže tek gornja granica raspona. Termin pisan
       <span class="prog-slabija">svjetlije</span> je onaj na kojem prognoza ne pobjeđuje pretpostavku da

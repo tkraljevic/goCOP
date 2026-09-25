@@ -23,16 +23,23 @@ import (
 // obnavlja kako voda stiže.
 
 // VrhoviSTudomPrognozom su vrhovi lanca kojima se za sate poslije izdavanja
-// uzima hod mađarske prognoze umjesto zadnjeg mjerenja. Mjereno na 29 njihovih
-// izdanja 2024.–2026. modelom naučenim prije njih: s njihovim Letenyeom naš
-// lanac Botovu skida pogrešku 1.–4. dan s 30, 36, 48 i 60 cm na 22, 29, 41 i
-// 49 — manje i od njihove vlastite prognoze Botova (24, 37, 42, 51) — a
-// Donjem Miholjcu i Drávaszabolcsu 3.–4. dan za 4–7 cm. Njihov Komárom
-// Aljmašu 5. dan skida 6 cm, a mađarskim letvama puno više. Starija od dva
-// dana ne uzima se.
+// uzima hod tuđe prognoze umjesto zadnjeg mjerenja. Vrh Dunava je od 26. 9.
+// 2026. Wildungsmauer, s 48-satnom prognozom Donje Austrije (noel.gv.at):
+// odande lanac ide preko Nagybajcsa (6–7 h) do Komároma (3–4 h), pa Komárom
+// dobiva oko 58 sati unaprijed bez mađarske prognoze, a Batina (45–66 h
+// iza Komároma) cijela četiri dana. Mađarska prognoza Komároma ostaje u bazi
+// za usporedbu, i za Komárom kad bi ikad ostao bez računa.
+//
+// Mađarski Letenye mjeren je na 29 njihovih izdanja 2024.–2026. modelom
+// naučenim prije njih: s njihovim Letenyeom naš lanac Botovu skida pogrešku
+// 1.–4. dan s 30, 36, 48 i 60 cm na 22, 29, 41 i 49 — manje i od njihove
+// vlastite prognoze Botova (24, 37, 42, 51). Danas Letenye i Goričan
+// budućnost dobivaju iz našeg dnevnog modela (VrhoviIzDnevnog), a mađarska
+// je rezerva. Tuđa prognoza starija od dva dana ne uzima se.
 var VrhoviSTudomPrognozom = map[string]string{
-	"letenye": Podrijetlo,
-	"komarom": Podrijetlo,
+	"letenye":       Podrijetlo,
+	"komarom":       Podrijetlo,
+	"wildungsmauer": PodrijetloNOEL,
 }
 
 // PregledneLetve se na pregledu prognoza pokazuju s mjerenjem, iako u model ne

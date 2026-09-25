@@ -4144,12 +4144,15 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .prognoze-tablica .prog-tuda { font-size: 0.78em; margin-top: 2px; white-space: nowrap; }
 .prog-tuda-hu { color: #b45309; }
 .prog-tuda-rs { color: #7c3aed; }
+.prog-tuda-at { color: #b91c1c; }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .prog-tuda-hu { color: #f0b35a; }
   :root:not([data-theme="light"]) .prog-tuda-rs { color: #c4b5fd; }
+  :root:not([data-theme="light"]) .prog-tuda-at { color: #fca5a5; }
 }
 :root[data-theme="dark"] .prog-tuda-hu { color: #f0b35a; }
 :root[data-theme="dark"] .prog-tuda-rs { color: #c4b5fd; }
+:root[data-theme="dark"] .prog-tuda-at { color: #fca5a5; }
 .prognoze-tablica .prog-oznaka, .graf-natpis .prog-oznaka { font-size: 0.7em; color: var(--text-muted); margin-left: 1px; }
 .prognoze-tablica td.dan-prep { background: var(--faza-p-bg); color: var(--faza-p-fg); }
 .prognoze-tablica td.dan-regular { background: var(--faza-r-bg); color: var(--faza-r-fg); }

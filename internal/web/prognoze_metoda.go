@@ -158,10 +158,13 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 		}},
 		{"Satni lanac — izdavanje prognoze", []OdlomakMetode{
 			tekstM("Vrh lanca. Za sate poslije zadnjeg mjerenja postaja na vrhu lanca drži zadnje izmjereno " +
-				"stanje (postojanost). Na Muri (Letenye) i Dunavu (Komárom) umjesto toga slijedi promjenu " +
-				"mađarske prognoze od trenutka izdavanja, ne stariju od dva dana:"),
-			formulaM("x(t) = x_mj(t₀) + [F_HU(t) − F_HU(t₀)]",
-				`x(t)=x_{\mathrm{mj}}(t_0)+\left[F_{\mathrm{HU}}(t)-F_{\mathrm{HU}}(t_0)\right]`),
+				"stanje (postojanost). Vrh Dunava, Wildungsmauer, umjesto toga slijedi promjenu 48-satne prognoze " +
+				"Donje Austrije (noel.gv.at) od trenutka izdavanja; odande lanac ide preko Nagybajcsa (6–7 h) do " +
+				"Komároma (3–4 h), pa Komárom ima oko 58 sati unaprijed bez mađarske prognoze, a Batina, 45–66 sati " +
+				"iza Komároma, sva četiri dana. Vrhovi Mure, Letenye i Goričan, budućnost dobivaju iz našeg dnevnog " +
+				"modela; kad ga nema, Letenye slijedi mađarsku prognozu. Tuđa prognoza ne uzima se starija od dva dana:"),
+			formulaM("x(t) = x_mj(t₀) + [F(t) − F(t₀)]",
+				`x(t)=x_{\mathrm{mj}}(t_0)+\left[F(t)-F(t_0)\right]`),
 			tekstM("Ispravak prema mjerenju. Razlika između modela i zadnjeg mjerenja postaje (ne starijeg od " +
 				tekstBroja(prognoza.ZaostatakVrha) + " sata) nosi se naprijed i eksponencijalno slabi, s " +
 				"poluvremenom od " + poluvrijeme + " sati:"),
