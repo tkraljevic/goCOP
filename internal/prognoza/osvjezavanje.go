@@ -25,10 +25,9 @@ import (
 // VrhoviSTudomPrognozom su vrhovi lanca kojima se za sate poslije izdavanja
 // uzima hod tuđe prognoze umjesto zadnjeg mjerenja. Vrh Dunava je od 26. 9.
 // 2026. Wildungsmauer, s 48-satnom prognozom Donje Austrije (noel.gv.at):
-// odande lanac ide preko Nagybajcsa (6–7 h) do Komároma (3–4 h), pa Komárom
-// dobiva oko 58 sati unaprijed bez mađarske prognoze, a Batina (45–66 h
-// iza Komároma) cijela četiri dana. Mađarska prognoza Komároma ostaje u bazi
-// za usporedbu, i za Komárom kad bi ikad ostao bez računa.
+// odande lanac ide preko Nagybajcsa (6–7 h) do Komároma (3–4 h). Komárom
+// ipak, dok je mađarska prognoza svježa, slijedi nju (TudaIspredRacuna);
+// lanac iz Austrije je rezerva za sate kad je nema.
 //
 // Mađarski Letenye mjeren je na 29 njihovih izdanja 2024.–2026. modelom
 // naučenim prije njih: s njihovim Letenyeom naš lanac Botovu skida pogrešku
@@ -38,8 +37,30 @@ import (
 // je rezerva. Tuđa prognoza starija od dva dana ne uzima se.
 var VrhoviSTudomPrognozom = map[string]string{
 	"letenye":       Podrijetlo,
-	"komarom":       Podrijetlo,
 	"wildungsmauer": PodrijetloNOEL,
+}
+
+// TudaIspredRacuna su letve koje imaju svoj račun, ali dok je tuđa prognoza
+// svježa (ne starija od dva dana) postaju vrh lanca i slijede nju; račun
+// ostaje za sate kad je nema. Komárom se računa iz Nagybajcsa i
+// Wildungsmauera, no na 27 mađarskih izdanja 2024.–2026. (uglavnom valovi)
+// taj lanac griješi 18, 38, 61, 90, 113 i 131 cm za 1.–6. dan prema
+// njihovih 12, 20, 28, 38, 47 i 59, a ni savršena austrijska prognoza vrha
+// to ne popravlja: pri velikoj vodi val od Wildungsmauera do Nagybajcsa
+// putuje tri dana (Szigetköz, Gabčíkovo, rukavci, Morava), ne 5–7 sati kako
+// je karika namještena na svim satima. Dok se za to ne skupi satna povijest
+// Morave i Bratislave, bolju prognozu daje njihov model; naša ostaje rezerva.
+var TudaIspredRacuna = map[string]string{
+	"komarom": Podrijetlo,
+}
+
+// TudiIzvorVrha kaže čija tuđa prognoza vodi letvu kad je vrh lanca.
+func TudiIzvorVrha(letva string) (string, bool) {
+	if izvor, ima := VrhoviSTudomPrognozom[letva]; ima {
+		return izvor, true
+	}
+	izvor, ima := TudaIspredRacuna[letva]
+	return izvor, ima
 }
 
 // PregledneLetve se na pregledu prognoza pokazuju s mjerenjem, iako u model ne
@@ -134,6 +155,21 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 		nizovi[iz] = n
 	}
 	pojasi, izbor := OdaberiInacice(inacice, nizovi, 0)
+	// Letva s tuđom prognozom ispred računa: dok je prognoza svježa, račun
+	// joj se skida i ona postaje vrh, pa je dolje dobije kao budućnost.
+	sadaSat := time.Now().UTC().Unix() / 3600
+	for letva, izvor := range TudaIspredRacuna {
+		if len(pojasi[letva]) == 0 {
+			continue
+		}
+		if _, ima, err := TudaPrognoza(o.Baza, izvor, letva, sadaSat-48, sadaSat+6); err == nil && ima {
+			ulazi := imenaUlaza(pojasi[letva])
+			delete(pojasi, letva)
+			delete(izbor, letva)
+			izbor["vrh:"+letva] = Izbor{Inacica: 2, Opis: fmt.Sprintf("dok je svježa, vodi je tuđa prognoza (%s), "+
+				"jer je na valovima bolja od našeg lanca; bez nje računa se iz: %s", izvor, ulazi)}
+		}
+	}
 	_, vrhovi := TrebaniIzvori(pojasi)
 	// Vrh lanca se vodi u jednoj veličini, ali letva ima obje. Donja Dubrava
 	// nema krivulju, pa joj se vodostaj ne da izračunati — a mjeren jest, i na
@@ -178,7 +214,14 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 		ishod.Izbor["vrh:"+iz.Letva] = Izbor{Inacica: 1, Opis: "budućnost vrha lanca iz našeg dnevnog modela s kišom, ne iz tuđe prognoze"}
 	}
 	sort.Strings(ishod.NasiVrhovi)
+	tudiVrhovi := map[string]string{}
 	for letva, izvor := range VrhoviSTudomPrognozom {
+		tudiVrhovi[letva] = izvor
+	}
+	for letva, izvor := range TudaIspredRacuna {
+		tudiVrhovi[letva] = izvor
+	}
+	for letva, izvor := range tudiVrhovi {
 		iz := Izvor{Letva: letva, Velicina: "vodostaj"}
 		if !vrhovi[iz] {
 			continue

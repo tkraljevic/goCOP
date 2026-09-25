@@ -160,8 +160,13 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 			tekstM("Vrh lanca. Za sate poslije zadnjeg mjerenja postaja na vrhu lanca drži zadnje izmjereno " +
 				"stanje (postojanost). Vrh Dunava, Wildungsmauer, umjesto toga slijedi promjenu 48-satne prognoze " +
 				"Donje Austrije (noel.gv.at) od trenutka izdavanja; odande lanac ide preko Nagybajcsa (6–7 h) do " +
-				"Komároma (3–4 h), pa Komárom ima oko 58 sati unaprijed bez mađarske prognoze, a Batina, 45–66 sati " +
-				"iza Komároma, sva četiri dana. Vrhovi Mure, Letenye i Goričan, budućnost dobivaju iz našeg dnevnog " +
+				"Komároma (3–4 h). Komárom ipak, dok je mađarska prognoza svježa, slijedi nju: na njihovih 27 izdanja " +
+				"2024.–2026., uglavnom valova, naš lanac od Wildungsmauera griješi 18, 38, 61, 90, 113 i 131 cm za 1.–6. " +
+				"dan prema njihovih 12, 20, 28, 38, 47 i 59, a ni savršena austrijska prognoza vrha to ne popravlja, jer " +
+				"pri velikoj vodi val od Wildungsmauera do Nagybajcsa putuje tri dana (Szigetköz, Gabčíkovo, rukavci, " +
+				"Morava), ne 5–7 sati kako je karika namještena. Lanac iz Austrije je rezerva za sate kad mađarske nema; " +
+				"satna povijest Morave (Angern) i Bratislave skuplja se da se ta dionica jednom namjesti. Vrhovi Mure, " +
+				"Letenye i Goričan, budućnost dobivaju iz našeg dnevnog " +
 				"modela; kad ga nema, Letenye slijedi mađarsku prognozu. Tuđa prognoza ne uzima se starija od dva dana:"),
 			formulaM("x(t) = x_mj(t₀) + [F(t) − F(t₀)]",
 				`x(t)=x_{\mathrm{mj}}(t_0)+\left[F(t)-F(t_0)\right]`),

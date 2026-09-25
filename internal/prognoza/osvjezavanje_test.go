@@ -255,3 +255,85 @@ func TestOdaberiInacicePrelaziNaRezervu(t *testing.T) {
 		t.Errorf("u satu 985 Mohács je bio svjež, a uzeta je rezerva: %+v", izbor)
 	}
 }
+
+// Tuđa prognoza ispred računa: srednja letva ima svoj račun iz gornje, ali
+// dok je njezina tuđa prognoza svježa, postaje vrh i slijedi nju; donja se
+// računa iz nje. Bez tuđe prognoze srednja se računa kao i dosad.
+func TestTudaIspredRacunaSkidaRacunDokJeSvjeza(t *testing.T) {
+	PoluvijekIspravka = 0
+	zadnji := time.Now().UTC().Truncate(time.Hour)
+	ocitanja := probneOcitanja(t, 48, zadnji)
+	if _, err := ocitanja.Exec(`INSERT INTO stations VALUES ('3','srednja')`); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 48; i++ {
+		if _, err := ocitanja.Exec(`INSERT INTO readings (station_id, measured_at, level_cm) VALUES ('3',?,?)`,
+			zadnji.Add(-time.Duration(i)*time.Hour), 95); err != nil {
+			t.Fatal(err)
+		}
+	}
+	baza, err := Otvori(filepath.Join(t.TempDir(), "p.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer baza.Close()
+	pojasi := []Pojas{
+		{Letva: "srednja", Velicina: "vodostaj", Od: -1000, Do: 1000, Rasap: 3,
+			Ulazi: []Ulaz{{Letva: "gornja", Velicina: "vodostaj", PomakH: 3, Sirina: 1, Nagib: 1}}},
+		{Letva: "donja", Velicina: "vodostaj", Od: -1000, Do: 1000, Rasap: 3,
+			Ulazi: []Ulaz{{Letva: "srednja", Velicina: "vodostaj", PomakH: 2, Sirina: 1, Nagib: 1}}},
+	}
+	if err := Spremi(baza, pojasi, "proba"); err != nil {
+		t.Fatal(err)
+	}
+	o := &Osvjezivac{Baza: baza, Ocitanja: ocitanja, Najdalje: 12, Model: ModelLanac}
+	staro := TudaIspredRacuna
+	TudaIspredRacuna = map[string]string{"srednja": "probni-izvor"}
+	defer func() { TudaIspredRacuna = staro }()
+
+	// bez tuđe prognoze: srednja se računa
+	ishod, err := o.Osvjezi(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	izdanih := func(ishod *Ishod, letva string) (n int, kraj *Izdana) {
+		for i := range ishod.Izdane {
+			if ishod.Izdane[i].Letva == letva {
+				n++
+				if ishod.Izdane[i].Ciljni == ishod.Sada+12 {
+					kraj = &ishod.Izdane[i]
+				}
+			}
+		}
+		return n, kraj
+	}
+	if n, _ := izdanih(ishod, "srednja"); len(ishod.TudiVrhovi) != 0 || n < 2 {
+		t.Fatalf("bez tuđe prognoze srednja mora imati račun: vrhovi %v, izdanih %d", ishod.TudiVrhovi, n)
+	}
+
+	// svježa tuđa prognoza: srednja raste 5 cm na sat
+	sat := zadnji.Unix() / 3600
+	for h := int64(0); h <= 12; h++ {
+		if _, err := baza.Exec(`INSERT INTO tude (izvor, letva, izdano, ciljni, vrijednost) VALUES ('probni-izvor','srednja',?,?,?)`,
+			sat, sat+h, 95+5*h); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ishod, err = o.Osvjezi(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ishod.TudiVrhovi) != 1 || ishod.TudiVrhovi[0] != "srednja" {
+		t.Fatalf("srednja mora biti tuđi vrh: %v", ishod.TudiVrhovi)
+	}
+	if iz := ishod.Izbor["vrh:srednja"]; iz.Inacica != 2 {
+		t.Errorf("izbor vrh:srednja %+v, želim inačicu 2", iz)
+	}
+	if n, _ := izdanih(ishod, "srednja"); n > 1 {
+		t.Errorf("srednja se ne smije računati dok je vrh, a ima %d izdanih", n)
+	}
+	_, kraj := izdanih(ishod, "donja")
+	if kraj == nil || kraj.Vrijednost < 95+5*8 {
+		t.Errorf("donja za 12 h mora slijediti porast tuđe prognoze srednje: %+v", kraj)
+	}
+}

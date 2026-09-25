@@ -138,9 +138,9 @@ var DnevniCiljevi = []DnevniCilj{
 // mađarskih izdanja 2024.–2026. modelom naučenim prije njih: naš dnevni model
 // Letenyea (Mursko Središće + kiša nad Murom, tada izdana prognoza kiše)
 // griješi 13, 22, 18, 22, 30 i 24 cm za 1.–6. dan, njihova prognoza Letenyea
-// 13, 23, 28, 37, 42 i 50. Komárom nije vrh: od 26. 9. 2026. računa se
-// iz Nagybajcsa i Wildungsmauera, a vrh Dunava, Wildungsmauer, slijedi
-// 48-satnu austrijsku prognozu (noel.gv.at). Naš dnevni model Dunava iznad
+// 13, 23, 28, 37, 42 i 50. Komárom dok je mađarska prognoza svježa slijedi
+// nju (TudaIspredRacuna), a bez nje se računa iz Nagybajcsa i Wildungsmauera,
+// koji slijedi 48-satnu austrijsku prognozu (noel.gv.at). Naš dnevni model Dunava iznad
 // Komároma ne dostiže mađarsku prognozu Komároma: s kišom gornjeg Dunava
 // (međuslivovi O–N, ulazi Wildungsmauer, Kienstock, Achleiten, Hofkirchen)
 // preko svih dana griješi 10, 20, 29, 35, 39 i 43 cm (bez kiše 10–66), ali

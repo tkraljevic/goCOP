@@ -237,7 +237,12 @@ func (h *PrognozeHandler) podaci(r *http.Request) PrognozePageData {
 				data.Letve[i].Rezerva += " "
 			}
 			data.Letve[i].Rezerva += iz.Opis
-			data.Letve[i].NasVrh, data.Letve[i].TudiVrh = true, false
+			if iz.Inacica == 2 {
+				// tuđa prognoza ispred računa: letva je ovaj put vrh
+				data.Letve[i].TudiVrh, data.Letve[i].NasVrh, data.Letve[i].Racuna = true, false, ""
+			} else {
+				data.Letve[i].NasVrh, data.Letve[i].TudiVrh = true, false
+			}
 		}
 	}
 	data.Bliski = BliziDosezi
@@ -356,7 +361,7 @@ func (h *PrognozeHandler) opisiLetve(popis map[string]models.Station, letve []Pr
 	for _, l := range letve {
 		ulaz := l.Racuna == "" && !l.UlazLanca && jeDnevniUlaz(l.Letva)
 		pregledna := l.Racuna == "" && !l.UlazLanca && !ulaz && jePregledna(l.Letva)
-		tudiIzvor, tudi := prognoza.VrhoviSTudomPrognozom[l.Letva]
+		tudiIzvor, tudi := prognoza.TudiIzvorVrha(l.Letva)
 		sadaCm, imaSadaCm := l.Sada["vodostaj"]
 		sadaQ, imaSadaQ := l.Sada["protok"]
 		red := LetvaPrognoze{
