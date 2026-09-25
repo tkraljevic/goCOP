@@ -699,6 +699,34 @@ func InitSchema(database *sql.DB) error {
 			geometry TEXT NOT NULL DEFAULT ''
 		);`,
 
+		// Kvazi-kišomjeri: točke na kojima se za prognozu čitaju oborina i
+		// snijeg, po slivovima između letvi i po visinskim pojasima
+		`CREATE TABLE IF NOT EXISTS kisomjeri (
+			code TEXT PRIMARY KEY,
+			naziv TEXT NOT NULL,
+			sliv TEXT NOT NULL DEFAULT '',
+			pojas TEXT NOT NULL DEFAULT '',
+			latitude REAL NOT NULL,
+			longitude REAL NOT NULL,
+			visina REAL,
+			srednja_visina REAL,
+			km2 REAL,
+			tezina REAL,
+			aktivan INTEGER NOT NULL DEFAULT 1,
+			napomena TEXT NOT NULL DEFAULT '',
+			created_at DATETIME NOT NULL,
+			updated_at DATETIME NOT NULL
+		);`,
+
+		// Slivovi: dio sliva između susjednih letvi, s poligonom za kartu
+		`CREATE TABLE IF NOT EXISTS slivovi (
+			oznaka TEXT PRIMARY KEY,
+			naziv TEXT NOT NULL,
+			km2 REAL,
+			geometry TEXT NOT NULL DEFAULT '',
+			napomena TEXT NOT NULL DEFAULT ''
+		);`,
+
 		// Mjerodavni vodomjeri pojedine dionice
 		`CREATE TABLE IF NOT EXISTS section_stations (
 			id TEXT PRIMARY KEY,

@@ -685,7 +685,7 @@ function renderMarkdown(md) {
               riverPolyline = layer;
               riverFeature = feat;
             }
-            var naziv = feat.properties.naziv || okvir.dataset.naziv || 'Vodotok';
+              var naziv = feat.properties.naziv || feat.properties.name || okvir.dataset.naziv || 'Vodotok';
             layer.bindPopup('<strong>' + escapeHtml(naziv) + '</strong>');
           }
         }
@@ -1044,7 +1044,7 @@ function renderMarkdown(md) {
           },
           onEachFeature: function (feat, layer) {
             if (feat.properties && (feat.geometry.type === 'LineString' || feat.geometry.type === 'MultiLineString')) {
-              var naziv = feat.properties.naziv || 'Vodotok';
+                var naziv = feat.properties.naziv || feat.properties.name || 'Vodotok';
               layer.bindPopup('<strong>' + escapeHtml(naziv) + '</strong>');
             }
           }
@@ -1526,4 +1526,219 @@ function renderMarkdown(md) {
   } else {
     pripremi();
   }
+})();
+
+// Karta slivova: poligoni slivova, tokovi rijeka, vodomjerne postaje i
+// kvazi-kišomjeri po visinskim pojasima. U načinu premještanja točke se vuku, a spremaju se odjednom.
+(function () {
+  function escapeHtml(text) {
+    if (!text) return '';
+    var div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+  var bojePojasa = [
+    [/^ravnica/, '#2e7d32'],
+    [/^pobrđe/, '#9e9d24'],
+    [/^1000/, '#ef6c00'],
+    [/^>1500/, '#6a1b9a']
+  ];
+  function bojaPojasa(pojas) {
+    for (var i = 0; i < bojePojasa.length; i++) if (bojePojasa[i][0].test(pojas || '')) return bojePojasa[i][1];
+    return '#455a64';
+  }
+  var bojeSliva = ['#1976d2', '#c62828', '#00897b', '#f9a825', '#8e24aa', '#6d4c41', '#00acc1', '#7cb342', '#d81b60'];
+
+  document.addEventListener('DOMContentLoaded', function () {
+    if (typeof L === 'undefined') return;
+    document.querySelectorAll('.karta-slivovi').forEach(function (okvir) {
+      var platno = okvir.querySelector('.karta-platno');
+      var tockeEl = okvir.querySelector('.karta-tocke-podaci');
+      if (!platno || !tockeEl || !okvir.dataset.plocice) return;
+      var tocke = [];
+      try { tocke = JSON.parse(tockeEl.textContent) || []; } catch (e) { return; }
+      function jsonIz(sel) {
+        var el = okvir.querySelector(sel);
+        if (!el) return null;
+        try { return JSON.parse(el.textContent); } catch (e) { return null; }
+      }
+      var rijeke = jsonIz('.karta-geometrija-podaci');
+      var slivovi = jsonIz('.karta-slivovi-podaci');
+      var postaje = jsonIz('.karta-postaje-podaci') || [];
+
+      var karta = L.map(platno, { scrollWheelZoom: false });
+      var promasaja = 0;
+      var sloj = L.tileLayer(okvir.dataset.plocice, { maxZoom: parseInt(okvir.dataset.najviseZ, 10) || 17, attribution: okvir.dataset.zasluge || '' });
+      sloj.on('tileerror', function () {
+        if (++promasaja < 3) return;
+        var poruka = okvir.querySelector('.karta-bez-mreze');
+        if (poruka) poruka.hidden = false;
+        okvir.classList.add('karta-prazna');
+      });
+      sloj.addTo(karta);
+      var obuhvat = L.latLngBounds();
+
+      // slivovi: prozirne plohe, svaka svoje boje
+      var slojSlivova = null;
+      if (slivovi) {
+        var redni = 0;
+        slojSlivova = L.geoJSON(slivovi, {
+          style: function () {
+            var b = bojeSliva[redni++ % bojeSliva.length];
+            return { color: b, weight: 1.5, opacity: 0.8, fillColor: b, fillOpacity: 0.08, className: 'kis-sliv' };
+          },
+          onEachFeature: function (feat, layer) {
+            var p = feat.properties || {};
+            var tekst = '<strong>' + escapeHtml((p.oznaka ? p.oznaka + ' · ' : '') + (p.naziv || 'Međusliv')) + '</strong>' +
+              (p.km2 ? '<br><small>' + Math.round(p.km2).toLocaleString('hr-HR') + ' km²</small>' : '');
+            layer.bindTooltip(tekst, { sticky: true });
+          }
+        }).addTo(karta);
+        if (slojSlivova.getBounds().isValid()) obuhvat.extend(slojSlivova.getBounds());
+        var preklopnik = okvir.parentElement.querySelector('.karta-slivovi-preklopnik');
+        if (preklopnik) preklopnik.addEventListener('change', function () {
+          if (preklopnik.checked) slojSlivova.addTo(karta); else karta.removeLayer(slojSlivova);
+        });
+      }
+
+      // tokovi rijeka, bez oznaka rkm da karta ostane čitka
+      if (rijeke) {
+        L.geoJSON(rijeke, {
+          filter: function (feat) { return feat.geometry && (feat.geometry.type === 'LineString' || feat.geometry.type === 'MultiLineString'); },
+          style: function () { return { color: '#0284c7', weight: 3, opacity: 0.85 }; },
+          onEachFeature: function (feat, layer) {
+            var naziv = (feat.properties && (feat.properties.naziv || feat.properties.name)) || 'Vodotok';
+            layer.bindTooltip(escapeHtml(naziv), { sticky: true });
+          }
+        }).addTo(karta);
+      }
+
+      // vodomjerne postaje: mali kvadrati, da se razlikuju od kišomjera
+      var slojPostaja = L.layerGroup().addTo(karta);
+      postaje.forEach(function (st) {
+        if (typeof st.lat !== 'number' || typeof st.lon !== 'number') return;
+        var m = L.marker([st.lat, st.lon], { icon: L.divIcon({ className: 'kis-letva-omotac', html: '<div class="kis-letva"></div>', iconSize: [12, 12], iconAnchor: [6, 6] }) });
+        m.bindTooltip(escapeHtml(st.name), { direction: 'top', offset: [0, -6] });
+        m.bindPopup('<div><div style="font-weight:700; font-size:0.95rem; margin-bottom:2px;"><a href="' + escapeHtml(st.detail_url) + '">' + escapeHtml(st.name) + '</a></div>' +
+          (st.stationing ? '<div style="font-size:0.8rem; color:#475569;">' + escapeHtml(st.stationing) + '</div>' : '') +
+          (st.country ? '<div style="font-size:0.75rem; color:#64748b;">' + escapeHtml(st.country) + '</div>' : '') + '</div>');
+        slojPostaja.addLayer(m);
+      });
+      var preklopnikPostaja = okvir.parentElement.querySelector('.karta-postaje-preklopnik');
+      if (preklopnikPostaja) preklopnikPostaja.addEventListener('change', function () {
+        if (preklopnikPostaja.checked) slojPostaja.addTo(karta); else karta.removeLayer(slojPostaja);
+      });
+
+      // kišomjeri: obojeni krugovi, u načinu premještanja se vuku
+      var markeri = {};
+      var izvorni = {};
+      var uPremjestanju = false;
+      tocke.forEach(function (t) {
+        var boja = t.aktivan ? bojaPojasa(t.pojas) : '#9e9e9e';
+        var ikona = L.divIcon({
+          className: 'kis-tocka-omotac',
+          html: '<div class="kis-tocka' + (t.aktivan ? '' : ' kis-tocka-neaktivna') + '" style="background:' + boja + '"></div>',
+          iconSize: [18, 18], iconAnchor: [9, 9]
+        });
+        var m = L.marker([t.lat, t.lon], { icon: ikona, draggable: false, zIndexOffset: 1000 });
+        var opis = '<div><div style="font-weight:700; font-size:0.95rem; margin-bottom:2px;">' + escapeHtml(t.naziv) + '</div>' +
+          '<div style="font-size:0.8rem; color:#475569;">' + escapeHtml((t.sliv ? 'međusliv ' + t.sliv + ' · ' : '') + (t.pojas || '')) + '</div>' +
+          '<div style="font-size:0.75rem; color:#64748b;">' +
+            (typeof t.visina === 'number' ? Math.round(t.visina) + ' m n. m.' : '') +
+            (typeof t.km2 === 'number' ? ' · ' + Math.round(t.km2).toLocaleString('hr-HR') + ' km²' : '') +
+            (typeof t.tezina === 'number' ? ' · težina ' + t.tezina.toFixed(3) : '') +
+            (t.aktivan ? '' : ' · neaktivna') +
+          '</div>' +
+          '<div class="kis-koord" style="font-size:0.75rem; color:#64748b;">' + t.lat.toFixed(4) + ', ' + t.lon.toFixed(4) + '</div>' +
+          (t.edit_url ? '<div style="margin-top:6px;"><a href="' + escapeHtml(t.edit_url) + '" class="btn btn-sm" style="display:inline-block; font-size:0.75rem; padding:2px 8px;">Uredi točku</a></div>' : '') +
+          '</div>';
+        m.bindPopup(opis);
+        m.bindTooltip(escapeHtml(t.naziv), { direction: 'top', offset: [0, -8] });
+        m.on('dragend', function () {
+          var p = m.getLatLng();
+          if (editorStatus) editorStatus.textContent = t.naziv + ' → ' + p.lat.toFixed(4) + ', ' + p.lng.toFixed(4) + ' (' + brojPremjestenih() + ' premješteno)';
+        });
+        m.addTo(karta);
+        markeri[t.code] = m;
+        izvorni[t.code] = L.latLng(t.lat, t.lon);
+        obuhvat.extend([t.lat, t.lon]);
+      });
+
+      if (obuhvat.isValid()) karta.fitBounds(obuhvat, { padding: [25, 25] }); else karta.setView([46.2, 16.5], 7);
+      karta.on('click', function () { karta.scrollWheelZoom.enable(); });
+
+      // premještanje: isti gumbi kao kod toka rijeke
+      var sekcija = okvir.closest('.detail-section') || okvir.parentElement;
+      var btnUredi = sekcija.querySelector('.karta-uredi-btn');
+      var btnSpremi = sekcija.querySelector('.karta-spremi-btn');
+      var btnPonisti = sekcija.querySelector('.karta-ponisti-btn');
+      var btnOdustani = sekcija.querySelector('.karta-odustani-btn');
+      var editorTraka = sekcija.querySelector('.karta-editor-traka');
+      var editorStatus = sekcija.querySelector('.karta-editor-status');
+      if (!btnUredi) return;
+
+      function premjestene() {
+        var out = [];
+        Object.keys(markeri).forEach(function (code) {
+          var p = markeri[code].getLatLng(), i = izvorni[code];
+          if (Math.abs(p.lat - i.lat) > 1e-7 || Math.abs(p.lng - i.lng) > 1e-7) out.push({ code: code, lat: Math.round(p.lat * 1e6) / 1e6, lon: Math.round(p.lng * 1e6) / 1e6 });
+        });
+        return out;
+      }
+      function brojPremjestenih() { return premjestene().length; }
+      function vratiSve() { Object.keys(markeri).forEach(function (code) { markeri[code].setLatLng(izvorni[code]); }); }
+      function pokreni() {
+        uPremjestanju = true;
+        okvir.classList.add('u-uredjivanju');
+        Object.keys(markeri).forEach(function (code) { markeri[code].dragging.enable(); markeri[code].closePopup(); });
+        btnUredi.style.display = 'none';
+        if (btnSpremi) btnSpremi.style.display = '';
+        if (btnPonisti) btnPonisti.style.display = '';
+        if (btnOdustani) btnOdustani.style.display = '';
+        if (editorTraka) editorTraka.style.display = 'flex';
+        if (editorStatus) editorStatus.textContent = 'Točaka na karti: ' + Object.keys(markeri).length;
+      }
+      function zaustavi() {
+        uPremjestanju = false;
+        okvir.classList.remove('u-uredjivanju');
+        Object.keys(markeri).forEach(function (code) { markeri[code].dragging.disable(); });
+        btnUredi.style.display = '';
+        if (btnSpremi) btnSpremi.style.display = 'none';
+        if (btnPonisti) btnPonisti.style.display = 'none';
+        if (btnOdustani) btnOdustani.style.display = 'none';
+        if (editorTraka) editorTraka.style.display = 'none';
+      }
+      btnUredi.addEventListener('click', pokreni);
+      if (btnOdustani) btnOdustani.addEventListener('click', function () { vratiSve(); zaustavi(); });
+      if (btnPonisti) btnPonisti.addEventListener('click', function () {
+        vratiSve();
+        if (editorStatus) editorStatus.textContent = 'Sve točke vraćene na spremljene položaje.';
+      });
+      if (btnSpremi) btnSpremi.addEventListener('click', function () {
+        var promjene = premjestene();
+        if (!promjene.length) { zaustavi(); return; }
+        btnSpremi.disabled = true;
+        btnSpremi.textContent = 'Spremanje…';
+        fetch('/api/slivovi/kisomjer/polozaji', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tocke: promjene })
+        }).then(function (res) {
+          return res.text().then(function (txt) {
+            if (!res.ok) throw new Error(txt || ('HTTP ' + res.status));
+            try { return JSON.parse(txt); } catch (e) { return {}; }
+          });
+        }).then(function (data) {
+          promjene.forEach(function (p) { izvorni[p.code] = L.latLng(p.lat, p.lon); });
+          zaustavi();
+          if (editorStatus) editorStatus.textContent = data.message || 'Spremljeno.';
+          alert(data.message || 'Položaji su spremljeni.');
+        }).catch(function (err) {
+          alert('Greška pri spremanju položaja: ' + err.message);
+        }).finally(function () {
+          btnSpremi.disabled = false;
+          btnSpremi.textContent = 'Spremi položaje';
+        });
+      });
+    });
+  });
 })();

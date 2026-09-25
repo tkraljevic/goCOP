@@ -1,0 +1,128 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — {{if .IsEdit}}{{.Tocka.Naziv}}{{else}}Novi kišomjer{{end}}{{end}}
+
+{{define "content"}}
+<div class="breadcrumb"><a href="/slivovi">Slivovi</a> › {{if .IsEdit}}{{.Tocka.Naziv}}{{else}}Novi kišomjer{{end}}</div>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "cloud-rain"}} {{if .IsEdit}}{{.Tocka.Naziv}}{{else}}Novi kišomjer{{end}}</h1>
+    <p class="page-desc">
+      Točka predstavlja dio međusliva u jednom visinskom pojasu. Položaj se može upisati
+      ili odabrati klikom na kartu; kasnije se kišomjeri premještaju i na karti slivova.
+    </p>
+  </div>
+</div>
+
+{{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
+
+<form class="form-page" method="POST" action="{{if .IsEdit}}/api/slivovi/kisomjer/update{{else}}/api/slivovi/kisomjer/create{{end}}">
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="naziv">Naziv *</label>
+      <input class="form-control" type="text" id="naziv" name="naziv" value="{{.Tocka.Naziv}}" required placeholder="npr. A1 pobrđe">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="code">Šifra</label>
+      <input class="form-control" type="text" id="code" name="code" value="{{.Tocka.Code}}" {{if .IsEdit}}readonly{{else}}placeholder="prazno = iz naziva"{{end}} style="font-family:ui-monospace, monospace;">
+      <p class="form-help">Na šifru se vežu preuzete oborine, pa se poslije ne mijenja.</p>
+    </div>
+  </div>
+
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="sliv">Međusliv</label>
+      <select class="form-control" id="sliv" name="sliv">
+        <option value="">—</option>
+        {{range .Slivovi}}
+        <option value="{{.Oznaka}}" {{if eq .Oznaka $.Tocka.Sliv}}selected{{end}}>{{.Oznaka}} · {{.Naziv}}</option>
+        {{end}}
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="pojas">Visinski pojas</label>
+      <select class="form-control" id="pojas" name="pojas">
+        <option value="">—</option>
+        {{range .Pojasi}}
+        <option value="{{.}}" {{if eq . $.Tocka.Pojas}}selected{{end}}>{{.}}</option>
+        {{end}}
+      </select>
+    </div>
+  </div>
+
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="lat">Zemljopisna širina *</label>
+      <input class="form-control" type="text" id="lat" name="lat" inputmode="decimal" required value="{{if .Tocka.ImaKoordinate}}{{printf "%.6f" .Tocka.Latitude}}{{end}}" placeholder="46.7000">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="lon">Zemljopisna dužina *</label>
+      <input class="form-control" type="text" id="lon" name="lon" inputmode="decimal" required value="{{if .Tocka.ImaKoordinate}}{{printf "%.6f" .Tocka.Longitude}}{{end}}" placeholder="14.0000">
+    </div>
+  </div>
+
+  {{if .Karta.Ima}}
+  <div class="form-group">
+    <label class="form-label">Položaj na karti</label>
+    <div class="karta-izbor"
+         data-plocice="{{.Karta.Plocice}}" data-zasluge="{{.Karta.Zasluge}}" data-najvise-z="{{.Karta.NajviseZ}}"
+         data-lat="{{if .Tocka.ImaKoordinate}}{{printf "%.6f" .Tocka.Latitude}}{{end}}"
+         data-lon="{{if .Tocka.ImaKoordinate}}{{printf "%.6f" .Tocka.Longitude}}{{end}}"
+         {{if .Tocka.ImaKoordinate}}data-oznaceno="1"{{end}}>
+      <div class="karta-platno karta-platno-izbor"></div>
+      <p class="reg-card-sub karta-bez-mreze" hidden>{{icon "triangle-alert"}} Pločice karte nisu dostupne; koordinate se mogu upisati ručno.</p>
+    </div>
+    <p class="form-help">Klik na kartu postavlja točku; točka se može i povući.</p>
+  </div>
+  {{end}}
+
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="visina">Visina točke (m n. m.)</label>
+      <input class="form-control" type="text" id="visina" name="visina" inputmode="decimal" value="{{if .Tocka.Visina}}{{brojHRd .Tocka.Visina 0}}{{end}}">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="srednja_visina">Srednja visina dijela međusliva (m)</label>
+      <input class="form-control" type="text" id="srednja_visina" name="srednja_visina" inputmode="decimal" value="{{if .Tocka.SrednjaVisina}}{{brojHRd .Tocka.SrednjaVisina 0}}{{end}}">
+    </div>
+  </div>
+
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="km2">Površina koju predstavlja (km²)</label>
+      <input class="form-control" type="text" id="km2" name="km2" inputmode="decimal" value="{{if .Tocka.Km2}}{{brojHRd .Tocka.Km2 0}}{{end}}">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="tezina">Težina u međuslivu (0–1)</label>
+      <input class="form-control" type="text" id="tezina" name="tezina" inputmode="decimal" value="{{if .Tocka.Tezina}}{{brojHRd .Tocka.Tezina 3}}{{end}}">
+      <p class="form-help">Udio površine međusliva; zbroj težina aktivnih točaka međusliva treba biti oko 1.</p>
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label class="form-label" for="napomena">Napomena</label>
+    <textarea class="form-control" id="napomena" name="napomena" rows="3">{{.Tocka.Napomena}}</textarea>
+  </div>
+
+  <div class="form-group">
+    <label style="display:flex; align-items:center; gap:.5rem; min-height:44px;">
+      <input type="checkbox" name="aktivan" value="1" {{if .Tocka.Aktivan}}checked{{end}}>
+      Aktivna — oborine se preuzimaju i ulaze u prognozu
+    </label>
+  </div>
+
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">{{icon "check"}} {{if .IsEdit}}Spremi izmjene{{else}}Upiši točku{{end}}</button>
+    <a href="/slivovi" class="btn btn-secondary">Odustani</a>
+  </div>
+</form>
+
+{{if .IsEdit}}
+<form method="POST" action="/api/slivovi/kisomjer/delete" style="margin-top:1.5rem;"
+      onsubmit="return confirm('Obrisati točku „{{.Tocka.Naziv}}“? Zapis ostaje u povijesti.')">
+  <input type="hidden" name="code" value="{{.Tocka.Code}}">
+  <button type="submit" class="btn btn-sm" style="background:var(--danger-bg); color:var(--danger); border-color:var(--danger-border);">{{icon "trash"}} Obriši točku</button>
+</form>
+{{end}}
+{{end}}

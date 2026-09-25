@@ -95,6 +95,7 @@ type Server struct {
 	obracunService     *service.ObracunService  // postavke obračuna sati; nil dok se ne postavi
 	izvjescaService    *service.IzvjescaService // dnevna izvješća; nil dok se ne postavi
 	mtsService         *service.MtsService      // sredstva za obranu; nil dok se ne postavi
+	kisomjeri          *service.KisomjerService // registar kvazi-kišomjera; nil dok se ne postavi
 	zidService         *service.ZidService      // zid događanja; nil dok se ne postavi
 	orgService         *service.OrgService
 	support            SupportContact
@@ -536,7 +537,7 @@ func NewServer(
 	templates := make(map[string]*template.Template)
 
 	// Predlošci koji proširuju base.html
-	for _, page := range []string{"dashboard.html", "registri.html", "users.html", "user_detail.html", "user_form.html", "duty_form.html", "profile.html", "sections.html", "section_detail.html", "section_form.html", "territories.html", "county_form.html", "municipality_form.html", "municipality_detail.html", "stations.html", "station_detail.html", "station_form.html", "station_history.html", "station_history_form.html", "paket_pregled.html", "watercourses.html", "watercourse_detail.html", "watercourse_form.html", "structures.html", "structure_detail.html", "structure_form.html", "readings.html", "reading_history.html", "reading_form.html", "arhiva_ispravci.html", "uvoz_ocitanja.html", "teren.html", "moduli.html", "settings.html", "odrzavanje.html", "organizacija.html", "sector_form.html", "area_form.html", "contractor_form.html", "firme.html", "nazivi.html", "sudionici.html",
+	for _, page := range []string{"dashboard.html", "registri.html", "users.html", "user_detail.html", "user_form.html", "duty_form.html", "profile.html", "sections.html", "section_detail.html", "section_form.html", "territories.html", "county_form.html", "municipality_form.html", "municipality_detail.html", "stations.html", "station_detail.html", "station_form.html", "station_history.html", "station_history_form.html", "paket_pregled.html", "watercourses.html", "watercourse_detail.html", "watercourse_form.html", "slivovi.html", "kisomjer_form.html", "structures.html", "structure_detail.html", "structure_form.html", "readings.html", "reading_history.html", "reading_form.html", "arhiva_ispravci.html", "uvoz_ocitanja.html", "teren.html", "moduli.html", "settings.html", "odrzavanje.html", "organizacija.html", "sector_form.html", "area_form.html", "contractor_form.html", "firme.html", "nazivi.html", "sudionici.html",
 		"administracija.html", "uvozi.html", "sinkronizacija.html", "pretplate.html", "baza.html", "izvori.html", "uvoz_niza.html",
 		"dnevnici.html", "dnevnici_izbor.html", "administracija_potpisi.html", "prijave.html", "prijava_form.html", "prijava.html", "vodocuvar.html", "vodocuvar_list.html", "vodocuvar_kalendar.html", "posao.html", "dnevnik_form.html", "dnevnik.html", "dnevnik_cop.html", "dnevnik_cop_form.html", "dnevnik_list.html", "dnevnik_obracun.html", "dnevnik_dezurstva.html", "dnevnik_iors.html", "izvjesca.html", "izvjesce_form.html", "izvjesce.html", "sektorsko_form.html", "sektorsko.html", "obracun_postavke.html",
 		"sredstva.html", "katalog.html", "skladiste.html", "potrebe_form.html", "potrebe.html", "dogadjanja.html", "skladiste_form.html", "promet_form.html", "promet.html", "gdje_ima.html", "na_terenu.html", "popisi.html", "popis_form.html", "popis.html", "pomoc.html", "prognoze.html", "prognoze_metoda.html", "ocitanja_ispravci.html", "akti.html", "akt_form.html", "akt.html", "primatelji.html", "spranca.html", "posta_racun.html", "administracija_posta.html", "posta_sanducic.html", "posta_pismo.html", "posta_novo.html", "posta_potpis.html", "administracija_zig.html", "administracija_opcije.html", "administracija_telemetrija.html", "imenik_exchange.html", "county_detail.html"} {
@@ -1046,6 +1047,20 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /api/watercourses/delete", s.authMiddleware(http.HandlerFunc(watercoursesH.HandleDeleteWatercourseAPI)))
 	s.mux.Handle("POST /api/stations/watercourse", s.authMiddleware(http.HandlerFunc(watercoursesH.HandleAssignStationWatercourseAPI)))
 
+	// Registar slivova: slivovi između letvi, na njima rijeke, letve i kvazi-kišomjeri
+	slivH := NewSlivoviHandler(func() *service.KisomjerService { return s.kisomjeri }, s.watercourseService, s.stationService,
+		func(ime string) *template.Template { return s.templates[ime] }, func() KartaPostavke { return s.karta })
+	s.mux.Handle("GET /slivovi", s.authMiddleware(http.HandlerFunc(slivH.ShowSlivovi)))
+	s.mux.Handle("GET /slivovi/kisomjer/new", s.authMiddleware(http.HandlerFunc(slivH.ShowKisomjerForm)))
+	s.mux.Handle("GET /slivovi/kisomjer/{code}/edit", s.authMiddleware(http.HandlerFunc(slivH.ShowKisomjerForm)))
+	s.mux.Handle("GET /api/slivovi", s.authMiddleware(http.HandlerFunc(slivH.HandleListAPI)))
+	s.mux.Handle("POST /api/slivovi/kisomjer/create", s.authMiddleware(http.HandlerFunc(slivH.HandleCreate)))
+	s.mux.Handle("POST /api/slivovi/kisomjer/update", s.authMiddleware(http.HandlerFunc(slivH.HandleUpdate)))
+	s.mux.Handle("POST /api/slivovi/kisomjer/delete", s.authMiddleware(http.HandlerFunc(slivH.HandleDelete)))
+	s.mux.Handle("POST /api/slivovi/kisomjer/polozaji", s.authMiddleware(http.HandlerFunc(slivH.HandlePolozaji)))
+	s.mux.Handle("POST /api/slivovi/sliv", s.authMiddleware(http.HandlerFunc(slivH.HandleSliv)))
+	s.mux.Handle("POST /api/slivovi/sliv/delete", s.authMiddleware(http.HandlerFunc(slivH.HandleDeleteSliv)))
+
 	// Što ovo računalo prati: pretplate na kanale, za svakog prijavljenog
 	subsH := NewSubscriptionsHandler(s.peersService, s.orgService, s.templates["pretplate.html"])
 	s.mux.Handle("GET /pretplate", s.authMiddleware(http.HandlerFunc(subsH.ShowSubscriptions)))
@@ -1389,11 +1404,11 @@ var modulePaths = []struct{ prefix, module string }{
 	{"/readings", models.ModuleReadings},
 	{"/registri", models.ModuleRegisters},
 	{"/sections", models.ModuleRegisters}, {"/stations", models.ModuleRegisters},
-	{"/structures", models.ModuleRegisters}, {"/watercourses", models.ModuleRegisters},
+	{"/structures", models.ModuleRegisters}, {"/watercourses", models.ModuleRegisters}, {"/slivovi", models.ModuleRegisters},
 	{"/territories", models.ModuleRegisters}, {"/odrzavanje", models.ModuleRegisters},
 	{"/dnevnici", models.ModuleJournals},
 	{"/api/sections", models.ModuleRegisters}, {"/api/stations", models.ModuleRegisters},
-	{"/api/watercourses", models.ModuleRegisters}, {"/api/settlements", models.ModuleRegisters},
+	{"/api/watercourses", models.ModuleRegisters}, {"/api/slivovi", models.ModuleRegisters}, {"/api/settlements", models.ModuleRegisters},
 	{"/api/counties", models.ModuleRegisters}, {"/api/municipalities", models.ModuleRegisters}, {"/api/prijepis", models.ModuleRegisters},
 	{"/api/areas", models.ModuleRegisters},
 	{"/users", models.ModuleUsers},
@@ -1462,6 +1477,9 @@ func (s *Server) SetIzvjesca(i *service.IzvjescaService) { s.izvjescaService = i
 
 // SetMts daje poslužitelju evidenciju sredstava za obranu
 func (s *Server) SetMts(m *service.MtsService) { s.mtsService = m }
+
+// SetKisomjeri daje poslužitelju registar kvazi-kišomjera
+func (s *Server) SetKisomjeri(k *service.KisomjerService) { s.kisomjeri = k }
 
 // SetAkti daje poslužitelju servis akata
 func (s *Server) SetAkti(a *service.AktService) { s.akti = a }

@@ -1,0 +1,122 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Slivovi{{end}}
+
+{{define "content"}}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "cloud-rain"}} Slivovi</h1>
+    <p class="page-desc">
+      Međuslivovi između letvi, a na njima rijeke, vodomjerne postaje i kvazi-kišomjeri: točke na
+      kojima se za prognozu čitaju oborina, snijeg i temperatura iz reanalize i vremenske
+      prognoze, kao da ondje stoji kišomjer. Svaka točka predstavlja dio međusliva u jednom
+      visinskom pojasu; težina kaže koliki je taj dio.
+    </p>
+  </div>
+  {{if .Permissions.IsGlobalAdmin}}
+  <a href="/slivovi/kisomjer/new" class="btn btn-primary">{{icon "plus"}} Novi kišomjer</a>
+  {{end}}
+</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
+
+<div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1.25rem;">
+  <span class="stat-badge has-items">{{icon "map"}} {{len .Slivovi}} međuslivova</span>
+  <span class="stat-badge has-items">{{icon "cloud-rain"}} {{.Ukupno}} kišomjera</span>
+  <span class="stat-badge has-items">{{icon "check"}} {{.Aktivnih}} aktivnih</span>
+</div>
+
+{{if .Karta.Ima}}
+<section class="detail-section" id="karta">
+  <div class="detail-section-head" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+    <h2>{{icon "map"}} Karta slivova</h2>
+    {{if .Permissions.IsGlobalAdmin}}
+    <div class="karta-akcije" style="display:flex; gap:0.5rem; align-items:center;">
+      <button type="button" class="btn btn-sm btn-secondary karta-uredi-btn">{{icon "pencil"}} Premjesti kišomjere</button>
+      <button type="button" class="btn btn-sm btn-primary karta-spremi-btn" style="display:none;">{{icon "check"}} Spremi položaje</button>
+      <button type="button" class="btn btn-sm btn-secondary karta-ponisti-btn" style="display:none;" title="Vrati sve točke na spremljene položaje">Poništi</button>
+      <button type="button" class="btn btn-sm btn-secondary karta-odustani-btn" style="display:none;">Odustani</button>
+    </div>
+    {{end}}
+  </div>
+  <div class="karta-editor-traka" style="display:none;">
+    <div class="karta-editor-upute">
+      {{icon "info"}} <strong>Premještanje kišomjera:</strong> povucite točku na novo mjesto, pa spremite. Podaci točke (pojas, težina) ostaju isti.
+    </div>
+    <div class="karta-editor-status"></div>
+  </div>
+  <div class="karta-slivovi"
+       data-plocice="{{.Karta.Plocice}}"
+       data-zasluge="{{.Karta.Zasluge}}"
+       data-najvise-z="{{.Karta.NajviseZ}}">
+    <div class="karta-platno"></div>
+    <script type="application/json" class="karta-tocke-podaci">{{.TockeJSON}}</script>
+    {{if .RijekeJSON}}<script type="application/json" class="karta-geometrija-podaci">{{.RijekeJSON}}</script>{{end}}
+    {{if .SlivoviJSON}}<script type="application/json" class="karta-slivovi-podaci">{{.SlivoviJSON}}</script>{{end}}
+    {{if .LetveJSON}}<script type="application/json" class="karta-postaje-podaci">{{.LetveJSON}}</script>{{end}}
+    <p class="reg-card-sub karta-bez-mreze" hidden>{{icon "triangle-alert"}} Pločice karte
+      nisu dostupne — program radi bez interneta, a za ovo područje još nisu preuzete.
+      Međuslivovi, rijeke, postaje i kišomjeri ucrtani su i vidljivi.</p>
+  </div>
+  <div class="karta-podnozje kis-legenda">
+    <span><i class="kis-boja" style="background:#2e7d32"></i> ravnica (&lt;300 m)</span>
+    <span><i class="kis-boja" style="background:#9e9d24"></i> pobrđe (300–1000 m)</span>
+    <span><i class="kis-boja" style="background:#ef6c00"></i> 1000–1500 m</span>
+    <span><i class="kis-boja" style="background:#6a1b9a"></i> &gt;1500 m</span>
+    <span><i class="kis-boja kis-boja-neaktivna"></i> neaktivna točka</span>
+    <span><i class="kis-crta"></i> tok rijeke</span>
+    <span><i class="kis-ploha"></i> međusliv</span>
+    <span><i class="kis-letva"></i> vodomjerna postaja</span>
+    <label style="margin-left:auto; display:flex; align-items:center; gap:.35rem;"><input type="checkbox" class="karta-slivovi-preklopnik" checked> međuslivovi</label>
+    <label style="display:flex; align-items:center; gap:.35rem;"><input type="checkbox" class="karta-postaje-preklopnik" checked> postaje</label>
+  </div>
+</section>
+{{end}}
+
+{{range .Skupine}}
+<section class="detail-section">
+  <h2>
+    {{if .Sliv.Oznaka}}<span class="kis-oznaka" title="međusliv {{.Sliv.Oznaka}}">{{.Sliv.Oznaka}}</span>{{end}}
+    {{.Sliv.Naziv}}
+    <span class="reg-chip">{{icon "cloud-rain"}} {{len .Tocke}} {{if eq (len .Tocke) 1}}kišomjer{{else}}kišomjera{{end}}</span>
+    {{if .Sliv.Km2}}<span class="reg-chip">{{brojHRd .Sliv.Km2 0}} km²</span>{{end}}
+    {{if .Tocke}}<span class="reg-chip {{if or (lt .Tezina 0.95) (gt .Tezina 1.05)}}empty{{end}}" title="Zbroj težina aktivnih točaka; oko 1 kad je međusliv u cijelosti pokriven">Σ težina {{brojHRd .Tezina 2}}</span>{{end}}
+  </h2>
+  {{if .Sliv.Napomena}}<p class="page-desc">{{.Sliv.Napomena}}</p>{{end}}
+  <div class="reg-list">
+    {{range .Tocke}}
+    <article class="reg-card {{if not .Aktivan}}reg-card-neaktivna{{end}}">
+      <a class="reg-card-link" href="/slivovi/kisomjer/{{.Code}}/edit">
+        <div class="reg-card-head">
+          <div>
+            <h3 class="reg-card-title">{{.Naziv}}</h3>
+            <div class="reg-card-sub">{{.Pojas}}{{if not .Aktivan}} · neaktivna{{end}}</div>
+          </div>
+          <span class="badge badge-inactive" style="font-family:ui-monospace, monospace;">{{.Code}}</span>
+        </div>
+        <dl class="reg-facts">
+          <div><dt>Položaj</dt><dd>{{printf "%.4f" .Latitude}}, {{printf "%.4f" .Longitude}}</dd></div>
+          {{if .Visina}}<div><dt>Visina</dt><dd>{{brojHRd .Visina 0}} m</dd></div>{{end}}
+          {{if .SrednjaVisina}}<div><dt>Sr. visina dijela</dt><dd>{{brojHRd .SrednjaVisina 0}} m</dd></div>{{end}}
+          {{if .Km2}}<div><dt>Predstavlja</dt><dd>{{brojHRd .Km2 0}} km²</dd></div>{{end}}
+          {{if .Tezina}}<div><dt>Težina</dt><dd>{{brojHRd .Tezina 3}}</dd></div>{{end}}
+        </dl>
+        {{if .Napomena}}<p style="font-size:0.8rem; margin:0.4rem 0 0; color:var(--muted);">{{.Napomena}}</p>{{end}}
+      </a>
+    </article>
+    {{else}}
+    <div class="reg-empty">Međusliv još nema nijedan kišomjer.{{if $.Permissions.IsGlobalAdmin}} <a href="/slivovi/kisomjer/new?sliv={{.Sliv.Oznaka}}">Dodaj kišomjer</a>{{end}}</div>
+    {{end}}
+  </div>
+</section>
+{{else}}
+<div class="reg-empty">Registar je prazan. Međuslivovi se upisuju sučeljem <code>/api/slivovi/sliv</code>, kišomjeri obrascem.</div>
+{{end}}
+
+<p class="page-desc">
+  Međusliv je dio sliva između susjednih letvi: ono što se u rijeku slije nizvodno od gornjih letvi, a uzvodno od donje. Poligoni su iz HydroBASINS (WWF HydroSHEDS, CC BY 4.0); tokovi rijeka iz
+  OpenStreetMapa (© OpenStreetMap contributors, ODbL). Oborine se za ove točke preuzimaju
+  s Open-Meteo (ERA5-Land reanaliza i prognoza) i ne čuvaju se u registru nego u zasebnoj bazi.
+</p>
+{{end}}

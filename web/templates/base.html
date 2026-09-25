@@ -49,7 +49,7 @@
           {{if or (.Sees "registri") (.Sees "djelatnici")}}
           <div class="nav-group">
             <button type="button" class="nav-link nav-group-btn
-                {{if or (eq .ActiveNav "registers") (eq .ActiveNav "organizacija") (eq .ActiveNav "sections") (eq .ActiveNav "territories") (eq .ActiveNav "stations") (eq .ActiveNav "watercourses") (eq .ActiveNav "structures") (eq .ActiveNav "firme") (eq .ActiveNav "maintenance") (eq .ActiveNav "sredstva") (eq .ActiveNav "users")}}active{{end}}"
+                {{if or (eq .ActiveNav "registers") (eq .ActiveNav "organizacija") (eq .ActiveNav "sections") (eq .ActiveNav "territories") (eq .ActiveNav "stations") (eq .ActiveNav "watercourses") (eq .ActiveNav "slivovi") (eq .ActiveNav "structures") (eq .ActiveNav "firme") (eq .ActiveNav "maintenance") (eq .ActiveNav "sredstva") (eq .ActiveNav "users")}}active{{end}}"
                 aria-haspopup="true" aria-expanded="false" onclick="toggleNavGroup(event)">
               {{icon "book-open"}} Registri <span class="nav-caret">▾</span>
             </button>
@@ -72,6 +72,9 @@
               </a>
               <a href="/watercourses" class="nav-dropdown-item {{if eq .ActiveNav "watercourses"}}active{{end}}">
                 {{icon "droplet"}} Vodotoci i vodna tijela
+              </a>
+              <a href="/slivovi" class="nav-dropdown-item {{if eq .ActiveNav "slivovi"}}active{{end}}">
+                {{icon "map"}} Slivovi
               </a>
               <a href="/firme" class="nav-dropdown-item {{if eq .ActiveNav "firme"}}active{{end}}">
                 {{icon "wrench"}} Licencirane firme
@@ -211,10 +214,10 @@
       }
     });
   </script>
+  {{block "scripts" .}}{{end}}
 </body>
 </html>
 
-  {{block "scripts" .}}{{end}}
 {{/* Listanje popisa — zajedničko svim registrima. Prima Pager. */}}
 {{define "letvaIzbornik"}}
 {{/* Isti izbornik na kartici, očitanjima i historijatu. Stranica na kojoj se

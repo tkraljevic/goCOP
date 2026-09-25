@@ -79,7 +79,7 @@ func KeepVersion(v ledger.Version) bool {
 // SurfaceEntities su entiteti čija se površina obnavlja iz knjige: sve osim
 // očitanja i listova dnevnika, kojih je previše da se prolaze pri svakom startu
 var SurfaceEntities = []string{EntitySectors, EntityAreas, EntityOrgTerms, EntityContractors, EntityContractorAssignments,
-	EntityUsers, EntityDuties, "role_modules", "user_modules", EntityStations, EntitySections, EntityWatercourses,
+	EntityUsers, EntityDuties, "role_modules", "user_modules", EntityStations, EntitySections, EntityWatercourses, EntityKisomjeri, EntitySlivovi,
 	EntityCounties, EntityMunicipalities, EntitySettlements, EntityStructures, "maintained_waters", "work_items", "journals",
 	EntityBlagdani, EntityKoeficijenti, EntityObracunPostavke,
 	EntityMtsVrste, EntityMtsSkladista, EntityMtsPromet, EntityMtsPopisi, EntityMtsPotrebe, EntityAkti, EntityPrimatelji, EntitySprance, EntitySluzbe, EntityIzvornici, EntitySlanja, EntityPostavke, EntityPotpisi, EntityZigovi, EntityVodocuvarski, EntityZadaci, EntityPotpisniKljucevi, EntityPotpisniIzdavatelji, EntityVodocuvarskiIzvornici, EntityJournalIzvornici, EntityPrijave, EntityPrijaveIzvornici}
@@ -249,6 +249,21 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 				flows_into = excluded.flows_into, notes = excluded.notes, geometry = excluded.geometry
 		`, w.Code, w.OfficialName, w.Name, w.Kind, w.Category, w.Subcategory, w.WikiSlug, w.Origin,
 			w.LengthKm, w.BasinKm2, w.AvgFlowM3S, w.Source, w.Mouth, w.FlowsInto, w.Notes, w.Geometry)
+		return err
+
+	case EntityKisomjeri:
+		var k models.Kisomjer
+		if err := json.Unmarshal(v.Payload, &k); err != nil {
+			return err
+		}
+		return upsertKisomjer(ctx, tx, k)
+
+	case EntitySlivovi:
+		var m models.Sliv
+		if err := json.Unmarshal(v.Payload, &m); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, upsertSlivSQL, m.Oznaka, m.Naziv, m.Km2, m.Geometry, m.Napomena)
 		return err
 
 	case EntityMaintainedWaters:
@@ -881,6 +896,10 @@ func removeFromSurface(ctx context.Context, tx *sql.Tx, v ledger.Version) error 
 		stmt = `DELETE FROM sections WHERE code = ?`
 	case EntityWatercourses:
 		stmt = `DELETE FROM watercourses WHERE code = ?`
+	case EntityKisomjeri:
+		stmt = `DELETE FROM kisomjeri WHERE code = ?`
+	case EntitySlivovi:
+		stmt = `DELETE FROM slivovi WHERE oznaka = ?`
 	case EntityRoleModules:
 		stmt = `DELETE FROM role_modules WHERE role = ?`
 	case EntityUserModules:
