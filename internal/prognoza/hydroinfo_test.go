@@ -80,7 +80,7 @@ func TestSpremiTudeJednomPoIzdanju(t *testing.T) {
 	izd := time.Date(2026, 9, 23, 9, 8, 0, 0, time.UTC)
 	letve := []Letva{
 		{Naziv: "Komárom", Izdano: izd, Dani: []Dan{{Kad: izd.Add(22 * time.Hour), Cm: 150, PlusMin: 9}}},
-		{Naziv: "Gönyű", Izdano: izd, Dani: []Dan{{Kad: izd.Add(22 * time.Hour), Cm: 120}}},
+		{Naziv: "Szolnok", Izdano: izd, Dani: []Dan{{Kad: izd.Add(22 * time.Hour), Cm: 120}}},
 	}
 	for i, treba := range []int{2, 0} { // dvije postaje po jedna vrijednost; jutarnjeg mjerenja ovdje nema
 		n, err := SpremiTude(db, Podrijetlo, letve, Sifra)
@@ -91,7 +91,7 @@ func TestSpremiTudeJednomPoIzdanju(t *testing.T) {
 			t.Errorf("%d. upis: %d novih, a treba %d", i+1, n, treba)
 		}
 	}
-	for _, letva := range []string{"komarom", "strana-gonyu"} {
+	for _, letva := range []string{"komarom", "strana-szolnok"} {
 		var n int
 		if err := db.QueryRow(`SELECT count(*) FROM tude WHERE izvor = ? AND letva = ?`, Podrijetlo, letva).Scan(&n); err != nil || n != 1 {
 			t.Errorf("%s: %d zapisa (%v), treba 1", letva, n, err)

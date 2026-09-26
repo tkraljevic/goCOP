@@ -31,6 +31,24 @@ var SrpskeLetve = map[string]string{
 	"APATIN":        "apatin",
 	"BOGOJEVO":      "bogojevo",
 	"BAČKA PALANKA": "backa-palanka",
+	// Ostale postaje iz njihove prognoze, upisane kao strane letve radi povijesti
+	"NOVI SAD":          "novi-sad",
+	"SLANKAMEN":         "slankamen",
+	"ZEMUN":             "zemun",
+	"PANČEVO":           "pancevo",
+	"SMEDEREVO":         "smederevo",
+	"NOVI KNEŽEVAC":     "novi-knezevac",
+	"SENTA":             "senta",
+	"TITEL":             "titel",
+	"SREMSKA MITROVICA": "sremska-mitrovica",
+	"ŠABAC":             "sabac",
+	"BEOGRAD":           "beograd",
+	"VARVARIN":          "varvarin",
+	"ĆUPRIJA":           "cuprija",
+	"BAGRDAN":           "bagrdan",
+	"LJUBIČEVSKI MOST":  "ljubicevski-most",
+	"ALEKSINAC":         "aleksinac",
+	"JASIKA":            "jasika",
 }
 
 // SifraSrpske vraća našu šifru za njihov naziv; prazno kad je ne vodimo.
