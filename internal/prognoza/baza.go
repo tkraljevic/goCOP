@@ -13,9 +13,12 @@ package prognoza
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"gocop/internal/hydro"
 	"gocop/internal/models"
 	"sort"
+	"strings"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -178,6 +181,60 @@ CREATE TABLE IF NOT EXISTS operater (
 	mae      REAL,
 	mae_post REAL,
 	PRIMARY KEY (letva, rezim, doseg)
+) WITHOUT ROWID;
+-- Zapis o svakom izdanju, za kalibraciju poslije: kad je nastalo, kojim
+-- modelom i što je tada bilo u rukama. Isti sat izdaje se i više puta
+-- (Generiraj, priprema modela), pa svaka verzija ima svoj redak.
+CREATE TABLE IF NOT EXISTS izdanja (
+	izdano     INTEGER NOT NULL,          -- sat izdanja, UTC
+	verzija    INTEGER NOT NULL,          -- 1, 2, … za isti sat
+	nastalo    INTEGER NOT NULL,          -- unix sekunde kad je izračunato
+	model      TEXT NOT NULL DEFAULT '',  -- kad su namješteni pojasi lanca
+	operateri  TEXT NOT NULL DEFAULT '',  -- kad su namješteni modeli ispuštanja
+	tude       TEXT NOT NULL DEFAULT '{}',-- izvor → sat izdanja zadnje tuđe prognoze tada
+	izbor      TEXT NOT NULL DEFAULT '{}',-- letva → inačica i opis, kako je izdano
+	PRIMARY KEY (izdano, verzija)
+) WITHOUT ROWID;
+-- Kiša po međuslivovima kakvu je dnevni model imao pri izdavanju: dan 0 je
+-- 24 sata do sata izdanja, negativni dani pala kiša, pozitivni prognoza.
+-- Baza oborina prognozu poslije prepiše analizom, pa bez ovoga nestaje.
+CREATE TABLE IF NOT EXISTS kisa_izdanja (
+	izdano  INTEGER NOT NULL,
+	verzija INTEGER NOT NULL,
+	sliv    TEXT NOT NULL,
+	dan     INTEGER NOT NULL,
+	mm      REAL NOT NULL,
+	PRIMARY KEY (izdano, verzija, sliv, dan)
+) WITHOUT ROWID;
+-- Ranije verzije istog sata izdanja, kad se sat izda iznova.
+CREATE TABLE IF NOT EXISTS izdane_ranije (
+	letva      TEXT NOT NULL,
+	velicina   TEXT NOT NULL,
+	izdano     INTEGER NOT NULL,
+	verzija    INTEGER NOT NULL,
+	ciljni     INTEGER NOT NULL,
+	vrijednost REAL NOT NULL,
+	dolje      REAL NOT NULL,
+	gore       REAL NOT NULL,
+	racunata   INTEGER NOT NULL DEFAULT 0,
+	izvan      INTEGER NOT NULL DEFAULT 0,
+	model      TEXT NOT NULL,
+	PRIMARY KEY (letva, velicina, izdano, verzija, ciljni)
+) WITHOUT ROWID;
+CREATE TABLE IF NOT EXISTS dnevne_ranije (
+	letva        TEXT NOT NULL,
+	izdano       INTEGER NOT NULL,
+	verzija      INTEGER NOT NULL,
+	dan          INTEGER NOT NULL,
+	ciljni       INTEGER NOT NULL,
+	vrijednost   REAL NOT NULL,
+	dolje        REAL NOT NULL,
+	gore         REAL NOT NULL,
+	protok       REAL,
+	protok_dolje REAL,
+	protok_gore  REAL,
+	model        TEXT NOT NULL,
+	PRIMARY KEY (letva, izdano, verzija, dan)
 ) WITHOUT ROWID;
 `
 
@@ -508,15 +565,34 @@ func SpremiIzdane(db *sql.DB, izdane []Izdana) error {
 	return tx.Commit()
 }
 
-// ObrisiIzdanje briše sve što je za taj sat izdavanja zapisano (satno,
-// dnevno i izbor), da ponovno izdavanje ne ostavi za sobom letve koje se
-// više ne računaju — nakon namještanja lanca letva može ostati bez prognoze.
+// ObrisiIzdanje skida s površine sve što je za taj sat izdavanja zapisano
+// (satno, dnevno i izbor), da ponovno izdavanje ne ostavi za sobom letve koje
+// se više ne računaju — nakon namještanja lanca letva može ostati bez
+// prognoze. Satne i dnevne vrijednosti prije toga sele u izdane_ranije i
+// dnevne_ranije pod verzijom koju su imale, pa se za kalibraciju zna i što je
+// bilo izdano prije ponovnog računa.
 func ObrisiIzdanje(db *sql.DB, izdano int64) error {
 	tx, err := db.Begin()
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
+	// Izdanje nastalo prije zapisa o izdanjima nema svoj redak; dobiva
+	// verziju 0, da se ne pobrka s prvom zapisanom.
+	var verzija int
+	if err := tx.QueryRow(`SELECT coalesce(max(verzija), 0) FROM izdanja WHERE izdano = ?`, izdano).Scan(&verzija); err != nil {
+		return err
+	}
+	for _, q := range []string{
+		`INSERT OR REPLACE INTO izdane_ranije (letva, velicina, izdano, verzija, ciljni, vrijednost, dolje, gore, racunata, izvan, model)
+			SELECT letva, velicina, izdano, ?, ciljni, vrijednost, dolje, gore, racunata, izvan, model FROM izdane WHERE izdano = ?`,
+		`INSERT OR REPLACE INTO dnevne_ranije (letva, izdano, verzija, dan, ciljni, vrijednost, dolje, gore, protok, protok_dolje, protok_gore, model)
+			SELECT letva, izdano, ?, dan, ciljni, vrijednost, dolje, gore, protok, protok_dolje, protok_gore, model FROM dnevne WHERE izdano = ?`,
+	} {
+		if _, err := tx.Exec(q, verzija, izdano); err != nil {
+			return err
+		}
+	}
 	for _, q := range []string{`DELETE FROM izdane WHERE izdano = ?`,
 		`DELETE FROM dnevne WHERE izdano = ?`, `DELETE FROM izbor WHERE izdano = ?`} {
 		if _, err := tx.Exec(q, izdano); err != nil {
@@ -524,6 +600,80 @@ func ObrisiIzdanje(db *sql.DB, izdano int64) error {
 		}
 	}
 	return tx.Commit()
+}
+
+// ZapisIzdanja je ono što se uz izdanje pamti za kalibraciju.
+type ZapisIzdanja struct {
+	Izdano  int64
+	Verzija int
+	Nastalo time.Time
+	Model   string               // kad su namješteni pojasi lanca
+	Operat  string               // kad su namješteni modeli ispuštanja elektrana
+	Tude    map[string]int64     // izvor → sat izdanja zadnje tuđe prognoze u rukama
+	Izbor   map[string]Izbor     // letva → inačica, kako je izdano
+	Kisa    map[string]DnevniNiz // sliv → dan → mm, kako ju je imao dnevni model
+}
+
+// SpremiZapisIzdanja upisuje novu verziju zapisa za sat izdanja: verzija je
+// za jedan veća od zadnje zapisane. Model, operateri i tuđe prognoze čitaju
+// se iz iste baze u trenutku upisa, dakle onakvi kakvi su upravo korišteni.
+func SpremiZapisIzdanja(db *sql.DB, z ZapisIzdanja) (int, error) {
+	tx, err := db.Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+	if err := tx.QueryRow(`SELECT coalesce(max(verzija), 0) + 1 FROM izdanja WHERE izdano = ?`, z.Izdano).Scan(&z.Verzija); err != nil {
+		return 0, err
+	}
+	var model, operat sql.NullString
+	_ = tx.QueryRow(`SELECT max(namjesteno) FROM pojasi`).Scan(&model)
+	_ = tx.QueryRow(`SELECT max(namjesteno) FROM operateri`).Scan(&operat)
+	z.Model, z.Operat = model.String, operat.String
+	if z.Tude == nil {
+		z.Tude = map[string]int64{}
+		rows, err := tx.Query(`SELECT izvor, max(izdano) FROM tude WHERE izdano <= ? GROUP BY izvor`, z.Izdano)
+		if err != nil {
+			return 0, err
+		}
+		for rows.Next() {
+			var izvor string
+			var sat int64
+			if err := rows.Scan(&izvor, &sat); err != nil {
+				rows.Close()
+				return 0, err
+			}
+			z.Tude[izvor] = sat
+		}
+		rows.Close()
+	}
+	tude, err := json.Marshal(z.Tude)
+	if err != nil {
+		return 0, err
+	}
+	if z.Izbor == nil {
+		z.Izbor = map[string]Izbor{}
+	}
+	izbor, err := json.Marshal(z.Izbor)
+	if err != nil {
+		return 0, err
+	}
+	if z.Nastalo.IsZero() {
+		z.Nastalo = time.Now()
+	}
+	if _, err := tx.Exec(`INSERT INTO izdanja (izdano, verzija, nastalo, model, operateri, tude, izbor) VALUES (?,?,?,?,?,?,?)`,
+		z.Izdano, z.Verzija, z.Nastalo.Unix(), z.Model, z.Operat, string(tude), string(izbor)); err != nil {
+		return 0, err
+	}
+	for sliv, dani := range z.Kisa {
+		for dan, mm := range dani {
+			if _, err := tx.Exec(`INSERT INTO kisa_izdanja (izdano, verzija, sliv, dan, mm) VALUES (?,?,?,?,?)`,
+				z.Izdano, z.Verzija, sliv, dan, mm); err != nil {
+				return 0, err
+			}
+		}
+	}
+	return z.Verzija, tx.Commit()
 }
 
 // SpremiDnevne zapisuje dnevnu prognozu.
@@ -581,8 +731,19 @@ func ZadnjeDnevno(db *sql.DB) (int64, map[string][]DnevnaIzdana, error) {
 	return izdano.Int64, out, r.Err()
 }
 
-// SpremiTude zapisuje tuđu prognozu za letve koje i mi vodimo. Isto izdanje
-// dolazi sa svakim satom dok ne izađe novo, pa se ponovljeni zapis preskače.
+// bezStranihZnakova svodi mađarska i srpska slova na osnovna, da šifra strane
+// postaje bude čitljiva: „Gönyű” → „Gonyu”, „Bačka Palanka” → „Backa Palanka”.
+var straniZnakovi = strings.NewReplacer(
+	"á", "a", "é", "e", "í", "i", "ó", "o", "ö", "o", "ő", "o", "ú", "u", "ü", "u", "ű", "u",
+	"Á", "A", "É", "E", "Í", "I", "Ó", "O", "Ö", "O", "Ő", "O", "Ú", "U", "Ü", "U", "Ű", "U",
+	"č", "c", "ć", "c", "š", "s", "ž", "z", "đ", "dj", "Č", "C", "Ć", "C", "Š", "S", "Ž", "Z", "Đ", "Dj")
+
+func bezStranihZnakova(s string) string { return straniZnakovi.Replace(s) }
+
+// SpremiTude zapisuje tuđu prognozu za sve postaje iz njihove tablice: naše
+// letve pod našom šifrom, ostale kao „strana-naziv”. Svako njihovo izdanje
+// ostaje zapisano uz naša, za usporedbu i kalibraciju. Isto izdanje dolazi sa
+// svakim satom dok ne izađe novo, pa se ponovljeni zapis preskače.
 // Vraća koliko je novih vrijednosti upisano.
 func SpremiTude(db *sql.DB, izvor string, letve []Letva, sifra func(string) string) (int, error) {
 	tx, err := db.Begin()
@@ -592,8 +753,19 @@ func SpremiTude(db *sql.DB, izvor string, letve []Letva, sifra func(string) stri
 	defer tx.Rollback()
 	novih := 0
 	for _, l := range letve {
+		if l.Izdano.IsZero() {
+			continue
+		}
+		// Postaja koje nemamo u registru pamti se pod svojim nazivom, s
+		// oznakom „strana-”: i ona je dio njihove prognoze, a jednog dana
+		// može postati naša letva ili ulaz lanca.
 		kod := sifra(l.Naziv)
-		if kod == "" || l.Izdano.IsZero() {
+		if kod == "" {
+			if slug := hydro.Slug(bezStranihZnakova(l.Naziv)); slug != "" {
+				kod = "strana-" + slug
+			}
+		}
+		if kod == "" {
 			continue
 		}
 		izdano := l.Izdano.UTC().Unix() / 3600

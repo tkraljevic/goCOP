@@ -109,6 +109,11 @@ type Ishod struct {
 	NasiVrhovi     []string         // vrhovi kojima je budućnost dao naš dnevni model
 	BezDnevne      map[string]error // letve s dnevnim modelom koje ga nisu dale
 	Izbor          map[string]Izbor // letve koje su računate iz rezerve, i iz koje
+	// Kisa je oborina po međuslivovima koju je dnevni model imao: dan 0 je
+	// 24 sata do izdanja, negativni dani pala kiša, pozitivni prognoza.
+	Kisa map[string]DnevniNiz
+	// Verzija je redni broj zapisa ovog sata izdanja, kad je zapisan.
+	Verzija int
 }
 
 // Letvi je koliko ih je prognoza dotaknula.
@@ -312,7 +317,7 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 	ishod.Izdane = append(ishod.Izdane, sidraDrugih(druge, sada)...)
 	var sidra []Izdana
 	var izborDnevni map[string]Izbor
-	ishod.Dnevne, sidra, ishod.BezDnevne, izborDnevni = o.dnevno(ctx, sada, od)
+	ishod.Dnevne, sidra, ishod.BezDnevne, izborDnevni, ishod.Kisa = o.dnevno(ctx, sada, od)
 	for k, v := range izborDnevni {
 		ishod.Izbor[k] = v
 	}
@@ -518,11 +523,11 @@ func (o *Osvjezivac) vrhoviIzDnevnog(ctx context.Context, sada int64, od time.Ti
 //
 // Kad glavni ulaz nema zadnja četiri dana (Borl I zna stati danima), ide
 // prva rezerva koja ih ima; izbor se zapiše pod ključem „dnevni:letva”.
-func (o *Osvjezivac) dnevno(ctx context.Context, sada int64, od time.Time) ([]DnevnaIzdana, []Izdana, map[string]error, map[string]Izbor) {
+func (o *Osvjezivac) dnevno(ctx context.Context, sada int64, od time.Time) ([]DnevnaIzdana, []Izdana, map[string]error, map[string]Izbor, map[string]DnevniNiz) {
 	bez := map[string]error{}
 	izbor := map[string]Izbor{}
 	if o.Arhiva == nil {
-		return nil, nil, bez, izbor
+		return nil, nil, bez, izbor, nil
 	}
 	modeli, greske := o.dnevniModeliZaDanas()
 	for l, err := range greske {
@@ -652,7 +657,7 @@ func (o *Osvjezivac) dnevno(ctx context.Context, sada int64, od time.Time) ([]Dn
 				Vrijednost: v, Dolje: v, Gore: v, Model: ModelDnevni})
 		}
 	}
-	return out, sidra, bez, izbor
+	return out, sidra, bez, izbor, oborine
 }
 
 // Zapisi sprema izračunato.
@@ -673,7 +678,17 @@ func (o *Osvjezivac) Zapisi(ishod *Ishod) error {
 	if err := SpremiIzbor(o.Baza, ishod.Sada, ishod.Izbor); err != nil {
 		return err
 	}
-	return SpremiDnevne(o.Baza, ishod.Dnevne)
+	if err := SpremiDnevne(o.Baza, ishod.Dnevne); err != nil {
+		return err
+	}
+	// Uz izdanje ide zapis za kalibraciju: kojim je modelom izdano, koje su
+	// tuđe prognoze tada bile u rukama i kakvu je kišu dnevni model imao.
+	v, err := SpremiZapisIzdanja(o.Baza, ZapisIzdanja{Izdano: ishod.Sada, Izbor: ishod.Izbor, Kisa: ishod.Kisa})
+	if err != nil {
+		return fmt.Errorf("zapis o izdanju: %w", err)
+	}
+	ishod.Verzija = v
+	return nil
 }
 
 // OdaberiInacice bira za svaku letvu kojim putem se računa u satu sada

@@ -68,8 +68,9 @@ func TestPraznaTablicaJavljaGresku(t *testing.T) {
 	}
 }
 
-// Tuđa prognoza zapisuje se samo za letve koje vodimo, i samo jednom po
-// izdanju — isto izdanje stiže sa svakim satom dok ne izađe novo.
+// Tuđa prognoza zapisuje se za sve njihove postaje — naše pod našom šifrom,
+// ostale kao „strana-naziv” — i samo jednom po izdanju: isto izdanje stiže sa
+// svakim satom dok ne izađe novo.
 func TestSpremiTudeJednomPoIzdanju(t *testing.T) {
 	db, err := Otvori(filepath.Join(t.TempDir(), "p.db"))
 	if err != nil {
@@ -81,13 +82,19 @@ func TestSpremiTudeJednomPoIzdanju(t *testing.T) {
 		{Naziv: "Komárom", Izdano: izd, Dani: []Dan{{Kad: izd.Add(22 * time.Hour), Cm: 150, PlusMin: 9}}},
 		{Naziv: "Gönyű", Izdano: izd, Dani: []Dan{{Kad: izd.Add(22 * time.Hour), Cm: 120}}},
 	}
-	for i, treba := range []int{1, 0} { // jedna prognoza; jutarnjeg mjerenja ovdje nema
+	for i, treba := range []int{2, 0} { // dvije postaje po jedna vrijednost; jutarnjeg mjerenja ovdje nema
 		n, err := SpremiTude(db, Podrijetlo, letve, Sifra)
 		if err != nil {
 			t.Fatal(err)
 		}
 		if n != treba {
 			t.Errorf("%d. upis: %d novih, a treba %d", i+1, n, treba)
+		}
+	}
+	for _, letva := range []string{"komarom", "strana-gonyu"} {
+		var n int
+		if err := db.QueryRow(`SELECT count(*) FROM tude WHERE izvor = ? AND letva = ?`, Podrijetlo, letva).Scan(&n); err != nil || n != 1 {
+			t.Errorf("%s: %d zapisa (%v), treba 1", letva, n, err)
 		}
 	}
 }
