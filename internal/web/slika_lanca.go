@@ -181,11 +181,9 @@ func slikaLanca(pojasi map[string][]prognoza.Pojas, postaje map[string]models.St
 			letve[u.Letva], uLancu[u.Letva] = true, true
 		}
 	}
-	// Kopački rit se pokazuje cijeli, i letve koje se samo mjere.
-	for _, l := range prognoza.PregledneLetve {
-		if KopackiRit[l] {
-			letve[l] = true
-		}
+	// Inundacija Dunava pokazuje se cijela, i letve koje se samo mjere.
+	for _, l := range InundacijaDunava {
+		letve[l] = true
 	}
 	rijeka := func(kod string) string {
 		if st, ima := postaje[kod]; ima && st.Watercourse != "" {
@@ -208,7 +206,7 @@ func slikaLanca(pojasi map[string][]prognoza.Pojas, postaje map[string]models.St
 		poRijeci[rijeka(l)] = append(poRijeci[rijeka(l)], l)
 	}
 	// Redoslijed rijeka: pritoke iznad glavnih tokova, kako voda teče.
-	prednost := map[string]int{"Bednja": 0, "Plitvica": 1, "Mura": 2, "Drava": 3, "Karašica": 4, "Vučica": 5, "Dunav": 6, "Kopački rit": 7}
+	prednost := map[string]int{"Bednja": 0, "Plitvica": 1, "Mura": 2, "Drava": 3, "Karašica": 4, "Vučica": 5, "Dunav": 6, SkupinaInundacije: 7}
 	rijeke := make([]string, 0, len(poRijeci))
 	for r := range poRijeci {
 		rijeke = append(rijeke, r)
@@ -225,6 +223,9 @@ func slikaLanca(pojasi map[string][]prognoza.Pojas, postaje map[string]models.St
 		return rijeke[i] < rijeke[j]
 	})
 	rkm := func(kod string) float64 {
+		if i := redInundacije(kod); i >= 0 {
+			return 1000 - float64(i) // dunavci redom kako voda teče, kilometra nemaju
+		}
 		if st, ima := postaje[kod]; ima {
 			if v, ok := rijecniKm(st.Stationing); ok {
 				return v

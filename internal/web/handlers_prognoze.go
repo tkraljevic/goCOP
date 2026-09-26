@@ -940,17 +940,33 @@ func jedinicaSada(letva string) string {
 	return ""
 }
 
-// KopackiRit su letve u inundaciji Dunava koje se na pregledu i na slici
-// lanca pokazuju zajedno, kao Kopački rit, a ne rasute po Dunavu i dunavcima:
-// Tikveš (karika lanca, iz Batine i Osijeka) te nizvodne letve ustava
-// Kopačevo i Zmajevac, koje se samo mjere.
-var KopackiRit = map[string]bool{"tikves": true, "ustava-kopacevo-nizvodno": true, "dunav-zmajevac": true}
+// InundacijaDunava su letve na nebranjenoj strani Dunava, na dunavcima koji
+// se pune kako Dunav raste, redom kako voda teče: Šarkanjski (Ustava Draž
+// nizvodno), Zmajevački (CS i Ustava Zmajevac), Kormanjski (Zlatna Greda),
+// Vemeljski (Tikveš, karika lanca iz Batine i Osijeka) i Sakadaš (Sakadaš,
+// Ustava Kopačevo nizvodno). Na pregledu i na slici lanca pokazuju se
+// zajedno i ovim redom, jer riječnog kilometra nemaju.
+var InundacijaDunava = []string{"ustava-draz-nizvodno", "cs-i-ustava-zmajevac", "dunav-zmajevac",
+	"zlatna-greda", "tikves", "sakadas", "ustava-kopacevo-nizvodno"}
+
+// SkupinaInundacije je naslov pod kojim se te letve pokazuju.
+const SkupinaInundacije = "Inundacija Dunava"
+
+// redInundacije je mjesto letve u inundaciji, −1 kad nije u njoj.
+func redInundacije(kod string) int {
+	for i, k := range InundacijaDunava {
+		if k == kod {
+			return i
+		}
+	}
+	return -1
+}
 
 // skupinaPrikaza je voda pod kojom se letva pokazuje: registarska, osim za
-// Kopački rit.
+// inundaciju Dunava.
 func skupinaPrikaza(kod, voda string) string {
-	if KopackiRit[kod] {
-		return "Kopački rit"
+	if redInundacije(kod) >= 0 {
+		return SkupinaInundacije
 	}
 	return voda
 }
@@ -1176,14 +1192,14 @@ func poVodama(letve []LetvaPrognoze, postaje map[string]models.Station) []Tablic
 		switch voda {
 		case "Dunav":
 			return 0
-		case "Kopački rit":
+		case SkupinaInundacije:
 			return 1
 		case "Drava", "Mura":
 			return 2
 		}
 		return 3
 	}
-	naslovi := []string{"Dunav", "Kopački rit", "Drava i Mura", "Pritoke"}
+	naslovi := []string{"Dunav", SkupinaInundacije, "Drava i Mura", "Pritoke"}
 	var lanac, vrhovi, izvan [4][]LetvaPrognoze
 	for _, l := range letve {
 		g := skupina(l.Voda)
@@ -1247,6 +1263,10 @@ func poVodama(letve []LetvaPrognoze, postaje map[string]models.Station) []Tablic
 				}
 			}
 			redovi = umetni(redovi, mjesto, x)
+		}
+		if g == 1 {
+			// Inundacija: redom dunavaca kako voda teče, ne po kilometru kojeg nema.
+			sort.SliceStable(redovi, func(i, j int) bool { return redInundacije(redovi[i].Kod) < redInundacije(redovi[j].Kod) })
 		}
 		if g == 3 {
 			// Pritoke voda po voda, a unutar vode redom kojim su već složene.
