@@ -453,5 +453,29 @@ func (r *Racunalo) Prognoziraj(letva string, najdalje int, model string) ([]Izda
 			Model: model,
 		})
 	}
+	if len(out) == 0 && imaNepovezanih(pojasi) {
+		// Letva koja pri maloj vodi ne slijedi ulaz, a očitava se rijetko
+		// (ručno, jednom dnevno): u satu izdavanja nema mjerenja, pa ni sidra,
+		// i s pregleda bi nestala baš kad treba reći zašto se ne računa.
+		// Zadnje očitanje do ZaostatakSidra unatrag stoji kao sidro.
+		if z, ima := r.mjereno[iz].ZadnjiSatDo(r.sada); ima && r.sada-z <= ZaostatakSidra {
+			v, _ := r.mjereno[iz].U(z)
+			out = append(out, Izdana{Letva: letva, Velicina: iz.Velicina, Izdano: r.sada,
+				Ciljni: r.sada, Vrijednost: v, Dolje: v, Gore: v, Model: model})
+		}
+	}
 	return out, nil
+}
+
+// ZaostatakSidra je koliko sati smije biti staro zadnje očitanje letve koja
+// nije povezana sa živom vodom da još stoji kao sidro na pregledu.
+const ZaostatakSidra = 7 * 24
+
+func imaNepovezanih(pojasi []Pojas) bool {
+	for _, p := range pojasi {
+		if p.Nepovezan {
+			return true
+		}
+	}
+	return false
 }

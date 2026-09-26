@@ -942,12 +942,14 @@ func jedinicaSada(letva string) string {
 
 // InundacijaDunava su letve na nebranjenoj strani Dunava, na dunavcima koji
 // se pune kako Dunav raste, redom kako voda teče: Šarkanjski (Ustava Draž
-// nizvodno), Zmajevački (CS i Ustava Zmajevac), Kormanjski (Zlatna Greda),
-// Vemeljski (Tikveš, karika lanca iz Batine i Osijeka) i Sakadaš (Ustava
-// Kopačevo nizvodno; „Sakadaš” iz evidencije VGI Baranja ista je letva). Na
+// nizvodno), Zmajevački (Ustava Zmajevac nizvodno), Kormanjski (Zlatna Greda
+// vanjski), Vemeljski (Tikveš vanjski, karika lanca iz Batine i Osijeka) i
+// Sakadaš (Ustava Kopačevo nizvodno; „Sakadaš” iz evidencije VGI Baranja ista
+// je letva). Svaki objekt ima i unutarnju letvu na branjenoj strani (lateralni
+// kanal, GDK crpne stanice, Kanal Kopačevo) — one ovamo ne spadaju. Na
 // pregledu i na slici lanca pokazuju se zajedno i ovim redom, jer riječnog
 // kilometra nemaju.
-var InundacijaDunava = []string{"ustava-draz-nizvodno", "cs-i-ustava-zmajevac", "dunav-zmajevac",
+var InundacijaDunava = []string{"ustava-draz-nizvodno", "dunav-zmajevac",
 	"zlatna-greda", "tikves", "ustava-kopacevo-nizvodno"}
 
 // SkupinaInundacije je naslov pod kojim se te letve pokazuju.

@@ -508,6 +508,24 @@ func SpremiIzdane(db *sql.DB, izdane []Izdana) error {
 	return tx.Commit()
 }
 
+// ObrisiIzdanje briše sve što je za taj sat izdavanja zapisano (satno,
+// dnevno i izbor), da ponovno izdavanje ne ostavi za sobom letve koje se
+// više ne računaju — nakon namještanja lanca letva može ostati bez prognoze.
+func ObrisiIzdanje(db *sql.DB, izdano int64) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for _, q := range []string{`DELETE FROM izdane WHERE izdano = ?`,
+		`DELETE FROM dnevne WHERE izdano = ?`, `DELETE FROM izbor WHERE izdano = ?`} {
+		if _, err := tx.Exec(q, izdano); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
 // SpremiDnevne zapisuje dnevnu prognozu.
 func SpremiDnevne(db *sql.DB, dnevne []DnevnaIzdana) error {
 	tx, err := db.Begin()

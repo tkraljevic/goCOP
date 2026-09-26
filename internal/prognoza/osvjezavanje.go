@@ -72,8 +72,8 @@ var PregledneLetve = []string{"bratislava", "komarno",
 	// razine akumulacija HEP-ovih brana na Dravi: kota nad morem, na
 	// uzdužnom profilu točka uz branu
 	"gvb-he-varazdin", "gvb-he-cakovec", "gvb-he-dubrava",
-	// inundacija Dunava uz Tikveš: dunavci od Draža do Kopačeva
-	"ustava-draz-nizvodno", "cs-i-ustava-zmajevac", "dunav-zmajevac", "zlatna-greda",
+	// inundacija Dunava uz Tikveš: vanjske letve na dunavcima od Draža do Kopačeva
+	"ustava-draz-nizvodno", "dunav-zmajevac", "zlatna-greda",
 	"ustava-kopacevo-nizvodno"}
 
 // Unatrag je koliko se očitanja čita unatrag. Dva tjedna su dosta i najduljem
@@ -659,6 +659,13 @@ func (o *Osvjezivac) dnevno(ctx context.Context, sada int64, od time.Time) ([]Dn
 func (o *Osvjezivac) Zapisi(ishod *Ishod) error {
 	if ishod == nil || ishod.Preskoceno || len(ishod.Izdane) == 0 {
 		return nil
+	}
+	if o.Iznova {
+		// Ponovno izdavanje gazi staro cijelo, inače bi letva koja se više
+		// ne računa zadržala staru prognozu uz novo izdanje.
+		if err := ObrisiIzdanje(o.Baza, ishod.Sada); err != nil {
+			return err
+		}
 	}
 	if err := SpremiIzdane(o.Baza, ishod.Izdane); err != nil {
 		return err

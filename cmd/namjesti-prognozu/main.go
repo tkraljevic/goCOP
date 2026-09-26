@@ -32,47 +32,48 @@ import (
 // obrnuto, ondje je vodostaj bolji. Vrbovka, Moslavina, Donji Miholjac,
 // Belišće, Ilok i Osijek protok u arhivi nemaju, pa im izbora ni nema.
 var Velicine = map[string]string{
-	"donja-dubrava":        "protok",
-	"he-dubrava":           "protok",
-	"he-varazdin":          "protok",
-	"brana-he-varazdin":    "protok",
-	"varazdin":             "vodostaj",
-	"letenye":              "vodostaj",
-	"gorican":              "protok",
-	"tikves":               "vodostaj",
-	"mursko-sredisce":      "protok",
-	"komarno":              "vodostaj",
-	"bogojevo":             "vodostaj",
-	"bezdan":               "vodostaj",
-	"kotoriba":             "vodostaj",
-	"zeleznica":            "protok",
-	"tuhovec":              "protok",
-	"ludbreg":              "protok",
-	"botovo":               "protok",
-	"novo-virje":           "protok",
-	"terezino-polje":       "protok",
-	"vrbovka":              "vodostaj",
-	"moslavina":            "vodostaj",
-	"donji-miholjac":       "vodostaj",
-	"belisce":              "vodostaj",
-	"batina":               "vodostaj",
-	"aljmas":               "vodostaj",
-	"dalj":                 "vodostaj",
-	"vukovar":              "vodostaj",
-	"sotin":                "vodostaj",
-	"mohovo":               "vodostaj",
-	"ilok":                 "vodostaj",
-	"osijek":               "vodostaj",
-	"kapelna":              "vodostaj",
-	"miholjacki-porec":     "vodostaj",
-	"benicanci-prkos":      "vodostaj",
-	"marjancaci":           "vodostaj",
-	"jelengrad":            "vodostaj",
-	"siga":                 "vodostaj",
-	"petres":               "vodostaj",
-	"ustava-draz-nizvodno": "vodostaj",
-	"dunav-zmajevac":       "vodostaj",
-	"zlatna-greda":         "vodostaj",
+	"donja-dubrava":            "protok",
+	"he-dubrava":               "protok",
+	"he-varazdin":              "protok",
+	"brana-he-varazdin":        "protok",
+	"varazdin":                 "vodostaj",
+	"letenye":                  "vodostaj",
+	"gorican":                  "protok",
+	"tikves":                   "vodostaj",
+	"mursko-sredisce":          "protok",
+	"komarno":                  "vodostaj",
+	"bogojevo":                 "vodostaj",
+	"bezdan":                   "vodostaj",
+	"kotoriba":                 "vodostaj",
+	"zeleznica":                "protok",
+	"tuhovec":                  "protok",
+	"ludbreg":                  "protok",
+	"botovo":                   "protok",
+	"novo-virje":               "protok",
+	"terezino-polje":           "protok",
+	"vrbovka":                  "vodostaj",
+	"moslavina":                "vodostaj",
+	"donji-miholjac":           "vodostaj",
+	"belisce":                  "vodostaj",
+	"batina":                   "vodostaj",
+	"aljmas":                   "vodostaj",
+	"dalj":                     "vodostaj",
+	"vukovar":                  "vodostaj",
+	"sotin":                    "vodostaj",
+	"mohovo":                   "vodostaj",
+	"ilok":                     "vodostaj",
+	"osijek":                   "vodostaj",
+	"kapelna":                  "vodostaj",
+	"miholjacki-porec":         "vodostaj",
+	"benicanci-prkos":          "vodostaj",
+	"marjancaci":               "vodostaj",
+	"jelengrad":                "vodostaj",
+	"siga":                     "vodostaj",
+	"petres":                   "vodostaj",
+	"ustava-draz-nizvodno":     "vodostaj",
+	"dunav-zmajevac":           "vodostaj",
+	"zlatna-greda":             "vodostaj",
+	"ustava-kopacevo-nizvodno": "vodostaj",
 	// Mađarske letve uzvodno od Batine i uz lijevu obalu Drave. Nisu naše, ali
 	// su na istoj vodi i imaju satnu povijest — a val ne mari za granicu.
 	"nagybajcs":     "vodostaj",
@@ -141,8 +142,11 @@ var Rezerve = map[string][][]string{
 // SamoPovezane su letve koje slijede ulaz samo pri dovoljnoj vodi: pojasi u
 // kojima veza ne drži (r ispod NajmanjeSlaganje) označe se nepovezanima i u
 // njima se prognoza ne izdaje — kartica tada kaže da letva nije povezana sa
-// živom vodom.
-var SamoPovezane = map[string]bool{"tikves": true}
+// živom vodom. To su Tikveš i letve u inundaciji Dunava: ispod nekog
+// vodostaja Batine rit prestane reagirati, jer pregrade u dunavcima
+// zadrže vodu ili je Dunav prenizak da uđe.
+var SamoPovezane = map[string]bool{"tikves": true, "ustava-draz-nizvodno": true,
+	"dunav-zmajevac": true, "zlatna-greda": true, "ustava-kopacevo-nizvodno": true}
 
 // NajmanjeSlaganje je r ispod kojeg pojas letve iz SamoPovezane vrijedi kao
 // nepovezan. Na Tikvešu su odvojeni pojasi na 0,12–0,20, povezani na 0,93+.
@@ -322,10 +326,13 @@ var Tokovi = []struct {
 		// Zlatna Greda, ista nula kao Tikveš, ≈ Tikveš (r 0,93). „Sakadaš
 		// (Kopačevo vanjski)” iz evidencije ista je letva kao Ustava Kopačevo
 		// (nizvodno) — ručna očitanja i Geolux zapisivač 2115 Kopačevo
-		// poklapaju se uz r 0,999 — pa se vodi samo pod njom.
+		// poklapaju se uz r 0,999 — pa se vodi samo pod njom; Kopačevo ima
+		// satni niz iz zapisivača (od 2012.), pa mu granice ne treba spuštati,
+		// ali za Batinom kasni 37–59 h i ispod ≈ 430 cm slabo je vezano.
 		{"ustava-draz-nizvodno", []string{"batina"}},
 		{"dunav-zmajevac", []string{"batina"}},
 		{"zlatna-greda", []string{"batina"}},
+		{"ustava-kopacevo-nizvodno", []string{"batina"}},
 		// Drava se ulijeva u Dunav kod Aljmaša, pa Aljmaš nije samo dunavska
 		// letva. Ovdje se dva kraka sastaju.
 		{"aljmas", []string{"batina", "belisce"}},

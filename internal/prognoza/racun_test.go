@@ -298,6 +298,17 @@ func TestNepovezanPojasNeDajePrognozu(t *testing.T) {
 	if len(izdane) != 1 {
 		t.Errorf("nepovezana letva dobila je %d sati prognoze, a smije samo sat izdanja", len(izdane))
 	}
+	// Nepovezano, a donja se očitava rijetko: zadnje očitanje dva dana staro
+	// stoji kao sidro, sedam dana staro više ne.
+	r = NovoRacunalo(pojasi, map[Izvor]Niz{gornja: ravanNiz(0, 100, 50, 0), donja: ravanNiz(0, 52, 30, 0)}, 100)
+	izdane, _ = r.Prognoziraj("donja", 24, "proba")
+	if len(izdane) != 1 || izdane[0].Ciljni != 100 || izdane[0].Vrijednost != 30 {
+		t.Errorf("rijetko očitavana nepovezana letva: %+v, želim jedno sidro od 30 cm u satu izdanja", izdane)
+	}
+	r = NovoRacunalo(pojasi, map[Izvor]Niz{gornja: ravanNiz(0, 100, 50, 0), donja: ravanNiz(0, 100-ZaostatakSidra-1, 30, 0)}, 100)
+	if izdane, _ = r.Prognoziraj("donja", 24, "proba"); len(izdane) != 0 {
+		t.Errorf("prestaro očitanje dalo je sidro: %+v", izdane)
+	}
 	// Gornja na 300 cm: povezano, prognoza ide.
 	r = NovoRacunalo(pojasi, map[Izvor]Niz{gornja: ravanNiz(0, 100, 300, 0), donja: ravanNiz(0, 100, 300, 0)}, 100)
 	if izdane, _ = r.Prognoziraj("donja", 24, "proba"); len(izdane) < 10 {
