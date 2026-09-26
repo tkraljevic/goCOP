@@ -191,6 +191,46 @@ func (r *SectionRepository) SaveSection(ctx context.Context, s *models.Section) 
 	return tx.Commit()
 }
 
+// ArhivirajSekciju miče dionicu s površine zajedno s njezinim kazalima (letve,
+// objekti, teritorij); u knjizi verzija ostaje arhivirana, pa brisanje stiže
+// i na druge čvorove. Dionica koje nema nije greška.
+func (r *SectionRepository) ArhivirajSekciju(ctx context.Context, code string) error {
+	sec, err := r.GetSectionByCode(code)
+	if err != nil {
+		return err
+	}
+	if sec == nil {
+		return nil
+	}
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if err := makniDionicuSPovrsine(ctx, tx, code); err != nil {
+		return err
+	}
+	if _, err := r.rec.Archive(ctx, tx, EntitySections, code, sec); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// makniDionicuSPovrsine briše dionicu i kazala izvedena iz nje.
+func makniDionicuSPovrsine(ctx context.Context, tx *sql.Tx, code string) error {
+	for _, q := range []string{
+		`DELETE FROM section_stations WHERE section_code = ?`,
+		`DELETE FROM section_structures WHERE section_code = ?`,
+		`DELETE FROM section_territories WHERE section_code = ?`,
+		`DELETE FROM sections WHERE code = ?`,
+	} {
+		if _, err := tx.ExecContext(ctx, q, code); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // GetSectionPersonnel pronalazi sve djelatnike vezane uz dionicu i njezino branjeno područje
 func (r *SectionRepository) GetSectionPersonnel(code string, areaID int, sectorID string) ([]models.SectionOfficer, error) {
 	query := `

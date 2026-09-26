@@ -893,7 +893,8 @@ func removeFromSurface(ctx context.Context, tx *sql.Tx, v ledger.Version) error 
 	case EntityStations:
 		stmt = `DELETE FROM stations WHERE id = ?`
 	case EntitySections:
-		stmt = `DELETE FROM sections WHERE code = ?`
+		// s dionicom odlaze i njezina kazala, kao i pri arhiviranju na izvoru
+		return makniDionicuSPovrsine(ctx, tx, v.EntityID)
 	case EntityWatercourses:
 		stmt = `DELETE FROM watercourses WHERE code = ?`
 	case EntityKisomjeri:
