@@ -288,3 +288,30 @@ func seedStations(database *sql.DB) error {
 
 	return nil
 }
+
+// LetveIzDionica slaže letve iz vodomjera navedenih na dionicama, istim
+// pravilima kao prvo punjenje registra: jedan vodomjer naveden na više
+// dionica jedna je letva, a zapis koji se ne pročita strojno nosi napomenu za
+// pregled. Vraća letve i šifre dionica na kojima se koja navodi; preskočeni
+// zapisi (upute, kote bez letve) ne ulaze.
+func LetveIzDionica(sections []models.Section) ([]models.Station, [][]string) {
+	drafts, _ := buildStationDrafts(gaugesFromSections(sections))
+	out := make([]models.Station, 0, len(drafts))
+	dionice := make([][]string, 0, len(drafts))
+	for _, d := range drafts {
+		st := models.Station{
+			Code: d.Code, Name: d.Name, Watercourse: d.Watercourse, WatercourseSource: d.WatercourseSource,
+			Stationing: d.Stationing, ZeroDatum: d.ZeroDatum, ZeroDatumSystem: "TRST", ZeroDatumNewSystem: "HVRS71",
+			Prep:      models.Threshold{Cm: d.Prep.Cm, Raw: d.Prep.Raw},
+			Regular:   models.Threshold{Cm: d.Regular.Cm, Raw: d.Regular.Raw},
+			Emergency: models.Threshold{Cm: d.Emergency.Cm, Raw: d.Emergency.Raw},
+			State:     models.Threshold{Cm: d.State.Cm, Raw: d.State.Raw},
+			Record:    models.Threshold{Cm: d.Record.Cm, Raw: d.Record.Raw},
+			Notes:     d.Notes, SourceName: d.SourceName,
+			NeedsReview: d.NeedsReview, ReviewNote: strings.Join(d.ReviewNotes, "; "),
+		}
+		out = append(out, st)
+		dionice = append(dionice, d.SectionCodes)
+	}
+	return out, dionice
+}

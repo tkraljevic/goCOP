@@ -36,6 +36,18 @@ func TestParseSectionDescription(t *testing.T) {
 			"Boljunčica", "", BankBoth, 0, 5.73, true,
 		},
 	}
+	// Plan sektora A: raspon bez oznake vrste i duljina riječima.
+	a := ParseSectionDescription("„ Rog-Strug kanal”, l.o. i d.o.; Utok u r. Dravu - spoj Obuhvatnog Đurđevac i Čivičevac; 0+000 - 17+400; dužine 17,4 km")
+	if !a.HasRange || a.RkmFrom != 0 || a.RkmTo != 17.4 || a.LengthKm != 17.4 {
+		t.Errorf("sektor A: raspon %v %v–%v, duljina %v; očekivano 0–17,4 i 17,4 km", a.HasRange, a.RkmFrom, a.RkmTo, a.LengthKm)
+	}
+	if a.Extent != "Utok u r. Dravu - spoj Obuhvatnog Đurđevac i Čivičevac" {
+		t.Errorf("sektor A: opseg %q", a.Extent)
+	}
+	// Broj u prozi nije raspon: stacionaža se ne čita iz dijela s riječima.
+	if p := ParseSectionDescription("potok X; od mosta 1+200 - 3+400 prema selu"); p.HasRange {
+		t.Errorf("raspon pročitan iz proze: %v–%v", p.RkmFrom, p.RkmTo)
+	}
 
 	for _, tc := range tests {
 		got := ParseSectionDescription(tc.opis)

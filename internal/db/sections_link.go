@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"regexp"
 	"strings"
 	"time"
 
@@ -354,6 +355,7 @@ func (l *Linker) linkStations(p *models.SectionPart) {
 			continue
 		}
 		name, stac := hydro.ParseStationName(g.StationName)
+		name = ImeIzProtoka(name)
 		key := hydro.StationKey(name)
 		if key == "" {
 			key = hydro.StationKey(g.StationName)
@@ -380,6 +382,24 @@ func (l *Linker) linkStations(p *models.SectionPart) {
 			break
 		}
 	}
+}
+
+// reProtokElektrane čita vodomjer koji plan sektora A navodi kao protok
+// elektrane: „ukupni protok na HE Dubrava” je protok kroz elektranu, letva
+// „HE Dubrava”, a „protok na brani HE Dubrava” preljev u staro korito, letva
+// „Brana HE Dubrava”.
+var reProtokElektrane = regexp.MustCompile(`(?i)^\s*(?:ukupni\s+)?protok\s+na\s+(brani\s+)?(he\s+.+?)\s*$`)
+
+// ImeIzProtoka svodi takav zapis na naziv letve u registru; ostalo ostaje.
+func ImeIzProtoka(name string) string {
+	m := reProtokElektrane.FindStringSubmatch(name)
+	if m == nil {
+		return name
+	}
+	if strings.TrimSpace(m[1]) != "" {
+		return "Brana " + m[2]
+	}
+	return m[2]
 }
 
 // poStacionazi bira među istoimenim postajama onu čija je stacionaža ona iz

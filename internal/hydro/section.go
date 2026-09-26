@@ -55,6 +55,8 @@ var (
 	reLengthKm = regexp.MustCompile(`\(\s*([\d.,]+)\s*km\s*\)`)
 	// raspon stacionaže: "0+000 - 36+900", "0+400 – 9+176"
 	reRangeAny = regexp.MustCompile(`(\d+\+\d+)\s*[-–—]\s*(\d+\+\d+)`)
+	// duljina riječima, kako je piše plan sektora A: "dužine 17,4 km"
+	reLengthWords = regexp.MustCompile(`(?i)^du[žz]in[ae]\s+([\d.,]+)\s*km$`)
 )
 
 // SectionDescription je opis poddionice razložen na podatke koje nosi: vodu,
@@ -95,6 +97,33 @@ func ParseSectionDescription(desc string) SectionDescription {
 			out.LengthKm = v
 		}
 	}
+	// Plan sektora A piše raspon bez oznake vrste i duljinu riječima:
+	// "…; 0+000 - 17+400; dužine 17,4 km". Raspon se uzima samo iz dijela
+	// koji nema ništa osim brojeva, da se ne pročita stacionaža iz proze.
+	for i, part := range strings.Split(desc, ";") {
+		part = strings.TrimSpace(part)
+		if i == 0 || part == "" {
+			continue
+		}
+		if m := reLengthWords.FindStringSubmatch(part); m != nil && out.LengthKm == 0 {
+			if v, ok := ParseKm(m[1]); ok {
+				out.LengthKm = v
+			}
+		}
+		if out.HasRange || strings.ContainsAny(strings.ToLower(part), "abcčćdđefghijklmnoprsštuvzž") {
+			continue
+		}
+		if m := reRangeAny.FindStringSubmatch(part); m != nil {
+			a, okA := ParseKm(m[1])
+			b, okB := ParseKm(m[2])
+			if okA && okB {
+				if a > b {
+					a, b = b, a
+				}
+				out.RkmFrom, out.RkmTo, out.HasRange = a, b, true
+			}
+		}
+	}
 
 	var extent []string
 	for i, part := range strings.Split(desc, ";") {
@@ -107,6 +136,9 @@ func ParseSectionDescription(desc string) SectionDescription {
 		}
 		if strings.HasPrefix(part, "(") && strings.HasSuffix(part, "km)") {
 			continue // duljina u zagradi, i kad je dvojna "(32,490/36,950 km)"
+		}
+		if reLengthWords.MatchString(part) {
+			continue // duljina riječima, "dužine 17,4 km"
 		}
 		if m := reStationingKind.FindStringSubmatch(part); m != nil && reRangeAny.MatchString(part) {
 			// gola oznaka "km" u opisu poddionice ide po vodi, ne po nasipu;
