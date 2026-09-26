@@ -395,7 +395,7 @@ func (h *PrognozeHandler) opisiLetve(popis map[string]models.Station, letve []Pr
 				naziv, ulaz, brojHRf(l.PragPovezanosti, 0))
 		}
 		if st, ima := popis[l.Letva]; ima {
-			red.Naziv, red.Voda, red.Stacionaza = st.Name, skupinaPrikaza(st.Code, st.Watercourse), st.Stationing
+			red.Naziv, red.Voda, red.Stacionaza = st.Name, st.Watercourse, st.Stationing
 			red.URL = "/readings/station/" + st.ID.String()
 		}
 		for _, d := range BliziDosezi {
@@ -1202,7 +1202,7 @@ func poVodama(letve []LetvaPrognoze, postaje map[string]models.Station) []Tablic
 	naslovi := []string{"Dunav", SkupinaInundacije, "Drava i Mura", "Pritoke"}
 	var lanac, vrhovi, izvan [4][]LetvaPrognoze
 	for _, l := range letve {
-		g := skupina(l.Voda)
+		g := skupina(skupinaPrikaza(l.Kod, l.Voda))
 		switch {
 		case l.Pregledna || l.Ulaz:
 			izvan[g] = append(izvan[g], l)

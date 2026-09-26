@@ -234,7 +234,7 @@ func slikaLanca(pojasi map[string][]prognoza.Pojas, postaje map[string]models.St
 		return -1
 	}
 	s := &SlikaLanca{Width: 1600}
-	const lijevo, desno, prviRed, red = 120.0, 60.0, 70.0, 110.0
+	const lijevo, desno, prviRed, red = 175.0, 60.0, 70.0, 110.0 // lijevo: mjesto za natpis reda
 	poz := map[string][2]float64{}
 	y := prviRed
 	for _, r := range rijeke {
