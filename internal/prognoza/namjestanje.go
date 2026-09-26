@@ -191,6 +191,16 @@ type Izvor struct {
 	Velicina string
 }
 
+// NajmanjeSati je koliko satnih vrijednosti cilj i njegovi ulazi moraju
+// imati da se karika uopće namješta, a NajmanjeSatiPojasa koliko ih pojas
+// mora imati da dobije svoju vezu. Za rijetke nizove — letve u inundaciji
+// koje se očitavaju ručno jednom dnevno — alat za namještanje granice
+// privremeno spusti, jer im je veza s Batinom jednostavna i čvrsta.
+var (
+	NajmanjeSati       = 5000
+	NajmanjeSatiPojasa = 2000
+)
+
 // NamjestiLetvu mjeri kako se jedna letva slaže sa svojim uzvodnim ulazima.
 // Prvi ulaz je glavni tok: po njemu se dijele pojasi i po njemu se pravac
 // lomi. Ostali ulaze pravocrtno, svaki sa svojim kašnjenjem.
@@ -203,7 +213,7 @@ func NamjestiLetvu(arhiva *sql.DB, ciljna, vel string, izvori []Izvor) ([]Pojas,
 		return nil, err
 	}
 	cilj = doGranice(cilj)
-	if len(cilj) < 5000 {
+	if len(cilj) < NajmanjeSati {
 		return nil, fmt.Errorf("%s: samo %d satnih vrijednosti u %s", ciljna, len(cilj), vel)
 	}
 	ulazi := make([]ulazNiz, len(izvori))
@@ -245,7 +255,7 @@ func NamjestiLetvu(arhiva *sql.DB, ciljna, vel string, izvori []Izvor) ([]Pojas,
 			poredak = append(poredak, v)
 		}
 	}
-	if len(poredak) < 5000 {
+	if len(poredak) < NajmanjeSati {
 		return nil, fmt.Errorf("%s ← %s: samo %d zajedničkih sati", ciljna, izvori[0].Letva, len(poredak))
 	}
 	sort.Float64s(poredak)
@@ -285,7 +295,7 @@ func NamjestiLetvu(arhiva *sql.DB, ciljna, vel string, izvori []Izvor) ([]Pojas,
 				uPojasu = append(uPojasu, t)
 			}
 		}
-		if len(uPojasu) < 2000 {
+		if len(uPojasu) < NajmanjeSatiPojasa {
 			continue
 		}
 		// Po pojasu se traži samo kašnjenje glavnog toka. Širina prozora je
@@ -401,7 +411,7 @@ func najboljiSam(cilj map[int64]float64, u ulazNiz, sati []int64) int {
 				c = append(c, cilj[t])
 			}
 		}
-		if len(a) < 2000 {
+		if len(a) < NajmanjeSatiPojasa {
 			continue
 		}
 		if r := korelacija(a, c); r > najR {
@@ -507,7 +517,7 @@ func ocjena(cilj map[int64]float64, ulazi []ulazNiz, lagovi, sirine []int, sati 
 		syy += y * y
 		n++
 	}
-	if n < 2000 {
+	if n < NajmanjeSatiPojasa {
 		return 0, false
 	}
 	k := rijesiSRezervom(A, b)

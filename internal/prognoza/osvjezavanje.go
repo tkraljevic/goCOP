@@ -73,7 +73,7 @@ var PregledneLetve = []string{"bratislava", "komarno",
 	// uzdužnom profilu točka uz branu
 	"gvb-he-varazdin", "gvb-he-cakovec", "gvb-he-dubrava",
 	// inundacija Dunava uz Tikveš: dunavci od Draža do Kopačeva
-	"ustava-draz-nizvodno", "cs-i-ustava-zmajevac", "dunav-zmajevac", "zlatna-greda", "sakadas",
+	"ustava-draz-nizvodno", "cs-i-ustava-zmajevac", "dunav-zmajevac", "zlatna-greda",
 	"ustava-kopacevo-nizvodno"}
 
 // Unatrag je koliko se očitanja čita unatrag. Dva tjedna su dosta i najduljem

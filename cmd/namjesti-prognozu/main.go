@@ -32,44 +32,47 @@ import (
 // obrnuto, ondje je vodostaj bolji. Vrbovka, Moslavina, Donji Miholjac,
 // Belišće, Ilok i Osijek protok u arhivi nemaju, pa im izbora ni nema.
 var Velicine = map[string]string{
-	"donja-dubrava":     "protok",
-	"he-dubrava":        "protok",
-	"he-varazdin":       "protok",
-	"brana-he-varazdin": "protok",
-	"varazdin":          "vodostaj",
-	"letenye":           "vodostaj",
-	"gorican":           "protok",
-	"tikves":            "vodostaj",
-	"mursko-sredisce":   "protok",
-	"komarno":           "vodostaj",
-	"bogojevo":          "vodostaj",
-	"bezdan":            "vodostaj",
-	"kotoriba":          "vodostaj",
-	"zeleznica":         "protok",
-	"tuhovec":           "protok",
-	"ludbreg":           "protok",
-	"botovo":            "protok",
-	"novo-virje":        "protok",
-	"terezino-polje":    "protok",
-	"vrbovka":           "vodostaj",
-	"moslavina":         "vodostaj",
-	"donji-miholjac":    "vodostaj",
-	"belisce":           "vodostaj",
-	"batina":            "vodostaj",
-	"aljmas":            "vodostaj",
-	"dalj":              "vodostaj",
-	"vukovar":           "vodostaj",
-	"sotin":             "vodostaj",
-	"mohovo":            "vodostaj",
-	"ilok":              "vodostaj",
-	"osijek":            "vodostaj",
-	"kapelna":           "vodostaj",
-	"miholjacki-porec":  "vodostaj",
-	"benicanci-prkos":   "vodostaj",
-	"marjancaci":        "vodostaj",
-	"jelengrad":         "vodostaj",
-	"siga":              "vodostaj",
-	"petres":            "vodostaj",
+	"donja-dubrava":        "protok",
+	"he-dubrava":           "protok",
+	"he-varazdin":          "protok",
+	"brana-he-varazdin":    "protok",
+	"varazdin":             "vodostaj",
+	"letenye":              "vodostaj",
+	"gorican":              "protok",
+	"tikves":               "vodostaj",
+	"mursko-sredisce":      "protok",
+	"komarno":              "vodostaj",
+	"bogojevo":             "vodostaj",
+	"bezdan":               "vodostaj",
+	"kotoriba":             "vodostaj",
+	"zeleznica":            "protok",
+	"tuhovec":              "protok",
+	"ludbreg":              "protok",
+	"botovo":               "protok",
+	"novo-virje":           "protok",
+	"terezino-polje":       "protok",
+	"vrbovka":              "vodostaj",
+	"moslavina":            "vodostaj",
+	"donji-miholjac":       "vodostaj",
+	"belisce":              "vodostaj",
+	"batina":               "vodostaj",
+	"aljmas":               "vodostaj",
+	"dalj":                 "vodostaj",
+	"vukovar":              "vodostaj",
+	"sotin":                "vodostaj",
+	"mohovo":               "vodostaj",
+	"ilok":                 "vodostaj",
+	"osijek":               "vodostaj",
+	"kapelna":              "vodostaj",
+	"miholjacki-porec":     "vodostaj",
+	"benicanci-prkos":      "vodostaj",
+	"marjancaci":           "vodostaj",
+	"jelengrad":            "vodostaj",
+	"siga":                 "vodostaj",
+	"petres":               "vodostaj",
+	"ustava-draz-nizvodno": "vodostaj",
+	"dunav-zmajevac":       "vodostaj",
+	"zlatna-greda":         "vodostaj",
 	// Mađarske letve uzvodno od Batine i uz lijevu obalu Drave. Nisu naše, ali
 	// su na istoj vodi i imaju satnu povijest — a val ne mari za granicu.
 	"nagybajcs":     "vodostaj",
@@ -310,6 +313,19 @@ var Tokovi = []struct {
 		// 0,93–0,99 uz 7–14 cm i 1–16 h (satni nizovi od 2017.).
 		{"siga", []string{"batina"}},
 		{"petres", []string{"siga"}},
+		// Inundacija Dunava: sve što je na nebranjenoj strani puni se kako
+		// Batina raste. Letve se očitavaju ručno jednom dnevno (evidencija VGI
+		// Baranja u Directusu), pa su nizovi rijetki — RijetkeLetve spuštaju
+		// granice namještanja. Ustava Draž (nizvodno) na Šarkanjskom dunavcu:
+		// do Batine ≈ 165 cm suho (0), iznad toga ≈ Batina − 160 (r 0,91,
+		// 2 452 para 2016.–2026.); Zmajevac ≈ 162 + 0,95·Batina (r 0,99);
+		// Zlatna Greda, ista nula kao Tikveš, ≈ Tikveš (r 0,93). „Sakadaš
+		// (Kopačevo vanjski)” iz evidencije ista je letva kao Ustava Kopačevo
+		// (nizvodno) — ručna očitanja i Geolux zapisivač 2115 Kopačevo
+		// poklapaju se uz r 0,999 — pa se vodi samo pod njom.
+		{"ustava-draz-nizvodno", []string{"batina"}},
+		{"dunav-zmajevac", []string{"batina"}},
+		{"zlatna-greda", []string{"batina"}},
 		// Drava se ulijeva u Dunav kod Aljmaša, pa Aljmaš nije samo dunavska
 		// letva. Ovdje se dva kraka sastaju.
 		{"aljmas", []string{"batina", "belisce"}},
@@ -336,7 +352,12 @@ var Tokovi = []struct {
 		// 0,90 bez kašnjenja (uspor), a Poreč uzvodno ne prati uopće (r 0,06
 		// do 0,19). Iz Osijeka i Belišća drži r 0,92 na najvišem pojasu, pa
 		// Petrijevci dobivaju prognozu iz Drave koju već imamo.
-		{"jelengrad", []string{"osijek", "belisce"}},
+		// Jelengrad na donjoj Vučici: uspor Drave (Osijek, Belišće) plus
+		// vlastita voda Vučice iz Marjančaca (2 h, nagib 0,5). Sam Marjančaci
+		// ne vrijedi (r 0,2–0,5), Miholjački Poreč na Karašici ništa (r
+		// 0,05–0,19), ali uz uspor Marjančaci diže r s 0,04 na 0,88–0,97 i
+		// spušta rasap na 7,5–16 cm (26. 9. 2026.).
+		{"jelengrad", []string{"osijek", "belisce", "marjancaci"}},
 	}},
 }
 
@@ -479,7 +500,16 @@ func rastavi(zapis string) (string, string, error) {
 	return letva, v, nil
 }
 
+// RijetkeLetve se očitavaju ručno jednom dnevno, pa im se granice
+// namještanja spuštaju: dovoljno je stotinjak očitanja, a pojasu dvadesetak.
+var RijetkeLetve = map[string]bool{"ustava-draz-nizvodno": true, "dunav-zmajevac": true, "zlatna-greda": true}
+
 func namjesti(arhiva *sql.DB, r Racun) []prognoza.Pojas {
+	if kod, _, _ := strings.Cut(r.Letva, ":"); RijetkeLetve[strings.TrimSpace(kod)] {
+		staro, staroPojas := prognoza.NajmanjeSati, prognoza.NajmanjeSatiPojasa
+		prognoza.NajmanjeSati, prognoza.NajmanjeSatiPojasa = 100, 20
+		defer func() { prognoza.NajmanjeSati, prognoza.NajmanjeSatiPojasa = staro, staroPojas }()
+	}
 	letva, vel, err := rastavi(r.Letva)
 	if err != nil {
 		fmt.Println(err)
