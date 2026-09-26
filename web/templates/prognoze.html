@@ -98,7 +98,7 @@
         </div>
       </div>
       <div class="prog-sad">
-        {{if .SadaCm}}<div><span class="prog-sad-cm">{{.SadaCm}}</span> <span class="prog-jed">cm</span></div>{{end}}
+        {{if .SadaCm}}<div><span class="prog-sad-cm">{{.SadaCm}}</span> <span class="prog-jed">{{if .SadaJed}}{{.SadaJed}}{{else}}cm{{end}}</span></div>{{end}}
         {{if .SadaQ}}<div class="prog-druga">{{.SadaQ}} m³/s</div>{{end}}
       </div>
     </header>
@@ -214,13 +214,15 @@
       niz.v.forEach(function (red, k) {
         var v = i >= 0 ? red[i] : null;
         if (v === null || v === undefined) { return; }
-        if (!(niz.usce && niz.usce[k])) { pravih++; }
+        if (!(niz.usce && niz.usce[k]) && !(niz.akum && niz.akum[k])) { pravih++; }
       });
       niz.v.forEach(function (red, k) {
         var v = i >= 0 ? red[i] : null;
         if (v === null || v === undefined || pravih < 2) { return; }
         var px = niz.x[k], py = y(v);
-        tekuci.push([px, py]);
+        // Razina akumulacije: točka se diže i spušta s klizačem, ali u
+        // krivulju vala ne ulazi — to je bazen uz branu, ne rijeka.
+        if (!(niz.akum && niz.akum[k])) { tekuci.push([px, py]); }
         var broj = Math.round(v), predznak = broj > 0 ? '+' : (broj < 0 ? '−' : '±');
         krugovi += '<circle cx="' + px.toFixed(1) + '" cy="' + py.toFixed(1) + '" r="4.5"><title>' + niz.letve[k] + ': ' + (v > 0 ? '+' : '') + broj + ' cm</title></circle>';
         // Uz svaku točku piše koliko se od sadašnjeg vodostaja diglo ili spustilo;

@@ -92,6 +92,7 @@ type LetvaPrognoze struct {
 	Vrh             bool   // vrh lanca: stoji samo mjerenje, prognoze nema
 	URL             string
 	SadaCm          string
+	SadaJed         string // jedinica uz SadaCm kad nije cm (razina akumulacije: m n. m.)
 	SadaQ           string
 	SadaCmV, SadaQV *float64
 	Vrijednosti     []VrijednostPrognoze
@@ -374,6 +375,7 @@ func (h *PrognozeHandler) opisiLetve(popis map[string]models.Station, letve []Pr
 			TudiIzvor:  tudiIzvor,
 			DnevniOpis: opisDnevnogCilja(l.Letva, popis),
 			SadaCm:     uVelicini(l.Sada, "vodostaj"), SadaQ: uVelicini(l.Sada, "protok"),
+			SadaJed: jedinicaSada(l.Letva),
 			Ulazi:   l.Ulazi,
 			SadaCmV: ptr(sadaCm, imaSadaCm), SadaQV: ptr(sadaQ, imaSadaQ),
 		}
@@ -414,6 +416,9 @@ func (h *PrognozeHandler) opisiLetve(popis map[string]models.Station, letve []Pr
 			}
 			red.Vrijednosti = append(red.Vrijednosti, v)
 		}
+		if red.SadaJed != "" && imaSadaCm {
+			red.SadaCm = brojHRf(sadaCm/100, 2) // kota akumulacije u metrima
+		}
 		out = append(out, red)
 	}
 	return out
@@ -439,6 +444,7 @@ func rasponUz(v, dolje, gore float64) string {
 	return rasponHR(dolje, gore, 0)
 }
 
+// uVelicini piše sadašnju vrijednost.
 func uVelicini(sada map[string]float64, velicina string) string {
 	v, ima := sada[velicina]
 	if !ima {
@@ -630,7 +636,7 @@ func uzduzniProfili(postaje map[string]models.Station, letve []PregledLetve,
 			continue
 		}
 		lp := LetvaProfila{
-			Letva: l.Letva, Naziv: st.Name, Rkm: rkm, KotaNule: kotaNule,
+			Letva: l.Letva, Naziv: st.Name, Rkm: rkm, KotaNule: kotaNule, Akumulacija: jeAkumulacija(st),
 			Cm: map[int]float64{}, Granice: map[int][2]float64{},
 			Pragovi: map[string]float64{}, Niz: map[int]float64{},
 		}
@@ -906,6 +912,10 @@ func profilVode(st models.Station) (voda string, kota float64, ok bool) {
 	if voda == "" {
 		voda = "ostalo"
 	}
+	if jeAkumulacija(st) {
+		// razina akumulacije je kota nad morem u cm: nula joj je razina mora
+		return voda, 0, true
+	}
 	if st.ZeroDatumNew != nil {
 		return voda, *st.ZeroDatumNew, true
 	}
@@ -921,6 +931,18 @@ func profilVode(st models.Station) (voda string, kota float64, ok bool) {
 	}
 	return "", 0, false
 }
+
+// jedinicaSada je „m n. m.” za razinu akumulacije, prazno (cm) za letve.
+func jedinicaSada(letva string) string {
+	if strings.HasPrefix(letva, "gvb-") {
+		return "m n. m."
+	}
+	return ""
+}
+
+// jeAkumulacija kaže je li postaja razina akumulacije uz branu (HEP-ova
+// gornja voda brane): vrijednost joj je kota nad morem u cm, ne vodostaj.
+func jeAkumulacija(st models.Station) bool { return strings.HasPrefix(st.Code, "gvb-") }
 
 // poredakProfila slaže profile tako da inačica toka u drugom visinskom
 // sustavu („Dunav (Mađarska)”) stoji odmah iza svojeg toka, a ne ispred

@@ -449,3 +449,29 @@ func TestProfilVodeRazdvajaVisinskeSustave(t *testing.T) {
 		t.Errorf("poredak %v", got)
 	}
 }
+
+// Razina akumulacije uz branu: točka s kotom nad morem, među letvama, izvan
+// krivulje; ona iznad prve letve ne ulazi.
+func TestAkumulacijaJeTockaIzvanKrivulje(t *testing.T) {
+	a, b := letvaProfila("varazdin", 288, 165, 100), letvaProfila("botovo", 227, 122, 100)
+	ak := LetvaProfila{Letva: "gvb-he-cakovec", Naziv: "Razina akumulacije Čakovec", Rkm: 278.6, Akumulacija: true,
+		SadaCm: 16752, ImaSada: true, Cm: map[int]float64{}, Granice: map[int][2]float64{}, Pragovi: map[string]float64{}, Niz: map[int]float64{-6: 16740}}
+	gore := ak
+	gore.Letva, gore.Naziv, gore.Rkm = "gvb-he-varazdin", "Razina akumulacije Varaždin", 308.6
+	p := crtajUzduzni("Drava", []LetvaProfila{a, ak, gore, b}, nil)
+	if p == nil {
+		t.Fatal("profila nema")
+	}
+	if len(p.Tocke) != 3 || p.Tocke[1].Naziv != "Razina akumulacije Čakovec" || p.Tocke[1].Kota != "167,52" || p.Tocke[1].Cm != "" {
+		t.Fatalf("točke %+v", p.Tocke)
+	}
+	if len(p.XTicks) != 2 {
+		t.Errorf("akumulacija ne dobiva oznaku kilometra: %+v", p.XTicks)
+	}
+	if !strings.Contains(string(p.Niz), `"akum":[false,true,false]`) {
+		t.Errorf("niz za klizač mora označiti akumulaciju: %s", p.Niz)
+	}
+	if !strings.Contains(p.Pad, "Varaždin → botovo") && !strings.Contains(p.Pad, "varazdin → botovo") {
+		t.Errorf("krajevi profila su prave letve: %s", p.Pad)
+	}
+}

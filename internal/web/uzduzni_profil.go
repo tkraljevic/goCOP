@@ -38,6 +38,7 @@ type LetvaProfila struct {
 	Niz          map[int]float64    // sat prema izdanju (SatOd … SatDo) → vodostaj, za klizač
 	Razina       string             // faza obrane danas: prep | regular | emerg | crit
 	Usce         bool               // nije letva nego kraj pritoke s vrijednostima letve glavnog toka: u krivulji jest, natpisa nema
+	Akumulacija  bool               // razina akumulacije uz branu: kota nad morem, točka koja se s klizačem diže i spušta, u krivulju vala ne ulazi
 }
 
 // ProfilCrta je jedna crta uzduž toka.
@@ -144,9 +145,9 @@ func crtajUzduzni(ime string, letve []LetvaProfila, usca []UsceUlaz, brane ...Br
 	var korisne []LetvaProfila
 	var pravih int
 	for _, l := range letve {
-		if l.KotaNule != 0 && (l.Rkm != 0 || l.Usce) && l.ImaSada {
+		if (l.KotaNule != 0 || l.Akumulacija) && (l.Rkm != 0 || l.Usce) && l.ImaSada {
 			korisne = append(korisne, l)
-			if !l.Usce {
+			if !l.Usce && !l.Akumulacija {
 				pravih++
 			}
 		}
@@ -156,6 +157,26 @@ func crtajUzduzni(ime string, letve []LetvaProfila, usca []UsceUlaz, brane ...Br
 	}
 	// Nizvodno ide udesno, a rkm nizvodno pada.
 	sort.Slice(korisne, func(i, j int) bool { return korisne[i].Rkm > korisne[j].Rkm })
+	// Akumulacija ulazi samo među letvama: ona iznad prve letve ne pripada crtežu.
+	{
+		var prvaRkm, zadnjaRkm float64
+		for i := range korisne {
+			if !korisne[i].Usce && !korisne[i].Akumulacija {
+				if prvaRkm == 0 {
+					prvaRkm = korisne[i].Rkm
+				}
+				zadnjaRkm = korisne[i].Rkm
+			}
+		}
+		var ost []LetvaProfila
+		for _, l := range korisne {
+			if l.Akumulacija && (l.Rkm > prvaRkm || l.Rkm < zadnjaRkm) {
+				continue
+			}
+			ost = append(ost, l)
+		}
+		korisne = ost
+	}
 
 	p := &UzduzniProfil{Ime: ime, Oznaka: oznakaImena(ime), Width: 1600, Height: 560,
 		Lijevo: 86, Desno: 96, Vrh: 64, Dno: 76, SatOd: KlizacOd}
@@ -220,9 +241,9 @@ func crtajUzduzni(ime string, letve []LetvaProfila, usca []UsceUlaz, brane ...Br
 
 	plotW := float64(p.Width) - p.Lijevo - p.Desno
 	plotH := float64(p.Height) - p.Vrh - p.Dno
-	prava := func(i int) LetvaProfila { // krajnja prava letva, bez točke ušća
+	prava := func(i int) LetvaProfila { // krajnja prava letva, bez točke ušća i akumulacije
 		for ; i >= 0 && i < len(korisne); i += 1 - 2*boolInt(i == len(korisne)-1) {
-			if !korisne[i].Usce {
+			if !korisne[i].Usce && !korisne[i].Akumulacija {
 				return korisne[i]
 			}
 		}
@@ -301,11 +322,17 @@ func crtajUzduzni(ime string, letve []LetvaProfila, usca []UsceUlaz, brane ...Br
 		} else {
 			zadnjiGore = x
 		}
-		p.Tocke = append(p.Tocke, TockaUzduznog{
+		t := TockaUzduznog{
 			Naziv: l.Naziv, X: x, Y: p.NulaY, Sidro: sidro, Dolje: dolje, Razina: l.Razina,
 			Kota: brojHRf(l.KotaNule+l.SadaCm/100, 2), Cm: brojHRf(l.SadaCm, 0),
-		})
-		p.XTicks = append(p.XTicks, ChartTick{Pos: x, Label: brojHRf(l.Rkm, 1), Anchor: sidro})
+		}
+		if l.Akumulacija {
+			t.Cm = "" // kota nad morem bez nule letve: samo metri
+		}
+		p.Tocke = append(p.Tocke, t)
+		if !l.Akumulacija {
+			p.XTicks = append(p.XTicks, ChartTick{Pos: x, Label: brojHRf(l.Rkm, 1), Anchor: sidro})
+		}
 	}
 
 	sort.Slice(uscaUSlici, func(i, j int) bool { return uscaUSlici[i].Rkm > uscaUSlici[j].Rkm })
@@ -382,6 +409,7 @@ type nizProfila struct {
 	NulaY float64      `json:"nulaY"`
 	PoCm  float64      `json:"poCm"` // točaka crteža po centimetru
 	Usce  []bool       `json:"usce"` // po letvi: točka ušća, koja krivulju samo produžuje
+	Akum  []bool       `json:"akum"` // po letvi: razina akumulacije, točka izvan krivulje
 	V     [][]*float64 `json:"v"`    // po letvi, po satu; null gdje nema
 }
 
@@ -393,6 +421,7 @@ func nizZaKlizac(korisne []LetvaProfila, p *UzduzniProfil, xOf, yOf func(float64
 	for _, l := range korisne {
 		n.Letve = append(n.Letve, l.Naziv)
 		n.Usce = append(n.Usce, l.Usce)
+		n.Akum = append(n.Akum, l.Akumulacija)
 		n.X = append(n.X, math.Round(xOf(l.Rkm)*10)/10)
 		n.Sada = append(n.Sada, l.SadaCm)
 		red := make([]*float64, len(n.Sati))

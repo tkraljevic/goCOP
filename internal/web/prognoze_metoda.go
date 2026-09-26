@@ -314,7 +314,9 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 			tekstM("Uz vrh lanca na pregledu piše čime mu je dana budućnost: model ispuštanja elektrane, naš dnevni " +
 				"model ili tuđa prognoza s izvorom. Ispod naših vrijednosti sitno stoje tuđe prognoze za isti termin: " +
 				"HU mađarska, RS srpska, AT austrijska. Uzdužni profil crta promjenu prema danas po toku, s branama " +
-				"kao okomitim crtama; strane letve koje nemaju našu kotu nego samo baltičku (mađarske letve Dunava i " +
+				"kao okomitim crtama i razinama akumulacija HE Varaždin, Čakovec i Dubrava kao točkama uz branu " +
+				"(kota nad morem, nula im je razina mora): točka se s klizačem diže i spušta kao razina u bazenu, a u " +
+				"krivulju vala ne ulazi. Strane letve koje nemaju našu kotu nego samo baltičku (mađarske letve Dunava i " +
 				"Drave) dobivaju zaseban profil, jer se kote dvaju visinskih sustava ne miješaju na istom crtežu."),
 		}},
 		{"Provjera i usporedbe", []OdlomakMetode{

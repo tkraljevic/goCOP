@@ -354,7 +354,7 @@
   <text class="uzd-natpis" x="{{printf "%.1f" .X}}" y="{{printf "%.1f" $.Vrh}}" dy="{{if .Dolje}}-12{{else}}-40{{end}}"
         text-anchor="{{.Sidro}}">{{.Naziv}}</text>
   <text class="uzd-kota" x="{{printf "%.1f" .X}}" y="{{printf "%.1f" $.Vrh}}" dy="{{if .Dolje}}1{{else}}-27{{end}}"
-        text-anchor="{{.Sidro}}">{{.Kota}} m · {{.Cm}} cm</text>
+        text-anchor="{{.Sidro}}">{{.Kota}} m{{if .Cm}} · {{.Cm}} cm{{else}} n. m.{{end}}</text>
   {{end}}
   {{range .Usca}}
   <line class="uzd-usce-crta" x1="{{printf "%.1f" .X}}" x2="{{printf "%.1f" .X}}"
