@@ -441,7 +441,7 @@
 {{end}}
 
 {{if .IzvorPregled}}
-<form method="POST" action="/administracija/uvoz-izvora/upisi" class="reg-card" style="padding:1rem; margin-bottom:1rem;">
+<form method="POST" action="/administracija/uvoz-izvora/upisi" class="reg-card" style="padding:1rem; margin-bottom:1rem;" id="izvor-pregled">
   <input type="hidden" name="id" value="{{.IzvorPregled.Id}}">
   <h2 class="izvor-naziv">{{.IzvorPregled.Format.Naziv}} — što bi se upisalo</h2>
   <dl class="izvor-brojevi">
@@ -449,7 +449,7 @@
     <div><dt>Sliv</dt><dd>{{.IzvorPregled.Zadatak.Sliv}}</dd></div>
     <div><dt>Datoteka</dt><dd>{{len .IzvorPregled.Datoteke}}</dd></div>
   </dl>
-  <pre class="uvoz-dnevnik">{{.IzvorPregled.Dnevnik}}</pre>
+  <pre class="uvoz-dnevnik" style="white-space:pre-wrap; overflow-wrap:anywhere;">{{.IzvorPregled.Dnevnik}}</pre>
   {{if .IzvorPregled.Letve}}
   <div style="margin-top:0.75rem;">
     <button type="submit" class="btn btn-primary">{{icon "check"}} Upiši i izgradi</button>
@@ -459,6 +459,12 @@
   <p class="page-desc">Nema ničega za upis.</p>
   {{end}}
 </form>
+{{end}}
+{{if .IzvorPregled}}
+<script>
+// Pregled stoji ispod obrazaca; stranica se sama spusti do njega.
+(function () { var p = document.getElementById('izvor-pregled'); if (p) { p.scrollIntoView({ block: 'start' }); } })();
+</script>
 {{end}}
 
 {{if .Profili}}
