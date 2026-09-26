@@ -395,7 +395,7 @@ func (h *PrognozeHandler) opisiLetve(popis map[string]models.Station, letve []Pr
 				naziv, ulaz, brojHRf(l.PragPovezanosti, 0))
 		}
 		if st, ima := popis[l.Letva]; ima {
-			red.Naziv, red.Voda, red.Stacionaza = st.Name, st.Watercourse, st.Stationing
+			red.Naziv, red.Voda, red.Stacionaza = st.Name, skupinaPrikaza(st.Code, st.Watercourse), st.Stationing
 			red.URL = "/readings/station/" + st.ID.String()
 		}
 		for _, d := range BliziDosezi {
@@ -940,6 +940,21 @@ func jedinicaSada(letva string) string {
 	return ""
 }
 
+// KopackiRit su letve u inundaciji Dunava koje se na pregledu i na slici
+// lanca pokazuju zajedno, kao Kopački rit, a ne rasute po Dunavu i dunavcima:
+// Tikveš (karika lanca, iz Batine i Osijeka) te nizvodne letve ustava
+// Kopačevo i Zmajevac, koje se samo mjere.
+var KopackiRit = map[string]bool{"tikves": true, "ustava-kopacevo-nizvodno": true, "dunav-zmajevac": true}
+
+// skupinaPrikaza je voda pod kojom se letva pokazuje: registarska, osim za
+// Kopački rit.
+func skupinaPrikaza(kod, voda string) string {
+	if KopackiRit[kod] {
+		return "Kopački rit"
+	}
+	return voda
+}
+
 // jeAkumulacija kaže je li postaja razina akumulacije uz branu (HEP-ova
 // gornja voda brane): vrijednost joj je kota nad morem u cm, ne vodostaj.
 func jeAkumulacija(st models.Station) bool { return strings.HasPrefix(st.Code, "gvb-") }
@@ -1161,13 +1176,15 @@ func poVodama(letve []LetvaPrognoze, postaje map[string]models.Station) []Tablic
 		switch voda {
 		case "Dunav":
 			return 0
-		case "Drava", "Mura":
+		case "Kopački rit":
 			return 1
+		case "Drava", "Mura":
+			return 2
 		}
-		return 2
+		return 3
 	}
-	naslovi := []string{"Dunav", "Drava i Mura", "Pritoke"}
-	var lanac, vrhovi, izvan [3][]LetvaPrognoze
+	naslovi := []string{"Dunav", "Kopački rit", "Drava i Mura", "Pritoke"}
+	var lanac, vrhovi, izvan [4][]LetvaPrognoze
 	for _, l := range letve {
 		g := skupina(l.Voda)
 		switch {
@@ -1231,7 +1248,7 @@ func poVodama(letve []LetvaPrognoze, postaje map[string]models.Station) []Tablic
 			}
 			redovi = umetni(redovi, mjesto, x)
 		}
-		if g == 2 {
+		if g == 3 {
 			// Pritoke voda po voda, a unutar vode redom kojim su već složene.
 			sort.SliceStable(redovi, func(i, j int) bool { return redovi[i].Voda < redovi[j].Voda })
 		}

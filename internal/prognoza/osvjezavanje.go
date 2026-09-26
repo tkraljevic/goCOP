@@ -71,7 +71,9 @@ var PregledneLetve = []string{"bratislava", "komarno",
 	"bezdan", "apatin", "bogojevo", "backa-palanka",
 	// razine akumulacija HEP-ovih brana na Dravi: kota nad morem, na
 	// uzdužnom profilu točka uz branu
-	"gvb-he-varazdin", "gvb-he-cakovec", "gvb-he-dubrava"}
+	"gvb-he-varazdin", "gvb-he-cakovec", "gvb-he-dubrava",
+	// Kopački rit uz Tikveš: nizvodne letve ustava Kopačevo i Zmajevac
+	"ustava-kopacevo-nizvodno", "dunav-zmajevac"}
 
 // Unatrag je koliko se očitanja čita unatrag. Dva tjedna su dosta i najduljem
 // lancu, a manje bi ostavilo rupe kod letvi koje se očitavaju rjeđe.

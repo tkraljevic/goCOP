@@ -115,6 +115,8 @@ var Rezerve = map[string][][]string{
 	"dunaszekcso":    {{"paks"}},
 	"mohacs":         {{"baja"}},
 	"batina":         {{"dunaszekcso"}},
+	"siga":           {{"mohacs"}},
+	"petres":         {{"batina"}},
 	"aljmas":         {{"mohacs", "belisce"}, {"bezdan", "belisce"}},
 	"dalj":           {{"batina"}, {"bogojevo"}},
 	"vukovar":        {{"aljmas"}, {"bogojevo"}},
@@ -301,6 +303,13 @@ var Tokovi = []struct {
 		{"dunaszekcso", []string{"baja"}},
 		{"mohacs", []string{"dunaszekcso"}},
 		{"batina", []string{"mohacs"}},
+		// Siga (rkm 1 412) i Petreš (1 393) leže između Batine i Aljmaša uz
+		// Kopački rit; Aljmašu nisu ulaz, jer mu ne daju ništa prije Batine
+		// (kašnjenje nula), ali se same iz nje računaju: Siga ← Batina r
+		// 0,96–0,99 uz rasap 8–10 cm i kašnjenje 0–11 h, Petreš ← Siga r
+		// 0,93–0,99 uz 7–14 cm i 1–16 h (satni nizovi od 2017.).
+		{"siga", []string{"batina"}},
+		{"petres", []string{"siga"}},
 		// Drava se ulijeva u Dunav kod Aljmaša, pa Aljmaš nije samo dunavska
 		// letva. Ovdje se dva kraka sastaju.
 		{"aljmas", []string{"batina", "belisce"}},

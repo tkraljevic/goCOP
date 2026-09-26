@@ -55,16 +55,20 @@ var opisiVrsta = map[string]string{
 	"vrh-at":       "vrh: austrijska prognoza",
 	"vrh-mjerenje": "vrh: drži zadnje mjerenje",
 	"karika":       "karika: računa se iz ulaza",
+	"mjerenje":     "mjerenje, u model ne ulazi",
 }
 
 // vrstaCvora kaže odakle postaji budućnost, po istim popisima po kojima bira
 // osvježavanje.
-func vrstaCvora(kod string, imaRacun bool) string {
+func vrstaCvora(kod string, imaRacun, uLancu bool) string {
 	if _, ima := prognoza.TudaIspredRacuna[kod]; ima {
 		return "vrh-hibrid"
 	}
 	if imaRacun {
 		return "karika"
+	}
+	if !uLancu {
+		return "mjerenje"
 	}
 	for _, o := range prognoza.Operateri {
 		if o.Letva == kod {
@@ -170,17 +174,24 @@ func slikaLanca(pojasi map[string][]prognoza.Pojas, postaje map[string]models.St
 		return nil
 	}
 	letve := map[string]bool{}
+	uLancu := map[string]bool{}
 	for l, ps := range pojasi {
-		letve[l] = true
+		letve[l], uLancu[l] = true, true
 		for _, u := range ps[0].Ulazi {
-			letve[u.Letva] = true
+			letve[u.Letva], uLancu[u.Letva] = true, true
+		}
+	}
+	// Kopački rit se pokazuje cijeli, i letve koje se samo mjere.
+	for _, l := range prognoza.PregledneLetve {
+		if KopackiRit[l] {
+			letve[l] = true
 		}
 	}
 	rijeka := func(kod string) string {
 		if st, ima := postaje[kod]; ima && st.Watercourse != "" {
-			return st.Watercourse
+			return skupinaPrikaza(kod, st.Watercourse)
 		}
-		return "ostalo"
+		return skupinaPrikaza(kod, "ostalo")
 	}
 	ime := func(kod string) string {
 		if st, ima := postaje[kod]; ima && st.Name != "" {
@@ -197,7 +208,7 @@ func slikaLanca(pojasi map[string][]prognoza.Pojas, postaje map[string]models.St
 		poRijeci[rijeka(l)] = append(poRijeci[rijeka(l)], l)
 	}
 	// Redoslijed rijeka: pritoke iznad glavnih tokova, kako voda teče.
-	prednost := map[string]int{"Bednja": 0, "Plitvica": 1, "Mura": 2, "Drava": 3, "Karašica": 4, "Vučica": 5, "Dunav": 6}
+	prednost := map[string]int{"Bednja": 0, "Plitvica": 1, "Mura": 2, "Drava": 3, "Karašica": 4, "Vučica": 5, "Dunav": 6, "Kopački rit": 7}
 	rijeke := make([]string, 0, len(poRijeci))
 	for r := range poRijeci {
 		rijeke = append(rijeke, r)
@@ -237,7 +248,7 @@ func slikaLanca(pojasi map[string][]prognoza.Pojas, postaje map[string]models.St
 			x := lijevo + korak*float64(i)
 			poz[kod] = [2]float64{x, y}
 			_, imaRacun := pojasi[kod]
-			v := vrstaCvora(kod, imaRacun)
+			v := vrstaCvora(kod, imaRacun, uLancu[kod])
 			c := CvorLanca{Kod: kod, Naziv: ime(kod), X: x, Y: y, Dolje: i%2 == 1 && n > 8, Vrsta: v}
 			if v != "karika" {
 				c.Izvor = opisiVrsta[v]
@@ -256,7 +267,7 @@ func slikaLanca(pojasi map[string][]prognoza.Pojas, postaje map[string]models.St
 		}
 	}
 	vidjeno := map[string]bool{}
-	for _, v := range []string{"karika", "vrh-operater", "vrh-dnevni", "vrh-hibrid", "vrh-hu", "vrh-at", "vrh-mjerenje"} {
+	for _, v := range []string{"karika", "vrh-operater", "vrh-dnevni", "vrh-hibrid", "vrh-hu", "vrh-at", "vrh-mjerenje", "mjerenje"} {
 		for _, c := range s.Cvorovi {
 			if c.Vrsta == v && !vidjeno[v] {
 				vidjeno[v] = true
