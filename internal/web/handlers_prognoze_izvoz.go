@@ -376,11 +376,40 @@ func listMetode(k *xlsxw.Knjiga, z ZaglavljeIzvoza, m PrognozeMetodaData) {
 	for _, o := range m.Odjeljci {
 		preko(T(o.Naslov, xlsxw.Podnaslov), 22)
 		for _, od := range o.Odlomci {
-			if od.Formula {
+			switch {
+			case od.Formula:
 				preko(T(od.Tekst, xlsxw.Formula), 20)
-				continue
+			case od.Tablica != nil:
+				if od.Tablica.Naslov != "" {
+					preko(T(od.Tablica.Naslov, xlsxw.Tekst), 16)
+				}
+				redak := func(polja []string, stil int) {
+					red := make([]xlsxw.Celija, stupaca)
+					for i := range red {
+						red[i] = T("", stil)
+					}
+					for i, c := range polja {
+						if i < stupaca-1 {
+							red[i] = T(c, stil)
+						} else {
+							red[stupaca-1] = T(strings.TrimSpace(red[stupaca-1].Tekst+" "+c), stil)
+						}
+					}
+					r := l.Redak()
+					l.Dodaj(red...)
+					l.Visina(r, 16)
+				}
+				redak(od.Tablica.Stupci, xlsxw.Zaglavlje)
+				for _, r := range od.Tablica.Redci {
+					redak(r, xlsxw.Tablica)
+				}
+			case len(od.Popis) > 0:
+				for _, st := range od.Popis {
+					preko(T("• "+st, xlsxw.Tekst), visinaTeksta(st, int(sirina*1.35), 15, 0))
+				}
+			default:
+				preko(T(od.Tekst, xlsxw.Tekst), visinaTeksta(od.Tekst, int(sirina*1.35), 15, 0))
 			}
-			preko(T(od.Tekst, xlsxw.Tekst), visinaTeksta(od.Tekst, int(sirina*1.35), 15, 0))
 		}
 	}
 

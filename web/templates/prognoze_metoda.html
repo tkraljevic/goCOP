@@ -24,8 +24,32 @@
   {{range .Odjeljci}}
   <section class="detail-section">
     <h2>{{.Naslov}}</h2>
-    {{range .Odlomci}}{{if .Formula}}<div class="prog-formula" data-tex="{{.TeX}}">{{.Tekst}}</div>{{else}}<p>{{.Tekst}}</p>{{end}}{{end}}
+    {{range .Odlomci}}{{if .Formula}}<div class="prog-formula" data-tex="{{.TeX}}">{{.Tekst}}</div>
+    {{else if .Tablica}}<div class="table-card prog-metoda-tablica-kartica"><div class="table-responsive">
+      <table class="data-table prog-metoda-tablica">{{if .Tablica.Naslov}}<caption>{{.Tablica.Naslov}}</caption>{{end}}
+        <thead><tr>{{range .Tablica.Stupci}}<th>{{.}}</th>{{end}}</tr></thead>
+        <tbody>{{range .Tablica.Redci}}<tr>{{range $i, $c := .}}<td{{if $i}} class="nowrap"{{end}}>{{$c}}</td>{{end}}</tr>{{end}}</tbody>
+      </table></div></div>
+    {{else if .Popis}}<ul class="prog-popis">{{range .Popis}}<li>{{.}}</li>{{end}}</ul>
+    {{else}}<p>{{.Tekst}}</p>{{end}}{{end}}
   </section>
+  {{if and (eq .Naslov "Kako čitati prognozu") $.Lanac}}
+  <section class="detail-section prog-lanac">
+    <h2>Lanac postaja</h2>
+    <p>Kako su postaje povezane i odakle vrhu svakog lanca budućnost. Puna strelica je glavni ulaz, isprekidana
+      pritoka ili drugi ulaz. Crtež se slaže iz namještenih pojasa, pa uvijek pokazuje trenutačno stanje.</p>
+    {{with $.Lanac}}
+    <svg viewBox="0 0 {{.Width}} {{.Height}}" role="img" aria-label="Lanac postaja" class="prog-lanac-svg">
+      <defs><marker id="lanac-strelica" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z"/></marker></defs>
+      {{range .Rijeke}}<text class="prog-lanac-rijeka" x="12" y="{{printf "%.0f" .Y}}" dy="4">{{.Naziv}}</text>{{end}}
+      {{range .Veze}}<line class="prog-lanac-veza{{if .Sporedna}} sporedna{{end}}" x1="{{printf "%.0f" .X1}}" y1="{{printf "%.0f" .Y1}}" x2="{{printf "%.0f" .X2}}" y2="{{printf "%.0f" .Y2}}" marker-end="url(#lanac-strelica)"/>{{end}}
+      {{range .Cvorovi}}<g class="prog-lanac-cvor {{.Vrsta}}"><circle cx="{{printf "%.0f" .X}}" cy="{{printf "%.0f" .Y}}" r="9"><title>{{.Naziv}}{{if .Izvor}} · {{.Izvor}}{{end}}</title></circle>
+        <text x="{{printf "%.0f" .X}}" y="{{printf "%.0f" .Y}}" dy="{{if .Dolje}}38{{else}}24{{end}}" text-anchor="middle">{{.Naziv}}</text></g>{{end}}
+    </svg>
+    <div class="prog-lanac-legenda">{{range .Legenda}}<span class="prog-lanac-cvor {{.Vrsta}}"><svg viewBox="0 0 20 20" width="14" height="14"><circle cx="10" cy="10" r="8"/></svg> {{.Tekst}}</span>{{end}}</div>
+    {{end}}
+  </section>
+  {{end}}
   {{end}}
 
   {{with .Valovi}}

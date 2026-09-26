@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"gocop/internal/models"
+	"gocop/internal/prognoza"
 	"math"
 	"regexp"
 	"strings"
@@ -473,5 +474,23 @@ func TestAkumulacijaJeTockaIzvanKrivulje(t *testing.T) {
 	}
 	if !strings.Contains(p.Pad, "Varaždin → botovo") && !strings.Contains(p.Pad, "varazdin → botovo") {
 		t.Errorf("krajevi profila su prave letve: %s", p.Pad)
+	}
+}
+
+// Red uz tok: ulaz stoji prije postaje koju hrani i kad mu je upisani
+// kilometar manji; postaja bez kilometra staje tik ispred one koju hrani.
+func TestRedUzTokSlijediUlaze(t *testing.T) {
+	pojasi := map[string][]prognoza.Pojas{
+		"botovo":    {{Letva: "botovo", Ulazi: []prognoza.Ulaz{{Letva: "he-dubrava"}}}},
+		"nagybajcs": {{Letva: "nagybajcs", Ulazi: []prognoza.Ulaz{{Letva: "wildungsmauer"}}}},
+		"komarom":   {{Letva: "komarom", Ulazi: []prognoza.Ulaz{{Letva: "nagybajcs"}}}},
+	}
+	km := map[string]float64{"botovo": 226.8, "he-dubrava": 225.0, "nagybajcs": 1801, "komarom": 1768, "wildungsmauer": -1}
+	rkm := func(k string) float64 { return km[k] }
+	if got := strings.Join(redUzTok([]string{"botovo", "he-dubrava"}, pojasi, rkm), ","); got != "he-dubrava,botovo" {
+		t.Errorf("Drava: %s", got)
+	}
+	if got := strings.Join(redUzTok([]string{"komarom", "nagybajcs", "wildungsmauer"}, pojasi, rkm), ","); got != "wildungsmauer,nagybajcs,komarom" {
+		t.Errorf("Dunav: %s", got)
 	}
 }

@@ -4265,6 +4265,26 @@ body.uzd-puni-zaslon-otvoren { overflow: hidden; }
 }
 .prog-formula .katex-display { margin: 0.2rem 0; }
 .prog-metoda-tablica td { vertical-align: top; font-size: 0.82rem; }
+.prog-metoda-tablica caption { caption-side: top; text-align: left; font-size: 0.82rem; color: var(--text-muted); padding: 0.3rem 0.5rem; }
+.prog-metoda-tablica-kartica { margin: 0.5rem 0 0.8rem; max-width: 62rem; }
+.prog-popis { font-size: 0.92rem; line-height: 1.6; max-width: 62rem; margin: 0.4rem 0 0.4rem 1.2rem; padding: 0; }
+.prog-popis li { margin: 0.2rem 0; }
+.prog-lanac-svg { width: 100%; height: auto; display: block; }
+.prog-lanac-rijeka { font-size: 14px; font-weight: 700; fill: var(--text-muted); }
+.prog-lanac-veza { stroke: var(--text-muted); stroke-width: 1.6; fill: none; opacity: 0.8; }
+.prog-lanac-veza.sporedna { stroke-dasharray: 5 4; opacity: 0.6; }
+#lanac-strelica path { fill: var(--text-muted); }
+.prog-lanac-cvor text { font-size: 12px; fill: var(--text); }
+.prog-lanac-cvor circle { stroke: var(--surface); stroke-width: 2; }
+.prog-lanac-cvor.karika circle { fill: var(--primary); }
+.prog-lanac-cvor.vrh-operater circle { fill: #d97706; }
+.prog-lanac-cvor.vrh-dnevni circle { fill: #16a34a; }
+.prog-lanac-cvor.vrh-hibrid circle { fill: #b45309; }
+.prog-lanac-cvor.vrh-hu circle { fill: #b45309; opacity: 0.6; }
+.prog-lanac-cvor.vrh-at circle { fill: #b91c1c; }
+.prog-lanac-cvor.vrh-mjerenje circle { fill: var(--text-muted); }
+.prog-lanac-legenda { display: flex; flex-wrap: wrap; gap: 0.4rem 1.2rem; font-size: 0.82rem; margin-top: 0.4rem; }
+.prog-lanac-legenda span { display: inline-flex; align-items: center; gap: 0.35rem; }
 .prog-metoda-tablica td.nowrap { white-space: nowrap; }
 
 /* Generiranje prognoze: traka napretka i ispis koraka */
