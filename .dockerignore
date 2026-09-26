@@ -1,7 +1,22 @@
+# U kontekst izgradnje ide samo izvorni kod aplikacije. Mjerenja, baze,
+# paketi i ključevi ne smiju ni u međukorake izgradnje.
 data/
+vodostaji/
+pakete/
+ocitanja/
+tools/
+bin/
+.venv/
+.claude/
+.git/
 gocop
 *.db
 *.db-shm
 *.db-wal
+*.xlsx
+*.cop
 node-key
+**/node-key
 network-key
+**/network-key
+pairing-port
