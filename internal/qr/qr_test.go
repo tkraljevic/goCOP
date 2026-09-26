@@ -44,26 +44,27 @@ func slikaKoda(t *testing.T, k *Kod, put string) {
 	}
 }
 
-// dekoder je OpenCV iz probnog okruženja, kad postoji; bez njega se
-// provjerava samo oblik koda
-func dekoder() string {
-	for _, p := range []string{os.Getenv("GOCOP_QR_PYTHON"), "/private/tmp/claude-501/-Users-tomislavkraljevic-projekti-goCOP/532e0cdb-7a2e-45ad-aed3-14075652e1d0/scratchpad/qrenv/bin/python"} {
-		if p == "" {
-			continue
-		}
-		if _, err := os.Stat(p); err == nil {
-			return p
-		}
+// dekoder je Python s OpenCV-om iz varijable GOCOP_QR_PYTHON. Bez nje se
+// provjerava samo oblik koda. Kad je zadana, a OpenCV se ne može učitati,
+// to je pogreška okruženja koju test javlja, ne prešućuje.
+func dekoder(t *testing.T) string {
+	t.Helper()
+	py := os.Getenv("GOCOP_QR_PYTHON")
+	if py == "" {
+		return ""
 	}
-	return ""
+	if out, err := exec.Command(py, "-c", "import cv2").CombinedOutput(); err != nil {
+		t.Fatalf("GOCOP_QR_PYTHON=%s ne učitava OpenCV: %v\n%s", py, err, out)
+	}
+	return py
 }
 
 // Kodovi raznih duljina moraju biti pravilne veličine i, kad je dekoder
 // dostupan, dekodirati se natrag u isti tekst.
 func TestKodiranjeIDekodiranje(t *testing.T) {
-	py := dekoder()
+	py := dekoder(t)
 	if py == "" {
-		t.Log("nema OpenCV dekodera; provjerava se samo oblik")
+		t.Log("GOCOP_QR_PYTHON nije zadan; provjerava se samo oblik koda")
 	}
 	for i, tekst := range []string{
 		"gocop",

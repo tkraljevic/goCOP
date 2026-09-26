@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"html/template"
@@ -16,7 +17,9 @@ import (
 	"gocop/internal/arhiva"
 	"gocop/internal/models"
 	"gocop/internal/poslovi"
+	"gocop/internal/repository"
 	"gocop/internal/ulaganje"
+	"gocop/internal/uvoz/izvori"
 )
 
 // Uvoz niza u arhivu: administrator odabere datoteku s diska, program pogodi
@@ -91,6 +94,11 @@ type UvozHandler struct {
 	// tvrdi: snimka koja kaže 121,55 je trščanska, koja kaže 121,36 je
 	// HVRS71. Kad se ne poklopi ni s jednom, program stane i pita.
 	koteLetve func(letva string) (stara, nova float64, ok bool)
+
+	// Račun za HydroView i naziv letve, za preuzimanje povijesti s telemetrije.
+	hvRacuni   func() *repository.HidroViewRepository
+	hvKljuc    func() []byte
+	nazivLetve func(ctx context.Context, letva string) string
 }
 
 func NewUvozHandler(arhivaPut, podaciDir func() string,
@@ -171,6 +179,11 @@ type UvozPageData struct {
 	// Snimke poprečnog profila korita poslane na uvoz, prije potvrde.
 	Profili *PregledProfila
 
+	// Posebni izvori: formati koje vrata ne prepoznaju, i povijest s HydroViewa.
+	Formati      []izvori.Format
+	IzvorPregled *PregledIzvora
+	HVRadi       bool
+
 	// Dugi posao u tijeku: stranica crta traku i pita poslužitelja kako stoji.
 	PosaoID    string
 	PosaoNaziv string
@@ -227,6 +240,8 @@ func (h *UvozHandler) pageData(r *http.Request) UvozPageData {
 		d.Slivovi = s
 	}
 	d.Izvori = h.imenaIzvora()
+	d.Formati = izvori.Formati
+	d.HVRadi = h.hidroviewRadi()
 	d.UlaganjeRadi = h.ulaganjeRadi()
 	if d.UlaganjeRadi {
 		p, err := ulaganje.Pospremivo(r.Context(), h.baza())

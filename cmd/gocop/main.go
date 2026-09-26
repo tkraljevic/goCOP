@@ -29,6 +29,7 @@ import (
 	"gocop/internal/models"
 	"gocop/internal/oborine"
 	"gocop/internal/peers"
+	"gocop/internal/poslovi"
 	"gocop/internal/posta"
 	"gocop/internal/prognoza"
 	"gocop/internal/repository"
@@ -760,6 +761,40 @@ func main() {
 				javniUvoznik.Redak("bez prognoze %s: %v", letva, zasto)
 			}
 		}
+		// Priprema modela iz aplikacije (Prognoze → Pripremi model): namjesti
+		// lanac iz arhive, provjerom unatrag zapiše promašaje i odmah izda
+		// prognozu novim modelom. Ako satni krug upravo traje, novo izdanje
+		// pričeka idući sat — dva izdavanja istog sata ne idu jedno preko drugog.
+		server.SetPripremaModela(func(ctx context.Context, p *poslovi.Posao) error {
+			n, err := prognoza.NamjestiLanac(arhivaRO, pb, prognoza.OpcijeNamjestanja{Dnevnik: p, Korak: p.Korak})
+			if err != nil {
+				return err
+			}
+			p.Korak("provjera unatrag i zapis promašaja", 0, 0)
+			o := prognoza.ZadaneOpcijeProvjere()
+			o.Zapisi, o.Dnevnik = true, p
+			m, err := prognoza.ProvjeriUnatrag(arhivaRO, pb, o)
+			if err != nil {
+				return err
+			}
+			izdano := "novi model vrijedi od idućeg satnog kruga, jer krug upravo traje"
+			if !javniUvoznik.UTijeku() {
+				p.Korak("ponovno izdavanje prognoze", 0, 0)
+				iznova := *osvjezivac
+				iznova.Iznova = true
+				ishod, err := iznova.Osvjezi(ctx)
+				if err != nil {
+					return fmt.Errorf("model je spremljen, ali izdavanje nije uspjelo: %w", err)
+				}
+				if err := iznova.Zapisi(ishod); err != nil {
+					return fmt.Errorf("model je spremljen, ali zapis prognoze nije uspio: %w", err)
+				}
+				izdano = "prognoza je izdana novim modelom za " +
+					time.Unix(ishod.Sada*3600, 0).In(models.Zagreb).Format("2.1. u 15:04")
+			}
+			p.Zavrsi(fmt.Sprintf("Namješteno %d pojasa, zapisano %d promašaja; %s.", n, m, izdano), nil)
+			return nil
+		})
 	}
 	// Letve na Geolux HydroViewu traže prijavu. Račun stoji na ovom čvoru,
 	// šifriran ključem čvora, i traži se pri svakom preuzimanju — tako

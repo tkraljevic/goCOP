@@ -555,26 +555,31 @@
         pripadajućim stupnjem točnosti, redom povjerenja i stazom do datoteka.</li>
     </ul>
 
-    <h3 id="arhiva-postupak">Gradnja iz izvornih datoteka (CLI alati)</h3>
-    <p>Za masovnu početnu pripremu ili rad izravno na poslužitelju, arhiva se može graditi i izvan
-      web sučelja, izravno iz izvornih datoteka. Tako je uvijek ponovljiva i uvijek se zna iz čega
-      je nastala.</p>
-    <p>Postupak za novu ili revidiranu seriju:</p>
+    <h3 id="arhiva-postupak">Gradnja iz izvornih datoteka</h3>
+    <p>Arhiva se gradi iz izvornih datoteka u mapi <code>vodostaji/</code>, složenih po slivu i letvi.
+      Ta mapa nikad ne ide u repozitorij: to su mjerenja Hrvatskih voda i DHMZ-a. Tako je arhiva uvijek
+      ponovljiva i uvijek se zna iz čega je nastala.</p>
+    <p>Postupak za novu ili revidiranu seriju ide kroz <strong>Administracija → Unos u arhivu</strong>:</p>
     <ul>
-      <li><strong>1. Datoteke u mapu.</strong> Izvorne datoteke — DHMZ-ov HIS-2000, preuzimanje s
-        letva.voda.hr, revidirani niz iz elaborata — slože se u mapu <code>vodostaji/</code>,
-        složeno po slivu i letvi. Ta mapa nikad ne ide u repozitorij: to su mjerenja Hrvatskih
-        voda i DHMZ-a.</li>
-      <li><strong>2. Gradnja arhive.</strong> Pokrene se <code>arhiva-vodostaja</code>. Alat
-        pročita datoteke i sastavi arhivsku bazu; može se ograničiti na jednu letvu
-        (<code>-letva batina</code>) dok se radi jedna po jedna. Pri gradnji se izbacuju ispadi
-        telemetrije i svi se vodostaji svode na današnju kotu nule.</li>
-      <li><strong>3. Provjera.</strong> Alat ispisuje koliko je zapisa ušlo, iz kojih izvora i u
-        kojem rasponu. Brojke se usporede s izvorom prije nego se na arhivu bilo što nasloni.</li>
+      <li><strong>1. Datoteke.</strong> Obična tablica ide kroz vrata arhive. Izvozi posebnog oblika idu kroz
+        odjeljak <em>Posebni izvori</em>: izvoz postaje iz DHMZ-ova HIS-2000 (sve datoteke ili ZIP), ARSO,
+        eHYD, GKD, PEGELONLINE, izvoz Geolux zapisivača (SEBA) i hidrološki godišnjaci RHMZ Srbije. Svaki
+        se prvo pročita bez upisa i pokaže što bi se zapisalo.</li>
+      <li><strong>2. Gradnja.</strong> Nakon potvrde program zapiše datoteke u stablo i odmah u pozadini
+        izgradi letvu. Pri gradnji se izbacuju ispadi telemetrije i svi se vodostaji svode na današnju kotu
+        nule.</li>
+      <li><strong>3. Provjera.</strong> Ispis gradnje kaže koliko je zapisa ušlo, iz kojih izvora i u kojem
+        rasponu. Brojke se usporede s izvorom prije nego se na arhivu bilo što nasloni.</li>
     </ul>
+    <p>Povijest letve s Geolux HydroViewa preuzima se u istom odjeljku, pod <em>Povijest s HydroViewa</em>,
+      računom upisanim pod Administracija → Telemetrija. Uzimaju se svi zapisivači postaje i dopunjuju
+      zatečeni niz.</p>
     <p>Revidirana serija <strong>zamjenjuje</strong> staru na istom mjestu: promijeni se datoteka
       i arhiva se izgradi iznova. Ispravci upisani kroz sučelje stoje odvojeno od arhive, pa
       ponovna gradnja ne briše ono što je čovjek ispravio.</p>
+    <p class="reading-meta"><strong>Izvan aplikacije:</strong> administrator poslužitelja za masovnu početnu
+      pripremu ima i alate naredbenog retka (<code>arhiva-vodostaja</code> gradi cijelu arhivu, ili jednu letvu
+      s <code>-letva batina</code>). Nisu dio isporuke i za redovan rad ne trebaju.</p>
 
     <h3 id="arhiva-selidba">Prebacivanje operativnih očitanja u arhivu</h3>
     <p>Povijesni niz nekad završi u operativnoj bazi — uveze se kao očitanja, pa se poslije vidi
@@ -592,9 +597,10 @@
     </ul>
     <p>Nakon selidbe kartica letve izgleda isto: niz se čita iz arhive, a ne iz operativne baze.
       Razlika je u tome što se više ne razmjenjuje i ne opterećuje knjigu verzija.</p>
-    <p class="reading-meta"><strong>Kroz sučelje ili alat:</strong> selidba se danas najlakše izvodi
+    <p class="reading-meta"><strong>Kroz sučelje ili alat:</strong> selidba se izvodi
       kroz <em>Administracija → Unos u arhivu → Očitanja iz programa</em>, gdje radi za sve letve uz
-      pregled i provjeru. Alat <code>selidba-arhive</code> u naredbenom retku služi za izravan rad na poslužitelju.</p>
+      pregled i provjeru. Administrator poslužitelja ima za izravan rad i alat <code>selidba-arhive</code>,
+      koji nije dio isporuke.</p>
   </div>
   {{template "pomocPoglavljeNav" (list "Operativni vodostaji" "#readings" "Prognoze" "#prognoze")}}
 </section>
@@ -634,6 +640,10 @@
       svježa, inače austrijska prognoza Wildungsmauera. Dnevni model uz vodostaje uzima i kišu po
       međuslivovima, palu i prognoziranu (Open-Meteo). Novi račun pokreće se kada stignu svježa
       očitanja; ovlaštena osoba može gumbom <em>Generiraj</em> odmah ponoviti cijeli ciklus.</p>
+    <p>Model se priprema iz arhive. Kad se u arhivi ili u lancu nešto promijeni, globalni administrator
+      na stranici Prognoze pokreće <em>Pripremi model</em>: program iznova namjesti veze letvi i modele
+      ispuštanja elektrana, provjerom unatrag zapiše promašaje iz kojih prognoza uzima ispravak i raspon,
+      i odmah izda prognozu novim modelom. Posao traje desetak minuta i vrti se na poslužitelju.</p>
     <p>Stranica <em>O prognozi</em> pokazuje ulazne postaje, jednadžbe i rezultate provjere, a izvoz
       u Excel daje tablični pregled. <code>prognoze.db</code> čuva izvedene rezultate i parametre:
       nije službena knjiga ni <code>.cop</code> kanal i može se ponovno izračunati iz ulaznih nizova.</p>

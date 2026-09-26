@@ -425,6 +425,19 @@
 </section>
 {{end}}
 
+{{if .MozePripremiti}}
+<section class="detail-section" id="priprema">
+  <h2>{{icon "settings"}} Priprema modela</h2>
+  <p class="reg-card-sub">Nakon promjene u arhivi ili lancu: iz cijele arhive iznova namjesti veze letvi i modele
+    ispuštanja elektrana, provjerom unatrag zapiše promašaje iz kojih prognoza uzima ispravak i raspon, pa odmah
+    izda prognozu novim modelom. Traje desetak minuta i vrti se na poslužitelju.</p>
+  <form method="POST" action="/prognoze/pripremi-model"
+        onsubmit="return confirm('Pripremiti model iznova? Mijenja brojke svih prognoza.');">
+    <button type="submit" class="btn btn-secondary">{{icon "settings"}} Pripremi model</button>
+  </form>
+</section>
+{{end}}
+
 <script>
 // Generiranje: dok krug traje, stranica svake dvije sekunde pita za napredak
 // i puni traku i ispis; kad prođe, učita novo izdanje.

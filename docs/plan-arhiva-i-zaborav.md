@@ -141,7 +141,7 @@ trag zašto ih više nema.
 
 **Svaki čvor provjerava sam.** Prije brisanja provjeri da arhiva koju **on**
 drži doista pokriva svaki zapis koji odlazi — ne vjeruje tuđoj tvrdnji. Isto
-pravilo već ima `cmd/selidba-arhive`, koji odbija posao ako pokrivenost ne
+pravilo već ima `selidba-arhive` (sad u `tools/migrations/`), koji odbija posao ako pokrivenost ne
 vrijedi.
 
 Knjiga verzija ima `archived`, kojim zapis nestaje s površine a ostaje u
@@ -270,7 +270,7 @@ prijenosnici smiju imati samo svoj operativni doseg i privremene sadržaje.
 
 ## Što je već napravljeno
 
-- razdvajanje arhive od operative, `cmd/arhiva-vodostaja` i `cmd/selidba-arhive`
+- razdvajanje arhive od operative, `arhiva-vodostaja` i `selidba-arhive` (sad u `tools/`)
 - spojeni niz: jedan satni i jedan dnevni po veličini, sa znanom točnošću
 - ispravci arhive uz obvezan pregled, kroz knjigu verzija
 - uvoz očitanja iz zalijepljenog ispisa, CSV-a i Excela

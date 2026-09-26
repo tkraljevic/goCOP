@@ -323,6 +323,142 @@
     <button type="submit" class="btn btn-primary">{{icon "eye"}} Pogledaj snimke</button>
   </div>
 </form>
+
+<form method="POST" action="/administracija/uvoz-izvora/pregled" enctype="multipart/form-data"
+      class="reg-card" style="padding:1rem; margin-bottom:1rem;" id="obrazac-izvora">
+  <h2 class="izvor-naziv">{{icon "download"}} Posebni izvori</h2>
+  <p class="page-desc" style="margin:0.25rem 0 0.75rem 0;">
+    Izvozi čiji oblik vrata ne prepoznaju: iz jedne datoteke nastaje više nizova, ili izvoz nosi i nizove i
+    krivulje i korito. Svaki se prvo pročita bez upisa, pa se tek nakon potvrde zapiše i letva izgradi.
+  </p>
+  <div style="display:flex; gap:0.75rem; flex-wrap:wrap; align-items:flex-end;">
+    <label class="izvor-napomena" style="margin:0;">
+      <span class="part-label">Izvor</span>
+      <select name="format" required class="form-control" style="max-width:22rem;" id="izvor-format">
+        {{range .Formati}}<option value="{{.Kod}}" data-opis="{{.Opis}}" data-nastavci="{{range $i, $n := .Nastavci}}{{if $i}},{{end}}{{$n}}{{end}}"
+          data-vise="{{.Vise}}" data-velicina="{{.Velicina}}" data-postaje="{{.Postaje}}" data-sliv="{{.ZadaniSliv}}">{{.Naziv}}</option>{{end}}
+      </select>
+    </label>
+    <label class="izvor-napomena izvor-polje-letva" style="margin:0;">
+      <span class="part-label">Letva</span>
+      <input list="popis-letvi-krivulje" name="letva" class="form-control" style="max-width:14rem;">
+    </label>
+    <label class="izvor-napomena izvor-polje-postaje" style="margin:0;" hidden>
+      <span class="part-label">Postaje (šifra=letva)</span>
+      <input name="postaje" class="form-control" style="max-width:22rem;" placeholder="42010=bezdan, 42015=apatin">
+    </label>
+    <label class="izvor-napomena" style="margin:0;">
+      <span class="part-label">Sliv</span>
+      <select name="sliv" class="form-control" style="max-width:10rem;">
+        <option value="">prema letvi</option>
+        {{range .Slivovi}}<option value="{{.}}">{{.}}</option>{{end}}
+      </select>
+    </label>
+    <label class="izvor-napomena izvor-polje-velicina" style="margin:0;" hidden>
+      <span class="part-label">Veličina</span>
+      <select name="velicina" class="form-control" style="max-width:10rem;">
+        <option value="vodostaj">vodostaj</option><option value="protok">protok</option><option value="temperatura">temperatura</option>
+      </select>
+    </label>
+    <label class="izvor-napomena" style="margin:0;">
+      <span class="part-label">Oznaka izvora</span>
+      <input name="izvor" class="form-control" style="max-width:10rem;" placeholder="zadana">
+    </label>
+    <label class="izvor-napomena" style="margin:0;">
+      <span class="part-label">Datoteke s diska</span>
+      <input type="file" name="datoteke" multiple required class="form-control" style="max-width:20rem;" id="izvor-datoteke">
+    </label>
+    <label class="izvor-napomena izvor-polje-zamijeni" style="margin:0;" hidden>
+      <span><input type="checkbox" name="zamijeni" value="1"> prepiši zatečeni niz i kad se vrijednosti razlikuju</span>
+    </label>
+    <button type="submit" class="btn btn-primary">{{icon "eye"}} Pogledaj što bi se upisalo</button>
+  </div>
+  <small class="izvor-disk" id="izvor-opis"></small>
+</form>
+
+<form method="POST" action="/administracija/uvoz-izvora/hidroview"
+      class="reg-card" style="padding:1rem; margin-bottom:1rem;">
+  <h2 class="izvor-naziv">{{icon "radio-tower"}} Povijest s HydroViewa</h2>
+  <p class="page-desc" style="margin:0.25rem 0 0.75rem 0;">
+    Živa očitanja poslužitelj preuzima sam; ovo dopisuje razdoblje unatrag. Uzimaju se svi zapisivači postaje,
+    svaki kao svoj izvor, i dopunjuju zatečeni niz, pa se ništa ne gubi.
+    {{if not .HVRadi}}<strong>Račun za HydroView nije upisan — upisuje se u Administraciji, na stranici Telemetrija.</strong>{{end}}
+  </p>
+  <div style="display:flex; gap:0.75rem; flex-wrap:wrap; align-items:flex-end;">
+    <label class="izvor-napomena" style="margin:0;">
+      <span class="part-label">Letva</span>
+      <input list="popis-letvi-krivulje" name="letva" required class="form-control" style="max-width:14rem;">
+    </label>
+    <label class="izvor-napomena" style="margin:0;">
+      <span class="part-label">Sliv</span>
+      <select name="sliv" class="form-control" style="max-width:10rem;">
+        <option value="">prema letvi</option>
+        {{range .Slivovi}}<option value="{{.}}">{{.}}</option>{{end}}
+      </select>
+    </label>
+    <label class="izvor-napomena" style="margin:0;">
+      <span class="part-label">Naziv na HydroViewu</span>
+      <input name="naziv" class="form-control" style="max-width:14rem;" placeholder="naziv letve">
+    </label>
+    <label class="izvor-napomena" style="margin:0;">
+      <span class="part-label">Od</span>
+      <input type="date" name="od" class="form-control">
+    </label>
+    <label class="izvor-napomena" style="margin:0;">
+      <span class="part-label">Do</span>
+      <input type="date" name="do" class="form-control">
+    </label>
+    <label class="izvor-napomena" style="margin:0;">
+      <span><input type="checkbox" name="probno" value="1"> samo provjeri</span>
+    </label>
+    <button type="submit" class="btn btn-primary" {{if not .HVRadi}}disabled{{end}}>{{icon "download"}} Preuzmi</button>
+  </div>
+  <small class="izvor-disk">Bez datuma uzima se zadnjih 30 dana.</small>
+</form>
+<script>
+(function () {
+  var sel = document.getElementById('izvor-format');
+  if (!sel) return;
+  var forma = document.getElementById('obrazac-izvora');
+  function namjesti() {
+    var o = sel.options[sel.selectedIndex].dataset;
+    document.getElementById('izvor-opis').textContent = o.opis || '';
+    var dat = document.getElementById('izvor-datoteke');
+    dat.accept = o.nastavci || '';
+    dat.multiple = o.vise === 'true';
+    var postaje = o.postaje === 'true';
+    forma.querySelector('.izvor-polje-letva').hidden = postaje;
+    forma.querySelector('.izvor-polje-letva input').required = !postaje;
+    forma.querySelector('.izvor-polje-postaje').hidden = !postaje;
+    forma.querySelector('.izvor-polje-postaje input').required = postaje;
+    forma.querySelector('.izvor-polje-velicina').hidden = o.velicina !== 'true';
+    forma.querySelector('.izvor-polje-zamijeni').hidden = sel.value !== 'his2000';
+  }
+  sel.addEventListener('change', namjesti);
+  namjesti();
+})();
+</script>
+{{end}}
+
+{{if .IzvorPregled}}
+<form method="POST" action="/administracija/uvoz-izvora/upisi" class="reg-card" style="padding:1rem; margin-bottom:1rem;">
+  <input type="hidden" name="id" value="{{.IzvorPregled.Id}}">
+  <h2 class="izvor-naziv">{{.IzvorPregled.Format.Naziv}} — što bi se upisalo</h2>
+  <dl class="izvor-brojevi">
+    <div><dt>{{if .IzvorPregled.Format.Postaje}}Letve{{else}}Letva{{end}}</dt><dd>{{range $i, $l := .IzvorPregled.Letve}}{{if $i}}, {{end}}{{$l}}{{else}}—{{end}}</dd></div>
+    <div><dt>Sliv</dt><dd>{{.IzvorPregled.Zadatak.Sliv}}</dd></div>
+    <div><dt>Datoteka</dt><dd>{{len .IzvorPregled.Datoteke}}</dd></div>
+  </dl>
+  <pre class="uvoz-dnevnik">{{.IzvorPregled.Dnevnik}}</pre>
+  {{if .IzvorPregled.Letve}}
+  <div style="margin-top:0.75rem;">
+    <button type="submit" class="btn btn-primary">{{icon "check"}} Upiši i izgradi</button>
+    <a href="/administracija/uvoz-niza" class="btn btn-secondary">Odustani</a>
+  </div>
+  {{else}}
+  <p class="page-desc">Nema ničega za upis.</p>
+  {{end}}
+</form>
 {{end}}
 
 {{if .Profili}}

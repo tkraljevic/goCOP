@@ -397,8 +397,8 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				[]string{"Aljmaš, dnevni model", "29 / 9", "31 / 18", "31 / 31", "32 / 49", "37 / 68", "43 / 76"}),
 			tekstM("Na Dravi smo bolji ili jednaki na svim dosezima, Osijek od uspora Dunava nešto lošiji. Na " +
 				"mađarskom Dunavu njihov je model bolji, pa Komárom vodi njihova prognoza. Njihova prognoza Aljmaša " +
-				"sustavno je 25 cm previsoka, pa je usporedba tamo u našu korist do trećeg dana. Alati usporedi-dnevnu " +
-				"i usporedi-prognoze ponavljaju sve ove račune."),
+				"sustavno je 25 cm previsoka, pa je usporedba tamo u našu korist do trećeg dana. Sve ove račune " +
+				"administrator ponavlja dijagnostičkim alatima izvan aplikacije."),
 		}},
 		{"Ograničenja", []OdlomakMetode{
 			popisM(

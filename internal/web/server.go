@@ -62,6 +62,9 @@ type Server struct {
 	// ključ kojim se zaključavaju lozinke za Geolux HydroView; izveden iz
 	// ključa čvora, pa lozinka vrijedi samo na ovom računalu
 	hidroviewKljuc []byte
+	// pripremaModela namješta lanac prognoze iz arhive; postavlja je main,
+	// koji drži otvorene baze prognoza i arhive.
+	pripremaModela PripremaModela
 	akti           *service.AktService // rješenja i obavijesti o stupnju obrane
 	vodocuvar      *service.VodocuvarService
 	potpis         *service.PotpisService  // elektronički potpisi osoba
@@ -886,6 +889,15 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /prognoze.xlsx", s.authMiddleware(http.HandlerFunc(prognozeH.IzvoziPrognoze)))
 	s.mux.Handle("GET /prognoze/o-prognozi", s.authMiddleware(http.HandlerFunc(prognozeH.ShowMetoda)))
 	s.mux.Handle("POST /prognoze/generiraj", s.authMiddleware(http.HandlerFunc(prognozeH.Generiraj)))
+	// Priprema modela mijenja brojke svih prognoza, pa je samo za globalnog
+	// administratora. Posao se traži pri pozivu jer ga main postavlja poslije ruta.
+	prognozeH.SetPripremaModela(func(ctx context.Context, p *poslovi.Posao) error {
+		if s.pripremaModela == nil {
+			return fmt.Errorf("priprema modela nije uključena na ovom čvoru")
+		}
+		return s.pripremaModela(ctx, p)
+	}, func() bool { return s.pripremaModela != nil }, s.poslovi, s.templates["posao.html"])
+	s.mux.Handle("POST /prognoze/pripremi-model", s.samoAdmin(http.HandlerFunc(prognozeH.PripremiModel)))
 	s.mux.Handle("GET /prognoze/napredak", s.authMiddleware(http.HandlerFunc(prognozeH.NapredakJSON)))
 	s.mux.Handle("GET /prognoze/izdanja.csv", s.authMiddleware(http.HandlerFunc(prognozeH.IzvoziIzdanja)))
 	s.mux.Handle("GET /prognoze/podaci/{ime}", s.authMiddleware(http.HandlerFunc(prognozeH.PosluziPodatke)))
@@ -1211,6 +1223,27 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /administracija/uvoz-niza/makni-niz", s.samoAdmin(http.HandlerFunc(uvozH.MakniSirotana)))
 	s.mux.Handle("POST /administracija/uvoz-niza/zatecen", s.authMiddleware(http.HandlerFunc(uvozH.Zatecen)))
 	s.mux.Handle("POST /administracija/uvoz-niza/upisi", s.authMiddleware(http.HandlerFunc(uvozH.UpisiUvoz)))
+	// Posebni izvori (ARSO, eHYD, GKD, PEGELONLINE, SEBA, HIS-2000, godišnjaci
+	// RHMZ-a) i povijest s HydroViewa: ista ograda po letvi i isti red
+	// pregled-pa-potvrda kao na vratima.
+	uvozH.SetHidroView(func() *repository.HidroViewRepository {
+		if s.db == nil {
+			return nil
+		}
+		return repository.NewHidroViewRepository(s.db)
+	}, func() []byte { return s.hidroviewKljuc }, func(ctx context.Context, letva string) string {
+		if s.stationService == nil {
+			return ""
+		}
+		st, err := s.stationService.GetStationByCode(ctx, letva)
+		if err != nil || st == nil {
+			return ""
+		}
+		return st.Name
+	})
+	s.mux.Handle("POST /administracija/uvoz-izvora/pregled", s.authMiddleware(http.HandlerFunc(uvozH.PregledIzvora)))
+	s.mux.Handle("POST /administracija/uvoz-izvora/upisi", s.authMiddleware(http.HandlerFunc(uvozH.UpisiIzvor)))
+	s.mux.Handle("POST /administracija/uvoz-izvora/hidroview", s.authMiddleware(http.HandlerFunc(uvozH.PreuzmiHidroView)))
 	// Krivulja nije vremenski niz pa ne prolazi kroz uvoz niza; ide svojim
 	// putem, ali kroz istu ogradu po letvi i isti red pregled-pa-potvrda.
 	s.mux.Handle("POST /administracija/uvoz-krivulja/pregled", s.authMiddleware(http.HandlerFunc(uvozH.PregledUvozaKrivulja)))
@@ -1536,6 +1569,9 @@ func (s *Server) Arhiva() *repository.ArhivaRepository {
 // Prognoze vraća čitača baze prognoza, ili nil kad baze nema. Prognoza je
 // račun, ne zapis: program mora raditi i bez nje, samo bez crte koja ide dalje
 // od zadnjeg očitanja.
+// SetPripremaModela uključuje pripremu modela prognoze na ovom čvoru.
+func (s *Server) SetPripremaModela(f PripremaModela) { s.pripremaModela = f }
+
 func (s *Server) Prognoze() *CitacPrognoza {
 	s.arhivaMu.RLock()
 	defer s.arhivaMu.RUnlock()

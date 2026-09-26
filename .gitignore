@@ -42,12 +42,12 @@ ocitanja/
 .venv/
 pakete/
 
-# Uvoznik starih dnevnika COP-a radi nad digitaliziranim uvezom s imenima
-# djelatnika i ostaje uz taj uvez, izvan repozitorija — kao i imenik.
-cmd/uvoz-dnevnika-cop/
-/uvoz-dnevnika-cop
-
-# Uvoz IORS obrazaca radi nad datotekama s imenima djelatnika; ostaje uz njih.
-cmd/uvoz-iors/
-/uvoz-iors
+# Lokalne izgradnje.
 bin/
+
+# Sve što nije aplikacija ostaje izvan repozitorija: administratorski alati,
+# migracije, dijagnostika, analize i priprema geometrije. Aplikacija ih ne
+# treba — uvoz, izvoz, arhiviranje i priprema prognoze rade u goCOP-u. Popis
+# i namjena su u docs/katalog-alata.md. Među njima su i uvoznici nad
+# datotekama s imenima djelatnika (stari dnevnici COP-a, obrasci IORS).
+/tools/

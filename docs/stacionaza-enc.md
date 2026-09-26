@@ -52,10 +52,10 @@ za neovisna sidra dok nisu provjerene.
 Čitač `pyogrio` potreban je samo razvojnoj skripti, ne aplikaciji:
 
 ```sh
-.venv/bin/python scripts/extract_enc_rkm.py drava /tmp/gocop-drava-enc.zip internal/geometrija/sidra/rijeka-drava.json
-.venv/bin/python scripts/extract_enc_rkm.py dunav /tmp/gocop-dunav-enc.zip internal/geometrija/sidra/rijeka-dunav.json
-go run ./cmd/usporedi-rkm -vodotok rijeka-drava -enc
-go run ./cmd/usporedi-rkm -vodotok rijeka-dunav -enc
+.venv/bin/python tools/geo/extract_enc_rkm.py drava /tmp/gocop-drava-enc.zip internal/geometrija/sidra/rijeka-drava.json
+.venv/bin/python tools/geo/extract_enc_rkm.py dunav /tmp/gocop-dunav-enc.zip internal/geometrija/sidra/rijeka-dunav.json
+go run ./tools/diagnostics/usporedi-rkm -vodotok rijeka-drava -enc
+go run ./tools/diagnostics/usporedi-rkm -vodotok rijeka-dunav -enc
 ```
 
 Alat bazu otvara samo za čitanje i daje prednost njezinoj geometriji. Izmjena

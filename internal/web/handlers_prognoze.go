@@ -14,6 +14,7 @@ import (
 	"gocop/internal/hydro"
 	"gocop/internal/javnivodostaji"
 	"gocop/internal/models"
+	"gocop/internal/poslovi"
 	"gocop/internal/prognoza"
 	"gocop/internal/repository"
 	"gocop/internal/service"
@@ -46,6 +47,12 @@ type PrognozeHandler struct {
 	podaciDir func() string // mapa s datotekama provjere unatrag, za preuzimanje
 
 	metodaTmpl *template.Template // stranica „O prognozi”
+
+	// Priprema modela (namještanje lanca, promašaji, ponovno izdavanje).
+	priprema     PripremaModela
+	pripremaRadi func() bool
+	poslovi      *poslovi.Registar
+	tmplPosao    *template.Template
 }
 
 // SetUsers daje izvozu sektore i osobe za zaglavlje i potpise.
@@ -168,6 +175,7 @@ type PrognozePageData struct {
 	Izdaje   string // centar koji prognozu izdaje, npr. COP Osijek
 
 	MozeGenerirati bool   // ima krug preuzimanja, pa gumb „Generiraj” ima što pokrenuti
+	MozePripremiti bool   // globalni administrator na čvoru s arhivom: gumb „Pripremi model”
 	Generira       bool   // krug upravo traje
 	ZadnjiKrug     string // kad je zadnji krug prošao i što je donio
 	Napredak       javnivodostaji.Napredak
@@ -192,6 +200,9 @@ func (h *PrognozeHandler) podaci(r *http.Request) PrognozePageData {
 		ActiveNav: "prognoze", ViewAsBanner: viewBanner(r),
 		SuccessMessage: r.URL.Query().Get("success"), ErrorMessage: r.URL.Query().Get("error"),
 		Dosezi: DoseziPregleda, Udio: int(math.Round(prognoza.UdioURasponu * 100)),
+	}
+	if h.mozePripremiti() && perms != nil && perms.IsGlobalAdmin {
+		data.MozePripremiti = true
 	}
 	if u := h.uvoznik(); u != nil {
 		data.MozeGenerirati, data.Generira = true, u.UTijeku()

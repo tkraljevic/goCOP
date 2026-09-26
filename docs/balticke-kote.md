@@ -46,7 +46,7 @@ Prosječne državne pomake ne koristiti kao centimetarski precizan preračun.
 CLI za pojedinačni unos (postojeće ostale rubrike ne mijenja):
 
 ```sh
-go run ./cmd/upis-letve -letva SIFRA -kota-balticka VRIJEDNOST \
+go run ./tools/migrations/upis-letve -letva SIFRA -kota-balticka VRIJEDNOST \
   -kota-balticka-sustav OZNAKA -kota-balticka-izvor IZVOR -probno
 ```
 

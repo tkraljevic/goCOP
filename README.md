@@ -246,9 +246,18 @@ Projekt trenutačno ima više od 500 Go testova; puni testovi, `go vet` i ciljan
 race-testovi arhive i weba prolaze na aktualnom stanju.
 
 ```bash
-go build -ldflags "-X main.version=0.0.1" -o gocop ./cmd/gocop
+go build -ldflags "-X main.version=0.0.1" -o bin/gocop ./cmd/gocop
 go test ./...
 ```
+
+Repozitorij nosi samo aplikaciju: `cmd/gocop` je jedini ulaz, logika je u
+`internal`, sučelje u `web`. Uvoz u arhivu iz svih podržanih izvora, arhiviranje,
+izdavanje paketa i priprema modela prognoze rade iz same aplikacije. Pomoćni
+alati (administracija poslužitelja, jednokratne migracije, dijagnostika,
+analize, priprema geometrije) stoje lokalno u `tools/` i ne ulaze u
+repozitorij; popis i namjena su u [katalogu alata](docs/katalog-alata.md).
+Lokalne izgradnje idu u `bin/`, a baze, arhiva vodostaja i paketi u `data/`,
+`vodostaji/` i `pakete/`, također izvan repozitorija.
 
 Sinkronizacijski transport — ključevi, uparivanje, TLS razmjena i
 pronalaženje na lokalnoj mreži — stoji u `internal/razmjena`, odvojen od
@@ -290,7 +299,7 @@ skup podataka može jednom stajati uz izdanje za isprobavanje.
   ako se ne upisuju ručno;
 - **registri** — `sections.json` (dionice s poddionicama, vodomjerima i
   pragovima, objektima, nasipima i branama; prijepis Privitka 1 Glavnog
-  provedbenog plana obrane od poplava nastaje alatom `cmd/prijepis-dionica`),
+  provedbenog plana obrane od poplava nastaje administratorskim alatom `prijepis-dionica`, koji je izvan repozitorija),
   `watercourses.json` (vode I. reda iz Odluke o popisu voda I. reda, NN
   79/2010, i opisni podaci iz Wikipedije), `territories.json` i
   `section_territories.json` (županije, gradovi, općine, naselja i njihove

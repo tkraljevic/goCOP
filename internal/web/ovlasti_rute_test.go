@@ -129,6 +129,9 @@ func TestUvozLetveImaProvjeruPravaNaLetvu(t *testing.T) {
 		"/administracija/uvoz-niza/pregled-opet",
 		"/administracija/uvoz-niza/zatecen",
 		"/administracija/uvoz-niza/upisi",
+		"/administracija/uvoz-izvora/pregled",
+		"/administracija/uvoz-izvora/upisi",
+		"/administracija/uvoz-izvora/hidroview",
 	}
 	for _, put := range poLetvi {
 		nadjena := false
