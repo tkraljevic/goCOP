@@ -156,7 +156,7 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"regresija s pragom i metoda analognih situacija. Koji model daje koji dan određeno je provjerom na " +
 				"poplavnim valovima, zasebno za svaku postaju (tablica postaja na kraju)."),
 			tekstM("Ono što model ne može izmjeriti, uzima iz najboljeg dostupnog izvora: na vrhu Drave iz " +
-				"naučenog ponašanja hidroelektrana, na vrhu Mure iz vlastitog dnevnog modela s kišom, na vrhu Dunava " +
+				"naučenog ponašanja hidroelektrana, na vrhu Mure iz slovenske Gornje Radgone, na vrhu Dunava " +
 				"iz mađarske prognoze Komároma dok je svježa, inače iz austrijske prognoze Wildungsmauera; kišu koja " +
 				"tek pada iz prognoza Open-Meteo. Kad izvora nema, vrh lanca drži zadnje mjerenje."),
 		}},
@@ -235,9 +235,12 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				[]string{"Donji Miholjac (cm)", "9 → 9", "25 → 23", "37 → 32", "47 → 42"},
 				[]string{"Belišće (cm)", "6 → 6", "18 → 17", "29 → 25", "36 → 32"},
 				[]string{"Varaždin (cm)", "27 → 21", "33 → 25", "35 → 26", "36 → 27"}),
-			tekstM("Mura: naš dnevni model. Goričan, naša letva nasuprot Letenyeu (isti rkm, javni izvor, satni niz " +
-				"od 1982.), u protoku kroz vlastitu krivulju daje vrh lanca Botova. Budućnost mu daje dnevni model iz " +
-				"Murskog Središća i kiše nad Murom; Letenye je rezerva, a mađarska prognoza rezerva rezervi."),
+			tekstM("Mura: satni lanac iz Gornje Radgone. Vrh je slovenska Gornja Radgona (ARSO, protok svakih 10 " +
+				"minuta), iz koje se u protoku računaju Mursko Središće (kašnjenje 3–5 h) i Goričan (još 2–10 h), a " +
+				"Goričan, naša letva nasuprot Letenyeu, nosi Muru u Botovo. Satni niz Gornje Radgone postoji od 2020., " +
+				"pa je veza namještena na kraćem razdoblju; kad Gornje Radgone nema, Goričan se računa izravno iz nje " +
+				"kao rezerve ili drži zadnje mjerenje, a dnevni model s kišom nad Murom i dalje daje dane. Na provjeri " +
+				"2023.–2025. Goričan je 26–49 % bolji od postojanosti do 48 h, a Botovo 4–8 % bolje na 24–96 h."),
 			tablicaM("Mura, srednja pogreška 1.–6. dana u cm (28 mađarskih izdanja 2024.–2026., model naučen prije)",
 				dani,
 				[]string{"Letenye, mađarska prognoza", "13", "23", "28", "37", "42", "50"},
@@ -374,7 +377,7 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 			tekstM("Satni lanac seže do 96 sati. Od kojeg dana vrijednost daje dnevni model određeno je " +
 				"provjerom na poplavnim valovima, zasebno za svaku postaju: na Dunavu od " + dunav + ", na Dravi od " +
 				drava + ". Na Dravi satni lanac dulje pogađa bolje jer nosi istjecanje HE Dubrava s modelom " +
-				"ispuštanja i Goričan iz dnevnog modela. Vrijednost iz dnevnog modela na stranici je označena slovom " +
+				"ispuštanja i Muru iz Gornje Radgone. Vrijednost iz dnevnog modela na stranici je označena slovom " +
 				"d, a u Excelu retkom „model”."),
 		}},
 		{"Vodostaj i protok", []OdlomakMetode{
