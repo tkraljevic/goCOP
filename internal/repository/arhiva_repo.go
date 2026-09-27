@@ -848,6 +848,42 @@ func (r *ArhivaRepository) SpojBroj(ctx context.Context, letva, velicina, korak 
 	return n, err
 }
 
+// SpojSredina vraća medijan i srednjak dnevnih vrijednosti u razdoblju i
+// koliko ih je bilo. Uzdužni profil medijanom mjeri uobičajenu vodu letve, a
+// srednjak (srednji vodostaj, SV) crta uz nju: rijetki veliki valovi srednjak
+// dižu iznad vode kakva obično jest, pa je medijan bolja nula.
+func (r *ArhivaRepository) SpojSredina(ctx context.Context, letva, velicina string, od, do time.Time) (medijan, srednjak float64, n int, err error) {
+	if r == nil {
+		return 0, 0, 0, nil
+	}
+	rows, err := r.db.QueryContext(ctx, `SELECT vrijednost FROM spoj
+		WHERE letva=? AND velicina=? AND korak='dnevni' AND vrijeme >= ? AND vrijeme < ?`,
+		letva, velicina, od.Unix(), do.Unix())
+	if err != nil {
+		return 0, 0, 0, err
+	}
+	defer rows.Close()
+	var v []float64
+	zbroj := 0.0
+	for rows.Next() {
+		var x float64
+		if err := rows.Scan(&x); err != nil {
+			return 0, 0, 0, err
+		}
+		v = append(v, x)
+		zbroj += x
+	}
+	if err := rows.Err(); err != nil || len(v) == 0 {
+		return 0, 0, 0, err
+	}
+	sort.Float64s(v)
+	medijan = v[len(v)/2]
+	if len(v)%2 == 0 {
+		medijan = (v[len(v)/2-1] + medijan) / 2
+	}
+	return medijan, zbroj / float64(len(v)), len(v), nil
+}
+
 // SpojNajbolji vraća cijeli niz jedne veličine, uzlazno, u najboljoj
 // razlučivosti koju letva ima: satnoj ondje gdje satnih mjerenja ima, dnevnoj
 // prije i poslije njih. Služi izračunima koji gledaju cijelu povijest — valove

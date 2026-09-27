@@ -9,12 +9,13 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 )
 
 func letvaProfila(letva string, rkm, kota, sada float64) LetvaProfila {
 	return LetvaProfila{
 		Letva: letva, Naziv: letva, Rkm: rkm, KotaNule: kota,
-		SadaCm: sada, ImaSada: true,
+		SadaCm: sada, ImaSada: true, JutroCm: sada, ImaJutro: true, UobicajenoCm: sada, ImaUobicajeno: true,
 		Cm:      map[int]float64{24: sada + 20, 48: sada + 40},
 		Granice: map[int][2]float64{24: {sada + 10, sada + 30}, 48: {sada + 20, sada + 60}},
 		Pragovi: map[string]float64{"prep": 300, "regular": 400, "emerg": 500},
@@ -53,9 +54,9 @@ func TestProfilCrtaPromjenuANeKotu(t *testing.T) {
 			t.Errorf("%s nije na crti današnjeg stanja", tk.Naziv)
 		}
 	}
-	// Ali kota se ne gubi — piše uz letvu.
-	if p.Tocke[0].Kota != "120,50" {
-		t.Errorf("kota uzvodne letve %q, očekivano 120,50", p.Tocke[0].Kota)
+	// Uz letvu piše vodostaj, bez kote: kotu svatko računa po svojem sustavu.
+	if p.Tocke[0].Cm != "50" || p.Tocke[0].Kota != "" {
+		t.Errorf("natpis uzvodne letve %q (%q)", p.Tocke[0].Cm, p.Tocke[0].Kota)
 	}
 	// Nizvodno je desno.
 	if p.Tocke[0].X >= p.Tocke[1].X {
@@ -259,7 +260,7 @@ func TestCrtaJeGlatkaIProlaziKrozLetve(t *testing.T) {
 	}
 }
 
-// Svaki doseg ima svoju crtu, redom od sutra do šestog dana, a peti i šesti
+// Svaki doseg ima svoju crtu, redom od 6 h do šestog dana, a peti i šesti
 // dan pišu se u danima.
 func TestSvakiDosegImaSvojuCrtu(t *testing.T) {
 	a, b := letvaProfila("a", 200, 120, 50), letvaProfila("b", 100, 80, 50)
@@ -272,10 +273,10 @@ func TestSvakiDosegImaSvojuCrtu(t *testing.T) {
 	if len(p.Crte) != len(dosezniProfila) {
 		t.Fatalf("%d crta za %d dosega", len(p.Crte), len(dosezniProfila))
 	}
-	if p.Crte[0].Naziv != "za 24 h" || p.Crte[0].Class != "h1" {
+	if p.Crte[0].Naziv != "za 6 h" || p.Crte[0].Class != "h1" {
 		t.Errorf("prva crta %q/%q", p.Crte[0].Naziv, p.Crte[0].Class)
 	}
-	if zadnja := p.Crte[len(p.Crte)-1]; zadnja.Naziv != "za 6 d" || zadnja.Class != "h6" {
+	if zadnja := p.Crte[len(p.Crte)-1]; zadnja.Naziv != "za 6 d" || zadnja.Class != "h8" {
 		t.Errorf("zadnja crta %q/%q", zadnja.Naziv, zadnja.Class)
 	}
 }
@@ -313,22 +314,33 @@ func TestNizZaKlizac(t *testing.T) {
 	}
 }
 
-// Letve preblizu jedna drugoj dobiju natpis u drugom redu; udaljene ostaju u prvom.
+// Letve preblizu jedna drugoj dobiju natpis u drugom redu, naizmjence; kad
+// ima mjesta, sve stoje u prvom.
 func TestNatpisiSeNePreklapaju(t *testing.T) {
-	p := crtajUzduzni("Dunav", []LetvaProfila{
-		letvaProfila("a", 300, 100, 50), letvaProfila("b", 110, 90, 50),
-		letvaProfila("c", 105, 89, 50), letvaProfila("d", 100, 88, 50),
+	var gusto []LetvaProfila
+	for k := 0; k < 14; k++ {
+		gusto = append(gusto, letvaProfila(fmt.Sprint("l", k), float64(100-k), 90, 50))
+	}
+	p := crtajUzduzni("Dunav", gusto, nil)
+	for k, tk := range p.Tocke {
+		if tk.Dolje != (k%2 == 1) {
+			t.Errorf("letva %d: dolje=%v", k, tk.Dolje)
+		}
+	}
+	p = crtajUzduzni("Dunav", []LetvaProfila{
+		letvaProfila("a", 300, 100, 50), letvaProfila("b", 110, 90, 50), letvaProfila("c", 105, 89, 50),
 	}, nil)
-	// a, b gore; c dolje; d ne stane nigdje pa ide gdje je susjed dalje — dolje je c preblizu, gore b još bliže: dolje.
-	if p.Tocke[0].Dolje || p.Tocke[1].Dolje || !p.Tocke[2].Dolje {
-		t.Errorf("redovi natpisa: %v %v %v %v", p.Tocke[0].Dolje, p.Tocke[1].Dolje, p.Tocke[2].Dolje, p.Tocke[3].Dolje)
+	for _, tk := range p.Tocke {
+		if tk.Dolje {
+			t.Errorf("%s u drugom redu, a mjesta ima", tk.Naziv)
+		}
 	}
 }
 
 // Natpis ispod crteža govori o toj rijeci, ne o nekoj drugoj.
 func TestPadPoRijeci(t *testing.T) {
 	p := crtajUzduzni("Dunav", []LetvaProfila{letvaProfila("Batina", 1425, 79.15, -104), letvaProfila("Ilok", 1299, 73.34, -36)}, nil)
-	if p.Pad != "Dunav, Batina → Ilok: vodno lice pada 5,1 m na 126 km" {
+	if p.Pad != "Dunav, Batina → Ilok: vodno lice jutros pada 5,1 m na 126 km" {
 		t.Errorf("pad: %q", p.Pad)
 	}
 }
@@ -429,25 +441,107 @@ func TestBraneMeduLetvamaUlazeUProfil(t *testing.T) {
 	}
 }
 
-// Mađarska letva bez naše kote, ali s baltičkom, ide na zaseban profil svojeg
-// toka; naša letva s HVRS71 na profil toka. Inačica stoji iza svojeg toka.
-func TestProfilVodeRazdvajaVisinskeSustave(t *testing.T) {
-	hv := 80.189
-	nasa := models.Station{Watercourse: "Dunav", ZeroDatumNew: &hv}
-	if v, k, ok := profilVode(nasa); !ok || v != "Dunav" || k != hv {
+// Sve letve toka idu na jedan profil, s kotom u Trstu: naša i srpska iz
+// Trsta, mađarska iz baltičke uz +0,675 m.
+func TestProfilVodeCrtaUTrstu(t *testing.T) {
+	trst, hv := 80.45, 80.189
+	nasa := models.Station{Name: "Batina", Watercourse: "Dunav", ZeroDatum: &trst, ZeroDatumNew: &hv}
+	if v, k, ok := profilVode(nasa); !ok || v != "Dunav" || k != trst {
 		t.Errorf("naša letva: %q %v %v", v, k, ok)
 	}
-	mbf := 103.88
-	hu := models.Station{Watercourse: "Dunav", ZeroDatumBaltic: &mbf, ZeroDatumBalticSystem: "mBf (Mađarska)"}
-	if v, k, ok := profilVode(hu); !ok || v != "Dunav (Mađarska)" || k != mbf {
+	rs := 80.64
+	srpska := models.Station{Name: "Bezdan (Srbija)", Watercourse: "Dunav", ZeroDatum: &rs}
+	if v, k, ok := profilVode(srpska); !ok || v != "Dunav" || k != rs {
+		t.Errorf("srpska letva: %q %v %v", v, k, ok)
+	}
+	mbf := 95.65
+	hu := models.Station{Name: "Budapest (Mađarska)", Watercourse: "Dunav", ZeroDatumBaltic: &mbf, ZeroDatumBalticSystem: "mBf (Mađarska)"}
+	if v, k, ok := profilVode(hu); !ok || v != "Dunav" || math.Abs(k-96.325) > 1e-9 {
 		t.Errorf("mađarska letva: %q %v %v", v, k, ok)
 	}
 	if _, _, ok := profilVode(models.Station{Watercourse: "Dunav"}); ok {
 		t.Error("letva bez ijedne kote ne ide na profil")
 	}
-	got := poredakProfila([]string{"Dunav (Mađarska)", "Dunav", "Drava", "Mura"})
-	if strings.Join(got, ",") != "Dunav,Dunav (Mađarska),Drava,Mura" {
-		t.Errorf("poredak %v", got)
+}
+
+// Jutarnja crta stoji na odstupanju jutra od uobičajene vode: val koji je
+// jutros u Budimpešti brijeg je iznad nule, a točka letve sjedi na jutarnjoj
+// crti, ne na nuli. Uz letvu piše samo jutarnji vodostaj, bez kote.
+func TestJutarnjaCrtaOdUobicajeneVode(t *testing.T) {
+	bp := letvaProfila("Budapest", 1646, 96.3, 450)
+	bp.UobicajenoCm = 300 // val: 150 cm iznad uobičajenog
+	bt := letvaProfila("Batina", 1425, 80.45, 250)
+	p := crtajUzduzni("Dunav", []LetvaProfila{bp, bt}, nil)
+	if p == nil || p.JutroPut == "" {
+		t.Fatal("nema jutarnje crte")
+	}
+	if !(p.Tocke[0].Y < p.NulaY-1) || math.Abs(p.Tocke[1].Y-p.NulaY) > 1e-9 {
+		t.Errorf("Budimpešta mora biti iznad nule, Batina na nuli: %.1f %.1f (nula %.1f)", p.Tocke[0].Y, p.Tocke[1].Y, p.NulaY)
+	}
+	for i, cm := range []string{"450", "250"} {
+		if p.Tocke[i].Cm != cm || p.Tocke[i].Kota != "" {
+			t.Errorf("%s: %q (%q)", p.Tocke[i].Naziv, p.Tocke[i].Cm, p.Tocke[i].Kota)
+		}
+	}
+	// Letva bez jutra ili bez uobičajene vode čeka: na profil ne ide.
+	bez := letvaProfila("Mohács", 1447, 80.55, 300)
+	bez.ImaJutro = false
+	if q := crtajUzduzni("Dunav", []LetvaProfila{bp, bez, bt}, nil); len(q.Tocke) != 2 {
+		t.Errorf("letva bez jutra ušla je u profil: %+v", q.Tocke)
+	}
+	// Klizač nosi jutro i uobičajenu vodu, da uz točku piše promjena od jutra.
+	var n nizProfila
+	if err := json.Unmarshal([]byte(p.Niz), &n); err != nil || n.Jutro[0] != 450 || n.Uob[0] != 300 {
+		t.Errorf("niz: jutro %v uob %v (%v)", n.Jutro, n.Uob, err)
+	}
+	if v := n.V[0][-KlizacOd]; v == nil || *v != 150 {
+		t.Errorf("u satu izdanja Budimpešta je 150 cm iznad uobičajenog, niz kaže %v", v)
+	}
+}
+
+// Jutro je očitanje u 7 h; dok ga nema, najnovije od 4 h; prije 4 h nema ga.
+func TestJutroLetve(t *testing.T) {
+	dan := time.Date(2026, 9, 27, 0, 0, 0, 0, models.Zagreb)
+	u := func(h, m int, cm float64) ocitanje {
+		return ocitanje{Kad: dan.Add(time.Duration(h)*time.Hour + time.Duration(m)*time.Minute), Cm: cm}
+	}
+	if cm, _, ok := jutroLetve([]ocitanje{u(3, 0, 10), u(5, 0, 20), u(6, 0, 30), u(7, 0, 40), u(8, 0, 50)}, dan); !ok || cm != 40 {
+		t.Errorf("s očitanjem u 7: %v %v", cm, ok)
+	}
+	if cm, _, ok := jutroLetve([]ocitanje{u(3, 0, 10), u(4, 0, 20), u(5, 0, 30)}, dan); !ok || cm != 30 {
+		t.Errorf("prije 7 vrijedi najnovije od 4 h: %v %v", cm, ok)
+	}
+	if cm, _, ok := jutroLetve([]ocitanje{u(6, 50, 35), u(7, 20, 45)}, dan); !ok || cm != 35 {
+		t.Errorf("najbliže 7 h: %v %v", cm, ok)
+	}
+	if _, _, ok := jutroLetve([]ocitanje{u(3, 0, 10), u(9, 0, 60)}, dan); ok {
+		t.Error("letva bez očitanja od 4 do 7 h nema jutra")
+	}
+}
+
+// Današnje jutro vrijedi čim ga ima pola letvi; do tada stoji jučerašnje.
+func TestOdaberiJutro(t *testing.T) {
+	danas := time.Date(2026, 9, 27, 0, 0, 0, 0, models.Zagreb)
+	jucer := danas.AddDate(0, 0, -1)
+	u := func(dan time.Time, h int, cm float64) ocitanje {
+		return ocitanje{Kad: dan.Add(time.Duration(h) * time.Hour), Cm: cm}
+	}
+	sva := map[string][]ocitanje{
+		"a": {u(jucer, 7, 100), u(danas, 7, 110)},
+		"b": {u(jucer, 7, 200)},
+		"c": {u(jucer, 7, 300)},
+	}
+	j := odaberiJutro(sva, danas.Add(8*time.Hour))
+	if !j.Dan.Equal(jucer) || j.Cm["b"] != 200 {
+		t.Errorf("s jednom od tri letve stoji jučerašnje jutro: %v %v", j.Dan, j.Cm)
+	}
+	sva["b"] = append(sva["b"], u(danas, 5, 210))
+	j = odaberiJutro(sva, danas.Add(8*time.Hour))
+	if !j.Dan.Equal(danas) || j.Cm["a"] != 110 || j.Cm["b"] != 210 {
+		t.Errorf("s dvije od tri letve vrijedi današnje: %v %v", j.Dan, j.Cm)
+	}
+	if _, ima := j.Cm["c"]; ima {
+		t.Error("letva bez današnjeg jutra ne smije nositi jučerašnje")
 	}
 }
 
@@ -456,7 +550,7 @@ func TestProfilVodeRazdvajaVisinskeSustave(t *testing.T) {
 func TestAkumulacijaJeTockaIzvanKrivulje(t *testing.T) {
 	a, b := letvaProfila("varazdin", 288, 165, 100), letvaProfila("botovo", 227, 122, 100)
 	ak := LetvaProfila{Letva: "gvb-he-cakovec", Naziv: "Razina akumulacije Čakovec", Rkm: 278.6, Akumulacija: true,
-		SadaCm: 16752, ImaSada: true, Cm: map[int]float64{}, Granice: map[int][2]float64{}, Pragovi: map[string]float64{}, Niz: map[int]float64{-6: 16740}}
+		SadaCm: 16752, ImaSada: true, JutroCm: 16752, ImaJutro: true, UobicajenoCm: 16740, ImaUobicajeno: true, Cm: map[int]float64{}, Granice: map[int][2]float64{}, Pragovi: map[string]float64{}, Niz: map[int]float64{-6: 16740}}
 	gore := ak
 	gore.Letva, gore.Naziv, gore.Rkm = "gvb-he-varazdin", "Razina akumulacije Varaždin", 308.6
 	p := crtajUzduzni("Drava", []LetvaProfila{a, ak, gore, b}, nil)
@@ -492,5 +586,111 @@ func TestRedUzTokSlijediUlaze(t *testing.T) {
 	}
 	if got := strings.Join(redUzTok([]string{"komarom", "nagybajcs", "wildungsmauer"}, pojasi, rkm), ","); got != "wildungsmauer,nagybajcs,komarom" {
 		t.Errorf("Dunav: %s", got)
+	}
+}
+
+// Razmak letvi nije u mjerilu: gusto posađene letve dobiju mjesta, a redoslijed
+// i kilometri između čvorova ostaju.
+func TestOsRazmakaRaspoređujeLetve(t *testing.T) {
+	// Budimpešta, Dunaföldvár, Batina, Siga, Petreš: 86, 136, 12, 19 km.
+	x := osRazmaka([]float64{1646.5, 1560.6, 1424.8, 1412.2, 1393}, 0, 1000)
+	if x(1646.5) != 0 || math.Abs(x(1393)-1000) > 1e-9 {
+		t.Fatalf("krajevi %v %v", x(1646.5), x(1393))
+	}
+	uska := x(1412.2) - x(1424.8)
+	if uska < 0.7*1000/4 {
+		t.Errorf("Batina–Siga dobila %.0f točaka, manje od jednakog dijela", uska)
+	}
+	if siroka := x(1424.8) - x(1560.6); siroka <= uska {
+		t.Errorf("duga dionica %.0f nije šira od kratke %.0f", siroka, uska)
+	}
+	if m := x(1418.5); m <= x(1424.8) || m >= x(1412.2) {
+		t.Errorf("kilometar između letvi pada izvan njih: %v", m)
+	}
+}
+
+func TestKratkoIme(t *testing.T) {
+	if ime, z := kratkoIme("Komárom (Mađarska)"); ime != "Komárom" || z != "HU" {
+		t.Errorf("%q %q", ime, z)
+	}
+	if ime, z := kratkoIme("Batina"); ime != "Batina" || z != "" {
+		t.Errorf("%q %q", ime, z)
+	}
+}
+
+// Dnevni model na dijelu letvi: crta se prekida, usamljena letva dobije kružić.
+func TestDnevnaCrtaSePrekida(t *testing.T) {
+	a, b, c, d := letvaProfila("a", 400, 130, 50), letvaProfila("b", 300, 120, 50),
+		letvaProfila("c", 200, 110, 50), letvaProfila("d", 100, 80, 50)
+	a.Cm[120], b.Cm[120], d.Cm[120] = 60, 70, 55 // c nema dnevnu prognozu
+	p := crtajUzduzni("Drava", []LetvaProfila{a, b, c, d}, nil)
+	var put string
+	for _, cr := range p.Crte {
+		if cr.Doseg == 120 {
+			put = cr.Put
+		}
+	}
+	if strings.Count(put, "M") != 2 || !strings.Contains(put, " a3.5") {
+		t.Errorf("crta za 5 d nije prekinuta u c s kružićem na d: %q", put)
+	}
+}
+
+// Razina akumulacije ne ulazi ni u jutarnju crtu ni u crte prognoze: njezino
+// odstupanje od uobičajene kote nije val rijeke.
+func TestAkumulacijaNijeUCrtama(t *testing.T) {
+	a, b := letvaProfila("varazdin", 288, 165, 100), letvaProfila("botovo", 227, 122, 100)
+	ak := LetvaProfila{Letva: "gvb-he-dubrava", Naziv: "Razina akumulacije Dubrava", Rkm: 255, Akumulacija: true,
+		JutroCm: 14749, ImaJutro: true, UobicajenoCm: 14893, ImaUobicajeno: true,
+		Cm: map[int]float64{24: 14760}, Granice: map[int][2]float64{24: {14700, 14800}}, Pragovi: map[string]float64{}}
+	p := crtajUzduzni("Drava", []LetvaProfila{a, ak, b}, nil)
+	if strings.Contains(p.JutroPut, " C") || strings.Count(p.JutroPut, "L") != 1 {
+		t.Errorf("jutarnja crta prolazi kroz akumulaciju: %q", p.JutroPut)
+	}
+	for _, c := range p.Crte {
+		if strings.Contains(c.Put, " C") {
+			t.Errorf("crta %s prolazi kroz akumulaciju: %q", c.Naziv, c.Put)
+		}
+	}
+}
+
+// Nula je voda zadnjih 30 dana. Dugogodišnji medijan i srednjak ulaze u
+// crtež samo kad su blizu; daleki ostaju izvan, da val dobije cijelu visinu,
+// a gore piše gdje su.
+func TestDalekaUobicajenaVodaNeSpljostiVal(t *testing.T) {
+	a, b := letvaProfila("Batina", 1425, 80, 50), letvaProfila("Ilok", 1299, 74, 60)
+	a.UobicajenoCm, b.UobicajenoCm = 60, 70     // mjesec: 10 cm ispod
+	a.DugiMedijanCm, b.DugiMedijanCm = 300, 290 // deset godina: daleko iznad
+	a.SrednjakCm, b.SrednjakCm = 320, 310
+	p := crtajUzduzni("Dunav", []LetvaProfila{a, b}, nil)
+	if !p.NulaUSlici || p.DugiPut != "" || p.SrednjakPut != "" ||
+		p.NulaNapomena != "↑ uobičajena voda (10 g.) i srednji vodostaj su iznad crteža" {
+		t.Errorf("nula %v, dugi %q, SV %q, napomena %q", p.NulaUSlici, p.DugiPut, p.SrednjakPut, p.NulaNapomena)
+	}
+	// Blizu: sve tri crte u slici, bez napomene.
+	a.DugiMedijanCm, b.DugiMedijanCm, a.SrednjakCm, b.SrednjakCm = 70, 80, 90, 100
+	q := crtajUzduzni("Dunav", []LetvaProfila{a, b}, nil)
+	if !q.NulaUSlici || q.DugiPut == "" || q.SrednjakPut == "" || q.NulaNapomena != "" {
+		t.Errorf("blizu: nula %v, dugi %q, SV %q, napomena %q", q.NulaUSlici, q.DugiPut, q.SrednjakPut, q.NulaNapomena)
+	}
+	// Kad je i mjesečna voda daleko (val je naglo spustio vodu), ni nule nema.
+	a.UobicajenoCm, b.UobicajenoCm = 300, 290
+	r := crtajUzduzni("Dunav", []LetvaProfila{a, b}, nil)
+	if r.NulaUSlici || !strings.HasPrefix(r.NulaNapomena, "↑ voda zadnjih 30 dana (0)") || r.NulaY >= r.Vrh {
+		t.Errorf("daleka nula: %v %q %.1f", r.NulaUSlici, r.NulaNapomena, r.NulaY)
+	}
+}
+
+// Mjesečni medijan traži barem tjedan dana mjerenja.
+func TestMedijanSati(t *testing.T) {
+	poSatu := map[int64]float64{}
+	for h := int64(0); h < 6*24; h++ {
+		poSatu[h] = 20
+	}
+	if _, ok := medijanSati(poSatu); ok {
+		t.Error("šest dana je premalo")
+	}
+	poSatu[6*24+1] = 100
+	if m, ok := medijanSati(poSatu); !ok || m != 20 {
+		t.Errorf("medijan %v %v", m, ok)
 	}
 }

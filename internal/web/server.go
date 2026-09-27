@@ -883,6 +883,7 @@ func (s *Server) setupRoutes() {
 	prognozeH.SetMetoda(s.templates["prognoze_metoda.html"])
 	prognozeH.SetReadings(s.readingService)
 	prognozeH.SetWatercourses(s.watercourseService)
+	prognozeH.SetArhiva(s.Arhiva)
 	prognozeH.SetJavniUvoz(func() *javnivodostaji.Uvoznik { return s.javni })
 	prognozeH.SetPodaciDir(func() string {
 		if s.dbPath == "" {

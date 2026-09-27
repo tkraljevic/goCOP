@@ -4347,29 +4347,32 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .prognoze-tablica td.dan-moguce-crit { box-shadow: inset 0 0 0 2px var(--faza-s-crta); }
 
 /* ── Uzdužni profil ──────────────────────────────────────────────────────
-   Vodno lice uzduž toka. Današnja crta je puna i tamna, prognoze su svjetlije
-   i tanje — čita se prvo ono što jest, pa što se očekuje. Pragovi obrane idu
+   Vodno lice uzduž toka. Jutarnja crta je puna i u glavnoj boji, prognoze su
+   tanje — čita se prvo ono što jest, pa što se očekuje. Nula je uobičajena
+   voda, tanka i crtkana. Pragovi obrane idu
    crtkano, u bojama faza, jer su ograda a ne mjerenje. */
 .uzduzni svg { width: 100%; height: auto; }
 .uzduzni .grid { stroke: var(--border); stroke-width: 1; }
 .uzduzni .tick { font-size: 12px; fill: var(--text-muted); }
 /* Dosezi: jedna boja od svjetlije prema tamnijoj kako doseg raste; paleta
    provjerena za svijetlu i tamnu podlogu (jedan ton, jednoliki koraci). */
-:root { --prog-h1: #ef8c5c; --prog-h2: #e86b34; --prog-h3: #d3531f; --prog-h4: #b04217; --prog-h5: #8a3211; --prog-h6: #62230b; }
+:root { --prog-h1: #f4b089; --prog-h2: #ef8c5c; --prog-h3: #e86b34; --prog-h4: #d3531f; --prog-h5: #b04217; --prog-h6: #8a3211; --prog-h7: #6b270d; --prog-h8: #4d1c09; }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) { --prog-h1: #f9d2ba; --prog-h2: #f5ab86; --prog-h3: #ef8756; --prog-h4: #e5642c; --prog-h5: #c94d1d; --prog-h6: #a03a14; }
+  :root:not([data-theme="light"]) { --prog-h1: #fbe3d3; --prog-h2: #f9d2ba; --prog-h3: #f5ab86; --prog-h4: #ef8756; --prog-h5: #e5642c; --prog-h6: #c94d1d; --prog-h7: #a03a14; --prog-h8: #7c2c0f; }
 }
-:root[data-theme="dark"] { --prog-h1: #f9d2ba; --prog-h2: #f5ab86; --prog-h3: #ef8756; --prog-h4: #e5642c; --prog-h5: #c94d1d; --prog-h6: #a03a14; }
+:root[data-theme="dark"] { --prog-h1: #fbe3d3; --prog-h2: #f9d2ba; --prog-h3: #f5ab86; --prog-h4: #ef8756; --prog-h5: #e5642c; --prog-h6: #c94d1d; --prog-h7: #a03a14; --prog-h8: #7c2c0f; }
 .uzd-crta { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; transition: opacity 0.15s; }
 .uzd-crta.h1 { stroke: var(--prog-h1); } .uzd-crta.h2 { stroke: var(--prog-h2); } .uzd-crta.h3 { stroke: var(--prog-h3); }
 .uzd-crta.h4 { stroke: var(--prog-h4); } .uzd-crta.h5 { stroke: var(--prog-h5); } .uzd-crta.h6 { stroke: var(--prog-h6); }
-.uzd-crta.h5, .uzd-crta.h6 { stroke-dasharray: 7 4; }
+.uzd-crta.h7 { stroke: var(--prog-h7); } .uzd-crta.h8 { stroke: var(--prog-h8); }
+.uzd-crta.h7, .uzd-crta.h8 { stroke-dasharray: 7 4; }
 .uzd-svg:has(.uzd-istaknuta) .uzd-crta:not(.uzd-istaknuta) { opacity: 0.3; }
 .uzd-crta.uzd-istaknuta { stroke-width: 3; }
 .uzd-pojas { display: none; fill-opacity: 0.13; stroke: none; }
 .uzd-pojas.uzd-aktivna { display: block; }
 .uzd-pojas.h1 { fill: var(--prog-h1); } .uzd-pojas.h2 { fill: var(--prog-h2); } .uzd-pojas.h3 { fill: var(--prog-h3); }
 .uzd-pojas.h4 { fill: var(--prog-h4); } .uzd-pojas.h5 { fill: var(--prog-h5); } .uzd-pojas.h6 { fill: var(--prog-h6); }
+.uzd-pojas.h7 { fill: var(--prog-h7); } .uzd-pojas.h8 { fill: var(--prog-h8); }
 .uzd-svg { width: 100%; height: auto; display: block; }
 .uzd-vodilica { stroke: var(--border); stroke-width: 1; stroke-dasharray: 2 4; }
 .uzd-usce { fill: var(--primary); }
@@ -4379,9 +4382,10 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .uzd-brana-natpis { font-size: 11px; fill: var(--text-muted); font-weight: 600; }
 .uzd-tocka.stanje-prep { fill: var(--faza-p-crta); } .uzd-tocka.stanje-regular { fill: var(--faza-r-crta); }
 .uzd-tocka.stanje-emerg, .uzd-tocka.stanje-crit { fill: var(--faza-i-crta); }
-.uzd-klizac-crta { fill: none; stroke: var(--text); stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
-.uzd-klizac-crta.mjereno { stroke: var(--primary); }
-.uzd-klizac-tocke circle { fill: var(--surface); stroke: var(--text); stroke-width: 2.5; }
+.uzd-klizac-crta { fill: none; stroke: var(--uzd-prognoza); stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
+.uzd-klizac-crta.mjereno { stroke: var(--uzd-mjereno); }
+.uzd-klizac-tocke circle { fill: var(--surface); stroke: var(--uzd-prognoza); stroke-width: 2.5; }
+.uzd-klizac-tocke.mjereno circle { stroke: var(--uzd-mjereno); }
 .uzd-svg.uzd-klizac-aktivan .uzd-crta { opacity: 0.35; }
 .uzd-svg.uzd-klizac-aktivan .uzd-pojas { opacity: 0.5; }
 /* Bljesak: crta dosega na koju je pokretna crta legla zasvijetli i ugasi se,
@@ -4400,7 +4404,12 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .uzd-klizac-natpis { min-width: 13rem; font-size: 0.85rem; font-variant-numeric: tabular-nums; color: var(--text-muted); }
 .uzd-klizac-igraj { padding: 0.3rem 0.55rem; }
 .uzd-klizac-igraj.uzd-igra { background: var(--primary); color: #fff; }
-.uzd-klizac-broj { font-size: 12px; font-weight: 700; fill: var(--text); paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
+/* Broj uz točku klizača: pločica u boji klizača (plava za mjereno, zelena za
+   prognozu), bijela slova — vidi se na svijetloj i tamnoj podlozi i preko
+   svake crte, jer stoji zadnja u crtežu. */
+.uzd-klizac-broj rect { fill: var(--uzd-prognoza-plocica); stroke: #fff; stroke-width: 1; stroke-opacity: 0.85; }
+.uzd-klizac-brojevi.mjereno .uzd-klizac-broj rect { fill: var(--uzd-mjereno-plocica); }
+.uzd-klizac-broj text { font-size: 12px; font-weight: 700; fill: #fff; font-variant-numeric: tabular-nums; }
 .uzd-gumbi { position: absolute; top: 0.5rem; right: 0.5rem; z-index: 4; display: flex; gap: 0.25rem; }
 .uzd-gumb { width: 32px; height: 32px; padding: 5px; border: 1px solid var(--border); border-radius: 6px;
   background: var(--surface); color: var(--text); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
@@ -4422,17 +4431,35 @@ body.uzd-puni-zaslon-otvoren { overflow: hidden; }
 .uzd-prag.emerg { stroke: var(--faza-i-crta); }
 .uzd-tocka { fill: var(--primary); }
 .uzd-natpis { font-size: 12.5px; font-weight: 600; fill: var(--text); }
+.uzd-zemlja { font-size: 10px; font-weight: 600; fill: var(--text-muted); letter-spacing: 0.04em; }
 .uzd-kota { font-size: 11px; fill: var(--text-muted); font-variant-numeric: tabular-nums; }
-/* Današnje stanje je vodoravna crta na nuli: mjera prema kojoj se sve ostalo
-   čita, pa je puna i u glavnoj boji. */
-.uzd-nula { stroke: var(--primary); stroke-width: 2; }
+/* Nula je voda zadnjih 30 dana, tanka puna crta; uobičajena voda deset godina
+   crtkana, srednji vodostaj točkast, obje sive; jutarnje stanje
+   je puna ljubičasta crta — mjera prema kojoj se cijeli dan čita. Klizač je
+   plav dok pokazuje mjereno, a zelen kad prijeđe u prognozu. */
+:root { --uzd-jutro: #7a3db8; --uzd-mjereno: #1d68c9; --uzd-prognoza: #1e8f4e;
+  --uzd-mjereno-plocica: #1a5fb8; --uzd-prognoza-plocica: #17773f; --uzd-srednjak: #6b7280; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --uzd-jutro: #b98ceb; --uzd-mjereno: #6ea8f2; --uzd-prognoza: #52c98a; --uzd-srednjak: #9ca3af; }
+}
+:root[data-theme="dark"] { --uzd-jutro: #b98ceb; --uzd-mjereno: #6ea8f2; --uzd-prognoza: #52c98a; --uzd-srednjak: #9ca3af; }
+.uzd-nula-napomena { font-size: 12px; font-weight: 600; fill: var(--text-muted); }
+.uzd-dugi { fill: none; stroke: var(--uzd-srednjak); stroke-width: 1.5; stroke-dasharray: 8 4; }
+.uzd-srednjak { fill: none; stroke: var(--uzd-srednjak); stroke-width: 1.5; stroke-dasharray: 1.5 4; stroke-linecap: round; }
+.uzd-nula { stroke: var(--text-muted); stroke-width: 1.25; }
+.uzd-jutro { fill: none; stroke: var(--uzd-jutro); stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
 .uzd-osnaziv { font-size: 11px; fill: var(--text-muted); }
 .uzd-znak { display: inline-block; width: 1.1rem; height: 0; vertical-align: middle;
   margin-right: 0.15rem; border-top-width: 2.5px; border-top-style: solid; }
-.uzd-znak.sad { border-color: var(--primary); }
+.uzd-znak.jutro { border-color: var(--uzd-jutro); border-top-width: 3px; }
+.uzd-znak.mjereno { border-color: var(--uzd-mjereno); border-top-width: 3px; }
+.uzd-znak.prognoza { border-color: var(--uzd-prognoza); border-top-width: 3px; }
+.uzd-znak.srednjak { border-color: var(--uzd-srednjak); border-top-width: 2px; border-top-style: dotted; }
+.uzd-znak.nula { border-color: var(--text-muted); border-top-width: 1.5px; }
+.uzd-znak.uobicajeno { border-color: var(--uzd-srednjak); border-top-width: 1.5px; border-top-style: dashed; }
 .uzd-znak.h1 { border-color: var(--prog-h1); } .uzd-znak.h2 { border-color: var(--prog-h2); } .uzd-znak.h3 { border-color: var(--prog-h3); }
-.uzd-znak.h4 { border-color: var(--prog-h4); } .uzd-znak.h5 { border-color: var(--prog-h5); border-top-style: dashed; }
-.uzd-znak.h6 { border-color: var(--prog-h6); border-top-style: dashed; }
+.uzd-znak.h4 { border-color: var(--prog-h4); } .uzd-znak.h5 { border-color: var(--prog-h5); } .uzd-znak.h6 { border-color: var(--prog-h6); }
+.uzd-znak.h7 { border-color: var(--prog-h7); border-top-style: dashed; } .uzd-znak.h8 { border-color: var(--prog-h8); border-top-style: dashed; }
 .uzd-znak.prep { border-color: var(--faza-p-crta); border-top-style: dashed; }
 .uzd-znak.regular { border-color: var(--faza-r-crta); border-top-style: dashed; }
 .uzd-znak.emerg { border-color: var(--faza-i-crta); border-top-style: dashed; }

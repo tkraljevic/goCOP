@@ -40,7 +40,12 @@
   {{range $i, $p := .Profili}}
   <div id="profil-{{$p.Oznaka}}" class="kartica uzd-profil" role="tabpanel" data-ime="{{$p.Ime}}"{{if ne $i 0}} hidden{{end}}>
     <div class="uzd-legenda" role="group" aria-label="Dosezi prognoze">
-      <span class="uzd-legenda-stavka"><span class="uzd-znak sad"></span> sad</span>
+      <span class="uzd-legenda-stavka"><span class="uzd-znak jutro"></span> {{$p.JutroOpis}}</span>
+      <span class="uzd-legenda-stavka" title="Medijan vode zadnjih 30 dana: nula crteža"><span class="uzd-znak nula"></span> voda zadnjih 30 dana</span>
+      <span class="uzd-legenda-stavka" title="Medijan dnevnih vodostaja zadnjih deset godina"><span class="uzd-znak uobicajeno"></span> uobičajena voda (10 g.)</span>
+      <span class="uzd-legenda-stavka" title="Srednji vodostaj (SV) zadnjih deset godina"><span class="uzd-znak srednjak"></span> srednji vodostaj</span>
+      <span class="uzd-legenda-stavka" title="Crta klizača dok pokazuje mjerenja"><span class="uzd-znak mjereno"></span> klizač: mjereno</span>
+      <span class="uzd-legenda-stavka" title="Crta klizača kad prijeđe u prognozu"><span class="uzd-znak prognoza"></span> klizač: prognoza</span>
       {{range $p.Crte}}
       <button type="button" class="uzd-legenda-stavka uzd-legenda-gumb" data-doseg="{{.Doseg}}"
               title="Pokaži raspon prognoze za ovaj doseg"><span class="uzd-znak {{.Class}}"></span> {{.Naziv}}</button>
@@ -65,11 +70,19 @@
              aria-label="Sat prema izdanju prognoze">
       <span class="uzd-klizac-natpis">sad</span>
     </div>
-    <p class="graf-natpis">{{$p.Pad}}. Okomita os je promjena u centimetrima prema današnjem stanju, a ne kota:
-      u kotama se val ne bi vidio. Kota i vodostaj svake letve pišu iznad nje, a boja točke je faza obrane.
-      Klizač pomiče vrijeme: lijevo od „sad” su mjerenja, desno prognoza — crta putuje nizvodno kako
-      val putuje. Klik na doseg u legendi pokazuje njegov raspon. Pragovi obrane ulaze u sliku tek kad se
-      voda približi.</p>
+    <p class="graf-natpis">{{$p.Pad}}. Okomita os je vodostaj u centimetrima iznad ili ispod vode zadnjih
+      30 dana na svakoj letvi (medijan), a ne kota: u kotama se val ne bi vidio. Prema zadnjem mjesecu mirna
+      voda je ravna crta, a val brijeg; prema dugogodišnjem prosjeku svaka bi letva na maloj vodi stajala na
+      svojoj stepenici i izgledalo bi kao da svaka ima val. Uobičajena voda zadnjih deset godina (medijan,
+      crtkano) i srednji vodostaj (točkasto) ucrtani su kad su blizu; inače u kutu piše da su iznad ili ispod.
+      Puna ljubičasta crta je jutarnje stanje u 7 h i stoji cijeli dan; dok jutarnjeg očitanja nema, stoji najnovije
+      od 4 h, a letva bez ijednog čeka svoje. Brijeg na njoj je val kakav je jutros, a crte prognoze pokazuju
+      kamo ide. Iznad svake letve piše jutarnji vodostaj u centimetrima; boja točke
+      je faza obrane. Klizač pomiče vrijeme: lijevo od „sad” su mjerenja (plava crta), desno prognoza (zelena), a
+      broj uz točku je promjena od jutra. Peti i šesti dan daje dnevni model, koji nema svaku letvu, pa
+      se njegove crte prekidaju ondje gdje vrijednosti nema. Letve su poredane redom niz tok, ali
+      razmak među njima nije u mjerilu: gusto posađene naše letve dobiju mjesta za natpis. Klik na doseg u legendi pokazuje njegov raspon. Pragovi obrane ulaze u sliku tek kad
+      se voda približi.</p>
   </div>
   {{end}}
 </section>
@@ -172,6 +185,7 @@
     if (!niz || !niz.sati || !niz.sati.length) { return; }
     var crta = svg.querySelector('.uzd-klizac-crta');
     var tocke = svg.querySelector('.uzd-klizac-tocke');
+    var brojevi = svg.querySelector('.uzd-klizac-brojevi');
     var raspon = panel.querySelector('.uzd-klizac-raspon');
     var natpis = panel.querySelector('.uzd-klizac-natpis');
     var igraj = panel.querySelector('.uzd-klizac-igraj');
@@ -207,10 +221,12 @@
     }
     function nacrtaj(h) {
       var i = niz.sati.indexOf(h);
-      // Letva bez vrijednosti u tom satu se preskače, susjedi se spoje.
+      // Letva bez vrijednosti u tom satu se preskače, susjedi se spoje — osim
+      // iza satnog lanca, gdje dnevni model ima samo dio letvi: ondje se crta
+      // prekida, da ravan potez preko letvi bez prognoze ne izgleda kao val.
       // Bez barem dvije prave letve nema ničega — ni crte, ni točke ušća,
       // ni usamljene točke jedne letve: jedna točka ne kaže kamo val ide.
-      var tekuci = [], krugovi = '', pravih = 0;
+      var dijelovi = [[]], krugovi = '', natpisi = '', pravih = 0, prekidaj = niz.prekidOd && h > niz.prekidOd;
       niz.v.forEach(function (red, k) {
         var v = i >= 0 ? red[i] : null;
         if (v === null || v === undefined) { return; }
@@ -218,23 +234,32 @@
       });
       niz.v.forEach(function (red, k) {
         var v = i >= 0 ? red[i] : null;
+        var prava = !(niz.usce && niz.usce[k]) && !(niz.akum && niz.akum[k]);
+        if ((v === null || v === undefined) && prekidaj && prava && dijelovi[dijelovi.length - 1].length) { dijelovi.push([]); }
         if (v === null || v === undefined || pravih < 2) { return; }
         var px = niz.x[k], py = y(v);
+        if (niz.akum && niz.akum[k] && niz.dno) { py = Math.max(niz.vrh, Math.min(niz.dno, py)); }
         // Razina akumulacije: točka se diže i spušta s klizačem, ali u
         // krivulju vala ne ulazi — to je bazen uz branu, ne rijeka.
-        if (!(niz.akum && niz.akum[k])) { tekuci.push([px, py]); }
-        var broj = Math.round(v), predznak = broj > 0 ? '+' : (broj < 0 ? '−' : '±');
-        krugovi += '<circle cx="' + px.toFixed(1) + '" cy="' + py.toFixed(1) + '" r="4.5"><title>' + niz.letve[k] + ': ' + (v > 0 ? '+' : '') + broj + ' cm</title></circle>';
-        // Uz svaku točku piše koliko se od sadašnjeg vodostaja diglo ili spustilo;
-        // pri „sad” su sve nule, pa se brojevi ne pišu.
-        if (h !== 0) {
-          krugovi += '<text class="uzd-klizac-broj" x="' + px.toFixed(1) + '" y="' + (py - 9).toFixed(1) + '" text-anchor="middle">' + predznak + Math.abs(broj) + '</text>';
-        }
+        if (!(niz.akum && niz.akum[k])) { dijelovi[dijelovi.length - 1].push([px, py]); }
+        // Uz svaku točku piše koliko se od jutra diglo ili spustilo.
+        var cm = niz.uob[k] + v, broj = Math.round(cm - niz.jutro[k]);
+        var predznak = broj > 0 ? '+' : (broj < 0 ? '−' : '±');
+        krugovi += '<circle cx="' + px.toFixed(1) + '" cy="' + py.toFixed(1) + '" r="4.5"><title>' + niz.letve[k] + ': ' + Math.round(cm) + ' cm, ' + predznak + Math.abs(broj) + ' od jutra</title></circle>';
+        // Broj u pločici boje klizača, bijelim slovima: vidi se na svijetloj i
+        // tamnoj podlozi i preko svake crte. Kad nema mjesta iznad, ide ispod.
+        var tekst = predznak + Math.abs(broj), sir = 8 + tekst.length * 7.4, vis = 17;
+        var gore = py - 10 - vis > 4, ty = gore ? py - 10 - vis : py + 10;
+        natpisi += '<g class="uzd-klizac-broj"><rect x="' + (px - sir / 2).toFixed(1) + '" y="' + ty.toFixed(1) + '" width="' + sir.toFixed(1) + '" height="' + vis + '" rx="8.5"/>' +
+          '<text x="' + px.toFixed(1) + '" y="' + (ty + vis / 2).toFixed(1) + '" text-anchor="middle" dominant-baseline="central">' + tekst + '</text></g>';
       });
-      crta.setAttribute('d', pravih >= 2 ? krivulja(tekuci) : '');
-      crta.classList.toggle('mjereno', h < 0);
+      crta.setAttribute('d', pravih >= 2 ? dijelovi.filter(function (d) { return d.length > 1; }).map(krivulja).join(' ') : '');
+      crta.classList.toggle('mjereno', h <= 0);
+      tocke.classList.toggle('mjereno', h <= 0);
       tocke.innerHTML = krugovi;
-      svg.classList.toggle('uzd-klizac-aktivan', h !== 0);
+      brojevi.innerHTML = natpisi;
+      brojevi.classList.toggle('mjereno', h <= 0);
+      svg.classList.toggle('uzd-klizac-aktivan', true);
       natpis.textContent = opisSata(h);
       // Kad klizač stigne na sat ucrtanog dosega, ta crta i njezin raspon
       // zabljesnu: pokretna crta legne točno na njih, i to se vidi.
@@ -343,13 +368,20 @@
       var naj = -1, najD = Infinity;
       niz.x.forEach(function (x, k) { var d = Math.abs(x - mx); if (d < najD) { najD = d; naj = k; } });
       if (naj < 0 || najD > 120) { oblacic.hidden = true; return; }
-      var redci = ['<strong>' + niz.letve[naj] + '</strong> · sad ' + Math.round(niz.sada[naj]) + ' cm'];
+      var jutro = niz.jutro[naj], uob = niz.uob[naj];
+      var odJutra = function (cm) { var b = Math.round(cm - jutro); return (b > 0 ? '+' : (b < 0 ? '−' : '±')) + Math.abs(b) + ' od jutra'; };
+      var redci = ['<strong>' + niz.letve[naj] + '</strong> · zadnjih 30 dana ' + Math.round(uob) + ' cm',
+        (niz.dugi && niz.dugi[naj] ? 'uobičajeno (10 g.) ' + Math.round(niz.dugi[naj]) + ' cm' : '') + (niz.sv && niz.sv[naj] ? ' · SV ' + Math.round(niz.sv[naj]) + ' cm' : ''),
+        '<span class="uzd-znak jutro"></span> jutro ' + Math.round(jutro) + ' cm'];
+      if (niz.sada[naj] !== null && niz.sada[naj] !== undefined) {
+        redci.push('sad ' + Math.round(niz.sada[naj]) + ' cm · ' + odJutra(niz.sada[naj]));
+      }
       dosezi.forEach(function (d, j) {
         var i = niz.sati.indexOf(d); var v = i >= 0 ? niz.v[naj][i] : null;
         if (v === null || v === undefined) { return; }
-        redci.push('<span class="uzd-znak ' + crte[j].classList[1] + '"></span> ' + (d > 96 ? 'za ' + (d / 24) + ' d' : 'za ' + d + ' h') + ': ' + (v > 0 ? '+' : '') + Math.round(v) + ' cm → ' + Math.round(niz.sada[naj] + v) + ' cm');
+        redci.push('<span class="uzd-znak ' + crte[j].classList[1] + '"></span> ' + (d > 96 ? 'za ' + (d / 24) + ' d' : 'za ' + d + ' h') + ': ' + Math.round(uob + v) + ' cm · ' + odJutra(uob + v));
       });
-      oblacic.innerHTML = redci.join('<br>');
+      oblacic.innerHTML = redci.filter(Boolean).join('<br>');
       oblacic.hidden = false;
       var lijevo = (niz.x[naj] / svg.viewBox.baseVal.width) * okvir.width;
       oblacic.style.left = Math.min(lijevo + 12, okvir.width - oblacic.offsetWidth - 8) + 'px';

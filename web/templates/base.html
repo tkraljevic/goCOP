@@ -321,10 +321,10 @@
 </svg>
 {{end}}
 
-{{/* Uzdužni profil — prima UzduzniProfil. Promjena vodostaja uzduž toka
-     prema današnjem stanju: crta po dosegu, od najsvjetlije (sutra) do
-     najtamnije (šesti dan), pojas raspona za odabrani doseg, i klizač vremena
-     kojem skripta crta jednu crtu po satu. */}}
+{{/* Uzdužni profil — prima UzduzniProfil. Vodostaj uzduž toka prema
+     uobičajenoj vodi svake letve: jutarnja crta (7 h, stoji cijeli dan), crta
+     po dosegu od najsvjetlije (za 6 h) do najtamnije (šesti dan), pojas raspona
+     za odabrani doseg, i klizač vremena kojem skripta crta jednu crtu po satu. */}}
 {{define "uzduzniProfil"}}
 <svg viewBox="0 0 {{.Width}} {{.Height}}" role="img" aria-label="{{.Opis}}" class="uzd-svg"
      data-niz='{{.Niz}}' data-nula-y="{{printf "%.1f" .NulaY}}">
@@ -339,12 +339,22 @@
   <path class="uzd-prag {{.Class}}" d="{{.Put}}"/>
   {{end}}
   {{range $i, $c := .Crte}}{{if .Pojas}}<path class="uzd-pojas {{.Class}}{{if eq $i 0}} uzd-aktivna{{end}}" data-doseg="{{.Doseg}}" d="{{.Pojas}}"/>{{end}}{{end}}
-  {{/* Današnje stanje: crta na nuli, mjera prema kojoj se sve ostalo čita. */}}
+  {{/* Uobičajena voda: crta na nuli, mjera prema kojoj se sve ostalo čita. */}}
+  {{if .NulaUSlici}}
   <line class="uzd-nula" x1="{{printf "%.1f" .LijevoX}}" x2="{{printf "%.1f" .DesnoX}}"
         y1="{{printf "%.1f" .NulaY}}" y2="{{printf "%.1f" .NulaY}}"/>
+  <text class="uzd-osnaziv" x="{{printf "%.1f" .DesnoX}}" y="{{printf "%.1f" .NulaY}}" dy="-5" text-anchor="end">voda zadnjih 30 dana (medijan)</text>
+  {{end}}
+  {{if .DugiPut}}<path class="uzd-dugi" d="{{.DugiPut}}"/>{{end}}
+  {{if .SrednjakPut}}<path class="uzd-srednjak" d="{{.SrednjakPut}}"/>{{end}}
+  {{if .NulaNapomena}}
+  <text class="uzd-nula-napomena" x="{{printf "%.1f" .LijevoX}}" dx="8" y="{{if .NapomenaIspod}}{{printf "%.1f" .DnoY}}{{else}}{{printf "%.1f" .Vrh}}{{end}}"
+        dy="{{if .NapomenaIspod}}-6{{else}}14{{end}}" text-anchor="start">{{.NulaNapomena}}</text>
+  {{end}}
   {{range .Crte}}
   <path class="uzd-crta {{.Class}}" data-doseg="{{.Doseg}}" d="{{.Put}}"/>
   {{end}}
+  {{if .JutroPut}}<path class="uzd-jutro" d="{{.JutroPut}}"/>{{end}}
   <path class="uzd-klizac-crta" d=""/>
   <g class="uzd-klizac-tocke"></g>
   {{range .Tocke}}
@@ -352,14 +362,14 @@
         y1="{{printf "%.1f" $.Vrh}}" y2="{{printf "%.1f" $.DnoY}}"/>
   <circle class="uzd-tocka{{if .Razina}} stanje-{{.Razina}}{{end}}" cx="{{printf "%.1f" .X}}" cy="{{printf "%.1f" .Y}}" r="5"/>
   <text class="uzd-natpis" x="{{printf "%.1f" .X}}" y="{{printf "%.1f" $.Vrh}}" dy="{{if .Dolje}}-12{{else}}-40{{end}}"
-        text-anchor="{{.Sidro}}">{{.Naziv}}</text>
+        text-anchor="{{.Sidro}}">{{.Naziv}}{{if .Zemlja}} <tspan class="uzd-zemlja">{{.Zemlja}}</tspan>{{end}}</text>
   <text class="uzd-kota" x="{{printf "%.1f" .X}}" y="{{printf "%.1f" $.Vrh}}" dy="{{if .Dolje}}1{{else}}-27{{end}}"
-        text-anchor="{{.Sidro}}">{{.Kota}} m{{if .Cm}} · {{.Cm}} cm{{else}} n. m.{{end}}</text>
+        text-anchor="{{.Sidro}}">{{if .Cm}}{{.Cm}} cm{{if .Kota}} ({{.Kota}} m){{end}}{{else}}{{.Kota}} m n. m.{{end}}</text>
   {{end}}
   {{range .Usca}}
   <line class="uzd-usce-crta" x1="{{printf "%.1f" .X}}" x2="{{printf "%.1f" .X}}"
-        y1="{{printf "%.1f" $.NulaY}}" y2="{{printf "%.1f" $.DnoY}}"/>
-  <path class="uzd-usce" d="M{{printf "%.1f" .X}} {{printf "%.1f" $.NulaY}} m0 -7 l-6 -10 h12 z"/>
+        y1="{{printf "%.1f" $.UsceY}}" y2="{{printf "%.1f" $.DnoY}}"/>
+  <path class="uzd-usce" d="M{{printf "%.1f" .X}} {{printf "%.1f" $.UsceY}} m0 -7 l-6 -10 h12 z"/>
   <text class="uzd-usce-natpis" x="{{printf "%.1f" .X}}" y="{{printf "%.1f" $.DnoY}}" dy="{{if .Dolje}}29{{else}}15{{end}}"
         text-anchor="{{.Sidro}}">{{.Naziv}}{{if .Tekst}} · {{.Tekst}}{{end}}</text>
   {{end}}
@@ -370,11 +380,13 @@
         text-anchor="{{.Sidro}}">{{.Naziv}}</text>
   {{end}}
   <text class="uzd-osnaziv" x="{{printf "%.1f" .LijevoX}}" y="{{printf "%.1f" .DnoY}}"
-        dy="44">riječni kilometar · nizvodno je desno →</text>
+        dy="44">riječni kilometar · nizvodno je desno → · razmak letvi nije u mjerilu</text>
   {{range .XTicks}}
   <text class="tick" x="{{printf "%.1f" .Pos}}" y="{{printf "%.1f" $.OsX}}"
         text-anchor="{{.Anchor}}">{{.Label}}</text>
   {{end}}
+  {{/* Brojevi klizača (promjena od jutra) idu zadnji, iznad svega. */}}
+  <g class="uzd-klizac-brojevi"></g>
 </svg>
 {{end}}
 

@@ -127,8 +127,10 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"mađarska, RS srpska, AT austrijska. Termin obojen bojom faze obrane doseže prag, obrubljen ga " +
 				"doseže tek gornjom granicom raspona."),
 			tekstM("Kartica postaje na vrhu lanca kaže odakle joj budućnost: iz modela ispuštanja elektrane, iz " +
-				"našeg dnevnog modela ili iz tuđe prognoze s navedenim izvorom. Uzdužni profil crta promjenu prema " +
-				"danas uzduž toka; klizač pomiče vrijeme, brane su okomite crte, a razine akumulacija točke uz njih."),
+				"našeg dnevnog modela ili iz tuđe prognoze s navedenim izvorom. Uzdužni profil crta vodostaj uzduž toka " +
+				"prema uobičajenoj vodi svake letve: jutarnja crta (7 h) stoji cijeli dan, a crte prognoze pokazuju kamo " +
+				"val ide; klizač pomiče vrijeme i uz točku piše promjenu od jutra, brane su okomite crte, a razine " +
+				"akumulacija točke uz njih."),
 			tekstM("Prognozi vrijedi vjerovati manje:"),
 			popisM(
 				"na Dravi od trećeg dana pri velikom valu, jer ga model podcjenjuje — gledati gornju granicu raspona;",
@@ -388,6 +390,31 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"dvostruko širi. Mađarska hidrološka služba uz svoju prognozu navodi isti udio (70 %%), pa "+
 				"naš i njihov raspon znače isto i izravno su usporedivi.", udio, 100-udio)),
 		}},
+		{"Uzdužni profil — nula crteža", []OdlomakMetode{
+			tekstM("Profil ne crta kote nego koliko je voda iznad ili ispod vode zadnjih 30 dana na svakoj letvi: " +
+				"medijana satnih vodostaja mjeseca prije današnjeg jutra (iz arhive i očitanja). Nula stoji cijeli dan, " +
+				"kao i jutarnja crta. Prema zadnjem mjesecu mirna voda je ravna crta, a val se vidi kao brijeg koji " +
+				"putuje nizvodno."),
+			tekstM("Zašto ne dugogodišnja uobičajena voda: na maloj vodi svaka letva padne ispod svojeg višegodišnjeg " +
+				"medijana za drukčiji iznos, jer je korito posvuda drukčije — prag drži vodu uzvodno od sebe, usko " +
+				"korito spušta vodostaj više od širokog, a dno se na dijelu Dunava godinama snižava. Razlika Mohovo − " +
+				"Ilok, na primjer, iznosi oko 80 cm pri srednjoj vodi, a oko 100 cm pri najmanjoj. Prema dugogodišnjem " +
+				"medijanu svaka bi letva stajala na svojoj stepenici i mirna bi voda izgledala kao niz valova."),
+			tekstM("Uobičajena voda zadnjih deset punih godina (sada 2016.–2025.) i dalje je na crtežu, crtkano, kad " +
+				"je blizu: medijan dnevnih vodostaja, vodostaj koji je polovicu dana bio premašen, a polovicu nije. " +
+				"Uz nju je točkasto srednji vodostaj (SV), aritmetička sredina istih dana. Srednjak je na svakoj letvi " +
+				"viši od medijana, jer ga rijetki veliki valovi dižu: nekoliko tjedana visoke vode povuče ga gore, a " +
+				"medijan se na njih jedva pomakne. Kad su te crte daleko od vode (pri maloj vodi dva metra iznad), " +
+				"ostaju izvan crteža, da val dobije cijelu visinu, a u kutu piše da su iznad ili ispod."),
+			tablicaM("Medijan i srednjak dnevnih vodostaja 2016.–2025.", []string{"letva", "medijan (cm)", "srednjak SV (cm)"},
+				[]string{"Budapest", "207", "225"}, []string{"Mohács", "265", "292"}, []string{"Batina", "132", "158"},
+				[]string{"Vukovar", "152", "173"}, []string{"Ilok", "182", "199"}, []string{"Botovo", "92", "110"},
+				[]string{"Donji Miholjac", "6", "28"}, []string{"Osijek", "−15", "4"}),
+			tekstM("Jutarnje stanje je očitanje najbliže 7 h; dok ga nema, stoji najnovije od 4 h, a letva bez " +
+				"ijednog čeka svoje. Jutro stoji cijeli dan, a klizač uz svaku točku piše promjenu od jutra. " +
+				"Letve su poredane niz tok, ali razmak među njima nije u mjerilu. Pad vodnog lica računa se u " +
+				"Trstu; mađarske kote (baltički sustav, mBf) preračunate su dodavanjem 0,675 m."),
+		}},
 		{"Provjera i usporedbe", []OdlomakMetode{
 			tekstM("Svaki dio modela provjeren je na podacima koje pri učenju nije vidio. Dnevni model učen je do " +
 				"2012. i mjeren na valovima 2012.–2024., a s kišom do 2023. i mjeren na 2024.–2026. s tada izdanim " +
@@ -423,6 +450,7 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 		}},
 		{"Što je novo", []OdlomakMetode{
 			popisM(
+				"27. 9. 2026. — satni lanac dijeli ispravak na stalni dio (medijan pogreške 72 h, kad je skladna i letva ne raste) i prolazni koji blijedi; model ispuštanja pri običnoj vodi drži dnevni srednjak uz dotok; uzdužni profil prema vodi zadnjih 30 dana, s uobičajenom vodom deset godina i srednjim vodostajem, jutarnjom crtom u 7 h, crtama za 6 i 12 h, jednim profilom po rijeci u Trstu i razmakom letvi koji nije u mjerilu.",
 				"26. 9. 2026. — model ispuštanja HE Dubrava, Čakovec i Varaždin na vrhu lanca; razine akumulacija na pregledu i profilu; Komárom po mađarskoj prognozi dok je svježa, inače lanac iz Austrije; Osijek s dunavskim ulazima; dnevni model ¾ regresije; Varaždin kao karika; uzdužni profil s branama, punim zaslonom i ispisom, mađarski profili Dunava i Drave.",
 				"25. 9. 2026. — austrijska prognoza Wildungsmauera (noel.gv.at) i karike Nagybajcs, Komárom; kiša po međuslivovima Drave, Dunava i Mure u dnevnom modelu; Goričan kao vrh lanca Botova; Mura sa svojom dnevnom prognozom; Angern na Moravi.",
 				"23. 9. 2026. — istjecanje elektrana s mletva.voda.hr uživo; mađarska prognoza kao vrh Letenyea i Komároma; raspon 70 %.",
