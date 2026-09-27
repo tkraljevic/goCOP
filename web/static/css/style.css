@@ -3909,32 +3909,400 @@ body.karta-puni-zaslon-otvoren { overflow: hidden; }
 .mts-stanje tr.mts-oblici td { padding-top: 0; font-size: 0.82rem; color: var(--text-muted, #667); border-top: 0; }
 .mts-stanje tr.mts-oblici .btn-sm { margin-left: 0.4rem; padding: 0.05rem 0.45rem; font-size: 0.75rem; }
 
-/* Naslovna: traka stanja, prečaci, zid događanja */
-.stanje-traka { display: grid; grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); gap: 0.75rem; margin: 1rem 0; }
-.stanje-kartica { border: 1px solid var(--border, #d9dee5); border-left: 4px solid var(--border, #d9dee5); border-radius: 10px; padding: 0.75rem 1rem; background: var(--surface, #fff); display: flex; flex-direction: column; gap: 0.35rem; }
-.stanje-kartica.zivo { border-left-color: var(--danger, #b3261e); }
-.stanje-glava { font-size: 1rem; display: flex; align-items: center; gap: 0.4rem; }
-.stanje-redak { font-size: 0.88rem; display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; }
-.precaci { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.5rem 0 1rem; }
-.zid-cipovi { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.75rem; }
-.zid { display: flex; flex-direction: column; gap: 0.35rem; }
-.zid-dan { font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted, #667); margin: 0.9rem 0 0.25rem; }
-.zid-redak { display: grid; grid-template-columns: 2rem 1fr; gap: 0.6rem; padding: 0.5rem 0.75rem; border: 1px solid var(--border, #e3e7ec); border-radius: 8px; background: var(--surface, #fff); }
-.zid-redak.vazno { border-left: 4px solid var(--danger, #b3261e); }
-.zid-ikona { display: flex; align-items: flex-start; justify-content: center; padding-top: 0.15rem; color: var(--primary, #173e74); }
-.zid-glava { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
-.zid-vrijeme { color: var(--text-muted, #667); font-size: 0.82rem; }
-.zid-tekst { font-size: 0.9rem; margin-top: 0.15rem; white-space: pre-line; }
+/* ── Naslovna: Operativni moduli (Glavni alati) ──────────────────────── */
+.moduli-red {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.75rem;
+  margin: 1.25rem 0 1.5rem;
+}
 
-/* Naslovna: moduli u jednom redu */
-.moduli-red { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 1rem 0 0.5rem; }
-.modul-gumb { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.9rem 0.5rem 0.5rem; border: 1px solid var(--border, #d9dee5); border-radius: 10px; background: var(--surface, #fff); color: var(--text, #1c2733); font-weight: 600; text-decoration: none; }
-.modul-gumb:hover { border-color: var(--primary, #173e74); }
-.modul-ikona { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; border-radius: 8px; background: var(--surface-2, #f3f5f8); color: var(--primary, #173e74); }
-.modul-ikona.success { color: var(--success, #1b7f3b); }
-.modul-ikona.warning { color: #b4650b; }
-.modul-ikona.danger { color: var(--danger, #b3261e); }
-.modul-ikona.info { color: #0b6e99; }
+.modul-gumb {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.75rem 0.95rem;
+  border: 1px solid var(--border, #d9dee5);
+  border-radius: 14px;
+  background: var(--surface, #fff);
+  color: var(--text, #1c2733);
+  font-weight: 600;
+  font-size: 0.92rem;
+  text-decoration: none;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.03);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.modul-gumb:hover {
+  transform: translateY(-2px);
+  border-color: #3b82f6;
+  color: #2563eb;
+  box-shadow: 0 8px 18px -4px rgba(37, 99, 235, 0.12);
+}
+
+.modul-ikona {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 10px;
+  background: var(--surface-2, #f1f5f9);
+  color: var(--primary, #173e74);
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.modul-gumb:hover .modul-ikona {
+  transform: scale(1.08);
+}
+
+.modul-ikona.success { color: #16a34a; background: #dcfce7; }
+.modul-ikona.warning { color: #d97706; background: #fef3c7; }
+.modul-ikona.danger  { color: #dc2626; background: #fee2e2; }
+.modul-ikona.info    { color: #0284c7; background: #e0f2fe; }
+.modul-ikona.primary { color: #2563eb; background: #eff6ff; }
+.modul-ikona.secondary { color: #475569; background: #f1f5f9; }
+
+/* ── Naslovna: Sektori obrane od poplava (Stanja A–F) ───────────────── */
+@keyframes crveniPuls {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 5px rgba(239, 68, 68, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+.stanje-sekcija {
+  margin: 2rem 0;
+}
+
+.stanje-sekcija-zaglavlje {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.15rem;
+}
+
+.stanje-zaglavlje-lijevo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.stanje-sekcija-zaglavlje .section-title {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.stanje-traka {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr));
+  gap: 1rem;
+}
+
+.stanje-kartica {
+  background: var(--surface, #ffffff);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 16px;
+  padding: 1.15rem 1.25rem;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.stanje-kartica:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px -4px rgba(23, 62, 116, 0.08);
+  border-color: #cbd5e1;
+}
+
+.stanje-kartica.zivo {
+  border-left: 4px solid #ef4444;
+  background: linear-gradient(145deg, #ffffff 0%, #fffcfc 100%);
+  box-shadow: 0 4px 16px -2px rgba(239, 68, 68, 0.08);
+}
+
+.stanje-glava {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid var(--border, #f1f5f9);
+}
+
+.stanje-sektor-naziv {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+  color: var(--text-strong, #0f172a);
+}
+
+.stanje-sektor-ikona {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: #e0f2fe;
+  color: #0284c7;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.stanje-sektor-ikona .icon {
+  width: 15px;
+  height: 15px;
+}
+
+.stanje-kartica.zivo .stanje-sektor-ikona {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+.stanje-centar-tag {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #64748b;
+  background: #f1f5f9;
+  padding: 0.15rem 0.5rem;
+  border-radius: 6px;
+}
+
+.stanje-badge-mirna {
+  background: #f0fdf4 !important;
+  color: #15803d !important;
+  border: 1px solid #bbf7d0 !important;
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.04em !important;
+  padding: 0.25rem 0.65rem !important;
+  border-radius: 9999px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.35rem !important;
+}
+
+.stanje-tocka-zelena {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #16a34a;
+}
+
+.stanje-badge-aktivna {
+  background: #fef2f2 !important;
+  color: #b91c1c !important;
+  border: 1px solid #fecaca !important;
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.04em !important;
+  padding: 0.25rem 0.65rem !important;
+  border-radius: 9999px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.35rem !important;
+}
+
+.stanje-puls-crveni {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ef4444;
+  box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+  animation: crveniPuls 1.8s infinite;
+}
+
+.stanje-tijelo {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.stanje-mirno-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  background: #f8fafc;
+  border: 1px solid #f1f5f9;
+  border-radius: 10px;
+  padding: 0.65rem 0.8rem;
+  margin-top: 0.25rem;
+}
+
+.stanje-mirno-kvacica {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #22c55e;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.stanje-mirno-kvacica .icon {
+  width: 12px;
+  height: 12px;
+}
+
+.stanje-mirno-wrap .stanje-redak {
+  font-size: 0.82rem;
+  color: #64748b;
+  margin: 0;
+}
+
+.stanje-aktivno-redovi {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.stanje-redak {
+  font-size: 0.84rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  color: #334155;
+  line-height: 1.4;
+}
+
+.stanje-redak-ikona .icon {
+  width: 14px;
+  height: 14px;
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.stanje-dnevnik-link {
+  font-weight: 600;
+  color: #1d4ed8;
+  text-decoration: none;
+}
+
+.stanje-dnevnik-link:hover {
+  text-decoration: underline;
+}
+
+.stanje-sektorsko-da {
+  color: #15803d;
+  font-weight: 600;
+}
+
+.stanje-sektorsko-ne a {
+  color: #b45309;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.stanje-sektorsko-ne a:hover {
+  text-decoration: underline;
+}
+
+.stanje-link-pregled {
+  color: #2563eb;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.stanje-link-pregled:hover {
+  text-decoration: underline;
+}
+
+/* Tamna tema za stanje-kartice */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .stanje-kartica {
+    background: #182234;
+    border-color: #27354a;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  }
+  :root:not([data-theme="light"]) .stanje-kartica:hover {
+    border-color: #3b82f6;
+  }
+  :root:not([data-theme="light"]) .stanje-kartica.zivo {
+    background: linear-gradient(145deg, #1c1d2e 0%, #151828 100%);
+    border-left-color: #ef4444;
+  }
+  :root:not([data-theme="light"]) .stanje-sektor-naziv {
+    color: #f8fafc;
+  }
+  :root:not([data-theme="light"]) .stanje-centar-tag {
+    background: #1e2c42;
+    color: #cbd5e1;
+  }
+  :root:not([data-theme="light"]) .stanje-mirno-wrap {
+    background: #1e2c42;
+    border-color: #2b3d5b;
+  }
+  :root:not([data-theme="light"]) .stanje-redak {
+    color: #cbd5e1;
+  }
+  :root:not([data-theme="light"]) .stanje-glava {
+    border-bottom-color: #27354a;
+  }
+  :root:not([data-theme="light"]) .modul-gumb {
+    background: #182234;
+    border-color: #27354a;
+    color: #f8fafc;
+  }
+  :root:not([data-theme="light"]) .modul-gumb:hover {
+    border-color: #3b82f6;
+    color: #60a5fa;
+  }
+}
+
+[data-theme="dark"] .stanje-kartica {
+  background: #182234;
+  border-color: #27354a;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+[data-theme="dark"] .stanje-kartica:hover {
+  border-color: #3b82f6;
+}
+[data-theme="dark"] .stanje-kartica.zivo {
+  background: linear-gradient(145deg, #1c1d2e 0%, #151828 100%);
+  border-left-color: #ef4444;
+}
+[data-theme="dark"] .stanje-sektor-naziv {
+  color: #f8fafc;
+}
+[data-theme="dark"] .stanje-centar-tag {
+  background: #1e2c42;
+  color: #cbd5e1;
+}
+[data-theme="dark"] .stanje-mirno-wrap {
+  background: #1e2c42;
+  border-color: #2b3d5b;
+}
+[data-theme="dark"] .stanje-redak {
+  color: #cbd5e1;
+}
+[data-theme="dark"] .stanje-glava {
+  border-bottom-color: #27354a;
+}
+[data-theme="dark"] .modul-gumb {
+  background: #182234;
+  border-color: #27354a;
+  color: #f8fafc;
+}
+[data-theme="dark"] .modul-gumb:hover {
+  border-color: #3b82f6;
+  color: #60a5fa;
+}
 
 /* Profil: tablica zaduženja */
 .data-table.zaduzenja td { vertical-align: middle; }
@@ -4542,21 +4910,832 @@ body.uzd-puni-zaslon-otvoren { overflow: hidden; }
 .kis-oznaka { display: inline-block; min-width: 1.6em; padding: 0 0.35em; margin-right: 0.35em; border-radius: 4px; background: var(--primary, #0284c7); color: #fff; font-weight: 700; text-align: center; font-size: 0.85em; }
 .reg-card-neaktivna { opacity: 0.7; }
 
-/* Naslovna: vrijeme i vode za područje korisnika */
-.vrijeme-ploca { margin: 1.25rem 0; }
-.vrijeme-glava { display: flex; align-items: baseline; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.6rem; }
-.vrijeme-glava .section-title { margin: 0; }
-.vrijeme-glava .vrijeme-lokacija { margin-left: auto; }
-.vrijeme-stupci { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.75rem; }
-.vrijeme-kartica { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 0.75rem 0.9rem; font-size: 0.88rem; line-height: 1.45; }
-.vrijeme-kartica h3 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin: 0 0 0.35rem; }
-.vrijeme-upozorenje { margin-bottom: 0.45rem; }
-.vrijeme-razina { display: inline-block; border-radius: 6px; padding: 1px 7px; font-weight: 600; font-size: 0.8rem; color: #1f2937; }
+/* ── Naslovna: Vrijeme i vode — Landing Page Hero Showcase ─────────────
+   Moderan prikaz hidrometeorološkog stanja: mikromreža, kartice s ikonama,
+   hero temperatura, mjerenje oborina, hidrologija rijeka i DHMZ upozorenja. */
+@keyframes vrijemePuls {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+.vrijeme-ploca {
+  position: relative;
+  overflow: hidden;
+  margin: 1.5rem 0 2rem;
+  padding: 1.5rem 1.6rem;
+  background: linear-gradient(145deg, #ffffff 0%, #f8faff 45%, #eff6ff 100%);
+  border: 1px solid rgba(191, 219, 254, 0.7);
+  border-radius: 20px;
+  box-shadow: 0 16px 36px -6px rgba(15, 23, 42, 0.06), 0 4px 16px -2px rgba(15, 23, 42, 0.03);
+}
+
+.vrijeme-ploca::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #3b82f6 0%, #06b6d4 50%, #10b981 100%);
+}
+
+.vrijeme-glava {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+}
+
+.vrijeme-glava-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.vrijeme-znacka-uzivo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #0284c7;
+  background: #e0f2fe;
+  border: 1px solid #bae6fd;
+  padding: 0.2rem 0.65rem;
+  border-radius: 9999px;
+  width: fit-content;
+}
+
+.vrijeme-puls {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  animation: vrijemePuls 2s infinite ease-in-out;
+}
+
+.vrijeme-naslov-grupa {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.vrijeme-naslov-grupa .section-title {
+  font-size: 1.45rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #0f172a;
+  margin: 0;
+}
+
+.vrijeme-lokacija-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.88rem;
+  color: #64748b;
+}
+
+.vrijeme-lokacija-tag .icon {
+  width: 14px;
+  height: 14px;
+  color: #3b82f6;
+}
+
+.vrijeme-glava-akcije {
+  margin-left: auto;
+}
+
+.vrijeme-glava-akcije .vrijeme-lokacija {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.42rem 0.95rem;
+  border-radius: 9999px;
+  font-weight: 600;
+  font-size: 0.82rem;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+}
+
+.vrijeme-glava-akcije .vrijeme-lokacija:hover {
+  background: #f8fafc;
+  border-color: #3b82f6;
+  color: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.12);
+}
+
+.vrijeme-glava-akcije .vrijeme-lokacija .icon {
+  width: 14px;
+  height: 14px;
+}
+
+.vrijeme-stupci {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.vrijeme-kartica {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 1.15rem 1.25rem;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03);
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  position: relative;
+}
+
+.vrijeme-kartica-tijelo {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 0.35rem;
+}
+
+.vrijeme-kartica-bilten .vrijeme-kartica-tijelo {
+  max-height: 380px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+  padding-right: 4px;
+}
+
+.vrijeme-kartica:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px -4px rgba(23, 62, 116, 0.08);
+  border-color: #cbd5e1;
+}
+
+.vrijeme-kartica-glava {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 0.85rem;
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.vrijeme-ikona-okvir {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.vrijeme-ikona-okvir .icon {
+  width: 17px;
+  height: 17px;
+}
+
+.vrijeme-ikona-okvir.upozorenje-ikona {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.vrijeme-ikona-okvir.sada-ikona {
+  background: #e0f2fe;
+  color: #0284c7;
+}
+
+.vrijeme-ikona-okvir.kisa-ikona {
+  background: #e0e7ff;
+  color: #4f46e5;
+}
+
+.vrijeme-ikona-okvir.bilten-ikona {
+  background: #ccfbf1;
+  color: #0d9488;
+}
+
+.vrijeme-kartica-glava h3 {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+  margin: 0;
+}
+
+/* Kartica 1: Upozorenja */
+.vrijeme-stanje-mirno {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 12px;
+  padding: 0.75rem 0.9rem;
+  margin-bottom: 0.5rem;
+}
+
+.vrijeme-zelena-kvacica {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #22c55e;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.vrijeme-zelena-kvacica .icon {
+  width: 14px;
+  height: 14px;
+}
+
+.vrijeme-mirno-naslov {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #166534;
+}
+
+.vrijeme-upozorenje-aktivno {
+  border-radius: 10px;
+  padding: 0.65rem 0.8rem;
+  margin-bottom: 0.5rem;
+  border: 1px solid transparent;
+}
+
+.vrijeme-upozorenje-red {
+  border-left: 4px solid #ef4444;
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.vrijeme-upozorenje-orange {
+  border-left: 4px solid #f97316;
+  background: #fff7ed;
+  border-color: #fed7aa;
+}
+
+.vrijeme-upozorenje-yellow {
+  border-left: 4px solid #eab308;
+  background: #fefce8;
+  border-color: #fef08a;
+}
+
+.vrijeme-upozorenje-redak {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.25rem;
+}
+
+.vrijeme-upozorenje-tekst {
+  font-size: 0.82rem;
+  color: #1e293b;
+  margin-top: 0.35rem;
+  line-height: 1.4;
+}
+
+.vrijeme-razina {
+  display: inline-block;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-weight: 700;
+  font-size: 0.78rem;
+  color: #1f2937;
+}
+
 .vrijeme-yellow { background: #fde047; }
-.vrijeme-orange { background: #fb923c; }
+.vrijeme-orange { background: #fb923c; color: #fff; }
 .vrijeme-red { background: #ef4444; color: #fff; }
-.vrijeme-izvori { margin-top: 0.4rem; }
-.vrijeme-ploca-cekanje { color: var(--text-muted); font-size: 0.85rem; padding: 0.75rem 0; }
+
+.vrijeme-details {
+  margin-top: 0.65rem;
+  border-top: 1px dashed #e2e8f0;
+  padding-top: 0.6rem;
+}
+
+.vrijeme-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  list-style: none;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #64748b;
+  padding: 0.2rem 0;
+  user-select: none;
+}
+
+.vrijeme-summary::-webkit-details-marker {
+  display: none;
+}
+
+.vrijeme-summary:hover {
+  color: #0284c7;
+}
+
+.vrijeme-summary-ikona .icon {
+  width: 13px;
+  height: 13px;
+  transition: transform 0.2s ease;
+}
+
+.vrijeme-details[open] .vrijeme-summary-ikona .icon {
+  transform: rotate(90deg);
+}
+
+.vrijeme-ostala-lista {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.vrijeme-upozorenje-mini {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.78rem;
+}
+
+/* Kartica 2: Sada (Hero Weather) */
+.vrijeme-hero-sada {
+  display: flex;
+  flex-direction: column;
+}
+
+.vrijeme-hero-glavno {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.65rem;
+}
+
+.vrijeme-hero-temp strong {
+  font-size: 2.3rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: #0f172a;
+  display: inline-block;
+}
+
+.vrijeme-hero-opis {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #334155;
+  background: #f8fafc;
+  padding: 0.35rem 0.7rem;
+  border-radius: 9999px;
+  border: 1px solid #e2e8f0;
+}
+
+.vrijeme-vremenska-ikona .icon {
+  width: 18px;
+  height: 18px;
+  color: #f59e0b;
+}
+
+.vrijeme-metrike-trio {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.45rem;
+  margin: 0.4rem 0 0.85rem;
+}
+
+.vrijeme-metrika-kutija {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.45rem 0.35rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  text-align: center;
+}
+
+.vrijeme-metrika-ikona .icon {
+  width: 14px;
+  height: 14px;
+  color: #0284c7;
+}
+
+.vrijeme-metrika-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.vrijeme-metrika-lab {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.vrijeme-metrika-val {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.vrijeme-prognoza-omot {
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border-left: 3px solid #0284c7;
+  border-radius: 0 10px 10px 0;
+  padding: 0.65rem 0.8rem;
+  margin-top: 0.85rem;
+}
+
+.vrijeme-prognoza-vrh {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #0369a1;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.25rem;
+}
+
+.vrijeme-prognoza-vrh .icon {
+  width: 13px;
+  height: 13px;
+}
+
+.vrijeme-prognoza-tekst {
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: #1e293b;
+}
+
+/* Kartica 3: Kiša */
+.vrijeme-kisa-izmjereno-blok {
+  margin-bottom: 0.85rem;
+}
+
+.vrijeme-kisa-oznaka-mala {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+  display: block;
+  margin-bottom: 0.35rem;
+}
+
+.vrijeme-kisa-red-veliki {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin-bottom: 0.45rem;
+}
+
+.vrijeme-kisa-stat-kutija {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.5rem 0.6rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.vrijeme-kisa-stat-lab {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.vrijeme-kisa-stat-val strong {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #0284c7;
+}
+
+.vrijeme-kisa-prognoza-blok {
+  background: #f0f7ff;
+  border: 1px solid #dbeafe;
+  border-radius: 12px;
+  padding: 0.65rem 0.75rem;
+  margin-top: 0.65rem;
+}
+
+.vrijeme-akumulacija-traka {
+  display: grid;
+  grid-template-columns: 1fr 1.15fr 1fr;
+  gap: 0.35rem;
+  margin: 0.4rem 0 0.45rem;
+}
+
+.vrijeme-akum-stupac {
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(191, 219, 254, 0.6);
+  border-radius: 8px;
+  padding: 0.35rem 0.2rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.vrijeme-akum-stupac.istaknut {
+  background: #ffffff;
+  border-color: #3b82f6;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.1);
+}
+
+.vrijeme-akum-lab {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.vrijeme-akum-val {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.vrijeme-akum-stupac.istaknut .vrijeme-akum-val strong {
+  font-size: 0.88rem;
+  color: #1d4ed8;
+}
+
+/* Kartica 4: Hidrološki bilten */
+.vrijeme-rijeka-stavka {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.65rem 0.75rem;
+  margin-bottom: 0.6rem;
+  transition: background 0.15s ease;
+}
+
+.vrijeme-rijeka-stavka:hover {
+  background: #f1f5f9;
+}
+
+.vrijeme-rijeka-vrh {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.35rem;
+}
+
+.vrijeme-rijeka-oznaka {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  color: #0f172a;
+}
+
+.vrijeme-rijeka-oznaka .icon {
+  width: 14px;
+  height: 14px;
+  color: #0284c7;
+}
+
+.vrijeme-trend-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: 9999px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.vrijeme-trend-pill.trend-down {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.vrijeme-trend-pill.trend-up {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.vrijeme-trend-pill.trend-flat {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+.vrijeme-trend-pill .icon {
+  width: 12px;
+  height: 12px;
+}
+
+.vrijeme-rijeka-tijelo {
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: #334155;
+}
+
+.vrijeme-ostale-rijeke-lista {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.vrijeme-postaja-podnozje {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-top: auto;
+  padding-top: 0.75rem;
+}
+
+.vrijeme-postaja-podnozje .icon {
+  width: 13px;
+  height: 13px;
+  color: #94a3b8;
+}
+
+.vrijeme-podnozje {
+  margin-top: 1.25rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.vrijeme-izvori {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.vrijeme-ploca-cekanje {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  padding: 0.75rem 0;
+}
+
+/* Tamna tema za vrijeme-plocu */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .vrijeme-ploca {
+    background: linear-gradient(145deg, #131d2e 0%, #0d1726 100%);
+    border-color: rgba(59, 130, 246, 0.25);
+    box-shadow: 0 16px 36px -6px rgba(0, 0, 0, 0.4);
+  }
+  :root:not([data-theme="light"]) .vrijeme-naslov-grupa .section-title {
+    color: #f8fafc;
+  }
+  :root:not([data-theme="light"]) .vrijeme-kartica {
+    background: #182234;
+    border-color: #27354a;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  }
+  :root:not([data-theme="light"]) .vrijeme-kartica:hover {
+    border-color: #3b82f6;
+  }
+  :root:not([data-theme="light"]) .vrijeme-hero-temp strong {
+    color: #f8fafc;
+  }
+  :root:not([data-theme="light"]) .vrijeme-hero-opis {
+    background: #1e2c42;
+    border-color: #2b3d5b;
+    color: #e2e8f0;
+  }
+  :root:not([data-theme="light"]) .vrijeme-metrika-kutija,
+  :root:not([data-theme="light"]) .vrijeme-kisa-stat-kutija,
+  :root:not([data-theme="light"]) .vrijeme-rijeka-stavka {
+    background: #1e2c42;
+    border-color: #2b3d5b;
+    color: #cbd5e1;
+  }
+  :root:not([data-theme="light"]) .vrijeme-metrika-val,
+  :root:not([data-theme="light"]) .vrijeme-rijeka-oznaka {
+    color: #f8fafc;
+  }
+  :root:not([data-theme="light"]) .vrijeme-rijeka-tijelo {
+    color: #cbd5e1;
+  }
+  :root:not([data-theme="light"]) .vrijeme-kisa-prognoza-blok {
+    background: #1e2c42;
+    border-color: #2b3d5b;
+  }
+  :root:not([data-theme="light"]) .vrijeme-akum-stupac {
+    background: #182234;
+    border-color: #27354a;
+  }
+  :root:not([data-theme="light"]) .vrijeme-akum-stupac.istaknut {
+    background: #25334a;
+    border-color: #3b82f6;
+  }
+  :root:not([data-theme="light"]) .vrijeme-prognoza-omot {
+    background: linear-gradient(135deg, #1e2c42 0%, #152236 100%);
+  }
+  :root:not([data-theme="light"]) .vrijeme-prognoza-tekst {
+    color: #e2e8f0;
+  }
+  :root:not([data-theme="light"]) .vrijeme-podnozje {
+    border-top-color: #27354a;
+  }
+  :root:not([data-theme="light"]) .vrijeme-glava-akcije .vrijeme-lokacija {
+    background: #1e2c42;
+    border-color: #2b3d5b;
+    color: #e2e8f0;
+  }
+}
+
+[data-theme="dark"] .vrijeme-ploca {
+  background: linear-gradient(145deg, #131d2e 0%, #0d1726 100%);
+  border-color: rgba(59, 130, 246, 0.25);
+  box-shadow: 0 16px 36px -6px rgba(0, 0, 0, 0.4);
+}
+[data-theme="dark"] .vrijeme-naslov-grupa .section-title {
+  color: #f8fafc;
+}
+[data-theme="dark"] .vrijeme-kartica {
+  background: #182234;
+  border-color: #27354a;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+[data-theme="dark"] .vrijeme-kartica:hover {
+  border-color: #3b82f6;
+}
+[data-theme="dark"] .vrijeme-hero-temp strong {
+  color: #f8fafc;
+}
+[data-theme="dark"] .vrijeme-hero-opis {
+  background: #1e2c42;
+  border-color: #2b3d5b;
+  color: #e2e8f0;
+}
+[data-theme="dark"] .vrijeme-metrika-kutija,
+[data-theme="dark"] .vrijeme-kisa-stat-kutija,
+[data-theme="dark"] .vrijeme-rijeka-stavka {
+  background: #1e2c42;
+  border-color: #2b3d5b;
+  color: #cbd5e1;
+}
+[data-theme="dark"] .vrijeme-metrika-val,
+[data-theme="dark"] .vrijeme-rijeka-oznaka {
+  color: #f8fafc;
+}
+[data-theme="dark"] .vrijeme-rijeka-tijelo {
+  color: #cbd5e1;
+}
+[data-theme="dark"] .vrijeme-kisa-prognoza-blok {
+  background: #1e2c42;
+  border-color: #2b3d5b;
+}
+[data-theme="dark"] .vrijeme-akum-stupac {
+  background: #182234;
+  border-color: #27354a;
+}
+[data-theme="dark"] .vrijeme-akum-stupac.istaknut {
+  background: #25334a;
+  border-color: #3b82f6;
+}
+[data-theme="dark"] .vrijeme-prognoza-omot {
+  background: linear-gradient(135deg, #1e2c42 0%, #152236 100%);
+}
+[data-theme="dark"] .vrijeme-prognoza-tekst {
+  color: #e2e8f0;
+}
+[data-theme="dark"] .vrijeme-podnozje {
+  border-top-color: #27354a;
+}
+[data-theme="dark"] .vrijeme-glava-akcije .vrijeme-lokacija {
+  background: #1e2c42;
+  border-color: #2b3d5b;
+  color: #e2e8f0;
+}
 
 /* ── Brojke podataka na naslovnoj ─────────────────────────────────────────
    Koliko sustav zna: četiri velike brojke, pa pločice po vrsti podataka i
@@ -4651,3 +5830,27 @@ body.uzd-puni-zaslon-otvoren { overflow: hidden; }
 .brojke-prijava .rekord-cm { color: #fdba74; }
 .brojke-prijava .brojke-trak.hidro { background: #93c5fd; } .brojke-prijava .brojke-trak.meteo { background: #c4b5fd; }
 @media (prefers-reduced-motion: reduce) { .brojka-rast, .brojka-bljesak::after, .brojka-bljesak .brojka-vr { animation: none; } }
+
+/* ── Ispravci naslovne ─────────────────────────────────────────────────────
+   Zaglavlje je uvijek tamnoplavo, pa redak ustanove treba svijetlu boju u
+   obje teme; brojke oborina i okvir bez upozorenja trebaju tamnu inačicu;
+   bilten ide preko cijele širine, s rijekama jednom uz drugu. */
+.user-org-text { color: rgba(255, 255, 255, 0.78); }
+.vrijeme-kartica-bilten { grid-column: 1 / -1; }
+.vrijeme-kartica-bilten .vrijeme-kartica-tijelo {
+  display: flex; flex-direction: row; flex-wrap: wrap; gap: 0.75rem;
+  max-height: none; overflow: visible; padding-right: 0; align-items: flex-start; }
+.vrijeme-kartica-bilten .vrijeme-rijeka-stavka { flex: 1 1 320px; min-width: 0; margin: 0; }
+.vrijeme-kartica-bilten .vrijeme-details { flex: 1 1 100%; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .vrijeme-akum-val { color: #e2e8f0; }
+  :root:not([data-theme="light"]) .vrijeme-akum-lab { color: #94a3b8; }
+  :root:not([data-theme="light"]) .vrijeme-akum-stupac.istaknut .vrijeme-akum-val strong { color: #93c5fd; }
+  :root:not([data-theme="light"]) .vrijeme-stanje-mirno { background: rgba(34, 197, 94, 0.1); border-color: rgba(34, 197, 94, 0.35); }
+  :root:not([data-theme="light"]) .vrijeme-mirno-naslov { color: #86efac; }
+}
+[data-theme="dark"] .vrijeme-akum-val { color: #e2e8f0; }
+[data-theme="dark"] .vrijeme-akum-lab { color: #94a3b8; }
+[data-theme="dark"] .vrijeme-akum-stupac.istaknut .vrijeme-akum-val strong { color: #93c5fd; }
+[data-theme="dark"] .vrijeme-stanje-mirno { background: rgba(34, 197, 94, 0.1); border-color: rgba(34, 197, 94, 0.35); }
+[data-theme="dark"] .vrijeme-mirno-naslov { color: #86efac; }

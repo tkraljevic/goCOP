@@ -29,34 +29,7 @@
     </div>
   </div>
 
-  <!-- Brojke podataka: koliko sustav zna; učitava se naknadno i raste uživo -->
-  <section id="podaci-brojke" class="brojke" data-url="/podaci/brojke" aria-label="Podaci u sustavu" hidden></section>
-
-  <!-- Traka stanja: obrana, dežurstvo, izvješća, sredstva na terenu -->
-  {{if .Stanja}}
-  <div class="stanje-traka">
-    {{range .Stanja}}
-    <div class="stanje-kartica{{if not .Mirno}} zivo{{end}}">
-      <div class="stanje-glava">{{icon "shield"}} <strong>{{term "sektor"}} {{.Sektor}}</strong>{{if .Centar}} <span class="reg-card-sub">{{.Centar}}</span>{{end}} {{if .Dnevnik}}<span class="badge badge-danger" title="Otvoren je dnevnik COP-a: proglašavaju se stupnjevi, vode dežurstva i obračunavaju sati">AKTIVNA OBRANA</span>{{else}}<span class="badge badge-active" title="Nema otvorenog dnevnika COP-a: bez proglašenja stupnjeva i obračuna sati">preventivna obrana</span>{{end}}</div>
-      {{if .Mirno}}
-      <div class="stanje-redak reg-card-sub">Mirno: nema proglašene obrane ni otvorenog dnevnika.</div>
-      {{else}}
-      {{if .DionicaUObr}}<div class="stanje-redak"><span class="threshold-pill {{.Stadij.PillClass}}">{{stadijKratica .Stadij}}</span> {{.Stadij.Label}} · {{.DionicaUObr}} {{uzBroj .DionicaUObr "dionica" "dionice" "dionica"}} u obrani</div>{{else}}<div class="stanje-redak reg-card-sub">Nema proglašene obrane.</div>{{end}}
-      {{if .Dnevnik}}<div class="stanje-redak">{{icon "notebook"}} <a href="/dnevnici/{{.Dnevnik.ID}}">{{.Dnevnik.DisplayTitle}}</a>{{if .Dezurni}} · dežura <strong>{{.Dezurni}}</strong>{{else}} · <span class="reg-card-sub">nitko ne dežura</span>{{end}}</div>{{end}}
-      {{if .Dnevnik}}<div class="stanje-redak">{{icon "file-text"}} danas {{.DanasIzvjesca}} {{uzBroj .DanasIzvjesca "izvješće dionice" "izvješća dionica" "izvješća dionica"}}{{if .Sektorsko}} · sektorsko sastavljeno{{else}} · <a href="/sektorsko-izvjesce/novo?sektor={{.Sektor}}">sektorsko još nije</a>{{end}}</div>{{end}}
-      {{if .NaTerenu}}<div class="stanje-redak">{{icon "package"}} na terenu: {{range $i, $t := .NaTerenu}}{{if $i}}, {{end}}{{$t}}{{end}} · <a href="/sredstva/na-terenu?sektor={{.Sektor}}">pregled</a></div>{{end}}
-      {{end}}
-    </div>
-    {{end}}
-  </div>
-  {{end}}
-
-  <!-- Vrijeme i vode za područje korisnika: učitava se naknadno -->
-  <section id="vrijeme-podrucja" data-url="/vrijeme/podrucje">
-    <div class="vrijeme-ploca-cekanje">Učitavam vrijeme i vode za vaše područje…</div>
-  </section>
-
-  <!-- Moduli: jedan red, kao izbornik samo krupnije -->
+  <!-- Moduli: brzi pristup operativnim modulima -->
   <div class="moduli-red">
     {{if .Sees "teren"}}<a href="/teren" class="modul-gumb"><span class="modul-ikona success">{{icon "map-pin"}}</span><span>Teren</span></a>{{end}}
     {{if .Sees "vodostaji"}}<a href="/readings" class="modul-gumb"><span class="modul-ikona info">{{icon "activity"}}</span><span>Očitanja</span></a>{{end}}
@@ -65,6 +38,98 @@
     {{if .Sees "djelatnici"}}<a href="/users" class="modul-gumb"><span class="modul-ikona primary">{{icon "users"}}</span><span>Djelatnici</span></a>{{end}}
     {{if .Sees "administracija"}}<a href="/administracija" class="modul-gumb"><span class="modul-ikona danger">{{icon "settings"}}</span><span>Administracija</span></a>{{end}}
   </div>
+
+  <!-- Vrijeme i vode za područje korisnika: učitava se naknadno -->
+  <section id="vrijeme-podrucja" data-url="/vrijeme/podrucje">
+    <div class="vrijeme-ploca-cekanje">Učitavam vrijeme i vode za vaše područje…</div>
+  </section>
+
+  <!-- Stanje obrane po sektorima A–F -->
+  {{if .Stanja}}
+  <section class="stanje-sekcija">
+    <div class="stanje-sekcija-zaglavlje">
+      <div class="stanje-zaglavlje-lijevo">
+        <span class="vrijeme-znacka-uzivo"><span class="vrijeme-puls"></span> Operativna pripravnost</span>
+        <h2 class="section-title">Sektori obrane od poplava</h2>
+      </div>
+      <p class="section-desc">Operativni status po sektorima A–F: proglašeni stupnjevi obrane, dnevnici COP-a, dežurstva i angažirane snage na terenu.</p>
+    </div>
+    <div class="stanje-traka">
+      {{range .Stanja}}
+      <div class="stanje-kartica{{if not .Mirno}} zivo{{end}}">
+        <div class="stanje-glava">
+          <div class="stanje-sektor-naziv">
+            <span class="stanje-sektor-ikona">{{icon "shield"}}</span>
+            <strong>{{term "sektor"}} {{.Sektor}}</strong>
+            {{if .Centar}}<span class="stanje-centar-tag">{{.Centar}}</span>{{end}}
+          </div>
+          {{if .Dnevnik}}
+          <span class="badge badge-danger stanje-badge-aktivna" title="Otvoren je dnevnik COP-a: proglašavaju se stupnjevi, vode dežurstva i obračunavaju sati"><span class="stanje-puls-crveni"></span> AKTIVNA OBRANA</span>
+          {{else}}
+          <span class="badge badge-active stanje-badge-mirna" title="Nema otvorenog dnevnika COP-a: bez proglašenja stupnjeva i obračuna sati"><span class="stanje-tocka-zelena"></span> preventivna obrana</span>
+          {{end}}
+        </div>
+
+        <div class="stanje-tijelo">
+          {{if .Mirno}}
+          <div class="stanje-mirno-wrap">
+            <span class="stanje-mirno-kvacica">{{icon "check"}}</span>
+            <div class="stanje-redak reg-card-sub">Mirno: nema proglašene obrane ni otvorenog dnevnika.</div>
+          </div>
+          {{else}}
+          <div class="stanje-aktivno-redovi">
+            {{if .DionicaUObr}}
+            <div class="stanje-redak stanje-obrana-red">
+              <span class="threshold-pill {{.Stadij.PillClass}}">{{stadijKratica .Stadij}}</span>
+              <strong>{{.Stadij.Label}}</strong>
+              <span class="stanje-dionice-tekst">· {{.DionicaUObr}} {{uzBroj .DionicaUObr "dionica" "dionice" "dionica"}} u obrani</span>
+            </div>
+            {{else}}
+            <div class="stanje-redak reg-card-sub">Nema proglašene obrane.</div>
+            {{end}}
+
+            {{if .Dnevnik}}
+            <div class="stanje-redak stanje-dnevnik-red">
+              <span class="stanje-redak-ikona">{{icon "notebook"}}</span>
+              <a href="/dnevnici/{{.Dnevnik.ID}}" class="stanje-dnevnik-link">{{.Dnevnik.DisplayTitle}}</a>
+              {{if .Dezurni}}
+              <span class="stanje-dezurni-tag">· dežura <strong>{{.Dezurni}}</strong></span>
+              {{else}}
+              <span class="reg-card-sub">· nitko ne dežura</span>
+              {{end}}
+            </div>
+            {{end}}
+
+            {{if .Dnevnik}}
+            <div class="stanje-redak stanje-izvjesce-red">
+              <span class="stanje-redak-ikona">{{icon "file-text"}}</span>
+              <span>danas {{.DanasIzvjesca}} {{uzBroj .DanasIzvjesca "izvješće dionice" "izvješća dionica" "izvješća dionica"}}</span>
+              {{if .Sektorsko}}
+              <span class="stanje-sektorsko-da">· sektorsko sastavljeno</span>
+              {{else}}
+              <span class="stanje-sektorsko-ne">· <a href="/sektorsko-izvjesce/novo?sektor={{.Sektor}}">sektorsko još nije</a></span>
+              {{end}}
+            </div>
+            {{end}}
+
+            {{if .NaTerenu}}
+            <div class="stanje-redak stanje-teren-red">
+              <span class="stanje-redak-ikona">{{icon "package"}}</span>
+              <span class="stanje-teren-stavke">na terenu: {{range $i, $t := .NaTerenu}}{{if $i}}, {{end}}{{$t}}{{end}}</span>
+              <span class="stanje-teren-link">· <a href="/sredstva/na-terenu?sektor={{.Sektor}}">pregled</a></span>
+            </div>
+            {{end}}
+          </div>
+          {{end}}
+        </div>
+      </div>
+      {{end}}
+    </div>
+  </section>
+  {{end}}
+
+  <!-- Brojke podataka: koliko sustav zna; učitava se naknadno i raste uživo -->
+  <section id="podaci-brojke" class="brojke" data-url="/podaci/brojke" aria-label="Podaci u sustavu" hidden></section>
 
   {{if .Precaci}}
   <div class="precaci">

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"gocop/internal/dhmz"
@@ -241,47 +242,265 @@ var plocaVremenaTmpl = template.Must(template.New("ploca").Funcs(template.FuncMa
 		}
 		return "badge-inactive"
 	},
+	"icon": func(name string) template.HTML {
+		return template.HTML(`<svg class="icon" aria-hidden="true"><use href="/static/img/icons.svg#` + template.HTMLEscapeString(name) + `"/></svg>`)
+	},
+	"ikonaVremena": func(opis string) string {
+		opis = strings.ToLower(opis)
+		switch {
+		case strings.Contains(opis, "grmljav") || strings.Contains(opis, "munj"):
+			return "zap"
+		case strings.Contains(opis, "kiš") || strings.Contains(opis, "kis") || strings.Contains(opis, "pljus") || strings.Contains(opis, "oborin"):
+			return "cloud-rain"
+		case strings.Contains(opis, "vjet") || strings.Contains(opis, "oluj") || strings.Contains(opis, "magl"):
+			return "wind"
+		case strings.Contains(opis, "oblač") || strings.Contains(opis, "oblac") || strings.Contains(opis, "pretežno"):
+			return "sun-moon"
+		default:
+			return "sun"
+		}
+	},
+	"rijekaTrend": func(tekst string) string {
+		t := strings.ToLower(tekst)
+		switch {
+		case strings.Contains(t, "opadanju") || strings.Contains(t, "opada") || strings.Contains(t, "padu") || strings.Contains(t, "blagom opadanju"):
+			return "down"
+		case strings.Contains(t, "porastu") || strings.Contains(t, "raste") || strings.Contains(t, "rast"):
+			return "up"
+		case strings.Contains(t, "stagnaci") || strings.Contains(t, "stagnira"):
+			return "flat"
+		default:
+			return ""
+		}
+	},
 }).Parse(`
 <div class="vrijeme-ploca">
   <div class="vrijeme-glava">
-    <h2 class="section-title">Vrijeme i vode · {{.Mjesto}}</h2>
-    <span class="reg-card-sub">{{.Zupanija.Naziv}} županija{{if .Regija}} · {{.Regija}}{{end}}</span>
-    <button type="button" class="btn btn-sm btn-secondary vrijeme-lokacija" hidden>Moja lokacija</button>
+    <div class="vrijeme-glava-info">
+      <div class="vrijeme-znacka-uzivo"><span class="vrijeme-puls"></span> DHMZ & METEO CENTAR</div>
+      <div class="vrijeme-naslov-grupa">
+        <h2 class="section-title">Vrijeme i vode · {{.Mjesto}}</h2>
+        <span class="vrijeme-lokacija-tag">{{icon "map-pin"}} <span class="reg-card-sub">{{.Zupanija.Naziv}} županija{{if .Regija}} · {{.Regija}}{{end}}</span></span>
+      </div>
+    </div>
+    <div class="vrijeme-glava-akcije">
+      <button type="button" class="btn btn-sm btn-secondary vrijeme-lokacija" hidden>{{icon "map-pin"}} <span>Moja lokacija</span></button>
+    </div>
   </div>
+
   <div class="vrijeme-stupci">
-    <div class="vrijeme-kartica">
-      <h3>Upozorenja DHMZ-a</h3>
-      {{range .Upozorenja}}<div class="vrijeme-upozorenje"><span class="badge {{boja .Boja}}">{{.Dogadjaj}}</span>
-        <div class="reg-card-sub">{{sat .Od}} – {{sat .Do}}</div>{{if .Opis}}<div>{{.Opis}}</div>{{end}}</div>
-      {{else}}<div class="reg-card-sub">Nema upozorenja za županiju.</div>{{end}}
-      {{if .Ostala}}<details><summary class="reg-card-sub">Drugdje u Hrvatskoj: {{len .Ostala}}</summary>
-        {{range .Ostala}}<div class="vrijeme-upozorenje"><span class="badge {{boja .Boja}}">{{.Dogadjaj}}</span> {{.Podrucje}} <span class="reg-card-sub">{{sat .Od}} – {{sat .Do}}</span></div>{{end}}
-      </details>{{end}}
+    <!-- Kartica 1: Upozorenja -->
+    <div class="vrijeme-kartica vrijeme-kartica-upozorenja">
+      <div class="vrijeme-kartica-glava">
+        <span class="vrijeme-ikona-okvir upozorenje-ikona">{{icon "shield"}}</span>
+        <h3>Upozorenja DHMZ-a</h3>
+      </div>
+      <div class="vrijeme-kartica-tijelo">
+        {{range .Upozorenja}}
+        <div class="vrijeme-upozorenje-aktivno vrijeme-upozorenje-{{.Boja}}">
+          <div class="vrijeme-upozorenje-red">
+            <span class="badge {{boja .Boja}}">{{.Dogadjaj}}</span>
+            <span class="vrijeme-sat-raspon reg-card-sub">{{sat .Od}} – {{sat .Do}}</span>
+          </div>
+          {{if .Opis}}<div class="vrijeme-upozorenje-tekst">{{.Opis}}</div>{{end}}
+        </div>
+        {{else}}
+        <div class="vrijeme-stanje-mirno">
+          <span class="vrijeme-zelena-kvacica">{{icon "check"}}</span>
+          <div class="vrijeme-mirno-tekst">
+            <div class="vrijeme-mirno-naslov">Nema upozorenja za županiju.</div>
+            <div class="reg-card-sub">Trenutno nema opasnih vremenskih pojava.</div>
+          </div>
+        </div>
+        {{end}}
+
+        {{if .Ostala}}
+        <details class="vrijeme-details">
+          <summary class="reg-card-sub vrijeme-summary">
+            <span>Drugdje u Hrvatskoj: {{len .Ostala}}</span>
+            <span class="vrijeme-summary-ikona">{{icon "chevron-right"}}</span>
+          </summary>
+          <div class="vrijeme-ostala-lista">
+            {{range .Ostala}}
+            <div class="vrijeme-upozorenje-mini">
+              <span class="badge {{boja .Boja}}">{{.Dogadjaj}}</span>
+              <span class="vrijeme-ostala-podrucje">{{.Podrucje}}</span>
+              <span class="reg-card-sub">{{sat .Od}} – {{sat .Do}}</span>
+            </div>
+            {{end}}
+          </div>
+        </details>
+        {{end}}
+      </div>
     </div>
-    <div class="vrijeme-kartica">
-      <h3>Sada</h3>
-      {{with .Postaja}}<div><strong>{{br .Temp 1}} °C</strong> · {{.Opis}}</div>
-        <div class="reg-card-sub">vlaga {{br .Vlaga 0}} % · vjetar {{.VjetarSmjer}} {{br .VjetarBrzina 1}} m/s · tlak {{br .Tlak 1}} hPa</div>
-        <div class="reg-card-sub">{{.Ime}}, {{km $.PostajaKm}} km · {{sat $.Termin}}</div>
-      {{else}}<div class="reg-card-sub">Nema podataka.</div>{{end}}
-      {{if .Prognoza}}<h3 style="margin-top:.6rem;">Danas{{if .Regija}} · {{.Regija}}{{end}}</h3><div>{{.Prognoza}}</div>{{end}}
+
+    <!-- Kartica 2: Trenutno vrijeme (Sada) -->
+    <div class="vrijeme-kartica vrijeme-kartica-sada">
+      <div class="vrijeme-kartica-glava">
+        <span class="vrijeme-ikona-okvir sada-ikona">{{icon "sun"}}</span>
+        <h3>Sada</h3>
+      </div>
+      <div class="vrijeme-kartica-tijelo">
+        {{with .Postaja}}
+        <div class="vrijeme-hero-sada">
+          <div class="vrijeme-hero-glavno">
+            <div class="vrijeme-hero-temp"><strong>{{br .Temp 1}} °C</strong></div>
+            <div class="vrijeme-hero-opis">
+              <span class="vrijeme-vremenska-ikona">{{icon (ikonaVremena .Opis)}}</span>
+              <span class="vrijeme-stanje-tekst">{{.Opis}}</span>
+            </div>
+          </div>
+          <div class="vrijeme-metrike-trio">
+            <div class="vrijeme-metrika-kutija">
+              <span class="vrijeme-metrika-ikona">{{icon "droplet"}}</span>
+              <div class="vrijeme-metrika-info">
+                <span class="vrijeme-metrika-lab">Vlaga</span>
+                <span class="vrijeme-metrika-val">{{br .Vlaga 0}} %</span>
+              </div>
+            </div>
+            <div class="vrijeme-metrika-kutija">
+              <span class="vrijeme-metrika-ikona">{{icon "wind"}}</span>
+              <div class="vrijeme-metrika-info">
+                <span class="vrijeme-metrika-lab">Vjetar</span>
+                <span class="vrijeme-metrika-val">{{.VjetarSmjer}} {{br .VjetarBrzina 1}} m/s</span>
+              </div>
+            </div>
+            <div class="vrijeme-metrika-kutija">
+              <span class="vrijeme-metrika-ikona">{{icon "gauge"}}</span>
+              <div class="vrijeme-metrika-info">
+                <span class="vrijeme-metrika-lab">Tlak</span>
+                <span class="vrijeme-metrika-val">{{br .Tlak 1}} hPa</span>
+              </div>
+            </div>
+          </div>
+          <div class="vrijeme-postaja-podnozje reg-card-sub">{{icon "radio-tower"}} {{.Ime}}, {{km $.PostajaKm}} km · {{sat $.Termin}}</div>
+        </div>
+        {{else}}
+        <div class="reg-card-sub">Nema podataka.</div>
+        {{end}}
+
+        {{if .Prognoza}}
+        <div class="vrijeme-prognoza-omot">
+          <div class="vrijeme-prognoza-vrh">{{icon "calendar"}} <h3 style="display:inline;margin:0;font-size:inherit;text-transform:none;letter-spacing:normal;color:inherit;">Danas{{if .Regija}} · {{.Regija}}{{end}}</h3></div>
+          <div class="vrijeme-prognoza-tekst">{{.Prognoza}}</div>
+        </div>
+        {{end}}
+      </div>
     </div>
-    <div class="vrijeme-kartica">
-      <h3>Kiša</h3>
-      {{with .Izmjereno}}<div>izmjereno: zadnji sat <strong>{{br .ZadnjiSat 1}} mm</strong>, danas <strong>{{br .Danas 1}} mm</strong></div>
-        <div class="reg-card-sub">{{.Naziv}} ({{.Izvor}}), {{km .Km}} km</div>{{end}}
-      {{with .Prognozno}}<div>proteklih 24 h {{mm .Proteklih24}} mm · sljedećih 24 h <strong>{{mm .Sljedecih24}} mm</strong> · 72 h {{mm .Sljed72}} mm</div>
-        <div class="reg-card-sub">prognoza za točku {{.Naziv}}, {{km .Km}} km (Open-Meteo)</div>{{end}}
-      {{if and (not .Izmjereno) (not .Prognozno)}}<div class="reg-card-sub">Nema podataka o kiši.</div>{{end}}
+
+    <!-- Kartica 3: Kiša -->
+    <div class="vrijeme-kartica vrijeme-kartica-kisa">
+      <div class="vrijeme-kartica-glava">
+        <span class="vrijeme-ikona-okvir kisa-ikona">{{icon "cloud-rain"}}</span>
+        <h3>Kiša</h3>
+      </div>
+      <div class="vrijeme-kartica-tijelo">
+        {{with .Izmjereno}}
+        <div class="vrijeme-kisa-izmjereno-blok">
+          <span class="vrijeme-kisa-oznaka-mala">izmjereno:</span>
+          <div class="vrijeme-kisa-red-veliki">
+            <div class="vrijeme-kisa-stat-kutija">
+              <span class="vrijeme-kisa-stat-lab">zadnji sat</span>
+              <span class="vrijeme-kisa-stat-val"><strong>{{br .ZadnjiSat 1}} mm</strong></span>
+            </div>
+            <div class="vrijeme-kisa-stat-kutija">
+              <span class="vrijeme-kisa-stat-lab">danas</span>
+              <span class="vrijeme-kisa-stat-val"><strong>{{br .Danas 1}} mm</strong></span>
+            </div>
+          </div>
+          <div class="reg-card-sub vrijeme-postaja-podnozje">{{icon "radio-tower"}} {{.Naziv}} ({{.Izvor}}), {{km .Km}} km</div>
+        </div>
+        {{end}}
+
+        {{with .Prognozno}}
+        <div class="vrijeme-kisa-prognoza-blok">
+          <span class="vrijeme-kisa-oznaka-mala">prognoza oborina:</span>
+          <div class="vrijeme-akumulacija-traka">
+            <div class="vrijeme-akum-stupac">
+              <span class="vrijeme-akum-lab">proteklih 24 h</span>
+              <span class="vrijeme-akum-val">{{mm .Proteklih24}} mm</span>
+            </div>
+            <div class="vrijeme-akum-stupac istaknut">
+              <span class="vrijeme-akum-lab">sljedećih 24 h</span>
+              <span class="vrijeme-akum-val"><strong>{{mm .Sljedecih24}} mm</strong></span>
+            </div>
+            <div class="vrijeme-akum-stupac">
+              <span class="vrijeme-akum-lab">72 h</span>
+              <span class="vrijeme-akum-val">{{mm .Sljed72}} mm</span>
+            </div>
+          </div>
+          <div class="reg-card-sub vrijeme-postaja-podnozje">{{icon "activity"}} prognoza za točku {{.Naziv}}, {{km .Km}} km (Open-Meteo)</div>
+        </div>
+        {{end}}
+
+        {{if and (not .Izmjereno) (not .Prognozno)}}
+        <div class="reg-card-sub">Nema podataka o kiši.</div>
+        {{end}}
+      </div>
     </div>
-    <div class="vrijeme-kartica">
-      <h3>Hidrološki bilten DHMZ-a</h3>
-      {{range $i, $r := .Rijeke}}{{if lt $i 2}}<div><strong>{{$r.Naziv}}:</strong> {{$r.Tekst}}</div>{{end}}{{end}}
-      {{if gt (len .Rijeke) 2}}<details><summary class="reg-card-sub">Ostale rijeke</summary>
-        {{range $i, $r := .Rijeke}}{{if ge $i 2}}<div><strong>{{$r.Naziv}}:</strong> {{$r.Tekst}}</div>{{end}}{{end}}</details>{{end}}
-      {{if .BiltenDatum}}<div class="reg-card-sub">upisano {{.BiltenDatum}}</div>{{end}}
-      {{if not .Rijeke}}<div class="reg-card-sub">Bilten nije dostupan.</div>{{end}}
+
+    <!-- Kartica 4: Hidrološki bilten -->
+    <div class="vrijeme-kartica vrijeme-kartica-bilten">
+      <div class="vrijeme-kartica-glava">
+        <span class="vrijeme-ikona-okvir bilten-ikona">{{icon "waves"}}</span>
+        <h3>Hidrološki bilten DHMZ-a</h3>
+      </div>
+      <div class="vrijeme-kartica-tijelo">
+        {{range $i, $r := .Rijeke}}
+        {{if lt $i 2}}
+        <div class="vrijeme-rijeka-stavka">
+          <div class="vrijeme-rijeka-vrh">
+            <span class="vrijeme-rijeka-oznaka">{{icon "waves"}} <strong>{{$r.Naziv}}</strong></span>
+            {{$trend := rijekaTrend $r.Tekst}}
+            {{if eq $trend "down"}}<span class="vrijeme-trend-pill trend-down">{{icon "trending-down"}} opadanje</span>
+            {{else if eq $trend "up"}}<span class="vrijeme-trend-pill trend-up">{{icon "trending-up"}} porast</span>
+            {{else if eq $trend "flat"}}<span class="vrijeme-trend-pill trend-flat">{{icon "minus"}} stagnacija</span>
+            {{end}}
+          </div>
+          <div class="vrijeme-rijeka-tijelo"><strong>{{$r.Naziv}}:</strong> {{$r.Tekst}}</div>
+        </div>
+        {{end}}
+        {{end}}
+
+        {{if gt (len .Rijeke) 2}}
+        <details class="vrijeme-details">
+          <summary class="reg-card-sub vrijeme-summary">
+            <span>Ostale rijeke</span>
+            <span class="vrijeme-summary-ikona">{{icon "chevron-right"}}</span>
+          </summary>
+          <div class="vrijeme-ostale-rijeke-lista">
+            {{range $i, $r := .Rijeke}}
+            {{if ge $i 2}}
+            <div class="vrijeme-rijeka-stavka vrijeme-rijeka-manja">
+              <div class="vrijeme-rijeka-vrh">
+                <span class="vrijeme-rijeka-oznaka">{{icon "waves"}} <strong>{{$r.Naziv}}</strong></span>
+                {{$trend := rijekaTrend $r.Tekst}}
+                {{if eq $trend "down"}}<span class="vrijeme-trend-pill trend-down">{{icon "trending-down"}} opadanje</span>
+                {{else if eq $trend "up"}}<span class="vrijeme-trend-pill trend-up">{{icon "trending-up"}} porast</span>
+                {{else if eq $trend "flat"}}<span class="vrijeme-trend-pill trend-flat">{{icon "minus"}} stagnacija</span>
+                {{end}}
+              </div>
+              <div class="vrijeme-rijeka-tijelo"><strong>{{$r.Naziv}}:</strong> {{$r.Tekst}}</div>
+            </div>
+            {{end}}
+            {{end}}
+          </div>
+        </details>
+        {{end}}
+
+        {{if .BiltenDatum}}
+        <div class="reg-card-sub vrijeme-postaja-podnozje">{{icon "clock"}} upisano {{.BiltenDatum}}</div>
+        {{end}}
+        {{if not .Rijeke}}
+        <div class="reg-card-sub">Bilten nije dostupan.</div>
+        {{end}}
+      </div>
     </div>
   </div>
-  <p class="reg-card-sub vrijeme-izvori">Izvori: DHMZ (otvoreni podaci, meteo.hr){{if .Izmjereno}}, pljusak.com{{end}}{{if .Prognozno}}, Open-Meteo{{end}}.{{range .Greske}} {{.}}.{{end}}</p>
+
+  <div class="vrijeme-podnozje">
+    <div class="vrijeme-izvori">
+      <span class="reg-card-sub">Izvori: DHMZ (otvoreni podaci, meteo.hr){{if .Izmjereno}}, pljusak.com{{end}}{{if .Prognozno}}, Open-Meteo{{end}}.{{range .Greske}} {{.}}.{{end}}</span>
+    </div>
+  </div>
 </div>`))
