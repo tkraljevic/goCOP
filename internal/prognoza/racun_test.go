@@ -92,7 +92,8 @@ func TestRasponNosiNagib(t *testing.T) {
 // pa se ta razlika nosi naprijed — sve slabije.
 func TestIspravakNosiRazlikuPremaMjerenju(t *testing.T) {
 	PoluvijekIspravka = 24
-	defer func() { PoluvijekIspravka = 48 }()
+	StalniIspravakSati = 0 // staro pravilo: sav ispravak blijedi
+	defer func() { PoluvijekIspravka, StalniIspravakSati = 48, 72 }()
 	sada := int64(1000)
 	nizovi := map[Izvor]Niz{
 		{Letva: "gornja", Velicina: "vodostaj"}: ravanNiz(900, sada, 100, 0),
@@ -110,6 +111,38 @@ func TestIspravakNosiRazlikuPremaMjerenju(t *testing.T) {
 	}
 	if d := math.Abs(izdane[5].Vrijednost - (100 + 30*math.Exp2(-5.0/24))); d > 1e-9 {
 		t.Errorf("na +5 h %g", izdane[5].Vrijednost)
+	}
+}
+
+// Stalna pogreška modela ostaje cijelim dosegom, a prolazna blijedi. Donja
+// letva koja danima stoji 30 cm iznad modela stajat će i dalje ondje — da
+// ispravak blijedi, prognoza bi od mirne vode napravila val od 30 cm.
+func TestStalniIspravakNeBlijedi(t *testing.T) {
+	PoluvijekIspravka = 24
+	defer func() { PoluvijekIspravka = 48 }()
+	sada := int64(1000)
+	gornja := Izvor{Letva: "gornja", Velicina: "vodostaj"}
+	donja := Izvor{Letva: "donja", Velicina: "vodostaj"}
+	r := NovoRacunalo(lanac(1, 0, 5, 3), map[Izvor]Niz{
+		gornja: ravanNiz(900, sada, 100, 0),
+		donja:  ravanNiz(900, sada, 130, 0),
+	}, sada)
+	izdane, _ := r.Prognoziraj("donja", 96, "proba")
+	for _, i := range []int{1, 24, 96} {
+		if math.Abs(izdane[i].Vrijednost-130) > 1e-9 {
+			t.Errorf("stalna pogreška na +%d h: %g, želim 130", i, izdane[i].Vrijednost)
+		}
+	}
+	// Prolazna: model je do jučer pogađao, a u izdanju donja skoči 30 cm.
+	m := map[int64]float64{}
+	for tt := int64(900); tt < sada; tt++ {
+		m[tt] = 100
+	}
+	m[sada] = 130
+	r = NovoRacunalo(lanac(1, 0, 5, 3), map[Izvor]Niz{gornja: ravanNiz(900, sada, 100, 0), donja: NoviNiz(m)}, sada)
+	izdane, _ = r.Prognoziraj("donja", 96, "proba")
+	if x := izdane[24].Vrijednost; math.Abs(x-(100+30*math.Exp2(-1))) > 1e-9 {
+		t.Errorf("prolazna pogreška na +24 h: %g, želim %g", x, 100+30*math.Exp2(-1))
 	}
 }
 
@@ -313,5 +346,31 @@ func TestNepovezanPojasNeDajePrognozu(t *testing.T) {
 	r = NovoRacunalo(pojasi, map[Izvor]Niz{gornja: ravanNiz(0, 100, 300, 0), donja: ravanNiz(0, 100, 300, 0)}, 100)
 	if izdane, _ = r.Prognoziraj("donja", 24, "proba"); len(izdane) < 10 {
 		t.Errorf("povezana letva dobila je samo %d sati prognoze", len(izdane))
+	}
+}
+
+// Kad letva raste, dolazi val: stalni dio se ne nosi, nego sav ispravak
+// blijedi, jer pogreška od prije vala u valu više ne vrijedi.
+func TestStalniIspravakNeUValu(t *testing.T) {
+	PoluvijekIspravka = 24
+	defer func() { PoluvijekIspravka = 48 }()
+	sada := int64(1000)
+	m := map[int64]float64{}
+	g := map[int64]float64{}
+	for tt := int64(900); tt <= sada; tt++ {
+		g[tt] = 100
+		m[tt] = 130 // stalno 30 cm iznad modela
+		if tt > sada-24 {
+			m[tt] = 130 + float64(tt-(sada-24))*2 // zadnji dan raste 2 cm na sat
+		}
+	}
+	r := NovoRacunalo(lanac(1, 0, 5, 3), map[Izvor]Niz{
+		{Letva: "gornja", Velicina: "vodostaj"}: NoviNiz(g),
+		{Letva: "donja", Velicina: "vodostaj"}:  NoviNiz(m),
+	}, sada)
+	izdane, _ := r.Prognoziraj("donja", 96, "proba")
+	r0 := m[sada] - 100
+	if x := izdane[24].Vrijednost; math.Abs(x-(100+r0*math.Exp2(-1))) > 1e-9 {
+		t.Errorf("u valu na +24 h %g, želim %g (sav ispravak blijedi)", x, 100+r0*math.Exp2(-1))
 	}
 }

@@ -299,6 +299,128 @@ func OperaterIzvori(modeli map[string]*OperaterModel) []Izvor {
 	return out
 }
 
+// OperaterBilanca drži dnevni srednjak ispusta pri običnoj vodi na dotoku.
+//
+// Regresija za dulje doseže teži prosječnom istjecanju, pa je 27. 9. 2026.
+// pri suhoj jeseni HE Varaždin, kojoj Formin daje 131–157 m³/s, dala 209,
+// 233, 244 i 253 m³/s za sljedeća četiri dana — vodu koje nema. Akumulacije
+// na Dravi drže vršni dnevni rad, ne tjedne zalihe, pa pri običnoj vodi
+// ispust kroz dan mora biti koliko je i dotok. Model zadržava oblik (večernji
+// vrh, noćni pad), a srednjak svakih 24 sata izjednačuje se s dotokom
+// pomnoženim omjerom istjecanja i dotoka zadnjeg tjedna (doprinos međusliva
+// i gubici). Dotok je prvi ulaz modela: budućnost uzvodne elektrane kad je
+// ima, inače zadnji dnevni srednjak. Pri velikoj vodi model ostaje kakav
+// jest — tada prenosi val odozgo.
+var OperaterBilanca = true
+
+// Dopušteno odstupanje dnevnog srednjaka od dotoka: veće od OperaterBilancaDopust
+// m³/s i OperaterBilancaUdio dotoka. Unutar njega model ostaje kakav jest, jer
+// u prosjeku zna da dotok s kišom raste; izvan njega je izašao iz raspona na
+// kojem je učio.
+var (
+	OperaterBilancaDopust = 30.0
+	OperaterBilancaUdio   = 0.25
+)
+
+// redOperatera slaže elektrane od uzvodne prema nizvodnoj, da dotok svake
+// već ima budućnost kad na nju dođe red.
+func redOperatera(modeli map[string]*OperaterModel) []*OperaterModel {
+	var out []*OperaterModel
+	uzeto := map[string]bool{}
+	for len(out) < len(modeli) {
+		dodano := false
+		imena := make([]string, 0, len(modeli))
+		for l := range modeli {
+			imena = append(imena, l)
+		}
+		sort.Strings(imena)
+		for _, l := range imena {
+			m := modeli[l]
+			if uzeto[l] {
+				continue
+			}
+			spremno := true
+			for _, u := range m.Ulazi {
+				if _, jeModel := modeli[u]; jeModel && !uzeto[u] {
+					spremno = false
+				}
+			}
+			if spremno {
+				out, uzeto[l], dodano = append(out, m), true, true
+			}
+		}
+		if !dodano { // krug u ulazima: ostatak kakav jest
+			for _, l := range imena {
+				if !uzeto[l] {
+					out, uzeto[l] = append(out, modeli[l]), true
+				}
+			}
+		}
+	}
+	return out
+}
+
+// srednjakDo je srednjak niza u satima (od, do]; ok kad ima barem pola sati.
+func srednjakDo(n Niz, od, do int64) (float64, bool) {
+	var z float64
+	k := 0
+	for t := od + 1; t <= do; t++ {
+		if v, ok := n.U(t); ok {
+			z += v
+			k++
+		}
+	}
+	if 2*k < int(do-od) || k == 0 {
+		return 0, false
+	}
+	return z / float64(k), true
+}
+
+// uravnotezi pomiče svaki 24-satni blok budućnosti tako da mu srednjak bude
+// dotok puta omjer istjecanja i dotoka zadnjeg tjedna.
+func uravnotezi(tocke map[int64]float64, t0 int64, q, dotok Niz, dotokBuduci *Niz) {
+	izlaz7, ok1 := srednjakDo(q, t0-168, t0)
+	ulaz7, ok2 := srednjakDo(dotok, t0-168, t0)
+	if !ok1 || !ok2 || ulaz7 <= 0 {
+		return
+	}
+	omjer := math.Min(math.Max(izlaz7/ulaz7, 0.8), 1.3)
+	ulaz24, ok := srednjakDo(dotok, t0-24, t0)
+	if !ok {
+		return
+	}
+	for blok := int64(0); blok*24 < OperaterDosezi; blok++ {
+		od, do := t0+blok*24, t0+min((blok+1)*24, OperaterDosezi)
+		cilj := ulaz24
+		if dotokBuduci != nil {
+			if v, ok := srednjakDo(*dotokBuduci, od, do); ok {
+				cilj = v
+			}
+		}
+		cilj *= omjer
+		var z float64
+		for t := od + 1; t <= do; t++ {
+			z += tocke[t]
+		}
+		srednjak := z / float64(do-od)
+		// srednjak smije odstupiti od dotoka do granice; pomiče se samo višak
+		dopust := math.Max(OperaterBilancaDopust, OperaterBilancaUdio*cilj)
+		pomak := 0.0
+		switch {
+		case srednjak > cilj+dopust:
+			pomak = cilj + dopust - srednjak
+		case srednjak < cilj-dopust:
+			pomak = cilj - dopust - srednjak
+		}
+		if pomak == 0 {
+			continue
+		}
+		for t := od + 1; t <= do; t++ {
+			tocke[t] = math.Max(tocke[t]+pomak, 0)
+		}
+	}
+}
+
 // BuducnostOperatera računa budućnost istjecanja svake elektrane od njezina
 // zadnjeg mjerenja do OperaterDosezi sati: regresija gdje je u provjeri
 // pobijedila postojanost, inače zadnje mjerenje. Elektrana bez ijednog
@@ -306,7 +428,7 @@ func OperaterIzvori(modeli map[string]*OperaterModel) []Izvor {
 // mjerenje, bez oznake modela.
 func BuducnostOperatera(modeli map[string]*OperaterModel, nizovi map[Izvor]Niz, sada int64) map[Izvor]Niz {
 	out := map[Izvor]Niz{}
-	for _, m := range modeli {
+	for _, m := range redOperatera(modeli) {
 		iz := Izvor{Letva: m.Letva, Velicina: "protok"}
 		q, ima := nizovi[iz]
 		if !ima {
@@ -343,6 +465,14 @@ func BuducnostOperatera(modeli map[string]*OperaterModel, nizovi map[Izvor]Niz, 
 		}
 		if modelom == 0 {
 			continue
+		}
+		if OperaterBilanca && g == 0 && len(m.Ulazi) > 0 {
+			ulaz := Izvor{Letva: m.Ulazi[0], Velicina: "protok"}
+			var buduci *Niz
+			if f, ima := out[ulaz]; ima {
+				buduci = &f
+			}
+			uravnotezi(tocke, t0, nizovi[ulaz], nizovi[ulaz], buduci)
 		}
 		out[iz] = NizIzTocaka(tocke)
 	}

@@ -254,10 +254,23 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 		}},
 		{"Satni lanac — izdavanje prognoze", []OdlomakMetode{
 			tekstM("Ispravak prema mjerenju. Razlika između modela i zadnjeg mjerenja postaje (ne starijeg od " +
-				tekstBroja(prognoza.ZaostatakVrha) + " sata) nosi se naprijed i eksponencijalno slabi, s " +
-				"poluvremenom od " + poluvrijeme + " sati:"),
-			formulaM("ŷ*(t₀ + τ) = ŷ(t₀ + τ) + r₀ · 2^(−τ / "+poluvrijeme+"),   r₀ = y_mj(t₀) − ŷ(t₀)",
-				`\hat{y}^{*}(t_0+\tau)=\hat{y}(t_0+\tau)+r_0\,2^{-\tau/`+texBroj(poluvrijeme)+`},\qquad r_0=y_{\mathrm{mj}}(t_0)-\hat{y}(t_0)`),
+				tekstBroja(prognoza.ZaostatakVrha) + " sata) dijeli se na stalni i prolazni dio. Stalni dio s je " +
+				"medijan pogreške modela u zadnja " + tekstBroja(prognoza.StalniIspravakSati) + " sata (svakih 6 sati), " +
+				"ali samo kad je pogreška u tom prozoru skladna (svaka istog predznaka i raspona manjeg od nje same) i " +
+				"kad letva ne raste — dnevni srednjak nije više od 20 cm (kod protoka 15 %) iznad najmanjeg u prozoru, " +
+				"jer u valu pogreška od prije vala više ne vrijedi. Inače je nula, a za letve u inundaciji uvijek. " +
+				"Stalni dio ostaje cijelim dosegom, prolazni slabi s poluvremenom od " + poluvrijeme + " sati:"),
+			formulaM("ŷ*(t₀ + τ) = ŷ(t₀ + τ) + s + (r₀ − s) · 2^(−τ / "+poluvrijeme+"),   r₀ = y_mj(t₀) − ŷ(t₀)",
+				`\hat{y}^{*}(t_0+\tau)=\hat{y}(t_0+\tau)+s+(r_0-s)\,2^{-\tau/`+texBroj(poluvrijeme)+`},\qquad r_0=y_{\mathrm{mj}}(t_0)-\hat{y}(t_0)`),
+			tekstM("Bez stalnog dijela model koji na trenutnoj vodi danima griješi vuče prognozu prema sebi: " +
+				"27. 9. 2026. Baja je u niskoj vodi tri dana stajala 42–46 cm ispod modela, pa je od mirne, " +
+				"padajuće vode nastao val od +37 cm do 72. sata. Na provjeri 2023.–2025. stalni dio smanjuje " +
+				"pogrešku Dunava od Batine do Iloka za 4–11 %, Varaždina za 11–14 %, a zbroj pogrešaka svih letvi za " +
+				"2,6 %. Na 619 poplavnih valova Drava je malo bolja, a Dunav kroz val do 0,9 cm lošiji na 48–72 sata."),
+			tekstM("Model ispuštanja elektrana pri običnoj vodi drži dnevni srednjak ispusta na dotoku: smije odstupiti " +
+				"najviše 30 m³/s ili četvrtinu dotoka. Akumulacije na Dravi drže vršni dnevni i tjedni rad, ne veće " +
+				"zalihe, a regresija za dulje doseže teži prosječnom istjecanju — 27. 9. 2026. je HE Varaždin, kojoj " +
+				"Formin daje 131–157 m³/s, dala 209–253 m³/s. Na provjeri 2023.–2025. granica ništa ne mijenja."),
 			tekstM("Sustavna pogreška. Prognoza je puštena unatrag kroz arhivu — izdanje svakih 12 sati kroz " +
 				"više godina, svako samo s onim što je u tom trenutku bilo izmjereno, s istim vrhovima lanca kao " +
 				"uživo — i za svaku postaju i doseg τ izmjerena je srednja pogreška b(τ). Ona se od prognoze oduzima."),

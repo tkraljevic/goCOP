@@ -26,6 +26,32 @@ import (
 // je +51 cm, na Donjem Miholjcu +37.
 var PoluvijekIspravka = 48.0
 
+// StalniIspravakSati je koliko sati unatrag se mjeri stalni dio pogreške
+// modela; 0 isključuje. Ispravak se dijeli na dva dijela: stalni je medijan
+// pogreške u tom prozoru i ostaje cijelim dosegom, a prolazni (razlika do
+// pogreške u izdanju) blijedi s PoluvijekIspravka.
+//
+// Bez toga model koji na trenutnoj vodi stalno griješi vuče prognozu prema
+// sebi: 27. 9. 2026. Baja je u niskoj vodi tri dana stajala 42–46 cm ispod
+// modela iz Dunaföldvára, pa je blijeđenje ispravka od mirne, padajuće vode
+// napravilo val od +37 cm do 72. sata, koji je lanac odnio do Iloka. Isto na
+// Dravi: Varaždin 42–81 cm ispod modela, Botovo 34–62 m³/s, Osijek 24–36 cm
+// iznad.
+//
+// Stalni dio vrijedi kad je pogreška u prozoru skladna (istog predznaka,
+// raspona manjeg od nje same), kad letva ne raste (24-satni srednjak nije
+// više od StalniMirnaVodaCm ili StalniMirnaVodaUdio iznad najmanjeg u
+// prozoru) i nije u inundaciji. Provjera 2023.–2025. (izdanje svakih 12 h):
+// 68 kombinacija letve i dosega bolje, 13 lošije za više od 2 %, zbroj
+// pogrešaka −2,6 %; Dunav od Batine do Iloka 4–11 %, Varaždin 11–14 %. Na 619
+// poplavnih valova Drava malo bolja (vrh 96 h 90,5 → 88,2 cm), Dunav kroz val
+// 48–72 h do 0,9 cm lošiji, vrh jednak.
+var StalniIspravakSati = 72
+
+// korakStalnogIspravka je razmak mjerenja pogreške u prozoru; najmanje
+// polovica prozora mora imati mjerenje, inače stalnog dijela nema.
+const korakStalnogIspravka = 6
+
 // NajveciRazmak je koliko sati smije premostiti između dva očitanja. Letve
 // koje se očitavaju triput na dan ostavljaju rupe od osam sati; preko toga se
 // ne premošćuje, jer se u međuvremenu val može i popeti i spustiti.
@@ -138,9 +164,15 @@ func (r *Racunalo) PostaviBuducnostVrha(iz Izvor, prognoza Niz) {
 
 // ostatak je razlika između mjerenja i modela u zadnjem izmjerenom satu letve.
 type ostatak struct {
-	iznos float64
-	sat   int64 // sat mjerenja od kojeg se ispravak nosi naprijed
-	ima   bool
+	iznos  float64
+	stalni float64 // stalni dio pogreške (medijan u prozoru); ostaje cijelim dosegom
+	sat    int64   // sat mjerenja od kojeg se ispravak nosi naprijed
+	ima    bool
+}
+
+// ispravakU je ispravak modela u satu t: stalni dio cijeli, prolazni blijedi.
+func (o ostatak) ispravakU(t int64) float64 {
+	return o.stalni + (o.iznos-o.stalni)*math.Exp2(-float64(t-o.sat)/PoluvijekIspravka)
 }
 
 // upamceno pamti i neuspjeh: sat za koji ulaza nema neće ih dobiti ni kad se
@@ -237,7 +269,7 @@ func (r *Racunalo) U(iz Izvor, t int64) (Vrijednost, bool) {
 	// goli model, a Baja je tako krenula od 59 cm dok je stajala na 15.
 	if PoluvijekIspravka > 0 {
 		if o := r.ostatakZa(iz); o.ima && t > o.sat {
-			v.Iznos += o.iznos * math.Exp2(-float64(t-o.sat)/PoluvijekIspravka)
+			v.Iznos += o.ispravakU(t)
 		}
 	}
 	return r.zapamti(k, v, true)
@@ -275,10 +307,95 @@ func (r *Racunalo) ostatakZa(iz Izvor) ostatak {
 		if !bilo {
 			delete(r.uTijeku, k)
 		}
+		// Letva koja je vezana samo pri višoj vodi (inundacija) ne slijedi
+		// model stalno, pa ni njezina pogreška nije stalna.
+		if o.ima && !SamoPovezane[iz.Letva] {
+			o.stalni = r.stalniDio(iz, sat)
+		}
 	}
 	r.ostaci[iz] = o
 	return o
 }
+
+// stalniDio je medijan pogreške modela (mjereno − model) u prozoru prije
+// sata izdavanja; nula kad ga se ne da izmjeriti.
+func (r *Racunalo) stalniDio(iz Izvor, sat int64) float64 {
+	if StalniIspravakSati <= 0 {
+		return 0
+	}
+	var p []float64
+	uzoraka := 0
+	var najmanje float64
+	for tau := sat - int64(StalniIspravakSati); tau < sat; tau += korakStalnogIspravka {
+		uzoraka++
+		mj, ima := r.mjereno[iz].U(tau)
+		if !ima {
+			continue
+		}
+		k := kljuc{iz, tau}
+		bilo := r.uTijeku[k]
+		r.uTijeku[k] = true
+		v, ok := r.izracunaj(iz, tau)
+		if !bilo {
+			delete(r.uTijeku, k)
+		}
+		if ok {
+			p = append(p, mj-v.Iznos)
+		}
+	}
+	if len(p) == 0 || 2*len(p) < uzoraka {
+		return 0
+	}
+	// Ne kad dolazi val: kad je letva sada osjetno iznad najniže vrijednosti
+	// u prozoru, pogreška od prije vala u valu više ne vrijedi. Na 619
+	// poplavnih valova stalni dio bez ovoga je Dunavu kroz val dodao 1–2 cm
+	// pogreške. Opadanje i mirna voda prolaze: Baja je 24.–27. 9. 2026. pala
+	// 55 cm, a model je cijelo vrijeme stajao 42–46 cm iznad nje.
+	// Porast se mjeri na 24-satnim srednjacima: dnevni rad elektrana diže i
+	// spušta Dravu svaki dan, a to nije val.
+	dnevni := func(t int64) (float64, bool) { return srednjakDo(r.mjereno[iz], t-24, t) }
+	sad, ima := dnevni(sat)
+	if !ima {
+		return 0
+	}
+	najmanje = sad
+	for tau := sat - int64(StalniIspravakSati) + 24; tau < sat; tau += korakStalnogIspravka {
+		if v, ok := dnevni(tau); ok {
+			najmanje = math.Min(najmanje, v)
+		}
+	}
+	granica := StalniMirnaVodaCm
+	if iz.Velicina == "protok" {
+		granica = StalniMirnaVodaUdio * math.Max(najmanje, 1)
+	}
+	if sad-najmanje > granica {
+		return 0
+	}
+	sort.Float64s(p)
+	med := p[len(p)/2]
+	if len(p)%2 == 0 {
+		med = (p[len(p)/2-1] + p[len(p)/2]) / 2
+	}
+	// Stalna je samo pogreška koja se u prozoru ne mijenja: svaka istog
+	// predznaka, a raspon manji od nje same. Pogreška koja skače (val koji
+	// model hvata kasnije ili ranije) nije stalna i blijedi kao prolazna.
+	if StalniSamoSkladan && (p[0] < 0) != (p[len(p)-1] < 0) || StalniSamoSkladan && p[len(p)-1]-p[0] > math.Abs(med) {
+		return 0
+	}
+	return med
+}
+
+// Stalni dio ne vrijedi kad je letva sada više od StalniMirnaVodaCm
+// (vodostaj) ili StalniMirnaVodaUdio (protok) iznad najniže vrijednosti u
+// prozoru — tada dolazi val.
+var (
+	StalniMirnaVodaCm   = 20.0
+	StalniMirnaVodaUdio = 0.15
+)
+
+// StalniSamoSkladan traži da pogreška u prozoru bude istog predznaka i
+// raspona manjeg od nje same, da bi se nosila kao stalna.
+var StalniSamoSkladan = true
 
 func (r *Racunalo) zapamti(k kljuc, v Vrijednost, ok bool) (Vrijednost, bool) {
 	r.zapamceno[k] = upamceno{v, ok}

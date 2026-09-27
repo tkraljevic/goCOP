@@ -87,3 +87,39 @@ func TestOperaterUciRitamIDotok(t *testing.T) {
 		t.Error("budućnost mora sezati do kraja dosega")
 	}
 }
+
+// Bilanca: dnevni srednjak ispusta smije odstupiti od dotoka samo do
+// granice; model koji pri običnoj vodi pušta vodu koje nema odreže se na nju,
+// a oblik kroz dan ostaje.
+func TestUravnoteziOperatera(t *testing.T) {
+	t0 := int64(1000)
+	q, dotok := map[int64]float64{}, map[int64]float64{}
+	for tt := t0 - 200; tt <= t0; tt++ {
+		q[tt], dotok[tt] = 140, 140
+	}
+	tocke := map[int64]float64{t0: 140}
+	for k := int64(1); k <= OperaterDosezi; k++ {
+		tocke[t0+k] = 250 + 50*math.Sin(float64(k)) // model: 250 m³/s, s oblikom
+	}
+	uravnotezi(tocke, t0, NoviNiz(q), NoviNiz(dotok), nil)
+	var z float64
+	for k := int64(1); k <= 24; k++ {
+		z += tocke[t0+k]
+	}
+	gornja := 140 + math.Max(OperaterBilancaDopust, OperaterBilancaUdio*140)
+	if sr := z / 24; math.Abs(sr-gornja) > 1e-6 {
+		t.Errorf("srednjak prvog dana %.1f, želim %.1f (dotok + dopust)", sr, gornja)
+	}
+	if math.Abs(tocke[t0+2]-tocke[t0+1]-50*(math.Sin(2)-math.Sin(1))) > 1e-9 {
+		t.Error("oblik kroz dan se promijenio")
+	}
+	// unutar dopuštenog se ne dira
+	unutra := map[int64]float64{t0: 140}
+	for k := int64(1); k <= OperaterDosezi; k++ {
+		unutra[t0+k] = 160
+	}
+	uravnotezi(unutra, t0, NoviNiz(q), NoviNiz(dotok), nil)
+	if unutra[t0+10] != 160 {
+		t.Errorf("unutar dopuštenog promijenjeno na %g", unutra[t0+10])
+	}
+}
