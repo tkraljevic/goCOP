@@ -307,7 +307,7 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"kvazi-kišomjera međusliva po visinskim pojasima. Model s kišom uči od 1990., na kiši koja je doista " +
 				"pala i poslije (savršena prognoza); uživo ulazi analiza i prognoza. Kad oborine nema, uzima se " +
 				"inačica bez nje. U udaljenosti analogija oborina nosi polovicu težine promjena vodostaja."),
-			tekstM("Ciljevi i ulazi: na Muri Mursko Središće iz vlastite razine i kiše (uzvodno nema satne letve), " +
+			tekstM("Ciljevi i ulazi: na Muri Mursko Središće iz vlastite razine i kiše (satni lanac ga vodi iz Gornje Radgone), " +
 				"Goričan, Letenye i Kotoriba iz uzvodnih; na Dravi Botovo do Osijeka iz uzvodnih letvi, Murskog " +
 				"Središća i Borla; Osijek uz to iz Mohácsa, Budimpešte i Komároma s dunavskom kišom, jer ondje odlučuje " +
 				"uspor Dunava koji te letve vide dva-tri dana prije Batine; na Dunavu Batina, Aljmaš, Vukovar i Ilok iz " +
@@ -450,7 +450,7 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 		}},
 		{"Što je novo", []OdlomakMetode{
 			popisM(
-				"27. 9. 2026. — satni lanac dijeli ispravak na stalni dio (medijan pogreške 72 h, kad je skladna i letva ne raste) i prolazni koji blijedi; model ispuštanja pri običnoj vodi drži dnevni srednjak uz dotok; uzdužni profil prema vodi zadnjih 30 dana, s uobičajenom vodom deset godina i srednjim vodostajem, jutarnjom crtom u 7 h, crtama za 6 i 12 h, jednim profilom po rijeci u Trstu i razmakom letvi koji nije u mjerilu.",
+				"27. 9. 2026. — satni lanac dijeli ispravak na stalni dio (medijan pogreške 72 h, kad je skladna i letva ne raste) i prolazni koji blijedi; model ispuštanja pri običnoj vodi drži dnevni srednjak uz dotok; uzdužni profil prema vodi zadnjih 30 dana, s uobičajenom vodom deset godina i srednjim vodostajem, jutarnjom crtom u 7 h, crtama za 6 i 12 h, jednim profilom po rijeci u Trstu i razmakom letvi koji nije u mjerilu; satni lanac Mure iz Gornje Radgone (Mursko Središće, Goričan, dalje Botovo 4–8 % bolje na 24–96 h); arhiva dopunjena dnevnim i očišćenim satnim podacima DanubeHIS-a.",
 				"26. 9. 2026. — model ispuštanja HE Dubrava, Čakovec i Varaždin na vrhu lanca; razine akumulacija na pregledu i profilu; Komárom po mađarskoj prognozi dok je svježa, inače lanac iz Austrije; Osijek s dunavskim ulazima; dnevni model ¾ regresije; Varaždin kao karika; uzdužni profil s branama, punim zaslonom i ispisom, mađarski profili Dunava i Drave.",
 				"25. 9. 2026. — austrijska prognoza Wildungsmauera (noel.gv.at) i karike Nagybajcs, Komárom; kiša po međuslivovima Drave, Dunava i Mure u dnevnom modelu; Goričan kao vrh lanca Botova; Mura sa svojom dnevnom prognozom; Angern na Moravi.",
 				"23. 9. 2026. — istjecanje elektrana s mletva.voda.hr uživo; mađarska prognoza kao vrh Letenyea i Komároma; raspon 70 %.",

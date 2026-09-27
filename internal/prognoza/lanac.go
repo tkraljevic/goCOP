@@ -29,6 +29,7 @@ var Velicine = map[string]string{
 	"gorican":                  "protok",
 	"tikves":                   "vodostaj",
 	"mursko-sredisce":          "protok",
+	"gornja-radgona":           "protok",
 	"komarno":                  "vodostaj",
 	"bogojevo":                 "vodostaj",
 	"bezdan":                   "vodostaj",
@@ -117,6 +118,7 @@ var Rezerve = map[string][][]string{
 	"ilok":           {{"sotin"}},
 	"botovo":         {{"he-dubrava", "letenye"}, {"donja-dubrava", "gorican"}, {"he-dubrava", "kotoriba"}, {"he-dubrava", "mursko-sredisce"}},
 	"novo-virje":     {{"he-dubrava", "gorican"}, {"he-dubrava", "letenye"}},
+	"gorican":        {{"gornja-radgona"}},
 	"terezino-polje": {{"botovo"}, {"vizvar"}},
 	"szentborbas":    {{"barcs"}},
 	"vrbovka":        {{"terezino-polje"}},
@@ -147,6 +149,18 @@ var Tokovi = []struct {
 	Racuni []Racun
 }{
 	{"Drava", []Racun{
+		// Mura: Gornja Radgona → Mursko Središće → Goričan, u protoku. Satni
+		// niz Gornje Radgone postoji od rujna 2020. (DanubeHIS, očišćen), a
+		// uživo ga daje ARSO-ova tablica postaje. Kašnjenje do Mursko
+		// Središća 4 h, do Goričana još 0–2 h (na velikoj vodi do 7 h).
+		// Provjera 2023.–2025. uz namještanje do 2023.: Goričan 49/46/28/26 %
+		// bolji od postojanosti na 6/12/24/48 h, a Botovu, koje Muru dobiva
+		// preko Goričana, promašaj pada 82,0 → 77,2, 133,5 → 123,2, 167,9 →
+		// 156,7 i 189,9 → 182,9 m³/s na 24/48/72/96 h; Novo Virje i Terezino
+		// Polje 4–7 % na 48–96 h. Mureck i Graz imaju satni niz tek od rujna
+		// 2024., premalo za namještanje.
+		{"mursko-sredisce", []string{"gornja-radgona"}},
+		{"gorican", []string{"mursko-sredisce"}},
 		// Botovo je nizvodno od ušća Mure kod Legrada. Bez Mure mu veza s
 		// Donjom Dubravom drži svega R² 0,24–0,45 po pojasu, a Dubravi ispadne
 		// nagib 2,07 — protok koji se na dvadeset kilometara udvostruči. To

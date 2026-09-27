@@ -48,3 +48,51 @@ func TestAdresaARSO(t *testing.T) {
 		t.Error("tuđa domena ne smije biti ARSO")
 	}
 }
+
+const probnaARSOTablica = `<h1>Postaja Gornja Radgona I - Mura</h1><table class="podatki">
+<thead><tr>
+<th>Datum</th>
+<th>Vodostaj [cm]</th>
+<th>Pretok [m&sup3;/s]</th>
+<th>Temperatura vode [&deg;C]</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>27.09.2026 21:20</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+</tr>
+<tr>
+<td>27.09.2026 21:10</td>
+<td>54.0</td>
+<td>43.4</td>
+<td>16.5</td>
+</tr>
+<tr>
+<td>27.09.2026 21:00</td>
+<td>54.0</td>
+<td>-</td>
+<td>16.6</td>
+</tr>
+</tbody></table>`
+
+// Tablica postaje daje zadnji dan svakih 10 minuta; „-” je rupa, a redak bez
+// ijedne vrijednosti ne ulazi.
+func TestCitajARSOTablicu(t *testing.T) {
+	r, err := CitajARSOTablicu([]byte(probnaARSOTablica))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(r) != 2 {
+		t.Fatalf("redaka %d, očekivano 2: %+v", len(r), r)
+	}
+	// od najstarijeg prema najnovijem, kako uvoz očekuje
+	if !r[1].Kad.Equal(time.Date(2026, 9, 27, 19, 10, 0, 0, time.UTC)) || r[1].LevelCm == nil || *r[1].LevelCm != 54 ||
+		r[1].FlowM3s == nil || *r[1].FlowM3s != 43.4 || r[1].TempC == nil || *r[1].TempC != 16.5 {
+		t.Errorf("zadnji redak %+v", r[1])
+	}
+	if r[0].FlowM3s != nil || r[0].LevelCm == nil || !r[0].Kad.Before(r[1].Kad) {
+		t.Errorf("rupa u protoku nije rupa ili redoslijed nije od najstarijeg: %+v", r[0])
+	}
+}
