@@ -67,6 +67,82 @@ var fixups = []fixup{
 			return len(ids), nil
 		},
 	},
+	{
+		// Ivanec (Varaždinska županija) i Vrbovec (Zagrebačka županija) su nedostajali u registru
+		name: "gradovi-ivanec-vrbovec",
+		run: func(ctx context.Context, tx *sql.Tx, rec *ledger.Recorder) (int, error) {
+			changed := 0
+			// Ivanec
+			var nIvanec int
+			if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM municipalities WHERE name = 'Ivanec'`).Scan(&nIvanec); err != nil {
+				return 0, err
+			}
+			if nIvanec == 0 {
+				mIvanec := models.Municipality{
+					ID:         555,
+					CountyID:   5,
+					Name:       "Ivanec",
+					Type:       "GRAD",
+					HeadTitle:  "Gradonačelnik",
+					HeadName:   "", // ime čelnika upisuje se u registru, ne u kodu
+					PostalCode: "42240",
+					AreaSqKm:   95.81,
+					Population: 12723,
+					Email:      "grad@ivanec.hr",
+					Phone:      "042/404-100",
+					Website:    "https://www.ivanec.hr",
+				}
+				if _, err := tx.ExecContext(ctx, `
+					INSERT INTO municipalities (id, county_id, name, type, head_title, head_name, postal_code, area_sqkm, population, email, phone, website)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+					mIvanec.ID, mIvanec.CountyID, mIvanec.Name, mIvanec.Type, mIvanec.HeadTitle, mIvanec.HeadName,
+					mIvanec.PostalCode, mIvanec.AreaSqKm, mIvanec.Population, mIvanec.Email, mIvanec.Phone, mIvanec.Website,
+				); err != nil {
+					return 0, fmt.Errorf("unos Ivanec: %w", err)
+				}
+				if _, err := rec.Record(ctx, tx, EntityMunicipalities, "555", mIvanec); err != nil {
+					return 0, err
+				}
+				changed++
+			}
+
+			// Vrbovec
+			var nVrbovec int
+			if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM municipalities WHERE name = 'Vrbovec'`).Scan(&nVrbovec); err != nil {
+				return 0, err
+			}
+			if nVrbovec == 0 {
+				mVrbovec := models.Municipality{
+					ID:         556,
+					CountyID:   1,
+					Name:       "Vrbovec",
+					Type:       "GRAD",
+					HeadTitle:  "Gradonačelnik",
+					HeadName:   "", // ime čelnika upisuje se u registru, ne u kodu
+					PostalCode: "10340",
+					AreaSqKm:   159.05,
+					Population: 12981,
+					Email:      "grad-vrbovec@vrbovec.hr",
+					Phone:      "01/2799-900",
+					Website:    "https://www.vrbovec.hr",
+				}
+				if _, err := tx.ExecContext(ctx, `
+					INSERT INTO municipalities (id, county_id, name, type, head_title, head_name, postal_code, area_sqkm, population, email, phone, website)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+					mVrbovec.ID, mVrbovec.CountyID, mVrbovec.Name, mVrbovec.Type, mVrbovec.HeadTitle, mVrbovec.HeadName,
+					mVrbovec.PostalCode, mVrbovec.AreaSqKm, mVrbovec.Population, mVrbovec.Email, mVrbovec.Phone, mVrbovec.Website,
+				); err != nil {
+					return 0, fmt.Errorf("unos Vrbovec: %w", err)
+				}
+				if _, err := rec.Record(ctx, tx, EntityMunicipalities, "556", mVrbovec); err != nil {
+					return 0, err
+				}
+				changed++
+			}
+
+			return changed, nil
+		},
+	},
 }
 
 // RunFixups izvodi popravke koji na ovom čvoru još nisu izvedeni

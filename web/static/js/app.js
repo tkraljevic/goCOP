@@ -45,6 +45,31 @@ function stationMapPopup(st, hideDetails) {
   return popupHtml;
 }
 
+// Stvara autentičnu ikonu vodomjerne letve (stupić s E-podjelom) za Leaflet kartu
+function stvoriLetvaIkonu() {
+  if (typeof L === 'undefined') return null;
+  return L.divIcon({
+    className: 'letva-map-marker-wrap',
+    html: '<div class="letva-stupic" title="Vodomjerna letva">' +
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 44" width="18" height="44" style="display:block;">' +
+      '<path d="M3,2 L15,2 L15,36 L9,42 L3,36 Z" fill="#ffffff" stroke="#334155" stroke-width="1.2" stroke-linejoin="round"/>' +
+      '<rect x="3.6" y="2.6" width="10.8" height="6.6" fill="#dc2626"/>' +
+      '<path d="M5.5,4.2 H8.5 M5.5,6 H7.5 M5.5,7.8 H8.5 M5.5,4.2 V7.8" stroke="#ffffff" stroke-width="1.2" stroke-linecap="square" fill="none"/>' +
+      '<rect x="9.5" y="4.2" width="1" height="3.6" fill="#ffffff"/>' +
+      '<rect x="11.5" y="4.2" width="1.8" height="3.6" rx="0.5" fill="none" stroke="#ffffff" stroke-width="0.8"/>' +
+      '<path d="M12.5,10.5 H9.5 M12.5,12.5 H10.5 M12.5,14.5 H9.5 M12.5,10.5 V14.5" stroke="#1e293b" stroke-width="1.2" stroke-linecap="square" fill="none"/>' +
+      '<path d="M5.5,16.5 H8.5 M5.5,18.5 H7.5 M5.5,20.5 H8.5 M5.5,16.5 V20.5" stroke="#1e293b" stroke-width="1.2" stroke-linecap="square" fill="none"/>' +
+      '<path d="M12.5,22.5 H9.5 M12.5,24.5 H10.5 M12.5,26.5 H9.5 M12.5,22.5 V26.5" stroke="#1e293b" stroke-width="1.2" stroke-linecap="square" fill="none"/>' +
+      '<path d="M5.5,28.5 H8.5 M5.5,30.5 H7.5 M5.5,32.5 H8.5 M5.5,28.5 V32.5" stroke="#1e293b" stroke-width="1.2" stroke-linecap="square" fill="none"/>' +
+      '<circle cx="9" cy="35.5" r="1.2" fill="#dc2626"/>' +
+      '<polygon points="7.5,36.5 10.5,36.5 9,41" fill="#334155"/>' +
+      '</svg></div>',
+    iconSize: [18, 44],
+    iconAnchor: [9, 42],
+    popupAnchor: [0, -40]
+  });
+}
+
 // goCOP klijentska skripta — SSE sinkronizacija i responzivna interakcija
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -563,6 +588,7 @@ function renderMarkdown(md) {
 function dodajKontroleKarte(karta, platno, opcije) {
   if (!karta || !platno || typeof L === 'undefined') return;
   opcije = opcije || {};
+  var fsTarget = opcije.fullscreenTarget || platno;
 
   var kontrola = L.control({ position: 'topright' });
   var smjerovi = L.control({ position: 'topleft' });
@@ -583,7 +609,8 @@ function dodajKontroleKarte(karta, platno, opcije) {
   }
 
   function uPunomZaslonu() {
-    return elementPunogZaslona() === platno || cssPuniZaslon;
+    var fsEl = elementPunogZaslona();
+    return fsEl === fsTarget || fsEl === platno || cssPuniZaslon;
   }
 
   function osvjeziPuniZaslon() {
@@ -600,14 +627,14 @@ function dodajKontroleKarte(karta, platno, opcije) {
 
   function ukljuciCSSPuniZaslon() {
     cssPuniZaslon = true;
-    platno.classList.add('karta-puni-zaslon');
+    fsTarget.classList.add('karta-puni-zaslon');
     document.body.classList.add('karta-puni-zaslon-otvoren');
     osvjeziPuniZaslon();
   }
 
   function iskljuciCSSPuniZaslon() {
     cssPuniZaslon = false;
-    platno.classList.remove('karta-puni-zaslon');
+    fsTarget.classList.remove('karta-puni-zaslon');
     document.body.classList.remove('karta-puni-zaslon-otvoren');
     osvjeziPuniZaslon();
   }
@@ -617,18 +644,18 @@ function dodajKontroleKarte(karta, platno, opcije) {
       iskljuciCSSPuniZaslon();
       return;
     }
-    if (elementPunogZaslona() === platno) {
+    if (elementPunogZaslona() === fsTarget || elementPunogZaslona() === platno) {
       var izlaz = document.exitFullscreen || document.webkitExitFullscreen;
       if (izlaz) izlaz.call(document);
       return;
     }
-    var zahtjev = platno.requestFullscreen || platno.webkitRequestFullscreen;
+    var zahtjev = fsTarget.requestFullscreen || fsTarget.webkitRequestFullscreen;
     if (!zahtjev) {
       ukljuciCSSPuniZaslon();
       return;
     }
     try {
-      var rezultat = zahtjev.call(platno);
+      var rezultat = zahtjev.call(fsTarget);
       if (rezultat && typeof rezultat.catch === 'function') {
         rezultat.catch(ukljuciCSSPuniZaslon);
       }
@@ -777,7 +804,7 @@ function dodajKontroleKarte(karta, platno, opcije) {
 
       var podaci = okvir.querySelector('.karta-letva-podaci');
       var popup = podaci ? stationMapPopup(JSON.parse(podaci.textContent), true) : escapeHtml(okvir.dataset.naziv || '');
-      L.marker([lat, lon]).addTo(karta).bindPopup(popup);
+      L.marker([lat, lon], { icon: stvoriLetvaIkonu() }).addTo(karta).bindPopup(popup);
     });
   });
 })();
@@ -881,7 +908,7 @@ function dodajKontroleKarte(karta, platno, opcije) {
       // Dodaj vodomjerne postaje
       stationsData.forEach(function (st) {
         if (typeof st.lat !== 'number' || typeof st.lon !== 'number') return;
-        var stMarker = L.marker([st.lat, st.lon]);
+        var stMarker = L.marker([st.lat, st.lon], { icon: stvoriLetvaIkonu() });
         var popupHtml = '<div>' +
           '<div style="font-weight:700; font-size:0.95rem; margin-bottom:2px;"><a href="' + escapeHtml(st.detail_url) + '">' + escapeHtml(st.name) + '</a></div>' +
           (st.stationing ? '<div style="font-size:0.8rem; color:#475569;">' + escapeHtml(st.stationing) + '</div>' : '') +
@@ -1248,7 +1275,7 @@ function dodajKontroleKarte(karta, platno, opcije) {
       var markerGroup = L.featureGroup();
       stationsData.forEach(function (st) {
         if (typeof st.lat !== 'number' || typeof st.lon !== 'number') return;
-        var stMarker = L.marker([st.lat, st.lon]);
+        var stMarker = L.marker([st.lat, st.lon], { icon: stvoriLetvaIkonu() });
 
         var popupHtml = stationMapPopup(st);
 
@@ -1932,6 +1959,1294 @@ function dodajKontroleKarte(karta, platno, opcije) {
     });
   });
 })();
+
+// Karta teritorijalnih jedinica: prikazuje granice županija Republike Hrvatske
+(function () {
+  function escapeHtml(text) {
+    if (!text) return '';
+    var div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    if (typeof L === 'undefined') return;
+    document.querySelectorAll('.karta-teritorij').forEach(function (okvir) {
+      var platno = okvir.querySelector('.karta-platno');
+      var geoEl = okvir.querySelector('.karta-zupanije-podaci');
+      if (!platno || !geoEl) return;
+
+      var geoData = null;
+      try {
+        geoData = JSON.parse(geoEl.textContent);
+      } catch (e) {
+        return;
+      }
+      if (!geoData) return;
+
+      var najvise = parseInt(okvir.dataset.najviseZ, 10) || 17;
+      var karta = L.map(platno);
+      var fsSekcija = okvir.closest('.karta-teritorij-sekcija') || okvir;
+      dodajKontroleKarte(karta, platno, { fullscreenTarget: fsSekcija });
+      var plociceUrl = okvir.dataset.plocice || 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+      var sloj = L.tileLayer(plociceUrl, {
+        maxZoom: najvise,
+        attribution: okvir.dataset.zasluge || '© OpenStreetMap suradnici'
+      });
+
+      var promasaja = 0;
+      sloj.on('tileerror', function () {
+        if (++promasaja < 3) return;
+        var poruka = okvir.querySelector('.karta-bez-mreze');
+        if (poruka) poruka.hidden = false;
+        okvir.classList.add('karta-prazna');
+      });
+      sloj.addTo(karta);
+
+      // 1. Z-Index panes: Županije ispod (390), Gradovi i Općine iznad (450)
+      if (!karta.getPane('zupanijePane')) {
+        var zp = karta.createPane('zupanijePane');
+        zp.style.zIndex = 390;
+      }
+      if (!karta.getPane('gradoviPane')) {
+        var gp = karta.createPane('gradoviPane');
+        gp.style.zIndex = 450;
+      }
+      if (!karta.getPane('opcinePane')) {
+        var op = karta.createPane('opcinePane');
+        op.style.zIndex = 450;
+      }
+      if (!karta.getPane('naseljaPane')) {
+        var np = karta.createPane('naseljaPane');
+        np.style.zIndex = 500;
+      }
+
+      // Boje za županije
+      var paleta = [
+        '#2563eb', '#0891b2', '#059669', '#d97706', '#dc2626',
+        '#7c3aed', '#4f46e5', '#0284c7', '#16a34a', '#ea580c',
+        '#9333ea', '#c026d3', '#e11d48', '#0d9488', '#65a30d',
+        '#ca8a04', '#b91c1c', '#6d28d9', '#1d4ed8', '#047857', '#3b82f6'
+      ];
+
+      function bojaZupanije(id) {
+        if (!id) return paleta[0];
+        return paleta[(id - 1) % paleta.length];
+      }
+
+      var zupanijeLayers = {}; // county_id -> { layer, props, name }
+      var muniLayers = {};     // muni_id -> { id, name, type, isGrad, countyId, layer, active }
+      var munisByCounty = {};  // county_id -> [ muniItem, ... ]
+
+      var zupanijeSloj = L.geoJSON(geoData, {
+        pane: 'zupanijePane',
+        style: function (feat) {
+          var boja = bojaZupanije(feat.properties.id);
+          return {
+            color: boja,
+            weight: 2.2,
+            opacity: 0.9,
+            fillColor: boja,
+            fillOpacity: 0.10,
+            className: 'zupanija-poligon'
+          };
+        },
+        onEachFeature: function (feat, layer) {
+          var p = feat.properties || {};
+          var naziv = p.name || 'Županija';
+          var sjediste = p.seat || '';
+          var zupan = p.prefect || '';
+          var stanovnistvo = p.population ? Number(p.population).toLocaleString('hr-HR') : '';
+          var povrsina = p.area_sqkm ? Number(p.area_sqkm).toLocaleString('hr-HR') + ' km²' : '';
+          var gradovi = p.num_cities || 0;
+          var opcine = p.num_opcine || 0;
+          var id = p.id || 0;
+
+          zupanijeLayers[id] = { layer: layer, props: p, name: naziv, id: id };
+
+          // Klik na županiju odabire tu županiju u izborniku i sortira njene gradove i općine
+          layer.on('click', function () {
+            odaberiZupaniju(id, false);
+          });
+
+          layer.bindTooltip('<strong>' + escapeHtml(naziv) + '</strong>' +
+            (sjediste ? '<br><small>Sjedište: ' + escapeHtml(sjediste) + '</small>' : ''), {
+            sticky: true,
+            className: 'zupanija-tooltip'
+          });
+
+          layer.on('mouseover', function () {
+            this.setStyle({
+              weight: 3.5,
+              fillOpacity: 0.25
+            });
+          });
+          layer.on('mouseout', function () {
+            zupanijeSloj.resetStyle(this);
+          });
+
+          var popupHtml = '<div class="karta-zupanija-popup" style="min-width:240px; font-size:0.875rem;">' +
+            '<div style="font-weight:700; font-size:1.05rem; color:#1e3a8a; margin-bottom:4px; border-bottom:1px solid #e2e8f0; padding-bottom:4px;">' +
+            escapeHtml(naziv) +
+            (p.code ? ' <span style="font-size:0.8rem; color:#64748b; font-weight:500;">(' + escapeHtml(p.code) + ')</span>' : '') +
+            '</div>' +
+            (sjediste ? '<div style="margin-bottom:3px;"><strong>Sjedište:</strong> ' + escapeHtml(sjediste) + '</div>' : '') +
+            (zupan ? '<div style="margin-bottom:3px;"><strong>Župan:</strong> ' + escapeHtml(zupan) + '</div>' : '') +
+            (stanovnistvo ? '<div style="margin-bottom:3px;"><strong>Stanovništvo:</strong> ' + escapeHtml(stanovnistvo) + '</div>' : '') +
+            (povrsina ? '<div style="margin-bottom:3px;"><strong>Površina:</strong> ' + escapeHtml(povrsina) + '</div>' : '') +
+            '<div style="margin-bottom:6px; font-size:0.8rem; color:#475569;">' +
+            'Gradova: <strong>' + gradovi + '</strong> · Općina: <strong>' + opcine + '</strong>' +
+            '</div>' +
+            '<div style="display:flex; flex-direction:column; gap:0.4rem; margin-top:8px;">' +
+            '<button type="button" class="btn-otvori-jedinice-zupanije" data-cid="' + id + '" style="cursor:pointer; display:inline-block; font-size:0.75rem; padding:4px 8px; background:#2563eb; color:#ffffff; border:none; border-radius:4px; font-weight:600; text-align:center;">Upravljaj gradovima i općinama (' + (gradovi + opcine) + ')</button>' +
+            '<div style="display:flex; gap:0.4rem;">' +
+            (id ? '<a href="/territories?tab=municipalities&county_id=' + id + '" style="display:inline-block; font-size:0.75rem; padding:4px 8px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; border-radius:4px; text-decoration:none; font-weight:500; text-align:center; flex:1;">Tablica</a>' : '') +
+            (id ? '<a href="/territories/counties/' + id + '" style="display:inline-block; font-size:0.75rem; padding:4px 8px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; border-radius:4px; text-decoration:none; font-weight:500; text-align:center; flex:1;">Detalji</a>' : '') +
+            '</div>' +
+            '</div>' +
+            '</div>';
+
+          layer.bindPopup(popupHtml);
+        }
+      }).addTo(karta);
+
+      var bounds = zupanijeSloj.getBounds();
+      if (bounds.isValid()) {
+        karta.fitBounds(bounds, { padding: [20, 20] });
+      } else {
+        karta.setView([44.5, 16.5], 7);
+      }
+
+      // Slojevi za gradove i općine
+      var gradoviSloj = null;
+      var opcineSloj = null;
+      var layerControl = null;
+
+      var chkZup = document.getElementById('sloj-chk-zupanije');
+      var chkGrad = document.getElementById('sloj-chk-gradovi');
+      var chkOpc = document.getElementById('sloj-chk-opcine');
+      var chkNaselja = document.getElementById('sloj-chk-naselja');
+      var loadingEl = document.getElementById('karta-ucitavanje-opcina');
+
+      // Sloj naselja (najgornji sloj u naseljaPane zIndex 500)
+      var naseljaUrlBase = okvir.dataset.naseljaUrl || '/territories/naselja.geojson?county_id=';
+      var naseljaSloj = L.layerGroup();
+      var naseljaCache = {};
+      var naseljaLoading = {};
+      var naseljaLayers = {};
+      var naseljaByCounty = {};
+      var trenutnaZupanijaZaNaselja = null;
+
+      function kreirajNaseljaLayer(geoData, cNum) {
+        if (!naseljaByCounty[cNum]) naseljaByCounty[cNum] = [];
+        var feats = geoData.features || (geoData.type === 'FeatureCollection' ? geoData.features : [geoData]);
+
+        feats.forEach(function (feat) {
+          var p = feat.properties || {};
+          var naziv = p.name || 'Naselje';
+          var muniNaziv = p.municipality_name || '';
+          var zupNaziv = p.county_name || '';
+          var pop = p.population ? Number(p.population).toLocaleString('hr-HR') : '';
+          var pcode = p.postal_code || '';
+          var mid = p.municipality_id;
+          var sid = String(p.id || p.code || (mid ? mid + '_' + naziv : naziv));
+
+          var layer = L.geoJSON(feat, {
+            pane: 'naseljaPane',
+            style: function () {
+              return {
+                color: '#e11d48',
+                weight: 1.1,
+                opacity: 0.95,
+                fillColor: '#f43f5e',
+                fillOpacity: 0.14,
+                className: 'naselje-poligon'
+              };
+            }
+          });
+
+          layer.bindTooltip('<strong>' + escapeHtml(naziv) + '</strong>' +
+            (muniNaziv ? '<br><small>' + escapeHtml(muniNaziv) + (zupNaziv ? ' (' + escapeHtml(zupNaziv) + ')' : '') + '</small>' : ''), {
+            sticky: true,
+            className: 'naselje-tooltip'
+          });
+
+          layer.on('mouseover', function () {
+            this.setStyle({
+              weight: 2.8,
+              fillOpacity: 0.40,
+              color: '#be123c'
+            });
+          });
+          layer.on('mouseout', function () {
+            this.setStyle({
+              weight: 1.1,
+              fillOpacity: 0.14,
+              color: '#e11d48'
+            });
+          });
+
+          var popHtml = '<div class="karta-naselje-popup" style="min-width:220px; font-size:0.875rem;">' +
+            '<div style="font-weight:700; font-size:1.02rem; color:#be123c; margin-bottom:5px; border-bottom:1px solid #fecdd3; padding-bottom:4px;">' +
+            escapeHtml(naziv) +
+            '</div>' +
+            (muniNaziv ? '<div style="margin-bottom:3px; color:#334155;"><strong>Grad/Općina:</strong> ' + escapeHtml(muniNaziv) + '</div>' : '') +
+            (zupNaziv ? '<div style="margin-bottom:3px; color:#64748b; font-size:0.8rem;"><strong>Županija:</strong> ' + escapeHtml(zupNaziv) + '</div>' : '') +
+            (pop ? '<div style="margin-bottom:3px; color:#334155;"><strong>Stanovništvo:</strong> ' + escapeHtml(pop) + '</div>' : '') +
+            (pcode ? '<div style="margin-bottom:3px; color:#64748b; font-size:0.8rem;"><strong>Poštanski broj:</strong> ' + escapeHtml(pcode) + '</div>' : '') +
+            '<div style="display:flex; flex-direction:column; gap:0.35rem; margin-top:8px;">' +
+            '<button type="button" class="btn-ugasi-naselje-popup" data-id="' + escapeHtml(sid) + '" style="cursor:pointer; width:100%; font-size:0.75rem; padding:4px 8px; background:#fff; border:1px solid #fca5a5; color:#dc2626; border-radius:4px; font-weight:600; display:flex; align-items:center; justify-content:center; gap:4px;">' +
+            '<span>Ugasi ovo naselje s karte</span>' +
+            '</button>' +
+            (mid ? '<div style="margin-top:2px;"><a href="/territories/municipalities/' + mid + '" style="display:inline-block; font-size:0.75rem; padding:3px 8px; background:#e11d48; color:#ffffff; border-radius:4px; text-decoration:none; font-weight:500; text-align:center; width:100%; box-sizing:border-box;">Prikaži ' + escapeHtml(muniNaziv) + '</a></div>' : '') +
+            '</div>' +
+            '</div>';
+
+          layer.bindPopup(popHtml);
+
+          var nItem = {
+            id: sid,
+            rawId: p.id,
+            code: p.code || '',
+            name: naziv,
+            muniId: mid,
+            muniName: muniNaziv,
+            muniType: p.municipality_type || '',
+            countyId: cNum,
+            countyName: zupNaziv,
+            population: p.population || 0,
+            postalCode: pcode,
+            layer: layer,
+            active: true
+          };
+          naseljaLayers[sid] = nItem;
+          naseljaByCounty[cNum].push(nItem);
+        });
+      }
+
+      function sinkronizirajVidljivostNaselja() {
+        naseljaSloj.clearLayers();
+        var selVal = plocaIzborZup ? plocaIzborZup.value : '';
+        if (!selVal || selVal === 'sve' || !chkNaselja || !chkNaselja.checked) {
+          return;
+        }
+        var cNum = parseInt(selVal, 10);
+        var allN = naseljaByCounty[cNum] || [];
+        var odabranaOpcinaId = plocaSelectOpcina && plocaSelectOpcina.value ? parseInt(plocaSelectOpcina.value, 10) : 0;
+
+        allN.forEach(function (nItem) {
+          // Ako je u izborniku odabran pojedini grad ili općina, prikazujemo SAMO njegova naselja
+          if (odabranaOpcinaId > 0 && nItem.muniId !== odabranaOpcinaId) {
+            return;
+          }
+          if (nItem.active) {
+            naseljaSloj.addLayer(nItem.layer);
+          }
+        });
+      }
+
+      function sinkronizirajVidljivostJedinica() {
+        var selVal = plocaIzborZup ? plocaIzborZup.value : '';
+        var odabranaOpcinaId = plocaSelectOpcina && plocaSelectOpcina.value ? parseInt(plocaSelectOpcina.value, 10) : 0;
+        var cNum = (selVal && selVal !== 'sve') ? parseInt(selVal, 10) : 0;
+
+        Object.values(muniLayers).forEach(function (item) {
+          var belongsToCounty = !cNum || item.countyId === cNum;
+          var matchesMuniFilter = !odabranaOpcinaId || item.id === odabranaOpcinaId;
+          var shouldShow = belongsToCounty && matchesMuniFilter && item.active;
+
+          var masterUkljucen = item.isGrad ? (chkGrad ? chkGrad.checked : true) : (chkOpc ? chkOpc.checked : true);
+
+          if (shouldShow && masterUkljucen) {
+            if (!karta.hasLayer(item.layer)) karta.addLayer(item.layer);
+          } else {
+            if (karta.hasLayer(item.layer)) karta.removeLayer(item.layer);
+          }
+        });
+      }
+
+      function postaviVidljivostNaselja(sid, vidljivo) {
+        var item = naseljaLayers[sid];
+        if (!item) return;
+        item.active = vidljivo;
+        sinkronizirajVidljivostNaselja();
+
+        if (plocaLista) {
+          var row = plocaLista.querySelector('.karta-jedinice-stavka[data-naselje-id="' + sid + '"]');
+          if (row) {
+            if (vidljivo) row.classList.remove('iskljucena');
+            else row.classList.add('iskljucena');
+            var chk = row.querySelector('.chk-naselje-jedinica');
+            if (chk) chk.checked = vidljivo;
+          }
+        }
+      }
+
+      function zumiNaNaselje(sid) {
+        var item = naseljaLayers[sid];
+        if (!item || !item.layer) return;
+        if (chkNaselja && !chkNaselja.checked) {
+          chkNaselja.checked = true;
+          if (!karta.hasLayer(naseljaSloj)) karta.addLayer(naseljaSloj);
+          if (plocaChkNaselja) plocaChkNaselja.checked = true;
+        }
+        item.active = true;
+        sinkronizirajVidljivostNaselja();
+
+        if (plocaLista) {
+          var row = plocaLista.querySelector('.karta-jedinice-stavka[data-naselje-id="' + sid + '"]');
+          if (row) {
+            row.classList.remove('iskljucena');
+            var chk = row.querySelector('.chk-naselje-jedinica');
+            if (chk) chk.checked = true;
+          }
+        }
+
+        try {
+          var b = item.layer.getBounds();
+          karta.fitBounds(b, { maxZoom: 14, padding: [40, 40] });
+          item.layer.openPopup();
+          item.layer.setStyle({ weight: 3.5, fillOpacity: 0.5, color: '#be123c' });
+          setTimeout(function () {
+            if (item.layer && karta.hasLayer(naseljaSloj) && naseljaSloj.hasLayer(item.layer)) {
+              item.layer.setStyle({ weight: 1.1, fillOpacity: 0.14, color: '#e11d48' });
+            }
+          }, 1600);
+        } catch (e) {}
+      }
+
+      function prikaziNaseljaZaZupaniju(cid) {
+        naseljaSloj.clearLayers();
+        if (!cid || cid === 'sve') {
+          trenutnaZupanijaZaNaselja = null;
+          return Promise.resolve();
+        }
+        var cNum = parseInt(cid, 10);
+        trenutnaZupanijaZaNaselja = cNum;
+
+        if (naseljaCache[cNum]) {
+          sinkronizirajVidljivostNaselja();
+          return Promise.resolve(true);
+        }
+        if (naseljaLoading[cNum]) return naseljaLoading[cNum];
+
+        naseljaLoading[cNum] = fetch(naseljaUrlBase + cNum)
+          .then(function (res) {
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            return res.json();
+          })
+          .then(function (geoJson) {
+            kreirajNaseljaLayer(geoJson, cNum);
+            naseljaCache[cNum] = true;
+            if (trenutnaZupanijaZaNaselja === cNum) {
+              sinkronizirajVidljivostNaselja();
+            }
+            var aktivnaZup = plocaIzborZup ? plocaIzborZup.value : '';
+            if (aktivnaZup && parseInt(aktivnaZup, 10) === cNum) {
+              renderirajListuJedinica(aktivnaZup);
+            }
+            return true;
+          })
+          .catch(function (err) {
+            console.error('Greška pri dohvatu naselja za županiju ' + cNum, err);
+          })
+          .finally(function () {
+            delete naseljaLoading[cNum];
+          });
+
+        return naseljaLoading[cNum];
+      }
+
+      // Elementi bočne ploče za upravljanje pojedinim jedinicama
+      var brziIzborZup = document.getElementById('karta-brzi-izbor-zupanije');
+      var gumbTogglePloce = document.getElementById('gumb-toggle-ploce-jedinica');
+      var plocaIzbornik = document.getElementById('karta-jedinice-izbornik');
+      var gumbZatvoriPlocu = document.getElementById('gumb-zatvori-plocu');
+      var plocaIzborZup = document.getElementById('ploca-select-zupanija');
+      var plocaOpcinaOmot = document.getElementById('ploca-opcina-omot');
+      var plocaSelectOpcina = document.getElementById('ploca-select-opcina');
+      var plocaTrazilica = document.getElementById('ploca-trazilica-jedinica');
+      var plocaNaslov = document.getElementById('ploca-naslov');
+      var plocaPodnaslov = document.getElementById('ploca-podnaslov');
+      var plocaAkcijeTraka = document.getElementById('ploca-akcije-traka');
+      var plocaChkZupOmot = document.getElementById('ploca-chk-zupanija-granica-omot');
+      var plocaChkZup = document.getElementById('ploca-chk-zupanija-granica');
+      var plocaChkNaseljaOmot = document.getElementById('ploca-chk-naselja-omot');
+      var plocaChkNaselja = document.getElementById('ploca-chk-naselja');
+      var plocaLista = document.getElementById('ploca-lista-jedinica');
+      var plocaUpaliSve = document.getElementById('ploca-gumb-upali-sve');
+      var plocaUgasiSve = document.getElementById('ploca-gumb-ugasi-sve');
+      var plocaSamoGradovi = document.getElementById('ploca-gumb-samo-gradovi');
+      var plocaSamoOpcine = document.getElementById('ploca-gumb-samo-opcine');
+      var plocaSamoNaselja = document.getElementById('ploca-gumb-samo-naselja');
+      var plocaZumiZupaniju = document.getElementById('ploca-gumb-zumi-zupaniju');
+
+      function otvoriPlocu() {
+        if (!plocaIzbornik) return;
+        plocaIzbornik.style.display = 'flex';
+        setTimeout(function () {
+          karta.invalidateSize();
+        }, 100);
+      }
+
+      function zatvoriPlocu() {
+        if (!plocaIzbornik) return;
+        plocaIzbornik.style.display = 'none';
+        setTimeout(function () {
+          karta.invalidateSize();
+        }, 100);
+      }
+
+      if (gumbTogglePloce) {
+        gumbTogglePloce.addEventListener('click', function () {
+          if (!plocaIzbornik) return;
+          if (plocaIzbornik.style.display === 'none' || !plocaIzbornik.style.display) {
+            otvoriPlocu();
+            if (brziIzborZup && !brziIzborZup.value) {
+              brziIzborZup.value = 'sve';
+              odaberiZupaniju('sve', false);
+            }
+          } else {
+            zatvoriPlocu();
+          }
+        });
+      }
+
+      if (gumbZatvoriPlocu) {
+        gumbZatvoriPlocu.addEventListener('click', zatvoriPlocu);
+      }
+
+      function azurirajKontroluSlojeva() {
+        if (layerControl) {
+          karta.removeControl(layerControl);
+        }
+        var slojevi = {
+          '<span style="font-weight:600; color:#2563eb;">Županije (21)</span>': zupanijeSloj
+        };
+        if (gradoviSloj) {
+          slojevi['<span style="font-weight:600; color:#7c3aed;">Gradovi (128)</span>'] = gradoviSloj;
+        }
+        if (opcineSloj) {
+          slojevi['<span style="font-weight:600; color:#059669;">Općine (428)</span>'] = opcineSloj;
+        }
+        if (naseljaSloj) {
+          slojevi['<span style="font-weight:600; color:#e11d48;">Naselja (6.759)</span>'] = naseljaSloj;
+        }
+        layerControl = L.control.layers(null, slojevi, { collapsed: false, position: 'topright' });
+        layerControl.addTo(karta);
+      }
+
+      azurirajKontroluSlojeva();
+
+      // Master switch za županije
+      if (chkZup) {
+        chkZup.addEventListener('change', function () {
+          var ukljuci = this.checked;
+          Object.values(zupanijeLayers).forEach(function (c) {
+            if (ukljuci) {
+              if (!karta.hasLayer(c.layer)) karta.addLayer(c.layer);
+            } else {
+              if (karta.hasLayer(c.layer)) karta.removeLayer(c.layer);
+            }
+          });
+          if (plocaChkZup) plocaChkZup.checked = ukljuci;
+        });
+      }
+
+      // Master switch za gradove
+      if (chkGrad) {
+        chkGrad.addEventListener('change', function () {
+          var ukljuci = this.checked;
+          Object.values(muniLayers).forEach(function (item) {
+            if (item.isGrad) {
+              if (ukljuci && item.active) {
+                if (!karta.hasLayer(item.layer)) karta.addLayer(item.layer);
+              } else {
+                if (karta.hasLayer(item.layer)) karta.removeLayer(item.layer);
+              }
+            }
+          });
+        });
+      }
+
+      // Master switch za općine
+      if (chkOpc) {
+        chkOpc.addEventListener('change', function () {
+          var ukljuci = this.checked;
+          Object.values(muniLayers).forEach(function (item) {
+            if (!item.isGrad) {
+              if (ukljuci && item.active) {
+                if (!karta.hasLayer(item.layer)) karta.addLayer(item.layer);
+              } else {
+                if (karta.hasLayer(item.layer)) karta.removeLayer(item.layer);
+              }
+            }
+          });
+        });
+      }
+
+      // Master switch za naselja
+      if (chkNaselja) {
+        chkNaselja.addEventListener('change', function () {
+          var ukljuci = this.checked;
+          if (plocaChkNaselja) plocaChkNaselja.checked = ukljuci;
+          if (ukljuci) {
+            if (!karta.hasLayer(naseljaSloj)) karta.addLayer(naseljaSloj);
+            var aktivnaZup = plocaIzborZup ? plocaIzborZup.value : (brziIzborZup ? brziIzborZup.value : '');
+            if (aktivnaZup && aktivnaZup !== 'sve') {
+              prikaziNaseljaZaZupaniju(aktivnaZup);
+            }
+          } else {
+            if (karta.hasLayer(naseljaSloj)) karta.removeLayer(naseljaSloj);
+          }
+        });
+      }
+
+      if (plocaChkNaselja) {
+        plocaChkNaselja.addEventListener('change', function () {
+          if (chkNaselja) {
+            chkNaselja.checked = this.checked;
+            chkNaselja.dispatchEvent(new Event('change'));
+          }
+        });
+      }
+
+      karta.on('overlayadd', function (e) {
+        if (e.layer === zupanijeSloj && chkZup) chkZup.checked = true;
+        if (e.layer === gradoviSloj && chkGrad) chkGrad.checked = true;
+        if (e.layer === opcineSloj && chkOpc) chkOpc.checked = true;
+        if (e.layer === naseljaSloj && chkNaselja) {
+          chkNaselja.checked = true;
+          if (plocaChkNaselja) plocaChkNaselja.checked = true;
+          var aktivna = plocaIzborZup ? plocaIzborZup.value : '';
+          if (aktivna && aktivna !== 'sve') prikaziNaseljaZaZupaniju(aktivna);
+        }
+      });
+      karta.on('overlayremove', function (e) {
+        if (e.layer === zupanijeSloj && chkZup) chkZup.checked = false;
+        if (e.layer === gradoviSloj && chkGrad) chkGrad.checked = false;
+        if (e.layer === opcineSloj && chkOpc) chkOpc.checked = false;
+        if (e.layer === naseljaSloj && chkNaselja) {
+          chkNaselja.checked = false;
+          if (plocaChkNaselja) plocaChkNaselja.checked = false;
+        }
+      });
+
+      // Postavljanje vidljivosti pojedine jedinice (grada ili općine)
+      function postaviVidljivostJedinice(mid, vidljiva) {
+        var item = muniLayers[mid];
+        if (!item) return;
+        item.active = vidljiva;
+        sinkronizirajVidljivostJedinica();
+
+        // Sinkroniziraj redak u popisu ako postoji
+        if (plocaLista) {
+          var row = plocaLista.querySelector('.karta-jedinice-stavka[data-id="' + mid + '"]');
+          if (row) {
+            if (vidljiva) {
+              row.classList.remove('iskljucena');
+            } else {
+              row.classList.add('iskljucena');
+            }
+            var chk = row.querySelector('.chk-muni-jedinica');
+            if (chk) chk.checked = vidljiva;
+          }
+        }
+      }
+
+      function zumiNaJedinicu(mid) {
+        var item = muniLayers[mid];
+        if (!item || !item.layer) return;
+        if (!item.active) {
+          postaviVidljivostJedinice(mid, true);
+        }
+        try {
+          var b = item.layer.getBounds();
+          karta.fitBounds(b, { maxZoom: 13, padding: [40, 40] });
+          item.layer.openPopup();
+          item.layer.setStyle({ weight: 4.5, fillOpacity: 0.5 });
+          setTimeout(function () {
+            var parentLayer = item.isGrad ? gradoviSloj : opcineSloj;
+            if (parentLayer && karta.hasLayer(item.layer)) {
+              parentLayer.resetStyle(item.layer);
+            }
+          }, 1600);
+        } catch (e) {}
+      }
+
+      function azurirajSelectOpcina(cNum) {
+        if (!plocaSelectOpcina) return;
+        if (!cNum || cNum === 'sve') {
+          plocaSelectOpcina.innerHTML = '<option value="">-- Svi gradovi i općine --</option>';
+          plocaSelectOpcina.value = '';
+          return;
+        }
+        var curVal = plocaSelectOpcina.value;
+        var mList = (munisByCounty[cNum] || []).slice().sort(function (a, b) {
+          return a.name.localeCompare(b.name, 'hr', { sensitivity: 'base' });
+        });
+        var optHtml = '<option value="">-- Svi gradovi i općine (' + mList.length + ') --</option>';
+        mList.forEach(function (m) {
+          optHtml += '<option value="' + m.id + '">' + (m.isGrad ? 'Grad ' : 'Općina ') + escapeHtml(m.name) + '</option>';
+        });
+        plocaSelectOpcina.innerHTML = optHtml;
+        if (curVal && mList.some(function (m) { return String(m.id) === curVal; })) {
+          plocaSelectOpcina.value = curVal;
+        } else {
+          plocaSelectOpcina.value = '';
+        }
+      }
+
+      function trenutneJediniceUPloci() {
+        var selVal = plocaIzborZup ? plocaIzborZup.value : '';
+        var odabranaOpcinaId = plocaSelectOpcina && plocaSelectOpcina.value ? parseInt(plocaSelectOpcina.value, 10) : 0;
+        if (odabranaOpcinaId > 0) {
+          var singleItem = muniLayers[odabranaOpcinaId];
+          return singleItem ? [singleItem] : [];
+        }
+        if (selVal === 'sve') {
+          return Object.values(muniLayers);
+        } else if (selVal) {
+          var cNum = parseInt(selVal, 10);
+          return munisByCounty[cNum] || [];
+        }
+        return [];
+      }
+
+      function trenutnaNaseljaUPloci() {
+        var selVal = plocaIzborZup ? plocaIzborZup.value : '';
+        if (!selVal || selVal === 'sve') return [];
+        var cNum = parseInt(selVal, 10);
+        var allN = naseljaByCounty[cNum] || [];
+        var odabranaOpcinaId = plocaSelectOpcina && plocaSelectOpcina.value ? parseInt(plocaSelectOpcina.value, 10) : 0;
+        if (odabranaOpcinaId > 0) {
+          return allN.filter(function (n) { return n.muniId === odabranaOpcinaId; });
+        }
+        return allN;
+      }
+
+      // Renderira HTML pojedine stavke u popisu
+      function renderirajStavku(item) {
+        var isChecked = item.active ? 'checked' : '';
+        var iskljKlasa = item.active ? '' : ' iskljucena';
+        var badgeBg = item.isGrad ? '#ede9fe' : '#d1fae5';
+        var badgeCol = item.isGrad ? '#6d28d9' : '#047857';
+        var tipKratki = item.isGrad ? 'G' : 'O';
+
+        return '<div class="karta-jedinice-stavka' + iskljKlasa + '" data-id="' + item.id + '">' +
+          '<label style="display:flex; align-items:center; gap:0.45rem; margin:0; cursor:pointer; flex:1; min-width:0;">' +
+          '<input type="checkbox" class="chk-muni-jedinica" data-id="' + item.id + '" ' + isChecked + ' style="cursor:pointer; accent-color:' + (item.isGrad ? '#7c3aed' : '#059669') + '; width:15px; height:15px; flex-shrink:0;">' +
+          '<span style="background:' + badgeBg + '; color:' + badgeCol + '; padding:1px 4px; border-radius:3px; font-size:0.7rem; font-weight:700; flex-shrink:0;">' + tipKratki + '</span>' +
+          '<span class="muni-naziv" style="font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="' + escapeHtml(item.name) + '">' + escapeHtml(item.name) + '</span>' +
+          '</label>' +
+          '<button type="button" class="btn-zumi" data-id="' + item.id + '" title="Približi na karti">🔍</button>' +
+          '</div>';
+      }
+
+      function renderirajNaseljeStavku(item) {
+        var isChecked = item.active ? 'checked' : '';
+        var iskljKlasa = item.active ? '' : ' iskljucena';
+        return '<div class="karta-jedinice-stavka' + iskljKlasa + '" data-naselje-id="' + escapeHtml(item.id) + '">' +
+          '<label style="display:flex; align-items:center; gap:0.45rem; margin:0; cursor:pointer; flex:1; min-width:0;">' +
+          '<input type="checkbox" class="chk-naselje-jedinica" data-id="' + escapeHtml(item.id) + '" ' + isChecked + ' style="cursor:pointer; accent-color:#e11d48; width:15px; height:15px; flex-shrink:0;">' +
+          '<span style="background:#ffe4e6; color:#be123c; padding:1px 4px; border-radius:3px; font-size:0.7rem; font-weight:700; flex-shrink:0;">N</span>' +
+          '<span class="naselje-naziv" style="font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="' + escapeHtml(item.name + (item.muniName ? ' (' + item.muniName + ')' : '')) + '">' +
+          escapeHtml(item.name) +
+          (item.muniName ? ' <small style="color:#64748b; font-weight:normal;">(' + escapeHtml(item.muniName) + ')</small>' : '') +
+          '</span>' +
+          '</label>' +
+          '<button type="button" class="btn-zumi-naselje" data-id="' + escapeHtml(item.id) + '" title="Približi naselje na karti">🔍</button>' +
+          '</div>';
+      }
+
+      // Odabir županije i sortiranje gradova, općina i naselja
+      function odaberiZupaniju(cid, zoomTo) {
+        var selVal = (cid && cid !== 'sve') ? String(cid) : (cid === 'sve' ? 'sve' : '');
+        if (brziIzborZup) brziIzborZup.value = selVal;
+        if (plocaIzborZup) plocaIzborZup.value = selVal;
+
+        if (!selVal) {
+          if (plocaAkcijeTraka) plocaAkcijeTraka.style.display = 'none';
+          if (plocaOpcinaOmot) plocaOpcinaOmot.style.display = 'none';
+          if (plocaNaslov) plocaNaslov.textContent = 'Pojedinačne jedinice';
+          if (plocaPodnaslov) plocaPodnaslov.textContent = 'Odaberite županiju za popis gradova, općina i naselja';
+          if (plocaLista) plocaLista.innerHTML = '<div style="color:var(--text-muted); font-size:0.85rem; text-align:center; padding:2.5rem 1rem;">Odaberite županiju u izborniku iznad ili kliknite na nju na karti za upravljanje pojedinim gradovima, općinama i naseljima.</div>';
+          prikaziNaseljaZaZupaniju(null);
+          return;
+        }
+
+        otvoriPlocu();
+
+        if (selVal !== 'sve') {
+          var cNum = parseInt(selVal, 10);
+          var cInfo = zupanijeLayers[cNum];
+          var cName = cInfo ? cInfo.name : ('Županija ' + cNum);
+          if (plocaNaslov) plocaNaslov.textContent = cName;
+          if (plocaAkcijeTraka) plocaAkcijeTraka.style.display = 'flex';
+          if (plocaChkZupOmot) plocaChkZupOmot.style.display = 'inline-flex';
+          if (plocaChkNaseljaOmot) plocaChkNaseljaOmot.style.display = 'inline-flex';
+          if (plocaOpcinaOmot) plocaOpcinaOmot.style.display = 'block';
+          if (plocaChkZup && cInfo) {
+            plocaChkZup.checked = karta.hasLayer(cInfo.layer);
+          }
+          if (plocaChkNaselja && chkNaselja) {
+            plocaChkNaselja.checked = chkNaselja.checked;
+          }
+
+          azurirajSelectOpcina(cNum);
+          sinkronizirajVidljivostJedinica();
+
+          if (zoomTo && cInfo && cInfo.layer) {
+            try {
+              karta.fitBounds(cInfo.layer.getBounds(), { padding: [30, 30] });
+            } catch (err) {}
+          }
+          prikaziNaseljaZaZupaniju(selVal);
+        } else {
+          if (plocaNaslov) plocaNaslov.textContent = 'Sve županije';
+          if (plocaAkcijeTraka) plocaAkcijeTraka.style.display = 'flex';
+          if (plocaChkZupOmot) plocaChkZupOmot.style.display = 'none';
+          if (plocaChkNaseljaOmot) plocaChkNaseljaOmot.style.display = 'none';
+          if (plocaOpcinaOmot) plocaOpcinaOmot.style.display = 'none';
+          azurirajSelectOpcina(null);
+          sinkronizirajVidljivostJedinica();
+          prikaziNaseljaZaZupaniju(null);
+        }
+
+        renderirajListuJedinica(selVal);
+      }
+
+      function renderirajListuJedinica(selVal) {
+        if (!plocaLista) return;
+        var filterTerm = (plocaTrazilica ? plocaTrazilica.value : '').trim().toLowerCase();
+        var odabranaOpcinaId = plocaSelectOpcina && plocaSelectOpcina.value ? parseInt(plocaSelectOpcina.value, 10) : 0;
+
+        var items = [];
+        if (selVal === 'sve') {
+          items = Object.values(muniLayers);
+        } else if (selVal) {
+          var cNum = parseInt(selVal, 10);
+          items = (munisByCounty[cNum] || []);
+        }
+
+        var gradovi = [];
+        var opcine = [];
+        var naselja = [];
+
+        items.forEach(function (item) {
+          if (odabranaOpcinaId > 0 && item.id !== odabranaOpcinaId) {
+            return;
+          }
+          if (filterTerm && item.name.toLowerCase().indexOf(filterTerm) === -1) {
+            return;
+          }
+          if (item.isGrad) {
+            gradovi.push(item);
+          } else {
+            opcine.push(item);
+          }
+        });
+
+        // Naselja za odabranu županiju
+        if (selVal && selVal !== 'sve') {
+          var cNum = parseInt(selVal, 10);
+          var rawNaselja = naseljaByCounty[cNum] || [];
+          rawNaselja.forEach(function (n) {
+            if (odabranaOpcinaId > 0 && n.muniId !== odabranaOpcinaId) {
+              return;
+            }
+            if (filterTerm) {
+              var matchesName = n.name.toLowerCase().indexOf(filterTerm) !== -1;
+              var matchesMuni = n.muniName && n.muniName.toLowerCase().indexOf(filterTerm) !== -1;
+              if (!matchesName && !matchesMuni) return;
+            }
+            naselja.push(n);
+          });
+        }
+
+        // Abecedno sortiranje prema hrvatskim dijakriticima
+        gradovi.sort(function (a, b) {
+          return a.name.localeCompare(b.name, 'hr', { sensitivity: 'base' });
+        });
+        opcine.sort(function (a, b) {
+          return a.name.localeCompare(b.name, 'hr', { sensitivity: 'base' });
+        });
+        naselja.sort(function (a, b) {
+          return a.name.localeCompare(b.name, 'hr', { sensitivity: 'base' });
+        });
+
+        if (plocaPodnaslov) {
+          var podnaslovTekst = gradovi.length + ' gradova · ' + opcine.length + ' općina';
+          if (selVal && selVal !== 'sve') {
+            podnaslovTekst += ' · ' + naselja.length + ' naselja';
+          }
+          plocaPodnaslov.textContent = podnaslovTekst;
+        }
+
+        var html = '';
+
+        if (gradovi.length > 0) {
+          html += '<div class="karta-grupa-zaglavlje karta-grupa-gradovi">' +
+            '<span>Gradovi (' + gradovi.length + ')</span>' +
+            '</div>';
+          gradovi.forEach(function (g) {
+            html += renderirajStavku(g);
+          });
+        }
+
+        if (opcine.length > 0) {
+          html += '<div class="karta-grupa-zaglavlje karta-grupa-opcine">' +
+            '<span>Općine (' + opcine.length + ')</span>' +
+            '</div>';
+          opcine.forEach(function (o) {
+            html += renderirajStavku(o);
+          });
+        }
+
+        if (naselja.length > 0) {
+          html += '<div class="karta-grupa-zaglavlje karta-grupa-naselja">' +
+            '<span>Naselja (' + naselja.length + ')</span>' +
+            '</div>';
+          naselja.forEach(function (n) {
+            html += renderirajNaseljeStavku(n);
+          });
+        } else if (selVal && selVal !== 'sve' && (!naseljaByCounty[cNum] || naseljaByCounty[cNum].length === 0)) {
+          html += '<div style="color:var(--text-muted); font-size:0.8rem; padding:0.5rem 0.85rem; font-style:italic;">' +
+            'Učitavanje naselja županije u tijeku...' +
+            '</div>';
+        }
+
+        if (gradovi.length === 0 && opcine.length === 0 && naselja.length === 0) {
+          html = '<div style="color:var(--text-muted); font-size:0.85rem; text-align:center; padding:2rem 1rem;">Nema jedinica koje odgovaraju pretrazi.</div>';
+        }
+
+        plocaLista.innerHTML = html;
+
+        // Povezivanje događaja za gradove i općine
+        plocaLista.querySelectorAll('.chk-muni-jedinica').forEach(function (chk) {
+          chk.addEventListener('change', function () {
+            var mid = parseInt(this.dataset.id, 10);
+            postaviVidljivostJedinice(mid, this.checked);
+          });
+        });
+
+        plocaLista.querySelectorAll('.btn-zumi').forEach(function (btn) {
+          btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            var mid = parseInt(this.dataset.id, 10);
+            zumiNaJedinicu(mid);
+          });
+        });
+
+        plocaLista.querySelectorAll('.karta-jedinice-stavka[data-id]').forEach(function (el) {
+          var mid = parseInt(el.dataset.id, 10);
+          var item = muniLayers[mid];
+          if (!item) return;
+          el.addEventListener('mouseenter', function () {
+            if (item.active && karta.hasLayer(item.layer)) {
+              item.layer.setStyle({ weight: 3.5, fillOpacity: 0.45 });
+            }
+          });
+          el.addEventListener('mouseleave', function () {
+            if (item.active && karta.hasLayer(item.layer)) {
+              var parentLayer = item.isGrad ? gradoviSloj : opcineSloj;
+              if (parentLayer) parentLayer.resetStyle(item.layer);
+            }
+          });
+        });
+
+        // Povezivanje događaja za naselja
+        plocaLista.querySelectorAll('.chk-naselje-jedinica').forEach(function (chk) {
+          chk.addEventListener('change', function () {
+            var sid = this.dataset.id;
+            postaviVidljivostNaselja(sid, this.checked);
+          });
+        });
+
+        plocaLista.querySelectorAll('.btn-zumi-naselje').forEach(function (btn) {
+          btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            var sid = this.dataset.id;
+            zumiNaNaselje(sid);
+          });
+        });
+
+        plocaLista.querySelectorAll('.karta-jedinice-stavka[data-naselje-id]').forEach(function (el) {
+          var sid = el.dataset.naseljeId;
+          var item = naseljaLayers[sid];
+          if (!item) return;
+          el.addEventListener('mouseenter', function () {
+            if (item.active && karta.hasLayer(naseljaSloj) && naseljaSloj.hasLayer(item.layer)) {
+              item.layer.setStyle({ weight: 2.8, fillOpacity: 0.45, color: '#be123c' });
+            }
+          });
+          el.addEventListener('mouseleave', function () {
+            if (item.active && karta.hasLayer(naseljaSloj) && naseljaSloj.hasLayer(item.layer)) {
+              item.layer.setStyle({ weight: 1.1, fillOpacity: 0.14, color: '#e11d48' });
+            }
+          });
+        });
+      }
+
+      // Event listeneri za biranje županije i općine
+      if (brziIzborZup) {
+        brziIzborZup.addEventListener('change', function () {
+          odaberiZupaniju(this.value, true);
+        });
+      }
+      if (plocaIzborZup) {
+        plocaIzborZup.addEventListener('change', function () {
+          odaberiZupaniju(this.value, true);
+        });
+      }
+      if (plocaSelectOpcina) {
+        plocaSelectOpcina.addEventListener('change', function () {
+          var mid = parseInt(this.value, 10);
+          if (mid && muniLayers[mid]) {
+            zumiNaJedinicu(mid);
+          }
+          sinkronizirajVidljivostJedinica();
+          sinkronizirajVidljivostNaselja();
+          var selVal = plocaIzborZup ? plocaIzborZup.value : '';
+          if (selVal) renderirajListuJedinica(selVal);
+        });
+      }
+      if (plocaTrazilica) {
+        plocaTrazilica.addEventListener('input', function () {
+          var selVal = plocaIzborZup ? plocaIzborZup.value : '';
+          if (selVal) renderirajListuJedinica(selVal);
+        });
+      }
+
+      // Brze akcije
+      if (plocaUpaliSve) {
+        plocaUpaliSve.addEventListener('click', function () {
+          trenutneJediniceUPloci().forEach(function (item) {
+            item.active = true;
+          });
+          trenutnaNaseljaUPloci().forEach(function (nItem) {
+            nItem.active = true;
+          });
+          if (chkNaselja && !chkNaselja.checked) {
+            chkNaselja.checked = true;
+            if (!karta.hasLayer(naseljaSloj)) karta.addLayer(naseljaSloj);
+          }
+          if (plocaChkNaselja) plocaChkNaselja.checked = true;
+          sinkronizirajVidljivostJedinica();
+          sinkronizirajVidljivostNaselja();
+          var selVal = plocaIzborZup ? plocaIzborZup.value : '';
+          if (selVal) renderirajListuJedinica(selVal);
+        });
+      }
+      if (plocaUgasiSve) {
+        plocaUgasiSve.addEventListener('click', function () {
+          trenutneJediniceUPloci().forEach(function (item) {
+            item.active = false;
+          });
+          trenutnaNaseljaUPloci().forEach(function (nItem) {
+            nItem.active = false;
+          });
+          sinkronizirajVidljivostJedinica();
+          sinkronizirajVidljivostNaselja();
+          var selVal = plocaIzborZup ? plocaIzborZup.value : '';
+          if (selVal) renderirajListuJedinica(selVal);
+        });
+      }
+      if (plocaSamoGradovi) {
+        plocaSamoGradovi.addEventListener('click', function () {
+          trenutneJediniceUPloci().forEach(function (item) {
+            item.active = item.isGrad;
+          });
+          trenutnaNaseljaUPloci().forEach(function (nItem) {
+            nItem.active = false;
+          });
+          sinkronizirajVidljivostJedinica();
+          sinkronizirajVidljivostNaselja();
+          var selVal = plocaIzborZup ? plocaIzborZup.value : '';
+          if (selVal) renderirajListuJedinica(selVal);
+        });
+      }
+      if (plocaSamoOpcine) {
+        plocaSamoOpcine.addEventListener('click', function () {
+          trenutneJediniceUPloci().forEach(function (item) {
+            item.active = !item.isGrad;
+          });
+          trenutnaNaseljaUPloci().forEach(function (nItem) {
+            nItem.active = false;
+          });
+          sinkronizirajVidljivostJedinica();
+          sinkronizirajVidljivostNaselja();
+          var selVal = plocaIzborZup ? plocaIzborZup.value : '';
+          if (selVal) renderirajListuJedinica(selVal);
+        });
+      }
+      if (plocaSamoNaselja) {
+        plocaSamoNaselja.addEventListener('click', function () {
+          if (chkNaselja && !chkNaselja.checked) {
+            chkNaselja.checked = true;
+            if (!karta.hasLayer(naseljaSloj)) karta.addLayer(naseljaSloj);
+          }
+          if (plocaChkNaselja) plocaChkNaselja.checked = true;
+          trenutneJediniceUPloci().forEach(function (item) {
+            item.active = false;
+          });
+          trenutnaNaseljaUPloci().forEach(function (nItem) {
+            nItem.active = true;
+          });
+          sinkronizirajVidljivostJedinica();
+          sinkronizirajVidljivostNaselja();
+          var selVal = plocaIzborZup ? plocaIzborZup.value : '';
+          if (selVal) renderirajListuJedinica(selVal);
+        });
+      }
+      if (plocaZumiZupaniju) {
+        plocaZumiZupaniju.addEventListener('click', function () {
+          var odabranaOpcinaId = plocaSelectOpcina && plocaSelectOpcina.value ? parseInt(plocaSelectOpcina.value, 10) : 0;
+          if (odabranaOpcinaId > 0 && muniLayers[odabranaOpcinaId]) {
+            zumiNaJedinicu(odabranaOpcinaId);
+            return;
+          }
+          var selVal = plocaIzborZup ? plocaIzborZup.value : '';
+          if (!selVal || selVal === 'sve') {
+            var b = zupanijeSloj.getBounds();
+            if (b.isValid()) karta.fitBounds(b, { padding: [20, 20] });
+          } else {
+            var cNum = parseInt(selVal, 10);
+            var cInfo = zupanijeLayers[cNum];
+            if (cInfo && cInfo.layer) {
+              karta.fitBounds(cInfo.layer.getBounds(), { padding: [30, 30] });
+            }
+          }
+        });
+      }
+      if (plocaChkZup) {
+        plocaChkZup.addEventListener('change', function () {
+          var selVal = plocaIzborZup ? plocaIzborZup.value : '';
+          if (!selVal || selVal === 'sve') return;
+          var cNum = parseInt(selVal, 10);
+          var cInfo = zupanijeLayers[cNum];
+          if (!cInfo) return;
+          if (this.checked) {
+            if (!karta.hasLayer(cInfo.layer)) karta.addLayer(cInfo.layer);
+          } else {
+            if (karta.hasLayer(cInfo.layer)) karta.removeLayer(cInfo.layer);
+          }
+        });
+      }
+
+      // Delegirani klik na gumbe u popupima
+      karta.on('popupopen', function (e) {
+        var el = e.popup.getElement();
+        if (!el) return;
+        var btnUgasi = el.querySelector('.btn-ugasi-jedinicu-popup');
+        if (btnUgasi) {
+          btnUgasi.addEventListener('click', function () {
+            var mid = parseInt(this.dataset.id, 10);
+            postaviVidljivostJedinice(mid, false);
+            karta.closePopup();
+          });
+        }
+        var btnUgasiNaselje = el.querySelector('.btn-ugasi-naselje-popup');
+        if (btnUgasiNaselje) {
+          btnUgasiNaselje.addEventListener('click', function () {
+            var sid = this.dataset.id;
+            postaviVidljivostNaselja(sid, false);
+            karta.closePopup();
+          });
+        }
+        var btnOtvoriZup = el.querySelector('.btn-otvori-jedinice-zupanije');
+        if (btnOtvoriZup) {
+          btnOtvoriZup.addEventListener('click', function () {
+            var cid = parseInt(this.dataset.cid, 10);
+            karta.closePopup();
+            odaberiZupaniju(cid, false);
+          });
+        }
+      });
+
+      // Učitaj GeoJSON gradova i općina
+      var opcineUrl = okvir.dataset.opcineUrl || '/territories/opcine.geojson';
+      fetch(opcineUrl)
+        .then(function (resp) {
+          if (!resp.ok) throw new Error('HTTP ' + resp.status);
+          return resp.json();
+        })
+        .then(function (muniData) {
+          if (!muniData || !muniData.features) return;
+
+          var gradoviFeatures = [];
+          var opcineFeatures = [];
+
+          muniData.features.forEach(function (f) {
+            if (f.properties && f.properties.type === 'GRAD') {
+              gradoviFeatures.push(f);
+            } else {
+              opcineFeatures.push(f);
+            }
+          });
+
+          // Pomoćna funkcija za povezivanje događaja i popupa na gradove/općine
+          function postaviMuniLayer(layer, p, isGrad) {
+            var naziv = p.name || (isGrad ? 'Grad' : 'Općina');
+            var tipNaziv = isGrad ? 'Grad' : 'Općina';
+            var zupanija = p.county_name || '';
+            var celnik = p.head_name || '';
+            var titula = p.head_title || (isGrad ? 'Gradonačelnik' : 'Općinski načelnik');
+            var stanovnistvo = p.population ? Number(p.population).toLocaleString('hr-HR') : '';
+            var povrsina = p.area_sqkm ? Number(p.area_sqkm).toLocaleString('hr-HR') + ' km²' : '';
+            var pcode = p.postal_code || '';
+            var id = p.id || 0;
+            var cid = p.county_id || 0;
+            var email = p.email || '';
+            var telefon = p.phone || '';
+            var website = p.website || '';
+
+            var badgeBg = isGrad ? '#ede9fe' : '#d1fae5';
+            var badgeCol = isGrad ? '#6d28d9' : '#047857';
+            var naslovCol = isGrad ? '#5b21b6' : '#065f46';
+            var gumbBg = isGrad ? '#7c3aed' : '#059669';
+
+            // Registriraj u index
+            var muniItem = {
+              id: id,
+              name: naziv,
+              type: isGrad ? 'GRAD' : 'OPCINA',
+              isGrad: isGrad,
+              countyId: cid,
+              countyName: zupanija,
+              postalCode: pcode,
+              population: p.population || 0,
+              layer: layer,
+              active: true
+            };
+            muniLayers[id] = muniItem;
+            if (!munisByCounty[cid]) munisByCounty[cid] = [];
+            munisByCounty[cid].push(muniItem);
+
+            layer.bindTooltip('<strong>' + escapeHtml(tipNaziv + ' ' + naziv) + '</strong>' +
+              (zupanija ? '<br><small>' + escapeHtml(zupanija) + '</small>' : ''), {
+              sticky: true,
+              className: 'muni-tooltip'
+            });
+
+            layer.on('mouseover', function () {
+              this.setStyle({
+                weight: 3.2,
+                fillOpacity: isGrad ? 0.35 : 0.30,
+                color: isGrad ? '#4f46e5' : '#047857'
+              });
+            });
+            layer.on('mouseout', function () {
+              var parentLayer = isGrad ? gradoviSloj : opcineSloj;
+              if (parentLayer) parentLayer.resetStyle(this);
+            });
+
+            var kontaktHtml = '';
+            if (telefon) {
+              kontaktHtml += '<div><strong>Tel:</strong> ' + escapeHtml(telefon) + '</div>';
+            }
+            if (email) {
+              kontaktHtml += '<div><strong>Email:</strong> <a href="mailto:' + escapeHtml(email) + '" style="color:#2563eb;">' + escapeHtml(email) + '</a></div>';
+            }
+            if (website) {
+              kontaktHtml += '<div><strong>Web:</strong> <a href="' + escapeHtml(website) + '" target="_blank" rel="noopener" style="color:#2563eb;">' + escapeHtml(website.replace(/^https?:\/\//, '')) + '</a></div>';
+            }
+
+            var popupHtml = '<div class="karta-muni-popup" style="min-width:240px; font-size:0.875rem;">' +
+              '<div style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.5rem; margin-bottom:6px; border-bottom:1px solid #e2e8f0; padding-bottom:5px;">' +
+              '<div style="font-weight:700; font-size:1.05rem; color:' + naslovCol + ';">' + escapeHtml(tipNaziv + ' ' + naziv) + '</div>' +
+              '<span style="background:' + badgeBg + '; color:' + badgeCol + '; padding:2px 6px; border-radius:4px; font-size:0.75rem; font-weight:600; white-space:nowrap;">' + tipNaziv + '</span>' +
+              '</div>' +
+              (zupanija ? '<div style="margin-bottom:3px; color:#475569;"><strong>Županija:</strong> ' + escapeHtml(zupanija) + '</div>' : '') +
+              (celnik ? '<div style="margin-bottom:3px;"><strong>' + escapeHtml(titula) + ':</strong> ' + escapeHtml(celnik) + '</div>' : '') +
+              (stanovnistvo ? '<div style="margin-bottom:3px;"><strong>Stanovništvo:</strong> ' + escapeHtml(stanovnistvo) + '</div>' : '') +
+              (povrsina ? '<div style="margin-bottom:3px;"><strong>Površina:</strong> ' + escapeHtml(povrsina) + '</div>' : '') +
+              (pcode ? '<div style="margin-bottom:3px;"><strong>Poštanski broj:</strong> ' + escapeHtml(pcode) + '</div>' : '') +
+              (kontaktHtml ? '<div style="margin-top:6px; padding-top:6px; border-top:1px dashed #e2e8f0; font-size:0.8rem;">' + kontaktHtml + '</div>' : '') +
+              '<div style="display:flex; flex-direction:column; gap:0.35rem; margin-top:8px;">' +
+              '<button type="button" class="btn-ugasi-jedinicu-popup" data-id="' + id + '" style="cursor:pointer; width:100%; font-size:0.75rem; padding:4px 8px; background:#fff; border:1px solid #fca5a5; color:#dc2626; border-radius:4px; font-weight:600; display:flex; align-items:center; justify-content:center; gap:4px;">' +
+              '<span>Ugasi ovaj ' + (isGrad ? 'grad' : 'općinu') + ' s karte</span>' +
+              '</button>' +
+              '<div style="display:flex; gap:0.4rem;">' +
+              (id ? '<a href="/territories/municipalities/' + id + '" style="display:inline-block; font-size:0.75rem; padding:4px 8px; background:' + gumbBg + '; color:#ffffff; border-radius:4px; text-decoration:none; font-weight:500; text-align:center; flex:1;">Detalji ' + (isGrad ? 'grada' : 'općine') + '</a>' : '') +
+              (cid ? '<a href="/territories?tab=municipalities&county_id=' + cid + '" style="display:inline-block; font-size:0.75rem; padding:4px 8px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; border-radius:4px; text-decoration:none; font-weight:500; text-align:center;">Tablica</a>' : '') +
+              '</div>' +
+              '</div>' +
+              '</div>';
+
+            layer.bindPopup(popupHtml);
+          }
+
+          // 1. Sloj gradova u gradoviPane (zIndex 450)
+          gradoviSloj = L.geoJSON(gradoviFeatures, {
+            pane: 'gradoviPane',
+            style: function () {
+              return {
+                color: '#7c3aed',
+                weight: 1.8,
+                opacity: 0.95,
+                fillColor: '#8b5cf6',
+                fillOpacity: 0.16,
+                className: 'grad-poligon'
+              };
+            },
+            onEachFeature: function (feat, layer) {
+              postaviMuniLayer(layer, feat.properties || {}, true);
+            }
+          });
+
+          // 2. Sloj općina u opcinePane (zIndex 450)
+          opcineSloj = L.geoJSON(opcineFeatures, {
+            pane: 'opcinePane',
+            style: function () {
+              return {
+                color: '#059669',
+                weight: 1.3,
+                opacity: 0.9,
+                fillColor: '#10b981',
+                fillOpacity: 0.12,
+                className: 'opcina-poligon'
+              };
+            },
+            onEachFeature: function (feat, layer) {
+              postaviMuniLayer(layer, feat.properties || {}, false);
+            }
+          });
+
+          if (chkGrad && chkGrad.checked) {
+            gradoviSloj.addTo(karta);
+          }
+          if (chkOpc && chkOpc.checked) {
+            opcineSloj.addTo(karta);
+          }
+
+          azurirajKontroluSlojeva();
+
+          // Ako je županija već odabrana u URL-u ili filteru, osvježi prikaz u ploči
+          var inicijalnaZup = brziIzborZup ? brziIzborZup.value : '';
+          if (inicijalnaZup) {
+            odaberiZupaniju(inicijalnaZup, false);
+          }
+
+          var urlParams = new URLSearchParams(window.location.search);
+          if (urlParams.get('naselja') === '1' && chkNaselja) {
+            chkNaselja.checked = true;
+            chkNaselja.dispatchEvent(new Event('change'));
+          }
+
+          if (loadingEl) {
+            loadingEl.style.display = 'none';
+          }
+        })
+        .catch(function () {
+          if (loadingEl) {
+            loadingEl.innerHTML = '<span style="color:#ef4444;">Greška učitavanja gradova i općina</span>';
+          }
+        });
+    });
+  });
+})();
+
 
 // Naslovna: ploča "Vrijeme i vode" učitava se naknadno. Gumb "Moja lokacija"
 // postoji samo kad preglednik smije dati lokaciju (https ili localhost).

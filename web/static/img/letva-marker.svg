@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 44" width="18" height="44">
+  <!-- Letva tijelo s bijelom pozadinom i tamnim okvirom -->
+  <path d="M3,2 L15,2 L15,36 L9,42 L3,36 Z" fill="#ffffff" stroke="#334155" stroke-width="1.2" stroke-linejoin="round"/>
+  <!-- Crveni vrh letve (10. decimetar / metarska oznaka) -->
+  <rect x="3.6" y="2.6" width="10.8" height="6.6" fill="#dc2626"/>
+  <path d="M5.5,4.2 H8.5 M5.5,6 H7.5 M5.5,7.8 H8.5 M5.5,4.2 V7.8" stroke="#ffffff" stroke-width="1.2" stroke-linecap="square" fill="none"/>
+  <rect x="9.5" y="4.2" width="1" height="3.6" fill="#ffffff"/>
+  <rect x="11.5" y="4.2" width="1.8" height="3.6" rx="0.5" fill="none" stroke="#ffffff" stroke-width="0.8"/>
+  <!-- Decimetar 9: crni E s desne strane -->
+  <path d="M12.5,10.5 H9.5 M12.5,12.5 H10.5 M12.5,14.5 H9.5 M12.5,10.5 V14.5" stroke="#1e293b" stroke-width="1.2" stroke-linecap="square" fill="none"/>
+  <!-- Decimetar 8: crni E s lijeve strane -->
+  <path d="M5.5,16.5 H8.5 M5.5,18.5 H7.5 M5.5,20.5 H8.5 M5.5,16.5 V20.5" stroke="#1e293b" stroke-width="1.2" stroke-linecap="square" fill="none"/>
+  <!-- Decimetar 7: crni E s desne strane -->
+  <path d="M12.5,22.5 H9.5 M12.5,24.5 H10.5 M12.5,26.5 H9.5 M12.5,22.5 V26.5" stroke="#1e293b" stroke-width="1.2" stroke-linecap="square" fill="none"/>
+  <!-- Decimetar 6: crni E s lijeve strane -->
+  <path d="M5.5,28.5 H8.5 M5.5,30.5 H7.5 M5.5,32.5 H8.5 M5.5,28.5 V32.5" stroke="#1e293b" stroke-width="1.2" stroke-linecap="square" fill="none"/>
+  <!-- Nula vodokaza / dno letve -->
+  <circle cx="9" cy="35.5" r="1.2" fill="#dc2626"/>
+  <polygon points="7.5,36.5 10.5,36.5 9,41" fill="#334155"/>
+</svg>

@@ -57,16 +57,20 @@
       </p>
     </div>
 
-    {{if .Permissions.IsGlobalAdmin}}
-    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+    <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+      <div class="prikaz-preklopnik">
+        <a href="{{.ListURL}}" class="btn btn-sm {{if ne .ViewMode "map"}}btn-primary{{else}}btn-secondary{{end}}">{{icon "list"}} Popis</a>
+        <a href="{{.MapURL}}" class="btn btn-sm {{if eq .ViewMode "map"}}btn-primary{{else}}btn-secondary{{end}}">{{icon "map"}} Karta</a>
+      </div>
+      {{if .Permissions.IsGlobalAdmin}}
       <a href="/territories/counties/new" class="btn btn-secondary btn-sm">
         {{icon "plus"}} Nova županija
       </a>
       <a href="/territories/municipalities/new{{if .SelectedCountyID}}?county_id={{.SelectedCountyID}}{{end}}" class="btn btn-primary btn-sm">
         {{icon "plus"}} Novi grad / općina
       </a>
+      {{end}}
     </div>
-    {{end}}
   </div>
 
     
@@ -115,7 +119,7 @@
     <div class="kpi-card" style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; display: flex; align-items: center; gap: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
       <div style="font-size: 2.25rem; background: #fefce8; width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; border-radius: 8px;">{{icon "house"}} </div>
       <div>
-        <div style="font-size: 1.5rem; font-weight: 700; color: #ca8a04;">429</div>
+        <div style="font-size: 1.5rem; font-weight: 700; color: #ca8a04;">428</div>
         <div style="font-size: 0.8125rem; color: var(--text-muted); font-weight: 500;">Općina</div>
       </div>
     </div>
@@ -129,6 +133,147 @@
     </div>
   </div>
 
+  {{if eq .ViewMode "map"}}
+  <!-- Prikaz interaktivne karte teritorijalnih jedinica -->
+  <div class="karta-teritorij-sekcija" style="margin-bottom: 1.5rem;">
+    <!-- Traka za upravljanje i uključivanje/isključivanje slojeva -->
+    <div class="karta-slojevi-traka" style="display:flex; gap:1rem; align-items:center; flex-wrap:wrap; margin-bottom:0.75rem; background:var(--surface); border:1px solid var(--border); padding:0.65rem 1rem; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
+      <div style="font-size:0.875rem; font-weight:600; color:var(--secondary); display:flex; align-items:center; gap:0.4rem;">
+        {{icon "layers"}} Slojevi na karti:
+      </div>
+      <label class="karta-sloj-kontrola" style="display:inline-flex; align-items:center; gap:0.45rem; cursor:pointer; font-size:0.875rem; font-weight:500; user-select:none;">
+        <input type="checkbox" id="sloj-chk-zupanije" class="karta-sloj-prekidac" data-sloj="zupanije" checked style="cursor:pointer; accent-color:#2563eb; width:16px; height:16px;">
+        <span style="display:inline-block; width:12px; height:12px; background:rgba(37,99,235,0.25); border:2px solid #2563eb; border-radius:2px;"></span>
+        <span>Županije ({{.TotalCounties}})</span>
+      </label>
+      <label class="karta-sloj-kontrola" style="display:inline-flex; align-items:center; gap:0.45rem; cursor:pointer; font-size:0.875rem; font-weight:500; user-select:none;">
+        <input type="checkbox" id="sloj-chk-gradovi" class="karta-sloj-prekidac" data-sloj="gradovi" checked style="cursor:pointer; accent-color:#7c3aed; width:16px; height:16px;">
+        <span style="display:inline-block; width:12px; height:12px; background:rgba(124,58,237,0.25); border:2px solid #7c3aed; border-radius:2px;"></span>
+        <span>Gradovi ({{.TotalCities}})</span>
+      </label>
+      <label class="karta-sloj-kontrola" style="display:inline-flex; align-items:center; gap:0.45rem; cursor:pointer; font-size:0.875rem; font-weight:500; user-select:none;">
+        <input type="checkbox" id="sloj-chk-opcine" class="karta-sloj-prekidac" data-sloj="opcine" checked style="cursor:pointer; accent-color:#059669; width:16px; height:16px;">
+        <span style="display:inline-block; width:12px; height:12px; background:rgba(5,150,105,0.25); border:2px solid #059669; border-radius:2px;"></span>
+        <span>Općine (428)</span>
+      </label>
+      <label class="karta-sloj-kontrola" style="display:inline-flex; align-items:center; gap:0.45rem; cursor:pointer; font-size:0.875rem; font-weight:500; user-select:none;">
+        <input type="checkbox" id="sloj-chk-naselja" class="karta-sloj-prekidac" data-sloj="naselja" style="cursor:pointer; accent-color:#e11d48; width:16px; height:16px;">
+        <span style="display:inline-block; width:12px; height:12px; background:rgba(225,29,72,0.25); border:2px solid #e11d48; border-radius:2px;"></span>
+        <span>Naselja (odabrana županija)</span>
+      </label>
+
+      <div style="height:22px; width:1px; background:var(--border); margin:0 0.25rem;"></div>
+
+      <div style="display:inline-flex; align-items:center; gap:0.45rem;">
+        <label for="karta-brzi-izbor-zupanije" style="font-size:0.875rem; font-weight:600; color:var(--secondary); margin:0; display:flex; align-items:center; gap:0.3rem;">
+          {{icon "landmark"}} Odaberi županiju:
+        </label>
+        <select id="karta-brzi-izbor-zupanije" class="form-control form-control-sm" style="max-width:230px; font-size:0.85rem; padding:0.25rem 0.5rem; cursor:pointer; border-color:var(--border);">
+          <option value="">-- Odaberi županiju --</option>
+          <option value="sve">Sve županije (556 jedinica)</option>
+          {{range .Counties}}
+          <option value="{{.ID}}">{{.Name}}</option>
+          {{end}}
+        </select>
+      </div>
+
+      <button type="button" id="gumb-toggle-ploce-jedinica" class="btn btn-sm btn-secondary" style="font-size:0.825rem; display:inline-flex; align-items:center; gap:0.35rem; cursor:pointer;">
+        {{icon "sliders"}} <span id="tekst-gumba-jedinice">Pojedinačne jedinice</span>
+      </button>
+
+      <div id="karta-ucitavanje-opcina" style="font-size:0.8rem; color:#64748b; margin-left:auto; display:flex; align-items:center; gap:0.4rem;">
+        <span class="anim-puls">{{icon "loader"}}</span> Učitavanje gradova i općina...
+      </div>
+    </div>
+
+    <!-- Glavni omot: Karta + Bočna ploča za upravljanje jedinicama -->
+    <div class="karta-teritorij-omot" style="position:relative; display:flex; border-radius:8px; border:1px solid var(--border-color, #cbd5e1); overflow:hidden; background:var(--surface);">
+      <div class="karta-teritorij"
+           style="flex:1; min-width:0; position:relative;"
+           data-plocice="{{.Karta.Plocice}}"
+           data-zasluge="{{.Karta.Zasluge}}"
+           data-najvise-z="{{.Karta.NajviseZ}}"
+           data-opcine-url="{{.MunisGeoJSONURL}}"
+           data-naselja-url="{{.SettlementsGeoJSONURL}}">
+        <div class="karta-platno" style="min-height: 600px; height: 74vh;"></div>
+        {{if .CountiesGeoJSON}}<script type="application/json" class="karta-zupanije-podaci">{{.CountiesGeoJSON}}</script>{{end}}
+        <p class="reg-card-sub karta-bez-mreze" hidden>{{icon "triangle-alert"}} Pločice karte
+          nisu dostupne — program radi bez interneta, a za ovo područje još nisu preuzete.
+          Granice županija, gradova i općina te podaci iscrtani su i dostupni.</p>
+      </div>
+
+      <!-- Bočna ploča za pojedinačni odabir / gašenje / paljenje -->
+      <aside id="karta-jedinice-izbornik" class="karta-jedinice-izbornik" style="display:none;">
+        <div class="karta-jedinice-glava">
+          <div>
+            <div style="font-weight:700; font-size:0.95rem; color:var(--secondary);" id="ploca-naslov">Pojedinačne jedinice</div>
+            <div style="font-size:0.75rem; color:var(--text-muted);" id="ploca-podnaslov">Odaberite županiju za popis gradova, općina i naselja</div>
+          </div>
+          <button type="button" id="gumb-zatvori-plocu" class="btn btn-sm btn-outline-secondary" style="padding:2px 8px; font-size:1.1rem; line-height:1; border:none; cursor:pointer;" title="Zatvori">&times;</button>
+        </div>
+
+        <div style="padding:0.65rem 0.85rem; border-bottom:1px solid var(--border); background:var(--surface);">
+          <div style="margin-bottom:0.45rem;">
+            <label style="font-size:0.75rem; font-weight:600; color:var(--text-muted); display:block; margin-bottom:0.2rem;">Županija:</label>
+            <select id="ploca-select-zupanija" class="form-control form-control-sm" style="width:100%; font-size:0.85rem;">
+              <option value="">-- Odaberi županiju --</option>
+              <option value="sve">Sve županije (556 jedinica)</option>
+              {{range .Counties}}
+              <option value="{{.ID}}">{{.Name}}</option>
+              {{end}}
+            </select>
+          </div>
+          <div id="ploca-opcina-omot" style="margin-bottom:0.45rem; display:none;">
+            <label style="font-size:0.75rem; font-weight:600; color:var(--text-muted); display:block; margin-bottom:0.2rem;">Grad / Općina:</label>
+            <select id="ploca-select-opcina" class="form-control form-control-sm" style="width:100%; font-size:0.85rem;">
+              <option value="">-- Svi gradovi i općine --</option>
+            </select>
+          </div>
+          <input type="search" id="ploca-trazilica-jedinica" placeholder="Traži grad, općinu ili naselje..." class="form-control form-control-sm" style="font-size:0.8rem;">
+        </div>
+
+        <div id="ploca-akcije-traka" style="padding:0.5rem 0.85rem; border-bottom:1px solid var(--border); background:var(--bg-subtle, #f8fafc); display:none; flex-direction:column; gap:0.4rem; font-size:0.78rem;">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+            <label id="ploca-chk-zupanija-granica-omot" style="display:inline-flex; align-items:center; gap:0.4rem; font-weight:600; cursor:pointer; color:#1e3a8a;">
+              <input type="checkbox" id="ploca-chk-zupanija-granica" checked style="accent-color:#2563eb; width:15px; height:15px; cursor:pointer;">
+              <span>Granica županije</span>
+            </label>
+            <label id="ploca-chk-naselja-omot" style="display:inline-flex; align-items:center; gap:0.4rem; font-weight:600; cursor:pointer; color:#be123c;">
+              <input type="checkbox" id="ploca-chk-naselja" style="accent-color:#e11d48; width:15px; height:15px; cursor:pointer;">
+              <span>Sloj naselja</span>
+            </label>
+          </div>
+          <div style="display:flex; gap:0.3rem; flex-wrap:wrap; align-items:center;">
+            <button type="button" id="ploca-gumb-upali-sve" class="btn btn-xs btn-outline-secondary" style="font-size:0.75rem; padding:2px 7px;">Upali sve</button>
+            <button type="button" id="ploca-gumb-ugasi-sve" class="btn btn-xs btn-outline-secondary" style="font-size:0.75rem; padding:2px 7px;">Ugasi sve</button>
+            <button type="button" id="ploca-gumb-samo-gradovi" class="btn btn-xs btn-outline-secondary" style="font-size:0.75rem; padding:2px 7px;">Gradovi</button>
+            <button type="button" id="ploca-gumb-samo-opcine" class="btn btn-xs btn-outline-secondary" style="font-size:0.75rem; padding:2px 7px;">Općine</button>
+            <button type="button" id="ploca-gumb-samo-naselja" class="btn btn-xs btn-outline-secondary" style="font-size:0.75rem; padding:2px 7px;">Naselja</button>
+            <button type="button" id="ploca-gumb-zumi-zupaniju" class="btn btn-xs btn-outline-secondary" style="font-size:0.75rem; padding:2px 7px; margin-left:auto;">Približi 🔍</button>
+          </div>
+        </div>
+
+        <div id="ploca-lista-jedinica" class="karta-jedinice-tijelo">
+          <div style="color:var(--text-muted); font-size:0.85rem; text-align:center; padding:2.5rem 1rem;">
+            Odaberite županiju u izborniku iznad ili kliknite na nju na karti za upravljanje pojedinim gradovima, općinama i naseljima.
+          </div>
+        </div>
+      </aside>
+    </div>
+    <div class="karta-podnozje" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-top:0.6rem; font-size:0.85rem; color:#64748b;">
+      <div>
+        {{icon "landmark"}} <strong>{{.TotalCounties}}</strong> županija · <strong>{{.TotalCities}}</strong> gradova · <strong>428</strong> općina (visoka OSM preciznost granica)
+      </div>
+      <div style="display:flex; gap:1.25rem; align-items:center; flex-wrap:wrap;">
+        <span><span style="display:inline-block; width:12px; height:10px; background:rgba(37,99,235,0.2); border:1.5px solid #2563eb; vertical-align:middle; margin-right:4px; border-radius:2px;"></span> Županija</span>
+        <span><span style="display:inline-block; width:12px; height:10px; background:rgba(124,58,237,0.2); border:1.5px solid #7c3aed; vertical-align:middle; margin-right:4px; border-radius:2px;"></span> Grad</span>
+        <span><span style="display:inline-block; width:12px; height:10px; background:rgba(5,150,105,0.2); border:1.5px solid #059669; vertical-align:middle; margin-right:4px; border-radius:2px;"></span> Općina</span>
+        <span><span style="display:inline-block; width:12px; height:10px; background:rgba(225,29,72,0.2); border:1.5px solid #e11d48; vertical-align:middle; margin-right:4px; border-radius:2px;"></span> Naselje</span>
+        <span style="color:#94a3b8; font-size:0.8rem;">Klik na jedinicu za detalje, vodstvo i stanovništvo</span>
+      </div>
+    </div>
+  </div>
+  {{else}}
   <!-- Traka s filtrima i tabovima -->
   <div class="card" style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 1.5rem; padding: 1.25rem;">
     <!-- Tabovi -->
@@ -358,6 +503,7 @@
 
   {{template "pager" .Pager}}
   </div>
+  {{end}}
   {{end}}
   {{end}}
 

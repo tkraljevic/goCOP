@@ -623,6 +623,7 @@ func (s *Server) setupRoutes() {
 	territoriesH := NewTerritoriesHandler(s.territoryService, s.templates["territories.html"])
 	territoriesH.SetPageTemplates(s.templates["county_form.html"], s.templates["municipality_form.html"], s.templates["municipality_detail.html"])
 	territoriesH.SetCountyTemplate(s.templates["county_detail.html"])
+	territoriesH.SetKarta(func() KartaPostavke { return s.karta })
 	stationsH := NewStationsHandler(s.stationService, s.templates["stations.html"])
 	stationsH.SetPageTemplates(s.templates["station_detail.html"], s.templates["station_form.html"],
 		s.templates["station_history.html"], s.templates["station_history_form.html"],
@@ -974,6 +975,9 @@ func (s *Server) setupRoutes() {
 
 	// Teritorijalne jedinice (županije, gradovi, općine, naselja)
 	s.mux.Handle("GET /territories", s.authMiddleware(http.HandlerFunc(territoriesH.ShowTerritories)))
+	s.mux.Handle("GET /territories/zupanije.geojson", s.authMiddleware(http.HandlerFunc(territoriesH.HandleGetCountiesGeoJSON)))
+	s.mux.Handle("GET /territories/opcine.geojson", s.authMiddleware(http.HandlerFunc(territoriesH.HandleGetMunicipalitiesGeoJSON)))
+	s.mux.Handle("GET /territories/naselja.geojson", s.authMiddleware(http.HandlerFunc(territoriesH.HandleGetSettlementsGeoJSON)))
 	s.mux.Handle("GET /territories/zupanije.csv", s.authMiddleware(http.HandlerFunc(territoriesH.ExportCountiesCSV)))
 	s.mux.Handle("GET /territories/gradovi-i-opcine.csv", s.authMiddleware(http.HandlerFunc(territoriesH.ExportMunicipalitiesCSV)))
 	s.mux.Handle("GET /territories/naselja.csv", s.authMiddleware(http.HandlerFunc(territoriesH.ExportSettlementsCSV)))

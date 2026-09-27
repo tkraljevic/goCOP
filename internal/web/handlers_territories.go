@@ -1,25 +1,35 @@
 package web
 
 import (
+	"bytes"
+	"compress/gzip"
+	"context"
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
+	"sync"
 
+	geom "gocop/internal/geometrija"
 	"gocop/internal/models"
 	"gocop/internal/service"
 )
 
 type TerritoriesHandler struct {
 	territoryService *service.TerritoryService
+	karta            func() KartaPostavke
 	tmpl             *template.Template // popis
 	tmplCountyForm   *template.Template
 	tmplMuniForm     *template.Template
 	tmplMuniDetail   *template.Template
 	tmplCounty       *template.Template
 }
+
+func (h *TerritoriesHandler) SetKarta(f func() KartaPostavke) { h.karta = f }
 
 func NewTerritoriesHandler(
 	territoryService *service.TerritoryService,
@@ -50,6 +60,15 @@ type TerritoriesPageData struct {
 	ActiveNav        string
 	Pager            Pager
 	ViewAsBanner
+	// Karta teritorijalnih jedinica
+	ViewMode              string // "list" ili "map"
+	MapURL                string // poveznica za prebacivanje na kartu
+	ListURL               string // poveznica za prebacivanje na popis
+	Karta                 KartaPostavke
+	CountiesGeoJSON       template.JS // GeoJSON granica svih 21 županija
+	CountiesGeoJSONURL    string      // URL za preuzimanje granica županija
+	MunisGeoJSONURL       string      // URL za preuzimanje granica gradova i općina
+	SettlementsGeoJSONURL string      // URL za preuzimanje granica naselja po županiji
 }
 
 // ShowTerritories prikazuje stranicu s popisom županija, gradova, općina i naselja
@@ -57,6 +76,20 @@ func (h *TerritoriesHandler) ShowTerritories(w http.ResponseWriter, r *http.Requ
 	ctx := r.Context()
 	currUser, _ := ctx.Value(contextKeyUser).(*models.User)
 	perms, _ := ctx.Value(contextKeyPerms).(*models.UserPermissions)
+
+	viewMode := r.URL.Query().Get("view")
+	if viewMode != "map" {
+		viewMode = "list"
+	}
+
+	// Pripremi URL-ove za prebacivanje prikaza
+	qMap := r.URL.Query()
+	qMap.Set("view", "map")
+	mapURL := "/territories?" + qMap.Encode()
+
+	qList := r.URL.Query()
+	qList.Set("view", "list")
+	listURL := "/territories?" + qList.Encode()
 
 	countyIDStr := r.URL.Query().Get("county_id")
 	selectedCountyID, _ := strconv.Atoi(countyIDStr)
@@ -85,31 +118,223 @@ func (h *TerritoriesHandler) ShowTerritories(w http.ResponseWriter, r *http.Requ
 
 	totalCounties, totalMunis, totalSettlements, _ := h.territoryService.GetTerritoryCounts(ctx)
 
+	totalCities := 0
+	for _, m := range municipalities {
+		if m.Type == "GRAD" {
+			totalCities++
+		}
+	}
+
 	page, pager := paginate(municipalities, r, registryPerPage)
 	data := TerritoriesPageData{
-		CurrentUser:      currUser,
-		Permissions:      perms,
-		Counties:         counties,
-		Municipalities:   page,
-		Pager:            pager,
-		SelectedCountyID: selectedCountyID,
-		SelectedType:     selectedType,
-		SearchQuery:      searchQuery,
-		ActiveTab:        activeTab,
-		TotalCounties:    totalCounties,
-		TotalMunis:       totalMunis,
-		TotalCities:      125,
-		TotalSettlements: totalSettlements,
-		SuccessMessage:   r.URL.Query().Get("success"),
-		ErrorMessage:     r.URL.Query().Get("error"),
-		ActiveNav:        "territories",
-		ViewAsBanner:     viewBanner(r),
+		CurrentUser:           currUser,
+		Permissions:           perms,
+		Counties:              counties,
+		Municipalities:        page,
+		Pager:                 pager,
+		SelectedCountyID:      selectedCountyID,
+		SelectedType:          selectedType,
+		SearchQuery:           searchQuery,
+		ActiveTab:             activeTab,
+		TotalCounties:         totalCounties,
+		TotalMunis:            totalMunis,
+		TotalCities:           totalCities,
+		TotalSettlements:      totalSettlements,
+		SuccessMessage:        r.URL.Query().Get("success"),
+		ErrorMessage:          r.URL.Query().Get("error"),
+		ActiveNav:             "territories",
+		ViewAsBanner:          viewBanner(r),
+		ViewMode:              viewMode,
+		MapURL:                mapURL,
+		ListURL:               listURL,
+		CountiesGeoJSONURL:    "/territories/zupanije.geojson",
+		MunisGeoJSONURL:       "/territories/opcine.geojson",
+		SettlementsGeoJSONURL: "/territories/naselja.geojson?county_id=",
+	}
+
+	if h.karta != nil {
+		data.Karta = h.karta()
+	}
+
+	// Ako je aktivan prikaz karte, učitaj GeoJSON granica županija za trenutni prikaz
+	if viewMode == "map" {
+		h.initCountiesGeoJSON()
+		if len(countiesRaw) > 0 {
+			data.CountiesGeoJSON = template.JS(countiesRaw)
+		}
 	}
 
 	data.BrojSluzbi = h.territoryService.BrojSluzbi(ctx)
-	if err := h.tmpl.Execute(w, data); err != nil {
+	var buf bytes.Buffer
+	if err := h.tmpl.Execute(&buf, data); err != nil {
+		log.Printf("Greška renderiranja territories: %v", err)
 		http.Error(w, "Greška renderiranja: "+err.Error(), http.StatusInternalServerError)
+		return
 	}
+	buf.WriteTo(w)
+}
+
+var (
+	countiesGeoJSONOnce sync.Once
+	countiesRaw         []byte
+	countiesGz          []byte
+
+	munisGeoJSONOnce sync.Once
+	munisRaw         []byte
+	munisGz          []byte
+)
+
+// Osobni podaci (župan, čelnik, njihova e-pošta i telefon) ne stoje u
+// geometriji u repozitoriju, nego samo u registru teritorija; u poligone se
+// upisuju pri isporuci.
+func (h *TerritoriesHandler) initCountiesGeoJSON() {
+	countiesGeoJSONOnce.Do(func() {
+		raw, err := geom.Ucitaj("", "zupanije")
+		if err != nil || len(raw) == 0 {
+			return
+		}
+		dodaci := map[string]map[string]any{}
+		if h.territoryService != nil {
+			if cs, err := h.territoryService.ListCounties(context.Background()); err == nil {
+				for _, c := range cs {
+					dodaci[strconv.Itoa(c.ID)] = map[string]any{"prefect": c.Prefect, "email": c.Email, "phone": c.Phone}
+				}
+			}
+		}
+		raw = dopuniGeoJSON(raw, dodaci)
+		countiesRaw = raw
+		var buf bytes.Buffer
+		gw := gzip.NewWriter(&buf)
+		if _, err := gw.Write(raw); err == nil {
+			if err := gw.Close(); err == nil {
+				countiesGz = buf.Bytes()
+			}
+		}
+	})
+}
+
+func (h *TerritoriesHandler) initMunisGeoJSON() {
+	munisGeoJSONOnce.Do(func() {
+		raw, err := geom.Ucitaj("", "opcine")
+		if err != nil || len(raw) == 0 {
+			return
+		}
+		dodaci := map[string]map[string]any{}
+		if h.territoryService != nil {
+			if ms, err := h.territoryService.ListMunicipalities(context.Background(), 0, "", ""); err == nil {
+				for _, m := range ms {
+					dodaci[strconv.Itoa(m.ID)] = map[string]any{"head_name": m.HeadName, "email": m.Email, "phone": m.Phone}
+				}
+			}
+		}
+		raw = dopuniGeoJSON(raw, dodaci)
+		munisRaw = raw
+		var buf bytes.Buffer
+		gw := gzip.NewWriter(&buf)
+		if _, err := gw.Write(raw); err == nil {
+			if err := gw.Close(); err == nil {
+				munisGz = buf.Bytes()
+			}
+		}
+	})
+}
+
+// HandleGetCountiesGeoJSON vraća GeoJSON granica županija s podrškom za gzip
+func (h *TerritoriesHandler) HandleGetCountiesGeoJSON(w http.ResponseWriter, r *http.Request) {
+	h.initCountiesGeoJSON()
+	if len(countiesRaw) == 0 {
+		http.Error(w, "Geometrija županija nije dostupna", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "application/geo+json; charset=utf-8")
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") && len(countiesGz) > 0 {
+		w.Header().Set("Content-Encoding", "gzip")
+		w.Write(countiesGz)
+		return
+	}
+	w.Write(countiesRaw)
+}
+
+// HandleGetMunicipalitiesGeoJSON vraća GeoJSON granica gradova i općina s podrškom za gzip
+func (h *TerritoriesHandler) HandleGetMunicipalitiesGeoJSON(w http.ResponseWriter, r *http.Request) {
+	h.initMunisGeoJSON()
+	if len(munisRaw) == 0 {
+		http.Error(w, "Geometrija gradova i općina nije dostupna", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "application/geo+json; charset=utf-8")
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") && len(munisGz) > 0 {
+		w.Header().Set("Content-Encoding", "gzip")
+		w.Write(munisGz)
+		return
+	}
+	w.Write(munisRaw)
+}
+
+var (
+	naseljaMu  sync.RWMutex
+	naseljaRaw = make(map[int][]byte)
+	naseljaGz  = make(map[int][]byte)
+)
+
+// HandleGetSettlementsGeoJSON vraća GeoJSON granica naselja za traženu županiju uz gzip kompresiju
+func (h *TerritoriesHandler) HandleGetSettlementsGeoJSON(w http.ResponseWriter, r *http.Request) {
+	countyIDStr := r.URL.Query().Get("county_id")
+	countyID, err := strconv.Atoi(countyIDStr)
+	if err != nil || countyID < 1 || countyID > 21 {
+		http.Error(w, "Neispravan ID županije (očekuje se 1-21)", http.StatusBadRequest)
+		return
+	}
+
+	naseljaMu.RLock()
+	raw, okRaw := naseljaRaw[countyID]
+	gz, _ := naseljaGz[countyID]
+	naseljaMu.RUnlock()
+
+	if !okRaw {
+		paths := []string{
+			fmt.Sprintf("data/geometrija/naselja/zupanija_%d.geojson", countyID),
+			fmt.Sprintf("../../data/geometrija/naselja/zupanija_%d.geojson", countyID),
+			fmt.Sprintf("internal/geometrija/naselja/zupanija_%d.geojson", countyID),
+			fmt.Sprintf("../geometrija/naselja/zupanija_%d.geojson", countyID),
+		}
+		var data []byte
+		for _, p := range paths {
+			if b, readErr := os.ReadFile(p); readErr == nil && len(b) > 0 {
+				data = b
+				break
+			}
+		}
+		if len(data) == 0 {
+			http.Error(w, fmt.Sprintf("Geometrija naselja za županiju %d nije pronađena", countyID), http.StatusNotFound)
+			return
+		}
+
+		raw = data
+		var buf bytes.Buffer
+		gw := gzip.NewWriter(&buf)
+		if _, writeErr := gw.Write(data); writeErr == nil {
+			if closeErr := gw.Close(); closeErr == nil {
+				gz = buf.Bytes()
+			}
+		}
+
+		naseljaMu.Lock()
+		naseljaRaw[countyID] = raw
+		naseljaGz[countyID] = gz
+		naseljaMu.Unlock()
+	}
+
+	w.Header().Set("Content-Type", "application/geo+json; charset=utf-8")
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") && len(gz) > 0 {
+		w.Header().Set("Content-Encoding", "gzip")
+		w.Write(gz)
+		return
+	}
+	w.Write(raw)
 }
 
 // HandleGetCountiesAPI vraća JSON listu svih županija
@@ -508,4 +733,47 @@ func backToMunicipality(r *http.Request) string {
 		return strings.Split(ref, "?")[0]
 	}
 	return "/territories?tab=municipalities"
+}
+
+// dopuniGeoJSON upisuje u svojstva svakog poligona dodatke po svojstvu "id";
+// geometrija prolazi netaknuta. Kad dodataka nema ili se zbirka ne da
+// pročitati, vraća izvornik.
+func dopuniGeoJSON(raw []byte, dodaci map[string]map[string]any) []byte {
+	if len(dodaci) == 0 {
+		return raw
+	}
+	var zbirka map[string]json.RawMessage
+	if json.Unmarshal(raw, &zbirka) != nil {
+		return raw
+	}
+	var znacajke []struct {
+		Type       string          `json:"type"`
+		Properties map[string]any  `json:"properties"`
+		Geometry   json.RawMessage `json:"geometry"`
+	}
+	if json.Unmarshal(zbirka["features"], &znacajke) != nil {
+		return raw
+	}
+	for i := range znacajke {
+		p := znacajke[i].Properties
+		if p == nil {
+			continue
+		}
+		for k, v := range dodaci[fmt.Sprint(p["id"])] {
+			if str, ok := v.(string); ok && str == "" {
+				continue
+			}
+			p[k] = v
+		}
+	}
+	f, err := json.Marshal(znacajke)
+	if err != nil {
+		return raw
+	}
+	zbirka["features"] = f
+	out, err := json.Marshal(zbirka)
+	if err != nil {
+		return raw
+	}
+	return out
 }
