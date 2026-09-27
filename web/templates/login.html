@@ -11,8 +11,10 @@
     .login-wrapper {
       min-height: 100vh;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
+      gap: 1.5rem;
       padding: 1rem;
       background: linear-gradient(160deg, #0d274a 0%, #173e74 60%, #1f5aa6 100%);
     }
@@ -109,6 +111,10 @@
         obrane od poplava javlja dežurni operater.</span>{{end}}
       </div>
     </div>
+
+    <!-- Koliko sustav zna: iste brojke kao na naslovnoj, rastu uživo -->
+    <section id="podaci-brojke" class="brojke brojke-prijava" data-url="/podaci/brojke" aria-label="Podaci u sustavu" hidden></section>
   </div>
+  <script src="{{statika "js/brojke.js"}}" defer></script>
 </body>
 </html>

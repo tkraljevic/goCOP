@@ -962,3 +962,147 @@ func (r *ArhivaRepository) StanjeLetve(ctx context.Context, letva string) *model
 	}
 	return &s
 }
+
+// RedNizova je zbroj nizova arhive jedne veličine, vrste i izvora.
+type RedNizova struct {
+	Velicina, Vrsta, Izvor string
+	Letvi                  int
+	Zapisa                 int64
+	Od                     string // najraniji dan
+}
+
+// ArhivaBrojke je koliko arhiva nosi, za brojke na naslovnoj.
+type ArhivaBrojke struct {
+	Redovi          []RedNizova
+	Letve           []string // letve s vodostajem, protokom ili kotom
+	Profili         int64
+	ProfilTocke     int64
+	HQ              int64
+	NajstarijiOd    string
+	NajstarijaLetva string
+}
+
+// Brojke zbraja nizove iz popisa nizova, koji broj zapisa već nosi: brojanje
+// samih vrijednosti u arhivi od deset gigabajta trajalo bi minutama.
+func (r *ArhivaRepository) Brojke(ctx context.Context) (*ArhivaBrojke, error) {
+	if r == nil {
+		return nil, nil
+	}
+	rows, err := r.db.QueryContext(ctx, `SELECT velicina, vrsta, izvor, count(DISTINCT letva), sum(zapisa), min(od)
+		FROM nizovi GROUP BY velicina, vrsta, izvor`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	b := &ArhivaBrojke{}
+	for rows.Next() {
+		var red RedNizova
+		if err := rows.Scan(&red.Velicina, &red.Vrsta, &red.Izvor, &red.Letvi, &red.Zapisa, &red.Od); err != nil {
+			return nil, err
+		}
+		b.Redovi = append(b.Redovi, red)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if lr, err := r.db.QueryContext(ctx, `SELECT DISTINCT letva FROM nizovi WHERE velicina IN ('vodostaj','protok','kota')`); err == nil {
+		for lr.Next() {
+			var l string
+			if lr.Scan(&l) == nil {
+				b.Letve = append(b.Letve, l)
+			}
+		}
+		lr.Close()
+	}
+	_ = r.db.QueryRowContext(ctx, `SELECT count(*) FROM profili`).Scan(&b.Profili)
+	_ = r.db.QueryRowContext(ctx, `SELECT count(*) FROM profil_tocke`).Scan(&b.ProfilTocke)
+	_ = r.db.QueryRowContext(ctx, `SELECT count(*) FROM hq_krivulje`).Scan(&b.HQ)
+	_ = r.db.QueryRowContext(ctx, `SELECT od, letva FROM nizovi WHERE velicina = 'vodostaj' AND od <> ''
+		ORDER BY od LIMIT 1`).Scan(&b.NajstarijiOd, &b.NajstarijaLetva)
+	return b, nil
+}
+
+// DesetljeceZapisa je koliko zapisa arhiva ima iz jednog desetljeća, odvojeno
+// hidrologija (vodostaj, protok, temperatura vode…) i meteorologija (oborina,
+// snijeg, temperatura zraka).
+type DesetljeceZapisa struct {
+	Desetljece    int   `json:"d"`
+	Hidrologija   int64 `json:"h"`
+	Meteorologija int64 `json:"m"`
+}
+
+// meteoVelicine su veličine koje nisu voda nego vrijeme nad slivom.
+var meteoVelicine = map[string]bool{"oborina": true, "snijeg": true, "temperatura-zraka": true, "visina-snijega": true}
+
+// PoDesetljecima broji sve zapise arhive po desetljeću. Prolazi kroz svaki
+// zapis — na arhivi od deset gigabajta to traje oko minute — pa ga se zove
+// rijetko i u pozadini.
+func (r *ArhivaRepository) PoDesetljecima(ctx context.Context) ([]DesetljeceZapisa, error) {
+	if r == nil {
+		return nil, nil
+	}
+	velicina := map[int64]string{}
+	nr, err := r.db.QueryContext(ctx, `SELECT id, velicina FROM nizovi`)
+	if err != nil {
+		return nil, err
+	}
+	for nr.Next() {
+		var id int64
+		var v string
+		if nr.Scan(&id, &v) == nil {
+			velicina[id] = v
+		}
+	}
+	nr.Close()
+	rows, err := r.db.QueryContext(ctx, `SELECT niz, CAST(strftime('%Y', vrijeme, 'unixepoch') AS INTEGER) / 10 * 10 AS d, count(*)
+		FROM ocitanja GROUP BY niz, d`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	po := map[int]*DesetljeceZapisa{}
+	for rows.Next() {
+		var niz int64
+		var d int
+		var n int64
+		if err := rows.Scan(&niz, &d, &n); err != nil {
+			return nil, err
+		}
+		z := po[d]
+		if z == nil {
+			z = &DesetljeceZapisa{Desetljece: d}
+			po[d] = z
+		}
+		if meteoVelicine[velicina[niz]] {
+			z.Meteorologija += n
+		} else {
+			z.Hidrologija += n
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	out := make([]DesetljeceZapisa, 0, len(po))
+	for _, z := range po {
+		out = append(out, *z)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Desetljece < out[j].Desetljece })
+	return out, nil
+}
+
+// NajviseIzmjereno vraća najviši vodostaj letve u arhivi i kad je bio.
+// Preračun iz susjedne letve nije mjerenje i ne ulazi.
+func (r *ArhivaRepository) NajviseIzmjereno(ctx context.Context, letva string) (float64, time.Time, bool) {
+	if r == nil {
+		return 0, time.Time{}, false
+	}
+	var v float64
+	var t int64
+	err := r.db.QueryRowContext(ctx, `SELECT vrijednost, vrijeme FROM spoj
+		WHERE letva = ? AND velicina = 'vodostaj' AND izvor NOT LIKE 'preracun-%'
+		ORDER BY vrijednost DESC LIMIT 1`, letva).Scan(&v, &t)
+	if err != nil {
+		return 0, time.Time{}, false
+	}
+	return v, time.Unix(t, 0).UTC(), true
+}

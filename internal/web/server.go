@@ -76,8 +76,9 @@ type Server struct {
 	orgRepo        *repository.OrgRepository
 	karta          KartaPostavke
 	arhivaPut      string
-	podaciDir      string // stablo s izvornim datotekama; prazno na čvoru koji samo prima pakete
-	paketiDir      string // mapa u koju se izdaju .cop paketi i u kojoj stoji katalog
+	brojkeStanje   brojkeStanje // brojke podataka za naslovnu, izbrojene najviše svakih pet minuta
+	podaciDir      string       // stablo s izvornim datotekama; prazno na čvoru koji samo prima pakete
+	paketiDir      string       // mapa u koju se izdaju .cop paketi i u kojoj stoji katalog
 	poslovi        *poslovi.Registar
 	// arhivaMu čuva pokazivač na čitača arhive. Gradnja, ugradnja i micanje
 	// niza zamjenjuju ga iz pozadinske dretve posla, dok ga HTTP zahtjevi
@@ -1079,6 +1080,9 @@ func (s *Server) setupRoutes() {
 		kisomjeri: func() *service.KisomjerService { return s.kisomjeri },
 		mjerenja:  func() *kisomjeri.Spremiste { return s.kisMjerenja }}
 	s.mux.Handle("GET /vrijeme/podrucje", s.authMiddleware(http.HandlerFunc(vrijemeH.ShowPloca)))
+	// Brojke podataka su javne: stoje i na stranici za prijavu. Nose samo
+	// zbrojeve, bez ijedne vrijednosti, imena osobe ili mjesta osim najstarije letve.
+	s.mux.HandleFunc("GET /podaci/brojke", s.ShowBrojke)
 	s.mux.Handle("GET /slivovi/kisomjer/new", s.authMiddleware(http.HandlerFunc(slivH.ShowKisomjerForm)))
 	s.mux.Handle("GET /slivovi/kisomjer/{code}/edit", s.authMiddleware(http.HandlerFunc(slivH.ShowKisomjerForm)))
 	s.mux.Handle("GET /api/slivovi", s.authMiddleware(http.HandlerFunc(slivH.HandleListAPI)))

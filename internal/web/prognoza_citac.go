@@ -165,3 +165,19 @@ func (c *CitacPrognoza) Izdanja(od, do time.Time) []prognoza.Izdana {
 	}
 	return out
 }
+
+// Brojke kaže koliko vrijednosti prognoza baza čuva i iz koliko izdanja:
+// satni lanac, dnevni model i tuđe prognoze, sadašnje i ranije.
+func (c *CitacPrognoza) Brojke() (vrijednosti int64, izdanja int) {
+	if c == nil || c.db == nil {
+		return 0, 0
+	}
+	for _, t := range []string{"izdane", "izdane_ranije", "dnevne", "dnevne_ranije", "tude"} {
+		var n int64
+		if err := c.db.QueryRow(`SELECT count(*) FROM ` + t).Scan(&n); err == nil {
+			vrijednosti += n
+		}
+	}
+	_ = c.db.QueryRow(`SELECT count(DISTINCT izdano) FROM izdane`).Scan(&izdanja)
+	return vrijednosti, izdanja
+}

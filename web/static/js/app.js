@@ -3275,3 +3275,4 @@ function dodajKontroleKarte(karta, platno, opcije) {
     if (okvir && okvir.dataset.url) ucitaj(okvir, '');
   });
 })();
+

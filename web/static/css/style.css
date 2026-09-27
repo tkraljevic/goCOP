@@ -4557,3 +4557,97 @@ body.uzd-puni-zaslon-otvoren { overflow: hidden; }
 .vrijeme-red { background: #ef4444; color: #fff; }
 .vrijeme-izvori { margin-top: 0.4rem; }
 .vrijeme-ploca-cekanje { color: var(--text-muted); font-size: 0.85rem; padding: 0.75rem 0; }
+
+/* ── Brojke podataka na naslovnoj ─────────────────────────────────────────
+   Koliko sustav zna: četiri velike brojke, pa pločice po vrsti podataka i
+   traka prostora. Brojevi su tabularni, da se pri odbrojavanju ne tresu. */
+.brojke { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem 1.5rem 1.1rem; box-shadow: var(--shadow); }
+.brojke-glava { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.5rem 1rem; margin-bottom: 0.9rem; }
+.brojke-naslov { font-size: 1.05rem; font-weight: 700; margin: 0; }
+.brojke-uzivo { display: inline-flex; align-items: center; gap: 0.45rem; font-size: 0.8rem; color: var(--text-muted); }
+.brojke-velike { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 0.75rem; margin-bottom: 0.9rem; }
+.brojke-male { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 0.6rem; }
+.brojka { position: relative; overflow: hidden; background: var(--bg-subtle); border-radius: 10px; padding: 0.7rem 0.85rem; min-width: 0; }
+.brojka-velika { background: linear-gradient(135deg, #0d274a 0%, #173e74 60%, #1f5aa6 100%); color: #fff; padding: 1rem 1.1rem; }
+.brojka-vr { font-size: 1.35rem; font-weight: 800; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; line-height: 1.15; color: var(--primary); overflow-wrap: anywhere; }
+.brojka-velika .brojka-vr { font-size: clamp(1.3rem, 2.5vw, 2.4rem); color: #fff; white-space: nowrap; overflow-wrap: normal; }
+.brojka-naziv { font-size: 0.85rem; font-weight: 600; margin-top: 0.15rem; }
+.brojka-opis { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.1rem; }
+.brojka-velika .brojka-opis { color: rgba(255, 255, 255, 0.75); }
+.brojka-rast { position: absolute; top: 0.5rem; right: 0.6rem; font-size: 0.72rem; font-weight: 700; color: #fff; background: #1e8f4e;
+  border-radius: 999px; padding: 0.05rem 0.45rem; animation: brojka-rast 4s ease-out forwards; }
+@keyframes brojka-rast { 0% { opacity: 0; transform: translateY(4px); } 10% { opacity: 1; transform: none; } 75% { opacity: 1; } 100% { opacity: 0; } }
+.brojke-mjesto { display: flex; height: 10px; border-radius: 999px; overflow: hidden; margin: 1rem 0 0.5rem; background: var(--bg-subtle); }
+.brojke-dio { min-width: 3px; }
+.brojke-legenda { list-style: none; display: flex; flex-wrap: wrap; gap: 0.25rem 1.1rem; margin: 0; padding: 0; font-size: 0.78rem; color: var(--text-muted); }
+.brojke-legenda strong { color: var(--text); font-variant-numeric: tabular-nums; }
+.brojke-boja { display: inline-block; width: 0.7rem; height: 0.7rem; border-radius: 3px; margin-right: 0.35rem; vertical-align: -1px; }
+.brojke-dio.d0, .brojke-boja.d0 { background: #1f5aa6; } .brojke-dio.d1, .brojke-boja.d1 { background: #3b82c4; }
+.brojke-dio.d2, .brojke-boja.d2 { background: #7a3db8; } .brojke-dio.d3, .brojke-boja.d3 { background: #1e8f4e; }
+.brojke-dio.d4, .brojke-boja.d4 { background: #e86b34; } .brojke-dio.d5, .brojke-boja.d5 { background: #9ca3af; }
+/* Na prijavi brojke stoje na plavoj podlozi, ispod okvira za prijavu. */
+.brojke-prijava { width: 100%; max-width: 1040px; background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.14);
+  box-shadow: none; color: #fff; backdrop-filter: blur(4px); }
+.brojke-prijava .brojke-naslov { color: #fff; }
+.brojke-prijava .brojke-uzivo, .brojke-prijava .brojke-legenda, .brojke-prijava .brojka-opis { color: rgba(255, 255, 255, 0.72); }
+.brojke-prijava .brojke-legenda strong { color: #fff; }
+.brojke-prijava .brojka { background: rgba(255, 255, 255, 0.08); }
+.brojke-prijava .brojka-velika { background: rgba(255, 255, 255, 0.12); }
+.brojke-prijava .brojka-vr { color: #fff; }
+.brojke-prijava .brojke-mjesto { background: rgba(255, 255, 255, 0.1); }
+@media (max-width: 600px) { .brojke { padding: 1rem; } .brojke-velike { grid-template-columns: 1fr; } .brojka-velika .brojka-vr { font-size: 1.75rem; } }
+
+/* Ulaz: pločice uplove jedna za drugom. */
+.brojke:not(.brojke-tiho) .brojka, .brojke:not(.brojke-tiho) .rekord { opacity: 0; transform: translateY(10px) scale(0.98); }
+.brojke-ulaz .brojka, .brojke-ulaz .rekord { opacity: 1 !important; transform: none !important;
+  transition: opacity 0.5s ease, transform 0.6s cubic-bezier(0.2, 0.9, 0.3, 1.2); transition-delay: calc(var(--i, 0) * 70ms); }
+/* Dok broji, broj lagano svijetli; kad stane, pločicu prijeđe odsjaj i broj
+   kratko poskoči. */
+.brojka-broji .brojka-vr { text-shadow: 0 0 14px rgba(56, 189, 248, 0.55); }
+.brojka-velika.brojka-broji .brojka-vr { text-shadow: 0 0 18px rgba(147, 197, 253, 0.9); }
+.brojka::after, .rekord::after { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0;
+  background: linear-gradient(105deg, transparent 30%, rgba(255, 255, 255, 0.55) 48%, rgba(255, 255, 255, 0.1) 56%, transparent 70%);
+  transform: translateX(-120%); }
+.brojka-bljesak::after { animation: brojka-odsjaj 0.9s ease-out; }
+.brojka-bljesak .brojka-vr { animation: brojka-poskok 0.55s cubic-bezier(0.3, 1.6, 0.5, 1); }
+@keyframes brojka-odsjaj { 0% { opacity: 1; transform: translateX(-120%); } 100% { opacity: 0.2; transform: translateX(120%); } }
+@keyframes brojka-poskok { 0% { transform: scale(1); } 40% { transform: scale(1.08); } 100% { transform: scale(1); } }
+.brojka-vr { display: inline-block; transform-origin: left center; }
+.brojka-raste { box-shadow: 0 0 0 2px #1e8f4e, 0 0 18px rgba(30, 143, 78, 0.45); transition: box-shadow 0.4s; }
+
+/* Donji dio: arhiva po desetljećima i rekordi, jedno uz drugo. */
+.brojke-dva { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 1rem; margin-top: 1rem; }
+@media (max-width: 900px) { .brojke-dva { grid-template-columns: 1fr; } }
+.brojke-blok { background: var(--bg-subtle); border-radius: 10px; padding: 0.8rem 0.9rem; min-width: 0; }
+.brojke-podnaslov { font-size: 0.85rem; font-weight: 700; margin: 0 0 0.6rem; }
+.brojke-desetljeca-cekaj { font-size: 0.8rem; color: var(--text-muted); padding: 2.5rem 0; text-align: center; }
+.brojke-stupci { display: flex; align-items: flex-end; gap: 0.3rem; height: 150px; }
+.brojke-stupac { flex: 1 1 0; min-width: 0; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+.brojke-stupac-par { flex: 1 1 auto; width: 100%; display: flex; align-items: flex-end; justify-content: center; gap: 2px; }
+.brojke-trak { width: 42%; max-width: 14px; height: var(--h); border-radius: 3px 3px 0 0; transform-origin: bottom; }
+.brojke-trak.hidro, .brojke-stupci-legenda i.hidro { background: #1f5aa6; }
+.brojke-trak.meteo, .brojke-stupci-legenda i.meteo { background: #7a3db8; }
+.brojke:not(.brojke-tiho) .brojke-trak { transform: scaleY(0); }
+.brojke-ulaz .brojke-trak { transform: scaleY(1) !important; transition: transform 0.9s cubic-bezier(0.2, 0.9, 0.3, 1.1); transition-delay: calc(0.3s + var(--i, 0) * 80ms); }
+.brojke-stupac-vr { font-size: 0.62rem; color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; margin-bottom: 2px; }
+.brojke-stupac-d { font-size: 0.65rem; color: var(--text-muted); margin-top: 3px; white-space: nowrap; }
+.brojke-stupci-legenda { display: flex; flex-wrap: wrap; gap: 0.2rem 1rem; font-size: 0.72rem; color: var(--text-muted); margin-top: 0.5rem; }
+.brojke-stupci-legenda i { display: inline-block; width: 0.65rem; height: 0.65rem; border-radius: 2px; margin-right: 0.3rem; vertical-align: -1px; }
+.rekordi-voda + .rekordi-voda { margin-top: 0.6rem; }
+.rekordi-ime { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 0.3rem; }
+.rekordi { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.4rem; }
+.rekord { position: relative; overflow: hidden; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 0.45rem 0.55rem; }
+.rekord-letva { font-size: 0.75rem; font-weight: 600; }
+.rekord-cm { font-size: 1.15rem; font-weight: 800; color: #c2410c; font-variant-numeric: tabular-nums; }
+.rekord-cm .brojka-vr { color: inherit; font-size: inherit; }
+.rekord-kad { font-size: 0.68rem; color: var(--text-muted); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .rekord-cm { color: #fb923c; } }
+:root[data-theme="dark"] .rekord-cm { color: #fb923c; }
+.brojke-prijava .brojke-blok { background: rgba(255, 255, 255, 0.08); }
+.brojke-prijava .brojke-stupac-vr, .brojke-prijava .brojke-stupac-d, .brojke-prijava .brojke-stupci-legenda,
+.brojke-prijava .rekordi-ime, .brojke-prijava .rekord-kad, .brojke-prijava .brojke-desetljeca-cekaj { color: rgba(255, 255, 255, 0.72); }
+.brojke-prijava .brojke-podnaslov { color: #fff; }
+.brojke-prijava .rekord { background: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.15); color: #fff; }
+.brojke-prijava .rekord-cm { color: #fdba74; }
+.brojke-prijava .brojke-trak.hidro { background: #93c5fd; } .brojke-prijava .brojke-trak.meteo { background: #c4b5fd; }
+@media (prefers-reduced-motion: reduce) { .brojka-rast, .brojka-bljesak::after, .brojka-bljesak .brojka-vr { animation: none; } }

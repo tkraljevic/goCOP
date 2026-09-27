@@ -29,6 +29,9 @@
     </div>
   </div>
 
+  <!-- Brojke podataka: koliko sustav zna; učitava se naknadno i raste uživo -->
+  <section id="podaci-brojke" class="brojke" data-url="/podaci/brojke" aria-label="Podaci u sustavu" hidden></section>
+
   <!-- Traka stanja: obrana, dežurstvo, izvješća, sredstva na terenu -->
   {{if .Stanja}}
   <div class="stanje-traka">
@@ -102,3 +105,5 @@
 
 </div>
 {{end}}
+
+{{define "scripts"}}<script src="{{statika "js/brojke.js"}}" defer></script>{{end}}
