@@ -3286,6 +3286,23 @@ function dodajKontroleKarte(karta, platno, opcije) {
         k.style.gridRowEnd = 'span ' + Math.ceil((visina + razmak) / red);
       });
     }
+    // Dugi opis (Drava) skraćen je na nekoliko redaka, da kartice budu
+    // slične veličine; tko želi cijeli, proširi karticu.
+    tijelo.querySelectorAll('.vrijeme-rijeka-tijelo').forEach(function (t) {
+      if (t.scrollHeight <= t.clientHeight + 2) return;
+      var gumb = document.createElement('button');
+      gumb.type = 'button';
+      gumb.className = 'vrijeme-rijeka-vise';
+      gumb.textContent = 'opširnije';
+      gumb.setAttribute('aria-expanded', 'false');
+      gumb.addEventListener('click', function () {
+        var otvoreno = t.classList.toggle('otvoreno');
+        gumb.textContent = otvoreno ? 'sažetije' : 'opširnije';
+        gumb.setAttribute('aria-expanded', otvoreno ? 'true' : 'false');
+        slozi();
+      });
+      t.after(gumb);
+    });
     slozi();
     var cekaj;
     window.addEventListener('resize', function () { clearTimeout(cekaj); cekaj = setTimeout(slozi, 150); });
