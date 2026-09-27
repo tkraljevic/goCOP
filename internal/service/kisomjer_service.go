@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"slices"
 	"strings"
 
 	"gocop/internal/models"
@@ -155,6 +156,28 @@ func validateKisomjer(k *models.Kisomjer) error {
 	}
 	if k.Tezina != nil && (*k.Tezina < 0 || *k.Tezina > 1) {
 		return fmt.Errorf("težina mora biti između 0 i 1")
+	}
+	k.Vrsta = strings.TrimSpace(strings.ToLower(k.Vrsta))
+	k.Izvor = strings.TrimSpace(strings.ToLower(k.Izvor))
+	k.IzvorSifra = strings.TrimSpace(k.IzvorSifra)
+	k.Korak = strings.TrimSpace(k.Korak)
+	switch k.Vrsta {
+	case "":
+		k.Vrsta = models.KisomjerIzvedeni
+	case models.KisomjerIzvedeni, models.KisomjerStvarni:
+	default:
+		return fmt.Errorf("vrsta postaje mora biti %q ili %q", models.KisomjerIzvedeni, models.KisomjerStvarni)
+	}
+	if k.Korak != "" && !slices.Contains(models.KisomjerKoraci, k.Korak) {
+		return fmt.Errorf("korak mjerenja mora biti jedan od: %s", strings.Join(models.KisomjerKoraci, ", "))
+	}
+	// Stvarni kišomjer mjeri samo svoje mjesto: ne predstavlja dio sliva,
+	// pa ga model ne smije zbrojiti u oborinu sliva.
+	if k.JeStvarni() {
+		if k.Izvor == "" {
+			return fmt.Errorf("stvarni kišomjer mora imati izvor podataka")
+		}
+		k.Tezina, k.Km2, k.SrednjaVisina = nil, nil, nil
 	}
 	k.Latitude, k.Longitude = round6(k.Latitude), round6(k.Longitude)
 	return nil

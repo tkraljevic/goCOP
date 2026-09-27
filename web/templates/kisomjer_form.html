@@ -1,16 +1,17 @@
 {{template "base.html" .}}
 
-{{define "title"}}goCOP — {{if .IsEdit}}{{.Tocka.Naziv}}{{else}}Novi kišomjer{{end}}{{end}}
+{{define "title"}}goCOP — {{if .IsEdit}}{{.Tocka.Naziv}}{{else if .Tocka.JeStvarni}}Novi stvarni kišomjer{{else}}Nova izvedena točka{{end}}{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/slivovi">Slivovi</a> › {{if .IsEdit}}{{.Tocka.Naziv}}{{else}}Novi kišomjer{{end}}</div>
+<div class="breadcrumb"><a href="/slivovi">Slivovi i meteorološke postaje</a> › {{if .IsEdit}}{{.Tocka.Naziv}}{{else if .Tocka.JeStvarni}}Novi stvarni kišomjer{{else}}Nova izvedena točka{{end}}</div>
 
 <div class="page-header">
   <div>
-    <h1 class="page-title">{{icon "cloud-rain"}} {{if .IsEdit}}{{.Tocka.Naziv}}{{else}}Novi kišomjer{{end}}</h1>
+    <h1 class="page-title">{{icon "cloud-rain"}} {{if .IsEdit}}{{.Tocka.Naziv}}{{else if .Tocka.JeStvarni}}Novi stvarni kišomjer{{else}}Nova izvedena točka{{end}}</h1>
     <p class="page-desc">
-      Točka predstavlja dio međusliva u jednom visinskom pojasu. Položaj se može upisati
-      ili odabrati klikom na kartu; kasnije se kišomjeri premještaju i na karti slivova.
+      Izvedena točka predstavlja dio međusliva u jednom visinskom pojasu i ima težinu u slivu.
+      Stvarni kišomjer mjeri samo svoje mjesto: nema težinu i ne ulazi u oborinu sliva.
+      Položaj se može upisati ili odabrati klikom na kartu.
     </p>
   </div>
 </div>
@@ -27,6 +28,37 @@
       <label class="form-label" for="code">Šifra</label>
       <input class="form-control" type="text" id="code" name="code" value="{{.Tocka.Code}}" {{if .IsEdit}}readonly{{else}}placeholder="prazno = iz naziva"{{end}} style="font-family:ui-monospace, monospace;">
       <p class="form-help">Na šifru se vežu preuzete oborine, pa se poslije ne mijenja.</p>
+    </div>
+  </div>
+
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="vrsta">Vrsta postaje</label>
+      <select class="form-control" id="vrsta" name="vrsta">
+        <option value="izvedeni" {{if not .Tocka.JeStvarni}}selected{{end}}>izvedena točka (kvazi-kišomjer)</option>
+        <option value="stvarni" {{if .Tocka.JeStvarni}}selected{{end}}>stvarni kišomjer</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="korak">Korak mjerenja</label>
+      <select class="form-control" id="korak" name="korak">
+        <option value="">—</option>
+        {{range .Koraci}}
+        <option value="{{.}}" {{if eq . $.Tocka.Korak}}selected{{end}}>{{.}}</option>
+        {{end}}
+      </select>
+    </div>
+  </div>
+
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="izvor">Izvor podataka</label>
+      <input class="form-control" type="text" id="izvor" name="izvor" value="{{.Tocka.Izvor}}" placeholder="npr. dhmz, open-meteo">
+      <p class="form-help">Stvarni kišomjer mora imati izvor.</p>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="izvor_sifra">Šifra postaje kod izvora</label>
+      <input class="form-control" type="text" id="izvor_sifra" name="izvor_sifra" value="{{.Tocka.IzvorSifra}}" style="font-family:ui-monospace, monospace;">
     </div>
   </div>
 
@@ -96,7 +128,7 @@
     <div class="form-group">
       <label class="form-label" for="tezina">Težina u međuslivu (0–1)</label>
       <input class="form-control" type="text" id="tezina" name="tezina" inputmode="decimal" value="{{if .Tocka.Tezina}}{{brojHRd .Tocka.Tezina 3}}{{end}}">
-      <p class="form-help">Udio površine međusliva; zbroj težina aktivnih točaka međusliva treba biti oko 1.</p>
+      <p class="form-help">Udio površine međusliva; zbroj težina aktivnih točaka međusliva treba biti oko 1. Stvarni kišomjer težinu nema.</p>
     </div>
   </div>
 
@@ -108,7 +140,7 @@
   <div class="form-group">
     <label style="display:flex; align-items:center; gap:.5rem; min-height:44px;">
       <input type="checkbox" name="aktivan" value="1" {{if .Tocka.Aktivan}}checked{{end}}>
-      Aktivna — oborine se preuzimaju i ulaze u prognozu
+      Aktivna — kod izvedene točke oborine se preuzimaju i ulaze u prognozu
     </label>
   </div>
 

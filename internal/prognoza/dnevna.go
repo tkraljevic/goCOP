@@ -448,9 +448,11 @@ type OborinskaTocka struct {
 	Tezina float64
 }
 
-// OborinskeTocke čita aktivne kišomjere iz registra (gocop.db).
+// OborinskeTocke čita aktivne izvedene točke iz registra (gocop.db).
+// Stvarni kišomjeri mjere samo svoje mjesto i ne ulaze u oborinu sliva.
 func OborinskeTocke(registar *sql.DB) ([]OborinskaTocka, error) {
-	r, err := registar.Query(`SELECT code, sliv, COALESCE(tezina, 0) FROM kisomjeri WHERE aktivan = 1 AND sliv <> ''`)
+	r, err := registar.Query(`SELECT code, sliv, COALESCE(tezina, 0) FROM kisomjeri
+		WHERE aktivan = 1 AND sliv <> '' AND vrsta <> 'stvarni'`)
 	if err != nil {
 		return nil, err
 	}

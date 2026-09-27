@@ -30,7 +30,7 @@ func NewKisomjerRepository(db *sql.DB, rec *ledger.Recorder) *KisomjerRepository
 }
 
 const kisomjerColumns = `code, naziv, sliv, pojas, latitude, longitude, visina, srednja_visina, km2, tezina,
-	aktivan, napomena, created_at, updated_at`
+	aktivan, napomena, vrsta, izvor, izvor_sifra, korak, created_at, updated_at`
 
 func scanKisomjer(scanner interface{ Scan(...any) error }) (models.Kisomjer, error) {
 	var (
@@ -40,7 +40,8 @@ func scanKisomjer(scanner interface{ Scan(...any) error }) (models.Kisomjer, err
 		aktivan              int
 	)
 	err := scanner.Scan(&k.Code, &k.Naziv, &k.Sliv, &k.Pojas, &k.Latitude, &k.Longitude,
-		&visina, &srednja, &km2, &tezina, &aktivan, &k.Napomena, &k.CreatedAt, &k.UpdatedAt)
+		&visina, &srednja, &km2, &tezina, &aktivan, &k.Napomena, &k.Vrsta, &k.Izvor, &k.IzvorSifra, &k.Korak,
+		&k.CreatedAt, &k.UpdatedAt)
 	if err != nil {
 		return k, err
 	}
@@ -94,9 +95,9 @@ func (r *KisomjerRepository) CreateKisomjer(ctx context.Context, k *models.Kisom
 	k.CreatedAt, k.UpdatedAt = now, now
 	_, err = tx.ExecContext(ctx, `
 		INSERT INTO kisomjeri (`+kisomjerColumns+`)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		k.Code, k.Naziv, k.Sliv, k.Pojas, k.Latitude, k.Longitude, k.Visina, k.SrednjaVisina, k.Km2, k.Tezina,
-		boolToInt(k.Aktivan), k.Napomena, k.CreatedAt, k.UpdatedAt)
+		boolToInt(k.Aktivan), k.Napomena, vrstaKisomjera(k.Vrsta), k.Izvor, k.IzvorSifra, k.Korak, k.CreatedAt, k.UpdatedAt)
 	if err != nil {
 		return fmt.Errorf("greška pri unosu kišomjera %q: %w", k.Code, err)
 	}
@@ -117,10 +118,11 @@ func (r *KisomjerRepository) UpdateKisomjer(ctx context.Context, k *models.Kisom
 	k.UpdatedAt = time.Now().UTC()
 	res, err := tx.ExecContext(ctx, `
 		UPDATE kisomjeri SET naziv = ?, sliv = ?, pojas = ?, latitude = ?, longitude = ?, visina = ?,
-			srednja_visina = ?, km2 = ?, tezina = ?, aktivan = ?, napomena = ?, updated_at = ?
+			srednja_visina = ?, km2 = ?, tezina = ?, aktivan = ?, napomena = ?,
+			vrsta = ?, izvor = ?, izvor_sifra = ?, korak = ?, updated_at = ?
 		WHERE code = ?`,
 		k.Naziv, k.Sliv, k.Pojas, k.Latitude, k.Longitude, k.Visina, k.SrednjaVisina, k.Km2, k.Tezina,
-		boolToInt(k.Aktivan), k.Napomena, k.UpdatedAt, k.Code)
+		boolToInt(k.Aktivan), k.Napomena, vrstaKisomjera(k.Vrsta), k.Izvor, k.IzvorSifra, k.Korak, k.UpdatedAt, k.Code)
 	if err != nil {
 		return fmt.Errorf("greška pri izmjeni kišomjera %q: %w", k.Code, err)
 	}
@@ -229,12 +231,23 @@ func (r *KisomjerRepository) DeleteSliv(ctx context.Context, oznaka string) erro
 func upsertKisomjer(ctx context.Context, tx *sql.Tx, k models.Kisomjer) error {
 	_, err := tx.ExecContext(ctx, `
 		INSERT INTO kisomjeri (`+kisomjerColumns+`)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(code) DO UPDATE SET naziv = excluded.naziv, sliv = excluded.sliv, pojas = excluded.pojas,
 			latitude = excluded.latitude, longitude = excluded.longitude, visina = excluded.visina,
 			srednja_visina = excluded.srednja_visina, km2 = excluded.km2, tezina = excluded.tezina,
-			aktivan = excluded.aktivan, napomena = excluded.napomena, updated_at = excluded.updated_at`,
+			aktivan = excluded.aktivan, napomena = excluded.napomena, vrsta = excluded.vrsta,
+			izvor = excluded.izvor, izvor_sifra = excluded.izvor_sifra, korak = excluded.korak,
+			updated_at = excluded.updated_at`,
 		k.Code, k.Naziv, k.Sliv, k.Pojas, k.Latitude, k.Longitude, k.Visina, k.SrednjaVisina, k.Km2, k.Tezina,
-		boolToInt(k.Aktivan), k.Napomena, k.CreatedAt.UTC(), k.UpdatedAt.UTC())
+		boolToInt(k.Aktivan), k.Napomena, vrstaKisomjera(k.Vrsta), k.Izvor, k.IzvorSifra, k.Korak,
+		k.CreatedAt.UTC(), k.UpdatedAt.UTC())
 	return err
+}
+
+// vrstaKisomjera: zapisi iz knjige otprije vrste su izvedene točke
+func vrstaKisomjera(v string) string {
+	if v == "" {
+		return models.KisomjerIzvedeni
+	}
+	return v
 }

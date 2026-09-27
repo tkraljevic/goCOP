@@ -79,10 +79,13 @@ func Otvori(put string) (*sql.DB, error) {
 	return d, nil
 }
 
-// TockeIzRegistra čita aktivne kišomjere iz registra slivova (gocop.db).
+// TockeIzRegistra čita aktivne izvedene točke iz registra (gocop.db).
+// Stvarni kišomjeri imaju svoja mjerenja; Open-Meteo pod njihovom šifrom
+// izgledao bi kao mjerenje, pa se za njih ne preuzima.
 func TockeIzRegistra(registar *sql.DB) func() ([]Tocka, error) {
 	return func() ([]Tocka, error) {
-		r, err := registar.Query(`SELECT code, latitude, longitude FROM kisomjeri WHERE aktivan = 1 ORDER BY code`)
+		r, err := registar.Query(`SELECT code, latitude, longitude FROM kisomjeri
+			WHERE aktivan = 1 AND vrsta <> 'stvarni' ORDER BY code`)
 		if err != nil {
 			return nil, err
 		}

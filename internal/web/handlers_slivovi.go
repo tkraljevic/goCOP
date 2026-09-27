@@ -12,10 +12,11 @@ import (
 	"gocop/internal/service"
 )
 
-// Registar kvazi-kišomjera: točke na kojima se za prognozu čitaju oborina i
-// snijeg, po slivovima i visinskim pojasima. Stranica je popis s kartom
-// na kojoj se točke premještaju kao točke toka na karti vodotoka; obrazac
-// je puna stranica kao i kod ostalih registara.
+// Registar meteoroloških postaja: izvedene točke (kvazi-kišomjeri) na kojima
+// se za prognozu čitaju oborina i snijeg, po slivovima i visinskim pojasima,
+// i stvarni kišomjeri koji mjere. Stranica je popis s kartom na kojoj se
+// točke premještaju kao točke toka na karti vodotoka; obrazac je puna
+// stranica kao i kod ostalih registara.
 
 type SlivoviHandler struct {
 	svc          func() *service.KisomjerService
@@ -46,9 +47,11 @@ type SlivoviPageData struct {
 	ViewAsBanner
 
 	Skupine  []SkupinaKisomjera
+	Stvarni  []models.Kisomjer // stvarni kišomjeri, izvan skupina po težini
 	Ukupno   int
 	Aktivnih int
 	Pojasi   []string
+	Koraci   []string
 
 	Karta       KartaPostavke
 	TockeJSON   template.JS
@@ -75,6 +78,9 @@ type kisomjerNaKarti struct {
 	Tezina  *float64 `json:"tezina,omitempty"`
 	Aktivan bool     `json:"aktivan"`
 	EditURL string   `json:"edit_url"`
+	Vrsta   string   `json:"vrsta"`
+	Izvor   string   `json:"izvor,omitempty"`
+	Korak   string   `json:"korak,omitempty"`
 }
 
 func (h *SlivoviHandler) pageData(r *http.Request) SlivoviPageData {
@@ -93,6 +99,7 @@ func (h *SlivoviHandler) pageData(r *http.Request) SlivoviPageData {
 		ErrorMessage:   r.URL.Query().Get("error"),
 		ViewAsBanner:   viewBanner(r),
 		Pojasi:         models.KisomjerPojasi,
+		Koraci:         models.KisomjerKoraci,
 		Karta:          kp,
 	}
 }
@@ -127,6 +134,11 @@ func (h *SlivoviHandler) ShowSlivovi(w http.ResponseWriter, r *http.Request) {
 		if t.Aktivan {
 			data.Aktivnih++
 		}
+		// stvarni kišomjer ne predstavlja dio sliva, pa ne ulazi u zbroj težina
+		if t.JeStvarni() {
+			data.Stvarni = append(data.Stvarni, t)
+			continue
+		}
 		s, ima := poOznaci[t.Sliv]
 		if !ima {
 			ostale.Tocke = append(ostale.Tocke, t)
@@ -153,7 +165,7 @@ func (h *SlivoviHandler) ShowSlivovi(w http.ResponseWriter, r *http.Request) {
 		}
 		naKarti = append(naKarti, kisomjerNaKarti{Code: t.Code, Naziv: t.Naziv, Sliv: t.Sliv, Pojas: t.Pojas,
 			Lat: t.Latitude, Lon: t.Longitude, Visina: t.Visina, Km2: t.Km2, Tezina: t.Tezina, Aktivan: t.Aktivan,
-			EditURL: "/slivovi/kisomjer/" + t.Code + "/edit"})
+			EditURL: "/slivovi/kisomjer/" + t.Code + "/edit", Vrsta: vrstaZaKartu(t), Izvor: t.Izvor, Korak: t.Korak})
 	}
 	if b, err := json.Marshal(naKarti); err == nil {
 		data.TockeJSON = template.JS(b)
@@ -165,6 +177,14 @@ func (h *SlivoviHandler) ShowSlivovi(w http.ResponseWriter, r *http.Request) {
 	if err := h.tmpl("slivovi.html").ExecuteTemplate(w, "slivovi.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// vrstaZaKartu: zapis bez vrste je izvedena točka
+func vrstaZaKartu(t models.Kisomjer) string {
+	if t.JeStvarni() {
+		return models.KisomjerStvarni
+	}
+	return models.KisomjerIzvedeni
 }
 
 // letveJSON slaže vodomjerne postaje s koordinatama za kartu
@@ -298,8 +318,13 @@ func (h *SlivoviHandler) ShowKisomjerForm(w http.ResponseWriter, r *http.Request
 		}
 		data.Tocka = *t
 		data.IsEdit = true
-	} else if m := r.URL.Query().Get("sliv"); m != "" {
-		data.Tocka.Sliv = m
+	} else {
+		if m := r.URL.Query().Get("sliv"); m != "" {
+			data.Tocka.Sliv = m
+		}
+		if r.URL.Query().Get("vrsta") == models.KisomjerStvarni {
+			data.Tocka.Vrsta = models.KisomjerStvarni
+		}
 	}
 	if err := h.tmpl("kisomjer_form.html").ExecuteTemplate(w, "kisomjer_form.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -323,6 +348,10 @@ func kisomjerIzZahtjeva(r *http.Request) (*models.Kisomjer, error) {
 	k.Sliv = r.FormValue("sliv")
 	k.Pojas = r.FormValue("pojas")
 	k.Napomena = r.FormValue("napomena")
+	k.Vrsta = r.FormValue("vrsta")
+	k.Izvor = r.FormValue("izvor")
+	k.IzvorSifra = r.FormValue("izvor_sifra")
+	k.Korak = r.FormValue("korak")
 	k.Aktivan = r.FormValue("aktivan") != "" && r.FormValue("aktivan") != "0"
 	broj := func(ime string) (float64, bool, error) {
 		v := strings.TrimSpace(strings.ReplaceAll(r.FormValue(ime), ",", "."))

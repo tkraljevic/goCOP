@@ -5,12 +5,18 @@ import (
 	"time"
 )
 
-// Kisomjer je točka kvazi-kišomjera: mjesto na kojem se iz reanalize i
+// Kisomjer je meteorološka postaja u registru. Ima ih dvije vrste.
+//
+// Izvedena točka (kvazi-kišomjer) je mjesto na kojem se iz reanalize i
 // prognoze (Open-Meteo) čitaju oborina, snijeg i temperatura kao da ondje
 // stoji kišomjer. Točke stoje po slivovima između letvi i po visinskim
 // pojasima, pa jedna točka predstavlja dio sliva određene visine, s
 // težinom koja kaže koliki je taj dio. Registar je namjerno rijedak:
 // nekoliko točaka po slivu, ne mreža od stotina ćelija.
+//
+// Stvarni kišomjer je postaja koja mjeri (DHMZ, Hrvatske vode…). Ne
+// predstavlja dio sliva nego samo svoje mjesto, pa nema težinu i model je
+// ne zbraja u oborinu sliva; služi za usporedbu i ispravak izvedenih točaka.
 type Kisomjer struct {
 	Code  string `json:"code"`
 	Naziv string `json:"naziv"`
@@ -28,6 +34,13 @@ type Kisomjer struct {
 	Aktivan  bool   `json:"aktivan"`
 	Napomena string `json:"napomena,omitempty"`
 
+	// Vrsta je KisomjerIzvedeni ili KisomjerStvarni; prazno u starijim
+	// zapisima iz knjige znači izvedenu točku.
+	Vrsta      string `json:"vrsta,omitempty"`
+	Izvor      string `json:"izvor,omitempty"`       // tko daje podatke: open-meteo, dhmz…
+	IzvorSifra string `json:"izvor_sifra,omitempty"` // šifra postaje kod izvora
+	Korak      string `json:"korak,omitempty"`       // satni, 12-satni, dnevni
+
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -40,6 +53,28 @@ var KisomjerPojasi = []string{
 	"pobrđe (300–1000 m)",
 	"1000–1500 m",
 	">1500 m",
+}
+
+// Vrste meteoroloških postaja
+const (
+	KisomjerIzvedeni = "izvedeni"
+	KisomjerStvarni  = "stvarni"
+)
+
+// KisomjerKoraci su koraci mjerenja koje obrazac nudi
+var KisomjerKoraci = []string{"satni", "12-satni", "dnevni"}
+
+// JeStvarni javlja je li postaja pravi kišomjer, a ne izvedena točka
+func (k Kisomjer) JeStvarni() bool {
+	return k.Vrsta == KisomjerStvarni
+}
+
+// NazivVrste vraća vrstu riječima, za karticu i kartu
+func (k Kisomjer) NazivVrste() string {
+	if k.JeStvarni() {
+		return "stvarni kišomjer"
+	}
+	return "izvedena točka"
 }
 
 // ImaKoordinate javlja stoji li točka negdje na karti

@@ -20,6 +20,7 @@ Ovo više ne traži nikakav alat:
 | Gradnja letve nakon uvoza | sama, u pozadini, nakon svakog upisa |
 | Ulaganje operativnih očitanja u arhivu i pospremanje | Administracija → Unos u arhivu → Očitanja iz programa |
 | Izdavanje paketa arhive | Administracija → Unos u arhivu → Izdanja arhive |
+| Skupljanje kiše sa stvarnih kišomjera (pljusak.com) i dnevno ulaganje u arhivu | samo, svaki krug |
 | Satno izdavanje prognoze | samo, svaki krug; gumb Generiraj na stranici Prognoze |
 | Priprema modela: namještanje lanca, modeli ispuštanja elektrana, zapis promašaja, ponovno izdavanje | Prognoze → Pripremi model (globalni administrator) |
 
@@ -59,6 +60,8 @@ Upisi kroz servis ostavljaju zapis u knjizi verzija.
 | `prijepis-dionica` | Iz wikija slaže `data/sections.json` | `data/` |
 | `upis-dionice` | Upisuje dionice iz prijepisa | `data/gocop.db` |
 | `upis-letve` | Popunjava karticu postaje iz plana i elaborata | `data/gocop.db` |
+| `upis-pljusak-kisomjera` | Upisuje postaje pljusak.com iz međuslivova Drave i Mure kao stvarne kišomjere, iz pripremljenog JSON popisa | `data/gocop.db` |
+| `upis-stvarnih-kisomjera` | Upisuje DHMZ-ove kišomjere u slivu Drave kao stvarne meteorološke postaje, izvedenim točkama upisuje izvor | `data/gocop.db` |
 | `upis-djelatnika` | Upisuje djelatnike | `data/gocop.db` |
 | `uvoz-vodostaja` | CSV uz bazu u operativna očitanja | `data/gocop.db` |
 | `uvoz-mts` | Skladišta i početno stanje sredstava | `data/gocop.db` |

@@ -717,6 +717,10 @@ func InitSchema(database *sql.DB) error {
 			tezina REAL,
 			aktivan INTEGER NOT NULL DEFAULT 1,
 			napomena TEXT NOT NULL DEFAULT '',
+			vrsta TEXT NOT NULL DEFAULT 'izvedeni',
+			izvor TEXT NOT NULL DEFAULT '',
+			izvor_sifra TEXT NOT NULL DEFAULT '',
+			korak TEXT NOT NULL DEFAULT '',
 			created_at DATETIME NOT NULL,
 			updated_at DATETIME NOT NULL
 		);`,
@@ -1430,6 +1434,12 @@ func migrateSchema(database *sql.DB) error {
 		{"dezurstva", "podrucje", "INTEGER"},
 		{"dezurstva", "potvrdio", "TEXT NOT NULL DEFAULT ''"},
 		{"dezurstva", "potvrdeno_at", "DATETIME"},
+		// Meteorološke postaje: uz izvedene točke iz reanalize i prave
+		// kišomjere, s izvorom, šifrom postaje kod izvora i korakom mjerenja
+		{"kisomjeri", "vrsta", "TEXT NOT NULL DEFAULT 'izvedeni'"},
+		{"kisomjeri", "izvor", "TEXT NOT NULL DEFAULT ''"},
+		{"kisomjeri", "izvor_sifra", "TEXT NOT NULL DEFAULT ''"},
+		{"kisomjeri", "korak", "TEXT NOT NULL DEFAULT ''"},
 	}
 
 	// Vrijednosti koje su promijenile ime nakon što su upisane

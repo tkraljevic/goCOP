@@ -1189,6 +1189,17 @@ var zadaniIzvori = []Izvor{
 	{"openmeteo-era5", 0, 10, true, "", "ECMWF ERA5 reanaliza, 25 km, od 1940.; oborina i snijeg"},
 	{"openmeteo-era5land", 0, 10, true, "", "ECMWF ERA5-Land reanaliza, 11 km, od 1950.; temperatura zraka i visina snijega"},
 	{"openmeteo-cerra", 0, 20, true, "", "Copernicus CERRA reanaliza, 5,5 km, 1985.–6/2021.; zaseban niz, ne ulazi u spoj ispred ERA5"},
+	// stvarni kišomjeri DHMZ-a, preuzeti preko letva.voda.hr; sat je lokalni,
+	// dan traje od 06 do 06, a rupe koje stranica pokaže kao nule izbačene su
+	// pri pripremi datoteka
+	{"kisomjer-dhmz", 0, 10, true, "", "DHMZ, izmjerena oborina (satna od 2016./2017., dnevna od 2009.); podaci Državnog hidrometeorološkog zavoda"},
+	// hibridna popuna rupa stvarnih kišomjera: ERA5 s najbliže izvedene
+	// točke pomnožen omjerom postaje i ERA5 oko rupe, samo za rupe do 31 dana;
+	// stoji iza svega pa ulazi samo gdje mjerenja nema
+	// amaterska mreža pljusak.com, skupljeno čitanjem svaki krug: sat je
+	// kiša u zadnjem satu pred javljanjem, dan zbroj od ponoći do ponoći
+	{"kisomjer-pljusak", 5, 20, true, "", "pljusak.com, amaterske postaje; skuplja se od 9/2026, točnost proglašena, ne izmjerena"},
+	{"hibrid-era5", 20, 30, true, "", "popuna kratkih rupa stvarnih kišomjera iz ERA5, umjerena na postaju; nije mjerenje — isključiti ako popuna smeta"},
 	{"gkd", 5, 10, true, "", "bavarska hidrološka služba, provjereni dnevni protoci; točnost proglašena, ne izmjerena"},
 	{"his2000-cs", 0, 10, false, "", "Donji Miholjac — odlučuje se kad dođe Drava"},
 	{"his2000-spojeno", 0, 10, false, "", "Donji Miholjac — odlučuje se kad dođe Drava"},

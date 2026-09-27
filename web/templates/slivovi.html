@@ -1,20 +1,25 @@
 {{template "base.html" .}}
 
-{{define "title"}}goCOP — Slivovi{{end}}
+{{define "title"}}goCOP — Slivovi i meteorološke postaje{{end}}
 
 {{define "content"}}
 <div class="page-header">
   <div>
-    <h1 class="page-title">{{icon "cloud-rain"}} Slivovi</h1>
+    <h1 class="page-title">{{icon "cloud-rain"}} Slivovi i meteorološke postaje</h1>
     <p class="page-desc">
-      Međuslivovi između letvi, a na njima rijeke, vodomjerne postaje i kvazi-kišomjeri: točke na
-      kojima se za prognozu čitaju oborina, snijeg i temperatura iz reanalize i vremenske
-      prognoze, kao da ondje stoji kišomjer. Svaka točka predstavlja dio međusliva u jednom
-      visinskom pojasu; težina kaže koliki je taj dio.
+      Međuslivovi između letvi, a na njima rijeke, vodomjerne postaje i meteorološke postaje
+      dviju vrsta. <strong>Izvedene točke</strong> (kvazi-kišomjeri) nisu uređaji: na njima se za
+      prognozu čitaju oborina, snijeg i temperatura iz reanalize i vremenske prognoze, kao da
+      ondje stoji kišomjer. Svaka predstavlja dio međusliva u jednom visinskom pojasu; težina kaže
+      koliki je taj dio. <strong>Stvarni kišomjeri</strong> mjere na svom mjestu i služe za
+      usporedbu i ispravak izvedenih točaka; u oborinu sliva ne ulaze.
     </p>
   </div>
   {{if .Permissions.IsGlobalAdmin}}
-  <a href="/slivovi/kisomjer/new" class="btn btn-primary">{{icon "plus"}} Novi kišomjer</a>
+  <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+    <a href="/slivovi/kisomjer/new" class="btn btn-primary">{{icon "plus"}} Nova izvedena točka</a>
+    <a href="/slivovi/kisomjer/new?vrsta=stvarni" class="btn btn-secondary">{{icon "plus"}} Novi stvarni kišomjer</a>
+  </div>
   {{end}}
 </div>
 
@@ -23,7 +28,8 @@
 
 <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1.25rem;">
   <span class="stat-badge has-items">{{icon "map"}} {{len .Slivovi}} međuslivova</span>
-  <span class="stat-badge has-items">{{icon "cloud-rain"}} {{.Ukupno}} kišomjera</span>
+  <span class="stat-badge has-items">{{icon "cloud-rain"}} {{.Ukupno}} postaja</span>
+  <span class="stat-badge has-items">{{icon "gauge"}} {{len .Stvarni}} stvarnih kišomjera</span>
   <span class="stat-badge has-items">{{icon "check"}} {{.Aktivnih}} aktivnih</span>
 </div>
 
@@ -65,6 +71,7 @@
     <span><i class="kis-boja" style="background:#ef6c00"></i> 1000–1500 m</span>
     <span><i class="kis-boja" style="background:#6a1b9a"></i> &gt;1500 m</span>
     <span><i class="kis-boja kis-boja-neaktivna"></i> neaktivna točka</span>
+    <span><i class="kis-boja kis-boja-stvarni"></i> stvarni kišomjer</span>
     <span><i class="kis-crta"></i> tok rijeke</span>
     <span><i class="kis-ploha"></i> međusliv</span>
     <span><i class="kis-letva"></i> vodomjerna postaja</span>
@@ -79,7 +86,7 @@
   <h2>
     {{if .Sliv.Oznaka}}<span class="kis-oznaka" title="međusliv {{.Sliv.Oznaka}}">{{.Sliv.Oznaka}}</span>{{end}}
     {{.Sliv.Naziv}}
-    <span class="reg-chip">{{icon "cloud-rain"}} {{len .Tocke}} {{if eq (len .Tocke) 1}}kišomjer{{else}}kišomjera{{end}}</span>
+    <span class="reg-chip">{{icon "cloud-rain"}} izvedene točke: {{len .Tocke}}</span>
     {{if .Sliv.Km2}}<span class="reg-chip">{{brojHRd .Sliv.Km2 0}} km²</span>{{end}}
     {{if .Tocke}}<span class="reg-chip {{if or (lt .Tezina 0.95) (gt .Tezina 1.05)}}empty{{end}}" title="Zbroj težina aktivnih točaka; oko 1 kad je međusliv u cijelosti pokriven">Σ težina {{brojHRd .Tezina 2}}</span>{{end}}
   </h2>
@@ -106,7 +113,7 @@
       </a>
     </article>
     {{else}}
-    <div class="reg-empty">Međusliv još nema nijedan kišomjer.{{if $.Permissions.IsGlobalAdmin}} <a href="/slivovi/kisomjer/new?sliv={{.Sliv.Oznaka}}">Dodaj kišomjer</a>{{end}}</div>
+    <div class="reg-empty">Međusliv još nema nijednu izvedenu točku.{{if $.Permissions.IsGlobalAdmin}} <a href="/slivovi/kisomjer/new?sliv={{.Sliv.Oznaka}}">Dodaj točku</a>{{end}}</div>
     {{end}}
   </div>
 </section>
@@ -114,9 +121,41 @@
 <div class="reg-empty">Registar je prazan. Međuslivovi se upisuju sučeljem <code>/api/slivovi/sliv</code>, kišomjeri obrascem.</div>
 {{end}}
 
+<section class="detail-section" id="stvarni-kisomjeri">
+  <h2>
+    {{icon "gauge"}} Stvarni kišomjeri
+    <span class="reg-chip">{{len .Stvarni}}</span>
+  </h2>
+  <p class="page-desc">Postaje koje mjere. Njihovi nizovi stoje u hidrološkoj arhivi pod šifrom
+    postaje; model ih ne zbraja u oborinu sliva nego služe za usporedbu s izvedenim točkama.</p>
+  <div class="reg-list">
+    {{range .Stvarni}}
+    <article class="reg-card {{if not .Aktivan}}reg-card-neaktivna{{end}}">
+      <a class="reg-card-link" href="/slivovi/kisomjer/{{.Code}}/edit">
+        <div class="reg-card-head">
+          <div>
+            <h3 class="reg-card-title">{{.Naziv}}</h3>
+            <div class="reg-card-sub">{{if .Sliv}}međusliv {{.Sliv}} · {{end}}{{.Izvor}}{{if .IzvorSifra}} {{.IzvorSifra}}{{end}}{{if .Korak}} · {{.Korak}}{{end}}{{if not .Aktivan}} · neaktivna{{end}}</div>
+          </div>
+          <span class="badge badge-inactive" style="font-family:ui-monospace, monospace;">{{.Code}}</span>
+        </div>
+        <dl class="reg-facts">
+          <div><dt>Položaj</dt><dd>{{printf "%.4f" .Latitude}}, {{printf "%.4f" .Longitude}}</dd></div>
+          {{if .Visina}}<div><dt>Visina</dt><dd>{{brojHRd .Visina 0}} m</dd></div>{{end}}
+        </dl>
+        {{if .Napomena}}<p style="font-size:0.8rem; margin:0.4rem 0 0; color:var(--muted);">{{.Napomena}}</p>{{end}}
+      </a>
+    </article>
+    {{else}}
+    <div class="reg-empty">Još nema nijednog stvarnog kišomjera.{{if $.Permissions.IsGlobalAdmin}} <a href="/slivovi/kisomjer/new?vrsta=stvarni">Dodaj kišomjer</a>{{end}}</div>
+    {{end}}
+  </div>
+</section>
+
 <p class="page-desc">
   Međusliv je dio sliva između susjednih letvi: ono što se u rijeku slije nizvodno od gornjih letvi, a uzvodno od donje. Poligoni su iz HydroBASINS (WWF HydroSHEDS, CC BY 4.0); tokovi rijeka iz
-  OpenStreetMapa (© OpenStreetMap contributors, ODbL). Oborine se za ove točke preuzimaju
+  OpenStreetMapa (© OpenStreetMap contributors, ODbL). Oborine se za izvedene točke preuzimaju
   s Open-Meteo (ERA5-Land reanaliza i prognoza) i ne čuvaju se u registru nego u zasebnoj bazi.
+  Mjerenja stvarnih kišomjera DHMZ-a su podaci Državnog hidrometeorološkog zavoda.
 </p>
 {{end}}
