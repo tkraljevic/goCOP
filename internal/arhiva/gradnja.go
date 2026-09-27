@@ -1201,6 +1201,11 @@ var zadaniIzvori = []Izvor{
 	{"kisomjer-pljusak", 5, 20, true, "", "pljusak.com, amaterske postaje; skuplja se od 9/2026, točnost proglašena, ne izmjerena"},
 	{"hibrid-era5", 20, 30, true, "", "popuna kratkih rupa stvarnih kišomjera iz ERA5, umjerena na postaju; nije mjerenje — isključiti ako popuna smeta"},
 	{"gkd", 5, 10, true, "", "bavarska hidrološka služba, provjereni dnevni protoci; točnost proglašena, ne izmjerena"},
+	// ICPDR DanubeHIS: podaci država dunavskog sliva, pod licencom CC BY-NC-SA
+	// 4.0. Na mađarskim letvama iste su brojke kao vituki (medijan razlike 0 cm,
+	// isti UTC sat), ali nose i protoke te satne vrijednosti koje vituki nema;
+	// stoje iza vitukija, pa ulaze samo ondje gdje njega nema.
+	{"danubehis", 5, 20, true, "", "ICPDR DanubeHIS: ovjereni dnevni vodostaji i protoci (1961.–2023.) i sirovi satni od 2020.; licenca CC BY-NC-SA 4.0, navesti izvor"},
 	{"his2000-cs", 0, 10, false, "", "Donji Miholjac — odlučuje se kad dođe Drava"},
 	{"his2000-spojeno", 0, 10, false, "", "Donji Miholjac — odlučuje se kad dođe Drava"},
 	{"his2000-ukinuta-nizv", 0, 10, false, "", "Donji Miholjac — odlučuje se kad dođe Drava"},
