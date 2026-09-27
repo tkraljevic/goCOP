@@ -37,7 +37,7 @@ func TestPlocaVremena(t *testing.T) {
 	h.ShowPloca(w, httptest.NewRequest("GET", "/vrijeme/podrucje", nil))
 	s := w.Body.String()
 	for _, trazi := range []string{"Vrijeme i vode · Osijek", "Osječko-baranjska županija", "istočna Hrvatska",
-		"vrijeme-orange", "Drugdje u Hrvatskoj: 1", "20.0 °C", "RC Osijek-Čepin", "Sunčano.", "<strong>Drava:</strong> Drava opada."} {
+		"vrijeme-orange", "Drugdje u Hrvatskoj: 1", "20.0 °C", "RC Osijek-Čepin", "Sunčano.", "<strong>Drava</strong>", "Drava opada.", "<strong>Sava</strong>"} {
 		if !strings.Contains(s, trazi) {
 			t.Errorf("ploča nema %q", trazi)
 		}

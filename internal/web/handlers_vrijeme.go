@@ -51,7 +51,8 @@ type PlocaVremena struct {
 	Izmjereno *IzmjerenaKisa
 	Prognozno *PrognoznaKisa
 
-	Greske []string
+	Greske        []string
+	BezUpozorenja bool // upozorenja se nisu dala dohvatiti: ne smije pisati da ih nema
 }
 
 // RijekaBiltena je rijeka iz hidrološkog biltena
@@ -100,6 +101,7 @@ func (h *VrijemeHandler) ShowPloca(w http.ResponseWriter, r *http.Request) {
 
 	if u, _, err := h.dhmz.Upozorenja(ctx); err != nil {
 		p.Greske = append(p.Greske, "upozorenja DHMZ-a nisu dostupna")
+		p.BezUpozorenja = true
 	} else {
 		for _, x := range u {
 			if p.Zupanija.Vrijedi(x) {
@@ -305,6 +307,9 @@ var plocaVremenaTmpl = template.Must(template.New("ploca").Funcs(template.FuncMa
           {{if .Opis}}<div class="vrijeme-upozorenje-tekst">{{.Opis}}</div>{{end}}
         </div>
         {{else}}
+        {{if .BezUpozorenja}}
+        <div class="reg-card-sub">Upozorenja DHMZ-a trenutno nisu dostupna.</div>
+        {{else}}
         <div class="vrijeme-stanje-mirno">
           <span class="vrijeme-zelena-kvacica">{{icon "check"}}</span>
           <div class="vrijeme-mirno-tekst">
@@ -312,6 +317,7 @@ var plocaVremenaTmpl = template.Must(template.New("ploca").Funcs(template.FuncMa
             <div class="reg-card-sub">Trenutno nema opasnih vremenskih pojava.</div>
           </div>
         </div>
+        {{end}}
         {{end}}
 
         {{if .Ostala}}
@@ -446,46 +452,18 @@ var plocaVremenaTmpl = template.Must(template.New("ploca").Funcs(template.FuncMa
         <h3>Hidrološki bilten DHMZ-a</h3>
       </div>
       <div class="vrijeme-kartica-tijelo">
-        {{range $i, $r := .Rijeke}}
-        {{if lt $i 2}}
+        {{range .Rijeke}}
         <div class="vrijeme-rijeka-stavka">
           <div class="vrijeme-rijeka-vrh">
-            <span class="vrijeme-rijeka-oznaka">{{icon "waves"}} <strong>{{$r.Naziv}}</strong></span>
-            {{$trend := rijekaTrend $r.Tekst}}
+            <span class="vrijeme-rijeka-oznaka">{{icon "waves"}} <strong>{{.Naziv}}</strong></span>
+            {{$trend := rijekaTrend .Tekst}}
             {{if eq $trend "down"}}<span class="vrijeme-trend-pill trend-down">{{icon "trending-down"}} opadanje</span>
             {{else if eq $trend "up"}}<span class="vrijeme-trend-pill trend-up">{{icon "trending-up"}} porast</span>
             {{else if eq $trend "flat"}}<span class="vrijeme-trend-pill trend-flat">{{icon "minus"}} stagnacija</span>
             {{end}}
           </div>
-          <div class="vrijeme-rijeka-tijelo"><strong>{{$r.Naziv}}:</strong> {{$r.Tekst}}</div>
+          <div class="vrijeme-rijeka-tijelo">{{.Tekst}}</div>
         </div>
-        {{end}}
-        {{end}}
-
-        {{if gt (len .Rijeke) 2}}
-        <details class="vrijeme-details">
-          <summary class="reg-card-sub vrijeme-summary">
-            <span>Ostale rijeke</span>
-            <span class="vrijeme-summary-ikona">{{icon "chevron-right"}}</span>
-          </summary>
-          <div class="vrijeme-ostale-rijeke-lista">
-            {{range $i, $r := .Rijeke}}
-            {{if ge $i 2}}
-            <div class="vrijeme-rijeka-stavka vrijeme-rijeka-manja">
-              <div class="vrijeme-rijeka-vrh">
-                <span class="vrijeme-rijeka-oznaka">{{icon "waves"}} <strong>{{$r.Naziv}}</strong></span>
-                {{$trend := rijekaTrend $r.Tekst}}
-                {{if eq $trend "down"}}<span class="vrijeme-trend-pill trend-down">{{icon "trending-down"}} opadanje</span>
-                {{else if eq $trend "up"}}<span class="vrijeme-trend-pill trend-up">{{icon "trending-up"}} porast</span>
-                {{else if eq $trend "flat"}}<span class="vrijeme-trend-pill trend-flat">{{icon "minus"}} stagnacija</span>
-                {{end}}
-              </div>
-              <div class="vrijeme-rijeka-tijelo"><strong>{{$r.Naziv}}:</strong> {{$r.Tekst}}</div>
-            </div>
-            {{end}}
-            {{end}}
-          </div>
-        </details>
         {{end}}
 
         {{if .BiltenDatum}}

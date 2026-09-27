@@ -3256,6 +3256,7 @@ function dodajKontroleKarte(karta, platno, opcije) {
       .then(function (r) { return r.ok ? r.text() : Promise.reject(r.status); })
       .then(function (html) {
         okvir.innerHTML = html;
+        slaziBilten(okvir);
         var gumb = okvir.querySelector('.vrijeme-lokacija');
         if (!gumb || !window.isSecureContext || !navigator.geolocation) return;
         gumb.hidden = false;
@@ -3269,6 +3270,25 @@ function dodajKontroleKarte(karta, platno, opcije) {
       .catch(function () {
         okvir.innerHTML = '<div class="vrijeme-ploca-cekanje">Vrijeme i vode trenutno nisu dostupni.</div>';
       });
+  }
+  // Bilten kao zid fotografija: kartice rijeka idu u stupce, svaka u onaj
+  // koji je trenutno najniži, pa kratke rijeke popune prostor ispod dugih.
+  // Mreža ima retke od 4 px, a kartica zauzme onoliko redaka kolika je.
+  function slaziBilten(okvir) {
+    var tijelo = okvir.querySelector('.vrijeme-kartica-bilten .vrijeme-kartica-tijelo');
+    if (!tijelo) return;
+    tijelo.classList.add('vrijeme-zid');
+    var red = 4, razmak = 12;
+    function slozi() {
+      tijelo.querySelectorAll(':scope > *').forEach(function (k) {
+        k.style.gridRowEnd = 'auto';
+        var visina = k.getBoundingClientRect().height;
+        k.style.gridRowEnd = 'span ' + Math.ceil((visina + razmak) / red);
+      });
+    }
+    slozi();
+    var cekaj;
+    window.addEventListener('resize', function () { clearTimeout(cekaj); cekaj = setTimeout(slozi, 150); });
   }
   document.addEventListener('DOMContentLoaded', function () {
     var okvir = document.getElementById('vrijeme-podrucja');
