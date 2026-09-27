@@ -4321,6 +4321,9 @@ body.uzd-puni-zaslon-otvoren { overflow: hidden; }
 .kis-legenda { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center; margin-top: 0.6rem; font-size: 0.85rem; color: var(--text-muted, #64748b); }
 .kis-boja { display: inline-block; width: 12px; height: 12px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,0.25); vertical-align: middle; margin-right: 4px; }
 .kis-boja-neaktivna { background: #9e9e9e; opacity: 0.6; }
+/* stvarni kišomjer: bijeli kvadratić s plavim rubom, da se ne miješa s izvedenim točkama */
+.kis-tocka.kis-stvarni { border-radius: 3px; border: 4px solid #1565c0; }
+.kis-boja-stvarni { background: #fff; border-radius: 2px; border-color: #1565c0; }
 .kis-letva-omotac { background: none; border: none; }
 .kis-letva { width: 10px; height: 10px; background: #0369a1; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,0.3); transform: rotate(45deg); }
 .kis-legenda .kis-letva { display: inline-block; vertical-align: middle; margin: 0 6px 0 2px; width: 9px; height: 9px; }
@@ -4328,3 +4331,19 @@ body.uzd-puni-zaslon-otvoren { overflow: hidden; }
 .kis-ploha { display: inline-block; width: 14px; height: 10px; background: rgba(25,118,210,0.12); border: 1.5px solid #1976d2; vertical-align: middle; margin-right: 4px; border-radius: 2px; }
 .kis-oznaka { display: inline-block; min-width: 1.6em; padding: 0 0.35em; margin-right: 0.35em; border-radius: 4px; background: var(--primary, #0284c7); color: #fff; font-weight: 700; text-align: center; font-size: 0.85em; }
 .reg-card-neaktivna { opacity: 0.7; }
+
+/* Naslovna: vrijeme i vode za područje korisnika */
+.vrijeme-ploca { margin: 1.25rem 0; }
+.vrijeme-glava { display: flex; align-items: baseline; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.6rem; }
+.vrijeme-glava .section-title { margin: 0; }
+.vrijeme-glava .vrijeme-lokacija { margin-left: auto; }
+.vrijeme-stupci { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.75rem; }
+.vrijeme-kartica { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 0.75rem 0.9rem; font-size: 0.88rem; line-height: 1.45; }
+.vrijeme-kartica h3 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin: 0 0 0.35rem; }
+.vrijeme-upozorenje { margin-bottom: 0.45rem; }
+.vrijeme-razina { display: inline-block; border-radius: 6px; padding: 1px 7px; font-weight: 600; font-size: 0.8rem; color: #1f2937; }
+.vrijeme-yellow { background: #fde047; }
+.vrijeme-orange { background: #fb923c; }
+.vrijeme-red { background: #ef4444; color: #fff; }
+.vrijeme-izvori { margin-top: 0.4rem; }
+.vrijeme-ploca-cekanje { color: var(--text-muted); font-size: 0.85rem; padding: 0.75rem 0; }

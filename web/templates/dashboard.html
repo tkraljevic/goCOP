@@ -48,6 +48,11 @@
   </div>
   {{end}}
 
+  <!-- Vrijeme i vode za područje korisnika: učitava se naknadno -->
+  <section id="vrijeme-podrucja" data-url="/vrijeme/podrucje">
+    <div class="vrijeme-ploca-cekanje">Učitavam vrijeme i vode za vaše područje…</div>
+  </section>
+
   <!-- Moduli: jedan red, kao izbornik samo krupnije -->
   <div class="moduli-red">
     {{if .Sees "teren"}}<a href="/teren" class="modul-gumb"><span class="modul-ikona success">{{icon "map-pin"}}</span><span>Teren</span></a>{{end}}

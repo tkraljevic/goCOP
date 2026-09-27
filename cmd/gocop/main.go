@@ -24,6 +24,7 @@ import (
 	"gocop/internal/importer/csvlevels"
 	"gocop/internal/importer/ugovor"
 	"gocop/internal/javnivodostaji"
+	"gocop/internal/kisomjeri"
 	"gocop/internal/ledger"
 	"gocop/internal/mletva"
 	"gocop/internal/models"
@@ -662,10 +663,39 @@ func main() {
 		// Open-Meteo u zasebnoj bazi uz bazu prognoza. Bez nje dnevni model
 		// radi kao i prije, bez oborine.
 		var oborineUvoznik *oborine.Uvoznik
+		var kisUvoznik *kisomjeri.Uvoznik
+		kisUlozeno := "" // dan zadnjeg ulaganja mjerenja u arhivu
 		if ob, err := oborine.Otvori(filepath.Join(filepath.Dir(*dbPath), "oborine.db")); err != nil {
 			log.Printf("Oborine se neće preuzimati: %v", err)
 		} else {
 			oborineUvoznik = &oborine.Uvoznik{DB: ob, Tocke: oborine.TockeIzRegistra(database)}
+			// Stvarni kišomjeri: mjerenja se skupljaju u istu radnu bazu, a
+			// jednom dnevno ulažu u arhivsko stablo. pljusak.com je javan;
+			// DHMZ se čita s letva.voda.hr, koja traži prijavu računom domene
+			// Hrvatskih voda — istim računom čvora kao mletva.voda.hr
+			// (ime kao za e-poštu, bez "@voda.hr"), zaključanim ključem čvora.
+			kisSpremiste := &kisomjeri.Spremiste{DB: ob}
+			racuniHV := repository.NewRacuniSustavaRepository(database)
+			kljucHV := hidroview.Kljuc(node.PrivateKey().Seed())
+			letvaRacun := func() (string, string, bool) {
+				r, err := racuniHV.Racun(context.Background(), mletva.Podrijetlo)
+				if err != nil || r == nil {
+					return "", "", false
+				}
+				lozinka, err := posta.Otkljucaj(kljucHV, r.Lozinka)
+				if err != nil {
+					log.Printf("letva.voda.hr: lozinka se ne da otključati: %v", err)
+					return "", "", false
+				}
+				return r.Korisnik, lozinka, true
+			}
+			if err := kisSpremiste.Pripremi(); err != nil {
+				log.Printf("Stvarni kišomjeri se neće skupljati: %v", err)
+			} else {
+				kisUvoznik = &kisomjeri.Uvoznik{Spremiste: kisSpremiste, Postaje: kisomjeri.PostajeIzRegistra(database),
+					Citaci: map[string]kisomjeri.Citac{"pljusak": &kisomjeri.Pljusak{}, "dhmz": &kisomjeri.Letva{Racun: letvaRacun}}}
+				server.SetKisomjeriMjerenja(kisSpremiste)
+			}
 			if tocke, err := prognoza.OborinskeTocke(database); err != nil {
 				log.Printf("Oborine: registar: %v", err)
 			} else if len(tocke) > 0 {
@@ -733,6 +763,35 @@ func main() {
 				// registar se mogao promijeniti (nova ili premještena točka)
 				if tocke, err := prognoza.OborinskeTocke(database); err == nil && len(tocke) > 0 {
 					osvjezivac.Oborine = &prognoza.OborinskiIzvor{Tocke: tocke, Satne: oborineUvoznik.Satne}
+				}
+			}
+			if kisUvoznik != nil {
+				javniUvoznik.Korak("stvarni kišomjeri", 95)
+				kc, otkazi := context.WithTimeout(ctx, 2*time.Minute)
+				n, err := kisUvoznik.Preuzmi(kc)
+				otkazi()
+				if err != nil {
+					log.Printf("stvarni kišomjeri: %v", err)
+					javniUvoznik.Redak("stvarni kišomjeri: %v", err)
+				}
+				javniUvoznik.Redak("stvarni kišomjeri: %d mjerenja", n)
+				// Jednom dnevno, nakon ponoći, završeni dani idu u arhivu:
+				// zadnja četiri dana, da krug koji je ispao ne ostavi rupu.
+				sada := time.Now()
+				if dan := sada.In(kisomjeri.Zagreb).Format("2006-01-02"); dan != kisUlozeno && *podaciFlag != "" {
+					if postaje, err := kisUvoznik.Postaje(); err == nil {
+						letve, err := kisomjeri.Ulozi(*podaciFlag, kisUvoznik.Spremiste, postaje, sada.Add(-96*time.Hour), sada)
+						if err != nil {
+							log.Printf("stvarni kišomjeri, ulaganje: %v", err)
+						}
+						for _, l := range letve {
+							if _, err := server.IzgradiLetvu(l, nil); err != nil {
+								log.Printf("stvarni kišomjeri, gradnja %s: %v", l, err)
+							}
+						}
+						javniUvoznik.Redak("stvarni kišomjeri: uloženo u arhivu za %d postaja", len(letve))
+						kisUlozeno = dan
+					}
 				}
 			}
 			javniUvoznik.Korak("izračun prognoze", 96)

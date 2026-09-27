@@ -65,6 +65,10 @@ func (k *Klijent) klijent() *http.Client {
 	return k.HTTP
 }
 
+// TLSBezIsteka je ista provjera certifikata za druge stranice Hrvatskih voda
+// na istom poslužitelju i s istim isteklim certifikatom (letva.voda.hr).
+func TLSBezIsteka() *tls.Config { return tlsBezIsteka() }
+
 // tlsBezIsteka provjerava certifikat u svemu osim u datumu. Certifikat
 // *.voda.hr istekao je 21. 6. 2025. i nitko ga nije obnovio, a preglednik
 // ondje samo upozori pa pusti dalje. Ovdje se lanac i naziv poslužitelja

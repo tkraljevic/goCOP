@@ -124,7 +124,7 @@
     <a class="kazalo-glava" href="#users">Djelatnici</a>
     <a class="kazalo-glava" href="#registers">Registri</a>
     <a class="kazalo-glava" href="#slivovi">Slivovi</a>
-    <a href="#slivovi-kisomjeri">Kvazi-kišomjeri</a>
+    <a href="#slivovi-kisomjeri">Meteorološke postaje</a>
     <a class="kazalo-glava" href="#admin">Administracija</a>
     <a href="#telemetrija">Telemetrija letava</a>
     <a href="#admin-test">Testne opcije</a>
@@ -198,6 +198,17 @@
       <strong>aktivnu obranu</strong>: vode se dežurstva, akti i izvješća. Bez otvorenog dnevnika
       sektor je u <strong>preventivnoj obrani</strong>. Proglašeni stupnjevi i aktivni dnevnici
       prikazuju se uz sektor i otvaraju se jednim pritiskom.</p>
+
+    <h3 id="dashboard-vrijeme">Vrijeme i vode</h3>
+    <p>Ispod trake stanja je ploča za vaše područje: ured VGI-ja iz vaše dužnosti, ili Osijek
+      kad područja nemate. Gumb <strong>Moja lokacija</strong> koristi lokaciju preglednika kad je
+      preglednik smije dati. Ploča pokazuje upozorenja DHMZ-a za županiju (i broj upozorenja
+      drugdje u Hrvatskoj), trenutno vrijeme na najbližoj glavnoj postaji, današnju prognozu za
+      regiju, hidrološki bilten DHMZ-a s rijekama važnima za regiju, izmjerenu kišu na najbližem
+      stvarnom kišomjeru i prognozu kiše na najbližoj izvedenoj točki. Županija se određuje po
+      najbližem središtu, pa uz granicu zna biti susjedna. Podaci DHMZ-a su otvoreni podaci
+      (meteo.hr) i osvježavaju se svakih petnaest minuta; bez interneta ploča pokazuje zadnje što
+      je pročitala ili javlja da podataka nema.</p>
 
     <h3 id="dashboard-dogadjanja">Zid događanja</h3>
     <p>Zid spaja posljednje promjene iz različitih modula u jednu kronologiju: očitanja, dnevnike,
@@ -903,8 +914,14 @@
       međuslivova, tokovi rijeka, postaje i točke meteoroloških ulaza, pa se može provjeriti što
       pripada kojem dijelu prognostičkog lanca.</p>
 
-    <h3 id="slivovi-kisomjeri">Kvazi-kišomjeri</h3>
-    <p>To nisu fizički uređaji. Točke predstavljaju dijelove međusliva i visinske pojaseve na kojima
+    <h3 id="slivovi-kisomjeri">Meteorološke postaje</h3>
+    <p>Registar razlikuje dvije vrste postaja. <strong>Stvarni kišomjeri</strong> mjere (DHMZ,
+      Hrvatske vode): imaju izvor, šifru postaje kod izvora i korak mjerenja, a nizovi im stoje u
+      hidrološkoj arhivi. Mjere samo svoje mjesto, pa nemaju težinu i model ih ne zbraja u oborinu
+      sliva; služe za usporedbu i ispravak izvedenih točaka. Postaje DHMZ-a čitaju se svaki krug
+      s letva.voda.hr, računom čvora za Hrvatske vode (isti kao za mletva.voda.hr), a postaje mreže
+      pljusak.com (amaterske) s javne tablice; jednom dnevno se mjerenja ulože u arhivu.</p>
+    <p><strong>Izvedene točke</strong> (kvazi-kišomjeri) nisu fizički uređaji. Točke predstavljaju dijelove međusliva i visinske pojaseve na kojima
       program iz Open‑Metea preuzima oborinu, snijeg i temperaturu iz ERA5‑Land reanalize i vremenske
       prognoze. Težina govori koliki dio međusliva točka zastupa; zbroj težina aktivnih točaka treba
       biti približno 1. Meteorološki nizovi čuvaju se odvojeno od registra.</p>

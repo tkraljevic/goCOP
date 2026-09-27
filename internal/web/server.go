@@ -20,8 +20,10 @@ import (
 	"time"
 
 	"gocop/internal/arhiva"
+	"gocop/internal/dhmz"
 	"gocop/internal/hydro"
 	"gocop/internal/javnivodostaji"
+	"gocop/internal/kisomjeri"
 	"gocop/internal/ledger"
 	"gocop/internal/models"
 	"gocop/internal/peers"
@@ -99,6 +101,8 @@ type Server struct {
 	izvjescaService    *service.IzvjescaService // dnevna izvješća; nil dok se ne postavi
 	mtsService         *service.MtsService      // sredstva za obranu; nil dok se ne postavi
 	kisomjeri          *service.KisomjerService // registar kvazi-kišomjera; nil dok se ne postavi
+	kisMjerenja        *kisomjeri.Spremiste     // mjerenja stvarnih kišomjera i oborine s Open-Meteo; nil dok se ne postavi
+	dhmzKlijent        *dhmz.Klijent            // otvoreni podaci DHMZ-a za ploču na naslovnoj
 	zidService         *service.ZidService      // zid događanja; nil dok se ne postavi
 	orgService         *service.OrgService
 	support            SupportContact
@@ -1063,6 +1067,13 @@ func (s *Server) setupRoutes() {
 	slivH := NewSlivoviHandler(func() *service.KisomjerService { return s.kisomjeri }, s.watercourseService, s.stationService,
 		func(ime string) *template.Template { return s.templates[ime] }, func() KartaPostavke { return s.karta })
 	s.mux.Handle("GET /slivovi", s.authMiddleware(http.HandlerFunc(slivH.ShowSlivovi)))
+	if s.dhmzKlijent == nil {
+		s.dhmzKlijent = &dhmz.Klijent{}
+	}
+	vrijemeH := &VrijemeHandler{dhmz: s.dhmzKlijent, org: s.orgService,
+		kisomjeri: func() *service.KisomjerService { return s.kisomjeri },
+		mjerenja:  func() *kisomjeri.Spremiste { return s.kisMjerenja }}
+	s.mux.Handle("GET /vrijeme/podrucje", s.authMiddleware(http.HandlerFunc(vrijemeH.ShowPloca)))
 	s.mux.Handle("GET /slivovi/kisomjer/new", s.authMiddleware(http.HandlerFunc(slivH.ShowKisomjerForm)))
 	s.mux.Handle("GET /slivovi/kisomjer/{code}/edit", s.authMiddleware(http.HandlerFunc(slivH.ShowKisomjerForm)))
 	s.mux.Handle("GET /api/slivovi", s.authMiddleware(http.HandlerFunc(slivH.HandleListAPI)))
@@ -1510,6 +1521,10 @@ func (s *Server) SetIzvjesca(i *service.IzvjescaService) { s.izvjescaService = i
 
 // SetMts daje poslužitelju evidenciju sredstava za obranu
 func (s *Server) SetMts(m *service.MtsService) { s.mtsService = m }
+
+// SetKisomjeriMjerenja daje poslužitelju radnu bazu mjerenja stvarnih
+// kišomjera (i oborina s Open-Meteo), za ploču na naslovnoj
+func (s *Server) SetKisomjeriMjerenja(sp *kisomjeri.Spremiste) { s.kisMjerenja = sp }
 
 // SetKisomjeri daje poslužitelju registar kvazi-kišomjera
 func (s *Server) SetKisomjeri(k *service.KisomjerService) { s.kisomjeri = k }

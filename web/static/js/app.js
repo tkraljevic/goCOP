@@ -1823,15 +1823,17 @@ function dodajKontroleKarte(karta, platno, opcije) {
       var izvorni = {};
       var uPremjestanju = false;
       tocke.forEach(function (t) {
-        var boja = t.aktivan ? bojaPojasa(t.pojas) : '#9e9e9e';
+        var stvarni = t.vrsta === 'stvarni';
+        var boja = stvarni ? '#fff' : (t.aktivan ? bojaPojasa(t.pojas) : '#9e9e9e');
         var ikona = L.divIcon({
           className: 'kis-tocka-omotac',
-          html: '<div class="kis-tocka' + (t.aktivan ? '' : ' kis-tocka-neaktivna') + '" style="background:' + boja + '"></div>',
+          html: '<div class="kis-tocka' + (stvarni ? ' kis-stvarni' : '') + (t.aktivan ? '' : ' kis-tocka-neaktivna') + '" style="background:' + boja + '"></div>',
           iconSize: [18, 18], iconAnchor: [9, 9]
         });
         var m = L.marker([t.lat, t.lon], { icon: ikona, draggable: false, zIndexOffset: 1000 });
         var opis = '<div><div style="font-weight:700; font-size:0.95rem; margin-bottom:2px;">' + escapeHtml(t.naziv) + '</div>' +
-          '<div style="font-size:0.8rem; color:#475569;">' + escapeHtml((t.sliv ? 'međusliv ' + t.sliv + ' · ' : '') + (t.pojas || '')) + '</div>' +
+          '<div style="font-size:0.8rem; color:#475569;">' + escapeHtml((t.sliv ? 'međusliv ' + t.sliv + ' · ' : '') +
+            (stvarni ? 'stvarni kišomjer' + (t.izvor ? ' · ' + t.izvor : '') + (t.korak ? ' · ' + t.korak : '') : (t.pojas || ''))) + '</div>' +
           '<div style="font-size:0.75rem; color:#64748b;">' +
             (typeof t.visina === 'number' ? Math.round(t.visina) + ' m n. m.' : '') +
             (typeof t.km2 === 'number' ? ' · ' + Math.round(t.km2).toLocaleString('hr-HR') + ' km²' : '') +
@@ -1928,5 +1930,33 @@ function dodajKontroleKarte(karta, platno, opcije) {
         });
       });
     });
+  });
+})();
+
+// Naslovna: ploča "Vrijeme i vode" učitava se naknadno. Gumb "Moja lokacija"
+// postoji samo kad preglednik smije dati lokaciju (https ili localhost).
+(function () {
+  function ucitaj(okvir, upit) {
+    fetch(okvir.dataset.url + (upit || ''), { credentials: 'same-origin' })
+      .then(function (r) { return r.ok ? r.text() : Promise.reject(r.status); })
+      .then(function (html) {
+        okvir.innerHTML = html;
+        var gumb = okvir.querySelector('.vrijeme-lokacija');
+        if (!gumb || !window.isSecureContext || !navigator.geolocation) return;
+        gumb.hidden = false;
+        gumb.addEventListener('click', function () {
+          gumb.disabled = true;
+          navigator.geolocation.getCurrentPosition(function (p) {
+            ucitaj(okvir, '?lat=' + p.coords.latitude.toFixed(4) + '&lon=' + p.coords.longitude.toFixed(4));
+          }, function () { gumb.disabled = false; gumb.textContent = 'Lokacija nije dopuštena'; }, { timeout: 10000 });
+        });
+      })
+      .catch(function () {
+        okvir.innerHTML = '<div class="vrijeme-ploca-cekanje">Vrijeme i vode trenutno nisu dostupni.</div>';
+      });
+  }
+  document.addEventListener('DOMContentLoaded', function () {
+    var okvir = document.getElementById('vrijeme-podrucja');
+    if (okvir && okvir.dataset.url) ucitaj(okvir, '');
   });
 })();
