@@ -43,6 +43,27 @@ PODACI KOJI SE ČITAJU UZ BAZU (data/*.json)
              su je djelatnici VGI Baranja (popis u README, poglavlje 9)
     Status:  podaci Hrvatskih voda
 
+PODACI UGRAĐENI U PROGRAM (internal/geometrija)
+  Granice županija, gradova i općina (zupanije.geojson, opcine.geojson)
+  i linije Drave, Dunava i Mure (rijeka-*.geojson)
+    Izvor:   OpenStreetMap, © suradnici OpenStreetMapa
+    Licenca: Open Database License 1.0 (ODbL),
+             https://opendatacommons.org/licenses/odbl/1-0/
+             Datoteke su izvadak baze OpenStreetMapa i dijele se pod istom
+             licencom; nisu relicencirane EUPL-om. Zasluga stoji uz kartu.
+    Napomena: osobni podaci (župani, čelnici, njihova e-pošta i telefon) nisu
+             u datotekama; na karti se dopunjuju iz registra teritorija čvora.
+  Granice naselja (naselja/)
+    Izvor:   Registar prostornih jedinica, Državna geodetska uprava
+             (skup podataka visoke vrijednosti, Provedbena uredba (EU)
+             2023/138), dostavljeno u ZIP datoteci
+    Licenca: Otvorena dozvola Republike Hrvatske (Pravilnik o određivanju
+             visine stvarnih troškova izdavanja i uvjeta korištenja podataka,
+             NN 56/2023, 106/25), https://data.gov.hr/otvorena-dozvola
+    Izjava:  "Sadrži informacije Državne geodetske uprave u skladu s
+             Otvorenom dozvolom." Stanje prema isporuci DGU-a.
+             Podaci nisu relicencirani EUPL-om.
+
 PODACI KOJI SE UVOZE U BAZU ČVORA (nisu dio programa)
   OČITANJA VODOSTAJA NISU U OVOM REPOZITORIJU NITI U PROGRAMU.
   Žive samo u bazama čvorova Hrvatskih voda. Sva očitanja koja program
