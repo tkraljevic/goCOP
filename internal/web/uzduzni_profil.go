@@ -152,6 +152,10 @@ const NulaUvijekDo = 50.0
 // im imena još stanu jedno uz drugo u istom redu.
 const razmakNatpisa = 124.0
 
+// RubAkumulacije je koliko točka akumulacije koja ne stane u mjerilo stoji
+// unutar ruba crteža, da ne legne na natpis letve iznad njega.
+const RubAkumulacije = 10.0
+
 // SatniLanacDo je zadnji doseg satnog lanca; dalje je dnevni model, koji
 // nema vrijednosti na svakoj letvi.
 const SatniLanacDo = 96
@@ -536,7 +540,11 @@ func crtajUzduzni(ime string, letve []LetvaProfila, usca []UsceUlaz, brane ...Br
 		}
 		switch {
 		case l.Akumulacija:
-			t.Cm, t.Kota = "", brojHRf(l.JutroCm/100, 2) // kota nad morem bez nule letve: samo metri
+			// Razina akumulacije stoji na brani: jedan natpis „HE Čakovec”
+			// za oboje, s kotom jezera (bez nule letve: samo metri).
+			t.Naziv = "HE " + strings.TrimPrefix(ime, "Razina akumulacije ")
+			t.Cm, t.Kota = "", brojHRf(l.JutroCm/100, 2)
+			t.Y = math.Max(p.Vrh+RubAkumulacije, math.Min(p.DnoY()-RubAkumulacije, t.Y))
 		}
 		p.Tocke = append(p.Tocke, t)
 		if !l.Akumulacija {
@@ -572,6 +580,8 @@ func crtajUzduzni(ime string, letve []LetvaProfila, usca []UsceUlaz, brane ...Br
 
 	// Brana ulazi u sliku samo među letvama: brana iznad prve letve ne
 	// pripada crtežu, jer voda iznad nje nije na njemu.
+	// Brana na kojoj je i razina akumulacije ne dobiva svoj natpis: nosi ga
+	// akumulacija („HE Čakovec”), a crtkana crta brane ostaje.
 	sort.Slice(brane, func(i, j int) bool { return brane[i].Rkm > brane[j].Rkm })
 	zadnjiGore, zadnjiDolje = math.Inf(-1), math.Inf(-1)
 	for _, b := range brane {
@@ -579,6 +589,16 @@ func crtajUzduzni(ime string, letve []LetvaProfila, usca []UsceUlaz, brane ...Br
 			continue
 		}
 		x := xOf(b.Rkm)
+		uzAkumulaciju := false
+		for _, l := range korisne {
+			if l.Akumulacija && math.Abs(l.Rkm-b.Rkm) < 0.5 {
+				uzAkumulaciju = true
+			}
+		}
+		if uzAkumulaciju {
+			p.Brane = append(p.Brane, BranaProfila{X: x})
+			continue
+		}
 		sidro := "middle"
 		if x-p.Lijevo < 60 {
 			sidro = "start"
@@ -634,7 +654,8 @@ type nizProfila struct {
 }
 
 func nizZaKlizac(korisne []LetvaProfila, p *UzduzniProfil, xOf, yOf func(float64) float64) template.JS {
-	n := nizProfila{NulaY: p.NulaY, PoCm: yOf(0) - yOf(1), PrekidOd: SatniLanacDo, Vrh: p.Vrh, Dno: p.DnoY()}
+	n := nizProfila{NulaY: p.NulaY, PoCm: yOf(0) - yOf(1), PrekidOd: SatniLanacDo,
+		Vrh: p.Vrh + RubAkumulacije, Dno: p.DnoY() - RubAkumulacije}
 	for h := p.SatOd; h <= p.SatDo; h++ {
 		n.Sati = append(n.Sati, h)
 	}

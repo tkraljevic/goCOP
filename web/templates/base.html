@@ -347,10 +347,6 @@
   {{end}}
   {{if .DugiPut}}<path class="uzd-dugi" d="{{.DugiPut}}"/>{{end}}
   {{if .SrednjakPut}}<path class="uzd-srednjak" d="{{.SrednjakPut}}"/>{{end}}
-  {{if .NulaNapomena}}
-  <text class="uzd-nula-napomena" x="{{printf "%.1f" .LijevoX}}" dx="8" y="{{if .NapomenaIspod}}{{printf "%.1f" .DnoY}}{{else}}{{printf "%.1f" .Vrh}}{{end}}"
-        dy="{{if .NapomenaIspod}}-6{{else}}14{{end}}" text-anchor="start">{{.NulaNapomena}}</text>
-  {{end}}
   {{range .Crte}}
   <path class="uzd-crta {{.Class}}" data-doseg="{{.Doseg}}" d="{{.Put}}"/>
   {{end}}
@@ -376,11 +372,15 @@
   {{range .Brane}}
   <line class="uzd-brana-crta" x1="{{printf "%.1f" .X}}" x2="{{printf "%.1f" .X}}"
         y1="{{printf "%.1f" $.Vrh}}" y2="{{printf "%.1f" $.DnoY}}"/>
-  <text class="uzd-brana-natpis" x="{{printf "%.1f" .X}}" y="{{printf "%.1f" $.Vrh}}" dy="{{if .Dolje}}28{{else}}14{{end}}"
-        text-anchor="{{.Sidro}}">{{.Naziv}}</text>
+  {{if .Naziv}}<text class="uzd-brana-natpis" x="{{printf "%.1f" .X}}" y="{{printf "%.1f" $.Vrh}}" dy="{{if .Dolje}}28{{else}}14{{end}}"
+        text-anchor="{{.Sidro}}">{{.Naziv}}</text>{{end}}
   {{end}}
   <text class="uzd-osnaziv" x="{{printf "%.1f" .LijevoX}}" y="{{printf "%.1f" .DnoY}}"
         dy="44">riječni kilometar · nizvodno je desno → · razmak letvi nije u mjerilu</text>
+  {{/* Što ne stane u crtež piše se dolje desno, u retku osi, da ne legne na natpise letvi. */}}
+  {{if .NulaNapomena}}
+  <text class="uzd-nula-napomena" x="{{printf "%.1f" .DesnoX}}" y="{{printf "%.1f" .DnoY}}" dy="44" text-anchor="end">{{.NulaNapomena}}</text>
+  {{end}}
   {{range .XTicks}}
   <text class="tick" x="{{printf "%.1f" .Pos}}" y="{{printf "%.1f" $.OsX}}"
         text-anchor="{{.Anchor}}">{{.Label}}</text>

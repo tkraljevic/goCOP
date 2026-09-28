@@ -553,12 +553,17 @@ func TestAkumulacijaJeTockaIzvanKrivulje(t *testing.T) {
 		SadaCm: 16752, ImaSada: true, JutroCm: 16752, ImaJutro: true, UobicajenoCm: 16740, ImaUobicajeno: true, Cm: map[int]float64{}, Granice: map[int][2]float64{}, Pragovi: map[string]float64{}, Niz: map[int]float64{-6: 16740}}
 	gore := ak
 	gore.Letva, gore.Naziv, gore.Rkm = "gvb-he-varazdin", "Razina akumulacije Varaždin", 308.6
-	p := crtajUzduzni("Drava", []LetvaProfila{a, ak, gore, b}, nil)
+	p := crtajUzduzni("Drava", []LetvaProfila{a, ak, gore, b}, nil,
+		BranaUlaz{Naziv: "Brana HE Čakovec", Rkm: 278.6}, BranaUlaz{Naziv: "Brana HE Dubrava", Rkm: 255.05})
 	if p == nil {
 		t.Fatal("profila nema")
 	}
-	if len(p.Tocke) != 3 || p.Tocke[1].Naziv != "Razina akumulacije Čakovec" || p.Tocke[1].Kota != "167,52" || p.Tocke[1].Cm != "" {
+	if len(p.Tocke) != 3 || p.Tocke[1].Naziv != "HE Čakovec" || p.Tocke[1].Kota != "167,52" || p.Tocke[1].Cm != "" {
 		t.Fatalf("točke %+v", p.Tocke)
+	}
+	// Brana uz akumulaciju ostaje crta bez natpisa; brana bez nje nosi svoj.
+	if len(p.Brane) != 2 || p.Brane[0].Naziv != "" || p.Brane[1].Naziv != "Brana HE Dubrava" {
+		t.Errorf("brane %+v", p.Brane)
 	}
 	if len(p.XTicks) != 2 {
 		t.Errorf("akumulacija ne dobiva oznaku kilometra: %+v", p.XTicks)

@@ -128,7 +128,7 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"doseže tek gornjom granicom raspona."),
 			tekstM("Kartica postaje na vrhu lanca kaže odakle joj budućnost: iz modela ispuštanja elektrane, iz " +
 				"našeg dnevnog modela ili iz tuđe prognoze s navedenim izvorom. Uzdužni profil crta vodostaj uzduž toka " +
-				"prema uobičajenoj vodi svake letve: jutarnja crta (7 h) stoji cijeli dan, a crte prognoze pokazuju kamo " +
+				"prema vodi zadnjih 30 dana na svakoj letvi: jutarnja crta (7 h) stoji cijeli dan, a crte prognoze pokazuju kamo " +
 				"val ide; klizač pomiče vrijeme i uz točku piše promjenu od jutra, brane su okomite crte, a razine " +
 				"akumulacija točke uz njih."),
 			tekstM("Prognozi vrijedi vjerovati manje:"),
@@ -163,8 +163,13 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 		{"Ulazni podaci", []OdlomakMetode{
 			tekstM("Satni vodostaji i protoci iz arhive goCOP-a, koja se puni s mjernih sustava Hrvatskih voda " +
 				"(uključivo istjecanje i razine akumulacija HE Varaždin, Čakovec i Dubrava sa zatvorene mobilne " +
-				"stranice) i sa stranica hidroloških službi susjednih država: Slovenije (ARSO), Mađarske (vizugy.hu), " +
-				"Slovačke (SHMÚ), Austrije (eHYD, viadonau, noel.gv.at) i Njemačke (GKD, Pegelonline). Očitanja rjeđa " +
+				"stranice) i sa stranica hidroloških službi susjednih država: Slovenije (ARSO, tablica postaje s " +
+				"vrijednošću svakih 10 minuta), Mađarske (vizugy.hu), Slovačke (SHMÚ), Austrije (eHYD, viadonau, " +
+				"noel.gv.at) i Njemačke (GKD, Pegelonline). Povijest mađarskih, srpskih, slovenskih, austrijskih i " +
+				"čeških postaja dopunjena je iz ICPDR-ova sustava DanubeHIS (licenca CC BY-NC-SA 4.0): ovjereni dnevni " +
+				"vodostaji i protoci od 1961. te satni od 2020.; satni su sirovi i prije ulaska u arhivu čiste se od " +
+				"grešaka uređaja (skokovi, obrnut predznak, danima pomaknuta razina) i ulaze samo u sate koje arhiva " +
+				"nema. Očitanja rjeđa " +
 				"od satnih premošćuju se linearno, ali ne preko " + tekstBroja(prognoza.NajveciRazmak) + " sati — " +
 				"dulja rupa ostaje rupa."),
 			tekstM("Tuđe prognoze preuzimaju se kako ih službe izdaju: mađarska (hydroinfo.hu) i srpska " +
@@ -197,8 +202,9 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"jer se ondje ponašanje mijenja: voda izlazi u inundaciju, a Kopački rit se puni i val uspori."),
 			tekstM("Karika Nagybajcs ← Wildungsmauer namještena je na 5–7 sati kašnjenja, što vrijedi pri običnoj " +
 				"vodi; pri velikoj vodi val kroz Szigetköz, akumulaciju Gabčíkovo i rukavce putuje tri dana, a " +
-				"pridružuje mu se Morava. Satna povijest Angerna na Moravi i Bratislave skuplja se da se ta dionica " +
-				"jednom namjesti po režimima."),
+				"pridružuje mu se Morava. Morava je isprobana kao sporedni ulaz (Lanžhot, satni niz od studenog " +
+				"2020.): Nagybajcs i Komárom 1–4 % bolji, ali Mohács i Batina na 96 h 7–9 % lošiji, pa zasad ne ulazi; " +
+				"treba duži niz. Satni niz Bratislave s DanubeHIS-a se ne može preuzeti."),
 		}},
 		{"Satni lanac — procjena", []OdlomakMetode{
 			tekstM("Koeficijenti β i γ procjenjuju se metodom najmanjih kvadrata, zajednički za sve pojase, " +
@@ -426,6 +432,16 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"vrha vala (srednja apsolutna i pristranost) na 24, 48, 72 i 96 h, korijen srednje kvadratne pogreške " +
 				"kroz val i udio mjerenja unutar raspona. Sve se uspoređuje s postojanošću, s mađarskom prognozom, s " +
 				"uredskom prognozom (55 izdanja) i s modelom MIKE (48)."),
+			tekstM("Mura iz Gornje Radgone provjerena je na 30 poplavnih valova 2020.–2026. (satni niz Gornje Radgone " +
+				"počinje u rujnu 2020.), modelom namještenim bez tih valova i 12 dana prije i 6 dana poslije svakog " +
+				"vrha, uz isti lanac bez Mure za usporedbu. Na Dunavu je razlika ispod milimetra."),
+			tablicaM("Drava, pogreška najavljenog vrha u cm: lanac bez Mure → s Murom iz Gornje Radgone (34 vrha, 2020.–2026.)",
+				[]string{"", "24 h", "48 h", "72 h", "96 h"},
+				[]string{"sve dravske letve", "12,8 → 10,5", "33,3 → 29,2", "62,8 → 49,3", "97,7 → 91,0"},
+				[]string{"Botovo", "30 → 15", "127 → 110", "190 → 132", "227 → 236"},
+				[]string{"Novo Virje", "17 → 17", "46 → 35", "125 → 98", "157 → 125"},
+				[]string{"Belišće", "5 → 5", "10 → 10", "10 → 10", "17 → 36"},
+				[]string{"postojanost", "32,6", "83,6", "124,3", "151,9"}),
 			tablicaM("Drava prema mađarskoj prognozi: srednja pogreška 1.–6. dana u cm, oni / mi (28 izdanja rujan 2024. – rujan 2026., dnevni model s kišom naučen do rujna 2024.)",
 				dani,
 				[]string{"Botovo", "24 / 16", "37 / 26", "41 / 27", "51 / 28", "52 / 37", "58 / 38"},
@@ -445,7 +461,7 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 		}},
 		{"Ograničenja", []OdlomakMetode{
 			popisM(
-				"Veliki dravski val od trećeg dana prognoza podcjenjuje: vrh Botova 3.–5. dan promaši 76, 94 i 122 cm i sa savršenom kišom. Pratiti gornju granicu raspona.",
+				"Veliki dravski val od trećeg dana prognoza podcjenjuje: vrh Botova 3.–5. dan promaši 76, 94 i 122 cm i sa savršenom kišom. S Murom iz Gornje Radgone podcjenjivanje vrha na 72 h palo je s 60 na 42 cm, ali ne i nestalo. Pratiti gornju granicu raspona.",
 				"Rad hidroelektrana unaprijed se zna samo koliko ga model ispuštanja nauči; unutar dana odluke elektrane ostaju nepredvidive. Varaždin ispod HE Varaždin o njima ovisi cijeli.",
 				"Na Dunavu je prognoza za valove ovisna o mađarskoj službi dok se dionica Wildungsmauer → Nagybajcs ne namjesti po režimima.",
 				"Vrijednost izvan svega viđenoga u arhivi model procjenjuje produženjem zadnjeg pravca; pri rekordnoj vodi valja biti oprezan.",
@@ -453,7 +469,7 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 		}},
 		{"Što je novo", []OdlomakMetode{
 			popisM(
-				"27. 9. 2026. — satni lanac dijeli ispravak na stalni dio (medijan pogreške 72 h, kad je skladna i letva ne raste) i prolazni koji blijedi; model ispuštanja pri običnoj vodi drži dnevni srednjak uz dotok; uzdužni profil prema vodi zadnjih 30 dana, s uobičajenom vodom deset godina i srednjim vodostajem, jutarnjom crtom u 7 h, crtama za 6 i 12 h, jednim profilom po rijeci u Trstu i razmakom letvi koji nije u mjerilu; satni lanac Mure iz Gornje Radgone (Mursko Središće, Goričan, dalje Botovo 4–8 % bolje na 24–96 h); arhiva dopunjena dnevnim i očišćenim satnim podacima DanubeHIS-a.",
+				"27. 9. 2026. — satni lanac dijeli ispravak na stalni dio (medijan pogreške 72 h, kad je skladna i letva ne raste) i prolazni koji blijedi; model ispuštanja pri običnoj vodi drži dnevni srednjak uz dotok; uzdužni profil prema vodi zadnjih 30 dana, s uobičajenom vodom deset godina i srednjim vodostajem, jutarnjom crtom u 7 h, crtama za 6 i 12 h, jednim profilom po rijeci u Trstu i razmakom letvi koji nije u mjerilu; satni lanac Mure iz Gornje Radgone (Mursko Središće, Goričan, dalje Botovo 4–8 % bolje na 24–96 h); arhiva dopunjena dnevnim i očišćenim satnim podacima DanubeHIS-a; ARSO se čita iz tablice postaje svakih 10 minuta; kote nula Mohácsa, Baje, Dunaföldvára, Budimpešte i Esztergoma ispravljene na baltički sustav.",
 				"26. 9. 2026. — model ispuštanja HE Dubrava, Čakovec i Varaždin na vrhu lanca; razine akumulacija na pregledu i profilu; Komárom po mađarskoj prognozi dok je svježa, inače lanac iz Austrije; Osijek s dunavskim ulazima; dnevni model ¾ regresije; Varaždin kao karika; uzdužni profil s branama, punim zaslonom i ispisom, mađarski profili Dunava i Drave.",
 				"25. 9. 2026. — austrijska prognoza Wildungsmauera (noel.gv.at) i karike Nagybajcs, Komárom; kiša po međuslivovima Drave, Dunava i Mure u dnevnom modelu; Goričan kao vrh lanca Botova; Mura sa svojom dnevnom prognozom; Angern na Moravi.",
 				"23. 9. 2026. — istjecanje elektrana s mletva.voda.hr uživo; mađarska prognoza kao vrh Letenyea i Komároma; raspon 70 %.",
