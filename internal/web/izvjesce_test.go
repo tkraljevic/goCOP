@@ -452,3 +452,19 @@ func TestTriIzvjescaImajuRazlicitaImena(t *testing.T) {
 		vidjeno[ime] = dio
 	}
 }
+
+// Protok iz krivulje službe (vizugy.hu, ARSO) ne piše se kao izmjeren.
+func TestNaslovProtokaRazlikujeKrivulju(t *testing.T) {
+	q := 740.2
+	iz := []models.Reading{{FlowM3s: &q, FlowMethod: models.FlowMethodKrivulja}}
+	if g := naslovProtoka(iz); g != "Protok službe (iz krivulje)" {
+		t.Errorf("samo krivulja: %q", g)
+	}
+	iz = append(iz, models.Reading{FlowM3s: &q, FlowMethod: models.FlowMethodADCP})
+	if g := naslovProtoka(iz); g != "Izmjereni ili preuzeti protok" {
+		t.Errorf("mješovito: %q", g)
+	}
+	if g := naslovProtoka(iz[1:]); g != "Izmjereni protok" {
+		t.Errorf("samo mjerenje: %q", g)
+	}
+}

@@ -309,7 +309,7 @@ func (x listLetve) ocitanja(iz IzvjesceLetve) {
 		glave = append(glave, "Temperatura vode (°C)")
 	}
 	if imaIzmjeren {
-		glave = append(glave, "Izmjereni protok (m³/s)")
+		glave = append(glave, naslovProtoka(iz.Ocitanja)+" (m³/s)")
 	}
 	glave = append(glave, "Stupanj obrane", "Očitao", "Odakle", "Napomena")
 	zaglavlje := make([]xlsxw.Celija, len(glave))

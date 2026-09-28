@@ -588,7 +588,7 @@ func (iz IzvjesceLetve) ocitanjaPoglavlje(d *docx.Dokument) {
 		glave = append(glave, "Temperatura vode")
 	}
 	if imaIzmjeren {
-		glave = append(glave, "Izmjereni protok")
+		glave = append(glave, naslovProtoka(iz.Ocitanja))
 	}
 	if imaStupanj {
 		glave = append(glave, "Stupanj obrane")
@@ -707,4 +707,28 @@ func (iz IzvjesceLetve) ogradeUzNizove(d *docx.Dokument) {
 	}
 	d.Poglavlje("Ograde uz nizove")
 	d.Tablica([]string{"Veličina", "Izvor", "Razdoblje", "Što treba znati"}, redci)
+}
+
+// naslovProtoka je naslov stupca protoka s očitanja. „Izmjereni” samo kad
+// nijedan nije iz krivulje: protok koji je služba izračunala iz vodostaja
+// (Mađarska, ARSO) nosi onoliko obavijesti koliko i vodostaj, pa se ne smije
+// predstaviti kao hidrometrijsko mjerenje.
+func naslovProtoka(ocitanja []models.Reading) string {
+	izmjeren, krivulja := false, false
+	for _, o := range ocitanja {
+		switch {
+		case o.FlowM3s == nil:
+		case o.FlowMethod == models.FlowMethodKrivulja:
+			krivulja = true
+		default:
+			izmjeren = true
+		}
+	}
+	switch {
+	case izmjeren && krivulja:
+		return "Izmjereni ili preuzeti protok"
+	case krivulja:
+		return "Protok službe (iz krivulje)"
+	}
+	return "Izmjereni protok"
 }

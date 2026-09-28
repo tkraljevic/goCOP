@@ -4,6 +4,13 @@
 //
 //	Vizallas = new Array(28, 30, 31, …);
 //	Idopont  = new Array('2026.09.06. 01:00', '2026.09.06. 02:00', …);
+//	Vizhozam = new Array('832,00 m<sup>3</sup>/s', '-', …);
+//
+// Protok stoji uz svaki sat, poravnat s vodostajem. Nije mjeren: služba ga
+// računa iz vodostaja svojom krivuljom, koju obnavlja kako se korito mijenja,
+// pa odnos protoka susjednih postaja kroz godine stoji, a odnos vodostaja
+// klizi (Paks prema Budimpešti 1990. +30 cm, 2025. −12 cm). Crtica znači da
+// protoka nema: Dunaföldvár ga ne javlja, a Barcs ne ispod raspona krivulje.
 //
 // Vrijeme je mađarsko lokalno, s ljetnim pomakom kao i naše — provjereno na
 // preklapanju s arhivskim nizom Budimpešte: sa satnim pomakom ljeti se 33 od
@@ -64,6 +71,8 @@ const AdresaVizugyPostaje = "https://www.vizugy.hu/"
 var (
 	reVizugyPostaja = regexp.MustCompile(`(?i)AllomasVOA=([0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12})`)
 	reVizugyPolje   = regexp.MustCompile(`(?s)\b%s\s*=\s*new Array\((.*?)\)`)
+	// reVizugyNavodnik je jedna vrijednost u navodnicima
+	reVizugyNavodnik = regexp.MustCompile(`'([^']*)'`)
 )
 
 // Vizugy čita mađarsku stranicu
@@ -135,6 +144,7 @@ func (v Vizugy) dohvati(ctx context.Context, adresa string) ([]byte, error) {
 func CitajVizugy(html string) ([]Redak, error) {
 	vrijednosti := poljeNiza(html, "Vizallas")
 	vremena := poljeNiza(html, "Idopont")
+	protoci := poljeNavodnika(html, "Vizhozam")
 	if len(vrijednosti) == 0 || len(vremena) == 0 {
 		return nil, fmt.Errorf("na stranici nema polja s vodostajima — je li se stranica promijenila?")
 	}
@@ -161,7 +171,15 @@ func CitajVizugy(html string) ([]Redak, error) {
 		if err != nil {
 			continue
 		}
-		out = append(out, Redak{Kad: kad, LevelCm: intPtr(cm)})
+		r := Redak{Kad: kad, LevelCm: intPtr(cm)}
+		if i < len(protoci) {
+			if q, ok := protokVizugy(protoci[i]); ok {
+				r.FlowM3s = floatPtr(q)
+				r.FlowMetoda = models.FlowMethodKrivulja
+				r.FlowBiljeska = "preračunat iz vodostaja krivuljom mađarske službe, s vizugy.hu"
+			}
+		}
+		out = append(out, r)
 	}
 	if len(out) == 0 {
 		return nil, fmt.Errorf("polja su prazna — postaja možda ne javlja vodostaj")
@@ -179,6 +197,34 @@ func vrijemeVizugy(s string) (time.Time, error) {
 		return time.Time{}, err
 	}
 	return t.UTC(), nil
+}
+
+// poljeNavodnika vadi polje čije su vrijednosti u navodnicima. Protok ima
+// decimalni zarez ('832,00 m<sup>3</sup>/s'), pa se ne dijeli po zarezima.
+func poljeNavodnika(html, ime string) []string {
+	re := regexp.MustCompile(fmt.Sprintf(reVizugyPolje.String(), regexp.QuoteMeta(ime)))
+	m := re.FindStringSubmatch(html)
+	if m == nil {
+		return nil
+	}
+	var out []string
+	for _, n := range reVizugyNavodnik.FindAllStringSubmatch(m[1], -1) {
+		out = append(out, n[1])
+	}
+	return out
+}
+
+// protokVizugy čita '832,00 m<sup>3</sup>/s'; crtica i prazno nisu protok
+func protokVizugy(s string) (float64, bool) {
+	s = strings.TrimSpace(s)
+	if i := strings.IndexByte(s, ' '); i >= 0 {
+		s = s[:i]
+	}
+	q, err := strconv.ParseFloat(strings.ReplaceAll(s, ",", "."), 64)
+	if err != nil || q < 0 {
+		return 0, false
+	}
+	return q, true
 }
 
 // poljeNiza vadi sadržaj jednog polja i dijeli ga po zarezima
