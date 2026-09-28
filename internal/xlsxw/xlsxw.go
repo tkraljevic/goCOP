@@ -44,6 +44,13 @@ const (
 
 	Tekst   = 22 // tekst bez obruba, prelamanje, gore — odlomak preko spojenih ćelija
 	Formula = 23 // kurziv, uvučeno, prelamanje — formula uz odlomak
+
+	DatumSat    = 24 // Excelov datum sa satom, d.m.yyyy h:mm, obrub
+	RekordVisok = 25 // najviša vrijednost niza: podebljano, crvenkasta podloga, sredina
+	RekordNizak = 26 // najniža vrijednost niza: podebljano, plavkasta podloga, sredina
+
+	SazetakNaslov = 27 // naslov odjeljka tablice: podebljano, bijelo na tamnoplavom
+	SazetakBroj   = 28 // karakteristična vrijednost: podebljano, siva podloga, sredina
 )
 
 // UPojasu vraća stil s podlogom skupine; stil koji podlogu nema ostaje isti.
@@ -105,6 +112,9 @@ type List struct {
 	Uspravno    bool            // ispis uspravno, cijela širina na jednu stranicu
 	LogoStupaca int             // koliko stupaca slijeva logotip smije zauzeti; 0 = jedan
 	Podnozje    string          // podnožje ispisa; &P i &N su broj stranice i ukupno
+	Grafovi     []Graf          // Excelovi grafovi na listu
+	Skriven     bool            // list postoji, ali se ne prikazuje (podaci grafova)
+	Zamrzni     [2]int          // koliko redaka i stupaca stoji pri pomicanju; 0 = ništa
 	ponovi      [2]int          // redci zaglavlja koji se ponavljaju na svakoj stranici (1-based), 0 = nema
 }
 
@@ -175,6 +185,7 @@ func (k *Knjiga) Zapisi(w io.Writer) error {
 		return err
 	}
 	logo := len(k.LogoPNG) > 0
+	grafova := 0 // grafovi se broje kroz cijelu knjigu: chart1.xml, chart2.xml, …
 	var ct, rels, sheets bytes.Buffer
 	ct.WriteString(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>`)
 	rels.WriteString(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdS" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>`)
@@ -182,22 +193,43 @@ func (k *Knjiga) Zapisi(w io.Writer) error {
 		n := i + 1
 		fmt.Fprintf(&ct, `<Override PartName="/xl/worksheets/sheet%d.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`, n)
 		fmt.Fprintf(&rels, `<Relationship Id="rId%d" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet%d.xml"/>`, n, n)
-		fmt.Fprintf(&sheets, `<sheet name="%s" sheetId="%d" r:id="rId%d"/>`, esc(l.Naziv), n, n)
+		stanje := ""
+		if l.Skriven {
+			stanje = ` state="hidden"`
+		}
+		fmt.Fprintf(&sheets, `<sheet name="%s" sheetId="%d"%s r:id="rId%d"/>`, esc(l.Naziv), n, stanje, n)
 		sLogom := logo && l.Logo
-		if err := pisi(fmt.Sprintf("xl/worksheets/sheet%d.xml", n), l.xml(sLogom)); err != nil {
+		crtez := sLogom || len(l.Grafovi) > 0
+		if err := pisi(fmt.Sprintf("xl/worksheets/sheet%d.xml", n), l.xml(crtez)); err != nil {
 			return err
 		}
+		if !crtez {
+			continue
+		}
+		fmt.Fprintf(&ct, `<Override PartName="/xl/drawings/drawing%d.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>`, n)
+		if err := pisi(fmt.Sprintf("xl/worksheets/_rels/sheet%d.xml.rels", n), `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdD" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing`+strconv.Itoa(n)+`.xml"/></Relationships>`); err != nil {
+			return err
+		}
+		var sidra, veze strings.Builder
 		if sLogom {
-			fmt.Fprintf(&ct, `<Override PartName="/xl/drawings/drawing%d.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>`, n)
-			if err := pisi(fmt.Sprintf("xl/worksheets/_rels/sheet%d.xml.rels", n), `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdD" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing`+strconv.Itoa(n)+`.xml"/></Relationships>`); err != nil {
+			sidra.WriteString(sidroLogotipa(k.LogoPNG, l.sirinaStupcaA()))
+			veze.WriteString(`<Relationship Id="rIdL" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image1.png"/>`)
+		}
+		for j, g := range l.Grafovi {
+			grafova++
+			rel := fmt.Sprintf("rIdG%d", j+1)
+			sidra.WriteString(sidroGrafa(g, 10+j, rel))
+			fmt.Fprintf(&veze, `<Relationship Id="%s" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart" Target="../charts/chart%d.xml"/>`, rel, grafova)
+			fmt.Fprintf(&ct, `<Override PartName="/xl/charts/chart%d.xml" ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>`, grafova)
+			if err := pisi(fmt.Sprintf("xl/charts/chart%d.xml", grafova), g.chartXML()); err != nil {
 				return err
 			}
-			if err := pisi(fmt.Sprintf("xl/drawings/drawing%d.xml", n), crtezLogotipa(k.LogoPNG, l.sirinaStupcaA())); err != nil {
-				return err
-			}
-			if err := pisi(fmt.Sprintf("xl/drawings/_rels/drawing%d.xml.rels", n), `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdL" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image1.png"/></Relationships>`); err != nil {
-				return err
-			}
+		}
+		if err := pisi(fmt.Sprintf("xl/drawings/drawing%d.xml", n), crtezLista(sidra.String())); err != nil {
+			return err
+		}
+		if err := pisi(fmt.Sprintf("xl/drawings/_rels/drawing%d.xml.rels", n), `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">`+veze.String()+`</Relationships>`); err != nil {
+			return err
 		}
 	}
 	if logo {
@@ -241,13 +273,13 @@ func (k *Knjiga) Zapisi(w io.Writer) error {
 	return z.Close()
 }
 
-// crtezLogotipa smješta sliku u gornji lijevi kut, visine 2,2 cm — koliko
+// sidroLogotipa smješta sliku u gornji lijevi kut, visine 2,2 cm — koliko
 // su visoka četiri retka zaglavlja — a širine po omjeru slike (iz PNG
 // zaglavlja), pa ne prelazi ni ispod naslova ni preko teksta desno od sebe
 //
 // Slika stane u stupce rezervirane za nju (obično samo A): tekst zaglavlja
 // stoji odmah desno, pa se logotip smanji kad je mjesta manje od 2,2 cm.
-func crtezLogotipa(png []byte, stupacA int64) string {
+func sidroLogotipa(png []byte, stupacA int64) string {
 	cy := int64(790000) // EMU, 2,2 cm
 	cx := cy
 	if len(png) >= 24 {
@@ -260,12 +292,17 @@ func crtezLogotipa(png []byte, stupacA int64) string {
 		cy = cy * najvise / cx
 		cx = najvise
 	}
-	return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">` +
-		`<xdr:oneCellAnchor><xdr:from><xdr:col>0</xdr:col><xdr:colOff>60000</xdr:colOff><xdr:row>0</xdr:row><xdr:rowOff>60000</xdr:rowOff></xdr:from>` +
+	return `<xdr:oneCellAnchor><xdr:from><xdr:col>0</xdr:col><xdr:colOff>60000</xdr:colOff><xdr:row>0</xdr:row><xdr:rowOff>60000</xdr:rowOff></xdr:from>` +
 		fmt.Sprintf(`<xdr:ext cx="%d" cy="%d"/>`, cx, cy) +
 		`<xdr:pic><xdr:nvPicPr><xdr:cNvPr id="2" name="Logotip"/><xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr>` +
 		`<xdr:blipFill><a:blip r:embed="rIdL"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill>` +
-		fmt.Sprintf(`<xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="%d" cy="%d"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:oneCellAnchor></xdr:wsDr>`, cx, cy)
+		fmt.Sprintf(`<xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="%d" cy="%d"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:oneCellAnchor>`, cx, cy)
+}
+
+// crtezLista je crtež lista: logotip i grafovi, svaki u svom sidru.
+func crtezLista(sidra string) string {
+	return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">` +
+		sidra + `</xdr:wsDr>`
 }
 
 // sirinaStupcaA je širina stupaca rezerviranih za logotip u EMU: Excelova
@@ -288,8 +325,8 @@ func (l *List) sirinaStupcaA() int64 {
 
 // stilovi, redom kao konstante gore
 const stilovi = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
-	`<numFmts count="1"><numFmt numFmtId="164" formatCode="#,##0.00"/></numFmts>` +
-	`<fonts count="7">` +
+	`<numFmts count="2"><numFmt numFmtId="164" formatCode="#,##0.00"/><numFmt numFmtId="165" formatCode="d.m.yyyy h:mm"/></numFmts>` +
+	`<fonts count="8">` +
 	`<font><sz val="10"/><name val="Arial"/></font>` +
 	`<font><b/><sz val="10"/><name val="Arial"/></font>` +
 	`<font><b/><sz val="14"/><color rgb="FF173E74"/><name val="Arial"/></font>` +
@@ -297,16 +334,20 @@ const stilovi = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSh
 	`<font><b/><sz val="11"/><name val="Arial"/></font>` +
 	`<font><sz val="10"/><color rgb="FF808080"/><name val="Arial"/></font>` +
 	`<font><i/><sz val="10"/><name val="Arial"/></font>` +
+	`<font><b/><sz val="10"/><color rgb="FFFFFFFF"/><name val="Arial"/></font>` +
 	`</fonts>` +
-	`<fills count="5"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>` +
+	`<fills count="8"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>` +
 	`<fill><patternFill patternType="solid"><fgColor rgb="FFDCE6F2"/><bgColor indexed="64"/></patternFill></fill>` +
 	`<fill><patternFill patternType="solid"><fgColor rgb="FFF2F2F2"/><bgColor indexed="64"/></patternFill></fill>` +
-	`<fill><patternFill patternType="solid"><fgColor rgb="FFEAF1FB"/><bgColor indexed="64"/></patternFill></fill></fills>` +
+	`<fill><patternFill patternType="solid"><fgColor rgb="FFEAF1FB"/><bgColor indexed="64"/></patternFill></fill>` +
+	`<fill><patternFill patternType="solid"><fgColor rgb="FFF4C7C3"/><bgColor indexed="64"/></patternFill></fill>` +
+	`<fill><patternFill patternType="solid"><fgColor rgb="FFC9DAF8"/><bgColor indexed="64"/></patternFill></fill>` +
+	`<fill><patternFill patternType="solid"><fgColor rgb="FF173E74"/><bgColor indexed="64"/></patternFill></fill></fills>` +
 	`<borders count="3"><border><left/><right/><top/><bottom/><diagonal/></border>` +
 	`<border><left style="thin"><color rgb="FF999999"/></left><right style="thin"><color rgb="FF999999"/></right><top style="thin"><color rgb="FF999999"/></top><bottom style="thin"><color rgb="FF999999"/></bottom><diagonal/></border>` +
 	`<border><left style="thin"><color rgb="FF999999"/></left><right style="thin"><color rgb="FF999999"/></right><top style="medium"><color rgb="FF333333"/></top><bottom style="thin"><color rgb="FF999999"/></bottom><diagonal/></border></borders>` +
 	`<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>` +
-	`<cellXfs count="24">` +
+	`<cellXfs count="29">` +
 	`<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center"/></xf>` + // 0
 	`<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="center"/></xf>` + // 1
 	`<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>` + // 2
@@ -331,15 +372,39 @@ const stilovi = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSh
 	`<xf numFmtId="0" fontId="6" fillId="4" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>` + // 21
 	`<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>` + // 22
 	`<xf numFmtId="0" fontId="6" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="center" wrapText="1" indent="2"/></xf>` + // 23
+	`<xf numFmtId="165" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>` + // 24
+	`<xf numFmtId="0" fontId="1" fillId="5" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>` + // 25
+	`<xf numFmtId="0" fontId="1" fillId="6" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>` + // 26
+	`<xf numFmtId="0" fontId="7" fillId="7" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>` + // 27
+	`<xf numFmtId="0" fontId="1" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>` + // 28
 	`</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`
 
-func (l *List) xml(logo bool) string {
+func (l *List) xml(crtez bool) string {
 	var b strings.Builder
 	b.WriteString(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">`)
 	if l.Vodoravno || l.Uspravno {
 		b.WriteString(`<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>`)
 	}
-	b.WriteString(`<sheetViews><sheetView workbookViewId="0" showGridLines="0"/></sheetViews>`)
+	if r, c := l.Zamrzni[0], l.Zamrzni[1]; r > 0 || c > 0 {
+		b.WriteString(`<sheetViews><sheetView workbookViewId="0" showGridLines="0">`)
+		pane := `<pane`
+		if c > 0 {
+			pane += fmt.Sprintf(` xSplit="%d"`, c)
+		}
+		if r > 0 {
+			pane += fmt.Sprintf(` ySplit="%d"`, r)
+		}
+		aktivni := "bottomRight"
+		switch {
+		case c == 0:
+			aktivni = "bottomLeft"
+		case r == 0:
+			aktivni = "topRight"
+		}
+		fmt.Fprintf(&b, `%s topLeftCell="%s" activePane="%s" state="frozen"/><selection pane="%s"/></sheetView></sheetViews>`, pane, Adresa(c, r), aktivni, aktivni)
+	} else {
+		b.WriteString(`<sheetViews><sheetView workbookViewId="0" showGridLines="0"/></sheetViews>`)
+	}
 	if len(l.Sirine) > 0 {
 		b.WriteString(`<cols>`)
 		for i, s := range l.Sirine {
@@ -395,7 +460,7 @@ func (l *List) xml(logo bool) string {
 	if l.Podnozje != "" {
 		fmt.Fprintf(&b, `<headerFooter><oddFooter>%s</oddFooter></headerFooter>`, esc(l.Podnozje))
 	}
-	if logo {
+	if crtez {
 		b.WriteString(`<drawing r:id="rIdD"/>`)
 	}
 	b.WriteString(`</worksheet>`)

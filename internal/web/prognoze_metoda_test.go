@@ -95,7 +95,9 @@ func TestStranicaOPrognozi(t *testing.T) {
 	}
 }
 
-// List „O prognozi” u izvozu: opis i tablica postaja, a knjiga se da zapisati.
+// List „O prognozi” u izvozu je sažetak za onoga tko tablicu primi: kako je
+// čitati, metoda ukratko, raspon, ograničenja, izvori s licencom DanubeHIS-a
+// i tablica postaja; građa lanca i povijest promjena ostaju u aplikaciji.
 func TestListMetodeUIzvozu(t *testing.T) {
 	k := &xlsxw.Knjiga{}
 	listMetode(k, ZaglavljeIzvoza{Organizacija: "Org", Centar: "COP Osijek"}, PrognozeMetodaData{
@@ -112,9 +114,15 @@ func TestListMetodeUIzvozu(t *testing.T) {
 		}
 	}
 	tekst := strings.Join(sve, "\n")
-	for _, want := range []string{"O PROGNOZI", "Dnevni model — procjena", "Satni lanac — ulazi", "a\nb"} {
+	for _, want := range []string{"O PROGNOZI", "Kako čitati tablicu", "Ukratko o metodi", "Raspon i vjerojatnost",
+		"Ograničenja", "Izvori podataka", "CC BY-NC-SA 4.0", "List „Grafovi”", "Satni lanac — ulazi", "a\nb"} {
 		if !strings.Contains(tekst, want) {
 			t.Errorf("list nema %q", want)
+		}
+	}
+	for _, nema := range []string{"Dnevni model — procjena", "Što je novo", "Satni lanac — građa"} {
+		if strings.Contains(tekst, nema) {
+			t.Errorf("list ne treba %q: to je za stranicu u aplikaciji", nema)
 		}
 	}
 	var buf bytes.Buffer

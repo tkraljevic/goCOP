@@ -1106,3 +1106,80 @@ func (r *ArhivaRepository) NajviseIzmjereno(ctx context.Context, letva string) (
 	}
 	return v, time.Unix(t, 0).UTC(), true
 }
+
+// GodinaVodostaja su vodostaji letve u jednoj godini: srednjak dnevnih
+// vrijednosti te najniži i najviši vodostaj. Najniži i najviši uzimaju se iz
+// satnih vrijednosti gdje ih ima, a iz dnevnih ondje gdje satnih nema — pa
+// su u starim godinama dnevni, blaži od pravog vrha vala.
+type GodinaVodostaja struct {
+	Godina        int
+	Srednjak      float64
+	Min, Max      float64
+	Dana          int  // dana s dnevnom vrijednosti
+	ImaSatnih     bool // najniži i najviši barem djelom iz satnih vrijednosti
+	ImaVrijednost bool
+	// Preracunata: više od pola dana godine nije izmjereno na letvi nego
+	// preračunato sa susjedne (Batina do 2001. iz Mohácsa). Takva godina nije
+	// mjerenje i ne smije nositi rekord.
+	Preracunata bool
+}
+
+// GodisnjiVodostaji vraća po godinama srednjak, najniži i najviši vodostaj
+// letve iz spojenog niza, od najstarije godine. Godina je po UTC-u.
+func (r *ArhivaRepository) GodisnjiVodostaji(ctx context.Context, letva string) ([]GodinaVodostaja, error) {
+	return r.GodisnjeVrijednosti(ctx, letva, "vodostaj")
+}
+
+// GodisnjeVrijednosti je isto za zadanu veličinu: vodostaj ili protok.
+func (r *ArhivaRepository) GodisnjeVrijednosti(ctx context.Context, letva, velicina string) ([]GodinaVodostaja, error) {
+	if r == nil {
+		return nil, nil
+	}
+	po := map[int]*GodinaVodostaja{}
+	citaj := func(korak string, fn func(g *GodinaVodostaja, sr, mn, mx float64, n, preracunato int)) error {
+		rows, err := r.db.QueryContext(ctx, `SELECT CAST(strftime('%Y', vrijeme, 'unixepoch') AS INTEGER) AS g,
+			avg(vrijednost), min(vrijednost), max(vrijednost), count(*), sum(izvor LIKE 'preracun-%')
+			FROM spoj WHERE letva = ? AND velicina = ? AND korak = ? GROUP BY g`, letva, velicina, korak)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var god, n, preracunato int
+			var sr, mn, mx float64
+			if err := rows.Scan(&god, &sr, &mn, &mx, &n, &preracunato); err != nil {
+				return err
+			}
+			g := po[god]
+			if g == nil {
+				g = &GodinaVodostaja{Godina: god}
+				po[god] = g
+			}
+			fn(g, sr, mn, mx, n, preracunato)
+		}
+		return rows.Err()
+	}
+	if err := citaj("dnevni", func(g *GodinaVodostaja, sr, mn, mx float64, n, preracunato int) {
+		g.Srednjak, g.Min, g.Max, g.Dana, g.ImaVrijednost = sr, mn, mx, n, true
+		g.Preracunata = 2*preracunato > n
+	}); err != nil {
+		return nil, err
+	}
+	if err := citaj("satni", func(g *GodinaVodostaja, _, mn, mx float64, _, _ int) {
+		if !g.ImaVrijednost {
+			g.Min, g.Max = mn, mx
+		}
+		g.Min, g.Max = min(g.Min, mn), max(g.Max, mx)
+		g.ImaSatnih = true
+	}); err != nil {
+		return nil, err
+	}
+	out := make([]GodinaVodostaja, 0, len(po))
+	for _, g := range po {
+		if g.ImaVrijednost {
+			out = append(out, *g)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Godina < out[j].Godina })
+	return out, nil
+}

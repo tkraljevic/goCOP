@@ -487,6 +487,19 @@ func (r *ReadingRepository) ListForGauges(ctx context.Context, stationIDs, struc
 	return out, rows.Err()
 }
 
+// PrvoOcitanje vraća vrijeme najstarijeg očitanja vodostaja letve u evidenciji.
+func (r *ReadingRepository) PrvoOcitanje(ctx context.Context, stationID string) (time.Time, bool) {
+	if r == nil || stationID == "" {
+		return time.Time{}, false
+	}
+	var kad time.Time
+	if err := r.db.QueryRowContext(ctx, `SELECT measured_at FROM readings
+		WHERE station_id = ? AND level_cm IS NOT NULL ORDER BY measured_at ASC LIMIT 1`, stationID).Scan(&kad); err != nil {
+		return time.Time{}, false
+	}
+	return kad, true
+}
+
 // Krajnosti vraća najviše i najniže operativno očitanje ove letve. Arhiva seže
 // dalje unatrag, ali tekuću godinu drži operativa — a upravo se u njoj događa
 // val zbog kojeg netko i gleda ekstreme.

@@ -52,6 +52,14 @@ func hasAnyWriteRight(perms *models.UserPermissions) bool {
 }
 
 // CanRecordStation javlja smije li korisnik upisati očitanje na postaju
+// PrvoOcitanje vraća vrijeme najstarijeg očitanja vodostaja letve.
+func (s *ReadingService) PrvoOcitanje(ctx context.Context, stationID string) (time.Time, bool) {
+	if s == nil || s.repo == nil {
+		return time.Time{}, false
+	}
+	return s.repo.PrvoOcitanje(ctx, stationID)
+}
+
 // Krajnosti vraća najviše i najniže operativno očitanje letve.
 func (s *ReadingService) Krajnosti(ctx context.Context, stationID string) []models.KrajnostIzNiza {
 	if s == nil || s.repo == nil {

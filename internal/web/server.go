@@ -885,6 +885,7 @@ func (s *Server) setupRoutes() {
 	prognozeH.SetReadings(s.readingService)
 	prognozeH.SetWatercourses(s.watercourseService)
 	prognozeH.SetArhiva(s.Arhiva)
+	readingsH.SetKrajnosti(prognozeH.KrajnostiLetve)
 	prognozeH.SetJavniUvoz(func() *javnivodostaji.Uvoznik { return s.javni })
 	prognozeH.SetPodaciDir(func() string {
 		if s.dbPath == "" {

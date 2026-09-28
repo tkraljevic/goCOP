@@ -2,8 +2,10 @@ package web
 
 import (
 	"fmt"
+	"gocop/internal/hydro"
 	"math"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -30,20 +32,30 @@ func (h *PrognozeHandler) IzvoziPrognoze(w http.ResponseWriter, r *http.Request)
 	for _, t := range data.Tablice {
 		listPrognoze(k, z, data, t)
 	}
+	grafovi := h.nizoviGrafova(r.Context(), data)
+	listGrafova(k, z, data, grafovi)
+	kodovi := make([]string, len(grafovi))
+	for i, g := range grafovi {
+		kodovi[i] = g.kod
+	}
+	listoviGodisnjih(k, z, data, grafovi, h.godisnje(r.Context(), kodovi), godisnjiVodostajiVrsta)
+	listoviGodisnjih(k, z, data, grafovi, h.godisnjeVelicine(r.Context(), "protok", kodovi), godisnjiProtociVrsta)
 	listMetode(k, z, h.metoda(r))
+	// Skriveni list s podacima grafova ide na kraj knjige.
+	sort.SliceStable(k.Listovi, func(i, j int) bool { return !k.Listovi[i].Skriven && k.Listovi[j].Skriven })
 	posaljiXLSX(w, "prognoza_"+time.Now().In(models.Zagreb).Format("2006-01-02_15h")+".xlsx", k)
 }
 
 // listPrognoze piše jednu vodu.
 func listPrognoze(k *xlsxw.Knjiga, z ZaglavljeIzvoza, data PrognozePageData, t TablicaPrognoza) {
 	T, N := xlsxw.T, xlsxw.N
-	// U izvoz ulaze samo letve s našom prognozom. Letve samo s mjerenjem
-	// (Bratislava, Komárno), samo s tuđom prognozom (Komárom, Letenye,
-	// srpske nasuprot našima) ostaju na stranici, ali u tablicu koja se
-	// izdaje ne idu.
+	// U izvoz ulaze letve s našom prognozom i srpske letve, sa svojim
+	// mjerenjem i prognozom srpske službe, jer su na istom Dunavu nasuprot
+	// našima. Ostale letve samo s mjerenjem (Bratislava, Komárno) ili samo s
+	// tuđom prognozom (Komárom, Letenye) ostaju na stranici.
 	var letve []LetvaPrognoze
 	for _, x := range t.Letve {
-		if x.Racuna != "" {
+		if _, drzava := imeIDrzava(x.Naziv); x.Racuna != "" || drzava == "RS" {
 			letve = append(letve, x)
 		}
 	}
@@ -55,14 +67,14 @@ func listPrognoze(k *xlsxw.Knjiga, z ZaglavljeIzvoza, data PrognozePageData, t T
 	l.Vodoravno = true
 	l.Sirine = []float64{14, 8}
 	for _, x := range letve {
-		ime, _ := imeIDrzava(x.Naziv)
-		l.Sirine = append(l.Sirine, max(10, float64(len([]rune(ime)))+2,
-			float64(len([]rune(drugiRedak(x, t.Naslov))))+2))
+		l.Sirine = append(l.Sirine, sirinaLetve(x, t.Naslov))
 	}
 	zaglavljeLista(l, z, "PROGNOZA VODOSTAJA — "+t.Naslov,
 		"izdano "+data.Izdano+" · dani za 07 h · vodostaj u cm, protok u m³/s", stupaca)
 
-	// Zaglavlje: naziv letve, pa voda i kilometar.
+	// Zaglavlje u tri retka: naziv letve (dulji se prelomi u dva retka),
+	// država kraticom — ili voda, gdje nije ista kao naslov lista — i
+	// kilometar. Država u svom retku drži stupce uskima.
 	r := l.Redak()
 	red := []xlsxw.Celija{T("Termin", xlsxw.Zaglavlje), T("", xlsxw.Zaglavlje)}
 	for _, x := range letve {
@@ -70,16 +82,27 @@ func listPrognoze(k *xlsxw.Knjiga, z ZaglavljeIzvoza, data PrognozePageData, t T
 		red = append(red, T(ime, xlsxw.Zaglavlje))
 	}
 	l.Dodaj(red...)
-	l.Visina(r, 24)
-	// Drugi redak: država kraticom (naše letve bez nje), voda gdje nije ista
-	// kao naslov lista, i riječni kilometar.
-	red = []xlsxw.Celija{T("", xlsxw.Tablica), T("rkm", xlsxw.TablicaSredina)}
+	l.Visina(r, 30)
+	red = []xlsxw.Celija{T("", xlsxw.Tablica), T("država", xlsxw.TablicaSredina)}
 	for _, x := range letve {
-		red = append(red, T(drugiRedak(x, t.Naslov), xlsxw.TablicaSredina))
+		red = append(red, T(drzavaLetve(x), xlsxw.TablicaSredina))
 	}
 	l.Dodaj(red...)
-	l.Visina(l.Redak()-1, 18)
-	l.PonoviRetke(r, r+1)
+	// Voda u svom retku samo gdje nije ista kao naslov lista: dunavci
+	// inundacije i pritoke; na Dunavu i Dravi s Murom redak ne treba.
+	if imaVode(letve, t.Naslov) {
+		red = []xlsxw.Celija{T("", xlsxw.Tablica), T("voda", xlsxw.TablicaSredina)}
+		for _, x := range letve {
+			red = append(red, T(vodaLetve(x, t.Naslov), xlsxw.TablicaSredina))
+		}
+		l.Dodaj(red...)
+	}
+	red = []xlsxw.Celija{T("", xlsxw.Tablica), T("km", xlsxw.TablicaSredina)}
+	for _, x := range letve {
+		red = append(red, T(kmIzvoza(x), xlsxw.TablicaSredina))
+	}
+	l.Dodaj(red...)
+	l.PonoviRetke(r, l.Redak()-1)
 
 	broj := func(v *float64, stil int) xlsxw.Celija {
 		if v == nil {
@@ -312,6 +335,7 @@ func tekstBroja(n int) string { return brojHRf(float64(n), 0) }
 // drzave su kratice za zagradu u nazivu strane letve.
 var drzave = map[string]string{
 	"Mađarska": "HU", "Srbija": "RS", "Slovačka": "SK", "Slovenija": "SI", "Austrija": "AT",
+	"Bosna i Hercegovina": "BA",
 }
 
 // imeIDrzava rastavlja „Komárom (Mađarska)" na ime i kraticu države; naša
@@ -321,29 +345,72 @@ func imeIDrzava(naziv string) (string, string) {
 	if i < 0 || !strings.HasSuffix(naziv, ")") {
 		return naziv, ""
 	}
-	drzava := naziv[i+2 : len(naziv)-1]
-	if k, ima := drzave[drzava]; ima {
-		drzava = k
+	// Zagrada koja nije država ostaje dio imena: „Ustava Zmajevac (nizvodno)".
+	k, ima := drzave[naziv[i+2:len(naziv)-1]]
+	if !ima {
+		return naziv, ""
 	}
-	return naziv[:i], drzava
+	return naziv[:i], k
 }
 
-// drugiRedak je ono što pod imenom letve stoji u zaglavlju: država kraticom
-// (naše letve bez nje), voda ondje gdje nije ista kao naslov lista, i riječni
-// kilometar bez „rkm", koji stoji jednom, u oznaci retka.
-func drugiRedak(x LetvaPrognoze, naslovLista string) string {
-	_, drzava := imeIDrzava(x.Naziv)
-	var d []string
-	if drzava != "" {
-		d = append(d, drzava)
+// drzavaLetve je država kraticom; naša letva je RH.
+func drzavaLetve(x LetvaPrognoze) string {
+	if _, drzava := imeIDrzava(x.Naziv); drzava != "" {
+		return drzava
 	}
+	return "RH"
+}
+
+// vodaLetve je voda letve kad nije ista kao naslov lista (Bednja na listu
+// pritoka, Zmajevački Dunavac u inundaciji).
+func vodaLetve(x LetvaPrognoze, naslovLista string) string {
 	if x.Voda != "" && !strings.Contains(naslovLista, x.Voda) {
-		d = append(d, x.Voda)
+		return x.Voda
 	}
-	if km := strings.TrimSpace(strings.TrimPrefix(x.Stacionaza, "rkm")); km != "" {
-		d = append(d, km)
+	return ""
+}
+
+// imaVode kaže treba li listu redak vode.
+func imaVode(letve []LetvaPrognoze, naslovLista string) bool {
+	for _, x := range letve {
+		if vodaLetve(x, naslovLista) != "" {
+			return true
+		}
 	}
-	return strings.Join(d, " · ")
+	return false
+}
+
+// kmIzvoza je kilometar letve u jednom obliku za sve: „1424+850" i
+// „rkm 1.380,30" oba postaju „1.424,9" i „1.380,3". Stacionaža koja nije
+// riječni kilometar (nkm na dunavcu) ostaje kako je upisana.
+func kmIzvoza(x LetvaPrognoze) string {
+	s := strings.TrimSpace(x.Stacionaza)
+	if strings.HasPrefix(s, "rkm") {
+		if km, ok := hydro.ParseStationingKm(s); ok {
+			return brojHRf(km, 1)
+		}
+	}
+	return strings.TrimSpace(strings.TrimPrefix(s, "rkm"))
+}
+
+// sirinaLetve je širina stupca letve u znakovima: dovoljna za najdulju riječ
+// imena (dulje ime prelomi se u dva retka), za državu, kilometar i sve što
+// u stupcu piše — raspon „-379 do -339" zna biti najdulji.
+func sirinaLetve(x LetvaPrognoze, naslovLista string) float64 {
+	duljina := func(s string) float64 { return float64(len([]rune(s))) }
+	ime, _ := imeIDrzava(x.Naziv)
+	w := 5.0 // „1.234"
+	for _, rijec := range strings.Fields(ime) {
+		w = max(w, duljina(rijec)*1.15) // zaglavlje je podebljano
+	}
+	w = max(w, duljina(vodaLetve(x, naslovLista)), duljina(kmIzvoza(x)))
+	for _, v := range x.Vrijednosti {
+		w = max(w, duljina(v.CmRaspon))
+	}
+	for _, d := range x.Dani {
+		w = max(w, duljina(d.Raspon))
+	}
+	return max(7, w+2)
 }
 
 // listMetode piše list „O prognozi”: isti opis metode kao na stranici, i
@@ -373,7 +440,26 @@ func listMetode(k *xlsxw.Knjiga, z ZaglavljeIzvoza, m PrognozeMetodaData) {
 		l.Spoji(0, r, stupaca-1, r)
 		l.Visina(r, visina)
 	}
+	tekst := func(t string) { preko(T(t, xlsxw.Tekst), visinaTeksta(t, int(sirina*1.35), 15, 0)) }
+	// Uz izdanu tablicu ide sažetak: kako je čitati, metoda ukratko, raspon,
+	// točnost, ograničenja i izvori. Potpun opis (građa lanca, dnevni model,
+	// provjere, promjene) ostaje na stranici „O prognozi" u aplikaciji.
+	preko(T("Kako čitati tablicu", xlsxw.Podnaslov), 22)
+	tekst("Svaki list je jedna voda, letve od uzvodne prema nizvodnoj. U zaglavlju stoje država (RH, HU, RS), " +
+		"voda gdje nije ista kao naslov lista i riječni kilometar.")
+	tekst(fmt.Sprintf("Redak „Sada” je zadnje mjerenje; +6 h i +12 h računaju se od izdanja, a dani vrijede za 07 h. "+
+		"Vodostaj je u cm na nuli letve, protok (kurzivom) u m³/s iz krivulje protoka. Raspon uz vrijednost obuhvaća "+
+		"%d %% slučajeva. Redak „model” kaže je li dan dao satni lanac ili dnevni model. HU i RS su prognoze mađarske "+
+		"i srpske službe za isti termin, radi usporedbe; srpske letve nose samo svoje mjerenje i srpsku prognozu.", int(math.Round(prognoza.UdioURasponu*100))))
+	tekst("List „Grafovi”: zadnja tri dana izmjereno i šest dana prognoze s rasponom. P, R i I su pragovi pripremne, " +
+		"redovne i izvanredne obrane, IS izvanredno stanje, MAX najviši izmjereni vodostaj; u naslovu grafa stoje " +
+		"uvijek, a crtaju se kad su blizu vode. List „Godišnji vodostaji”: srednji, najniži i najviši vodostaj po " +
+		"godinama iz arhive, s označenim rekordima.")
+	odjeljci := map[string]bool{"Ukratko o metodi": true, "Raspon i vjerojatnost": true, "Ograničenja": true}
 	for _, o := range m.Odjeljci {
+		if !odjeljci[o.Naslov] {
+			continue
+		}
 		preko(T(o.Naslov, xlsxw.Podnaslov), 22)
 		for _, od := range o.Odlomci {
 			switch {
@@ -417,7 +503,9 @@ func listMetode(k *xlsxw.Knjiga, z ZaglavljeIzvoza, m PrognozeMetodaData) {
 		preko(T("Provjera na poplavnim valovima", xlsxw.Podnaslov), 22)
 		uvod := fmt.Sprintf("%d valova iz arhive, svaki provjeren modelom koji ga nije vidio. Pogreška najavljenog vrha "+
 			"(srednja apsolutna, cm) i pristranost (negativno = prognoza preniska); postojanost = pretpostavka da se "+
-			"ništa ne mijenja. U provjeri vrh lanca ne slijedi mađarsku prognozu i nema ispravka pomaka.", v.Valova)
+			"ništa ne mijenja. U provjeri vrh lanca ne slijedi mađarsku prognozu i nema ispravka pomaka. Dunavske valove "+
+			"do 2013. model precjenjuje desetak centimetara jer uči na koritu kakvo je od 2014.: Baja je 2002.–2004. "+
+			"prema Paksu stajala 20–30 cm niže nego danas.", v.Valova)
 		preko(T(uvod, xlsxw.Tekst), visinaTeksta(uvod, int(sirina*1.35), 15, 0))
 		r := l.Redak()
 		l.Dodaj(T("Rijeka · model", xlsxw.Zaglavlje), T("Valova", xlsxw.Zaglavlje), T("Doseg", xlsxw.Zaglavlje),
@@ -437,11 +525,15 @@ func listMetode(k *xlsxw.Knjiga, z ZaglavljeIzvoza, m PrognozeMetodaData) {
 		l.Dodaj()
 	}
 
+	preko(T("Izvori podataka", xlsxw.Podnaslov), 22)
+	tekst("Mjerenja s mjernih sustava Hrvatskih voda i sa stranica hidroloških službi susjednih država: " +
+		"ARSO (Slovenija), vizugy.hu i hydroinfo.hu (Mađarska), hidmet.gov.rs (Srbija), SHMÚ (Slovačka), eHYD, " +
+		"viadonau i noel.gv.at (Austrija), GKD i Pegelonline (Njemačka). Povijest stranih postaja dopunjena je iz " +
+		"ICPDR-ova sustava DanubeHIS (licenca CC BY-NC-SA 4.0: izvedeni podaci samo za nekomercijalnu uporabu, uz " +
+		"navođenje izvora). Kiša: Open-Meteo (CC BY 4.0), povijest iz reanalize ERA5.")
+	tekst("Potpun opis metode, provjere i promjena modela: goCOP, Prognoze → O prognozi.")
 	if m.Suradnja != "" {
-		preko(T("Suradnja i podaci", xlsxw.Podnaslov), 22)
-		tekst := m.Suradnja + " Za ponavljanje računa izvan aplikacije na stranici „O prognozi” u goCOP-u stoje " +
-			"sirovi parovi prognoza–mjerenje: izdane prognoze iz žive baze i datoteke provjere unatrag (CSV)."
-		preko(T(tekst, xlsxw.Tekst), visinaTeksta(tekst, int(sirina*1.35), 15, 0))
+		tekst(m.Suradnja)
 	}
 
 	preko(T("Postaje", xlsxw.Podnaslov), 22)

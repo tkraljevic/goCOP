@@ -1536,6 +1536,18 @@ a:hover { color: var(--accent); }
   color: white;
 }
 
+/* Najniži izmjereni vodostaj: tamnoplavo ispunjeno, zrcalo tamnocrvenog
+   MAX-a; svijetloplava je već pripremna obrana (P). */
+.threshold-pill.min {
+  background: #1e3a8a;
+  color: white;
+}
+
+/* Pragovi na kartici prognoze: isti znakovi kao na stranici letve, sitniji,
+   ispod naziva, da uz vrijednosti odmah stoji koliko je do obrane. */
+.prog-pragovi { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.4rem; }
+.prog-pragovi .threshold-pill { font-size: 0.7rem; padding: 0.05rem 0.35rem; white-space: nowrap; }
+
 /* Protok uz vodostaj istoga praga: ista boja veže dvije mjere istoga stupnja,
    a obris umjesto ispune kaže da je to druga veličina, ne drugi prag. */
 .threshold-pill.protok {

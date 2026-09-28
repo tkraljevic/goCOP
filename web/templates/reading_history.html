@@ -50,7 +50,9 @@
       <span class="threshold-pill regular">R {{.Station.Regular.Label}}</span>
       <span class="threshold-pill emerg">I {{.Station.Emergency.Label}}</span>
       <span class="threshold-pill crit">IS {{.Station.State.Label}}</span>
-      {{if .Station.Record.Label}}<span class="threshold-pill record" title="najviši zabilježeni vodostaj">MAX {{.Station.Record.Label}}</span>{{end}}
+      {{if .Station.Record.Cm}}<span class="threshold-pill record" title="najviši zabilježeni vodostaj">MAX {{.Station.Record.Label}}</span>
+      {{else}}{{with .Najvisa}}<span class="threshold-pill record" title="{{.Naslov}}">MAX {{.Label}}</span>{{end}}{{end}}
+      {{with .Najniza}}<span class="threshold-pill min" title="{{.Naslov}}">MIN {{.Label}}</span>{{end}}
     </div>
     {{end}}
   </div>

@@ -266,3 +266,19 @@ func TestPovijestPokazujeNapomenuOOdstupanju(t *testing.T) {
 		t.Error("predložak i dalje sam zaključuje o preračunu niza")
 	}
 }
+
+// Uz pragove i MAX stranica očitanja nosi najniži izmjereni vodostaj iz
+// arhive, u svojoj boji (ne svijetloplavoj pripremne obrane).
+func TestOcitanjaNoseMin(t *testing.T) {
+	st := &models.Station{ID: uuid.New(), Name: "Batina", Code: "batina"}
+	html := iscrtaj(t, "reading_history.html", ReadingHistoryData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{},
+		Station:     st, GaugeName: "Batina",
+		Najniza: &Krajnost{Cm: -160, Godina: 2026},
+		Latest:  &models.Reading{StationID: st.ID.String(), MeasuredAt: time.Now()},
+	})
+	if !strings.Contains(html, `class="threshold-pill min" title="najniži izmjereni vodostaj (2026.), iz arhive">MIN -160 cm`) {
+		t.Error("stranica očitanja nema pločicu MIN")
+	}
+}

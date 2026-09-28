@@ -39,6 +39,7 @@ type ReadingsHandler struct {
 	followRepo       *repository.FollowRepository
 	onFollowChange   func()
 	arhiva           func() *repository.ArhivaRepository
+	krajnosti        func(context.Context, string) (min, max *Krajnost)
 	ispravci         func() *repository.IspravakRepository
 	tmplIspravci     *template.Template
 	tmplUvoz         *template.Template
@@ -122,8 +123,6 @@ func (h *ReadingsHandler) isp() *repository.IspravakRepository {
 	return h.ispravci()
 }
 
-// SetArhiva daje rukovatelju hidrološku arhivu. Dohvatnik, a ne vrijednost:
-// poslužitelj se sastavlja prije nego što se arhiva otvori.
 // SetSektorZaLetvu daje rukovatelju centar iz kojeg dokument izlazi. Gotov
 // dohvatnik, a ne servisi: razrješavanje dionice u sektor ostaje ondje gdje su
 // ti servisi ionako sastavljeni.
@@ -139,6 +138,27 @@ func (h *ReadingsHandler) sektorZaLetvu(ctx context.Context, st *models.Station)
 	return h.sektorZaLetvuFn(ctx, st)
 }
 
+// SetKrajnosti daje stranici očitanja najniži i najviši izmjereni vodostaj
+// letve (iz dnevne predmemorije prognoza, da se arhiva ne čita pri svakom
+// otvaranju).
+func (h *ReadingsHandler) SetKrajnosti(f func(context.Context, string) (min, max *Krajnost)) {
+	h.krajnosti = f
+}
+
+// krajnostiOcitanja su najniži i najviši vodostaj letve za pločice: iz
+// arhive, ali očitanje iz evidencije koje ga nadmaši ima prednost — novi
+// rekord se vidi odmah, a ne tek kad stigne u arhivu. Letva bez arhive
+// (srpske, mađarske, manje letve BP16) dobiva krajnosti iz evidencije, uz
+// datum od kojeg evidencija ide.
+func (h *ReadingsHandler) krajnostiOcitanja(ctx context.Context, st *models.Station) (min, max *Krajnost) {
+	if h.krajnosti != nil {
+		min, max = h.krajnosti(ctx, st.Code)
+	}
+	return uzEvidenciju(ctx, h.readingService, *st, min, max)
+}
+
+// SetArhiva daje rukovatelju hidrološku arhivu. Dohvatnik, a ne vrijednost:
+// poslužitelj se sastavlja prije nego što se arhiva otvori.
 func (h *ReadingsHandler) SetArhiva(f func() *repository.ArhivaRepository) {
 	h.arhiva = f
 }
@@ -197,6 +217,8 @@ type ReadingHistoryData struct {
 	Readings    []models.Reading
 	Svi         []models.Reading // cijelo odabrano razdoblje, prije listanja — za izvješće
 	Latest      *models.Reading
+	Najniza     *Krajnost // najniži izmjereni vodostaj, uz pragove
+	Najvisa     *Krajnost // najviši izmjereni, kad ga registar nema
 	Count       int
 	Years       []int
 	Year        int
@@ -483,6 +505,11 @@ func (h *ReadingsHandler) ShowHistory(w http.ResponseWriter, r *http.Request) {
 	}
 	if station != nil {
 		data.LetvaStranica = "ocitanja"
+		// Razina akumulacije je kota nad morem, a elektrana istjecanje: najniži
+		// vodostaj letve im ne pripada.
+		if !jeAkumulacija(*station) && !strings.HasPrefix(station.Code, "he-") {
+			data.Najniza, data.Najvisa = h.krajnostiOcitanja(r.Context(), station)
+		}
 	}
 	if err := h.tmplHistory.ExecuteTemplate(w, "reading_history.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

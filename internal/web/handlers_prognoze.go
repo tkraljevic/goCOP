@@ -45,6 +45,7 @@ type PrognozeHandler struct {
 	arhiva     func() *repository.ArhivaRepository // uobičajena voda letvi na profilu
 	uobicajena uobicajenaVoda
 	mjesecna   mjesecnaVoda
+	godisnji   godisnjiVodostaji // list „Godišnje” u izvozu
 
 	javni func() *javnivodostaji.Uvoznik // krug preuzimanja, za gumb „Generiraj”
 
@@ -120,6 +121,42 @@ type LetvaPrognoze struct {
 	Dani            []CelijaDana
 	Nepovezana      string // poruka kad letva nije povezana sa živom vodom, pa prognoze nema
 	Rezerva         string // poruka kad se letva računa iz rezervnih ulaza
+	Pragovi         []PragKartice
+}
+
+// PragKartice je pločica praga na kartici prognoze, ista kao na stranici
+// letve: da se uz prognozu odmah vidi koliko je voda od kojeg stupnja obrane.
+type PragKartice struct {
+	Oznaka, Klasa, Vrijednost, Naslov string
+}
+
+// pragoviKartice su pragovi letve iz registra, redom P, R, I, IS i MAX, pa
+// najniži izmjereni vodostaj iz arhive (MIN). MAX je iz registra, gdje je
+// dokumentiran; letva bez njega (Kotoriba) dobiva najviši izmjereni iz
+// arhive. Prag koji letva nema ne dobiva pločicu.
+func pragoviKartice(st models.Station, min, max *Krajnost) []PragKartice {
+	var out []PragKartice
+	for _, p := range []struct {
+		oznaka, klasa, naslov string
+		prag                  models.Threshold
+	}{
+		{"P", "prep", "pripremna obrana", st.Prep},
+		{"R", "regular", "redovna obrana", st.Regular},
+		{"I", "emerg", "izvanredna obrana", st.Emergency},
+		{"IS", "crit", "izvanredno stanje", st.State},
+		{"MAX", "record", "najviši zabilježeni vodostaj", st.Record},
+	} {
+		if p.prag.IsUsable() {
+			out = append(out, PragKartice{p.oznaka, p.klasa, p.prag.Label(), p.naslov})
+		}
+	}
+	if !st.Record.IsUsable() && max != nil {
+		out = append(out, PragKartice{"MAX", "record", max.Label(), max.Naslov()})
+	}
+	if min != nil {
+		out = append(out, PragKartice{"MIN", "min", min.Label(), min.Naslov()})
+	}
+	return out
 }
 
 // TudaCelija je tuđa prognoza u ćeliji dana: mađarska, srpska ili austrijska.
@@ -177,6 +214,12 @@ type PrognozePageData struct {
 	ImaTudih bool
 	Tablice  []TablicaPrognoza
 	Izdaje   string // centar koji prognozu izdaje, npr. COP Osijek
+
+	// Za izvoz: satni nizovi izdanja i registar letvi, iz kojih se crtaju
+	// grafovi. Stranica ih ne prikazuje.
+	pregled  []PregledLetve
+	dnevne   map[string][]prognoza.DnevnaIzdana
+	postajeM map[string]models.Station
 
 	MozeGenerirati bool   // ima krug preuzimanja, pa gumb „Generiraj” ima što pokrenuti
 	MozePripremiti bool   // globalni administrator na čvoru s arhivom: gumb „Pripremi model”
@@ -297,6 +340,7 @@ func (h *PrognozeHandler) podaci(r *http.Request) PrognozePageData {
 	}
 	data.Tablice = poVodama(data.Letve, postaje)
 	data.Izdaje = h.centar(u)
+	data.pregled, data.dnevne, data.postajeM = letve, dnevne, postaje
 	naProfilu := letveProfila(postaje, letve)
 	jutro := h.jutarnje(r.Context(), postaje, naProfilu, time.Now())
 	data.Profili = uzduzniProfili(postaje, letve, dnevne, izdano,
@@ -380,6 +424,15 @@ func (h *PrognozeHandler) postaje(ctx context.Context) map[string]models.Station
 
 func (h *PrognozeHandler) opisiLetve(popis map[string]models.Station, letve []PregledLetve) []LetvaPrognoze {
 	out := make([]LetvaPrognoze, 0, len(letve))
+	kodovi := make([]string, 0, len(letve))
+	for _, l := range letve {
+		// Kartica elektrane (HE Varaždin, HE Dubrava) nosi istjecanje, a
+		// razina akumulacije kotu nad morem: vodostaj letve im ne pripada.
+		if st, ima := popis[l.Letva]; ima && !jeAkumulacija(st) && !strings.HasPrefix(l.Letva, "he-") {
+			kodovi = append(kodovi, l.Letva)
+		}
+	}
+	krajnosti := h.krajnosti(kodovi)
 	for _, l := range letve {
 		ulaz := l.Racuna == "" && !l.UlazLanca && jeDnevniUlaz(l.Letva)
 		pregledna := l.Racuna == "" && !l.UlazLanca && !ulaz && jePregledna(l.Letva)
@@ -415,6 +468,14 @@ func (h *PrognozeHandler) opisiLetve(popis map[string]models.Station, letve []Pr
 		if st, ima := popis[l.Letva]; ima {
 			red.Naziv, red.Voda, red.Stacionaza = st.Name, st.Watercourse, st.Stationing
 			red.URL = "/readings/station/" + st.ID.String()
+			if !jeAkumulacija(st) { // razina akumulacije je kota nad morem, pragovi letve joj ne pripadaju
+				var mn, mx *Krajnost
+				if !strings.HasPrefix(l.Letva, "he-") {
+					k := krajnosti[l.Letva]
+					mn, mx = uzEvidenciju(context.Background(), h.readings, st, k[0], k[1])
+				}
+				red.Pragovi = pragoviKartice(st, mn, mx)
+			}
 		}
 		for _, d := range BliziDosezi {
 			cm, imaCm := l.Po["vodostaj"][d]
@@ -1295,6 +1356,12 @@ func poVodama(letve []LetvaPrognoze, postaje map[string]models.Station) []Tablic
 			}
 			redovi = umetni(redovi, mjesto, x)
 		}
+		if g == 0 {
+			redovi = poToku(redovi, "Dunav", rkm)
+		}
+		if g == 2 {
+			redovi = poToku(redovi, "Drava", rkm)
+		}
 		if g == 1 {
 			// Inundacija: redom dunavaca kako voda teče, ne po kilometru kojeg nema.
 			sort.SliceStable(redovi, func(i, j int) bool { return redInundacije(redovi[i].Kod) < redInundacije(redovi[j].Kod) })
@@ -1307,6 +1374,92 @@ func poVodama(letve []LetvaPrognoze, postaje map[string]models.Station) []Tablic
 			out = append(out, TablicaPrognoza{Naslov: naslovi[g], Letve: redovi})
 		}
 	}
+	return out
+}
+
+// poToku slaže letve od uzvodne prema nizvodnoj. Glavna rijeka ide po
+// kilometru; letve pritoke (Mura) po svom kilometru, neposredno ispred prve
+// letve glavne rijeke koju pritoka kroz lanac hrani (Goričan → Botovo), jer
+// tamo njezina voda ulazi. Redom lanca Mura bi stajala ispred Varaždina, a
+// Varaždin na kraju. Letva bez kilometra ide na početak, pritoka koja nikoga
+// na glavnoj rijeci ne hrani na kraj.
+func poToku(redovi []LetvaPrognoze, glavna string, rkm func(LetvaPrognoze) (float64, bool)) []LetvaPrognoze {
+	po := map[string]LetvaPrognoze{}
+	hrani := map[string][]string{} // ulaz → letve koje iz njega računaju
+	for _, r := range redovi {
+		po[r.Kod] = r
+		for _, u := range r.Ulazi {
+			hrani[u] = append(hrani[u], r.Kod)
+		}
+	}
+	// naGlavnoj je kilometar najuzvodnije letve glavne rijeke do koje voda
+	// letve stiže kroz lanac.
+	var naGlavnoj func(kod string, vidjeno map[string]bool) (float64, bool)
+	naGlavnoj = func(kod string, vidjeno map[string]bool) (float64, bool) {
+		if vidjeno[kod] {
+			return 0, false
+		}
+		vidjeno[kod] = true
+		najvisi, ima := math.Inf(-1), false
+		for _, n := range hrani[kod] {
+			x, u := po[n]
+			if !u {
+				continue
+			}
+			km, ok := naGlavnoj(n, vidjeno)
+			if x.Voda == glavna {
+				km, ok = rkm(x)
+			}
+			if ok && km > najvisi {
+				najvisi, ima = km, true
+			}
+		}
+		return najvisi, ima
+	}
+	// Ušće pritoke nađe bilo koja njezina letva koja kroz lanac hrani glavnu
+	// rijeku; ostale letve iste pritoke (Mursko Središće samo na pregledu)
+	// stanu uz nju.
+	usca := map[string]float64{}
+	for _, r := range redovi {
+		if r.Voda == glavna {
+			continue
+		}
+		if km, ima := naGlavnoj(r.Kod, map[string]bool{}); ima {
+			if prije, bilo := usca[r.Voda]; !bilo || km > prije {
+				usca[r.Voda] = km
+			}
+		}
+	}
+	type kljuc struct{ glavni, vlastiti float64 }
+	kljucevi := map[string]kljuc{}
+	for _, r := range redovi {
+		km, ok := rkm(r)
+		switch {
+		case !ok:
+			kljucevi[r.Kod] = kljuc{math.Inf(1), 0}
+		case r.Voda == glavna:
+			// Ulaz nikad ne stoji iza letve koju hrani: HE Dubrava je u
+			// registru na 225,05 km, a ulaz je Botovu na 226,83.
+			if hrani, ima := naGlavnoj(r.Kod, map[string]bool{}); ima && hrani >= km {
+				km = hrani + 2e-6
+			}
+			kljucevi[r.Kod] = kljuc{km, 0}
+		default:
+			usce, ima := usca[r.Voda]
+			if !ima {
+				usce = math.Inf(-1)
+			}
+			kljucevi[r.Kod] = kljuc{usce + 1e-6, km} // tik iznad letve u koju ulazi
+		}
+	}
+	out := append([]LetvaPrognoze(nil), redovi...)
+	sort.SliceStable(out, func(i, j int) bool {
+		a, b := kljucevi[out[i].Kod], kljucevi[out[j].Kod]
+		if a.glavni != b.glavni {
+			return a.glavni > b.glavni
+		}
+		return a.vlastiti > b.vlastiti
+	})
 	return out
 }
 

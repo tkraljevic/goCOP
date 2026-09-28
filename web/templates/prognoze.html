@@ -109,6 +109,7 @@
           {{else if .Pregledna}}· mjerenje, u model ne ulazi
           {{else}}· vrh lanca, uzvodno nemamo ništa{{end}}
         </div>
+        {{if .Pragovi}}<div class="prog-pragovi">{{range .Pragovi}}<span class="threshold-pill {{.Klasa}}" title="{{.Naslov}}">{{.Oznaka}} {{.Vrijednost}}</span>{{end}}</div>{{end}}
       </div>
       <div class="prog-sad">
         {{if .SadaCm}}<div><span class="prog-sad-cm">{{.SadaCm}}</span> <span class="prog-jed">{{if .SadaJed}}{{.SadaJed}}{{else}}cm{{end}}</span></div>{{end}}
