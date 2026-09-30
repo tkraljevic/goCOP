@@ -659,6 +659,11 @@ func main() {
 	} else {
 		osvjezivac := &prognoza.Osvjezivac{Baza: pb, Ocitanja: ocitanjaRO,
 			Arhiva: arhivaRO, Najdalje: 96, Model: prognoza.ModelLanac}
+		// Pričuvni Excel: veze naših letvi s mađarskim i srpskim iz arhive, uz
+		// predupis zadnjih tuđih prognoza — za dan kad naša prognoza ne radi.
+		server.SetPricuvno(func(ctx context.Context) prognoza.PricuvniPodaci {
+			return prognoza.PricuvniIzracun(ctx, arhivaRO, ocitanjaRO, pb, time.Now(), models.Zagreb)
+		})
 		// Oborina za dnevni model: kišomjeri iz registra slivova, živi sati s
 		// Open-Meteo u zasebnoj bazi uz bazu prognoza. Bez nje dnevni model
 		// radi kao i prije, bez oborine.

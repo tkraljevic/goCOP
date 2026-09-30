@@ -1199,6 +1199,10 @@ var zadaniIzvori = []Izvor{
 	// amaterska mreža pljusak.com, skupljeno čitanjem svaki krug: sat je
 	// kiša u zadnjem satu pred javljanjem, dan zbroj od ponoći do ponoći
 	{"kisomjer-pljusak", 5, 20, true, "", "pljusak.com, amaterske postaje; skuplja se od 9/2026, točnost proglašena, ne izmjerena"},
+	// kišomjeri nacionalnih službi Austrije, Mađarske, Slovenije i Slovačke s
+	// ICPDR-ova DanubeHIS-a: dnevni zbroj od 9/2024 odnosno 1/2025; mađarski i
+	// slovenski dan pomaknut je pri pripremi datoteka da stoji kao austrijski
+	{"kisomjer-danubehis", 0, 10, true, "", "kišomjeri nacionalnih službi (AT, HU, SI, SK) s ICPDR DanubeHIS-a, dnevni zbroj od 9/2024; licenca CC BY-NC-SA 4.0, navesti izvor"},
 	{"hibrid-era5", 20, 30, true, "", "popuna kratkih rupa stvarnih kišomjera iz ERA5, umjerena na postaju; nije mjerenje — isključiti ako popuna smeta"},
 	{"gkd", 5, 10, true, "", "bavarska hidrološka služba, provjereni dnevni protoci; točnost proglašena, ne izmjerena"},
 	// ICPDR DanubeHIS: podaci država dunavskog sliva, pod licencom CC BY-NC-SA

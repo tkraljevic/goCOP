@@ -419,6 +419,32 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				drava + ". Na Dravi satni lanac dulje pogađa bolje jer nosi istjecanje HE Dubrava s modelom " +
 				"ispuštanja i Muru iz Gornje Radgone. Vrijednost iz dnevnog modela na stranici je označena slovom " +
 				"d, a u Excelu retkom „model”."),
+			tekstM("Dan prijelaza ovisi i o vodostaju u satu izdavanja. Oba modela uspoređena su prema izmjerenom " +
+				"vodostaju u ciljnom satu, kako ga pokazuje tablica (siječanj 2024. – rujan 2026., modeli naučeni prije, " +
+				"dnevni s tada izdanim prognozama kiše), zasebno za nisku vodu (ispod 25. percentila 2016.–2025.), " +
+				"srednju i visoku (iznad 75. percentila). Prvi dan satni lanac je na Dunavu bolji pri svakoj vodi; na " +
+				"Dravi pri niskoj i srednjoj vodi dnevni model pobjeđuje već od 1. ili 2. dana, jer satni lanac nosi " +
+				"dnevni val elektrana, koji u 7 h ne znači ništa. Pri visokoj vodi ostaje prijelaz s poplavnih valova."),
+			tablicaM("Srednja pogreška u cm prema izmjerenom u ciljnom satu, satni lanac / dnevni model",
+				[]string{"", "voda", "1. dan", "2. dan", "3. dan", "4. dan"},
+				[]string{"Batina", "niska", "2,9 / 4,5", "6,4 / 6,0", "9,7 / 9,5", "16,8 / 16,6"},
+				[]string{"Batina", "visoka", "6,3 / 7,0", "15,5 / 11,5", "24,1 / 16,7", "33,7 / 23,3"},
+				[]string{"Ilok", "niska", "2,8 / 4,2", "5,3 / 6,6", "9,6 / 9,1", "14,1 / 12,4"},
+				[]string{"Osijek", "niska", "4,5 / 7,1", "14,2 / 9,3", "21,0 / 14,5", "25,0 / 17,4"},
+				[]string{"Donji Miholjac", "srednja", "14,2 / 11,0", "26,8 / 18,3", "34,1 / 22,6", "36,5 / 25,7"},
+				[]string{"Terezino Polje", "niska", "27,9 / 13,1", "30,3 / 15,3", "34,7 / 16,4", "37,1 / 19,2"}),
+			tablicaM("Od kojeg dana vrijednost daje dnevni model", []string{"", "niska i srednja voda", "visoka voda"},
+				[]string{"Batina, Aljmaš", "2. dana", "2. dana"},
+				[]string{"Vukovar, Ilok", "3. dana", "2. dana"},
+				[]string{"Osijek, Belišće", "2. dana", "5. dana"},
+				[]string{"Donji Miholjac", "1. dana", "4. dana"},
+				[]string{"Terezino Polje", "1. dana", "3. dana"},
+				[]string{"Botovo", "1. dana", "5. dana"}),
+			tekstM("Mađarska prognoza Mohácsa kao vrh lanca popravila bi Aljmaš 2.–6. dan za 3–22 cm (27 njihovih izdanja " +
+				"2024.–2026.), ali lanac ostaje neovisan: taj razmak — naš Mohács 2.–4. dan griješi 30, 48 i 47 cm prema " +
+				"njihovih 14, 19 i 24 — mjerilo je koliko vlastiti lanac gornjeg Dunava još treba popraviti. Koji model " +
+				"daje dane bira se i u Postavkama prognoze, zasebno za graf, tablicu i Excel: kombinacija (zadano), satni " +
+				"ili dnevni."),
 		}},
 		{"Vodostaj i protok", []OdlomakMetode{
 			tekstM("Postaja se računa u jednoj veličini, a drugu daje važeća krivulja protoka (Q–H) postaje. " +
@@ -492,6 +518,17 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"mađarskom Dunavu njihov je model bolji, pa Komárom vodi njihova prognoza. Njihova prognoza Aljmaša " +
 				"sustavno je 25 cm previsoka, pa je usporedba tamo u našu korist do trećeg dana. Sve ove račune " +
 				"administrator ponavlja dijagnostičkim alatima izvan aplikacije."),
+		}},
+		{"Kad prognoza ne radi — pričuvni izračun", []OdlomakMetode{
+			tekstM("Gumb „Pričuvni izračun” na vrhu ove stranice daje Excel koji radi bez programa i bez mreže. Na listu " +
+				"„Unos” upisuju se mađarske i srpske prognoze letvi nasuprot i uz naše (Bezdan, Apatin, Bogojevo, " +
+				"Bačka Palanka, Mohács, Drávaszabolcs, Barcs i mađarska prognoza Botova, Terezina Polja, Donjeg " +
+				"Miholjca, Belišća i Osijeka); program ih pri preuzimanju popuni zadnjim poznatim. List „Naše postaje” " +
+				"iz njih računa Batinu, Aljmaš, Dalj, Vukovar, Ilok, Botovo, Terezino Polje, Donji Miholjac, Belišće i " +
+				"Osijek pravcima iz dnevnih vrijednosti zadnjih deset godina (list „Veze”), uz današnji pomak mjerenja " +
+				"od pravca. Za svaku letvu uzima se prvi put čiji su ulazi upisani — Batina iz Bezdana (±4 cm), pa iz " +
+				"Mohácsa — a kad letva prijeđe na sljedeći put, nastavlja se njegovom promjenom, da se dvije prognoze " +
+				"ne sudare u razini. Točnost je koliko i tuđa prognoza; letve nasuprot prenose se gotovo bez gubitka."),
 		}},
 		{"Ograničenja", []OdlomakMetode{
 			popisM(
@@ -628,7 +665,8 @@ func ulaziLanca(ps []prognoza.Pojas, ime func(string) string) []string {
 
 // metoda skuplja sve što stranica i list „O prognozi” pokazuju.
 func (h *PrognozeHandler) metoda(r *http.Request) PrognozeMetodaData {
-	data := h.podaci(r)
+	o := h.nacini(r.Context())
+	data := h.podaci(r, o.PrognozaTablica, o.PrognozaGraf)
 	izdaje := data.Izdaje
 	if izdaje == "" {
 		izdaje = h.centar(data.CurrentUser)

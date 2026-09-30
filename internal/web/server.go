@@ -28,6 +28,7 @@ import (
 	"gocop/internal/models"
 	"gocop/internal/peers"
 	"gocop/internal/poslovi"
+	"gocop/internal/prognoza"
 	"gocop/internal/repository"
 	"gocop/internal/service"
 	webassets "gocop/web"
@@ -60,7 +61,8 @@ type KartaPostavke struct {
 func (k KartaPostavke) Ima() bool { return k.Plocice != "" }
 
 type Server struct {
-	javni *javnivodostaji.Uvoznik // preuzimanje javnih vodostaja; prazno kad nije uključeno
+	javni    *javnivodostaji.Uvoznik                           // preuzimanje javnih vodostaja; prazno kad nije uključeno
+	pricuvno func(ctx context.Context) prognoza.PricuvniPodaci // pričuvni Excel prognoze
 	// ključ kojim se zaključavaju lozinke za Geolux HydroView; izveden iz
 	// ključa čvora, pa lozinka vrijedi samo na ovom računalu
 	hidroviewKljuc []byte
@@ -545,10 +547,10 @@ func NewServer(
 	templates := make(map[string]*template.Template)
 
 	// Predlošci koji proširuju base.html
-	for _, page := range []string{"dashboard.html", "registri.html", "users.html", "user_detail.html", "user_form.html", "duty_form.html", "profile.html", "sections.html", "section_detail.html", "section_form.html", "territories.html", "county_form.html", "municipality_form.html", "municipality_detail.html", "stations.html", "station_detail.html", "station_form.html", "station_history.html", "station_history_form.html", "paket_pregled.html", "watercourses.html", "watercourse_detail.html", "watercourse_form.html", "slivovi.html", "kisomjer_form.html", "structures.html", "structure_detail.html", "structure_form.html", "readings.html", "reading_history.html", "reading_form.html", "arhiva_ispravci.html", "uvoz_ocitanja.html", "teren.html", "moduli.html", "settings.html", "odrzavanje.html", "organizacija.html", "sector_form.html", "area_form.html", "contractor_form.html", "firme.html", "nazivi.html", "sudionici.html",
+	for _, page := range []string{"dashboard.html", "registri.html", "users.html", "user_detail.html", "user_form.html", "duty_form.html", "profile.html", "sections.html", "section_detail.html", "section_form.html", "territories.html", "county_form.html", "municipality_form.html", "municipality_detail.html", "stations.html", "station_detail.html", "station_form.html", "station_history.html", "station_history_form.html", "paket_pregled.html", "watercourses.html", "watercourse_detail.html", "watercourse_form.html", "slivovi.html", "kisomjer_form.html", "kisomjer.html", "structures.html", "structure_detail.html", "structure_form.html", "readings.html", "reading_history.html", "reading_form.html", "arhiva_ispravci.html", "uvoz_ocitanja.html", "teren.html", "moduli.html", "settings.html", "odrzavanje.html", "organizacija.html", "sector_form.html", "area_form.html", "contractor_form.html", "firme.html", "nazivi.html", "sudionici.html",
 		"administracija.html", "uvozi.html", "sinkronizacija.html", "pretplate.html", "baza.html", "izvori.html", "uvoz_niza.html",
 		"dnevnici.html", "dnevnici_izbor.html", "administracija_potpisi.html", "prijave.html", "prijava_form.html", "prijava.html", "vodocuvar.html", "vodocuvar_list.html", "vodocuvar_kalendar.html", "posao.html", "dnevnik_form.html", "dnevnik.html", "dnevnik_cop.html", "dnevnik_cop_form.html", "dnevnik_list.html", "dnevnik_obracun.html", "dnevnik_dezurstva.html", "dnevnik_iors.html", "izvjesca.html", "izvjesce_form.html", "izvjesce.html", "sektorsko_form.html", "sektorsko.html", "obracun_postavke.html",
-		"sredstva.html", "katalog.html", "skladiste.html", "potrebe_form.html", "potrebe.html", "dogadjanja.html", "skladiste_form.html", "promet_form.html", "promet.html", "gdje_ima.html", "na_terenu.html", "popisi.html", "popis_form.html", "popis.html", "pomoc.html", "prognoze.html", "prognoze_metoda.html", "ocitanja_ispravci.html", "akti.html", "akt_form.html", "akt.html", "primatelji.html", "spranca.html", "posta_racun.html", "administracija_posta.html", "posta_sanducic.html", "posta_pismo.html", "posta_novo.html", "posta_potpis.html", "administracija_zig.html", "administracija_opcije.html", "administracija_telemetrija.html", "imenik_exchange.html", "county_detail.html"} {
+		"sredstva.html", "katalog.html", "skladiste.html", "potrebe_form.html", "potrebe.html", "dogadjanja.html", "skladiste_form.html", "promet_form.html", "promet.html", "gdje_ima.html", "na_terenu.html", "popisi.html", "popis_form.html", "popis.html", "pomoc.html", "prognoze.html", "prognoze_metoda.html", "prognoze_postavke.html", "ocitanja_ispravci.html", "akti.html", "akt_form.html", "akt.html", "primatelji.html", "spranca.html", "posta_racun.html", "administracija_posta.html", "posta_sanducic.html", "posta_pismo.html", "posta_novo.html", "posta_potpis.html", "administracija_zig.html", "administracija_opcije.html", "administracija_telemetrija.html", "imenik_exchange.html", "county_detail.html"} {
 		t, err := template.New("base.html").Funcs(tmplFuncs).ParseFS(templatesFS, DijeloviPredloska(page)...)
 		if err != nil {
 			return nil, fmt.Errorf("greška pri parsiranju predloška %s: %w", page, err)
@@ -883,11 +885,24 @@ func (s *Server) setupRoutes() {
 	prognozeH := NewPrognozeHandler(s.templates["prognoze.html"], s.Prognoze, s.stationService)
 	prognozeH.SetUsers(s.userService)
 	prognozeH.SetMetoda(s.templates["prognoze_metoda.html"])
+	prognozeH.SetPostavke(s.templates["prognoze_postavke.html"])
+	prognozeH.SetOpcije(s.opcije, func(ctx context.Context, p *models.UserPermissions, o models.Opcije) error {
+		if s.akti == nil {
+			return fmt.Errorf("opcije se ne mogu spremiti na ovom čvoru")
+		}
+		return s.akti.SpremiOpcije(ctx, p, o)
+	})
 	prognozeH.SetReadings(s.readingService)
 	prognozeH.SetWatercourses(s.watercourseService)
 	prognozeH.SetArhiva(s.Arhiva)
 	readingsH.SetKrajnosti(prognozeH.KrajnostiLetve)
 	prognozeH.SetJavniUvoz(func() *javnivodostaji.Uvoznik { return s.javni })
+	prognozeH.SetPricuvno(func(ctx context.Context) (prognoza.PricuvniPodaci, bool) {
+		if s.pricuvno == nil {
+			return prognoza.PricuvniPodaci{}, false
+		}
+		return s.pricuvno(ctx), true
+	})
 	prognozeH.SetPodaciDir(func() string {
 		if s.dbPath == "" {
 			return ""
@@ -897,6 +912,9 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /prognoze", s.authMiddleware(http.HandlerFunc(prognozeH.ShowPrognoze)))
 	s.mux.Handle("GET /prognoze.xlsx", s.authMiddleware(http.HandlerFunc(prognozeH.IzvoziPrognoze)))
 	s.mux.Handle("GET /prognoze/o-prognozi", s.authMiddleware(http.HandlerFunc(prognozeH.ShowMetoda)))
+	s.mux.Handle("GET /prognoze/postavke", s.authMiddleware(http.HandlerFunc(prognozeH.ShowPostavke)))
+	s.mux.Handle("POST /prognoze/postavke", s.authMiddleware(http.HandlerFunc(prognozeH.SpremiPostavke)))
+	s.mux.Handle("GET /prognoze/pricuvno.xlsx", s.authMiddleware(http.HandlerFunc(prognozeH.IzvoziPricuvno)))
 	s.mux.Handle("POST /prognoze/generiraj", s.authMiddleware(http.HandlerFunc(prognozeH.Generiraj)))
 	// Priprema modela mijenja brojke svih prognoza, pa je samo za globalnog
 	// administratora. Posao se traži pri pozivu jer ga main postavlja poslije ruta.
@@ -1090,6 +1108,12 @@ func (s *Server) setupRoutes() {
 	s.mux.HandleFunc("GET /podaci/brojke", s.ShowBrojke)
 	s.mux.Handle("GET /slivovi/kisomjer/new", s.authMiddleware(http.HandlerFunc(slivH.ShowKisomjerForm)))
 	s.mux.Handle("GET /slivovi/kisomjer/{code}/edit", s.authMiddleware(http.HandlerFunc(slivH.ShowKisomjerForm)))
+	// Stranica kišomjera: očitanja (svježe i prognoza) i historijat (arhiva)
+	kisH := &KisomjerStranicaHandler{svc: func() *service.KisomjerService { return s.kisomjeri },
+		arhiva: s.Arhiva, mjerenja: func() *kisomjeri.Spremiste { return s.kisMjerenja },
+		tmpl: func(ime string) *template.Template { return s.templates[ime] }}
+	s.mux.Handle("GET /slivovi/kisomjer/{code}", s.authMiddleware(http.HandlerFunc(kisH.ShowOcitanja)))
+	s.mux.Handle("GET /slivovi/kisomjer/{code}/historijat", s.authMiddleware(http.HandlerFunc(kisH.ShowHistorijat)))
 	s.mux.Handle("GET /api/slivovi", s.authMiddleware(http.HandlerFunc(slivH.HandleListAPI)))
 	s.mux.Handle("POST /api/slivovi/kisomjer/create", s.authMiddleware(http.HandlerFunc(slivH.HandleCreate)))
 	s.mux.Handle("POST /api/slivovi/kisomjer/update", s.authMiddleware(http.HandlerFunc(slivH.HandleUpdate)))
@@ -1567,6 +1591,10 @@ func (s *Server) SetVodocuvar(v *service.VodocuvarService, org *repository.OrgRe
 
 // SetJavniUvoz daje poslužitelju uvoznika javnih vodostaja
 func (s *Server) SetJavniUvoz(u *javnivodostaji.Uvoznik) { s.javni = u }
+
+// SetPricuvno daje poslužitelju račun pričuvnog Excela prognoze (veze iz
+// arhive i predupis tuđih prognoza); bez njega se Excel ne nudi.
+func (s *Server) SetPricuvno(f func(ctx context.Context) prognoza.PricuvniPodaci) { s.pricuvno = f }
 
 // SetHidroViewKljuc daje poslužitelju ključ kojim se zaključavaju lozinke za
 // Geolux HydroView. Izvodi se iz ključa čvora, pa lozinka vrijedi samo na

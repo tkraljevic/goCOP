@@ -174,26 +174,43 @@ func TestStranicaPrognozaGumbGeneriraj(t *testing.T) {
 		ActiveNav: "prognoze", Nema: true, Razlog: "još ništa",
 	}
 	html := iscrtaj(t, "prognoze.html", osnova)
-	if strings.Contains(html, "/prognoze/generiraj") {
-		t.Error("gumb Generiraj stoji, a čvor nema krug preuzimanja")
+	if strings.Contains(html, "/prognoze/postavke") || strings.Contains(html, "/prognoze/generiraj") {
+		t.Error("gumb Postavke ili Generiraj stoji, a čvor nema ni krug preuzimanja ni pripremu modela")
 	}
 	osnova.MozeGenerirati = true
 	html = iscrtaj(t, "prognoze.html", osnova)
-	if !strings.Contains(html, `action="/prognoze/generiraj"`) || strings.Contains(html, "disabled") {
-		t.Error("gumb Generiraj nije spreman za klik")
+	// Na pregledu je samo gumb Postavke u zaglavlju, uz O prognozi; generiranje je na svojoj stranici.
+	if !strings.Contains(html, `href="/prognoze/postavke"`) {
+		t.Error("nema gumba Postavke")
 	}
-	// Odjeljak je na dnu, ispod svega, ne među gumbima u zaglavlju.
-	if strings.Index(html, `id="generiraj"`) < strings.Index(html, "O prognozi") {
-		t.Error("generiranje nije na dnu stranice")
+	if strings.Contains(html, "/prognoze/generiraj") || strings.Contains(html, `id="generiraj"`) {
+		t.Error("generiranje je ostalo na pregledu")
 	}
-	if strings.Contains(html[:strings.Index(html, `id="generiraj"`)], "/prognoze/generiraj") {
-		t.Error("gumb Generiraj stoji i u zaglavlju")
+	html = iscrtaj(t, "prognoze_postavke.html", osnova)
+	if !strings.Contains(html, `action="/prognoze/generiraj"`) || strings.Contains(html, `btn btn-primary" disabled`) {
+		t.Error("gumb Generiraj na postavkama nije spreman za klik")
+	}
+	// Način prikaza vidi svatko, mijenja samo uprava.
+	if !strings.Contains(html, `name="prognoza_tablica"`) || strings.Contains(html, "Spremi</button>") {
+		t.Error("izbor načina prikaza: vidljiv svima, spremanje samo upravi")
+	}
+	osnova.SmijeMijenjati = true
+	if html = iscrtaj(t, "prognoze_postavke.html", osnova); !strings.Contains(html, "Spremi</button>") {
+		t.Error("uprava ne može spremiti način prikaza")
+	}
+	osnova.SmijeMijenjati = false
+	if strings.Contains(html, "/prognoze/pripremi-model") {
+		t.Error("priprema modela stoji, a čvor je nema")
+	}
+	osnova.MozePripremiti = true
+	if html = iscrtaj(t, "prognoze_postavke.html", osnova); !strings.Contains(html, `action="/prognoze/pripremi-model"`) {
+		t.Error("nema pripreme modela")
 	}
 	osnova.Generira = true
 	osnova.Napredak = javnivodostaji.Napredak{UTijeku: true, Faza: "preuzimanje vodostaja", Gotovo: 7, Ukupno: 113, Novih: 12, Postotak: 5,
 		Redci: []string{"Batina: 3 novih", "Aljmaš: ništa novo"}}
-	html = iscrtaj(t, "prognoze.html", osnova)
-	for _, want := range []string{"Generiranje u tijeku", "disabled", `data-u-tijeku="1"`, "width:5%", "5 %", "letva 7 od 113", "Batina: 3 novih", "/prognoze/napredak"} {
+	html = iscrtaj(t, "prognoze_postavke.html", osnova)
+	for _, want := range []string{"Generiranje u tijeku", "disabled", `data-u-tijeku="1"`, "width:5%", "5 %", "letva 7 od 113", "Batina: 3 novih", "/prognoze/napredak", "/prognoze/postavke#generiraj"} {
 		if !strings.Contains(html, want) {
 			t.Errorf("dok krug traje stranica nema %q", want)
 		}

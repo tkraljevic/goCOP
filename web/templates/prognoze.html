@@ -9,12 +9,17 @@
     {{if .Izdano}}<p class="reg-card-sub">Izdano {{.Izdano}} · vrijednost ostaje unutar raspona
       u {{.Udio}} % slučajeva</p>{{end}}
     {{if .Oborina}}<p class="reg-card-sub prog-oborina{{if .BezKise}} prog-oborina-bez{{end}}">{{icon "cloud-rain"}} {{.Oborina}}</p>{{end}}
+    {{if .NacinTablice}}<p class="reg-card-sub">{{icon "chart-column"}} Dani u tablici: {{.NacinTablice}}.
+      {{if ne .NacinTablice .NacinGrafa}}Graf: {{.NacinGrafa}}.{{else}}Graf isto.{{end}}
+      {{if or .MozeGenerirati .MozePripremiti}}<a href="/prognoze/postavke#prikaz">Promijeni</a>{{end}}</p>{{end}}
   </div>
   <div class="page-actions">
     <a href="/prognoze/o-prognozi" class="btn btn-secondary"
       title="Kojim je modelom i računom prognoza izvedena">{{icon "info"}} O prognozi</a>
     {{if .Tablice}}<a href="/prognoze.xlsx" class="btn btn-secondary"
       title="Prognoza po vodama, u obliku uredske tablice">{{icon "download"}} Izvoz u Excel</a>{{end}}
+    {{if or .MozeGenerirati .MozePripremiti}}<a href="/prognoze/postavke" class="btn btn-secondary"
+      title="Generiranje prognoze i priprema modela">{{icon "settings"}} Postavke</a>{{end}}
   </div>
 </div>
 
@@ -428,7 +433,7 @@
       obrubljen onaj u kojem ga doseže tek gornja granica raspona. Termin pisan
       <span class="prog-slabija">svjetlije</span> je onaj na kojem prognoza ne pobjeđuje pretpostavku da
       se ništa neće promijeniti — ondje je bolje vjerovati zadnjem mjerenju. Veliki dravski val od trećeg
-      dana prognoza podcjenjuje, jer nastaje iz kiše koju još nijedna postaja ne vidi — ondje vrijedi
+      dana prognoza podcjenjuje, jer nastaje iz kiše i dotoka iz Slovenije koje još nijedna naša postaja ne vidi — ondje vrijedi
       pratiti obrub.</dd>
   </dl>
   <p class="reg-card-sub"><a href="/prognoze/o-prognozi">Detaljan opis modela i računa, s ulazima svake postaje →</a></p>
@@ -437,61 +442,4 @@
 
 {{end}}
 
-{{if .MozeGenerirati}}
-<section class="detail-section prog-generiraj" id="generiraj" data-u-tijeku="{{if .Generira}}1{{else}}0{{end}}">
-  <h2>{{icon "refresh-cw"}} Generiranje prognoze</h2>
-  <p class="reg-card-sub">Isto što poslužitelj radi svaki sat, samo odmah: preuzme vodostaje svih povezanih letvi i
-    tuđe prognoze, pa izračuna i zapiše našu. Traje minutu-dvije.{{if .ZadnjiKrug}} Zadnji krug {{.ZadnjiKrug}}.{{end}}</p>
-  <form method="POST" action="/prognoze/generiraj" class="prog-generiraj-obrazac">
-    <button type="submit" class="btn btn-primary"{{if .Generira}} disabled{{end}}>
-      {{icon "refresh-cw"}} {{if .Generira}}Generiranje u tijeku…{{else}}Generiraj{{end}}</button>
-  </form>
-  <div class="prog-napredak"{{if not .Generira}} hidden{{end}} role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{.Napredak.Postotak}}">
-    <div class="prog-napredak-traka"><div class="prog-napredak-ispuna" style="width:{{.Napredak.Postotak}}%"></div></div>
-    <div class="prog-napredak-tekst"><span class="prog-napredak-postotak">{{.Napredak.Postotak}} %</span> · <span class="prog-napredak-faza">{{.Napredak.Faza}}</span>
-      <span class="prog-napredak-brojka">{{if .Napredak.Ukupno}}· letva {{.Napredak.Gotovo}} od {{.Napredak.Ukupno}} · {{.Napredak.Novih}} novih{{end}}</span></div>
-  </div>
-  <details class="prog-napredak-detalji"{{if .Napredak.Redci}} open{{end}}{{if not .Napredak.Redci}} hidden{{end}}>
-    <summary>Detalji postupka</summary>
-    <pre class="prog-napredak-ispis">{{range .Napredak.Redci}}{{.}}
-{{end}}</pre>
-  </details>
-</section>
-{{end}}
-
-{{if .MozePripremiti}}
-<section class="detail-section" id="priprema">
-  <h2>{{icon "settings"}} Priprema modela</h2>
-  <p class="reg-card-sub">Nakon promjene u arhivi ili lancu: iz cijele arhive iznova namjesti veze letvi i modele
-    ispuštanja elektrana, provjerom unatrag zapiše promašaje iz kojih prognoza uzima ispravak i raspon, pa odmah
-    izda prognozu novim modelom. Traje desetak minuta i vrti se na poslužitelju.</p>
-  <form method="POST" action="/prognoze/pripremi-model"
-        onsubmit="return confirm('Pripremiti model iznova? Mijenja brojke svih prognoza.');">
-    <button type="submit" class="btn btn-secondary">{{icon "settings"}} Pripremi model</button>
-  </form>
-</section>
-{{end}}
-
-<script>
-// Generiranje: dok krug traje, stranica svake dvije sekunde pita za napredak
-// i puni traku i ispis; kad prođe, učita novo izdanje.
-(function () {
-  var odj = document.getElementById('generiraj');
-  if (!odj || odj.dataset.uTijeku !== '1') { return; }
-  var ispuna = odj.querySelector('.prog-napredak-ispuna'), post = odj.querySelector('.prog-napredak-postotak');
-  var faza = odj.querySelector('.prog-napredak-faza'), brojka = odj.querySelector('.prog-napredak-brojka');
-  var ispis = odj.querySelector('.prog-napredak-ispis'), detalji = odj.querySelector('.prog-napredak-detalji');
-  var traka = odj.querySelector('.prog-napredak');
-  function pitaj() {
-    fetch('/prognoze/napredak', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (n) {
-      ispuna.style.width = n.postotak + '%'; traka.setAttribute('aria-valuenow', n.postotak);
-      post.textContent = n.postotak + ' %'; faza.textContent = n.faza || '';
-      brojka.textContent = n.ukupno ? '· letva ' + n.gotovo + ' od ' + n.ukupno + ' · ' + n.novih + ' novih' + (n.trajanje ? ' · ' + n.trajanje : '') : '';
-      if (n.redci && n.redci.length) { detalji.hidden = false; detalji.open = true; ispis.textContent = n.redci.join('\n'); ispis.scrollTop = ispis.scrollHeight; }
-      if (n.uTijeku) { setTimeout(pitaj, 2000); } else { setTimeout(function () { location.replace('/prognoze#generiraj'); }, 1200); }
-    }).catch(function () { setTimeout(pitaj, 4000); });
-  }
-  pitaj();
-})();
-</script>
 {{end}}

@@ -1,0 +1,106 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Postavke prognoze{{end}}
+
+{{define "content"}}
+<div class="detail-head">
+  <div>
+    <h1>{{icon "settings"}} Postavke prognoze</h1>
+    <p class="reg-card-sub">{{if .Izdano}}Zadnje izdanje {{.Izdano}}. {{end}}Generiranje izdaje prognozu odmah, a priprema
+      modela iznova uči lanac iz arhive.</p>
+  </div>
+  <div class="page-actions">
+    <a href="/prognoze" class="btn btn-secondary">{{icon "trending-up"}} Prognoze</a>
+    <a href="/prognoze/o-prognozi" class="btn btn-secondary">{{icon "info"}} O prognozi</a>
+  </div>
+</div>
+
+<section class="detail-section" id="prikaz">
+  <h2>{{icon "chart-column"}} Satni ili dnevni model</h2>
+  <p class="reg-card-sub">Satni lanac seže 96 sati; dnevni model daje dane do šestog. Kombinacija uzima dnevni model od dana
+    koji je provjera odredila za svaku letvu i za vodostaj u satu izdavanja: pri visokoj vodi kako je izmjereno na poplavnim
+    valovima, pri niskoj i srednjoj ranije (na Dravi od 1. ili 2. dana, na Vukovaru i Iloku od 3.). Tablica je na stranici
+    O prognozi. Vrijednost iz dnevnog modela nosi oznaku d.</p>
+  <form method="POST" action="/prognoze/postavke" class="prog-prikaz-obrazac">
+    {{$o := .Opcije}}
+    <div class="prog-prikaz-red"><label for="prognoza_graf">Graf (uzdužni profil)</label>
+      <select name="prognoza_graf" id="prognoza_graf" class="form-control"{{if not $.SmijeMijenjati}} disabled{{end}}>
+        <option value=""{{if eq $o.PrognozaGraf ""}} selected{{end}}>kombinacija</option>
+        <option value="satni"{{if eq $o.PrognozaGraf "satni"}} selected{{end}}>satni lanac</option>
+        <option value="dnevni"{{if eq $o.PrognozaGraf "dnevni"}} selected{{end}}>dnevni model</option>
+      </select></div>
+    <div class="prog-prikaz-red"><label for="prognoza_tablica">Tablica na stranici</label>
+      <select name="prognoza_tablica" id="prognoza_tablica" class="form-control"{{if not $.SmijeMijenjati}} disabled{{end}}>
+        <option value=""{{if eq $o.PrognozaTablica ""}} selected{{end}}>kombinacija</option>
+        <option value="satni"{{if eq $o.PrognozaTablica "satni"}} selected{{end}}>satni lanac</option>
+        <option value="dnevni"{{if eq $o.PrognozaTablica "dnevni"}} selected{{end}}>dnevni model</option>
+      </select></div>
+    <div class="prog-prikaz-red"><label for="prognoza_excel">Izvoz u Excel</label>
+      <select name="prognoza_excel" id="prognoza_excel" class="form-control"{{if not $.SmijeMijenjati}} disabled{{end}}>
+        <option value=""{{if eq $o.PrognozaExcel ""}} selected{{end}}>kombinacija</option>
+        <option value="satni"{{if eq $o.PrognozaExcel "satni"}} selected{{end}}>satni lanac</option>
+        <option value="dnevni"{{if eq $o.PrognozaExcel "dnevni"}} selected{{end}}>dnevni model</option>
+      </select></div>
+    {{if .SmijeMijenjati}}<button type="submit" class="btn btn-primary">{{icon "check"}} Spremi</button>
+    {{else}}<p class="reg-card-sub">Način prikaza mijenja uprava organizacije.</p>{{end}}
+  </form>
+</section>
+
+{{if .MozeGenerirati}}
+<section class="detail-section prog-generiraj" id="generiraj" data-u-tijeku="{{if .Generira}}1{{else}}0{{end}}">
+  <h2>{{icon "refresh-cw"}} Generiranje prognoze</h2>
+  <p class="reg-card-sub">Isto što poslužitelj radi svaki sat, samo odmah: preuzme vodostaje svih povezanih letvi i
+    tuđe prognoze, pa izračuna i zapiše našu. Traje minutu-dvije.{{if .ZadnjiKrug}} Zadnji krug {{.ZadnjiKrug}}.{{end}}</p>
+  <form method="POST" action="/prognoze/generiraj" class="prog-generiraj-obrazac">
+    <button type="submit" class="btn btn-primary"{{if .Generira}} disabled{{end}}>
+      {{icon "refresh-cw"}} {{if .Generira}}Generiranje u tijeku…{{else}}Generiraj{{end}}</button>
+  </form>
+  <div class="prog-napredak"{{if not .Generira}} hidden{{end}} role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{.Napredak.Postotak}}">
+    <div class="prog-napredak-traka"><div class="prog-napredak-ispuna" style="width:{{.Napredak.Postotak}}%"></div></div>
+    <div class="prog-napredak-tekst"><span class="prog-napredak-postotak">{{.Napredak.Postotak}} %</span> · <span class="prog-napredak-faza">{{.Napredak.Faza}}</span>
+      <span class="prog-napredak-brojka">{{if .Napredak.Ukupno}}· letva {{.Napredak.Gotovo}} od {{.Napredak.Ukupno}} · {{.Napredak.Novih}} novih{{end}}</span></div>
+  </div>
+  <details class="prog-napredak-detalji"{{if .Napredak.Redci}} open{{end}}{{if not .Napredak.Redci}} hidden{{end}}>
+    <summary>Detalji postupka</summary>
+    <pre class="prog-napredak-ispis">{{range .Napredak.Redci}}{{.}}
+{{end}}</pre>
+  </details>
+</section>
+{{end}}
+
+{{if .MozePripremiti}}
+<section class="detail-section" id="priprema">
+  <h2>{{icon "settings"}} Priprema modela</h2>
+  <p class="reg-card-sub">Nakon promjene u arhivi ili lancu: iz cijele arhive iznova namjesti veze letvi i modele
+    ispuštanja elektrana, provjerom unatrag zapiše promašaje iz kojih prognoza uzima ispravak i raspon, pa odmah
+    izda prognozu novim modelom. Traje desetak minuta i vrti se na poslužitelju.</p>
+  <form method="POST" action="/prognoze/pripremi-model"
+        onsubmit="return confirm('Pripremiti model iznova? Mijenja brojke svih prognoza.');">
+    <button type="submit" class="btn btn-secondary">{{icon "settings"}} Pripremi model</button>
+  </form>
+</section>
+{{end}}
+
+<script>
+// Generiranje: dok krug traje, stranica svake dvije sekunde pita za napredak
+// i puni traku i ispis; kad prođe, učita novo izdanje.
+(function () {
+  var odj = document.getElementById('generiraj');
+  if (!odj || odj.dataset.uTijeku !== '1') { return; }
+  var ispuna = odj.querySelector('.prog-napredak-ispuna'), post = odj.querySelector('.prog-napredak-postotak');
+  var faza = odj.querySelector('.prog-napredak-faza'), brojka = odj.querySelector('.prog-napredak-brojka');
+  var ispis = odj.querySelector('.prog-napredak-ispis'), detalji = odj.querySelector('.prog-napredak-detalji');
+  var traka = odj.querySelector('.prog-napredak');
+  function pitaj() {
+    fetch('/prognoze/napredak', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (n) {
+      ispuna.style.width = n.postotak + '%'; traka.setAttribute('aria-valuenow', n.postotak);
+      post.textContent = n.postotak + ' %'; faza.textContent = n.faza || '';
+      brojka.textContent = n.ukupno ? '· letva ' + n.gotovo + ' od ' + n.ukupno + ' · ' + n.novih + ' novih' + (n.trajanje ? ' · ' + n.trajanje : '') : '';
+      if (n.redci && n.redci.length) { detalji.hidden = false; detalji.open = true; ispis.textContent = n.redci.join('\n'); ispis.scrollTop = ispis.scrollHeight; }
+      if (n.uTijeku) { setTimeout(pitaj, 2000); } else { setTimeout(function () { location.replace('/prognoze/postavke#generiraj'); }, 1200); }
+    }).catch(function () { setTimeout(pitaj, 4000); });
+  }
+  pitaj();
+})();
+</script>
+{{end}}

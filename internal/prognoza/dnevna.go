@@ -242,6 +242,38 @@ var DnevnaOdDana = map[string]int{
 	"botovo": 5, "terezino-polje": 3, "donji-miholjac": 4, "belisce": 5, "osijek": 5,
 }
 
+// DnevnaOdDanaNiska je isto za nisku i srednju vodu: vodostaj u satu
+// izdavanja nije iznad VisokaVoda. Usporedba oba modela prema izmjerenom u
+// ciljnom satu (siječanj 2024. – rujan 2026., modeli naučeni prije, dnevni s
+// tada izdanim prognozama kiše): na niskoj i srednjoj vodi dnevni model na
+// Dravi pogađa bolje već od 1. ili 2. dana — satni lanac nosi dnevni val
+// elektrana, koji u 7 h ne znači ništa (Terezino Polje 1. dan 27,9 prema
+// 13,1 cm) — a na Vukovaru i Iloku satni je bolji i 2. dan (Ilok 5,3 prema
+// 6,6). Pri visokoj vodi vrijedi DnevnaOdDana s poplavnih valova, gdje
+// satni lanac nosi val HE Dubrava i Mure.
+var DnevnaOdDanaNiska = map[string]int{
+	"batina": 2, "aljmas": 2, "vukovar": 3, "ilok": 3,
+	"botovo": 1, "terezino-polje": 1, "donji-miholjac": 1, "belisce": 2, "osijek": 2,
+}
+
+// VisokaVoda je 75. percentil dnevnih vodostaja 2016.–2025. (cm): iznad
+// njega vrijedi DnevnaOdDana, ispod DnevnaOdDanaNiska.
+var VisokaVoda = map[string]float64{
+	"batina": 229, "aljmas": 274, "vukovar": 240, "ilok": 267,
+	"botovo": 151, "terezino-polje": -181, "donji-miholjac": 86, "belisce": 203, "osijek": 68,
+}
+
+// DnevnaOdDanaZa vraća od kojeg dana dnevni model daje vrijednost, prema
+// vodostaju letve u satu izdavanja (imaSada false: kao pri visokoj vodi).
+func DnevnaOdDanaZa(letva string, sada float64, imaSada bool) int {
+	if g, ima := VisokaVoda[letva]; ima && imaSada && sada <= g {
+		if d, ima := DnevnaOdDanaNiska[letva]; ima {
+			return d
+		}
+	}
+	return DnevnaOdDana[letva]
+}
+
 // DnevniUlazi su letve koje dnevni model čita, a koje nisu i same njegov cilj.
 func DnevniUlazi() []string {
 	cilj := map[string]bool{}
@@ -338,6 +370,10 @@ func (c DnevniCilj) letve() []string { return append([]string{c.Letva}, c.Ulazi.
 // dnevnim nizovima, uz letve: „oborina:A”.
 func OborinaKljuc(sliv string) string { return "oborina:" + sliv }
 
+// OborinaUnaprijedKljuc je ključ niza iz kojega se uči buduća kiša međusliva
+// kad pala dolazi iz drugog izvora nego prognoza; bez njega vrijedi OborinaKljuc.
+func OborinaUnaprijedKljuc(sliv string) string { return "oborina-unaprijed:" + sliv }
+
 // OborinskiDani su prozori, u danima, u kojima se oborina međusliva zbraja u
 // značajke: jučerašnja kiša, kiša zadnja tri dana i zadnjeg tjedna. Kratki
 // prozor nosi val koji tek kreće, dugi zasićenost tla.
@@ -392,6 +428,13 @@ func DnevneZnacajke(c DnevniCilj, nizovi map[string]DnevniNiz, t int64) ([]float
 	}
 	for _, s := range c.Slivovi {
 		n := nizovi[OborinaKljuc(s)]
+		// Buduća kiša uči se iz niza u mjerilu prognoze kad ga ima: pala
+		// smije biti izmjerena (SPARTACUS), a prognoza Open-Meteo je u mjerilu
+		// reanalize, pa bi učenje na izmjerenoj budućoj kiši krivo vagnulo.
+		nu, ima := nizovi[OborinaUnaprijedKljuc(s)]
+		if !ima {
+			nu = n
+		}
 		for _, dana := range OborinskiDani {
 			var zbroj float64
 			for d := 0; d < dana; d++ {
@@ -417,7 +460,7 @@ func DnevneZnacajke(c DnevniCilj, nizovi map[string]DnevniNiz, t int64) ([]float
 				if PrognozaKise != nil {
 					v, ok = PrognozaKise(s, t, d)
 				} else {
-					v, ok = n[t+int64(d)]
+					v, ok = nu[t+int64(d)]
 				}
 				if !ok {
 					return nil, false
@@ -446,6 +489,36 @@ type OborinskaTocka struct {
 	Code   string
 	Sliv   string
 	Tezina float64
+}
+
+// SlivoviUPrognozi vraća međuslivove čija oborina ulazi u dnevnu prognozu i,
+// za svaki, letve kojima ulazi, redom kako voda teče.
+func SlivoviUPrognozi() map[string][]string {
+	out := map[string][]string{}
+	for _, c := range DnevniCiljevi {
+		for _, s := range c.Slivovi {
+			out[s] = append(out[s], c.Letva)
+		}
+	}
+	return out
+}
+
+// UlaziUPrognozu javlja čita li dnevni model oborinu ove točke, a kad ne,
+// zašto — isti uvjeti kao OborinskeTocke i DnevneOborine.
+func UlaziUPrognozu(stvarni, aktivan bool, sliv string, tezina float64, slivovi map[string][]string) (bool, string) {
+	switch {
+	case stvarni:
+		return false, "pravi kišomjer služi za usporedbu; model čita izvedene točke"
+	case !aktivan:
+		return false, "točka nije aktivna"
+	case sliv == "":
+		return false, "točka nije u međuslivu"
+	case tezina <= 0:
+		return false, "točka nema težinu u međuslivu"
+	case len(slivovi[sliv]) == 0:
+		return false, "kiša međusliva " + sliv + " ne ulazi u dnevnu prognozu"
+	}
+	return true, ""
 }
 
 // OborinskeTocke čita aktivne izvedene točke iz registra (gocop.db).

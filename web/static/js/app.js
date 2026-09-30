@@ -1858,9 +1858,10 @@ function dodajKontroleKarte(karta, platno, opcije) {
           iconSize: [18, 18], iconAnchor: [9, 9]
         });
         var m = L.marker([t.lat, t.lon], { icon: ikona, draggable: false, zIndexOffset: 1000 });
-        var opis = '<div><div style="font-weight:700; font-size:0.95rem; margin-bottom:2px;">' + escapeHtml(t.naziv) + '</div>' +
+        var opis = '<div><div style="font-weight:700; font-size:0.95rem; margin-bottom:2px;"><a href="/slivovi/kisomjer/' + encodeURIComponent(t.code) + '">' + escapeHtml(t.naziv) + '</a></div>' +
           '<div style="font-size:0.8rem; color:#475569;">' + escapeHtml((t.sliv ? 'međusliv ' + t.sliv + ' · ' : '') +
-            (stvarni ? 'stvarni kišomjer' + (t.izvor ? ' · ' + t.izvor : '') + (t.korak ? ' · ' + t.korak : '') : (t.pojas || ''))) + '</div>' +
+            (stvarni ? 'pravi kišomjer' + (t.izvor ? ' · ' + t.izvor : '') + (t.korak ? ' · ' + t.korak : '') : 'izvedena točka' + (t.pojas ? ' · ' + t.pojas : ''))) + '</div>' +
+          '<div style="font-size:0.75rem; font-weight:600; color:' + (t.u_prognozi ? '#166534' : '#64748b') + ';">' + (t.u_prognozi ? '✓ u prognozi' : 'ne ulazi u prognozu') + '</div>' +
           '<div style="font-size:0.75rem; color:#64748b;">' +
             (typeof t.visina === 'number' ? Math.round(t.visina) + ' m n. m.' : '') +
             (typeof t.km2 === 'number' ? ' · ' + Math.round(t.km2).toLocaleString('hr-HR') + ' km²' : '') +

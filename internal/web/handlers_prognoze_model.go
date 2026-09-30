@@ -30,7 +30,7 @@ func (h *PrognozeHandler) mozePripremiti() bool {
 // ga smije samo globalni administrator (ruta je iza samoAdmin).
 func (h *PrognozeHandler) PripremiModel(w http.ResponseWriter, r *http.Request) {
 	if !h.mozePripremiti() {
-		redirectWith(w, r, "/prognoze#priprema", "error", "Priprema modela nije uključena na ovom čvoru.")
+		redirectWith(w, r, "/prognoze/postavke#priprema", "error", "Priprema modela nije uključena na ovom čvoru.")
 		return
 	}
 	u, _ := r.Context().Value(contextKeyUser).(*models.User)
@@ -46,7 +46,7 @@ func (h *PrognozeHandler) PripremiModel(w http.ResponseWriter, r *http.Request) 
 			return h.priprema(ctx, p)
 		})
 	d := PosaoData{CurrentUser: u, Permissions: perms, ActiveNav: "prognoze", ViewAsBanner: viewBanner(r),
-		PosaoID: p.ID, PosaoNaziv: p.Naziv, Natrag: "/prognoze/o-prognozi"}
+		PosaoID: p.ID, PosaoNaziv: p.Naziv, Natrag: "/prognoze/postavke"}
 	if err := h.tmplPosao.ExecuteTemplate(w, "posao.html", d); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}

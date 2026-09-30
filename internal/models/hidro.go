@@ -71,6 +71,14 @@ func NazivVelicine(v string) string {
 		return "Koncentracija nanosa"
 	case "pronos":
 		return "Pronos nanosa"
+	case "oborina":
+		return "Oborina"
+	case "snijeg":
+		return "Snijeg (vodeni ekvivalent)"
+	case "visina-snijega":
+		return "Visina snijega"
+	case "temperatura-zraka":
+		return "Temperatura zraka"
 	}
 	return v
 }
@@ -117,6 +125,20 @@ func NazivIzvora(i string) string {
 		return "AVS, Geolux/SEBA"
 	case i == "vituki":
 		return "vizugy.hu, Mađarska"
+	case i == "kisomjer-dhmz":
+		return "kišomjer DHMZ-a"
+	case i == "kisomjer-pljusak":
+		return "pljusak.com, amaterska postaja"
+	case i == "kisomjer-danubehis":
+		return "DanubeHIS, kišomjer nacionalne službe"
+	case i == "openmeteo-era5":
+		return "ERA5 reanaliza (Open-Meteo), procjena"
+	case i == "openmeteo-era5land":
+		return "ERA5-Land reanaliza (Open-Meteo), procjena"
+	case i == "hibrid-era5":
+		return "ERA5 i prognoza (Open-Meteo), procjena"
+	case i == "openmeteo":
+		return "Open-Meteo, procjena modela"
 	case strings.HasSuffix(i, "-izvan"):
 		// Odnos dviju letvi vrijedi samo u rasponu u kojem je izmjeren; ovdje
 		// je produljen izvan njega, pa to mora pisati uz svaku vrijednost.

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"gocop/internal/models"
+	"gocop/internal/prognoza"
 	"gocop/internal/service"
 )
 
@@ -31,11 +32,31 @@ func NewSlivoviHandler(svc func() *service.KisomjerService, watercourses *servic
 	return &SlivoviHandler{svc: svc, watercourses: watercourses, stations: stations, tmpl: tmpl, karta: karta}
 }
 
-// SkupinaKisomjera su točke jednog sliva
+// SkupinaKisomjera su točke jednog sliva: izvedene točke i pravi kišomjeri
 type SkupinaKisomjera struct {
-	Sliv   models.Sliv
-	Tocke  []models.Kisomjer
-	Tezina float64 // zbroj težina aktivnih točaka; oko 1 kad je sliv pokriven
+	Sliv            models.Sliv
+	Tocke           []KarticaKisomjera // izvedene točke
+	Stvarni         []KarticaKisomjera // pravi kišomjeri
+	Tezina          float64            // zbroj težina aktivnih točaka; oko 1 kad je sliv pokriven
+	UPrognozi       []string           // letve čija dnevna prognoza čita kišu ovog međusliva
+	UPrognoziTocaka int
+}
+
+// KarticaKisomjera je postaja na popisu s odgovorom čita li je prognoza.
+type KarticaKisomjera struct {
+	models.Kisomjer
+	UPrognozi bool
+	Razlog    string // zašto ne ulazi
+}
+
+// karticaKisomjera odlučuje ulazi li postaja u dnevnu prognozu
+func karticaKisomjera(t models.Kisomjer, slivovi map[string][]string) KarticaKisomjera {
+	tezina := 0.0
+	if t.Tezina != nil {
+		tezina = *t.Tezina
+	}
+	u, razlog := prognoza.UlaziUPrognozu(t.JeStvarni(), t.Aktivan, t.Sliv, tezina, slivovi)
+	return KarticaKisomjera{Kisomjer: t, UPrognozi: u, Razlog: razlog}
 }
 
 type SlivoviPageData struct {
@@ -46,12 +67,14 @@ type SlivoviPageData struct {
 	ErrorMessage   string
 	ViewAsBanner
 
-	Skupine  []SkupinaKisomjera
-	Stvarni  []models.Kisomjer // stvarni kišomjeri, izvan skupina po težini
-	Ukupno   int
-	Aktivnih int
-	Pojasi   []string
-	Koraci   []string
+	Skupine   []SkupinaKisomjera
+	Izvedenih int
+	Stvarnih  int
+	UPrognozi int
+	Ukupno    int
+	Aktivnih  int
+	Pojasi    []string
+	Koraci    []string
 
 	Karta       KartaPostavke
 	TockeJSON   template.JS
@@ -81,6 +104,8 @@ type kisomjerNaKarti struct {
 	Vrsta   string   `json:"vrsta"`
 	Izvor   string   `json:"izvor,omitempty"`
 	Korak   string   `json:"korak,omitempty"`
+	// UPrognozi javlja čita li dnevni model kišu točke
+	UPrognozi bool `json:"u_prognozi"`
 }
 
 func (h *SlivoviHandler) pageData(r *http.Request) SlivoviPageData {
@@ -121,41 +146,55 @@ func (h *SlivoviHandler) ShowSlivovi(w http.ResponseWriter, r *http.Request) {
 	slivovi, _ := svc.ListSlivovi(ctx)
 	data.Slivovi = slivovi
 
-	// skupine po slivu; točke bez poznatog sliva idu na kraj
+	// skupine po slivu; točke bez poznatog sliva idu na kraj. Pravi
+	// kišomjeri stoje u svom međuslivu uz izvedene točke, ali ne ulaze u
+	// zbroj težina — ne predstavljaju dio sliva nego svoje mjesto.
+	uPrognozi := prognoza.SlivoviUPrognozi()
+	imena := h.imenaLetvi(r)
+	var redom []*SkupinaKisomjera
 	poOznaci := map[string]*SkupinaKisomjera{}
 	for _, m := range slivovi {
 		s := &SkupinaKisomjera{Sliv: m}
+		for _, l := range uPrognozi[m.Oznaka] {
+			if ime := imena[l]; ime != "" {
+				l = ime
+			}
+			s.UPrognozi = append(s.UPrognozi, l)
+		}
 		poOznaci[m.Oznaka] = s
-		data.Skupine = append(data.Skupine, *s)
+		redom = append(redom, s)
 	}
-	var ostale SkupinaKisomjera
+	ostale := &SkupinaKisomjera{Sliv: models.Sliv{Naziv: "Bez međusliva"}}
 	for _, t := range tocke {
 		data.Ukupno++
 		if t.Aktivan {
 			data.Aktivnih++
 		}
-		// stvarni kišomjer ne predstavlja dio sliva, pa ne ulazi u zbroj težina
-		if t.JeStvarni() {
-			data.Stvarni = append(data.Stvarni, t)
-			continue
-		}
+		k := karticaKisomjera(t, uPrognozi)
 		s, ima := poOznaci[t.Sliv]
 		if !ima {
-			ostale.Tocke = append(ostale.Tocke, t)
+			s = ostale
+		}
+		if k.UPrognozi {
+			data.UPrognozi++
+			s.UPrognoziTocaka++
+		}
+		if t.JeStvarni() {
+			data.Stvarnih++
+			s.Stvarni = append(s.Stvarni, k)
 			continue
 		}
-		s.Tocke = append(s.Tocke, t)
-		if t.Aktivan && t.Tezina != nil {
+		data.Izvedenih++
+		s.Tocke = append(s.Tocke, k)
+		if ima && t.Aktivan && t.Tezina != nil {
 			s.Tezina += *t.Tezina
 		}
 	}
-	for i := range data.Skupine {
-		s := poOznaci[data.Skupine[i].Sliv.Oznaka]
-		data.Skupine[i].Tocke, data.Skupine[i].Tezina = s.Tocke, s.Tezina
+	for _, s := range redom {
+		data.Skupine = append(data.Skupine, *s)
 	}
-	if len(ostale.Tocke) > 0 {
-		ostale.Sliv = models.Sliv{Naziv: "Bez međusliva"}
-		data.Skupine = append(data.Skupine, ostale)
+	if len(ostale.Tocke)+len(ostale.Stvarni) > 0 {
+		data.Skupine = append(data.Skupine, *ostale)
 	}
 
 	var naKarti []kisomjerNaKarti
@@ -165,7 +204,8 @@ func (h *SlivoviHandler) ShowSlivovi(w http.ResponseWriter, r *http.Request) {
 		}
 		naKarti = append(naKarti, kisomjerNaKarti{Code: t.Code, Naziv: t.Naziv, Sliv: t.Sliv, Pojas: t.Pojas,
 			Lat: t.Latitude, Lon: t.Longitude, Visina: t.Visina, Km2: t.Km2, Tezina: t.Tezina, Aktivan: t.Aktivan,
-			EditURL: "/slivovi/kisomjer/" + t.Code + "/edit", Vrsta: vrstaZaKartu(t), Izvor: t.Izvor, Korak: t.Korak})
+			EditURL: "/slivovi/kisomjer/" + t.Code + "/edit", Vrsta: vrstaZaKartu(t), Izvor: t.Izvor, Korak: t.Korak,
+			UPrognozi: karticaKisomjera(t, uPrognozi).UPrognozi})
 	}
 	if b, err := json.Marshal(naKarti); err == nil {
 		data.TockeJSON = template.JS(b)
@@ -177,6 +217,20 @@ func (h *SlivoviHandler) ShowSlivovi(w http.ResponseWriter, r *http.Request) {
 	if err := h.tmpl("slivovi.html").ExecuteTemplate(w, "slivovi.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// imenaLetvi vraća nazive letvi po šifri, za popis letvi u prognozi
+func (h *SlivoviHandler) imenaLetvi(r *http.Request) map[string]string {
+	out := map[string]string{}
+	if h.stations == nil {
+		return out
+	}
+	if postaje, err := h.stations.ListStations(r.Context(), "", "", "", false); err == nil {
+		for _, s := range postaje {
+			out[s.Code] = s.Name
+		}
+	}
+	return out
 }
 
 // vrstaZaKartu: zapis bez vrste je izvedena točka

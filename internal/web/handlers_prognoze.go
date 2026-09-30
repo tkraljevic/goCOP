@@ -52,7 +52,13 @@ type PrognozeHandler struct {
 
 	podaciDir func() string // mapa s datotekama provjere unatrag, za preuzimanje
 
-	metodaTmpl *template.Template // stranica „O prognozi”
+	metodaTmpl   *template.Template // stranica „O prognozi”
+	postavkeTmpl *template.Template // stranica „Postavke prognoze”
+
+	pricuvno func(ctx context.Context) (prognoza.PricuvniPodaci, bool) // pričuvni Excel
+
+	opcije       func(ctx context.Context) models.Opcije // način prikaza (satni, dnevni, kombinacija)
+	spremiOpcije func(ctx context.Context, p *models.UserPermissions, o models.Opcije) error
 
 	// Priprema modela (namještanje lanca, promašaji, ponovno izdavanje).
 	priprema     PripremaModela
@@ -249,6 +255,11 @@ type PrognozePageData struct {
 	dnevne   map[string][]prognoza.DnevnaIzdana
 	postajeM map[string]models.Station
 
+	NacinTablice   string // koji model daje dane u tablici, opisno
+	NacinGrafa     string // isto za uzdužni profil
+	Opcije         models.Opcije
+	SmijeMijenjati bool // može mijenjati način prikaza (uprava)
+
 	MozeGenerirati bool   // ima krug preuzimanja, pa gumb „Generiraj” ima što pokrenuti
 	MozePripremiti bool   // globalni administrator na čvoru s arhivom: gumb „Pripremi model”
 	Generira       bool   // krug upravo traje
@@ -263,11 +274,107 @@ type TablicaPrognoza struct {
 }
 
 func (h *PrognozeHandler) ShowPrognoze(w http.ResponseWriter, r *http.Request) {
-	h.iscrtaj(w, h.podaci(r))
+	o := h.nacini(r.Context())
+	h.iscrtaj(w, h.podaci(r, o.PrognozaTablica, o.PrognozaGraf))
 }
 
-// podaci slaže sve što pregled prognoza pokazuje; isto služi i izvozu.
-func (h *PrognozeHandler) podaci(r *http.Request) PrognozePageData {
+// ShowPostavke je stranica „Postavke prognoze”: generiranje i priprema modela,
+// odvojeni od pregleda da ga ne produljuju.
+func (h *PrognozeHandler) ShowPostavke(w http.ResponseWriter, r *http.Request) {
+	if h.postavkeTmpl == nil {
+		http.NotFound(w, r)
+		return
+	}
+	data := h.zaglavlje(r)
+	if !data.MozeGenerirati && !data.MozePripremiti {
+		http.Redirect(w, r, "/prognoze", http.StatusSeeOther)
+		return
+	}
+	if h.citac != nil {
+		if c := h.citac(); c != nil {
+			if izdano, _, err := c.Pregled(); err == nil && !izdano.IsZero() {
+				data.Izdano = izdano.In(models.Zagreb).Format("2.1.2006. u 15:04")
+			}
+		}
+	}
+	data.Opcije = h.nacini(r.Context())
+	data.SmijeMijenjati = h.spremiOpcije != nil && data.Permissions != nil && data.Permissions.IsGlobalAdmin
+	if err := h.postavkeTmpl.ExecuteTemplate(w, "prognoze_postavke.html", data); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+// SetOpcije daje čitanje i spremanje općih opcija, u kojima je i način
+// prikaza prognoze.
+func (h *PrognozeHandler) SetOpcije(citaj func(ctx context.Context) models.Opcije,
+	spremi func(ctx context.Context, p *models.UserPermissions, o models.Opcije) error) {
+	h.opcije, h.spremiOpcije = citaj, spremi
+}
+
+// nacini vraća način prikaza za graf, tablicu i Excel.
+func (h *PrognozeHandler) nacini(ctx context.Context) models.Opcije {
+	if h.opcije == nil {
+		return models.Opcije{}
+	}
+	return h.opcije(ctx)
+}
+
+// odDanaZa je od kojeg dana (1 = prvi) vrijednost daje dnevni model, po
+// načinu prikaza i vodostaju letve sada; 0 znači nikad dok satni lanac seže.
+func odDanaZa(letva, nacin string, l PregledLetve) int {
+	switch nacin {
+	case models.PrognozaSatni:
+		return 0
+	case models.PrognozaDnevni:
+		if _, ima := prognoza.DnevnaOdDana[letva]; ima || jeDnevniCilj(letva) {
+			return 1
+		}
+		return 0
+	}
+	sada, ima := l.Sada["vodostaj"]
+	return prognoza.DnevnaOdDanaZa(letva, sada, ima)
+}
+
+// jeDnevniCilj javlja ima li letva dnevni model.
+func jeDnevniCilj(letva string) bool {
+	for _, c := range prognoza.DnevniCiljevi {
+		if c.Letva == letva {
+			return true
+		}
+	}
+	return false
+}
+
+// SpremiPostavke sprema način prikaza prognoze (graf, tablica, Excel).
+func (h *PrognozeHandler) SpremiPostavke(w http.ResponseWriter, r *http.Request) {
+	perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
+	if h.spremiOpcije == nil || perms == nil || !perms.IsGlobalAdmin {
+		redirectWith(w, r, "/prognoze/postavke#prikaz", "error", "Način prikaza mijenja uprava organizacije.")
+		return
+	}
+	valjan := func(s string) string {
+		if s == models.PrognozaSatni || s == models.PrognozaDnevni {
+			return s
+		}
+		return models.PrognozaKombinacija
+	}
+	o := h.nacini(r.Context())
+	o.PrognozaGraf = valjan(r.FormValue("prognoza_graf"))
+	o.PrognozaTablica = valjan(r.FormValue("prognoza_tablica"))
+	o.PrognozaExcel = valjan(r.FormValue("prognoza_excel"))
+	if err := h.spremiOpcije(r.Context(), perms, o); err != nil {
+		redirectWith(w, r, "/prognoze/postavke#prikaz", "error", err.Error())
+		return
+	}
+	redirectWith(w, r, "/prognoze/postavke#prikaz", "success", "Način prikaza prognoze je spremljen.")
+}
+
+// SetPostavke daje predložak stranice „Postavke prognoze”.
+func (h *PrognozeHandler) SetPostavke(t *template.Template) { h.postavkeTmpl = t }
+
+// zaglavlje slaže ono što i pregled i postavke trebaju: korisnika, poruke i
+// može li se generirati i pripremati model.
+func (h *PrognozeHandler) zaglavlje(r *http.Request) PrognozePageData {
 	u, _ := r.Context().Value(contextKeyUser).(*models.User)
 	perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
 	data := PrognozePageData{
@@ -287,7 +394,14 @@ func (h *PrognozeHandler) podaci(r *http.Request) PrognozePageData {
 				k.Kad.In(models.Zagreb).Format("2.1. u 15:04"), k.Letvi, k.Novih, trajanjeKruga(k.Trajanje))
 		}
 	}
+	return data
+}
 
+// podaci slaže sve što pregled prognoza pokazuje; isto služi i izvozu.
+// nacinTablice i nacinGrafa biraju model po danu (models.Prognoza…).
+func (h *PrognozeHandler) podaci(r *http.Request, nacinTablice, nacinGrafa string) PrognozePageData {
+	data := h.zaglavlje(r)
+	data.NacinTablice, data.NacinGrafa = models.OpisNacinaPrognoze(nacinTablice), models.OpisNacinaPrognoze(nacinGrafa)
 	var c *CitacPrognoza
 	if h.citac != nil {
 		c = h.citac()
@@ -359,7 +473,7 @@ func (h *PrognozeHandler) podaci(r *http.Request) PrognozePageData {
 		for izvor, sve := range tude {
 			poIzvoru[izvor] = sve[kod]
 		}
-		data.Letve[i].Dani = celijeDana(kod, letve[i], ciljevi, dnevne[kod], poIzvoru, postaje[kod])
+		data.Letve[i].Dani = celijeDana(kod, odDanaZa(kod, nacinTablice, letve[i]), letve[i], ciljevi, dnevne[kod], poIzvoru, postaje[kod])
 		for k := range data.Letve[i].Dani {
 			d := &data.Letve[i].Dani[k]
 			d.Naslov = data.Dani[k]
@@ -377,11 +491,18 @@ func (h *PrognozeHandler) podaci(r *http.Request) PrognozePageData {
 		}
 	}
 	data.Tablice = poVodama(data.Letve, postaje)
-	data.Izdaje = h.centar(u)
+	data.Izdaje = h.centar(data.CurrentUser)
 	data.pregled, data.dnevne, data.postajeM = letve, dnevne, postaje
 	naProfilu := letveProfila(postaje, letve)
 	jutro := h.jutarnje(r.Context(), postaje, naProfilu, time.Now())
-	data.Profili = uzduzniProfili(postaje, letve, dnevne, izdano,
+	// Sat od kojega graf uzima dnevni model: dan kad ga uzima i tablica.
+	odSata := map[string]int{}
+	for _, l := range letve {
+		if d := odDanaZa(l.Letva, nacinGrafa, l); d > 0 && d <= len(ciljevi) {
+			odSata[l.Letva] = max(1, int(ciljevi[d-1]-izdano.Unix()/3600)-12)
+		}
+	}
+	data.Profili = uzduzniProfili(postaje, letve, dnevne, odSata, izdano,
 		h.mjerenoUnatrag(r.Context(), postaje, letve, izdano), h.usca(r.Context(), postaje, letve),
 		h.uobicajeno(r.Context(), postaje, naProfilu), h.mjesecno(r.Context(), postaje, naProfilu, jutro.Dan), jutro)
 	if len(data.Profili) == 0 {
@@ -412,11 +533,11 @@ func trajanjeKruga(d time.Duration) string {
 func (h *PrognozeHandler) Generiraj(w http.ResponseWriter, r *http.Request) {
 	u := h.uvoznik()
 	if u == nil {
-		redirectWith(w, r, "/prognoze#generiraj", "error", "Preuzimanje vodostaja nije uključeno na ovom čvoru.")
+		redirectWith(w, r, "/prognoze/postavke#generiraj", "error", "Preuzimanje vodostaja nije uključeno na ovom čvoru.")
 		return
 	}
 	if u.UTijeku() {
-		redirectWith(w, r, "/prognoze#generiraj", "success", "Krug preuzimanja već traje.")
+		redirectWith(w, r, "/prognoze/postavke#generiraj", "success", "Krug preuzimanja već traje.")
 		return
 	}
 	go func() {
@@ -424,7 +545,7 @@ func (h *PrognozeHandler) Generiraj(w http.ResponseWriter, r *http.Request) {
 		defer otkazi()
 		u.PreuzmiSve(ctx)
 	}()
-	redirectWith(w, r, "/prognoze#generiraj", "success", "Pokrenuto: preuzimanje vodostaja svih letvi, tuđih prognoza i izračun naše.")
+	redirectWith(w, r, "/prognoze/postavke#generiraj", "success", "Pokrenuto: preuzimanje vodostaja svih letvi, tuđih prognoza i izračun naše.")
 }
 
 // NapredakJSON daje stanje kruga koji traje, za traku napretka na stranici.
@@ -734,7 +855,7 @@ func uDosezima(d int) bool {
 // mjerenja unatrag, satni lanac do 96 h, dnevni model dalje. Peti i šesti dan
 // na crtežu dolaze iz dnevnog modela, jer satni lanac dotle ne seže.
 func uzduzniProfili(postaje map[string]models.Station, letve []PregledLetve,
-	dnevne map[string][]prognoza.DnevnaIzdana, izdano time.Time,
+	dnevne map[string][]prognoza.DnevnaIzdana, odSata map[string]int, izdano time.Time,
 	mjereno map[string]map[int]float64, usca map[string][]UsceUlaz,
 	uobicajeno map[string]Sredina, mjesec map[string]float64, jutro Jutro) []*UzduzniProfil {
 	poVodi := map[string][]LetvaProfila{}
@@ -801,6 +922,24 @@ func uzduzniProfili(postaje map[string]models.Station, letve []PregledLetve,
 			}
 			if v, ima := dnevniU(dnevne[l.Letva], izdanoH+int64(h)); ima {
 				lp.Niz[h] = v.Vrijednost
+			}
+		}
+		// Od sata kad tablica prelazi na dnevni model, prelazi i graf: dnevni
+		// model ondje pogađa bolje, a graf i tablica moraju pričati isto.
+		if od, ima := odSata[l.Letva]; ima {
+			for h := od; h <= prognoza.DnevniDosezi*24; h++ {
+				if v, ima := dnevniU(dnevne[l.Letva], izdanoH+int64(h)); ima {
+					lp.Niz[h] = v.Vrijednost
+				}
+			}
+			for _, d := range dosezniProfila {
+				if d < od {
+					continue
+				}
+				if v, ima := dnevniU(dnevne[l.Letva], izdanoH+int64(d)); ima {
+					lp.Cm[d] = v.Vrijednost
+					lp.Granice[d] = [2]float64{v.Dolje, v.Gore}
+				}
 			}
 		}
 		for kljuc, prag := range map[string]models.Threshold{
@@ -1234,9 +1373,8 @@ func jeDnevniUlaz(letva string) bool {
 
 // celijeDana slaže dane jedne letve: za svaki termin vrijednost iz modela koji
 // je ondje točniji, raspon, mađarsku prognozu i fazu obrane.
-func celijeDana(letva string, l PregledLetve, ciljevi []int64, dnevne []prognoza.DnevnaIzdana,
+func celijeDana(letva string, odDana int, l PregledLetve, ciljevi []int64, dnevne []prognoza.DnevnaIzdana,
 	tude map[string]map[int64]TudaVrijednost, st models.Station) []CelijaDana {
-	odDana := prognoza.DnevnaOdDana[letva]
 	out := make([]CelijaDana, len(ciljevi))
 	for k, t := range ciljevi {
 		c := &out[k]

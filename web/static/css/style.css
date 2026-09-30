@@ -3899,7 +3899,7 @@ body.karta-puni-zaslon-otvoren { overflow: hidden; }
 
 /* IORS: kartica po danu — bez vodoravnog klizanja */
 .iors-dani { display: flex; flex-direction: column; gap: 0.5rem; }
-.iors-dan { background: var(--card-bg, #fff); border: 1px solid var(--border, #ddd); border-radius: 6px; padding: 0.6rem 0.9rem; }
+.iors-dan { background: var(--surface, #fff); border: 1px solid var(--border, #ddd); border-radius: 6px; padding: 0.6rem 0.9rem; }
 .iors-dan-glava { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem 1rem; }
 .iors-dan-datum { min-width: 13rem; }
 .iors-dan-ukupno { margin-left: auto; }
@@ -3909,7 +3909,7 @@ body.karta-puni-zaslon-otvoren { overflow: hidden; }
 
 /* Unos u dnevnik COP-a: traka na dnu zaslona, tekst prvi */
 .unos-zapisa { position: sticky; bottom: 0; z-index: 5; margin-top: 1rem; padding: 0.6rem 0.9rem 0.5rem;
-  background: var(--card-bg, #fff); border: 1px solid var(--border, #ddd); border-bottom: 0; border-radius: 8px 8px 0 0;
+  background: var(--surface, #fff); border: 1px solid var(--border, #ddd); border-bottom: 0; border-radius: 8px 8px 0 0;
   box-shadow: 0 -6px 18px rgba(0,0,0,0.08); }
 .unos-tekst { width: 100%; resize: vertical; min-height: 2.6rem; font-size: 1rem; }
 .unos-red { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.6rem; margin-top: 0.45rem; }
@@ -5957,3 +5957,34 @@ body.uzd-puni-zaslon-otvoren { overflow: hidden; }
 .vrijeme-kartica-bilten .vrijeme-rijeka-tijelo.otvoreno { display: block; -webkit-line-clamp: unset; line-clamp: none; overflow: visible; }
 .vrijeme-rijeka-vise { background: none; border: 0; padding: 0.25rem 0 0; font: inherit; font-size: 0.78rem; font-weight: 600; color: var(--primary); cursor: pointer; }
 .vrijeme-rijeka-vise:hover { text-decoration: underline; }
+
+/* Postavke prognoze: izbor satnog ili dnevnog modela */
+.prog-prikaz-obrazac { display: flex; flex-direction: column; gap: 0.5rem; max-width: 34rem; }
+.prog-prikaz-red { display: flex; align-items: center; gap: 0.75rem; }
+.prog-prikaz-red label { flex: 0 0 13rem; margin: 0; font-weight: 600; }
+.prog-prikaz-red select { flex: 1; }
+.prog-prikaz-obrazac .btn { align-self: flex-start; margin-top: 0.25rem; }
+
+/* Stranica kišomjera: pločice zbrojeva, prognoza po danima i graf stupaca */
+.kisa-plocice { display:grid; grid-template-columns:repeat(auto-fill, minmax(10.5rem, 1fr)); gap:0.6rem; }
+.kisa-plocica { background:var(--surface, #fff); border:1px solid var(--border, #dcdfe4); border-radius:10px; padding:0.6rem 0.8rem; }
+.kisa-plocica.kisa-prognoza { background:var(--tint-sky-bg); }
+.kisa-oznaka { font-size:0.75rem; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.03em; }
+.kisa-broj { font-size:1.5rem; font-weight:700; color:var(--text-strong); font-variant-numeric:tabular-nums; }
+.kisa-broj small { font-size:0.8rem; font-weight:500; color:var(--text-secondary); }
+.kisa-dani { display:flex; flex-wrap:wrap; gap:0.4rem; }
+.kisa-dan { background:var(--tint-sky-bg); border:1px solid var(--border, #dcdfe4); border-radius:8px; padding:0.35rem 0.6rem; min-width:5.5rem; font-variant-numeric:tabular-nums; }
+.graf-kise { width:100%; height:220px; display:block; }
+.kisa-legenda { display:inline-block; width:0.8rem; height:0.8rem; border-radius:2px; background:var(--primary); vertical-align:-1px; }
+.kisa-legenda-prognoza { background:var(--primary-muted); opacity:0.75; }
+tr.kisa-kisni td:nth-child(2) strong { color:var(--primary); }
+@media (max-width: 600px) { .graf-kise { height:170px; } }
+
+/* Slivovi: vrsta postaje i ulazi li u prognozu */
+.kis-oznake { display:flex; flex-wrap:wrap; gap:0.3rem; margin:0.35rem 0 0.2rem; }
+.kis-vrsta-izvedena { background:var(--tint-purple-bg); color:var(--tint-purple-fg); }
+.kis-vrsta-pravi { background:var(--tint-teal-bg); color:var(--tint-teal-fg); }
+.kis-u-prognozi { background:var(--tint-green-bg); color:var(--tint-green-fg); }
+p.kis-prognoza-sliv { margin:-0.25rem 0 0.75rem; padding:0.45rem 0.7rem; border-radius:8px; background:var(--bg-subtle); color:var(--text-secondary); font-size:0.9rem; }
+p.kis-prognoza-sliv.kis-u-prognozi { background:var(--tint-green-bg); color:var(--tint-green-fg); }
+h3.kis-podnaslov { margin:1rem 0 0.4rem; display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap; }

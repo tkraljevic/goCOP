@@ -2,6 +2,33 @@
 
 {{define "title"}}goCOP — Slivovi i meteorološke postaje{{end}}
 
+{{define "karticaKisomjera"}}
+<article class="reg-card {{if not .Aktivan}}reg-card-neaktivna{{end}}">
+  <a class="reg-card-link" href="/slivovi/kisomjer/{{.Code}}">
+    <div class="reg-card-head">
+      <div>
+        <h3 class="reg-card-title">{{.Naziv}}</h3>
+        <div class="reg-card-sub">{{if .JeStvarni}}{{.Izvor}}{{if .IzvorSifra}} {{.IzvorSifra}}{{end}}{{if .Korak}} · {{.Korak}}{{end}}{{else}}{{.Pojas}}{{end}}{{if not .Aktivan}} · neaktivna{{end}}</div>
+      </div>
+      <span class="badge badge-inactive" style="font-family:ui-monospace, monospace;">{{.Code}}</span>
+    </div>
+    <div class="kis-oznake">
+      {{if .JeStvarni}}<span class="badge kis-vrsta-pravi">{{icon "gauge"}} pravi kišomjer</span>{{else}}<span class="badge kis-vrsta-izvedena">{{icon "cloud-rain"}} izvedena točka</span>{{end}}
+      {{if .UPrognozi}}<span class="badge kis-u-prognozi">{{icon "check"}} u prognozi</span>{{else}}<span class="badge badge-inactive" title="{{.Razlog}}">ne ulazi u prognozu</span>{{end}}
+    </div>
+    <dl class="reg-facts">
+      <div><dt>Položaj</dt><dd>{{printf "%.4f" .Latitude}}, {{printf "%.4f" .Longitude}}</dd></div>
+      {{if .Visina}}<div><dt>Visina</dt><dd>{{brojHRd .Visina 0}} m</dd></div>{{end}}
+      {{if .SrednjaVisina}}<div><dt>Sr. visina dijela</dt><dd>{{brojHRd .SrednjaVisina 0}} m</dd></div>{{end}}
+      {{if .Km2}}<div><dt>Predstavlja</dt><dd>{{brojHRd .Km2 0}} km²</dd></div>{{end}}
+      {{if .Tezina}}<div><dt>Težina</dt><dd>{{brojHRd .Tezina 3}}</dd></div>{{end}}
+    </dl>
+    {{if and (not .UPrognozi) .Razlog}}<p class="reg-card-sub" style="margin:0.35rem 0 0;">{{.Razlog}}.</p>{{end}}
+    {{if .Napomena}}<p style="font-size:0.8rem; margin:0.4rem 0 0; color:var(--muted);">{{.Napomena}}</p>{{end}}
+  </a>
+</article>
+{{end}}
+
 {{define "content"}}
 <div class="page-header">
   <div>
@@ -11,8 +38,9 @@
       dviju vrsta. <strong>Izvedene točke</strong> (kvazi-kišomjeri) nisu uređaji: na njima se za
       prognozu čitaju oborina, snijeg i temperatura iz reanalize i vremenske prognoze, kao da
       ondje stoji kišomjer. Svaka predstavlja dio međusliva u jednom visinskom pojasu; težina kaže
-      koliki je taj dio. <strong>Stvarni kišomjeri</strong> mjere na svom mjestu i služe za
-      usporedbu i ispravak izvedenih točaka; u oborinu sliva ne ulaze.
+      koliki je taj dio. <strong>Pravi kišomjeri</strong> mjere na svom mjestu (DHMZ, nacionalne
+      službe preko DanubeHIS-a, pljusak.com) i služe za usporedbu; u oborinu sliva ne ulaze.
+      Na svakoj kartici piše ulazi li postaja u dnevnu prognozu.
     </p>
   </div>
   {{if .Permissions.IsGlobalAdmin}}
@@ -28,9 +56,9 @@
 
 <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1.25rem;">
   <span class="stat-badge has-items">{{icon "map"}} {{len .Slivovi}} međuslivova</span>
-  <span class="stat-badge has-items">{{icon "cloud-rain"}} {{.Ukupno}} postaja</span>
-  <span class="stat-badge has-items">{{icon "gauge"}} {{len .Stvarni}} stvarnih kišomjera</span>
-  <span class="stat-badge has-items">{{icon "check"}} {{.Aktivnih}} aktivnih</span>
+  <span class="stat-badge has-items">{{icon "cloud-rain"}} {{.Izvedenih}} {{uzBroj .Izvedenih "izvedena točka" "izvedene točke" "izvedenih točaka"}}</span>
+  <span class="stat-badge has-items">{{icon "gauge"}} {{.Stvarnih}} {{uzBroj .Stvarnih "pravi kišomjer" "prava kišomjera" "pravih kišomjera"}}</span>
+  <span class="stat-badge has-items">{{icon "check"}} {{.UPrognozi}} u prognozi</span>
 </div>
 
 {{if .Karta.Ima}}
@@ -71,7 +99,7 @@
     <span><i class="kis-boja" style="background:#ef6c00"></i> 1000–1500 m</span>
     <span><i class="kis-boja" style="background:#6a1b9a"></i> &gt;1500 m</span>
     <span><i class="kis-boja kis-boja-neaktivna"></i> neaktivna točka</span>
-    <span><i class="kis-boja kis-boja-stvarni"></i> stvarni kišomjer</span>
+    <span><i class="kis-boja kis-boja-stvarni"></i> pravi kišomjer</span>
     <span><i class="kis-crta"></i> tok rijeke</span>
     <span><i class="kis-ploha"></i> međusliv</span>
     <span><i class="kis-letva"></i> vodomjerna postaja</span>
@@ -82,75 +110,38 @@
 {{end}}
 
 {{range .Skupine}}
-<section class="detail-section">
+<section class="detail-section"{{if .Sliv.Oznaka}} id="sliv-{{.Sliv.Oznaka}}"{{end}}>
   <h2>
     {{if .Sliv.Oznaka}}<span class="kis-oznaka" title="međusliv {{.Sliv.Oznaka}}">{{.Sliv.Oznaka}}</span>{{end}}
     {{.Sliv.Naziv}}
-    <span class="reg-chip">{{icon "cloud-rain"}} izvedene točke: {{len .Tocke}}</span>
     {{if .Sliv.Km2}}<span class="reg-chip">{{brojHRd .Sliv.Km2 0}} km²</span>{{end}}
-    {{if .Tocke}}<span class="reg-chip {{if or (lt .Tezina 0.95) (gt .Tezina 1.05)}}empty{{end}}" title="Zbroj težina aktivnih točaka; oko 1 kad je međusliv u cijelosti pokriven">Σ težina {{brojHRd .Tezina 2}}</span>{{end}}
+    {{if .Tocke}}<span class="reg-chip {{if or (lt .Tezina 0.95) (gt .Tezina 1.05)}}empty{{end}}" title="Zbroj težina aktivnih izvedenih točaka; oko 1 kad je međusliv u cijelosti pokriven">Σ težina {{brojHRd .Tezina 2}}</span>{{end}}
   </h2>
+  {{if .UPrognozi}}
+  <p class="kis-prognoza-sliv kis-u-prognozi">{{icon "check"}} Kiša ovog međusliva ulazi u dnevnu prognozu za:
+    <strong>{{range $i, $l := .UPrognozi}}{{if $i}}, {{end}}{{$l}}{{end}}</strong> — iz {{.UPrognoziTocaka}} {{uzBroj .UPrognoziTocaka "izvedene točke" "izvedene točke" "izvedenih točaka"}}.</p>
+  {{else if .Sliv.Oznaka}}
+  <p class="kis-prognoza-sliv">{{icon "info"}} Kiša ovog međusliva zasad ne ulazi u dnevnu prognozu.</p>
+  {{end}}
   {{if .Sliv.Napomena}}<p class="page-desc">{{.Sliv.Napomena}}</p>{{end}}
+
+  <h3 class="part-label kis-podnaslov">{{icon "cloud-rain"}} Izvedene točke <span class="reg-card-sub">— procjena modela (ERA5, Open-Meteo), nisu uređaji</span> <span class="reg-chip">{{len .Tocke}}</span></h3>
   <div class="reg-list">
-    {{range .Tocke}}
-    <article class="reg-card {{if not .Aktivan}}reg-card-neaktivna{{end}}">
-      <a class="reg-card-link" href="/slivovi/kisomjer/{{.Code}}/edit">
-        <div class="reg-card-head">
-          <div>
-            <h3 class="reg-card-title">{{.Naziv}}</h3>
-            <div class="reg-card-sub">{{.Pojas}}{{if not .Aktivan}} · neaktivna{{end}}</div>
-          </div>
-          <span class="badge badge-inactive" style="font-family:ui-monospace, monospace;">{{.Code}}</span>
-        </div>
-        <dl class="reg-facts">
-          <div><dt>Položaj</dt><dd>{{printf "%.4f" .Latitude}}, {{printf "%.4f" .Longitude}}</dd></div>
-          {{if .Visina}}<div><dt>Visina</dt><dd>{{brojHRd .Visina 0}} m</dd></div>{{end}}
-          {{if .SrednjaVisina}}<div><dt>Sr. visina dijela</dt><dd>{{brojHRd .SrednjaVisina 0}} m</dd></div>{{end}}
-          {{if .Km2}}<div><dt>Predstavlja</dt><dd>{{brojHRd .Km2 0}} km²</dd></div>{{end}}
-          {{if .Tezina}}<div><dt>Težina</dt><dd>{{brojHRd .Tezina 3}}</dd></div>{{end}}
-        </dl>
-        {{if .Napomena}}<p style="font-size:0.8rem; margin:0.4rem 0 0; color:var(--muted);">{{.Napomena}}</p>{{end}}
-      </a>
-    </article>
-    {{else}}
-    <div class="reg-empty">Međusliv još nema nijednu izvedenu točku.{{if $.Permissions.IsGlobalAdmin}} <a href="/slivovi/kisomjer/new?sliv={{.Sliv.Oznaka}}">Dodaj točku</a>{{end}}</div>
+    {{range .Tocke}}{{template "karticaKisomjera" .}}{{else}}
+    <div class="reg-empty">Međusliv nema izvedenu točku.{{if $.Permissions.IsGlobalAdmin}}{{if .Sliv.Oznaka}} <a href="/slivovi/kisomjer/new?sliv={{.Sliv.Oznaka}}">Dodaj točku</a>{{end}}{{end}}</div>
+    {{end}}
+  </div>
+
+  <h3 class="part-label kis-podnaslov">{{icon "gauge"}} Pravi kišomjeri <span class="reg-card-sub">— mjere na svom mjestu; služe za usporedbu, u prognozu ne ulaze</span> <span class="reg-chip">{{len .Stvarni}}</span></h3>
+  <div class="reg-list">
+    {{range .Stvarni}}{{template "karticaKisomjera" .}}{{else}}
+    <div class="reg-empty">U međuslivu nema pravog kišomjera.</div>
     {{end}}
   </div>
 </section>
 {{else}}
 <div class="reg-empty">Registar je prazan. Međuslivovi se upisuju sučeljem <code>/api/slivovi/sliv</code>, kišomjeri obrascem.</div>
 {{end}}
-
-<section class="detail-section" id="stvarni-kisomjeri">
-  <h2>
-    {{icon "gauge"}} Stvarni kišomjeri
-    <span class="reg-chip">{{len .Stvarni}}</span>
-  </h2>
-  <p class="page-desc">Postaje koje mjere. Njihovi nizovi stoje u hidrološkoj arhivi pod šifrom
-    postaje; model ih ne zbraja u oborinu sliva nego služe za usporedbu s izvedenim točkama.</p>
-  <div class="reg-list">
-    {{range .Stvarni}}
-    <article class="reg-card {{if not .Aktivan}}reg-card-neaktivna{{end}}">
-      <a class="reg-card-link" href="/slivovi/kisomjer/{{.Code}}/edit">
-        <div class="reg-card-head">
-          <div>
-            <h3 class="reg-card-title">{{.Naziv}}</h3>
-            <div class="reg-card-sub">{{if .Sliv}}međusliv {{.Sliv}} · {{end}}{{.Izvor}}{{if .IzvorSifra}} {{.IzvorSifra}}{{end}}{{if .Korak}} · {{.Korak}}{{end}}{{if not .Aktivan}} · neaktivna{{end}}</div>
-          </div>
-          <span class="badge badge-inactive" style="font-family:ui-monospace, monospace;">{{.Code}}</span>
-        </div>
-        <dl class="reg-facts">
-          <div><dt>Položaj</dt><dd>{{printf "%.4f" .Latitude}}, {{printf "%.4f" .Longitude}}</dd></div>
-          {{if .Visina}}<div><dt>Visina</dt><dd>{{brojHRd .Visina 0}} m</dd></div>{{end}}
-        </dl>
-        {{if .Napomena}}<p style="font-size:0.8rem; margin:0.4rem 0 0; color:var(--muted);">{{.Napomena}}</p>{{end}}
-      </a>
-    </article>
-    {{else}}
-    <div class="reg-empty">Još nema nijednog stvarnog kišomjera.{{if $.Permissions.IsGlobalAdmin}} <a href="/slivovi/kisomjer/new?vrsta=stvarni">Dodaj kišomjer</a>{{end}}</div>
-    {{end}}
-  </div>
-</section>
 
 <p class="page-desc">
   Međusliv je dio sliva između susjednih letvi: ono što se u rijeku slije nizvodno od gornjih letvi, a uzvodno od donje. Poligoni su iz HydroBASINS (WWF HydroSHEDS, CC BY 4.0); tokovi rijeka iz

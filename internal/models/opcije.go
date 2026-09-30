@@ -32,6 +32,32 @@ type Opcije struct {
 	// nosi), umjesto nakon roka; štedi prostor, a stranica prijave slike
 	// pokazuje iz PDF-a
 	SlikeOdmah bool `json:"slike_odmah,omitempty"`
+	// PrognozaGraf, PrognozaTablica i PrognozaExcel biraju koji model daje
+	// dane prognoze na uzdužnom profilu, u tablici i u izvozu: prazno je
+	// kombinacija (dnevni model od dana koji je odredila provjera na
+	// valovima), "satni" satni lanac dokle seže, "dnevni" dnevni model od
+	// prvog dana gdje ga letva ima.
+	PrognozaGraf    string `json:"prognoza_graf,omitempty"`
+	PrognozaTablica string `json:"prognoza_tablica,omitempty"`
+	PrognozaExcel   string `json:"prognoza_excel,omitempty"`
+}
+
+// Načini prikaza prognoze.
+const (
+	PrognozaKombinacija = ""
+	PrognozaSatni       = "satni"
+	PrognozaDnevni      = "dnevni"
+)
+
+// OpisNacinaPrognoze je kratak opis načina za stranicu.
+func OpisNacinaPrognoze(n string) string {
+	switch n {
+	case PrognozaSatni:
+		return "satni lanac dokle seže (96 h), dalje dnevni model"
+	case PrognozaDnevni:
+		return "dnevni model od prvog dana, satni samo gdje dnevnog nema"
+	}
+	return "kombinacija: satni lanac, a dnevni model (d) od dana koji je provjera odredila za svaku letvu i vodostaj"
 }
 
 // CuvanjeSlika vraća rok čuvanja fotografija u danima

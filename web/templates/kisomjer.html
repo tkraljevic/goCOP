@@ -1,0 +1,247 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — {{if eq .Stranica "historijat"}}Historijat{{else}}Očitanja{{end}}: {{.Tocka.Naziv}}{{end}}
+
+{{define "content"}}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "cloud-rain"}} {{.Tocka.Naziv}}</h1>
+    <div class="kis-oznake" style="margin:0.25rem 0 0.35rem;">
+      {{if .Procjena}}<span class="badge kis-vrsta-izvedena">{{icon "cloud-rain"}} izvedena točka — procjena modela</span>{{else}}<span class="badge kis-vrsta-pravi">{{icon "gauge"}} pravi kišomjer — mjeri</span>{{end}}
+      {{if .UPrognozi}}<span class="badge kis-u-prognozi">{{icon "check"}} u prognozi{{if .PrognozaLetve}}: {{.PrognozaLetve}}{{end}}</span>{{else}}<span class="badge badge-inactive">ne ulazi u prognozu — {{.RazlogVan}}</span>{{end}}
+    </div>
+    <p class="page-desc">
+      {{if .Procjena}}Izvedena točka{{if .Tocka.Pojas}} · {{.Tocka.Pojas}}{{end}}{{else}}Stvarni kišomjer{{if .Tocka.Izvor}} · {{.Tocka.Izvor}}{{if .Tocka.IzvorSifra}} {{.Tocka.IzvorSifra}}{{end}}{{end}}{{if .Tocka.Korak}} · {{.Tocka.Korak}}{{end}}{{end}}
+      {{if .Tocka.Sliv}} · međusliv {{.Tocka.Sliv}}{{if .SlivNaziv}} ({{.SlivNaziv}}){{end}}{{end}}
+      · {{printf "%.4f" .Tocka.Latitude}}, {{printf "%.4f" .Tocka.Longitude}}{{if .Tocka.Visina}} · {{brojHRd .Tocka.Visina 0}} m n. m.{{end}}
+      {{if not .Tocka.Aktivan}} · <span class="badge badge-inactive">neaktivna</span>{{end}}
+    </p>
+  </div>
+</div>
+
+<div class="detail-actions letva-izbornik">
+  {{if eq .Stranica "ocitanja"}}
+  <span class="btn btn-secondary je-ovdje" aria-current="page">{{icon "activity"}} Očitanja</span>
+  {{else}}
+  <a href="/slivovi/kisomjer/{{.Tocka.Code}}" class="btn btn-secondary">{{icon "activity"}} Očitanja</a>
+  {{end}}
+  {{if eq .Stranica "historijat"}}
+  <span class="btn btn-secondary je-ovdje" aria-current="page">{{icon "history"}} Historijat</span>
+  {{else}}
+  <a href="/slivovi/kisomjer/{{.Tocka.Code}}/historijat" class="btn btn-secondary" title="Arhiva po godinama i mjesecima">{{icon "history"}} Historijat</a>
+  {{end}}
+  <a href="/slivovi{{if .Tocka.Sliv}}#sliv-{{.Tocka.Sliv}}{{end}}" class="btn btn-secondary">{{icon "map"}} Slivovi</a>
+  {{if and .Permissions .Permissions.IsGlobalAdmin}}<a href="/slivovi/kisomjer/{{.Tocka.Code}}/edit" class="btn btn-secondary">{{icon "pencil"}} Uredi</a>{{end}}
+</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{icon "check"}} {{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-error">{{icon "triangle-alert"}} {{.ErrorMessage}}</div>{{end}}
+
+{{if .Procjena}}
+<div class="alert alert-info">{{icon "info"}} Izvedena točka ne mjeri. Brojke su procjena modela
+  (ERA5-Land reanaliza za prošlost, Open-Meteo za zadnje dane i prognozu) za dio sliva koji točka
+  predstavlja — ne čitaju se kao kišomjer.</div>
+{{end}}
+
+{{if eq .Stranica "ocitanja"}}
+<section class="detail-section">
+  <h2>{{icon "cloud-rain"}} Sada</h2>
+  <div class="kisa-plocice">
+    <div class="kisa-plocica"><div class="kisa-oznaka">Zadnji sat</div>
+      <div class="kisa-broj">{{with .ZadnjiSat}}{{brojHRf .Mm 1}} <small>mm</small>{{else}}—{{end}}</div>
+      <div class="reg-card-sub">{{with .ZadnjiSat}}{{.Oznaka}}{{else}}nema satnih{{end}}</div></div>
+    <div class="kisa-plocica"><div class="kisa-oznaka">Zadnja 24 h</div>
+      <div class="kisa-broj">{{with .Zadnjih24}}{{brojHRf . 1}} <small>mm</small>{{else}}—{{end}}</div></div>
+    <div class="kisa-plocica"><div class="kisa-oznaka">Zadnja 72 h</div>
+      <div class="kisa-broj">{{with .Zadnjih72}}{{brojHRf . 1}} <small>mm</small>{{else}}—{{end}}</div></div>
+    <div class="kisa-plocica"><div class="kisa-oznaka">Zadnjih {{.Pogled}} dana</div>
+      <div class="kisa-broj">{{brojHRf .Zbroj 1}} <small>mm</small></div>
+      <div class="reg-card-sub">{{.KisnihDana}} {{uzBroj .KisnihDana "kišni dan" "kišna dana" "kišnih dana"}}{{with .NajvisiDan}} · najviše {{brojHRf .Mm 1}} mm ({{.Oznaka}}){{end}}</div></div>
+    {{if .PrognozaIz}}
+    <div class="kisa-plocica kisa-prognoza"><div class="kisa-oznaka">Prognoza 24 h</div>
+      <div class="kisa-broj">{{brojHRf .Prognoza24 1}} <small>mm</small></div></div>
+    <div class="kisa-plocica kisa-prognoza"><div class="kisa-oznaka">Prognoza 72 h</div>
+      <div class="kisa-broj">{{brojHRf .Prognoza72 1}} <small>mm</small></div></div>
+    {{end}}
+  </div>
+
+  {{if .Prognoza}}
+  <h3 class="part-label" style="margin:1rem 0 0.35rem 0;">Prognoza po danima</h3>
+  <div class="kisa-dani">
+    {{range .Prognoza}}<div class="kisa-dan"><div class="reg-card-sub">{{danTjedna .Dan}} {{.Dan.Format "2.1."}}</div>
+      <strong>{{brojHRf .Mm 1}}</strong> <small>mm</small>{{if lt .Sati 24}}<div class="reg-card-sub" title="prognoza pokriva samo dio dana">{{.Sati}} h</div>{{end}}</div>{{end}}
+  </div>
+  <p class="form-help" style="margin-top:0.35rem;">Open-Meteo{{if not .PrognozaSebe}} za najbližu izvedenu
+    točku <strong>{{.PrognozaIz}}</strong> ({{brojHRf .PrognozaKm 0}} km) — prognoza se za stvarne kišomjere ne
+    preuzima zasebno, jer bi pod njihovom šifrom izgledala kao mjerenje{{end}}{{if not .PrognozaIzdana.IsZero}};
+    preuzeto {{formatDate (localTime .PrognozaIzdana)}}{{end}}.</p>
+  {{else if not .PrognozaIz}}
+  <p class="form-help">Za ovu točku nema prognoze: u krugu od 60 km nema izvedene točke.</p>
+  {{end}}
+</section>
+
+<section class="detail-section">
+  <h2>{{icon "chart-column"}} Kiša <span class="reg-chip">{{.GrafOpis}}</span></h2>
+  {{if .Graf}}
+  <div class="reg-card chart" style="padding:0.75rem 0.5rem 0.25rem; margin-bottom:0.5rem;">{{.Graf}}</div>
+  <p class="form-help" style="margin:0 0 1rem;"><span class="kisa-legenda"></span> {{if .Procjena}}procjena{{else}}izmjereno{{end}}
+    &nbsp; <span class="kisa-legenda kisa-legenda-prognoza"></span> prognoza. Prijeđi mišem preko stupca za vrijednost.</p>
+  {{else}}
+  <div class="reg-empty">Za ovo razdoblje nema ni izmjerene kiše ni prognoze.</div>
+  {{end}}
+
+  <form method="GET" action="" style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; margin-bottom:0.75rem;">
+    <label class="filter-label" for="pogledSel" style="margin:0;">Pogled</label>
+    <select id="pogledSel" name="pogled" class="filter-select" style="max-width:11rem;" onchange="this.form.submit()">
+      <option value="7" {{if eq .Pogled "7"}}selected{{end}}>zadnjih 7 dana</option>
+      <option value="30" {{if eq .Pogled "30"}}selected{{end}}>zadnjih 30 dana</option>
+      <option value="90" {{if eq .Pogled "90"}}selected{{end}}>zadnjih 90 dana</option>
+    </select>
+    <select name="korak" class="filter-select" style="max-width:10rem;" onchange="this.form.submit()">
+      <option value="satni" {{if eq .Korak "satni"}}selected{{end}}>po satima</option>
+      <option value="dnevni" {{if eq .Korak "dnevni"}}selected{{end}}>po danima</option>
+    </select>
+    <label class="filter-label" style="margin:0; display:flex; gap:0.3rem; align-items:center;"><input type="checkbox" name="kisa" value="1" {{if .SamoKisa}}checked{{end}} onchange="this.form.submit()"> samo s kišom</label>
+    <span class="reg-card-sub">{{brojHR .Pager.Total}} {{uzBroj .Pager.Total "vrijednost" "vrijednosti" "vrijednosti"}} · starije je u <a href="/slivovi/kisomjer/{{.Tocka.Code}}/historijat">historijatu</a></span>
+  </form>
+
+  {{if .Redovi}}
+  <div data-listanje="kisa">
+  {{template "pager" .Pager}}
+  <div class="table-card"><div class="table-responsive">
+    <table class="data-table">
+      <thead><tr><th>{{if eq .Korak "satni"}}Razdoblje{{else}}Dan{{end}}</th><th style="text-align:right;">Oborina <span class="reg-card-sub">mm</span></th><th>Odakle</th></tr></thead>
+      <tbody>
+      {{range .Redovi}}
+      <tr{{if gt .Mm 0.0}} class="kisa-kisni"{{end}}>
+        <td class="mono naslov">{{.Oznaka}}{{if eq .Sati 12}} <span class="reg-card-sub">12 h</span>{{end}}{{if .Nepotpun}} <span class="badge badge-pending">dan traje</span>{{end}}</td>
+        <td class="mono" style="text-align:right;" data-stupac="Oborina (mm)"><strong>{{brojHRf .Mm 1}}</strong></td>
+        <td class="reg-card-sub" data-stupac="Odakle">{{izvorLabel .Izvor}}</td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div></div>
+  {{template "pager" .Pager}}
+  </div>
+  {{else if .NemaSvjezih}}
+  <div class="reg-empty">{{if .Procjena}}Za ovu točku nema svježih procjena.{{else}}Kišomjer se u ovom razdoblju nije javio — ili se ne preuzima (provjeri izvor i šifru u obrascu).{{end}}</div>
+  {{end}}
+</section>
+{{end}}
+
+{{if eq .Stranica "historijat"}}
+{{if not .ArhVelicine}}
+<div class="reg-empty">Arhiva za {{.Tocka.Code}} još nema nijedan niz. {{if not .Procjena}}Mjerenja se u arhivu ulažu jednom dnevno iz radne baze.{{end}}</div>
+{{else}}
+<section class="detail-section">
+  <h2>{{icon "history"}} Arhiva</h2>
+  <form method="GET" action="" id="niz" style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; margin-bottom:0.75rem;">
+    <select name="v" class="filter-select" style="max-width:14rem;" onchange="this.form.submit()">
+      {{range .ArhVelicine}}<option value="{{.}}" {{if eq . $.ArhVelicina}}selected{{end}}>{{velicinaLabel .}}</option>{{end}}
+    </select>
+    <select name="korak" class="filter-select" style="max-width:10rem;" onchange="this.form.submit()">
+      <option value="dnevni" {{if eq .ArhKorak "dnevni"}}selected{{end}}>{{if .Zbrojiva}}dnevni zbroj{{else}}dnevni srednjak{{end}}</option>
+      <option value="satni" {{if eq .ArhKorak "satni"}}selected{{end}}>svaki sat</option>
+    </select>
+    <select name="god" class="filter-select" style="max-width:8rem;" onchange="this.form.submit()">
+      {{range .ArhGodine}}<option value="{{.}}" {{if eq . $.ArhGodina}}selected{{end}}>{{.}}.</option>{{end}}
+    </select>
+    <select name="mj" class="filter-select" style="max-width:9rem;" onchange="this.form.submit()">
+      <option value="0" {{if eq .ArhMjesec 0}}selected{{end}}>cijela godina</option>
+      {{range $m := mjeseci}}<option value="{{$m}}" {{if eq $m $.ArhMjesec}}selected{{end}}>{{mjesecIme $m}}</option>{{end}}
+    </select>
+    <select name="red" class="filter-select" style="max-width:11rem;" onchange="this.form.submit()">
+      <option value="" {{if eq .ArhRed ""}}selected{{end}}>po datumu</option>
+      <option value="vrh" {{if eq .ArhRed "vrh"}}selected{{end}}>{{if .Zbrojiva}}najkišniji prvo{{else}}najviši prvo{{end}}</option>
+      <option value="dno" {{if eq .ArhRed "dno"}}selected{{end}}>najniži prvo</option>
+    </select>
+    <span class="reg-card-sub">{{len .ArhGodine}} {{uzBroj (len .ArhGodine) "godina" "godine" "godina"}} u arhivi{{if .ArhPager.Total}} · {{brojHR .ArhPager.Total}} {{uzBroj .ArhPager.Total "vrijednost" "vrijednosti" "vrijednosti"}}{{end}}</span>
+  </form>
+
+  {{if .Zbrojiva}}
+  <div class="kisa-plocice" style="margin-bottom:1rem;">
+    <div class="kisa-plocica"><div class="kisa-oznaka">{{.ArhGodina}}.</div>
+      <div class="kisa-broj">{{brojHRf .GodinaZbroj 1}} <small>mm</small></div>
+      <div class="reg-card-sub">{{.GodinaDana}} dana s podatkom</div></div>
+    {{if .PunihGodina}}<div class="kisa-plocica"><div class="kisa-oznaka">Prosječna godina</div>
+      <div class="kisa-broj">{{brojHRf .ProsjekGodine 0}} <small>mm</small></div>
+      <div class="reg-card-sub">iz {{.PunihGodina}} {{uzBroj .PunihGodina "pune godine" "punih godina" "punih godina"}}</div></div>{{end}}
+  </div>
+  {{if .ArhGraf}}
+  <h3 class="part-label" style="margin:0 0 0.35rem 0;">{{velicinaLabel .ArhVelicina}} po danima — {{if .ArhMjesec}}{{mjesecIme .ArhMjesec}} {{end}}{{.ArhGodina}}.</h3>
+  <div class="reg-card chart" style="padding:0.75rem 0.5rem 0.25rem; margin-bottom:1rem;">{{.ArhGraf}}</div>
+  {{end}}
+  {{if .Mjeseci}}
+  <h3 class="part-label" style="margin:0 0 0.35rem 0;">Po mjesecima {{.ArhGodina}}.</h3>
+  <div class="table-card" style="margin-bottom:1rem;"><div class="table-responsive">
+    <table class="data-table">
+      <thead><tr><th>Mjesec</th><th style="text-align:right;">Zbroj <span class="reg-card-sub">mm</span></th><th style="text-align:right;">Kišnih dana</th><th style="text-align:right;">Najviše u danu</th><th>Kad</th></tr></thead>
+      <tbody>
+      {{range .Mjeseci}}
+      <tr onclick="location='?v={{$.ArhVelicina}}&korak=dnevni&god={{$.ArhGodina}}&mj={{.Mjesec}}#niz'" style="cursor:pointer;{{if eq .Mjesec $.ArhMjesec}} background:var(--tint-blue-bg);{{end}}">
+        <td class="naslov">{{mjesecIme .Mjesec}}{{if lt .Dana 28}} <span class="reg-card-sub">({{.Dana}} dana)</span>{{end}}</td>
+        <td class="mono" style="text-align:right;" data-stupac="Zbroj (mm)"><strong>{{brojHRf .Mm 1}}</strong></td>
+        <td class="mono" style="text-align:right;" data-stupac="Kišnih dana">{{.KisnihDana}}</td>
+        <td class="mono" style="text-align:right;" data-stupac="Najviše u danu">{{brojHRf .NajviseDan 1}}</td>
+        <td class="mono reg-card-sub" data-stupac="Kad">{{if gt .NajviseDan 0.0}}{{vrijemeNiza .NajviseNa false}}{{end}}</td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div></div>
+  {{end}}
+  {{else if .ArhChart}}
+  <div class="reg-card chart graf-niza graf-siroki" style="padding:0.75rem 0.5rem 0.25rem; margin-bottom:1rem;"
+       data-tocke="{{.ArhChart.Tocke}}" data-prognoza="{{.ArhChart.PrognozaTocke}}">
+    {{template "grafNiza" .ArhChart}}
+    <div class="graf-oblacic" hidden></div>
+  </div>
+  {{end}}
+
+  {{if .ArhNiz}}
+  <div data-listanje="arhiva">
+  <div class="table-card"><div class="table-responsive">
+    <table class="data-table">
+      <thead><tr><th>Kad</th><th style="text-align:right;">{{velicinaLabel .ArhVelicina}} <span class="reg-card-sub">{{.ArhJedinica}}</span></th><th>Odakle</th></tr></thead>
+      <tbody>
+      {{range .ArhNiz}}
+      <tr>
+        <td class="mono naslov">{{vrijemeNiza .Kad (eq $.ArhKorak "satni")}}</td>
+        <td class="mono" style="text-align:right;" data-stupac="{{velicinaLabel $.ArhVelicina}} ({{$.ArhJedinica}})"><strong>{{brojHRf .Vrijednost 1}}</strong></td>
+        <td class="reg-card-sub" data-stupac="Odakle">{{izvorLabel .Izvor}}</td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div></div>
+  {{template "pager" .ArhPager}}
+  </div>
+  {{end}}
+</section>
+
+{{if .Godine}}
+<section class="detail-section">
+  <h2>{{icon "calendar"}} Po godinama</h2>
+  <div class="table-card"><div class="table-responsive">
+    <table class="data-table">
+      <thead><tr><th>Godina</th><th style="text-align:right;">Zbroj <span class="reg-card-sub">mm</span></th><th style="text-align:right;">Kišnih dana</th><th style="text-align:right;">Najviše u danu</th><th>Kad</th></tr></thead>
+      <tbody>
+      {{range .Godine}}
+      <tr onclick="location='?v={{$.ArhVelicina}}&korak=dnevni&god={{.Godina}}#niz'" style="cursor:pointer;{{if eq .Godina $.ArhGodina}} background:var(--tint-blue-bg);{{end}}">
+        <td class="naslov">{{.Godina}}.{{if lt .Dana 360}} <span class="reg-card-sub">({{.Dana}} dana)</span>{{end}}</td>
+        <td class="mono" style="text-align:right;" data-stupac="Zbroj (mm)"><strong>{{brojHRf .Mm 1}}</strong></td>
+        <td class="mono" style="text-align:right;" data-stupac="Kišnih dana">{{.KisnihDana}}</td>
+        <td class="mono" style="text-align:right;" data-stupac="Najviše u danu">{{brojHRf .NajviseDan 1}}</td>
+        <td class="mono reg-card-sub" data-stupac="Kad">{{vrijemeNiza .NajviseNa false}}</td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div></div>
+  <p class="form-help">Godina s manje od 360 dana podataka nije puna i ne ulazi u prosjek. Kišni dan je dan s barem 1 mm.</p>
+</section>
+{{end}}
+{{end}}
+{{end}}
+{{end}}
