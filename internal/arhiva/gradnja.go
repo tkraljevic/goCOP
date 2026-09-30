@@ -1206,6 +1206,17 @@ var zadaniIzvori = []Izvor{
 	// isti UTC sat), ali nose i protoke te satne vrijednosti koje vituki nema;
 	// stoje iza vitukija, pa ulaze samo ondje gdje njega nema.
 	{"danubehis", 5, 20, true, "", "ICPDR DanubeHIS: ovjereni dnevni vodostaji i protoci (1961.–2023.) i sirovi satni od 2020.; licenca CC BY-NC-SA 4.0, navesti izvor"},
+	// Republički hidrometeorološki zavod Republike Srbije poslao je izravno
+	// ovjerene dnevne vodostaje i protoke Bezdana, Apatina i Bogojeva
+	// 1960.–2022. Isti su brojevi kao DanubeHIS, ali DanubeHIS ih ima dan
+	// ranije (ispravljeno u datotekama) i tek od 2016.; ispred njega.
+	{"rhmz", 1, 10, true, "", "Republički hidrometeorološki zavod Republike Srbije (RHMZ): ovjereni dnevni vodostaji i protoci Bezdana, Apatina i Bogojeva 1960.–2022., poslani izravno"},
+	// Batina 1960.–2001. iz Bezdana, 740 m uzvodno na suprotnoj obali: odnos
+	// izmjeren 2001.–2022. drži na ±5 cm, dok preračun iz Mohácsa griješi
+	// ±13 cm; zato stoji ispred njega (manja točnost u cm znači prednost).
+	// Kao svaki preračun ne ulazi u red spajanja nego na kraj, samo gdje
+	// mjerenja nema — zato isključen; točnost mu se ipak čita.
+	{"preracun-bezdan", 5, 30, false, "", "Batina 1960.–2001. preračunata iz Bezdana (RHMZ): Batina = Bezdan + 20,2 − 0,0099·Bezdan; protok isti kao Bezdanov"},
 	{"his2000-cs", 0, 10, false, "", "Donji Miholjac — odlučuje se kad dođe Drava"},
 	{"his2000-spojeno", 0, 10, false, "", "Donji Miholjac — odlučuje se kad dođe Drava"},
 	{"his2000-ukinuta-nizv", 0, 10, false, "", "Donji Miholjac — odlučuje se kad dođe Drava"},

@@ -668,7 +668,8 @@ func listGodisnjih(k *xlsxw.Knjiga, z ZaglavljeIzvoza, skupina string, letve []l
 	}
 	zaglavljeLista(l, z, v.naslov+" — "+skupina,
 		"u "+v.jedinica+" · crveno najviša i plavo najniža ikad izmjerena vrijednost · sivo nepotpuna godina (manje od "+
-			strconv.Itoa(NepotpunaGodinaDana)+" dana) · kurziv preračun sa susjedne letve", stupaca)
+			strconv.Itoa(NepotpunaGodinaDana)+" dana) · kurziv preračun sa susjedne letve, ne broji se · plavkasto "+
+			"preračun s letve na istom mjestu, broji se", stupaca)
 	// Tumač oznaka odmah ispod naslova, gdje ga čitatelj traži.
 	napomenaLista(l, v.tumac, stupaca, visinaTeksta(v.tumac, 150, 30, 0))
 
@@ -776,6 +777,8 @@ func listGodisnjih(k *xlsxw.Knjiga, z ZaglavljeIzvoza, skupina string, letve []l
 				obican = xlsxw.TablicaKurziv
 			case x.Dana < NepotpunaGodinaDana:
 				obican = xlsxw.TablicaSivo
+			case x.IzSusjedne:
+				obican = xlsxw.TablicaSredinaPojas // s letve na istom mjestu: broji se, ali se vidi
 			}
 			stilMin, stilMax := obican, obican
 			if x.Min == rekordi[g.kod].min && !x.Preracunata {
@@ -792,8 +795,9 @@ func listGodisnjih(k *xlsxw.Knjiga, z ZaglavljeIzvoza, skupina string, letve []l
 	napomena := "Srednja vrijednost godine je srednjak dnevnih vrijednosti. Najniža i najviša uzimaju se iz satnih " +
 		"vrijednosti gdje ih ima, a u starijim godinama iz dnevnih (jutarnje očitanje ili srednjak dana), pa je " +
 		"ondje pravi vrh vala mogao biti viši od upisanog. Kurzivom su godine koje nisu izmjerene na letvi nego " +
-		"preračunate sa susjedne (Batina do 2001. iz Mohácsa); one ne ulaze u karakteristične vrijednosti ni u " +
-		"rekorde. Razdoblje 1991.–2020. je standardno tridesetogodišnje razdoblje WMO-a; na Dunavu i Dravi korito " +
+		"preračunate sa susjedne (Batina do 1960. iz Mohácsa, 22 km); one ne ulaze u karakteristične vrijednosti ni u " +
+		"rekorde. Plavkastom podlogom su godine preračunate s letve na istom mjestu (Batina 1960.–2000. iz Bezdana, " +
+		"740 m na drugoj obali, ±5 cm, podaci RHMZ-a Srbije); one se broje kao izmjerene. Razdoblje 1991.–2020. je standardno tridesetogodišnje razdoblje WMO-a; na Dunavu i Dravi korito " +
 		"se kroz desetljeća mijenja, pa vodostaji cijelog niza nisu posve usporedivi s današnjima. Godina je kalendarska."
 	napomenaLista(l, napomena, stupaca, visinaTeksta(napomena, 150, 30, 0))
 }

@@ -1,7 +1,9 @@
 package web
 
 import (
+	"context"
 	"encoding/json"
+	"github.com/google/uuid"
 	"html/template"
 	"net/http"
 	"net/url"
@@ -31,17 +33,25 @@ type WatercourseStationMapItem struct {
 
 // WatercoursePageData je stranica jedne vode ili njezina obrasca
 type WatercoursePageData struct {
-	CurrentUser    *models.User
-	Permissions    *models.UserPermissions
-	Water          models.Watercourse
-	Sections       []models.Section
-	Stations       []models.Station
-	Kinds          []string
-	Maintenance    []models.MaintainedWater // popisi lokacija u kojima se voda održava
-	IsEdit         bool
-	SuccessMessage string
-	ErrorMessage   string
-	ActiveNav      string
+	CurrentUser *models.User
+	Permissions *models.UserPermissions
+	Water       models.Watercourse
+	Sections    []models.Section
+	Stations    []models.Station
+	// DodatneLetve su letve s drugih voda mjerodavne i za ovu (Batina uz
+	// baranjsku Karašicu); SveLetve nudi obrazac za dodavanje
+	DodatneLetve []models.Station
+	SveLetve     []models.Station
+	// NapomenaToka je tekst uz crtu toka na karti; uređuje se kad je tok
+	// upisan u bazi, a nije Dunav ili Drava, kojima ga piše kalibracija ENC-a
+	NapomenaToka          string
+	NapomenaTokaUredljiva bool
+	Kinds                 []string
+	Maintenance           []models.MaintainedWater // popisi lokacija u kojima se voda održava
+	IsEdit                bool
+	SuccessMessage        string
+	ErrorMessage          string
+	ActiveNav             string
 	ViewAsBanner
 	Karta           KartaPostavke
 	GeometryJSON    template.JS
@@ -106,23 +116,14 @@ func (h *WatercoursesHandler) ShowWatercourse(w http.ResponseWriter, r *http.Req
 			}
 		}
 	}
-	if h.stationService != nil {
-		if st, err := h.stationService.ListStations(ctx, "", water.Name, "", false); err == nil {
-			// popis po nazivu vode hvata i istoimene vode; zadrži samo one s ovom šifrom ili povezanim nazivom
-			for _, s := range st {
-				if s.WatercourseCode == water.Code || (s.WatercourseCode == "" && s.Watercourse == water.Name) {
-					data.Stations = append(data.Stations, s)
-				}
-			}
-		}
-	}
+	h.napuniLetve(ctx, &data)
 
 	if geom, err := h.watercourseService.GetWatercourseGeometry(ctx, water.Code); err == nil && len(geom) > 0 {
 		data.GeometryJSON = template.JS(geom)
 	}
 
 	var mapStations []WatercourseStationMapItem
-	for _, s := range data.Stations {
+	for _, s := range append(append([]models.Station(nil), data.Stations...), data.DodatneLetve...) {
 		if s.ImaKoordinate() {
 			idStr := s.ID.String()
 			mapStations = append(mapStations, WatercourseStationMapItem{
@@ -171,10 +172,48 @@ func (h *WatercoursesHandler) ShowWatercourseForm(w http.ResponseWriter, r *http
 		}
 		data.Water = *water
 		data.IsEdit = true
+		data.NapomenaToka = service.NapomenaToka(water.Geometry)
+		data.NapomenaTokaUredljiva = napomenaTokaUredljiva(*water)
+		h.napuniLetve(r.Context(), &data)
+		if h.stationService != nil {
+			data.SveLetve, _ = h.stationService.ListStations(r.Context(), "", "", "", false)
+		}
 	}
 
 	if err := h.tmplForm.ExecuteTemplate(w, "watercourse_form.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+// napomenaTokaUredljiva: napomenu uz tok Dunava i Drave piše kalibracija
+// prema ENC-u, pa bi upisana ionako bila prepisana pri prikazu
+func napomenaTokaUredljiva(w models.Watercourse) bool {
+	return strings.TrimSpace(w.Geometry) != "" && w.Code != "rijeka-dunav" && w.Code != "rijeka-drava"
+}
+
+// napuniLetve puni letve vode: vlastite (letva nosi ovu vodu) i dodatne s
+// drugih voda koje je voda sama navela
+func (h *WatercoursesHandler) napuniLetve(ctx context.Context, data *WatercoursePageData) {
+	if h.stationService == nil {
+		return
+	}
+	water := data.Water
+	if st, err := h.stationService.ListStations(ctx, "", water.Name, "", false); err == nil {
+		// popis po nazivu vode hvata i istoimene vode; zadrži samo one s ovom šifrom ili povezanim nazivom
+		for _, s := range st {
+			if s.WatercourseCode == water.Code || (s.WatercourseCode == "" && s.Watercourse == water.Name) {
+				data.Stations = append(data.Stations, s)
+			}
+		}
+	}
+	for _, id := range water.ExtraStationIDs {
+		uid, err := uuid.Parse(id)
+		if err != nil {
+			continue
+		}
+		if s, err := h.stationService.GetStation(ctx, uid); err == nil && s != nil {
+			data.DodatneLetve = append(data.DodatneLetve, *s)
+		}
 	}
 }
 

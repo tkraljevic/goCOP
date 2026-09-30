@@ -111,3 +111,51 @@ func TestWatercourseGeometryAPI(t *testing.T) {
 		t.Errorf("Geometrija nakon HandleUpdateWatercourseAPI je prebrisana! Imamo: %s", wAfter.Geometry)
 	}
 }
+
+// Obrazac vode mijenja napomenu uz tok na karti i dodatne letve, a ostatak
+// geometrije i popis letvi ne dira kad ih ne šalje.
+func TestObrazacVodeNapomenaTokaILetve(t *testing.T) {
+	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "web_voda_napomena.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer baza.Close()
+	if err := db.InitSchema(baza); err != nil {
+		t.Fatal(err)
+	}
+	rec := ledger.New(baza, "test-node")
+	waterRepo := repository.NewWatercourseRepository(baza, rec)
+	waterSvc := service.NewWatercourseService(waterRepo)
+	h := NewWatercoursesHandler(waterSvc, service.NewSectionService(repository.NewSectionRepository(baza, rec), service.NewSSEBroker()), nil)
+	ctx := context.WithValue(context.Background(), contextKeyPerms, &models.UserPermissions{IsGlobalAdmin: true})
+
+	geo := `{"type":"FeatureCollection","features":[{"type":"Feature","properties":{"name":"Karašica","stacionaza_napomena":"preduga napomena"},"geometry":{"type":"LineString","coordinates":[[18.5,45.7],[18.8,45.8]]}},{"type":"Feature","properties":{"tip":"rkm","rkm":5},"geometry":{"type":"Point","coordinates":[18.6,45.75]}}]}`
+	batina := "c625fa9d-0425-5115-8c49-8819cbb17bbd"
+	if err := waterRepo.CreateWatercourse(context.Background(), &models.Watercourse{Code: "potok-karasica", OfficialName: "potok Karašica", Name: "Karašica", Geometry: geo, ExtraStationIDs: []string{batina}}); err != nil {
+		t.Fatal(err)
+	}
+	posalji := func(tijelo string) {
+		req := httptest.NewRequest("POST", "/api/watercourses/update", strings.NewReader(tijelo)).WithContext(ctx)
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		rr := httptest.NewRecorder()
+		h.HandleUpdateWatercourseAPI(rr, req)
+		if rr.Code != http.StatusSeeOther {
+			t.Fatalf("status %d: %s", rr.Code, rr.Body.String())
+		}
+	}
+
+	posalji("code=potok-karasica&official_name=potok+Karašica&name=Karašica&napomena_toka=pkm+od+ušća+u+Dunav")
+	w, _ := waterSvc.GetWatercourse(context.Background(), "potok-karasica")
+	if service.NapomenaToka(w.Geometry) != "pkm od ušća u Dunav" || !strings.Contains(w.Geometry, `"rkm":5`) {
+		t.Errorf("napomena ili točke: %s", w.Geometry)
+	}
+	if len(w.ExtraStationIDs) != 1 {
+		t.Errorf("dodatne letve izgubljene kad ih obrazac ne šalje: %v", w.ExtraStationIDs)
+	}
+
+	posalji(`code=potok-karasica&official_name=potok+Karašica&name=Karašica&extra_station_ids=[]&link_station_ids=[]`)
+	w, _ = waterSvc.GetWatercourse(context.Background(), "potok-karasica")
+	if len(w.ExtraStationIDs) != 0 || service.NapomenaToka(w.Geometry) != "pkm od ušća u Dunav" {
+		t.Errorf("uklanjanje letve: %v / %q", w.ExtraStationIDs, service.NapomenaToka(w.Geometry))
+	}
+}

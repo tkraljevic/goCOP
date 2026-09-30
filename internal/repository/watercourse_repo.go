@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -26,7 +27,7 @@ func NewWatercourseRepository(db *sql.DB, rec *ledger.Recorder) *WatercourseRepo
 const watercourseColumns = `
 	w.code, w.official_name, w.name, w.kind, w.category, w.subcategory, w.wiki_slug, w.origin,
 	w.length_km, w.basin_km2, w.avg_flow_m3s, w.source, w.mouth, w.flows_into, w.notes,
-	COALESCE(w.geometry, ''),
+	COALESCE(w.geometry, ''), w.extra_station_ids,
 	(SELECT COUNT(*) FROM sections s WHERE s.watercourse_code = w.code),
 	(SELECT COUNT(*) FROM stations st WHERE st.watercourse_code = w.code)
 `
@@ -37,12 +38,13 @@ func scanWatercourse(scanner interface{ Scan(...any) error }) (models.Watercours
 		length sql.NullFloat64
 		basin  sql.NullFloat64
 		flow   sql.NullFloat64
+		extra  string
 	)
 
 	err := scanner.Scan(
 		&w.Code, &w.OfficialName, &w.Name, &w.Kind, &w.Category, &w.Subcategory, &w.WikiSlug, &w.Origin,
 		&length, &basin, &flow, &w.Source, &w.Mouth, &w.FlowsInto, &w.Notes,
-		&w.Geometry,
+		&w.Geometry, &extra,
 		&w.SectionCount, &w.StationCount,
 	)
 	if err != nil {
@@ -52,6 +54,9 @@ func scanWatercourse(scanner interface{ Scan(...any) error }) (models.Watercours
 	w.LengthKm = nullFloatPtr(length)
 	w.BasinKm2 = nullFloatPtr(basin)
 	w.AvgFlowM3S = nullFloatPtr(flow)
+	if extra != "" {
+		_ = json.Unmarshal([]byte(extra), &w.ExtraStationIDs)
+	}
 
 	return w, nil
 }
@@ -114,6 +119,22 @@ func (r *WatercourseRepository) GetWatercourse(ctx context.Context, code string)
 	return &w, nil
 }
 
+// ExtraStationsJSON je zapis popisa dodatnih letvi u stupcu; prazan popis je
+// prazan tekst, kakav stoji i u vodama bez njih
+func ExtraStationsJSON(ids []string) string {
+	if len(ids) == 0 {
+		return ""
+	}
+	b, _ := json.Marshal(ids)
+	return string(b)
+}
+
+// getWatercourseTx čita vodno tijelo unutar transakcije, za zapis u knjigu
+// verzija kad ga je upisalo vezanje dionice
+func getWatercourseTx(ctx context.Context, q rowQuerier, code string) (models.Watercourse, error) {
+	return scanWatercourse(q.QueryRowContext(ctx, `SELECT `+watercourseColumns+` FROM watercourses w WHERE w.code = ?`, code))
+}
+
 // ListCategories vraća kategorije zastupljene u registru
 func (r *WatercourseRepository) ListCategories(ctx context.Context) ([]string, error) {
 	rows, err := r.db.QueryContext(ctx, `
@@ -164,11 +185,11 @@ func (r *WatercourseRepository) CreateWatercourse(ctx context.Context, w *models
 	_, err = tx.ExecContext(ctx, `
 		INSERT INTO watercourses (
 			code, official_name, name, kind, category, subcategory, wiki_slug, origin,
-			length_km, basin_km2, avg_flow_m3s, source, mouth, flows_into, notes, geometry
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			length_km, basin_km2, avg_flow_m3s, source, mouth, flows_into, notes, geometry, extra_station_ids
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`,
 		w.Code, w.OfficialName, w.Name, w.Kind, w.Category, w.Subcategory, w.WikiSlug, w.Origin,
-		w.LengthKm, w.BasinKm2, w.AvgFlowM3S, w.Source, w.Mouth, w.FlowsInto, w.Notes, w.Geometry,
+		w.LengthKm, w.BasinKm2, w.AvgFlowM3S, w.Source, w.Mouth, w.FlowsInto, w.Notes, w.Geometry, ExtraStationsJSON(w.ExtraStationIDs),
 	)
 	if err != nil {
 		return fmt.Errorf("greška pri unosu vodnog tijela %q: %w", w.OfficialName, err)
@@ -191,11 +212,13 @@ func (r *WatercourseRepository) UpdateWatercourse(ctx context.Context, w *models
 	res, err := tx.ExecContext(ctx, `
 		UPDATE watercourses SET
 			official_name = ?, name = ?, kind = ?, category = ?, subcategory = ?, wiki_slug = ?,
-			length_km = ?, basin_km2 = ?, avg_flow_m3s = ?, source = ?, mouth = ?, flows_into = ?, notes = ?, geometry = ?
+			length_km = ?, basin_km2 = ?, avg_flow_m3s = ?, source = ?, mouth = ?, flows_into = ?, notes = ?, geometry = ?,
+			extra_station_ids = ?
 		WHERE code = ?
 	`,
 		w.OfficialName, w.Name, w.Kind, w.Category, w.Subcategory, w.WikiSlug,
-		w.LengthKm, w.BasinKm2, w.AvgFlowM3S, w.Source, w.Mouth, w.FlowsInto, w.Notes, w.Geometry, w.Code,
+		w.LengthKm, w.BasinKm2, w.AvgFlowM3S, w.Source, w.Mouth, w.FlowsInto, w.Notes, w.Geometry,
+		ExtraStationsJSON(w.ExtraStationIDs), w.Code,
 	)
 	if err != nil {
 		return fmt.Errorf("greška pri izmjeni vodnog tijela %q: %w", w.OfficialName, err)

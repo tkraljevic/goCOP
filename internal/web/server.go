@@ -625,6 +625,7 @@ func (s *Server) setupRoutes() {
 	territoriesH.SetPageTemplates(s.templates["county_form.html"], s.templates["municipality_form.html"], s.templates["municipality_detail.html"])
 	territoriesH.SetCountyTemplate(s.templates["county_detail.html"])
 	territoriesH.SetKarta(func() KartaPostavke { return s.karta })
+	territoriesH.SetVodnaPodrucja(s.userService, s.sectionService)
 	stationsH := NewStationsHandler(s.stationService, s.templates["stations.html"])
 	stationsH.SetPageTemplates(s.templates["station_detail.html"], s.templates["station_form.html"],
 		s.templates["station_history.html"], s.templates["station_history_form.html"],
@@ -970,6 +971,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /sections/{code}/dionica.xlsx", s.authMiddleware(http.HandlerFunc(sectionsH.IzvoziDionicu)))
 	s.mux.Handle("GET /sections/dionice.xlsx", s.authMiddleware(http.HandlerFunc(sectionsH.IzvoziPopisDionica)))
 	s.mux.Handle("GET /api/sections/{code}", s.authMiddleware(http.HandlerFunc(sectionsH.HandleGetSectionAPI)))
+	s.mux.Handle("GET /api/sections/prijedlog-veze", s.authMiddleware(http.HandlerFunc(sectionsH.HandlePrijedlogVezeAPI)))
 	s.mux.Handle("POST /sections/create", s.authMiddleware(http.HandlerFunc(sectionsH.HandleCreateSection)))
 	s.mux.Handle("POST /sections/update", s.authMiddleware(http.HandlerFunc(sectionsH.HandleUpdateSection)))
 	s.mux.Handle("POST /sections/{code}/obrana/proglasi", s.authMiddleware(http.HandlerFunc(sectionsH.HandleDeclareDefense)))
@@ -981,6 +983,8 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /territories/zupanije.geojson", s.authMiddleware(http.HandlerFunc(territoriesH.HandleGetCountiesGeoJSON)))
 	s.mux.Handle("GET /territories/opcine.geojson", s.authMiddleware(http.HandlerFunc(territoriesH.HandleGetMunicipalitiesGeoJSON)))
 	s.mux.Handle("GET /territories/naselja.geojson", s.authMiddleware(http.HandlerFunc(territoriesH.HandleGetSettlementsGeoJSON)))
+	s.mux.Handle("GET /territories/sektori.geojson", s.authMiddleware(http.HandlerFunc(territoriesH.HandleGetSektoriGeoJSON)))
+	s.mux.Handle("GET /territories/branjena-podrucja.geojson", s.authMiddleware(http.HandlerFunc(territoriesH.HandleGetBranjenaPodrucjaGeoJSON)))
 	s.mux.Handle("GET /territories/zupanije.csv", s.authMiddleware(http.HandlerFunc(territoriesH.ExportCountiesCSV)))
 	s.mux.Handle("GET /territories/gradovi-i-opcine.csv", s.authMiddleware(http.HandlerFunc(territoriesH.ExportMunicipalitiesCSV)))
 	s.mux.Handle("GET /territories/naselja.csv", s.authMiddleware(http.HandlerFunc(territoriesH.ExportSettlementsCSV)))

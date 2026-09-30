@@ -1,7 +1,10 @@
 package web
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
+	"github.com/google/uuid"
 	"html/template"
 	"net/http"
 	"strings"
@@ -132,6 +135,14 @@ type watercourseForm struct {
 	Mouth        string `json:"mouth"`
 	FlowsInto    string `json:"flows_into"`
 	Notes        string `json:"notes"`
+
+	// Letve iz obrasca: dodatne s drugih voda (JSON popis identiteta) i letve
+	// bez vode koje se vežu na ovu. Nil znači da obrazac letve ne šalje, pa
+	// postojeće ostaju.
+	ExtraStations *string `json:"extra_station_ids,omitempty"`
+	LinkStations  *string `json:"link_station_ids,omitempty"`
+	// NapomenaToka je tekst uz crtu toka na karti; nil znači da ga obrazac ne šalje
+	NapomenaToka *string `json:"napomena_toka,omitempty"`
 }
 
 func (f watercourseForm) toWatercourse() models.Watercourse {
@@ -142,7 +153,7 @@ func (f watercourseForm) toWatercourse() models.Watercourse {
 		Kind:         strings.TrimSpace(f.Kind),
 		Category:     strings.TrimSpace(f.Category),
 		Subcategory:  strings.TrimSpace(f.Subcategory),
-		WikiSlug:     strings.TrimSpace(f.WikiSlug),
+		WikiSlug:     models.WikiNaslov(f.WikiSlug),
 		LengthKm:     parseOptionalFloat(f.LengthKm),
 		BasinKm2:     parseOptionalFloat(f.BasinKm2),
 		AvgFlowM3S:   parseOptionalFloat(f.AvgFlowM3S),
@@ -180,6 +191,18 @@ func decodeWatercourseForm(r *http.Request) (watercourseForm, error) {
 	form.Mouth = r.FormValue("mouth")
 	form.FlowsInto = r.FormValue("flows_into")
 	form.Notes = r.FormValue("notes")
+	if _, ok := r.Form["extra_station_ids"]; ok {
+		v := r.FormValue("extra_station_ids")
+		form.ExtraStations = &v
+	}
+	if _, ok := r.Form["napomena_toka"]; ok {
+		v := strings.Join(strings.Fields(r.FormValue("napomena_toka")), " ")
+		form.NapomenaToka = &v
+	}
+	if _, ok := r.Form["link_station_ids"]; ok {
+		v := r.FormValue("link_station_ids")
+		form.LinkStations = &v
+	}
 	return form, nil
 }
 
@@ -228,12 +251,47 @@ func (h *WatercoursesHandler) HandleUpdateWatercourseAPI(w http.ResponseWriter, 
 	}
 
 	water := form.toWatercourse()
-	// Sačuvaj postojeću geometriju ako obrazac ne šalje novu
+	// Sačuvaj postojeću geometriju ako obrazac ne šalje novu, a dodatne letve
+	// ako ih ne šalje
 	if existing, err := h.watercourseService.GetWatercourse(ctx, code); err == nil && existing != nil {
 		water.Geometry = existing.Geometry
+		water.ExtraStationIDs = existing.ExtraStationIDs
+	}
+	if form.ExtraStations != nil {
+		ids, err := popisLetvi(*form.ExtraStations)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		water.ExtraStationIDs = ids
+	}
+	if form.NapomenaToka != nil && napomenaTokaUredljiva(water) && *form.NapomenaToka != service.NapomenaToka(water.Geometry) {
+		g, err := service.SNapomenomToka(water.Geometry, *form.NapomenaToka)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		water.Geometry = g
+	}
+	var zaVezati []string
+	if form.LinkStations != nil {
+		ids, err := popisLetvi(*form.LinkStations)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		zaVezati = ids
 	}
 
 	if err := h.watercourseService.UpdateWatercourse(ctx, perms, &water); err != nil {
+		if wantsPage(r) {
+			redirectWith(w, r, "/watercourses/"+water.Code+"/edit", "error", err.Error())
+			return
+		}
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := h.vezeLetve(ctx, perms, water, zaVezati); err != nil {
 		if wantsPage(r) {
 			redirectWith(w, r, "/watercourses/"+water.Code+"/edit", "error", err.Error())
 			return
@@ -247,6 +305,55 @@ func (h *WatercoursesHandler) HandleUpdateWatercourseAPI(w http.ResponseWriter, 
 		return
 	}
 	writeJSON(w, map[string]any{"success": true, "watercourse": water})
+}
+
+// popisLetvi čita JSON popis identiteta letvi iz obrasca
+func popisLetvi(raw string) ([]string, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil, nil
+	}
+	var ids []string
+	if err := json.Unmarshal([]byte(raw), &ids); err != nil {
+		return nil, fmt.Errorf("popis letvi nije ispravan")
+	}
+	var out []string
+	vidjeno := map[string]bool{}
+	for _, id := range ids {
+		if _, err := uuid.Parse(id); err != nil {
+			return nil, fmt.Errorf("letva %q ne postoji", id)
+		}
+		if !vidjeno[id] {
+			vidjeno[id] = true
+			out = append(out, id)
+		}
+	}
+	return out, nil
+}
+
+// vezeLetve veže letve bez vode na ovu vodu — potvrda operatera. Letva koja
+// već ima drugu vodu ovdje se ne premješta; ona ide među dodatne letve.
+func (h *WatercoursesHandler) vezeLetve(ctx context.Context, perms *models.UserPermissions, water models.Watercourse, ids []string) error {
+	if h.stationService == nil {
+		return nil
+	}
+	for _, id := range ids {
+		s, err := h.stationService.GetStation(ctx, uuid.MustParse(id))
+		if err != nil || s == nil {
+			return fmt.Errorf("letva %s nije pronađena", id)
+		}
+		if s.WatercourseCode == water.Code {
+			continue
+		}
+		if s.WatercourseCode != "" {
+			return fmt.Errorf("letva %s već stoji na drugoj vodi — dodaje se među letve s drugih voda", s.Name)
+		}
+		s.Watercourse, s.WatercourseCode = water.Name, water.Code
+		if err := h.stationService.UpdateStation(ctx, perms, s); err != nil {
+			return fmt.Errorf("letva %s: %w", s.Name, err)
+		}
+	}
+	return nil
 }
 
 type watercourseGeometryForm struct {

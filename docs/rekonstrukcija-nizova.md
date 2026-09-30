@@ -252,3 +252,34 @@ Prije nego se niz produlji unatrag iz susjedne postaje:
    je niz preko takvog datuma dva niza. Za dunavske letve to je dokumentirano
    u VITUKI (1976); za druge treba matična knjiga letve (vízmérce törzskönyv,
    odnosno njezin ekvivalent).
+
+## Batina 1960.–2001. iz Bezdana (RHMZ)
+
+Republički hidrometeorološki zavod Republike Srbije poslao je izravno ovjerene
+dnevne vodostaje i protoke Bezdana, Apatina i Bogojeva za 1960.–2022. (izvor
+`rhmz`). Bezdan stoji 740 m uzvodno od Batine, na suprotnoj obali, pa je za
+Batinu bolji susjed od Mohácsa na 22 km:
+
+| | Bezdan − Batina | rasap |
+|---|---|---|
+| 2001.–2022., Batina izmjerena | −18,5 cm | **4,9 cm** |
+| 1960.–2000., Batina preračunata iz Mohácsa | −24,5 cm | 13,2 cm |
+
+Preračun iz Mohácsa u tom je razdoblju griješio oko 6 cm u prosjeku i 13 cm od
+dana do dana. Odnos s Bezdanom blago ovisi o vodi (−20 cm pri maloj, −15 cm
+pri velikoj), pa se preračunava pravcem izmjerenim na 7.968 dana:
+
+    Batina = Bezdan + 20,23 − 0,0099 · Bezdan
+
+Izvor `preracun-bezdan` (točnost ±5 cm) pokriva 1.1.1960.–8.3.2001. i stoji
+ispred `preracun-mohacs` (±14 cm), koji ostaje za 1901.–1959. Petnaest dana
+vrha 1965. (Bezdan do 776 cm) je do 21 cm iznad izmjerenog raspona; odnos je
+ondje gotovo ravan, pa je produženje sigurno. Protok Batine 1960.–2001. uzima
+se Bezdanov: u 2001.–2022. dvije se postaje slažu na −0,5 % (rasap 4,7 %),
+dok je dotadašnji preračun krivuljom Batine davao 15,6 % previše — današnja
+krivulja na starom koritu.
+
+Usput: DanubeHIS ima srpske dnevne vrijednosti (Bezdan, Bogojevo) dan ranije
+nego RHMZ — s pomakom od jednog dana svih 2.282 zajednička dana se poklapaju
+do centimetra, a Bezdan se s Batinom slaže bez pomaka. Datoteke su pomaknute.
+Mađarske postaje tu grešku nemaju, a satni srpski nizovi također ne.

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"gocop/internal/db"
@@ -48,7 +49,7 @@ func TestWatercourseService_Geometry(t *testing.T) {
 	}
 
 	// 2. Dozvola za izmjenu geometrije: običan korisnik ne može
-	testGeo := `{"type":"FeatureCollection","features":[]}`
+	testGeo := `{"type":"FeatureCollection","features":[{"type":"Feature","geometry":{"type":"LineString","coordinates":[[18.85,45.84],[18.95,45.53]]}}]}`
 	if err := svc.SetWatercourseGeometry(ctx, userPerms, "rijeka-dunav", testGeo); err == nil {
 		t.Errorf("Očekivao grešku ovlasti za korisnika bez globalAdmin ovlasti")
 	}
@@ -58,12 +59,16 @@ func TestWatercourseService_Geometry(t *testing.T) {
 		t.Fatalf("SetWatercourseGeometry sa admin ovlastima: %v", err)
 	}
 
-	// 4. Sada GetWatercourseGeometry vraća novu geometriju iz baze
-	updatedGeom, err := svc.GetWatercourseGeometry(ctx, "rijeka-dunav")
-	if err != nil {
-		t.Fatalf("GetWatercourseGeometry after update: %v", err)
+	// 4. U bazi stoji upisana geometrija; čitanje je vraća sa stacionažom
+	w, err := svc.GetWatercourse(ctx, "rijeka-dunav")
+	if err != nil || w == nil {
+		t.Fatalf("GetWatercourse after update: %v", err)
 	}
-	if string(updatedGeom) != testGeo {
-		t.Errorf("GetWatercourseGeometry vratio %s, htio %s", string(updatedGeom), testGeo)
+	if w.Geometry != testGeo {
+		t.Errorf("u bazi je %s, htio %s", w.Geometry, testGeo)
+	}
+	updatedGeom, err := svc.GetWatercourseGeometry(ctx, "rijeka-dunav")
+	if err != nil || !strings.Contains(string(updatedGeom), "[18.95,45.53]") {
+		t.Errorf("GetWatercourseGeometry nakon upisa: %v %s", err, updatedGeom)
 	}
 }

@@ -197,3 +197,17 @@ func TestImeIDrzava(t *testing.T) {
 		}
 	}
 }
+
+// Godina preračunata s letve na istom mjestu (Batina iz Bezdana) broji se u
+// karakteristične vrijednosti; godina iz daleke letve (Mohács) ne.
+func TestKarakteristicneBrojeSusjednu(t *testing.T) {
+	g := []repository.GodinaVodostaja{
+		{Godina: 1965, Srednjak: 400, Min: 100, Max: 788, Dana: 365, ImaVrijednost: true, IzSusjedne: true},
+		{Godina: 1956, Srednjak: 300, Min: 50, Max: 797, Dana: 366, ImaVrijednost: true, Preracunata: true},
+		{Godina: 2013, Srednjak: 275, Min: 19, Max: 772, Dana: 365, ImaVrijednost: true},
+	}
+	k := karakteristicneRazdoblja(g, 0, 0)
+	if k.vvv != 788 || k.godVVV != 1965 || k.punih != 2 || k.sv != 337.5 {
+		t.Errorf("karakteristične %+v: 1965. iz Bezdana ulazi, 1956. iz Mohácsa ne", k)
+	}
+}

@@ -27,6 +27,8 @@ type TerritoriesHandler struct {
 	tmplMuniForm     *template.Template
 	tmplMuniDetail   *template.Template
 	tmplCounty       *template.Template
+	userService      *service.UserService    // sektori i branjena područja za kartu
+	sectionService   *service.SectionService // broj dionica po području
 }
 
 func (h *TerritoriesHandler) SetKarta(f func() KartaPostavke) { h.karta = f }

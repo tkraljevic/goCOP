@@ -8,6 +8,7 @@ import (
 	"math"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -121,7 +122,34 @@ type LetvaPrognoze struct {
 	Dani            []CelijaDana
 	Nepovezana      string // poruka kad letva nije povezana sa živom vodom, pa prognoze nema
 	Rezerva         string // poruka kad se letva računa iz rezervnih ulaza
+	Preneseno       string // srpska letva: odakle je prognoza prenesena i koliko odnos drži
 	Pragovi         []PragKartice
+}
+
+// opisPrenesenog piše za karticu odakle je srpskoj letvi prenesena prognoza:
+// zapis izbora je „izvori|rasap|dana|pomak".
+func opisPrenesenog(zapis string, postaje map[string]models.Station) string {
+	d := strings.Split(zapis, "|")
+	if len(d) != 4 {
+		return "prognoza prenesena s naše"
+	}
+	var imena []string
+	for _, kod := range strings.Split(d[0], ",") {
+		ime := kod
+		if st, ima := postaje[kod]; ima {
+			ime, _ = imeIDrzava(st.Name)
+		}
+		imena = append(imena, akuzativ(ime))
+	}
+	rasap, _ := strconv.ParseFloat(d[1], 64)
+	dana, _ := strconv.Atoi(d[2])
+	pomak, _ := strconv.ParseFloat(d[3], 64)
+	s := fmt.Sprintf("prognoza prenesena s naše za %s · odnos ±%s cm (%s dana)", strings.Join(imena, " i "),
+		brojHRf(rasap, 0), brojHRf(float64(dana), 0))
+	if pomak != 0 {
+		s += fmt.Sprintf(" · pomak na startu %+.0f cm", pomak)
+	}
+	return s
 }
 
 // PragKartice je pločica praga na kartici prognoze, ista kao na stranici
@@ -292,6 +320,16 @@ func (h *PrognozeHandler) podaci(r *http.Request) PrognozePageData {
 			}
 			data.Letve[i].Rezerva += opisRezerve(iz.Opis, postaje)
 		}
+		if iz, ima := izbor["zamjena:"+kod]; ima {
+			if data.Letve[i].Rezerva != "" {
+				data.Letve[i].Rezerva += " "
+			}
+			data.Letve[i].Rezerva += opisRezerve(iz.Opis, postaje)
+		}
+		if iz, ima := izbor["preneseno:"+kod]; ima {
+			data.Letve[i].Preneseno = opisPrenesenog(iz.Opis, postaje)
+			data.Letve[i].Pregledna = false // ima našu prognozu, nije više samo za pregled
+		}
 		if iz, ima := izbor["vrh:"+kod]; ima {
 			if data.Letve[i].Rezerva != "" {
 				data.Letve[i].Rezerva += " "
@@ -369,7 +407,7 @@ func trajanjeKruga(d time.Duration) string {
 
 // Generiraj pokreće cijeli krug rukom, kao što ga poslužitelj pokreće svaki
 // sat: preuzme vodostaje svih povezanih letvi, tuđe prognoze, pa izračuna i
-// zapiše našu. Krug ide u pozadini, jer traje i po minutu; stranica se sama
+// zapiše našu — i kad je za taj sat već izdana. Krug ide u pozadini, jer traje i po minutu; stranica se sama
 // osvježi kad prođe. Dok jedan krug traje, drugi se ne pokreće.
 func (h *PrognozeHandler) Generiraj(w http.ResponseWriter, r *http.Request) {
 	u := h.uvoznik()
@@ -382,7 +420,7 @@ func (h *PrognozeHandler) Generiraj(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	go func() {
-		ctx, otkazi := context.WithTimeout(context.Background(), 15*time.Minute)
+		ctx, otkazi := context.WithTimeout(prognoza.SIznova(context.Background()), 15*time.Minute)
 		defer otkazi()
 		u.PreuzmiSve(ctx)
 	}()
@@ -973,6 +1011,9 @@ func opisRezerve(opis string, postaje map[string]models.Station) string {
 	switch {
 	case strings.HasPrefix(opis, "dnevni model: "):
 		return "Dnevna prognoza iz rezerve: " + imena(strings.TrimPrefix(opis, "dnevni model: ")) + "."
+	case strings.HasPrefix(opis, "zamjena: "):
+		o := imena(strings.TrimPrefix(opis, "zamjena: "))
+		return strings.ToUpper(o[:1]) + o[1:] + "."
 	case strings.HasPrefix(opis, "bez svježeg ulaza"):
 		return imena(opis) + "."
 	}

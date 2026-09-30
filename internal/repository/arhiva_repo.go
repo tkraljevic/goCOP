@@ -1119,10 +1119,18 @@ type GodinaVodostaja struct {
 	ImaSatnih     bool // najniži i najviši barem djelom iz satnih vrijednosti
 	ImaVrijednost bool
 	// Preracunata: više od pola dana godine nije izmjereno na letvi nego
-	// preračunato sa susjedne (Batina do 2001. iz Mohácsa). Takva godina nije
+	// preračunato sa susjedne (Batina do 1960. iz Mohácsa). Takva godina nije
 	// mjerenje i ne smije nositi rekord.
 	Preracunata bool
+	// IzSusjedne: godina je preračunata s letve toliko bliske da se broji kao
+	// izmjerena (Batina 1960.–2001. iz Bezdana, 740 m, ±5 cm) — ulazi u
+	// karakteristične vrijednosti i rekorde, ali se na listu razlikuje.
+	IzSusjedne bool
 }
+
+// PreracunKaoMjerenje su preračuni s letve na istom mjestu, dovoljno točni
+// da se broje kao mjerenje: Bezdan je 740 m od Batine, na drugoj obali.
+var PreracunKaoMjerenje = map[string]bool{"preracun-bezdan": true}
 
 // GodisnjiVodostaji vraća po godinama srednjak, najniži i najviši vodostaj
 // letve iz spojenog niza, od najstarije godine. Godina je po UTC-u.
@@ -1136,18 +1144,25 @@ func (r *ArhivaRepository) GodisnjeVrijednosti(ctx context.Context, letva, velic
 		return nil, nil
 	}
 	po := map[int]*GodinaVodostaja{}
-	citaj := func(korak string, fn func(g *GodinaVodostaja, sr, mn, mx float64, n, preracunato int)) error {
+	kaoMjerenje := make([]string, 0, len(PreracunKaoMjerenje))
+	for izvor := range PreracunKaoMjerenje {
+		kaoMjerenje = append(kaoMjerenje, "'"+strings.ReplaceAll(izvor, "'", "''")+"'")
+	}
+	sort.Strings(kaoMjerenje)
+	u := strings.Join(kaoMjerenje, ",")
+	citaj := func(korak string, fn func(g *GodinaVodostaja, sr, mn, mx float64, n, preracunato, susjedno int)) error {
 		rows, err := r.db.QueryContext(ctx, `SELECT CAST(strftime('%Y', vrijeme, 'unixepoch') AS INTEGER) AS g,
-			avg(vrijednost), min(vrijednost), max(vrijednost), count(*), sum(izvor LIKE 'preracun-%')
+			avg(vrijednost), min(vrijednost), max(vrijednost), count(*),
+			sum(izvor LIKE 'preracun-%' AND izvor NOT IN (`+u+`)), sum(izvor IN (`+u+`))
 			FROM spoj WHERE letva = ? AND velicina = ? AND korak = ? GROUP BY g`, letva, velicina, korak)
 		if err != nil {
 			return err
 		}
 		defer rows.Close()
 		for rows.Next() {
-			var god, n, preracunato int
+			var god, n, preracunato, susjedno int
 			var sr, mn, mx float64
-			if err := rows.Scan(&god, &sr, &mn, &mx, &n, &preracunato); err != nil {
+			if err := rows.Scan(&god, &sr, &mn, &mx, &n, &preracunato, &susjedno); err != nil {
 				return err
 			}
 			g := po[god]
@@ -1155,17 +1170,18 @@ func (r *ArhivaRepository) GodisnjeVrijednosti(ctx context.Context, letva, velic
 				g = &GodinaVodostaja{Godina: god}
 				po[god] = g
 			}
-			fn(g, sr, mn, mx, n, preracunato)
+			fn(g, sr, mn, mx, n, preracunato, susjedno)
 		}
 		return rows.Err()
 	}
-	if err := citaj("dnevni", func(g *GodinaVodostaja, sr, mn, mx float64, n, preracunato int) {
+	if err := citaj("dnevni", func(g *GodinaVodostaja, sr, mn, mx float64, n, preracunato, susjedno int) {
 		g.Srednjak, g.Min, g.Max, g.Dana, g.ImaVrijednost = sr, mn, mx, n, true
 		g.Preracunata = 2*preracunato > n
+		g.IzSusjedne = !g.Preracunata && 2*susjedno > n
 	}); err != nil {
 		return nil, err
 	}
-	if err := citaj("satni", func(g *GodinaVodostaja, _, mn, mx float64, _, _ int) {
+	if err := citaj("satni", func(g *GodinaVodostaja, _, mn, mx float64, _, _, _ int) {
 		if !g.ImaVrijednost {
 			g.Min, g.Max = mn, mx
 		}

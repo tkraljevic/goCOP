@@ -2532,7 +2532,7 @@ textarea {
 .rows-return .return-row { margin-bottom: 0.4rem; }
 .rows-zero .zero-row { display: grid; gap: 0.4rem; grid-template-columns: var(--cols); align-items: center; margin-bottom: 0.4rem; }
 .rows-zero .rows-head { display: grid; gap: 0.4rem; grid-template-columns: var(--cols); }
-.rows-obj { --cols: minmax(7rem, 1fr) minmax(14rem, 3fr) minmax(11rem, 2fr) 2.25rem; }
+.rows-obj { --cols: minmax(8.5rem, 1fr) minmax(12rem, 3fr) minmax(11rem, 2fr) minmax(10rem, 2fr) 2.25rem; }
 /* Ograde uz nizove: izvor i veličina su kratki, datumi fiksni, a tekst je ono
    zbog čega se redak i upisuje — njemu ide sve što pretekne. */
 .rows-ograda { container-type: inline-size; --cols: 8rem 7rem 8.5rem 8.5rem 5rem 5rem minmax(14rem, 3fr) 2.25rem; }
@@ -2550,6 +2550,11 @@ textarea {
 .emb-row .btn, .obj-row .btn { height: 2.25rem; width: 2.25rem; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
 .obj-row [data-role=obj-extra] { grid-column: 1 / -1; display: flex; gap: 0.4rem; align-items: center; font-size: 0.8rem; color: var(--text-secondary); }
 .obj-row [data-role=obj-extra] select { width: auto; }
+.obj-row [data-role=obj-novi], .obj-row [data-role=obj-prijedlog] { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; font-size: 0.8rem; color: var(--text-secondary); }
+.obj-row [data-role][hidden] { display: none; }
+.obj-row [data-role=obj-novi] select { width: auto; }
+.obj-row [data-role=obj-novi] input { flex: 1 1 14rem; width: auto; }
+.obj-row [data-role=obj-prijedlog] .btn { width: auto; height: auto; padding: 0.15rem 0.5rem; }
 /* Ispod ~52 rem tablica se slaže u dva stupca s naslovom uz svako polje.
    Mjeri se širina poddionice, a ne prozora: prozor zna biti širok dok je
    kartica uska. */

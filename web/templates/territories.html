@@ -164,6 +164,19 @@
 
       <div style="height:22px; width:1px; background:var(--border); margin:0 0.25rem;"></div>
 
+      <label class="karta-sloj-kontrola" style="display:inline-flex; align-items:center; gap:0.45rem; cursor:pointer; font-size:0.875rem; font-weight:500; user-select:none;" title="Granice sektora Hrvatskih voda (A–F)">
+        <input type="checkbox" id="sloj-chk-sektori" style="cursor:pointer; accent-color:#1d4ed8; width:16px; height:16px;">
+        <span style="display:inline-block; width:12px; height:12px; border:3px solid #1d4ed8; border-radius:2px;"></span>
+        <span>Sektori</span>
+      </label>
+      <label class="karta-sloj-kontrola" style="display:inline-flex; align-items:center; gap:0.45rem; cursor:pointer; font-size:0.875rem; font-weight:500; user-select:none;" title="Branjena područja (1–34), s oznakom broja; klik na oznaku vodi na dionice">
+        <input type="checkbox" id="sloj-chk-bp" style="cursor:pointer; accent-color:#0e7490; width:16px; height:16px;">
+        <span style="display:inline-block; width:12px; height:12px; border:2px dashed #0e7490; border-radius:2px;"></span>
+        <span>Branjena područja</span>
+      </label>
+
+      <div style="height:22px; width:1px; background:var(--border); margin:0 0.25rem;"></div>
+
       <div style="display:inline-flex; align-items:center; gap:0.45rem;">
         <label for="karta-brzi-izbor-zupanije" style="font-size:0.875rem; font-weight:600; color:var(--secondary); margin:0; display:flex; align-items:center; gap:0.3rem;">
           {{icon "landmark"}} Odaberi županiju:
@@ -277,6 +290,7 @@
         <a href="https://opendatacommons.org/licenses/odbl/1-0/" target="_blank" rel="noopener">ODbL 1.0</a>.
         Granice naselja: Registar prostornih jedinica, Državna geodetska uprava — sadrži informacije
         Državne geodetske uprave u skladu s <a href="https://data.gov.hr/otvorena-dozvola" target="_blank" rel="noopener">Otvorenom dozvolom</a>.
+        Granice sektora i branjenih područja: Hrvatske vode, Direkcija.
         Vodstvo i kontakti jedinica iz registra teritorija.
       </div>
     </div>

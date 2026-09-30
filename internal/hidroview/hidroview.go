@@ -21,6 +21,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -28,6 +29,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -42,8 +44,16 @@ type Klijent struct {
 	Adresa string // prazno znači ZadanaAdresa
 	HTTP   *http.Client
 
+	mu    sync.Mutex
 	token string
 }
+
+// ErrOdbijenToken javlja da je sustav odbio token — istekao je ili je
+// opozvan. Klijent ga tada zaboravlja, pa iduća prijava dobiva novi; bez toga
+// je hdv.voda.hr od isteka tokena do ponovnog pokretanja programa na svaki
+// upit vraćao 403, a prognoza je stajala jer su vrhovi lanca ostali bez
+// očitanja.
+var ErrOdbijenToken = errors.New("sustav je odbio token")
 
 func (k *Klijent) osnova() string {
 	a := strings.TrimRight(strings.TrimSpace(k.Adresa), "/")
@@ -61,7 +71,11 @@ func (k *Klijent) klijent() *http.Client {
 }
 
 // Prijavljen javlja ima li klijent token.
-func (k *Klijent) Prijavljen() bool { return k.token != "" }
+func (k *Klijent) Prijavljen() bool {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	return k.token != ""
+}
 
 // Prijava dobiva token. Lozinka se šalje šifrirana javnim ključem
 // poslužitelja, kako to radi i njihovo sučelje: prvo MD5 lozinke velikim
@@ -102,7 +116,9 @@ func (k *Klijent) Prijava(ctx context.Context, korisnik, lozinka string) error {
 		// Poruka ne smije nositi ni korisničko ime ni lozinku.
 		return fmt.Errorf("prijava odbijena (%s)", odgovor.Status)
 	}
+	k.mu.Lock()
 	k.token = odgovor.Token
+	k.mu.Unlock()
 	return nil
 }
 
@@ -336,8 +352,11 @@ func (k *Klijent) dohvati(ctx context.Context, put string) ([]byte, error) {
 		return nil, err
 	}
 	req.Header.Set("User-Agent", "goCOP (preuzimanje telemetrije)")
-	if k.token != "" {
-		req.Header.Set("Authorization", "Bearer "+k.token)
+	k.mu.Lock()
+	token := k.token
+	k.mu.Unlock()
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
 	}
 	resp, err := k.klijent().Do(req)
 	if err != nil {
@@ -347,6 +366,14 @@ func (k *Klijent) dohvati(ctx context.Context, put string) ([]byte, error) {
 	b, err := io.ReadAll(io.LimitReader(resp.Body, 32<<20))
 	if err != nil {
 		return nil, err
+	}
+	if (resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden) && token != "" {
+		k.mu.Lock()
+		if k.token == token {
+			k.token = ""
+		}
+		k.mu.Unlock()
+		return nil, fmt.Errorf("%s: %s: %w", put, resp.Status, ErrOdbijenToken)
 	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("%s: %s", put, resp.Status)

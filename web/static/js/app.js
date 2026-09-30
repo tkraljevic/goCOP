@@ -2128,6 +2128,90 @@ function dodajKontroleKarte(karta, platno, opcije) {
       var chkNaselja = document.getElementById('sloj-chk-naselja');
       var loadingEl = document.getElementById('karta-ucitavanje-opcina');
 
+      // Sektori i branjena područja (podloga Hrvatskih voda). Učitavaju se
+      // tek pri prvom paljenju; crtaju se samo granicama, bez ispune, da ne
+      // zaklone klikove na općine i naselja ispod. Oznaka s brojem područja
+      // otvara njegove podatke i vodi na dionice.
+      (function () {
+        var chkSek = document.getElementById('sloj-chk-sektori');
+        var chkBp = document.getElementById('sloj-chk-bp');
+        if (!chkSek && !chkBp) return;
+        if (!karta.getPane('vodePane')) {
+          karta.createPane('vodePane');
+          karta.getPane('vodePane').style.zIndex = 560;
+        }
+        var BOJE = { A: '#0e7490', B: '#1d4ed8', C: '#7c3aed', D: '#b45309', E: '#15803d', F: '#be123c' };
+        var boja = function (s) { return BOJE[s] || '#334155'; };
+        var slojevi = {};
+        function podaci(p, sektor) {
+          var h = '<div style="min-width:210px;">';
+          if (sektor) {
+            h += '<strong>Sektor ' + escapeHtml(p.sektor) + '</strong>' + (p.ime ? '<br>' + escapeHtml(p.ime) : '') +
+              '<br><small>' + escapeHtml(p.vgo || '') + (p.sjediste ? ', ' + escapeHtml(p.sjediste) : '') + '</small>' +
+              (p.cop ? '<br><small>' + escapeHtml(p.cop) + '</small>' : '');
+          } else {
+            h += '<strong>Branjeno područje ' + escapeHtml(String(p.bp)) + '</strong> · Sektor ' + escapeHtml(p.sektor) +
+              '<br>' + escapeHtml(p.ime || p.naziv || '') +
+              (p.ime && p.naziv ? '<br><small style="color:#64748b;">' + escapeHtml(p.naziv) + '</small>' : '') +
+              (p.vgi ? '<br><small>' + escapeHtml(p.vgi) + (p.podcentar ? ' · ' + escapeHtml(p.podcentar) : '') + '</small>' : '');
+          }
+          if (p.url && p.dionica) h += '<br><a href="' + escapeHtml(p.url) + '">' + p.dionica + ' dionica →</a>';
+          return h + '</div>';
+        }
+        function nacrtaj(d, sektor) {
+          var grupa = L.layerGroup();
+          L.geoJSON(d, {
+            pane: 'vodePane',
+            style: function (f) {
+              var c = boja(f.properties.sektor);
+              return sektor ? { color: c, weight: 4, opacity: 0.85, fill: false }
+                : { color: c, weight: 1.6, opacity: 0.95, dashArray: '5 4', fill: false };
+            },
+            onEachFeature: function (f, l) {
+              l.bindTooltip(sektor ? 'Sektor ' + escapeHtml(f.properties.sektor)
+                : 'BP ' + escapeHtml(String(f.properties.bp)) + ' — ' + escapeHtml(f.properties.ime || f.properties.naziv || ''), { sticky: true });
+              l.bindPopup(podaci(f.properties, sektor));
+            }
+          }).addTo(grupa);
+          (d.features || []).forEach(function (f) {
+            var p = f.properties || {}, t = p.tocka;
+            if (!t) return;
+            var tekst = sektor ? p.sektor : String(p.bp);
+            var c = boja(p.sektor);
+            var m = L.marker([t[1], t[0]], {
+              pane: 'vodePane',
+              icon: L.divIcon({
+                className: 'vode-oznaka',
+                html: '<span style="display:inline-block; padding:' + (sektor ? '3px 9px' : '1px 6px') + '; border-radius:10px; background:#fff; border:2px solid ' + c +
+                  '; color:' + c + '; font-weight:700; font-size:' + (sektor ? '15px' : '12px') + '; box-shadow:0 1px 3px rgba(0,0,0,.25); white-space:nowrap;">' + escapeHtml(tekst) + '</span>',
+                iconSize: null
+              })
+            });
+            m.bindPopup(podaci(p, sektor));
+            m.addTo(grupa);
+          });
+          return grupa;
+        }
+        function prekidac(chk, kljuc, url, sektor) {
+          if (!chk) return;
+          chk.addEventListener('change', function () {
+            if (!chk.checked) {
+              if (slojevi[kljuc]) karta.removeLayer(slojevi[kljuc]);
+              return;
+            }
+            if (slojevi[kljuc]) { slojevi[kljuc].addTo(karta); return; }
+            fetch(url).then(function (r) { return r.ok ? r.json() : r.text().then(function (t) { throw new Error(t); }); })
+              .then(function (d) {
+                slojevi[kljuc] = nacrtaj(d, sektor);
+                if (chk.checked) slojevi[kljuc].addTo(karta);
+              })
+              .catch(function (e) { chk.checked = false; alert('Sloj nije učitan: ' + (e && e.message ? e.message : e)); });
+          });
+        }
+        prekidac(chkSek, 'sektori', '/territories/sektori.geojson', true);
+        prekidac(chkBp, 'bp', '/territories/branjena-podrucja.geojson', false);
+      })();
+
       // Sloj naselja (najgornji sloj u naseljaPane zIndex 500)
       var naseljaUrlBase = okvir.dataset.naseljaUrl || '/territories/naselja.geojson?county_id=';
       var naseljaSloj = L.layerGroup();

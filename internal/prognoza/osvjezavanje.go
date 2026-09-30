@@ -114,6 +114,22 @@ type Ishod struct {
 	Kisa map[string]DnevniNiz
 	// Verzija je redni broj zapisa ovog sata izdanja, kad je zapisan.
 	Verzija int
+	// Ceka su vrhovi lanca koji kasne više od ZaostatakVrha i zato drže sat
+	// izdanja iza najsvježijih očitanja: letva → zadnji izmjereni sat. Bez
+	// ovoga je prognoza satima tiho stajala („za ovaj sat već je izdana”), a
+	// nije se vidjelo da čeka letvu kojoj je izvor zapeo.
+	Ceka map[string]int64
+}
+
+// KoCeka opisuje vrhove koji drže sat izdanja, npr. „kotoriba (zadnje 29.9. u
+// 04:00)”; prazno kad nitko ne kasni.
+func (i *Ishod) KoCeka() string {
+	var s []string
+	for letva, z := range i.Ceka {
+		s = append(s, fmt.Sprintf("%s (zadnje %s)", letva, time.Unix(z*3600, 0).In(models.Zagreb).Format("2.1. u 15:04")))
+	}
+	sort.Strings(s)
+	return strings.Join(s, ", ")
 }
 
 // Letvi je koliko ih je prognoza dotaknula.
@@ -176,6 +192,15 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 		nizovi[iz] = n
 	}
 	pojasi, izbor := OdaberiInacice(inacice, nizovi, 0)
+	// Kartica letve kojoj je kraj niza došao s druge obale to kaže.
+	for iz := range nizovi {
+		if _, bilo := izbor["zamjena:"+iz.Letva]; bilo {
+			continue
+		}
+		if z, ima := o.zamjenaNaKraju(ctx, iz.Letva, od); ima {
+			izbor["zamjena:"+iz.Letva] = Izbor{Opis: z.Opis()}
+		}
+	}
 	// Letva s tuđom prognozom ispred računa: dok je prognoza svježa, račun
 	// joj se skida i ona postaje vrh, pa je dolje dobije kao budućnost.
 	sadaSat := time.Now().UTC().Unix() / 3600
@@ -214,9 +239,21 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 	}
 	ishod := &Ishod{Sada: sada, Promasaji: promasaji, Izbor: izbor,
 		Vrhovi: map[Izvor]int64{}, BezPrognoze: map[string]error{}}
+	var najsvjeziji int64
 	for iz := range vrhovi {
 		if z, ima := nizovi[iz].Zadnji(); ima {
 			ishod.Vrhovi[iz] = z
+			najsvjeziji = max(najsvjeziji, z)
+		}
+	}
+	if sada < najsvjeziji {
+		for iz, z := range ishod.Vrhovi {
+			if z+ZaostatakVrha <= sada {
+				if ishod.Ceka == nil {
+					ishod.Ceka = map[string]int64{}
+				}
+				ishod.Ceka[iz.Letva] = z
+			}
 		}
 	}
 	if zadnje, ima, err := ZadnjeIzdanje(o.Baza); err == nil && ima && zadnje == sada && !o.Iznova {
@@ -321,6 +358,13 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 	for k, v := range izborDnevni {
 		ishod.Izbor[k] = v
 	}
+	// Srpske letve nasuprot i između naših: prognoza prenesena s naše.
+	pi, pd, pizb := o.prenesene(ctx, ishod, od)
+	ishod.Izdane = append(ishod.Izdane, pi...)
+	ishod.Dnevne = append(ishod.Dnevne, pd...)
+	for k, v := range pizb {
+		ishod.Izbor[k] = v
+	}
 	// Ulazi dnevnog modela koji nisu u lancu nemaju svoju prognozu, ali na
 	// pregledu moraju stajati — iz njih se računa. Zapisuje se njihovo
 	// mjerenje u satu izdavanja, kao i za vrhove lanca.
@@ -340,7 +384,7 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 		if ima[l] {
 			continue
 		}
-		n, err := o.ucitajNiz(ctx, Izvor{Letva: l, Velicina: "vodostaj"}, od)
+		n, err := o.ucitajIzmjereni(ctx, Izvor{Letva: l, Velicina: "vodostaj"}, od)
 		if err != nil {
 			continue
 		}
@@ -691,6 +735,22 @@ func (o *Osvjezivac) Zapisi(ishod *Ishod) error {
 	return nil
 }
 
+// kljucIznova označava krug pokrenut rukom (gumb Generiraj).
+type kljucIznova struct{}
+
+// SIznova označava da se prognoza u ovom krugu računa i kad je za taj sat već
+// izdana: tko pritisne Generiraj, hoće novi račun — npr. nakon popravka koda,
+// kad su očitanja ista, a prognoza nije.
+func SIznova(ctx context.Context) context.Context {
+	return context.WithValue(ctx, kljucIznova{}, true)
+}
+
+// TraziIznova javlja je li krug pokrenut sa SIznova.
+func TraziIznova(ctx context.Context) bool {
+	v, _ := ctx.Value(kljucIznova{}).(bool)
+	return v
+}
+
 // OdaberiInacice bira za svaku letvu kojim putem se računa u satu sada
 // (nula znači: u satu najsvježijeg očitanja). Lanac se obilazi od uzvodnih
 // prema nizvodnima; za kariku se uzme prva inačica čiji je svaki ulaz ili
@@ -817,8 +877,19 @@ func ZadnjiZajednicki(nizovi map[Izvor]Niz, vrhovi map[Izvor]bool) (int64, bool)
 
 // ucitajNiz čita satni niz iz očitanja. Protok se uzima kako je izmjeren, a
 // gdje ga nema računa se iz krivulje — Terezino Polje šalje samo centimetre, a
-// model mu traži kubike.
+// model mu traži kubike. Sate koji letvi nedostaju popuni letva s druge obale
+// (Zamjenske), prije preračuna u protok.
 func (o *Osvjezivac) ucitajNiz(ctx context.Context, iz Izvor, od time.Time) (Niz, error) {
+	return o.ucitajNizZ(ctx, iz, od, true)
+}
+
+// ucitajIzmjereni čita samo ono što je letva sama izmjerila, bez sati s druge
+// obale — za mjerenje koje se pokazuje kao mjerenje.
+func (o *Osvjezivac) ucitajIzmjereni(ctx context.Context, iz Izvor, od time.Time) (Niz, error) {
+	return o.ucitajNizZ(ctx, iz, od, false)
+}
+
+func (o *Osvjezivac) ucitajNizZ(ctx context.Context, iz Izvor, od time.Time, zamjena bool) (Niz, error) {
 	var krivulje []models.HQKrivulja
 	if iz.Velicina == "protok" {
 		var err error
@@ -826,30 +897,54 @@ func (o *Osvjezivac) ucitajNiz(ctx context.Context, iz Izvor, od time.Time) (Niz
 			return Niz{}, err
 		}
 	}
-	r, err := o.Ocitanja.QueryContext(ctx, `SELECT o.measured_at, o.level_cm, o.flow_m3s
-		FROM readings o JOIN stations s ON s.id = o.station_id
-		WHERE s.code = ? AND o.measured_at >= ?`, iz.Letva, od)
+	sirovo, err := o.ucitajSirovo(ctx, iz.Letva, od)
 	if err != nil {
 		return Niz{}, err
 	}
+	if druga, ima := DrugaObala(iz.Letva); ima && zamjena {
+		if drugo, err := o.ucitajSirovo(ctx, druga, od); err == nil {
+			PopuniSirovo(sirovo, drugo)
+		}
+	}
+	vrijednosti := map[int64]float64{}
+	for sat, s := range sirovo {
+		if v, ima := uVelicini(iz.Velicina, s.cm, s.q, krivulje, time.Unix(sat*3600, 0).UTC()); ima {
+			vrijednosti[sat] = v
+		}
+	}
+	return NoviNiz(vrijednosti), nil
+}
+
+// sirovoOcitanje je očitanje letve svedeno na puni sat, kako je u evidenciji.
+type sirovoOcitanje struct {
+	cm sql.NullInt64
+	q  sql.NullFloat64
+}
+
+// ucitajSirovo čita očitanja letve po satima.
+func (o *Osvjezivac) ucitajSirovo(ctx context.Context, letva string, od time.Time) (map[int64]sirovoOcitanje, error) {
+	r, err := o.Ocitanja.QueryContext(ctx, `SELECT o.measured_at, o.level_cm, o.flow_m3s
+		FROM readings o JOIN stations s ON s.id = o.station_id
+		WHERE s.code = ? AND o.measured_at >= ?`, letva, od)
+	if err != nil {
+		return nil, err
+	}
 	defer r.Close()
 
-	vrijednosti := map[int64]float64{}
+	sirovo := map[int64]sirovoOcitanje{}
 	odmak := map[int64]time.Duration{}
 	for r.Next() {
 		// Stupac je DATETIME, pa ga upravljač sam pretvara u vrijeme; čitan
 		// kao tekst dolazi u drugom zapisu nego što u bazi stoji.
 		var t time.Time
-		var cm sql.NullInt64
-		var q sql.NullFloat64
-		if err := r.Scan(&t, &cm, &q); err != nil {
-			return Niz{}, err
+		var s sirovoOcitanje
+		if err := r.Scan(&t, &s.cm, &s.q); err != nil {
+			return nil, err
 		}
-		t = t.UTC()
-		v, ima := uVelicini(iz.Velicina, cm, q, krivulje, t)
-		if !ima {
+		if !s.cm.Valid && !s.q.Valid {
 			continue
 		}
+		t = t.UTC()
 		// Očitanje s pola sata pripada najbližem satu; kad ih na isti sat
 		// padne više, ostaje ono bliže punoj uri.
 		sat := int64(t.Add(30*time.Minute).Unix() / 3600)
@@ -858,11 +953,11 @@ func (o *Osvjezivac) ucitajNiz(ctx context.Context, iz Izvor, od time.Time) (Niz
 			raz = -raz
 		}
 		if prije, bilo := odmak[sat]; !bilo || raz < prije {
-			vrijednosti[sat] = v
+			sirovo[sat] = s
 			odmak[sat] = raz
 		}
 	}
-	return NoviNiz(vrijednosti), r.Err()
+	return sirovo, r.Err()
 }
 
 func uVelicini(velicina string, cm sql.NullInt64, q sql.NullFloat64,

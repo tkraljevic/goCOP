@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -162,6 +163,7 @@ type Linker struct {
 	names       map[int]string            // id općine/naselja → naziv (za razdiobu po poddionicama)
 	Added       struct{ Waters, Embankments int }
 	Created     []string // identiteti objekata koje je vezanje upisalo u registar
+	NoveVode    []string // šifre voda koje je vezanje upisalo iz redaka objekata
 	Origin      string   // podrijetlo objekata koje vezanje upisuje; prazno je dokumentacija dionica
 }
 
@@ -503,7 +505,15 @@ func (l *Linker) linkStructures(ctx context.Context, p *models.SectionPart, area
 
 	for i := range p.Objects {
 		o := &p.Objects[i]
-		if o.StructureID != "" {
+		if o.NewRecord != nil {
+			if err := l.upisiNoviZapis(ctx, o, p, area); err != nil {
+				return err
+			}
+			if o.NewRecord == nil && o.StructureID != "" {
+				all = append(all, st{o.StructureID, o.Name, ""})
+			}
+		}
+		if o.StructureID != "" || o.WatercourseCode != "" {
 			continue
 		}
 		got := normalizeName(o.Name)
@@ -518,6 +528,60 @@ func (l *Linker) linkStructures(ctx context.Context, p *models.SectionPart, area
 			}
 		}
 	}
+	return nil
+}
+
+// upisiNoviZapis upisuje u registar objekt ili vodu koju je redak dionice
+// zatražio i veže redak na njih. Voda istog službenog naziva koja već postoji
+// ne upisuje se drugi put — redak se veže na nju.
+func (l *Linker) upisiNoviZapis(ctx context.Context, o *models.PartObject, p *models.SectionPart, area models.Area) error {
+	n := o.NewRecord
+	naziv := strings.Join(strings.Fields(n.Name), " ")
+	if naziv == "" {
+		return fmt.Errorf("novi zapis uz objekt %q nema naziva", o.Name)
+	}
+	switch n.Registry {
+	case models.RegistryStructure:
+		if !slices.Contains(models.StructureKinds, n.Kind) || n.Kind == models.StructureKindEmbankment || n.Kind == models.StructureKindDam {
+			return fmt.Errorf("objekt %q: nepoznata vrsta %q", naziv, n.Kind)
+		}
+		code := fmt.Sprintf("bp%d-%s", area.ID, hydro.Slug(naziv))
+		var postoji int
+		if err := l.tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM structures WHERE code = ?`, code).Scan(&postoji); err != nil {
+			return err
+		}
+		if postoji > 0 {
+			return fmt.Errorf("objekt %q već postoji u registru — odaberite ga s popisa", naziv)
+		}
+		id := StableID("structure", code).String()
+		now := time.Now().UTC()
+		if _, err := l.tx.ExecContext(ctx, `INSERT INTO structures (id, code, name, kind, sector_id, area_id, watercourse_code, station_id,
+			zero_datum, zero_datum_system, capacity_text, start_cm, start_text, stop_cm, stop_text, notes, origin, latitude, longitude, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, '', NULL, '', '', NULL, '', NULL, '', '', ?, NULL, NULL, ?, ?)`,
+			id, code, naziv, n.Kind, area.SectorID, area.ID, p.WatercourseCode, l.origin(), now, now); err != nil {
+			return fmt.Errorf("objekt %q: %w", naziv, err)
+		}
+		o.StructureID = id
+		l.Created = append(l.Created, id)
+	case models.RegistryWatercourse:
+		naziv = strings.Trim(naziv, " .,-–—")
+		official := strings.TrimSpace(n.Kind + " " + naziv)
+		code := hydro.WatercourseCode(official)
+		res, err := l.tx.ExecContext(ctx, `INSERT INTO watercourses (code, official_name, name, kind, category, subcategory, wiki_slug, origin)
+			VALUES (?, ?, ?, ?, '', '', '', ?) ON CONFLICT(code) DO NOTHING`, code, official, naziv, n.Kind, models.WatercourseOriginManual)
+		if err != nil {
+			return fmt.Errorf("voda %q: %w", official, err)
+		}
+		if k, _ := res.RowsAffected(); k > 0 {
+			l.waters[hydro.WatercourseKey(naziv)] = append(l.waters[hydro.WatercourseKey(naziv)], hydro.Candidate{Code: code, Kind: n.Kind})
+			l.NoveVode = append(l.NoveVode, code)
+			l.Added.Waters++
+		}
+		o.WatercourseCode = code
+	default:
+		return fmt.Errorf("objekt %q: nepoznat registar %q", o.Name, n.Registry)
+	}
+	o.NewRecord = nil
 	return nil
 }
 

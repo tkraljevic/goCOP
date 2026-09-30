@@ -133,6 +133,16 @@ func (s *SectionService) SaveSection(ctx context.Context, perms *models.UserPerm
 	if err := validateParts(sec); err != nil {
 		return err
 	}
+	// Registar voda zajednički je svim dionicama i mijenja ga globalni
+	// administrator (WatercourseService); novi objekt smije upisati tko smije
+	// urediti dionicu, kao i novi nasip.
+	for _, p := range sec.Parts {
+		for _, o := range p.Objects {
+			if o.NewRecord != nil && o.NewRecord.Registry == models.RegistryWatercourse && (perms == nil || !perms.IsGlobalAdmin) {
+				return fmt.Errorf("novu vodu u registar upisuje globalni administrator — %q", o.NewRecord.Name)
+			}
+		}
+	}
 	if err := s.sectionRepo.SaveSection(ctx, sec); err != nil {
 		return err
 	}

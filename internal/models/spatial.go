@@ -142,19 +142,43 @@ type PartTerritory struct {
 // PartObject je objekt na poddionici: naš objekt iz registra (crpna stanica,
 // ustava, sifon) vezan je preko StructureID; mostovi i propusti tuđi su i
 // ostaju samo redak s nazivom.
+//
+// Redak koji imenuje vodu — „ušće p. Karašice”, „ušće Šarkanjskog Dun.” —
+// vezan je na registar voda preko WatercourseCode. Objekt iz registra smije
+// pripadati drugom području: CS Budžak vodi Mali sliv Baranja, a stoji i na
+// dionici B.34.1.
 type PartObject struct {
-	StructureID    string   `json:"structure_id,omitempty"`
-	Bank           string   `json:"bank,omitempty"`
-	StationingKind string   `json:"stationing_kind,omitempty"` // rkm, pkm, bkm, kkm, nkm
-	Stationing     *float64 `json:"stationing,omitempty"`      // km
-	StationingText string   `json:"stationing_text,omitempty"` // kako je zapisano: "rkm 1+825"
-	Name           string   `json:"name"`
-	OnEmbankment   string   `json:"on_embankment,omitempty"` // naziv nasipa po kojem je stacioniran
+	StructureID     string   `json:"structure_id,omitempty"`
+	WatercourseCode string   `json:"watercourse_code,omitempty"`
+	Bank            string   `json:"bank,omitempty"`
+	StationingKind  string   `json:"stationing_kind,omitempty"` // rkm, pkm, bkm, kkm, nkm
+	Stationing      *float64 `json:"stationing,omitempty"`      // km
+	StationingText  string   `json:"stationing_text,omitempty"` // kako je zapisano: "rkm 1+825"
+	Name            string   `json:"name"`
+	OnEmbankment    string   `json:"on_embankment,omitempty"` // naziv nasipa po kojem je stacioniran
+
+	// NewRecord je zapis koji obrazac traži da se upiše u registar pri
+	// spremanju dionice; nakon upisa redak nosi vezu, a ovo se briše.
+	NewRecord *NewRegistryRecord `json:"new_record,omitempty"`
 
 	// Izvedeno pri čitanju
-	StructureName string `json:"-"`
-	StructureKind string `json:"-"`
+	StructureName   string `json:"-"`
+	StructureKind   string `json:"-"`
+	WatercourseName string `json:"-"`
 }
+
+// NewRegistryRecord je novi objekt ili nova voda upisana iz retka dionice
+type NewRegistryRecord struct {
+	Registry string `json:"registry"` // RegistryStructure ili RegistryWatercourse
+	Kind     string `json:"kind"`     // vrsta objekta (CRPNA_STANICA…) ili vode (potok…)
+	Name     string `json:"name"`     // naziv u registru, bez vrste kod vode
+}
+
+// Registri u koje redak dionice smije upisati novi zapis
+const (
+	RegistryStructure   = "objekt"
+	RegistryWatercourse = "voda"
+)
 
 // PartEmbankment je nasip ili brana na poddionici: građevina je u registru
 // objekata, a ovdje stoji njezin odsjek na ovom obuhvatu

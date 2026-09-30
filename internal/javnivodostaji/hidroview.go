@@ -85,8 +85,18 @@ func AdresaHidroView(siteID string) string {
 	return "https://hdv.voda.hr/#/site/" + siteID + "/latest"
 }
 
-// Ocitanja čita satne vrijednosti postaje, najstarije prvo
+// Ocitanja čita satne vrijednosti postaje, najstarije prvo. Kad sustav odbije
+// token (istekao je), klijent ga zaboravi, pa drugi pokušaj ide s novom
+// prijavom.
 func (h *HidroView) Ocitanja(ctx context.Context, adresa string) ([]Redak, error) {
+	r, err := h.ocitanja(ctx, adresa)
+	if errors.Is(err, hidroview.ErrOdbijenToken) {
+		r, err = h.ocitanja(ctx, adresa)
+	}
+	return r, err
+}
+
+func (h *HidroView) ocitanja(ctx context.Context, adresa string) ([]Redak, error) {
 	siteID := PostajaHidroViewIzAdrese(adresa)
 	if siteID == "" {
 		return nil, fmt.Errorf("adresa nema šifru postaje (#/site/…)")

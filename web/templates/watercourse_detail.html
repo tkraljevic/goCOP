@@ -40,6 +40,7 @@
     {{if .Water.FlowsInto}}<div><dt>Ulijeva se u</dt><dd>{{.Water.FlowsInto}}</dd></div>{{end}}
     {{if .Water.Subcategory}}<div><dt>Skupina u Odluci</dt><dd>{{.Water.Subcategory}}</dd></div>{{end}}
     <div><dt>Šifra</dt><dd style="font-family:ui-monospace, monospace; font-weight:500;">{{.Water.Code}}</dd></div>
+    {{if .Water.WikiURL}}<div><dt>Wikipedija</dt><dd><a href="{{.Water.WikiURL}}" target="_blank" rel="noopener">{{.Water.WikiNaslov}}</a> <span class="reading-meta">· CC BY-SA 4.0</span></dd></div>{{end}}
   </dl>
   {{if and (not .Water.LengthKm) (not .Water.Mouth) (not .Water.Source)}}
   <p class="page-desc" style="margin-top:0.5rem;">Za ovu vodu nema opisnih podataka; zapis postoji zato što se na nju veže dionica ili postaja.</p>
@@ -53,6 +54,7 @@
     {{if .Permissions.IsGlobalAdmin}}
     <div class="karta-akcije" style="display:flex; gap:0.5rem; align-items:center;">
       <button type="button" class="btn btn-sm btn-secondary karta-uredi-btn">{{icon "pencil"}} Uredi tok na karti</button>
+      {{with "Zamijeni iz GeoJSON-a"}}<label class="btn btn-sm btn-secondary" style="cursor:pointer; display:inline-flex; width:auto;" title="GeoJSON s crtom toka u WGS84 (EPSG:4326), npr. izvoz iz QGIS-a ili OpenStreetMapa">{{icon "upload"}} {{.}}<input type="file" accept=".geojson,.json,application/geo+json,application/json" hidden data-sifra="{{$.Water.Code}}" onchange="ucitajTokVode(this)"></label>{{end}}
       <button type="button" class="btn btn-sm btn-primary karta-spremi-btn" style="display:none;">{{icon "check"}} Spremi geometriju</button>
       <button type="button" class="btn btn-sm btn-secondary karta-ponisti-btn" style="display:none;" title="Poništi trenutne izmjene na točkama">Poništi</button>
       <button type="button" class="btn btn-sm btn-secondary karta-odustani-btn" style="display:none;">Odustani</button>
@@ -77,6 +79,16 @@
     <p class="reg-card-sub karta-bez-mreze" hidden>{{icon "triangle-alert"}} Pločice karte
       nisu dostupne — program radi bez interneta, a za ovo područje još nisu preuzete.
       Prikaz toka rijeke, stacionaža i postaja ucrtan je i vidljiv.</p>
+  </div>
+</section>
+{{end}}
+
+{{if and .Permissions.IsGlobalAdmin (not .GeometryJSON)}}
+<section class="detail-section" id="karta">
+  <h2>{{icon "map"}} Karta vodotoka</h2>
+  <div class="reg-card" style="padding:1rem;">
+    <p class="page-desc" style="margin:0 0 0.75rem;">Tok ove vode još nije ucrtan. Učitajte GeoJSON s crtom toka u WGS84 (EPSG:4326) — izvoz iz QGIS-a, geojson.io ili OpenStreetMapa; tok iz OSM-a nosi navod © OpenStreetMap contributors (ODbL).</p>
+    {{with "Učitaj GeoJSON"}}<label class="btn btn-sm btn-secondary" style="cursor:pointer; display:inline-flex; width:auto;" title="GeoJSON s crtom toka u WGS84 (EPSG:4326), npr. izvoz iz QGIS-a ili OpenStreetMapa">{{icon "upload"}} {{.}}<input type="file" accept=".geojson,.json,application/geo+json,application/json" hidden data-sifra="{{$.Water.Code}}" onchange="ucitajTokVode(this)"></label>{{end}}
   </div>
 </section>
 {{end}}
@@ -139,7 +151,7 @@
 </section>
 
 <section class="detail-section">
-  <h2>{{icon "ruler"}} Vodomjerne postaje <span class="reg-chip">{{len .Stations}}</span></h2>
+  <h2>{{icon "ruler"}} Vodomjerne postaje <span class="reg-chip">{{len .Stations}}{{if .DodatneLetve}} + {{len .DodatneLetve}}{{end}}</span></h2>
   <div class="reg-list">
     {{range .Stations}}
     <article class="reg-card">
@@ -161,9 +173,54 @@
         {{end}}
       </a>
     </article>
-    {{else}}
+    {{end}}
+    {{range .DodatneLetve}}
+    <article class="reg-card">
+      <a class="reg-card-link" href="/stations?q={{.Name}}">
+        <div class="reg-card-head">
+          <div>
+            <h3 class="reg-card-title">{{.Name}}</h3>
+            <div class="reg-card-sub">na drugoj vodi{{if .Watercourse}}: {{.Watercourse}}{{end}}{{if .Stationing}} · {{.Stationing}}{{end}}{{if .JeInozemna}} · {{.Zemlja}}{{end}}</div>
+          </div>
+          <span class="badge badge-inactive" title="Letva stoji na drugoj vodi, a mjerodavna je i za ovu">mjerodavna i ovdje</span>
+        </div>
+        {{if .HasUsableThresholds}}
+        <dl class="reg-facts">
+          {{if .Prep.Cm}}<div><dt>Pripremno</dt><dd>{{derefInt .Prep.Cm}} cm</dd></div>{{end}}
+          {{if .Regular.Cm}}<div><dt>Redovna</dt><dd>{{derefInt .Regular.Cm}} cm</dd></div>{{end}}
+          {{if .Emergency.Cm}}<div><dt>Izvanredna</dt><dd>{{derefInt .Emergency.Cm}} cm</dd></div>{{end}}
+          {{if .State.Cm}}<div><dt>Izv. stanje</dt><dd>{{derefInt .State.Cm}} cm</dd></div>{{end}}
+        </dl>
+        {{end}}
+      </a>
+    </article>
+    {{end}}
+    {{if and (not .Stations) (not .DodatneLetve)}}
     <div class="reg-empty">Nijedna postaja nije vezana na ovu vodu.</div>
     {{end}}
   </div>
 </section>
+{{if .Permissions.IsGlobalAdmin}}
+<script>
+// ucitajTokVode upisuje tok vode iz GeoJSON datoteke; program ga provjeri
+// (crta, WGS84, redoslijed dužina–širina) i odbije s objašnjenjem.
+async function ucitajTokVode(input) {
+  const f = input.files && input.files[0];
+  if (!f) return;
+  try {
+    if (f.size > 20 * 1024 * 1024) { alert('Datoteka je veća od 20 MB — pojednostavnite tok prije učitavanja.'); return; }
+    const tekst = await f.text();
+    const ima = !!document.querySelector('.karta-platno');
+    if (ima && !confirm('Zamijeniti ucrtani tok tokom iz datoteke „' + f.name + '”? Prethodni ostaje u povijesti zapisa.')) return;
+    const res = await fetch('/api/watercourses/geometry', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({code: input.dataset.sifra, geojson: tekst})
+    });
+    if (!res.ok) { alert('Tok nije upisan: ' + (await res.text()).trim()); return; }
+    location.hash = 'karta';
+    location.reload();
+  } finally { input.value = ''; }
+}
+</script>
+{{end}}
 {{end}}

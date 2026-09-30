@@ -275,6 +275,15 @@ func (r *Racunalo) U(iz Izvor, t int64) (Vrijednost, bool) {
 	return r.zapamti(k, v, true)
 }
 
+// ZaostatakIspravka je koliko sati zadnje mjerenje karike smije biti staro, a
+// da se prognoza njime ispravi. Karika koja kasni za satom izdavanja bez
+// ispravka ostaje goli model, a on na niskoj vodi zna promašiti desetke
+// centimetara: 30. 9. 2026. vizugy.hu je kasnio četiri sata, Komárom je
+// preuzelo Komárno pa prognoza nije stala, a Baja je bez ispravka krenula s
+// 36 cm dok je stajala na −7 — lažni val od 45 cm otišao je Mohácsom do Iloka.
+// Granica je ista kao najveća rupa koja se premošćuje.
+const ZaostatakIspravka = NajveciRazmak
+
 // ostatakZa mjeri koliko je model promašio u samom trenutku izdavanja.
 func (r *Racunalo) ostatakZa(iz Izvor) ostatak {
 	if o, ima := r.ostaci[iz]; ima {
@@ -291,8 +300,8 @@ func (r *Racunalo) ostatakZa(iz Izvor) ostatak {
 	mj, ima := r.mjereno[iz].U(sat)
 	if !ima {
 		// Letva nema mjerenje u satu izdavanja; uzima se njezin zadnji sat,
-		// ako nije stariji od onoga što smije kasniti i vrh lanca.
-		if z, imaZ := r.mjereno[iz].ZadnjiSatDo(r.sada); imaZ && r.sada-z <= ZaostatakVrha {
+		// ako nije stariji od ZaostatakIspravka.
+		if z, imaZ := r.mjereno[iz].ZadnjiSatDo(r.sada); imaZ && r.sada-z <= ZaostatakIspravka {
 			sat = z
 			mj, ima = r.mjereno[iz].U(z)
 		}

@@ -131,6 +131,9 @@ func (r *SectionRepository) decorate(sec *models.Section) {
 			if id := p.Objects[j].StructureID; id != "" {
 				r.db.QueryRow(`SELECT name, kind FROM structures WHERE id = ?`, id).Scan(&p.Objects[j].StructureName, &p.Objects[j].StructureKind)
 			}
+			if code := p.Objects[j].WatercourseCode; code != "" {
+				r.db.QueryRow(`SELECT official_name FROM watercourses WHERE code = ?`, code).Scan(&p.Objects[j].WatercourseName)
+			}
 		}
 		for j := range p.Embankments {
 			if id := p.Embankments[j].StructureID; id != "" {
@@ -174,6 +177,15 @@ func (r *SectionRepository) SaveSection(ctx context.Context, s *models.Section) 
 			return err
 		}
 		if _, err := r.rec.Record(ctx, tx, EntityStructures, id, st); err != nil {
+			return err
+		}
+	}
+	for _, code := range linker.NoveVode {
+		w, err := getWatercourseTx(ctx, tx, code)
+		if err != nil {
+			return err
+		}
+		if _, err := r.rec.Record(ctx, tx, EntityWatercourses, code, w); err != nil {
 			return err
 		}
 	}

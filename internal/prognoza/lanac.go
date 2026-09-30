@@ -17,8 +17,10 @@ import (
 // Ne bira se sama: na gornjoj Dravi korito se ispod lanca hidroelektrana
 // produbljuje, pa vodostaj kroz desetljeća mijenja značenje i Novo Virje iz
 // vodostaja drži r 0,49–0,61 umjesto 0,87–0,97 iz protoka. Na Dunavu je
-// obrnuto, ondje je vodostaj bolji. Vrbovka, Moslavina, Donji Miholjac,
-// Belišće, Ilok i Osijek protok u arhivi nemaju, pa im izbora ni nema.
+// obrnuto, ondje je vodostaj bolji. Donji Miholjac i Belišće idu u protoku
+// (HIS-2000 od 29. 9. 2026.): na niskim vodama ljeta 2026. pogreška na 6 h
+// pala je s 11,6 na 4,4 cm (Donji Miholjac) i s 4,2 na 1,7 cm (Belišće).
+// Vrbovka, Moslavina, Ilok i Osijek protok u arhivi nemaju, pa im izbora ni nema.
 var Velicine = map[string]string{
 	"donja-dubrava":            "protok",
 	"he-dubrava":               "protok",
@@ -42,8 +44,8 @@ var Velicine = map[string]string{
 	"terezino-polje":           "protok",
 	"vrbovka":                  "vodostaj",
 	"moslavina":                "vodostaj",
-	"donji-miholjac":           "vodostaj",
-	"belisce":                  "vodostaj",
+	"donji-miholjac":           "protok",
+	"belisce":                  "protok",
 	"batina":                   "vodostaj",
 	"aljmas":                   "vodostaj",
 	"dalj":                     "vodostaj",
@@ -125,7 +127,7 @@ var Rezerve = map[string][][]string{
 	"moslavina":      {{"szentborbas"}},
 	"donji-miholjac": {{"vrbovka"}},
 	"dravaszabolcs":  {{"moslavina"}},
-	"belisce":        {{"donji-miholjac"}},
+	"belisce":        {{"dravaszabolcs"}},
 	"osijek":         {{"dravaszabolcs", "aljmas"}, {"belisce", "batina"}, {"belisce", "dalj"}},
 }
 
@@ -251,7 +253,9 @@ var Tokovi = []struct {
 		{"moslavina", []string{"vrbovka"}},
 		{"donji-miholjac", []string{"moslavina"}},
 		{"dravaszabolcs", []string{"donji-miholjac"}},
-		{"belisce", []string{"dravaszabolcs"}},
+		// Belišće iz Donjeg Miholjca, protok u protok (r 0,92–0,97); Drávaszabolcs
+		// daje protok samo preko svog vodostaja, pa je rezerva.
+		{"belisce", []string{"donji-miholjac"}},
 		// Pritočni lanci Karašice i Vučice: vlastite prognoze za Valpovštinu,
 		// ne ulazi Dravi. Ulaze tek s telemetrijom vrhova (Kapelna, Beničanci).
 		{"miholjacki-porec", []string{"kapelna"}},

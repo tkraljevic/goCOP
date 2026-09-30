@@ -28,7 +28,7 @@
 </div>
 {{end}}
 
-<form class="form-page" method="POST" action="{{if .IsEdit}}/api/watercourses/update{{else}}/api/watercourses/create{{end}}">
+<form class="form-page" onsubmit="return spremiLetve()" method="POST" action="{{if .IsEdit}}/api/watercourses/update{{else}}/api/watercourses/create{{end}}">
   {{if .IsEdit}}<input type="hidden" name="code" value="{{.Water.Code}}">{{end}}
   <input type="hidden" name="subcategory" value="{{.Water.Subcategory}}">
 
@@ -51,7 +51,7 @@
     <label class="form-label" for="wiki_slug">Članak na hrvatskoj Wikipediji</label>
     <input type="text" id="wiki_slug" name="wiki_slug" class="form-control"
            value="{{.Water.WikiSlug}}" placeholder="npr. Dunav" autocomplete="off">
-    <div class="form-help">Naziv članka bez adrese. Kad je upisan, na prikazu se navode Wikipedija i licenca CC BY-SA 4.0.</div>
+    <div class="form-help">Naziv članka ili adresa iz preglednika — adresa hrvatske Wikipedije svodi se na naziv. Kad je upisan, na prikazu se navode Wikipedija i licenca CC BY-SA 4.0.</div>
   </div>
 
   <div class="form-row">
@@ -116,9 +116,75 @@
     <div class="form-help">Slobodan tekst u Markdown formatu: naslovi, popisi, poveznice i podebljanje prikazuju se oblikovano nakon spremanja.</div>
   </div>
 
+  {{if .NapomenaTokaUredljiva}}
+  <div class="form-group">
+    <label class="form-label" for="napomena_toka">Napomena uz vodotok</label>
+    <input type="text" id="napomena_toka" name="napomena_toka" class="form-control" maxlength="300"
+           value="{{.NapomenaToka}}" placeholder="npr. pkm od ušća u Dunav; iza granice orijentacijski" autocomplete="off">
+    <div class="form-help">Kratka rečenica koja se na karti prikazuje uz crtu toka — odakle je stacionaža i koliko joj vjerovati. Opširnije ide u napomenu gore.</div>
+  </div>
+  {{end}}
+
+  {{if .IsEdit}}
+  <div class="form-group">
+    <label class="form-label" for="letva-unos">Vodomjerne letve</label>
+    <div class="form-help">Letve na ovoj vodi i letve s drugih voda koje su za nju mjerodavne — npr. Batina na Dunavu za baranjsku Karašicu, zbog uspora Dunava. Letva koja još nema vodu veže se na ovu; letva s druge vode ostaje na svojoj i ovdje se samo prikazuje.</div>
+    <div style="display:flex; flex-wrap:wrap; gap:0.35rem; margin:0.5rem 0;" id="letve-cipovi"></div>
+    <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+      <input type="text" class="form-control" id="letva-unos" list="sve-letve" placeholder="naziv letve iz registra" style="max-width:22rem;" autocomplete="off">
+      <button type="button" class="btn btn-sm btn-secondary" onclick="dodajLetvu()">{{icon "plus"}} Dodaj</button>
+    </div>
+    <datalist id="sve-letve">{{range .SveLetve}}<option value="{{.Name}}{{if .Watercourse}} · {{.Watercourse}}{{end}}">{{end}}</datalist>
+    <input type="hidden" name="extra_station_ids" id="extra_station_ids">
+    <input type="hidden" name="link_station_ids" id="link_station_ids">
+  </div>
+  {{end}}
+
   <div class="form-actions">
     <a href="{{if .IsEdit}}/watercourses/{{.Water.Code}}{{else}}/watercourses{{end}}" class="btn btn-secondary">Odustani</a>
     <button type="submit" class="btn btn-primary">{{if .IsEdit}}Spremi izmjene{{else}}Upiši u registar{{end}}</button>
   </div>
 </form>
+{{if .IsEdit}}
+<script>
+// Letve vode: vlastite nose ovu vodu u registru letvi i ovdje se samo vide;
+// dodatne su s drugih voda i pamte se uz vodu; letve bez vode vežu se na nju.
+const OVA_VODA = {{.Water.Code}};
+const SVE_LETVE = [{{range .SveLetve}}{id: {{.ID.String}}, naziv: {{.Name}}, oznaka: {{.Name}}{{if .Watercourse}} + " · " + {{.Watercourse}}{{end}}, voda: {{.WatercourseCode}}, imeVode: {{.Watercourse}}},{{end}}];
+const VLASTITE = [{{range .Stations}}{{.ID.String}},{{end}}];
+let dodatne = [{{range .Water.ExtraStationIDs}}{{.}},{{end}}];
+let zaVezati = [];
+function letva(id) { return SVE_LETVE.find(x => x.id === id) || {id: id, naziv: id, imeVode: ''}; }
+function cipLetve(l, opis, makni) {
+  const c = document.createElement('span'); c.className = 'reg-chip';
+  c.textContent = l.naziv + (opis ? ' · ' + opis : '');
+  if (makni) { const b = document.createElement('button'); b.type = 'button'; b.title = 'Ukloni'; b.textContent = '×'; b.style.cssText = 'border:0;background:none;cursor:pointer;'; b.onclick = makni; c.appendChild(b); }
+  return c;
+}
+function prikaziLetve() {
+  const box = document.getElementById('letve-cipovi'); box.innerHTML = '';
+  for (const id of VLASTITE) box.appendChild(cipLetve(letva(id), 'na ovoj vodi'));
+  for (const id of zaVezati) box.appendChild(cipLetve(letva(id), 'veže se na ovu vodu', () => { zaVezati = zaVezati.filter(x => x !== id); prikaziLetve(); }));
+  for (const id of dodatne) { const l = letva(id); box.appendChild(cipLetve(l, 'na drugoj vodi' + (l.imeVode ? ' (' + l.imeVode + ')' : ''), () => { dodatne = dodatne.filter(x => x !== id); prikaziLetve(); })); }
+  if (!box.children.length) { const e = document.createElement('span'); e.className = 'reading-meta'; e.textContent = 'Nijedna letva.'; box.appendChild(e); }
+}
+function dodajLetvu() {
+  const unos = document.getElementById('letva-unos'); const v = unos.value.trim(); if (!v) return;
+  const l = SVE_LETVE.find(x => x.oznaka === v) || SVE_LETVE.find(x => x.naziv.toLowerCase() === v.toLowerCase());
+  if (!l) { alert('Letva nije u registru: ' + v); return; }
+  if (VLASTITE.includes(l.id) || zaVezati.includes(l.id) || dodatne.includes(l.id)) { unos.value = ''; return; }
+  if (l.voda === OVA_VODA) VLASTITE.push(l.id);
+  else if (!l.voda) zaVezati.push(l.id);
+  else dodatne.push(l.id);
+  unos.value = ''; prikaziLetve();
+}
+function spremiLetve() {
+  document.getElementById('extra_station_ids').value = JSON.stringify(dodatne);
+  document.getElementById('link_station_ids').value = JSON.stringify(zaVezati);
+  return true;
+}
+document.getElementById('letva-unos').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); dodajLetvu(); } });
+prikaziLetve();
+</script>
+{{end}}
 {{end}}

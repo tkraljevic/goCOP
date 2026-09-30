@@ -795,13 +795,29 @@ func main() {
 				}
 			}
 			javniUvoznik.Korak("izračun prognoze", 96)
-			ishod, err := osvjezivac.Osvjezi(ctx)
+			racun := osvjezivac
+			if prognoza.TraziIznova(ctx) {
+				// Generiraj rukom: novi račun i za već izdani sat.
+				iznova := *osvjezivac
+				iznova.Iznova = true
+				racun = &iznova
+			}
+			ishod, err := racun.Osvjezi(ctx)
 			if err != nil {
 				log.Printf("prognoza: %v", err)
 				javniUvoznik.Redak("prognoza: %v", err)
 				return
 			}
 			if ishod.Preskoceno {
+				if ceka := ishod.KoCeka(); ceka != "" {
+					// Prognoza stoji jer vrh lanca kasni: to se mora vidjeti, a ne
+					// izgledati kao da je sve u redu.
+					poruka := fmt.Sprintf("prognoza stoji na %s jer kasni vrh lanca: %s",
+						time.Unix(ishod.Sada*3600, 0).In(models.Zagreb).Format("2.1. u 15:04"), ceka)
+					log.Printf("prognoza: %s", poruka)
+					javniUvoznik.Redak("%s", poruka)
+					return
+				}
 				javniUvoznik.Redak("prognoza: za ovaj sat već je izdana, ništa novo")
 				return
 			}

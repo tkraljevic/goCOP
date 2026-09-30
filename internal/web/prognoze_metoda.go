@@ -172,6 +172,13 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"nema. Očitanja rjeđa " +
 				"od satnih premošćuju se linearno, ali ne preko " + tekstBroja(prognoza.NajveciRazmak) + " sati — " +
 				"dulja rupa ostaje rupa."),
+			tekstM("Letve jedna nasuprot drugoj, na dvije obale, čuvaju jedna drugu: Komárom i Komárno, Batina i Bezdan, " +
+				"Goričan i Letenye, Terezino Polje i Barcs, Donji Miholjac i Drávaszabolcs, Ilok i Bačka Palanka. Voda je " +
+				"na njima ista, razlikuju se samo nule, pa sat koji jednoj nedostaje — rupa ili zakašnjeli kraj — uzima " +
+				"druga, pomaknuta za medijan razlike na zajedničkim satima zadnja dva tjedna (na niskoj vodi 2026. " +
+				"razlika drži unutar 1–2 cm). Tako noćni zastoj vizugy.hu, kad Komárom kao vrh lanca kasni, više ne " +
+				"zaustavlja cijelu prognozu: Komárom preuzme Komárno. Popunjeni sat ulazi samo u račun; mjerenjem se " +
+				"ne pokazuje, a kartica letve kaže kad joj je kraj niza došao s druge obale."),
 			tekstM("Tuđe prognoze preuzimaju se kako ih službe izdaju: mađarska (hydroinfo.hu) i srpska " +
 				"(hidmet.gov.rs) jednom dnevno za šest, odnosno četiri dana, austrijska (Donja Austrija, noel.gv.at) " +
 				"više puta dnevno za 48 sati. Mađarska vodi Komárom, austrijska Wildungsmauer, srpska stoji samo " +
@@ -205,6 +212,19 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"pridružuje mu se Morava. Morava je isprobana kao sporedni ulaz (Lanžhot, satni niz od studenog " +
 				"2020.): Nagybajcs i Komárom 1–4 % bolji, ali Mohács i Batina na 96 h 7–9 % lošiji, pa zasad ne ulazi; " +
 				"treba duži niz. Satni niz Bratislave s DanubeHIS-a se ne može preuzeti."),
+			tekstM("Donji Miholjac i Belišće računaju se od 29. 9. 2026. u protoku (satni protok iz HIS-2000), a " +
+				"Belišće izravno iz Donjeg Miholjca. Dno Drave se spušta, pa je vodostaj pri istom protoku danas " +
+				"niži nego u godinama na kojima je lanac naučen; protok to zaobilazi. Kad Donji Miholjac ne javi, " +
+				"Belišće se računa iz Drávaszabolcsa, čiji se vodostaj usput prevodi u protok — veza je slabija " +
+				"(rasap 19–40 prema 10–27 m³/s), ali je rezerva i dalje bolja od nekadašnjeg lanca u vodostaju. " +
+				"U prosjeku 2023.–2025. Osijek, Aljmaš i Dalj su na 24 h 0,3–0,6 cm lošiji, a na niskoj vodi 2026. " +
+				"lanac je bolji na gotovo svim letvama."),
+			tablicaM("Donja Drava u protoku: srednja pogreška u cm, lanac u vodostaju → u protoku (ljeto 2026., lanac naučen prije 2023.)",
+				[]string{"", "6 h", "24 h", "72 h"},
+				[]string{"Donji Miholjac", "11,6 → 4,4", "22,9 → 21,0", "51,0 → 51,6"},
+				[]string{"Belišće", "4,2 → 1,7", "12,0 → 9,1", "41,3 → 39,5"},
+				[]string{"Osijek", "3,1 → 3,3", "10,4 → 9,3", "41,1 → 40,8"},
+				[]string{"Ilok", "2,7 → 2,7", "6,1 → 6,0", "14,7 → 14,0"}),
 		}},
 		{"Satni lanac — procjena", []OdlomakMetode{
 			tekstM("Koeficijenti β i γ procjenjuju se metodom najmanjih kvadrata, zajednički za sve pojase, " +
@@ -469,6 +489,7 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 		}},
 		{"Što je novo", []OdlomakMetode{
 			popisM(
+				"29. 9. 2026. — Donji Miholjac i Belišće računaju se u protoku, Belišće izravno iz Donjeg Miholjca, a Drávaszabolcs mu je rezerva; na niskoj vodi 2026. pogreška na 6 h pala je s 11,6 na 4,4 cm (Donji Miholjac) i s 4,2 na 1,7 cm (Belišće); HydroView token koji poslužitelj odbije traži se iznova, a zapisnik piše zašto prognoza stoji; letve na dvije obale (Komárom i Komárno i još pet parova) popunjavaju jedna drugoj sate koji nedostaju, pa zastoj vizugy.hu ne zaustavlja prognozu.",
 				"27. 9. 2026. — satni lanac dijeli ispravak na stalni dio (medijan pogreške 72 h, kad je skladna i letva ne raste) i prolazni koji blijedi; model ispuštanja pri običnoj vodi drži dnevni srednjak uz dotok; uzdužni profil prema vodi zadnjih 30 dana, s uobičajenom vodom deset godina i srednjim vodostajem, jutarnjom crtom u 7 h, crtama za 6 i 12 h, jednim profilom po rijeci u Trstu i razmakom letvi koji nije u mjerilu; satni lanac Mure iz Gornje Radgone (Mursko Središće, Goričan, dalje Botovo 4–8 % bolje na 24–96 h); arhiva dopunjena dnevnim i očišćenim satnim podacima DanubeHIS-a; ARSO se čita iz tablice postaje svakih 10 minuta; kote nula Mohácsa, Baje, Dunaföldvára, Budimpešte i Esztergoma ispravljene na baltički sustav.",
 				"26. 9. 2026. — model ispuštanja HE Dubrava, Čakovec i Varaždin na vrhu lanca; razine akumulacija na pregledu i profilu; Komárom po mađarskoj prognozi dok je svježa, inače lanac iz Austrije; Osijek s dunavskim ulazima; dnevni model ¾ regresije; Varaždin kao karika; uzdužni profil s branama, punim zaslonom i ispisom, mađarski profili Dunava i Drave.",
 				"25. 9. 2026. — austrijska prognoza Wildungsmauera (noel.gv.at) i karike Nagybajcs, Komárom; kiša po međuslivovima Drave, Dunava i Mure u dnevnom modelu; Goričan kao vrh lanca Botova; Mura sa svojom dnevnom prognozom; Angern na Moravi.",

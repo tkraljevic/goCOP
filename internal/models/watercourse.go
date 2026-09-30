@@ -1,8 +1,10 @@
 package models
 
-import "strings"
-
-import "fmt"
+import (
+	"fmt"
+	"net/url"
+	"strings"
+)
 
 // Watercourse je vodno tijelo iz službenog registra.
 //
@@ -30,6 +32,11 @@ type Watercourse struct {
 	FlowsInto  string   `json:"flows_into,omitempty"` // ulijeva se u
 	Notes      string   `json:"notes,omitempty"`      // napomena i atribucija izvora
 	Geometry   string   `json:"geometry,omitempty"`   // GeoJSON polilinije toka i stacionaže (rkm)
+
+	// ExtraStationIDs su letve s drugih voda mjerodavne i za ovu. Letva ima
+	// jednu vodu — Batina stoji na Dunavu — ali uspor Dunava vodi i baranjsku
+	// Karašicu, pa se Batina prikazuje i uz nju.
+	ExtraStationIDs []string `json:"extra_station_ids,omitempty"`
 
 	// Izvedeno pri čitanju
 	SectionCount int `json:"section_count"`
@@ -69,12 +76,44 @@ func (w Watercourse) OriginLabel() string {
 }
 
 // WikiURL vraća poveznicu na članak hrvatske Wikipedije iz kojeg potječu
-// opisni podaci, ako ih ima — obveza navođenja izvora po CC BY-SA 4.0
+// opisni podaci, ako ih ima — obveza navođenja izvora po CC BY-SA 4.0.
+// Članak s druge Wikipedije čuva se kao puna adresa i vraća kakav jest.
 func (w Watercourse) WikiURL() string {
-	if w.WikiSlug == "" {
+	switch {
+	case w.WikiSlug == "":
 		return ""
+	case strings.HasPrefix(w.WikiSlug, "http"):
+		return w.WikiSlug
 	}
-	return "https://hr.wikipedia.org/wiki/" + strings.ReplaceAll(w.WikiSlug, " ", "_")
+	return "https://hr.wikipedia.org/wiki/" + url.PathEscape(strings.ReplaceAll(w.WikiSlug, " ", "_"))
+}
+
+// WikiNaslov je naslov članka za prikaz: „Karašica (Dunav)"
+func (w Watercourse) WikiNaslov() string {
+	return WikiNaslov(w.WikiSlug)
+}
+
+// WikiNaslov svodi upisani članak na naslov. Obrazac traži naslov, ali ljudi
+// prirodno zalijepe adresu iz preglednika —
+// „https://hr.wikipedia.org/wiki/Kara%C5%A1ica_(Dunav)" je „Karašica (Dunav)".
+// Adresa druge Wikipedije ostaje puna, jer bez nje jezik nestaje.
+func WikiNaslov(s string) string {
+	s = strings.TrimSpace(s)
+	i := strings.Index(s, "wikipedia.org/wiki/")
+	if i < 0 {
+		return strings.ReplaceAll(s, "_", " ")
+	}
+	if !strings.Contains(s[:i], "hr.") {
+		return s
+	}
+	naslov := s[i+len("wikipedia.org/wiki/"):]
+	if j := strings.IndexAny(naslov, "?#"); j >= 0 {
+		naslov = naslov[:j]
+	}
+	if u, err := url.PathUnescape(naslov); err == nil {
+		naslov = u
+	}
+	return strings.ReplaceAll(naslov, "_", " ")
 }
 
 // IsFirstOrder govori je li vodno tijelo na popisu voda I. reda

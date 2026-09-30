@@ -55,8 +55,11 @@ type SectionPageData struct {
 	IsEdit          bool
 	Watercourses    []models.Watercourse
 	Stations        []models.Station
-	Structures      []models.Structure // objekti područja koji nisu nasipi
-	Embankments     []models.Structure // nasipi i brane područja
+	Structures      []models.Structure             // objekti svih područja koji nisu nasipi
+	ObjectKinds     []struct{ Code, Label string } // vrste novog objekta iz retka dionice
+	WaterKinds      []string                       // vrste nove vode iz retka dionice
+	CanAddWater     bool                           // registar voda mijenja globalni administrator
+	Embankments     []models.Structure             // nasipi i brane područja
 	Counties        []models.County
 	StationingKinds []string
 	Banks           []struct{ Code, Label string }
@@ -362,12 +365,27 @@ func (h *SectionsHandler) ShowSectionForm(w http.ResponseWriter, r *http.Request
 			for _, s := range all {
 				if s.Kind == models.StructureKindEmbankment || s.Kind == models.StructureKindDam {
 					data.Embankments = append(data.Embankments, s)
-				} else {
+				}
+			}
+		}
+		// Objekti se nude iz svih područja: CS Budžak vodi Mali sliv Baranja,
+		// a stoji i na dionici B.34.1. Obrazac ih slaže tako da su objekti
+		// područja dionice prvi.
+		if all, err := h.structureService.List(ctx, "", 0, "", ""); err == nil {
+			for _, s := range all {
+				if s.Kind != models.StructureKindEmbankment && s.Kind != models.StructureKindDam {
 					data.Structures = append(data.Structures, s)
 				}
 			}
 		}
 	}
+	for _, k := range models.StructureKinds {
+		if k != models.StructureKindEmbankment && k != models.StructureKindDam {
+			data.ObjectKinds = append(data.ObjectKinds, struct{ Code, Label string }{k, models.StructureKindLabel(k)})
+		}
+	}
+	data.WaterKinds = watercourseKinds
+	data.CanAddWater = data.Permissions != nil && data.Permissions.IsGlobalAdmin
 	if h.territoryService != nil {
 		data.Counties, _ = h.territoryService.ListCounties(ctx)
 		labels := map[string]string{}
