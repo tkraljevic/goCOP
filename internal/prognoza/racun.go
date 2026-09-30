@@ -281,8 +281,11 @@ func (r *Racunalo) U(iz Izvor, t int64) (Vrijednost, bool) {
 // centimetara: 30. 9. 2026. vizugy.hu je kasnio četiri sata, Komárom je
 // preuzelo Komárno pa prognoza nije stala, a Baja je bez ispravka krenula s
 // 36 cm dok je stajala na −7 — lažni val od 45 cm otišao je Mohácsom do Iloka.
-// Granica je ista kao najveća rupa koja se premošćuje.
-const ZaostatakIspravka = NajveciRazmak
+// Isti dan vizugy.hu je stajao i dulje od 12 sati. Starije mjerenje ne smeta:
+// prolazni dio ispravka blijedi od sata mjerenja (PoluvijekIspravka), pa
+// mjerenje staro 12 sati nosi još 84 % svoje razlike, a stalni dio ostaje —
+// uvijek bolje od golog modela. Preko dva dana letva je ionako izvan igre.
+const ZaostatakIspravka = 48
 
 // ostatakZa mjeri koliko je model promašio u samom trenutku izdavanja.
 func (r *Racunalo) ostatakZa(iz Izvor) ostatak {

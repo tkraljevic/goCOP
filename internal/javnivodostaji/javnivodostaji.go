@@ -439,7 +439,7 @@ func NoviUvoznik(s Spremiste, zapisnik func(string, ...any)) *Uvoznik {
 	return &Uvoznik{
 		Client: c,
 		Izvori: []Izvor{hvIzvor{c}, Hidmet{Client: c}, Vizugy{Client: c}, SHMU{Client: c}, ARSO{Client: c},
-			PegelOnline{Client: c}, GKD{Client: c}, EHYD{Client: c}, NOEL{Client: c}, &HidroView{}, &MLetva{}},
+			PegelOnline{Client: c}, GKD{Client: c}, EHYD{Client: c}, NOEL{Client: c}, DanubeHIS{Client: c}, &HidroView{}, &MLetva{}},
 		Spremiste: s,
 		Svakih:    time.Hour,
 		Zapisnik:  zapisnik,
@@ -468,6 +468,28 @@ func (h hvIzvor) Ocitanja(ctx context.Context, adresa string) ([]Redak, error) {
 		}
 	}
 	return redci, nil
+}
+
+// rezervaDanubeHIS vraća sate s DanubeHIS-a kasnije od zadnjeg očitanja s
+// vizugy.hu, kad je ono starije od RezervaNakon (ili ga nema). Letva bez
+// oznake na DanubeHIS-u ne dobiva ništa.
+func (u *Uvoznik) rezervaDanubeHIS(ctx context.Context, st *models.Station, zadnje time.Time) []Redak {
+	oznaka, ima := RezervaDanubeHIS[st.Code]
+	if !ima || (!zadnje.IsZero() && time.Since(zadnje) <= RezervaNakon) {
+		return nil
+	}
+	redci, err := DanubeHIS{Client: u.Client}.Ocitanja(ctx, AdresaDanubeHIS(oznaka))
+	if err != nil {
+		u.Zapisnik("javni vodostaji: %s: rezerva DanubeHIS: %v", st.Name, err)
+		return nil
+	}
+	var out []Redak
+	for _, r := range redci {
+		if r.Kad.After(zadnje) {
+			out = append(out, r)
+		}
+	}
+	return out
 }
 
 // IzvorZa bira čitač po adresi; nil kad nijedan ne prepoznaje adresu
@@ -745,28 +767,63 @@ func (u *Uvoznik) Preuzmi(ctx context.Context, st *models.Station) StanjeLetve {
 			redci, err = sp, nil
 		}
 	}
+	// Mađarska letva kojoj vizugy.hu kasni ili ne odgovara: sati iza
+	// zadnjeg njegova očitanja uzimaju se s DanubeHIS-a.
+	var rezerva []Redak
+	if izvor.Naziv() == PodrijetloVizugy {
+		var zadnje time.Time
+		if err == nil && len(redci) > 0 {
+			zadnje = redci[len(redci)-1].Kad
+		}
+		rezerva = u.rezervaDanubeHIS(cctx, st, zadnje)
+		if len(rezerva) > 0 && (err != nil || len(redci) == 0) {
+			u.Zapisnik("javni vodostaji: %s: vizugy.hu ne odgovara (%v), sati s DanubeHIS-a", st.Name, err)
+			err = nil
+		}
+	}
 	if err != nil {
 		s.Greska = err.Error()
 		u.Zapisnik("javni vodostaji: %s: %v", st.Name, err)
 		return s
 	}
-	if len(redci) == 0 {
+	if len(redci) == 0 && len(rezerva) == 0 {
 		s.Greska = "izvor trenutačno nema valjano očitanje"
 		return s
 	}
-	s.Preuzeto = len(redci)
-	s.ZadnjeKad = redci[len(redci)-1].Kad
-	postojeca, err := u.Spremiste.Postojeca(ctx, st.ID.String(), redci[0].Kad.Add(-time.Minute), redci[len(redci)-1].Kad.Add(time.Minute))
+	type izRedak struct {
+		r     Redak
+		izvor string
+	}
+	var svi []izRedak
+	for _, r := range redci {
+		svi = append(svi, izRedak{r, izvor.Naziv()})
+	}
+	for _, r := range rezerva {
+		svi = append(svi, izRedak{r, PodrijetloDanubeHIS})
+	}
+	s.Preuzeto = len(svi)
+	od, do := svi[0].r.Kad, svi[0].r.Kad
+	for _, x := range svi {
+		if x.r.Kad.Before(od) {
+			od = x.r.Kad
+		}
+		if x.r.Kad.After(do) {
+			do = x.r.Kad
+		}
+	}
+	s.ZadnjeKad = do
+	postojeca, err := u.Spremiste.Postojeca(ctx, st.ID.String(), od.Add(-time.Minute), do.Add(time.Minute))
 	if err != nil {
 		s.Greska = err.Error()
 		return s
 	}
 	var nova []models.Reading
-	for _, r := range redci {
-		if postojeca[r.Kad.Unix()] {
+	for _, x := range svi {
+		if postojeca[x.r.Kad.Unix()] {
 			continue
 		}
-		nova = append(nova, Ocitanje(st, r, izvor.Naziv()))
+		postojeca[x.r.Kad.Unix()] = true
+		nova = append(nova, Ocitanje(st, x.r, x.izvor))
 	}
 	if len(nova) == 0 {
 		return s
