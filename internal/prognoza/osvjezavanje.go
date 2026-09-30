@@ -962,7 +962,7 @@ func (o *Osvjezivac) ucitajSirovo(ctx context.Context, letva string, od time.Tim
 
 func uVelicini(velicina string, cm sql.NullInt64, q sql.NullFloat64,
 	krivulje []models.HQKrivulja, kad time.Time) (float64, bool) {
-	if velicina == "vodostaj" {
+	if velicina == "vodostaj" || velicina == "kota" {
 		if !cm.Valid {
 			return 0, false
 		}

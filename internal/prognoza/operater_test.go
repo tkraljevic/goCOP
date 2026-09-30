@@ -41,7 +41,7 @@ func TestOperaterUciRitamIDotok(t *testing.T) {
 	tx.Commit()
 
 	ocjenaOd := t0/3600 + int64(3*365*24)
-	m, err := NamjestiOperatera(arhiva, Operater{"donja", []string{"gornja"}}, ocjenaOd)
+	m, err := NamjestiOperatera(arhiva, Operater{Letva: "donja", Ulazi: []string{"gornja"}}, ocjenaOd)
 	if err != nil {
 		t.Fatal(err)
 	}

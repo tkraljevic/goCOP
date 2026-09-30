@@ -27,6 +27,11 @@ type CvorLanca struct {
 type VezaLanca struct {
 	X1, Y1, X2, Y2 float64
 	Sporedna       bool // pritoka ili drugi ulaz, isprekidano
+	// Luk: veza u istom redu preskače postaju (Belišće iz Donjeg Miholjca
+	// preko Drávaszabolcsa), pa se crta lukom iznad, da ne izgleda kao lanac
+	// kroz tu postaju. CX, CY je kontrolna točka luka.
+	Luk    bool
+	CX, CY float64
 }
 
 // LegendaLanca je jedna stavka legende.
@@ -263,8 +268,18 @@ func slikaLanca(pojasi map[string][]prognoza.Pojas, postaje map[string]models.St
 		do := poz[l]
 		for j, u := range ps[0].Ulazi {
 			od := poz[u.Letva]
-			s.Veze = append(s.Veze, VezaLanca{X1: od[0], Y1: od[1], X2: do[0], Y2: do[1],
-				Sporedna: j > 0 || rijeka(u.Letva) != rijeka(l)})
+			v := VezaLanca{X1: od[0], Y1: od[1], X2: do[0], Y2: do[1],
+				Sporedna: j > 0 || rijeka(u.Letva) != rijeka(l)}
+			if v.Y1 == v.Y2 {
+				lijevo, desno := math.Min(v.X1, v.X2), math.Max(v.X1, v.X2)
+				for _, c := range s.Cvorovi {
+					if c.Y == v.Y1 && c.X > lijevo+1 && c.X < desno-1 {
+						v.Luk, v.CX, v.CY = true, (v.X1+v.X2)/2, v.Y1-34
+						break
+					}
+				}
+			}
+			s.Veze = append(s.Veze, v)
 		}
 	}
 	vidjeno := map[string]bool{}

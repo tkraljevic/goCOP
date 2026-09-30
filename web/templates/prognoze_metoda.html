@@ -42,7 +42,7 @@
     <svg viewBox="0 0 {{.Width}} {{.Height}}" role="img" aria-label="Lanac postaja" class="prog-lanac-svg">
       <defs><marker id="lanac-strelica" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z"/></marker></defs>
       {{range .Rijeke}}<text class="prog-lanac-rijeka" x="12" y="{{printf "%.0f" .Y}}" dy="4">{{.Naziv}}</text>{{end}}
-      {{range .Veze}}<line class="prog-lanac-veza{{if .Sporedna}} sporedna{{end}}" x1="{{printf "%.0f" .X1}}" y1="{{printf "%.0f" .Y1}}" x2="{{printf "%.0f" .X2}}" y2="{{printf "%.0f" .Y2}}" marker-end="url(#lanac-strelica)"/>{{end}}
+      {{range .Veze}}{{if .Luk}}<path class="prog-lanac-veza{{if .Sporedna}} sporedna{{end}}" d="M{{printf "%.0f" .X1}} {{printf "%.0f" .Y1}}Q{{printf "%.0f" .CX}} {{printf "%.0f" .CY}} {{printf "%.0f" .X2}} {{printf "%.0f" .Y2}}" marker-end="url(#lanac-strelica)"/>{{else}}<line class="prog-lanac-veza{{if .Sporedna}} sporedna{{end}}" x1="{{printf "%.0f" .X1}}" y1="{{printf "%.0f" .Y1}}" x2="{{printf "%.0f" .X2}}" y2="{{printf "%.0f" .Y2}}" marker-end="url(#lanac-strelica)"/>{{end}}{{end}}
       {{range .Cvorovi}}<g class="prog-lanac-cvor {{.Vrsta}}"><circle cx="{{printf "%.0f" .X}}" cy="{{printf "%.0f" .Y}}" r="9"><title>{{.Naziv}}{{if .Izvor}} · {{.Izvor}}{{end}}</title></circle>
         <text x="{{printf "%.0f" .X}}" y="{{printf "%.0f" .Y}}" dy="{{if .Dolje}}38{{else}}24{{end}}" text-anchor="middle">{{.Naziv}}</text></g>{{end}}
     </svg>

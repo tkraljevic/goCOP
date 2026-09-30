@@ -13,8 +13,14 @@ package prognoza
 // umjesto 35, 56, 80, 97, 105 i 135 postojanosti; pri običnoj vodi model
 // pobjeđuje tek od 18 h (77 → 57, 24 h 63 → 55, 48 h 75 → 66). Zato se za
 // svaki doseg i režim pamti je li u provjeri pobijedio postojanost; gdje
-// nije, budućnost vrha i dalje drži zadnje mjerenje. Razina akumulacije ne
-// ulazi: ista regresija bez nje daje iste brojke.
+// nije, budućnost vrha i dalje drži zadnje mjerenje.
+//
+// Razina akumulacije ulazi od 30. 9. 2026. Prosječno ne mijenja brojke, ali
+// pri velikoj vodi HEP akumulacije redovito spušta dok Drava raste (od 2017.
+// u gotovo svakom valu iznad 1000 m³/s na Forminu, obično 0,5–1 m, u
+// kolovozu 2023. Čakovec 1,5 m i Dubrava 1,2 m), a puni ih kad vrh Formina
+// prođe — tada Dubrava zadržava i 300 m³/s, baš dok nailazi Mura. Pravila
+// nema zapisanog, pa ga model uči iz razine i njezine promjene.
 
 import (
 	"database/sql"
@@ -28,16 +34,17 @@ import (
 
 // Operater je elektrana čije se istjecanje na vrhu lanca predviđa.
 type Operater struct {
-	Letva string
-	Ulazi []string // uzvodne elektrane, sve u protoku
+	Letva  string
+	Ulazi  []string // uzvodne elektrane, sve u protoku
+	Razina string   // letva razine akumulacije (gornja voda brane), u cm n.m.
 }
 
 // Operateri su elektrane s modelom ispuštanja. Sve tri dravske: Dubrava je
 // vrh lanca Botova, Varaždin vrh karike Varaždina; Čakovec je ulaz Dubrave.
 var Operateri = []Operater{
-	{"he-dubrava", []string{"he-cakovec", "he-formin"}},
-	{"he-cakovec", []string{"he-varazdin", "he-formin"}},
-	{"he-varazdin", []string{"he-formin"}},
+	{"he-dubrava", []string{"he-cakovec", "he-formin"}, "gvb-he-dubrava"},
+	{"he-cakovec", []string{"he-varazdin", "he-formin"}, "gvb-he-cakovec"},
+	{"he-varazdin", []string{"he-formin"}, "gvb-he-varazdin"},
 }
 
 // OperaterDosezi je dokle model ispuštanja seže, u satima.
@@ -62,9 +69,53 @@ type OperaterModel struct {
 // opterećenje ne zna za ljetno računanje.
 var zonaOperatera = time.FixedZone("MEZ", 3600)
 
+// KotaUspora je kota normalnog uspora akumulacije u cm n.m. (studija
+// MuraDrava 2018.): odstupanje razine mjeri se od nje, a kad razine u satu
+// nema, uzima se ona — puna akumulacija bez promjene.
+var KotaUspora = map[string]float64{
+	"gvb-he-varazdin": 19100,
+	"gvb-he-cakovec":  16800,
+	"gvb-he-dubrava":  14960,
+}
+
+// razinaOperatera vraća letvu razine akumulacije zadane elektrane.
+func razinaOperatera(letva string) string {
+	for _, o := range Operateri {
+		if o.Letva == letva {
+			return o.Razina
+		}
+	}
+	return ""
+}
+
+// razinaZnacajke su odstupanje razine od kote uspora i njezina promjena u
+// zadnjih 6 sati, u metrima. Bez razine u satu t i 6 sati prije: strogo
+// vraća false (učenje ne smije izmišljati), inače uzima punu akumulaciju.
+func razinaZnacajke(r *Niz, kota float64, t int64, strogo bool) (float64, float64, bool) {
+	var z0, z6 float64
+	ok0, ok6 := false, false
+	if r != nil {
+		z0, ok0 = r.U(t)
+		z6, ok6 = r.U(t - 6)
+	}
+	if !ok0 || !ok6 {
+		if strogo {
+			return 0, 0, false
+		}
+		if !ok0 {
+			z0 = kota
+		}
+		if !ok6 {
+			z6 = z0
+		}
+	}
+	return (z0 - kota) / 100, (z0 - z6) / 100, true
+}
+
 // operaterOsnova su značajke sata t bez ciljnog sata: jedinica, istjecanje i
-// njegove promjene, dotok svake uzvodne elektrane i promjene, sat sada.
-func operaterOsnova(q Niz, ulazi []Niz, t int64) ([]float64, bool) {
+// njegove promjene, dotok svake uzvodne elektrane i promjene, razina
+// akumulacije i njezina promjena (kad je razina nije nil), sat sada.
+func operaterOsnova(q Niz, ulazi []Niz, razina *Niz, kota float64, strogo bool, t int64) ([]float64, bool) {
 	q0, ok0 := q.U(t)
 	q3, ok3 := q.U(t - 3)
 	q24, ok24 := q.U(t - 24)
@@ -80,6 +131,13 @@ func operaterOsnova(q Niz, ulazi []Niz, t int64) ([]float64, bool) {
 			return nil, false
 		}
 		x = append(x, u0, u0-u6, u0-u24)
+	}
+	if razina != nil || kota > 0 {
+		z, dz, ok := razinaZnacajke(razina, kota, t, strogo)
+		if !ok {
+			return nil, false
+		}
+		x = append(x, z, dz)
 	}
 	h := float64((t + 1) % 24) // sat MEZ
 	x = append(x, math.Sin(2*math.Pi*h/24), math.Cos(2*math.Pi*h/24), vikend(t))
@@ -126,6 +184,16 @@ func NamjestiOperatera(arhiva *sql.DB, o Operater, ocjenaOd int64) (*OperaterMod
 		}
 		ulazi = append(ulazi, NoviNiz(um))
 	}
+	// Razina akumulacije, kad je arhiva ima (od prosinca 2016.): uči se samo
+	// na satima koji je doista imaju.
+	var razina *Niz
+	kota := 0.0
+	if o.Razina != "" {
+		if rm, err := NizIzArhive(arhiva, o.Razina, "kota"); err == nil && len(rm) >= 24*365 {
+			n := NoviNiz(rm)
+			razina, kota = &n, KotaUspora[o.Razina]
+		}
+	}
 	sati := make([]int64, 0, len(qm))
 	for t := range qm {
 		sati = append(sati, t)
@@ -139,7 +207,7 @@ func NamjestiOperatera(arhiva *sql.DB, o Operater, ocjenaOd int64) (*OperaterMod
 	var uzorci []uzorak
 	var razine []float64
 	for _, t := range sati {
-		x, ok := operaterOsnova(q, ulazi, t)
+		x, ok := operaterOsnova(q, ulazi, razina, kota, true, t)
 		if !ok {
 			continue
 		}
@@ -295,8 +363,25 @@ func OperaterIzvori(modeli map[string]*OperaterModel) []Izvor {
 		for _, u := range m.Ulazi {
 			out = append(out, Izvor{Letva: u, Velicina: "protok"})
 		}
+		if r := razinaOperatera(m.Letva); r != "" {
+			out = append(out, Izvor{Letva: r, Velicina: "kota"})
+		}
 	}
 	return out
+}
+
+// imaRazinu javlja je li model naučen s razinom akumulacije: tada mu je
+// koeficijenata dva više (razina i njezina promjena).
+func (m *OperaterModel) imaRazinu() bool {
+	bez := 4 + 3*len(m.Ulazi) + 3 + 3
+	for g := 0; g < 2; g++ {
+		for k := 1; k <= OperaterDosezi; k++ {
+			if b := m.Koef[g][k]; b != nil {
+				return len(b) == bez+2
+			}
+		}
+	}
+	return false
 }
 
 // OperaterBilanca drži dnevni srednjak ispusta pri običnoj vodi na dotoku.
@@ -442,7 +527,16 @@ func BuducnostOperatera(modeli map[string]*OperaterModel, nizovi map[Izvor]Niz, 
 		for _, u := range m.Ulazi {
 			ulazi = append(ulazi, nizovi[Izvor{Letva: u, Velicina: "protok"}])
 		}
-		osnova, ok := operaterOsnova(q, ulazi, t0)
+		var razina *Niz
+		kota := 0.0
+		if m.imaRazinu() {
+			r := razinaOperatera(m.Letva)
+			kota = KotaUspora[r]
+			if n, ima := nizovi[Izvor{Letva: r, Velicina: "kota"}]; ima {
+				razina = &n
+			}
+		}
+		osnova, ok := operaterOsnova(q, ulazi, razina, kota, false, t0)
 		if !ok {
 			continue
 		}
