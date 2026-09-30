@@ -2158,9 +2158,29 @@ function dodajKontroleKarte(karta, platno, opcije) {
           if (p.url && p.dionica) h += '<br><a href="' + escapeHtml(p.url) + '">' + p.dionica + ' dionica →</a>';
           return h + '</div>';
         }
+        // Granica i oznaka svakog sektora i područja, da se pale i gase
+        // pojedinačno (bočna ploča) i da ih brzi izbor nađe.
+        var granice = { sektori: {}, bp: {} };
+        var oznake = { sektori: {}, bp: {} };
+        // Vidljivost po području: što nije zapisano, uzima zadano za sloj.
+        // Zadano je „sve”, osim kad se ugašen sloj pali jednim područjem —
+        // tada se pali samo ono.
+        var vidljivo = { sektori: {}, bp: {} };
+        var zadano = { sektori: true, bp: true };
+        function vid(k, o) { return Object.prototype.hasOwnProperty.call(vidljivo[k], o) ? vidljivo[k][o] : zadano[k]; }
+        // sve postavlja cijeli sloj na „sve upaljeno”.
+        function sve(k) { vidljivo[k] = {}; zadano[k] = true; }
+        // samoOvo pali jedno područje; kad sloj nije na karti, ostala gasi.
+        function samoOvo(k, o) {
+          if (!naKarti(k)) { vidljivo[k] = {}; zadano[k] = false; }
+          vidljivo[k][o] = true;
+        }
+        var geoSloj = {};
+        var istaknuta = null;
         function nacrtaj(d, sektor) {
           var grupa = L.layerGroup();
-          L.geoJSON(d, {
+          var kljuc = sektor ? 'sektori' : 'bp';
+          geoSloj[kljuc] = L.geoJSON(d, {
             pane: 'vodePane',
             style: function (f) {
               var c = boja(f.properties.sektor);
@@ -2171,6 +2191,7 @@ function dodajKontroleKarte(karta, platno, opcije) {
               l.bindTooltip(sektor ? 'Sektor ' + escapeHtml(f.properties.sektor)
                 : 'BP ' + escapeHtml(String(f.properties.bp)) + ' — ' + escapeHtml(f.properties.ime || f.properties.naziv || ''), { sticky: true });
               l.bindPopup(podaci(f.properties, sektor));
+              granice[kljuc][sektor ? f.properties.sektor : String(f.properties.bp)] = l;
             }
           }).addTo(grupa);
           (d.features || []).forEach(function (f) {
@@ -2189,27 +2210,214 @@ function dodajKontroleKarte(karta, platno, opcije) {
             });
             m.bindPopup(podaci(p, sektor));
             m.addTo(grupa);
+            oznake[kljuc][tekst] = m;
           });
+          slojevi[kljuc] = grupa;
+          primijeniVidljivost(kljuc);
           return grupa;
         }
-        function prekidac(chk, kljuc, url, sektor) {
+        // primijeniVidljivost skida s karte granice i oznake ugašene rukom.
+        function primijeniVidljivost(kljuc) {
+          var g = geoSloj[kljuc], grupa = slojevi[kljuc];
+          if (!g || !grupa) return;
+          Object.keys(granice[kljuc]).forEach(function (o) {
+            var l = granice[kljuc][o], m = oznake[kljuc][o];
+            if (vid(kljuc, o)) {
+              if (!g.hasLayer(l)) g.addLayer(l);
+              if (m && !grupa.hasLayer(m)) grupa.addLayer(m);
+            } else {
+              if (g.hasLayer(l)) g.removeLayer(l);
+              if (m && grupa.hasLayer(m)) grupa.removeLayer(m);
+            }
+          });
+        }
+        var URL_SLOJA = { sektori: '/territories/sektori.geojson', bp: '/territories/branjena-podrucja.geojson' };
+        var ucitavanje = {};
+        // ucitaj dohvaća sloj jednom; svaki idući poziv dobiva isti.
+        function ucitaj(kljuc) {
+          if (slojevi[kljuc]) return Promise.resolve(slojevi[kljuc]);
+          if (!ucitavanje[kljuc]) {
+            ucitavanje[kljuc] = fetch(URL_SLOJA[kljuc])
+              .then(function (r) { return r.ok ? r.json() : r.text().then(function (t) { throw new Error(t); }); })
+              .then(function (d) { return nacrtaj(d, kljuc === 'sektori'); })
+              .catch(function (e) { delete ucitavanje[kljuc]; throw e; });
+          }
+          return ucitavanje[kljuc];
+        }
+        function kvacica(kljuc) { return kljuc === 'sektori' ? chkSek : chkBp; }
+        function naKarti(kljuc) { return !!(slojevi[kljuc] && karta.hasLayer(slojevi[kljuc])); }
+        // upali pali sloj i kvačicu uz njega.
+        function upali(kljuc) {
+          var chk = kvacica(kljuc);
+          if (chk) chk.checked = true;
+          return ucitaj(kljuc).then(function (g) { g.addTo(karta); osvjeziPlocu(); return g; });
+        }
+        function javiGresku(e) { alert('Sloj nije učitan: ' + (e && e.message ? e.message : e)); }
+        function prekidac(chk, kljuc) {
           if (!chk) return;
           chk.addEventListener('change', function () {
             if (!chk.checked) {
               if (slojevi[kljuc]) karta.removeLayer(slojevi[kljuc]);
+              osvjeziPlocu();
               return;
             }
-            if (slojevi[kljuc]) { slojevi[kljuc].addTo(karta); return; }
-            fetch(url).then(function (r) { return r.ok ? r.json() : r.text().then(function (t) { throw new Error(t); }); })
-              .then(function (d) {
-                slojevi[kljuc] = nacrtaj(d, sektor);
-                if (chk.checked) slojevi[kljuc].addTo(karta);
-              })
-              .catch(function (e) { chk.checked = false; alert('Sloj nije učitan: ' + (e && e.message ? e.message : e)); });
+            sve(kljuc);
+            ucitaj(kljuc).then(function (g) { primijeniVidljivost(kljuc); if (chk.checked) g.addTo(karta); osvjeziPlocu(); })
+              .catch(function (e) { chk.checked = false; javiGresku(e); });
           });
         }
-        prekidac(chkSek, 'sektori', '/territories/sektori.geojson', true);
-        prekidac(chkBp, 'bp', '/territories/branjena-podrucja.geojson', false);
+        prekidac(chkSek, 'sektori');
+        prekidac(chkBp, 'bp');
+
+        function ugasiIsticanje() {
+          if (istaknuta) {
+            geoSloj[istaknuta.kljuc].resetStyle(istaknuta.sloj);
+            istaknuta = null;
+          }
+        }
+        // prikazi upali sloj i jedno područje u njemu, približi ga i istakne.
+        function prikazi(kljuc, oznaka, istakni, sektorBp) {
+          samoOvo(kljuc, oznaka);
+          // Uz branjeno područje i granica njegova sektora, radi snalaženja.
+          var sektori = Promise.resolve();
+          if (kljuc === 'bp' && istakni && sektorBp) {
+            samoOvo('sektori', sektorBp);
+            sektori = upali('sektori').then(function () { primijeniVidljivost('sektori'); });
+          }
+          return sektori.then(function () { return upali(kljuc); }).then(function () {
+            primijeniVidljivost(kljuc);
+            osvjeziPlocu();
+            var l = granice[kljuc][oznaka];
+            if (!l) { alert('Na karti nema granice za ' + (kljuc === 'bp' ? 'branjeno područje ' : 'sektor ') + oznaka + '.'); return; }
+            try { karta.fitBounds(l.getBounds(), { padding: [30, 30] }); } catch (err) {}
+            if (!istakni) return;
+            ugasiIsticanje();
+            l.setStyle({ weight: kljuc === 'sektori' ? 7 : 4, dashArray: null, fill: true, fillColor: l.options.color, fillOpacity: 0.12 });
+            l.bringToFront();
+            istaknuta = { kljuc: kljuc, sloj: l };
+            l.openPopup(l.getBounds().getCenter());
+          });
+        }
+
+        // Bočna ploča: kartica „Sektori i BP” s kvačicom za svako područje.
+        var plocaVodne = document.getElementById('ploca-vodne');
+        var plocaUpravne = document.getElementById('ploca-upravne');
+        var kartice = document.querySelectorAll('.ploca-kartica');
+        var spremljenNaslov = null;
+        function osvjeziPlocu() {
+          if (!plocaVodne) return;
+          plocaVodne.querySelectorAll('.vodna-stavka').forEach(function (st) {
+            var k = st.dataset.kljuc, o = st.dataset.oznaka;
+            var upaljeno = naKarti(k) && vid(k, o);
+            st.querySelector('.chk-vodna').checked = upaljeno;
+            st.classList.toggle('iskljucena', !upaljeno);
+          });
+        }
+        function otvoriKarticu(koja) {
+          if (!plocaVodne || !plocaUpravne) return;
+          var vodne = koja === 'vodne';
+          kartice.forEach(function (b) { b.classList.toggle('aktivna', b.dataset.kartica === koja); });
+          plocaVodne.hidden = !vodne;
+          plocaUpravne.hidden = vodne;
+          var naslov = document.getElementById('ploca-naslov'), podnaslov = document.getElementById('ploca-podnaslov');
+          if (vodne) {
+            if (!spremljenNaslov && naslov && podnaslov) spremljenNaslov = [naslov.textContent, podnaslov.textContent];
+            if (naslov) naslov.textContent = 'Sektori i branjena područja';
+            if (podnaslov) podnaslov.textContent = plocaVodne.querySelectorAll('.vodna-sektor').length + ' sektora · ' +
+              plocaVodne.querySelectorAll('.vodna-bp').length + ' branjenih područja · Hrvatske vode, Direkcija';
+            osvjeziPlocu();
+          } else if (spremljenNaslov) {
+            if (naslov) naslov.textContent = spremljenNaslov[0];
+            if (podnaslov) podnaslov.textContent = spremljenNaslov[1];
+            spremljenNaslov = null;
+          }
+        }
+        kartice.forEach(function (b) {
+          b.addEventListener('click', function () { otvoriKarticu(b.dataset.kartica); });
+        });
+        if (plocaVodne) {
+          plocaVodne.querySelectorAll('.vodna-stavka').forEach(function (st) {
+            var k = st.dataset.kljuc, o = st.dataset.oznaka;
+            st.querySelector('.chk-vodna').addEventListener('change', function () {
+              if (this.checked) {
+                samoOvo(k, o);
+                upali(k).then(function () { primijeniVidljivost(k); osvjeziPlocu(); }).catch(javiGresku);
+                return;
+              }
+              vidljivo[k][o] = false;
+              if (istaknuta && istaknuta.sloj === granice[k][o]) ugasiIsticanje();
+              primijeniVidljivost(k);
+              osvjeziPlocu();
+            });
+            st.querySelector('.btn-zumi-vodna').addEventListener('click', function () {
+              prikazi(k, o, true, st.dataset.sektor).catch(javiGresku);
+            });
+          });
+          var trazi = document.getElementById('ploca-trazilica-vodne');
+          if (trazi) {
+            trazi.addEventListener('input', function () {
+              var q = this.value.trim().toLowerCase();
+              var ima = 0;
+              plocaVodne.querySelectorAll('.vodna-stavka').forEach(function (st) {
+                var pogodak = !q || (st.dataset.trazi || '').toLowerCase().indexOf(q) !== -1;
+                st.hidden = !pogodak;
+                if (pogodak) ima++;
+              });
+              var prazno = plocaVodne.querySelector('.vodne-prazno');
+              if (prazno) prazno.hidden = ima > 0;
+            });
+          }
+          // Upali sve / Ugasi sve / Samo sektori / Samo područja
+          plocaVodne.querySelectorAll('.vodne-akcija').forEach(function (b) {
+            b.addEventListener('click', function () {
+              var a = b.dataset.akcija;
+              var hoceSek = a === 'sve' || a === 'sektori';
+              var hoceBp = a === 'sve' || a === 'bp';
+              ugasiIsticanje();
+              ['sektori', 'bp'].forEach(function (k) {
+                var hoce = k === 'sektori' ? hoceSek : hoceBp;
+                sve(k);
+                if (hoce) {
+                  upali(k).then(function () { primijeniVidljivost(k); osvjeziPlocu(); }).catch(javiGresku);
+                } else {
+                  var chk = kvacica(k);
+                  if (chk) chk.checked = false;
+                  if (slojevi[k]) karta.removeLayer(slojevi[k]);
+                }
+              });
+              osvjeziPlocu();
+            });
+          });
+        }
+
+        // Brzi izbor iznad karte: otvori ploču na kartici vodnih područja i
+        // prikaži odabrano.
+        var izborSek = document.getElementById('karta-brzi-izbor-sektora');
+        if (izborSek) {
+          izborSek.addEventListener('change', function () {
+            var v = this.value;
+            ugasiIsticanje();
+            if (!v) return;
+            if (typeof otvoriPlocu === 'function') otvoriPlocu();
+            otvoriKarticu('vodne');
+            if (v === 'sve') {
+              sve('sektori');
+              upali('sektori').then(function () {
+                primijeniVidljivost('sektori');
+                osvjeziPlocu();
+                try { karta.fitBounds(geoSloj.sektori.getBounds(), { padding: [20, 20] }); } catch (err) {}
+              }).catch(javiGresku);
+              return;
+            }
+            var kljuc = v.indexOf('s:') === 0 ? 'sektori' : 'bp';
+            var oznaka = v.slice(v.indexOf(':') + 1);
+            var red = plocaVodne && plocaVodne.querySelector('.vodna-stavka[data-kljuc="' + kljuc + '"][data-oznaka="' + oznaka + '"]');
+            prikazi(kljuc, oznaka, true, red ? red.dataset.sektor : '').then(function () {
+              var st = plocaVodne && plocaVodne.querySelector('.vodna-stavka[data-kljuc="' + kljuc + '"][data-oznaka="' + oznaka + '"]');
+              if (st) st.scrollIntoView({ block: 'nearest' });
+            }).catch(javiGresku);
+          });
+        }
       })();
 
       // Sloj naselja (najgornji sloj u naseljaPane zIndex 500)
@@ -2760,6 +2968,9 @@ function dodajKontroleKarte(karta, platno, opcije) {
         }
 
         otvoriPlocu();
+        // Izbor županije vraća ploču na upravne jedinice.
+        var karticaUpravne = document.querySelector('.ploca-kartica[data-kartica="upravne"]');
+        if (karticaUpravne && !karticaUpravne.classList.contains('aktivna')) karticaUpravne.click();
 
         if (selVal !== 'sve') {
           var cNum = parseInt(selVal, 10);

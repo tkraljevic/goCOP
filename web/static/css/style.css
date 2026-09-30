@@ -3016,7 +3016,8 @@ textarea {
   text-decoration: line-through;
 }
 .karta-jedinice-stavka .btn-zumi,
-.karta-jedinice-stavka .btn-zumi-naselje {
+.karta-jedinice-stavka .btn-zumi-naselje,
+.karta-jedinice-stavka .btn-zumi-vodna {
   border: none;
   background: transparent;
   cursor: pointer;
@@ -3031,6 +3032,67 @@ textarea {
   background: #e2e8f0;
   color: #1e293b;
 }
+
+/* Bočna ploča karte teritorija: kartice upravnih jedinica i vodnih područja */
+.ploca-kartice {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.ploca-kartica {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.5rem 0.4rem;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ploca-kartica.aktivna {
+  color: var(--secondary);
+  border-bottom-color: var(--secondary);
+}
+.ploca-sadrzaj {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.ploca-sadrzaj[hidden] { display: none; }
+.vodna-stavka[hidden] { display: none; }
+.vodna-sektor {
+  margin-top: 0.45rem;
+  border-bottom: 1px solid var(--border);
+}
+.vodna-sektor:first-child { margin-top: 0; }
+.vodna-bp { padding-left: 1.1rem; }
+.vodna-znak {
+  display: inline-block;
+  min-width: 1.6rem;
+  padding: 0 4px;
+  border: 2px solid var(--boja-sektora, #334155);
+  border-radius: 9px;
+  background: #fff;
+  color: var(--boja-sektora, #334155);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-align: center;
+  flex-shrink: 0;
+}
+.vodna-stavka[data-sektor="A"] { --boja-sektora: #0e7490; }
+.vodna-stavka[data-sektor="B"] { --boja-sektora: #1d4ed8; }
+.vodna-stavka[data-sektor="C"] { --boja-sektora: #7c3aed; }
+.vodna-stavka[data-sektor="D"] { --boja-sektora: #b45309; }
+.vodna-stavka[data-sektor="E"] { --boja-sektora: #15803d; }
+.vodna-stavka[data-sektor="F"] { --boja-sektora: #be123c; }
+.vodna-stavka .chk-vodna { accent-color: var(--boja-sektora); }
+.vodna-sektor .vodna-znak { border-radius: 4px; }
 
 
 /* Vodomjerna letva: minijaturni stupić s E-podjelom kao marker na karti */

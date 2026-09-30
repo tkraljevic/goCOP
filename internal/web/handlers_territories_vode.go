@@ -5,9 +5,13 @@ import (
 	"compress/gzip"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
+	"sort"
 	"strings"
 
 	geom "gocop/internal/geometrija"
+	"gocop/internal/models"
 	"gocop/internal/service"
 )
 
@@ -25,6 +29,46 @@ const geometrijaVodaDir = "data/geometrija"
 func (h *TerritoriesHandler) SetVodnaPodrucja(users *service.UserService, sections *service.SectionService) {
 	h.userService = users
 	h.sectionService = sections
+}
+
+// VodniSektorIzbor je sektor s njegovim branjenim područjima, za brzi izbor
+// na karti teritorija
+type VodniSektorIzbor struct {
+	ID       string
+	Name     string
+	Podrucja []models.Area
+}
+
+// vodniIzbor slaže sektore i područja za izbornik karte. Prazan je kad na
+// čvoru nema granica sektora, jer izbor tada nema što pokazati.
+func (h *TerritoriesHandler) vodniIzbor() []VodniSektorIzbor {
+	if h.userService == nil {
+		return nil
+	}
+	if _, err := os.Stat(filepath.Join(geometrijaVodaDir, "sektori.geojson")); err != nil {
+		return nil
+	}
+	sektori, err := h.userService.ListSectors()
+	if err != nil {
+		return nil
+	}
+	podrucja, _ := h.userService.ListAreas("")
+	var out []VodniSektorIzbor
+	for _, s := range sektori {
+		if len(s.ID) != 1 { // DIREKCIJA nema granicu
+			continue
+		}
+		iz := VodniSektorIzbor{ID: s.ID, Name: s.Name}
+		for _, a := range podrucja {
+			if a.SectorID == s.ID {
+				iz.Podrucja = append(iz.Podrucja, a)
+			}
+		}
+		sort.Slice(iz.Podrucja, func(i, j int) bool { return iz.Podrucja[i].ID < iz.Podrucja[j].ID })
+		out = append(out, iz)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	return out
 }
 
 // HandleGetSektoriGeoJSON vraća granice sektora

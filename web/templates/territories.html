@@ -190,6 +190,26 @@
         </select>
       </div>
 
+      {{if .VodniSektori}}
+      <div style="display:inline-flex; align-items:center; gap:0.45rem;">
+        <label for="karta-brzi-izbor-sektora" style="font-size:0.875rem; font-weight:600; color:var(--secondary); margin:0; display:flex; align-items:center; gap:0.3rem;">
+          {{icon "waves"}} Odaberi sektor:
+        </label>
+        <select id="karta-brzi-izbor-sektora" class="form-control form-control-sm" style="max-width:260px; font-size:0.85rem; padding:0.25rem 0.5rem; cursor:pointer; border-color:var(--border);">
+          <option value="">-- Odaberi sektor ili područje --</option>
+          <option value="sve">Svi sektori</option>
+          {{range .VodniSektori}}
+          <optgroup label="{{.Name}}">
+            <option value="s:{{.ID}}">Sektor {{.ID}} — cijeli</option>
+            {{range .Podrucja}}
+            <option value="bp:{{.ID}}">{{.ID}}. {{.Name}}</option>
+            {{end}}
+          </optgroup>
+          {{end}}
+        </select>
+      </div>
+      {{end}}
+
       <button type="button" id="gumb-toggle-ploce-jedinica" class="btn btn-sm btn-secondary" style="font-size:0.825rem; display:inline-flex; align-items:center; gap:0.35rem; cursor:pointer;">
         {{icon "sliders"}} <span id="tekst-gumba-jedinice">Pojedinačne jedinice</span>
       </button>
@@ -225,6 +245,14 @@
           <button type="button" id="gumb-zatvori-plocu" class="btn btn-sm btn-outline-secondary" style="padding:2px 8px; font-size:1.1rem; line-height:1; border:none; cursor:pointer;" title="Zatvori">&times;</button>
         </div>
 
+        {{if .VodniSektori}}
+        <div class="ploca-kartice" role="tablist">
+          <button type="button" class="ploca-kartica aktivna" data-kartica="upravne" role="tab">{{icon "landmark"}} Upravne jedinice</button>
+          <button type="button" class="ploca-kartica" data-kartica="vodne" role="tab">{{icon "waves"}} Sektori i BP</button>
+        </div>
+        {{end}}
+
+        <div id="ploca-upravne" class="ploca-sadrzaj">
         <div style="padding:0.65rem 0.85rem; border-bottom:1px solid var(--border); background:var(--surface);">
           <div style="margin-bottom:0.45rem;">
             <label style="font-size:0.75rem; font-weight:600; color:var(--text-muted); display:block; margin-bottom:0.2rem;">Županija:</label>
@@ -271,6 +299,45 @@
             Odaberite županiju u izborniku iznad ili kliknite na nju na karti za upravljanje pojedinim gradovima, općinama i naseljima.
           </div>
         </div>
+        </div>
+
+        {{if .VodniSektori}}
+        <!-- Sektori i branjena područja: svako se pali i gasi zasebno -->
+        <div id="ploca-vodne" class="ploca-sadrzaj" hidden>
+          <div style="padding:0.65rem 0.85rem; border-bottom:1px solid var(--border); background:var(--surface);">
+            <input type="search" id="ploca-trazilica-vodne" placeholder="Traži sektor, područje ili broj…" class="form-control form-control-sm" style="font-size:0.8rem;">
+          </div>
+          <div style="padding:0.5rem 0.85rem; border-bottom:1px solid var(--border); background:var(--bg-subtle, #f8fafc); display:flex; gap:0.3rem; flex-wrap:wrap; font-size:0.78rem;">
+            <button type="button" class="btn btn-xs btn-outline-secondary vodne-akcija" data-akcija="sve" style="font-size:0.75rem; padding:2px 7px;">Upali sve</button>
+            <button type="button" class="btn btn-xs btn-outline-secondary vodne-akcija" data-akcija="nista" style="font-size:0.75rem; padding:2px 7px;">Ugasi sve</button>
+            <button type="button" class="btn btn-xs btn-outline-secondary vodne-akcija" data-akcija="sektori" style="font-size:0.75rem; padding:2px 7px;">Samo sektori</button>
+            <button type="button" class="btn btn-xs btn-outline-secondary vodne-akcija" data-akcija="bp" style="font-size:0.75rem; padding:2px 7px;">Samo područja</button>
+          </div>
+          <div id="ploca-lista-vodne" class="karta-jedinice-tijelo">
+            {{range .VodniSektori}}
+            <div class="karta-jedinice-stavka vodna-stavka vodna-sektor iskljucena" data-kljuc="sektori" data-oznaka="{{.ID}}" data-sektor="{{.ID}}" data-trazi="sektor {{.ID}} {{.Name}}">
+              <label style="display:flex; align-items:center; gap:0.45rem; margin:0; cursor:pointer; flex:1; min-width:0;">
+                <input type="checkbox" class="chk-vodna" style="cursor:pointer; width:15px; height:15px; flex-shrink:0;">
+                <span class="vodna-znak" style="font-size:0.75rem;">{{.ID}}</span>
+                <span style="font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="{{.Name}}">{{.Name}}</span>
+              </label>
+              <button type="button" class="btn-zumi-vodna" title="Približi na karti">🔍</button>
+            </div>
+            {{range .Podrucja}}
+            <div class="karta-jedinice-stavka vodna-stavka vodna-bp iskljucena" data-kljuc="bp" data-oznaka="{{.ID}}" data-sektor="{{.SectorID}}" data-trazi="{{.ID}} {{.Name}} {{.VgiName}} {{.Subcenter}}">
+              <label style="display:flex; align-items:center; gap:0.45rem; margin:0; cursor:pointer; flex:1; min-width:0;">
+                <input type="checkbox" class="chk-vodna" style="cursor:pointer; width:15px; height:15px; flex-shrink:0;">
+                <span class="vodna-znak">{{.ID}}</span>
+                <span style="font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="{{.Name}}{{if .VgiName}} · {{.VgiName}}{{end}}">{{.Name}}</span>
+              </label>
+              <button type="button" class="btn-zumi-vodna" title="Približi na karti">🔍</button>
+            </div>
+            {{end}}
+            {{end}}
+            <div class="vodne-prazno" hidden style="color:var(--text-muted); font-size:0.85rem; text-align:center; padding:2rem 1rem;">Nema sektora ni područja koji odgovaraju pretrazi.</div>
+          </div>
+        </div>
+        {{end}}
       </aside>
     </div>
     <div class="karta-podnozje" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-top:0.6rem; font-size:0.85rem; color:#64748b;">

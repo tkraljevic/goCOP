@@ -67,10 +67,11 @@ type TerritoriesPageData struct {
 	MapURL                string // poveznica za prebacivanje na kartu
 	ListURL               string // poveznica za prebacivanje na popis
 	Karta                 KartaPostavke
-	CountiesGeoJSON       template.JS // GeoJSON granica svih 21 županija
-	CountiesGeoJSONURL    string      // URL za preuzimanje granica županija
-	MunisGeoJSONURL       string      // URL za preuzimanje granica gradova i općina
-	SettlementsGeoJSONURL string      // URL za preuzimanje granica naselja po županiji
+	VodniSektori          []VodniSektorIzbor // sektori s branjenim područjima, za brzi izbor na karti
+	CountiesGeoJSON       template.JS        // GeoJSON granica svih 21 županija
+	CountiesGeoJSONURL    string             // URL za preuzimanje granica županija
+	MunisGeoJSONURL       string             // URL za preuzimanje granica gradova i općina
+	SettlementsGeoJSONURL string             // URL za preuzimanje granica naselja po županiji
 }
 
 // ShowTerritories prikazuje stranicu s popisom županija, gradova, općina i naselja
@@ -132,6 +133,7 @@ func (h *TerritoriesHandler) ShowTerritories(w http.ResponseWriter, r *http.Requ
 		CurrentUser:           currUser,
 		Permissions:           perms,
 		Counties:              counties,
+		VodniSektori:          h.vodniIzbor(),
 		Municipalities:        page,
 		Pager:                 pager,
 		SelectedCountyID:      selectedCountyID,
