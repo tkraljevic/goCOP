@@ -29,6 +29,7 @@ import (
 	"gocop/internal/peers"
 	"gocop/internal/poslovi"
 	"gocop/internal/prognoza"
+	"gocop/internal/razmjena"
 	"gocop/internal/repository"
 	"gocop/internal/service"
 	webassets "gocop/web"
@@ -106,6 +107,7 @@ type Server struct {
 	kisomjeri          *service.KisomjerService // registar kvazi-kišomjera; nil dok se ne postavi
 	kisMjerenja        *kisomjeri.Spremiste     // mjerenja stvarnih kišomjera i oborine s Open-Meteo; nil dok se ne postavi
 	kisaSlivova        KisaSlivovaFunc          // kiša po slivovima za naslovnu; nil dok se ne postavi
+	razmjena           RazmjenaFunc             // stanje razmjene za pločicu na naslovnoj
 	dhmzKlijent        *dhmz.Klijent            // otvoreni podaci DHMZ-a za ploču na naslovnoj
 	zidService         *service.ZidService      // zid događanja; nil dok se ne postavi
 	orgService         *service.OrgService
@@ -1113,6 +1115,12 @@ func (s *Server) setupRoutes() {
 		mjerenja:  func() *kisomjeri.Spremiste { return s.kisMjerenja }}
 	s.mux.Handle("GET /vrijeme/podrucje", s.authMiddleware(http.HandlerFunc(vrijemeH.ShowPloca)))
 	s.mux.Handle("GET /vrijeme/kisa-slivova", s.authMiddleware(http.HandlerFunc(s.ShowKisaSlivova)))
+	s.mux.Handle("GET /razmjena/plocica", s.authMiddleware(http.HandlerFunc(s.ShowRazmjena)))
+	// Razmjena kroz web tunel: bez prijave korisnika, jer se čvor dokazuje
+	// ključem unutar TLS-a koji teče kroz WebSocket; nepoznati ključ ne prolazi.
+	if s.peersService != nil {
+		s.mux.Handle("GET "+razmjena.PutTunela, s.peersService.TunelHandler())
+	}
 	// Brojke podataka su javne: stoje i na stranici za prijavu. Nose samo
 	// zbrojeve, bez ijedne vrijednosti, imena osobe ili mjesta osim najstarije letve.
 	s.mux.HandleFunc("GET /podaci/brojke", s.ShowBrojke)

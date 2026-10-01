@@ -152,3 +152,12 @@ func ziv(pid int) bool {
 	err = p.Signal(syscall.Signal(0))
 	return err == nil || err == syscall.EPERM
 }
+
+// PosaoUTijeku kaže koji posao drži bravu uz arhivu (npr. „ugradnja paketa
+// osijek”), za prikaz napretka; prazno kad nijedan.
+func PosaoUTijeku(uz string) string {
+	if s, ok := procitajBravu(putBrave(uz)); ok {
+		return s.Sto
+	}
+	return ""
+}

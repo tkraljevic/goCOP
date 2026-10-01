@@ -435,3 +435,25 @@ func vrijednost(v any) any {
 	f, _ := n.Float64()
 	return f
 }
+
+// OpisIzdanja je zadnje izdanje u bazi: za koji sat, kad je nastalo, koji
+// ga je čvor izdao i je li stiglo razmjenom.
+type OpisIzdanja struct {
+	Izdano    time.Time
+	Nastalo   time.Time
+	Cvor      string
+	Primljeno bool
+}
+
+// OpisZadnjegIzdanja opisuje zadnje izdanje; ok je false dok izdanja nema.
+func OpisZadnjegIzdanja(db *sql.DB) (OpisIzdanja, bool) {
+	var o OpisIzdanja
+	var izdano, nastalo int64
+	var knjiga string
+	if db == nil || db.QueryRow(`SELECT izdano, nastalo, cvor, knjiga FROM izdanja ORDER BY izdano DESC, verzija DESC LIMIT 1`).
+		Scan(&izdano, &nastalo, &o.Cvor, &knjiga) != nil {
+		return o, false
+	}
+	o.Izdano, o.Nastalo, o.Primljeno = time.Unix(izdano*3600, 0), time.Unix(nastalo, 0), knjiga != ""
+	return o, true
+}

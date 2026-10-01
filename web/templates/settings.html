@@ -83,10 +83,12 @@
         <option value="{{.NodeID}}">{{.Self.Name}} (ovaj čvor)</option>
         {{range .Peers}}<option value="{{.NodeID}}">{{if .Name}}{{.Name}}{{else}}{{.NodeID}}{{end}}</option>{{end}}
       </select>
-      <input type="text" id="addr-new" class="form-control" placeholder="domena ili IP, npr. cop-osijek.com" style="max-width:260px;">
+      <input type="text" id="addr-new" class="form-control" placeholder="domena, IP ili https://domena za tunel" style="max-width:260px;">
       <button type="button" class="btn btn-primary" onclick="addAddress()">Dodaj adresu</button>
     </div>
-    <p class="muted" style="margin-top:0.4rem;">Bez porta uzima se port razmjene {{.Ports.Exchange}}. Tunel ili vatrozid moraju taj port propustiti do čvora.</p>
+    <p class="muted" style="margin-top:0.4rem;">Bez porta uzima se port razmjene {{.Ports.Exchange}}; vatrozid ga mora propustiti do čvora.
+      Kad se izvana smije samo na web (Cloudflare tunel), upišite web adresu čvora, npr. <span class="mono">https://cop-osijek.com</span>:
+      razmjena tada ide kroz web sučelje, a unutra je isti šifrirani razgovor s ključevima čvorova.</p>
     {{end}}
   </div>
 

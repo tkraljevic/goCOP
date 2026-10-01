@@ -17,7 +17,9 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -136,6 +138,10 @@ type Service struct {
 	// nakon verzija, prema razini pretplate
 	spremiste *sadrzaj.Spremiste
 
+	// tunel prima razmjenu kroz web sučelje (WebSocket), za čvorove koji
+	// izvana smiju samo na web
+	tunel *razmjena.Tunel
+
 	// uloge ovog računala za mrežu (preuzima vodostaje, izdaje prognozu)
 	uloge           atomic.Pointer[Uloge]
 	naPromjenuUloga func(Uloge)
@@ -152,7 +158,7 @@ func (s *Service) autoSync() bool {
 }
 
 func NewService(db *sql.DB, rec *ledger.Recorder, node *Node, ports Ports) (*Service, error) {
-	s := &Service{db: db, rec: rec, node: node, ports: ports}
+	s := &Service{db: db, rec: rec, node: node, ports: ports, tunel: razmjena.NoviTunel()}
 	if err := s.loadNetwork(); err != nil {
 		return nil, err
 	}
@@ -224,10 +230,19 @@ func (s *Service) PublicAddress(ctx context.Context, nodeID, add, remove string)
 	}
 	add, remove = strings.TrimSpace(add), strings.TrimSpace(remove)
 	if add != "" {
-		if strings.ContainsAny(add, " /\\") {
-			return nil, fmt.Errorf("adresa je domena ili IP, po želji s portom: npr. cop-osijek.com ili 10.0.0.5:4710")
+		if razmjena.JeAdresaTunela(add) {
+			// razmjena kroz web tunel (Cloudflare): https://domena
+			t, err := razmjena.NormalizirajTunel(add)
+			if err != nil {
+				return nil, err
+			}
+			p.Addresses = dedupe(append(p.Addresses, t))
+		} else {
+			if strings.ContainsAny(add, " /\\") {
+				return nil, fmt.Errorf("adresa je domena ili IP, po želji s portom (npr. cop-osijek.com ili 10.0.0.5:4710), ili https://domena za razmjenu kroz web tunel")
+			}
+			p.Addresses = dedupe(append(p.Addresses, withPort(add, s.exchangePortOf(p))))
 		}
-		p.Addresses = dedupe(append(p.Addresses, withPort(add, s.exchangePortOf(p))))
 	}
 	if remove != "" {
 		var keep []string
@@ -599,16 +614,27 @@ type doneMsg struct {
 	Applied int `json:"applied"`
 }
 
-// Serve prima razmjene od poznatih čvorova dok ctx traje
+// Serve prima razmjene od poznatih čvorova dok ctx traje: na portu
+// razmjene i, kad je web sučelje uključilo tunel, kroz njega
 func (s *Service) Serve(ctx context.Context) error {
-	return razmjena.ServeExchange(ctx, s.node.key, Protocol, s.ports.Exchange, s.trusted, func(c *razmjena.Conn) {
+	primi := func(c *razmjena.Conn) {
 		defer c.Close()
 		peer, _ := s.peerByKey(ctx, c.PeerKey)
 		started := time.Now()
 		applied, sent, theirs, err := s.exchange(ctx, c, false)
 		s.noteSync(ctx, peer, c, syncOutcome{applied: applied, sent: sent, frontier: theirs, took: time.Since(started), err: err})
-	})
+	}
+	go func() {
+		if err := razmjena.ServeExchangeOn(ctx, s.node.key, Protocol, s.tunel, s.trusted, primi); err != nil && ctx.Err() == nil {
+			log.Printf("razmjena kroz tunel: %v", err)
+		}
+	}()
+	return razmjena.ServeExchange(ctx, s.node.key, Protocol, s.ports.Exchange, s.trusted, primi)
 }
+
+// TunelHandler je razmjena kroz tunel za web sučelje (razmjena.PutTunela):
+// čvor koji izvana smije samo na web razmjenjuje kroz WebSocket.
+func (s *Service) TunelHandler() http.Handler { return s.tunel.Handler() }
 
 // NajviseVerzijaPoRazmjeni ograđuje jedan razgovor; ostatak ide sljedećim
 const NajviseVerzijaPoRazmjeni = 5000
@@ -636,6 +662,10 @@ func (s *Service) SyncWith(ctx context.Context, nodeID string) (applied, sent in
 	}
 
 	addresses := peer.Addresses
+	// adrese kroz tunel idu zadnje: u istoj mreži port razmjene je brži
+	sort.SliceStable(addresses, func(i, j int) bool {
+		return !razmjena.JeAdresaTunela(addresses[i]) && razmjena.JeAdresaTunela(addresses[j])
+	})
 	if s.ports.Discovery > 0 {
 		if f, ok := razmjena.FindDevice(Protocol, nodeID, 700*time.Millisecond, s.ports.Discovery); ok {
 			addresses = dedupe(append([]string{withPort(f.Addr, fmt.Sprint(f.ExchangePort))}, addresses...))
@@ -647,10 +677,15 @@ func (s *Service) SyncWith(ctx context.Context, nodeID string) (applied, sent in
 
 	var lastErr error
 	for _, host := range addresses {
-		// adresa bez porta je stari zapis ili ručni unos — vrijedi zadani port
-		addr := withPort(host, fmt.Sprint(DefaultExchangePort))
+		var conn *razmjena.Conn
+		var err error
 		dialCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
-		conn, err := razmjena.DialExchange(dialCtx, s.node.key, Protocol, addr, expect)
+		if razmjena.JeAdresaTunela(host) {
+			conn, err = razmjena.DialTunel(dialCtx, s.node.key, Protocol, host, expect)
+		} else {
+			// adresa bez porta je stari zapis ili ručni unos — vrijedi zadani port
+			conn, err = razmjena.DialExchange(dialCtx, s.node.key, Protocol, withPort(host, fmt.Sprint(DefaultExchangePort)), expect)
+		}
 		cancel()
 		if err != nil {
 			lastErr = err

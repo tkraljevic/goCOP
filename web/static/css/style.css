@@ -5999,6 +5999,13 @@ h3.kis-podnaslov { margin:1rem 0 0.4rem; display:flex; align-items:center; gap:0
 .kisa-slivova-glava { display:flex; flex-wrap:wrap; align-items:baseline; gap:0.3rem 0.8rem; margin-bottom:0.6rem; }
 .kisa-slivova-glava .section-title { margin:0; }
 .kisa-upozorenje { border-left:4px solid var(--faza-r-crta); background:var(--faza-r-bg); border-radius:8px; padding:0.6rem 0.8rem; margin:0.5rem 0; }
+/* Razmjena s čvorovima na naslovnoj */
+.razmjena-plocica { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:0.9rem 1rem; }
+.razmjena-upozorenje { border-left:4px solid var(--faza-r-crta); background:var(--faza-r-bg); border-radius:8px; padding:0.5rem 0.8rem; margin:0.4rem 0; font-size:0.9rem; }
+.razmjena-tablica td, .razmjena-tablica th { vertical-align:top; }
+.razmjena-red { margin-top:0.7rem; }
+.razmjena-traka { height:8px; border-radius:4px; background:var(--border); overflow:hidden; margin:0.35rem 0 0.25rem; max-width:32rem; }
+.razmjena-traka span { display:block; height:100%; background:var(--primary, #1f5fbf); transition:width 0.6s ease; }
 .kisa-upozorenje.kisa-narancasto { border-left-color:var(--faza-i-crta); background:var(--faza-i-bg); }
 .kisa-upozorenje.kisa-crveno { border-left-color:var(--faza-s-crta); background:var(--tint-orange-bg); }
 .kisa-upozorenje-glava { display:flex; flex-wrap:wrap; gap:0.3rem 0.6rem; align-items:center; }

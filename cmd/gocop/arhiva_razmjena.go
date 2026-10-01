@@ -24,6 +24,7 @@ import (
 	"gocop/internal/arhiva"
 	"gocop/internal/ledger"
 	"gocop/internal/peers"
+	"gocop/internal/prognoza"
 	"gocop/internal/sadrzaj"
 	"gocop/internal/web"
 )
@@ -58,7 +59,8 @@ type razmjenaArhive struct {
 	arhivaPut string
 	paketiDir string
 
-	mu       sync.Mutex
+	mu       sync.Mutex      // jedan krug objave i primanja u isto vrijeme
+	jm       sync.Mutex      // čuva javljeno; stanje ga čita dok krug traje
 	javljeno map[string]bool // što je jednom zapisano u dnevnik, da se ne ponavlja svaki krug
 	potakni  chan struct{}
 }
@@ -173,7 +175,7 @@ func (r *razmjenaArhive) primi(ctx context.Context) {
 			continue
 		}
 		kljuc := fmt.Sprintf("%s|%d", p.Letva, p.Izdanje)
-		if r.javljeno["neuspjelo:"+kljuc] {
+		if r.jeJavljeno("neuspjelo:" + kljuc) {
 			continue
 		}
 		b, _, err := r.sp.Citaj(ctx, p.Sadrzaj)
@@ -214,11 +216,81 @@ func izgradjenaOvdje(ro *sql.DB, letva string) bool {
 }
 
 func (r *razmjenaArhive) javiJednom(kljuc, format string, args ...any) {
-	if r.javljeno[kljuc] {
-		return
-	}
+	r.jm.Lock()
+	bilo := r.javljeno[kljuc]
 	r.javljeno[kljuc] = true
-	log.Printf(format, args...)
+	r.jm.Unlock()
+	if !bilo {
+		log.Printf(format, args...)
+	}
+}
+
+func (r *razmjenaArhive) jeJavljeno(kljuc string) bool {
+	r.jm.Lock()
+	defer r.jm.Unlock()
+	return r.javljeno[kljuc]
+}
+
+// stanjeArhive je napredak arhive za pločicu razmjene
+type stanjeArhive struct {
+	UKazalu     int    // paketa u kazalu (svih čvorova)
+	Vlastitih   int    // izdao ih je ovaj čvor
+	Ugradjeno   int    // primljeni i ugrađeni, ili letva sagrađena ovdje
+	Ceka        int    // prati ih, a još nisu ugrađeni
+	CekaBajtova int64  // od toga još nisu ni stigli
+	NePrati     int    // pretplata ih ne pokriva
+	Odbijeno    int    // nisu se dali ugraditi
+	Trenutno    string // posao koji upravo drži arhivu
+}
+
+// stanje broji isto što i primi, bez dohvata i ugradnje
+func (r *razmjenaArhive) stanje(ctx context.Context) stanjeArhive {
+	var st stanjeArhive
+	if r == nil {
+		return st
+	}
+	verzije, err := r.rec.LatestOf(ctx, []string{EntitetArhive})
+	if err != nil {
+		return st
+	}
+	var ro *sql.DB
+	if _, err := os.Stat(r.arhivaPut); err == nil {
+		if ro, err = sql.Open("sqlite", r.arhivaPut+"?mode=ro"); err == nil {
+			defer ro.Close()
+		}
+	}
+	for _, v := range verzije {
+		var p paketUKnjizi
+		if v.Archived || json.Unmarshal(v.Payload, &p) != nil || p.Letva == "" {
+			continue
+		}
+		st.UKazalu++
+		if v.NodeID == r.rec.Cvor() {
+			st.Vlastitih++
+			continue
+		}
+		if ro != nil {
+			imamo, _ := arhiva.Primljeno(ro, p.Letva)
+			if (imamo != nil && imamo.Izdanje >= p.Izdanje) || (imamo == nil && izgradjenaOvdje(ro, p.Letva)) {
+				st.Ugradjeno++
+				continue
+			}
+		}
+		if r.zeli != nil && !r.zeli(ctx, p.Kanal, VrstaPaketa) {
+			st.NePrati++
+			continue
+		}
+		if r.jeJavljeno(fmt.Sprintf("neuspjelo:%s|%d", p.Letva, p.Izdanje)) {
+			st.Odbijeno++
+			continue
+		}
+		st.Ceka++
+		if r.sp != nil && !r.sp.Ima(ctx, p.Sadrzaj) {
+			st.CekaBajtova += p.Bajtova
+		}
+	}
+	st.Trenutno = arhiva.PosaoUTijeku(r.arhivaPut)
+	return st
 }
 
 // primljeno javlja da su razmjenom stigle verzije; kazalo arhive pokreće krug
@@ -278,4 +350,48 @@ func imaStablo(koren string) bool {
 		}
 	}
 	return false
+}
+
+// stanjeRazmjene slaže pločicu razmjene za naslovnu: čvorove iz nadzorne
+// ploče sinkronizacije, napredak arhive, sadržaj koji čeka i izdavača prognoze.
+func stanjeRazmjene(ctx context.Context, p *peers.Service, rec *ledger.Recorder, sp *sadrzaj.Spremiste, ra *razmjenaArhive, pb *sql.DB) web.RazmjenaStanje {
+	var out web.RazmjenaStanje
+	st, err := p.Status(ctx, false)
+	if err != nil {
+		out.Upozorenja = append(out.Upozorenja, "Stanje razmjene se ne da pročitati: "+err.Error())
+		return out
+	}
+	out.UMrezi = st.Network != nil
+	out.Upozorenja = append(out.Upozorenja, st.Alerts...)
+	moja, _ := rec.Frontier(ctx)
+	for _, ps := range st.Peers {
+		c := web.CvorRazmjene{Naziv: ps.Name, Dostupnost: ps.Reachability, Zadnja: ps.State.LastOK,
+			Primljeno: ps.State.Applied, Poslano: ps.State.Sent, Zaostaje: ps.Backlog,
+			Greska: ps.State.LastError, Neuspjelih: ps.State.Fails}
+		if c.Naziv == "" {
+			c.Naziv = ps.NodeID
+		}
+		// drugi čvor zna za verzije koje ovaj još nema
+		for k, njihova := range ps.State.Frontier {
+			if njihova > moja[k] {
+				c.JosPrima = true
+				break
+			}
+		}
+		out.Cvorovi = append(out.Cvorovi, c)
+	}
+	a := ra.stanje(ctx)
+	out.Arhiva = web.ArhivaRazmjene{UKazalu: a.UKazalu, Vlastitih: a.Vlastitih, Ugradjeno: a.Ugradjeno, Ceka: a.Ceka,
+		CekaBajtova: a.CekaBajtova, NePrati: a.NePrati, Odbijeno: a.Odbijeno, Trenutno: a.Trenutno}
+	if sp != nil {
+		if s, err := sp.Stanje(ctx); err == nil {
+			out.SadrzajCeka, out.SadrzajBajtova = s.Zeljenih, s.ZeljenihBajtova
+		}
+	}
+	out.Prognoza.Izdaje = p.TrenutneUloge().Izdaje
+	if o, ok := prognoza.OpisZadnjegIzdanja(pb); ok {
+		out.Prognoza.Ima, out.Prognoza.Izdano, out.Prognoza.Nastalo, out.Prognoza.Primljeno = true, o.Izdano, o.Nastalo, o.Primljeno
+		out.Prognoza.Izdavac = o.Cvor
+	}
+	return out
 }

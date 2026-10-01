@@ -103,6 +103,12 @@ func ServeExchange(ctx context.Context, priv ed25519.PrivateKey, protocol string
 	if err != nil {
 		return err
 	}
+	return serveTLS(ctx, ln, trusted, handle)
+}
+
+// serveTLS prima veze s TLS slušalice dok ctx traje; zajedničko portu
+// razmjene i tunelu
+func serveTLS(ctx context.Context, ln net.Listener, trusted KeyChecker, handle func(*Conn)) error {
 	go func() {
 		<-ctx.Done()
 		ln.Close()

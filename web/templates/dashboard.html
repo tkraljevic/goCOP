@@ -145,6 +145,26 @@
   <!-- Brojke podataka: koliko sustav zna; učitava se naknadno i raste uživo -->
   <section id="podaci-brojke" class="brojke" data-url="/podaci/brojke" aria-label="Podaci u sustavu" hidden></section>
 
+  <!-- Razmjena s čvorovima: usklađenost, arhiva i prognoza; osvježava se sama -->
+  <section id="razmjena-plocica" class="kisa-slivova-okvir" hidden></section>
+  <script>
+  (function () {
+    var okvir = document.getElementById('razmjena-plocica');
+    if (!okvir || !window.fetch) return;
+    function ucitaj() {
+      fetch('/razmjena/plocica', {credentials: 'same-origin', cache: 'no-store'}).then(function (r) {
+        return r.status === 200 ? r.text() : '';
+      }).then(function (t) {
+        if (t) { okvir.innerHTML = t; okvir.hidden = false; }
+      }).catch(function () {});
+    }
+    ucitaj();
+    // osvježava se dok se stranica gleda, i odmah kad se kartica vrati
+    setInterval(function () { if (!document.hidden) ucitaj(); }, 30000);
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) ucitaj(); });
+  })();
+  </script>
+
   {{if .Precaci}}
   <div class="precaci">
     {{range .Precaci}}<a href="{{.Link}}" class="btn btn-secondary">{{icon .Ikona}} {{.Naslov}}</a>{{end}}

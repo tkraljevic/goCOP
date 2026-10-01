@@ -43,7 +43,7 @@ import (
 
 // verzijaPrograma je izdanje goCOP-a. Alfa traje dok se ne zaokruže
 // funkcionalnosti koje program treba imati; mijenja se pri izdavanju.
-const verzijaPrograma = "0.0.11-alfa"
+const verzijaPrograma = "0.0.12-alfa"
 
 // version se može zadati pri prevođenju (-ldflags "-X main.version=…");
 // prazno znači verzijaPrograma, s oznakom commita iz kojega je prevedeno.
@@ -700,6 +700,10 @@ func main() {
 	defer stopSync()
 	razmjenaArh = novaRazmjenaArhive(database, recorder, spremiste, server, peersService, arhivaPut, *paketiFlag)
 	go razmjenaArh.vrti(syncCtx)
+	var pbRazmjena *sql.DB // baza prognoza, za pločicu razmjene; postavlja se niže
+	server.SetRazmjena(func(ctx context.Context) web.RazmjenaStanje {
+		return stanjeRazmjene(ctx, peersService, recorder, spremiste, razmjenaArh, pbRazmjena)
+	})
 	if *syncPort > 0 {
 		go func() {
 			if err := peersService.Serve(syncCtx); err != nil {
@@ -759,6 +763,7 @@ func main() {
 			}
 		}
 		primateljPrognoze.postavi(pb, recorder, func() bool { return peersService.TrenutneUloge().Izdaje })
+		pbRazmjena = pb
 		peersService.NaPromjenuUloga(func(u peers.Uloge) {
 			if !u.Izdaje {
 				primateljPrognoze.nadoknadi()

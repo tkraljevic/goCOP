@@ -466,7 +466,9 @@ type Stanje struct {
 	Sadrzaja int
 	Bajtova  int64
 	Zeljenih int
-	Sirocadi int
+	// ZeljenihBajtova je koliko traženi sadržaji teže, koliko ih se zna
+	ZeljenihBajtova int64
+	Sirocadi        int
 }
 
 // Stanje broji sadržaje, bajtove, željene i siročad
@@ -477,9 +479,11 @@ func (s *Spremiste) Stanje(ctx context.Context) (Stanje, error) {
 		return st, err
 	}
 	st.Bajtova = bajtova.Int64
-	if err := s.db.QueryRowContext(ctx, `SELECT count(*) FROM sadrzaj_zeljen`).Scan(&st.Zeljenih); err != nil {
+	var zeljenih sql.NullInt64
+	if err := s.db.QueryRowContext(ctx, `SELECT count(*), sum(bajtova) FROM sadrzaj_zeljen`).Scan(&st.Zeljenih, &zeljenih); err != nil {
 		return st, err
 	}
+	st.ZeljenihBajtova = zeljenih.Int64
 	err := s.db.QueryRowContext(ctx, `SELECT count(*) FROM sadrzaj s WHERE NOT EXISTS (SELECT 1 FROM sadrzaj_veze v WHERE v.otisak = s.otisak)`).Scan(&st.Sirocadi)
 	return st, err
 }

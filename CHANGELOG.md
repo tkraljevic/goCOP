@@ -4,6 +4,22 @@ Verzije prate shemu iz README-a: alfa `0.0.x` (oznaka `v0.0.1-alfa`), beta
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.12-alfa — 2. 10. 2026.
+
+**Razmjena kroz web tunel** — čvor koji izvana smije samo na web (Cloudflare
+tunel, bez otvorenog porta) prima razmjenu i na `https://<adresa>/razmjena/tunel`,
+kroz WebSocket. Unutra teče isti TLS s ključevima čvorova kao na portu razmjene:
+nepoznati ključ ne dobiva ni bajt, a tunel vidi samo šifrirane bajtove. Druga
+strana se onamo spaja kad je adresa čvora `https://domena` (Postavke →
+Domenski čvorovi); u istoj mreži prvo se pokušava port razmjene.
+
+**Razmjena na naslovnoj** — pločica „Razmjena s čvorovima”: za svaki upareni
+čvor zadnja razmjena, primljeno i poslano i koliko se još šalje ili prima;
+napredak arhive (ugrađeno od koliko paketa, što se upravo ugrađuje, koliko se
+još dohvaća); sadržaj koji čeka dohvat; tko izdaje prognozu i kad je stiglo
+zadnje izdanje, s upozorenjem kad je starije od tri sata. Kad je sve usklađeno,
+jedan redak. Osvježava se sama.
+
 ## 0.0.11-alfa — 2. 10. 2026.
 
 **Kiša razmjenom** — uz svako izdanje prognoze idu mjerenja kišomjera zadnjih
