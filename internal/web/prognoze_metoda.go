@@ -188,7 +188,9 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 			tekstM("Oborina: kvazi-kišomjeri registra slivova po međuslivovima između letvi (Drava A–G, Dunav H–J " +
 				"od Komároma do Aljmaša, gornji Dunav K–O od Bavarske do Komároma, Mura B), po visinskim pojasima. " +
 				"Povijest je reanaliza ERA5 (Open-Meteo) od 1990.; uživo zadnjih sedam dana daje analiza, a sljedećih " +
-				"sedam prognoza prognostičkih modela Open-Meteo, preuzeta svaki sat u zasebnu bazu."),
+				"sedam prognoza prognostičkih modela Open-Meteo, preuzeta svaki sat u zasebnu bazu. Pravi kišomjeri " +
+				"(DHMZ, pljusak.com, 68 postaja nacionalnih službi Austrije, Mađarske, Slovenije i Slovačke s DanubeHIS-a) " +
+				"služe za usporedbu i u prognozu ne ulaze; na stranici Slivovi uz svaku postaju piše ulazi li u prognozu."),
 		}},
 		{"Satni lanac — građa", []OdlomakMetode{
 			tekstM("Postaje su složene u lanac niz tok. Svaka postaja y ima glavni ulaz x₁ — uzvodnu postaju na " +
@@ -291,7 +293,7 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				dani,
 				[]string{"mađarska prognoza", "12", "20", "28", "38", "47", "59"},
 				[]string{"naš lanac od Wildungsmauera", "18", "38", "61", "90", "113", "131"},
-				[]string{"isti lanac sa savršenom austrijskom prognozom", "27", "51", "58", "51", "43", "60"}),
+				[]string{"isti lanac kad je austrijska prognoza točna (izmjereno)", "27", "51", "58", "51", "43", "60"}),
 		}},
 		{"Satni lanac — izdavanje prognoze", []OdlomakMetode{
 			tekstM("Ispravak prema mjerenju. Razlika između modela i zadnjeg mjerenja postaje dijeli se na stalni i " +
@@ -347,8 +349,10 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				`\Delta_k(t)=h_T(t+k)-h_T(t)`),
 			tekstM("Kiša: za svaki međusliv uzvodno od cilja zbroj kiše zadnjeg dana, zadnja tri dana i zadnjih " +
 				"sedam dana te prognozirana kiša sljedeća dva, četiri i šest dana, u mm, kao težinski srednjak " +
-				"kvazi-kišomjera međusliva po visinskim pojasima. Model s kišom uči od 1990., na kiši koja je doista " +
-				"pala i poslije (savršena prognoza); uživo ulazi analiza i prognoza. Kad oborine nema, uzima se " +
+				"kvazi-kišomjera međusliva po visinskim pojasima. Model s kišom uči od 1990. na kiši koja je doista " +
+				"pala, po kalendarskim danima, i prije i poslije dana t; uživo ulazi kiša zadnjih 24 sata do izdanja " +
+				"i prognoza od izdanja. Učenje na kiši do jutra dana t svaki dan popravi za 1–2 cm, ali vrh vala " +
+				"hvata lošije (Botovo 2. dan 40 → 62 cm), pa ostaje kalendarsko. Kad oborine nema, uzima se " +
 				"inačica bez nje. U udaljenosti analogija oborina nosi polovicu težine promjena vodostaja."),
 			tekstM("Ciljevi i ulazi: na Muri Mursko Središće iz vlastite razine i kiše (satni lanac ga vodi iz Gornje Radgone), " +
 				"Goričan, Letenye i Kotoriba iz uzvodnih; na Dravi Botovo do Osijeka iz uzvodnih letvi, Murskog " +
@@ -359,30 +363,49 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"izdanjima 25–119 prema njihovih 12–59, jer oni nose cijeli austrijsko-njemački prognostički lanac."),
 		}},
 		{"Dnevni model — što kiša donosi", []OdlomakMetode{
-			tekstM("Kiša koja je pala i kiša koja se prognozira ulaze u model od 25. rujna 2026. Prva dva dana ne " +
-				"mijenjaju, jer tu vodu postaje već vide; od trećeg dana donose većinu poboljšanja. Provjere su " +
-				"modelima naučenima prije razdoblja provjere."),
-			tablicaM("Drava, vrh vala 5. i 6. dana, srednja pogreška u cm (valovi 2012.–2024., model naučen 1990.–2011.): bez kiše → s palom kišom → i s budućom kišom iz arhive",
-				[]string{"", "5. dan", "6. dan"},
-				[]string{"Osijek", "70 → 54 → 67", "108 → 71 → —"},
-				[]string{"Belišće", "80 → 60 → —", "119 → 94 → 70"},
-				[]string{"Donji Miholjac", "110 → 86 → —", "172 → 141 → 92"}),
-			tablicaM("Botovo, pogreška preko svih dana u cm (2024.–2026., model naučen do 2023.): bez prognoze kiše / s pravim prognozama Open-Meteo / sa savršenom prognozom",
+			tekstM("Kiša ulazi u model od 25. rujna 2026. Sve provjere ovdje rađene su onako kako model radi uživo: " +
+				"model naučen prije razdoblja provjere dobiva samo kišu koja je pala do jutra izdanja i, za dane " +
+				"koji dolaze, prognozu kiše kakva je tada bila izdana. Gornja granica je kiša koja je stvarno pala " +
+				"nakon izdanja — koliko bi kiša donijela da je prognoza kiše točna."),
+			tablicaM("Vrh vala, srednja pogreška u cm (valovi 2012.–2024., model naučen 1990.–2011.): bez kiše → s palom kišom → gornja granica",
+				[]string{"", "2. dan", "3. dan", "4. dan", "5. dan", "6. dan"},
+				[]string{"Mursko Središće (8 valova)", "101 → 84 → 62", "110 → 104 → 78", "120 → 119 → 70", "122 → 124 → 71", "119 → 114 → 85"},
+				[]string{"Botovo (21)", "64 → 40 → 33", "109 → 106 → 52", "140 → 140 → 76", "162 → 158 → 90", "173 → 169 → 95"},
+				[]string{"Donji Miholjac (21)", "33 → 31 → 31", "38 → 38 → 37", "59 → 58 → 50", "100 → 95 → 58", "165 → 150 → 63"},
+				[]string{"Belišće (20)", "27 → 29 → 30", "29 → 32 → 32", "38 → 46 → 43", "73 → 67 → 56", "103 → 103 → 50"},
+				[]string{"Osijek (21)", "20 → 22 → 22", "29 → 28 → 29", "29 → 30 → 30", "58 → 44 → 41", "102 → 78 → 53"}),
+			tekstM("Kiša koja je već pala sama donosi malo: vrh na Muri i Botovu 2. dan (Botovo 64 → 40 cm), a " +
+				"nizvodno 5.–6. dan. Glavnina je u kiši koja tek dolazi — s točnom kišom nakon izdanja pogreška " +
+				"vrha Botova 3.–6. dana pada na polovicu. Zato se prognoza kiše preuzima i računa."),
+			tablicaM("Pogreška preko svih dana u cm (2024.–2026., model naučen do 2023.): bez kiše / s kišom i pravim prognozama Open-Meteo / gornja granica",
 				[]string{"", "3. dan", "4. dan", "5. dan", "6. dan"},
-				[]string{"Botovo", "33 / 24 / 24", "40 / 28 / 27", "44 / 32 / 29", "46 / 37 / 29"}),
-			tekstM("Prognoza kiše treći i četvrti dan donese gotovo sve, peti tri četvrtine, šesti polovicu. " +
-				"Umjeravanje prognoze na razinu reanalize po točkama provjeru pogoršava, pa se prognoza uzima kakva jest."),
+				[]string{"Mursko Središće", "21,9 / 17,0 / 18,3", "23,7 / 18,8 / 17,8", "25,2 / 19,6 / 19,3", "26,5 / 21,9 / 19,0"},
+				[]string{"Goričan", "23,8 / 19,7 / 20,1", "26,5 / 21,0 / 21,0", "28,3 / 21,9 / 20,4", "29,8 / 24,1 / 21,7"},
+				[]string{"Botovo", "35,8 / 29,6 / 29,5", "39,6 / 31,2 / 32,1", "42,5 / 33,7 / 32,2", "44,2 / 37,0 / 33,8"},
+				[]string{"Donji Miholjac", "30,8 / 28,1 / 26,8", "41,0 / 34,9 / 33,4", "47,9 / 37,2 / 37,5", "52,9 / 40,4 / 39,3"},
+				[]string{"Belišće", "24,0 / 22,3 / 21,3", "33,5 / 29,2 / 27,4", "39,9 / 31,6 / 30,8", "44,5 / 34,1 / 32,9"},
+				[]string{"Osijek", "23,0 / 22,6 / 22,1", "34,3 / 31,6 / 30,2", "42,2 / 35,9 / 35,0", "48,3 / 39,3 / 38,8"}),
+			tekstM("Prava prognoza kiše do 4. dana donese gotovo koliko i točna kiša, 5.–6. dan većinu. Prva dva dana " +
+				"kiša ne pomaže: na Muri 1. dan kvari prognozu za oko 2 cm (Mursko Središće 12,8 → 14,8), jer onu vodu " +
+				"letve već vide. Zato Goričan i Letenye, vrhovi satnog lanca Botova, prva dva dana uzimaju inačicu bez kiše " +
+				"(Goričan 1. i 2. dan 9,8 i 19,4 cm prema 11,1 i 21,1 s kišom), a od trećeg onu s kišom. Umjeravanje " +
+				"prognoze na razinu reanalize po točkama provjeru pogoršava, pa se prognoza uzima kakva jest."),
 			tablicaM("Dunav, pogreška preko svih dana u cm (2024.–2026., model naučen do 2023., prave prognoze kiše): bez kiše → s kišom H, I, J",
 				[]string{"", "4. dan", "5. dan", "6. dan"},
-				[]string{"Batina", "23 → 21", "37 → 31", "50 → 40"},
-				[]string{"Aljmaš", "23 → 21", "34 → 28", "45 → 35"},
-				[]string{"Vukovar", "17 → 16", "26 → 22", "35 → 28"},
-				[]string{"Ilok", "16 → 16", "24 → 21", "33 → 27"},
-				[]string{"Osijek, s dunavskim ulazima", "32 → 29", "37 → 34", "42 → 38"}),
-			tekstM("Prva tri dana na Dunavu su lošija za pola do jedan centimetar. Dravski međuslivovi dunavskim " +
+				[]string{"Batina", "23,5 → 21,5", "37,3 → 32,2", "50,2 → 40,7"},
+				[]string{"Aljmaš", "23,2 → 21,4", "33,5 → 29,2", "44,1 → 36,4"},
+				[]string{"Vukovar", "17,4 → 16,2", "25,9 → 23,0", "35,2 → 29,5"},
+				[]string{"Ilok", "16,4 → 15,2", "24,0 → 21,2", "32,7 → 27,4"}),
+			tekstM("Prva tri dana na Dunavu kiša ne mijenja ništa bitno (do pola centimetra). Dravski međuslivovi dunavskim " +
 				"letvama ne pomažu, pa ne ulaze. Je li dnevna prognoza računata s kišom, piše uz vrijeme izdanja na " +
 				"stranici Prognoze, uz razlog kad nije; u izvozu svaka dnevna vrijednost nosi oznaku modela, " +
 				"dnevni-1-kisa ili dnevni-1."),
+			tekstM("Kako se kiša mjeri. Do 30. rujna 2026. provjere su modelu za dan izdanja davale kišu cijelog " +
+				"kalendarskog dana, a u 7 sati većina te kiše još nije pala; brojke su zato bile preoptimistične " +
+				"(Mursko Središće 2. dan 19 umjesto 23 cm, vrh Botova 3. dan 89 umjesto 106). Isprobana je i izmjerena " +
+				"kiša umjesto reanalize — austrijska mreža SPARTACUS (GeoSphere Austria, od 1961.) i kišomjeri " +
+				"nacionalnih službi s DanubeHIS-a: s kišom poznatom do jutra jednaka je ERA5 (razlika 0,1–0,3 cm), pa " +
+				"nije ugrađena. Presudna je kiša sljedećih 24–48 sati, a nju daje samo prognoza."),
 		}},
 		{"Dnevni model — procjena", []OdlomakMetode{
 			tekstM("(a) Linearna regresija s pragom. Dani se dijele na dva režima po 75. percentilu razine h_T; " +
@@ -401,7 +424,7 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"regresija pak s pravim prognozama kiše pojačava njihovu pogrešku 4.–6. dan. Omjer tri četvrtine "+
 				"zadržava dobitak prvih dana (Donji Miholjac 7 → 5 cm, Belišće 6 → 4), 4.–6. dan ne gubi ništa, a vrh "+
 				"hvata bolje:", brojHRf(prognoza.DnevniRasponMnozitelj, 2))),
-			tablicaM("Vrh Botova 2.–6. dana, srednja pogreška u cm (11 dravskih valova 2012.–2023., kiša iz arhive)",
+			tablicaM("Vrh Botova 2.–6. dana, srednja pogreška u cm (11 dravskih valova 2012.–2023., kiša cijelog dana iz arhive — za usporedbu omjera, ne kao pogreška uživo)",
 				[]string{"", "2. dan", "3. dan", "4. dan", "5. dan", "6. dan"},
 				[]string{"same analogije", "64", "102", "119", "156", "143"},
 				[]string{"pola-pola (do 25. 9. 2026.)", "48", "85", "102", "134", "123"},
@@ -532,7 +555,7 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 		}},
 		{"Ograničenja", []OdlomakMetode{
 			popisM(
-				"Veliki dravski val od trećeg dana prognoza podcjenjuje: vrh Botova 3.–5. dan promaši 76, 94 i 122 cm i sa savršenom kišom. S Murom iz Gornje Radgone podcjenjivanje vrha na 72 h palo je s 60 na 42 cm, ali ne i nestalo. Uzrok nije rad elektrana — i najjači zahvat HE mijenja vrh Botova za oko 57 cm (studija MuraDrava 2018.), a radni volumen svih triju akumulacija (31 hm³) manji je od vršnog dijela vala (preko 50 hm³) — nego dotok Drave iz Slovenije, za koji prognoze nemamo. Pratiti gornju granicu raspona.",
+				"Veliki dravski val od trećeg dana prognoza podcjenjuje: vrh Botova 3.–5. dan promaši 52, 76 i 90 cm (21 val 2012.–2024.) i kad je kiša nakon izdanja poznata točno, a s pravom prognozom kiše više. S Murom iz Gornje Radgone podcjenjivanje vrha na 72 h palo je s 60 na 42 cm, ali ne i nestalo. Uzrok nije rad elektrana — i najjači zahvat HE mijenja vrh Botova za oko 57 cm (studija MuraDrava 2018.), a radni volumen svih triju akumulacija (31 hm³) manji je od vršnog dijela vala (preko 50 hm³) — nego dotok Drave iz Slovenije, za koji prognoze nemamo. Pratiti gornju granicu raspona.",
 				"Rad hidroelektrana unaprijed se zna samo koliko ga model ispuštanja nauči; unutar dana odluke elektrane ostaju nepredvidive. Pri velikoj vodi HEP akumulacije spušta i puni bez zapisanog pravila, pa model to uči iz razine. Varaždin ispod HE Varaždin o njima ovisi cijeli.",
 				"Na Dunavu je prognoza za valove ovisna o mađarskoj službi dok se dionica Wildungsmauer → Nagybajcs ne namjesti po režimima.",
 				"Vrijednost izvan svega viđenoga u arhivi model procjenjuje produženjem zadnjeg pravca; pri rekordnoj vodi valja biti oprezan.",
@@ -540,6 +563,7 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 		}},
 		{"Što je novo", []OdlomakMetode{
 			popisM(
+				"30. 9. 2026. (navečer) — Goričan i Letenye prva dva dana bez kiše (kiša ondje kvari 1–2 cm); stranica Postavke: satni, dnevni ili kombinacija posebno za graf, tablicu i Excel, uz generiranje i pripremu modela; pričuvni izračun u Excelu za dane kad prognoza ne radi; doprinos kiše izmjeren iznova s kišom poznatom u trenutku izdanja (ranije brojke bile su preoptimistične); izmjerena kiša (SPARTACUS, kišomjeri s DanubeHIS-a) isprobana i nije ugrađena.",
 				"30. 9. 2026. — mađarske letve kad vizugy.hu kasni preuzimaju se s DanubeHIS-a; karika se ispravlja zadnjim mjerenjem do 48 h staro (bez toga lažni val od Baje do Iloka); Generiraj rukom računa i već izdani sat; model ispuštanja HE uči i iz razine akumulacije; na crtežu lanca veza koja preskače postaju ide lukom.",
 				"29. 9. 2026. — Donji Miholjac i Belišće računaju se u protoku, Belišće izravno iz Donjeg Miholjca, a Drávaszabolcs mu je rezerva; na niskoj vodi 2026. pogreška na 6 h pala je s 11,6 na 4,4 cm (Donji Miholjac) i s 4,2 na 1,7 cm (Belišće); HydroView token koji poslužitelj odbije traži se iznova, a zapisnik piše zašto prognoza stoji; letve na dvije obale (Komárom i Komárno i još pet parova) popunjavaju jedna drugoj sate koji nedostaju.",
 				"27. 9. 2026. — satni lanac dijeli ispravak na stalni dio (medijan pogreške 72 h, kad je skladna i letva ne raste) i prolazni koji blijedi; model ispuštanja pri običnoj vodi drži dnevni srednjak uz dotok; uzdužni profil prema vodi zadnjih 30 dana, s uobičajenom vodom deset godina i srednjim vodostajem, jutarnjom crtom u 7 h, crtama za 6 i 12 h, jednim profilom po rijeci u Trstu i razmakom letvi koji nije u mjerilu; satni lanac Mure iz Gornje Radgone (Mursko Središće, Goričan, dalje Botovo 4–8 % bolje na 24–96 h); arhiva dopunjena dnevnim i očišćenim satnim podacima DanubeHIS-a; ARSO se čita iz tablice postaje svakih 10 minuta; kote nula Mohácsa, Baje, Dunaföldvára, Budimpešte i Esztergoma ispravljene na baltički sustav.",

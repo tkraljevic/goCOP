@@ -124,6 +124,12 @@ type Server struct {
 
 // templateFuncs su pomoćnici dostupni svim predlošcima. Stoje izvan NewServer
 // da ih ispod istog krova može pozvati i test koji iscrtava stranicu.
+// verzijaPrograma je izdanje programa za podnožje stranice; postavlja ga main.
+var verzijaPrograma string
+
+// SetVerzijaPrograma postavlja verziju koja se ispisuje u podnožju.
+func SetVerzijaPrograma(v string) { verzijaPrograma = v }
+
 func templateFuncs() template.FuncMap {
 	return template.FuncMap{
 		"basisLabel":    models.BasisLabel,
@@ -305,6 +311,7 @@ func templateFuncs() template.FuncMap {
 			return u
 		},
 		"izvorLabel": models.NazivIzvora,
+		"verzija":    func() string { return verzijaPrograma },
 		"vrstaLabel": models.NazivVrste,
 		"formatDate": func(t time.Time) string {
 			if t.IsZero() {

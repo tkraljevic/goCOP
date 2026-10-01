@@ -281,7 +281,7 @@ func (s *Server) velicinePodataka(podaci string) []Velicina {
 		}
 	}
 	out := []Velicina{
-		{"arhiva vodostaja i meteorologije", baza("vodostaji.db")},
+		{"arhiva vodostaja i meteorologije", s.velicinaArhive(baza)},
 		{"izvorne datoteke nizova", velicinaStabla(s.podaciDir)},
 		{"radna baza", baza("gocop.db")},
 		{"prognoze i provjera unatrag", baza("prognoze.db") + provjera},
@@ -294,6 +294,21 @@ func (s *Server) velicinePodataka(podaci string) []Velicina {
 		}
 	}
 	return ima
+}
+
+// velicinaArhive mjeri arhivu ondje gdje stvarno stoji: može biti na drugom
+// disku, odvojena od baze (postavka arhiva).
+func (s *Server) velicinaArhive(baza func(string) int64) int64 {
+	if s.arhivaPut == "" {
+		return baza("vodostaji.db")
+	}
+	var n int64
+	for _, dodatak := range []string{"", "-wal"} {
+		if fi, err := os.Stat(s.arhivaPut + dodatak); err == nil {
+			n += fi.Size()
+		}
+	}
+	return n
 }
 
 // velicinaStabla zbraja veličine svih datoteka u stablu.

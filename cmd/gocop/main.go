@@ -1,6 +1,7 @@
 package main
 
 import (
+	"runtime/debug"
 	_ "time/tzdata"
 
 	"context"
@@ -40,8 +41,42 @@ import (
 	"gocop/internal/web"
 )
 
-// version se postavlja pri prevođenju: -ldflags "-X main.version=1.2.3"
+// verzijaPrograma je izdanje goCOP-a. Alfa traje dok se ne zaokruže
+// funkcionalnosti koje program treba imati; mijenja se pri izdavanju.
+const verzijaPrograma = "0.0.1-alfa"
+
+// version se može zadati pri prevođenju (-ldflags "-X main.version=…");
+// prazno znači verzijaPrograma, s oznakom commita iz kojega je prevedeno.
 var version = ""
+
+// punaVerzija vraća verziju s kratkom oznakom commita, kad je Go zna
+// (gradnja iz git stabla), i zvjezdicom kad stablo ima nespremljenih izmjena.
+func punaVerzija() string {
+	if version != "" {
+		return version
+	}
+	v := verzijaPrograma
+	if bi, ok := debug.ReadBuildInfo(); ok {
+		var rev string
+		izmjene := false
+		for _, s := range bi.Settings {
+			switch s.Key {
+			case "vcs.revision":
+				rev = s.Value
+			case "vcs.modified":
+				izmjene = s.Value == "true"
+			}
+		}
+		if len(rev) >= 7 {
+			v += " (" + rev[:7]
+			if izmjene {
+				v += "*"
+			}
+			v += ")"
+		}
+	}
+	return v
+}
 
 func main() {
 	// Postavke: zastavica > gocop.toml > zadano. Zastavice bez vrijednosti
@@ -49,6 +84,8 @@ func main() {
 	configPath := flag.String("config", "", "Putanja do gocop.toml (zadano: uz bazu ili uz program)")
 	addrFlag := flag.String("addr", "", "Adresa i port web sučelja (zadano :80; ako nije dostupan, sam prelazi na :8080)")
 	dbFlag := flag.String("db", "", "Putanja do SQLite baze (zadano data/gocop.db)")
+	arhivaFlag := flag.String("arhiva", "", "Putanja do arhive vodostaja (zadano vodostaji.db uz bazu); može na drugi disk")
+	skenoviFlag := flag.String("skenovi", "", "Mapa sa skenovima prijava (zadano skenovi uz bazu)")
 	podaciFlag := flag.String("podaci", "vodostaji", "Stablo s izvornim datotekama arhive; prazno na čvoru koji arhivu samo prima")
 	paketiFlag := flag.String("pakete", "pakete", "Mapa u koju se izdaju .cop paketi i u kojoj stoji katalog; prazno isključuje izdavanje")
 	nodeFlag := flag.String("node", "", "Identifikator ovog čvora za sinkronizaciju")
@@ -77,6 +114,8 @@ func main() {
 	contractLinks := flag.String("ugovor-veze", "", "Ručno vezivanje lokacija na registar: \"naziv iz popisa=sifra,naziv=sifra\"")
 	contractAllItems := flag.Bool("ugovor-sve-stavke", false, "Uz stavke koje ugovor koristi upisati i cijeli ponudbeni troškovnik (opisi i jedinice, bez cijena)")
 	flag.Parse()
+	log.Printf("goCOP %s", punaVerzija())
+	web.SetVerzijaPrograma(punaVerzija())
 
 	// baza se mora znati prije datoteke, jer datoteka živi uz bazu
 	dbForConfig := *dbFlag
@@ -110,6 +149,23 @@ func main() {
 	}
 	if *autoSyncFlag != "" {
 		cfg.Sync.AutoSync = *autoSyncFlag
+	}
+	// Putanje: zastavica ima prednost, pa datoteka postavki, pa zadano. Za
+	// -podaci i -pakete zadano nije prazno, pa se gleda je li zastavica
+	// doista zadana.
+	zadane := map[string]bool{}
+	flag.Visit(func(f *flag.Flag) { zadane[f.Name] = true })
+	if *arhivaFlag != "" {
+		cfg.Arhiva = *arhivaFlag
+	}
+	if *skenoviFlag != "" {
+		cfg.Skenovi = *skenoviFlag
+	}
+	if !zadane["podaci"] && cfg.Podaci != "" {
+		*podaciFlag = cfg.Podaci
+	}
+	if !zadane["pakete"] && cfg.Pakete != "" {
+		*paketiFlag = cfg.Pakete
 	}
 
 	addr := &cfg.Addr
@@ -208,7 +264,7 @@ func main() {
 	}
 
 	// Identitet čvora (ključ uz bazu) i sinkronizacija s drugim čvorovima
-	node, err := peers.LoadNode(*dbPath, *nodeID, *nodeName, version)
+	node, err := peers.LoadNode(*dbPath, *nodeID, *nodeName, punaVerzija())
 	if err != nil {
 		log.Fatalf("Kritična greška: %v", err)
 	}
@@ -594,7 +650,11 @@ func main() {
 	server.SetZid(service.NewZidService(recorder, journalRepo, sectionRepo, mtsRepo, userRepo, stationRepo, episodeRepo))
 	server.SetKarta(cfg.Karta.Plocice, cfg.Karta.Zasluge, cfg.Karta.NajviseZ)
 	server.SetJavnaAdresa(cfg.JavnaAdresa)
-	server.SetSkenovi(filepath.Join(filepath.Dir(*dbPath), "skenovi", "prijave"))
+	skenovi := cfg.Skenovi
+	if skenovi == "" {
+		skenovi = filepath.Join(filepath.Dir(*dbPath), "skenovi")
+	}
+	server.SetSkenovi(filepath.Join(skenovi, "prijave"))
 
 	// Hidrološka arhiva stoji uz bazu, kao zasebna datoteka. Smije je ne biti:
 	// čvor koji je nije preuzeo radi bez povijesnih nizova, a ne pada.
@@ -606,7 +666,10 @@ func main() {
 		log.Printf("Baza prognoza: %s", prognozePut)
 	}
 
-	arhivaPut := filepath.Join(filepath.Dir(*dbPath), "vodostaji.db")
+	arhivaPut := cfg.Arhiva
+	if arhivaPut == "" {
+		arhivaPut = filepath.Join(filepath.Dir(*dbPath), "vodostaji.db")
+	}
 	server.SetPodaciDir(*podaciFlag)
 	server.SetPaketiDir(*paketiFlag)
 	if arhiva, err := repository.OpenArhiva(arhivaPut); err != nil {

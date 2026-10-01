@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"regexp"
 	"sort"
@@ -759,6 +760,13 @@ func (u *Uvoznik) Preuzmi(ctx context.Context, st *models.Station) StanjeLetve {
 	cctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
 	redci, err := izvor.Ocitanja(cctx, adresa)
+	if err != nil && isteklo(err) && cctx.Err() == nil {
+		// Spora veza (mobilni internet, prvi krug nakon pokretanja): isti
+		// upit još jednom odmah, prije rezervi. 1. 10. 2026. u 00:03 istekli
+		// su u istom krugu Bruck, Budimpešta, Dalj i crpne stanice — tri
+		// izvora odjednom, dakle naša veza, ne izvor.
+		redci, err = izvor.Ocitanja(cctx, adresa)
+	}
 	if err != nil || len(redci) == 0 {
 		// Kad stranica postaje pukne, vrijednost se uzme s popisa. Ondje je
 		// samo zadnje očitanje, ali bolje jedno na sat nego nijedno — i ne
@@ -837,4 +845,14 @@ func (u *Uvoznik) Preuzmi(ctx context.Context, st *models.Station) StanjeLetve {
 	s.Novih = n
 	s.UkupnoNovo += n
 	return s
+}
+
+// isteklo javlja je li upit pao zato što odgovor nije stigao na vrijeme, a
+// ne zato što ga izvor odbio ili vratio nešto krivo.
+func isteklo(err error) bool {
+	var ne net.Error
+	if errors.As(err, &ne) && ne.Timeout() {
+		return true
+	}
+	return errors.Is(err, context.DeadlineExceeded) || strings.Contains(err.Error(), "Client.Timeout exceeded")
 }

@@ -1,6 +1,6 @@
 # goCOP u spremniku:
 #
-#   docker build -t gocop:alfa .
+#   docker build -t gocop:0.0.1-alfa .
 #
 # Sve sučelje (predlošci, CSS, JS) ugrađeno je u binarnu datoteku, pa slika
 # nosi samo nju. Na disku ostaje jedino mapa /data: baza, ključ čvora,
@@ -13,10 +13,12 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . ./
-ARG VERSION=alfa
+# Verzija je u kodu (cmd/gocop/main.go, verzijaPrograma); VERSION je samo
+# za iznimnu gradnju s drugom oznakom: docker build --build-arg VERSION=…
+ARG VERSION=
 # Bez C-a: modernc.org/sqlite je čisti Go, pa je binarna datoteka samostalna
 RUN CGO_ENABLED=0 go build -trimpath \
-    -ldflags "-s -w -X main.version=${VERSION}" \
+    -ldflags "-s -w ${VERSION:+-X main.version=${VERSION}}" \
     -o /gocop ./cmd/gocop
 
 FROM alpine:3.21

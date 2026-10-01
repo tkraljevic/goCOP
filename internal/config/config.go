@@ -25,6 +25,13 @@ const FileName = "gocop.toml"
 type Config struct {
 	Addr string `toml:"addr" comment:"Adresa i port web sučelja. :80 da nitko ne mora upisivati port;\nako je 80 zauzet ili nedostupan, aplikacija sama prelazi na :8080.\nPromijenite ovdje ako je na ovom računalu 80 trajno zauzet."`
 	DB   string `toml:"db" comment:"Putanja do SQLite baze. Uz nju žive ključ čvora (node-key) i ova datoteka."`
+	// Velike i rijetko pisane datoteke mogu stajati odvojeno od baze: na
+	// poslužitelju baza ide na brzi disk (SSD), a arhiva, izvorne datoteke,
+	// skenovi i paketi na veliki (mehanički). Prazno znači uz bazu.
+	Arhiva  string `toml:"arhiva" comment:"Arhiva vodostaja i meteorologije (vodostaji.db, oko 10 GB).\nPrazno = uz bazu. Na poslužitelju može na veliki disk; SQLite ne\nsmije ležati na mrežnoj ili FUSE mapi (na Unraidu /mnt/diskN, ne /mnt/user)."`
+	Podaci  string `toml:"podaci" comment:"Stablo s izvornim datotekama arhive (mapa vodostaji). Prazno = \"vodostaji\"."`
+	Skenovi string `toml:"skenovi" comment:"Mapa sa skenovima (prijave s terena). Prazno = mapa skenovi uz bazu."`
+	Pakete  string `toml:"pakete" comment:"Mapa u koju se izdaju .cop paketi. Prazno = \"pakete\"."`
 	// JavnaAdresa je adresa na kojoj je program dostupan izvana, npr.
 	// https://gocop.voda.hr; ide u QR kod na dokumentima. Prazno: QR nosi
 	// samo oznaku dokumenta.

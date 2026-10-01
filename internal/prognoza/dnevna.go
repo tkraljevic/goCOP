@@ -218,6 +218,49 @@ func (c DnevniCilj) Inacice() []DnevniCilj {
 	return out
 }
 
+// DnevniBezKiseDoDana je do kojeg dana (uključivo) letva uzima inačicu bez
+// kiše iako model s kišom radi. Goričan i Letenye su vrhovi satnog lanca
+// Botova, pa njihova prva dva dana ulaze izravno u prognozu. Ondje kiša
+// kvari: onu vodu letve već vide. Mjereno s kišom poznatom u trenutku
+// izdanja (2024.–2026., model naučen do 2023., prave prognoze kiše), preko
+// svih dana 1. i 2. dan: Goričan 9,8 i 19,4 cm bez kiše prema 11,1 i 21,1 s
+// kišom, Letenye 10,8 i 20,1 prema 12,4 i 22,0; na vrhovima Goričana
+// 2012.–2024. 2. dan 68 prema 72. Od 3. dana kiša pomaže (Goričan 23,8 →
+// 19,7).
+var DnevniBezKiseDoDana = map[string]int{"gorican": 2, "letenye": 2}
+
+// SastaviBezKise zamjenjuje prve dane prognoze modela s kišom prognozom
+// inačice bez kiše iz istog popisa, kad letva to traži (DnevniBezKiseDoDana).
+// Bez takve inačice, ili kad ona ne može računati, vraća d kakav jest.
+func SastaviBezKise(d []DnevnaIzdana, m *DnevniModel, modeli []*DnevniModel, satni map[string]Niz,
+	oborine map[string]DnevniNiz, sada int64) []DnevnaIzdana {
+	do := DnevniBezKiseDoDana[m.Cilj.Letva]
+	if do == 0 || len(m.Cilj.Slivovi) == 0 {
+		return d
+	}
+	for _, b := range modeli {
+		if b == nil || len(b.Cilj.Slivovi) > 0 {
+			continue
+		}
+		bez, err := PrognozirajDnevno(b, satni, oborine, sada)
+		if err != nil {
+			continue
+		}
+		po := map[int]DnevnaIzdana{}
+		for _, x := range bez {
+			po[x.Dan] = x
+		}
+		out := append([]DnevnaIzdana(nil), d...)
+		for i, x := range out {
+			if y, ima := po[x.Dan]; ima && x.Dan >= 1 && x.Dan <= do {
+				out[i].Vrijednost, out[i].Dolje, out[i].Gore, out[i].Model = y.Vrijednost, y.Dolje, y.Gore, y.Model
+			}
+		}
+		return out
+	}
+	return d
+}
+
 // BezOborine javlja da inačica nema oborinu, a glavni cilj je ima.
 func (c DnevniCilj) BezOborine() bool {
 	if len(c.Slivovi) > 0 {

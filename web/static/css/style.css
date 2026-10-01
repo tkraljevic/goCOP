@@ -5988,3 +5988,7 @@ tr.kisa-kisni td:nth-child(2) strong { color:var(--primary); }
 p.kis-prognoza-sliv { margin:-0.25rem 0 0.75rem; padding:0.45rem 0.7rem; border-radius:8px; background:var(--bg-subtle); color:var(--text-secondary); font-size:0.9rem; }
 p.kis-prognoza-sliv.kis-u-prognozi { background:var(--tint-green-bg); color:var(--tint-green-fg); }
 h3.kis-podnaslov { margin:1rem 0 0.4rem; display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap; }
+
+/* Podnožje s verzijom programa */
+.app-podnozje { margin:2rem 0 0.5rem; padding-top:0.75rem; border-top:1px solid var(--border); font-size:0.75rem; color:var(--text-muted); text-align:center; }
+.app-podnozje a { color:inherit; }

@@ -82,3 +82,26 @@ func TestNeispravnaDatotekaJeGreska(t *testing.T) {
 		t.Error("neispravna datoteka mora vratiti grešku, ne tiho zadane vrijednosti")
 	}
 }
+
+// Arhiva i velike mape mogu stajati na drugom disku; prazno znači kao dosad.
+func TestPutanjeNaDrugomDisku(t *testing.T) {
+	path := filepath.Join(t.TempDir(), FileName)
+	os.WriteFile(path, []byte(`
+db = "/mnt/cache/appdata/gocop/data/gocop.db"
+arhiva = "/mnt/disk1/gocop/vodostaji.db"
+podaci = "/mnt/disk1/gocop/vodostaji"
+skenovi = "/mnt/disk1/gocop/skenovi"
+pakete = "/mnt/disk1/gocop/pakete"
+`), 0o644)
+	cfg, _, err := Load([]string{path})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Arhiva != "/mnt/disk1/gocop/vodostaji.db" || cfg.Podaci != "/mnt/disk1/gocop/vodostaji" ||
+		cfg.Skenovi != "/mnt/disk1/gocop/skenovi" || cfg.Pakete != "/mnt/disk1/gocop/pakete" {
+		t.Errorf("putanje nisu pročitane: %+v", cfg)
+	}
+	if d := Default(); d.Arhiva != "" || d.Podaci != "" || d.Skenovi != "" || d.Pakete != "" {
+		t.Errorf("zadano mora biti prazno (uz bazu, kao dosad): %+v", d)
+	}
+}

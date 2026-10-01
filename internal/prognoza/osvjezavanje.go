@@ -519,6 +519,7 @@ func (o *Osvjezivac) vrhoviIzDnevnog(ctx context.Context, sada int64, od time.Ti
 			if err != nil {
 				continue
 			}
+			d = SastaviBezKise(d, m, modeli[c.Letva], satni, oborine, sada)
 			tocke := map[int64]float64{}
 			sidro := satni[c.Letva]
 			if vel != "vodostaj" {
@@ -629,6 +630,7 @@ func (o *Osvjezivac) dnevno(ctx context.Context, sada int64, od time.Time) ([]Dn
 				continue
 			}
 			if d, err = PrognozirajDnevno(m, satni, oborine, sada); err == nil {
+				d = SastaviBezKise(d, m, in, satni, oborine, sada)
 				if len(c.Slivovi) > 0 {
 					if len(m.Cilj.Slivovi) > 0 {
 						sKisom++

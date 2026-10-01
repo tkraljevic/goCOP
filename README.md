@@ -6,8 +6,9 @@ i bez interneta; kopije na različitim računalima međusobno se usklađuju.
 Repozitorij nosi program i praznu shemu baze, a podatke unosi ili uvozi
 organizacija koja ga koristi.
 
-> **Status: alfa (0.0.x), za testiranje i daljnji razvoj.** Nije za
-> operativnu upotrebu. Sve se još mijenja.
+> **Status: alfa, izdanje 0.0.1-alfa (1. 10. 2026.), za testiranje i daljnji
+> razvoj.** Nije za operativnu upotrebu. Sve se još mijenja. Što je u kojem
+> izdanju, piše u [popisu izmjena](CHANGELOG.md).
 >
 > Otvoreni kod, neprofitno. Za program je odgovoran Tomislav Kraljević.
 
@@ -233,11 +234,23 @@ jesu.
 
 ## 7. Verzije
 
-| oznaka | značenje |
-|---|---|
-| `0.0.x` | **alfa** — razvoj, sve se mijenja |
-| `0.x.0` | **beta** — oblik je stabilan, provjerava se na terenu |
-| `x.0.0` | **stabilno** — u operativnoj upotrebi |
+| faza | verzija | git oznaka | značenje |
+|---|---|---|---|
+| **alfa** | `0.0.x` | `v0.0.1-alfa`, `v0.0.2-alfa`… | razvoj, sve se mijenja; x raste sa svakim izdanjem |
+| **beta** | `0.y.x`, od `0.1.0` | `v0.1.0-beta`… | funkcionalnosti zaokružene, oblik stabilan, provjera na terenu; y nova funkcionalnost, x ispravci |
+| **stabilno** | `z.y.x`, od `1.0.0` | `v1.0.0`… | operativna upotreba; z samo za nekompatibilnu promjenu (shema baze, razmjena između čvorova, postavke), y nova funkcionalnost, x ispravci |
+
+Čvorovi različitih verzija međusobno se sinkroniziraju, pa je nekompatibilna
+promjena ona zbog koje stari čvor ne može raditi s novim. Alfa i beta izdanja
+na GitHubu označena su kao *pre-release*. Izdanje: promijeniti `verzijaPrograma`,
+upisati novo u [CHANGELOG.md](CHANGELOG.md), commit, oznaka, Release s tekstom
+iz popisa izmjena.
+
+Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
+Verzija stoji u kodu (`verzijaPrograma` u `cmd/gocop/main.go`) i mijenja se pri
+izdavanju; program je ispisuje u podnožju stranice i u dnevniku, s kratkom
+oznakom commita iz kojega je preveden (i zvjezdicom kad stablo ima nespremljenih
+izmjena). Izdanje u gitu nosi oznaku `v0.0.1-alfa`.
 
 ## 8. Za razvoj
 
@@ -246,7 +259,7 @@ Projekt trenutačno ima više od 500 Go testova; puni testovi, `go vet` i ciljan
 race-testovi arhive i weba prolaze na aktualnom stanju.
 
 ```bash
-go build -ldflags "-X main.version=0.0.1" -o bin/gocop ./cmd/gocop
+go build -o bin/gocop ./cmd/gocop
 go test ./...
 ```
 
