@@ -43,7 +43,7 @@ import (
 
 // verzijaPrograma je izdanje goCOP-a. Alfa traje dok se ne zaokruže
 // funkcionalnosti koje program treba imati; mijenja se pri izdavanju.
-const verzijaPrograma = "0.0.1-alfa"
+const verzijaPrograma = "0.0.2-alfa"
 
 // version se može zadati pri prevođenju (-ldflags "-X main.version=…");
 // prazno znači verzijaPrograma, s oznakom commita iz kojega je prevedeno.
@@ -726,6 +726,24 @@ func main() {
 		// predupis zadnjih tuđih prognoza — za dan kad naša prognoza ne radi.
 		server.SetPricuvno(func(ctx context.Context) prognoza.PricuvniPodaci {
 			return prognoza.PricuvniIzracun(ctx, arhivaRO, ocitanjaRO, pb, time.Now(), models.Zagreb)
+		})
+		// Kiša po slivovima na naslovnoj: palo i očekivano prema uobičajenom
+		// za međusliv (ERA5), s letvama na kojima će porasti voda.
+		server.SetKisaSlivova(func(ctx context.Context) ([]prognoza.StanjeSliva, map[string][]prognoza.DnevnaIzdana, error) {
+			ob := osvjezivac.Oborine
+			if ob == nil {
+				return nil, nil, fmt.Errorf("oborina po međuslivovima se na ovom čvoru ne preuzima")
+			}
+			pragovi, err := prognoza.PragoviSlivova(arhivaRO, ob.Tocke)
+			if err != nil {
+				return nil, nil, err
+			}
+			oborine, err := prognoza.OborineOkoSada(ob, time.Now().Unix()/3600, 3, 2)
+			if err != nil {
+				return nil, nil, err
+			}
+			_, dnevne, _ := prognoza.ZadnjeDnevno(pb)
+			return prognoza.StanjeSlivova(oborine, pragovi), dnevne, nil
 		})
 		// Oborina za dnevni model: kišomjeri iz registra slivova, živi sati s
 		// Open-Meteo u zasebnoj bazi uz bazu prognoza. Bez nje dnevni model

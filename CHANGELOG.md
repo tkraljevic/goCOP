@@ -4,6 +4,17 @@ Verzije prate shemu iz README-a: alfa `0.0.x` (oznaka `v0.0.1-alfa`), beta
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.2-alfa — 1. 10. 2026.
+
+**Kiša po slivovima na naslovnoj** — za svaki međusliv koji ulazi u prognozu
+kiša pala u zadnja 24 i 72 sata i očekivana u sljedećih 48 sati, prema onome
+što je za taj međusliv uobičajeno (ERA5 od 1990.): žuto kad toliko padne
+prosječno tri puta godišnje, narančasto jednom godišnje, crveno jednom u pet
+godina. Upozorenje kaže na kojim će letvama porasti voda, redom niz tok, s
+najvećim porastom i danom iz zadnje dnevne prognoze; gleda i kišu koja tek
+dolazi, pa se može pojaviti dan-dva prije kiše. Provjereno na kolovozu 2023. i
+rujnu 2024. (crveno na Dravi i Muri dva dana prije vrha kiše).
+
 ## 0.0.1-alfa — 1. 10. 2026.
 
 Prvo označeno izdanje. Program se koristi i provjerava u COP-u Osijek, ali

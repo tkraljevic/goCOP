@@ -5992,3 +5992,21 @@ h3.kis-podnaslov { margin:1rem 0 0.4rem; display:flex; align-items:center; gap:0
 /* Podnožje s verzijom programa */
 .app-podnozje { margin:2rem 0 0.5rem; padding-top:0.75rem; border-top:1px solid var(--border); font-size:0.75rem; color:var(--text-muted); text-align:center; }
 .app-podnozje a { color:inherit; }
+
+/* Kiša po slivovima na naslovnoj */
+.kisa-slivova-okvir { margin:1rem 0; }
+.kisa-slivova { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:0.9rem 1rem; }
+.kisa-slivova-glava { display:flex; flex-wrap:wrap; align-items:baseline; gap:0.3rem 0.8rem; margin-bottom:0.6rem; }
+.kisa-slivova-glava .section-title { margin:0; }
+.kisa-upozorenje { border-left:4px solid var(--faza-r-crta); background:var(--faza-r-bg); border-radius:8px; padding:0.6rem 0.8rem; margin:0.5rem 0; }
+.kisa-upozorenje.kisa-narancasto { border-left-color:var(--faza-i-crta); background:var(--faza-i-bg); }
+.kisa-upozorenje.kisa-crveno { border-left-color:var(--faza-s-crta); background:var(--tint-orange-bg); }
+.kisa-upozorenje-glava { display:flex; flex-wrap:wrap; gap:0.3rem 0.6rem; align-items:center; }
+.badge.kisa-zuto { background:var(--faza-r-bg); color:var(--faza-r-fg); }
+.badge.kisa-narancasto { background:var(--faza-i-bg); color:var(--faza-i-fg); }
+.badge.kisa-crveno { background:var(--faza-s-bg); color:var(--faza-s-fg); }
+.kisa-brojke, .kisa-letve { margin-top:0.3rem; font-size:0.9rem; }
+.kisa-porast { color:var(--faza-i-fg); font-weight:600; }
+.kisa-tablica tr.kisa-zuto td { background:var(--faza-r-bg); }
+.kisa-tablica tr.kisa-narancasto td { background:var(--faza-i-bg); }
+.kisa-tablica tr.kisa-crveno td { background:var(--tint-orange-bg); }

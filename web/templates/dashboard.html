@@ -44,6 +44,20 @@
     <div class="vrijeme-ploca-cekanje">Učitavam vrijeme i vode za vaše područje…</div>
   </section>
 
+  <!-- Kiša po slivovima: neuobičajena kiša i gdje će rasti voda; učitava se naknadno -->
+  <section id="kisa-slivova" class="kisa-slivova-okvir" hidden></section>
+  <script>
+  (function () {
+    var okvir = document.getElementById('kisa-slivova');
+    if (!okvir || !window.fetch) return;
+    fetch('/vrijeme/kisa-slivova', {credentials: 'same-origin'}).then(function (r) {
+      return r.status === 200 ? r.text() : '';
+    }).then(function (t) {
+      if (t) { okvir.innerHTML = t; okvir.hidden = false; }
+    }).catch(function () {});
+  })();
+  </script>
+
   <!-- Stanje obrane po sektorima A–F -->
   {{if .Stanja}}
   <section class="stanje-sekcija">

@@ -105,6 +105,7 @@ type Server struct {
 	mtsService         *service.MtsService      // sredstva za obranu; nil dok se ne postavi
 	kisomjeri          *service.KisomjerService // registar kvazi-kišomjera; nil dok se ne postavi
 	kisMjerenja        *kisomjeri.Spremiste     // mjerenja stvarnih kišomjera i oborine s Open-Meteo; nil dok se ne postavi
+	kisaSlivova        KisaSlivovaFunc          // kiša po slivovima za naslovnu; nil dok se ne postavi
 	dhmzKlijent        *dhmz.Klijent            // otvoreni podaci DHMZ-a za ploču na naslovnoj
 	zidService         *service.ZidService      // zid događanja; nil dok se ne postavi
 	orgService         *service.OrgService
@@ -1110,6 +1111,7 @@ func (s *Server) setupRoutes() {
 		kisomjeri: func() *service.KisomjerService { return s.kisomjeri },
 		mjerenja:  func() *kisomjeri.Spremiste { return s.kisMjerenja }}
 	s.mux.Handle("GET /vrijeme/podrucje", s.authMiddleware(http.HandlerFunc(vrijemeH.ShowPloca)))
+	s.mux.Handle("GET /vrijeme/kisa-slivova", s.authMiddleware(http.HandlerFunc(s.ShowKisaSlivova)))
 	// Brojke podataka su javne: stoje i na stranici za prijavu. Nose samo
 	// zbrojeve, bez ijedne vrijednosti, imena osobe ili mjesta osim najstarije letve.
 	s.mux.HandleFunc("GET /podaci/brojke", s.ShowBrojke)
