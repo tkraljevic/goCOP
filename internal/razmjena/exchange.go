@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net"
 	"time"
 )
@@ -122,6 +123,14 @@ func serveTLS(ctx context.Context, ln net.Listener, trusted KeyChecker, handle f
 			return err
 		}
 		go func(nc net.Conn) {
+			// greška u jednoj vezi ne smije srušiti čvor: veza se zatvori,
+			// a ostale i web sučelje rade dalje
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("razmjena: veza %s prekinuta zbog greške: %v", nc.RemoteAddr(), r)
+					nc.Close()
+				}
+			}()
 			tc := nc.(*tls.Conn)
 			_ = tc.SetDeadline(time.Now().Add(30 * time.Second))
 			if err := tc.HandshakeContext(ctx); err != nil {

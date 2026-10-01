@@ -30,8 +30,12 @@ func TestRazmjenaKrozTunel(t *testing.T) {
 
 	ctx, otkazi := context.WithTimeout(context.Background(), 20*time.Second)
 	defer otkazi()
+	adresaDruge := make(chan string, 1)
 	go ServeExchangeOn(ctx, kljucB, "gocop-test", tunel, func(k ed25519.PublicKey) bool { return k.Equal(javniA) }, func(c *Conn) {
 		defer c.Close()
+		// bilješka o razmjeni čita adresu druge strane; WebSocket na strani
+		// poslužitelja je nema, a prazan URL je srušio čvor (0.0.12-alfa)
+		adresaDruge <- c.RemoteAddr().String()
 		e, err := c.Receive()
 		if err != nil {
 			return
@@ -53,6 +57,10 @@ func TestRazmjenaKrozTunel(t *testing.T) {
 	if err != nil || e.Kind != "odgovor" {
 		t.Fatalf("odgovor kroz tunel: %+v %v", e, err)
 	}
+	if a := <-adresaDruge; a == "" {
+		t.Error("veza kroz tunel nema adresu druge strane")
+	}
+	_ = c.RemoteAddr().String()
 	c.Close()
 
 	// čvor kojeg druga strana ne poznaje ne dobiva ni bajt razmjene

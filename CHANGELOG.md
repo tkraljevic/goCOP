@@ -4,6 +4,13 @@ Verzije prate shemu iz README-a: alfa `0.0.x` (oznaka `v0.0.1-alfa`), beta
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.13-alfa — 2. 10. 2026.
+
+**Razmjena kroz tunel bez rušenja** — WebSocket na strani poslužitelja nema
+adresu druge strane, a bilješka o razmjeni ju je ispisivala: prva veza kroz
+tunel srušila je čvor. Veza kroz tunel sad ima svoju adresu, a greška u jednoj
+vezi razmjene više ne može srušiti cijeli čvor — veza se zatvori i zapiše.
+
 ## 0.0.12-alfa — 2. 10. 2026.
 
 **Razmjena kroz web tunel** — čvor koji izvana smije samo na web (Cloudflare

@@ -114,6 +114,12 @@ type wsVeza struct {
 	zatvori sync.Once
 }
 
+// RemoteAddr i LocalAddr: WebSocket na strani poslužitelja nema adresu
+// druge strane (iza tunela je ionako adresa tunela), pa se vraća put
+// tunela umjesto praznog URL-a na kojem bi ispis pao.
+func (v *wsVeza) RemoteAddr() net.Addr { return tunelAdresa("tunel" + PutTunela) }
+func (v *wsVeza) LocalAddr() net.Addr  { return tunelAdresa(PutTunela) }
+
 func (v *wsVeza) Close() error {
 	err := v.Conn.Close()
 	v.zatvori.Do(func() { close(v.kraj) })
@@ -153,7 +159,7 @@ func DialTunel(ctx context.Context, priv ed25519.PrivateKey, protocol, adresa st
 		ws.Close()
 		return nil, err
 	}
-	tc := tls.Client(ws, cfg)
+	tc := tls.Client(&wsVeza{Conn: ws, kraj: make(chan struct{})}, cfg)
 	hctx, otkazi := context.WithTimeout(ctx, 30*time.Second)
 	defer otkazi()
 	if err := tc.HandshakeContext(hctx); err != nil {
