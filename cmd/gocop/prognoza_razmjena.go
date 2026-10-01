@@ -24,7 +24,7 @@ const DrziIzdanjaDana = 7
 
 // objaviPrognozu zapisuje izdanje u knjigu, a prije njega model, ako se od
 // zadnjeg poslanog promijenio.
-func objaviPrognozu(ctx context.Context, baza *sql.DB, rec *ledger.Recorder, pb *sql.DB, ishod *prognoza.Ishod, cvor string) error {
+func objaviPrognozu(ctx context.Context, baza *sql.DB, rec *ledger.Recorder, pb, ob *sql.DB, ishod *prognoza.Ishod, cvor string) error {
 	pm, otisak, err := prognoza.SastaviModel(pb)
 	if err != nil {
 		return err
@@ -50,6 +50,12 @@ func objaviPrognozu(ctx context.Context, baza *sql.DB, rec *ledger.Recorder, pb 
 	if err != nil {
 		return err
 	}
+	if ob != nil {
+		// kiša bez koje izdanje i dalje vrijedi: greška se javi, izdanje ide
+		if paket.Oborine, err = prognoza.SastaviOborine(ob, ishod.Sada); err != nil {
+			log.Printf("prognoza: kiša uz izdanje: %v", err)
+		}
+	}
 	om, err := prognoza.Zamotaj(prognoza.Omotnica{Izdano: ishod.Sada, Cvor: cvor}, paket)
 	if err != nil {
 		return err
@@ -63,6 +69,7 @@ func objaviPrognozu(ctx context.Context, baza *sql.DB, rec *ledger.Recorder, pb 
 type primateljIzdanja struct {
 	mu     sync.Mutex // jedan upis u isto vrijeme
 	pb     *sql.DB
+	ob     *sql.DB // baza oborina, za kišu iz izdanja
 	rec    *ledger.Recorder
 	izdaje func() bool
 }
@@ -76,6 +83,13 @@ func (p *primateljIzdanja) postavi(pb *sql.DB, rec *ledger.Recorder, izdaje func
 	p.pb, p.rec, p.izdaje = pb, rec, izdaje
 	p.mu.Unlock()
 	go p.nadoknadi()
+}
+
+// postaviOborine daje bazu oborina u koju ide kiša iz izdanja
+func (p *primateljIzdanja) postaviOborine(ob *sql.DB) {
+	p.mu.Lock()
+	p.ob = ob
+	p.mu.Unlock()
 }
 
 // nadoknadi upiše zadnji model i sva izdanja iz knjige kojih baza prognoza
@@ -177,6 +191,9 @@ func (p *primateljIzdanja) upisi(verzije []ledger.Version) {
 			if ok {
 				upisano++
 				zadnjeIzdano, izdavac = om.Izdano, om.Cvor
+				if err := prognoza.PrimiOborine(p.ob, paket.Oborine); err != nil {
+					log.Printf("prognoza: kiša iz izdanja %s: %v", v.EntityID, err)
+				}
 			}
 		}
 	}

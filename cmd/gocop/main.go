@@ -43,7 +43,7 @@ import (
 
 // verzijaPrograma je izdanje goCOP-a. Alfa traje dok se ne zaokruže
 // funkcionalnosti koje program treba imati; mijenja se pri izdavanju.
-const verzijaPrograma = "0.0.10-alfa"
+const verzijaPrograma = "0.0.11-alfa"
 
 // version se može zadati pri prevođenju (-ldflags "-X main.version=…");
 // prazno znači verzijaPrograma, s oznakom commita iz kojega je prevedeno.
@@ -741,8 +741,9 @@ func main() {
 			Arhiva: arhivaRO, Najdalje: 96, Model: prognoza.ModelLanac, Cvor: nazivCvora}
 		// Izdanje putuje razmjenom: ostali čvorovi ga upišu u svoju bazu
 		// prognoza, a namješteni model ide uz njega kad se promijeni.
+		var oborineDB *sql.DB // baza oborina; kiša ide uz izdanje
 		objaviIzdanje := func(ctx context.Context, ishod *prognoza.Ishod) {
-			if err := objaviPrognozu(ctx, database, recorder, pb, ishod, nazivCvora); err != nil {
+			if err := objaviPrognozu(ctx, database, recorder, pb, oborineDB, ishod, nazivCvora); err != nil {
 				log.Printf("prognoza: slanje razmjenom: %v", err)
 			}
 		}
@@ -803,6 +804,8 @@ func main() {
 			log.Printf("Oborine se neće preuzimati: %v", err)
 		} else {
 			oborineUvoznik = &oborine.Uvoznik{DB: ob, Tocke: oborine.TockeIzRegistra(database)}
+			oborineDB = ob
+			primateljPrognoze.postaviOborine(ob)
 			// Stvarni kišomjeri: mjerenja se skupljaju u istu radnu bazu, a
 			// jednom dnevno ulažu u arhivsko stablo. pljusak.com je javan;
 			// DHMZ se čita s letva.voda.hr, koja traži prijavu računom domene
@@ -930,12 +933,24 @@ func main() {
 						if err != nil {
 							log.Printf("stvarni kišomjeri, ulaganje: %v", err)
 						}
+						izdano := 0
 						for _, l := range letve {
 							if _, err := server.IzgradiLetvu(l, nil); err != nil {
 								log.Printf("stvarni kišomjeri, gradnja %s: %v", l, err)
+								continue
+							}
+							// Paket izlazi odmah, pa arhiva kiše raste i na
+							// ostalim čvorovima bez ručnog izdavanja.
+							if iz, err := server.IzdajArhivu(l, false, nil); err != nil {
+								log.Printf("stvarni kišomjeri, izdavanje %s: %v", l, err)
+							} else {
+								izdano += iz.Promijenjenih
 							}
 						}
-						javniUvoznik.Redak("stvarni kišomjeri: uloženo u arhivu za %d postaja", len(letve))
+						if izdano > 0 && razmjenaArh != nil {
+							razmjenaArh.potakniKrug() // kazalo novih paketa ide u razmjenu odmah
+						}
+						javniUvoznik.Redak("stvarni kišomjeri: uloženo u arhivu za %d postaja, izdano %d paketa", len(letve), izdano)
 						kisUlozeno = dan
 					}
 				}

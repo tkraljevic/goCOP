@@ -172,3 +172,43 @@ func TestNeuspjelaLetvaOstajeUKatalogu(t *testing.T) {
 		t.Errorf("batina je ispala iz kataloga (izdanje %d)", k.IzdanjeZa("batina"))
 	}
 }
+
+// Čvor koji je letvu primio paketom i preuzme izdavanje nastavlja niz
+// izdanja: isti sadržaj zadrži primljeni broj, novi dobije sljedeći. Bez toga
+// bi krenuo od v1, a drugi čvorovi bi ga odbili kao starije izdanje.
+func TestIzdavanjeNastavljaPrimljeniNiz(t *testing.T) {
+	put := filepath.Join(t.TempDir(), "arhiva.db")
+	db := napraviArhivu(t, put)
+	defer db.Close()
+	res, err := db.Exec(`INSERT INTO nizovi (sliv, letva, izvor, velicina, vrsta, zapisa)
+		VALUES ('drava','pljusak-x','pljusak','oborina','satni',1)`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	niz, _ := res.LastInsertId()
+	if _, err := db.Exec(`INSERT INTO ocitanja (niz, vrijeme, vrijednost) VALUES (?,1000,1.5)`, niz); err != nil {
+		t.Fatal(err)
+	}
+	// otisak sadašnjeg sadržaja, kao da je stigao paketom v3
+	probno, err := Izdaj(db, t.TempDir(), "laptop", "pljusak-x", true, io.Discard)
+	if err != nil || len(probno.Redci) != 1 {
+		t.Fatalf("probno: %+v %v", probno, err)
+	}
+	if err := zapisiPrimljeno(db, Manifest{Letva: "pljusak-x", Izdanje: 3, Otisak: probno.Redci[0].Otisak, Izdao: "laptop"}, true, ""); err != nil {
+		t.Fatal(err)
+	}
+	mapa := t.TempDir()
+	iz, err := Izdaj(db, mapa, "unraid", "pljusak-x", false, io.Discard)
+	if err != nil || iz.Redci[0].Izdanje != 3 {
+		t.Fatalf("isti sadržaj: izdanje %+v (%v), očekivano 3", iz.Redci, err)
+	}
+	// novi dan kiše: sadržaj se promijenio, a katalog ovog čvora još ne zna
+	// za letvu — ide v4
+	if _, err := db.Exec(`INSERT INTO ocitanja (niz, vrijeme, vrijednost) VALUES (?,1001,0.4)`, niz); err != nil {
+		t.Fatal(err)
+	}
+	iz, err = Izdaj(db, t.TempDir(), "unraid", "pljusak-x", false, io.Discard)
+	if err != nil || iz.Redci[0].Izdanje != 4 {
+		t.Fatalf("novi sadržaj: izdanje %+v (%v), očekivano 4", iz.Redci, err)
+	}
+}

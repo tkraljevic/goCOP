@@ -4,6 +4,22 @@ Verzije prate shemu iz README-a: alfa `0.0.x` (oznaka `v0.0.1-alfa`), beta
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.11-alfa — 2. 10. 2026.
+
+**Kiša razmjenom** — uz svako izdanje prognoze idu mjerenja kišomjera zadnjih
+48 sati i satna kiša Open-Meteo po točkama slivova s prognozom (oko 80 kB po
+izdanju). Čvor koji ne izdaje prognozu kišu upiše u svoju bazu oborina, pa i
+on ima svježa očitanja kišomjera, ne samo arhivu.
+
+**Arhiva kiše raste sama** — nakon noćnog ulaganja kiše izdavač odmah izda
+pakete promijenjenih kišomjera i kazalo pošalje razmjenom, bez ručnog
+izdavanja arhive.
+
+**Izdavanje nastavlja primljeni niz** — čvor koji je letvu primio paketom, a
+sam je još nije izdavao, nastavlja broj izdanja onoga od koga ju je primio:
+isti sadržaj zadrži broj, novi dobije sljedeći. Inače bi čvor koji preuzme
+izdavanje krenuo od v1, a ostali bi ga odbili kao starije izdanje.
+
 ## 0.0.10-alfa — 2. 10. 2026.
 
 **Kiša se ne ulaže bez stabla izvornih datoteka** — čvor koji izdaje prognozu

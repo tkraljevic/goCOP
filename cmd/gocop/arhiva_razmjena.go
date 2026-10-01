@@ -225,12 +225,17 @@ func (r *razmjenaArhive) javiJednom(kljuc, format string, args ...any) {
 func (r *razmjenaArhive) primljeno(verzije []ledger.Version) {
 	for _, v := range verzije {
 		if v.Entity == EntitetArhive {
-			select {
-			case r.potakni <- struct{}{}:
-			default:
-			}
+			r.potakniKrug()
 			return
 		}
+	}
+}
+
+// potakniKrug pokreće objavu i primanje odmah, ne za dvije minute
+func (r *razmjenaArhive) potakniKrug() {
+	select {
+	case r.potakni <- struct{}{}:
+	default:
 	}
 }
 

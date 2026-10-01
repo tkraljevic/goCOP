@@ -166,6 +166,17 @@ func Izdaj(db *sql.DB, uMapu, izdao, samo string, probno bool, zapisi io.Writer)
 		javi(zapisi, "sastavljam "+letva, i, len(letve))
 		prije, imaPrije := poLetvi[letva]
 		izdanje := prije.Izdanje
+		// Letva koju je ovaj čvor primio paketom, a sam je još nije izdavao,
+		// nastavlja niz izdanja onoga od koga je primljena. Inače bi čvor koji
+		// preuzme izdavanje krenuo od v1, a čvorovi koji već drže v3 odbili bi
+		// „starije” izdanje i arhiva bi im stala.
+		var primljeno *PrimljenoIzdanje
+		if !imaPrije {
+			if p, err := Primljeno(db, letva); err == nil && p != nil {
+				primljeno = p
+				izdanje = p.Izdanje
+			}
+		}
 		if izdanje < 1 {
 			izdanje = 1
 		}
@@ -196,8 +207,12 @@ func Izdaj(db *sql.DB, uMapu, izdao, samo string, probno bool, zapisi io.Writer)
 		}
 		// Sadržaj je drukčiji, pa i izdanje mora biti — a manifest nosi broj
 		// izdanja, što znači da se paket mora složiti iznova.
-		if imaPrije {
-			izdanje = prije.Izdanje + 1
+		if imaPrije || (primljeno != nil && m.Otisak != primljeno.Otisak) {
+			if imaPrije {
+				izdanje = prije.Izdanje + 1
+			} else {
+				izdanje = primljeno.Izdanje + 1
+			}
 			b.Reset()
 			if m, err = Izvezi(db, letva, izdanje, izdao, &b); err != nil {
 				fmt.Fprintf(zapisi, "  %-18s preskačem: %v\n", letva, err)

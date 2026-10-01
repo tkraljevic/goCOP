@@ -54,6 +54,10 @@ type PaketIzdanja struct {
 	Dnevne Tablica      `json:"dnevne"`
 	Izbor  Tablica      `json:"izbor"`
 	Tude   Tablica      `json:"tude"`
+	// Oborine su kiša koju je izdavač imao u bazi oborina: mjerenja
+	// kišomjera i satna kiša Open-Meteo po točkama slivova, s prognozom.
+	// Čvor koji ne izdaje prognozu kišu ne preuzima, pa je ima odavde.
+	Oborine map[string]Tablica `json:"oborine,omitempty"`
 }
 
 // PaketModela je namješteni model izdavača.
@@ -145,6 +149,50 @@ func SastaviIzdanje(db *sql.DB, ishod *Ishod) (PaketIzdanja, error) {
 		zaokruzi(t.u)
 	}
 	return p, nil
+}
+
+// OborineUnatragSati je koliko kiše unatrag ide uz izdanje. Izdanje izlazi
+// svaki sat, a izvor zna dopuniti i dan unatrag (dnevni zbroj DHMZ-a), pa je
+// 48 sati dovoljno da čvor koji prima sva izdanja nema rupa.
+const OborineUnatragSati = 48
+
+// SastaviOborine čita kišu iz baze oborina za izdanje u satu sada.
+func SastaviOborine(ob *sql.DB, sada int64) (map[string]Tablica, error) {
+	out := map[string]Tablica{}
+	for ime, upit := range map[string]struct {
+		sql string
+		od  int64
+	}{
+		"izmjerene": {`SELECT * FROM izmjerene WHERE kraj > ?`, (sada - OborineUnatragSati) * 3600},
+		"satne":     {`SELECT * FROM satne WHERE sat > ?`, sada - OborineUnatragSati},
+	} {
+		t, err := citajTablicu(ob, upit.sql, upit.od)
+		if err != nil {
+			return nil, fmt.Errorf("oborine %s: %w", ime, err)
+		}
+		zaokruzi(&t)
+		out[ime] = t
+	}
+	return out, nil
+}
+
+// PrimiOborine upisuje kišu iz izdanja; novije prepisuje starije, kao kad je
+// izvor sam dopuni.
+func PrimiOborine(ob *sql.DB, t map[string]Tablica) error {
+	if ob == nil || len(t) == 0 {
+		return nil
+	}
+	tx, err := ob.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for _, ime := range []string{"izmjerene", "satne"} {
+		if err := upisiTablicu(tx, ime, t[ime], "OR REPLACE"); err != nil {
+			return fmt.Errorf("oborine %s: %w", ime, err)
+		}
+	}
+	return tx.Commit()
 }
 
 // ImaIzdanjeIzKnjige javlja je li izdanje s tom verzijom knjige već upisano.
