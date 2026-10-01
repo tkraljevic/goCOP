@@ -126,3 +126,29 @@ func asZauzeto(err error, cilj **Zauzeto) bool {
 	}
 	return ok
 }
+
+// U spremniku je program uvijek pid 1: brava koju je ostavio prekinuti posao
+// prijašnjeg života nosi isti broj kao novi proces i ne smije se držati
+// živom. Brava ovog života i dalje vrijedi.
+func TestBravaPrijasnjegZivotaIstogPida(t *testing.T) {
+	uz := filepath.Join(t.TempDir(), "vodostaji.db")
+	if err := os.WriteFile(uz, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	stara := stanjeBrave{Sto: "ugradnja paketa botovo", Tko: "cop-osijek-unraid", PID: os.Getpid(), Od: time.Now().Add(-time.Minute)}
+	b, _ := json.Marshal(stara) // bez oznake pokretanja, kao 0.0.8-alfa
+	if err := os.WriteFile(uz+ImeBrave, b, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	nova, err := Uzmi(uz, "ugradnja paketa botovo", "cop-osijek-unraid")
+	if err != nil {
+		t.Fatalf("brava prijašnjeg života nije preuzeta: %v", err)
+	}
+	if preuzeta, _ := nova.Preuzeta(); !preuzeta {
+		t.Error("preuzimanje se ne javlja")
+	}
+	if _, err := Uzmi(uz, "izdavanje", "cop-osijek-unraid"); err == nil {
+		t.Error("brava ovog života je preuzeta usred posla")
+	}
+	nova.Pusti()
+}

@@ -610,6 +610,14 @@ func (s *Service) Serve(ctx context.Context) error {
 	})
 }
 
+// NajviseVerzijaPoRazmjeni ograđuje jedan razgovor; ostatak ide sljedećim
+const NajviseVerzijaPoRazmjeni = 5000
+
+// najviseKrugovaZaRedom je koliko razgovora s istim čvorom ide jedan za
+// drugim dok god je razgovor bio pun: novi čvor bez toga 136 000 verzija
+// prima dva i pol sata, po 5000 svakih pet minuta.
+const najviseKrugovaZaRedom = 200
+
 // SyncWith obavi razmjenu s poznatim čvorom, na prvoj adresi koja odgovori
 func (s *Service) SyncWith(ctx context.Context, nodeID string) (applied, sent int, err error) {
 	peer, err := s.GetPeer(ctx, nodeID)
@@ -712,7 +720,7 @@ func (s *Service) exchange(ctx context.Context, c *razmjena.Conn, initiator bool
 
 	// šalje se samo što drugi prati; što ovaj čvor ne prati, ne prima ni
 	// omaškom, jer bi ostalo bez granice i vraćalo se svakom razmjenom
-	delta, err := s.rec.Delta(ctx, theirs.Frontier, s.wantsFunc(ctx, theirs.Wants), 5000)
+	delta, err := s.rec.Delta(ctx, theirs.Frontier, s.wantsFunc(ctx, theirs.Wants), NajviseVerzijaPoRazmjeni)
 	if err != nil {
 		return 0, 0, theirs.Frontier, err
 	}

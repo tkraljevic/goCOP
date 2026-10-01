@@ -147,7 +147,16 @@ func (s *Service) syncPeers(ctx context.Context, list []Peer) map[string]string 
 			defer wg.Done()
 			slots <- struct{}{}
 			defer func() { <-slots }()
-			applied, sent, err := s.SyncWith(ctx, p.NodeID)
+			// pun razgovor znači da ima još: nastavlja se odmah, ne za pet minuta
+			var applied, sent, krugova int
+			var err error
+			for krugova < najviseKrugovaZaRedom && ctx.Err() == nil {
+				a, sn, e := s.SyncWith(ctx, p.NodeID)
+				applied, sent, krugova, err = applied+a, sent+sn, krugova+1, e
+				if e != nil || (a < NajviseVerzijaPoRazmjeni && sn < NajviseVerzijaPoRazmjeni) {
+					break
+				}
+			}
 			mu.Lock()
 			defer mu.Unlock()
 			if err != nil {
@@ -155,6 +164,9 @@ func (s *Service) syncPeers(ctx context.Context, list []Peer) map[string]string 
 				return
 			}
 			out[p.NodeID] = fmt.Sprintf("primljeno %d, poslano %d", applied, sent)
+			if krugova > 1 {
+				out[p.NodeID] += fmt.Sprintf(" u %d razgovora", krugova)
+			}
 		}(p)
 	}
 	wg.Wait()
@@ -263,7 +275,7 @@ func (s *Service) Status(ctx context.Context, lan bool) (*Status, error) {
 			ps.Reachability = "offline"
 		}
 		if len(ps.State.Frontier) > 0 {
-			if delta, err := s.rec.Delta(ctx, ps.State.Frontier, ps.wantsOf(), 5000); err == nil {
+			if delta, err := s.rec.Delta(ctx, ps.State.Frontier, ps.wantsOf(), NajviseVerzijaPoRazmjeni); err == nil {
 				ps.Backlog = len(delta)
 			}
 		}

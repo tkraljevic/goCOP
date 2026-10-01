@@ -32,7 +32,15 @@ type stanjeBrave struct {
 	Tko string    `json:"tko"` // čvor ili čovjek
 	PID int       `json:"pid"`
 	Od  time.Time `json:"od"`
+	// Pokretanje razlikuje dva života istog broja procesa. U spremniku je
+	// program uvijek pid 1, pa brava koju je ostavio prekinuti posao nosi
+	// isti broj kao proces koji je nakon ponovnog pokretanja čita — i bez
+	// ovoga bi se zauvijek držala živom.
+	Pokretanje string `json:"pokretanje,omitempty"`
 }
+
+// pokretanje je oznaka ovog života procesa
+var pokretanje = fmt.Sprintf("%d-%d", os.Getpid(), time.Now().UnixNano())
 
 // Brava je uzeta brava; pušta se s Pusti.
 type Brava struct {
@@ -73,7 +81,9 @@ func Uzmi(uz, sto, tko string) (*Brava, error) {
 	f, err := os.OpenFile(put, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
 	if os.IsExist(err) {
 		staro, procitana := procitajBravu(put)
-		if procitana && ziv(staro.PID) {
+		ovajProces := procitana && staro.PID == os.Getpid()
+		prijasnjiZivot := ovajProces && staro.Pokretanje != pokretanje
+		if procitana && ziv(staro.PID) && !prijasnjiZivot {
 			return nil, &Zauzeto{Sto: staro.Sto, Tko: staro.Tko, PID: staro.PID, Od: staro.Od}
 		}
 		// Proces kojeg više nema ne drži ništa. Brava se preuzima, ali se
@@ -92,7 +102,7 @@ func Uzmi(uz, sto, tko string) (*Brava, error) {
 	defer f.Close()
 
 	return b, json.NewEncoder(f).Encode(stanjeBrave{
-		Sto: sto, Tko: tko, PID: os.Getpid(), Od: time.Now(),
+		Sto: sto, Tko: tko, PID: os.Getpid(), Od: time.Now(), Pokretanje: pokretanje,
 	})
 }
 

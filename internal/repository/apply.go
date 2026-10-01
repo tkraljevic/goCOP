@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -98,6 +100,16 @@ func ReplaySurface(ctx context.Context, db *sql.DB, rec *ledger.Recorder) (int, 
 	return len(versions), ApplyVersions(ctx, db, rec, versions)
 }
 
+// nedovrseni su zapisi čija se zadnja verzija nije dala primijeniti jer joj
+// je nedostajao zapis o koji se oslanja (naselje bez općine, dionica bez
+// područja). Novi čvor prvu razmjenu prima u paketima od po 5000 verzija, pa
+// naselje zna stići razmjenu prije svoje općine. Pokušavaju se iznova sa
+// svakom sljedećom primljenom razmjenom, dok ne prođu.
+var nedovrseni = struct {
+	sync.Mutex
+	kljucevi map[string]bool
+}{kljucevi: map[string]bool{}}
+
 func ApplyVersions(ctx context.Context, db *sql.DB, rec *ledger.Recorder, versions []ledger.Version) error {
 	// zadnja primljena verzija po zapisu — ostale su već u povijesti
 	latestReceived := map[string]ledger.Version{}
@@ -107,6 +119,18 @@ func ApplyVersions(ctx context.Context, db *sql.DB, rec *ledger.Recorder, versio
 			latestReceived[key] = v
 		}
 	}
+	// i ono što ranije nije prošlo: možda je njegov oslonac upravo stigao
+	nedovrseni.Lock()
+	for key := range nedovrseni.kljucevi {
+		if _, ima := latestReceived[key]; ima {
+			continue
+		}
+		entity, id, _ := strings.Cut(key, "|")
+		if top, err := rec.Latest(ctx, entity, id); err == nil {
+			latestReceived[key] = *top
+		}
+	}
+	nedovrseni.Unlock()
 
 	// redom nastanka: korisnik prije svoje dužnosti, sektor prije područja
 	ordered := make([]ledger.Version, 0, len(latestReceived))
@@ -123,34 +147,61 @@ func ApplyVersions(ctx context.Context, db *sql.DB, rec *ledger.Recorder, versio
 
 	// Jedna verzija koja se ne može primijeniti (npr. dužnost obrisanog
 	// korisnika) ne smije zaustaviti ostale: svaka ide u svoj savepoint,
-	// neuspjele se preskoče i prijave, ostatak se potvrdi.
-	var failed []string
-	for _, v := range ordered {
-		top, err := rec.Latest(ctx, v.Entity, v.EntityID)
-		if err != nil {
-			return err
-		}
-		if top.VersionID != v.VersionID {
-			continue // netko je već zapisao noviju; površina je već njezina
-		}
-		if _, err := tx.ExecContext(ctx, "SAVEPOINT apply_one"); err != nil {
-			return err
-		}
-		if err := applyOne(ctx, tx, v); err != nil {
-			if _, rerr := tx.ExecContext(ctx, "ROLLBACK TO SAVEPOINT apply_one"); rerr != nil {
-				return rerr
+	// neuspjele se preskoče i prijave, ostatak se potvrdi. Redoslijed
+	// nastanka ne jamči da je oslonac primijenjen prije (općina može biti
+	// upisana poslije svojih naselja), pa se neuspjele pokušavaju iznova dok
+	// god u prolazu prođe barem jedna.
+	type neuspjeh struct {
+		v   ledger.Version
+		err error
+	}
+	var failed []neuspjeh
+	ostaje := ordered
+	for len(ostaje) > 0 {
+		failed = failed[:0]
+		for _, v := range ostaje {
+			top, err := rec.Latest(ctx, v.Entity, v.EntityID)
+			if err != nil {
+				return err
 			}
-			failed = append(failed, fmt.Sprintf("%s/%s: %v", v.Entity, v.EntityID, err))
+			if top.VersionID != v.VersionID {
+				continue // netko je već zapisao noviju; površina je već njezina
+			}
+			if _, err := tx.ExecContext(ctx, "SAVEPOINT apply_one"); err != nil {
+				return err
+			}
+			if err := applyOne(ctx, tx, v); err != nil {
+				if _, rerr := tx.ExecContext(ctx, "ROLLBACK TO SAVEPOINT apply_one"); rerr != nil {
+					return rerr
+				}
+				failed = append(failed, neuspjeh{v, err})
+			}
+			if _, err := tx.ExecContext(ctx, "RELEASE SAVEPOINT apply_one"); err != nil {
+				return err
+			}
 		}
-		if _, err := tx.ExecContext(ctx, "RELEASE SAVEPOINT apply_one"); err != nil {
-			return err
+		if len(failed) == 0 || len(failed) == len(ostaje) {
+			break
+		}
+		ostaje = make([]ledger.Version, len(failed))
+		for i, f := range failed {
+			ostaje[i] = f.v
 		}
 	}
 	if err := tx.Commit(); err != nil {
 		return err
 	}
+	nedovrseni.Lock()
+	for _, v := range ordered {
+		delete(nedovrseni.kljucevi, v.Entity+"|"+v.EntityID)
+	}
+	for _, f := range failed {
+		nedovrseni.kljucevi[f.v.Entity+"|"+f.v.EntityID] = true
+	}
+	nedovrseni.Unlock()
 	if len(failed) > 0 {
-		return fmt.Errorf("%d verzija nije primijenjeno na površinu, ostale jesu; prva: %s", len(failed), failed[0])
+		return fmt.Errorf("%d verzija nije primijenjeno na površinu, ostale jesu i pokušat će se iznova sa sljedećom razmjenom; prva: %s/%s: %v",
+			len(failed), failed[0].v.Entity, failed[0].v.EntityID, failed[0].err)
 	}
 	return nil
 }

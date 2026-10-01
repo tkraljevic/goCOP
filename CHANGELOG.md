@@ -4,6 +4,25 @@ Verzije prate shemu iz README-a: alfa `0.0.x` (oznaka `v0.0.1-alfa`), beta
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.9-alfa — 2. 10. 2026.
+
+Popravci koje je pokazao prvi stalni čvor (Unraid) pri prvoj razmjeni.
+
+**Prva razmjena bez rupa na površini** — novi čvor registar prima u paketima
+po 5000 verzija, pa je naselje znalo stići prije svoje općine i ostati samo u
+knjizi (2205 naselja i jedna dionica). Neuspjeli zapisi sad se pokušavaju
+iznova u istom prijenosu i sa svakom sljedećom razmjenom, dok ne prođu.
+
+**Prva razmjena odjednom** — dok je razgovor pun (5000 verzija), razmjena
+nastavlja odmah, do 200 razgovora zaredom, umjesto po 5000 svakih pet minuta.
+
+**Brava arhive u spremniku** — program je u spremniku uvijek proces 1, pa je
+brava prekinute ugradnje paketa nakon ponovnog pokretanja izgledala živom i
+zaustavila bi ugradnju arhive. Brava sad razlikuje dva života istog procesa.
+
+**Osnivanje mreže uz zatečeni ključ** — datoteka ključa mreže bez zapisa u
+bazi više ne zaustavlja osnivanje: ključ se preuzme, ne pregazi.
+
 ## 0.0.8-alfa — 2. 10. 2026.
 
 **Novi čvor s praznom bazom se pokreće** — jednokratni popravak registra

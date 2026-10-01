@@ -114,12 +114,22 @@ func (s *Service) CreateNetwork(ctx context.Context, name string) error {
 		return fmt.Errorf("naziv mreže je obavezan")
 	}
 
-	key, err := razmjena.NewNetwork(name)
-	if err != nil {
-		return err
-	}
-	if err := razmjena.SaveKey(s.networkKeyPath(), key.Private()); err != nil {
-		return fmt.Errorf("ključ mreže se ne može zapisati: %w", err)
+	// Datoteka ključa bez zapisa o mreži ostaje kad baza nastane iznova
+	// (ili se mreža osnivala dok baza još nije bila ta). Takav ključ nije
+	// nikoga primio u ovu bazu, pa ga osnivanje preuzme umjesto da odbije
+	// ili ga pregazi: ključ se nikad ne briše sam.
+	var key razmjena.NetworkKey
+	if priv, err := razmjena.LoadKey(s.networkKeyPath()); err == nil {
+		key = razmjena.LoadNetworkKey(name, priv)
+	} else if errors.Is(err, os.ErrNotExist) {
+		if key, err = razmjena.NewNetwork(name); err != nil {
+			return err
+		}
+		if err := razmjena.SaveKey(s.networkKeyPath(), key.Private()); err != nil {
+			return fmt.Errorf("ključ mreže se ne može zapisati: %w", err)
+		}
+	} else {
+		return fmt.Errorf("zatečena datoteka ključa mreže se ne čita: %w", err)
 	}
 
 	now := time.Now().UTC()
