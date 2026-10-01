@@ -671,14 +671,14 @@ func listGodisnjih(k *xlsxw.Knjiga, z ZaglavljeIzvoza, skupina string, letve []l
 			strconv.Itoa(NepotpunaGodinaDana)+" dana) · kurziv preračun sa susjedne letve, ne broji se · plavkasto "+
 			"preračun s letve na istom mjestu, broji se", stupaca)
 	// Tumač oznaka odmah ispod naslova, gdje ga čitatelj traži.
-	// Napomena je sitnijim slovima (8), pa u redak stane oko 1,4 znaka po
-	// jedinici širine; list s malo letvi je uzak, pa se ne smije računati
-	// sa stalnih 150 znakova.
+	// Napomena je sitnijim slovima (8), pa u redak stane i više od 1,2 znaka
+	// po jedinici širine; računa se s 1,2 da zadnji redak ne bude odrezan.
+	// List s malo letvi je uzak, pa se ne smije računati sa stalnih 150 znakova.
 	var sirinaGod float64
 	for _, w := range l.Sirine {
 		sirinaGod += w
 	}
-	napomenaLista(l, v.tumac, stupaca, visinaTeksta(v.tumac, int(sirinaGod*1.4), 30, 0))
+	napomenaLista(l, v.tumac, stupaca, visinaTeksta(v.tumac, int(sirinaGod*1.2), 30, 0))
 
 	r := l.Redak()
 	glava := []xlsxw.Celija{xlsxw.T("Godina", xlsxw.Zaglavlje)}
@@ -806,5 +806,5 @@ func listGodisnjih(k *xlsxw.Knjiga, z ZaglavljeIzvoza, skupina string, letve []l
 		"rekorde. Plavkastom podlogom su godine preračunate s letve na istom mjestu (Batina 1960.–2000. iz Bezdana, " +
 		"740 m na drugoj obali, ±5 cm, podaci RHMZ-a Srbije); one se broje kao izmjerene. Razdoblje 1991.–2020. je standardno tridesetogodišnje razdoblje WMO-a; na Dunavu i Dravi korito " +
 		"se kroz desetljeća mijenja, pa vodostaji cijelog niza nisu posve usporedivi s današnjima. Godina je kalendarska."
-	napomenaLista(l, napomena, stupaca, visinaTeksta(napomena, int(sirinaGod*1.4), 30, 0))
+	napomenaLista(l, napomena, stupaca, visinaTeksta(napomena, int(sirinaGod*1.2), 30, 0))
 }

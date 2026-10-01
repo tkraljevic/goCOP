@@ -521,19 +521,29 @@ func listMetode(k *xlsxw.Knjiga, z ZaglavljeIzvoza, m PrognozeMetodaData) {
 			"do 2013. model precjenjuje desetak centimetara jer uči na koritu kakvo je od 2014.: Baja je 2002.–2004. "+
 			"prema Paksu stajala 20–30 cm niže nego danas.", v.Valova)
 		preko(T(uvod, xlsxw.Tekst), visinaTeksta(uvod, int(sirina*1.1), 15, 0))
+		// Svaka skupina dobiva svoj naslov preko cijele širine (rijeka, model,
+		// broj valova), a ispod nje samo doseg i pogreške: u uskom prvom
+		// stupcu dugi naziv modela nije stajao.
 		r := l.Redak()
-		l.Dodaj(T("Rijeka · model", xlsxw.Zaglavlje), T("Valova", xlsxw.Zaglavlje), T("Doseg", xlsxw.Zaglavlje),
-			T("Pogreška vrha (cm)", xlsxw.Zaglavlje), T("Pristranost (cm)", xlsxw.Zaglavlje), T("Postojanost (cm)", xlsxw.Zaglavlje))
-		l.Visina(r, 20)
+		l.Dodaj(T("Doseg", xlsxw.Zaglavlje), T("Pogreška vrha (cm)", xlsxw.Zaglavlje), T("Pristranost (cm)", xlsxw.Zaglavlje),
+			T("Postojanost (cm)", xlsxw.Zaglavlje), T("", xlsxw.Zaglavlje), T("", xlsxw.Zaglavlje))
+		l.Spoji(3, r, stupaca-1, r)
+		l.Visina(r, 30)
 		for _, sk := range v.Skupine {
-			for i, d := range sk.Dosezi {
-				naziv := ""
-				if i == 0 {
-					naziv = sk.Rijeka + " · " + sk.Model
-				}
-				l.Dodaj(T(naziv, xlsxw.Tablica), N(float64(sk.Valova), xlsxw.TablicaSredina), T(tekstBroja(d.Doseg)+" h", xlsxw.TablicaSredina),
-					N(math.Round(d.MAE), xlsxw.TablicaSredina), N(math.Round(d.Pristranost), xlsxw.TablicaSredina),
-					N(math.Round(d.MAEPostojanost), xlsxw.TablicaSredina))
+			rr := l.Redak()
+			red := make([]xlsxw.Celija, stupaca)
+			red[0] = T(fmt.Sprintf("%s · %s · %d %s", sk.Rijeka, sk.Model, sk.Valova, uzBrojHR(sk.Valova, "val", "vala", "valova")), xlsxw.SazetakNaslov)
+			for i := 1; i < stupaca; i++ {
+				red[i] = T("", xlsxw.SazetakNaslov)
+			}
+			l.Dodaj(red...)
+			l.Spoji(0, rr, stupaca-1, rr)
+			for _, d := range sk.Dosezi {
+				rd := l.Redak()
+				l.Dodaj(T(tekstBroja(d.Doseg)+" h", xlsxw.TablicaSredina), N(math.Round(d.MAE), xlsxw.TablicaSredina),
+					N(math.Round(d.Pristranost), xlsxw.TablicaSredina), N(math.Round(d.MAEPostojanost), xlsxw.TablicaSredina),
+					T("", xlsxw.TablicaSredina), T("", xlsxw.TablicaSredina))
+				l.Spoji(3, rd, stupaca-1, rd)
 			}
 		}
 		l.Dodaj()

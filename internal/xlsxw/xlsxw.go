@@ -56,6 +56,9 @@ const (
 
 	TekstVisok = 30 // dulji tekst u tablici uz najvišu vrijednost: crvenkasta podloga, obrub, prelamanje
 	TekstNizak = 31 // dulji tekst u tablici uz najnižu vrijednost: plavkasta podloga, obrub, prelamanje
+
+	Razlika        = 32 // cijeli broj s predznakom (+8, −3, 0): obrub, sredina
+	RazlikaIstakni = 33 // isto, podebljano na crvenkastoj podlozi — razlika koju treba vidjeti
 )
 
 // UPojasu vraća stil s podlogom skupine; stil koji podlogu nema ostaje isti.
@@ -330,7 +333,7 @@ func (l *List) sirinaStupcaA() int64 {
 
 // stilovi, redom kao konstante gore
 const stilovi = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
-	`<numFmts count="2"><numFmt numFmtId="164" formatCode="#,##0.00"/><numFmt numFmtId="165" formatCode="d.m.yyyy h:mm"/></numFmts>` +
+	`<numFmts count="3"><numFmt numFmtId="164" formatCode="#,##0.00"/><numFmt numFmtId="165" formatCode="d.m.yyyy h:mm"/><numFmt numFmtId="166" formatCode="+0;\-0;0"/></numFmts>` +
 	`<fonts count="8">` +
 	`<font><sz val="10"/><name val="Arial"/></font>` +
 	`<font><b/><sz val="10"/><name val="Arial"/></font>` +
@@ -353,7 +356,7 @@ const stilovi = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSh
 	`<border><left style="thin"><color rgb="FF999999"/></left><right style="thin"><color rgb="FF999999"/></right><top style="thin"><color rgb="FF999999"/></top><bottom style="thin"><color rgb="FF999999"/></bottom><diagonal/></border>` +
 	`<border><left style="thin"><color rgb="FF999999"/></left><right style="thin"><color rgb="FF999999"/></right><top style="medium"><color rgb="FF333333"/></top><bottom style="thin"><color rgb="FF999999"/></bottom><diagonal/></border></borders>` +
 	`<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>` +
-	`<cellXfs count="32">` +
+	`<cellXfs count="34">` +
 	`<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center"/></xf>` + // 0
 	`<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="center"/></xf>` + // 1
 	`<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>` + // 2
@@ -386,6 +389,8 @@ const stilovi = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSh
 	`<xf numFmtId="0" fontId="0" fillId="8" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>` + // 29
 	`<xf numFmtId="0" fontId="0" fillId="5" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>` + // 30
 	`<xf numFmtId="0" fontId="0" fillId="6" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>` + // 31
+	`<xf numFmtId="166" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>` + // 32
+	`<xf numFmtId="166" fontId="1" fillId="5" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>` + // 33
 	`</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`
 
 func (l *List) xml(crtez bool) string {

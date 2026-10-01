@@ -4,6 +4,16 @@ Verzije prate shemu iz README-a: alfa `0.0.x` (oznaka `v0.0.1-alfa`), beta
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.5-alfa — 1. 10. 2026.
+
+**Čitljivost izvoza** — usporedba s mađarskom prognozom na sažetku dobiva
+zaglavlje u dva retka (termin preko triju stupaca, ispod naša · HU · razlika),
+a razlika je pravi broj s predznakom iz formata ćelije (bez Excelova upozorenja
+„broj kao tekst”); provjera na poplavnim valovima na listu „O prognozi” ima
+naslov skupine preko cijele širine (rijeka, model, broj valova) umjesto
+odrezanog naziva u uskom stupcu; napomene uz godišnje vodostaje i protoke
+dobivaju zalihu visine na uskim listovima.
+
 ## 0.0.4-alfa — 1. 10. 2026.
 
 **Sažetak prognoze u Excelu** — novi prvi list „Sažetak” za čitatelje kojima je

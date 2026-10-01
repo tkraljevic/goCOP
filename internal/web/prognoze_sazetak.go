@@ -544,12 +544,14 @@ func (h *PrognozeHandler) listSazetka(ctx context.Context, k *xlsxw.Knjiga, z Za
 				nasa, hu := p.dan(i), p.HU[i]
 				red = append(red, vrijednost(nasa, xlsxw.TablicaSredina), vrijednost(hu, xlsxw.TablicaSredina))
 				if nasa != nil && hu != nil {
-					d := *nasa - *hu
-					stil := xlsxw.TablicaSredina
+					// pravi broj s predznakom iz formata ćelije, ne tekst:
+					// Excel tekst koji izgleda kao broj označi upozorenjem
+					d := math.Round(*nasa) - math.Round(*hu)
+					stil := xlsxw.Razlika
 					if math.Abs(d) >= 10 {
-						stil = xlsxw.RekordVisok
+						stil = xlsxw.RazlikaIstakni
 					}
-					red = append(red, T(map[bool]string{true: "+", false: ""}[d > 0]+cmS(d), stil))
+					red = append(red, N(d, stil))
 				} else {
 					red = append(red, T("—", xlsxw.TablicaSredina))
 				}
@@ -559,15 +561,21 @@ func (h *PrognozeHandler) listSazetka(ctx context.Context, k *xlsxw.Knjiga, z Za
 	}
 	if len(usporedba) > 0 {
 		naslov("Usporedba s mađarskom prognozom (hydroinfo.hu)")
-		zd := fmt.Sprintf("Za %d dana", zadnji+1)
-		l.Dodaj(T("Postaja", xlsxw.Zaglavlje), T("Za 3 dana\nnaša", xlsxw.Zaglavlje), T("Za 3 dana\nmađarska", xlsxw.Zaglavlje),
-			T("razlika", xlsxw.Zaglavlje), T(zd+"\nnaša", xlsxw.Zaglavlje), T(zd+"\nmađarska", xlsxw.Zaglavlje),
-			T("razlika", xlsxw.Zaglavlje))
-		l.Visina(l.Redak()-1, 30)
+		// zaglavlje u dva retka: termin preko triju stupaca, ispod naša · HU · razlika
+		r0 := l.Redak()
+		l.Dodaj(T("Postaja", xlsxw.Zaglavlje), T("Za 3 dana ("+tri+")", xlsxw.Zaglavlje), T("", xlsxw.Zaglavlje), T("", xlsxw.Zaglavlje),
+			T(fmt.Sprintf("Za %d dana (%s)", zadnji+1, zadnjiDan), xlsxw.Zaglavlje), T("", xlsxw.Zaglavlje), T("", xlsxw.Zaglavlje))
+		l.Dodaj(T("", xlsxw.Zaglavlje), T("naša", xlsxw.Zaglavlje), T("HU", xlsxw.Zaglavlje), T("razlika", xlsxw.Zaglavlje),
+			T("naša", xlsxw.Zaglavlje), T("HU", xlsxw.Zaglavlje), T("razlika", xlsxw.Zaglavlje))
+		l.Spoji(0, r0, 0, r0+1)
+		l.Spoji(1, r0, 3, r0)
+		l.Spoji(4, r0, 6, r0)
+		l.Visina(r0, 18)
+		l.Visina(r0+1, 18)
 		for _, red := range usporedba {
 			l.Dodaj(red...)
 		}
-		odlomak("Razlika je naša prognoza manje mađarska; 10 cm ili više istaknuto je bojom. Mađarska prognoza izlazi jednom dnevno, pa zna biti starija od naše.", xlsxw.Napomena)
+		odlomak("HU je mađarska prognoza (hydroinfo.hu) za isti termin. Razlika je naša manje mađarska, u cm; 10 cm ili više istaknuto je bojom. Mađarska prognoza izlazi jednom dnevno, pa zna biti starija od naše.", xlsxw.Napomena)
 	}
 
 	l.Dodaj()
