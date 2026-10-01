@@ -53,6 +53,7 @@ type BrojkePodataka struct {
 	PostajaPravih   int   `json:"postajaPravih"`
 	PraveOd         int   `json:"praveOd"`
 	OborinaIzvedene int64 `json:"oborinaIzvedene"`
+	OborinaPopuna   int64 `json:"oborinaPopuna"` // popuna rupa pravih kišomjera iz ERA5
 	TocakaIzvedenih int   `json:"tocakaIzvedenih"`
 	IzvedeneOd      int   `json:"izvedeneOd"`
 	Meteo           int64 `json:"meteo"` // snijeg, temperatura zraka, visina snijega
@@ -176,6 +177,10 @@ func (s *Server) izbrojiPodatke(ctx context.Context) *BrojkePodataka {
 					b.OborinaPrave += red.Zapisa
 					postaja[red.Izvor] = max(postaja[red.Izvor], red.Letvi)
 					najranija(&b.PraveOd, red.Od)
+				case red.Velicina == "oborina" && red.Izvor == "hibrid-era5":
+					// popuna rupa pravih kišomjera iz ERA5 — nije mjerenje, a
+					// nije ni oborina po slivovima
+					b.OborinaPopuna += red.Zapisa
 				case red.Velicina == "oborina":
 					b.OborinaIzvedene += red.Zapisa
 					if strings.HasPrefix(red.Izvor, "openmeteo-era5") && red.Letvi > b.TocakaIzvedenih {
@@ -188,6 +193,9 @@ func (s *Server) izbrojiPodatke(ctx context.Context) *BrojkePodataka {
 			}
 			for _, n := range postaja {
 				b.PostajaPravih += n
+			}
+			if ab.PravihKisomjera > 0 {
+				b.PostajaPravih = ab.PravihKisomjera
 			}
 			for _, l := range ab.Letve {
 				letve[l] = true

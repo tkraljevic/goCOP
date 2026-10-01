@@ -4,6 +4,15 @@ Verzije prate shemu iz README-a: alfa `0.0.x` (oznaka `v0.0.1-alfa`), beta
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.3-alfa — 1. 10. 2026.
+
+**Ispravak brojki na naslovnoj (Podaci u sustavu)** — pravi kišomjeri broje se
+kao različite postaje (109, prije 107: DHMZ-ove postaje sa samo satnim ili samo
+dnevnim nizom brojale su se po većem nizu); popuna kratkih rupa pravih
+kišomjera iz ERA5 više se ne broji kao oborina po slivovima nego stoji uz
+kišomjere; oborina po slivovima navodi obje reanalize (ERA5 i CERRA); padeži
+uz brojeve.
+
 ## 0.0.2-alfa — 1. 10. 2026.
 
 **Kiša po slivovima na naslovnoj** — za svaki međusliv koji ulazi u prognozu

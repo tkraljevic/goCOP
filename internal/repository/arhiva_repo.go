@@ -973,8 +973,12 @@ type RedNizova struct {
 
 // ArhivaBrojke je koliko arhiva nosi, za brojke na naslovnoj.
 type ArhivaBrojke struct {
-	Redovi          []RedNizova
-	Letve           []string // letve s vodostajem, protokom ili kotom
+	Redovi []RedNizova
+	Letve  []string // letve s vodostajem, protokom ili kotom
+	// PravihKisomjera je broj različitih postaja s izmjerenom oborinom.
+	// Ista postaja može imati satni i dnevni niz (DHMZ Varaždin), a druga
+	// samo jedan od njih, pa se ne smije brojati po nizu.
+	PravihKisomjera int
 	Profili         int64
 	ProfilTocke     int64
 	HQ              int64
@@ -1014,6 +1018,8 @@ func (r *ArhivaRepository) Brojke(ctx context.Context) (*ArhivaBrojke, error) {
 		}
 		lr.Close()
 	}
+	_ = r.db.QueryRowContext(ctx, `SELECT count(DISTINCT letva) FROM nizovi
+		WHERE velicina = 'oborina' AND izvor LIKE 'kisomjer-%'`).Scan(&b.PravihKisomjera)
 	_ = r.db.QueryRowContext(ctx, `SELECT count(*) FROM profili`).Scan(&b.Profili)
 	_ = r.db.QueryRowContext(ctx, `SELECT count(*) FROM profil_tocke`).Scan(&b.ProfilTocke)
 	_ = r.db.QueryRowContext(ctx, `SELECT count(*) FROM hq_krivulje`).Scan(&b.HQ)

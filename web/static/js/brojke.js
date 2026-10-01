@@ -11,6 +11,13 @@
     return Number(n).toLocaleString('hr-HR', { minimumFractionDigits: dec || 0, maximumFractionDigits: dec || 0 });
   }
   function mjesto(b) { return b >= 1e9 ? broj(b / 1e9, 1) + ' GB' : broj(b / 1e6, 0) + ' MB'; }
+  // uzBroj bira oblik riječi uz broj: 1 kišomjer, 2–4 kišomjera, 5 kišomjera (21 kao 1, 12–14 kao 5)
+  function uzBroj(n, jedan, dva, pet) {
+    var z = n % 10, zz = n % 100;
+    if (z === 1 && zz !== 11) return jedan;
+    if (z >= 2 && z <= 4 && (zz < 12 || zz > 14)) return dva;
+    return pet;
+  }
   function kratko(n) {
     if (n >= 1e6) { return broj(n / 1e6, n >= 1e7 ? 0 : 1) + ' mil.'; }
     if (n >= 1e3) { return broj(n / 1e3, 0) + ' tis.'; }
@@ -55,8 +62,8 @@
       { k: 'satni', v: b.satnihVodostaja, n: 'satnih vodostaja', o: b.satniOd ? 'od ' + b.satniOd + '.' : '' },
       { k: 'dnevni', v: b.dnevnihVodostaja, n: 'dnevnih vodostaja', o: b.dnevniOd ? 'od ' + b.dnevniOd + '.' : '' },
       { k: 'protok', v: b.protoka, n: 'vrijednosti protoka', o: b.protokOd ? 'od ' + b.protokOd + '.' : '' },
-      { k: 'prave', v: b.oborinaPrave, n: 'mjerenja oborine na kišomjerima', o: (b.postajaPravih ? broj(b.postajaPravih) + ' stvarnih postaja' : '') + (b.praveOd ? ', od ' + b.praveOd + '.' : '') },
-      { k: 'izvedene', v: b.oborinaIzvedene, n: 'vrijednosti oborine po slivovima', o: (b.tocakaIzvedenih ? broj(b.tocakaIzvedenih) + ' točaka, reanaliza ERA5 i hibridna popuna' : 'reanaliza ERA5 i hibridna popuna') + (b.izvedeneOd ? ', od ' + b.izvedeneOd + '.' : '') },
+      { k: 'prave', v: b.oborinaPrave, n: 'mjerenja oborine na kišomjerima', o: (b.postajaPravih ? broj(b.postajaPravih) + ' ' + uzBroj(b.postajaPravih, 'pravi kišomjer', 'prava kišomjera', 'pravih kišomjera') : '') + (b.praveOd ? ', od ' + b.praveOd + '.' : '') + (b.oborinaPopuna ? ' Kratke rupe popunjene iz ERA5: ' + broj(b.oborinaPopuna) + '.' : '') },
+      { k: 'izvedene', v: b.oborinaIzvedene, n: 'vrijednosti oborine po slivovima', o: (b.tocakaIzvedenih ? broj(b.tocakaIzvedenih) + ' ' + uzBroj(b.tocakaIzvedenih, 'izvedena točka', 'izvedene točke', 'izvedenih točaka') + ', reanalize ERA5 i CERRA' : 'reanalize ERA5 i CERRA') + (b.izvedeneOd ? ', od ' + b.izvedeneOd + '.' : '') },
       { k: 'meteo', v: b.meteo, n: 'vrijednosti snijega i temperature zraka', o: 'po točkama slivova' },
       { k: 'prognoza', v: b.prognoza, n: 'vrijednosti izdanih prognoza', o: b.izdanja ? 'iz ' + broj(b.izdanja) + ' satnih izdanja' : '' },
       { k: 'provjera', v: b.provjera, n: 'prognoza provjerenih unatrag', o: 'satni lanac 2023.–2025. i poplavni valovi' },
