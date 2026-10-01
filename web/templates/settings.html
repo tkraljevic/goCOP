@@ -4,6 +4,8 @@
 
 {{define "content"}}
 <style>
+  .uloga-red { display:flex; gap:0.6rem; align-items:flex-start; margin:0.5rem 0; cursor:pointer; }
+  .uloga-red input { margin-top:0.25rem; }
   /* Postavke su prvi ekran rađen mobile-first: kartice u jednom stupcu,
      radnje u redu koji se lomi, bez tablica. */
   .cards { display: flex; flex-direction: column; gap: 1rem; max-width: 760px; }
@@ -47,6 +49,19 @@
       <dt>Portovi</dt><dd>razmjena {{.Ports.Exchange}} · uparivanje {{.Ports.Pair}} · pronalaženje {{.Ports.Discovery}}</dd>
     </dl>
     <p class="muted" style="margin-top:0.6rem;">Ključ čvora leži uz bazu, ne u njoj — kopija baze ne nasljeđuje identitet stroja.</p>
+  </div>
+
+  <div class="card">
+    <h2>Uloge ovog čvora</h2>
+    <p class="desc">Vodostaje s izvora (vodostaji.voda.hr, mađarske, austrijske i ostale letve) dovoljno je da preuzima jedan čvor: očitanja putuju razmjenom. Prognozu izdaje jedan čvor, a njegovo izdanje stiže ostalima; inače dva računala izdaju dvije malo različite prognoze za isti sat.</p>
+    <form method="POST" action="/settings/uloge">
+      <label class="uloga-red"><input type="checkbox" name="preuzima" value="1"{{if .Uloge.Preuzima}} checked{{end}}{{if not .Permissions.IsGlobalAdmin}} disabled{{end}}>
+        <span><b>Preuzima vodostaje s izvora</b><br><span class="muted">svaki sat; računi HidroViewa i letve trebaju samo ovdje</span></span></label>
+      <label class="uloga-red"><input type="checkbox" name="izdaje" value="1"{{if .Uloge.Izdaje}} checked{{end}}{{if not .Permissions.IsGlobalAdmin}} disabled{{end}}>
+        <span><b>Izdaje prognozu</b><br><span class="muted">tuđe prognoze, kiša, izračun i priprema modela; izdanje i model idu razmjenom</span></span></label>
+      {{if .Permissions.IsGlobalAdmin}}<div class="actions" style="margin-top:0.6rem;"><button type="submit" class="btn btn-primary">Spremi uloge</button></div>{{end}}
+    </form>
+    {{if not (or .Uloge.Preuzima .Uloge.Izdaje)}}<p class="muted" style="margin-top:0.6rem;">Ovaj čvor sve prima razmjenom. Ako u mreži nijedan čvor nema ove uloge, vodostaji i prognoza neće se obnavljati.</p>{{end}}
   </div>
 
   <div class="card">

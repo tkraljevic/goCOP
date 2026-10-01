@@ -93,6 +93,8 @@ type Osvjezivac struct {
 	// Oborine daju dnevnom modelu kišu po međuslivovima; nil znači da se
 	// dnevni model uči i izdaje bez oborine.
 	Oborine *OborinskiIzvor
+	// Cvor je naziv čvora koji izdaje; ide uz zapis o izdanju i putuje s njim.
+	Cvor string
 }
 
 // Ishod je što je jedno osvježavanje dalo.
@@ -736,7 +738,7 @@ func (o *Osvjezivac) Zapisi(ishod *Ishod) error {
 	}
 	// Uz izdanje ide zapis za kalibraciju: kojim je modelom izdano, koje su
 	// tuđe prognoze tada bile u rukama i kakvu je kišu dnevni model imao.
-	v, err := SpremiZapisIzdanja(o.Baza, ZapisIzdanja{Izdano: ishod.Sada, Izbor: ishod.Izbor, Kisa: ishod.Kisa})
+	v, err := SpremiZapisIzdanja(o.Baza, ZapisIzdanja{Izdano: ishod.Sada, Izbor: ishod.Izbor, Kisa: ishod.Kisa, Cvor: o.Cvor})
 	if err != nil {
 		return fmt.Errorf("zapis o izdanju: %w", err)
 	}

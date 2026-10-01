@@ -786,6 +786,13 @@ func InitSchema(database *sql.DB) error {
 			drzi_dana INTEGER NOT NULL DEFAULT 0
 		);`,
 
+		// Uloge ovog računala za cijelu mrežu: preuzima li vodostaje s
+		// izvora i izdaje li prognozu. Lokalno, ne putuje (vidi peers.Uloge).
+		`CREATE TABLE IF NOT EXISTS uloge_cvora (
+			kljuc TEXT PRIMARY KEY,
+			vrijednost TEXT NOT NULL
+		);`,
+
 		// Stanje razmjene s pojedinim čvorom: odnos ovog čvora s tim, ostaje
 		// lokalno i ne putuje (vidi peers.SyncState)
 		`CREATE TABLE IF NOT EXISTS peer_sync (

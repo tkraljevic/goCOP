@@ -4,6 +4,33 @@ Verzije prate shemu iz README-a: alfa `0.0.x` (oznaka `v0.0.1-alfa`), beta
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.7-alfa — 2. 10. 2026.
+
+**Uloge čvora** — u Postavkama čvora (Uloge ovog čvora) uključuje se preuzima
+li čvor vodostaje s izvora i izdaje li prognozu. Vodostaje dovoljno je da
+preuzima jedan čvor: očitanja putuju razmjenom. Čvor od prije zadržava što je
+radio; novi ne radi ni jedno dok mu se uloga ne uključi.
+
+**Prognoza razmjenom** — svako izdanje (satno i dnevno, izbor rezervi, kiša po
+međuslivovima i tuđe prognoze zadnjih 48 sati) ide u knjigu verzija, a
+namješteni model kad se promijeni. Ostali čvorovi izdanje upišu u svoju bazu
+prognoza i prikazuju ga s oznakom čvora koji ga je izdao; kiša po slivovima na
+naslovnoj kod njih dolazi iz izdanja. U razmjeni izdanja stoje sedam dana (oko
+100 kB po izdanju), u bazi prognoza ostaju.
+
+**Arhiva razmjenom** — kazalo .cop paketa (letva, izdanje, razdoblje, veličina)
+drže svi čvorovi; sam paket dohvaća čvor kojemu ga pokriva pretplata (nova
+vrsta „Arhiva vodostaja”, po području letve) ili koji prati sve, od bilo kojeg
+čvora koji ga ima, i ugradi ga nakon provjere otiska. Starije izdanje se ne
+ugrađuje, a letva sagrađena na samom čvoru se ne gazi.
+
+**Slika za spremnik** — `ghcr.io/tkraljevic/gocop` gradi se za svako izdanje;
+`/data` za bazu i postavke, `/arhiva` za arhivu, stablo, skenove i pakete.
+
+**Izvoz prognoze** — redak „model” (satni/dnevni) skriven je u grupi i otkriva
+se gumbom „+” uz rub. Gornja Radgona maknuta je s uzdužnog profila Mure jer za
+nju nema prognoze.
+
 ## 0.0.6-alfa — 1. 10. 2026.
 
 **Vukovar sa svojim protokom** — iz HIS-2000 uvezeni su protoci Vukovara

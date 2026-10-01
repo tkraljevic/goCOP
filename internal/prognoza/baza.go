@@ -193,6 +193,8 @@ CREATE TABLE IF NOT EXISTS izdanja (
 	operateri  TEXT NOT NULL DEFAULT '',  -- kad su namješteni modeli ispuštanja
 	tude       TEXT NOT NULL DEFAULT '{}',-- izvor → sat izdanja zadnje tuđe prognoze tada
 	izbor      TEXT NOT NULL DEFAULT '{}',-- letva → inačica i opis, kako je izdano
+	cvor       TEXT NOT NULL DEFAULT '',  -- čvor koji je izdao
+	knjiga     TEXT NOT NULL DEFAULT '',  -- verzija u knjizi kad je izdanje stiglo razmjenom
 	PRIMARY KEY (izdano, verzija)
 ) WITHOUT ROWID;
 -- Kiša po međuslivovima kakvu je dnevni model imao pri izdavanju: dan 0 je
@@ -259,6 +261,18 @@ func Otvori(put string) (*sql.DB, error) {
 // stupce. CREATE TABLE IF NOT EXISTS zatečenu tablicu ne dira, pa bi inače
 // baza nastala jučer danas pucala na upisu.
 func uskladi(db *sql.DB) error {
+	// Stupci dodani zapisu o izdanjima: on se ne odbacuje, samo dograđuje.
+	for _, stupac := range []string{"cvor", "knjiga"} {
+		ima, err := imaStupac(db, "izdanja", stupac)
+		if err != nil {
+			return err
+		}
+		if !ima {
+			if _, err := db.Exec(`ALTER TABLE izdanja ADD COLUMN ` + stupac + ` TEXT NOT NULL DEFAULT ''`); err != nil {
+				return fmt.Errorf("izdanja.%s: %w", stupac, err)
+			}
+		}
+	}
 	// Pojasi i ulazi su izračunati podaci: namjesti-prognozu ih izgradi iznova.
 	for tablica, stupac := range map[string]string{
 		"izdane": "gore", "tude": "vrijednost", "ulazi": "inacica", "dnevne": "protok", "pojasi": "inacica"} {
@@ -612,6 +626,8 @@ type ZapisIzdanja struct {
 	Tude    map[string]int64     // izvor → sat izdanja zadnje tuđe prognoze u rukama
 	Izbor   map[string]Izbor     // letva → inačica, kako je izdano
 	Kisa    map[string]DnevniNiz // sliv → dan → mm, kako ju je imao dnevni model
+	Cvor    string               // čvor koji je izdao
+	Knjiga  string               // verzija u knjizi, kad je izdanje stiglo razmjenom
 }
 
 // SpremiZapisIzdanja upisuje novu verziju zapisa za sat izdanja: verzija je
@@ -626,10 +642,13 @@ func SpremiZapisIzdanja(db *sql.DB, z ZapisIzdanja) (int, error) {
 	if err := tx.QueryRow(`SELECT coalesce(max(verzija), 0) + 1 FROM izdanja WHERE izdano = ?`, z.Izdano).Scan(&z.Verzija); err != nil {
 		return 0, err
 	}
-	var model, operat sql.NullString
-	_ = tx.QueryRow(`SELECT max(namjesteno) FROM pojasi`).Scan(&model)
-	_ = tx.QueryRow(`SELECT max(namjesteno) FROM operateri`).Scan(&operat)
-	z.Model, z.Operat = model.String, operat.String
+	if z.Knjiga == "" {
+		// izdanje primljeno razmjenom nosi model izdavača
+		var model, operat sql.NullString
+		_ = tx.QueryRow(`SELECT max(namjesteno) FROM pojasi`).Scan(&model)
+		_ = tx.QueryRow(`SELECT max(namjesteno) FROM operateri`).Scan(&operat)
+		z.Model, z.Operat = model.String, operat.String
+	}
 	if z.Tude == nil {
 		z.Tude = map[string]int64{}
 		rows, err := tx.Query(`SELECT izvor, max(izdano) FROM tude WHERE izdano <= ? GROUP BY izvor`, z.Izdano)
@@ -661,8 +680,8 @@ func SpremiZapisIzdanja(db *sql.DB, z ZapisIzdanja) (int, error) {
 	if z.Nastalo.IsZero() {
 		z.Nastalo = time.Now()
 	}
-	if _, err := tx.Exec(`INSERT INTO izdanja (izdano, verzija, nastalo, model, operateri, tude, izbor) VALUES (?,?,?,?,?,?,?)`,
-		z.Izdano, z.Verzija, z.Nastalo.Unix(), z.Model, z.Operat, string(tude), string(izbor)); err != nil {
+	if _, err := tx.Exec(`INSERT INTO izdanja (izdano, verzija, nastalo, model, operateri, tude, izbor, cvor, knjiga) VALUES (?,?,?,?,?,?,?,?,?)`,
+		z.Izdano, z.Verzija, z.Nastalo.Unix(), z.Model, z.Operat, string(tude), string(izbor), z.Cvor, z.Knjiga); err != nil {
 		return 0, err
 	}
 	for sliv, dani := range z.Kisa {

@@ -235,6 +235,7 @@ type PrognozePageData struct {
 	ViewAsBanner
 
 	Izdano     string
+	IzdaoCvor  string // čvor koji je izdao, kad je izdanje stiglo razmjenom
 	IzdanoSat  int64  // sat izdanja od epohe, za klizač vremena na profilu
 	Oborina    string // je li dnevni model računao s kišom, i zašto ne
 	BezKise    bool
@@ -420,6 +421,7 @@ func (h *PrognozeHandler) podaci(r *http.Request, nacinTablice, nacinGrafa strin
 	}
 	data.Izdano = izdano.In(models.Zagreb).Format("2.1.2006. u 15:04")
 	data.IzdanoSat = izdano.Unix() / 3600
+	data.IzdaoCvor = c.Izdavac()
 	postaje := h.postaje(r.Context())
 	data.Letve = h.opisiLetve(postaje, letve)
 	izbor := c.Izbor(izdano)
@@ -1178,16 +1180,18 @@ func opisRezerve(opis string, postaje map[string]models.Station) string {
 // uobičajene vode, razvukla bi mjerilo i spljoštila sve ostalo. Prognoza
 // letve ostaje; samo crtež ide bez nje.
 var IzvanProfila = map[string]bool{
-	"dunaszekcso":   true,
-	"bezdan":        true,
-	"apatin":        true,
-	"bogojevo":      true,
-	"backa-palanka": true,
-	"barcs":         true,
-	"dravaszabolcs": true,
-	"letenye":       true,
-	"komarno":       true,
-	"bratislava":    true,
+	// vrh lanca Mure bez prognoze: na profilu bi stajalo samo mjerenje
+	"gornja-radgona": true,
+	"dunaszekcso":    true,
+	"bezdan":         true,
+	"apatin":         true,
+	"bogojevo":       true,
+	"backa-palanka":  true,
+	"barcs":          true,
+	"dravaszabolcs":  true,
+	"letenye":        true,
+	"komarno":        true,
+	"bratislava":     true,
 }
 
 // BaltikUTrst je razlika mađarskog baltičkog sustava i Trsta: kota u Trstu

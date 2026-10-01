@@ -181,3 +181,19 @@ func (c *CitacPrognoza) Brojke() (vrijednosti int64, izdanja int) {
 	_ = c.db.QueryRow(`SELECT count(DISTINCT izdano) FROM izdane`).Scan(&izdanja)
 	return vrijednosti, izdanja
 }
+
+// Izdavac vraća čvor koji je izdao zadnje izdanje, samo kad je ono stiglo
+// razmjenom; izdanje ovog čvora ne treba oznaku.
+func (c *CitacPrognoza) Izdavac() string {
+	if c == nil || c.db == nil {
+		return ""
+	}
+	cvor, primljeno, err := prognoza.ZadnjiIzdavac(c.db)
+	if err != nil || !primljeno {
+		return ""
+	}
+	if cvor == "" {
+		return "drugom čvoru"
+	}
+	return cvor
+}

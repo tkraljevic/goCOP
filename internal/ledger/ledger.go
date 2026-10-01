@@ -54,6 +54,9 @@ const (
 	ChannelJournals  = "dnevnici"
 	ChannelPrijave   = "prijave"
 	ChannelVodocuvar = "vodocuvarski"
+	// ChannelArhiva je kanal sadržaja arhivskih .cop paketa, "arhiva/područje/0":
+	// kazalo paketa drže svi, a sam paket dohvaća čvor koji ga prati
+	ChannelArhiva = "arhiva"
 )
 
 // ChannelFor slaže kanal iz vrste, područja i godine; bez područja nema
@@ -583,4 +586,22 @@ func (r *Recorder) DeleteVersion(ctx context.Context, versionID string) error {
 	}
 	_, err = r.db.ExecContext(ctx, `DELETE FROM record_versions WHERE version_id = ?`, versionID)
 	return err
+}
+
+// Prorijedi briše verzije jednog entiteta nastale prije zadanog trenutka,
+// cijele zapise a ne samo starije verzije: izdanja prognoze stižu svaki sat i
+// nakon dva tjedna više nikome ne trebaju u razmjeni (svaki ih čvor drži u
+// svojoj bazi prognoza). Granica razmjene ostaje: zadnja verzija svakog
+// autora u svakom kanalu se ne briše, pa se obrisano ne vraća natrag.
+func (r *Recorder) Prorijedi(ctx context.Context, entity string, olderThan time.Time) (int64, error) {
+	res, err := r.db.ExecContext(ctx, `
+		DELETE FROM record_versions
+		WHERE entity = ? AND created_at < ?
+		  AND version_id NOT IN (SELECT MAX(version_id) FROM record_versions GROUP BY node_id, channel)
+	`, entity, olderThan.UTC())
+	if err != nil {
+		return 0, fmt.Errorf("prorjeđivanje knjige (%s): %w", entity, err)
+	}
+	n, _ := res.RowsAffected()
+	return n, nil
 }

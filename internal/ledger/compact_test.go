@@ -64,3 +64,43 @@ func TestSazimanjeOstavljaZadnjuVerzijuISpomenike(t *testing.T) {
 		t.Errorf("brojke nakon sažimanja: %+v", st)
 	}
 }
+
+// Prorjeđivanje briše stara izdanja cijela, a zadnju verziju autora ostavlja
+// da se granica razmjene ne pomakne.
+func TestProrjedjivanjeCuvaGranicu(t *testing.T) {
+	db := openTestDB(t)
+	rec := New(db, "ured")
+	ctx := context.Background()
+	for _, sat := range []string{"1", "2", "3"} {
+		if _, err := rec.Record(ctx, db, "prognoza_izdanje", sat, probni{"izdanje", 1}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := rec.Record(ctx, db, "stations", "st-1", probni{"Batina", 600}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`UPDATE record_versions SET created_at = ?`, time.Now().AddDate(0, 0, -30)); err != nil {
+		t.Fatal(err)
+	}
+	before, _ := rec.Frontier(ctx)
+	n, err := rec.Prorijedi(ctx, "prognoza_izdanje", time.Now().AddDate(0, 0, -14))
+	if err != nil || n != 3 {
+		t.Fatalf("prorjeđivanje: obrisano %d, %v", n, err)
+	}
+	if st, _ := rec.Latest(ctx, "stations", "st-1"); st == nil {
+		t.Error("ostali entiteti moraju ostati")
+	}
+	if after, _ := rec.Frontier(ctx); before["ured"] != after["ured"] {
+		t.Errorf("granica se pomaknula: %s → %s", before["ured"], after["ured"])
+	}
+	// kad je izdanje zadnje što je autor zapisao, ono ostaje
+	if _, err := rec.Record(ctx, db, "prognoza_izdanje", "4", probni{"izdanje", 1}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`UPDATE record_versions SET created_at = ?`, time.Now().AddDate(0, 0, -30)); err != nil {
+		t.Fatal(err)
+	}
+	if n, _ := rec.Prorijedi(ctx, "prognoza_izdanje", time.Now().AddDate(0, 0, -14)); n != 0 {
+		t.Errorf("zadnja verzija autora obrisana (%d)", n)
+	}
+}

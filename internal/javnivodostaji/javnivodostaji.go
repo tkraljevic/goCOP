@@ -421,6 +421,10 @@ type Uvoznik struct {
 	// vremena stajala na starim brojkama a izgledala kao da je današnja.
 	NakonPreuzimanja func(context.Context)
 
+	// Preuzima javlja preuzima li ovaj čvor vodostaje s izvora; nil znači da.
+	// Vodostaje za mrežu dovoljno je da preuzima jedan čvor.
+	Preuzima func() bool
+
 	mu      sync.Mutex
 	stanja  map[string]StanjeLetve // po ID-u postaje
 	postaje []Postaja              // javni popis, predmemoriran
@@ -661,6 +665,12 @@ func (u *Uvoznik) PreuzmiSve(ctx context.Context) int {
 		u.Zapisnik("javni vodostaji: popis letvi: %v", err)
 		u.zavrsiKrug(pocetak, 0, 0, "popis letvi nije uspio: "+err.Error())
 		return 0
+	}
+	if u.Preuzima != nil && !u.Preuzima() {
+		// Vodostaje preuzima drugi čvor i stižu razmjenom; krug ide dalje
+		// zbog prognoze, ako je ovaj čvor izdaje.
+		letve = nil
+		u.Redak("vodostaje s izvora preuzima drugi čvor; stižu razmjenom")
 	}
 	u.mu.Lock()
 	u.napredak.Ukupno, u.napredak.Faza = len(letve), "preuzimanje vodostaja"

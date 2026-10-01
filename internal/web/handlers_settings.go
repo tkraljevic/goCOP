@@ -40,6 +40,7 @@ type SettingsPageData struct {
 	Members        []peers.Member
 	VersionCounts  map[string]int
 	TotalVersions  int
+	Uloge          peers.Uloge
 	SuccessMessage string
 	ErrorMessage   string
 	ActiveNav      string
@@ -53,16 +54,19 @@ func (h *SettingsHandler) ShowSettings(w http.ResponseWriter, r *http.Request) {
 
 	node := h.peers.Node()
 	data := SettingsPageData{
-		CurrentUser:   currUser,
-		Permissions:   perms,
-		NodeID:        node.ID,
-		NodeName:      node.Name,
-		NodeVersion:   node.Version,
-		NodePublicKey: node.PublicKey(),
-		SchemaVersion: ledger.SchemaVersion,
-		Ports:         h.peers.Ports(),
-		ActiveNav:     "settings",
-		ViewAsBanner:  viewBanner(r),
+		CurrentUser:    currUser,
+		Permissions:    perms,
+		NodeID:         node.ID,
+		NodeName:       node.Name,
+		NodeVersion:    node.Version,
+		NodePublicKey:  node.PublicKey(),
+		SchemaVersion:  ledger.SchemaVersion,
+		Ports:          h.peers.Ports(),
+		ActiveNav:      "settings",
+		ViewAsBanner:   viewBanner(r),
+		Uloge:          h.peers.TrenutneUloge(),
+		SuccessMessage: r.URL.Query().Get("success"),
+		ErrorMessage:   r.URL.Query().Get("error"),
 	}
 
 	if list, err := h.peers.ListPeers(ctx); err == nil {
@@ -267,6 +271,29 @@ func (h *SettingsHandler) HandlePublicAddress(w http.ResponseWriter, r *http.Req
 		return
 	}
 	writeJSON(w, map[string]any{"success": true, "peer": p})
+}
+
+// HandleUloge sprema uloge ovog čvora: preuzima li vodostaje s izvora i
+// izdaje li prognozu. Vrijede od sljedećeg satnog kruga.
+func (h *SettingsHandler) HandleUloge(w http.ResponseWriter, r *http.Request) {
+	if err := requireAdmin(r); err != nil {
+		http.Error(w, err.Error(), http.StatusForbidden)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		redirectWith(w, r, "/settings", "error", "Neispravan zahtjev")
+		return
+	}
+	u := peers.Uloge{Preuzima: r.FormValue("preuzima") == "1", Izdaje: r.FormValue("izdaje") == "1"}
+	if err := h.peers.PostaviUloge(r.Context(), u); err != nil {
+		redirectWith(w, r, "/settings", "error", err.Error())
+		return
+	}
+	poruka := "Uloge su spremljene i vrijede od sljedećeg satnog kruga."
+	if !u.Izdaje {
+		poruka += " Prognoza stiže razmjenom od čvora koji je izdaje."
+	}
+	redirectWith(w, r, "/settings", "success", poruka)
 }
 
 // HandleSetBootstrap označava čvor kao stalno izložen (domena) ili to skida

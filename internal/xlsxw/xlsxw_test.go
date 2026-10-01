@@ -113,3 +113,17 @@ func TestGrafUKnjizi(t *testing.T) {
 		t.Errorf("Excelov datum: %v %v %v", ExcelDatum(2026, 1, 1, 0, 0), ExcelDatum(2026, 9, 27, 12, 0), ExcelDatum(1900, 3, 1, 0, 0))
 	}
 }
+
+func TestSkriveniRedak(t *testing.T) {
+	l := &List{Naziv: "P"}
+	l.Dodaj(T("cm", Tablica))
+	l.Dodaj(T("model", Tablica))
+	l.SakrijRedak(l.Redak() - 1)
+	l.Dodaj(T("dalje", Tablica))
+	x := l.xml(false)
+	for _, s := range []string{`outlineLevelRow="1"`, `<row r="2" hidden="1" outlineLevel="1">`, `<row r="3" collapsed="1">`, `<row r="1">`} {
+		if !strings.Contains(x, s) {
+			t.Errorf("nema %s", s)
+		}
+	}
+}

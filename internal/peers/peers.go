@@ -20,6 +20,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"gocop/internal/razmjena"
@@ -134,6 +135,10 @@ type Service struct {
 	// spremiste sadržaja: PDF-ovi i slike koje razmjena prenosi po otisku,
 	// nakon verzija, prema razini pretplate
 	spremiste *sadrzaj.Spremiste
+
+	// uloge ovog računala za mrežu (preuzima vodostaje, izdaje prognozu)
+	uloge           atomic.Pointer[Uloge]
+	naPromjenuUloga func(Uloge)
 
 	every    time.Duration // razmak automatske sinkronizacije (0 = isključena)
 	autoOn   bool

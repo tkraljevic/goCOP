@@ -1333,6 +1333,7 @@ func (s *Server) setupRoutes() {
 
 	// Postavke: čvor, uparivanje, pronalaženje, sinkronizacija, povijest
 	s.mux.Handle("GET /settings", s.authMiddleware(http.HandlerFunc(settingsH.ShowSettings)))
+	s.mux.Handle("POST /settings/uloge", s.authMiddleware(http.HandlerFunc(settingsH.HandleUloge)))
 	telemetrijaH := NewTelemetrijaHandler(func() *repository.HidroViewRepository {
 		if s.db == nil {
 			return nil

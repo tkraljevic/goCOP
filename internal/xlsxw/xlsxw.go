@@ -114,6 +114,7 @@ type List struct {
 	Redci       [][]Celija
 	Sirine      []float64       // širine stupaca u znakovima
 	visine      map[int]float64 // visine redaka u točkama
+	skriveni    map[int]bool    // skriveni redci, u grupi da se otkriju jednim klikom
 	spojene     []string        // spojena područja, "A1:D1"
 	Logo        bool            // logotip knjige u gornjem lijevom kutu
 	Vodoravno   bool            // ispis vodoravno, cijela širina na jednu stranicu
@@ -139,6 +140,15 @@ func (l *List) Redak() int { return len(l.Redci) }
 // Spoji spaja ćelije od (c1,r1) do (c2,r2), 0-based
 func (l *List) Spoji(c1, r1, c2, r2 int) {
 	l.spojene = append(l.spojene, Adresa(c1, r1)+":"+Adresa(c2, r2))
+}
+
+// SakrijRedak skriva redak i stavlja ga u grupu (Podaci → Grupiraj): otkriva
+// se gumbom „+” uz rub, a svi skriveni redci lista odjednom gumbom „2” gore lijevo
+func (l *List) SakrijRedak(r int) {
+	if l.skriveni == nil {
+		l.skriveni = map[int]bool{}
+	}
+	l.skriveni[r] = true
 }
 
 // Visina zadaje visinu retka u točkama
@@ -419,6 +429,9 @@ func (l *List) xml(crtez bool) string {
 	} else {
 		b.WriteString(`<sheetViews><sheetView workbookViewId="0" showGridLines="0"/></sheetViews>`)
 	}
+	if len(l.skriveni) > 0 {
+		b.WriteString(`<sheetFormatPr defaultRowHeight="15" outlineLevelRow="1"/>`)
+	}
 	if len(l.Sirine) > 0 {
 		b.WriteString(`<cols>`)
 		for i, s := range l.Sirine {
@@ -430,11 +443,16 @@ func (l *List) xml(crtez bool) string {
 	}
 	b.WriteString(`<sheetData>`)
 	for r, redak := range l.Redci {
+		fmt.Fprintf(&b, `<row r="%d"`, r+1)
 		if h, ok := l.visine[r]; ok {
-			fmt.Fprintf(&b, `<row r="%d" ht="%s" customHeight="1">`, r+1, strconv.FormatFloat(h, 'f', 1, 64))
-		} else {
-			fmt.Fprintf(&b, `<row r="%d">`, r+1)
+			fmt.Fprintf(&b, ` ht="%s" customHeight="1"`, strconv.FormatFloat(h, 'f', 1, 64))
 		}
+		if l.skriveni[r] {
+			b.WriteString(` hidden="1" outlineLevel="1"`)
+		} else if l.skriveni[r-1] {
+			b.WriteString(` collapsed="1"`)
+		}
+		b.WriteString(`>`)
 		for c, cel := range redak {
 			if cel.Tekst == "" && !cel.JeBroj && cel.Formula == "" && cel.Stil == 0 {
 				continue

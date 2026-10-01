@@ -1,0 +1,52 @@
+# Slika za spremnik (Docker, Unraid) za svako izdanje: oznaka v0.0.7-alfa
+# daje ghcr.io/tkraljevic/gocop:0.0.7-alfa i :latest. Može se pokrenuti i
+# ručno (Actions → Slika → Run workflow) za trenutno stanje grane.
+name: Slika
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  slika:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Oznake
+        id: oznake
+        run: |
+          kratki=$(git rev-parse --short=7 HEAD)
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            verzija="${GITHUB_REF_NAME#v}"
+            echo "oznake=ghcr.io/tkraljevic/gocop:${verzija},ghcr.io/tkraljevic/gocop:latest" >> "$GITHUB_OUTPUT"
+          else
+            verzija=$(sed -n 's/^const verzijaPrograma = "\(.*\)"/\1/p' cmd/gocop/main.go)
+            echo "oznake=ghcr.io/tkraljevic/gocop:${kratki}" >> "$GITHUB_OUTPUT"
+          fi
+          echo "verzija=${verzija} (${kratki})" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.oznake.outputs.oznake }}
+          build-args: VERSION=${{ steps.oznake.outputs.verzija }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/tkraljevic/goCOP
+            org.opencontainers.image.description=goCOP — centar obrane od poplava
+            org.opencontainers.image.licenses=EUPL-1.2

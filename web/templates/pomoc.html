@@ -696,6 +696,15 @@
       slabijim. Zato se uvijek gledaju raspon, svježina mjerenja i usporedba s postojanošću, a odluka
       se ne donosi samo iz jedne brojke. Modeli se provjeravaju unatrag i na odabranim poplavnim
       valovima; provjerljivi parovi prognoza–mjerenje mogu se izvesti u CSV.</p>
+
+    <h3 id="prognoze-cvorovi">Koji čvor izdaje prognozu</h3>
+    <p>Vodostaje s izvora preuzima i prognozu izdaje jedan čvor; to se uključuje u
+      <a href="/settings">Postavkama čvora</a> (Uloge ovog čvora). Očitanja putuju razmjenom kao i
+      sva druga, a svako izdanje prognoze putuje s tuđim prognozama koje je izdavač tada imao i s kišom
+      po međuslivovima. Namješteni model ide uz izdanje kad se promijeni. Ostali čvorovi izdanje upišu
+      u svoju bazu prognoza i prikazuju ga s oznakom čvora koji ga je izdao. U razmjeni izdanja stoje
+      sedam dana, a u bazi prognoza svakog čvora ostaju. Čvor koji sam izdaje prognozu tuđa izdanja
+      ne upisuje; upiše ih kad mu se uloga isključi.</p>
   </div>
   {{template "pomocPoglavljeNav" (list "Arhiva vodostaja" "#arhiva" "Dokumentacija" "#journals")}}
 </section>

@@ -62,6 +62,8 @@ func (s Subscription) Label() string {
 		what = "prijave s terena"
 	case ledger.ChannelVodocuvar:
 		what = "vodočuvarski dnevnik"
+	case ledger.ChannelArhiva:
+		what = "arhiva vodostaja"
 	}
 	where := "sva područja"
 	switch {
@@ -80,6 +82,9 @@ func (s Subscription) Label() string {
 		when = fmt.Sprintf("od %d.", s.YearFrom)
 	case s.YearTo > 0:
 		when = fmt.Sprintf("do %d.", s.YearTo)
+	}
+	if s.Kind == ledger.ChannelArhiva {
+		when = "cijela povijest" // paket je cijela letva, ne godina
 	}
 	out := what + ", " + where + ", " + when
 	switch s.Razina {
@@ -110,6 +115,9 @@ func (s Subscription) matches(kind string, areaID, year int, sectorOf func(int) 
 	}
 	if s.SectorID != "" && s.AreaID == 0 && sectorOf(areaID) != s.SectorID {
 		return false
+	}
+	if kind == ledger.ChannelArhiva && s.Kind == ledger.ChannelArhiva {
+		return true // paket arhive nosi cijelu povijest letve, godine ne vrijede
 	}
 	if s.YearFrom > 0 && year < s.YearFrom {
 		return false
@@ -457,3 +465,14 @@ func (s *Service) PurgeUnwanted(ctx context.Context) (map[string]int64, error) {
 
 // unused guard so sql import stays meaningful when queries move
 var _ = sql.ErrNoRows
+
+// ZeliSadrzaj javlja hoće li ovaj čvor po svojim pretplatama dohvatiti
+// sadržaj kanala te vrste. Tko bilježi što treba dohvatiti, pita prije
+// bilježenja: neželjene želje bi inače zauzele mjesta u redu za dohvat.
+func (s *Service) ZeliSadrzaj(ctx context.Context, kanal, vrsta string) bool {
+	w, err := s.CurrentWants(ctx)
+	if err != nil {
+		return false
+	}
+	return w.zeliSadrzaj(kanal, vrsta, s.sectorLookup(ctx))
+}

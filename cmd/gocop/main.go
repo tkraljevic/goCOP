@@ -43,7 +43,7 @@ import (
 
 // verzijaPrograma je izdanje goCOP-a. Alfa traje dok se ne zaokruže
 // funkcionalnosti koje program treba imati; mijenja se pri izdavanju.
-const verzijaPrograma = "0.0.6-alfa"
+const verzijaPrograma = "0.0.7-alfa"
 
 // version se može zadati pri prevođenju (-ldflags "-X main.version=…");
 // prazno znači verzijaPrograma, s oznakom commita iz kojega je prevedeno.
@@ -279,9 +279,19 @@ func main() {
 	// jer se onaj koji je već otišao ne da naknadno potpisati.
 	arhiva.PostaviKljucIzdavaca(node.PrivateKey())
 	peersService.Accept(repository.KeepVersion)
+	// Uloge ovog čvora za mrežu: preuzima li vodostaje, izdaje li prognozu
+	_, ulogePostavljene, ulogeErr := peersService.UcitajUloge(context.Background())
+	if ulogeErr != nil {
+		log.Printf("Uloge čvora nisu pročitane: %v", ulogeErr)
+	}
 	peersService.SetWantsAll(cfg.Sync.All)
 	peersService.SetSpremiste(spremiste)
+	var razmjenaArh *razmjenaArhive // arhiva razmjenom; postavlja se kad je poznato gdje arhiva stoji
 	peersService.OnApplied(func(ctx context.Context, versions []ledger.Version) error {
+		primateljPrognoze.primi(versions)
+		if razmjenaArh != nil {
+			razmjenaArh.primljeno(versions)
+		}
 		return repository.ApplyVersions(ctx, database, recorder, versions)
 	})
 	// Površina se pri pokretanju obnovi iz knjige, da zapela primjena s
@@ -688,6 +698,8 @@ func main() {
 	// povremeno sam nazove poznate čvorove
 	syncCtx, stopSync := context.WithCancel(context.Background())
 	defer stopSync()
+	razmjenaArh = novaRazmjenaArhive(database, recorder, spremiste, server, peersService, arhivaPut, *paketiFlag)
+	go razmjenaArh.vrti(syncCtx)
 	if *syncPort > 0 {
 		go func() {
 			if err := peersService.Serve(syncCtx); err != nil {
@@ -708,6 +720,11 @@ func main() {
 	// vodostaji.voda.hr i označene za preuzimanje. Bez interneta samo javi
 	// grešku na letvi i pokuša za sat.
 	javniUvoznik := javnivodostaji.NoviUvoznik(repository.NewJavniSpremiste(database, readingRepo), log.Printf)
+	javniUvoznik.Preuzima = func() bool { return peersService.TrenutneUloge().Preuzima }
+	nazivCvora := node.Name
+	if nazivCvora == "" {
+		nazivCvora = node.ID
+	}
 
 	// Prognoza se obnavlja čim stignu novi vodostaji, a ne po vlastitom satu:
 	// inače bi pola vremena stajala na starim brojkama a izgledala kao da je
@@ -721,7 +738,32 @@ func main() {
 		log.Printf("Prognoza se neće obnavljati: arhiva: %v", err)
 	} else {
 		osvjezivac := &prognoza.Osvjezivac{Baza: pb, Ocitanja: ocitanjaRO,
-			Arhiva: arhivaRO, Najdalje: 96, Model: prognoza.ModelLanac}
+			Arhiva: arhivaRO, Najdalje: 96, Model: prognoza.ModelLanac, Cvor: nazivCvora}
+		// Izdanje putuje razmjenom: ostali čvorovi ga upišu u svoju bazu
+		// prognoza, a namješteni model ide uz njega kad se promijeni.
+		objaviIzdanje := func(ctx context.Context, ishod *prognoza.Ishod) {
+			if err := objaviPrognozu(ctx, database, recorder, pb, ishod, nazivCvora); err != nil {
+				log.Printf("prognoza: slanje razmjenom: %v", err)
+			}
+		}
+		// Čvor od prije uloga zadrži što je radio: ako je zadnjih tjedan dana
+		// izdavao prognozu, i dalje preuzima i izdaje. Novi čvor ne radi ni
+		// jedno dok mu se uloga ne uključi u Postavkama.
+		if !ulogePostavljene && ulogeErr == nil {
+			var zadnje sql.NullInt64
+			_ = pb.QueryRow(`SELECT max(nastalo) FROM izdanja WHERE knjiga = ''`).Scan(&zadnje)
+			radio := zadnje.Valid && time.Since(time.Unix(zadnje.Int64, 0)) < 7*24*time.Hour
+			if err := peersService.PostaviUloge(context.Background(), peers.Uloge{Preuzima: radio, Izdaje: radio}); err != nil {
+				log.Printf("Uloge čvora nisu zapisane: %v", err)
+			}
+		}
+		primateljPrognoze.postavi(pb, recorder, func() bool { return peersService.TrenutneUloge().Izdaje })
+		peersService.NaPromjenuUloga(func(u peers.Uloge) {
+			if !u.Izdaje {
+				primateljPrognoze.nadoknadi()
+			}
+		})
+		go prorjedjujIzdanja(syncCtx, recorder)
 		// Pričuvni Excel: veze naših letvi s mađarskim i srpskim iz arhive, uz
 		// predupis zadnjih tuđih prognoza — za dan kad naša prognoza ne radi.
 		server.SetPricuvno(func(ctx context.Context) prognoza.PricuvniPodaci {
@@ -738,7 +780,13 @@ func main() {
 			if err != nil {
 				return nil, nil, err
 			}
-			oborine, err := prognoza.OborineOkoSada(ob, time.Now().Unix()/3600, 3, 2)
+			var oborine map[string]prognoza.DnevniNiz
+			if peersService.TrenutneUloge().Izdaje {
+				oborine, err = prognoza.OborineOkoSada(ob, time.Now().Unix()/3600, 3, 2)
+			} else {
+				// Kišu preuzima čvor koji izdaje prognozu; stiže s izdanjem.
+				oborine, _, err = prognoza.ZadnjaKisa(pb)
+			}
 			if err != nil {
 				return nil, nil, err
 			}
@@ -789,6 +837,12 @@ func main() {
 			}
 		}
 		javniUvoznik.NakonPreuzimanja = func(ctx context.Context) {
+			if !peersService.TrenutneUloge().Izdaje {
+				// Tuđe prognoze, kišu i izračun radi čvor koji izdaje
+				// prognozu; njegovo izdanje stiže razmjenom.
+				javniUvoznik.Redak("prognozu izdaje drugi čvor; izdanje stiže razmjenom")
+				return
+			}
 			// Mađarska prognoza izlazi jednom dnevno, ali ne uvijek u isti
 			// sat; čita se svaki krug, a zapisuje samo novo. Treba je i za
 			// usporedbu i kao ulaz tamo gdje nam lanac nema ništa uzvodno.
@@ -913,6 +967,7 @@ func main() {
 				javniUvoznik.Redak("prognoza: zapis: %v", err)
 				return
 			}
+			objaviIzdanje(ctx, ishod)
 			log.Printf("prognoza: izdana za %s UTC (%.0f h unatrag), %d letvi, %d vrijednosti",
 				time.Unix(ishod.Sada*3600, 0).UTC().Format("2006-01-02 15:04"),
 				ishod.Zaostatak(time.Now()).Hours(), ishod.Letvi(), len(ishod.Izdane))
@@ -927,6 +982,9 @@ func main() {
 		// prognozu novim modelom. Ako satni krug upravo traje, novo izdanje
 		// pričeka idući sat — dva izdavanja istog sata ne idu jedno preko drugog.
 		server.SetPripremaModela(func(ctx context.Context, p *poslovi.Posao) error {
+			if !peersService.TrenutneUloge().Izdaje {
+				return fmt.Errorf("model priprema čvor koji izdaje prognozu (Postavke → Čvor); ovaj ga prima razmjenom")
+			}
 			n, err := prognoza.NamjestiLanac(arhivaRO, pb, prognoza.OpcijeNamjestanja{Dnevnik: p, Korak: p.Korak})
 			if err != nil {
 				return err
@@ -950,6 +1008,7 @@ func main() {
 				if err := iznova.Zapisi(ishod); err != nil {
 					return fmt.Errorf("model je spremljen, ali zapis prognoze nije uspio: %w", err)
 				}
+				objaviIzdanje(ctx, ishod)
 				izdano = "prognoza je izdana novim modelom za " +
 					time.Unix(ishod.Sada*3600, 0).In(models.Zagreb).Format("2.1. u 15:04")
 			}
@@ -999,6 +1058,9 @@ func main() {
 	})
 	server.SetJavniUvoz(javniUvoznik)
 	server.SetHidroViewKljuc(hidroviewKljuc)
+	u := peersService.TrenutneUloge()
+	log.Printf("Uloge čvora: vodostaje s izvora %s, prognozu %s", map[bool]string{true: "preuzima", false: "ne preuzima (stižu razmjenom)"}[u.Preuzima],
+		map[bool]string{true: "izdaje", false: "ne izdaje (stiže razmjenom)"}[u.Izdaje])
 	go javniUvoznik.Pokreni(syncCtx)
 	log.Printf("Čvor %s (ključ %.12s…) — razmjena :%d, uparivanje :%d, pronalaženje :%d",
 		node.ID, node.PublicKey(), *syncPort, *pairPort, *discoveryPort)

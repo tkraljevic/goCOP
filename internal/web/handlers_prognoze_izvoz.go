@@ -199,6 +199,7 @@ func listPrognoze(k *xlsxw.Knjiga, z ZaglavljeIzvoza, data PrognozePageData, t T
 			}
 			return T("satni", xlsxw.TablicaSredina)
 		})
+		l.SakrijRedak(l.Redak() - 1) // tko želi vidjeti model, otkrije ga
 		for _, iz := range tudiIzvori {
 			tuda := func(x LetvaPrognoze) *TudaCelija {
 				for _, tc := range dan(x).Tude {
@@ -226,7 +227,7 @@ func listPrognoze(k *xlsxw.Knjiga, z ZaglavljeIzvoza, data PrognozePageData, t T
 		izdaje = z.Centar
 	}
 	napomena := "Prognoza " + izdaje + ". " +
-		"Metoda: prvih dana (redak „model”: satni) hidrološki lanac vodomjernih postaja — vodostaj, odnosno protok " +
+		"Metoda: prvih dana (skriveni redak „model”: satni) hidrološki lanac vodomjernih postaja — vodostaj, odnosno protok " +
 		"nizvodne postaje izvodi se iz uzvodnih, uz izmjereno vrijeme propagacije vala i po dijelovima linearnu vezu " +
 		"ovisnu o vodnosti, ispravljeno prema zadnjem mjerenju; dalje (dnevni) statistički model na dnevnim vodostajima " +
 		"od 1901. — višestruka regresija i metoda analognih situacija. Vodostaj i protok međusobno su preračunati " +
@@ -458,7 +459,7 @@ func listMetode(k *xlsxw.Knjiga, z ZaglavljeIzvoza, m PrognozeMetodaData) {
 		"voda gdje nije ista kao naslov lista i riječni kilometar.")
 	tekst(fmt.Sprintf("Redak „Sada” je zadnje mjerenje; +6 h i +12 h računaju se od izdanja, a dani vrijede za 07 h. "+
 		"Vodostaj je u cm na nuli letve, protok (kurzivom) u m³/s iz krivulje protoka. Raspon uz vrijednost obuhvaća "+
-		"%d %% slučajeva. Redak „model” kaže je li dan dao satni lanac ili dnevni model. HU i RS su prognoze mađarske "+
+		"%d %% slučajeva. Skriveni redak „model” (otkriva se gumbom „+” uz rub) kaže je li dan dao satni lanac ili dnevni model. HU i RS su prognoze mađarske "+
 		"i srpske službe za isti termin, radi usporedbe; srpske letve nose samo svoje mjerenje i srpsku prognozu.", int(math.Round(prognoza.UdioURasponu*100))))
 	tekst("List „Grafovi”: zadnja tri dana izmjereno i šest dana prognoze s rasponom. P, R i I su pragovi pripremne, " +
 		"redovne i izvanredne obrane, IS izvanredno stanje, MAX najviši izmjereni vodostaj; u naslovu grafa stoje " +
