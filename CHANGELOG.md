@@ -4,6 +4,13 @@ Verzije prate shemu iz README-a: alfa `0.0.x` (oznaka `v0.0.1-alfa`), beta
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.6-alfa — 1. 10. 2026.
+
+**Vukovar sa svojim protokom** — iz HIS-2000 uvezeni su protoci Vukovara
+2001.–2025. (satni i, prvi put, dnevni; dotad satni samo do 2018.) i krivulja
+2025.–2026. od −100 cm (dotad −80), pa sažetak više ne uzima protok Iloka;
+godišnji protoci Vukovara imaju i 2019.–2025. Izdan je `vukovar_v6.cop`.
+
 ## 0.0.5-alfa — 1. 10. 2026.
 
 **Čitljivost izvoza** — usporedba s mađarskom prognozom na sažetku dobiva

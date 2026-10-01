@@ -28,12 +28,11 @@ var sazetakSkupine = []struct {
 	{"Mura", []string{"mursko-sredisce", "gorican"}},
 }
 
-// protokPrema su postaje kojima se u sažetku protok uzima sa susjedne:
-// Vukovar nema mjerenih protoka od 2019. (HIS-2000 do kraja 2018.), a između
-// Vukovara i Iloka nema većeg pritoka, pa je protok gotovo isti (1. 10.
-// 2026. po krivuljama 851 i 873 m³/s). Iločka krivulja seže i niže, pa
-// protoka ima i kad Vukovar padne ispod raspona svoje.
-var protokPrema = map[string]string{"vukovar": "ilok"}
+// protokPrema su postaje kojima se u sažetku protok uzima sa susjedne, kad
+// svoje krivulje ili niza nemaju (zapis „vukovar": „ilok" — između njih nema
+// većeg pritoka). Zasad prazno: Vukovar je 1. 10. 2026. iz HIS-2000 dobio
+// protoke 2001.–2025. i krivulju od −100 cm, pa ima svoj protok.
+var protokPrema = map[string]string{}
 
 // postajaSazetka je jedna postaja s brojkama koje sažetak treba
 type postajaSazetka struct {
