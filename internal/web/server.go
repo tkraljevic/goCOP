@@ -901,6 +901,7 @@ func (s *Server) setupRoutes() {
 		return s.akti.SpremiOpcije(ctx, p, o)
 	})
 	prognozeH.SetReadings(s.readingService)
+	prognozeH.kisa = func() KisaSlivovaFunc { return s.kisaSlivova }
 	prognozeH.SetWatercourses(s.watercourseService)
 	prognozeH.SetArhiva(s.Arhiva)
 	readingsH.SetKrajnosti(prognozeH.KrajnostiLetve)

@@ -35,6 +35,7 @@ var DoseziPregleda = []int{6, 12, 24, 48, 72}
 var BliziDosezi = []int{6, 12}
 
 type PrognozeHandler struct {
+	kisa     func() KisaSlivovaFunc // kiša po slivovima, za sažetak izvoza; nil kad je nema
 	tmpl     *template.Template
 	citac    func() *CitacPrognoza
 	stations *service.StationService
@@ -130,6 +131,8 @@ type LetvaPrognoze struct {
 	Rezerva         string // poruka kad se letva računa iz rezervnih ulaza
 	Preneseno       string // srpska letva: odakle je prognoza prenesena i koliko odnos drži
 	Pragovi         []PragKartice
+	// Najniži i najviši zabilježeni vodostaj kao brojevi, za sažetak izvoza
+	KrajMin, KrajMax *Krajnost
 }
 
 // opisPrenesenog piše za karticu odakle je srpskoj letvi prenesena prognoza:
@@ -634,6 +637,11 @@ func (h *PrognozeHandler) opisiLetve(popis map[string]models.Station, letve []Pr
 					mn, mx = uzEvidenciju(context.Background(), h.readings, st, k[0], k[1])
 				}
 				red.Pragovi = pragoviKartice(st, mn, mx)
+				// Za sažetak samo kad je arhiva već pročitana: sama evidencija
+				// počinje 2026. i najniže bi u njoj bilo samo ovogodišnje.
+				if k := krajnosti[l.Letva]; k[0] != nil || k[1] != nil {
+					red.KrajMin, red.KrajMax = mn, mx
+				}
 			}
 		}
 		for _, d := range BliziDosezi {

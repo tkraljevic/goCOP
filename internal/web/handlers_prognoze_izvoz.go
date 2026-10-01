@@ -22,6 +22,14 @@ import (
 
 // IzvoziPrognoze šalje zadnje izdanje prognoze kao .xlsx.
 func (h *PrognozeHandler) IzvoziPrognoze(w http.ResponseWriter, r *http.Request) {
+	// Sažetak piše o najnižem i najvišem zabilježenom vodostaju, pa krajnosti
+	// iz arhive moraju biti izračunate prije nego se podaci slože; stranica ih
+	// računa u pozadini, a izvoz smije pričekati koju sekundu.
+	var zaSazetak []string
+	for _, g := range sazetakSkupine {
+		zaSazetak = append(zaSazetak, g.Letve...)
+	}
+	h.godisnje(r.Context(), zaSazetak)
 	data := h.podaci(r, h.nacini(r.Context()).PrognozaExcel, h.nacini(r.Context()).PrognozaGraf)
 	if data.Nema {
 		http.Error(w, data.Razlog, http.StatusNotFound)
@@ -29,6 +37,7 @@ func (h *PrognozeHandler) IzvoziPrognoze(w http.ResponseWriter, r *http.Request)
 	}
 	z := h.zaglavljeIzvoza(data.CurrentUser)
 	k := &xlsxw.Knjiga{LogoPNG: z.LogoPNG}
+	h.listSazetka(r.Context(), k, z, data)
 	for _, t := range data.Tablice {
 		listPrognoze(k, z, data, t)
 	}
@@ -440,7 +449,7 @@ func listMetode(k *xlsxw.Knjiga, z ZaglavljeIzvoza, m PrognozeMetodaData) {
 		l.Spoji(0, r, stupaca-1, r)
 		l.Visina(r, visina)
 	}
-	tekst := func(t string) { preko(T(t, xlsxw.Tekst), visinaTeksta(t, int(sirina*1.35), 15, 0)) }
+	tekst := func(t string) { preko(T(t, xlsxw.Tekst), visinaTeksta(t, int(sirina*1.1), 15, 0)) }
 	// Uz izdanu tablicu ide sažetak: kako je čitati, metoda ukratko, raspon,
 	// točnost, ograničenja i izvori. Potpun opis (građa lanca, dnevni model,
 	// provjere, promjene) ostaje na stranici „O prognozi" u aplikaciji.
@@ -467,7 +476,7 @@ func listMetode(k *xlsxw.Knjiga, z ZaglavljeIzvoza, m PrognozeMetodaData) {
 				preko(T(od.Tekst, xlsxw.Formula), 20)
 			case od.Tablica != nil:
 				if od.Tablica.Naslov != "" {
-					preko(T(od.Tablica.Naslov, xlsxw.Tekst), 16)
+					preko(T(od.Tablica.Naslov, xlsxw.Tekst), visinaTeksta(od.Tablica.Naslov, int(sirina*1.1), 16, 0))
 				}
 				redak := func(polja []string, stil int) {
 					red := make([]xlsxw.Celija, stupaca)
@@ -481,20 +490,25 @@ func listMetode(k *xlsxw.Knjiga, z ZaglavljeIzvoza, m PrognozeMetodaData) {
 							red[stupaca-1] = T(strings.TrimSpace(red[stupaca-1].Tekst+" "+c), stil)
 						}
 					}
+					// visina prema najduljem tekstu u retku, ćelija po ćelija
+					visina := 16.0
+					for i, c := range red {
+						visina = max(visina, visinaTeksta(c.Tekst, max(1, int(l.Sirine[i]*1.1)), 16, 0))
+					}
 					r := l.Redak()
 					l.Dodaj(red...)
-					l.Visina(r, 16)
+					l.Visina(r, visina)
 				}
 				redak(od.Tablica.Stupci, xlsxw.Zaglavlje)
 				for _, r := range od.Tablica.Redci {
-					redak(r, xlsxw.Tablica)
+					redak(r, xlsxw.TablicaTekst)
 				}
 			case len(od.Popis) > 0:
 				for _, st := range od.Popis {
-					preko(T("• "+st, xlsxw.Tekst), visinaTeksta(st, int(sirina*1.35), 15, 0))
+					preko(T("• "+st, xlsxw.Tekst), visinaTeksta("• "+st, int(sirina*1.1), 15, 0))
 				}
 			default:
-				preko(T(od.Tekst, xlsxw.Tekst), visinaTeksta(od.Tekst, int(sirina*1.35), 15, 0))
+				preko(T(od.Tekst, xlsxw.Tekst), visinaTeksta(od.Tekst, int(sirina*1.1), 15, 0))
 			}
 		}
 	}
@@ -506,7 +520,7 @@ func listMetode(k *xlsxw.Knjiga, z ZaglavljeIzvoza, m PrognozeMetodaData) {
 			"ništa ne mijenja. U provjeri vrh lanca ne slijedi mađarsku prognozu i nema ispravka pomaka. Dunavske valove "+
 			"do 2013. model precjenjuje desetak centimetara jer uči na koritu kakvo je od 2014.: Baja je 2002.–2004. "+
 			"prema Paksu stajala 20–30 cm niže nego danas.", v.Valova)
-		preko(T(uvod, xlsxw.Tekst), visinaTeksta(uvod, int(sirina*1.35), 15, 0))
+		preko(T(uvod, xlsxw.Tekst), visinaTeksta(uvod, int(sirina*1.1), 15, 0))
 		r := l.Redak()
 		l.Dodaj(T("Rijeka · model", xlsxw.Zaglavlje), T("Valova", xlsxw.Zaglavlje), T("Doseg", xlsxw.Zaglavlje),
 			T("Pogreška vrha (cm)", xlsxw.Zaglavlje), T("Pristranost (cm)", xlsxw.Zaglavlje), T("Postojanost (cm)", xlsxw.Zaglavlje))
@@ -548,7 +562,7 @@ func listMetode(k *xlsxw.Knjiga, z ZaglavljeIzvoza, m PrognozeMetodaData) {
 	uvod := "Kod satnog lanca uz ulaz stoji veličina, kašnjenje (raspon po pojasima vodnosti kod glavnog " +
 		"ulaza) i prozor glačanja; R je koeficijent korelacije računa s mjerenjima, a raspon polovina širine " +
 		"raspona na " + strings.Join(dosezi, " / ") + " h. Postaje bez satnog lanca imaju samo dnevni model."
-	preko(T(uvod, xlsxw.Tekst), visinaTeksta(uvod, int(sirina*1.35), 15, 0))
+	preko(T(uvod, xlsxw.Tekst), visinaTeksta(uvod, int(sirina*1.1), 15, 0))
 	r := l.Redak()
 	l.Dodaj(T("Postaja", xlsxw.Zaglavlje), T("Satni lanac — ulazi", xlsxw.Zaglavlje), T("R", xlsxw.Zaglavlje),
 		T("Raspon", xlsxw.Zaglavlje), T("Dnevni model — ulazi", xlsxw.Zaglavlje), T("Dnevni od", xlsxw.Zaglavlje))
@@ -569,11 +583,17 @@ func listMetode(k *xlsxw.Knjiga, z ZaglavljeIzvoza, m PrognozeMetodaData) {
 		}
 		satni := strings.Join(x.Satni, "\n")
 		dnevni := strings.Join(x.Dnevni, ", ")
-		redaka := max(2, len(x.Satni), len([]rune(dnevni))/int(l.Sirine[4])+1)
+		celije := []string{postaja, crtica(satni), crtica(x.Slaganje), crtica(x.Raspon), crtica(dnevni), crtica(x.DnevniOd)}
+		visina := 2*13.5 + 5
+		for i, c := range celije {
+			visina = max(visina, visinaTeksta(c, max(1, int(l.Sirine[i]*1.1)), 0, 0))
+		}
 		r := l.Redak()
-		l.Dodaj(T(postaja, xlsxw.TablicaTekst), T(crtica(satni), xlsxw.TablicaTekst),
-			T(crtica(x.Slaganje), xlsxw.TablicaTekst), T(crtica(x.Raspon), xlsxw.TablicaTekst),
-			T(crtica(dnevni), xlsxw.TablicaTekst), T(crtica(x.DnevniOd), xlsxw.TablicaTekst))
-		l.Visina(r, float64(redaka)*13.5+5)
+		red := make([]xlsxw.Celija, len(celije))
+		for i, c := range celije {
+			red[i] = T(c, xlsxw.TablicaTekst)
+		}
+		l.Dodaj(red...)
+		l.Visina(r, visina)
 	}
 }

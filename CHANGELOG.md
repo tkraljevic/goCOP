@@ -4,6 +4,28 @@ Verzije prate shemu iz README-a: alfa `0.0.x` (oznaka `v0.0.1-alfa`), beta
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.4-alfa — 1. 10. 2026.
+
+**Sažetak prognoze u Excelu** — novi prvi list „Sažetak” za čitatelje kojima je
+puni izvoz previše, A4 položeno: rečenice „Ukratko” koje program sam slaže iz
+brojki (rijeka pada, raste ili je stabilna, najveća promjena s protokom, mogući
+novi najniži ili najviši zabilježeni vodostaj, pragovi obrane, kiša po
+slivovima, razlike prema mađarskoj prognozi od 10 cm naviše), tablica naših
+postaja s vodostajem i protokom za sada, sutra, za 3 dana i zadnji dan
+prognoze, kretanjem, stanjem obrane i napomenom, te usporedba s mađarskom
+prognozom. Protok Vukovara u sažetku je protok Iloka (mjerenih protoka
+Vukovara nema od 2019.), označen kurzivom. Najniži i najviši zabilježeni
+vodostaj čitaju se iz arhive prije sažetka, da odmah nakon pokretanja ne
+stoje samo ovogodišnji.
+
+**Prelamanje teksta i visina redaka u izvozu** — podnaslov svakog lista,
+odlomci i tablice lista „O prognozi” te napomene uz godišnje vodostaje i
+protoke dobivaju visinu prema duljini teksta (Excel spojenim ćelijama visinu
+ne prilagodi sam), pa se tekst ne reže.
+
+**Protok dnevnog modela** — ostaje i kad granica raspona ispadne iz krivulje
+protoka (Vukovar 5. i 6. dan).
+
 ## 0.0.3-alfa — 1. 10. 2026.
 
 **Ispravak brojki na naslovnoj (Podaci u sustavu)** — pravi kišomjeri broje se

@@ -232,9 +232,18 @@ func zaglavljeLista(l *xlsxw.List, z ZaglavljeIzvoza, naslov, podnaslov string, 
 	if podnaslov != "" {
 		r = l.Redak()
 		red = make([]xlsxw.Celija, stupaca)
-		red[0] = xlsxw.T(podnaslov, xlsxw.Obican)
+		red[0] = xlsxw.T(podnaslov, xlsxw.Tekst)
 		l.Dodaj(red...)
 		l.Spoji(0, r, stupaca-1, r)
+		// Excel spojenim ćelijama visinu ne prilagodi sam: dug podnaslov
+		// (tumač boja na godišnjim vodostajima) prelama se u više redaka.
+		var sirina float64
+		for i := 0; i < stupaca && i < len(l.Sirine); i++ {
+			sirina += l.Sirine[i]
+		}
+		if sirina > 0 {
+			l.Visina(r, visinaTeksta(podnaslov, int(sirina*1.1), 15, 0))
+		}
 	}
 	l.Dodaj()
 	l.Visina(l.Redak()-1, 8)

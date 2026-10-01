@@ -665,11 +665,18 @@ func (o *Osvjezivac) dnevno(ctx context.Context, sada int64, od time.Time) ([]Dn
 					continue
 				}
 				q, _, ok := pretvori(k, "protok", d[i].Vrijednost)
+				if !ok {
+					continue
+				}
+				// Granica raspona koja ispadne iz krivulje ne briše protok:
+				// uzima se jednaka vrijednosti, kao u satnoj prognozi. Vukovar
+				// 1. 10. 2026. — vodostaj −88 u krivulji, donja granica −105 ne.
 				qd, _, okD := pretvori(k, "protok", d[i].Dolje)
 				qg, _, okG := pretvori(k, "protok", d[i].Gore)
-				if ok && okD && okG {
-					d[i].Q, d[i].QDolje, d[i].QGore, d[i].ImaQ = q, qd, qg, true
+				if !okD || !okG {
+					qd, qg = q, q
 				}
+				d[i].Q, d[i].QDolje, d[i].QGore, d[i].ImaQ = q, qd, qg, true
 			}
 		}
 		out = append(out, d...)
