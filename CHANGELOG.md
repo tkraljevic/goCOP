@@ -4,6 +4,18 @@ Verzije prate shemu iz README-a: alfa `0.0.x` (oznaka `v0.0.1-alfa`), beta
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.10-alfa — 2. 10. 2026.
+
+**Kiša se ne ulaže bez stabla izvornih datoteka** — čvor koji izdaje prognozu
+jednom dnevno ulaže izmjerenu kišu u arhivu i letvu iznova gradi iz stabla.
+Čvor koji je arhivu dobio paketima stabla nema, pa bi gradnja meteorološkim
+postajama povijest svela na zadnja četiri dana. Bez stabla se ulaganje sad
+preskače i javlja u ispisu kruga.
+
+**Telemetrija jasnije** — računi nose naziv sustava i adresu (Geolux HydroView,
+hdv.voda.hr; mobilna stranica Hrvatskih voda, mletva.voda.hr), a stranica kaže
+treba li ih ovaj čvor: računi trebaju samo čvoru koji preuzima vodostaje.
+
 ## 0.0.9-alfa — 2. 10. 2026.
 
 Popravci koje je pokazao prvi stalni čvor (Unraid) pri prvoj razmjeni.

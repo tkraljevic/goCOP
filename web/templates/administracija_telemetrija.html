@@ -8,18 +8,27 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">{{icon "activity"}} Telemetrija letava</h1>
-    <p class="page-desc">Letve koje nemaju javnu stranicu vodostaja ipak javljaju — na
-      <a href="{{.Adresa}}" target="_blank" rel="noopener">{{.Adresa}}</a>, gdje Hrvatske vode drže svoje
-      radarske i tlačne postaje. Račun se upisuje ovdje jednom i vrijedi za sve takve letve; letva samo
-      uključi preuzimanje u svojoj kartici. Račun ostaje na ovom čvoru.</p>
+    <p class="page-desc">Računi sustava iz kojih se čitaju letve bez javne stranice vodostaja. Upisuju se
+      jednom po čvoru i vrijede za sve takve letve; letva samo uključi preuzimanje u svojoj kartici.
+      Lozinke ostaju zaključane ključem ovog čvora i ne putuju razmjenom.</p>
   </div>
 </div>
+
+{{if .Preuzima}}
+<p class="form-help">Ovaj čvor preuzima vodostaje s izvora (<a href="/settings">Postavke čvora → Uloge</a>), pa ovi računi trebaju ovdje.</p>
+{{else}}
+<div class="alert alert-warning">Ovaj čvor <strong>ne preuzima</strong> vodostaje s izvora: očitanja mu stižu razmjenom od čvora
+  koji ih preuzima, pa mu ovi računi ne trebaju. Upišite ih na čvoru s ulogom „Preuzima vodostaje s izvora”
+  (<a href="/settings">Postavke čvora → Uloge</a>), ili ovdje kad ovaj čvor preuzme tu ulogu.</div>
+{{end}}
 
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
 
 <section class="detail-section" style="max-width:40rem;">
-  <h2 class="detail-section-title">Račun za preuzimanje</h2>
+  <h2 class="detail-section-title">Geolux HydroView — <a href="{{.Adresa}}" target="_blank" rel="noopener">{{.Adresa}}</a></h2>
+  <p class="form-help" style="margin-top:0;">Radarske i tlačne letve Hrvatskih voda na Geoluxovom sustavu HydroView.
+    Račun daje Geolux, odnosno Hrvatske vode za taj sustav; nije račun domene.</p>
   <form method="post" action="/administracija/telemetrija">
     <div class="form-row">
       <div class="form-group">
@@ -50,7 +59,7 @@
 </section>
 
 <section class="detail-section" style="max-width:40rem;">
-  <h2 class="detail-section-title">Mobilna stranica Hrvatskih voda</h2>
+  <h2 class="detail-section-title">Mobilna stranica Hrvatskih voda — <a href="{{.MLetva}}" target="_blank" rel="noopener">{{.MLetva}}</a></h2>
   <p class="form-help" style="margin-top:0;">Na <a href="{{.MLetva}}" target="_blank" rel="noopener">{{.MLetva}}</a>
     su uz javne i postaje koje javnost ne vidi: istjecanje i preljev hidroelektrana na Dravi, gornja voda
     i rep akumulacija. Prijava je računom domene, istim kao za e-poštu.</p>

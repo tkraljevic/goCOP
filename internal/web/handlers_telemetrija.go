@@ -32,6 +32,9 @@ type TelemetrijaHandler struct {
 	postaje    *service.StationService
 	tmpl       *template.Template
 	zapisnik   func(string, ...any)
+	// preuzima javlja ima li ovaj čvor ulogu preuzimanja vodostaja: računi
+	// trebaju samo ondje
+	preuzima func() bool
 }
 
 // NewTelemetrijaHandler sastavlja stranicu.
@@ -61,6 +64,7 @@ type TelemetrijaPageData struct {
 	MLetva         string // adresa sustava
 	MLetvaKorisnik string
 	MLetvaUpisano  time.Time
+	Preuzima       bool // čvor preuzima vodostaje s izvora (uloga čvora)
 	SuccessMessage string
 	ErrorMessage   string
 	ViewAsBanner
@@ -77,6 +81,7 @@ func (h *TelemetrijaHandler) Prikazi(w http.ResponseWriter, r *http.Request) {
 		ActiveNav:    "admin",
 		Adresa:       hidroview.ZadanaAdresa,
 		ViewAsBanner: viewBanner(r),
+		Preuzima:     h.preuzima == nil || h.preuzima(),
 	}
 	data.SuccessMessage = r.URL.Query().Get("success")
 	data.ErrorMessage = r.URL.Query().Get("error")

@@ -1340,6 +1340,7 @@ func (s *Server) setupRoutes() {
 		}
 		return repository.NewHidroViewRepository(s.db)
 	}, func() []byte { return s.hidroviewKljuc }, s.stationService, s.templates["administracija_telemetrija.html"])
+	telemetrijaH.preuzima = func() bool { return s.peersService == nil || s.peersService.TrenutneUloge().Preuzima }
 	s.mux.Handle("GET /administracija/telemetrija", s.authMiddleware(http.HandlerFunc(telemetrijaH.Prikazi)))
 	telemetrijaH.sustavi = func() *repository.RacuniSustavaRepository {
 		if s.db == nil {

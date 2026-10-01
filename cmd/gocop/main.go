@@ -43,7 +43,7 @@ import (
 
 // verzijaPrograma je izdanje goCOP-a. Alfa traje dok se ne zaokruže
 // funkcionalnosti koje program treba imati; mijenja se pri izdavanju.
-const verzijaPrograma = "0.0.9-alfa"
+const verzijaPrograma = "0.0.10-alfa"
 
 // version se može zadati pri prevođenju (-ldflags "-X main.version=…");
 // prazno znači verzijaPrograma, s oznakom commita iz kojega je prevedeno.
@@ -918,6 +918,12 @@ func main() {
 				// Jednom dnevno, nakon ponoći, završeni dani idu u arhivu:
 				// zadnja četiri dana, da krug koji je ispao ne ostavi rupu.
 				sada := time.Now()
+				if dan := sada.In(kisomjeri.Zagreb).Format("2006-01-02"); dan != kisUlozeno && *podaciFlag != "" && !imaStablo(*podaciFlag) {
+					// Gradnja letvu slaže iz stabla, pa bi čvoru koji je arhivu
+					// dobio paketima povijest kišomjera svela na zadnje dane.
+					javniUvoznik.Redak("stvarni kišomjeri: na ovom čvoru nema stabla izvornih datoteka (%s), pa se ne ulažu u arhivu", *podaciFlag)
+					kisUlozeno = dan
+				}
 				if dan := sada.In(kisomjeri.Zagreb).Format("2006-01-02"); dan != kisUlozeno && *podaciFlag != "" {
 					if postaje, err := kisUvoznik.Postaje(); err == nil {
 						letve, err := kisomjeri.Ulozi(*podaciFlag, kisUvoznik.Spremiste, postaje, sada.Add(-96*time.Hour), sada)

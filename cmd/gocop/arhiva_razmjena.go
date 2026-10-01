@@ -256,3 +256,21 @@ func (r *razmjenaArhive) vrti(ctx context.Context) {
 		}
 	}
 }
+
+// imaStablo javlja drži li čvor stablo izvornih datoteka arhive: barem jednu
+// mapu sliva s letvama. Čvor koji je arhivu dobio paketima stablo nema.
+func imaStablo(koren string) bool {
+	slivovi, err := os.ReadDir(koren)
+	if err != nil {
+		return false
+	}
+	for _, s := range slivovi {
+		if !s.IsDir() {
+			continue
+		}
+		if letve, err := os.ReadDir(filepath.Join(koren, s.Name())); err == nil && len(letve) > 0 {
+			return true
+		}
+	}
+	return false
+}
