@@ -4,6 +4,13 @@ Verzije prate shemu iz README-a: alfa `0.0.x` (oznaka `v0.0.1-alfa`), beta
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.8-alfa — 2. 10. 2026.
+
+**Novi čvor s praznom bazom se pokreće** — jednokratni popravak registra
+(gradovi Ivanec i Vrbovec) padao je na praznoj bazi jer županija još nema dok
+registar ne stigne razmjenom, pa se novi čvor u spremniku nije dao pokrenuti.
+Sad se preskače; gradovi stižu razmjenom s čvora na kojem je popravak izveden.
+
 ## 0.0.7-alfa — 2. 10. 2026.
 
 **Uloge čvora** — u Postavkama čvora (Uloge ovog čvora) uključuje se preuzima

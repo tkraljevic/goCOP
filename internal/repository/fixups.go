@@ -71,6 +71,16 @@ var fixups = []fixup{
 		// Ivanec (Varaždinska županija) i Vrbovec (Zagrebačka županija) su nedostajali u registru
 		name: "gradovi-ivanec-vrbovec",
 		run: func(ctx context.Context, tx *sql.Tx, rec *ledger.Recorder) (int, error) {
+			// Novi čvor nema registar dok ga ne primi razmjenom, a s njim i
+			// oba grada (popravak je odavno izveden na čvoru od kojeg prima).
+			// Bez županija nema se kamo upisati.
+			var zupanija int
+			if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM counties WHERE id IN (1, 5)`).Scan(&zupanija); err != nil {
+				return 0, err
+			}
+			if zupanija < 2 {
+				return 0, nil
+			}
 			changed := 0
 			// Ivanec
 			var nIvanec int
