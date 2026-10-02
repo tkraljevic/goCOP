@@ -1448,6 +1448,13 @@ func migrateSchema(database *sql.DB) error {
 		{"kisomjeri", "izvor", "TEXT NOT NULL DEFAULT ''"},
 		{"kisomjeri", "izvor_sifra", "TEXT NOT NULL DEFAULT ''"},
 		{"kisomjeri", "korak", "TEXT NOT NULL DEFAULT ''"},
+		// Inačica programa na kojoj drugi čvor radi, kako ju je javio u
+		// razmjeni; prazno = stariji program koji je ne javlja
+		{"peer_sync", "program", "TEXT NOT NULL DEFAULT ''"},
+		{"peer_sync", "gradnja", "TEXT NOT NULL DEFAULT ''"},
+		// 1 kad je redak upisao program koji bilježi inačicu: tek tada
+		// prazna inačica znači da je drugi čvor ne javlja
+		{"peer_sync", "program_poznat", "INTEGER NOT NULL DEFAULT 0"},
 	}
 
 	// Vrijednosti koje su promijenile ime nakon što su upisane
@@ -1591,11 +1598,18 @@ func migrateSchema(database *sql.DB) error {
 	return rekeySeedIdentities(database)
 }
 
-// rekeySeedIdentities prevodi zapise seedane starim, nasumičnim UUID-ovima
+// rekeySeedIdentities prevodi postaje seedane starim, nasumičnim UUID-ovima
 // na determinističke — bez toga bi dva čvora imala istu postaju pod dva
 // identiteta i sinkronizacija bi pukla. Prekodiraju se i sve reference:
-// veze s dionicama, zaduženja, sesije i knjiga verzija (i sadržaj verzija,
-// koji identifikator nosi kao tekst).
+// veze s dionicama, očitanja, poddionice i knjiga verzija (i sadržaj
+// verzija, koji identifikator nosi kao tekst).
+//
+// Korisnici i zaduženja se više ne prekodiraju. Korisnik dobije stalni
+// identifikator već pri stvaranju, a zaduženje je nova činjenica i nosi
+// svoj. Prepisivanje sinkroniziranih verzija na mjestu davalo je istom
+// version_id različit sadržaj na različitim čvorovima, a brojanje
+// zaduženja po redoslijedu redaka srušilo je Unraid (2.10.2026.).
+// Preimenovani korisnik zadržava svoj identifikator.
 func rekeySeedIdentities(database *sql.DB) error {
 	type rename struct{ old, new string }
 
@@ -1613,24 +1627,6 @@ func rekeySeedIdentities(database *sql.DB) error {
 		}
 		if want := StableID("station", code).String(); want != id {
 			stations = append(stations, rename{id, want})
-		}
-	}
-	rows.Close()
-
-	// korisnici: identitet iz korisničkog imena
-	var users []rename
-	rows, err = database.Query(`SELECT id, username FROM users`)
-	if err != nil {
-		return err
-	}
-	for rows.Next() {
-		var id, username string
-		if err := rows.Scan(&id, &username); err != nil {
-			rows.Close()
-			return err
-		}
-		if want := StableID("user", username).String(); want != id {
-			users = append(users, rename{id, want})
 		}
 	}
 	rows.Close()
@@ -1708,79 +1704,12 @@ func rekeySeedIdentities(database *sql.DB) error {
 		}
 	}
 
-	for _, r := range users {
-		if err := replaceEverywhere(r.old, r.new,
-			`UPDATE users SET id = ? WHERE id = ?`,
-			`UPDATE duties SET user_id = ? WHERE user_id = ?`,
-			`UPDATE duties SET assigned_by = ? WHERE assigned_by = ?`,
-			`UPDATE sessions SET user_id = ? WHERE user_id = ?`,
-		); err != nil {
-			return err
-		}
-	}
-	// zaduženja: identitet iz korisničkog imena i rednog broja, kao u seedu.
-	// Zaduženje koje već nosi stalni identifikator svog korisnika (za bilo
-	// koji redni broj) ostaje kakvo jest: redoslijed redaka u bazi nije isti
-	// na svim čvorovima — razmjena ih upiše kako stignu — pa bi brojanje po
-	// redoslijedu na drugom čvoru zamijenilo dva zaduženja i palo na
-	// jedinstvenosti (Unraid, 2.10.2026). Stara nasumična dobiju prvi slobodan broj.
-	dutyRows, err := tx.Query(`
-		SELECT d.id, u.username FROM duties d JOIN users u ON u.id = d.user_id
-		ORDER BY u.username, d.rowid`)
-	if err != nil {
-		return err
-	}
-	type zaduzenje struct{ id, username string }
-	var sva []zaduzenje
-	poKorisniku := map[string]int{}
-	for dutyRows.Next() {
-		var z zaduzenje
-		if err := dutyRows.Scan(&z.id, &z.username); err != nil {
-			dutyRows.Close()
-			return err
-		}
-		sva = append(sva, z)
-		poKorisniku[z.username]++
-	}
-	dutyRows.Close()
-	stalni := func(username string, n int) string {
-		return StableID("duty", fmt.Sprintf("%s|%d", username, n)).String()
-	}
-	zauzeto := map[string]bool{}
-	ispravno := map[string]bool{}
-	for _, z := range sva {
-		for n := 0; n < poKorisniku[z.username]; n++ {
-			if stalni(z.username, n) == z.id {
-				ispravno[z.id], zauzeto[z.id] = true, true
-				break
-			}
-		}
-	}
-	var duties []rename
-	for _, z := range sva {
-		if ispravno[z.id] {
-			continue
-		}
-		for n := 0; ; n++ {
-			if want := stalni(z.username, n); !zauzeto[want] {
-				zauzeto[want] = true
-				duties = append(duties, rename{z.id, want})
-				break
-			}
-		}
-	}
-	for _, r := range duties {
-		if err := replaceEverywhere(r.old, r.new, `UPDATE duties SET id = ? WHERE id = ?`); err != nil {
-			return err
-		}
-	}
-
 	if err := tx.Commit(); err != nil {
 		return err
 	}
-	if len(stations)+len(users)+len(duties)+len(links) > 0 {
-		fmt.Printf("Identiteti prekodirani na determinističke: %d postaja, %d veza, %d korisnika, %d zaduženja\n",
-			len(stations), len(links), len(users), len(duties))
+	if len(stations)+len(links) > 0 {
+		fmt.Printf("Identiteti prekodirani na determinističke: %d postaja, %d veza\n",
+			len(stations), len(links))
 	}
 	return nil
 }

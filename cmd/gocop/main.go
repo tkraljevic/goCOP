@@ -6,6 +6,7 @@ import (
 
 	"context"
 	"database/sql"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -43,7 +44,7 @@ import (
 
 // verzijaPrograma je izdanje goCOP-a. Alfa traje dok se ne zaokruže
 // funkcionalnosti koje program treba imati; mijenja se pri izdavanju.
-const verzijaPrograma = "0.0.23-alfa"
+const verzijaPrograma = "0.0.24-alfa"
 
 // version se može zadati pri prevođenju (-ldflags "-X main.version=…");
 // prazno znači verzijaPrograma, s oznakom commita iz kojega je prevedeno.
@@ -239,6 +240,20 @@ func main() {
 	// 4. Inicijalizacija repozitorija i servisa
 	// Knjiga verzija: svaki upis ostavlja verziju u ime ovog čvora
 	recorder := ledger.New(database, *nodeID)
+	// Što ovaj program zna: verzija nepoznatog entiteta ili novije sheme se
+	// sprema i prenosi dalje, ali se javlja da treba ažurirati. Potvrdama
+	// članstva i paketima prognoze polja se ne prenose iz starih verzija
+	// (potpis pokriva samo ono što je potpisano, paket je neproziran).
+	ledger.PoznatiEntiteti(append(repository.PoznatiEntiteti(),
+		peers.EntityPeers, peers.EntityMemberships,
+		prognoza.EntitetIzdanja, prognoza.EntitetModela, EntitetArhive)...)
+	ledger.BezPrijenosaPolja(peers.EntityMemberships, prognoza.EntitetIzdanja, prognoza.EntitetModela)
+	recorder.NaNovost(func(n ledger.Novost) {
+		log.Printf("razmjena: %s — ažurirajte goCOP", n)
+	})
+	if err := recorder.UcitajNovosti(context.Background()); err != nil {
+		log.Printf("Knjiga verzija: pregled novijih zapisa nije uspio: %v", err)
+	}
 
 	// Koliko povijesti očitanja ovaj čvor prima razmjenom
 	followRepo := repository.NewFollowRepository(database)
@@ -274,6 +289,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("Kritična greška (mreža čvora): %v", err)
 	}
+	// izdanje putuje u razmjeni, da drugi čvorovi vide tko radi na starijem
+	peersService.PostaviProgram(verzijaPrograma, punaVerzija())
 	// Paketi se potpisuju ključem čvora. Nepotpisan paket je samo tvrdnja o
 	// tome tko ga je izdao — svaki koji danas izađe nepotpisan ostaje takav,
 	// jer se onaj koji je već otišao ne da naknadno potpisati.
@@ -335,12 +352,16 @@ func main() {
 	journalRepo := repository.NewJournalRepository(database, recorder)
 	journalService := service.NewJournalService(journalRepo, stationRepo, readingRepo)
 	obracunRepo := repository.NewObracunRepository(database, recorder)
-	if err := obracunRepo.Osiguraj(context.Background()); err != nil {
+	if err := obracunRepo.Osiguraj(context.Background()); errors.Is(err, ledger.ErrNovijaShema) {
+		log.Printf("Postavke obračuna sati nisu dopunjene: %v", err)
+	} else if err != nil {
 		log.Fatalf("postavke obračuna sati: %v", err)
 	}
 	obracunService := service.NewObracunService(obracunRepo)
 	mtsRepo := repository.NewMtsRepository(database, recorder)
-	if err := mtsRepo.OsigurajKatalog(context.Background()); err != nil {
+	if err := mtsRepo.OsigurajKatalog(context.Background()); errors.Is(err, ledger.ErrNovijaShema) {
+		log.Printf("Katalog sredstava za obranu nije dopunjen: %v", err)
+	} else if err != nil {
 		log.Fatalf("katalog sredstava za obranu: %v", err)
 	}
 	mtsService := service.NewMtsService(mtsRepo, sectionRepo, userRepo)

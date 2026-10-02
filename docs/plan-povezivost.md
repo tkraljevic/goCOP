@@ -1,5 +1,8 @@
 # Povezivost, otpornost i raspačavanje
 
+Stanje izvedbe usklađeno s 0.0.24-alfa (2. 10. 2026.). Arhitekturni ciljevi u
+nastavku nisu tvrdnja da su svi mehanizmi već ugrađeni.
+
 Zapis o tome zašto goCOP ide na mrežu ravnopravnih čvorova, što je krajnji
 cilj, i kojim redom se do njega ide. **Ne treba sve odjednom** — ali svaki
 korak mora biti upotrebljiv sam za sebe i nijedan ne smije zatvoriti put
@@ -82,12 +85,13 @@ Ovo nije početak iz prazna:
 | pronalaženje na LAN-u | radi (UDP broadcast) |
 | otisak niza za provjeru pri preuzimanju | radi (`nizovi.otisak`) |
 | rad bez interneta | radi |
-| dohvatljivost preko interneta | nema ugrađeno pronalaženje; radi preko unaprijed dohvatljive adrese ili vanjskog tunela |
-| selektivna replikacija | radi za očitanja, dnevnike i prijave po vrsti, sektoru ili branjenom području, godinama i razini sadržaja |
-| prijenos bez mreže | radi potpisanim `.cop` v3 paketima za očitanja, dnevnike i prijave; stari SQLite izvoz ostaje radi kompatibilnosti |
+| dohvatljivost preko interneta | izravna javna adresa (port razmjene, zadano 4710) ili HTTPS/WebSocket `/razmjena/tunel`, oboje s unutarnjim TLS-om i ključem čvora; javna adresa upiše se jednom, na bilo kojem čvoru (Domenski čvorovi), i putuje razmjenom; nema automatskog internetskog pronalaženja |
+| selektivna replikacija | radi za očitanja, dnevnike, prijave i vodočuvarski dnevnik po vrsti, sektoru ili branjenom području, godinama, razini sadržaja i roku držanja sadržaja |
+| prijenos bez mreže | radi potpisanim `.cop` v3 paketima za očitanja, dnevnike, prijave i vodočuvarski dnevnik; stari SQLite izvoz ostaje radi kompatibilnosti |
 | izravni prijenos datoteka i blobova među čvorovima | djelomično: sadržaj iz `sadrzaj.db` prenosi se po SHA-256 otisku u ograničenim porukama; nema nastavka po dijelovima ni dohvata na klik |
-| opseg kao granica replikacije | djelomično: očitanja, dnevnici i prijave imaju kanale i pretplate; zajednički registri dolaze svima |
-| izdanja hidrološke arhive | rade kao potpisani `.cop` paketi po letvi s lokalnim katalogom |
+| opseg kao granica replikacije | djelomično: očitanja, dnevnici, prijave i vodočuvarski dnevnik imaju kanale i pretplate; zajednički registri dolaze svima |
+| izdanja hidrološke arhive | potpisani `.cop` paketi po letvi; kazalo putuje knjigom verzija, paketi se dohvaćaju prema pretplati |
+| prognoze i kiša | izdanja i promjene modela putuju razmjenom; primatelj puni lokalne baze prognoza i oborina |
 | provenijencija i potpisi po zapisu | djelomično |
 
 ## Slojevi
@@ -105,6 +109,13 @@ kompromitira sve.
 
 Tracker nikad ne dobiva ključ mreže.
 
+Sada: privatni ključ mreže nastaje pri osnivanju mreže i ostaje na tom čvoru,
+u datoteci `network-key` uz bazu. Nije u bazi i ne putuje razmjenom. Nove
+članove prima samo čvor koji ga drži. Čvor uparen s njim dobiva javni ključ
+mreže i potvrdu članstva s rokom od godinu dana. Potvrda se provjerava pri
+svakoj razmjeni. Opoziv članstva („Opozovi članstvo") putuje razmjenom svim
+čvorovima.
+
 ### 2. Pronalaženje
 
 Na LAN-u mDNS ili postojeće pronalaženje. Za internet malen rendezvous
@@ -118,22 +129,24 @@ može putovati knjigom verzija, istim putem kao sve ostalo.
 
 ### 3. Povezivost — `PeerTransport`
 
-Sada **Tailscale**, jer već radi u poslovnoj mreži i rješava probijanje NAT-a,
-izravne veze, WireGuard šifriranje i relay.
-
-Ali aplikacijski sloj **ne smije biti vezan uz njega**. Definira se čisto
-sučelje `PeerTransport`, tako da se Tailscale kasnije može zamijeniti bez
-ijedne promjene u protokolu sinkronizacije. To je jedina stvar koja „Tailscale
-sada" čini sigurnim potezom.
+Sada je ugrađena izravna TLS veza i **HTTPS/WebSocket tunel**, primjerice iza
+Cloudflarea. Oba koriste isti unutarnji TLS i provjeru ključa čvora. Tunel
+prenosi šifrirane bajtove, nije izdavatelj identiteta niti zamjena za uparivanje.
+Tailscale nije ovisnost aplikacije; ostaje moguća vanjska mrežna alternativa.
+Opće sučelje `PeerTransport` ostaje arhitekturni prijedlog, ne uvjet sadašnje izvedbe.
 
 Napomena: **sam WireGuard ne rješava NAT** — on je tunel i traži poznatu
 dohvatljivu adresu. Ako se ide na otvoreno, to je **Headscale** (vlastiti
 poslužitelj za spajanje) i **tsnet** (Tailscale kao Go knjižnica u samom
 programu, pa korisnik ne instalira ništa).
 
-Buduća vlastita izvedba: QUIC, TLS 1.3, STUN/ICE, izravni IPv6 gdje ga ima.
+Buduća vlastita izvedba: QUIC, STUN/ICE, izravni IPv6 gdje ga ima. TLS 1.3
+je već u upotrebi: izravna veza i tunel traže najmanje tu inačicu.
 
-Redoslijed povezivanja:
+Sada čvor pokušava redom: adresu koju je upravo našao na LAN-u, zapamćene
+izravne adrese, pa adrese tunela (`https://`).
+
+Mogući budući redoslijed povezivanja (nije trenutačna implementacija):
 
 ```
 LAN izravno → IPv6 izravno → internet P2P → relay preko čvora → središnji relay
@@ -147,15 +160,25 @@ logičke verzije zapisa s čvorom podrijetla, vremenom, vrstom zahvata i kanalom
 Svaki čvor radi offline. Kad opet nađe druge, radi anti-entropy usklađivanje i
 dohvaća ono što mu nedostaje.
 
-Očitanja i dnevnici već su podijeljeni u kanale
-`vrsta/područje/godina`. Uredski čvor može pratiti sve, a laptop samo odabrani
-sektor ili branjeno područje i godine. Kad pretplata više ne pokriva kanal,
-korisnik ga može lokalno obrisati; zajednički ustroj, registri i djelatnici
-ostaju izvan tih ograda i dolaze svim čvorovima.
+Očitanja, dnevnici, prijave s terena i vodočuvarski dnevnik već su podijeljeni
+u kanale `vrsta/područje/godina`. Uredski čvor može pratiti sve, a laptop samo
+odabrani sektor ili branjeno područje i godine. Kad pretplata više ne pokriva
+kanal, korisnik ga može lokalno obrisati. Zajednički ustroj, registri i
+djelatnici ostaju izvan tih ograda i dolaze svim čvorovima.
 
-Za prijenos bez mreže odabrani se kanali mogu izvesti u zasebnu SQLite
-datoteku i uvesti na drugom čvoru. To je prijenos knjige verzija, ne kopiranje
-aktivne baze, pa uvoz prolazi istim pravilima kao mrežna razmjena.
+Za prijenos bez mreže odabrani se kanali izdaju kao potpisan `.cop` paket
+(Administracija → Održavanje baze → „Izdaj .cop") i ugrađuju na drugom čvoru
+(„Ugradnja paketa"). Stari SQLite izvoz („Stari oblik (.db)") ostaje radi
+kompatibilnosti. To je prijenos knjige verzija, ne kopiranje aktivne baze, pa
+ugradnja prolazi istim pravilima kao mrežna razmjena.
+
+**Sažimanje ne pomiče granicu razmjene.** Granica je najnovija verzija svakog
+autora u svakom kanalu. Automatsko prorjeđivanje izdanja prognoze (od
+0.0.7-alfa) i zamijenjenih verzija kazala arhive (od 0.0.21-alfa) tu verziju
+ne briše. Ručno sažimanje („Sažmi knjigu" u Održavanju baze) to pravilo
+poštuje od 0.0.24-alfa. Prije je tu
+verziju brisalo kad je isti zapis poslije izmijenio drugi čvor, pa su je drugi
+čvorovi slali natrag.
 
 Na desetke čvorova sadašnja izravna razmjena sa svim poznatim čvorovima neće
 biti dovoljna. Tada treba gossip s ograničenim brojem aktivnih susjeda:
@@ -163,6 +186,55 @@ biti dovoljna. Tada treba gossip s ograničenim brojem aktivnih susjeda:
 ```
 A → B, C        B → D, E        C → F, G
 ```
+
+#### Različite verzije programa na čvorovima
+
+Čvorovi se ne ažuriraju istodobno. Od 0.0.24-alfa (2. 10. 2026.) zato
+vrijede tri pravila:
+
+1. **Nepoznata polja se čuvaju.** Kad program izmijeni zapis, polja koja je
+   dodao noviji program prepišu se iz prethodne verzije i ne nestaju tiho.
+   Iznimka su potvrde članstva te izdanja i modeli prognoze: potpis ili paket
+   pokriva samo ono što je zapisano.
+2. **Shema je po entitetu.** Verzija nosi shemu svog entiteta (zadano 1).
+   Zapis koji je zadnji izmijenio program s novijom shemom stariji program
+   sprema, prenosi i prikazuje. Ne smije ga izmijeniti ni obrisati, nego
+   javlja da treba ažurirati goCOP.
+3. **Što program ne razumije, javlja.** Primljene zapise novije sheme i
+   entitete kojih nema u programu javi u ispisu programa i kao upozorenje na
+   pločici razmjene, uz poruku da treba ažurirati goCOP.
+
+Uz to razmjena nosi izdanje programa. Pločica razmjene i stranica
+Sinkronizacija pokazuju na kojem izdanju radi koji čvor i upozore kad se
+razlikuje. Čvor koji izdanje ne javlja radi na programu starijem od ove
+izmjene.
+
+Nijedan entitet zasad nema shemu veću od 1, pa drugo pravilo djeluje tek kad
+je neki budući program podigne. Prvo pravilo štiti samo među čvorovima koji
+imaju ovu izmjenu: 0.0.23-alfa i starije inačice pri izmjeni zapisa i dalje
+gube polja koja ne poznaju.
+
+Za buduće izmjene iz toga slijedi:
+
+- **Nova polja idu na vrh zapisa**, ne unutar ugniježđenih struktura. Program
+  nepoznata polja čuva samo na prvoj razini zapisa. Ugniježđenu strukturu
+  zapiše cijelu, onakvu kakvu poznaje, pa bi novo polje u njoj stariji program
+  obrisao.
+- **Shema se podiže samo kad se mijenja značenje polja** (`ledger.PostaviShemu`),
+  ne za novo polje. Polje koje se namjerno ukida navodi se u
+  `ledger.UmiroviPolja`, a novi entitet ulazi među poznate
+  (`repository.PoznatiEntiteti`).
+- **Popravci podataka čitaju knjigu i pišu samo promjenu.** Polaze od zadnje
+  verzije zapisa u knjizi, ne od površine, a novu verziju pišu samo kad se
+  nešto stvarno promijenilo. U tijelo ne ide ništa što ovisi o čvoru ili satu,
+  inače bi svaki čvor upisao svoju verziju istog ispravka.
+- **Nadogradnja ide redom: stalni čvor, odmah zatim ostali.** U međuvremenu se
+  ne mijenjaju djelatnici ni zaduženja. 0.0.23-alfa i starije inačice pri
+  pokretanju prekodiraju korisnike i zaduženja, a novije ih ne diraju, pa bi
+  isti zapis na dva čvora dobio različit identifikator.
+
+Razlozi su opisani u komentarima `internal/ledger/shema.go` i
+`internal/repository/fixups.go`.
 
 ### 5. Sukobi i provenijencija — kritični dio
 
@@ -174,6 +246,10 @@ primio, revizija, i po potrebi potpis.
 Ako dva izvora daju različitu vrijednost za isto mjerenje, **oba se čuvaju i
 sukob se označi**. Kod obrane od poplava tiho prepisan prag nije estetski nego
 operativni problem.
+
+Sada je to tek djelomično izvedeno. Kad dva čvora izmijene isti zapis, obje
+verzije ostaju u knjizi verzija. Na površini je novija (veći `version_id`), a
+sukob se nigdje ne označava.
 
 #### Stanje podatka, ne samo vrijednost
 
@@ -237,8 +313,13 @@ postavkama izvora. Paket nosi otisak sadržaja, otiske dijelova i Ed25519
 potpis. Primatelj ga provjeri, ugradi u svoju lokalnu arhivu i ponovno izgradi
 izvedeni spojeni niz.
 
-Lokalni `katalog.json` vodi zadnje izdanje svake letve, ali objava kataloga i
-automatsko dohvaćanje paketa još nisu dio mrežne razmjene.
+Lokalni `katalog.json` vodi zadnje izdanje svake letve. Od 0.0.7-alfa čvor
+koji izdaje arhivu zapisuje u knjigu verzija kazalo svakog paketa: letvu,
+izdanje, otisak, razdoblje i veličinu. Sam paket stavlja u spremište sadržaja.
+Kazalo drže svi čvorovi. Paket dohvaća čvor kojemu ga pokriva pretplata, od
+bilo kojeg čvora koji ga ima, i ugrađuje ga tek nakon provjere. Objavljuje se
+samo novije izdanje. Pojedinosti su u
+[plan-arhiva-i-zaborav.md](plan-arhiva-i-zaborav.md).
 
 ### 8. Prijenos blobova
 
@@ -280,6 +361,14 @@ Netko treći ništa osim prijenosnika.
 dostupan, što ima, kako se do njega dolazi — a ostali ga sami odaberu kad im
 odgovara. Time topologija prati stvarnost i preživljava promjenu opreme, a
 nitko ne mora održavati popis tko je „poslužitelj".
+
+Sadašnja izvedba od toga odstupa kod dviju uloga. Od 0.0.7-alfa one se
+uključuju ručno: Administracija → Čvor, mreža i sinkronizacija → Uloge ovog
+čvora, **Preuzima vodostaje s izvora** i **Izdaje prognozu**. Tako izvore ne
+pita svaki čvor, a za isti sat ne nastaju dvije različite prognoze. Uloge su
+lokalne i ne putuju razmjenom. Novi čvor nema nijednu dok se ne uključi. Ako
+čvor s ulogom ne radi, vodostaji s izvora i prognoza ne obnavljaju se dok
+netko ne uključi ulogu na drugom čvoru. Samo prebacivanje još ne postoji.
 
 ### Stalni čvor je poželjan put, nikad nužan
 
@@ -407,8 +496,12 @@ Tekst dnevnika je malen — oko 1000 upisa godišnje puta radovi A.02 i A.03 put
 34 branjena područja je oko 68.000 upisa. **Privitci uz te upise rastu bez
 granice**: deset fotografija po upisu je red veličine terabajta godišnje.
 
-Zatečeno stanje: `journal_entries` je prazan, model privitka **ne postoji**.
-Odluka se donosi prije nego išta postoji.
+Stanje od 20. 9. 2026.: za izvornike je odluka donesena. PDF-ovi, fotografije
+prijava i prilozi vodočuvarskog lista čuvaju se u spremištu `data/sadrzaj.db`
+kao nepromjenjivi objekti po SHA-256 otisku. Knjiga verzija nosi samo otisak,
+vrstu i veličinu, a bajtovi putuju zasebno, prema razini pretplate. Privitak
+uz upis u dnevnik još ne postoji. Pojedinosti su u
+[plan-sadrzaj-i-cop.md](plan-sadrzaj-i-cop.md).
 
 ## Šifriranje
 
@@ -453,7 +546,8 @@ Zato izvor može biti bilo što, i mijenja se bez selidbe:
 - **GitHub** — samo kroz **Releases**, ne kroz git povijest: git čuva svaku
   inačicu zauvijek, a šifrirani sadržaj se ne razlikuje od šuma pa se svaka
   sprema cijela. Po uvjetima korištenja GitHub **nije CDN**.
-- **drugi čvor** — krajnji cilj
+- **drugi čvor** — za pakete arhive radi od 0.0.7-alfa: razmjenom, prema
+  pretplati, od bilo kojeg čvora koji paket ima
 - **USB ključ** — u nuždi, i to je legitiman izvor
 
 Za oboje vrijedi isto pitanje, i nije tehničko: osobni račun i strani servis
@@ -474,14 +568,14 @@ zanimljiviji.
 | korak | što | zašto tim redom |
 |---|---|---|
 | **0** | *(napravljeno)* lokalna baza, knjiga verzija, LAN, TLS, članstva | temelj već stoji |
-| **1** | *(djelomično)* **model podataka**: kanali i selektivna replikacija rade za očitanja i dnevnike; opća provenijencija, potpis svakog zapisa i izrazivo poništavanje nisu dovršeni | najskuplje naknadno — mijenja svaki zapis i svaku razmjenu |
-| **2** | **sučelje `PeerTransport`**, Tailscale iza njega | jeftino sada, oslobađa sve kasnije |
-| **3** | *(jezgra napravljena)* **izdanja arhive**: potpisani manifest, otisci dijelova, katalog i `.cop` paket po letvi; objava i automatsko preuzimanje tek slijede | rješava veliku arhivu bez opterećenja redovne sinkronizacije |
+| **1** | *(djelomično)* **model podataka**: kanali i selektivna replikacija rade za očitanja, dnevnike, prijave i vodočuvarski dnevnik; od 0.0.24-alfa knjiga čuva polja novijeg programa i vodi shemu po entitetu; opća provenijencija, potpis svakog zapisa i izrazivo poništavanje nisu dovršeni | najskuplje naknadno — mijenja svaki zapis i svaku razmjenu |
+| **2** | *(transport izveden)* izravni TLS i HTTPS/WebSocket tunel; opće sučelje `PeerTransport` ostaje prijedlog | mreža se mijenja bez promjene podataka |
+| **3** | *(napravljeno)* potpisani manifest, otisci, `.cop` po letvi, mrežna objava kazala i automatski dohvat prema pretplati | rješava veliku arhivu bez slanja mjerenja kroz knjigu verzija |
 | **4** | **stanje podatka u sučelju** — koliko je star, odakle je, je li sporan | bez toga se pogreška ne vidi dok ne zaboli |
 | **5** | **gossip** umjesto razmjene sa svima | tek kad čvorova bude dovoljno da smeta |
-| **6** | **prijenos blobova** među čvorovima: nastavak, ranged, provjera | kad se pojave privitci |
+| **6** | *(djelomično)* **prijenos blobova** među čvorovima: prijenos po otisku s provjerom radi; nastavak i ranged prijenos nisu izvedeni | privitci su tu (PDF-ovi, fotografije prijava); veliki sadržaji traže nastavak |
 | **7** | **provođenje poništavanja** — sučelje, širenje, automatika | mehanizam može čekati, ali samo ako je model iz koraka 1 to predvidio |
-| **8** | *(možda nikad)* vlastiti transport QUIC/STUN, swarm s komadima | tek ako Tailscale zasmeta ili čvorova bude stotine |
+| **8** | *(možda nikad)* vlastiti transport QUIC/STUN, swarm s komadima | tek ako postojeći transport postane ograničenje ili čvorova bude stotine |
 
 Svaki korak je upotrebljiv sam za sebe. Korak 3 vrijedi i bez mreže — arhiva
 se preuzme s Drivea. Korak 1 vrijedi i bez ijednog drugog čvora, jer se zna
@@ -494,7 +588,7 @@ iza sučelja, sučelje se prepravlja, ali **model podataka se naknadno mijenja
 samo prepisivanjem svakog zapisa i svake razmjene**.
 
 Prvi dio je uveden: knjiga verzija nosi kanal, a pretplate taj kanal koriste
-kao granicu razmjene za očitanja i dnevnike. Sljedeći popis zato opisuje ono
+kao granicu razmjene za očitanja, dnevnike, prijave i vodočuvarski dnevnik. Sljedeći popis zato opisuje ono
 što još treba ujednačiti na svim vrstama zapisa, ne ono što danas svaki zapis
 već nosi.
 

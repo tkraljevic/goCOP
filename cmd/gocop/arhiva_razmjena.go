@@ -18,6 +18,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -389,12 +390,23 @@ func stanjeRazmjene(ctx context.Context, p *peers.Service, rec *ledger.Recorder,
 		return out
 	}
 	out.UMrezi = st.Network != nil
+	out.Verzija = st.Program
 	out.Upozorenja = append(out.Upozorenja, st.Alerts...)
+	// Stiglo je što ovaj program ne razumije do kraja (noviji drugi čvor):
+	// čuva se i prosljeđuje, ali ovdje se ne prikazuje ni ne uređuje.
+	if nov := rec.Novosti(); len(nov) > 0 {
+		opisi := make([]string, len(nov))
+		for i, n := range nov {
+			opisi[i] = n.String()
+		}
+		out.Upozorenja = append(out.Upozorenja, "Stigli su zapisi koje ovaj program ne razumije do kraja ("+strings.Join(opisi, "; ")+") — ažurirajte goCOP.")
+	}
 	moja, _ := rec.Frontier(ctx)
 	for _, ps := range st.Peers {
 		c := web.CvorRazmjene{Naziv: ps.Name, Dostupnost: ps.Reachability, Zadnja: ps.State.LastOK,
 			Primljeno: ps.State.Applied, Poslano: ps.State.Sent, Zaostaje: ps.Backlog,
-			Greska: ps.State.LastError, Neuspjelih: ps.State.Fails, SamoDolazi: ps.SamoDolazi}
+			Greska: ps.State.LastError, Neuspjelih: ps.State.Fails, SamoDolazi: ps.SamoDolazi,
+			Verzija: ps.Program, Razlicita: ps.RazlicitProgram}
 		if c.Naziv == "" {
 			c.Naziv = ps.NodeID
 		}

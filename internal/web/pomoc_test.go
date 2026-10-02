@@ -49,10 +49,25 @@ func TestPomocImaOProgramuLicenceIZahvale(t *testing.T) {
 		`id="o-programu"`, "Što je goCOP", "EUPL‑1.2", "LICENSE_hr.txt",
 		"KaTeX", "Leaflet", "Lucide", "goldmark", "modernc.org/sqlite",
 		"OpenStreetMap", "Open‑Meteo", "CC BY‑SA 4.0", "Zahvale",
-		"HydroBASINS", "Tomislav Kraljević", "Mario Kraljević", "Nenadu Šuvaku",
+		"HydroBASINS", "Tomislav Kraljević", "Mario Kraljević", "Nenad Šuvak",
 	} {
 		if !strings.Contains(h, want) {
 			t.Errorf("odjeljak O programu nema %q", want)
+		}
+	}
+}
+
+func TestPomocOpisujeStalniCvorITunelskuRazmjenu(t *testing.T) {
+	h := pomocHTML(t)
+	for _, want := range []string{
+		"Stalni čvor i terenska računala", "HTTPS/WebSocket tunel",
+		"Razmjena s čvorovima", "javlja se sam", "30 sekundi",
+		"zadnjih 48 sati", "broj zapisa", "docs/INSTALACIJA.md",
+		"sigurnosno učvršćivanje nije", "<code>x/net</code>",
+		"izdanje programa", "razumije do kraja", "Od godine",
+	} {
+		if !strings.Contains(h, want) {
+			t.Errorf("pomoć ne opisuje %q", want)
 		}
 	}
 }

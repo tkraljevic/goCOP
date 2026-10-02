@@ -10,7 +10,9 @@ import "github.com/google/uuid"
 // šifri. Zato identifikator seedanog zapisa slijedi iz onoga što ga
 // stvarno određuje — šifre postaje, korisničkog imena — pa svaka kopija
 // svijeta ima iste ključeve. Verzije koje kasnije nastaju vežu se na te
-// ključeve i putuju bez sudara.
+// ključeve i putuju bez sudara. Korisnik otvoren u programu dobije isti
+// identifikator iz korisničkog imena (repository.CreateUser), pa ga
+// pokretanje više ne mora prekodirati.
 var nsGoCOP = uuid.NewSHA1(uuid.NameSpaceURL, []byte("https://github.com/tkraljevic/goCOP"))
 
 // StableID vraća isti UUID za isti (vrsta, ključ) na svakom čvoru

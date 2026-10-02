@@ -40,7 +40,7 @@ PODACI KOJI SE ČITAJU UZ BAZU (data/*.json)
   Objekti branjenog područja 16 (data/objekti_bp16.json)
     Izvor:   evidencija VGI Baranja (app.bp16.xyz), koju je Tomislav
              Kraljević vodio na privatnom poslužitelju 2013.–2026., a punili
-             su je djelatnici VGI Baranja (popis u README, poglavlje 9)
+             su je djelatnici VGI Baranja (vidi ZAHVALE.md)
     Status:  podaci Hrvatskih voda
 
 PODACI UGRAĐENI U PROGRAM (internal/geometrija)
@@ -103,9 +103,9 @@ OVISNOSTI I UGRAĐENI RESURSI
        github.com/mattn/go-isatty, github.com/ncruces/go-strftime i KaTeX.
   BSD-3: Go i standardna biblioteka, github.com/google/uuid,
          github.com/remyoudompheng/bigfft, golang.org/x/crypto,
-         golang.org/x/image, golang.org/x/text, golang.org/x/sys,
-         modernc.org/sqlite, modernc.org/libc, modernc.org/mathutil,
-         modernc.org/memory i Go fontovi.
+         golang.org/x/image, golang.org/x/net, golang.org/x/text,
+         golang.org/x/sys, modernc.org/sqlite, modernc.org/libc,
+         modernc.org/mathutil, modernc.org/memory i Go fontovi.
   BSD-2: Leaflet.
   ISC/MIT: Lucide ikone; dio izveden iz projekta Feather pod licencom MIT.
   SQLite jezgra je u javnom vlasništvu; Go omotač modernc.org/sqlite zasebno

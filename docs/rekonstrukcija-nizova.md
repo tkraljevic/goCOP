@@ -104,23 +104,19 @@ nizvodno prema Apatinu.
 ### Kote odaju promjenu iz 1943. neovisno o nizovima
 
 Mohács je 21,3 km UZVODNO od Bezdana, a kota nule mu je 76 cm NIŽA (79,88
-naspram 80,64). To je naopako. Uz +63 cm izgubljenih 1943. ispada 80,51,
-gotovo u razini Bezdana.
+naspram 80,64). To je naopako. Uz 200 cm spuštenih 1943. stara je nula bila
+81,88 m, dakle iznad Bezdanove, kako uzvodnoj letvi i priliči.
 
 ### Kota postavlja fizičku granicu
 
-Za 7.1.1909., uz ispravljeni Mohács od −102 cm i Batininu nulu višu 57 cm:
-
-| | Batina |
-|---|---|
 Mohács ispravljen za 1909. iznosi +35 cm. Batinina nula viša je 57 cm, pa uz
 izmjereni pad od 3,5 cm/km preko 22 km ispada oko −99 cm; empirijski pomak od
 −133 cm daje −108. Evidencija COP-a navodi −127, dakle unutar dosega.
 
-Ta je granica prije ispravka bila prekršena: uz Mohács od −102 cm Batina nije
-mogla biti iznad −159 ni pri nultom padu, a evidencija je tvrdila −127. Upravo
-je to nesuglasje navelo na traženje dokumentiranog iznosa, koji je onda i
-nađen.
+Ta je granica prije ispravka bila prekršena: uz Mohács od −102 cm (s
+pogrešnim ispravkom od +63 cm) Batina nije mogla biti iznad −159 ni pri
+nultom padu, a evidencija je tvrdila −127. Upravo je to nesuglasje navelo na
+traženje dokumentiranog iznosa, koji je onda i nađen.
 
 ## Što program radi s time
 
@@ -137,21 +133,20 @@ nađen.
 - Ispadi telemetrije izbacuju se pri gradnji arhive, po susjedima a ne po
   apsolutnoj granici (`bezSiljaka` u `internal/arhiva/gradnja.go`).
 
-## Zašto Batina nije rekonstruirana iz Bezdana
+## Zašto Batina prije 1960. nije rekonstruirana iz Bezdana
 
 Trebala bi biti — Bezdan je 740 m uzvodno, prijenos mu je najuži (raspršenost
 10 cm naspram 32 kod Apatina i 18 kod Mohácsa), i utemeljen je 1856.
 
-Ne može se: **Bezdana i Apatina imamo tek od 2004.** (jutarnja očitanja COP-a).
-Jedini niz koji seže u 1901. je mađarski Mohács. Rekonstrukcija 1901.-2001.
-zato stoji na najslabijem od tri prijenosa.
+Od 30. 9. 2026. za 1960.–2001. i jest (odjeljak „Batina 1960.–2001. iz
+Bezdana (RHMZ)” niže). Niz RHMZ-a počinje 1960., pa je za 1901.–1959. jedini
+niz koji seže unatrag i dalje mađarski Mohács. Taj dio zato stoji na
+najslabijem od tri prijenosa.
 
-Da bi se to popravilo, treba dnevni niz Bezdana 1901.-2001. — Republički
-hidrometeorološki zavod Srbije. S njim bi se cijelo razdoblje preračunalo
-iznova, i to prijenosom koji je na istom presjeku.
+Da bi se to popravilo, treba dnevni niz Bezdana 1901.–1959. — Republički
+hidrometeorološki zavod Srbije.
 
-Dotad: dani na kojima Mohács izlazi iz mjerenog raspona izostavljeni su, a
-zabilježeni minimum -127 cm (7.1.1909.) vodi se uz letvu kao rekonstrukcija
+Zabilježeni minimum −127 cm (7.1.1909.) vodi se uz letvu kao rekonstrukcija
 iz Bezdana, ne kao vrijednost niza.
 
 ## Promjene kote nule kao podatak
@@ -162,20 +157,27 @@ prije tog datuma dodaje se pomak, pa niz stoji na današnjoj koti. Sirove
 datoteke ostaju netaknute; ispravlja se tumačenje, ne podatak, kao i kod
 vremenskih zona.
 
-Zapisano je i u arhivi (tablica `promjene_kote`), a stranica letve to
-ispisuje iznad povijesti, da se ne čita kao da je niz oduvijek na istoj koti.
+Zapisano je i u arhivi (tablica `promjene_kote`), a **Historijat** letve to
+ispisuje iznad povijesti iz arhive, da se ne čita kao da je niz oduvijek na
+istoj koti.
 
-Trenutno zapisano, sve po VITUKI (1976), na dan 1.1.1943.:
+Dunavske letve, po VITUKI (1976), na dan 1.1.1943.:
 
 | letva | pomak |
 |---|---|
 | Budimpešta, Dunaföldvár | +100 cm |
 | Paks, Baja, Dunaszekcső, Mohács | +200 cm |
 
-Svođenje je dalo 107.193 ispravljena zapisa. Niz Mohácsa time postaje
-koherentan — najniže po desetljećima: 35 (1900-e), 209, 152, 170, 82, 82,
-126, 123, 113. Prije su 1900-e, 1920-e i 1930-e stršile u minus (−165, −48,
-−30), što je i bio prvi trag.
+Svođenje tih promjena dalo je 107.193 ispravljena zapisa. Niz Mohácsa time
+postaje koherentan — najniže po desetljećima: 35 (1900-e), 209, 152, 170, 82,
+82, 126, 123, 113. Prije su 1900-e, 1920-e i 1930-e stršile u minus (−165,
+−48, −30), što je i bio prvi trag.
+
+Uz dunavske stoje Orahovica 1.5.2002. (−20 cm, HIS-2000, historijat postaje) i
+osam austrijskih letava iz matičnih podataka eHYD-a: Angern (1976. i 2001.),
+Mureck, Graz, Rabland, St. Georgen (Mura), Zeltweg, Lienz-Peggetz i
+Oberdrauburg. Uz austrijske u napomeni piše je li ih potvrdio skok dnevnog
+niza; promjene iz eHYD-a koje se u nizu ne vide nisu upisane.
 
 ## Snimke korita i njihova stacionaža
 
@@ -193,11 +195,14 @@ odstupanje između snimaka iznosi 6,33 m, s njim **0,39 m** — šesnaest puta
 manje. Ta 0,39 m je i sve što se korito promijenilo u deset godina.
 
 Poravnanja se vode u `vodostaji/poravnanje-profila.csv` i idu u arhivu
-(stupac `profili.pomak_m`). Izmjerena su za svih sedam letava koje imaju više
-snimaka: gotovo svaka snimka ima vlastito polazište stacionaže, od nekoliko
-metara (Dalj 2018., −5,4 m) do pola kilometra (Ilok 2010., −544,5 m, jer
-snimka obuhvaća cijelu inundaciju). Odstupanje između snimaka pritom pada s
-2–8 m na 0,4–1,6 m, koliko korito i promijeni kroz te godine.
+(stupac `profili.pomak_m`). Zapisana su za dvanaest letava: Batinu, Dalj,
+Vukovar, Ilok, Aljmaš, Osijek, Belišće, Donji Miholjac, Terezino Polje, Novo
+Virje, Moslavinu i Vrbovku. Više snimaka ima 28 letava; za ostalih šesnaest
+poravnanje nije zapisano. Gotovo svaka snimka ima vlastito polazište
+stacionaže, od nekoliko metara (Dalj 2018., −5,4 m) do pola kilometra (Ilok
+2010., −544,5 m, jer snimka obuhvaća cijelu inundaciju). Odstupanje između
+snimaka pritom pada s 2–8 m na 0,4–1,6 m, koliko korito i promijeni kroz te
+godine.
 
 Snimka koja se ni poravnanjem ne da složiti s ostalima dobiva u istoj
 datoteci oznaku `crtaj` = `ne`: ostaje u arhivi i u paketu, ali ne ulazi u

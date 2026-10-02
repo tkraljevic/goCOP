@@ -59,9 +59,10 @@ func (h *PrognozeHandler) IzvoziPrognoze(w http.ResponseWriter, r *http.Request)
 func listPrognoze(k *xlsxw.Knjiga, z ZaglavljeIzvoza, data PrognozePageData, t TablicaPrognoza) {
 	T, N := xlsxw.T, xlsxw.N
 	// U izvoz ulaze letve s našom prognozom i srpske letve, sa svojim
-	// mjerenjem i prognozom srpske službe, jer su na istom Dunavu nasuprot
-	// našima. Ostale letve samo s mjerenjem (Bratislava, Komárno) ili samo s
-	// tuđom prognozom (Komárom, Letenye) ostaju na stranici.
+	// mjerenjem, našom prenesenom prognozom i prognozom srpske službe, jer
+	// su na istom Dunavu nasuprot našima. Ostale letve samo s mjerenjem
+	// (Bratislava, Komárno) ili samo s tuđom prognozom (Komárom, Letenye)
+	// ostaju na stranici.
 	var letve []LetvaPrognoze
 	for _, x := range t.Letve {
 		if _, drzava := imeIDrzava(x.Naziv); x.Racuna != "" || drzava == "RS" {
@@ -231,7 +232,7 @@ func listPrognoze(k *xlsxw.Knjiga, z ZaglavljeIzvoza, data PrognozePageData, t T
 		"nizvodne postaje izvodi se iz uzvodnih, uz izmjereno vrijeme propagacije vala i po dijelovima linearnu vezu " +
 		"ovisnu o vodnosti, ispravljeno prema zadnjem mjerenju; dalje (dnevni) statistički model na dnevnim vodostajima " +
 		"od 1901. — višestruka regresija i metoda analognih situacija. Vodostaj i protok međusobno su preračunati " +
-		"krivuljom protoka postaje. Na vrhu lanca Mura (Letenye) i Dunav (Komárom) slijede prognozu mađarske službe.\n" +
+		"krivuljom protoka postaje. Vrh lanca na Muri je slovenska Gornja Radgona, a Dunav slijedi mađarsku prognozu Komároma dok je svježa, inače austrijsku prognozu Wildungsmauera.\n" +
 		fmt.Sprintf("Raspon obuhvaća %d %% pogrešaka prognoze, izmjerenih puštanjem prognoze unatrag kroz arhivu (satni "+
 			"lanac), odnosno %s standardna odstupanja analognih situacija (dnevni model): stvarna vrijednost ostaje "+
 			"u rasponu u %d %% slučajeva, a u %d %% izlazi iz njega, podjednako iznad i ispod. Zapisan je kao ± kad je "+
@@ -460,7 +461,7 @@ func listMetode(k *xlsxw.Knjiga, z ZaglavljeIzvoza, m PrognozeMetodaData) {
 	tekst(fmt.Sprintf("Redak „Sada” je zadnje mjerenje; +6 h i +12 h računaju se od izdanja, a dani vrijede za 07 h. "+
 		"Vodostaj je u cm na nuli letve, protok (kurzivom) u m³/s iz krivulje protoka. Raspon uz vrijednost obuhvaća "+
 		"%d %% slučajeva. Skriveni redak „model” (otkriva se gumbom „+” uz rub) kaže je li dan dao satni lanac ili dnevni model. HU i RS su prognoze mađarske "+
-		"i srpske službe za isti termin, radi usporedbe; srpske letve nose samo svoje mjerenje i srpsku prognozu.", int(math.Round(prognoza.UdioURasponu*100))))
+		"i srpske službe za isti termin, radi usporedbe; srpske letve (Bezdan, Apatin, Bogojevo, Bačka Palanka) nose našu prognozu prenesenu s naših letvi, a srpska stoji ispod nje.", int(math.Round(prognoza.UdioURasponu*100))))
 	tekst("List „Grafovi”: zadnja tri dana izmjereno i šest dana prognoze s rasponom. P, R i I su pragovi pripremne, " +
 		"redovne i izvanredne obrane, IS izvanredno stanje, MAX najviši izmjereni vodostaj; u naslovu grafa stoje " +
 		"uvijek, a crtaju se kad su blizu vode. List „Godišnji vodostaji”: srednji, najniži i najviši vodostaj po " +
@@ -572,7 +573,9 @@ func listMetode(k *xlsxw.Knjiga, z ZaglavljeIzvoza, m PrognozeMetodaData) {
 	}
 	uvod := "Kod satnog lanca uz ulaz stoji veličina, kašnjenje (raspon po pojasima vodnosti kod glavnog " +
 		"ulaza) i prozor glačanja; R je koeficijent korelacije računa s mjerenjima, a raspon polovina širine " +
-		"raspona na " + strings.Join(dosezi, " / ") + " h. Postaje bez satnog lanca imaju samo dnevni model."
+		"raspona na " + strings.Join(dosezi, " / ") + " h. Postaje bez satnog lanca imaju samo dnevni model. " +
+		"„Dnevni od” je dan prijelaza pri visokoj vodi; pri niskoj i srednjoj vodi dnevni model daje vrijednost " +
+		"na Dravi od 1. ili 2. dana, na Batini i Aljmašu od 2., a na Vukovaru i Iloku od 3. dana."
 	preko(T(uvod, xlsxw.Tekst), visinaTeksta(uvod, int(sirina*1.1), 15, 0))
 	r := l.Redak()
 	l.Dodaj(T("Postaja", xlsxw.Zaglavlje), T("Satni lanac — ulazi", xlsxw.Zaglavlje), T("R", xlsxw.Zaglavlje),

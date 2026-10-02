@@ -1,9 +1,17 @@
 # Karta položaja
 
-Letva koja ima koordinate prikazuje se na karti, na svojoj kartici. Leaflet
-stoji **lokalno** (`web/static/vendor/leaflet/`, BSD-2, 147 KB), pa se sam
-program ne oslanja ni na jedan vanjski poslužitelj — s mreže dolaze samo
-pločice podloge.
+Letva koja ima koordinate prikazuje se na karti, na svojoj kartici. Ista
+podloga stoji i u registrima **Vodomjerne postaje** i **Teritorijalne
+jedinice** (prikaz **Karta**), na stranici vodotoka, u **Slivovi i
+meteorološke postaje**, pri odabiru mjesta na prijavi s terena i na obrascu
+kišomjera. Leaflet stoji **lokalno** (`web/static/vendor/leaflet/`, Leaflet
+1.9.4, BSD-2, 147 KB), pa preglednik s mreže uzima samo pločice podloge.
+
+Pločice skida i sam poslužitelj kad kartu slaže u PDF: položaj na prijavi s
+terena i ucrtani obuhvat zadatka na dnevnom listu vodočuvara
+(`internal/web/karta_slika.go`, `karta_geo.go`). Uzima isti predložak iz
+`[karta]`, na svaku pločicu čeka najviše 5 s i prima samo PNG. Ne stigne li i
+jedna pločica, PDF se sastavlja bez te karte.
 
 ## Izvor pločica
 
@@ -19,6 +27,17 @@ najvise_z = 17
 Prazan `plocice` isključuje kartu. To nije kvar nego izbor: čvor bez interneta
 i bez preuzetih pločica nema što nacrtati, a prazan sivi okvir gori je od
 nikakvog. Koordinate i poveznica na vanjsku kartu stoje i dalje.
+
+Više karata od toga odstupa. Karta teritorijalnih jedinica s praznim
+`plocice` podlogu ne isključuje, nego je traži s `tile.openstreetmap.org`
+(`web/static/js/app.js`). Prikaz **Karta** u registru **Vodomjerne postaje** i
+karta na stranici prijave s terena tada ostaju prazan okvir. Pri odabiru
+mjesta na prijavi karta ostaje bez podloge, ali se točka i dalje označava
+klikom ili upisuje ručno.
+
+Karta teritorijalnih jedinica crta granice županija, gradova i općina
+ugrađene u program (`internal/geometrija/`), pa ih pokazuje i kad pločice ne
+stignu. Ispod nje stoji navod izvora granica (vidi `NOTICE`).
 
 Ako pločice ne stignu — mreže nema, poslužitelj odbije — karta to i napiše
 umjesto da pusti čovjeka da gleda sive kvadrate.
@@ -45,6 +64,10 @@ lokalna putanja i karta radi bez interneta, kao i sve ostalo.
    kao ni arhiva vodostaja. Preuzima se zasebno, po istom obrascu.
 5. **Osvježavanje.** Podloga stari sporo; jednom godišnje je dovoljno. Ali
    mora se znati koliko je stara.
+6. **Dokumenti.** Kartu za PDF slaže poslužitelj i pločice traži punom
+   adresom. Lokalna putanja poput `/karta/{z}/{x}/{y}.png`, kakvu predlaže
+   komentar u `gocop.toml`, njemu ne radi: zaliha mora biti dohvatljiva i
+   poslužitelju, inače PDF ostaje bez karte.
 
 Do tada karta radi ondje gdje ima interneta, a gdje ga nema, letva i dalje
 pokazuje koordinate i poveznicu.

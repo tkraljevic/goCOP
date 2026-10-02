@@ -25,8 +25,9 @@ import (
 	"github.com/google/uuid"
 )
 
-// SchemaVersion je verzija sheme s kojom su verzije zapisane; putuje s njima
-// da čvor s drugom verzijom binaryja zna što je dobio.
+// SchemaVersion je početna shema svakog entiteta; putuje s verzijom da čvor
+// s drugom verzijom programa zna što je dobio. Shema pojedinog entiteta
+// podiže se s PostaviShemu (shema.go), ne ovdje.
 const SchemaVersion = 1
 
 // Version je jedna verzija jednog zapisa
@@ -110,6 +111,7 @@ type Execer interface {
 type Recorder struct {
 	db     *sql.DB
 	nodeID string
+	nov    novosti // što je stiglo, a program ne razumije (shema.go)
 }
 
 // Cvor je oznaka ovog čvora. Paket historijata nosi tko ga je sastavio, pa se
@@ -164,22 +166,30 @@ func (r *Recorder) write(ctx context.Context, tx Execer, channel, entity, entity
 		return "", err
 	}
 
-	// Verzija koja je bila na površini — bilo čijeg čvora — postaje prethodnica
-	var supersedes string
+	// Verzija koja je bila na površini — bilo čijeg čvora — postaje
+	// prethodnica. Iz nje se prepisuju polja koja ovaj program ne poznaje, a
+	// zapis koji je zadnji izmijenio noviji program ovaj ne smije prepisati.
+	var supersedes, prethodna string
+	var prethodnaShema int
 	err = tx.QueryRowContext(ctx, `
-		SELECT version_id FROM record_versions
+		SELECT version_id, payload, schema_version FROM record_versions
 		WHERE entity = ? AND entity_id = ?
 		ORDER BY version_id DESC LIMIT 1
-	`, entity, entityID).Scan(&supersedes)
+	`, entity, entityID).Scan(&supersedes, &prethodna, &prethodnaShema)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return "", fmt.Errorf("greška pri traženju prethodne verzije: %w", err)
 	}
+	shema := ShemaEntiteta(entity)
+	if prethodnaShema > shema {
+		return "", &NovijaShemaError{Entity: entity, EntityID: entityID, Shema: prethodnaShema, Lokalna: shema}
+	}
+	body = spojiNepoznata(entity, []byte(prethodna), body, payload)
 
 	_, err = tx.ExecContext(ctx, `
 		INSERT INTO record_versions (
 			version_id, entity, entity_id, node_id, supersedes, archived, payload, created_at, schema_version, channel
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, id.String(), entity, entityID, r.nodeID, supersedes, boolInt(archived), string(body), time.Now().UTC(), SchemaVersion, channel)
+	`, id.String(), entity, entityID, r.nodeID, supersedes, boolInt(archived), string(body), time.Now().UTC(), shema, channel)
 	if err != nil {
 		return "", fmt.Errorf("greška pri upisu verzije %s/%s: %w", entity, entityID, err)
 	}
@@ -252,6 +262,7 @@ func (r *Recorder) Apply(ctx context.Context, versions []Version) (applied int, 
 	}
 	defer stmt.Close()
 
+	var nove []Version
 	for _, v := range versions {
 		if v.VersionID == "" || v.Entity == "" || v.EntityID == "" {
 			return 0, fmt.Errorf("primljena verzija bez identifikatora ili entiteta")
@@ -263,10 +274,18 @@ func (r *Recorder) Apply(ctx context.Context, versions []Version) (applied int, 
 		}
 		if n, _ := res.RowsAffected(); n > 0 {
 			applied++
+			nove = append(nove, v)
 		}
 	}
 
-	return applied, tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	// Verzija starijeg programa može stići bez sheme (0); to je prva shema.
+	for _, v := range nove {
+		r.nov.zabiljezi(v.Entity, max(v.SchemaVersion, SchemaVersion), 1)
+	}
+	return applied, nil
 }
 
 // Count vraća broj verzija po entitetu — za stranicu Postavke
@@ -437,7 +456,9 @@ func (r *Recorder) Delta(ctx context.Context, theirs map[string]string, wants fu
 // Compact sažima knjigu: svaki zapis zadržava zadnju verziju, a arhivirani
 // zapisi svoj nadgrobni spomenik; starije verzije istog zapisa, nastale
 // prije zadanog trenutka, brišu se. Razmjena to ne osjeti: granica je
-// najveći version_id po autoru i kanalu, a njega sažimanje ne dira. Čvor
+// najveći version_id po autoru i kanalu, a njega sažimanje ne dira (ta
+// verzija ostaje čak i kad je zapis poslije izmijenio netko drugi — inače
+// bi granica pala i drugi čvorovi bi je slali natrag svaku razmjenu). Čvor
 // koji je dugo šutio može staru verziju poslati natrag; ona uđe u knjigu
 // kao povijest, ne dira površinu, i nestane pri sljedećem sažimanju.
 func (r *Recorder) Compact(ctx context.Context, olderThan time.Time) (int64, error) {
@@ -446,6 +467,7 @@ func (r *Recorder) Compact(ctx context.Context, olderThan time.Time) (int64, err
 		WHERE created_at < ?
 		  AND version_id <> (SELECT MAX(v.version_id) FROM record_versions v
 		                     WHERE v.entity = record_versions.entity AND v.entity_id = record_versions.entity_id)
+		  AND version_id NOT IN (SELECT MAX(version_id) FROM record_versions GROUP BY node_id, channel)
 	`, olderThan.UTC())
 	if err != nil {
 		return 0, fmt.Errorf("sažimanje knjige: %w", err)
@@ -462,6 +484,7 @@ func (r *Recorder) Compactable(ctx context.Context, olderThan time.Time) (int, e
 		WHERE created_at < ?
 		  AND version_id <> (SELECT MAX(v.version_id) FROM record_versions v
 		                     WHERE v.entity = record_versions.entity AND v.entity_id = record_versions.entity_id)
+		  AND version_id NOT IN (SELECT MAX(version_id) FROM record_versions GROUP BY node_id, channel)
 	`, olderThan.UTC()).Scan(&n)
 	return n, err
 }

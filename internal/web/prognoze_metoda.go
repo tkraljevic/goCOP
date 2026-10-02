@@ -115,7 +115,7 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 	sati := []string{"", "6 h", "12 h", "18 h", "24 h", "48 h", "96 h"}
 	return []OdjeljakMetode{
 		{"Kako čitati prognozu", []OdlomakMetode{
-			tekstM("Uz svaku postaju stoje vrijednosti za +6 i +12 sati te za sedam dana u 07 h: vodostaj u " +
+			tekstM("Uz svaku postaju stoje vrijednosti za +6 i +12 sati te za šest dana u 07 h: vodostaj u " +
 				"centimetrima na nuli letve, a gdje postaja ima krivulju protoka, i protok u m³/s. Vrijednost je " +
 				"najvjerojatnija, a ne najgora."),
 			tekstM(fmt.Sprintf("Raspon uz vrijednost (±, ili granicama kad je nesimetričan) obuhvaća %d %% slučajeva. "+
@@ -131,6 +131,10 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"prema vodi zadnjih 30 dana na svakoj letvi: jutarnja crta (7 h) stoji cijeli dan, a crte prognoze pokazuju kamo " +
 				"val ide; klizač pomiče vrijeme i uz točku piše promjenu od jutra, brane su okomite crte, a razine " +
 				"akumulacija točke uz njih."),
+			tekstM("Prognozu računa i izdaje jedan čvor, onaj kojemu je u Administraciji, na stranici Čvor, mreža i sinkronizacija (Uloge ovog čvora), uključeno " +
+				"„Izdaje prognozu”. Svako izdanje, s kišom po međuslivovima i tuđim prognozama koje je izdavač tada imao, " +
+				"ide razmjenom ostalim čvorovima, a namješteni model uz njega kad se promijeni. Na stranici Prognoze uz " +
+				"vrijeme izdanja tada piše na kojem je čvoru izdano."),
 			tekstM("Prognozi vrijedi vjerovati manje:"),
 			popisM(
 				"na Dravi od trećeg dana pri velikom valu, jer ga model podcjenjuje — dotok iz Slovenije ne znamo unaprijed; gledati gornju granicu raspona;",
@@ -154,8 +158,9 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"nego iz dugih nizova mjerenja uči kako se val prenosi od postaje do postaje. Rade dva modela. " +
 				"Prvih dana satni hidrološki lanac — regresija nizvodne postaje na zakašnjele vrijednosti " +
 				"uzvodnih; dalje dnevni statistički model na dnevnim srednjacima od 1901. s kišom po međuslivovima — " +
-				"regresija s pragom i metoda analognih situacija. Koji model daje koji dan određeno je provjerom na " +
-				"poplavnim valovima, zasebno za svaku postaju (tablica postaja na kraju)."),
+				"regresija s pragom i metoda analognih situacija. Koji model daje koji dan određeno je provjerom, " +
+				"zasebno za svaku postaju i prema vodostaju u satu izdanja: pri visokoj vodi na poplavnim valovima, " +
+				"pri niskoj i srednjoj usporedbom s izmjerenim (tablica postaja na kraju)."),
 			tekstM("Ono što model ne može izmjeriti, uzima iz najboljeg dostupnog izvora: na vrhu Drave iz " +
 				"naučenog ponašanja hidroelektrana, na vrhu Mure iz slovenske Gornje Radgone, na vrhu Dunava " +
 				"iz mađarske prognoze Komároma dok je svježa, inače iz austrijske prognoze Wildungsmauera; kišu koja " +
@@ -165,7 +170,7 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 			tekstM("Satni vodostaji i protoci iz arhive goCOP-a, koja se puni s mjernih sustava Hrvatskih voda " +
 				"(uključivo istjecanje i razine akumulacija HE Varaždin, Čakovec i Dubrava sa zatvorene mobilne " +
 				"stranice) i sa stranica hidroloških službi susjednih država: Slovenije (ARSO, tablica postaje s " +
-				"vrijednošću svakih 10 minuta), Mađarske (vizugy.hu, a kad kasni, s DanubeHIS-a), Slovačke (SHMÚ), Austrije (eHYD, viadonau, " +
+				"vrijednošću svakih 10 minuta), Mađarske (vizugy.hu, a kad kasni, s DanubeHIS-a), Slovačke (SHMÚ), Srbije (hidmet.gov.rs), Austrije (eHYD, viadonau, " +
 				"noel.gv.at) i Njemačke (GKD, Pegelonline). Povijest mađarskih, srpskih, slovenskih, austrijskih i " +
 				"čeških postaja dopunjena je iz ICPDR-ova sustava DanubeHIS (licenca CC BY-NC-SA 4.0): ovjereni dnevni " +
 				"vodostaji i protoci od 1961. te satni od 2020.; satni su sirovi i prije ulaska u arhivu čiste se od " +
@@ -185,6 +190,10 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"(hidmet.gov.rs) jednom dnevno za šest, odnosno četiri dana, austrijska (Donja Austrija, noel.gv.at) " +
 				"više puta dnevno za 48 sati. Mađarska vodi Komárom, austrijska Wildungsmauer, srpska stoji samo " +
 				"radi usporedbe; sve se pamte, da se s našom prognozom uspoređuju i unatrag."),
+			tekstM("Srpske letve uz naše na Dunavu — Bezdan, Apatin, Bogojevo i Bačka Palanka — ne uče se lancem, nego " +
+				"dobivaju našu prognozu prenesenu pravcem iz dnevnih vrijednosti (do deset godina): Bezdan iz Batine, Apatin " +
+				"iz Batine i Aljmaša, Bogojevo iz Aljmaša i Dalja, Bačka Palanka iz Iloka. Kartica takve letve kaže odakle je " +
+				"prognoza prenesena i koliko odnos drži; srpska prognoza stoji ispod, za usporedbu."),
 			tekstM("Oborina: kvazi-kišomjeri registra slivova po međuslivovima između letvi (Drava A–G, Dunav H–J " +
 				"od Komároma do Aljmaša, gornji Dunav K–O od Bavarske do Komároma, Mura B), po visinskim pojasima. " +
 				"Povijest je reanaliza ERA5 (Open-Meteo) od 1990.; uživo zadnjih sedam dana daje analiza, a sljedećih " +
@@ -473,7 +482,7 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 			tekstM("Postaja se računa u jednoj veličini, a drugu daje važeća krivulja protoka (Q–H) postaje. " +
 				"Krivulja je monotona, pa se kroz nju preračunaju i granice raspona: interval zadrži istu " +
 				"vjerojatnost, ali može postati nesimetričan — tada se piše granicama umjesto ±. Gdje krivulje " +
-				"nema, nema ni druge veličine."),
+				"nema, nema ni druge veličine. Kad granica raspona ispadne iz krivulje, druga veličina piše se bez raspona."),
 		}},
 		{"Raspon i vjerojatnost", []OdlomakMetode{
 			tekstM(fmt.Sprintf("Raspon obuhvaća %d %% slučajeva: u %d %% stvarna vrijednost izlazi iz njega, "+
@@ -545,7 +554,7 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 		{"Kad prognoza ne radi — pričuvni izračun", []OdlomakMetode{
 			tekstM("Gumb „Pričuvni izračun” na vrhu ove stranice daje Excel koji radi bez programa i bez mreže. Na listu " +
 				"„Unos” upisuju se mađarske i srpske prognoze letvi nasuprot i uz naše (Bezdan, Apatin, Bogojevo, " +
-				"Bačka Palanka, Mohács, Drávaszabolcs, Barcs i mađarska prognoza Botova, Terezina Polja, Donjeg " +
+				"Bačka Palanka, Mohács, Drávaszabolcs, Őrtilos, Barcs i mađarska prognoza Botova, Terezina Polja, Donjeg " +
 				"Miholjca, Belišća i Osijeka); program ih pri preuzimanju popuni zadnjim poznatim. List „Naše postaje” " +
 				"iz njih računa Batinu, Aljmaš, Dalj, Vukovar, Ilok, Botovo, Terezino Polje, Donji Miholjac, Belišće i " +
 				"Osijek pravcima iz dnevnih vrijednosti zadnjih deset godina (list „Veze”), uz današnji pomak mjerenja " +
@@ -563,6 +572,8 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 		}},
 		{"Što je novo", []OdlomakMetode{
 			popisM(
+				"2. 10. 2026. — prognozu izdaje jedan čvor (Čvor, mreža i sinkronizacija → Uloge ovog čvora); svako izdanje, s kišom i tuđim prognozama, ide razmjenom ostalim čvorovima, koji ga pokazuju s nazivom čvora koji ga je izdao.",
+				"1. 10. 2026. — izvoz u Excel počinje listom „Sažetak” (naše postaje sada, sutra, za 3 dana i zadnji dan, usporedba s mađarskom prognozom, kiša po slivovima); Vukovar ima svoj protok (protoci i krivulja iz HIS-2000); protok dnevnog modela ostaje i kad granica raspona ispadne iz krivulje.",
 				"30. 9. 2026. (navečer) — Goričan i Letenye prva dva dana bez kiše (kiša ondje kvari 1–2 cm); stranica Postavke: satni, dnevni ili kombinacija posebno za graf, tablicu i Excel, uz generiranje i pripremu modela; pričuvni izračun u Excelu za dane kad prognoza ne radi; doprinos kiše izmjeren iznova s kišom poznatom u trenutku izdanja (ranije brojke bile su preoptimistične); izmjerena kiša (SPARTACUS, kišomjeri s DanubeHIS-a) isprobana i nije ugrađena.",
 				"30. 9. 2026. — mađarske letve kad vizugy.hu kasni preuzimaju se s DanubeHIS-a; karika se ispravlja zadnjim mjerenjem do 48 h staro (bez toga lažni val od Baje do Iloka); Generiraj rukom računa i već izdani sat; model ispuštanja HE uči i iz razine akumulacije; na crtežu lanca veza koja preskače postaju ide lukom.",
 				"29. 9. 2026. — Donji Miholjac i Belišće računaju se u protoku, Belišće izravno iz Donjeg Miholjca, a Drávaszabolcs mu je rezerva; na niskoj vodi 2026. pogreška na 6 h pala je s 11,6 na 4,4 cm (Donji Miholjac) i s 4,2 na 1,7 cm (Belišće); HydroView token koji poslužitelj odbije traži se iznova, a zapisnik piše zašto prognoza stoji; letve na dvije obale (Komárom i Komárno i još pet parova) popunjavaju jedna drugoj sate koji nedostaju.",

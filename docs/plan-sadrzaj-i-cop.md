@@ -1,11 +1,18 @@
 # Spremište sadržaja i `.cop` izdanja repozitorija službenih zapisa
 
 Definicija dviju stvari koje plan *Službeni zapisi, arhiva, izdanja i zaborav*
-(`plan-arhiva-i-zaborav.md`, točke 7 i 8) traži, a još nisu izvedene:
+(`plan-arhiva-i-zaborav.md`, točke 7 i 8) traži:
 gdje žive veliki sadržaji i kako ih `.cop` prenosi. Cilj nije brisanje.
 Cilj je da glavna baza raste samo s brojem zapisa, ne s njihovim
 megabajtima, i da se sadržaj sinkronizira odvojeno od knjige verzija,
-po otisku, koliko koji čvor treba. Rujan 2026.
+po otisku, koliko koji čvor treba. Izvorni prijedlog: rujan 2026.; izvedeno
+stanje razdvojeno je od prijedloga u odjeljku 6.
+
+Dopuna 2. 10. 2026. (0.0.23-alfa): kazalo hidrološke arhive sada putuje
+knjigom verzija, a pakete automatski dohvaća čvor koji prati sve ili ima
+pravilo „Sve vrste” bez godine početka i s punim sadržajem. Pretplatu „Arhiva vodostaja” obrazac
+nudi, ali je program zasad odbija spremiti. To nije isto što i buduće
+jedinstveno kazalo svih službenih zapisa. Detalji: [plan arhive](plan-arhiva-i-zaborav.md#podjela).
 
 ## Zašto sad
 
@@ -57,8 +64,14 @@ ne zato što ima svoje ime.
 
 Pravilo koje sve drži: **knjiga verzija nikad ne nosi bajtove sadržaja.**
 Zapis u knjizi nosi otisak, veličinu i vrstu. Bajtovi žive u spremištu
-sadržaja i prenose se svojim putem. Tako ni migracija ni zaborav ne diraju
-knjigu: ona ostaje append-only, što joj daje dokaznu vrijednost.
+sadržaja i prenose se svojim putem. Tako uklanjanje sadržaja s čvora ne dira
+knjigu. Knjiga ipak nije samo za dopisivanje: starije verzije brišu se pri
+sažimanju (Administracija → Održavanje baze), pri prorjeđivanju izdanja
+prognoze starijih od sedam dana i zamijenjenih verzija kazala arhive, pri
+brisanju kanala koji pretplata više ne pokriva i pri lokalnom zaboravu
+uloženih očitanja. Prorjeđivanje uvijek čuva zadnju verziju svakog autora u
+svakom kanalu, pa granica razmjene ne pada. Ručno sažimanje to pravilo poštuje
+od 0.0.24-alfa.
 
 ## 1. Spremište sadržaja: `data/sadrzaj.db`
 
@@ -163,8 +176,8 @@ nudi dohvat, kao danas za fotografiju koje više nema.
 **Migracija** postojećih zapisa je jednokratna i lokalna na svakom čvoru:
 za svaku verziju s bajtovima izračuna se otisak, bajtovi upišu u
 `sadrzaj.db`, a verzija se u knjizi zamijeni sažetim oblikom istog
-`version_id`. To je jedina iznimka od append-only pravila i radi se jednom,
-prije nego mreža dobije drugi čvor. Očekivani učinak danas: `gocop.db`
+`version_id`. To je iznimka od pravila da se verzija u knjizi ne prepisuje i
+radi se jednom, prije nego mreža dobije drugi čvor. Očekivani učinak danas: `gocop.db`
 sa 481 MB na oko 200 MB (ostaje tablica izvornika dok se i ona ne preseli),
 zatim na desetak MB; `sadrzaj.db` oko 200 MB.
 
@@ -298,36 +311,42 @@ Pravila, ista kao za letve:
 ## 6. Redoslijed izvedbe i stanje
 
 Ovaj odjeljak je mjerodavno operativno stanje izvedbe plana na dan
-25. 9. 2026.; opći opis u `plan-arhiva-i-zaborav.md` daje širi cilj.
+2. 10. 2026.; opći opis u `plan-arhiva-i-zaborav.md` daje širi cilj.
 
 1. `sadrzaj.db` i paket `internal/sadrzaj` *(napravljeno 20. 9. 2026.)*: upis
    s provjerom, čitanje, dijelovi, veze, siročad, željeni, otpuštanje.
 2. Prijave na spremištu *(napravljeno)*: objava, urudžba i uvoz pišu PDF u
    spremište, knjiga nosi otisak; 371 postojeći PDF preseljen pri pokretanju
-   (glavna baza 481 MB → 34 MB, spremište 199 MB). Ostali moduli (dnevni
-   listovi, COP dnevnici, akti, fotografije prijava) čekaju.
+   (glavna baza 481 MB → 34 MB, spremište 199 MB). Isto od 20. 9. 2026.
+   vrijedi za izvornike dnevnih listova, COP dnevnika i akata, za fotografije
+   prijava i za fotografije uz dnevne listove; stare tablice izvornika i
+   fotografija prijava sele se pri pokretanju.
 3. Kazalo službenih zapisa *(nije napravljeno)*.
 4. Prijenos sadržaja između čvorova s razinom pretplate *(napravljeno u
    razmjeni, dohvat na klik nije)*: prijave imaju kanal
    `prijave/područje/godina`; pravilo pretplate nosi vrstu (očitanja,
-   dnevnici, prijave, sve), sektor ili područje, godine, razinu sadržaja
-   (kazalo, pregled, sve) i rok držanja; razmjena nakon verzija prenosi
-   sadržaje po otisku u jednoj poruci po strani (do 48 MB, ostatak sljedećom),
+   dnevnici, prijave, vodočuvarski dnevnik, sve), sektor ili područje,
+   godine, razinu sadržaja (kazalo, pregled, sve) i rok držanja; razmjena
+   nakon verzija prenosi sadržaje po otisku u jednoj poruci po strani (do 48 MB, ostatak sljedećom),
    uz provjeru otiska; primljeni sadržaj s isteklim rokom otpušta se svakih
    šest sati, vlastiti nikad; korisnik sa zaduženim područjem dobiva
    predloženo pravilo. Nema još: prijenosa po dijelovima za velike datoteke,
    dohvata na klik za otpušteni ili nepokriveni sadržaj, potvrde čuvara prije
    otpuštanja vlastitog sadržaja.
-5. `.cop` inačica 3 *(napravljeno za kanale očitanja, dnevnika i prijava)*:
-   ZIP s `manifest.json` (obuhvat, kanali, izdanje, prethodno, izdao,
-   otisak, potpis ključem čvora), `zapisi.jsonl`, `sadrzaji.json` i
+5. `.cop` inačica 3 *(napravljeno za kanale očitanja, dnevnika, prijava i
+   vodočuvarskog dnevnika)*: ZIP s `manifest.json` (obuhvat, kanali,
+   izdanje, prethodno, izdao, otisak, potpis ključem čvora), `zapisi.jsonl`, `sadrzaji.json` i
    `sadrzaj/<otisak>` po izboru; otisak izdanja ne ovisi o uključenim
    bajtovima; katalog izdanja po obuhvatu (`cop_izdanja`), evidencija
    primljenih (`cop_primljena`) odbija starije izdanje istog izdavača i isto
    izdanje s drugim otiskom; ugradnja traži valjan potpis člana mreže,
    verzije uzima po pretplati, uključeni sadržaj upiše, ostali na popis za
-   dohvat. Stranica Administracija → Baza izdaje i ugrađuje; stari `.db`
-   izvoz ostaje za starije čvorove. Vodostaji ostaju u inačici 2 po letvi.
+   dohvat. Stranica Administracija → Održavanje baze izdaje i ugrađuje; stari
+   `.db` izvoz ostaje za starije čvorove. Vodostaji ostaju u inačici 2 po
+   letvi; od 0.0.7-alfa njihovo kazalo (letva, izdanje, otisak, razdoblje,
+   veličina) ide knjigom verzija svim čvorovima, a sam paket kao sadržaj u
+   kanalu `arhiva/područje/0` dohvaća čvor koji ga prati, od bilo kojeg
+   čvora koji ga ima (vidi [plan arhive](plan-arhiva-i-zaborav.md#podjela)).
 
 Točke 5 i 6 plana o arhivi (mrežni zaborav, umirovljenje čvora) ne ovise o
 ovome.

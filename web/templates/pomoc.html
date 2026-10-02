@@ -55,9 +55,13 @@
     <a class="kazalo-glava" href="#pocetak">Kako se program koristi</a>
     <a class="kazalo-glava" href="#dashboard">Početna</a>
     <a href="#dashboard-hero">Prijavljeni djelatnik i profil</a>
-    <a href="#dashboard-stanje">Stanje obrane</a>
-    <a href="#dashboard-dogadjanja">Zid događanja</a>
     <a href="#dashboard-kartice">Moduli</a>
+    <a href="#dashboard-vrijeme">Vrijeme i vode</a>
+    <a href="#dashboard-kisa">Kiša po slivovima</a>
+    <a href="#dashboard-stanje">Stanje obrane</a>
+    <a href="#dashboard-brojke">Podaci u sustavu</a>
+    <a href="#dashboard-razmjena">Razmjena s čvorovima</a>
+    <a href="#dashboard-dogadjanja">Zid događanja</a>
     <a class="kazalo-glava" href="#teren">Teren</a>
   </div>
   <div class="kazalo-grupa">
@@ -176,9 +180,10 @@
 <section class="detail-section" id="dashboard">
   <h2>{{icon "house"}} Početna</h2>
   <div class="reg-card pomoc-tekst">
-    <p>Početna stranica je operativna ploča: pokazuje način rada svakog sektora, najnovija
-      događanja i module za koje imate ovlasti. Služi za orijentaciju i brzi prijelaz na posao;
-      podatak se mijenja na stranici zapisa na koji događaj vodi.</p>
+    <p>Početna stranica je operativna ploča. Odozgo redom pokazuje module za koje imate ovlasti,
+      vrijeme i vode za vaše područje, kišu po slivovima, način rada svakog sektora, podatke u
+      sustavu, razmjenu s čvorovima, prečace i najnovija događanja. Služi za orijentaciju i brzi
+      prijelaz na posao; podatak se mijenja na stranici zapisa na koji događaj vodi.</p>
 
     <h3 id="dashboard-hero">Prijavljeni djelatnik i profil</h3>
     <p>Na vrhu stoji <strong>kartica prijavljenog djelatnika</strong> koja odmah potvrđuje vaš
@@ -193,22 +198,40 @@
         njihovih dužnosti i kontakata (prikazuje se onima čija uloga ima pristup imeniku).</li>
     </ul>
 
-    <h3 id="dashboard-stanje">Stanje obrane</h3>
-    <p>Traka stanja daje pregled sektora koje smijete vidjeti. Otvoren dnevnik COP-a znači
-      <strong>aktivnu obranu</strong>: vode se dežurstva, akti i izvješća. Bez otvorenog dnevnika
-      sektor je u <strong>preventivnoj obrani</strong>. Proglašeni stupnjevi i aktivni dnevnici
-      prikazuju se uz sektor i otvaraju se jednim pritiskom.</p>
+    <h3 id="dashboard-kartice">Moduli</h3>
+    <p>Odmah ispod kartice djelatnika nalazi se red modula. <strong>Prikazuju se samo moduli za
+      koje vaša uloga ima ovlasti</strong>:</p>
+    <ul>
+      <li><strong>Teren</strong> — brzi popis vlastitih vodomjernih postaja i hidrotehničkih
+        objekata, posebno prilagođen radu na mobitelu i upisu očitanja jednom rukom na terenu.</li>
+      <li><strong>Očitanja</strong> — operativni vodostaji: zadnja očitana stanja, stupnjevi
+        i pragovi obrane od poplava, grafikoni kretanja vodostaja i praćene postaje.</li>
+      <li><strong>Dokumentacija</strong> — dnevnici, dežurstva, izvješća, događanja, akti i
+        vodočuvarska knjiga.</li>
+      <li><strong>Registri</strong> — temeljne evidencije: administrativna organizacija, dionice,
+        teritorijalne jedinice, vodomjerne postaje, objekti, vodotoci, slivovi i meteorološke
+        postaje, licencirane firme, održavanje i sredstva za obranu.</li>
+      <li><strong>Djelatnici</strong> — operativni imenik svih sudionika obrane s kontaktima,
+        funkcijama i rasporedom zaduženja po dionicama.</li>
+      <li><strong>Administracija</strong> — postavke čvora, moduli i ovlasti, nazivi i održavanje
+        baze.</li>
+    </ul>
+    <p>Ako neku karticu ne vidite, to znači da je vaša uloga u sustavu ne koristi. Ako vam je
+      pojedini modul potreban za rad, ovlasti uređuje administrator pod <em>Administracija → Moduli
+      i ovlasti</em>.</p>
 
     <h3 id="dashboard-vrijeme">Vrijeme i vode</h3>
-    <p>Ispod trake stanja je ploča za vaše područje: ured VGI-ja iz vaše dužnosti, ili Osijek
+    <p>Ispod reda modula je ploča za vaše područje: ured VGI-ja iz vaše dužnosti, ili Osijek
       kad područja nemate. Gumb <strong>Moja lokacija</strong> koristi lokaciju preglednika kad je
       preglednik smije dati. Ploča pokazuje upozorenja DHMZ-a za županiju (i broj upozorenja
       drugdje u Hrvatskoj), trenutno vrijeme na najbližoj glavnoj postaji, današnju prognozu za
-      regiju, hidrološki bilten DHMZ-a s rijekama važnima za regiju, izmjerenu kišu na najbližem
-      stvarnom kišomjeru i prognozu kiše na najbližoj izvedenoj točki. Županija se određuje po
-      najbližem središtu, pa uz granicu zna biti susjedna. Podaci DHMZ-a su otvoreni podaci
-      (meteo.hr) i osvježavaju se svakih petnaest minuta; bez interneta ploča pokazuje zadnje što
-      je pročitala ili javlja da podataka nema.</p>
+      regiju, hidrološki bilten DHMZ-a za sve rijeke, redom po važnosti za regiju, izmjerenu kišu
+      na najbližem stvarnom kišomjeru i prognozu kiše na najbližoj izvedenoj točki. Županija se
+      određuje po najbližem središtu, pa uz granicu zna biti susjedna. Podaci DHMZ-a su otvoreni
+      podaci (meteo.hr) i osvježavaju se svakih petnaest minuta; bez interneta ploča pokazuje
+      zadnje što je pročitala ili javlja da podataka nema. Kad za županiju nema upozorenja, ploča
+      u jednom retku kaže do kada DHMZ ne javlja opasne pojave; kad se upozorenja ne daju
+      dohvatiti, piše da nisu dostupna, a ne da ih nema.</p>
 
     <h3 id="dashboard-kisa">Kiša po slivovima</h3>
     <p>Ispod ploče vremena stoji kiša po međuslivovima koji ulaze u prognozu (Drava, Mura, Dunav
@@ -222,29 +245,42 @@
       kiša padne. Kad ničeg neuobičajenog nema, stoji jedan redak, a na klik kiša po svim
       međuslivovima s uobičajenim pragom.</p>
 
+    <h3 id="dashboard-stanje">Stanje obrane</h3>
+    <p>Ispod kiše po slivovima, odjeljak <em>Sektori obrane od poplava</em> daje pregled sektora
+      koje smijete vidjeti. Otvoren dnevnik COP-a znači <strong>aktivnu obranu</strong>: vode se
+      dežurstva, akti i izvješća. Bez otvorenog dnevnika sektor je u <strong>preventivnoj
+      obrani</strong>. Uz sektor stoje najviši proglašeni stupanj i broj dionica u obrani,
+      otvoreni dnevnik COP-a (otvara se pritiskom) s dežurnim, današnja izvješća dionica i
+      sredstva na terenu.</p>
+
+    <h3 id="dashboard-brojke">Podaci u sustavu</h3>
+    <p>Ispod sektora stoje brojke o tome koliko program zna: zapisi u arhivi i zauzeće diska,
+      godine povijesti, letve, satni i dnevni vodostaji, protoci, oborina, izdane i unatrag
+      provjerene prognoze, očitanja i profili korita, uz arhivu po desetljećima i najviše
+      izmjerene vodostaje na Dunavu i Dravi. Brojke su izbrojene, ne procijenjene, i rastu dok je
+      stranica otvorena. Iste brojke stoje i na stranici prijave.</p>
+
+    <h3 id="dashboard-razmjena">Razmjena s čvorovima</h3>
+    <p>Pločica pokazuje s kojim se čvorovima ovo računalo usklađuje, kada je bila zadnja
+      razmjena, koliko još treba poslati ili primiti, dokle je stigla ugradnja arhive vodostaja i
+      koji čvor izdaje prognozu. Uz svaki čvor stoji izdanje programa na kojem radi. Kad drugi
+      čvor radi na drukčijem ili starijem izdanju, ili kad stignu zapisi koje ovaj program ne
+      razumije do kraja, pločica to javlja upozorenjem i savjetuje da se goCOP ažurira. Ažurira
+      se najprije stalni čvor, a odmah zatim ostala računala. Kad je
+      sve usklađeno, stoji jedan redak. Osvježava se sama svakih pola minute; više je pod
+      <a href="#sync">Sinkronizacija</a>.</p>
+
     <h3 id="dashboard-dogadjanja">Zid događanja</h3>
     <p>Zid spaja posljednje promjene iz različitih modula u jednu kronologiju: očitanja, dnevnike,
-      akte, izvješća, sredstva i druge poslovne zapise. Naslov otvara izvorni zapis. Cijela
-      kronologija s filtrima i Excel izvozom nalazi se pod <em>Dokumentacija → Događanja</em>.</p>
-
-    <h3 id="dashboard-kartice">Moduli</h3>
-    <p>Iznad zida nalazi se red prečaca. <strong>Prikazuju se samo moduli za koje vaša uloga ima
-      ovlasti</strong>:</p>
-    <ul>
-      <li><strong>Teren</strong> — brzi popis vlastitih vodomjernih postaja i hidrotehničkih
-        objekata, posebno prilagođen radu na mobitelu i upisu očitanja jednom rukom na terenu.</li>
-      <li><strong>Očitanja</strong> — operativni vodostaji: zadnja očitana stanja, stupnjevi
-        i pragovi obrane od poplava, grafikoni kretanja vodostaja i praćene postaje.</li>
-      <li><strong>Dokumentacija</strong> — dnevnici, dežurstva, izvješća, događanja, akti i
-        vodočuvarska knjiga.</li>
-      <li><strong>Djelatnici</strong> — operativni imenik svih sudionika obrane s kontaktima,
-        funkcijama i rasporedom zaduženja po dionicama.</li>
-      <li><strong>Registri</strong> — temeljne evidencije: branjena područja, teritorijalni ustroj
-        (županije, općine, naselja), vodomjerne postaje, objekti, vodotoci i program održavanja.</li>
-    </ul>
-    <p>Ako neku karticu ne vidite, to znači da je vaša uloga u sustavu ne koristi. Ako vam je
-      pojedini modul potreban za rad, ovlasti uređuje administrator pod <em>Administracija → Moduli
-      i ovlasti</em>.</p>
+      akte, izvješća, sredstva i druge poslovne zapise. Naslov otvara izvorni zapis. Gumbi iznad
+      zida (<em>sve</em>, <em>Obrana</em>, <em>Dnevnik COP-a</em>, <em>Dežurstva</em>,
+      <em>Izvješća</em>, <em>Sredstva</em>, <em>Očitanja</em>, <em>Registri</em>) suze ga na
+      jedan modul. Cijela kronologija s filtrima i Excel izvozom nalazi se pod <em>Dokumentacija →
+      Događanja</em>.</p>
+    <p>Iznad zida stoje i <strong>prečaci</strong> za ono što se u vašoj dužnosti radi svaki dan:
+      <em>Dnevnik COP-a</em> i <em>Izvješće sektora</em> za upravu sektora, <em>Novo dnevno
+      izvješće</em> za one koji pišu po dionicama i područjima, <em>Skladišta i sredstva</em>,
+      <em>Teren</em> za terenske djelatnike te uvijek <em>Događanja</em>.</p>
   </div>
   {{template "pomocPoglavljeNav" (list "Kako se program koristi" "#pocetak" "Teren" "#teren")}}
 </section>
@@ -253,10 +289,15 @@
   <h2>{{icon "map-pin"}} Teren</h2>
   <div class="reg-card pomoc-tekst">
     <p>Popis letvi i objekata za obilazak, složen za rad na telefonu s jednom rukom.
-      <strong>Moje</strong> su stavke za koje ste zaduženi. Sektor se bira prvi, zatim se nude
-      njegova branjena područja; izbor <em>Svi sektori</em> prikazuje sve što smijete vidjeti.</p>
-    <p>Traka napretka pokazuje koliko je letvi danas očitano. Letva se otvara pritiskom, a
-      očitanje se upisuje velikim poljem za broj — na terenu se ne pogađa sitna tipka.</p>
+      <strong>Moje letve</strong> su one koje ste očitavali u zadnjih 90 dana, poredane po vremenu
+      kad ih obično obilazite; ispod stoje ostale letve i objekti odabranog branjenog područja.
+      Sektor se bira prvi, zatim se nude njegova branjena područja; izbor <em>Svi: sektori</em>
+      nudi sva područja koja smijete birati.</p>
+    <p>Traka napretka pokazuje koliko je vaših letvi danas očitano, a gumb <em>Nastavi
+      obilazak</em> vodi na prvu koja još nije. Letva se otvara pritiskom, a očitanje se upisuje
+      velikim poljem za broj — na terenu se ne pogađa sitna tipka.</p>
+    <p>Vodočuvar ovdje ima i prečace na <em>Današnji list</em> i <em>Svi listovi</em>
+      vodočuvarskog dnevnika te na <em>Nova prijava s terena</em> i <em>Moje prijave</em>.</p>
   </div>
   {{template "pomocPoglavljeNav" (list "Početna" "#dashboard" "Dionice" "#sections")}}
 </section>
@@ -278,6 +319,10 @@
     <p>Svaka poddionica nosi: obuhvat i obalu, stacionažu (rkm za rijeke, pkm, bkm ili kkm za
       ostalo), ugrožena naselja s pripadnošću županiji i općini, nasipe i brane, objekte
       (crpne stanice, ustave, sifoni, mostovi, propusti) i mjerodavne vodomjere.</p>
+    <p>Objekt se upisuje nazivom iz plana, a u stupcu <em>Veza s registrom</em> redak se veže na
+      objekt ili vodu iz registra, i na objekt drugog područja. Program predloži zapis po nazivu;
+      kad ga u registru nema, bira se novi zapis koji nastaje pri spremanju dionice. Naziv iz
+      plana ostaje kakav je.</p>
     <p>Opis dionice program slaže sam iz poddionica. Kad ga netko prepiše rukom, ostaje njegov i
       program ga više ne dira.</p>
 
@@ -298,20 +343,25 @@
       njega ne da računati stupanj obrane.</p>
 
     <h3 id="dionica-obrana">Proglašavanje obrane</h3>
-    <p>Obranu proglašava i prekida <strong>čovjek</strong>, na kartici dionice. Program je ne
-      proglašava sam. On javlja kad vodostaj na mjerodavnoj letvi prijeđe prag i to zabilježi uz
-      epizodu, pa se poslije vidi je li obrana proglašena prije ili poslije prijelaza i koliko
-      sati prije.</p>
+    <p>Obranu proglašava i prekida <strong>čovjek</strong>, aktom. Na stranici očitanja
+      mjerodavne letve gumb <em>Proglasi / prekini</em> otvara rješenje ili obavijest o stupnju
+      obrane (vidi <a href="#akti">Rješenja i obavijesti</a>). Kad se akt ovjeri, program na
+      dionicama iz akta otvori, podigne ili zatvori epizodu obrane. Sam obranu ne proglašava.
+      Javlja kad vodostaj na mjerodavnoj letvi prijeđe prag i to zabilježi uz epizodu, pa se
+      poslije vidi je li obrana proglašena prije ili poslije prijelaza i koliko sati prije.</p>
     <p>To je namjerno: obrana se redovito proglašava ispred vode, po prognozi ili po stanju
       nasipa. Na Batini je razlika sati, na Belišću zna biti tjedana — i to je podatak, ne
       greška.</p>
     <p>Epizoda nosi tko je proglasio, kada, na kojem stupnju, po kojoj osnovi i tko je prekinuo.
-      Zatvorene epizode ostaju u povijesti dionice.</p>
+      Kartica dionice pokazuje obranu koja traje i broj zabilježenih. Cijela povijest obrana
+      vodi se na historijatu mjerodavne letve, pod <em>Obrane vođene po ovoj letvi</em>.</p>
 
     <h3 id="dionica-ljudi">Tko je zadužen</h3>
     <p>Ljudi se ne upisuju na dionicu izravno nego kroz <strong>dužnosti</strong>: djelatnik
       dobiva dužnost na dionici ili na cijelom branjenom području, i time pravo da po njoj
       upisuje. Popis zaduženih vidi se na kartici dionice, s funkcijom i brojem telefona.</p>
+    <p>Gumb <strong>Excel</strong> na kartici dionice daje karticu za ispis na A4; isti gumb na
+      popisu dionica izvozi popis po odabranom sektoru, području i pretrazi.</p>
   </div>
   {{template "pomocPoglavljeNav" (list "Teren" "#teren" "Vodomjerne postaje" "#stations")}}
 </section>
@@ -324,6 +374,9 @@
     <p>Registar letvi nosi šifru, vodotok na kojem letva <em>fizički stoji</em>, stacionažu i
       vodno područje. Vodotok nije isto što i vode za koje je letva mjerodavna: Batina stoji na
       Dunavu, a mjerodavna je i za dionice na Karašici.</p>
+    <p>U registru su i strane letve iz susjednih država, s državom na kartici. Mađarske i srpske
+      letve iz njihovih prognoza nose našu šifru, pa se uz njih pamti i prognoza njihove službe.
+      Popis se sužava izborom <em>Država</em>, a gumb <em>Karta</em> pokazuje postaje na karti.</p>
 
     <h3 id="letva-kota">Kota nule i visinski sustavi</h3>
     <p>Letva mjeri od svoje nule; kota nule kaže koliko je ta nula visoka nad morem. Vodi se u
@@ -373,7 +426,7 @@
       Dvije stogodišnje vode uzastopce nisu nemoguće ni neobjašnjive.</p>
     <p>Povratni vodostaj <strong>nije prag obrane</strong> i ne ulazi u izračun stupnja. Prag je
       propisana granica pri kojoj se poduzimaju mjere; povratni vodostaj govori samo koliko je
-      koja visina rijetka. Upisuje se u <em>Uredi</em> na kartici letve.</p>
+      koja visina rijetka. Upisuje se pod <em>Uredi</em> na historijatu letve.</p>
 
     <h3 id="letva-valovi">Valovi obrane u nizu</h3>
     <p>Za svaki val u cijelom nizu program izračuna <strong>kada bi po vodostaju počelo i
@@ -418,9 +471,11 @@
 
     <h3 id="letva-historijat">Historijat letve</h3>
     <p>Kartica letve odgovara na pitanje <strong>što letva jest</strong> — gdje stoji, koji su joj
-      pragovi i kota nule. Gumb <strong>Historijat</strong> otvara ono što se <strong>dogodilo</strong>:
-      zabilježene ekstreme, povratne vodostaje, promjene kote nule, cijeli niz iz arhive s izvorima i
-      razradom po godinama, valove obrane i proglašene obrane po dionicama.</p>
+      pragovi, kota nule i zabilježeni ekstremi, te kad je postaja počela raditi i kakav je
+      vodokaz. Gumb <strong>Historijat</strong> otvara ono što se <strong>dogodilo</strong>:
+      zadnji vodostaj i protok iz spojenog niza, cijeli niz iz arhive s izvorima i razradom po
+      godinama, povratne vodostaje, promjene kote nule, valove obrane i obrane proglašene po
+      dionicama.</p>
     <p>Razdvojeno je namjerno. Dok je sve stajalo na jednoj stranici, do pragova se dolazilo kroz
       sedam odjeljaka povijesti. Podaci su isti i skupljaju se istim putem, pa se dvije stranice ne
       mogu razići.</p>
@@ -434,7 +489,7 @@
     <p>Dva dokumenta imaju različita imena, pa se u mapi preuzimanja ne prepisuju.</p>
     <p>Dokument izlazi na <strong>memorandumu</strong> centra: znak organizacije, ustanova,
       ustrojstvena jedinica i centar. Ništa od toga nije upisano u izvoz — uzima se iz
-      <strong>Postavke → Nazivi</strong> i iz zapisa sektora, pa svaki centar dobiva svoj
+      <strong>Administracija → Nazivi</strong> i iz zapisa sektora, pa svaki centar dobiva svoj
       memorandum. Sektor se određuje iz dionica na kojima je letva mjerodavna. Znak unesite kao
       PNG; SVG se prikazuje u sučelju, ali se ne ugrađuje u Excel.</p>
     <p>Kartica u Excelu nosi koordinate postaje, ali ne i mrežnu kartu. Zato izvoz radi potpuno
@@ -465,15 +520,20 @@
         svaki vodostaj. Do 20 cm izvan kraja krivulje program može prikazati procjenu uz jasno
         upozorenje; dalje od toga protok ne izmišlja.</li>
       <li><strong>Mjereni protok i temperatura vode</strong> — upisuju se kad su stvarno izmjereni.
-        Mjereni protok ima prednost pred izračunom iz HQ krivulje, ali oba ostaju objašnjena.</li>
-      <li><strong>Pragovi</strong> — četiri stupnja obrane i najviši zabilježeni vodostaj.</li>
+        Mjereni protok ima prednost pred izračunom iz HQ krivulje, ali oba ostaju objašnjena.
+        Protok koji uz vodostaj stigne s javne stranice Hrvatskih voda ili s mađarskog vizugy.hu
+        nosi način <em>iz krivulje</em>: služba ga je izračunala iz vodostaja, pa nije
+        hidrometrijsko mjerenje.</li>
+      <li><strong>Pragovi</strong> — četiri stupnja obrane te najviši i najniži zabilježeni vodostaj.</li>
     </ul>
 
     <h3 id="ocitanja-graf">Kretanje vodostaja</h3>
     <p>Graf pokazuje isto razdoblje koje je odabrano u <em>Pogledu</em> ispod njega — zadano
       zadnjih 30 dana. Prijelaz mišem preko crte pokazuje vrijednost i vrijeme. Kad se lista
       tablica, na grafu se osjenča dio koji je upravo u njoj; sam graf se ne prerazapinje, da se
-      vidi gdje ste u cjelini.</p>
+      vidi gdje ste u cjelini. Kad letva ima prognozu, crta se nastavlja prognozom s rasponom do
+      kraja razdoblja, a ispod grafa piše kad je izdana i u koliko slučajeva vrijednost ostaje u
+      rasponu.</p>
     <p>Prekid u crti znači da podataka nema. Crta se namjerno ne povlači preko praznine — to bi
       tvrdilo da podatak postoji ondje gdje ga nema.</p>
     <p>Ispod grafa stoji <a href="#letva-korito">presjek korita</a> s vodom ucrtanom po zadnjem
@@ -484,7 +544,8 @@
       telemetrija) i tko ga je upisao. Olovka otvara izmjenu. Na telefonu se očitanje upisuje
       velikim poljem za broj — na terenu se ne pogađa sitna tipka.</p>
     <p>Svako očitanje može nositi vlastitu bilješku. Ako postaja ima adresu podržane javne
-      stranice, goCOP jednom na sat preuzima objavljeno očitanje; javni podatak uvijek zadržava
+      stranice, čvor koji preuzima vodostaje jednom na sat preuzme objavljeno očitanje, a ostali
+      ga čvorovi primaju razmjenom; javni podatak uvijek zadržava
       izvor i ne predstavlja se kao ručni upis vodočuvara.</p>
     <p><strong>Čuvaj povijest</strong> govori ovom računalu da drži cijelu povijest te letve, a
       ne samo zadnjih nekoliko očitanja. Odluka je lokalna — druga računala ostaju kakva jesu.</p>
@@ -515,8 +576,11 @@
     <p>Arhiva je <strong>zasebna baza</strong> s mjerenjima starijim od programa — na Batini od
       1901. Odvojena je zato što je velika i zato što nije naša: donesena je izvana, ne uređuje
       se i uvijek se može ponovno napraviti iz izvornih datoteka.</p>
-    <p>Arhiva se <strong>ne razmjenjuje</strong> sinkronizacijom. Čvor koji je nije preuzeo radi
-      bez nje: kartica letve i dalje radi, samo bez povijesti. Dok su povijesni nizovi stajali u
+    <p>Arhiva ne ulazi u knjigu verzija kao niz mjerenja. Razmjenom putuje samo kazalo izdanih
+      paketa, a potpisani <code>.cop</code> paket letve čvor dohvaća od bilo kojeg čvora koji ga
+      ima, ako ga pokriva pretplata (vidi <a href="#profile">Što ovo računalo prati</a>). Čvor
+      bez arhive i dalje radi:
+      kartica letve se otvara, samo bez povijesti. Dok su povijesni nizovi stajali u
       glavnoj bazi, uz svaki je redak išla i verzija za razmjenu, pa je 45.547 očitanja jedne
       letve zauzelo 61 % baze.</p>
 
@@ -536,8 +600,9 @@
 
     <h3 id="arhiva-rekonstrukcija">Rekonstruirani nizovi</h3>
     <p>Dio niza nije mjeren na toj letvi nego <strong>preračunat iz susjedne postaje</strong>.
-      Batinina letva utemeljena je 2001., a niz seže do 1901. jer je preračunat iz mađarskog
-      Mohácsa. Takav zapis nosi kvalitetu, izvor i način, i posvuda se označava — rekonstruirano
+      Batinina letva utemeljena je 2001., a niz seže do 1901.: razdoblje 1960.–2001. preračunato je
+      iz srpskog Bezdana, 740 m uzvodno na drugoj obali (podaci RHMZ-a), a ono prije 1960. iz
+      mađarskog Mohácsa. Takav zapis nosi kvalitetu, izvor i način, i posvuda se označava — rekonstruirano
       očitanje ne smije se poslije čitati kao mjerenje.</p>
     <p>Pri preračunu se pazi na promjene kote nule izvorne postaje: Mohács je 1943. spustio nulu
       za 200 cm, i bez tog ispravka Batinin minimum iz 1909. ispadao je metar niži nego što jest.
@@ -574,8 +639,10 @@
         otiska po samim podacima (ne po metapodacima). Dva čvora s istim stanjem dolaze do istog
         otiska i verzije bez prethodnog dogovora.</li>
       <li><strong>Izvori arhive</strong> — na stranici <em>Administracija → Izvori arhive</em>
-        uređuju se izvori razvrstani u tri skupine (službeni, operativni, rekonstruirani), s
-        pripadajućim stupnjem točnosti, redom povjerenja i stazom do datoteka.</li>
+        uređuju se točnost, red povjerenja, mapa s datotekama, napomena i uključenost svakog
+        izvora. Red povjerenja svrstava izvor u tri skupine: <em>ovjereno</em> (službeni
+        revidirani nizovi), <em>s letve</em> (ono što je čovjek očitao) i <em>operativno</em>
+        (dojave automatike). Preračuni nose oznaku <em>preračun</em>.</li>
     </ul>
 
     <h3 id="arhiva-postupak">Gradnja iz izvornih datoteka</h3>
@@ -642,6 +709,11 @@
       raspon pragu obrane. Svjetlije prikazana vrijednost znači da na tom dosegu prognoza u provjeri
       nije bila bolja od jednostavne pretpostavke da će stanje ostati isto. Mađarske i srpske javne
       prognoze prikazuju se zasebno kada su raspoložive i ne predstavljaju mjerenje goCOP-a.</p>
+    <p>Satni lanac seže 96 sati, a dnevni model daje dane do šestog. Zadano se prikazuje
+      kombinacija: od dana koji je provjera odredila za svaku letvu i razinu vode uzima se dnevni
+      model, a takva vrijednost nosi oznaku <em>d</em>. Na stranici <em>Postavke prognoze</em>
+      globalni administrator posebno za graf, tablicu i izvoz u Excel bira satni lanac, dnevni
+      model ili kombinaciju.</p>
 
     <h3 id="prognoze-profil">Uzdužni profil</h3>
     <p>Profil slaže postaje redom niz vodotok, jedan profil po rijeci, od prve uzvodne letve do zadnje
@@ -667,7 +739,9 @@
       vodnog lica ispod crteža računa se u Trstu, sustavu koji dijele Hrvatska i Srbija, a mađarske kote
       (baltički sustav, mBf) preračunate su u Trst dodavanjem 0,675 m. Tuđe letve preko puta naših
       (Bezdan, Apatin, Bogojevo, Bačka Palanka, Barcs, Drávaszabolcs, Letenye, Komárno), kao i Bratislava iznad vrha našeg lanca, stoje na pregledu, ali ne i
-      na profilu, jer bi istu vodu pisale dvaput. Brane na toku ucrtane su kao okomite isprekidane crte,
+      na profilu, jer bi istu vodu pisale dvaput. Ne crtaju se ni Gornja Radgona, vrh lanca Mure
+      bez vlastite prognoze, ni Dunaszekcső, 13 km iznad Mohácsa, gdje se natpisi ne bi dali
+      pročitati. Brane na toku ucrtane su kao okomite isprekidane crte,
       a razine akumulacija uz njih kao točke s kotom nad morem, izvan krivulje vala. Gumbi gore desno na
       crtežu otvaraju profil preko cijelog zaslona i ispisuju crtež u trenutku na kojem je klizač — ispis
       zaustavi kretanje vala i uvijek ide na bijeloj pozadini, bez obzira na temu.</p>
@@ -681,30 +755,41 @@
       Goričana), na Dunavu mađarska prognoza Komároma dok je
       svježa, inače austrijska prognoza Wildungsmauera. Dnevni model uz vodostaje uzima i kišu po
       međuslivovima, palu i prognoziranu (Open-Meteo). Novi račun pokreće se kada stignu svježa
-      očitanja; ovlaštena osoba može gumbom <em>Generiraj</em> odmah ponoviti cijeli ciklus.</p>
+      očitanja; gumb <em>Generiraj</em> na stranici <em>Postavke prognoze</em> (gumb
+      <em>Postavke</em> na stranici Prognoze) odmah ponavlja cijeli krug. Prognozu pritom računa
+      samo čvor koji je izdaje.</p>
     <p>Model se priprema iz arhive. Kad se u arhivi ili u lancu nešto promijeni, globalni administrator
-      na stranici Prognoze pokreće <em>Pripremi model</em>: program iznova namjesti veze letvi i modele
+      na stranici <em>Postavke prognoze</em> čvora koji izdaje prognozu pokreće <em>Pripremi
+      model</em>: program iznova namjesti veze letvi i modele
       ispuštanja elektrana, provjerom unatrag zapiše promašaje iz kojih prognoza uzima ispravak i raspon,
       i odmah izda prognozu novim modelom. Posao traje desetak minuta i vrti se na poslužitelju.</p>
     <p>Stranica <em>O prognozi</em> pokazuje ulazne postaje, jednadžbe i rezultate provjere, a izvoz
       u Excel daje tablični pregled. <code>prognoze.db</code> čuva izvedene rezultate i parametre:
-      nije službena knjiga ni <code>.cop</code> kanal i može se ponovno izračunati iz ulaznih nizova.</p>
+      nije službena knjiga ni <code>.cop</code> kanal. Izdanja i promjene modela prenose se
+      knjigom verzija, ne kopiranjem cijele baze. Sačuvano izdanje pokazuje što je tada izdano;
+      novi izračun iz današnjih ulaza nije zamjena za taj zapis.</p>
 
     <h3 id="prognoze-ogranicenja">Ograničenja i provjera</h3>
     <p>Najviše vrijedi unutar raspona vodostaja i događaja koje je model već vidio. Nagla promjena
       rada akumulacije, led, kvar postaje, uspor ili rijetka kombinacija pritoka mogu ga učiniti
       slabijim. Zato se uvijek gledaju raspon, svježina mjerenja i usporedba s postojanošću, a odluka
       se ne donosi samo iz jedne brojke. Modeli se provjeravaju unatrag i na odabranim poplavnim
-      valovima; provjerljivi parovi prognoza–mjerenje mogu se izvesti u CSV.</p>
+      valovima; provjerljivi parovi prognoza–mjerenje mogu se izvesti u CSV. Za dan kad naša
+      prognoza ne radi, gumb <em>Pričuvni izračun</em> na stranici <em>O prognozi</em> daje Excel
+      koji iz upisanih mađarskih i srpskih prognoza računa naše letve bez programa.</p>
 
     <h3 id="prognoze-cvorovi">Koji čvor izdaje prognozu</h3>
-    <p>Vodostaje s izvora preuzima i prognozu izdaje jedan čvor; to se uključuje u
-      <a href="/settings">Postavkama čvora</a> (Uloge ovog čvora). Očitanja putuju razmjenom kao i
+    <p>Vodostaje s izvora preuzima i prognozu izdaje jedan čvor. Uloge uključuje globalni
+      administrator u Administraciji, na stranici <a href="/settings">Čvor, mreža i
+      sinkronizacija</a> (Uloge ovog čvora); na novom čvoru obje su isključene i on sve prima
+      razmjenom. Očitanja putuju razmjenom kao i
       sva druga, a svako izdanje prognoze putuje s tuđim prognozama koje je izdavač tada imao i s kišom
       po međuslivovima. Namješteni model ide uz izdanje kad se promijeni. Ostali čvorovi izdanje upišu
       u svoju bazu prognoza i prikazuju ga s oznakom čvora koji ga je izdao. U razmjeni izdanja stoje
       sedam dana, a u bazi prognoza svakog čvora ostaju. Čvor koji sam izdaje prognozu tuđa izdanja
-      ne upisuje; upiše ih kad mu se uloga isključi.</p>
+      ne upisuje; upiše ih kad mu se uloga isključi. Uz izdanje stižu i mjerenja kišomjera
+      zadnjih 48 sati te satna kiša i prognozirane oborine po točkama slivova. Čvor koji prima
+      upisuje ih u svoju bazu oborina.</p>
   </div>
   {{template "pomocPoglavljeNav" (list "Arhiva vodostaja" "#arhiva" "Dokumentacija" "#journals")}}
 </section>
@@ -796,7 +881,9 @@
     <p>Vodočuvar list predaje osobnim elektroničkim potpisom, a rukovoditelj branjenog područja
       ga zatim ovjerava svojim. Potpisani PDF je izvornik; stranica provjerava svaki potpis i
       pokazuje pokriva li cijeli dokument. Istekom godine knjiga prelazi u arhivu samo za čitanje
-      i ispis cijele knjige. Strojari i skladištari bez vodočuvarske dužnosti dnevnik ne vide.</p>
+      i ispis cijele knjige. Vodočuvar vidi samo svoju knjigu; tuđe listove vide oni koji ih
+      ovjeravaju i parafiraju te uprava. Strojari i skladištari bez vodočuvarske dužnosti
+      dnevnik ne vide.</p>
 
     <h3 id="prijave">Prijave i obavijesti s terena</h3>
     <p>Vodočuvar s terena sastavlja obavijest, prijavu, izvješće ili zahtjev: opisuje što je
@@ -807,6 +894,9 @@
       list za dan događaja. Uprava je nakon pregleda može označiti <strong>pregledanom i
       riješenom</strong>; to je stanje predmeta, a ne naknadno arhiviranje. Objavljeni sadržaj
       time se ne mijenja.</p>
+    <p>Ispod svake fotografije, u dokumentu i na stranici, stoji što je fotoaparat zapisao —
+      vrijeme snimanja, položaj i uređaj; u dokumentu ispod toga stoji i SHA-256 otisak izvorne
+      datoteke. Zato se snima s uključenom lokacijom. Prijava bez označenog mjesta dobiva položaj s fotografije.</p>
     <p>Program fotografije odmah smanjuje radi prostora. Izvorne smanjene slike ostaju lokalno
       onoliko dana koliko administrator zada u Opcijama, a zatim se brišu; potpisani PDF sa svim
       slikama ostaje službeni izvornik. PDF se u spremištu sadržaja čuva jednom po SHA-256 otisku
@@ -817,11 +907,13 @@
       prognoza, dionice, vrijeme od kojeg vrijedi i primatelji. Nacrt se smije uređivati; nakon
       ovjere dobiva oznaku, izvornik i trag slanja. Akt o prekidu povezuje se s aktom koji stavlja
       izvan snage.</p>
-    <p>Postoje tri puta do izvornika: kvalificirani potpis u SIGNATOR-u, vlastoručni potpis sa
-      žigom i skenirani PDF ili hitna ovjera u goCOP-u potpisom ovlaštenog rukovoditelja. Program
-      provjerava da vraćeni SIGNATOR PDF pripada upravo tom nacrtu i da ga je potpisala ovlaštena
-      osoba. Ovjereni izvornik šalje se označenim primateljima pojedinačno; za probu postoji
-      radnja <em>Probno samo meni</em>.</p>
+    <p>Postoje dva puta do izvornika. Gumb <em>Ovjeri u goCOP-u</em> daje aktu broj i kod ovjere
+      i potpisuje ga ključem čvora; izvornik postaje PDF sa žigom centra i skeniranim potpisom
+      onoga tko ovjerava, ako ga je spremio na profilu. Kad treba i papir, nacrt se ispiše,
+      rukovoditelj ga vlastoručno potpiše i udari žig, a sken se učita u PDF-u i postaje
+      izvornik. Potpis na skenu program ne može provjeriti, pa ovjeru bilježi na odabranu osobu i
+      na onoga tko je sken učitao. Ovjereni izvornik šalje se označenim primateljima
+      pojedinačno; za probu postoji radnja <em>Probno samo meni</em>.</p>
 
     <h3 id="dnevnik-usluge">Dnevnici usluga A.02 i A.03</h3>
     <p>Dnevnici A.02 i A.03 vode se po području i ugovoru. Imaju naslovnicu s izvođačem,
@@ -869,9 +961,9 @@
       privitke. Moguće je odgovoriti, odgovoriti svima, proslijediti, označiti više pisama i
       premjestiti ih; iz mape Obrisano može se izvesti trajno brisanje. Novo pismo koristi adresar
       djelatnika, uređivač oblikovanog teksta i potpis spremljen na profilu.</p>
-    <p>Adresar tvrtke pretražuje Exchange i uspoređuje službene kontakte s goCOP imenikom. Razlike
-      se ne prepisuju automatski: korisnik bira što želi preuzeti. Potpisani PDF koji SIGNATOR
-      vrati e-poštom može se iz sandučića učitati izravno u pripadajući nacrt akta.</p>
+    <p>Adresar tvrtke pretražuje Exchange i uspoređuje službene kontakte s goCOP imenikom, jedan
+      po jedan sektor, da poslužitelj e-pošte ne zaključa račun zbog previše prijava. Razlike se
+      ne prepisuju automatski: korisnik bira što želi preuzeti.</p>
     <p>Vanjske slike u pismu mogu poslužitelju pošiljatelja otkriti da je poruka otvorena. Ako je
       domena nedostupna ili je lozinka pogrešna, to ne blokira lokalni rad ostalih modula.</p>
   </div>
@@ -885,11 +977,13 @@
       <li><strong>Osobni elektronički potpis</strong> izrađuje se na profilu. Privatni ključ
         zaključan je lozinkom korisnika; lozinka se traži pri svakom potpisu. Certifikat izdaje
         čvor i drugi upareni čvorovi priznaju njegova izdavatelja.</li>
-      <li><strong>Kvalificirani potpis</strong> nastaje izvan goCOP-a u SIGNATOR-u. goCOP provjerava
-        potpisnika, certifikat i podudara li se vraćeni PDF s preuzetim nacrtom.</li>
-      <li><strong>Vlastoručni potpis i žig</strong> koriste se kad se dokument ispiše i skenira.
-        Sken potpisa na profilu ostaje šifriran na tom čvoru; žig centra uređuje samo uprava
-        sektora. Drugima putuje gotovi PDF izvornik, ne nezaštićene slike.</li>
+      <li><strong>Ovjera u goCOP-u</strong> potpisuje akt ključem čvora. Akt dobiva broj i kod
+        ovjere, a izvornik postaje PDF sa žigom centra i skenom potpisa osobe koja ovjerava, ako
+        ga je spremila na profilu. Program poslije provjerava da sadržaj nije mijenjan od ovjere.</li>
+      <li><strong>Vlastoručni potpis i žig na papiru</strong> koriste se kad treba i papir: nacrt
+        se ispiše, potpiše i ovjeri žigom, a sken se učita kao izvornik. Potpis na skenu program
+        ne može provjeriti. Sken potpisa na profilu ostaje šifriran na tom čvoru; žig centra
+        uređuje samo uprava sektora. Drugima putuje gotovi PDF izvornik, ne nezaštićene slike.</li>
       <li><strong>Simulirani potpis</strong> postoji isključivo za testiranje tuđim očima. Crven je,
         nosi riječ SIMULACIJA i veliki žig „BEZVRIJEDNO”; nema pravnu ni poslovnu vrijednost.</li>
     </ul>
@@ -958,9 +1052,12 @@
     <p>Registar razlikuje dvije vrste postaja. <strong>Stvarni kišomjeri</strong> mjere (DHMZ,
       Hrvatske vode): imaju izvor, šifru postaje kod izvora i korak mjerenja, a nizovi im stoje u
       hidrološkoj arhivi. Mjere samo svoje mjesto, pa nemaju težinu i model ih ne zbraja u oborinu
-      sliva; služe za usporedbu i ispravak izvedenih točaka. Postaje DHMZ-a čitaju se svaki krug
-      s letva.voda.hr, računom čvora za Hrvatske vode (isti kao za mletva.voda.hr), a postaje mreže
-      pljusak.com (amaterske) s javne tablice; jednom dnevno se mjerenja ulože u arhivu. Kišomjeri
+      sliva; služe za usporedbu i ispravak izvedenih točaka. Stvarne kišomjere svaki krug čita
+      čvor koji izdaje prognozu: postaje DHMZ-a s letva.voda.hr, računom čvora za Hrvatske vode
+      (isti kao za mletva.voda.hr), a postaje mreže pljusak.com (amaterske) s javne tablice.
+      Ostali čvorovi mjerenja zadnjih 48 sati primaju uz izdanje prognoze. Jednom dnevno taj
+      čvor, ako drži izvorne datoteke arhive, uloži mjerenja u arhivu i odmah izda nove pakete;
+      pretplatnici ih dohvaćaju sami. Kišomjeri
       nacionalnih službi Austrije, Mađarske, Slovenije i Slovačke preuzeti su s DanubeHIS-a (dnevni
       zbroj od 2024.) i zasad se ne osvježavaju sami.</p>
     <p>Na stranici slivova svaki međusliv ima oba popisa, izvedene točke i prave kišomjere, a svaka
@@ -987,14 +1084,22 @@
     <ul>
       <li id="moduli"><strong>Moduli i ovlasti</strong> — tablica uloga i modula: tko što vidi.
         Iznimke za pojedinog čovjeka postavljaju se na njegovoj stranici.</li>
+      <li><strong>Sudionici obrane</strong> — uloge koje program poznaje i nazivi kojima ih
+        organizacija zove; ovlasti se time ne mijenjaju.</li>
       <li id="settings"><strong>Čvor, mreža i sinkronizacija</strong> — kako se ovo računalo
-        zove, u kojoj je mreži i s kim se usklađuje. Uparivanje s novim računalom ide preko
-        ključa mreže.</li>
+        zove, u kojoj je mreži i s kim se usklađuje. Ovdje globalni administrator uključuje uloge
+        čvora (<em>Preuzima vodostaje s izvora</em>, <em>Izdaje prognozu</em>) i upisuje adrese
+        domenskih čvorova. Naziv se upisuje u <code>gocop.toml</code> i nakon ponovnog pokretanja
+        sam stiže drugim čvorovima. Uparivanje s novim računalom ide preko ključa mreže.</li>
       <li id="sync"><strong>Sinkronizacija</strong> — što se upravo vidi na lokalnoj mreži i
-        kad je posljednji put razmijenjeno. Razmjena ide izravno među računalima, bez
-        posrednika. Svako računalo pretplatom bira vrstu zapisa, sektor ili područje, godine,
+        kad je posljednji put razmijenjeno. Razmjena ide izravno, u lokalnoj mreži ili na stalnu
+        adresu domenskog čvora (port razmjene), ili kroz HTTPS/WebSocket tunel; identitet se u
+        svakom slučaju provjerava ključem čvora unutar TLS-a.
+        Svako računalo pretplatom bira vrstu zapisa, sektor ili područje, godine,
         razinu sadržaja i rok lokalnog držanja. Hidrološka arhiva ne ulazi u običnu knjigu
-        verzija, nego se preuzima zasebnim potpisanim <code>.cop</code> izdanjem.</li>
+        verzija kao niz mjerenja: knjiga prenosi kazalo, a potpisani <code>.cop</code> paket
+        dohvaća se zasebno prema pretplati. Stranica pokazuje i izdanje programa svakog čvora
+        i upozorava na čvor koji radi na drukčijem ili starijem izdanju.</li>
       <li><strong>Održavanje baze</strong> — zauzeće operativne baze, sažimanje knjige verzija,
         izvoz i obnova. Veliki službeni sadržaji odvojeno se čuvaju u
         <code>sadrzaj.db</code>, jednom po otisku; knjiga verzija prenosi njihovo kazalo, a
@@ -1018,13 +1123,32 @@
       <li><strong>E-pošta</strong> — zajedničke postavke Exchange/EWS ili SMTP poslužitelja.</li>
       <li id="telemetrija"><strong>Telemetrija letava</strong> — račun za HydroView i mobilnu
         stranicu Hrvatskih voda. Lozinke su šifrirane ključem čvora i ne sinkroniziraju se, pa se
-        na svakom računalu upisuju zasebno. Za mobilnu stranicu može se preuzeti korisnikov račun
+        upisuju samo na računalima koja preuzimaju vodostaje; račun za mobilnu stranicu Hrvatskih
+        voda treba i čvoru koji izdaje prognozu, jer njime čita kišomjere DHMZ-a. Za mobilnu stranicu može se preuzeti korisnikov račun
         e-pošte; pojedina postaja zatim uključuje izvor i po potrebi dobiva vlastiti račun.</li>
       <li><strong>Uvozi podataka</strong> — jednokratni uvozi iz vanjskih evidencija.</li>
       <li><strong>Računi i lozinke</strong> — aktivacija računa i postavljanje početne lozinke;
         korisnik je pri prvoj prijavi mora zamijeniti.</li>
       <li><strong>Nazivi</strong> — kako se kuća i centar zovu na ispisima.</li>
     </ul>
+
+    <h3>Provjera razmjene i arhive</h3>
+    <p>Prva automatska razmjena počinje oko 30 sekundi nakon pokretanja. Pločica
+      <em>Razmjena s čvorovima</em> na naslovnoj pokazuje posljednju razmjenu, sadržaj koji
+      čeka i napredak ugradnje arhive. Oznaka <em>javlja se sam</em> znači da se udaljeni čvor
+      uspješno povezuje prema vama, iako ga ne možete izravno nazvati. To nije kvar. Stupac
+      <em>Usklađenost</em> kaže šalje li se drugom čvoru još verzija (<em>šalje se još</em>) ili
+      ovaj čvor od njega još prima (<em>prima se još</em>); <em>usklađeno</em> znači da prema
+      zadnjoj razmjeni obje strane imaju isto.</p>
+    <p>Za vezu kroz tunel administrator upisuje <code>https://&lt;domena&gt;</code> u Domenske
+      čvorove. Uparivanje je i dalje potrebno. Nakon povezivanja provjerite pretplate,
+      svježinu očitanja i vrijeme posljednje prognoze; sama dostupnost čvora nije potvrda
+      da su svi potrebni podaci stigli.</p>
+    <p>Čvor koji preuzima izvore štiti letve koje je sam izgradio. Čvor koji samo prima može
+      zamijeniti ranije izgrađenu letvu paketom ako paket seže barem do istog dana i nema manje
+      zapisa. Čvor koji izdaje prognozu i drži izvorne datoteke arhive nakon noćnog ulaganja
+      kiše objavljuje nove pakete; čvorovi koje pretplata pokriva dohvaćaju ih sami. Pretplata
+      određuje što čvor želi primati, ne daje dodatne korisničke ovlasti.</p>
 
     <h3 id="admin-test">Testne opcije</h3>
     <p>Opcije mogu privremeno dopustiti trajno brisanje probnih ovjerenih akata, potpuno čišćenje
@@ -1053,6 +1177,9 @@
       samo kazalo, pregled ili puni sadržaj, te koliko se dana primljeni sadržaj lokalno drži.
       Zapisi uvijek stižu cijeli, a sadržaj nastao na ovom računalu ne otpušta se. Uredski
       poslužitelj obično prati sve, a terenski laptop samo ono što njegovu korisniku treba.</p>
+    <p>Pakete arhive vodostaja dohvaća čvor koji prati sve te čvor s pravilom <em>Sve vrste</em>
+      kojemu je polje <em>Od godine</em> prazno, a sadržaj <em>Sve</em>. Izbor <em>Arhiva
+      vodostaja</em> u popisu <em>Što</em> zasad se ne da spremiti.</p>
   </div>
   {{template "pomocPoglavljeNav" (list "Administracija" "#admin" "Pojmovnik" "#pojmovi")}}
 </section>
@@ -1110,6 +1237,24 @@
       prilagoditi i druge vodoprivredne organizacije. goCOP pomaže urediti podatke, postupke i
       dokazni trag; ne zamjenjuje stručnu prosudbu, službene hidrološke prognoze ni odluke
       odgovornih osoba.</p>
+    <h3>Stalni čvor i terenska računala</h3>
+    <p>Stalni čvor može preuzimati vodostaje i kišu te izdavati satne i dnevne prognoze.
+      Ostala računala mogu primati gotova izdanja, umjesto da svako ponavlja preuzimanje i
+      izračun. Uloge <em>Preuzima vodostaje s izvora</em> i <em>Izdaje prognozu</em> uključuje
+      globalni administrator na stranici Čvor, mreža i sinkronizacija. Novi čvor nema nijednu dok
+      mu se ne uključi; ako ih u mreži nema nijedan čvor, vodostaji i prognoza se ne obnavljaju.
+      Kad nema veze, dostupni ostaju lokalno spremljeni
+      podaci; to ne znači da su očitanja i prognoze još svježi.</p>
+    <p>Razmjena radi na lokalnoj mreži i kroz HTTPS/WebSocket tunel, uz ključeve uparenih
+      čvorova. Kazalo arhive putuje među čvorovima, a potpisani <code>.cop</code> paketi
+      dohvaćaju se prema pretplati. Na naslovnoj pločica <em>Razmjena s čvorovima</em>
+      pokazuje tijek usklađivanja, napredak arhive i tko je izdao posljednju prognozu.</p>
+    <h3>Razvojna faza i odgovornost</h3>
+    <p>Program je u alfa fazi, za testiranje i daljnji razvoj, ne za operativnu upotrebu.
+      Funkcionalnosti i shema podataka još se mijenjaju, a sigurnosno učvršćivanje nije
+      završeno. Prije nadogradnje treba izraditi sigurnosnu kopiju. Instalacija i uvjeti
+      izlaganja čvora mreži opisani su u <code>docs/INSTALACIJA.md</code> uz izvorni kod;
+      verzija pokrenutog programa prikazana je u podnožju.</p>
     <p>Nositelj prava na program naveden u repozitoriju su <strong>Hrvatske vode</strong>.
       Program je osmislio i izgradio <strong>Tomislav Kraljević</strong>. Sloj razmjene
       <code>internal/razmjena</code> razvili su Tomislav Kraljević i Mario Kraljević.</p>
@@ -1136,7 +1281,7 @@
         <code>goldmark</code>, <code>go-humanize</code>, <code>go-isatty</code>,
         <code>go-strftime</code> i KaTeX.</dd></div>
       <div><dt>BSD 3-Clause</dt><dd>Go i njegova standardna biblioteka, <code>google/uuid</code>,
-        <code>golang.org/x/crypto</code>, <code>x/image</code>, <code>x/text</code> i
+        <code>golang.org/x/crypto</code>, <code>x/net</code> (WebSocket), <code>x/image</code>, <code>x/text</code> i
         <code>x/sys</code>, <code>bigfft</code>, modernc biblioteke
         (<code>sqlite</code>, <code>libc</code>, <code>mathutil</code> i <code>memory</code>)
         te ugrađeni Go fontovi.</dd></div>
@@ -1156,6 +1301,10 @@
         Usluga radi samo kada je internet dostupan.</li>
       <li><strong>Hrvatske vode, Direkcija</strong> — granice sektora i branjenih područja na karti
         teritorija (podloga u HTRS96/TM, za prikaz pretvorena u WGS84 i pojednostavljena).</li>
+      <li><strong>Državna geodetska uprava</strong> — granice naselja iz Registra prostornih
+        jedinica; sadrži informacije Državne geodetske uprave u skladu s Otvorenom dozvolom.</li>
+      <li><strong>ICPDR DanubeHIS</strong> — vodostaji, protoci i kišomjeri država dunavskog sliva
+        u arhivi, pod licencom CC BY‑NC‑SA 4.0: samo nekomercijalna uporaba, uz navođenje izvora.</li>
       <li><strong>HydroBASINS / HydroSHEDS</strong> — poligoni međuslivova dostupni su pod
         licencom CC BY 4.0.</li>
       <li><strong>Wikipedija</strong> — opisni podaci o pojedinim vodotocima nose izvor i
@@ -1169,11 +1318,18 @@
     <p>Hvala djelatnicima Hrvatskih voda koji su svojim iskustvom s terena, vođenjem evidencija,
       provjerom postupaka i strpljivim prijedlozima oblikovali stvarne radne tokove programa;
       posebno kolegicama i kolegama VGI Baranja koji su godinama stvarali podatkovnu podlogu iz
-      koje je projekt izrastao. Hvala prof. dr. Nenadu Šuvaku na suradnji pri razvoju i provjeri prognostičkog modela,
-      Eni Grcić iz Direkcije Hrvatskih voda na podlogama granica sektora i branjenih područja,
-      Tomislavu Šlehti na dokumentaciji, posebno studiji „Operativni model upravljanja dravskim
-      hidroelektranama za vrijeme velikih voda” (MuraDrava-FFS), te Damiru Periću na pristupu
-      sustavu HydroView (Geolux) za područje cijele Hrvatske.</p>
+      koje je projekt izrastao.</p>
+    <p>Za model, podloge, dokumentaciju i pristupe sustavima hvala:</p>
+    <ul>
+      <li><strong>prof. dr. Nenad Šuvak</strong> — suradnja pri razvoju i provjeri prognostičkog
+        modela;</li>
+      <li><strong>Ena Grcić</strong>, Direkcija Hrvatskih voda — podloge granica sektora i
+        branjenih područja;</li>
+      <li><strong>Tomislav Šlehta</strong> — dokumentacija, posebno studija „Operativni model
+        upravljanja dravskim hidroelektranama za vrijeme velikih voda” (MuraDrava-FFS);</li>
+      <li><strong>Damir Perić</strong> — pristup sustavu HydroView (Geolux) za područje cijele
+        Hrvatske.</li>
+    </ul>
     <p>Za podršku u razvoju hvala: Mile Kunac, Mario Spajić i Tomislav Novosel.</p>
     <p>Hvala autorima i suradnicima svih projekata otvorenog koda na kojima goCOP počiva.</p>
     <p>Hvala i ustanovama koje javno objavljuju hidrološke, meteorološke, prostorne i druge

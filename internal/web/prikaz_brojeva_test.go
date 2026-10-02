@@ -422,7 +422,7 @@ func TestKarticaDioniceUpucujeNaPovijestUzLetvu(t *testing.T) {
 			{StartedAt: poc, Phase: models.PhasePrep},
 		},
 	})
-	for _, want := range []string{"Obrana od poplava", "/stations/" + letva.ID.String() + "#obrane", "Batina", "zabilježeno 2"} {
+	for _, want := range []string{"Obrana od poplava", "/stations/" + letva.ID.String() + "/historijat#obrane", "Batina", "zabilježeno 2"} {
 		if !strings.Contains(html, want) {
 			t.Errorf("na kartici nema %q", want)
 		}

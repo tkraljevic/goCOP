@@ -107,13 +107,10 @@ func (s *UserService) CreateUser(actor *models.UserPermissions, req CreateUserRe
 		return nil, err
 	}
 
-	userID, err := uuid.NewV7()
-	if err != nil {
-		return nil, err
-	}
-
+	// Identifikator ostaje prazan: repozitorij mu u istoj transakciji
+	// dodijeli stalni iz korisničkog imena (ili nasumični, kad je stalni
+	// već nečiji), pa se korisnik poslije nikad ne prekodira.
 	user := &models.User{
-		ID:            userID,
 		Username:      req.Username,
 		PasswordHash:  pwHash,
 		FullName:      req.FullName,
@@ -141,7 +138,6 @@ func (s *UserService) CreateUser(actor *models.UserPermissions, req CreateUserRe
 		dutyID, _ := uuid.NewV7()
 		initialDuty = &models.Duty{
 			ID:           dutyID,
-			UserID:       userID,
 			Title:        dutyTitle,
 			Role:         req.Role,
 			ScopeType:    req.ScopeType,
@@ -158,7 +154,7 @@ func (s *UserService) CreateUser(actor *models.UserPermissions, req CreateUserRe
 		return nil, err
 	}
 
-	s.sse.Broadcast("users_updated", fmt.Sprintf("Kreiran novi djelatnik: %s", user.FullName), user)
+	s.sse.Broadcast("users_updated", fmt.Sprintf("Kreiran novi djelatnik: %s", user.FullName), user.ID.String())
 	return user, nil
 }
 
@@ -236,7 +232,7 @@ func (s *UserService) UpdateUser(actor *models.UserPermissions, req UpdateUserRe
 		return nil, err
 	}
 
-	s.sse.Broadcast("users_updated", fmt.Sprintf("Ažuriran djelatnik: %s", target.FullName), target)
+	s.sse.Broadcast("users_updated", fmt.Sprintf("Ažuriran djelatnik: %s", target.FullName), target.ID.String())
 	return target, nil
 }
 
@@ -300,7 +296,7 @@ func (s *UserService) AddDuty(actor *models.UserPermissions, req AddDutyRequest)
 		return err
 	}
 
-	s.sse.Broadcast("duty_added", fmt.Sprintf("Dodijeljena nova funkcija/ispomoć: %s", req.Title), duty)
+	s.sse.Broadcast("duty_added", fmt.Sprintf("Dodijeljena nova funkcija/ispomoć: %s", req.Title), duty.ID.String())
 	return nil
 }
 
@@ -343,7 +339,7 @@ func (s *UserService) UpdateDuty(actor *models.UserPermissions, dutyID uuid.UUID
 	if err := s.userRepo.UpdateDuty(duty); err != nil {
 		return err
 	}
-	s.sse.Broadcast("duty_updated", fmt.Sprintf("Izmijenjeno zaduženje: %s", duty.Title), duty)
+	s.sse.Broadcast("duty_updated", fmt.Sprintf("Izmijenjeno zaduženje: %s", duty.Title), duty.ID.String())
 	return nil
 }
 

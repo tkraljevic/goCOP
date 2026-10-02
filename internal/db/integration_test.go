@@ -222,35 +222,78 @@ func TestMigracijaPreimenujeStariStupacDionice(t *testing.T) {
 	}
 }
 
-// Baza seedana starim, nasumičnim identitetima mora se prekodirati na
-// determinističke — uključivo veze, zaduženja i knjigu verzija — a strani
-// ključevi to ne smiju spriječiti
-func TestMigracijaPrekodiraNasumicneIdentitete(t *testing.T) {
-	database := freshDatabase(t)
-
-	stableStation := StableID("station", "zupanja").String()
-	stableUser := StableID("user", "admin").String()
-	oldStation := "01a0698c-4428-7144-9d8d-532c9c75ff0e"
-	oldUser := "01a067c8-5682-718e-a5ef-398ad6be1c2f"
-
-	// vrati bazu u stanje prije determinističkih identiteta
-	tx, _ := database.Begin()
-	tx.Exec(`PRAGMA defer_foreign_keys = ON`)
-	for _, stmt := range []string{
-		`UPDATE section_stations SET station_id = '` + oldStation + `' WHERE station_id = '` + stableStation + `'`,
-		`UPDATE stations SET id = '` + oldStation + `' WHERE id = '` + stableStation + `'`,
-		`UPDATE duties SET user_id = '` + oldUser + `' WHERE user_id = '` + stableUser + `'`,
-		`UPDATE users SET id = '` + oldUser + `' WHERE id = '` + stableUser + `'`,
-		`INSERT INTO record_versions (version_id, entity, entity_id, node_id, supersedes, archived, payload, created_at, schema_version)
-		 VALUES ('01a0ffff-0000-7000-8000-000000000001', 'stations', '` + oldStation + `', 'x', '', 0, '{"id":"` + oldStation + `"}', CURRENT_TIMESTAMP, 1)`,
-	} {
-		if _, err := tx.Exec(stmt); err != nil {
-			t.Fatalf("priprema: %v", err)
-		}
-	}
-	if err := tx.Commit(); err != nil {
+// Postaja seedana starim, nasumičnim identitetom prekodira se na
+// deterministički — uključivo veze i knjigu verzija — a strani ključevi to ne
+// smiju spriječiti. Korisnici i zaduženja ostaju kakvi jesu: nasumični
+// identitet je njihov pravi identitet, a stalni iz seeda ne mijenja se.
+// Baza se slaže ručno, da provjera ne ovisi o imeniku izvan repozitorija.
+func TestMigracijaPrekodiraPostajeANeKorisnike(t *testing.T) {
+	database, err := OpenDB(filepath.Join(t.TempDir(), "gocop.db"))
+	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { database.Close() })
+	if err := InitSchema(database); err != nil {
+		t.Fatal(err)
+	}
+
+	stableStation := StableID("station", "zupanja").String()
+	oldStation := "01a0698c-4428-7144-9d8d-532c9c75ff0e"
+	stableUser := StableID("user", "admin").String()
+	stableDuty := StableID("duty", "admin|0").String()
+	randomUser := "01a067c8-5682-718e-a5ef-398ad6be1c2f"
+	randomDuty := "01a067c8-5682-718e-a5ef-398ad6be1d00"
+
+	for _, stmt := range []string{
+		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('D', 'Sektor D', 'VGO Osijek', 'COP Osijek')`,
+		`INSERT INTO areas (id, sector_id, name, vgi_name) VALUES (1, 'D', 'BP 1', 'VGI Proba')`,
+		`INSERT INTO sections (code, area_id, sector_id, description, created_at, updated_at)
+		 VALUES ('D.1.1', 1, 'D', 'r. Sava', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+		`INSERT INTO stations (id, code, name, created_at, updated_at) VALUES ('` + oldStation + `', 'zupanja', 'Županja', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+		`INSERT INTO section_stations (id, section_code, station_id, created_at) VALUES ('veza-1', 'D.1.1', '` + oldStation + `', CURRENT_TIMESTAMP)`,
+		`INSERT INTO users (id, username, password_hash, full_name, org_type, created_at, updated_at)
+		 VALUES ('` + stableUser + `', 'admin', 'x', 'Administrator', 'HRVATSKE_VODE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+		`INSERT INTO users (id, username, password_hash, full_name, org_type, created_at, updated_at)
+		 VALUES ('` + randomUser + `', 'pperic', 'x', 'Pero Perić', 'HRVATSKE_VODE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+		`INSERT INTO duties (id, user_id, title, role, scope_type, created_at)
+		 VALUES ('` + stableDuty + `', '` + stableUser + `', 'Glavni administrator', 'GLOBAL_ADMIN', 'ALL', CURRENT_TIMESTAMP)`,
+		`INSERT INTO duties (id, user_id, title, role, scope_type, created_at)
+		 VALUES ('` + randomDuty + `', '` + randomUser + `', 'Dežurni', 'operater', 'centar', CURRENT_TIMESTAMP)`,
+		`INSERT INTO record_versions (version_id, entity, entity_id, node_id, supersedes, archived, payload, created_at, schema_version)
+		 VALUES ('01a0ffff-0000-7000-8000-000000000001', 'stations', '` + oldStation + `', 'x', '', 0, '{"id":"` + oldStation + `"}', CURRENT_TIMESTAMP, 1)`,
+		`INSERT INTO record_versions (version_id, entity, entity_id, node_id, supersedes, archived, payload, created_at, schema_version)
+		 VALUES ('01a0ffff-0000-7000-8000-000000000002', 'users', '` + randomUser + `', 'x', '', 0, '{"id":"` + randomUser + `","username":"pperic"}', CURRENT_TIMESTAMP, 1)`,
+		`INSERT INTO record_versions (version_id, entity, entity_id, node_id, supersedes, archived, payload, created_at, schema_version)
+		 VALUES ('01a0ffff-0000-7000-8000-000000000003', 'duties', '` + randomDuty + `', 'x', '', 0, '{"id":"` + randomDuty + `","user_id":"` + randomUser + `"}', CURRENT_TIMESTAMP, 1)`,
+		`INSERT INTO record_versions (version_id, entity, entity_id, node_id, supersedes, archived, payload, created_at, schema_version)
+		 VALUES ('01a0ffff-0000-7000-8000-000000000004', 'users', '` + stableUser + `', 'x', '', 0, '{"id":"` + stableUser + `","username":"admin"}', CURRENT_TIMESTAMP, 1)`,
+	} {
+		if _, err := database.Exec(stmt); err != nil {
+			t.Fatalf("priprema (%s): %v", stmt, err)
+		}
+	}
+
+	// snimka korisnika, zaduženja i njihovih verzija, da se vidi i najmanja promjena
+	snimka := func() map[string]bool {
+		t.Helper()
+		m := map[string]bool{}
+		rows, err := database.Query(`SELECT 'u:' || id || '|' || username FROM users
+			UNION ALL SELECT 'd:' || id || '|' || user_id FROM duties
+			UNION ALL SELECT 'v:' || version_id || '|' || entity_id || '|' || payload FROM record_versions WHERE entity IN ('users', 'duties')`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var s string
+			if err := rows.Scan(&s); err != nil {
+				t.Fatal(err)
+			}
+			m[s] = true
+		}
+		return m
+	}
+	prije := snimka()
 
 	if err := InitSchema(database); err != nil {
 		t.Fatalf("migracija: %v", err)
@@ -262,18 +305,25 @@ func TestMigracijaPrekodiraNasumicneIdentitete(t *testing.T) {
 	if count(t, database, `SELECT COUNT(*) FROM section_stations WHERE station_id = ?`, oldStation) != 0 {
 		t.Error("veze još pokazuju na stari identitet postaje")
 	}
-	if count(t, database, `SELECT COUNT(*) FROM users WHERE id = ?`, stableUser) != 1 {
-		t.Error("korisnik nije prekodiran")
-	}
-	if count(t, database, `SELECT COUNT(*) FROM duties WHERE user_id = ?`, oldUser) != 0 {
-		t.Error("zaduženja još pokazuju na stari identitet korisnika")
-	}
 	if count(t, database, `SELECT COUNT(*) FROM record_versions WHERE entity = 'stations' AND entity_id = ? AND payload LIKE '%' || ? || '%'`,
 		stableStation, stableStation) != 1 {
-		t.Error("knjiga verzija (ključ i sadržaj) nije prekodirana")
+		t.Error("knjiga verzija postaje (ključ i sadržaj) nije prekodirana")
 	}
 	if count(t, database, `SELECT COUNT(*) FROM section_stations ss LEFT JOIN stations s ON s.id = ss.station_id WHERE s.id IS NULL`) != 0 {
 		t.Error("nakon migracije postoje veze bez postaje")
+	}
+
+	poslije := snimka()
+	for k := range prije {
+		if !poslije[k] {
+			t.Errorf("migracija je promijenila korisnika, zaduženje ili njihovu verziju: %s", k)
+		}
+	}
+	if len(poslije) != len(prije) {
+		t.Errorf("korisnika, zaduženja i verzija prije %d, poslije %d", len(prije), len(poslije))
+	}
+	if count(t, database, `SELECT COUNT(*) FROM users WHERE id = ? AND username = 'pperic'`, randomUser) != 1 {
+		t.Error("korisnik s nasumičnim identitetom je prekodiran")
 	}
 }
 

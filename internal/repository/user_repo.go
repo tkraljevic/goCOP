@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"gocop/internal/db"
 	"gocop/internal/ledger"
 	"gocop/internal/models"
 
@@ -324,15 +325,30 @@ func (r *UserRepository) ListUsers(sectorID string, areaID int, role, search, st
 	return users, nil
 }
 
-// CreateUser sprema korisnika i njegovu početnu funkciju
-func (r *UserRepository) CreateUser(u *models.User, initialDuty *models.Duty) error {
-	if u.ID == uuid.Nil {
-		newID, err := uuid.NewV7()
-		if err != nil {
-			return err
-		}
-		u.ID = newID
+// stalniIdentitetKorisnika daje novom korisniku isti identifikator koji bi
+// mu dao seed: iz korisničkog imena, pa ista osoba upisana na dva čvora
+// ima jedan identitet i ništa je poslije ne treba prekodirati. Kad je taj
+// identifikator već nečiji — u tablici ili u knjizi verzija (obrisan račun,
+// račun preimenovan s tog imena) — dobije nasumični: tuđa povijest se ne
+// smije probuditi pod novom osobom.
+func stalniIdentitetKorisnika(ctx context.Context, tx *sql.Tx, username string) (uuid.UUID, error) {
+	id := db.StableID("user", username)
+	var zauzeto int
+	if err := tx.QueryRowContext(ctx, `SELECT
+		(SELECT COUNT(*) FROM users WHERE id = ?) +
+		(SELECT COUNT(*) FROM record_versions WHERE entity = ? AND entity_id = ?)`,
+		id.String(), EntityUsers, id.String()).Scan(&zauzeto); err != nil {
+		return uuid.Nil, fmt.Errorf("provjera identiteta korisnika: %w", err)
 	}
+	if zauzeto == 0 {
+		return id, nil
+	}
+	return uuid.NewV7()
+}
+
+// CreateUser sprema korisnika i njegovu početnu funkciju. Korisnik bez
+// identifikatora dobije stalni, iz korisničkog imena.
+func (r *UserRepository) CreateUser(u *models.User, initialDuty *models.Duty) error {
 	now := time.Now().UTC()
 	u.CreatedAt = now
 	u.UpdatedAt = now
@@ -351,6 +367,12 @@ func (r *UserRepository) CreateUser(u *models.User, initialDuty *models.Duty) er
 		return err
 	}
 	defer tx.Rollback()
+
+	if u.ID == uuid.Nil {
+		if u.ID, err = stalniIdentitetKorisnika(context.Background(), tx, u.Username); err != nil {
+			return err
+		}
+	}
 
 	mustChangeInt := 1
 	if !u.MustChangePassword {

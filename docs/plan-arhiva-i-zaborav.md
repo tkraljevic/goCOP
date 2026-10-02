@@ -47,10 +47,20 @@ dvije su odvojene stvari.
 | `gocop.db` → `readings` | ono što ured radi: dnevni vodostaji koje operater prikuplja, satni **dok traje obrana**, očitanje s terena u bilo koje doba | verzionirano, sinkronizira se |
 | `data/vodostaji.db` | povijest: HIS-2000, telemetrija, mađarski nizovi, rekonstrukcije, protok, temperatura, nanos | bez verzija; razmjenjuje se potpisanim `.cop` izdanjima, odvojeno od knjige verzija |
 
-Arhiva se **preuzima**, ne razmjenjuje kroz knjigu verzija. Cilj je da redovna
-sinkronizacija nosi samo katalog — koja letva, koje izdanje, koje razdoblje i
-koliki otisak — dok se `.cop` paket dohvaća zasebno. Lokalni katalog i paketi
-postoje; mrežna objava kataloga još ne.
+Arhiva se **preuzima**, ne prenosi kao niz mjerenja kroz knjigu verzija.
+Od 0.0.7-alfa redovna sinkronizacija nosi kazalo — letva, izdanje, razdoblje,
+veličina i otisak — a `.cop` paket dohvaća se zasebno prema pretplati.
+Čvor koji izdaje prognozu i drži stablo izvornih datoteka nakon noćnog
+ulaganja kiše sam izdaje pakete promijenjenih kišomjera i kazalo šalje
+razmjenom; bez stabla se kiša ne ulaže (0.0.10–0.0.11). Čvor koji je letvu
+primio paketom, kad je počne izdavati, nastavlja broj izdanja primljenog niza.
+Objavljuju se samo novija izdanja; zamijenjene verzije kazala sažimaju se pri
+pokretanju i svakih šest sati (0.0.19–0.0.21).
+
+Od 0.0.23 čvor koji ne preuzima izvore može primiti paket i za letvu koju je
+nekad sam izgradio: završni dan i broj zapisa paketa ne smiju biti manji od
+lokalnih. Čvor koji preuzima i dalje štiti svoju izgrađenu letvu. Ova provjera
+opsega nije usporedba jednakosti svih vrijednosti ni puni raspodijeljeni zaborav.
 
 ## Stanje izvedbe
 
@@ -70,15 +80,21 @@ Novije izdanje **može mijenjati i stare godine**, ne samo dodavati nove:
 HIS-2000 kasni s ovjerom godinu do dvije. Ugradnja zato zamjenjuje cjelovitu
 izjavu o letvi, a ne samo dodaje razliku.
 
-### 2. Katalog koji objavljuje izdanje  *(djelomično)*
+### 2. Katalog koji objavljuje izdanje  *(napravljeno, bez prijenosa po dijelovima)*
 
-`katalog.json` već vodi zadnje izdanje svake letve, otisak, razdoblje, broj
+`katalog.json` vodi zadnje izdanje svake letve, otisak, razdoblje, broj
 nizova i zapisa te ime paketa. Izdavanje je dostupno iz administratorskog
 sučelja i naredbenog retka, a paket se može preuzeti i ugraditi ručno.
 
-Još nije napravljen distribucijski dio: katalog ne putuje redovnom
-sinkronizacijom, čvorovi sami ne nude novije izdanje i `.cop` paketi se ne
-preuzimaju izravno s drugog čvora.
+Od 0.0.7-alfa radi i distribucijski dio. Čvor koji je izdao katalog upisuje
+u knjigu verzija kazalo svakog novijeg paketa — letva, izdanje, otisak,
+razdoblje i veličina — a sam paket stavlja u spremište sadržaja. Kazalo drže
+svi čvorovi. Paket dohvaća čvor kojemu ga pokriva pretplata, od bilo kojeg
+čvora koji ga ima, provjeri otisak i ugradi ga kao ručno učitan paket.
+Napredak se vidi na pločici „Razmjena s čvorovima” na naslovnoj.
+
+Paket se zasad prenosi cijeli, uz ograničenje od 48 MB po krugu razmjene, a
+ne u provjerljivim dijelovima.
 
 ### 3. Ulaganje završene operative u arhivu  *(napravljeno, ručno pokretanje)*
 
@@ -104,13 +120,16 @@ nakon zatvaranja godine još nije uvedeno.
 Vodomjerna postaja može biti povezana s javnim izvorom i označena za
 automatsko preuzimanje. Program prvi put pokušava minutu nakon pokretanja, a
 zatim svaki sat. Preuzima samo nova očitanja, bilježi izvor i ponovljenim
-preuzimanjem ne stvara duplikate.
+preuzimanjem ne stvara duplikate. Od 0.0.7-alfa to radi samo čvor s
+uključenom ulogom „Preuzima vodostaje s izvora” (Administracija → Čvor, mreža
+i sinkronizacija → Uloge ovog čvora); ostali čvorovi očitanja primaju razmjenom.
 
 Na kartici postaje vidi se stanje zadnjeg pokušaja, a preuzimanje se može
 pokrenuti i ručno. Ako nema interneta ili izvor ne odgovara, lokalni rad se
 nastavlja i program pokušava ponovno u sljedećem ciklusu. Čitač se bira prema
-adresi izvora, pa isti mehanizam podržava hrvatske, mađarske i srpske javne
-postaje.
+adresi izvora, pa isti mehanizam podržava hrvatske, mađarske, srpske,
+slovenske, austrijske, slovačke i njemačke postaje. Mađarskim letvama, kad
+vizugy.hu kasni, rezervu daje DanubeHIS.
 
 ### 5. Zaborav  *(lokalno napravljen, mrežni dogovor nije)*
 
@@ -182,8 +201,9 @@ da se otkrije tek kad zaborav stane.
 **Stanje 25. 9. 2026.** Spremište velikih sadržaja u `sadrzaj.db` radi, a
 objavljene prijave s terena i njihovi PDF-ovi već se zaključavaju i odvajaju
 od operativne baze. Pojedini ovjereni tokovi (dnevni listovi, dnevnici COP-a i
-akti) također izrađuju nepromjenjivi potpisani izvornik. Još nije napravljeno
-jedinstveno kazalo svih službenih zapisa ni isti atomski prijelaz za svaki
+akti) također izrađuju nepromjenjivi potpisani izvornik; od 20. 9. 2026. i on
+je u `sadrzaj.db`, a knjiga verzija nosi samo njegov otisak. Još nije
+napravljeno jedinstveno kazalo svih službenih zapisa ni isti atomski prijelaz za svaki
 modul, pa tekst ispod ostaje cilj zajedničkog modela.
 
 Starost nije glavni okidač za dokumente. **Objava ili ovjera trenutak je u
@@ -226,13 +246,15 @@ ga prikazuju dnevnik, prijava i PDF.
 
 ### 8. `.cop` kanali i selektivna sinkronizacija  *(djelomično napravljeno)*
 
-**Stanje 25. 9. 2026.** `.cop` inačica 3 već radi za kanale očitanja,
-dnevnika i prijava: paket nosi potpisani manifest, zapise, popis sadržaja i po
-izboru same sadržaje, a uvoz provjerava potpis, otiske i red izdanja. Pretplate
-po vrsti, području, godinama i razini sadržaja rade i u mrežnoj razmjeni.
-Hidrološka arhiva ostaje u svojoj inačici 2 po postaji. Nisu još dovršeni svi
-planirani kanali, zajednički katalog na mreži, prijenos sadržaja po dijelovima
-ni dohvat na zahtjev.
+**Stanje 2. 10. 2026.** `.cop` inačica 3 već radi za kanale očitanja,
+dnevnika, prijava i vodočuvarskog dnevnika: paket nosi potpisani manifest,
+zapise, popis sadržaja i po izboru same sadržaje, a uvoz provjerava potpis,
+otiske i red izdanja. Pretplate po vrsti, području, godinama i razini sadržaja
+rade i u mrežnoj razmjeni. Hidrološka arhiva ostaje u svojoj inačici 2 po
+postaji, ali od 0.0.7-alfa njezino kazalo putuje knjigom verzija, a paketi
+mrežom prema pretplati. Nisu još dovršeni svi planirani kanali, katalog
+izdanja kanala na mreži (`cop_izdanja` ostaje lokalan), prijenos sadržaja po
+dijelovima ni dohvat na zahtjev.
 
 `.cop` nije nova neovisna aplikacijska baza. To je potpisano izdanje jednog
 kanala repozitorija službenih zapisa i njegove zajedničke povijesti, a ne samo
@@ -277,6 +299,12 @@ prijenosnici smiju imati samo svoj operativni doseg i privremene sadržaje.
 - vremenske zone po izvoru: hrvatski izvori u lokalnom, mađarski u UTC-u
 - potpisana `.cop` izdanja po letvi, katalog i zaštita od nenamjernog povratka
   na starije izdanje
+- kazalo izdanja arhive u knjizi verzija i dohvat paketa prema pretplati od
+  bilo kojeg čvora koji ih ima (od 0.0.7-alfa); objavljuje se samo novije
+  izdanje, a zamijenjene verzije kazala brišu se pri pokretanju i svakih šest
+  sati
+- arhiva kiše izdaje se sama nakon noćnog ulaganja, na čvoru koji izdaje
+  prognozu i drži stablo izvornih datoteka
 - pregled, ulaganje i stroga provjera operativnih očitanja prije označavanja
 - lokalno zaboravljanje uloženih očitanja i njihovih verzija tek nakon ponovne
   provjere arhive

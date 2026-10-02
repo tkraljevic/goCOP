@@ -16,7 +16,7 @@
   </div>
   <div class="page-actions">
     <a href="/prognoze" class="btn btn-secondary">{{icon "trending-up"}} Prognoze</a>
-    <a href="/prognoze.xlsx?t={{svjeze}}" class="btn btn-secondary" title="Prognoza po vodama, s ovim opisom na zasebnom listu">{{icon "download"}} Izvoz u Excel</a>
+    <a href="/prognoze.xlsx?t={{svjeze}}" class="btn btn-secondary" title="Sažetak, prognoza po vodama, grafovi te godišnji vodostaji i protoci; kratak opis metode na listu „O prognozi”">{{icon "download"}} Izvoz u Excel</a>
     <a href="/prognoze/pricuvno.xlsx?t={{svjeze}}" class="btn btn-secondary" title="Kad naša prognoza ne radi: iz mađarskih i srpskih prognoza izračunaj naše letve, u Excelu bez programa">{{icon "shield"}} Pričuvni izračun</a>
   </div>
 </div>
@@ -114,9 +114,10 @@
       {{end}}
     </ul>
     <p class="reg-card-sub">Stupci: izdano_utc, letva, velicina, ciljni_utc, doseg_h, prognoza, dolje, gore (granice raspona),
-      model (lanac ili dnevni), iz_krivulje (da kad je vrijednost preračunata krivuljom protoka), izmjereno (prazno dok
-      mjerenje ne stigne). Provjera unatrag ima još stupac postojanost — vrijednost u satu izdanja, kao pretpostavka da
-      se ništa neće promijeniti.</p>
+      model (lanac-1 za satni lanac; dnevni-1 samo uz mjerenje u satu izdanja na letvama dnevnog modela izvan lanca),
+      iz_krivulje (da kad je vrijednost preračunata krivuljom protoka), izmjereno (prazno dok mjerenje ne stigne).
+      Prognoza dnevnog modela (1.–6. dan) u izdanja.csv ne ulazi. Provjera unatrag nema stupaca model i iz_krivulje,
+      a ima stupac postojanost — vrijednost u satu izdanja, kao pretpostavka da se ništa neće promijeniti.</p>
   </section>
 
   <section class="detail-section">
@@ -125,7 +126,8 @@
     <p>Iz čega se svaka postaja računa. Kod satnog lanca uz ulaz stoji veličina, kašnjenje (raspon po pojasima
       vodnosti kod glavnog ulaza) i prozor glačanja; R je koeficijent korelacije računa s mjerenjima, a raspon
       polovina širine raspona na {{range $i, $d := .RasponDo}}{{if $i}} / {{end}}{{$d}}{{end}} h. Postaje bez satnog
-      lanca imaju samo dnevni model.</p>
+      lanca imaju samo dnevni model. „Dnevni od” je dan prijelaza pri visokoj vodi; pri niskoj i srednjoj vodi
+      vrijedi tablica u odjeljku „Koji model daje koji dan”.</p>
     <div class="table-card"><div class="table-responsive">
       <table class="data-table prog-metoda-tablica">
         <thead><tr>

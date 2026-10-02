@@ -1,347 +1,74 @@
 # goCOP — Centar obrane od poplava
 
-Operativni program za obranu od poplava Hrvatskih voda: povezuje organizaciju,
-teren, vodostaje, dokumentaciju obrane, službene akte, ljude i sredstva. Radi
-i bez interneta; kopije na različitim računalima međusobno se usklađuju.
-Repozitorij nosi program i praznu shemu baze, a podatke unosi ili uvozi
-organizacija koja ga koristi.
+Otvoreni, neprofitni program za obranu od poplava, namijenjen Hrvatskim vodama
+i drugim vodoprivrednim organizacijama. Povezuje teren, vodostaje, prognoze,
+dnevnike, službene dokumente, registre, ljude i sredstva. Računala rade s
+lokalnim podacima i usklađuju se kada je mreža dostupna.
 
-> **Status: alfa, izdanje 0.0.23-alfa (2. 10. 2026.), za testiranje i daljnji
-> razvoj.** Nije za operativnu upotrebu. Sve se još mijenja. Što je u kojem
-> izdanju, piše u [popisu izmjena](CHANGELOG.md).
->
-> Otvoreni kod, neprofitno. Za program je odgovoran Tomislav Kraljević.
+> **0.0.24-alfa — 2. 10. 2026.** Za razvoj i testiranje, ne za operativnu
+> upotrebu. Prognoze su pomoć stručnoj procjeni, ne zamjena za službene
+> prognoze i odluke odgovornih osoba. [Popis izmjena](CHANGELOG.md).
 
-Ovaj dokument je pisan za **administratore** koji program postavljaju na
-prva računala. Kaže što program radi na računalu i mreži, što ne radi, i
-što su poznate slabosti u ovoj fazi.
+## Što administrator postavlja
 
-## Što već radi
+- Samostalnu Go aplikaciju s ugrađenim web-sučeljem i lokalnim SQLite bazama.
+  Repozitorij ne sadrži poslovne baze, imenik ni pristupne podatke.
+- Stalni čvor može preuzimati vodostaje i izdavati prognoze; ostala računala,
+  npr. laptopi, obično primaju gotova izdanja. Novi čvor nema nijednu ulogu
+  dok mu se ne uključi u Administraciji → Čvor, mreža i sinkronizacija.
+- Upareni čvorovi razmjenjuju zapise, prognoze i kišu. Kazalo hidrološke arhive
+  putuje razmjenom, a potpisani `.cop` paketi dohvaćaju se prema pretplati.
+- Osnovni lokalni rad moguć je bez interneta. Novi vanjski podaci, mrežne karte,
+  e-pošta i razmjena zahtijevaju mrežnu vezu.
 
-- **Operativa obrane:** teren i očitanja, pragovi i akti o stupnjevima obrane,
-  dnevnik COP-a, dežurstva i obračun IORS, vodočuvarska knjiga, prijave s
-  terena, dnevna izvješća dionica i sektora te dnevnici usluga A.02 i A.03.
-- **Registri i resursi:** ustroj organizacije, dionice i poddionice, vodomjerne
-  postaje, vodotoci, objekti, teritorijalne jedinice, djelatnici i zaduženja,
-  izvođači, održavanje, međuslivovi i meteorološke točke te materijalno-tehnička
-  sredstva sa skladištima, prometom, inventurom i potrebama za nabavom.
-- **Hidrološka prognoza:** satne i dnevne procjene s rasponom neizvjesnosti,
-  uzdužnim profilom vodnog vala, povijesnom provjerom i izvozom u Excel.
-- **Službeni dokumenti:** PDF i Excel obrasci, osobni PAdES potpisi, kvalificirani
-  potpis iz SIGNATOR-a, vlastoručni potpis i žig, slanje izvornika e-poštom te
-  Exchange sandučić i adresar tvrtke.
-- **Podaci i razmjena:** knjiga verzija, selektivna sinkronizacija između
-  uparenih čvorova, spremište velikih sadržaja po SHA-256 otisku, odvojena
-  hidrološka arhiva i potpisana `.cop` izdanja.
-- **Rad bez interneta:** osnovno sučelje, podaci, unos i dokumenti rade lokalno.
-  Mrežne karte, vrijeme, javni vodostaji, Exchange i sinkronizacija dostupni su
-  samo kada postoji odgovarajuća mrežna veza.
+## Pokretanje
 
-Detaljni postupci i ovlasti opisani su u ugrađenoj stranici **Pomoć**.
+Izdanja na GitHubu zasad nemaju gotovih izvršnih datoteka: `gocop` se prevodi
+iz izvora (naredbe su pod „Dokumentacija i razvoj”) ili se pokreće spremnik.
+Pokrenuti `gocop.exe` na Windowsu ili `./gocop` na Linuxu/macOS-u i otvoriti
+`http://localhost` (ili port 8080 ako 80 nije dostupan). Pri prvoj prijavi
+obvezno promijeniti zadanu lozinku. Novi čvor povezati s postojećom mrežom
+čarobnjakom na prijavi; prvi čvor zahtijeva osnivanje mreže i punjenje registara.
 
----
+Za Linux amd64 dostupan je spremnik `ghcr.io/tkraljevic/gocop:0.0.24-alfa`;
+web u njemu sluša na 8080. Trajno montirati `/data` i `/arhiva`; SQLite mora
+biti na lokalnom disku. Postavljanje, portovi, uparivanje, uloge i sigurnosne
+kopije opisani su u [uputama administratoru](docs/INSTALACIJA.md).
 
-## 1. Što instalacija znači na računalu
+## Mreža i sigurnost
 
-- **Jedna izvršna datoteka, bez instalatera.** Nema pokretačkih
-  programa, nema Windows servisa, nema unosa u registry, nema drugih
-  ovisnosti. Kopira se u mapu i pokrene.
-- **Ne traži administratorska prava** (iznimka: port 80 na Linuxu i
-  macOS-u; na Windowsu ne). Ako port 80 nije dostupan, program sam prelazi
-  na 8080 i to ispiše.
-- **Piše samo u vlastitu mapu `data/`** pored sebe:
+Razmjena koristi TLS i ključeve uparenih čvorova: izravno na portu 4710 (u
+lokalnoj mreži ili na adresi domenskog čvora) ili kroz HTTPS/WebSocket tunel na
+`/razmjena/tunel`. Uparivanje na portu 4711 otvara se samo po potrebi;
+pronalaženje na 4712/UDP ostaje lokalno.
 
-  | datoteka | što je |
-  |---|---|
-  | `gocop.db` (+ `-wal`, `-shm`) | SQLite baza — operativa, registri, korisnici i knjiga verzija |
-  | `sadrzaj.db` (+ `-wal`, `-shm`) | PDF-ovi i drugi veliki službeni sadržaji, spremljeni jednom po SHA-256 otisku |
-  | `vodostaji.db` (+ `-wal`, `-shm`) | obnovljiva hidrološka arhiva i evidencija primljenih izdanja |
-  | `prognoze.db` (+ `-wal`, `-shm`) | izvedene prognoze, parametri i rezultati provjere; obnovljivi iz ulaznih nizova |
-  | `gocop.toml` | postavke, s komentarima; program je zapiše pri prvom pokretanju |
-  | `node-key` | privatni ključ ovog računala (Ed25519), prava 0600 |
-  | `network-key` | ključ mreže, kod čvora koji ju je osnovao |
+Javni čvor treba HTTPS, ograničen pristup izvornom poslužitelju i isključen
+cache aplikacijskih odgovora na posredniku. **Sigurnosno učvršćivanje alfe još
+nije dovršeno**: CSRF, sigurni HTTPS kolačići, povjerenje posrednicima i
+ograničenja zahtjeva ostaju otvoreni. Izvršna datoteka još nije potpisana.
+Prije nadogradnje izraditi sigurnosnu kopiju baza, sadržaja, postavki i
+ključeva; kopiju identiteta ne koristiti kao novi čvor.
 
-  Uz `data/` zadano žive `vodostaji/`, stablo izvornih datoteka, i `pakete/`,
-  mapa izdanih `.cop` paketa s `katalog.json`. Putanje se mogu promijeniti.
+## Dokumentacija i razvoj
 
-  U istu mapu administrator može staviti datoteke registara i imenika
-  (`*.json`); program ih pročita samo pri prvom punjenju prazne baze
-  (poglavlje „Podaci koji nisu u repozitoriju”).
+- **Pomoć u aplikaciji** — korisnički postupci, ovlasti, pojmovnik i „O programu”.
+- [Administratorske upute](docs/INSTALACIJA.md) — instalacija i održavanje.
+- [Povezivost](docs/plan-povezivost.md) i [arhiva](docs/plan-arhiva-i-zaborav.md)
+  — izvedeno stanje i preostali razvojni planovi.
+- [Katalog alata](docs/katalog-alata.md) — pomoćni lokalni alati izvan aplikacije.
 
-- **Uklanjanje:** obrisati mapu. Ne ostaje ništa.
-- **Platforme izdanja:** Windows x64, Linux x64, macOS Apple Silicon.
+Go verzija određena je u `go.mod`; aplikacija ne zahtijeva CGO.
 
-## 2. Mreža
-
-Program je web aplikacija koja poslužuje sama sebe — otvara se u
-pregledniku na tom računalu ili s drugih računala u mreži. Javni čvor
-izlaže se kroz tunel koji prema korisniku završava TLS vezu; sam program
-iza tunela i dalje sluša HTTP.
-
-| port | protokol | smjer | čemu služi |
-|---|---|---|---|
-| **80** (ili 8080) | TCP, HTTP | dolazno | web sučelje za ljude |
-| **4710** | TCP, TLS 1.3 | dolazno i odlazno | razmjena podataka između uparenih računala |
-| **4711** | TCP, TLS 1.3 | dolazno | uparivanje — samo dok uparivanje traje |
-| **4712** | UDP, broadcast | lokalna mreža | pronalaženje drugih goCOP računala u istom segmentu |
-
-**Što ide izvan računala:** program nema telemetriju o uporabi ni obvezni cloud;
-sučelje, fontovi i skripte ugrađeni su u program. Poslovni podaci sinkroniziraju se samo
-s izričito uparenim goCOP čvorovima, obostrano autentificiranim TLS-om 1.3.
-Ako ih administrator uključi, zasebne veze postoje prema poslužitelju e-pošte,
-javnim i prijavljenim izvorima vodostaja (HydroView i mLetva), vanjskim
-prognozama, Open-Meteu i izvoru mrežnih karata. Lozinke vanjskih izvora ostaju
-šifrirane na tom čvoru i ne sinkroniziraju se. Bez tih veza osnovni rad ostaje dostupan.
-
-**Za vatrozid:** dopustiti dolazne TCP 80/8080, 4710 i 4711 te UDP 4712
-između računala koja sudjeluju u testu. Portovi se mijenjaju u `gocop.toml`.
-
-## 3. Podaci i sigurnost
-
-- **Podaci su na računalu.** Operativa i kazalo službenih zapisa su u
-  `gocop.db`, veliki PDF-ovi i drugi sadržaji u `sadrzaj.db`, a hidrološka
-  povijest u `vodostaji.db` i izvornom stablu. `prognoze.db` je izvedeni,
-  obnovljivi rezultat i ne ulazi u knjigu verzija ni `.cop` kanal. Podaci se
-  ne šalju nikamo osim na
-  uparena računala prema pretplati čvora ili u `.cop` paket koji administrator
-  izričito izda.
-- **Osobni podaci.** Registar djelatnika sadrži imena, funkcije, telefone i
-  e-mail adrese djelatnika i sudionika obrane od poplava, kako ih
-  organizacija unese ili uveze iz svog imenika. Tretirati mapu `data/` kao
-  takvu.
-- **Lozinke** se čuvaju kao bcrypt hash. Sesija je HttpOnly kolačić,
-  SameSite Lax, traje do isteka ili odjave.
-- **Zadana lozinka mora se promijeniti.** Do tada račun može otvoriti samo
-  vlastiti profil i odjavu; sve ostale stranice i radnje ostaju zaključane.
-- **Pogađanje lozinki je ograničeno.** Nakon pet neuspjelih pokušaja u 15
-  minuta prijava se blokira na 15 minuta, i po korisničkom imenu i po adresi.
-  Adrese iz zaglavlja prihvaćaju se samo od lokalnog posrednika ili tunela.
-- **Uparivanje računala** traži čovjeka na oba ekrana: oba pokažu isti
-  šesteroznamenkasti kod i oba ga potvrde. Bez toga drugo računalo ne dobiva
-  ni bajt. Svaka kasnija veza dokazuje ključ unutar TLS-a; ključ koji ne
-  odgovara uparenom se odbija na vratima.
-- **Ključ računala** (`node-key`) je njegov identitet. Kopija baze bez
-  ključa nije to računalo. Ključ se ne sinkronizira i ne smije u backup koji
-  ide na drugo računalo.
-- **Tajne i službeni izvornici.** Lozinka Exchangea i sken vlastoručnog potpisa
-  šifrirani su ključem ovog čvora. Osobni potpisni ključ zaključan je lozinkom
-  korisnika; potpisani PDF, a ne nezaštićeni sken, postaje izvornik koji se
-  razmjenjuje. Žig centra dostupan je samo upravi sektora, ali je dio baze i
-  sigurnosne kopije pa mapu `data/` treba štititi kao službenu evidenciju.
-- **Nacrt nije službeni zapis.** Može se mijenjati ili obrisati dok ne bude
-  objavljen ili ovjeren. Objava ili ovjera zaključava sadržaj i priloge te ih
-  uvodi u repozitorij službenih zapisa. Ispravak nastaje kao novi povezani
-  zapis; izvorni se ne prepisuje. Arhivska građa trajno je čuvani dio tog
-  repozitorija, dok drugi službeni zapisi mogu imati propisani rok čuvanja.
-- **Pospremanje nije obično brisanje.** Starije tehničke verzije i već uložena
-  operativna očitanja mogu se ukloniti samo administratorskim postupkom koji
-  najprije provjerava da je točan niz, vrijeme i vrijednost sigurno spremljen.
-- **Testne mogućnosti** za upis i simulirani potpis „tuđim očima” služe samo
-  uvođenju i testiranju. Simulirani PDF ima veliki žig „BEZVRIJEDNO”; sve
-  testne prekidače u operativnom radu treba držati isključenima.
-
-## 4. Poznata ograničenja alfa faze — pročitati prije odobrenja
-
-1. **Izvršni file još nije potpisan.** Windows SmartScreen će upozoriti, a
-   neki antivirusi označe nepotpisane Go programe. Potpisivanje besplatnim
-   certifikatom za otvoreni kod je u planu prije bete. Do tada: provjeriti
-   SHA-256 izdanja i dopustiti ručno.
-2. **Nema CSRF tokena** za obrasce i druge zahtjeve koji mijenjaju podatke.
-3. **Pronalaženje preko interneta** (stalno izložena računala s domenom)
-   još ne radi — samo lokalna mreža i ručni upis adrese.
-4. **Shema se još mijenja.** Sve što se unese u alfi može se izgubiti pri
-   promjeni sheme između verzija.
-
-## 5. Preporuka za prva računala
-
-- Dva do tri računala u istoj lokalnoj mreži, unutar mreže Hrvatskih voda,
-  bez izlaganja na internet.
-- Jedan administrator osniva mrežu i drži njezin ključ (Administracija →
-  Čvor i mreža); on prima nova računala i upravlja lozinkama. Svoje
-  računalo uparuje svatko sam: na svježem računalu čarobnjak stoji na
-  stranici prijave, a prijavljenima u profilu.
-- Provjeriti SHA-256 preuzetog izdanja prema `SHA256SUMS` uz izdanje.
-- Program pokretati kao običan korisnik, iz vlastite mape.
-- Sigurnosna kopija mora obuhvatiti cijelu mapu `data/` i izvorno stablo
-  vodostaja. Povrat treba probno izvesti prije operativnog rada; ključeve
-  čvora čuvati odvojeno i ne pretvarati kopiju baze u drugi čvor kopiranjem
-  tuđeg identiteta.
-
-## 6. Pokretanje
-
-```
-gocop.exe            (Windows)
-./gocop              (Linux, macOS)
-```
-
-Prvo pokretanje stvori praznu bazu i račun `admin` s početnom lozinkom
-koja se mijenja pri prvoj prijavi, te zapiše `data/gocop.toml`. Prvi korak
-u programu je registar Administrativna organizacija: sektori, pa branjena područja. Ako uz bazu stoje datoteke registara i imenika,
-učita i njih. Otvoriti `http://localhost` (ili `http://localhost:8080`).
-Ustroj, registri i djelatnici stižu na svako računalo. Očitanja i dnevnici
-idu po kanalima „vrsta/područje/godina“ i računalo ih prima samo za ono
-što prati: na profilu, pod **Što ovo računalo prati**, osoba označi sektor
-ili područje i godine te bira prima li samo kazalo, pregled ili puni sadržaj
-i koliko dugo primljene PDF-ove i slike drži. Što joj više ne treba može
-obrisati s računala; sadržaj nastao na tom računalu ne otpušta se. Uredski
-poslužitelj prati sve (`sve = true` u `gocop.toml`) i drži potpunu kopiju iz
-koje se svaki laptop može ponovno napuniti.
-
-Novo računalo prvo treba povezati s uredom. Dok u njemu nema djelatnika,
-stranica prijave nudi čarobnjak **Poveži ovo računalo s uredom**: pronaći
-ured u lokalnoj mreži ili upisati adresu, usporediti kod s osobom u uredu,
-preuzeti podatke. Kad stigne imenik, osoba se prijavljuje svojim računom;
-čarobnjak bez prijave tada se zatvara, a prijavljenima ostaje u profilu za
-dodatna računala i ručnu razmjenu.
-
-Sve što radi samo administrator stoji u modulu **Administracija**: ustroj i
-nazivi, računi, moduli i ovlasti, čvorovi i sinkronizacija, održavanje baze,
-arhiva, obračun sati, e-pošta, žig, elektronički potpisi, testne opcije i
-uvozi. Vidi ga zadano samo globalni administrator. Nadzorna ploča
-**Sinkronizacija** pokazuje tko je na mreži,
-koliko računala odgovara, s kim je zadnja razmjena uspjela, tko zaostaje i
-što ne štima; razmjena ide s više čvorova istodobno, a čvorovi koji redom
-šute zovu se sve rjeđe. **Održavanje baze** pokazuje koliko je baza velika
-i od čega, sažima knjigu verzija (svaki zapis zadržava zadnju verziju, a
-obrisani svoj nadgrobni spomenik; starije verzije brišu se nakon zadanog
-roka), vraća prostor na disku, te izvozi kanal u datoteku
-(`gocop-ocitanja-bp16-2024.db`) i uvozi je u bilo koji čvor: arhiva na
-disku ili prijenos bez mreže. Na stranici prijave stoji kontakt glavnog
-administratora iz registra (mobitel, e-pošta) i centar iz postavki čvora.
-
-`gocop.toml` — adresa web sučelja, putanja baze, identifikator i naziv
-računala, portovi, razmak automatske sinkronizacije, stalno izložene
-domene. Zastavice na naredbenom retku (`-addr`, `-db`, `-podaci`, `-pakete`,
-`-node`, `-name`,
-`-sync-port`, `-pair-port`, `-discovery-port`, `-auto-sync`, `-config`)
-imaju prednost pred datotekom.
-
-Uvoz evidencija radova iz vanjske evidencije kao **rekonstruiranih**
-dnevnika: `gocop -import-bp16-dnevnici` (bez `-upisi` samo izvješće). Po
-programu i godini nastaje jedan dnevnik, listovi se slažu po danu i po šest
-izvođačevih upisa, a prvi upis na svakom listu i oznaka dnevnika kažu da je
-to rekonstrukcija: stvarni listovi vođeni su izvan aplikacije i ovjereni
-potpisima, pa ih ovi ne zamjenjuju.
-
-Uvoz ugovora o održavanju (radna knjiga iz Excel dodatka Hrvatskih voda,
-program A.02): `gocop -ugovor <datoteka.xlsx>` ispiše izvješće — koje su
-lokacije prepoznate u registru, koje bi bile nove, gdje treba ručna veza
-(`-ugovor-veze "naziv iz popisa=sifra"`). Upis tek uz `-upisi`;
-`-ugovor-sve-stavke` uz korištene stavke upiše i cijeli ponudbeni
-troškovnik (opisi i jedinice, bez cijena). Ponovni uvoz istog ili
-sljedećeg ugovora ne udvostručuje: postojeće lokacije i stavke ostaju kako
-jesu.
-
-## 7. Verzije
-
-| faza | verzija | git oznaka | značenje |
-|---|---|---|---|
-| **alfa** | `0.0.x` | `v0.0.1-alfa`, `v0.0.2-alfa`… | razvoj, sve se mijenja; x raste sa svakim izdanjem |
-| **beta** | `0.y.x`, od `0.1.0` | `v0.1.0-beta`… | funkcionalnosti zaokružene, oblik stabilan, provjera na terenu; y nova funkcionalnost, x ispravci |
-| **stabilno** | `z.y.x`, od `1.0.0` | `v1.0.0`… | operativna upotreba; z samo za nekompatibilnu promjenu (shema baze, razmjena između čvorova, postavke), y nova funkcionalnost, x ispravci |
-
-Čvorovi različitih verzija međusobno se sinkroniziraju, pa je nekompatibilna
-promjena ona zbog koje stari čvor ne može raditi s novim. Alfa i beta izdanja
-na GitHubu označena su kao *pre-release*. Izdanje: promijeniti `verzijaPrograma`,
-upisati novo u [CHANGELOG.md](CHANGELOG.md), commit, oznaka, Release s tekstom
-iz popisa izmjena.
-
-Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
-Verzija stoji u kodu (`verzijaPrograma` u `cmd/gocop/main.go`) i mijenja se pri
-izdavanju; program je ispisuje u podnožju stranice i u dnevniku, s kratkom
-oznakom commita iz kojega je preveden (i zvjezdicom kad stablo ima nespremljenih
-izmjena). Izdanje u gitu nosi oznaku `v0.0.1-alfa`.
-
-## 8. Za razvoj
-
-Go, bez CGO-a; SQLite (modernc), sučelje `html/template` ugrađeno u binary.
-Projekt trenutačno ima više od 500 Go testova; puni testovi, `go vet` i ciljani
-race-testovi arhive i weba prolaze na aktualnom stanju.
-
-```bash
+```sh
 go build -o bin/gocop ./cmd/gocop
 go test ./...
+go vet ./...
 ```
 
-Repozitorij nosi samo aplikaciju: `cmd/gocop` je jedini ulaz, logika je u
-`internal`, sučelje u `web`. Uvoz u arhivu iz svih podržanih izvora, arhiviranje,
-izdavanje paketa i priprema modela prognoze rade iz same aplikacije. Pomoćni
-alati (administracija poslužitelja, jednokratne migracije, dijagnostika,
-analize, priprema geometrije) stoje lokalno u `tools/` i ne ulaze u
-repozitorij; popis i namjena su u [katalogu alata](docs/katalog-alata.md).
-Lokalne izgradnje idu u `bin/`, a baze, arhiva vodostaja i paketi u `data/`,
-`vodostaji/` i `pakete/`, također izvan repozitorija.
+## Licenca i zasluge
 
-Sinkronizacijski transport — ključevi, uparivanje, TLS razmjena i
-pronalaženje na lokalnoj mreži — stoji u `internal/razmjena`, odvojen od
-ostatka programa da se mreža može mijenjati bez diranja operative. Kote nule vodomjera vode se u sustavu Trst, a HVRS71 kote zasebno.
-Testovi koji trebaju stvarne registre i imenik preskaču se kad tih datoteka
-nema u mapi `data/`.
-
-Program razvija Tomislav Kraljević, uz pomoć kolega iz Hrvatskih voda.
-Kao i uređivač koda i drugi razvojni alati, u radu se koriste i alati
-umjetne inteligencije; sav kod prolazi ručni pregled i automatske testove
-prije nego što uđe u program, a odgovornost za njega je isključivo ljudska.
-
-## 9. Suradnici i doprinosi
-
-Program nastaje uz pomoć kolega iz Hrvatskih voda i sudionika obrane od
-poplava. Tko je što pridonio — uključujući unos podataka za Baranju u
-aplikaciju app.bp16.xyz — piše u datoteci [`ZAHVALE.md`](ZAHVALE.md).
-
-### Evidencija VGI Baranja (app.bp16.xyz)
-
-Uvoz očitanja vodostaja te stanja crpnih stanica i ustava branjenog
-područja 16 (Baranja) od 2013. do 2026. nastao je iz evidencije koju je
-Tomislav Kraljević vodio na privatnom poslužitelju (app.bp16.xyz) i koju je
-VGI Baranja punila svako jutro. Ti podaci nisu dio programa; uvoze se na
-čvorove Hrvatskih voda. Zahvala svim djelatnicima koji su ih trinaest godina
-unosili u evidenciju i očitavali na terenu. Njihova imena nisu objavljena u
-javnom repozitoriju radi zaštite osobnih podataka.
-
-## Podaci koji nisu u repozitoriju
-
-Repozitorij nosi program i shemu baze, bez podataka, i tako ostaje: baza
-napunjena podacima Hrvatskih voda nikad ne ide u repozitorij, ni kad su ti
-podaci javno objavljeni. Sve stoji uz bazu, u mapi `data/`, i čita se
-samo pri prvom punjenju prvog čvora u mreži; svaki sljedeći čvor podatke
-dobiva sinkronizacijom. Zaseban, izmišljen testni
-skup podataka može jednom stajati uz izdanje za isprobavanje.
-
-- **organizacija** — `organizacija.json` (sektori i branjena područja),
-  ako se ne upisuju ručno;
-- **registri** — `sections.json` (dionice s poddionicama, vodomjerima i
-  pragovima, objektima, nasipima i branama; prijepis Privitka 1 Glavnog
-  provedbenog plana obrane od poplava nastaje administratorskim alatom `prijepis-dionica`, koji je izvan repozitorija),
-  `watercourses.json` (vode I. reda iz Odluke o popisu voda I. reda, NN
-  79/2010, i opisni podaci iz Wikipedije), `territories.json` i
-  `section_territories.json` (županije, gradovi, općine, naselja i njihove
-  veze na dionice), `objekti_bp16.json` (objekti Baranje iz evidencije VGI);
-- **imenik djelatnika** — osobni podaci; čita se iz `data/imenik.json` uz
-  bazu, samo pri prvom punjenju čvora;
-- **očitanja vodostaja** — mjerenja Hrvatskih voda, koja na letvama
-  očitavaju vodočuvari i strojari. Povijest vodostaja stoji samo na
-  čvorovima Hrvatskih voda; program je zna uvesti iz datoteke uz bazu i
-  razmijeniti s drugim čvorovima mreže, ali je ne nosi u sebi. Isto vrijedi
-  za mjerenja Državnog hidrometeorološkog zavoda, ako se poslije uključe:
-  Hrvatske vode ih koriste po ugovoru o uzajamnom korištenju i ne
-  objavljuju ih.
-
-Zbog toga svaki uvoz ide iz datoteke koja stoji uz bazu, nikad iz
-`internal/db`, jer se sve odande ugrađuje u program. Test to i provjerava:
-u `internal/db` ne smije biti nijedna podatkovna datoteka.
-
-## Licenca
-
-goCOP je otvoreni, neprofitni projekt namijenjen Hrvatskim vodama i drugim
-vodoprivrednim organizacijama kojima je primjenjiv. Program je licenciran
-pod European Union Public Licence, verzija 1.2 (EUPL-1.2). Tekst licence
-je u datoteci `LICENSE`; sve jezične inačice EUPL-a, uključujući hrvatsku,
-jednako su vjerodostojne.
-
-Nositelj autorskih prava na program: Hrvatske vode.
-Program je osmislio i izgradio Tomislav Kraljević; to navođenje je uvjet
-korištenja i ostaje u svakoj izvedenici.
-
-Grafički znakovi ugrađeni u program i podaci koje program čita uz bazu
-imaju vlastito podrijetlo i prava, opisana u datoteci `NOTICE`.
+[EUPL-1.2](LICENSE); posebne obavijesti i prava nad resursima su u [NOTICE](NOTICE).
+Nositelj autorskih prava naveden u projektu: Hrvatske vode.
+Program je osmislio i izgradio Tomislav Kraljević.
+Licence ovisnosti i podataka opisane su u „O programu”, a doprinosi u
+[ZAHVALE.md](ZAHVALE.md). Licenca programa ne prenosi prava nad poslovnim podacima.

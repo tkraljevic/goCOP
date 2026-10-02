@@ -9,6 +9,7 @@
 package peers
 
 import (
+	"cmp"
 	"context"
 	"crypto/ed25519"
 	"database/sql"
@@ -146,6 +147,11 @@ type Service struct {
 	uloge           atomic.Pointer[Uloge]
 	naPromjenuUloga func(Uloge)
 
+	// izdanje programa i puna oznaka gradnje, za razmjenu (PostaviProgram)
+	program, gradnja string
+	// čvorovi čija je drukčija inačica programa već zapisana u dnevnik
+	javljenaInacica sync.Map
+
 	every    time.Duration // razmak automatske sinkronizacije (0 = isključena)
 	autoOn   bool
 	wantsAll bool // prati sve kanale (uredski čvor)
@@ -167,6 +173,22 @@ func NewService(db *sql.DB, rec *ledger.Recorder, node *Node, ports Ports) (*Ser
 
 func (s *Service) Node() *Node  { return s.node }
 func (s *Service) Ports() Ports { return s.ports }
+
+// PostaviProgram pamti izdanje programa (npr. 0.0.24-alfa) i punu oznaku
+// gradnje; oboje putuje drugim čvorovima u razmjeni, da ploča pokaže tko
+// radi na starijem programu
+func (s *Service) PostaviProgram(program, gradnja string) {
+	s.mu.Lock()
+	s.program, s.gradnja = program, gradnja
+	s.mu.Unlock()
+}
+
+// Program vraća izdanje i punu oznaku gradnje ovog čvora
+func (s *Service) Program() (program, gradnja string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.program, s.gradnja
+}
 
 // ---------- poznati čvorovi ----------
 
@@ -604,6 +626,11 @@ const (
 type frontierMsg struct {
 	Frontier map[string]string `json:"frontier"`
 	Wants    *Wants            `json:"wants,omitempty"` // koje kanale pošiljatelj traži; bez toga sve
+	// Program je izdanje pošiljatelja (npr. 0.0.24-alfa), Gradnja puna oznaka
+	// s commitom. Stariji čvor ne šalje ni jedno: prazno znači program stariji
+	// od onoga koji je to uveo.
+	Program string `json:"program,omitempty"`
+	Gradnja string `json:"gradnja,omitempty"`
 }
 
 type deltaMsg struct {
@@ -622,7 +649,7 @@ func (s *Service) Serve(ctx context.Context) error {
 		peer, _ := s.peerByKey(ctx, c.PeerKey)
 		started := time.Now()
 		applied, sent, theirs, err := s.exchange(ctx, c, false)
-		s.noteSync(ctx, peer, c, syncOutcome{applied: applied, sent: sent, frontier: theirs, took: time.Since(started), err: err})
+		s.noteSync(ctx, peer, c, ishodRazmjene(applied, sent, theirs, time.Since(started), err))
 	}
 	go func() {
 		if err := razmjena.ServeExchangeOn(ctx, s.node.key, Protocol, s.tunel, s.trusted, primi); err != nil && ctx.Err() == nil {
@@ -692,10 +719,10 @@ func (s *Service) SyncWith(ctx context.Context, nodeID string) (applied, sent in
 			continue
 		}
 		started := time.Now()
-		var theirs map[string]string
+		var theirs frontierMsg
 		applied, sent, theirs, err = s.exchange(ctx, conn, true)
 		conn.Close()
-		s.noteSync(ctx, peer, conn, syncOutcome{applied: applied, sent: sent, frontier: theirs, took: time.Since(started), err: err})
+		s.noteSync(ctx, peer, conn, ishodRazmjene(applied, sent, theirs, time.Since(started), err))
 		return applied, sent, err
 	}
 	s.noteSync(ctx, peer, nil, syncOutcome{err: lastErr})
@@ -722,14 +749,14 @@ func pomakniGranicu(granica map[string]string, poslano []ledger.Version) map[str
 
 // exchange je jedan razgovor: frontier ↔ frontier, delta ↔ delta, done ↔ done.
 // Onaj tko je nazvao (initiator) prvi šalje; obje strane rade isto.
-func (s *Service) exchange(ctx context.Context, c *razmjena.Conn, initiator bool) (applied, sent int, theirFrontier map[string]string, err error) {
+func (s *Service) exchange(ctx context.Context, c *razmjena.Conn, initiator bool) (applied, sent int, theirs frontierMsg, err error) {
 	mine, err := s.rec.Frontier(ctx)
 	if err != nil {
-		return 0, 0, nil, err
+		return 0, 0, theirs, err
 	}
 	myWants, err := s.CurrentWants(ctx)
 	if err != nil {
-		return 0, 0, nil, err
+		return 0, 0, theirs, err
 	}
 
 	send := func(kind string, v any) error {
@@ -754,20 +781,21 @@ func (s *Service) exchange(ctx context.Context, c *razmjena.Conn, initiator bool
 		return e.Decode(v)
 	}
 
-	var theirs frontierMsg
+	program, gradnja := s.Program()
+	moja := frontierMsg{Frontier: mine, Wants: &myWants, Program: program, Gradnja: gradnja}
 	if initiator {
-		if err := send(kindFrontier, frontierMsg{mine, &myWants}); err != nil {
-			return 0, 0, theirs.Frontier, err
+		if err := send(kindFrontier, moja); err != nil {
+			return 0, 0, theirs, err
 		}
 		if err := expect(kindFrontier, &theirs); err != nil {
-			return 0, 0, theirs.Frontier, err
+			return 0, 0, theirs, err
 		}
 	} else {
 		if err := expect(kindFrontier, &theirs); err != nil {
-			return 0, 0, theirs.Frontier, err
+			return 0, 0, theirs, err
 		}
-		if err := send(kindFrontier, frontierMsg{mine, &myWants}); err != nil {
-			return 0, 0, theirs.Frontier, err
+		if err := send(kindFrontier, moja); err != nil {
+			return 0, 0, theirs, err
 		}
 	}
 
@@ -775,22 +803,22 @@ func (s *Service) exchange(ctx context.Context, c *razmjena.Conn, initiator bool
 	// omaškom, jer bi ostalo bez granice i vraćalo se svakom razmjenom
 	delta, err := s.rec.Delta(ctx, theirs.Frontier, s.wantsFunc(ctx, theirs.Wants), NajviseVerzijaPoRazmjeni)
 	if err != nil {
-		return 0, 0, theirs.Frontier, err
+		return 0, 0, theirs, err
 	}
 	var incoming deltaMsg
 	if initiator {
 		if err := send(kindDelta, deltaMsg{delta}); err != nil {
-			return 0, 0, theirs.Frontier, err
+			return 0, 0, theirs, err
 		}
 		if err := expect(kindDelta, &incoming); err != nil {
-			return 0, 0, theirs.Frontier, err
+			return 0, 0, theirs, err
 		}
 	} else {
 		if err := expect(kindDelta, &incoming); err != nil {
-			return 0, 0, theirs.Frontier, err
+			return 0, 0, theirs, err
 		}
 		if err := send(kindDelta, deltaMsg{delta}); err != nil {
-			return 0, 0, theirs.Frontier, err
+			return 0, 0, theirs, err
 		}
 	}
 	sent = len(delta)
@@ -812,7 +840,7 @@ func (s *Service) exchange(ctx context.Context, c *razmjena.Conn, initiator bool
 	}
 	applied, err = s.rec.Apply(ctx, wanted)
 	if err != nil {
-		return 0, 0, theirs.Frontier, err
+		return 0, 0, theirs, err
 	}
 	if applied > 0 && s.onApplied != nil {
 		if err := s.onApplied(ctx, wanted); err != nil {
@@ -829,66 +857,66 @@ func (s *Service) exchange(ctx context.Context, c *razmjena.Conn, initiator bool
 	var theirDone doneMsg
 	if initiator {
 		if err := send(kindZelje, mojeZelje); err != nil {
-			return applied, sent, theirs.Frontier, err
+			return applied, sent, theirs, err
 		}
 		e, err := c.Receive()
 		if err != nil {
-			return applied, sent, theirs.Frontier, err
+			return applied, sent, theirs, err
 		}
 		if e.Kind == kindDone {
 			_ = e.Decode(&theirDone)
 			_ = send(kindDone, doneMsg{applied})
-			return applied, sent, theirs.Frontier, nil
+			return applied, sent, theirs, nil
 		}
 		if e.Kind != kindZelje {
-			return applied, sent, theirs.Frontier, fmt.Errorf("očekivana poruka %q, stigla %q", kindZelje, e.Kind)
+			return applied, sent, theirs, fmt.Errorf("očekivana poruka %q, stigla %q", kindZelje, e.Kind)
 		}
 		_ = e.Decode(&njihoveZelje)
 		if err := send(kindSadrzaj, sadrzajMsg{s.sadrzajZa(ctx, njihoveZelje.Otisci, theirs.Wants)}); err != nil {
-			return applied, sent, theirs.Frontier, err
+			return applied, sent, theirs, err
 		}
 		var stigao sadrzajMsg
 		if err := expect(kindSadrzaj, &stigao); err != nil {
-			return applied, sent, theirs.Frontier, err
+			return applied, sent, theirs, err
 		}
 		s.primiSadrzaj(ctx, razmjena.PublicKeyString(c.PeerKey), stigao.Stavke)
 	} else {
 		e, err := c.Receive()
 		if err != nil {
-			return applied, sent, theirs.Frontier, err
+			return applied, sent, theirs, err
 		}
 		if e.Kind == kindDone {
 			_ = e.Decode(&theirDone)
 			_ = send(kindDone, doneMsg{applied})
-			return applied, sent, theirs.Frontier, nil
+			return applied, sent, theirs, nil
 		}
 		if e.Kind != kindZelje {
-			return applied, sent, theirs.Frontier, fmt.Errorf("očekivana poruka %q, stigla %q", kindZelje, e.Kind)
+			return applied, sent, theirs, fmt.Errorf("očekivana poruka %q, stigla %q", kindZelje, e.Kind)
 		}
 		_ = e.Decode(&njihoveZelje)
 		if err := send(kindZelje, mojeZelje); err != nil {
-			return applied, sent, theirs.Frontier, err
+			return applied, sent, theirs, err
 		}
 		var stigao sadrzajMsg
 		if err := expect(kindSadrzaj, &stigao); err != nil {
-			return applied, sent, theirs.Frontier, err
+			return applied, sent, theirs, err
 		}
 		s.primiSadrzaj(ctx, razmjena.PublicKeyString(c.PeerKey), stigao.Stavke)
 		if err := send(kindSadrzaj, sadrzajMsg{s.sadrzajZa(ctx, njihoveZelje.Otisci, theirs.Wants)}); err != nil {
-			return applied, sent, theirs.Frontier, err
+			return applied, sent, theirs, err
 		}
 	}
 
 	if initiator {
 		if err := send(kindDone, doneMsg{applied}); err != nil {
-			return applied, sent, theirs.Frontier, err
+			return applied, sent, theirs, err
 		}
 		_ = expect(kindDone, &theirDone)
 	} else {
 		_ = expect(kindDone, &theirDone)
 		_ = send(kindDone, doneMsg{applied})
 	}
-	return applied, sent, theirs.Frontier, nil
+	return applied, sent, theirs, nil
 }
 
 // OnApplied postavlja što se radi s primljenim verzijama nakon upisa u
@@ -908,6 +936,11 @@ func (s *Service) noteSync(ctx context.Context, peer *Peer, c *razmjena.Conn, o 
 	}
 	applied, sent, err := o.applied, o.sent, o.err
 	s.recordSyncState(ctx, peer.NodeID, o)
+	if mojProgram, mojaGradnja := s.Program(); o.program != "" && mojProgram != "" && o.program != mojProgram {
+		if _, vec := s.javljenaInacica.LoadOrStore(peer.NodeID+"\x00"+o.program, true); !vec {
+			log.Printf("razmjena: čvor %s radi na %s, ovaj na %s", label(*peer), cmp.Or(o.gradnja, o.program), cmp.Or(mojaGradnja, mojProgram))
+		}
+	}
 	// Razmjena je mogla donijeti noviji zapis tog čvora (adrese, izloženost);
 	// bilješka ide na svjež red, inače bi stara kopija iz memorije pregazila
 	// primljeno i kao nova verzija otputovala natrag.

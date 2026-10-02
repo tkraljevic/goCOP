@@ -3,8 +3,13 @@
 Od 25. 9. 2026. postaja nosi zasebno `zero_datum_baltic`, oznaku sustava
 `zero_datum_baltic_system` i izvor `zero_datum_baltic_source`. Polja se
 uređuju na kartici, čuvaju u knjizi verzija, razmjenjuju među nadograđenim
-čvorovima i prikazuju u izvozu kartice u Excel. Baltička kota nije zamjena
-za Trst ni HVRS71 u izračunu apsolutnih kota vode.
+čvorovima i prikazuju u izvozu kartice u Excel. Baltička kota ne upisuje se
+u Trst ni HVRS71 i ne mijenja ih. U računu je koristi samo uzdužni profil (od
+27. 9. 2026.): letva bez kote u Trstu, a s baltičkom kotom čiji sustav nosi
+oznaku `mBf`, crta se u Trstu uz dodatak 0,675 m (`BaltikUTrst` u
+`internal/web/handlers_prognoze.go`, provjereno na paru Letenye–Goričan,
+0,66 m). To je prikaz pada vodnog lica, a ne potvrđena transformacija niti
+upis na karticu.
 
 U živoj bazi prenesene su samo eksplicitno navedene izvorne vrijednosti iz
 postojećeg opisa metode/napomene: Paks, Dunaszekcső, Nagybajcs, Drávaszabolcs,

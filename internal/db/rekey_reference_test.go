@@ -126,9 +126,9 @@ func imaStupac(t *testing.T, baza *sql.DB, tablica, stupac string) bool {
 // Zaduženja istog korisnika razmjena upiše kako stignu, pa im redoslijed
 // redaka na drugom čvoru nije isti. Prekodiranje je brojalo po redoslijedu,
 // zamijenilo dva zaduženja i palo na jedinstvenosti — Unraid se 2.10.2026.
-// nije dao pokrenuti. Zaduženje sa stalnim identifikatorom ostaje kakvo jest;
-// staro nasumično dobije prvi slobodan broj.
-func TestPrekodiranjeZaduzenjaNeOvisiORedoslijedu(t *testing.T) {
+// nije dao pokrenuti. Zaduženja se otad ne prekodiraju uopće: ni stalna iz
+// seeda ni nasumična, kojim god redom stajala, i ni u knjizi verzija.
+func TestPrekodiranjeNeDiraZaduzenja(t *testing.T) {
 	baza, err := OpenDB(filepath.Join(t.TempDir(), "gocop.db"))
 	if err != nil {
 		t.Fatal(err)
@@ -153,19 +153,31 @@ func TestPrekodiranjeZaduzenjaNeOvisiORedoslijedu(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if err := rekeySeedIdentities(baza); err != nil {
-		t.Fatalf("prekodiranje: %v", err)
+	const verzija = "01a0ffff-0000-7000-8000-0000000000aa"
+	sadrzaj := `{"id":"` + nasumicno + `","user_id":"` + korisnik + `"}`
+	if _, err := baza.Exec(`INSERT INTO record_versions (version_id, entity, entity_id, node_id, payload, created_at)
+		VALUES (?, 'duties', ?, 'x', ?, ?)`, verzija, nasumicno, sadrzaj, kad); err != nil {
+		t.Fatal(err)
 	}
-	treci := StableID("duty", "amatijevic|2").String()
-	for _, id := range []string{prvo, drugo, treci} {
-		var n int
-		baza.QueryRow(`SELECT count(*) FROM duties WHERE id = ?`, id).Scan(&n)
-		if n != 1 {
-			t.Errorf("zaduženje %s: %d", id, n)
+
+	// drugi prolaz isto ništa ne mijenja
+	for prolaz := 1; prolaz <= 2; prolaz++ {
+		if err := rekeySeedIdentities(baza); err != nil {
+			t.Fatalf("prekodiranje, %d. prolaz: %v", prolaz, err)
 		}
-	}
-	// drugi prolaz ništa ne mijenja
-	if err := rekeySeedIdentities(baza); err != nil {
-		t.Fatalf("drugi prolaz: %v", err)
+		for _, id := range []string{prvo, drugo, nasumicno} {
+			var n int
+			baza.QueryRow(`SELECT count(*) FROM duties WHERE id = ? AND user_id = ?`, id, korisnik).Scan(&n)
+			if n != 1 {
+				t.Errorf("%d. prolaz: zaduženje %s: %d", prolaz, id, n)
+			}
+		}
+		var id, payload string
+		if err := baza.QueryRow(`SELECT entity_id, payload FROM record_versions WHERE version_id = ?`, verzija).Scan(&id, &payload); err != nil {
+			t.Fatal(err)
+		}
+		if id != nasumicno || payload != sadrzaj {
+			t.Errorf("%d. prolaz: verzija zaduženja prepisana: %s %s", prolaz, id, payload)
+		}
 	}
 }

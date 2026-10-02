@@ -15,11 +15,11 @@
 </div>
 
 {{if .Preuzima}}
-<p class="form-help">Ovaj čvor preuzima vodostaje s izvora (<a href="/settings">Postavke čvora → Uloge</a>), pa ovi računi trebaju ovdje.</p>
+<p class="form-help">Ovaj čvor preuzima vodostaje s izvora (<a href="/settings">Čvor, mreža i sinkronizacija → Uloge ovog čvora</a>), pa ovi računi trebaju ovdje.</p>
 {{else}}
 <div class="alert alert-warning">Ovaj čvor <strong>ne preuzima</strong> vodostaje s izvora: očitanja mu stižu razmjenom od čvora
   koji ih preuzima, pa mu ovi računi ne trebaju. Upišite ih na čvoru s ulogom „Preuzima vodostaje s izvora”
-  (<a href="/settings">Postavke čvora → Uloge</a>), ili ovdje kad ovaj čvor preuzme tu ulogu.</div>
+  (<a href="/settings">Čvor, mreža i sinkronizacija → Uloge ovog čvora</a>), ili ovdje kad ovaj čvor preuzme tu ulogu.</div>
 {{end}}
 
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}

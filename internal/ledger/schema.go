@@ -25,4 +25,6 @@ CREATE TABLE IF NOT EXISTS record_versions (
 );
 CREATE INDEX IF NOT EXISTS idx_versions_entity ON record_versions(entity, entity_id, version_id);
 CREATE INDEX IF NOT EXISTS idx_versions_node ON record_versions(node_id, version_id);
+-- zapisi novije sheme su rijetki; djelomičan indeks ih nađe bez prolaska knjige
+CREATE INDEX IF NOT EXISTS idx_versions_shema ON record_versions(entity, schema_version) WHERE schema_version > 1;
 `

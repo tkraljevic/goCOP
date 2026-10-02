@@ -93,7 +93,7 @@ function render(st) {
     const total = st.versions || 1;
     const pct = Math.max(0, Math.min(100, Math.round(100 * (1 - (p.backlog || 0) / total))));
     return `<tr>
-      <td><b>${name}</b>${p.is_bootstrap ? ' <span class="reg-chip">domenski</span>' : ''}<br><span class="muted mono">${esc(p.node_id)}</span></td>
+      <td><b>${name}</b>${p.is_bootstrap ? ' <span class="reg-chip">domenski</span>' : ''}<br><span class="muted mono">${esc(p.node_id)}</span>${p.program ? '<br><span class="muted">' + esc(p.gradnja || p.program) + (p.razlicit_program ? ' — drukčija od ovog čvora' : '') + '</span>' : (p.razlicit_program ? '<br><span class="muted">starija inačica (ne javlja je)</span>' : '')}</td>
       <td><span class="dot ${p.reachability}"></span>${label[p.reachability] || p.reachability}${s.fails ? '<br><span class="muted">' + s.fails + '× zaredom bez odgovora</span>' : ''}</td>
       <td>${p.member ? '<span class="badge badge-active">član</span>' : '<span class="badge badge-inactive" title="' + esc(p.member_problem) + '">nije</span>'}</td>
       <td>${when(s.last_ok)}${s.last_error ? '<br><span class="err">' + esc(s.last_error) + '</span>' : ''}${s.last_attempt && s.last_attempt !== s.last_ok ? '<br><span class="muted">pokušaj ' + when(s.last_attempt) + '</span>' : ''}</td>

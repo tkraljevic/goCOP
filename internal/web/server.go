@@ -879,8 +879,9 @@ func (s *Server) setupRoutes() {
 	s.mux.HandleFunc("POST /login", authH.HandleLogin)
 	s.mux.HandleFunc("POST /logout", authH.HandleLogout)
 
-	// Real-time Server-Sent Events stream
-	s.mux.HandleFunc("GET /api/events", sseH.ServeSSE)
+	// Događaji uživo, samo prijavljenima: čvor je javno dostupan (tunel), a
+	// tok javlja tko je u organizaciji promijenjen
+	s.mux.Handle("GET /api/events", s.authMiddleware(http.HandlerFunc(sseH.ServeSSE)))
 
 	// API za dinamička područja
 	s.mux.HandleFunc("GET /api/areas", usersH.HandleGetAreasAPI)

@@ -34,7 +34,9 @@ type CvorRazmjene struct {
 	JosPrima   bool // taj čvor ima verzija koje ovaj još nema
 	Greska     string
 	Neuspjelih int
-	SamoDolazi bool // javlja se sam (kroz tunel), ovaj čvor ga ne može nazvati
+	SamoDolazi bool   // javlja se sam (kroz tunel), ovaj čvor ga ne može nazvati
+	Verzija    string // izdanje programa na kojem radi; prazno = ne javlja ga
+	Razlicita  bool   // radi na drugom izdanju od ovog čvora (ili starijem koji ga ne javlja)
 }
 
 // ArhivaRazmjene je napredak arhive paketima
@@ -62,6 +64,7 @@ type PrognozaRazmjene struct {
 // RazmjenaStanje je sve što pločica prikazuje
 type RazmjenaStanje struct {
 	UMrezi         bool
+	Verzija        string // izdanje programa ovog čvora
 	Cvorovi        []CvorRazmjene
 	Upozorenja     []string
 	Arhiva         ArhivaRazmjene
@@ -76,7 +79,7 @@ func (r RazmjenaStanje) Sredeno() bool {
 		return false
 	}
 	for _, c := range r.Cvorovi {
-		if c.Dostupnost != "online" || c.Zaostaje > 0 || c.JosPrima {
+		if c.Dostupnost != "online" || c.Zaostaje > 0 || c.JosPrima || c.Razlicita {
 			return false
 		}
 	}
@@ -154,16 +157,16 @@ var razmjenaTmpl = template.Must(template.New("razmjena").Funcs(template.FuncMap
 <div class="razmjena-plocica">
   <div class="kisa-slivova-glava">
     <h2 class="section-title">{{icon "refresh-cw"}} Razmjena s čvorovima</h2>
-    <span class="reg-card-sub">osvježava se sama · <a href="/sinkronizacija">Sinkronizacija</a></span>
+    <span class="reg-card-sub">{{if .Verzija}}ovaj čvor na {{.Verzija}} · {{end}}osvježava se sama · <a href="/sinkronizacija">Sinkronizacija</a></span>
   </div>
   {{if not .UMrezi}}
-  <p class="reg-card-sub">Ovaj čvor nije ni u jednoj mreži, pa se ni s kim ne usklađuje. <a href="/settings">Postavke čvora</a></p>
+  <p class="reg-card-sub">Ovaj čvor nije ni u jednoj mreži, pa se ni s kim ne usklađuje. <a href="/settings">Čvor, mreža i sinkronizacija</a></p>
   {{else if .Sredeno}}
   <div class="vrijeme-stanje-mirno">
     <span class="vrijeme-zelena-kvacica">{{icon "check"}}</span>
     <div class="vrijeme-mirno-tekst">
       <div class="vrijeme-mirno-naslov">Sve je usklađeno s {{len .Cvorovi}} {{if eq (len .Cvorovi) 1}}čvorom{{else}}čvorova{{end}}.</div>
-      <div class="reg-card-sub">{{range $i, $c := .Cvorovi}}{{if $i}} · {{end}}{{$c.Naziv}}: zadnja razmjena {{prijePtr $c.Zadnja}}{{end}}{{with .Prognoza}}{{if .Ima}} · prognoza {{if $.Prognoza.Izdaje}}se izdaje ovdje{{else}}s čvora {{.Izdavac}}{{end}}, zadnja za {{sat .Izdano}}{{end}}{{end}}</div>
+      <div class="reg-card-sub">{{range $i, $c := .Cvorovi}}{{if $i}} · {{end}}{{$c.Naziv}}{{if $c.Verzija}} na {{$c.Verzija}}{{end}}: zadnja razmjena {{prijePtr $c.Zadnja}}{{end}}{{with .Prognoza}}{{if .Ima}} · prognoza {{if $.Prognoza.Izdaje}}se izdaje ovdje{{else}}s čvora {{.Izdavac}}{{end}}, zadnja za {{sat .Izdano}}{{end}}{{end}}</div>
     </div>
   </div>
   {{else}}
@@ -172,7 +175,7 @@ var razmjenaTmpl = template.Must(template.New("razmjena").Funcs(template.FuncMap
     <thead><tr><th>Čvor</th><th>Stanje</th><th>Zadnja razmjena</th><th style="text-align:right;">primljeno / poslano</th><th>Usklađenost</th></tr></thead>
     <tbody>
     {{range .Cvorovi}}<tr>
-      <td><strong>{{.Naziv}}</strong></td>
+      <td><strong>{{.Naziv}}</strong>{{if .Verzija}}<div class="reg-card-sub">{{.Verzija}}{{if .Razlicita}} — drukčija od ovog čvora{{end}}</div>{{else if .Razlicita}}<div class="reg-card-sub">starija inačica (ne javlja je)</div>{{end}}</td>
       <td>{{if eq .Dostupnost "online"}}<span class="badge badge-active">na mreži</span>{{else if eq .Dostupnost "never"}}<span class="badge badge-inactive">još nikad</span>{{else}}<span class="badge badge-pending">ne odgovara</span>{{end}}</td>
       <td>{{prijePtr .Zadnja}}{{if .SamoDolazi}}<div class="reg-card-sub">javlja se sam (kroz tunel); ovaj čvor njega ne može nazvati</div>{{else if .Greska}}<div class="reg-card-sub">{{.Greska}}</div>{{end}}</td>
       <td class="mono" style="text-align:right;">{{.Primljeno}} / {{.Poslano}}</td>

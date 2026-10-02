@@ -28,14 +28,30 @@ type SyncState struct {
 	DurationMs  int               `json:"duration_ms"` // trajanje zadnje razmjene
 	Fails       int               `json:"fails"`       // neuspjeli pokušaji zaredom
 	Frontier    map[string]string `json:"-"`           // dokle drugi čvor zna, po autoru
+	// Program i Gradnja su izdanje i puna oznaka programa koje je drugi
+	// čvor zadnji put javio; prazno = stariji program koji ih ne javlja
+	Program string `json:"program,omitempty"`
+	Gradnja string `json:"gradnja,omitempty"`
+	// ProgramPoznat: stanje je upisao program koji bilježi inačicu, pa
+	// prazan Program znači da je drugi čvor ne javlja. Redak upisan prije
+	// toga (stariji program na ovom čvoru) o inačici ne govori ništa.
+	ProgramPoznat bool `json:"-"`
 }
 
 // syncOutcome je ishod jedne razmjene za bilješku
 type syncOutcome struct {
-	applied, sent int
-	frontier      map[string]string
-	took          time.Duration
-	err           error
+	applied, sent    int
+	frontier         map[string]string
+	program, gradnja string // što je drugi čvor javio o svom programu
+	took             time.Duration
+	err              error
+}
+
+// ishodRazmjene slaže bilješku iz onoga što je exchange vratio; inačica
+// programa vrijedi i kad je razgovor pukao nakon što je granica stigla
+func ishodRazmjene(applied, sent int, theirs frontierMsg, took time.Duration, err error) syncOutcome {
+	return syncOutcome{applied: applied, sent: sent, frontier: theirs.Frontier,
+		program: theirs.Program, gradnja: theirs.Gradnja, took: took, err: err}
 }
 
 // recordSyncState upisuje ishod razmjene u lokalno stanje
@@ -50,19 +66,25 @@ func (s *Service) recordSyncState(ctx context.Context, nodeID string, o syncOutc
 	var err error
 	if o.err == nil {
 		_, err = s.db.ExecContext(ctx, `
-			INSERT INTO peer_sync (node_id, their_frontier, last_attempt, last_ok, last_error, applied, sent, duration_ms, fails)
-			VALUES (?, ?, ?, ?, '', ?, ?, ?, 0)
+			INSERT INTO peer_sync (node_id, their_frontier, last_attempt, last_ok, last_error, applied, sent, duration_ms, fails, program, gradnja, program_poznat)
+			VALUES (?, ?, ?, ?, '', ?, ?, ?, 0, ?, ?, 1)
 			ON CONFLICT(node_id) DO UPDATE SET their_frontier = excluded.their_frontier, last_attempt = excluded.last_attempt,
 				last_ok = excluded.last_ok, last_error = '', applied = excluded.applied, sent = excluded.sent,
-				duration_ms = excluded.duration_ms, fails = 0`,
-			nodeID, frontier, now, now, o.applied, o.sent, o.took.Milliseconds())
+				duration_ms = excluded.duration_ms, fails = 0, program = excluded.program, gradnja = excluded.gradnja,
+				program_poznat = 1`,
+			nodeID, frontier, now, now, o.applied, o.sent, o.took.Milliseconds(), o.program, o.gradnja)
 	} else {
+		// Razgovor koji je pukao prije granice ne zna ništa o programu
+		// drugog čvora: poznata inačica ostaje, ne briše se praznim.
 		_, err = s.db.ExecContext(ctx, `
-			INSERT INTO peer_sync (node_id, their_frontier, last_attempt, last_ok, last_error, applied, sent, duration_ms, fails)
-			VALUES (?, '{}', ?, NULL, ?, 0, 0, ?, 1)
+			INSERT INTO peer_sync (node_id, their_frontier, last_attempt, last_ok, last_error, applied, sent, duration_ms, fails, program, gradnja, program_poznat)
+			VALUES (?, '{}', ?, NULL, ?, 0, 0, ?, 1, ?, ?, ?)
 			ON CONFLICT(node_id) DO UPDATE SET last_attempt = excluded.last_attempt, last_error = excluded.last_error,
-				duration_ms = excluded.duration_ms, fails = peer_sync.fails + 1`,
-			nodeID, now, o.err.Error(), o.took.Milliseconds())
+				duration_ms = excluded.duration_ms, fails = peer_sync.fails + 1,
+				program = CASE WHEN excluded.program <> '' THEN excluded.program ELSE peer_sync.program END,
+				gradnja = CASE WHEN excluded.program <> '' THEN excluded.gradnja ELSE peer_sync.gradnja END,
+				program_poznat = CASE WHEN excluded.program <> '' THEN 1 ELSE peer_sync.program_poznat END`,
+			nodeID, now, o.err.Error(), o.took.Milliseconds(), o.program, o.gradnja, boolInt(o.program != ""))
 	}
 	if err != nil {
 		fmt.Printf("sinkronizacija: stanje za %s nije spremljeno: %v\n", nodeID, err)
@@ -71,7 +93,7 @@ func (s *Service) recordSyncState(ctx context.Context, nodeID string, o syncOutc
 
 // syncStates čita stanje razmjene za sve čvorove
 func (s *Service) syncStates(ctx context.Context) (map[string]SyncState, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT node_id, their_frontier, last_attempt, last_ok, last_error, applied, sent, duration_ms, fails FROM peer_sync`)
+	rows, err := s.db.QueryContext(ctx, `SELECT node_id, their_frontier, last_attempt, last_ok, last_error, applied, sent, duration_ms, fails, program, gradnja, program_poznat FROM peer_sync`)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +103,7 @@ func (s *Service) syncStates(ctx context.Context) (map[string]SyncState, error) 
 		var id, frontier string
 		var st SyncState
 		var attempt, ok sql.NullTime
-		if err := rows.Scan(&id, &frontier, &attempt, &ok, &st.LastError, &st.Applied, &st.Sent, &st.DurationMs, &st.Fails); err != nil {
+		if err := rows.Scan(&id, &frontier, &attempt, &ok, &st.LastError, &st.Applied, &st.Sent, &st.DurationMs, &st.Fails, &st.Program, &st.Gradnja, &st.ProgramPoznat); err != nil {
 			return nil, err
 		}
 		if attempt.Valid {
@@ -214,12 +236,32 @@ type PeerStatus struct {
 	// SamoDolazi: razmjena s njim uspijeva kad on nazove (npr. laptop izvan
 	// kuće kroz tunel), a ovaj čvor njega ne može nazvati
 	SamoDolazi bool `json:"samo_dolazi,omitempty"`
+	// Program je izdanje na kojem taj čvor radi (prazno: stariji program koji
+	// ga ne javlja); RazlicitProgram kaže da nije isto kao ovdje
+	Program         string `json:"program,omitempty"`
+	Gradnja         string `json:"gradnja,omitempty"`
+	RazlicitProgram bool   `json:"razlicit_program,omitempty"`
+}
+
+// razlicitProgram javlja radi li drugi čvor na drugom izdanju: javio je
+// drukčije, ili se uspješno razmijenio a ne javlja ga (stariji program).
+// Redak iz vremena prije bilježenja inačice ne govori ništa.
+func razlicitProgram(nas string, st SyncState) bool {
+	if nas == "" {
+		return false
+	}
+	if st.Program != "" {
+		return st.Program != nas
+	}
+	return st.ProgramPoznat && st.LastOK != nil
 }
 
 // Status je stanje sinkronizacije ovog čvora za nadzornu ploču
 type Status struct {
 	NodeID        string       `json:"node_id"`
 	NodeName      string       `json:"node_name"`
+	Program       string       `json:"program,omitempty"` // izdanje ovog čvora
+	Gradnja       string       `json:"gradnja,omitempty"`
 	Network       *Network     `json:"network,omitempty"`
 	Versions      int          `json:"versions"`
 	IntervalSec   int          `json:"interval_sec"`
@@ -240,6 +282,7 @@ func (s *Service) Status(ctx context.Context, lan bool) (*Status, error) {
 	every := s.interval()
 	st := &Status{NodeID: s.node.ID, NodeName: s.node.Name, Network: s.NetworkInfo(),
 		IntervalSec: int(every.Seconds()), AutoSync: s.autoSync(), GeneratedAt: now}
+	st.Program, st.Gradnja = s.Program()
 
 	if counts, err := s.rec.Count(ctx); err == nil {
 		for _, n := range counts {
@@ -263,6 +306,8 @@ func (s *Service) Status(ctx context.Context, lan bool) (*Status, error) {
 
 	for _, p := range list {
 		ps := PeerStatus{Peer: p, State: states[p.NodeID]}
+		ps.Program, ps.Gradnja = ps.State.Program, ps.State.Gradnja
+		ps.RazlicitProgram = razlicitProgram(st.Program, ps.State)
 		if m, ok := members[p.NodeID]; ok {
 			ps.Member, ps.MemberProblem = m.Valid, m.Problem
 		} else {
@@ -347,6 +392,14 @@ func (s *Service) alerts(st *Status, every time.Duration, now time.Time) []strin
 		}
 		if len(p.Addresses) == 0 {
 			out = append(out, fmt.Sprintf("%s: nema nijednu poznatu adresu, pa ga ovaj čvor ne može nazvati.", label(p.Peer)))
+		}
+		if st.Program != "" {
+			switch {
+			case p.State.Program != "" && p.State.Program != st.Program:
+				out = append(out, fmt.Sprintf("Čvor %s radi na %s, ovaj na %s — ažurirajte stariji čvor.", label(p.Peer), p.State.Program, st.Program))
+			case p.State.Program == "" && p.State.ProgramPoznat && p.State.LastOK != nil:
+				out = append(out, fmt.Sprintf("Čvor %s radi na verziji starijoj od %s (ne javlja verziju) — ažurirajte ga.", label(p.Peer), st.Program))
+			}
 		}
 	}
 	if self, err := s.SelfPeer(context.Background()); err == nil && self.IsBootstrap {

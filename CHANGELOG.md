@@ -1,8 +1,61 @@
 # Popis izmjena
 
-Verzije prate shemu iz README-a: alfa `0.0.x` (oznaka `v0.0.1-alfa`), beta
+Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije): alfa `0.0.x` (oznaka `v0.0.1-alfa`), beta
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
+
+## 0.0.24-alfa — 2. 10. 2026.
+
+**Nadogradnja redom** — najprije stalni čvor, odmah zatim ostali. Dok svi ne
+rade na ovom izdanju, ne mijenjati djelatnike ni zaduženja: 0.0.23-alfa i
+starija izdanja pri pokretanju još prekodiraju korisnike i zaduženja.
+
+**Tok obavijesti samo prijavljenima** — `/api/events` bio je otvoren bez
+prijave i drugim web-stranicama, a pri izmjeni djelatnika slao je njegov cijeli
+zapis, s telefonima i e-poštom; na čvoru dostupnom kroz tunel mogao ga je
+čitati bilo tko. Sada ga dobivaju samo prijavljeni, s iste stranice, a
+obavijest o djelatniku ili zaduženju nosi samo identifikator.
+
+**Razmjena javlja izdanje programa** — čvorovi u razmjeni javljaju na kojem
+izdanju rade. Pločica „Razmjena s čvorovima” i stranica Sinkronizacija
+pokazuju izdanje svakog čvora. Za čvor na drugom izdanju stoji upozorenje da
+treba ažurirati stariji od dvaju čvorova, a za čvor koji izdanje ne javlja da
+njega treba ažurirati. Pločica tada ne javlja da je sve usklađeno.
+
+**Izmjena čuva polja novijeg programa** — kad čvor izmijeni zapis, polja koja
+njegov program ne poznaje (dodao ih je noviji program) prepisuju se iz
+prethodne verzije. Dosad ih je čvor sa starijim programom svakom izmjenom
+tiho brisao. Polje koje je korisnik ispraznio ne vraća se. Isto vrijedi za
+popravke podataka pri pokretanju, koji sad polaze od zadnje verzije u knjizi.
+
+**Zapis novije sheme se ne prepisuje** — svaka verzija nosi shemu svog
+entiteta (zasad je svima 1). Zapis koji je zadnji izmijenio program s novijom
+shemom ovaj ne prepisuje, nego javlja da prije uređivanja treba ažurirati
+goCOP. Popravci podataka, postavke obračuna i katalog sredstava takav zapis
+pri pokretanju preskoče i to zapišu, a čvor se normalno pokrene. Zapisi
+novije sheme i entiteti koje program ne poznaje spremaju se i prenose dalje,
+a zapisnik i pločica razmjene javljaju da treba ažurirati goCOP. Paket `.cop`
+starije inačice i dalje se ugrađuje, a paket novijeg programa odbija se uz istu
+poruku.
+
+**Arhivirano nestaje i na drugim čvorovima** — obrisana bilješka uz arhivsku
+vrijednost ostajala je na čvorovima koji su je primili; sada se i tamo
+uklanja. Isto vrijedi za vezu dionice s obrisanom letvom te za epizode
+obrane, ispravke arhive i nazive razina ustroja kad stignu arhivirani (nazivi
+se tada vraćaju na zadane).
+
+**Korisnici i zaduženja se više ne prekodiraju** — novi korisnik odmah dobije
+stalni identifikator iz korisničkog imena, kao i korisnici iz početnih
+podataka; kad je taj već zauzet (obrisan ili preimenovan račun), dobije
+nasumični. Pokretanje zato više ne prekodira ni korisnike ni zaduženja.
+Prekodiranje je mijenjalo već razmijenjene verzije na mjestu, pa je ista
+verzija na dva čvora imala različit sadržaj, a brojanje zaduženja jednom je
+spriječilo pokretanje čvora (0.0.17-alfa).
+
+**Sažimanje knjige čuva granicu svakog čvora** — „Sažmi knjigu” (Administracija
+→ Održavanje baze) više ne briše zadnju verziju koju je neki čvor upisao u
+kanal, ni kad je zapis poslije izmijenio drugi čvor. Bez nje bi granica tog
+čvora pala, a drugi čvorovi slali bi te verzije natrag svakom razmjenom.
 
 ## 0.0.23-alfa — 2. 10. 2026.
 
@@ -290,5 +343,6 @@ e-poštom, Exchange sandučić; knjiga verzija, sinkronizacija uparenih čvorova
 
 **Poznato** — veliki dravski val od 3. dana prognoza podcjenjuje (dotok iz
 Slovenije i Austrije, prognoza kiše u Alpama); Dunav iznad Komároma oslanja se
-na mađarsku prognozu dok je svježa. Ostala ograničenja su u README-u i na
-stranici O prognozi.
+na mađarsku prognozu dok je svježa. Ostala ograničenja su u
+[administratorskim uputama](docs/INSTALACIJA.md) (odjeljak 4) i na stranici
+O prognozi.

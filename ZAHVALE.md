@@ -17,10 +17,22 @@ izričite suglasnosti.
 
 ## Razvoj programa
 
-- Mario Kraljević sudjelovao je u razvoju sloja za sigurnu razmjenu podataka
-  među goCOP čvorovima (`internal/razmjena`).
+- Sloj za sigurnu razmjenu podataka među goCOP čvorovima
+  (`internal/razmjena`) razvili su Tomislav Kraljević i Mario Kraljević
+  (vidi `NOTICE`).
 - Prof. dr. Nenad Šuvak sudjelovao je u neslužbenoj stručnoj suradnji pri
   razvoju i provjeri prognostičkog modela.
+- Mile Kunac, Mario Spajić i Tomislav Novosel podržali su razvoj programa.
+
+## Podloge i pristupi
+
+- Ena Grcić iz Direkcije Hrvatskih voda pomogla je podlogama granica sektora
+  i branjenih područja.
+- Tomislav Šlehta pomogao je dokumentacijom, posebno studijom „Operativni
+  model upravljanja dravskim hidroelektranama za vrijeme velikih voda”
+  (MuraDrava-FFS).
+- Damir Perić omogućio je pristup sustavu HydroView (Geolux) za područje
+  cijele Hrvatske.
 
 ## Unos podataka u aplikaciju app.bp16.xyz (Baranja)
 

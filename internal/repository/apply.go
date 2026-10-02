@@ -86,6 +86,32 @@ var SurfaceEntities = []string{EntitySectors, EntityAreas, EntityOrgTerms, Entit
 	EntityBlagdani, EntityKoeficijenti, EntityObracunPostavke,
 	EntityMtsVrste, EntityMtsSkladista, EntityMtsPromet, EntityMtsPopisi, EntityMtsPotrebe, EntityAkti, EntityPrimatelji, EntitySprance, EntitySluzbe, EntityIzvornici, EntitySlanja, EntityPostavke, EntityPotpisi, EntityZigovi, EntityVodocuvarski, EntityZadaci, EntityPotpisniKljucevi, EntityPotpisniIzdavatelji, EntityVodocuvarskiIzvornici, EntityJournalIzvornici, EntityPrijave, EntityPrijaveIzvornici}
 
+// PoznatiEntiteti su svi entiteti koje repozitorij zapisuje u knjigu ili
+// primjenjuje na površinu. Knjiga verziju entiteta izvan popisa sprema i
+// prenosi, ali javlja da je stiglo nešto što ovaj program ne zna; zato novi
+// entitet mora ući ovamo (test to provjerava protiv konstanti i applyOne).
+func PoznatiEntiteti() []string {
+	return []string{
+		EntitySectors, EntityAreas, EntityOrgTerms, EntityContractors, EntityContractorAssignments,
+		EntityUsers, EntityDuties, EntityRoleModules, EntityUserModules,
+		EntityStations, EntitySectionStations, EntitySections, EntitySectionTerritories, EntitySectionStructures,
+		EntityWatercourses, EntityKisomjeri, EntitySlivovi, EntityCounties, EntityMunicipalities, EntitySettlements,
+		EntityStructures, EntityMaintainedWaters, EntityWorkItems,
+		EntityJournals, EntityJournalSheets, EntityJournalEntries, EntityJournalIzvornici,
+		EntityDezurstva, EntityDnevnaIzvjesca, EntitySektorskaIzvjesca,
+		EntityReadings, EntityEpisodes, EntityIspravci, EntityBiljeske,
+		EntityBlagdani, EntityKoeficijenti, EntityObracunPostavke,
+		EntityMtsVrste, EntityMtsSkladista, EntityMtsPromet, EntityMtsPopisi, EntityMtsPotrebe,
+		EntityAkti, EntityPrimatelji, EntitySprance, EntitySluzbe, EntityIzvornici, EntitySlanja,
+		EntityPostavke, EntityPotpisi, EntityZigovi,
+		EntityVodocuvarski, EntityZadaci, EntityVodocuvarskiIzvornici,
+		EntityPotpisniKljucevi, EntityPotpisniIzdavatelji,
+		EntityPrijave, EntityPrijaveIzvornici,
+		// zapisuje ih sloj razmjene (peers), a površinu osvježava applyOne
+		"peers", "memberships",
+	}
+}
+
 // ReplaySurface ponovno primijeni zadnju verziju svakog zapisa iz knjige na
 // površinu. Služi kad je primjena primljenih verzija jednom zapela: knjiga je
 // istina, površina se iz nje uvijek može obnoviti.
@@ -253,10 +279,6 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 	case EntityBiljeske:
 		var b models.ArhivaBiljeska
 		if err := json.Unmarshal(v.Payload, &b); err != nil {
-			return err
-		}
-		if v.Archived {
-			_, err := tx.ExecContext(ctx, `DELETE FROM arhiva_biljeske WHERE id = ?`, b.ID.String())
 			return err
 		}
 		_, err := tx.ExecContext(ctx, `
@@ -945,6 +967,32 @@ func removeFromSurface(ctx context.Context, tx *sql.Tx, v ledger.Version) error 
 	switch v.Entity {
 	case EntityStations:
 		stmt = `DELETE FROM stations WHERE id = ?`
+	case EntitySectionStations:
+		// veza dionice i letve odlazi kad se letva briše; ključ je "dionica|letva"
+		var veza struct {
+			SectionCode string `json:"section_code"`
+			StationID   string `json:"station_id"`
+		}
+		_ = json.Unmarshal(v.Payload, &veza)
+		if veza.SectionCode == "" || veza.StationID == "" {
+			veza.SectionCode, veza.StationID, _ = strings.Cut(v.EntityID, "|")
+		}
+		_, err := tx.ExecContext(ctx, `DELETE FROM section_stations WHERE section_code = ? AND station_id = ?`,
+			veza.SectionCode, veza.StationID)
+		return err
+	case EntityEpisodes:
+		stmt = `DELETE FROM defense_episodes WHERE id = ?`
+	case EntityIspravci:
+		stmt = `DELETE FROM arhiva_ispravci WHERE id = ?`
+	case EntityBiljeske:
+		stmt = `DELETE FROM arhiva_biljeske WHERE id = ?`
+	case EntityOrgTerms:
+		// bez zapisa vrijede zadani nazivi, kao i kad ih nitko nije upisao
+		if _, err := tx.ExecContext(ctx, `DELETE FROM org_terms WHERE id = ?`, v.EntityID); err != nil {
+			return err
+		}
+		models.SetTerms(models.DefaultTerms())
+		return nil
 	case EntitySections:
 		// s dionicom odlaze i njezina kazala, kao i pri arhiviranju na izvoru
 		return makniDionicuSPovrsine(ctx, tx, v.EntityID)

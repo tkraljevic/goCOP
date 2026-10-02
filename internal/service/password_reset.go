@@ -114,6 +114,6 @@ func (s *UserService) ResetPassword(actor *models.UserPermissions, targetID uuid
 		return nil, "", err
 	}
 
-	s.sse.Broadcast("users_updated", fmt.Sprintf("Poništena lozinka: %s", target.FullName), target)
+	s.sse.Broadcast("users_updated", fmt.Sprintf("Poništena lozinka: %s", target.FullName), target.ID.String())
 	return target, temp, nil
 }

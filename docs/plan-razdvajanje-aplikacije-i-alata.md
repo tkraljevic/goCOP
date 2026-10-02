@@ -1,10 +1,28 @@
 # Plan razdvajanja aplikacije i pomoćnih alata
 
-Datum: 26. 9. 2026. Status: provedeno. Repozitorij nosi samo aplikaciju
+Datum: 26. 9. 2026., dopunjeno 2. 10. 2026. Status: razdvajanje provedeno
+(korak 3 i glavnina koraka 4); otvorene su preostale stavke koraka 1, 2, 4 i
+5, provjere iz koraka 6 i završni kriterij. Repozitorij nosi samo aplikaciju
 (`cmd/gocop`, `internal`, `web`); alati su lokalno u `tools/`, izvan Gita.
 Stanje i namjena svakog alata u [katalogu alata](katalog-alata.md).
 
 ## Dnevnik provedbe
+
+- 2. 10., stanje nakon razdvajanja (Git i lokalni `tools/`):
+  - Docker kontekst (26. 9.): u izgradnju ide samo izvorni kod.
+    `.dockerignore` izuzima `data/`, `vodostaji/`, `pakete/`, `ocitanja/`,
+    `tools/`, `bin/`, `.venv/`, `.claude/`, `.git/`, lokalni `gocop`, baze,
+    `.cop`, `.xlsx` te ključeve čvora i mreže.
+  - Od 0.0.1-alfa (1. 10.) izdanja su označena, a verzija je u kodu. Od
+    0.0.7-alfa GitHub za svaku oznaku gradi sliku `ghcr.io/tkraljevic/gocop`
+    (`.github/workflows/slika.yml`). Slika nosi samo program `gocop`, bez
+    izvornog koda, alata i Pythona.
+  - Stalni čvor (Unraid) od 2. 10. radi iz te slike i krenuo je s praznom
+    bazom. Popravke koje je pokazao donose izdanja od 0.0.8-alfa.
+  - U `tools/` su nakon razdvajanja dodana 4 administratorska alata, 15
+    migracija i 15 dijagnostičkih alata; upisani su u katalog alata.
+    `go build ./tools/...` prolazi, a `go list -deps ./cmd/gocop` ne
+    sadrži `gocop/tools/`.
 
 - 26. 9., šesti korak (korak 3 i 4 plana): uvoz i priprema prognoze
   prebačeni u aplikaciju, alati izvan repozitorija.
@@ -204,9 +222,10 @@ treba dogovoriti prije premještanja alata koji pišu.
   izlaz u `bin/`, bez automatskog uključivanja svih naredbi u izdanje.
 - [ ] Izdanje aplikacije sadrži program, potrebne licence i kratke upute;
   samo neobvezni servisni alati izdaju se zasebno uz kompatibilnu verziju.
-- [ ] Provjeriti Docker kontekst i izuzimanje baza, ključeva, arhiva,
+- [x] Provjeriti Docker kontekst i izuzimanje baza, ključeva, arhiva,
   virtualnih okruženja, lokalnih binarnih datoteka i privatnih uvoznika.
-- [ ] Provjeriti rad aplikacije iz čiste instalacijske mape, ne samo iz repozitorija.
+- [x] Provjeriti rad aplikacije iz čiste instalacijske mape, ne samo iz repozitorija.
+  Stalni čvor od 2. 10. radi iz slike za spremnik, bez izvornog koda i `tools`.
 
 ### 3. Zaokružiti uvoz/izvoz i operativne postupke u goCOP-u
 
@@ -231,13 +250,14 @@ treba dogovoriti prije premještanja alata koji pišu.
   `tools/analysis/`, `tools/geo/` i `tools/testdata/`.
 - [ ] Svaka skupina ima kratki README sa svrhom, pokretanjem, ovisnostima
   i upozorenjem piše li u bazu. Ne stvarati prazne kategorije bez potrebe.
-- [ ] Migracije držati u jasno označenom pomoćnom dijelu; privatne uvoznike
+- [x] Migracije držati u jasno označenom pomoćnom dijelu; privatne uvoznike
   zadržati izvan javnog repozitorija. Prilagoditi ignore pravila prije premještanja.
 - [ ] Parametrizirati osobne apsolutne putanje (postoje u analizi akumulacija).
 - [ ] Za staru Natural Earth pripremu provjeriti odnos prema novom OSM/ENC
   postupku; ne dopustiti slučajno prepisivanje kvalitetnije geometrije.
-- [ ] `tmp-*`/`privremeno-*` pregledati pojedinačno. Brisanje tek uz zasebno
-  odobrenje i provjeru da rezultat nije jedini sačuvani primjerak.
+- [x] `tmp-*`/`privremeno-*` pregledati pojedinačno (bile su prazne, obrisane
+  26. 9.). Brisanje tek uz zasebno odobrenje i provjeru da rezultat nije jedini
+  sačuvani primjerak.
 
 ### 5. Sigurnost i operativna upotrebljivost alata
 

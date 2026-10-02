@@ -196,7 +196,7 @@
 
   {{if .Gauge}}
   <p class="page-desc" style="margin-top:0.5rem;">
-    Obrana se proglašava i prekida uz letvu <a href="/stations/{{.Gauge.ID}}#obrane" style="color:var(--primary); font-weight:600;">{{.Gauge.Name}}</a>, ondje gdje se vodostaj i čita; ondje se vodi i povijest, zajedno s ostalim dionicama koje se po toj letvi vode{{if .Episodes}} — na ovoj ih je dionici zabilježeno {{len .Episodes}}{{end}}.
+    Obrana se proglašava i prekida uz letvu <a href="/stations/{{.Gauge.ID}}/historijat#obrane" style="color:var(--primary); font-weight:600;">{{.Gauge.Name}}</a>, ondje gdje se vodostaj i čita; ondje se vodi i povijest, zajedno s ostalim dionicama koje se po toj letvi vode{{if .Episodes}} — na ovoj ih je dionici zabilježeno {{len .Episodes}}{{end}}.
   </p>
   {{else if .Episodes}}
   <p class="page-desc" style="margin-top:0.5rem;">Zabilježenih obrana: {{len .Episodes}}. Obrana se proglašava uz mjerodavnu letvu, a dionica je nema upisanu.</p>
