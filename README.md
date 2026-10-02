@@ -43,9 +43,13 @@ lokalnoj mreži ili na adresi domenskog čvora) ili kroz HTTPS/WebSocket tunel n
 pronalaženje na 4712/UDP ostaje lokalno.
 
 Javni čvor treba HTTPS, ograničen pristup izvornom poslužitelju i isključen
-cache aplikacijskih odgovora na posredniku. **Sigurnosno učvršćivanje alfe još
-nije dovršeno**: CSRF, sigurni HTTPS kolačići, povjerenje posrednicima i
-ograničenja zahtjeva ostaju otvoreni. Izvršna datoteka još nije potpisana.
+cache aplikacijskih odgovora na posredniku. Od **0.0.25-alfa** ugrađeni su CSRF
+zaštita, `Secure` kolačići iza HTTPS-a, podesivi pouzdani posrednici i ograničenja
+HTTP zahtjeva i razmjene. Uparivanje odobrava administrator; zadana lozinka
+ne vrijedi izvana. Popis posrednika treba suziti na stvarne adrese posrednika.
+Otvoreni su dvofaktorska prijava, potpisane ovlasti izdavatelja i opoziv
+izgubljenog čvora uživo. Izvršna datoteka još nije potpisana; provedene zaštite
+nisu potvrda spremnosti za operativnu upotrebu.
 Prije nadogradnje izraditi sigurnosnu kopiju baza, sadržaja, postavki i
 ključeva; kopiju identiteta ne koristiti kao novi čvor.
 

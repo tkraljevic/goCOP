@@ -1,7 +1,14 @@
 # Povezivost, otpornost i raspačavanje
 
-Stanje izvedbe usklađeno s 0.0.24-alfa (2. 10. 2026.). Arhitekturni ciljevi u
+Stanje izvedbe usklađeno s 0.0.25-alfa (2. 10. 2026.). Arhitekturni ciljevi u
 nastavku nisu tvrdnja da su svi mehanizmi već ugrađeni.
+
+Sigurnosna dopuna 0.0.25: uparivanje i primanje u mrežu odobrava globalni
+administrator; svjež čvor bez računa pristupa čarobnjaku samo lokalno, ne
+kroz tunel. HTTP i razmjena imaju ograničenja veličine, trajanja i broja veza.
+To ne uvodi potpisane ovlasti izdavatelja ni opoziv izgubljenog čvora uživo:
+oni ostaju planirani. Podešavanje posrednika i granice zaštite opisani su u
+[administratorskim uputama](INSTALACIJA.md#3-podaci-i-sigurnost).
 
 Zapis o tome zašto goCOP ide na mrežu ravnopravnih čvorova, što je krajnji
 cilj, i kojim redom se do njega ide. **Ne treba sve odjednom** — ali svaki

@@ -1090,7 +1090,9 @@
         zove, u kojoj je mreži i s kim se usklađuje. Ovdje globalni administrator uključuje uloge
         čvora (<em>Preuzima vodostaje s izvora</em>, <em>Izdaje prognozu</em>) i upisuje adrese
         domenskih čvorova. Naziv se upisuje u <code>gocop.toml</code> i nakon ponovnog pokretanja
-        sam stiže drugim čvorovima. Uparivanje s novim računalom ide preko ključa mreže.</li>
+        sam stiže drugim čvorovima. Uparivanje i primanje novog računala u mrežu pokreće
+        i potvrđuje globalni administrator. Svjež čvor bez računa nudi čarobnjak samo iz
+        lokalne mreže, ne kroz javni tunel.</li>
       <li id="sync"><strong>Sinkronizacija</strong> — što se upravo vidi na lokalnoj mreži i
         kad je posljednji put razmijenjeno. Razmjena ide izravno, u lokalnoj mreži ili na stalnu
         adresu domenskog čvora (port razmjene), ili kroz HTTPS/WebSocket tunel; identitet se u
@@ -1166,7 +1168,9 @@
   <div class="reg-card pomoc-tekst">
     <p>Na profilu su kontakti, aktivna zaduženja s poviješću, oznaka računala i ureda te promjena
       lozinke. Početna lozinka mora se promijeniti pri prvoj prijavi; do tada ostatak programa
-      ostaje zatvoren.</p>
+      ostaje zatvoren. Zadana lozinka ne vrijedi za prijavu izvana: prvu prijavu obavite
+      lokalno ili od administratora zatražite privremenu lozinku. Promjena lozinke gasi
+      ostale prijave na istom čvoru, ne odmah i na drugim računalima.</p>
     <p>Ovdje se postavljaju i lozinka službene e-pošte, potpis e-pošte, šifrirani sken
       vlastoručnog potpisa i osobni elektronički ključ. Svaka od tih stavki uz sebe objašnjava
       ostaje li samo na ovom čvoru ili se sigurno razmjenjuje.</p>
@@ -1252,7 +1256,11 @@
     <h3>Razvojna faza i odgovornost</h3>
     <p>Program je u alfa fazi, za testiranje i daljnji razvoj, ne za operativnu upotrebu.
       Funkcionalnosti i shema podataka još se mijenjaju, a sigurnosno učvršćivanje nije
-      završeno. Prije nadogradnje treba izraditi sigurnosnu kopiju. Instalacija i uvjeti
+      završeno. Ugrađene su zaštita od zahtjeva s tuđih stranica (CSRF), sigurni sesijski
+      kolačići iza HTTPS-a, ograničenja prijave i mrežnih zahtjeva te administratorsko
+      odobravanje uparivanja. Dvofaktorska prijava, potpisane ovlasti izdavatelja i opoziv
+      izgubljenog čvora uživo ostaju razvojni zadaci. Prije nadogradnje treba izraditi
+      sigurnosnu kopiju. Instalacija i uvjeti
       izlaganja čvora mreži opisani su u <code>docs/INSTALACIJA.md</code> uz izvorni kod;
       verzija pokrenutog programa prikazana je u podnožju.</p>
     <p>Nositelj prava na program naveden u repozitoriju su <strong>Hrvatske vode</strong>.

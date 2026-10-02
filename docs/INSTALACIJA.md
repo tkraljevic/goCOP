@@ -207,12 +207,14 @@ Portovi se mijenjaju u `gocop.toml`.
    kad je preveden iz provjerenog izvora. Potpisivanje besplatnim certifikatom
    za otvoreni kod je u planu prije bete.
 2. **Sigurnosno učvršćivanje je u tijeku.** Od 0.0.25-alfa postoje zaštita od
-   tuđih stranica, `Secure` kolačić iza HTTPS-a, izričito pouzdani posrednici,
+   tuđih stranica, `Secure` kolačić iza HTTPS-a, podesivi pouzdani posrednici,
    ograničenja HTTP-a i razmjene, a uparivanje i primanje u mrežu smije samo
    globalni administrator. Otvoreno: dvofaktorska prijava izvana (PIN na
    službenu e-poštu), potpisane uloge izdavanja (svaki član mreže zasad smije
    objaviti prognozu i arhivu) i opoziv izgubljenog računala uživo. Čvor
-   dostupan kroz tunel treba držati na zadnjem izdanju.
+   dostupan kroz tunel treba držati na zadnjem izdanju. Zadani popis
+   posrednika još uključuje privatne mreže: prije javnog postavljanja suziti
+   ga na stvarne adrese posrednika i provjeriti pristup bez njih.
 3. **Automatsko pronalaženje preko interneta nije uvedeno.** Razmjena preko
    ručno zadane domene i WebSocket tunela radi; lokalno pronalaženje ostaje na LAN-u.
 4. **Shema se još mijenja.** Sve što se unese u alfi može se izgubiti pri
