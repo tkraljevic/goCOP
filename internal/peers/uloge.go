@@ -89,3 +89,23 @@ func (s *Service) TrenutneUloge() Uloge {
 	}
 	return Uloge{}
 }
+
+// OsvjeziSebe objavljuje zapis ovog čvora kad mu se naziv promijenio (npr.
+// upisan je u gocop.toml nakon uparivanja). Drugi čvorovi naziv inače znaju
+// samo iz uparivanja, pa bi zauvijek pamtili ime računala.
+func (s *Service) OsvjeziSebe(ctx context.Context) error {
+	if s.node.Name == "" {
+		return nil
+	}
+	stored, err := s.GetPeer(ctx, s.node.ID)
+	if err != nil {
+		return err
+	}
+	// Bez zatečenog zapisa nema što ispraviti (zapis nastaje pri uparivanju),
+	// a novi bi s praznim adresama pregazio javne adrese koje su drugi upisali.
+	if stored == nil || stored.Name == s.node.Name {
+		return nil
+	}
+	stored.Name = s.node.Name
+	return s.SavePeer(ctx, *stored)
+}

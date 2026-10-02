@@ -4,6 +4,12 @@ Verzije prate shemu iz README-a: alfa `0.0.x` (oznaka `v0.0.1-alfa`), beta
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.20-alfa — 2. 10. 2026.
+
+**Naziv čvora stiže do drugih čvorova** — naziv upisan u `gocop.toml` nakon
+uparivanja čvor pri pokretanju sam objavi, pa ga drugi čvorovi vide umjesto
+imena računala iz uparivanja. Mijenja se samo naziv; javne adrese ostaju.
+
 ## 0.0.19-alfa — 2. 10. 2026.
 
 **Kazalo arhive bez nadglasavanja** — čvor objavljuje paket arhive samo kad je

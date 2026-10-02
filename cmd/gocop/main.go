@@ -43,7 +43,7 @@ import (
 
 // verzijaPrograma je izdanje goCOP-a. Alfa traje dok se ne zaokruže
 // funkcionalnosti koje program treba imati; mijenja se pri izdavanju.
-const verzijaPrograma = "0.0.19-alfa"
+const verzijaPrograma = "0.0.20-alfa"
 
 // version se može zadati pri prevođenju (-ldflags "-X main.version=…");
 // prazno znači verzijaPrograma, s oznakom commita iz kojega je prevedeno.
@@ -279,6 +279,9 @@ func main() {
 	// jer se onaj koji je već otišao ne da naknadno potpisati.
 	arhiva.PostaviKljucIzdavaca(node.PrivateKey())
 	peersService.Accept(repository.KeepVersion)
+	if err := peersService.OsvjeziSebe(context.Background()); err != nil {
+		log.Printf("Zapis ovog čvora nije osvježen: %v", err)
+	}
 	// Uloge ovog čvora za mrežu: preuzima li vodostaje, izdaje li prognozu
 	_, ulogePostavljene, ulogeErr := peersService.UcitajUloge(context.Background())
 	if ulogeErr != nil {
