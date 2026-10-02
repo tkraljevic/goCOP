@@ -4,6 +4,16 @@ Verzije prate shemu iz README-a: alfa `0.0.x` (oznaka `v0.0.1-alfa`), beta
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.21-alfa — 2. 10. 2026.
+
+**Prva razmjena odmah nakon pokretanja** — pola minute nakon pokretanja, a ne
+nakon punog razmaka od pet minuta: ažuriranje ili nekoliko pokretanja zaredom
+više ne ostavljaju čvorove neusklađene četvrt sata.
+
+**Kazalo arhive bez starih verzija** — pri pokretanju i svakih šest sati iz
+knjige se brišu zamijenjene verzije kazala arhive (vrijedi samo zadnje izdanje
+letve). Uklanja i oko 4.700 zapisa nakupljenih dok su se čvorovi nadglasavali.
+
 ## 0.0.20-alfa — 2. 10. 2026.
 
 **Naziv čvora stiže do drugih čvorova** — naziv upisan u `gocop.toml` nakon

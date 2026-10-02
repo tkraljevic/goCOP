@@ -214,6 +214,14 @@ func prorjedjujIzdanja(ctx context.Context, rec *ledger.Recorder) {
 		} else if n > 0 {
 			log.Printf("prognoza: iz knjige uklonjeno %d izdanja starijih od %d dana", n, DrziIzdanjaDana)
 		}
+		// kazalo arhive: vrijedi samo zadnje izdanje letve, starije verzije
+		// nemaju povijesnu vrijednost (i nakupile su se dok su se dva čvora
+		// nadglasavala, 0.0.19)
+		if n, err := rec.ProrijediZamijenjene(ctx, EntitetArhive); err != nil {
+			log.Printf("arhiva: %v", err)
+		} else if n > 0 {
+			log.Printf("arhiva: iz knjige uklonjeno %d zamijenjenih verzija kazala", n)
+		}
 		select {
 		case <-ctx.Done():
 			return

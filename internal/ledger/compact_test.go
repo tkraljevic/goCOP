@@ -104,3 +104,39 @@ func TestProrjedjivanjeCuvaGranicu(t *testing.T) {
 		t.Errorf("zadnja verzija autora obrisana (%d)", n)
 	}
 }
+
+// Zamijenjene verzije kazala nestaju odmah, zadnja svakog zapisa ostaje, a
+// granica razmjene se ne pomiče.
+func TestProrijediZamijenjene(t *testing.T) {
+	db := openTestDB(t)
+	rec := New(db, "ured")
+	ctx := context.Background()
+	for i := 0; i < 5; i++ {
+		if _, err := rec.Record(ctx, db, "arhiva_paket", "botovo", probni{"botovo", i}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := rec.Record(ctx, db, "arhiva_paket", "osijek", probni{"osijek", 1}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := rec.Record(ctx, db, "stations", "st-1", probni{"Batina", 600}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := rec.Record(ctx, db, "stations", "st-1", probni{"Batina", 610}); err != nil {
+		t.Fatal(err)
+	}
+	before, _ := rec.Frontier(ctx)
+	n, err := rec.ProrijediZamijenjene(ctx, "arhiva_paket")
+	if err != nil || n != 4 {
+		t.Fatalf("obrisano %d (%v), očekivano 4", n, err)
+	}
+	if h, _ := rec.History(ctx, "arhiva_paket", "botovo"); len(h) != 1 {
+		t.Errorf("botovo: %d verzija", len(h))
+	}
+	if h, _ := rec.History(ctx, "stations", "st-1"); len(h) != 2 {
+		t.Errorf("drugi entitet dirnut: %d verzija", len(h))
+	}
+	if after, _ := rec.Frontier(ctx); before["ured"] != after["ured"] {
+		t.Error("granica se pomaknula")
+	}
+}

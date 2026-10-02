@@ -605,3 +605,22 @@ func (r *Recorder) Prorijedi(ctx context.Context, entity string, olderThan time.
 	n, _ := res.RowsAffected()
 	return n, nil
 }
+
+// ProrijediZamijenjene briše zamijenjene verzije zapisa jednog entiteta, bez
+// obzira na starost: zadnja verzija svakog zapisa ostaje. Za entitete kojima
+// povijest ne treba (kazalo arhive: vrijedi samo zadnje izdanje letve). Zadnja
+// verzija svakog autora u svakom kanalu ostaje, pa se granica ne pomiče.
+func (r *Recorder) ProrijediZamijenjene(ctx context.Context, entity string) (int64, error) {
+	res, err := r.db.ExecContext(ctx, `
+		DELETE FROM record_versions
+		WHERE entity = ?
+		  AND version_id <> (SELECT MAX(v.version_id) FROM record_versions v
+		                     WHERE v.entity = record_versions.entity AND v.entity_id = record_versions.entity_id)
+		  AND version_id NOT IN (SELECT MAX(version_id) FROM record_versions GROUP BY node_id, channel)
+	`, entity)
+	if err != nil {
+		return 0, fmt.Errorf("prorjeđivanje zamijenjenih (%s): %w", entity, err)
+	}
+	n, _ := res.RowsAffected()
+	return n, nil
+}

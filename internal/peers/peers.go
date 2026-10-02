@@ -929,16 +929,22 @@ func (s *Service) RunAutoSync(ctx context.Context, every time.Duration) {
 	s.mu.Lock()
 	s.every, s.autoOn = every, true
 	s.mu.Unlock()
+	// Prva razmjena ide pola minute nakon pokretanja, ne nakon punog
+	// razmaka: ažuriranje ili ponovno pokretanje inače ostavi čvorove
+	// neusklađene po pet minuta (2.10.2026. tri pokretanja zaredom — 15 minuta).
+	prva := time.NewTimer(30 * time.Second)
+	defer prva.Stop()
 	t := time.NewTicker(every)
 	defer t.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return
+		case <-prva.C:
 		case <-t.C:
-			for node, note := range s.SyncDue(ctx) {
-				log.Printf("sinkronizacija s %s: %s", node, note)
-			}
+		}
+		for node, note := range s.SyncDue(ctx) {
+			log.Printf("sinkronizacija s %s: %s", node, note)
 		}
 	}
 }
