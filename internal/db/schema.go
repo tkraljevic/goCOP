@@ -1635,10 +1635,6 @@ func rekeySeedIdentities(database *sql.DB) error {
 	}
 	rows.Close()
 
-	if len(stations) == 0 && len(users) == 0 {
-		return nil
-	}
-
 	tx, err := database.Begin()
 	if err != nil {
 		return err
@@ -1722,28 +1718,57 @@ func rekeySeedIdentities(database *sql.DB) error {
 			return err
 		}
 	}
-	// zaduženja: identitet iz korisničkog imena i rednog broja, kao u seedu
+	// zaduženja: identitet iz korisničkog imena i rednog broja, kao u seedu.
+	// Zaduženje koje već nosi stalni identifikator svog korisnika (za bilo
+	// koji redni broj) ostaje kakvo jest: redoslijed redaka u bazi nije isti
+	// na svim čvorovima — razmjena ih upiše kako stignu — pa bi brojanje po
+	// redoslijedu na drugom čvoru zamijenilo dva zaduženja i palo na
+	// jedinstvenosti (Unraid, 2.10.2026). Stara nasumična dobiju prvi slobodan broj.
 	dutyRows, err := tx.Query(`
 		SELECT d.id, u.username FROM duties d JOIN users u ON u.id = d.user_id
 		ORDER BY u.username, d.rowid`)
 	if err != nil {
 		return err
 	}
-	var duties []rename
-	index := map[string]int{}
+	type zaduzenje struct{ id, username string }
+	var sva []zaduzenje
+	poKorisniku := map[string]int{}
 	for dutyRows.Next() {
-		var id, username string
-		if err := dutyRows.Scan(&id, &username); err != nil {
+		var z zaduzenje
+		if err := dutyRows.Scan(&z.id, &z.username); err != nil {
 			dutyRows.Close()
 			return err
 		}
-		want := StableID("duty", fmt.Sprintf("%s|%d", username, index[username])).String()
-		index[username]++
-		if want != id {
-			duties = append(duties, rename{id, want})
-		}
+		sva = append(sva, z)
+		poKorisniku[z.username]++
 	}
 	dutyRows.Close()
+	stalni := func(username string, n int) string {
+		return StableID("duty", fmt.Sprintf("%s|%d", username, n)).String()
+	}
+	zauzeto := map[string]bool{}
+	ispravno := map[string]bool{}
+	for _, z := range sva {
+		for n := 0; n < poKorisniku[z.username]; n++ {
+			if stalni(z.username, n) == z.id {
+				ispravno[z.id], zauzeto[z.id] = true, true
+				break
+			}
+		}
+	}
+	var duties []rename
+	for _, z := range sva {
+		if ispravno[z.id] {
+			continue
+		}
+		for n := 0; ; n++ {
+			if want := stalni(z.username, n); !zauzeto[want] {
+				zauzeto[want] = true
+				duties = append(duties, rename{z.id, want})
+				break
+			}
+		}
+	}
 	for _, r := range duties {
 		if err := replaceEverywhere(r.old, r.new, `UPDATE duties SET id = ? WHERE id = ?`); err != nil {
 			return err

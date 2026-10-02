@@ -4,6 +4,16 @@ Verzije prate shemu iz README-a: alfa `0.0.x` (oznaka `v0.0.1-alfa`), beta
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.17-alfa — 2. 10. 2026.
+
+**Čvor se pokreće bez obzira na redoslijed zaduženja** — pri pokretanju se
+zaduženja prekodiraju na stalne identifikatore „korisnik + redni broj”, a broj
+se uzimao iz redoslijeda redaka u lokalnoj bazi. Razmjena upiše zaduženja kako
+stignu, pa je na drugom čvoru redoslijed bio obrnut: prekodiranje je zamijenilo
+dva zaduženja, palo na jedinstvenosti i čvor se nije dao pokrenuti. Zaduženje
+koje već nosi stalni identifikator svog korisnika sad ostaje kakvo jest, a
+staro nasumično dobije prvi slobodan broj.
+
 ## 0.0.16-alfa — 2. 10. 2026.
 
 **Ništa u priručnu memoriju posrednika** — svaki odgovor osim `/static/` nosi

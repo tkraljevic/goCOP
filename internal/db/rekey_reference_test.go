@@ -122,3 +122,50 @@ func imaStupac(t *testing.T, baza *sql.DB, tablica, stupac string) bool {
 	}
 	return false
 }
+
+// Zaduženja istog korisnika razmjena upiše kako stignu, pa im redoslijed
+// redaka na drugom čvoru nije isti. Prekodiranje je brojalo po redoslijedu,
+// zamijenilo dva zaduženja i palo na jedinstvenosti — Unraid se 2.10.2026.
+// nije dao pokrenuti. Zaduženje sa stalnim identifikatorom ostaje kakvo jest;
+// staro nasumično dobije prvi slobodan broj.
+func TestPrekodiranjeZaduzenjaNeOvisiORedoslijedu(t *testing.T) {
+	baza, err := OpenDB(filepath.Join(t.TempDir(), "gocop.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer baza.Close()
+	if err := InitSchema(baza); err != nil {
+		t.Fatal(err)
+	}
+	const kad = "2026-09-19 17:19:21 +0000 UTC"
+	korisnik := StableID("user", "amatijevic").String()
+	if _, err := baza.Exec(`INSERT INTO users (id, username, password_hash, full_name, org_type, created_at, updated_at)
+		VALUES (?, 'amatijevic', 'x', 'Proba', 'sektor', ?, ?)`, korisnik, kad, kad); err != nil {
+		t.Fatal(err)
+	}
+	prvo := StableID("duty", "amatijevic|0").String()
+	drugo := StableID("duty", "amatijevic|1").String()
+	const nasumicno = "01a0c822-3dcc-707d-ba40-ac2b338fb999"
+	// obrnutim redom: drugo pa prvo, kao na čvoru koji ih je primio razmjenom
+	for _, id := range []string{drugo, prvo, nasumicno} {
+		if _, err := baza.Exec(`INSERT INTO duties (id, user_id, title, role, scope_type, created_at) VALUES (?, ?, 'zaduženje', 'operater', 'centar', ?)`,
+			id, korisnik, kad); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := rekeySeedIdentities(baza); err != nil {
+		t.Fatalf("prekodiranje: %v", err)
+	}
+	treci := StableID("duty", "amatijevic|2").String()
+	for _, id := range []string{prvo, drugo, treci} {
+		var n int
+		baza.QueryRow(`SELECT count(*) FROM duties WHERE id = ?`, id).Scan(&n)
+		if n != 1 {
+			t.Errorf("zaduženje %s: %d", id, n)
+		}
+	}
+	// drugi prolaz ništa ne mijenja
+	if err := rekeySeedIdentities(baza); err != nil {
+		t.Fatalf("drugi prolaz: %v", err)
+	}
+}
