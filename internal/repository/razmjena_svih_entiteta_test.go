@@ -42,7 +42,8 @@ import (
 //
 // Punilo popunjava svako polje, i ugniježđene strukture, vremena, pokazivače,
 // popise i mape, pa test pada i kad entitet dobije polje koje primjena ne
-// upisuje.
+// upisuje. Zapis se na oba čvora čita i stvarnim čitačem repozitorija
+// (procitaj), koji vremena raščlanjuje u time.Time.
 
 // poznateGreske su provjere koje padaju zbog grešaka u programu koje se
 // ispravljaju odvojeno. Ključ je "<entitet>/<provjera>"; provjera se tada
@@ -133,10 +134,17 @@ var (
 	tipUUID       = reflect.TypeOf(uuid.UUID{})
 	tipSirovog    = reflect.TypeOf(json.RawMessage{})
 	vrijemePunila = time.Date(2026, 3, 14, 9, 30, 0, 0, time.UTC)
+
+	// zonaPunila je zona u kojoj punilo daje vremena; mijenja je samo
+	// TestRazmjenaSvihEntitetaUZoniBezImena
+	zonaPunila = time.UTC
 )
 
+// trenutakPunila je vrijemePunila u zoni punila
+func trenutakPunila() time.Time { return vrijemePunila.In(zonaPunila) }
+
 // punilo popunjava vrijednost rekurzivno: tekst "x-<Polje>", brojevi
-// međusobno različiti i različiti od nule, istina, vremena u UTC-u na
+// međusobno različiti i različiti od nule, istina, vremena u zoni punila na
 // sekundu, pokazivači, UUID iz naziva polja, popisi s jednim ili dva
 // člana, mape s jednim unosom i ugniježđene strukture
 type punilo struct{ n int }
@@ -152,7 +160,7 @@ func (p *punilo) puni(v reflect.Value, ime string, dubina int) {
 	switch v.Type() {
 	case tipVremena:
 		p.n++
-		v.Set(reflect.ValueOf(vrijemePunila.Add(time.Duration(p.n) * time.Minute)))
+		v.Set(reflect.ValueOf(trenutakPunila().Add(time.Duration(p.n) * time.Minute)))
 		return
 	case tipUUID:
 		v.Set(reflect.ValueOf(uuid.NewSHA1(uuid.NameSpaceOID, []byte(ime))))
@@ -260,6 +268,11 @@ type slucajRazmjene struct {
 	uredi          func(t *testing.T, b *cvor, id string, payload []byte)
 	bezUredjivanja string
 
+	// procitaj čita zapis na čvoru stvarnim čitačem repozitorija, onim koji
+	// koristi program; payload je zadnja verzija na tom čvoru. Vraća
+	// pročitano, koje ne smije biti prazno.
+	procitaj func(t *testing.T, n *cvor, id string, payload []byte) (any, error)
+
 	// preskoci su stupci koji se namjerno ne uspoređuju, sa zašto
 	preskoci map[string]string
 }
@@ -285,6 +298,9 @@ func slucajeviRazmjene() []slucajRazmjene {
 				e.Note += " (izmjena)"
 				nuzno(t, NewEpisodeRepository(b.db, b.rec).SaveEpisode(ctxRaz, e))
 			},
+			procitaj: func(_ *testing.T, n *cvor, _ string, _ []byte) (any, error) {
+				return NewEpisodeRepository(n.db, n.rec).ListEpisodes(ctxRaz, osnovaDionica)
+			},
 		},
 		{
 			entitet: EntityIspravci, tablica: "arhiva_ispravci", kljuc: "id",
@@ -300,6 +316,10 @@ func slucajeviRazmjene() []slucajRazmjene {
 				i.Razlog += " (izmjena)"
 				_, err := NewIspravakRepository(b.db, b.rec).Spremi(ctxRaz, []models.ArhivaIspravak{*i})
 				nuzno(t, err)
+			},
+			procitaj: func(t *testing.T, n *cvor, _ string, p []byte) (any, error) {
+				x := teret[models.ArhivaIspravak](t, p)
+				return NewIspravakRepository(n.db, n.rec).ZaNiz(ctxRaz, x.Letva, x.Velicina, x.Korak, x.Vrijeme.Add(-time.Minute), x.Vrijeme.Add(time.Minute))
 			},
 		},
 		{
@@ -317,6 +337,10 @@ func slucajeviRazmjene() []slucajRazmjene {
 				_, err := NewBiljeskaRepository(b.db, b.rec).Spremi(ctxRaz, []models.ArhivaBiljeska{*x})
 				nuzno(t, err)
 			},
+			procitaj: func(t *testing.T, n *cvor, _ string, p []byte) (any, error) {
+				x := teret[models.ArhivaBiljeska](t, p)
+				return NewBiljeskaRepository(n.db, n.rec).ZaNiz(ctxRaz, x.Letva, x.Velicina, x.Korak, x.Vrijeme.Add(-time.Minute), x.Vrijeme.Add(time.Minute))
+			},
 		},
 		{
 			entitet: EntityStations, tablica: "stations", kljuc: "id",
@@ -330,6 +354,9 @@ func slucajeviRazmjene() []slucajRazmjene {
 				st := teret[models.Station](t, p)
 				st.Notes += " (izmjena)"
 				nuzno(t, NewStationRepository(b.db, b.rec).UpdateStation(ctxRaz, st))
+			},
+			procitaj: func(_ *testing.T, n *cvor, id string, _ []byte) (any, error) {
+				return NewStationRepository(n.db, n.rec).GetStationByID(ctxRaz, uuid.MustParse(id))
 			},
 		},
 		{
@@ -352,6 +379,9 @@ func slucajeviRazmjene() []slucajRazmjene {
 				s.Notes += " (izmjena)"
 				nuzno(t, NewSectionRepository(b.db, b.rec).SaveSection(ctxRaz, s))
 			},
+			procitaj: func(_ *testing.T, n *cvor, id string, _ []byte) (any, error) {
+				return NewSectionRepository(n.db, n.rec).GetSectionByCode(id)
+			},
 		},
 		{
 			entitet: EntityWatercourses, tablica: "watercourses", kljuc: "code",
@@ -364,6 +394,9 @@ func slucajeviRazmjene() []slucajRazmjene {
 				w := teret[models.Watercourse](t, p)
 				w.Notes += " (izmjena)"
 				nuzno(t, NewWatercourseRepository(b.db, b.rec).UpdateWatercourse(ctxRaz, w))
+			},
+			procitaj: func(_ *testing.T, n *cvor, id string, _ []byte) (any, error) {
+				return NewWatercourseRepository(n.db, n.rec).GetWatercourse(ctxRaz, id)
 			},
 		},
 		{
@@ -378,6 +411,9 @@ func slucajeviRazmjene() []slucajRazmjene {
 				k.Napomena += " (izmjena)"
 				nuzno(t, NewKisomjerRepository(b.db, b.rec).UpdateKisomjer(ctxRaz, k))
 			},
+			procitaj: func(_ *testing.T, n *cvor, id string, _ []byte) (any, error) {
+				return NewKisomjerRepository(n.db, n.rec).GetKisomjer(ctxRaz, id)
+			},
 		},
 		{
 			entitet: EntitySlivovi, tablica: "slivovi", kljuc: "oznaka",
@@ -390,6 +426,9 @@ func slucajeviRazmjene() []slucajRazmjene {
 				m := teret[models.Sliv](t, p)
 				m.Napomena += " (izmjena)"
 				nuzno(t, NewKisomjerRepository(b.db, b.rec).UpsertSliv(ctxRaz, m))
+			},
+			procitaj: func(_ *testing.T, n *cvor, _ string, _ []byte) (any, error) {
+				return NewKisomjerRepository(n.db, n.rec).ListSlivovi(ctxRaz)
 			},
 		},
 		{
@@ -405,6 +444,9 @@ func slucajeviRazmjene() []slucajRazmjene {
 				m.Source += " (izmjena)"
 				nuzno(t, NewMaintenanceRepository(b.db, b.rec).UpsertWater(ctxRaz, m))
 			},
+			procitaj: func(_ *testing.T, n *cvor, id string, _ []byte) (any, error) {
+				return NewMaintenanceRepository(n.db, n.rec).GetWater(ctxRaz, id)
+			},
 		},
 		{
 			entitet: EntityWorkItems, tablica: "work_items", kljuc: "id",
@@ -418,6 +460,9 @@ func slucajeviRazmjene() []slucajRazmjene {
 				w := teret[models.WorkItem](t, p)
 				w.Description += " (izmjena)"
 				nuzno(t, NewMaintenanceRepository(b.db, b.rec).SaveItem(ctxRaz, w))
+			},
+			procitaj: func(_ *testing.T, n *cvor, id string, _ []byte) (any, error) {
+				return NewMaintenanceRepository(n.db, n.rec).GetItem(ctxRaz, id)
 			},
 		},
 		{
@@ -434,6 +479,9 @@ func slucajeviRazmjene() []slucajRazmjene {
 				j.Notes += " (izmjena)"
 				nuzno(t, NewJournalRepository(b.db, b.rec).SaveJournal(ctxRaz, j))
 			},
+			procitaj: func(_ *testing.T, n *cvor, id string, _ []byte) (any, error) {
+				return NewJournalRepository(n.db, n.rec).GetJournal(ctxRaz, id)
+			},
 		},
 		{
 			entitet: EntityJournalSheets, tablica: "journal_sheets", kljuc: "id",
@@ -447,6 +495,9 @@ func slucajeviRazmjene() []slucajRazmjene {
 				s := teret[models.JournalSheet](t, p)
 				s.Conditions += " (izmjena)"
 				nuzno(t, NewJournalRepository(b.db, b.rec).SaveSheet(ctxRaz, s))
+			},
+			procitaj: func(_ *testing.T, n *cvor, id string, _ []byte) (any, error) {
+				return NewJournalRepository(n.db, n.rec).GetSheet(ctxRaz, id)
 			},
 		},
 		{
@@ -463,6 +514,9 @@ func slucajeviRazmjene() []slucajRazmjene {
 				e.Text += " (izmjena)"
 				nuzno(t, NewJournalRepository(b.db, b.rec).SaveEntry(ctxRaz, e))
 			},
+			procitaj: func(_ *testing.T, n *cvor, id string, _ []byte) (any, error) {
+				return NewJournalRepository(n.db, n.rec).GetEntry(ctxRaz, id)
+			},
 		},
 		{
 			entitet: EntityDezurstva, tablica: "dezurstva", kljuc: "id",
@@ -478,6 +532,9 @@ func slucajeviRazmjene() []slucajRazmjene {
 				d.Napomena += " (izmjena)"
 				nuzno(t, NewJournalRepository(b.db, b.rec).SaveDezurstvo(ctxRaz, d))
 			},
+			procitaj: func(_ *testing.T, n *cvor, id string, _ []byte) (any, error) {
+				return NewJournalRepository(n.db, n.rec).GetDezurstvo(ctxRaz, id)
+			},
 		},
 		{
 			entitet: EntityDnevnaIzvjesca, tablica: "dnevna_izvjesca", kljuc: "id",
@@ -491,6 +548,9 @@ func slucajeviRazmjene() []slucajRazmjene {
 				i := teret[models.DnevnoIzvjesce](t, p)
 				i.Izradio += " (izmjena)"
 				nuzno(t, NewIzvjescaRepository(b.db, b.rec).Save(ctxRaz, i))
+			},
+			procitaj: func(_ *testing.T, n *cvor, id string, _ []byte) (any, error) {
+				return NewIzvjescaRepository(n.db, n.rec).Get(ctxRaz, id)
 			},
 		},
 		{
@@ -506,6 +566,9 @@ func slucajeviRazmjene() []slucajRazmjene {
 				i.Izradio += " (izmjena)"
 				nuzno(t, NewSektorskaIzvjescaRepository(b.db, b.rec).Save(ctxRaz, i))
 			},
+			procitaj: func(_ *testing.T, n *cvor, id string, _ []byte) (any, error) {
+				return NewSektorskaIzvjescaRepository(n.db, n.rec).Get(ctxRaz, id)
+			},
 		},
 		{
 			entitet: EntityBlagdani, tablica: "blagdani", kljuc: "id",
@@ -520,6 +583,9 @@ func slucajeviRazmjene() []slucajRazmjene {
 				x.Naziv += " (izmjena)"
 				nuzno(t, NewObracunRepository(b.db, b.rec).SaveBlagdan(ctxRaz, *x))
 			},
+			procitaj: func(_ *testing.T, n *cvor, _ string, _ []byte) (any, error) {
+				return NewObracunRepository(n.db, n.rec).Blagdani(ctxRaz)
+			},
 			preskoci: map[string]string{"updated_at": vrijemeVerzije},
 		},
 		{
@@ -533,6 +599,9 @@ func slucajeviRazmjene() []slucajRazmjene {
 				k := teret[Koeficijent](t, p)
 				k.K += 0.25
 				nuzno(t, NewObracunRepository(b.db, b.rec).SaveKoeficijent(ctxRaz, *k))
+			},
+			procitaj: func(_ *testing.T, n *cvor, _ string, _ []byte) (any, error) {
+				return NewObracunRepository(n.db, n.rec).Koeficijenti(ctxRaz)
 			},
 			preskoci: map[string]string{"updated_at": vrijemeVerzije},
 		},
@@ -550,6 +619,9 @@ func slucajeviRazmjene() []slucajRazmjene {
 				nuzno(t, err)
 				nuzno(t, NewObracunRepository(b.db, b.rec).SaveRadnoVrijeme(ctxRaz, rv))
 			},
+			procitaj: func(_ *testing.T, n *cvor, _ string, _ []byte) (any, error) {
+				return NewObracunRepository(n.db, n.rec).RadnoVrijeme(ctxRaz)
+			},
 			preskoci: map[string]string{"updated_at": vrijemeVerzije},
 		},
 		{
@@ -563,6 +635,9 @@ func slucajeviRazmjene() []slucajRazmjene {
 				v := teret[models.VrstaSredstva](t, p)
 				v.Napomena += " (izmjena)"
 				nuzno(t, NewMtsRepository(b.db, b.rec).SaveVrsta(ctxRaz, v))
+			},
+			procitaj: func(_ *testing.T, n *cvor, id string, _ []byte) (any, error) {
+				return NewMtsRepository(n.db, n.rec).GetVrsta(ctxRaz, id)
 			},
 		},
 		{
@@ -578,6 +653,9 @@ func slucajeviRazmjene() []slucajRazmjene {
 				s.Napomena += " (izmjena)"
 				nuzno(t, NewMtsRepository(b.db, b.rec).SaveSkladiste(ctxRaz, s))
 			},
+			procitaj: func(_ *testing.T, n *cvor, id string, _ []byte) (any, error) {
+				return NewMtsRepository(n.db, n.rec).GetSkladiste(ctxRaz, id)
+			},
 		},
 		{
 			entitet: EntityMtsPromet, tablica: "mts_promet", kljuc: "id",
@@ -591,6 +669,9 @@ func slucajeviRazmjene() []slucajRazmjene {
 				x := teret[models.Promet](t, p)
 				x.Napomena += " (izmjena)"
 				nuzno(t, NewMtsRepository(b.db, b.rec).SavePromet(ctxRaz, []models.Promet{*x}))
+			},
+			procitaj: func(_ *testing.T, n *cvor, _ string, _ []byte) (any, error) {
+				return NewMtsRepository(n.db, n.rec).ListPromet(ctxRaz, FiltarPrometa{JournalID: osnovaDnevnik})
 			},
 		},
 		{
@@ -606,6 +687,9 @@ func slucajeviRazmjene() []slucajRazmjene {
 				x.Napomena += " (izmjena)"
 				nuzno(t, NewMtsRepository(b.db, b.rec).SavePopis(ctxRaz, x))
 			},
+			procitaj: func(_ *testing.T, n *cvor, id string, _ []byte) (any, error) {
+				return NewMtsRepository(n.db, n.rec).GetPopis(ctxRaz, id)
+			},
 		},
 		{
 			entitet: EntityMtsPotrebe, tablica: "mts_potrebe", kljuc: "id",
@@ -618,6 +702,10 @@ func slucajeviRazmjene() []slucajRazmjene {
 				x := teret[models.Potreba](t, p)
 				x.Napomena += " (izmjena)"
 				nuzno(t, NewMtsRepository(b.db, b.rec).SavePotrebe(ctxRaz, []models.Potreba{*x}))
+			},
+			procitaj: func(t *testing.T, n *cvor, _ string, p []byte) (any, error) {
+				x := teret[models.Potreba](t, p)
+				return NewMtsRepository(n.db, n.rec).Potrebe(ctxRaz, "", x.SkladisteID, x.Godina)
 			},
 		},
 		{
@@ -633,6 +721,9 @@ func slucajeviRazmjene() []slucajRazmjene {
 				x.Napomena += " (izmjena)"
 				nuzno(t, NewAktiRepository(b.db, b.rec).SaveAkt(ctxRaz, x))
 			},
+			procitaj: func(_ *testing.T, n *cvor, id string, _ []byte) (any, error) {
+				return NewAktiRepository(n.db, n.rec).GetAkt(ctxRaz, id)
+			},
 		},
 		{
 			entitet: EntityZadaci, tablica: "vodocuvarski_zadaci", kljuc: "id",
@@ -646,6 +737,9 @@ func slucajeviRazmjene() []slucajRazmjene {
 				z := teret[models.Zadatak](t, p)
 				z.Tekst += " (izmjena)"
 				nuzno(t, NewVodocuvarRepository(b.db, b.rec).SaveZadatak(ctxRaz, z))
+			},
+			procitaj: func(_ *testing.T, n *cvor, id string, _ []byte) (any, error) {
+				return NewVodocuvarRepository(n.db, n.rec).GetZadatak(ctxRaz, id)
 			},
 		},
 		{
@@ -661,6 +755,9 @@ func slucajeviRazmjene() []slucajRazmjene {
 				l.Opis += " (izmjena)"
 				nuzno(t, NewVodocuvarRepository(b.db, b.rec).Save(ctxRaz, l))
 			},
+			procitaj: func(_ *testing.T, n *cvor, id string, _ []byte) (any, error) {
+				return NewVodocuvarRepository(n.db, n.rec).Get(ctxRaz, id)
+			},
 		},
 		{
 			entitet: EntityZigovi, tablica: "zigovi", kljuc: "sektor",
@@ -674,6 +771,9 @@ func slucajeviRazmjene() []slucajRazmjene {
 				z := teret[models.Zig](t, p)
 				z.Uredio += " (izmjena)"
 				nuzno(t, NewAktiRepository(b.db, b.rec).SaveZig(ctxRaz, z))
+			},
+			procitaj: func(_ *testing.T, n *cvor, id string, _ []byte) (any, error) {
+				return NewAktiRepository(n.db, n.rec).GetZig(ctxRaz, id)
 			},
 			preskoci: map[string]string{"updated_at": vrijemeVerzije},
 		},
@@ -691,13 +791,16 @@ func slucajeviRazmjene() []slucajRazmjene {
 				x.Opis += " (izmjena)"
 				nuzno(t, NewPrijavaRepository(b.db, b.rec).Save(ctxRaz, x))
 			},
+			procitaj: func(_ *testing.T, n *cvor, id string, _ []byte) (any, error) {
+				return NewPrijavaRepository(n.db, n.rec).Get(ctxRaz, id)
+			},
 		},
 		{
 			entitet: EntityPrijaveIzvornici, tablica: "prijave_izvornici", kljuc: "prijava_id",
 			napravi: func(t *testing.T, a *cvor) {
 				// izvornik visi o prijavi: ona stiže istom razmjenom
 				x := models.PrijavaSTerena{UserID: korisnik, Sektor: "B", AreaID: 16, Godina: 2026,
-					Datum: vrijemePunila, Vrsta: models.PrijavaPrijava, Status: models.PrijavaNacrt, Naslov: "x-Naslov"}
+					Datum: trenutakPunila(), Vrsta: models.PrijavaPrijava, Status: models.PrijavaNacrt, Naslov: "x-Naslov"}
 				r := NewPrijavaRepository(a.db, a.rec)
 				nuzno(t, r.Save(ctxRaz, &x))
 				nuzno(t, r.SpremiIzvornik(ctxRaz, x.ID, pdfProbe, "x-Sazetak"))
@@ -705,6 +808,9 @@ func slucajeviRazmjene() []slucajRazmjene {
 			uredi: func(t *testing.T, b *cvor, id string, p []byte) {
 				iz := teret[models.IzvornikLista](t, p)
 				nuzno(t, NewPrijavaRepository(b.db, b.rec).SpremiIzvornik(ctxRaz, id, append(pdfProbe, '\n'), iz.Sazetak+" (izmjena)"))
+			},
+			procitaj: func(_ *testing.T, n *cvor, id string, _ []byte) (any, error) {
+				return NewPrijavaRepository(n.db, n.rec).Izvornik(ctxRaz, id)
 			},
 		},
 		{
@@ -720,6 +826,9 @@ func slucajeviRazmjene() []slucajRazmjene {
 				k.Ime += " (izmjena)"
 				nuzno(t, NewPotpisRepository(b.db, b.rec).SaveKljuc(ctxRaz, k))
 			},
+			procitaj: func(_ *testing.T, n *cvor, id string, _ []byte) (any, error) {
+				return NewPotpisRepository(n.db, n.rec).GetKljuc(ctxRaz, id)
+			},
 		},
 		{
 			entitet: EntityPotpisniIzdavatelji, tablica: "potpisni_izdavatelji", kljuc: "cvor",
@@ -733,11 +842,14 @@ func slucajeviRazmjene() []slucajRazmjene {
 				i.Cert = append(i.Cert, '!')
 				nuzno(t, NewPotpisRepository(b.db, b.rec).SaveIzdavatelj(ctxRaz, i))
 			},
+			procitaj: func(_ *testing.T, n *cvor, id string, _ []byte) (any, error) {
+				return NewPotpisRepository(n.db, n.rec).GetIzdavatelj(ctxRaz, id)
+			},
 		},
 		{
 			entitet: EntityVodocuvarskiIzvornici, tablica: "vodocuvarski_izvornici", kljuc: "list_id",
 			napravi: func(t *testing.T, a *cvor) {
-				l := models.VodocuvarskiList{UserID: korisnik, Sektor: "B", AreaID: 16, Datum: vrijemePunila}
+				l := models.VodocuvarskiList{UserID: korisnik, Sektor: "B", AreaID: 16, Datum: trenutakPunila()}
 				r := NewVodocuvarRepository(a.db, a.rec)
 				nuzno(t, r.Save(ctxRaz, &l))
 				nuzno(t, r.SaveIzvornik(ctxRaz, &models.IzvornikLista{ListID: l.ID, PDF: pdfProbe, Sazetak: "x-Sazetak"}))
@@ -746,6 +858,9 @@ func slucajeviRazmjene() []slucajRazmjene {
 				iz := teret[models.IzvornikLista](t, p)
 				iz.PDF, iz.Sazetak = append(pdfProbe, '\n'), iz.Sazetak+" (izmjena)"
 				nuzno(t, NewVodocuvarRepository(b.db, b.rec).SaveIzvornik(ctxRaz, iz))
+			},
+			procitaj: func(_ *testing.T, n *cvor, id string, _ []byte) (any, error) {
+				return NewVodocuvarRepository(n.db, n.rec).GetIzvornik(ctxRaz, id)
 			},
 		},
 		{
@@ -756,11 +871,14 @@ func slucajeviRazmjene() []slucajRazmjene {
 				j := models.Journal{AreaID: 16, CentarSektor: "B", CentarPodrucje: &podrucje, Kind: "COP", Year: 2026}
 				r := NewJournalRepository(a.db, a.rec)
 				nuzno(t, r.SaveJournal(ctxRaz, &j))
-				kad := vrijemePunila
+				kad := trenutakPunila()
 				j.ZakljucioID, j.Zakljucio, j.ZakljucenoAt = korisnik, "Proba Probić", &kad
 				nuzno(t, r.SaveOvjeraCOP(ctxRaz, &j, pdfProbe))
 			},
 			bezUredjivanja: "izvornik dnevnika nastaje samo ovjerom (SaveOvjeraCOP), a ovjeren dnevnik se ne ovjerava ponovno",
+			procitaj: func(_ *testing.T, n *cvor, id string, _ []byte) (any, error) {
+				return NewJournalRepository(n.db, n.rec).IzvornikDnevnika(ctxRaz, id)
+			},
 		},
 		{
 			entitet: EntityPotpisi, tablica: "posta_potpisi", kljuc: "user_id",
@@ -775,6 +893,9 @@ func slucajeviRazmjene() []slucajRazmjene {
 				x.HTML += " (izmjena)"
 				nuzno(t, NewAktiRepository(b.db, b.rec).SavePotpis(ctxRaz, x))
 			},
+			procitaj: func(_ *testing.T, n *cvor, id string, _ []byte) (any, error) {
+				return NewAktiRepository(n.db, n.rec).GetPotpis(ctxRaz, id)
+			},
 			preskoci: map[string]string{"updated_at": vrijemeVerzije},
 		},
 		{
@@ -785,6 +906,9 @@ func slucajeviRazmjene() []slucajRazmjene {
 			uredi: func(t *testing.T, b *cvor, id string, p []byte) {
 				x := teret[Postavka](t, p)
 				nuzno(t, NewAktiRepository(b.db, b.rec).SavePostavka(ctxRaz, id, x.Vrijednost+" "))
+			},
+			procitaj: func(_ *testing.T, n *cvor, id string, _ []byte) (any, error) {
+				return NewAktiRepository(n.db, n.rec).GetPostavka(ctxRaz, id)
 			},
 			preskoci: map[string]string{"updated_at": vrijemeVerzije},
 		},
@@ -800,6 +924,10 @@ func slucajeviRazmjene() []slucajRazmjene {
 				x.Greska += " (izmjena)"
 				nuzno(t, NewAktiRepository(b.db, b.rec).SaveSlanja(ctxRaz, []models.SlanjeAkta{*x}))
 			},
+			procitaj: func(t *testing.T, n *cvor, _ string, p []byte) (any, error) {
+				x := teret[models.SlanjeAkta](t, p)
+				return NewAktiRepository(n.db, n.rec).ListSlanja(ctxRaz, x.AktID)
+			},
 		},
 		{
 			entitet: EntityIzvornici, tablica: "akti_izvornici", kljuc: "akt_id",
@@ -810,6 +938,9 @@ func slucajeviRazmjene() []slucajRazmjene {
 				iz := teret[Izvornik](t, p)
 				iz.PDF, iz.Sazetak = append(pdfProbe, '\n'), iz.Sazetak+" (izmjena)"
 				nuzno(t, NewAktiRepository(b.db, b.rec).SaveIzvornik(ctxRaz, iz))
+			},
+			procitaj: func(_ *testing.T, n *cvor, id string, _ []byte) (any, error) {
+				return NewAktiRepository(n.db, n.rec).GetIzvornik(ctxRaz, id)
 			},
 		},
 		{
@@ -824,6 +955,9 @@ func slucajeviRazmjene() []slucajRazmjene {
 				s := teret[models.Sluzba](t, p)
 				s.Napomena += " (izmjena)"
 				nuzno(t, NewTerritoryRepository(b.db, b.rec).SaveSluzba(ctxRaz, s))
+			},
+			procitaj: func(_ *testing.T, n *cvor, id string, _ []byte) (any, error) {
+				return NewTerritoryRepository(n.db, n.rec).GetSluzba(ctxRaz, id)
 			},
 		},
 		{
@@ -840,6 +974,9 @@ func slucajeviRazmjene() []slucajRazmjene {
 				sp.Zavrsno += " (izmjena)"
 				nuzno(t, NewAktiRepository(b.db, b.rec).SaveSpranca(ctxRaz, sp))
 			},
+			procitaj: func(_ *testing.T, n *cvor, id string, _ []byte) (any, error) {
+				return NewAktiRepository(n.db, n.rec).GetSpranca(ctxRaz, id)
+			},
 		},
 		{
 			entitet: EntityPrimatelji, tablica: "primatelji", kljuc: "id",
@@ -854,6 +991,9 @@ func slucajeviRazmjene() []slucajRazmjene {
 				x.Naziv += " (izmjena)"
 				nuzno(t, NewAktiRepository(b.db, b.rec).SavePrimatelj(ctxRaz, x))
 			},
+			procitaj: func(_ *testing.T, n *cvor, id string, _ []byte) (any, error) {
+				return NewAktiRepository(n.db, n.rec).GetPrimatelj(ctxRaz, id)
+			},
 		},
 		{
 			entitet: EntityRoleModules, tablica: "role_modules", kljuc: "role",
@@ -863,6 +1003,9 @@ func slucajeviRazmjene() []slucajRazmjene {
 			},
 			uredi: func(t *testing.T, b *cvor, id string, _ []byte) {
 				nuzno(t, NewModuleRepository(b.db, b.rec).SetRoleRule(ctxRaz, id, []string{models.ModuleReadings}))
+			},
+			procitaj: func(_ *testing.T, n *cvor, _ string, _ []byte) (any, error) {
+				return NewModuleRepository(n.db, n.rec).RoleRules(ctxRaz)
 			},
 		},
 		{
@@ -875,6 +1018,9 @@ func slucajeviRazmjene() []slucajRazmjene {
 				nuzno(t, NewModuleRepository(b.db, b.rec).SetUserOverride(ctxRaz, id,
 					[]string{models.ModuleReadings, models.ModuleRegisters}, []string{models.ModuleJournals}))
 			},
+			procitaj: func(_ *testing.T, n *cvor, id string, _ []byte) (any, error) {
+				return NewModuleRepository(n.db, n.rec).UserOverride(ctxRaz, id)
+			},
 		},
 		{
 			entitet: EntityReadings, tablica: "readings", kljuc: "id",
@@ -883,7 +1029,7 @@ func slucajeviRazmjene() []slucajRazmjene {
 				puni(&rd)
 				// unutar razdoblja koje čvor drži, pa ga ograda povijesti ne odbaci
 				rd.StationID, rd.StructureID = letva, ""
-				rd.MeasuredAt = time.Now().UTC().Truncate(time.Second).Add(-time.Hour)
+				rd.MeasuredAt = time.Now().In(zonaPunila).Truncate(time.Second).Add(-time.Hour)
 				rd.UserID = korisnik
 				nuzno(t, NewReadingRepository(a.db, a.rec).Create(ctxRaz, &rd))
 			},
@@ -891,6 +1037,9 @@ func slucajeviRazmjene() []slucajRazmjene {
 				rd := teret[models.Reading](t, p)
 				rd.Note += " (izmjena)"
 				nuzno(t, NewReadingRepository(b.db, b.rec).Update(ctxRaz, rd))
+			},
+			procitaj: func(_ *testing.T, n *cvor, id string, _ []byte) (any, error) {
+				return NewReadingRepository(n.db, n.rec).Get(ctxRaz, uuid.MustParse(id))
 			},
 		},
 		{
@@ -906,6 +1055,9 @@ func slucajeviRazmjene() []slucajRazmjene {
 				s := teret[models.Structure](t, p)
 				s.Notes += " (izmjena)"
 				nuzno(t, NewStructureRepository(b.db, b.rec).UpdateStructure(ctxRaz, s))
+			},
+			procitaj: func(_ *testing.T, n *cvor, id string, _ []byte) (any, error) {
+				return NewStructureRepository(n.db, n.rec).GetStructure(ctxRaz, uuid.MustParse(id))
 			},
 		},
 		{
@@ -923,6 +1075,9 @@ func slucajeviRazmjene() []slucajRazmjene {
 				u.FullName += " (izmjena)"
 				nuzno(t, NewUserRepository(b.db, b.rec).UpdateUser(&u))
 			},
+			procitaj: func(_ *testing.T, n *cvor, id string, _ []byte) (any, error) {
+				return NewUserRepository(n.db, n.rec).GetUserByID(uuid.MustParse(id))
+			},
 		},
 		{
 			entitet: EntityDuties, tablica: "duties", kljuc: "id",
@@ -939,6 +1094,9 @@ func slucajeviRazmjene() []slucajRazmjene {
 				d.Reason += " (izmjena)"
 				nuzno(t, NewUserRepository(b.db, b.rec).UpdateDuty(d))
 			},
+			procitaj: func(_ *testing.T, n *cvor, id string, _ []byte) (any, error) {
+				return NewUserRepository(n.db, n.rec).GetDuty(uuid.MustParse(id))
+			},
 		},
 		{
 			entitet: EntitySectors, tablica: "sectors", kljuc: "id",
@@ -952,6 +1110,9 @@ func slucajeviRazmjene() []slucajRazmjene {
 				s := teret[models.Sector](t, p)
 				s.Address += " (izmjena)"
 				nuzno(t, NewOrgRepository(b.db, b.rec).SaveSector(ctxRaz, s))
+			},
+			procitaj: func(_ *testing.T, n *cvor, id string, _ []byte) (any, error) {
+				return NewOrgRepository(n.db, n.rec).GetSector(ctxRaz, id)
 			},
 		},
 		{
@@ -967,6 +1128,9 @@ func slucajeviRazmjene() []slucajRazmjene {
 				o.LoginInfo += " (izmjena)"
 				nuzno(t, NewOrgRepository(b.db, b.rec).SaveTerms(ctxRaz, *o))
 			},
+			procitaj: func(_ *testing.T, n *cvor, _ string, _ []byte) (any, error) {
+				return NewOrgRepository(n.db, n.rec).GetTerms(ctxRaz)
+			},
 		},
 		{
 			entitet: EntityAreas, tablica: "areas", kljuc: "id", broj: true,
@@ -980,6 +1144,11 @@ func slucajeviRazmjene() []slucajRazmjene {
 				x := teret[models.Area](t, p)
 				x.Subcenter += " (izmjena)"
 				nuzno(t, NewOrgRepository(b.db, b.rec).SaveArea(ctxRaz, x))
+			},
+			procitaj: func(t *testing.T, n *cvor, id string, _ []byte) (any, error) {
+				broj, err := strconv.Atoi(id)
+				nuzno(t, err)
+				return NewOrgRepository(n.db, n.rec).GetArea(ctxRaz, broj)
 			},
 		},
 		{
@@ -995,6 +1164,9 @@ func slucajeviRazmjene() []slucajRazmjene {
 				c.Notes += " (izmjena)"
 				nuzno(t, NewOrgRepository(b.db, b.rec).SaveContractor(ctxRaz, c, nil))
 			},
+			procitaj: func(_ *testing.T, n *cvor, id string, _ []byte) (any, error) {
+				return NewOrgRepository(n.db, n.rec).GetContractor(ctxRaz, id)
+			},
 		},
 		{
 			entitet: EntityContractorAssignments, tablica: "contractor_assignments", kljuc: "id",
@@ -1006,6 +1178,10 @@ func slucajeviRazmjene() []slucajRazmjene {
 				nuzno(t, NewOrgRepository(a.db, a.rec).SaveContractor(ctxRaz, &c, []models.ContractorAssignment{w}))
 			},
 			bezUredjivanja: "veza firme se ne uređuje: SaveContractor postojeću vezu zadržava bez nove verzije, a maknutu arhivira",
+			procitaj: func(t *testing.T, n *cvor, _ string, p []byte) (any, error) {
+				x := teret[models.ContractorAssignment](t, p)
+				return NewOrgRepository(n.db, n.rec).ListAssignments(ctxRaz, x.ContractorID)
+			},
 		},
 		{
 			entitet: EntityCounties, tablica: "counties", kljuc: "id", broj: true,
@@ -1018,6 +1194,11 @@ func slucajeviRazmjene() []slucajRazmjene {
 				c := teret[models.County](t, p)
 				c.Prefect += " (izmjena)"
 				nuzno(t, NewTerritoryRepository(b.db, b.rec).UpdateCounty(ctxRaz, c))
+			},
+			procitaj: func(t *testing.T, n *cvor, id string, _ []byte) (any, error) {
+				broj, err := strconv.Atoi(id)
+				nuzno(t, err)
+				return NewTerritoryRepository(n.db, n.rec).GetCountyByID(ctxRaz, broj)
 			},
 		},
 		{
@@ -1033,6 +1214,9 @@ func slucajeviRazmjene() []slucajRazmjene {
 				m.HeadName += " (izmjena)"
 				nuzno(t, NewTerritoryRepository(b.db, b.rec).UpdateMunicipality(ctxRaz, m))
 			},
+			procitaj: func(_ *testing.T, n *cvor, _ string, _ []byte) (any, error) {
+				return NewTerritoryRepository(n.db, n.rec).ListMunicipalities(ctxRaz, osnovaZupanija, "", "")
+			},
 		},
 		{
 			entitet: EntitySettlements, tablica: "settlements", kljuc: "id", broj: true,
@@ -1047,6 +1231,9 @@ func slucajeviRazmjene() []slucajRazmjene {
 				s.Name += " (izmjena)"
 				nuzno(t, NewTerritoryRepository(b.db, b.rec).UpdateSettlement(ctxRaz, s))
 			},
+			procitaj: func(_ *testing.T, n *cvor, _ string, _ []byte) (any, error) {
+				return NewTerritoryRepository(n.db, n.rec).ListSettlements(ctxRaz, osnovaOpcina, 0, "")
+			},
 		},
 		{
 			entitet: peers.EntityMemberships, tablica: "memberships", kljuc: "node_id",
@@ -1060,14 +1247,17 @@ func slucajeviRazmjene() []slucajRazmjene {
 				nuzno(t, err)
 				defer tx.Rollback()
 				_, err = tx.Exec(`INSERT INTO memberships (node_id, public_key, network, issued_by, issued_at, expires_at, signature, created_at)
-					VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, m.DeviceID, m.DeviceKey, m.Network, m.IssuedBy, m.IssuedAt, m.ExpiresAt, m.Signature, time.Now().UTC())
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, m.DeviceID, m.DeviceKey, m.Network, m.IssuedBy, m.IssuedAt.UTC(), m.ExpiresAt.UTC(), m.Signature, time.Now().UTC())
 				nuzno(t, err)
 				_, err = a.rec.Record(ctxRaz, tx, peers.EntityMemberships, m.DeviceID, m)
 				nuzno(t, err)
 				nuzno(t, tx.Commit())
 			},
 			bezUredjivanja: "članstvo se mijenja samo primanjem u mrežu ili opozivom, kroz neizvezene metode servisa čvorova",
-			preskoci:       map[string]string{"created_at": vrijemeVerzije},
+			procitaj: func(t *testing.T, n *cvor, _ string, _ []byte) (any, error) {
+				return servisCvorova(t, n).ListMembers(ctxRaz)
+			},
+			preskoci: map[string]string{"created_at": vrijemeVerzije},
 		},
 		{
 			entitet: peers.EntityPeers, tablica: "peers", kljuc: "node_id",
@@ -1081,6 +1271,9 @@ func slucajeviRazmjene() []slucajRazmjene {
 				x := teret[peers.Peer](t, p)
 				x.Name += " (izmjena)"
 				nuzno(t, servisCvorova(t, b).SavePeer(ctxRaz, *x))
+			},
+			procitaj: func(t *testing.T, n *cvor, id string, _ []byte) (any, error) {
+				return servisCvorova(t, n).GetPeer(ctxRaz, id)
 			},
 			preskoci: map[string]string{
 				"last_seen":      "kad je čvor zadnji put viđen opisuje odnos dva čvora i namjerno ne putuje",
@@ -1101,6 +1294,47 @@ func servisCvorova(t *testing.T, n *cvor) *peers.Service {
 // ---- tijek ----
 
 func TestRazmjenaSvihEntiteta(t *testing.T) {
+	razmjenaSvihEntiteta(t)
+}
+
+// Isti put, ali sa svim vremenima u zoni bez imena (kao "+02:00" iz JSON-a
+// na čvoru s TZ=UTC). modernc takvu zonu zapiše kao "+0200 +0200" i više je
+// ne zna pročitati, pa čitač repozitorija javi "unsupported Scan, storing
+// driver.Value type string into type *time.Time". Izvor dobiva vremena bez
+// imena izravno iz punila, a primatelj iz JSON-a verzija (novo_polje
+// prepiše u zonu punila i vremena koja je izvor sam postavio): pomak je
+// izabran tako da ga mjesna zona nema, pa test hvata grešku bez obzira na TZ.
+func TestRazmjenaSvihEntitetaUZoniBezImena(t *testing.T) {
+	prije := zonaPunila
+	zonaPunila = zonaBezImena(t)
+	t.Cleanup(func() { zonaPunila = prije })
+	razmjenaSvihEntiteta(t)
+}
+
+// zonaBezImena vraća zonu bez imena s pomakom koji mjesna zona nema ni u
+// vrijeme punila ni sada (repozitoriji sami pišu time.Now()): tada i
+// primatelj, čitajući JSON verzije, dobije zonu bez imena. Prvi izbor je
+// "+02:00", ljetno vrijeme u Zagrebu; na čvoru koji taj pomak ima (Zagreb
+// ljeti, Helsinki zimi) uzima se sljedeći. Mjesna zona u dva trenutka ima
+// najviše dva pomaka, pa jedan od tri uvijek preostaje.
+func zonaBezImena(t *testing.T) *time.Location {
+	t.Helper()
+	for _, pomak := range []int{2 * 3600, 3 * 3600, 4 * 3600} {
+		mjesni := false
+		for _, kad := range []time.Time{vrijemePunila, time.Now()} {
+			if _, p := kad.In(time.Local).Zone(); p == pomak {
+				mjesni = true
+			}
+		}
+		if !mjesni {
+			return time.FixedZone("", pomak)
+		}
+	}
+	t.Fatal("mjesna zona ima sve probne pomake")
+	return nil
+}
+
+func razmjenaSvihEntiteta(t *testing.T) {
 	// spremište sadržaja je jedno za program; izvornici ga trebaju na oba čvora
 	spremisteTesta, err := sadrzaj.Otvori(filepath.Join(t.TempDir(), "sadrzaj.db"))
 	nuzno(t, err)
@@ -1155,20 +1389,44 @@ func provjeriRazmjenu(t *testing.T, s slucajRazmjene) {
 		}
 	}
 
-	t.Run("povrsina", usporedi)
+	// procitajNa čita zapis stvarnim čitačem repozitorija, kao program
+	procitajNa := func(t *testing.T, n *cvor) {
+		t.Helper()
+		top, err := n.rec.Latest(ctxRaz, s.entitet, id)
+		nuzno(t, err)
+		x, err := s.procitaj(t, n, id, top.Payload)
+		if err != nil {
+			t.Fatalf("čitač repozitorija na čvoru %s: %v", n.ime, err)
+		}
+		if prazno(x) {
+			t.Fatalf("čitač repozitorija na čvoru %s nije našao zapis %s", n.ime, id)
+		}
+	}
 
-	// verzija iz novijeg programa: polje koje ovaj program ne poznaje
+	t.Run("povrsina", usporedi)
+	t.Run("citanje", func(t *testing.T) {
+		procitajNa(t, a)
+		procitajNa(t, b)
+	})
+
+	// verzija iz novijeg programa: polje koje ovaj program ne poznaje, a
+	// sva vremena zapisana u zoni punila, kao s čvora u toj zoni — tako i
+	// vremena koja izvor sam postavi (updated_at iz time.Now().UTC()) do
+	// primjene stižu u zoni punila
 	novoPolje := false
 	t.Run("novo_polje", func(t *testing.T) {
 		top, err := a.rec.Latest(ctxRaz, s.entitet, id)
 		nuzno(t, err)
-		var m map[string]json.RawMessage
-		nuzno(t, json.Unmarshal(top.Payload, &m))
-		m["x_novo_polje"] = json.RawMessage(`"iz novijeg programa"`)
+		var m map[string]any
+		d := json.NewDecoder(bytes.NewReader(top.Payload))
+		d.UseNumber()
+		nuzno(t, d.Decode(&m))
+		uZonu(m, zonaPunila)
+		m["x_novo_polje"] = "iz novijeg programa"
 		payload, err := json.Marshal(m)
 		nuzno(t, err)
 		v := ledger.Version{VersionID: uuid.Must(uuid.NewV7()).String(), Entity: s.entitet, EntityID: id,
-			NodeID: "noviji", Supersedes: top.VersionID, Payload: payload, CreatedAt: time.Now().UTC(),
+			NodeID: "noviji", Supersedes: top.VersionID, Payload: payload, CreatedAt: time.Now().In(zonaPunila),
 			SchemaVersion: ledger.SchemaVersion, Channel: top.Channel}
 		primi(t, b, []ledger.Version{v})
 		got, err := b.rec.Latest(ctxRaz, s.entitet, id)
@@ -1177,6 +1435,7 @@ func provjeriRazmjenu(t *testing.T, s slucajRazmjene) {
 			t.Fatalf("knjiga primatelja ne čuva verziju novijeg programa bajt za bajt:\nposlano %s\nčuva    %s", payload, got.Payload)
 		}
 		usporedi(t)
+		procitajNa(t, b)
 		novoPolje = !t.Failed()
 	})
 
@@ -1195,6 +1454,7 @@ func provjeriRazmjenu(t *testing.T, s slucajRazmjene) {
 		if poslije.VersionID == prije.VersionID || poslije.NodeID != b.ime {
 			t.Fatalf("lokalna izmjena nije zapisala novu verziju (zadnja s čvora %s)", poslije.NodeID)
 		}
+		procitajNa(t, b)
 		var m map[string]json.RawMessage
 		nuzno(t, json.Unmarshal(poslije.Payload, &m))
 		if string(m["x_novo_polje"]) != `"iz novijeg programa"` {
@@ -1218,6 +1478,45 @@ func provjeriRazmjenu(t *testing.T, s slucajRazmjene) {
 		}
 		prosloBezGreske(t, s.entitet+"/arhiviranje")
 	})
+}
+
+// uZonu prepisuje vremena (tekst u obliku RFC 3339) u dekodiranom JSON-u u
+// zadanu zonu; trenutak ostaje isti
+func uZonu(x any, zona *time.Location) any {
+	switch x := x.(type) {
+	case map[string]any:
+		for k, e := range x {
+			x[k] = uZonu(e, zona)
+		}
+	case []any:
+		for i, e := range x {
+			x[i] = uZonu(e, zona)
+		}
+	case string:
+		if t, err := time.Parse(time.RFC3339Nano, x); err == nil {
+			return t.In(zona).Format(time.RFC3339Nano)
+		}
+	}
+	return x
+}
+
+// jsonUUTC vraća JSON zapisan u stupcu teksta s vremenima u UTC-u, da se
+// isti trenutak iz druge zone ne javlja kao razlika; ostali tekst ne dira
+func jsonUUTC(s string) string {
+	if !strings.HasPrefix(s, "{") && !strings.HasPrefix(s, "[") {
+		return s
+	}
+	var x any
+	d := json.NewDecoder(strings.NewReader(s))
+	d.UseNumber()
+	if d.Decode(&x) != nil {
+		return s
+	}
+	b, err := json.Marshal(uZonu(x, time.UTC))
+	if err != nil {
+		return s
+	}
+	return string(b)
 }
 
 // jedinoIzKnjige vraća identitet jedinog zapisa entiteta koji je izvor upisao
@@ -1270,6 +1569,8 @@ func redak(t *testing.T, n *cvor, s slucajRazmjene, arg any) map[string]any {
 	defer rows.Close()
 	stupci, err := rows.Columns()
 	nuzno(t, err)
+	tipovi, err := rows.ColumnTypes()
+	nuzno(t, err)
 	if !rows.Next() {
 		nuzno(t, rows.Err())
 		return nil
@@ -1284,15 +1585,39 @@ func redak(t *testing.T, n *cvor, s slucajRazmjene, arg any) map[string]any {
 	for i, c := range stupci {
 		switch x := vrijednosti[i].(type) {
 		case []byte:
-			out[c] = string(x)
+			out[c] = jsonUUTC(string(x))
 		case time.Time:
 			// isti trenutak smije biti zapisan u drugoj zoni
 			out[c] = x.UTC().Format(time.RFC3339Nano)
+		case string:
+			// upravljač vrijeme koje ne zna raščlaniti vrati kao tekst
+			switch tipovi[i].DatabaseTypeName() {
+			case "DATE", "DATETIME", "TIMESTAMP":
+				if x != "" {
+					t.Errorf("%s.%s na čvoru %s: vrijeme %q se ne da pročitati", s.tablica, c, n.ime, x)
+				}
+			}
+			out[c] = jsonUUTC(x)
 		default:
 			out[c] = x
 		}
 	}
 	return out
+}
+
+// prazno javlja je li čitač vratio prazno: nil, prazan popis ili nulu
+func prazno(x any) bool {
+	v := reflect.ValueOf(x)
+	if !v.IsValid() {
+		return true
+	}
+	switch v.Kind() {
+	case reflect.Pointer, reflect.Interface:
+		return v.IsNil()
+	case reflect.Slice, reflect.Map:
+		return v.Len() == 0
+	}
+	return v.IsZero()
 }
 
 // ---- pokrivenost ----
@@ -1386,6 +1711,9 @@ func TestRazmjenaSvihEntitetaPokrivenost(t *testing.T) {
 			t.Errorf("entitet %s ima dva slučaja", s.entitet)
 		}
 		imaSlucaj[s.entitet] = true
+		if s.procitaj == nil {
+			t.Errorf("slučaj %s nema procitaj: zapis se mora pročitati čitačem repozitorija", s.entitet)
+		}
 	}
 	uSwitchu := map[string]bool{}
 	for _, e := range entiteti {

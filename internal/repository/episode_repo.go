@@ -208,13 +208,6 @@ func (r *EpisodeRepository) DeleteEpisodesFrom(ctx context.Context, sectionCode,
 	return int(n), nil
 }
 
-func nullTime(t *time.Time) any {
-	if t == nil {
-		return nil
-	}
-	return t.UTC()
-}
-
 // getEpisodeTx čita epizodu unutar transakcije, za popravke podataka koji
 // izmjenu moraju upisati i u knjigu verzija.
 func getEpisodeTx(ctx context.Context, tx *sql.Tx, id string) (models.DefenseEpisode, error) {

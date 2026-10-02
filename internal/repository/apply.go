@@ -355,7 +355,7 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 				name = excluded.name, seq = excluded.seq, water_order = excluded.water_order, water_group = excluded.water_group,
 				kind = excluded.kind, source = excluded.source, updated_at = excluded.updated_at`,
 			m.ID, m.AreaID, m.ProgramOf(), m.WatercourseCode, m.StructureID, m.Name, m.Seq, m.Order, m.Group,
-			m.Kind, m.Source, m.CreatedAt, m.UpdatedAt)
+			m.Kind, m.Source, m.CreatedAt.UTC(), m.UpdatedAt.UTC())
 		return err
 
 	case EntityWorkItems:
@@ -370,7 +370,7 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 				active = excluded.active, sort_order = excluded.sort_order, origin = excluded.origin, source = excluded.source,
 				updated_at = excluded.updated_at`,
 			w.ID, w.AreaID, w.Number, w.Description, w.Unit, boolInt(w.Active), w.SortOrder, w.Origin, w.Source,
-			w.CreatedAt, w.UpdatedAt)
+			w.CreatedAt.UTC(), w.UpdatedAt.UTC())
 		return err
 
 	case EntityJournals:
@@ -445,7 +445,7 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		if err := json.Unmarshal(v.Payload, &k); err != nil {
 			return err
 		}
-		_, err := tx.ExecContext(ctx, koeficijentUpsert, k.ID, k.Mjesto, k.Razred, k.K, v.CreatedAt)
+		_, err := tx.ExecContext(ctx, koeficijentUpsert, k.ID, k.Mjesto, k.Razred, k.K, v.CreatedAt.UTC())
 		return err
 
 	case EntityObracunPostavke:
@@ -453,7 +453,7 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		if err := json.Unmarshal(v.Payload, &p); err != nil {
 			return err
 		}
-		_, err := tx.ExecContext(ctx, postavkaUpsert, p.ID, p.Vrijednost, v.CreatedAt)
+		_, err := tx.ExecContext(ctx, postavkaUpsert, p.ID, p.Vrijednost, v.CreatedAt.UTC())
 		return err
 
 	case EntityMtsVrste:
@@ -533,7 +533,7 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		if err := json.Unmarshal(v.Payload, &z); err != nil {
 			return err
 		}
-		_, err := tx.ExecContext(ctx, zigUpsert, z.Sektor, z.Mime, z.Slika, z.Uredio, v.CreatedAt)
+		_, err := tx.ExecContext(ctx, zigUpsert, z.Sektor, z.Mime, z.Slika, z.Uredio, v.CreatedAt.UTC())
 		return err
 
 	case EntityPrijave:
@@ -558,7 +558,7 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		if iz.Vrsta == "" {
 			iz.Vrsta = "application/pdf"
 		}
-		_, err := tx.ExecContext(ctx, prijavaIzvornikUpsert, iz.ListID, iz.Otisak, iz.Bajtova, iz.Vrsta, iz.Sazetak, iz.UpdatedAt)
+		_, err := tx.ExecContext(ctx, prijavaIzvornikUpsert, iz.ListID, iz.Otisak, iz.Bajtova, iz.Vrsta, iz.Sazetak, iz.UpdatedAt.UTC())
 		return err
 
 	case EntityPotpisniKljucevi:
@@ -566,7 +566,7 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		if err := json.Unmarshal(v.Payload, &k); err != nil {
 			return err
 		}
-		_, err := tx.ExecContext(ctx, potpisniKljucUpsert, k.UserID, k.Ime, k.Cert, k.Kljuc, k.Sol, k.Izdao, k.CreatedAt, k.UpdatedAt)
+		_, err := tx.ExecContext(ctx, potpisniKljucUpsert, k.UserID, k.Ime, k.Cert, k.Kljuc, k.Sol, k.Izdao, k.CreatedAt.UTC(), k.UpdatedAt.UTC())
 		return err
 
 	case EntityPotpisniIzdavatelji:
@@ -574,7 +574,7 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		if err := json.Unmarshal(v.Payload, &i); err != nil {
 			return err
 		}
-		_, err := tx.ExecContext(ctx, izdavateljUpsert, i.Cvor, i.Cert, i.CreatedAt)
+		_, err := tx.ExecContext(ctx, izdavateljUpsert, i.Cvor, i.Cert, i.CreatedAt.UTC())
 		return err
 
 	case EntityVodocuvarskiIzvornici:
@@ -585,7 +585,7 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		if err := primiIzvornik(ctx, EntityVodocuvarski, v.Channel, &iz); err != nil {
 			return err
 		}
-		_, err := tx.ExecContext(ctx, izvornikListaUpsert, iz.ListID, iz.Otisak, iz.Bajtova, iz.Vrsta, iz.Sazetak, iz.UpdatedAt)
+		_, err := tx.ExecContext(ctx, izvornikListaUpsert, iz.ListID, iz.Otisak, iz.Bajtova, iz.Vrsta, iz.Sazetak, iz.UpdatedAt.UTC())
 		return err
 
 	case EntityJournalIzvornici:
@@ -598,7 +598,7 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 			sadrzaj.Veza{Entitet: EntityJournals, EntitetID: iz.JournalID, Uloga: "izvornik", Kanal: v.Channel}); err != nil {
 			return err
 		}
-		_, err := tx.ExecContext(ctx, journalIzvornikUpsert, iz.JournalID, iz.Otisak, iz.Bajtova, iz.Vrsta, iz.Sazetak, iz.UpdatedAt)
+		_, err := tx.ExecContext(ctx, journalIzvornikUpsert, iz.JournalID, iz.Otisak, iz.Bajtova, iz.Vrsta, iz.Sazetak, iz.UpdatedAt.UTC())
 		return err
 
 	case EntityPotpisi:
@@ -606,7 +606,7 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		if err := json.Unmarshal(v.Payload, &p); err != nil {
 			return err
 		}
-		_, err := tx.ExecContext(ctx, potpisUpsert, p.UserID, p.HTML, v.CreatedAt)
+		_, err := tx.ExecContext(ctx, potpisUpsert, p.UserID, p.HTML, v.CreatedAt.UTC())
 		return err
 
 	case EntityPostavke:
@@ -614,7 +614,7 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		if err := json.Unmarshal(v.Payload, &p); err != nil {
 			return err
 		}
-		_, err := tx.ExecContext(ctx, opcaPostavkaUpsert, p.ID, p.Vrijednost, v.CreatedAt)
+		_, err := tx.ExecContext(ctx, opcaPostavkaUpsert, p.ID, p.Vrijednost, v.CreatedAt.UTC())
 		return err
 
 	case EntitySlanja:
@@ -669,7 +669,7 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		}
 		_, err := tx.ExecContext(ctx, `INSERT INTO role_modules (role, modules, updated_at) VALUES (?, ?, ?)
 			ON CONFLICT(role) DO UPDATE SET modules = excluded.modules, updated_at = excluded.updated_at`,
-			rm.Role, models.JoinModules(rm.Modules), rm.UpdatedAt)
+			rm.Role, models.JoinModules(rm.Modules), rm.UpdatedAt.UTC())
 		return err
 
 	case EntityUserModules:
@@ -679,7 +679,7 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		}
 		_, err := tx.ExecContext(ctx, `INSERT INTO user_modules (user_id, shown, hidden, updated_at) VALUES (?, ?, ?, ?)
 			ON CONFLICT(user_id) DO UPDATE SET shown = excluded.shown, hidden = excluded.hidden, updated_at = excluded.updated_at`,
-			um.UserID, models.JoinModules(um.Shown), models.JoinModules(um.Hidden), um.UpdatedAt)
+			um.UserID, models.JoinModules(um.Shown), models.JoinModules(um.Hidden), um.UpdatedAt.UTC())
 		return err
 
 	case EntityReadings:
@@ -732,7 +732,7 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 				station_down_id = excluded.station_down_id
 		`, st.ID.String(), st.Code, st.Name, st.Kind, st.SectorID, st.AreaID, st.WatercourseCode, st.StationID,
 			st.ZeroDatum, st.ZeroDatumSystem, st.CapacityText, st.StartCm, st.StartText, st.StopCm, st.StopText,
-			st.Notes, st.Origin, st.Latitude, st.Longitude, st.CreatedAt, st.UpdatedAt, st.StationDownID)
+			st.Notes, st.Origin, st.Latitude, st.Longitude, st.CreatedAt.UTC(), st.UpdatedAt.UTC(), st.StationDownID)
 		return err
 
 	case EntityUsers:
@@ -742,10 +742,6 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		}
 		u := uv.User
 		u.PasswordHash = uv.PasswordHash
-		var lastLogin any
-		if u.LastLoginAt != nil {
-			lastLogin = *u.LastLoginAt
-		}
 		// Lozinka: verzije zapisane prije nego što je sažetak počeo putovati
 		// nemaju ga, pa se u tom slučaju čuva onaj koji na ovom čvoru već
 		// stoji — inače bi sinkronizacija zaključala korisnika.
@@ -768,7 +764,7 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 				updated_at = excluded.updated_at
 		`, u.ID.String(), u.Username, u.PasswordHash, u.FullName, u.Title, boolToInt(u.IsGlobalAdmin),
 			boolToInt(u.MustChangePassword), string(u.OrgType), u.OrgName, u.Phone, u.MobilePhone, u.ShortPhone, u.ShortMobile, u.Email,
-			boolToInt(u.IsActive), lastLogin, u.CreatedAt, u.UpdatedAt)
+			boolToInt(u.IsActive), nullTime(u.LastLoginAt), u.CreatedAt.UTC(), u.UpdatedAt.UTC())
 		return err
 
 	case EntityDuties:
@@ -793,7 +789,7 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 				expires_at = excluded.expires_at, is_active = excluded.is_active
 		`, d.ID.String(), d.UserID.String(), d.Title, string(d.Role), string(d.ScopeType), d.SectorID, d.AreaID,
 			d.SectionCodes, boolToInt(d.IsPrimary), boolToInt(d.IsTemporary), d.Reason, assignedBy,
-			d.CreatedAt, d.ExpiresAt, boolToInt(d.IsActive))
+			d.CreatedAt.UTC(), nullTime(d.ExpiresAt), boolToInt(d.IsActive))
 		return err
 
 	case EntitySectors:
@@ -846,7 +842,7 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 			return err
 		}
 		_, err := tx.ExecContext(ctx, contractorUpsert, c.ID, c.Name, c.ShortName, c.OIB, c.Address, c.Phone, c.Email,
-			c.Contact, c.Notes, boolToInt(c.Active), c.UpdatedAt)
+			c.Contact, c.Notes, boolToInt(c.Active), c.UpdatedAt.UTC())
 		return err
 
 	case EntityContractorAssignments:
@@ -854,7 +850,7 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		if err := json.Unmarshal(v.Payload, &a); err != nil {
 			return err
 		}
-		_, err := tx.ExecContext(ctx, assignmentUpsert, a.ID, a.ContractorID, a.SectorID, a.AreaID, a.Note, a.UpdatedAt)
+		_, err := tx.ExecContext(ctx, assignmentUpsert, a.ID, a.ContractorID, a.SectorID, a.AreaID, a.Note, a.UpdatedAt.UTC())
 		return err
 
 	case EntityCounties:
@@ -924,7 +920,7 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 			ON CONFLICT(node_id) DO UPDATE SET
 				public_key = excluded.public_key, network = excluded.network, issued_by = excluded.issued_by,
 				issued_at = excluded.issued_at, expires_at = excluded.expires_at, signature = excluded.signature
-		`, m.DeviceID, m.DeviceKey, m.Network, m.IssuedBy, m.IssuedAt, m.ExpiresAt, m.Signature, v.CreatedAt)
+		`, m.DeviceID, m.DeviceKey, m.Network, m.IssuedBy, m.IssuedAt.UTC(), m.ExpiresAt.UTC(), m.Signature, v.CreatedAt.UTC())
 		return err
 
 	case "peers":
@@ -951,7 +947,7 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 			ON CONFLICT(node_id) DO UPDATE SET
 				name = excluded.name, public_key = excluded.public_key, addresses = excluded.addresses,
 				is_bootstrap = excluded.is_bootstrap
-		`, p.NodeID, p.Name, p.PublicKey, string(addrs), boolToInt(p.IsBootstrap), p.LastSeen, p.CreatedAt)
+		`, p.NodeID, p.Name, p.PublicKey, string(addrs), boolToInt(p.IsBootstrap), nullTime(p.LastSeen), p.CreatedAt.UTC())
 		return err
 	}
 
@@ -1156,7 +1152,7 @@ func upsertStation(ctx context.Context, tx *sql.Tx, st models.Station) error {
 		st.ZeroDatumBaltic, st.ZeroDatumBalticSystem, st.ZeroDatumBalticSource,
 		st.Prep.Cm, st.Prep.Raw, st.Regular.Cm, st.Regular.Raw, st.Emergency.Cm, st.Emergency.Raw, st.State.Cm, st.State.Raw,
 		st.Record.Cm, st.Record.Raw, st.Notes, st.SourceName, boolToInt(st.NeedsReview), st.ReviewNote,
-		st.Latitude, st.Longitude, st.CreatedAt, st.UpdatedAt, st.JavniURL, boolToInt(st.JavniUvoz),
+		st.Latitude, st.Longitude, st.CreatedAt.UTC(), st.UpdatedAt.UTC(), st.JavniURL, boolToInt(st.JavniUvoz),
 		ogradeNizaJSON(&st), st.TelemetrijaSite, boolToInt(st.TelemetrijaUvoz), st.Povijest, st.OpisVodokaza, st.DatumOsnivanja,
 	)
 	return err

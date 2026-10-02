@@ -42,7 +42,7 @@ const termsUpsert = `INSERT INTO org_terms (` + termsColumns + `)
 		org_legal_form = excluded.org_legal_form, org_registry_no = excluded.org_registry_no, org_tax_id = excluded.org_tax_id`
 
 func termsArgs(t models.OrgTerms) []any {
-	return []any{models.TermsID, t.Sector, t.Sectors, t.Area, t.Areas, t.AreaShort, t.SectorOffice, t.AreaOffice, t.Center, t.Subcenter, t.UpdatedAt,
+	return []any{models.TermsID, t.Sector, t.Sectors, t.Area, t.Areas, t.AreaShort, t.SectorOffice, t.AreaOffice, t.Center, t.Subcenter, t.UpdatedAt.UTC(),
 		t.OrgName, t.Level1Unit, t.Level1Center, t.Level1CenterShort,
 		t.SectorOfficeShort, t.CenterShort, t.AreaOfficeShort, t.LogoMime, t.Logo, t.LoginInfo, labelsJSON(t.RoleLabels),
 		t.OrgLegalForm, t.OrgRegistryNo, t.OrgTaxID}

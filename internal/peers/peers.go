@@ -379,7 +379,7 @@ func (s *Service) SavePeer(ctx context.Context, p Peer) error {
 			name = excluded.name, public_key = excluded.public_key, addresses = excluded.addresses,
 			is_bootstrap = excluded.is_bootstrap, last_seen = excluded.last_seen,
 			last_sync = excluded.last_sync, last_sync_note = excluded.last_sync_note
-	`, p.NodeID, p.Name, p.PublicKey, string(addrs), boolInt(p.IsBootstrap), p.LastSeen, p.LastSync, p.LastSyncNote, p.CreatedAt)
+	`, p.NodeID, p.Name, p.PublicKey, string(addrs), boolInt(p.IsBootstrap), utcIliNull(p.LastSeen), utcIliNull(p.LastSync), p.LastSyncNote, p.CreatedAt.UTC())
 	if err != nil {
 		return fmt.Errorf("greška pri spremanju čvora %s: %w", p.NodeID, err)
 	}
@@ -1067,6 +1067,16 @@ func dedupe(in []string) []string {
 		out = []string{}
 	}
 	return out
+}
+
+// utcIliNull piše vrijeme koje smije izostati u UTC-u, kao i ostala vremena
+// čvorova: verzija iz JSON-a može nositi zonu bez imena, a takvu modernc
+// zapiše u obliku koji više ne zna pročitati
+func utcIliNull(t *time.Time) any {
+	if t == nil {
+		return nil
+	}
+	return t.UTC()
 }
 
 func boolInt(b bool) int {

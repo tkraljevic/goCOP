@@ -31,7 +31,7 @@ func sektorskoArgs(i *models.SektorskoIzvjesce) ([]any, error) {
 	if i.PredanoAt != nil {
 		predano = i.PredanoAt.UTC()
 	}
-	return []any{i.ID, i.JournalID, i.Sektor, i.DanKey(), string(sadrzaj), i.IzradioID, i.Izradio, i.IzradenoAt.UTC(), predano, i.CreatedAt, i.UpdatedAt}, nil
+	return []any{i.ID, i.JournalID, i.Sektor, i.DanKey(), string(sadrzaj), i.IzradioID, i.Izradio, i.IzradenoAt.UTC(), predano, i.CreatedAt.UTC(), i.UpdatedAt.UTC()}, nil
 }
 
 const sektorskoColumns = `id, journal_id, sektor, dan, sadrzaj, izradio_id, izradio, izradeno_at, predano_at, created_at, updated_at FROM sektorska_izvjesca`

@@ -84,7 +84,7 @@ func (r *PotpisRepository) SaveKljuc(ctx context.Context, k *models.PotpisniKlju
 		return err
 	}
 	defer tx.Rollback()
-	if _, err := tx.ExecContext(ctx, potpisniKljucUpsert, k.UserID, k.Ime, k.Cert, k.Kljuc, k.Sol, k.Izdao, k.CreatedAt, k.UpdatedAt); err != nil {
+	if _, err := tx.ExecContext(ctx, potpisniKljucUpsert, k.UserID, k.Ime, k.Cert, k.Kljuc, k.Sol, k.Izdao, k.CreatedAt.UTC(), k.UpdatedAt.UTC()); err != nil {
 		return err
 	}
 	if _, err := r.rec.Record(ctx, tx, EntityPotpisniKljucevi, k.UserID, k); err != nil {
@@ -154,7 +154,7 @@ func (r *PotpisRepository) SaveIzdavatelj(ctx context.Context, i *models.Izdavat
 		return err
 	}
 	defer tx.Rollback()
-	if _, err := tx.ExecContext(ctx, izdavateljUpsert, i.Cvor, i.Cert, i.CreatedAt); err != nil {
+	if _, err := tx.ExecContext(ctx, izdavateljUpsert, i.Cvor, i.Cert, i.CreatedAt.UTC()); err != nil {
 		return err
 	}
 	if _, err := r.rec.Record(ctx, tx, EntityPotpisniIzdavatelji, i.Cvor, i); err != nil {

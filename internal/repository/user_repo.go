@@ -411,7 +411,7 @@ func (r *UserRepository) CreateUser(u *models.User, initialDuty *models.Duty) er
 			initialDuty.ID.String(), initialDuty.UserID.String(), initialDuty.Title,
 			string(initialDuty.Role), string(initialDuty.ScopeType), initialDuty.SectorID,
 			initialDuty.AreaID, initialDuty.SectionCodes, initialDuty.Reason,
-			initialDuty.AssignedBy, initialDuty.CreatedAt, initialDuty.ExpiresAt,
+			initialDuty.AssignedBy, initialDuty.CreatedAt, nullTime(initialDuty.ExpiresAt),
 		)
 		if err != nil {
 			return fmt.Errorf("greška pri unosu funkcije: %w", err)
@@ -599,7 +599,7 @@ func (r *UserRepository) AddDuty(d *models.Duty) error {
 	`,
 		d.ID.String(), d.UserID.String(), d.Title, string(d.Role), string(d.ScopeType),
 		d.SectorID, d.AreaID, d.SectionCodes, isPrimaryInt, isTempInt,
-		d.Reason, byStr, d.CreatedAt, d.ExpiresAt,
+		d.Reason, byStr, d.CreatedAt, nullTime(d.ExpiresAt),
 	)
 	if err != nil {
 		return fmt.Errorf("greška pri spremanju dužnosti: %w", err)
@@ -639,7 +639,7 @@ func (r *UserRepository) UpdateDuty(d *models.Duty) error {
 		       is_primary = ?, is_temporary = ?, reason = ?, expires_at = ?
 		WHERE id = ?`,
 		d.Title, string(d.Role), string(d.ScopeType), d.SectorID, d.AreaID, d.SectionCodes,
-		boolInt(d.IsPrimary), boolInt(d.IsTemporary), d.Reason, d.ExpiresAt, d.ID.String())
+		boolInt(d.IsPrimary), boolInt(d.IsTemporary), d.Reason, nullTime(d.ExpiresAt), d.ID.String())
 	if err != nil {
 		return fmt.Errorf("greška pri spremanju dužnosti: %w", err)
 	}

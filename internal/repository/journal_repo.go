@@ -106,27 +106,8 @@ func journalArgs(j *models.Journal) []any {
 	}
 	return []any{j.ID, area, centar, j.CentarPodrucje, j.Kind, j.Title, j.Year, j.Contract, boolInt(j.Reconstruction), j.SectionCode, j.StructureID, j.Contractor, j.ContractorLead,
 		j.ContractorLeadAct, j.Supervisor, j.SupervisorAct, j.SupervisorDeputy, j.ChiefSupervisor, j.Investor, vrijemeZaBazuP(j.StartedAt), vrijemeZaBazuP(j.EndedAt),
-		j.Latitude, j.Longitude, j.Gauges, j.Notes, j.CreatedBy, vrijemeZaBazu(j.CreatedAt), vrijemeZaBazu(j.UpdatedAt), j.DezurniID, j.DezurniIme, vrijemeZaBazuP(j.DezurniOd),
-		j.ZakljucioID, j.Zakljucio, vrijemeZaBazuP(j.ZakljucenoAt)}
-}
-
-// vrijemeZaBazu: vrijeme iz knjige verzija nosi pomak čvora koji ga je
-// zapisao (npr. +02:00). Kad taj pomak nije lokalna zona ovog računala,
-// Go ga drži kao neimenovanu zonu, a SQLite upisuje "+0200 +0200" koje se
-// poslije ne da pročitati (dnevnik primljen razmjenom nestaje). Zato se
-// takvo vrijeme prevodi u lokalnu zonu, isto kao vlastita vremena čvora.
-func vrijemeZaBazu(t time.Time) time.Time {
-	if t.Location().String() == "" {
-		return t.In(time.Local)
-	}
-	return t
-}
-
-func vrijemeZaBazuP(t *time.Time) any {
-	if t == nil {
-		return nil
-	}
-	return vrijemeZaBazu(*t)
+		j.Latitude, j.Longitude, j.Gauges, j.Notes, j.CreatedBy, j.CreatedAt.UTC(), j.UpdatedAt.UTC(), j.DezurniID, j.DezurniIme, vrijemeZaBazuP(j.DezurniOd),
+		j.ZakljucioID, j.Zakljucio, nullTime(j.ZakljucenoAt)}
 }
 
 const journalUpsert = `INSERT INTO journals (` + journalColumns + `)
@@ -378,7 +359,7 @@ func scanSheet(row rowScanner) (models.JournalSheet, error) {
 func sheetArgs(s *models.JournalSheet) []any {
 	return []any{s.ID, s.JournalID, s.Number, dayKey(s.Date), s.Label, s.Conditions, s.Temperature, s.WindFrom, s.WindTo, s.Pressure,
 		s.Precipitation, s.WeatherSource, s.WaterLevels, s.Rating, s.RatingNote, s.Staff, s.Machines,
-		s.ContractorConfirmedBy, vrijemeZaBazuP(s.ContractorConfirmedAt), s.SupervisorConfirmedBy, vrijemeZaBazuP(s.SupervisorConfirmedAt), s.CreatedBy, vrijemeZaBazu(s.CreatedAt), vrijemeZaBazu(s.UpdatedAt)}
+		s.ContractorConfirmedBy, nullTime(s.ContractorConfirmedAt), s.SupervisorConfirmedBy, nullTime(s.SupervisorConfirmedAt), s.CreatedBy, s.CreatedAt.UTC(), s.UpdatedAt.UTC()}
 }
 
 const sheetUpsert = `INSERT INTO journal_sheets (` + sheetColumns + `)
@@ -518,7 +499,7 @@ const entryUpsert = `INSERT INTO journal_entries (id, journal_id, sheet_id, numb
 func entryArgs(e *models.JournalEntry) []any {
 	return []any{e.ID, e.JournalID, e.SheetID, e.Number, dayKey(e.Date), e.Kind, e.Side, e.MaintainedWaterID, e.SectionCode, e.Place,
 		e.WorkItemID, e.Text, e.Hours, nullDay(e.DueDate), e.Status, e.ParentID, boolInt(e.Voided), e.VoidReason, e.VoidedBy,
-		e.UserID, e.UserName, vrijemeZaBazuP(e.HappenedAt), e.ReportedBy, podrucjeArg(e), vrijemeZaBazu(e.CreatedAt), vrijemeZaBazu(e.UpdatedAt)}
+		e.UserID, e.UserName, vrijemeZaBazuP(e.HappenedAt), e.ReportedBy, podrucjeArg(e), e.CreatedAt.UTC(), e.UpdatedAt.UTC()}
 }
 
 // podrucjeArg: NULL za cijeli sektor

@@ -174,7 +174,7 @@ func (r *MaintenanceRepository) UpsertWater(ctx context.Context, m *models.Maint
 			name = excluded.name, seq = excluded.seq, water_order = excluded.water_order, water_group = excluded.water_group,
 			kind = excluded.kind, source = excluded.source, updated_at = excluded.updated_at`,
 		m.ID, m.AreaID, m.ProgramOf(), m.WatercourseCode, m.StructureID, m.Name, m.Seq, m.Order, m.Group,
-		m.Kind, m.Source, m.CreatedAt, m.UpdatedAt); err != nil {
+		m.Kind, m.Source, m.CreatedAt.UTC(), m.UpdatedAt.UTC()); err != nil {
 		return fmt.Errorf("greška pri upisu lokacije %q: %w", m.Name, err)
 	}
 	if _, err := r.rec.Record(ctx, tx, EntityMaintainedWaters, m.ID, m); err != nil {
@@ -289,7 +289,7 @@ func (r *MaintenanceRepository) SaveItem(ctx context.Context, w *models.WorkItem
 			active = excluded.active, sort_order = excluded.sort_order, origin = excluded.origin, source = excluded.source,
 			updated_at = excluded.updated_at`,
 		w.ID, w.AreaID, w.Number, w.Description, w.Unit, boolInt(w.Active), w.SortOrder, w.Origin, w.Source,
-		w.CreatedAt, w.UpdatedAt); err != nil {
+		w.CreatedAt.UTC(), w.UpdatedAt.UTC()); err != nil {
 		return fmt.Errorf("greška pri upisu stavke: %w", err)
 	}
 	if _, err := r.rec.Record(ctx, tx, EntityWorkItems, w.ID, w); err != nil {
