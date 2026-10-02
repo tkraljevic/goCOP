@@ -4,6 +4,13 @@ Verzije prate shemu iz README-a: alfa `0.0.x` (oznaka `v0.0.1-alfa`), beta
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.18-alfa — 2. 10. 2026.
+
+**Izvoz prognoze uvijek svjež** — poveznice „Izvoz u Excel” i „Pričuvni
+izračun” pri svakom učitavanju stranice dobivaju novu adresu, pa preglednik
+ne može dati staru spremljenu datoteku (kopija spremljena dok je Cloudflare
+slao „čuvaj 4 sata” inače bi i dalje stizala iz preglednika).
+
 ## 0.0.17-alfa — 2. 10. 2026.
 
 **Čvor se pokreće bez obzira na redoslijed zaduženja** — pri pokretanju se

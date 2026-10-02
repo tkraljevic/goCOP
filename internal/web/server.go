@@ -145,10 +145,13 @@ func templateFuncs() template.FuncMap {
 		// Hrvatski broj uz imenicu: 1 vrijednost, 2 vrijednosti, 5 vrijednosti,
 		// ali 11 vrijednosti i 21 vrijednost. Bez toga na stranici piše
 		// "31 vrijednosti", što odmah bode oko.
-		"uzBroj":             uzBrojHR,
-		"vrstaDnevnika":      models.JournalKindLabel,
-		"danTjedna":          danTjednaHR,
-		"statika":            statickaAdresa,
+		"uzBroj":        uzBrojHR,
+		"vrstaDnevnika": models.JournalKindLabel,
+		"danTjedna":     danTjednaHR,
+		"statika":       statickaAdresa,
+		// svjeze daje oznaku za poveznicu na izvoz: svako učitavanje stranice
+		// daje novu adresu, pa preglednik ne može dati staru spremljenu datoteku
+		"svjeze":             func() int64 { return time.Now().Unix() },
 		"osStacionaze":       models.OsStacionaze,
 		"vrsteBiljeske":      func() []struct{ Vrsta, Naziv, Opis string } { return models.VrsteBiljeske },
 		"vrstaBiljeskeNaziv": models.NazivVrsteBiljeske,
