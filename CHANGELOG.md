@@ -4,6 +4,16 @@ Verzije prate shemu iz README-a: alfa `0.0.x` (oznaka `v0.0.1-alfa`), beta
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.14-alfa — 2. 10. 2026.
+
+**Letva razmjenom sa svim poljima** — primljena letva nije upisivala šest
+polja koja zapis nosi: uvoz s Geolux HydroViewa (`telemetrija_site`,
+`telemetrija_uvoz`), ograde niza, povijest, opis vodokaza i datum osnivanja.
+Stalni čvor zato nije preuzimao 31 HydroView letvu, među njima dva vrha lanca
+(Beničanci – Prkos, Kapelna), i prognoza je stala. Čvor pri pokretanju letve
+obnovi iz knjige, pa se polja popune sama. Novi test prenosi letvu sa svim
+poljima s čvora na čvor i pada čim letva dobije polje koje razmjena ne prenosi.
+
 ## 0.0.13-alfa — 2. 10. 2026.
 
 **Razmjena kroz tunel bez rušenja** — WebSocket na strani poslužitelja nema

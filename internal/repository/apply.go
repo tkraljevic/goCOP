@@ -1072,8 +1072,9 @@ func upsertStation(ctx context.Context, tx *sql.Tx, st models.Station) error {
 			zero_datum_baltic, zero_datum_baltic_system, zero_datum_baltic_source,
 			prep_cm, prep_raw, regular_cm, regular_raw, emergency_cm, emergency_raw, state_cm, state_raw,
 			record_cm, record_raw, notes, source_name, needs_review, review_note,
-			latitude, longitude, created_at, updated_at, javni_url, javni_uvoz
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			latitude, longitude, created_at, updated_at, javni_url, javni_uvoz,
+			ograde_niza, telemetrija_site, telemetrija_uvoz, povijest, opis_vodokaza, datum_osnivanja
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			code = excluded.code, name = excluded.name, watercourse = excluded.watercourse,
 			watercourse_code = excluded.watercourse_code, watercourse_source = excluded.watercourse_source,
@@ -1094,7 +1095,10 @@ func upsertStation(ctx context.Context, tx *sql.Tx, st models.Station) error {
 			record_raw = excluded.record_raw, notes = excluded.notes, source_name = excluded.source_name,
 			needs_review = excluded.needs_review, review_note = excluded.review_note,
 			latitude = excluded.latitude, longitude = excluded.longitude, updated_at = excluded.updated_at,
-			javni_url = excluded.javni_url, javni_uvoz = excluded.javni_uvoz
+			javni_url = excluded.javni_url, javni_uvoz = excluded.javni_uvoz,
+			ograde_niza = excluded.ograde_niza, telemetrija_site = excluded.telemetrija_site,
+			telemetrija_uvoz = excluded.telemetrija_uvoz, povijest = excluded.povijest,
+			opis_vodokaza = excluded.opis_vodokaza, datum_osnivanja = excluded.datum_osnivanja
 	`,
 		st.ID.String(), st.Code, st.Name, st.Watercourse, st.WatercourseCode, st.WatercourseSource, st.WaterArea, st.Stationing,
 		st.ZeroDatum, defaultSystem(st.ZeroDatumSystem, models.ZeroDatumSystemOld),
@@ -1105,6 +1109,7 @@ func upsertStation(ctx context.Context, tx *sql.Tx, st models.Station) error {
 		st.Prep.Cm, st.Prep.Raw, st.Regular.Cm, st.Regular.Raw, st.Emergency.Cm, st.Emergency.Raw, st.State.Cm, st.State.Raw,
 		st.Record.Cm, st.Record.Raw, st.Notes, st.SourceName, boolToInt(st.NeedsReview), st.ReviewNote,
 		st.Latitude, st.Longitude, st.CreatedAt, st.UpdatedAt, st.JavniURL, boolToInt(st.JavniUvoz),
+		ogradeNizaJSON(&st), st.TelemetrijaSite, boolToInt(st.TelemetrijaUvoz), st.Povijest, st.OpisVodokaza, st.DatumOsnivanja,
 	)
 	return err
 }
