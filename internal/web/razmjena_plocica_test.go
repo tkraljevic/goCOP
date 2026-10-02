@@ -1,6 +1,8 @@
 package web
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -34,6 +36,19 @@ func TestPlocicaRazmjene(t *testing.T) {
 			if !strings.Contains(b.String(), o) {
 				t.Errorf("%s: nema %q u\n%s", slucaj.ime, o, b.String())
 			}
+		}
+	}
+}
+
+// Ništa osim /static/ ne smije u priručnu memoriju posrednika: Cloudflare je
+// izvoz prognoze čuvao 4 sata i davao ga i bez prijave.
+func TestBezPriruckeMemorije(t *testing.T) {
+	h := bezPriruckeMemorije(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	for put, ocekivano := range map[string]string{"/prognoze.xlsx": "private, no-store", "/": "private, no-store", "/static/css/style.css": ""} {
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, httptest.NewRequest("GET", put, nil))
+		if got := w.Header().Get("Cache-Control"); got != ocekivano {
+			t.Errorf("%s: Cache-Control %q, očekivano %q", put, got, ocekivano)
 		}
 	}
 }

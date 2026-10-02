@@ -1553,7 +1553,21 @@ func readOnlyRequest(r *http.Request) bool {
 }
 
 func (s *Server) Start() error {
-	return http.ListenAndServe(s.addr, s.mux)
+	return http.ListenAndServe(s.addr, bezPriruckeMemorije(s.mux))
+}
+
+// bezPriruckeMemorije zabranjuje spremanje odgovora u priručnu memoriju
+// posrednika (Cloudflare) i preglednika: osim /static/ sve je iza prijave ili
+// se mijenja svaki sat. Cloudflare je inače izvoz prognoze (.xlsx) čuvao 4 sata
+// i davao ga svakome, i bez prijave. Rukovatelj koji to smije (pločice karte,
+// geometrija) svoje zaglavlje postavlja sam i time ovo pregazi.
+func bezPriruckeMemorije(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.HasPrefix(r.URL.Path, "/static/") {
+			w.Header().Set("Cache-Control", "private, no-store")
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // SetAddr mijenja adresu prije (ponovnog) pokretanja — za pad s porta 80 na 8080

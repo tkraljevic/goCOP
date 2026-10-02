@@ -4,6 +4,14 @@ Verzije prate shemu iz README-a: alfa `0.0.x` (oznaka `v0.0.1-alfa`), beta
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.16-alfa — 2. 10. 2026.
+
+**Ništa u priručnu memoriju posrednika** — svaki odgovor osim `/static/` nosi
+`Cache-Control: private, no-store`. Cloudflare je izvoz prognoze (`.xlsx`)
+prema nastavku čuvao do 4 sata i davao ga svakome, i bez prijave: drugi
+korisnik dobivao je staru prognozu, a izvoz se dao preuzeti bez računa. Uz
+ovo je na Cloudflareu dodano pravilo da se za cop-osijek.com ništa ne sprema.
+
 ## 0.0.15-alfa — 2. 10. 2026.
 
 **Upozorenja DHMZ-a pregledno** — zeleno upozorenje (DHMZ-ovo „nema
