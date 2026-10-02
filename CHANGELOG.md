@@ -4,6 +4,16 @@ Verzije prate shemu iz README-a: alfa `0.0.x` (oznaka `v0.0.1-alfa`), beta
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.23-alfa — 2. 10. 2026.
+
+**Arhiva kiše raste i na čvoru koji ne preuzima** — čvor nije primao pakete
+za letve koje je nekad sam sagradio iz svog stabla, pa je laptop, otkad
+vodostaje i kišu preuzima Unraid, ostao bez novih zapisa 35 Pljuskovih i 6
+DHMZ-ovih kišomjera. Čvor koji sam preuzima i dalje čuva svoje letve; čvor
+koji ne preuzima ugrađuje paket kad on nosi sve što lokalna letva ima (do
+istog ili kasnijeg dana i barem jednako zapisa). Paket koji seže kraće se ne
+ugrađuje, pa se ništa ne gubi.
+
 ## 0.0.22-alfa — 2. 10. 2026.
 
 **Ploča razmjene više ne broji poslano kao neposlano** — čvor je pamtio dokle

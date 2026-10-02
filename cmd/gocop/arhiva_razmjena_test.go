@@ -147,3 +147,117 @@ func TestObjavaNeGaziNovijeIzdanje(t *testing.T) {
 		}
 	}
 }
+
+// Letvu sagrađenu na ovom čvoru paket ne gazi dok čvor sam preuzima
+// vodostaje. Kad uloga prijeđe na drugi čvor (laptop → Unraid), novije
+// izdanje koje nosi sve što lokalna letva ima zamjenjuje je; paket koji
+// seže kraće ne zamjenjuje.
+func TestPaketZamjenjujeLetvuCvoraKojiNePreuzima(t *testing.T) {
+	ctx := context.Background()
+	bazaA, recA, _ := cvorZaTest(t, "unraid")
+	bazaB, recB, _ := cvorZaTest(t, "laptop")
+	niz := func(arh *sql.DB, letva, od, do string, zapisa int) {
+		t.Helper()
+		res, err := arh.Exec(`INSERT INTO nizovi (sliv, letva, izvor, velicina, vrsta, od, do_, zapisa) VALUES ('drava', ?, 'kisomjer-pljusak', 'oborina', 'satni', ?, ?, ?)`, letva, od, do, zapisa)
+		if err != nil {
+			t.Fatal(err)
+		}
+		id, _ := res.LastInsertId()
+		for i := 0; i < zapisa; i++ {
+			if _, err := arh.Exec(`INSERT INTO ocitanja (niz, vrijeme, vrijednost) VALUES (?, ?, 1)`, id, 1000+i); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	otvori := func(put string) *sql.DB {
+		t.Helper()
+		arh, err := sql.Open("sqlite", put)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { arh.Close() })
+		if err := arhiva.PripremiPraznu(arh); err != nil {
+			t.Fatal(err)
+		}
+		return arh
+	}
+
+	// Unraid: kotoriba seže dan dalje od laptopove, tvrdja kraće
+	putA := filepath.Join(t.TempDir(), "vodostaji.db")
+	arhA := otvori(putA)
+	niz(arhA, "pljusak-kotoriba", "2026-09-26", "2026-10-02", 3)
+	niz(arhA, "pljusak-tvrdja", "2026-09-26", "2026-09-30", 2)
+	paketi := filepath.Join(t.TempDir(), "pakete")
+	if _, err := arhiva.Izdaj(arhA, paketi, recA.Cvor(), "", false, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	spA, _ := sadrzaj.Otvori("")
+	a := &razmjenaArhive{baza: bazaA, rec: recA, sp: spA, arhivaPut: putA, paketiDir: paketi, javljeno: map[string]bool{}}
+	if n, err := a.objavi(ctx); err != nil || n != 2 {
+		t.Fatalf("objava: %d %v", n, err)
+	}
+
+	// laptop: obje letve sagradio sam dok je preuzimao
+	putB := filepath.Join(t.TempDir(), "vodostaji.db")
+	arhB := otvori(putB)
+	niz(arhB, "pljusak-kotoriba", "2026-09-26", "2026-10-01", 2)
+	niz(arhB, "pljusak-tvrdja", "2026-09-26", "2026-10-01", 2)
+	verzije, _ := recA.Since(ctx, "", 0)
+	if _, err := recB.Apply(ctx, verzije); err != nil {
+		t.Fatal(err)
+	}
+	spB, _ := sadrzaj.Otvori("")
+	for _, v := range verzije {
+		var p paketUKnjizi
+		if json.Unmarshal(v.Payload, &p) != nil || p.Sadrzaj == "" {
+			continue
+		}
+		b, vrsta, err := spA.Citaj(ctx, p.Sadrzaj)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := spB.UpisiProvjereno(ctx, p.Sadrzaj, vrsta, b, "unraid"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	preuzima := true
+	b := &razmjenaArhive{baza: bazaB, rec: recB, sp: spB, arhivaPut: putB, javljeno: map[string]bool{},
+		preuzima: func() bool { return preuzima },
+		zeli:     func(context.Context, string, string) bool { return true },
+		ugradi: func(s *arhiva.Sadrzaj) error {
+			db, err := sql.Open("sqlite", putB)
+			if err != nil {
+				return err
+			}
+			defer db.Close()
+			return arhiva.Ugradi(db, putB, s)
+		}}
+	zapisa := func(letva string) int {
+		var n int
+		arhB.QueryRow(`SELECT count(*) FROM ocitanja WHERE niz IN (SELECT id FROM nizovi WHERE letva = ?)`, letva).Scan(&n)
+		return n
+	}
+
+	b.primi(ctx)
+	if zapisa("pljusak-kotoriba") != 2 || zapisa("pljusak-tvrdja") != 2 {
+		t.Fatalf("čvor koji preuzima ne smije pustiti paket preko svoje letve: kotoriba %d, tvrdja %d", zapisa("pljusak-kotoriba"), zapisa("pljusak-tvrdja"))
+	}
+	if st := b.stanje(ctx); st.Ugradjeno != 2 || st.Ceka != 0 {
+		t.Errorf("stanje dok preuzima: %+v", st)
+	}
+
+	preuzima = false
+	if st := b.stanje(ctx); st.Ugradjeno != 1 || st.Ceka != 1 {
+		t.Errorf("stanje kad ne preuzima, prije ugradnje: %+v", st)
+	}
+	b.primi(ctx)
+	if n := zapisa("pljusak-kotoriba"); n != 3 {
+		t.Errorf("kotoriba nakon paketa: %d zapisa, očekivano 3", n)
+	}
+	if n := zapisa("pljusak-tvrdja"); n != 2 {
+		t.Errorf("tvrdja: paket seže kraće, a ugrađen je (%d zapisa)", n)
+	}
+	if p, _ := arhiva.Primljeno(arhB, "pljusak-kotoriba"); p == nil || p.Izdanje != 1 {
+		t.Errorf("primljeno izdanje kotoribe: %+v", p)
+	}
+}

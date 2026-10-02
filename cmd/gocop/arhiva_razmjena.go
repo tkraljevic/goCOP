@@ -56,6 +56,7 @@ type razmjenaArhive struct {
 	sp        *sadrzaj.Spremiste
 	ugradi    func(*arhiva.Sadrzaj) error                         // ugradnja i ponovno otvaranje arhive (Server.UgradiPaket)
 	zeli      func(ctx context.Context, kanal, vrsta string) bool // pokriva li pretplata sadržaj
+	preuzima  func() bool                                         // čvor sam preuzima vodostaje (uloga)
 	arhivaPut string
 	paketiDir string
 
@@ -66,7 +67,8 @@ type razmjenaArhive struct {
 }
 
 func novaRazmjenaArhive(baza *sql.DB, rec *ledger.Recorder, sp *sadrzaj.Spremiste, srv *web.Server, p *peers.Service, arhivaPut, paketiDir string) *razmjenaArhive {
-	return &razmjenaArhive{baza: baza, rec: rec, sp: sp, ugradi: srv.UgradiPaket, zeli: p.ZeliSadrzaj, arhivaPut: arhivaPut, paketiDir: paketiDir,
+	return &razmjenaArhive{baza: baza, rec: rec, sp: sp, ugradi: srv.UgradiPaket, zeli: p.ZeliSadrzaj,
+		preuzima: func() bool { return p.TrenutneUloge().Preuzima }, arhivaPut: arhivaPut, paketiDir: paketiDir,
 		javljeno: map[string]bool{}, potakni: make(chan struct{}, 1)}
 }
 
@@ -163,10 +165,11 @@ func (r *razmjenaArhive) primi(ctx context.Context) {
 			if imamo != nil && imamo.Izdanje >= p.Izdanje {
 				continue
 			}
-			if imamo == nil && izgradjenaOvdje(ro, p.Letva) {
-				// Letvu je ovaj čvor sagradio iz svog stabla; paket je ne gazi.
-				r.javiJednom("ovdje:"+p.Letva, "arhiva: letva %s sagrađena je na ovom čvoru, paket v%d s čvora %s se ne ugrađuje", p.Letva, p.Izdanje, p.Izdao)
-				continue
+			if imamo == nil {
+				if ostaje, zasto := r.ovdjeOstaje(ro, p); ostaje {
+					r.javiJednom("ovdje:"+p.Letva, "arhiva: letva %s sagrađena je na ovom čvoru (%s), paket v%d s čvora %s se ne ugrađuje", p.Letva, zasto, p.Izdanje, p.Izdao)
+					continue
+				}
 			}
 		}
 		if !r.zeli(ctx, p.Kanal, VrstaPaketa) {
@@ -212,11 +215,27 @@ func (r *razmjenaArhive) primi(ctx context.Context) {
 	}
 }
 
-// izgradjenaOvdje javlja ima li arhiva letvu koju nije primila paketom
-func izgradjenaOvdje(ro *sql.DB, letva string) bool {
-	var n int
-	_ = ro.QueryRow(`SELECT count(*) FROM nizovi WHERE letva = ?`, letva).Scan(&n)
-	return n > 0
+// ovdjeOstaje javlja da letvu koju je ovaj čvor sagradio iz svog stabla (a
+// nije je primio paketom) paket ne zamjenjuje, i zašto. Čvor koji sam
+// preuzima vodostaje drži svoje letve. Čvor koji ne preuzima sagradio ih je
+// dok je još preuzimao, pa mu stoje: paket ih zamjenjuje kad nosi sve što
+// one imaju — do istog ili kasnijeg dana i barem jednako zapisa. Inače je
+// laptop, otkad Unraid preuzima, ostao bez novih kiša Pljuska.
+func (r *razmjenaArhive) ovdjeOstaje(ro *sql.DB, p paketUKnjizi) (bool, string) {
+	var nizova, zapisa int
+	var do sql.NullString
+	_ = ro.QueryRow(`SELECT count(*), coalesce(sum(zapisa), 0), max(do_) FROM nizovi WHERE letva = ?`, p.Letva).Scan(&nizova, &zapisa, &do)
+	switch {
+	case nizova == 0:
+		return false, ""
+	case r.preuzima == nil || r.preuzima():
+		return true, "čvor sam preuzima vodostaje"
+	case p.Do < do.String:
+		return true, "ovdje seže do " + do.String + ", paket do " + p.Do
+	case p.Zapisa < zapisa:
+		return true, fmt.Sprintf("ovdje %d zapisa, paket %d", zapisa, p.Zapisa)
+	}
+	return false, ""
 }
 
 func (r *razmjenaArhive) javiJednom(kljuc, format string, args ...any) {
@@ -275,7 +294,11 @@ func (r *razmjenaArhive) stanje(ctx context.Context) stanjeArhive {
 		}
 		if ro != nil {
 			imamo, _ := arhiva.Primljeno(ro, p.Letva)
-			if (imamo != nil && imamo.Izdanje >= p.Izdanje) || (imamo == nil && izgradjenaOvdje(ro, p.Letva)) {
+			if imamo != nil && imamo.Izdanje >= p.Izdanje {
+				st.Ugradjeno++
+				continue
+			}
+			if ostaje, _ := r.ovdjeOstaje(ro, p); imamo == nil && ostaje {
 				st.Ugradjeno++
 				continue
 			}
