@@ -1,14 +1,16 @@
 package razmjena
 
 import (
-	"bufio"
 	"context"
 	"crypto/ed25519"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net"
+	"sync"
 	"time"
 )
 
@@ -48,6 +50,53 @@ func (e Envelope) Decode(v any) error {
 	return json.Unmarshal(e.Payload, v)
 }
 
+// NajvecaPoruka je najveća poruka razmjene koja se prima. Mora pokriti
+// starije pošiljatelje, čija delta nema ogradu u bajtovima i raste s
+// knjigom (oko 49 MB prvom razmjenom 2026.), i sadržaj (48 MiB kao base64,
+// oko 64 MB). Kad svi čvorovi budu na 0.0.25 ili novijem, smije na 128 MiB.
+const NajvecaPoruka = 256 << 20
+
+// ErrPorukaPrevelika je poruka razmjene veća od dopuštene; veza se prekida
+var ErrPorukaPrevelika = errors.New("poruka razmjene veća od dopuštene")
+
+// prevelikaPoruka kaže i koliko je dopušteno; errors.Is je prepoznaje kao
+// ErrPorukaPrevelika
+type prevelikaPoruka struct{ ograda int64 }
+
+func (e prevelikaPoruka) Error() string {
+	if e.ograda >= 1<<20 {
+		return fmt.Sprintf("poruka razmjene veća od %d MiB", e.ograda>>20)
+	}
+	return fmt.Sprintf("poruka razmjene veća od %d KiB", e.ograda>>10)
+}
+
+func (e prevelikaPoruka) Is(cilj error) bool { return cilj == ErrPorukaPrevelika }
+
+// ograniceniCitac broji bajtove jedne poruke i prekida kad prijeđe ogradu.
+// Ograda se postavi prije svakog čitanja poruke. Dekoder čita unaprijed:
+// bajtovi sljedeće poruke pročitani uz prethodnu broje se prethodnoj, pa
+// ograda nije točna na bajt (najviše dvostruka), ali nijedna poruka ne raste
+// bez granice.
+type ograniceniCitac struct {
+	r      io.Reader
+	ostalo int64
+	ograda int64
+}
+
+func (o *ograniceniCitac) postavi(n int64) { o.ostalo, o.ograda = n, n }
+
+func (o *ograniceniCitac) Read(p []byte) (int, error) {
+	if o.ostalo <= 0 {
+		return 0, prevelikaPoruka{o.ograda}
+	}
+	if int64(len(p)) > o.ostalo {
+		p = p[:o.ostalo]
+	}
+	n, err := o.r.Read(p)
+	o.ostalo -= int64(n)
+	return n, err
+}
+
 // Conn is an authenticated exchange connection: the TLS session plus the
 // proven identity on the other end.
 type Conn struct {
@@ -55,6 +104,8 @@ type Conn struct {
 	raw     *tls.Conn
 	enc     *json.Encoder
 	dec     *json.Decoder
+	citac   *ograniceniCitac
+	najvise int64 // ograda jedne primljene poruke; NajvecaPoruka
 }
 
 func newConn(c *tls.Conn) (*Conn, error) {
@@ -63,7 +114,9 @@ func newConn(c *tls.Conn) (*Conn, error) {
 		c.Close()
 		return nil, err
 	}
-	return &Conn{PeerKey: key, raw: c, enc: json.NewEncoder(c), dec: json.NewDecoder(bufio.NewReader(c))}, nil
+	// json.Decoder ionako čita u svoj međuspremnik, pa bufio nije potreban
+	citac := &ograniceniCitac{r: c}
+	return &Conn{PeerKey: key, raw: c, enc: json.NewEncoder(c), dec: json.NewDecoder(citac), citac: citac, najvise: NajvecaPoruka}, nil
 }
 
 // Send and Receive move envelopes with a per-message deadline: a peer
@@ -75,6 +128,7 @@ func (c *Conn) Send(e Envelope) error {
 
 func (c *Conn) Receive() (Envelope, error) {
 	_ = c.raw.SetReadDeadline(time.Now().Add(120 * time.Second))
+	c.citac.postavi(c.najvise)
 	var e Envelope
 	err := c.dec.Decode(&e)
 	return e, err
@@ -95,7 +149,10 @@ type KeyChecker func(pub ed25519.PublicKey) bool
 // read from a stranger. It returns an error at once when the port is
 // taken — a caller's retry loop depends on that, and one that hung would
 // leave a silent outage.
-func ServeExchange(ctx context.Context, priv ed25519.PrivateKey, protocol string, port int, trusted KeyChecker, handle func(*Conn)) error {
+//
+// Ograda (po želji) dijele sve slušalice jednog čvora; bez nje slušalica
+// dobije svoju sa zadanim granicama.
+func ServeExchange(ctx context.Context, priv ed25519.PrivateKey, protocol string, port int, trusted KeyChecker, handle func(*Conn), o ...*Ograda) error {
 	cfg, err := tlsConfig(priv, protocol)
 	if err != nil {
 		return err
@@ -104,12 +161,68 @@ func ServeExchange(ctx context.Context, priv ed25519.PrivateKey, protocol string
 	if err != nil {
 		return err
 	}
-	return serveTLS(ctx, ln, trusted, handle)
+	return serveTLS(ctx, ln, trusted, handle, ogradaIz(o))
+}
+
+// Ograde primanja. Rukovanje (TLS prije nego što se zna tko je s druge
+// strane) jedino je što stranac smije potrošiti, pa ih teče najviše 32
+// odjednom i svako traje najviše 15 s (TLS 1.3 je u lokalnoj mreži gotov
+// ispod sekunde, kroz Cloudflare u nekoliko obilazaka). Razmjena s poznatim
+// čvorom drži u memoriji oko tri veličine poruke, a na istom računalu rade i
+// prognoze, pa ih teče najviše četiri; peta dobije odbijenicu koju i stariji
+// čvor ispiše ("čvor odbio razmjenu: …") i pokuša opet sljedećim krugom.
+const (
+	najviseRukovanja = 32
+	rokRukovanja     = 15 * time.Second
+	najviseRazmjena  = 4
+)
+
+// RazlogZauzet je odbijenica razmjene kad čvor već razmjenjuje s drugima
+const RazlogZauzet = "čvor je zauzet, pokušajte kasnije"
+
+// VrstaOdbijeno je vrsta poruke kojom čvor odbija razmjenu. Stariji čvor
+// ne zna za nju, ali ispiše Reason uz nju.
+const VrstaOdbijeno = "odbijeno"
+
+// Ograda kaže koliko rukovanja i razmjena teče odjednom. Port i tunel dijele
+// razmjene, a rukovanja imaju svoja (NovaOgradaTunela).
+type Ograda struct {
+	rukovanja chan struct{}
+	razmjene  chan struct{}
+	rok       time.Duration
+}
+
+// NovaOgrada daje ogradu sa zadanim granicama čvora
+func NovaOgrada() *Ograda { return novaOgrada(najviseRukovanja, najviseRazmjena, rokRukovanja) }
+
+// NovaOgradaTunela je zasebna ograda tunela: kroz njega dolazi bilo tko s
+// interneta, pa njegova nedovršena rukovanja ne smiju zauzeti mjesta porta
+// razmjene u lokalnoj mreži, a rukovanje kroz Cloudflare traje djelić
+// sekunde, pa onaj tko šuti gubi mjesto nakon 5 s. Razmjene dijeli s
+// ogradom porta: koliko razmjena čvor nosi odjednom ne ovisi o tome kojim su
+// vratima došle.
+func NovaOgradaTunela(port *Ograda) *Ograda {
+	o := novaOgrada(najviseRukovanja/2, najviseRazmjena, 5*time.Second)
+	if port != nil {
+		o.razmjene = port.razmjene
+	}
+	return o
+}
+
+func novaOgrada(rukovanja, razmjena int, rok time.Duration) *Ograda {
+	return &Ograda{rukovanja: make(chan struct{}, rukovanja), razmjene: make(chan struct{}, razmjena), rok: rok}
+}
+
+func ogradaIz(o []*Ograda) *Ograda {
+	if len(o) > 0 && o[0] != nil {
+		return o[0]
+	}
+	return NovaOgrada()
 }
 
 // serveTLS prima veze s TLS slušalice dok ctx traje; zajedničko portu
 // razmjene i tunelu
-func serveTLS(ctx context.Context, ln net.Listener, trusted KeyChecker, handle func(*Conn)) error {
+func serveTLS(ctx context.Context, ln net.Listener, trusted KeyChecker, handle func(*Conn), o *Ograda) error {
 	go func() {
 		<-ctx.Done()
 		ln.Close()
@@ -122,6 +235,15 @@ func serveTLS(ctx context.Context, ln net.Listener, trusted KeyChecker, handle f
 			}
 			return err
 		}
+		// kad su sva mjesta za rukovanje zauzeta, petlja čeka i ne prima
+		// dalje: nove veze čekaju u redu jezgre (ili tunela) umjesto da se
+		// gomilaju u memoriji
+		select {
+		case o.rukovanja <- struct{}{}:
+		case <-ctx.Done():
+			raw.Close()
+			return nil
+		}
 		go func(nc net.Conn) {
 			// greška u jednoj vezi ne smije srušiti čvor: veza se zatvori,
 			// a ostale i web sučelje rade dalje
@@ -131,8 +253,10 @@ func serveTLS(ctx context.Context, ln net.Listener, trusted KeyChecker, handle f
 					nc.Close()
 				}
 			}()
+			pustiRukovanje := sync.OnceFunc(func() { <-o.rukovanja })
+			defer pustiRukovanje()
 			tc := nc.(*tls.Conn)
-			_ = tc.SetDeadline(time.Now().Add(30 * time.Second))
+			_ = tc.SetDeadline(time.Now().Add(o.rok))
 			if err := tc.HandshakeContext(ctx); err != nil {
 				tc.Close()
 				return
@@ -146,9 +270,29 @@ func serveTLS(ctx context.Context, ln net.Listener, trusted KeyChecker, handle f
 				conn.Close()
 				return
 			}
+			pustiRukovanje()
+			select {
+			case o.razmjene <- struct{}{}:
+			default:
+				odbijZauzet(conn)
+				return
+			}
+			defer func() { <-o.razmjene }()
 			handle(conn)
 		}(raw)
 	}
+}
+
+// odbijZauzet javlja poznatom čvoru da je ovaj zauzet. Pozivatelj uvijek
+// prvi šalje svoju granicu; ona se pročita prije odbijenice, da zatvaranje
+// s nepročitanim podacima ne pošalje RST koji bi odbijenicu progutao.
+func odbijZauzet(c *Conn) {
+	defer c.Close()
+	_ = c.raw.SetReadDeadline(time.Now().Add(10 * time.Second))
+	c.citac.postavi(1 << 20)
+	var prva Envelope
+	_ = c.dec.Decode(&prva)
+	_ = c.Send(Envelope{Kind: VrstaOdbijeno, Reason: RazlogZauzet})
 }
 
 // DialExchange connects to a peer and refuses to proceed unless the key

@@ -511,7 +511,7 @@ func writeStationsJSON(w http.ResponseWriter, sectionCode string, stations []mod
 func parseStationIDs(r *http.Request) ([]uuid.UUID, error) {
 	var raw []string
 
-	if strings.Contains(r.Header.Get("Content-Type"), "application/json") {
+	if jsonTijelo(r) {
 		var req struct {
 			StationID  string   `json:"station_id"`
 			StationIDs []string `json:"station_ids"`
@@ -599,7 +599,7 @@ type stationForm struct {
 func decodeStationForm(r *http.Request) (stationForm, error) {
 	var form stationForm
 
-	if strings.Contains(r.Header.Get("Content-Type"), "application/json") {
+	if jsonTijelo(r) {
 		if err := json.NewDecoder(r.Body).Decode(&form); err != nil {
 			return form, errBadJSON(err)
 		}

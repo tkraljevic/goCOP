@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"html/template"
-	"io"
 	"math"
 	"net/http"
 	"net/url"
@@ -816,9 +815,7 @@ func (h *ReadingsHandler) ShowForm(w http.ResponseWriter, r *http.Request) {
 	data.Reading = rd
 	data.GaugeName, data.GaugeSub = gaugeNames(data.Station, data.Structure)
 	data.BackURL = rd.GaugeURL()
-	if back := r.URL.Query().Get("back"); strings.HasPrefix(back, "/") && !strings.HasPrefix(back, "//") {
-		data.BackURL = back
-	}
+	data.BackURL = povratnaPutanja(r.URL.Query().Get("back"), data.BackURL)
 	if data.Structure != nil {
 		data.IsPump = data.Structure.IsPumpingStation()
 		data.IsSluice = data.Structure.Kind == models.StructureKindSluice
@@ -994,10 +991,7 @@ func (h *ReadingsHandler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 		redirectWith(w, r, "/readings/new?station="+rd.StationID+"&structure="+rd.StructureID+"&back="+url.QueryEscape(r.FormValue("back")), "error", err.Error())
 		return
 	}
-	target := rd.GaugeURL()
-	if back := r.FormValue("back"); strings.HasPrefix(back, "/") && !strings.HasPrefix(back, "//") {
-		target = back
-	}
+	target := povratnaPutanja(r.FormValue("back"), rd.GaugeURL())
 	redirectWith(w, r, target, "success", "Očitanje je upisano.")
 }
 
@@ -1048,10 +1042,7 @@ func (h *ReadingsHandler) HandleFollow(w http.ResponseWriter, r *http.Request) {
 	}
 	key := strings.TrimSpace(r.FormValue("gauge_key"))
 	name := strings.TrimSpace(r.FormValue("name"))
-	back := r.FormValue("back")
-	if !strings.HasPrefix(back, "/") || strings.HasPrefix(back, "//") {
-		back = "/readings"
-	}
+	back := povratnaPutanja(r.FormValue("back"), "/readings")
 	var err error
 	var msg string
 	if r.FormValue("follow") == "1" {
@@ -1187,7 +1178,12 @@ func (h *ReadingsHandler) HandleZalijepiPregled(w http.ResponseWriter, r *http.R
 	tekst := r.FormValue("tekst")
 	if f, _, err := r.FormFile("datoteka"); err == nil {
 		defer f.Close()
-		if b, err := io.ReadAll(io.LimitReader(f, 16<<20)); err == nil && len(b) > 0 {
+		b, err := procitajDatoteku(f, 16<<20)
+		if err != nil {
+			redirectWith(w, r, back, "error", err.Error())
+			return
+		}
+		if len(b) > 0 {
 			// .xlsx počinje kao zip; sve ostalo se čita kao tekst
 			if len(b) > 2 && b[0] == 'P' && b[1] == 'K' {
 				redci, err := procitajXLSX(b)

@@ -265,6 +265,17 @@ func (h *AktiHandler) HandlePosta(w http.ResponseWriter, r *http.Request) {
 		redirectWith(w, r, "/profile/posta", "success", "Lozinka e-pošte je obrisana s ovog računala.")
 		return
 	}
+	// Svaki upis lozinke ide na poslužitelj tvrtke, koji nakon nekoliko krivih
+	// sam zaključava račun u domeni: broje se svi pokušaji, ne samo krivi,
+	// jer se kriva lozinka ovdje ne razlikuje pouzdano od nedostupnog poslužitelja
+	kljuc := kljucPonovneLozinke("posta", u.ID.String())
+	if err := ponovnaLozinkaDopustena(kljuc); err != nil {
+		redirectWith(w, r, "/profile/posta", "error", err.Error())
+		return
+	}
+	if r.FormValue("lozinka") != "" {
+		ponovnaLozinka.Fail(kljuc)
+	}
 	upozorenje, err := s.SpremiRacunPoste(r.Context(), u, r.FormValue("korisnik"), r.FormValue("lozinka"))
 	if err != nil {
 		redirectWith(w, r, "/profile/posta", "error", err.Error())

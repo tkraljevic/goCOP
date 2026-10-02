@@ -316,8 +316,11 @@ func (s *Service) trusted(pub ed25519.PublicKey) bool {
 	return m.Verify(network.Public, pub, time.Now()) == nil
 }
 
-// welcomeFor sastavlja paket dobrodošlice za uparenog čvora
-func (s *Service) welcomeFor(ctx context.Context, peerID string, peerKey ed25519.PublicKey) *welcomePack {
+// welcomeFor sastavlja paket dobrodošlice za uparenog čvora; potvrdu
+// članstva (Admit) izdaje samo kad je primi (ovlašten čovjek potvrđuje).
+// Paket bez potvrde je isti kao onaj čvora bez ključa mreže, pa ga i stariji
+// programi razumiju.
+func (s *Service) welcomeFor(ctx context.Context, peerID string, peerKey ed25519.PublicKey, primi bool) *welcomePack {
 	s.mu.Lock()
 	network := s.network
 	s.mu.Unlock()
@@ -329,7 +332,7 @@ func (s *Service) welcomeFor(ctx context.Context, peerID string, peerKey ed25519
 		NetworkKey:  razmjena.PublicKeyString(network.Public),
 		Mine:        s.myMembership(ctx),
 	}
-	if network.CanSign() {
+	if primi && network.CanSign() {
 		if m, err := network.Admit(peerID, peerKey, s.node.ID, MembershipValidity); err == nil {
 			pack.ForYou = &m
 		}

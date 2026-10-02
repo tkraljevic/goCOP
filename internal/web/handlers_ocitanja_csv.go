@@ -3,7 +3,6 @@ package web
 import (
 	"encoding/csv"
 	"fmt"
-	"io"
 	"math"
 	"net/http"
 	"strconv"
@@ -458,7 +457,7 @@ func (h *ReadingsHandler) HandleOcitanjaUvoz(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	defer f.Close()
-	sadrzaj, err := io.ReadAll(io.LimitReader(f, 32<<20))
+	sadrzaj, err := procitajDatoteku(f, 32<<20)
 	if err != nil {
 		redirectWith(w, r, back, "error", err.Error())
 		return

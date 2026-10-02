@@ -248,7 +248,7 @@ func (h *OrgHandler) ExportAreasCSV(w http.ResponseWriter, r *http.Request) {
 // readCSV čita CSV kakav daje izvoz ili Excel: s oznakom BOM ili bez nje,
 // s točka-zarezom ili zarezom. Prvi redak je zaglavlje kad ne izgleda kao podatak.
 func readCSV(file io.Reader) ([][]string, error) {
-	data, err := io.ReadAll(io.LimitReader(file, 4<<20))
+	data, err := procitajDatoteku(file, 4<<20)
 	if err != nil {
 		return nil, err
 	}
@@ -707,9 +707,8 @@ func ServeLogo(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/static/img/hv-mark.svg", http.StatusFound)
 		return
 	}
-	w.Header().Set("Content-Type", t.LogoMime)
-	w.Header().Set("X-Content-Type-Options", "nosniff")
-	w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'")
+	zastitiDatoteku(w)
+	w.Header().Set("Content-Type", vrstaZnaka(t.LogoMime))
 	w.Header().Set("Cache-Control", "public, max-age=86400")
 	http.ServeContent(w, r, "logo", t.UpdatedAt, bytes.NewReader(t.Logo))
 }

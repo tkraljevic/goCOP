@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"sync"
 	"time"
 
 	"gocop/internal/models"
@@ -17,7 +18,29 @@ var (
 	ErrInvalidCredentials = errors.New("neispravno korisničko ime ili lozinka")
 	ErrAccountInactive    = errors.New("korisnički račun je deaktiviran")
 	ErrSessionExpired     = errors.New("sesija je istekla")
+	// ErrKrivaLozinka označava krivu lozinku pri ponovnoj provjeri unutar
+	// prijave (promjena lozinke, potpisni ključ): po njoj rukovatelj broji
+	// pokušaje, a poruka ostaje ona koju je javilo mjesto provjere
+	ErrKrivaLozinka = errors.New("lozinka nije točna")
 )
+
+// greskaLozinke je kriva lozinka s porukom mjesta provjere; errors.Is je
+// prepoznaje kao ErrKrivaLozinka
+type greskaLozinke string
+
+func (e greskaLozinke) Error() string        { return string(e) }
+func (e greskaLozinke) Is(target error) bool { return target == ErrKrivaLozinka }
+
+// lazniSazetak je sažetak lozinke koju nitko nema. Prijava nepostojećeg
+// imena ga provjerava da odgovor traje jednako kao za postojeće ime: inače
+// se iz vremena odgovora vidi tko ima račun.
+var lazniSazetak = sync.OnceValue(func() string {
+	h, err := bcrypt.GenerateFromPassword([]byte("gocop-nepostojeci-racun"), bcrypt.DefaultCost)
+	if err != nil {
+		panic(err)
+	}
+	return string(h)
+})
 
 type AuthService struct {
 	userRepo    *repository.UserRepository
@@ -46,31 +69,32 @@ func (s *AuthService) CheckPassword(hash, password string) bool {
 	return err == nil
 }
 
-// Login autentificira korisnika i stvara novu sesiju s UUIDv7
-func (s *AuthService) Login(username, password, ip, userAgent string) (*models.Session, *models.User, error) {
+// ProvjeriPrijavu provjerava ime i lozinku bez otvaranja sesije. Odgovor ne
+// smije otkriti postoji li račun: nepostojeće ime prolazi istu provjeru
+// sažetka, a deaktiviran račun se javlja tek nakon točne lozinke.
+func (s *AuthService) ProvjeriPrijavu(username, password string) (*models.User, error) {
 	u, err := s.userRepo.GetUserByUsername(username)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	if u == nil {
-		return nil, nil, ErrInvalidCredentials
+		s.CheckPassword(lazniSazetak(), password)
+		return nil, ErrInvalidCredentials
 	}
-
-	if !u.IsActive {
-		return nil, nil, ErrAccountInactive
-	}
-
 	if !s.CheckPassword(u.PasswordHash, password) {
-		return nil, nil, ErrInvalidCredentials
+		return nil, ErrInvalidCredentials
 	}
-
-	sessionID, err := uuid.NewV7()
-	if err != nil {
-		return nil, nil, fmt.Errorf("greška pri generiranju tokena sesije: %w", err)
+	if !u.IsActive {
+		return nil, ErrAccountInactive
 	}
+	return u, nil
+}
 
+// OtvoriSesiju stvara sesiju za provjerenog korisnika. Token je UUIDv4:
+// 122 slučajna bita, dok UUIDv7 nosi vrijeme i brojač pa ih ima samo 62.
+func (s *AuthService) OtvoriSesiju(u *models.User, ip, userAgent string) (*models.Session, error) {
 	session := &models.Session{
-		ID:        sessionID,
+		ID:        uuid.New(),
 		UserID:    u.ID,
 		IPAddress: ip,
 		UserAgent: userAgent,
@@ -78,7 +102,7 @@ func (s *AuthService) Login(username, password, ip, userAgent string) (*models.S
 	}
 
 	if err := s.sessionRepo.CreateSession(session); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	// Trag prijave ne smije srušiti samu prijavu: račun je ispravan i sesija
@@ -89,7 +113,19 @@ func (s *AuthService) Login(username, password, ip, userAgent string) (*models.S
 	} else {
 		u.LastLoginAt = &now
 	}
+	return session, nil
+}
 
+// Login autentificira korisnika i stvara novu sesiju
+func (s *AuthService) Login(username, password, ip, userAgent string) (*models.Session, *models.User, error) {
+	u, err := s.ProvjeriPrijavu(username, password)
+	if err != nil {
+		return nil, nil, err
+	}
+	session, err := s.OtvoriSesiju(u, ip, userAgent)
+	if err != nil {
+		return nil, nil, err
+	}
 	return session, u, nil
 }
 
@@ -207,8 +243,9 @@ func (s *AuthService) EndAllSessions(userID uuid.UUID) error {
 	return s.sessionRepo.DeleteSessionsForUser(userID)
 }
 
-// ChangePassword provjerava trenutnu lozinku i postavlja novu lozinku
-func (s *AuthService) ChangePassword(userID uuid.UUID, currentPassword, newPassword string) error {
+// ProvjeriLozinku provjerava trenutnu lozinku osobe; kriva lozinka je
+// ErrKrivaLozinka
+func (s *AuthService) ProvjeriLozinku(userID uuid.UUID, lozinka string) error {
 	u, err := s.userRepo.GetUserByID(userID)
 	if err != nil {
 		return err
@@ -216,17 +253,34 @@ func (s *AuthService) ChangePassword(userID uuid.UUID, currentPassword, newPassw
 	if u == nil {
 		return errors.New("korisnik nije pronađen")
 	}
-
-	if !s.CheckPassword(u.PasswordHash, currentPassword) {
-		return errors.New("trenutna lozinka nije točna")
+	if !s.CheckPassword(u.PasswordHash, lozinka) {
+		return greskaLozinke("trenutna lozinka nije točna")
 	}
+	return nil
+}
 
-	if len(newPassword) < 6 {
+// ProvjeriNovuLozinku provjerava pravila za novu lozinku; rukovatelj ih pita
+// prije nego što potpisni ključ prekljuca novom lozinkom
+func ProvjeriNovuLozinku(trenutna, nova string) error {
+	if len(nova) < 6 {
 		return errors.New("nova lozinka mora imati najmanje 6 znakova")
 	}
-
-	if currentPassword == newPassword {
+	if trenutna == nova {
 		return errors.New("nova lozinka mora se razlikovati od trenutne")
+	}
+	return nil
+}
+
+// ChangePassword provjerava trenutnu lozinku i postavlja novu lozinku. Sve
+// druge prijave te osobe se gase — tko je znao staru lozinku, više ne ulazi;
+// sesija zadrzi (ona iz koje se lozinka mijenja) ostaje, uuid.Nil gasi sve.
+func (s *AuthService) ChangePassword(userID uuid.UUID, currentPassword, newPassword string, zadrzi uuid.UUID) error {
+	if err := s.ProvjeriLozinku(userID, currentPassword); err != nil {
+		return err
+	}
+
+	if err := ProvjeriNovuLozinku(currentPassword, newPassword); err != nil {
+		return err
 	}
 
 	newHash, err := s.HashPassword(newPassword)
@@ -234,5 +288,11 @@ func (s *AuthService) ChangePassword(userID uuid.UUID, currentPassword, newPassw
 		return err
 	}
 
-	return s.userRepo.ChangePassword(userID, newHash)
+	if err := s.userRepo.ChangePassword(userID, newHash); err != nil {
+		return err
+	}
+	if err := s.sessionRepo.DeleteOtherSessionsForUser(userID, zadrzi); err != nil {
+		return fmt.Errorf("lozinka je promijenjena, ali ostale prijave nisu odjavljene: %w", err)
+	}
+	return nil
 }

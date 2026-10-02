@@ -453,7 +453,7 @@ func (h *UvozHandler) PregledUvoza(w http.ResponseWriter, r *http.Request) {
 		h.pisi(w, d)
 		return
 	}
-	sadrzaj, err := io.ReadAll(io.LimitReader(f, najveciUvoz))
+	sadrzaj, err := procitajDatoteku(f, najveciUvoz)
 	if err != nil {
 		d.ErrorMessage = "datoteka se nije dala pročitati: " + err.Error()
 		h.pisi(w, d)

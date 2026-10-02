@@ -178,7 +178,7 @@ func (h *UvozHandler) PregledIzvora(w http.ResponseWriter, r *http.Request) {
 			h.pisi(w, d)
 			return
 		}
-		b, err := io.ReadAll(io.LimitReader(fd, najveciUvozIzvora))
+		b, err := procitajDatoteku(fd, najveciUvozIzvora)
 		fd.Close()
 		if err != nil {
 			d.ErrorMessage = err.Error()

@@ -93,6 +93,9 @@
 </div>
 
 <script>
+// Što javlja drugo računalo (naziv, oznaka, poruka greške) neprovjereno je:
+// u stranicu ide samo kao tekst
+const escPronadjeno = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const api = (url, body) => fetch(url, {
   method: body === undefined ? 'GET' : 'POST',
   headers: {'Content-Type': 'application/json'},
@@ -105,7 +108,7 @@ function on(id, cls) { const el = $(id); el.classList.remove('on', 'done'); if (
 
 function show(st) {
   const status = $('status');
-  if (st.error) { status.innerHTML = '<span class="err">' + st.error + '</span>'; }
+  if (st.error) { status.innerHTML = '<span class="err">' + escPronadjeno(st.error) + '</span>'; }
   else if (st.waiting) { status.textContent = 'Čeka se da ured nazove ovo računalo…'; }
   else if (!st.pending) { status.textContent = ''; }
   if (st.pending) {
@@ -124,12 +127,12 @@ function show(st) {
   if (!st.waiting && !st.pending && poll) { clearInterval(poll); poll = null; }
 }
 
-async function listen() { try { show(await api('/api/uparivanje/listen', {})); } catch (e) { $('status').innerHTML = '<span class="err">' + e.message + '</span>'; } }
+async function listen() { try { show(await api('/api/uparivanje/listen', {})); } catch (e) { $('status').innerHTML = '<span class="err">' + escPronadjeno(e.message) + '</span>'; } }
 async function dial(addr) {
   addr = addr || $('addr').value.trim();
   if (!addr) { $('status').textContent = 'Upišite adresu računala.'; return; }
   $('status').textContent = 'Zovem ' + addr + '…';
-  try { show(await api('/api/uparivanje/dial', {addr})); } catch (e) { $('status').innerHTML = '<span class="err">' + e.message + '</span>'; }
+  try { show(await api('/api/uparivanje/dial', {addr})); } catch (e) { $('status').innerHTML = '<span class="err">' + escPronadjeno(e.message) + '</span>'; }
 }
 async function confirmPair(approved) {
   try {
@@ -137,26 +140,28 @@ async function confirmPair(approved) {
     $('pending').style.display = 'none';
     if (r.paired) {
       on('step-code', 'done'); on('step-sync', 'on');
-      $('code-result').innerHTML = '<span class="ok">' + (r.message || 'Računala su uparena.') + '</span>';
+      $('code-result').innerHTML = '<span class="ok">' + escPronadjeno(r.message || 'Računala su uparena.') + '</span>';
       $('sync-btn').disabled = false;
     } else {
       on('step-code', ''); on('step-find', 'on');
-      $('code-result').innerHTML = '<span class="err">' + (r.message || 'Uparivanje odbijeno.') + '</span>';
+      $('code-result').innerHTML = '<span class="err">' + escPronadjeno(r.message || 'Uparivanje odbijeno.') + '</span>';
     }
-  } catch (e) { $('code-result').innerHTML = '<span class="err">' + e.message + '</span>'; }
+  } catch (e) { $('code-result').innerHTML = '<span class="err">' + escPronadjeno(e.message) + '</span>'; }
 }
+let pronadjeni = [];
 async function discover() {
   const box = $('found');
   box.innerHTML = '<p class="muted">Pretraživanje…</p>';
   try {
     const r = await api('/api/uparivanje/discover');
-    if (!r.found.length) { box.innerHTML = '<p class="muted">U lokalnoj mreži nije nađeno nijedno goCOP računalo. Upišite adresu ili pričekajte poziv.</p>'; return; }
-    box.innerHTML = r.found.map(f => `
+    pronadjeni = r.found || [];
+    if (!pronadjeni.length) { box.innerHTML = '<p class="muted">U lokalnoj mreži nije nađeno nijedno goCOP računalo. Upišite adresu ili pričekajte poziv.</p>'; return; }
+    box.innerHTML = pronadjeni.map((f, i) => `
       <div class="peer">
-        <span><b>${f.name || f.deviceId}</b> <span class="muted mono">${f.addr}</span>${f.known ? ' <span class="muted">· već upareno</span>' : ''}</span>
-        ${f.known ? '' : `<button class="btn btn-sm btn-primary" onclick="dial('${f.addr}')">Upari</button>`}
+        <span><b>${escPronadjeno(f.name || f.deviceId)}</b> <span class="muted mono">${escPronadjeno(f.addr)}</span>${f.known ? ' <span class="muted">· već upareno</span>' : ''}</span>
+        ${f.known ? '' : `<button class="btn btn-sm btn-primary" onclick="dial(pronadjeni[${i}].addr)">Upari</button>`}
       </div>`).join('');
-  } catch (e) { box.innerHTML = '<p class="err">' + e.message + '</p>'; }
+  } catch (e) { box.innerHTML = '<p class="err">' + escPronadjeno(e.message) + '</p>'; }
 }
 async function sync() {
   const out = $('sync-result');
@@ -164,11 +169,11 @@ async function sync() {
   out.textContent = 'Razmjena u tijeku…';
   try {
     const r = await api('/api/uparivanje/sync', {});
-    const lines = Object.entries(r.results || {}).map(([k, v]) => k + ': ' + v);
-    out.innerHTML = '<span class="ok">' + (lines.join('<br>') || 'Nema uparenih računala.') + '</span>';
+    const redovi = Object.entries(r.results || {}).map(([k, v]) => escPronadjeno(k + ': ' + v));
+    out.innerHTML = '<span class="ok">' + (redovi.join('<br>') || 'Nema uparenih računala.') + '</span>';
     on('step-sync', 'done');
     if (!r.fresh && $('login-link')) { out.innerHTML += '<br>Djelatnici su stigli. Prijavite se svojim računom.'; $('login-link').classList.replace('btn-secondary', 'btn-primary'); }
-  } catch (e) { out.innerHTML = '<span class="err">' + e.message + '</span>'; }
+  } catch (e) { out.innerHTML = '<span class="err">' + escPronadjeno(e.message) + '</span>'; }
   $('sync-btn').disabled = false;
 }
 api('/api/uparivanje/status').then(show).catch(() => {});

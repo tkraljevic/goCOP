@@ -12,6 +12,8 @@ import (
 	"gocop/internal/models"
 	"gocop/internal/repository"
 	"gocop/internal/service"
+
+	"github.com/google/uuid"
 )
 
 func setupTestServices(t *testing.T) (*service.UserService, *service.AuthService, *service.SSEBroker, *repository.UserRepository) {
@@ -321,19 +323,19 @@ func TestChangePassword(t *testing.T) {
 	}
 
 	// 3. Pokušaj promjene s pogrešnom trenutnom lozinkom mora pasti
-	err = authService.ChangePassword(user.ID, "pogresna_lozinka", "novaSifra2026")
+	err = authService.ChangePassword(user.ID, "pogresna_lozinka", "novaSifra2026", uuid.Nil)
 	if err == nil {
 		t.Error("Očekivana greška pri netočnoj trenutnoj lozinci")
 	}
 
 	// 4. Pokušaj postavljanja prekratke lozinke mora pasti
-	err = authService.ChangePassword(user.ID, "gocop2026", "123")
+	err = authService.ChangePassword(user.ID, "gocop2026", "123", uuid.Nil)
 	if err == nil {
 		t.Error("Očekivana greška za prekratku novu lozinku")
 	}
 
 	// 5. Uspješna promjena lozinke
-	err = authService.ChangePassword(user.ID, "gocop2026", "mojaNovaSigurnaLozinka")
+	err = authService.ChangePassword(user.ID, "gocop2026", "mojaNovaSigurnaLozinka", uuid.Nil)
 	if err != nil {
 		t.Fatalf("Greška pri promjeni lozinke: %v", err)
 	}

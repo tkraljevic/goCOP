@@ -365,10 +365,14 @@ func izZIP(b []byte) ([]his2000.Datoteka, error) {
 		if err != nil {
 			return nil, err
 		}
-		s, err := io.ReadAll(io.LimitReader(rc, 256<<20))
+		s, err := io.ReadAll(io.LimitReader(rc, 256<<20+1))
 		rc.Close()
 		if err != nil {
 			return nil, err
+		}
+		// odrezana datoteka bi se uvezla kao da je cijela
+		if len(s) > 256<<20 {
+			return nil, fmt.Errorf("%s u arhivi je veća od 256 MB", f.Name)
 		}
 		out = append(out, his2000.Datoteka{Ime: filepath.Base(f.Name), Sadrzaj: s})
 	}

@@ -2,7 +2,6 @@ package web
 
 import (
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -115,7 +114,7 @@ func (h *UvozHandler) PregledUvozaProfila(w http.ResponseWriter, r *http.Request
 			p.Odbijeno = append(p.Odbijeno, zag.Filename+" — "+err.Error())
 			continue
 		}
-		sadrzaj, err := io.ReadAll(io.LimitReader(f, 8<<20))
+		sadrzaj, err := procitajDatoteku(f, 8<<20)
 		f.Close()
 		if err != nil {
 			p.Odbijeno = append(p.Odbijeno, zag.Filename+" — "+err.Error())

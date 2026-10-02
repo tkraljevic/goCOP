@@ -5,7 +5,7 @@ i drugim vodoprivrednim organizacijama. Povezuje teren, vodostaje, prognoze,
 dnevnike, službene dokumente, registre, ljude i sredstva. Računala rade s
 lokalnim podacima i usklađuju se kada je mreža dostupna.
 
-> **0.0.24-alfa — 2. 10. 2026.** Za razvoj i testiranje, ne za operativnu
+> **0.0.25-alfa — 2. 10. 2026.** Za razvoj i testiranje, ne za operativnu
 > upotrebu. Prognoze su pomoć stručnoj procjeni, ne zamjena za službene
 > prognoze i odluke odgovornih osoba. [Popis izmjena](CHANGELOG.md).
 
@@ -30,7 +30,7 @@ Pokrenuti `gocop.exe` na Windowsu ili `./gocop` na Linuxu/macOS-u i otvoriti
 obvezno promijeniti zadanu lozinku. Novi čvor povezati s postojećom mrežom
 čarobnjakom na prijavi; prvi čvor zahtijeva osnivanje mreže i punjenje registara.
 
-Za Linux amd64 dostupan je spremnik `ghcr.io/tkraljevic/gocop:0.0.24-alfa`;
+Za Linux amd64 dostupan je spremnik `ghcr.io/tkraljevic/gocop:0.0.25-alfa`;
 web u njemu sluša na 8080. Trajno montirati `/data` i `/arhiva`; SQLite mora
 biti na lokalnom disku. Postavljanje, portovi, uparivanje, uloge i sigurnosne
 kopije opisani su u [uputama administratoru](docs/INSTALACIJA.md).

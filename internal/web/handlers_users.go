@@ -220,10 +220,7 @@ func (h *UsersHandler) HandleUpdateProfile(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	returnURL := "/"
-	if ref := r.Header.Get("Referer"); ref != "" {
-		returnURL = strings.Split(ref, "?")[0]
-	}
+	returnURL := sigurnaPovratnaAdresa(r, "/")
 
 	req := service.UpdateUserRequest{
 		ID:            perms.User.ID,

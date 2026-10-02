@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"encoding/xml"
 	"fmt"
-	"io"
 	"regexp"
 	"strconv"
 	"strings"
@@ -58,7 +57,7 @@ func citajIzZipa(f *zip.File) ([]byte, error) {
 		return nil, err
 	}
 	defer rc.Close()
-	return io.ReadAll(io.LimitReader(rc, 64<<20))
+	return procitajDatoteku(rc, 64<<20)
 }
 
 // nizoviIzSST čita zajedničku tablicu nizova. Tekst je u <t>, a u obojenom

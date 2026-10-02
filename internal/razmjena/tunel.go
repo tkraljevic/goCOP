@@ -53,6 +53,9 @@ type Tunel struct {
 	zatvori sync.Once
 }
 
+// rokPredaje je koliko WebSocket čeka da ga razmjena primi (Accept)
+var rokPredaje = 10 * time.Second
+
 // NoviTunel otvara slušalicu tunela
 func NoviTunel() *Tunel {
 	return &Tunel{veze: make(chan net.Conn), gotov: make(chan struct{})}
@@ -68,9 +71,17 @@ func (t *Tunel) Handler() http.Handler {
 		Handler: func(ws *websocket.Conn) {
 			ws.PayloadType = websocket.BinaryFrame
 			v := &wsVeza{Conn: ws, kraj: make(chan struct{})}
+			// Predaja čeka Accept najviše rokPredaje: kad razmjena ne radi
+			// (port razmjene 0) ili je zauzeta, veza se zatvori umjesto da
+			// gorutina i utičnica vise zauvijek.
+			cekaj := time.NewTimer(rokPredaje)
+			defer cekaj.Stop()
 			select {
 			case t.veze <- v:
 			case <-t.gotov:
+				ws.Close()
+				return
+			case <-cekaj.C:
 				ws.Close()
 				return
 			}
@@ -127,12 +138,12 @@ func (v *wsVeza) Close() error {
 }
 
 // ServeExchangeOn je ServeExchange nad zadanom slušalicom (npr. tunelom)
-func ServeExchangeOn(ctx context.Context, priv ed25519.PrivateKey, protocol string, ln net.Listener, trusted KeyChecker, handle func(*Conn)) error {
+func ServeExchangeOn(ctx context.Context, priv ed25519.PrivateKey, protocol string, ln net.Listener, trusted KeyChecker, handle func(*Conn), o ...*Ograda) error {
 	cfg, err := tlsConfig(priv, protocol)
 	if err != nil {
 		return err
 	}
-	return serveTLS(ctx, tls.NewListener(ln, cfg), trusted, handle)
+	return serveTLS(ctx, tls.NewListener(ln, cfg), trusted, handle, ogradaIz(o))
 }
 
 // DialTunel spaja se na čvor kroz tunel (https://domena) i, kao

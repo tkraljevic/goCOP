@@ -590,7 +590,7 @@ func (h *TerritoriesHandler) HandleCreateSettlementAPI(w http.ResponseWriter, r 
 		PostalCode     string `json:"postal_code"`
 		Population     int    `json:"population"`
 	}
-	if strings.Contains(r.Header.Get("Content-Type"), "application/json") {
+	if jsonTijelo(r) {
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, "Neispravan JSON", http.StatusBadRequest)
 			return
@@ -646,7 +646,7 @@ func (h *TerritoriesHandler) HandleUpdateSettlementAPI(w http.ResponseWriter, r 
 		PostalCode string `json:"postal_code"`
 		Population int    `json:"population"`
 	}
-	if strings.Contains(r.Header.Get("Content-Type"), "application/json") {
+	if jsonTijelo(r) {
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, "Neispravan JSON", http.StatusBadRequest)
 			return
@@ -695,7 +695,7 @@ func (h *TerritoriesHandler) HandleDeleteSettlementAPI(w http.ResponseWriter, r 
 	var req struct {
 		ID int `json:"id"`
 	}
-	if strings.Contains(r.Header.Get("Content-Type"), "application/json") {
+	if jsonTijelo(r) {
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, "Neispravan JSON", http.StatusBadRequest)
 			return
@@ -733,8 +733,8 @@ func backToMunicipality(r *http.Request) string {
 	if id, _ := strconv.Atoi(r.FormValue("municipality_id")); id > 0 {
 		return fmt.Sprintf("/territories/municipalities/%d", id)
 	}
-	if ref := r.Header.Get("Referer"); strings.Contains(ref, "/territories/municipalities/") {
-		return strings.Split(ref, "?")[0]
+	if p := sigurnaPovratnaAdresa(r, ""); strings.HasPrefix(p, "/territories/municipalities/") {
+		return p
 	}
 	return "/territories?tab=municipalities"
 }

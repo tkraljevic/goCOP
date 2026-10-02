@@ -106,8 +106,8 @@ func pair(t *testing.T, ctx context.Context, a, b *node) {
 		err error
 	}
 	done := make(chan result, 1)
-	go func() { out, err := a.svc.ConfirmPair(ctx, true); done <- result{out, err} }()
-	outB, err := b.svc.ConfirmPair(ctx, true)
+	go func() { out, err := a.svc.ConfirmPair(ctx, true, true); done <- result{out, err} }()
+	outB, err := b.svc.ConfirmPair(ctx, true, true)
 	if err != nil || !outB.Paired {
 		t.Fatalf("potvrda na B: %+v err=%v", outB, err)
 	}
@@ -376,8 +376,8 @@ func TestClanBezKljucaNeMozePrimitiOutsidera(t *testing.T) {
 		err error
 	}
 	done := make(chan result, 1)
-	go func() { out, err := b.svc.ConfirmPair(ctx, true); done <- result{out, err} }()
-	outO, _ := outsider.svc.ConfirmPair(ctx, true)
+	go func() { out, err := b.svc.ConfirmPair(ctx, true, true); done <- result{out, err} }()
+	outO, _ := outsider.svc.ConfirmPair(ctx, true, true)
 	rb := <-done
 	if !rb.out.Paired || rb.out.Member {
 		t.Errorf("B je uparen s outsiderom ali ga ne smije primiti: %+v", rb.out)
@@ -431,8 +431,8 @@ func TestDvijeMrezeNemajuNistaZajednicko(t *testing.T) {
 		err error
 	}
 	done := make(chan result, 1)
-	go func() { out, err := hv.svc.ConfirmPair(ctx, true); done <- result{out, err} }()
-	outHU, _ := hu.svc.ConfirmPair(ctx, true)
+	go func() { out, err := hv.svc.ConfirmPair(ctx, true, true); done <- result{out, err} }()
+	outHU, _ := hu.svc.ConfirmPair(ctx, true, true)
 	rHV := <-done
 	if rHV.out.Member || outHU.Member {
 		t.Errorf("čvorovi različitih mreža ne smiju postati članovi: HV=%+v HU=%+v", rHV.out, outHU)
@@ -471,8 +471,8 @@ func TestOpozivClanstvaPutuje(t *testing.T) {
 	for i := 0; i < 50 && !b.svc.PairStatus().Pending; i++ {
 		time.Sleep(50 * time.Millisecond)
 	}
-	go b.svc.ConfirmPair(ctx, true)
-	if out, _ := c.svc.ConfirmPair(ctx, true); !out.Member {
+	go b.svc.ConfirmPair(ctx, true, true)
+	if out, _ := c.svc.ConfirmPair(ctx, true, true); !out.Member {
 		t.Fatalf("dva člana iste mreže moraju si vjerovati nakon uparivanja: %+v", out)
 	}
 	if _, _, err := c.svc.SyncWith(ctx, b.id); err != nil {

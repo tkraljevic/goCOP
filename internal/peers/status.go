@@ -175,7 +175,7 @@ func (s *Service) syncPeers(ctx context.Context, list []Peer) map[string]string 
 			for krugova < najviseKrugovaZaRedom && ctx.Err() == nil {
 				a, sn, e := s.SyncWith(ctx, p.NodeID)
 				applied, sent, krugova, err = applied+a, sent+sn, krugova+1, e
-				if e != nil || (a < NajviseVerzijaPoRazmjeni && sn < NajviseVerzijaPoRazmjeni) {
+				if e != nil || (a < NajviseVerzijaPoRazmjeni && sn < NajviseVerzijaPoRazmjeni && !s.imaJos(p.NodeID)) {
 					break
 				}
 			}
@@ -416,4 +416,11 @@ func label(p Peer) string {
 		return p.Name
 	}
 	return p.NodeID
+}
+
+// imaJos javlja da je zadnja razmjena s čvorom poslala skraćenu deltu
+// (ograda veličine poruke), pa ostatak treba poslati odmah
+func (s *Service) imaJos(nodeID string) bool {
+	v, ok := s.josIma.LoadAndDelete(nodeID)
+	return ok && v.(bool)
 }

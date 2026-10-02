@@ -62,8 +62,9 @@ type KartaPostavke struct {
 func (k KartaPostavke) Ima() bool { return k.Plocice != "" }
 
 type Server struct {
-	javni    *javnivodostaji.Uvoznik                           // preuzimanje javnih vodostaja; prazno kad nije uključeno
-	pricuvno func(ctx context.Context) prognoza.PricuvniPodaci // pričuvni Excel prognoze
+	posrednici *Posrednici                                       // pouzdani posrednici (tunel); nil = zadani, klijent.go
+	javni      *javnivodostaji.Uvoznik                           // preuzimanje javnih vodostaja; prazno kad nije uključeno
+	pricuvno   func(ctx context.Context) prognoza.PricuvniPodaci // pričuvni Excel prognoze
 	// ključ kojim se zaključavaju lozinke za Geolux HydroView; izveden iz
 	// ključa čvora, pa lozinka vrijedi samo na ovom računalu
 	hidroviewKljuc []byte
@@ -883,8 +884,9 @@ func (s *Server) setupRoutes() {
 	// tok javlja tko je u organizaciji promijenjen
 	s.mux.Handle("GET /api/events", s.authMiddleware(http.HandlerFunc(sseH.ServeSSE)))
 
-	// API za dinamička područja
-	s.mux.HandleFunc("GET /api/areas", usersH.HandleGetAreasAPI)
+	// API za dinamička područja: svakom prijavljenom (obrazac djelatnika ga
+	// treba i bez modula Registri), ali ne i neprijavljenima kroz tunel
+	s.mux.Handle("GET /api/areas", s.authMiddleware(http.HandlerFunc(usersH.HandleGetAreasAPI)))
 
 	// Zaštićene rute (zahtijevaju prijavu)
 	s.mux.Handle("GET /{$}", s.authMiddleware(http.HandlerFunc(dashH.ShowDashboard)))
@@ -1123,7 +1125,7 @@ func (s *Server) setupRoutes() {
 	// Razmjena kroz web tunel: bez prijave korisnika, jer se čvor dokazuje
 	// ključem unutar TLS-a koji teče kroz WebSocket; nepoznati ključ ne prolazi.
 	if s.peersService != nil {
-		s.mux.Handle("GET "+razmjena.PutTunela, s.peersService.TunelHandler())
+		s.mux.Handle("GET "+razmjena.PutTunela, ograditiTunel(s.peersService.TunelHandler()))
 	}
 	// Brojke podataka su javne: stoje i na stranici za prijavu. Nose samo
 	// zbrojeve, bez ijedne vrijednosti, imena osobe ili mjesta osim najstarije letve.
@@ -1194,6 +1196,7 @@ func (s *Server) setupRoutes() {
 	aktiH.SetImenik(s.templates["imenik_exchange.html"], s.poslovi)
 	s.mux.Handle("GET /users/exchange", s.authMiddleware(http.HandlerFunc(aktiH.ShowImenik)))
 	s.mux.Handle("POST /users/exchange", s.authMiddleware(http.HandlerFunc(aktiH.HandleImenikPrimijeni)))
+	s.mux.Handle("POST /users/exchange/usporedi", s.authMiddleware(http.HandlerFunc(aktiH.HandleImenikUsporedi)))
 	s.mux.Handle("GET /posta/novo", s.authMiddleware(http.HandlerFunc(aktiH.ShowNovoPismo)))
 	s.mux.Handle("POST /posta/novo", s.authMiddleware(http.HandlerFunc(aktiH.HandlePosaljiPismo)))
 	s.mux.Handle("GET /posta", s.authMiddleware(http.HandlerFunc(aktiH.ShowSanducic)))
@@ -1516,7 +1519,6 @@ var modulePaths = []struct{ prefix, module string }{
 	{"/api/sections", models.ModuleRegisters}, {"/api/stations", models.ModuleRegisters},
 	{"/api/watercourses", models.ModuleRegisters}, {"/api/slivovi", models.ModuleRegisters}, {"/api/settlements", models.ModuleRegisters},
 	{"/api/counties", models.ModuleRegisters}, {"/api/municipalities", models.ModuleRegisters}, {"/api/prijepis", models.ModuleRegisters},
-	{"/api/areas", models.ModuleRegisters},
 	{"/users", models.ModuleUsers},
 	{"/administracija", models.ModuleAdmin}, {"/organizacija", models.ModuleRegisters},
 	{"/firme", models.ModuleRegisters},
@@ -1554,10 +1556,6 @@ func readOnlyRequest(r *http.Request) bool {
 		return true
 	}
 	return strings.HasPrefix(r.URL.Path, "/view-as")
-}
-
-func (s *Server) Start() error {
-	return http.ListenAndServe(s.addr, bezPriruckeMemorije(s.mux))
 }
 
 // bezPriruckeMemorije zabranjuje spremanje odgovora u priručnu memoriju

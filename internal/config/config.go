@@ -37,6 +37,11 @@ type Config struct {
 	// samo oznaku dokumenta.
 	JavnaAdresa string `toml:"javna_adresa" comment:"Javna adresa programa za QR kodove na dokumentima, npr. https://gocop.voda.hr.\nPrazno dok je nema."`
 
+	Web struct {
+		PouzdaniPosrednici []string `toml:"pouzdani_posrednici" comment:"Adrese ili mreže (CIDR) posrednika kojima se vjeruje zaglavlje s adresom\nklijenta, npr. [\"172.17.0.1\"] za cloudflared koji u Docker dolazi preko\nmosta. Prazno = ovo računalo i privatne mreže. Zahtjev sa zaglavljem\nposrednika uvijek se smatra vanjskim."`
+		ZaglavljeKlijenta  string   `toml:"zaglavlje_klijenta" comment:"Zaglavlje u kojem posrednik šalje adresu klijenta. Prazno = CF-Connecting-IP\n(Cloudflare tunel); iza nginxa X-Forwarded-For."`
+	} `toml:"web"`
+
 	Node struct {
 		ID   string `toml:"id" comment:"Jedinstveni identifikator ovog čvora — npr. cop-osijek, laptop-vinkovci-1.\nNe mijenjajte nakon prvog uparivanja: drugi čvorovi ga pamte."`
 		Name string `toml:"name" comment:"Naziv koji vide drugi čvorovi pri uparivanju. Prazno = ime računala."`

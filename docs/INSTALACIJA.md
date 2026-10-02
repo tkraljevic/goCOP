@@ -1,6 +1,6 @@
 # Postavljanje i održavanje goCOP čvora
 
-Administratorske upute, usklađene s 0.0.24-alfa (2. 10. 2026.).
+Administratorske upute, usklađene s 0.0.25-alfa (2. 10. 2026.).
 Kratki pregled projekta: [README](../README.md). Korisnički postupci su u Pomoći aplikacije.
 
 Operativni program za obranu od poplava Hrvatskih voda: povezuje organizaciju,
@@ -9,7 +9,7 @@ i bez interneta; kopije na različitim računalima međusobno se usklađuju.
 Repozitorij nosi program i praznu shemu baze, a podatke unosi ili uvozi
 organizacija koja ga koristi.
 
-> **Status: alfa, izdanje 0.0.24-alfa (2. 10. 2026.), za testiranje i daljnji
+> **Status: alfa, izdanje 0.0.25-alfa (2. 10. 2026.), za testiranje i daljnji
 > razvoj.** Nije za operativnu upotrebu. Sve se još mijenja. Što je u kojem
 > izdanju, piše u [popisu izmjena](../CHANGELOG.md).
 >
@@ -138,15 +138,40 @@ Portovi se mijenjaju u `gocop.toml`.
   organizacija unese ili uveze iz svog imenika. Tretirati mapu `data/` kao
   takvu.
 - **Lozinke** se čuvaju kao bcrypt hash. Sesija je HttpOnly kolačić,
-  SameSite Lax, traje do isteka ili odjave.
+  SameSite Lax, a iza HTTPS-a (i tunela) i `Secure`; traje do isteka ili
+  odjave. Promjena ili poništenje lozinke gasi ostale prijave te osobe na
+  istom čvoru; prijave na drugim čvorovima traju do isteka (najviše 24 h).
 - **Zadana lozinka mora se promijeniti.** Do tada račun može otvoriti samo
-  vlastiti profil i odjavu; ostale stranice i radnje ostaju zaključane. Iznimka
-  je čarobnjak uparivanja, koji prijavljenom računu ostaje otvoren i prije
-  promjene lozinke.
-- **Pogađanje lozinki je ograničeno.** Nakon pet neuspjelih pokušaja u 15
-  minuta prijava se blokira na 15 minuta, i po korisničkom imenu i po adresi.
-  Trenutačno se zaglavljima vjeruje za loopback i privatne adrese; to još nije
-  izričit popis pouzdanih posrednika. Izvorni HTTP pristup zato treba ograničiti.
+  vlastiti profil i odjavu. Zadana lozinka je javna, pa izvana (kroz tunel)
+  ne vrijedi: prva prijava njome ide iz lokalne mreže, a izvana s privremenom
+  lozinkom koju izda administrator (Korisnici → Poništi lozinku).
+- **Pogađanje lozinki je ograničeno.** Pet neuspjeha za isto ime s iste adrese
+  u 15 minuta, ili dvadeset s iste adrese, blokira na 15 minuta; trideset za
+  isto ime izvana u satu blokira to ime izvana na 30 minuta (prijava iz lokalne
+  mreže tada i dalje radi). IPv6 adrese broje se po mreži /64. Poruka prijave
+  ne otkriva postoji li račun ni je li deaktiviran.
+- **Pouzdani posrednici.** Adresa klijenta iz zaglavlja (`CF-Connecting-IP`)
+  vrijedi samo kad zahtjev stiže od pouzdanog posrednika; zadano su to ovo
+  računalo i privatne mreže, a u `gocop.toml` se suze:
+
+  ```toml
+  [web]
+  pouzdani_posrednici = ["172.17.0.1"]   # odakle cloudflared dolazi u Docker
+  zaglavlje_klijenta = ""                 # prazno = CF-Connecting-IP; iza nginxa X-Forwarded-For
+  ```
+
+  Zahtjev sa zaglavljem posrednika uvijek se smatra vanjskim (tunel), pa za
+  njega ne vrijede iznimke lokalne mreže. Posrednik koji šalje zaglavlje, a
+  nije na popisu, zapisuje se u dnevnik jednom na sat.
+- **Zaštita od tuđih stranica i zaglavlja.** Izmjene (POST) s tuđe web-stranice
+  odbijaju se (Go `CrossOriginProtection`); odgovori nose `nosniff`,
+  `Referrer-Policy: same-origin`, zabranu ugradnje u okvir i osnovni CSP, a
+  iza HTTPS-a i HSTS. Privici i slike iz e-pošte i s terena poslužuju se u
+  pješčaniku; u pregledniku se otvaraju samo PNG, JPEG, GIF i WebP.
+- **Ograničenja.** Obična stranica ima minutu za zahtjev i pet minuta za
+  odgovor, uvozi i izvozi 30 minuta; tijelo zahtjeva je zadano do 2 MB, a
+  rute s datotekama imaju svoje granice. Poruka razmjene najviše 256 MiB,
+  tunel razmjene najviše 32 veze i 2 po klijentu, rukovanje kroz tunel 5 s.
 - **Uparivanje računala** traži čovjeka na oba ekrana: oba pokažu isti
   šesteroznamenkasti kod i oba ga potvrde. Bez toga drugo računalo ne dobiva
   ni bajt. Razmjenu dobiva samo član mreže: računalo upareno s onim koje drži
@@ -181,12 +206,13 @@ Portovi se mijenjaju u `gocop.toml`.
    antivirusi mogu upozoriti na nepotpisan Go program; dopustiti ga ručno samo
    kad je preveden iz provjerenog izvora. Potpisivanje besplatnim certifikatom
    za otvoreni kod je u planu prije bete.
-2. **Sigurnosno učvršćivanje nije dovršeno:** centralna CSRF zaštita, `Secure`
-   kolačići za HTTPS, izričito pouzdani posrednici i HTTP/WebSocket ograničenja
-   ostaju otvoreni. Poruka prijave posebno otkriva deaktiviran račun. Tok
-   obavijesti `/api/events` do 0.0.23-alfa bio je otvoren bez prijave i drugim
-   web-stranicama, s podacima djelatnika; od 0.0.24-alfa je samo za prijavljene
-   i ne nosi osobne podatke, pa čvor dostupan kroz tunel treba nadograditi.
+2. **Sigurnosno učvršćivanje je u tijeku.** Od 0.0.25-alfa postoje zaštita od
+   tuđih stranica, `Secure` kolačić iza HTTPS-a, izričito pouzdani posrednici,
+   ograničenja HTTP-a i razmjene, a uparivanje i primanje u mrežu smije samo
+   globalni administrator. Otvoreno: dvofaktorska prijava izvana (PIN na
+   službenu e-poštu), potpisane uloge izdavanja (svaki član mreže zasad smije
+   objaviti prognozu i arhivu) i opoziv izgubljenog računala uživo. Čvor
+   dostupan kroz tunel treba držati na zadnjem izdanju.
 3. **Automatsko pronalaženje preko interneta nije uvedeno.** Razmjena preko
    ručno zadane domene i WebSocket tunela radi; lokalno pronalaženje ostaje na LAN-u.
 4. **Shema se još mijenja.** Sve što se unese u alfi može se izgubiti pri
@@ -202,11 +228,11 @@ Portovi se mijenjaju u `gocop.toml`.
   bez izlaganja na internet.
 - Jedan administrator osniva mrežu (Administracija → Čvor, mreža i
   sinkronizacija) i upravlja lozinkama. Ključ mreže ostaje na njegovu
-  računalu, a svako računalo upareno s njim postaje član mreže. Uparivanje na tom računalu može potvrditi svaki
-  prijavljeni korisnik, pa do njega trebaju imati pristup samo pouzdane osobe.
-  Svoje računalo uparuje svatko sam: na svježem računalu čarobnjak stoji na
-  stranici prijave, a prijavljenima u profilu.
-- Program prevesti iz označenog izdanja (npr. `git checkout v0.0.24-alfa`) ili
+  računalu, a svako računalo upareno s njim postaje član mreže. Uparivanje
+  pokreće i potvrđuje globalni administrator (od 0.0.25-alfa); na svježem
+  računalu, dok na njemu nema računa, čarobnjak stoji na stranici prijave, ali
+  samo za pristup iz lokalne mreže, nikad kroz tunel.
+- Program prevesti iz označenog izdanja (npr. `git checkout v0.0.25-alfa`) ili
   koristiti sliku s oznakom izdanja; `SHA256SUMS` uz izdanja zasad ne postoji.
 - Program pokretati kao običan korisnik, iz vlastite mape.
 - Sigurnosna kopija mora obuhvatiti cijelu mapu `data/` i izvorno stablo
@@ -298,7 +324,7 @@ jesu.
 ## 7. Stalni čvor, spremnik i sigurnosna kopija
 
 Docker slika je `ghcr.io/tkraljevic/gocop`, trenutačno za Linux amd64.
-Za ponovljivo postavljanje birati oznaku izdanja, npr. `:0.0.24-alfa`,
+Za ponovljivo postavljanje birati oznaku izdanja, npr. `:0.0.25-alfa`,
 umjesto promjenjive `:latest`. Spremnik sluša web na 8080, razmjenu na 4710,
 uparivanje na 4711 i pronalaženje na 4712/UDP, a radi kao UID/GID `99:100`;
 mape moraju biti dostupne tom korisniku.
@@ -362,8 +388,8 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 Verzija stoji u kodu (`verzijaPrograma` u `cmd/gocop/main.go`) i mijenja se pri
 izdavanju; program je ispisuje u podnožju stranice i u dnevniku, s kratkom
 oznakom commita iz kojega je preveden (i zvjezdicom kad stablo ima nespremljenih
-izmjena). Izdanje u gitu nosi oznaku oblika `v0.0.24-alfa`; iz svake takve
-oznake GitHub gradi Docker sliku `ghcr.io/tkraljevic/gocop:0.0.24-alfa` i `:latest`.
+izmjena). Izdanje u gitu nosi oznaku oblika `v0.0.25-alfa`; iz svake takve
+oznake GitHub gradi Docker sliku `ghcr.io/tkraljevic/gocop:0.0.25-alfa` i `:latest`.
 
 ## 9. Za razvoj
 

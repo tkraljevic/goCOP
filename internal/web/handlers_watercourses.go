@@ -167,7 +167,7 @@ func (f watercourseForm) toWatercourse() models.Watercourse {
 func decodeWatercourseForm(r *http.Request) (watercourseForm, error) {
 	var form watercourseForm
 
-	if strings.Contains(r.Header.Get("Content-Type"), "application/json") {
+	if jsonTijelo(r) {
 		if err := json.NewDecoder(r.Body).Decode(&form); err != nil {
 			return form, errBadJSON(err)
 		}
@@ -366,15 +366,16 @@ func (h *WatercoursesHandler) HandleUpdateWatercourseGeometryAPI(w http.Response
 	ctx := r.Context()
 	perms, _ := ctx.Value(contextKeyPerms).(*models.UserPermissions)
 
+	// geometrija se upisuje samo JSON-om iz skripte stranice: običan obrazac
+	// može poslati i tuđa stranica, a geometrija se prikazuje na karti
 	var req watercourseGeometryForm
-	if strings.Contains(r.Header.Get("Content-Type"), "application/json") {
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, "Neispravan JSON format", http.StatusBadRequest)
-			return
-		}
-	} else {
-		req.Code = r.FormValue("code")
-		req.GeoJSON = r.FormValue("geojson")
+	if !jsonTijelo(r) {
+		http.Error(w, "Geometrija se šalje kao JSON (Content-Type: application/json)", http.StatusUnsupportedMediaType)
+		return
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Neispravan JSON format", http.StatusBadRequest)
+		return
 	}
 
 	req.Code = strings.TrimSpace(req.Code)
@@ -440,7 +441,7 @@ func (h *WatercoursesHandler) HandleAssignStationWatercourseAPI(w http.ResponseW
 		WatercourseCode string `json:"watercourse_code"`
 	}
 
-	if strings.Contains(r.Header.Get("Content-Type"), "application/json") {
+	if jsonTijelo(r) {
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, errBadJSON(err).Error(), http.StatusBadRequest)
 			return

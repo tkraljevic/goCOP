@@ -83,7 +83,14 @@ func (h *PotpisHandler) HandleKljuc(w http.ResponseWriter, r *http.Request) {
 	natrag := "/profile#potpis"
 	switch r.FormValue("radnja") {
 	case "novi":
-		if _, err := s.Novi(r.Context(), u, r.FormValue("lozinka")); err != nil {
+		// lozinka računa provjerava se uz ograničenje krivih upisa (ratelimit.go)
+		kljuc := kljucPonovneLozinke("", u.ID.String())
+		err := ponovnaLozinkaDopustena(kljuc)
+		if err == nil {
+			_, err = s.Novi(r.Context(), u, r.FormValue("lozinka"))
+			ishodPonovneLozinke(kljuc, err)
+		}
+		if err != nil {
 			redirectWith(w, r, natrag, "error", err.Error())
 			return
 		}

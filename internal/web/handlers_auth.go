@@ -2,13 +2,14 @@ package web
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"html/template"
 	"net/http"
 	"net/url"
 	"strings"
-	"time"
 
+	"gocop/internal/db"
 	"gocop/internal/models"
 	"gocop/internal/service"
 
@@ -74,6 +75,24 @@ func (h *AuthHandler) SetFresh(f func() bool) { h.fresh = f }
 
 func (h *AuthHandler) isFresh() bool { return h.fresh != nil && h.fresh() }
 
+// svjezLokalno javlja treba li stranica prijave ponuditi uparivanje bez
+// prijave: samo svjež čvor i samo izravnom klijentu, jer kroz tunel
+// uparivanja bez prijave nema (handlers_pairing.go)
+func (h *AuthHandler) svjezLokalno(r *http.Request) bool {
+	return !klijentIz(r).KrozPosrednika && h.isFresh()
+}
+
+// prikaziPrijavu iscrtava stranicu prijave s porukom
+func (h *AuthHandler) prikaziPrijavu(w http.ResponseWriter, r *http.Request, status int, poruka string) {
+	if status != http.StatusOK {
+		w.WriteHeader(status)
+	}
+	h.tmpl.ExecuteTemplate(w, "login.html", LoginPageData{Error: poruka, Support: h.supportNow(), Fresh: h.svjezLokalno(r)})
+}
+
+// porukaZadaneLozinke odbija prvu prijavu zadanom lozinkom izvana
+const porukaZadaneLozinke = "Zadana lozinka izvana ne vrijedi, jer je javna. Prijavite se iz ureda (lokalna mreža) ili zatražite od administratora privremenu lozinku (Korisnici → Poništi lozinku)."
+
 // SetAdminContact daje rukovatelju izvor kontakta glavnog administratora
 func (h *AuthHandler) SetAdminContact(f func() (name, phone, email string, ok bool)) {
 	h.adminContact = f
@@ -111,7 +130,7 @@ func TelLink(s string) string {
 // ShowLogin prikazuje formu za prijavu
 func (h *AuthHandler) ShowLogin(w http.ResponseWriter, r *http.Request) {
 	// Ako je već prijavljen, preusmjeri na početnu stranicu
-	if cookie, err := r.Cookie("gocop_session"); err == nil {
+	if cookie, err := r.Cookie(imeKolacicaSesije); err == nil {
 		if sessionID, err := uuid.Parse(cookie.Value); err == nil {
 			if _, _, err := h.authService.AuthenticateSession(sessionID); err == nil {
 				http.Redirect(w, r, "/", http.StatusSeeOther)
@@ -120,56 +139,68 @@ func (h *AuthHandler) ShowLogin(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	h.tmpl.ExecuteTemplate(w, "login.html", LoginPageData{Support: h.supportNow(), Fresh: h.isFresh()})
+	h.prikaziPrijavu(w, r, http.StatusOK, "")
 }
 
 // HandleLogin obrađuje unos korisničkog imena i lozinke
 func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		h.tmpl.ExecuteTemplate(w, "login.html", LoginPageData{Error: "Neispravan zahtjev", Support: h.supportNow(), Fresh: h.isFresh()})
+		h.prikaziPrijavu(w, r, http.StatusOK, "Neispravan zahtjev")
 		return
 	}
 
 	username := strings.TrimSpace(r.FormValue("username"))
 	password := r.FormValue("password")
-	ip := clientIP(r)
-	keys := []string{"user:" + strings.ToLower(username), "ip:" + ip}
+	klijent := klijentIz(r)
+	ip := klijent.String()
+	keys := kljuceviPrijave(username, klijent)
 
 	// Previše neuspjeha: odgovor je isti bez obzira na to postoji li ime,
 	// da se iz njega ne može zaključiti tko ima račun
 	if blocked, wait := h.limiter.Blocked(keys...); blocked {
 		minutes := int(wait.Minutes()) + 1
-		w.WriteHeader(http.StatusTooManyRequests)
-		h.tmpl.ExecuteTemplate(w, "login.html", LoginPageData{
-			Support: h.support,
-			Error:   fmt.Sprintf("Previše neuspjelih pokušaja prijave. Pokušajte ponovno za %d min.", minutes)})
+		h.prikaziPrijavu(w, r, http.StatusTooManyRequests, fmt.Sprintf("Previše neuspjelih pokušaja prijave. Pokušajte ponovno za %d min.", minutes))
 		return
 	}
 
-	session, user, err := h.authService.Login(username, password, ip, r.UserAgent())
+	// Deaktiviran račun javlja se tek nakon točne lozinke, inače bi poruka
+	// otkrila da ime postoji
+	user, err := h.authService.ProvjeriPrijavu(username, password)
 	if err != nil {
 		h.limiter.Fail(keys...)
 		errMsg := "Neispravno korisničko ime ili lozinka"
-		if err == service.ErrAccountInactive {
+		if errors.Is(err, service.ErrAccountInactive) {
 			errMsg = "Korisnički račun je privremeno deaktiviran"
 		}
-		h.tmpl.ExecuteTemplate(w, "login.html", LoginPageData{Error: errMsg, Support: h.supportNow(), Fresh: h.isFresh()})
+		h.prikaziPrijavu(w, r, http.StatusOK, errMsg)
 		return
 	}
-	h.limiter.Reset(keys...)
 
-	// Postavljanje sigurnog sesijskog kolačića
-	http.SetCookie(w, &http.Cookie{
-		Name:     "gocop_session",
-		Value:    session.ID.String(),
-		Path:     "/",
-		Expires:  session.ExpiresAt,
-		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
-	})
+	// Zadana lozinka piše u dokumentaciji: tko je zna, preuzeo bi svjež čvor
+	// izvana prije vlasnika. Prva prijava njome zato ide samo iz lokalne
+	// mreže; privremena lozinka koju je dao administrator vrijedi i izvana.
+	if klijent.KrozPosrednika && user.MustChangePassword && password == db.ZadanaLozinka {
+		h.prikaziPrijavu(w, r, http.StatusForbidden, porukaZadaneLozinke)
+		return
+	}
+
+	// Briše se brojač imena, ne i adrese: inače bi napadač s jednim pravim
+	// računom između pokušaja na tuđe brisao vlastitu adresu
+	for _, k := range keys {
+		if !strings.HasPrefix(k, kljucAdresa) {
+			h.limiter.Reset(k)
+		}
+	}
+
+	session, err := h.authService.OtvoriSesiju(user, ip, r.UserAgent())
+	if err != nil {
+		h.prikaziPrijavu(w, r, http.StatusInternalServerError, "Prijava nije uspjela: "+err.Error())
+		return
+	}
+	postaviSesiju(w, r, session.ID.String(), session.ExpiresAt)
 
 	// Sa zadanom lozinkom prvo na promjenu lozinke, tek onda u program
-	if user != nil && user.MustChangePassword {
+	if user.MustChangePassword {
 		http.Redirect(w, r, "/profile?force=1#lozinka", http.StatusSeeOther)
 		return
 	}
@@ -180,19 +211,13 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 
 // HandleLogout odjavljuje korisnika i briše kolačić
 func (h *AuthHandler) HandleLogout(w http.ResponseWriter, r *http.Request) {
-	if cookie, err := r.Cookie("gocop_session"); err == nil {
+	if cookie, err := r.Cookie(imeKolacicaSesije); err == nil {
 		if sessionID, err := uuid.Parse(cookie.Value); err == nil {
 			_ = h.authService.Logout(sessionID)
 		}
 	}
 
-	http.SetCookie(w, &http.Cookie{
-		Name:     "gocop_session",
-		Value:    "",
-		Path:     "/",
-		Expires:  time.Unix(0, 0),
-		HttpOnly: true,
-	})
+	obrisiSesiju(w, r)
 
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
@@ -206,10 +231,7 @@ func (h *AuthHandler) HandleChangePassword(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	returnURL := "/"
-	if ref := r.Header.Get("Referer"); ref != "" {
-		returnURL = strings.Split(ref, "?")[0]
-	}
+	returnURL := sigurnaPovratnaAdresa(r, "/")
 
 	if err := r.ParseForm(); err != nil {
 		http.Redirect(w, r, returnURL+"?error=Neispravan+zahtjev", http.StatusSeeOther)
@@ -225,15 +247,37 @@ func (h *AuthHandler) HandleChangePassword(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// Trenutna lozinka se provjerava prvo i s ograničenjem pokušaja: ukradena
+	// sesija ne smije biti proročište za pogađanje lozinke
+	kljuc := kljucPonovneLozinke("", currUser.ID.String())
+	if err := ponovnaLozinkaDopustena(kljuc); err != nil {
+		http.Redirect(w, r, returnURL+"?error="+url.QueryEscape(err.Error()), http.StatusSeeOther)
+		return
+	}
+	err := h.authService.ProvjeriLozinku(currUser.ID, currentPassword)
+	ishodPonovneLozinke(kljuc, err)
+	if err != nil {
+		http.Redirect(w, r, returnURL+"?error="+url.QueryEscape(err.Error()), http.StatusSeeOther)
+		return
+	}
+
 	// potpisni ključ je zaključan lozinkom: prvo se prekljuca, pa se lozinka
-	// mijenja; ako prekljucavanje ne uspije, ni lozinka se ne mijenja
+	// mijenja; ako prekljucavanje ne uspije, ni lozinka se ne mijenja. Pravila
+	// nove lozinke provjeravaju se prije, da ključ ne ostane zaključan
+	// lozinkom koju račun odbije.
+	if err := service.ProvjeriNovuLozinku(currentPassword, newPassword); err != nil {
+		http.Redirect(w, r, returnURL+"?error="+url.QueryEscape(err.Error()), http.StatusSeeOther)
+		return
+	}
 	if h.prekljucaj != nil {
 		if err := h.prekljucaj(ctx, currUser.ID.String(), currentPassword, newPassword); err != nil {
 			http.Redirect(w, r, returnURL+"?error="+url.QueryEscape("potpisni ključ se ne da prekljucati: "+err.Error()), http.StatusSeeOther)
 			return
 		}
 	}
-	if err := h.authService.ChangePassword(currUser.ID, currentPassword, newPassword); err != nil {
+	// ostale prijave se gase, ova ostaje
+	sessionID, _ := ctx.Value(contextKeySession).(uuid.UUID)
+	if err := h.authService.ChangePassword(currUser.ID, currentPassword, newPassword, sessionID); err != nil {
 		http.Redirect(w, r, returnURL+"?error="+url.QueryEscape(err.Error()), http.StatusSeeOther)
 		return
 	}
@@ -287,9 +331,5 @@ func (h *AuthHandler) HandleStopViewAs(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Greška pri povratku: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	back := r.FormValue("back")
-	if back == "" || !strings.HasPrefix(back, "/") {
-		back = "/users"
-	}
-	http.Redirect(w, r, back, http.StatusSeeOther)
+	http.Redirect(w, r, povratnaPutanja(r.FormValue("back"), "/users"), http.StatusSeeOther)
 }

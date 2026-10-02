@@ -56,6 +56,10 @@ type seedUser struct {
 	Duties        []seedDuty `json:"duties"`
 }
 
+// ZadanaLozinka je početna lozinka svih računa iz sjemena. Piše u
+// dokumentaciji, pa je smije upotrijebiti samo izravan klijent (web/handlers_auth.go)
+const ZadanaLozinka = "gocop2026"
+
 // SeedInitialData puni praznu bazu: organizaciju i registre iz datoteka uz bazu kad ih ima, te račun admin
 func SeedInitialData(database *sql.DB) error {
 	// 1. Organizacija: sektori i branjena područja. Program ih ne zna sam;
@@ -72,7 +76,7 @@ func SeedInitialData(database *sql.DB) error {
 	}
 
 	if userCount == 0 {
-		defaultPw := "gocop2026"
+		defaultPw := ZadanaLozinka
 		pwHash, err := bcrypt.GenerateFromPassword([]byte(defaultPw), bcrypt.DefaultCost)
 		if err != nil {
 			return err

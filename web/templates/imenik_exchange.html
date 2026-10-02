@@ -22,8 +22,7 @@
     <button type="submit" class="btn btn-secondary btn-sm">{{icon "search"}} Traži</button>
   </form>
   {{if .SmijeUskladiti}}
-  <form method="GET" action="/users/exchange" class="posta-trazi">
-    <input type="hidden" name="usporedi" value="1">
+  <form method="POST" action="/users/exchange/usporedi" class="posta-trazi">
     <select name="sektor" class="form-control" required>
       <option value="">— odaberite {{terml "sektor"}} —</option>
       {{range .Sektori}}<option value="{{.ID}}" {{if eq .ID $.Sektor}}selected{{end}}>{{.Name}}</option>{{end}}

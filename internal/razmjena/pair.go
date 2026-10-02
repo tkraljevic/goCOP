@@ -1,7 +1,6 @@
 package razmjena
 
 import (
-	"bufio"
 	"context"
 	"crypto/ed25519"
 	"crypto/tls"
@@ -92,6 +91,13 @@ type Confirm struct {
 	Payload  json.RawMessage `json:"payload,omitempty"`
 }
 
+// Ograde poruka uparivanja: obje se čitaju od uređaja kojem se još ne
+// vjeruje
+const (
+	najveciHello   = 64 << 10
+	najvecaPotvrda = 1 << 20
+)
+
 // ErrNotAPeer marks a connection that never spoke TLS — a probe, a
 // scanner, a browser — as opposed to a device that handshook and then
 // misbehaved. Only the former is worth waiting past.
@@ -177,9 +183,16 @@ func completeHandshake(conn *tls.Conn, priv ed25519.PrivateKey, id Identity) (*P
 		conn.Close()
 		return nil, err
 	}
+	// Hello se čita prije ikakvog povjerenja (i Dial ga čita od slušalice
+	// koju je zadao korisnik), pa je ograđen: pravi je manji od kilobajta.
 	var peer Hello
-	if err := json.NewDecoder(bufio.NewReader(conn)).Decode(&peer); err != nil {
+	citac := &ograniceniCitac{r: conn}
+	citac.postavi(najveciHello)
+	if err := json.NewDecoder(citac).Decode(&peer); err != nil {
 		conn.Close()
+		if errors.Is(err, ErrPorukaPrevelika) {
+			return nil, fmt.Errorf("reading the peer's hello: %w", err)
+		}
 		// EOF here means the connection was accepted and then closed
 		// without a word, which in practice means one thing: the other
 		// machine is not waiting to pair. Saying "reading the peer's
@@ -223,8 +236,11 @@ func (r *PairResult) Finish(approved bool, payload any) (bool, json.RawMessage, 
 	if err := json.NewEncoder(r.conn).Encode(mine); err != nil {
 		return false, nil, err
 	}
+	// potvrda nosi samo potvrdnicu članstva i ključ mreže
 	var theirs Confirm
-	if err := json.NewDecoder(r.conn).Decode(&theirs); err != nil {
+	citac := &ograniceniCitac{r: r.conn}
+	citac.postavi(najvecaPotvrda)
+	if err := json.NewDecoder(citac).Decode(&theirs); err != nil {
 		return false, nil, fmt.Errorf("the peer went away before confirming: %w", err)
 	}
 	if !approved || !theirs.Approved {

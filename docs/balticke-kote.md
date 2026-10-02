@@ -22,7 +22,7 @@ Naknadno je korisnik istog dana izričito potvrdio da su mađarske kote u
 priloženoj tablici Dunava baltičke, a hrvatske Trst. Zato je još pet kota
 premješteno bez promjene brojke iz Trsta u Baltička: Esztergom 101,640,
 Budapest 95,650, Dunaföldvár 89,580, Baja 81,720 i Mohács 79,880 m.
-Njihov Trst sada je prazan do potvrđenog preračuna. Promjena je provedena
+Njihov Trst tada je ostao prazan (vidi ispravak niže). Promjena je provedena
 kroz servis i knjigu verzija; ukupno je popunjeno 15 baltičkih kota.
 Hrvatske postaje i slovačke Bratislava/Komárno nisu mijenjane.
 
@@ -31,6 +31,28 @@ prema ranije zabilježenoj metodi/tablici COP-a. To nije novopotvrđena BKG
 transformacija. Te vrijednosti nisu ponovno korigirane niti proglašene
 provjerenima. Letenye ima i raniji HVRS71 preračun iz tako dobivenog Trsta;
 njegovo podrijetlo također ostaje zapisano i treba ga uzeti u obzir.
+
+**Ispravak 27. 9. i 2. 10. 2026.** Pet gornjih kota iz tablice od 20. 9. ipak
+je jadranskih (mađarska oznaka mAf), a ne baltičkih. DanubeHIS (ICPDR, podatak
+OVF-a) za iste postaje navodi kotu nule u sustavu EOMA 1900 za 0,68–0,73 m
+nižu, što je razlika Jadran–Baltik u Mađarskoj; pad vodnog lica od Mohácsa
+do Batine tek se s tim kotama slaže (6,6 → 3,5 cm/km). Zato su 27. 9. u
+Baltička upisane kote DanubeHIS-a, a 2. 10., uz potvrdu korisnika, vrijednosti
+iz tablice vraćene su u Trst:
+
+| Postaja | Trst (tablica, mAf) | Baltička (DanubeHIS) | Razlika |
+|---|---|---|---|
+| Esztergom | 101,640 | 100,920 | 0,720 m |
+| Budapest | 95,650 | 94,970 | 0,680 m |
+| Dunaföldvár | 89,580 | 88,860 | 0,720 m |
+| Baja | 81,720 | 80,990 | 0,730 m |
+| Mohács | 79,880 | 79,195 | 0,685 m |
+
+Upis je proveden kroz knjigu verzija (alat `tools/admin/trst-madjarske-kote`,
+izvan repozitorija), bez preračuna i bez promjene povijesti kote. Usklađenost
+mađarske jadranske realizacije s hrvatskim Trstom nije posebno provjerena.
+[Rekonstrukcija nizova](rekonstrukcija-nizova.md) računa s tim kotama kao
+jadranskima, što je ispravno.
 
 ## Transformacija nije automatska
 

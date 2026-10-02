@@ -18,6 +18,11 @@ import (
 // najviseBajtovaPoRazmjeni ograđuje jednu razmjenu; ostatak dođe sljedećom
 const najviseBajtovaPoRazmjeni = 48 << 20
 
+// najveciSadrzajUPoruci je najveći pojedini sadržaj koji se šalje. Ograda
+// po razmjeni pušta jednu veću stavku samu; ova ne pušta ni nju, jer bi
+// kao base64 (×4/3) poruka prešla ono što primatelj prima.
+var najveciSadrzajUPoruci = 64 << 20
+
 // najviseSadrzajaPoRazmjeni ograđuje broj stavki po razmjeni
 const najviseSadrzajaPoRazmjeni = 200
 
@@ -103,6 +108,12 @@ func (s *Service) sadrzajZa(ctx context.Context, otisci []string, njihovi *Wants
 			continue
 		}
 		if smije != nil && kanal != "" && !smije(kanal) {
+			continue
+		}
+		// pojedini sadržaj prelazi ogradu po razmjeni sam, ali ovaj bi kao
+		// base64 prešao i ogradu poruke na primatelju — ne šalje se nikad
+		if len(b) > najveciSadrzajUPoruci {
+			log.Printf("sinkronizacija: sadržaj %.12s (%d MB) je prevelik za razmjenu i ne šalje se", o, len(b)>>20)
 			continue
 		}
 		if ukupno+len(b) > najviseBajtovaPoRazmjeni && len(out) > 0 {

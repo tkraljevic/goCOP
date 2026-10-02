@@ -21,11 +21,7 @@ func NewSessionRepository(database *sql.DB) *SessionRepository {
 // CreateSession sprema novu sesiju
 func (r *SessionRepository) CreateSession(s *models.Session) error {
 	if s.ID == uuid.Nil {
-		newID, err := uuid.NewV7()
-		if err != nil {
-			return fmt.Errorf("greška pri generiranju UUIDv7 za sesiju: %w", err)
-		}
-		s.ID = newID
+		s.ID = uuid.New() // token sesije: UUIDv4, 122 slučajna bita
 	}
 	s.CreatedAt = time.Now().UTC()
 
@@ -39,7 +35,7 @@ func (r *SessionRepository) CreateSession(s *models.Session) error {
 	return nil
 }
 
-// GetSession dohvaća aktivnu sesiju po tokenu (UUIDv7)
+// GetSession dohvaća aktivnu sesiju po tokenu
 func (r *SessionRepository) GetSession(id uuid.UUID) (*models.Session, error) {
 	row := r.db.QueryRow(`
 		SELECT id, user_id, viewing_as, ip_address, user_agent, expires_at, created_at
@@ -94,6 +90,16 @@ func (r *SessionRepository) DeleteSessionsForUser(userID uuid.UUID) error {
 	_, err := r.db.Exec("DELETE FROM sessions WHERE user_id = ?", userID.String())
 	if err != nil {
 		return fmt.Errorf("greška pri gašenju sesija korisnika: %w", err)
+	}
+	return nil
+}
+
+// DeleteOtherSessionsForUser gasi sve sesije osobe osim zadane (promjena
+// lozinke: ostaje samo prijava iz koje je lozinka promijenjena)
+func (r *SessionRepository) DeleteOtherSessionsForUser(userID, zadrzi uuid.UUID) error {
+	_, err := r.db.Exec("DELETE FROM sessions WHERE user_id = ? AND id <> ?", userID.String(), zadrzi.String())
+	if err != nil {
+		return fmt.Errorf("greška pri gašenju ostalih sesija korisnika: %w", err)
 	}
 	return nil
 }

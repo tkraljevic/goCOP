@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"html/template"
+	"mime"
 	"net/http"
 	"strings"
 	"time"
@@ -110,6 +111,10 @@ func (h *SettingsHandler) HandlePairListen(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *SettingsHandler) HandlePairStop(w http.ResponseWriter, r *http.Request) {
+	if err := requireAdmin(r); err != nil {
+		http.Error(w, err.Error(), http.StatusForbidden)
+		return
+	}
 	h.peers.StopListening()
 	writeJSON(w, h.peers.PairStatus())
 }
@@ -149,7 +154,7 @@ func (h *SettingsHandler) HandlePairConfirm(w http.ResponseWriter, r *http.Reque
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	outcome, err := h.peers.ConfirmPair(r.Context(), req.Approved)
+	outcome, err := h.peers.ConfirmPair(r.Context(), req.Approved, true) // requireAdmin gore
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -360,8 +365,16 @@ func (*forbiddenError) Error() string {
 	return "ovu radnju smije obaviti samo globalni administrator"
 }
 
+// jsonTijelo javlja nosi li zahtjev JSON. Vrsta se čita točno: tuđa stranica
+// smije bez pitanja poslati samo text/plain, obrazac ili multipart, pa
+// "text/plain; x=application/json" ne smije proći kao JSON.
+func jsonTijelo(r *http.Request) bool {
+	vrsta, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	return err == nil && vrsta == "application/json"
+}
+
 func decodeBody(r *http.Request, v any) error {
-	if strings.Contains(r.Header.Get("Content-Type"), "application/json") {
+	if jsonTijelo(r) {
 		if err := json.NewDecoder(r.Body).Decode(v); err != nil {
 			return errBadJSON(err)
 		}

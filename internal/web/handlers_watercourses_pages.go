@@ -1,6 +1,7 @@
 package web
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"github.com/google/uuid"
@@ -119,7 +120,7 @@ func (h *WatercoursesHandler) ShowWatercourse(w http.ResponseWriter, r *http.Req
 	h.napuniLetve(ctx, &data)
 
 	if geom, err := h.watercourseService.GetWatercourseGeometry(ctx, water.Code); err == nil && len(geom) > 0 {
-		data.GeometryJSON = template.JS(geom)
+		data.GeometryJSON, _ = jsonZaSkriptu(geom)
 	}
 
 	var mapStations []WatercourseStationMapItem
@@ -217,10 +218,25 @@ func (h *WatercoursesHandler) napuniLetve(ctx context.Context, data *Watercourse
 	}
 }
 
+// jsonZaSkriptu priprema spremljeni JSON za <script type="application/json">.
+// html/template vrijednost tipa template.JS ne escapira, a geometrija vode je
+// tekst kako je stigao (učitana datoteka, razmjena s drugim čvorom): niz
+// "</script>" u nekom svojstvu zatvorio bi oznaku i ostatak bi se izvršio kao
+// skripta. HTMLEscape piše <, > i & kao \u003c…, što je isti JSON. Neispravan
+// JSON se ne prikazuje.
+func jsonZaSkriptu(raw []byte) (template.JS, bool) {
+	if !json.Valid(raw) {
+		return "", false
+	}
+	var b bytes.Buffer
+	json.HTMLEscape(&b, raw)
+	return template.JS(b.String()), true
+}
+
 // wantsPage javlja je li zahtjev došao iz običnog HTML obrasca, kojem se
 // odgovara preusmjeravanjem, a ne iz skripte koja čeka JSON
 func wantsPage(r *http.Request) bool {
-	return !strings.Contains(r.Header.Get("Content-Type"), "application/json")
+	return !jsonTijelo(r)
 }
 
 // redirectWith preusmjerava na stranicu s porukom u upitu

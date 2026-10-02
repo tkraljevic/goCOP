@@ -1,0 +1,38 @@
+# Provjera koda na svako slanje i jednom tjedno: go vet, testovi i
+# govulncheck (poznate ranjivosti u Go-u i ovisnostima koje kod stvarno
+# poziva). Tjedna provjera hvata ranjivosti objavljene nakon izdanja.
+name: Provjera
+
+on:
+  push:
+    branches: ["master"]
+  pull_request:
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  testovi:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.27.x"
+          check-latest: true
+      - run: go vet ./...
+      - run: go test ./...
+
+  ranjivosti:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.27.x"
+          check-latest: true
+      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...

@@ -112,10 +112,14 @@ type Ports struct {
 
 // Service veže identitet, popis čvorova i knjigu verzija u sinkronizaciju
 type Service struct {
-	db    *sql.DB
-	rec   *ledger.Recorder
-	node  *Node
-	ports Ports
+	// skracene: razgovori u kojima je delta skraćena zbog veličine, pa
+	// ima još; razmjena tada nastavlja odmah (syncPeers), ne za pet minuta
+	skracene sync.Map // *razmjena.Conn → bool
+	josIma   sync.Map // nodeID → bool, iz zadnjeg SyncWith
+	db       *sql.DB
+	rec      *ledger.Recorder
+	node     *Node
+	ports    Ports
 
 	mu      sync.Mutex
 	pending *razmjena.PairResult // uparivanje koje čeka odluku čovjeka
@@ -566,7 +570,10 @@ type PairOutcome struct {
 // potvrditi. Uz potvrdu putuje paket dobrodošlice: tko smo, moja potvrda
 // članstva i — kad ovaj čvor drži ključ mreže — potvrda za drugoga.
 // Uparen čvor bez potvrde je poznat, ali ne i član: razmjena mu se odbija.
-func (s *Service) ConfirmPair(ctx context.Context, approved bool) (PairOutcome, error) {
+// primi kaže smije li čovjek koji potvrđuje primiti drugi čvor u mrežu
+// (globalni administrator, ili izravan klijent svježeg čvora); bez toga se
+// potvrda članstva ne izdaje ni kad ovaj čvor drži ključ mreže.
+func (s *Service) ConfirmPair(ctx context.Context, approved, primi bool) (PairOutcome, error) {
 	s.mu.Lock()
 	res := s.pending
 	s.pending = nil
@@ -577,7 +584,7 @@ func (s *Service) ConfirmPair(ctx context.Context, approved bool) (PairOutcome, 
 
 	var given *welcomePack
 	if approved {
-		given = s.welcomeFor(ctx, res.Peer.DeviceID, res.PeerKey)
+		given = s.welcomeFor(ctx, res.Peer.DeviceID, res.PeerKey, primi)
 	}
 	ok, theirs, err := res.Finish(approved, given)
 	if err != nil {
@@ -635,6 +642,9 @@ type frontierMsg struct {
 
 type deltaMsg struct {
 	Versions []ledger.Version `json:"versions"`
+	// Skraceno: pošiljatelj je deltu skratio zbog veličine poruke, pa ima
+	// još; pozivatelj tada nastavlja odmah. Stariji čvor polje ne šalje ni čita.
+	Skraceno bool `json:"skraceno,omitempty"`
 }
 
 type doneMsg struct {
@@ -649,14 +659,18 @@ func (s *Service) Serve(ctx context.Context) error {
 		peer, _ := s.peerByKey(ctx, c.PeerKey)
 		started := time.Now()
 		applied, sent, theirs, err := s.exchange(ctx, c, false)
+		s.skracene.Delete(c)
 		s.noteSync(ctx, peer, c, ishodRazmjene(applied, sent, theirs, time.Since(started), err))
 	}
+	// tunel ima svoju ogradu: kroz njega dolazi bilo tko s interneta, pa
+	// njegova rukovanja ne smiju zauzeti mjesta porta u lokalnoj mreži
+	port := razmjena.NovaOgrada()
 	go func() {
-		if err := razmjena.ServeExchangeOn(ctx, s.node.key, Protocol, s.tunel, s.trusted, primi); err != nil && ctx.Err() == nil {
+		if err := razmjena.ServeExchangeOn(ctx, s.node.key, Protocol, s.tunel, s.trusted, primi, razmjena.NovaOgradaTunela(port)); err != nil && ctx.Err() == nil {
 			log.Printf("razmjena kroz tunel: %v", err)
 		}
 	}()
-	return razmjena.ServeExchange(ctx, s.node.key, Protocol, s.ports.Exchange, s.trusted, primi)
+	return razmjena.ServeExchange(ctx, s.node.key, Protocol, s.ports.Exchange, s.trusted, primi, port)
 }
 
 // TunelHandler je razmjena kroz tunel za web sučelje (razmjena.PutTunela):
@@ -721,12 +735,39 @@ func (s *Service) SyncWith(ctx context.Context, nodeID string) (applied, sent in
 		started := time.Now()
 		var theirs frontierMsg
 		applied, sent, theirs, err = s.exchange(ctx, conn, true)
+		_, skraceno := s.skracene.LoadAndDelete(conn)
+		s.josIma.Store(nodeID, skraceno && err == nil)
 		conn.Close()
 		s.noteSync(ctx, peer, conn, ishodRazmjene(applied, sent, theirs, time.Since(started), err))
 		return applied, sent, err
 	}
 	s.noteSync(ctx, peer, nil, syncOutcome{err: lastErr})
 	return 0, 0, fmt.Errorf("čvor %s nije dostupan ni na jednoj adresi: %v", nodeID, lastErr)
+}
+
+// najviseBajtovaDelte ograđuje jednu poruku delte (verzije kao JSON).
+// Primatelj od 0.0.25 odbija poruku veću od razmjena.NajvecaPoruka, a
+// stariji čvor nema ograde, pa ovo čuva i njegovu memoriju.
+var najviseBajtovaDelte = 32 << 20
+
+// ogradiDeltu reže deltu kad bi poruka prešla najvise bajtova; ostatak ide
+// sljedećim razgovorom. Delta je složena po autoru i kanalu, svaki redom
+// nastanka, pa je odrezani dio uvijek početak niza nekog ključa: granica
+// primatelja (najveći version_id po ključu) time ne preskače ništa. Prva
+// verzija ide uvijek, inače jedna golema ne bi prošla nikad.
+func ogradiDeltu(delta []ledger.Version, najvise int) []ledger.Version {
+	ukupno := 0
+	for i, v := range delta {
+		b, err := json.Marshal(v)
+		if err != nil {
+			return delta // poruka ionako neće proći NewEnvelope, kao i dosad
+		}
+		ukupno += len(b) + 1 // zarez među elementima
+		if ukupno > najvise && i > 0 {
+			return delta[:i]
+		}
+	}
+	return delta
 }
 
 // pomakniGranicu vraća granicu uvećanu za poslane verzije
@@ -805,9 +846,12 @@ func (s *Service) exchange(ctx context.Context, c *razmjena.Conn, initiator bool
 	if err != nil {
 		return 0, 0, theirs, err
 	}
+	puna := len(delta)
+	delta = ogradiDeltu(delta, najviseBajtovaDelte)
+	skraceno := len(delta) < puna
 	var incoming deltaMsg
 	if initiator {
-		if err := send(kindDelta, deltaMsg{delta}); err != nil {
+		if err := send(kindDelta, deltaMsg{delta, skraceno}); err != nil {
 			return 0, 0, theirs, err
 		}
 		if err := expect(kindDelta, &incoming); err != nil {
@@ -817,11 +861,15 @@ func (s *Service) exchange(ctx context.Context, c *razmjena.Conn, initiator bool
 		if err := expect(kindDelta, &incoming); err != nil {
 			return 0, 0, theirs, err
 		}
-		if err := send(kindDelta, deltaMsg{delta}); err != nil {
+		if err := send(kindDelta, deltaMsg{delta, skraceno}); err != nil {
 			return 0, 0, theirs, err
 		}
 	}
 	sent = len(delta)
+	// Bilo koja strana je skratila deltu: ima još, razgovor se ponavlja odmah
+	if skraceno || incoming.Skraceno {
+		s.skracene.Store(c, true)
+	}
 	// Zapamćena granica druge strane uključuje i ono što joj je upravo
 	// poslano; inače bi ploča do sljedeće razmjene brojala poslane verzije
 	// kao da još čekaju.

@@ -116,7 +116,7 @@ func (h *AktiHandler) ZigSlika(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	w.Header().Set("Content-Type", z.Mime)
+	posluziTudjuDatoteku(w, z.Mime, "", true)
 	w.Header().Set("Cache-Control", "private, no-store")
 	_, _ = w.Write(z.Slika)
 }
@@ -166,7 +166,7 @@ func (h *AktiHandler) PotpisSlika(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	w.Header().Set("Content-Type", z.Mime)
+	posluziTudjuDatoteku(w, z.Mime, "", true)
 	w.Header().Set("Cache-Control", "private, no-store")
 	_, _ = w.Write(z.Slika)
 }

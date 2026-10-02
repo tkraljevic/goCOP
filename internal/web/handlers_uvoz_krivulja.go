@@ -2,7 +2,6 @@ package web
 
 import (
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -72,7 +71,7 @@ func (h *UvozHandler) PregledUvozaKrivulja(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	defer f.Close()
-	sadrzaj, err := io.ReadAll(io.LimitReader(f, 8<<20))
+	sadrzaj, err := procitajDatoteku(f, 8<<20)
 	if err != nil {
 		d.ErrorMessage = err.Error()
 		h.pisi(w, d)

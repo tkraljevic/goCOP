@@ -388,7 +388,7 @@ func (h *SlivoviHandler) ShowKisomjerForm(w http.ResponseWriter, r *http.Request
 // kisomjerIzZahtjeva čita točku iz JSON tijela ili običnog obrasca
 func kisomjerIzZahtjeva(r *http.Request) (*models.Kisomjer, error) {
 	var k models.Kisomjer
-	if strings.Contains(r.Header.Get("Content-Type"), "application/json") {
+	if jsonTijelo(r) {
 		if err := json.NewDecoder(r.Body).Decode(&k); err != nil {
 			return nil, fmt.Errorf("neispravan JSON")
 		}
@@ -480,7 +480,7 @@ func (h *SlivoviHandler) HandleUpdate(w http.ResponseWriter, r *http.Request) {
 func (h *SlivoviHandler) HandleDelete(w http.ResponseWriter, r *http.Request) {
 	perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
 	var code string
-	if strings.Contains(r.Header.Get("Content-Type"), "application/json") {
+	if jsonTijelo(r) {
 		var req struct {
 			Code string `json:"code"`
 		}
@@ -499,6 +499,10 @@ func (h *SlivoviHandler) HandlePolozaji(w http.ResponseWriter, r *http.Request) 
 	var req struct {
 		Tocke []service.Polozaj `json:"tocke"`
 	}
+	if !jsonTijelo(r) {
+		http.Error(w, "Položaji se šalju kao JSON (Content-Type: application/json)", http.StatusUnsupportedMediaType)
+		return
+	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Neispravan JSON", http.StatusBadRequest)
 		return
@@ -516,7 +520,7 @@ func (h *SlivoviHandler) HandlePolozaji(w http.ResponseWriter, r *http.Request) 
 func (h *SlivoviHandler) HandleSliv(w http.ResponseWriter, r *http.Request) {
 	perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
 	var m models.Sliv
-	if strings.Contains(r.Header.Get("Content-Type"), "application/json") {
+	if jsonTijelo(r) {
 		if err := json.NewDecoder(r.Body).Decode(&m); err != nil {
 			http.Error(w, "Neispravan JSON", http.StatusBadRequest)
 			return

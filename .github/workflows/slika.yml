@@ -10,11 +10,18 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 jobs:
+  # Slika se gradi tek kad prođu testovi i provjera ranjivosti
+  provjera:
+    uses: ./.github/workflows/provjera.yml
+
   slika:
+    needs: provjera
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v4
 

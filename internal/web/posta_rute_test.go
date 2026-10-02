@@ -144,6 +144,7 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	h.SetImenik(tmpl("imenik_exchange.html"), poslovi.NoviRegistar())
 	mux.HandleFunc("GET /users/exchange", h.ShowImenik)
 	mux.HandleFunc("POST /users/exchange", h.HandleImenikPrimijeni)
+	mux.HandleFunc("POST /users/exchange/usporedi", h.HandleImenikUsporedi)
 	mux.HandleFunc("GET /posta/novo", h.ShowNovoPismo)
 	mux.HandleFunc("POST /posta/novo", h.HandlePosaljiPismo)
 	mux.HandleFunc("GET /posta", h.ShowSanducic)
@@ -274,10 +275,12 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 		{ID: "AAMk/1+=", MessageID: "<sig-1@voda.hr>", Predmet: "Obavijest: dokument je potpisan", Od: "Pisarnica", OdAdresa: "signator@voda.hr", Kad: time.Now(), Tekst: "Dokument je potpisan.\nU privitku.",
 			HTML: `<html><body><p>Dokument je <b>potpisan</b>.</p><img src="cid:logo1@voda.hr"><script>alert(1)</script></body></html>`,
 			Privitci: []posta.PrivitakPisma{{ID: "AAMk/priv+1=", Ime: "obavijest.pdf", Vrsta: "application/pdf", Velicina: len(potpisan)},
-				{ID: "AAMk/logo=", Ime: "logo.png", Vrsta: "image/png", Velicina: 3, ContentID: "logo1@voda.hr", Ugradjen: true}}},
+				{ID: "AAMk/logo=", Ime: "logo.png", Vrsta: "image/png", Velicina: 3, ContentID: "logo1@voda.hr", Ugradjen: true},
+				{ID: "AAMk/svg=", Ime: "slika.svg", Vrsta: "image/svg+xml", Velicina: 3, ContentID: "svg1@voda.hr", Ugradjen: true}}},
 		{ID: "AAMk/2=", Predmet: "Ručak", Od: "Kolega", OdAdresa: "kolega@voda.hr", Kad: time.Now().Add(-time.Hour), Procitano: true},
 	}
-	srv.Datoteke = map[string][]byte{"AAMk/priv+1=": potpisan, "AAMk/logo=": []byte("png")}
+	srv.Datoteke = map[string][]byte{"AAMk/priv+1=": potpisan, "AAMk/logo=": []byte("png"),
+		"AAMk/svg=": []byte(`<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>`)}
 	srv.Korisnikove = map[string]string{"AAMk/mapa-projekti=": "Projekti"}
 	popis := zovi(httptest.NewRequest(http.MethodGet, "/posta", nil)).Body.String()
 	if !strings.Contains(popis, "Obavijest: dokument je potpisan") || !strings.Contains(popis, "Ručak") || !strings.Contains(popis, "ukupno 2") {
@@ -300,6 +303,13 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	}
 	if w := zovi(httptest.NewRequest(http.MethodGet, "/posta/privitak?id=AAMk%2Flogo%3D&u=1", nil)); !strings.HasPrefix(w.Header().Get("Content-Disposition"), "inline") || w.Header().Get("Content-Type") != "image/png" {
 		t.Errorf("ugrađena slika se poslužuje u tijelu: %s %s", w.Header().Get("Content-Disposition"), w.Header().Get("Content-Type"))
+	} else if w.Header().Get("Content-Security-Policy") != politikaDatoteke || w.Header().Get("X-Content-Type-Options") != "nosniff" {
+		t.Errorf("ugrađena slika bez zaštite: %q", w.Header().Get("Content-Security-Policy"))
+	}
+	// SVG iz pisma nosi skriptu: ni u tijelu pisma (u=1) se ne prikazuje, nego preuzima
+	if w := zovi(httptest.NewRequest(http.MethodGet, "/posta/privitak?id=AAMk%2Fsvg%3D&u=1", nil)); !strings.HasPrefix(w.Header().Get("Content-Disposition"), "attachment") ||
+		w.Header().Get("Content-Type") != "application/octet-stream" || w.Header().Get("Content-Security-Policy") != politikaDatoteke {
+		t.Errorf("SVG privitak: %s %s %s", w.Header().Get("Content-Disposition"), w.Header().Get("Content-Type"), w.Header().Get("Content-Security-Policy"))
 	}
 	// mape i pretraga
 	if w := zovi(httptest.NewRequest(http.MethodGet, "/posta?trazi=ru%C4%8Dak", nil)); !strings.Contains(w.Body.String(), "Ručak") || strings.Contains(w.Body.String(), "Obavijest: dokument") {
@@ -453,18 +463,24 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 		t.Fatalf("traženje u adresaru:\n%.800s", w.Body.String())
 	}
 	// bez sektora se usporedba ne pokreće: svi odjednom preopterete poslužitelj
-	if w := zovi(httptest.NewRequest(http.MethodGet, "/users/exchange?usporedi=1", nil)); !strings.Contains(w.Body.String(), "Odaberite sektor") || strings.Contains(w.Body.String(), "data-posao=") {
-		t.Errorf("usporedba bez sektora:\n%.400s", w.Body.String())
+	if loc := post("/users/exchange/usporedi", url.Values{}); !strings.Contains(loc, "Odaberite sektor") || strings.Contains(loc, "rezultat=") {
+		t.Errorf("usporedba bez sektora: %s", loc)
+	}
+	// stotine upita adresaru ne pokreće poveznica: GET samo pokazuje stranicu
+	if w := zovi(httptest.NewRequest(http.MethodGet, "/users/exchange?usporedi=1&sektor=B", nil)); strings.Contains(w.Body.String(), "data-posao=") {
+		t.Error("GET je pokrenuo usporedbu imenika")
+	}
+	if !strings.Contains(zovi(httptest.NewRequest(http.MethodGet, "/users/exchange", nil)).Body.String(), `action="/users/exchange/usporedi"`) {
+		t.Error("stranica adresara nema obrazac za usporedbu")
 	}
 	// usporedba je posao u pozadini s trakom napretka; stranica rezultata čeka da završi
-	usporedi := func() string {
-		pocetak := zovi(httptest.NewRequest(http.MethodGet, "/users/exchange?usporedi=1&sektor=B", nil)).Body.String()
-		m := regexp.MustCompile(`data-posao="([^"]+)"`).FindStringSubmatch(pocetak)
+	pricekaj := func(loc string) string {
+		m := regexp.MustCompile(`rezultat=([^&#]+)`).FindStringSubmatch(loc)
 		if m == nil {
-			t.Fatalf("usporedba nije pokrenuta kao posao:\n%.600s", pocetak)
+			t.Fatalf("usporedba nije pokrenuta kao posao: %s", loc)
 		}
 		for i := 0; i < 100; i++ {
-			s := zovi(httptest.NewRequest(http.MethodGet, "/users/exchange?rezultat="+m[1], nil)).Body.String()
+			s := zovi(httptest.NewRequest(http.MethodGet, "/users/exchange?rezultat="+url.QueryEscape(m[1]), nil)).Body.String()
 			if !strings.Contains(s, "data-posao=") {
 				return s
 			}
@@ -473,14 +489,19 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 		t.Fatal("usporedba nije završila")
 		return ""
 	}
+	usporedi := func() string { return pricekaj(post("/users/exchange/usporedi", url.Values{"sektor": {"B"}})) }
 	usp := usporedi()
 	if !strings.Contains(usp, `value="`+kunac.ID.String()+`|email"`) || !strings.Contains(usp, "099 111 2222") || !strings.Contains(usp, "više osoba tog imena") {
 		t.Fatalf("usporedba:\n%.1500s", usp)
 	}
-	loc = post("/users/exchange", url.Values{"p": {kunac.ID.String() + "|email", kunac.ID.String() + "|mobile_phone"},
+	loc = post("/users/exchange", url.Values{"sektor": {"B"}, "p": {kunac.ID.String() + "|email", kunac.ID.String() + "|mobile_phone"},
 		"v_" + kunac.ID.String() + "_email": {"mile.kunac@voda.hr"}, "v_" + kunac.ID.String() + "_mobile_phone": {"099 111 2222"}})
-	if !strings.Contains(loc, "success") {
+	if !strings.Contains(loc, "success") || !strings.Contains(loc, "rezultat=") {
 		t.Fatalf("primjena iz adresara: %s", loc)
+	}
+	// nakon upisa usporedba ide ponovno (POST-om), da se vidi što je ostalo
+	if s := pricekaj(loc); strings.Contains(s, `|email"`) {
+		t.Error("nakon usklađivanja adresa se više ne razlikuje (usporedba nakon upisa)")
 	}
 	if k, _ := users.GetUserByID(kunac.ID); k.Email != "mile.kunac@voda.hr" || k.MobilePhone != "099-111-2222" || k.Phone != "" {
 		t.Errorf("djelatnik nakon usklađivanja: %+v", k)

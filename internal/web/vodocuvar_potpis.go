@@ -57,7 +57,20 @@ func (h *VodocuvarHandler) potpisnikZa(r *http.Request, u *models.User, lozinka 
 	if lozinka == "" {
 		return nil, fmt.Errorf("upišite lozinku: njome otključavate svoj potpisni ključ")
 	}
-	return ps.Potpisnik(ctx, u, lozinka)
+	return otkljucajUzOgranicenje(u, func() (*potpis.Potpisnik, error) { return ps.Potpisnik(ctx, u, lozinka) })
+}
+
+// otkljucajUzOgranicenje otključava potpisni ključ lozinkom računa uz
+// ograničenje krivih upisa (ratelimit.go): ključ je zaključan lozinkom, pa bi
+// inače svaki potpis bio proročište za njezino pogađanje
+func otkljucajUzOgranicenje(u *models.User, otkljucaj func() (*potpis.Potpisnik, error)) (*potpis.Potpisnik, error) {
+	kljuc := kljucPonovneLozinke("", u.ID.String())
+	if err := ponovnaLozinkaDopustena(kljuc); err != nil {
+		return nil, err
+	}
+	p, err := otkljucaj()
+	ishodPonovneLozinke(kljuc, err)
+	return p, err
 }
 
 // dodatakPotpisa slaže polje potpisa s izgledom bloka na mjestu koje list

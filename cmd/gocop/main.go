@@ -44,7 +44,7 @@ import (
 
 // verzijaPrograma je izdanje goCOP-a. Alfa traje dok se ne zaokruže
 // funkcionalnosti koje program treba imati; mijenja se pri izdavanju.
-const verzijaPrograma = "0.0.24-alfa"
+const verzijaPrograma = "0.0.25-alfa"
 
 // version se može zadati pri prevođenju (-ldflags "-X main.version=…");
 // prazno znači verzijaPrograma, s oznakom commita iz kojega je prevedeno.
@@ -683,6 +683,13 @@ func main() {
 	}
 	server.SetZid(service.NewZidService(recorder, journalRepo, sectionRepo, mtsRepo, userRepo, stationRepo, episodeRepo))
 	server.SetKarta(cfg.Karta.Plocice, cfg.Karta.Zasluge, cfg.Karta.NajviseZ)
+	if len(cfg.Web.PouzdaniPosrednici) > 0 || cfg.Web.ZaglavljeKlijenta != "" { // prazan popis = zadane mreže
+		posrednici, err := web.NoviPosrednici(cfg.Web.PouzdaniPosrednici, cfg.Web.ZaglavljeKlijenta)
+		if err != nil {
+			log.Fatalf("gocop.toml [web]: %v", err)
+		}
+		server.SetPosrednici(posrednici)
+	}
 	server.SetJavnaAdresa(cfg.JavnaAdresa)
 	skenovi := cfg.Skenovi
 	if skenovi == "" {

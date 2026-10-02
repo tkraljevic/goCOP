@@ -5,7 +5,6 @@ import (
 	"crypto/ed25519"
 	"crypto/x509"
 	"errors"
-	"fmt"
 	"log"
 	"time"
 
@@ -116,7 +115,7 @@ func (s *PotpisService) provjeriLozinku(u *models.User, lozinka string) error {
 		return ErrUnauthorized
 	}
 	if s.lozinka != nil && !s.lozinka(cijeli.PasswordHash, lozinka) {
-		return errors.New("lozinka nije točna")
+		return greskaLozinke("lozinka nije točna")
 	}
 	return nil
 }
@@ -173,7 +172,7 @@ func (s *PotpisService) Potpisnik(ctx context.Context, u *models.User, lozinka s
 	}
 	p, err := potpis.NoviPotpisnik(zapisUPotpis(k), lozinka, ca)
 	if errors.Is(err, potpis.ErrLozinka) {
-		return nil, fmt.Errorf("lozinka ne otključava vaš potpisni ključ; ako vam je administrator poništio lozinku, napravite novi ključ u profilu")
+		return nil, greskaLozinke("lozinka ne otključava vaš potpisni ključ; ako vam je administrator poništio lozinku, napravite novi ključ u profilu")
 	}
 	return p, err
 }

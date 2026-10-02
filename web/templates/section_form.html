@@ -262,6 +262,9 @@ function addPart(p) {
 function waterHelp(sel) { const h = partOf(sel).querySelector('[data-role=water-help]'); if (h) h.hidden = !!sel.value; }
 function partOf(btn) { return btn.closest ? btn.closest('.part-edit') : btn; }
 function renumber() { document.querySelectorAll('#parts .part-edit').forEach((el, i) => el.querySelector('[data-role=ordinal]').textContent = i + 1); }
+// Nazivi iz registra stižu i razmjenom s drugih čvorova: u stranicu idu kao
+// tekst, nikad kao HTML
+const escNaziv = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function lengthFrom(input) {
   const el = partOf(input); const a = kmOf(el.querySelector('[data-field=km_from]').value), b = kmOf(el.querySelector('[data-field=km_to]').value);
   const len = el.querySelector('[data-field=length_km]');
@@ -269,7 +272,7 @@ function lengthFrom(input) {
 }
 function renderChips(el) {
   const st = JSON.parse(el.dataset.stations); const sc = el.querySelector('[data-role=st-chips]'); sc.innerHTML = '';
-  for (const id of st) { const s = STATIONS.find(x => x.id === id); const c = document.createElement('span'); c.className = 'reg-chip'; c.innerHTML = (s ? s.label : id) + ' <button type="button" title="Ukloni" style="border:0;background:none;cursor:pointer;">&times;</button>'; c.querySelector('button').onclick = () => { el.dataset.stations = JSON.stringify(JSON.parse(el.dataset.stations).filter(x => x !== id)); renderChips(el); }; sc.appendChild(c); }
+  for (const id of st) { const s = STATIONS.find(x => x.id === id); const c = document.createElement('span'); c.className = 'reg-chip'; c.innerHTML = escNaziv(s ? s.label : id) + ' <button type="button" title="Ukloni" style="border:0;background:none;cursor:pointer;">&times;</button>'; c.querySelector('button').onclick = () => { el.dataset.stations = JSON.stringify(JSON.parse(el.dataset.stations).filter(x => x !== id)); renderChips(el); }; sc.appendChild(c); }
   el.querySelector('[data-role=st-count]').textContent = st.length;
   const tr = JSON.parse(el.dataset.territories); const tc = el.querySelector('[data-role=terr-chips]'); tc.innerHTML = '';
   // Naselja stoje uz svoj nasip, kao u Privitku; bez nasipa — ili bez oznake —
@@ -293,7 +296,7 @@ function renderChips(el) {
     for (const t of g.stavke) {
       const key = kljucPodrucja(t);
       const c = document.createElement('span'); c.className = 'reg-chip';
-      c.innerHTML = (TERR_LABELS[key] || t.label || key) + ' <button type="button" title="Ukloni" style="border:0;background:none;cursor:pointer;">&times;</button>';
+      c.innerHTML = escNaziv(TERR_LABELS[key] || t.label || key) + ' <button type="button" title="Ukloni" style="border:0;background:none;cursor:pointer;">&times;</button>';
       c.querySelector('button').onclick = () => { makniPodrucje(el, t); };
       red.appendChild(c);
     }
@@ -414,7 +417,7 @@ async function loadSettlements(sel) {
   const el = partOf(sel); const box = el.querySelector('[data-role=settlements]'); box.innerHTML = ''; box.hidden = true; el.querySelector('[data-role=terr-add]').disabled = !sel.value;
   if (!sel.value) return;
   const res = await fetch('/api/municipalities/' + sel.value + '/settlements'); const data = await res.json(); const list = data.settlements || data.data || data;
-  for (const s of list) { const l = document.createElement('label'); l.style.cssText = 'display:flex;gap:0.4rem;align-items:center;'; l.innerHTML = '<input type="checkbox" value="' + s.id + '" data-name="' + s.name.replace(/"/g, '&quot;') + '"> ' + s.name; box.appendChild(l); }
+  for (const s of list) { const l = document.createElement('label'); l.style.cssText = 'display:flex;gap:0.4rem;align-items:center;'; l.innerHTML = '<input type="checkbox" value="' + escNaziv(s.id) + '" data-name="' + escNaziv(s.name) + '"> ' + escNaziv(s.name); box.appendChild(l); }
   box.hidden = list.length === 0;
 }
 function addTerritory(btn) {
@@ -484,7 +487,7 @@ function embankmentChoice(sel) {
 function embankmentNames(el) { return [...el.querySelectorAll('.emb-row')].map(r => r.querySelector('[data-field=name]').value.trim()).filter(Boolean); }
 function fillEmbankmentSelect(sel, names, first, value) {
   const prije = value !== undefined ? value : sel.value;
-  sel.innerHTML = '<option value="">' + first + '</option>' + names.map(n => '<option value="' + n.replace(/"/g, '&quot;') + '">' + n + '</option>').join('');
+  sel.innerHTML = '<option value="">' + escNaziv(first) + '</option>' + names.map(n => '<option value="' + escNaziv(n) + '">' + escNaziv(n) + '</option>').join('');
   // zatečeni naziv koji nije među nasipima (tipfeler iz uvoza) ostaje vidljiv, da se ne izgubi tiho
   if (prije && !names.includes(prije)) { const o = document.createElement('option'); o.value = prije; o.textContent = prije + ' (nije među nasipima)'; sel.appendChild(o); }
   sel.value = prije || '';

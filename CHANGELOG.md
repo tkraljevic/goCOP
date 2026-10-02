@@ -4,6 +4,50 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.25-alfa — 2. 10. 2026.
+
+**Sigurnosno učvršćivanje.** Nadograditi najprije čvor dostupan kroz tunel.
+
+- **Uparivanje i primanje u mrežu samo administrator.** Dosad je svaki
+  prijavljeni korisnik, i kroz tunel, mogao upariti svoje računalo i dobiti
+  članstvo u mreži, a s njim sve podatke. Sada uparivanje pokreće i potvrđuje
+  globalni administrator; svjež čvor bez računa nudi uparivanje samo iz
+  lokalne mreže, nikad kroz tunel.
+- **Zadana lozinka izvana ne vrijedi.** Javna je, pa prva prijava njome ide iz
+  lokalne mreže; izvana s privremenom lozinkom od administratora.
+- **Prijava.** Poruka ne otkriva postoji li račun ni je li deaktiviran (ni
+  vremenom odgovora). Pokušaji se broje po imenu s adrese, po adresi i, za
+  prijave izvana, po imenu, pa napadač više ne zaključava tuđi račun s pet
+  pokušaja, a napad s interneta ne zaključava prijavu iz ureda. Ponovni upis
+  lozinke (potpis, ovjera, e-pošta) ograničen je na tri pokušaja u 15 min.
+  Promjena lozinke gasi ostale prijave te osobe na istom čvoru.
+- **Sesija.** Kolačić je iza HTTPS-a (tunel) i `Secure`; identifikator sesije
+  je nasumičan (UUIDv4, 122 bita) umjesto vremenskog.
+- **Zaštita od tuđih stranica.** Izmjene (POST) koje pokrene tuđa web-stranica
+  odbijaju se; usporedba imenika s Exchangeom, koja mijenja podatke, ide
+  preko POST-a umjesto GET-a.
+- **XSS.** Geometrija vodotoka, nazivi iz registra u obrascu dionice i nazivi
+  koje javljaju računala s lokalne mreže (uparivanje) idu u stranicu samo kao
+  tekst. Privici e-pošte i slike poslužuju se u pješčaniku; u pregledniku se
+  otvaraju samo PNG, JPEG, GIF i WebP, a SVG i HTML se preuzimaju.
+- **Zaglavlja.** `nosniff`, `Referrer-Policy: same-origin`, zabrana ugradnje u
+  okvir, osnovni CSP i `Permissions-Policy`; iza HTTPS-a HSTS.
+- **Pouzdani posrednici.** Adresa klijenta iz `CF-Connecting-IP` vrijedi samo
+  od pouzdanog posrednika (zadano ovo računalo i privatne mreže; suzi se u
+  `gocop.toml` `[web] pouzdani_posrednici`); zahtjev sa zaglavljem posrednika
+  uvijek je vanjski. Krivo zadan posrednik zapisuje se u dnevnik.
+- **Ograničenja.** Rokovi po ruti (obična stranica minuta, uvozi i izvozi 30
+  min, tok događaja bez roka uz ping), tijelo zahtjeva zadano 2 MB, rute s
+  datotekama svoje granice; prevelika datoteka odbija se umjesto da se reže.
+  Poruka razmjene najviše 256 MiB, delta 32 MiB (ostatak odmah u nastavku),
+  tunel 32 veze i 2 po klijentu uz rukovanje od 5 s, port razmjene 32
+  rukovanja, a razmjena najviše 4 odjednom (višak dobije „čvor je zauzet”).
+- **`/api/areas`** samo prijavljenima; sigurne povratne adrese.
+- **GitHub provjera.** `go vet`, testovi i `govulncheck` na svako slanje i
+  tjedno; slika za Unraid gradi se tek kad provjera prođe.
+- **Vremena dnevnika iz razmjene** čitljiva su i na čvoru čija zona nije
+  hrvatska.
+
 ## 0.0.24-alfa — 2. 10. 2026.
 
 **Nadogradnja redom** — najprije stalni čvor, odmah zatim ostali. Dok svi ne

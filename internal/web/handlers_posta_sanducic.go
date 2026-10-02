@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"html/template"
-	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -131,7 +130,10 @@ func (h *AktiHandler) ShowPismo(w http.ResponseWriter, r *http.Request) {
 	if pismo != nil {
 		pismo.UgradiSlike(func(id string) string { return "/posta/privitak?" + url.Values{"id": {id}, "u": {"1"}}.Encode() })
 		if !pismo.Procitano {
-			// otvoreno pismo je pročitano, kao u Outlooku
+			// otvoreno pismo je pročitano, kao u Outlooku. To je izmjena na
+			// GET, pa je može izazvati i tuđa stranica poveznicom; prihvaćeno:
+			// zastavica „pročitano” je jedina posljedica, a vlasnik je vraća
+			// jednim klikom (Označi nepročitano)
 			if s.OznaciProcitano(r.Context(), d.CurrentUser, pismo.ID, pismo.ChangeKey, true) == nil {
 				pismo.Procitano = true
 			}
@@ -154,25 +156,30 @@ func (h *AktiHandler) Privitak(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadGateway)
 		return
 	}
-	vrsta := p.Vrsta
-	if vrsta == "" {
-		vrsta = "application/octet-stream"
-	}
-	w.Header().Set("Content-Type", vrsta)
-	nacin := "attachment"
-	if r.URL.Query().Get("u") == "1" && strings.HasPrefix(vrsta, "image/") {
-		nacin = "inline" // ugrađena slika u tijelu pisma
-	}
-	w.Header().Set("X-Content-Type-Options", "nosniff")
-	w.Header().Set("Content-Disposition", nacin+`; filename="`+sigurnoIme(strings.TrimSuffix(p.Ime, ".pdf"))+pathExt(p.Ime)+`"`)
+	// vrstu bira pošiljatelj: u tijelu pisma (u=1) prikazuje se samo obična
+	// slika, sve ostalo (i SVG) se preuzima
+	ext := pathExt(p.Ime)
+	posluziTudjuDatoteku(w, p.Vrsta, sigurnoIme(strings.TrimSuffix(p.Ime, ext))+ext, r.URL.Query().Get("u") == "1")
 	_, _ = w.Write(podaci)
 }
 
+// pathExt je nastavak imena datoteke, samo slova i brojke, da ime u
+// zaglavlju Content-Disposition ostane ime
 func pathExt(ime string) string {
-	if i := strings.LastIndex(ime, "."); i >= 0 {
-		return strings.ToLower(ime[i:])
+	i := strings.LastIndex(ime, ".")
+	if i < 0 || len(ime)-i > 11 {
+		return ""
 	}
-	return ""
+	ext := strings.ToLower(ime[i+1:])
+	for _, c := range ext {
+		if (c < 'a' || c > 'z') && (c < '0' || c > '9') {
+			return ""
+		}
+	}
+	if ext == "" {
+		return ""
+	}
+	return "." + ext
 }
 
 // HandlePismoRadnja: označi nepročitano ili obriši
@@ -294,8 +301,13 @@ func (h *AktiHandler) HandlePosaljiPismo(w http.ResponseWriter, r *http.Request)
 			if err != nil {
 				continue
 			}
-			podaci, _ := io.ReadAll(io.LimitReader(f, 32<<20))
+			podaci, err := procitajDatoteku(f, 32<<20)
 			f.Close()
+			if err != nil {
+				// odrezan privitak bi otišao primatelju kao da je cijeli
+				redirectWith(w, r, "/posta/novo", "error", "Privitak "+fh.Filename+" nije poslan: "+err.Error())
+				return
+			}
 			if len(podaci) > 0 {
 				n.Privitci = append(n.Privitci, posta.Privitak{Ime: fh.Filename, Vrsta: fh.Header.Get("Content-Type"), Podaci: podaci})
 			}
@@ -455,7 +467,8 @@ func (h *AktiHandler) Logo(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	w.Header().Set("Content-Type", t.LogoMime)
+	zastitiDatoteku(w)
+	w.Header().Set("Content-Type", vrstaZnaka(t.LogoMime))
 	w.Header().Set("Cache-Control", "private, max-age=3600")
 	_, _ = w.Write(t.Logo)
 }

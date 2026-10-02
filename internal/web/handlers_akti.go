@@ -3,7 +3,6 @@ package web
 import (
 	"context"
 	"html/template"
-	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -496,9 +495,9 @@ func (h *AktiHandler) HandleUcitajSken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer f.Close()
-	podaci, err := io.ReadAll(io.LimitReader(f, 32<<20))
+	podaci, err := procitajDatoteku(f, 32<<20)
 	if err != nil {
-		redirectWith(w, r, natrag, "error", "Sken nije čitljiv")
+		redirectWith(w, r, natrag, "error", "Sken nije čitljiv: "+err.Error())
 		return
 	}
 	a, upozorenja, err := s.UcitajSkenirani(r.Context(), perms, u, a.ID, podaci, r.FormValue("potpisnik_id"))

@@ -4,6 +4,7 @@ import (
 	"context"
 	"html/template"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -46,7 +47,10 @@ type ImenikData struct {
 	PosaoID, PosaoNaziv string // usporedba u tijeku: traka napretka
 }
 
-// ShowImenik traži u adresaru i, na zahtjev, uspoređuje cijeli imenik
+// ShowImenik traži u adresaru i pokazuje tijek i ishod usporedbe imenika.
+// Usporedbu pokreće POST /users/exchange/usporedi: stotine upita adresaru
+// opterećuju poslužitelj e-pošte i mogu zaključati račun, pa je ne smije
+// pokrenuti poveznica ni stranica koja učita adresu.
 func (h *AktiHandler) ShowImenik(w http.ResponseWriter, r *http.Request) {
 	u, perms, base := h.base(r)
 	s := h.svc(w)
@@ -64,24 +68,7 @@ func (h *AktiHandler) ShowImenik(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case d.Upit != "":
 		d.Kontakti, err = s.Imenik(r.Context(), u, d.Upit)
-	case q.Get("usporedi") == "1" && d.SmijeUskladiti && d.Sektor == "":
-		d.ErrorMessage = "Odaberite sektor: imenik se uspoređuje po sektoru, jer svi odjednom preopterete poslužitelj e-pošte i on odbije prijavu."
-	case q.Get("usporedi") == "1" && d.SmijeUskladiti && h.poslovi != nil:
-		// stotine upita adresaru traju minutu: posao ide u pozadinu, a
-		// stranica pokazuje traku napretka i sama se osvježi kad završi
-		sektor := d.Sektor
-		p := h.poslovi.Pokreni("Usporedba imenika s adresarom tvrtke", u.ID.String(), "/users/exchange?rezultat={id}&sektor="+sektor, func(zad *poslovi.Posao) error {
-			rez, err := s.UsporediImenik(context.Background(), perms, u, sektor, func(sto string, gotovo, ukupno int) {
-				zad.Korak(sto, gotovo, ukupno)
-			})
-			if err != nil {
-				return err
-			}
-			zad.Zavrsi("uspoređeno djelatnika: "+strconv.Itoa(len(rez)), rez)
-			return nil
-		})
-		d.PosaoID, d.PosaoNaziv = p.ID, p.Naziv
-	case q.Get("rezultat") != "":
+	case q.Get("rezultat") != "" && h.poslovi != nil:
 		p, ima := h.poslovi.Nadi(q.Get("rezultat"), u.ID.String())
 		switch {
 		case !ima:
@@ -119,11 +106,58 @@ func (h *AktiHandler) ShowImenik(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// porukaBezSektora: svi sektori odjednom preopterete poslužitelj e-pošte
+const porukaBezSektora = "Odaberite sektor: imenik se uspoređuje po sektoru, jer svi odjednom preopterete poslužitelj e-pošte i on odbije prijavu."
+
+// pokreniUsporedbu pušta usporedbu imenika jednog sektora u pozadinu i vraća
+// adresu stranice s trakom napretka; stotine upita adresaru traju minutu, a
+// stranica se sama osvježi kad posao završi. Bez sektora ili prava vraća
+// razlog odbijanja.
+func (h *AktiHandler) pokreniUsporedbu(s *service.AktService, u *models.User, perms *models.UserPermissions, sektor string) (string, string) {
+	if perms == nil || !(perms.IsGlobalAdmin || len(perms.AdminSectors) > 0) {
+		return "", "Imenik s adresarom usklađuje uprava sektora."
+	}
+	if sektor == "" {
+		return "", porukaBezSektora
+	}
+	if h.poslovi == nil {
+		return "", "Usporedba trenutačno nije dostupna."
+	}
+	povratak := "/users/exchange?" + url.Values{"sektor": {sektor}}.Encode() + "&rezultat="
+	p := h.poslovi.Pokreni("Usporedba imenika s adresarom tvrtke", u.ID.String(), povratak+"{id}", func(zad *poslovi.Posao) error {
+		rez, err := s.UsporediImenik(context.Background(), perms, u, sektor, func(sto string, gotovo, ukupno int) {
+			zad.Korak(sto, gotovo, ukupno)
+		})
+		if err != nil {
+			return err
+		}
+		zad.Zavrsi("uspoređeno djelatnika: "+strconv.Itoa(len(rez)), rez)
+		return nil
+	})
+	return povratak + url.QueryEscape(p.ID), ""
+}
+
+// HandleImenikUsporedi pokreće usporedbu imenika sektora s adresarom
+func (h *AktiHandler) HandleImenikUsporedi(w http.ResponseWriter, r *http.Request) {
+	u, perms, _ := h.base(r)
+	s := h.svc(w)
+	if s == nil || u == nil {
+		return
+	}
+	sektor := r.FormValue("sektor")
+	adresa, razlog := h.pokreniUsporedbu(s, u, perms, sektor)
+	if razlog != "" {
+		redirectWith(w, r, "/users/exchange?"+url.Values{"sektor": {sektor}}.Encode(), "error", razlog)
+		return
+	}
+	http.Redirect(w, r, adresa, http.StatusSeeOther)
+}
+
 // HandleImenikPrimijeni upisuje odabrane vrijednosti iz adresara u djelatnike
 func (h *AktiHandler) HandleImenikPrimijeni(w http.ResponseWriter, r *http.Request) {
-	_, perms, _ := h.base(r)
+	u, perms, _ := h.base(r)
 	s := h.svc(w)
-	if s == nil {
+	if s == nil || u == nil {
 		return
 	}
 	if err := r.ParseForm(); err != nil {
@@ -154,7 +188,12 @@ func (h *AktiHandler) HandleImenikPrimijeni(w http.ResponseWriter, r *http.Reque
 		}
 		n++
 	}
-	natrag := "/users/exchange?usporedi=1&sektor=" + r.FormValue("sektor")
+	// nakon upisa usporedba ide ponovno, da se vidi što je ostalo
+	sektor := r.FormValue("sektor")
+	natrag, _ := h.pokreniUsporedbu(s, u, perms, sektor)
+	if natrag == "" {
+		natrag = "/users/exchange?" + url.Values{"sektor": {sektor}}.Encode()
+	}
 	if greske > 0 {
 		redirectWith(w, r, natrag, "error", "Ažurirano djelatnika: "+strconv.Itoa(n)+", nije uspjelo: "+strconv.Itoa(greske)+" (nemate pravo uređivati te račune)")
 		return

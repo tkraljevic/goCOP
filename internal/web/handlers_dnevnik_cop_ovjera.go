@@ -27,7 +27,7 @@ func (h *JournalsHandler) potpisnikCOP(r *http.Request, u *models.User) (*potpis
 	if lozinka == "" {
 		return nil, fmt.Errorf("upišite lozinku: njome otključavate svoj potpisni ključ")
 	}
-	return h.potpis().Potpisnik(r.Context(), u, lozinka)
+	return otkljucajUzOgranicenje(u, func() (*potpis.Potpisnik, error) { return h.potpis().Potpisnik(r.Context(), u, lozinka) })
 }
 
 func (h *JournalsHandler) HandleOvjeraCOP(w http.ResponseWriter, r *http.Request) {

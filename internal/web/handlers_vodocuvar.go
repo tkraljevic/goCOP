@@ -439,10 +439,7 @@ func (h *VodocuvarHandler) HandleUpis(w http.ResponseWriter, r *http.Request) {
 	if s == nil || u == nil {
 		return
 	}
-	natrag := r.FormValue("natrag")
-	if natrag == "" {
-		natrag = "/vodocuvar"
-	}
+	natrag := povratnaPutanja(r.FormValue("natrag"), "/vodocuvar")
 	l, err := s.Upisi(r.Context(), perms, u, r.FormValue("vodocuvar"), danIzObrasca(r.FormValue("datum")), r.FormValue("tekst"))
 	if err != nil {
 		redirectWith(w, r, natrag, "error", err.Error())
@@ -458,10 +455,7 @@ func (h *VodocuvarHandler) HandleZadatak(w http.ResponseWriter, r *http.Request)
 	if s == nil || u == nil {
 		return
 	}
-	natrag := r.FormValue("natrag")
-	if natrag == "" {
-		natrag = "/vodocuvar"
-	}
+	natrag := povratnaPutanja(r.FormValue("natrag"), "/vodocuvar")
 	var za time.Time
 	if v := r.FormValue("za"); v != "" {
 		za, _ = time.ParseInLocation("2006-01-02", v, models.Zagreb)
@@ -530,7 +524,8 @@ func (h *VodocuvarHandler) Prilog(w http.ResponseWriter, r *http.Request) {
 	if vrsta == "" {
 		vrsta = "image/jpeg"
 	}
-	w.Header().Set("Content-Type", vrsta)
+	// vrsta stiže iz BP16 ili razmjenom: prikazuje se samo obična slika
+	posluziTudjuDatoteku(w, vrsta, "", true)
 	w.Header().Set("Cache-Control", "private, max-age=86400")
 	_, _ = w.Write(b)
 }

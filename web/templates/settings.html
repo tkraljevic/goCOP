@@ -206,13 +206,16 @@ const api = (url, body) => fetch(url, {
   body: body === undefined ? undefined : JSON.stringify(body)
 }).then(async r => { if (!r.ok) throw new Error(await r.text()); return r.json(); });
 
+// Što javlja drugi čvor (naziv, oznaka, poruka greške) neprovjereno je: u
+// stranicu ide samo kao tekst, a gumbi uzimaju vrijednost iz popisa po rednom broju
+const escPronadjeno = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let pairPoll = null;
 
 function showPairStatus(st) {
   const box = document.getElementById('pair-status');
   const pending = document.getElementById('pair-pending');
   if (!box) return;
-  if (st.error) { box.innerHTML = '<span class="err">' + st.error + '</span>'; }
+  if (st.error) { box.innerHTML = '<span class="err">' + escPronadjeno(st.error) + '</span>'; }
   else if (st.waiting) { box.textContent = 'Čeka se da drugi čvor nazove ovaj (port ' + {{.Ports.Pair}} + ')…'; }
   else if (!st.pending) { box.textContent = ''; }
   if (st.pending) {
@@ -256,22 +259,24 @@ async function revokeMember(node) {
   try { await api('/api/network/members/' + encodeURIComponent(node) + '/revoke', {}); location.reload(); } catch (e) { alert(e.message); }
 }
 
+let pronadjeni = [];
 async function discover() {
   const box = document.getElementById('discover-results');
   box.innerHTML = '<p class="muted">Pretraživanje…</p>';
   try {
     const r = await api('/api/peers/discover');
-    if (!r.found.length) { box.innerHTML = '<p class="muted">Na lokalnoj mreži nije nađen nijedan goCOP čvor.</p>'; return; }
-    box.innerHTML = r.found.map(f => `
+    pronadjeni = r.found || [];
+    if (!pronadjeni.length) { box.innerHTML = '<p class="muted">Na lokalnoj mreži nije nađen nijedan goCOP čvor.</p>'; return; }
+    box.innerHTML = pronadjeni.map((f, i) => `
       <div class="peer">
-        <div class="peer-head"><span class="peer-name">${f.name || f.deviceId}</span><span class="peer-meta mono">${f.addr}</span></div>
+        <div class="peer-head"><span class="peer-name">${escPronadjeno(f.name || f.deviceId)}</span><span class="peer-meta mono">${escPronadjeno(f.addr)}</span></div>
         <div class="peer-meta">${f.known ? 'poznat čvor' : 'nepoznat čvor'}${f.pairPort ? ' · čeka uparivanje' : ''}</div>
         <div class="actions">
-          ${f.known ? `<button class="btn btn-sm btn-primary" onclick="syncNow('${f.deviceId}')">Sinkroniziraj</button>`
-                    : `<button class="btn btn-sm btn-primary" onclick="document.getElementById('pair-addr').value='${f.addr}'; pairDial()">Upari</button>`}
+          ${f.known ? `<button class="btn btn-sm btn-primary" onclick="syncNow(pronadjeni[${i}].deviceId)">Sinkroniziraj</button>`
+                    : `<button class="btn btn-sm btn-primary" onclick="document.getElementById('pair-addr').value=pronadjeni[${i}].addr; pairDial()">Upari</button>`}
         </div>
       </div>`).join('');
-  } catch (e) { box.innerHTML = '<p class="err">' + e.message + '</p>'; }
+  } catch (e) { box.innerHTML = '<p class="err">' + escPronadjeno(e.message) + '</p>'; }
 }
 
 async function syncNow(node) {
