@@ -3,11 +3,13 @@ package main
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"io"
 	"path/filepath"
 	"testing"
 
 	"gocop/internal/arhiva"
+	"gocop/internal/ledger"
 	"gocop/internal/sadrzaj"
 )
 
@@ -104,5 +106,44 @@ func TestArhivaKrozRazmjenu(t *testing.T) {
 	a.primi(ctx)
 	if z, _ := spA.Zeljeni(ctx, 10); len(z) != 0 {
 		t.Errorf("izdavač traži vlastiti paket")
+	}
+}
+
+// Dva čvora s istom letvom ne smiju se nadglasavati: kad je drugi izdao
+// novije izdanje, ovaj svoje starije više ne objavljuje.
+func TestObjavaNeGaziNovijeIzdanje(t *testing.T) {
+	ctx := context.Background()
+	baza, rec, _ := cvorZaTest(t, "laptop")
+	dir := t.TempDir()
+	put := filepath.Join(dir, "vodostaji.db")
+	arh, err := sql.Open("sqlite", put)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := arhiva.PripremiPraznu(arh); err != nil {
+		t.Fatal(err)
+	}
+	res, _ := arh.Exec(`INSERT INTO nizovi (sliv, letva, izvor, velicina, vrsta, zapisa) VALUES ('drava','pljusak-x','pljusak','oborina','satni',1)`)
+	niz, _ := res.LastInsertId()
+	arh.Exec(`INSERT INTO ocitanja (niz, vrijeme, vrijednost) VALUES (?,1000,1.5)`, niz)
+	paketi := filepath.Join(dir, "pakete")
+	if _, err := arhiva.Izdaj(arh, paketi, rec.Cvor(), "", false, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	sp, _ := sadrzaj.Otvori("")
+	a := &razmjenaArhive{baza: baza, rec: rec, sp: sp, arhivaPut: put, paketiDir: paketi, javljeno: map[string]bool{}}
+	if n, _ := a.objavi(ctx); n != 1 {
+		t.Fatalf("prva objava: %d", n)
+	}
+	// drugi čvor izdao je v2 iste letve; stiže razmjenom
+	novije, _ := json.Marshal(paketUKnjizi{Letva: "pljusak-x", Izdanje: 2, Otisak: "drugi", Sadrzaj: "x", Izdao: "unraid"})
+	if _, err := rec.Apply(ctx, []ledger.Version{{VersionID: "ffffffff-0000-7000-8000-000000000001", Entity: EntitetArhive, EntityID: "pljusak-x",
+		NodeID: "unraid", Payload: novije, SchemaVersion: ledger.SchemaVersion}}); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 3; i++ {
+		if n, _ := a.objavi(ctx); n != 0 {
+			t.Fatalf("krug %d: starije izdanje ponovno objavljeno (%d)", i, n)
+		}
 	}
 }

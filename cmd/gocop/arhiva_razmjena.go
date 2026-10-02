@@ -99,8 +99,12 @@ func (r *razmjenaArhive) objavi(ctx context.Context) (int, error) {
 	n := 0
 	for _, p := range k.Paketi {
 		if v, err := r.rec.Latest(ctx, EntitetArhive, p.Letva); err == nil {
+			// Objavljuje se samo novije od onoga što kazalo već ima. Kad je
+			// drugi čvor izdao novije (Unraid noćas za kišomjere), ovaj čvor
+			// šuti: inače su se dva čvora svake dvije minute nadglasavala
+			// istim paketima i knjiga je rasla po 1.200 zapisa na sat.
 			var bio paketUKnjizi
-			if json.Unmarshal(v.Payload, &bio) == nil && bio.Izdanje == p.Izdanje && bio.Otisak == p.Otisak {
+			if json.Unmarshal(v.Payload, &bio) == nil && (bio.Izdanje > p.Izdanje || (bio.Izdanje == p.Izdanje && bio.Otisak == p.Otisak)) {
 				continue
 			}
 		} else if !errors.Is(err, ledger.ErrNoVersion) {
@@ -367,7 +371,7 @@ func stanjeRazmjene(ctx context.Context, p *peers.Service, rec *ledger.Recorder,
 	for _, ps := range st.Peers {
 		c := web.CvorRazmjene{Naziv: ps.Name, Dostupnost: ps.Reachability, Zadnja: ps.State.LastOK,
 			Primljeno: ps.State.Applied, Poslano: ps.State.Sent, Zaostaje: ps.Backlog,
-			Greska: ps.State.LastError, Neuspjelih: ps.State.Fails}
+			Greska: ps.State.LastError, Neuspjelih: ps.State.Fails, SamoDolazi: ps.SamoDolazi}
 		if c.Naziv == "" {
 			c.Naziv = ps.NodeID
 		}

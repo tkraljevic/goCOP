@@ -4,6 +4,18 @@ Verzije prate shemu iz README-a: alfa `0.0.x` (oznaka `v0.0.1-alfa`), beta
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.19-alfa — 2. 10. 2026.
+
+**Kazalo arhive bez nadglasavanja** — čvor objavljuje paket arhive samo kad je
+njegovo izdanje novije od onoga što kazalo već ima. Kad je stalni čvor kao novi
+izdavač izdao novija izdanja kišomjera, laptop je svake dvije minute ponovno
+objavljivao svoja starija, a stalni čvor svoja: knjiga je rasla po 1.200
+zapisa na sat, a pločica je stalno javljala „šalje se još 40 verzija”.
+
+**„Javlja se sam” umjesto „ne odgovara”** — čvor s nedavnom uspješnom
+razmjenom prikazuje se kao na mreži i kad ga ovaj čvor ne može nazvati (laptop
+izvan kuće sam zove kroz tunel), uz tu napomenu umjesto greške mreže.
+
 ## 0.0.18-alfa — 2. 10. 2026.
 
 **Izvoz prognoze uvijek svjež** — poveznice „Izvoz u Excel” i „Pričuvni

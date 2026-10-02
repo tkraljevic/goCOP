@@ -211,6 +211,9 @@ type PeerStatus struct {
 	MemberProblem string    `json:"member_problem,omitempty"`
 	Backlog       int       `json:"backlog"`      // naših verzija koje taj čvor još nema (po zadnjoj granici)
 	Reachability  string    `json:"reachability"` // online, offline, never
+	// SamoDolazi: razmjena s njim uspijeva kad on nazove (npr. laptop izvan
+	// kuće kroz tunel), a ovaj čvor njega ne može nazvati
+	SamoDolazi bool `json:"samo_dolazi,omitempty"`
 }
 
 // Status je stanje sinkronizacije ovog čvora za nadzornu ploču
@@ -268,8 +271,12 @@ func (s *Service) Status(ctx context.Context, lan bool) (*Status, error) {
 		switch {
 		case ps.State.LastOK == nil:
 			ps.Reachability = "never"
-		case ps.State.Fails == 0 && now.Sub(*ps.State.LastOK) <= 2*every+30*time.Second:
+		case now.Sub(*ps.State.LastOK) <= 2*every+30*time.Second:
+			// Nedavna uspješna razmjena znači da je na mreži, i kad ga ovaj
+			// čvor ne može nazvati: laptop u uredu sam zove kroz tunel, a
+			// kućna adresa mu je nedostupna.
 			ps.Reachability = "online"
+			ps.SamoDolazi = ps.State.Fails > 0
 			st.Online++
 		default:
 			ps.Reachability = "offline"

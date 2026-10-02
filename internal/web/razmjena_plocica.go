@@ -34,6 +34,7 @@ type CvorRazmjene struct {
 	JosPrima   bool // taj čvor ima verzija koje ovaj još nema
 	Greska     string
 	Neuspjelih int
+	SamoDolazi bool // javlja se sam (kroz tunel), ovaj čvor ga ne može nazvati
 }
 
 // ArhivaRazmjene je napredak arhive paketima
@@ -173,7 +174,7 @@ var razmjenaTmpl = template.Must(template.New("razmjena").Funcs(template.FuncMap
     {{range .Cvorovi}}<tr>
       <td><strong>{{.Naziv}}</strong></td>
       <td>{{if eq .Dostupnost "online"}}<span class="badge badge-active">na mreži</span>{{else if eq .Dostupnost "never"}}<span class="badge badge-inactive">još nikad</span>{{else}}<span class="badge badge-pending">ne odgovara</span>{{end}}</td>
-      <td>{{prijePtr .Zadnja}}{{if .Greska}}<div class="reg-card-sub">{{.Greska}}</div>{{end}}</td>
+      <td>{{prijePtr .Zadnja}}{{if .SamoDolazi}}<div class="reg-card-sub">javlja se sam (kroz tunel); ovaj čvor njega ne može nazvati</div>{{else if .Greska}}<div class="reg-card-sub">{{.Greska}}</div>{{end}}</td>
       <td class="mono" style="text-align:right;">{{.Primljeno}} / {{.Poslano}}</td>
       <td>{{if .Zaostaje}}šalje se još {{if ge .Zaostaje 5000}}više od 5000{{else}}{{.Zaostaje}}{{end}} verzija{{if .JosPrima}}; {{end}}{{end}}{{if .JosPrima}}prima se još{{end}}{{if and (not .Zaostaje) (not .JosPrima)}}usklađeno{{end}}</td>
     </tr>{{end}}
