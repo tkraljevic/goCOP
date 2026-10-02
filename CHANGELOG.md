@@ -4,6 +4,14 @@ Verzije prate shemu iz README-a: alfa `0.0.x` (oznaka `v0.0.1-alfa`), beta
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.22-alfa — 2. 10. 2026.
+
+**Ploča razmjene više ne broji poslano kao neposlano** — čvor je pamtio dokle
+drugi čvor zna onako kako mu je ovaj javio na početku razmjene, pa je ono što
+mu je u istoj razmjeni poslao do sljedeće razmjene brojao kao da još čeka
+(Unraid je laptopu stalno „slao još 101 verziju”, a laptop je bio usklađen).
+Zapamćena granica sada uključuje i poslane verzije.
+
 ## 0.0.21-alfa — 2. 10. 2026.
 
 **Prva razmjena odmah nakon pokretanja** — pola minute nakon pokretanja, a ne

@@ -201,6 +201,27 @@ func TestDvaCvoraSeUpareISinkroniziraju(t *testing.T) {
 		t.Errorf("površina na B nije osvježena: napomena %q", got)
 	}
 
+	// A je poslao izmjenu; njegova ploča ne smije poslane verzije brojati
+	// kao da još čekaju (granica B-a se pamtila s početka razmjene)
+	var zaostaje int
+	for i := 0; i < 40; i++ {
+		zaostaje = -1
+		if st, err := a.svc.Status(ctx, false); err == nil {
+			for _, ps := range st.Peers {
+				if ps.NodeID == b.id && ps.State.LastOK != nil {
+					zaostaje = ps.Backlog
+				}
+			}
+		}
+		if zaostaje == 0 {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	if zaostaje != 0 {
+		t.Errorf("nakon razmjene A broji %d verzija koje B još nema", zaostaje)
+	}
+
 	// ista razmjena još jednom: ništa novo
 	applied, _, err = b.svc.SyncWith(ctx, a.id)
 	if err != nil {

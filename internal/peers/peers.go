@@ -702,6 +702,24 @@ func (s *Service) SyncWith(ctx context.Context, nodeID string) (applied, sent in
 	return 0, 0, fmt.Errorf("čvor %s nije dostupan ni na jednoj adresi: %v", nodeID, lastErr)
 }
 
+// pomakniGranicu vraća granicu uvećanu za poslane verzije
+func pomakniGranicu(granica map[string]string, poslano []ledger.Version) map[string]string {
+	if len(poslano) == 0 {
+		return granica
+	}
+	out := make(map[string]string, len(granica))
+	for k, v := range granica {
+		out[k] = v
+	}
+	for _, v := range poslano {
+		k := ledger.FrontierKey(v.NodeID, v.Channel)
+		if v.VersionID > out[k] {
+			out[k] = v.VersionID
+		}
+	}
+	return out
+}
+
 // exchange je jedan razgovor: frontier ↔ frontier, delta ↔ delta, done ↔ done.
 // Onaj tko je nazvao (initiator) prvi šalje; obje strane rade isto.
 func (s *Service) exchange(ctx context.Context, c *razmjena.Conn, initiator bool) (applied, sent int, theirFrontier map[string]string, err error) {
@@ -776,6 +794,10 @@ func (s *Service) exchange(ctx context.Context, c *razmjena.Conn, initiator bool
 		}
 	}
 	sent = len(delta)
+	// Zapamćena granica druge strane uključuje i ono što joj je upravo
+	// poslano; inače bi ploča do sljedeće razmjene brojala poslane verzije
+	// kao da još čekaju.
+	theirs.Frontier = pomakniGranicu(theirs.Frontier, delta)
 
 	myFilter := s.wantsFunc(ctx, &myWants)
 	wanted := make([]ledger.Version, 0, len(incoming.Versions))
