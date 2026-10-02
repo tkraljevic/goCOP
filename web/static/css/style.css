@@ -5291,6 +5291,19 @@ body.uzd-puni-zaslon-otvoren { overflow: hidden; }
   line-height: 1.4;
 }
 
+/* Obojena upozorenja u tamnoj temi: prozirna boja razine umjesto svijetle
+   pozadine, i tekst u boji teme (inače tamno na tamnom) */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .vrijeme-upozorenje-red { background: rgba(239, 68, 68, 0.14); border-color: rgba(239, 68, 68, 0.35); }
+  :root:not([data-theme="light"]) .vrijeme-upozorenje-orange { background: rgba(249, 115, 22, 0.14); border-color: rgba(249, 115, 22, 0.35); }
+  :root:not([data-theme="light"]) .vrijeme-upozorenje-yellow { background: rgba(234, 179, 8, 0.12); border-color: rgba(234, 179, 8, 0.35); }
+  :root:not([data-theme="light"]) .vrijeme-upozorenje-tekst { color: var(--text); }
+}
+[data-theme="dark"] .vrijeme-upozorenje-red { background: rgba(239, 68, 68, 0.14); border-color: rgba(239, 68, 68, 0.35); }
+[data-theme="dark"] .vrijeme-upozorenje-orange { background: rgba(249, 115, 22, 0.14); border-color: rgba(249, 115, 22, 0.35); }
+[data-theme="dark"] .vrijeme-upozorenje-yellow { background: rgba(234, 179, 8, 0.12); border-color: rgba(234, 179, 8, 0.35); }
+[data-theme="dark"] .vrijeme-upozorenje-tekst { color: var(--text); }
+
 .vrijeme-razina {
   display: inline-block;
   border-radius: 6px;

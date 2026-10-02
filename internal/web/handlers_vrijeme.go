@@ -39,6 +39,9 @@ type PlocaVremena struct {
 	Lokacija           bool // točka je iz preglednika
 	Zupanija           dhmz.Zupanija
 	Upozorenja, Ostala []dhmz.Upozorenje
+	// ZelenoDo je do kada DHMZ za županiju javlja zeleno (nema upozorenja):
+	// zeleno se ne prikazuje kao upozorenje, samo kao razdoblje bez njih
+	ZelenoDo time.Time
 
 	Postaja     *dhmz.Postaja
 	PostajaKm   float64
@@ -104,6 +107,14 @@ func (h *VrijemeHandler) ShowPloca(w http.ResponseWriter, r *http.Request) {
 		p.BezUpozorenja = true
 	} else {
 		for _, x := range u {
+			if x.Razina <= 1 {
+				// Zeleno znači „nema upozorenja”: sedam kartica s istom
+				// rečenicom samo zatrpa ploču.
+				if p.Zupanija.Vrijedi(x) && x.Do.After(p.ZelenoDo) {
+					p.ZelenoDo = x.Do
+				}
+				continue
+			}
 			if p.Zupanija.Vrijedi(x) {
 				p.Upozorenja = append(p.Upozorenja, x)
 			} else {
@@ -300,7 +311,7 @@ var plocaVremenaTmpl = template.Must(template.New("ploca").Funcs(template.FuncMa
       <div class="vrijeme-kartica-tijelo">
         {{range .Upozorenja}}
         <div class="vrijeme-upozorenje-aktivno vrijeme-upozorenje-{{.Boja}}">
-          <div class="vrijeme-upozorenje-red">
+          <div class="vrijeme-upozorenje-redak">
             <span class="badge {{boja .Boja}}">{{.Dogadjaj}}</span>
             <span class="vrijeme-sat-raspon reg-card-sub">{{sat .Od}} – {{sat .Do}}</span>
           </div>
@@ -313,8 +324,8 @@ var plocaVremenaTmpl = template.Must(template.New("ploca").Funcs(template.FuncMa
         <div class="vrijeme-stanje-mirno">
           <span class="vrijeme-zelena-kvacica">{{icon "check"}}</span>
           <div class="vrijeme-mirno-tekst">
-            <div class="vrijeme-mirno-naslov">Nema upozorenja za županiju.</div>
-            <div class="reg-card-sub">Trenutno nema opasnih vremenskih pojava.</div>
+            <div class="vrijeme-mirno-naslov">{{.Zupanija.Naziv}} županija: nema upozorenja.</div>
+            <div class="reg-card-sub">{{if not .ZelenoDo.IsZero}}DHMZ: bez opasnih pojava do {{sat .ZelenoDo}}.{{else}}Trenutno nema opasnih vremenskih pojava.{{end}}</div>
           </div>
         </div>
         {{end}}

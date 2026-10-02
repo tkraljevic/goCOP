@@ -4,6 +4,15 @@ Verzije prate shemu iz README-a: alfa `0.0.x` (oznaka `v0.0.1-alfa`), beta
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.15-alfa — 2. 10. 2026.
+
+**Upozorenja DHMZ-a pregledno** — zeleno upozorenje (DHMZ-ovo „nema
+upozorenja”) više se ne prikazuje kao upozorenje: umjesto sedam istih kartica
+stoji jedan redak „županija: nema upozorenja” s razdobljem, a „drugdje u
+Hrvatskoj” broji samo prava upozorenja. Redak unutar kartice nosio je klasu
+crvenog upozorenja (ružičasta traka u svakoj kartici), a obojena upozorenja
+dobila su tamnu temu, pa su čitljiva.
+
 ## 0.0.14-alfa — 2. 10. 2026.
 
 **Letva razmjenom sa svim poljima** — primljena letva nije upisivala šest
