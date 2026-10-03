@@ -17,7 +17,7 @@
     <a href="/sredstva/popisi/{{$p.ID}}/inventura.xlsx" class="btn btn-secondary" title="inventura s usporedbom prema prethodnoj, A4">{{icon "download"}} Excel</a>
     {{if and .SmijePisati (not $p.Zakljucen)}}
     <a href="/sredstva/popisi/{{$p.ID}}/uredi" class="btn btn-secondary">{{icon "pencil"}} Uredi</a>
-    <form method="POST" action="/sredstva/popisi/{{$p.ID}}/zakljuci" style="display:inline;" onsubmit="return confirm('Zaključiti inventuru? Razlike prema knjizi bit će proknjižene.');"><button type="submit" class="btn btn-primary">{{icon "lock"}} Zaključi</button></form>
+    <form method="POST" action="/sredstva/popisi/{{$p.ID}}/zakljuci" class="d-inline" onsubmit="return confirm('Zaključiti inventuru? Razlike prema knjizi bit će proknjižene.');"><button type="submit" class="btn btn-primary">{{icon "lock"}} Zaključi</button></form>
     {{end}}
   </div>
 </div>
@@ -48,6 +48,6 @@
   </table>
 </div></div>
 
-<p class="reading-meta" style="margin-top:0.75rem;">Izradio: <strong>{{$p.Izradio}}</strong>, {{$p.IzradenoAt.Format "2.1.2006. 15:04"}}{{if $p.Napomena}} · {{$p.Napomena}}{{end}}
+<p class="reading-meta mt-3">Izradio: <strong>{{$p.Izradio}}</strong>, {{$p.IzradenoAt.Format "2.1.2006. 15:04"}}{{if $p.Napomena}} · {{$p.Napomena}}{{end}}
   {{if $p.Zakljucen}} · razlike proknjižene kao usklađenje po inventuri{{end}}</p>
 {{end}}

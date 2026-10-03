@@ -3,29 +3,7 @@
 {{define "title"}}goCOP — Čvor i mreža{{end}}
 
 {{define "content"}}
-<style>
-  .uloga-red { display:flex; gap:0.6rem; align-items:flex-start; margin:0.5rem 0; cursor:pointer; }
-  .uloga-red input { margin-top:0.25rem; }
-  /* Postavke su prvi ekran rađen mobile-first: kartice u jednom stupcu,
-     radnje u redu koji se lomi, bez tablica. */
-  .cards { display: flex; flex-direction: column; gap: 1rem; max-width: 760px; }
-  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-kartica); padding: 1rem 1.1rem; box-shadow: var(--sjena-kartica); }
-  .card h2 { font-size: 1.05rem; margin: 0 0 0.6rem; }
-  .card .desc { font-size: 0.82rem; color: var(--text-muted); margin: 0 0 0.75rem; }
-  .kv { display: grid; grid-template-columns: max-content 1fr; gap: 0.35rem 1rem; font-size: 0.9rem; }
-  .kv dt { color: var(--text-muted); }
-  .kv dd { margin: 0; word-break: break-all; }
-  .actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem; }
-  .peer { border-top: 1px solid var(--crta-glave); padding: 0.75rem 0; }
-  .peer:first-of-type { border-top: 0; }
-  .peer-head { display: flex; justify-content: space-between; gap: 0.75rem; align-items: baseline; flex-wrap: wrap; }
-  .peer-name { font-weight: 600; }
-  .peer-meta { font-size: 0.78rem; color: var(--text-muted); }
-  .sas { font-family: "SFMono-Regular", Menlo, monospace; font-size: 2.2rem; letter-spacing: 0.25em; text-align: center; padding: 0.5rem 0; }
-  .muted { color: var(--text-muted); font-size: 0.85rem; }
-  .ok { color: var(--tint-green-fg); } .err { color: var(--danger); }
-  @media (min-width: 900px) { .cards { max-width: 980px; display: grid; grid-template-columns: 1fr 1fr; align-items: start; } .card.wide { grid-column: 1 / -1; } }
-</style>
+<div class="stranica-cvor">
 
 <div class="breadcrumb"><a href="/administracija">Administracija</a> › Čvor i mreža</div>
 
@@ -44,7 +22,7 @@
     <dl class="kv">
       <dt>Naziv</dt><dd>{{.NodeName}}</dd>
       <dt>Identifikator</dt><dd class="mono">{{.NodeID}}</dd>
-      <dt>Javni ključ</dt><dd class="mono" style="font-size:0.75rem;">{{.NodePublicKey}}</dd>
+      <dt>Javni ključ</dt><dd class="mono text-xs">{{.NodePublicKey}}</dd>
       <dt>Verzija</dt><dd>{{if .NodeVersion}}{{.NodeVersion}}{{else}}razvojna{{end}} · shema {{.SchemaVersion}}</dd>
       <dt>Portovi</dt><dd>razmjena {{.Ports.Exchange}} · uparivanje {{.Ports.Pair}} · pronalaženje {{.Ports.Discovery}}</dd>
     </dl>
@@ -78,7 +56,7 @@
     </div>
     {{end}}{{end}}
     {{if .Permissions.IsGlobalAdmin}}
-    <div class="actions" style="margin-top:0.75rem;">
+    <div class="actions mt-3">
       <select id="addr-node" class="form-control" style="max-width:220px;">
         <option value="{{.NodeID}}">{{.Self.Name}} (ovaj čvor)</option>
         {{range .Peers}}<option value="{{.NodeID}}">{{if .Name}}{{.Name}}{{else}}{{.NodeID}}{{end}}</option>{{end}}
@@ -109,10 +87,10 @@
     <p class="desc">Čvorovi si vjeruju samo unutar iste mreže. Članstvo je potpis ključa mreže nad ključem čvora; provjerava se pri svakoj razmjeni. Druga organizacija s istim programom ima drugi ključ — i time ništa zajedničko s nama.</p>
     <dl class="kv">
       <dt>Naziv</dt><dd><b>{{.Network.Name}}</b></dd>
-      <dt>Ključ mreže</dt><dd class="mono" style="font-size:0.75rem;">{{.Network.PublicKey}}</dd>
+      <dt>Ključ mreže</dt><dd class="mono text-xs">{{.Network.PublicKey}}</dd>
       <dt>Ovaj čvor</dt><dd>{{if .Network.CanAdmit}}<span class="badge badge-active">drži ključ mreže — može primati članove</span>{{else}}član{{end}} · od {{formatDate .Network.JoinedAt}}</dd>
     </dl>
-    <div style="margin-top:0.75rem;">
+    <div class="mt-3">
       {{range .Members}}
       <div class="peer">
         <div class="peer-head">
@@ -150,7 +128,7 @@
       </div>
       <p id="pair-status" class="muted" style="margin-top:0.6rem;"></p>
       <div id="pair-pending" style="display:none;">
-        <p style="margin:0.5rem 0 0;">Čvor <b id="pair-peer-name"></b> (<span id="pair-peer-id" class="mono"></span>) traži uparivanje. Usporedite kod na oba ekrana:</p>
+        <p class="mt-2 mb-0">Čvor <b id="pair-peer-name"></b> (<span id="pair-peer-id" class="mono"></span>) traži uparivanje. Usporedite kod na oba ekrana:</p>
         <div class="sas" id="pair-sas"></div>
         <div class="actions">
           <button type="button" class="btn btn-primary" onclick="pairConfirm(true)">Kod se podudara — upari</button>
@@ -164,7 +142,7 @@
   <div class="card wide">
     <h2>Poznati čvorovi</h2>
     <p class="desc">Čvorovi s kojima se ovaj sinkronizira. Adresa se mijenja, ključ ne. Čvorovi s domenom označeni su kao stalno izloženi.</p>
-    <div class="actions" style="margin:0 0 0.5rem;">
+    <div class="actions mt-0 mb-2">
       <button type="button" class="btn btn-secondary" onclick="discover()">Pretraži lokalnu mrežu</button>
       {{if .Permissions.IsGlobalAdmin}}<button type="button" class="btn btn-primary" onclick="syncNow('all')">Sinkroniziraj sa svima</button>{{end}}
     </div>
@@ -318,4 +296,5 @@ async function forgetPeer(node, name) {
 
 api('/api/peers/pair/status').then(showPairStatus).catch(() => {});
 </script>
+</div>
 {{end}}

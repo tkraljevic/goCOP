@@ -18,7 +18,7 @@
 
 {{if .Journal.Reconstruction}}<div class="alert alert-danger">{{icon "triangle-alert"}} <strong>Rekonstrukcija.</strong> {{.Journal.Notes}}</div>{{end}}
 
-<div class="reg-card" style="padding:1rem;">
+<div class="reg-card p-4">
   <dl class="reg-facts" style="font-size:0.85rem;">
     {{if .Journal.Contractor}}<div><dt>Izvođač</dt><dd>{{.Journal.Contractor}}</dd></div>{{end}}
     {{if .Journal.ContractorLead}}<div><dt>Voditelj usluga</dt><dd>{{.Journal.ContractorLead}}</dd></div>{{end}}
@@ -28,20 +28,20 @@
     {{if .Journal.StartedAt}}<div><dt>Početak</dt><dd>{{.Journal.StartedAt.Format "02.01.2006."}}</dd></div>{{end}}
     {{if .Journal.EndedAt}}<div><dt>Završetak</dt><dd>{{.Journal.EndedAt.Format "02.01.2006."}}</dd></div>{{end}}
   </dl>
-  {{if and (not .Journal.Contractor) .CanManage}}<p class="page-desc" style="margin-top:0.5rem;">Naslovnica je prazna: upišite izvođača i nadzor.</p>{{end}}
+  {{if and (not .Journal.Contractor) .CanManage}}<p class="page-desc mt-2">Naslovnica je prazna: upišite izvođača i nadzor.</p>{{end}}
 </div>
 
 {{if .CanManage}}
-<form method="POST" action="/dnevnici/{{.Journal.ID}}/obrisi" style="margin-top:0.5rem;"
+<form method="POST" action="/dnevnici/{{.Journal.ID}}/obrisi" class="mt-2"
   onsubmit="return confirm('Obrisati dnevnik „{{.Journal.DisplayTitle}}“ sa svim listovima i upisima? U knjizi verzija ostaje arhiviran.');"><button type="submit" class="btn btn-sm btn-secondary">{{icon "trash"}} Obriši dnevnik</button></form>
 {{end}}
 {{if .CanWrite}}
 <form method="POST" action="/dnevnici/{{.Journal.ID}}/listovi" class="reg-card" style="padding:1rem; margin-top:1rem; display:flex; gap:0.75rem; flex-wrap:wrap; align-items:end;">
-  <div class="form-group" style="margin:0;">
+  <div class="form-group m-0">
     <label class="form-label" for="date">Dan</label>
     <input type="date" id="date" name="date" class="form-control" value="{{.Today}}" required>
   </div>
-  <div class="form-group" style="margin:0;">
+  <div class="form-group m-0">
     <label class="form-label" for="label">Ekipa / gradilište (kad ih je više u danu)</label>
     <input type="text" id="label" name="label" class="form-control" placeholder="npr. košnja, bager">
   </div>
@@ -51,7 +51,7 @@
 {{end}}
 
 {{if .Gaps}}
-<div class="alert alert-danger" style="margin-top:1rem;">
+<div class="alert alert-danger mt-4">
   {{icon "triangle-alert"}} U nizu rednih brojeva upisa nedostaju: {{range $i, $n := .Gaps}}{{if $i}}, {{end}}{{$n}}{{end}}. Upisi se ne brišu nego storniraju, pa ovo treba provjeriti.
 </div>
 {{end}}
@@ -91,13 +91,13 @@
         <td><a href="/dnevnici/{{$.Journal.ID}}/listovi/{{.ID}}">{{.Date.Format "02.01.2006."}}</a>{{if .Label}} <span class="reg-chip">{{.Label}}</span>{{end}}</td>
         <td style="color:var(--text-muted); font-size:0.85rem;">{{.Conditions}}{{if .Rating}} · {{.RatingLabel}}{{end}}</td>
         <td>{{.EntryCount}}</td>
-        <td style="white-space:nowrap;">
+        <td class="nowrap">
           <span class="reg-chip {{if not .ContractorConfirmedAt}}empty{{end}}" title="{{.ContractorConfirmedBy}}">izvođač</span>
           <span class="reg-chip {{if not .SupervisorConfirmedAt}}empty{{end}}" title="{{.SupervisorConfirmedBy}}">nadzor</span>
         </td>
       </tr>
       {{else}}
-      <tr><td colspan="5" class="reg-empty" style="text-align:center;">Još nema nijednog lista.</td></tr>
+      <tr><td colspan="5" class="reg-empty text-center">Još nema nijednog lista.</td></tr>
       {{end}}
       </tbody>
     </table>

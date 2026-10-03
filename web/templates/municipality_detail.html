@@ -24,27 +24,27 @@
           onsubmit="return confirm('Obrisati {{.Municipality.Name}} i sva naselja? Zapis ostaje u povijesti.')">
       <input type="hidden" name="id" value="{{.Municipality.ID}}">
       <input type="hidden" name="county_id" value="{{.Municipality.CountyID}}">
-      <button type="submit" class="btn btn-sm" style="background:var(--danger-bg); color:var(--danger); border-color:var(--danger-border); min-height:40px;">{{icon "trash"}} Obriši</button>
+      <button type="submit" class="btn btn-sm btn-brisi min-h-40">{{icon "trash"}} Obriši</button>
     </form>
   </div>
   {{end}}
 </div>
 
 
-<div class="reg-card" style="padding:1rem; margin-bottom:1.5rem;">
+<div class="reg-card p-4 mb-6">
   <dl class="reg-facts" style="font-size:0.9rem;">
     {{if gt .Municipality.AreaSqKm 0.0}}<div><dt>Površina</dt><dd>{{brojHRf .Municipality.AreaSqKm 1}} km²</dd></div>{{end}}
     {{if gt .Municipality.Population 0}}<div><dt>Stanovništvo</dt><dd>{{brojHR .Municipality.Population}}</dd></div>{{end}}
     <div><dt>Naselja</dt><dd>{{len .Settlements}}</dd></div>
     {{if .Municipality.Email}}<div><dt>E-pošta</dt><dd><a href="mailto:{{.Municipality.Email}}">{{.Municipality.Email}}</a></dd></div>{{end}}
     {{if .Municipality.Phone}}<div><dt>Telefon</dt><dd><a href="tel:{{.Municipality.Phone}}">{{.Municipality.Phone}}</a></dd></div>{{end}}
-    {{with websiteURL .Municipality.Website}}<div style="overflow-wrap:anywhere;"><dt>Web</dt><dd><a href="{{.}}" target="_blank" rel="noopener noreferrer">{{websiteLabel .}}</a></dd></div>{{end}}
+    {{with websiteURL .Municipality.Website}}<div class="wrap-anywhere"><dt>Web</dt><dd><a href="{{.}}" target="_blank" rel="noopener noreferrer">{{websiteLabel .}}</a></dd></div>{{end}}
   </dl>
 </div>
 
 <section class="detail-section">
   <h2>{{icon "phone"}} Službe <span class="reg-chip">{{len .Sluzbe}}</span>
-    <a href="/territories/counties/{{.Municipality.CountyID}}" class="btn btn-sm btn-secondary" style="margin-left:auto;">{{icon "pencil"}} Službe županije</a></h2>
+    <a href="/territories/counties/{{.Municipality.CountyID}}" class="btn btn-sm btn-secondary ml-auto">{{icon "pencil"}} Službe županije</a></h2>
   {{if .Sluzbe}}
   <div class="table-card"><div class="table-responsive"><table class="data-table">
     <thead><tr><th>Vrsta</th><th>Naziv</th><th>E-pošta</th><th>Telefon</th><th>Vrijedi za</th></tr></thead>
@@ -66,7 +66,7 @@
         <button type="submit" class="btn btn-secondary btn-sm" style="min-height:36px;">Spremi</button>
         <input type="hidden" name="population" value="{{.Population}}">
       </form>
-      <form method="POST" action="/api/settlements/delete" style="margin:0;" onsubmit="return confirm('Obrisati naselje {{.Name}}?')">
+      <form method="POST" action="/api/settlements/delete" class="m-0" onsubmit="return confirm('Obrisati naselje {{.Name}}?')">
         <input type="hidden" name="id" value="{{.ID}}">
         <input type="hidden" name="municipality_id" value="{{$.Municipality.ID}}">
         <button type="submit" class="btn btn-sm btn-link" style="padding:0; color:var(--text-muted);">Obriši</button>
@@ -86,15 +86,15 @@
     <input type="hidden" name="municipality_id" value="{{.Municipality.ID}}">
     <input type="hidden" name="county_id" value="{{.Municipality.CountyID}}">
     <div class="form-row">
-      <div class="form-group" style="margin:0;">
+      <div class="form-group m-0">
         <label class="form-label" for="new-name">Novo naselje</label>
         <input type="text" id="new-name" name="name" class="form-control" required placeholder="npr. Bršadin">
       </div>
-      <div class="form-group" style="margin:0;">
+      <div class="form-group m-0">
         <label class="form-label" for="new-postal">Poštanski broj</label>
         <input type="text" id="new-postal" name="postal_code" class="form-control" inputmode="numeric">
       </div>
-      <div class="form-group" style="margin:0;">
+      <div class="form-group m-0">
         <label class="form-label" for="new-pop">Stanovništvo</label>
         <input type="text" id="new-pop" name="population" class="form-control" inputmode="numeric">
       </div>

@@ -17,8 +17,8 @@
   <div class="page-actions">
     {{if .Uprava}}
     <a href="/sektorsko-izvjesce/{{$iz.ID}}/uredi" class="btn btn-secondary">{{icon "pencil"}} Obrazac</a>
-    {{if not $iz.Predano}}<form method="POST" action="/sektorsko-izvjesce/{{$iz.ID}}/predaj" style="display:inline;"><button type="submit" class="btn btn-primary">{{icon "arrow-right"}} Predaj GCOP-u</button></form>{{end}}
-    <form method="POST" action="/sektorsko-izvjesce/{{$iz.ID}}/obrisi" style="display:inline;" onsubmit="return confirm('Obrisati izvješće sektora? U knjizi verzija ostaje arhivirano.');"><button type="submit" class="btn btn-secondary" title="Obriši">{{icon "trash"}}</button></form>
+    {{if not $iz.Predano}}<form method="POST" action="/sektorsko-izvjesce/{{$iz.ID}}/predaj" class="d-inline"><button type="submit" class="btn btn-primary">{{icon "arrow-right"}} Predaj GCOP-u</button></form>{{end}}
+    <form method="POST" action="/sektorsko-izvjesce/{{$iz.ID}}/obrisi" class="d-inline" onsubmit="return confirm('Obrisati izvješće sektora? U knjizi verzija ostaje arhivirano.');"><button type="submit" class="btn btn-secondary" title="Obriši">{{icon "trash"}}</button></form>
     {{end}}
     <a href="/sektorsko-izvjesce/{{$iz.ID}}/izvjesce.xlsx" class="btn btn-secondary" title="Dokument za ispis, A4">{{icon "download"}} Excel</a>
   </div>

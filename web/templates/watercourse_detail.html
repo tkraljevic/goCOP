@@ -22,7 +22,7 @@
     <form method="POST" action="/api/watercourses/delete"
           onsubmit="return confirm('Obrisati vodno tijelo „{{.Water.Name}}“ iz registra? Zapis ostaje u povijesti.')">
       <input type="hidden" name="code" value="{{.Water.Code}}">
-      <button type="submit" class="btn btn-sm" style="background:var(--danger-bg); color:var(--danger); border-color:var(--danger-border); min-height:40px;">{{icon "trash"}} Obriši</button>
+      <button type="submit" class="btn btn-sm btn-brisi min-h-40">{{icon "trash"}} Obriši</button>
     </form>
     {{end}}
   </div>
@@ -30,7 +30,7 @@
 </div>
 
 
-<div class="reg-card" style="padding:1rem;">
+<div class="reg-card p-4">
   <dl class="reg-facts" style="font-size:0.85rem;">
     {{if .Water.LengthKm}}<div><dt>Duljina</dt><dd>{{brojHRd .Water.LengthKm 1}} km</dd></div>{{end}}
     {{if .Water.BasinKm2}}<div><dt>Površina sliva</dt><dd>{{brojHRd .Water.BasinKm2 0}} km²</dd></div>{{end}}
@@ -39,20 +39,20 @@
     {{if .Water.Mouth}}<div><dt>Ušće</dt><dd>{{.Water.Mouth}}</dd></div>{{end}}
     {{if .Water.FlowsInto}}<div><dt>Ulijeva se u</dt><dd>{{.Water.FlowsInto}}</dd></div>{{end}}
     {{if .Water.Subcategory}}<div><dt>Skupina u Odluci</dt><dd>{{.Water.Subcategory}}</dd></div>{{end}}
-    <div><dt>Šifra</dt><dd style="font-family:ui-monospace, monospace; font-weight:500;">{{.Water.Code}}</dd></div>
+    <div><dt>Šifra</dt><dd class="font-mono fw-500">{{.Water.Code}}</dd></div>
     {{if .Water.WikiURL}}<div><dt>Wikipedija</dt><dd><a href="{{.Water.WikiURL}}" target="_blank" rel="noopener">{{.Water.WikiNaslov}}</a> <span class="reading-meta">· CC BY-SA 4.0</span></dd></div>{{end}}
   </dl>
   {{if and (not .Water.LengthKm) (not .Water.Mouth) (not .Water.Source)}}
-  <p class="page-desc" style="margin-top:0.5rem;">Za ovu vodu nema opisnih podataka; zapis postoji zato što se na nju veže dionica ili postaja.</p>
+  <p class="page-desc mt-2">Za ovu vodu nema opisnih podataka; zapis postoji zato što se na nju veže dionica ili postaja.</p>
   {{end}}
 </div>
 
 {{if and .Karta.Ima .GeometryJSON}}
 <section class="detail-section" id="karta">
-  <div class="detail-section-head" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+  <div class="detail-section-head d-flex justify-between items-center flex-wrap gap-2">
     <h2>{{icon "map"}} Karta vodotoka</h2>
     {{if .Permissions.IsGlobalAdmin}}
-    <div class="karta-akcije" style="display:flex; gap:0.5rem; align-items:center;">
+    <div class="karta-akcije d-flex gap-2 items-center">
       <button type="button" class="btn btn-sm btn-secondary karta-uredi-btn">{{icon "pencil"}} Uredi tok na karti</button>
       {{with "Zamijeni iz GeoJSON-a"}}<label class="btn btn-sm btn-secondary" style="cursor:pointer; display:inline-flex; width:auto;" title="GeoJSON s crtom toka u WGS84 (EPSG:4326), npr. izvoz iz QGIS-a ili OpenStreetMapa">{{icon "upload"}} {{.}}<input type="file" accept=".geojson,.json,application/geo+json,application/json" hidden data-sifra="{{$.Water.Code}}" onchange="ucitajTokVode(this)"></label>{{end}}
       <button type="button" class="btn btn-sm btn-primary karta-spremi-btn" style="display:none;">{{icon "check"}} Spremi geometriju</button>
@@ -86,8 +86,8 @@
 {{if and .Permissions.IsGlobalAdmin (not .GeometryJSON)}}
 <section class="detail-section" id="karta">
   <h2>{{icon "map"}} Karta vodotoka</h2>
-  <div class="reg-card" style="padding:1rem;">
-    <p class="page-desc" style="margin:0 0 0.75rem;">Tok ove vode još nije ucrtan. Učitajte GeoJSON s crtom toka u WGS84 (EPSG:4326) — izvoz iz QGIS-a, geojson.io ili OpenStreetMapa; tok iz OSM-a nosi navod © OpenStreetMap contributors (ODbL).</p>
+  <div class="reg-card p-4">
+    <p class="page-desc mt-0 mb-3">Tok ove vode još nije ucrtan. Učitajte GeoJSON s crtom toka u WGS84 (EPSG:4326) — izvoz iz QGIS-a, geojson.io ili OpenStreetMapa; tok iz OSM-a nosi navod © OpenStreetMap contributors (ODbL).</p>
     {{with "Učitaj GeoJSON"}}<label class="btn btn-sm btn-secondary" style="cursor:pointer; display:inline-flex; width:auto;" title="GeoJSON s crtom toka u WGS84 (EPSG:4326), npr. izvoz iz QGIS-a ili OpenStreetMapa">{{icon "upload"}} {{.}}<input type="file" accept=".geojson,.json,application/geo+json,application/json" hidden data-sifra="{{$.Water.Code}}" onchange="ucitajTokVode(this)"></label>{{end}}
   </div>
 </section>

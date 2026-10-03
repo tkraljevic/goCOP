@@ -19,9 +19,9 @@
     <span>novih <strong>{{brojHR .Novih}}</strong></span>
     <span>već upisanih <strong>{{brojHR .Istih}}</strong></span>
     <span>{{if .Razlicitih}}<strong style="color:var(--tint-orange-fg);">{{brojHR .Razlicitih}} s drugom vrijednošću</strong>{{else}}bez razlika{{end}}</span>
-    <span>{{if .Greske}}<strong style="color:var(--danger);">{{brojHR .Greske}} nečitljivih</strong>{{else}}sve čitljivo{{end}}</span>
+    <span>{{if .Greske}}<strong class="c-danger">{{brojHR .Greske}} nečitljivih</strong>{{else}}sve čitljivo{{end}}</span>
   </div>
-  <p class="page-desc" style="margin:0.5rem 0 0 0;">
+  <p class="page-desc mt-2 mb-0">
     Očitanja idu u operativni zapis — ono na čemu ured radi i što se sinkronizira na druge čvorove.
     Već upisana se preskaču, pa ponovni uvoz istog ispisa ništa ne udvostručuje.
     Vrijeme s letve je lokalno i tako se i tumači, jednako kao u obrascu za ručni upis.
@@ -37,15 +37,15 @@
 
   <div class="table-card"><div class="table-responsive" style="max-height:30rem; overflow-y:auto;">
     <table class="data-table">
-      <thead><tr><th>Redak</th><th>Kad</th><th style="text-align:right;">Vodostaj</th><th>Stanje</th></tr></thead>
+      <thead><tr><th>Redak</th><th>Kad</th><th class="text-right">Vodostaj</th><th>Stanje</th></tr></thead>
       <tbody>
       {{range .Redci}}
       <tr {{if .Greska}}style="background:var(--tint-red-bg);"{{else if .Postoji}}style="opacity:0.55;"{{end}}>
         <td class="mono reg-card-sub">{{.Redak}}</td>
         <td class="mono">{{formatDate (localTime .Kad)}}</td>
-        <td class="mono" style="text-align:right;"><strong>{{brojHRf .Vrijedi 0}}</strong> cm</td>
+        <td class="mono text-right"><strong>{{brojHRf .Vrijedi 0}}</strong> cm</td>
         <td>
-          {{if .Greska}}<span style="color:var(--danger);">{{.Greska}}</span>
+          {{if .Greska}}<span class="c-danger">{{.Greska}}</span>
           {{else if .Razlicit}}<span class="badge badge-unknown">bilo {{brojHRf .Staro 0}}</span>
           {{else if .Postoji}}<span class="reg-card-sub">već upisano</span>
           {{else}}<span class="badge badge-area-admin">novo</span>{{end}}
@@ -60,14 +60,14 @@
     </table>
   </div></div>
 
-  <div style="display:flex; gap:0.75rem; margin-top:1rem; align-items:center;">
+  <div class="d-flex gap-3 mt-4 items-center">
     <button type="submit" class="btn" {{if not .Novih}}disabled{{end}}>
       {{icon "check"}} Upiši {{brojHR .Novih}} {{if eq .Novih 1}}očitanje{{else}}očitanja{{end}}
     </button>
     <a href="/readings/station/{{.Station.ID}}" class="btn btn-secondary">Odustani</a>
   </div>
   {{if .Razlicitih}}
-  <p class="page-desc" style="margin-top:0.5rem;">
+  <p class="page-desc mt-2">
     Očitanja koja već postoje s drugom vrijednošću se ne mijenjaju. Postojeće očitanje ispravlja se pojedinačno,
     da promjena ima svoj trag.
   </p>

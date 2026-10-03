@@ -20,28 +20,28 @@
     <a href="/structures/{{.Structure.ID}}/edit" class="btn btn-secondary">{{icon "pencil"}} Uredi</a>
     <form method="POST" action="/structures/delete" onsubmit="return confirm('Obrisati objekt „{{.Structure.Name}}“ iz registra? Zapis ostaje u povijesti.')">
       <input type="hidden" name="id" value="{{.Structure.ID}}">
-      <button type="submit" class="btn btn-sm" style="background:var(--danger-bg); color:var(--danger); border-color:var(--danger-border); min-height:40px;">{{icon "trash"}} Obriši</button>
+      <button type="submit" class="btn btn-sm btn-brisi min-h-40">{{icon "trash"}} Obriši</button>
     </form>
   {{end}}
   </div>
 </div>
 
 
-<section class="detail-section" style="margin-top:0;">
+<section class="detail-section mt-0">
   <h2>{{icon "gauge"}} Podaci objekta</h2>
-  <div class="reg-card" style="padding:1rem;">
+  <div class="reg-card p-4">
     <dl class="reg-facts" style="font-size:0.9rem;">
-      <div><dt>Kota „0“ letve</dt><dd>{{if .Structure.ZeroDatum}}{{brojHRd .Structure.ZeroDatum 2}} m ({{.Structure.ZeroDatumSystem}}){{else}}<span style="color:var(--text-muted); font-weight:500;">nije upisana</span>{{end}}</dd></div>
+      <div><dt>Kota „0“ letve</dt><dd>{{if .Structure.ZeroDatum}}{{brojHRd .Structure.ZeroDatum 2}} m ({{.Structure.ZeroDatumSystem}}){{else}}<span class="c-muted fw-500">nije upisana</span>{{end}}</dd></div>
       {{if .Structure.IsPumpingStation}}
-      <div><dt>Kapacitet</dt><dd>{{if .Structure.CapacityText}}{{.Structure.CapacityText}} m³/s{{else}}<span style="color:var(--text-muted); font-weight:500;">—</span>{{end}}</dd></div>
-      <div><dt>Vodostaj uključenja</dt><dd>{{if .Structure.StartText}}{{.Structure.StartText}} cm{{else}}<span style="color:var(--text-muted); font-weight:500;">—</span>{{end}}</dd></div>
-      <div><dt>Vodostaj zaustavljanja</dt><dd>{{if .Structure.StopText}}{{.Structure.StopText}} cm{{else}}<span style="color:var(--text-muted); font-weight:500;">—</span>{{end}}</dd></div>
+      <div><dt>Kapacitet</dt><dd>{{if .Structure.CapacityText}}{{.Structure.CapacityText}} m³/s{{else}}<span class="c-muted fw-500">—</span>{{end}}</dd></div>
+      <div><dt>Vodostaj uključenja</dt><dd>{{if .Structure.StartText}}{{.Structure.StartText}} cm{{else}}<span class="c-muted fw-500">—</span>{{end}}</dd></div>
+      <div><dt>Vodostaj zaustavljanja</dt><dd>{{if .Structure.StopText}}{{.Structure.StopText}} cm{{else}}<span class="c-muted fw-500">—</span>{{end}}</dd></div>
       {{end}}
-      <div><dt>Šifra</dt><dd style="font-family:ui-monospace, monospace; font-weight:500;">{{.Structure.Code}}</dd></div>
+      <div><dt>Šifra</dt><dd class="font-mono fw-500">{{.Structure.Code}}</dd></div>
       {{if .Structure.Latitude}}<div><dt>Položaj</dt><dd class="mono">{{derefFloat .Structure.Latitude 5}}, {{derefFloat .Structure.Longitude 5}}</dd></div>{{end}}
     </dl>
     {{if .Structure.IsPumpingStation}}
-    <p class="form-help" style="margin-top:0.75rem;">Vodostaji pogona su na letvi objekta. Kad dođu očitanja, program iz njih javlja treba li stanicu pokrenuti ili zaustaviti.</p>
+    <p class="form-help mt-3">Vodostaji pogona su na letvi objekta. Kad dođu očitanja, program iz njih javlja treba li stanicu pokrenuti ili zaustaviti.</p>
     {{end}}
   </div>
 </section>

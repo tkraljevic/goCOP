@@ -44,9 +44,9 @@
       {{/* Svatko upisuje sebe; uprava centra to provjeri i potvrdi. U
            obračun ulazi samo potvrđeno, pa se vidi što još čeka. */}}
       <td>{{if .Potvrdeno}}<span class="badge" title="{{.PotvrdenoAt.Format "2.1.2006. 15:04"}}">potvrdio {{.Potvrdio}}</span>
-        {{else if $.UpravaCentra}}<form method="POST" action="/dnevnici/{{$.Journal.ID}}/dezurstva/{{.ID}}/potvrdi" style="display:inline;"><button type="submit" class="btn btn-sm btn-primary" title="Provjereno, ulazi u obračun">{{icon "check"}} potvrdi</button></form>
+        {{else if $.UpravaCentra}}<form method="POST" action="/dnevnici/{{$.Journal.ID}}/dezurstva/{{.ID}}/potvrdi" class="d-inline"><button type="submit" class="btn btn-sm btn-primary" title="Provjereno, ulazi u obračun">{{icon "check"}} potvrdi</button></form>
         {{else}}<span class="badge badge-pending">čeka potvrdu</span>{{end}}</td>
-      <td>{{if or $.UpravaCentra (and (not .Potvrdeno) (eq .UserID $.CurrentUser.ID.String))}}<form method="POST" action="/dnevnici/{{$.Journal.ID}}/dezurstva/{{.ID}}/makni" style="display:inline;"
+      <td>{{if or $.UpravaCentra (and (not .Potvrdeno) (eq .UserID $.CurrentUser.ID.String))}}<form method="POST" action="/dnevnici/{{$.Journal.ID}}/dezurstva/{{.ID}}/makni" class="d-inline"
         onsubmit="return confirm('Maknuti dežurstvo iz plana?');"><button type="submit" class="btn btn-sm btn-secondary" title="Makni iz plana">{{icon "x"}}</button></form>{{end}}</td>
     </tr>
     {{end}}

@@ -37,12 +37,12 @@
         {{range .CSV}}
         <tr>
           <td><strong>{{.Name}}</strong>{{if .Note}}<div class="reading-meta">{{.Note}}</div>{{end}}</td>
-          <td style="white-space:nowrap;"><a href="{{.Export}}" class="btn btn-sm btn-secondary" title="Izvoz u CSV (Excel)">{{icon "download"}} CSV</a></td>
+          <td class="nowrap"><a href="{{.Export}}" class="btn btn-sm btn-secondary" title="Izvoz u CSV (Excel)">{{icon "download"}} CSV</a></td>
           <td>
             {{if .Import}}
             <form method="POST" action="{{.Import}}" enctype="multipart/form-data" style="display:flex; gap:0.4rem; align-items:center; flex-wrap:wrap;">
               {{if .Kind}}<input type="hidden" name="kind" value="{{.Kind}}">{{end}}
-              <input type="file" name="csv" accept=".csv,text/csv" required class="form-control" style="max-width:18rem;">
+              <input type="file" name="csv" accept=".csv,text/csv" required class="form-control max-w-18">
               <button type="submit" class="btn btn-sm btn-primary">{{icon "upload"}} Uvezi</button>
             </form>
             {{else}}<span class="reading-meta">nema uvoza</span>{{end}}
@@ -73,7 +73,7 @@
       </tbody>
     </table>
   </div></div>
-  <p class="page-desc" style="margin-top:0.5rem;">
+  <p class="page-desc mt-2">
     Datoteke nisu dio programa. Tko ih nema, upisuje ustroj i registre ručno.
   </p>
 </section>

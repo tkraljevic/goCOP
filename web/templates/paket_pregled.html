@@ -35,7 +35,7 @@
 {{else}}
 <section class="detail-section">
   <h2>{{icon "package"}} Što paket nosi</h2>
-  <div class="reg-card" style="padding:1rem;">
+  <div class="reg-card p-4">
     <dl class="reg-facts">
       <div><dt>Letva</dt><dd>{{.Manifest.Letva}}</dd></div>
       <div><dt>Izdanje</dt><dd>{{.Manifest.Izdanje}}</dd></div>
@@ -44,10 +44,10 @@
       <div><dt>Razdoblje</dt><dd class="mono">{{datumHR .Manifest.Od}} – {{datumHR .Manifest.Do}}</dd></div>
       <div><dt>Sastavio čvor</dt><dd>{{.Manifest.Izdao}}</dd></div>
       <div><dt>Nastalo</dt><dd class="mono">{{formatDate (localTime .Manifest.Nastalo)}}</dd></div>
-      <div style="grid-column:1/-1;"><dt>Otisak</dt><dd class="mono reg-card-sub" style="word-break:break-all;">{{.Manifest.Otisak}}</dd></div>
+      <div style="grid-column:1/-1;"><dt>Otisak</dt><dd class="mono reg-card-sub break-all">{{.Manifest.Otisak}}</dd></div>
     </dl>
   </div>
-  <p class="page-desc" style="margin-top:0.5rem;">Otisak je provjeren — sadržaj paketa odgovara onome
+  <p class="page-desc mt-2">Otisak je provjeren — sadržaj paketa odgovara onome
     što manifest tvrdi.</p>
 </section>
 
@@ -78,7 +78,7 @@
       </li>
       {{end}}
     </ul>
-    <p style="margin:0.5rem 0 0;">Uskladiti ih možete na <a href="/administracija/izvori">Izvori arhive</a>.</p>
+    <p class="mt-2 mb-0">Uskladiti ih možete na <a href="/administracija/izvori">Izvori arhive</a>.</p>
   </div>
   {{end}}
 
@@ -101,7 +101,7 @@
 
 <div class="kartica-podnozje">
   <a href="/stations/{{.Station.ID}}/historijat" class="btn btn-secondary">Odustani</a>
-  <form method="POST" action="/stations/{{.Station.ID}}/paket/ugradi" style="margin:0;">
+  <form method="POST" action="/stations/{{.Station.ID}}/paket/ugradi" class="m-0">
     <input type="hidden" name="kljuc" value="{{.Kljuc}}">
     <button type="submit" class="btn btn-primary">{{icon "download"}} Ugradi historijat</button>
   </form>

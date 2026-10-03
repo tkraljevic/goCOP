@@ -15,13 +15,13 @@
   <div class="page-actions">
     <a href="/akti/{{$a.ID}}/akt.pdf" class="btn btn-secondary" target="_blank">{{icon "printer"}} PDF</a>
     {{if .SmijeOvjeriti}}
-    <form method="POST" action="/akti/{{$a.ID}}/ovjeri" style="display:inline;" onsubmit="return confirm('Ovjeriti akt u goCOP-u? Ovjera se potpisuje ključem čvora, akt dobiva broj i kod ovjere, a PDF sa žigom i potpisom postaje izvornik.');"><button type="submit" class="btn btn-secondary" title="Hitna ovjera u programu, bez kvalificiranog potpisa">{{icon "check"}} Ovjeri u goCOP-u</button></form>
+    <form method="POST" action="/akti/{{$a.ID}}/ovjeri" class="d-inline" onsubmit="return confirm('Ovjeriti akt u goCOP-u? Ovjera se potpisuje ključem čvora, akt dobiva broj i kod ovjere, a PDF sa žigom i potpisom postaje izvornik.');"><button type="submit" class="btn btn-secondary" title="Hitna ovjera u programu, bez kvalificiranog potpisa">{{icon "check"}} Ovjeri u goCOP-u</button></form>
     {{end}}
     {{if .SmijeObrisati}}
-    <form method="POST" action="/akti/{{$a.ID}}/obrisi" style="display:inline;" onsubmit="return confirm('Obrisati nacrt?');"><button type="submit" class="btn btn-secondary">{{icon "trash"}} Obriši nacrt</button></form>
+    <form method="POST" action="/akti/{{$a.ID}}/obrisi" class="d-inline" onsubmit="return confirm('Obrisati nacrt?');"><button type="submit" class="btn btn-secondary">{{icon "trash"}} Obriši nacrt</button></form>
     {{end}}
     {{if .SmijeObrisatiTrajno}}
-    <form method="POST" action="/akti/{{$a.ID}}/obrisi" style="display:inline;" onsubmit="return confirm('TRAJNO obrisati ovjereni akt {{$a.Oznaka}} s izvornikom i dnevnikom slanja? Ovo je dopušteno samo u testnom okruženju (Administracija › Opcije).');"><button type="submit" class="btn btn-secondary btn-opasno">{{icon "trash"}} Obriši trajno</button></form>
+    <form method="POST" action="/akti/{{$a.ID}}/obrisi" class="d-inline" onsubmit="return confirm('TRAJNO obrisati ovjereni akt {{$a.Oznaka}} s izvornikom i dnevnikom slanja? Ovo je dopušteno samo u testnom okruženju (Administracija › Opcije).');"><button type="submit" class="btn btn-secondary btn-opasno">{{icon "trash"}} Obriši trajno</button></form>
     {{end}}
   </div>
 </div>
@@ -37,7 +37,7 @@
   {{else if not .Racun}}<div class="alert alert-warning">Za slanje upišite lozinku e-pošte: <a href="/profile/posta">Profil › E-pošta za slanje akata</a>.</div>{{end}}
   {{if .Adresati}}
   <form method="POST" action="/akti/{{$a.ID}}/posalji" id="akt-slanje-obrazac">
-    <div class="alert alert-warning" style="margin:0 0 0.5rem;">{{icon "triangle-alert"}} Ništa se ne šalje dok sami ne označite primatelje. Za probu koristite „Probno samo meni”: stvarnim primateljima ne odlazi ništa.</div>
+    <div class="alert alert-warning mt-0 mb-2">{{icon "triangle-alert"}} Ništa se ne šalje dok sami ne označite primatelje. Za probu koristite „Probno samo meni”: stvarnim primateljima ne odlazi ništa.</div>
     <p class="form-help akt-slanje-odabir">
       <a href="#" data-odaberi="sve">označi sve</a> · <a href="#" data-odaberi="nista">ništa</a> · <a href="#" data-odaberi="neposlane">samo one kojima još nije poslano</a>
       <span class="akt-slanje-brojac"></span>
@@ -63,7 +63,7 @@
       <p class="form-help">Svaki primatelj dobiva zasebnu poruku, pa ne vidi ostale adrese.</p>
     </details>
     {{if .SmijeSlati}}
-    <div class="form-group adresa-polje" style="margin:0.5rem 0;">
+    <div class="form-group adresa-polje mt-2 mb-2">
       <label class="form-label" for="dodatne">Dodatne adrese</label>
       <input class="form-control" id="dodatne" name="dodatne" placeholder="tko još treba dobiti akt; više adresa odvojite zarezom" autocomplete="off" autocapitalize="off" spellcheck="false">
       <ul class="adresa-prijedlozi" hidden></ul>
@@ -71,7 +71,7 @@
     </div>
     {{if .SpremaPoslano}}<p class="form-help">Poruke se šalju preko Exchangea kao iz Outlooka i ostaju u vašoj mapi Poslano.</p>
     {{else}}<label class="checkbox-label"><input type="checkbox" name="kopija" value="1" checked> Pošalji kopiju i meni (poslužitelj ne sprema poslanu poštu u Outlookovu mapu Poslano)</label>{{end}}
-    <div style="margin-top:0.5rem; display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+    <div class="mt-2 d-flex gap-2 flex-wrap items-center">
       <button type="submit" class="btn btn-primary" id="akt-posalji" {{if or (not .Podesena) (not .Racun) (not .Posiljatelj)}}disabled{{end}}>{{icon "mail"}} Pošalji odabranima</button>
       <button type="submit" class="btn btn-secondary" name="proba" value="1" formnovalidate {{if or (not .Podesena) (not .Racun) (not .Posiljatelj)}}disabled{{end}}>{{icon "user"}} Probno samo meni</button>
       {{if eq .NijePoslanoJos 0}}<span class="form-help">Svim adresama je već poslano.</span>{{end}}</div>
@@ -148,7 +148,7 @@
 {{if .SmijePripremiti}}
 <section class="akt-potpis-opcije">
   <h2>{{icon "printer"}} Ispis, potpis i žig</h2>
-  <p class="form-help" style="margin:0 0 0.75rem;">Akt se ovjerava u goCOP-u gumbom Ovjeri (elektronička ovjera ključem čvora). Kad treba i papir sa žigom, ispišite nacrt, rukovoditelj ga potpiše, udarite žig i sken učitajte: sken tada postaje izvornik i akt je time ovjeren.</p>
+  <p class="form-help mt-0 mb-3">Akt se ovjerava u goCOP-u gumbom Ovjeri (elektronička ovjera ključem čvora). Kad treba i papir sa žigom, ispišite nacrt, rukovoditelj ga potpiše, udarite žig i sken učitajte: sken tada postaje izvornik i akt je time ovjeren.</p>
   <ol>
     <li><a href="/akti/{{$a.ID}}/za-ispis.pdf" target="_blank" class="btn btn-sm btn-secondary">{{icon "printer"}} PDF za ispis</a></li>
     <li><form method="POST" action="/akti/{{$a.ID}}/sken" enctype="multipart/form-data" class="akt-sken">
@@ -166,7 +166,7 @@
 {{if .SmijeObrisati}}
 <details class="akt-uredi"{{if .ErrorMessage}} open{{end}}>
   <summary>{{icon "pencil"}} Ispravi tekst nacrta</summary>
-  <form method="POST" action="/akti/{{$a.ID}}/tekst" class="form-page" style="margin-top:0.75rem;">
+  <form method="POST" action="/akti/{{$a.ID}}/tekst" class="form-page mt-3">
     <div class="form-group">
       <label class="form-label" for="uvod">Uvod: pravna osnova i vodostaj</label>
       <textarea id="uvod" name="uvod" class="form-control" rows="5" required>{{$a.TekstUvoda}}</textarea>
@@ -208,7 +208,7 @@
 {{end}}
 
 <div class="akt-papir">
-  {{with .Sektor}}<div class="akt-zaglavlje"><div><strong>{{term "org"}}</strong><br>{{.VgoName}}{{if .Address}}<br>{{.Address}}{{end}}</div><div style="text-align:right;">Centar obrane od poplava Sektora {{.ID}}{{if .CenterCop}}<br>{{.CenterCop}}{{end}}{{if .Email}}<br>{{.Email}}{{end}}</div></div>{{end}}
+  {{with .Sektor}}<div class="akt-zaglavlje"><div><strong>{{term "org"}}</strong><br>{{.VgoName}}{{if .Address}}<br>{{.Address}}{{end}}</div><div class="text-right">Centar obrane od poplava Sektora {{.ID}}{{if .CenterCop}}<br>{{.CenterCop}}{{end}}{{if .Email}}<br>{{.Email}}{{end}}</div></div>{{end}}
   {{if not $a.Ovjeren}}<p class="akt-nacrt">NACRT — nije ovjeren</p>{{end}}
   <p>{{$a.TekstUvoda}}</p>
   <h2 class="akt-naslov">{{$a.Vrsta}}</h2>
@@ -220,7 +220,7 @@
   {{if $a.IzvanSnage}}<p><strong>{{$a.IzvanSnage}}</strong>{{with $a.PrekidaAktID}} <a href="/akti/{{.}}" class="reg-card-sub">otvori akt</a>{{end}}</p>{{end}}
   <p>{{$a.TekstZavrsni}}</p>
   {{if $a.Napomena}}<p>{{$a.Napomena}}</p>{{end}}
-  <div class="akt-potpis"><div></div><div style="text-align:center;"><strong>{{$a.Potpisnik}}</strong>{{if $a.Ovjeren}}<br><span class="reg-card-sub">{{$a.ImePotpisa}}</span>{{end}}</div></div>
+  <div class="akt-potpis"><div></div><div class="text-center"><strong>{{$a.Potpisnik}}</strong>{{if $a.Ovjeren}}<br><span class="reg-card-sub">{{$a.ImePotpisa}}</span>{{end}}</div></div>
   <p class="akt-obavijest">O tome obavijest:</p>
   <table class="akt-primatelji">{{$br := redniBrojevi $a.Primatelji}}{{range $i, $p := $a.Primatelji}}
     <tr><td class="rb">{{if not $p.Podstavka}}{{index $br $i}}.{{end}}</td><td{{if $p.Podstavka}} class="pod"{{end}}>{{if $p.Podstavka}}– {{$p.NazivBezCrtice}}{{else}}{{$p.Naziv}}{{end}}</td><td class="mail">{{$p.Email}}</td></tr>{{end}}

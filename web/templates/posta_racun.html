@@ -32,7 +32,7 @@
     <button type="submit" class="btn btn-primary">{{icon "check"}} {{if .Racun}}Spremi novu lozinku{{else}}Spremi lozinku{{end}}</button>
   </form>
   {{if .Racun}}
-  <form method="POST" action="/profile/posta" style="margin-top:0.75rem;">
+  <form method="POST" action="/profile/posta" class="mt-3">
     <input type="hidden" name="obrisi" value="1">
     <button type="submit" class="btn btn-sm btn-secondary">{{icon "trash"}} Obriši lozinku s ovog računala</button>
   </form>

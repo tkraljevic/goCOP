@@ -104,7 +104,7 @@
       {{range .Roles}}<option value="{{.Value}}" {{if eq .Value "OPERATOR"}}selected{{end}}>{{.Label}}</option>{{end}}
     </select>
   </div>
-  <div class="form-help" style="margin-bottom:0.5rem;">Doseg određuje uloga: uloga razine 1 vrijedi za cijelu organizaciju, uloga {{terml "sektor"}}a traži {{terml "sektor"}}, uloga {{terml "podrucje"}}a traži {{terml "podrucje"}}, uloga dionice traži dionice. Tko nije uprava organizacije, dodjeljuje samo uloge svoje razine ili niže, u svom dosegu.</div>
+  <div class="form-help mb-2">Doseg određuje uloga: uloga razine 1 vrijedi za cijelu organizaciju, uloga {{terml "sektor"}}a traži {{terml "sektor"}}, uloga {{terml "podrucje"}}a traži {{terml "podrucje"}}, uloga dionice traži dionice. Tko nije uprava organizacije, dodjeljuje samo uloge svoje razine ili niže, u svom dosegu.</div>
   <div class="form-row">
     <div class="form-group">
       <label class="form-label" for="sector_id">{{term "sektor"}}</label>
@@ -129,15 +129,15 @@
   {{end}}
 
   {{if .Permissions.IsGlobalAdmin}}
-  <div class="form-group" style="display:flex; flex-direction:column; gap:0.5rem; margin-top:0.5rem;">
+  <div class="form-group d-flex flex-col gap-2 mt-2">
     {{if .IsEdit}}
-    <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.9rem; min-height:40px;">
+    <label class="oznaka-kvacica">
       <input type="checkbox" name="is_active" value="1" {{if .User.IsActive}}checked{{end}} {{if .IsSelf}}disabled{{end}}>
       Smije se prijaviti
       {{if .IsSelf}}<input type="hidden" name="is_active" value="1">{{end}}
     </label>
     {{end}}
-    <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.9rem; min-height:40px;">
+    <label class="oznaka-kvacica">
       <input type="checkbox" name="is_global_admin" value="1" {{if .User.IsGlobalAdmin}}checked{{end}}>
       Globalni administrator
     </label>

@@ -14,7 +14,7 @@
   </div>
 </div>
 
-<div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1.25rem;">
+<div class="d-flex gap-2 flex-wrap mb-5">
   <span class="stat-badge has-items">{{icon "pencil"}} {{brojHR .Izmjena}} za ispravak</span>
   {{if .Brisanja}}<span class="stat-badge">{{icon "trash"}} {{brojHR .Brisanja}} za brisanje</span>{{end}}
   {{if .Netaknuto}}<span class="stat-badge">{{brojHR .Netaknuto}} nepromijenjeno</span>{{end}}
@@ -65,7 +65,7 @@
   </table>
 </div></div>
 
-<div style="display:flex; gap:0.75rem; margin-top:1.25rem; flex-wrap:wrap;">
+<div class="d-flex gap-3 mt-5 flex-wrap">
   {{if or .Izmjena .Brisanja}}
   <button type="submit" class="btn btn-primary">{{icon "check"}} Upiši
     {{if .Izmjena}}{{brojHR .Izmjena}} ispravak{{if ne .Izmjena 1}}a{{end}}{{end}}
@@ -74,7 +74,7 @@
   {{end}}
   <a href="{{.BackURL}}" class="btn btn-secondary">Odustani</a>
 </div>
-<p class="form-help" style="margin-top:0.75rem;">Svaka izmjena ulazi u knjigu verzija s vašim
+<p class="form-help mt-3">Svaka izmjena ulazi u knjigu verzija s vašim
   imenom, kao i izmjena pojedinog očitanja. Obrisano očitanje nestaje s popisa, ali zapis o
   njemu ostaje.</p>
 </form>

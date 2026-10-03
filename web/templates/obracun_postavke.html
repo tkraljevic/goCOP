@@ -33,7 +33,7 @@
         <td>{{.Naziv}}</td>
         <td class="mono">{{.Opis}}</td>
         <td class="mono">{{if .OdGodine}}od {{.OdGodine}}.{{end}}{{if .DoGodine}} do {{.DoGodine}}.{{end}}{{if and (not .OdGodine) (not .DoGodine)}}uvijek{{end}}</td>
-        <td><form method="POST" action="/administracija/obracun/blagdani/{{.ID}}/makni" style="display:inline;"
+        <td><form method="POST" action="/administracija/obracun/blagdani/{{.ID}}/makni" class="d-inline"
           onsubmit="return confirm('Maknuti blagdan {{.Naziv}}? Ukinut blagdan bolje je zatvoriti godinom do.');">
           <button type="submit" class="btn btn-sm btn-secondary" title="Makni">{{icon "x"}}</button></form></td>
       </tr>
@@ -41,13 +41,13 @@
       </tbody>
     </table>
   </div></div>
-  <p class="reading-meta" style="margin-top:0.5rem;">Po tim pravilima u {{.Godina}}. blagdani padaju:
+  <p class="reading-meta mt-2">Po tim pravilima u {{.Godina}}. blagdani padaju:
     {{range $i, $d := .OveGodine}}{{if $i}}, {{end}}{{$d}}{{end}}.
     <a href="/administracija/obracun?godina={{.Godina}}">Provjeri drugu godinu</a> dodavanjem <code>?godina=</code>.</p>
 
   <details class="reg-card" style="padding:0.75rem 1rem; margin-top:0.75rem;">
     <summary>{{icon "plus"}} Dodaj blagdan</summary>
-    <form method="POST" action="/administracija/obracun/blagdani" style="margin-top:0.75rem;">
+    <form method="POST" action="/administracija/obracun/blagdani" class="mt-3">
       <div class="form-row novi-zapis-red">
         <div class="form-group">
           <label class="form-label" for="b-naziv">Naziv *</label>
@@ -126,7 +126,7 @@
         </tbody>
       </table>
     </div></div>
-    <div class="form-actions" style="margin-top:0.75rem;"><button type="submit" class="btn btn-primary">{{icon "check"}} Upiši koeficijente</button></div>
+    <div class="form-actions mt-3"><button type="submit" class="btn btn-primary">{{icon "check"}} Upiši koeficijente</button></div>
   </form>
 </section>
 {{end}}

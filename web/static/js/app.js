@@ -7,40 +7,40 @@ function escapeHtml(text) {
 function stationMapPopup(st, hideDetails) {
   var pragoviHtml = '';
   if (st.prep || st.regular || st.emergency || st.state) {
-    pragoviHtml = '<div class="karta-popup-pragovi" style="margin-top:6px; font-size:0.75rem; border-top:1px solid #e2e8f0; padding-top:4px;">' +
-      '<div style="font-weight:600; color:#64748b; margin-bottom:3px;">Pragovi obrane:</div>' +
-      '<div style="display:grid; grid-template-columns:1fr 1fr; gap:3px 8px;">' +
-      (st.prep ? '<div><span style="color:#16a34a; font-weight:600;">P:</span> ' + escapeHtml(st.prep) + '</div>' : '') +
-      (st.regular ? '<div><span style="color:#ca8a04; font-weight:600;">R:</span> ' + escapeHtml(st.regular) + '</div>' : '') +
-      (st.emergency ? '<div><span style="color:#ea580c; font-weight:600;">I:</span> ' + escapeHtml(st.emergency) + '</div>' : '') +
-      (st.state ? '<div><span style="color:#dc2626; font-weight:600;">IS:</span> ' + escapeHtml(st.state) + '</div>' : '') +
+    pragoviHtml = '<div class="karta-popup-pragovi">' +
+      '<div class="karta-popup-pragovi-naslov">Pragovi obrane:</div>' +
+      '<div class="karta-popup-pragovi-mreza">' +
+      (st.prep ? '<div><span class="karta-popup-faza p">P:</span> ' + escapeHtml(st.prep) + '</div>' : '') +
+      (st.regular ? '<div><span class="karta-popup-faza r">R:</span> ' + escapeHtml(st.regular) + '</div>' : '') +
+      (st.emergency ? '<div><span class="karta-popup-faza i">I:</span> ' + escapeHtml(st.emergency) + '</div>' : '') +
+      (st.state ? '<div><span class="karta-popup-faza s">IS:</span> ' + escapeHtml(st.state) + '</div>' : '') +
       '</div></div>';
   }
 
-  var reviewHtml = st.needs_review ? '<div style="margin-top:4px;"><span class="badge badge-inactive" style="font-size:0.7rem; padding:1px 5px;">⚠️ traži pregled</span></div>' : '';
+  var reviewHtml = st.needs_review ? '<div class="karta-popup-red"><span class="karta-popup-znacka">⚠️ traži pregled</span></div>' : '';
 
   var latestHtml = '';
   if (st.latest_level || st.latest_flow) {
-    latestHtml = '<div style="margin-top:6px; padding:5px 8px; background:#f0f9ff; border-radius:4px; border:1px solid #bae6fd;">' +
-      (st.latest_level ? '<div style="font-size:0.7rem; color:#64748b; font-weight:500;">Najsvježiji vodostaj:</div>' +
-      '<div style="font-size:1rem; font-weight:700; color:#0c4a6e;">' + escapeHtml(st.latest_level) + '</div>' : '') +
-      (st.latest_flow ? '<div style="font-size:0.75rem; color:#0c4a6e;">Protok: <strong>' + escapeHtml(st.latest_flow) + '</strong></div>' : '') +
-      (st.latest_time ? '<div style="font-size:0.65rem; color:#94a3b8;">' + escapeHtml(st.latest_time) + '</div>' : '') +
+    latestHtml = '<div class="karta-popup-vodostaj">' +
+      (st.latest_level ? '<div class="karta-popup-sitno">Najsvježiji vodostaj:</div>' +
+      '<div class="karta-popup-vodostaj-vrijednost">' + escapeHtml(st.latest_level) + '</div>' : '') +
+      (st.latest_flow ? '<div>Protok: <strong>' + escapeHtml(st.latest_flow) + '</strong></div>' : '') +
+      (st.latest_time ? '<div class="karta-popup-sitno">' + escapeHtml(st.latest_time) + '</div>' : '') +
       '</div>';
   }
 
-  var popupHtml = '<div class="karta-postaja-popup" style="min-width:190px;">' +
-    '<div style="font-weight:700; font-size:0.95rem; margin-bottom:2px;"><a href="' + escapeHtml(st.detail_url) + '">' + escapeHtml(st.name) + '</a></div>' +
-    '<div style="font-size:0.8rem; color:#475569;">' +
+  var popupHtml = '<div class="karta-popup karta-postaja-popup">' +
+    '<div class="karta-popup-naslov"><a href="' + escapeHtml(st.detail_url) + '">' + escapeHtml(st.name) + '</a></div>' +
+    '<div class="karta-popup-opis">' +
     (st.watercourse ? '<strong>' + escapeHtml(st.watercourse) + '</strong>' : '') +
     (st.stationing ? ' · ' + escapeHtml(st.stationing) : '') +
     '</div>' +
-    (st.country ? '<div style="font-size:0.75rem; color:#64748b; margin-top:2px;">📍 ' + escapeHtml(st.country) + '</div>' : '') +
-    (Number.isFinite(st.lat) && Number.isFinite(st.lon) ? '<div style="font-size:0.7rem; color:#64748b;">Koordinate: ' + st.lat.toFixed(6) + ', ' + st.lon.toFixed(6) + '</div>' : '') +
+    (st.country ? '<div class="karta-popup-sitno">📍 ' + escapeHtml(st.country) + '</div>' : '') +
+    (Number.isFinite(st.lat) && Number.isFinite(st.lon) ? '<div class="karta-popup-sitno">Koordinate: ' + st.lat.toFixed(6) + ', ' + st.lon.toFixed(6) + '</div>' : '') +
     reviewHtml +
     latestHtml +
     pragoviHtml +
-    (hideDetails ? '' : '<div style="margin-top:8px;"><a href="' + escapeHtml(st.detail_url) + '" style="display:inline-block; font-size:0.75rem; padding:5px 10px; width:100%; text-align:center; background:#0284c7; color:#ffffff; border-radius:4px; text-decoration:none; font-weight:500; box-sizing:border-box;">Prikaži detalje postaje</a></div>') +
+    (hideDetails ? '' : '<div class="karta-popup-radnje"><a href="' + escapeHtml(st.detail_url) + '" class="karta-popup-gumb">Prikaži detalje postaje</a></div>') +
     '</div>';
   return popupHtml;
 }
@@ -51,7 +51,7 @@ function stvoriLetvaIkonu() {
   return L.divIcon({
     className: 'letva-map-marker-wrap',
     html: '<div class="letva-stupic" title="Vodomjerna letva">' +
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 44" width="18" height="44" style="display:block;">' +
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 44" width="18" height="44" class="letva-svg">' +
       '<path d="M3,2 L15,2 L15,36 L9,42 L3,36 Z" fill="#ffffff" stroke="#334155" stroke-width="1.2" stroke-linejoin="round"/>' +
       '<rect x="3.6" y="2.6" width="10.8" height="6.6" fill="#dc2626"/>' +
       '<path d="M5.5,4.2 H8.5 M5.5,6 H7.5 M5.5,7.8 H8.5 M5.5,4.2 V7.8" stroke="#ffffff" stroke-width="1.2" stroke-linecap="square" fill="none"/>' +
@@ -909,11 +909,11 @@ function dodajKontroleKarte(karta, platno, opcije) {
       stationsData.forEach(function (st) {
         if (typeof st.lat !== 'number' || typeof st.lon !== 'number') return;
         var stMarker = L.marker([st.lat, st.lon], { icon: stvoriLetvaIkonu() });
-        var popupHtml = '<div>' +
-          '<div style="font-weight:700; font-size:0.95rem; margin-bottom:2px;"><a href="' + escapeHtml(st.detail_url) + '">' + escapeHtml(st.name) + '</a></div>' +
-          (st.stationing ? '<div style="font-size:0.8rem; color:#475569;">' + escapeHtml(st.stationing) + '</div>' : '') +
-          (st.country ? '<div style="font-size:0.75rem; color:#64748b;">' + escapeHtml(st.country) + '</div>' : '') +
-          '<div style="margin-top:6px;"><a href="' + escapeHtml(st.detail_url) + '" class="btn btn-sm" style="display:inline-block; font-size:0.75rem; padding:2px 8px;">Prikaži postaju</a></div>' +
+        var popupHtml = '<div class="karta-popup">' +
+          '<div class="karta-popup-naslov"><a href="' + escapeHtml(st.detail_url) + '">' + escapeHtml(st.name) + '</a></div>' +
+          (st.stationing ? '<div class="karta-popup-opis">' + escapeHtml(st.stationing) + '</div>' : '') +
+          (st.country ? '<div class="karta-popup-sitno">' + escapeHtml(st.country) + '</div>' : '') +
+          '<div class="karta-popup-radnje"><a href="' + escapeHtml(st.detail_url) + '" class="karta-popup-gumb">Prikaži postaju</a></div>' +
           '</div>';
         stMarker.bindPopup(popupHtml);
         stMarker.addTo(karta);
@@ -1835,9 +1835,9 @@ function dodajKontroleKarte(karta, platno, opcije) {
         if (typeof st.lat !== 'number' || typeof st.lon !== 'number') return;
         var m = L.marker([st.lat, st.lon], { icon: L.divIcon({ className: 'kis-letva-omotac', html: '<div class="kis-letva"></div>', iconSize: [12, 12], iconAnchor: [6, 6] }) });
         m.bindTooltip(escapeHtml(st.name), { direction: 'top', offset: [0, -6] });
-        m.bindPopup('<div><div style="font-weight:700; font-size:0.95rem; margin-bottom:2px;"><a href="' + escapeHtml(st.detail_url) + '">' + escapeHtml(st.name) + '</a></div>' +
-          (st.stationing ? '<div style="font-size:0.8rem; color:#475569;">' + escapeHtml(st.stationing) + '</div>' : '') +
-          (st.country ? '<div style="font-size:0.75rem; color:#64748b;">' + escapeHtml(st.country) + '</div>' : '') + '</div>');
+        m.bindPopup('<div class="karta-popup"><div class="karta-popup-naslov"><a href="' + escapeHtml(st.detail_url) + '">' + escapeHtml(st.name) + '</a></div>' +
+          (st.stationing ? '<div class="karta-popup-opis">' + escapeHtml(st.stationing) + '</div>' : '') +
+          (st.country ? '<div class="karta-popup-sitno">' + escapeHtml(st.country) + '</div>' : '') + '</div>');
         slojPostaja.addLayer(m);
       });
       var preklopnikPostaja = okvir.parentElement.querySelector('.karta-postaje-preklopnik');
@@ -1854,22 +1854,22 @@ function dodajKontroleKarte(karta, platno, opcije) {
         var boja = stvarni ? '#fff' : (t.aktivan ? bojaPojasa(t.pojas) : '#9e9e9e');
         var ikona = L.divIcon({
           className: 'kis-tocka-omotac',
-          html: '<div class="kis-tocka' + (stvarni ? ' kis-stvarni' : '') + (t.aktivan ? '' : ' kis-tocka-neaktivna') + '" style="background:' + boja + '"></div>',
+          html: '<div class="kis-tocka' + (stvarni ? ' kis-stvarni' : '') + (t.aktivan ? '' : ' kis-tocka-neaktivna') + '" style="--c:' + boja + '"></div>',
           iconSize: [18, 18], iconAnchor: [9, 9]
         });
         var m = L.marker([t.lat, t.lon], { icon: ikona, draggable: false, zIndexOffset: 1000 });
-        var opis = '<div><div style="font-weight:700; font-size:0.95rem; margin-bottom:2px;"><a href="/slivovi/kisomjer/' + encodeURIComponent(t.code) + '">' + escapeHtml(t.naziv) + '</a></div>' +
-          '<div style="font-size:0.8rem; color:#475569;">' + escapeHtml((t.sliv ? 'međusliv ' + t.sliv + ' · ' : '') +
+        var opis = '<div class="karta-popup"><div class="karta-popup-naslov"><a href="/slivovi/kisomjer/' + encodeURIComponent(t.code) + '">' + escapeHtml(t.naziv) + '</a></div>' +
+          '<div class="karta-popup-opis">' + escapeHtml((t.sliv ? 'međusliv ' + t.sliv + ' · ' : '') +
             (stvarni ? 'pravi kišomjer' + (t.izvor ? ' · ' + t.izvor : '') + (t.korak ? ' · ' + t.korak : '') : 'izvedena točka' + (t.pojas ? ' · ' + t.pojas : ''))) + '</div>' +
-          '<div style="font-size:0.75rem; font-weight:600; color:' + (t.u_prognozi ? '#166534' : '#64748b') + ';">' + (t.u_prognozi ? '✓ u prognozi' : 'ne ulazi u prognozu') + '</div>' +
-          '<div style="font-size:0.75rem; color:#64748b;">' +
+          '<div class="karta-popup-prognoza' + (t.u_prognozi ? ' da' : '') + '">' + (t.u_prognozi ? '✓ u prognozi' : 'ne ulazi u prognozu') + '</div>' +
+          '<div class="karta-popup-sitno">' +
             (typeof t.visina === 'number' ? Math.round(t.visina) + ' m n. m.' : '') +
             (typeof t.km2 === 'number' ? ' · ' + Math.round(t.km2).toLocaleString('hr-HR') + ' km²' : '') +
             (typeof t.tezina === 'number' ? ' · težina ' + t.tezina.toFixed(3) : '') +
             (t.aktivan ? '' : ' · neaktivna') +
           '</div>' +
-          '<div class="kis-koord" style="font-size:0.75rem; color:#64748b;">' + t.lat.toFixed(4) + ', ' + t.lon.toFixed(4) + '</div>' +
-          (t.edit_url ? '<div style="margin-top:6px;"><a href="' + escapeHtml(t.edit_url) + '" class="btn btn-sm" style="display:inline-block; font-size:0.75rem; padding:2px 8px;">Uredi točku</a></div>' : '') +
+          '<div class="kis-koord karta-popup-sitno">' + t.lat.toFixed(4) + ', ' + t.lon.toFixed(4) + '</div>' +
+          (t.edit_url ? '<div class="karta-popup-radnje"><a href="' + escapeHtml(t.edit_url) + '" class="karta-popup-gumb">Uredi točku</a></div>' : '') +
           '</div>';
         m.bindPopup(opis);
         m.bindTooltip(escapeHtml(t.naziv), { direction: 'top', offset: [0, -8] });
@@ -2086,23 +2086,23 @@ function dodajKontroleKarte(karta, platno, opcije) {
             zupanijeSloj.resetStyle(this);
           });
 
-          var popupHtml = '<div class="karta-zupanija-popup" style="min-width:240px; font-size:0.875rem;">' +
-            '<div style="font-weight:700; font-size:1.05rem; color:#1e3a8a; margin-bottom:4px; border-bottom:1px solid #e2e8f0; padding-bottom:4px;">' +
+          var popupHtml = '<div class="karta-popup sirok karta-zupanija-popup sloj-zupanije">' +
+            '<div class="karta-popup-naslov s-crtom"><span>' +
             escapeHtml(naziv) +
-            (p.code ? ' <span style="font-size:0.8rem; color:#64748b; font-weight:500;">(' + escapeHtml(p.code) + ')</span>' : '') +
-            '</div>' +
-            (sjediste ? '<div style="margin-bottom:3px;"><strong>Sjedište:</strong> ' + escapeHtml(sjediste) + '</div>' : '') +
-            (zupan ? '<div style="margin-bottom:3px;"><strong>Župan:</strong> ' + escapeHtml(zupan) + '</div>' : '') +
-            (stanovnistvo ? '<div style="margin-bottom:3px;"><strong>Stanovništvo:</strong> ' + escapeHtml(stanovnistvo) + '</div>' : '') +
-            (povrsina ? '<div style="margin-bottom:3px;"><strong>Površina:</strong> ' + escapeHtml(povrsina) + '</div>' : '') +
-            '<div style="margin-bottom:6px; font-size:0.8rem; color:#475569;">' +
+            (p.code ? ' <span class="karta-popup-sitno">(' + escapeHtml(p.code) + ')</span>' : '') +
+            '</span></div>' +
+            (sjediste ? '<div class="karta-popup-red"><strong>Sjedište:</strong> ' + escapeHtml(sjediste) + '</div>' : '') +
+            (zupan ? '<div class="karta-popup-red"><strong>Župan:</strong> ' + escapeHtml(zupan) + '</div>' : '') +
+            (stanovnistvo ? '<div class="karta-popup-red"><strong>Stanovništvo:</strong> ' + escapeHtml(stanovnistvo) + '</div>' : '') +
+            (povrsina ? '<div class="karta-popup-red"><strong>Površina:</strong> ' + escapeHtml(povrsina) + '</div>' : '') +
+            '<div class="karta-popup-red karta-popup-opis">' +
             'Gradova: <strong>' + gradovi + '</strong> · Općina: <strong>' + opcine + '</strong>' +
             '</div>' +
-            '<div style="display:flex; flex-direction:column; gap:0.4rem; margin-top:8px;">' +
-            '<button type="button" class="btn-otvori-jedinice-zupanije" data-cid="' + id + '" style="cursor:pointer; display:inline-block; font-size:0.75rem; padding:4px 8px; background:#2563eb; color:#ffffff; border:none; border-radius:4px; font-weight:600; text-align:center;">Upravljaj gradovima i općinama (' + (gradovi + opcine) + ')</button>' +
-            '<div style="display:flex; gap:0.4rem;">' +
-            (id ? '<a href="/territories?tab=municipalities&county_id=' + id + '" style="display:inline-block; font-size:0.75rem; padding:4px 8px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; border-radius:4px; text-decoration:none; font-weight:500; text-align:center; flex:1;">Tablica</a>' : '') +
-            (id ? '<a href="/territories/counties/' + id + '" style="display:inline-block; font-size:0.75rem; padding:4px 8px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; border-radius:4px; text-decoration:none; font-weight:500; text-align:center; flex:1;">Detalji</a>' : '') +
+            '<div class="karta-popup-radnje">' +
+            '<button type="button" class="karta-popup-gumb btn-otvori-jedinice-zupanije" data-cid="' + id + '">Upravljaj gradovima i općinama (' + (gradovi + opcine) + ')</button>' +
+            '<div class="karta-popup-radnje-red">' +
+            (id ? '<a href="/territories?tab=municipalities&county_id=' + id + '" class="karta-popup-gumb sporedni">Tablica</a>' : '') +
+            (id ? '<a href="/territories/counties/' + id + '" class="karta-popup-gumb sporedni">Detalji</a>' : '') +
             '</div>' +
             '</div>' +
             '</div>';
@@ -2145,7 +2145,7 @@ function dodajKontroleKarte(karta, platno, opcije) {
         var boja = function (s) { return BOJE[s] || '#334155'; };
         var slojevi = {};
         function podaci(p, sektor) {
-          var h = '<div style="min-width:210px;">';
+          var h = '<div class="karta-popup">';
           if (sektor) {
             h += '<strong>Sektor ' + escapeHtml(p.sektor) + '</strong>' + (p.ime ? '<br>' + escapeHtml(p.ime) : '') +
               '<br><small>' + escapeHtml(p.vgo || '') + (p.sjediste ? ', ' + escapeHtml(p.sjediste) : '') + '</small>' +
@@ -2153,7 +2153,7 @@ function dodajKontroleKarte(karta, platno, opcije) {
           } else {
             h += '<strong>Branjeno područje ' + escapeHtml(String(p.bp)) + '</strong> · Sektor ' + escapeHtml(p.sektor) +
               '<br>' + escapeHtml(p.ime || p.naziv || '') +
-              (p.ime && p.naziv ? '<br><small style="color:#64748b;">' + escapeHtml(p.naziv) + '</small>' : '') +
+              (p.ime && p.naziv ? '<br><small class="karta-popup-sitno">' + escapeHtml(p.naziv) + '</small>' : '') +
               (p.vgi ? '<br><small>' + escapeHtml(p.vgi) + (p.podcentar ? ' · ' + escapeHtml(p.podcentar) : '') + '</small>' : '');
           }
           if (p.url && p.dionica) h += '<br><a href="' + escapeHtml(p.url) + '">' + p.dionica + ' dionica →</a>';
@@ -2204,8 +2204,7 @@ function dodajKontroleKarte(karta, platno, opcije) {
               pane: 'vodePane',
               icon: L.divIcon({
                 className: 'vode-oznaka',
-                html: '<span style="display:inline-block; padding:' + (sektor ? '3px 9px' : '1px 6px') + '; border-radius:10px; background:#fff; border:2px solid ' + c +
-                  '; color:' + c + '; font-weight:700; font-size:' + (sektor ? '15px' : '12px') + '; box-shadow:0 1px 3px rgba(0,0,0,.25); white-space:nowrap;">' + escapeHtml(tekst) + '</span>',
+                html: '<span class="vode-natpis' + (sektor ? ' sektor' : '') + '" style="--c:' + c + '">' + escapeHtml(tekst) + '</span>',
                 iconSize: null
               })
             });
@@ -2479,19 +2478,19 @@ function dodajKontroleKarte(karta, platno, opcije) {
             });
           });
 
-          var popHtml = '<div class="karta-naselje-popup" style="min-width:220px; font-size:0.875rem;">' +
-            '<div style="font-weight:700; font-size:1.02rem; color:#be123c; margin-bottom:5px; border-bottom:1px solid #fecdd3; padding-bottom:4px;">' +
+          var popHtml = '<div class="karta-popup sirok karta-naselje-popup sloj-naselja">' +
+            '<div class="karta-popup-naslov s-crtom"><span>' +
             escapeHtml(naziv) +
-            '</div>' +
-            (muniNaziv ? '<div style="margin-bottom:3px; color:#334155;"><strong>Grad/Općina:</strong> ' + escapeHtml(muniNaziv) + '</div>' : '') +
-            (zupNaziv ? '<div style="margin-bottom:3px; color:#64748b; font-size:0.8rem;"><strong>Županija:</strong> ' + escapeHtml(zupNaziv) + '</div>' : '') +
-            (pop ? '<div style="margin-bottom:3px; color:#334155;"><strong>Stanovništvo:</strong> ' + escapeHtml(pop) + '</div>' : '') +
-            (pcode ? '<div style="margin-bottom:3px; color:#64748b; font-size:0.8rem;"><strong>Poštanski broj:</strong> ' + escapeHtml(pcode) + '</div>' : '') +
-            '<div style="display:flex; flex-direction:column; gap:0.35rem; margin-top:8px;">' +
-            '<button type="button" class="btn-ugasi-naselje-popup" data-id="' + escapeHtml(sid) + '" style="cursor:pointer; width:100%; font-size:0.75rem; padding:4px 8px; background:#fff; border:1px solid #fca5a5; color:#dc2626; border-radius:4px; font-weight:600; display:flex; align-items:center; justify-content:center; gap:4px;">' +
+            '</span></div>' +
+            (muniNaziv ? '<div class="karta-popup-red"><strong>Grad/Općina:</strong> ' + escapeHtml(muniNaziv) + '</div>' : '') +
+            (zupNaziv ? '<div class="karta-popup-red karta-popup-sitno"><strong>Županija:</strong> ' + escapeHtml(zupNaziv) + '</div>' : '') +
+            (pop ? '<div class="karta-popup-red"><strong>Stanovništvo:</strong> ' + escapeHtml(pop) + '</div>' : '') +
+            (pcode ? '<div class="karta-popup-red karta-popup-sitno"><strong>Poštanski broj:</strong> ' + escapeHtml(pcode) + '</div>' : '') +
+            '<div class="karta-popup-radnje">' +
+            '<button type="button" class="karta-popup-gumb opasan btn-ugasi-naselje-popup" data-id="' + escapeHtml(sid) + '">' +
             '<span>Ugasi ovo naselje s karte</span>' +
             '</button>' +
-            (mid ? '<div style="margin-top:2px;"><a href="/territories/municipalities/' + mid + '" style="display:inline-block; font-size:0.75rem; padding:3px 8px; background:#e11d48; color:#ffffff; border-radius:4px; text-decoration:none; font-weight:500; text-align:center; width:100%; box-sizing:border-box;">Prikaži ' + escapeHtml(muniNaziv) + '</a></div>' : '') +
+            (mid ? '<a href="/territories/municipalities/' + mid + '" class="karta-popup-gumb">Prikaži ' + escapeHtml(muniNaziv) + '</a>' : '') +
             '</div>' +
             '</div>';
 
@@ -2714,16 +2713,16 @@ function dodajKontroleKarte(karta, platno, opcije) {
           karta.removeControl(layerControl);
         }
         var slojevi = {
-          '<span style="font-weight:600; color:#2563eb;">Županije (21)</span>': zupanijeSloj
+          '<span class="sloj-naziv sloj-zupanije">Županije (21)</span>': zupanijeSloj
         };
         if (gradoviSloj) {
-          slojevi['<span style="font-weight:600; color:#7c3aed;">Gradovi (128)</span>'] = gradoviSloj;
+          slojevi['<span class="sloj-naziv sloj-gradovi">Gradovi (128)</span>'] = gradoviSloj;
         }
         if (opcineSloj) {
-          slojevi['<span style="font-weight:600; color:#059669;">Općine (428)</span>'] = opcineSloj;
+          slojevi['<span class="sloj-naziv sloj-opcine">Općine (428)</span>'] = opcineSloj;
         }
         if (naseljaSloj) {
-          slojevi['<span style="font-weight:600; color:#e11d48;">Naselja (6.759)</span>'] = naseljaSloj;
+          slojevi['<span class="sloj-naziv sloj-naselja">Naselja (6.759)</span>'] = naseljaSloj;
         }
         layerControl = L.control.layers(null, slojevi, { collapsed: false, position: 'topright' });
         layerControl.addTo(karta);
@@ -2922,15 +2921,14 @@ function dodajKontroleKarte(karta, platno, opcije) {
       function renderirajStavku(item) {
         var isChecked = item.active ? 'checked' : '';
         var iskljKlasa = item.active ? '' : ' iskljucena';
-        var badgeBg = item.isGrad ? '#ede9fe' : '#d1fae5';
-        var badgeCol = item.isGrad ? '#6d28d9' : '#047857';
+        var slojJedinice = item.isGrad ? 'sloj-gradovi' : 'sloj-opcine';
         var tipKratki = item.isGrad ? 'G' : 'O';
 
         return '<div class="karta-jedinice-stavka' + iskljKlasa + '" data-id="' + item.id + '">' +
-          '<label style="display:flex; align-items:center; gap:0.45rem; margin:0; cursor:pointer; flex:1; min-width:0;">' +
-          '<input type="checkbox" class="chk-muni-jedinica" data-id="' + item.id + '" ' + isChecked + ' style="cursor:pointer; accent-color:' + (item.isGrad ? '#7c3aed' : '#059669') + '; width:15px; height:15px; flex-shrink:0;">' +
-          '<span style="background:' + badgeBg + '; color:' + badgeCol + '; padding:1px 4px; border-radius:3px; font-size:0.7rem; font-weight:700; flex-shrink:0;">' + tipKratki + '</span>' +
-          '<span class="muni-naziv" style="font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="' + escapeHtml(item.name) + '">' + escapeHtml(item.name) + '</span>' +
+          '<label class="' + slojJedinice + '">' +
+          '<input type="checkbox" class="chk-muni-jedinica sloj-prekidac" data-id="' + item.id + '" ' + isChecked + '>' +
+          '<span class="sloj-oznaka">' + tipKratki + '</span>' +
+          '<span class="muni-naziv" title="' + escapeHtml(item.name) + '">' + escapeHtml(item.name) + '</span>' +
           '</label>' +
           '<button type="button" class="btn-zumi" data-id="' + item.id + '" title="Približi na karti">🔍</button>' +
           '</div>';
@@ -2940,12 +2938,12 @@ function dodajKontroleKarte(karta, platno, opcije) {
         var isChecked = item.active ? 'checked' : '';
         var iskljKlasa = item.active ? '' : ' iskljucena';
         return '<div class="karta-jedinice-stavka' + iskljKlasa + '" data-naselje-id="' + escapeHtml(item.id) + '">' +
-          '<label style="display:flex; align-items:center; gap:0.45rem; margin:0; cursor:pointer; flex:1; min-width:0;">' +
-          '<input type="checkbox" class="chk-naselje-jedinica" data-id="' + escapeHtml(item.id) + '" ' + isChecked + ' style="cursor:pointer; accent-color:#e11d48; width:15px; height:15px; flex-shrink:0;">' +
-          '<span style="background:#ffe4e6; color:#be123c; padding:1px 4px; border-radius:3px; font-size:0.7rem; font-weight:700; flex-shrink:0;">N</span>' +
-          '<span class="naselje-naziv" style="font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="' + escapeHtml(item.name + (item.muniName ? ' (' + item.muniName + ')' : '')) + '">' +
+          '<label class="sloj-naselja">' +
+          '<input type="checkbox" class="chk-naselje-jedinica sloj-prekidac" data-id="' + escapeHtml(item.id) + '" ' + isChecked + '>' +
+          '<span class="sloj-oznaka">N</span>' +
+          '<span class="naselje-naziv" title="' + escapeHtml(item.name + (item.muniName ? ' (' + item.muniName + ')' : '')) + '">' +
           escapeHtml(item.name) +
-          (item.muniName ? ' <small style="color:#64748b; font-weight:normal;">(' + escapeHtml(item.muniName) + ')</small>' : '') +
+          (item.muniName ? ' <small class="karta-jedinice-opcina">(' + escapeHtml(item.muniName) + ')</small>' : '') +
           '</span>' +
           '</label>' +
           '<button type="button" class="btn-zumi-naselje" data-id="' + escapeHtml(item.id) + '" title="Približi naselje na karti">🔍</button>' +
@@ -2963,7 +2961,7 @@ function dodajKontroleKarte(karta, platno, opcije) {
           if (plocaOpcinaOmot) plocaOpcinaOmot.style.display = 'none';
           if (plocaNaslov) plocaNaslov.textContent = 'Pojedinačne jedinice';
           if (plocaPodnaslov) plocaPodnaslov.textContent = 'Odaberite županiju za popis gradova, općina i naselja';
-          if (plocaLista) plocaLista.innerHTML = '<div style="color:var(--text-muted); font-size:0.85rem; text-align:center; padding:2.5rem 1rem;">Odaberite županiju u izborniku iznad ili kliknite na nju na karti za upravljanje pojedinim gradovima, općinama i naseljima.</div>';
+          if (plocaLista) plocaLista.innerHTML = '<div class="karta-jedinice-prazno">Odaberite županiju u izborniku iznad ili kliknite na nju na karti za upravljanje pojedinim gradovima, općinama i naseljima.</div>';
           prikaziNaseljaZaZupaniju(null);
           return;
         }
@@ -3107,13 +3105,13 @@ function dodajKontroleKarte(karta, platno, opcije) {
             html += renderirajNaseljeStavku(n);
           });
         } else if (selVal && selVal !== 'sve' && (!naseljaByCounty[cNum] || naseljaByCounty[cNum].length === 0)) {
-          html += '<div style="color:var(--text-muted); font-size:0.8rem; padding:0.5rem 0.85rem; font-style:italic;">' +
+          html += '<div class="karta-jedinice-ucitavanje">' +
             'Učitavanje naselja županije u tijeku...' +
             '</div>';
         }
 
         if (gradovi.length === 0 && opcine.length === 0 && naselja.length === 0) {
-          html = '<div style="color:var(--text-muted); font-size:0.85rem; text-align:center; padding:2rem 1rem;">Nema jedinica koje odgovaraju pretrazi.</div>';
+          html = '<div class="karta-jedinice-prazno">Nema jedinica koje odgovaraju pretrazi.</div>';
         }
 
         plocaLista.innerHTML = html;
@@ -3397,10 +3395,7 @@ function dodajKontroleKarte(karta, platno, opcije) {
             var telefon = p.phone || '';
             var website = p.website || '';
 
-            var badgeBg = isGrad ? '#ede9fe' : '#d1fae5';
-            var badgeCol = isGrad ? '#6d28d9' : '#047857';
-            var naslovCol = isGrad ? '#5b21b6' : '#065f46';
-            var gumbBg = isGrad ? '#7c3aed' : '#059669';
+            var slojJedinice = isGrad ? 'sloj-gradovi' : 'sloj-opcine';
 
             // Registriraj u index
             var muniItem = {
@@ -3442,30 +3437,30 @@ function dodajKontroleKarte(karta, platno, opcije) {
               kontaktHtml += '<div><strong>Tel:</strong> ' + escapeHtml(telefon) + '</div>';
             }
             if (email) {
-              kontaktHtml += '<div><strong>Email:</strong> <a href="mailto:' + escapeHtml(email) + '" style="color:#2563eb;">' + escapeHtml(email) + '</a></div>';
+              kontaktHtml += '<div><strong>Email:</strong> <a href="mailto:' + escapeHtml(email) + '">' + escapeHtml(email) + '</a></div>';
             }
             if (website) {
-              kontaktHtml += '<div><strong>Web:</strong> <a href="' + escapeHtml(website) + '" target="_blank" rel="noopener" style="color:#2563eb;">' + escapeHtml(website.replace(/^https?:\/\//, '')) + '</a></div>';
+              kontaktHtml += '<div><strong>Web:</strong> <a href="' + escapeHtml(website) + '" target="_blank" rel="noopener">' + escapeHtml(website.replace(/^https?:\/\//, '')) + '</a></div>';
             }
 
-            var popupHtml = '<div class="karta-muni-popup" style="min-width:240px; font-size:0.875rem;">' +
-              '<div style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.5rem; margin-bottom:6px; border-bottom:1px solid #e2e8f0; padding-bottom:5px;">' +
-              '<div style="font-weight:700; font-size:1.05rem; color:' + naslovCol + ';">' + escapeHtml(tipNaziv + ' ' + naziv) + '</div>' +
-              '<span style="background:' + badgeBg + '; color:' + badgeCol + '; padding:2px 6px; border-radius:4px; font-size:0.75rem; font-weight:600; white-space:nowrap;">' + tipNaziv + '</span>' +
+            var popupHtml = '<div class="karta-popup sirok karta-muni-popup ' + slojJedinice + '">' +
+              '<div class="karta-popup-naslov s-crtom">' +
+              '<span>' + escapeHtml(tipNaziv + ' ' + naziv) + '</span>' +
+              '<span class="karta-popup-znacka">' + tipNaziv + '</span>' +
               '</div>' +
-              (zupanija ? '<div style="margin-bottom:3px; color:#475569;"><strong>Županija:</strong> ' + escapeHtml(zupanija) + '</div>' : '') +
-              (celnik ? '<div style="margin-bottom:3px;"><strong>' + escapeHtml(titula) + ':</strong> ' + escapeHtml(celnik) + '</div>' : '') +
-              (stanovnistvo ? '<div style="margin-bottom:3px;"><strong>Stanovništvo:</strong> ' + escapeHtml(stanovnistvo) + '</div>' : '') +
-              (povrsina ? '<div style="margin-bottom:3px;"><strong>Površina:</strong> ' + escapeHtml(povrsina) + '</div>' : '') +
-              (pcode ? '<div style="margin-bottom:3px;"><strong>Poštanski broj:</strong> ' + escapeHtml(pcode) + '</div>' : '') +
-              (kontaktHtml ? '<div style="margin-top:6px; padding-top:6px; border-top:1px dashed #e2e8f0; font-size:0.8rem;">' + kontaktHtml + '</div>' : '') +
-              '<div style="display:flex; flex-direction:column; gap:0.35rem; margin-top:8px;">' +
-              '<button type="button" class="btn-ugasi-jedinicu-popup" data-id="' + id + '" style="cursor:pointer; width:100%; font-size:0.75rem; padding:4px 8px; background:#fff; border:1px solid #fca5a5; color:#dc2626; border-radius:4px; font-weight:600; display:flex; align-items:center; justify-content:center; gap:4px;">' +
+              (zupanija ? '<div class="karta-popup-red karta-popup-opis"><strong>Županija:</strong> ' + escapeHtml(zupanija) + '</div>' : '') +
+              (celnik ? '<div class="karta-popup-red"><strong>' + escapeHtml(titula) + ':</strong> ' + escapeHtml(celnik) + '</div>' : '') +
+              (stanovnistvo ? '<div class="karta-popup-red"><strong>Stanovništvo:</strong> ' + escapeHtml(stanovnistvo) + '</div>' : '') +
+              (povrsina ? '<div class="karta-popup-red"><strong>Površina:</strong> ' + escapeHtml(povrsina) + '</div>' : '') +
+              (pcode ? '<div class="karta-popup-red"><strong>Poštanski broj:</strong> ' + escapeHtml(pcode) + '</div>' : '') +
+              (kontaktHtml ? '<div class="karta-popup-kontakt">' + kontaktHtml + '</div>' : '') +
+              '<div class="karta-popup-radnje">' +
+              '<button type="button" class="karta-popup-gumb opasan btn-ugasi-jedinicu-popup" data-id="' + id + '">' +
               '<span>Ugasi ovaj ' + (isGrad ? 'grad' : 'općinu') + ' s karte</span>' +
               '</button>' +
-              '<div style="display:flex; gap:0.4rem;">' +
-              (id ? '<a href="/territories/municipalities/' + id + '" style="display:inline-block; font-size:0.75rem; padding:4px 8px; background:' + gumbBg + '; color:#ffffff; border-radius:4px; text-decoration:none; font-weight:500; text-align:center; flex:1;">Detalji ' + (isGrad ? 'grada' : 'općine') + '</a>' : '') +
-              (cid ? '<a href="/territories?tab=municipalities&county_id=' + cid + '" style="display:inline-block; font-size:0.75rem; padding:4px 8px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; border-radius:4px; text-decoration:none; font-weight:500; text-align:center;">Tablica</a>' : '') +
+              '<div class="karta-popup-radnje-red">' +
+              (id ? '<a href="/territories/municipalities/' + id + '" class="karta-popup-gumb">Detalji ' + (isGrad ? 'grada' : 'općine') + '</a>' : '') +
+              (cid ? '<a href="/territories?tab=municipalities&county_id=' + cid + '" class="karta-popup-gumb sporedni">Tablica</a>' : '') +
               '</div>' +
               '</div>' +
               '</div>';
@@ -3536,7 +3531,7 @@ function dodajKontroleKarte(karta, platno, opcije) {
         })
         .catch(function () {
           if (loadingEl) {
-            loadingEl.innerHTML = '<span style="color:#ef4444;">Greška učitavanja gradova i općina</span>';
+            loadingEl.innerHTML = '<span class="karta-popup-tekst-greske">Greška učitavanja gradova i općina</span>';
           }
         });
     });

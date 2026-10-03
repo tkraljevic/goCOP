@@ -22,7 +22,7 @@
   <select id="f-sektor" name="sektor" class="form-control"><option value="">svi</option>{{range .Sektori}}{{if ne .ID "DIREKCIJA"}}<option value="{{.ID}}"{{if eq .ID $.Filtar.Sektor}} selected{{end}}>{{.ID}}</option>{{end}}{{end}}</select>
   <label for="f-podrucje">BP</label>
   <select id="f-podrucje" name="podrucje" class="form-control"><option value="">sva</option>{{range .Podrucja}}<option value="{{.ID}}"{{if eq .ID $.Filtar.AreaID}} selected{{end}}>{{.ID}} {{.Name}}</option>{{end}}</select>
-  <label for="f-osoba">Osoba</label><input type="text" id="f-osoba" name="osoba" class="form-control" value="{{.Filtar.Osoba}}" placeholder="dio imena" style="max-width:11rem;">
+  <label for="f-osoba">Osoba</label><input type="text" id="f-osoba" name="osoba" class="form-control max-w-11" value="{{.Filtar.Osoba}}" placeholder="dio imena">
   <button type="submit" class="btn btn-secondary">{{icon "search"}} Prikaži</button>
   <button type="submit" formaction="/dogadjanja.xlsx" class="btn btn-secondary" title="kronologija po istim filtrima, A4">{{icon "download"}} Excel</button>
 </form>
@@ -45,7 +45,7 @@
   {{end}}
   {{end}}
 </div>
-{{if .Dalje}}<p style="margin-top:1rem;"><a href="/dogadjanja?modul={{.Filtar.Modul}}&sektor={{.Filtar.Sektor}}&podrucje={{if .Filtar.AreaID}}{{.Filtar.AreaID}}{{end}}&osoba={{.Filtar.Osoba}}&od={{.Od}}&do={{.Do}}&prije={{.Dalje}}" class="btn btn-secondary">{{icon "arrow-right"}} Starije</a></p>{{end}}
+{{if .Dalje}}<p class="mt-4"><a href="/dogadjanja?modul={{.Filtar.Modul}}&sektor={{.Filtar.Sektor}}&podrucje={{if .Filtar.AreaID}}{{.Filtar.AreaID}}{{end}}&osoba={{.Filtar.Osoba}}&od={{.Od}}&do={{.Do}}&prije={{.Dalje}}" class="btn btn-secondary">{{icon "arrow-right"}} Starije</a></p>{{end}}
 {{else}}
 <div class="reg-empty">Nema događanja za taj izbor.</div>
 {{end}}

@@ -10,7 +10,7 @@
         <h3 class="reg-card-title">{{.Naziv}}</h3>
         <div class="reg-card-sub">{{if .JeStvarni}}{{.Izvor}}{{if .IzvorSifra}} {{.IzvorSifra}}{{end}}{{if .Korak}} · {{.Korak}}{{end}}{{else}}{{.Pojas}}{{end}}{{if not .Aktivan}} · neaktivna{{end}}</div>
       </div>
-      <span class="badge badge-inactive" style="font-family:ui-monospace, monospace;">{{.Code}}</span>
+      <span class="badge badge-inactive font-mono">{{.Code}}</span>
     </div>
     <div class="kis-oznake">
       {{if .JeStvarni}}<span class="badge kis-vrsta-pravi">{{icon "gauge"}} pravi kišomjer</span>{{else}}<span class="badge kis-vrsta-izvedena">{{icon "cloud-rain"}} izvedena točka</span>{{end}}
@@ -44,7 +44,7 @@
     </p>
   </div>
   {{if .Permissions.IsGlobalAdmin}}
-  <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+  <div class="d-flex gap-2 flex-wrap">
     <a href="/slivovi/kisomjer/new" class="btn btn-primary">{{icon "plus"}} Nova izvedena točka</a>
     <a href="/slivovi/kisomjer/new?vrsta=stvarni" class="btn btn-secondary">{{icon "plus"}} Novi stvarni kišomjer</a>
   </div>
@@ -54,7 +54,7 @@
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
 
-<div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1.25rem;">
+<div class="d-flex gap-2 flex-wrap mb-5">
   <span class="stat-badge has-items">{{icon "map"}} {{len .Slivovi}} međuslivova</span>
   <span class="stat-badge has-items">{{icon "cloud-rain"}} {{.Izvedenih}} {{uzBroj .Izvedenih "izvedena točka" "izvedene točke" "izvedenih točaka"}}</span>
   <span class="stat-badge has-items">{{icon "gauge"}} {{.Stvarnih}} {{uzBroj .Stvarnih "pravi kišomjer" "prava kišomjera" "pravih kišomjera"}}</span>
@@ -63,10 +63,10 @@
 
 {{if .Karta.Ima}}
 <section class="detail-section" id="karta">
-  <div class="detail-section-head" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+  <div class="detail-section-head d-flex justify-between items-center flex-wrap gap-2">
     <h2>{{icon "map"}} Karta slivova</h2>
     {{if .Permissions.IsGlobalAdmin}}
-    <div class="karta-akcije" style="display:flex; gap:0.5rem; align-items:center;">
+    <div class="karta-akcije d-flex gap-2 items-center">
       <button type="button" class="btn btn-sm btn-secondary karta-uredi-btn">{{icon "pencil"}} Premjesti kišomjere</button>
       <button type="button" class="btn btn-sm btn-primary karta-spremi-btn" style="display:none;">{{icon "check"}} Spremi položaje</button>
       <button type="button" class="btn btn-sm btn-secondary karta-ponisti-btn" style="display:none;" title="Vrati sve točke na spremljene položaje">Poništi</button>
@@ -94,10 +94,10 @@
       Međuslivovi, rijeke, postaje i kišomjeri ucrtani su i vidljivi.</p>
   </div>
   <div class="karta-podnozje kis-legenda">
-    <span><i class="kis-boja" style="background:#2e7d32"></i> ravnica (&lt;300 m)</span>
-    <span><i class="kis-boja" style="background:#9e9d24"></i> pobrđe (300–1000 m)</span>
-    <span><i class="kis-boja" style="background:#ef6c00"></i> 1000–1500 m</span>
-    <span><i class="kis-boja" style="background:#6a1b9a"></i> &gt;1500 m</span>
+    <span><i class="kis-boja pojas-ravnica"></i> ravnica (&lt;300 m)</span>
+    <span><i class="kis-boja pojas-pobrdje"></i> pobrđe (300–1000 m)</span>
+    <span><i class="kis-boja pojas-brdo"></i> 1000–1500 m</span>
+    <span><i class="kis-boja pojas-planina"></i> &gt;1500 m</span>
     <span><i class="kis-boja kis-boja-neaktivna"></i> neaktivna točka</span>
     <span><i class="kis-boja kis-boja-stvarni"></i> pravi kišomjer</span>
     <span><i class="kis-crta"></i> tok rijeke</span>

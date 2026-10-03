@@ -38,7 +38,7 @@
     <input type="text" id="contract" name="contract" class="form-control" value="{{.Journal.Contract}}" placeholder="Klasa: 325-01/22-09/187, UrBr: …, od 28.01.2023.">
   </div>
 
-  <h2 style="font-size:1rem; margin:1.25rem 0 0.5rem;">Izvođač</h2>
+  <h2 class="obrazac-podnaslov">Izvođač</h2>
   <div class="form-group">
     <label class="form-label" for="contractor">Naziv i sjedište izvođača</label>
     <input type="text" id="contractor" name="contractor" class="form-control" value="{{.Journal.Contractor}}" placeholder="Odvodnja d.d. Darda, Sv. Ivana Krstitelja 115, 31326 Darda">
@@ -54,7 +54,7 @@
     </div>
   </div>
 
-  <h2 style="font-size:1rem; margin:1.25rem 0 0.5rem;">Stručni nadzor</h2>
+  <h2 class="obrazac-podnaslov">Stručni nadzor</h2>
   <div class="form-row">
     <div class="form-group">
       <label class="form-label" for="supervisor">{{if .Journal.IsDefense}}Nadzorni inženjer (rukovoditelj dionice){{else}}Ovlaštenik za praćenje ugovora{{end}}</label>
@@ -80,7 +80,7 @@
     <input type="text" id="investor" name="investor" class="form-control" value="{{.Journal.Investor}}">
   </div>
 
-  <h2 style="font-size:1rem; margin:1.25rem 0 0.5rem;">Razdoblje i list</h2>
+  <h2 class="obrazac-podnaslov">Razdoblje i list</h2>
   <div class="form-row">
     <div class="form-group">
       <label class="form-label" for="started_at">Početak</label>

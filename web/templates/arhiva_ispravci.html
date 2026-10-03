@@ -18,9 +18,9 @@
   <div style="display:flex; flex-wrap:wrap; gap:1.5rem; font-size:0.95rem;">
     <span>mijenja se <strong>{{brojHR .Promjena}}</strong></span>
     <span>bez promjene <strong>{{brojHR .Netaknuto}}</strong></span>
-    <span>{{if .Greske}}<strong style="color:var(--danger);">{{brojHR .Greske}} s greškom</strong>{{else}}bez grešaka{{end}}</span>
+    <span>{{if .Greske}}<strong class="c-danger">{{brojHR .Greske}} s greškom</strong>{{else}}bez grešaka{{end}}</span>
   </div>
-  <p class="page-desc" style="margin:0.5rem 0 0 0;">
+  <p class="page-desc mt-2 mb-0">
     Arhiva se ne dira. Ispravak stoji uz nju, nosi tko ga je upisao i zašto, i pri čitanju se stavlja preko
     izvorne vrijednosti — pa se u svakom trenutku vidi i što je izvor rekao i što je čovjek odlučio.
   </p>
@@ -39,20 +39,20 @@
     <table class="data-table">
       <thead><tr>
         <th>Redak</th><th>Kad</th>
-        <th style="text-align:right;">Bilo</th><th style="text-align:right;">Postaje</th>
-        <th style="text-align:right;">Razlika</th><th>Izvor</th><th>Razlog</th>
+        <th class="text-right">Bilo</th><th class="text-right">Postaje</th>
+        <th class="text-right">Razlika</th><th>Izvor</th><th>Razlog</th>
       </tr></thead>
       <tbody>
       {{range .Redci}}
       <tr {{if .Greska}}style="background:var(--tint-red-bg);"{{else if not .Promjena}}style="opacity:0.55;"{{end}}>
         <td class="mono reg-card-sub">{{.Redak}}</td>
         <td class="mono">{{vrijemeNiza .Kad (eq $.Korak "satni")}}</td>
-        <td class="mono" style="text-align:right;">{{brojHRf .Staro $.Decimala}}</td>
-        <td class="mono" style="text-align:right;"><strong>{{brojHRf .Novo $.Decimala}}</strong></td>
-        <td class="mono" style="text-align:right;">{{if .Promjena}}{{brojHRf (sub2 .Novo .Staro) $.Decimala}}{{end}}</td>
+        <td class="mono text-right">{{brojHRf .Staro $.Decimala}}</td>
+        <td class="mono text-right"><strong>{{brojHRf .Novo $.Decimala}}</strong></td>
+        <td class="mono text-right">{{if .Promjena}}{{brojHRf (sub2 .Novo .Staro) $.Decimala}}{{end}}</td>
         <td class="reg-card-sub">{{izvorLabel .Izvor}}</td>
         <td>
-          {{if .Greska}}<span style="color:var(--danger);">{{.Greska}}</span>
+          {{if .Greska}}<span class="c-danger">{{.Greska}}</span>
           {{else}}{{.Razlog}}
             {{if .Promjena}}
             <input type="hidden" name="kad" value="{{.Kad.Format "2006-01-02T15:04:05Z07:00"}}">
@@ -68,7 +68,7 @@
     </table>
   </div></div>
 
-  <div style="display:flex; gap:0.75rem; margin-top:1rem; align-items:center;">
+  <div class="d-flex gap-3 mt-4 items-center">
     <button type="submit" class="btn" {{if not .Promjena}}disabled{{end}}>
       {{icon "check"}} Upiši {{brojHR .Promjena}} {{if eq .Promjena 1}}ispravak{{else}}ispravaka{{end}}
     </button>

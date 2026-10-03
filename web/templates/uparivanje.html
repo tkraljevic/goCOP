@@ -8,31 +8,8 @@
   <script src="{{statika "js/tema.js"}}"></script>
   <link rel="stylesheet" href="{{statika "css/style.css"}}">
   {{with temaCSS}}<link rel="stylesheet" href="{{.}}">{{end}}
-  <style>
-    .wrap { min-height: 100vh; display: flex; align-items: flex-start; justify-content: center; padding: 1rem; background: var(--hero); }
-    .box { background: var(--surface); border-radius: 12px; padding: 1.5rem; width: 100%; max-width: 560px; box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.3); margin-top: 2rem; }
-    .brand { display: flex; align-items: center; gap: 0.6rem; color: var(--primary); font-weight: 700; font-size: 0.8rem; letter-spacing: 0.16em; text-transform: uppercase; margin-bottom: 1rem; }
-    .brand img { height: 36px; width: auto; max-width: 64px; object-fit: contain; }
-    h1 { font-size: 1.25rem; margin: 0 0 0.25rem; }
-    .sub { font-size: 0.85rem; color: var(--text-muted); margin: 0 0 1rem; }
-    .steps { display: grid; gap: 0.75rem; }
-    .step { border: 1px solid var(--border); border-radius: 10px; padding: 0.9rem 1rem; opacity: 0.55; }
-    .step.on { opacity: 1; border-color: var(--primary); }
-    .step.done { opacity: 0.8; border-color: #2e7d5b; }
-    .step h2 { font-size: 0.95rem; margin: 0 0 0.35rem; display: flex; align-items: center; gap: 0.5rem; }
-    .num { display: inline-flex; width: 1.6rem; height: 1.6rem; border-radius: 50%; background: var(--gumb); color: var(--gumb-tekst); align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700; }
-    .done .num { background: var(--accent-dark); color: var(--surface); }
-    .desc { font-size: 0.82rem; color: var(--text-muted); margin: 0 0 0.6rem; }
-    .actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
-    .sas { font-family: "SFMono-Regular", Menlo, monospace; font-size: 2.4rem; letter-spacing: 0.25em; text-align: center; padding: 0.5rem 0; }
-    .muted { color: var(--text-muted); font-size: 0.85rem; }
-    .err { color: var(--danger); font-size: 0.85rem; }
-    .ok { color: var(--tint-green-fg); }
-    .peer { border-top: 1px solid var(--border); padding: 0.5rem 0; display: flex; justify-content: space-between; gap: 0.5rem; align-items: center; flex-wrap: wrap; font-size: 0.9rem; }
-    .me { font-size: 0.8rem; color: var(--text-muted); margin-top: 1rem; border-top: 1px dashed var(--border-strong); padding-top: 0.6rem; }
-  </style>
 </head>
-<body>
+<body class="stranica-uparivanje">
 <div class="wrap">
   <div class="box">
     <div class="brand"><img src="{{logo}}" alt="">{{term "org"}} · goCOP</div>
@@ -54,21 +31,21 @@
           <button type="button" class="btn btn-secondary" onclick="listen()">Čekaj poziv ureda</button>
         </div>
         <div id="found"></div>
-        <p id="status" class="muted" style="margin:0.5rem 0 0;"></p>
+        <p id="status" class="muted mt-2 mb-0"></p>
       </div>
 
       <div class="step" id="step-code">
         <h2><span class="num">2</span> Usporedi kod</h2>
         <p class="desc">Isti kod mora pisati i na drugom ekranu. Ako se razlikuje, netko se ubacio između: odbijte.</p>
         <div id="pending" style="display:none;">
-          <p style="margin:0;">Računalo <b id="peer-name"></b> <span class="muted mono" id="peer-id"></span></p>
+          <p class="m-0">Računalo <b id="peer-name"></b> <span class="muted mono" id="peer-id"></span></p>
           <div class="sas" id="sas"></div>
           <div class="actions">
             <button type="button" class="btn btn-primary" onclick="confirmPair(true)">Kod se podudara — upari</button>
             <button type="button" class="btn btn-secondary" onclick="confirmPair(false)">Odbij</button>
           </div>
         </div>
-        <p id="code-result" class="muted" style="margin:0;"></p>
+        <p id="code-result" class="muted m-0"></p>
       </div>
 
       <div class="step {{if .InNetwork}}on{{end}}" id="step-sync">
@@ -77,12 +54,12 @@
         <div class="actions">
           <button type="button" class="btn btn-primary" id="sync-btn" onclick="sync()" {{if not .InNetwork}}disabled{{end}}>Sinkroniziraj</button>
         </div>
-        <p id="sync-result" class="muted" style="margin:0.5rem 0 0;"></p>
-        {{if .Peers}}<div style="margin-top:0.5rem;">{{range .Peers}}<div class="peer"><span>{{if .Name}}{{.Name}}{{else}}{{.NodeID}}{{end}}</span><span class="muted">{{if .LastSync}}zadnja razmjena {{.LastSync.Format "02.01.2006 15:04"}}{{else}}još bez razmjene{{end}}</span></div>{{end}}</div>{{end}}
+        <p id="sync-result" class="muted mt-2 mb-0"></p>
+        {{if .Peers}}<div class="mt-2">{{range .Peers}}<div class="peer"><span>{{if .Name}}{{.Name}}{{else}}{{.NodeID}}{{end}}</span><span class="muted">{{if .LastSync}}zadnja razmjena {{.LastSync.Format "02.01.2006 15:04"}}{{else}}još bez razmjene{{end}}</span></div>{{end}}</div>{{end}}
       </div>
     </div>
 
-    <div class="actions" style="margin-top:1rem;">
+    <div class="actions mt-4">
       {{if .User}}<a href="/pretplate" class="btn btn-secondary">Što ovo računalo prati</a> <a href="/profile" class="btn btn-secondary">Natrag na profil</a>{{else}}<a href="/login" class="btn btn-secondary" id="login-link">Na prijavu</a>{{end}}
     </div>
 

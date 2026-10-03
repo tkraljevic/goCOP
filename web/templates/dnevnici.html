@@ -32,7 +32,7 @@
 <div class="filter-card">
   <form action="/dnevnici/popis" method="GET">
     <input type="hidden" name="vrsta" value="OBRANA">
-    <div class="filters-row" style="grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));">
+    <div class="filters-row stupci-20">
       <div class="filter-group">
         <label class="filter-label" for="centar">{{icon "activity"}} Centar obrane</label>
         <select id="centar" name="centar" class="filter-select" onchange="this.form.submit()">
@@ -49,7 +49,7 @@
 <div class="filter-card">
   <form action="/dnevnici/popis" method="GET">
     <input type="hidden" name="vrsta" value="{{.Vrsta}}">
-    <div class="filters-row" style="grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));">
+    <div class="filters-row stupci-20">
       <div class="filter-group">
         <label class="filter-label" for="area">{{icon "waves"}} {{term "podrucje"}}</label>
         <select id="area" name="area" class="filter-select" onchange="this.form.submit()">

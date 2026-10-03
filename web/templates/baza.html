@@ -16,9 +16,9 @@
 </div>
 
 
-<div class="reg-card" style="padding:1rem;">
+<div class="reg-card p-4">
   <dl class="reg-facts">
-    <div><dt>Datoteka</dt><dd class="mono" style="overflow-wrap:anywhere;">{{.DBPath}}</dd></div>
+    <div><dt>Datoteka</dt><dd class="mono wrap-anywhere">{{.DBPath}}</dd></div>
     <div><dt>Na disku</dt><dd>{{humanBytes .SizeBytes}}{{if .WALBytes}} + WAL {{humanBytes .WALBytes}}{{end}}</dd></div>
     <div><dt>Verzija u knjizi</dt><dd>{{.Stats.Versions}}</dd></div>
     <div><dt>Zapisa</dt><dd>{{.Stats.Records}}</dd></div>
@@ -29,7 +29,7 @@
     <div><dt>Sesija</dt><dd>{{.Sessions}}</dd></div>
   </dl>
   {{if .Stats.ByEntity}}
-  <div class="reading-meta" style="margin-top:0.5rem;">Po vrsti: {{range $k, $v := .Stats.ByEntity}}<span class="reg-chip">{{$k}} {{$v}}</span> {{end}}</div>
+  <div class="reading-meta mt-2">Po vrsti: {{range $k, $v := .Stats.ByEntity}}<span class="reg-chip">{{$k}} {{$v}}</span> {{end}}</div>
   {{end}}
 </div>
 
@@ -40,16 +40,16 @@
     ne vrati. Starije verzije istog zapisa služe samo povijesti izmjena; sažimanje ih briše kad su starije od
     zadanog roka. Razmjena s drugim čvorovima to ne osjeti.
   </p>
-  <form method="GET" action="/administracija/baza" class="form-page" style="display:flex; gap:0.5rem; align-items:flex-end; flex-wrap:wrap;">
-    <div class="form-group" style="margin:0;">
+  <form method="GET" action="/administracija/baza" class="form-page d-flex gap-2 items-end flex-wrap">
+    <div class="form-group m-0">
       <label class="form-label" for="days">Ostavi povijest zadnjih (dana)</label>
-      <input type="text" inputmode="numeric" id="days" name="days" class="form-control" value="{{.KeepDays}}" style="max-width:8rem;">
+      <input type="text" inputmode="numeric" id="days" name="days" class="form-control max-w-8" value="{{.KeepDays}}">
     </div>
     <button type="submit" class="btn btn-secondary">Preračunaj</button>
   </form>
-  <p style="margin:0.75rem 0;">Uz rok od <b>{{.KeepDays}}</b> dana sažimanje bi obrisalo <b>{{.Compactable}}</b> verzija.{{if .BrisanjePovijesti}} Prekidač <em>brisanje povijesti verzija</em> je uključen: rok 0 briše svu povijest odmah.{{end}}</p>
+  <p class="mt-3 mb-3">Uz rok od <b>{{.KeepDays}}</b> dana sažimanje bi obrisalo <b>{{.Compactable}}</b> verzija.{{if .BrisanjePovijesti}} Prekidač <em>brisanje povijesti verzija</em> je uključen: rok 0 briše svu povijest odmah.{{end}}</p>
   {{if .Permissions.IsGlobalAdmin}}
-  <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+  <div class="d-flex gap-2 flex-wrap">
     <form method="POST" action="/administracija/baza/sazmi" onsubmit="return confirm('Obrisati {{.Compactable}} starijih verzija? Zadnje verzije i spomenici ostaju; povijest izmjena starija od {{.KeepDays}} dana nestaje s ovog čvora.')">
       <input type="hidden" name="days" value="{{.KeepDays}}">
       <button type="submit" class="btn btn-primary" {{if not .Compactable}}disabled{{end}}>{{icon "trash"}} Sažmi knjigu</button>
@@ -79,8 +79,8 @@
     izdanje i isti otisak; potpisuje ga ključ ovog čvora, a primatelj traži da je izdavač član mreže.
   </p>
   {{if .Channels}}
-  <form method="GET" action="/administracija/baza/izvoz" class="form-page" style="display:flex; gap:0.5rem; align-items:flex-end; flex-wrap:wrap;">
-    <div class="form-group" style="margin:0;">
+  <form method="GET" action="/administracija/baza/izvoz" class="form-page d-flex gap-2 items-end flex-wrap">
+    <div class="form-group m-0">
       <label class="form-label" for="kind">Što</label>
       <select id="kind" name="kind" class="form-control">
         <option value="">Sve vrste</option>
@@ -90,25 +90,25 @@
         <option value="vodocuvarski">Vodočuvarski dnevnik</option>
       </select>
     </div>
-    <div class="form-group" style="margin:0;">
+    <div class="form-group m-0">
       <label class="form-label" for="sadrzaj">Sadržaj</label>
       <select id="sadrzaj" name="sadrzaj" class="form-control">
         <option value="1">S PDF-ovima i slikama</option>
         <option value="0">Samo zapisi i popis (kazalo)</option>
       </select>
     </div>
-    <div class="form-group" style="margin:0;">
+    <div class="form-group m-0">
       <label class="form-label" for="area">{{term "podrucje"}}</label>
-      <input type="text" inputmode="numeric" id="area" name="area" class="form-control" placeholder="npr. 16 (prazno = sva)" style="max-width:10rem;">
+      <input type="text" inputmode="numeric" id="area" name="area" class="form-control max-w-10" placeholder="npr. 16 (prazno = sva)">
     </div>
-    <div class="form-group" style="margin:0;">
+    <div class="form-group m-0">
       <label class="form-label" for="year">Godina</label>
-      <input type="text" inputmode="numeric" id="year" name="year" class="form-control" placeholder="npr. 2024 (prazno = sve)" style="max-width:10rem;">
+      <input type="text" inputmode="numeric" id="year" name="year" class="form-control max-w-10" placeholder="npr. 2024 (prazno = sve)">
     </div>
     <button type="submit" class="btn btn-primary">{{icon "download"}} Izdaj .cop</button>
     <button type="submit" name="oblik" value="db" class="btn btn-secondary" title="Stara SQLite arhiva bez potpisa i sadržaja">Stari oblik (.db)</button>
   </form>
-  <div class="table-card" style="margin-top:0.75rem;"><div class="table-responsive">
+  <div class="table-card mt-3"><div class="table-responsive">
     <table class="data-table">
       <thead><tr><th>Vrsta</th><th>BP</th><th>Godina</th><th>Verzija</th><th>Pretplata</th></tr></thead>
       <tbody>
@@ -135,8 +135,8 @@
     najnovijih, uključeni sadržaj u spremište, ostali na popis za dohvat. Starije izdanje istog izdavača se odbija;
     ponovljena ugradnja iste datoteke ne mijenja ništa.
   </p>
-  <form method="POST" action="/administracija/baza/uvoz" enctype="multipart/form-data" class="form-page" style="display:flex; gap:0.5rem; align-items:flex-end; flex-wrap:wrap;">
-    <div class="form-group" style="margin:0;">
+  <form method="POST" action="/administracija/baza/uvoz" enctype="multipart/form-data" class="form-page d-flex gap-2 items-end flex-wrap">
+    <div class="form-group m-0">
       <label class="form-label" for="archive">Datoteka (.cop ili .db)</label>
       <input type="file" id="archive" name="archive" class="form-control" accept=".cop,.db,.sqlite,application/octet-stream,application/vnd.sqlite3" required>
     </div>

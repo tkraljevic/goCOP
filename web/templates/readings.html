@@ -13,7 +13,7 @@
   </div>
 </div>
 
-<div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1.25rem;">
+<div class="d-flex gap-2 flex-wrap mb-5">
   <span class="stat-badge has-items">{{icon "ruler"}} {{.WithReadings}} letvi s očitanjima</span>
   <span class="stat-badge has-items">{{icon "history"}} {{.TotalCount}} očitanja</span>
   {{if not .LastAt.IsZero}}<span class="stat-badge">{{icon "clock"}} zadnje {{ago .LastAt}}</span>{{end}}
@@ -30,7 +30,7 @@
       <button type="submit" class="btn btn-primary">Pretraži</button>
       {{if or .SearchQuery .SelectedSector .SelectedArea .ShowAll}}<a href="/readings" class="btn btn-secondary">{{icon "x"}}</a>{{end}}
     </div>
-    <div class="filters-row" style="grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));">
+    <div class="filters-row stupci-14">
       <div class="filter-group">
         <label class="filter-label" for="sector">{{icon "building-2"}} {{term "sektor"}}</label>
         <select id="sector" name="sector" class="filter-select" onchange="document.getElementById('area').value=''; this.form.submit()">
@@ -73,7 +73,7 @@
       {{if .Latest}}
       <div style="display:flex; align-items:baseline; gap:0.75rem; flex-wrap:wrap; margin-top:0.35rem;">
         <div class="reading-value">
-          {{if .Latest.LevelCm}}{{intOf .Latest.LevelCm}}<small>cm</small>{{else if .Latest.Level2Cm}}<span style="color:var(--text-muted)">—</span>{{else}}<span style="font-size:1rem; color:var(--text-muted); font-weight:500;">nije očitan</span>{{end}}
+          {{if .Latest.LevelCm}}{{intOf .Latest.LevelCm}}<small>cm</small>{{else if .Latest.Level2Cm}}<span class="c-muted">—</span>{{else}}<span style="font-size:1rem; color:var(--text-muted); font-weight:500;">nije očitan</span>{{end}}
         </div>
         {{with .Trend}}
           {{if gt (intOf .) 0}}<span class="reading-trend up">{{icon "trending-up"}} +{{intOf .}}</span>
@@ -81,10 +81,10 @@
           {{else}}<span class="reading-trend flat">{{icon "minus"}} 0</span>{{end}}
         {{end}}
         {{if .Latest.Level2Cm}}<span class="reading-meta">nizvodno <strong>{{intOf .Latest.Level2Cm}} cm</strong></span>{{end}}
-        {{with index $.Protok .Key}}<span class="reading-meta" title="{{if .Izmjeren}}izmjereni protok{{else}}procjena iz HQ krivulje{{end}}">{{.Q}} m³/s{{if not .Izmjeren}} <span style="color:var(--text-muted);">iz krivulje</span>{{end}}{{if .Izvan}} <span class="izvan-krivulje">izvan raspona krivulje</span>{{end}}</span>{{end}}
+        {{with index $.Protok .Key}}<span class="reading-meta" title="{{if .Izmjeren}}izmjereni protok{{else}}procjena iz HQ krivulje{{end}}">{{.Q}} m³/s{{if not .Izmjeren}} <span class="c-muted">iz krivulje</span>{{end}}{{if .Izvan}} <span class="izvan-krivulje">izvan raspona krivulje</span>{{end}}</span>{{end}}
         {{if .Latest.TempC}}<span class="reading-meta" title="temperatura vode">{{brojHRf (deref .Latest.TempC) 1}} °C</span>{{end}}
       </div>
-      <div class="reading-meta" style="margin-top:0.25rem;">
+      <div class="reading-meta mt-1">
         <span class="{{if .Stale}}reading-stale{{end}}" title="{{formatDate .Latest.LocalTime}}">{{ago .Latest.MeasuredAt}}</span>
         {{if .Latest.StructureState}} · {{.Latest.StateLabel}}{{end}}
         {{if .Latest.Gate}} · zapornica {{.Latest.GateLabel}}{{end}}

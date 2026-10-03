@@ -64,9 +64,9 @@
       </select>
     </div>
   </div>
-  <details {{if .Reading.HasAgHours}}open{{end}} style="margin-bottom:1rem;">
-    <summary class="form-label" style="cursor:pointer;">Sati rada agregata</summary>
-    <div class="form-row" style="margin-top:0.5rem;">
+  <details {{if .Reading.HasAgHours}}open{{end}} class="mb-4">
+    <summary class="form-label cursor-pointer">Sati rada agregata</summary>
+    <div class="form-row mt-2">
       <div class="form-group"><label class="form-label" for="ag_hours_1">Agregat 1 (h)</label><input type="text" inputmode="numeric" id="ag_hours_1" name="ag_hours_1" class="form-control" value="{{if .Reading.AgHours1}}{{intOf .Reading.AgHours1}}{{end}}"></div>
       <div class="form-group"><label class="form-label" for="ag_hours_2">Agregat 2 (h)</label><input type="text" inputmode="numeric" id="ag_hours_2" name="ag_hours_2" class="form-control" value="{{if .Reading.AgHours2}}{{intOf .Reading.AgHours2}}{{end}}"></div>
       <div class="form-group"><label class="form-label" for="ag_hours_3">Agregat 3 (h)</label><input type="text" inputmode="numeric" id="ag_hours_3" name="ag_hours_3" class="form-control" value="{{if .Reading.AgHours3}}{{intOf .Reading.AgHours3}}{{end}}"></div>
@@ -250,9 +250,9 @@
 </form>
 
 {{if .IsEdit}}
-<form method="POST" action="/readings/delete" style="margin-top:1rem;" onsubmit="return confirm('Obrisati ovo očitanje? Zapis ostaje u povijesti.')">
+<form method="POST" action="/readings/delete" class="mt-4" onsubmit="return confirm('Obrisati ovo očitanje? Zapis ostaje u povijesti.')">
   <input type="hidden" name="id" value="{{.Reading.ID}}">
-  <button type="submit" class="btn btn-sm" style="background:var(--danger-bg); color:var(--danger); border-color:var(--danger-border); min-height:40px;">{{icon "trash"}} Obriši očitanje</button>
+  <button type="submit" class="btn btn-sm btn-brisi min-h-40">{{icon "trash"}} Obriši očitanje</button>
 </form>
 {{end}}
 {{end}}

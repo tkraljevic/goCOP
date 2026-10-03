@@ -69,7 +69,7 @@
   {{end}}
   </ul>
 </form>
-<div class="form-help" style="display:flex; gap:1rem; align-items:center; margin-top:0.5rem;">
+<div class="form-help d-flex gap-4 items-center mt-2">
   <span>{{.NazivMape}}: ukupno {{.Ukupno}}.</span>
   {{if gt .Prethodna 0}}<a href="/posta?mapa={{.Mapa | urlquery}}&amp;stranica={{.Prethodna}}{{with .Trazi}}&amp;trazi={{. | urlquery}}{{end}}{{with .OdabraniAkt}}&amp;akt={{.}}{{end}}">{{icon "chevron-left"}} Novija</a>{{end}}
   {{if .Stranica_}}<a href="/posta?mapa={{.Mapa | urlquery}}&amp;stranica={{.Stranica_}}{{with .Trazi}}&amp;trazi={{. | urlquery}}{{end}}{{with .OdabraniAkt}}&amp;akt={{.}}{{end}}">Starija {{icon "chevron-right"}}</a>{{end}}

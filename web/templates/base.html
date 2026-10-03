@@ -18,7 +18,7 @@
   <!-- Navigacija -->
   <header class="navbar">
     <div class="nav-container">
-      <div class="nav-left" style="display:flex; align-items:center; gap:1.75rem;">
+      <div class="nav-left">
         <a href="/" class="brand">
           <img src="{{logo}}" alt="" class="brand-mark">
           <div>
@@ -120,7 +120,7 @@
           <a href="/profile" class="btn btn-secondary btn-sm">{{icon "user"}} Moj profil</a>
           <a href="/posta" class="btn btn-secondary btn-sm" title="Ulazna pošta iz Exchangea">{{icon "mailbox"}} Sandučić</a>
           <a href="/profile#lozinka" class="btn btn-secondary btn-sm">{{icon "key-round"}} Lozinka</a>
-          <form action="/logout" method="POST" style="display:inline;">
+          <form action="/logout" method="POST" class="d-inline">
             <button type="submit" class="btn btn-secondary btn-sm" title="Odjavi se">{{icon "log-out"}} Odjava</button>
           </form>
         </div>
@@ -146,15 +146,15 @@
 
   <main class="main-content{{if .Viewing}} main-content-viewing{{end}}">
     {{if and .CurrentUser .CurrentUser.MustChangePassword}}
-    <div style="background:var(--tint-amber-bg); border:1px solid var(--tint-amber-bg); border-left:4px solid var(--warning); color:var(--tint-amber-fg); padding:0.875rem 1.25rem; border-radius:8px; margin-bottom:1.5rem; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.75rem; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
-      <div style="display:flex; align-items:center; gap:0.75rem;">
-        <span style="font-size:1.5rem;">{{icon "triangle-alert"}} </span>
+    <div class="lozinka-upozorenje">
+      <div class="d-flex items-center gap-3">
+        <span class="lozinka-upozorenje-ikona">{{icon "triangle-alert"}}</span>
         <div>
-          <strong style="font-size:0.9375rem;">Upozorenje: Prijavljeni ste s početnom zadanom lozinkom</strong><br>
-          <span style="font-size:0.8125rem;">Radi sigurnosti vašeg računa i operativnih podataka, molimo vas da odmah postavite vlastitu lozinku.</span>
+          <strong>Upozorenje: Prijavljeni ste s početnom zadanom lozinkom</strong><br>
+          <span class="lozinka-upozorenje-opis">Radi sigurnosti vašeg računa i operativnih podataka, molimo vas da odmah postavite vlastitu lozinku.</span>
         </div>
       </div>
-      <a href="/profile#lozinka" class="btn btn-sm"  style="background:var(--warning); color:#1f2937; border:none; font-weight:600; padding:0.5rem 1rem; border-radius:6px; cursor:pointer;">
+      <a href="/profile#lozinka" class="btn btn-sm lozinka-upozorenje-gumb">
         {{icon "key-round"}} Promijeni lozinku
       </a>
     </div>
@@ -391,7 +391,7 @@
 {{/* Presjek korita — prima KoritoCrtez. Isti crtež služi širokom i uskom;
      razlika je u koordinatama koje crtež sam nosi. */}}
 {{define "presjekKorita"}}
-<svg viewBox="0 0 {{.Sirina}} {{.Visina}}" style="width:100%; height:auto;"
+<svg viewBox="0 0 {{.Sirina}} {{.Visina}}" class="presjek-svg"
      role="img" aria-label="Poprečni profil korita: gdje se voda nalazi">
   {{range .KoteY}}
   <line class="korito-mreza" x1="{{printf "%.1f" $.Lijevo}}" y1="{{printf "%.1f" .Y}}" x2="{{printf "%.1f" $.DesnaOsCrtaX}}" y2="{{printf "%.1f" .Y}}"/>

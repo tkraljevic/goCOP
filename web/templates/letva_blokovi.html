@@ -6,7 +6,7 @@
 {{define "letva-pragovi"}}
 <section class="detail-section">
   <h2>{{icon "gauge"}} Pragovi obrane od poplava</h2>
-  <div class="reg-card" style="padding:1rem;">
+  <div class="reg-card p-4">
     <div class="pragovi-kartice">
       {{range .PragoviKote}}
       <div class="prag-kartica {{.Faza.PillClass}}">
@@ -22,7 +22,7 @@
       {{end}}
     </div>
     {{if not .Station.HasUsableThresholds}}
-    <p class="page-desc" style="margin:0.25rem 0 0;">Nijedan prag nije upisan u centimetrima, pa se
+    <p class="page-desc mt-1 mb-0">Nijedan prag nije upisan u centimetrima, pa se
       stupanj obrane za ovu postaju ne računa automatski.</p>
     {{end}}
 
@@ -34,7 +34,7 @@
 {{define "letva-kota-nule"}}
 <section class="detail-section">
   <h2>{{icon "ruler"}} Kota nule vodomjera</h2>
-  <div class="reg-card" style="padding:1rem;">
+  <div class="reg-card p-4">
     <dl class="reg-facts station-zero-grid">
       <div><dt>HVRS71 (novi sustav)</dt><dd>{{if .Station.HasNewZeroDatum}}{{brojHRd .Station.ZeroDatumNew 3}} m{{else}}<span class="nema-podatka">nije upisana</span>{{end}}</dd></div>
       <div><dt>Trst (stari sustav)</dt><dd>{{if .Station.ZeroDatum}}{{brojHRd .Station.ZeroDatum 3}} m{{else}}<span class="nema-podatka">nije upisana</span>{{end}}</dd></div>
@@ -110,13 +110,13 @@
       {{end}}
     </div>
     {{if $.VisiVrh}}
-    <p class="reading-meta" style="margin:0.5rem 0 0;">Na kulminaciji dojave ne stoje jedno na drugome:
+    <p class="reading-meta mt-2 mb-0">Na kulminaciji dojave ne stoje jedno na drugome:
       <strong>{{$.VisiVrh.Izvor}}</strong> bilježi <strong>{{brojHRf $.VisiVrh.Vrijednost 0}} cm</strong>
       {{$.VisiVrh.Kad}}, i drži se iznad spojenog niza {{$.VisiVrh.Sati}} {{uzBroj $.VisiVrh.Sati "sat" "sata" "sati"}}.
       Ovjereni niz vrh vala zna zagladiti, pa zabilježeni ekstrem može biti viši od onoga što ovdje piše.</p>
     {{end}}
     {{if not $.Station.Extremes}}
-    <p class="reading-meta" style="margin:0.5rem 0 0;">Zabilježeni ekstremi nisu upisani. Ovo je najveće i
+    <p class="reading-meta mt-2 mb-0">Zabilježeni ekstremi nisu upisani. Ovo je najveće i
       najmanje što program ima u podacima — upisani ekstrem je službeni zapis i može se od toga razlikovati.</p>
     {{end}}
   </div>

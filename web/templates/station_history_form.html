@@ -22,8 +22,8 @@
   <input type="hidden" name="id" value="{{.Station.ID}}">
   <input type="hidden" name="obrazac" value="historijat">
 
-  <h3 style="font-size:0.9rem; margin:1rem 0 0.25rem;">Povratni vodostaji</h3>
-  <p class="form-help" style="margin:0 0 0.5rem;">
+  <h3 class="obrazac-podnaslov">Povratni vodostaji</h3>
+  <p class="form-help mt-0 mb-2">
     Procjena iz niza, ne mjerenje — zato uz brojku ide metoda i niz na kojem je računata.
     Granice pouzdanosti idu u paru ili nikako.
     <span class="reg-card-sub">Ne ulaze u pragove obrane: prag je propisan, povratni vodostaj proračunat.</span>
@@ -72,8 +72,8 @@
   document.getElementById('station-form') && document.getElementById('station-form').addEventListener('submit', collectReturnLevels);
   </script>
 
-  <h3 style="font-size:0.9rem; margin:1rem 0 0.25rem;">Promjene kote nule kroz vrijeme</h3>
-  <p class="form-help" style="margin:0 0 0.5rem;">
+  <h3 class="obrazac-podnaslov">Promjene kote nule kroz vrijeme</h3>
+  <p class="form-help mt-0 mb-2">
     Kad je letva premještena, obnovljena ili dobila novi elaborat.
     <span class="reg-card-sub">Vodostaji u bazi svedeni su na zadnju kotu; povijest govori što je koja starija
     evidencija mjerila.</span>
@@ -117,7 +117,7 @@
 
 
   <h3 style="font-size:0.9rem; margin:1.5rem 0 0.25rem;">Ograde uz nizove</h3>
-  <p class="form-help" style="margin:0 0 0.5rem;">
+  <p class="form-help mt-0 mb-2">
     Što o nizu znate, a iz brojki se ne vidi — zaleđen mjerač, sumnjiva zima, prekid u mjerenju.
     Stoji uz niz i ide u izvješće. Prazna veličina znači sve veličine tog izvora.
     <strong>Ispod</strong> i <strong>Iznad</strong> sužavaju ogradu na raspon vrijednosti: tlačna sonda ne laže

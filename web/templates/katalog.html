@@ -20,14 +20,14 @@
 {{$v := .Vrsta}}
 <div class="sektorsko-ploca">
   <div class="sektorsko-ploca-glava"><h2>{{icon "plus"}} {{if $v}}Uredi vrstu: {{$v.Naziv}}{{else}}Nova vrsta sredstva{{end}}</h2></div>
-  <form method="POST" action="{{if $v}}/sredstva/katalog/{{$v.ID}}{{else}}/sredstva/katalog{{end}}" class="form-page form-wide" style="margin:0;">
+  <form method="POST" action="{{if $v}}/sredstva/katalog/{{$v.ID}}{{else}}/sredstva/katalog{{end}}" class="form-page form-wide m-0">
     <div class="form-row">
       <div class="form-group" style="flex:2;"><label class="form-label" for="naziv">Naziv *</label><input type="text" id="naziv" name="naziv" class="form-control" value="{{if $v}}{{$v.Naziv}}{{end}}" required placeholder="npr. Pumpa potopna 50 l/s"></div>
       <div class="form-group"><label class="form-label" for="grupa">Skupina *</label>
         <select id="grupa" name="grupa" class="form-control">{{range .Grupe}}<option value="{{.ID}}"{{if and $v (eq .ID $v.Grupa)}} selected{{end}}>{{.Rimski}} {{.Naziv}}</option>{{end}}</select></div>
       <div class="form-group"><label class="form-label" for="jedinica">Jedinica *</label>
         <select id="jedinica" name="jedinica" class="form-control">{{range (list "kom" "par" "kg" "t" "m" "m'" "m²" "m³" "l")}}<option value="{{.}}"{{if and $v (eq . $v.Jedinica)}} selected{{end}}>{{.}}</option>{{end}}</select></div>
-      <div class="form-group"><label class="form-label" for="redoslijed">Redni broj</label><input type="number" id="redoslijed" name="redoslijed" class="form-control" min="1" value="{{if $v}}{{$v.Redoslijed}}{{end}}" placeholder="kraj skupine" style="max-width:7rem;"></div>
+      <div class="form-group"><label class="form-label" for="redoslijed">Redni broj</label><input type="number" id="redoslijed" name="redoslijed" class="form-control max-w-7" min="1" value="{{if $v}}{{$v.Redoslijed}}{{end}}" placeholder="kraj skupine"></div>
     </div>
     <div class="form-row">
       <div class="form-group"><label><input type="checkbox" name="oblici" value="vrece"{{if and $v $v.ImaOblike}} checked{{end}}> Vodi se prazno i napunjeno (kao vreće)</label></div>
@@ -53,8 +53,8 @@
       <td>{{if .ImaOblike}}{{range $i, $o := .Oblici}}{{if $i}}, {{end}}{{oblik $o}}{{end}}{{end}}</td>
       <td class="mono reg-card-sub">{{.ID}}</td>
       <td>{{.Napomena}}</td>
-      {{if $.SmijeUrediti}}<td style="white-space:nowrap;"><a href="/sredstva/katalog?uredi={{.ID}}" class="btn btn-secondary btn-sm" title="uredi">{{icon "pencil"}}</a>
-        <form method="POST" action="/sredstva/katalog/{{.ID}}/obrisi" style="display:inline;" onsubmit="return confirm('Ukloniti vrstu „{{.Naziv}}“ iz kataloga? Prolazi samo ako je nitko nije koristio; inače je ugasite.');"><button type="submit" class="btn btn-secondary btn-sm" title="ukloni nekorištenu">{{icon "trash"}}</button></form></td>{{end}}
+      {{if $.SmijeUrediti}}<td class="nowrap"><a href="/sredstva/katalog?uredi={{.ID}}" class="btn btn-secondary btn-sm" title="uredi">{{icon "pencil"}}</a>
+        <form method="POST" action="/sredstva/katalog/{{.ID}}/obrisi" class="d-inline" onsubmit="return confirm('Ukloniti vrstu „{{.Naziv}}“ iz kataloga? Prolazi samo ako je nitko nije koristio; inače je ugasite.');"><button type="submit" class="btn btn-secondary btn-sm" title="ukloni nekorištenu">{{icon "trash"}}</button></form></td>{{end}}
     </tr>
     {{end}}{{end}}
     {{end}}

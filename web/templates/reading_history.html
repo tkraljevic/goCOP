@@ -23,9 +23,9 @@
 
 
 {{if .Latest}}
-<section class="detail-section" style="margin-top:0;">
-  <div class="reg-card" style="padding:1rem;">
-    <div style="display:flex; align-items:baseline; gap:0.75rem; flex-wrap:wrap;">
+<section class="detail-section mt-0">
+  <div class="reg-card p-4">
+    <div class="d-flex items-baseline gap-3 flex-wrap">
       <div class="reading-value" style="font-size:2.5rem;">
         {{if .Latest.LevelCm}}{{intOf .Latest.LevelCm}}<small>cm</small>{{else}}<span style="font-size:1rem; color:var(--text-muted); font-weight:500;">nije očitan</span>{{end}}
       </div>
@@ -62,12 +62,12 @@
 {{if .Chart}}
 <section class="detail-section">
   <h2>{{icon "chart-column"}} Kretanje vodostaja <span class="reg-chip">{{.PogledOpis}}</span>{{if .Chart.Praznina}} <span class="reg-chip">{{.Chart.Praznina}} prekid{{if gt .Chart.Praznina 1}}a{{end}} u nizu</span>{{end}}{{if .Chart.ImaPrognozu}} <span class="reg-chip">s prognozom</span>{{end}}</h2>
-  <div class="reg-card chart graf-niza graf-siroki" style="padding:0.75rem 0.5rem 0.25rem;" data-tocke="{{.Chart.Tocke}}" data-prognoza="{{.Chart.PrognozaTocke}}">
+  <div class="reg-card chart graf-niza graf-siroki" data-tocke="{{.Chart.Tocke}}" data-prognoza="{{.Chart.PrognozaTocke}}">
     {{template "grafNiza" .Chart}}
     <div class="graf-oblacic" hidden></div>
   </div>
   {{if .ChartUzak}}
-  <div class="reg-card chart graf-niza graf-uski" style="padding:0.75rem 0.5rem 0.25rem;" data-tocke="{{.ChartUzak.Tocke}}" data-prognoza="{{.ChartUzak.PrognozaTocke}}">
+  <div class="reg-card chart graf-niza graf-uski" data-tocke="{{.ChartUzak.Tocke}}" data-prognoza="{{.ChartUzak.PrognozaTocke}}">
     {{template "grafNiza" .ChartUzak}}
     <div class="graf-oblacic" hidden></div>
   </div>
@@ -99,11 +99,11 @@
         od {{brojHR .PojasOd}} do {{brojHR .PojasDo}} cm</span>{{end}}
     </div>
     {{if .OdrezanSnimak}}
-    <p class="form-help" style="margin-top:0.5rem;">{{icon "triangle-alert"}} Snimak seže do
+    <p class="form-help mt-2">{{icon "triangle-alert"}} Snimak seže do
       <strong>{{brojHR .NizaObalaCm}} cm</strong>, a voda je iznad toga — koliko korita ostaje
       iznad ove razine iz ovog se profila ne vidi.</p>
     {{else}}{{with nadObranom $.Station .NizaObalaCm}}
-    <p class="form-help" style="margin-top:0.5rem;">Iznad izvanrednog stanja ostaje još
+    <p class="form-help mt-2">Iznad izvanrednog stanja ostaje još
       <strong>{{brojHR .}} cm</strong> do ruba snimljenog profila.</p>
     {{end}}{{end}}
   </div>
@@ -118,14 +118,14 @@
     <a href="/akti/novi?station={{.Station.ID}}" class="btn btn-secondary btn-sm" title="Rješenje ili obavijest o uspostavi ili prekidu stupnja obrane po ovom vodomjeru">{{icon "file-text"}} Proglasi / prekini</a>
     {{end}}
     {{if and .Station .JavniURL .CanEdit}}
-    <form method="POST" action="/readings/station/{{.Station.ID}}/javni" style="margin:0;">
+    <form method="POST" action="/readings/station/{{.Station.ID}}/javni" class="m-0">
       <button type="submit" class="btn btn-secondary btn-sm" title="Odmah preuzmi zadnja očitanja s javne stranice {{.JavniURL}}">
         {{icon "refresh-cw"}} Preuzmi s {{if .JavniIzvor}}{{.JavniIzvor}}{{else}}javne stranice{{end}}
       </button>
     </form>
     {{end}}
     {{if .Permissions.IsGlobalAdmin}}
-    <form method="POST" action="/readings/follow" style="margin:0;">
+    <form method="POST" action="/readings/follow" class="m-0">
       <input type="hidden" name="gauge_key" value="{{.GaugeKey}}">
       <input type="hidden" name="name" value="{{.GaugeName}}">
       <input type="hidden" name="back" value="/readings/{{if .Structure}}structure/{{.Structure.ID}}{{else}}station/{{.Station.ID}}{{end}}">
@@ -137,14 +137,14 @@
     {{end}}
   </div>
   {{if and .Station .JavniURL}}
-  <p class="form-help" style="margin:0 0 0.75rem;">
+  <p class="form-help mt-0 mb-3">
     {{if .JavniTelemetrija}}Telemetrija{{else}}Javna stranica{{end}}: <a href="{{.JavniURL}}" target="_blank" rel="noopener">{{if .JavniIzvor}}{{.JavniIzvor}}{{else}}{{.JavniURL}}{{end}}</a>{{if not .JavniIzvor}} <span class="badge badge-inactive">{{icon "triangle-alert"}} nema čitača za tu adresu</span>{{end}}.
     {{if .JavniUvoz}}Satno preuzimanje je uključeno.{{else}}Satno preuzimanje je isključeno.{{end}}
     {{with .JavniStanje}}{{if .Greska}}<span class="badge badge-inactive">{{icon "triangle-alert"}} zadnje preuzimanje {{satHR .Kad}} nije uspjelo: {{.Greska}}</span>{{else}}Zadnje preuzimanje {{satHR .Kad}}: {{.Preuzeto}} s izvora, novih {{.Novih}}{{if not .ZadnjeKad.IsZero}}, najnovije {{formatDate (localTime .ZadnjeKad)}}{{end}}.{{end}}{{end}}
   </p>
   {{end}}
-  <form method="GET" action="" id="pogled" style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; margin-bottom:0.75rem;">
-    <label class="filter-label" for="pogledSel" style="margin:0;">Pogled</label>
+  <form method="GET" action="" id="pogled" class="d-flex gap-2 items-center flex-wrap mb-3">
+    <label class="filter-label m-0" for="pogledSel">Pogled</label>
     <select id="pogledSel" name="pogled" class="filter-select" style="max-width:12rem;" onchange="this.form.submit()">
       <option value="30" {{if eq .Pogled "30"}}selected{{end}}>zadnjih 30 dana</option>
       <option value="90" {{if eq .Pogled "90"}}selected{{end}}>zadnjih 90 dana</option>
@@ -161,7 +161,7 @@
     <div class="reading-row">
       <span class="when">{{formatDate .LocalTime}}</span>
       <span class="value">
-        {{if .LevelCm}}{{intOf .LevelCm}} cm{{else}}<span style="color:var(--text-muted); font-weight:500;">—</span>{{end}}
+        {{if .LevelCm}}{{intOf .LevelCm}} cm{{else}}<span class="c-muted fw-500">—</span>{{end}}
         {{if .Level2Cm}}<span class="reading-meta"> / {{intOf .Level2Cm}} cm nizvodno</span>{{end}}
         {{if and $.Station .LevelCm}}{{range $.Station.Kote (intOf .LevelCm)}}<span class="reading-meta"> · {{brojHRf .Kota 3}} m {{.Sustav}}</span>{{end}}{{end}}
         {{if .FlowM3s}}<span class="reading-meta" title="izmjereni protok"> · {{brojHRf (deref .FlowM3s) 1}} m³/s izmjereno{{if .FlowMethod}}, {{flowMethod .FlowMethod}}{{end}}{{if .FlowNote}} ({{.FlowNote}}){{end}}</span>{{else}}{{$r := .}}{{with protokHR $.Krivulje .LocalTime .LevelCm}}<span class="reading-meta" title="procjena protoka iz HQ krivulje{{if protokIzvan $.Krivulje $r.LocalTime $r.LevelCm}}, {{prosirenjeKrivulje}} cm izvan umjerenog raspona{{end}}"> · {{.}} m³/s{{if protokIzvan $.Krivulje $r.LocalTime $r.LevelCm}} <span class="izvan-krivulje">izvan raspona krivulje</span>{{end}}</span>{{end}}{{end}}
@@ -202,14 +202,14 @@
   </p>
   <form method="POST" action="/readings/station/{{.Station.ID}}/zalijepi" enctype="multipart/form-data"
         class="table-card" style="padding:1rem 1.25rem;">
-    <div class="form-group" style="margin-bottom:0.75rem;">
+    <div class="form-group mb-3">
       <label class="form-label" for="tekst">Zalijepi ovdje</label>
       <textarea id="tekst" name="tekst" class="form-control" rows="6" spellcheck="false"
                 style="font-family:ui-monospace,monospace; font-size:0.85rem;"
                 placeholder="07.09.2026. 00 h    -118&#10;07.09.2026. 01 h    -118&#10;07.09.2026. 02 h    -119"></textarea>
     </div>
-    <div style="display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap;">
-      <input type="file" name="datoteka" accept=".csv,.txt,.xlsx,text/plain,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="form-control" style="max-width:18rem;">
+    <div class="d-flex gap-3 items-center flex-wrap">
+      <input type="file" name="datoteka" accept=".csv,.txt,.xlsx,text/plain,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="form-control max-w-18">
       <button type="submit" class="btn btn-secondary">{{icon "eye"}} Pogledaj što bi se upisalo</button>
     </div>
   </form>
@@ -221,7 +221,7 @@
     datoteku s ispravcima. Korisno kad je više očitanja upisano krivo — na primjer kad su
     zamijenjeni sati ili je promašen predznak.</p>
   <div class="table-card" style="padding:0.875rem 1.25rem;">
-    <div style="display:flex; flex-wrap:wrap; gap:1rem; align-items:center;">
+    <div class="d-flex flex-wrap gap-4 items-center">
       <a class="btn btn-secondary btn-sm" href="{{.GaugeURL}}/ocitanja.csv?pogled={{.Pogled}}">
         {{icon "download"}} Izvezi {{.PogledOpis}} u CSV
       </a>
@@ -229,12 +229,12 @@
         {{icon "download"}} Izvezi sve
       </a>
       <form method="POST" action="{{.GaugeURL}}/ocitanja/uvoz" enctype="multipart/form-data"
-            style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; margin:0;">
-        <input type="file" name="datoteka" accept=".csv,text/csv" required class="form-control" style="max-width:18rem;">
+            class="d-flex gap-2 items-center flex-wrap m-0">
+        <input type="file" name="datoteka" accept=".csv,text/csv" required class="form-control max-w-18">
         <button type="submit" class="btn btn-secondary btn-sm">{{icon "upload"}} Vrati s ispravcima</button>
       </form>
     </div>
-    <p class="form-help" style="margin-top:0.75rem;">Stupac <strong>id</strong> govori koji je
+    <p class="form-help mt-3">Stupac <strong>id</strong> govori koji je
       redak koji — ne diraj ga i ne dodaj retke. Mijenja se vrijeme, vodostaj, nizvodni, tko je
       očitao i napomena; za brisanje upiši <strong>da</strong> u stupac <strong>obrisi</strong>.
       Prije upisa program pokaže što bi se promijenilo.</p>

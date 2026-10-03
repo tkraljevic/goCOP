@@ -9,7 +9,7 @@
     <p class="page-desc">Evidencija rukovoditelja, centara obrane od poplava, zaduženja po sektorima, branjenim područjima i dionicama</p>
   </div>
 
-  <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+  <div class="d-flex gap-2 flex-wrap">
   <a href="/users/exchange" class="btn btn-secondary" style="display:inline-flex; align-items:center; gap:0.375rem;">{{icon "building"}} Adresar tvrtke</a>
   {{if or .Permissions.IsGlobalAdmin (gt (len .Permissions.AdminSectors) 0)}}
   <a href="/users/new" type="button" class="btn btn-primary"  style="display:inline-flex; align-items:center; gap:0.375rem;">
@@ -160,7 +160,7 @@
             {{if .IsTemporary}}{{icon "zap"}} Ispomoć{{else}}{{roleLabel .Role}}{{end}}
           </span>
         </div>
-        <div style="color:var(--text-muted); margin-top:0.25rem;">
+        <div class="c-muted mt-1">
           {{if .SectorID}}{{term "sektor"}}: {{derefString .SectorID}}{{end}}
           {{if .AreaID}} · {{term "podrucje"}}: {{derefInt .AreaID}}{{if not .SectionCodes}} <em>(sve dionice)</em>{{end}}{{end}}
           {{if .SectionCodes}}<br>Dionice: <strong>{{.SectionCodes}}</strong>{{end}}
@@ -173,7 +173,7 @@
     <div class="user-card-meta">
       <div>
         <strong>Mobitel:</strong><br>
-        {{if .MobilePhone}}<a href="tel:{{.MobilePhone}}" style="color:var(--primary); font-weight:600;">{{icon "smartphone"}} {{.MobilePhone}}</a>{{else}}-{{end}}
+        {{if .MobilePhone}}<a href="tel:{{.MobilePhone}}" class="c-primary fw-600">{{icon "smartphone"}} {{.MobilePhone}}</a>{{else}}-{{end}}
         {{if .ShortMobile}} (skr. {{.ShortMobile}}){{end}}
       </div>
       <div>
@@ -185,16 +185,16 @@
 
     <div class="user-card-actions">
       {{if or $.Permissions.IsGlobalAdmin (gt (len $.Permissions.AdminSectors) 0) (gt (len $.Permissions.AdminAreas) 0)}}
-      <a href="/users/{{.ID}}/duties/new" class="btn btn-secondary btn-sm" style="flex:1; justify-content:center;">{{icon "plus"}} Zaduženja</a>
+      <a href="/users/{{.ID}}/duties/new" class="btn btn-secondary btn-sm flex-1 justify-center">{{icon "plus"}} Zaduženja</a>
       {{end}}
 
       {{if or (eq .ID $.CurrentUser.ID) $.Permissions.IsGlobalAdmin (gt (len $.Permissions.AdminSectors) 0) (gt (len $.Permissions.AdminAreas) 0)}}
-      <a href="{{if eq .ID $.CurrentUser.ID}}/profile{{else}}/users/{{.ID}}/edit{{end}}" class="btn btn-secondary btn-sm" style="flex:1; justify-content:center;">{{icon "pencil"}} {{if eq .ID $.CurrentUser.ID}}Moj profil{{else}}Profil{{end}}</a>
+      <a href="{{if eq .ID $.CurrentUser.ID}}/profile{{else}}/users/{{.ID}}/edit{{end}}" class="btn btn-secondary btn-sm flex-1 justify-center">{{icon "pencil"}} {{if eq .ID $.CurrentUser.ID}}Moj profil{{else}}Profil{{end}}</a>
       {{end}}
 
       {{if and (ne .ID $.CurrentUser.ID) $.Permissions.IsGlobalAdmin}}
-      <form method="POST" action="/view-as/{{.ID}}" style="margin:0; flex:1;">
-        <button type="submit" class="btn btn-secondary btn-sm" style="width:100%;"
+      <form method="POST" action="/view-as/{{.ID}}" class="m-0 flex-1">
+        <button type="submit" class="btn btn-secondary btn-sm w-full"
                 title="Vidi program očima djelatnika {{.FullName}}">
           {{icon "eye"}} Pregled
         </button>
