@@ -7,8 +7,9 @@
   <meta name="color-scheme" content="light dark">
   <script src="{{statika "js/tema.js"}}"></script>
   <link rel="stylesheet" href="{{statika "css/style.css"}}">
+  {{with temaCSS}}<link rel="stylesheet" href="{{.}}">{{end}}
   <style>
-    .wrap { min-height: 100vh; display: flex; align-items: flex-start; justify-content: center; padding: 1rem; background: linear-gradient(160deg, #0d274a 0%, #173e74 60%, #1f5aa6 100%); }
+    .wrap { min-height: 100vh; display: flex; align-items: flex-start; justify-content: center; padding: 1rem; background: var(--hero); }
     .box { background: var(--surface); border-radius: 12px; padding: 1.5rem; width: 100%; max-width: 560px; box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.3); margin-top: 2rem; }
     .brand { display: flex; align-items: center; gap: 0.6rem; color: var(--primary); font-weight: 700; font-size: 0.8rem; letter-spacing: 0.16em; text-transform: uppercase; margin-bottom: 1rem; }
     .brand img { height: 36px; width: auto; max-width: 64px; object-fit: contain; }

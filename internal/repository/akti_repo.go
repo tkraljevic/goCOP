@@ -737,6 +737,9 @@ func (r *AktiRepository) DeletePotpisSlika(ctx context.Context, userID string) e
 // PostavkaOpcije je ključ općih prekidača programa (JSON models.Opcije)
 const PostavkaOpcije = "opcije"
 
+// PostavkaTema je ključ boja programa iz Administracije › Tema (JSON models.Tema)
+const PostavkaTema = "tema"
+
 // DeleteAktTrajno briše akt bez obzira na stanje, s izvornikom i dnevnikom
 // slanja; svako brisanje ostaje zabilježeno u knjizi verzija
 func (r *AktiRepository) DeleteAktTrajno(ctx context.Context, id string) error {

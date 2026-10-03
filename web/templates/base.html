@@ -9,6 +9,7 @@
   <script src="{{statika "js/tema.js"}}"></script>
   <link rel="stylesheet" href="{{statika "vendor/leaflet/leaflet.css"}}">
   <link rel="stylesheet" href="{{statika "css/style.css"}}">
+  {{with temaCSS}}<link rel="stylesheet" href="{{.}}">{{end}}
   {{block "head" .}}{{end}}
   <script src="{{statika "vendor/leaflet/leaflet.js"}}" defer></script>
   <script src="{{statika "js/app.js"}}" defer></script>

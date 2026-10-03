@@ -334,8 +334,10 @@
       var w = window.open('', '_blank');
       if (!w) { window.alert('Preglednik je zaustavio otvaranje prozora za ispis.'); return; }
       var css = document.querySelector('link[href*="style.css"]');
+      var tema = document.querySelector('link[href^="/tema.css"]');
       w.document.write('<!DOCTYPE html><html lang="hr" data-theme="light"><head><meta charset="utf-8"><title>Uzdužni profil ' + naslov + '</title>' +
         (css ? '<link rel="stylesheet" href="' + css.getAttribute('href') + '">' : '') +
+        (tema ? '<link rel="stylesheet" href="' + tema.getAttribute('href') + '">' : '') +
         '<style>html,body{background:#fff !important;color:#111 !important;margin:0}body{padding:10mm;font-family:system-ui,sans-serif}' +
         'h1{font-size:16pt;margin:0 0 4pt}p{font-size:10pt;margin:2pt 0;color:#333}svg{width:100%;height:auto;background:#fff}' +
         '@page{size:A4 landscape;margin:10mm}@media print{.ne-ispisuj{display:none}}</style></head><body>' +

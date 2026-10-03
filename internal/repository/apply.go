@@ -614,8 +614,13 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		if err := json.Unmarshal(v.Payload, &p); err != nil {
 			return err
 		}
-		_, err := tx.ExecContext(ctx, opcaPostavkaUpsert, p.ID, p.Vrijednost, v.CreatedAt.UTC())
-		return err
+		if _, err := tx.ExecContext(ctx, opcaPostavkaUpsert, p.ID, p.Vrijednost, v.CreatedAt.UTC()); err != nil {
+			return err
+		}
+		if p.ID == PostavkaTema {
+			models.SetTema(models.CitajTemu(p.Vrijednost))
+		}
+		return nil
 
 	case EntitySlanja:
 		var x models.SlanjeAkta
@@ -1045,6 +1050,14 @@ func removeFromSurface(ctx context.Context, tx *sql.Tx, v ledger.Version) error 
 	case EntitySlanja:
 		stmt = `DELETE FROM akti_slanja WHERE id = ?`
 	case EntityPostavke:
+		if v.EntityID == PostavkaTema {
+			// bez zapisa vrijede zadane boje iz style.css
+			if _, err := tx.ExecContext(ctx, `DELETE FROM postavke WHERE id = ?`, v.EntityID); err != nil {
+				return err
+			}
+			models.SetTema(models.Tema{})
+			return nil
+		}
 		stmt = `DELETE FROM postavke WHERE id = ?`
 	case EntityPotpisi:
 		stmt = `DELETE FROM posta_potpisi WHERE user_id = ?`

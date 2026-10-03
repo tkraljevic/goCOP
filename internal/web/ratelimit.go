@@ -367,7 +367,7 @@ func clientIP(r *http.Request) string {
 // odjava i statika. Sve ostalo čeka dok lozinka nije postavljena.
 func passwordChangeAllowed(path string) bool {
 	switch path {
-	case "/profile", "/profile/update", "/profile/change-password", "/logout", "/logo":
+	case "/profile", "/profile/update", "/profile/change-password", "/logout", "/logo", "/tema.css":
 		return true
 	}
 	return strings.HasPrefix(path, "/static/")

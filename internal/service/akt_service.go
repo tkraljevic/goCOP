@@ -1131,6 +1131,37 @@ func (s *AktService) SpremiOpcije(ctx context.Context, perms *models.UserPermiss
 	return s.repo.SavePostavka(ctx, repository.PostavkaOpcije, string(b))
 }
 
+// Tema vraća boje programa iz Administracije › Tema
+func (s *AktService) Tema(ctx context.Context) models.Tema {
+	v, _ := s.repo.GetPostavka(ctx, repository.PostavkaTema)
+	return models.CitajTemu(v)
+}
+
+// SpremiTemu sprema boje programa; smije samo uprava organizacije. Boja s
+// premalim kontrastom se ne sprema, jer se tekst tada ne bi dao pročitati.
+// Tema odmah vrijedi na ovom čvoru, a razmjenom stiže i na ostale.
+func (s *AktService) SpremiTemu(ctx context.Context, perms *models.UserPermissions, t models.Tema) error {
+	if perms == nil || !perms.IsGlobalAdmin {
+		return ErrUnauthorized
+	}
+	for _, p := range t.Provjere() {
+		if p.Omjer < models.NajmanjiDopusteniKontrast {
+			zarez := func(x float64) string { return strings.Replace(fmt.Sprintf("%.1f", x), ".", ",", 1) }
+			return fmt.Errorf("%s tema: %s ima kontrast %s:1, a treba barem %s:1. Tema nije spremljena.",
+				strings.ToUpper(p.Tema[:1])+p.Tema[1:], p.Opis, zarez(p.Omjer), zarez(models.NajmanjiDopusteniKontrast))
+		}
+	}
+	b, err := json.Marshal(t)
+	if err != nil {
+		return err
+	}
+	if err := s.repo.SavePostavka(ctx, repository.PostavkaTema, string(b)); err != nil {
+		return err
+	}
+	models.SetTema(t)
+	return nil
+}
+
 // SmijeObrisatiTrajno javlja smije li korisnik trajno obrisati ovjeren akt:
 // samo kad je prekidač uključen, i samo uprava organizacije ili sektora
 func (s *AktService) SmijeObrisatiTrajno(ctx context.Context, perms *models.UserPermissions, a *models.Akt) bool {

@@ -275,7 +275,7 @@ func TestSuzeniPosrednici(t *testing.T) {
 }
 
 func TestSaZadanomLozinkomProlaziSamoProfil(t *testing.T) {
-	allowed := []string{"/profile", "/profile/change-password", "/profile/update", "/logout", "/static/css/style.css"}
+	allowed := []string{"/profile", "/profile/change-password", "/profile/update", "/logout", "/static/css/style.css", "/tema.css"}
 	blocked := []string{"/", "/users", "/sections/B.16.2", "/settings", "/api/network/members", "/view-as/stop"}
 	for _, p := range allowed {
 		if !passwordChangeAllowed(p) {

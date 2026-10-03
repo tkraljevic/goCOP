@@ -32,6 +32,7 @@ type AktiHandler struct {
 	tmplPotpis                                   *template.Template
 	tmplZig                                      *template.Template
 	tmplOpcije                                   *template.Template
+	tmplTema                                     *template.Template
 	// drugiKorak daje drugi korak prijave izvana (račun koji šalje PIN,
 	// sklopka); nil dok se ne spoji
 	drugiKorak func() *service.DrugiKorak

@@ -7,6 +7,7 @@
   <meta name="color-scheme" content="light dark">
   <script src="{{statika "js/tema.js"}}"></script>
   <link rel="stylesheet" href="{{statika "css/style.css"}}">
+  {{with temaCSS}}<link rel="stylesheet" href="{{.}}">{{end}}
   <style>
     .login-wrapper {
       min-height: 100vh;
@@ -16,7 +17,7 @@
       justify-content: center;
       gap: 1.5rem;
       padding: 1rem;
-      background: linear-gradient(160deg, #0d274a 0%, #173e74 60%, #1f5aa6 100%);
+      background: var(--hero);
     }
     .login-box {
       background: var(--surface);

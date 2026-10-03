@@ -1,4 +1,5 @@
-:root {
+:root,
+[data-tema-pregled] {
   /* Boje i pismo prema voda.hr (pročitano iz njihova CSS-a 4.9.2026.):
      tamnoplava #173e74 za naslove, navigaciju i gumbe, zelena #20ba70 za
      aktivna stanja i istaknute poveznice, tekst #242a32, podloga #f4f4f4.
@@ -30,7 +31,7 @@
   --faza-i-bg: #ffedd5; --faza-i-fg: #9a3412; --faza-i-crta: #ea580c;
   --faza-s-bg: #dc2626; --faza-s-fg: #ffffff; --faza-s-crta: #dc2626;
   --accent: #20ba70;
-  --accent-dark: #178f55;
+  --accent-dark: #168250;
   --accent-light: #e6f7ee;
   --secondary: #173e74;
   --bg: #f4f4f4;
@@ -42,7 +43,7 @@
   color-scheme: light;
   --text: #242a32;
   --text-muted: #717171;
-  --success: #178f55;
+  --success: #168250;
   --success-bg: #e6f7ee;
   --warning: #d97706;
   --warning-bg: #fef3c7;
@@ -99,15 +100,22 @@
   --gumb-opasan: var(--danger);
   --gumb-opasan-tekst: #ffffff;
   --fokus: rgb(23 62 116 / 0.28);
+  /* veliki natpis na naslovnici i brojke na prijavi: uvijek tamni, s
+     bijelim tekstom, u obje teme */
+  --hero: linear-gradient(135deg, #0d274a 0%, #173e74 60%, #1f5aa6 100%);
 }
 
 /* Tamna tema. Ista plava i zelena, samo posvijetljene koliko treba da na
    tamnoj podlozi prođu kontrast; boje stupnja obrane ostaju iste. Bira se
    u zaglavlju (sunce/mjesec) i pamti u pregledniku; bez izbora slijedi sustav.
    Opisana je samo ovdje i u pravilima :root[data-theme="dark"]: js/tema.js
-   atribut postavlja uvijek, i kad tema slijedi sustav. */
+   atribut postavlja uvijek, i kad tema slijedi sustav. Okviri pregleda u
+   Administraciji › Tema nose data-tema-pregled: oba dobivaju gornji blok
+   (i tokene izvedene preko var(), koji se tako računaju iznova), a tamni
+   ga ovdje nadjača. */
 
-:root[data-theme="dark"] {
+:root[data-theme="dark"],
+[data-tema-pregled="dark"] {
   --primary: #6f9bd9;
   --primary-hover: #8fb3e6;
   --primary-light: #1b2d47;
@@ -163,11 +171,13 @@
   --znacka-fg: var(--primary-hover);
   --znacka-rub: rgb(111 155 217 / 0.32);
   --mirno-rub: rgb(47 208 138 / 0.28);
+  --mirno-fg: var(--tint-green-fg);
   /* srednja plava HV-a s bijelim tekstom (5,2:1); pri prelasku 4,7:1 */
   --gumb: #3a6db5;
   --gumb-hover: #4274bb;
   --gumb-opasan: #c53030;
   --fokus: rgb(111 155 217 / 0.45);
+  --hero: linear-gradient(135deg, #0d274a 0%, #173e74 60%, #1f5aa6 100%);
   color-scheme: dark;
 }
 
@@ -400,6 +410,11 @@ a:hover { color: var(--accent); }
 
 .btn-primary:hover {
   background: var(--gumb-hover);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .btn-secondary {
@@ -825,7 +840,10 @@ a:hover { color: var(--accent); }
 .badge-emergency { background: var(--faza-i-bg); color: var(--faza-i-fg); }
 .badge-state     { background: var(--faza-s-bg); color: var(--faza-s-fg); }
 .badge-normal,
-.badge-unknown   { background: var(--bg-subtle); color: var(--text-muted); }
+.badge-unknown,
+.badge-muted     { background: var(--bg-subtle); color: var(--text-muted); }
+.badge-warning   { background: var(--tint-amber-bg); color: var(--tint-amber-fg); }
+.badge-danger    { background: var(--danger-bg); color: var(--danger); }
 
 /* Račun postoji, ali ga osoba još nije preuzela — ni pohvala ni upozorenje */
 .badge-pending {
@@ -1013,7 +1031,7 @@ a:hover { color: var(--accent); }
 }
 
 .dashboard-hero {
-  background: linear-gradient(135deg, #0d274a 0%, #173e74 60%, #1f5aa6 100%);
+  background: var(--hero);
   color: white;
   border-radius: var(--r-ploca);
   padding: 2rem 2.25rem;
@@ -5760,7 +5778,7 @@ body.uzd-puni-zaslon-otvoren { overflow: hidden; }
 .brojke-velike { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 0.75rem; margin-bottom: 0.9rem; }
 .brojke-male { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 0.6rem; }
 .brojka { position: relative; overflow: hidden; background: var(--bg-subtle); border-radius: 10px; padding: 0.7rem 0.85rem; min-width: 0; }
-.brojka-velika { background: linear-gradient(135deg, #0d274a 0%, #173e74 60%, #1f5aa6 100%); color: #fff; padding: 1rem 1.1rem; }
+.brojka-velika { background: var(--hero); color: #fff; padding: 1rem 1.1rem; }
 .brojka-vr { font-size: 1.35rem; font-weight: 800; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; line-height: 1.15; color: var(--primary); overflow-wrap: anywhere; }
 .brojka-velika .brojka-vr { font-size: clamp(1.3rem, 2.5vw, 2.4rem); color: #fff; white-space: nowrap; overflow-wrap: normal; }
 .brojka-naziv { font-size: 0.85rem; font-weight: 600; margin-top: 0.15rem; }
@@ -5944,3 +5962,43 @@ h3.kis-podnaslov { margin:1rem 0 0.4rem; display:flex; align-items:center; gap:0
 .kisa-tablica tr.kisa-zuto td { background:var(--faza-r-bg); }
 .kisa-tablica tr.kisa-narancasto td { background:var(--faza-i-bg); }
 .kisa-tablica tr.kisa-crveno td { background:var(--tint-orange-bg); }
+
+/* Administracija › Tema: birači boja, pregled i provjera čitljivosti. Okvir
+   pregleda nosi data-tema-pregled, pa dobiva tokene svijetle odnosno tamne
+   teme bez obzira na temu u kojoj je stranica otvorena. */
+.tema-stupci { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr)); gap: 1.25rem; align-items: start; }
+.tema-stupac.form-page { max-width: none; }
+.tema-stupac-naslov { display: flex; align-items: center; gap: 0.45rem; margin: 0.15rem 0 0.35rem; font-size: 1.05rem; font-weight: 800; color: var(--naslov); }
+.tema-stupac-naslov .icon { width: 1.1em; height: 1.1em; color: var(--primary); }
+.tema-boja { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.5rem 1rem; align-items: center; padding: 0.7rem 0; border-bottom: 1px solid var(--border); }
+.tema-boja-opis { display: flex; flex-direction: column; gap: 0.15rem; }
+.tema-boja-naziv { font-weight: 700; color: var(--text); }
+.tema-boja-unos { display: flex; align-items: center; gap: 0.4rem; }
+.tema-boja-unos input[type="color"] { width: 40px; height: 40px; padding: 3px; border: 1px solid var(--border); border-radius: var(--r-kontrola); background: var(--surface); cursor: pointer; }
+.tema-boja-unos .form-control { width: 6.6rem; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+@media (max-width: 520px) {
+  .tema-boja { grid-template-columns: 1fr; }
+}
+
+.tema-pregled { margin-top: 1rem; padding: 0.9rem; border: 1px solid var(--border); border-radius: var(--r-kartica); background: var(--bg); color: var(--text); }
+.tema-pregled { color-scheme: light; }
+[data-tema-pregled="dark"].tema-pregled { color-scheme: dark; }
+.tema-pregled-ploca { position: relative; overflow: hidden; padding: 1.1rem 1.1rem 1rem; background: var(--ploca-pozadina); border: 1px solid var(--ploca-rub); border-radius: var(--r-ploca); box-shadow: var(--sjena-ploca); }
+.tema-pregled-ploca::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 4px; background: var(--traka); }
+.tema-pregled-naslov { display: flex; align-items: center; gap: 0.5rem; margin: 0 0 0.35rem; font-size: 1.15rem; font-weight: 800; letter-spacing: -0.01em; color: var(--naslov); }
+.tema-pregled-naslov .icon { width: 30px; height: 30px; padding: 6px; border-radius: var(--r-plocica); background: var(--primary-light); color: var(--primary); }
+.tema-pregled-tekst { margin: 0 0 0.6rem; font-size: 0.875rem; color: var(--text-muted); }
+.tema-pregled-znacke, .tema-pregled-gumbi { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+.tema-pregled-gumbi { margin-top: 0.75rem; }
+.tema-pregled-gumbi .btn { border-radius: 9999px; pointer-events: none; }
+.tema-pregled-mirno { display: inline-flex; padding: 0.2rem 0.6rem; font-size: 0.75rem; font-weight: 700; border-radius: 9999px; background: var(--mirno-bg); color: var(--mirno-fg); border: 1px solid var(--mirno-rub); }
+.tema-pregled-znacka { background: var(--znacka-bg); color: var(--znacka-fg); border: 1px solid var(--znacka-rub); }
+
+.tema-provjere { list-style: none; margin: 0.9rem 0 0; padding: 0; display: grid; gap: 0.35rem; font-size: 0.82rem; }
+.tema-provjere li { display: flex; align-items: center; gap: 0.5rem; }
+.tema-provjera-opis { flex: 1; min-width: 0; color: var(--text-muted); }
+.tema-provjera-omjer { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text); }
+.tema-napomena { margin-top: 1rem; max-width: 60rem; }
+.tema-greska { color: var(--danger); font-weight: 600; }
+.tema-greska[hidden] { display: none; }
+.tema-radnje { display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem; }
