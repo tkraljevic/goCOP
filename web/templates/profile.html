@@ -60,7 +60,7 @@
           <div class="form-help" id="email-pomoc">{{if .User.MustChangePassword}}Adresu e-pošte možete promijeniti tek nakon što postavite novu lozinku.{{else}}Adresu e-pošte ne možete mijenjati izvana: na nju stiže PIN za prijavu izvana. Promijenite je iz ureda (lokalna mreža) ili zamolite administratora.{{end}}</div>
           {{else}}
           <input type="email" id="email" name="email" class="form-control" value="{{.User.Email}}" placeholder="ime.prezime@{{if .PrijavaIzvana}}{{.PrijavaIzvana.Domena}}{{else}}voda.hr{{end}}" aria-describedby="email-pomoc">
-          <div class="form-help" id="email-pomoc">Na ovu adresu stiže PIN za prijavu izvana, pa se mijenja samo uz trenutnu lozinku{{if .PrijavaIzvana}} i samo na adresu @{{.PrijavaIzvana.Domena}}{{end}}; stara adresa dobije obavijest.</div>
+          <div class="form-help" id="email-pomoc">Na ovu adresu stiže PIN za prijavu izvana, pa se mijenja samo uz trenutnu lozinku{{if .PrijavaIzvana}} i samo na adresu @{{.PrijavaIzvana.Domena}}; adresu izvan nje upisuje i potvrđuje administrator{{end}}. Stara adresa dobije obavijest.{{if .User.PotvrdaAdreseVrijedi}} Vašu adresu potvrdio je administrator; promijenite li je, potvrda prestaje.{{end}}</div>
           {{end}}
         </div>
         {{if not (or .Izvana .User.MustChangePassword)}}
@@ -93,7 +93,7 @@
             <input type="password" id="confirm_password" name="confirm_password" class="form-control" required minlength="6" autocomplete="new-password">
           </div>
         </div>
-        <div class="form-help">Najmanje 6 znakova. Ovo nije lozinka e-pošte tvrtke.</div>
+        <div class="form-help">Najmanje 6 znakova. Ovo nije lozinka e-pošte tvrtke; ako ste je upisali (<a href="#posta">E-pošta tvrtke</a>), nakon promjene upišite je ponovno, jer vrijedi samo uz lozinku s kojom je spremljena.</div>
         <div class="form-actions">
           <button type="submit" class="btn btn-primary">{{icon "check"}} Promijeni lozinku</button>
         </div>
@@ -109,12 +109,14 @@
       <p class="page-desc">Izvan ureda (kroz tunel ili s javne adrese) goCOP nakon lozinke {{if .Ukljuceno}}traži{{else}}može tražiti, kad ga administrator uključi,{{end}} i PIN poslan na vašu službenu e-poštu. Iz lokalne mreže PIN se nikad ne traži.</p>
       <p class="profil-stanje">
         {{if .Ukljuceno}}<span class="badge badge-active">{{icon "check"}} PIN uključen</span>{{else}}<span class="badge badge-pending">PIN isključen</span>{{end}}
-        {{if .Adresa}}PIN stiže na <span class="mono">{{.Adresa}}</span>.{{else}}<strong>PIN nema kamo stići:</strong> {{.Razlog}}. Izvana se tada ulazi rezervnim kodom ili privremenim kodom od administratora.{{end}}
+        {{if .Adresa}}PIN stiže na <span class="mono">{{.Adresa}}</span>.{{with .StanjeAdrese}}{{if eq .Vrsta "potvrdena"}} Adresu izvan @{{.Domena}} potvrdio je administrator {{.Potvrdio}}{{if .PotvrdenoTekst}}, {{.PotvrdenoTekst}}{{else}}.{{end}}{{end}}{{end}}
+        {{else if and .StanjeAdrese (eq .StanjeAdrese.Vrsta "nepotvrdena")}}<strong>PIN nema kamo stići:</strong> vaša adresa nije @{{.Domena}}, a administrator je nije potvrdio. Ako vam je to službena adresa (npr. u tvrtki izvođača), zamolite administratora da je potvrdi; inače upišite adresu @{{.Domena}}. Izvana se dotad ulazi rezervnim kodom ili privremenim kodom od administratora.
+        {{else}}<strong>PIN nema kamo stići:</strong> {{.Razlog}}. Izvana se tada ulazi rezervnim kodom ili privremenim kodom od administratora.{{end}}
       </p>
       {{if .Greska}}<div class="alert alert-error">{{.Greska}}</div>{{end}}
 
       {{if .Kodovi}}
-      <div class="alert alert-success" style="display:block;" id="rezervni-kodovi">
+      <div class="alert alert-success d-block" id="rezervni-kodovi">
         <strong>{{icon "key-round"}} Vaši novi rezervni kodovi</strong>
         <ol class="mono" style="font-size:1.1rem; font-weight:700; letter-spacing:0.02em; margin:0.5rem 0; user-select:all; columns:2;">
           {{range .Kodovi}}<li style="list-style:none;">{{.}}</li>{{end}}
@@ -127,7 +129,7 @@
       <script>try { history.replaceState(null, '', '/profile#prijava-izvana'); } catch (e) {}</script>
       {{end}}
 
-      <h3 style="font-size:0.95rem; margin:1rem 0 0.25rem;">Zapamćena računala</h3>
+      <h3 class="obrazac-podnaslov">Zapamćena računala</h3>
       {{if .Racunala}}
       <div class="table-responsive">
         <table class="data-table">
@@ -135,12 +137,12 @@
           <tbody>
           {{range .Racunala}}
           <tr>
-            <td style="overflow-wrap:anywhere;">{{if .UserAgent}}{{.UserAgent}}{{else}}<span class="text-muted">nepoznat</span>{{end}}{{if .OvoRacunalo}} <span class="reg-chip">ovo računalo</span>{{end}}</td>
+            <td class="wrap-anywhere">{{if .UserAgent}}{{.UserAgent}}{{else}}<span class="text-muted">nepoznat</span>{{end}}{{if .OvoRacunalo}} <span class="reg-chip">ovo računalo</span>{{end}}</td>
             <td class="mono">{{.IPZadnji}}{{if ne .IPPrvi .IPZadnji}}<div class="form-help">prvi put {{.IPPrvi}}</div>{{end}}</td>
             <td>{{vrijemeHR .Zapamceno}}{{if .Koristeno}}<div class="form-help">zadnji put {{vrijemeHR (derefTime .Koristeno)}}</div>{{end}}</td>
             <td>{{vrijemeHR .Istjece}}</td>
             <td class="radnje">
-              <form method="POST" action="/profile/racunala/{{.ID}}/zaboravi" style="margin:0;">
+              <form method="POST" action="/profile/racunala/{{.ID}}/zaboravi" class="m-0">
                 <button type="submit" class="btn btn-sm btn-secondary">{{icon "x"}} Zaboravi</button>
               </form>
             </td>
@@ -149,14 +151,14 @@
           </tbody>
         </table>
       </div>
-      <form method="POST" action="/profile/racunala/zaboravi-sva" style="margin-top:0.5rem;" onsubmit="return confirm('Zaboraviti sva zapamćena računala? Izvana će se sa svakog opet tražiti PIN.')">
+      <form method="POST" action="/profile/racunala/zaboravi-sva" class="mt-2" onsubmit="return confirm('Zaboraviti sva zapamćena računala? Izvana će se sa svakog opet tražiti PIN.')">
         <div class="profil-gumbi"><button type="submit" class="btn btn-sm btn-secondary">{{icon "trash"}} Zaboravi sva</button></div>
       </form>
       {{else}}
       <p class="form-help">Nema zapamćenih računala. Pri prijavi s PIN-om možete označiti „Zapamti ovo računalo”: tada se s tog preglednika 30 dana traži samo lozinka. Promjena lozinke zaboravlja sva računala.</p>
       {{end}}
 
-      <h3 style="font-size:0.95rem; margin:1rem 0 0.25rem;">Rezervni kodovi</h3>
+      <h3 class="obrazac-podnaslov">Rezervni kodovi</h3>
       <p class="form-help">{{if .RezervniOd}}Neiskorištenih kodova: <strong>{{.Rezervnih}}</strong> od 10, napravljeni {{vrijemeHR (derefTime .RezervniOd)}}.{{else}}Još niste napravili rezervne kodove.{{end}}
         Rezervni kod zamjenjuje PIN kad e-pošta ne stigne ili je nemate. Napravite ih prije nego što krenete na teren; novi niz poništava stari.</p>
       <p class="form-help" id="kodovi-cvor"><strong>Kodovi vrijede samo na čvoru {{if .Cvor}}<span class="mono">{{.Cvor}}</span>{{else}}na kojem ih napravite{{end}}</strong>; na drugom čvoru broje se kao krivi kod.
@@ -183,7 +185,7 @@
       <p class="profil-stanje"><span class="badge badge-active">{{icon "check"}} povezano</span> Račun <span class="mono">{{.PostaRacun}}</span>, lozinka upisana {{formatDate (localTime .PostaKad)}}.</p>
       <p class="page-desc">Sandučić, slanje ovjerenih akata primateljima i adresar tvrtke rade s vašeg računa. Kad u tvrtki promijenite lozinku, upišite novu.</p>
       {{else}}
-      <p class="profil-stanje"><span class="badge badge-pending">nije povezano</span> Lozinka e-pošte još nije upisana.</p>
+      <p class="profil-stanje"><span class="badge badge-pending">nije povezano</span> Lozinka e-pošte nije upisana. Briše se i kad se promijeni ili poništi lozinka za goCOP, pa je tada upišite ponovno.</p>
       <p class="page-desc">S njom goCOP čita vaš sandučić, šalje ovjerene akte s vaše adrese i provjerava kontakte u adresaru tvrtke. Čuva se samo na ovom računalu, šifrirana.</p>
       {{end}}
       <div class="profil-gumbi">
@@ -210,7 +212,7 @@
       <div class="zig-pregled">
         {{if .ImaPotpisSliku}}<img src="/profile/potpis-slika?t={{.User.UpdatedAt.Unix}}" alt="Potpis" class="potpis-slika">{{else}}<div class="zig-prazno">Potpis još nije skeniran.</div>{{end}}
       </div>
-      <form method="POST" action="/profile/potpis-slika" enctype="multipart/form-data" class="form-page" style="margin-top:0.75rem;">
+      <form method="POST" action="/profile/potpis-slika" enctype="multipart/form-data" class="form-page mt-3">
         <div class="form-group">
           <input type="file" class="form-control" name="slika" accept="image/png,image/jpeg" required>
           <div class="form-help">Potpišite se crnom olovkom na bijeli papir, skenirajte s 300 dpi i izrežite na sam potpis. PNG ili JPEG, do 1 MB.</div>
@@ -220,7 +222,7 @@
         </div>
       </form>
       {{if .ImaPotpisSliku}}
-      <form method="POST" action="/profile/potpis-slika" enctype="multipart/form-data" style="margin-top:0.5rem;" onsubmit="return confirm('Ukloniti sken potpisa?')">
+      <form method="POST" action="/profile/potpis-slika" enctype="multipart/form-data" class="mt-2" onsubmit="return confirm('Ukloniti sken potpisa?')">
         <input type="hidden" name="obrisi" value="1">
         <button type="submit" class="btn btn-sm btn-secondary">{{icon "trash"}} Ukloni</button>
       </form>
@@ -235,28 +237,29 @@
         <ul>
           <li><strong>Samo vi ga možete upotrijebiti:</strong> privatni ključ je zaključan vašom lozinkom računa (scrypt + AES-256-GCM). Pri svakom potpisu upisujete lozinku. Administrator, drugi čvor ni „tuđe oči” ne mogu potpisati u vaše ime.</li>
           <li><strong>Certifikat izdaje čvor</strong> na kojem ste ključ napravili, s vašim imenom, funkcijom i sektorom; drugi čvorovi ga priznaju jer razmjenjuju certifikate izdavatelja.</li>
-          <li><strong>Promjena lozinke</strong> u profilu prekljuca ključ. Ako vam administrator poništi lozinku, stari ključ postaje neupotrebljiv: napravite novi; već potpisani dokumenti ostaju provjerljivi.</li>
+          <li><strong>Promjena lozinke</strong> u profilu prekljuca ključ. Ako vam lozinku poništi ili upiše administrator (ili se poništi s konzole čvora), ključ se uklanja jer ga nova lozinka ne otvara: napravite novi; već potpisani dokumenti ostaju provjerljivi.</li>
           <li><strong>Šifrirani zapis putuje knjigom verzija,</strong> pa potpisujete s bilo kojeg čvora; bez lozinke je bezvrijedan.</li>
         </ul>
       </details>
       {{if .Kljuc.Ima}}
-      <dl class="vodocuvar-dl" style="margin-top:0.5rem;">
+      <dl class="vodocuvar-dl mt-2">
         <dt>Certifikat</dt><dd>{{.Kljuc.Ime}}{{with .Kljuc.Funkcija}}, {{.}}{{end}}{{with .Kljuc.Sektor}}, Sektor {{.}}{{end}}</dd>
         <dt>Izdao</dt><dd>goCOP {{.Kljuc.Izdao}}</dd>
         <dt>Vrijedi</dt><dd>{{formatDate (localTime .Kljuc.Od)}} – {{formatDate (localTime .Kljuc.Do)}}{{if .Kljuc.Istekao}} <strong>(istekao)</strong>{{end}}</dd>
         <dt>Otisak</dt><dd class="mono">{{.Kljuc.Otisak}}</dd>
       </dl>
-      <form method="POST" action="/profile/potpisni-kljuc" class="form-page" style="margin-top:0.75rem;" onsubmit="return confirm('Ukloniti potpisni ključ? Već potpisani dokumenti ostaju.')">
+      <form method="POST" action="/profile/potpisni-kljuc" class="form-page mt-3" onsubmit="return confirm('Ukloniti potpisni ključ? Već potpisani dokumenti ostaju.')">
         <input type="hidden" name="radnja" value="obrisi">
+        <div class="form-group"><label class="form-label" for="kljuc-lozinka-ukloni">Lozinka računa</label><input type="password" class="form-control" id="kljuc-lozinka-ukloni" name="lozinka" autocomplete="current-password" required><div class="form-help">Ključ se uklanja samo uz lozinku računa, kao što se i pravi.</div></div>
         <div class="profil-gumbi"><button type="submit" class="btn btn-sm btn-secondary">{{icon "trash"}} Ukloni ključ</button></div>
       </form>
-      <form method="POST" action="/profile/potpisni-kljuc" class="form-page" style="margin-top:0.5rem;" onsubmit="return confirm('Napraviti novi ključ umjesto postojećeg?')">
+      <form method="POST" action="/profile/potpisni-kljuc" class="form-page mt-2" onsubmit="return confirm('Napraviti novi ključ umjesto postojećeg?')">
         <input type="hidden" name="radnja" value="novi">
         <div class="form-group"><label class="form-label" for="kljuc-lozinka2">Lozinka računa</label><input type="password" class="form-control" id="kljuc-lozinka2" name="lozinka" autocomplete="current-password" required></div>
         <div class="profil-gumbi"><button type="submit" class="btn btn-sm btn-secondary">{{icon "refresh-cw"}} Novi ključ</button></div>
       </form>
       {{else}}
-      <form method="POST" action="/profile/potpisni-kljuc" class="form-page" style="margin-top:0.75rem;">
+      <form method="POST" action="/profile/potpisni-kljuc" class="form-page mt-3">
         <input type="hidden" name="radnja" value="novi">
         <div class="form-group">
           <label class="form-label" for="kljuc-lozinka">Lozinka računa</label>

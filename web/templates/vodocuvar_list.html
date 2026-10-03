@@ -57,20 +57,20 @@
   </div>
   {{if .Simulacija}}<div class="alert alert-warning">Simulacija ključa: predajom se list potpisuje <strong>simuliranim ključem</strong> u ime {{$l.Ime}}, bez lozinke; potpis i PDF nose oznaku BEZVRIJEDNO.</div>
   {{else if .ImaKljuc}}
-  <div class="form-group" style="max-width:22rem;">
+  <div class="form-group max-w-22">
     <label class="form-label" for="lozinka">Lozinka za potpis</label>
     <input type="password" class="form-control" id="lozinka" name="lozinka" autocomplete="current-password" placeholder="samo za „Potpiši i predaj”">
     <div class="form-help">Predajom se list elektronički potpisuje vašim ključem; lozinka ga otključava i ne sprema se.</div>
   </div>
   {{end}}
-  <div class="form-actions" style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+  <div class="form-actions d-flex gap-2 flex-wrap">
     <button type="submit" class="btn btn-secondary" name="radnja" value="spremi">{{icon "check"}} Spremi</button>
     <button type="submit" class="btn btn-primary" name="radnja" value="predaj" onclick="return confirm('Potpisati i predati list? Nakon predaje se više ne mijenja.')">{{icon "pencil"}} Potpiši i predaj</button>
     {{if $l.ID}}<button type="submit" formaction="/vodocuvar/{{$l.ID}}/radnja" name="radnja" value="obrisi" class="btn btn-secondary btn-opasno" onclick="return confirm('Obrisati ovaj nepredani list?')">{{icon "trash"}} Obriši</button>{{end}}
   </div>
 </form>
 {{else}}
-<section class="detail-section vodocuvar-list" style="margin-top:0;">
+<section class="detail-section vodocuvar-list mt-0">
   <dl class="vodocuvar-dl">
     <dt>Radno vrijeme</dt><dd>od {{$l.Od}} do {{$l.Do}}, ukupno {{$l.SatiTekst}} sati</dd>
     <dt>Vremenske prilike</dt><dd>{{if $l.Prilike}}{{$l.Prilike}}{{else}}—{{end}}</dd>
@@ -83,8 +83,8 @@
     {{if $l.Parafe}}<dt>Parafe</dt><dd>{{range $i, $p := $l.Parafe}}{{if $i}}; {{end}}{{$p.Ime}}{{with $p.Funkcija}} ({{.}}){{end}}, {{formatDate (localTime $p.Kad)}}{{end}}</dd>{{end}}
     {{if .Izvornik.Ima}}<dt>Izvornik</dt><dd><a href="/vodocuvar/{{$l.ID}}/list.pdf" target="_blank">{{icon "file-text"}} PDF lista</a>{{if .Izvornik.Potpisi}}<ul class="stavke" style="margin:0.25rem 0 0; padding-left:1rem;">{{range .Izvornik.Potpisi}}<li>{{if .Simulacija}}{{icon "x"}} <strong>SIMULIRANI potpis, bezvrijedan</strong> ({{.Ime}}, {{formatDate (localTime .Kad)}}; {{if .Valjan}}tehnički ispravan, {{end}}samo za testiranje){{else if .Valjan}}{{icon "lock"}} elektronički potpisao <strong>{{.Ime}}</strong>{{with .Funkcija}}, {{.}}{{end}}, {{formatDate (localTime .Kad)}} <span class="form-help">({{.Razlog}}; izdao {{.Izdao}}; potpis valjan{{if .Cijeli}}, pokriva cijeli dokument{{end}})</span>{{else}}{{icon "x"}} potpis {{.Ime}}: <strong>{{.Greska}}</strong>{{end}}</li>{{end}}</ul>{{else}} <span class="form-help">(bez elektroničkog potpisa; potpisnici nemaju ključ)</span>{{end}}</dd>{{end}}
   </dl>
-  <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:0.75rem; align-items:flex-end;">
-    {{if .SmijeOvjeriti}}<form method="POST" action="/vodocuvar/{{$l.ID}}/radnja" style="display:flex; gap:0.5rem; align-items:flex-end; flex-wrap:wrap;"><input type="hidden" name="radnja" value="ovjeri">{{if .Simulacija}}<span class="form-help">simulirani ključ, bez lozinke</span>{{else if .ImaKljuc}}<div class="form-group" style="margin:0;"><label class="form-label" for="lozinka-ovjera">Lozinka za potpis</label><input type="password" class="form-control" id="lozinka-ovjera" name="lozinka" autocomplete="current-password" required></div>{{end}}<button type="submit" class="btn btn-primary">{{icon "check"}} Ovjeri list</button></form>{{end}}
+  <div class="d-flex gap-2 flex-wrap mt-3 items-end">
+    {{if .SmijeOvjeriti}}<form method="POST" action="/vodocuvar/{{$l.ID}}/radnja" class="d-flex gap-2 items-end flex-wrap"><input type="hidden" name="radnja" value="ovjeri">{{if .Simulacija}}<span class="form-help">simulirani ključ, bez lozinke</span>{{else if .ImaKljuc}}<div class="form-group m-0"><label class="form-label" for="lozinka-ovjera">Lozinka za potpis</label><input type="password" class="form-control" id="lozinka-ovjera" name="lozinka" autocomplete="current-password" required></div>{{end}}<button type="submit" class="btn btn-primary">{{icon "check"}} Ovjeri list</button></form>{{end}}
     {{if and .SmijeParafirati (not .Parafirao)}}<form method="POST" action="/vodocuvar/{{$l.ID}}/radnja"><input type="hidden" name="radnja" value="parafiraj"><button type="submit" class="btn btn-secondary">{{icon "pencil"}} Parafiraj</button></form>{{end}}
   </div>
 </section>
@@ -93,7 +93,7 @@
 {{if and .SmijeParafirati (not .Moj) (not (eq $l.ID ""))}}
 <section class="detail-section">
   <h2>{{icon "pencil"}} Upis u dnevnik: {{$l.Ime}}, {{$l.Datum.Format "02.01.2006."}}</h2>
-  <form method="POST" action="/vodocuvar/upis" class="posta-trazi" style="align-items:flex-start;">
+  <form method="POST" action="/vodocuvar/upis" class="posta-trazi items-start">
     <input type="hidden" name="vodocuvar" value="{{$l.UserID}}">
     <input type="hidden" name="datum" value="{{$l.Datum.Format "2006-01-02"}}">
     <input type="hidden" name="natrag" value="/vodocuvar/{{$l.ID}}">
@@ -111,7 +111,7 @@
     <input type="hidden" name="vodocuvar" value="{{$l.UserID}}">
     <input type="hidden" name="natrag" value="/vodocuvar/{{$l.ID}}">
     <input class="form-control" name="tekst" required placeholder="što treba obići, provjeriti ili napraviti" style="min-width:20rem; flex:1;">
-    <input type="date" class="form-control" name="za" value="{{.Danas}}" min="{{.Danas}}" title="za koji dan" style="max-width:11rem;">
+    <input type="date" class="form-control max-w-11" name="za" value="{{.Danas}}" min="{{.Danas}}" title="za koji dan">
     <button type="submit" class="btn btn-primary btn-sm">{{icon "plus"}} Zadaj</button>
   </form>
   <div class="form-help"><a href="/vodocuvar/kalendar?vodocuvar={{$l.UserID}}">Kalendar zadataka</a> ove osobe.</div>

@@ -304,7 +304,7 @@ func (h *AuthHandler) HandleChangePassword(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	http.Redirect(w, r, returnURL+"?success="+url.QueryEscape("Lozinka je uspješno promijenjena!"), http.StatusSeeOther)
+	http.Redirect(w, r, returnURL+"?success="+url.QueryEscape("Lozinka je uspješno promijenjena! Ako ste ovdje spremili lozinku e-pošte tvrtke, upišite je ponovno (Profil › E-pošta tvrtke)."), http.StatusSeeOther)
 }
 
 // HandleViewAs pokreće pregled programa očima odabranog djelatnika

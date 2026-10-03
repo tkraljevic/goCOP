@@ -34,7 +34,7 @@
       <td class="mono">{{.Email}}</td>
       <td>{{if .AreaID}}BP {{.AreaID}}{{else}}cijeli sektor{{end}}</td>
       <td>{{if .OdStupnja}}{{.OdStupnja.Label}}{{else}}uvijek{{end}}</td>
-      {{if $.SmijeUrediti}}<td class="radnje"><form method="POST" action="/akti/primatelji/{{.ID}}/obrisi" style="display:inline;" onsubmit="return confirm('Obrisati primatelja?');"><input type="hidden" name="sektor" value="{{.Sektor}}"><button type="submit" class="btn btn-sm btn-secondary">{{icon "x"}} Obriši</button></form></td>{{end}}
+      {{if $.SmijeUrediti}}<td class="radnje"><form method="POST" action="/akti/primatelji/{{.ID}}/obrisi" class="d-inline" onsubmit="return confirm('Obrisati primatelja?');"><input type="hidden" name="sektor" value="{{.Sektor}}"><button type="submit" class="btn btn-sm btn-secondary">{{icon "x"}} Obriši</button></form></td>{{end}}
     </tr>
     {{end}}
     </tbody>

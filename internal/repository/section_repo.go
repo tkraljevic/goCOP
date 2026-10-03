@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -146,6 +147,38 @@ func (r *SectionRepository) decorate(sec *models.Section) {
 // SaveSection upisuje novu ili izmijenjenu dionicu s poddionicama, obnavlja
 // kazala i bilježi verziju. Sektor slijedi iz područja.
 func (r *SectionRepository) SaveSection(ctx context.Context, s *models.Section) error {
+	return r.SaveSectionUzProvjeru(ctx, s, nil)
+}
+
+// NoveVezeDionice su objekti i vodomjeri koje spremanje dionice tek veže na
+// nju: nije ih bilo u njezinu dosadašnjem zapisu, a nisu ni upravo upisani u
+// registar iz njezinih redaka. Vodomjer se veže i iz zapisa vodomjera, po
+// nazivu, pa se popis slaže tek nakon povezivanja s registrima.
+type NoveVezeDionice struct {
+	Objekti []ObjektUzDionice
+	// Vodomjeri s dionicama na koje su već vezani (bez ove)
+	Vodomjeri []VodomjerUzDionice
+}
+
+// ObjektUzDionice je objekt koji se veže uz dionicu; Objekt je nil kad ga
+// u registru nema
+type ObjektUzDionice struct {
+	ID     string
+	Objekt *models.Structure
+}
+
+// VodomjerUzDionice je vodomjer koji se veže uz dionicu i dionice za koje je
+// već mjerodavan (šifra, područje, sektor)
+type VodomjerUzDionice struct {
+	ID      string
+	Naziv   string
+	Dionice []models.Section
+}
+
+// SaveSectionUzProvjeru sprema dionicu kao SaveSection, a prije upisa
+// pozove provjeri s novim vezama na objekte i vodomjere; kad ona vrati
+// grešku, ništa se ne upisuje
+func (r *SectionRepository) SaveSectionUzProvjeru(ctx context.Context, s *models.Section, provjeri func(NoveVezeDionice) error) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -157,8 +190,10 @@ func (r *SectionRepository) SaveSection(ctx context.Context, s *models.Section) 
 			return fmt.Errorf("branjeno područje %d ne postoji", s.AreaID)
 		}
 	}
+	var dosad models.Section
 	if cur, err := getSectionTx(ctx, tx, s.Code); err == nil {
 		s.CreatedAt = cur.CreatedAt
+		dosad = cur
 	} else if err != sql.ErrNoRows {
 		return err
 	}
@@ -170,6 +205,15 @@ func (r *SectionRepository) SaveSection(ctx context.Context, s *models.Section) 
 	linker.Origin = "RUČNI_UNOS"
 	if err := linker.LinkRegistries(ctx, s); err != nil {
 		return err
+	}
+	if provjeri != nil {
+		nove, err := noveVezeDionice(ctx, tx, dosad, s, linker.Created)
+		if err != nil {
+			return err
+		}
+		if err := provjeri(nove); err != nil {
+			return err
+		}
 	}
 	for _, id := range linker.Created {
 		st, err := getStructureTx(ctx, tx, id)
@@ -201,6 +245,64 @@ func (r *SectionRepository) SaveSection(ctx context.Context, s *models.Section) 
 		return err
 	}
 	return tx.Commit()
+}
+
+// noveVezeDionice slaže objekte i vodomjere koji su uz dionicu s nakon
+// povezivanja, a nisu bili uz dosadašnji zapis ni upravo upisani u registar
+func noveVezeDionice(ctx context.Context, tx *sql.Tx, dosad models.Section, s *models.Section, upisani []string) (NoveVezeDionice, error) {
+	var nove NoveVezeDionice
+	bilo := map[string]bool{}
+	for _, id := range dosad.AllStructureIDs() {
+		bilo[id] = true
+	}
+	for _, id := range upisani {
+		bilo[id] = true
+	}
+	for _, id := range s.AllStructureIDs() {
+		if bilo[id] {
+			continue
+		}
+		o := ObjektUzDionice{ID: id}
+		st, err := getStructureTx(ctx, tx, id)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return nove, err
+		}
+		if err == nil {
+			o.Objekt = &st
+		}
+		nove.Objekti = append(nove.Objekti, o)
+	}
+	bilo = map[string]bool{}
+	for _, id := range dosad.AllStationIDs() {
+		bilo[id] = true
+	}
+	for _, id := range s.AllStationIDs() {
+		if bilo[id] {
+			continue
+		}
+		v := VodomjerUzDionice{ID: id}
+		_ = tx.QueryRowContext(ctx, `SELECT name FROM stations WHERE id = ?`, id).Scan(&v.Naziv)
+		rows, err := tx.QueryContext(ctx, `SELECT s.code, s.area_id, s.sector_id FROM section_stations ss
+			JOIN sections s ON s.code = ss.section_code
+			WHERE ss.station_id = ? AND ss.section_code <> ? ORDER BY s.code`, id, s.Code)
+		if err != nil {
+			return nove, err
+		}
+		for rows.Next() {
+			var d models.Section
+			if err := rows.Scan(&d.Code, &d.AreaID, &d.SectorID); err != nil {
+				rows.Close()
+				return nove, err
+			}
+			v.Dionice = append(v.Dionice, d)
+		}
+		rows.Close()
+		if err := rows.Err(); err != nil {
+			return nove, err
+		}
+		nove.Vodomjeri = append(nove.Vodomjeri, v)
+	}
+	return nove, nil
 }
 
 // ArhivirajSekciju miče dionicu s površine zajedno s njezinim kazalima (letve,

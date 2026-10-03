@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"gocop/internal/models"
@@ -18,6 +19,19 @@ func permsWith(duties ...models.Duty) *models.UserPermissions {
 		u.Duties[i].IsActive = true
 	}
 	return models.NewUserPermissions(u)
+}
+
+// dioniceOf: dionice B.16.x u području 16, D.10.x u području 10
+var dioniceOf = func(code string) (int, string, bool) {
+	switch {
+	case strings.HasPrefix(code, "B.16."):
+		return 16, "B", true
+	case strings.HasPrefix(code, "B.18."):
+		return 18, "B", true
+	case strings.HasPrefix(code, "D.10."):
+		return 10, "D", true
+	}
+	return 0, "", false
 }
 
 var sectorsOf = func(area int) string {
@@ -92,25 +106,25 @@ func TestTkoSmijeDodijelitiKojuUlogu(t *testing.T) {
 }
 
 func TestDosegIzUloge(t *testing.T) {
-	scope, sec, area, err := normalizeScope(models.RoleAreaLeader, nil, intp(16), "", sectorsOf)
+	scope, sec, area, err := normalizeScope(models.RoleAreaLeader, nil, intp(16), "", sectorsOf, dioniceOf)
 	if err != nil || scope != models.ScopeArea || sec == nil || *sec != "B" || area == nil {
 		t.Fatalf("područje: scope=%v sec=%v area=%v err=%v", scope, sec, area, err)
 	}
-	if _, _, _, err := normalizeScope(models.RoleSectorLeader, nil, nil, "", sectorsOf); err == nil {
+	if _, _, _, err := normalizeScope(models.RoleSectorLeader, nil, nil, "", sectorsOf, dioniceOf); err == nil {
 		t.Fatal("uloga sektora bez sektora mora javiti grešku")
 	}
-	if _, _, _, err := normalizeScope(models.RoleAreaLeader, strp("B"), nil, "", sectorsOf); err == nil {
+	if _, _, _, err := normalizeScope(models.RoleAreaLeader, strp("B"), nil, "", sectorsOf, dioniceOf); err == nil {
 		t.Fatal("uloga područja bez područja mora javiti grešku")
 	}
-	scope, sec, area, err = normalizeScope(models.RoleNationalLeader, strp("B"), intp(16), "B.16.1", sectorsOf)
+	scope, sec, area, err = normalizeScope(models.RoleNationalLeader, strp("B"), intp(16), "B.16.1", sectorsOf, dioniceOf)
 	if err != nil || scope != models.ScopeAll || sec != nil || area != nil {
 		t.Fatalf("razina 1: scope=%v sec=%v area=%v err=%v", scope, sec, area, err)
 	}
-	scope, _, _, err = normalizeScope(models.RoleWaterGuard, nil, intp(16), "", sectorsOf)
+	scope, _, _, err = normalizeScope(models.RoleWaterGuard, nil, intp(16), "", sectorsOf, dioniceOf)
 	if err != nil || scope != models.ScopeArea {
 		t.Fatalf("vodočuvar bez dionica pokriva područje: scope=%v err=%v", scope, err)
 	}
-	scope, _, _, _ = normalizeScope(models.RoleWaterGuard, nil, intp(16), "B.16.1", sectorsOf)
+	scope, _, _, _ = normalizeScope(models.RoleWaterGuard, nil, intp(16), "B.16.1", sectorsOf, dioniceOf)
 	if scope != models.ScopeSection {
 		t.Fatalf("vodočuvar s dionicama: scope=%v", scope)
 	}

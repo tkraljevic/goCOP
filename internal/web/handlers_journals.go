@@ -170,7 +170,7 @@ func (h *JournalsHandler) areaOf(perms *models.UserPermissions, want int) (*mode
 	areas, _ := h.users.ListAreas("")
 	if want == 0 && perms != nil {
 		for _, a := range areas {
-			if perms.AdminAreas[a.ID] || perms.AllowedAreas[a.ID] || perms.AllowedSectors[a.SectorID] || perms.AdminSectors[a.SectorID] {
+			if perms.AdminAreas[a.ID] || perms.RadiUPodrucju(a.ID) || perms.RadiUSektoru(a.SectorID) || perms.AdminSectors[a.SectorID] {
 				want = a.ID
 				break
 			}

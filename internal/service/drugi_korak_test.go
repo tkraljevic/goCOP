@@ -2,6 +2,7 @@ package service_test
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"net/netip"
@@ -102,6 +103,7 @@ func (l *laznaPosta) pin(t *testing.T) string {
 }
 
 type okolinaPIN struct {
+	baza   *sql.DB
 	dk     *service.DrugiKorak
 	posta  *laznaPosta
 	users  *service.UserService
@@ -145,7 +147,7 @@ func okolinaDrugogKoraka(t *testing.T) *okolinaPIN {
 		t.Fatal(err)
 	}
 	rec := ledger.New(database, "cvor-a")
-	o := &okolinaPIN{posta: &laznaPosta{}, sad: time.Date(2026, 10, 3, 10, 0, 0, 0, time.UTC)}
+	o := &okolinaPIN{baza: database, posta: &laznaPosta{}, sad: time.Date(2026, 10, 3, 10, 0, 0, 0, time.UTC)}
 	o.repo = repository.NewUserRepository(database, rec)
 	o.auth = service.NewAuthService(o.repo, repository.NewSessionRepository(database))
 	o.users = service.NewUserService(o.repo, o.auth, service.NewSSEBroker())

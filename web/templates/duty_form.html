@@ -21,6 +21,7 @@
   <div class="form-group">
     <label class="form-label" for="title">Naziv funkcije ili dužnosti *</label>
     <input type="text" id="title" name="title" class="form-control" required value="{{if .Duty}}{{.Duty.Title}}{{end}}" placeholder="npr. Voditelj COP Osijek, Rukovoditelj BP 19, Rukovoditelj dionica A.19.1 – A.19.4">
+    <div class="form-help">Naziv ide uz ime i u certifikat potpisa. Vlastiti naziv i primarnu funkciju upisuje onaj tko smije uređivati cijeli račun osobe (viša razina ili globalni administrator); {{if .Duty}}drugi ih pri izmjeni ostavljaju kakvi jesu ili uklanjaju (naziv uloge), a promjena se odbija.{{else}}inače se dužnost doda kao ispomoć, pod nazivom uloge.{{end}}</div>
   </div>
 
   <div class="form-group">
@@ -29,7 +30,7 @@
       {{$uloga := "OPERATOR"}}{{if .Duty}}{{$uloga = print .Duty.Role}}{{end}}{{range .Roles}}<option value="{{.Value}}" {{if eq .Value $uloga}}selected{{end}}>{{.Label}}</option>{{end}}
     </select>
   </div>
-  <div class="form-help" style="margin-bottom:0.5rem;">Doseg određuje uloga: uloga razine 1 vrijedi za cijelu organizaciju, uloga {{terml "sektor"}}a traži {{terml "sektor"}}, uloga {{terml "podrucje"}}a traži {{terml "podrucje"}}, uloga dionice traži dionice. Tko nije uprava organizacije, dodjeljuje samo uloge svoje razine ili niže, u svom dosegu.</div>
+  <div class="form-help mb-2">Doseg određuje uloga: uloga razine 1 vrijedi za cijelu organizaciju, uloga {{terml "sektor"}}a traži {{terml "sektor"}}, uloga {{terml "podrucje"}}a traži {{terml "podrucje"}}, uloga dionice traži dionice. Tko nije uprava organizacije, dodjeljuje samo uloge svoje razine ili niže, u svom dosegu.</div>
 
   <div class="form-row">
     <div class="form-group">
@@ -54,11 +55,11 @@
     <div class="form-help">Za uloge dionice i terena: šifre odvojene zarezom. Bez dionica terenska uloga pokriva cijelo {{terml "podrucje"}}.</div>
   </div>
 
-  <div class="form-group" style="display:flex; flex-direction:column; gap:0.25rem;">
-    <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.9rem; min-height:40px;">
+  <div class="form-group d-flex flex-col gap-1">
+    <label class="oznaka-kvacica">
       <input type="checkbox" name="is_primary" value="1"{{if and .Duty .Duty.IsPrimary}} checked{{end}}> Primarna funkcija (prikazuje se uz ime)
     </label>
-    <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.9rem; min-height:40px;">
+    <label class="oznaka-kvacica">
       <input type="checkbox" name="is_temporary" value="1"{{if and .Duty .Duty.IsTemporary}} checked{{end}} onchange="document.getElementById('temp-fields').hidden = !this.checked"> Privremena ispomoć
     </label>
   </div>

@@ -63,9 +63,12 @@ func (h *UsersHandler) dk() *service.DrugiKorak {
 type ProfilPrijaveIzvana struct {
 	TudjimOcima bool   // gleda se tuđim očima: ništa se ne pokazuje ni ne mijenja
 	Ukljuceno   bool   // PIN se traži za prijavu izvana
-	Domena      string // jedina domena na koju ide PIN
+	Domena      string // domena na koju ide PIN bez potvrde administratora
 	Adresa      string // maskirana adresa na koju ide PIN; prazno kad ne ide nikamo
 	Razlog      string // zašto PIN nema kamo ići
+	// StanjeAdrese: u domeni, potvrđena izvan nje (tko, kada), nepotvrđena,
+	// zajednička ili nema je; nil kad se ne da pročitati
+	StanjeAdrese *service.StanjeAdresePIN
 
 	Racunala   []service.Racunalo
 	Rezervnih  int        // neiskorištenih rezervnih kodova
@@ -93,10 +96,13 @@ func (h *UsersHandler) profilPrijaveIzvana(r *http.Request, u *models.User, kodo
 		p.TudjimOcima = true
 		return p
 	}
-	if a, err := d.AdresaZaPIN(ctx, u); err == nil {
-		p.Adresa = a
-	} else {
+	if s, err := d.StanjeAdrese(ctx, u); err != nil {
 		p.Razlog = err.Error()
+	} else {
+		p.StanjeAdrese, p.Adresa = s, s.Adresa
+		if s.Razlog != nil {
+			p.Razlog = s.Razlog.Error()
+		}
 	}
 	var greske []string
 	tok := ""

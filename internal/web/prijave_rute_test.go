@@ -229,7 +229,7 @@ func TestPrijaveSTerenaKrozRute(t *testing.T) {
 	if put := os.Getenv("PROBA_PDF"); put != "" {
 		_ = os.WriteFile(put, iz.PDF, 0o644)
 	}
-	if ps := potpisi.Provjeri(ctx, iz.PDF); len(ps) != 1 || !ps[0].Valjan || !ps[0].Cijeli || ps[0].Ime != "Seit Vodočuvar" || !strings.Contains(ps[0].Razlog, "B-T-1") {
+	if ps := potpisi.Provjeri(ctx, iz.PDF); len(ps) != 1 || !ps[0].Valjan || !ps[0].Cijeli || ps[0].Ime != "Seit Vodočuvar (seit)" || !strings.Contains(ps[0].Razlog, "B-T-1") {
 		t.Fatalf("potpis izvornika: %+v", ps)
 	}
 	// dokument kao dosadašnja tiskana prijava: zaglavlje, štambilj, podaci,

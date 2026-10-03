@@ -20,13 +20,13 @@
 
 {{if .SamoMoj}}
 {{if gt (len .Godine) 1}}
-<form method="GET" action="/vodocuvar" class="posta-trazi" style="margin-bottom:0.75rem;">
+<form method="GET" action="/vodocuvar" class="posta-trazi mb-3">
   <label class="form-label" for="godina" style="margin:0 0.4rem 0 0;">Godina</label>
-  <select name="godina" id="godina" class="form-control" style="max-width:8rem;" onchange="this.form.submit()">{{range .Godine}}<option value="{{.}}" {{if eq . $.Godina}}selected{{end}}>{{.}}</option>{{end}}</select>
+  <select name="godina" id="godina" class="form-control max-w-8" onchange="this.form.submit()">{{range .Godine}}<option value="{{.}}" {{if eq . $.Godina}}selected{{end}}>{{.}}</option>{{end}}</select>
 </form>
 {{end}}
 {{else}}
-<form method="GET" action="/vodocuvar" class="posta-trazi" style="margin-bottom:0.75rem;">
+<form method="GET" action="/vodocuvar" class="posta-trazi mb-3">
   <select name="godina" class="form-control" onchange="this.form.submit()">{{range .Godine}}<option value="{{.}}" {{if eq . $.Godina}}selected{{end}}>{{.}}</option>{{end}}</select>
   {{if .Sektori}}<select name="sektor" class="form-control" onchange="this.form.podrucje.value=''; this.form.submit()"><option value="" {{if not .Filtar.Sektor}}selected{{end}}>svi sektori</option>{{range .Sektori}}<option value="{{.ID}}" {{if eq .ID $.Filtar.Sektor}}selected{{end}}>{{.Name}}</option>{{end}}</select>{{end}}
   <select name="podrucje" class="form-control" onchange="this.form.submit()" {{if not .Podrucja}}disabled{{end}}><option value="">sva branjena područja</option>{{range .Podrucja}}<option value="{{.ID}}" {{if eq .ID $.Filtar.AreaID}}selected{{end}}>BP {{.ID}}: {{.Name}}</option>{{end}}</select>
@@ -36,13 +36,13 @@
 
 {{if .Arhivirana}}<div class="alert alert-info">{{icon "lock"}} Knjiga za {{.Godina}}. je zaključena istekom godine: čuva se u arhivi i može se samo čitati i ispisati.</div>{{end}}
 {{if .VodiDnevnik}}
-<section class="detail-section" style="margin-top:0;">
+<section class="detail-section mt-0">
   <h2>{{icon "user"}} Moj dnevnik {{.Godina}}{{if .Arhivirana}} <span class="badge badge-pending">arhiva</span>{{end}}</h2>
   {{if .Moji}}
   {{range .MojiMjeseci}}
   <details class="knjiga-mjesec" {{if .Otvoren}}open{{end}}>
     <summary><strong>{{mjesecHR .Mjesec}}</strong> <span class="form-help">{{len .Listovi}} {{if eq (len .Listovi) 1}}list{{else}}listova{{end}}{{if .Preneseni}} · {{.Preneseni}} preneseno{{end}}</span></summary>
-    <ul class="posta-kartice" style="margin-top:0.5rem;">
+    <ul class="posta-kartice mt-2">
     {{range .Listovi}}
       <li class="posta-kartica"><a class="posta-kartica-tijelo" href="/vodocuvar/{{.ID}}">
         <div class="posta-kartica-red"><span class="posta-od">{{if .Broj}}List {{.Broj}}{{else if .Rekonstrukcija}}Preneseno{{else}}(nepredan){{end}} · {{.DanUTjednu}}</span><span class="posta-kad">{{.Datum.Format "02.01.2006."}}{{if not .Rekonstrukcija}} · {{.Od}}–{{.Do}} · {{.SatiTekst}} h{{end}}</span></div>
@@ -60,13 +60,13 @@
 {{if .Vodocuvari}}
 <section class="detail-section">
   <h2>{{icon "clipboard-list"}} Zadaj zadatak vodočuvaru</h2>
-  <form method="POST" action="/vodocuvar/zadatak" class="posta-trazi" style="align-items:flex-start; flex-wrap:wrap;">
+  <form method="POST" action="/vodocuvar/zadatak" class="posta-trazi items-start flex-wrap">
     <select name="vodocuvar" class="form-control" required>
       <option value="">— vodočuvar —</option>
       {{range .Vodocuvari}}<option value="{{.ID}}">{{.FullName}}{{with .PrimaryDuty}} · {{.Title}}{{end}}</option>{{end}}
     </select>
     <input class="form-control" name="tekst" required placeholder="što treba obići, provjeriti ili napraviti" style="min-width:20rem; flex:1;">
-    <input type="date" class="form-control" name="za" value="{{.Danas}}" min="{{.Danas}}" title="za koji dan" style="max-width:11rem;">
+    <input type="date" class="form-control max-w-11" name="za" value="{{.Danas}}" min="{{.Danas}}" title="za koji dan">
     <button type="submit" class="btn btn-primary btn-sm">{{icon "plus"}} Zadaj</button>
   </form>
   <div class="form-help">Zadatak se pojavi na dnevnom listu vodočuvara za odabrani dan (do 30 dana unaprijed) pod naredbama, s vašim imenom. Vodočuvar ga otkači kad ga obavi i upiše što je napravio; dok ga ne obavi, prenosi se na svaki novi list. Pregled po danima: <a href="/vodocuvar/kalendar">kalendar zadataka</a>.</div>
@@ -84,14 +84,14 @@
     {{if not .Listovi}}<p class="form-help">Još nema listova: list nastaje kad vodočuvar na Terenu otvori „Današnji list”, ili kad vi upišete bilješku.</p>{{end}}
     <form method="POST" action="/vodocuvar/upis" class="posta-trazi" style="margin:0.4rem 0; align-items:center;">
       <input type="hidden" name="vodocuvar" value="{{.UserID}}">
-      <input type="date" class="form-control" name="datum" value="{{$.Danas}}" style="max-width:11rem;" title="dan lista">
+      <input type="date" class="form-control max-w-11" name="datum" value="{{$.Danas}}" title="dan lista">
       <input class="form-control" name="tekst" required placeholder="upis u dnevnik: naredba, napomena, nalaz obilaska" style="min-width:16rem; flex:1;">
       <button type="submit" class="btn btn-secondary btn-sm">{{icon "pencil"}} Upiši</button>
     </form>
     {{range .Mjeseci}}
     <details class="knjiga-mjesec" {{if .Otvoren}}open{{end}}>
       <summary><strong>{{mjesecHR .Mjesec}}</strong> <span class="form-help">{{len .Listovi}} {{if eq (len .Listovi) 1}}list{{else}}listova{{end}}{{if .Preneseni}} · {{.Preneseni}} preneseno{{end}}{{if .Cekaju}} · <span class="badge badge-pending">{{.Cekaju}} čeka ovjeru</span>{{end}}</span></summary>
-      <ul class="posta-kartice" style="margin-top:0.5rem;">
+      <ul class="posta-kartice mt-2">
       {{range .Listovi}}
         <li class="posta-kartica {{if and .Predan (not .Potvrden)}}neprocitano{{end}}"><a class="posta-kartica-tijelo" href="/vodocuvar/{{.ID}}">
           <div class="posta-kartica-red"><span class="posta-od">{{if .Broj}}List {{.Broj}}{{else if .Rekonstrukcija}}Preneseno{{else}}List —{{end}} · {{.DanUTjednu}}</span><span class="posta-kad">{{.Datum.Format "02.01.2006."}}{{if not .Rekonstrukcija}} · {{.SatiTekst}} h{{end}}</span></div>

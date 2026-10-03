@@ -776,7 +776,7 @@ func crtajKisu(stupci []stupacKise, sada time.Time) template.HTML {
 	if !sada.IsZero() && sada.After(od) && sada.Before(kraj) {
 		fmt.Fprintf(&b, `<line x1="%.1f" x2="%.1f" y1="%.1f" y2="%.1f" style="stroke:var(--accent, #20ba70);stroke-width:2"/>`,
 			x(sada), x(sada), vrh, H-dno)
-		fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" style="fill:var(--accent-dark, #178f55);font-size:11px">sada</text>`, x(sada)+4, vrh+10)
+		fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" style="fill:var(--accent-dark, #168250);font-size:11px">sada</text>`, x(sada)+4, vrh+10)
 	}
 	b.WriteString(`</svg>`)
 	return template.HTML(b.String())

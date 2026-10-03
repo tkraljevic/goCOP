@@ -116,7 +116,11 @@ const porukaBezSektora = "Odaberite sektor: imenik se uspoređuje po sektoru, je
 // adresu stranice s trakom napretka; stotine upita adresaru traju minutu, a
 // stranica se sama osvježi kad posao završi. Bez sektora ili prava vraća
 // razlog odbijanja.
-func (h *AktiHandler) pokreniUsporedbu(s *service.AktService, u *models.User, perms *models.UserPermissions, sektor string) (string, string) {
+func (h *AktiHandler) pokreniUsporedbu(r *http.Request, s *service.AktService, u *models.User, perms *models.UserPermissions, sektor string) (string, string) {
+	// usporedba ide tuđom lozinkom e-pošte, pa je tuđim očima nema
+	if viewBanner(r).Viewing {
+		return "", "Imenik s adresarom ne uspoređuje se tuđim očima: koristio bi tuđu lozinku e-pošte. Vrati se sebi."
+	}
 	if perms == nil || !(perms.IsGlobalAdmin || len(perms.AdminSectors) > 0) {
 		return "", "Imenik s adresarom usklađuje uprava sektora."
 	}
@@ -128,7 +132,8 @@ func (h *AktiHandler) pokreniUsporedbu(s *service.AktService, u *models.User, pe
 	}
 	povratak := "/users/exchange?" + url.Values{"sektor": {sektor}}.Encode() + "&rezultat="
 	p := h.poslovi.Pokreni("Usporedba imenika s adresarom tvrtke", u.ID.String(), povratak+"{id}", func(zad *poslovi.Posao) error {
-		rez, err := s.UsporediImenik(context.Background(), perms, u, sektor, func(sto string, gotovo, ukupno int) {
+		// posao traje i kad zahtjev završi, ali nosi njegove oznake
+		rez, err := s.UsporediImenik(context.WithoutCancel(r.Context()), perms, u, sektor, func(sto string, gotovo, ukupno int) {
 			zad.Korak(sto, gotovo, ukupno)
 		})
 		if err != nil {
@@ -148,7 +153,7 @@ func (h *AktiHandler) HandleImenikUsporedi(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	sektor := r.FormValue("sektor")
-	adresa, razlog := h.pokreniUsporedbu(s, u, perms, sektor)
+	adresa, razlog := h.pokreniUsporedbu(r, s, u, perms, sektor)
 	if razlog != "" {
 		redirectWith(w, r, "/users/exchange?"+url.Values{"sektor": {sektor}}.Encode(), "error", razlog)
 		return
@@ -210,7 +215,7 @@ func (h *AktiHandler) HandleImenikPrimijeni(w http.ResponseWriter, r *http.Reque
 	}
 	// nakon upisa usporedba ide ponovno, da se vidi što je ostalo
 	sektor := r.FormValue("sektor")
-	natrag, _ := h.pokreniUsporedbu(s, u, perms, sektor)
+	natrag, _ := h.pokreniUsporedbu(r, s, u, perms, sektor)
 	if natrag == "" {
 		natrag = "/users/exchange?" + url.Values{"sektor": {sektor}}.Encode()
 	}

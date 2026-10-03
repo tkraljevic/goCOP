@@ -35,7 +35,7 @@
     </div>
     <div class="form-group">
       <label class="form-label" for="code">Šifra dionice *</label>
-      <input type="text" id="code" name="code" class="form-control" required placeholder="npr. B.15.5" autocomplete="off" style="font-family:ui-monospace, monospace;" value="{{.PredlozenaSifra}}">
+      <input type="text" id="code" name="code" class="form-control font-mono" required placeholder="npr. B.15.5" autocomplete="off" value="{{.PredlozenaSifra}}">
       <div class="form-help">Sektor.područje.broj — sektor slijedi iz područja.{{if .PredlozenaSifra}} Predložen je prvi slobodan broj; prepišite ga ako niz preskače.{{end}}</div>
     </div>
   </div>
@@ -79,12 +79,12 @@
 </form>
 
 <template id="tpl-part">
-  <section class="reg-card part-edit" style="padding:1rem; margin-bottom:1rem;">
-    <div class="part-head" style="justify-content:space-between;">
-      <div style="display:flex; align-items:center; gap:0.5rem;"><span class="part-ordinal" data-role="ordinal">1</span><strong>Poddionica</strong></div>
+  <section class="reg-card part-edit p-4 mb-4">
+    <div class="part-head justify-between">
+      <div class="d-flex items-center gap-2"><span class="part-ordinal" data-role="ordinal">1</span><strong>Poddionica</strong></div>
       <button type="button" class="btn btn-sm btn-secondary" data-role="remove">{{icon "trash"}} Ukloni poddionicu</button>
     </div>
-    <div class="form-row" style="margin-top:0.75rem;">
+    <div class="form-row mt-3">
       <div class="form-group">
         <label class="form-label">Vodotok *</label>
         <select class="form-control" data-field="watercourse_code" onchange="waterHelp(this)"><option value="">— odaberi vodu —</option></select>
@@ -109,7 +109,7 @@
     <div class="form-help" data-role="description" hidden></div>
 
     <details open class="part-block">
-      <summary class="part-label" style="cursor:pointer;">{{icon "shield"}} Nasipi i brane <span class="reg-chip" data-role="emb-count">0</span></summary>
+      <summary class="part-label cursor-pointer">{{icon "shield"}} Nasipi i brane <span class="reg-chip" data-role="emb-count">0</span></summary>
       <div class="rows-emb">
         <div class="rows-head"><div>Nasip ili brana</div><div>Uz vodu od</div><div>do</div><div>Po nasipu od</div><div>do</div><div>km</div><div></div></div>
         <div data-role="emb-rows"></div>
@@ -119,7 +119,7 @@
     </details>
 
     <details open class="part-block">
-      <summary class="part-label" style="cursor:pointer;">{{icon "construction"}} Objekti <span class="reg-chip" data-role="obj-count">0</span></summary>
+      <summary class="part-label cursor-pointer">{{icon "construction"}} Objekti <span class="reg-chip" data-role="obj-count">0</span></summary>
       <div class="form-help">Naziv se upisuje kako stoji u planu. Crpne stanice, ustave, sifoni i vode koje redak spominje („ušće p. Karašice”) vežu se na registar u stupcu „Veza”, i kad pripadaju drugom području; mostovi i propusti ostaju samo redak.</div>
       <div class="rows-obj">
         <div class="rows-head"><div>Stacionaža</div><div>Objekt (naziv iz plana)</div><div>Veza s registrom</div><div>Na nasipu</div><div></div></div>
@@ -129,14 +129,14 @@
     </details>
 
     <details open class="part-block">
-      <summary class="part-label" style="cursor:pointer;">{{icon "house"}} Ugroženo područje <span class="reg-chip" data-role="terr-count">0</span></summary>
-      <div data-role="terr-chips" style="margin:0.5rem 0;"></div>
+      <summary class="part-label cursor-pointer">{{icon "house"}} Ugroženo područje <span class="reg-chip" data-role="terr-count">0</span></summary>
+      <div data-role="terr-chips" class="mt-2 mb-2"></div>
       <div class="form-row" style="grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); align-items:end;">
-        <div class="form-group" style="margin:0;" data-role="terr-emb-group" hidden><label class="form-label">Uz nasip</label>
+        <div class="form-group m-0" data-role="terr-emb-group" hidden><label class="form-label">Uz nasip</label>
           <select class="form-control" data-role="terr-emb"><option value="">cijela poddionica</option></select></div>
-        <div class="form-group" style="margin:0;"><label class="form-label">Županija</label>
+        <div class="form-group m-0"><label class="form-label">Županija</label>
           <select class="form-control" data-role="county" onchange="loadMunicipalities(this)"><option value="">—</option>{{range .Counties}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select></div>
-        <div class="form-group" style="margin:0;"><label class="form-label">Grad ili općina</label>
+        <div class="form-group m-0"><label class="form-label">Grad ili općina</label>
           <select class="form-control" data-role="muni" disabled onchange="loadSettlements(this)"><option value="">—</option></select></div>
         <button type="button" class="btn btn-sm btn-secondary" data-role="terr-add" disabled onclick="addTerritory(this)">{{icon "plus"}} Dodaj</button>
       </div>
@@ -148,10 +148,10 @@
     </details>
 
     <details open class="part-block">
-      <summary class="part-label" style="cursor:pointer;">{{icon "chart-column"}} Mjerodavni vodomjeri <span class="reg-chip" data-role="st-count">0</span></summary>
+      <summary class="part-label cursor-pointer">{{icon "chart-column"}} Mjerodavni vodomjeri <span class="reg-chip" data-role="st-count">0</span></summary>
       <div data-role="st-chips" style="display:flex; flex-wrap:wrap; gap:0.35rem; margin:0.5rem 0;"></div>
-      <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
-        <input type="text" class="form-control" data-role="st-input" list="stations-list" placeholder="naziv postaje iz registra" style="max-width:20rem;" autocomplete="off">
+      <div class="d-flex gap-2 flex-wrap items-center">
+        <input type="text" class="form-control max-w-20" data-role="st-input" list="stations-list" placeholder="naziv postaje iz registra" autocomplete="off">
         <button type="button" class="btn btn-sm btn-secondary" onclick="addStation(this)">{{icon "plus"}} Dodaj</button>
       </div>
       <div class="reading-meta" data-role="gauges-text" hidden></div>

@@ -58,8 +58,8 @@
   </div>
   {{end}}
 
-  <h3 style="font-size:0.9rem; margin:1rem 0 0.25rem;">Pragovi obrane od poplava</h3>
-  <p class="form-help" style="margin:0 0 0.5rem;">
+  <h3 class="obrazac-podnaslov">Pragovi obrane od poplava</h3>
+  <p class="form-help mt-0 mb-2">
     Broj se čita kao centimetri na vodomjeru i ulazi u izračun stupnja obrane.
     Svaki drugi zapis (npr. „206,30 m n. m.") čuva se kao tekst i ne ulazi u izračun.
   </p>
@@ -84,7 +84,7 @@
     </div>
   </div>
 
-  <h3 style="font-size:0.9rem; margin:1rem 0 0.25rem;">Kota nule vodomjera</h3>
+  <h3 class="obrazac-podnaslov">Kota nule vodomjera</h3>
   <div class="form-row">
     <div class="form-group">
       <label class="form-label" for="zero_datum_new">Kota „0“ — HVRS71 (m)</label>
@@ -139,8 +139,8 @@
     </div>
   </div>
 
-  <h3 style="font-size:0.9rem; margin:1rem 0 0.25rem;">Zabilježeni ekstremi</h3>
-  <p class="form-help" style="margin:0 0 0.5rem;">
+  <h3 class="obrazac-podnaslov">Zabilježeni ekstremi</h3>
+  <p class="form-help mt-0 mb-2">
     Najviši i najniži vodostaj s datumom. Vrijednost koja nije izmjerena na ovoj letvi — preračunata iz druge postaje
     ili preuzeta iz starije evidencije — mora nositi podrijetlo, izvor i način; takva ne ulazi u pragove obrane.
   </p>
@@ -221,8 +221,8 @@
   </script>
 
 
-  <h3 style="font-size:0.9rem; margin:1rem 0 0.25rem;">Položaj letve</h3>
-  <p class="form-help" style="margin:0 0 0.5rem;">
+  <h3 class="obrazac-podnaslov">Položaj letve</h3>
+  <p class="form-help mt-0 mb-2">
     Decimalni stupnjevi. Tehnički zapisnici DHMZ-a daju stupnjeve, minute i sekunde —
     npr. 45° 50′ 45″ je 45,845833. S koordinatama se letva prikazuje na karti.
   </p>
@@ -239,7 +239,7 @@
     </div>
   </div>
 
-  <h3 style="font-size:0.9rem; margin:1rem 0 0.25rem;">Napomena</h3>
+  <h3 class="obrazac-podnaslov">Napomena</h3>
   <div class="form-group">
     <label class="form-label" for="notes">Napomena uz letvu</label>
     <input type="text" id="notes" name="notes" class="form-control" value="{{.Station.Notes}}"
@@ -247,7 +247,7 @@
   </div>
 
   <h3 style="font-size:0.9rem; margin:1.5rem 0 0.25rem;">Povijest postaje</h3>
-  <p class="form-help" style="margin:0 0 0.5rem;">
+  <p class="form-help mt-0 mb-2">
     Ono što o postaji piše u dokumentaciji službe, a iz brojki se ne vidi: tko ju je i zašto osnovao, gdje
     točno stoji, koji su uređaji kad došli i otišli, na koje je stalne točke vezana. Zamjena limnigrafa ili
     premještanje letve ostave trag u nizu, a razlog ostane izvan njega.
@@ -271,7 +271,7 @@
               placeholder="osnivanje, položaj, uređaji kroz vrijeme, stalne točke i reperi">{{.Station.Povijest}}</textarea>
   </div>
 
-  <h3 style="font-size:0.9rem; margin:1rem 0 0.25rem;">Javna stranica vodostaja</h3>
+  <h3 class="obrazac-podnaslov">Javna stranica vodostaja</h3>
   <div class="form-row">
     <div class="form-group">
       <label class="form-label" for="javni_url">Adresa stranice ove letve</label>
@@ -282,19 +282,19 @@
         Danas program čita vodostaji.voda.hr; mađarske i srpske stranice imaju svoj oblik i dodaju se kao novi čitač. Prazno znači da letva nema javnu stranicu.</div>
     </div>
   </div>
-  <label class="form-check" style="display:flex; align-items:center; gap:0.5rem; margin-bottom:1rem;">
+  <label class="form-check d-flex items-center gap-2 mb-4">
     <input type="checkbox" name="javni_uvoz" value="1" {{if .Station.JavniUvoz}}checked{{end}}>
     <span>Preuzimaj očitanja s javne stranice svaki sat</span>
   </label>
 
-  <h3 style="font-size:0.9rem; margin:1rem 0 0.25rem;">Telemetrija na Geolux HydroViewu</h3>
+  <h3 class="obrazac-podnaslov">Telemetrija na Geolux HydroViewu</h3>
   <label class="form-check" style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.25rem;
          {{if not .TelemetrijaMoguca}}opacity:0.55;{{end}}">
     <input type="checkbox" name="telemetrija_uvoz" value="1"
            {{if .Station.TelemetrijaUvoz}}checked{{end}} {{if not .TelemetrijaMoguca}}disabled{{end}}>
     <span>Čitaj vodostaj s telemetrije umjesto s javne stranice</span>
   </label>
-  <div class="form-help" style="margin-bottom:1rem;">
+  <div class="form-help mb-4">
     {{if .TelemetrijaMoguca}}
       Za letvu koja nema javnu stranicu, a jest na
       <a href="https://hdv.voda.hr/" target="_blank" rel="noopener">hdv.voda.hr</a>. Postaja se ondje traži po
@@ -313,7 +313,7 @@
     Sat na koji letva već ima očitanje, iz bilo kojeg izvora, ne dira se.
   </p>
 
-  <h3 style="font-size:0.9rem; margin:1rem 0 0.25rem;">Podrijetlo i provjera</h3>
+  <h3 class="obrazac-podnaslov">Podrijetlo i provjera</h3>
   <div class="form-row">
     <div class="form-group">
       <label class="form-label" for="source_name">Naziv kako stoji u dokumentaciji</label>
@@ -327,7 +327,7 @@
              value="{{.Station.ReviewNote}}" placeholder="npr. kota nule nije potvrđena elaboratom">
     </div>
   </div>
-  <label class="form-check" style="display:flex; align-items:center; gap:0.5rem; margin-bottom:1rem;">
+  <label class="form-check d-flex items-center gap-2 mb-4">
     <input type="checkbox" name="needs_review" value="1" {{if .Station.NeedsReview}}checked{{end}}>
     <span>Podaci nisu potvrđeni — traže provjeru operatera</span>
   </label>
@@ -343,14 +343,14 @@
 
 {{if .IsEdit}}
 {{if .WaterRegistry}}
-<div class="form-page form-wide" style="margin-top:1rem;">
+<div class="form-page form-wide mt-4">
   <h3 style="font-size:0.9rem; margin:0 0 0.25rem;">Vodotok iz registra</h3>
-  <p class="form-help" style="margin:0 0 0.5rem;">
+  <p class="form-help mt-0 mb-2">
     Voda na kojoj vodomjer <strong>fizički stoji</strong> — nije isto što i vode za koje je postaja
     mjerodavna. Program je zasad utvrdio: <strong>{{if .Station.HasWatercourse}}{{.Station.Watercourse}}{{else}}ništa{{end}}</strong>{{with .Station.PodrijetloVodotoka}} ({{.}}){{end}}.
     Ručni odabir nadjačava strojno utvrđivanje i bilježi se kao potvrda operatera.
   </p>
-  <p class="form-help" style="margin:0 0 0.75rem;">
+  <p class="form-help mt-0 mb-3">
     Sprema se odmah, odvojeno od ostatka obrasca — pa spremite izmjene gore prije nego dirate ovo,
     inače će se izgubiti.
   </p>

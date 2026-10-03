@@ -25,6 +25,7 @@ import (
 	"math/big"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/digitorus/pkcs7"
 	"golang.org/x/crypto/hkdf"
@@ -115,11 +116,37 @@ func IzCert(cvor string, der []byte, kljucCvora ed25519.PrivateKey) (*CA, error)
 
 // Osoba je ono što certifikat govori o potpisniku
 type Osoba struct {
-	UserID     string
-	Ime        string
-	Funkcija   string
-	Sektor     string
-	Simulacija bool // certifikat nosi oznaku SIMULACIJA: potpis je bezvrijedan, za testiranje
+	UserID string
+	// Ime je ime potpisnika u certifikatu (CommonName). Pri izdavanju se uz
+	// puno ime upiše korisničko ime, „Ime Prezime (korisnicko)”: puno ime
+	// osoba sama mijenja na profilu, a korisničko ime je jedinstveno i daje
+	// ga uprava, pa se ni samoupisanim imenom ne može glumiti druga osoba.
+	// Stari certifikati nose samo puno ime.
+	Ime string
+	// KorisnickoIme ide u certifikat uz Ime (samo pri izdavanju)
+	KorisnickoIme string
+	Funkcija      string
+	Sektor        string
+	Simulacija    bool // certifikat nosi oznaku SIMULACIJA: potpis je bezvrijedan, za testiranje
+}
+
+// ImeUCertifikatu je ime potpisnika kako ide u certifikat: puno ime i, u
+// zagradi, korisničko ime računa. Zagrada na kraju jedina razlikuje osobe
+// istog imena, a puno ime osoba upisuje sama; zato se iz njega izostavljaju
+// zagrade svih vrsta (i široke, i uglate), da „Ivan Horvat (ihorvat)” na
+// računu vod ne počne kao certifikat stvarnog Ivana Horvata.
+func ImeUCertifikatu(ime, korisnicko string) string {
+	ime, korisnicko = strings.TrimSpace(ime), strings.TrimSpace(korisnicko)
+	if korisnicko == "" {
+		return ime
+	}
+	ime = strings.Join(strings.Fields(strings.Map(func(r rune) rune {
+		if unicode.In(r, unicode.Ps, unicode.Pe) {
+			return ' '
+		}
+		return r
+	}, ime)), " ")
+	return ime + " (" + korisnicko + ")"
 }
 
 // OznakaSimulacije stoji u certifikatu simuliranog ključa, u organizacijskoj
@@ -144,7 +171,7 @@ func (ca *CA) Izdaj(o Osoba, javni *ecdsa.PublicKey, kad time.Time) ([]byte, err
 	}
 	t := &x509.Certificate{
 		SerialNumber: new(big.Int).SetBytes(serijski),
-		Subject:      pkix.Name{CommonName: o.Ime, SerialNumber: o.UserID, OrganizationalUnit: ou, Organization: ca.Cert.Subject.Organization, Country: []string{"HR"}},
+		Subject:      pkix.Name{CommonName: ImeUCertifikatu(o.Ime, o.KorisnickoIme), SerialNumber: o.UserID, OrganizationalUnit: ou, Organization: ca.Cert.Subject.Organization, Country: []string{"HR"}},
 		NotBefore:    kad.Add(-time.Hour),
 		NotAfter:     kad.AddDate(5, 0, 0),
 		KeyUsage:     x509.KeyUsageDigitalSignature | x509.KeyUsageContentCommitment,
@@ -312,7 +339,8 @@ type Potpisnik struct {
 // potpisivanja isproba tuđim očima, a potpis je bezvrijedan.
 func (ca *CA) NoviSimulirani(o Osoba, kad time.Time) (*Potpisnik, error) {
 	o.Simulacija = true
-	o.Ime += " (SIMULACIJA)"
+	o.Ime = ImeUCertifikatu(o.Ime, o.KorisnickoIme) + " (SIMULACIJA)"
+	o.KorisnickoIme = ""
 	k, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return nil, err

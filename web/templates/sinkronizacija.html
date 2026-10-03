@@ -3,19 +3,7 @@
 {{define "title"}}goCOP — Sinkronizacija{{end}}
 
 {{define "content"}}
-<style>
-  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem; margin-bottom: 1rem; }
-  .tile { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 0.8rem 1rem; }
-  .tile .n { font-size: 1.6rem; font-weight: 700; line-height: 1.1; }
-  .tile .l { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
-  .tile.good .n { color: #2e7d5b; } .tile.bad .n { color: #b23a2e; }
-  .dot { display: inline-block; width: 0.6rem; height: 0.6rem; border-radius: 50%; margin-right: 0.35rem; vertical-align: middle; }
-  .dot.online { background: #2e7d5b; } .dot.offline { background: #b23a2e; } .dot.never { background: #9aa4b2; }
-  .muted { color: var(--text-muted); font-size: 0.85rem; }
-  .err { color: #b23a2e; }
-  .bar { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; margin-top: 0.3rem; }
-  .bar > i { display: block; height: 100%; background: #2e7d5b; }
-</style>
+<div class="stranica-sinkronizacija">
 
 <div class="breadcrumb"><a href="/administracija">Administracija</a> › Sinkronizacija</div>
 
@@ -50,8 +38,8 @@
   </table>
 </div></div>
 
-<div id="lan" style="margin-top:1rem;"></div>
-<p class="muted" id="stamp" style="margin-top:0.5rem;"></p>
+<div id="lan" class="mt-4"></div>
+<p class="muted mt-2" id="stamp"></p>
 
 <script>
 const IS_ADMIN = {{if .Permissions.IsGlobalAdmin}}true{{else}}false{{end}};
@@ -130,4 +118,5 @@ async function syncOne(node) {
 refresh(false);
 setInterval(() => refresh(false), 20000);
 </script>
+</div>
 {{end}}

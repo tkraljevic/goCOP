@@ -277,7 +277,7 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 		t.Error("rukovoditelj dionice ne ovjerava list")
 	}
 	// izvornik predaje: jedan valjan potpis vodočuvara, preko cijelog dokumenta
-	if ps := potpisi.Provjeri(ctx, mustIzvornik(t, vod, kao(kunac), id)); len(ps) != 1 || !ps[0].Valjan || !ps[0].Cijeli || ps[0].Ime != "Seit Vodočuvar" || !strings.Contains(ps[0].Razlog, "Predaja") {
+	if ps := potpisi.Provjeri(ctx, mustIzvornik(t, vod, kao(kunac), id)); len(ps) != 1 || !ps[0].Valjan || !ps[0].Cijeli || ps[0].Ime != "Seit Vodočuvar (seit)" || !strings.Contains(ps[0].Razlog, "Predaja") {
 		t.Fatalf("potpis predaje: %+v", ps)
 	}
 	if l := loc(zovi(kunac, http.MethodPost, "/vodocuvar/"+id+"/radnja", url.Values{"radnja": {"ovjeri"}, "lozinka": {"kriva"}})); !strings.Contains(l, "error") {
@@ -288,7 +288,7 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 	}
 	// izvornik ovjere: potpis vodočuvara i dalje valjan, ovjera preko cijelog dokumenta
 	izvornik := mustIzvornik(t, vod, kao(kunac), id)
-	if ps := potpisi.Provjeri(ctx, izvornik); len(ps) != 2 || !ps[0].Valjan || ps[0].Cijeli || !ps[1].Valjan || !ps[1].Cijeli || ps[1].Ime != "Mile Kunac" || ps[1].Funkcija != "Rukovoditelj BP 34" {
+	if ps := potpisi.Provjeri(ctx, izvornik); len(ps) != 2 || !ps[0].Valjan || ps[0].Cijeli || !ps[1].Valjan || !ps[1].Cijeli || ps[1].Ime != "Mile Kunac (mkunac)" || ps[1].Funkcija != "Rukovoditelj BP 34" {
 		t.Fatalf("potpisi ovjere: %+v", ps)
 	}
 	if l := loc(zovi(ivic, http.MethodPost, "/vodocuvar/"+id+"/radnja", url.Values{"radnja": {"parafiraj"}})); !strings.Contains(l, "parafiran") {

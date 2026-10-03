@@ -13,7 +13,7 @@
   <div class="detail-actions">
     <a href="/dnevnici/{{.Journal.ID}}/ispis?od={{.Sheet.DateKey}}&do={{.Sheet.DateKey}}" class="btn btn-secondary" target="_blank">{{icon "printer"}} Ispis lista</a>
     {{if .CanWrite}}
-    <form method="POST" action="/dnevnici/{{.Journal.ID}}/listovi/{{.Sheet.ID}}/potvrdi" style="display:inline;"
+    <form method="POST" action="/dnevnici/{{.Journal.ID}}/listovi/{{.Sheet.ID}}/potvrdi" class="d-inline"
           onsubmit="return confirm('Potvrditi list {{.Sheet.Number}} za {{if .IsContractor}}izvođača{{else}}nadzor{{end}}?')">
       <button type="submit" class="btn btn-primary" {{if .IsContractor}}{{if .Sheet.ContractorConfirmedAt}}disabled{{end}}{{else}}{{if .Sheet.SupervisorConfirmedAt}}disabled{{end}}{{end}}>{{icon "check"}} Potvrdi list</button>
     </form>
@@ -23,16 +23,16 @@
 
 {{if .Journal.Reconstruction}}<div class="alert alert-danger">{{icon "triangle-alert"}} <strong>Rekonstrukcija.</strong> List je složen iz starije evidencije radi primjera i nije istovjetan ovjerenom listu.</div>{{end}}
 
-<div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1rem;">
+<div class="d-flex gap-2 flex-wrap mb-4">
   <span class="reg-chip {{if not .Sheet.ContractorConfirmedAt}}empty{{end}}">{{icon "check"}} izvođač{{if .Sheet.ContractorConfirmedAt}}: {{.Sheet.ContractorConfirmedBy}}, {{(localTime .Sheet.ContractorConfirmedAt).Format "02.01.2006. 15:04"}}{{else}}: nije potvrdio{{end}}</span>
   <span class="reg-chip {{if not .Sheet.SupervisorConfirmedAt}}empty{{end}}">{{icon "check"}} nadzor{{if .Sheet.SupervisorConfirmedAt}}: {{.Sheet.SupervisorConfirmedBy}}, {{(localTime .Sheet.SupervisorConfirmedAt).Format "02.01.2006. 15:04"}}{{else}}: nije potvrdio{{end}}</span>
 </div>
 
 {{$locked := .Sheet.IsConfirmed}}
 
-<section class="detail-section" style="margin-top:0;">
+<section class="detail-section mt-0">
   <h2>{{icon "activity"}} Uvjeti, osoblje i strojevi</h2>
-  <form method="POST" action="/dnevnici/{{.Journal.ID}}/listovi/{{.Sheet.ID}}/uvjeti" class="reg-card" style="padding:1rem;">
+  <form method="POST" action="/dnevnici/{{.Journal.ID}}/listovi/{{.Sheet.ID}}/uvjeti" class="reg-card p-4">
     <fieldset {{if or $locked (not .CanWrite)}}disabled{{end}} style="border:0; padding:0; margin:0; min-width:0;">
     <div class="form-group">
       <label class="form-label" for="label">Ekipa / gradilište</label>
@@ -72,7 +72,7 @@
 
     <datalist id="uloge">{{range .StaffRoles}}<option value="{{.}}">{{end}}</datalist>
     <datalist id="strojevi">{{range .MachineTypes}}<option value="{{.}}">{{end}}</datalist>
-    <details open style="margin-top:0.5rem;">
+    <details open class="mt-2">
       <summary style="cursor:pointer; font-weight:600; font-size:0.9rem;">Struktura osoblja{{if .Sheet.Staff}}: {{countsText .Sheet.Staff}}{{end}}</summary>
       <div class="counts-grid" id="staff-rows">
         {{range .StaffRows}}<div class="counts-item"><input type="text" name="staff_name" value="{{.Name}}" list="uloge" class="form-control" placeholder="uloga"><input type="number" min="0" name="staff_n" value="{{.N}}" class="form-control"></div>{{end}}
@@ -81,9 +81,9 @@
       </div>
       <button type="button" class="btn btn-sm btn-secondary" style="margin-top:0.4rem;" onclick="addCountRow('staff-rows','staff_name','staff_n','uloge')">{{icon "plus"}} Još jedan redak</button>
     </details>
-    <details open style="margin-top:0.5rem;">
+    <details open class="mt-2">
       <summary style="cursor:pointer; font-weight:600; font-size:0.9rem;">Struktura strojeva, alata i opreme{{if .Sheet.Machines}}: {{countsText .Sheet.Machines}}{{end}}</summary>
-      <p class="form-help" style="margin:0.25rem 0;">Svaki izvođač ima svoje strojeve i alate: upišite naziv kako ga vodite, popis nudi uobičajene vrste. Retci s nulom se ne spremaju.</p>
+      <p class="form-help mt-1 mb-1">Svaki izvođač ima svoje strojeve i alate: upišite naziv kako ga vodite, popis nudi uobičajene vrste. Retci s nulom se ne spremaju.</p>
       <div class="counts-grid" id="machine-rows">
         {{range .MachineRows}}<div class="counts-item"><input type="text" name="machine_name" value="{{.Name}}" list="strojevi" class="form-control" placeholder="stroj ili alat"><input type="number" min="0" name="machine_n" value="{{.N}}" class="form-control"></div>{{end}}
         <div class="counts-item"><input type="text" name="machine_name" list="strojevi" class="form-control" placeholder="stroj ili alat (npr. TRIMER)"><input type="number" min="0" name="machine_n" class="form-control" placeholder="kom"></div>
@@ -102,7 +102,7 @@
     </script>
 
     {{if and .CanWrite (not $locked)}}
-    <div class="form-actions" style="margin-top:1rem; display:flex; gap:0.5rem; flex-wrap:wrap;">
+    <div class="form-actions mt-4 d-flex gap-2 flex-wrap">
       <button type="submit" class="btn btn-primary">{{icon "check"}} Spremi uvjete</button>
       <button type="submit" class="btn btn-secondary" formaction="/dnevnici/{{.Journal.ID}}/listovi/{{.Sheet.ID}}/vrijeme" formnovalidate title="Povuci prilike s Open-Meteo i vodostaje iz očitanja">{{icon "download"}} Povuci vrijeme i vodostaje</button>
     </div>
@@ -115,9 +115,9 @@
 <section class="detail-section" id="upisi">
   <h2>{{icon "list"}} Upisi <span class="reg-chip" title="izvođačevi upisi / mjesta na listu">{{.Used}} / {{.Capacity}}</span></h2>
   {{if .CanWrite}}
-  <form method="POST" action="/dnevnici/{{.Journal.ID}}/listovi" style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center; margin-bottom:0.75rem;">
+  <form method="POST" action="/dnevnici/{{.Journal.ID}}/listovi" class="d-flex gap-2 flex-wrap items-center mb-3">
     <input type="hidden" name="date" value="{{.Sheet.DateKey}}">
-    <input type="text" name="label" class="form-control" style="max-width:14rem;" value="{{.Sheet.Label}}" placeholder="ekipa (po želji)">
+    <input type="text" name="label" class="form-control max-w-14" value="{{.Sheet.Label}}" placeholder="ekipa (po želji)">
     <button type="submit" class="btn {{if .IsFull}}btn-primary{{else}}btn-secondary{{end}}">{{icon "plus"}} Novi list za ovaj dan</button>
     {{if .IsFull}}<span class="form-help">List je pun: što ne stane, ide na novi list sa sljedećim brojem. Nadzor na listu uvijek ima mjesta.</span>{{end}}
   </form>
@@ -130,44 +130,44 @@
       <tr {{if .Voided}}style="opacity:0.55; text-decoration:line-through;"{{end}}>
         <td><strong>{{.Number}}</strong></td>
         <td><span class="badge {{if eq .Kind "RAD"}}badge-active{{else if eq .Kind "NALOG"}}badge-pending{{else}}badge-inactive{{end}}">{{.KindLabel}}</span>{{if .IsSupervisor}} <span class="reg-chip" title="upis nadzora">nadzor</span>{{end}}
-          {{if .IsTask}}<div style="font-size:0.75rem; margin-top:0.25rem;">{{.StatusLabel}}{{if .DueDate}}, rok {{.DueDate.Format "02.01.2006."}}{{end}}{{if .IsOverdue now}} · <strong>rok prošao</strong>{{end}}</div>{{end}}
+          {{if .IsTask}}<div class="text-xs mt-1">{{.StatusLabel}}{{if .DueDate}}, rok {{.DueDate.Format "02.01.2006."}}{{end}}{{if .IsOverdue now}} · <strong>rok prošao</strong>{{end}}</div>{{end}}
         </td>
         <td>{{.Where}}</td>
         <td>
-          {{if .WorkItemText}}<div>{{if .WorkItemNo}}<span style="color:var(--text-muted);">{{.WorkItemNo}}</span> {{end}}{{.WorkItemText}}</div>{{end}}
+          {{if .WorkItemText}}<div>{{if .WorkItemNo}}<span class="c-muted">{{.WorkItemNo}}</span> {{end}}{{.WorkItemText}}</div>{{end}}
           {{if .Text}}<div style="white-space:pre-line;">{{.Text}}</div>{{end}}
           {{if .Hours}}<div style="font-size:0.8rem; color:var(--text-muted);">trajanje {{brojHRd .Hours 1}} h</div>{{end}}
           {{if .Voided}}<div style="font-size:0.8rem; color:var(--danger); text-decoration:none;">STORNO ({{.VoidedBy}}): {{.VoidReason}}</div>{{end}}
         </td>
         <td style="font-size:0.8rem; color:var(--text-muted); white-space:nowrap;">{{.UserName}}<br>{{(localTime .CreatedAt).Format "02.01.06. 15:04"}}</td>
         {{if $.CanWrite}}
-        <td style="white-space:nowrap; text-align:right;">
+        <td class="nowrap text-right">
           {{if and .IsTask (not .Voided)}}
             {{if eq .Status "OTVOREN"}}
-            <form method="POST" action="/dnevnici/{{$.Journal.ID}}/upisi/{{.ID}}/stanje" style="display:inline;"><input type="hidden" name="sheet" value="{{$.Sheet.ID}}"><input type="hidden" name="status" value="IZVEDEN"><button type="submit" class="btn btn-sm btn-secondary" title="Označi izvedenim">{{icon "check"}}</button></form>
-            {{if $.CanSupervise}}<form method="POST" action="/dnevnici/{{$.Journal.ID}}/upisi/{{.ID}}/stanje" style="display:inline;"><input type="hidden" name="sheet" value="{{$.Sheet.ID}}"><input type="hidden" name="status" value="OTKAZAN"><button type="submit" class="btn btn-sm btn-secondary" title="Otkaži nalog">{{icon "x"}}</button></form>{{end}}
+            <form method="POST" action="/dnevnici/{{$.Journal.ID}}/upisi/{{.ID}}/stanje" class="d-inline"><input type="hidden" name="sheet" value="{{$.Sheet.ID}}"><input type="hidden" name="status" value="IZVEDEN"><button type="submit" class="btn btn-sm btn-secondary" title="Označi izvedenim">{{icon "check"}}</button></form>
+            {{if $.CanSupervise}}<form method="POST" action="/dnevnici/{{$.Journal.ID}}/upisi/{{.ID}}/stanje" class="d-inline"><input type="hidden" name="sheet" value="{{$.Sheet.ID}}"><input type="hidden" name="status" value="OTKAZAN"><button type="submit" class="btn btn-sm btn-secondary" title="Otkaži nalog">{{icon "x"}}</button></form>{{end}}
             {{else if $.CanSupervise}}
-            <form method="POST" action="/dnevnici/{{$.Journal.ID}}/upisi/{{.ID}}/stanje" style="display:inline;"><input type="hidden" name="sheet" value="{{$.Sheet.ID}}"><input type="hidden" name="status" value="OTVOREN"><button type="submit" class="btn btn-sm btn-secondary" title="Ponovno otvori">{{icon "history"}}</button></form>
+            <form method="POST" action="/dnevnici/{{$.Journal.ID}}/upisi/{{.ID}}/stanje" class="d-inline"><input type="hidden" name="sheet" value="{{$.Sheet.ID}}"><input type="hidden" name="status" value="OTVOREN"><button type="submit" class="btn btn-sm btn-secondary" title="Ponovno otvori">{{icon "history"}}</button></form>
             {{end}}
           {{end}}
           {{if not .Voided}}
-          <form method="POST" action="/dnevnici/{{$.Journal.ID}}/upisi/{{.ID}}/storno" style="display:inline;" onsubmit="var r=prompt('Razlog storniranja upisa br. {{.Number}}:'); if(!r) return false; this.reason.value=r; return true;">
+          <form method="POST" action="/dnevnici/{{$.Journal.ID}}/upisi/{{.ID}}/storno" class="d-inline" onsubmit="var r=prompt('Razlog storniranja upisa br. {{.Number}}:'); if(!r) return false; this.reason.value=r; return true;">
             <input type="hidden" name="sheet" value="{{$.Sheet.ID}}"><input type="hidden" name="reason" value="">
-            <button type="submit" class="btn btn-sm" style="background:var(--danger-bg); color:var(--danger); border-color:var(--danger-border);" title="Storniraj upis">{{icon "trash"}}</button>
+            <button type="submit" class="btn btn-sm btn-brisi" title="Storniraj upis">{{icon "trash"}}</button>
           </form>
           {{end}}
         </td>
         {{end}}
       </tr>
       {{else}}
-      <tr><td colspan="6" class="reg-empty" style="text-align:center;">Na listu još nema upisa.</td></tr>
+      <tr><td colspan="6" class="reg-empty text-center">Na listu još nema upisa.</td></tr>
       {{end}}
       </tbody>
     </table>
   </div></div>
 
   {{if and .CanWrite (not $locked) .AllowedKinds (not .IsFull)}}
-  <form method="POST" action="/dnevnici/{{.Journal.ID}}/listovi/{{.Sheet.ID}}/upisi" class="reg-card" style="padding:1rem; margin-top:1rem;">
+  <form method="POST" action="/dnevnici/{{.Journal.ID}}/listovi/{{.Sheet.ID}}/upisi" class="reg-card p-4 mt-4">
     <h3 style="margin:0 0 0.75rem; font-size:0.95rem;">Novi upis</h3>
     <div class="form-row">
       <div class="form-group">

@@ -181,9 +181,7 @@ func sektorKorisnika(perms *models.UserPermissions, sektori []models.Sector) str
 	for s := range perms.AdminSectors {
 		moji = append(moji, s)
 	}
-	for s := range perms.AllowedSectors {
-		moji = append(moji, s)
-	}
+	moji = append(moji, perms.SektoriRada()...)
 	sort.Strings(moji)
 	if len(moji) > 0 {
 		return moji[0]

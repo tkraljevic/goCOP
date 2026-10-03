@@ -25,9 +25,9 @@
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
 
-<section class="detail-section" style="max-width:40rem;">
+<section class="detail-section max-w-40">
   <h2 class="detail-section-title">Geolux HydroView — <a href="{{.Adresa}}" target="_blank" rel="noopener">{{.Adresa}}</a></h2>
-  <p class="form-help" style="margin-top:0;">Radarske i tlačne letve Hrvatskih voda na Geoluxovom sustavu HydroView.
+  <p class="form-help mt-0">Radarske i tlačne letve Hrvatskih voda na Geoluxovom sustavu HydroView.
     Račun daje Geolux, odnosno Hrvatske vode za taj sustav; nije račun domene.</p>
   <form method="post" action="/administracija/telemetrija">
     <div class="form-row">
@@ -58,9 +58,9 @@
   </p>
 </section>
 
-<section class="detail-section" style="max-width:40rem;">
+<section class="detail-section max-w-40">
   <h2 class="detail-section-title">Mobilna stranica Hrvatskih voda — <a href="{{.MLetva}}" target="_blank" rel="noopener">{{.MLetva}}</a></h2>
-  <p class="form-help" style="margin-top:0;">Na <a href="{{.MLetva}}" target="_blank" rel="noopener">{{.MLetva}}</a>
+  <p class="form-help mt-0">Na <a href="{{.MLetva}}" target="_blank" rel="noopener">{{.MLetva}}</a>
     su uz javne i postaje koje javnost ne vidi: istjecanje i preljev hidroelektrana na Dravi, gornja voda
     i rep akumulacija. Prijava je računom domene, istim kao za e-poštu.</p>
   <form method="post" action="/administracija/telemetrija/mletva">
@@ -90,7 +90,7 @@
 </section>
 
 {{if .Letve}}
-<section class="detail-section" style="max-width:40rem;">
+<section class="detail-section max-w-40">
   <h2 class="detail-section-title">Letve koje se odande čitaju</h2>
   <table class="data-table">
     <thead><tr><th>Letva</th><th>Preuzimanje</th><th>Račun</th></tr></thead>

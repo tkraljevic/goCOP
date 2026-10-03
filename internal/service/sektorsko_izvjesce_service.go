@@ -32,7 +32,7 @@ func (s *IzvjescaService) SmijeVidjetiSektor(perms *models.UserPermissions, sekt
 	if perms == nil || sektor == "" {
 		return false
 	}
-	if s.UpravaSektora(perms, sektor) || perms.AllowedSectors[sektor] {
+	if s.UpravaSektora(perms, sektor) || perms.RadiUSektoru(sektor) {
 		return true
 	}
 	for code := range perms.AllowedSections {
@@ -40,10 +40,10 @@ func (s *IzvjescaService) SmijeVidjetiSektor(perms *models.UserPermissions, sekt
 			return true
 		}
 	}
-	if s.sections != nil && (len(perms.AllowedAreas) > 0 || len(perms.AdminAreas) > 0) {
+	if s.sections != nil && (len(perms.AllowedAreas) > 0 || len(perms.PodrucjaDuznosti) > 0 || len(perms.AdminAreas) > 0) {
 		if sve, err := s.sections.ListSections(sektor, 0, ""); err == nil {
 			for _, sec := range sve {
-				if perms.AllowedAreas[sec.AreaID] || perms.AdminAreas[sec.AreaID] {
+				if perms.RadiUPodrucju(sec.AreaID) || perms.AdminAreas[sec.AreaID] {
 					return true
 				}
 			}

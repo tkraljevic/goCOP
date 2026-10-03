@@ -86,6 +86,15 @@ type UserPageData struct {
 	// vlastita adresa e-pošte ne mijenja
 	Izvana bool
 
+	// DomenaPIN je domena na koju ide PIN bez potvrde administratora
+	DomenaPIN string
+	// PotvrdaAdrese: obrazac nudi okvir „adresa je provjerena” (globalni
+	// administrator svojim očima, tuđi ili novi račun)
+	PotvrdaAdrese bool
+	// AdresaPIN kaže ide li PIN na adresu osobe; samo osobi i onome tko
+	// njome upravlja, nil inače ili kad drugi korak na čvoru nije spojen
+	AdresaPIN *service.StanjeAdresePIN
+
 	SuccessMessage string
 	ErrorMessage   string
 	ActiveNav      string
@@ -253,6 +262,8 @@ func (h *UsersHandler) showUser(w http.ResponseWriter, r *http.Request, u *model
 	data.DrugiKorak = h.dk() != nil
 	data.User = u
 	data.IsSelf = data.CurrentUser != nil && data.CurrentUser.ID == u.ID
+	data.AdresaPIN = h.stanjeAdrese(r, data.Permissions, u)
+	data.PotvrdaAdrese = service.SmijePotvrditiAdresu(data.Permissions, u.ID, data.Viewing)
 	data.CanDelete = deletable(u)
 	data.Prijasnja, _ = h.userService.PastDuties(u.ID)
 	if h.moduleService != nil && data.Permissions != nil && data.Permissions.IsGlobalAdmin && !u.IsGlobalAdmin {
@@ -284,9 +295,12 @@ func (h *UsersHandler) ShowUserForm(w http.ResponseWriter, r *http.Request) {
 		data.User = u
 		data.IsEdit = true
 		data.IsSelf = data.CurrentUser != nil && data.CurrentUser.ID == u.ID
+		data.AdresaPIN = h.stanjeAdrese(r, data.Permissions, u)
 	} else {
 		data.User = &models.User{OrgType: models.OrgType("HRVATSKE_VODE"), IsActive: true}
 	}
+	data.DomenaPIN = h.domenaPINa(r)
+	data.PotvrdaAdrese = service.SmijePotvrditiAdresu(data.Permissions, data.User.ID, data.Viewing)
 	data.Sectors, _ = h.userService.ListSectors()
 	data.Areas, _ = h.userService.ListAreas("")
 
@@ -397,6 +411,28 @@ func (h *UsersHandler) prikaziProfil(w http.ResponseWriter, r *http.Request, kod
 	if err := h.tmplProfile.ExecuteTemplate(w, "profile.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// domenaPINa je domena na koju ide PIN bez potvrde administratora
+func (h *UsersHandler) domenaPINa(r *http.Request) string {
+	if d := h.dk(); d != nil {
+		return d.Opcije(r.Context()).Domena
+	}
+	return service.ZadanaDomenaPIN
+}
+
+// stanjeAdrese kaže ide li PIN na adresu osobe, samo osobi i onome tko njome
+// upravlja; nil inače, bez drugog koraka ili kad se stanje ne da pročitati
+func (h *UsersHandler) stanjeAdrese(r *http.Request, perms *models.UserPermissions, u *models.User) *service.StanjeAdresePIN {
+	d := h.dk()
+	if d == nil || !service.VidiStanjeAdrese(perms, u) {
+		return nil
+	}
+	s, err := d.StanjeAdrese(r.Context(), u)
+	if err != nil {
+		return nil
+	}
+	return s
 }
 
 // moduleRows slaže vidljivost modula za račun: što daje uloga, što je iznimka

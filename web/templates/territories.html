@@ -1,63 +1,14 @@
 {{define "content"}}
-<style>
-  .territory-filter-form {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 0.85rem;
-    align-items: flex-end;
-  }
-  @media (min-width: 1024px) {
-    .territory-filter-form {
-      grid-template-columns: 2fr 1.5fr 2.5fr auto;
-    }
-  }
-
-  .munis-cards-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 1.15rem;
-  }
-
-  .muni-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 1.15rem;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.03);
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
-  }
-  .muni-card:hover {
-    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
-    transform: translateY(-2px);
-  }
-
-  @media (max-width: 640px) {
-    .munis-cards-grid {
-      grid-template-columns: 1fr;
-      gap: 0.85rem;
-    }
-    .muni-card {
-      padding: 1rem;
-    }
-  }
-</style>
 
 <div class="territories-page">
   <!-- Header stranice -->
-  <div class="page-header" style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
+  <div class="page-header">
     <div>
-      <h1 class="page-title" style="font-size: 1.75rem; font-weight: 700; color: var(--secondary); margin-bottom: 0.25rem;">
-        {{icon "landmark"}} Teritorijalne jedinice Republike Hrvatske
-      </h1>
-      <p class="page-subtitle" style="color: var(--text-muted); font-size: 0.9375rem;">
-        Službeni registar županija, gradova, općina i naselja povezan sa sustavom obrane od poplava
-      </p>
+      <h1 class="page-title">{{icon "landmark"}} Teritorijalne jedinice Republike Hrvatske</h1>
+      <p class="page-desc">Službeni registar županija, gradova, općina i naselja povezan sa sustavom obrane od poplava</p>
     </div>
 
-    <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+    <div class="page-actions">
       <div class="prikaz-preklopnik">
         <a href="{{.ListURL}}" class="btn btn-sm {{if ne .ViewMode "map"}}btn-primary{{else}}btn-secondary{{end}}">{{icon "list"}} Popis</a>
         <a href="{{.MapURL}}" class="btn btn-sm {{if eq .ViewMode "map"}}btn-primary{{else}}btn-secondary{{end}}">{{icon "map"}} Karta</a>
@@ -74,114 +25,107 @@
   </div>
 
     
-  <details class="detail-section" style="margin-bottom:1.5rem;">
-    <summary style="cursor:pointer; font-weight:600;">{{icon "download"}} Izvoz i uvoz tablica (CSV za Excel)</summary>
-    <p class="page-desc" style="margin-top:0.5rem;">
+  <details class="detail-section mb-6">
+    <summary class="cursor-pointer fw-600">{{icon "download"}} Izvoz i uvoz tablica (CSV za Excel)</summary>
+    <p class="page-desc mt-2">
       Županije, gradovi i općine te naselja mijenjaju se rijetko, pa se najlakše održavaju u tablici: izvezite,
       uredite i vratite. Redak s postojećim brojem se osvježi, redak bez broja se doda; ništa se ne briše.
     </p>
-    <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.75rem;">
+    <div class="d-flex gap-2 flex-wrap mb-3">
       <a href="/territories/zupanije.csv" class="btn btn-sm btn-secondary">{{icon "download"}} Županije</a>
       <a href="/territories/gradovi-i-opcine.csv" class="btn btn-sm btn-secondary">{{icon "download"}} Gradovi i općine</a>
       <a href="/territories/naselja.csv" class="btn btn-sm btn-secondary">{{icon "download"}} Naselja</a>
     </div>
     {{if .Permissions.IsGlobalAdmin}}
-    <form method="POST" action="/territories/uvoz" enctype="multipart/form-data" style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
-      <select name="kind" class="form-control" style="max-width:14rem;">
+    <form method="POST" action="/territories/uvoz" enctype="multipart/form-data" class="d-flex gap-2 items-center flex-wrap">
+      <select name="kind" class="form-control max-w-14">
         <option value="zupanije">Županije</option>
         <option value="opcine">Gradovi i općine</option>
         <option value="naselja">Naselja</option>
       </select>
-      <input type="file" name="csv" accept=".csv,text/csv" class="form-control" required style="max-width:20rem;">
+      <input type="file" name="csv" accept=".csv,text/csv" class="form-control max-w-20" required>
       <button type="submit" class="btn btn-sm btn-secondary">Uvezi</button>
     </form>
     {{end}}
   </details>
 
   <!-- KPI brojači -->
-  <div class="kpi-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
-    <div class="kpi-card" style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; display: flex; align-items: center; gap: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
-      <div style="font-size: 2.25rem; background: #eff6ff; width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; border-radius: 8px;">{{icon "landmark"}} </div>
+  <div class="kpi-grid mb-6">
+    <div class="kpi-card">
+      <div class="kpi-icon-wrap info">{{icon "landmark"}}</div>
       <div>
-        <div style="font-size: 1.5rem; font-weight: 700; color: var(--secondary);">{{.TotalCounties}}</div>
-        <div style="font-size: 0.8125rem; color: var(--text-muted); font-weight: 500;">Županija (20 + Zagreb)</div>
+        <div class="kpi-number">{{.TotalCounties}}</div>
+        <div class="kpi-label">Županija (20 + Zagreb)</div>
       </div>
     </div>
-
-    <div class="kpi-card" style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; display: flex; align-items: center; gap: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
-      <div style="font-size: 2.25rem; background: #f0fdf4; width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; border-radius: 8px;">{{icon "building"}} </div>
+    <div class="kpi-card">
+      <div class="kpi-icon-wrap success">{{icon "building"}}</div>
       <div>
-        <div style="font-size: 1.5rem; font-weight: 700; color: #16a34a;">{{.TotalCities}}</div>
-        <div style="font-size: 0.8125rem; color: var(--text-muted); font-weight: 500;">Gradova</div>
+        <div class="kpi-number">{{.TotalCities}}</div>
+        <div class="kpi-label">Gradova</div>
       </div>
     </div>
-
-    <div class="kpi-card" style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; display: flex; align-items: center; gap: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
-      <div style="font-size: 2.25rem; background: #fefce8; width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; border-radius: 8px;">{{icon "house"}} </div>
+    <div class="kpi-card">
+      <div class="kpi-icon-wrap warning">{{icon "house"}}</div>
       <div>
-        <div style="font-size: 1.5rem; font-weight: 700; color: #ca8a04;">428</div>
-        <div style="font-size: 0.8125rem; color: var(--text-muted); font-weight: 500;">Općina</div>
+        <div class="kpi-number">428</div>
+        <div class="kpi-label">Općina</div>
       </div>
     </div>
-
-    <div class="kpi-card" style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; display: flex; align-items: center; gap: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
-      <div style="font-size: 2.25rem; background: #fdf2f8; width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; border-radius: 8px;">{{icon "house"}} </div>
+    <div class="kpi-card">
+      <div class="kpi-icon-wrap purple">{{icon "house"}}</div>
       <div>
-        <div style="font-size: 1.5rem; font-weight: 700; color: #db2777;">6.724</div>
-        <div style="font-size: 0.8125rem; color: var(--text-muted); font-weight: 500;">Naselja</div>
+        <div class="kpi-number">6.724</div>
+        <div class="kpi-label">Naselja</div>
       </div>
     </div>
   </div>
 
   {{if eq .ViewMode "map"}}
   <!-- Prikaz interaktivne karte teritorijalnih jedinica -->
-  <div class="karta-teritorij-sekcija" style="margin-bottom: 1.5rem;">
+  <div class="karta-teritorij-sekcija mb-6">
     <!-- Traka za upravljanje i uključivanje/isključivanje slojeva -->
-    <div class="karta-slojevi-traka" style="display:flex; gap:1rem; align-items:center; flex-wrap:wrap; margin-bottom:0.75rem; background:var(--surface); border:1px solid var(--border); padding:0.65rem 1rem; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
-      <div style="font-size:0.875rem; font-weight:600; color:var(--secondary); display:flex; align-items:center; gap:0.4rem;">
-        {{icon "layers"}} Slojevi na karti:
-      </div>
-      <label class="karta-sloj-kontrola" style="display:inline-flex; align-items:center; gap:0.45rem; cursor:pointer; font-size:0.875rem; font-weight:500; user-select:none;">
-        <input type="checkbox" id="sloj-chk-zupanije" class="karta-sloj-prekidac" data-sloj="zupanije" checked style="cursor:pointer; accent-color:#2563eb; width:16px; height:16px;">
-        <span style="display:inline-block; width:12px; height:12px; background:rgba(37,99,235,0.25); border:2px solid #2563eb; border-radius:2px;"></span>
+    <div class="karta-slojevi-traka">
+      <div class="karta-slojevi-naslov">{{icon "layers"}} Slojevi na karti:</div>
+      <label class="karta-sloj-kontrola sloj-zupanije">
+        <input type="checkbox" id="sloj-chk-zupanije" class="karta-sloj-prekidac sloj-prekidac" data-sloj="zupanije" checked>
+        <span class="sloj-uzorak"></span>
         <span>Županije ({{.TotalCounties}})</span>
       </label>
-      <label class="karta-sloj-kontrola" style="display:inline-flex; align-items:center; gap:0.45rem; cursor:pointer; font-size:0.875rem; font-weight:500; user-select:none;">
-        <input type="checkbox" id="sloj-chk-gradovi" class="karta-sloj-prekidac" data-sloj="gradovi" checked style="cursor:pointer; accent-color:#7c3aed; width:16px; height:16px;">
-        <span style="display:inline-block; width:12px; height:12px; background:rgba(124,58,237,0.25); border:2px solid #7c3aed; border-radius:2px;"></span>
+      <label class="karta-sloj-kontrola sloj-gradovi">
+        <input type="checkbox" id="sloj-chk-gradovi" class="karta-sloj-prekidac sloj-prekidac" data-sloj="gradovi" checked>
+        <span class="sloj-uzorak"></span>
         <span>Gradovi ({{.TotalCities}})</span>
       </label>
-      <label class="karta-sloj-kontrola" style="display:inline-flex; align-items:center; gap:0.45rem; cursor:pointer; font-size:0.875rem; font-weight:500; user-select:none;">
-        <input type="checkbox" id="sloj-chk-opcine" class="karta-sloj-prekidac" data-sloj="opcine" checked style="cursor:pointer; accent-color:#059669; width:16px; height:16px;">
-        <span style="display:inline-block; width:12px; height:12px; background:rgba(5,150,105,0.25); border:2px solid #059669; border-radius:2px;"></span>
+      <label class="karta-sloj-kontrola sloj-opcine">
+        <input type="checkbox" id="sloj-chk-opcine" class="karta-sloj-prekidac sloj-prekidac" data-sloj="opcine" checked>
+        <span class="sloj-uzorak"></span>
         <span>Općine (428)</span>
       </label>
-      <label class="karta-sloj-kontrola" style="display:inline-flex; align-items:center; gap:0.45rem; cursor:pointer; font-size:0.875rem; font-weight:500; user-select:none;">
-        <input type="checkbox" id="sloj-chk-naselja" class="karta-sloj-prekidac" data-sloj="naselja" style="cursor:pointer; accent-color:#e11d48; width:16px; height:16px;">
-        <span style="display:inline-block; width:12px; height:12px; background:rgba(225,29,72,0.25); border:2px solid #e11d48; border-radius:2px;"></span>
+      <label class="karta-sloj-kontrola sloj-naselja">
+        <input type="checkbox" id="sloj-chk-naselja" class="karta-sloj-prekidac sloj-prekidac" data-sloj="naselja">
+        <span class="sloj-uzorak"></span>
         <span>Naselja (odabrana županija)</span>
       </label>
 
-      <div style="height:22px; width:1px; background:var(--border); margin:0 0.25rem;"></div>
+      <div class="karta-slojevi-razdjel"></div>
 
-      <label class="karta-sloj-kontrola" style="display:inline-flex; align-items:center; gap:0.45rem; cursor:pointer; font-size:0.875rem; font-weight:500; user-select:none;" title="Granice sektora Hrvatskih voda (A–F)">
-        <input type="checkbox" id="sloj-chk-sektori" style="cursor:pointer; accent-color:#1d4ed8; width:16px; height:16px;">
-        <span style="display:inline-block; width:12px; height:12px; border:3px solid #1d4ed8; border-radius:2px;"></span>
+      <label class="karta-sloj-kontrola sloj-sektori" title="Granice sektora Hrvatskih voda (A–F)">
+        <input type="checkbox" id="sloj-chk-sektori" class="sloj-prekidac">
+        <span class="sloj-uzorak"></span>
         <span>Sektori</span>
       </label>
-      <label class="karta-sloj-kontrola" style="display:inline-flex; align-items:center; gap:0.45rem; cursor:pointer; font-size:0.875rem; font-weight:500; user-select:none;" title="Branjena područja (1–34), s oznakom broja; klik na oznaku vodi na dionice">
-        <input type="checkbox" id="sloj-chk-bp" style="cursor:pointer; accent-color:#0e7490; width:16px; height:16px;">
-        <span style="display:inline-block; width:12px; height:12px; border:2px dashed #0e7490; border-radius:2px;"></span>
+      <label class="karta-sloj-kontrola sloj-bp" title="Branjena područja (1–34), s oznakom broja; klik na oznaku vodi na dionice">
+        <input type="checkbox" id="sloj-chk-bp" class="sloj-prekidac">
+        <span class="sloj-uzorak"></span>
         <span>Branjena područja</span>
       </label>
 
-      <div style="height:22px; width:1px; background:var(--border); margin:0 0.25rem;"></div>
+      <div class="karta-slojevi-razdjel"></div>
 
-      <div style="display:inline-flex; align-items:center; gap:0.45rem;">
-        <label for="karta-brzi-izbor-zupanije" style="font-size:0.875rem; font-weight:600; color:var(--secondary); margin:0; display:flex; align-items:center; gap:0.3rem;">
-          {{icon "landmark"}} Odaberi županiju:
-        </label>
-        <select id="karta-brzi-izbor-zupanije" class="form-control form-control-sm" style="max-width:230px; font-size:0.85rem; padding:0.25rem 0.5rem; cursor:pointer; border-color:var(--border);">
+      <div class="karta-brzi-izbor">
+        <label for="karta-brzi-izbor-zupanije">{{icon "landmark"}} Odaberi županiju:</label>
+        <select id="karta-brzi-izbor-zupanije" class="form-control form-control-sm">
           <option value="">-- Odaberi županiju --</option>
           <option value="sve">Sve županije (556 jedinica)</option>
           {{range .Counties}}
@@ -191,11 +135,9 @@
       </div>
 
       {{if .VodniSektori}}
-      <div style="display:inline-flex; align-items:center; gap:0.45rem;">
-        <label for="karta-brzi-izbor-sektora" style="font-size:0.875rem; font-weight:600; color:var(--secondary); margin:0; display:flex; align-items:center; gap:0.3rem;">
-          {{icon "waves"}} Odaberi sektor:
-        </label>
-        <select id="karta-brzi-izbor-sektora" class="form-control form-control-sm" style="max-width:260px; font-size:0.85rem; padding:0.25rem 0.5rem; cursor:pointer; border-color:var(--border);">
+      <div class="karta-brzi-izbor">
+        <label for="karta-brzi-izbor-sektora">{{icon "waves"}} Odaberi sektor:</label>
+        <select id="karta-brzi-izbor-sektora" class="form-control form-control-sm">
           <option value="">-- Odaberi sektor ili područje --</option>
           <option value="sve">Svi sektori</option>
           {{range .VodniSektori}}
@@ -210,25 +152,24 @@
       </div>
       {{end}}
 
-      <button type="button" id="gumb-toggle-ploce-jedinica" class="btn btn-sm btn-secondary" style="font-size:0.825rem; display:inline-flex; align-items:center; gap:0.35rem; cursor:pointer;">
+      <button type="button" id="gumb-toggle-ploce-jedinica" class="btn btn-sm btn-secondary">
         {{icon "sliders"}} <span id="tekst-gumba-jedinice">Pojedinačne jedinice</span>
       </button>
 
-      <div id="karta-ucitavanje-opcina" style="font-size:0.8rem; color:#64748b; margin-left:auto; display:flex; align-items:center; gap:0.4rem;">
+      <div id="karta-ucitavanje-opcina" class="karta-ucitavanje">
         <span class="anim-puls">{{icon "loader"}}</span> Učitavanje gradova i općina...
       </div>
     </div>
 
     <!-- Glavni omot: Karta + Bočna ploča za upravljanje jedinicama -->
-    <div class="karta-teritorij-omot" style="position:relative; display:flex; border-radius:8px; border:1px solid var(--border-color, #cbd5e1); overflow:hidden; background:var(--surface);">
+    <div class="karta-teritorij-omot">
       <div class="karta-teritorij"
-           style="flex:1; min-width:0; position:relative;"
            data-plocice="{{.Karta.Plocice}}"
            data-zasluge="{{.Karta.Zasluge}}"
            data-najvise-z="{{.Karta.NajviseZ}}"
            data-opcine-url="{{.MunisGeoJSONURL}}"
            data-naselja-url="{{.SettlementsGeoJSONURL}}">
-        <div class="karta-platno" style="min-height: 600px; height: 74vh;"></div>
+        <div class="karta-platno"></div>
         {{if .CountiesGeoJSON}}<script type="application/json" class="karta-zupanije-podaci">{{.CountiesGeoJSON}}</script>{{end}}
         <p class="reg-card-sub karta-bez-mreze" hidden>{{icon "triangle-alert"}} Pločice karte
           nisu dostupne — program radi bez interneta, a za ovo područje još nisu preuzete.
@@ -239,10 +180,10 @@
       <aside id="karta-jedinice-izbornik" class="karta-jedinice-izbornik" style="display:none;">
         <div class="karta-jedinice-glava">
           <div>
-            <div style="font-weight:700; font-size:0.95rem; color:var(--secondary);" id="ploca-naslov">Pojedinačne jedinice</div>
-            <div style="font-size:0.75rem; color:var(--text-muted);" id="ploca-podnaslov">Odaberite županiju za popis gradova, općina i naselja</div>
+            <div class="karta-jedinice-naslov" id="ploca-naslov">Pojedinačne jedinice</div>
+            <div class="text-xs c-muted" id="ploca-podnaslov">Odaberite županiju za popis gradova, općina i naselja</div>
           </div>
-          <button type="button" id="gumb-zatvori-plocu" class="btn btn-sm btn-outline-secondary" style="padding:2px 8px; font-size:1.1rem; line-height:1; border:none; cursor:pointer;" title="Zatvori">&times;</button>
+          <button type="button" id="gumb-zatvori-plocu" class="karta-jedinice-zatvori" title="Zatvori" aria-label="Zatvori">&times;</button>
         </div>
 
         {{if .VodniSektori}}
@@ -253,10 +194,10 @@
         {{end}}
 
         <div id="ploca-upravne" class="ploca-sadrzaj">
-        <div style="padding:0.65rem 0.85rem; border-bottom:1px solid var(--border); background:var(--surface);">
-          <div style="margin-bottom:0.45rem;">
-            <label style="font-size:0.75rem; font-weight:600; color:var(--text-muted); display:block; margin-bottom:0.2rem;">Županija:</label>
-            <select id="ploca-select-zupanija" class="form-control form-control-sm" style="width:100%; font-size:0.85rem;">
+        <div class="karta-jedinice-filtri">
+          <div class="karta-jedinice-polje">
+            <label for="ploca-select-zupanija">Županija:</label>
+            <select id="ploca-select-zupanija" class="form-control form-control-sm">
               <option value="">-- Odaberi županiju --</option>
               <option value="sve">Sve županije (556 jedinica)</option>
               {{range .Counties}}
@@ -264,38 +205,38 @@
               {{end}}
             </select>
           </div>
-          <div id="ploca-opcina-omot" style="margin-bottom:0.45rem; display:none;">
-            <label style="font-size:0.75rem; font-weight:600; color:var(--text-muted); display:block; margin-bottom:0.2rem;">Grad / Općina:</label>
-            <select id="ploca-select-opcina" class="form-control form-control-sm" style="width:100%; font-size:0.85rem;">
+          <div id="ploca-opcina-omot" class="karta-jedinice-polje" style="display:none;">
+            <label for="ploca-select-opcina">Grad / Općina:</label>
+            <select id="ploca-select-opcina" class="form-control form-control-sm">
               <option value="">-- Svi gradovi i općine --</option>
             </select>
           </div>
-          <input type="search" id="ploca-trazilica-jedinica" placeholder="Traži grad, općinu ili naselje..." class="form-control form-control-sm" style="font-size:0.8rem;">
+          <input type="search" id="ploca-trazilica-jedinica" placeholder="Traži grad, općinu ili naselje..." class="form-control form-control-sm">
         </div>
 
-        <div id="ploca-akcije-traka" style="padding:0.5rem 0.85rem; border-bottom:1px solid var(--border); background:var(--bg-subtle, #f8fafc); display:none; flex-direction:column; gap:0.4rem; font-size:0.78rem;">
-          <div style="display:flex; justify-content:space-between; align-items:center; gap:0.5rem; flex-wrap:wrap;">
-            <label id="ploca-chk-zupanija-granica-omot" style="display:inline-flex; align-items:center; gap:0.4rem; font-weight:600; cursor:pointer; color:#1e3a8a;">
-              <input type="checkbox" id="ploca-chk-zupanija-granica" checked style="accent-color:#2563eb; width:15px; height:15px; cursor:pointer;">
+        <div id="ploca-akcije-traka" class="karta-jedinice-akcije" style="display:none;">
+          <div class="d-flex justify-between items-center gap-2 flex-wrap">
+            <label id="ploca-chk-zupanija-granica-omot" class="karta-jedinice-prekidac sloj-zupanije">
+              <input type="checkbox" id="ploca-chk-zupanija-granica" class="sloj-prekidac" checked>
               <span>Granica županije</span>
             </label>
-            <label id="ploca-chk-naselja-omot" style="display:inline-flex; align-items:center; gap:0.4rem; font-weight:600; cursor:pointer; color:#be123c;">
-              <input type="checkbox" id="ploca-chk-naselja" style="accent-color:#e11d48; width:15px; height:15px; cursor:pointer;">
+            <label id="ploca-chk-naselja-omot" class="karta-jedinice-prekidac sloj-naselja">
+              <input type="checkbox" id="ploca-chk-naselja" class="sloj-prekidac">
               <span>Sloj naselja</span>
             </label>
           </div>
-          <div style="display:flex; gap:0.3rem; flex-wrap:wrap; align-items:center;">
-            <button type="button" id="ploca-gumb-upali-sve" class="btn btn-xs btn-outline-secondary" style="font-size:0.75rem; padding:2px 7px;">Upali sve</button>
-            <button type="button" id="ploca-gumb-ugasi-sve" class="btn btn-xs btn-outline-secondary" style="font-size:0.75rem; padding:2px 7px;">Ugasi sve</button>
-            <button type="button" id="ploca-gumb-samo-gradovi" class="btn btn-xs btn-outline-secondary" style="font-size:0.75rem; padding:2px 7px;">Gradovi</button>
-            <button type="button" id="ploca-gumb-samo-opcine" class="btn btn-xs btn-outline-secondary" style="font-size:0.75rem; padding:2px 7px;">Općine</button>
-            <button type="button" id="ploca-gumb-samo-naselja" class="btn btn-xs btn-outline-secondary" style="font-size:0.75rem; padding:2px 7px;">Naselja</button>
-            <button type="button" id="ploca-gumb-zumi-zupaniju" class="btn btn-xs btn-outline-secondary" style="font-size:0.75rem; padding:2px 7px; margin-left:auto;">Približi 🔍</button>
+          <div class="karta-jedinice-gumbi">
+            <button type="button" id="ploca-gumb-upali-sve" class="karta-jedinice-gumb">Upali sve</button>
+            <button type="button" id="ploca-gumb-ugasi-sve" class="karta-jedinice-gumb">Ugasi sve</button>
+            <button type="button" id="ploca-gumb-samo-gradovi" class="karta-jedinice-gumb">Gradovi</button>
+            <button type="button" id="ploca-gumb-samo-opcine" class="karta-jedinice-gumb">Općine</button>
+            <button type="button" id="ploca-gumb-samo-naselja" class="karta-jedinice-gumb">Naselja</button>
+            <button type="button" id="ploca-gumb-zumi-zupaniju" class="karta-jedinice-gumb ml-auto">Približi 🔍</button>
           </div>
         </div>
 
         <div id="ploca-lista-jedinica" class="karta-jedinice-tijelo">
-          <div style="color:var(--text-muted); font-size:0.85rem; text-align:center; padding:2.5rem 1rem;">
+          <div class="karta-jedinice-prazno">
             Odaberite županiju u izborniku iznad ili kliknite na nju na karti za upravljanje pojedinim gradovima, općinama i naseljima.
           </div>
         </div>
@@ -304,54 +245,54 @@
         {{if .VodniSektori}}
         <!-- Sektori i branjena područja: svako se pali i gasi zasebno -->
         <div id="ploca-vodne" class="ploca-sadrzaj" hidden>
-          <div style="padding:0.65rem 0.85rem; border-bottom:1px solid var(--border); background:var(--surface);">
-            <input type="search" id="ploca-trazilica-vodne" placeholder="Traži sektor, područje ili broj…" class="form-control form-control-sm" style="font-size:0.8rem;">
+          <div class="karta-jedinice-filtri">
+            <input type="search" id="ploca-trazilica-vodne" placeholder="Traži sektor, područje ili broj…" class="form-control form-control-sm">
           </div>
-          <div style="padding:0.5rem 0.85rem; border-bottom:1px solid var(--border); background:var(--bg-subtle, #f8fafc); display:flex; gap:0.3rem; flex-wrap:wrap; font-size:0.78rem;">
-            <button type="button" class="btn btn-xs btn-outline-secondary vodne-akcija" data-akcija="sve" style="font-size:0.75rem; padding:2px 7px;">Upali sve</button>
-            <button type="button" class="btn btn-xs btn-outline-secondary vodne-akcija" data-akcija="nista" style="font-size:0.75rem; padding:2px 7px;">Ugasi sve</button>
-            <button type="button" class="btn btn-xs btn-outline-secondary vodne-akcija" data-akcija="sektori" style="font-size:0.75rem; padding:2px 7px;">Samo sektori</button>
-            <button type="button" class="btn btn-xs btn-outline-secondary vodne-akcija" data-akcija="bp" style="font-size:0.75rem; padding:2px 7px;">Samo područja</button>
+          <div class="karta-jedinice-akcije karta-jedinice-gumbi">
+            <button type="button" class="karta-jedinice-gumb vodne-akcija" data-akcija="sve">Upali sve</button>
+            <button type="button" class="karta-jedinice-gumb vodne-akcija" data-akcija="nista">Ugasi sve</button>
+            <button type="button" class="karta-jedinice-gumb vodne-akcija" data-akcija="sektori">Samo sektori</button>
+            <button type="button" class="karta-jedinice-gumb vodne-akcija" data-akcija="bp">Samo područja</button>
           </div>
           <div id="ploca-lista-vodne" class="karta-jedinice-tijelo">
             {{range .VodniSektori}}
             <div class="karta-jedinice-stavka vodna-stavka vodna-sektor iskljucena" data-kljuc="sektori" data-oznaka="{{.ID}}" data-sektor="{{.ID}}" data-trazi="sektor {{.ID}} {{.Name}}">
-              <label style="display:flex; align-items:center; gap:0.45rem; margin:0; cursor:pointer; flex:1; min-width:0;">
-                <input type="checkbox" class="chk-vodna" style="cursor:pointer; width:15px; height:15px; flex-shrink:0;">
-                <span class="vodna-znak" style="font-size:0.75rem;">{{.ID}}</span>
-                <span style="font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="{{.Name}}">{{.Name}}</span>
+              <label>
+                <input type="checkbox" class="chk-vodna">
+                <span class="vodna-znak text-xs">{{.ID}}</span>
+                <span class="vodna-naziv" title="{{.Name}}">{{.Name}}</span>
               </label>
               <button type="button" class="btn-zumi-vodna" title="Približi na karti">🔍</button>
             </div>
             {{range .Podrucja}}
             <div class="karta-jedinice-stavka vodna-stavka vodna-bp iskljucena" data-kljuc="bp" data-oznaka="{{.ID}}" data-sektor="{{.SectorID}}" data-trazi="{{.ID}} {{.Name}} {{.VgiName}} {{.Subcenter}}">
-              <label style="display:flex; align-items:center; gap:0.45rem; margin:0; cursor:pointer; flex:1; min-width:0;">
-                <input type="checkbox" class="chk-vodna" style="cursor:pointer; width:15px; height:15px; flex-shrink:0;">
+              <label>
+                <input type="checkbox" class="chk-vodna">
                 <span class="vodna-znak">{{.ID}}</span>
-                <span style="font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="{{.Name}}{{if .VgiName}} · {{.VgiName}}{{end}}">{{.Name}}</span>
+                <span class="vodna-naziv" title="{{.Name}}{{if .VgiName}} · {{.VgiName}}{{end}}">{{.Name}}</span>
               </label>
               <button type="button" class="btn-zumi-vodna" title="Približi na karti">🔍</button>
             </div>
             {{end}}
             {{end}}
-            <div class="vodne-prazno" hidden style="color:var(--text-muted); font-size:0.85rem; text-align:center; padding:2rem 1rem;">Nema sektora ni područja koji odgovaraju pretrazi.</div>
+            <div class="vodne-prazno karta-jedinice-prazno" hidden>Nema sektora ni područja koji odgovaraju pretrazi.</div>
           </div>
         </div>
         {{end}}
       </aside>
     </div>
-    <div class="karta-podnozje" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-top:0.6rem; font-size:0.85rem; color:#64748b;">
+    <div class="karta-podnozje">
       <div>
         {{icon "landmark"}} <strong>{{.TotalCounties}}</strong> županija · <strong>{{.TotalCities}}</strong> gradova · <strong>428</strong> općina (visoka OSM preciznost granica)
       </div>
-      <div style="display:flex; gap:1.25rem; align-items:center; flex-wrap:wrap;">
-        <span><span style="display:inline-block; width:12px; height:10px; background:rgba(37,99,235,0.2); border:1.5px solid #2563eb; vertical-align:middle; margin-right:4px; border-radius:2px;"></span> Županija</span>
-        <span><span style="display:inline-block; width:12px; height:10px; background:rgba(124,58,237,0.2); border:1.5px solid #7c3aed; vertical-align:middle; margin-right:4px; border-radius:2px;"></span> Grad</span>
-        <span><span style="display:inline-block; width:12px; height:10px; background:rgba(5,150,105,0.2); border:1.5px solid #059669; vertical-align:middle; margin-right:4px; border-radius:2px;"></span> Općina</span>
-        <span><span style="display:inline-block; width:12px; height:10px; background:rgba(225,29,72,0.2); border:1.5px solid #e11d48; vertical-align:middle; margin-right:4px; border-radius:2px;"></span> Naselje</span>
-        <span style="color:#94a3b8; font-size:0.8rem;">Klik na jedinicu za detalje, vodstvo i stanovništvo</span>
+      <div class="karta-legenda">
+        <span class="sloj-zupanije"><i class="sloj-uzorak"></i> Županija</span>
+        <span class="sloj-gradovi"><i class="sloj-uzorak"></i> Grad</span>
+        <span class="sloj-opcine"><i class="sloj-uzorak"></i> Općina</span>
+        <span class="sloj-naselja"><i class="sloj-uzorak"></i> Naselje</span>
+        <span class="karta-legenda-napomena">Klik na jedinicu za detalje, vodstvo i stanovništvo</span>
       </div>
-      <div class="reg-card-sub" style="flex-basis:100%; font-size:0.78rem;">
+      <div class="reg-card-sub karta-zasluge">
         Granice županija, gradova i općina: © suradnici
         <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMapa</a>,
         <a href="https://opendatacommons.org/licenses/odbl/1-0/" target="_blank" rel="noopener">ODbL 1.0</a>.
@@ -364,9 +305,9 @@
   </div>
   {{else}}
   <!-- Traka s filtrima i tabovima -->
-  <div class="card" style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 1.5rem; padding: 1.25rem;">
+  <div class="ter-traka">
     <!-- Tabovi -->
-    <div class="tabs-nav" style="display: flex; gap: 0.5rem; border-bottom: 1px solid var(--border); padding-bottom: 1rem; margin-bottom: 1.25rem;">
+    <div class="ter-kartice">
       <a href="/territories?tab=counties" class="btn btn-sm {{if eq .ActiveTab "counties"}}btn-primary{{else}}btn-secondary{{end}}">
         {{icon "landmark"}} Županije ({{.TotalCounties}})
       </a>
@@ -379,7 +320,7 @@
     <form id="territory-filter-form" class="territory-filter-form" method="GET" action="/territories">
       <input type="hidden" name="tab" value="municipalities">
 
-      <div class="form-group" style="margin-bottom: 0;">
+      <div class="form-group mb-0">
         <label class="form-label" for="filter-county">Županija</label>
         <select id="filter-county" name="county_id" class="form-control" onchange="this.form.submit()">
           <option value="">Sve županije (21)</option>
@@ -389,7 +330,7 @@
         </select>
       </div>
 
-      <div class="form-group" style="margin-bottom: 0;">
+      <div class="form-group mb-0">
         <label class="form-label" for="filter-type">Tip jedinice</label>
         <select id="filter-type" name="type" class="form-control" onchange="this.form.submit()">
           <option value="">Svi tipovi (Gradovi i Općine)</option>
@@ -398,12 +339,12 @@
         </select>
       </div>
 
-      <div class="form-group" style="margin-bottom: 0;">
+      <div class="form-group mb-0">
         <label class="form-label" for="search-muni">Pretraga (naziv, čelnik ili poštanski broj)</label>
         <input type="text" id="search-muni" name="q" class="form-control" placeholder="Upišite grad, općinu, čelnika ili poštanski broj (npr. Penava, Radić, 31000)..." value="{{.SearchQuery}}">
       </div>
 
-      <div style="display: flex; gap: 0.5rem;">
+      <div class="d-flex gap-2">
         <button type="submit" class="btn btn-primary btn-sm">Traži</button>
         {{if or .SelectedCountyID .SelectedType .SearchQuery}}
         <a href="/territories?tab={{.ActiveTab}}" class="btn btn-secondary btn-sm" title="Očisti filtre">Poništi</a>
@@ -414,58 +355,58 @@
 
   <!-- SADRŽAJ TAB 1: ŽUPANIJE -->
   {{if eq .ActiveTab "counties"}}
-  <div class="counties-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 1.25rem;">
+  <div class="counties-grid">
     {{range .Counties}}
-    <div class="card county-card" style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
+    <div class="ter-kartica county-card">
       <div>
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-          <span class="badge" style="background: var(--primary-light); color: var(--primary); font-weight: 700; font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 4px;">{{.Code}}</span>
-          <span style="font-size: 0.8125rem; color: var(--text-muted); font-weight: 500;">Sjedište: <strong>{{.Seat}}</strong></span>
+        <div class="d-flex justify-between items-center mb-2">
+          <span class="badge ter-oznaka">{{.Code}}</span>
+          <span class="ter-sjediste">Sjedište: <strong>{{.Seat}}</strong></span>
         </div>
 
-        <h3 style="font-size: 1.125rem; font-weight: 700; color: var(--secondary); margin-bottom: 0.75rem;">
-          <a href="/territories/counties/{{.ID}}" style="color:inherit; text-decoration:none;">{{.Name}}</a>
+        <h3 class="ter-naslov">
+          <a href="/territories/counties/{{.ID}}">{{.Name}}</a>
         </h3>
 
-        <div style="display: flex; flex-direction: column; gap: 0.4rem; font-size: 0.875rem; margin-bottom: 1rem;">
+        <div class="ter-podaci">
           <div>
-            {{icon "user"}} <strong>Župan/ica:</strong> {{if .Prefect}}{{.Prefect}}{{else}}<span style="color:var(--text-muted);">-</span>{{end}}
+            {{icon "user"}} <strong>Župan/ica:</strong> {{if .Prefect}}{{.Prefect}}{{else}}<span class="c-muted">-</span>{{end}}
           </div>
           <div>
-            {{icon "ruler"}} <strong>Površina:</strong> {{if gt .AreaSqKm 0}}{{brojHR .AreaSqKm}} km²{{else}}<span style="color:var(--text-muted);">-</span>{{end}}
+            {{icon "ruler"}} <strong>Površina:</strong> {{if gt .AreaSqKm 0}}{{brojHR .AreaSqKm}} km²{{else}}<span class="c-muted">-</span>{{end}}
             &nbsp;·&nbsp;
-            {{icon "users"}} <strong>Stanovništvo:</strong> {{if gt .Population 0}}{{brojHR .Population}}{{else}}<span style="color:var(--text-muted);">-</span>{{end}}
+            {{icon "users"}} <strong>Stanovništvo:</strong> {{if gt .Population 0}}{{brojHR .Population}}{{else}}<span class="c-muted">-</span>{{end}}
           </div>
           {{if .Email}}
-          <div style="word-break: break-all;">
-            {{icon "mail"}} <a href="mailto:{{.Email}}" style="color: var(--primary); text-decoration: none;">{{.Email}}</a>
+          <div class="break-all">
+            {{icon "mail"}} <a href="mailto:{{.Email}}" class="ter-poveznica">{{.Email}}</a>
           </div>
           {{end}}
           {{if .Phone}}
           <div>
-            {{icon "phone"}} <a href="tel:{{.Phone}}" style="color: var(--text-muted); text-decoration: none;">{{.Phone}}</a>
+            {{icon "phone"}} <a href="tel:{{.Phone}}" class="ter-poveznica blijeda">{{.Phone}}</a>
           </div>
           {{end}}
           {{with websiteURL .Website}}
-          <div style="word-break: break-all;">
-            {{icon "link"}} <a href="{{.}}" target="_blank" rel="noopener noreferrer" style="color: var(--primary); text-decoration: none;">{{websiteLabel .}}</a>
+          <div class="break-all">
+            {{icon "link"}} <a href="{{.}}" target="_blank" rel="noopener noreferrer" class="ter-poveznica">{{websiteLabel .}}</a>
           </div>
           {{end}}
         </div>
       </div>
 
-      <div style="border-top: 1px solid var(--border); padding-top: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
+      <div class="ter-podnozje">
         <div>
           {{if $.Permissions.IsGlobalAdmin}}
-          <a href="/territories/counties/{{.ID}}/edit" class="btn btn-secondary btn-sm" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;" >
+          <a href="/territories/counties/{{.ID}}/edit" class="btn btn-secondary btn-sm">
             {{icon "pencil"}} Uredi
           </a>
           {{end}}
         </div>
-        <span style="display:flex; gap:0.4rem; flex-wrap:wrap;">
-          <a href="/territories/counties/{{.ID}}" class="btn btn-secondary btn-sm" style="font-size: 0.8125rem;" title="civilna zaštita, 112, policija, lučke kapetanije">
+        <span class="ter-radnje">
+          <a href="/territories/counties/{{.ID}}" class="btn btn-secondary btn-sm" title="civilna zaštita, 112, policija, lučke kapetanije">
             {{icon "phone"}} Službe{{with index $.BrojSluzbi .ID}} ({{.}}){{end}}</a>
-          <a href="/territories?tab=municipalities&county_id={{.ID}}" class="btn btn-secondary btn-sm" style="font-size: 0.8125rem;">
+          <a href="/territories?tab=municipalities&county_id={{.ID}}" class="btn btn-secondary btn-sm">
             Gradovi i općine {{icon "arrow-right"}}</a>
         </span>
       </div>
@@ -476,17 +417,17 @@
 
   <!-- SADRŽAJ TAB 2: GRADOVI I OPĆINE -->
   {{if eq .ActiveTab "municipalities"}}
-  <div style="margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
-    <div style="font-size: 0.9375rem; color: var(--text-muted);">
+  <div class="mb-5 d-flex justify-between items-center flex-wrap gap-3">
+    <div class="ter-broj">
       Gradova i općina: <strong>{{.Pager.Total}}</strong>
     </div>
 
   </div>
 
   {{if eq (len .Municipalities) 0}}
-  <div class="card" style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 3rem 1.5rem; text-align: center; color: var(--text-muted);">
-    <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">{{icon "search"}} </div>
-    <div style="font-size: 1.125rem; font-weight: 600; color: var(--secondary); margin-bottom: 0.25rem;">Nema rezultata</div>
+  <div class="ter-prazno">
+    <div class="ter-prazno-ikona">{{icon "search"}}</div>
+    <div class="ter-prazno-naslov">Nema rezultata</div>
     <div>Nije pronađen niti jedan grad ili općina prema odabranim kriterijima.</div>
   </div>
   {{else}}
@@ -497,91 +438,79 @@
     {{range .Municipalities}}
     <div class="muni-card">
       <div>
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.6rem; gap: 0.5rem;">
-          <div style="display: flex; gap: 0.35rem; align-items: center; flex-wrap: wrap;">
+        <div class="ter-kartica-glava">
+          <div class="ter-znacke">
             {{if eq .Type "GRAD"}}
-            <span class="badge" style="background: var(--primary-light); color: var(--primary); font-weight: 700; font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 4px;">
-              {{icon "building"}} GRAD
-            </span>
+            <span class="badge ter-oznaka">{{icon "building"}} GRAD</span>
             {{else}}
-            <span class="badge" style="background: #f0fdf4; color: #15803d; font-weight: 700; font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 4px;">
-              {{icon "house"}} OPĆINA
-            </span>
+            <span class="badge ter-oznaka mirno">{{icon "house"}} OPĆINA</span>
             {{end}}
             {{if .PostalCode}}
-            <span class="badge" style="background: var(--bg-subtle); color: var(--text-secondary); font-size: 0.75rem; font-family: monospace; padding: 0.2rem 0.45rem; border-radius: 4px; border: 1px solid var(--border-strong); font-weight: 600;">
-              {{icon "mailbox"}} {{.PostalCode}}
-            </span>
+            <span class="badge ter-oznaka posta">{{icon "mailbox"}} {{.PostalCode}}</span>
             {{end}}
           </div>
-          <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 500; text-align: right; line-height: 1.2;">
-            {{icon "landmark"}} {{.CountyName}}
-          </span>
+          <span class="ter-zupanija">{{icon "landmark"}} {{.CountyName}}</span>
         </div>
 
-        <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--secondary); margin: 0 0 0.75rem 0;">
-          {{.Name}}
-        </h3>
+        <h3 class="ter-naslov">{{.Name}}</h3>
 
-        <div style="display: flex; flex-direction: column; gap: 0.45rem; font-size: 0.875rem; margin-bottom: 1.1rem;">
-          <div style="display: flex; align-items: center; gap: 0.35rem; color: var(--text);">
+        <div class="ter-podaci">
+          <div class="ter-celnik">
             <span>{{icon "user"}} </span> 
             <strong>{{.HeadTitle}}:</strong> 
             {{if .HeadName}}
-            <span style="font-weight: 600; color: var(--secondary);">{{.HeadName}}</span>
+            <span class="fw-600 c-secondary">{{.HeadName}}</span>
             {{else}}
-            <span style="color:var(--text-muted); font-style: italic;">Nije navedeno</span>
+            <span class="ter-nema">Nije navedeno</span>
             {{end}}
           </div>
-          <div style="display: flex; gap: 0.85rem; align-items: center; flex-wrap: wrap; background: var(--bg-subtle); padding: 0.45rem 0.65rem; border-radius: 6px; border: 1px solid var(--bg-subtle);">
+          <div class="ter-brojke">
             <div>
               {{icon "ruler"}} <strong>Površina:</strong>
               {{if gt .AreaSqKm 0.0}}
-              <span style="font-weight: 600;">{{brojHRf .AreaSqKm 1}} km²</span>
+              <span class="fw-600">{{brojHRf .AreaSqKm 1}} km²</span>
               {{else}}
-              <span style="color:var(--text-muted);">-</span>
+              <span class="c-muted">-</span>
               {{end}}
             </div>
             <div>
               {{icon "users"}} <strong>Stanovništvo:</strong>
               {{if gt .Population 0}}
-              <span style="font-weight: 600; color: var(--secondary);">{{brojHR .Population}}</span>
+              <span class="fw-600 c-secondary">{{brojHR .Population}}</span>
               {{else}}
-              <span style="color:var(--text-muted);">-</span>
+              <span class="c-muted">-</span>
               {{end}}
             </div>
           </div>
           {{if .Email}}
-          <div style="word-break: break-all;">
-            {{icon "mail"}} <a href="mailto:{{.Email}}" style="color: var(--primary); text-decoration: none;">{{.Email}}</a>
+          <div class="break-all">
+            {{icon "mail"}} <a href="mailto:{{.Email}}" class="ter-poveznica">{{.Email}}</a>
           </div>
           {{end}}
           {{if .Phone}}
           <div>
-            {{icon "phone"}} <a href="tel:{{.Phone}}" style="color: var(--text-muted); text-decoration: none;">{{.Phone}}</a>
+            {{icon "phone"}} <a href="tel:{{.Phone}}" class="ter-poveznica blijeda">{{.Phone}}</a>
           </div>
           {{end}}
           {{with websiteURL .Website}}
-          <div style="word-break: break-all;">
-            {{icon "link"}} <a href="{{.}}" target="_blank" rel="noopener noreferrer" style="color: var(--primary); text-decoration: none;">{{websiteLabel .}}</a>
+          <div class="break-all">
+            {{icon "link"}} <a href="{{.}}" target="_blank" rel="noopener noreferrer" class="ter-poveznica">{{websiteLabel .}}</a>
           </div>
           {{end}}
         </div>
       </div>
 
-      <div style="border-top: 1px solid var(--border); padding-top: 0.75rem; display: flex; justify-content: space-between; align-items: center; margin-top: auto;">
-        <a href="/territories/municipalities/{{.ID}}" class="btn btn-secondary btn-sm"  style="font-size: 0.8125rem; padding: 0.3rem 0.65rem;">
+      <div class="ter-podnozje">
+        <a href="/territories/municipalities/{{.ID}}" class="btn btn-secondary btn-sm">
           {{icon "house"}} Naselja
         </a>
         {{if $.Permissions.IsGlobalAdmin}}
-        <div style="display: flex; gap: 0.35rem;">
-          <a href="/territories/municipalities/{{.ID}}/edit" class="btn btn-secondary btn-sm" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;"  title="Uredi grad/općinu">
-            {{icon "pencil"}}           </a>
-          <form action="/territories/municipality/delete" method="POST" onsubmit="return confirm('Jeste li sigurni da želite obrisati jedinicu {{.Name}} i sva njena naselja?');" style="display: inline;">
+        <div class="ter-radnje">
+          <a href="/territories/municipalities/{{.ID}}/edit" class="btn btn-secondary btn-sm" title="Uredi grad/općinu" aria-label="Uredi grad/općinu">{{icon "pencil"}}</a>
+          <form action="/territories/municipality/delete" method="POST" onsubmit="return confirm('Jeste li sigurni da želite obrisati jedinicu {{.Name}} i sva njena naselja?');" class="d-inline">
             <input type="hidden" name="id" value="{{.ID}}">
             <input type="hidden" name="county_id" value="{{.CountyID}}">
-            <button type="submit" class="btn btn-sm" style="background: var(--danger-bg); color: var(--danger); border: none; padding: 0.25rem 0.5rem; font-size: 0.75rem; border-radius: 4px; cursor: pointer;" title="Obriši grad/općinu">
-              {{icon "trash"}}             </button>
+            <button type="submit" class="btn btn-sm btn-secondary btn-opasno" title="Obriši grad/općinu" aria-label="Obriši grad/općinu">{{icon "trash"}}</button>
           </form>
         </div>
         {{end}}
@@ -596,7 +525,7 @@
   {{end}}
   {{end}}
 
-  <p style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border); font-size: 0.8125rem; color: var(--text-muted); text-align: center;">
+  <p class="ter-napomena">
     {{icon "info"}} Kontakti i dužnosnici županija, gradova i općina treba povremeno aktualizirati, a posebno nakon svakih izbora.
   </p>
 </div>

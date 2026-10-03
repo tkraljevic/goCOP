@@ -31,12 +31,12 @@
       {{range .Rules}}
       <tr>
         <td>{{.Label}}</td>
-        <td style="white-space:nowrap; text-align:right;">
-          <form method="POST" action="/pretplate/ukloni" style="display:inline;">
+        <td class="nowrap text-right">
+          <form method="POST" action="/pretplate/ukloni" class="d-inline">
             <input type="hidden" name="id" value="{{.ID}}">
             <button type="submit" class="btn btn-sm btn-secondary" title="Makni pravilo, podaci ostaju">Makni</button>
           </form>
-          <form method="POST" action="/pretplate/ukloni" style="display:inline;" onsubmit="return confirm('Maknuti pravilo i s ovog računala obrisati sve što više ništa ne pokriva? Podaci ostaju u uredu.')">
+          <form method="POST" action="/pretplate/ukloni" class="d-inline" onsubmit="return confirm('Maknuti pravilo i s ovog računala obrisati sve što više ništa ne pokriva? Podaci ostaju u uredu.')">
             <input type="hidden" name="id" value="{{.ID}}"><input type="hidden" name="purge" value="1">
             <button type="submit" class="btn btn-sm btn-secondary" title="Makni pravilo i obriši podatke">{{icon "trash"}} Makni i obriši</button>
           </form>
@@ -51,14 +51,14 @@
   {{end}}
 
   {{with .Predlog}}
-  <form method="POST" action="/pretplate/dodaj" class="alert alert-info" style="display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap; margin-top:1rem;">
+  <form method="POST" action="/pretplate/dodaj" class="alert alert-info d-flex gap-3 items-center flex-wrap mt-4">
     <input type="hidden" name="predlog" value="1"><input type="hidden" name="area_id" value="{{.AreaID}}"><input type="hidden" name="year_from" value="{{.YearFrom}}"><input type="hidden" name="razina" value="{{.Razina}}"><input type="hidden" name="drzi_dana" value="{{.DrziDana}}">
     <span>Prijedlog iz vašeg zaduženja: <b>dnevnici i prijave, BP {{.AreaID}}, od {{.YearFrom}}.</b>, pregledi uvijek, izvornici {{.DrziDana}} dana na ovom računalu.</span>
     <button type="submit" name="sync" value="1" class="btn btn-primary btn-sm">{{icon "download"}} Dodaj i preuzmi</button>
   </form>
   {{end}}
 
-  <form class="form-page" method="POST" action="/pretplate/dodaj" style="margin-top:1rem;">
+  <form class="form-page mt-4" method="POST" action="/pretplate/dodaj">
     <h3 style="font-size:0.95rem; margin:0 0 0.5rem;">Nova pretplata</h3>
     <div class="form-row">
       <div class="form-group">
@@ -134,9 +134,9 @@
         <td class="mono">{{.Year}}</td>
         <td class="mono">{{.Versions}}</td>
         <td>{{if .Wanted}}<span class="badge badge-active">prati se</span>{{else}}<span class="badge badge-inactive">ne prati se</span>{{end}}</td>
-        <td style="text-align:right;">
+        <td class="text-right">
           {{if not .Wanted}}
-          <form method="POST" action="/pretplate/obrisi" style="display:inline;" onsubmit="return confirm('Obrisati {{.Channel}} s ovog računala?')">
+          <form method="POST" action="/pretplate/obrisi" class="d-inline" onsubmit="return confirm('Obrisati {{.Channel}} s ovog računala?')">
             <input type="hidden" name="channel" value="{{.Channel}}">
             <button type="submit" class="btn btn-sm btn-secondary">{{icon "trash"}} Obriši s računala</button>
           </form>

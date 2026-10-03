@@ -35,6 +35,11 @@ func TestZaduzenjaNaProfiluKrozRute(t *testing.T) {
 	for _, q := range []string{
 		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('B', 'Sektor B', 'VGO Osijek', 'COP Osijek')`,
 		`INSERT INTO areas (id, sector_id, name, vgi_name, subcenter) VALUES (34, 'B', 'Drava i Dunav', 'COP', 'Osijek')`,
+		// dionice zaduženja moraju biti u registru i u području zaduženja
+		`INSERT INTO sections (code, area_id, sector_id, description, created_at, updated_at) VALUES
+			('A.34.1', 34, 'B', 'Dionica 1', datetime('now'), datetime('now')),
+			('A.34.2', 34, 'B', 'Dionica 2', datetime('now'), datetime('now')),
+			('A.34.3', 34, 'B', 'Dionica 3', datetime('now'), datetime('now'))`,
 	} {
 		if _, err := baza.Exec(q); err != nil {
 			t.Fatal(err)

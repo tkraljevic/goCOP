@@ -68,7 +68,9 @@ func podaciKljuca(k *models.PotpisniKljuc) PodaciKljuca {
 }
 
 // HandleKljuc stvara ili briše potpisni ključ osobe; oboje traži lozinku
-// računa, jer je ona ključ ključa
+// računa, jer je ona ključ ključa, uz isto ograničenje krivih upisa. Dok se
+// gleda tuđim očima ni jedno ni drugo: ni uz uključene upise tuđim očima
+// ključ ne pravi ni ne uklanja nitko osim same osobe.
 func (h *PotpisHandler) HandleKljuc(w http.ResponseWriter, r *http.Request) {
 	u, _ := r.Context().Value(contextKeyUser).(*models.User)
 	s := h.svc()
@@ -76,34 +78,37 @@ func (h *PotpisHandler) HandleKljuc(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "elektronički potpis nije dostupan", http.StatusServiceUnavailable)
 		return
 	}
-	if readOnlyRequest(r) {
-		redirectWith(w, r, "/profile#potpis", "error", "Tuđim očima se ključ ne pravi.")
+	natrag := "/profile#potpis"
+	if viewBanner(r).Viewing {
+		redirectWith(w, r, natrag, "error", "Tuđim očima se potpisni ključ ne pravi ni ne uklanja.")
 		return
 	}
-	natrag := "/profile#potpis"
+	var poruka string
 	switch r.FormValue("radnja") {
 	case "novi":
-		// lozinka računa provjerava se uz ograničenje krivih upisa (ratelimit.go)
-		kljuc := kljucPonovneLozinke("", u.ID.String())
-		err := ponovnaLozinkaDopustena(kljuc)
-		if err == nil {
-			_, err = s.Novi(r.Context(), u, r.FormValue("lozinka"))
-			ishodPonovneLozinke(kljuc, err)
-		}
-		if err != nil {
-			redirectWith(w, r, natrag, "error", err.Error())
-			return
-		}
-		redirectWith(w, r, natrag, "success", "Potpisni ključ je napravljen. Od sada dnevne listove potpisujete svojim ključem; pri potpisu upisujete lozinku.")
+		poruka = "Potpisni ključ je napravljen. Od sada dnevne listove potpisujete svojim ključem; pri potpisu upisujete lozinku."
 	case "obrisi":
-		if err := s.Obrisi(r.Context(), u); err != nil {
-			redirectWith(w, r, natrag, "error", err.Error())
-			return
-		}
-		redirectWith(w, r, natrag, "success", "Potpisni ključ je uklonjen; već potpisani dokumenti ostaju provjerljivi.")
+		poruka = "Potpisni ključ je uklonjen; već potpisani dokumenti ostaju provjerljivi."
 	default:
 		redirectWith(w, r, natrag, "error", "Nepoznata radnja.")
+		return
 	}
+	// lozinka računa provjerava se uz ograničenje krivih upisa (ratelimit.go)
+	kljuc := kljucPonovneLozinke("", u.ID.String())
+	err := ponovnaLozinkaDopustena(kljuc)
+	if err == nil {
+		if r.FormValue("radnja") == "novi" {
+			_, err = s.Novi(r.Context(), u, r.FormValue("lozinka"))
+		} else {
+			err = s.Obrisi(r.Context(), u, r.FormValue("lozinka"))
+		}
+		ishodPonovneLozinke(kljuc, err)
+	}
+	if err != nil {
+		redirectWith(w, r, natrag, "error", err.Error())
+		return
+	}
+	redirectWith(w, r, natrag, "success", poruka)
 }
 
 // Izdavatelj daje certifikat izdavatelja ovog čvora kao datoteku, da se

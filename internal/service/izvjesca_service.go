@@ -47,7 +47,7 @@ func (s *IzvjescaService) SmijeVidjeti(perms *models.UserPermissions, sec *model
 	if perms == nil || sec == nil {
 		return false
 	}
-	if s.SmijePisati(perms, sec) || perms.AllowedSectors[sec.SectorID] || perms.AdminSectors[sec.SectorID] {
+	if s.SmijePisati(perms, sec) || perms.RadiUSektoru(sec.SectorID) || perms.AdminSectors[sec.SectorID] {
 		return true
 	}
 	for code := range perms.AllowedSections {

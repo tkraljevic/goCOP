@@ -19,9 +19,9 @@
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
 
-<section class="detail-section" style="margin-top:0;">
+<section class="detail-section mt-0">
   <h2>{{icon "phone"}} Službe <span class="reg-chip">{{len .Sluzbe}}</span></h2>
-  <p class="form-help" style="margin:0 0 0.75rem;">Kontakti koje rješenja i obavijesti o obrani obavještavaju kad dionica ima ugroženo područje u ovoj županiji:
+  <p class="form-help mt-0 mb-3">Kontakti koje rješenja i obavijesti o obrani obavještavaju kad dionica ima ugroženo područje u ovoj županiji:
     područni ured civilne zaštite sa službom za prevenciju i pripravnost i županijskim centrom 112, policijska uprava i postaje, lučke kapetanije.
     Služba vezana uz grad ili općinu, npr. policijska postaja, ide na akt samo kad je taj grad ili općina ugroženo područje.
     Stožer civilne zaštite ide na akt od izvanrednog stanja; vatrogasna zajednica i Crveni križ stoje u imeniku, a na akt ne idu.</p>
@@ -31,9 +31,9 @@
     <tbody>{{range .Sluzbe}}
       <tr><td>{{sluzbaLabel .Vrsta}}</td><td>{{.Naziv}}{{if .Napomena}}<div class="form-help">{{.Napomena}}</div>{{end}}</td><td class="mono">{{.Email}}</td><td class="mono">{{.Phone}}</td>
         <td>{{if .MunicipalityID}}{{.MunicipalityName}}{{else}}cijela županija{{end}}</td>
-        {{if $.SmijeSluzbe}}<td class="radnje" style="white-space:nowrap;">
+        {{if $.SmijeSluzbe}}<td class="radnje nowrap">
           <a href="/territories/counties/{{$.County.ID}}?uredi={{.ID}}#sluzba" class="btn btn-sm btn-secondary" title="Uredi">{{icon "pencil"}}</a>
-          <form method="POST" action="/territories/counties/{{$.County.ID}}/sluzbe/{{.ID}}/obrisi" style="display:inline;" onsubmit="return confirm('Obrisati {{.Naziv}}?');"><button type="submit" class="btn btn-sm btn-secondary" title="Obriši">{{icon "x"}}</button></form>
+          <form method="POST" action="/territories/counties/{{$.County.ID}}/sluzbe/{{.ID}}/obrisi" class="d-inline" onsubmit="return confirm('Obrisati {{.Naziv}}?');"><button type="submit" class="btn btn-sm btn-secondary" title="Obriši">{{icon "x"}}</button></form>
         </td>{{end}}</tr>{{end}}
     </tbody>
   </table></div></div>

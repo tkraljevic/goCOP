@@ -57,7 +57,7 @@
       {{end}}
       {{range $p.Pragovi}}<span class="uzd-legenda-stavka"><span class="uzd-znak {{.Class}}"></span> {{.Naziv}} obrana</span>{{end}}
     </div>
-    <div class="reg-card uzduzni" style="padding:0.75rem 0.5rem 0.25rem; position:relative;">
+    <div class="reg-card uzduzni">
       <div class="uzd-gumbi">
         <button type="button" class="uzd-gumb uzd-ispis" title="Ispiši crtež u ovom trenutku vala (bijela pozadina)" aria-label="Ispiši crtež">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V3h12v6M6 18H3v-7h18v7h-3M6 14h12v7H6z"/></svg>
@@ -66,8 +66,10 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5"/></svg>
         </button>
       </div>
-      {{template "uzduzniProfil" $p}}
-      <div class="uzd-oblacic" hidden></div>
+      <div class="uzd-pomak">
+        {{template "uzduzniProfil" $p}}
+        <div class="uzd-oblacic" hidden></div>
+      </div>
     </div>
     <div class="uzd-klizac" data-od="{{$p.SatOd}}" data-do="{{$p.SatDo}}">
       <button type="button" class="btn btn-secondary uzd-klizac-igraj" aria-label="Pokreni kretanje vala" title="Pokreni ili zaustavi kretanje vala">▶</button>
@@ -166,7 +168,10 @@
           var otvorena = x === g;
           x.setAttribute('aria-selected', otvorena ? 'true' : 'false');
           var panel = document.getElementById(x.getAttribute('aria-controls'));
-          if (panel) { panel.hidden = !otvorena; }
+          if (panel) {
+            panel.hidden = !otvorena;
+            if (otvorena && panel.uzdNizvodno) { requestAnimationFrame(panel.uzdNizvodno); }
+          }
         });
       });
     });
@@ -178,6 +183,18 @@
     var svg = panel.querySelector('.uzd-svg');
     var niz = null;
     try { niz = JSON.parse(svg.dataset.niz); } catch (e) { niz = null; }
+
+    // Na uskom zaslonu crtež je visok koliko treba za natpise, a širinu
+    // izvodi iz omjera viewBoxa (i Safari); lista se vodoravno, a počinje
+    // nizvodno, gdje su naše letve.
+    var pomak = panel.querySelector('.uzd-pomak');
+    var vb = svg.viewBox && svg.viewBox.baseVal;
+    if (vb && vb.width && vb.height) { svg.style.aspectRatio = vb.width + ' / ' + vb.height; }
+    function nizvodno() {
+      if (pomak && pomak.scrollWidth > pomak.clientWidth) { pomak.scrollLeft = pomak.scrollWidth; }
+    }
+    if (!panel.hidden) { requestAnimationFrame(nizvodno); }
+    panel.uzdNizvodno = nizvodno;
 
     // Raspon: samo za odabrani doseg, da se pojasi ne slažu jedan na drugi.
     panel.querySelectorAll('.uzd-legenda-gumb').forEach(function (g) {
@@ -289,8 +306,21 @@
         : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5"/></svg>';
     }
     function uPunom() { return (document.fullscreenElement || document.webkitFullscreenElement) === panel || cssPuni; }
+    // Zamjena bez pravog punog zaslona (iPhone): kartica prekriva vidljivi
+    // dio zaslona (visualViewport), ne cijeli raspored stranice, pa je ni
+    // traka s adresom ni tipkovnica ne odrežu.
+    var vv = window.visualViewport;
+    function vidljivo() {
+      if (!vv) { return; }
+      if (!cssPuni) { panel.style.top = panel.style.left = panel.style.width = panel.style.height = ''; return; }
+      panel.style.top = vv.offsetTop + 'px'; panel.style.left = vv.offsetLeft + 'px';
+      panel.style.width = vv.width + 'px'; panel.style.height = vv.height + 'px';
+    }
+    if (vv) { vv.addEventListener('resize', vidljivo); vv.addEventListener('scroll', vidljivo); }
     function osvjeziPuni() {
       var aktivan = uPunom();
+      vidljivo();
+      requestAnimationFrame(nizvodno);
       puni.innerHTML = ikonaPuni(aktivan);
       puni.title = aktivan ? 'Izađi iz punog zaslona' : 'Prikaži profil preko cijelog zaslona';
       puni.setAttribute('aria-label', puni.title);
@@ -334,8 +364,10 @@
       var w = window.open('', '_blank');
       if (!w) { window.alert('Preglednik je zaustavio otvaranje prozora za ispis.'); return; }
       var css = document.querySelector('link[href*="style.css"]');
+      var tema = document.querySelector('link[href^="/tema.css"]');
       w.document.write('<!DOCTYPE html><html lang="hr" data-theme="light"><head><meta charset="utf-8"><title>Uzdužni profil ' + naslov + '</title>' +
         (css ? '<link rel="stylesheet" href="' + css.getAttribute('href') + '">' : '') +
+        (tema ? '<link rel="stylesheet" href="' + tema.getAttribute('href') + '">' : '') +
         '<style>html,body{background:#fff !important;color:#111 !important;margin:0}body{padding:10mm;font-family:system-ui,sans-serif}' +
         'h1{font-size:16pt;margin:0 0 4pt}p{font-size:10pt;margin:2pt 0;color:#333}svg{width:100%;height:auto;background:#fff}' +
         '@page{size:A4 landscape;margin:10mm}@media print{.ne-ispisuj{display:none}}</style></head><body>' +
@@ -365,11 +397,13 @@
       }, 90);
     });
 
-    // Oblačić: najbliža letva po vodoravnom položaju, sa svim dosezima.
+    // Oblačić: najbliža letva po vodoravnom položaju, sa svim dosezima;
+    // mišem pod pokazivačem, na dodirnom zaslonu dodirom (ostaje dok se ne
+    // dodirne drugdje).
     var oblacic = panel.querySelector('.uzd-oblacic');
     var crte = Array.prototype.slice.call(svg.querySelectorAll('.uzd-crta'));
     var dosezi = crte.map(function (c) { return Number(c.dataset.doseg); });
-    svg.addEventListener('mousemove', function (ev) {
+    function pokazi(ev) {
       var okvir = svg.getBoundingClientRect();
       var mx = (ev.clientX - okvir.left) / okvir.width * svg.viewBox.baseVal.width;
       var naj = -1, najD = Infinity;
@@ -390,11 +424,22 @@
       });
       oblacic.innerHTML = redci.filter(Boolean).join('<br>');
       oblacic.hidden = false;
-      var lijevo = (niz.x[naj] / svg.viewBox.baseVal.width) * okvir.width;
-      oblacic.style.left = Math.min(lijevo + 12, okvir.width - oblacic.offsetWidth - 8) + 'px';
-      oblacic.style.top = '2.5rem';
-    });
-    svg.addEventListener('mouseleave', function () { oblacic.hidden = true; });
+      // položaj u .uzd-pomak, unutar dijela koji se vidi i kad je pomaknuta
+      var kont = pomak || svg.parentNode;
+      var kr = kont.getBoundingClientRect();
+      var lijevoCrteza = okvir.left - kr.left + kont.scrollLeft;
+      var x = lijevoCrteza + (niz.x[naj] / svg.viewBox.baseVal.width) * okvir.width + 12;
+      // ni preko vidljivog dijela ni preko kraja crteža (inače bi oblačić
+      // produljio područje za listanje)
+      var najvise = Math.min(kont.scrollLeft + kont.clientWidth, lijevoCrteza + okvir.width) - oblacic.offsetWidth - 8;
+      oblacic.style.left = Math.max(kont.scrollLeft + 8, Math.min(x, najvise)) + 'px';
+      oblacic.style.top = (kont.scrollTop + 40) + 'px';
+    }
+    svg.addEventListener('pointermove', pokazi);
+    svg.addEventListener('pointerdown', pokazi);
+    svg.addEventListener('pointerleave', function (ev) { if (ev.pointerType === 'mouse') { oblacic.hidden = true; } });
+    document.addEventListener('pointerdown', function (ev) { if (!svg.contains(ev.target)) { oblacic.hidden = true; } });
+    if (pomak) { pomak.addEventListener('scroll', function () { oblacic.hidden = true; }, { passive: true }); }
   }
 })();
 </script>

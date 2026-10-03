@@ -159,6 +159,10 @@ func (h *UsersHandler) HandleCreateUser(w http.ResponseWriter, r *http.Request) 
 		SectorID:      sectorPtr,
 		AreaID:        areaPtr,
 		SectionCodes:  r.FormValue("section_codes"),
+		// okvir „adresa je provjerena” stoji samo na obrascu globalnog
+		// administratora, i to ne dok gleda tuđim očima
+		PotvrdaAdrese: r.FormValue("pin_adresa_potvrdena") == "1",
+		TudjimOcima:   viewBanner(r).Viewing,
 	}
 
 	created, err := h.userService.CreateUser(perms, req)
@@ -214,6 +218,15 @@ func (h *UsersHandler) HandleUpdateUser(w http.ResponseWriter, r *http.Request) 
 		TrenutnaLozinka: r.FormValue("trenutna_lozinka"),
 		Izvana:          dolaziIzvana(r),
 	}
+	// Okvir „adresa je provjerena” stoji samo na obrascu globalnog
+	// administratora za tuđi račun, uz oznaku obrasca: neoznačen okvir tada
+	// briše potvrdu, a bez oznake (drugi obrasci) potvrda se ne dira. Tuđim
+	// očima okvira nema, a poslan se odbija.
+	if r.FormValue("pin_adresa_obrazac") == "1" {
+		potvrdi := r.FormValue("pin_adresa_potvrdena") == "1"
+		req.PotvrdaAdrese = &potvrdi
+	}
+	req.TudjimOcima = viewBanner(r).Viewing
 
 	_, err = h.azurirajUzLozinku(perms, req)
 	if err != nil {
@@ -306,6 +319,9 @@ func (h *UsersHandler) HandleAddDuty(w http.ResponseWriter, r *http.Request) {
 	}
 
 	req := dutyRequestFromForm(r, userID)
+	// primarnu dužnost i vlastiti naziv daje samo tko uređuje cijeli račun;
+	// drugome se dužnost doda kao ispomoć, i to mu se kaže
+	ispomoc := (req.IsPrimary || req.Title != "") && !h.userService.SmijeUredjivatiRacun(perms, userID)
 
 	err = h.userService.AddDuty(perms, req)
 	if err != nil {
@@ -313,6 +329,10 @@ func (h *UsersHandler) HandleAddDuty(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if ispomoc {
+		redirectWith(w, r, "/users/"+userID.String(), "success", "Zaduženje je dodano kao ispomoć, pod nazivom uloge: primarnu dužnost i vlastiti naziv daje onaj tko uređuje cijeli račun (viša razina ili globalni administrator).")
+		return
+	}
 	redirectWith(w, r, "/users/"+userID.String(), "success", "Zaduženje je dodano.")
 }
 

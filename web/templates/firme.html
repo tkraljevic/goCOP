@@ -31,14 +31,14 @@
     <tr>
       <td><strong>{{.Name}}</strong>{{if .Address}}<div class="reading-meta">{{.Address}}</div>{{end}}{{if .Notes}}<div class="form-help" style="margin:0.2rem 0 0;">{{.Notes}}</div>{{end}}</td>
       <td class="mono">{{.OIB}}</td>
-      <td class="reading-meta" style="white-space:nowrap;">{{if .Phone}}<a href="tel:{{.Phone}}">{{.Phone}}</a>{{end}}{{if and .Phone .Email}}<br>{{end}}{{if .Email}}<a href="mailto:{{.Email}}">{{.Email}}</a>{{end}}</td>
+      <td class="reading-meta nowrap">{{if .Phone}}<a href="tel:{{.Phone}}">{{.Phone}}</a>{{end}}{{if and .Phone .Email}}<br>{{end}}{{if .Email}}<a href="mailto:{{.Email}}">{{.Email}}</a>{{end}}</td>
       <td>{{.Contact}}</td>
       <td>{{range .Assignments}}<span class="reg-chip">{{.Where}}</span> {{end}}</td>
       <td>{{if .Active}}<span class="badge badge-active">aktivan</span>{{else}}<span class="badge badge-inactive">neaktivan</span>{{end}}</td>
       {{if index $.EditableIDs .ID}}
-      <td style="white-space:nowrap; text-align:right;">
+      <td class="nowrap text-right">
         <a href="/firme/{{.ID}}/edit" class="btn btn-sm btn-secondary" title="Uredi">{{icon "pencil"}}</a>
-        <form method="POST" action="/firme/delete" onsubmit="return confirm('Obrisati firmu {{.Name}}? Za povijest je bolje označiti je neaktivnom.')" style="display:inline;">
+        <form method="POST" action="/firme/delete" onsubmit="return confirm('Obrisati firmu {{.Name}}? Za povijest je bolje označiti je neaktivnom.')" class="d-inline">
           <input type="hidden" name="id" value="{{.ID}}"><button type="submit" class="btn btn-sm btn-secondary" title="Obriši">{{icon "trash"}}</button>
         </form>
       </td>

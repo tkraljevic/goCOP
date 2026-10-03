@@ -22,15 +22,19 @@ func TestLjestvicaBojaStojiNaJednomMjestu(t *testing.T) {
 	}
 	css := string(b)
 
-	// Svaka od tri teme — svijetla, tamna po postavci sustava i tamna po
-	// izboru — mora imati svih dvanaest vrijednosti.
+	// Svaka tema — svijetla i tamna — mora imati svih dvanaest vrijednosti.
+	// Tamna je opisana jednom: js/tema.js postavlja data-theme i kad tema
+	// slijedi postavku sustava, pa drugog (@media) opisa nema.
 	for _, faza := range []string{"p", "r", "i", "s"} {
 		for _, dio := range []string{"bg", "fg", "crta"} {
 			ime := "--faza-" + faza + "-" + dio
-			if n := strings.Count(css, ime+":"); n != 3 {
-				t.Errorf("%s definiran %d puta, očekivano 3 (svijetla i dvije tamne teme)", ime, n)
+			if n := strings.Count(css, ime+":"); n != 2 {
+				t.Errorf("%s definiran %d puta, očekivano 2 (svijetla i tamna tema)", ime, n)
 			}
 		}
+	}
+	if strings.Contains(css, "prefers-color-scheme") {
+		t.Error("tamna tema opisana je i pod prefers-color-scheme; opisuje se samo pod :root[data-theme=\"dark\"]")
 	}
 
 	// Razredi stupnjeva ne smiju nositi vlastitu boju: promjena ljestvice mora

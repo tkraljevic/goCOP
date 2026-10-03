@@ -1,0 +1,188 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Tema{{end}}
+
+{{define "content"}}
+<div class="breadcrumb"><a href="/administracija">Administracija</a> › Tema</div>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "sun-moon"}} Tema</h1>
+    <p class="page-desc">Boje programa. Zadane su boje Hrvatskih voda: tamnoplava i zelena. Po temi se biraju tri boje, a iz njih program sam izvodi sve nijanse: prelazak mišem, svijetle podloge, rubove, značke i traku na pločama. Boje stupnjeva obrane, upozorenja DHMZ-a i slojeva karte propisane su i ne mijenjaju se ovdje. Tema vrijedi na svim čvorovima; mijenja je samo uprava organizacije, a promjena ostaje u knjizi verzija.</p>
+  </div>
+</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
+
+<form method="POST" action="/administracija/tema" id="tema-obrazac">
+  <div class="tema-stupci">
+    {{range .Stupci}}
+    {{$k := .Kljuc}}
+    <section class="form-page tema-stupac">
+      <h2 class="tema-stupac-naslov">{{if eq $k "tamna"}}{{icon "moon"}}{{else}}{{icon "sun"}}{{end}} {{.Naziv}}</h2>
+
+      <div class="tema-boja">
+        <div class="tema-boja-opis">
+          <label class="tema-boja-naziv" for="{{$k}}_glavna">Glavna boja</label>
+          <span class="form-help">Naslovi, okviri, značke, ikone i gornja traka. Na tamnoj podlozi treba biti svjetlija.</span>
+        </div>
+        <div class="tema-boja-unos">
+          <input type="color" value="{{.Boje.Glavna}}" data-za="{{$k}}_glavna" aria-label="Glavna boja: birač">
+          <input type="text" class="form-control" id="{{$k}}_glavna" name="{{$k}}_glavna" value="{{.Boje.Glavna}}" maxlength="7" spellcheck="false" autocomplete="off" pattern="#?[0-9a-fA-F]{3}([0-9a-fA-F]{3})?">
+          <button type="button" class="btn btn-secondary btn-sm" data-zadano="{{.Zadano.Glavna}}" data-polje="{{$k}}_glavna" title="Vrati {{.Zadano.Glavna}}">Zadano</button>
+        </div>
+      </div>
+
+      <div class="tema-boja">
+        <div class="tema-boja-opis">
+          <label class="tema-boja-naziv" for="{{$k}}_naglasak">Naglasak</label>
+          <span class="form-help">Poveznice, aktivno i mirno stanje, kraj trake. Poveznice se same tamne (svijetla tema) ili posvjetljuju (tamna), da budu čitljive.</span>
+        </div>
+        <div class="tema-boja-unos">
+          <input type="color" value="{{.Boje.Naglasak}}" data-za="{{$k}}_naglasak" aria-label="Naglasak: birač">
+          <input type="text" class="form-control" id="{{$k}}_naglasak" name="{{$k}}_naglasak" value="{{.Boje.Naglasak}}" maxlength="7" spellcheck="false" autocomplete="off" pattern="#?[0-9a-fA-F]{3}([0-9a-fA-F]{3})?">
+          <button type="button" class="btn btn-secondary btn-sm" data-zadano="{{.Zadano.Naglasak}}" data-polje="{{$k}}_naglasak" title="Vrati {{.Zadano.Naglasak}}">Zadano</button>
+        </div>
+      </div>
+
+      <div class="tema-boja">
+        <div class="tema-boja-opis">
+          <label class="tema-boja-naziv" for="{{$k}}_gumb">Glavni gumb</label>
+          <span class="form-help">{{if eq $k "svijetla"}}Pozadina gumba „Spremi”, s bijelim tekstom. Zadano prati glavnu boju.{{else}}Pozadina gumba „Spremi”, s bijelim tekstom. Mora biti dovoljno tamna da bijeli tekst bude čitljiv.{{end}}</span>
+        </div>
+        <div class="tema-boja-unos">
+          <input type="color" value="{{.Boje.Gumb}}" data-za="{{$k}}_gumb" aria-label="Glavni gumb: birač">
+          <input type="text" class="form-control" id="{{$k}}_gumb" name="{{$k}}_gumb" value="{{.Boje.Gumb}}" maxlength="7" spellcheck="false" autocomplete="off" pattern="#?[0-9a-fA-F]{3}([0-9a-fA-F]{3})?"{{if eq $k "svijetla"}} data-prati="{{$k}}_glavna"{{end}}>
+          <button type="button" class="btn btn-secondary btn-sm" data-zadano="{{.Zadano.Gumb}}" data-polje="{{$k}}_gumb"{{if eq $k "svijetla"}} data-prati="{{$k}}_glavna" title="Kao glavna boja"{{else}} title="Vrati {{.Zadano.Gumb}}"{{end}}>Zadano</button>
+        </div>
+      </div>
+
+      <div class="tema-pregled" data-tema-pregled="{{.Pregled}}" aria-label="Pregled: {{.Naziv}}">
+        <div class="tema-pregled-ploca">
+          <span class="breadcrumb">Administracija › Primjer</span>
+          <h3 class="tema-pregled-naslov">{{icon "waves"}} Naslov stranice</h3>
+          <p class="tema-pregled-tekst">Običan tekst s <a href="#" tabindex="-1">poveznicom</a> i opisom ispod naslova.</p>
+          <div class="tema-pregled-znacke">
+            <span class="badge badge-active">aktivno</span>
+            <span class="tema-pregled-mirno">mirno</span>
+            <span class="badge tema-pregled-znacka">značka</span>
+          </div>
+          <div class="tema-pregled-gumbi">
+            <span class="btn btn-primary">Spremi</span>
+            <span class="btn btn-secondary">Odustani</span>
+          </div>
+        </div>
+      </div>
+
+      <ul class="tema-provjere" data-tema="{{$k}}" aria-live="polite">
+        {{range .Provjere}}
+        <li>
+          <span class="tema-provjera-opis">{{.Opis}}</span>
+          <span class="tema-provjera-omjer">{{printf "%.1f" .Omjer}}:1</span>
+          {{if .Prolazi}}<span class="badge badge-active">čitljivo</span>{{else if ge .Omjer $.Najmanje}}<span class="badge badge-warning">slabije</span>{{else}}<span class="badge badge-danger">nečitljivo</span>{{end}}
+        </li>
+        {{end}}
+      </ul>
+    </section>
+    {{end}}
+  </div>
+
+  <p class="form-help tema-napomena">Kontrast „čitljivo” je barem 4,5:1, koliko traži običan tekst. „Slabije” (od 3:1 do 4,5:1) sprema se, ali sitni tekst postaje teži za čitanje; „nečitljivo” se ne sprema.</p>
+  <p class="form-help tema-greska" id="tema-greska" hidden></p>
+
+  <div class="form-actions tema-radnje">
+    <button type="submit" name="radnja" value="zadano" class="btn btn-secondary" formnovalidate onclick="return confirm('Vratiti zadane boje Hrvatskih voda na svim čvorovima?')">Vrati zadane boje</button>
+    <button type="submit" class="btn btn-primary" id="tema-spremi">{{icon "check"}} Spremi temu</button>
+  </div>
+</form>
+
+<style id="tema-pregled-stil">{{.PregledCSS}}</style>
+
+<script>
+(function () {
+  var obrazac = document.getElementById('tema-obrazac');
+  var stil = document.getElementById('tema-pregled-stil');
+  var greska = document.getElementById('tema-greska');
+  var spremi = document.getElementById('tema-spremi');
+  var hex = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i;
+
+  function puna(v) {
+    v = v.trim().toLowerCase();
+    if (v.charAt(0) !== '#') v = '#' + v;
+    if (v.length === 4) v = '#' + v[1] + v[1] + v[2] + v[2] + v[3] + v[3];
+    return v;
+  }
+
+  // gumb svijetle teme prati glavnu boju dok mu se ne zada vlastita
+  var prethodna = {};
+  obrazac.querySelectorAll('input[type=text]').forEach(function (p) { prethodna[p.id] = p.value; });
+
+  function postaviPolje(polje, v) {
+    polje.value = v;
+    var birac = obrazac.querySelector('input[type=color][data-za="' + polje.id + '"]');
+    if (birac && hex.test(v)) birac.value = puna(v);
+    obrazac.querySelectorAll('input[type=text][data-prati="' + polje.id + '"]').forEach(function (p) {
+      if (puna(p.value) === puna(prethodna[polje.id] || '')) postaviPolje(p, v);
+    });
+    prethodna[polje.id] = v;
+  }
+
+  var tempo;
+  function osvjezi() {
+    clearTimeout(tempo);
+    tempo = setTimeout(function () {
+      fetch('/administracija/tema/pregled', {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Accept': 'application/json' },
+        body: new URLSearchParams(new FormData(obrazac))
+      }).then(function (r) { return r.json(); }).then(function (o) {
+        var necitljivo = (o.provjere || []).filter(function (p) { return !p.dopusta; }).length;
+        spremi.disabled = !!o.greska || necitljivo > 0;
+        greska.hidden = !o.greska && !necitljivo;
+        greska.textContent = o.greska || (necitljivo ? 'Boja označena „nečitljivo” ne može se spremiti; promijenite je ili vratite zadanu.' : '');
+        if (o.greska) return;
+        stil.textContent = o.css;
+        ['svijetla', 'tamna'].forEach(function (tema) {
+          var ul = obrazac.querySelector('.tema-provjere[data-tema="' + tema + '"]');
+          ul.textContent = '';
+          o.provjere.filter(function (p) { return p.tema === tema; }).forEach(function (p) {
+            var li = document.createElement('li');
+            var opis = document.createElement('span'); opis.className = 'tema-provjera-opis'; opis.textContent = p.opis;
+            var omjer = document.createElement('span'); omjer.className = 'tema-provjera-omjer'; omjer.textContent = p.omjer.toFixed(1).replace('.', ',') + ':1';
+            var z = document.createElement('span');
+            z.className = 'badge ' + (p.prolazi ? 'badge-active' : p.dopusta ? 'badge-warning' : 'badge-danger');
+            z.textContent = p.prolazi ? 'čitljivo' : p.dopusta ? 'slabije' : 'nečitljivo';
+            li.append(opis, omjer, z);
+            ul.appendChild(li);
+          });
+        });
+      }).catch(function () {});
+    }, 120);
+  }
+
+  obrazac.addEventListener('input', function (e) {
+    var t = e.target;
+    if (t.type === 'color') {
+      postaviPolje(document.getElementById(t.getAttribute('data-za')), t.value);
+    } else if (t.type === 'text') {
+      if (!hex.test(t.value.trim())) return;
+      postaviPolje(t, t.value);
+    }
+    osvjezi();
+  });
+
+  obrazac.querySelectorAll('button[data-zadano]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var polje = document.getElementById(b.getAttribute('data-polje'));
+      var izvor = b.getAttribute('data-prati');
+      postaviPolje(polje, izvor ? document.getElementById(izvor).value : b.getAttribute('data-zadano'));
+      osvjezi();
+    });
+  });
+
+  // decimalni zarez i u omjerima koje je ispisao poslužitelj
+  obrazac.querySelectorAll('.tema-provjera-omjer').forEach(function (s) { s.textContent = s.textContent.replace('.', ','); });
+})();
+</script>
+{{end}}

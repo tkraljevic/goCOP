@@ -127,6 +127,7 @@
     <a class="kazalo-glava" href="#potpisi">Potpisi i izvornici</a>
     <a class="kazalo-glava" href="#users">Djelatnici</a>
     <a href="#users-kod-prijave">Privremeni kod za prijavu</a>
+    <a href="#users-potvrda-adrese">Adresa za PIN izvan domene</a>
     <a class="kazalo-glava" href="#registers">Registri</a>
     <a class="kazalo-glava" href="#slivovi">Slivovi</a>
     <a href="#slivovi-kisomjeri">Meteorološke postaje</a>
@@ -959,7 +960,10 @@
     <p>Administrator pod <em>Administracija → E-pošta</em> postavlja Exchange/EWS ili SMTP
       poslužitelj. Svaki korisnik zatim na profilu sprema vlastitu lozinku e-pošte. Lozinka se
       provjerava pri upisu, šifrira ključem ovog računala i ne ulazi u zajedničku knjigu verzija;
-      na drugom računalu upisuje se ponovno.</p>
+      na drugom računalu upisuje se ponovno. Vrijedi dok se ne promijeni lozinka računa u
+      goCOP-u: poništenje i lozinka koju upiše administrator brišu je odmah; nakon vlastite
+      promjene lozinke, i kad nova lozinka stigne s drugog čvora, prestaje vrijediti i briše se
+      pri prvoj sljedećoj uporabi ili pokretanju čvora. Lozinku e-pošte tada upišite ponovno.</p>
     <p>Sandučić prikazuje mape, nepročitana pisma, pretragu, HTML sadržaj u izoliranom okviru i
       privitke. Moguće je odgovoriti, odgovoriti svima, proslijediti, označiti više pisama i
       premjestiti ih; iz mape Obrisano može se izvesti trajno brisanje. Novo pismo koristi adresar
@@ -978,8 +982,12 @@
   <div class="reg-card pomoc-tekst">
     <ul>
       <li><strong>Osobni elektronički potpis</strong> izrađuje se na profilu. Privatni ključ
-        zaključan je lozinkom korisnika; lozinka se traži pri svakom potpisu. Certifikat izdaje
-        čvor i drugi upareni čvorovi priznaju njegova izdavatelja.</li>
+        zaključan je lozinkom korisnika; lozinka se traži pri svakom potpisu, a i pri izradi i
+        uklanjanju ključa (tuđim očima ni jedno ni drugo). Certifikat izdaje čvor i drugi upareni
+        čvorovi priznaju njegova izdavatelja. Certifikat uz puno ime nosi korisničko ime,
+        „Ime Prezime (korisnicko)”, jer puno ime osoba mijenja sama; zagrade iz punog imena se
+        izostavljaju, pa zagrada na kraju uvijek nosi korisničko ime. Stariji certifikati nose
+        samo ime.</li>
       <li><strong>Ovjera u goCOP-u</strong> potpisuje akt ključem čvora. Akt dobiva broj i kod
         ovjere, a izvornik postaje PDF sa žigom centra i skenom potpisa osobe koja ovjerava, ako
         ga je spremila na profilu. Program poslije provjerava da sadržaj nije mijenjan od ovjere.</li>
@@ -1002,8 +1010,35 @@
   <div class="reg-card pomoc-tekst">
     <p>Imenik ljudi u obrani s njihovim ulogama i operativnim funkcijama. Uloga određuje što
       tko vidi i smije mijenjati; dužnost određuje za koje je dionice zadužen.</p>
+    <p>Dužnost s područjem uvijek pripada sektoru tog područja, a dionice dužnosti moraju biti
+      upisane u registar i pripadati tom području; drukčiji upis program odbija. Uprava sektora
+      ili područja dodjeljuje dužnosti samo u svom dosegu i nikad sama sebi: vlastito zaduženje
+      dodjeljuje, mijenja i opoziva nadređena razina.</p>
+    <p>Račun bez aktivne dužnosti (opozvane, istekle ili otvoren bez nje), isključen račun i
+      račun globalnog administratora zadužuje samo globalni administrator. Uprava sektora ili
+      područja dodaje dužnost samo uključenom računu koji već ima aktivnu dužnost, a isteklu
+      dužnost ne produljuje osobi koja drugih nema. Primarnu funkciju i vlastiti naziv dužnosti
+      (ide uz ime i u certifikat potpisa) daje i mijenja samo onaj tko smije uređivati cijeli
+      račun osobe; drugi dužnost dodaju kao ispomoć, pod nazivom uloge, a pri izmjeni naziv i
+      primarnost ostavljaju kakvi jesu ili ih uklanjaju. Terenska uloga traži dionice ili
+      područje; samo uz sektor ne bi davala nikakvo pravo, pa se ne upisuje.</p>
+    <p>Pravo pisanja ide po dosegu dužnosti: dužnost sektora piše u cijelom sektoru, dužnost
+      područja u svom području, a dužnost na dionicama na tim dionicama, njihovim objektima i
+      aktima te u dnevnicima svog područja i COP-a; terenska dužnost bez dionica piše u cijelom
+      području. Sektor upisan uz dužnost područja ili dionice ne daje pisanje po sektoru:
+      rukovoditelj dionice B.16.1 ne uređuje dionice, objekte, akte ni dnevnike područja 17, a
+      uprava područja 16 ne otvara dionice u području 17. Akt vodomjera piše tko piše na bilo
+      kojoj njegovoj dionici. Objekt drugog područja koji stoji i na dionici vodi njegovo
+      područje, a novu vezu dionice na objekt ili vodomjer drugog područja upisuje samo tko
+      ondje piše. Popisi i zadani izbor sektora i dalje se ravnaju po svim dužnostima osobe.</p>
+    <p>Adresu e-pošte koju već ima drugi aktivni račun program ne upisuje nikome, ni globalnom
+      administratoru (velika slova i razmaci se ne razlikuju): ni pri otvaranju računa, ni u
+      izmjeni, ni iz adresara tvrtke, a isključen račun s takvom adresom ne uključuje se (osim
+      zastavicom <code>-aktiviraj</code> s konzole, koja to javi kao upozorenje). Zajednička
+      adresa gasi PIN objema osobama. Prazna adresa je dopuštena. Korisničko ime koje
+      već ima drugi račun, i drugim slovima, ne dobiva se ni preimenovanjem.</p>
     <p>Administrator može <em>gledati program tuđim očima</em> — provjeriti što neki djelatnik
-      vidi. Zadano je taj pogled samo za čitanje. U testnom okruženju administrator može posebno
+      vidi. Zadano je taj pogled samo za čitanje, a tuđi sandučić e-pošte ne otvara se ni tada. U testnom okruženju administrator može posebno
       uključiti upise tuđim očima i simulirani ključ; stvarni administrator ostaje zabilježen, a
       svaki simulirani potpis vidljivo je označen kao bezvrijedan. Te se opcije u operativnom
       radu drže isključenima.</p>
@@ -1016,10 +1051,50 @@
       prikazuje samo jednom; prenesite ga osobno ili telefonom. Izdavanje se zapisuje u dnevnik,
       bez samog koda. Sebi se kod ne izdaje, a ni tuđim očima: za to se prijavite kao vi.</p>
     <p>Uz <em>Poništi lozinku</em> može se označiti i <em>i kod za prijavu izvana</em>, pa
-      djelatnik odjednom dobije privremenu lozinku i kod. Poništenje lozinke, promjena lozinke i
+      djelatnik odjednom dobije privremenu lozinku i kod. Poništiti lozinku i izdati kod smije samo
+      onaj tko smije i uređivati račun te osobe: globalni administrator svakome, a uprava sektora
+      ili područja samo onima kojima su sve dužnosti u njezinu dosegu i ispod njezine razine
+      uprave. Ljude svoje razine uprave (npr. rukovoditelj sektora svog zamjenika) uprava uređuje
+      i zadužuje, ali im lozinku i kod daje viša razina ili globalni administrator, jer poništenje
+      uklanja i potpisni ključ; isto vrijedi za rukovoditelja s ispomoći u vašem području. Razina
+      uprave je razina s koje uloga upravlja računima: zamjenik glavnog rukovoditelja za sektor
+      upravlja sektorom, a zamjenik rukovoditelja sektora za branjeno područje područjem.
+      Privremena uprava (dužnost s rokom) dužnost koja daje upravu na njezinoj razini dodjeljuje
+      najdulje do isteka vlastite uprave nad tim sektorom ili područjem; tuđu postojeću dužnost
+      izmjenom ne skraćuje. Globalnog administratora postavlja samo stalna uprava organizacije.
+      Poništenje lozinke, promjena lozinke i
       upis nove lozinke na obrascu djelatnika brišu na ovom čvoru njegova zapamćena računala,
       prijave koje čekaju PIN i privremene kodove; rezervni kodovi ostaju. Kod vrijedi samo na
-      čvoru na kojem je izdan, pa ga izdajte na čvoru kroz koji se djelatnik prijavljuje izvana.</p>
+      čvoru na kojem je izdan, pa ga izdajte na čvoru kroz koji se djelatnik prijavljuje izvana.
+      Poništenje i lozinka koju upiše administrator uklanjaju i osobni potpisni ključ, jer je
+      zaključan starom lozinkom; već potpisani dokumenti ostaju provjerljivi, a novi ključ
+      djelatnik napravi na profilu nakon promjene lozinke. Lozinku koju administrator upiše u
+      obrascu djelatnika osoba, kao i privremenu, pri prvoj prijavi mora zamijeniti svojom.
+      Poništenje, upisana lozinka i poništenje s konzole brišu na ovom čvoru i spremljenu
+      lozinku e-pošte osobe, da onaj tko zna privremenu lozinku ne čita i njezinu poštu.</p>
+    <p>Kad lozinku globalnog administratora nema tko poništiti, poništava se s konzole
+      računala na kojem čvor radi, naredbom <code>gocop -ponisti-lozinku korisničko-ime</code>
+      (u spremniku uz iste <code>-config</code> i <code>-db</code>; vidi INSTALACIJA.md). Kroz
+      program se to ne može. Zato neka mreža ima barem dva globalna administratora; rezervni
+      kodovi tu ne pomažu, jer zamjenjuju PIN, a ne lozinku.</p>
+
+    <h3 id="users-potvrda-adrese">Adresa za PIN izvan dopuštene domene</h3>
+    <p>PIN za prijavu izvana ide na adresu u dopuštenoj domeni (zadano <code>@voda.hr</code>). Djelatniku
+      kojemu je službena adresa izvan nje, npr. u tvrtki izvođača, globalni administrator upiše
+      adresu u uređivanju profila i označi <em>Adresa je provjerena: PIN smije ići na nju i izvan
+      @voda.hr</em>, tek kad je provjerio da adresa pripada toj osobi. Potvrda pamti tko ju je
+      dao i kada, stiže na sve čvorove i zapisuje se u dnevnik. Vlastitu adresu nitko ne
+      potvrđuje, ni administrator, a administrator sektora ili područja potvrdu ne daje ni ne
+      uklanja. Ni tuđim očima potvrda se ne daje ni ne uklanja: za to se prijavite kao vi.</p>
+    <p>Potvrda vrijedi samo za adresu koju je administrator potvrdio. Promijeni li adresu
+      administrator sektora ili područja, ili globalni administrator bez okvira, PIN na novu
+      adresu izvan domene ne ide dok je globalni administrator ne potvrdi; osoba koja sama
+      promijeni adresu na profilu potvrdu time briše. Adresar tvrtke
+      potvrdu ne postavlja. Adresu koju ima još jedan aktivni račun PIN ne dobiva ni kad je
+      potvrđena. Na stranici djelatnika i na profilu piše ide li PIN na adresu, je li u domeni ili
+      ju je potvrdio administrator. Filtar <em>Bez adrese za PIN</em> na popisu djelatnika potvrđene
+      adrese ne hvata, osim kad istu adresu ima još jedan aktivni račun. Starije izdanje programa (0.0.26-alfa) potvrdu prenosi i čuva, ali na
+      adresu izvan domene PIN ne šalje.</p>
   </div>
   {{template "pomocPoglavljeNav" (list "Potpisi i izvornici" "#potpisi" "Registri" "#registers")}}
 </section>
@@ -1150,6 +1225,12 @@
       <li><strong>Računi i lozinke</strong> — aktivacija računa i postavljanje početne lozinke;
         korisnik je pri prvoj prijavi mora zamijeniti.</li>
       <li><strong>Nazivi</strong> — kako se kuća i centar zovu na ispisima.</li>
+      <li id="admin-tema"><strong>Tema</strong> — boje programa, posebno za svijetlu i tamnu
+        temu: glavna boja, naglasak i glavni gumb; ostale nijanse program izvodi sam. Pregled i
+        provjera čitljivosti rade dok se bira, a tema s kontrastom ispod 3:1 ne sprema se.
+        Mijenja je samo globalni administrator; tema je zajednička postavka i razmjenom stiže na
+        sve čvorove, a <em>Vrati zadane boje</em> vraća boje Hrvatskih voda. Svijetlu ili tamnu
+        temu svatko bira za sebe gumbom u zaglavlju.</li>
     </ul>
 
     <h3 id="admin-posta-pin">PIN za prijavu izvana</h3>
@@ -1172,7 +1253,8 @@
         ponovnog pokretanja programa probu treba ponoviti. Iz lokalne mreže sklopka se samo
         isključuje, jer bi uključena s računala bez tunela PIN tražila i na javnom čvoru koji
         možda nema svog pošiljatelja. Isključiti se može uvijek. Uz sklopku je i dopuštena domena
-        adresa, zadano <code>voda.hr</code>.</li>
+        adresa, zadano <code>voda.hr</code>; adresu izvan nje potvrđuje globalni administrator kod
+        djelatnika (<a href="#users-potvrda-adrese">Adresa za PIN izvan domene</a>).</li>
     </ol>
     <p>Prije uključivanja napravite sebi rezervne kodove na profilu. Sklopka je zajednička
       postavka i stiže svim čvorovima. Čvor bez pošiljatelja tada ne šalje PIN nego traži
@@ -1274,8 +1356,8 @@
       napravite na čvoru na koji se prijavljujete izvana. Tuđim očima kodovi se ne mogu napraviti
       ni računala zaboraviti.</p>
     <p><strong>Bez e-pošte ili kad PIN ne stigne.</strong> PIN se ne šalje kad na profilu nema
-      adrese, kad adresa nije u dopuštenoj domeni (zadano <code>@voda.hr</code>), kad istu
-      adresu ima još netko ili kad slanje trenutno ne radi. Stranica tada kaže zašto i nudi upis
+      adrese, kad adresa nije u dopuštenoj domeni (zadano <code>@voda.hr</code>) a administrator je
+      nije potvrdio, kad istu adresu ima još netko ili kad slanje trenutno ne radi. Stranica tada kaže zašto i nudi upis
       koda. Najprije pogledajte mapu neželjene pošte i pričekajte minutu. Zatim upišite rezervni
       kod ili nazovite administratora za privremeni kod (<code>P-XXXX-XXXX</code>, 24 sata,
       jednom; vidi <a href="#users-kod-prijave">Privremeni kod za prijavu</a>). Iz lokalne
@@ -1285,7 +1367,10 @@
     <p><strong>Adresa e-pošte.</strong> Promjena vlastite adrese traži trenutnu lozinku i adresu
       u dopuštenoj domeni. Izvana se adresa ne može promijeniti: promijenite je iz lokalne mreže
       ili zamolite administratora. Dok početna lozinka nije zamijenjena, adresa se ne mijenja.
-      Kad je pošiljatelj PIN-a postavljen, na staru adresu stiže obavijest o promjeni.</p>
+      Kad je pošiljatelj PIN-a postavljen, na staru adresu stiže obavijest o promjeni. Službenu
+      adresu izvan dopuštene domene (npr. u tvrtki izvođača) upisuje i potvrđuje administrator;
+      tada na profilu piše tko ju je potvrdio. Promijenite li je sami, potvrda prestaje (vidi
+      <a href="#users-potvrda-adrese">Adresa za PIN izvan domene</a>).</p>
   </div>
   {{template "pomocPoglavljeNav" (list "Administracija" "#admin" "Pojmovnik" "#pojmovi")}}
 </section>

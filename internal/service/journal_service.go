@@ -45,7 +45,10 @@ func IsContractor(u *models.User) bool {
 
 // CanWrite: pravo pisanja u dosegu dnevnika (izvođač ga ima kroz svoju
 // dužnost). Doseg, ne područje: dnevnik sektorskog COP-a prima upis od
-// svakoga tko vodi sektor ili bilo koje područje u njemu.
+// svakoga tko vodi sektor ili bilo koje područje u njemu. Dnevnik se ne
+// vodi po dionici, pa u dnevnik područja (i COP-a koji ga obuhvaća) piše i
+// tko u tom području ima dužnost na dionicama: rukovoditelj dionice upisuje
+// dnevnike za svoje dionice, a u dnevnik tuđeg područja ne piše.
 func (s *JournalService) CanWrite(perms *models.UserPermissions, o models.Opseg) bool {
 	if perms == nil || o.Prazan() {
 		return false
@@ -57,7 +60,7 @@ func (s *JournalService) CanWrite(perms *models.UserPermissions, o models.Opseg)
 		return true
 	}
 	for _, id := range o.Podrucja {
-		if perms.AdminAreas[id] || perms.AllowedAreas[id] {
+		if perms.AdminAreas[id] || perms.AllowedAreas[id] || perms.RadiNaDionicamaU(id) {
 			return true
 		}
 	}

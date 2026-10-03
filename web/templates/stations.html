@@ -11,7 +11,7 @@
       Postaje se na dionice dodaju iz modula dionica — isti vodomjer mjerodavan je za više dionica.
     </p>
   </div>
-  <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+  <div class="d-flex gap-2 items-center flex-wrap">
     <div class="prikaz-preklopnik">
       <a href="{{.ListURL}}" class="btn btn-sm {{if ne .ViewMode "map"}}btn-primary{{else}}btn-secondary{{end}}">{{icon "list"}} Popis</a>
       <a href="{{.MapURL}}" class="btn btn-sm {{if eq .ViewMode "map"}}btn-primary{{else}}btn-secondary{{end}}">{{icon "map"}} Karta</a>
@@ -22,7 +22,7 @@
   </div>
 </div>
 
-<div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1.25rem;">
+<div class="d-flex gap-2 flex-wrap mb-5">
   <span class="stat-badge has-items">{{icon "ruler"}} {{.TotalStations}} postaja u registru</span>
   <span class="stat-badge has-items">{{icon "link"}} {{.SectionLinks}} veza s dionicama</span>
   <span class="stat-badge {{if gt .NeedsReview 0}}has-items{{end}}">{{icon "triangle-alert"}} {{.NeedsReview}} traži pregled</span>
@@ -45,7 +45,7 @@
       {{end}}
     </div>
 
-    <div class="filters-row" style="grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));">
+    <div class="filters-row stupci-14">
       <div class="filter-group">
         <label for="country-select" class="filter-label">{{icon "map"}} Država</label>
         <select id="country-select" name="country" class="filter-select" onchange="this.form.submit()">
@@ -76,29 +76,29 @@
 </div>
 
 {{if eq .ViewMode "map"}}
-<div class="karta-sve-postaje-sekcija" style="margin-bottom: 1.5rem;">
+<div class="karta-sve-postaje-sekcija mb-6">
   <div class="karta-sve-postaje"
        data-plocice="{{.Karta.Plocice}}"
        data-zasluge="{{.Karta.Zasluge}}"
        data-najvise-z="{{.Karta.NajviseZ}}">
-    <div class="karta-platno" style="min-height: 550px; height: 65vh; border-radius: 8px; border: 1px solid var(--border-color, #cbd5e1);"></div>
+    <div class="karta-platno"></div>
     {{if .AllRiversJSON}}<script type="application/json" class="karta-geometrija-podaci">{{.AllRiversJSON}}</script>{{end}}
     {{if .MapStationsJSON}}<script type="application/json" class="karta-postaje-podaci">{{.MapStationsJSON}}</script>{{end}}
     <p class="reg-card-sub karta-bez-mreze" hidden>{{icon "triangle-alert"}} Pločice karte
       nisu dostupne — program radi bez interneta, a za ovo područje još nisu preuzete.
       Prikaz toka rijeka, stacionaža i vodomjernih postaja ucrtan je i vidljiv.</p>
   </div>
-  <div class="karta-podnozje" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-top:0.6rem; font-size:0.85rem; color:#64748b;">
+  <div class="karta-podnozje">
     <div>
       {{icon "map-pin"}} <strong>{{.MapStationsCount}}</strong> postaja prikazano na karti
       {{if .SelectedRiver}} · vodotok: <strong>{{.SelectedRiver}}</strong>{{end}}
       {{if .SelectedCountry}} · država: <strong>{{.SelectedCountry}}</strong>{{end}}
       {{if .SearchQuery}} · pretraga: <strong>„{{.SearchQuery}}”</strong>{{end}}
     </div>
-    <div style="display:flex; gap:1rem; align-items:center; flex-wrap:wrap;">
-      <span><span style="display:inline-block; width:14px; height:4px; background:#0284c7; vertical-align:middle; margin-right:4px; border-radius:2px;"></span> Tok rijeke</span>
-      <span><span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#fff; border:2px solid #0369a1; vertical-align:middle; margin-right:4px;"></span> rkm točke</span>
-      <span><svg width="10" height="20" viewBox="0 0 18 44" style="vertical-align:middle; margin-right:4px; display:inline-block;"><path d="M3,2 L15,2 L15,36 L9,42 L3,36 Z" fill="#ffffff" stroke="#334155" stroke-width="2"/><rect x="3.6" y="2.6" width="10.8" height="8" fill="#dc2626"/><path d="M12.5,12 H9.5 M12.5,16 H9.5 M12.5,12 V16" stroke="#1e293b" stroke-width="2" fill="none"/><path d="M5.5,22 H8.5 M5.5,26 H8.5 M5.5,22 V26" stroke="#1e293b" stroke-width="2" fill="none"/></svg> Vodomjerna postaja</span>
+    <div class="karta-legenda">
+      <span><i class="legenda-rijeka"></i> Tok rijeke</span>
+      <span><i class="legenda-rkm"></i> rkm točke</span>
+      <span><svg width="10" height="20" viewBox="0 0 18 44" class="legenda-letva"><path d="M3,2 L15,2 L15,36 L9,42 L3,36 Z" fill="#ffffff" stroke="#334155" stroke-width="2"/><rect x="3.6" y="2.6" width="10.8" height="8" fill="#dc2626"/><path d="M12.5,12 H9.5 M12.5,16 H9.5 M12.5,12 V16" stroke="#1e293b" stroke-width="2" fill="none"/><path d="M5.5,22 H8.5 M5.5,26 H8.5 M5.5,22 V26" stroke="#1e293b" stroke-width="2" fill="none"/></svg> Vodomjerna postaja</span>
     </div>
   </div>
 </div>
@@ -151,7 +151,7 @@
     <strong>Vodotok</strong> je voda na kojoj vodomjer stoji. To nije isto što i vode za koje je postaja
     mjerodavna — Batina stoji na Dunavu, a mjerodavna je i za dionice potoka Karašice na ušću.
   </p>
-  <p style="margin:0;">
+  <p class="m-0">
     <strong>Kote nule</strong> preuzete iz dokumentacije su u visinskom sustavu Trst.
     Kota u sustavu HVRS71 tek se mjeri, upisuje se ručno i ne izvodi se preračunom iz stare.
   </p>

@@ -2,11 +2,14 @@ package service
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"html"
+	"log"
 	"net/mail"
 	"regexp"
 	"slices"
@@ -102,13 +105,93 @@ func (s *AktService) kljucPoste() []byte {
 	return posta.Kljuc(s.kljuc.Seed())
 }
 
-// RacunPoste vraća korisničko ime i vrijeme zadnje promjene lozinke; prazno kad lozinka nije upisana
+// RacunPoste vraća korisničko ime i vrijeme zadnje promjene lozinke; prazno
+// kad lozinka nije upisana ili više ne vrijedi (vazeciRacunPoste)
 func (s *AktService) RacunPoste(ctx context.Context, userID string) (string, time.Time) {
-	r, err := s.repo.GetRacunPoste(ctx, userID)
+	r, _, err := s.vazeciRacunPoste(ctx, userID)
 	if err != nil || r == nil {
 		return "", time.Time{}
 	}
 	return r.Korisnik, r.UpdatedAt
+}
+
+// otisakLozinkeRacuna je otisak sažetka lozinke računa u goCOP-u koji stoji
+// uz spremljenu lozinku sandučića: HMAC ključem izvedenim iz ključa čvora,
+// kao otisak lozinke kod zapamćenih računala. Sažetak se ne sprema dvaput,
+// a bez ključa čvora otisak se ne da ni izračunati ni podmetnuti.
+func (s *AktService) otisakLozinkeRacuna(sazetak string) []byte {
+	if len(s.kljuc) == 0 || sazetak == "" {
+		return nil
+	}
+	k := sha256.Sum256(append([]byte("goCOP otisak lozinke računa uz sandučić\x00"), s.kljuc.Seed()...))
+	m := hmac.New(sha256.New, k[:])
+	m.Write([]byte(sazetak))
+	return m.Sum(nil)[:16]
+}
+
+// vazeciRacunPoste čita spremljeni račun e-pošte i provjerava da je
+// lozinka računa ista kao kad je spremljen. Lozinku računa smiju postaviti i
+// drugi (poništenje, administrator u obrascu), a nova razmjenom stiže na sve
+// čvorove; tko je zna, ne smije njome otvoriti i tuđu poštu na poslužitelju
+// tvrtke. Kad se otisak ne slaže (i kod zapisa bez otiska), zapis se briše i
+// vraća se nil uz obrisan=true: osoba lozinku e-pošte upiše ponovno.
+func (s *AktService) vazeciRacunPoste(ctx context.Context, userID string) (r *repository.RacunPoste, obrisan bool, err error) {
+	r, err = s.repo.GetRacunPoste(ctx, userID)
+	if err != nil || r == nil {
+		return nil, false, err
+	}
+	ot := s.otisakLozinkeRacuna(r.SazetakLozinke)
+	if len(ot) > 0 && hmac.Equal(ot, r.OtisakLozinke) {
+		return r, false, nil
+	}
+	if _, err := s.repo.DeleteRacunPoste(ctx, userID); err != nil {
+		return nil, false, err
+	}
+	log.Printf("e-pošta: spremljena lozinka sandučića računa %s obrisana je jer se lozinka računa promijenila (ili poništila) otkad je upisana", userID)
+	return nil, true, nil
+}
+
+// ZaboraviSanducic briše spremljenu lozinku sandučića osobe s ovog čvora
+// kad joj je lozinku računa postavio netko drugi
+// (UserService.SetBrisanjeSanducica); javlja je li je bilo
+func (s *AktService) ZaboraviSanducic(ctx context.Context, userID string) (bool, error) {
+	if s == nil {
+		return false, nil
+	}
+	return s.repo.DeleteRacunPoste(ctx, userID)
+}
+
+// PopuniOtiskeSanducica daje otisak lozinke računa lozinkama sandučića
+// spremljenima prije nego što je otisak postojao. Zove se jednom pri
+// pokretanju čvora, prije prve uporabe: tada je trenutni sažetak lozinke
+// najbliži onome uz koji je lozinka e-pošte spremljena, a zapis kojem je
+// lozinka računa poslije mijenjana (knjiga verzija) briše se
+// (AktiRepository.PopuniOtiskeRacunaPoste). Zatim briše lozinke sandučića
+// kojima se lozinka računa u međuvremenu promijenila (i razmjenom s drugog
+// čvora), da ne čekaju u bazi i sigurnosnim kopijama prvu sljedeću uporabu.
+// Bez ključa čvora ne radi ništa.
+func (s *AktService) PopuniOtiskeSanducica(ctx context.Context) error {
+	if len(s.kljuc) == 0 {
+		return nil
+	}
+	popunjeno, obrisano, err := s.repo.PopuniOtiskeRacunaPoste(ctx, s.otisakLozinkeRacuna)
+	if popunjeno > 0 || obrisano > 0 {
+		log.Printf("e-pošta: otisak lozinke računa dodan je uz %d spremljenih lozinki sandučića; %d je obrisano jer se lozinka računa mijenjala otkad su upisane", popunjeno, obrisano)
+	}
+	if err != nil {
+		return err
+	}
+	ids, err := s.repo.KorisniciSRacunomPoste(ctx)
+	if err != nil {
+		return err
+	}
+	for _, id := range ids {
+		// vazeciRacunPoste briše zapis koji ne vrijedi i to zapiše u dnevnik
+		if _, _, err := s.vazeciRacunPoste(ctx, id); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // SpremiRacunPoste provjeri prijavu na poslužitelju i spremi lozinku
@@ -154,9 +237,18 @@ func (s *AktService) SpremiRacunPoste(ctx context.Context, u *models.User, koris
 		}
 		provjerena = err == nil
 	}
-	z, err := posta.Zakljucaj(k, lozinka)
+	// uz lozinku ide otisak trenutne lozinke računa (vazeciRacunPoste)
+	sazetak, err := s.repo.SazetakLozinkeRacuna(ctx, u.ID.String())
+	if err == nil && sazetak == "" {
+		err = ErrUserNotFound
+	}
+	var z []byte
 	if err == nil {
-		err = s.repo.SaveRacunPoste(ctx, &repository.RacunPoste{UserID: u.ID.String(), Korisnik: korisnik, Lozinka: z})
+		z, err = posta.Zakljucaj(k, lozinka)
+	}
+	if err == nil {
+		err = s.repo.SaveRacunPoste(ctx, &repository.RacunPoste{UserID: u.ID.String(), Korisnik: korisnik, Lozinka: z,
+			OtisakLozinke: s.otisakLozinkeRacuna(sazetak)})
 	}
 	if err != nil && provjerena {
 		return "", nakonPrijave{err}
@@ -169,7 +261,8 @@ func (s *AktService) SpremiRacunPoste(ctx context.Context, u *models.User, koris
 
 // ObrisiRacunPoste briše spremljenu lozinku s ovog čvora
 func (s *AktService) ObrisiRacunPoste(ctx context.Context, u *models.User) error {
-	return s.repo.DeleteRacunPoste(ctx, u.ID.String())
+	_, err := s.repo.DeleteRacunPoste(ctx, u.ID.String())
+	return err
 }
 
 // Adresat je jedna adresa primatelja "na znanje"
@@ -325,9 +418,15 @@ func (s *AktService) racunKorisnika(ctx context.Context, u *models.User) (posta.
 	if u == nil {
 		return posta.Racun{}, ErrUnauthorized
 	}
-	racun, err := s.repo.GetRacunPoste(ctx, u.ID.String())
+	if gledaTudjimOcima(ctx) {
+		return posta.Racun{}, fmt.Errorf("%w: tuđa lozinka e-pošte ne koristi se ni tuđim očima", ErrTudjimOcima)
+	}
+	racun, obrisan, err := s.vazeciRacunPoste(ctx, u.ID.String())
 	if err != nil {
 		return posta.Racun{}, err
+	}
+	if obrisan {
+		return posta.Racun{}, fmt.Errorf("%w: lozinka računa u goCOP-u promijenjena je ili poništena otkad je spremljena, pa ju je program obrisao", ErrNemaLozinkePoste)
 	}
 	if racun == nil {
 		return posta.Racun{}, ErrNemaLozinkePoste

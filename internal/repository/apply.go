@@ -614,8 +614,13 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		if err := json.Unmarshal(v.Payload, &p); err != nil {
 			return err
 		}
-		_, err := tx.ExecContext(ctx, opcaPostavkaUpsert, p.ID, p.Vrijednost, v.CreatedAt.UTC())
-		return err
+		if _, err := tx.ExecContext(ctx, opcaPostavkaUpsert, p.ID, p.Vrijednost, v.CreatedAt.UTC()); err != nil {
+			return err
+		}
+		if p.ID == PostavkaTema {
+			models.SetTema(models.CitajTemu(p.Vrijednost))
+		}
+		return nil
 
 	case EntitySlanja:
 		var x models.SlanjeAkta
@@ -746,11 +751,15 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		// nemaju ga, pa se u tom slučaju čuva onaj koji na ovom čvoru već
 		// stoji — inače bi sinkronizacija zaključala korisnika.
 		// Prijava: uzima se kasnija od dviju, jer je svaki čvor vidio svoje.
+		// Potvrda adrese za PIN ide s verzijom kakva jest: verzija bez nje
+		// (zapisana prije nego što je postojala ili s uklonjenom potvrdom)
+		// ostavlja račun bez potvrde.
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO users (id, username, password_hash, full_name, title, is_global_admin,
 				must_change_password, org_type, org_name, phone, mobile_phone, short_phone, short_mobile, email,
-				is_active, last_login_at, created_at, updated_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				is_active, last_login_at, created_at, updated_at,
+				pin_adresa_potvrdena, pin_adresa_potvrdio, pin_adresa_potvrdena_kad)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT(id) DO UPDATE SET
 				username = excluded.username,
 				password_hash = CASE WHEN excluded.password_hash = '' THEN users.password_hash
@@ -761,10 +770,13 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 				short_phone = excluded.short_phone, short_mobile = excluded.short_mobile, email = excluded.email, is_active = excluded.is_active,
 				last_login_at = MAX(COALESCE(excluded.last_login_at, users.last_login_at),
 				                    COALESCE(users.last_login_at, excluded.last_login_at)),
-				updated_at = excluded.updated_at
+				updated_at = excluded.updated_at,
+				pin_adresa_potvrdena = excluded.pin_adresa_potvrdena, pin_adresa_potvrdio = excluded.pin_adresa_potvrdio,
+				pin_adresa_potvrdena_kad = excluded.pin_adresa_potvrdena_kad
 		`, u.ID.String(), u.Username, u.PasswordHash, u.FullName, u.Title, boolToInt(u.IsGlobalAdmin),
 			boolToInt(u.MustChangePassword), string(u.OrgType), u.OrgName, u.Phone, u.MobilePhone, u.ShortPhone, u.ShortMobile, u.Email,
-			boolToInt(u.IsActive), nullTime(u.LastLoginAt), u.CreatedAt.UTC(), u.UpdatedAt.UTC())
+			boolToInt(u.IsActive), nullTime(u.LastLoginAt), u.CreatedAt.UTC(), u.UpdatedAt.UTC(),
+			u.PINAdresaPotvrdena, u.PINAdresuPotvrdio, nullTime(u.PINAdresaPotvrdenaKad))
 		return err
 
 	case EntityDuties:
@@ -1045,6 +1057,14 @@ func removeFromSurface(ctx context.Context, tx *sql.Tx, v ledger.Version) error 
 	case EntitySlanja:
 		stmt = `DELETE FROM akti_slanja WHERE id = ?`
 	case EntityPostavke:
+		if v.EntityID == PostavkaTema {
+			// bez zapisa vrijede zadane boje iz style.css
+			if _, err := tx.ExecContext(ctx, `DELETE FROM postavke WHERE id = ?`, v.EntityID); err != nil {
+				return err
+			}
+			models.SetTema(models.Tema{})
+			return nil
+		}
 		stmt = `DELETE FROM postavke WHERE id = ?`
 	case EntityPotpisi:
 		stmt = `DELETE FROM posta_potpisi WHERE user_id = ?`

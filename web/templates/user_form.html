@@ -34,7 +34,7 @@
     <div class="form-group">
       <label class="form-label" for="password">{{if .IsEdit}}Nova lozinka{{else}}Lozinka *{{end}}</label>
       <input type="password" id="password" name="password" class="form-control" {{if not .IsEdit}}required{{end}} autocomplete="new-password">
-      {{if .IsEdit}}<div class="form-help">Prazno znači da se lozinka ne mijenja. Nova lozinka na ovom čvoru zaboravlja zapamćena računala te osobe i briše njezine privremene kodove. Za zaboravljenu lozinku radije upotrijebite „Poništi lozinku”.</div>{{end}}
+      {{if .IsEdit}}<div class="form-help">Prazno znači da se lozinka ne mijenja. Nova lozinka gasi otvorene prijave te osobe, na ovom čvoru zaboravlja njezina zapamćena računala i briše privremene kodove, a uklanja i njezin osobni potpisni ključ (novi napravi na profilu). Osoba je pri prvoj prijavi mora zamijeniti svojom, a na ovom čvoru briše se i njezina spremljena lozinka e-pošte. Za zaboravljenu lozinku radije upotrijebite „Poništi lozinku”.</div>{{end}}
     </div>
     {{end}}
   </div>
@@ -89,8 +89,36 @@
 
   <div class="form-group">
     <label class="form-label" for="email">E-pošta</label>
-    <input type="email" id="email" name="email" class="form-control" value="{{.User.Email}}" placeholder="ime.prezime@voda.hr">
+    <input type="email" id="email" name="email" class="form-control" value="{{.User.Email}}" placeholder="ime.prezime@{{.DomenaPIN}}">
+    {{if .PotvrdaAdrese}}
+    <input type="hidden" name="pin_adresa_obrazac" value="1">
+    <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.9rem; min-height:40px; margin-top:0.25rem;">
+      <input type="checkbox" id="pin_adresa_potvrdena" name="pin_adresa_potvrdena" value="1" {{if .User.PotvrdaAdreseVrijedi}}checked data-potvrdena="{{.User.PINAdresaPotvrdena}}"{{end}}>
+      Adresa je provjerena: PIN smije ići na nju i izvan @{{.DomenaPIN}}
+    </label>
+    <div class="form-help" id="pin-adresa-pomoc">Treba samo za adresu izvan @{{.DomenaPIN}}, npr. djelatniku tvrtke izvođača: označite tek kad ste provjerili da adresa pripada toj osobi. Potvrda vrijedi samo za upisanu adresu; promijeni li se adresa, prestaje.{{if .User.PotvrdaAdreseVrijedi}} Potvrdio {{.User.PINAdresuPotvrdio}}{{with .AdresaPIN}}{{if .PotvrdenoTekst}}, {{.PotvrdenoTekst}}{{else}}.{{end}}{{else}}.{{end}}{{end}}</div>
+    {{else if .AdresaPIN}}{{if eq .AdresaPIN.Vrsta "nepotvrdena"}}
+    <div class="form-help">Adresa nije @{{.DomenaPIN}} i nije potvrđena, pa PIN za prijavu izvana na nju ne ide; potvrđuje je globalni administrator.</div>
+    {{end}}{{end}}
   </div>
+  {{if .PotvrdaAdrese}}
+  <script>
+  // promijenjena adresa nije ona koju je administrator potvrdio: okvir se
+  // odznači, a vrati li se adresa na potvrđenu, opet se označi (inače bi
+  // spremanje obrisalo potvrdu); okvir koji je administrator sam odznačio
+  // ostaje odznačen
+  (function () {
+    const email = document.getElementById('email'), okvir = document.getElementById('pin_adresa_potvrdena');
+    const potvrdena = (okvir.dataset.potvrdena || '').trim().toLowerCase();
+    if (!potvrdena) return;
+    let odznacio = false;
+    okvir.addEventListener('change', function () { odznacio = !okvir.checked; });
+    email.addEventListener('input', function () {
+      okvir.checked = !odznacio && email.value.trim().toLowerCase() === potvrdena;
+    });
+  })();
+  </script>
+  {{end}}
 
   {{if not .IsEdit}}
   <h3 style="font-size:0.95rem; margin:1.25rem 0 0.5rem;">Početna funkcija ili zaduženje</h3>
@@ -104,7 +132,7 @@
       {{range .Roles}}<option value="{{.Value}}" {{if eq .Value "OPERATOR"}}selected{{end}}>{{.Label}}</option>{{end}}
     </select>
   </div>
-  <div class="form-help" style="margin-bottom:0.5rem;">Doseg određuje uloga: uloga razine 1 vrijedi za cijelu organizaciju, uloga {{terml "sektor"}}a traži {{terml "sektor"}}, uloga {{terml "podrucje"}}a traži {{terml "podrucje"}}, uloga dionice traži dionice. Tko nije uprava organizacije, dodjeljuje samo uloge svoje razine ili niže, u svom dosegu.</div>
+  <div class="form-help mb-2">Doseg određuje uloga: uloga razine 1 vrijedi za cijelu organizaciju, uloga {{terml "sektor"}}a traži {{terml "sektor"}}, uloga {{terml "podrucje"}}a traži {{terml "podrucje"}}, uloga dionice traži dionice. Tko nije uprava organizacije, dodjeljuje samo uloge svoje razine ili niže, u svom dosegu.</div>
   <div class="form-row">
     <div class="form-group">
       <label class="form-label" for="sector_id">{{term "sektor"}}</label>
@@ -129,15 +157,15 @@
   {{end}}
 
   {{if .Permissions.IsGlobalAdmin}}
-  <div class="form-group" style="display:flex; flex-direction:column; gap:0.5rem; margin-top:0.5rem;">
+  <div class="form-group d-flex flex-col gap-2 mt-2">
     {{if .IsEdit}}
-    <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.9rem; min-height:40px;">
+    <label class="oznaka-kvacica">
       <input type="checkbox" name="is_active" value="1" {{if .User.IsActive}}checked{{end}} {{if .IsSelf}}disabled{{end}}>
       Smije se prijaviti
       {{if .IsSelf}}<input type="hidden" name="is_active" value="1">{{end}}
     </label>
     {{end}}
-    <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.9rem; min-height:40px;">
+    <label class="oznaka-kvacica">
       <input type="checkbox" name="is_global_admin" value="1" {{if .User.IsGlobalAdmin}}checked{{end}}>
       Globalni administrator
     </label>

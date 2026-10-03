@@ -79,7 +79,11 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	if err := userRepo.CreateUser(dionica, &models.Duty{Title: "Rukovoditelj dionice", Role: models.RoleSectionLeader, ScopeType: models.ScopeSection, SectorID: &b, AreaID: &bp, SectionCodes: "B.34.1"}); err != nil {
 		t.Fatal(err)
 	}
-	voditelj := &models.User{ID: uuid.New(), Username: "voditelj", FullName: "Voditelj COP-a", Email: "voditelj@voda.hr"}
+	voditelj := &models.User{ID: uuid.New(), Username: "voditelj", FullName: "Voditelj COP-a", Email: "voditelj@voda.hr", PasswordHash: "sazetak-lozinke-voditelja"}
+	// račun mora postojati: uz lozinku sandučića sprema se otisak lozinke računa
+	if err := userRepo.CreateUser(voditelj, nil); err != nil {
+		t.Fatal(err)
+	}
 	perms := &models.UserPermissions{AdminSectors: map[string]bool{"B": true}, AllowedSectors: map[string]bool{"B": true}, User: *voditelj}
 
 	templatesFS, _ := fs.Sub(webassets.Files, "templates")
@@ -520,9 +524,7 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 
 	// Svoju adresu (kamo ide PIN izvana) nitko ne mijenja iz adresara, ni
 	// administrator: polje se preskače uz poruku, ostali kontakti se upisuju
-	if err := userRepo.CreateUser(voditelj, nil); err != nil {
-		t.Fatal(err)
-	}
+	// (račun voditelja upisan je na početku, uz lozinku sandučića)
 	ja := voditelj.ID.String()
 	loc = post("/users/exchange", url.Values{"sektor": {"B"}, "p": {ja + "|email", ja + "|mobile_phone"},
 		"v_" + ja + "_email": {"napadac@voda.hr"}, "v_" + ja + "_mobile_phone": {"099 555 6666"}})

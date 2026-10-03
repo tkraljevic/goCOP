@@ -23,7 +23,7 @@
 {{template "obrana_nacin" .}}
 
 <form method="GET" action="/akti" class="obracun-filtar">
-  <label for="f-q">Traži</label><input type="text" id="f-q" name="q" class="form-control" value="{{.Filtar.Trazi}}" placeholder="vodomjer, dionica, osoba" style="max-width:14rem;">
+  <label for="f-q">Traži</label><input type="text" id="f-q" name="q" class="form-control max-w-14" value="{{.Filtar.Trazi}}" placeholder="vodomjer, dionica, osoba">
   <label for="f-sektor">{{term "sektor"}}</label>
   <select id="f-sektor" name="sektor" class="form-control"><option value="">svi</option>{{range .Sektori}}{{if ne .ID "DIREKCIJA"}}<option value="{{.ID}}"{{if eq .ID $.Filtar.Sektor}} selected{{end}}>{{.ID}}</option>{{end}}{{end}}</select>
   <label for="f-bp">BP</label>

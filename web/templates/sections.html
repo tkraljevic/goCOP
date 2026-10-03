@@ -108,8 +108,8 @@
   <div style="grid-column: 1 / -1; text-align: center; padding: 3rem; background: var(--surface); border: 1px solid var(--border); border-radius: 12px;">
     <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">{{icon "search"}} </div>
     <h3>Nije pronađena niti jedna dionica</h3>
-    <p style="color: var(--text-muted); font-size: 0.875rem;">Pokušajte promijeniti filtre ili upišite drugi pojam za pretragu.</p>
-    <a href="/sections" class="btn btn-secondary btn-sm" style="margin-top: 1rem;">Poništi sve filtre</a>
+    <p class="c-muted text-sm">Pokušajte promijeniti filtre ili upišite drugi pojam za pretragu.</p>
+    <a href="/sections" class="btn btn-secondary btn-sm mt-4">Poništi sve filtre</a>
   </div>
   {{end}}
 
@@ -155,7 +155,7 @@
     </div>
 
     <div class="section-card-actions">
-      <a href="/sections/{{.Code}}" class="btn btn-secondary btn-sm" style="flex: 1; justify-content:center;">
+      <a href="/sections/{{.Code}}" class="btn btn-secondary btn-sm flex-1 justify-center">
         {{icon "eye"}} Detalji dionice
       </a>
       {{if .CanEdit}}

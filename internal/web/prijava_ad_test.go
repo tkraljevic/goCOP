@@ -36,6 +36,13 @@ func TestPrijaveRacunaUDomeniZajednickeObrascima(t *testing.T) {
 	}
 	rec := ledger.New(baza, "test")
 	userRepo := repository.NewUserRepository(baza, rec)
+	// račun mora postojati i u ovoj bazi: uz lozinku sandučića sprema se
+	// otisak lozinke računa
+	kopija := *admin
+	kopija.Duties = nil
+	if err := userRepo.CreateUser(&kopija, nil); err != nil {
+		t.Fatal(err)
+	}
 	users := service.NewUserService(userRepo, service.NewAuthService(userRepo, repository.NewSessionRepository(baza)), service.NewSSEBroker())
 	sectionRepo := repository.NewSectionRepository(baza, rec)
 	stationRepo := repository.NewStationRepository(baza, rec)
@@ -118,6 +125,11 @@ func TestPrijaveRacunaUDomeniZajednickeObrascima(t *testing.T) {
 	// granicu osobe: najviše tri kriva upisa u 15 minuta, koliko god imena
 	ponovnaLozinka = newLoginLimiter()
 	sprej := o.racun("sprej", "spreja-lozinka", "sprej@voda.hr", false)
+	kopijaSpreja := *sprej
+	kopijaSpreja.Duties = nil
+	if err := userRepo.CreateUser(&kopijaSpreja, nil); err != nil {
+		t.Fatal(err)
+	}
 	odbijeno, svoja := 0, 0
 	for i := range 5 {
 		for _, x := range []url.Values{

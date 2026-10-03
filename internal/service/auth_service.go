@@ -59,7 +59,8 @@ type ZastitaPrijave interface {
 	// DopustenaAdresa javlja smije li osoba sama upisati tu adresu e-pošte
 	DopustenaAdresa(ctx context.Context, adresa string) error
 	// JaviPromjenuAdrese javlja na staru adresu da je promijenjena (najbolje
-	// što se može, traje do IstekSlanja; zove se iz pozadine)
+	// što se može, traje do IstekSlanja; zove se iz pozadine); u nosi
+	// potvrdu adrese kakva je bila prije promjene
 	JaviPromjenuAdrese(ctx context.Context, u *models.User, stara, nova string)
 }
 

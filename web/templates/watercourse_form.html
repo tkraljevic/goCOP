@@ -19,7 +19,7 @@
 </div>
 
 {{if and .IsEdit .Water.HasGeometry}}
-<div class="reg-card" style="padding:0.75rem 1rem; margin-bottom:1.5rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; background:var(--surface-sunken, #f8fafc);">
+<div class="reg-card traka-obrasca">
   <div>
     <strong>{{icon "map"}} Geometrija toka rijeke</strong>
     <p class="page-desc" style="margin:0.25rem 0 0 0; font-size:0.85rem;">Za grafičko premještanje, dodavanje i brisanje točaka pravaca toka rijeke koristite interaktivnu kartu.</p>
@@ -130,8 +130,8 @@
     <label class="form-label" for="letva-unos">Vodomjerne letve</label>
     <div class="form-help">Letve na ovoj vodi i letve s drugih voda koje su za nju mjerodavne — npr. Batina na Dunavu za baranjsku Karašicu, zbog uspora Dunava. Letva koja još nema vodu veže se na ovu; letva s druge vode ostaje na svojoj i ovdje se samo prikazuje.</div>
     <div style="display:flex; flex-wrap:wrap; gap:0.35rem; margin:0.5rem 0;" id="letve-cipovi"></div>
-    <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
-      <input type="text" class="form-control" id="letva-unos" list="sve-letve" placeholder="naziv letve iz registra" style="max-width:22rem;" autocomplete="off">
+    <div class="d-flex gap-2 flex-wrap items-center">
+      <input type="text" class="form-control max-w-22" id="letva-unos" list="sve-letve" placeholder="naziv letve iz registra" autocomplete="off">
       <button type="button" class="btn btn-sm btn-secondary" onclick="dodajLetvu()">{{icon "plus"}} Dodaj</button>
     </div>
     <datalist id="sve-letve">{{range .SveLetve}}<option value="{{.Name}}{{if .Watercourse}} · {{.Watercourse}}{{end}}">{{end}}</datalist>

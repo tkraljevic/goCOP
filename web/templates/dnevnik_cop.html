@@ -23,20 +23,20 @@
       {{if .Journal.NetkoDezura}}
         <span class="dezurni-sad" title="od {{.Journal.DezurniOd.Format "2.1.2006. 15:04"}}">{{icon "user"}} Dežura <strong>{{.Journal.DezurniIme}}</strong> od {{.Journal.DezurniOd.Format "15:04"}}</span>
         {{if or (eq .Journal.DezurniID .CurrentUser.ID.String) .UpravaCentra}}
-        <form method="POST" action="/dnevnici/{{.Journal.ID}}/dezurstvo/predaj" style="display:inline;"><button type="submit" class="btn btn-secondary">{{icon "log-out"}} Predajem dežurstvo</button></form>
+        <form method="POST" action="/dnevnici/{{.Journal.ID}}/dezurstvo/predaj" class="d-inline"><button type="submit" class="btn btn-secondary">{{icon "log-out"}} Predajem dežurstvo</button></form>
         {{end}}
         {{if and .MozeSebe (ne .Journal.DezurniID .CurrentUser.ID.String)}}
-        <form method="POST" action="/dnevnici/{{.Journal.ID}}/dezurstvo/preuzmi" style="display:inline;"
+        <form method="POST" action="/dnevnici/{{.Journal.ID}}/dezurstvo/preuzmi" class="d-inline"
           onsubmit="return confirm('{{.Journal.DezurniIme}} nije predao dežurstvo. Preuzimanjem se njegovo dežurstvo zaključuje sad. Nastaviti?');"><button type="submit" class="btn btn-primary">{{icon "user"}} Preuzimam dežurstvo</button></form>
         {{end}}
       {{else if .MozeSebe}}
-        <form method="POST" action="/dnevnici/{{.Journal.ID}}/dezurstvo/preuzmi" style="display:inline;"><button type="submit" class="btn btn-primary">{{icon "user"}} Preuzimam dežurstvo</button></form>
+        <form method="POST" action="/dnevnici/{{.Journal.ID}}/dezurstvo/preuzmi" class="d-inline"><button type="submit" class="btn btn-primary">{{icon "user"}} Preuzimam dežurstvo</button></form>
       {{end}}
     {{end}}
     <a href="/dnevnici/{{.Journal.ID}}/dnevnik.pdf" class="btn btn-secondary" title="Renderirani dnevnik za ispis i ovjeru">{{icon "file-text"}} PDF</a>
     <a href="/dnevnici/{{.Journal.ID}}/dnevnik.xlsx{{if .Podrucje}}?podrucje={{.Podrucje}}{{end}}" class="btn btn-secondary" title="Podaci dnevnika za analizu">{{icon "download"}} Excel</a>
     {{if and .CanManage (not .Journal.Ovjeren)}}<a href="/dnevnici/{{.Journal.ID}}/edit" class="btn btn-secondary">{{icon "pencil"}} Zaglavlje</a>{{end}}
-    {{if and .UpravaCentra (not .Journal.Ovjeren)}}<form method="POST" action="/dnevnici/{{.Journal.ID}}/obrisi" style="display:inline;"
+    {{if and .UpravaCentra (not .Journal.Ovjeren)}}<form method="POST" action="/dnevnici/{{.Journal.ID}}/obrisi" class="d-inline"
       onsubmit="return confirm('Obrisati dnevnik „{{.Journal.DisplayTitle}}“ sa svim zapisima i dežurstvima? U knjizi verzija ostaje arhiviran, ali s popisa nestaje.');"><button type="submit" class="btn btn-secondary" title="Obriši dnevnik">{{icon "trash"}}</button></form>{{end}}
     {{if .Dani}}<a href="#{{if .ImaDanas}}dan-{{.Today}}{{else}}kraj{{end}}" class="btn btn-secondary" title="{{if .ImaDanas}}Na današnje zapise{{else}}Na zadnji zapis{{end}}">{{icon "arrow-right"}} {{if .ImaDanas}}Danas{{else}}Na kraj{{end}}</a>{{end}}
     <a href="/dnevnici/{{.Journal.ID}}/dezurstva" class="btn btn-secondary">{{icon "users"}} Plan dežurstava{{if .Dezurstva}} <span class="reg-chip">{{len .Dezurstva}}</span>{{end}}</a>

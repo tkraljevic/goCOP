@@ -4,6 +4,70 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.27-alfa — 3. 10. 2026.
+
+**Ovlasti, oporavak administratora i novi izgled.** Nadograditi najprije čvor
+dostupan kroz tunel. Nakon nadogradnje dio djelatnika treba ponovno upisati
+lozinku e-pošte (vidi Sandučić), a pravo pisanja suženo je na doseg dužnosti
+(vidi Ovlasti).
+
+- **Adresa koju potvrdi administrator.** PIN za prijavu izvana ide i na adresu
+  izvan dopuštene domene (npr. djelatnika licencirane firme) kad je globalni
+  administrator na tuđem računu, ne tuđim očima, u uređivanju profila označi
+  *Adresa je provjerena*. Potvrda pamti tko ju je dao i kada, stiže na sve
+  čvorove i vrijedi samo za tu adresu; vlastita promjena adrese je briše.
+  Adresu koju ima još netko PIN ne dobiva ni potvrđenu.
+- **Oporavak lozinke s konzole.** `gocop -ponisti-lozinku ime` na računalu na
+  kojem čvor radi (na Unraidu kroz `docker exec`, vidi upute) postavlja
+  privremenu lozinku i ispiše je jednom; gasi prijave, zapamćena računala,
+  prijave na čekanju i privremene kodove, uklanja potpisni ključ i spremljenu
+  lozinku e-pošte. Prava računa ne mijenja; isključen račun uključuje tek
+  izričita zastavica `-aktiviraj`. Kroz web i razmjenu se ne može pokrenuti.
+- **Lozinka koju postavi netko drugi** (poništenje, lozinka upisana u obrascu
+  djelatnika, oporavak s konzole) uklanja osobni potpisni ključ, zaključan
+  starom lozinkom: dosad je obavezna promjena lozinke na njemu zapinjala.
+  Već potpisani dokumenti ostaju provjerljivi; novi ključ osoba napravi na
+  profilu. Lozinka iz obrasca sada se mora zamijeniti pri prvoj prijavi.
+- **Sandučić.** Spremljena lozinka e-pošte briše se uz poništenje i lozinku
+  od administratora, a na svim čvorovima prestaje vrijediti čim se promijeni
+  lozinka za goCOP (i vlastitom promjenom). Pri prvom pokretanju ovog
+  izdanja brišu se i lozinke e-pošte za koje se ne može potvrditi da su
+  spremljene uz sadašnju lozinku za goCOP; te treba upisati ponovno. Tko
+  poništi tuđu lozinku više ne čita tuđu poštu, a tuđim očima sandučić se
+  ne otvara.
+- **Ovlasti.**
+  - Pravo pisanja ide po dosegu dužnosti: dužnost sektora piše u sektoru,
+    dužnost područja u svom području, dužnost na dionicama na tim dionicama,
+    njihovim objektima i aktima te u dnevnicima svog područja i COP-a.
+    Dosad je dužnost područja ili dionice pisala po cijelom sektoru.
+  - Sektor dužnosti uvijek se uzima iz područja, a dionice moraju biti iz
+    tog područja; uprava ne dodjeljuje dužnost sama sebi.
+  - Račun bez aktivne dužnosti, isključen račun i globalnog administratora
+    zadužuje samo globalni administrator; uprava koja ne smije uređivati
+    cijeli račun dodaje samo ispomoć (bez primarnosti i vlastitog naziva).
+  - Lozinku i privremeni kod uprava daje samo osobama niže razine kojima
+    smije uređivati cijeli račun; osobama s dužnošću na njezinoj razini
+    uprave ili višoj daje ih viša razina ili globalni administrator.
+    Dužnost koja daje upravu na njezinoj razini privremena uprava dodjeljuje
+    najdulje do isteka vlastite uprave nad tim sektorom ili područjem, a
+    spremanje tuđe postojeće dužnosti joj ne skraćuje rok.
+  - Zastavicu globalnog administratora postavlja samo stalna uprava
+    organizacije, ne privremena.
+  - Tuđim očima tuđa spremljena lozinka e-pošte ne koristi se nigdje (ni
+    sandučić, ni adresar i njegova usporedba s imenikom, ni slanje akta).
+  - Adresa e-pošte koju već ima drugi aktivni račun odbija se svima;
+    korisničko ime koje postoji i drugim slovima se odbija.
+  - Uklanjanje potpisnog ključa traži lozinku; tuđim očima ključ se ne
+    pravi ni ne uklanja. Novi certifikati nose „Ime Prezime (korisničko)”.
+- **Izgled u bojama Hrvatskih voda.** Jedan jezik ploča u cijeloj aplikaciji,
+  sređena tamna tema i *Administracija › Tema*: glavna boja, naglasak i gumb
+  za svijetlu i tamnu temu, s pregledom i provjerom čitljivosti (ispod 3:1
+  tema se ne sprema). Tema putuje razmjenom. Karta u tamnoj temi, ikone koje
+  su nedostajale i čitljiviji sitni tekst.
+- **Uzdužni profil na mobitelu.** Crtež je visok za čitljive natpise i lista
+  se vodoravno od nizvodnog kraja; preko cijelog zaslona popuni vidljivi dio
+  zaslona (i na iPhoneu), a oblačić s vrijednostima radi i na dodir.
+
 ## 0.0.26-alfa — 3. 10. 2026.
 
 **PIN za prijavu izvana.** Nadograditi najprije čvor dostupan kroz tunel.

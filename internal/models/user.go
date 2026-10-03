@@ -1,6 +1,7 @@
 package models
 
 import (
+	"sort"
 	"strings"
 	"time"
 
@@ -128,8 +129,25 @@ type User struct {
 	CreatedAt          time.Time  `json:"created_at"`
 	UpdatedAt          time.Time  `json:"updated_at"`
 
+	// Adresa e-pošte koju je globalni administrator potvrdio, pa PIN za
+	// prijavu izvana smije ići na nju i izvan dopuštene domene (npr.
+	// djelatnik tvrtke izvođača), te tko ju je i kada potvrdio. Potvrda
+	// vrijedi samo dok je jednaka adresi računa (PotvrdaAdreseVrijedi):
+	// promjena adrese bez nove potvrde sama je poništi.
+	PINAdresaPotvrdena    string     `json:"pin_adresa_potvrdena,omitempty"`
+	PINAdresuPotvrdio     string     `json:"pin_adresa_potvrdio,omitempty"` // ime administratora
+	PINAdresaPotvrdenaKad *time.Time `json:"pin_adresa_potvrdena_kad,omitempty"`
+
 	// Sve aktivne funkcije i zaduženja osobe (i stalna i privremena ispomoć)
 	Duties []Duty `json:"duties,omitempty"`
+}
+
+// PotvrdaAdreseVrijedi javlja vrijedi li potvrda administratora za
+// trenutnu adresu: potvrđena adresa jednaka je adresi računa, bez obzira na
+// velika slova i razmake. Prazna adresa potvrde nema.
+func (u *User) PotvrdaAdreseVrijedi() bool {
+	a := strings.TrimSpace(u.Email)
+	return a != "" && strings.EqualFold(a, strings.TrimSpace(u.PINAdresaPotvrdena))
 }
 
 // AccountState je stanje računa za prikaz. Zastavica is_active govori samo
@@ -266,15 +284,71 @@ type Session struct {
 	CreatedAt time.Time  `json:"created_at"`
 }
 
-// UserPermissions sadrži zbirne ovlasti izvedene iz svih funkcija korisnika
+// UserPermissions sadrži zbirne ovlasti izvedene iz svih funkcija korisnika.
+//
+// Pravo pisanja ide po dosegu dužnosti: dužnost sektora piše u sektoru,
+// dužnost područja u području, dužnost dionica na tim dionicama. Dužnost
+// područja ili dionice nosi i sektor (normalizeScope ga upiše iz područja),
+// ali on joj ne daje pisanje po sektoru; zato SektoriDuznosti i
+// PodrucjaDuznosti stoje odvojeno, samo za prikaz i zadani izbor.
 type UserPermissions struct {
 	User            User
 	IsGlobalAdmin   bool
 	AdminSectors    map[string]bool // Sektori u kojima je korisnik administrator
 	AdminAreas      map[int]bool    // Područja u kojima je korisnik administrator
-	AllowedSectors  map[string]bool // Sektori s pravom pisanja
-	AllowedAreas    map[int]bool    // Branjena područja s pravom pisanja
+	AllowedSectors  map[string]bool // Sektori s pravom pisanja (dužnost s dosegom sektora)
+	AllowedAreas    map[int]bool    // Branjena područja s pravom pisanja (dužnost područja, ili terenska bez dionica)
 	AllowedSections map[string]bool // Pojedinačne dionice s pravom pisanja
+	// SektoriDuznosti i PodrucjaDuznosti su sektori i područja svih dužnosti
+	// s pravom upisa, bez obzira na doseg: koji sektor ili područje otvoriti,
+	// što pokazati. Pravo pisanja ne daju.
+	SektoriDuznosti  map[string]bool
+	PodrucjaDuznosti map[int]bool
+	// PodrucjaDionica su područja u kojima osoba ima dužnost na dionicama
+	// (rukovoditelj dionice, vodočuvar dionica). Dnevnik se vodi po
+	// području, a ne po dionici, pa tamo piše u dnevnike i upisuje na
+	// objekte koji nisu ni uz jednu dionicu; uz objekte drugog područja
+	// koji stoje na njezinim dionicama ne piše (RadiNaDionicamaU).
+	PodrucjaDionica map[int]bool
+}
+
+// RadiNaDionicamaU javlja ima li osoba dužnost na dionicama u području
+func (p *UserPermissions) RadiNaDionicamaU(areaID int) bool {
+	return p != nil && areaID > 0 && p.PodrucjaDionica[areaID]
+}
+
+// RadiUSektoru javlja ima li osoba u sektoru ijednu dužnost s pravom upisa,
+// bilo kojeg dosega; za prikaz i izbor, ne za pravo pisanja
+func (p *UserPermissions) RadiUSektoru(sektor string) bool {
+	return p != nil && sektor != "" && (p.AllowedSectors[sektor] || p.SektoriDuznosti[sektor])
+}
+
+// RadiUPodrucju javlja ima li osoba u području ijednu dužnost s pravom
+// upisa, bilo kojeg dosega; za prikaz i izbor, ne za pravo pisanja
+func (p *UserPermissions) RadiUPodrucju(areaID int) bool {
+	return p != nil && areaID > 0 && (p.AllowedAreas[areaID] || p.PodrucjaDuznosti[areaID])
+}
+
+// SektoriRada su sektori u kojima osoba radi (RadiUSektoru), poredani
+func (p *UserPermissions) SektoriRada() []string {
+	if p == nil {
+		return nil
+	}
+	skup := map[string]bool{}
+	for s := range p.AllowedSectors {
+		skup[s] = true
+	}
+	for s := range p.SektoriDuznosti {
+		skup[s] = true
+	}
+	out := make([]string, 0, len(skup))
+	for s := range skup {
+		if s != "" {
+			out = append(out, s)
+		}
+	}
+	sort.Strings(out)
+	return out
 }
 
 // VodiSkladista javlja je li osoba skladištar za to branjeno područje (ili
@@ -307,13 +381,16 @@ func (p *UserPermissions) VodiSkladista(sektor string, areaID int) bool {
 // NewUserPermissions izračunava ukupne ovlasti korisnika iz svih njegovih funkcija
 func NewUserPermissions(u User) *UserPermissions {
 	p := &UserPermissions{
-		User:            u,
-		IsGlobalAdmin:   u.IsGlobalAdmin,
-		AdminSectors:    make(map[string]bool),
-		AdminAreas:      make(map[int]bool),
-		AllowedSectors:  make(map[string]bool),
-		AllowedAreas:    make(map[int]bool),
-		AllowedSections: make(map[string]bool),
+		User:             u,
+		IsGlobalAdmin:    u.IsGlobalAdmin,
+		AdminSectors:     make(map[string]bool),
+		AdminAreas:       make(map[int]bool),
+		AllowedSectors:   make(map[string]bool),
+		AllowedAreas:     make(map[int]bool),
+		AllowedSections:  make(map[string]bool),
+		SektoriDuznosti:  make(map[string]bool),
+		PodrucjaDuznosti: make(map[int]bool),
+		PodrucjaDionica:  make(map[int]bool),
 	}
 
 	for _, d := range u.Duties {
@@ -324,21 +401,15 @@ func NewUserPermissions(u User) *UserPermissions {
 			continue
 		}
 
-		// Provjera admin prava
-		if d.Role == RoleGlobalAdmin || d.Role == RoleNationalLeader || d.Role == RoleNationalDeputy ||
-			d.Role == RoleMainCenterLeader || d.Role == RoleMainCenterDeputy {
+		// Uprava: organizacije, sektora (razina 2) i područja (razina 3)
+		switch d.Role.RazinaUprave() {
+		case 1:
 			p.IsGlobalAdmin = true
-		}
-		// Uprava sektora (razina 2) i uprava područja (razina 3). Voditelj
-		// usluga izvođača je vanjska osoba: piše, ali ne upravlja računima.
-		if d.Role == RoleCopLeader || d.Role == RoleCopDeputy || d.Role == RoleAreaAdmin || d.Role == RoleSectorMainDeputy || d.Role == RoleSectorLeader || d.Role == RoleSectorDeputy {
+		case 2:
 			if d.SectorID != nil {
 				p.AdminSectors[*d.SectorID] = true
 			}
-		}
-		if d.Role == RoleSectorAreaDeputy || d.Role == RoleAreaLeader || d.Role == RoleAreaDeputy ||
-			d.Role == RoleContractOfficerA2 || d.Role == RoleContractOfficerA3 ||
-			d.Role == RoleContractDeputyA2 || d.Role == RoleContractDeputyA3 {
+		case 3:
 			if d.AreaID != nil {
 				p.AdminAreas[*d.AreaID] = true
 			}
@@ -349,24 +420,57 @@ func NewUserPermissions(u User) *UserPermissions {
 		if !d.Role.Writes() {
 			continue
 		}
-		if d.SectorID != nil && *d.SectorID != "" {
-			p.AllowedSectors[*d.SectorID] = true
+		sektor := d.SectorID != nil && *d.SectorID != ""
+		podrucje := d.AreaID != nil && *d.AreaID > 0
+		if sektor {
+			p.SektoriDuznosti[*d.SectorID] = true
 		}
-		if d.AreaID != nil && *d.AreaID > 0 {
-			p.AllowedAreas[*d.AreaID] = true
+		if podrucje {
+			p.PodrucjaDuznosti[*d.AreaID] = true
 		}
-		if d.SectionCodes != "" {
-			parts := strings.Split(d.SectionCodes, ",")
-			for _, part := range parts {
-				code := strings.TrimSpace(part)
-				if code != "" {
-					p.AllowedSections[code] = true
-				}
+		dionice := false
+		for _, part := range strings.Split(d.SectionCodes, ",") {
+			if code := strings.TrimSpace(part); code != "" {
+				// dionice dužnosti su uvijek u njezinu području (normalizeScope)
+				p.AllowedSections[code] = true
+				dionice = true
+			}
+		}
+		if dionice && podrucje {
+			p.PodrucjaDionica[*d.AreaID] = true
+		}
+		// Dužnost područja ili dionice nosi i sektor, ali piše samo u svom
+		// dosegu: rukovoditelj dionice B.16.1 ne piše po cijelom sektoru B
+		switch d.Doseg() {
+		case ScopeSector, ScopeAll:
+			if sektor {
+				p.AllowedSectors[*d.SectorID] = true
+			}
+			if podrucje {
+				p.AllowedAreas[*d.AreaID] = true
+			}
+		case ScopeArea:
+			if podrucje {
+				p.AllowedAreas[*d.AreaID] = true
+			}
+		case ScopeSection:
+			// terenska dužnost bez dionica pokriva cijelo područje
+			if !dionice && podrucje {
+				p.AllowedAreas[*d.AreaID] = true
 			}
 		}
 	}
 
 	return p
+}
+
+// Doseg je prostorni doseg dužnosti: upisani, a kad ga nema, onaj koji
+// određuje uloga
+func (d Duty) Doseg() ScopeType {
+	if d.ScopeType != "" {
+		return d.ScopeType
+	}
+	return d.Role.NaturalScope()
 }
 
 // HasWriteAccess provjerava ima li korisnik pravo unosa za zadani sektor, područje ili dionicu

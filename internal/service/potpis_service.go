@@ -133,7 +133,8 @@ func (s *PotpisService) Novi(ctx context.Context, u *models.User, lozinka string
 		return nil, err
 	}
 	cijeli, _ := s.users.GetUserByID(u.ID)
-	o := potpis.Osoba{UserID: u.ID.String(), Ime: cijeli.FullName}
+	// uz puno ime, koje osoba sama upisuje, korisničko ime računa
+	o := potpis.Osoba{UserID: u.ID.String(), Ime: cijeli.FullName, KorisnickoIme: cijeli.Username}
 	if d := najvisaDuznost(cijeli); d != nil {
 		o.Funkcija = d.Title
 		if d.SectorID != nil {
@@ -144,17 +145,39 @@ func (s *PotpisService) Novi(ctx context.Context, u *models.User, lozinka string
 	if err != nil {
 		return nil, err
 	}
-	k := &models.PotpisniKljuc{UserID: u.ID.String(), Ime: cijeli.FullName, Cert: z.Cert, Kljuc: z.Kljuc, Sol: z.Sol, Izdao: s.cvor}
+	k := &models.PotpisniKljuc{UserID: u.ID.String(), Ime: potpis.ImeUCertifikatu(cijeli.FullName, cijeli.Username), Cert: z.Cert, Kljuc: z.Kljuc, Sol: z.Sol, Izdao: s.cvor}
 	return k, s.repo.SaveKljuc(ctx, k)
 }
 
-// Obrisi uklanja ključ osobe; već dani potpisi ostaju provjerljivi jer
-// certifikat stoji u svakom potpisanom PDF-u
-func (s *PotpisService) Obrisi(ctx context.Context, u *models.User) error {
-	if u == nil {
+// Obrisi uklanja ključ osobe uz lozinku računa, kao i izrada: bez ključa
+// predaja i ovjera lista više ne traže lozinku, pa ga ne smije ukloniti
+// onaj tko drži samo otvorenu prijavu. Već dani potpisi ostaju provjerljivi
+// jer certifikat stoji u svakom potpisanom PDF-u.
+func (s *PotpisService) Obrisi(ctx context.Context, u *models.User, lozinka string) error {
+	if s == nil || u == nil {
 		return ErrUnauthorized
 	}
+	if err := s.provjeriLozinku(u, lozinka); err != nil {
+		return err
+	}
 	return s.repo.DeleteKljuc(ctx, u.ID.String())
+}
+
+// UkloniKljuc uklanja ključ osobe kojoj je lozinku postavio netko drugi
+// (UserService.SetUklanjanjeKljuca); bez ključa ne radi ništa
+func (s *PotpisService) UkloniKljuc(ctx context.Context, userID string) error {
+	if s == nil {
+		return nil
+	}
+	k := s.Zapis(ctx, userID)
+	if k == nil {
+		return nil
+	}
+	if err := s.repo.DeleteKljuc(ctx, userID); err != nil {
+		return err
+	}
+	log.Printf("potpis: osobni potpisni ključ (%s) uklonjen je uz lozinku koju je postavio drugi", k.Ime)
+	return nil
 }
 
 // Potpisnik otključava ključ osobe lozinkom; ErrLozinka kad ne odgovara
@@ -190,7 +213,7 @@ func (s *PotpisService) Simulirani(ctx context.Context, u *models.User) (*potpis
 	if err != nil || cijeli == nil {
 		return nil, ErrUnauthorized
 	}
-	o := potpis.Osoba{UserID: u.ID.String(), Ime: cijeli.FullName}
+	o := potpis.Osoba{UserID: u.ID.String(), Ime: cijeli.FullName, KorisnickoIme: cijeli.Username}
 	if d := najvisaDuznost(cijeli); d != nil {
 		o.Funkcija = d.Title
 		if d.SectorID != nil {

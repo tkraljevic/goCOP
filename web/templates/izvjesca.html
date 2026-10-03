@@ -22,7 +22,7 @@
   <div class="sektorsko-ploca-glava">
     <h2>{{icon "file-text"}} Izvješće sektora</h2>
     {{if .Sektori}}
-    <form method="GET" action="/sektorsko-izvjesce/novo" class="obracun-filtar" style="margin:0;">
+    <form method="GET" action="/sektorsko-izvjesce/novo" class="obracun-filtar m-0">
       {{if gt (len .Sektori) 1}}<select name="sektor" class="form-control">{{range .Sektori}}<option value="{{.}}">Sektor {{.}}</option>{{end}}</select>{{else}}<input type="hidden" name="sektor" value="{{index .Sektori 0}}">{{end}}
       <input type="date" name="dan" class="form-control" value="{{if .Dan}}{{.Dan}}{{else}}{{.Danas}}{{end}}" max="{{.Danas}}">
       <button type="submit" class="btn btn-primary">{{icon "plus"}} Sastavi za dan</button>
@@ -57,7 +57,7 @@
   <label for="f-dan">Dan</label>
   <input type="date" id="f-dan" name="dan" class="form-control" value="{{.Dan}}">
   <label for="f-dionica">Dionica</label>
-  <input type="text" id="f-dionica" name="dionica" class="form-control" value="{{.Sifra}}" placeholder="npr. B.16.3" style="max-width:9rem;">
+  <input type="text" id="f-dionica" name="dionica" class="form-control max-w-9" value="{{.Sifra}}" placeholder="npr. B.16.3">
   <button type="submit" class="btn btn-secondary">{{icon "search"}} Prikaži</button>
 </form>
 

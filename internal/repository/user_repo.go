@@ -39,7 +39,8 @@ type rowQuerier interface {
 // sva čitanja: stupac dodan tablici ne može promaknuti jednom od njih.
 const userColumns = `id, username, password_hash, full_name, title, is_global_admin,
 	must_change_password, org_type, org_name, phone, mobile_phone, short_phone, short_mobile, email,
-	is_active, last_login_at, created_at, updated_at`
+	is_active, last_login_at, created_at, updated_at,
+	pin_adresa_potvrdena, pin_adresa_potvrdio, pin_adresa_potvrdena_kad`
 
 // userColumnsOf vraća isti popis s prefiksom tablice, za upite sa spajanjem
 func userColumnsOf(prefix string) string {
@@ -60,12 +61,13 @@ func scanUser(row rowScanner) (models.User, error) {
 	var idStr, orgType string
 	var title, orgName, phone, mobile, short, shortMobile, email sql.NullString
 	var isAdmin, mustChange, isActive int
-	var lastLogin sql.NullTime
+	var lastLogin, potvrdeno sql.NullTime
 
 	err := row.Scan(
 		&idStr, &u.Username, &u.PasswordHash, &u.FullName, &title, &isAdmin,
 		&mustChange, &orgType, &orgName, &phone, &mobile, &short, &shortMobile, &email,
-		&isActive, &lastLogin, &u.CreatedAt, &u.UpdatedAt)
+		&isActive, &lastLogin, &u.CreatedAt, &u.UpdatedAt,
+		&u.PINAdresaPotvrdena, &u.PINAdresuPotvrdio, &potvrdeno)
 	if err != nil {
 		return u, err
 	}
@@ -78,6 +80,10 @@ func scanUser(row rowScanner) (models.User, error) {
 	if lastLogin.Valid {
 		t := lastLogin.Time.UTC()
 		u.LastLoginAt = &t
+	}
+	if potvrdeno.Valid {
+		t := potvrdeno.Time.UTC()
+		u.PINAdresaPotvrdenaKad = &t
 	}
 	return u, nil
 }
@@ -243,8 +249,8 @@ func (r *UserRepository) PodrucjeDuznosti(ctx context.Context, userID string) in
 
 // StanjeBezEposte je filtar popisa djelatnika uz stanja računa: aktivni
 // računi kojima PIN za prijavu izvana nema kamo ići — bez adrese e-pošte,
-// s adresom izvan dopuštene domene (ListUsersDomena) ili s adresom koju
-// ima još jedan aktivni račun
+// s adresom izvan dopuštene domene koju administrator nije potvrdio
+// (ListUsersDomena) ili s adresom koju ima još jedan aktivni račun
 const StanjeBezEposte models.AccountState = "BEZ_EPOSTE"
 
 // ListUsers vraća korisnike, opcionalno filtrirane po sektoru, području,
@@ -295,11 +301,12 @@ func (r *UserRepository) ListUsersDomena(sectorID string, areaID int, role, sear
 	case models.AccountActive:
 		query += " AND u.is_active = 1 AND u.last_login_at IS NOT NULL"
 	case StanjeBezEposte:
-		// isti uvjeti kao DrugiKorak.adresaZaPIN: prazna, tuđa domena,
-		// zajednička s drugim aktivnim računom
+		// isti uvjeti kao DrugiKorak.adresaZaPIN: prazna, tuđa domena bez
+		// potvrde administratora, zajednička s drugim aktivnim računom
 		query += ` AND u.is_active = 1 AND (
 			TRIM(COALESCE(u.email, '')) = ''
-			OR (? <> '' AND substr(lower(trim(u.email)), -(length(?) + 1)) <> '@' || ?)
+			OR (? <> '' AND substr(lower(trim(u.email)), -(length(?) + 1)) <> '@' || ?
+				AND lower(trim(u.pin_adresa_potvrdena)) <> lower(trim(u.email)))
 			OR EXISTS (SELECT 1 FROM users o WHERE o.id <> u.id AND o.is_active = 1
 				AND lower(trim(o.email)) = lower(trim(u.email))))`
 		dom := strings.ToLower(strings.TrimSpace(domena))
@@ -407,12 +414,14 @@ func (r *UserRepository) CreateUser(u *models.User, initialDuty *models.Duty) er
 		INSERT INTO users (
 			id, username, password_hash, full_name, title, is_global_admin,
 			must_change_password, org_type, org_name, phone, mobile_phone, short_phone, short_mobile, email,
-			is_active, created_at, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			is_active, created_at, updated_at,
+			pin_adresa_potvrdena, pin_adresa_potvrdio, pin_adresa_potvrdena_kad
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`,
 		u.ID.String(), u.Username, u.PasswordHash, u.FullName, u.Title, isAdminInt,
 		mustChangeInt, string(u.OrgType), u.OrgName, u.Phone, u.MobilePhone, u.ShortPhone, u.ShortMobile, u.Email,
 		isActiveInt, u.CreatedAt, u.UpdatedAt,
+		u.PINAdresaPotvrdena, u.PINAdresuPotvrdio, nullTime(u.PINAdresaPotvrdenaKad),
 	)
 	if err != nil {
 		return fmt.Errorf("greška pri unosu korisnika: %w", err)
@@ -430,11 +439,11 @@ func (r *UserRepository) CreateUser(u *models.User, initialDuty *models.Duty) er
 			INSERT INTO duties (
 				id, user_id, title, role, scope_type, sector_id, area_id, section_codes,
 				is_primary, is_temporary, reason, assigned_by, created_at, expires_at, is_active
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?, ?, ?, ?, 1)
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, 1)
 		`,
 			initialDuty.ID.String(), initialDuty.UserID.String(), initialDuty.Title,
 			string(initialDuty.Role), string(initialDuty.ScopeType), initialDuty.SectorID,
-			initialDuty.AreaID, initialDuty.SectionCodes, initialDuty.Reason,
+			initialDuty.AreaID, initialDuty.SectionCodes, initialDuty.IsTemporary, initialDuty.Reason,
 			initialDuty.AssignedBy, initialDuty.CreatedAt, nullTime(initialDuty.ExpiresAt),
 		)
 		if err != nil {
@@ -468,6 +477,12 @@ func (r *UserRepository) UpdateUser(u *models.User) error {
 	if u.IsGlobalAdmin {
 		isAdminInt = 1
 	}
+	// Oznaka obavezne promjene ide sa zapisom: lozinku tuđeg računa
+	// postavljenu u obrascu osoba mora zamijeniti, kao i poništenu
+	mustChangeInt := 0
+	if u.MustChangePassword {
+		mustChangeInt = 1
+	}
 
 	tx, err := r.db.Begin()
 	if err != nil {
@@ -483,26 +498,34 @@ func (r *UserRepository) UpdateUser(u *models.User) error {
 			UPDATE users SET
 				username = ?, password_hash = ?, full_name = ?, title = ?,
 				is_global_admin = ?, org_type = ?, org_name = ?, phone = ?,
-				mobile_phone = ?, short_phone = ?, short_mobile = ?, email = ?, is_active = ?, updated_at = ?
+				mobile_phone = ?, short_phone = ?, short_mobile = ?, email = ?, is_active = ?, updated_at = ?,
+				pin_adresa_potvrdena = ?, pin_adresa_potvrdio = ?, pin_adresa_potvrdena_kad = ?,
+				must_change_password = ?
 			WHERE id = ?
 		`
 		args = []any{
 			u.Username, u.PasswordHash, u.FullName, u.Title,
 			isAdminInt, string(u.OrgType), u.OrgName, u.Phone,
-			u.MobilePhone, u.ShortPhone, u.ShortMobile, u.Email, isActiveInt, u.UpdatedAt, u.ID.String(),
+			u.MobilePhone, u.ShortPhone, u.ShortMobile, u.Email, isActiveInt, u.UpdatedAt,
+			u.PINAdresaPotvrdena, u.PINAdresuPotvrdio, nullTime(u.PINAdresaPotvrdenaKad),
+			mustChangeInt, u.ID.String(),
 		}
 	} else {
 		query = `
 			UPDATE users SET
 				username = ?, full_name = ?, title = ?,
 				is_global_admin = ?, org_type = ?, org_name = ?, phone = ?,
-				mobile_phone = ?, short_phone = ?, short_mobile = ?, email = ?, is_active = ?, updated_at = ?
+				mobile_phone = ?, short_phone = ?, short_mobile = ?, email = ?, is_active = ?, updated_at = ?,
+				pin_adresa_potvrdena = ?, pin_adresa_potvrdio = ?, pin_adresa_potvrdena_kad = ?,
+				must_change_password = ?
 			WHERE id = ?
 		`
 		args = []any{
 			u.Username, u.FullName, u.Title,
 			isAdminInt, string(u.OrgType), u.OrgName, u.Phone,
-			u.MobilePhone, u.ShortPhone, u.ShortMobile, u.Email, isActiveInt, u.UpdatedAt, u.ID.String(),
+			u.MobilePhone, u.ShortPhone, u.ShortMobile, u.Email, isActiveInt, u.UpdatedAt,
+			u.PINAdresaPotvrdena, u.PINAdresuPotvrdio, nullTime(u.PINAdresaPotvrdenaKad),
+			mustChangeInt, u.ID.String(),
 		}
 	}
 

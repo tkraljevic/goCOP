@@ -90,13 +90,29 @@ func (s *ReadingService) CanRecordStation(perms *models.UserPermissions, st *mod
 	return false
 }
 
-// CanRecordStructure javlja smije li korisnik upisati očitanje na objekt
+// CanRecordStructure javlja smije li korisnik upisati očitanje na objekt:
+// tko piše u sektoru ili području objekta, ili na dionici uz koju objekt
+// stoji, kad je objekt iz područja te dionice. Objekt koji nije vezan ni na
+// jednu dionicu pripada području, pa na njemu upisuje i tko u tom području
+// ima dužnost na dionicama. Objekt drugog područja koji stoji i na dionici
+// (CS Budžak područja 16 na B.34.1) vodi njegovo područje.
 func (s *ReadingService) CanRecordStructure(perms *models.UserPermissions, st *models.Structure) bool {
 	if perms == nil || st == nil {
 		return false
 	}
-	return perms.IsGlobalAdmin || perms.AdminSectors[st.SectorID] || perms.AdminAreas[st.AreaID] ||
-		perms.AllowedSectors[st.SectorID] || perms.AllowedAreas[st.AreaID]
+	if perms.IsGlobalAdmin || perms.AdminSectors[st.SectorID] || perms.AdminAreas[st.AreaID] ||
+		perms.AllowedSectors[st.SectorID] || perms.AllowedAreas[st.AreaID] {
+		return true
+	}
+	if !perms.RadiNaDionicamaU(st.AreaID) {
+		return false
+	}
+	for _, code := range st.SectionCodes {
+		if perms.AllowedSections[code] {
+			return true
+		}
+	}
+	return len(st.SectionCodes) == 0
 }
 
 // CanEdit javlja smije li korisnik mijenjati ili brisati postojeće očitanje:
@@ -373,16 +389,10 @@ func (s *ReadingService) FieldOverview(ctx context.Context, perms *models.UserPe
 	if perms != nil && perms.IsGlobalAdmin {
 		fo.Areas = allAreas
 	} else if perms != nil {
-		seen := map[int]bool{}
-		for id := range perms.AllowedAreas {
-			seen[id] = true
-		}
-		for id := range perms.AdminAreas {
-			seen[id] = true
-		}
-		// Izbor područja: svoja područja s dužnosti; tko vodi sektor, sva područja sektora
+		// Izbor područja: svoja područja s dužnosti (i dužnosti na
+		// dionicama); tko vodi sektor, sva područja sektora
 		for _, a := range allAreas {
-			if seen[a.ID] || perms.AdminSectors[a.SectorID] {
+			if perms.RadiUPodrucju(a.ID) || perms.AdminAreas[a.ID] || perms.AdminSectors[a.SectorID] {
 				fo.Areas = append(fo.Areas, a)
 			}
 		}

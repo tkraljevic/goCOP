@@ -60,7 +60,7 @@ var razloziSlanja = []struct {
 	dodatak  string // što osoba može učiniti
 }{
 	{"adresa", service.ErrNemaAdrese, false, "Upišite je na profilu iz ureda ili zamolite administratora"},
-	{"domena", service.ErrAdresaNijeDopustena, false, "Ispravite je na profilu iz ureda ili zamolite administratora"},
+	{"domena", service.ErrAdresaNijeDopustena, false, "Službenu adresu upišite na profilu iz ureda; ako vam je službena adresa izvan domene (npr. u tvrtki izvođača), zamolite administratora da je potvrdi"},
 	{"zajednicka", service.ErrZajednickaAdresa, false, "Zamolite administratora da to ispravi"},
 	{"posiljatelj", service.ErrNemaPosiljatelja, false, ""},
 	{"neispravan", service.ErrPosiljateljNeispravan, false, ""},

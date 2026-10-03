@@ -294,11 +294,15 @@ func InitSchema(database *sql.DB) error {
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_akti_slanja_akt ON akti_slanja(akt_id);`,
 		// Račun e-pošte korisnika za slanje akata: samo na ovom čvoru, lozinka
-		// šifrirana ključem izvedenim iz ključa čvora; ne ide u knjigu verzija
+		// šifrirana ključem izvedenim iz ključa čvora; ne ide u knjigu verzija.
+		// Uz nju stoji otisak lozinke računa u goCOP-u (HMAC ključem čvora):
+		// kad se lozinka računa promijeni, i poništenjem na drugom čvoru,
+		// spremljena lozinka e-pošte više ne vrijedi
 		`CREATE TABLE IF NOT EXISTS posta_racuni (
 			user_id TEXT PRIMARY KEY,
 			korisnik TEXT NOT NULL,
 			lozinka BLOB NOT NULL,
+			otisak_lozinke BLOB,
 			updated_at DATETIME NOT NULL
 		);`,
 		// Račun za telemetriju na Geolux HydroViewu (hdv.voda.hr). Ključ je
@@ -565,7 +569,10 @@ func InitSchema(database *sql.DB) error {
 			is_active INTEGER NOT NULL DEFAULT 1,
 			last_login_at DATETIME,
 			created_at DATETIME NOT NULL,
-			updated_at DATETIME NOT NULL
+			updated_at DATETIME NOT NULL,
+			pin_adresa_potvrdena TEXT NOT NULL DEFAULT '',
+			pin_adresa_potvrdio TEXT NOT NULL DEFAULT '',
+			pin_adresa_potvrdena_kad DATETIME
 		);`,
 
 		`CREATE TABLE IF NOT EXISTS duties (
@@ -1519,6 +1526,16 @@ func migrateSchema(database *sql.DB) error {
 		// Zašto PIN prijave na čekanju nije poslan (oznaka), da stranica s
 		// upisom koda i nakon krivog unosa nudi novi PIN kad ima smisla
 		{"prijave_na_cekanju", "razlog", "TEXT NOT NULL DEFAULT ''"},
+		// Adresa e-pošte koju je globalni administrator potvrdio za PIN
+		// prijave izvana i izvan dopuštene domene (djelatnici tvrtki
+		// izvođača), tko i kada; vrijedi samo dok je jednaka adresi računa
+		{"users", "pin_adresa_potvrdena", "TEXT NOT NULL DEFAULT ''"},
+		{"users", "pin_adresa_potvrdio", "TEXT NOT NULL DEFAULT ''"},
+		{"users", "pin_adresa_potvrdena_kad", "DATETIME"},
+		// Otisak lozinke računa uz spremljenu lozinku sandučića e-pošte;
+		// zapise otprije popunjava (ili briše) AktService.PopuniOtiskeSanducica
+		// pri pokretanju čvora, jer otisak traži ključ čvora
+		{"posta_racuni", "otisak_lozinke", "BLOB"},
 	}
 
 	// Vrijednosti koje su promijenile ime nakon što su upisane

@@ -14,8 +14,8 @@
 </div>
 
 
-<form method="GET" action="/teren" style="margin-bottom:1rem;">
-  <div class="filters-row" style="grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));">
+<form method="GET" action="/teren" class="mb-4">
+  <div class="filters-row stupci-14">
     <div class="filter-group">
       <label class="filter-label" for="sector">{{icon "building-2"}} {{term "sektor"}}</label>
       <select id="sector" name="sector" class="filter-select" onchange="document.getElementById('area').value=''; this.form.submit()">
@@ -33,7 +33,7 @@
 </form>
 
 {{if .VodiDnevnik}}
-<section class="detail-section" style="margin-top:0;">
+<section class="detail-section mt-0">
   <h2>{{icon "notebook-pen"}} Vodočuvarski dnevnik</h2>
   <p class="page-desc">Dnevni list: radno vrijeme, naredbe i zadaci rukovoditelja, opis rada, zapažanja; vodostaji koje danas očitate upisuju se sami.</p>
   <a href="/vodocuvar/dan?datum={{.Today}}" class="btn btn-primary btn-sm">{{icon "pencil"}} Današnji list</a>
@@ -44,7 +44,7 @@
 {{end}}
 
 {{if .Overview.Mine}}
-<section class="detail-section" style="margin-top:0;">
+<section class="detail-section mt-0">
   <h2>{{icon "ruler"}} Moje letve <span class="reg-chip">{{.Overview.Done}} od {{.Overview.Total}} danas</span></h2>
   <div class="field-progress">
     <div class="field-bar"><span style="width:{{.Percent}}%"></span></div>
@@ -71,7 +71,7 @@
   </div>
 </section>
 {{else}}
-<section class="detail-section" style="margin-top:0;">
+<section class="detail-section mt-0">
   <div class="reg-empty">Još nema letvi koje obično očitavate. Kad upišete prvo očitanje, letva ostaje ovdje na vrhu.</div>
 </section>
 {{end}}

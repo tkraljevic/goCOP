@@ -531,24 +531,35 @@ func (r *AktiRepository) ListSlanja(ctx context.Context, aktID string) ([]models
 
 // RacunPoste je korisnikov račun e-pošte na ovom čvoru
 type RacunPoste struct {
-	UserID    string
-	Korisnik  string
-	Lozinka   []byte // šifrirana
-	UpdatedAt time.Time
+	UserID   string
+	Korisnik string
+	Lozinka  []byte // šifrirana
+	// OtisakLozinke je otisak sažetka lozinke računa u goCOP-u kad je
+	// lozinka e-pošte spremljena (HMAC ključem čvora); prazan kod zapisa
+	// otprije otiska. Kad se lozinka računa promijeni, i razmjenom s drugog
+	// čvora, otisak se više ne slaže i spremljena lozinka ne vrijedi.
+	OtisakLozinke []byte
+	// SazetakLozinke je trenutni sažetak lozinke računa (users.password_hash),
+	// pročitan uz zapis za usporedbu s otiskom; ne sprema se
+	SazetakLozinke string
+	UpdatedAt      time.Time
 }
 
 // SaveRacunPoste sprema račun; samo lokalno, bez knjige verzija
 func (r *AktiRepository) SaveRacunPoste(ctx context.Context, x *RacunPoste) error {
-	_, err := r.db.ExecContext(ctx, `INSERT INTO posta_racuni (user_id, korisnik, lozinka, updated_at) VALUES (?, ?, ?, ?)
-		ON CONFLICT(user_id) DO UPDATE SET korisnik = excluded.korisnik, lozinka = excluded.lozinka, updated_at = excluded.updated_at`,
-		x.UserID, x.Korisnik, x.Lozinka, time.Now().UTC())
+	_, err := r.db.ExecContext(ctx, `INSERT INTO posta_racuni (user_id, korisnik, lozinka, otisak_lozinke, updated_at) VALUES (?, ?, ?, ?, ?)
+		ON CONFLICT(user_id) DO UPDATE SET korisnik = excluded.korisnik, lozinka = excluded.lozinka,
+			otisak_lozinke = excluded.otisak_lozinke, updated_at = excluded.updated_at`,
+		x.UserID, x.Korisnik, x.Lozinka, x.OtisakLozinke, time.Now().UTC())
 	return err
 }
 
-// GetRacunPoste čita račun; nil kad ga nema
+// GetRacunPoste čita račun s trenutnim sažetkom lozinke računa; nil kad ga nema
 func (r *AktiRepository) GetRacunPoste(ctx context.Context, userID string) (*RacunPoste, error) {
 	x := RacunPoste{UserID: userID}
-	err := r.db.QueryRowContext(ctx, `SELECT korisnik, lozinka, updated_at FROM posta_racuni WHERE user_id = ?`, userID).Scan(&x.Korisnik, &x.Lozinka, &x.UpdatedAt)
+	err := r.db.QueryRowContext(ctx, `SELECT p.korisnik, p.lozinka, p.otisak_lozinke, COALESCE(u.password_hash, ''), p.updated_at
+		FROM posta_racuni p LEFT JOIN users u ON u.id = p.user_id WHERE p.user_id = ?`, userID).
+		Scan(&x.Korisnik, &x.Lozinka, &x.OtisakLozinke, &x.SazetakLozinke, &x.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -558,10 +569,130 @@ func (r *AktiRepository) GetRacunPoste(ctx context.Context, userID string) (*Rac
 	return &x, nil
 }
 
-// DeleteRacunPoste briše račun s ovog čvora
-func (r *AktiRepository) DeleteRacunPoste(ctx context.Context, userID string) error {
-	_, err := r.db.ExecContext(ctx, `DELETE FROM posta_racuni WHERE user_id = ?`, userID)
-	return err
+// SazetakLozinkeRacuna je trenutni sažetak lozinke računa; prazno kad
+// računa nema
+func (r *AktiRepository) SazetakLozinkeRacuna(ctx context.Context, userID string) (string, error) {
+	var h string
+	err := r.db.QueryRowContext(ctx, `SELECT password_hash FROM users WHERE id = ?`, userID).Scan(&h)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	return h, err
+}
+
+// KorisniciSRacunomPoste su računi kojima je na ovom čvoru spremljena
+// lozinka sandučića
+func (r *AktiRepository) KorisniciSRacunomPoste(ctx context.Context) ([]string, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT user_id FROM posta_racuni ORDER BY user_id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out = append(out, id)
+	}
+	return out, rows.Err()
+}
+
+// DeleteRacunPoste briše račun s ovog čvora; javlja je li ga bilo
+func (r *AktiRepository) DeleteRacunPoste(ctx context.Context, userID string) (bool, error) {
+	res, err := r.db.ExecContext(ctx, `DELETE FROM posta_racuni WHERE user_id = ?`, userID)
+	if err != nil {
+		return false, err
+	}
+	n, err := res.RowsAffected()
+	return n > 0, err
+}
+
+// PopuniOtiskeRacunaPoste daje otisak lozinke računa zapisima spremljenima
+// prije nego što je otisak postojao, jednom pri pokretanju čvora. Otisak
+// se računa iz trenutnog sažetka lozinke, ali samo kad knjiga verzija
+// pokazuje da je taj sažetak vrijedio već kad je lozinka e-pošte spremljena;
+// inače se lozinka računa poslije mijenjala (sama ili poništenjem, i na
+// drugom čvoru) i zapis se briše, pa osoba lozinku e-pošte upiše ponovno.
+// Isto i kad računa više nema ili se vrijeme ne da utvrditi.
+func (r *AktiRepository) PopuniOtiskeRacunaPoste(ctx context.Context, otisak func(sazetak string) []byte) (popunjeno, obrisano int, err error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT p.user_id, COALESCE(u.password_hash, ''), p.updated_at
+		FROM posta_racuni p LEFT JOIN users u ON u.id = p.user_id
+		WHERE p.otisak_lozinke IS NULL OR length(p.otisak_lozinke) = 0`)
+	if err != nil {
+		return 0, 0, err
+	}
+	type zapis struct {
+		userID, sazetak string
+		spremljen       time.Time
+	}
+	var zapisi []zapis
+	for rows.Next() {
+		var z zapis
+		if err := rows.Scan(&z.userID, &z.sazetak, &z.spremljen); err != nil {
+			rows.Close()
+			return 0, 0, err
+		}
+		zapisi = append(zapisi, z)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return 0, 0, err
+	}
+	for _, z := range zapisi {
+		var ot []byte
+		if z.sazetak != "" {
+			od, ok, err := r.sazetakVrijediOd(ctx, z.userID, z.sazetak)
+			if err != nil {
+				return popunjeno, obrisano, err
+			}
+			if ok && !od.After(z.spremljen) {
+				ot = otisak(z.sazetak)
+			}
+		}
+		if len(ot) > 0 {
+			if _, err := r.db.ExecContext(ctx, `UPDATE posta_racuni SET otisak_lozinke = ? WHERE user_id = ?`, ot, z.userID); err != nil {
+				return popunjeno, obrisano, err
+			}
+			popunjeno++
+			continue
+		}
+		if _, err := r.DeleteRacunPoste(ctx, z.userID); err != nil {
+			return popunjeno, obrisano, err
+		}
+		obrisano++
+	}
+	return popunjeno, obrisano, nil
+}
+
+// sazetakVrijediOd je vrijeme najstarije verzije računa u knjizi koja nosi
+// zadani sažetak lozinke; ok=false kad takve verzije nema
+func (r *AktiRepository) sazetakVrijediOd(ctx context.Context, userID, sazetak string) (time.Time, bool, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT payload, created_at FROM record_versions WHERE entity = ? AND entity_id = ?`, EntityUsers, userID)
+	if err != nil {
+		return time.Time{}, false, err
+	}
+	defer rows.Close()
+	var od time.Time
+	ok := false
+	for rows.Next() {
+		var payload []byte
+		var kad time.Time
+		if err := rows.Scan(&payload, &kad); err != nil {
+			return time.Time{}, false, err
+		}
+		var v struct {
+			PasswordHash string `json:"password_hash"`
+		}
+		if json.Unmarshal(payload, &v) != nil || v.PasswordHash != sazetak {
+			continue
+		}
+		if !ok || kad.Before(od) {
+			od, ok = kad, true
+		}
+	}
+	return od, ok, rows.Err()
 }
 
 // ---- opće postavke ----
@@ -736,6 +867,9 @@ func (r *AktiRepository) DeletePotpisSlika(ctx context.Context, userID string) e
 
 // PostavkaOpcije je ključ općih prekidača programa (JSON models.Opcije)
 const PostavkaOpcije = "opcije"
+
+// PostavkaTema je ključ boja programa iz Administracije › Tema (JSON models.Tema)
+const PostavkaTema = "tema"
 
 // DeleteAktTrajno briše akt bez obzira na stanje, s izvornikom i dnevnikom
 // slanja; svako brisanje ostaje zabilježeno u knjizi verzija

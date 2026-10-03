@@ -182,24 +182,20 @@ func (s *AktService) Pripremi(ctx context.Context, perms *models.UserPermissions
 		return nil, fmt.Errorf("vodomjer %s nije mjerodavan ni za jednu dionicu; poveži ga s dionicama u registru", st.Name)
 	}
 	sort.Strings(sifre)
-	podrucja := map[int]int{}
+	var dionice []models.Section
 	for _, c := range sifre {
 		sec, err := s.sections.GetSectionByCode(c)
 		if err != nil || sec == nil {
 			continue
 		}
 		a.Dionice = append(a.Dionice, models.AktDionica{Code: sec.Code, Opis: strings.TrimSpace(sec.Description)})
-		podrucja[sec.AreaID]++
+		dionice = append(dionice, *sec)
 		if a.Sektor == "" {
 			a.Sektor = sec.SectorID
 		}
 	}
-	for areaID, n := range podrucja {
-		if n > podrucja[a.AreaID] || a.AreaID == 0 {
-			a.AreaID = areaID
-		}
-	}
-	if !perms.HasWriteAccess(a.Sektor, a.AreaID, "") && !s.SmijeOvjeriti(perms, a) {
+	a.AreaID = podrucjeAkta(dionice)
+	if !s.pisePoAktu(perms, a) && !s.SmijeOvjeriti(perms, a) {
 		return nil, fmt.Errorf("%w: akt za branjeno područje %d sastavlja tko ondje vodi obranu", ErrUnauthorized, a.AreaID)
 	}
 
@@ -615,7 +611,7 @@ func (s *AktService) Spremi(ctx context.Context, perms *models.UserPermissions, 
 			return fmt.Errorf("akt %s je ovjeren i ne mijenja se; ispravak je novi akt", postojeci.Oznaka())
 		}
 	}
-	if !perms.HasWriteAccess(a.Sektor, a.AreaID, "") && !s.SmijeOvjeriti(perms, a) {
+	if !s.pisePoAktu(perms, a) && !s.SmijeOvjeriti(perms, a) {
 		return ErrUnauthorized
 	}
 	if a.ID == "" {
@@ -743,7 +739,62 @@ func (s *AktService) smijePripremiti(perms *models.UserPermissions, u *models.Us
 	if perms == nil || u == nil {
 		return false
 	}
-	return a.IzradioID == u.ID.String() || perms.HasWriteAccess(a.Sektor, a.AreaID, "") || s.SmijeOvjeriti(perms, a)
+	return a.IzradioID == u.ID.String() || s.pisePoAktu(perms, a) || s.SmijeOvjeriti(perms, a)
+}
+
+// SmijePripremiti javlja smije li osoba raditi s nacrtom akta (smijePripremiti)
+func (s *AktService) SmijePripremiti(perms *models.UserPermissions, u *models.User, a *models.Akt) bool {
+	return s.smijePripremiti(perms, u, a)
+}
+
+// pisePoAktu javlja piše li osoba po dosegu akta: u njegovu sektoru (dužnost
+// sektora), području (dužnost područja) ili na bar jednoj njegovoj dionici,
+// po dionici, njezinu području ili sektoru. Akt vodomjera obuhvaća i
+// dionice drugog područja (Vukovar: B.15.x i B.34.5), a nosi područje s
+// najviše dionica; uprava manjeg područja piše ga kao i njezin rukovoditelj
+// dionice. Sektor upisan uz dužnost područja ili dionice ne daje akte
+// cijelog sektora.
+func (s *AktService) pisePoAktu(perms *models.UserPermissions, a *models.Akt) bool {
+	if perms == nil || a == nil {
+		return false
+	}
+	if perms.HasWriteAccess(a.Sektor, a.AreaID, "") {
+		return true
+	}
+	for _, d := range a.Dionice {
+		if perms.AllowedSections[d.Code] {
+			return true
+		}
+		if s.sections == nil {
+			continue
+		}
+		if sec, err := s.sections.GetSectionByCode(d.Code); err == nil && sec != nil && perms.HasWriteAccess(sec.SectorID, sec.AreaID, "") {
+			return true
+		}
+	}
+	return false
+}
+
+// podrucjeAkta je područje akta: ono s najviše dionica, a kad ih dva imaju
+// jednako, ono čija dionica dolazi prva po redu (dionice su poredane po
+// šifri). Ne smije ovisiti o redoslijedu obilaska mape, jer o području ovisi
+// tko akt potpisuje.
+func podrucjeAkta(dionice []models.Section) int {
+	broj := map[int]int{}
+	var redom []int
+	for _, d := range dionice {
+		if broj[d.AreaID] == 0 {
+			redom = append(redom, d.AreaID)
+		}
+		broj[d.AreaID]++
+	}
+	podrucje := 0
+	for _, id := range redom {
+		if broj[id] > broj[podrucje] || podrucje == 0 {
+			podrucje = id
+		}
+	}
+	return podrucje
 }
 
 // MoguPotpisati su korisnici koji po zaduženjima smiju ovjeriti akt, za
@@ -914,7 +965,7 @@ func (s *AktService) List(ctx context.Context, perms *models.UserPermissions, f 
 	}
 	var out []models.Akt
 	for _, a := range akti {
-		if perms.AllowedSectors[a.Sektor] || perms.AllowedAreas[a.AreaID] || perms.AdminSectors[a.Sektor] || perms.AdminAreas[a.AreaID] || vidiDionicu(perms, a) {
+		if perms.RadiUSektoru(a.Sektor) || perms.RadiUPodrucju(a.AreaID) || perms.AdminSectors[a.Sektor] || perms.AdminAreas[a.AreaID] || vidiDionicu(perms, a) {
 			out = append(out, a)
 		}
 	}
@@ -1129,6 +1180,37 @@ func (s *AktService) SpremiOpcije(ctx context.Context, perms *models.UserPermiss
 		return err
 	}
 	return s.repo.SavePostavka(ctx, repository.PostavkaOpcije, string(b))
+}
+
+// Tema vraća boje programa iz Administracije › Tema
+func (s *AktService) Tema(ctx context.Context) models.Tema {
+	v, _ := s.repo.GetPostavka(ctx, repository.PostavkaTema)
+	return models.CitajTemu(v)
+}
+
+// SpremiTemu sprema boje programa; smije samo uprava organizacije. Boja s
+// premalim kontrastom se ne sprema, jer se tekst tada ne bi dao pročitati.
+// Tema odmah vrijedi na ovom čvoru, a razmjenom stiže i na ostale.
+func (s *AktService) SpremiTemu(ctx context.Context, perms *models.UserPermissions, t models.Tema) error {
+	if perms == nil || !perms.IsGlobalAdmin {
+		return ErrUnauthorized
+	}
+	for _, p := range t.Provjere() {
+		if p.Omjer < models.NajmanjiDopusteniKontrast {
+			zarez := func(x float64) string { return strings.Replace(fmt.Sprintf("%.1f", x), ".", ",", 1) }
+			return fmt.Errorf("%s tema: %s ima kontrast %s:1, a treba barem %s:1. Tema nije spremljena.",
+				strings.ToUpper(p.Tema[:1])+p.Tema[1:], p.Opis, zarez(p.Omjer), zarez(models.NajmanjiDopusteniKontrast))
+		}
+	}
+	b, err := json.Marshal(t)
+	if err != nil {
+		return err
+	}
+	if err := s.repo.SavePostavka(ctx, repository.PostavkaTema, string(b)); err != nil {
+		return err
+	}
+	models.SetTema(t)
+	return nil
 }
 
 // SmijeObrisatiTrajno javlja smije li korisnik trajno obrisati ovjeren akt:

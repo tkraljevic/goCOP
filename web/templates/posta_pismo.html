@@ -34,7 +34,7 @@
 
 {{$obicni := 0}}{{range .Privitci}}{{if not .Ugradjen}}{{$obicni = 1}}{{end}}{{end}}
 {{if $obicni}}
-<section class="detail-section" style="margin-top:0;">
+<section class="detail-section mt-0">
   <h2>{{icon "package"}} Privitci</h2>
   <ul class="posta-privitci">
   {{range .Privitci}}{{if not .Ugradjen}}

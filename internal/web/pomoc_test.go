@@ -87,6 +87,22 @@ func TestPomocOpisujeSigurnost025(t *testing.T) {
 	}
 }
 
+// Djelatnik izvan službene domene dobiva PIN samo na adresu koju je
+// potvrdio globalni administrator; pomoć mora reći tko potvrđuje i kada
+// potvrda prestaje, inače se ljudi pitaju zašto PIN ne stiže.
+func TestPomocOpisujePotvrduAdreseZaPIN(t *testing.T) {
+	h := pomocHTML(t)
+	for _, want := range []string{
+		`id="users-potvrda-adrese"`, `href="#users-potvrda-adrese"`, "Adresa je provjerena",
+		"Vlastitu adresu nitko ne", "potvrdu time briše", "PIN ne dobiva ni kad je",
+		"Ni tuđim očima potvrda se ne daje",
+	} {
+		if !strings.Contains(h, want) {
+			t.Errorf("pomoć ne opisuje potvrdu adrese: %q", want)
+		}
+	}
+}
+
 func TestPomocObjasnjavaKontroleKarte(t *testing.T) {
 	h := pomocHTML(t)
 	for _, want := range []string{

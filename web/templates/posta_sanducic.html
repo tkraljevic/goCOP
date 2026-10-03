@@ -14,7 +14,7 @@
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
 {{if .NijeUkljuceno}}<div class="alert alert-warning">E-pošta nije uključena: administrator upisuje poslužitelj u <a href="/administracija/posta">Administraciji › E-pošta</a>.</div>{{end}}
-{{if .TrebaLozinku}}<div class="alert alert-warning">Za čitanje sandučića upišite lozinku e-pošte: <a href="/profile/posta">Profil › E-pošta za slanje akata</a>.</div>{{end}}
+{{if .TrebaLozinku}}<div class="alert alert-warning">Za čitanje sandučića upišite lozinku e-pošte: <a href="/profile/posta">Profil › E-pošta za slanje akata</a>. Nakon promjene ili poništenja lozinke računa u goCOP-u spremljena lozinka e-pošte se briše, pa je treba upisati ponovno.</div>{{end}}
 {{if .LozinkaOdbijena}}<div class="alert alert-error">Poslužitelj je odbio vašu lozinku e-pošte. Ako ste je promijenili, <a href="/profile/posta">upišite novu</a>.</div>{{end}}
 
 {{if .Mape}}
@@ -69,7 +69,7 @@
   {{end}}
   </ul>
 </form>
-<div class="form-help" style="display:flex; gap:1rem; align-items:center; margin-top:0.5rem;">
+<div class="form-help d-flex gap-4 items-center mt-2">
   <span>{{.NazivMape}}: ukupno {{.Ukupno}}.</span>
   {{if gt .Prethodna 0}}<a href="/posta?mapa={{.Mapa | urlquery}}&amp;stranica={{.Prethodna}}{{with .Trazi}}&amp;trazi={{. | urlquery}}{{end}}{{with .OdabraniAkt}}&amp;akt={{.}}{{end}}">{{icon "chevron-left"}} Novija</a>{{end}}
   {{if .Stranica_}}<a href="/posta?mapa={{.Mapa | urlquery}}&amp;stranica={{.Stranica_}}{{with .Trazi}}&amp;trazi={{. | urlquery}}{{end}}{{with .OdabraniAkt}}&amp;akt={{.}}{{end}}">Starija {{icon "chevron-right"}}</a>{{end}}

@@ -36,9 +36,10 @@ func TestPrivremenaLozinkaSeMozeProcitatiPrekoTelefona(t *testing.T) {
 	}
 }
 
-// Tko smije poništiti tuđu lozinku: globalni administrator svakome, a
-// administrator sektora ili područja samo onima koji tamo imaju zaduženje.
-func TestPravoPonistavanjaTudjeLozinke(t *testing.T) {
+// Tko smije vidjeti stanje tuđeg računa (canManageTarget): globalni
+// administrator svakoga, a administrator sektora ili područja one koji tamo
+// imaju zaduženje. Poništenje traži više (TestPonistenjeTraziPravoUredjivanja).
+func TestPravoPregledaTudjegRacuna(t *testing.T) {
 	sektorB, podrucje16 := "B", 16
 	uSektoru := &models.User{ID: uuid.New(), Duties: []models.Duty{{SectorID: &sektorB}}}
 	uPodrucju := &models.User{ID: uuid.New(), Duties: []models.Duty{{AreaID: &podrucje16}}}
@@ -69,3 +70,33 @@ func TestPravoPonistavanjaTudjeLozinke(t *testing.T) {
 }
 
 func strPtr(s string) *string { return &s }
+
+// Privremenu lozinku i kod daje samo onaj tko smije uređivati račun: jedna
+// dužnost u dosegu nije dovoljna. Rukovoditelj područja koji vidi
+// rukovoditelja sektora s ispomoći u svom području ne smije mu poništiti
+// lozinku (poništenje uklanja i potpisni ključ, pa bi preuzeo i potpis).
+func TestPonistenjeTraziPravoUredjivanja(t *testing.T) {
+	podrucje := permsWith(models.Duty{Role: models.RoleAreaLeader, ScopeType: models.ScopeArea, SectorID: strp("B"), AreaID: intp(16)})
+	nadredeni := &models.User{ID: uuid.New(), Duties: []models.Duty{
+		{Role: models.RoleSectorLeader, ScopeType: models.ScopeSector, SectorID: strp("B")},
+		{Role: models.RoleFieldWorker, ScopeType: models.ScopeArea, SectorID: strp("B"), AreaID: intp(16)},
+	}}
+	terenac := &models.User{ID: uuid.New(), Duties: []models.Duty{
+		{Role: models.RoleFieldWorker, ScopeType: models.ScopeArea, SectorID: strp("B"), AreaID: intp(16)},
+	}}
+	if !canManageTarget(podrucje, nadredeni) {
+		t.Fatal("pregled: rukovoditelj područja vidi osobu s dužnošću u svom području")
+	}
+	if smijePonistiti(podrucje, nadredeni, sectorsOf) == nil {
+		t.Error("rukovoditelj područja smije poništiti lozinku rukovoditelju sektora")
+	}
+	if smijePonistiti(podrucje, terenac, sectorsOf) != nil {
+		t.Error("rukovoditelj područja ne smije poništiti lozinku terenacu u svom području")
+	}
+	if smijePonistiti(&models.UserPermissions{IsGlobalAdmin: true}, nadredeni, sectorsOf) != nil {
+		t.Error("globalni administrator ne smije poništiti lozinku")
+	}
+	if smijePonistiti(nil, terenac, sectorsOf) == nil {
+		t.Error("bez ovlasti")
+	}
+}

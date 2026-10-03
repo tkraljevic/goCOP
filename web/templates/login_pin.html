@@ -5,88 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PIN za prijavu | goCOP — {{term "org"}}</title>
   <meta name="color-scheme" content="light dark">
-  <script>(function () { try { var t = localStorage.getItem('gocop-theme'); if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t); } catch (e) {} })();</script>
+  <script src="{{statika "js/tema.js"}}"></script>
   <link rel="stylesheet" href="{{statika "css/style.css"}}">
-  <style>
-    /* isti okvir kao stranica prijave (login.html) */
-    .login-wrapper {
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 1.5rem;
-      padding: 1rem;
-      background: linear-gradient(160deg, #0d274a 0%, #173e74 60%, #1f5aa6 100%);
-    }
-    .login-box {
-      background: var(--surface);
-      border-radius: 12px;
-      padding: 2rem;
-      width: 100%;
-      max-width: 420px;
-      box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.3);
-    }
-    .login-header {
-      text-align: center;
-      margin-bottom: 1.5rem;
-    }
-    .login-logo {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.6rem;
-      margin-bottom: 0.75rem;
-      color: var(--primary);
-      font-weight: 700;
-      font-size: 0.8rem;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-    }
-    .login-logo img { max-width: 160px; max-height: 44px; }
-    .login-title {
-      font-size: 1.25rem;
-      font-weight: 700;
-      color: var(--text);
-    }
-    .login-subtitle {
-      font-size: 0.8125rem;
-      color: var(--text-muted);
-      margin-top: 0.25rem;
-    }
-    .login-hint {
-      margin-top: 1.25rem;
-      padding: 0.75rem;
-      background: var(--bg-subtle);
-      border-radius: 6px;
-      font-size: 0.75rem;
-      color: var(--text-muted);
-      line-height: 1.4;
-      border: 1px dashed var(--border-strong);
-    }
-    .pin-unos {
-      font-size: 1.25rem;
-      letter-spacing: 0.12em;
-      text-align: center;
-      font-variant-numeric: tabular-nums;
-    }
-    .pin-zapamti {
-      display: flex;
-      gap: 0.5rem;
-      align-items: flex-start;
-      font-size: 0.875rem;
-      margin-bottom: 1.25rem;
-    }
-    .pin-zapamti small { display: block; color: var(--text-muted); font-size: 0.75rem; }
-    .pin-dno {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 0.5rem;
-      margin-top: 1rem;
-      font-size: 0.8125rem;
-    }
-  </style>
+  {{with temaCSS}}<link rel="stylesheet" href="{{.}}">{{end}}
 </head>
 <body>
   <div class="login-wrapper">
@@ -105,12 +26,12 @@
       {{end}}
 
       {{if .PINPoslan}}
-      <p style="font-size:0.875rem; margin-bottom:1rem;">
+      <p class="text-sm mb-4">
         Lozinka je točna. PIN od 6 znamenki poslan je na <strong>{{.Adresa}}</strong>.
         Vrijedi do {{.IstjeceTekst}} i samo za ovu prijavu.
       </p>
       {{else}}
-      <div class="alert alert-warning" style="margin-bottom:1rem;">
+      <div class="alert alert-warning mb-4">
         <strong>PIN nije poslan.</strong>{{if .Razlog}} {{.Razlog}}.{{end}}<br>
         Upišite rezervni kod (R1-XXXX-XXXX … R10-XXXX-XXXX) koji ste napravili na svom profilu
         ili privremeni kod od administratora (P-XXXX-XXXX). Prijava čeka do {{.IstjeceTekst}}.
@@ -118,12 +39,12 @@
       {{end}}
 
       <form action="/login/pin" method="POST">
-        <div class="form-group" style="margin-bottom: 1rem;">
+        <div class="form-group mb-4">
           <label class="form-label" for="kod">{{if .PINPoslan}}PIN ili kod{{else}}Rezervni ili privremeni kod{{end}}</label>
           <input type="text" id="kod" name="kod" class="form-control pin-unos" required autofocus
                  autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" maxlength="24"
                  placeholder="{{if .PINPoslan}}123456{{else}}R3-XXXX-XXXX{{end}}">
-          {{if and .Preostalo (lt .Preostalo 5)}}<small style="color:var(--text-muted);">Preostalo pokušaja: {{.Preostalo}}</small>{{end}}
+          {{if and .Preostalo (lt .Preostalo 5)}}<small class="c-muted">Preostalo pokušaja: {{.Preostalo}}</small>{{end}}
         </div>
 
         <label class="pin-zapamti">
@@ -133,13 +54,13 @@
           </span>
         </label>
 
-        <button type="submit" class="btn btn-primary" style="width: 100%;">Prijavi se</button>
+        <button type="submit" class="btn btn-primary w-full">Prijavi se</button>
       </form>
 
       <div class="pin-dno">
         <a href="/login">Natrag na prijavu</a>
         {{if .MozePonovno}}
-        <form action="/login/pin/ponovno" method="POST" style="margin:0;">
+        <form action="/login/pin/ponovno" method="POST" class="m-0">
           <button type="submit" class="btn btn-secondary btn-sm">Pošalji novi PIN</button>
         </form>
         {{end}}

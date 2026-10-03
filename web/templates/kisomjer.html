@@ -83,21 +83,21 @@
 <section class="detail-section">
   <h2>{{icon "chart-column"}} Kiša <span class="reg-chip">{{.GrafOpis}}</span></h2>
   {{if .Graf}}
-  <div class="reg-card chart" style="padding:0.75rem 0.5rem 0.25rem; margin-bottom:0.5rem;">{{.Graf}}</div>
-  <p class="form-help" style="margin:0 0 1rem;"><span class="kisa-legenda"></span> {{if .Procjena}}procjena{{else}}izmjereno{{end}}
+  <div class="reg-card chart mb-2">{{.Graf}}</div>
+  <p class="form-help mt-0 mb-4"><span class="kisa-legenda"></span> {{if .Procjena}}procjena{{else}}izmjereno{{end}}
     &nbsp; <span class="kisa-legenda kisa-legenda-prognoza"></span> prognoza. Prijeđi mišem preko stupca za vrijednost.</p>
   {{else}}
   <div class="reg-empty">Za ovo razdoblje nema ni izmjerene kiše ni prognoze.</div>
   {{end}}
 
-  <form method="GET" action="" style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; margin-bottom:0.75rem;">
-    <label class="filter-label" for="pogledSel" style="margin:0;">Pogled</label>
-    <select id="pogledSel" name="pogled" class="filter-select" style="max-width:11rem;" onchange="this.form.submit()">
+  <form method="GET" action="" class="d-flex gap-2 items-center flex-wrap mb-3">
+    <label class="filter-label m-0" for="pogledSel">Pogled</label>
+    <select id="pogledSel" name="pogled" class="filter-select max-w-11" onchange="this.form.submit()">
       <option value="7" {{if eq .Pogled "7"}}selected{{end}}>zadnjih 7 dana</option>
       <option value="30" {{if eq .Pogled "30"}}selected{{end}}>zadnjih 30 dana</option>
       <option value="90" {{if eq .Pogled "90"}}selected{{end}}>zadnjih 90 dana</option>
     </select>
-    <select name="korak" class="filter-select" style="max-width:10rem;" onchange="this.form.submit()">
+    <select name="korak" class="filter-select max-w-10" onchange="this.form.submit()">
       <option value="satni" {{if eq .Korak "satni"}}selected{{end}}>po satima</option>
       <option value="dnevni" {{if eq .Korak "dnevni"}}selected{{end}}>po danima</option>
     </select>
@@ -110,12 +110,12 @@
   {{template "pager" .Pager}}
   <div class="table-card"><div class="table-responsive">
     <table class="data-table">
-      <thead><tr><th>{{if eq .Korak "satni"}}Razdoblje{{else}}Dan{{end}}</th><th style="text-align:right;">Oborina <span class="reg-card-sub">mm</span></th><th>Odakle</th></tr></thead>
+      <thead><tr><th>{{if eq .Korak "satni"}}Razdoblje{{else}}Dan{{end}}</th><th class="text-right">Oborina <span class="reg-card-sub">mm</span></th><th>Odakle</th></tr></thead>
       <tbody>
       {{range .Redovi}}
       <tr{{if gt .Mm 0.0}} class="kisa-kisni"{{end}}>
         <td class="mono naslov">{{.Oznaka}}{{if eq .Sati 12}} <span class="reg-card-sub">12 h</span>{{end}}{{if .Nepotpun}} <span class="badge badge-pending">dan traje</span>{{end}}</td>
-        <td class="mono" style="text-align:right;" data-stupac="Oborina (mm)"><strong>{{brojHRf .Mm 1}}</strong></td>
+        <td class="mono text-right" data-stupac="Oborina (mm)"><strong>{{brojHRf .Mm 1}}</strong></td>
         <td class="reg-card-sub" data-stupac="Odakle">{{izvorLabel .Izvor}}</td>
       </tr>
       {{end}}
@@ -136,22 +136,22 @@
 {{else}}
 <section class="detail-section">
   <h2>{{icon "history"}} Arhiva</h2>
-  <form method="GET" action="" id="niz" style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; margin-bottom:0.75rem;">
-    <select name="v" class="filter-select" style="max-width:14rem;" onchange="this.form.submit()">
+  <form method="GET" action="" id="niz" class="d-flex gap-2 items-center flex-wrap mb-3">
+    <select name="v" class="filter-select max-w-14" onchange="this.form.submit()">
       {{range .ArhVelicine}}<option value="{{.}}" {{if eq . $.ArhVelicina}}selected{{end}}>{{velicinaLabel .}}</option>{{end}}
     </select>
-    <select name="korak" class="filter-select" style="max-width:10rem;" onchange="this.form.submit()">
+    <select name="korak" class="filter-select max-w-10" onchange="this.form.submit()">
       <option value="dnevni" {{if eq .ArhKorak "dnevni"}}selected{{end}}>{{if .Zbrojiva}}dnevni zbroj{{else}}dnevni srednjak{{end}}</option>
       <option value="satni" {{if eq .ArhKorak "satni"}}selected{{end}}>svaki sat</option>
     </select>
-    <select name="god" class="filter-select" style="max-width:8rem;" onchange="this.form.submit()">
+    <select name="god" class="filter-select max-w-8" onchange="this.form.submit()">
       {{range .ArhGodine}}<option value="{{.}}" {{if eq . $.ArhGodina}}selected{{end}}>{{.}}.</option>{{end}}
     </select>
-    <select name="mj" class="filter-select" style="max-width:9rem;" onchange="this.form.submit()">
+    <select name="mj" class="filter-select max-w-9" onchange="this.form.submit()">
       <option value="0" {{if eq .ArhMjesec 0}}selected{{end}}>cijela godina</option>
       {{range $m := mjeseci}}<option value="{{$m}}" {{if eq $m $.ArhMjesec}}selected{{end}}>{{mjesecIme $m}}</option>{{end}}
     </select>
-    <select name="red" class="filter-select" style="max-width:11rem;" onchange="this.form.submit()">
+    <select name="red" class="filter-select max-w-11" onchange="this.form.submit()">
       <option value="" {{if eq .ArhRed ""}}selected{{end}}>po datumu</option>
       <option value="vrh" {{if eq .ArhRed "vrh"}}selected{{end}}>{{if .Zbrojiva}}najkišniji prvo{{else}}najviši prvo{{end}}</option>
       <option value="dno" {{if eq .ArhRed "dno"}}selected{{end}}>najniži prvo</option>
@@ -160,7 +160,7 @@
   </form>
 
   {{if .Zbrojiva}}
-  <div class="kisa-plocice" style="margin-bottom:1rem;">
+  <div class="kisa-plocice mb-4">
     <div class="kisa-plocica"><div class="kisa-oznaka">{{.ArhGodina}}.</div>
       <div class="kisa-broj">{{brojHRf .GodinaZbroj 1}} <small>mm</small></div>
       <div class="reg-card-sub">{{.GodinaDana}} dana s podatkom</div></div>
@@ -170,20 +170,20 @@
   </div>
   {{if .ArhGraf}}
   <h3 class="part-label" style="margin:0 0 0.35rem 0;">{{velicinaLabel .ArhVelicina}} po danima — {{if .ArhMjesec}}{{mjesecIme .ArhMjesec}} {{end}}{{.ArhGodina}}.</h3>
-  <div class="reg-card chart" style="padding:0.75rem 0.5rem 0.25rem; margin-bottom:1rem;">{{.ArhGraf}}</div>
+  <div class="reg-card chart mb-4">{{.ArhGraf}}</div>
   {{end}}
   {{if .Mjeseci}}
   <h3 class="part-label" style="margin:0 0 0.35rem 0;">Po mjesecima {{.ArhGodina}}.</h3>
-  <div class="table-card" style="margin-bottom:1rem;"><div class="table-responsive">
+  <div class="table-card mb-4"><div class="table-responsive">
     <table class="data-table">
-      <thead><tr><th>Mjesec</th><th style="text-align:right;">Zbroj <span class="reg-card-sub">mm</span></th><th style="text-align:right;">Kišnih dana</th><th style="text-align:right;">Najviše u danu</th><th>Kad</th></tr></thead>
+      <thead><tr><th>Mjesec</th><th class="text-right">Zbroj <span class="reg-card-sub">mm</span></th><th class="text-right">Kišnih dana</th><th class="text-right">Najviše u danu</th><th>Kad</th></tr></thead>
       <tbody>
       {{range .Mjeseci}}
       <tr onclick="location='?v={{$.ArhVelicina}}&korak=dnevni&god={{$.ArhGodina}}&mj={{.Mjesec}}#niz'" style="cursor:pointer;{{if eq .Mjesec $.ArhMjesec}} background:var(--tint-blue-bg);{{end}}">
         <td class="naslov">{{mjesecIme .Mjesec}}{{if lt .Dana 28}} <span class="reg-card-sub">({{.Dana}} dana)</span>{{end}}</td>
-        <td class="mono" style="text-align:right;" data-stupac="Zbroj (mm)"><strong>{{brojHRf .Mm 1}}</strong></td>
-        <td class="mono" style="text-align:right;" data-stupac="Kišnih dana">{{.KisnihDana}}</td>
-        <td class="mono" style="text-align:right;" data-stupac="Najviše u danu">{{brojHRf .NajviseDan 1}}</td>
+        <td class="mono text-right" data-stupac="Zbroj (mm)"><strong>{{brojHRf .Mm 1}}</strong></td>
+        <td class="mono text-right" data-stupac="Kišnih dana">{{.KisnihDana}}</td>
+        <td class="mono text-right" data-stupac="Najviše u danu">{{brojHRf .NajviseDan 1}}</td>
         <td class="mono reg-card-sub" data-stupac="Kad">{{if gt .NajviseDan 0.0}}{{vrijemeNiza .NajviseNa false}}{{end}}</td>
       </tr>
       {{end}}
@@ -192,7 +192,7 @@
   </div></div>
   {{end}}
   {{else if .ArhChart}}
-  <div class="reg-card chart graf-niza graf-siroki" style="padding:0.75rem 0.5rem 0.25rem; margin-bottom:1rem;"
+  <div class="reg-card chart graf-niza graf-siroki mb-4"
        data-tocke="{{.ArhChart.Tocke}}" data-prognoza="{{.ArhChart.PrognozaTocke}}">
     {{template "grafNiza" .ArhChart}}
     <div class="graf-oblacic" hidden></div>
@@ -203,12 +203,12 @@
   <div data-listanje="arhiva">
   <div class="table-card"><div class="table-responsive">
     <table class="data-table">
-      <thead><tr><th>Kad</th><th style="text-align:right;">{{velicinaLabel .ArhVelicina}} <span class="reg-card-sub">{{.ArhJedinica}}</span></th><th>Odakle</th></tr></thead>
+      <thead><tr><th>Kad</th><th class="text-right">{{velicinaLabel .ArhVelicina}} <span class="reg-card-sub">{{.ArhJedinica}}</span></th><th>Odakle</th></tr></thead>
       <tbody>
       {{range .ArhNiz}}
       <tr>
         <td class="mono naslov">{{vrijemeNiza .Kad (eq $.ArhKorak "satni")}}</td>
-        <td class="mono" style="text-align:right;" data-stupac="{{velicinaLabel $.ArhVelicina}} ({{$.ArhJedinica}})"><strong>{{brojHRf .Vrijednost 1}}</strong></td>
+        <td class="mono text-right" data-stupac="{{velicinaLabel $.ArhVelicina}} ({{$.ArhJedinica}})"><strong>{{brojHRf .Vrijednost 1}}</strong></td>
         <td class="reg-card-sub" data-stupac="Odakle">{{izvorLabel .Izvor}}</td>
       </tr>
       {{end}}
@@ -225,14 +225,14 @@
   <h2>{{icon "calendar"}} Po godinama</h2>
   <div class="table-card"><div class="table-responsive">
     <table class="data-table">
-      <thead><tr><th>Godina</th><th style="text-align:right;">Zbroj <span class="reg-card-sub">mm</span></th><th style="text-align:right;">Kišnih dana</th><th style="text-align:right;">Najviše u danu</th><th>Kad</th></tr></thead>
+      <thead><tr><th>Godina</th><th class="text-right">Zbroj <span class="reg-card-sub">mm</span></th><th class="text-right">Kišnih dana</th><th class="text-right">Najviše u danu</th><th>Kad</th></tr></thead>
       <tbody>
       {{range .Godine}}
       <tr onclick="location='?v={{$.ArhVelicina}}&korak=dnevni&god={{.Godina}}#niz'" style="cursor:pointer;{{if eq .Godina $.ArhGodina}} background:var(--tint-blue-bg);{{end}}">
         <td class="naslov">{{.Godina}}.{{if lt .Dana 360}} <span class="reg-card-sub">({{.Dana}} dana)</span>{{end}}</td>
-        <td class="mono" style="text-align:right;" data-stupac="Zbroj (mm)"><strong>{{brojHRf .Mm 1}}</strong></td>
-        <td class="mono" style="text-align:right;" data-stupac="Kišnih dana">{{.KisnihDana}}</td>
-        <td class="mono" style="text-align:right;" data-stupac="Najviše u danu">{{brojHRf .NajviseDan 1}}</td>
+        <td class="mono text-right" data-stupac="Zbroj (mm)"><strong>{{brojHRf .Mm 1}}</strong></td>
+        <td class="mono text-right" data-stupac="Kišnih dana">{{.KisnihDana}}</td>
+        <td class="mono text-right" data-stupac="Najviše u danu">{{brojHRf .NajviseDan 1}}</td>
         <td class="mono reg-card-sub" data-stupac="Kad">{{vrijemeNiza .NajviseNa false}}</td>
       </tr>
       {{end}}

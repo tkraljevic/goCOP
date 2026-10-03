@@ -33,7 +33,9 @@ import (
 // prijava koja dolazi izvana — kroz posrednika (tunel) ili s javne adrese —
 // nakon točne lozinke traži još PIN poslan na službenu e-poštu, rezervni kod
 // ili privremeni kod od administratora. Prijava iz lokalne mreže PIN nikad
-// ne traži. Zapamćeno računalo preskače PIN, nikad lozinku.
+// ne traži. Zapamćeno računalo preskače PIN, nikad lozinku. Službena je
+// adresa u dopuštenoj domeni ili adresa izvan nje koju je potvrdio globalni
+// administrator (models.User.PotvrdaAdreseVrijedi).
 //
 // Sve stoji samo na ovom čvoru (prijave na čekanju, zapamćena računala,
 // kodovi) i ne ide u knjigu; dijeli se samo sklopka u postavkama. Tokeni i
@@ -104,7 +106,8 @@ var (
 	ErrSlanjeZastalo         = errors.New("slanje PIN-a privremeno ne radi (veza s poslužiteljem e-pošte)")
 	ErrPINNijePoslan         = errors.New("PIN nije poslan")
 	ErrNemaAdrese            = errors.New("u profilu nema adrese e-pošte")
-	ErrAdresaNijeDopustena   = errors.New("PIN se šalje samo na službenu adresu e-pošte")
+	ErrNeispravnaAdresa      = errors.New("adresa e-pošte nije ispravna")
+	ErrAdresaNijeDopustena   = errors.New("PIN se šalje samo na službenu adresu e-pošte ili na adresu koju je potvrdio administrator")
 	ErrZajednickaAdresa      = errors.New("istu adresu e-pošte ima još netko, pa se PIN na nju ne šalje")
 	ErrTudjimOcima           = errors.New("dok gledate tuđim očima, ovo nije dopušteno; vratite se svojim očima")
 	ErrProbaPotrebna         = errors.New("PIN izvana može se uključiti tek nakon uspješnog probnog PIN-a na ovom čvoru")
@@ -120,6 +123,25 @@ var (
 	ErrAdresaZauzeta            = errors.New("tu adresu e-pošte već ima drugi djelatnik; javite administratoru")
 )
 
+// AdresaIzvanDomene je adresa izvan dopuštene domene (DopustenaAdresa);
+// errors.Is je prepoznaje kao ErrAdresaNijeDopustena. Vlastita: osoba je
+// sama upisuje na profilu, gdje potvrda administratora ne pomaže.
+type AdresaIzvanDomene struct {
+	Domena   string
+	Vlastita bool
+}
+
+func (e AdresaIzvanDomene) Error() string {
+	if e.Vlastita {
+		return "svoju adresu e-pošte mijenjate samo na adresu @" + e.Domena +
+			"; adresu izvan te domene (npr. u tvrtki izvođača) upisuje i potvrđuje administrator"
+	}
+	return "PIN se šalje samo na službenu adresu e-pošte (@" + e.Domena + ") ili na adresu koju je potvrdio administrator"
+}
+
+// Is čini AdresaIzvanDomene jednakom ErrAdresaNijeDopustena za errors.Is
+func (e AdresaIzvanDomene) Is(target error) bool { return target == ErrAdresaNijeDopustena }
+
 // KrivKod je krivi PIN ili kod uz broj preostalih pokušaja; errors.Is ga
 // prepoznaje kao ErrKrivKod
 type KrivKod struct{ Preostalo int }
@@ -134,7 +156,7 @@ func (e KrivKod) Is(target error) bool { return target == ErrKrivKod }
 // OpcijePrijaveIzvana je dijeljena postavka drugog koraka.
 type OpcijePrijaveIzvana struct {
 	PIN    bool   `json:"pin"`    // traži li se PIN za prijavu izvana
-	Domena string `json:"domena"` // jedina domena na koju ide PIN (i na koju osoba smije promijeniti adresu)
+	Domena string `json:"domena"` // domena na koju ide PIN bez potvrde administratora (i jedina na koju osoba sama mijenja adresu)
 }
 
 // Postar šalje e-poštu; u programu je to paket posta (PravaPosta), u
@@ -165,6 +187,7 @@ func (PravaPosta) Imenik(ctx context.Context, p posta.Postavke, r posta.Racun, u
 
 type korisniciDrugogKoraka interface {
 	GetUserByID(id uuid.UUID) (*models.User, error)
+	ListAreas(sectorID string) ([]models.Area, error) // doseg za privremeni kod (smijePonistiti)
 }
 
 type postavkeDrugogKoraka interface {
@@ -431,8 +454,10 @@ func (d *DrugiKorak) mozeUkljuciti(ctx context.Context) error {
 	return nil
 }
 
-// DopustenaAdresa javlja smije li PIN ići na adresu: ispravna adresa
-// (bez imena) u dopuštenoj domeni. Zajedničku adresu provjerava tek slanje.
+// DopustenaAdresa javlja smije li PIN ići na adresu sama po sebi: ispravna
+// adresa (bez imena) u dopuštenoj domeni; inače AdresaIzvanDomene. Adresu
+// koju je potvrdio administrator i zajedničku adresu provjerava tek
+// adresaZaPIN, jer ovise o osobi.
 func (d *DrugiKorak) DopustenaAdresa(ctx context.Context, adresa string) error {
 	adresa = strings.TrimSpace(adresa)
 	if adresa == "" {
@@ -440,20 +465,33 @@ func (d *DrugiKorak) DopustenaAdresa(ctx context.Context, adresa string) error {
 	}
 	a, err := mail.ParseAddress(adresa)
 	if err != nil || a.Name != "" || !strings.EqualFold(a.Address, adresa) {
-		return fmt.Errorf("adresa e-pošte %q nije ispravna", adresa)
+		return fmt.Errorf("%w: %q", ErrNeispravnaAdresa, adresa)
 	}
 	dom := d.Opcije(ctx).Domena
 	i := strings.LastIndex(a.Address, "@")
 	if i < 0 || !strings.EqualFold(a.Address[i+1:], dom) {
-		return fmt.Errorf("%w (@%s)", ErrAdresaNijeDopustena, dom)
+		return AdresaIzvanDomene{Domena: dom}
 	}
 	return nil
 }
 
-// adresaZaPIN vraća adresu osobe na koju smije ići PIN
+// dopustenaOsobi je DopustenaAdresa za adresu osobe: adresa izvan dopuštene
+// domene prolazi kad ju je potvrdio globalni administrator, a potvrda još
+// vrijedi (jednaka je adresi računa)
+func (d *DrugiKorak) dopustenaOsobi(ctx context.Context, u *models.User) error {
+	err := d.DopustenaAdresa(ctx, u.Email)
+	if errors.Is(err, ErrAdresaNijeDopustena) && u.PotvrdaAdreseVrijedi() {
+		return nil
+	}
+	return err
+}
+
+// adresaZaPIN vraća adresu osobe na koju smije ići PIN: u dopuštenoj domeni
+// ili potvrđenu izvan nje, a nikad adresu koju ima još jedan aktivni račun
+// (ni potvrđenu)
 func (d *DrugiKorak) adresaZaPIN(ctx context.Context, u *models.User) (string, error) {
 	adresa := strings.TrimSpace(u.Email)
-	if err := d.DopustenaAdresa(ctx, adresa); err != nil {
+	if err := d.dopustenaOsobi(ctx, u); err != nil {
 		return "", err
 	}
 	n, err := d.repo.AktivnihSAdresom(ctx, adresa, u.ID)
@@ -958,11 +996,18 @@ func (d *DrugiKorak) PosaljiProbniPIN(ctx context.Context, actor *models.UserPer
 	return MaskirajAdresu(adresa), nil
 }
 
-// JaviPromjenuAdrese javlja na staru adresu da je adresa računa promijenjena.
-// Najbolje što se može: bez pošiljatelja ili kad slanje ne uspije, samo se
-// zapiše u zapisnik. Traje najviše IstekSlanja; zove se iz pozadine.
+// JaviPromjenuAdrese javlja na staru adresu da je adresa računa promijenjena,
+// ako je na nju smio ići PIN: u dopuštenoj domeni ili potvrđena (u nosi
+// potvrdu kakva je bila prije promjene). Najbolje što se može: bez
+// pošiljatelja ili kad slanje ne uspije, samo se zapiše u zapisnik. Traje
+// najviše IstekSlanja; zove se iz pozadine.
 func (d *DrugiKorak) JaviPromjenuAdrese(ctx context.Context, u *models.User, stara, nova string) {
-	if d.spreman() != nil || u == nil || d.DopustenaAdresa(ctx, stara) != nil {
+	if d.spreman() != nil || u == nil {
+		return
+	}
+	prije := *u
+	prije.Email = stara
+	if d.dopustenaOsobi(ctx, &prije) != nil {
 		return
 	}
 	kad := d.sad()
@@ -1487,7 +1532,8 @@ func (d *DrugiKorak) StanjeRezervnih(ctx context.Context, userID uuid.UUID) (int
 
 // IzdajPrivremeniKod daje osobi privremeni kod za prijavu izvana (P-XXXX-XXXX),
 // za jednu prijavu u TrajanjePrivremenogKoda; stariji neiskorišteni prestaje
-// vrijediti. Smije tko smije poništiti lozinku te osobe (canManageTarget),
+// vrijediti. Smije tko smije poništiti lozinku te osobe (smijePonistiti:
+// smije uređivati cijeli račun),
 // nikad sebi, i ne dok gleda tuđim očima (actor su stvarne ovlasti
 // prijavljenog). Kod se vraća jednom i ne zapisuje; u zapisnik ide tko je
 // kome izdao. Poništavanje lozinke briše privremene kodove, pa uz
@@ -1509,8 +1555,8 @@ func (d *DrugiKorak) IzdajPrivremeniKod(ctx context.Context, actor *models.UserP
 	if actor != nil && actor.User.ID == target.ID {
 		return "", time.Time{}, errors.New("privremeni kod ne izdaje se samome sebi; napravite rezervne kodove na svom profilu")
 	}
-	if !canManageTarget(actor, target) {
-		return "", time.Time{}, ErrUnauthorized
+	if err := smijePonistiti(actor, target, sektoriPodrucja(d.korisnici.ListAreas)); err != nil {
+		return "", time.Time{}, err
 	}
 	tajna, err := noviKod()
 	if err != nil {

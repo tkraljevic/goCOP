@@ -1,6 +1,6 @@
 # Postavljanje i održavanje goCOP čvora
 
-Administratorske upute, usklađene s 0.0.26-alfa (3. 10. 2026.).
+Administratorske upute, usklađene s 0.0.27-alfa (3. 10. 2026.).
 Kratki pregled projekta: [README](../README.md). Korisnički postupci su u Pomoći aplikacije.
 
 Operativni program za obranu od poplava Hrvatskih voda: povezuje organizaciju,
@@ -9,7 +9,7 @@ i bez interneta; kopije na različitim računalima međusobno se usklađuju.
 Repozitorij nosi program i praznu shemu baze, a podatke unosi ili uvozi
 organizacija koja ga koristi.
 
-> **Status: alfa, izdanje 0.0.26-alfa (3. 10. 2026.), za testiranje i daljnji
+> **Status: alfa, izdanje 0.0.27-alfa (3. 10. 2026.), za testiranje i daljnji
 > razvoj.** Nije za operativnu upotrebu. Sve se još mijenja. Što je u kojem
 > izdanju, piše u [popisu izmjena](../CHANGELOG.md).
 >
@@ -155,7 +155,13 @@ Portovi se mijenjaju u `gocop.toml`.
 - **PIN za prijavu izvana (od 0.0.26-alfa).** Prijava izvana, kroz posrednika
   ili s adrese koja nije privatna, loopback ni link-local, nakon lozinke traži
   šesteroznamenkasti PIN poslan na službenu e-poštu korisnika. Prijava iz
-  lokalne mreže PIN nikad ne traži. PIN vrijedi 10 minuta i jednom; pet krivih
+  lokalne mreže PIN nikad ne traži. PIN ide na adresu u dopuštenoj domeni
+  (zadano `voda.hr`) ili na adresu izvan nje koju je globalni administrator
+  potvrdio na tuđem računu, svojim očima (Korisnici → Uredi → *Adresa je
+  provjerena*, npr. za djelatnike tvrtke izvođača). Potvrda putuje razmjenom
+  s imenom i danom, vrijedi samo dok je adresa ista, a vlastita promjena adrese je briše; na
+  adresu koju ima još jedan aktivni račun PIN ne ide ni potvrđenu. Čvor s
+  0.0.26-alfa potvrdu čuva, ali na takvu adresu PIN ne šalje. PIN vrijedi 10 minuta i jednom; pet krivih
   upisa poništi prijavu na čekanju, a deset u satu zaključa upis kodova tom
   računu na sat. Čvor šalje najviše tri pisma s PIN-om osobi u 15 minuta i
   60 na sat ukupno. Umjesto PIN-a vrijede rezervni kodovi s profila (deset
@@ -217,9 +223,60 @@ Portovi se mijenjaju u `gocop.toml`.
   sigurnosnoj kopiji za oporavak istog čvora; ne koristiti ga za osnivanje drugog.
 - **Tajne i službeni izvornici.** Lozinka Exchangea i sken vlastoručnog potpisa
   šifrirani su ključem ovog čvora. Osobni potpisni ključ zaključan je lozinkom
-  korisnika; potpisani PDF, a ne nezaštićeni sken, postaje izvornik koji se
-  razmjenjuje. Žig centra dostupan je samo upravi sektora, ali je dio baze i
-  sigurnosne kopije pa mapu `data/` treba štititi kao službenu evidenciju.
+  korisnika; kad lozinku postavi netko drugi (poništenje, lozinka upisana u
+  obrascu djelatnika ili oporavak s konzole), ključ se uklanja, jer ga nova
+  lozinka ne otvara, a osoba na profilu napravi novi. Već potpisani dokumenti
+  ostaju provjerljivi. Ključ se pravi i uklanja samo uz lozinku računa (s
+  istim ograničenjem krivih upisa) i nikad tuđim očima. Certifikat uz puno
+  ime nosi korisničko ime, „Ime Prezime (korisnicko)”, jer puno ime osoba
+  mijenja sama; zagrade iz punog imena se izostavljaju, pa zagrada na kraju
+  uvijek nosi korisničko ime. Stariji certifikati nose samo ime i dalje se
+  provjeravaju. Potpisani PDF, a ne nezaštićeni sken, postaje izvornik koji
+  se razmjenjuje. Žig centra dostupan je samo upravi sektora, ali je dio baze
+  i sigurnosne kopije pa mapu `data/` treba štititi kao službenu evidenciju.
+- **Lozinka sandučića e-pošte** koju osoba spremi na profilu ostaje samo na
+  tom čvoru, šifrirana ključem čvora, a uz nju stoji otisak lozinke računa
+  (HMAC ključem čvora). Vrijedi samo dok je lozinka računa ista: poništenje,
+  lozinka upisana u obrascu djelatnika i oporavak s konzole brišu je na tom
+  čvoru odmah. Na drugim čvorovima prestaje vrijediti čim razmjenom stigne
+  nova lozinka računa, a briše se pri prvoj sljedećoj uporabi (profil,
+  sandučić, slanje akta) ili, najkasnije, pri sljedećem pokretanju čvora. I
+  nakon vlastite promjene lozinke upisuje se ponovno. Tko zna privremenu
+  lozinku, tako ne čita i tuđu poštu. Lozinke sandučića spremljene u
+  starijem izdanju dobiju otisak pri prvom pokretanju ovim izdanjem, ali samo
+  kad knjiga verzija pokazuje da se lozinka računa otada nije mijenjala;
+  ostale se brišu i upisuju ponovno.
+- **Ovlasti po dosegu.** Pravo pisanja ide po dosegu dužnosti: dužnost
+  sektora piše u cijelom sektoru, dužnost područja u svom području, a dužnost
+  na dionicama na tim dionicama, njihovim objektima i aktima te u dnevnicima
+  svog područja i COP-a (terenska dužnost bez dionica u cijelom području;
+  samo uz sektor terenska se dužnost ne upisuje). Akt vodomjera piše tko
+  piše na bilo kojoj njegovoj dionici. Objekt drugog područja koji stoji na
+  dionici vodi njegovo područje, i vezu dionice na objekt ili vodomjer
+  drugog područja upisuje samo tko ondje piše. Sektor upisan uz dužnost
+  područja ili dionice ne daje pisanje po sektoru; popisi i zadani izbor
+  sektora i dalje se ravnaju po svim dužnostima osobe. Račun bez aktivne
+  dužnosti, isključen račun i globalnog administratora zadužuje samo
+  globalni administrator; primarnu funkciju i vlastiti naziv dužnosti daje
+  i mijenja samo onaj tko smije uređivati cijeli račun. Lozinku i
+  privremeni kod uprava daje samo osobama niže razine; osobama s dužnošću na
+  njezinoj razini uprave ili višoj (koje i dalje uređuje i zadužuje) daje ih
+  viša razina ili globalni administrator, jer poništenje uklanja potpisni
+  ključ. Razina uprave je razina s koje uloga upravlja računima: zamjenik
+  glavnog rukovoditelja za sektor upravlja sektorom, a zamjenik rukovoditelja
+  sektora za branjeno područje područjem. Privremena uprava (dužnost s rokom)
+  dužnost koja daje upravu na njezinoj razini dodjeljuje najdulje do isteka
+  vlastite uprave nad tim sektorom ili područjem; tuđu postojeću dužnost
+  izmjenom ne skraćuje. Zastavicu globalnog administratora postavlja samo
+  stalna uprava organizacije. Lozinku koju
+  administrator upiše u obrascu djelatnika osoba pri prvoj prijavi mora
+  zamijeniti, kao i poništenu. Adresa e-pošte koju već ima drugi aktivni
+  račun ne upisuje se nikome, ni globalnom administratoru (velika slova i
+  razmaci se ne razlikuju), a isključen račun s takvom adresom kroz program
+  se ne uključuje (`-aktiviraj` s konzole, alat za oporavak, uključi ga i
+  upozori; adresu tada uskladite ručno); prazna adresa je dopuštena.
+  Korisničko ime koje već ima drugi račun, i drugim slovima, ne dobiva se ni
+  preimenovanjem.
 - **Nacrt nije službeni zapis.** Može se mijenjati ili obrisati dok ne bude
   objavljen ili ovjeren. Objava ili ovjera zaključava sadržaj i priloge te ih
   uvodi u repozitorij službenih zapisa. Ispravak nastaje kao novi povezani
@@ -270,7 +327,7 @@ Portovi se mijenjaju u `gocop.toml`.
   pokreće i potvrđuje globalni administrator (od 0.0.25-alfa); na svježem
   računalu, dok na njemu nema računa, čarobnjak stoji na stranici prijave, ali
   samo za pristup iz lokalne mreže, nikad kroz tunel.
-- Program prevesti iz označenog izdanja (npr. `git checkout v0.0.26-alfa`) ili
+- Program prevesti iz označenog izdanja (npr. `git checkout v0.0.27-alfa`) ili
   koristiti sliku s oznakom izdanja; `SHA256SUMS` uz izdanja zasad ne postoji.
 - Program pokretati kao običan korisnik, iz vlastite mape.
 - Sigurnosna kopija mora obuhvatiti cijelu mapu `data/` i izvorno stablo
@@ -359,10 +416,61 @@ troškovnik (opisi i jedinice, bez cijena). Ponovni uvoz istog ili
 sljedećeg ugovora ne udvostručuje: postojeće lokacije i stavke ostaju kako
 jesu.
 
+### Oporavak administratora
+
+Kad globalni administrator zaboravi lozinku, a nema drugog globalnog
+administratora koji bi mu je poništio, lozinka se poništava
+s konzole računala na kojem čvor radi; kroz web i razmjenu to nije moguće.
+Naredba radi i dok čvor radi (ista baza), ne pokreće web ni razmjenu i
+završava čim obavi posao. Zadaju joj se iste `-config` i `-db` kao čvoru, da
+otvori pravu bazu i upiše promjenu u ime pravog čvora; baza koje nema javlja
+grešku, ne stvara se nova.
+
+```bash
+# laptop, iz korijena projekta (baza data/gocop.db)
+./bin/gocop -ponisti-lozinku tkraljevic
+
+# Unraid, iz terminala Unraida (spremnik gocop, korisnik slike 99:100, bez -u root)
+docker exec gocop gocop -config /data/gocop.toml -db /data/gocop.db -ponisti-lozinku tkraljevic
+```
+
+Ime se traži kao pri prijavi (velika i mala slova svejedno). Ako na čvoru
+postoje računi koji se razlikuju samo u slovima (npr. `tkraljevic` i
+`TKraljevic`), vrijedi samo ime upisano točno; inače naredba ispiše popis i
+ništa ne mijenja. Naredba postavi privremenu lozinku od četiri skupine po
+četiri znaka i ispiše je jednom; nigdje se ne zapisuje, a pri prvoj prijavi
+traži se nova. U dnevnik
+naredbe ide samo da je lozinka računa poništena s konzole, a trajni trag je
+nova verzija računa u knjizi verzija. Poništenje radi isto što i Korisnici →
+Poništi lozinku: na tom čvoru gasi otvorene prijave osobe, zapamćena
+računala, prijave koje čekaju PIN i privremene kodove (rezervni kodovi
+ostaju), a sažetak nove lozinke razmjenom stiže na druge čvorove. Prijave na
+drugim čvorovima traju do isteka. Privremena lozinka vrijedi i izvana, ali
+uz uključen PIN izvana nakon nje treba i PIN sa službene e-pošte ili kod; iz
+lokalne mreže dovoljna je lozinka. Prava računa se ne mijenjaju: isključen
+račun dobije lozinku, ali se ne prijavljuje dok ga netko ne uključi, a s
+konzole ga uključuje dodatna zastavica `-aktiviraj`. Račun se uključuje tek
+nakon poništene lozinke i ugašenih prijava; zapne li nešto prije, ostaje
+isključen, a naredba javlja grešku i može se ponoviti. Osobni potpisni ključ
+zaključan je starom lozinkom, a promjena lozinke ga prekljucava trenutnom,
+ovdje privremenom, koja ga ne otvara; zato ga naredba uklanja (kroz knjigu,
+pa i na drugim čvorovima) i to ispiše. Već potpisani dokumenti ostaju
+provjerljivi, a novi ključ osoba napravi u profilu nakon promjene lozinke.
+Spremljenu lozinku sandučića e-pošte osobe naredba na tom čvoru briše i to
+ispiše; na drugim čvorovima ona prestaje vrijediti čim stigne nova lozinka,
+a briše se pri prvoj uporabi ili sljedećem pokretanju čvora. Ima li račun
+uključen s `-aktiviraj` adresu e-pošte koju već ima drugi aktivni račun,
+naredba ga svejedno uključi i to ispiše kao upozorenje: zajednička adresa
+gasi PIN objema osobama, pa jednome od njih treba upisati drugu.
+Blokade zbog previše krivih lozinki ili kodova žive samo u memoriji čvora,
+pa ih naredba ne skida: same isteknu (najviše za sat) ili nestanu ponovnim
+pokretanjem čvora. Da do ovoga ne dođe, neka mreža ima barem dva globalna
+administratora. Rezervni kodovi tu ne pomažu: zamjenjuju PIN, ne lozinku.
+
 ## 7. Stalni čvor, spremnik i sigurnosna kopija
 
 Docker slika je `ghcr.io/tkraljevic/gocop`, trenutačno za Linux amd64.
-Za ponovljivo postavljanje birati oznaku izdanja, npr. `:0.0.26-alfa`,
+Za ponovljivo postavljanje birati oznaku izdanja, npr. `:0.0.27-alfa`,
 umjesto promjenjive `:latest`. Spremnik sluša web na 8080, razmjenu na 4710,
 uparivanje na 4711 i pronalaženje na 4712/UDP, a radi kao UID/GID `99:100`;
 mape moraju biti dostupne tom korisniku.
@@ -426,8 +534,8 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 Verzija stoji u kodu (`verzijaPrograma` u `cmd/gocop/main.go`) i mijenja se pri
 izdavanju; program je ispisuje u podnožju stranice i u dnevniku, s kratkom
 oznakom commita iz kojega je preveden (i zvjezdicom kad stablo ima nespremljenih
-izmjena). Izdanje u gitu nosi oznaku oblika `v0.0.26-alfa`; iz svake takve
-oznake GitHub gradi Docker sliku `ghcr.io/tkraljevic/gocop:0.0.26-alfa` i `:latest`.
+izmjena). Izdanje u gitu nosi oznaku oblika `v0.0.27-alfa`; iz svake takve
+oznake GitHub gradi Docker sliku `ghcr.io/tkraljevic/gocop:0.0.27-alfa` i `:latest`.
 
 ## 9. Za razvoj
 

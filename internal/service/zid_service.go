@@ -218,10 +218,15 @@ func (s *ZidService) vidi(perms *models.UserPermissions, d Dogadjaj, podrucja ma
 	if perms.IsGlobalAdmin || d.Sektor == "" {
 		return true
 	}
-	if perms.AllowedSectors[d.Sektor] || perms.AdminSectors[d.Sektor] {
+	if perms.RadiUSektoru(d.Sektor) || perms.AdminSectors[d.Sektor] {
 		return true
 	}
 	for a := range perms.AllowedAreas {
+		if podrucja[a] == d.Sektor {
+			return true
+		}
+	}
+	for a := range perms.PodrucjaDuznosti {
 		if podrucja[a] == d.Sektor {
 			return true
 		}

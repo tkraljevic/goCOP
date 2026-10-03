@@ -17,7 +17,7 @@
 {{if not .Podesena}}<div class="alert alert-warning">Slanje e-poštom na ovom računalu nije uključeno: administrator upisuje poslužitelj u <span class="mono">gocop.toml</span>, odjeljak <span class="mono">[posta]</span>. Lozinku možete upisati i sada.</div>{{end}}
 
 <section class="detail-section" style="max-width:36rem;">
-  {{if .Racun}}<p>{{icon "check"}} Lozinka je upisana za <span class="mono">{{.Racun}}</span>, {{formatDate (localTime .RacunAt)}}.</p>{{else}}<p>Lozinka još nije upisana.</p>{{end}}
+  {{if .Racun}}<p>{{icon "check"}} Lozinka je upisana za <span class="mono">{{.Racun}}</span>, {{formatDate (localTime .RacunAt)}}.</p>{{else}}<p>Lozinka nije upisana. Ako ste je već upisivali, a otada se lozinka vašeg računa u goCOP-u promijenila ili je poništena, spremljena je obrisana: upišite je ponovno.</p>{{end}}
   <form method="POST" action="/profile/posta" autocomplete="off">
     <div class="form-group">
       <label class="form-label" for="korisnik">Korisničko ime</label>
@@ -27,12 +27,12 @@
     <div class="form-group">
       <label class="form-label" for="lozinka">Lozinka</label>
       <input class="form-control" type="password" id="lozinka" name="lozinka" required autocomplete="new-password">
-      <div class="form-help">goCOP je odmah provjeri na poslužitelju. Čuva se samo na ovom računalu, šifrirana; ne šalje se drugim čvorovima i nitko je ne može pročitati u programu.</div>
+      <div class="form-help">goCOP je odmah provjeri na poslužitelju. Čuva se samo na ovom računalu, šifrirana; ne šalje se drugim čvorovima i nitko je ne može pročitati u programu. Vrijedi dok se ne promijeni lozinka vašeg računa u goCOP-u: nakon promjene lozinke, ili kad vam je administrator poništi ili upiše novu, spremljena lozinka e-pošte se briše i treba je upisati ponovno.</div>
     </div>
     <button type="submit" class="btn btn-primary">{{icon "check"}} {{if .Racun}}Spremi novu lozinku{{else}}Spremi lozinku{{end}}</button>
   </form>
   {{if .Racun}}
-  <form method="POST" action="/profile/posta" style="margin-top:0.75rem;">
+  <form method="POST" action="/profile/posta" class="mt-3">
     <input type="hidden" name="obrisi" value="1">
     <button type="submit" class="btn btn-sm btn-secondary">{{icon "trash"}} Obriši lozinku s ovog računala</button>
   </form>

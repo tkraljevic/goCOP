@@ -366,6 +366,7 @@ func templateFuncs() template.FuncMap {
 		"term":         func(key string) string { return models.Terms().Get(key) },
 		"terml":        func(key string) string { return models.Terms().Lower(key) },
 		"logo":         LogoURL,
+		"temaCSS":      temaCSSAdresa,
 		"roleOptions":  roleOptions,
 		"humanBytes":   humanBytes,
 		"km":           models.FormatKm,
@@ -565,7 +566,7 @@ func NewServer(
 	for _, page := range []string{"dashboard.html", "registri.html", "users.html", "user_detail.html", "user_form.html", "duty_form.html", "profile.html", "sections.html", "section_detail.html", "section_form.html", "territories.html", "county_form.html", "municipality_form.html", "municipality_detail.html", "stations.html", "station_detail.html", "station_form.html", "station_history.html", "station_history_form.html", "paket_pregled.html", "watercourses.html", "watercourse_detail.html", "watercourse_form.html", "slivovi.html", "kisomjer_form.html", "kisomjer.html", "structures.html", "structure_detail.html", "structure_form.html", "readings.html", "reading_history.html", "reading_form.html", "arhiva_ispravci.html", "uvoz_ocitanja.html", "teren.html", "moduli.html", "settings.html", "odrzavanje.html", "organizacija.html", "sector_form.html", "area_form.html", "contractor_form.html", "firme.html", "nazivi.html", "sudionici.html",
 		"administracija.html", "uvozi.html", "sinkronizacija.html", "pretplate.html", "baza.html", "izvori.html", "uvoz_niza.html",
 		"dnevnici.html", "dnevnici_izbor.html", "administracija_potpisi.html", "prijave.html", "prijava_form.html", "prijava.html", "vodocuvar.html", "vodocuvar_list.html", "vodocuvar_kalendar.html", "posao.html", "dnevnik_form.html", "dnevnik.html", "dnevnik_cop.html", "dnevnik_cop_form.html", "dnevnik_list.html", "dnevnik_obracun.html", "dnevnik_dezurstva.html", "dnevnik_iors.html", "izvjesca.html", "izvjesce_form.html", "izvjesce.html", "sektorsko_form.html", "sektorsko.html", "obracun_postavke.html",
-		"sredstva.html", "katalog.html", "skladiste.html", "potrebe_form.html", "potrebe.html", "dogadjanja.html", "skladiste_form.html", "promet_form.html", "promet.html", "gdje_ima.html", "na_terenu.html", "popisi.html", "popis_form.html", "popis.html", "pomoc.html", "prognoze.html", "prognoze_metoda.html", "prognoze_postavke.html", "ocitanja_ispravci.html", "akti.html", "akt_form.html", "akt.html", "primatelji.html", "spranca.html", "posta_racun.html", "administracija_posta.html", "posta_sanducic.html", "posta_pismo.html", "posta_novo.html", "posta_potpis.html", "administracija_zig.html", "administracija_opcije.html", "administracija_telemetrija.html", "imenik_exchange.html", "county_detail.html"} {
+		"sredstva.html", "katalog.html", "skladiste.html", "potrebe_form.html", "potrebe.html", "dogadjanja.html", "skladiste_form.html", "promet_form.html", "promet.html", "gdje_ima.html", "na_terenu.html", "popisi.html", "popis_form.html", "popis.html", "pomoc.html", "prognoze.html", "prognoze_metoda.html", "prognoze_postavke.html", "ocitanja_ispravci.html", "akti.html", "akt_form.html", "akt.html", "primatelji.html", "spranca.html", "posta_racun.html", "administracija_posta.html", "posta_sanducic.html", "posta_pismo.html", "posta_novo.html", "posta_potpis.html", "administracija_zig.html", "administracija_opcije.html", "administracija_tema.html", "administracija_telemetrija.html", "imenik_exchange.html", "county_detail.html"} {
 		t, err := template.New("base.html").Funcs(tmplFuncs).ParseFS(templatesFS, DijeloviPredloska(page)...)
 		if err != nil {
 			return nil, fmt.Errorf("greška pri parsiranju predloška %s: %w", page, err)
@@ -743,6 +744,20 @@ func (s *Server) setupRoutes() {
 		}
 		return s.potpis.Prekljucaj(ctx, userID, stara, nova)
 	})
+	if s.userService != nil {
+		s.userService.SetUklanjanjeKljuca(func(ctx context.Context, userID string) error {
+			if s.potpis == nil {
+				return nil
+			}
+			return s.potpis.UkloniKljuc(ctx, userID)
+		})
+		s.userService.SetBrisanjeSanducica(func(ctx context.Context, userID string) (bool, error) {
+			if s.akti == nil {
+				return false, nil
+			}
+			return s.akti.ZaboraviSanducic(ctx, userID)
+		})
+	}
 	s.mux.Handle("POST /profile/potpisni-kljuc", s.authMiddleware(http.HandlerFunc(potpisH.HandleKljuc)))
 	s.mux.Handle("GET /potpis/izdavatelj.pem", s.authMiddleware(http.HandlerFunc(potpisH.Izdavatelj)))
 	s.mux.Handle("GET /administracija/potpisi", s.authMiddleware(http.HandlerFunc(potpisH.ShowAdministracija)))
@@ -864,6 +879,7 @@ func (s *Server) setupRoutes() {
 		s.mux.Handle("GET /static/", sPredmemorijom(http.StripPrefix("/static/", http.FileServer(http.FS(staticFS)))))
 		s.mux.HandleFunc("GET /logo", ServeLogo)
 	}
+	s.mux.HandleFunc("GET /tema.css", ServeTemaCSS)
 
 	// Uparivanje: prijavljenima uvijek, neprijavljenima dok je čvor svjež
 	pairH := NewPairHandler(s.peersService, s.authService, s.userService, s.templates["uparivanje.html"])
@@ -1207,6 +1223,10 @@ func (s *Server) setupRoutes() {
 	aktiH.SetOpcije(s.templates["administracija_opcije.html"])
 	s.mux.Handle("GET /administracija/opcije", s.samoAdmin(http.HandlerFunc(aktiH.ShowOpcije)))
 	s.mux.Handle("POST /administracija/opcije", s.samoAdmin(http.HandlerFunc(aktiH.HandleOpcije)))
+	aktiH.SetTema(s.templates["administracija_tema.html"])
+	s.mux.Handle("GET /administracija/tema", s.samoAdmin(http.HandlerFunc(aktiH.ShowTema)))
+	s.mux.Handle("POST /administracija/tema", s.samoAdmin(http.HandlerFunc(aktiH.HandleTema)))
+	s.mux.Handle("POST /administracija/tema/pregled", s.samoAdmin(http.HandlerFunc(aktiH.PregledTeme)))
 	s.mux.Handle("GET /administracija/zig", s.authMiddleware(http.HandlerFunc(aktiH.ShowZig)))
 	s.mux.Handle("POST /administracija/zig", s.authMiddleware(http.HandlerFunc(aktiH.HandleZig)))
 	s.mux.Handle("GET /administracija/zig/slika", s.authMiddleware(http.HandlerFunc(aktiH.ZigSlika)))
@@ -1508,6 +1528,16 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 			}
 			log.Printf("upis tuđim očima: %s piše kao %s (%s %s)", view.RealUser.Username, view.User.Username, r.Method, r.URL.Path)
 		}
+		// Tuđi sandučić je tuđa pošta: ni tuđim očima se ne otvara, ni samo
+		// za čitanje (otvoreno pismo označi se pročitanim na poslužitelju)
+		if view.Viewing && tudjaPosta(r.URL.Path) {
+			http.Error(w, "Tuđi sandučić e-pošte ne otvara se ni tuđim očima. Vrati se sebi pa otvori svoj.", http.StatusForbidden)
+			return
+		}
+		if view.Viewing {
+			// ni drugdje (adresar, slanje akta) tuđa lozinka e-pošte se ne otključava
+			r = r.WithContext(service.TudjimOcima(r.Context()))
+		}
 
 		// Moduli: što račun vidi. Skriveni modul ne otvara se ni izravnom
 		// adresom; pri pregledu tuđim očima vrijedi tuđi skup.
@@ -1577,6 +1607,14 @@ func moduleForPath(path string) string {
 
 // readOnlyRequest javlja smije li zahtjev proći dok se gleda tuđim očima:
 // samo čitanje, i izlaz iz pregleda natrag k sebi.
+// tudjaPosta: putanje osobnog sandučića i spremljene lozinke e-pošte
+func tudjaPosta(putanja string) bool {
+	if putanja == "/posta/logo.png" {
+		return false // logo organizacije u potpisu, ne osobna pošta
+	}
+	return putanja == "/posta" || strings.HasPrefix(putanja, "/posta/") || putanja == "/profile/posta"
+}
+
 func readOnlyRequest(r *http.Request) bool {
 	switch r.Method {
 	case http.MethodGet, http.MethodHead, http.MethodOptions:

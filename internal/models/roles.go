@@ -58,6 +58,34 @@ var RoleCatalog = []RoleDef{
 	{RoleViewer, RoleGroupProgram, "Preglednik (samo čitanje)", "gleda, ne upisuje", ScopeAll},
 }
 
+// RazinaUprave je razina uprave koju uloga daje nad računima i dužnostima:
+// 1 uprava organizacije (globalni administrator), 2 uprava sektora, 3 uprava
+// područja, 0 kad uloga ne upravlja. Razlikuje se od razine u katalogu
+// (Rank) za dvije uloge: zamjenik glavnog rukovoditelja za sektor upravlja
+// sektorom, a zamjenik rukovoditelja sektora za područje područjem. Voditelj
+// usluga izvođača je vanjska osoba: piše, ali ne upravlja računima.
+func (r Role) RazinaUprave() int {
+	switch r {
+	case RoleGlobalAdmin, RoleNationalLeader, RoleNationalDeputy, RoleMainCenterLeader, RoleMainCenterDeputy:
+		return 1
+	case RoleCopLeader, RoleCopDeputy, RoleAreaAdmin, RoleSectorMainDeputy, RoleSectorLeader, RoleSectorDeputy:
+		return 2
+	case RoleSectorAreaDeputy, RoleAreaLeader, RoleAreaDeputy, RoleContractOfficerA2, RoleContractOfficerA3,
+		RoleContractDeputyA2, RoleContractDeputyA3:
+		return 3
+	}
+	return 0
+}
+
+// RazinaZaUpravu je razina uloge za pravila uprave: razina uprave koju
+// daje, a kad ne upravlja, razina iz kataloga
+func (r Role) RazinaZaUpravu() int {
+	if u := r.RazinaUprave(); u > 0 {
+		return u
+	}
+	return r.Rank()
+}
+
 // Rank je razina s koje se uloga dodjeljuje: 1 uprava organizacije, 2 sektor,
 // 3 područje, 4 dionica, 5 teren i ostali. Dužnost smije dati samo tko je na
 // toj razini ili iznad nje.

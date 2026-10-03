@@ -19,7 +19,7 @@
 <section class="detail-section" id="spoj">
   <h2>{{icon "activity"}} Vodostaj i protok</h2>
   {{if .Sada}}
-  <div class="table-card" id="stanje" style="padding:1rem 1.25rem; margin-bottom:1rem;"
+  <div class="table-card okvir mb-4" id="stanje"
        data-vodostaj="{{brojHRf .Sada.Vrijednost 0}}"
        data-kad="{{formatDate (localTime .Sada.Kad)}}"
        data-tocnost="{{.Sada.TocnostLabel}}{{if gt .Sada.Tocnost 0.0}} cm{{end}}"
@@ -27,8 +27,8 @@
        data-izvor="{{izvorLabel .Sada.Izvor}}"
        data-protok="{{if gt .ZadnjiProtok 0.0}}{{brojHRf .ZadnjiProtok 0}}{{end}}" data-protok-izvan="{{if .ZadnjiProtokIzvan}}1{{end}}"
        data-kote="{{range .Station.Kote (round .Sada.Vrijednost)}}{{brojHRf .Kota 3}} m {{.Sustav}}|{{end}}">
-    <div style="display:flex; flex-wrap:wrap; align-items:baseline; gap:0.75rem 1.75rem;">
-      <span style="font-size:1.75rem; font-weight:700;" data-polje="vodostaj">{{brojHRf .Sada.Vrijednost 0}} cm</span>
+    <div class="stanje-red">
+      <span class="stanje-vodostaj" data-polje="vodostaj">{{brojHRf .Sada.Vrijednost 0}} cm</span>
       <span class="reg-card-sub" data-polje="kad">{{formatDate (localTime .Sada.Kad)}}</span>
       <span class="badge {{if le .Sada.Tocnost 1.0}}badge-area-admin{{else}}badge-unknown{{end}}" data-polje="tocnost">{{.Sada.TocnostLabel}}{{if gt .Sada.Tocnost 0.0}} cm{{end}}</span>
       <span class="reg-card-sub" data-polje="izvor">{{izvorLabel .Sada.Izvor}}</span>
@@ -38,8 +38,8 @@
   </div>
   {{end}}
 
-  <details style="margin-top:0.75rem;">
-    <summary style="cursor:pointer; font-weight:600;">Od čega je spojeni niz sastavljen</summary>
+  <details class="mt-3">
+    <summary class="cursor-pointer fw-600">Od čega je spojeni niz sastavljen</summary>
   <p class="page-desc">
     Jedan satni i jedan dnevni niz po veličini, sastavljeni tako da svaki trenutak dolazi iz najtočnijeg
     izvora koji ga pokriva. Uz svaku vrijednost stoji odakle je i koliko odstupa, pa se brzi podatak može
@@ -47,14 +47,14 @@
   </p>
   <div class="table-card"><div class="table-responsive">
     <table class="data-table">
-      <thead><tr><th>Veličina</th><th>Korak</th><th>Razdoblje</th><th style="text-align:right;">Vrijednosti</th><th>Sastavljeno od</th></tr></thead>
+      <thead><tr><th>Veličina</th><th>Korak</th><th>Razdoblje</th><th class="text-right">Vrijednosti</th><th>Sastavljeno od</th></tr></thead>
       <tbody>
       {{range .Spojevi}}
       <tr>
         <td><strong>{{velicinaLabel .Velicina}}</strong></td>
         <td class="reg-card-sub">{{if eq .Korak "satni"}}svaki sat{{else}}dnevni srednjak{{end}}</td>
         <td class="mono">{{datumHR .Od}} – {{datumHR .Do}}</td>
-        <td class="mono" style="text-align:right;">{{brojHR .Zapisa}}</td>
+        <td class="mono text-right">{{brojHR .Zapisa}}</td>
         <td class="celija-blok">
           {{$uk := .Zapisa}}
           {{range .Dijelovi}}
@@ -89,13 +89,13 @@
 
 
   {{if .ArhPromjeneKote}}
-  <div class="table-card" style="padding:0.75rem 1rem; margin-bottom:0.75rem;">
-    <p class="reg-card-sub" style="margin:0 0 0.35rem;">{{icon "triangle-alert"}} <strong>Nula ove letve
+  <div class="table-card okvir mb-3">
+    <p class="reg-card-sub mt-0 mb-1">{{icon "triangle-alert"}} <strong>Nula ove letve
       je premještana.</strong> Očitanje je visina nad nulom, pa premještanje pomiče cijeli niz prije
       tog datuma. Vrijednosti u arhivi <strong>svedene su na današnju kotu</strong>; ovdje piše što je
       pomaknuto.</p>
     {{range .ArhPromjeneKote}}
-    <p class="form-help" style="margin:0.25rem 0 0;">Od <strong>{{datumHR .Datum}}</strong> vrijedi nova
+    <p class="form-help mt-1 mb-0">Od <strong>{{datumHR .Datum}}</strong> vrijedi nova
       nula; vrijednostima prije tog dana dodano je <strong>{{brojHR .PomakCm}} cm</strong>.
       {{with .Izvor}}<span class="reg-card-sub">Izvor: {{.}}.</span>{{end}}
       {{with .Napomena}} {{.}}{{end}}</p>
@@ -104,23 +104,22 @@
   {{end}}
 
   {{if .ArhSazetak}}
-  <h3 class="part-label" style="margin:0 0 0.35rem 0;">Karakteristične vrijednosti po veličinama</h3>
-  <div class="table-card" style="margin-bottom:1rem;"><div class="table-responsive">
+  <h3 class="part-label podnaslov-tablice">Karakteristične vrijednosti po veličinama</h3>
+  <div class="table-card mb-4"><div class="table-responsive">
     <table class="data-table">
-      <thead><tr><th>Veličina</th><th>Razdoblje</th><th style="text-align:right;">Srednjak</th>
-        <th style="text-align:right;">Maksimum</th><th>Nastupio</th>
-        <th style="text-align:right;">Minimum</th><th>Nastupio</th></tr></thead>
+      <thead><tr><th>Veličina</th><th>Razdoblje</th><th class="text-right">Srednjak</th>
+        <th class="text-right">Maksimum</th><th>Nastupio</th>
+        <th class="text-right">Minimum</th><th>Nastupio</th></tr></thead>
       <tbody>
       {{range .ArhSazetak}}
       {{$veza := printf "?v=%s&korak=%s&god=%d&mj=%d&red=%s#niz" .Velicina $.ArhKorak $.ArhGodina $.ArhMjesec $.ArhRed}}
-      <tr {{if eq .Velicina $.ArhVelicina}}style="background:var(--tint-blue-bg);"{{end}}
-          onclick="location='{{$veza}}'" style="cursor:pointer;">
-        <td class="naslov"><a href="{{$veza}}" style="color:inherit; text-decoration:none;"><strong>{{.Naziv}}</strong></a> <span class="reg-card-sub">{{.Jedinica}}</span></td>
+      <tr onclick="location='{{$veza}}'" class="cursor-pointer{{if eq .Velicina $.ArhVelicina}} odabrano{{end}}">
+        <td class="naslov"><a href="{{$veza}}" class="poveznica-tiha"><strong>{{.Naziv}}</strong></a> <span class="reg-card-sub">{{.Jedinica}}</span></td>
         <td class="mono" data-stupac="Razdoblje">{{slice .Od 0 4}}. – {{slice .Do 0 4}}.</td>
-        <td class="mono" style="text-align:right;" data-stupac="Srednjak"><strong>{{brojHRf .Srednjak .Decimala}}</strong></td>
-        <td class="mono" style="text-align:right;" data-stupac="Maksimum">{{brojHRf .Max .Decimala}}{{if .MaxPreracunat}} <span class="preracunato" title="preračunato iz susjedne postaje, nije mjereno ovdje">≈</span>{{end}}</td>
+        <td class="mono text-right" data-stupac="Srednjak"><strong>{{brojHRf .Srednjak .Decimala}}</strong></td>
+        <td class="mono text-right" data-stupac="Maksimum">{{brojHRf .Max .Decimala}}{{if .MaxPreracunat}} <span class="preracunato" title="preračunato iz susjedne postaje, nije mjereno ovdje">≈</span>{{end}}</td>
         <td class="mono reg-card-sub" data-stupac="nastupio">{{datumHR .MaxNa}}</td>
-        <td class="mono" style="text-align:right;" data-stupac="Minimum">{{brojHRf .Min .Decimala}}{{if .MinPreracunat}} <span class="preracunato" title="preračunato iz susjedne postaje, nije mjereno ovdje">≈</span>{{end}}</td>
+        <td class="mono text-right" data-stupac="Minimum">{{brojHRf .Min .Decimala}}{{if .MinPreracunat}} <span class="preracunato" title="preračunato iz susjedne postaje, nije mjereno ovdje">≈</span>{{end}}</td>
         <td class="mono reg-card-sub" data-stupac="nastupio">{{datumHR .MinNa}}</td>
       </tr>
       {{end}}
@@ -128,29 +127,29 @@
     </table>
   </div></div>
   {{if imaPreracunatih .ArhSazetak}}
-  <p class="form-help" style="margin:-0.5rem 0 1rem;">Znak <strong>≈</strong> označava krajnost
+  <p class="form-help napomena-ispod">Znak <strong>≈</strong> označava krajnost
     koja nije mjerena na ovoj letvi nego preračunata iz susjedne postaje. Takva vrijednost je
     procjena i ne čita se kao mjerenje.</p>
   {{end}}
   {{end}}
 
 
-  <form method="GET" action="" id="niz" style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; margin-bottom:0.75rem;">
-    <select name="v" class="filter-select" style="max-width:13rem;" onchange="this.form.submit()">
+  <form method="GET" action="" id="niz" class="d-flex gap-2 items-center flex-wrap mb-3">
+    <select name="v" class="filter-select max-w-13" onchange="this.form.submit()">
       {{range .ArhVelicine}}<option value="{{.}}" {{if eq . $.ArhVelicina}}selected{{end}}>{{velicinaLabel .}}</option>{{end}}
     </select>
-    <select name="korak" class="filter-select" style="max-width:10rem;" onchange="this.form.submit()">
+    <select name="korak" class="filter-select max-w-10" onchange="this.form.submit()">
       <option value="dnevni" {{if eq .ArhKorak "dnevni"}}selected{{end}}>dnevni srednjak</option>
       <option value="satni" {{if eq .ArhKorak "satni"}}selected{{end}}>svaki sat</option>
     </select>
-    <select name="god" class="filter-select" style="max-width:8rem;" onchange="this.form.submit()">
+    <select name="god" class="filter-select max-w-8" onchange="this.form.submit()">
       {{range .ArhGodine}}<option value="{{.}}" {{if eq . $.ArhGodina}}selected{{end}}>{{.}}.</option>{{end}}
     </select>
-    <select name="mj" class="filter-select" style="max-width:9rem;" onchange="this.form.submit()">
+    <select name="mj" class="filter-select max-w-9" onchange="this.form.submit()">
       <option value="0" {{if eq .ArhMjesec 0}}selected{{end}}>cijela godina</option>
       {{range $m := mjeseci}}<option value="{{$m}}" {{if eq $m $.ArhMjesec}}selected{{end}}>{{mjesecIme $m}}</option>{{end}}
     </select>
-    <select name="red" class="filter-select" style="max-width:11rem;" onchange="this.form.submit()">
+    <select name="red" class="filter-select max-w-11" onchange="this.form.submit()">
       <option value="" {{if eq .ArhRed ""}}selected{{end}}>po datumu</option>
       <option value="vrh" {{if eq .ArhRed "vrh"}}selected{{end}}>najviši prvo</option>
       <option value="dno" {{if eq .ArhRed "dno"}}selected{{end}}>najniži prvo</option>
@@ -159,14 +158,14 @@
   </form>
 
   {{if .ArhChart}}
-  <h3 class="part-label" style="margin:0 0 0.35rem 0;">{{velicinaLabel .ArhVelicina}} <span class="reg-card-sub">{{.ArhJedinica}}</span> — {{if .ArhMjesec}}{{mjesecIme .ArhMjesec}} {{end}}{{.ArhGodina}}.{{if eq .ArhKorak "satni"}}, svaki sat{{else}}, dnevni srednjak{{end}}{{if .ArhChart.Praznina}} <span class="reg-chip">{{.ArhChart.Praznina}} prekid{{if gt .ArhChart.Praznina 1}}a{{end}}</span>{{end}}</h3>
-  <div class="reg-card chart graf-niza graf-siroki" style="padding:0.75rem 0.5rem 0.25rem; margin-bottom:1rem;"
+  <h3 class="part-label podnaslov-tablice">{{velicinaLabel .ArhVelicina}} <span class="reg-card-sub">{{.ArhJedinica}}</span> — {{if .ArhMjesec}}{{mjesecIme .ArhMjesec}} {{end}}{{.ArhGodina}}.{{if eq .ArhKorak "satni"}}, svaki sat{{else}}, dnevni srednjak{{end}}{{if .ArhChart.Praznina}} <span class="reg-chip">{{.ArhChart.Praznina}} prekid{{if gt .ArhChart.Praznina 1}}a{{end}}</span>{{end}}</h3>
+  <div class="reg-card chart graf-niza graf-siroki mb-4"
        data-tocke="{{.ArhChart.Tocke}}" data-prognoza="{{.ArhChart.PrognozaTocke}}">
     {{template "grafNiza" .ArhChart}}
     <div class="graf-oblacic" hidden></div>
   </div>
   {{if .ArhChartUzak}}
-  <div class="reg-card chart graf-niza graf-uski" style="padding:0.75rem 0.5rem 0.25rem; margin-bottom:1rem;"
+  <div class="reg-card chart graf-niza graf-uski mb-4"
        data-tocke="{{.ArhChartUzak.Tocke}}" data-prognoza="{{.ArhChartUzak.PrognozaTocke}}">
     {{template "grafNiza" .ArhChartUzak}}
     <div class="graf-oblacic" hidden></div>
@@ -179,14 +178,14 @@
   <div data-listanje="arhiva">
 <div class="table-card"><div class="table-responsive">
     <table class="data-table">
-      <thead><tr><th>Kad</th><th style="text-align:right;">{{velicinaLabel .ArhVelicina}} <span class="reg-card-sub">{{.ArhJedinica}}</span></th>{{if .KoteZaArhivu}}<th style="text-align:right;">Kota vode <span class="reg-card-sub">{{.KotaSustav}}</span></th>{{end}}<th>Točnost</th><th>Odakle</th></tr></thead>
+      <thead><tr><th>Kad</th><th class="text-right">{{velicinaLabel .ArhVelicina}} <span class="reg-card-sub">{{.ArhJedinica}}</span></th>{{if .KoteZaArhivu}}<th class="text-right">Kota vode <span class="reg-card-sub">{{.KotaSustav}}</span></th>{{end}}<th>Točnost</th><th>Odakle</th></tr></thead>
       <tbody>
       {{range .ArhNiz}}
       <tr{{if eq $.ArhVelicina "vodostaj"}} class="niz-redak" tabindex="0" data-vodostaj="{{brojHRf .Vrijednost 0}}" data-kad="{{vrijemeNiza .Kad (eq $.ArhKorak "satni")}}" data-tocnost="{{if .Ispravljeno}}ispravljeno{{else}}{{.TocnostLabel}}{{end}}" data-tocno="{{if le .Tocnost 1.0}}1{{end}}" data-izvor="{{if .Ispravljeno}}{{.Razlog}}{{else}}{{izvorLabel .Izvor}}{{end}}" data-protok="{{protokHR $.Krivulje .Kad .Vrijednost}}" data-protok-izvan="{{if protokIzvan $.Krivulje .Kad .Vrijednost}}1{{end}}" data-kote="{{if $.KoteZaArhivu}}{{range $.Station.Kote (round .Vrijednost)}}{{brojHRf .Kota 3}} m {{.Sustav}}|{{end}}{{end}}"{{end}}>
         <td class="mono naslov">{{vrijemeNiza .Kad (eq $.ArhKorak "satni")}}</td>
-        <td class="mono" style="text-align:right;" data-stupac="{{velicinaLabel $.ArhVelicina}} ({{$.ArhJedinica}})"><strong>{{brojHRf .Vrijednost 1}}</strong>
+        <td class="mono text-right" data-stupac="{{velicinaLabel $.ArhVelicina}} ({{$.ArhJedinica}})"><strong>{{brojHRf .Vrijednost 1}}</strong>
           {{if .Ispravljeno}}<div class="reg-card-sub"><s>{{brojHRf .Izvorno 1}}</s></div>{{end}}</td>
-        {{if $.KoteZaArhivu}}<td class="mono" style="text-align:right;" data-stupac="Kota vode ({{$.KotaSustav}})">{{brojHRf (kotaVode $.Station .Vrijednost) 3}}</td>{{end}}
+        {{if $.KoteZaArhivu}}<td class="mono text-right" data-stupac="Kota vode ({{$.KotaSustav}})">{{brojHRf (kotaVode $.Station .Vrijednost) 3}}</td>{{end}}
         <td data-stupac="Točnost">{{if .Ispravljeno}}<span class="badge badge-area-admin">ispravljeno</span>
             {{else}}<span class="badge {{if le .Tocnost 1.0}}badge-area-admin{{else}}badge-unknown{{end}}">{{.TocnostLabel}}</span>{{end}}</td>
         <td class="reg-card-sub" data-stupac="Odakle">{{if .Ispravljeno}}{{.Razlog}}{{else}}<span title="{{izvorLabel .Izvor}}{{if ne .Vrsta "srednjak"}}{{if ne .Vrsta "trenutna"}} · {{vrstaLabel .Vrsta}}{{end}}{{end}}">{{if .Skupina}}{{.Skupina}}{{else}}{{izvorLabel .Izvor}}{{end}}</span>{{end}}
@@ -199,30 +198,30 @@
   {{template "pager" .ArhPager}}
 </div>
 
-  <div class="table-card" style="padding:0.875rem 1.25rem; margin-top:1rem;">
-    <div style="display:flex; flex-wrap:wrap; gap:1rem; align-items:center;">
+  <div class="table-card okvir mt-4">
+    <div class="d-flex flex-wrap gap-4 items-center">
       <a class="btn btn-secondary btn-sm"
          href="/readings/station/{{.Station.ID}}/izvoz.csv?v={{.ArhVelicina}}&korak={{.ArhKorak}}&god={{.ArhGodina}}">
         {{icon "download"}} Izvezi {{.ArhGodina}}. u CSV
       </a>
       {{if .Permissions.IsGlobalAdmin}}
       <form method="POST" action="/readings/station/{{.Station.ID}}/uvoz" enctype="multipart/form-data"
-            style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; margin:0;">
+            class="d-flex gap-2 items-center flex-wrap m-0">
         <input type="hidden" name="v" value="{{.ArhVelicina}}">
         <input type="hidden" name="korak" value="{{.ArhKorak}}">
         <input type="hidden" name="god" value="{{.ArhGodina}}">
-        <input type="file" name="datoteka" accept=".csv,text/csv" required class="form-control" style="max-width:18rem;">
+        <input type="file" name="datoteka" accept=".csv,text/csv" required class="form-control max-w-18">
         <button type="submit" class="btn btn-secondary btn-sm">{{icon "upload"}} Vrati s ispravcima</button>
       </form>
       {{end}}
     </div>
-    <p class="page-desc" style="margin:0.6rem 0 0 0;">
+    <p class="page-desc mt-2 mb-0">
       Izvezena datoteka ima prazne stupce <strong>ispravak</strong> i <strong>razlog</strong>. Upiši ispravljenu
       vrijednost i zašto je mijenjaš, pa vrati datoteku — program prvo pokaže što bi se promijenilo i ne upisuje
       ništa dok ne potvrdiš. Arhiva ostaje netaknuta: ispravak stoji uz nju i vidi se u nizu.
     </p>
   </div>
-  <p class="page-desc" style="margin-top:0.5rem;">
+  <p class="page-desc mt-2">
     Novije prvo. Svaka vrijednost dolazi iz najtočnijeg izvora koji je taj trenutak pokrio.
   </p>
   {{end}}
@@ -267,7 +266,7 @@
     </li>
     {{end}}
   </ul>
-  <p class="reading-meta" style="margin-top:0.35rem;">Procjena iz niza, ne mjerenje i ne propis. „Jednom u 100 godina“
+  <p class="reading-meta mt-1">Procjena iz niza, ne mjerenje i ne propis. „Jednom u 100 godina“
     znači 1 % izgleda svake pojedine godine, a ne da se neće ponoviti prije isteka stoljeća — dvije takve vode mogu
     doći uzastopce. Pragovi obrane su propisani i ne izvode se iz ovih brojki.</p>
 </section>
@@ -276,7 +275,7 @@
 {{if .Station.ZeroDatumHistory}}
 <section class="detail-section">
   <h2>{{icon "ruler"}} Promjene kote nule</h2>
-  <div class="reg-card" style="padding:1rem;">
+  <div class="reg-card p-4">
     <div class="table-responsive">
       <table class="data-table">
         <thead><tr><th>Vrijedi od</th><th>Kota „0“</th><th>Sustav</th><th>Napomena</th></tr></thead>
@@ -292,7 +291,7 @@
         </tbody>
       </table>
     </div>
-    <p class="reading-meta" style="margin-top:0.35rem;">Vodostaji u bazi svedeni su na zadnju kotu; povijest kaže što je koja starija evidencija mjerila.</p>
+    <p class="reading-meta mt-1">Vodostaji u bazi svedeni su na zadnju kotu; povijest kaže što je koja starija evidencija mjerila.</p>
   </div>
 </section>
 {{end}}
@@ -300,22 +299,22 @@
 {{if .Nizovi}}
 <section class="detail-section" id="arhiva">
   <details>
-    <summary style="cursor:pointer; font-size:1.05rem; font-weight:600;">
+    <summary class="sazetak-naslov">
       {{icon "activity"}} Izvorni nizovi i razrada po godinama <span class="reg-chip">{{len .Nizovi}}</span>
     </summary>
-  <p class="page-desc" style="margin-top:0.5rem;">Izvorni nizovi od kojih je spojeni sastavljen. Sve se računa pri čitanju iz same arhive, ništa se ne prepisuje — pa se brojevi ne mogu razići s podacima iz kojih su nastali.</p>
+  <p class="page-desc mt-2">Izvorni nizovi od kojih je spojeni sastavljen. Sve se računa pri čitanju iz same arhive, ništa se ne prepisuje — pa se brojevi ne mogu razići s podacima iz kojih su nastali.</p>
   <div class="table-card"><div class="table-responsive">
     <table class="data-table">
-      <thead><tr><th>Veličina</th><th>Izvor</th><th>Korak</th><th>Razdoblje</th><th style="text-align:right;">Zapisa</th><th></th></tr></thead>
+      <thead><tr><th>Veličina</th><th>Izvor</th><th>Korak</th><th>Razdoblje</th><th class="text-right">Zapisa</th><th></th></tr></thead>
       <tbody>
       {{range .Nizovi}}
-      <tr{{if eq .ID $.NizID}} style="background:var(--tint-blue-bg);"{{end}}>
+      <tr{{if eq .ID $.NizID}} class="odabrano"{{end}}>
         <td><strong>{{velicinaLabel .Velicina}}</strong> <span class="reg-card-sub">{{.Jedinica}}</span></td>
         <td>{{izvorLabel .Izvor}}{{range ogradeZaNiz $.Station .}} <span class="badge badge-inactive" title="{{if .Razdoblje}}{{.Razdoblje}}{{end}}{{if .ImaGranice}}{{if .Razdoblje}}, {{end}}{{.Raspon}}{{end}}{{if or .Razdoblje .ImaGranice}}: {{end}}{{.Tekst}}{{if .Izdavaceva}} (iz izdanja){{end}}">{{icon "triangle-alert"}} ograda</span>{{end}}{{if not .JeIzmjereno}} <span class="badge badge-unknown">nije mjereno ovdje</span>{{end}}</td>
         <td class="reg-card-sub">{{vrstaLabel .Vrsta}}</td>
         <td class="mono">{{datumHR .Od}} – {{datumHR .Do}}</td>
-        <td class="mono" style="text-align:right;">{{brojHR .Zapisa}}</td>
-        <td>{{if ne .ID $.NizID}}<a href="?niz={{.ID}}#arhiva" style="color:var(--primary);">pogledaj</a>{{end}}</td>
+        <td class="mono text-right">{{brojHR .Zapisa}}</td>
+        <td>{{if ne .ID $.NizID}}<a href="?niz={{.ID}}#arhiva" class="c-primary">pogledaj</a>{{end}}</td>
       </tr>
       {{end}}
       </tbody>
@@ -323,11 +322,11 @@
   </div></div>
 
   {{if .Pregled}}
-  <h3 class="part-label" style="margin:1.25rem 0 0.35rem 0;">
+  <h3 class="part-label podnaslov-tablice mt-5">
     {{velicinaLabel .Pregled.Niz.Velicina}} po godinama — {{izvorLabel .Pregled.Niz.Izvor}}, {{vrstaLabel .Pregled.Niz.Vrsta}}
   </h3>
-  <div class="table-card" style="padding:0.875rem 1.25rem; margin-bottom:0.75rem;">
-    <div style="display:flex; flex-wrap:wrap; gap:1.5rem; font-size:0.9rem;">
+  <div class="table-card okvir mb-3">
+    <div class="pregled-brojke">
       <span>najviše <strong>{{brojHRf .Pregled.Max 0}} {{.Pregled.Niz.Jedinica}}</strong> {{.Pregled.MaxNa}}</span>
       <span>najniže <strong>{{brojHRf .Pregled.Min 0}} {{.Pregled.Niz.Jedinica}}</strong> {{.Pregled.MinNa}}</span>
       <span>srednjak razdoblja <strong>{{brojHRf .Pregled.Srednjak 1}} {{.Pregled.Niz.Jedinica}}</strong></span>
@@ -335,20 +334,20 @@
       <span class="reg-card-sub">{{len .Pregled.Godine}} godina</span>
     </div>
   </div>
-  <div class="table-card"><div class="table-responsive" style="max-height:26rem; overflow-y:auto;">
+  <div class="table-card"><div class="table-responsive s-klizanjem">
     <table class="data-table">
-      <thead><tr><th>Godina</th><th style="text-align:right;">Maksimum</th><th>Nastupio</th><th style="text-align:right;">Minimum</th><th>Nastupio</th><th style="text-align:right;">Srednjak</th>{{if .Pregled.ZbrojIma}}<th style="text-align:right;">Ukupno</th>{{end}}<th style="text-align:right;">Zapisa</th></tr></thead>
+      <thead><tr><th>Godina</th><th class="text-right">Maksimum</th><th>Nastupio</th><th class="text-right">Minimum</th><th>Nastupio</th><th class="text-right">Srednjak</th>{{if .Pregled.ZbrojIma}}<th class="text-right">Ukupno</th>{{end}}<th class="text-right">Zapisa</th></tr></thead>
       <tbody>
       {{range .Pregled.Godine}}
       <tr>
         <td class="mono">{{.Godina}}.</td>
-        <td class="mono" style="text-align:right;">{{brojHRf .Max 0}}</td>
+        <td class="mono text-right">{{brojHRf .Max 0}}</td>
         <td class="mono">{{datumHR .MaxNa}}</td>
-        <td class="mono" style="text-align:right;">{{brojHRf .Min 0}}</td>
+        <td class="mono text-right">{{brojHRf .Min 0}}</td>
         <td class="mono">{{datumHR .MinNa}}</td>
-        <td class="mono" style="text-align:right;">{{brojHRf .Srednjak 1}}</td>
-        {{if $.Pregled.ZbrojIma}}<td class="mono" style="text-align:right;">{{brojHRf .Zbroj 0}}</td>{{end}}
-        <td class="mono" style="text-align:right;">{{brojHR .Zapisa}}</td>
+        <td class="mono text-right">{{brojHRf .Srednjak 1}}</td>
+        {{if $.Pregled.ZbrojIma}}<td class="mono text-right">{{brojHRf .Zbroj 0}}</td>{{end}}
+        <td class="mono text-right">{{brojHR .Zapisa}}</td>
       </tr>
       {{end}}
       </tbody>
@@ -357,22 +356,22 @@
   {{end}}
 
   {{if and .Pregled .Pregled.Mjeseci}}
-  <details style="margin-top:1.25rem;">
-    <summary style="cursor:pointer; font-weight:600;">Godišnji hod</summary>
+  <details class="mt-5">
+    <summary class="cursor-pointer fw-600">Godišnji hod</summary>
   <p class="page-desc">Isti mjesec kroz svih {{len .Pregled.Godine}} godina — kad voda redovito raste, a kad presuši.</p>
   <div class="table-card"><div class="table-responsive">
     <table class="data-table">
-      <thead><tr><th>Mjesec</th><th style="text-align:right;">Srednjak</th><th style="text-align:right;">Najniže</th><th style="text-align:right;">Najviše</th><th></th></tr></thead>
+      <thead><tr><th>Mjesec</th><th class="text-right">Srednjak</th><th class="text-right">Najniže</th><th class="text-right">Najviše</th><th></th></tr></thead>
       <tbody>
       {{range .Pregled.Mjeseci}}
       <tr>
         <td>{{.Naziv}}</td>
-        <td class="mono" style="text-align:right;"><strong>{{brojHRf .Srednjak 1}}</strong></td>
-        <td class="mono" style="text-align:right;">{{brojHRf .Min 0}}</td>
-        <td class="mono" style="text-align:right;">{{brojHRf .Max 0}}</td>
-        <td style="width:40%; padding-right:1rem;">
-          <div style="background:var(--border); height:8px; border-radius:4px; overflow:hidden;">
-            <div style="background:var(--primary); height:8px; width:{{mjesecUdio .Srednjak $.Pregled}}%;"></div>
+        <td class="mono text-right"><strong>{{brojHRf .Srednjak 1}}</strong></td>
+        <td class="mono text-right">{{brojHRf .Min 0}}</td>
+        <td class="mono text-right">{{brojHRf .Max 0}}</td>
+        <td class="mjesec-stupac">
+          <div class="mjesec-traka">
+            <div class="mjesec-traka-ispuna" style="width:{{mjesecUdio .Srednjak $.Pregled}}%;"></div>
           </div>
         </td>
       </tr>
@@ -384,20 +383,20 @@
   {{end}}
 
   {{if and .Pregled .Pregled.Trajanje}}
-  <h3 class="part-label" style="margin:1.25rem 0 0.35rem 0;">Trajanje</h3>
+  <h3 class="part-label podnaslov-tablice mt-5">Trajanje</h3>
   <p class="page-desc">Vrijednost koja je dosegnuta ili premašena zadani dio vremena. Ekstremi kažu koliko je najviše bilo, trajanje koliko je često bilo.</p>
   <div class="table-card"><div class="table-responsive">
     <table class="data-table">
-      <thead><tr>{{range .Pregled.Trajanje}}<th style="text-align:right;">{{.Postotak}} %</th>{{end}}</tr></thead>
-      <tbody><tr>{{range .Pregled.Trajanje}}<td class="mono" style="text-align:right;">{{brojHRf .Vrijednost 0}}</td>{{end}}</tr></tbody>
+      <thead><tr>{{range .Pregled.Trajanje}}<th class="text-right">{{.Postotak}} %</th>{{end}}</tr></thead>
+      <tbody><tr>{{range .Pregled.Trajanje}}<td class="mono text-right">{{brojHRf .Vrijednost 0}}</td>{{end}}</tr></tbody>
     </table>
   </div></div>
-  <p class="page-desc" style="margin-top:0.4rem;">Npr. „5 %" znači da je {{velicinaLabel .Pregled.Niz.Velicina | lower}} bio te vrijednosti ili viši u 5 % vremena.</p>
+  <p class="page-desc mt-2">Npr. „5 %" znači da je {{velicinaLabel .Pregled.Niz.Velicina | lower}} bio te vrijednosti ili viši u 5 % vremena.</p>
   {{end}}
 
   {{if .Krivulje}}
-  <details style="margin-top:1.25rem;">
-    <summary style="cursor:pointer; font-weight:600;">Krivulje protoka <span class="reg-chip">{{len .Krivulje}}</span></summary>
+  <details class="mt-5">
+    <summary class="cursor-pointer fw-600">Krivulje protoka <span class="reg-chip">{{len .Krivulje}}</span></summary>
   <p class="page-desc">Korito se mijenja, pa se krivulja postavlja iznova — najčešće svake godine.
     Protok se računa krivuljom koja je vrijedila na dan očitanja, i samo unutar raspona vodostaja
     za koji je postavljena; izvan njega se ne pogađa.</p>
@@ -417,7 +416,7 @@
     </div>
     {{end}}
   </div>
-  <p class="form-help" style="margin-top:0.5rem;">H je vodostaj u metrima na letvi, Q protok u m³/s.</p>
+  <p class="form-help mt-2">H je vodostaj u metrima na letvi, Q protok u m³/s.</p>
   </details>
   {{end}}
   </details>
@@ -437,7 +436,7 @@
 
   {{if .Valovi}}
   {{if .ValoviZbroj}}
-  <div class="table-card" style="margin-bottom:1rem;"><div class="table-responsive">
+  <div class="table-card mb-4"><div class="table-responsive">
     <table class="data-table">
       <thead><tr><th>Stanje</th><th>Prag</th><th>Valova</th><th>Ukupno u stanju</th><th>Ukupno iznad praga</th><th>Najdulje u jednom valu</th></tr></thead>
       <tbody>
@@ -454,7 +453,7 @@
       </tbody>
     </table>
   </div></div>
-  <p class="reading-meta" style="margin:-0.5rem 0 1rem;">Zbroj za cijeli niz: {{brojHR .ValoviNiz.Zapisa}} mjerenja
+  <p class="reading-meta napomena-ispod">Zbroj za cijeli niz: {{brojHR .ValoviNiz.Zapisa}} mjerenja
     od {{.ValoviNiz.Od.Year}}. do {{.ValoviNiz.Do.Year}}. <strong>U stanju</strong> se broji kao u obrascu obrane —
     stanja se ne preklapaju, pa dok traje redovna obrana pripremno stanje ne teče, a kad se redovna prekine
     pripremno se nastavlja. <strong>Iznad praga</strong> broji sve vrijeme iznad te kote, uključujući i više stupnjeve.</p>
@@ -468,7 +467,7 @@
       <tbody>
       {{range .Valovi}}
       <tr>
-        <td class="mono" style="white-space:nowrap;">{{.PoceloHR}}<div class="reg-card-sub">do {{.ZavrsiloHR}}</div></td>
+        <td class="mono nowrap">{{.PoceloHR}}<div class="reg-card-sub">do {{.ZavrsiloHR}}</div></td>
         <td class="mono"><strong>{{.VrhLabel}}</strong><div class="reg-card-sub">{{.VrhKadHR}}</div></td>
         <td><span class="threshold-pill {{.NajviseDosegnuto.PillClass}}">{{.NajviseDosegnuto.Label}}</span></td>
         {{$v := .}}
@@ -477,7 +476,7 @@
         <td class="mono celija-blok"><strong title="{{.TrajanjeHR}}">{{brojHR .Sati}} h</strong>{{if .NaRubu}} <span title="val dodiruje rub niza, trajanje je najmanje toliko">+</span>{{end}}
           <div class="reg-card-sub">{{.PoceloHR}} → {{.ZavrsiloHR}}</div>
           {{if .Prekidan}}<div class="ekstrem-nacin">u {{.Navrata}} navrata</div>{{end}}</td>
-        {{else}}<td class="mono" style="color:var(--text-muted);">—</td>{{end}}
+        {{else}}<td class="mono c-muted">—</td>{{end}}
         {{end}}
       </tr>
       {{end}}
@@ -505,7 +504,7 @@
   </ul>
   {{template "pager" .ValoviPager}}
   </div>
-  <p class="reading-meta" style="margin-top:0.35rem;">Prijelaz praga se traži pravocrtno između dva mjerenja,
+  <p class="reading-meta mt-1">Prijelaz praga se traži pravocrtno između dva mjerenja,
     pa dnevni niz daje trajanje na dio dana točno. Znak <strong>+</strong> znači da val dodiruje rub niza i da je
     trajanje najmanje toliko. Pad ispod pripremnog stanja kraći od
     {{brojHR 3}} dana ne prekida val.</p>
@@ -533,13 +532,13 @@
       <tbody>
       {{range .Episodes}}
       <tr>
-        <td><a href="/sections/{{.SectionCode}}#obrana" style="color:var(--primary); font-weight:600;">{{.SectionCode}}</a>{{if .SectionName}}<div class="reg-card-sub">{{.SectionName}}</div>{{end}}</td>
+        <td><a href="/sections/{{.SectionCode}}#obrana" class="c-primary fw-600">{{.SectionCode}}</a>{{if .SectionName}}<div class="reg-card-sub">{{.SectionName}}</div>{{end}}</td>
         <td class="mono">{{formatDate (localTime .StartedAt)}}</td>
         <td class="mono">{{if .EndedAt}}{{formatDate (localTime (derefTime .EndedAt))}}{{else}}<span class="badge badge-area-admin">traje</span>{{end}}</td>
-        <td style="white-space:nowrap;">{{.Days}} dana</td>
+        <td class="nowrap">{{.Days}} dana</td>
         <td class="mono">{{.PeakLabel}}</td>
         <td><span class="threshold-pill {{.Phase.PillClass}}">{{.Phase.Label}}</span></td>
-        <td>{{if .Basis}}{{.BasisLabel}}{{end}}{{if .DeclaredBeforeThreshold}} <small style="color:var(--text-muted);">(prije praga)</small>{{end}}</td>
+        <td>{{if .Basis}}{{.BasisLabel}}{{end}}{{if .DeclaredBeforeThreshold}} <small class="c-muted">(prije praga)</small>{{end}}</td>
       </tr>
       {{end}}
       </tbody>
@@ -554,11 +553,11 @@
 {{if .HistorijatPrazan}}
 <section class="detail-section">
   <div class="reg-empty">
-    <p style="margin:0 0 0.5rem;">O ovoj letvi još nema zabilježene povijesti.</p>
-    <p style="margin:0 0 0.75rem;">Ovdje stoje <strong>povratni vodostaji</strong>, <strong>promjene kote
+    <p class="mt-0 mb-2">O ovoj letvi još nema zabilježene povijesti.</p>
+    <p class="mt-0 mb-3">Ovdje stoje <strong>povratni vodostaji</strong>, <strong>promjene kote
       nule</strong>, niz iz arhive vodostaja, valovi obrane izračunati iz njega i obrane proglašene po
       ovoj letvi.</p>
-    <p style="margin:0 0 0.75rem;">Povratni vodostaji i promjene kote nule upisuju se rukom.
+    <p class="mt-0 mb-3">Povratni vodostaji i promjene kote nule upisuju se rukom.
       Niz dolazi iz arhive vodostaja, a valovi se iz njega računaju sami — čim letva ima
       <a href="/stations/{{.Station.ID}}/edit">pragove obrane u centimetrima</a>.</p>
     {{if .CanEdit}}<a href="/stations/{{.Station.ID}}/historijat/uredi" class="btn btn-secondary">{{icon "pencil"}} Uredi historijat</a>{{end}}
@@ -570,8 +569,8 @@
   {{/* Paket na disku je put koji radi kad ne radi ništa drugo — ni mreža, ni
        domena. Zato stoji ovdje, a ne čeka katalog. */}}
   <form method="POST" action="/stations/{{.Station.ID}}/paket/pregled" enctype="multipart/form-data"
-        style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; margin:0;">
-    <input type="file" name="paket" accept=".cop" required class="form-control" style="max-width:16rem;">
+        class="d-flex gap-2 items-center flex-wrap m-0">
+    <input type="file" name="paket" accept=".cop" required class="form-control max-w-16">
     <button type="submit" class="btn btn-secondary"
             title="Učitaj historijat s diska ili USB ključa; prije upisa se pokaže što bi se promijenilo">{{icon "download"}} Učitaj paket</button>
   </form>

@@ -143,13 +143,69 @@ func (s *SectionService) SaveSection(ctx context.Context, perms *models.UserPerm
 			}
 		}
 	}
-	if err := s.sectionRepo.SaveSection(ctx, sec); err != nil {
+	// nova veza na objekt ili vodomjer drugog područja dala bi pisanje po
+	// njemu (objekt, očitanja, akti vodomjera); provjerava se nakon
+	// povezivanja s registrima, jer se vodomjer veže i po nazivu
+	provjeri := func(nove repository.NoveVezeDionice) error { return provjeriNoveVeze(perms, sec, nove) }
+	if err := s.sectionRepo.SaveSectionUzProvjeru(ctx, sec, provjeri); err != nil {
 		return err
 	}
 	if isNew {
 		s.sse.Broadcast("section_created", fmt.Sprintf("Dodana nova dionica: %s", sec.Code), sec.Code)
 	} else {
 		s.sse.Broadcast("section_updated", fmt.Sprintf("Ažurirana dionica: %s", sec.Code), sec.Code)
+	}
+	return nil
+}
+
+// provjeriNoveVeze dopušta novu vezu dionice na objekt iz registra samo kad
+// je objekt iz područja dionice ili kad onaj tko sprema piše u području ili
+// sektoru objekta; vodomjer koji je već mjerodavan za druge dionice samo kad
+// je neka od njih u području dionice ili onaj tko sprema piše na njoj.
+// Objekt drugog područja smije stajati na dionici (CS Budžak područja 16 na
+// B.34.1), ali vezu upisuje tko ondje piše: rukovoditelj dionice inače bi
+// vezom sebi dao objekt, očitanja i akte tuđeg područja i sektora. Veze koje
+// dionica već ima ostaju i ne provjeravaju se.
+func provjeriNoveVeze(perms *models.UserPermissions, sec *models.Section, nove repository.NoveVezeDionice) error {
+	if perms == nil {
+		return ErrUnauthorized
+	}
+	if perms.IsGlobalAdmin {
+		return nil
+	}
+	pise := func(sektor string, podrucje int) bool {
+		return perms.AdminSectors[sektor] || perms.AdminAreas[podrucje] || perms.AllowedSectors[sektor] || perms.AllowedAreas[podrucje]
+	}
+	for _, o := range nove.Objekti {
+		st := o.Objekt
+		if st == nil {
+			return fmt.Errorf("objekt %s nije u registru objekata", o.ID)
+		}
+		if st.AreaID != sec.AreaID && !pise(st.SectorID, st.AreaID) {
+			return fmt.Errorf("%w: objekt „%s” pripada branjenom području %d (sektor %s); uz dionicu %s veže ga tko piše u tom području",
+				ErrUnauthorized, st.Name, st.AreaID, st.SectorID, sec.Code)
+		}
+	}
+	for _, v := range nove.Vodomjeri {
+		if len(v.Dionice) == 0 {
+			continue // vodomjer bez dionica nikome ne pripada
+		}
+		smije := false
+		sifre := make([]string, 0, len(v.Dionice))
+		for _, d := range v.Dionice {
+			sifre = append(sifre, d.Code)
+			if d.AreaID == sec.AreaID || pise(d.SectorID, d.AreaID) || perms.AllowedSections[d.Code] {
+				smije = true
+			}
+		}
+		if !smije {
+			naziv := v.Naziv
+			if naziv == "" {
+				naziv = v.ID
+			}
+			return fmt.Errorf("%w: vodomjer „%s” mjerodavan je za dionice %s drugog područja; uz dionicu %s veže ga tko piše na nekoj od njih",
+				ErrUnauthorized, naziv, strings.Join(sifre, ", "), sec.Code)
+		}
 	}
 	return nil
 }

@@ -57,9 +57,11 @@ func GenerateTempPassword() (string, error) {
 	return fmt.Sprintf("%s-%03d", strings.Join(parts, "-"), num), nil
 }
 
-// canManageTarget javlja smije li actor upravljati tuđim računom: globalni
-// administrator smije svakim, administrator sektora ili područja samo onima
-// koji u njegovom sektoru ili području imaju zaduženje.
+// canManageTarget javlja smije li actor vidjeti stanje tuđeg računa:
+// globalni administrator svakoga, administrator sektora ili područja one
+// koji u njegovom sektoru ili području imaju zaduženje. Za radnje koje daju
+// pristup računu (poništenje lozinke, privremeni kod) vrijedi strože
+// smijePonistiti.
 func canManageTarget(actor *models.UserPermissions, target *models.User) bool {
 	if actor == nil || target == nil {
 		return false
@@ -81,6 +83,31 @@ func canManageTarget(actor *models.UserPermissions, target *models.User) bool {
 	return false
 }
 
+// smijePonistiti javlja smije li actor dati tuđem računu privremenu
+// lozinku ili kod za prijavu izvana: samo onaj tko ga smije i uređivati
+// (mayManage: sve dužnosti osobe u njegovu dosegu i na njegovoj razini ili
+// niže). Jedna dužnost u dosegu nije dovoljna, inače bi uprava nižeg dosega
+// preuzela račun nadređenoga koji ima ispomoć u njezinu području, a s
+// njim, jer poništenje uklanja potpisni ključ, i potpis njegovim imenom.
+func smijePonistiti(actor *models.UserPermissions, target *models.User, sektori areaSector) error {
+	if actor == nil || target == nil {
+		return ErrUnauthorized
+	}
+	if err := mayManage(actor, target, sektori); err != nil {
+		return fmt.Errorf("%w; lozinku i kod daje onaj tko smije uređivati cijeli račun (viša razina ili globalni administrator)", err)
+	}
+	// Ljude iste razine uprava uređuje, ali im ne poništava lozinku: s
+	// lozinkom bi preuzela i potpis (poništenje uklanja potpisni ključ)
+	if rank := actorRank(actor); rank > 1 {
+		for _, d := range target.Duties {
+			if d.Role.RazinaZaUpravu() <= rank {
+				return fmt.Errorf("%w: lozinku i kod osobi s dužnošću na vašoj razini uprave ili višoj („%s”) daje viša razina ili globalni administrator", ErrUnauthorized, d.Role.Label())
+			}
+		}
+	}
+	return nil
+}
+
 // ResetPassword daje osobi novu privremenu lozinku i vraća je administratoru
 // da je pročita naglas. Vraćena lozinka nigdje se ne zapisuje.
 func (s *UserService) ResetPassword(actor *models.UserPermissions, targetID uuid.UUID) (*models.User, string, error) {
@@ -94,8 +121,8 @@ func (s *UserService) ResetPassword(actor *models.UserPermissions, targetID uuid
 	if actor != nil && actor.User.ID == target.ID {
 		return nil, "", fmt.Errorf("vlastitu lozinku mijenjate na svom profilu, ne poništavanjem")
 	}
-	if !canManageTarget(actor, target) {
-		return nil, "", ErrUnauthorized
+	if err := smijePonistiti(actor, target, s.areaSectors()); err != nil {
+		return nil, "", err
 	}
 
 	temp, err := GenerateTempPassword()
@@ -117,6 +144,12 @@ func (s *UserService) ResetPassword(actor *models.UserPermissions, targetID uuid
 	if err := s.auth.opozoviPrijave(target.ID); err != nil {
 		return nil, "", err
 	}
+	// Potpisni ključ zaključan je starom lozinkom, koju osoba više nema
+	if err := s.ukloniPotpisniKljuc(target.ID); err != nil {
+		return nil, "", fmt.Errorf("lozinka je poništena, ali osobni potpisni ključ nije uklonjen pa osoba lozinku ne bi mogla promijeniti; poništite je ponovno: %w", err)
+	}
+	// ...a lozinka sandučića e-pošte otvarala bi poštu osobe onome tko zna privremenu
+	s.zaboraviSanducic(target)
 
 	s.sse.Broadcast("users_updated", fmt.Sprintf("Poništena lozinka: %s", target.FullName), target.ID.String())
 	return target, temp, nil

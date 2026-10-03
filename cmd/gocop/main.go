@@ -44,7 +44,7 @@ import (
 
 // verzijaPrograma je izdanje goCOP-a. Alfa traje dok se ne zaokruže
 // funkcionalnosti koje program treba imati; mijenja se pri izdavanju.
-const verzijaPrograma = "0.0.26-alfa"
+const verzijaPrograma = "0.0.27-alfa"
 
 // version se može zadati pri prevođenju (-ldflags "-X main.version=…");
 // prazno znači verzijaPrograma, s oznakom commita iz kojega je prevedeno.
@@ -114,6 +114,8 @@ func main() {
 	contractFile := flag.String("ugovor", "", "Ugovor o održavanju A.02 (xlsx iz dodatka Hrvatskih voda): uvozi popis lokacija i stavke radova")
 	contractLinks := flag.String("ugovor-veze", "", "Ručno vezivanje lokacija na registar: \"naziv iz popisa=sifra,naziv=sifra\"")
 	contractAllItems := flag.Bool("ugovor-sve-stavke", false, "Uz stavke koje ugovor koristi upisati i cijeli ponudbeni troškovnik (opisi i jedinice, bez cijena)")
+	ponistiLozinku := flag.String("ponisti-lozinku", "", "Oporavak s konzole čvora: računu s tim korisničkim imenom postavi privremenu lozinku, ispiše je i završi (uz -config i -db kao pri pokretanju)")
+	aktivirajRacun := flag.Bool("aktiviraj", false, "Uz -ponisti-lozinku: isključen račun i uključi")
 	flag.Parse()
 	log.Printf("goCOP %s", punaVerzija())
 	web.SetVerzijaPrograma(punaVerzija())
@@ -167,6 +169,15 @@ func main() {
 	}
 	if !zadane["pakete"] && cfg.Pakete != "" {
 		*paketiFlag = cfg.Pakete
+	}
+
+	// Oporavak lozinke s konzole: samo baza, bez poslužitelja i razmjene;
+	// postavke se ne zapisuju, jer ovo nije pokretanje čvora
+	if zadane["ponisti-lozinku"] {
+		os.Exit(ponistiLozinkuSKonzole(cfg.DB, cfg.Node.ID, *ponistiLozinku, *aktivirajRacun, os.Stdout))
+	}
+	if *aktivirajRacun {
+		log.Fatalf("-aktiviraj vrijedi samo uz -ponisti-lozinku")
 	}
 
 	addr := &cfg.Addr
@@ -645,7 +656,14 @@ func main() {
 	server.SetMts(mtsService)
 	server.SetKisomjeri(service.NewKisomjerService(repository.NewKisomjerRepository(database, recorder)))
 	aktService := service.NewAktService(repository.NewAktiRepository(database, recorder), stationRepo, sectionRepo, territoryRepo, readingRepo, userService, episodeService, node.ID)
+	models.SetTema(aktService.Tema(context.Background()))
 	aktService.SetKljuc(node.PrivateKey())
+	// lozinke sandučića spremljene prije otiska lozinke računa dobiju ga
+	// (jednom, prije prve uporabe), a one kojima se lozinka računa otada
+	// promijenila, i razmjenom, brišu se
+	if err := aktService.PopuniOtiskeSanducica(context.Background()); err != nil {
+		log.Printf("e-pošta: otisak lozinke računa uz spremljene lozinke sandučića nije dodan: %v (takve se lozinke ne koriste dok se ne upišu ponovno)", err)
+	}
 	aktService.SetPosta(posta.Postavke{Nacin: cfg.Posta.Nacin, Posluzitelj: cfg.Posta.Posluzitelj, Domena: cfg.Posta.Domena, Port: cfg.Posta.Port, Sigurnost: cfg.Posta.Sigurnost})
 	server.SetAkti(aktService)
 	drugiKorak.SetPosta(aktService.Posta)

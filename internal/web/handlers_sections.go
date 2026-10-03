@@ -84,7 +84,7 @@ func (h *SectionsHandler) ShowSections(w http.ResponseWriter, r *http.Request) {
 
 	canCreate := false
 	if perms != nil {
-		canCreate = perms.IsGlobalAdmin || len(perms.AdminSectors) > 0 || len(perms.AdminAreas) > 0 || len(perms.AllowedSectors) > 0
+		canCreate = perms.IsGlobalAdmin || len(perms.AdminSectors) > 0 || len(perms.AdminAreas) > 0 || len(perms.AllowedSectors) > 0 || len(perms.AllowedAreas) > 0
 	}
 
 	page, pager := paginate(sections, r, registryPerPage)

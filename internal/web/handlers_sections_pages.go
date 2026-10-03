@@ -325,7 +325,7 @@ func (h *SectionsHandler) ShowSectionForm(w http.ResponseWriter, r *http.Request
 	} else {
 		perms := data.Permissions
 		canCreate := perms != nil && (perms.IsGlobalAdmin || len(perms.AdminSectors) > 0 ||
-			len(perms.AdminAreas) > 0 || len(perms.AllowedSectors) > 0)
+			len(perms.AdminAreas) > 0 || len(perms.AllowedSectors) > 0 || len(perms.AllowedAreas) > 0)
 		if !canCreate {
 			http.Error(w, "Nemate pravo dodavati dionice", http.StatusForbidden)
 			return

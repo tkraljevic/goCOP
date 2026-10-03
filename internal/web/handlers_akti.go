@@ -32,6 +32,7 @@ type AktiHandler struct {
 	tmplPotpis                                   *template.Template
 	tmplZig                                      *template.Template
 	tmplOpcije                                   *template.Template
+	tmplTema                                     *template.Template
 	// drugiKorak daje drugi korak prijave izvana (račun koji šalje PIN,
 	// sklopka); nil dok se ne spoji
 	drugiKorak func() *service.DrugiKorak
@@ -137,9 +138,9 @@ func (h *AktiHandler) ShowPopis(w http.ResponseWriter, r *http.Request) {
 	f.AreaID, _ = strconv.Atoi(q.Get("podrucje"))
 	f.Godina, _ = strconv.Atoi(q.Get("godina"))
 	f.Stupanj = models.DefensePhase(q.Get("stupanj"))
-	if f.Sektor == "" && perms != nil && !perms.IsGlobalAdmin && len(perms.AllowedSectors) == 1 {
-		for s := range perms.AllowedSectors {
-			f.Sektor = s
+	if f.Sektor == "" && perms != nil && !perms.IsGlobalAdmin {
+		if moji := perms.SektoriRada(); len(moji) == 1 {
+			f.Sektor = moji[0]
 		}
 	}
 	data.Filtar = f
@@ -300,7 +301,7 @@ func (h *AktiHandler) ShowAkt(w http.ResponseWriter, r *http.Request) {
 	}
 	data.Akt = a
 	data.Potpis = service.ProvjeriPotpis(a)
-	data.SmijePripremiti = !a.Ovjeren() && u != nil && (a.IzradioID == u.ID.String() || (perms != nil && perms.HasWriteAccess(a.Sektor, a.AreaID, "")) || s.SmijeOvjeriti(perms, a))
+	data.SmijePripremiti = !a.Ovjeren() && s.SmijePripremiti(perms, u, a)
 	if data.SmijePripremiti {
 		data.MoguPotpisati = s.MoguPotpisati(a)
 	}
@@ -352,9 +353,8 @@ func (h *AktiHandler) ShowSpranca(w http.ResponseWriter, r *http.Request) {
 	}
 	data.SektorID = r.URL.Query().Get("sektor")
 	if data.SektorID == "" && perms != nil {
-		for id := range perms.AllowedSectors {
-			data.SektorID = id
-			break
+		if moji := perms.SektoriRada(); len(moji) > 0 {
+			data.SektorID = moji[0]
 		}
 		if data.SektorID == "" && len(data.Sektori) > 0 {
 			data.SektorID = data.Sektori[0].ID
@@ -562,9 +562,8 @@ func (h *AktiHandler) ShowPrimatelji(w http.ResponseWriter, r *http.Request) {
 	}
 	data.SektorID = r.URL.Query().Get("sektor")
 	if data.SektorID == "" && perms != nil {
-		for id := range perms.AllowedSectors {
-			data.SektorID = id
-			break
+		if moji := perms.SektoriRada(); len(moji) > 0 {
+			data.SektorID = moji[0]
 		}
 		if data.SektorID == "" && len(data.Sektori) > 0 {
 			data.SektorID = data.Sektori[0].ID

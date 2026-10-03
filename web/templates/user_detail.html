@@ -12,7 +12,7 @@
       @{{.User.Username}} · {{orgLabel .User.OrgType}}{{if .User.OrgName}} · {{.User.OrgName}}{{end}}
       {{$state := .User.AccountState}}
       · <span class="badge {{$state.BadgeClass}}">{{$state.Label}}</span>
-      {{if .User.LastLoginAt}}<span class="page-desc" style="display:inline;">· zadnja prijava {{.User.LastLoginAt.Format "02.01.2006"}}</span>{{end}}
+      {{if .User.LastLoginAt}}<span class="page-desc d-inline">· zadnja prijava {{.User.LastLoginAt.Format "02.01.2006"}}</span>{{end}}
       {{if .User.IsGlobalAdmin}} · <span class="badge badge-area-admin">globalni administrator</span>{{end}}
     </p>
   </div>
@@ -26,9 +26,9 @@
     <a href="/users/{{.User.ID}}/duties/new" class="btn btn-secondary">{{icon "plus"}} Zaduženje</a>
     {{end}}
     {{if and (not .IsSelf) .CanManage}}
-    <form method="POST" action="/users/{{.User.ID}}/reset-password" onsubmit="return confirm('Poništiti lozinku i dati {{.User.FullName}} privremenu? Otvorene prijave te osobe se gase.')" style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+    <form method="POST" action="/users/{{.User.ID}}/reset-password" onsubmit="return confirm('Poništiti lozinku i dati {{.User.FullName}} privremenu? Otvorene prijave te osobe se gase, osobni potpisni ključ se uklanja, a spremljena lozinka e-pošte se briše.')" class="d-flex items-center gap-2 flex-wrap">
       <button type="submit" class="btn btn-secondary" title="Za osobu koja je zaboravila lozinku">{{icon "key-round"}} Poništi lozinku</button>
-      {{if .DrugiKorak}}<label class="form-help" style="margin:0;" title="Za osobu izvan ureda koja nema e-poštu ili joj PIN ne stiže"><input type="checkbox" name="i_kod" value="1"> i kod za prijavu izvana</label>{{end}}
+      {{if .DrugiKorak}}<label class="form-help m-0" title="Za osobu izvan ureda koja nema e-poštu ili joj PIN ne stiže"><input type="checkbox" name="i_kod" value="1"> i kod za prijavu izvana</label>{{end}}
     </form>
     {{if .DrugiKorak}}
     <form method="POST" action="/users/{{.User.ID}}/kod-prijave" onsubmit="return confirm('Izdati {{.User.FullName}} privremeni kod za prijavu izvana? Vrijedi 24 sata i za jednu prijavu, uz njezinu lozinku; stariji neiskorišteni kod prestaje vrijediti.')">
@@ -45,16 +45,17 @@
 </div>
 
 {{if .TempPassword}}
-<div class="alert alert-success" style="display:block;">
+<div class="alert alert-success d-block">
   <strong>{{icon "key-round"}} Privremena lozinka za {{.User.FullName}}</strong>
   <div style="font-family:ui-monospace, monospace; font-size:1.35rem; font-weight:700; letter-spacing:0.02em; margin:0.5rem 0; user-select:all;">{{.TempPassword}}</div>
   Pročitajte je toj osobi. Prikazuje se samo sada; program je više ne zna, pamti samo njezin sažetak.
   Pri prijavi mora postaviti svoju lozinku, a dotadašnje prijave te osobe su ugašene.
+  Njezin osobni potpisni ključ, ako ga je imala, uklonjen je: novi napravi na profilu nakon promjene lozinke.
 </div>
 {{end}}
 
 {{if .TempKod}}
-<div class="alert alert-success" style="display:block;">
+<div class="alert alert-success d-block">
   <strong>{{icon "shield"}} Kod za prijavu izvana za {{.User.FullName}}</strong>
   <div style="font-family:ui-monospace, monospace; font-size:1.35rem; font-weight:700; letter-spacing:0.02em; margin:0.5rem 0; user-select:all;">{{.TempKod}}</div>
   Upisuje se umjesto PIN-a, nakon lozinke, kad se prijavljuje izvana. Vrijedi za jednu prijavu, do {{vrijemeHR .TempKodIstjece}}.
@@ -64,22 +65,32 @@
 </div>
 {{end}}
 
-<section class="detail-section" style="margin-top:0;">
+<section class="detail-section mt-0">
   <h2>{{icon "phone"}} Kontakti</h2>
-  <div class="reg-card" style="padding:1rem;">
+  <div class="reg-card p-4">
     <dl class="reg-facts" style="font-size:0.9rem;">
-      <div><dt>Mobitel</dt><dd>{{if .User.MobilePhone}}<a href="tel:{{.User.MobilePhone}}">{{.User.MobilePhone}}</a>{{else}}<span style="color:var(--text-muted); font-weight:500;">—</span>{{end}}</dd></div>
-      <div><dt>Skraćeni mobilni</dt><dd>{{if .User.ShortMobile}}{{.User.ShortMobile}}{{else}}<span style="color:var(--text-muted); font-weight:500;">—</span>{{end}}</dd></div>
-      <div><dt>Fiksni</dt><dd>{{if .User.Phone}}<a href="tel:{{.User.Phone}}">{{.User.Phone}}</a>{{else}}<span style="color:var(--text-muted); font-weight:500;">—</span>{{end}}</dd></div>
-      <div><dt>Lokal</dt><dd>{{if .User.ShortPhone}}{{.User.ShortPhone}}{{else}}<span style="color:var(--text-muted); font-weight:500;">—</span>{{end}}</dd></div>
-      <div><dt>E-pošta</dt><dd style="overflow-wrap:anywhere;">{{if .User.Email}}<a href="mailto:{{.User.Email}}">{{.User.Email}}</a>{{else}}<span style="color:var(--text-muted); font-weight:500;">—</span>{{end}}</dd></div>
+      <div><dt>Mobitel</dt><dd>{{if .User.MobilePhone}}<a href="tel:{{.User.MobilePhone}}">{{.User.MobilePhone}}</a>{{else}}<span class="c-muted fw-500">—</span>{{end}}</dd></div>
+      <div><dt>Skraćeni mobilni</dt><dd>{{if .User.ShortMobile}}{{.User.ShortMobile}}{{else}}<span class="c-muted fw-500">—</span>{{end}}</dd></div>
+      <div><dt>Fiksni</dt><dd>{{if .User.Phone}}<a href="tel:{{.User.Phone}}">{{.User.Phone}}</a>{{else}}<span class="c-muted fw-500">—</span>{{end}}</dd></div>
+      <div><dt>Lokal</dt><dd>{{if .User.ShortPhone}}{{.User.ShortPhone}}{{else}}<span class="c-muted fw-500">—</span>{{end}}</dd></div>
+      <div><dt>E-pošta</dt><dd class="wrap-anywhere">{{if .User.Email}}<a href="mailto:{{.User.Email}}">{{.User.Email}}</a>{{else}}<span class="c-muted fw-500">—</span>{{end}}</dd></div>
     </dl>
+    {{with .AdresaPIN}}
+    <p class="form-help" id="pin-adresa" style="margin:0.75rem 0 0;">{{icon "shield"}} <strong>PIN za prijavu izvana</strong>
+      {{if eq .Vrsta "domena"}}ide na ovu adresu (@{{.Domena}}).
+      {{else if eq .Vrsta "potvrdena"}}ide na ovu adresu izvan @{{.Domena}}: potvrdio ju je administrator {{.Potvrdio}}{{if .PotvrdenoTekst}}, {{.PotvrdenoTekst}}{{else}}.{{end}}
+      {{else if eq .Vrsta "nepotvrdena"}}ne ide na ovu adresu: nije @{{.Domena}}, a administrator je nije potvrdio. {{if $.PotvrdaAdrese}}Ako pripada ovoj osobi (npr. djelatniku tvrtke izvođača), potvrdite je u uređivanju profila.{{else}}Potvrđuje je globalni administrator.{{end}}
+      {{else if eq .Vrsta "zajednicka"}}ne ide na ovu adresu: istu adresu ima još jedan aktivni račun{{if .Potvrdio}}, iako ju je potvrdio administrator {{.Potvrdio}}{{end}}.
+      {{else if eq .Vrsta "nema"}}nema kamo ići: nema adrese.
+      {{else}}ne ide na ovu adresu: nije ispravna.{{end}}
+      {{if not .IdePIN}}Izvana se tada ulazi rezervnim ili privremenim kodom.{{end}}</p>
+    {{end}}
   </div>
 </section>
 
 <section class="detail-section">
-  <h2 style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">{{icon "shield"}} Zaduženja <span class="reg-chip">{{len .User.Duties}}</span>
-    {{if .CanManage}}<a href="/users/{{.User.ID}}/duties/new" class="btn btn-sm btn-primary" style="margin-left:auto;">{{icon "plus"}} Dodaj zaduženje</a>{{end}}</h2>
+  <h2 class="d-flex items-center gap-2 flex-wrap">{{icon "shield"}} Zaduženja <span class="reg-chip">{{len .User.Duties}}</span>
+    {{if .CanManage}}<a href="/users/{{.User.ID}}/duties/new" class="btn btn-sm btn-primary ml-auto">{{icon "plus"}} Dodaj zaduženje</a>{{end}}</h2>
   {{if .User.Duties}}
   <div class="table-card"><div class="table-responsive">
     <table class="data-table zaduzenja">
@@ -95,7 +106,7 @@
         {{if $.CanManage}}
         <td class="radnje">
           <a href="/users/duties/{{.ID}}/edit" class="btn btn-sm btn-secondary" title="Promijeni naziv, ulogu, doseg ili dionice">{{icon "pencil"}} Uredi</a>
-          <form method="POST" action="/users/duty/revoke" style="display:inline; margin:0;"
+          <form method="POST" action="/users/duty/revoke" class="d-inline m-0"
                 onsubmit="return confirm('Opozvati zaduženje „{{.Title}}“? Nestaje s profila, a ostaje u povijesti.')">
             <input type="hidden" name="duty_id" value="{{.ID}}">
             <input type="hidden" name="user_id" value="{{$.User.ID}}">
@@ -112,8 +123,8 @@
   <div class="reg-empty">Nema aktivnih zaduženja.{{if .CanManage}} Dodajte prvo gumbom gore.{{end}}</div>
   {{end}}
   {{if .Prijasnja}}
-  <details style="margin-top:0.75rem;">
-    <summary class="form-help" style="cursor:pointer;">{{icon "history"}} Prijašnja zaduženja ({{len .Prijasnja}})</summary>
+  <details class="mt-3">
+    <summary class="form-help cursor-pointer">{{icon "history"}} Prijašnja zaduženja ({{len .Prijasnja}})</summary>
     <ul class="zaduzenja-povijest">
       {{range .Prijasnja}}
       <li><strong>{{.Title}}</strong> · {{roleLabel .Role}}{{if .SectorID}} · {{term "sektor"}} {{derefString .SectorID}}{{end}}{{if .AreaID}} · BP {{derefInt .AreaID}}{{end}}{{if .SectionCodes}} · {{.SectionCodes}}{{end}}
@@ -127,14 +138,14 @@
 {{if .ModuleRows}}
 <section class="detail-section">
   <h2>{{icon "eye"}} Moduli koje račun vidi</h2>
-  <form method="POST" action="/users/{{.User.ID}}/modules" class="reg-card" style="padding:1rem;">
-    <p class="form-help" style="margin:0 0 0.75rem;">„Kao uloga“ slijedi pravilo za uloge (Administracija → Moduli i ovlasti). Iznimka vrijedi samo za ovaj račun i ne mijenja prava upisa.</p>
-    <div class="reg-facts" style="grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));">
+  <form method="POST" action="/users/{{.User.ID}}/modules" class="reg-card p-4">
+    <p class="form-help mt-0 mb-3">„Kao uloga“ slijedi pravilo za uloge (Administracija → Moduli i ovlasti). Iznimka vrijedi samo za ovaj račun i ne mijenja prava upisa.</p>
+    <div class="reg-facts stupci-14">
       {{range .ModuleRows}}
       <div>
         <dt>{{.Label}} <span class="reg-chip {{if not .Visible}}empty{{end}}">{{if .Visible}}vidi{{else}}ne vidi{{end}}</span></dt>
         <dd>
-          <select name="mod_{{.ID}}" class="form-control" style="font-weight:500;">
+          <select name="mod_{{.ID}}" class="form-control fw-500">
             <option value="" {{if eq .Override ""}}selected{{end}}>kao uloga ({{if .ByRole}}vidi{{else}}ne vidi{{end}})</option>
             <option value="show" {{if eq .Override "show"}}selected{{end}}>prikaži</option>
             <option value="hide" {{if eq .Override "hide"}}selected{{end}}>sakrij</option>
@@ -143,7 +154,7 @@
       </div>
       {{end}}
     </div>
-    <div class="form-actions" style="margin-top:0.75rem;">
+    <div class="form-actions mt-3">
       <button type="submit" class="btn btn-primary">Spremi vidljivost</button>
     </div>
   </form>
@@ -152,12 +163,12 @@
 
 {{if and .CanManage (not .IsSelf) .CanDelete}}
 <section class="detail-section">
-  <h2 style="color:var(--danger);">{{icon "trash"}} Brisanje profila</h2>
+  <h2 class="c-danger">{{icon "trash"}} Brisanje profila</h2>
   <div class="reg-card" style="padding:1rem; border-color:var(--danger-border);">
     <p style="margin:0 0 0.75rem; font-size:0.9rem;">Ovim se računom nitko nije prijavio, pa se smije obrisati: nestaje s popisa i sa svih dionica. Račun koji je radio ne briše se, njemu se isključi prijava u uređivanju profila, da očitanja i upisi zadrže ime.</p>
     <form method="POST" action="/users/delete" onsubmit="return confirm('Obrisati profil djelatnika {{.User.FullName}}?')">
       <input type="hidden" name="user_id" value="{{.User.ID}}">
-      <button type="submit" class="btn btn-sm" style="background:var(--danger-bg); color:var(--danger); border-color:var(--danger-border); min-height:40px;">{{icon "trash"}} Obriši profil</button>
+      <button type="submit" class="btn btn-sm btn-brisi min-h-40">{{icon "trash"}} Obriši profil</button>
     </form>
   </div>
 </section>

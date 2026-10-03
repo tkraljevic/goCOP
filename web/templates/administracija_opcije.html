@@ -80,7 +80,7 @@
     <div class="opcija">
       <label class="opcija-red" for="cuvanje_slika_dana">
         <span class="opcija-naziv">Čuvanje fotografija s terena</span>
-        <input type="number" class="form-control" id="cuvanje_slika_dana" name="cuvanje_slika_dana" min="7" max="3650" value="{{.Opcije.CuvanjeSlika}}" style="max-width:7rem; margin-left:auto;"> <span>dana</span>
+        <input type="number" class="form-control max-w-7 ml-auto" id="cuvanje_slika_dana" name="cuvanje_slika_dana" min="7" max="3650" value="{{.Opcije.CuvanjeSlika}}"> <span>dana</span>
       </label>
       <label class="opcija-red" style="margin-top:0.4rem;">
         <input type="checkbox" name="slike_odmah" value="1" {{if .Opcije.SlikeOdmah}}checked{{end}}>

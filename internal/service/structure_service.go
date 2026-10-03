@@ -31,7 +31,8 @@ func (s *StructureService) Get(ctx context.Context, id uuid.UUID) (*models.Struc
 }
 
 // CanEdit: globalni administrator, administrator sektora ili područja u
-// kojem objekt stoji, ili tko smije pisati po tom sektoru ili području
+// kojem objekt stoji, tko smije pisati po tom sektoru ili području, ili na
+// dionici uz koju objekt stoji, kad je objekt iz područja te dionice
 func (s *StructureService) CanEdit(perms *models.UserPermissions, st *models.Structure) bool {
 	if perms == nil || st == nil {
 		return false
@@ -39,8 +40,21 @@ func (s *StructureService) CanEdit(perms *models.UserPermissions, st *models.Str
 	if perms.IsGlobalAdmin {
 		return true
 	}
-	return perms.AdminSectors[st.SectorID] || perms.AdminAreas[st.AreaID] ||
-		perms.AllowedSectors[st.SectorID] || perms.AllowedAreas[st.AreaID]
+	if perms.AdminSectors[st.SectorID] || perms.AdminAreas[st.AreaID] ||
+		perms.AllowedSectors[st.SectorID] || perms.AllowedAreas[st.AreaID] {
+		return true
+	}
+	// po dionici samo objekt njezina područja: objekt drugog područja koji
+	// stoji i na njoj (CS Budžak područja 16 na B.34.1) vodi njegovo područje
+	if !perms.RadiNaDionicamaU(st.AreaID) {
+		return false
+	}
+	for _, code := range st.SectionCodes {
+		if perms.AllowedSections[code] {
+			return true
+		}
+	}
+	return false
 }
 
 // CanCreate: tko smije pisati u ijednom sektoru ili području
@@ -111,7 +125,9 @@ func (s *StructureService) Update(ctx context.Context, perms *models.UserPermiss
 	if err := s.validate(st); err != nil {
 		return err
 	}
-	if !s.CanEdit(perms, st) {
+	// premještaj u drugo područje traži pravo i ondje; tko objekt uređuje po
+	// dionici, ne premješta ga
+	if (st.AreaID != current.AreaID || st.SectorID != current.SectorID) && !s.CanEdit(perms, st) {
 		return errors.New("nemate pravo premjestiti objekt u to područje")
 	}
 	return s.repo.UpdateStructure(ctx, st)
