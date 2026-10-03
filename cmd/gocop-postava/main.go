@@ -7,7 +7,7 @@
 // unos za pokretanje pri prijavi može pokazivati izravno na nju.
 //
 //	gocop-postava                       ikona u traci (i pri prijavi)
-//	gocop-postava -instaliraj [-pri-prijavi=false] [-iz-mape D:\goCOP]
+//	gocop-postava -instaliraj [-pri-prijavi=false] [-iz-mape D:\goCOP] [-ime-cvora pperic-thinkpad] [-prvi nova|postojeca]
 //	gocop-postava -zaustavi             ugasi Postavu i čvor (prije zamjene datoteka)
 //	gocop-postava -ukloni               uz to makni pokretanje pri prijavi i PATH
 //	gocop-postava -version
@@ -24,7 +24,7 @@ import (
 )
 
 // verzija Postave; CI je postavlja iz oznake postava-vX.Y.Z
-var verzija = "1.0.0"
+var verzija = "1.1.0"
 
 const naslov = "goCOP Postava"
 
@@ -33,6 +33,8 @@ func main() {
 	instaliraj := flag.Bool("instaliraj", false, "preuzmi najnovije izdanje goCOP-a, stavi ga u PATH i u pokretanje pri prijavi")
 	priPrijavi := flag.Bool("pri-prijavi", true, "uz -instaliraj: pokreni Postavu pri prijavi u sustav")
 	izMape := flag.String("iz-mape", "", "uz -instaliraj: izdanje bez interneta (mapa s programom, SHA256SUMS i SHA256SUMS.sig)")
+	imeCvora := flag.String("ime-cvora", "", "uz -instaliraj: ime čvora u mreži (npr. pperic-thinkpad); prazno: čvor ga izabere sam")
+	prvi := flag.String("prvi", "", "uz -instaliraj: nova ili postojeca — što otvoriti pri prvom pokretanju svježeg čvora")
 	zaustavi := flag.Bool("zaustavi", false, "ugasi Postavu i čvor koji rade")
 	ukloni := flag.Bool("ukloni", false, "za deinstalaciju: ugasi, makni pokretanje pri prijavi i PATH")
 	flag.Parse()
@@ -66,7 +68,8 @@ func main() {
 		}
 	case *instaliraj:
 		p := postava.Nova(exe, verzija)
-		if err := p.Instaliraj(context.Background(), postava.Opcije{PriPrijavi: *priPrijavi, IzMape: *izMape}); err != nil {
+		if err := p.Instaliraj(context.Background(), postava.Opcije{PriPrijavi: *priPrijavi, IzMape: *izMape,
+			ImeCvora: *imeCvora, Prvi: *prvi}); err != nil {
 			p.Pisi("Instalacija: %v", err)
 			postava.Poruka(naslov, "goCOP nije preuzet: "+err.Error()+
 				"\n\nPostava se ipak instalira; goCOP možete preuzeti kasnije iz ikone u traci.", true)

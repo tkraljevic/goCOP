@@ -121,3 +121,8 @@ func CekajIzlazak(pid int, rok time.Duration) bool {
 func appleTekst(s string) string {
 	return strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(s)
 }
+
+// Deinstaliraj: na macOS-u i Linuxu goCOP još nema instalacijskog paketa
+func Deinstaliraj() error {
+	return errors.New("na ovom sustavu goCOP se uklanja ručno: Izlaz iz ikone, pa obrisati mapu instalacije")
+}

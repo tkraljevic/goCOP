@@ -290,3 +290,21 @@ func jeNasProgram(h windows.Handle, ime string) bool {
 	}
 	return strings.EqualFold(filepath.Base(windows.UTF16ToString(buf[:n])), ime)
 }
+
+// kljucDeinstalacije je unos koji Inno Setup piše za AppId iz build/postava.iss
+const kljucDeinstalacije = `Software\Microsoft\Windows\CurrentVersion\Uninstall\{6F1D2C7A-3B4E-4C1F-9A2E-60C0B0FA0C01}_is1`
+
+// Deinstaliraj pokreće deinstalaciju iz instalacijskog programa (isto što i
+// Aplikacije i značajke → goCOP); ona ugasi Postavu i čvor
+func Deinstaliraj() error {
+	k, err := registry.OpenKey(registry.CURRENT_USER, kljucDeinstalacije, registry.QUERY_VALUE)
+	if err != nil {
+		return errors.New("goCOP nije instaliran instalacijskim programom; uklanja se ručno (vidi upute)")
+	}
+	defer k.Close()
+	v, _, err := k.GetStringValue("UninstallString")
+	if err != nil || strings.TrimSpace(v) == "" {
+		return errors.New("unos za deinstalaciju nema programa za uklanjanje")
+	}
+	return exec.Command(strings.Trim(strings.TrimSpace(v), `"`)).Start()
+}

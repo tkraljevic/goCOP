@@ -369,6 +369,11 @@ func (s *Service) SavePeer(ctx context.Context, p Peer) error {
 	if err != nil && !isNew {
 		return err
 	}
+	if !isNew && prevKey != p.PublicKey {
+		// isto ime, drugo računalo (ili isto računalo s novim ključem):
+		// ključ se ne prepisuje; stari čvor se najprije zaboravi
+		return fmt.Errorf("%w: %s", ErrIstoImeDrugiKljuc, p.NodeID)
+	}
 	identityChanged := isNew || prevName != p.Name || prevKey != p.PublicKey ||
 		prevAddrs != string(addrs) || prevBootstrap != boolInt(p.IsBootstrap)
 
@@ -391,6 +396,28 @@ func (s *Service) SavePeer(ctx context.Context, p Peer) error {
 		}
 	}
 	return tx.Commit()
+}
+
+// ErrIstoImeDrugiKljuc: poznati čvor tog imena ima drugi ključ
+var ErrIstoImeDrugiKljuc = errors.New("ime već ima drugo računalo u mreži (drugi ključ)")
+
+// provjeriImeDrugog odbija uparivanje s čvorom koji nosi ime ovog čvora ili
+// ime poznatog čvora, odnosno člana mreže, s drugim ključem
+func (s *Service) provjeriImeDrugog(ctx context.Context, id string, kljuc ed25519.PublicKey) error {
+	if id == s.node.ID {
+		return fmt.Errorf("drugo računalo nosi isto ime kao ovo (%s); svaki čvor treba svoje ime: drugo računalo instalirajte ponovno s drugim imenom", id)
+	}
+	k := razmjena.PublicKeyString(kljuc)
+	poruka := fmt.Errorf("ime %s već ima drugo računalo u mreži; izaberite drugo ime, a ako je to isto računalo s novim ključem, najprije ga zaboravite i opozovite mu članstvo", id)
+	if p, err := s.GetPeer(ctx, id); err == nil && p != nil && p.PublicKey != k {
+		return poruka
+	}
+	var clan string
+	err := s.db.QueryRowContext(ctx, `SELECT public_key FROM memberships WHERE node_id = ?`, id).Scan(&clan)
+	if err == nil && clan != k {
+		return poruka
+	}
+	return nil
 }
 
 // ForgetPeer uklanja čvor s popisa; u knjizi ostaje arhiviran
@@ -580,6 +607,16 @@ func (s *Service) ConfirmPair(ctx context.Context, approved, primi bool) (PairOu
 	s.mu.Unlock()
 	if res == nil {
 		return PairOutcome{}, fmt.Errorf("nema uparivanja koje čeka odluku")
+	}
+
+	// Dvojnik imena se odbija prije nego što išta stigne drugoj strani: dva
+	// čvora istog imena miješala bi zapise u knjizi, a drugi bi tiho
+	// prepisao ključ prvoga na svim čvorovima.
+	if approved {
+		if err := s.provjeriImeDrugog(ctx, res.Peer.DeviceID, res.PeerKey); err != nil {
+			_, _, _ = res.Finish(false, nil)
+			return PairOutcome{Message: err.Error()}, nil
+		}
 	}
 
 	var given *welcomePack

@@ -7,7 +7,11 @@ Prijedlog, 3. 10. 2026.
 `internal/postava`), potpis izdanja (`internal/izdanje`,
 `tools/admin/potpis-izdanja`), ikona (`internal/ikona`), resursi za Windows
 (`build/resursi`), instalacijski program (`build/postava.iss`) i CI
-(`izdanje.yml`, `postava.yml`). Brzo namještanje (§3.2, §3.3), paketi za
+(`izdanje.yml`, `postava.yml`). U 0.0.29-alfa i Postavi 1.1.0: ime čvora u
+instalacijskom programu, izbor nove ili postojeće mreže, stranica
+*Postavljanje* (prvi administrator i osnivanje mreže, bez javne lozinke),
+odbijanje dvojnika imena, uklanjanje iz izbornika Start, ikone i ponovnog
+pokretanja instalacijskog programa. Brzo namještanje (§3.2, §3.3), paketi za
 Linux i macOS te SignPath dolaze poslije.
 
 ## 1. Svrha

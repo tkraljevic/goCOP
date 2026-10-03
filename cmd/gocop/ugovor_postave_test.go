@@ -14,13 +14,14 @@ import (
 	"testing"
 	"time"
 
+	"gocop/internal/config"
 	"gocop/internal/web"
 )
 
 // Postava se ne mijenja s goCOP-om (docs/plan-instalacija.md §3.1a), pa
 // izdanje goCOP-a ne smije promijeniti ono na što se ona oslanja: redak
-// koji ispiše -version, /zdravlje i gašenje pod -upravitelj kad se zatvori
-// standardni ulaz. Test prevodi pravi program i razgovara s njim kao Postava.
+// koji ispiše -version, -pripremi (ime čvora prije prvog pokretanja),
+// /zdravlje i gašenje pod -upravitelj kad se zatvori standardni ulaz. Test prevodi pravi program i razgovara s njim kao Postava.
 func TestUgovorSPostavom(t *testing.T) {
 	if testing.Short() {
 		t.Skip("prevodi i pokreće cijeli program")
@@ -42,6 +43,19 @@ func TestUgovorSPostavom(t *testing.T) {
 	}
 	if got, want := string(out), "goCOP "+verzijaPrograma+"\n"; got != want {
 		t.Fatalf("-version ispisuje %q, Postava očekuje %q", got, want)
+	}
+
+	// -pripremi: ime čvora iz instalacijskog programa, prije prvog pokretanja
+	priprema := exec.Command(program, "-pripremi", "-db", filepath.Join(dir, "gocop.db"), "-node", "ugovor-proba")
+	priprema.Dir = dir
+	if out, err := priprema.CombinedOutput(); err != nil {
+		t.Fatalf("-pripremi: %v\n%s", err, out)
+	}
+	if c, _, err := config.Load([]string{filepath.Join(dir, "gocop.toml")}); err != nil || c.Node.ID != "ugovor-proba" {
+		t.Fatalf("-pripremi nije upisao ime čvora: %q %v", c.Node.ID, err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "gocop.db")); err == nil {
+		t.Fatal("-pripremi je otvorio bazu")
 	}
 
 	port := slobodanPort(t)
@@ -105,6 +119,9 @@ func TestUgovorSPostavom(t *testing.T) {
 		}
 	case <-time.After(20 * time.Second):
 		t.Fatalf("čvor se nije ugasio 20 s nakon zatvaranja ulaza\n%s", dnevnik.String())
+	}
+	if !strings.Contains(dnevnik.String(), "Pokretanje čvora: ugovor-proba") {
+		t.Errorf("čvor nije preuzeo ime iz -pripremi:\n%s", dnevnik.String())
 	}
 	if !strings.Contains(dnevnik.String(), "Standardni ulaz zatvoren") {
 		t.Errorf("u dnevniku nema razloga gašenja:\n%s", dnevnik.String())

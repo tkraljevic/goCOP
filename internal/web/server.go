@@ -12,11 +12,13 @@ import (
 	"io/fs"
 	"log"
 	"math"
+	"net"
 	"net/http"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"gocop/internal/arhiva"
@@ -62,9 +64,12 @@ type KartaPostavke struct {
 func (k KartaPostavke) Ima() bool { return k.Plocice != "" }
 
 type Server struct {
-	posrednici *Posrednici                                       // pouzdani posrednici (tunel); nil = zadani, klijent.go
-	javni      *javnivodostaji.Uvoznik                           // preuzimanje javnih vodostaja; prazno kad nije uključeno
-	pricuvno   func(ctx context.Context) prognoza.PricuvniPodaci // pričuvni Excel prognoze
+	// čvor pod Postavom: početna lozinka vrijedi samo s ovog računala
+	podPostavom  atomic.Bool
+	postavljanje *PostavljanjeHandler                              // stranica Postavljanje svježeg čvora
+	posrednici   *Posrednici                                       // pouzdani posrednici (tunel); nil = zadani, klijent.go
+	javni        *javnivodostaji.Uvoznik                           // preuzimanje javnih vodostaja; prazno kad nije uključeno
+	pricuvno     func(ctx context.Context) prognoza.PricuvniPodaci // pričuvni Excel prognoze
 	// ključ kojim se zaključavaju lozinke za Geolux HydroView; izveden iz
 	// ključa čvora, pa lozinka vrijedi samo na ovom računalu
 	hidroviewKljuc []byte
@@ -131,6 +136,24 @@ type Server struct {
 // da ih ispod istog krova može pozvati i test koji iscrtava stranicu.
 // verzijaPrograma je izdanje programa za podnožje stranice; postavlja ga main.
 var verzijaPrograma string
+
+// SetPodPostavom: čvor pokreće Postava (gocop -upravitelj) na računalu
+// korisnika, pa početna lozinka iz uputa vrijedi samo s tog računala, ne iz
+// lokalne mreže (u uredu bi je mogao upotrijebiti bilo tko prije vlasnika)
+func (s *Server) SetPodPostavom(da bool) { s.podPostavom.Store(da) }
+
+// JaviPostavljanje ispisuje u dnevnik kako postaviti svjež čvor: s ovog
+// računala bez koda, iz lokalne mreže s jednokratnim kodom
+func (s *Server) JaviPostavljanje(addr string) {
+	if s.postavljanje == nil || !s.postavljanje.Svjez() {
+		return
+	}
+	port := ""
+	if _, p, err := net.SplitHostPort(addr); err == nil && p != "80" && p != "" {
+		port = ":" + p
+	}
+	log.Printf("Postavljanje: svjež čvor — na ovom računalu otvorite http://localhost%s/postavljanje, a iz lokalne mreže http://<adresa ovog računala>%s/postavljanje?kod=%s", port, port, s.postavljanje.KodPostavljanja())
+}
 
 // SetVerzijaPrograma postavlja verziju koja se ispisuje u podnožju.
 func SetVerzijaPrograma(v string) { verzijaPrograma = v }
@@ -575,7 +598,7 @@ func NewServer(
 	}
 
 	// Samostalne stranice: prijava i ispis dnevnika
-	for _, page := range []string{"login.html", "login_pin.html", "dnevnik_ispis.html", "uparivanje.html"} {
+	for _, page := range []string{"login.html", "login_pin.html", "dnevnik_ispis.html", "uparivanje.html", "postavljanje.html"} {
 		t, err := template.New(page).Funcs(tmplFuncs).ParseFS(templatesFS, page)
 		if err != nil {
 			return nil, fmt.Errorf("greška pri parsiranju predloška %s: %w", page, err)
@@ -886,6 +909,14 @@ func (s *Server) setupRoutes() {
 	// Uparivanje: prijavljenima uvijek, neprijavljenima dok je čvor svjež
 	pairH := NewPairHandler(s.peersService, s.authService, s.userService, s.templates["uparivanje.html"])
 	authH.SetFresh(pairH.Fresh)
+	authH.samoOvoRacunalo = s.podPostavom.Load
+
+	// Postavljanje svježeg čvora: nova mreža s vlastitim administratorom
+	s.postavljanje = &PostavljanjeHandler{users: s.userService, auth: s.authService, peers: s.peersService,
+		tmpl: s.templates["postavljanje.html"], svjez: pairH.Fresh, nijeVise: pairH.NijeViseSvjez,
+		kod: noviKodPostavljanja()}
+	s.mux.HandleFunc("GET /postavljanje", s.postavljanje.Prikazi)
+	s.mux.HandleFunc("POST /postavljanje", s.postavljanje.Osnuj)
 	s.mux.Handle("GET /uparivanje", pairH.Gate(http.HandlerFunc(pairH.ShowWizard)))
 	s.mux.Handle("GET /api/uparivanje/status", pairH.Gate(http.HandlerFunc(pairH.HandleStatus)))
 	s.mux.Handle("POST /api/uparivanje/listen", pairH.Gate(http.HandlerFunc(pairH.HandleListen)))

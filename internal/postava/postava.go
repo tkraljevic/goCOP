@@ -7,12 +7,15 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"gocop/internal/imecvora"
 	"gocop/internal/izdanje"
 )
 
@@ -262,6 +265,20 @@ func (p *Postava) Nadogradi(ctx context.Context) (string, error) {
 type Opcije struct {
 	PriPrijavi bool
 	IzMape     string // izdanje bez interneta: mapa s programom, SHA256SUMS i .sig
+	ImeCvora   string // ime čvora u mreži iz instalacijskog programa (prazno: čvor ga izabere sam)
+	Prvi       string // "nova" ili "postojeca": što otvoriti pri prvom pokretanju svježeg čvora
+}
+
+// Prvi koraci svježeg čvora: stranica koju Postava otvori jednom, kad čvor
+// prvi put odgovori
+const (
+	PrviNova      = "nova"
+	PrviPostojeca = "postojeca"
+)
+
+// OznakaPrvogOtvaranja je datoteka u data/ s putanjom stranice za prvo otvaranje
+func (m Mjesta) OznakaPrvogOtvaranja() string {
+	return filepath.Join(m.Podaci, "postava-prvo-otvaranje")
 }
 
 // Instaliraj priprema instalaciju: preuzme najnovije izdanje goCOP-a (ili
@@ -314,6 +331,25 @@ func (p *Postava) Instaliraj(ctx context.Context, o Opcije) error {
 		}
 		p.Pisi("Instaliran goCOP %s", ponuda.GoCOP.Verzija)
 	}
+	// svjež čvor (baze još nema): ime iz instalacijskog programa prije prvog
+	// pokretanja, i stranica Postavljanje kad prvi put odgovori
+	if _, err := os.Stat(p.M.BazaCvora()); errors.Is(err, os.ErrNotExist) {
+		if o.ImeCvora != "" {
+			if err := imecvora.Provjeri(o.ImeCvora); err != nil {
+				return err
+			}
+			if izlaz, err := p.pripremiCvor(ctx, o.ImeCvora); err != nil {
+				p.Pisi("Ime čvora nije upisano (%v): %s; čvor će izabrati jedinstveno ime sam", err, izlaz)
+			} else {
+				p.Pisi("%s", izlaz)
+			}
+		}
+		putanja := "postavljanje"
+		if o.Prvi == PrviPostojeca {
+			putanja = "postavljanje?put=postojeca"
+		}
+		_ = os.WriteFile(p.M.OznakaPrvogOtvaranja(), []byte(putanja), 0o644)
+	}
 	if err := DodajUPut(p.M.Program); err != nil {
 		p.Pisi("PATH: %v", err)
 	}
@@ -325,6 +361,28 @@ func (p *Postava) Instaliraj(ctx context.Context, o Opcije) error {
 		return err
 	}
 	return nil
+}
+
+// pripremiCvor je gocop -pripremi: ime čvora u gocop.toml prije prvog pokretanja
+func (p *Postava) pripremiCvor(ctx context.Context, ime string) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, p.M.Gocop(), "-pripremi", "-db", p.M.BazaCvora(), "-node", ime)
+	cmd.Dir = p.M.Podaci
+	bezProzora(cmd)
+	out, err := cmd.CombinedOutput()
+	return strings.TrimSpace(string(out)), err
+}
+
+// PrvoOtvaranje vraća stranicu koju treba otvoriti jednom, kad svjež čvor
+// prvi put odgovori, i briše oznaku; prazno kad je već otvorena
+func (p *Postava) PrvoOtvaranje() string {
+	b, err := os.ReadFile(p.M.OznakaPrvogOtvaranja())
+	if err != nil {
+		return ""
+	}
+	_ = os.Remove(p.M.OznakaPrvogOtvaranja())
+	return strings.TrimSpace(string(b))
 }
 
 // Ukloni priprema deinstalaciju: ugasi Postavu i čvor, makne unos za

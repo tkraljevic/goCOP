@@ -1183,7 +1183,15 @@
         domenskih čvorova. Naziv se upisuje u <code>gocop.toml</code> i nakon ponovnog pokretanja
         sam stiže drugim čvorovima. Uparivanje i primanje novog računala u mrežu pokreće
         i potvrđuje globalni administrator. Svjež čvor bez računa nudi čarobnjak samo iz
-        lokalne mreže, ne kroz javni tunel.</li>
+        lokalne mreže, ne kroz javni tunel. Ime čvora u mreži (<code>[node] id</code>) zadaje se
+        prije prvog pokretanja i ne mijenja se; uparivanje odbija računalo s imenom koje u mreži
+        već ima drugo računalo.</li>
+      <li id="postavljanje"><strong>Postavljanje svježeg čvora</strong> — na stranici prijave
+        svježeg čvora poveznica <em>Postavite ga</em>: <em>nova mreža</em> samo za prvo računalo
+        (vlasnik napravi svoj račun globalnog administratora, a čvor osnuje mrežu; nova mreža se
+        kasnije ne može spojiti s drugima) ili <em>postojeća mreža</em> za svako sljedeće računalo
+        (uparivanje s računalom koje je već u mreži). Stranica radi samo s tog računala ili uz
+        jednokratni kod iz dnevnika čvora, nikad kroz tunel.</li>
       <li id="sync"><strong>Sinkronizacija</strong> — što se upravo vidi na lokalnoj mreži i
         kad je posljednji put razmijenjeno. Razmjena ide izravno, u lokalnoj mreži ili na stalnu
         adresu domenskog čvora (port razmjene), ili kroz HTTPS/WebSocket tunel; identitet se u
@@ -1526,7 +1534,7 @@
       <li><strong>Damir Perić</strong> — pristup sustavu HydroView (Geolux) za područje cijele
         Hrvatske.</li>
     </ul>
-    <p>Za podršku u razvoju hvala: Mile Kunac, Mario Spajić i Tomislav Novosel.</p>
+    <p>Za podršku u razvoju hvala: Mile Kunac, Pero Perić i Tomislav Novosel.</p>
     <p>Hvala autorima i suradnicima svih projekata otvorenog koda na kojima goCOP počiva.</p>
     <p>Hvala i ustanovama koje javno objavljuju hidrološke, meteorološke, prostorne i druge
       stručne podatke, kao i suradnicima OpenStreetMapa i Wikipedije. Bez njihova rada ovakav

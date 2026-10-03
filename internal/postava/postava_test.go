@@ -182,9 +182,21 @@ func TestInstalacijaNadogradnjaIVracanje(t *testing.T) {
 	}
 	ctx := context.Background()
 
-	// instalacija: najnovije potpisano izdanje, PATH
-	if err := p.Instaliraj(ctx, Opcije{}); err != nil {
+	// instalacija: najnovije potpisano izdanje, PATH, ime čvora i prvo otvaranje
+	if err := p.Instaliraj(ctx, Opcije{ImeCvora: "Pero Perić"}); err == nil {
+		t.Fatal("neispravno ime čvora prihvaćeno")
+	}
+	if err := p.Instaliraj(ctx, Opcije{ImeCvora: "pperic-thinkpad", Prvi: PrviPostojeca}); err != nil {
 		t.Fatal(err)
+	}
+	if b, err := os.ReadFile(m.PostavkeCvora()); err != nil || !strings.Contains(string(b), `id = "pperic-thinkpad"`) {
+		t.Errorf("ime čvora nije upisano prije prvog pokretanja: %v %s", err, b)
+	}
+	if put := p.PrvoOtvaranje(); put != "postavljanje?put=postojeca" {
+		t.Errorf("prvo otvaranje: %q", put)
+	}
+	if put := p.PrvoOtvaranje(); put != "" {
+		t.Errorf("prvo otvaranje drugi put: %q", put)
 	}
 	if izd, err := IzdanjeDatoteke(ctx, m.Gocop()); err != nil || izd != "0.0.27-alfa" {
 		t.Fatalf("instalirano %q %v", izd, err)

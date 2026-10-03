@@ -352,13 +352,19 @@ traci i nadograđuje ga. Mijenja se rijetko i ima svoja izdanja (oznake
 
 1. S GitHub stranice izdanja preuzeti `goCOP-postava-<izdanje>.exe` i
    pokrenuti ga. Administratorska prava nisu potrebna.
-2. Čarobnjak: licenca, mapa (zadano `%LOCALAPPDATA%\goCOP`), kvačica
-   *Pokreni goCOP pri prijavi u Windows*.
+2. Čarobnjak: licenca, mapa (zadano `%LOCALAPPDATA%\goCOP`), **ime ovog
+   računala u mreži** (predloženo iz korisnika i računala, npr.
+   `pperic-thinkcentre-5`; nakon instalacije se ne mijenja), **važan izbor
+   mreže** (nova mreža samo za prvo računalo, uz dodatnu potvrdu; inače
+   postojeća) i kvačica *Pokreni goCOP pri prijavi u Windows*. Pri ponovnoj
+   instalaciji preko postojećih podataka ime i mreža se ne pitaju.
 3. Postava s GitHuba preuzme najnovije izdanje goCOP-a i provjeri mu potpis
    ključem izdanja i SHA-256. Bez interneta: uz instalacijski program staviti
    `gocop-windows-amd64.exe`, `SHA256SUMS` i `SHA256SUMS.sig` iz izdanja (npr.
    s USB-a); Postava ih uzme odande, uz istu provjeru.
-4. Na kraju se pokreće Postava: ikona valova u traci uz sat, a ona pali čvor.
+4. Na kraju se pokreće Postava: ikona valova u traci uz sat, a ona pali čvor
+   i, kad čvor prvi put odgovori, u pregledniku otvori *Postavljanje* (nova
+   mreža ili povezivanje s postojećom).
    Pri prvom pokretanju čvora Windows vatrozid pita smije li program na mrežu:
    dopustiti samo **privatne** mreže, a kućnu ili uredsku mrežu u Windowsima
    označiti kao privatnu (inače se čvorovi u lokalnoj mreži ne nalaze).
@@ -375,7 +381,7 @@ zaustavljen, crveni kad je pao ili ne odgovara, a narančasta točka znači da
 postoji novije izdanje. Dvoklik otvara goCOP u pregledniku. Desni klik: *Otvori
 goCOP*, *Pokreni/Zaustavi*, *Nadogradi na …*, *Provjeri nadogradnje*, *Otvori
 mapu s podacima*, *Dnevnik čvora*, *Pokreni pri prijavi*, *O programu*,
-*Izlaz* (gasi i čvor).
+*Ukloni goCOP…*, *Izlaz* (gasi i čvor).
 
 **Nadogradnja** je uvijek na klik. Postava jednom pri pokretanju i svakih
 šest sati pita GitHub za popis javnih izdanja (ne šalje ništa o čvoru ni
@@ -389,9 +395,12 @@ neuspjeli kao `gocop.neuspjeli.exe`.
 **Ako čvor padne,** Postava ga podiže ponovno, uz rastući razmak; nakon tri
 pada u deset minuta odustaje, ikona je crvena, a razlog je u dnevniku čvora.
 
-**Deinstalacija:** *Aplikacije i značajke* → goCOP. Gasi Postavu i čvor,
-miče pokretanje pri prijavi i mapu iz PATH-a, briše program. Mapa `data`
-ostaje, osim ako se na kraju izričito potvrdi i njezino brisanje.
+**Deinstalacija** na tri mjesta: *Aplikacije i značajke* → goCOP, izbornik
+Start → goCOP → *Ukloni goCOP*, ili *Ukloni goCOP…* u izborniku ikone u traci.
+Isto se nudi kad se instalacijski program pokrene na računalu na kojem je
+goCOP već instaliran (*Popravi ili nadogradi* / *Ukloni goCOP*). Gasi Postavu
+i čvor, miče pokretanje pri prijavi i mapu iz PATH-a, briše program. Mapa
+`data` ostaje, osim ako se na kraju izričito potvrdi i njezino brisanje.
 
 Postava radi i na macOS-u i Linuxu (ikona u traci izbornika ili u području
 obavijesti, pokretanje pri prijavi kroz LaunchAgent ili `~/.config/autostart`,
@@ -405,10 +414,43 @@ gocop.exe            (Windows)
 ./gocop              (Linux, macOS)
 ```
 
-Prvo pokretanje stvori praznu bazu i račun `admin` s početnom lozinkom
-koja se mijenja pri prvoj prijavi, te zapiše `data/gocop.toml`. Prvi korak
-u programu je registar Administrativna organizacija: sektori, pa branjena područja. Ako uz bazu stoje datoteke registara i imenika,
-učita i njih. Otvoriti `http://localhost` (ili `http://localhost:8080`).
+**Ime čvora.** Mreža razlikuje računala po imenu (`[node] id` u
+`gocop.toml`, npr. `pperic-thinkpad`, `cop-osijek-unraid`): pod njim čvor
+upisuje svoje zapise, a drugi ga pamte uz ključ. Ime se zadaje **prije prvog
+pokretanja**: u instalacijskom programu, u `gocop.toml` ili zastavicom
+`-node`. Bez toga svjež čvor sam izabere jedinstveno ime (ime računala i
+četiri nasumična znaka) i upiše ga u `gocop.toml`. Nakon prvog pokretanja ime
+se ne mijenja. Postojeća baza bez upisanog imena zadržava dosadašnje
+`gocop-cvor`. Uparivanje odbija računalo koje nosi ime ovog čvora ili ime
+poznatog čvora s drugim ključem (dvojnik); računalo koje je samo dobilo novi
+ključ najprije se zaboravi i opozove mu se članstvo.
+
+**Postavljanje svježeg čvora.** Prvo pokretanje stvori praznu bazu i zapiše
+`data/gocop.toml`. Na stranici prijave svježeg čvora stoji poveznica
+**Postavite ga** (`/postavljanje`), s dva puta:
+
+- **nova mreža**, samo za prvo računalo, jednom po mreži: vlasnik napravi
+  svoj račun globalnog administratora (lozinka najmanje 10 znakova), a čvor
+  osnuje mrežu i postane nositelj njezina ključa. Početni račun `admin` se
+  isključuje. Gumb radi tek uz izričitu potvrdu, jer je nova mreža zaseban
+  svijet i kasnije se ne može spojiti s drugima;
+- **postojeća mreža**, za svako sljedeće računalo: čarobnjak uparivanja s
+  računalom koje je već u mreži (vidi niže).
+
+Stranica *Postavljanje* radi samo s računala na kojem čvor radi, ili iz
+lokalne mreže uz jednokratni kod koji čvor pri pokretanju ispiše u dnevnik
+(`Postavljanje: … ?kod=7KQ4-M2XD`; na Unraidu u dnevniku spremnika). Kroz
+tunel je nema; deset krivih kodova ga gasi do ponovnog pokretanja.
+
+Početni račun `admin` s lozinkom iz ovih uputa ostaje za prijelaz (ručno
+pokretanje, poslužitelji): vrijedi iz lokalne mreže, a kroz tunel ne. Na
+čvoru koji pokreće Postava vrijedi **samo s tog računala**, jer čvor sluša za
+cijelu lokalnu mrežu, pa bi ga u uredu inače mogao preuzeti bilo tko prije
+vlasnika.
+
+Prvi korak u programu je registar Administrativna organizacija: sektori, pa
+branjena područja. Ako uz bazu stoje datoteke registara i imenika, učita i
+njih. Otvoriti `http://localhost` (ili `http://localhost:8080`).
 Ustroj, registri i djelatnici stižu na svako računalo. Očitanja i dnevnici
 idu po kanalima „vrsta/područje/godina“ i računalo ih prima samo za ono
 što prati: na profilu, pod **Što ovo računalo prati**, osoba označi sektor

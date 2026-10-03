@@ -4,6 +4,37 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.29-alfa — u pripremi
+
+**Ime čvora, Postavljanje bez javne lozinke i Postava 1.1.0.** Postojeći
+čvorovi ništa ne osjete: zadržavaju svoja imena i račune.
+
+- **Jedinstveno ime čvora.** Dosad je svaki čvor kojem nitko ne upiše ime
+  bio `gocop-cvor`, pa bi dva takva računala u mreži tiho prepisivala ključ
+  jedno drugome i miješala zapise. Ime se sada zadaje prije prvog pokretanja
+  (instalacijski program, `gocop.toml`, `-node`), a inače ga svjež čvor
+  izabere sam (ime računala i četiri nasumična znaka) i upiše u `gocop.toml`.
+  Postojeća baza bez upisanog imena zadržava `gocop-cvor`.
+- **Uparivanje odbija dvojnike**: računalo koje nosi ime ovog čvora ili ime
+  poznatog čvora s drugim ključem, uz poruku što učiniti; ključ poznatog
+  čvora više se nigdje ne prepisuje tiho.
+- **Postavljanje svježeg čvora** (`/postavljanje`): nova mreža s vlastitim
+  računom globalnog administratora (početni `admin` se isključuje), uz
+  izričitu potvrdu da je to prvo računalo nove mreže, ili put do uparivanja
+  s postojećom. Radi samo s tog računala ili uz jednokratni kod iz dnevnika
+  (poslužitelji, npr. Unraid); kroz tunel ne.
+- **Početna lozinka pod Postavom samo s tog računala**: čvor sluša za cijelu
+  lokalnu mrežu, pa u uredu javnu lozinku iz uputa više ne može upotrijebiti
+  nitko osim vlasnika.
+- **`gocop -pripremi`**: Postava prije prvog pokretanja upiše ime čvora iz
+  instalacijskog programa; postojeće ime nikad ne mijenja. Dio ugovora s
+  Postavom, uz test.
+- **Postava 1.1.0** (zasebno izdanje `postava-v1.1.0`): u instalacijskom
+  programu ime računala u mreži i važan izbor nove ili postojeće mreže (uz
+  potvrdu za novu), pri prvom pokretanju otvara *Postavljanje*; *Ukloni goCOP*
+  u izborniku Start i u izborniku ikone; ponovno pokrenut instalacijski
+  program nudi *Popravi ili nadogradi* ili *Ukloni goCOP*.
+
 ## 0.0.28-alfa — 3. 10. 2026.
 
 **goCOP Postava: instalacija, nadogradnja i ikona u traci.** Prvo izdanje s

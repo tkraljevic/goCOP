@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Postavljanje | goCOP — {{term "org"}}</title>
+  <meta name="color-scheme" content="light dark">
+  <script src="{{statika "js/tema.js"}}"></script>
+  <link rel="stylesheet" href="{{statika "css/style.css"}}">
+  {{with temaCSS}}<link rel="stylesheet" href="{{.}}">{{end}}
+</head>
+<body>
+  <div class="login-wrapper">
+    <div class="login-box" style="max-width:34rem;">
+      <div class="login-header">
+        <div class="login-logo"><img src="{{logo}}" alt="">{{term "org"}}</div>
+        <h1 class="login-title">Postavljanje ovog računala</h1>
+        <p class="login-subtitle">Čvor <b>{{.Cvor}}</b> · goCOP {{.Izdanje}}</p>
+      </div>
+
+      {{if .Error}}<div class="alert alert-danger">{{.Error}}</div>{{end}}
+
+      {{if not .Dopusteno}}
+      <p>Postavljanje svježeg čvora radi samo na računalu na kojem je goCOP
+      instaliran, ili uz jednokratni kod koji čvor pri pokretanju ispiše u
+      dnevnik (na Unraidu: dnevnik spremnika).</p>
+      <form action="/postavljanje" method="GET">
+        <div class="form-group mb-4">
+          <label class="form-label" for="kod">Kod iz dnevnika</label>
+          <input type="text" id="kod" name="kod" class="form-control" required autofocus placeholder="npr. 7KQ4-M2XD" autocomplete="off">
+        </div>
+        <button type="submit" class="btn btn-primary w-full">Nastavi</button>
+      </form>
+      {{else}}
+
+      <p class="mb-2">Ovo računalo još nema djelatnika ni mrežu. Izaberite:</p>
+      <ul class="mb-4" style="padding-left:1.2rem;">
+        <li><b>Nova mreža</b> je za <b>prvo</b> računalo, jednom po mreži (npr. prvi čvor centra). Na njemu napravite svoj administratorski račun, upišete ustroj i djelatnike, a ono prima ostala računala u mrežu.</li>
+        <li><b>Postojeća mreža</b> je za <b>svako sljedeće</b> računalo (laptop djelatnika, uredski PC). Uparite ga s računalom koje je već u mreži; djelatnici, registri i podaci stižu od tamo, a prijavljujete se svojim računom.</li>
+      </ul>
+      <p class="muted mb-4">Ako niste sigurni, izaberite postojeću. Nova mreža je zaseban svijet: ne vidi podatke drugih mreža i kasnije se ne može spojiti s njima.</p>
+
+      <details class="card mb-4" {{if ne .Put "postojeca"}}open{{end}}>
+        <summary class="fw-600" style="cursor:pointer;">Ovo je prvi čvor nove mreže</summary>
+        <form action="/postavljanje" method="POST" class="mt-4">
+          <input type="hidden" name="kod" value="{{.Kod}}">
+          <input type="hidden" name="nacin" value="nova">
+          <div class="form-group mb-4">
+            <label class="form-label" for="mreza">Naziv mreže</label>
+            <input type="text" id="mreza" name="mreza" class="form-control" required value="{{.Mreza}}" placeholder="npr. Hrvatske vode — COP Osijek">
+          </div>
+          <p class="muted mb-2">Vaš administratorski račun (globalni administrator). Početni račun <code>admin</code> se isključuje.</p>
+          <div class="form-group mb-4">
+            <label class="form-label" for="korisnik">Korisničko ime</label>
+            <input type="text" id="korisnik" name="korisnik" class="form-control" required value="{{.Korisnik}}" placeholder="npr. tkraljevic" autocomplete="username">
+          </div>
+          <div class="form-group mb-4">
+            <label class="form-label" for="ime">Ime i prezime</label>
+            <input type="text" id="ime" name="ime" class="form-control" required value="{{.Ime}}">
+          </div>
+          <div class="form-group mb-4">
+            <label class="form-label" for="email">E-pošta (nije obavezna)</label>
+            <input type="email" id="email" name="email" class="form-control" value="{{.Email}}">
+          </div>
+          <div class="form-group mb-4">
+            <label class="form-label" for="lozinka">Lozinka (najmanje 10 znakova)</label>
+            <input type="password" id="lozinka" name="lozinka" class="form-control" required minlength="10" autocomplete="new-password">
+          </div>
+          <div class="form-group mb-6">
+            <label class="form-label" for="lozinka2">Lozinka još jednom</label>
+            <input type="password" id="lozinka2" name="lozinka2" class="form-control" required minlength="10" autocomplete="new-password">
+          </div>
+          <div class="form-group mb-6">
+            <label style="display:flex; gap:.5rem; align-items:flex-start;">
+              <input type="checkbox" name="razumijem" value="da" required style="margin-top:.3rem;">
+              <span><b>Razumijem:</b> ovo je prvo računalo nove mreže. Nova mreža je zaseban svijet i kasnije se ne može spojiti s drugim mrežama.</span>
+            </label>
+          </div>
+          <button type="submit" class="btn btn-primary w-full">Osnuj mrežu i prijavi me</button>
+        </form>
+      </details>
+
+      <details class="card" {{if eq .Put "postojeca"}}open{{end}}>
+        <summary class="fw-600" style="cursor:pointer;">Priključit ću se postojećoj mreži</summary>
+        <p class="mt-4">Ovo računalo upari s računalom koje je već u mreži (npr. u uredu). Djelatnici,
+        registri i podaci stižu od tamo, pa se nakon toga prijavljujete svojim računom.</p>
+        <a href="/uparivanje" class="btn btn-secondary w-full">Poveži ga s uredom</a>
+      </details>
+      {{end}}
+    </div>
+  </div>
+</body>
+</html>

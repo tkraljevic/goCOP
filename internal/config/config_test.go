@@ -105,3 +105,36 @@ pakete = "/mnt/disk1/gocop/pakete"
 		t.Errorf("zadano mora biti prazno (uz bazu, kao dosad): %+v", d)
 	}
 }
+
+// UpisiIme mijenja samo redak id u [node] ili ga doda; ostatak ostaje
+func TestUpisiIme(t *testing.T) {
+	dir := t.TempDir()
+	slucajevi := map[string]string{
+		"zamjena":   "# komentar\naddr = \":80\"\n\n[node]\n# ime\nid = \"gocop-cvor\"\nname = \"x\"\n",
+		"umetanje":  "addr = \":80\"\n[node]\nname = \"x\"\n[sync]\nsve = true\n",
+		"dodavanje": "addr = \":80\"\n",
+	}
+	for ime, sadrzaj := range slucajevi {
+		put := filepath.Join(dir, ime+".toml")
+		if err := os.WriteFile(put, []byte(sadrzaj), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := UpisiIme(put, "pperic-thinkpad"); err != nil {
+			t.Fatalf("%s: %v", ime, err)
+		}
+		cfg, _, err := Load([]string{put})
+		if err != nil {
+			t.Fatalf("%s: %v", ime, err)
+		}
+		if cfg.Node.ID != "pperic-thinkpad" || cfg.Addr != ":80" {
+			t.Errorf("%s: id %q addr %q", ime, cfg.Node.ID, cfg.Addr)
+		}
+		b, _ := os.ReadFile(put)
+		if ime == "zamjena" && (!strings.Contains(string(b), "# komentar") || strings.Count(string(b), "id =") != 1) {
+			t.Errorf("zamjena je pokvarila datoteku:\n%s", b)
+		}
+		if ime == "umetanje" && !cfg.Sync.All {
+			t.Errorf("umetanje je pokvarilo [sync]:\n%s", b)
+		}
+	}
+}

@@ -43,7 +43,7 @@ type Config struct {
 	} `toml:"web"`
 
 	Node struct {
-		ID   string `toml:"id" comment:"Jedinstveni identifikator ovog čvora — npr. cop-osijek, laptop-vinkovci-1.\nNe mijenjajte nakon prvog uparivanja: drugi čvorovi ga pamte."`
+		ID   string `toml:"id" comment:"Jedinstveno ime ovog čvora u mreži — npr. cop-osijek-unraid, pperic-thinkpad:\nmala slova, brojke i crtica. Ne mijenjajte nakon prvog pokretanja: pod njim\nčvor upisuje svoje zapise, a drugi čvorovi ga pamte uz ključ."`
 		Name string `toml:"name" comment:"Naziv koji vide drugi čvorovi pri uparivanju. Prazno = ime računala."`
 	} `toml:"node"`
 
@@ -88,7 +88,8 @@ func Default() Config {
 	var c Config
 	c.Addr = ":80"
 	c.DB = "data/gocop.db"
-	c.Node.ID = "gocop-cvor"
+	// Node.ID namjerno prazan: ime čvora mora biti jedinstveno, pa ga čvor
+	// bez upisanog imena izabere sam pri prvom pokretanju (OdrediIme)
 	c.Sync.ExchangePort = 4710
 	c.Sync.PairPort = 4711
 	c.Sync.DiscoveryPort = 4712
@@ -170,4 +171,35 @@ func WriteExample(path string, cfg Config) (bool, error) {
 		return false, err
 	}
 	return true, nil
+}
+
+// UpisiIme upisuje ime čvora u postojeću datoteku postavki: zamijeni redak
+// id u odjeljku [node] ili ga doda. Ostatak datoteke, s komentarima, ostaje.
+func UpisiIme(path, ime string) error {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	redovi := strings.Split(string(b), "\n")
+	odjeljak, umetni := "", -1
+	for i, r := range redovi {
+		t := strings.TrimSpace(r)
+		if strings.HasPrefix(t, "[") {
+			odjeljak = t
+			if t == "[node]" {
+				umetni = i + 1
+			}
+			continue
+		}
+		if odjeljak == "[node]" && (strings.HasPrefix(t, "id ") || strings.HasPrefix(t, "id=")) {
+			redovi[i] = fmt.Sprintf("id = %q", ime)
+			return os.WriteFile(path, []byte(strings.Join(redovi, "\n")), 0o644)
+		}
+	}
+	if umetni >= 0 {
+		redovi = append(redovi[:umetni], append([]string{fmt.Sprintf("id = %q", ime)}, redovi[umetni:]...)...)
+		return os.WriteFile(path, []byte(strings.Join(redovi, "\n")), 0o644)
+	}
+	tekst := strings.TrimRight(string(b), "\n") + fmt.Sprintf("\n\n[node]\nid = %q\n", ime)
+	return os.WriteFile(path, []byte(tekst), 0o644)
 }

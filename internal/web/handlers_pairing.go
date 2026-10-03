@@ -55,6 +55,10 @@ func NewPairHandler(peersSvc *peers.Service, auth *service.AuthService, users *s
 	return h
 }
 
+// NijeViseSvjez: čvor je upravo dobio administratora (Postavljanje), pa
+// uparivanje bez prijave odmah prestaje, ne tek kad istekne pričuva
+func (h *PairHandler) NijeViseSvjez() { h.nijeSvjez.Store(true) }
+
 // Fresh javlja je li čvor svjež: bez ijednog računa osim početnog admina
 func (h *PairHandler) Fresh() bool {
 	if h.nijeSvjez.Load() {

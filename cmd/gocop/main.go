@@ -23,6 +23,7 @@ import (
 	"gocop/internal/config"
 	"gocop/internal/db"
 	"gocop/internal/hidroview"
+	"gocop/internal/imecvora"
 	"gocop/internal/importer/bp16"
 	"gocop/internal/importer/csvlevels"
 	"gocop/internal/importer/ugovor"
@@ -134,6 +135,7 @@ func main() {
 	aktivirajRacun := flag.Bool("aktiviraj", false, "Uz -ponisti-lozinku: isključen račun i uključi")
 	ispisiIzdanje := flag.Bool("version", false, "Ispiši izdanje (\"goCOP 0.0.x-alfa\") i završi")
 	podPostavom := flag.Bool("upravitelj", false, "Čvor pod Postavom: uredno se gasi kad mu se zatvori standardni ulaz")
+	pripremi := flag.Bool("pripremi", false, "Zapiši gocop.toml uz bazu s imenom čvora (-node) prije prvog pokretanja i završi; postojeće ime se ne mijenja")
 	flag.Parse()
 	if *ispisiIzdanje {
 		// Ugovor s Postavom (docs/plan-instalacija.md §3.1a): Postava ovim
@@ -160,6 +162,7 @@ func main() {
 	if *dbFlag != "" {
 		cfg.DB = *dbFlag
 	}
+	imeIzDatoteke := cfg.Node.ID
 	if *nodeFlag != "" {
 		cfg.Node.ID = *nodeFlag
 	}
@@ -196,6 +199,30 @@ func main() {
 		*paketiFlag = cfg.Pakete
 	}
 
+	// Ime čvora: upisano u gocop.toml, zadano zastavicom -node, ili ga svjež
+	// čvor izabere sam (ime računala i četiri nasumična znaka). Postojeća
+	// baza bez upisanog imena zadržava dosadašnje zadano ime gocop-cvor:
+	// pod njim su njezini zapisi. Ime se nikad ne mijenja samo.
+	noviIme := false
+	if cfg.Node.ID == "" {
+		if _, err := os.Stat(cfg.DB); err == nil {
+			cfg.Node.ID = imecvora.Stari
+		} else {
+			racunalo, _ := os.Hostname()
+			cfg.Node.ID = imecvora.Nasumicno(racunalo)
+			noviIme = true
+		}
+	}
+	if err := imecvora.Provjeri(cfg.Node.ID); err != nil {
+		log.Printf("Ime čvora %q: %v", cfg.Node.ID, err)
+	}
+
+	// -pripremi: Postava prije prvog pokretanja upiše ime čvora iz
+	// instalacijskog programa. Postojeće ime se ne mijenja.
+	if *pripremi {
+		os.Exit(pripremiPostavke(cfg, cfgFrom, imeIzDatoteke, os.Stdout))
+	}
+
 	// Oporavak lozinke s konzole: samo baza, bez poslužitelja i razmjene;
 	// postavke se ne zapisuju, jer ovo nije pokretanje čvora
 	if zadane["ponisti-lozinku"] {
@@ -230,6 +257,16 @@ func main() {
 		}
 	} else {
 		log.Printf("Postavke: čitane iz %s", cfgFrom)
+		// ime koje datoteka nije imala (izabrano sada ili zadano zastavicom)
+		// mora preživjeti ponovno pokretanje bez zastavice
+		if imeIzDatoteke == "" && (noviIme || *nodeFlag != "") {
+			if err := config.UpisiIme(cfgFrom, cfg.Node.ID); err != nil {
+				log.Printf("Postavke: ime čvora nije upisano u %s: %v", cfgFrom, err)
+			}
+		}
+	}
+	if noviIme {
+		log.Printf("Novi čvor dobio je ime %s (upisano u postavke; ne mijenja se)", cfg.Node.ID)
 	}
 
 	log.Printf("=== goCOP — Centar obrane od poplava (Hrvatske vode) ===")
@@ -748,6 +785,7 @@ func main() {
 		server.SetPosrednici(posrednici)
 	}
 	server.SetJavnaAdresa(cfg.JavnaAdresa)
+	server.SetPodPostavom(*podPostavom)
 	skenovi := cfg.Skenovi
 	if skenovi == "" {
 		skenovi = filepath.Join(filepath.Dir(*dbPath), "skenovi")
@@ -1191,6 +1229,7 @@ func main() {
 	// Graceful shutdown
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+	server.JaviPostavljanje(*addr)
 	if *podPostavom {
 		// Windows nema SIGTERM, pa Postava čvor gasi zatvaranjem cijevi na
 		// standardnom ulazu. Zatvori se i kad Postava padne, pa čvor ne

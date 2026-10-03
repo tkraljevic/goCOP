@@ -23,10 +23,20 @@ var (
 func main() {
 	verzija := flag.Bool("version", false, "")
 	_ = flag.Bool("upravitelj", false, "")
+	pripremi := flag.Bool("pripremi", false, "")
+	cvor := flag.String("node", "", "")
 	db := flag.String("db", "", "")
 	flag.Parse()
 	if *verzija {
 		fmt.Println("goCOP " + izdanje)
+		return
+	}
+	if *pripremi {
+		put := filepath.Join(filepath.Dir(*db), "gocop.toml")
+		if err := os.WriteFile(put, []byte("[node]\nid = \""+*cvor+"\"\n"), 0o644); err != nil {
+			os.Exit(1)
+		}
+		fmt.Println("Ime čvora " + *cvor + " upisano u " + put)
 		return
 	}
 	if nacin == "pada" {

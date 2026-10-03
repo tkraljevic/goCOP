@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"syscall"
 	"time"
@@ -26,9 +27,10 @@ type traka struct {
 
 	status, otvori, prekidac, nadogradi, provjeri, priPrijavi *systray.MenuItem
 
-	mu       sync.Mutex
-	ikonaZa  string // stanje za koje je ikona zadnji put nacrtana
-	javljeno string // izdanje o kojem je već stigla obavijest
+	mu           sync.Mutex
+	ikonaZa      string // stanje za koje je ikona zadnji put nacrtana
+	javljeno     string // izdanje o kojem je već stigla obavijest
+	prvoOtvoreno bool   // stranica Postavljanje svježeg čvora već otvorena
 }
 
 func pokreniTraku(p *postava.Postava) {
@@ -91,6 +93,9 @@ func (tr *traka) izbornik() *systray.Menu {
 	ukljuceno, _ := postava.PriPrijavi(tr.p.Exe)
 	tr.priPrijavi = m.AddCheckbox("Pokreni pri prijavi", ukljuceno, func() { go tr.priPrijaviKlik() })
 	m.Add("O programu", func() { go tr.oProgramu() })
+	if runtime.GOOS == "windows" {
+		m.Add("Ukloni goCOP…", func() { go tr.ukloniKlik() })
+	}
 	m.AddSeparator()
 	m.Add("Izlaz", func() { go tr.izadji() })
 	return m
@@ -229,6 +234,16 @@ func (tr *traka) priPrijaviKlik() {
 	tr.priPrijavi.SetChecked(sad)
 }
 
+// ukloniKlik pokreće deinstalaciju, isto što i Aplikacije i značajke
+func (tr *traka) ukloniKlik() {
+	if !postava.Pitanje(naslov, "Ukloniti goCOP s ovog računala?\n\nČvor se zaustavlja, a program, prečaci i pokretanje pri prijavi se uklanjaju. Podaci (baza, postavke) ostaju, osim ako na kraju izričito potvrdite i njihovo brisanje.") {
+		return
+	}
+	if err := postava.Deinstaliraj(); err != nil {
+		postava.Poruka(naslov, err.Error(), true)
+	}
+}
+
 func (tr *traka) oProgramu() {
 	s := tr.p.Stanje()
 	cvor := "nije preuzet"
@@ -283,6 +298,12 @@ func (tr *traka) osvjezi() {
 	tr.status.SetLabel(status)
 	tr.t.SetTooltip(status)
 	tr.otvori.SetDisabled(s.Cvor != postava.Radi)
+	if s.Cvor == postava.Radi && !tr.prvoOtvoreno {
+		tr.prvoOtvoreno = true
+		if put := tr.p.PrvoOtvaranje(); put != "" {
+			go func() { _ = postava.Otvori(postava.AdresaPloce(s.Port) + put) }()
+		}
+	}
 
 	switch s.Cvor {
 	case postava.NijeInstaliran:

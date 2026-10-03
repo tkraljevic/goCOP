@@ -26,6 +26,8 @@ type AuthHandler struct {
 	prekljucaj   func(ctx context.Context, userID, stara, nova string) error // potpisni ključ prati lozinku
 	drugiKorak   func() *service.DrugiKorak                                  // PIN za prijavu izvana; nil = nema ga
 	tmplPIN      *template.Template                                          // stranica upisa PIN-a ili koda
+	// čvor pod Postavom: početna lozinka samo s ovog računala
+	samoOvoRacunalo func() bool
 }
 
 // SetPrekljucaj daje rukovatelju način da uz promjenu lozinke prekljuca
@@ -91,6 +93,9 @@ func (h *AuthHandler) prikaziPrijavu(w http.ResponseWriter, r *http.Request, sta
 	}
 	h.tmpl.ExecuteTemplate(w, "login.html", LoginPageData{Error: poruka, Support: h.supportNow(), Fresh: h.svjezLokalno(r)})
 }
+
+// porukaZadaneLozinkeIzMreze odbija početnu lozinku iz mreže na čvoru pod Postavom
+const porukaZadaneLozinkeIzMreze = "Početna lozinka iz uputa vrijedi samo na računalu na kojem je goCOP instaliran. Na njemu otvorite goCOP (ikona u traci) ili zatražite od administratora privremenu lozinku."
 
 // porukaZadaneLozinke odbija prvu prijavu zadanom lozinkom izvana
 const porukaZadaneLozinke = "Zadana lozinka izvana ne vrijedi, jer je javna. Prijavite se iz ureda (lokalna mreža) ili zatražite od administratora privremenu lozinku (Korisnici → Poništi lozinku)."
@@ -183,6 +188,14 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	// mreže; privremena lozinka koju je dao administrator vrijedi i izvana.
 	if klijent.KrozPosrednika && user.MustChangePassword && password == db.ZadanaLozinka {
 		h.prikaziPrijavu(w, r, http.StatusForbidden, porukaZadaneLozinke)
+		return
+	}
+	// Pod Postavom čvor je na nečijem računalu, a sluša za cijelu lokalnu
+	// mrežu: javnu početnu lozinku smije upotrijebiti samo vlasnik, s tog
+	// računala (ili postavi svoj račun na stranici Postavljanje)
+	if user.MustChangePassword && password == db.ZadanaLozinka && h.samoOvoRacunalo != nil &&
+		h.samoOvoRacunalo() && !klijent.Posrednik.IsLoopback() {
+		h.prikaziPrijavu(w, r, http.StatusForbidden, porukaZadaneLozinkeIzMreze)
 		return
 	}
 
