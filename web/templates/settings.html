@@ -9,14 +9,14 @@
   /* Postavke su prvi ekran rađen mobile-first: kartice u jednom stupcu,
      radnje u redu koji se lomi, bez tablica. */
   .cards { display: flex; flex-direction: column; gap: 1rem; max-width: 760px; }
-  .card { background: var(--surface); border: 1px solid var(--border, var(--border)); border-radius: 10px; padding: 1rem 1.1rem; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-kartica); padding: 1rem 1.1rem; box-shadow: var(--sjena-kartica); }
   .card h2 { font-size: 1.05rem; margin: 0 0 0.6rem; }
   .card .desc { font-size: 0.82rem; color: var(--text-muted); margin: 0 0 0.75rem; }
   .kv { display: grid; grid-template-columns: max-content 1fr; gap: 0.35rem 1rem; font-size: 0.9rem; }
   .kv dt { color: var(--text-muted); }
   .kv dd { margin: 0; word-break: break-all; }
   .actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem; }
-  .peer { border-top: 1px solid var(--border, #e6ebf0); padding: 0.75rem 0; }
+  .peer { border-top: 1px solid var(--crta-glave); padding: 0.75rem 0; }
   .peer:first-of-type { border-top: 0; }
   .peer-head { display: flex; justify-content: space-between; gap: 0.75rem; align-items: baseline; flex-wrap: wrap; }
   .peer-name { font-weight: 600; }
