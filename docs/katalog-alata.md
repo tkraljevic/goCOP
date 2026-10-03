@@ -117,7 +117,7 @@ zadano samo ispisuju i pišu tek s `-probno=false`.
 | `protok-u-cm` | Parove iz `provjeri-prognozu -csv` preračunava iz protoka u vodostaj |
 | `proba-sesije` | Ispiše sesiju prijave iz baze po ID-u |
 | `tunel-proba` | Spaja se na čvor kroz web tunel ključem ovog čvora i javlja je li druga strana dokazala upareni ključ |
-| `ikona-proba` | Ploča ikone u svim stanjima i veličinama, uvećane sitne ikone i `.ico` u zadanu mapu, za pregled |
+| `ikona-proba` | Ploča ikone u svim stanjima i veličinama, uvećane sitne ikone i `.ico` u zadanu mapu, za pregled; `<putanja.png> -png` zapiše ikonu 256 px (`web/static/img/gocop-256.png`, ikona spremnika na Unraidu; pokretati s `GOARCH=amd64`) |
 | `proba-nadogradnje` | Nadogradnja na kopiji baze: shema, jesu li ID-ovi korisnika ostali isti, novosti, popravci i obnova površine. **Piše** u zadanu bazu; pokretati samo nad kopijom |
 
 Tuđe prognoze za usporedbe čitaju se iz izvorne građe u

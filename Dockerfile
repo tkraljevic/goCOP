@@ -37,6 +37,10 @@ ENV TZ=Europe/Zagreb
 
 COPY --from=gradnja /gocop /usr/local/bin/gocop
 
+# Unraid: ikona (valovi) i poveznica na web sučelje u popisu spremnika
+LABEL net.unraid.docker.icon="https://raw.githubusercontent.com/tkraljevic/goCOP/master/web/static/img/gocop-256.png" \
+      net.unraid.docker.webui="http://[IP]:[PORT:8080]/"
+
 VOLUME ["/data", "/arhiva"]
 WORKDIR /data
 # Unraidov korisnik nobody:users, da appdata i dijeljene mape ostanu čitljive
