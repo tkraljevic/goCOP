@@ -4,7 +4,7 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
-## 0.0.29-alfa — u pripremi
+## 0.0.29-alfa — 4. 10. 2026.
 
 **Ime čvora, Postavljanje bez javne lozinke i Postava 1.1.0.** Postojeći
 čvorovi ništa ne osjete: zadržavaju svoja imena i račune.
