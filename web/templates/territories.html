@@ -101,7 +101,7 @@
   <!-- KPI brojači -->
   <div class="kpi-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
     <div class="kpi-card" style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; display: flex; align-items: center; gap: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
-      <div style="font-size: 2.25rem; background: #eff6ff; width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; border-radius: 8px;">{{icon "landmark"}} </div>
+      <div style="font-size: 2.25rem; background: var(--tint-blue-bg); color: var(--tint-blue-fg); width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; border-radius: 8px;">{{icon "landmark"}} </div>
       <div>
         <div style="font-size: 1.5rem; font-weight: 700; color: var(--secondary);">{{.TotalCounties}}</div>
         <div style="font-size: 0.8125rem; color: var(--text-muted); font-weight: 500;">Županija (20 + Zagreb)</div>
@@ -109,25 +109,25 @@
     </div>
 
     <div class="kpi-card" style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; display: flex; align-items: center; gap: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
-      <div style="font-size: 2.25rem; background: #f0fdf4; width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; border-radius: 8px;">{{icon "building"}} </div>
+      <div style="font-size: 2.25rem; background: var(--mirno-bg); color: var(--mirno-fg); width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; border-radius: 8px;">{{icon "building"}} </div>
       <div>
-        <div style="font-size: 1.5rem; font-weight: 700; color: #16a34a;">{{.TotalCities}}</div>
+        <div style="font-size: 1.5rem; font-weight: 700; color: var(--mirno-fg);">{{.TotalCities}}</div>
         <div style="font-size: 0.8125rem; color: var(--text-muted); font-weight: 500;">Gradova</div>
       </div>
     </div>
 
     <div class="kpi-card" style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; display: flex; align-items: center; gap: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
-      <div style="font-size: 2.25rem; background: #fefce8; width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; border-radius: 8px;">{{icon "house"}} </div>
+      <div style="font-size: 2.25rem; background: var(--tint-amber-bg); color: var(--tint-amber-fg); width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; border-radius: 8px;">{{icon "house"}} </div>
       <div>
-        <div style="font-size: 1.5rem; font-weight: 700; color: #ca8a04;">428</div>
+        <div style="font-size: 1.5rem; font-weight: 700; color: var(--tint-amber-fg);">428</div>
         <div style="font-size: 0.8125rem; color: var(--text-muted); font-weight: 500;">Općina</div>
       </div>
     </div>
 
     <div class="kpi-card" style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; display: flex; align-items: center; gap: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
-      <div style="font-size: 2.25rem; background: #fdf2f8; width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; border-radius: 8px;">{{icon "house"}} </div>
+      <div style="font-size: 2.25rem; background: var(--tint-purple-bg); color: var(--tint-purple-fg); width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; border-radius: 8px;">{{icon "house"}} </div>
       <div>
-        <div style="font-size: 1.5rem; font-weight: 700; color: #db2777;">6.724</div>
+        <div style="font-size: 1.5rem; font-weight: 700; color: var(--tint-purple-fg);">6.724</div>
         <div style="font-size: 0.8125rem; color: var(--text-muted); font-weight: 500;">Naselja</div>
       </div>
     </div>
@@ -214,13 +214,13 @@
         {{icon "sliders"}} <span id="tekst-gumba-jedinice">Pojedinačne jedinice</span>
       </button>
 
-      <div id="karta-ucitavanje-opcina" style="font-size:0.8rem; color:#64748b; margin-left:auto; display:flex; align-items:center; gap:0.4rem;">
+      <div id="karta-ucitavanje-opcina" style="font-size:0.8rem; color:var(--text-muted); margin-left:auto; display:flex; align-items:center; gap:0.4rem;">
         <span class="anim-puls">{{icon "loader"}}</span> Učitavanje gradova i općina...
       </div>
     </div>
 
     <!-- Glavni omot: Karta + Bočna ploča za upravljanje jedinicama -->
-    <div class="karta-teritorij-omot" style="position:relative; display:flex; border-radius:8px; border:1px solid var(--border-color, #cbd5e1); overflow:hidden; background:var(--surface);">
+    <div class="karta-teritorij-omot" style="position:relative; display:flex; border-radius:8px; border:1px solid var(--border); overflow:hidden; background:var(--surface);">
       <div class="karta-teritorij"
            style="flex:1; min-width:0; position:relative;"
            data-plocice="{{.Karta.Plocice}}"
@@ -273,13 +273,13 @@
           <input type="search" id="ploca-trazilica-jedinica" placeholder="Traži grad, općinu ili naselje..." class="form-control form-control-sm" style="font-size:0.8rem;">
         </div>
 
-        <div id="ploca-akcije-traka" style="padding:0.5rem 0.85rem; border-bottom:1px solid var(--border); background:var(--bg-subtle, #f8fafc); display:none; flex-direction:column; gap:0.4rem; font-size:0.78rem;">
+        <div id="ploca-akcije-traka" style="padding:0.5rem 0.85rem; border-bottom:1px solid var(--border); background:var(--bg-subtle); display:none; flex-direction:column; gap:0.4rem; font-size:0.78rem;">
           <div style="display:flex; justify-content:space-between; align-items:center; gap:0.5rem; flex-wrap:wrap;">
-            <label id="ploca-chk-zupanija-granica-omot" style="display:inline-flex; align-items:center; gap:0.4rem; font-weight:600; cursor:pointer; color:#1e3a8a;">
+            <label id="ploca-chk-zupanija-granica-omot" style="display:inline-flex; align-items:center; gap:0.4rem; font-weight:600; cursor:pointer; color:var(--tint-blue-fg);">
               <input type="checkbox" id="ploca-chk-zupanija-granica" checked style="accent-color:#2563eb; width:15px; height:15px; cursor:pointer;">
               <span>Granica županije</span>
             </label>
-            <label id="ploca-chk-naselja-omot" style="display:inline-flex; align-items:center; gap:0.4rem; font-weight:600; cursor:pointer; color:#be123c;">
+            <label id="ploca-chk-naselja-omot" style="display:inline-flex; align-items:center; gap:0.4rem; font-weight:600; cursor:pointer; color:var(--danger);">
               <input type="checkbox" id="ploca-chk-naselja" style="accent-color:#e11d48; width:15px; height:15px; cursor:pointer;">
               <span>Sloj naselja</span>
             </label>
@@ -307,7 +307,7 @@
           <div style="padding:0.65rem 0.85rem; border-bottom:1px solid var(--border); background:var(--surface);">
             <input type="search" id="ploca-trazilica-vodne" placeholder="Traži sektor, područje ili broj…" class="form-control form-control-sm" style="font-size:0.8rem;">
           </div>
-          <div style="padding:0.5rem 0.85rem; border-bottom:1px solid var(--border); background:var(--bg-subtle, #f8fafc); display:flex; gap:0.3rem; flex-wrap:wrap; font-size:0.78rem;">
+          <div style="padding:0.5rem 0.85rem; border-bottom:1px solid var(--border); background:var(--bg-subtle); display:flex; gap:0.3rem; flex-wrap:wrap; font-size:0.78rem;">
             <button type="button" class="btn btn-xs btn-outline-secondary vodne-akcija" data-akcija="sve" style="font-size:0.75rem; padding:2px 7px;">Upali sve</button>
             <button type="button" class="btn btn-xs btn-outline-secondary vodne-akcija" data-akcija="nista" style="font-size:0.75rem; padding:2px 7px;">Ugasi sve</button>
             <button type="button" class="btn btn-xs btn-outline-secondary vodne-akcija" data-akcija="sektori" style="font-size:0.75rem; padding:2px 7px;">Samo sektori</button>
@@ -340,7 +340,7 @@
         {{end}}
       </aside>
     </div>
-    <div class="karta-podnozje" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-top:0.6rem; font-size:0.85rem; color:#64748b;">
+    <div class="karta-podnozje" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-top:0.6rem; font-size:0.85rem; color:var(--text-muted);">
       <div>
         {{icon "landmark"}} <strong>{{.TotalCounties}}</strong> županija · <strong>{{.TotalCities}}</strong> gradova · <strong>428</strong> općina (visoka OSM preciznost granica)
       </div>
@@ -349,7 +349,7 @@
         <span><span style="display:inline-block; width:12px; height:10px; background:rgba(124,58,237,0.2); border:1.5px solid #7c3aed; vertical-align:middle; margin-right:4px; border-radius:2px;"></span> Grad</span>
         <span><span style="display:inline-block; width:12px; height:10px; background:rgba(5,150,105,0.2); border:1.5px solid #059669; vertical-align:middle; margin-right:4px; border-radius:2px;"></span> Općina</span>
         <span><span style="display:inline-block; width:12px; height:10px; background:rgba(225,29,72,0.2); border:1.5px solid #e11d48; vertical-align:middle; margin-right:4px; border-radius:2px;"></span> Naselje</span>
-        <span style="color:#94a3b8; font-size:0.8rem;">Klik na jedinicu za detalje, vodstvo i stanovništvo</span>
+        <span style="color:var(--text-muted); font-size:0.8rem;">Klik na jedinicu za detalje, vodstvo i stanovništvo</span>
       </div>
       <div class="reg-card-sub" style="flex-basis:100%; font-size:0.78rem;">
         Granice županija, gradova i općina: © suradnici
@@ -504,7 +504,7 @@
               {{icon "building"}} GRAD
             </span>
             {{else}}
-            <span class="badge" style="background: #f0fdf4; color: #15803d; font-weight: 700; font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 4px;">
+            <span class="badge" style="background: var(--mirno-bg); color: var(--mirno-fg); font-weight: 700; font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 4px;">
               {{icon "house"}} OPĆINA
             </span>
             {{end}}

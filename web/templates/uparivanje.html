@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Uparivanje | goCOP — {{term "org"}}</title>
   <meta name="color-scheme" content="light dark">
-  <script>(function () { try { var t = localStorage.getItem('gocop-theme'); if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t); } catch (e) {} })();</script>
+  <script src="{{statika "js/tema.js"}}"></script>
   <link rel="stylesheet" href="{{statika "css/style.css"}}">
   <style>
     .wrap { min-height: 100vh; display: flex; align-items: flex-start; justify-content: center; padding: 1rem; background: linear-gradient(160deg, #0d274a 0%, #173e74 60%, #1f5aa6 100%); }
@@ -19,14 +19,14 @@
     .step.on { opacity: 1; border-color: var(--primary); }
     .step.done { opacity: 0.8; border-color: #2e7d5b; }
     .step h2 { font-size: 0.95rem; margin: 0 0 0.35rem; display: flex; align-items: center; gap: 0.5rem; }
-    .num { display: inline-flex; width: 1.6rem; height: 1.6rem; border-radius: 50%; background: var(--primary); color: #fff; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700; }
-    .done .num { background: #2e7d5b; }
+    .num { display: inline-flex; width: 1.6rem; height: 1.6rem; border-radius: 50%; background: var(--gumb); color: var(--gumb-tekst); align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700; }
+    .done .num { background: var(--accent-dark); color: var(--surface); }
     .desc { font-size: 0.82rem; color: var(--text-muted); margin: 0 0 0.6rem; }
     .actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
     .sas { font-family: "SFMono-Regular", Menlo, monospace; font-size: 2.4rem; letter-spacing: 0.25em; text-align: center; padding: 0.5rem 0; }
     .muted { color: var(--text-muted); font-size: 0.85rem; }
-    .err { color: #b23a2e; font-size: 0.85rem; }
-    .ok { color: #2e7d5b; }
+    .err { color: var(--danger); font-size: 0.85rem; }
+    .ok { color: var(--tint-green-fg); }
     .peer { border-top: 1px solid var(--border); padding: 0.5rem 0; display: flex; justify-content: space-between; gap: 0.5rem; align-items: center; flex-wrap: wrap; font-size: 0.9rem; }
     .me { font-size: 0.8rem; color: var(--text-muted); margin-top: 1rem; border-top: 1px dashed var(--border-strong); padding-top: 0.6rem; }
   </style>

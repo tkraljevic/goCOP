@@ -5,10 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{block "title" .}}goCOP — Centar obrane od poplava{{end}}</title>
   <meta name="color-scheme" content="light dark">
-  <script>
-    // Tema iz prethodnog izbora, prije prvog crtanja, da stranica ne bljesne
-    (function () { try { var t = localStorage.getItem('gocop-theme'); if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t); } catch (e) {} })();
-  </script>
+  <!-- Tema prije prvog crtanja, da stranica ne bljesne (tamna po izboru ili po sustavu) -->
+  <script src="{{statika "js/tema.js"}}"></script>
   <link rel="stylesheet" href="{{statika "vendor/leaflet/leaflet.css"}}">
   <link rel="stylesheet" href="{{statika "css/style.css"}}">
   {{block "head" .}}{{end}}
@@ -152,10 +150,10 @@
         <span style="font-size:1.5rem;">{{icon "triangle-alert"}} </span>
         <div>
           <strong style="font-size:0.9375rem;">Upozorenje: Prijavljeni ste s početnom zadanom lozinkom</strong><br>
-          <span style="font-size:0.8125rem; color:#b45309;">Radi sigurnosti vašeg računa i operativnih podataka, molimo vas da odmah postavite vlastitu lozinku.</span>
+          <span style="font-size:0.8125rem;">Radi sigurnosti vašeg računa i operativnih podataka, molimo vas da odmah postavite vlastitu lozinku.</span>
         </div>
       </div>
-      <a href="/profile#lozinka" class="btn btn-sm"  style="background:#f59e0b; color:white; border:none; font-weight:600; padding:0.5rem 1rem; border-radius:6px; cursor:pointer;">
+      <a href="/profile#lozinka" class="btn btn-sm"  style="background:var(--warning); color:#1f2937; border:none; font-weight:600; padding:0.5rem 1rem; border-radius:6px; cursor:pointer;">
         {{icon "key-round"}} Promijeni lozinku
       </a>
     </div>
@@ -178,9 +176,7 @@
     // Izbornik: hamburger na uskim ekranima, padajuća skupina registara
     function toggleTheme() {
       var h = document.documentElement;
-      var cur = h.getAttribute('data-theme') ||
-        (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-      var next = cur === 'dark' ? 'light' : 'dark';
+      var next = h.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
       h.setAttribute('data-theme', next);
       try { localStorage.setItem('gocop-theme', next); } catch (e) {}
     }
