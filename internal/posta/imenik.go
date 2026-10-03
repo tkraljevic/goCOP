@@ -2,6 +2,9 @@ package posta
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/rand"
+	"crypto/sha256"
 	"encoding/xml"
 	"fmt"
 	"net/http"
@@ -152,11 +155,52 @@ func FormatirajTelefon(s string) string {
 // koje se drže otvorene da se ne prijavljuje pri svakom zahtjevu.
 var klijenti sync.Map
 
-func (p Postavke) ewsKlijentZa(korisnik string) *http.Client {
-	kljuc := fmt.Sprintf("%s\x00%s\x00%p\x00%v", p.ewsURL(), korisnik, p.TLS, p.DopustiBasic)
+// kljucSkupa miješa lozinku u ključ skupa veza (HMAC, ključ nastaje pri
+// pokretanju): veza prijavljena jednom lozinkom ne služi drugoj. Već
+// prijavljena veza ne traži novu prijavu, pa bi inače kriva lozinka, i
+// tuđa osoba koja upiše isto ime, prošla vezom vlasnika računa.
+var kljucSkupa = func() []byte {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		panic(err)
+	}
+	return b
+}()
+
+// Klijent u postavkama odvaja skupove veza istog korisnika (račun sustava
+// od osobnog sandučića), a SvjezaVeza daje klijent izvan skupa, s vezom
+// koja još nije prijavljena (pozivatelj je zatvori nakon zahtjeva).
+func (p Postavke) ewsKlijentZa(r Racun) *http.Client {
+	if p.SvjezaVeza {
+		return p.noviEWSKlijent()
+	}
+	kljuc := p.kljucEWSKlijenta(r)
 	if c, ok := klijenti.Load(kljuc); ok {
 		return c.(*http.Client)
 	}
+	stvarni, _ := klijenti.LoadOrStore(kljuc, p.noviEWSKlijent())
+	return stvarni.(*http.Client)
+}
+
+func (p Postavke) kljucEWSKlijenta(r Racun) string {
+	m := hmac.New(sha256.New, kljucSkupa)
+	m.Write([]byte(r.Korisnik + "\x00" + r.Lozinka))
+	return fmt.Sprintf("%s\x00%s\x00%x\x00%p\x00%v\x00%s", p.ewsURL(), r.Korisnik, m.Sum(nil), p.TLS, p.DopustiBasic, p.Klijent)
+}
+
+// zaboraviEWSKlijent miče iz skupa klijent c čiju je prijavu poslužitelj
+// odbio: veza mu nije prijavljena, a svaka kriva lozinka inače bi u skupu
+// ostavila svoj klijent. Miče samo baš taj klijent, ne noviji istog ključa.
+func (p Postavke) zaboraviEWSKlijent(r Racun, c *http.Client) {
+	if p.SvjezaVeza {
+		return
+	}
+	if klijenti.CompareAndDelete(p.kljucEWSKlijenta(r), c) {
+		c.CloseIdleConnections()
+	}
+}
+
+func (p Postavke) noviEWSKlijent() *http.Client {
 	tr := http.DefaultTransport.(*http.Transport).Clone()
 	if p.TLS != nil {
 		tr.TLSClientConfig = p.TLS
@@ -170,7 +214,5 @@ func (p Postavke) ewsKlijentZa(korisnik string) *http.Client {
 	if istek <= 0 {
 		istek = 2 * time.Minute
 	}
-	c := &http.Client{Timeout: istek, Transport: tr}
-	stvarni, _ := klijenti.LoadOrStore(kljuc, c)
-	return stvarni.(*http.Client)
+	return &http.Client{Timeout: istek, Transport: tr}
 }

@@ -113,6 +113,10 @@ func (s *UserService) ResetPassword(actor *models.UserPermissions, targetID uuid
 	if err := s.auth.EndAllSessions(target.ID); err != nil {
 		return nil, "", err
 	}
+	// ...kao ni zapamćena računala, prijave na čekanju i privremeni kodovi
+	if err := s.auth.opozoviPrijave(target.ID); err != nil {
+		return nil, "", err
+	}
 
 	s.sse.Broadcast("users_updated", fmt.Sprintf("Poništena lozinka: %s", target.FullName), target.ID.String())
 	return target, temp, nil

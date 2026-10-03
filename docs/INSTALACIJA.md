@@ -1,6 +1,6 @@
 # Postavljanje i održavanje goCOP čvora
 
-Administratorske upute, usklađene s 0.0.25-alfa (2. 10. 2026.).
+Administratorske upute, usklađene s 0.0.26-alfa (3. 10. 2026.).
 Kratki pregled projekta: [README](../README.md). Korisnički postupci su u Pomoći aplikacije.
 
 Operativni program za obranu od poplava Hrvatskih voda: povezuje organizaciju,
@@ -9,7 +9,7 @@ i bez interneta; kopije na različitim računalima međusobno se usklađuju.
 Repozitorij nosi program i praznu shemu baze, a podatke unosi ili uvozi
 organizacija koja ga koristi.
 
-> **Status: alfa, izdanje 0.0.25-alfa (2. 10. 2026.), za testiranje i daljnji
+> **Status: alfa, izdanje 0.0.26-alfa (3. 10. 2026.), za testiranje i daljnji
 > razvoj.** Nije za operativnu upotrebu. Sve se još mijenja. Što je u kojem
 > izdanju, piše u [popisu izmjena](../CHANGELOG.md).
 >
@@ -141,6 +141,8 @@ Portovi se mijenjaju u `gocop.toml`.
   SameSite Lax, a iza HTTPS-a (i tunela) i `Secure`; traje do isteka ili
   odjave. Promjena ili poništenje lozinke gasi ostale prijave te osobe na
   istom čvoru; prijave na drugim čvorovima traju do isteka (najviše 24 h).
+  Na istom čvoru briše i zapamćena računala, prijave koje čekaju PIN i
+  privremene kodove te osobe.
 - **Zadana lozinka mora se promijeniti.** Do tada račun može otvoriti samo
   vlastiti profil i odjavu. Zadana lozinka je javna, pa izvana (kroz tunel)
   ne vrijedi: prva prijava njome ide iz lokalne mreže, a izvana s privremenom
@@ -150,6 +152,37 @@ Portovi se mijenjaju u `gocop.toml`.
   isto ime izvana u satu blokira to ime izvana na 30 minuta (prijava iz lokalne
   mreže tada i dalje radi). IPv6 adrese broje se po mreži /64. Poruka prijave
   ne otkriva postoji li račun ni je li deaktiviran.
+- **PIN za prijavu izvana (od 0.0.26-alfa).** Prijava izvana, kroz posrednika
+  ili s adrese koja nije privatna, loopback ni link-local, nakon lozinke traži
+  šesteroznamenkasti PIN poslan na službenu e-poštu korisnika. Prijava iz
+  lokalne mreže PIN nikad ne traži. PIN vrijedi 10 minuta i jednom; pet krivih
+  upisa poništi prijavu na čekanju, a deset u satu zaključa upis kodova tom
+  računu na sat. Čvor šalje najviše tri pisma s PIN-om osobi u 15 minuta i
+  60 na sat ukupno. Umjesto PIN-a vrijede rezervni kodovi s profila (deset
+  jednokratnih) i privremeni kod administratora (24 h, jednom). Preglednik se
+  može zapamtiti na 30 dana; zapamćenje prestaje promjenom lozinke, i na drugom
+  čvoru. Prijave na čekanju, zapamćena računala i kodovi postoje samo na čvoru
+  na kojem su nastali: ne ulaze u knjigu verzija i ne sinkroniziraju se, a
+  tokeni i kodovi čuvaju se samo kao HMAC ključem izvedenim iz ključa čvora.
+  Prekidač (Administracija → E-pošta) zadano je isključen i uključuje se tek
+  nakon uspješnog probnog PIN-a na tom čvoru, sa stranice otvorene izvana
+  preko HTTPS-a. Račun pošiljatelja upisuje se na
+  čvoru iza tunela, šifriran ključem čvora; PIN ne ostaje u Poslanim stavkama
+  i ne piše se u dnevnik. Kad Exchange odbije lozinku pošiljatelja, slanje
+  staje dok je administrator ne upiše ponovno, da se vlasnikov račun u domeni
+  ne zaključa; prijave računa u domeni broje se po osobi i računu, najviše
+  tri u pola sata, a svaka osoba ima najviše tri neprihvaćena upisa lozinke u
+  15 minuta po obrascu (upis koji poslužitelj primi ne broji se). Veza prema Exchangeu dijeli se samo za isto ime i istu lozinku.
+  PIN radi samo preko HTTPS-a: posrednik mora javiti shemu (cloudflared sam
+  šalje `X-Forwarded-Proto` i `Cf-Visitor`, a iza nginxa treba
+  `proxy_set_header X-Forwarded-Proto $scheme;`). Bez toga se prijava izvana s
+  PIN-om odbija kao da je preko nešifriranog http-a. Uzbunu da PIN nema čime
+  slati diže samo čvor koji je u zadnjih sedam dana primio prijavu izvana; to
+  se pamti samo dok program radi, pa nakon ponovnog pokretanja uzbuna čeka
+  prvu prijavu izvana. Prije uključivanja provjeriti da čvor dohvaća `owa.voda.hr`:
+  `curl -X POST https://owa.voda.hr/EWS/Exchange.asmx` mora vratiti 401 (ili
+  *Ispitaj* na stranici E-pošta). Svaki čvor dostupan kroz tunel mora imati
+  0.0.26-alfa ili novije izdanje, jer starije PIN ne traži.
 - **Pouzdani posrednici.** Adresa klijenta iz zaglavlja (`CF-Connecting-IP`)
   vrijedi samo kad zahtjev stiže od pouzdanog posrednika; zadano su to ovo
   računalo i privatne mreže, a u `gocop.toml` se suze:
@@ -209,9 +242,12 @@ Portovi se mijenjaju u `gocop.toml`.
 2. **Sigurnosno učvršćivanje je u tijeku.** Od 0.0.25-alfa postoje zaštita od
    tuđih stranica, `Secure` kolačić iza HTTPS-a, podesivi pouzdani posrednici,
    ograničenja HTTP-a i razmjene, a uparivanje i primanje u mrežu smije samo
-   globalni administrator. Otvoreno: dvofaktorska prijava izvana (PIN na
-   službenu e-poštu), potpisane uloge izdavanja (svaki član mreže zasad smije
-   objaviti prognozu i arhivu) i opoziv izgubljenog računala uživo. Čvor
+   globalni administrator. Od 0.0.26-alfa prijava izvana traži PIN poslan na
+   službenu e-poštu (prekidač zadano isključen, vidi
+   [poglavlje 3](#3-podaci-i-sigurnost)). Otvoreno: potpisane uloge izdavanja
+   (svaki član mreže zasad smije objaviti prognozu i arhivu) i opoziv
+   izgubljenog računala uživo. Rezervni i privremeni kodovi vrijede samo na
+   čvoru na kojem su nastali, što je dovoljno dok je javni čvor jedan. Čvor
    dostupan kroz tunel treba držati na zadnjem izdanju. Zadani popis
    posrednika još uključuje privatne mreže: prije javnog postavljanja suziti
    ga na stvarne adrese posrednika i provjeriti pristup bez njih.
@@ -234,7 +270,7 @@ Portovi se mijenjaju u `gocop.toml`.
   pokreće i potvrđuje globalni administrator (od 0.0.25-alfa); na svježem
   računalu, dok na njemu nema računa, čarobnjak stoji na stranici prijave, ali
   samo za pristup iz lokalne mreže, nikad kroz tunel.
-- Program prevesti iz označenog izdanja (npr. `git checkout v0.0.25-alfa`) ili
+- Program prevesti iz označenog izdanja (npr. `git checkout v0.0.26-alfa`) ili
   koristiti sliku s oznakom izdanja; `SHA256SUMS` uz izdanja zasad ne postoji.
 - Program pokretati kao običan korisnik, iz vlastite mape.
 - Sigurnosna kopija mora obuhvatiti cijelu mapu `data/` i izvorno stablo
@@ -326,7 +362,7 @@ jesu.
 ## 7. Stalni čvor, spremnik i sigurnosna kopija
 
 Docker slika je `ghcr.io/tkraljevic/gocop`, trenutačno za Linux amd64.
-Za ponovljivo postavljanje birati oznaku izdanja, npr. `:0.0.25-alfa`,
+Za ponovljivo postavljanje birati oznaku izdanja, npr. `:0.0.26-alfa`,
 umjesto promjenjive `:latest`. Spremnik sluša web na 8080, razmjenu na 4710,
 uparivanje na 4711 i pronalaženje na 4712/UDP, a radi kao UID/GID `99:100`;
 mape moraju biti dostupne tom korisniku.
@@ -390,8 +426,8 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 Verzija stoji u kodu (`verzijaPrograma` u `cmd/gocop/main.go`) i mijenja se pri
 izdavanju; program je ispisuje u podnožju stranice i u dnevniku, s kratkom
 oznakom commita iz kojega je preveden (i zvjezdicom kad stablo ima nespremljenih
-izmjena). Izdanje u gitu nosi oznaku oblika `v0.0.25-alfa`; iz svake takve
-oznake GitHub gradi Docker sliku `ghcr.io/tkraljevic/gocop:0.0.25-alfa` i `:latest`.
+izmjena). Izdanje u gitu nosi oznaku oblika `v0.0.26-alfa`; iz svake takve
+oznake GitHub gradi Docker sliku `ghcr.io/tkraljevic/gocop:0.0.26-alfa` i `:latest`.
 
 ## 9. Za razvoj
 

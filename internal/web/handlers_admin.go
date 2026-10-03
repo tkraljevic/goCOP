@@ -20,7 +20,13 @@ type AdminHandler struct {
 	peers      *peers.Service
 	tmplAdmin  *template.Template
 	tmplImport *template.Template
+	// drugiKorak daje drugi korak prijave izvana, za upozorenje kad PIN
+	// izvana nema tko slati; nil dok se ne spoji
+	drugiKorak func() *service.DrugiKorak
 }
+
+// SetDrugiKorak spaja ulaznu stranicu s drugim korakom prijave izvana
+func (h *AdminHandler) SetDrugiKorak(f func() *service.DrugiKorak) { h.drugiKorak = f }
 
 func NewAdminHandler(org *service.OrgService, users *service.UserService, peersSvc *peers.Service, admin, imports *template.Template) *AdminHandler {
 	return &AdminHandler{org: org, users: users, peers: peersSvc, tmplAdmin: admin, tmplImport: imports}
@@ -38,6 +44,9 @@ type AdminPageData struct {
 	Locked    int // računi koji čekaju promjenu lozinke
 	Inactive  int
 	NoContact bool // administrator nema kontakt, pa ga stranica prijave ne pokazuje
+	// PINBezPosiljatelja: PIN izvana je uključen, a ovaj čvor nema
+	// ispravnog računa za slanje PIN-a, pa se izvana ulazi samo kodovima
+	PINBezPosiljatelja bool
 
 	SyncOnline, SyncTotal, SyncAlerts int // sažetak sinkronizacije za karticu
 
@@ -82,6 +91,9 @@ func (h *AdminHandler) ShowAdmin(w http.ResponseWriter, r *http.Request) {
 	}
 	if _, _, _, ok := h.users.GlobalAdminContact(); !ok {
 		data.NoContact = true
+	}
+	if h.drugiKorak != nil {
+		data.PINBezPosiljatelja = h.drugiKorak().BezPosiljatelja(ctx)
 	}
 	if st, err := h.peers.Status(ctx, false); err == nil {
 		data.SyncOnline, data.SyncTotal, data.SyncAlerts = st.Online, st.Total, len(st.Alerts)

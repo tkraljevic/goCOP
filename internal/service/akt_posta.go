@@ -126,9 +126,11 @@ func (s *AktService) SpremiRacunPoste(ctx context.Context, u *models.User, koris
 	if k == nil {
 		return "", fmt.Errorf("ključ čvora nije učitan; lozinka se ne može sigurno spremiti")
 	}
-	upozorenje := ""
+	upozorenje, provjerena := "", false
 	pp := s.Posta(ctx)
 	if pp.Podesena() {
+		// lozinka se provjerava novom vezom, kao za pošiljatelja PIN-a
+		pp.SvjezaVeza = true
 		// pokušaj upisano ime, pa DOMENA\korisnik; spremi ono koje prođe
 		var err error
 		var pokusano []string
@@ -150,12 +152,16 @@ func (s *AktService) SpremiRacunPoste(ctx context.Context, u *models.User, koris
 		if err != nil {
 			upozorenje = "Lozinka je spremljena, ali prijava nije provjerena: " + err.Error()
 		}
+		provjerena = err == nil
 	}
 	z, err := posta.Zakljucaj(k, lozinka)
-	if err != nil {
-		return "", err
+	if err == nil {
+		err = s.repo.SaveRacunPoste(ctx, &repository.RacunPoste{UserID: u.ID.String(), Korisnik: korisnik, Lozinka: z})
 	}
-	if err := s.repo.SaveRacunPoste(ctx, &repository.RacunPoste{UserID: u.ID.String(), Korisnik: korisnik, Lozinka: z}); err != nil {
+	if err != nil && provjerena {
+		return "", nakonPrijave{err}
+	}
+	if err != nil {
 		return "", err
 	}
 	return upozorenje, nil
@@ -708,7 +714,10 @@ func poljaKontakta(u models.User, k posta.Kontakt) []RazlikaKontakta {
 	}
 }
 
-// PrimijeniKontakt upisuje odabrana polja iz adresara u djelatnika
+// PrimijeniKontakt upisuje odabrana polja iz adresara u djelatnika. Svoju
+// adresu e-pošte (na nju ide PIN za prijavu izvana) osoba ovdje ne mijenja:
+// to ide s profila, uz trenutnu lozinku (ErrVlastitaAdresaIzAdresara, a ne
+// mijenja se ni ostatak retka). Tuđe adrese mijenja kao administrator.
 func (s *AktService) PrimijeniKontakt(ctx context.Context, perms *models.UserPermissions, userID string, polja map[string]string) error {
 	id, err := uuid.Parse(userID)
 	if err != nil {
@@ -718,8 +727,12 @@ func (s *AktService) PrimijeniKontakt(ctx context.Context, perms *models.UserPer
 	if err != nil || x == nil {
 		return fmt.Errorf("nepoznat djelatnik")
 	}
+	if v, ok := polja["email"]; ok && (perms == nil || perms.User.ID == x.ID) && !istaAdresa(v, x.Email) {
+		return ErrVlastitaAdresaIzAdresara
+	}
 	req := UpdateUserRequest{ID: x.ID, Username: x.Username, FullName: x.FullName, Title: x.Title, IsGlobalAdmin: x.IsGlobalAdmin, OrgType: x.OrgType, OrgName: x.OrgName,
-		Phone: x.Phone, MobilePhone: x.MobilePhone, ShortPhone: x.ShortPhone, ShortMobile: x.ShortMobile, Email: x.Email, IsActive: x.IsActive}
+		Phone: x.Phone, MobilePhone: x.MobilePhone, ShortPhone: x.ShortPhone, ShortMobile: x.ShortMobile, Email: x.Email, IsActive: x.IsActive,
+		izAdresara: true}
 	for polje, v := range polja {
 		v = strings.TrimSpace(v)
 		switch polje {

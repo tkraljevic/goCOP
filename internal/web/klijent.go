@@ -143,11 +143,17 @@ func (p *Posrednici) Klijent(r *http.Request) Klijent {
 	if a, ok := adresaIzZaglavlja(r.Header.Get(p.zaglavlje), p); ok {
 		k.Adresa = a
 	}
-	if strings.EqualFold(strings.TrimSpace(r.Header.Get("X-Forwarded-Proto")), "https") ||
-		strings.Contains(strings.ReplaceAll(r.Header.Get("Cf-Visitor"), " ", ""), `"scheme":"https"`) {
+	if proslijedenHTTPS(r) {
 		k.HTTPS = true
 	}
 	return k
+}
+
+// proslijedenHTTPS: posrednik javlja da je preglednik do njega došao
+// preko HTTPS-a (X-Forwarded-Proto ili Cloudflareov Cf-Visitor)
+func proslijedenHTTPS(r *http.Request) bool {
+	return strings.EqualFold(strings.TrimSpace(r.Header.Get("X-Forwarded-Proto")), "https") ||
+		strings.Contains(strings.ReplaceAll(r.Header.Get("Cf-Visitor"), " ", ""), `"scheme":"https"`)
 }
 
 // javiNepouzdan jednom na sat zapiše posrednika koji šalje zaglavlje

@@ -126,13 +126,16 @@
     <a class="kazalo-glava" href="#posta">E-pošta i adresar</a>
     <a class="kazalo-glava" href="#potpisi">Potpisi i izvornici</a>
     <a class="kazalo-glava" href="#users">Djelatnici</a>
+    <a href="#users-kod-prijave">Privremeni kod za prijavu</a>
     <a class="kazalo-glava" href="#registers">Registri</a>
     <a class="kazalo-glava" href="#slivovi">Slivovi</a>
     <a href="#slivovi-kisomjeri">Meteorološke postaje</a>
     <a class="kazalo-glava" href="#admin">Administracija</a>
+    <a href="#admin-posta-pin">PIN za prijavu izvana</a>
     <a href="#telemetrija">Telemetrija letava</a>
     <a href="#admin-test">Testne opcije</a>
     <a class="kazalo-glava" href="#profile">Moj profil</a>
+    <a href="#profil-prijava-izvana">Prijava izvana i PIN</a>
     <a class="kazalo-glava" href="#pojmovi">Pojmovnik</a>
     <a class="kazalo-glava" href="#o-programu">O programu</a>
   </div>
@@ -1004,6 +1007,19 @@
       uključiti upise tuđim očima i simulirani ključ; stvarni administrator ostaje zabilježen, a
       svaki simulirani potpis vidljivo je označen kao bezvrijedan. Te se opcije u operativnom
       radu drže isključenima.</p>
+
+    <h3 id="users-kod-prijave">Privremeni kod za prijavu</h3>
+    <p>Kad se djelatnik prijavljuje izvana, a PIN mu ne stiže ili nema službenu e-poštu,
+      administrator koji njime upravlja izdaje mu na njegovoj stranici <em>Privremeni kod za
+      prijavu</em>. Kod je oblika <code>P-XXXX-XXXX</code>, vrijedi 24 sata i samo jednom, a
+      djelatnik ga upisuje umjesto PIN-a. Noviji kod zamjenjuje stariji neiskorišteni. Kod se
+      prikazuje samo jednom; prenesite ga osobno ili telefonom. Izdavanje se zapisuje u dnevnik,
+      bez samog koda. Sebi se kod ne izdaje, a ni tuđim očima: za to se prijavite kao vi.</p>
+    <p>Uz <em>Poništi lozinku</em> može se označiti i <em>i kod za prijavu izvana</em>, pa
+      djelatnik odjednom dobije privremenu lozinku i kod. Poništenje lozinke, promjena lozinke i
+      upis nove lozinke na obrascu djelatnika brišu na ovom čvoru njegova zapamćena računala,
+      prijave koje čekaju PIN i privremene kodove; rezervni kodovi ostaju. Kod vrijedi samo na
+      čvoru na kojem je izdan, pa ga izdajte na čvoru kroz koji se djelatnik prijavljuje izvana.</p>
   </div>
   {{template "pomocPoglavljeNav" (list "Potpisi i izvornici" "#potpisi" "Registri" "#registers")}}
 </section>
@@ -1122,7 +1138,9 @@
         uprava sektora.</li>
       <li><strong>Elektronički potpisi</strong> — izdavatelj ovog čvora, izdavatelji uparenih
         čvorova i pregled osobnih certifikata.</li>
-      <li><strong>E-pošta</strong> — zajedničke postavke Exchange/EWS ili SMTP poslužitelja.</li>
+      <li><strong>E-pošta</strong> — zajedničke postavke Exchange/EWS ili SMTP poslužitelja te
+        račun koji šalje PIN za prijavu izvana i sklopku te prijave; opisano niže,
+        <a href="#admin-posta-pin">PIN za prijavu izvana</a>.</li>
       <li id="telemetrija"><strong>Telemetrija letava</strong> — račun za HydroView i mobilnu
         stranicu Hrvatskih voda. Lozinke su šifrirane ključem čvora i ne sinkroniziraju se, pa se
         upisuju samo na računalima koja preuzimaju vodostaje; račun za mobilnu stranicu Hrvatskih
@@ -1133,6 +1151,48 @@
         korisnik je pri prvoj prijavi mora zamijeniti.</li>
       <li><strong>Nazivi</strong> — kako se kuća i centar zovu na ispisima.</li>
     </ul>
+
+    <h3 id="admin-posta-pin">PIN za prijavu izvana</h3>
+    <p>Pod <em>Administracija → E-pošta</em> globalni administrator uključuje drugi korak
+      prijave za one koji dolaze izvana, kroz tunel ili s javne adrese. Prijava iz lokalne mreže
+      čvora nikad ne traži PIN. Redoslijed je ovaj:</p>
+    <ol>
+      <li><strong>Račun pošiljatelja.</strong> Upišite korisničko ime i lozinku računa e-pošte
+        koji šalje PIN-ove, ili preuzmite vlastiti račun (<em>Uzmi moj račun e-pošte</em>). Program
+        provjeri prijavu na Exchange i iz adresara pronađe adresu pošiljatelja, jer korisničko
+        ime nije isto što i adresa. Lozinka je šifrirana ključem čvora i ne sinkronizira se, pa se
+        račun upisuje na čvoru kroz koji se ljudi prijavljuju izvana (čvor iza tunela). Pisma s
+        PIN-om ne ostaju u Poslanim stavkama tog sandučića.</li>
+      <li><strong>Probni PIN.</strong> <em>Pošalji probni PIN meni</em> šalje pismo na vašu
+        adresu i tako provjerava cijeli put. Ako ne uspije, poruka kaže zašto; najčešće čvor ne
+        dohvaća <code>owa.voda.hr</code> ili je lozinka kriva.</li>
+      <li><strong>Sklopka.</strong> PIN za prijavu izvana zadano je isključen (<em>Uključi PIN za prijavu izvana</em>).
+        Uključuje se izvana, na stranici otvorenoj kroz tunel (npr. <code>https://cop-osijek.com</code>),
+        i tek nakon uspješnog probnog PIN-a na tom čvoru od zadnjeg upisa pošiljatelja; nakon
+        ponovnog pokretanja programa probu treba ponoviti. Iz lokalne mreže sklopka se samo
+        isključuje, jer bi uključena s računala bez tunela PIN tražila i na javnom čvoru koji
+        možda nema svog pošiljatelja. Isključiti se može uvijek. Uz sklopku je i dopuštena domena
+        adresa, zadano <code>voda.hr</code>.</li>
+    </ol>
+    <p>Prije uključivanja napravite sebi rezervne kodove na profilu. Sklopka je zajednička
+      postavka i stiže svim čvorovima. Čvor bez pošiljatelja tada ne šalje PIN nego traži
+      rezervni ili privremeni kod. Ako je takav čvor u zadnjih sedam dana primio prijavu
+      izvana, na njegovoj stranici administracije i stranici e-pošte stoji crvena uzbuna;
+      čvor to pamti samo dok program radi, pa nakon ponovnog pokretanja uzbuna čeka prvu
+      prijavu izvana. Čvor samo u lokalnoj mreži pošiljatelja ne treba i uzbune nema. Svaki čvor dostupan kroz tunel mora imati 0.0.26-alfa ili
+      novije izdanje, jer starije PIN ne traži.</p>
+    <p>Kad Exchange odbije lozinku pošiljatelja, slanje staje dok administrator ponovno ne upiše
+      lozinku. Tako se vlasnikov račun u domeni ne zaključa zbog ponovljenih prijava. Iz istog
+      razloga program broji prijave računa u domeni koje upisuje ista osoba, zajedno za lozinku
+      osobnog sandučića i za račun koji šalje PIN: najviše tri u pola sata. Prijava koju
+      poslužitelj primi briše brojač tog računa, a tuđi krivi upisi vlasniku ne zatvaraju
+      obrasce. Uz to svaka osoba ima najviše tri upisa lozinke u 15 minuta po obrascu; upis koji
+      poslužitelj primi ne broji se. Ime bez domene troši više prijava: dvije za račun koji
+      šalje PIN, a do tri za osobni sandučić (program pokuša i <code>DOMENA\ime</code>), pa je
+      bolje odmah upisati ime s domenom. Kad
+      poslužitelj nije dostupan, slanje stane na pet minuta. Čvor šalje najviše 60 pisama s
+      PIN-om na sat, a jedan djelatnik dobije najviše tri u 15 minuta. PIN se nigdje ne zapisuje
+      u dnevnik.</p>
 
     <h3>Provjera razmjene i arhive</h3>
     <p>Prva automatska razmjena počinje oko 30 sekundi nakon pokretanja. Pločica
@@ -1184,6 +1244,48 @@
     <p>Pakete arhive vodostaja dohvaća čvor koji prati sve te čvor s pravilom <em>Sve vrste</em>
       kojemu je polje <em>Od godine</em> prazno, a sadržaj <em>Sve</em>. Izbor <em>Arhiva
       vodostaja</em> u popisu <em>Što</em> zasad se ne da spremiti.</p>
+
+    <h3 id="profil-prijava-izvana">Prijava izvana: PIN, zapamćena računala i rezervni kodovi</h3>
+    <p><strong>Kad se traži PIN.</strong> Ako je administrator uključio prijavu izvana s
+      PIN-om, prijava koja ne dolazi iz lokalne mreže čvora (dolazi kroz tunel ili s javne
+      adrese) ima dva koraka. Najprije upišete ime i lozinku, zatim šesteroznamenkasti PIN koji
+      program pošalje na vašu službenu adresu e-pošte. Iz lokalne mreže PIN se nikad ne traži.
+      PIN vrijedi 10 minuta i samo jednom. Pismo nosi naslov „goCOP: kod za prijavu”, a PIN nije
+      u naslovu. Ne stigne li, nakon minute može se zatražiti novi, najviše tri pisma u 15
+      minuta. Nakon pet krivih upisa prijava kreće ispočetka, a nakon deset krivih upisa u satu
+      upis kodova za vaš račun zaključa se na sat. Ako PIN niste tražili vi, netko zna vašu
+      lozinku: promijenite je.</p>
+    <p><strong>Zapamćena računala.</strong> Uz upis PIN-a može se označiti <em>Zapamti ovo
+      računalo</em>. Tada taj preglednik 30 dana traži samo lozinku, bez PIN-a; lozinka se traži
+      uvijek. Rok se korištenjem ne produžuje. Jedan zajednički uredski preglednik može zapamtiti
+      više djelatnika, svakoga posebno. Zapamćenje prestaje i promjenom ili poništenjem lozinke,
+      također kad je lozinka promijenjena na drugom čvoru, čim ta promjena stigne razmjenom. Na
+      profilu je popis zapamćenih računala s preglednikom, adresama i vremenom zadnjeg korištenja.
+      Svako se može zaboraviti zasebno, ili sva odjednom; računalo koje ne prepoznajete
+      zaboravite i promijenite lozinku.</p>
+    <p><strong>Rezervni kodovi.</strong> <em>Napravi rezervne kodove</em> traži vašu lozinku i
+      daje deset jednokratnih kodova oblika <code>R3-XXXX-XXXX</code>. Oznaka ispred crtice kaže
+      koji je to kod na popisu. Svaki kod jednom zamjenjuje PIN, a nakon prijave piše koliko ih je
+      ostalo. Kodovi se prikazuju samo jednom: ispišite ih ili preuzmite kao <code>.txt</code> i
+      držite u novčaniku, odvojeno od računala i telefona. Svako novo izdavanje, i preuzimanje
+      <code>.txt</code>, poništava prethodni popis. U kodovima nema znakova koji se lako zamijene
+      (0 i O, 1 i I), a mala slova, razmaci i izostavljene crtice ne smetaju. Rezervni kodovi
+      ostaju i nakon promjene lozinke. Vrijede samo na čvoru na kojem su napravljeni, pa ih
+      napravite na čvoru na koji se prijavljujete izvana. Tuđim očima kodovi se ne mogu napraviti
+      ni računala zaboraviti.</p>
+    <p><strong>Bez e-pošte ili kad PIN ne stigne.</strong> PIN se ne šalje kad na profilu nema
+      adrese, kad adresa nije u dopuštenoj domeni (zadano <code>@voda.hr</code>), kad istu
+      adresu ima još netko ili kad slanje trenutno ne radi. Stranica tada kaže zašto i nudi upis
+      koda. Najprije pogledajte mapu neželjene pošte i pričekajte minutu. Zatim upišite rezervni
+      kod ili nazovite administratora za privremeni kod (<code>P-XXXX-XXXX</code>, 24 sata,
+      jednom; vidi <a href="#users-kod-prijave">Privremeni kod za prijavu</a>). Iz lokalne
+      mreže čvora prijava radi i bez PIN-a. Izvana prijava s PIN-om radi samo preko HTTPS-a
+      (kroz tunel); s javne adrese preko običnog <code>http://</code> program prijavu odbije i
+      PIN ne šalje.</p>
+    <p><strong>Adresa e-pošte.</strong> Promjena vlastite adrese traži trenutnu lozinku i adresu
+      u dopuštenoj domeni. Izvana se adresa ne može promijeniti: promijenite je iz lokalne mreže
+      ili zamolite administratora. Dok početna lozinka nije zamijenjena, adresa se ne mijenja.
+      Kad je pošiljatelj PIN-a postavljen, na staru adresu stiže obavijest o promjeni.</p>
   </div>
   {{template "pomocPoglavljeNav" (list "Administracija" "#admin" "Pojmovnik" "#pojmovi")}}
 </section>
@@ -1258,8 +1360,9 @@
       Funkcionalnosti i shema podataka još se mijenjaju, a sigurnosno učvršćivanje nije
       završeno. Ugrađene su zaštita od zahtjeva s tuđih stranica (CSRF), sigurni sesijski
       kolačići iza HTTPS-a, ograničenja prijave i mrežnih zahtjeva te administratorsko
-      odobravanje uparivanja. Dvofaktorska prijava, potpisane ovlasti izdavatelja i opoziv
-      izgubljenog čvora uživo ostaju razvojni zadaci. Prije nadogradnje treba izraditi
+      odobravanje uparivanja, a od 0.0.26-alfa prijava izvana može tražiti PIN (prekidač
+      zadano isključen). Potpisane ovlasti izdavatelja i opoziv izgubljenog čvora uživo
+      ostaju razvojni zadaci. Prije nadogradnje treba izraditi
       sigurnosnu kopiju. Instalacija i uvjeti
       izlaganja čvora mreži opisani su u <code>docs/INSTALACIJA.md</code> uz izvorni kod;
       verzija pokrenutog programa prikazana je u podnožju.</p>

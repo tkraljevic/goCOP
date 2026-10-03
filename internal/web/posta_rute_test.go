@@ -192,9 +192,17 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	}
 
 	// lozinka: kriva se ne sprema, ispravna se provjeri i spremi šifrirana
+	ponovnaLozinka.Reset(kljucPrijaveAD(voditelj.ID.String(), "voditelj"))
 	if loc := post("/profile/posta", url.Values{"korisnik": {"voditelj@voda.hr"}, "lozinka": {"stara"}}); !strings.Contains(loc, "odbio") {
 		t.Errorf("kriva lozinka: %s", loc)
 	}
+	// kriva lozinka bez domene potrošila je tri prijave računa u domeni
+	// (adresa, voda.int\voditelj i ime s domenom poslužitelja): sljedeći
+	// upis čeka pola sata, i ne ide na poslužitelj
+	if loc := post("/profile/posta", url.Values{"korisnik": {`voda.int\voditelj`}, "lozinka": {"Lozinka-1"}}); !strings.Contains(loc, "Previše prijava na poslužitelj e-pošte računom voditelj") {
+		t.Errorf("nakon tri prijave računa u domeni: %s", loc)
+	}
+	ponovnaLozinka.Reset(kljucPrijaveAD(voditelj.ID.String(), "voditelj"), kljucPonovneLozinke("posta", voditelj.ID.String())) // pola sata kasnije
 	if loc := post("/profile/posta", url.Values{"korisnik": {"voditelj@voda.hr"}, "lozinka": {"Lozinka-1"}}); !strings.Contains(loc, "success") {
 		t.Fatalf("ispravna lozinka: %s", loc)
 	}
@@ -508,5 +516,25 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	}
 	if s := usporedi(); strings.Contains(s, `|email"`) {
 		t.Error("nakon usklađivanja adresa se više ne razlikuje")
+	}
+
+	// Svoju adresu (kamo ide PIN izvana) nitko ne mijenja iz adresara, ni
+	// administrator: polje se preskače uz poruku, ostali kontakti se upisuju
+	if err := userRepo.CreateUser(voditelj, nil); err != nil {
+		t.Fatal(err)
+	}
+	ja := voditelj.ID.String()
+	loc = post("/users/exchange", url.Values{"sektor": {"B"}, "p": {ja + "|email", ja + "|mobile_phone"},
+		"v_" + ja + "_email": {"napadac@voda.hr"}, "v_" + ja + "_mobile_phone": {"099 555 6666"}})
+	if !strings.Contains(loc, "error=") || !strings.Contains(loc, "Svoju adresu e-pošte ne mijenjate iz adresara") {
+		t.Errorf("vlastita adresa iz adresara: %s", loc)
+	}
+	if v, _ := users.GetUserByID(voditelj.ID); v.Email != "voditelj@voda.hr" || v.MobilePhone != "099-555-6666" {
+		t.Errorf("vlastita adresa ostaje, mobitel se upisuje: %q %q", v.Email, v.MobilePhone)
+	}
+	// i sama, bez drugih polja
+	loc = post("/users/exchange", url.Values{"sektor": {"B"}, "p": {ja + "|email"}, "v_" + ja + "_email": {"napadac@voda.hr"}})
+	if v, _ := users.GetUserByID(voditelj.ID); v.Email != "voditelj@voda.hr" || !strings.Contains(loc, "Svoju adresu e-pošte") {
+		t.Errorf("samo vlastita adresa: %q, %s", v.Email, loc)
 	}
 }

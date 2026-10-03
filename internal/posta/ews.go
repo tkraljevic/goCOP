@@ -112,7 +112,10 @@ func ewsPozoviIzazov(ctx context.Context, p Postavke, r Racun, tijelo string) (*
 }
 
 func ewsRazgovor(ctx context.Context, p Postavke, r Racun, tijelo string) (*ewsOdgovor, *ntlmIzazov, []byte, error) {
-	c := p.ewsKlijentZa(r.Korisnik)
+	c := p.ewsKlijentZa(r)
+	if p.SvjezaVeza {
+		defer c.CloseIdleConnections()
+	}
 	omot := []byte(fmt.Sprintf(ewsOmot, tijelo))
 	var res *http.Response
 	var z *ntlmIzazov
@@ -132,6 +135,7 @@ func ewsRazgovor(ctx context.Context, p Postavke, r Racun, tijelo string) (*ewsO
 	defer res.Body.Close()
 	podaci, _ := io.ReadAll(io.LimitReader(res.Body, 4<<20))
 	if res.StatusCode == http.StatusUnauthorized {
+		p.zaboraviEWSKlijent(r, c)
 		return nil, z, nil, ErrPrijava
 	}
 	o, err := citajEWS(podaci)
@@ -182,16 +186,29 @@ func ewsProvjeri(ctx context.Context, p Postavke, r Racun) error {
 	return nil
 }
 
-// ewsPosalji šalje svaku poruku zasebno i sprema kopiju u Poslano
+// ewsSlanje je zahtjev CreateItem za jednu poruku: s kopijom u Poslano
+// (SendAndSaveCopy) ili, za poruku BezKopije, samo slanje (SendOnly, bez
+// mape za spremanje)
+func ewsSlanje(m Poruka) string {
+	mimeB64 := base64.StdEncoding.EncodeToString(Sastavi(m))
+	var b bytes.Buffer
+	if m.BezKopije {
+		b.WriteString(`<m:CreateItem MessageDisposition="SendOnly">`)
+	} else {
+		b.WriteString(`<m:CreateItem MessageDisposition="SendAndSaveCopy"><m:SavedItemFolderId><t:DistinguishedFolderId Id="sentitems"/></m:SavedItemFolderId>`)
+	}
+	b.WriteString(`<m:Items><t:Message><t:MimeContent CharacterSet="UTF-8">`)
+	b.WriteString(mimeB64)
+	b.WriteString(`</t:MimeContent></t:Message></m:Items></m:CreateItem>`)
+	return b.String()
+}
+
+// ewsPosalji šalje svaku poruku zasebno i sprema kopiju u Poslano (osim
+// poruke BezKopije)
 func ewsPosalji(ctx context.Context, p Postavke, r Racun, poruke []Poruka) ([]error, error) {
 	greske := make([]error, len(poruke))
 	for i, m := range poruke {
-		mimeB64 := base64.StdEncoding.EncodeToString(Sastavi(m))
-		var b bytes.Buffer
-		b.WriteString(`<m:CreateItem MessageDisposition="SendAndSaveCopy"><m:SavedItemFolderId><t:DistinguishedFolderId Id="sentitems"/></m:SavedItemFolderId><m:Items><t:Message><t:MimeContent CharacterSet="UTF-8">`)
-		b.WriteString(mimeB64)
-		b.WriteString(`</t:MimeContent></t:Message></m:Items></m:CreateItem>`)
-		o, err := ewsPozovi(ctx, p, r, b.String())
+		o, err := ewsPozovi(ctx, p, r, ewsSlanje(m))
 		if err != nil {
 			if i == 0 {
 				return nil, err // veza ili prijava: nije poslano ništa

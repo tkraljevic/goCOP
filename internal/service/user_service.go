@@ -1,8 +1,10 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -173,9 +175,64 @@ type UpdateUserRequest struct {
 	ShortMobile   string
 	Email         string
 	IsActive      bool
+	// TrenutnaLozinka traži se kad osoba sama sebi mijenja adresu e-pošte:
+	// na tu adresu ide PIN za prijavu izvana
+	TrenutnaLozinka string
+	// Izvana: zahtjev je došao izvana (rukovatelj: service.IzvanaAdresa);
+	// vlastita adresa e-pošte tada se ne mijenja
+	Izvana bool
+	// izAdresara: kontakt upisan iz adresara tvrtke (PrimijeniKontakt), ne
+	// rukom; pravila vlastite promjene adrese tada ne vrijede
+	izAdresara bool
 }
 
-// UpdateUser ažurira matične podatke korisnika
+// istaAdresa javlja jesu li dvije adrese e-pošte iste (bez obzira na velika
+// slova i razmake)
+func istaAdresa(a, b string) bool {
+	return strings.EqualFold(strings.TrimSpace(a), strings.TrimSpace(b))
+}
+
+// provjeriVlastituAdresu provjerava pravila kad osoba sama sebi mijenja
+// adresu e-pošte: ne dok mora promijeniti lozinku, ne izvana, uz trenutnu
+// lozinku i samo na dopuštenu domenu (prazna adresa smije: PIN tada ne ide
+// nikamo). Administratorske izmjene tuđih adresa ostaju kakve su bile.
+func (s *UserService) provjeriVlastituAdresu(target *models.User, req UpdateUserRequest) error {
+	if target.MustChangePassword {
+		return ErrAdresaPrijeLozinke
+	}
+	if req.Izvana {
+		return ErrPromjenaAdreseIzvana
+	}
+	if req.TrenutnaLozinka == "" {
+		return greskaLozinke("za promjenu adrese e-pošte upišite trenutnu lozinku")
+	}
+	if !s.auth.CheckPassword(target.PasswordHash, req.TrenutnaLozinka) {
+		return greskaLozinke("trenutna lozinka nije točna")
+	}
+	if strings.TrimSpace(req.Email) != "" && s.auth.zastita != nil {
+		if err := s.auth.zastita.DopustenaAdresa(context.Background(), req.Email); err != nil {
+			return err
+		}
+	}
+	if strings.TrimSpace(req.Email) != "" {
+		// tuđa adresa bi toj osobi ugasila PIN (zajednička adresa)
+		n, err := s.userRepo.AktivnihSAdresom(req.Email, target.ID)
+		if err != nil {
+			return err
+		}
+		if n > 0 {
+			log.Printf("prijava izvana: %s je pokušao upisati adresu e-pošte koju već ima drugi djelatnik", target.Username)
+			return ErrAdresaZauzeta
+		}
+	}
+	return nil
+}
+
+// UpdateUser ažurira matične podatke korisnika. Vlastitu adresu e-pošte
+// osoba mijenja samo uz pravila provjeriVlastituAdresu (kriva ili prazna
+// trenutna lozinka: errors.Is ErrKrivaLozinka), a stara adresa dobije
+// obavijest. Nova lozinka (administratorski obrazac) opoziva zapamćena
+// računala, prijave na čekanju i privremene kodove osobe na ovom čvoru.
 func (s *UserService) UpdateUser(actor *models.UserPermissions, req UpdateUserRequest) (*models.User, error) {
 	target, err := s.userRepo.GetUserByID(req.ID)
 	if err != nil {
@@ -183,6 +240,14 @@ func (s *UserService) UpdateUser(actor *models.UserPermissions, req UpdateUserRe
 	}
 	if target == nil {
 		return nil, ErrUserNotFound
+	}
+
+	staraAdresa := target.Email
+	vlastitaAdresa := actor != nil && actor.User.ID == target.ID && !req.izAdresara && !istaAdresa(req.Email, target.Email)
+	if vlastitaAdresa {
+		if err := s.provjeriVlastituAdresu(target, req); err != nil {
+			return nil, err
+		}
 	}
 
 	if !actor.IsGlobalAdmin {
@@ -230,6 +295,20 @@ func (s *UserService) UpdateUser(actor *models.UserPermissions, req UpdateUserRe
 
 	if err := s.userRepo.UpdateUser(target); err != nil {
 		return nil, err
+	}
+	if req.Password != "" {
+		// Lozinku tuđeg računa postavlja administrator: kao kod poništenja,
+		// gase se i otvorene prijave te osobe, ne samo zapamćena računala
+		if err := s.auth.EndAllSessions(target.ID); err != nil {
+			return nil, fmt.Errorf("lozinka je promijenjena, ali otvorene prijave nisu ugašene: %w", err)
+		}
+		if err := s.auth.opozoviPrijave(target.ID); err != nil {
+			return nil, fmt.Errorf("lozinka je promijenjena, ali zapamćena računala nisu zaboravljena: %w", err)
+		}
+	}
+	if vlastitaAdresa && strings.TrimSpace(staraAdresa) != "" && s.auth.zastita != nil {
+		osoba := *target
+		go s.auth.zastita.JaviPromjenuAdrese(context.Background(), &osoba, staraAdresa, target.Email)
 	}
 
 	s.sse.Broadcast("users_updated", fmt.Sprintf("Ažuriran djelatnik: %s", target.FullName), target.ID.String())
@@ -416,8 +495,25 @@ func (s *UserService) DeleteUser(actor *models.UserPermissions, targetID uuid.UU
 	return nil
 }
 
+// ListUsers vraća korisnike po filtrima; uz StanjeBezEposte i one čija
+// adresa nije u domeni na koju ide PIN (postavka prijave izvana)
 func (s *UserService) ListUsers(sectorID string, areaID int, role, search, status string) ([]models.User, error) {
+	if status == string(repository.StanjeBezEposte) {
+		return s.userRepo.ListUsersDomena(sectorID, areaID, role, search, status, s.domenaPINa())
+	}
 	return s.userRepo.ListUsers(sectorID, areaID, role, search, status)
+}
+
+// domenaPINa je domena na koju ide PIN (ZadanaDomenaPIN bez postavke)
+func (s *UserService) domenaPINa() string {
+	if s.auth != nil {
+		if o, ok := s.auth.zastita.(interface {
+			Opcije(context.Context) OpcijePrijaveIzvana
+		}); ok {
+			return o.Opcije(context.Background()).Domena
+		}
+	}
+	return ZadanaDomenaPIN
 }
 
 func (s *UserService) GetUserByID(id uuid.UUID) (*models.User, error) {

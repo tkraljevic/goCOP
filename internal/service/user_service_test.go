@@ -378,7 +378,8 @@ func TestRegularUserCanEditOwnProfileNotOthersOrDuties(t *testing.T) {
 		t.Fatalf("Greška pri dohvatu ovlasti: %v", err)
 	}
 
-	// 1. Korisnik smije ažurirati SVOJ profil (telefon, mobitel, email, titulu)
+	// 1. Korisnik smije ažurirati SVOJ profil (telefon, mobitel, titulu);
+	// adresa e-pošte ima svoja pravila (TestVlastitaPromjenaAdrese)
 	updated, err := userService.UpdateUser(userPerms, service.UpdateUserRequest{
 		ID:          user.ID,
 		Username:    user.Username,
@@ -387,12 +388,12 @@ func TestRegularUserCanEditOwnProfileNotOthersOrDuties(t *testing.T) {
 		Phone:       "035-123-456",
 		MobilePhone: "099-999-8888",
 		ShortPhone:  "9999",
-		Email:       "zvonko.novi@voda.hr",
+		Email:       user.Email,
 	})
 	if err != nil {
 		t.Fatalf("Redovni korisnik mora moći urediti vlastiti profil, greška: %v", err)
 	}
-	if updated.MobilePhone != "099-999-8888" || updated.Email != "zvonko.novi@voda.hr" || updated.Title != "struč.spec.ing." {
+	if updated.MobilePhone != "099-999-8888" || updated.Email != user.Email || updated.Title != "struč.spec.ing." {
 		t.Errorf("Ažurirani podaci ne odgovaraju: %+v", updated)
 	}
 

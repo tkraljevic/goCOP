@@ -20,6 +20,13 @@
     Počnite s <a href="/organizacija/sektori/new">novim sektorom</a>, pa mu dodajte {{terml "podrucja"}}.
   </div>
   {{end}}
+  {{if .PINBezPosiljatelja}}
+  <div class="alert alert-error" id="pin-bez-posiljatelja">
+    {{icon "triangle-alert"}} <span><strong>PIN izvana je uključen, a ovaj čvor nema ispravnog računa za slanje PIN-a.</strong>
+    Tko se kroz ovaj čvor prijavljuje izvana, ulazi samo rezervnim ili privremenim kodom.
+    Upišite račun i pošaljite probni PIN u <a href="/administracija/posta#pin">E-pošti</a>.</span>
+  </div>
+  {{end}}
   {{if .NoContact}}
   <div class="alert alert-warning">
     {{icon "triangle-alert"}} Nijedan globalni administrator nema upisan mobitel ni e-poštu, pa stranica prijave

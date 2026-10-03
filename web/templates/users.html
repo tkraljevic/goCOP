@@ -89,6 +89,7 @@
           <option value="ACTIVE" {{if eq $.SelectedStatus "ACTIVE"}}selected{{end}}>Aktivan (prijavljivao se)</option>
           <option value="PENDING" {{if eq $.SelectedStatus "PENDING"}}selected{{end}}>Nije se prijavio</option>
           <option value="DISABLED" {{if eq $.SelectedStatus "DISABLED"}}selected{{end}}>Neaktivan (prijava isključena)</option>
+          <option value="BEZ_EPOSTE" {{if eq $.SelectedStatus "BEZ_EPOSTE"}}selected{{end}}>Bez adrese za PIN (prazna, tuđa domena ili zajednička)</option>
         </select>
       </div>
     </div>
@@ -123,7 +124,7 @@
       {{end}}
       {{if .SelectedStatus}}
       <span class="filter-pill">
-        {{icon "key-round"}} {{if eq .SelectedStatus "PENDING"}}Nije se prijavio{{else if eq .SelectedStatus "DISABLED"}}Neaktivan{{else}}Aktivan{{end}}
+        {{icon "key-round"}} {{if eq .SelectedStatus "PENDING"}}Nije se prijavio{{else if eq .SelectedStatus "DISABLED"}}Neaktivan{{else if eq .SelectedStatus "BEZ_EPOSTE"}}Bez adrese za PIN{{else}}Aktivan{{end}}
         <a href="/users?q={{$.SearchQuery}}&sector={{$.SelectedSector}}&area={{$.SelectedArea}}&role={{$.SelectedRole}}" class="pill-remove" title="Ukloni filtar stanja računa">&times;</a>
       </span>
       {{end}}

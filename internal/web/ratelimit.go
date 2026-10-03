@@ -37,6 +37,9 @@ const (
 	kljucAdresa    = "ip:"
 	kljucIme       = "user:"
 	kljucPonovna   = "reauth:" // ponovni upis lozinke unutar prijave
+	// prijave na poslužitelj e-pošte jednim računom u domeni (vidi
+	// kljucPrijaveAD); počinje s kljucPonovna, ali ima svoju granicu
+	kljucPonovnaAD = kljucPonovna + "ad:"
 )
 
 // granicaKljuca je granica jedne vrste ključa
@@ -52,6 +55,8 @@ func granicaZa(kljuc string) granicaKljuca {
 		return granicaKljuca{20, 15 * time.Minute, 15 * time.Minute}
 	case strings.HasPrefix(kljuc, kljucIme):
 		return granicaKljuca{30, time.Hour, 30 * time.Minute}
+	case strings.HasPrefix(kljuc, kljucPonovnaAD):
+		return granicaKljuca{najviseKrivihAD, 30 * time.Minute, 30 * time.Minute}
 	case strings.HasPrefix(kljuc, kljucPonovna):
 		return granicaKljuca{3, 15 * time.Minute, 15 * time.Minute}
 	}
@@ -150,6 +155,53 @@ func (rec *attemptRecord) blokiranDo() time.Time {
 	return rec.blockedUntil
 }
 
+// Naplati unaprijed broji n pokušaja na ključu, ali samo ako ih granica u
+// prozoru još dopušta; inače ne broji ništa i javi koliko treba čekati.
+// Za radnje koje jednim zahtjevom troše više pokušaja (npr. prijava na
+// poslužitelj e-pošte s imenom, pa s domenom).
+func (l *loginLimiter) Naplati(kljuc string, n int) (bool, time.Duration) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	now := l.now()
+	p := granicaZa(kljuc)
+	rec := l.records[kljuc]
+	if rec != nil && rec.blockedUntil.After(now) {
+		return false, rec.blockedUntil.Sub(now)
+	}
+	if rec == nil || now.Sub(rec.firstFailure) > p.prozor {
+		rec = &attemptRecord{firstFailure: now, blockedUntil: rec.blokiranDo()}
+	}
+	if rec.failures+n > p.najvise {
+		return false, rec.firstFailure.Add(p.prozor).Sub(now)
+	}
+	rec.failures += n
+	if rec.failures >= p.najvise {
+		rec.blockedUntil = now.Add(p.blokada)
+	}
+	l.records[kljuc] = rec
+	l.sweep(now)
+	return true, 0
+}
+
+// Vrati poništava n pokušaja koje je zahtjev unaprijed naplatio (Fail ili
+// Naplati), npr. kad se pokazalo da lozinka nije bila kriva; blokadu koju
+// je taj pokušaj postavio skida. Ostale pokušaje u prozoru ne dira.
+func (l *loginLimiter) Vrati(kljuc string, n int) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	rec, ok := l.records[kljuc]
+	if !ok || n <= 0 {
+		return
+	}
+	rec.failures -= n
+	if rec.failures < 0 {
+		rec.failures = 0
+	}
+	if rec.failures < granicaZa(kljuc).najvise {
+		rec.blockedUntil = time.Time{}
+	}
+}
+
 // Reset briše brojače nakon uspješne prijave
 func (l *loginLimiter) Reset(keys ...string) {
 	l.mu.Lock()
@@ -219,6 +271,79 @@ func ponovnaLozinkaDopustena(kljuc string) error {
 		return fmt.Errorf("previše krivih lozinki; pokušajte ponovno za %d min", int(wait.Minutes())+1)
 	}
 	return nil
+}
+
+// Prijava na poslužitelj e-pošte tvrtke (Exchange) troši pokušaje računa u
+// domeni, koji nakon nekoliko krivih lozinki zaključava račun (e-pošta,
+// Windows, VPN). Broje se zato prijave, ne obrasci, i to po računu u domeni,
+// zajednički za lozinku osobnog sandučića (/profile/posta) i za račun koji
+// šalje PIN (/administracija/posta/pin, i „Uzmi moj račun e-pošte”):
+// najviše najviseKrivihAD u pola sata. Uspjela prijava briše brojač.
+const najviseKrivihAD = 3
+
+// imeAD je ime računa u domeni bez domene i bez @dijela, malim slovima
+// (tkraljevic, VODA\tkraljevic i tkraljevic@voda.hr su isti račun)
+func imeAD(korisnik string) string {
+	ime := strings.TrimSpace(korisnik)
+	if i := strings.LastIndex(ime, `\`); i >= 0 {
+		ime = ime[i+1:]
+	}
+	if i := strings.Index(ime, "@"); i > 0 {
+		ime = ime[:i]
+	}
+	return strings.ToLower(ime)
+}
+
+// kljucPrijaveAD je ključ računa u domeni koji upisuje osoba userID. Osoba
+// je dio ključa, inače bi svatko tko tri puta upiše tuđe ime s krivom
+// lozinkom vlasniku pola sata zatvorio oba obrasca.
+func kljucPrijaveAD(userID, korisnik string) string {
+	return kljucPonovnaAD + userID + ":" + imeAD(korisnik)
+}
+
+// prijavaBezDomene: ime bez dijela DOMENA\; poslužitelj ga tada odbije pa
+// goCOP pokuša i s domenom, što je još jedna prijava istog računa
+func prijavaBezDomene(korisnik string) bool {
+	return !strings.Contains(korisnik, `\`)
+}
+
+// naplatiPrijaveAD unaprijed broji n prijava računa korisnik, koji upisuje
+// osoba userID, na poslužitelj e-pošte; kad ih granica više ne dopušta,
+// vraća grešku i ne broji ništa. Vraća ključ, da ga uspjela prijava obriše
+// (ishodPrijaveAD).
+func naplatiPrijaveAD(userID, korisnik string, n int) (string, error) {
+	ime := imeAD(korisnik)
+	if n <= 0 || ime == "" {
+		return "", nil
+	}
+	kljuc := kljucPrijaveAD(userID, korisnik)
+	if ok, wait := ponovnaLozinka.Naplati(kljuc, n); !ok {
+		poruka := fmt.Sprintf("previše prijava na poslužitelj e-pošte računom %s; pokušajte ponovno za %d min. "+
+			"Svaka kriva lozinka broji se u domeni, koja nakon nekoliko zaključava račun", ime, int(wait.Minutes())+1)
+		if prijavaBezDomene(korisnik) {
+			poruka += `. Upišite ime s domenom (npr. VODA\ime): tada je jedan upis jedna prijava`
+		}
+		return "", errors.New(poruka)
+	}
+	return kljuc, nil
+}
+
+// ishodPrijaveAD: kad je poslužitelj primio lozinku (i kad kasniji korak
+// obrasca nije prošao, service.PrijavaProsla), brojač tog računa u domeni
+// se briše, a osobi se vraća samo pokušaj koji je ovaj upis naplatio.
+// Osobni brojač se ne briše: inače bi vlastita točna lozinka između
+// krivih upisa tuđih imena brisala granicu, i goCOP bi postao alat za
+// raspršeno pogađanje lozinki u domeni.
+func ishodPrijaveAD(prosla bool, kljucAD, kljucOsobe string) {
+	if !prosla {
+		return
+	}
+	if kljucAD != "" {
+		ponovnaLozinka.Reset(kljucAD)
+	}
+	if kljucOsobe != "" {
+		ponovnaLozinka.Vrati(kljucOsobe, 1)
+	}
 }
 
 // ishodPonovneLozinke broji krivu lozinku, a točna briše brojač

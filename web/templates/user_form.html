@@ -24,11 +24,19 @@
       <label class="form-label" for="username">Korisničko ime *</label>
       <input type="text" id="username" name="username" class="form-control" required value="{{.User.Username}}" placeholder="npr. jhorvat" autocapitalize="none">
     </div>
+    {{if and .IsEdit .IsSelf}}
+    <div class="form-group">
+      <label class="form-label" for="trenutna_lozinka">Trenutna lozinka (samo za promjenu vlastite e-pošte)</label>
+      <input type="password" id="trenutna_lozinka" name="trenutna_lozinka" class="form-control" autocomplete="current-password">
+      <div class="form-help">Na vašu adresu e-pošte stiže PIN za prijavu izvana. Svoju lozinku mijenjate na <a href="/profile#lozinka">profilu</a>.</div>
+    </div>
+    {{else}}
     <div class="form-group">
       <label class="form-label" for="password">{{if .IsEdit}}Nova lozinka{{else}}Lozinka *{{end}}</label>
       <input type="password" id="password" name="password" class="form-control" {{if not .IsEdit}}required{{end}} autocomplete="new-password">
-      {{if .IsEdit}}<div class="form-help">Prazno znači da se lozinka ne mijenja.</div>{{end}}
+      {{if .IsEdit}}<div class="form-help">Prazno znači da se lozinka ne mijenja. Nova lozinka na ovom čvoru zaboravlja zapamćena računala te osobe i briše njezine privremene kodove. Za zaboravljenu lozinku radije upotrijebite „Poništi lozinku”.</div>{{end}}
     </div>
+    {{end}}
   </div>
 
   <div class="form-row">

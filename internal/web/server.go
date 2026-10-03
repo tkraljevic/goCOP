@@ -75,6 +75,7 @@ type Server struct {
 	vodocuvar      *service.VodocuvarService
 	potpis         *service.PotpisService  // elektronički potpisi osoba
 	prijave        *service.PrijavaService // prijave i obavijesti s terena
+	drugiKorak     *service.DrugiKorak     // drugi korak prijave izvana (PIN); nil dok se ne postavi
 	javnaAdresa    string                  // adresa programa izvana, za QR kodove; prazno dok je nema
 	skenoviDir     string                  // mapa sa skenovima prijava iz ranije evidencije
 	orgRepo        *repository.OrgRepository
@@ -573,7 +574,7 @@ func NewServer(
 	}
 
 	// Samostalne stranice: prijava i ispis dnevnika
-	for _, page := range []string{"login.html", "dnevnik_ispis.html", "uparivanje.html"} {
+	for _, page := range []string{"login.html", "login_pin.html", "dnevnik_ispis.html", "uparivanje.html"} {
 		t, err := template.New(page).Funcs(tmplFuncs).ParseFS(templatesFS, page)
 		if err != nil {
 			return nil, fmt.Errorf("greška pri parsiranju predloška %s: %w", page, err)
@@ -615,6 +616,7 @@ func (s *Server) setupRoutes() {
 	authH := NewAuthHandler(s.authService, s.templates["login.html"])
 	authH.SetSupport(s.support)
 	authH.SetAdminContact(s.userService.GlobalAdminContact)
+	authH.SetDrugiKorak(func() *service.DrugiKorak { return s.drugiKorak }, s.templates["login_pin.html"])
 	usersH := NewUsersHandler(s.userService, s.templates["users.html"])
 	usersH.SetPageTemplates(s.templates["user_detail.html"], s.templates["user_form.html"], s.templates["duty_form.html"], s.templates["profile.html"])
 	usersH.SetPlanovi(s.journalService.PlanoviOsobe)
@@ -878,6 +880,10 @@ func (s *Server) setupRoutes() {
 	// Javne rute za prijavu
 	s.mux.HandleFunc("GET /login", authH.ShowLogin)
 	s.mux.HandleFunc("POST /login", authH.HandleLogin)
+	// drugi korak prijave izvana: PIN, rezervni ili privremeni kod
+	s.mux.HandleFunc("GET /login/pin", authH.ShowPIN)
+	s.mux.HandleFunc("POST /login/pin", authH.HandlePIN)
+	s.mux.HandleFunc("POST /login/pin/ponovno", authH.HandlePonovniPIN)
 	s.mux.HandleFunc("POST /logout", authH.HandleLogout)
 
 	// Događaji uživo, samo prijavljenima: čvor je javno dostupan (tunel), a
@@ -948,6 +954,7 @@ func (s *Server) setupRoutes() {
 
 	// Administracija: ulazna stranica i sve što radi samo administrator
 	adminH := NewAdminHandler(s.orgService, s.userService, s.peersService, s.templates["administracija.html"], s.templates["uvozi.html"])
+	adminH.SetDrugiKorak(func() *service.DrugiKorak { return s.drugiKorak })
 	s.mux.Handle("GET /administracija", s.authMiddleware(http.HandlerFunc(adminH.ShowAdmin)))
 	s.mux.Handle("GET /administracija/uvozi", s.authMiddleware(http.HandlerFunc(adminH.ShowImports)))
 
@@ -991,8 +998,23 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /users/duties/{duty}/update", s.authMiddleware(http.HandlerFunc(usersH.HandleUpdateDuty)))
 	s.mux.Handle("POST /users/delete", s.authMiddleware(http.HandlerFunc(usersH.HandleDeleteUser)))
 	s.mux.Handle("POST /users/{id}/reset-password", s.authMiddleware(http.HandlerFunc(usersH.HandleResetPassword)))
+	s.mux.Handle("POST /users/{id}/kod-prijave", s.authMiddleware(http.HandlerFunc(usersH.HandleKodPrijave)))
 	s.mux.Handle("POST /profile/change-password", s.authMiddleware(http.HandlerFunc(authH.HandleChangePassword)))
 	s.mux.Handle("POST /profile/update", s.authMiddleware(http.HandlerFunc(usersH.HandleUpdateProfile)))
+	// prijava izvana na profilu: zapamćena računala i rezervni kodovi
+	usersH.SetDrugiKorak(func() *service.DrugiKorak { return s.drugiKorak })
+	if s.peersService != nil {
+		usersH.SetCvor(func() string {
+			if n := s.peersService.Node(); n != nil {
+				return n.Name
+			}
+			return ""
+		})
+	}
+	s.mux.Handle("POST /profile/racunala/{id}/zaboravi", s.authMiddleware(http.HandlerFunc(usersH.HandleZaboraviRacunalo)))
+	s.mux.Handle("POST /profile/racunala/zaboravi-sva", s.authMiddleware(http.HandlerFunc(usersH.HandleZaboraviSvaRacunala)))
+	s.mux.Handle("POST /profile/rezervni-kodovi", s.authMiddleware(http.HandlerFunc(usersH.HandleRezervniKodovi)))
+	s.mux.Handle("POST /profile/rezervni-kodovi.txt", s.authMiddleware(http.HandlerFunc(usersH.HandleRezervniKodoviTxt)))
 
 	// Pregled tuđim očima — administrator vidi program kao odabrani djelatnik
 	s.mux.Handle("POST /view-as/stop", s.authMiddleware(http.HandlerFunc(authH.HandleStopViewAs)))
@@ -1204,6 +1226,11 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /posta/privitak", s.authMiddleware(http.HandlerFunc(aktiH.Privitak)))
 	s.mux.Handle("GET /administracija/posta", s.samoAdmin(http.HandlerFunc(aktiH.ShowAdminPosta)))
 	s.mux.Handle("POST /administracija/posta", s.samoAdmin(http.HandlerFunc(aktiH.HandleAdminPosta)))
+	// račun koji s ovog čvora šalje PIN za prijavu izvana i sklopka
+	aktiH.SetDrugiKorak(func() *service.DrugiKorak { return s.drugiKorak })
+	s.mux.Handle("POST /administracija/posta/pin", s.samoAdmin(http.HandlerFunc(aktiH.HandlePINPosiljatelj)))
+	s.mux.Handle("POST /administracija/posta/pin/proba", s.samoAdmin(http.HandlerFunc(aktiH.HandlePINProba)))
+	s.mux.Handle("POST /administracija/posta/pin/sklopka", s.samoAdmin(http.HandlerFunc(aktiH.HandlePINSklopka)))
 	s.mux.Handle("GET /profile/posta", s.authMiddleware(http.HandlerFunc(aktiH.ShowPosta)))
 	s.mux.Handle("POST /profile/posta", s.authMiddleware(http.HandlerFunc(aktiH.HandlePosta)))
 	s.mux.Handle("GET /akti", s.authMiddleware(http.HandlerFunc(aktiH.ShowPopis)))
@@ -1445,7 +1472,7 @@ func trebaAdmina(next http.Handler) http.Handler {
 // authMiddleware provjerava sesijski kolačić i postavlja korisnika u context
 func (s *Server) authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		cookie, err := r.Cookie("gocop_session")
+		cookie, err := r.Cookie(imeKolacicaSesije)
 		if err != nil {
 			http.Redirect(w, r, "/login", http.StatusSeeOther)
 			return
@@ -1616,6 +1643,10 @@ func (s *Server) SetJavnaAdresa(a string) {
 
 // SetPrijave daje poslužitelju servis prijava s terena
 func (s *Server) SetPrijave(p *service.PrijavaService) { s.prijave = p }
+
+// SetDrugiKorak daje poslužitelju drugi korak prijave izvana (PIN na
+// službenu e-poštu, zapamćena računala, rezervni i privremeni kodovi)
+func (s *Server) SetDrugiKorak(d *service.DrugiKorak) { s.drugiKorak = d }
 
 // SetPotpis daje poslužitelju servis elektroničkih potpisa
 func (s *Server) SetPotpis(p *service.PotpisService) { s.potpis = p }

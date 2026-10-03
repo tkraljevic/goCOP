@@ -44,7 +44,7 @@ import (
 
 // verzijaPrograma je izdanje goCOP-a. Alfa traje dok se ne zaokruže
 // funkcionalnosti koje program treba imati; mijenja se pri izdavanju.
-const verzijaPrograma = "0.0.25-alfa"
+const verzijaPrograma = "0.0.26-alfa"
 
 // version se može zadati pri prevođenju (-ldflags "-X main.version=…");
 // prazno znači verzijaPrograma, s oznakom commita iz kojega je prevedeno.
@@ -612,11 +612,23 @@ func main() {
 		return
 	}
 
-	// Čišćenje starih sesija periodički
+	// Drugi korak prijave izvana (PIN na službenu e-poštu, zapamćena
+	// računala, rezervni i privremeni kodovi): sve samo na ovom čvoru, s
+	// ključem izvedenim iz ključa čvora; postavke poslužitelja e-pošte
+	// dobiva kad se sastavi servis akata
+	drugiKorak := service.NewDrugiKorak(repository.NewDrugiKorakRepository(database),
+		repository.NewRacuniSustavaRepository(database), userRepo, repository.NewAktiRepository(database, recorder))
+	drugiKorak.SetKljuc(node.PrivateKey().Seed())
+	authService.SetZastitaPrijave(drugiKorak)
+
+	// Čišćenje starih sesija (i isteklog drugog koraka prijave) periodički
 	go func() {
 		for {
 			time.Sleep(1 * time.Hour)
 			_ = sessionRepo.CleanExpiredSessions()
+			if _, err := drugiKorak.Ocisti(context.Background()); err != nil {
+				log.Printf("čišćenje drugog koraka prijave: %v", err)
+			}
 		}
 	}()
 
@@ -636,6 +648,8 @@ func main() {
 	aktService.SetKljuc(node.PrivateKey())
 	aktService.SetPosta(posta.Postavke{Nacin: cfg.Posta.Nacin, Posluzitelj: cfg.Posta.Posluzitelj, Domena: cfg.Posta.Domena, Port: cfg.Posta.Port, Sigurnost: cfg.Posta.Sigurnost})
 	server.SetAkti(aktService)
+	drugiKorak.SetPosta(aktService.Posta)
+	server.SetDrugiKorak(drugiKorak)
 	vodocuvarService := service.NewVodocuvarService(repository.NewVodocuvarRepository(database, recorder), userService, node.ID)
 	vodocuvarService.SetOrg(orgRepo)
 	vodocuvarService.SetRadnoVrijeme(func(ctx context.Context) (string, string) {

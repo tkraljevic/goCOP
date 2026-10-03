@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -45,6 +46,35 @@ var lazniSazetak = sync.OnceValue(func() string {
 type AuthService struct {
 	userRepo    *repository.UserRepository
 	sessionRepo *repository.SessionRepository
+	zastita     ZastitaPrijave // drugi korak prijave izvana; nil = nema ga
+}
+
+// ZastitaPrijave je ono što prijava i uređivanje računa traže od drugog
+// koraka prijave izvana (DrugiKorak); sučelje drži servise neovisnima o
+// njegovoj gradnji, a testovima daje zamjenu.
+type ZastitaPrijave interface {
+	// Opozovi briše osobi zapamćena računala, prijave na čekanju i
+	// privremene kodove na ovom čvoru
+	Opozovi(ctx context.Context, userID uuid.UUID) error
+	// DopustenaAdresa javlja smije li osoba sama upisati tu adresu e-pošte
+	DopustenaAdresa(ctx context.Context, adresa string) error
+	// JaviPromjenuAdrese javlja na staru adresu da je promijenjena (najbolje
+	// što se može, traje do IstekSlanja; zove se iz pozadine)
+	JaviPromjenuAdrese(ctx context.Context, u *models.User, stara, nova string)
+}
+
+// SetZastitaPrijave povezuje drugi korak prijave: promjena, poništavanje i
+// administratorska izmjena lozinke tada opozivaju zapamćena računala,
+// prijave na čekanju i privremene kodove, a vlastita promjena adrese
+// e-pošte prolazi njegova pravila o domeni
+func (s *AuthService) SetZastitaPrijave(z ZastitaPrijave) { s.zastita = z }
+
+// opozoviPrijave opoziva drugi korak osobe nakon promjene lozinke
+func (s *AuthService) opozoviPrijave(userID uuid.UUID) error {
+	if s.zastita == nil {
+		return nil
+	}
+	return s.zastita.Opozovi(context.Background(), userID)
 }
 
 func NewAuthService(uRepo *repository.UserRepository, sRepo *repository.SessionRepository) *AuthService {
@@ -293,6 +323,9 @@ func (s *AuthService) ChangePassword(userID uuid.UUID, currentPassword, newPassw
 	}
 	if err := s.sessionRepo.DeleteOtherSessionsForUser(userID, zadrzi); err != nil {
 		return fmt.Errorf("lozinka je promijenjena, ali ostale prijave nisu odjavljene: %w", err)
+	}
+	if err := s.opozoviPrijave(userID); err != nil {
+		return fmt.Errorf("lozinka je promijenjena, ali zapamćena računala nisu zaboravljena: %w", err)
 	}
 	return nil
 }

@@ -131,7 +131,7 @@ func (r *IspravakRepository) Spremi(ctx context.Context, ispravci []models.Arhiv
 			ON CONFLICT(id) DO UPDATE SET vrijednost=excluded.vrijednost, staro=excluded.staro,
 				razlog=excluded.razlog, ispravio=excluded.ispravio, updated_at=excluded.updated_at`,
 			i.ID.String(), i.Letva, i.Velicina, i.Korak, i.Vrijeme.UTC(), i.Vrijednost,
-			i.Staro, i.Razlog, i.Ispravio, i.CreatedAt, i.UpdatedAt); err != nil {
+			i.Staro, i.Razlog, i.Ispravio, i.CreatedAt.UTC(), i.UpdatedAt.UTC()); err != nil {
 			return n, fmt.Errorf("upis ispravka: %w", err)
 		}
 		if _, err := r.rec.Record(ctx, tx, EntityIspravci, i.ID.String(), i); err != nil {

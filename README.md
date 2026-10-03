@@ -5,7 +5,7 @@ i drugim vodoprivrednim organizacijama. Povezuje teren, vodostaje, prognoze,
 dnevnike, službene dokumente, registre, ljude i sredstva. Računala rade s
 lokalnim podacima i usklađuju se kada je mreža dostupna.
 
-> **0.0.25-alfa — 2. 10. 2026.** Za razvoj i testiranje, ne za operativnu
+> **0.0.26-alfa — 3. 10. 2026.** Za razvoj i testiranje, ne za operativnu
 > upotrebu. Prognoze su pomoć stručnoj procjeni, ne zamjena za službene
 > prognoze i odluke odgovornih osoba. [Popis izmjena](CHANGELOG.md).
 
@@ -30,7 +30,7 @@ Pokrenuti `gocop.exe` na Windowsu ili `./gocop` na Linuxu/macOS-u i otvoriti
 obvezno promijeniti zadanu lozinku. Novi čvor povezati s postojećom mrežom
 čarobnjakom na prijavi; prvi čvor zahtijeva osnivanje mreže i punjenje registara.
 
-Za Linux amd64 dostupan je spremnik `ghcr.io/tkraljevic/gocop:0.0.25-alfa`;
+Za Linux amd64 dostupan je spremnik `ghcr.io/tkraljevic/gocop:0.0.26-alfa`;
 web u njemu sluša na 8080. Trajno montirati `/data` i `/arhiva`; SQLite mora
 biti na lokalnom disku. Postavljanje, portovi, uparivanje, uloge i sigurnosne
 kopije opisani su u [uputama administratoru](docs/INSTALACIJA.md).
@@ -46,8 +46,9 @@ Javni čvor treba HTTPS, ograničen pristup izvornom poslužitelju i isključen
 cache aplikacijskih odgovora na posredniku. Od **0.0.25-alfa** ugrađeni su CSRF
 zaštita, `Secure` kolačići iza HTTPS-a, podesivi pouzdani posrednici i ograničenja
 HTTP zahtjeva i razmjene. Uparivanje odobrava administrator; zadana lozinka
-ne vrijedi izvana. Popis posrednika treba suziti na stvarne adrese posrednika.
-Otvoreni su dvofaktorska prijava, potpisane ovlasti izdavatelja i opoziv
+ne vrijedi izvana. Od **0.0.26-alfa** prijava izvana može tražiti PIN poslan
+na službenu e-poštu (prekidač zadano isključen). Popis posrednika treba suziti
+na stvarne adrese posrednika. Otvoreni su potpisane ovlasti izdavatelja i opoziv
 izgubljenog čvora uživo. Izvršna datoteka još nije potpisana; provedene zaštite
 nisu potvrda spremnosti za operativnu upotrebu.
 Prije nadogradnje izraditi sigurnosnu kopiju baza, sadržaja, postavki i

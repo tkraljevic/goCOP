@@ -55,8 +55,20 @@
         </div>
         <div class="form-group">
           <label class="form-label" for="email">E-pošta</label>
-          <input type="email" id="email" name="email" class="form-control" value="{{.User.Email}}" placeholder="ime.prezime@voda.hr">
+          {{if or .Izvana .User.MustChangePassword}}
+          <input type="email" id="email" name="email" class="form-control" value="{{.User.Email}}" readonly aria-describedby="email-pomoc">
+          <div class="form-help" id="email-pomoc">{{if .User.MustChangePassword}}Adresu e-pošte možete promijeniti tek nakon što postavite novu lozinku.{{else}}Adresu e-pošte ne možete mijenjati izvana: na nju stiže PIN za prijavu izvana. Promijenite je iz ureda (lokalna mreža) ili zamolite administratora.{{end}}</div>
+          {{else}}
+          <input type="email" id="email" name="email" class="form-control" value="{{.User.Email}}" placeholder="ime.prezime@{{if .PrijavaIzvana}}{{.PrijavaIzvana.Domena}}{{else}}voda.hr{{end}}" aria-describedby="email-pomoc">
+          <div class="form-help" id="email-pomoc">Na ovu adresu stiže PIN za prijavu izvana, pa se mijenja samo uz trenutnu lozinku{{if .PrijavaIzvana}} i samo na adresu @{{.PrijavaIzvana.Domena}}{{end}}; stara adresa dobije obavijest.</div>
+          {{end}}
         </div>
+        {{if not (or .Izvana .User.MustChangePassword)}}
+        <div class="form-group">
+          <label class="form-label" for="email_lozinka">Trenutna lozinka (samo za promjenu e-pošte)</label>
+          <input type="password" id="email_lozinka" name="trenutna_lozinka" class="form-control" autocomplete="current-password">
+        </div>
+        {{end}}
         <div class="form-help">Mobitel je broj na koji vas kolege zovu s terena; skraćeni brojevi vrijede u zatvorenoj mreži tvrtke. <a href="/users/exchange?trazi={{.User.FullName | urlquery}}">Provjeri u adresaru tvrtke</a>.</div>
         <div class="form-actions">
           <button type="submit" class="btn btn-primary">{{icon "check"}} Spremi kontakte</button>
@@ -87,6 +99,81 @@
         </div>
       </form>
     </section>
+
+    {{with .PrijavaIzvana}}
+    <section class="detail-section profil-kartica" id="prijava-izvana">
+      <h2>{{icon "shield"}} Prijava izvana</h2>
+      {{if .TudjimOcima}}
+      <p class="page-desc">Dok gledate tuđim očima, zapamćena računala i kodovi te osobe ne vide se i ne mijenjaju. Vratite se svojim očima.</p>
+      {{else}}
+      <p class="page-desc">Izvan ureda (kroz tunel ili s javne adrese) goCOP nakon lozinke {{if .Ukljuceno}}traži{{else}}može tražiti, kad ga administrator uključi,{{end}} i PIN poslan na vašu službenu e-poštu. Iz lokalne mreže PIN se nikad ne traži.</p>
+      <p class="profil-stanje">
+        {{if .Ukljuceno}}<span class="badge badge-active">{{icon "check"}} PIN uključen</span>{{else}}<span class="badge badge-pending">PIN isključen</span>{{end}}
+        {{if .Adresa}}PIN stiže na <span class="mono">{{.Adresa}}</span>.{{else}}<strong>PIN nema kamo stići:</strong> {{.Razlog}}. Izvana se tada ulazi rezervnim kodom ili privremenim kodom od administratora.{{end}}
+      </p>
+      {{if .Greska}}<div class="alert alert-error">{{.Greska}}</div>{{end}}
+
+      {{if .Kodovi}}
+      <div class="alert alert-success" style="display:block;" id="rezervni-kodovi">
+        <strong>{{icon "key-round"}} Vaši novi rezervni kodovi</strong>
+        <ol class="mono" style="font-size:1.1rem; font-weight:700; letter-spacing:0.02em; margin:0.5rem 0; user-select:all; columns:2;">
+          {{range .Kodovi}}<li style="list-style:none;">{{.}}</li>{{end}}
+        </ol>
+        Prepišite ih ili ispišite i čuvajte kao lozinku. Prikazuju se samo sada; program pamti samo njihove sažetke. Svaki vrijedi za jednu prijavu izvana kad PIN ne stigne, a stari niz više ne vrijedi.
+        Vrijede samo na čvoru {{if .Cvor}}<span class="mono">{{.Cvor}}</span>{{else}}na kojem su napravljeni{{end}}.
+      </div>
+      {{/* adresa je /profile/rezervni-kodovi (odgovor na POST): osvježavanje bi
+           napravilo novi niz, a obrasci s ove stranice vraćali bi se na nju */}}
+      <script>try { history.replaceState(null, '', '/profile#prijava-izvana'); } catch (e) {}</script>
+      {{end}}
+
+      <h3 style="font-size:0.95rem; margin:1rem 0 0.25rem;">Zapamćena računala</h3>
+      {{if .Racunala}}
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead><tr><th>Preglednik</th><th>Adresa</th><th>Zapamćeno</th><th>Vrijedi do</th><th class="radnje"></th></tr></thead>
+          <tbody>
+          {{range .Racunala}}
+          <tr>
+            <td style="overflow-wrap:anywhere;">{{if .UserAgent}}{{.UserAgent}}{{else}}<span class="text-muted">nepoznat</span>{{end}}{{if .OvoRacunalo}} <span class="reg-chip">ovo računalo</span>{{end}}</td>
+            <td class="mono">{{.IPZadnji}}{{if ne .IPPrvi .IPZadnji}}<div class="form-help">prvi put {{.IPPrvi}}</div>{{end}}</td>
+            <td>{{vrijemeHR .Zapamceno}}{{if .Koristeno}}<div class="form-help">zadnji put {{vrijemeHR (derefTime .Koristeno)}}</div>{{end}}</td>
+            <td>{{vrijemeHR .Istjece}}</td>
+            <td class="radnje">
+              <form method="POST" action="/profile/racunala/{{.ID}}/zaboravi" style="margin:0;">
+                <button type="submit" class="btn btn-sm btn-secondary">{{icon "x"}} Zaboravi</button>
+              </form>
+            </td>
+          </tr>
+          {{end}}
+          </tbody>
+        </table>
+      </div>
+      <form method="POST" action="/profile/racunala/zaboravi-sva" style="margin-top:0.5rem;" onsubmit="return confirm('Zaboraviti sva zapamćena računala? Izvana će se sa svakog opet tražiti PIN.')">
+        <div class="profil-gumbi"><button type="submit" class="btn btn-sm btn-secondary">{{icon "trash"}} Zaboravi sva</button></div>
+      </form>
+      {{else}}
+      <p class="form-help">Nema zapamćenih računala. Pri prijavi s PIN-om možete označiti „Zapamti ovo računalo”: tada se s tog preglednika 30 dana traži samo lozinka. Promjena lozinke zaboravlja sva računala.</p>
+      {{end}}
+
+      <h3 style="font-size:0.95rem; margin:1rem 0 0.25rem;">Rezervni kodovi</h3>
+      <p class="form-help">{{if .RezervniOd}}Neiskorištenih kodova: <strong>{{.Rezervnih}}</strong> od 10, napravljeni {{vrijemeHR (derefTime .RezervniOd)}}.{{else}}Još niste napravili rezervne kodove.{{end}}
+        Rezervni kod zamjenjuje PIN kad e-pošta ne stigne ili je nemate. Napravite ih prije nego što krenete na teren; novi niz poništava stari.</p>
+      <p class="form-help" id="kodovi-cvor"><strong>Kodovi vrijede samo na čvoru {{if .Cvor}}<span class="mono">{{.Cvor}}</span>{{else}}na kojem ih napravite{{end}}</strong>; na drugom čvoru broje se kao krivi kod.
+        {{if .Izvana}}Ovaj profil otvorili ste izvana, pa kodovi napravljeni ovdje vrijede za prijavu izvana kroz ovaj čvor.{{else}}Za prijavu izvana napravite ih na javnom čvoru, kroz koji se prijavljujete izvana (npr. <span class="mono">https://cop-osijek.com</span>), a ne iz lokalne mreže na drugom računalu.{{end}}</p>
+      <form method="POST" action="/profile/rezervni-kodovi" class="form-page" autocomplete="off">
+        <div class="form-group">
+          <label class="form-label" for="rezervni-lozinka">Lozinka računa</label>
+          <input type="password" class="form-control" id="rezervni-lozinka" name="lozinka" autocomplete="current-password" required>
+        </div>
+        <div class="profil-gumbi">
+          <button type="submit" class="btn btn-secondary btn-sm"{{if .RezervniOd}} onclick="return confirm('Napraviti novi niz? Stari kodovi prestaju vrijediti.')"{{end}}>{{icon "key-round"}} Napravi rezervne kodove</button>
+          <button type="submit" class="btn btn-secondary btn-sm" formaction="/profile/rezervni-kodovi.txt" title="Napravi novi niz i preuzmi ga kao datoteku za ispis"{{if .RezervniOd}} onclick="return confirm('Napraviti novi niz za preuzimanje? Stari kodovi prestaju vrijediti.')"{{end}}>{{icon "download"}} Napravi i preuzmi .txt</button>
+        </div>
+      </form>
+      {{end}}
+    </section>
+    {{end}}
   </div>
 
   <div class="profil-stupac">

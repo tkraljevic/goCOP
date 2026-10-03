@@ -48,6 +48,11 @@ type AdminPostaData struct {
 	Postavke   posta.Postavke
 	Spremljene bool // spremljene u programu, ne samo u gocop.toml
 	Nalaz      string
+
+	// PIN je račun koji s ovog čvora šalje PIN za prijavu izvana i sklopka;
+	// nil kad drugi korak nije spojen
+	PIN       *PINStanje
+	PINGreska string
 }
 
 // ShowAdminPosta prikazuje postavke poslužitelja e-pošte
@@ -61,6 +66,11 @@ func (h *AktiHandler) ShowAdminPosta(w http.ResponseWriter, r *http.Request) {
 	d := AdminPostaData{CurrentUser: u, Permissions: perms, ActiveNav: "admin", ViewAsBanner: viewBanner(r),
 		SuccessMessage: q.Get("success"), ErrorMessage: q.Get("error"), Nalaz: q.Get("nalaz"),
 		Postavke: s.Posta(r.Context()), Spremljene: s.PostaSpremljena(r.Context())}
+	if p, err := h.pinStanje(r); err != nil {
+		d.PINGreska = err.Error()
+	} else {
+		d.PIN = p
+	}
 	if err := h.tmplPostaAdmin.ExecuteTemplate(w, "administracija_posta.html", d); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -266,17 +276,40 @@ func (h *AktiHandler) HandlePosta(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Svaki upis lozinke ide na poslužitelj tvrtke, koji nakon nekoliko krivih
-	// sam zaključava račun u domeni: broje se svi pokušaji, ne samo krivi,
-	// jer se kriva lozinka ovdje ne razlikuje pouzdano od nedostupnog poslužitelja
+	// sam zaključava račun u domeni: broji se svaki upis, jer se kriva lozinka
+	// ne razlikuje pouzdano od nedostupnog poslužitelja; upis koji poslužitelj
+	// primi vraća svoj pokušaj (ishodPrijaveAD)
 	kljuc := kljucPonovneLozinke("posta", u.ID.String())
 	if err := ponovnaLozinkaDopustena(kljuc); err != nil {
 		redirectWith(w, r, "/profile/posta", "error", err.Error())
 		return
 	}
+	// Uz to se broje prijave računa u domeni, zajedno s računom koji šalje
+	// PIN: upisano ime, DOMENA\ime iz postavki i, bez domene, još jednom s
+	// domenom koju objavi poslužitelj
+	var kljucAD string
 	if r.FormValue("lozinka") != "" {
+		korisnik := strings.TrimSpace(r.FormValue("korisnik"))
+		if korisnik == "" {
+			korisnik = u.Email
+		}
+		if korisnik != "" {
+			n := len(s.Posta(r.Context()).Imena(korisnik))
+			if prijavaBezDomene(korisnik) {
+				n++
+			}
+			var err error
+			if kljucAD, err = naplatiPrijaveAD(u.ID.String(), korisnik, n); err != nil {
+				redirectWith(w, r, "/profile/posta", "error", upperFirst(err.Error())+".")
+				return
+			}
+		}
 		ponovnaLozinka.Fail(kljuc)
 	}
 	upozorenje, err := s.SpremiRacunPoste(r.Context(), u, r.FormValue("korisnik"), r.FormValue("lozinka"))
+	if kljucAD != "" {
+		ishodPrijaveAD((err == nil && upozorenje == "") || service.PrijavaProsla(err), kljucAD, kljuc)
+	}
 	if err != nil {
 		redirectWith(w, r, "/profile/posta", "error", err.Error())
 		return

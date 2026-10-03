@@ -50,7 +50,7 @@ const blagdanUpsert = `INSERT INTO blagdani (id, naziv, vrsta, mjesec, dan, poma
 		pomak = excluded.pomak, datum = excluded.datum, od_godine = excluded.od_godine, do_godine = excluded.do_godine, updated_at = excluded.updated_at`
 
 func blagdanArgs(p obracun.Pravilo, kad time.Time) []any {
-	return []any{p.ID, p.Naziv, string(p.Vrsta), p.Mjesec, p.Dan, p.Pomak, p.Datum, p.OdGodine, p.DoGodine, kad}
+	return []any{p.ID, p.Naziv, string(p.Vrsta), p.Mjesec, p.Dan, p.Pomak, p.Datum, p.OdGodine, p.DoGodine, kad.UTC()}
 }
 
 const koeficijentUpsert = `INSERT INTO koeficijenti (id, mjesto, razred, k, updated_at) VALUES (?, ?, ?, ?, ?)

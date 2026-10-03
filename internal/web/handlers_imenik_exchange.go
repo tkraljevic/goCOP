@@ -2,11 +2,14 @@ package web
 
 import (
 	"context"
+	"errors"
 	"html/template"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
+
+	"github.com/google/uuid"
 
 	"gocop/internal/models"
 	"gocop/internal/poslovi"
@@ -180,9 +183,26 @@ func (h *AktiHandler) HandleImenikPrimijeni(w http.ResponseWriter, r *http.Reque
 		}
 		poUseru[dio[0]][dio[1]] = v
 	}
+	// Svoju adresu e-pošte (na nju ide PIN za prijavu izvana) osoba ne
+	// mijenja iz adresara, nego na profilu uz trenutnu lozinku: to polje se
+	// preskače, a ostali kontakti iz retka se upisuju
+	vlastita := false
+	for id, polja := range poUseru {
+		if v, ok := polja["email"]; ok && svojaDrugaAdresa(r, perms, id, v) {
+			delete(polja, "email")
+			vlastita = true
+			if len(polja) == 0 {
+				delete(poUseru, id)
+			}
+		}
+	}
 	n, greske := 0, 0
 	for id, polja := range poUseru {
 		if err := s.PrimijeniKontakt(r.Context(), perms, id, polja); err != nil {
+			if errors.Is(err, service.ErrVlastitaAdresaIzAdresara) {
+				vlastita = true
+				continue
+			}
 			greske++
 			continue
 		}
@@ -194,9 +214,31 @@ func (h *AktiHandler) HandleImenikPrimijeni(w http.ResponseWriter, r *http.Reque
 	if natrag == "" {
 		natrag = "/users/exchange?" + url.Values{"sektor": {sektor}}.Encode()
 	}
-	if greske > 0 {
-		redirectWith(w, r, natrag, "error", "Ažurirano djelatnika: "+strconv.Itoa(n)+", nije uspjelo: "+strconv.Itoa(greske)+" (nemate pravo uređivati te račune)")
+	if greske > 0 || vlastita {
+		poruka := "Ažurirano djelatnika: " + strconv.Itoa(n) + "."
+		if greske > 0 {
+			poruka += " Nije uspjelo: " + strconv.Itoa(greske) + " (nemate pravo uređivati te račune)."
+		}
+		if vlastita {
+			poruka += " " + upperFirst(service.ErrVlastitaAdresaIzAdresara.Error()) + "."
+		}
+		redirectWith(w, r, natrag, "error", poruka)
 		return
 	}
 	redirectWith(w, r, natrag, "success", "Iz adresara tvrtke ažurirano djelatnika: "+strconv.Itoa(n)+".")
+}
+
+// svojaDrugaAdresa javlja je li id račun osobe koja šalje obrazac (stvarne
+// ili one čijim se očima gleda), a adresa v različita od njezine
+func svojaDrugaAdresa(r *http.Request, perms *models.UserPermissions, id, v string) bool {
+	x, err := uuid.Parse(strings.TrimSpace(id))
+	if err != nil {
+		return false
+	}
+	ista := func(u *models.User) bool { return strings.EqualFold(strings.TrimSpace(u.Email), strings.TrimSpace(v)) }
+	if perms != nil && perms.User.ID == x && !ista(&perms.User) {
+		return true
+	}
+	u, _ := stvarnaOsoba(r)
+	return u != nil && u.ID == x && !ista(u)
 }

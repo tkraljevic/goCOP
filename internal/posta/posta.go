@@ -42,6 +42,13 @@ type Postavke struct {
 	DopustiBasic bool          // samo za testove: EWS prijava Basic umjesto NTLM-a
 	TLS          *tls.Config   // samo za testove; nil = provjera certifikata poslužitelja
 	Istek        time.Duration // najdulje trajanje jednog slanja; 0 = 2 minute
+	// Klijent odvaja skup EWS veza: račun sustava (npr. "posta-pin") nikad
+	// ne ide vezom koju je prijavio osobni sandučić istog imena
+	Klijent string
+	// SvjezaVeza traži novu EWS vezu koja nikad nije bila prijavljena i
+	// zatvara je nakon zahtjeva: za provjeru lozinke, jer prijava sustava
+	// Windows vrijedi po vezi i već prijavljena veza primi i krivu lozinku
+	SvjezaVeza bool
 }
 
 // SpremaPoslano javlja ostaje li poslana poruka u korisnikovoj mapi Poslano
@@ -88,6 +95,10 @@ type Poruka struct {
 	Privitci   []Privitak
 	Kad        time.Time
 	OdgovorNa  string // Message-ID pisma na koje se odgovara
+	// BezKopije: poslana poruka ne ostaje u mapi Poslano pošiljatelja
+	// (EWS SendOnly) — npr. PIN za prijavu, koji ne smije stajati u tuđem
+	// sandučiću. SMTP ionako ne sprema kopiju, pa ga zanemaruje.
+	BezKopije bool
 }
 
 // SviPrimatelji su adrese kojima se poruka predaje

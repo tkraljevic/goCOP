@@ -72,6 +72,19 @@ type UserPageData struct {
 	// koja slijedi odmah iza radnje. Ne ide u adresu ni u poruku o uspjehu,
 	// da ne ostane u povijesti preglednika.
 	TempPassword string
+	// Privremeni kod za prijavu izvana (P-XXXX-XXXX), isto samo jednom
+	TempKod        string
+	TempKodIstjece time.Time
+	TempKodCvor    string // ime čvora na kojem kod vrijedi
+	// DrugiKorak: čvor ima drugi korak prijave izvana (gumb privremenog koda)
+	DrugiKorak bool
+
+	// Prijava izvana na vlastitom profilu: PIN, zapamćena računala i
+	// rezervni kodovi; nil kad drugi korak na čvoru nije spojen
+	PrijavaIzvana *ProfilPrijaveIzvana
+	// Izvana: stranica je otvorena izvana (tunel ili javna adresa), pa se
+	// vlastita adresa e-pošte ne mijenja
+	Izvana bool
 
 	SuccessMessage string
 	ErrorMessage   string
@@ -159,7 +172,9 @@ func (h *UsersHandler) loadUser(r *http.Request) (*models.User, bool) {
 
 // HandleResetPassword daje osobi privremenu lozinku i pokaže je
 // administratoru koji će je pročitati preko telefona. Otvorene sesije te
-// osobe se gase, a ona pri prijavi mora postaviti svoju lozinku.
+// osobe se gase, a ona pri prijavi mora postaviti svoju lozinku. Uz kvačicu
+// „i kod za prijavu izvana” osoba dobije i privremeni kod: poništavanje
+// briše stare kodove, pa se novi izdaje tek iza njega.
 func (h *UsersHandler) HandleResetPassword(w http.ResponseWriter, r *http.Request) {
 	perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
 	u, ok := h.loadUser(r)
@@ -172,7 +187,47 @@ func (h *UsersHandler) HandleResetPassword(w http.ResponseWriter, r *http.Reques
 		redirectWith(w, r, "/users/"+u.ID.String(), "error", err.Error())
 		return
 	}
-	h.showUser(w, r, updated, temp)
+	tajne := jednokratno{lozinka: temp}
+	if r.FormValue("i_kod") == "1" {
+		tajne.kod, tajne.kodIstjece, tajne.greskaKoda = h.izdajKod(r, perms, updated.ID)
+	}
+	h.showUser(w, r, updated, tajne)
+}
+
+// HandleKodPrijave izdaje osobi privremeni kod za prijavu izvana (24 sata,
+// jedna prijava) i pokaže ga jednom, kao privremenu lozinku. Smije tko smije
+// poništiti lozinku te osobe, nikad sebi ni tuđim očima.
+func (h *UsersHandler) HandleKodPrijave(w http.ResponseWriter, r *http.Request) {
+	perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
+	u, ok := h.loadUser(r)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	kod, istjece, err := h.izdajKod(r, perms, u.ID)
+	if err != nil {
+		redirectWith(w, r, "/users/"+u.ID.String(), "error", err.Error())
+		return
+	}
+	h.showUser(w, r, u, jednokratno{kod: kod, kodIstjece: istjece})
+}
+
+// izdajKod izdaje privremeni kod; tuđim očima se odbija
+func (h *UsersHandler) izdajKod(r *http.Request, perms *models.UserPermissions, targetID uuid.UUID) (string, time.Time, error) {
+	d := h.dk()
+	if d == nil {
+		return "", time.Time{}, errDrugiKorakNedostupan
+	}
+	viewing, _ := r.Context().Value(contextKeyViewing).(bool)
+	return d.IzdajPrivremeniKod(r.Context(), perms, targetID, viewing)
+}
+
+// jednokratno su tajne koje se pokazuju samo na stranici odmah iza radnje
+type jednokratno struct {
+	lozinka    string
+	kod        string
+	kodIstjece time.Time
+	greskaKoda error // lozinka je poništena, a kod nije izdan
 }
 
 // ShowUser prikazuje jednog djelatnika s kontaktima i zaduženjima
@@ -182,12 +237,20 @@ func (h *UsersHandler) ShowUser(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	h.showUser(w, r, u, "")
+	h.showUser(w, r, u, jednokratno{})
 }
 
-func (h *UsersHandler) showUser(w http.ResponseWriter, r *http.Request, u *models.User, tempPassword string) {
+func (h *UsersHandler) showUser(w http.ResponseWriter, r *http.Request, u *models.User, tajne jednokratno) {
 	data := h.pageData(r)
-	data.TempPassword = tempPassword
+	data.TempPassword = tajne.lozinka
+	data.TempKod, data.TempKodIstjece = tajne.kod, tajne.kodIstjece
+	if tajne.kod != "" {
+		data.TempKodCvor = h.imeCvora()
+	}
+	if tajne.greskaKoda != nil {
+		data.ErrorMessage = "Lozinka je poništena, ali kod za prijavu izvana nije izdan: " + tajne.greskaKoda.Error()
+	}
+	data.DrugiKorak = h.dk() != nil
 	data.User = u
 	data.IsSelf = data.CurrentUser != nil && data.CurrentUser.ID == u.ID
 	data.CanDelete = deletable(u)
@@ -196,6 +259,10 @@ func (h *UsersHandler) showUser(w http.ResponseWriter, r *http.Request, u *model
 		data.ModuleRows = h.moduleRows(r, u)
 	}
 
+	// privremena lozinka i kod ne smiju ostati u pregledniku ni posredniku
+	if tajne.lozinka != "" || tajne.kod != "" {
+		w.Header().Set("Cache-Control", "no-store")
+	}
 	if err := h.tmplDetail.ExecuteTemplate(w, "user_detail.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -291,6 +358,12 @@ func (h *UsersHandler) ShowDutyEditForm(w http.ResponseWriter, r *http.Request) 
 
 // ShowProfile prikazuje vlastiti profil: kontakti i promjena lozinke
 func (h *UsersHandler) ShowProfile(w http.ResponseWriter, r *http.Request) {
+	h.prikaziProfil(w, r, nil)
+}
+
+// prikaziProfil slaže profil; kodovi su upravo napravljeni rezervni kodovi,
+// koji se pokazuju samo na ovoj stranici
+func (h *UsersHandler) prikaziProfil(w http.ResponseWriter, r *http.Request, kodovi []string) {
 	data := h.pageData(r)
 	if data.CurrentUser == nil {
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
@@ -303,6 +376,7 @@ func (h *UsersHandler) ShowProfile(w http.ResponseWriter, r *http.Request) {
 	}
 	data.IsSelf = true
 	data.ActiveNav = "profile"
+	data.Izvana = dolaziIzvana(r)
 	if h.planovi != nil {
 		data.Planovi, _ = h.planovi(r.Context(), data.User.ID.String())
 	}
@@ -315,7 +389,11 @@ func (h *UsersHandler) ShowProfile(w http.ResponseWriter, r *http.Request) {
 	if h.potpisniKljuc != nil {
 		data.Kljuc = h.potpisniKljuc(r.Context(), data.User.ID.String())
 	}
+	data.PrijavaIzvana = h.profilPrijaveIzvana(r, data.User, kodovi)
 
+	if kodovi != nil {
+		w.Header().Set("Cache-Control", "no-store")
+	}
 	if err := h.tmplProfile.ExecuteTemplate(w, "profile.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}

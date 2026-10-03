@@ -322,6 +322,61 @@ func InitSchema(database *sql.DB) error {
 			lozinka BLOB NOT NULL,
 			updated_at DATETIME NOT NULL
 		);`,
+		// Drugi korak prijave izvana (PIN na službenu e-poštu, zapamćena
+		// računala, rezervni i privremeni kodovi): samo na ovom čvoru, ne
+		// ide u knjigu. Tokeni i kodovi stoje samo kao HMAC ključem
+		// izvedenim iz ključa čvora, pa ukradena baza ne otkriva ništa
+		// upotrebljivo, a ni na drugom čvoru ne vrijede.
+		//
+		// Prijava na čekanju: lozinka je točna, a PIN ili kod još nije
+		// upisan. id je HMAC tokena iz kolačića; pin_hash NULL znači da PIN
+		// nije poslan i vrijede samo rezervni i privremeni kodovi.
+		`CREATE TABLE IF NOT EXISTS prijave_na_cekanju (
+			id BLOB PRIMARY KEY,
+			user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			pin_hash BLOB,
+			pokusaja INTEGER NOT NULL DEFAULT 0,
+			poslano_na TEXT NOT NULL DEFAULT '',
+			ip_address TEXT NOT NULL DEFAULT '',
+			user_agent TEXT NOT NULL DEFAULT '',
+			posljednje_slanje DATETIME,
+			expires_at DATETIME NOT NULL,
+			created_at DATETIME NOT NULL,
+			razlog TEXT NOT NULL DEFAULT ''
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_prijave_na_cekanju_user ON prijave_na_cekanju(user_id);`,
+		// Zapamćeno računalo preskače PIN (nikad lozinku). Jedan token po
+		// pregledniku, redak po (token, osoba), pa zajedničko računalo u
+		// uredu radi za više ljudi; lozinka_otisak veže ga uz sažetak
+		// lozinke, pa ga promjena lozinke na bilo kojem čvoru poništi.
+		`CREATE TABLE IF NOT EXISTS zapamcena_racunala (
+			id TEXT PRIMARY KEY,
+			user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			token_hash BLOB NOT NULL,
+			lozinka_otisak BLOB NOT NULL,
+			user_agent TEXT NOT NULL DEFAULT '',
+			ip_prvi TEXT NOT NULL DEFAULT '',
+			ip_zadnji TEXT NOT NULL DEFAULT '',
+			created_at DATETIME NOT NULL,
+			last_used_at DATETIME,
+			expires_at DATETIME NOT NULL,
+			UNIQUE(token_hash, user_id)
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_zapamcena_racunala_user ON zapamcena_racunala(user_id);`,
+		// Rezervni kodovi osobe i privremeni kod od administratora; oznaka
+		// (npr. R3, P) se vidi u kodu, pa se provjerava samo jedan sažetak
+		`CREATE TABLE IF NOT EXISTS kodovi_prijave (
+			id TEXT PRIMARY KEY,
+			user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			vrsta TEXT NOT NULL,
+			oznaka TEXT NOT NULL,
+			kod_hash BLOB NOT NULL,
+			izdao TEXT NOT NULL DEFAULT '',
+			created_at DATETIME NOT NULL,
+			expires_at DATETIME,
+			used_at DATETIME
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_kodovi_prijave_user ON kodovi_prijave(user_id, oznaka);`,
 		// Opće postavke organizacije koje se uređuju u programu i dijele među
 		// čvorovima (npr. poslužitelj e-pošte); vrijednost je JSON ili tekst
 		`CREATE TABLE IF NOT EXISTS postavke (
@@ -1455,6 +1510,15 @@ func migrateSchema(database *sql.DB) error {
 		// 1 kad je redak upisao program koji bilježi inačicu: tek tada
 		// prazna inačica znači da je drugi čvor ne javlja
 		{"peer_sync", "program_poznat", "INTEGER NOT NULL DEFAULT 0"},
+		// Račun sustava koji šalje e-poštu (PIN prijave izvana) treba i
+		// adresu pošiljatelja, jer ime za prijavu nije adresa; neispravan_od
+		// je trenutak kad je poslužitelj odbio lozinku, i do nove lozinke se
+		// njime više ne šalje (inače bi pokušaji zaključali račun domene)
+		{"racuni_sustava", "adresa", "TEXT NOT NULL DEFAULT ''"},
+		{"racuni_sustava", "neispravan_od", "DATETIME"},
+		// Zašto PIN prijave na čekanju nije poslan (oznaka), da stranica s
+		// upisom koda i nakon krivog unosa nudi novi PIN kad ima smisla
+		{"prijave_na_cekanju", "razlog", "TEXT NOT NULL DEFAULT ''"},
 	}
 
 	// Vrijednosti koje su promijenile ime nakon što su upisane

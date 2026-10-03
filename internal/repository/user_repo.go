@@ -241,9 +241,23 @@ func (r *UserRepository) PodrucjeDuznosti(ctx context.Context, userID string) in
 	return area
 }
 
+// StanjeBezEposte je filtar popisa djelatnika uz stanja računa: aktivni
+// računi kojima PIN za prijavu izvana nema kamo ići — bez adrese e-pošte,
+// s adresom izvan dopuštene domene (ListUsersDomena) ili s adresom koju
+// ima još jedan aktivni račun
+const StanjeBezEposte models.AccountState = "BEZ_EPOSTE"
+
 // ListUsers vraća korisnike, opcionalno filtrirane po sektoru, području,
-// ulozi, stanju računa ili tekstu pretrage
+// ulozi, stanju računa (ili StanjeBezEposte) ili tekstu pretrage. Uz
+// StanjeBezEposte domena se ne provjerava; za to je ListUsersDomena.
 func (r *UserRepository) ListUsers(sectorID string, areaID int, role, search, status string) ([]models.User, error) {
+	return r.ListUsersDomena(sectorID, areaID, role, search, status, "")
+}
+
+// ListUsersDomena je ListUsers u kojem filtar StanjeBezEposte hvata i
+// aktivne račune čija adresa nije u domeni na koju ide PIN (domena bez @,
+// npr. voda.hr; prazno = ne provjerava se)
+func (r *UserRepository) ListUsersDomena(sectorID string, areaID int, role, search, status, domena string) ([]models.User, error) {
 	query := `
 		SELECT DISTINCT ` + userColumnsOf("u") + `
 		FROM users u
@@ -280,6 +294,16 @@ func (r *UserRepository) ListUsers(sectorID string, areaID int, role, search, st
 		query += " AND u.is_active = 1 AND u.last_login_at IS NULL"
 	case models.AccountActive:
 		query += " AND u.is_active = 1 AND u.last_login_at IS NOT NULL"
+	case StanjeBezEposte:
+		// isti uvjeti kao DrugiKorak.adresaZaPIN: prazna, tuđa domena,
+		// zajednička s drugim aktivnim računom
+		query += ` AND u.is_active = 1 AND (
+			TRIM(COALESCE(u.email, '')) = ''
+			OR (? <> '' AND substr(lower(trim(u.email)), -(length(?) + 1)) <> '@' || ?)
+			OR EXISTS (SELECT 1 FROM users o WHERE o.id <> u.id AND o.is_active = 1
+				AND lower(trim(o.email)) = lower(trim(u.email))))`
+		dom := strings.ToLower(strings.TrimSpace(domena))
+		args = append(args, dom, dom, dom)
 	}
 	if s := strings.TrimSpace(search); s != "" {
 		searchLike := "%" + s + "%"
@@ -411,7 +435,7 @@ func (r *UserRepository) CreateUser(u *models.User, initialDuty *models.Duty) er
 			initialDuty.ID.String(), initialDuty.UserID.String(), initialDuty.Title,
 			string(initialDuty.Role), string(initialDuty.ScopeType), initialDuty.SectorID,
 			initialDuty.AreaID, initialDuty.SectionCodes, initialDuty.Reason,
-			initialDuty.AssignedBy, initialDuty.CreatedAt, initialDuty.ExpiresAt,
+			initialDuty.AssignedBy, initialDuty.CreatedAt, nullTime(initialDuty.ExpiresAt),
 		)
 		if err != nil {
 			return fmt.Errorf("greška pri unosu funkcije: %w", err)
@@ -599,7 +623,7 @@ func (r *UserRepository) AddDuty(d *models.Duty) error {
 	`,
 		d.ID.String(), d.UserID.String(), d.Title, string(d.Role), string(d.ScopeType),
 		d.SectorID, d.AreaID, d.SectionCodes, isPrimaryInt, isTempInt,
-		d.Reason, byStr, d.CreatedAt, d.ExpiresAt,
+		d.Reason, byStr, d.CreatedAt, nullTime(d.ExpiresAt),
 	)
 	if err != nil {
 		return fmt.Errorf("greška pri spremanju dužnosti: %w", err)
@@ -639,7 +663,7 @@ func (r *UserRepository) UpdateDuty(d *models.Duty) error {
 		       is_primary = ?, is_temporary = ?, reason = ?, expires_at = ?
 		WHERE id = ?`,
 		d.Title, string(d.Role), string(d.ScopeType), d.SectorID, d.AreaID, d.SectionCodes,
-		boolInt(d.IsPrimary), boolInt(d.IsTemporary), d.Reason, d.ExpiresAt, d.ID.String())
+		boolInt(d.IsPrimary), boolInt(d.IsTemporary), d.Reason, nullTime(d.ExpiresAt), d.ID.String())
 	if err != nil {
 		return fmt.Errorf("greška pri spremanju dužnosti: %w", err)
 	}
@@ -775,6 +799,15 @@ func (r *UserRepository) GetUserPermissions(userID uuid.UUID) (*models.UserPermi
 // GlobalAdminContact vraća ime, telefon i e-poštu glavnog administratora
 // koji ima bar jedan kontakt; on na stranici prijave pomaže oko prijave i
 // početne lozinke. Prednost ima onaj s mobitelom i e-poštom, pa najstariji račun.
+// AktivnihSAdresom broji druge aktivne račune s istom adresom e-pošte (bez
+// obzira na velika slova i razmake)
+func (r *UserRepository) AktivnihSAdresom(adresa string, osim uuid.UUID) (int, error) {
+	var n int
+	err := r.db.QueryRow(`SELECT COUNT(*) FROM users
+		WHERE lower(trim(email)) = lower(trim(?)) AND is_active = 1 AND id <> ?`, adresa, osim.String()).Scan(&n)
+	return n, err
+}
+
 func (r *UserRepository) GlobalAdminContact() (name, phone, email string, ok bool) {
 	err := r.db.QueryRow(`
 		SELECT full_name, CASE WHEN mobile_phone <> '' THEN mobile_phone ELSE phone END, email

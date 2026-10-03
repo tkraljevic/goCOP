@@ -26,9 +26,15 @@
     <a href="/users/{{.User.ID}}/duties/new" class="btn btn-secondary">{{icon "plus"}} Zaduženje</a>
     {{end}}
     {{if and (not .IsSelf) .CanManage}}
-    <form method="POST" action="/users/{{.User.ID}}/reset-password" onsubmit="return confirm('Poništiti lozinku i dati {{.User.FullName}} privremenu? Otvorene prijave te osobe se gase.')">
+    <form method="POST" action="/users/{{.User.ID}}/reset-password" onsubmit="return confirm('Poništiti lozinku i dati {{.User.FullName}} privremenu? Otvorene prijave te osobe se gase.')" style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
       <button type="submit" class="btn btn-secondary" title="Za osobu koja je zaboravila lozinku">{{icon "key-round"}} Poništi lozinku</button>
+      {{if .DrugiKorak}}<label class="form-help" style="margin:0;" title="Za osobu izvan ureda koja nema e-poštu ili joj PIN ne stiže"><input type="checkbox" name="i_kod" value="1"> i kod za prijavu izvana</label>{{end}}
     </form>
+    {{if .DrugiKorak}}
+    <form method="POST" action="/users/{{.User.ID}}/kod-prijave" onsubmit="return confirm('Izdati {{.User.FullName}} privremeni kod za prijavu izvana? Vrijedi 24 sata i za jednu prijavu, uz njezinu lozinku; stariji neiskorišteni kod prestaje vrijediti.')">
+      <button type="submit" class="btn btn-secondary" title="Kad PIN ne stiže: kod zamjenjuje PIN za jednu prijavu izvana, 24 sata">{{icon "shield"}} Privremeni kod za prijavu</button>
+    </form>
+    {{end}}
     {{end}}
     {{if and (not .IsSelf) .Permissions.IsGlobalAdmin}}
     <form method="POST" action="/view-as/{{.User.ID}}">
@@ -44,6 +50,17 @@
   <div style="font-family:ui-monospace, monospace; font-size:1.35rem; font-weight:700; letter-spacing:0.02em; margin:0.5rem 0; user-select:all;">{{.TempPassword}}</div>
   Pročitajte je toj osobi. Prikazuje se samo sada; program je više ne zna, pamti samo njezin sažetak.
   Pri prijavi mora postaviti svoju lozinku, a dotadašnje prijave te osobe su ugašene.
+</div>
+{{end}}
+
+{{if .TempKod}}
+<div class="alert alert-success" style="display:block;">
+  <strong>{{icon "shield"}} Kod za prijavu izvana za {{.User.FullName}}</strong>
+  <div style="font-family:ui-monospace, monospace; font-size:1.35rem; font-weight:700; letter-spacing:0.02em; margin:0.5rem 0; user-select:all;">{{.TempKod}}</div>
+  Upisuje se umjesto PIN-a, nakon lozinke, kad se prijavljuje izvana. Vrijedi za jednu prijavu, do {{vrijemeHR .TempKodIstjece}}.
+  Prikazuje se samo sada; program pamti samo njegov sažetak.
+  <strong>Kod vrijedi samo na ovom čvoru{{if .TempKodCvor}} (<span class="mono">{{.TempKodCvor}}</span>){{end}}</strong>: za prijavu izvana izdajte ga na javnom čvoru,
+  kroz koji se osoba prijavljuje izvana (npr. <span class="mono">https://cop-osijek.com</span>).
 </div>
 {{end}}
 

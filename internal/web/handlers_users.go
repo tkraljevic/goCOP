@@ -31,6 +31,12 @@ type UsersHandler struct {
 	postaRacun func(ctx context.Context, userID string) (string, time.Time)
 	// planovi daje planove dežurstava osobe, za profil; nil dok se ne spoji
 	planovi func(ctx context.Context, userID string) ([]models.PlanOsobe, error)
+	// drugiKorak daje drugi korak prijave izvana (zapamćena računala,
+	// rezervni i privremeni kodovi); nil ili nil servis dok se ne spoji
+	drugiKorak func() *service.DrugiKorak
+	// cvor daje ime ovog čvora: rezervni i privremeni kodovi vrijede samo
+	// na čvoru na kojem su napravljeni; nil dok se ne spoji
+	cvor func() string
 }
 
 // SetPlanovi spaja profil s planom dežurstava: osoba na profilu vidi svoje
@@ -181,6 +187,14 @@ func (h *UsersHandler) HandleUpdateUser(w http.ResponseWriter, r *http.Request) 
 	isActive := r.FormValue("is_active") == "1" || r.FormValue("is_active") == "on"
 	isGlobalAdmin := r.FormValue("is_global_admin") == "1" || r.FormValue("is_global_admin") == "on"
 
+	// Svoju lozinku administrator mijenja na profilu, uz trenutnu: obrazac
+	// djelatnika postavlja tuđu (i time opoziva njezina zapamćena računala)
+	vlastiti := perms != nil && perms.User.ID == userID
+	if vlastiti && r.FormValue("password") != "" {
+		redirectWith(w, r, "/users/"+userID.String()+"/edit", "error", "Svoju lozinku mijenjate na profilu, uz trenutnu lozinku.")
+		return
+	}
+
 	req := service.UpdateUserRequest{
 		ID:            userID,
 		Username:      r.FormValue("username"),
@@ -196,9 +210,12 @@ func (h *UsersHandler) HandleUpdateUser(w http.ResponseWriter, r *http.Request) 
 		ShortMobile:   r.FormValue("short_mobile"),
 		Email:         r.FormValue("email"),
 		IsActive:      isActive,
+		// vlastita adresa e-pošte mijenja se uz trenutnu lozinku i ne izvana
+		TrenutnaLozinka: r.FormValue("trenutna_lozinka"),
+		Izvana:          dolaziIzvana(r),
 	}
 
-	_, err = h.userService.UpdateUser(perms, req)
+	_, err = h.azurirajUzLozinku(perms, req)
 	if err != nil {
 		redirectWith(w, r, "/users/"+userID.String()+"/edit", "error", err.Error())
 		return
@@ -220,7 +237,7 @@ func (h *UsersHandler) HandleUpdateProfile(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	returnURL := sigurnaPovratnaAdresa(r, "/")
+	returnURL := povratnaAdresaProfila(r, "/")
 
 	req := service.UpdateUserRequest{
 		ID:            perms.User.ID,
@@ -236,9 +253,13 @@ func (h *UsersHandler) HandleUpdateProfile(w http.ResponseWriter, r *http.Reques
 		ShortMobile:   r.FormValue("short_mobile"),
 		Email:         r.FormValue("email"),
 		IsActive:      perms.User.IsActive,
+		// na adresu e-pošte ide PIN za prijavu izvana: mijenja se uz
+		// trenutnu lozinku, samo na dopuštenu domenu i ne izvana
+		TrenutnaLozinka: r.FormValue("trenutna_lozinka"),
+		Izvana:          dolaziIzvana(r),
 	}
 
-	updated, err := h.userService.UpdateUser(perms, req)
+	updated, err := h.azurirajUzLozinku(perms, req)
 	if err != nil {
 		http.Redirect(w, r, returnURL+"?error="+url.QueryEscape(err.Error()), http.StatusSeeOther)
 		return
@@ -248,6 +269,26 @@ func (h *UsersHandler) HandleUpdateProfile(w http.ResponseWriter, r *http.Reques
 		perms.User = *updated
 	}
 	http.Redirect(w, r, returnURL+"?success="+url.QueryEscape("Vaš profil je uspješno ažuriran"), http.StatusSeeOther)
+}
+
+// azurirajUzLozinku sprema izmjenu računa; kad je upisana trenutna lozinka
+// (promjena vlastite adrese e-pošte), kriva se broji kao i pri promjeni
+// lozinke, da obrazac ne postane proročište za pogađanje
+func (h *UsersHandler) azurirajUzLozinku(perms *models.UserPermissions, req service.UpdateUserRequest) (*models.User, error) {
+	if req.TrenutnaLozinka == "" || perms == nil || perms.User.ID != req.ID {
+		return h.userService.UpdateUser(perms, req)
+	}
+	kljuc := kljucPonovneLozinke("", perms.User.ID.String())
+	if err := ponovnaLozinkaDopustena(kljuc); err != nil {
+		return nil, err
+	}
+	u, err := h.userService.UpdateUser(perms, req)
+	// točna lozinka briše brojač samo kad je doista provjerena (adresa se
+	// mijenjala); inače bi spremanje bez promjene adrese brisalo krive upise
+	if err != nil || !strings.EqualFold(strings.TrimSpace(req.Email), strings.TrimSpace(perms.User.Email)) {
+		ishodPonovneLozinke(kljuc, err)
+	}
+	return u, err
 }
 
 // HandleAddDuty dodjeljuje dodatnu funkciju, zaduženje dionica ili privremenu ispomoć

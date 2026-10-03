@@ -166,7 +166,7 @@ func (r *BiljeskaRepository) Spremi(ctx context.Context, biljeske []models.Arhiv
 			ON CONFLICT(id) DO UPDATE SET vrsta=excluded.vrsta, tekst=excluded.tekst,
 				tko=excluded.tko, updated_at=excluded.updated_at`,
 			b.ID.String(), b.Letva, b.Velicina, b.Korak, b.Vrijeme.UTC(), b.Vrsta, b.Tekst,
-			b.Tko, b.CreatedAt, b.UpdatedAt); err != nil {
+			b.Tko, b.CreatedAt.UTC(), b.UpdatedAt.UTC()); err != nil {
 			return n, fmt.Errorf("upis bilješke: %w", err)
 		}
 		if _, err := r.rec.Record(ctx, tx, EntityBiljeske, b.ID.String(), b); err != nil {

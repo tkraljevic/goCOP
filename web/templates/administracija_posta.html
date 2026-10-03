@@ -8,7 +8,7 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">{{icon "mail"}} Poslužitelj e-pošte</h1>
-    <p class="page-desc">Preko njega goCOP šalje ovjerene akte primateljima "na znanje" i čita korisnikov sandučić. Šalje se s adrese i računa prijavljenog korisnika; lozinku svatko upisuje u svom profilu. Postavke vrijede na svim čvorovima.</p>
+    <p class="page-desc">Preko njega goCOP šalje ovjerene akte primateljima "na znanje" i čita korisnikov sandučić. Šalje se s adrese i računa prijavljenog korisnika; lozinku svatko upisuje u svom profilu. Postavke vrijede na svim čvorovima. Jedino PIN za prijavu izvana šalje račun sustava, upisan na svakom čvoru posebno (dolje).</p>
   </div>
 </div>
 
@@ -57,4 +57,99 @@
     <p class="form-help">Ispitivanje ne treba lozinku: provjeri je li poslužitelj dostupan, nudi li prijavu i koju domenu objavljuje.</p>
   </form>
 </section>
+
+{{if .PINGreska}}<div class="alert alert-error" id="pin">Stanje PIN-a za prijavu izvana nije pročitano: {{.PINGreska}}</div>{{end}}
+{{with .PIN}}
+<section class="detail-section" style="max-width:40rem;" id="pin">
+  <h2 class="detail-section-title">{{icon "shield"}} PIN za prijavu izvana</h2>
+  {{if .BezPosiljatelja}}
+  <div class="alert alert-error" id="pin-bez-posiljatelja" style="display:block;">
+    <strong>{{icon "triangle-alert"}} PIN izvana je uključen, a ovaj čvor nema ispravnog računa za slanje PIN-a.</strong>
+    {{if not .Posiljatelj}}Račun nije upisan na ovom čvoru.{{else if .Posiljatelj.NeispravanOd}}Poslužitelj e-pošte odbio je lozinku računa.{{else}}Poslužitelj e-pošte nije podešen.{{end}}
+    Tko se kroz ovaj čvor prijavljuje izvana, PIN ne dobiva i ulazi samo rezervnim ili privremenim kodom.
+    Upišite račun ispod i pošaljite probni PIN. Sklopka vrijedi na svim čvorovima: isključite PIN samo ako ga ne šalje ni jedan čvor koji prima prijave izvana.
+  </div>
+  {{else if and .Opcije.PIN (not .PrimaIzvana)}}
+  <p class="form-help" id="pin-bez-prijava-izvana">Ovaj čvor u zadnjih sedam dana (otkad program radi) nije primio prijavu izvana. PIN šalje čvor kroz koji se ulazi,
+    pa račun za slanje ovdje treba tek ako se i kroz ovaj čvor ulazi izvana.</p>
+  {{end}}
+  <p class="form-help" style="margin-top:0;">Kad je uključen, prijava izvana (kroz tunel ili s javne adrese) nakon točne lozinke traži i PIN
+    poslan na službenu e-poštu osobe, rezervni kod ili privremeni kod od administratora. Prijava iz lokalne mreže PIN nikad ne traži.
+    Sklopka vrijedi na svim čvorovima; PIN šalje račun upisan na ovom čvoru, pa ga treba upisati na svakom čvoru koji prima prijave izvana.</p>
+  <p class="form-help"><strong>Uključuje se na javnom čvoru, izvana.</strong> Otvorite ovu stranicu kroz tunel (npr. <span class="mono">https://cop-osijek.com</span>),
+    ondje upišite račun za slanje, pošaljite sebi probni PIN i tek tada uključite PIN. Uključen s računala u lokalnoj mreži, PIN bi se tražio
+    na javnom čvoru koji možda nema svoj račun za slanje, pa bi se izvana ulazilo samo kodovima.
+    {{if .Izvana}}Ova stranica otvorena je izvana.{{if .BezHTTPS}} <strong id="pin-bez-https">Stranica nije stigla preko HTTPS-a</strong> (ni izravno, ni kroz posrednika koji to javlja zaglavljem
+    <span class="mono">X-Forwarded-Proto: https</span>), pa se PIN ovdje ne uključuje: prijava izvana s PIN-om bi se odbijala.{{end}}{{else}}<strong>Ova stranica otvorena je iz lokalne mreže</strong>, pa se PIN ovdje može samo isključiti.{{end}}</p>
+
+  <p class="profil-stanje">
+    {{if .Opcije.PIN}}<span class="badge badge-active">{{icon "check"}} uključen</span> PIN se traži za prijavu izvana{{else}}<span class="badge badge-pending">isključen</span> prijava izvana traži samo lozinku{{end}};
+    PIN ide samo na adrese <span class="mono">@{{.Opcije.Domena}}</span>.
+  </p>
+
+  <h3 style="font-size:0.95rem; margin:1rem 0 0.25rem;">Račun koji šalje PIN s ovog čvora</h3>
+  {{if .Posiljatelj}}
+    {{if .Posiljatelj.NeispravanOd}}
+    <div class="alert alert-error">Poslužitelj e-pošte odbio je lozinku računa <span class="mono">{{.Posiljatelj.Korisnik}}</span> {{vrijemeHR (derefTime .Posiljatelj.NeispravanOd)}}.
+      PIN se više ne šalje (svaki pokušaj s krivom lozinkom zaključavao bi račun u domeni) dok lozinku ne upišete ponovno.</div>
+    {{end}}
+    <p class="form-help">Upisan je račun <strong class="mono">{{.Posiljatelj.Korisnik}}</strong>, adresa pošiljatelja <span class="mono">{{.Posiljatelj.Adresa}}</span>, od {{vrijemeHR .Posiljatelj.Spremljen}}.
+      {{if not .StankaDo.IsZero}}<br><strong>Slanje stoji do {{satHR .StankaDo}}</strong>: veza s poslužiteljem e-pošte nije uspjela.{{end}}
+      {{if .ProbaUspjela}}<br>Probni PIN prošao je {{vrijemeHR .ProbaKad}}.{{else}}<br>Probni PIN s ovim računom još nije prošao (ili je program u međuvremenu ponovno pokrenut).{{end}}</p>
+  {{else}}
+  <p class="form-help">Na ovom čvoru još nije upisan račun za slanje PIN-a.</p>
+  {{end}}
+  <form method="POST" action="/administracija/posta/pin" autocomplete="off">
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="pin_korisnik">Korisničko ime</label>
+        <input type="text" id="pin_korisnik" name="korisnik" class="form-control" value="{{with .Posiljatelj}}{{.Korisnik}}{{end}}" autocapitalize="off" spellcheck="false" placeholder="kao za e-poštu na mobitelu">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="pin_lozinka">Lozinka</label>
+        <input type="password" id="pin_lozinka" name="lozinka" class="form-control" autocomplete="new-password" placeholder="lozinka domene">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="pin_adresa">Adresa pošiljatelja</label>
+      <input type="email" id="pin_adresa" name="adresa" class="form-control" value="{{with .Posiljatelj}}{{.Adresa}}{{end}}" placeholder="prazno: potraži u adresaru tvrtke" autocapitalize="off" spellcheck="false">
+      <div class="form-help">Korisničko ime često nije adresa (npr. <span class="mono">ivan.horvat</span> i <span class="mono">Ivan.Horvat@voda.hr</span>), a Exchange ne šalje s tuđe adrese. Prazno: goCOP je potraži u adresaru.</div>
+    </div>
+    <div class="form-actions" style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+      <button type="submit" class="btn btn-primary" name="radnja" value="spremi">{{icon "check"}} Provjeri i spremi</button>
+      <button type="submit" class="btn btn-secondary" name="radnja" value="iz_poste" formnovalidate>{{icon "mail"}} Uzmi moj račun e-pošte</button>
+      {{if .Posiljatelj}}<button type="submit" class="btn btn-secondary" name="radnja" value="obrisi" formnovalidate onclick="return confirm('Obrisati račun za slanje PIN-a s ovog čvora?')">{{icon "trash"}} Obriši</button>{{end}}
+    </div>
+    <p class="form-help">Prijava se provjeri na poslužitelju prije spremanja; lozinka ostaje zaključana ključem ovog čvora i ne putuje razmjenom.
+      PIN-ovi se šalju bez kopije u mapi Poslano.</p>
+  </form>
+
+  {{if .Posiljatelj}}
+  <form method="POST" action="/administracija/posta/pin/proba" style="margin-top:0.75rem;">
+    <button type="submit" class="btn btn-secondary"{{if .Posiljatelj.NeispravanOd}} disabled{{end}}>{{icon "mail"}} Pošalji probni PIN meni</button>
+    <span class="form-help">Ide na vašu adresu iz profila, istim putem kao pri prijavi.</span>
+  </form>
+  {{end}}
+
+  <h3 style="font-size:0.95rem; margin:1rem 0 0.25rem;">Sklopka</h3>
+  <form method="POST" action="/administracija/posta/pin/sklopka">
+    <div class="form-group">
+      <label class="form-label" for="pin_domena">Dopuštena domena</label>
+      <input type="text" id="pin_domena" name="domena" class="form-control" value="{{.Opcije.Domena}}" autocapitalize="off" spellcheck="false">
+      <div class="form-help">PIN ide samo na adrese u ovoj domeni, i samo na nju osobe smiju same promijeniti adresu.</div>
+    </div>
+    <div class="form-actions" style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+      {{if .Opcije.PIN}}
+      <button type="submit" class="btn btn-secondary" name="ukljuci" value="1">{{icon "check"}} Spremi domenu</button>
+      <button type="submit" class="btn btn-secondary" name="ukljuci" value="0" onclick="return confirm('Isključiti PIN za prijavu izvana na svim čvorovima?')">{{icon "x"}} Isključi PIN</button>
+      {{else}}
+      <button type="submit" class="btn btn-primary" name="ukljuci" value="1"{{if not $.PIN.MozeUkljuciti}} disabled{{end}}>{{icon "shield"}} Uključi PIN za prijavu izvana</button>
+      <button type="submit" class="btn btn-secondary" name="ukljuci" value="0">{{icon "check"}} Spremi domenu</button>
+      {{end}}
+    </div>
+    {{if not .Opcije.PIN}}{{if not $.PIN.MozeUkljuciti}}<p class="form-help">Uključiti se može samo sa stranice otvorene izvana preko HTTPS-a (kroz tunel), kad je na tom čvoru upisan ispravan račun i probni PIN je stigao.
+      Prije toga napravite sebi rezervne kodove na <a href="/profile#prijava-izvana">profilu</a>, također izvana: kodovi vrijede samo na čvoru na kojem su napravljeni.</p>{{end}}{{end}}
+  </form>
+</section>
+{{end}}
 {{end}}

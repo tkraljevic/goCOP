@@ -4,6 +4,57 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.26-alfa — 3. 10. 2026.
+
+**PIN za prijavu izvana.** Nadograditi najprije čvor dostupan kroz tunel.
+Prekidač je zadano isključen: dok ga administrator ne uključi, PIN se ne
+traži. Odmah vrijede pravila za vlastitu adresu e-pošte, brojanje prijava na
+Exchange i gašenje prijava uz lozinku od administratora (stavke ispod).
+
+- **Drugi korak prijave izvana.** Prijava kroz posrednika ili s javne adrese
+  nakon točne lozinke traži šesteroznamenkasti PIN poslan na službenu
+  e-poštu osobe (zadano samo `@voda.hr`), rezervni kod s profila (deset
+  jednokratnih) ili privremeni kod administratora (24 h, jednom). Prijava iz
+  lokalne mreže PIN nikad ne traži. PIN vrijedi 10 minuta i jednom; pet
+  krivih upisa poništi prijavu na čekanju, deset u satu zaključa upis kodova
+  na sat. Preglednik se može zapamtiti na 30 dana; promjena lozinke, na bilo
+  kojem čvoru, to poništi. Radi samo preko HTTPS-a (posrednik mora slati
+  `X-Forwarded-Proto: https`, što cloudflared radi sam); izvana preko
+  nešifriranog http-a prijava se odbija jasnom porukom.
+- **Pošiljatelj PIN-a.** Račun u domeni upisuje se na čvoru iza tunela
+  (Administracija → E-pošta), provjeri prijavom na Exchange i čuva šifriran
+  ključem čvora. PIN se šalje bez kopije u Poslanim stavkama i ne piše u
+  dnevnik. Kad Exchange odbije lozinku, slanje staje dok je administrator ne
+  upiše ponovno; kad poslužitelj nije dostupan, stane na pet minuta. Najviše
+  tri PIN-a osobi u 15 minuta i 60 na sat po čvoru.
+- **Prekidač** je zajednička postavka, a uključuje se samo izvana preko
+  HTTPS-a, na čvoru koji ima pošiljatelja i nakon uspješnog probnog PIN-a;
+  isključuje se odasvud. Čvor koji je u zadnjih sedam dana (otkad program
+  radi) primio prijavu izvana, a PIN nema čime slati, diže uzbunu na
+  stranicama administracije i u dnevniku; čvor samo u lokalnoj mreži je ne
+  diže.
+- **Prijave računa u domeni** (lozinka osobnog sandučića i pošiljatelj PIN-a)
+  broje se po osobi i računu: najviše tri u pola sata, da goCOP ne zaključa
+  račun u domeni. Prijava koju poslužitelj primi briše brojač tog računa i
+  osobi ne troši upis; uz to vrijede najviše tri neprihvaćena upisa lozinke
+  osobe u 15 minuta po obrascu, pa je pogađanje tuđih lozinki kroz goCOP
+  sporo (vlastita točna lozinka više ne briše tu granicu).
+- **Veza prema Exchangeu po imenu i lozinci.** Prijavljena veza dosad se
+  dijelila po imenu računa, pa je druga lozinka istog imena (i druga osoba
+  koja upiše tuđe ime) prolazila vezom vlasnika: kriva lozinka spremala se
+  kao provjerena, a tuđi sandučić se mogao čitati. Sada svaka lozinka ima
+  svoju vezu, a upis lozinke uvijek se provjerava novom prijavom.
+- **Profil i Korisnici.** Osoba vidi svoja zapamćena računala i rezervne
+  kodove; administrator izdaje privremeni kod. Vlastitu adresu e-pošte osoba
+  mijenja samo iz lokalne mreže, uz trenutnu lozinku i tek nakon zamjene
+  početne lozinke; adresa mora biti u
+  dopuštenoj domeni (zadano `voda.hr`) i ne smije pripadati drugom aktivnom
+  djelatniku, a promjena se javlja na staru adresu.
+- **Lozinka koju administrator postavi** kroz obrazac korisnika gasi i
+  otvorene prijave te osobe, kao poništenje lozinke.
+- **Vremena iz razmjene** s pomakom koji mjesna zona nema (npr. čvor s
+  `TZ=UTC`) spremaju se čitljivo u svim tablicama, ne samo u dnevnicima.
+
 ## 0.0.25-alfa — 2. 10. 2026.
 
 **Sigurnosno učvršćivanje.** Nadograditi najprije čvor dostupan kroz tunel.

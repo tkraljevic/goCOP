@@ -31,7 +31,7 @@ func dezurstvoArgs(d *models.Dezurstvo) []any {
 	if d.ZaPodrucje() {
 		podrucje = *d.Podrucje
 	}
-	return []any{d.ID, d.JournalID, d.UserID, d.UserName, d.Od.UTC(), d.Do.UTC(), podrucje, d.Opis, d.Mjesto, d.Napomena, d.Potvrdio, potvrdeno, d.CreatedBy, d.CreatedAt, d.UpdatedAt}
+	return []any{d.ID, d.JournalID, d.UserID, d.UserName, d.Od.UTC(), d.Do.UTC(), podrucje, d.Opis, d.Mjesto, d.Napomena, d.Potvrdio, potvrdeno, d.CreatedBy, d.CreatedAt.UTC(), d.UpdatedAt.UTC()}
 }
 
 const dezurstvoColumns = `id, journal_id, user_id, user_name, od, do_, podrucje, opis, mjesto, napomena, potvrdio, potvrdeno_at, created_by, created_at, updated_at`

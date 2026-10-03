@@ -72,6 +72,21 @@ func TestPomocOpisujeStalniCvorITunelskuRazmjenu(t *testing.T) {
 	}
 }
 
+func TestPomocOpisujeSigurnost025(t *testing.T) {
+	h := pomocHTML(t)
+	for _, want := range []string{
+		"tuđih stranica (CSRF)", "sigurni sesijski",
+		"Zadana lozinka ne vrijedi za prijavu izvana",
+		"i potvrđuje globalni administrator", "Svjež čvor bez računa",
+		"ostale prijave na istom čvoru", "može tražiti PIN",
+		"Potpisane ovlasti izdavatelja", "ostaju razvojni zadaci",
+	} {
+		if !strings.Contains(h, want) {
+			t.Errorf("pomoć ne opisuje sigurnosno pravilo %q", want)
+		}
+	}
+}
+
 func TestPomocObjasnjavaKontroleKarte(t *testing.T) {
 	h := pomocHTML(t)
 	for _, want := range []string{

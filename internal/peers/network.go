@@ -216,7 +216,7 @@ func (s *Service) saveMembership(ctx context.Context, m razmjena.Membership) err
 		ON CONFLICT(node_id) DO UPDATE SET
 			public_key = excluded.public_key, network = excluded.network, issued_by = excluded.issued_by,
 			issued_at = excluded.issued_at, expires_at = excluded.expires_at, signature = excluded.signature
-	`, m.DeviceID, m.DeviceKey, m.Network, m.IssuedBy, m.IssuedAt, m.ExpiresAt, m.Signature, time.Now().UTC()); err != nil {
+	`, m.DeviceID, m.DeviceKey, m.Network, m.IssuedBy, m.IssuedAt.UTC(), m.ExpiresAt.UTC(), m.Signature, time.Now().UTC()); err != nil {
 		return err
 	}
 	if _, err := s.rec.Record(ctx, tx, EntityMemberships, m.DeviceID, m); err != nil {

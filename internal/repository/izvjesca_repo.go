@@ -32,7 +32,7 @@ func izvjesceArgs(i *models.DnevnoIzvjesce) ([]any, error) {
 	if i.PredanoAt != nil {
 		predano = i.PredanoAt.UTC()
 	}
-	return []any{i.ID, i.JournalID, i.SectionCode, i.DanKey(), string(i.Stadij), string(sadrzaj), i.IzradioID, i.Izradio, i.IzradenoAt.UTC(), predano, i.CreatedAt, i.UpdatedAt}, nil
+	return []any{i.ID, i.JournalID, i.SectionCode, i.DanKey(), string(i.Stadij), string(sadrzaj), i.IzradioID, i.Izradio, i.IzradenoAt.UTC(), predano, i.CreatedAt.UTC(), i.UpdatedAt.UTC()}, nil
 }
 
 const izvjesceColumns = `i.id, i.journal_id, i.section_code, i.dan, i.stadij, i.sadrzaj, i.izradio_id, i.izradio, i.izradeno_at, i.predano_at, i.created_at, i.updated_at,

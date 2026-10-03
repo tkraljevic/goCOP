@@ -307,7 +307,7 @@ od 5 min). Zato je zadnja faza i može se odgoditi.
 
 | vrsta | smjer | sadržaj |
 |---|---|---|
-| `prijava` | čvor → R | `{"ver":1,"program":"0.0.28-alfa","mogucnosti":["veza/1"],"udp":true,"nat":{"eim":"da","cuvaPort":true,"udpBlokiran":false,"stun":"cloudflare","rttMs":11}}` (nepotpisano; identitet daje TLS) |
+| `prijava` | čvor → R | `{"ver":1,"program":"0.0.29-alfa","mogucnosti":["veza/1"],"udp":true,"nat":{"eim":"da","cuvaPort":true,"udpBlokiran":false,"stun":"cloudflare","rttMs":11}}` (nepotpisano; identitet daje TLS) |
 | `prijavljen` | R → čvor | `{"ver":1,"sastajaliste":"<ključ R>","mogucnosti":["sastajaliste/1","posrednik/1"],"vidjenaIP":"93.142.240.240","vrijeme":1790990000,"pulsSek":25}` |
 | `puls` | oba | prazno; svakih 25 s |
 | `poziv` | A → R → B | potpisano tijelo (§5.2) |
@@ -414,7 +414,7 @@ pokušaju.
 `pozdrav` (oba smjera, prva poruka na 0x00):
 
 ```json
-{"kind":"pozdrav","payload":{"verzija":1,"program":"0.0.28-alfa",
+{"kind":"pozdrav","payload":{"verzija":1,"program":"0.0.29-alfa",
  "mogucnosti":["veza/1","razmjena/1"],"kanali":[0,1],"put":"probijeno"}}
 ```
 
@@ -527,9 +527,9 @@ dokumentaciji o zaštiti podataka.
 otkrivanje (UDP 4712), potvrde članstva (`signedBytes` v1) i razgovor
 razmjene, bajt za bajtom. TLS na TCP-u ne dobiva `NextProtos`.
 
-| A \ B | 0.0.25 | novi |
+| A \ B | 0.0.26 | novi |
 |---|---|---|
-| **0.0.25** | kao danas | kao danas (novi B poslužuje stare putove nepromijenjeno) |
+| **0.0.26** | kao danas | kao danas (novi B poslužuje stare putove nepromijenjeno) |
 | **novi** | kao danas: B nema `veza/1` u zapisu ili nije prijavljen → stari put | probijanje / posrednik |
 
 **Dogovor sposobnosti:** `mogucnosti` u zapisu čvora (ima li smisla
@@ -540,15 +540,15 @@ zajednička); `pozdrav.kanali`.
 **Beacon:** `Meta["quic_port"]` (Meta je već `map[string]string`,
 discovery.go:31 [V]). Stari čvorovi polje zanemaruju.
 
-**Izdanja (okvirno; pravilo plana: stalni čvor prvi, odmah zatim ostali):**
+**Izdanja (okvirno; pravilo plana: stalni čvor prvi, odmah zatim ostali; 0.0.26 je izdanje s PIN-om za prijavu izvana, pa protokol počinje od 0.0.27):**
 
 | izdanje | sadržaj | zadano |
 |---|---|---|
-| **0.0.26** | F0 + F1: prerada `Conn`, `Put`, ispravak `noteSync`; UDP utičnica, STUN, netcheck, blok „Dohvatljivost", gumb „Provjeri vezu". Bez promjene ponašanja razmjene. | utičnica uključena, periodični netcheck uključen samo na Unraidu i laptopu; ostali samo na gumb |
-| **0.0.27** | F2: `/razmjena/signal`, prijava, puls, potpisani poziv/odziv, `mogucnosti` u zapisu čvora | `sastajaliste = true` samo na Unraidu; `probijanje = false` |
-| **0.0.28** | F3: QUIC sesija, kanali, udarci, sinkro, vrata, novi redoslijed u `SyncWith`, LAN QUIC | `probijanje = false`; ručno uključiti na Unraidu, zatim laptopu |
-| **0.0.29** | F4: posrednik, žetoni, proračuni, pravilo sadržaja | `posrednik = true` samo na Unraidu |
-| **0.0.30** | F5: terenska ugađanja | `probijanje = true` zadano, kad pločica dva tjedna nema grešaka |
+| **0.0.27** | F0 + F1: prerada `Conn`, `Put`, ispravak `noteSync`; UDP utičnica, STUN, netcheck, blok „Dohvatljivost", gumb „Provjeri vezu". Bez promjene ponašanja razmjene. | utičnica uključena, periodični netcheck uključen samo na Unraidu i laptopu; ostali samo na gumb |
+| **0.0.28** | F2: `/razmjena/signal`, prijava, puls, potpisani poziv/odziv, `mogucnosti` u zapisu čvora | `sastajaliste = true` samo na Unraidu; `probijanje = false` |
+| **0.0.29** | F3: QUIC sesija, kanali, udarci, sinkro, vrata, novi redoslijed u `SyncWith`, LAN QUIC | `probijanje = false`; ručno uključiti na Unraidu, zatim laptopu |
+| **0.0.30** | F4: posrednik, žetoni, proračuni, pravilo sadržaja | `posrednik = true` samo na Unraidu |
+| **0.0.31** | F5: terenska ugađanja | `probijanje = true` zadano, kad pločica dva tjedna nema grešaka |
 
 Uredski čvorovi dolaze zadnji i tek nakon dogovora s IT-om Hrvatskih voda
 (§10).
@@ -558,7 +558,7 @@ Uredski čvorovi dolaze zadnji i tek nakon dogovora s IT-om Hrvatskih voda
 `net.core.rmem_max`/`wmem_max`. Na kućnom usmjerivaču se **ništa ne
 otvara**.
 
-**Povratak:** `probijanje = false` vraća čvor na ponašanje 0.0.25 bez
+**Povratak:** `probijanje = false` vraća čvor na ponašanje 0.0.26 bez
 tragova u knjizi (polja `mogucnosti` ostaju, ali bez `veza/1`).
 
 **Postavke (`gocop.toml`):**
@@ -679,7 +679,7 @@ medijan vremena do veze, MiB kroz posrednika dnevno.
    i Skype, pa je odlazni UDP gotovo sigurno otvoren; ostaje pitanje vrste
    NAT-a. `tailscale netcheck` (vrsta preslikavanja, UDP)
    i `tailscale ping` / `tailscale status` (izravno ili DERP) iz ureda, uz
-   naš netcheck iz 0.0.26. Odluka:
+   naš netcheck iz 0.0.27. Odluka:
    - izravno, EIM → probijanje ured ↔ vani vrijedi, redoslijed faza ostaje;
    - DERP ili simetrično → ured ↔ vani ide preko posrednika; F4 dobiva
      važnost, a veliki paketi za ured idu samo LAN-om dok ne bude copB.
@@ -695,7 +695,7 @@ medijan vremena do veze, MiB kroz posrednika dnevno.
    Prije `probijanje = true` na službenim laptopima treba dogovor; do tada
    samo posrednik i LAN.
 4. **Unraid u Dockeru.** Host mreža ili mapiranje 4713/udp; čuva li
-   Dockerov MASQUERADE i kućni usmjerivač EIM — mjeri 0.0.26.
+   Dockerov MASQUERADE i kućni usmjerivač EIM — mjeri 0.0.27.
 5. **quic-go detalji prije F3:** redoslijed `VerifySourceAddress` →
    `ConnContext` i `AddrVerified` nakon Retryja; ponašanje
    `ReadNonQUICPacket` pod opterećenjem.
@@ -789,7 +789,7 @@ lokalni kandidat; cilj je sam sastajalište → probijeno ili stari tunel za 8 s
 **Usklađenost:**
 - postojeći `razmjena_test.go`, `tunel_test.go` i testovi `peers` prolaze
   nepromijenjeni;
-- binarka 0.0.25 (iz oznake) protiv nove: razmjena tunelom i TCP-om, i
+- binarka 0.0.26 (iz oznake) protiv nove: razmjena tunelom i TCP-om, i
   očuvanje novih polja zapisa čvora;
 - novi klijent protiv sastajališta bez `/razmjena/signal` (404) → stari put;
 - ALPN `gocop-signal/1` prema čvoru bez `NextProtos` → stari put.

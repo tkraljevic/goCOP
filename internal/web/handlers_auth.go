@@ -24,6 +24,8 @@ type AuthHandler struct {
 	adminContact func() (name, phone, email string, ok bool)
 	fresh        func() bool                                                 // čvor bez djelatnika: prijava nudi uparivanje s uredom
 	prekljucaj   func(ctx context.Context, userID, stara, nova string) error // potpisni ključ prati lozinku
+	drugiKorak   func() *service.DrugiKorak                                  // PIN za prijavu izvana; nil = nema ga
+	tmplPIN      *template.Template                                          // stranica upisa PIN-a ili koda
 }
 
 // SetPrekljucaj daje rukovatelju način da uz promjenu lozinke prekljuca
@@ -184,6 +186,22 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Izvana, kad je PIN uključen, točna lozinka otvara samo prijavu na
+	// čekanju; brojač imena ostaje dok ne prođe i PIN ili kod, inače bi
+	// ukradena lozinka brisala brojač pogađanja PIN-a. Zapamćeno računalo
+	// preskače samo PIN, lozinka je već provjerena.
+	if dk := h.dk(); dk.TrebaDrugiKorak(r.Context(), service.IzvanaAdresa(klijent.KrozPosrednika, klijent.Adresa)) &&
+		!dk.ProvjeriRacunalo(r.Context(), user, vrijednostKolacica(r, imeKolacicaRacunala), ip) {
+		h.zapocniDrugiKorak(w, r, dk, user, ip)
+		return
+	}
+
+	h.otvoriPrijavu(w, r, user, keys)
+}
+
+// otvoriPrijavu pušta osobu u program nakon što je prošla sve korake
+// prijave: briše brojač imena, otvara sesiju i vodi dalje
+func (h *AuthHandler) otvoriPrijavu(w http.ResponseWriter, r *http.Request, user *models.User, keys []string) {
 	// Briše se brojač imena, ne i adrese: inače bi napadač s jednim pravim
 	// računom između pokušaja na tuđe brisao vlastitu adresu
 	for _, k := range keys {
@@ -192,7 +210,7 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	session, err := h.authService.OtvoriSesiju(user, ip, r.UserAgent())
+	session, err := h.authService.OtvoriSesiju(user, klijentIz(r).String(), r.UserAgent())
 	if err != nil {
 		h.prikaziPrijavu(w, r, http.StatusInternalServerError, "Prijava nije uspjela: "+err.Error())
 		return
@@ -209,7 +227,8 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
-// HandleLogout odjavljuje korisnika i briše kolačić
+// HandleLogout odjavljuje korisnika i briše kolačić; s njim i prijavu na
+// čekanju, a zapamćeno računalo ostaje
 func (h *AuthHandler) HandleLogout(w http.ResponseWriter, r *http.Request) {
 	if cookie, err := r.Cookie(imeKolacicaSesije); err == nil {
 		if sessionID, err := uuid.Parse(cookie.Value); err == nil {
@@ -218,6 +237,9 @@ func (h *AuthHandler) HandleLogout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	obrisiSesiju(w, r)
+	if _, err := r.Cookie(imeKolacicaPrijave); err == nil {
+		obrisiPrijavuNaCekanju(w, r)
+	}
 
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
@@ -231,7 +253,7 @@ func (h *AuthHandler) HandleChangePassword(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	returnURL := sigurnaPovratnaAdresa(r, "/")
+	returnURL := povratnaAdresaProfila(r, "/")
 
 	if err := r.ParseForm(); err != nil {
 		http.Redirect(w, r, returnURL+"?error=Neispravan+zahtjev", http.StatusSeeOther)
