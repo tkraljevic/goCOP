@@ -51,6 +51,18 @@
   --radius: 4px;
   --shadow: 0 1px 2px 0 rgb(13 39 74 / 0.06), 0 1px 3px -1px rgb(13 39 74 / 0.08);
   --shadow-lg: 0 10px 15px -3px rgb(13 39 74 / 0.10), 0 4px 6px -4px rgb(13 39 74 / 0.08);
+
+  /* Varijable koje su predlošci i pravila koristili, a nisu bile definirane:
+     u tamnoj temi padale su na svoje svijetle zamjene */
+  --surface-2: #f5f7fa;
+  --surface-hover: #e2e8f0;
+  --bg-hover: rgb(0 0 0 / 0.03);
+  --surface-sunken: var(--surface-2);
+  --bg-muted: var(--surface-2);
+  --muted: var(--text-muted);
+  --border-color: var(--border);
+  --warning-fg: var(--tint-amber-fg);
+  --tint-red-bg: var(--danger-bg);
 }
 
 
@@ -99,6 +111,9 @@
     --danger-border: #6b2a2a;
     --shadow: 0 1px 2px 0 rgb(0 0 0 / 0.35), 0 1px 3px -1px rgb(0 0 0 / 0.4);
     --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.5), 0 4px 6px -4px rgb(0 0 0 / 0.4);
+    --surface-2: #1f2d3f;
+    --surface-hover: #26354a;
+    --bg-hover: rgb(255 255 255 / 0.04);
     color-scheme: dark;
   }
 }
@@ -119,7 +134,6 @@
   --tint-yellow-bg: #3a3208; --tint-yellow-fg: #fde68a;
   --tint-sky-bg: #16243a;
   --tint-teal-bg: #123a36;   --tint-teal-fg: #5eead4;
-    --tint-teal-bg: #123a36;   --tint-teal-fg: #5eead4;
 
   --faza-p-bg: #1e3a5f; --faza-p-fg: #93c5fd; --faza-p-crta: #60a5fa;
   --faza-r-bg: #3a3208; --faza-r-fg: #fde68a; --faza-r-crta: #facc15;
@@ -145,6 +159,9 @@
   --danger-border: #6b2a2a;
   --shadow: 0 1px 2px 0 rgb(0 0 0 / 0.35), 0 1px 3px -1px rgb(0 0 0 / 0.4);
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.5), 0 4px 6px -4px rgb(0 0 0 / 0.4);
+  --surface-2: #1f2d3f;
+  --surface-hover: #26354a;
+  --bg-hover: rgb(255 255 255 / 0.04);
   color-scheme: dark;
 }
 
@@ -758,6 +775,15 @@ a:hover { color: var(--accent); }
   color: var(--text-muted);
 }
 
+/* Stupanj obrane na znački (models.DefensePhase.BadgeClass): iste propisane
+   boje kao pilule pragova */
+.badge-prep      { background: var(--faza-p-bg); color: var(--faza-p-fg); }
+.badge-regular   { background: var(--faza-r-bg); color: var(--faza-r-fg); }
+.badge-emergency { background: var(--faza-i-bg); color: var(--faza-i-fg); }
+.badge-state     { background: var(--faza-s-bg); color: var(--faza-s-fg); }
+.badge-normal,
+.badge-unknown   { background: var(--bg-subtle); color: var(--text-muted); }
+
 /* Račun postoji, ali ga osoba još nije preuzela — ni pohvala ni upozorenje */
 .badge-pending {
   background: var(--tint-yellow-bg);
@@ -837,10 +863,17 @@ a:hover { color: var(--accent); }
   border: 1px solid var(--tint-green-bg);
 }
 
-.alert-danger {
+.alert-danger,
+.alert-error {
   background: var(--danger-bg);
   color: var(--danger);
   border: 1px solid var(--danger-border);
+}
+
+.alert-info {
+  background: var(--tint-sky-bg);
+  color: var(--primary);
+  border: 1px solid var(--primary-light);
 }
 
 /* Toast obavijesti za real-time sync */
@@ -2050,7 +2083,7 @@ a:hover { color: var(--accent); }
 }
 
 .pager-links a:hover { border-color: var(--primary); color: var(--primary); }
-.pager-links .current { background: var(--primary); border-color: var(--primary); color: #fff; }
+.pager-links .current { background: var(--primary); border-color: var(--primary); color: var(--primary-contrast); }
 .pager-links .gap { border: none; background: none; min-width: 1.5rem; color: var(--text-muted); }
 .pager-links .disabled { color: var(--border-strong); pointer-events: none; }
 
@@ -2404,7 +2437,6 @@ textarea {
 }
 .form-control::placeholder,
 .search-input::placeholder { color: var(--text-muted); opacity: 0.8; }
-:root[data-theme="dark"] .pager-links .current { color: var(--primary-contrast); }
 
 /* Kartice modula na početnoj: tekst popisa mora ostati čitljiv i u tamnoj temi */
 .dash-card li, .dash-card p { color: var(--text-secondary); }
@@ -4570,6 +4602,17 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .opcija-naziv { font-weight: 600; }
 .opcija-opis { margin-top: 0.5rem; font-size: 0.9rem; color: var(--muted, #4b5563); }
 .opcija-opis p { margin: 0 0 0.4rem; }
+/* Naslovna i Događanja: prečaci i zid događanja */
+.precaci { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.5rem 0 1rem; }
+.zid-cipovi { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.75rem; }
+.zid { display: flex; flex-direction: column; gap: 0.35rem; }
+.zid-dan { font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin: 0.9rem 0 0.25rem; }
+.zid-redak { display: grid; grid-template-columns: 2rem 1fr; gap: 0.6rem; padding: 0.5rem 0.75rem; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+.zid-redak.vazno { border-left: 4px solid var(--danger); }
+.zid-ikona { display: flex; align-items: flex-start; justify-content: center; padding-top: 0.15rem; color: var(--primary); }
+.zid-glava { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
+.zid-vrijeme { color: var(--text-muted); font-size: 0.82rem; }
+.zid-tekst { font-size: 0.9rem; margin-top: 0.15rem; white-space: pre-line; }
 .zid-redak { position: relative; }
 .zid-obrisi { margin-left: auto; align-self: flex-start; }
 .vodocuvar-obrazac { max-width: 52rem; }
@@ -5249,6 +5292,8 @@ body.uzd-puni-zaslon-otvoren { overflow: hidden; }
   font-size: 0.85rem;
   color: #166534;
 }
+
+.vrijeme-upozorenje { margin-bottom: 0.45rem; }
 
 .vrijeme-upozorenje-aktivno {
   border-radius: 10px;
