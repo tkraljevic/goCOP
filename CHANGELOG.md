@@ -4,6 +4,31 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.28-alfa — u pripremi
+
+**goCOP Postava: instalacija, nadogradnja i ikona u traci.** Prvo izdanje s
+gotovim programima na GitHubu; od njega Postava može instalirati i nadograditi
+čvor.
+
+- **Programi uz izdanje.** Uz svako izdanje na GitHubu stoje programi za
+  Windows (amd64), Linux (amd64) i macOS (arm64, amd64), `SHA256SUMS` i
+  potpis `SHA256SUMS.sig` ključem izdanja. Ključ ne odlazi na GitHub: izdanje
+  nastaje kao nacrt i objavljuje se tek nakon potpisa.
+- **goCOP Postava** (`gocop-postava.exe`, svoja izdanja `postava-v…`): mali
+  program koji instalira goCOP za korisnika bez administratorskih prava,
+  preuzme najnovije potpisano izdanje (ili ga uzme s USB-a), pali i gasi
+  čvor, drži ikonu valova u traci, stavlja `gocop` u PATH i u pokretanje pri
+  prijavi. Nadogradnja je na klik: provjera potpisa, kopija baze, zamjena,
+  provjera da novo izdanje odgovara, a ako ne odgovori, vraćanje prethodnog.
+  Postava nikad ne mijenja samu sebe, pa na Windowsu ne treba prepisivati
+  program koji radi. Instalacijski program za Windows (`goCOP-postava-….exe`,
+  Inno Setup) i upute u poglavlju 6 administratorskih uputa.
+- **Za Postavu u čvoru:** `gocop -version` ispiše samo izdanje,
+  `gocop -upravitelj` se uredno gasi kad mu se zatvori standardni ulaz
+  (Windows nema SIGTERM), a `GET /zdravlje` javlja izdanje samo zahtjevu s
+  istog računala (kroz tunel i iz mreže je 404). Taj ugovor čuva test.
+- **Ikona programa** (valovi) i podaci o izdanju u programima za Windows.
+
 ## 0.0.27-alfa — 3. 10. 2026.
 
 **Ovlasti, oporavak administratora i novi izgled.** Nadograditi najprije čvor

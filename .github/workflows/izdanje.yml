@@ -1,0 +1,67 @@
+# Izdanje goCOP-a za Postavu: na oznaku v* (npr. v0.0.28-alfa) nakon
+# provjere gradi program za Windows, Linux i macOS, SHA256SUMS i nacrt
+# izdanja na GitHubu. Potpis SHA256SUMS.sig stavlja se ručno, ključem izdanja
+# koji ne odlazi na GitHub (tools/admin/potpis-izdanja), i tek onda se nacrt
+# objavljuje; Postava nepotpisano izdanje ne vidi (docs/plan-instalacija.md).
+name: Izdanje
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  provjera:
+    uses: ./.github/workflows/provjera.yml
+
+  izdanje:
+    needs: provjera
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.27.x"
+          check-latest: true
+
+      - name: Oznaka odgovara izdanju u programu
+        run: |
+          u_programu=$(sed -n 's/^const verzijaPrograma = "\(.*\)"/\1/p' cmd/gocop/main.go)
+          if [ "v${u_programu}" != "${GITHUB_REF_NAME}" ]; then
+            echo "Oznaka ${GITHUB_REF_NAME}, a program kaže ${u_programu}" >&2
+            exit 1
+          fi
+          echo "IZDANJE=${u_programu}" >> "$GITHUB_ENV"
+
+      - name: Resursi za Windows (ikona, izdanje, manifest)
+        working-directory: build/resursi
+        run: go run . -program gocop -izdanje "$IZDANJE" -izlaz ../../cmd/gocop/rsrc_windows_amd64.syso
+
+      - name: Programi
+        run: |
+          mkdir -p dist
+          for cilj in windows/amd64 linux/amd64 darwin/arm64 darwin/amd64; do
+            goos=${cilj%/*}; goarch=${cilj#*/}
+            ime="gocop-${goos}-${goarch}"
+            [ "$goos" = windows ] && ime="${ime}.exe"
+            CGO_ENABLED=0 GOOS=$goos GOARCH=$goarch go build -trimpath -ldflags "-s -w" -o "dist/${ime}" ./cmd/gocop
+          done
+          cd dist && sha256sum gocop-* > SHA256SUMS && cat SHA256SUMS
+
+      - name: Bilješke iz CHANGELOG-a
+        run: |
+          awk -v z="## ${IZDANJE} " 'index($0, z) == 1 {u=1; next} u && /^## / {exit} u' CHANGELOG.md > dist/biljeske.md
+          test -s dist/biljeske.md || echo "Izmjene: CHANGELOG.md" > dist/biljeske.md
+
+      - name: Nacrt izdanja
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          faza=""
+          case "$IZDANJE" in *-alfa|*-beta) faza="--prerelease" ;; esac
+          gh release create "$GITHUB_REF_NAME" dist/gocop-* dist/SHA256SUMS \
+            --draft $faza --title "goCOP ${IZDANJE}" --notes-file dist/biljeske.md

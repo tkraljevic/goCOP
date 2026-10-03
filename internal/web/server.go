@@ -880,6 +880,8 @@ func (s *Server) setupRoutes() {
 		s.mux.HandleFunc("GET /logo", ServeLogo)
 	}
 	s.mux.HandleFunc("GET /tema.css", ServeTemaCSS)
+	// Postava na istom računalu (instalacija, nadogradnja, ikona u traci)
+	s.mux.HandleFunc("GET /zdravlje", ServeZdravlje)
 
 	// Uparivanje: prijavljenima uvijek, neprijavljenima dok je čvor svjež
 	pairH := NewPairHandler(s.peersService, s.authService, s.userService, s.templates["uparivanje.html"])

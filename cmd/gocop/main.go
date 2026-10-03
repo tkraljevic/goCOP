@@ -9,6 +9,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -79,6 +80,21 @@ func punaVerzija() string {
 	return v
 }
 
+// redakIzdanja je ono što ispiše -version: "goCOP 0.0.27-alfa", bez oznake
+// commita, jer ga Postava uspoređuje s oznakom izdanja
+func redakIzdanja() string { return "goCOP " + verzijaPrograma }
+
+// cekajZatvaranjeUlaza čita ulaz do kraja (Postava ništa ne šalje) i tada
+// traži gašenje; ako gašenje već čeka, ne blokira
+func cekajZatvaranjeUlaza(ulaz io.Reader, stop chan<- os.Signal) {
+	_, _ = io.Copy(io.Discard, ulaz)
+	log.Printf("Standardni ulaz zatvoren — gasim čvor na zahtjev Postave")
+	select {
+	case stop <- os.Interrupt:
+	default:
+	}
+}
+
 func main() {
 	// Postavke: zastavica > gocop.toml > zadano. Zastavice bez vrijednosti
 	// znače "nije zadano", pa se tek nakon čitanja datoteke zna što vrijedi.
@@ -116,7 +132,16 @@ func main() {
 	contractAllItems := flag.Bool("ugovor-sve-stavke", false, "Uz stavke koje ugovor koristi upisati i cijeli ponudbeni troškovnik (opisi i jedinice, bez cijena)")
 	ponistiLozinku := flag.String("ponisti-lozinku", "", "Oporavak s konzole čvora: računu s tim korisničkim imenom postavi privremenu lozinku, ispiše je i završi (uz -config i -db kao pri pokretanju)")
 	aktivirajRacun := flag.Bool("aktiviraj", false, "Uz -ponisti-lozinku: isključen račun i uključi")
+	ispisiIzdanje := flag.Bool("version", false, "Ispiši izdanje (\"goCOP 0.0.x-alfa\") i završi")
+	podPostavom := flag.Bool("upravitelj", false, "Čvor pod Postavom: uredno se gasi kad mu se zatvori standardni ulaz")
 	flag.Parse()
+	if *ispisiIzdanje {
+		// Ugovor s Postavom (docs/plan-instalacija.md §3.1a): Postava ovim
+		// provjerava preuzetu datoteku prije zamjene, pa redak ostaje točno
+		// ovakav i ništa se prije njega ne ispisuje.
+		fmt.Println(redakIzdanja())
+		return
+	}
 	log.Printf("goCOP %s", punaVerzija())
 	web.SetVerzijaPrograma(punaVerzija())
 
@@ -1166,6 +1191,12 @@ func main() {
 	// Graceful shutdown
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+	if *podPostavom {
+		// Windows nema SIGTERM, pa Postava čvor gasi zatvaranjem cijevi na
+		// standardnom ulazu. Zatvori se i kad Postava padne, pa čvor ne
+		// ostane siroče.
+		go cekajZatvaranjeUlaza(os.Stdin, stop)
+	}
 
 	go func() {
 		log.Printf("Poslužitelj spreman na http://localhost%s", *addr)

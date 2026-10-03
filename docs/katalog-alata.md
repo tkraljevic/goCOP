@@ -1,6 +1,6 @@
 # Katalog alata
 
-Stanje 2. 10. 2026.; razdvajanje aplikacije i alata provedeno je 26. 9. (vidi
+Stanje 3. 10. 2026.; razdvajanje aplikacije i alata provedeno je 26. 9. (vidi
 [plan](plan-razdvajanje-aplikacije-i-alata.md)). Repozitorij nosi samo
 aplikaciju: `cmd/gocop`, `internal` i `web`. Sve ostalo stoji lokalno u
 `tools/` i ne ulazi u repozitorij (`.gitignore`). Raspoređenih poslova na
@@ -54,6 +54,7 @@ službama, što aplikacija ne radi.
 | `izdaj-letvu` | Isto što `paket-arhive` (jedna letva ili cijela arhiva), ali bez `-probno=false` samo provjeri | `pakete/` |
 | `zamolba-podaci` | Nacrt zamolbe mađarskoj strani za hidrološke podatke, s memorandumom centra | `.docx` (`-o`) |
 | `pismo-rhmz` | Nacrt neslužbenog pisma RHMZ-u Srbije, s istim memorandumom | `.docx` (`-o`) |
+| `potpis-izdanja` | Ključ izdanja (`kljuc`, jednom) i potpis `SHA256SUMS` nacrta izdanja na GitHubu (`potpisi v0.0.x-alfa -objavi`); bez potpisa Postava izdanje ne vidi | `~/.config/gocop/kljuc-izdanja`, izdanje na GitHubu |
 
 ## tools/migrations — jednokratni prijenosi i upisi registra
 
@@ -116,6 +117,7 @@ zadano samo ispisuju i pišu tek s `-probno=false`.
 | `protok-u-cm` | Parove iz `provjeri-prognozu -csv` preračunava iz protoka u vodostaj |
 | `proba-sesije` | Ispiše sesiju prijave iz baze po ID-u |
 | `tunel-proba` | Spaja se na čvor kroz web tunel ključem ovog čvora i javlja je li druga strana dokazala upareni ključ |
+| `ikona-proba` | Ploča ikone u svim stanjima i veličinama, uvećane sitne ikone i `.ico` u zadanu mapu, za pregled |
 | `proba-nadogradnje` | Nadogradnja na kopiji baze: shema, jesu li ID-ovi korisnika ostali isti, novosti, popravci i obnova površine. **Piše** u zadanu bazu; pokretati samo nad kopijom |
 
 Tuđe prognoze za usporedbe čitaju se iz izvorne građe u

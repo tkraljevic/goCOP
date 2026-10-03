@@ -23,9 +23,13 @@ lokalnim podacima i usklađuju se kada je mreža dostupna.
 
 ## Pokretanje
 
-Izdanja na GitHubu zasad nemaju gotovih izvršnih datoteka: `gocop` se prevodi
-iz izvora (naredbe su pod „Dokumentacija i razvoj”) ili se pokreće spremnik.
-Pokrenuti `gocop.exe` na Windowsu ili `./gocop` na Linuxu/macOS-u i otvoriti
+Na Windowsu goCOP instalira **goCOP Postava** (`goCOP-postava-….exe` s
+GitHub stranice izdanja): bez administratorskih prava preuzme najnovije
+potpisano izdanje, drži ikonu u traci za pokretanje, zaustavljanje i
+nadogradnju te stavlja `gocop` u PATH. Ručno: od 0.0.28-alfa uz svako izdanje
+stoje programi za Windows, Linux i macOS (ili se `gocop` prevodi iz izvora,
+naredbe su pod „Dokumentacija i razvoj”), a postoji i spremnik. Pokrenuti
+`gocop.exe` na Windowsu ili `./gocop` na Linuxu/macOS-u i otvoriti
 `http://localhost` (ili port 8080 ako 80 nije dostupan). Pri prvoj prijavi
 obvezno promijeniti zadanu lozinku. Novi čvor povezati s postojećom mrežom
 čarobnjakom na prijavi; prvi čvor zahtijeva osnivanje mreže i punjenje registara.

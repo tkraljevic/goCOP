@@ -51,3 +51,11 @@ bin/
 # i namjena su u docs/katalog-alata.md. Među njima su i uvoznici nad
 # datotekama s imenima djelatnika (stari dnevnici COP-a, obrasci IORS).
 /tools/
+
+# Resursi za Windows (ikona, izdanje, manifest), nastaju pri gradnji: build/resursi
+*.syso
+
+# Instalacijski program: ikona, licenca i izlaz nastaju pri gradnji
+build/gocop.ico
+build/licenca.txt
+dist/

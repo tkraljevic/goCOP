@@ -48,9 +48,12 @@ Detaljni postupci i ovlasti opisani su u ugrađenoj stranici **Pomoć**.
 
 ## 1. Što instalacija znači na računalu
 
-- **Jedna izvršna datoteka, bez instalatera.** Nema pokretačkih
-  programa, nema Windows servisa, nema unosa u registry, nema drugih
-  ovisnosti. Kopira se u mapu i pokrene.
+- **Jedna izvršna datoteka.** Nema Windows servisa ni drugih ovisnosti.
+  Ručno se kopira u mapu i pokrene, bez ikakvog unosa u sustav. Na Windowsu
+  je uobičajen put instalacijski program **goCOP Postava** (poglavlje 6):
+  instalira za trenutnog korisnika, bez administratora, a jedini unosi u
+  sustav su pokretanje pri prijavi i mapa programa u korisničkom PATH-u
+  (oba u `HKCU`) te unos za deinstalaciju.
 - **Ne traži administratorska prava** (iznimka: port 80 na Linuxu i
   macOS-u; na Windowsu ne). Ako port 80 nije dostupan, program sam prelazi
   na 8080 i to ispiše.
@@ -79,9 +82,11 @@ Detaljni postupci i ovlasti opisani su u ugrađenoj stranici **Pomoć**.
 
 - **Uklanjanje:** nakon sigurnosne kopije ukloniti program i njegove podatkovne
   mape; provjeriti i zasebno podešene putanje, spremnike i tunel.
-- **Platforme:** izdanja na GitHubu zasad nemaju gotovih izvršnih datoteka.
-  Program se prevodi iz označenog izdanja (Go, bez CGO-a) za Windows, Linux ili
-  macOS, a za Linux amd64 uz svako izdanje izlazi Docker slika (poglavlje 7).
+- **Platforme:** od 0.0.28-alfa uz svako izdanje na GitHubu stoje programi
+  za Windows (amd64), Linux (amd64) i macOS (arm64, amd64), datoteka
+  `SHA256SUMS` i njezin potpis `SHA256SUMS.sig` (ključ izdanja, poglavlje 8).
+  Program se može i prevesti iz označenog izdanja (Go, bez CGO-a), a za Linux
+  amd64 uz svako izdanje izlazi Docker slika (poglavlje 7).
 
 ## 2. Mreža
 
@@ -291,11 +296,13 @@ Portovi se mijenjaju u `gocop.toml`.
 
 ## 4. Poznata ograničenja alfa faze — pročitati prije odobrenja
 
-1. **Izvršna datoteka nije potpisana.** Izdanja zasad nemaju gotovih izvršnih
-   datoteka; program se prevodi iz označenog izdanja. Windows SmartScreen i neki
-   antivirusi mogu upozoriti na nepotpisan Go program; dopustiti ga ručno samo
-   kad je preveden iz provjerenog izvora. Potpisivanje besplatnim certifikatom
-   za otvoreni kod je u planu prije bete.
+1. **Programi još nemaju Authenticode potpis.** Izdanja nose potpis ključem
+   izdanja (`SHA256SUMS.sig`), koji Postava provjerava prije svake instalacije
+   i nadogradnje, ali Windows taj potpis ne poznaje: SmartScreen i neki
+   antivirusi mogu upozoriti na nepotpisan program. Dopustiti ga samo kad je
+   preuzet s GitHub stranice izdanja. Potpis besplatnim certifikatom za
+   otvoreni kod (SignPath Foundation) je u pripremi; tada će kao izdavač
+   pisati „SignPath Foundation”.
 2. **Sigurnosno učvršćivanje je u tijeku.** Od 0.0.25-alfa postoje zaštita od
    tuđih stranica, `Secure` kolačić iza HTTPS-a, podesivi pouzdani posrednici,
    ograničenja HTTP-a i razmjene, a uparivanje i primanje u mrežu smije samo
@@ -336,6 +343,62 @@ Portovi se mijenjaju u `gocop.toml`.
   tuđeg identiteta.
 
 ## 6. Pokretanje
+
+### Windows: instalacijski program goCOP Postava
+
+Postava je mali program koji instalira goCOP, pali ga i gasi, drži ikonu u
+traci i nadograđuje ga. Mijenja se rijetko i ima svoja izdanja (oznake
+`postava-v…`); goCOP sam uvijek preuzme najnoviji.
+
+1. S GitHub stranice izdanja preuzeti `goCOP-postava-<izdanje>.exe` i
+   pokrenuti ga. Administratorska prava nisu potrebna.
+2. Čarobnjak: licenca, mapa (zadano `%LOCALAPPDATA%\goCOP`), kvačica
+   *Pokreni goCOP pri prijavi u Windows*.
+3. Postava s GitHuba preuzme najnovije izdanje goCOP-a i provjeri mu potpis
+   ključem izdanja i SHA-256. Bez interneta: uz instalacijski program staviti
+   `gocop-windows-amd64.exe`, `SHA256SUMS` i `SHA256SUMS.sig` iz izdanja (npr.
+   s USB-a); Postava ih uzme odande, uz istu provjeru.
+4. Na kraju se pokreće Postava: ikona valova u traci uz sat, a ona pali čvor.
+   Pri prvom pokretanju čvora Windows vatrozid pita smije li program na mrežu:
+   dopustiti samo **privatne** mreže, a kućnu ili uredsku mrežu u Windowsima
+   označiti kao privatnu (inače se čvorovi u lokalnoj mreži ne nalaze).
+
+```
+%LOCALAPPDATA%\goCOP\
+  postava\   gocop-postava.exe   (Postava)
+  program\   gocop.exe           (čvor; ova mapa je u korisničkom PATH-u)
+  data\      gocop.db, gocop.toml, dnevnici gocop.log i postava.log, kopije\
+```
+
+**Ikona u traci:** valovi u bojama znaka kad čvor radi, sivi kad je
+zaustavljen, crveni kad je pao ili ne odgovara, a narančasta točka znači da
+postoji novije izdanje. Dvoklik otvara goCOP u pregledniku. Desni klik: *Otvori
+goCOP*, *Pokreni/Zaustavi*, *Nadogradi na …*, *Provjeri nadogradnje*, *Otvori
+mapu s podacima*, *Dnevnik čvora*, *Pokreni pri prijavi*, *O programu*,
+*Izlaz* (gasi i čvor).
+
+**Nadogradnja** je uvijek na klik. Postava jednom pri pokretanju i svakih
+šest sati pita GitHub za popis javnih izdanja (ne šalje ništa o čvoru ni
+podacima). Pri nadogradnji: preuzme i provjeri potpis, uredno zaustavi čvor,
+kopira bazu u `data\kopije\` (zadnje tri), zamijeni program, pokrene ga i
+čeka da odgovori s novim izdanjem. Ne odgovori li za 90 sekundi, vraća
+prethodni program i javlja grešku; bazu ne vraća sama, jer ju je novo izdanje
+možda već promijenilo. Prethodni program ostaje kao `gocop.prethodni.exe`,
+neuspjeli kao `gocop.neuspjeli.exe`.
+
+**Ako čvor padne,** Postava ga podiže ponovno, uz rastući razmak; nakon tri
+pada u deset minuta odustaje, ikona je crvena, a razlog je u dnevniku čvora.
+
+**Deinstalacija:** *Aplikacije i značajke* → goCOP. Gasi Postavu i čvor,
+miče pokretanje pri prijavi i mapu iz PATH-a, briše program. Mapa `data`
+ostaje, osim ako se na kraju izričito potvrdi i njezino brisanje.
+
+Postava radi i na macOS-u i Linuxu (ikona u traci izbornika ili u području
+obavijesti, pokretanje pri prijavi kroz LaunchAgent ili `~/.config/autostart`,
+poveznica `~/.local/bin/gocop` umjesto PATH-a), ali instalacijski paketi za
+njih dolaze kasnije (docs/plan-instalacija.md).
+
+### Ručno
 
 ```
 gocop.exe            (Windows)
@@ -526,9 +589,31 @@ izvoz. TLS tunel sam ne rješava ovlasti, CSRF ni sigurnost sesija.
 
 Čvorovi različitih verzija međusobno se sinkroniziraju, pa je nekompatibilna
 promjena ona zbog koje stari čvor ne može raditi s novim. Alfa i beta izdanja
-na GitHubu označena su kao *pre-release*. Izdanje: promijeniti `verzijaPrograma`,
-upisati novo u [CHANGELOG.md](../CHANGELOG.md), commit, oznaka, Release s tekstom
-iz popisa izmjena.
+na GitHubu označena su kao *pre-release*.
+
+Izdanje:
+
+1. promijeniti `verzijaPrograma`, upisati novo u [CHANGELOG.md](../CHANGELOG.md),
+   commit i oznaka `v0.0.x-alfa`;
+2. GitHub (`.github/workflows/izdanje.yml`) nakon provjere izgradi programe
+   za sve sustave, `SHA256SUMS` i **nacrt** izdanja s tekstom iz popisa
+   izmjena; oznaka mora odgovarati `verzijaPrograma`;
+3. na računalu onoga tko izdaje: `go run ./tools/admin/potpis-izdanja potpisi
+   v0.0.x-alfa -objavi` pokaže `SHA256SUMS`, potpiše ga ključem izdanja
+   (`~/.config/gocop/kljuc-izdanja`, nikad na GitHubu), doda
+   `SHA256SUMS.sig` i objavi nacrt.
+
+Postava vidi samo objavljena i potpisana izdanja; nepotpisano ili tuđim
+ključem potpisano izdanje odbija. Ključ izdanja nije ključ čvora ni mreže.
+Bez njega nova izdanja traže novu Postavu s novim javnim ključem, pa ga treba
+čuvati i izvan tog računala.
+
+Postava ima svoja izdanja: oznaka `postava-v1.0.0` → `.github/workflows/postava.yml`
+gradi `gocop-postava.exe` i instalacijski program `goCOP-postava-1.0.0.exe`
+(Inno Setup, `build/postava.iss`) kao nacrt. Postava se mijenja samo kad
+treba; ono na što se oslanja (`gocop -version`, `-upravitelj`, `/zdravlje`,
+imena datoteka izdanja i potpis) ne smije se promijeniti, a čuva ga test
+`TestUgovorSPostavom`.
 
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 Verzija stoji u kodu (`verzijaPrograma` u `cmd/gocop/main.go`) i mijenja se pri
