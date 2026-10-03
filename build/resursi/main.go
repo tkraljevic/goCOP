@@ -8,7 +8,11 @@
 //	go run . -program postava -izdanje 1.0.0 -izlaz ../../cmd/gocop-postava/rsrc_windows_amd64.syso -ico ../gocop.ico
 //
 // Podaci o izdanju (naziv proizvoda, izdanje) traži i SignPath za potpis.
-// Vrijeme u resursima je nula, pa ista oznaka daje istu datoteku.
+// Vrijeme u resursima je nula, pa ista oznaka daje istu datoteku, ali samo
+// na istoj vrsti procesora: na arm64 (Apple) Go spaja množenje i zbrajanje
+// (FMA), pa rubni pikseli ikone izađu malo drukčije. Za usporedbu s CI-jem
+// (amd64) na Macu pokretati s GOARCH=amd64 (Rosetta); tako radi i
+// tools/admin/potpis-izdanja pri provjeri izdanja.
 package main
 
 import (

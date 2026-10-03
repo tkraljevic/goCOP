@@ -599,9 +599,12 @@ Izdanje:
    za sve sustave, `SHA256SUMS` i **nacrt** izdanja s tekstom iz popisa
    izmjena; oznaka mora odgovarati `verzijaPrograma`;
 3. na računalu onoga tko izdaje: `go run ./tools/admin/potpis-izdanja potpisi
-   v0.0.x-alfa -objavi` pokaže `SHA256SUMS`, potpiše ga ključem izdanja
-   (`~/.config/gocop/kljuc-izdanja`, nikad na GitHubu), doda
-   `SHA256SUMS.sig` i objavi nacrt.
+   v0.0.x-alfa -objavi` pokaže `SHA256SUMS`, izgradi isto izdanje iz čiste
+   kopije oznake i provjeri da je svaki program bajt po bajt isti kao u
+   nacrtu (Go gradi ponovljivo; uz istu inačicu Go-a), tek tada ga potpiše
+   ključem izdanja (`~/.config/gocop/kljuc-izdanja`, nikad na GitHubu), doda
+   `SHA256SUMS.sig` i objavi nacrt. Potpis tako jamči da je program točno
+   kod iz oznake, a ne samo da je izašao s GitHuba.
 
 Postava vidi samo objavljena i potpisana izdanja; nepotpisano ili tuđim
 ključem potpisano izdanje odbija. Ključ izdanja nije ključ čvora ni mreže.

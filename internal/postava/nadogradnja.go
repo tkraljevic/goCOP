@@ -176,7 +176,11 @@ func (u Ugradnja) Postavi(novi string) error {
 	if err := os.MkdirAll(u.M.Program, 0o755); err != nil {
 		return err
 	}
-	return zamijeni(novi, u.M.Gocop())
+	if err := zamijeni(novi, u.M.Gocop()); err != nil {
+		return err
+	}
+	_ = os.Remove(filepath.Dir(u.M.Novi())) // mapa novo, samo ako je prazna
+	return nil
 }
 
 // Ugradi mijenja program koji radi pripremljenim novim: zaustavi čvor,
@@ -210,6 +214,7 @@ func (u Ugradnja) Ugradi(ctx context.Context, novi, staroIzdanje, novoIzdanje st
 		}
 		return err
 	}
+	_ = os.Remove(filepath.Dir(u.M.Novi()))
 	u.pisi("Program zamijenjen: %s → %s", staroIzdanje, novoIzdanje)
 	if err := u.Cvor.Pokreni(); err == nil && u.cekajIzdanje(ctx, novoIzdanje) {
 		u.pisi("Nadogradnja na %s gotova", novoIzdanje)

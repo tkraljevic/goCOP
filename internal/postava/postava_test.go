@@ -192,6 +192,9 @@ func TestInstalacijaNadogradnjaIVracanje(t *testing.T) {
 	if !UPutu(m.Program) {
 		t.Error("program nije u PATH-u")
 	}
+	if _, err := os.Stat(filepath.Dir(m.Novi())); err == nil {
+		t.Error("nakon instalacije ostala je mapa novo")
+	}
 	if err := os.WriteFile(m.PostavkeCvora(), []byte(fmt.Sprintf("addr = \"127.0.0.1:%d\"\n", slobodanPort(t))), 0o644); err != nil {
 		t.Fatal(err)
 	}
