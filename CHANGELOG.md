@@ -4,7 +4,7 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
-## 0.0.28-alfa — u pripremi
+## 0.0.28-alfa — 3. 10. 2026.
 
 **goCOP Postava: instalacija, nadogradnja i ikona u traci.** Prvo izdanje s
 gotovim programima na GitHubu; od njega Postava može instalirati i nadograditi

@@ -2,7 +2,7 @@
 
 Prijedlog, 3. 10. 2026.
 
-**Stanje:** prvi dio napravljen na grani `postava` (još nije izdan): ugovor u
+**Stanje:** prvi dio izdan u 0.0.28-alfa i Postavi 1.0.0 (3. 10. 2026.): ugovor u
 čvoru (`-version`, `-upravitelj`, `/zdravlje`), Postava (`cmd/gocop-postava`,
 `internal/postava`), potpis izdanja (`internal/izdanje`,
 `tools/admin/potpis-izdanja`), ikona (`internal/ikona`), resursi za Windows

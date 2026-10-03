@@ -1,7 +1,7 @@
 # Plan testiranja mreže čvorova (kućni ispitni poligon)
 
 Prijedlog, 3. 10. 2026. Služi kao stalni ispit za razmjenu, pretplate, a
-kasnije i za protokol povezivanja (0.0.28–0.0.32) i Windows upravitelja.
+kasnije i za protokol povezivanja (0.0.29–0.0.33) i Postavu.
 
 ## 1. Postava
 
@@ -77,7 +77,7 @@ Rezultati idu u tablicu u §5.
 
 **P7 Različita izdanja**
 
-- W ostaje izdanje iza (npr. 0.0.27 dok su U i L na 0.0.28).
+- W ostaje izdanje iza (npr. 0.0.28 dok su U i L na 0.0.29).
 - Zapis na novijem čvoru s novim poljem: stariji ga ne kvari pri izmjeni
   (čuvanje nepoznatih polja). Pločica pokazuje različita izdanja.
 
@@ -96,10 +96,10 @@ Rezultati idu u tablicu u §5.
 
 | izdanje | proba |
 |---|---|
-| 0.0.28 | „Provjeri vezu” na U, L (kuća i hotspot) i W; usporedba s `tailscale netcheck`; isto u uredu |
-| 0.0.29 | L na hotspotu prijavljen na sastajalištu U; pločica pokazuje „na vezi” |
-| 0.0.30 | L na hotspotu ↔ W doma **izravno** probijanjem NAT-a, bez prolaza kroz U; P4 ponovljen i uspoređen |
-| 0.0.31 | probijanje namjerno onemogućeno: L ↔ W preko posrednika; veliki prilog ne smije proći |
+| 0.0.29 | „Provjeri vezu” na U, L (kuća i hotspot) i W; usporedba s `tailscale netcheck`; isto u uredu |
+| 0.0.30 | L na hotspotu prijavljen na sastajalištu U; pločica pokazuje „na vezi” |
+| 0.0.31 | L na hotspotu ↔ W doma **izravno** probijanjem NAT-a, bez prolaza kroz U; P4 ponovljen i uspoređen |
+| 0.0.32 | probijanje namjerno onemogućeno: L ↔ W preko posrednika; veliki prilog ne smije proći |
 | instalacijski program | W bez brzog namještanja: prazan čvor, uparivanje u LAN-u kao danas. W s paketom za priključenje dok je L na hotspotu: član mreže bez uparivanja; isti paket drugi put odbijen; paket stariji od 7 dana odbijen; opozvan paket ne daje članstvo. Biblioteka: uvoz izabranih letvi, paket koji nije potpisao član odbijen, pogrešan ključ za čitanje jasno javljen |
 | Postava | instalacija na W bez administratora, instalira najnovije izdanje (i s USB-a bez interneta), ikona u traci, start/stop, nadogradnja 0.0.x → 0.0.x+1, namjerno pokvaren paket (pogrešan potpis) mora biti odbijen, vraćanje staroga kad novi ne odgovori |
 

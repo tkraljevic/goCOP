@@ -307,7 +307,7 @@ od 5 min). Zato je zadnja faza i može se odgoditi.
 
 | vrsta | smjer | sadržaj |
 |---|---|---|
-| `prijava` | čvor → R | `{"ver":1,"program":"0.0.30-alfa","mogucnosti":["veza/1"],"udp":true,"nat":{"eim":"da","cuvaPort":true,"udpBlokiran":false,"stun":"cloudflare","rttMs":11}}` (nepotpisano; identitet daje TLS) |
+| `prijava` | čvor → R | `{"ver":1,"program":"0.0.31-alfa","mogucnosti":["veza/1"],"udp":true,"nat":{"eim":"da","cuvaPort":true,"udpBlokiran":false,"stun":"cloudflare","rttMs":11}}` (nepotpisano; identitet daje TLS) |
 | `prijavljen` | R → čvor | `{"ver":1,"sastajaliste":"<ključ R>","mogucnosti":["sastajaliste/1","posrednik/1"],"vidjenaIP":"93.142.240.240","vrijeme":1790990000,"pulsSek":25}` |
 | `puls` | oba | prazno; svakih 25 s |
 | `poziv` | A → R → B | potpisano tijelo (§5.2) |
@@ -414,7 +414,7 @@ pokušaju.
 `pozdrav` (oba smjera, prva poruka na 0x00):
 
 ```json
-{"kind":"pozdrav","payload":{"verzija":1,"program":"0.0.30-alfa",
+{"kind":"pozdrav","payload":{"verzija":1,"program":"0.0.31-alfa",
  "mogucnosti":["veza/1","razmjena/1"],"kanali":[0,1],"put":"probijeno"}}
 ```
 
@@ -540,15 +540,15 @@ zajednička); `pozdrav.kanali`.
 **Beacon:** `Meta["quic_port"]` (Meta je već `map[string]string`,
 discovery.go:31 [V]). Stari čvorovi polje zanemaruju.
 
-**Izdanja (okvirno; pravilo plana: stalni čvor prvi, odmah zatim ostali; 0.0.26 i 0.0.27 su izdanja s PIN-om i ovlastima, pa protokol počinje od 0.0.28):**
+**Izdanja (okvirno; pravilo plana: stalni čvor prvi, odmah zatim ostali; 0.0.26 i 0.0.27 su izdanja s PIN-om i ovlastima, a 0.0.28 s Postavom, pa protokol počinje od 0.0.29):**
 
 | izdanje | sadržaj | zadano |
 |---|---|---|
-| **0.0.28** | F0 + F1: prerada `Conn`, `Put`, ispravak `noteSync`; UDP utičnica, STUN, netcheck, blok „Dohvatljivost", gumb „Provjeri vezu". Bez promjene ponašanja razmjene. | utičnica uključena, periodični netcheck uključen samo na Unraidu i laptopu; ostali samo na gumb |
-| **0.0.29** | F2: `/razmjena/signal`, prijava, puls, potpisani poziv/odziv, `mogucnosti` u zapisu čvora | `sastajaliste = true` samo na Unraidu; `probijanje = false` |
-| **0.0.30** | F3: QUIC sesija, kanali, udarci, sinkro, vrata, novi redoslijed u `SyncWith`, LAN QUIC | `probijanje = false`; ručno uključiti na Unraidu, zatim laptopu |
-| **0.0.31** | F4: posrednik, žetoni, proračuni, pravilo sadržaja | `posrednik = true` samo na Unraidu |
-| **0.0.32** | F5: terenska ugađanja | `probijanje = true` zadano, kad pločica dva tjedna nema grešaka |
+| **0.0.29** | F0 + F1: prerada `Conn`, `Put`, ispravak `noteSync`; UDP utičnica, STUN, netcheck, blok „Dohvatljivost", gumb „Provjeri vezu". Bez promjene ponašanja razmjene. | utičnica uključena, periodični netcheck uključen samo na Unraidu i laptopu; ostali samo na gumb |
+| **0.0.30** | F2: `/razmjena/signal`, prijava, puls, potpisani poziv/odziv, `mogucnosti` u zapisu čvora | `sastajaliste = true` samo na Unraidu; `probijanje = false` |
+| **0.0.31** | F3: QUIC sesija, kanali, udarci, sinkro, vrata, novi redoslijed u `SyncWith`, LAN QUIC | `probijanje = false`; ručno uključiti na Unraidu, zatim laptopu |
+| **0.0.32** | F4: posrednik, žetoni, proračuni, pravilo sadržaja | `posrednik = true` samo na Unraidu |
+| **0.0.33** | F5: terenska ugađanja | `probijanje = true` zadano, kad pločica dva tjedna nema grešaka |
 
 Uredski čvorovi dolaze zadnji i tek nakon dogovora s IT-om Hrvatskih voda
 (§10).
@@ -679,7 +679,7 @@ medijan vremena do veze, MiB kroz posrednika dnevno.
    i Skype, pa je odlazni UDP gotovo sigurno otvoren; ostaje pitanje vrste
    NAT-a. `tailscale netcheck` (vrsta preslikavanja, UDP)
    i `tailscale ping` / `tailscale status` (izravno ili DERP) iz ureda, uz
-   naš netcheck iz 0.0.28. Odluka:
+   naš netcheck iz 0.0.29. Odluka:
    - izravno, EIM → probijanje ured ↔ vani vrijedi, redoslijed faza ostaje;
    - DERP ili simetrično → ured ↔ vani ide preko posrednika; F4 dobiva
      važnost, a veliki paketi za ured idu samo LAN-om dok ne bude copB.
@@ -695,7 +695,7 @@ medijan vremena do veze, MiB kroz posrednika dnevno.
    Prije `probijanje = true` na službenim laptopima treba dogovor; do tada
    samo posrednik i LAN.
 4. **Unraid u Dockeru.** Host mreža ili mapiranje 4713/udp; čuva li
-   Dockerov MASQUERADE i kućni usmjerivač EIM — mjeri 0.0.28.
+   Dockerov MASQUERADE i kućni usmjerivač EIM — mjeri 0.0.29.
 5. **quic-go detalji prije F3:** redoslijed `VerifySourceAddress` →
    `ConnContext` i `AddrVerified` nakon Retryja; ponašanje
    `ReadNonQUICPacket` pod opterećenjem.
