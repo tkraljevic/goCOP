@@ -288,13 +288,18 @@ func TestZastavicaGlobalnogAdministratoraPriIzmjeni(t *testing.T) {
 	if err != nil || !u.IsGlobalAdmin {
 		t.Fatalf("stalna daje zastavicu: %v", err)
 	}
-	// Privremena uprava organizacije zastavicu ipak skida, i stalnom
-	// administratoru: pravilo vrijedi samo za davanje.
+	// privremena uprava organizacije zastavicu ni ne skida
 	req = korIzmjena(u)
 	req.IsGlobalAdmin = false
-	u, err = o.users.UpdateUser(privremena, req)
-	if err != nil || u.IsGlobalAdmin {
-		t.Errorf("privremena skida zastavicu: %v, zastavica %v", err, u.IsGlobalAdmin)
+	if _, err := o.users.UpdateUser(privremena, req); !errors.Is(err, service.ErrUnauthorized) {
+		t.Errorf("privremena skida zastavicu: %v", err)
+	}
+	if s, _ := o.repo.GetUserByID(u.ID); !s.IsGlobalAdmin {
+		t.Error("zastavica je skinuta")
+	}
+	// stalna je skida
+	if u, err = o.users.UpdateUser(o.admin, req); err != nil || u.IsGlobalAdmin {
+		t.Errorf("stalna skida zastavicu: %v", err)
 	}
 }
 
