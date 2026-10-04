@@ -153,3 +153,24 @@ func TestProvjeriSlijedAkta(t *testing.T) {
 		t.Errorf("akt bez dionica: %v", err)
 	}
 }
+
+// Vrh je stadij koji vrijedi, pozadina niži od višeg prema nižem; najavljeni
+// su akti dionice koji još nisu stupili na snagu, redom
+func TestVrhPozadinaINajavljeni(t *testing.T) {
+	if v := (StanjeObrane{}).Vrh(); v.Stupanj != "" || (StanjeObrane{}).Pozadina() != nil {
+		t.Errorf("bez obrane: %+v", v)
+	}
+	akti := []Akt{
+		akt("e1", AktUspostava, PhasePrep, 1, 8), akt("e2", AktUspostava, PhaseRegular, 1, 9),
+		akt("e3", AktUspostava, PhaseEmergency, 1, 10), akt("e5", AktPrekid, PhasePrep, 5, 7),
+		akt("e4", AktPrekid, PhaseEmergency, 3, 7),
+	}
+	s, _ := StanjeDionice(akti, "P.1.1", kad(2, 0))
+	if s.Vrh().AktID != "e3" || len(s.Pozadina()) != 2 || s.Pozadina()[0].AktID != "e2" || s.Pozadina()[1].AktID != "e1" {
+		t.Errorf("vrh %+v, pozadina %+v", s.Vrh(), s.Pozadina())
+	}
+	n := NajavljeniAkti(akti, "P.1.1", kad(2, 0))
+	if len(n) != 2 || n[0].ID != "e4" || n[1].ID != "e5" || len(NajavljeniAkti(akti, "P.1.2", kad(2, 0))) != 0 {
+		t.Errorf("najavljeni: %+v", n)
+	}
+}

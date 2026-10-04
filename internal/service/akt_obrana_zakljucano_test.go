@@ -2,6 +2,7 @@ package service_test
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"path/filepath"
 	"strings"
@@ -23,6 +24,7 @@ import (
 // prekida. Upitna mjesta test bilježi onakva kakva jesu.
 
 type okolinaAkta struct {
+	baza    *sql.DB
 	akti    *service.AktService
 	epizode *service.EpisodeService
 	letva   *models.Station
@@ -97,7 +99,7 @@ func novaOkolinaAkta(t *testing.T) *okolinaAkta {
 		ScopeType: models.ScopeArea, SectorID: &sektor, AreaID: &podrucje, IsPrimary: true})
 	vod, vodOvl := osoba("pperic-vodocuvar", "Pero Perić", &models.Duty{Title: "Vodočuvar P.1.1", Role: models.RoleWaterGuard,
 		ScopeType: models.ScopeSection, SectorID: &sektor, AreaID: &podrucje, SectionCodes: "P.1.1", IsPrimary: true})
-	return &okolinaAkta{akti: akti, epizode: epizode, letva: st, rukovod: ruk, ovlasti: rukOvl, vodocuv: vod, vodOvl: vodOvl}
+	return &okolinaAkta{baza: baza, akti: akti, epizode: epizode, letva: st, rukovod: ruk, ovlasti: rukOvl, vodocuv: vod, vodOvl: vodOvl}
 }
 
 // ovjeri priprema, sprema i ovjerava akt rukovoditelja područja
