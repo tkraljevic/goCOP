@@ -670,6 +670,18 @@ func (s *AktService) letvaAkta(ctx context.Context, a *models.Akt) *models.Stati
 	return &models.Station{Name: a.StationName}
 }
 
+// StanjeObrane je stanje obrane dionice u trenutku t iz ovjerenih akata
+// sektora (docs/NACRT-STADIJI-OBRANE.md) i ovjereni akti dionice koji tada još
+// nisu stupili na snagu
+func (s *AktService) StanjeObrane(ctx context.Context, sektor, dionica string, t time.Time) (models.StanjeObrane, []models.Akt, error) {
+	akti, err := s.repo.ListAkti(ctx, repository.FiltarAkata{Sektor: sektor, Status: models.AktOvjeren})
+	if err != nil {
+		return models.StanjeObrane{}, nil, err
+	}
+	stanje, _ := models.StanjeDionice(akti, dionica, t)
+	return stanje, models.NajavljeniAkti(akti, dionica, t), nil
+}
+
 // zakljuciOvjeru dovršava ovjeru: broj, tko i kad, kod, potpis ključem
 // čvora, spremanje i usklađivanje obrane na dionicama. potpisnikPerms su
 // ovlasti onoga tko akt ovjerava (za "u.z." i potpisnika). Stanje obrane na

@@ -177,7 +177,26 @@
 <section class="detail-section" id="obrana">
   <h2>{{icon "activity"}} Obrana od poplava{{if .Episodes}} <span class="reg-chip">{{len .Episodes}}</span>{{end}}</h2>
 
-  {{if .OpenEpisode}}
+  {{if .StanjeObrane.Traje}}
+  {{$vrh := .StanjeObrane.Vrh}}
+  <div class="table-card" style="padding:1rem 1.25rem; margin-bottom:1rem; border-left:4px solid var(--danger);">
+    <div style="display:flex; flex-wrap:wrap; align-items:center; gap:0.75rem 1.25rem;">
+      <span class="threshold-pill {{$vrh.Stupanj.PillClass}}">{{$vrh.Stupanj.Label}}</span>
+      <span>na snazi od <strong>{{formatDate (localTime $vrh.Od)}}</strong></span>
+      <a href="/akti/{{$vrh.AktID}}" class="reg-card-sub c-primary">akt o uspostavi</a>
+    </div>
+    {{with .StanjeObrane.Pozadina}}
+    <p class="page-desc mt-2 mb-0">U pozadini vrijedi{{range $i, $x := .}}{{if $i}};{{end}} {{$x.Stupanj.Label}} od {{formatDate (localTime $x.Od)}}{{end}} — kad se viši stadij ukine, vrijedi sljedeći niži.</p>
+    {{end}}
+    {{with .OpenEpisode}}
+    {{if .DeclaredBeforeThreshold}}
+    <p class="page-desc mt-2 mb-0">Obrana je proglašena {{.LeadHours}} sati prije nego što je vodostaj prešao prag.</p>
+    {{else if not .ThresholdAt}}
+    <p class="page-desc mt-2 mb-0">Vodostaj još nije prešao prag pripremnog stanja.</p>
+    {{end}}
+    {{end}}
+  </div>
+  {{else if .OpenEpisode}}
   <div class="table-card" style="padding:1rem 1.25rem; margin-bottom:1rem; border-left:4px solid var(--danger);">
     <div style="display:flex; flex-wrap:wrap; align-items:center; gap:0.75rem 1.25rem;">
       <span class="threshold-pill {{if eq .OpenEpisode.Phase "IZVANREDNO_STANJE"}}crit{{else if eq .OpenEpisode.Phase "IZVANREDNA"}}emerg{{else if eq .OpenEpisode.Phase "REDOVNA"}}regular{{else}}prep{{end}}">{{.OpenEpisode.Phase.Label}}</span>
@@ -192,6 +211,10 @@
     {{end}}
     {{if .OpenEpisode.Note}}<p class="page-desc mt-2 mb-0">{{.OpenEpisode.Note}}</p>{{end}}
   </div>
+  {{end}}
+
+  {{range .NajavljeniAkti}}
+  <p class="page-desc mt-2"><a href="/akti/{{.ID}}" class="c-primary fw-600">{{.Naslov}} {{.Oznaka}}</a> stupa na snagu <strong>{{formatDate (localTime .Vrijedi)}}</strong>.</p>
   {{end}}
 
   {{if .Gauge}}

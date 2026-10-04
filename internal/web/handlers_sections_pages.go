@@ -1,8 +1,10 @@
 package web
 
 import (
+	"context"
 	"encoding/json"
 	"html/template"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -41,8 +43,12 @@ type SectionPageData struct {
 	Parts       []PartView
 	Episodes    []models.DefenseEpisode // epizode obrane na ovoj dionici, najnovija prva
 	OpenEpisode *models.DefenseEpisode  // obrana koja upravo traje, ako je ima
-	Gauge       *models.Station         // letva po kojoj se dionica vodi
-	CanEdit     bool
+	// Stanje obrane iz ovjerenih akata: stadij koji vrijedi i niži u
+	// pozadini; najavljeni akti još nisu stupili na snagu
+	StanjeObrane   models.StanjeObrane
+	NajavljeniAkti []models.Akt
+	Gauge          *models.Station // letva po kojoj se dionica vodi
+	CanEdit        bool
 	// Sazetak kaže koji dijelovi trake na vrhu nose nešto što se ne vidi niže.
 	Sazetak SazetakDionice
 	// PredlozenaSifra je prvi slobodan broj u odabranom području; upisuje se u
@@ -174,6 +180,7 @@ func (h *SectionsHandler) napuniDionicu(r *http.Request, data *SectionPageData) 
 			}
 		}
 	}
+	data.StanjeObrane, data.NajavljeniAkti = h.obranaIzAkata(ctx, sec)
 	// Obrana se proglašava uz letvu, ondje gdje se vodostaj i čita. Stranica
 	// dionice pokazuje obranu koja traje i upućuje na letvu, ali je ne
 	// proglašava — jedan te isti stupanj vrijedi za sve dionice koje se po toj
@@ -408,4 +415,19 @@ func (h *SectionsHandler) ShowSectionForm(w http.ResponseWriter, r *http.Request
 	if err := h.tmplForm.ExecuteTemplate(w, "section_form.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// obranaIzAkata je stanje obrane dionice iz ovjerenih akata; bez servisa
+// akata ili kad se akti ne daju pročitati, prazno (kartica tada pokazuje
+// obranu iz epizode)
+func (h *SectionsHandler) obranaIzAkata(ctx context.Context, sec *models.Section) (models.StanjeObrane, []models.Akt) {
+	if h.stanjeObrane == nil {
+		return models.StanjeObrane{}, nil
+	}
+	stanje, najavljeni, err := h.stanjeObrane(ctx, sec.SectorID, sec.Code)
+	if err != nil {
+		log.Printf("stanje obrane %s iz akata: %v", sec.Code, err)
+		return models.StanjeObrane{}, nil
+	}
+	return stanje, najavljeni
 }

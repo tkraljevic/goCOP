@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"encoding/json"
 	"html/template"
 	"net/http"
@@ -24,9 +25,12 @@ type SectionsHandler struct {
 	structureService   *service.StructureService
 	watercourseService *service.WatercourseService
 	episodeService     *service.EpisodeService
-	tmpl               *template.Template // popis
-	tmplDetail         *template.Template // jedna dionica
-	tmplForm           *template.Template // obrazac
+	// stanjeObrane je stanje obrane dionice iz ovjerenih akata (i akti
+	// koji još nisu stupili na snagu)
+	stanjeObrane func(ctx context.Context, sektor, dionica string) (models.StanjeObrane, []models.Akt, error)
+	tmpl         *template.Template // popis
+	tmplDetail   *template.Template // jedna dionica
+	tmplForm     *template.Template // obrazac
 }
 
 func NewSectionsHandler(
