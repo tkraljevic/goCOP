@@ -71,7 +71,7 @@ type Membership struct {
 	ExpiresAt time.Time `json:"expiresAt"`
 	Signature string    `json:"signature"` // base64, over signedBytes()
 	// Primatelj je ovlast čvora koji je potpisao ovo članstvo svojim ključem;
-	// prazno kad ga je potpisao ključ mreže (sva članstva do 0.0.32)
+	// prazno kad ga je potpisao ključ mreže (sva članstva do 0.0.33)
 	Primatelj *Ovlast `json:"primatelj,omitempty"`
 }
 
@@ -230,7 +230,7 @@ func (m Membership) Verify(networkPub ed25519.PublicKey, deviceKey ed25519.Publi
 	if m.DeviceKey != PublicKeyString(deviceKey) {
 		return ErrKeyMismatch
 	}
-	signer, err := m.potpisnik(networkPub)
+	signer, err := m.potpisnik(networkPub, now)
 	if err != nil {
 		return err
 	}
@@ -244,17 +244,32 @@ func (m Membership) Verify(networkPub ed25519.PublicKey, deviceKey ed25519.Publi
 	return nil
 }
 
+// najvecaRazlikaSatova je koliko članstvo smije biti „izdano u budućnosti”
+// zbog razlike satova dvaju čvorova
+const najvecaRazlikaSatova = time.Hour
+
 // potpisnik je ključ koji je smio potpisati ovo članstvo: ključ mreže, ili
 // ovlašteni primatelj kad članstvo nosi njegovu ovlast. Lanac: ključ mreže
 // → ovlast primatelja → članstvo; ovlast mora vrijediti kad je članstvo
 // izdano, a potpisnik mora biti baš taj primatelj.
-func (m Membership) potpisnik(networkPub ed25519.PublicKey) (ed25519.PublicKey, error) {
+//
+// Trenutak izdavanja i rok upisuje sam primatelj, pa se ne smiju
+// pretpostaviti: članstvo ne smije trajati dulje od ovlasti ni biti izdano u
+// budućnosti. Inače bi ključ primatelja i nakon isteka ovlasti izdavao
+// članstva s datumom unatrag i proizvoljnim rokom.
+func (m Membership) potpisnik(networkPub ed25519.PublicKey, now time.Time) (ed25519.PublicKey, error) {
 	o := m.Primatelj
 	if o == nil {
 		return networkPub, nil
 	}
 	if err := o.Verify(networkPub, m.IssuedAt); err != nil {
 		return nil, err
+	}
+	if !o.ExpiresAt.IsZero() && (m.ExpiresAt.IsZero() || m.ExpiresAt.After(o.ExpiresAt)) {
+		return nil, fmt.Errorf("%w: članstvo traje dulje od ovlasti primatelja", ErrOvlast)
+	}
+	if m.IssuedAt.After(now.Add(najvecaRazlikaSatova)) {
+		return nil, fmt.Errorf("%w: članstvo je izdano u budućnosti", ErrOvlast)
 	}
 	if o.DeviceID != m.IssuedBy {
 		return nil, fmt.Errorf("%w: izdao ga je %s, a ovlast glasi na %s", ErrBadSignature, m.IssuedBy, o.DeviceID)

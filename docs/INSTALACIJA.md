@@ -1,6 +1,6 @@
 # Postavljanje i održavanje goCOP čvora
 
-Administratorske upute, usklađene s 0.0.32-alfa (4. 10. 2026.).
+Administratorske upute, usklađene s 0.0.33-alfa (4. 10. 2026.).
 Kratki pregled projekta: [README](../README.md). Korisnički postupci su u Pomoći aplikacije.
 
 Operativni program za obranu od poplava Hrvatskih voda: povezuje organizaciju,
@@ -9,7 +9,7 @@ i bez interneta; kopije na različitim računalima međusobno se usklađuju.
 Repozitorij nosi program i praznu shemu baze, a podatke unosi ili uvozi
 organizacija koja ga koristi.
 
-> **Status: alfa, izdanje 0.0.32-alfa (4. 10. 2026.), za testiranje i daljnji
+> **Status: alfa, izdanje 0.0.33-alfa (4. 10. 2026.), za testiranje i daljnji
 > razvoj.** Nije za operativnu upotrebu. Sve se još mijenja. Što je u kojem
 > izdanju, piše u [popisu izmjena](../CHANGELOG.md).
 >
@@ -221,19 +221,24 @@ Portovi se mijenjaju u `gocop.toml`.
   ni bajt. Kod se dogovara s obvezom unaprijed (strana koja zove obveže se
   na nasumičan broj prije nego što vidi broj druge strane), pa ga napadač u
   sredini ne može namjestiti traženjem ključa; sa starijim programom (prije
-  0.0.32-alfa) se ne uparuje. Razmjenu dobiva samo član mreže: računalo upareno s onim koje drži
+  0.0.33-alfa) se ne uparuje. Razmjenu dobiva samo član mreže: računalo upareno s onim koje drži
   ključ mreže ili ovlast za primanje dobije potpisano članstvo, koje vrijedi
   godinu dana i obnavlja se ponovnim primanjem. Svaka kasnija veza dokazuje
   ključ unutar TLS-a; ključ bez važećeg članstva u mreži odbija se na vratima,
   i kad je računalo upareno.
-- **Članstvo pri spajanju (od 0.0.32-alfa).** Čvor u certifikatu razmjene
+- **Članstvo pri spajanju (od 0.0.33-alfa).** Čvor u certifikatu razmjene
   pokaže svoju potvrdu članstva i, ako je ima, ovlast za primanje. Druga
   strana prihvati samo lanac koji vodi do ključa mreže (ključ mreže → ovlast
   primatelja → članstvo), neopozvan i s imenom koje u mreži nema drugo
   računalo. Tako se primljeno računalo sinkronizira sa svim članovima bez
   uparivanja sa svakim. Opoziv članstva ili ovlasti putuje knjigom; opozvana
   potvrda ne vrijedi ni kad je čvor pokaže sam, a oduzeta ovlast poništava
-  članstva svih računala koja je primatelj primio.
+  članstva svih računala koja je primatelj primio. Opoziv vrijedi samo
+  potpisan: opoziv ovlasti ključem mreže, opoziv članstva ključem mreže ili
+  primatelja koji je to članstvo izdao. Opoziv se ne poništava. Članstvo
+  koje primatelj izda ne traje dulje od njegove ovlasti, što provjerava svaki
+  član, pa ni ukraden ključ primatelja nakon isteka ovlasti ne izdaje
+  valjana članstva.
 - **Ključ računala** (`node-key`) je njegov identitet. Kopija baze bez
   ključa nije to računalo. Ključ se ne sinkronizira. Čuvati ga u zaštićenoj
   sigurnosnoj kopiji za oporavak istog čvora; ne koristiti ga za osnivanje drugog.
@@ -345,7 +350,7 @@ Portovi se mijenjaju u `gocop.toml`.
   pokreće i potvrđuje globalni administrator (od 0.0.25-alfa); na svježem
   računalu, dok na njemu nema računa, čarobnjak stoji na stranici prijave, ali
   samo za pristup iz lokalne mreže, nikad kroz tunel.
-- Program prevesti iz označenog izdanja (npr. `git checkout v0.0.32-alfa`) ili
+- Program prevesti iz označenog izdanja (npr. `git checkout v0.0.33-alfa`) ili
   koristiti sliku s oznakom izdanja. Uz izdanje na GitHubu stoje `SHA256SUMS`
   i potpis `SHA256SUMS.sig`; kako se provjeravaju, piše u
   [uputama za Linux](linux.md#2-preuzimanje-i-provjera-izdanja).
@@ -493,8 +498,10 @@ ostaje kod nositelja, npr. na USB-u. Ovlast vrijedi dvije godine i putuje
 razmjenom; članstvo koje primatelj izda vrijedi najviše dok vrijedi njegova
 ovlast. *Oduzmi ovlast za primanje* poništava članstva svih računala koja je
 taj primatelj primio, a ekran ih nabroji da ih se po potrebi primi ponovno.
-Opoziv članstva ovlaštenog primatelja oduzima mu i ovlast. Sve čvorove mreže
-treba nadograditi na 0.0.32-alfa prije prve ovlasti: stariji program
+*Opozovi članstvo* nudi samo čvor koji drži ključ mreže, i primatelj za
+članstva koja je sam izdao. Opoziv članstva ovlaštenog primatelja oduzima mu
+i ovlast, pa ga radi samo nositelj ključa mreže. Sve čvorove mreže
+treba nadograditi na 0.0.33-alfa prije prve ovlasti: stariji program
 članstvo koje je izdao primatelj ne prepoznaje.
 
 **Primanje na daljinu.** Kad novo računalo i čvor koji ga prima nisu u istoj
@@ -633,7 +640,7 @@ Stalni čvor na Linuxu bez spremnika, kao usluga systemd, opisan je u
 [uputama za Linux](linux.md).
 
 Docker slika je `ghcr.io/tkraljevic/gocop`, trenutačno za Linux amd64.
-Za ponovljivo postavljanje birati oznaku izdanja, npr. `:0.0.32-alfa`,
+Za ponovljivo postavljanje birati oznaku izdanja, npr. `:0.0.33-alfa`,
 umjesto promjenjive `:latest`. Spremnik sluša web na 8080, razmjenu na 4710,
 uparivanje na 4711 i pronalaženje na 4712/UDP, a radi kao UID/GID `99:100`;
 mape moraju biti dostupne tom korisniku.
@@ -722,8 +729,8 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 Verzija stoji u kodu (`verzijaPrograma` u `cmd/gocop/main.go`) i mijenja se pri
 izdavanju; program je ispisuje u podnožju stranice i u dnevniku, s kratkom
 oznakom commita iz kojega je preveden (i zvjezdicom kad stablo ima nespremljenih
-izmjena). Izdanje u gitu nosi oznaku oblika `v0.0.32-alfa`; iz svake takve
-oznake GitHub gradi Docker sliku `ghcr.io/tkraljevic/gocop:0.0.32-alfa` i `:latest`.
+izmjena). Izdanje u gitu nosi oznaku oblika `v0.0.33-alfa`; iz svake takve
+oznake GitHub gradi Docker sliku `ghcr.io/tkraljevic/gocop:0.0.33-alfa` i `:latest`.
 
 ## 9. Za razvoj
 

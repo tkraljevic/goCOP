@@ -925,7 +925,9 @@ func InitSchema(database *sql.DB) error {
 		// Opozivi potvrda (članstvo ili ovlast), po ključu i trenutku
 		// izdavanja: potvrda koju čvor pokaže pri spajanju ne vrijedi ako je
 		// opozvana, iako potpis i rok i dalje štimaju. Opozvana ovlast
-		// poništava i sva članstva koja je primatelj potpisao.
+		// poništava i sva članstva koja je primatelj potpisao. Opoziv
+		// potpisuje ključ mreže (ili primatelj, za članstvo koje je izdao);
+		// nepotpisan se zanemaruje, a opoziv se ne poništava.
 		`CREATE TABLE IF NOT EXISTS opozivi (
 			id TEXT PRIMARY KEY,
 			vrsta TEXT NOT NULL,
@@ -933,7 +935,9 @@ func InitSchema(database *sql.DB) error {
 			public_key TEXT NOT NULL,
 			issued_at DATETIME NOT NULL,
 			opozvano_at DATETIME NOT NULL,
-			opozvao TEXT NOT NULL DEFAULT ''
+			opozvao TEXT NOT NULL DEFAULT '',
+			potpisnik TEXT NOT NULL DEFAULT '',
+			potpis TEXT NOT NULL DEFAULT ''
 		);`,
 
 		// Hidrotehnički objekti: crpne stanice, ustave, sifoni... Zaseban zapis s
@@ -1559,6 +1563,8 @@ func migrateSchema(database *sql.DB) error {
 		// prijave izvana i izvan dopuštene domene (djelatnici tvrtki
 		// izvođača), tko i kada; vrijedi samo dok je jednaka adresi računa
 		{"memberships", "primatelj", "TEXT NOT NULL DEFAULT ''"},
+		{"opozivi", "potpisnik", "TEXT NOT NULL DEFAULT ''"},
+		{"opozivi", "potpis", "TEXT NOT NULL DEFAULT ''"},
 		{"users", "pin_adresa_potvrdena", "TEXT NOT NULL DEFAULT ''"},
 		{"users", "pin_adresa_potvrdio", "TEXT NOT NULL DEFAULT ''"},
 		{"users", "pin_adresa_potvrdena_kad", "DATETIME"},

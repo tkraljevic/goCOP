@@ -4,10 +4,15 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
-## 0.0.32-alfa — 4. 10. 2026.
+## 0.0.33-alfa — 4. 10. 2026.
 
 **Ovlašteni primatelj, primanje na daljinu i članstvo koje čvor sam pokaže.
 Sve čvorove treba nadograditi.**
+
+0.0.32-alfa je povučen: njegova Docker slika stigla je na ghcr.io prije nego
+što su u članstvu nađene dvije slabosti (rok članstva koje izda primatelj i
+nepotpisani opozivi, ispravljeno niže); izdanje za Windows nije izašlo.
+Nadograditi izravno na 0.0.33.
 
 - **Članstvo u certifikatu.** Čvor pri svakom spajanju pokaže svoju potvrdu
   članstva (i ovlast za primanje, ako je ima). Drugi član je provjeri ključem
@@ -20,13 +25,18 @@ Sve čvorove treba nadograditi.**
   primanje*), npr. uredskom poslužitelju, a ključ mreže ostaje kod nositelja.
   Članstvo koje primatelj izda nosi njegovu ovlast, pa ga svaki član provjeri
   sam. Ovlast vrijedi dvije godine, a članstvo koje primatelj izda najviše
-  dok vrijedi njegova ovlast. Ovlast daje samo nositelj ključa mreže.
-- **Opoziv vrijedi i za potvrdu koju čvor pokaže sam.** Opoziv članstva ili
-  ovlasti zapisuje se u knjigu i putuje svim čvorovima; opozvana potvrda ne
-  vrijedi ni kad je čvor pokaže pri spajanju. Oduzeta ovlast poništava
+  dok vrijedi njegova ovlast; to provjerava svaki član, pa ni ključ primatelja
+  nakon isteka ovlasti ne može izdati članstvo s datumom unatrag. Ovlast daje
+  samo nositelj ključa mreže.
+- **Potpisan opoziv, koji vrijedi i za potvrdu koju čvor pokaže sam.**
+  Opoziv članstva ili ovlasti zapisuje se u knjigu i putuje svim čvorovima;
+  opozvana potvrda ne vrijedi ni kad je čvor pokaže pri spajanju. Opoziv
+  ovlasti potpisuje ključ mreže, a opoziv članstva ključ mreže ili primatelj
+  koji je to članstvo izdao; nepotpisan opoziv ne vrijedi, a opoziv se ne
+  poništava (ponovno primanje izdaje novo članstvo). Oduzeta ovlast poništava
   članstva svih računala koja je primatelj primio, a ekran ih nabroji da ih
   se po potrebi primi ponovno. Opoziv članstva ovlaštenog primatelja oduzima
-  mu i ovlast.
+  mu i ovlast, pa ga može napraviti samo nositelj ključa mreže.
 - **Primanje na daljinu.** Kad novo računalo i ured nisu u istoj lokalnoj
   mreži: na novom računalu *Postavljanje → Postojeća mreža → Napravi
   zahtjev*. Ono pokaže **kod za primanje** (8 znakova, npr. `7KQ4-M2XD`);
@@ -48,7 +58,7 @@ Sve čvorove treba nadograditi.**
   PIN. Dosad ih je odbijao samo zahtjev kroz tunel, pa je svjež čvor
   izravno izložen internetu (npr. kroz proslijeđen port) mogao preuzeti
   svatko tko zna početnu lozinku.
-- **Nadogradnja.** Sve čvorove nadograditi na 0.0.32: stariji program
+- **Nadogradnja.** Sve čvorove nadograditi na 0.0.33: stariji program
   ne prepoznaje članstvo koje je izdao ovlašteni primatelj i ne uparuje se s
   novim.
 - **Razvoj: provjera kvalitete koda** (`make quality`, docs/CODE_QUALITY.md).

@@ -102,7 +102,7 @@
         {{if and $.Permissions.IsGlobalAdmin (not .IsSelf)}}
         <div class="actions">
           {{if and $.Network.DrziKljuc .Valid}}{{if and .OvlastZaPrimanje .OvlastZaPrimanje.Valid}}<button type="button" class="btn btn-sm btn-secondary" onclick="opozoviOvlast('{{.DeviceID}}')">Oduzmi ovlast za primanje</button>{{else}}<button type="button" class="btn btn-sm btn-secondary" onclick="izdajOvlast('{{.DeviceID}}')">Daj ovlast za primanje</button>{{end}}{{end}}
-          <button type="button" class="btn btn-sm btn-link" onclick="revokeMember('{{.DeviceID}}')">Opozovi članstvo</button>
+          {{if or $.Network.DrziKljuc (and .Primatelj (eq .Primatelj.DeviceKey $.NodePublicKey))}}<button type="button" class="btn btn-sm btn-link" onclick="revokeMember('{{.DeviceID}}')">Opozovi članstvo</button>{{end}}
         </div>
         {{end}}
       </div>

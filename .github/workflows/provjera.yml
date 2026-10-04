@@ -19,7 +19,9 @@ permissions:
 jobs:
   testovi:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # dva puna mjerenja (baseline iste platforme i ova verzija), svako s
+    # race i coverageom
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
         with:
@@ -72,6 +74,7 @@ jobs:
             .quality/lint.log
             ${{ runner.temp }}/gocop-quality-baseline.json
             ${{ runner.temp }}/gocop-quality-baseline-output/code-health.md
+            ${{ runner.temp }}/gocop-quality-baseline-output/tests.log
 
   ranjivosti:
     runs-on: ubuntu-latest

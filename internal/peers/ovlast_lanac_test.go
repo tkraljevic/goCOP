@@ -304,3 +304,142 @@ func TestKrivotvorenaOvlastNePrima(t *testing.T) {
 		t.Errorf("B je primio C krivotvorenom ovlašću: %+v", outB)
 	}
 }
+
+// Opoziv članstva potpisuje nositelj ključa mreže ili primatelj koji je to
+// članstvo izdao; drugi član ga ne može napraviti, a primatelj ne opoziva
+// člana koji ima ovlast (to je i opoziv ovlasti, samo ključem mreže)
+func TestKoSmijeOpozvatiClanstvo(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+
+	a := startCvor(t, ctx, "cop-osijek")
+	founder(t, ctx, a, "Hrvatske vode")
+	b := startCvor(t, ctx, "ured-vukovar")
+	pair(t, ctx, a, b)
+	if _, err := a.svc.IzdajOvlast(ctx, b.id); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := b.svc.SyncWith(ctx, a.id); err != nil {
+		t.Fatal(err)
+	}
+	c := startCvor(t, ctx, "pperic-thinkpad")
+	pair(t, ctx, b, c)
+	d := startCvor(t, ctx, "pperic-laptop")
+	pair(t, ctx, a, d)
+	// svi znaju za sve: C za A sazna od B
+	if _, _, err := c.svc.SyncWith(ctx, b.id); err != nil {
+		t.Fatal(err)
+	}
+	for _, n := range []*node{c, d} {
+		if _, _, err := n.svc.SyncWith(ctx, a.id); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, _, err := d.svc.SyncWith(ctx, a.id); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := d.svc.RevokeMembership(ctx, c.id); err == nil || !strings.Contains(err.Error(), "primatelj koji ga je izdao") {
+		t.Errorf("član bez ključa i ovlasti opozvao je članstvo: %v", err)
+	}
+	if _, err := b.svc.RevokeMembership(ctx, c.id); err != nil {
+		t.Fatalf("primatelj ne može opozvati članstvo koje je izdao: %v", err)
+	}
+	if _, _, err := b.svc.SyncWith(ctx, a.id); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := c.svc.SyncWith(ctx, a.id); err == nil {
+		t.Error("A prima čvor kojemu je primatelj opozvao članstvo")
+	}
+
+	// primatelj ne opoziva člana s ovlašću
+	e := startCvor(t, ctx, "pperic-ipad")
+	pair(t, ctx, b, e)
+	if _, _, err := e.svc.SyncWith(ctx, b.id); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := e.svc.SyncWith(ctx, a.id); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.svc.IzdajOvlast(ctx, e.id); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := b.svc.SyncWith(ctx, a.id); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := b.svc.RevokeMembership(ctx, e.id); err == nil || !strings.Contains(err.Error(), "ovlast za primanje") {
+		t.Errorf("primatelj je opozvao člana s ovlašću: %v", err)
+	}
+}
+
+// Opoziv putuje knjigom kao i svaki zapis: član s izmijenjenim programom ne
+// može krivotvoriti opoziv (odsjeći drugoga) ni poništiti pravi arhiviranjem
+func TestKrivotvorenIArhiviranOpozivNemajuUcinka(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+
+	a := startCvor(t, ctx, "cop-osijek")
+	founder(t, ctx, a, "Hrvatske vode")
+	uljez := startCvor(t, ctx, "ured-vukovar")
+	c := startCvor(t, ctx, "pperic-thinkpad")
+	pair(t, ctx, a, uljez)
+	pair(t, ctx, a, c)
+	for _, n := range []*node{uljez, c} {
+		if _, _, err := n.svc.SyncWith(ctx, a.id); err != nil {
+			t.Fatal(err)
+		}
+	}
+	upisiUKnjigu := func(n *node, arhiviraj bool, op peers.Opoziv) {
+		t.Helper()
+		tx, err := n.db.Begin()
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer tx.Rollback()
+		if arhiviraj {
+			_, err = n.rec.Archive(ctx, tx, peers.EntityOpozivi, op.ID, op)
+		} else {
+			_, err = n.rec.Record(ctx, tx, peers.EntityOpozivi, op.ID, op)
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := tx.Commit(); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// krivotvoren opoziv za C
+	clanC := clan(t, a, c.id)
+	upisiUKnjigu(uljez, false, peers.Opoziv{ID: "lazni", Vrsta: peers.OpozivClanstva, NodeID: c.id, PublicKey: clanC.DeviceKey,
+		IssuedAt: clanC.IssuedAt, OpozvanoAt: time.Now().UTC(), Opozvao: uljez.id, Potpisnik: a.svc.NetworkInfo().PublicKey, Potpis: "lazni"})
+	if _, _, err := uljez.svc.SyncWith(ctx, a.id); err != nil {
+		t.Fatal(err)
+	}
+	if ops, _ := a.svc.ListOpozivi(ctx); len(ops) != 1 {
+		t.Fatalf("krivotvoren opoziv nije stigao na A: %+v", ops)
+	}
+	if _, _, err := c.svc.SyncWith(ctx, a.id); err != nil {
+		t.Fatalf("krivotvoren opoziv odsjekao je C: %v", err)
+	}
+
+	// pravi opoziv, pa ga uljez arhivira
+	if _, err := a.svc.RevokeMembership(ctx, c.id); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := uljez.svc.SyncWith(ctx, a.id); err != nil {
+		t.Fatal(err)
+	}
+	ops, _ := uljez.svc.ListOpozivi(ctx)
+	for _, op := range ops {
+		if op.Potpis != "lazni" {
+			upisiUKnjigu(uljez, true, op)
+		}
+	}
+	if _, _, err := uljez.svc.SyncWith(ctx, a.id); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := c.svc.SyncWith(ctx, a.id); err == nil {
+		t.Error("arhiviranjem je poništen opoziv")
+	}
+}

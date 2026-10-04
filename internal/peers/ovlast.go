@@ -18,7 +18,10 @@ package peers
 import (
 	"context"
 	"crypto/ed25519"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -64,7 +67,10 @@ func (s *Service) vjerodajnice() []byte {
 	return b
 }
 
-// Opoziv je zapis da potvrda (članstvo ili ovlast) više ne vrijedi
+// Opoziv je zapis da potvrda (članstvo ili ovlast) više ne vrijedi. Zapis
+// putuje knjigom kao i svaki drugi, pa vrijedi samo potpisan: opoziv ovlasti
+// ključem mreže, opoziv članstva ključem mreže ili primatelja koji je to
+// članstvo izdao. Nepotpisan ili tuđe potpisan opoziv ne opoziva ništa.
 type Opoziv struct {
 	ID         string    `json:"id"`
 	Vrsta      string    `json:"vrsta"` // OpozivClanstva | OpozivOvlasti
@@ -73,21 +79,57 @@ type Opoziv struct {
 	IssuedAt   time.Time `json:"issuedAt"` // opozvana je potvrda izdana tada i sve starije istog ključa
 	OpozvanoAt time.Time `json:"opozvanoAt"`
 	Opozvao    string    `json:"opozvao"`
+	Potpisnik  string    `json:"potpisnik"` // javni ključ koji je potpisao opoziv
+	Potpis     string    `json:"potpis"`
+}
+
+func (op Opoziv) signedBytes() []byte {
+	b, _ := json.Marshal(struct {
+		V          string `json:"v"`
+		Vrsta      string `json:"vrsta"`
+		NodeID     string `json:"nodeId"`
+		PublicKey  string `json:"publicKey"`
+		IssuedAt   int64  `json:"issuedAt"`
+		OpozvanoAt int64  `json:"opozvanoAt"`
+		Opozvao    string `json:"opozvao"`
+		Potpisnik  string `json:"potpisnik"`
+	}{"opoziv/1", op.Vrsta, op.NodeID, op.PublicKey, op.IssuedAt.Unix(), op.OpozvanoAt.Unix(), op.Opozvao, op.Potpisnik})
+	return b
+}
+
+// potpisao javlja je li opoziv potpisao jedan od zadanih ključeva
+func (op Opoziv) potpisao(kljucevi ...ed25519.PublicKey) bool {
+	potpis, err := base64.StdEncoding.DecodeString(op.Potpis)
+	if err != nil {
+		return false
+	}
+	for _, k := range kljucevi {
+		if op.Potpisnik == razmjena.PublicKeyString(k) && ed25519.Verify(k, op.signedBytes(), potpis) {
+			return true
+		}
+	}
+	return false
+}
+
+const stupciOpoziva = `id, vrsta, node_id, public_key, issued_at, opozvano_at, opozvao, potpisnik, potpis`
+
+func scanOpoziv(sc interface{ Scan(...any) error }) (Opoziv, error) {
+	var op Opoziv
+	err := sc.Scan(&op.ID, &op.Vrsta, &op.NodeID, &op.PublicKey, &op.IssuedAt, &op.OpozvanoAt, &op.Opozvao, &op.Potpisnik, &op.Potpis)
+	return op, err
 }
 
 // ListOpozivi vraća sve opozive, najnovije prve
 func (s *Service) ListOpozivi(ctx context.Context) ([]Opoziv, error) {
-	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, vrsta, node_id, public_key, issued_at, opozvano_at, opozvao
-		FROM opozivi ORDER BY opozvano_at DESC, id`)
+	rows, err := s.db.QueryContext(ctx, `SELECT `+stupciOpoziva+` FROM opozivi ORDER BY opozvano_at DESC, id`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	var out []Opoziv
 	for rows.Next() {
-		var op Opoziv
-		if err := rows.Scan(&op.ID, &op.Vrsta, &op.NodeID, &op.PublicKey, &op.IssuedAt, &op.OpozvanoAt, &op.Opozvao); err != nil {
+		op, err := scanOpoziv(rows)
+		if err != nil {
 			return nil, err
 		}
 		out = append(out, op)
@@ -95,38 +137,45 @@ func (s *Service) ListOpozivi(ctx context.Context) ([]Opoziv, error) {
 	return out, rows.Err()
 }
 
-// zapisiOpoziv upisuje opoziv i ostavlja verziju; isti opoziv dvaput je isti zapis
-func (s *Service) zapisiOpoziv(ctx context.Context, tx *sql.Tx, vrsta, nodeID, kljuc string, izdano time.Time) error {
+// zapisiOpoziv potpiše opoziv zadanim ključem, upiše ga i ostavi verziju.
+// Oznaka uključuje sažetak potpisa: zapis s istom vrstom, ključem i
+// trenutkom, a lažnim potpisom ne može zauzeti mjesto pravog opoziva.
+func (s *Service) zapisiOpoziv(ctx context.Context, tx *sql.Tx, priv ed25519.PrivateKey, vrsta, nodeID, kljuc string, izdano time.Time) error {
 	op := Opoziv{
 		Vrsta: vrsta, NodeID: nodeID, PublicKey: kljuc, IssuedAt: izdano.UTC().Truncate(time.Second),
 		OpozvanoAt: time.Now().UTC().Truncate(time.Second), Opozvao: s.node.ID,
+		Potpisnik: razmjena.PublicKeyString(priv.Public().(ed25519.PublicKey)),
 	}
-	op.ID = fmt.Sprintf("%s:%s:%d", op.Vrsta, op.PublicKey, op.IssuedAt.Unix())
+	potpis := ed25519.Sign(priv, op.signedBytes())
+	op.Potpis = base64.StdEncoding.EncodeToString(potpis)
+	sazetak := sha256.Sum256(potpis)
+	op.ID = fmt.Sprintf("%s:%s:%d:%s", op.Vrsta, op.PublicKey, op.IssuedAt.Unix(), hex.EncodeToString(sazetak[:8]))
 	if _, err := tx.ExecContext(ctx, `
-		INSERT INTO opozivi (id, vrsta, node_id, public_key, issued_at, opozvano_at, opozvao)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO opozivi (`+stupciOpoziva+`)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO NOTHING
-	`, op.ID, op.Vrsta, op.NodeID, op.PublicKey, op.IssuedAt, op.OpozvanoAt, op.Opozvao); err != nil {
+	`, op.ID, op.Vrsta, op.NodeID, op.PublicKey, op.IssuedAt, op.OpozvanoAt, op.Opozvao, op.Potpisnik, op.Potpis); err != nil {
 		return err
 	}
 	_, err := s.rec.Record(ctx, tx, EntityOpozivi, op.ID, op)
 	return err
 }
 
-// opozvano javlja je li potvrda te vrste i ključa izdana u trenutku izdano
-// opozvana. Kad se opozivi ne mogu pročitati, potvrda ne vrijedi.
-func (s *Service) opozvano(ctx context.Context, vrsta, kljuc string, izdano time.Time) bool {
-	rows, err := s.db.QueryContext(ctx, `SELECT issued_at FROM opozivi WHERE vrsta = ? AND public_key = ?`, vrsta, kljuc)
+// opozvano javlja je li potvrda te vrste i ključa, izdana u trenutku
+// izdano, opozvana opozivom koji je potpisao jedan od ovlaštenih ključeva.
+// Kad se opozivi ne mogu pročitati, potvrda ne vrijedi.
+func (s *Service) opozvano(ctx context.Context, vrsta, kljuc string, izdano time.Time, ovlasteni ...ed25519.PublicKey) bool {
+	rows, err := s.db.QueryContext(ctx, `SELECT `+stupciOpoziva+` FROM opozivi WHERE vrsta = ? AND public_key = ?`, vrsta, kljuc)
 	if err != nil {
 		return true
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var t time.Time
-		if err := rows.Scan(&t); err != nil {
+		op, err := scanOpoziv(rows)
+		if err != nil {
 			return true
 		}
-		if t.Unix() >= izdano.Unix() {
+		if op.IssuedAt.Unix() >= izdano.Unix() && op.potpisao(ovlasteni...) {
 			return true
 		}
 	}
@@ -139,13 +188,24 @@ func (s *Service) provjeriClanstvo(ctx context.Context, networkPub ed25519.Publi
 	if err := m.Verify(networkPub, pub, time.Now()); err != nil {
 		return err
 	}
-	if s.opozvano(ctx, OpozivClanstva, m.DeviceKey, m.IssuedAt) {
+	if s.opozvano(ctx, OpozivClanstva, m.DeviceKey, m.IssuedAt, opozivateljiClanstva(networkPub, m)...) {
 		return fmt.Errorf("%w: članstvo čvora %s", ErrOpozvano, m.DeviceID)
 	}
-	if o := m.Primatelj; o != nil && s.opozvano(ctx, OpozivOvlasti, o.DeviceKey, o.IssuedAt) {
+	if o := m.Primatelj; o != nil && s.opozvano(ctx, OpozivOvlasti, o.DeviceKey, o.IssuedAt, networkPub) {
 		return fmt.Errorf("%w: ovlast primatelja %s, koji je primio %s", ErrOpozvano, o.DeviceID, m.DeviceID)
 	}
 	return nil
+}
+
+// opozivateljiClanstva su ključevi čiji opoziv članstva vrijedi: ključ
+// mreže i primatelj koji je to članstvo izdao (Verify je već provjerio
+// njegov ključ)
+func opozivateljiClanstva(networkPub ed25519.PublicKey, m razmjena.Membership) []ed25519.PublicKey {
+	if m.Primatelj == nil {
+		return []ed25519.PublicKey{networkPub}
+	}
+	primatelj, _ := razmjena.ParsePublicKey(m.Primatelj.DeviceKey)
+	return []ed25519.PublicKey{networkPub, primatelj}
 }
 
 // provjeriOvlast: potpis ključa mreže, rok i opoziv
@@ -153,7 +213,7 @@ func (s *Service) provjeriOvlast(ctx context.Context, networkPub ed25519.PublicK
 	if err := o.Verify(networkPub, time.Now()); err != nil {
 		return err
 	}
-	if s.opozvano(ctx, OpozivOvlasti, o.DeviceKey, o.IssuedAt) {
+	if s.opozvano(ctx, OpozivOvlasti, o.DeviceKey, o.IssuedAt, networkPub) {
 		return fmt.Errorf("%w: ovlast čvora %s", ErrOpozvano, o.DeviceID)
 	}
 	return nil
@@ -282,22 +342,22 @@ func (s *Service) OpozoviOvlast(ctx context.Context, nodeID string) ([]string, e
 	}
 	var pogodjeni []string
 	err = s.uTransakciji(ctx, func(tx *sql.Tx) error {
-		pogodjeni, err = s.opozoviOvlastTx(ctx, tx, *o)
+		pogodjeni, err = s.opozoviOvlastTx(ctx, tx, *o, network.Private())
 		return err
 	})
 	return pogodjeni, err
 }
 
-// opozoviOvlastTx arhivira ovlast, zapisuje opoziv i vraća čvorove koje je
-// taj primatelj primio
-func (s *Service) opozoviOvlastTx(ctx context.Context, tx *sql.Tx, o razmjena.Ovlast) ([]string, error) {
+// opozoviOvlastTx arhivira ovlast, zapisuje opoziv potpisan ključem mreže
+// (mrezni) i vraća čvorove koje je taj primatelj primio
+func (s *Service) opozoviOvlastTx(ctx context.Context, tx *sql.Tx, o razmjena.Ovlast, mrezni ed25519.PrivateKey) ([]string, error) {
 	if _, err := tx.ExecContext(ctx, `DELETE FROM ovlasti WHERE node_id = ?`, o.DeviceID); err != nil {
 		return nil, err
 	}
 	if _, err := s.rec.Archive(ctx, tx, EntityOvlasti, o.DeviceID, o); err != nil {
 		return nil, err
 	}
-	if err := s.zapisiOpoziv(ctx, tx, OpozivOvlasti, o.DeviceID, o.DeviceKey, o.IssuedAt); err != nil {
+	if err := s.zapisiOpoziv(ctx, tx, mrezni, OpozivOvlasti, o.DeviceID, o.DeviceKey, o.IssuedAt); err != nil {
 		return nil, err
 	}
 	return primljeniOvlascu(ctx, tx, o)

@@ -81,9 +81,11 @@ nepouzdano.
   primanje: potpis ključem mreže nad ključem i imenom tog člana, koji
   vrijedi dvije godine. Primatelj članstvo potpisuje svojim ključem čvora,
   a u članstvo ugradi svoju ovlast, pa ga svaki član provjeri ključem
-  mreže. Program primatelja ne izdaje članstvo koje traje dulje od
-  njegove ovlasti. Ovlast daje i oduzima samo nositelj ključa mreže, a
-  primatelj je ne može dati dalje.
+  mreže. Svaki član odbija članstvo koje primatelj izda ako traje dulje od
+  njegove ovlasti ili je izdano u budućnosti (dopuštena je razlika satova
+  od sat vremena). Ni ukraden ključ primatelja zato nakon isteka ovlasti
+  ne izdaje valjana članstva. Ovlast daje i oduzima samo nositelj ključa
+  mreže, a primatelj je ne može dati dalje.
 - Čvor pri svakom spajanju pokaže svoju potvrdu u certifikatu TLS-a. Strana
   koja prima vezu prihvaća člana čiju valjanu potvrdu ima u bazi, ili
   onoga koji je pokazao valjanu potvrdu: potpis i rok vrijede, potvrda nije
@@ -93,12 +95,19 @@ nepouzdano.
 - Čvor bez valjane potvrde je **poznat, ali mu se razmjena odbija**.
 - Povjerenje vrijedi za cijelu mrežu: svaki valjani član smije razmjenjivati
   sa svakim čvorom te mreže, ne samo s onim s kojim se uparivao.
-- **Opoziv** (Administracija → Čvor, mreža i sinkronizacija; članstvo
-  opoziva globalni administrator, a ovlast samo nositelj ključa mreže)
-  zapisuje se u knjigu i razmjenom stiže svim čvorovima. Opozvana potvrda
-  ne vrijedi ni kad je čvor pokaže sam; potvrda izdana nakon opoziva opet
-  vrijedi. Oduzeta ovlast poništava sva članstva koja je primatelj izdao,
-  a opoziv članstva primatelja oduzima mu i ovlast.
+- **Opoziv** (Administracija → Čvor, mreža i sinkronizacija) zapisuje se u
+  knjigu i razmjenom stiže svim čvorovima. Vrijedi samo potpisan:
+  - opoziv ovlasti potpisuje ključ mreže;
+  - opoziv članstva potpisuje ključ mreže ili primatelj koji je to članstvo
+    izdao;
+  - opoziv članstva ovlaštenog primatelja oduzima mu i ovlast, pa ga može
+    napraviti samo nositelj ključa mreže.
+
+  Nepotpisan ili tuđe potpisan opoziv stoji u bazi, ali ništa ne opoziva.
+  Opoziv se ne poništava: arhivirana verzija opoziva ne briše ga ni na
+  jednom čvoru. Opozvana potvrda ne vrijedi ni kad je čvor pokaže sam, a
+  potvrda izdana nakon opoziva opet vrijedi (ponovno primanje izdaje novo
+  članstvo). Oduzeta ovlast poništava sva članstva koja je primatelj izdao.
 - Automatske obnove potvrde nema; obnavlja se ponovnim primanjem.
 
 ### Uparivanje kodom od 6 znamenki
@@ -248,9 +257,9 @@ nepouzdano.
   koji zapis. Kompromitiran ili zlonamjeran član može izmijeniti ili
   obrisati bilo koji usklađeni podatak na svim čvorovima, uključujući
   korisničke račune i ovlasti, zajedničke postavke (npr. PIN izvana),
-  popis čvorova, opozive i izdavatelje potpisnih certifikata. Članstva i
-  ovlasti provjeravaju se potpisom pri uporabi, pa ih član ne može
-  krivotvoriti, ali opoziv može dodati ili poništiti. Svaki član
+  popis čvorova i izdavatelje potpisnih certifikata. Članstva, ovlasti i
+  opozivi provjeravaju se potpisom pri uporabi, pa ih član ne može
+  krivotvoriti, a opoziv ne može poništiti. Svaki član
   smije objaviti prognozu i arhivu. Potpisani zapisi i uloge izdavanja su
   u planu ([plan-povezivost.md](docs/plan-povezivost.md)).
 - **Opoziv nije trenutan.** Čvor prihvaća opozvanu potvrdu dok mu opoziv ne

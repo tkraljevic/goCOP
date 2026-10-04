@@ -296,3 +296,35 @@ func TestOgradaTunelaDijeliRazmjeneSPortom(t *testing.T) {
 		t.Errorf("rok rukovanja kroz tunel %v nije kraći od porta %v", tunel.rok, port.rok)
 	}
 }
+
+// Zatvoren tunel zatvara i vezu koja čeka predaju i vezu koja je predana:
+// gašenje čvora ne ostavlja otvorene WebSocket veze
+func TestZatvorenTunelZatvaraVeze(t *testing.T) {
+	for _, predana := range []bool{false, true} {
+		tunel := NoviTunel()
+		mux := http.NewServeMux()
+		mux.Handle("GET "+PutTunela, tunel.Handler())
+		srv := httptest.NewServer(mux)
+
+		ws, err := websocket.Dial("ws"+strings.TrimPrefix(srv.URL, "http")+PutTunela, "", srv.URL)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if predana {
+			if _, err := tunel.Accept(); err != nil {
+				t.Fatal(err)
+			}
+		} else {
+			time.Sleep(100 * time.Millisecond) // veza je stigla do predaje
+		}
+		tunel.Close()
+		_ = ws.SetReadDeadline(time.Now().Add(3 * time.Second))
+		_, err = ws.Read(make([]byte, 16))
+		var ne net.Error
+		if err == nil || (errors.As(err, &ne) && ne.Timeout()) {
+			t.Errorf("predana=%v: zatvoren tunel nije zatvorio vezu: %v", predana, err)
+		}
+		ws.Close()
+		srv.Close()
+	}
+}
