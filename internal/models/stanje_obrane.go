@@ -11,6 +11,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // AktivniStadij je stadij koji traje i akt kojim je proglašen
@@ -79,9 +81,9 @@ type GreskaSlijeda struct {
 
 func (g GreskaSlijeda) Error() string { return g.Dionica + ": " + g.Razlog }
 
-// ulaziUStanje: ovjeren akt koji se odnosi na dionicu
+// ulaziUStanje: ovjeren, neponišten akt koji se odnosi na dionicu
 func (a Akt) ulaziUStanje(dionica string) bool {
-	if a.Status != AktOvjeren {
+	if a.Status != AktOvjeren || a.Storniran() {
 		return false
 	}
 	for _, d := range a.Dionice {
@@ -221,4 +223,63 @@ func novaGreska(prije, poslije []GreskaSlijeda) (GreskaSlijeda, bool) {
 		}
 	}
 	return GreskaSlijeda{}, false
+}
+
+// KasnijiAkt je prvi ovjeren, neponišten akt koji na nekoj dionici akta
+// stupa na snagu poslije njega (redom stanja). Poništava se najkasniji akt
+// dionice: inače bi kasniji, npr. prekid, ostao prekid stadija koji nije
+// proglašen.
+func KasnijiAkt(akti []Akt, a Akt) (Akt, string, bool) {
+	for _, d := range a.Dionice {
+		redom := redomAkata(akti, d.Code)
+		for i, x := range redom {
+			if x.ID == a.ID && i+1 < len(redom) {
+				return redom[i+1], d.Code, true
+			}
+		}
+	}
+	return Akt{}, "", false
+}
+
+// RazdobljeObrane je jedno razdoblje obrane na dionici: od uspostave nakon
+// koje je obrana počela do prekida nakon kojeg više ništa ne traje
+type RazdobljeObrane struct {
+	Od      time.Time
+	Do      *time.Time // nil dok obrana traje
+	Najvisi DefensePhase
+	Akti    []Akt // akti razdoblja redom: prvi ga je otvorio, zadnji zatvorio kad je Do zadan
+}
+
+// RazdobljaObrane su razdoblja obrane dionice do trenutka t, iz ovjerenih,
+// neponištenih akata; akt koji krši slijed preskače se kao i u stanju
+func RazdobljaObrane(akti []Akt, dionica string, t time.Time) []RazdobljeObrane {
+	var s StanjeObrane
+	var out []RazdobljeObrane
+	for _, a := range redomAkata(akti, dionica) {
+		if a.Vrijedi.After(t) {
+			break
+		}
+		if s.primijeni(a) != "" {
+			continue
+		}
+		if a.Radnja == AktUspostava && len(s.Aktivni) == 1 {
+			out = append(out, RazdobljeObrane{Od: a.Vrijedi})
+		}
+		r := &out[len(out)-1]
+		r.Akti = append(r.Akti, a)
+		if s.Najvisi().Severity() > r.Najvisi.Severity() {
+			r.Najvisi = s.Najvisi()
+		}
+		if !s.Traje() {
+			kraj := a.Vrijedi
+			r.Do = &kraj
+		}
+	}
+	return out
+}
+
+// IDEpizodeIzAkta je stalan identitet epizode koju je otvorio akt: svaki
+// čvor iz istih akata izvede iste zapise povijesti obrane
+func IDEpizodeIzAkta(dionica, aktID string) uuid.UUID {
+	return uuid.NewSHA1(uuid.NameSpaceURL, []byte("gocop:epizoda-iz-akta:"+dionica+"|"+aktID))
 }

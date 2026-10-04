@@ -81,6 +81,10 @@ type Akt struct {
 	// Rucno je akt potpisan vlastoručno i ovjeren žigom, pa skeniran i
 	// učitan; tada je sken izvornik
 	Rucno *RucniPotpis `json:"rucno,omitempty"`
+	// Storno: ovjeren akt je poništen, kad je pogreška to što je akt uopće
+	// izdan (ispravak ide novim aktom). Poništen akt ostaje u popisu i ispisu,
+	// označen, ali ne ulazi u stanje obrane.
+	Storno *StornoAkta `json:"storno,omitempty"`
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
@@ -415,6 +419,31 @@ func (a Akt) PorukaPotpisa() []byte {
 		kad = a.OvjerenoAt.UTC().Format(time.RFC3339)
 	}
 	return []byte("goCOP-akt-v1|" + a.ID + "|" + a.Oznaka() + "|" + a.Sazetak() + "|" + a.OvjerioID + "|" + a.Ovjerio + "|" + kad)
+}
+
+// StornoAkta je poništenje ovjerenog akta: tko, kada i zašto, potpisano
+// ključem čvora na kojem je poništen
+type StornoAkta struct {
+	PonistioID  string    `json:"ponistio_id"`
+	Ponistio    string    `json:"ponistio"`
+	PonistenoAt time.Time `json:"ponisteno_at"`
+	Razlog      string    `json:"razlog"`
+	Cvor        string    `json:"cvor,omitempty"`
+	KljucCvora  string    `json:"kljuc_cvora,omitempty"`
+	Potpis      string    `json:"potpis,omitempty"`
+}
+
+// Storniran javlja je li ovjeren akt poništen
+func (a Akt) Storniran() bool { return a.Storno != nil }
+
+// PorukaStorna je ono što potpis poništenja pokriva: akt (s kodom ovjere),
+// tko, kada i zašto ga je poništio
+func (a Akt) PorukaStorna() []byte {
+	if a.Storno == nil {
+		return nil
+	}
+	return []byte("goCOP-storno-v1|" + a.ID + "|" + a.OvjeraKod + "|" + a.Storno.PonistioID + "|" + a.Storno.Ponistio + "|" +
+		a.Storno.PonistenoAt.UTC().Format(time.RFC3339) + "|" + a.Storno.Razlog)
 }
 
 // OtisakKljuca je kratki otisak javnog ključa čvora za ispis

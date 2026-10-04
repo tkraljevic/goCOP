@@ -2,6 +2,7 @@ package service_test
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -138,5 +139,69 @@ func TestOvjeraSkenomIstiPreduvjeti(t *testing.T) {
 	}
 	if _, _, err := o.akti.UcitajSkenirani(ctx, o.ovlasti, o.rukovod, uspostava.ID, sken, o.rukovod.ID.String()); err == nil || !strings.Contains(err.Error(), "već ovjeren") {
 		t.Errorf("ponovni sken: %v", err)
+	}
+}
+
+// Storno: poništava se najkasniji akt dionice, s razlogom, onaj tko ga je
+// pripremio ili ga smije ovjeriti; poništen akt ne ulazi u stanje, a
+// povijest obrane izvodi se iznova (razdoblje bez akata nestaje)
+func TestStornoAkta(t *testing.T) {
+	o := novaOkolinaAkta(t)
+	ctx := context.Background()
+	sat := time.Now().Add(-time.Hour).Truncate(time.Minute)
+	a1, _ := o.ovjeri(t, models.AktUspostava, models.PhasePrep, sat)
+	a2, _ := o.ovjeri(t, models.AktUspostava, models.PhaseRegular, sat.Add(10*time.Minute))
+
+	if _, _, err := o.akti.Storniraj(ctx, o.ovlasti, o.rukovod, a1.ID, "pogrešan stadij"); err == nil || !strings.Contains(err.Error(), "najprije se poništava kasniji akt") {
+		t.Errorf("poništenje ranijeg akta: %v", err)
+	}
+	if _, _, err := o.akti.Storniraj(ctx, o.vodOvl, o.vodocuv, a2.ID, "pogrešan stadij"); !errors.Is(err, service.ErrUnauthorized) {
+		t.Errorf("poništenje bez prava: %v", err)
+	}
+	if _, _, err := o.akti.Storniraj(ctx, o.ovlasti, o.rukovod, a2.ID, "  "); err == nil || !strings.Contains(err.Error(), "zašto") {
+		t.Errorf("poništenje bez razloga: %v", err)
+	}
+	p, upozorenja, err := o.akti.Storniraj(ctx, o.ovlasti, o.rukovod, a2.ID, "redovna obrana nije trebala")
+	if err != nil || len(upozorenja) != 0 || !p.Storniran() || p.Storno.Ponistio != o.rukovod.FullName || p.Storno.Razlog != "redovna obrana nije trebala" {
+		t.Fatalf("poništenje redovne: %+v %v %v", p, upozorenja, err)
+	}
+	if procitan, _ := o.akti.Get(ctx, a2.ID); procitan == nil || !procitan.Storniran() || procitan.Broj != a2.Broj {
+		t.Errorf("poništen akt nakon čitanja: %+v", procitan)
+	}
+	if st, _, _ := o.akti.StanjeObrane(ctx, "P", "P.1.1", time.Now()); st.Najvisi() != models.PhasePrep {
+		t.Errorf("stanje nakon poništenja redovne: %+v", st)
+	}
+	if got := o.stanje(t); got["P.1.1"] != models.PhasePrep {
+		t.Errorf("povijest nakon poništenja redovne (najviši stadij razdoblja): %v", got)
+	}
+	if _, _, err := o.akti.Storniraj(ctx, o.ovlasti, o.rukovod, a2.ID, "opet"); err == nil || !strings.Contains(err.Error(), "već poništen") {
+		t.Errorf("ponovno poništenje: %v", err)
+	}
+
+	// sad je pripremno najkasnije: poništava se, i razdoblje nestaje iz povijesti
+	if _, _, err := o.akti.Storniraj(ctx, o.ovlasti, o.rukovod, a1.ID, "obrana nije trebala"); err != nil {
+		t.Fatal(err)
+	}
+	if sve, _ := o.epizode.List(ctx, "P.1.1"); len(sve) != 0 {
+		t.Errorf("povijest nakon poništenja svih akata: %+v", sve)
+	}
+	// nov akt otvara novo razdoblje
+	o.ovjeri(t, models.AktUspostava, models.PhasePrep, sat.Add(20*time.Minute))
+	if got := o.stanje(t); got["P.1.1"] != models.PhasePrep {
+		t.Errorf("nov akt nakon poništenih: %v", got)
+	}
+	// nacrt se ne poništava
+	n, err := o.akti.Pripremi(ctx, o.ovlasti, o.rukovod, service.ZahtjevAkta{StationID: o.letva.ID.String(), Radnja: models.AktPrekid, Stupanj: models.PhasePrep, Vrijedi: sat.Add(30 * time.Minute)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := o.akti.Spremi(ctx, o.ovlasti, n); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := o.akti.Storniraj(ctx, o.ovlasti, o.rukovod, n.ID, "nacrt"); err == nil || !strings.Contains(err.Error(), "samo ovjeren") {
+		t.Errorf("poništenje nacrta: %v", err)
+	}
+	if _, _, err := o.akti.Storniraj(ctx, o.ovlasti, o.rukovod, "nema-ga", "razlog"); err == nil {
+		t.Error("poništenje akta koji ne postoji")
 	}
 }

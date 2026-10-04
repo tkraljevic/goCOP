@@ -9,6 +9,8 @@ import (
 
 	"gocop/internal/models"
 	"gocop/internal/repository"
+
+	"github.com/google/uuid"
 )
 
 // EpisodeService vodi epizode obrane od poplava.
@@ -143,6 +145,56 @@ func provjeriVrijemePrekida(at, pocetak, sad time.Time) error {
 		return fmt.Errorf("obrana se ne može prekinuti prije nego što je proglašena")
 	}
 	return nil
+}
+
+// UskladiIzAkata zapisuje povijest obrane dionice izvedenu iz ovjerenih
+// akata: razdoblja dolaze sa stalnim identitetom (models.IDEpizodeIzAkta),
+// pa se zatečeno ažurira, a vrhovi i prag iz očitanja ostaju. Izvedena
+// epizoda kojoj razdoblja više nema (npr. akt je poništen) briše se; moguci
+// su identiteti svih epizoda koje su akti dionice ikad mogli otvoriti, pa
+// ručno upisane i računate epizode ostaju netaknute.
+func (s *EpisodeService) UskladiIzAkata(ctx context.Context, dionica string, zeljene []models.DefenseEpisode, moguci []uuid.UUID) error {
+	zatecene, err := s.repo.ListEpisodes(ctx, dionica)
+	if err != nil {
+		return err
+	}
+	poID := map[uuid.UUID]models.DefenseEpisode{}
+	for _, e := range zatecene {
+		poID[e.ID] = e
+	}
+	ostaje := map[uuid.UUID]bool{}
+	for i := range zeljene {
+		e := zeljene[i]
+		ostaje[e.ID] = true
+		if z, ima := poID[e.ID]; ima {
+			e.ThresholdAt, e.PeakCm, e.PeakAt, e.CreatedAt = z.ThresholdAt, z.PeakCm, z.PeakAt, z.CreatedAt
+		} else {
+			s.dopuniPragLetve(ctx, &e)
+		}
+		if err := s.repo.SaveEpisode(ctx, &e); err != nil {
+			return err
+		}
+	}
+	for _, id := range moguci {
+		if z, ima := poID[id]; ima && !ostaje[id] {
+			if err := s.repo.DeleteEpisode(ctx, &z); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// dopuniPragLetve upisuje kad je vodostaj na letvi epizode prešao prag, kad
+// je letva poznata
+func (s *EpisodeService) dopuniPragLetve(ctx context.Context, e *models.DefenseEpisode) {
+	id, err := uuid.Parse(e.StationID)
+	if err != nil || s.stations == nil || s.readings == nil {
+		return
+	}
+	if st, _ := s.stations.GetStationByID(ctx, id); st != nil {
+		s.dopuniPrag(ctx, e, *st)
+	}
 }
 
 // dopuniPrag upisuje na epizodu trenutak u kojem je vodostaj prešao prag

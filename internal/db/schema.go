@@ -1527,6 +1527,8 @@ func migrateSchema(database *sql.DB) error {
 		{"akti", "prekida_akt_id", "TEXT NOT NULL DEFAULT ''"},
 		{"akti", "izvan_snage", "TEXT NOT NULL DEFAULT ''"},
 		{"akti", "rucno", "TEXT NOT NULL DEFAULT ''"},
+		// poništenje ovjerenog akta (JSON): tko, kada, zašto, potpis
+		{"akti", "storno", "TEXT NOT NULL DEFAULT ''"},
 		{"readings", "temp_note", "TEXT NOT NULL DEFAULT ''"},
 		{"readings", "flow_method", "TEXT NOT NULL DEFAULT ''"},
 		{"readings", "flow_note", "TEXT NOT NULL DEFAULT ''"},
