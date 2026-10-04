@@ -96,7 +96,7 @@ func markdown(r report) []byte {
 	for _, entry := range []struct {
 		name  string
 		items []string
-	}{{"Blokade i regresije", r.Failures}, {"Upozorenja / zatečeni dug", r.Warnings}, {"Primijenjene obrazložene iznimke", r.Exceptions}} {
+	}{{"Blokade i regresije", r.Failures}, {"Upozorenja / zatečeni dug", r.Warnings}, {"Primijenjene obrazložene iznimke", r.Exceptions}, {"Premještene funkcije (nasljeđuju stanje izvora iz baselinea)", r.Premjestaji}} {
 		fmt.Fprintf(&b, "\n## %s\n\n", entry.name)
 		if len(entry.items) == 0 {
 			fmt.Fprintln(&b, "Nema.")

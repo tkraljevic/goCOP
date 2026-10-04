@@ -434,3 +434,106 @@ func TestRaspodjelaCRAPPokazujeCudovista(t *testing.T) {
 		t.Error("prazan ili neparan skup")
 	}
 }
+
+// premjestajMaina: izvor main (CC 40, bez testova) rastavljen na run i uvoz
+func premjestajMaina() (config, report, report) {
+	c := testConfig()
+	c.Premjestaji = []premjestaj{{Iz: "cmd/main.go::main", Funkcije: []string{"cmd/main.go::run", "cmd/main.go::uvoz"}, Razlog: "rastavljanje main", Pregledano: "2026-10-04"}}
+	base := cleanReport()
+	base.Functions = []function{{ID: "cmd/main.go::main", File: "cmd/main.go", Complexity: 40, Coverage: cov(100, 0), CRAP: number(crap(40, 0)), Tokens: 900}}
+	r := cleanReport()
+	r.Functions = []function{
+		{ID: "cmd/main.go::main", File: "cmd/main.go", Line: 1, Kraj: 5, Complexity: 1, Coverage: cov(3, 0), CRAP: number(crap(1, 0)), Tokens: 20},
+		{ID: "cmd/main.go::run", File: "cmd/main.go", Line: 10, Kraj: 90, Complexity: 25, Coverage: cov(60, 40), CRAP: number(crap(25, 66.7)), Tokens: 600},
+		{ID: "cmd/main.go::uvoz", File: "cmd/main.go", Line: 100, Kraj: 150, Complexity: 14, Coverage: cov(30, 0), CRAP: number(crap(14, 0)), Tokens: 300},
+	}
+	return c, base, r
+}
+
+// Funkcija izdvojena iz main nasljeđuje njegovo stanje: složena i
+// nepokrivena kao i izvor nije regresija, a bez upisa premještaja jest
+func TestPremjestenaFunkcijaNasljedujeIzvor(t *testing.T) {
+	c, base, r := premjestajMaina()
+	evaluate(&r, &base, c, false)
+	if len(r.Failures) != 0 {
+		t.Fatalf("premještaj: %v", r.Failures)
+	}
+	if len(r.Premjestaji) != 2 || !strings.Contains(r.Premjestaji[0], "cmd/main.go::run ← cmd/main.go::main") {
+		t.Fatalf("izvještaj o premještajima: %v", r.Premjestaji)
+	}
+
+	c.Premjestaji = nil
+	_, _, r = premjestajMaina()
+	evaluate(&r, &base, c, false)
+	if len(r.Failures) == 0 {
+		t.Fatal("bez premještaja izdvojene funkcije su nov kod")
+	}
+}
+
+// Složenost se ne može pojaviti niotkuda: premještene funkcije ne nose više
+// nego što je izvor izgubio; izvor mora biti u baselineu, funkcije postojati
+func TestPremjestajNeSkrivaNovKod(t *testing.T) {
+	for ime, promijeni := range map[string]func(*config, *report){
+		"više složenosti": func(_ *config, r *report) { r.Functions[2].Complexity = 20 },
+		"izvor nepoznat":  func(c *config, _ *report) { c.Premjestaji[0].Iz = "cmd/main.go::nema" },
+		"funkcije nema":   func(_ *config, r *report) { r.Functions = r.Functions[:2] },
+		"gora od izvora":  func(_ *config, r *report) { r.Functions[1].Complexity = 41 },
+	} {
+		t.Run(ime, func(t *testing.T) {
+			c, base, r := premjestajMaina()
+			promijeni(&c, &r)
+			evaluate(&r, &base, c, false)
+			if len(r.Failures) == 0 {
+				t.Fatal("false green")
+			}
+		})
+	}
+}
+
+// Metrički lint nalaz u premještenoj funkciji nije nov (složenost drži
+// usporedba po funkciji); errcheck i ostali linteri i dalje jesu
+func TestMetrickiLintUPremjestenojFunkciji(t *testing.T) {
+	for _, tc := range []struct {
+		linter string
+		redak  int
+		pada   bool
+	}{
+		{"gocyclo", 20, false},
+		{"nestif", 120, false},
+		{"gocyclo", 95, true}, // izvan premještenih funkcija
+		{"errcheck", 20, true},
+	} {
+		c, base, r := premjestajMaina()
+		key := "lint:" + tc.linter + ":cmd/main.go:nalaz"
+		r.Static.Findings[key] = 1
+		r.lintMjesta = map[string][]lintMjesto{key: {{tc.linter, "cmd/main.go", tc.redak}}}
+		evaluate(&r, &base, c, false)
+		if pao := len(r.Failures) > 0; pao != tc.pada {
+			t.Errorf("%s u retku %d: %v", tc.linter, tc.redak, r.Failures)
+		}
+	}
+}
+
+func TestPremjestajiNeMijenjajuPravilaIMorajuBitiIspravni(t *testing.T) {
+	a, _ := bezIznimki([]byte(`{"schema":1,"premjestaji":[]}`))
+	b, _ := bezIznimki([]byte(`{"schema":1,"premjestaji":[{"iz":"a::main","funkcije":["a::run"],"razlog":"r","pregledano":"2026-10-04"}]}`))
+	if string(a) != string(b) {
+		t.Fatal("premještaj je promijenio pravila mjerenja")
+	}
+	put := filepath.Join(t.TempDir(), "config.json")
+	for ime, premjestaj := range map[string]string{
+		"bez razloga":  `{"iz":"a::main","funkcije":["a::run"],"pregledano":"2026-10-04"}`,
+		"bez datuma":   `{"iz":"a::main","funkcije":["a::run"],"razlog":"r"}`,
+		"sam u sebe":   `{"iz":"a::main","funkcije":["a::main"],"razlog":"r","pregledano":"2026-10-04"}`,
+		"bez funkcija": `{"iz":"a::main","funkcije":[],"razlog":"r","pregledano":"2026-10-04"}`,
+		"dvaput":       `{"iz":"a::main","funkcije":["a::run","a::run"],"razlog":"r","pregledano":"2026-10-04"}`,
+	} {
+		cfg := `{"schema":1,"coverage_target":85,"critical_coverage_target":95,"complexity_limit":15,"critical_complexity_limit":10,"crap_limit":30,"critical_crap_limit":10,"coverage_drop_pp":0.1,"crap_increase":0.5,"duplication_increase_pp":0.1,"exact_min_tokens":100,"fuzzy_min_tokens":80,"fuzzy_similarity":0.85,"critical":["^x"],"premjestaji":[` + premjestaj + `]}`
+		if err := os.WriteFile(put, []byte(cfg), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := loadConfig(put); err == nil {
+			t.Errorf("%s: prihvaćen neispravan premještaj", ime)
+		}
+	}
+}
