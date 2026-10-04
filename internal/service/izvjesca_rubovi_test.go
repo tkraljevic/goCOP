@@ -479,26 +479,27 @@ func TestPregledSektoraStadijVodotoka(t *testing.T) {
 		return models.DnevnoIzvjesce{ID: id, SectionCode: code, Stadij: stadij, PredanoAt: &sad,
 			Sadrzaj: models.IzvjesceSadrzaj{Vodotok: "Primjerica, Probni", Tendencija: tendencija}}
 	}
-	// Prvo izvješće ima redovnu obranu bez tendencije, drugo pripremno s
-	// porastom: vodotok preuzme niži stadij, jer prazna tendencija
-	// dopušta prepisivanje.
+	// Vodotok nosi najviši stadij svojih dionica, kojim god redom izvješća
+	// stigla: redovna obrana bez tendencije ne snizi se na pripremnu.
+	for _, redom := range [][]models.DnevnoIzvjesce{
+		{izvjesce("a", "P.1.1", models.PhaseRegular, ""), izvjesce("b", "P.2.1", models.PhasePrep, models.TendencijaPorast)},
+		{izvjesce("b", "P.2.1", models.PhasePrep, models.TendencijaPorast), izvjesce("a", "P.1.1", models.PhaseRegular, "")},
+	} {
+		p := o.svc.PregledSektora(redom, nil)
+		if len(p.Vodotoci) != 2 || p.Vodotoci[0].Vodotok != "Primjerica" || len(p.Vodotoci[0].Dionice) != 2 {
+			t.Fatalf("vodotoci: %+v", p.Vodotoci)
+		}
+		if p.Vodotoci[0].Stadij != models.PhaseRegular || p.Vodotoci[0].Tendencija != "" {
+			t.Errorf("stadij vodotoka (%s prvo): %s %s", redom[0].SectionCode, p.Vodotoci[0].Stadij, p.Vodotoci[0].Tendencija)
+		}
+	}
+	// isti stadij: tendencija dolazi iz izvješća koje je ima
 	p := o.svc.PregledSektora([]models.DnevnoIzvjesce{
 		izvjesce("a", "P.1.1", models.PhaseRegular, ""),
-		izvjesce("b", "P.2.1", models.PhasePrep, models.TendencijaPorast),
+		izvjesce("b", "P.2.1", models.PhaseRegular, models.TendencijaPorast),
 	}, nil)
-	if len(p.Vodotoci) != 2 || p.Vodotoci[0].Vodotok != "Primjerica" || len(p.Vodotoci[0].Dionice) != 2 {
-		t.Fatalf("vodotoci: %+v", p.Vodotoci)
-	}
-	if p.Vodotoci[0].Stadij != models.PhasePrep || p.Vodotoci[0].Tendencija != models.TendencijaPorast {
-		t.Errorf("stadij vodotoka: %s %s (danas niži stadij)", p.Vodotoci[0].Stadij, p.Vodotoci[0].Tendencija)
-	}
-	// obrnutim redom ostane viši
-	p = o.svc.PregledSektora([]models.DnevnoIzvjesce{
-		izvjesce("b", "P.2.1", models.PhasePrep, models.TendencijaPorast),
-		izvjesce("a", "P.1.1", models.PhaseRegular, ""),
-	}, nil)
-	if p.Vodotoci[0].Stadij != models.PhaseRegular {
-		t.Errorf("obrnuti red: %s", p.Vodotoci[0].Stadij)
+	if p.Vodotoci[0].Stadij != models.PhaseRegular || p.Vodotoci[0].Tendencija != models.TendencijaPorast {
+		t.Errorf("isti stadij: %s %s", p.Vodotoci[0].Stadij, p.Vodotoci[0].Tendencija)
 	}
 	// područja po broju iz šifre dionice, redom
 	if len(p.Podrucja) != 2 || p.Podrucja[0].AreaID != 1 || p.Podrucja[1].AreaID != 2 {
