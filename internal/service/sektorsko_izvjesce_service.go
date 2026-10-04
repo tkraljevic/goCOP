@@ -401,7 +401,8 @@ func (s *IzvjescaService) SpremiSektorsko(ctx context.Context, u *models.User, p
 		if err != nil {
 			return err
 		}
-		if cur == nil {
+		// zadani ID mora biti izvješće istog sektora
+		if cur == nil || cur.Sektor != iz.Sektor {
 			return errors.New("izvješće nije pronađeno")
 		}
 		iz.CreatedAt, iz.IzradioID, iz.Izradio, iz.PredanoAt, iz.JournalID = cur.CreatedAt, cur.IzradioID, cur.Izradio, cur.PredanoAt, cur.JournalID

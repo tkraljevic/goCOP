@@ -206,7 +206,8 @@ func (s *IzvjescaService) Spremi(ctx context.Context, u *models.User, perms *mod
 		if err != nil {
 			return err
 		}
-		if cur == nil {
+		// zadani ID mora biti izvješće ove dionice, kao kod predaje i brisanja
+		if cur == nil || cur.SectionCode != sec.Code {
 			return errors.New("izvješće nije pronađeno")
 		}
 		if cur.Predano() && !perms.CanAdminister(sec.SectorID, sec.AreaID) && cur.IzradioID != u.ID.String() {
