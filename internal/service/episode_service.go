@@ -121,6 +121,11 @@ func (s *EpisodeService) End(ctx context.Context, perms *models.UserPermissions,
 	if at.IsZero() {
 		at = time.Now()
 	}
+	// kao proglašenje: najviše sat unaprijed (razlika satova); upisan kraj
+	// zatvara obranu odmah, pa prekid „za sutra” ne smije proći
+	if at.After(time.Now().Add(time.Hour)) {
+		return fmt.Errorf("obrana se ne može prekinuti unaprijed")
+	}
 	if at.Before(e.StartedAt) {
 		return fmt.Errorf("obrana se ne može prekinuti prije nego što je proglašena")
 	}
