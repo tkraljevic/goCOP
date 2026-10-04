@@ -213,7 +213,7 @@ func (s *JournalService) waterLevels(ctx context.Context, j *models.Journal, day
 	var parts []string
 	dayStart := time.Date(day.In(models.Zagreb).Year(), day.In(models.Zagreb).Month(), day.In(models.Zagreb).Day(), 0, 0, 0, 0, models.Zagreb)
 	from := dayStart.Add(-400 * 24 * time.Hour)
-	to := dayStart.Add(24 * time.Hour)
+	to := dayStart.AddDate(0, 0, 1)
 	for _, code := range j.GaugeCodes() {
 		st, err := s.stations.GetStationByCode(ctx, code)
 		if err != nil || st == nil {
