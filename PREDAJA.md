@@ -4,7 +4,7 @@ Rad je prekinut. Ova datoteka nije dio promjene: služi agentu koji preuzima gra
 
 ## Stanje grane `stabilizacija-citanja`
 - Commit s testovima je gotov i poslan. `go test ./internal/service/` prolazi, a `golangci-lint run --new-from-rev=origin/master` ne daje novih nalaza.
-- Produkcijski kod nije mijenjan.
+- Produkcijski kod mijenjan je samo u zasebnom commitu s popravkom NaN-a (točka 1 pod „Sumnjivo ponašanje”).
 - **Nije napravljeno:** `make quality` za granu prema baselineu (Linux, kao CI). Nacrt PR-a nije otvoren.
 - **„Sumnjivo ponašanje” nije dovršeno.** Ispod su tragovi zabilježeni tijekom rada. Prije PR-a treba ih provjeriti u kodu i dopuniti (`datoteka:redak`, što se događa, kako treba), a tablicu testova dopuniti opisom što svaki test tvrdi.
 
@@ -18,7 +18,7 @@ Rad je prekinut. Ova datoteka nije dio promjene: služi agentu koji preuzima gra
 ### Testovi (`internal/service/ocitanja_servis_test.go`)
 | Test | Što tvrdi |
 |---|---|
-| `TestProvjeraOcitanja` | Granice provjere: letva ili objekt (ne oboje, ne ništa), vrijeme obavezno, najviše 60 min unaprijed, od 1900. godine. Mora postojati vodostaj, stanje, zapornica ili napomena. Vodostaj od −500 do 3000 cm, temperatura od −5 do 45 °C, protok od 0 do 100 000 m³/s, bez beskonačnog. Poznati načini, stanja i zapornice. Prazan način postaje ručni, a napomena i očitao se obrezuju. Bilježi zatečeno: NaN prolazi, a stanje objekta prolazi i na letvi. |
+| `TestProvjeraOcitanja` | Granice provjere: letva ili objekt (ne oboje, ne ništa), vrijeme obavezno, najviše 60 min unaprijed, od 1900. godine. Mora postojati vodostaj, stanje, zapornica ili napomena. Vodostaj od −500 do 3000 cm, temperatura od −5 do 45 °C, protok od 0 do 100 000 m³/s, bez beskonačnog. Poznati načini, stanja i zapornice. Prazan način postaje ručni, a napomena i očitao se obrezuju. NaN se odbija (popravak). Bilježi zatečeno: stanje objekta prolazi i na letvi. |
 | `TestUpisOcitanjaIPrava` | Na svojoj dionici upis nosi trag (korisnik, očitao, podrijetlo, način), a zadani očitao i podrijetlo ostaju. Provjera unosa ide prije provjere prava. Bilježi zatečeno: letva bez dionica prima očitanje od svakoga tko igdje piše, i iz drugog sektora. Letva na dvije dionice traži pravo na jednoj. Objekt područja bez dionica prima očitanje rukovoditelja dionice tog područja. |
 | `TestPravoUpisaNaObjekt` | Uprava područja upisuje na objekt svog područja, a drugog ne. Rukovoditelj dionice upisuje na objekt svoje dionice i na objekt područja bez dionica, a ne na objekt druge dionice istog područja ni na objekt drugog područja koji stoji na njegovoj dionici. Globalni administrator smije sve, a bez ovlasti ništa. |
 | `TestIzmjenaIBrisanjeOcitanja` | Izmjena ne mijenja letvu, podrijetlo, oznaku izvora ni autora iz zahtjeva. Autor mijenja svoje i bez prava na letvi, a tuđe na tuđoj letvi ne. Kod izmjene provjera prava ide prije provjere unosa. Brisanje: tuđe ne, svoje da (i vraća obrisano), drugo brisanje ne. Očitanje s neispravnom letvom dira samo autor i administrator. |
@@ -59,7 +59,7 @@ CC i „prije” su iz mjerenja mastera 713d9df alatom `dev/quality` (Linux, go1
 | `internal/service/user_service.go:835` · `(*UserService).ListAreas` | 1 | 0.0 % | 100.0 % | 2.0 | 1.0 |  |
 
 ### Sumnjivo ponašanje
-1. **`internal/service/reading_service.go:164` i `:167`: NaN prolazi provjeru temperature i protoka.** NaN nije ni manji ni veći od granice (`TestProvjeraOcitanja`). *Treba:* odbiti NaN (`math.IsNaN`).
+1. **`internal/service/reading_service.go:164` i `:167`: NaN prolazi provjeru temperature i protoka.** NaN nije ni manji ni veći od granice. **Popravljeno** u zasebnom commitu: uvjet je obrnut, a `TestProvjeraOcitanja` tvrdi da NaN pada.
 2. **`internal/service/reading_service.go:177`: stanje objekta i zapornica primaju se i na očitanju letve.** Ne provjerava se je li očitanje uopće s objekta (`TestProvjeraOcitanja`). *Treba:* stanje i zapornicu primati samo uz objekt.
 3. **`internal/service/reading_service.go:77–78`: letva bez dionica prima očitanje od svakoga tko igdje piše**, i od osobe s dužnošću u drugom sektoru (`TestUpisOcitanjaIPrava`). *Treba:* pitanje je li to namjera (letve koje još nisu vezane uz dionicu) ili treba ograničiti barem na sektor.
 4. **`internal/service/reading_service.go:379–405` (`FieldOverview`): zadano područje ne provjerava se prema izboru.** Pero Perić dobije pogled područja 2, iako ga nema u izboru (`TestTerenskiPogled`). Pogled samo čita, ali otkriva navike i letve tuđeg područja. *Treba:* odbiti ili vratiti na prvo dopušteno područje.
