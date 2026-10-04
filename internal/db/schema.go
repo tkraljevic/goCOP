@@ -904,7 +904,36 @@ func InitSchema(database *sql.DB) error {
 			issued_at DATETIME NOT NULL,
 			expires_at DATETIME NOT NULL,
 			signature TEXT NOT NULL,
+			created_at DATETIME NOT NULL,
+			primatelj TEXT NOT NULL DEFAULT ''
+		);`,
+
+		// Ovlasti primatelja: ključ mreže dopušta članu da prima druge
+		// (razmjena.Ovlast). Sinkroniziraju se; opoziv je arhiviranje uz
+		// zapis u opozivima.
+		`CREATE TABLE IF NOT EXISTS ovlasti (
+			node_id TEXT PRIMARY KEY,
+			public_key TEXT NOT NULL,
+			network TEXT NOT NULL,
+			issued_by TEXT NOT NULL,
+			issued_at DATETIME NOT NULL,
+			expires_at DATETIME NOT NULL,
+			signature TEXT NOT NULL,
 			created_at DATETIME NOT NULL
+		);`,
+
+		// Opozivi potvrda (članstvo ili ovlast), po ključu i trenutku
+		// izdavanja: potvrda koju čvor pokaže pri spajanju ne vrijedi ako je
+		// opozvana, iako potpis i rok i dalje štimaju. Opozvana ovlast
+		// poništava i sva članstva koja je primatelj potpisao.
+		`CREATE TABLE IF NOT EXISTS opozivi (
+			id TEXT PRIMARY KEY,
+			vrsta TEXT NOT NULL,
+			node_id TEXT NOT NULL,
+			public_key TEXT NOT NULL,
+			issued_at DATETIME NOT NULL,
+			opozvano_at DATETIME NOT NULL,
+			opozvao TEXT NOT NULL DEFAULT ''
 		);`,
 
 		// Hidrotehnički objekti: crpne stanice, ustave, sifoni... Zaseban zapis s
@@ -1529,6 +1558,7 @@ func migrateSchema(database *sql.DB) error {
 		// Adresa e-pošte koju je globalni administrator potvrdio za PIN
 		// prijave izvana i izvan dopuštene domene (djelatnici tvrtki
 		// izvođača), tko i kada; vrijedi samo dok je jednaka adresi računa
+		{"memberships", "primatelj", "TEXT NOT NULL DEFAULT ''"},
 		{"users", "pin_adresa_potvrdena", "TEXT NOT NULL DEFAULT ''"},
 		{"users", "pin_adresa_potvrdio", "TEXT NOT NULL DEFAULT ''"},
 		{"users", "pin_adresa_potvrdena_kad", "DATETIME"},

@@ -1,6 +1,7 @@
 package razmjena
 
 import (
+	"bytes"
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
@@ -191,11 +192,15 @@ func TestDevicesOfAnotherProtocolAreRefused(t *testing.T) {
 	}
 
 	pa, pb := a.Public().(ed25519.PublicKey), b.Public().(ed25519.PublicKey)
-	if SASCode("app-one", pa, pb) == SASCode("app-two", pa, pb) {
+	n1, n2 := bytes.Repeat([]byte{1}, 32), bytes.Repeat([]byte{2}, 32)
+	if SASCode("app-one", pa, pb, n1, n2) == SASCode("app-two", pa, pb, n1, n2) {
 		t.Error("the pairing code must depend on the protocol name")
 	}
-	if SASCode("app-one", pa, pb) != SASCode("app-one", pb, pa) {
+	if SASCode("app-one", pa, pb, n1, n2) != SASCode("app-one", pb, pa, n1, n2) {
 		t.Error("the pairing code must not depend on which side computes it")
+	}
+	if SASCode("app-one", pa, pb, n1, n2) == SASCode("app-one", pa, pb, n2, n1) {
+		t.Error("the pairing code must depend on the random numbers and their roles")
 	}
 }
 
@@ -210,8 +215,8 @@ func TestExchangePinsTheKey(t *testing.T) {
 
 	pairedPub := paired.Public().(ed25519.PublicKey)
 	served := make(chan string, 4)
-	go ServeExchange(ctx, server, "testproto", port,
-		func(k ed25519.PublicKey) bool { return k.Equal(pairedPub) },
+	go ServeExchange(ctx, server, "testproto", nil, port,
+		func(k ed25519.PublicKey, _ []byte) bool { return k.Equal(pairedPub) },
 		func(c *Conn) {
 			defer c.Close()
 			e, err := c.Receive()
@@ -231,7 +236,7 @@ func TestExchangePinsTheKey(t *testing.T) {
 	var conn *Conn
 	var err error
 	for i := 0; i < 50; i++ {
-		conn, err = DialExchange(ctx, paired, "testproto", addr, serverPub)
+		conn, err = DialExchange(ctx, paired, "testproto", nil, addr, serverPub)
 		if err == nil {
 			break
 		}
@@ -254,7 +259,7 @@ func TestExchangePinsTheKey(t *testing.T) {
 	}
 
 	// a stranger connects, is dropped, and the handler never runs
-	sc, err := DialExchange(ctx, stranger, "testproto", addr, serverPub)
+	sc, err := DialExchange(ctx, stranger, "testproto", nil, addr, serverPub)
 	if err == nil {
 		sc.Send(env)
 		if _, err := sc.Receive(); err == nil {
@@ -269,7 +274,7 @@ func TestExchangePinsTheKey(t *testing.T) {
 	}
 
 	// expecting the wrong key refuses before sending anything
-	if _, err := DialExchange(ctx, paired, "testproto", addr, pairedPub); err == nil {
+	if _, err := DialExchange(ctx, paired, "testproto", nil, addr, pairedPub); err == nil {
 		t.Error("a server proving a different key than expected must be refused")
 	}
 }
@@ -288,7 +293,7 @@ func TestServeExchangeReportsATakenPort(t *testing.T) {
 
 	done := make(chan error, 1)
 	go func() {
-		done <- ServeExchange(context.Background(), newKey(t), "testproto", port, func(ed25519.PublicKey) bool { return true }, func(*Conn) {})
+		done <- ServeExchange(context.Background(), newKey(t), "testproto", nil, port, func(ed25519.PublicKey, []byte) bool { return true }, func(*Conn) {})
 	}()
 	select {
 	case err := <-done:

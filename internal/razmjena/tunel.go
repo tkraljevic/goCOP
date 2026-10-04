@@ -138,8 +138,8 @@ func (v *wsVeza) Close() error {
 }
 
 // ServeExchangeOn je ServeExchange nad zadanom slušalicom (npr. tunelom)
-func ServeExchangeOn(ctx context.Context, priv ed25519.PrivateKey, protocol string, ln net.Listener, trusted KeyChecker, handle func(*Conn), o ...*Ograda) error {
-	cfg, err := tlsConfig(priv, protocol)
+func ServeExchangeOn(ctx context.Context, priv ed25519.PrivateKey, protocol string, vj func() []byte, ln net.Listener, trusted KeyChecker, handle func(*Conn), o ...*Ograda) error {
+	cfg, err := tlsConfigS(priv, protocol, vj)
 	if err != nil {
 		return err
 	}
@@ -148,7 +148,7 @@ func ServeExchangeOn(ctx context.Context, priv ed25519.PrivateKey, protocol stri
 
 // DialTunel spaja se na čvor kroz tunel (https://domena) i, kao
 // DialExchange, odbija nastaviti ako druga strana ne dokaže očekivani ključ.
-func DialTunel(ctx context.Context, priv ed25519.PrivateKey, protocol, adresa string, expect ed25519.PublicKey) (*Conn, error) {
+func DialTunel(ctx context.Context, priv ed25519.PrivateKey, protocol string, vj func() []byte, adresa string, expect ed25519.PublicKey) (*Conn, error) {
 	baza, err := NormalizirajTunel(adresa)
 	if err != nil {
 		return nil, err
@@ -165,7 +165,7 @@ func DialTunel(ctx context.Context, priv ed25519.PrivateKey, protocol, adresa st
 		return nil, fmt.Errorf("tunel %s: %w", baza, err)
 	}
 	ws.PayloadType = websocket.BinaryFrame
-	cfg, err := tlsConfig(priv, protocol)
+	cfg, err := tlsConfigS(priv, protocol, vj)
 	if err != nil {
 		ws.Close()
 		return nil, err

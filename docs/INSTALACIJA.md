@@ -1,6 +1,6 @@
 # Postavljanje i održavanje goCOP čvora
 
-Administratorske upute, usklađene s 0.0.31-alfa (4. 10. 2026.).
+Administratorske upute, usklađene s 0.0.32-alfa (4. 10. 2026.).
 Kratki pregled projekta: [README](../README.md). Korisnički postupci su u Pomoći aplikacije.
 
 Operativni program za obranu od poplava Hrvatskih voda: povezuje organizaciju,
@@ -9,7 +9,7 @@ i bez interneta; kopije na različitim računalima međusobno se usklađuju.
 Repozitorij nosi program i praznu shemu baze, a podatke unosi ili uvozi
 organizacija koja ga koristi.
 
-> **Status: alfa, izdanje 0.0.31-alfa (4. 10. 2026.), za testiranje i daljnji
+> **Status: alfa, izdanje 0.0.32-alfa (4. 10. 2026.), za testiranje i daljnji
 > razvoj.** Nije za operativnu upotrebu. Sve se još mijenja. Što je u kojem
 > izdanju, piše u [popisu izmjena](../CHANGELOG.md).
 >
@@ -218,11 +218,22 @@ Portovi se mijenjaju u `gocop.toml`.
   tunel razmjene najviše 32 veze i 2 po klijentu, rukovanje kroz tunel 5 s.
 - **Uparivanje računala** traži čovjeka na oba ekrana: oba pokažu isti
   šesteroznamenkasti kod i oba ga potvrde. Bez toga drugo računalo ne dobiva
-  ni bajt. Razmjenu dobiva samo član mreže: računalo upareno s onim koje drži
-  ključ mreže dobije potpisano članstvo, koje vrijedi godinu dana i obnavlja se
-  ponovnim uparivanjem s tim računalom. Svaka kasnija veza dokazuje ključ
-  unutar TLS-a; ključ bez važećeg članstva u mreži odbija se na vratima, i kad
-  je računalo upareno.
+  ni bajt. Kod se dogovara s obvezom unaprijed (strana koja zove obveže se
+  na nasumičan broj prije nego što vidi broj druge strane), pa ga napadač u
+  sredini ne može namjestiti traženjem ključa; sa starijim programom (prije
+  0.0.32-alfa) se ne uparuje. Razmjenu dobiva samo član mreže: računalo upareno s onim koje drži
+  ključ mreže ili ovlast za primanje dobije potpisano članstvo, koje vrijedi
+  godinu dana i obnavlja se ponovnim primanjem. Svaka kasnija veza dokazuje
+  ključ unutar TLS-a; ključ bez važećeg članstva u mreži odbija se na vratima,
+  i kad je računalo upareno.
+- **Članstvo pri spajanju (od 0.0.32-alfa).** Čvor u certifikatu razmjene
+  pokaže svoju potvrdu članstva i, ako je ima, ovlast za primanje. Druga
+  strana prihvati samo lanac koji vodi do ključa mreže (ključ mreže → ovlast
+  primatelja → članstvo), neopozvan i s imenom koje u mreži nema drugo
+  računalo. Tako se primljeno računalo sinkronizira sa svim članovima bez
+  uparivanja sa svakim. Opoziv članstva ili ovlasti putuje knjigom; opozvana
+  potvrda ne vrijedi ni kad je čvor pokaže sam, a oduzeta ovlast poništava
+  članstva svih računala koja je primatelj primio.
 - **Ključ računala** (`node-key`) je njegov identitet. Kopija baze bez
   ključa nije to računalo. Ključ se ne sinkronizira. Čuvati ga u zaštićenoj
   sigurnosnoj kopiji za oporavak istog čvora; ne koristiti ga za osnivanje drugog.
@@ -334,7 +345,7 @@ Portovi se mijenjaju u `gocop.toml`.
   pokreće i potvrđuje globalni administrator (od 0.0.25-alfa); na svježem
   računalu, dok na njemu nema računa, čarobnjak stoji na stranici prijave, ali
   samo za pristup iz lokalne mreže, nikad kroz tunel.
-- Program prevesti iz označenog izdanja (npr. `git checkout v0.0.31-alfa`) ili
+- Program prevesti iz označenog izdanja (npr. `git checkout v0.0.32-alfa`) ili
   koristiti sliku s oznakom izdanja; `SHA256SUMS` uz izdanja zasad ne postoji.
 - Program pokretati kao običan korisnik, iz vlastite mape.
 - Sigurnosna kopija mora obuhvatiti cijelu mapu `data/` i izvorno stablo
@@ -422,7 +433,8 @@ pokretanja**: u instalacijskom programu, u `gocop.toml` ili zastavicom
 četiri nasumična znaka) i upiše ga u `gocop.toml`. Nakon prvog pokretanja ime
 se ne mijenja. Postojeća baza bez upisanog imena zadržava dosadašnje
 `gocop-cvor`. Uparivanje odbija računalo koje nosi ime ovog čvora ili ime
-poznatog čvora s drugim ključem (dvojnik); računalo koje je samo dobilo novi
+poznatog čvora s drugim ključem (dvojnik), isto i primanje na daljinu i
+članstvo koje čvor pokaže pri spajanju; računalo koje je samo dobilo novi
 ključ najprije se zaboravi i opozove mu se članstvo.
 
 **Postavljanje svježeg čvora.** Prvo pokretanje stvori praznu bazu i zapiše
@@ -435,15 +447,19 @@ ključ najprije se zaboravi i opozove mu se članstvo.
   isključuje. Gumb radi tek uz izričitu potvrdu, jer je nova mreža zaseban
   svijet i kasnije se ne može spojiti s drugima;
 - **postojeća mreža**, za svako sljedeće računalo: čarobnjak uparivanja s
-  računalom koje je već u mreži (vidi niže).
+  računalom koje je već u mreži, ili primanje na daljinu zahtjevom i
+  potvrdom (vidi niže).
 
 Stranica *Postavljanje* radi samo s računala na kojem čvor radi, ili iz
-lokalne mreže uz jednokratni kod koji čvor pri pokretanju ispiše u dnevnik
-(`Postavljanje: … ?kod=7KQ4-M2XD`; na Unraidu u dnevniku spremnika). Kroz
-tunel je nema; deset krivih kodova ga gasi do ponovnog pokretanja.
+lokalne mreže (privatna adresa) uz jednokratni kod koji čvor pri pokretanju
+ispiše u dnevnik (`Postavljanje: … ?kod=7KQ4-M2XD`; na Unraidu u dnevniku
+spremnika). Kroz tunel i s javne adrese je nema; deset krivih kodova ga gasi
+do ponovnog pokretanja.
 
 Početni račun `admin` s lozinkom iz ovih uputa ostaje za prijelaz (ručno
-pokretanje, poslužitelji): vrijedi iz lokalne mreže, a kroz tunel ne. Na
+pokretanje, poslužitelji): vrijedi iz lokalne mreže (privatna adresa), a kroz
+tunel i s javne adrese ne — ni kad je čvor izravno izložen kroz proslijeđen
+port. Svjež čvor ipak ne izlagati internetu prije postavljanja. Na
 čvoru koji pokreće Postava vrijedi **samo s tog računala**, jer čvor sluša za
 cijelu lokalnu mrežu, pa bi ga u uredu inače mogao preuzeti bilo tko prije
 vlasnika.
@@ -466,6 +482,43 @@ ured u lokalnoj mreži ili upisati adresu, usporediti kod s osobom u uredu,
 preuzeti podatke. Kad stigne imenik, osoba se prijavljuje svojim računom;
 čarobnjak bez prijave tada se zatvara, a prijavljenima ostaje u profilu za
 dodatna računala i ručnu razmjenu.
+
+**Ovlašteni primatelj.** Računala u mrežu prima čvor koji drži ključ mreže
+(`network-key`) ili član kojem je nositelj ključa dao **ovlast za primanje**
+(Administracija → Čvor, mreža i sinkronizacija, uz člana *Daj ovlast za
+primanje*). Tako uredski poslužitelj prima uredska računala, a ključ mreže
+ostaje kod nositelja, npr. na USB-u. Ovlast vrijedi dvije godine i putuje
+razmjenom; članstvo koje primatelj izda vrijedi najviše dok vrijedi njegova
+ovlast. *Oduzmi ovlast za primanje* poništava članstva svih računala koja je
+taj primatelj primio, a ekran ih nabroji da ih se po potrebi primi ponovno.
+Opoziv članstva ovlaštenog primatelja oduzima mu i ovlast. Sve čvorove mreže
+treba nadograditi na 0.0.32-alfa prije prve ovlasti: stariji program
+članstvo koje je izdao primatelj ne prepoznaje.
+
+**Primanje na daljinu.** Kad novo računalo i čvor koji ga prima nisu u istoj
+lokalnoj mreži (laptop kod kuće, ured na drugom kraju), umjesto uparivanja
+putuju dvije datoteke, npr. e-poštom, vezane tajnim kodom:
+
+1. na novom računalu *Postavljanje → Postojeća mreža → Napravi zahtjev*:
+   računalo pokaže **kod za primanje** (8 znakova, npr. `7KQ4-M2XD`) i ponudi
+   datoteku `gocop-zahtjev-<ime>.json` (ime i javni ključ, potpisano tim
+   ključem). Datoteka ide primatelju e-poštom, a **kod mu čovjek pročita
+   telefonom** — nikad u istoj poruci;
+2. primatelj (globalni administrator na čvoru s ključem mreže ili ovlašću)
+   učita zahtjev pod *Primanje na daljinu*, upiše kod i preuzme **potvrdu**
+   (`gocop-potvrda-<ime>.json`). Nositelj ključa mreže može uz to dati i
+   ovlast za primanje;
+3. novo računalo učita potvrdu na *Postavljanju* i time ulazi u mrežu.
+
+Zahtjev i potvrda nose dokaz (HMAC) ključem izvedenim iz koda (scrypt).
+Primatelj prima samo zahtjev koji odgovara kodu koji mu je pročitan, a novo
+računalo prihvaća samo potvrdu koja odgovara njegovom kodu, pa se podmetnuta
+datoteka odbija na obje strane. Kod iz presretnute datoteke nije moguće
+pogoditi. Novi zahtjev poništava prethodni. Ništa drugo u datotekama nije
+tajno: članstvo vrijedi samo uz privatni ključ koji nikad ne napušta novo
+računalo. Potvrda nosi i čvorove s adresom (stalno izložene prvi), pa
+sinkronizacija kreće odmah; kad stignu djelatnici, *Postavljanje* samo vodi
+na prijavu.
 
 Sve što radi samo administrator stoji u modulu **Administracija**: ustroj i
 nazivi, računi, moduli i ovlasti, čvorovi i sinkronizacija, održavanje baze,
@@ -575,7 +628,7 @@ administratora. Rezervni kodovi tu ne pomažu: zamjenjuju PIN, ne lozinku.
 ## 7. Stalni čvor, spremnik i sigurnosna kopija
 
 Docker slika je `ghcr.io/tkraljevic/gocop`, trenutačno za Linux amd64.
-Za ponovljivo postavljanje birati oznaku izdanja, npr. `:0.0.31-alfa`,
+Za ponovljivo postavljanje birati oznaku izdanja, npr. `:0.0.32-alfa`,
 umjesto promjenjive `:latest`. Spremnik sluša web na 8080, razmjenu na 4710,
 uparivanje na 4711 i pronalaženje na 4712/UDP, a radi kao UID/GID `99:100`;
 mape moraju biti dostupne tom korisniku.
@@ -664,8 +717,8 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 Verzija stoji u kodu (`verzijaPrograma` u `cmd/gocop/main.go`) i mijenja se pri
 izdavanju; program je ispisuje u podnožju stranice i u dnevniku, s kratkom
 oznakom commita iz kojega je preveden (i zvjezdicom kad stablo ima nespremljenih
-izmjena). Izdanje u gitu nosi oznaku oblika `v0.0.31-alfa`; iz svake takve
-oznake GitHub gradi Docker sliku `ghcr.io/tkraljevic/gocop:0.0.31-alfa` i `:latest`.
+izmjena). Izdanje u gitu nosi oznaku oblika `v0.0.32-alfa`; iz svake takve
+oznake GitHub gradi Docker sliku `ghcr.io/tkraljevic/gocop:0.0.32-alfa` i `:latest`.
 
 ## 9. Za razvoj
 

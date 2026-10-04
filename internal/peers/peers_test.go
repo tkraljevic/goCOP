@@ -480,7 +480,7 @@ func TestOpozivClanstvaPutuje(t *testing.T) {
 	}
 
 	// A opoziva C; B to sazna sinkronizacijom s A
-	if err := a.svc.RevokeMembership(ctx, c.id); err != nil {
+	if _, err := a.svc.RevokeMembership(ctx, c.id); err != nil {
 		t.Fatal(err)
 	}
 	if _, _, err := b.svc.SyncWith(ctx, a.id); err != nil {

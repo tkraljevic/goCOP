@@ -126,8 +126,8 @@ func (h *PairHandler) Gate(next http.Handler) http.Handler {
 		switch {
 		case smijeUparivati(view):
 			o.korisnik = view.RealUser
-		case !klijentIz(r).KrozPosrednika && h.Fresh():
-			// svjež čvor, izravan klijent: kao i dosad, bez prijave
+		case klijentIz(r).IzLokalneMreze() && h.Fresh():
+			// svjež čvor, klijent iz lokalne mreže: bez prijave
 		default:
 			h.odbij(w, r, view)
 			return

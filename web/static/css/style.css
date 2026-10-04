@@ -6548,6 +6548,7 @@ h3.kis-podnaslov { margin:1rem 0 0.4rem; display:flex; align-items:center; gap:0
 .stranica-uparivanje .desc { font-size: 0.82rem; color: var(--text-muted); margin: 0 0 0.6rem; }
 .stranica-uparivanje .actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
 .stranica-uparivanje .sas { font-family: "SFMono-Regular", Menlo, monospace; font-size: 2.4rem; letter-spacing: 0.25em; text-align: center; padding: 0.5rem 0; }
+.stranica-postavljanje .sas { font-family: "SFMono-Regular", Menlo, monospace; font-size: 2.2rem; letter-spacing: 0.25em; text-align: center; padding: 0.5rem 0; }
 .stranica-uparivanje .muted { color: var(--text-muted); font-size: 0.85rem; }
 .stranica-uparivanje .err { color: var(--danger); font-size: 0.85rem; }
 .stranica-uparivanje .ok { color: var(--tint-green-fg); }

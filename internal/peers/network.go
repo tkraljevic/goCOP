@@ -36,10 +36,12 @@ const EntityMemberships = "memberships"
 
 // Network je mreža kojoj čvor pripada, ako pripada
 type Network struct {
-	Name      string    `json:"name"`
-	PublicKey string    `json:"public_key"`
-	JoinedAt  time.Time `json:"joined_at"`
-	CanAdmit  bool      `json:"can_admit"` // ovaj čvor drži privatni ključ mreže
+	Name      string           `json:"name"`
+	PublicKey string           `json:"public_key"`
+	JoinedAt  time.Time        `json:"joined_at"`
+	CanAdmit  bool             `json:"can_admit"`        // ovaj čvor smije primati članove
+	DrziKljuc bool             `json:"drzi_kljuc"`       // ovaj čvor drži privatni ključ mreže
+	Ovlast    *razmjena.Ovlast `json:"ovlast,omitempty"` // ovlast ovog čvora za primanje, kad je ima
 }
 
 // welcomePack je ono što se preda pri uparivanju: tko smo (mreža), moja
@@ -92,16 +94,24 @@ func (s *Service) networkKeyPath() string {
 // NetworkInfo vraća mrežu čvora, ili nil kad čvor još nije ni u jednoj
 func (s *Service) NetworkInfo() *Network {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	if s.network == nil {
+		s.mu.Unlock()
 		return nil
 	}
-	return &Network{
+	n := &Network{
 		Name:      s.network.Name,
 		PublicKey: razmjena.PublicKeyString(s.network.Public),
 		JoinedAt:  s.joinedAt,
 		CanAdmit:  s.network.CanSign(),
+		DrziKljuc: s.network.CanSign(),
 	}
+	s.mu.Unlock()
+	if !n.DrziKljuc {
+		if o := s.mojaOvlast(context.Background()); o != nil {
+			n.CanAdmit, n.Ovlast = true, o
+		}
+	}
+	return n
 }
 
 // CreateNetwork osniva mrežu: ovaj čvor dobiva privatni ključ mreže i
@@ -154,7 +164,7 @@ func (s *Service) CreateNetwork(ctx context.Context, name string) error {
 // nije ni u jednoj mreži i kad paket nosi potvrdu za baš ovaj čvor
 func (s *Service) joinNetwork(ctx context.Context, pack welcomePack) error {
 	if pack.NetworkKey == "" || pack.ForYou == nil {
-		return fmt.Errorf("druga strana nije nositelj mrežnog ključa — čvor je uparen, ali nije primljen u mrežu; primiti ga mora netko tko drži ključ mreže")
+		return fmt.Errorf("druga strana nije nositelj mrežnog ključa ni ovlašteni primatelj — čvor je uparen, ali nije primljen u mrežu; primiti ga mora netko tko drži ključ mreže ili ovlast za primanje")
 	}
 	pubKey, err := razmjena.ParsePublicKey(pack.NetworkKey)
 	if err != nil {
@@ -185,12 +195,39 @@ func (s *Service) myMembership(ctx context.Context) *razmjena.Membership {
 	return m
 }
 
-func (s *Service) getMembership(ctx context.Context, nodeID string) (*razmjena.Membership, error) {
+// stupciClanstva su stupci tablice memberships redom koji čita scanMembership
+const stupciClanstva = `node_id, public_key, network, issued_by, issued_at, expires_at, signature, primatelj`
+
+// scanMembership čita redak članstva; primatelj je ovlast potpisnika (JSON)
+// kad članstvo nije potpisao ključ mreže
+func scanMembership(sc interface{ Scan(...any) error }) (razmjena.Membership, error) {
 	var m razmjena.Membership
-	err := s.db.QueryRowContext(ctx, `
-		SELECT node_id, public_key, network, issued_by, issued_at, expires_at, signature
-		FROM memberships WHERE node_id = ?`, nodeID).
-		Scan(&m.DeviceID, &m.DeviceKey, &m.Network, &m.IssuedBy, &m.IssuedAt, &m.ExpiresAt, &m.Signature)
+	var primatelj string
+	if err := sc.Scan(&m.DeviceID, &m.DeviceKey, &m.Network, &m.IssuedBy, &m.IssuedAt, &m.ExpiresAt, &m.Signature, &primatelj); err != nil {
+		return m, err
+	}
+	if primatelj != "" {
+		var o razmjena.Ovlast
+		if err := json.Unmarshal([]byte(primatelj), &o); err != nil {
+			return m, fmt.Errorf("ovlast primatelja u članstvu %s: %w", m.DeviceID, err)
+		}
+		m.Primatelj = &o
+	}
+	return m, nil
+}
+
+// primateljJSON je ovlast potpisnika za stupac primatelj; prazno kad je
+// članstvo potpisao ključ mreže
+func primateljJSON(m razmjena.Membership) string {
+	if m.Primatelj == nil {
+		return ""
+	}
+	b, _ := json.Marshal(m.Primatelj.UTC())
+	return string(b)
+}
+
+func (s *Service) getMembership(ctx context.Context, nodeID string) (*razmjena.Membership, error) {
+	m, err := scanMembership(s.db.QueryRowContext(ctx, `SELECT `+stupciClanstva+` FROM memberships WHERE node_id = ?`, nodeID))
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -204,52 +241,75 @@ func (s *Service) getMembership(ctx context.Context, nodeID string) (*razmjena.M
 // sinkroniziraju, pa i čvor koji nije bio prisutan pri primanju sazna za
 // novog člana
 func (s *Service) saveMembership(ctx context.Context, m razmjena.Membership) error {
+	return s.uTransakciji(ctx, func(tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, `
+		INSERT INTO memberships (node_id, public_key, network, issued_by, issued_at, expires_at, signature, created_at, primatelj)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(node_id) DO UPDATE SET
+			public_key = excluded.public_key, network = excluded.network, issued_by = excluded.issued_by,
+			issued_at = excluded.issued_at, expires_at = excluded.expires_at, signature = excluded.signature,
+			primatelj = excluded.primatelj
+	`, m.DeviceID, m.DeviceKey, m.Network, m.IssuedBy, m.IssuedAt.UTC(), m.ExpiresAt.UTC(), m.Signature, time.Now().UTC(), primateljJSON(m)); err != nil {
+			return err
+		}
+		_, err := s.rec.Record(ctx, tx, EntityMemberships, m.DeviceID, m)
+		return err
+	})
+}
+
+// uTransakciji izvede fn u jednoj transakciji: sve ili ništa
+func (s *Service) uTransakciji(ctx context.Context, fn func(tx *sql.Tx) error) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
-
-	if _, err := tx.ExecContext(ctx, `
-		INSERT INTO memberships (node_id, public_key, network, issued_by, issued_at, expires_at, signature, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT(node_id) DO UPDATE SET
-			public_key = excluded.public_key, network = excluded.network, issued_by = excluded.issued_by,
-			issued_at = excluded.issued_at, expires_at = excluded.expires_at, signature = excluded.signature
-	`, m.DeviceID, m.DeviceKey, m.Network, m.IssuedBy, m.IssuedAt.UTC(), m.ExpiresAt.UTC(), m.Signature, time.Now().UTC()); err != nil {
-		return err
-	}
-	if _, err := s.rec.Record(ctx, tx, EntityMemberships, m.DeviceID, m); err != nil {
+	if err := fn(tx); err != nil {
 		return err
 	}
 	return tx.Commit()
 }
 
-// RevokeMembership opoziva člana: potvrda se arhivira i to putuje na sve
-// čvorove; od tada mu nitko ne odgovara na razmjenu
-func (s *Service) RevokeMembership(ctx context.Context, nodeID string) error {
+// RevokeMembership opoziva člana: potvrda se arhivira, uz zapis opoziva, i
+// to putuje na sve čvorove; od tada mu nitko ne odgovara na razmjenu, ni
+// kad potvrdu pokaže sam. Ako je bio ovlašteni primatelj, opoziva mu se i
+// ovlast, a time i članstva koja je potpisao; vraća te čvorove.
+func (s *Service) RevokeMembership(ctx context.Context, nodeID string) ([]string, error) {
 	if nodeID == s.node.ID {
-		return fmt.Errorf("čvor ne može opozvati sam sebe")
+		return nil, fmt.Errorf("čvor ne može opozvati sam sebe")
 	}
 	m, err := s.getMembership(ctx, nodeID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if m == nil {
-		return fmt.Errorf("čvor %s nije član", nodeID)
+		return nil, fmt.Errorf("čvor %s nije član", nodeID)
 	}
-	tx, err := s.db.BeginTx(ctx, nil)
+	o, err := s.getOvlast(ctx, nodeID)
 	if err != nil {
+		return nil, err
+	}
+	var pogodjeni []string
+	err = s.uTransakciji(ctx, func(tx *sql.Tx) error {
+		if err := s.opozoviClanstvoTx(ctx, tx, *m); err != nil || o == nil {
+			return err
+		}
+		pogodjeni, err = s.opozoviOvlastTx(ctx, tx, *o)
+		return err
+	})
+	return pogodjeni, err
+}
+
+// opozoviClanstvoTx briše članstvo s površine, arhivira ga u knjizi i
+// zapisuje opoziv (koji vrijedi i za potvrdu koju čvor pokaže sam)
+func (s *Service) opozoviClanstvoTx(ctx context.Context, tx *sql.Tx, m razmjena.Membership) error {
+	if _, err := tx.ExecContext(ctx, `DELETE FROM memberships WHERE node_id = ?`, m.DeviceID); err != nil {
 		return err
 	}
-	defer tx.Rollback()
-	if _, err := tx.ExecContext(ctx, `DELETE FROM memberships WHERE node_id = ?`, nodeID); err != nil {
+	if _, err := s.rec.Archive(ctx, tx, EntityMemberships, m.DeviceID, m); err != nil {
 		return err
 	}
-	if _, err := s.rec.Archive(ctx, tx, EntityMemberships, nodeID, m); err != nil {
-		return err
-	}
-	return tx.Commit()
+	return s.zapisiOpoziv(ctx, tx, OpozivClanstva, m.DeviceID, m.DeviceKey, m.IssuedAt)
 }
 
 // Member je član za prikaz
@@ -258,66 +318,79 @@ type Member struct {
 	Valid   bool   `json:"valid"`
 	Problem string `json:"problem,omitempty"`
 	IsSelf  bool   `json:"is_self"`
+	// OvlastZaPrimanje je ovlast ovog člana da prima druge, kad je ima
+	OvlastZaPrimanje *Primatelj `json:"ovlast_za_primanje,omitempty"`
 }
 
 // ListMembers vraća sve poznate potvrde, s ocjenom vrijede li za našu mrežu
 func (s *Service) ListMembers(ctx context.Context) ([]Member, error) {
-	rows, err := s.db.QueryContext(ctx, `
-		SELECT node_id, public_key, network, issued_by, issued_at, expires_at, signature
-		FROM memberships ORDER BY issued_at`)
+	clanstva, err := s.svaClanstva(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	s.mu.Lock()
+	network := s.network
+	s.mu.Unlock()
+
+	ovlasti := map[string]*Primatelj{}
+	if svi, err := s.ListOvlasti(ctx); err == nil {
+		for i := range svi {
+			ovlasti[svi[i].DeviceID] = &svi[i]
+		}
+	}
+
+	out := make([]Member, 0, len(clanstva))
+	for _, m := range clanstva {
+		member := Member{Membership: m, IsSelf: m.DeviceID == s.node.ID}
+		if o := ovlasti[m.DeviceID]; o != nil && o.DeviceKey == m.DeviceKey {
+			member.OvlastZaPrimanje = o
+		}
+		member.Problem = s.problemClanstva(ctx, network, m)
+		member.Valid = member.Problem == ""
+		out = append(out, member)
+	}
+	return out, nil
+}
+
+// svaClanstva su sva poznata članstva, najstarija prva; čitaju se do kraja
+// prije ocjene, jer ocjena čita opozive iz iste baze
+func (s *Service) svaClanstva(ctx context.Context) ([]razmjena.Membership, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT `+stupciClanstva+` FROM memberships ORDER BY issued_at`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-
-	s.mu.Lock()
-	network := s.network
-	s.mu.Unlock()
-
-	var out []Member
+	var clanstva []razmjena.Membership
 	for rows.Next() {
-		var m razmjena.Membership
-		if err := rows.Scan(&m.DeviceID, &m.DeviceKey, &m.Network, &m.IssuedBy, &m.IssuedAt, &m.ExpiresAt, &m.Signature); err != nil {
+		m, err := scanMembership(rows)
+		if err != nil {
 			return nil, err
 		}
-		member := Member{Membership: m, IsSelf: m.DeviceID == s.node.ID}
-		if network == nil {
-			member.Problem = "čvor nije ni u jednoj mreži"
-		} else if pub, err := razmjena.ParsePublicKey(m.DeviceKey); err != nil {
-			member.Problem = "neispravan ključ"
-		} else if err := m.Verify(network.Public, pub, time.Now()); err != nil {
-			member.Problem = err.Error()
-		} else {
-			member.Valid = true
-		}
-		out = append(out, member)
+		clanstva = append(clanstva, m)
 	}
-	return out, rows.Err()
+	return clanstva, rows.Err()
 }
 
-// trusted je provjera na vratima razmjene: ključ mora imati važeću
-// potvrdu NAŠE mreže. "Postoji u popisu" nije dovoljno — popis putuje.
-func (s *Service) trusted(pub ed25519.PublicKey) bool {
-	s.mu.Lock()
-	network := s.network
-	s.mu.Unlock()
+// problemClanstva je razlog zbog kojeg članstvo ne vrijedi za našu mrežu,
+// ili "" kad vrijedi
+func (s *Service) problemClanstva(ctx context.Context, network *razmjena.NetworkKey, m razmjena.Membership) string {
 	if network == nil {
-		return false
+		return "čvor nije ni u jednoj mreži"
 	}
-
-	var m razmjena.Membership
-	err := s.db.QueryRow(`
-		SELECT node_id, public_key, network, issued_by, issued_at, expires_at, signature
-		FROM memberships WHERE public_key = ?`, razmjena.PublicKeyString(pub)).
-		Scan(&m.DeviceID, &m.DeviceKey, &m.Network, &m.IssuedBy, &m.IssuedAt, &m.ExpiresAt, &m.Signature)
+	pub, err := razmjena.ParsePublicKey(m.DeviceKey)
 	if err != nil {
-		return false
+		return "neispravan ključ"
 	}
-	return m.Verify(network.Public, pub, time.Now()) == nil
+	if err := s.provjeriClanstvo(ctx, network.Public, m, pub); err != nil {
+		return err.Error()
+	}
+	return ""
 }
 
 // welcomeFor sastavlja paket dobrodošlice za uparenog čvora; potvrdu
-// članstva (Admit) izdaje samo kad je primi (ovlašten čovjek potvrđuje).
+// članstva izdaje samo kad je primi (ovlašten čovjek potvrđuje) i kad ovaj
+// čvor smije primati (ključ mreže ili ovlast za primanje).
 // Paket bez potvrde je isti kao onaj čvora bez ključa mreže, pa ga i stariji
 // programi razumiju.
 func (s *Service) welcomeFor(ctx context.Context, peerID string, peerKey ed25519.PublicKey, primi bool) *welcomePack {
@@ -332,8 +405,8 @@ func (s *Service) welcomeFor(ctx context.Context, peerID string, peerKey ed25519
 		NetworkKey:  razmjena.PublicKeyString(network.Public),
 		Mine:        s.myMembership(ctx),
 	}
-	if primi && network.CanSign() {
-		if m, err := network.Admit(peerID, peerKey, s.node.ID, MembershipValidity); err == nil {
+	if primi {
+		if m, err := s.izdajClanstvo(ctx, peerID, peerKey); err == nil {
 			pack.ForYou = &m
 		}
 	}
@@ -370,7 +443,7 @@ func (s *Service) acceptWelcome(ctx context.Context, raw json.RawMessage, peerID
 	if theirs.NetworkKey != "" && theirs.NetworkKey != ourKey {
 		return false, "", fmt.Errorf("čvor %s pripada drugoj mreži (%q) — ne može biti član naše", peerID, theirs.NetworkName)
 	}
-	if theirs.Mine != nil && theirs.Mine.Verify(network.Public, peerKey, time.Now()) == nil {
+	if theirs.Mine != nil && s.provjeriClanstvo(ctx, network.Public, *theirs.Mine, peerKey) == nil {
 		_ = s.saveMembership(ctx, *theirs.Mine)
 		return true, "Čvor je već član naše mreže.", nil
 	}
@@ -380,5 +453,5 @@ func (s *Service) acceptWelcome(ctx context.Context, raw json.RawMessage, peerID
 		}
 		return true, fmt.Sprintf("Čvor %s je primljen u mrežu %q.", peerID, network.Name), nil
 	}
-	return false, fmt.Sprintf("Čvor %s je uparen, ali NIJE član mreže — primiti ga može samo nositelj mrežnog ključa.", peerID), nil
+	return false, fmt.Sprintf("Čvor %s je uparen, ali NIJE član mreže — primiti ga može samo nositelj mrežnog ključa ili ovlašteni primatelj.", peerID), nil
 }

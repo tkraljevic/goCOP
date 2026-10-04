@@ -101,11 +101,14 @@ func (o *ograniceniCitac) Read(p []byte) (int, error) {
 // proven identity on the other end.
 type Conn struct {
 	PeerKey ed25519.PublicKey
-	raw     *tls.Conn
-	enc     *json.Encoder
-	dec     *json.Decoder
-	citac   *ograniceniCitac
-	najvise int64 // ograda jedne primljene poruke; NajvecaPoruka
+	// Vjerodajnice su potvrda članstva (i ovlast) iz certifikata druge
+	// strane, JSON; prazno kod starijih programa
+	Vjerodajnice []byte
+	raw          *tls.Conn
+	enc          *json.Encoder
+	dec          *json.Decoder
+	citac        *ograniceniCitac
+	najvise      int64 // ograda jedne primljene poruke; NajvecaPoruka
 }
 
 func newConn(c *tls.Conn) (*Conn, error) {
@@ -116,7 +119,7 @@ func newConn(c *tls.Conn) (*Conn, error) {
 	}
 	// json.Decoder ionako čita u svoj međuspremnik, pa bufio nije potreban
 	citac := &ograniceniCitac{r: c}
-	return &Conn{PeerKey: key, raw: c, enc: json.NewEncoder(c), dec: json.NewDecoder(citac), citac: citac, najvise: NajvecaPoruka}, nil
+	return &Conn{PeerKey: key, Vjerodajnice: peerVjerodajnice(rawPeerCerts(c)), raw: c, enc: json.NewEncoder(c), dec: json.NewDecoder(citac), citac: citac, najvise: NajvecaPoruka}, nil
 }
 
 // Send and Receive move envelopes with a per-message deadline: a peer
@@ -139,9 +142,10 @@ func (c *Conn) Close() error { return c.raw.Close() }
 // RemoteAddr is where the peer connected from.
 func (c *Conn) RemoteAddr() net.Addr { return c.raw.RemoteAddr() }
 
-// KeyChecker answers whether a proven public key belongs to a paired
-// device — the application implements it over its list of peers.
-type KeyChecker func(pub ed25519.PublicKey) bool
+// KeyChecker answers whether a proven public key belongs to a member —
+// the application implements it over its memberships, and may accept a
+// membership the peer presents in its certificate (vjerodajnice).
+type KeyChecker func(pub ed25519.PublicKey, vjerodajnice []byte) bool
 
 // ServeExchange accepts connections and hands each authenticated one to
 // handle, until ctx ends. Unpaired keys are dropped at the door: the TLS
@@ -152,8 +156,8 @@ type KeyChecker func(pub ed25519.PublicKey) bool
 //
 // Ograda (po želji) dijele sve slušalice jednog čvora; bez nje slušalica
 // dobije svoju sa zadanim granicama.
-func ServeExchange(ctx context.Context, priv ed25519.PrivateKey, protocol string, port int, trusted KeyChecker, handle func(*Conn), o ...*Ograda) error {
-	cfg, err := tlsConfig(priv, protocol)
+func ServeExchange(ctx context.Context, priv ed25519.PrivateKey, protocol string, vj func() []byte, port int, trusted KeyChecker, handle func(*Conn), o ...*Ograda) error {
+	cfg, err := tlsConfigS(priv, protocol, vj)
 	if err != nil {
 		return err
 	}
@@ -266,7 +270,7 @@ func serveTLS(ctx context.Context, ln net.Listener, trusted KeyChecker, handle f
 			if err != nil {
 				return
 			}
-			if !trusted(conn.PeerKey) {
+			if !trusted(conn.PeerKey, conn.Vjerodajnice) {
 				conn.Close()
 				return
 			}
@@ -297,8 +301,8 @@ func odbijZauzet(c *Conn) {
 
 // DialExchange connects to a peer and refuses to proceed unless the key
 // it proves is the one expected.
-func DialExchange(ctx context.Context, priv ed25519.PrivateKey, protocol, addr string, expect ed25519.PublicKey) (*Conn, error) {
-	cfg, err := tlsConfig(priv, protocol)
+func DialExchange(ctx context.Context, priv ed25519.PrivateKey, protocol string, vj func() []byte, addr string, expect ed25519.PublicKey) (*Conn, error) {
+	cfg, err := tlsConfigS(priv, protocol, vj)
 	if err != nil {
 		return nil, err
 	}
