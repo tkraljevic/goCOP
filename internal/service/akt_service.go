@@ -698,7 +698,12 @@ func (s *AktService) zakljuciOvjeru(ctx context.Context, potpisnikPerms *models.
 		for _, d := range a.Dionice {
 			poAktu.AllowedSections[d.Code] = true
 		}
-		st, _ := s.stations.GetStationByID(ctx, uuid.MustParse(a.StationID))
+		// akt bez letve, ili s letvom koja nije UUID (pristigao razmjenom),
+		// ne smije srušiti ovjeru: akt je već spremljen kao ovjeren
+		var st *models.Station
+		if id, err := uuid.Parse(a.StationID); err == nil {
+			st, _ = s.stations.GetStationByID(ctx, id)
+		}
 		if st == nil {
 			st = &models.Station{Name: a.StationName}
 		}

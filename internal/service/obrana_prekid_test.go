@@ -67,3 +67,47 @@ func TestPrestanakObraneNeUnaprijed(t *testing.T) {
 		t.Errorf("obrana je i dalje otvorena: %+v", e)
 	}
 }
+
+// Ovjera akta bez letve (ili s letvom koja nije UUID, npr. pristigao
+// razmjenom) ne pada: akt je već spremljen kao ovjeren, pa bi pad ostavio
+// ovjeren akt bez promjene stanja obrane.
+func TestOvjeraAktaBezLetve(t *testing.T) {
+	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "akt.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { baza.Close() })
+	if err := db.InitSchema(baza); err != nil {
+		t.Fatal(err)
+	}
+	for _, q := range []string{
+		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('P', 'Sektor P', 'VGO Primjerovo', 'COP Primjerovo')`,
+		`INSERT INTO areas (id, sector_id, name, vgi_name, subcenter) VALUES (1, 'P', 'Mali sliv Primjerica', 'VGI Primjerica', '')`,
+		`INSERT INTO sections (code, area_id, sector_id, description, created_at, updated_at) VALUES ('P.1.1', 1, 'P', 'rijeka Primjerica', '2026-01-01', '2026-01-01'),
+			('P.1.2', 1, 'P', 'kanal Probni', '2026-01-01', '2026-01-01')`,
+	} {
+		if _, err := baza.Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ctx := context.Background()
+	rec := ledger.New(baza, "test")
+	stanice := repository.NewStationRepository(baza, rec)
+	epizode := repository.NewEpisodeRepository(baza, rec)
+	obrana := NewEpisodeService(epizode, repository.NewReadingRepository(baza, rec), stanice)
+	svc := NewAktService(repository.NewAktiRepository(baza, rec), stanice, nil, nil, nil, nil, obrana, "cvor-probni")
+	pero := &models.User{ID: uuid.New(), Username: "pperic", FullName: "Pero Perić"}
+	uprava := &models.UserPermissions{IsGlobalAdmin: true, User: *pero}
+
+	for kod, letva := range map[string]string{"P.1.1": "", "P.1.2": "nije-uuid"} {
+		a := &models.Akt{ID: uuid.NewString(), Sektor: "P", AreaID: 1, Radnja: models.AktUspostava, Stupanj: models.PhaseRegular,
+			Vrijedi: time.Now().Add(-time.Minute), StationID: letva, StationName: "Primjerovo", Dionice: []models.AktDionica{{Code: kod}}}
+		ovjeren, _, err := svc.zakljuciOvjeru(ctx, uprava, pero, a, time.Now())
+		if err != nil || ovjeren == nil || ovjeren.Status != models.AktOvjeren {
+			t.Fatalf("ovjera akta s letvom %q: %+v %v", letva, ovjeren, err)
+		}
+		if e, err := epizode.OpenEpisode(ctx, kod); err != nil || e == nil || e.Phase != models.PhaseRegular {
+			t.Errorf("obrana na %s nakon ovjere akta s letvom %q: %+v %v", kod, letva, e, err)
+		}
+	}
+}
