@@ -343,19 +343,29 @@ func uveziUgovor(z zastavice, users *service.UserService, deps ugovor.Deps) {
 }
 
 func main() {
-	z, err := procitajZastavice(os.Args[1:])
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	kod := run(ctx, os.Args[1:], os.Stdin)
+	stop()
+	os.Exit(kod)
+}
+
+// run je cijeli život programa: zastavice, postavke, jednokratni načini rada
+// (izdanje, priprema, oporavak lozinke, uvozi) ili čvor dok ctx traje (ili
+// dok Postava ne zatvori ulaz). Vraća izlazni kod.
+func run(ctx context.Context, args []string, ulaz io.Reader) int {
+	z, err := procitajZastavice(args)
 	if errors.Is(err, flag.ErrHelp) {
-		os.Exit(0)
+		return 0
 	}
 	if err != nil {
-		os.Exit(2)
+		return 2
 	}
 	if z.ispisiIzdanje {
 		// Ugovor s Postavom (docs/plan-instalacija.md §3.1a): Postava ovim
 		// provjerava preuzetu datoteku prije zamjene, pa redak ostaje točno
 		// ovakav i ništa se prije njega ne ispisuje.
 		fmt.Println(redakIzdanja())
-		return
+		return 0
 	}
 	log.Printf("goCOP %s", punaVerzija())
 	web.SetVerzijaPrograma(punaVerzija())
@@ -370,13 +380,13 @@ func main() {
 	// -pripremi: Postava prije prvog pokretanja upiše ime čvora iz
 	// instalacijskog programa. Postojeće ime se ne mijenja.
 	if z.pripremi {
-		os.Exit(pripremiPostavke(cfg, cfgFrom, imeIzDatoteke, os.Stdout))
+		return pripremiPostavke(cfg, cfgFrom, imeIzDatoteke, os.Stdout)
 	}
 
 	// Oporavak lozinke s konzole: samo baza, bez poslužitelja i razmjene;
 	// postavke se ne zapisuju, jer ovo nije pokretanje čvora
 	if zadane["ponisti-lozinku"] {
-		os.Exit(ponistiLozinkuSKonzole(cfg.DB, cfg.Node.ID, z.ponistiLozinku, z.aktivirajRacun, os.Stdout))
+		return ponistiLozinkuSKonzole(cfg.DB, cfg.Node.ID, z.ponistiLozinku, z.aktivirajRacun, os.Stdout)
 	}
 	if z.aktivirajRacun {
 		log.Fatalf("-aktiviraj vrijedi samo uz -ponisti-lozinku")
@@ -593,11 +603,11 @@ func main() {
 
 	if z.csvFile != "" {
 		uveziTablicu(z, csvlevels.Deps{Readings: readingRepo, Stations: stationRepo, Structures: structureRepo})
-		return
+		return 0
 	}
 	if z.contractFile != "" {
 		uveziUgovor(z, userService, ugovor.Deps{Waters: watercourseRepo, Structures: structureRepo, Maintenance: maintenanceRepo})
-		return
+		return 0
 	}
 
 	// Uvoz iz Directusa je zaseban način rada: uveze i završi
@@ -666,7 +676,7 @@ func main() {
 			if rep.DryRun {
 				log.Printf("Ništa nije upisano. Dodajte -upisi za upis rekonstruiranih prijava.")
 			}
-			return
+			return 0
 		}
 		if z.importBP16Obilasci {
 			httpSrc, _ := src.(bp16.HTTPSource)
@@ -727,7 +737,7 @@ func main() {
 			if rep.DryRun {
 				log.Printf("Ništa nije upisano. Dodajte -upisi za upis zadataka i rekonstruiranih listova.")
 			}
-			return
+			return 0
 		}
 		if z.importBP16Journals {
 			areas, err := userService.ListAreas("")
@@ -754,7 +764,7 @@ func main() {
 			if rep.DryRun {
 				log.Printf("Ništa nije upisano. Dodajte -upisi za upis rekonstruiranih dnevnika.")
 			}
-			return
+			return 0
 		}
 		rep, err := bp16.Run(context.Background(), src, bp16.Deps{
 			Readings: readingRepo, Stations: stationRepo, Structures: structureRepo, Log: log.Printf,
@@ -764,7 +774,7 @@ func main() {
 			log.Fatalf("Uvoz BP16 nije uspio: %v (do greške %s)", err, rep.Summary())
 		}
 		log.Printf("Uvoz BP16 gotov: %s", rep.Summary())
-		return
+		return 0
 	}
 
 	// Drugi korak prijave izvana (PIN na službenu e-poštu, zapamćena
@@ -1302,13 +1312,12 @@ func main() {
 
 	// Graceful shutdown
 	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 	server.JaviPostavljanje(*addr)
 	if z.podPostavom {
 		// Windows nema SIGTERM, pa Postava čvor gasi zatvaranjem cijevi na
 		// standardnom ulazu. Zatvori se i kad Postava padne, pa čvor ne
 		// ostane siroče.
-		go cekajZatvaranjeUlaza(os.Stdin, stop)
+		go cekajZatvaranjeUlaza(ulaz, stop)
 	}
 
 	go func() {
@@ -1329,10 +1338,14 @@ func main() {
 		}
 	}()
 
-	<-stop
+	select {
+	case <-ctx.Done():
+	case <-stop:
+	}
 	fmt.Println("\nZaustavljanje goCOP poslužitelja...")
 	time.Sleep(500 * time.Millisecond)
 	fmt.Println("goCOP poslužitelj ugašen.")
+	return 0
 }
 
 // opisMreze je redak dnevnika pri pokretanju: u kojoj je mreži čvor i smije
