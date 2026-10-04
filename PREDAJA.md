@@ -18,13 +18,13 @@ Rad je prekinut. Ova datoteka nije dio promjene: služi agentu koji preuzima gra
 ### Testovi (`internal/service/korisnici_racun_test.go`)
 | Test | Što tvrdi |
 |---|---|
-| `TestNoviRacunOdbijanja` | (dopuniti) |
-| `TestNoviRacun` | (dopuniti) |
-| `TestIzmjenaVlastitogRacuna` | (dopuniti) |
-| `TestIzmjenaTudjegRacuna` | (dopuniti) |
-| `TestUkljucenjeRacunaSTudjomAdresom` | (dopuniti) |
-| `TestZastavicaGlobalnogAdministratoraPriIzmjeni` | (dopuniti) |
-| `TestLozinkaOperateraPriIzmjeni` | (dopuniti) |
+| `TestNoviRacunOdbijanja` | Bez ovlasti i promatrač ne otvaraju račun. Zastavicu globalnog administratora ne daju uprava sektora ni privremena uprava države („stalna uprava”). Uprava sektora ne otvara račun bez dužnosti ni dužnost u tuđem sektoru. Odbijaju se: prazna lozinka, ime od razmaka, zauzeto ime (bez obzira na velika i mala slova), zauzeta adresa (s razmacima i velikim slovima) i nepostojeća dionica. |
+| `TestNoviRacun` | Ime i puno ime se čiste, račun je uključen i traži zamjenu lozinke, a dužnost dobiva naziv iz uloge te sektor iz područja i primarna je. Novim računom prijava prolazi. Privremena uprava sektora upravu sektora daje s rokom do svog isteka, a upravu područja trajno. Globalni administrator otvara račun bez dužnosti, sa zastavicom. Zadani naziv dužnosti ostaje. |
+| `TestIzmjenaVlastitogRacuna` | Osoba na sebi ne mijenja korisničko ime, uključenost ni zastavicu (tiho se zadržava zatečeno), a ostala polja da. Vlastita nova lozinka ne traži zamjenu. Nepostojeći račun daje ErrUserNotFound. |
+| `TestIzmjenaTudjegRacuna` | Uprava drugog područja ne uređuje. Uprava sektora mijenja ime i titulu, a zastavicu tiho zadržava zatečenu. Tuđe ime (i drugim slovima), prazno ime i tuđa adresa se odbijaju. Lozinka koju upiše uprava traži zamjenu i gasi otvorene prijave. |
+| `TestUkljucenjeRacunaSTudjomAdresom` | Isključen račun čiju je adresu u međuvremenu dobio drugi aktivni račun ne uključuje se (ErrAdresaZauzeta, „račun se ne uključuje”). S drugom adresom se uključuje. |
+| `TestZastavicaGlobalnogAdministratoraPriIzmjeni` | Privremena uprava organizacije zastavicu ne daje, a stalna je daje. Privremena je ipak skida, i stalnom administratoru. |
+| `TestLozinkaOperateraPriIzmjeni` | Uprava sektora uređuje operatera, ali mu ne postavlja lozinku (ErrUnauthorized), i odbijena lozinka nije upisana. |
 
 ### Prije i poslije (paket service)
 CC i „prije” su iz mjerenja mastera 713d9df alatom `dev/quality` (Linux, go1.27.1). „Poslije” je coverage paketa `service` s grane (`go test -covermode=atomic`), a CRAP je izračunat istom formulom: CC² · (1 − cov)³ + CC. Navedene su samo funkcije kojima se coverage promijenio. `drugi_korak.go` je izostavljen jer mu coverage varira od pokretanja do pokretanja (vidi `PREDAJA.md` na `stabilizacija-plan`). Prije PR-a treba zamijeniti tablicom iz `make quality`.
@@ -38,8 +38,10 @@ CC i „prije” su iz mjerenja mastera 713d9df alatom `dev/quality` (Linux, go1
 | `internal/service/user_service.go:291` · `(adresaZauzeta).Error` | 2 | 0.0 % | 100.0 % | 6.0 | 2.0 |  |
 | `internal/service/user_service.go:393` · `(*UserService).UpdateUser` | 47 | 90.0 % | 93.0 % | 49.2 | 47.8 |  |
 
-### Sumnjivo ponašanje (tragovi, za provjeru)
-1. `ograniciRok` (rok privremene uprave) ograničava samo uloge iste razine: privremeni zamjenik na sektoru dužnost na razini sektora daje s rokom, a dužnost na razini područja trajno.
-2. Privremena uprava organizacije skida zastavicu globalnog administratora, i stalnom administratoru: pravilo vrijedi samo za davanje (test oko retka 291).
-3. Uprava sektora pri izmjeni tiho zadrži zatečenu zastavicu umjesto da odbije zahtjev (test oko retka 202).
-4. Provjeriti `TestUkljucenjeRacunaSTudjomAdresom` (uključenje računa čija je adresa zauzeta) i `TestLozinkaOperateraPriIzmjeni`.
+### Sumnjivo ponašanje
+1. **`internal/service/user_rules.go:90` (`ograniciRok`), poziv u `user_service.go:228`: rok privremene uprave vrijedi samo za dužnosti na njezinoj razini.** Privremeni zamjenik rukovoditelja sektora upravu sektora daje s rokom do svog isteka, a upravu područja (razinu niže) trajno (`TestNoviRacun`). Kad mu istekne ovlast, dužnosti koje je dao ostaju zauvijek. *Treba:* svaku dužnost koju dodijeli privremena uprava ograničiti njezinim rokom, ili to izričito potvrditi kao pravilo.
+2. **`internal/service/user_service.go:464–467`: privremena uprava organizacije skida zastavicu globalnog administratora, i stalnom administratoru.** Provjera vrijedi samo za davanje (`TestZastavicaGlobalnogAdministratoraPriIzmjeni`). Privremeni zamjenik tako može stalnoj upravi oduzeti administraciju. *Treba:* i skidanje zastavice dopustiti samo stalnoj upravi organizacije.
+3. **`internal/service/user_service.go:432` i `:435`: zabranjena promjena zastavice (i, za vlastiti račun, imena i uključenosti) tiho se zanemaruje.** Zahtjev prolazi bez poruke (`TestIzmjenaTudjegRacuna`, `TestIzmjenaVlastitogRacuna`). To nije greška u pravima, ali onaj tko je zahtjev poslao misli da je promjena upisana. *Treba:* odbiti zahtjev ili javiti što nije promijenjeno.
+
+### Otvorena pitanja
+- Je li namjera da privremena uprava daje trajne dužnosti razinu niže (točka 1)?
