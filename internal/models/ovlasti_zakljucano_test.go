@@ -70,9 +70,9 @@ func TestRazineUloga(t *testing.T) {
 		{RoleServiceLeaderForeman, 0, 5, ScopeArea, true, false},
 		{RoleGuest, 0, 5, ScopeAll, false, false},
 		{RoleViewer, 0, 5, ScopeAll, false, false},
-		// nepoznata uloga: dodjeljuje se s razine 5, doseg dionica, i piše
-		{Role("NEPOZNATA"), 0, 5, ScopeSection, true, false},
-		{Role(""), 0, 5, ScopeSection, true, false},
+		// nepoznata uloga: razina 5 i doseg dionica ostaju za prikaz, ali ne piše
+		{Role("NEPOZNATA"), 0, 5, ScopeSection, false, false},
+		{Role(""), 0, 5, ScopeSection, false, false},
 	}
 	for _, s := range slucajevi {
 		t.Run(string(s.uloga), func(t *testing.T) {
@@ -209,10 +209,10 @@ func TestPisanjePoDoseguRubniSlucajevi(t *testing.T) {
 			t.Errorf("skladištar područja 16: %+v", p.AllowedAreas)
 		}
 	})
-	t.Run("nepoznata uloga piše u svom području", func(t *testing.T) {
-		p := ovlastiZa(aktivna(Duty{Role: Role("NEPOZNATA"), SectorID: sektorOvl("B"), AreaID: podrucjeOvl(16)}))
-		if !p.AllowedAreas[16] {
-			t.Errorf("nepoznata uloga (doseg dionice bez šifri) piše po području: %+v", p.AllowedAreas)
+	t.Run("nepoznata uloga ne piše nigdje", func(t *testing.T) {
+		p := ovlastiZa(aktivna(Duty{Role: Role("NEPOZNATA"), SectorID: sektorOvl("B"), AreaID: podrucjeOvl(16), SectionCodes: "B.16.1"}))
+		if len(p.AllowedSectors)+len(p.AllowedAreas)+len(p.AllowedSections) > 0 || p.HasWriteAccess("B", 16, "B.16.1") {
+			t.Errorf("nepoznata uloga dala je pisanje: %+v %+v %+v", p.AllowedSectors, p.AllowedAreas, p.AllowedSections)
 		}
 	})
 	t.Run("gost i preglednik ne dobiju ni prikaz", func(t *testing.T) {

@@ -159,8 +159,20 @@ func (r Role) NaturalScope() ScopeType {
 	return ScopeSection
 }
 
-// Writes javlja daje li uloga pravo upisa; gost i preglednik samo gledaju
-func (r Role) Writes() bool { return r != RoleViewer && r != RoleGuest }
+// Writes javlja daje li uloga pravo upisa; gost i preglednik samo gledaju, a
+// nepoznata uloga (npr. stigla razmjenom s novijeg čvora) ne daje ništa
+func (r Role) Writes() bool { return r != RoleViewer && r != RoleGuest && r.Poznata() }
+
+// Poznata javlja zna li ovaj program ulogu: je li u katalogu ili je jedna od
+// posebnih (globalni administrator, uprava sektora iz ranijih izdanja,
+// terenski radnik)
+func (r Role) Poznata() bool {
+	switch r {
+	case RoleGlobalAdmin, RoleAreaAdmin, RoleFieldWorker:
+		return true
+	}
+	return r.CatalogIndex() < len(RoleCatalog)
+}
 
 // RoleGroups su skupine kataloga redom pojavljivanja
 func RoleGroups() []string {

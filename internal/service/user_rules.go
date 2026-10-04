@@ -160,6 +160,9 @@ func mayAssign(p *models.UserPermissions, role models.Role, sectorID *string, ar
 	if role == models.RoleGlobalAdmin && rank > 1 {
 		return ErrUnauthorized
 	}
+	if !role.Poznata() {
+		return fmt.Errorf("%w: nepoznata uloga „%s“", ErrUnauthorized, role)
+	}
 	if role.Rank() < rank {
 		return fmt.Errorf("%w: uloga „%s“ dodjeljuje se s više razine", ErrUnauthorized, role.Label())
 	}
