@@ -4,7 +4,7 @@ Rad je prekinut. Ova datoteka nije dio promjene: služi agentu koji preuzima gra
 
 ## Stanje grane `stabilizacija-korisnici`
 - Commit s testovima je gotov i poslan. `go test ./internal/service/` prolazi, a `golangci-lint run --new-from-rev=origin/master` ne daje novih nalaza.
-- Produkcijski kod nije mijenjan.
+- Produkcijski kod mijenjan je samo u zasebnom commitu s popravkom (točka 2 pod „Sumnjivo ponašanje”).
 - **Nije napravljeno:** `make quality` za granu prema baselineu (Linux, kao CI). Nacrt PR-a nije otvoren.
 - **„Sumnjivo ponašanje” nije dovršeno.** Ispod su tragovi zabilježeni tijekom rada. Prije PR-a treba ih provjeriti u kodu i dopuniti (`datoteka:redak`, što se događa, kako treba), a tablicu testova dopuniti opisom što svaki test tvrdi.
 
@@ -23,7 +23,7 @@ Rad je prekinut. Ova datoteka nije dio promjene: služi agentu koji preuzima gra
 | `TestIzmjenaVlastitogRacuna` | Osoba na sebi ne mijenja korisničko ime, uključenost ni zastavicu (tiho se zadržava zatečeno), a ostala polja da. Vlastita nova lozinka ne traži zamjenu. Nepostojeći račun daje ErrUserNotFound. |
 | `TestIzmjenaTudjegRacuna` | Uprava drugog područja ne uređuje. Uprava sektora mijenja ime i titulu, a zastavicu tiho zadržava zatečenu. Tuđe ime (i drugim slovima), prazno ime i tuđa adresa se odbijaju. Lozinka koju upiše uprava traži zamjenu i gasi otvorene prijave. |
 | `TestUkljucenjeRacunaSTudjomAdresom` | Isključen račun čiju je adresu u međuvremenu dobio drugi aktivni račun ne uključuje se (ErrAdresaZauzeta, „račun se ne uključuje”). S drugom adresom se uključuje. |
-| `TestZastavicaGlobalnogAdministratoraPriIzmjeni` | Privremena uprava organizacije zastavicu ne daje, a stalna je daje. Privremena je ipak skida, i stalnom administratoru. |
+| `TestZastavicaGlobalnogAdministratoraPriIzmjeni` | Privremena uprava organizacije zastavicu ne daje i ne skida (popravak), a stalna je daje i skida. |
 | `TestLozinkaOperateraPriIzmjeni` | Uprava sektora uređuje operatera, ali mu ne postavlja lozinku (ErrUnauthorized), i odbijena lozinka nije upisana. |
 
 ### Prije i poslije (paket service)
@@ -40,7 +40,7 @@ CC i „prije” su iz mjerenja mastera 713d9df alatom `dev/quality` (Linux, go1
 
 ### Sumnjivo ponašanje
 1. **`internal/service/user_rules.go:90` (`ograniciRok`), poziv u `user_service.go:228`: rok privremene uprave vrijedi samo za dužnosti na njezinoj razini.** Privremeni zamjenik rukovoditelja sektora upravu sektora daje s rokom do svog isteka, a upravu područja (razinu niže) trajno (`TestNoviRacun`). Kad mu istekne ovlast, dužnosti koje je dao ostaju zauvijek. *Treba:* svaku dužnost koju dodijeli privremena uprava ograničiti njezinim rokom, ili to izričito potvrditi kao pravilo.
-2. **`internal/service/user_service.go:464–467`: privremena uprava organizacije skida zastavicu globalnog administratora, i stalnom administratoru.** Provjera vrijedi samo za davanje (`TestZastavicaGlobalnogAdministratoraPriIzmjeni`). Privremeni zamjenik tako može stalnoj upravi oduzeti administraciju. *Treba:* i skidanje zastavice dopustiti samo stalnoj upravi organizacije.
+2. **`internal/service/user_service.go:464–467`: privremena uprava organizacije skida zastavicu globalnog administratora, i stalnom administratoru.** Provjera vrijedi samo za davanje (`TestZastavicaGlobalnogAdministratoraPriIzmjeni`). Privremeni zamjenik tako je mogao stalnoj upravi oduzeti administraciju. **Popravljeno** u zasebnom commitu: zastavicu daje i skida samo stalna uprava organizacije.
 3. **`internal/service/user_service.go:432` i `:435`: zabranjena promjena zastavice (i, za vlastiti račun, imena i uključenosti) tiho se zanemaruje.** Zahtjev prolazi bez poruke (`TestIzmjenaTudjegRacuna`, `TestIzmjenaVlastitogRacuna`). To nije greška u pravima, ali onaj tko je zahtjev poslao misli da je promjena upisana. *Treba:* odbiti zahtjev ili javiti što nije promijenjeno.
 
 ### Otvorena pitanja
