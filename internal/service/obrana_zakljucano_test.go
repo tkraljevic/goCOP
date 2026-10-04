@@ -233,11 +233,15 @@ func TestPrekidObrane(t *testing.T) {
 	if err := o.svc.End(ctx, o.dionica, pperic, "P.1.1", pocetak.Add(-time.Minute), ""); err == nil || !strings.Contains(err.Error(), "prije nego što je proglašena") {
 		t.Errorf("prekid prije proglašenja: %v", err)
 	}
-	// Prekid se smije upisati unaprijed: rok u budućnosti se ne provjerava,
-	// a obrana odmah prestaje biti otvorena.
+	// Prekid se ne upisuje unaprijed (isto ograničenje kao proglašenje); upisan
+	// prekid odmah zatvara obranu.
 	sutra := time.Now().Add(24 * time.Hour).UTC().Truncate(time.Second)
-	if err := o.svc.End(ctx, o.dionica, "pperic-zamjena", "P.1.1", sutra, "voda pada"); err != nil {
+	if err := o.svc.End(ctx, o.dionica, "pperic-zamjena", "P.1.1", sutra, "voda pada"); err == nil || !strings.Contains(err.Error(), "ne može prekinuti unaprijed") {
 		t.Fatalf("prekid unaprijed: %v", err)
+	}
+	kraj := time.Now().Add(-time.Hour).UTC().Truncate(time.Second)
+	if err := o.svc.End(ctx, o.dionica, "pperic-zamjena", "P.1.1", kraj, "voda pada"); err != nil {
+		t.Fatalf("prekid: %v", err)
 	}
 	if otvorena, err := o.svc.Open(ctx, "P.1.1"); err != nil || otvorena != nil {
 		t.Fatalf("nakon prekida obrana i dalje traje: %+v (%v)", otvorena, err)
@@ -247,7 +251,7 @@ func TestPrekidObrane(t *testing.T) {
 		t.Fatalf("epizode dionice: %d (%v)", len(sve), err)
 	}
 	e := sve[0]
-	if e.EndedAt == nil || !e.EndedAt.Equal(sutra) || e.EndedBy != "pperic-zamjena" || e.Phase != models.PhaseEmergency || e.Note != "voda pada" {
+	if e.EndedAt == nil || !e.EndedAt.Equal(kraj) || e.EndedBy != "pperic-zamjena" || e.Phase != models.PhaseEmergency || e.Note != "voda pada" {
 		t.Errorf("prekinuta epizoda: %+v", e)
 	}
 
