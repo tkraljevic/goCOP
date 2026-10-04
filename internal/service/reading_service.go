@@ -161,10 +161,11 @@ func (s *ReadingService) validate(rd *models.Reading) error {
 			return fmt.Errorf("vodostaj %d cm je izvan razumnog raspona", *v)
 		}
 	}
-	if rd.TempC != nil && (*rd.TempC < -5 || *rd.TempC > 45) {
+	// uvjet je obrnut da i NaN (koji nije ni manji ni veći) padne
+	if rd.TempC != nil && !(*rd.TempC >= -5 && *rd.TempC <= 45) {
 		return fmt.Errorf("temperatura vode %.1f °C je izvan razumnog raspona", *rd.TempC)
 	}
-	if rd.FlowM3s != nil && (*rd.FlowM3s < 0 || *rd.FlowM3s > 100000) {
+	if rd.FlowM3s != nil && !(*rd.FlowM3s >= 0 && *rd.FlowM3s <= 100000) {
 		return fmt.Errorf("protok %.1f m³/s je izvan razumnog raspona", *rd.FlowM3s)
 	}
 	switch rd.Source {

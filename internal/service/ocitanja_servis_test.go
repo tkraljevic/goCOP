@@ -188,9 +188,9 @@ func TestProvjeraOcitanja(t *testing.T) {
 		{"protok 100000", func(r *models.Reading) { r.FlowM3s = brojP(100000) }, ""},
 		{"protok iznad", func(r *models.Reading) { r.FlowM3s = brojP(100000.1) }, "protok"},
 		{"protok beskonačan", func(r *models.Reading) { r.FlowM3s = brojP(math.Inf(1)) }, "protok"},
-		// NaN nije ni manji ni veći od granice, pa prolazi
-		{"temperatura NaN", func(r *models.Reading) { r.TempC = brojP(math.NaN()) }, ""},
-		{"protok NaN", func(r *models.Reading) { r.FlowM3s = brojP(math.NaN()) }, ""},
+		// NaN nije broj: ne prolazi ni kao temperatura ni kao protok
+		{"temperatura NaN", func(r *models.Reading) { r.TempC = brojP(math.NaN()) }, "temperatura"},
+		{"protok NaN", func(r *models.Reading) { r.FlowM3s = brojP(math.NaN()) }, "protok"},
 		{"automatski", func(r *models.Reading) { r.Source = models.ReadingSourceAutomatic }, ""},
 		{"uvoz", func(r *models.Reading) { r.Source = models.ReadingSourceImport }, ""},
 		{"nepoznat način", func(r *models.Reading) { r.Source = "TELEPATIJA" }, "nepoznat način"},
