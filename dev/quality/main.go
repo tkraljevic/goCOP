@@ -204,9 +204,10 @@ func run(o options) error {
 	return nil
 }
 
-// policyHash je otisak pravila mjerenja. Iznimke ne ulaze u njega: one ne
-// mijenjaju mjerenje nego samo propusnicu, pa nova ili istekla iznimka ne
-// smije učiniti baseline neusporedivim (istekla i dalje pada u evaluate).
+// policyHash je otisak pravila mjerenja. Iznimke i premještaji ne ulaze u
+// njega: oni ne mijenjaju mjerenje nego samo propusnicu, pa nova ili istekla
+// iznimka ne smije učiniti baseline neusporedivim (istekla i dalje pada u
+// evaluate).
 func policyHash(root string) (string, error) {
 	cfg, err := os.ReadFile(filepath.Join(root, "quality/config.json"))
 	if err != nil {
@@ -224,13 +225,15 @@ func policyHash(root string) (string, error) {
 	return digest(append(data, []byte(analyzerVersion+":"+lintVersion)...)), nil
 }
 
-// bezIznimki je konfiguracija bez popisa iznimaka, u stalnom obliku
+// bezIznimki je konfiguracija bez popisa iznimaka i premještaja, u stalnom
+// obliku
 func bezIznimki(cfg []byte) ([]byte, error) {
 	var m map[string]json.RawMessage
 	if err := json.Unmarshal(cfg, &m); err != nil {
 		return nil, fmt.Errorf("quality/config.json: %w", err)
 	}
 	delete(m, "exceptions")
+	delete(m, "premjestaji")
 	return json.Marshal(m)
 }
 

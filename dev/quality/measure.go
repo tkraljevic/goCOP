@@ -165,7 +165,7 @@ func measure(files []sourceFile, module string, profile map[string][]block, c co
 				name = "(" + b.String() + ")." + name
 			}
 			id := file.Path + "::" + name
-			f := function{ID: id, File: file.Path, Name: name, Line: fs.Position(fn.Pos()).Line, Complexity: gocyclo.Complexity(fn), Critical: c.critical(id)}
+			f := function{ID: id, File: file.Path, Name: name, Line: fs.Position(fn.Pos()).Line, Kraj: fs.Position(fn.End()).Line, Complexity: gocyclo.Complexity(fn), Critical: c.critical(id)}
 			f.Coverage = functionCoverage(blocks, fs.Position(fn.Pos()), fs.Position(fn.End()))
 			if f.Coverage.Percent != nil {
 				score := crap(f.Complexity, *f.Coverage.Percent)

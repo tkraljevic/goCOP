@@ -59,5 +59,32 @@
       "owner": "održavatelj goCOP-a",
       "expires": "2026-11-15"
     }
+  ],
+  "premjestaji": [
+    {
+      "iz": "cmd/gocop/main.go::main",
+      "funkcije": [
+        "cmd/gocop/main.go::run",
+        "cmd/gocop/main.go::odrediPostavke",
+        "cmd/gocop/main.go::uveziTablicu",
+        "cmd/gocop/main.go::uveziUgovor",
+        "cmd/gocop/main.go::uveziBP16",
+        "cmd/gocop/main.go::izvorBP16",
+        "cmd/gocop/main.go::uveziPrijaveBP16",
+        "cmd/gocop/main.go::uveziObilaskeBP16",
+        "cmd/gocop/main.go::korisniciObilazaka",
+        "cmd/gocop/main.go::meteoObilazaka",
+        "cmd/gocop/main.go::uveziDnevnikeBP16",
+        "cmd/gocop/main.go::uveziLetveBP16",
+        "cmd/gocop/prognoza_cvora.go::pokreniPrognozu",
+        "cmd/gocop/prognoza_cvora.go::kisaSlivova",
+        "cmd/gocop/prognoza_cvora.go::pripremiOborine",
+        "cmd/gocop/prognoza_cvora.go::pripremaModela",
+        "cmd/gocop/satni_krug.go::(*satniKrug).preuzmiKisomjere",
+        "cmd/gocop/satni_krug.go::(*satniKrug).izracunajIIzdaj"
+      ],
+      "razlog": "Stabilizacija, faza 1: main (CC 219, bez testova) rastavljen na run i korake pokretanja, tijela premještena bez izmjena. Ove funkcije još nemaju 85 % testova (uvoz iz BP16, tablice i ugovora traži Directus ili datoteke; prognoza, kišomjeri i priprema modela traže arhivu); ostale izdvojene funkcije imaju testove i mjere se kao nov kod.",
+      "pregledano": "2026-10-04"
+    }
   ]
 }

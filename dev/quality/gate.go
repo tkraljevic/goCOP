@@ -25,13 +25,18 @@ func allowed(key string, c config, r *report, now time.Time) bool {
 	return false
 }
 
-func lintKey(i lintIssue, root string) string {
-	path := i.Pos.Filename
+// relativno je put datoteke nalaza prema korijenu, kosim crtama
+func relativno(path, root string) string {
 	if filepath.IsAbs(path) {
 		if rel, err := filepath.Rel(root, path); err == nil {
 			path = rel
 		}
 	}
+	return filepath.ToSlash(path)
+}
+
+func lintKey(i lintIssue, root string) string {
+	path := relativno(i.Pos.Filename, root)
 	text := i.Text
 	if i.FromLinter == "dupl" {
 		text = cloneRange.ReplaceAllString(text, "<range>")
@@ -42,7 +47,7 @@ func lintKey(i lintIssue, root string) string {
 	if metrickiLinteri[i.FromLinter] {
 		text = metrickiBroj.ReplaceAllString(text, "#")
 	}
-	return "lint:" + i.FromLinter + ":" + filepath.ToSlash(path) + ":" + text
+	return "lint:" + i.FromLinter + ":" + path + ":" + text
 }
 
 var cloneRange = regexp.MustCompile(`[0-9]+-[0-9]+`)
@@ -76,6 +81,10 @@ func measureLint(path, root string, c config, r *report) error {
 		}
 		r.Static.Counts[i.FromLinter]++
 		r.Static.Findings[key]++
+		if r.lintMjesta == nil {
+			r.lintMjesta = map[string][]lintMjesto{}
+		}
+		r.lintMjesta[key] = append(r.lintMjesta[key], lintMjesto{i.FromLinter, relativno(i.Pos.Filename, root), i.Pos.Line})
 		if serious(i) {
 			r.Static.Errors++
 			r.Failures = append(r.Failures, key)
@@ -110,13 +119,27 @@ func compareFunctions(r, base *report, c config) {
 	for _, f := range base.Functions {
 		old[f.ID] = f
 	}
+	izvori := map[string]string{}
+	for _, p := range c.Premjestaji {
+		for _, id := range p.Funkcije {
+			izvori[id] = p.Iz
+		}
+	}
 	for _, f := range r.Functions {
 		prev, exists := old[f.ID]
+		premjestena := false
+		if iz, ok := izvori[f.ID]; ok && !exists {
+			prev, premjestena = old[iz]
+			exists = premjestena
+		}
+		if premjestena {
+			r.premjestene = append(r.premjestene, f)
+		}
 		// Nepromijenjena funkcija (isti broj tokena, naredbi i CC): razlika u
 		// njezinom coverageu i CRAP-u dolazi od testova koji ovise o vremenu,
 		// ne od promjene, pa se po njima ne uspoređuje. Ukupni i kritični
 		// coverage i dalje se uspoređuju.
-		nepromijenjena := exists && f.Tokens == prev.Tokens && f.Complexity == prev.Complexity &&
+		nepromijenjena := exists && !premjestena && f.Tokens == prev.Tokens && f.Complexity == prev.Complexity &&
 			f.Coverage.Statements == prev.Coverage.Statements
 		ccLimit, crapLimit, coverageTarget := c.ComplexityLimit, c.CRAPLimit, c.CoverageTarget
 		if f.Critical {
@@ -140,6 +163,62 @@ func compareFunctions(r, base *report, c config) {
 			checkRegression("coverage:"+f.ID, fmt.Sprintf("nova funkcija %.2f%% < %.2f%%", *f.Coverage.Percent, coverageTarget), c, r)
 		}
 	}
+	provjeriPremjestaje(r, base, c)
+}
+
+// provjeriPremjestaje: izvor mora postojati u baselineu, navedene funkcije
+// postojati sada, a premještene funkcije ne smiju nositi više složenosti nego
+// što je izvor izgubio (svaka dobiva 1 za samu sebe) — inače bi se nov kod
+// mogao sakriti kao premješten.
+func provjeriPremjestaje(r, base *report, c config) {
+	stare, sada := map[string]function{}, map[string]function{}
+	for _, f := range base.Functions {
+		stare[f.ID] = f
+	}
+	for _, f := range r.Functions {
+		sada[f.ID] = f
+	}
+	for _, p := range c.Premjestaji {
+		izvor, ok := stare[p.Iz]
+		if !ok {
+			r.Failures = append(r.Failures, "premještaj iz "+p.Iz+": izvora nema u baselineu")
+			continue
+		}
+		izgubio := izvor.Complexity - sada[p.Iz].Complexity
+		nosi := 0
+		for _, id := range p.Funkcije {
+			f, ok := sada[id]
+			switch {
+			case !ok:
+				r.Failures = append(r.Failures, "premještaj iz "+p.Iz+": funkcije "+id+" nema")
+			case stare[id].ID == "":
+				nosi += f.Complexity - 1
+				r.Premjestaji = append(r.Premjestaji, id+" ← "+p.Iz+": "+p.Razlog)
+			}
+		}
+		if nosi > izgubio {
+			r.Failures = append(r.Failures, fmt.Sprintf("premještaj iz %s: premještene funkcije nose CC %d, a izvor je izgubio samo %d", p.Iz, nosi, izgubio))
+		}
+	}
+	sort.Strings(r.Premjestaji)
+}
+
+// uPremjestenoj kaže koliko je pojava nalaza metričkog lintera unutar
+// premještenih funkcija: njihovu složenost već drži usporedba po funkciji
+func uPremjestenoj(r *report, key string) int {
+	n := 0
+	for _, m := range r.lintMjesta[key] {
+		if !metrickiLinteri[m.linter] {
+			continue
+		}
+		for _, f := range r.premjestene {
+			if f.File == m.datoteka && f.Line <= m.redak && m.redak <= f.Kraj {
+				n++
+				break
+			}
+		}
+	}
+	return n
 }
 
 func evaluate(r, base *report, c config, record bool) {
@@ -203,7 +282,7 @@ func evaluate(r, base *report, c config, record bool) {
 			checkRegression("duplication:exact", fmt.Sprintf("%.3f%% → %.3f%%", base.Exact.Percent, r.Exact.Percent), c, r)
 		}
 		for key, n := range r.Static.Findings {
-			if n > base.Static.Findings[key] {
+			if n-uPremjestenoj(r, key) > base.Static.Findings[key] {
 				checkRegression(key, "novi/dodatni nalaz", c, r)
 			}
 		}

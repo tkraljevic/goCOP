@@ -209,6 +209,29 @@ dva namjerna testna obrasca: izazivanje panike nil mapom i usporedba dva poziva
 tvorničke metode koja mora vratiti različite HTTP klijente. Ne dodavati iznimku
 samo da bi CI bio zelen; posebno ne za stvarne greške autorizacije/uvoza.
 
+### Premještaji: rastavljanje postojeće funkcije
+
+Funkcija izdvojena iz postojeće funkcije bez izmjene ponašanja (npr. dijelovi
+`main` premješteni u `run` i korake pokretanja) nije nov kod, a bez ovoga bi se
+mjerila kao nov: cilj 85 % i CC 15, iako je isti kod u izvoru bio bez testova.
+Rastavljanje bi tako bilo skuplje od ostavljanja jedne goleme funkcije.
+
+Premještaji su u `premjestaji`: izvor (`iz`, funkcija koja postoji u
+baselineu), popis izdvojenih funkcija, razlog i datum pregleda. Premještena
+funkcija kojoj u baselineu nema zapisa nasljeđuje izvor: CC do `max(cilj, CC
+izvora)`, CRAP do `max(cilj, CRAP izvora + 0,5)`, coverage ne niži od izvorovog.
+Metrički lint nalaz (gocyclo, gocognit, maintidx, nestif…) unutar nje nije nov,
+jer njezinu složenost drži usporedba po funkciji; ostali linteri (npr. errcheck)
+i dalje jesu.
+
+Da se nov kod ne bi sakrio kao premješten, zbroj `CC − 1` premještenih funkcija
+ne smije biti veći od onoga što je izvor izgubio; izvor mora postojati u
+baselineu, a svaka navedena funkcija postojati sada. U popis idu samo funkcije
+koje bez nasljeđivanja ne bi prošle; izdvojena funkcija s testovima mjeri se kao
+nov kod. Premještaji ne ulaze u otisak konfiguracije. Kad se baseline ponovno
+snimi, premještene funkcije u njemu postoje i mjere se kao svaka druga, a
+premještaj se može ukloniti. Izvještaj ih navodi u zasebnom odjeljku.
+
 ## Duplikacija: što točno mjerimo
 
 Tri različita signala, koji se ne zbrajaju:

@@ -22,22 +22,36 @@ type exception struct {
 	Expires string `json:"expires"`
 }
 
+// premjestaj: funkcije izdvojene iz funkcije koja postoji u baselineu, bez
+// izmjene ponašanja (npr. rastavljanje main). Takva funkcija nije nov kod:
+// nasljeđuje stanje izvora iz baselinea (CC, CRAP, coverage) i ne smije biti
+// gora od njega, a zbroj složenosti premještenih funkcija ne smije biti veći
+// od onoga što je izvor izgubio. Kad se baseline ponovno snimi, premještene
+// funkcije u njemu postoje i mjere se kao svaka druga.
+type premjestaj struct {
+	Iz         string   `json:"iz"`
+	Funkcije   []string `json:"funkcije"`
+	Razlog     string   `json:"razlog"`
+	Pregledano string   `json:"pregledano"`
+}
+
 type config struct {
-	Schema                  int         `json:"schema"`
-	CoverageTarget          float64     `json:"coverage_target"`
-	CriticalCoverageTarget  float64     `json:"critical_coverage_target"`
-	ComplexityLimit         int         `json:"complexity_limit"`
-	CriticalComplexityLimit int         `json:"critical_complexity_limit"`
-	CRAPLimit               float64     `json:"crap_limit"`
-	CriticalCRAPLimit       float64     `json:"critical_crap_limit"`
-	CoverageDrop            float64     `json:"coverage_drop_pp"`
-	CRAPIncrease            float64     `json:"crap_increase"`
-	DuplicationIncrease     float64     `json:"duplication_increase_pp"`
-	ExactMinTokens          int         `json:"exact_min_tokens"`
-	FuzzyMinTokens          int         `json:"fuzzy_min_tokens"`
-	FuzzySimilarity         float64     `json:"fuzzy_similarity"`
-	Critical                []string    `json:"critical"`
-	Exceptions              []exception `json:"exceptions"`
+	Schema                  int          `json:"schema"`
+	CoverageTarget          float64      `json:"coverage_target"`
+	CriticalCoverageTarget  float64      `json:"critical_coverage_target"`
+	ComplexityLimit         int          `json:"complexity_limit"`
+	CriticalComplexityLimit int          `json:"critical_complexity_limit"`
+	CRAPLimit               float64      `json:"crap_limit"`
+	CriticalCRAPLimit       float64      `json:"critical_crap_limit"`
+	CoverageDrop            float64      `json:"coverage_drop_pp"`
+	CRAPIncrease            float64      `json:"crap_increase"`
+	DuplicationIncrease     float64      `json:"duplication_increase_pp"`
+	ExactMinTokens          int          `json:"exact_min_tokens"`
+	FuzzyMinTokens          int          `json:"fuzzy_min_tokens"`
+	FuzzySimilarity         float64      `json:"fuzzy_similarity"`
+	Critical                []string     `json:"critical"`
+	Exceptions              []exception  `json:"exceptions"`
+	Premjestaji             []premjestaj `json:"premjestaji"`
 	patterns                []*regexp.Regexp
 }
 
@@ -63,6 +77,19 @@ func loadConfig(path string) (config, error) {
 			return c, fmt.Errorf("neispravna ili ponovljena iznimka %q", e.Key)
 		}
 		seen[e.Key] = true
+	}
+	premjestene := map[string]bool{}
+	for _, p := range c.Premjestaji {
+		_, err := time.Parse("2006-01-02", p.Pregledano)
+		if p.Iz == "" || p.Razlog == "" || err != nil || len(p.Funkcije) == 0 {
+			return c, fmt.Errorf("neispravan premještaj iz %q", p.Iz)
+		}
+		for _, id := range p.Funkcije {
+			if id == "" || id == p.Iz || premjestene[id] {
+				return c, fmt.Errorf("premještaj iz %q: neispravna ili ponovljena funkcija %q", p.Iz, id)
+			}
+			premjestene[id] = true
+		}
 	}
 	return c, nil
 }
@@ -96,6 +123,7 @@ type function struct {
 	File       string   `json:"file"`
 	Name       string   `json:"name"`
 	Line       int      `json:"line"`
+	Kraj       int      `json:"end_line,omitempty"`
 	Complexity int      `json:"complexity"`
 	Coverage   coverage `json:"coverage"`
 	CRAP       *float64 `json:"crap"`
@@ -170,7 +198,20 @@ type report struct {
 	Failures          []string            `json:"failures"`
 	Warnings          []string            `json:"warnings"`
 	Exceptions        []string            `json:"applied_exceptions"`
+	Premjestaji       []string            `json:"applied_moves,omitempty"`
 	Status            string              `json:"status"`
+
+	// lintMjesta: gdje je koji lint nalaz, da se metrički nalaz u premještenoj
+	// funkciji ne broji kao nov; premjestene su funkcije kojima je priznat
+	// premještaj (puni ih compareFunctions)
+	lintMjesta  map[string][]lintMjesto
+	premjestene []function
+}
+
+// lintMjesto je datoteka (relativno, kosim crtama) i redak jednog lint nalaza
+type lintMjesto struct {
+	linter, datoteka string
+	redak            int
 }
 
 // raspodjelaCRAP: prosjek skriva nekoliko čudovišta (jedna funkcija s CRAP-om
