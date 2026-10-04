@@ -541,18 +541,19 @@ func TestPreuzimanjeDezurstvaOdbijeno(t *testing.T) {
 	}
 }
 
-func TestPredajaDugogDezurstvaBezGranice(t *testing.T) {
+func TestPredajaDugogDezurstvaCekaPregled(t *testing.T) {
 	o := novaOkolinaDezurstava(t)
 	ctx := context.Background()
 	// Dežurstvo zaboravljeno tri dana: predaja ga upiše kao jedan razmak od
-	// 72 sata, iako ručni upis ne prima dulje od 36 sati.
+	// 72 sata, ali dulje od 24 h bez stanke ne potvrđuje se samo ni kad
+	// preda uprava — dobiva napomenu i čeka pregled.
 	pocetak := time.Now().Add(-72 * time.Hour).In(models.Zagreb)
 	o.dnevnik.DezurniID, o.dnevnik.DezurniIme, o.dnevnik.DezurniOd = o.pperic.ID.String(), "Pero Perić", &pocetak
-	if err := o.svc.PredajDezurstvo(ctx, o.pperic, o.ovlPero, o.dnevnik); err != nil {
+	if err := o.svc.PredajDezurstvo(ctx, o.uprava, o.ovlUprav, o.dnevnik); err != nil {
 		t.Fatal(err)
 	}
 	plan, _ := o.svc.Dezurstva(ctx, o.dnevnik.ID)
-	if len(plan) != 1 || plan[0].Trajanje() < 71*time.Hour {
+	if len(plan) != 1 || plan[0].Trajanje() < 71*time.Hour || plan[0].Potvrdeno() || !strings.Contains(plan[0].Napomena, "dulje od 24 h bez stanke") {
 		t.Fatalf("plan: %+v", plan)
 	}
 	zapisi := o.zapisiDnevnika(t)
@@ -585,8 +586,8 @@ func TestPredajaBezZapisaDnevnika(t *testing.T) {
 	if err := o.svc.PreuzmiDezurstvo(ctx, o.pperic, o.ovlPero, o.opseg, o.dnevnik); err != nil {
 		t.Fatal(err)
 	}
-	// Bez tablice zapisa predaja javi grešku, a razmak je već u planu:
-	// upis razmaka i zapisa nisu jedna transakcija.
+	// Bez tablice zapisa predaja javi grešku, a razmak je već u planu
+	// (upis razmaka i zapisa nisu jedna transakcija).
 	if _, err := o.baza.Exec(`ALTER TABLE journal_entries RENAME TO nema_zapisa`); err != nil {
 		t.Fatal(err)
 	}
@@ -596,12 +597,57 @@ func TestPredajaBezZapisaDnevnika(t *testing.T) {
 	if plan, _ := o.svc.Dezurstva(ctx, o.dnevnik.ID); len(plan) != 1 || !o.dnevnik.NetkoDezura() {
 		t.Errorf("nakon neuspjele predaje: plan %d, dežura %v", len(plan), o.dnevnik.NetkoDezura())
 	}
-	// Preuzimanje drugoga tada također ne uspije, ali upiše još jedan
-	// razmak istog dežurstva: svaki pokušaj ostavi dvojnik.
+	// Ponovljeni pokušaji (predaja, preuzimanje drugoga) ne upisuju dvojnik:
+	// razmak predaje ima stalan identitet, pa se isti sati ne plate dvaput.
+	if err := o.svc.PredajDezurstvo(ctx, o.pperic, o.ovlPero, o.dnevnik); err == nil {
+		t.Error("ponovljena predaja bez tablice zapisa")
+	}
 	if err := o.svc.PreuzmiDezurstvo(ctx, o.uprava, o.ovlUprav, o.opseg, o.dnevnik); err == nil {
 		t.Error("preuzimanje bez tablice zapisa")
 	}
-	if plan, _ := o.svc.Dezurstva(ctx, o.dnevnik.ID); len(plan) != 2 || plan[0].Od != plan[1].Od {
-		t.Errorf("nakon dva neuspjela pokušaja: %+v", plan)
+	if plan, _ := o.svc.Dezurstva(ctx, o.dnevnik.ID); len(plan) != 1 {
+		t.Errorf("nakon tri neuspjela pokušaja: %+v", plan)
+	}
+	// kad zapis opet radi, predaja uspije i razmak ostane jedan
+	if _, err := o.baza.Exec(`ALTER TABLE nema_zapisa RENAME TO journal_entries`); err != nil {
+		t.Fatal(err)
+	}
+	if err := o.svc.PredajDezurstvo(ctx, o.pperic, o.ovlPero, o.dnevnik); err != nil {
+		t.Fatal(err)
+	}
+	if plan, _ := o.svc.Dezurstva(ctx, o.dnevnik.ID); len(plan) != 1 || o.dnevnik.NetkoDezura() {
+		t.Errorf("nakon uspjele predaje: plan %d, dežura %v", len(plan), o.dnevnik.NetkoDezura())
+	}
+}
+
+// Što upiše uprava potvrđeno je odmah, osim dežurstva duljeg od 24 sata bez
+// stanke: ono dobiva napomenu (jednom) i čeka potvrdu
+func TestDezurstvoBezStankeCekaPotvrdu(t *testing.T) {
+	od := time.Date(2026, 11, 2, 7, 0, 0, 0, models.Zagreb)
+	for _, tc := range []struct {
+		sati          int
+		uprava, odmah bool
+	}{
+		{8, true, true},
+		{24, true, true},
+		{25, true, false},
+		{8, false, false},
+		{30, false, false},
+	} {
+		d := &models.Dezurstvo{Od: od, Do: od.Add(time.Duration(tc.sati) * time.Hour), Napomena: "terenski obilazak"}
+		if got := potvrdiOdmah(tc.uprava, d); got != tc.odmah {
+			t.Errorf("%d h, uprava %v: potvrdi odmah %v", tc.sati, tc.uprava, got)
+		}
+		if oznacen := strings.Contains(d.Napomena, napomenaBezStanke); oznacen != (tc.sati > 24) || !strings.HasPrefix(d.Napomena, "terenski obilazak") {
+			t.Errorf("%d h: napomena %q", tc.sati, d.Napomena)
+		}
+		potvrdiOdmah(tc.uprava, d)
+		if strings.Count(d.Napomena, napomenaBezStanke) > 1 {
+			t.Errorf("napomena dvaput: %q", d.Napomena)
+		}
+	}
+	// isti dnevnik, osoba i početak daju isti razmak; drugi početak drugi
+	if idPredaje("d1", "p1", od) != idPredaje("d1", "p1", od.In(time.UTC)) || idPredaje("d1", "p1", od) == idPredaje("d1", "p1", od.Add(time.Minute)) {
+		t.Error("identitet razmaka predaje")
 	}
 }

@@ -96,6 +96,13 @@ func (d Dezurstvo) Potvrdeno() bool { return d.PotvrdenoAt != nil }
 // Trajanje razmaka
 func (d Dezurstvo) Trajanje() time.Duration { return d.Do.Sub(d.Od) }
 
+// NajduljeBezStanke: dežurstvo dulje od ovoga bez stanke je sumnjivo (čovjek
+// treba i spavati), pa ga uprava mora pogledati prije potvrde
+const NajduljeBezStanke = 24 * time.Hour
+
+// BezStanke javlja traje li dežurstvo dulje od NajduljeBezStanke
+func (d Dezurstvo) BezStanke() bool { return d.Trajanje() > NajduljeBezStanke }
+
 // DateKey je dan početka u obliku 2006-01-02, po zidnom satu
 func (d Dezurstvo) DateKey() string { return d.Od.In(Zagreb).Format("2006-01-02") }
 

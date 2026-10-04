@@ -10,6 +10,8 @@ import (
 
 	"gocop/internal/models"
 	"gocop/internal/obracun"
+
+	"github.com/google/uuid"
 )
 
 // Plan dežurstava i obračun sati su jedna evidencija: razmak od–do jedne
@@ -120,7 +122,7 @@ func (s *JournalService) SpremiDezurstvo(ctx context.Context, u *models.User, pe
 		d.CreatedBy = u.ID.String()
 	}
 	d.Potvrdio, d.PotvrdenoAt = "", nil
-	if uprava {
+	if potvrdiOdmah(uprava, d) {
 		now := time.Now().In(models.Zagreb)
 		d.Potvrdio, d.PotvrdenoAt = u.FullName, &now
 	}
@@ -486,15 +488,17 @@ func (s *JournalService) PredajDezurstvo(ctx context.Context, u *models.User, pe
 
 // zakljuciDezurstvo upisuje predaju: zapis u dnevnik, razmak u plan, dnevnik
 // bez dežurnog. Razmak potvrđuje uprava kao i svaki drugi; potvrđen je
-// odmah samo kad ga uprava sama preda (svoje ili tuđe).
+// odmah samo kad ga uprava sama preda (svoje ili tuđe). Razmak ima stalan
+// identitet (dnevnik, osoba, početak), pa ponovljena predaja nakon greške
+// osvježi isti razmak, a ne upiše još jedan.
 func (s *JournalService) zakljuciDezurstvo(ctx context.Context, u *models.User, j *models.Journal, kad time.Time, napomena string, potvrdi bool) error {
 	od := j.DezurniOd.In(models.Zagreb)
-	d := &models.Dezurstvo{JournalID: j.ID, UserID: j.DezurniID, UserName: j.DezurniIme, Od: od, Do: kad,
+	d := &models.Dezurstvo{ID: idPredaje(j.ID, j.DezurniID, od), JournalID: j.ID, UserID: j.DezurniID, UserName: j.DezurniIme, Od: od, Do: kad,
 		Opis: models.OpisiRada[0].Opis, Mjesto: models.MjestoZaOpis(models.OpisiRada[0].Opis), Napomena: strings.TrimSpace(napomena), CreatedBy: u.ID.String()}
 	if !kad.After(od) {
 		d.Do = od.Add(time.Minute)
 	}
-	if potvrdi {
+	if potvrdiOdmah(potvrdi, d) {
 		d.Potvrdio, d.PotvrdenoAt = u.FullName, &kad
 	}
 	if err := s.repo.SaveDezurstvo(ctx, d); err != nil {
@@ -507,6 +511,26 @@ func (s *JournalService) zakljuciDezurstvo(ctx context.Context, u *models.User, 
 	}
 	j.DezurniID, j.DezurniIme, j.DezurniOd = "", "", nil
 	return s.repo.SaveJournal(ctx, j)
+}
+
+// potvrdiOdmah: što upiše ili preda uprava potvrđeno je odmah, osim
+// dežurstva duljeg od 24 sata bez stanke — ono dobiva napomenu i čeka da ga
+// uprava pogleda i potvrdi
+func potvrdiOdmah(uprava bool, d *models.Dezurstvo) bool {
+	if !d.BezStanke() {
+		return uprava
+	}
+	if !strings.Contains(d.Napomena, napomenaBezStanke) {
+		d.Napomena = strings.TrimSpace(d.Napomena + " " + napomenaBezStanke)
+	}
+	return false
+}
+
+const napomenaBezStanke = "[dulje od 24 h bez stanke — provjeriti prije potvrde]"
+
+// idPredaje je stalan identitet razmaka koji nastaje predajom dežurstva
+func idPredaje(dnevnik, osoba string, od time.Time) string {
+	return uuid.NewSHA1(uuid.NameSpaceURL, []byte("gocop:dezurstvo:"+dnevnik+"|"+osoba+"|"+od.UTC().Format(time.RFC3339Nano))).String()
 }
 
 func pocetakDana(t time.Time) time.Time {
