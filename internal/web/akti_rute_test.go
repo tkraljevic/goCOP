@@ -375,13 +375,24 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 	if (models.Akt{Stupanj: models.PhaseRegular}).Clanak() != "XXIII" {
 		t.Error("redovitu obranu uređuje članak XXIII Državnog plana")
 	}
-	zovi(http.MethodPost, "/akti/"+id2+"/ovjeri", url.Values{})
-	if e, _ := episodes.Open(ctx, "B.34.1"); e != nil {
-		t.Errorf("prekid pripremnog stanja bi trebao zatvoriti obranu, a traje: %+v", e)
+	// prekid pripremnog stanja koje nije proglašeno ne ovjerava se: traje
+	// izvanredna obrana (docs/NACRT-STADIJI-OBRANE.md)
+	w = zovi(http.MethodPost, "/akti/"+id2+"/ovjeri", url.Values{})
+	if b, _ = akti.Get(ctx, id2); b.Ovjeren() || !strings.Contains(w.Header().Get("Location"), "error=") {
+		t.Errorf("prekid pripremnog stanja koje ne traje je ovjeren: %+v (%s)", b, w.Header().Get("Location"))
 	}
-	b, _ = akti.Get(ctx, id2)
-	if b.Broj != 2 {
-		t.Errorf("drugi akt u godini bi trebao imati broj 2, ima %d", b.Broj)
+	if e, _ := episodes.Open(ctx, "B.34.1"); e == nil {
+		t.Error("odbijen prekid zatvorio je obranu")
+	}
+	// prekid izvanredne obrane zatvara obranu i dobiva broj 2
+	w = zovi(http.MethodPost, "/akti/novi", url.Values{"station_id": {st.ID.String()}, "radnja": {"PREKID"}, "stupanj": {"IZVANREDNA"}, "vrijedi": {"2026-09-15T20:00"}})
+	id4 := strings.TrimPrefix(strings.SplitN(w.Header().Get("Location"), "?", 2)[0], "/akti/")
+	zovi(http.MethodPost, "/akti/"+id4+"/ovjeri", url.Values{})
+	if e, _ := episodes.Open(ctx, "B.34.1"); e != nil {
+		t.Errorf("prekid izvanredne obrane bi trebao zatvoriti obranu, a traje: %+v", e)
+	}
+	if d, _ := akti.Get(ctx, id4); d == nil || d.Broj != 2 {
+		t.Errorf("drugi ovjereni akt u godini bi trebao imati broj 2: %+v", d)
 	}
 }
 

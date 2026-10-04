@@ -18,10 +18,10 @@ import (
 	"gocop/internal/service"
 )
 
-// Zaključava kako ovjera akta o obrani mijenja stanje obrane na dionicama:
-// akt ovlašćuje promjenu na svojim dionicama, bez obzira na prava onoga tko
-// ovjerava; uspostava otvara ili podiže obranu, prekid pripremnog stanja je
-// prekida. Upitna mjesta test bilježi onakva kakva jesu.
+// Kako ovjera akta o obrani mijenja stanje obrane na dionicama: akt
+// ovlašćuje promjenu na svojim dionicama, bez obzira na prava onoga tko
+// ovjerava. Stadiji se slažu (docs/NACRT-STADIJI-OBRANE.md): ovjera pušta
+// samo moguć slijed, a epizoda kao povijest razdoblja prati stanje iz akata.
 
 type okolinaAkta struct {
 	baza    *sql.DB
@@ -157,29 +157,37 @@ func TestOvjeraAktaMijenjaStanjeObrane(t *testing.T) {
 		t.Errorf("epizoda iz akta: proglasio %s, temelj %s, napomena %q", e.DeclaredBy, e.Basis, e.Note)
 	}
 
-	// viši stupanj podiže obranu, niži ili isti ne mijenja ništa i ne upozorava
+	// viši stupanj podiže obranu; stadij koji već traje ne ovjerava se
+	// (docs/NACRT-STADIJI-OBRANE.md)
 	a2, upozorenja := o.ovjeri(t, models.AktUspostava, models.PhaseRegular, sat.Add(10*time.Minute))
 	if len(upozorenja) != 0 || a2.Broj != 2 {
 		t.Errorf("uspostava redovne: upozorenja %v, broj %d", upozorenja, a2.Broj)
 	}
-	if _, upozorenja := o.ovjeri(t, models.AktUspostava, models.PhasePrep, sat.Add(20*time.Minute)); len(upozorenja) != 0 {
-		t.Errorf("uspostava nižeg stupnja ne smije upozoravati: %v", upozorenja)
+	if err := o.neOvjeri(t, models.AktUspostava, models.PhasePrep, sat.Add(20*time.Minute)); err == nil || !strings.Contains(err.Error(), "Pripremno stanje već traje") {
+		t.Errorf("uspostava stadija koji već traje: %v", err)
+	}
+	if err := o.neOvjeri(t, models.AktPrekid, models.PhasePrep, sat.Add(20*time.Minute)); err == nil || !strings.Contains(err.Error(), "ukida se samo najviši") {
+		t.Errorf("prekid pripremnog dok redovna traje: %v", err)
 	}
 	if got := o.stanje(t); got["P.1.1"] != models.PhaseRegular || got["P.1.2"] != models.PhaseRegular {
-		t.Fatalf("nakon podizanja i niže uspostave: %v", got)
+		t.Fatalf("nakon podizanja: %v", got)
 	}
 
-	// Prekid stupnja koji nije pripremni ne mijenja stanje, a za svaku
-	// dionicu vrati upozorenje „obrana je već na stupnju …”.
+	// Prekid redovne vraća obranu na pripremno stanje (stanje iz akata);
+	// epizoda kao povijest razdoblja ostaje otvorena, s najvišim dosegnutim
+	// stadijem, bez upozorenja.
 	_, upozorenja = o.ovjeri(t, models.AktPrekid, models.PhaseRegular, sat.Add(30*time.Minute))
-	if len(upozorenja) != 2 || !strings.Contains(upozorenja[0], "obrana je već na stupnju") {
+	if len(upozorenja) != 0 {
 		t.Errorf("prekid redovne: upozorenja %v", upozorenja)
 	}
+	if st, _, err := o.akti.StanjeObrane(ctx, "P", "P.1.1", time.Now()); err != nil || st.Najvisi() != models.PhasePrep {
+		t.Errorf("nakon prekida redovne: %+v %v", st, err)
+	}
 	if got := o.stanje(t); got["P.1.1"] != models.PhaseRegular {
-		t.Errorf("prekid redovne ne smije mijenjati stanje: %v", got)
+		t.Errorf("epizoda nakon prekida redovne: %v", got)
 	}
 
-	// prekid pripremnog stanja prekida obranu bez obzira na njezin stupanj
+	// prekid pripremnog stanja, kad ništa više ne traje, zatvara epizodu
 	if _, upozorenja := o.ovjeri(t, models.AktPrekid, models.PhasePrep, sat.Add(40*time.Minute)); len(upozorenja) != 0 {
 		t.Errorf("prekid pripremnog: %v", upozorenja)
 	}
@@ -187,15 +195,54 @@ func TestOvjeraAktaMijenjaStanjeObrane(t *testing.T) {
 		t.Fatalf("nakon prekida pripremnog obrana i dalje traje: %v", got)
 	}
 
-	// Akt koji vrijedi tek za dva sata se ovjeri, ali obrana se ne otvori:
-	// ostaje samo upozorenje, i ništa je poslije ne otvara.
-	a3, upozorenja := o.ovjeri(t, models.AktUspostava, models.PhasePrep, time.Now().Add(2*time.Hour))
-	if a3.Status != models.AktOvjeren || len(upozorenja) != 2 || !strings.Contains(upozorenja[0], "unaprijed") {
+	// Odmah redovna, bez pripremnog: njezin prekid zatvara epizodu.
+	o.ovjeri(t, models.AktUspostava, models.PhaseRegular, sat.Add(45*time.Minute))
+	if got := o.stanje(t); got["P.1.1"] != models.PhaseRegular {
+		t.Fatalf("odmah redovna: %v", got)
+	}
+	if _, upozorenja := o.ovjeri(t, models.AktPrekid, models.PhaseRegular, sat.Add(50*time.Minute)); len(upozorenja) != 0 {
+		t.Errorf("prekid redovne bez pripremnog: %v", upozorenja)
+	}
+	if got := o.stanje(t); len(got) != 0 {
+		t.Fatalf("nakon prekida redovne bez pripremnog obrana i dalje traje: %v", got)
+	}
+	// prekid stadija koji ne traje ne ovjerava se
+	if err := o.neOvjeri(t, models.AktPrekid, models.PhaseRegular, sat.Add(55*time.Minute)); err == nil || !strings.Contains(err.Error(), "Redovna obrana ne traje") {
+		t.Errorf("prekid stadija koji ne traje: %v", err)
+	}
+
+	// Akt koji vrijedi tek za dva sata ovjeri se bez upozorenja; epizodu sada
+	// ne otvara, a stanje iz akata pokazuje ga u svoje vrijeme.
+	za2h := time.Now().Add(2 * time.Hour).Truncate(time.Minute)
+	a3, upozorenja := o.ovjeri(t, models.AktUspostava, models.PhasePrep, za2h)
+	if a3.Status != models.AktOvjeren || len(upozorenja) != 0 {
 		t.Errorf("uspostava za dva sata: status %s, upozorenja %v", a3.Status, upozorenja)
 	}
 	if got := o.stanje(t); len(got) != 0 {
-		t.Errorf("akt za dva sata otvorio je obranu: %v", got)
+		t.Errorf("akt za dva sata otvorio je epizodu: %v", got)
 	}
+	if st, _, _ := o.akti.StanjeObrane(ctx, "P", "P.1.1", za2h); st.Najvisi() != models.PhasePrep {
+		t.Errorf("akt za dva sata u svoje vrijeme: %+v", st)
+	}
+}
+
+// neOvjeri priprema i sprema akt pa pokuša ovjeru koja ne smije proći;
+// vraća grešku ovjere
+func (o *okolinaAkta) neOvjeri(t *testing.T, radnja string, stupanj models.DefensePhase, vrijedi time.Time) error {
+	t.Helper()
+	ctx := context.Background()
+	a, err := o.akti.Pripremi(ctx, o.ovlasti, o.rukovod, service.ZahtjevAkta{StationID: o.letva.ID.String(), Radnja: radnja, Stupanj: stupanj, Vrijedi: vrijedi})
+	if err != nil {
+		t.Fatalf("priprema %s %s: %v", radnja, stupanj, err)
+	}
+	if err := o.akti.Spremi(ctx, o.ovlasti, a); err != nil {
+		t.Fatalf("spremanje: %v", err)
+	}
+	ovjeren, _, err := o.akti.Ovjeri(ctx, o.ovlasti, o.rukovod, a.ID)
+	if err == nil && ovjeren != nil && ovjeren.Ovjeren() {
+		t.Errorf("ovjeren je akt koji ne smije proći: %s %s", radnja, stupanj)
+	}
+	return err
 }
 
 func TestOvjeraBezOvlasti(t *testing.T) {

@@ -652,7 +652,7 @@ func (s *AktService) Ovjeri(ctx context.Context, perms *models.UserPermissions, 
 	if !s.SmijeOvjeriti(perms, a) {
 		return nil, nil, fmt.Errorf("%w: %s ovjerava %s", ErrUnauthorized, a.Naslov(), strings.ToLower(a.Potpisnik))
 	}
-	if _, err := s.trebaAktivnu(ctx, a); err != nil {
+	if err := s.provjeriPrijeOvjere(ctx, a); err != nil {
 		return nil, nil, err
 	}
 	return s.zakljuciOvjeru(ctx, perms, u, a, time.Now())
@@ -692,6 +692,84 @@ func (s *AktService) StanjaSektora(ctx context.Context, sektor string, t time.Ti
 	return models.StanjaDionica(akti, t), nil
 }
 
+// provjeriPrijeOvjere: isti preduvjeti na oba puta ovjere (izravno i skenom
+// potpisanog akta): aktivna obrana u sektoru i slijed stadija na dionicama
+// akta uz već ovjerene (docs/NACRT-STADIJI-OBRANE.md)
+func (s *AktService) provjeriPrijeOvjere(ctx context.Context, a *models.Akt) error {
+	if _, err := s.trebaAktivnu(ctx, a); err != nil {
+		return err
+	}
+	ovjereni, err := s.repo.ListAkti(ctx, repository.FiltarAkata{Sektor: a.Sektor, Status: models.AktOvjeren})
+	if err != nil {
+		return err
+	}
+	if err := models.ProvjeriSlijed(ovjereni, *a); err != nil {
+		return fmt.Errorf("akt se ne može ovjeriti — %w", err)
+	}
+	return nil
+}
+
+// spremanZaOvjeruSkenom: akt još nije ovjeren i prolazi iste preduvjete kao
+// izravna ovjera; provjerava se prije nego što se sken spremi
+func (s *AktService) spremanZaOvjeruSkenom(ctx context.Context, a *models.Akt) error {
+	if a.Ovjeren() {
+		return fmt.Errorf("akt %s je već ovjeren", a.Oznaka())
+	}
+	return s.provjeriPrijeOvjere(ctx, a)
+}
+
+// uskladiEpizode drži epizodu obrane (povijest razdoblja obrane) uz stanje iz
+// ovjerenih akata u trenutku kad akt stupa na snagu. Ovjeren akt ovlašćuje
+// promjenu na svojim dionicama, bez obzira na to piše li onaj tko ga vraća u
+// program baš na njima (voditelj COP-a i rukovoditelj područja pišu na razini
+// sektora i područja, a epizoda se vodi po dionici).
+func (s *AktService) uskladiEpizode(ctx context.Context, u *models.User, a *models.Akt) []string {
+	if s.episodes == nil {
+		return nil
+	}
+	ovjereni, err := s.repo.ListAkti(ctx, repository.FiltarAkata{Sektor: a.Sektor, Status: models.AktOvjeren})
+	if err != nil {
+		return []string{"povijest obrane nije usklađena: " + err.Error()}
+	}
+	poAktu := &models.UserPermissions{User: *u, AllowedSections: map[string]bool{}}
+	for _, d := range a.Dionice {
+		poAktu.AllowedSections[d.Code] = true
+	}
+	st := s.letvaAkta(ctx, a)
+	var upozorenja []string
+	for _, d := range a.Dionice {
+		if err := s.uskladiEpizodu(ctx, poAktu, u, d.Code, *st, a, ovjereni); err != nil {
+			upozorenja = append(upozorenja, d.Code+": "+err.Error())
+		}
+	}
+	return upozorenja
+}
+
+// uskladiEpizodu: obrana počinje — epizoda se otvara; stadij raste — podiže
+// se; ništa više ne traje — zatvara se (i kad se ukine viši stadij bez
+// nižeg ispod). Akt koji stupa na snagu kasnije epizodu sada ne mijenja:
+// stanje iz akata ga pokazuje u svoje vrijeme.
+func (s *AktService) uskladiEpizodu(ctx context.Context, poAktu *models.UserPermissions, u *models.User, dionica string, st models.Station, a *models.Akt, ovjereni []models.Akt) error {
+	if a.Vrijedi.After(time.Now().Add(time.Hour)) {
+		return nil
+	}
+	stanje, _ := models.StanjeDionice(ovjereni, dionica, a.Vrijedi)
+	otvorena, err := s.episodes.Open(ctx, dionica)
+	if err != nil {
+		return err
+	}
+	biljeska := a.Naslov() + " " + a.Oznaka()
+	switch {
+	case stanje.Traje() && otvorena == nil:
+		_, err = s.episodes.Declare(ctx, poAktu, u.ID.String(), dionica, st, a.Vrijedi, stanje.Najvisi(), osnovaEpizode(a), biljeska)
+	case stanje.Traje() && stanje.Najvisi().Severity() > otvorena.Phase.Severity():
+		err = s.episodes.Raise(ctx, poAktu, dionica, stanje.Najvisi(), biljeska)
+	case !stanje.Traje() && otvorena != nil:
+		err = s.episodes.End(ctx, poAktu, u.ID.String(), dionica, a.Vrijedi, biljeska)
+	}
+	return err
+}
+
 // zakljuciOvjeru dovršava ovjeru: broj, tko i kad, kod, potpis ključem
 // čvora, spremanje i usklađivanje obrane na dionicama. potpisnikPerms su
 // ovlasti onoga tko akt ovjerava (za "u.z." i potpisnika). Stanje obrane na
@@ -722,37 +800,7 @@ func (s *AktService) zakljuciOvjeru(ctx context.Context, potpisnikPerms *models.
 		return nil, nil, err
 	}
 
-	var upozorenja []string
-	if s.episodes != nil {
-		// Ovjeren akt ovlašćuje promjenu stanja obrane na svojim dionicama,
-		// bez obzira na to piše li onaj tko ga vraća u program baš na njima
-		// (voditelj COP-a i rukovoditelj područja pišu na razini sektora i
-		// područja, a epizoda se vodi po dionici).
-		poAktu := &models.UserPermissions{User: *u, AllowedSections: map[string]bool{}}
-		for _, d := range a.Dionice {
-			poAktu.AllowedSections[d.Code] = true
-		}
-		st := s.letvaAkta(ctx, a)
-		biljeska := a.Naslov() + " " + a.Oznaka()
-		for _, d := range a.Dionice {
-			var err error
-			if a.Radnja == models.AktUspostava {
-				otvorena, _ := s.episodes.Open(ctx, d.Code)
-				if otvorena == nil {
-					_, err = s.episodes.Declare(ctx, poAktu, u.ID.String(), d.Code, *st, a.Vrijedi, a.Stupanj, osnovaEpizode(a), biljeska)
-				} else if a.Stupanj.Severity() > otvorena.Phase.Severity() {
-					err = s.episodes.Raise(ctx, poAktu, d.Code, a.Stupanj, biljeska)
-				}
-			} else if a.Stupanj == models.PhasePrep {
-				err = s.episodes.End(ctx, poAktu, u.ID.String(), d.Code, a.Vrijedi, biljeska)
-			} else if otvorena, _ := s.episodes.Open(ctx, d.Code); otvorena != nil {
-				err = s.episodes.Raise(ctx, poAktu, d.Code, otvorena.Phase, biljeska)
-			}
-			if err != nil {
-				upozorenja = append(upozorenja, d.Code+": "+err.Error())
-			}
-		}
-	}
+	upozorenja := s.uskladiEpizode(ctx, u, a)
 	// ovjeren akt ide u dnevnike: COP-a, vodočuvara i održavanja
 	if s.objavi != nil {
 		var j *models.Journal
@@ -861,8 +909,8 @@ func (s *AktService) UcitajSkenirani(ctx context.Context, perms *models.UserPerm
 	if a == nil {
 		return nil, nil, fmt.Errorf("akt ne postoji")
 	}
-	if a.Ovjeren() {
-		return nil, nil, fmt.Errorf("akt %s je već ovjeren", a.Oznaka())
+	if err := s.spremanZaOvjeruSkenom(ctx, a); err != nil {
+		return nil, nil, err
 	}
 	if !s.smijePripremiti(perms, u, a) {
 		return nil, nil, ErrUnauthorized
