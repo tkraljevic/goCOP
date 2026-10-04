@@ -658,6 +658,18 @@ func (s *AktService) Ovjeri(ctx context.Context, perms *models.UserPermissions, 
 	return s.zakljuciOvjeru(ctx, perms, u, a, time.Now())
 }
 
+// letvaAkta vraća letvu akta iz registra. Akt bez letve, ili s letvom
+// koja nije UUID (npr. pristigao razmjenom), dobiva letvu samo s nazivom iz
+// akta: ovjera ne smije pasti, jer je akt već spremljen kao ovjeren.
+func (s *AktService) letvaAkta(ctx context.Context, a *models.Akt) *models.Station {
+	if id, err := uuid.Parse(a.StationID); err == nil && s.stations != nil {
+		if st, _ := s.stations.GetStationByID(ctx, id); st != nil {
+			return st
+		}
+	}
+	return &models.Station{Name: a.StationName}
+}
+
 // zakljuciOvjeru dovršava ovjeru: broj, tko i kad, kod, potpis ključem
 // čvora, spremanje i usklađivanje obrane na dionicama. potpisnikPerms su
 // ovlasti onoga tko akt ovjerava (za "u.z." i potpisnika). Stanje obrane na
@@ -698,15 +710,7 @@ func (s *AktService) zakljuciOvjeru(ctx context.Context, potpisnikPerms *models.
 		for _, d := range a.Dionice {
 			poAktu.AllowedSections[d.Code] = true
 		}
-		// akt bez letve, ili s letvom koja nije UUID (pristigao razmjenom),
-		// ne smije srušiti ovjeru: akt je već spremljen kao ovjeren
-		var st *models.Station
-		if id, err := uuid.Parse(a.StationID); err == nil {
-			st, _ = s.stations.GetStationByID(ctx, id)
-		}
-		if st == nil {
-			st = &models.Station{Name: a.StationName}
-		}
+		st := s.letvaAkta(ctx, a)
 		biljeska := a.Naslov() + " " + a.Oznaka()
 		for _, d := range a.Dionice {
 			var err error

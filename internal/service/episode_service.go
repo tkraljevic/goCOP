@@ -121,13 +121,8 @@ func (s *EpisodeService) End(ctx context.Context, perms *models.UserPermissions,
 	if at.IsZero() {
 		at = time.Now()
 	}
-	// kao proglašenje: najviše sat unaprijed (razlika satova); upisan kraj
-	// zatvara obranu odmah, pa prekid „za sutra” ne smije proći
-	if at.After(time.Now().Add(time.Hour)) {
-		return fmt.Errorf("obrana se ne može prekinuti unaprijed")
-	}
-	if at.Before(e.StartedAt) {
-		return fmt.Errorf("obrana se ne može prekinuti prije nego što je proglašena")
+	if err := provjeriVrijemePrekida(at, e.StartedAt, time.Now()); err != nil {
+		return err
 	}
 	e.EndedAt = &at
 	e.EndedBy = userID
@@ -135,6 +130,19 @@ func (s *EpisodeService) End(ctx context.Context, perms *models.UserPermissions,
 		e.Note = strings.TrimSpace(e.Note + "\n" + note)
 	}
 	return s.repo.SaveEpisode(ctx, e)
+}
+
+// provjeriVrijemePrekida: prekid ide između proglašenja i najviše sat
+// unaprijed (razlika satova), kao proglašenje. Upisan kraj zatvara obranu
+// odmah, pa prekid „za sutra” ne smije proći.
+func provjeriVrijemePrekida(at, pocetak, sad time.Time) error {
+	if at.After(sad.Add(time.Hour)) {
+		return fmt.Errorf("obrana se ne može prekinuti unaprijed")
+	}
+	if at.Before(pocetak) {
+		return fmt.Errorf("obrana se ne može prekinuti prije nego što je proglašena")
+	}
+	return nil
 }
 
 // dopuniPrag upisuje na epizodu trenutak u kojem je vodostaj prešao prag
