@@ -1,6 +1,7 @@
 package web
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
@@ -125,4 +126,13 @@ func postaviRacunalo(w http.ResponseWriter, r *http.Request, token string) {
 		Secure:   true,
 		SameSite: http.SameSiteLaxMode,
 	})
+}
+
+// obrisiNevaljanuSesiju briše kolačić sesije koja više ne vrijedi (istekla,
+// nepoznata ili račun isključen). Kod greške baze kolačić ostaje: sesija možda
+// vrijedi, a prijava se ne gubi zbog prolaznog kvara.
+func obrisiNevaljanuSesiju(w http.ResponseWriter, r *http.Request, err error) {
+	if errors.Is(err, service.ErrSessionExpired) || errors.Is(err, service.ErrAccountInactive) {
+		obrisiSesiju(w, r)
+	}
 }

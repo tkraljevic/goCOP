@@ -181,10 +181,17 @@ func (s *AuthService) AuthenticateSession(sessionID uuid.UUID) (*models.User, *m
 	}
 
 	if !permissions.User.IsActive {
-		return nil, nil, ErrAccountInactive
+		return nil, nil, s.odbaciSesijuIskljucenog(sessionID)
 	}
 
 	return &permissions.User, permissions, nil
+}
+
+// odbaciSesijuIskljucenog briše sesiju računa koji je isključen, kao pri
+// odjavi: ponovno uključenje računa ne smije vratiti staru prijavu
+func (s *AuthService) odbaciSesijuIskljucenog(sessionID uuid.UUID) error {
+	_ = s.sessionRepo.DeleteSession(sessionID)
+	return ErrAccountInactive
 }
 
 // SessionView je ono što poslužitelj zna o jednom zahtjevu: tko je stvarno
@@ -216,7 +223,7 @@ func (s *AuthService) AuthenticateSessionView(sessionID uuid.UUID) (*SessionView
 		return nil, err
 	}
 	if !perms.User.IsActive {
-		return nil, ErrAccountInactive
+		return nil, s.odbaciSesijuIskljucenog(sessionID)
 	}
 
 	view := &SessionView{User: &perms.User, Perms: perms, RealUser: &perms.User}
