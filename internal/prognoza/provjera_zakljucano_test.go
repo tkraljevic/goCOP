@@ -198,7 +198,7 @@ func TestProvjeraUnatragNaStalnojVodi(t *testing.T) {
 	}
 }
 
-func TestProvjeraUnatragGlacanjeDiraSatIzdavanja(t *testing.T) {
+func TestProvjeraUnatragGlacanjeNeDiraSatIzdavanja(t *testing.T) {
 	bezIspravka(t)
 	var dnevnik bytes.Buffer
 	o := opcijeStalne(&dnevnik)
@@ -211,17 +211,17 @@ func TestProvjeraUnatragGlacanjeDiraSatIzdavanja(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Glačanje prosječi i sat izdavanja (pomak 0) sa susjednim dosezima, pa
-	// i doseg 0 dobije pomak: (0 + 6 × −5) / 7.
-	if p := zapisani["donja"][0].Pomak; math.Abs(p-(-30.0/7)) > 1e-9 {
-		t.Errorf("pomak na dosegu 0: %v, danas %v", p, -30.0/7)
-	}
-	if p := zapisani["donja"][12].Pomak; math.Abs(p-(-5)) > 1e-9 {
-		t.Errorf("pomak na dosegu 12: %v", p)
+	// Sat izdavanja je mjerenje: ne gladi se i ne ulazi u prosjek susjeda,
+	// pa doseg 0 ostaje bez pomaka, a već prvi sat unaprijed nosi cijeli
+	// promašaj računa.
+	for doseg, pomak := range map[int]float64{0: 0, 1: -5, 12: -5} {
+		if p := zapisani["donja"][doseg].Pomak; math.Abs(p-pomak) > 1e-9 {
+			t.Errorf("pomak na dosegu %d: %v, očekivano %v", doseg, p, pomak)
+		}
 	}
 
-	// Živo osvježavanje taj pomak oduzme i u satu izdavanja, pa prognoza
-	// ne kreće od izmjerenih 105 cm nego od 105 + 30/7.
+	// Živo osvježavanje ne ispravlja sat izdavanja, pa prognoza kreće točno
+	// od izmjerenog.
 	zadnji := time.Now().UTC().Truncate(time.Hour)
 	osv := &Osvjezivac{Baza: baza, Ocitanja: stalnaOcitanja(t, 48, zadnji), Najdalje: 12, Model: ModelLanac}
 	ishod, err := osv.Osvjezi(context.Background())
@@ -232,7 +232,7 @@ func TestProvjeraUnatragGlacanjeDiraSatIzdavanja(t *testing.T) {
 	if sidro == nil || dalje == nil {
 		t.Fatalf("nema izdane donje letve: %+v", ishod.Izdane)
 	}
-	if math.Abs(sidro.Vrijednost-(stalnaDonja+30.0/7)) > 1e-9 || sidro.Dolje != sidro.Gore-2*zapisani["donja"][0].Rasap {
+	if sidro.Vrijednost != stalnaDonja || sidro.Dolje > sidro.Vrijednost || sidro.Gore < sidro.Vrijednost {
 		t.Errorf("sat izdavanja: %+v (izmjereno %v)", *sidro, stalnaDonja)
 	}
 	// dalje od sata izdavanja zapisani pomak točno poništi promašaj računa

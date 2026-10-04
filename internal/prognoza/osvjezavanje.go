@@ -330,12 +330,13 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 		// Promašaji su izmjereni puštanjem prognoze unatrag po arhivi. Ondje
 		// gdje ih ima, oni kažu i koliko treba oduzeti i koliko se smije
 		// obećati — bolje od rasapa namještanja, koji ne zna za ispravak.
-		// Mjereni su za glavni račun; rezervi ostaje rasap namještanja.
+		// Mjereni su za glavni račun; rezervi ostaje rasap namještanja. Sat
+		// izdavanja je mjerenje, pa se ne ispravlja.
 		for i := range izdane {
 			if izbor[letva].Inacica != 0 {
 				break
 			}
-			p, ima := promasaji[letva][int(izdane[i].Ciljni-sada)]
+			p, ima := ispravakNaDosegu(promasaji[letva], izdane[i].Ciljni-sada)
 			if !ima {
 				continue
 			}
@@ -1146,4 +1147,14 @@ func pretvori(k *models.HQKrivulja, ciljna string, v float64) (float64, bool, bo
 	}
 	q, izvan, ok := k.ProtokProsiren(int(math.Round(v)))
 	return q, izvan, ok
+}
+
+// ispravakNaDosegu vraća zapisani promašaj za doseg. Sat izdavanja (doseg 0)
+// je mjerenje i nema ispravka, pa prognoza kreće točno od izmjerenog.
+func ispravakNaDosegu(promasaji map[int]Promasaj, doseg int64) (Promasaj, bool) {
+	if doseg == 0 {
+		return Promasaj{}, false
+	}
+	p, ima := promasaji[int(doseg)]
+	return p, ima
 }
