@@ -1,6 +1,6 @@
 # Faza 3: kandidati (CRAP > 30, coverage < 80 %), mjerenje mastera 713d9df
 
-Izvor: `dev/quality` na Linuxu (go1.27.1). Bez `cmd/gocop/main.go`, `internal/repository/apply.go` i `dev/quality` (NE DIRAJ). Ukupno 629 funkcija, od toga 183 kritične. Poredano po CRAP-u. Prednost imaju kritične funkcije i one u `internal/service`.
+Izvor: `dev/quality` na Linuxu (go1.27.1). Bez `cmd/gocop/main.go`, `internal/repository/apply.go` i `dev/quality`, izostavljenih namjerno. Ukupno 629 funkcija, od toga 183 kritične. Poredano po CRAP-u. Prednost imaju kritične funkcije i one u `internal/service`.
 
 | # | Funkcija | CC | Coverage | CRAP | Kritična |
 |---:|---|---:|---:|---:|:---:|

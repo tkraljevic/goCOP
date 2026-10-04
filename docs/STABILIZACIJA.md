@@ -31,7 +31,34 @@ Brojevi redaka odnose se na `713d9df`.
 
 ## Brojke
 
-<!-- METRIKE -->
+„Prije” je mjerenje mastera `713d9df` (0.0.33-alfa) alatom `dev/quality` na Linuxu (CI izdanja 0.0.33): ukupni coverage 52,5 %, kritični 52,5 %. „Nakon faze 1 i 2” je lokalno mjerenje (darwin/arm64) na isti način, coverage po paketu, nakon spajanja faze 2 i testova ove grane. CC je isti, jer se kod ne mijenja.
+
+| # | Funkcija | CC | Coverage prije | CRAP prije | Coverage nakon faze 1 i 2 | CRAP nakon |
+|---:|---|---:|---:|---:|---:|---:|
+| 1 | `(*Osvjezivac).Osvjezi` (`internal/prognoza/osvjezavanje.go`) | 63 | 73,2 % | 139,6 | 76,2 % | 116,5 |
+| 2 | `(*Osvjezivac).dnevno` (`internal/prognoza/osvjezavanje.go`) | 40 | 4,4 % | 1436,0 | bez promjene | bez promjene |
+| 2 | `(*Osvjezivac).vrhoviIzDnevnog` (`internal/prognoza/osvjezavanje.go`) | 26 | 4,9 % | 607,1 | bez promjene | bez promjene |
+| 3 | `ProvjeriUnatrag` (`internal/prognoza/provjera.go`) | 49 | 0,0 % | 2450,0 | 76,0 % | 82,2 |
+| 4 | `(*AktService).Ovjeri` (`internal/service/akt_service.go`) | 8 | 0,0 % | 72,0 | 71,4 % | 9,5 |
+| 4 | `(*AktService).zakljuciOvjeru` (`internal/service/akt_service.go`) | 19 | 0,0 % | 380,0 | 77,1 % | 23,3 |
+| 5 | `(*AktService).Pripremi` (`internal/service/akt_service.go`) | 38 | 0,0 % | 1482,0 | 84,6 % | 43,3 |
+| 6 | `(*AktService).primatelji` (`internal/service/akt_service.go`) | 52 | 0,0 % | 2756,0 | 49,6 % | 398,2 |
+| 7 | `(*EpisodeService).Declare` (`internal/service/episode_service.go`) | 9 | 0,0 % | 90,0 | 95,2 % | 9,0 |
+| 7 | `(*EpisodeService).Raise` (`internal/service/episode_service.go`) | 7 | 0,0 % | 56,0 | 92,3 % | 7,0 |
+| 7 | `(*EpisodeService).End` (`internal/service/episode_service.go`) | 8 | 0,0 % | 72,0 | 93,8 % | 8,0 |
+| 7 | `izracunaj` (`internal/service/episode_service.go`) | 8 | 100,0 % | 8,0 | bez promjene | bez promjene |
+| 8 | `(*ReadingService).validate` (`internal/service/reading_service.go`) | 25 | 0,0 % | 650,0 | 100,0 % | 25,0 |
+| 9 | `NewUserPermissions` (`internal/models/user.go`) | 27 | 94,9 % | 27,1 | 100,0 % | 27,0 |
+| 10 | `(*Server).authMiddleware` (`internal/web/server.go`) | 18 | 30,0 % | 129,1 | 90,0 % | 18,3 |
+| 11 | `Run` (`internal/importer/csvlevels/csvlevels.go`) | 47 | 0,0 % | 2256,0 | 94,3 % | 47,4 |
+| 12 | `Run` (`internal/importer/ugovor/ugovor.go`) | 31 | 0,0 % | 992,0 | 89,7 % | 32,1 |
+| 12 | `(*Contract).parseTroskovnik` (`internal/importer/ugovor/ugovor.go`) | 26 | 0,0 % | 702,0 | 97,9 % | 26,0 |
+| 13 | `RunJournals` (`internal/importer/bp16/journals.go`) | 82 | 0,0 % | 6806,0 | 22,1 % | 3260,6 |
+| 13 | `Run` (`internal/importer/bp16/bp16.go`) | 55 | 0,0 % | 3080,0 | bez promjene | bez promjene |
+| 15 | `(*opisivac).opisi` (`internal/service/zid_service.go`) | 104 | 27,0 % | 4314,4 | bez promjene | bez promjene |
+| 14 | `main` (`cmd/gocop/main.go`) | 217 | 0,0 % | 47306,0 | vidi ispod | vidi ispod |
+
+Stavka 14 riješena je zasebno (PR #12): `main` je rastavljen na `run` i korake pokretanja (`main` CC 1, `run` CC 65, uz test životnog ciklusa čvora), a premješteni dijelovi bez testova vode se kao premještaji u vratima kvalitete (`docs/CODE_QUALITY.md`).
 
 ## 1. `prognoza.(*Osvjezivac).Osvjezi` — `internal/prognoza/osvjezavanje.go:156`
 
@@ -679,6 +706,17 @@ Najveća složenost i najveći churn u repozitoriju (19 commitova).
 - `ReadingService.FieldOverview` (CC 34, bez ijednog testa): pregled za teren, samo čitanje. Neprovjeren `?area=` i „moje letve” po imenu rizik su prikaza, ne podataka.
 - `web.crtajUzduzni` (CC 107, 96 %): pokriven crtež. Brojka je signal za održavanje, ne za rizik.
 - `PrognozeHandler.listSazetka`, `SeedInitialData`, `pdfw.Dodaj`, `posta.PokreniProbniEWS`: velik CRAP, ali prikaz, prvo punjenje ili probni alat, bez utjecaja na stanje obrane, ovlasti ili razmjenu.
+
+## Nestabilno mjerenje
+
+Coverage nekih funkcija mijenja se od pokretanja do pokretanja bez promjene koda i testova, pa `make quality` može javiti lažnu regresiju. Takav test treba učiniti determinističkim (grana se pogađa namjerno, a ne slučajno); baseline se zbog toga ne prihvaća.
+
+- `internal/service/drugi_korak.go`: `rezervirajUnos` (88,9 % ↔ 77,8 %), `ProvjeriKod` (74–82 %), `JaviPromjenuAdrese` i `posalji`. Uzrok još nije nađen.
+- `internal/razmjena`: `Dial` i `DialExchange` — grana greške spajanja pogađala se samo kad test nazove prije slušalice. Riješeno testovima nazivanja bez slušalice.
+
+## Faza 3
+
+Kandidati za fazu 3 (CRAP > 30 i coverage < 80 %, mjerenje mastera `713d9df`) su u [`STABILIZACIJA-faza3.md`](STABILIZACIJA-faza3.md). Prvo testovi; preuređenje se predlaže tek ako CC/CRAP i dalje ostane visok, u zasebnom commitu bez promjene ponašanja, a ne radi se kad samo spušta brojku i otežava čitanje.
 
 ## Redoslijed za prvih pet
 
