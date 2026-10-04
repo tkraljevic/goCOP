@@ -130,13 +130,6 @@ func pdfPrijave(p *models.PrijavaSTerena, pr prilogPrijave, t models.OrgTerms, c
 	d := pdfw.Novi(p.VrstaLabel()+" s terena "+p.Oznaka()+": "+p.Naslov, "goCOP")
 	d.Predmet = "Prijava s terena: " + p.Ime
 	d.SviZnakovi()
-	org := t.OrgName
-	if org == "" {
-		org = "Hrvatske vode"
-	}
-	if pr.Zaglavlje.Organizacija != "" {
-		org = pr.Zaglavlje.Organizacija
-	}
 
 	// memorandum kao na rješenjima i obavijestima: znak, organizacija, VGO,
 	// centar s adresom; ispod njega lijevo podaci o vodočuvaru, desno

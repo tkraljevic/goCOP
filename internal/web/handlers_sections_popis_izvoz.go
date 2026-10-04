@@ -211,7 +211,8 @@ func KnjigaPopisaDionica(redci []DionicaUPopisu, sektori []models.Sector, podruc
 				zbrojRed("ukupno BP "+strconv.Itoa(podrucje), zbP)
 				zbrojRed("ukupno sektor "+sektor, zbS)
 			}
-			sektor, podrucje, zbS, zbP = d.SectorID, d.AreaID, zbroj{}, zbroj{}
+			// novi sektor počinje i novo područje (zaglavlje BP ispod sektora)
+			sektor, podrucje, zbS, zbP = d.SectorID, -1, zbroj{}, zbroj{}
 			ime := imeSektora[sektor]
 			if ime == "" {
 				ime = models.Terms().Sector + " " + sektor
@@ -220,7 +221,6 @@ func KnjigaPopisaDionica(redci []DionicaUPopisu, sektori []models.Sector, podruc
 			l.Visina(l.Redak()-1, 6)
 			r := red(map[int]xlsxw.Celija{0: B(strings.ToUpper(ime), xlsxw.Zaglavlje)}, xlsxw.Zaglavlje, [][2]int{{0, stupaca - 1}})
 			l.Visina(r, 20)
-			podrucje = -1
 		}
 		if d.AreaID != podrucje {
 			if podrucje >= 0 {
