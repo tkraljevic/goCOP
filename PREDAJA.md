@@ -18,14 +18,14 @@ Rad je prekinut. Ova datoteka nije dio promjene: služi agentu koji preuzima gra
 ### Testovi (`internal/service/izvjesca_rubovi_test.go`)
 | Test | Što tvrdi |
 |---|---|
-| `TestDnevnoIzvjesceOdbijanja` | (dopuniti) |
-| `TestDnevnoIzvjescePredanoIzmjena` | (dopuniti) |
-| `TestDnevnoIzvjesceTudjimIdentitetom` | (dopuniti) |
-| `TestPredlozakDnevnogIzvjesca` | (dopuniti) |
-| `TestPravaNaIzvjesca` | (dopuniti) |
-| `TestSektorskoIzvjesceOdbijanja` | (dopuniti) |
-| `TestSektorskoIzvjesceIzmjenaIPredaja` | (dopuniti) |
-| `TestPregledSektoraStadijVodotoka` | (dopuniti) |
+| `TestDnevnoIzvjesceOdbijanja` | Odbijaju se: spremanje bez prijave, bez dionice ili za drugu dionicu, bez prava, bez dana, za sutra, s nepoznatom tendencijom i s nepostojećim ID-om. Odbijeno se ne upisuje. Danas u 23:59 je danas: dan se svodi na ponoć, stadij na „normalno”, vodotok dolazi iz dionice, a autor je onaj tko sprema. |
+| `TestDnevnoIzvjescePredanoIzmjena` | Druga predaja ne mijenja vrijeme predaje. Zamjenik s pravom na dionici predano ne mijenja, a autor ga mijenja: izvješće ostaje predano s istim vremenom, a autor se ne može podmetnuti. Uprava sektora mijenja i briše predano, zamjenik ga ne briše. Brisanje kroz drugu dionicu, brisanje bez prijave te predaja nepostojećeg i bez prava se odbijaju. |
+| `TestDnevnoIzvjesceTudjimIdentitetom` | Bilježi zatečeno: rukovoditelj dionice P.1.1 spremi izvješće s ID-om nacrta dionice P.1.2 i time ga prepiše, pa P.1.2 ostane bez izvješća. Predaj i Obrisi to provjeravaju. |
+| `TestPredlozakDnevnogIzvjesca` | Predložak nosi stadij proglašene obrane, otvoreni dnevnik COP-a (ne prijepis) i vodotok dionice. Vodostaj je očitanje najbliže 7:00 unutar 5–9 h, s vremenom i izvorom. Dan bez očitanja daje redak s praznom vrijednosti i 07:00. Postojeće izvješće za dan vraća se kakvo jest, a bez spremišta očitanja popis vodostaja je prazan. |
+| `TestPravaNaIzvjesca` | Pisanje, uvid i dionice za pisanje po ulozi: rukovoditelj dionice, područje i uprava sektora pišu; dionica u sektoru daje uvid u druge dionice sektora; drugi sektor i bez ovlasti ništa. Sektorsko izvješće sastavlja samo uprava sektora, a izvješće sektora vidi tko radi u području sektora. |
+| `TestSektorskoIzvjesceOdbijanja` | Odbijaju se: spremanje bez prijave, bez sektora, od rukovoditelja dionice i od uprave drugog sektora, bez dana, za sutra, s nepostojećim ID-om te bez spremišta. Prvo izvješće dana prolazi, a drugo za isti dan ne. |
+| `TestSektorskoIzvjesceIzmjenaIPredaja` | Novo izvješće dobiva otvoreni dnevnik, a dnevna izvješća ulaze samo kad su izabrana. Prazno se ne predaje. Izmjena zadržava autora i dnevnik i kad zahtjev nosi drukčije. Predaju radi samo uprava, a druga predaja prolazi. Bilježi zatečeno: predano izvješće sektora i dalje se mijenja, a uprava drugog sektora zadanim ID-om prepiše izvješće sektora P. |
+| `TestPregledSektoraStadijVodotoka` | Bilježi zatečeno: stadij vodotoka ovisi o redoslijedu izvješća, pa se redovna obrana bez tendencije prepiše nižim, pripremnim stadijem. Područja idu redom po broju iz šifre, a provjereni su i `areaIzSifre` i `spojiTekst`. |
 
 ### Prije i poslije (paket service)
 CC i „prije” su iz mjerenja mastera 713d9df alatom `dev/quality` (Linux, go1.27.1). „Poslije” je coverage paketa `service` s grane (`go test -covermode=atomic`), a CRAP je izračunat istom formulom: CC² · (1 − cov)³ + CC. Navedene su samo funkcije kojima se coverage promijenio. `drugi_korak.go` je izostavljen jer mu coverage varira od pokretanja do pokretanja (vidi `PREDAJA.md` na `stabilizacija-plan`). Prije PR-a treba zamijeniti tablicom iz `make quality`.
@@ -55,6 +55,8 @@ CC i „prije” su iz mjerenja mastera 713d9df alatom `dev/quality` (Linux, go1
 | `internal/service/sektorsko_izvjesce_service.go:482` · `(*IzvjescaService).GetSektorsko` | 2 | 66.7 % | 100.0 % | 2.1 | 2.0 |  |
 | `internal/service/sektorsko_izvjesce_service.go:489` · `(*IzvjescaService).ListSektorska` | 2 | 66.7 % | 100.0 % | 2.1 | 2.0 |  |
 
-### Sumnjivo ponašanje (tragovi, za provjeru)
-1. Provjeriti `TestDnevnoIzvjesceTudjimIdentitetom`: što se događa kad izvješće spremi osoba čiji identitet nije onaj u izvješću.
-2. Provjeriti `TestDnevnoIzvjescePredanoIzmjena`: izmjena predanog izvješća.
+### Sumnjivo ponašanje
+1. **`internal/service/izvjesca_service.go:204–212`: spremanje dnevnog izvješća ne provjerava pripada li postojeći zapis toj dionici.** Rukovoditelj dionice P.1.1 zadanim ID-om prepiše nacrt dionice P.1.2, koji time nestane iz P.1.2 (`TestDnevnoIzvjesceTudjimIdentitetom`). Predaj i Obrisi to provjeravaju. *Treba:* odbiti kad `cur.SectionCode != sec.Code`.
+2. **`internal/service/sektorsko_izvjesce_service.go:400–407`: isto za izvješće sektora.** Uprava sektora Q zadanim ID-om prepiše izvješće sektora P, nakon čega ga uprava P više ne može obrisati (`TestSektorskoIzvjesceIzmjenaIPredaja`). Ovo je i pitanje prava, ne samo nedosljednosti. *Treba:* odbiti kad `cur.Sektor != iz.Sektor`.
+3. **`internal/service/sektorsko_izvjesce_service.go` (spremanje predanog): predano izvješće sektora i dalje se mijenja**, a vrijeme predaje ostaje isto (`TestSektorskoIzvjesceIzmjenaIPredaja`). Dnevno izvješće to ograničava na autora i upravu. *Treba:* odlučiti smije li se predano sektorsko mijenjati i bilježiti izmjenu nakon predaje.
+4. **`internal/service/sektorsko_izvjesce_service.go:130–131`: stadij vodotoka ovisi o redoslijedu izvješća.** Prazna tendencija dopušta prepisivanje, pa redovnu obranu bez tendencije prepiše niži, pripremni stadij. Obrnutim redom ostaje viši (`TestPregledSektoraStadijVodotoka`). *Treba:* vodotok uvijek nosi najviši stadij, a tendencija ne smije sniziti stadij.
