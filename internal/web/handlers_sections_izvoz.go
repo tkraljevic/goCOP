@@ -75,19 +75,7 @@ func KnjigaDionice(d SectionPageData, z ZaglavljeIzvoza) *xlsxw.Knjiga {
 	mjere = append(mjere, fmt.Sprintf("%d %s, %d %s, %d %s", len(d.Parts), uzBrojHR(len(d.Parts), "poddionica", "poddionice", "poddionica"),
 		sec.GaugeCount(), uzBrojHR(sec.GaugeCount(), "vodomjer", "vodomjera", "vodomjera"), sec.ObjectCount(), uzBrojHR(sec.ObjectCount(), "objekt", "objekta", "objekata")))
 	polje("Mjere", strings.Join(mjere, " · "))
-	if d.OpenEpisode != nil {
-		e := d.OpenEpisode
-		t := models.StadijKratica(e.Phase) + " — " + e.Phase.Label() + ", na snazi od " + e.StartedAt.In(models.Zagreb).Format("02.01.2006.") + fmt.Sprintf(", %d. dan", e.Days())
-		if e.DeclaredByName != "" {
-			t += "; proglasio " + e.DeclaredByName
-		}
-		if e.Basis != "" {
-			t += "; osnova: " + e.BasisLabel()
-		}
-		polje("Obrana koja traje", t)
-	} else {
-		polje("Obrana koja traje", "nije proglašena")
-	}
+	polje("Obrana koja traje", obranaUKnjizi(d))
 	if d.Gauge != nil {
 		polje("Mjerodavna letva", d.Gauge.Name+" — po njoj se obrana proglašava i prekida")
 	}
@@ -289,4 +277,30 @@ func ugrozenoPoZupanijamaTekst(z []UgrozenaZupanija) string {
 		}
 	}
 	return strings.Join(out, "\n")
+}
+
+// obranaUKnjizi je redak „Obrana koja traje” u knjizi dionice: iz ovjerenih
+// akata (stadij koji vrijedi i niži u pozadini), a za dionicu bez akata iz
+// zatečene epizode
+func obranaUKnjizi(d SectionPageData) string {
+	if d.StanjeObrane.Traje() {
+		vrh := d.StanjeObrane.Vrh()
+		t := models.StadijKratica(vrh.Stupanj) + " — " + vrh.Stupanj.Label() + ", na snazi od " + vrh.Od.In(models.Zagreb).Format("02.01.2006. 15:04")
+		for _, x := range d.StanjeObrane.Pozadina() {
+			t += "; u pozadini " + strings.ToLower(x.Stupanj.Label()) + " od " + x.Od.In(models.Zagreb).Format("02.01.2006. 15:04")
+		}
+		return t
+	}
+	if d.OpenEpisode == nil || d.StanjeObrane.IzAkata {
+		return "nije proglašena"
+	}
+	e := d.OpenEpisode
+	t := models.StadijKratica(e.Phase) + " — " + e.Phase.Label() + ", na snazi od " + e.StartedAt.In(models.Zagreb).Format("02.01.2006.") + fmt.Sprintf(", %d. dan", e.Days())
+	if e.DeclaredByName != "" {
+		t += "; proglasio " + e.DeclaredByName
+	}
+	if e.Basis != "" {
+		t += "; osnova: " + e.BasisLabel()
+	}
+	return t
 }
