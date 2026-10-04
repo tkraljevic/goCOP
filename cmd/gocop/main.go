@@ -533,6 +533,80 @@ func uveziBP16(z zastavice, o ovisnostiUvozaBP16) int {
 	return 0
 }
 
+// zapisiPrimjerPostavki: pri prvom pokretanju zapiše gocop.toml s
+// komentarima; inače upiše ime čvora koje datoteka nije imala
+func zapisiPrimjerPostavki(cfg config.Config, cfgFrom, imeIzDatoteke string, noviIme, imeIzZastavice bool) {
+	// Pri prvom pokretanju zapiši datoteku s komentarima da korisnik ima što urediti
+	// Primjer nosi ZADANE vrijednosti, ne one iz zastavica ovog pokretanja —
+	// zastavica je za jedan put, datoteka je za uvijek; jedino identifikator
+	// čvora ide iz pokretanja jer se nakon uparivanja ne smije mijenjati.
+	examplePath := filepath.Join(filepath.Dir(cfg.DB), config.FileName)
+	if cfgFrom == "" {
+		example := config.Default()
+		example.Node.ID = cfg.Node.ID
+		if written, err := config.WriteExample(examplePath, example); err != nil {
+			log.Printf("Postavke: primjer datoteke nije zapisan: %v", err)
+		} else if written {
+			log.Printf("Postavke: zapisan primjer %s — uredite ga i ponovno pokrenite", examplePath)
+		}
+	} else {
+		log.Printf("Postavke: čitane iz %s", cfgFrom)
+		// ime koje datoteka nije imala (izabrano sada ili zadano zastavicom)
+		// mora preživjeti ponovno pokretanje bez zastavice
+		if imeIzDatoteke == "" && (noviIme || imeIzZastavice) {
+			if err := config.UpisiIme(cfgFrom, cfg.Node.ID); err != nil {
+				log.Printf("Postavke: ime čvora nije upisano u %s: %v", cfgFrom, err)
+			}
+		}
+	}
+	if noviIme {
+		log.Printf("Novi čvor dobio je ime %s (upisano u postavke; ne mijenja se)", cfg.Node.ID)
+	}
+}
+
+// otvoriBazu otvori bazu (WAL) i shemu, spremište sadržaja uz nju (s
+// preseljenjem starog sadržaja) i upiše početne podatke. Kad vrati grešku uz
+// otvorenu bazu, pozivatelj je zatvara kao i inače.
+func otvoriBazu(dbPath string) (*sql.DB, *sadrzaj.Spremiste, error) {
+	// 1. Otvaranje SQLite baze u WAL modu
+	database, err := db.OpenDB(dbPath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("Kritična greška pri otvaranju baze: %w", err)
+	}
+
+	// 2. Inicijalizacija sheme
+	if err := db.InitSchema(database); err != nil {
+		database.Close()
+		return nil, nil, fmt.Errorf("Kritična greška pri inicijalizaciji sheme: %w", err)
+	}
+
+	// 2a. Spremište sadržaja: PDF-ovi i slike po otisku, u vlastitoj datoteci
+	// uz glavnu bazu, da glavna raste s brojem zapisa a ne s megabajtima
+	spremiste, err := sadrzaj.Otvori(filepath.Join(filepath.Dir(dbPath), "sadrzaj.db"))
+	if err != nil {
+		database.Close()
+		return nil, nil, fmt.Errorf("Kritična greška pri otvaranju spremišta sadržaja: %w", err)
+	}
+	repository.SetSpremiste(spremiste)
+	if n, bajtova, err := repository.PreseliSadrzaj(context.Background(), database); err != nil {
+		return database, spremiste, fmt.Errorf("Seljenje sadržaja u spremište: %w", err)
+	} else if n > 0 {
+		log.Printf("Preseljeno u spremište sadržaja: %d datoteka, %.1f MB", n, float64(bajtova)/1e6)
+	}
+	if st, err := spremiste.Stanje(context.Background()); err == nil {
+		log.Printf("Spremište sadržaja: %d sadržaja, %.1f MB, %d za dohvat", st.Sadrzaja, float64(st.Bajtova)/1e6, st.Zeljenih)
+	}
+
+	// 3. Popunjavanje početnih podataka (Sektori A-F, Branjena područja 1-34, Globalni admin Tomislav Kraljević)
+	// Registri i imenik stoje uz bazu, izvan programa; čitaju se samo pri prvom punjenju
+	db.DataDir = filepath.Dir(dbPath)
+	db.ImenikPath = db.DataFile("imenik.json")
+	if err := db.SeedInitialData(database); err != nil {
+		return database, spremiste, fmt.Errorf("Greška pri unosu početnih podataka: %w", err)
+	}
+	return database, spremiste, nil
+}
+
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	kod := run(ctx, os.Args[1:], os.Stdin)
@@ -593,72 +667,21 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	autoSyncValue := cfg.AutoSyncDuration()
 	autoSync := &autoSyncValue
 
-	// Pri prvom pokretanju zapiši datoteku s komentarima da korisnik ima što urediti
-	// Primjer nosi ZADANE vrijednosti, ne one iz zastavica ovog pokretanja —
-	// zastavica je za jedan put, datoteka je za uvijek; jedino identifikator
-	// čvora ide iz pokretanja jer se nakon uparivanja ne smije mijenjati.
-	examplePath := filepath.Join(filepath.Dir(cfg.DB), config.FileName)
-	if cfgFrom == "" {
-		example := config.Default()
-		example.Node.ID = cfg.Node.ID
-		if written, err := config.WriteExample(examplePath, example); err != nil {
-			log.Printf("Postavke: primjer datoteke nije zapisan: %v", err)
-		} else if written {
-			log.Printf("Postavke: zapisan primjer %s — uredite ga i ponovno pokrenite", examplePath)
-		}
-	} else {
-		log.Printf("Postavke: čitane iz %s", cfgFrom)
-		// ime koje datoteka nije imala (izabrano sada ili zadano zastavicom)
-		// mora preživjeti ponovno pokretanje bez zastavice
-		if imeIzDatoteke == "" && (noviIme || z.node != "") {
-			if err := config.UpisiIme(cfgFrom, cfg.Node.ID); err != nil {
-				log.Printf("Postavke: ime čvora nije upisano u %s: %v", cfgFrom, err)
-			}
-		}
-	}
-	if noviIme {
-		log.Printf("Novi čvor dobio je ime %s (upisano u postavke; ne mijenja se)", cfg.Node.ID)
-	}
+	zapisiPrimjerPostavki(cfg, cfgFrom, imeIzDatoteke, noviIme, z.node != "")
 
 	log.Printf("=== goCOP — Centar obrane od poplava (Hrvatske vode) ===")
 	log.Printf("Pokretanje čvora: %s", *nodeID)
 	log.Printf("Baza podataka (čisti Go SQLite): %s", *dbPath)
 
-	// 1. Otvaranje SQLite baze u WAL modu
-	database, err := db.OpenDB(*dbPath)
+	database, spremiste, err := otvoriBazu(*dbPath)
+	if database != nil {
+		defer database.Close()
+	}
+	if spremiste != nil {
+		defer spremiste.Zatvori()
+	}
 	if err != nil {
-		log.Fatalf("Kritična greška pri otvaranju baze: %v", err)
-	}
-	defer database.Close()
-
-	// 2. Inicijalizacija sheme
-	if err := db.InitSchema(database); err != nil {
-		log.Fatalf("Kritična greška pri inicijalizaciji sheme: %v", err)
-	}
-
-	// 2a. Spremište sadržaja: PDF-ovi i slike po otisku, u vlastitoj datoteci
-	// uz glavnu bazu, da glavna raste s brojem zapisa a ne s megabajtima
-	spremiste, err := sadrzaj.Otvori(filepath.Join(filepath.Dir(*dbPath), "sadrzaj.db"))
-	if err != nil {
-		log.Fatalf("Kritična greška pri otvaranju spremišta sadržaja: %v", err)
-	}
-	defer spremiste.Zatvori()
-	repository.SetSpremiste(spremiste)
-	if n, bajtova, err := repository.PreseliSadrzaj(context.Background(), database); err != nil {
-		log.Fatalf("Seljenje sadržaja u spremište: %v", err)
-	} else if n > 0 {
-		log.Printf("Preseljeno u spremište sadržaja: %d datoteka, %.1f MB", n, float64(bajtova)/1e6)
-	}
-	if st, err := spremiste.Stanje(context.Background()); err == nil {
-		log.Printf("Spremište sadržaja: %d sadržaja, %.1f MB, %d za dohvat", st.Sadrzaja, float64(st.Bajtova)/1e6, st.Zeljenih)
-	}
-
-	// 3. Popunjavanje početnih podataka (Sektori A-F, Branjena područja 1-34, Globalni admin Tomislav Kraljević)
-	// Registri i imenik stoje uz bazu, izvan programa; čitaju se samo pri prvom punjenju
-	db.DataDir = filepath.Dir(*dbPath)
-	db.ImenikPath = db.DataFile("imenik.json")
-	if err := db.SeedInitialData(database); err != nil {
-		log.Fatalf("Greška pri unosu početnih podataka: %v", err)
+		log.Fatal(err)
 	}
 
 	// 4. Inicijalizacija repozitorija i servisa
