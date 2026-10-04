@@ -681,3 +681,63 @@ func TestPredajaBezZakljucenogZadatka(t *testing.T) {
 		t.Errorf("zadatak nije na sljedećem listu: %+v", sutra.Zadaci)
 	}
 }
+
+// vdZadnjaNedjelja je zadnja nedjelja u mjesecu tekuće godine: dan kad se
+// sat pomiče (ožujak 23 sata, listopad 25 sati)
+func vdZadnjaNedjelja(mjesec time.Month) time.Time {
+	d := vdDan(mjesec+1, 1).AddDate(0, 0, -1)
+	for d.Weekday() != time.Sunday {
+		d = d.AddDate(0, 0, -1)
+	}
+	return d
+}
+
+// Dan lista je kalendarski dan u hrvatskom vremenu i kad se sat pomiče:
+// u listopadu ima 25 sati, u ožujku 23. Vodostaj i zadatak s kraja dana
+// pripadaju tom danu, a ponoćni sljedećem.
+func TestDanListaKadSeSatPomice(t *testing.T) {
+	o := novaOkolinaVodocuvara(t)
+	ctx := context.Background()
+	u := vdVodocuvar()
+	upisi := func(kad time.Time, cm int) {
+		t.Helper()
+		if err := o.readings.Create(ctx, &models.Reading{ID: uuid.New(), StationID: o.letva.ID.String(), MeasuredAt: kad.UTC(), LevelCm: &cm,
+			UserID: u.ID.String(), Source: models.ReadingSourceManual}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	u2330 := func(dan time.Time) time.Time {
+		return time.Date(dan.Year(), dan.Month(), dan.Day(), 23, 30, 0, 0, models.Zagreb)
+	}
+
+	listopad := vdZadnjaNedjelja(time.October)
+	upisi(u2330(listopad), 120)
+	kasni := &models.Zadatak{UserID: u.ID.String(), Sektor: "P", AreaID: 1, Tekst: "pregled nasipa", ZadanoAt: u2330(listopad), Status: models.ZadatakOtvoren}
+	if err := o.repo.SaveZadatak(ctx, kasni); err != nil {
+		t.Fatal(err)
+	}
+	l, err := o.vs.Spremi(ctx, u, listopad, vdUnos("obilazak"), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if vdNaListu(l, kasni.ID) == nil {
+		t.Errorf("zadatak zadan u 23:30 nije na listu od %s", listopad.Format("02.01."))
+	}
+	unos := vdUnos("obilazak")
+	unos.Zadaci = map[string]UnosZadatka{kasni.ID: {Status: models.ZadatakOtvoren, Obavljeno: "zadan na kraju dana"}}
+	if l, err = o.vs.Spremi(ctx, u, listopad, unos, true); err != nil {
+		t.Fatal(err)
+	}
+	if want := "Primjerovo: +120 cm (23:30)"; l.Ocitanja != want {
+		t.Errorf("očitanja %s: %q, očekivano %q", listopad.Format("02.01."), l.Ocitanja, want)
+	}
+
+	ozujak := vdZadnjaNedjelja(time.March)
+	upisi(time.Date(ozujak.Year(), ozujak.Month(), ozujak.Day()+1, 0, 30, 0, 0, models.Zagreb), 140)
+	if l, err = o.vs.Spremi(ctx, u, ozujak, vdUnos("obilazak"), true); err != nil {
+		t.Fatal(err)
+	}
+	if l.Ocitanja != "" {
+		t.Errorf("očitanje iz 00:30 sljedećeg dana na listu od %s: %q", ozujak.Format("02.01."), l.Ocitanja)
+	}
+}

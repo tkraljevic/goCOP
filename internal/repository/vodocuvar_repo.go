@@ -255,7 +255,7 @@ type OcitanjeDana struct {
 func (r *VodocuvarRepository) OcitanjaDana(ctx context.Context, userID string, dan time.Time) ([]OcitanjeDana, error) {
 	od := time.Date(dan.In(models.Zagreb).Year(), dan.In(models.Zagreb).Month(), dan.In(models.Zagreb).Day(), 0, 0, 0, 0, models.Zagreb)
 	rows, err := r.db.QueryContext(ctx, `SELECT COALESCE(s.name, ''), r.measured_at, r.level_cm FROM readings r LEFT JOIN stations s ON s.id = r.station_id
-		WHERE r.user_id = ? AND r.measured_at >= ? AND r.measured_at < ? AND r.level_cm IS NOT NULL ORDER BY r.measured_at`, userID, od.UTC(), od.Add(24*time.Hour).UTC())
+		WHERE r.user_id = ? AND r.measured_at >= ? AND r.measured_at < ? AND r.level_cm IS NOT NULL ORDER BY r.measured_at`, userID, od.UTC(), od.AddDate(0, 0, 1).UTC())
 	if err != nil {
 		return nil, err
 	}
@@ -391,7 +391,7 @@ func (r *VodocuvarRepository) OtvoreniZadaci(ctx context.Context, userID string,
 	dan := time.Date(d.Year(), d.Month(), d.Day(), 0, 0, 0, 0, models.Zagreb)
 	// planirani zadatak stoji na listu od planiranog dana; bez plana od dana zadavanja
 	rows, err := r.db.QueryContext(ctx, `SELECT `+zadatakColumns+` FROM vodocuvarski_zadaci WHERE user_id = ? AND status = ?
-		AND ((za <> '' AND za <= ?) OR (za = '' AND zadano_at < ?)) ORDER BY za, zadano_at`, userID, models.ZadatakOtvoren, dan.Format("2006-01-02"), dan.Add(24*time.Hour).UTC())
+		AND ((za <> '' AND za <= ?) OR (za = '' AND zadano_at < ?)) ORDER BY za, zadano_at`, userID, models.ZadatakOtvoren, dan.Format("2006-01-02"), dan.AddDate(0, 0, 1).UTC())
 	if err != nil {
 		return nil, err
 	}
