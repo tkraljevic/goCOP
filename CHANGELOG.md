@@ -4,6 +4,19 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.31-alfa — 4. 10. 2026.
+
+**Karte s OpenStreetMapa stvarno rade.**
+
+- OpenStreetMapov poslužitelj pločica svakom zahtjevu preglednika bez adrese
+  stranice vraća pločicu „Access blocked” (osm.wiki/Blocked). Stranice
+  goCOP-a imaju `Referrer-Policy: same-origin`, pa adresa nikad nije išla
+  van. Karte sada pločicama šalju samo ishodište (npr.
+  `https://cop-osijek.com`), bez putanje i upita; ostali zahtjevi stranice i
+  dalje ne odaju ništa. Pločice koje poslužitelj slaže u PDF već su prolazile.
+- Slika za Unraid je klasični Docker manifest: od ovog izdanja Unraid sam
+  javlja nadogradnju (za prelazak na ovu još jednom *Force update*).
+
 ## 0.0.30-alfa — 4. 10. 2026.
 
 **Karte ponovno rade; Unraid sam javlja nadogradnju.**
