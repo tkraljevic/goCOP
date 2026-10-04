@@ -419,3 +419,18 @@ func TestSazetakPadaPokazujeStoJePalo(t *testing.T) {
 		t.Errorf("sažetak sadrži uspješne pakete:\n%s", got)
 	}
 }
+
+func TestRaspodjelaCRAPPokazujeCudovista(t *testing.T) {
+	// 18 urednih funkcija i dva čudovišta: prosjek je velik, medijan nije
+	v := []float64{1, 1, 2, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 8, 9, 12, 25, 72, 48180}
+	r := raspodjela(v)
+	if r.Medijan != 5 || r.P90 != 25 || r.P95 != 72 {
+		t.Errorf("medijan/P90/P95: %+v", r)
+	}
+	if r.DoDeset != 16 || r.DoTrideset != 2 || r.DoSto != 1 || r.PrekoSto != 1 {
+		t.Errorf("razredi: %+v", r)
+	}
+	if (raspodjela(nil) != raspodjelaCRAP{}) || raspodjela([]float64{3, 7, 1}).Medijan != 3 {
+		t.Error("prazan ili neparan skup")
+	}
+}

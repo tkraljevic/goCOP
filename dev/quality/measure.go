@@ -125,6 +125,7 @@ func measure(files []sourceFile, module string, profile map[string][]block, c co
 	var bodies []functionTokens
 	var ccSum, crapCount int
 	var crapSum float64
+	var crapovi []float64
 	seen := map[string]bool{}
 	for _, file := range files {
 		fs := token.NewFileSet()
@@ -171,6 +172,7 @@ func measure(files []sourceFile, module string, profile map[string][]block, c co
 				f.CRAP = &score
 				crapSum += score
 				crapCount++
+				crapovi = append(crapovi, score)
 				if score > r.MaxCRAP {
 					r.MaxCRAP = score
 					r.WorstCRAP = id
@@ -202,6 +204,7 @@ func measure(files []sourceFile, module string, profile map[string][]block, c co
 		return nil, fmt.Errorf("prazno mjerenje funkcija ili (kritičnog) coveragea")
 	}
 	r.AverageComplexity = float64(ccSum) / float64(len(r.Functions))
+	r.CRAPRaspodjela = raspodjela(crapovi)
 	if crapCount > 0 {
 		r.AverageCRAP = crapSum / float64(crapCount)
 	}

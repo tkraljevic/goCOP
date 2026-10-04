@@ -5,8 +5,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"regexp"
+	"sort"
 	"time"
 )
 
@@ -155,6 +157,7 @@ type report struct {
 	CriticalCoverage  coverage            `json:"critical_coverage"`
 	Packages          map[string]coverage `json:"packages"`
 	AverageCRAP       float64             `json:"average_crap"`
+	CRAPRaspodjela    raspodjelaCRAP      `json:"crap_distribution"`
 	MaxCRAP           float64             `json:"max_crap"`
 	WorstCRAP         string              `json:"worst_crap_function"`
 	AverageComplexity float64             `json:"average_complexity"`
@@ -168,6 +171,50 @@ type report struct {
 	Warnings          []string            `json:"warnings"`
 	Exceptions        []string            `json:"applied_exceptions"`
 	Status            string              `json:"status"`
+}
+
+// raspodjelaCRAP: prosjek skriva nekoliko čudovišta (jedna funkcija s CRAP-om
+// 48 000 podigne prosjek cijelog projekta), pa medijan, percentili i razredi
+// kažu je li loš cijeli kod ili tek nekoliko funkcija. Samo izvještaj, ne prag.
+type raspodjelaCRAP struct {
+	Medijan    float64 `json:"median"`
+	P90        float64 `json:"p90"`
+	P95        float64 `json:"p95"`
+	DoDeset    int     `json:"do_10"`
+	DoTrideset int     `json:"od_10_do_30"`
+	DoSto      int     `json:"od_30_do_100"`
+	PrekoSto   int     `json:"preko_100"`
+}
+
+// raspodjela računa medijan, P90, P95 (najbliži rang) i razrede CRAP-a
+func raspodjela(vrijednosti []float64) raspodjelaCRAP {
+	var r raspodjelaCRAP
+	n := len(vrijednosti)
+	if n == 0 {
+		return r
+	}
+	v := append([]float64(nil), vrijednosti...)
+	sort.Float64s(v)
+	if n%2 == 1 {
+		r.Medijan = v[n/2]
+	} else {
+		r.Medijan = (v[n/2-1] + v[n/2]) / 2
+	}
+	rang := func(p float64) float64 { return v[int(math.Ceil(p*float64(n)))-1] }
+	r.P90, r.P95 = rang(0.90), rang(0.95)
+	for _, x := range v {
+		switch {
+		case x <= 10:
+			r.DoDeset++
+		case x <= 30:
+			r.DoTrideset++
+		case x <= 100:
+			r.DoSto++
+		default:
+			r.PrekoSto++
+		}
+	}
+	return r
 }
 
 func readJSON(path string, dst any) error {
