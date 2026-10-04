@@ -269,6 +269,79 @@ func odrediImeCvora(cfg *config.Config) (noviIme bool) {
 	return noviIme
 }
 
+// Uvoz tablice vodostaja. Bez -upisi je samo izvješće: koje su postaje
+// prepoznate, koliko bi zapisa bilo novo i gdje se izvori ne slažu.
+func uveziTablicu(z zastavice, deps csvlevels.Deps) {
+	rep, err := csvlevels.Run(context.Background(), csvlevels.Options{
+		Path: z.csvFile, Hour: z.csvHour, Origin: z.csvOrigin, DryRun: !z.csvWrite, Log: log.Printf,
+		Skip: splitList(z.csvSkip), Aliases: splitPairs(z.csvLinks),
+		Quality: strings.ToUpper(strings.TrimSpace(z.csvQuality)), Derived: z.csvDerived, Method: z.csvMethod,
+		Deps: deps,
+	})
+	if err != nil {
+		log.Fatalf("Tablica vodostaja: %v", err)
+	}
+	log.Printf("Tablica vodostaja: %s", rep.Summary())
+	for _, c := range rep.Matched {
+		log.Printf("  stupac %-28q → %-28s %6d očitanja", c.Header, c.Name, c.Values)
+	}
+	for _, sk := range rep.Skipped2 {
+		log.Printf("  preskočeno na zahtjev: %q", sk)
+	}
+	for _, u := range rep.Unmatched {
+		log.Printf("  NIJE PREPOZNATO: %q — nema takve letve u registru", u)
+	}
+	for _, a := range rep.Ambiguous {
+		log.Printf("  DVOZNAČNO: %q — više letvi nosi taj naziv", a)
+	}
+	for _, d := range rep.Differs {
+		log.Printf("  RAZLIKA: %s %s — u bazi %d cm (%s%s), u tablici %d cm",
+			d.Gauge, d.Day.Format("02.01.2006."), d.Have, d.HaveAt.Format("15:04"),
+			map[bool]string{true: "", false: ", " + d.From}[d.From == ""], d.New)
+	}
+	if rep.DryRun {
+		log.Printf("Ništa nije upisano. Kad odlučite koji je izvor mjerodavan, dodajte -upisi.")
+	}
+}
+
+// Uvoz ugovora o održavanju: popis lokacija s kategorijom i stavke radova.
+// Bez -upisi samo izvješće: što je prepoznato, što bi bilo novo, gdje treba ruka.
+func uveziUgovor(z zastavice, users *service.UserService, deps ugovor.Deps) {
+	areas, err := users.ListAreas("")
+	if err != nil {
+		log.Fatalf("Ugovor: %v", err)
+	}
+	deps.Areas = areas
+	rep, err := ugovor.Run(context.Background(), ugovor.Options{
+		Path: z.contractFile, DryRun: !z.csvWrite, Aliases: splitPairs(z.contractLinks), AllItems: z.contractAllItems, Log: log.Printf,
+		Deps: deps,
+	})
+	if err != nil {
+		log.Fatalf("Ugovor: %v", err)
+	}
+	log.Printf("Ugovor: %s", rep.Summary())
+	for _, m := range rep.Locations {
+		what := "voda"
+		if m.Structure {
+			what = "nasip"
+		}
+		switch m.Status {
+		case "postoji":
+			log.Printf("  %-10s %-6s %-45q → %s (%s)", m.Status, m.Location.Seq, m.Location.Name, m.Display, m.Code)
+		case "novo":
+			log.Printf("  %-10s %-6s %-45q → %s se dodaje u registar", "NOVO", m.Location.Seq, m.Location.Name, what)
+		default:
+			log.Printf("  %-10s %-6s %-45q → %s", strings.ToUpper(m.Status), m.Location.Seq, m.Location.Name, strings.Join(m.Options, "; "))
+		}
+	}
+	if rep.Suggested+rep.Ambiguous > 0 {
+		log.Printf("Prijedloge i dvoznačne lokacije vežite zastavicom -ugovor-veze \"naziv=sifra\"; bez toga ostaju u popisu bez veze na registar.")
+	}
+	if rep.DryRun {
+		log.Printf("Ništa nije upisano. Kad je popis u redu, dodajte -upisi.")
+	}
+}
+
 func main() {
 	z, err := procitajZastavice(os.Args[1:])
 	if errors.Is(err, flag.ErrHelp) {
@@ -518,80 +591,12 @@ func main() {
 	mtsService.SetStructures(structureRepo)
 	izvjescaService := service.NewIzvjescaService(repository.NewIzvjescaRepository(database, recorder), sectionRepo, stationRepo, readingRepo, episodeRepo, journalRepo)
 
-	// Uvoz tablice vodostaja. Bez -upisi je samo izvješće: koje su postaje
-	// prepoznate, koliko bi zapisa bilo novo i gdje se izvori ne slažu.
 	if z.csvFile != "" {
-		rep, err := csvlevels.Run(context.Background(), csvlevels.Options{
-			Path: z.csvFile, Hour: z.csvHour, Origin: z.csvOrigin, DryRun: !z.csvWrite, Log: log.Printf,
-			Skip: splitList(z.csvSkip), Aliases: splitPairs(z.csvLinks),
-			Quality: strings.ToUpper(strings.TrimSpace(z.csvQuality)), Derived: z.csvDerived, Method: z.csvMethod,
-			Deps: csvlevels.Deps{Readings: readingRepo, Stations: stationRepo, Structures: structureRepo},
-		})
-		if err != nil {
-			log.Fatalf("Tablica vodostaja: %v", err)
-		}
-		log.Printf("Tablica vodostaja: %s", rep.Summary())
-		for _, c := range rep.Matched {
-			log.Printf("  stupac %-28q → %-28s %6d očitanja", c.Header, c.Name, c.Values)
-		}
-		for _, sk := range rep.Skipped2 {
-			log.Printf("  preskočeno na zahtjev: %q", sk)
-		}
-		for _, u := range rep.Unmatched {
-			log.Printf("  NIJE PREPOZNATO: %q — nema takve letve u registru", u)
-		}
-		for _, a := range rep.Ambiguous {
-			log.Printf("  DVOZNAČNO: %q — više letvi nosi taj naziv", a)
-		}
-		for _, d := range rep.Differs {
-			log.Printf("  RAZLIKA: %s %s — u bazi %d cm (%s%s), u tablici %d cm",
-				d.Gauge, d.Day.Format("02.01.2006."), d.Have, d.HaveAt.Format("15:04"),
-				map[bool]string{true: "", false: ", " + d.From}[d.From == ""], d.New)
-		}
-		if rep.DryRun {
-			log.Printf("Ništa nije upisano. Kad odlučite koji je izvor mjerodavan, dodajte -upisi.")
-		}
+		uveziTablicu(z, csvlevels.Deps{Readings: readingRepo, Stations: stationRepo, Structures: structureRepo})
 		return
 	}
-
-	// Uvoz ugovora o održavanju: popis lokacija s kategorijom i stavke radova.
-	// Bez -upisi samo izvješće: što je prepoznato, što bi bilo novo, gdje treba ruka.
 	if z.contractFile != "" {
-		areas, err := userService.ListAreas("")
-		if err != nil {
-			log.Fatalf("Ugovor: %v", err)
-		}
-		rep, err := ugovor.Run(context.Background(), ugovor.Options{
-			Path: z.contractFile, DryRun: !z.csvWrite, Aliases: splitPairs(z.contractLinks), AllItems: z.contractAllItems, Log: log.Printf,
-			Deps: ugovor.Deps{
-				Waters: watercourseRepo, Structures: structureRepo,
-				Maintenance: maintenanceRepo, Areas: areas,
-			},
-		})
-		if err != nil {
-			log.Fatalf("Ugovor: %v", err)
-		}
-		log.Printf("Ugovor: %s", rep.Summary())
-		for _, m := range rep.Locations {
-			what := "voda"
-			if m.Structure {
-				what = "nasip"
-			}
-			switch m.Status {
-			case "postoji":
-				log.Printf("  %-10s %-6s %-45q → %s (%s)", m.Status, m.Location.Seq, m.Location.Name, m.Display, m.Code)
-			case "novo":
-				log.Printf("  %-10s %-6s %-45q → %s se dodaje u registar", "NOVO", m.Location.Seq, m.Location.Name, what)
-			default:
-				log.Printf("  %-10s %-6s %-45q → %s", strings.ToUpper(m.Status), m.Location.Seq, m.Location.Name, strings.Join(m.Options, "; "))
-			}
-		}
-		if rep.Suggested+rep.Ambiguous > 0 {
-			log.Printf("Prijedloge i dvoznačne lokacije vežite zastavicom -ugovor-veze \"naziv=sifra\"; bez toga ostaju u popisu bez veze na registar.")
-		}
-		if rep.DryRun {
-			log.Printf("Ništa nije upisano. Kad je popis u redu, dodajte -upisi.")
-		}
+		uveziUgovor(z, userService, ugovor.Deps{Waters: watercourseRepo, Structures: structureRepo, Maintenance: maintenanceRepo})
 		return
 	}
 
