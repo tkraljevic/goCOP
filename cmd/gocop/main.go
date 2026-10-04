@@ -190,32 +190,18 @@ func procitajZastavice(args []string) (zastavice, error) {
 	return z, nil
 }
 
-func main() {
-	z, err := procitajZastavice(os.Args[1:])
-	if errors.Is(err, flag.ErrHelp) {
-		os.Exit(0)
-	}
-	if err != nil {
-		os.Exit(2)
-	}
-	if z.ispisiIzdanje {
-		// Ugovor s Postavom (docs/plan-instalacija.md §3.1a): Postava ovim
-		// provjerava preuzetu datoteku prije zamjene, pa redak ostaje točno
-		// ovakav i ništa se prije njega ne ispisuje.
-		fmt.Println(redakIzdanja())
-		return
-	}
-	log.Printf("goCOP %s", punaVerzija())
-	web.SetVerzijaPrograma(punaVerzija())
-
+// odrediPostavke slaže postavke čvora: zastavica > gocop.toml > zadano.
+// Vraća i odakle su pročitane te ime čvora iz datoteke (prije -node). Kad
+// -podaci i -pakete nisu upisane, uzima ih iz datoteke (u z).
+func odrediPostavke(z *zastavice) (cfg config.Config, cfgFrom, imeIzDatoteke string, err error) {
 	// baza se mora znati prije datoteke, jer datoteka živi uz bazu
 	dbForConfig := z.db
 	if dbForConfig == "" {
 		dbForConfig = config.Default().DB
 	}
-	cfg, cfgFrom, err := config.Load(config.Candidates(z.configPath, dbForConfig))
+	cfg, cfgFrom, err = config.Load(config.Candidates(z.configPath, dbForConfig))
 	if err != nil {
-		log.Fatalf("Postavke: %v", err)
+		return cfg, "", "", err
 	}
 	if z.addr != "" {
 		cfg.Addr = z.addr
@@ -226,7 +212,7 @@ func main() {
 	if cfg.ZamijeniZatvoreneIzvore() {
 		log.Printf("Karta: Wikimedia više ne daje pločice drugim stranicama; koristi se OpenStreetMap (u %s promijenite [karta] plocice)", cfgFrom)
 	}
-	imeIzDatoteke := cfg.Node.ID
+	imeIzDatoteke = cfg.Node.ID
 	if z.node != "" {
 		cfg.Node.ID = z.node
 	}
@@ -248,25 +234,26 @@ func main() {
 	// Putanje: zastavica ima prednost, pa datoteka postavki, pa zadano. Za
 	// -podaci i -pakete zadano nije prazno, pa se gleda je li zastavica
 	// doista zadana.
-	zadane := z.zadane
 	if z.arhiva != "" {
 		cfg.Arhiva = z.arhiva
 	}
 	if z.skenovi != "" {
 		cfg.Skenovi = z.skenovi
 	}
-	if !zadane["podaci"] && cfg.Podaci != "" {
+	if !z.zadane["podaci"] && cfg.Podaci != "" {
 		z.podaci = cfg.Podaci
 	}
-	if !zadane["pakete"] && cfg.Pakete != "" {
+	if !z.zadane["pakete"] && cfg.Pakete != "" {
 		z.paketi = cfg.Pakete
 	}
+	return cfg, cfgFrom, imeIzDatoteke, nil
+}
 
-	// Ime čvora: upisano u gocop.toml, zadano zastavicom -node, ili ga svjež
-	// čvor izabere sam (ime računala i četiri nasumična znaka). Postojeća
-	// baza bez upisanog imena zadržava dosadašnje zadano ime gocop-cvor:
-	// pod njim su njezini zapisi. Ime se nikad ne mijenja samo.
-	noviIme := false
+// Ime čvora: upisano u gocop.toml, zadano zastavicom -node, ili ga svjež
+// čvor izabere sam (ime računala i četiri nasumična znaka). Postojeća
+// baza bez upisanog imena zadržava dosadašnje zadano ime gocop-cvor:
+// pod njim su njezini zapisi. Ime se nikad ne mijenja samo.
+func odrediImeCvora(cfg *config.Config) (noviIme bool) {
 	if cfg.Node.ID == "" {
 		if _, err := os.Stat(cfg.DB); err == nil {
 			cfg.Node.ID = imecvora.Stari
@@ -279,6 +266,33 @@ func main() {
 	if err := imecvora.Provjeri(cfg.Node.ID); err != nil {
 		log.Printf("Ime čvora %q: %v", cfg.Node.ID, err)
 	}
+	return noviIme
+}
+
+func main() {
+	z, err := procitajZastavice(os.Args[1:])
+	if errors.Is(err, flag.ErrHelp) {
+		os.Exit(0)
+	}
+	if err != nil {
+		os.Exit(2)
+	}
+	if z.ispisiIzdanje {
+		// Ugovor s Postavom (docs/plan-instalacija.md §3.1a): Postava ovim
+		// provjerava preuzetu datoteku prije zamjene, pa redak ostaje točno
+		// ovakav i ništa se prije njega ne ispisuje.
+		fmt.Println(redakIzdanja())
+		return
+	}
+	log.Printf("goCOP %s", punaVerzija())
+	web.SetVerzijaPrograma(punaVerzija())
+
+	cfg, cfgFrom, imeIzDatoteke, err := odrediPostavke(&z)
+	if err != nil {
+		log.Fatalf("Postavke: %v", err)
+	}
+	zadane := z.zadane
+	noviIme := odrediImeCvora(&cfg)
 
 	// -pripremi: Postava prije prvog pokretanja upiše ime čvora iz
 	// instalacijskog programa. Postojeće ime se ne mijenja.
