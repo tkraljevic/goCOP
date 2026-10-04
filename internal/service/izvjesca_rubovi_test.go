@@ -208,22 +208,18 @@ func TestDnevnoIzvjesceTudjimIdentitetom(t *testing.T) {
 	if err := o.svc.Spremi(ctx, o.urednik, o.upravaP, o.d112, tudje); err != nil {
 		t.Fatal(err)
 	}
-	// Spremanje ne provjerava pripada li izvješće sa zadanim identitetom
-	// istoj dionici: rukovoditelj P.1.1 svojim izvješćem prepiše nacrt
-	// dionice P.1.2, koji time nestane iz P.1.2.
+	// Zadani ID mora biti izvješće iste dionice: rukovoditelj P.1.1 svojim
+	// izvješćem ne prepiše nacrt dionice P.1.2.
 	moje := punoIzvjesce("P.1.1", danas())
 	moje.ID = tudje.ID
-	if err := o.svc.Spremi(ctx, o.pero, o.pisePero, o.d111, moje); err != nil {
-		t.Fatalf("danas prolazi: %v", err)
+	if err := o.svc.Spremi(ctx, o.pero, o.pisePero, o.d111, moje); err == nil || !strings.Contains(err.Error(), "nije pronađeno") {
+		t.Fatalf("prepisivanje izvješća druge dionice: %v", err)
 	}
-	if zapis, _ := o.svc.Get(ctx, tudje.ID); zapis == nil || zapis.SectionCode != "P.1.1" || zapis.Izradio != "Pero Perić (zamjenik)" {
-		t.Errorf("prepisano izvješće: %+v", zapis)
+	if zapis, _ := o.svc.Get(ctx, tudje.ID); zapis == nil || zapis.SectionCode != "P.1.2" {
+		t.Errorf("izvješće dionice P.1.2: %+v", zapis)
 	}
-	if popis, _ := o.svc.List(ctx, "", "P.1.2", "", nil); len(popis) != 0 {
-		t.Errorf("dionica P.1.2 i dalje ima izvješće: %d", len(popis))
-	}
-	// Predaj i Obrisi to provjeravaju
-	if err := o.svc.Predaj(ctx, o.urednik, o.upravaP, o.d112, tudje.ID); err == nil {
+	// isto kao predaja i brisanje kroz drugu dionicu
+	if err := o.svc.Predaj(ctx, o.urednik, o.upravaP, o.d111, tudje.ID); err == nil {
 		t.Error("predaja kroz drugu dionicu")
 	}
 }
@@ -451,20 +447,19 @@ func TestSektorskoIzvjesceIzmjenaIPredaja(t *testing.T) {
 	if g, _ := o.svc.GetSektorsko(ctx, iz.ID); g.Sadrzaj.Hidrometeo != "Ispravljeno poslije predaje." || !g.PredanoAt.Equal(*predano.PredanoAt) {
 		t.Errorf("predano poslije izmjene: %+v", g)
 	}
-	// Spremanje ne provjerava sektor postojećeg izvješća: uprava sektora Q
-	// zadanim identitetom prepiše izvješće sektora P.
+	// Zadani ID mora biti izvješće istog sektora: uprava sektora Q ne
+	// prepiše izvješće sektora P.
 	upravaQ := &models.UserPermissions{AdminSectors: map[string]bool{"Q": true}}
 	tudje := &models.SektorskoIzvjesce{ID: iz.ID, Sektor: "Q", Dan: danas(), Sadrzaj: models.SektorskiSadrzaj{Hidrometeo: "Sektor Q."}}
-	if err := o.svc.SpremiSektorsko(ctx, o.urednik, upravaQ, tudje, nil, nil); err != nil {
-		t.Fatalf("danas prolazi: %v", err)
+	if err := o.svc.SpremiSektorsko(ctx, o.urednik, upravaQ, tudje, nil, nil); err == nil || !strings.Contains(err.Error(), "nije pronađeno") {
+		t.Fatalf("prepisivanje izvješća drugog sektora: %v", err)
 	}
-	if g, _ := o.svc.GetSektorsko(ctx, iz.ID); g.Sektor != "Q" {
+	if g, _ := o.svc.GetSektorsko(ctx, iz.ID); g.Sektor != "P" {
 		t.Errorf("izvješće sektora P: %+v", g)
 	}
-
 	// brisanje: tuđi sektor ne, nepostojeće ne, uprava da
-	if err := o.svc.ObrisiSektorsko(ctx, o.pero, o.upravaP, iz.ID); err == nil {
-		t.Error("uprava P briše izvješće koje je sada sektora Q")
+	if err := o.svc.ObrisiSektorsko(ctx, o.pero, upravaQ, iz.ID); err == nil {
+		t.Error("uprava Q briše izvješće sektora P")
 	}
 	if err := o.svc.ObrisiSektorsko(ctx, o.pero, upravaQ, uuid.NewString()); err == nil || !strings.Contains(err.Error(), "nije pronađeno") {
 		t.Errorf("brisanje nepostojećeg: %v", err)
@@ -472,7 +467,7 @@ func TestSektorskoIzvjesceIzmjenaIPredaja(t *testing.T) {
 	if err := o.svc.PredajSektorsko(ctx, o.pero, upravaQ, uuid.NewString()); err == nil || !strings.Contains(err.Error(), "nije pronađeno") {
 		t.Errorf("predaja nepostojećeg: %v", err)
 	}
-	if err := o.svc.ObrisiSektorsko(ctx, o.pero, upravaQ, iz.ID); err != nil {
+	if err := o.svc.ObrisiSektorsko(ctx, o.pero, o.upravaP, iz.ID); err != nil {
 		t.Fatal(err)
 	}
 }
