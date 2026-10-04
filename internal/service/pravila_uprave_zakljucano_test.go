@@ -75,11 +75,9 @@ func TestDodjelaRubniSlucajevi(t *testing.T) {
 	ocekujOdbijeno(t, mayAssign(podrucje16, models.RoleSectorAreaDeputy, strp("B"), intp(16), sectorsOf), "više razine")
 	ocekujOdbijeno(t, mayAssign(podrucje16, models.RoleAreaDeputy, strp("D"), intp(16), sectorsOf), "izvan")
 	ocekujOdbijeno(t, mayAssign(podrucje16, models.RoleAreaDeputy, strp("B"), nil, sectorsOf), "izvan")
-	// Nepoznata uloga ima razinu 5, pa je smije dodijeliti svaka uprava u
-	// svom dosegu (a ona onda piše po području, vidi models).
-	if err := mayAssign(podrucje16, models.Role("NEPOZNATA"), strp("B"), intp(16), sectorsOf); err != nil {
-		t.Errorf("nepoznata uloga u svom području: danas prolazi, a dobiveno %v", err)
-	}
+	// nepoznatu ulogu ne dodjeljuje nitko, ni globalni administrator
+	ocekujOdbijeno(t, mayAssign(podrucje16, models.Role("NEPOZNATA"), strp("B"), intp(16), sectorsOf), "nepoznata uloga")
+	ocekujOdbijeno(t, mayAssign(permsWith(models.Duty{Role: models.RoleGlobalAdmin}), models.Role(""), nil, nil, sectorsOf), "nepoznata uloga")
 }
 
 func TestUpravljanjeTudjimRacunom(t *testing.T) {
