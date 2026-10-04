@@ -75,6 +75,20 @@ func TestZivotCvoraURunu(t *testing.T) {
 			t.Errorf("%s: %d", putanja, odg.StatusCode)
 		}
 	}
+	// Stanje obrane mijenja samo ovjeren akt: izravnih ruta obrane na
+	// dionici nema (postojeća ruta neprijavljenog bi poslala na prijavu)
+	bezPreusmjeravanja := &http.Client{Timeout: 5 * time.Second,
+		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	for _, radnja := range []string{"proglasi", "podigni", "prekini"} {
+		odg, err := bezPreusmjeravanja.Post("http://"+adresa+"/sections/A.1.1/obrana/"+radnja, "application/x-www-form-urlencoded", nil)
+		if err != nil {
+			t.Fatalf("obrana/%s: %v", radnja, err)
+		}
+		odg.Body.Close()
+		if odg.StatusCode != http.StatusNotFound {
+			t.Errorf("izravna ruta obrane %s postoji: %d", radnja, odg.StatusCode)
+		}
+	}
 	for _, datoteka := range []string{"gocop.db", "gocop.toml", "node-key"} {
 		if _, err := os.Stat(filepath.Join(dir, datoteka)); err != nil {
 			t.Errorf("čvor nije napravio %s: %v", datoteka, err)
