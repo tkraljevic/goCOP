@@ -24,6 +24,19 @@ func slobodanPort(t *testing.T) int {
 	return ln.Addr().(*net.TCPAddr).Port
 }
 
+// Razmjena s čvorom na čijem portu nitko ne sluša vraća grešku spajanja.
+// Testovi razmjene tu granu dosegnu samo kad nazovu prije poslužitelja, pa je
+// pokrivenost DialExchange bez ovog testa ovisila o sreći.
+func TestRazmjenaBezSlusalice(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	adresa := fmt.Sprintf("127.0.0.1:%d", slobodanPort(t))
+	drugi := kljuc(t)
+	if c, err := DialExchange(ctx, kljuc(t), "app", nil, adresa, drugi.Public().(ed25519.PublicKey)); err == nil || c != nil {
+		t.Fatalf("razmjena bez slušalice: %v, %v", c, err)
+	}
+}
+
 // Nazivanje porta na kojem nitko ne sluša vraća grešku spajanja. Testovi
 // uparivanja tu granu dosegnu samo kad nazovu prije slušalice, pa je
 // pokrivenost bez ovog testa ovisila o sreći.
