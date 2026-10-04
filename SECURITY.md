@@ -9,12 +9,18 @@ Linux u [docs/linux.md](docs/linux.md).
 
 ## Prijava ranjivosti
 
-Ranjivost se ne prijavljuje javnim zahtjevom (issue) ni pull requestom na
-GitHubu, jer bi tako bila vidljiva svima prije ispravka.
+Ranjivost se prijavljuje privatno, **GitHubovim privatnim prijavljivanjem
+ranjivosti**:
 
-> **Kontakt za prijavu ranjivosti:**
-> `[UPIŠITE KONTAKT — adresa e-pošte ili drugi privatni kanal]`
->
+- na stranici repozitorija otvorite karticu **Security** i odaberite
+  **Report a vulnerability**;
+- ili otvorite izravno
+  <https://github.com/tkraljevic/goCOP/security/advisories/new>.
+
+Prijavu vide samo prijavitelj i održavatelji repozitorija, a za nju treba
+račun na GitHubu. Ne prijavljujte ranjivost javnim zahtjevom (issue),
+raspravom ni pull requestom, jer bi tako bila vidljiva svima prije ispravka.
+
 > **Rok potvrde primitka i objave:** `[UPIŠITE ROKOVE]`
 
 U prijavi navedite:
@@ -121,6 +127,9 @@ nepouzdano.
   `sha256sum`) i `SHA256SUMS.sig`: Ed25519 potpis nad tekstom
   `goCOP izdanje v1` (s prelaskom u novi red) i sadržajem `SHA256SUMS`,
   jedan redak base64.
+- `SHA256SUMS` nosi i skriptu `instaliraj.sh` i jedinicu `gocop.service`
+  za Linux, pa ih pokriva isti potpis kao i program. Skripta prije
+  postavljanja provjeri potpis te SHA-256 programa i jedinice.
 - Potpis se stavlja ručno, ključem izdanja koji nije na GitHubu; GitHub
   Actions prevodi program i objavljuje izdanje kao nacrt, bez potpisa.
 - Javni ključ izdanja ugrađen je u kod (`internal/izdanje/izdanje.go`):

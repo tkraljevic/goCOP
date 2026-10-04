@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
 # Postavlja ili nadograđuje goCOP čvor na Linuxu kao uslugu sustava.
 #
-#   sudo ./instaliraj.sh [-ime IME_ČVORA] PUT/gocop-linux-amd64
-#   sudo ./instaliraj.sh -ukloni
+#   sudo bash instaliraj.sh [-ime IME_ČVORA] PUT/gocop-linux-amd64
+#   sudo bash instaliraj.sh -ukloni
 #
-# Uz program, u istoj mapi, moraju biti SHA256SUMS i SHA256SUMS.sig istog
-# izdanja s GitHuba. Skripta:
-#   1. provjeri potpis SHA256SUMS ključem izdanja i SHA-256 programa;
+# Uz program, u istoj mapi, moraju biti SHA256SUMS, SHA256SUMS.sig i
+# gocop.service istog izdanja s GitHuba. Skripta:
+#   1. provjeri potpis SHA256SUMS ključem izdanja te SHA-256 programa i
+#      jedinice;
 #   2. stvori korisnika sustava gocop, ako ga nema;
 #   3. postavi program u /usr/local/bin/gocop; ako je ondje drugi program,
 #      najprije zaustavi uslugu i spremi kopiju baze u /var/lib/gocop/kopije;
 #   4. upiše ime čvora u /var/lib/gocop/gocop.toml (gocop -pripremi);
-#   5. postavi jedinicu gocop.service (iz mape ove skripte), uključi je i
-#      pokrene;
+#   5. postavi jedinicu gocop.service iz izdanja, uključi je i pokrene;
 #   6. pričeka da čvor odgovori na /zdravlje.
 #
 # Skripta se smije pokretati više puta: s istim programom ne mijenja ništa,
@@ -33,8 +33,6 @@ KLJUC_IZDANJA='-----BEGIN PUBLIC KEY-----
 MCowBQYDK2VwAyEAqFBwYywODKstemglL46NTo1shJ8MeSzwkByRPoi+J8w=
 -----END PUBLIC KEY-----'
 DOMENA_POTPISA='goCOP izdanje v1'
-
-MAPA_SKRIPTE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
 greska() {
 	echo "Greška: $*" >&2
@@ -116,7 +114,6 @@ fi
 
 [ -n "$IZVOR" ] || upotreba 2
 [ -f "$IZVOR" ] || greska "nema datoteke $IZVOR"
-[ -f "$MAPA_SKRIPTE/gocop.service" ] || greska "uz skriptu nema gocop.service ($MAPA_SKRIPTE)"
 [ "$(uname -m)" = x86_64 ] || greska "izdanja goCOP-a za Linux postoje samo za x86_64 (amd64), a ovo je $(uname -m)"
 trebaju openssl sha256sum base64 runuser useradd
 
@@ -126,6 +123,7 @@ ZBROJEVI=$MAPA_IZDANJA/SHA256SUMS
 POTPIS=$MAPA_IZDANJA/SHA256SUMS.sig
 [ -f "$ZBROJEVI" ] || greska "uz program nema SHA256SUMS (preuzmite ga uz isto izdanje)"
 [ -f "$POTPIS" ] || greska "uz program nema SHA256SUMS.sig (preuzmite ga uz isto izdanje)"
+[ -f "$MAPA_IZDANJA/gocop.service" ] || greska "uz program nema gocop.service (preuzmite je uz isto izdanje)"
 case "$(openssl version)" in
 OpenSSL\ [3-9].*) ;;
 *) greska "za provjeru potpisa treba OpenSSL 3 ili noviji (ovdje: $(openssl version))" ;;
@@ -133,6 +131,14 @@ esac
 
 PRIVREMENO=$(mktemp -d)
 trap 'rm -rf "$PRIVREMENO"' EXIT
+
+# Sve se provjerava i postavlja iz kopija u privremenoj mapi, koja je samo
+# rootova, da se datoteka ne može zamijeniti između provjere i postavljanja.
+cp "$ZBROJEVI" "$POTPIS" "$IZVOR" "$MAPA_IZDANJA/gocop.service" "$PRIVREMENO/"
+ZBROJEVI=$PRIVREMENO/SHA256SUMS
+POTPIS=$PRIVREMENO/SHA256SUMS.sig
+IZVOR=$PRIVREMENO/$IME_DATOTEKE
+JEDINICA_IZDANJA=$PRIVREMENO/gocop.service
 
 poruka "provjeravam potpis izdanja"
 printf '%s\n' "$KLJUC_IZDANJA" >"$PRIVREMENO/kljuc.pem"
@@ -145,11 +151,16 @@ openssl pkeyutl -verify -pubin -inkey "$PRIVREMENO/kljuc.pem" -rawin \
 	-in "$PRIVREMENO/poruka" -sigfile "$PRIVREMENO/potpis" >/dev/null 2>&1 ||
 	greska "potpis SHA256SUMS ne odgovara ključu izdanja goCOP-a; ne postavljajte ovaj program"
 
-poruka "provjeravam SHA-256 datoteke $IME_DATOTEKE"
-grep -E "^[0-9a-fA-F]{64}  \*?${IME_DATOTEKE}\$" "$ZBROJEVI" >"$PRIVREMENO/zbroj" ||
-	greska "u SHA256SUMS nema datoteke $IME_DATOTEKE (ne preimenujte preuzeti program)"
-(cd "$MAPA_IZDANJA" && sha256sum -c --status "$PRIVREMENO/zbroj") ||
-	greska "SHA-256 datoteke $IME_DATOTEKE ne odgovara izdanju; preuzmite je ponovno"
+provjeri_zbroj() {
+	local ime=$1 savjet=$2
+	poruka "provjeravam SHA-256 datoteke $ime"
+	grep -E "^[0-9a-fA-F]{64}  \*?${ime//./\\.}\$" "$ZBROJEVI" >"$PRIVREMENO/zbroj" ||
+		greska "u SHA256SUMS nema datoteke $ime ($savjet)"
+	(cd "$PRIVREMENO" && sha256sum -c --status zbroj) ||
+		greska "SHA-256 datoteke $ime ne odgovara izdanju; preuzmite je ponovno"
+}
+provjeri_zbroj "$IME_DATOTEKE" "ne preimenujte preuzeti program"
+provjeri_zbroj gocop.service "izdanje je starije od ove skripte, pa jedinicu ne nosi"
 
 # ---------- korisnik i mapa podataka ----------
 
@@ -197,9 +208,9 @@ VERZIJA=$("$PROGRAM" -version)
 
 # ---------- usluga ----------
 
-if ! cmp -s "$MAPA_SKRIPTE/gocop.service" "$JEDINICA"; then
+if ! cmp -s "$JEDINICA_IZDANJA" "$JEDINICA"; then
 	poruka "postavljam $JEDINICA"
-	install -o root -g root -m 0644 "$MAPA_SKRIPTE/gocop.service" "$JEDINICA"
+	install -o root -g root -m 0644 "$JEDINICA_IZDANJA" "$JEDINICA"
 	systemctl daemon-reload
 	PONOVO_POKRENI=1
 fi

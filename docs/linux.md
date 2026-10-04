@@ -28,7 +28,7 @@ u sebi.
 | program | `/usr/local/bin/gocop` | vlasnik root, `0755` |
 | korisnik sustava | `gocop` | bez prijave i bez lozinke |
 | mapa podataka | `/var/lib/gocop` | vlasnik `gocop`, `0750` |
-| usluga | `/etc/systemd/system/gocop.service` | iz `build/linux/gocop.service` |
+| usluga | `/etc/systemd/system/gocop.service` | `gocop.service` iz izdanja |
 
 U mapi podataka su:
 
@@ -48,20 +48,22 @@ Program sve putanje računa od mape baze, pa je dovoljno da usluga dobije
 
 ## 2. Preuzimanje i provjera izdanja
 
-Uz svako izdanje na GitHubu stoje program, `SHA256SUMS` i `SHA256SUMS.sig`
-(potpis datoteke `SHA256SUMS` ključem izdanja). Sve tri datoteke se
-preuzimaju zasebno, u praznu mapu (oznaku izdanja zamijenite onom koju
-postavljate):
+Uz svako izdanje na GitHubu stoje program, instalacijska skripta
+`instaliraj.sh`, jedinica `gocop.service`, `SHA256SUMS` i `SHA256SUMS.sig`
+(potpis datoteke `SHA256SUMS` ključem izdanja). `SHA256SUMS` nosi i skriptu i
+jedinicu, pa ih pokriva isti potpis kao i program. Datoteke se preuzimaju
+zasebno, u praznu mapu (oznaku izdanja zamijenite onom koju postavljate):
 
 ```sh
 IZDANJE=v0.0.31-alfa
 mkdir -p ~/gocop-$IZDANJE && cd ~/gocop-$IZDANJE
-for f in gocop-linux-amd64 SHA256SUMS SHA256SUMS.sig; do
+for f in gocop-linux-amd64 instaliraj.sh gocop.service SHA256SUMS SHA256SUMS.sig; do
   curl -fLO "https://github.com/tkraljevic/goCOP/releases/download/$IZDANJE/$f"
 done
 ```
 
-Skripta iz poglavlja 3 provjerava potpis i SHA-256 sama. Ručna provjera:
+Skripta iz poglavlja 3 sama provjerava potpis te SHA-256 programa i
+jedinice. Samu skriptu provjerite prije pokretanja, ovom ručnom provjerom:
 
 ```sh
 cat > kljuc-izdanja.pem <<'KLJUC'
@@ -75,9 +77,13 @@ openssl pkeyutl -verify -pubin -inkey kljuc-izdanja.pem -rawin -in poruka -sigfi
 sha256sum -c --ignore-missing SHA256SUMS
 ```
 
-Ispravno izdanje ispiše `Signature Verified Successfully` i
-`gocop-linux-amd64: OK`. **Ako bilo koja provjera ne prođe, program ne
-postavljajte.**
+Ispravno izdanje ispiše `Signature Verified Successfully` te
+`gocop-linux-amd64: OK`, `gocop.service: OK` i `instaliraj.sh: OK`. **Ako
+bilo koja provjera ne prođe, ništa od izdanja ne postavljajte.**
+
+Starija izdanja nemaju skriptu ni jedinicu. Za njih vrijedi ručni postupak
+na kraju poglavlja 3, a jedinica se uzima iz repozitorija za istu oznaku
+(`build/linux/gocop.service`), bez potpisa.
 
 Potpisuje se tekst `goCOP izdanje v1` (s prelaskom u novi red) i odmah iza
 njega sadržaj `SHA256SUMS`. Javni ključ izdanja je u kodu, u
@@ -93,16 +99,12 @@ iz ključa u kodu:
 
 ## 3. Instalacija skriptom
 
-Skripta `build/linux/instaliraj.sh` i jedinica `build/linux/gocop.service`
-su u repozitoriju, ne uz izdanje. Preuzmite ih iz repozitorija za istu
-oznaku izdanja, pregledajte (kratke su) i stavite u istu mapu:
+Skripta i jedinica stižu uz izdanje (poglavlje 2) i u repozitoriju su u
+`build/linux/`. Kratke su, pa ih vrijedi pregledati prije pokretanja. Iz mape
+s preuzetim izdanjem:
 
 ```sh
-for f in instaliraj.sh gocop.service; do
-  curl -fLO "https://raw.githubusercontent.com/tkraljevic/goCOP/$IZDANJE/build/linux/$f"
-done
-chmod +x instaliraj.sh
-sudo ./instaliraj.sh -ime pperic-posluzitelj ./gocop-linux-amd64
+sudo bash instaliraj.sh -ime pperic-posluzitelj ./gocop-linux-amd64
 ```
 
 Skripta se ne pokreće kroz cjevovod (`curl … | sh`): preuzima se, čita i tek
@@ -110,15 +112,17 @@ onda pokreće.
 
 Što skripta radi:
 
-1. provjeri potpis `SHA256SUMS` ključem izdanja i SHA-256 programa (bez
-   valjanog potpisa ne radi ništa);
+1. provjeri potpis `SHA256SUMS` ključem izdanja te SHA-256 programa i
+   jedinice (bez valjanog potpisa ne radi ništa). Provjerava i postavlja
+   kopije u privremenoj mapi, pa se datoteka ne može zamijeniti između
+   provjere i postavljanja;
 2. stvori korisnika sustava `gocop`, ako ga nema;
 3. postavi program u `/usr/local/bin/gocop`; ako je ondje drugi program,
    najprije zaustavi uslugu i kopira `gocop.db` (i `gocop.db-wal`) u
    `/var/lib/gocop/kopije` (zadržava zadnje tri kopije);
 4. upiše ime čvora u `/var/lib/gocop/gocop.toml` naredbom
    `gocop -pripremi` — ime koje je već upisano ne mijenja;
-5. postavi jedinicu `gocop.service`, uključi je i pokrene;
+5. postavi jedinicu `gocop.service` iz izdanja, uključi je i pokrene;
 6. pričeka da čvor odgovori na `/zdravlje` i ispiše adresu.
 
 **Ime čvora** (`-ime`) je jedinstveno ime u mreži: mala slova, brojke i
@@ -311,17 +315,16 @@ nadzoru izvana. Ako je program prešao na 8080, adresa je
 
 ## 9. Ažuriranje
 
-1. Preuzmite novo izdanje u novu mapu (poglavlje 2), zajedno sa skriptom i
-   jedinicom za istu oznaku.
-2. Pokrenite skriptu s novim programom:
+1. Preuzmite novo izdanje u novu mapu i provjerite ga (poglavlje 2).
+2. Pokrenite skriptu tog izdanja s novim programom:
 
    ```sh
-   sudo ./instaliraj.sh ./gocop-linux-amd64
+   sudo bash instaliraj.sh ./gocop-linux-amd64
    ```
 
    Skripta provjeri potpis, zaustavi uslugu, kopira `gocop.db` u
    `/var/lib/gocop/kopije`, zamijeni program, pokrene uslugu i pričeka
-   `/zdravlje`.
+   `/zdravlje`. Ako je novo izdanje promijenilo jedinicu, postavi i nju.
 
 Napomene:
 
@@ -338,7 +341,7 @@ Napomene:
 ## 10. Deinstalacija
 
 ```sh
-sudo ./instaliraj.sh -ukloni
+sudo bash instaliraj.sh -ukloni
 ```
 
 Zaustavi i isključi uslugu, ukloni jedinicu i program. **Podatke i
