@@ -113,7 +113,7 @@ s goCOP čvorovima iste mreže (članstvo potpisano ključem mreže pri uparivan
 obostrano autentificiranim TLS-om 1.3.
 Bez ikakve postavke program dohvaća javno vrijeme i upozorenja DHMZ-a za ploču
 na naslovnoj i vrijeme s Open-Meteo za novi list dnevnika, a pločice karte
-dolaze s Wikimedije (`plocice` u `gocop.toml`; prazno isključuje kartu). Tek
+dolaze s OpenStreetMapa (`plocice` u `gocop.toml`; prazno isključuje kartu). Tek
 kad ih administrator uključi, postoje veze prema poslužitelju e-pošte
 (Administracija → E-pošta ili `[posta]` u `gocop.toml`) te, na čvoru s ulogom
 preuzimanja vodostaja ili izdavanja prognoze, satno preuzimanje s javnih i

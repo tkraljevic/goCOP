@@ -117,9 +117,16 @@ func TestPredlosciRegistaraProlazeUvoz(t *testing.T) {
 		if vrsta != "" {
 			_ = mw.WriteField("kind", vrsta)
 		}
-		fw, _ := mw.CreateFormFile("csv", "predlozak.csv")
-		fw.Write(sadrzaj)
-		mw.Close()
+		fw, err := mw.CreateFormFile("csv", "predlozak.csv")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := fw.Write(sadrzaj); err != nil {
+			t.Fatal(err)
+		}
+		if err := mw.Close(); err != nil {
+			t.Fatal(err)
+		}
 		r := httptest.NewRequest(http.MethodPost, putanja, &tijelo)
 		r.Header.Set("Content-Type", mw.FormDataContentType())
 		w := zovi(r)

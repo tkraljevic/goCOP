@@ -64,43 +64,80 @@ nepouzdano.
 - Isti ključ potpisuje `.cop` pakete arhive i ovjerene akte, a iz njega se
   izvode ključevi za šifriranje lokalnih tajni i ključ izdavatelja
   potpisnih certifikata (vidi dolje).
-- Zamjena ključa ne postoji. Računalo s novim ključem ponovno se uparuje;
-  staro ime treba najprije zaboraviti i opozvati mu članstvo.
+- Zamjena ključa ne postoji. Računalo s novim ključem ponovno se prima u
+  mrežu; staro ime treba najprije zaboraviti i opozvati mu članstvo.
 
 ### Mreža, ključ mreže i potvrda članstva
 
 - Mrežu osniva prvi čvor (na stranici `/postavljanje`). On napravi Ed25519
   ključ mreže i spremi ga u datoteku `network-key` uz bazu (`0600`); u bazu
   ide samo javni dio i ne putuje razmjenom.
-- **Potvrda članstva** je potpis ključem mreže nad javnim ključem čvora,
-  imenom mreže i rokom. Vrijedi 365 dana (osnivaču deset puta dulje).
-  Izdaje je samo čvor koji ima `network-key`, i to pri uparivanju, kad
-  osoba koja uparuje primi drugi čvor u mrežu.
-- Čvor bez valjane potvrde je **poznat, ali mu se razmjena odbija**. Pri
-  svakoj vezi čvor provjerava potpis potvrde i rok, ne samo postoji li
-  čvor na popisu.
+- **Potvrda članstva** je Ed25519 potpis nad imenom mreže, imenom i javnim
+  ključem čvora, oznakom izdavača te vremenom izdavanja i isteka. Vrijedi
+  365 dana (osnivaču deset puta dulje). Izdaje je čvor koji ima
+  `network-key` ili ovlašteni primatelj, kad osoba primi drugi čvor u
+  mrežu uparivanjem ili na daljinu.
+- **Ovlašteni primatelj.** Nositelj ključa mreže može članu dati ovlast za
+  primanje: potpis ključem mreže nad ključem i imenom tog člana, koji
+  vrijedi dvije godine. Primatelj članstvo potpisuje svojim ključem čvora,
+  a u članstvo ugradi svoju ovlast, pa ga svaki član provjeri ključem
+  mreže. Program primatelja ne izdaje članstvo koje traje dulje od
+  njegove ovlasti. Ovlast daje i oduzima samo nositelj ključa mreže, a
+  primatelj je ne može dati dalje.
+- Čvor pri svakom spajanju pokaže svoju potvrdu u certifikatu TLS-a. Strana
+  koja prima vezu prihvaća člana čiju valjanu potvrdu ima u bazi, ili
+  onoga koji je pokazao valjanu potvrdu: potpis i rok vrijede, potvrda nije
+  opozvana, a ime ne pripada drugom ključu. Zato novo računalo ne treba
+  uparivati sa svakim čvorom. Strana koja zove provjerava očekivani ključ i
+  potvrdu iz svoje baze.
+- Čvor bez valjane potvrde je **poznat, ali mu se razmjena odbija**.
 - Povjerenje vrijedi za cijelu mrežu: svaki valjani član smije razmjenjivati
   sa svakim čvorom te mreže, ne samo s onim s kojim se uparivao.
-- **Opoziv** (Administracija → Čvor, mreža i sinkronizacija → „Opozovi
-  članstvo”, samo globalni administrator) briše zapis o članstvu i šalje
-  to brisanje razmjenom svim čvorovima. Popisa opozvanih potvrda nema.
-- Automatske obnove potvrde nema; obnavlja se ponovnim uparivanjem.
+- **Opoziv** (Administracija → Čvor, mreža i sinkronizacija; članstvo
+  opoziva globalni administrator, a ovlast samo nositelj ključa mreže)
+  zapisuje se u knjigu i razmjenom stiže svim čvorovima. Opozvana potvrda
+  ne vrijedi ni kad je čvor pokaže sam; potvrda izdana nakon opoziva opet
+  vrijedi. Oduzeta ovlast poništava sva članstva koja je primatelj izdao,
+  a opoziv članstva primatelja oduzima mu i ovlast.
+- Automatske obnove potvrde nema; obnavlja se ponovnim primanjem.
 
 ### Uparivanje kodom od 6 znamenki
 
 - Uparivanje ide preko TCP porta 4711, kroz TLS 1.3 s ključevima obaju
   čvorova. Port je otvoren samo dok uparivanje čeka (najviše 10 minuta),
   a odjednom može čekati samo jedno uparivanje.
-- Obje strane prikazuju isti kod od 6 znamenki, izračunat iz javnih ključeva
-  dokazanih u TLS-u. Osobe na obje strane uspoređuju kod i potvrđuju;
-  uparivanje uspijeva samo ako obje potvrde (najviše 2 minute). Prije toga
-  se ništa ne sprema.
+- Obje strane prikazuju isti kod od 6 znamenki. Kod ovisi o javnim
+  ključevima dokazanim u TLS-u i o dva nasumična broja (32 bajta), po
+  jedan sa svake strane. Strana koja zove obveže se na svoj broj (SHA-256)
+  prije nego što vidi broj druge strane. Napadač u sredini zato ne može
+  unaprijed tražiti ključ koji daje isti kod; za njega je kod slučajan
+  (1 : 1 000 000). Uparivanje sa starijim programom, bez obveze, odbija se.
+- Osobe na obje strane uspoređuju kod i potvrđuju; uparivanje uspijeva samo
+  ako obje potvrde (najviše 2 minute). Prije toga se ništa ne sprema.
 - Sve ostalo što drugi čvor javi (ime, izdanje, port razmjene) samo je
   njegova tvrdnja.
 - Uparivati smije **globalni administrator** s promijenjenom lozinkom (ne
   dok gleda tuđim očima). Bez prijave smije samo dok je čvor **svjež**
-  (ima najviše jedan korisnički račun) i samo zahtjev koji nije došao kroz
-  posrednika.
+  (ima najviše jedan korisnički račun), i to samo zahtjev iz lokalne
+  mreže: s ovog računala ili s privatne adrese, a ne kroz posrednika.
+
+### Primanje na daljinu
+
+- Za računalo koje nije u istoj lokalnoj mreži kao primatelj. Novo
+  računalo napravi zahtjev i pokaže **kod za primanje** od 8 znakova (npr.
+  `7KQ4-M2XD`). Datoteka zahtjeva ide primatelju e-poštom, a kod mu čovjek
+  javi drugim putem, npr. telefonom.
+- Zahtjev nosi ime i javni ključ novog čvora, potpis tim ključem i dokaz
+  (HMAC-SHA256) ključem izvedenim iz koda (scrypt, N=2¹⁶, r=8, p=1, sol od
+  16 bajtova). Primatelj (globalni administrator na čvoru s ključem mreže
+  ili s valjanom ovlasti) upiše kod. Članstvo izda tek ako dokaz odgovara.
+- Potvrda koju primatelj vrati nosi ime mreže, javni ključ mreže,
+  članstvo, popis čvorova s adresama i dokaz istim ključem. Novo računalo
+  je prihvaća samo ako dokaz odgovara njegovu kodu, a članstvo vrijedi pod
+  ključem mreže iz potvrde. Podmetnuta datoteka odbija se na obje strane.
+- Zahtjev nema rok: vrijedi dok ga ne zamijeni novi ili dok se ne učita
+  potvrda. Broj pokušaja upisa koda nije ograničen; kod štiti veličina
+  prostora kodova (31⁸) i cijena scrypta.
 
 ### Razmjena
 
@@ -151,14 +188,16 @@ nepouzdano.
   sat. Brojači su u memoriji i nestaju s ponovnim pokretanjem.
 - **Početni račun** `admin` s lozinkom `gocop2026` nastaje pri prvom
   pokretanju i traži promjenu lozinke. Ta lozinka piše u dokumentaciji, pa
-  je čvor odbija kad zahtjev dolazi kroz posrednika, a pod Postavom i sa
-  svakog drugog računala osim ovoga.
-- **Stranica `/postavljanje`** postoji samo dok je čvor svjež. Na njoj se
-  postavlja vlastiti administrator (račun `admin` se tada isključuje) i
-  osniva mreža, ili se čvor uparuje s postojećom. S tog računala radi bez
-  koda; iz lokalne mreže traži jednokratni kod od 8 znakova koji čvor
-  ispiše u dnevnik pri pokretanju (nakon 10 krivih kodova ne radi do
-  ponovnog pokretanja). Kroz posrednika ne radi.
+  je čvor prima samo iz lokalne mreže: s ovog računala ili s privatne
+  adrese, a nikad kroz posrednika. Pod Postavom je prima samo s ovog
+  računala.
+- **Stranica `/postavljanje`** postoji samo dok je čvor svjež i radi samo
+  iz lokalne mreže, nikad kroz posrednika. Na njoj se postavlja vlastiti
+  administrator (račun `admin` se tada isključuje) i osniva mreža, ili se
+  čvor pridružuje postojećoj uparivanjem ili na daljinu. S tog računala
+  radi bez koda; s privatne adrese traži jednokratni kod od 8 znakova koji
+  čvor ispiše u dnevnik pri pokretanju. Nakon 10 krivih kodova, ukupno,
+  kod ne radi do ponovnog pokretanja.
 - **PIN za prijavu izvana** (zadano isključen; uključuje ga globalni
   administrator, izvana i preko HTTPS-a, tek nakon uspješnog probnog
   PIN-a): kad je uključen, prijava izvana nakon točne lozinke traži PIN od
@@ -192,7 +231,9 @@ nepouzdano.
 
 ### Tajne na disku
 
-- `node-key` i `network-key` su nešifrirani, s pravima `0600`.
+- `node-key` i `network-key` su nešifrirani, s pravima `0600`. Dok zahtjev
+  za primanje na daljinu čeka potvrdu, kod za primanje stoji u
+  `zahtjev-na-cekanju.json` uz bazu, također nešifriran i s pravima `0600`.
 - Lozinke računa e-pošte, HydroViewa, mLetve i pošiljatelja PIN-a te sken
   vlastoručnog potpisa šifrirani su AES-256-GCM ključem izvedenim iz ključa
   čvora. Ne putuju razmjenom.
@@ -207,21 +248,27 @@ nepouzdano.
   koji zapis. Kompromitiran ili zlonamjeran član može izmijeniti ili
   obrisati bilo koji usklađeni podatak na svim čvorovima, uključujući
   korisničke račune i ovlasti, zajedničke postavke (npr. PIN izvana),
-  popis čvorova, članstva i izdavatelje potpisnih certifikata. Svaki član
+  popis čvorova, opozive i izdavatelje potpisnih certifikata. Članstva i
+  ovlasti provjeravaju se potpisom pri uporabi, pa ih član ne može
+  krivotvoriti, ali opoziv može dodati ili poništiti. Svaki član
   smije objaviti prognozu i arhivu. Potpisani zapisi i uloge izdavanja su
   u planu ([plan-povezivost.md](docs/plan-povezivost.md)).
-- **Opoziv nije trenutan ni potpun.** Opozvana potvrda kriptografski
-  vrijedi do isteka roka, a opoziv stiže tek razmjenom.
+- **Opoziv nije trenutan.** Čvor prihvaća opozvanu potvrdu dok mu opoziv ne
+  stigne razmjenom; drugog puta za opoziv nema.
+- **Ključ ovlaštenog primatelja** vrijedi koliko i ključ mreže za primanje:
+  tko ga ima, može primati čvorove u mrežu dok ovlast nije opozvana. Čuvajte
+  računalo primatelja kao i računalo s ključem mreže, a ovlast oduzmite
+  čim više ne treba.
 - **Baze nisu šifrirane.** Tko ima mapu podataka (ili njezinu kopiju) ima
   sve: osobne podatke, sažetke lozinaka, oznake sesija i ključ čvora, a s
   njim i ključeve kojima su šifrirane lokalne tajne.
 - **Web sučelje je obični HTTP.** HTTPS postoji samo kroz tunel ili
   posrednika ispred čvora. U lokalnoj mreži bez HTTPS-a lozinke i kolačići
   putuju nešifrirano. PIN izvana radi samo preko HTTPS-a.
-- **Početna lozinka i svjež čvor.** Čvor provjerava dolazi li zahtjev kroz
-  posrednika, ali ne i je li izravan klijent iz lokalne mreže. Svjež čvor
-  zato ne smije biti izravno dostupan s interneta dok se na
-  `/postavljanje` ne postavi vlastiti administrator.
+- **Svjež čvor u lokalnoj mreži.** Dok se na `/postavljanje` ne postavi
+  vlastiti administrator, početnu lozinku i uparivanje bez prijave može
+  iskoristiti svatko s privatne adrese u istoj mreži. Svjež čvor postavite
+  odmah nakon prvog pokretanja.
 - **Sesije:** oznaka sesije je u bazi spremljena kao čisti tekst; sesija
   ne istječe zbog neaktivnosti; promjena lozinke ne gasi sesije na drugim
   čvorovima.

@@ -55,7 +55,7 @@ jedinicu, pa ih pokriva isti potpis kao i program. Datoteke se preuzimaju
 zasebno, u praznu mapu (oznaku izdanja zamijenite onom koju postavljate):
 
 ```sh
-IZDANJE=v0.0.31-alfa
+IZDANJE=v0.0.33-alfa
 mkdir -p ~/gocop-$IZDANJE && cd ~/gocop-$IZDANJE
 for f in gocop-linux-amd64 instaliraj.sh gocop.service SHA256SUMS SHA256SUMS.sig; do
   curl -fLO "https://github.com/tkraljevic/goCOP/releases/download/$IZDANJE/$f"
@@ -81,8 +81,9 @@ Ispravno izdanje ispiše `Signature Verified Successfully` te
 `gocop-linux-amd64: OK`, `gocop.service: OK` i `instaliraj.sh: OK`. **Ako
 bilo koja provjera ne prođe, ništa od izdanja ne postavljajte.**
 
-Starija izdanja nemaju skriptu ni jedinicu. Za njih vrijedi ručni postupak
-na kraju poglavlja 3, a jedinica se uzima iz repozitorija za istu oznaku
+Skripta i jedinica stoje uz izdanja od prvog izdanja nakon 0.0.32-alfa.
+Starija izdanja ih nemaju; za njih vrijedi ručni postupak na kraju
+poglavlja 3, a jedinica se uzima iz repozitorija za istu oznaku
 (`build/linux/gocop.service`), bez potpisa.
 
 Potpisuje se tekst `goCOP izdanje v1` (s prelaskom u novi red) i odmah iza
@@ -306,8 +307,8 @@ gocop -version
 curl -s http://127.0.0.1/zdravlje
 ```
 
-`gocop -version` ispiše npr. `goCOP 0.0.31-alfa`. `/zdravlje` vrati
-`{"izdanje":"0.0.31-alfa","radi":true}`, ali **samo za zahtjev s istog
+`gocop -version` ispiše npr. `goCOP 0.0.32-alfa`. `/zdravlje` vrati
+`{"izdanje":"0.0.32-alfa","radi":true}`, ali **samo za zahtjev s istog
 računala** (127.0.0.1 ili ::1) koji ne dolazi kroz posrednika; za sve
 ostale vrati 404. To je namjerno: služi provjeri na samom računalu, ne
 nadzoru izvana. Ako je program prešao na 8080, adresa je
