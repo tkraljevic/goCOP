@@ -1,0 +1,43 @@
+[
+  {
+    "id": 1,
+    "code": "PR",
+    "name": "Primjerska županija",
+    "seat": "Primjerovo",
+    "prefect": "Pero Perić",
+    "area_sqkm": 1234,
+    "population": 56789,
+    "email": "zupanija@example.com",
+    "phone": "000 000 006",
+    "municipalities": [
+      {
+        "id": 1,
+        "county_id": 1,
+        "name": "Primjerovo",
+        "type": "GRAD",
+        "head_title": "Gradonačelnik",
+        "head_name": "Pero Perić",
+        "postal_code": "00000",
+        "area_sqkm": 123.45,
+        "population": 12345,
+        "settlements": [
+          { "id": 1, "municipality_id": 1, "county_id": 1, "name": "Primjerovo", "postal_code": "00000", "population": 10000 }
+        ]
+      },
+      {
+        "id": 2,
+        "county_id": 1,
+        "name": "Oglednica",
+        "type": "OPCINA",
+        "head_title": "Općinski načelnik",
+        "head_name": "",
+        "postal_code": "00001",
+        "area_sqkm": 67.8,
+        "population": 2345,
+        "settlements": [
+          { "id": 2, "municipality_id": 2, "county_id": 1, "name": "Probno Selo", "postal_code": "00001", "population": 150 }
+        ]
+      }
+    ]
+  }
+]

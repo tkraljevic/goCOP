@@ -1,0 +1,42 @@
+{
+  "sectors": [
+    {
+      "id": "DIREKCIJA",
+      "name": "Primjerska vodoprivreda — Direkcija",
+      "vgo_name": "Direkcija Primjerske vodoprivrede",
+      "center_cop": "Glavni centar obrane od poplava",
+      "address": "Ulica primjera 1, 00000 Primjerovo",
+      "phone": "000 000 001",
+      "email": "direkcija@example.com",
+      "level": 1
+    },
+    {
+      "id": "P",
+      "name": "Sektor P — Primjerski sliv",
+      "vgo_name": "VGO za Primjerski sliv, Primjerovo",
+      "center_cop": "COP Primjerovo",
+      "address": "Ulica primjera 2, 00000 Primjerovo",
+      "phone": "000 000 002",
+      "email": "cop-primjerovo@example.com",
+      "level": 2
+    }
+  ],
+  "areas": [
+    {
+      "id": 1,
+      "sector_id": "P",
+      "name": "Mali sliv Primjerica",
+      "vgi_name": "VGI Primjerica, Primjerovo",
+      "subcenter": "Podcentar Primjerovo",
+      "contractor_name": "Primjer gradnja d.o.o."
+    },
+    {
+      "id": 2,
+      "sector_id": "P",
+      "name": "Mali sliv Oglednica",
+      "vgi_name": "",
+      "subcenter": "",
+      "direct_to_sector": true
+    }
+  ]
+}

@@ -113,7 +113,7 @@ s goCOP čvorovima iste mreže (članstvo potpisano ključem mreže pri uparivan
 obostrano autentificiranim TLS-om 1.3.
 Bez ikakve postavke program dohvaća javno vrijeme i upozorenja DHMZ-a za ploču
 na naslovnoj i vrijeme s Open-Meteo za novi list dnevnika, a pločice karte
-dolaze s Wikimedije (`plocice` u `gocop.toml`; prazno isključuje kartu). Tek
+dolaze s OpenStreetMapa (`plocice` u `gocop.toml`; prazno isključuje kartu). Tek
 kad ih administrator uključi, postoje veze prema poslužitelju e-pošte
 (Administracija → E-pošta ili `[posta]` u `gocop.toml`) te, na čvoru s ulogom
 preuzimanja vodostaja ili izdavanja prognoze, satno preuzimanje s javnih i
@@ -351,7 +351,9 @@ Portovi se mijenjaju u `gocop.toml`.
   računalu, dok na njemu nema računa, čarobnjak stoji na stranici prijave, ali
   samo za pristup iz lokalne mreže, nikad kroz tunel.
 - Program prevesti iz označenog izdanja (npr. `git checkout v0.0.33-alfa`) ili
-  koristiti sliku s oznakom izdanja; `SHA256SUMS` uz izdanja zasad ne postoji.
+  koristiti sliku s oznakom izdanja. Uz izdanje na GitHubu stoje `SHA256SUMS`
+  i potpis `SHA256SUMS.sig`; kako se provjeravaju, piše u
+  [uputama za Linux](linux.md#2-preuzimanje-i-provjera-izdanja).
 - Program pokretati kao običan korisnik, iz vlastite mape.
 - Sigurnosna kopija mora obuhvatiti cijelu mapu `data/` i izvorno stablo
   vodostaja. Povrat treba probno izvesti prije operativnog rada; ključeve
@@ -634,6 +636,9 @@ administratora. Rezervni kodovi tu ne pomažu: zamjenjuju PIN, ne lozinku.
 
 ## 7. Stalni čvor, spremnik i sigurnosna kopija
 
+Stalni čvor na Linuxu bez spremnika, kao usluga systemd, opisan je u
+[uputama za Linux](linux.md).
+
 Docker slika je `ghcr.io/tkraljevic/gocop`, trenutačno za Linux amd64.
 Za ponovljivo postavljanje birati oznaku izdanja, npr. `:0.0.33-alfa`,
 umjesto promjenjive `:latest`. Spremnik sluša web na 8080, razmjenu na 4710,
@@ -797,7 +802,9 @@ napunjena podacima Hrvatskih voda nikad ne ide u repozitorij, ni kad su ti
 podaci javno objavljeni. Sve stoji uz bazu, u mapi `data/`, i čita se
 samo pri prvom punjenju prvog čvora u mreži; svaki sljedeći čvor podatke
 dobiva sinkronizacijom. Zaseban, izmišljen testni
-skup podataka može jednom stajati uz izdanje za isprobavanje.
+skup podataka može jednom stajati uz izdanje za isprobavanje. Oblik svake
+datoteke, s nekoliko izmišljenih redaka, pokazuju
+[predlošci uvoza](predlosci/README.md).
 
 - **organizacija** — `organizacija.json` (sektori i branjena područja),
   ako se ne upisuju ručno;

@@ -1,0 +1,51 @@
+[
+  {
+    "code": "P.1.1",
+    "area_id": 1,
+    "sector_id": "P",
+    "description": "",
+    "description_custom": false,
+    "parts": [
+      {
+        "seq": 1,
+        "watercourse_code": "rijeka-primjerica",
+        "stationing_kind": "rkm",
+        "km_from": 10.0,
+        "km_to": 18.5,
+        "bank": "LD",
+        "protected_text": "Primjerovo i Probno Selo",
+        "gauges": [
+          {
+            "station_name": "Primjerovo, rkm 12+300 (81,25)",
+            "prep_cm": "+300",
+            "regular_cm": "+350",
+            "emerg_cm": "+400",
+            "critical_cm": "+450",
+            "record_cm": "+478 (01.03.2026.)",
+            "notes": ""
+          }
+        ],
+        "objects": [
+          {
+            "name": "CS Probni",
+            "stationing_kind": "rkm",
+            "stationing": 12.8,
+            "stationing_text": "rkm 12+800"
+          }
+        ],
+        "embankments": [
+          {
+            "name": "Lijevi nasip Primjerice",
+            "water_kind": "rkm",
+            "water_from": 10.0,
+            "water_to": 18.5,
+            "length_km": 8.5
+          }
+        ]
+      }
+    ],
+    "notes": "",
+    "created_at": "",
+    "updated_at": ""
+  }
+]

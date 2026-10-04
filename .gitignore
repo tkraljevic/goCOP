@@ -35,6 +35,11 @@ ocitanja/
 *ocitanja*.json
 *ocitanja*.csv
 *.xlsx
+# Iznimka su predlošci uvoza u docs/predlosci: nekoliko redaka izmišljenih
+# vrijednosti, ne mjerenja, i testovi ih provode kroz uvoz.
+!docs/predlosci/ocitanja/
+!docs/predlosci/ocitanja/*.csv
+!docs/predlosci/odrzavanje/*.xlsx
 
 
 # radne datoteke alata za razvoj

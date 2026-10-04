@@ -67,6 +67,12 @@ ključeva; kopiju identiteta ne koristiti kao novi čvor.
 
 - **Pomoć u aplikaciji** — korisnički postupci, ovlasti, pojmovnik i „O programu”.
 - [Administratorske upute](docs/INSTALACIJA.md) — instalacija i održavanje.
+- [Linux poslužitelj](docs/linux.md) — izdanje s provjerom potpisa, usluga
+  systemd, vatrozid, ažuriranje i deinstalacija.
+- [Sigurnost](SECURITY.md) — prijava ranjivosti, podržane verzije, model
+  povjerenja i što nije zaštićeno.
+- [Predlošci uvoza](docs/predlosci/README.md) — oblik datoteka za registre,
+  prvo pokretanje, očitanja, ugovor A.02 i tok vodotoka.
 - [Povezivost](docs/plan-povezivost.md) i [arhiva](docs/plan-arhiva-i-zaborav.md)
   — izvedeno stanje i preostali razvojni planovi.
 - [Katalog alata](docs/katalog-alata.md) — pomoćni lokalni alati izvan aplikacije.
