@@ -614,6 +614,8 @@ Sama ništa ne piše: zapis radi `Zapisi` (`:719`).
 
 ## 13. `importer/bp16.RunJournals` i `bp16.Run` — `internal/importer/bp16/journals.go:242` i `bp16.go:368`
 
+**Odluka (4. 10. 2026.):** stara evidencija još nije pregledana do kraja, pa uvoz ostaje, ali je **predviđen za brisanje** (paket `internal/importer/bp16` i zastavice `-import-bp16*`). Ne ulaže se u preuređenje ni u nove testove osim onih koji sprečavaju pad.
+
 **Odgovornost.** Preuzimanje iz stare evidencije VGI Baranja (Directus, BP 16):
 - `Run` uvozi očitanja crpnih stanica, ustava i letava;
 - `RunJournals` iz evidencije radova A.02 i A.03 slaže rekonstruirane građevinske dnevnike, jedan po programu i godini.
@@ -706,6 +708,13 @@ Najveća složenost i najveći churn u repozitoriju (19 commitova).
 - `ReadingService.FieldOverview` (CC 34, bez ijednog testa): pregled za teren, samo čitanje. Neprovjeren `?area=` i „moje letve” po imenu rizik su prikaza, ne podataka.
 - `web.crtajUzduzni` (CC 107, 96 %): pokriven crtež. Brojka je signal za održavanje, ne za rizik.
 - `PrognozeHandler.listSazetka`, `SeedInitialData`, `pdfw.Dodaj`, `posta.PokreniProbniEWS`: velik CRAP, ali prikaz, prvo punjenje ili probni alat, bez utjecaja na stanje obrane, ovlasti ili razmjenu.
+
+## Odluke vlasnika (4. 10. 2026.)
+
+- **Stadiji obrane se slažu.** Pripremno stanje, redovna i izvanredna obrana te izvanredno stanje proglašavaju se i ukidaju postupno i neovisno: kad vrijedi pripremno stanje pa se proglasi redovna obrana i kasnije ukine, pripremno i dalje vrijedi dok se i ono ne ukine. Veći stadij smije se proglasiti odmah, bez prethodnih, kad se zna da dolazi velika opasnost. Stanje obrane dionice je najviši stadij koji je proglašen, a nije ukinut. (Stavke 11 i 13 sumnjivog ponašanja; danas epizoda pamti samo najviši dosegnuti stupanj, pa prekid višeg stupnja ne radi ništa.)
+- **Akt stupa na snagu prema vremenu koje u njemu piše**, i kad je ovjeren ranije (stavka 12). Do tada stanje obrane ostaje kakvo jest.
+- **Uvoz iz stare evidencije (BP16)** ostaje dok se ne pregleda, predviđen za brisanje (pod 13).
+- Otvoreno: izravne rute obrane (`POST /sections/{code}/obrana/*`) i ispravak promašaja u satu izdavanja (stavka 22) — prijedlozi su ukloniti rute i doseg 0 ne ispravljati.
 
 ## Nestabilno mjerenje
 
