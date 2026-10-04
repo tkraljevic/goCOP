@@ -125,14 +125,24 @@ func TestNoviRacun(t *testing.T) {
 		!strings.Contains(s2.Duties[0].Reason, "privremene uprave") {
 		t.Errorf("dužnost od privremene uprave: %+v", s2.Duties)
 	}
-	// Upravu područja (razinu niže) ista privremena uprava daje stalnu:
-	// rok se ograničava samo dužnostima na razini onoga tko dodjeljuje.
+	// I upravu područja (razinu niže) ista privremena uprava daje najdulje
+	// do svog isteka: kad joj istekne ovlast, ne ostaje uprava koju je dala.
 	u5, err := o.users.CreateUser(privremena, korZahtjev("pperic-podrucje"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if s5, _ := o.repo.GetUserByID(u5.ID); s5.Duties[0].IsTemporary || s5.Duties[0].ExpiresAt != nil {
+	if s5, _ := o.repo.GetUserByID(u5.ID); !s5.Duties[0].IsTemporary || s5.Duties[0].ExpiresAt == nil || !s5.Duties[0].ExpiresAt.Equal(za10dana) {
 		t.Errorf("uprava područja od privremene uprave sektora: %+v", s5.Duties[0])
+	}
+	// terensku dužnost daje kakvu je tražila
+	teren := korZahtjev("pperic-vodocuvar")
+	teren.Role = models.RoleWaterGuard
+	u6, err := o.users.CreateUser(privremena, teren)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s6, _ := o.repo.GetUserByID(u6.ID); s6.Duties[0].IsTemporary || s6.Duties[0].ExpiresAt != nil {
+		t.Errorf("vodočuvar od privremene uprave sektora: %+v", s6.Duties[0])
 	}
 
 	// globalni administrator otvara račun bez dužnosti i daje zastavicu

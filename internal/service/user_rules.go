@@ -81,16 +81,16 @@ func rokUprave(p *models.UserPermissions, sectorID *string, areaID *int, sectors
 	return rok
 }
 
-// ograniciRok: dužnost koja daje upravu na razini actora, a dodjeljuje je
-// privremena uprava, traje najdulje do isteka te uprave nad istim dosegom;
-// inače bi račun koji je otvorila zadržao upravu i poslije isteka. dosad je
+// ograniciRok: dužnost koja daje upravu (na razini actora ili nižoj), a
+// dodjeljuje je privremena uprava, traje najdulje do isteka te uprave nad
+// istim dosegom; inače bi uprava koju je podijelila ostala i poslije isteka.
+// Terenske dužnosti (bez uprave) ostaju kako su dodijeljene. dosad je
 // dužnost prije izmjene (nil pri dodjeli): izmjena iste uloge i dosega smije
 // zadržati ono što je dužnost već imala, pa spremanje tuđe stalne dužnosti
 // nije skraćuje. Vraća je li dužnost privremena i njezin rok.
 func ograniciRok(p *models.UserPermissions, role models.Role, sectorID *string, areaID *int, sectionCodes string, sectors areaSector,
 	privremena bool, rok *time.Time, dosad *models.Duty) (bool, *time.Time) {
-	razina := role.RazinaUprave()
-	if razina == 0 || razina > actorRank(p) {
+	if role.RazinaUprave() == 0 {
 		return privremena, rok
 	}
 	r := rokUprave(p, sectorID, areaID, sectors)
