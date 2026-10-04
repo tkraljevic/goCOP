@@ -4,6 +4,79 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.34-alfa — 4. 10. 2026.
+
+**Stanje obrane iz ovjerenih akata, poništenje akta i ispravci nađeni
+sređivanjem koda. Sve čvorove treba nadograditi.**
+
+- **Stadiji obrane se slažu.** Pripremno stanje, redovna i izvanredna obrana i
+  izvanredno stanje proglašavaju se prema gore, a ukidaju obrnutim redom: kad
+  se ukine redovna obrana, i dalje vrijedi pripremno stanje, dok se i ono ne
+  ukine. Veći stadij smije se proglasiti odmah; kad se ukine, a uvjeti za niži
+  postoje, niži se proglašava novim aktom. Stanje dionice računa se iz
+  ovjerenih akata, pa ga svaki čvor iz istih akata vidi isto. Dosad prekid
+  redovne obrane nije mijenjao stanje, a akt koji vrijedi unaprijed nikad nije
+  otvorio obranu.
+- **Akt stupa na snagu kad u njemu piše.** Kartica dionice pokazuje stadij koji
+  vrijedi, od kada i kojim aktom, niže stadije u pozadini i akte koji tek
+  stupaju na snagu („stupa na snagu 04.11.2026 09:00”). Isto stanje čitaju
+  dnevno izvješće, zid sektora i knjiga dionice.
+- **Ovjera pušta samo moguć slijed.** Ne ovjerava se prekid stadija koji ne
+  traje, prekid nižeg dok viši traje, ni proglašenje nižeg dok viši traje;
+  poruka kaže što tada traje. Ovjera skenom potpisanog akta ima iste uvjete
+  kao ovjera u programu, i aktivnu obranu u sektoru, a provjerava se prije
+  nego što se sken spremi.
+- **Poništenje (storno) akta.** Ovjeren akt koji uopće nije trebao biti izdan
+  poništava onaj tko ga je pripremio ili tko ga smije ovjeriti, uz razlog
+  (*Akti* → akt → *Poništi akt (storno)*). Poništava se najkasniji akt
+  dionice. Poništen akt ostaje u popisu, označen, a ne ulazi u stanje obrane;
+  poništenje se potpisuje ključem čvora i razmjenjuje. Ispravak ide novim
+  aktom.
+- **Povijest obrane** (razdoblja na kartici dionice i historijatu letve)
+  izvodi se iz akata, pa poništen akt nestaje i iz nje.
+- **Izravne rute obrane uklonjene.** Proglašenje, podizanje i prekid obrane
+  mimo akta (adrese koje nijedna stranica nije koristila) više ne postoje.
+- **Prava.**
+  - Izvješće dionice ili sektora više se ne može prepisati poznatim ID-om iz
+    druge dionice ili sektora.
+  - Privremena uprava (privremeno imenovanje, zamjena) ne dijeli trajnu
+    upravu: dužnosti uprave koje dodijeli, i na nižoj razini, istječu s
+    njezinom ovlasti; terenske dužnosti ostaju kako su dodijeljene.
+  - Zastavicu globalnog administratora skida samo stalna uprava organizacije.
+  - Uloga koju program ne zna (npr. stigla s novijeg čvora) ne daje pravo
+    pisanja i ne može se dodijeliti.
+  - Isključenom računu briše se sesija i kolačić, pa ponovno uključenje ne
+    vraća staru prijavu.
+- **Dežurstva.** Ponovljena predaja nakon greške više ne upisuje drugi razmak
+  istih sati, pa se isti sati ne plaćaju dvaput. Dežurstvo dulje od 24 sata
+  bez stanke upisuje se cijelo (npr. 72 sata kod spašavanja), ali ne
+  prešutno: ne potvrđuje se samo, ni kad ga upiše uprava, nego dobiva
+  napomenu i čeka da ga uprava pogleda.
+- **List vodočuvara.** Odbijena predaja (nema opisa, neobrazložen zadatak) više
+  ne briše upisano: list se spremi kao nacrt, a poruka kaže zašto predaja
+  nije prošla.
+- **Prognoza.** Kreće od izmjerene vrijednosti: ispravak promašaja više se ne
+  primjenjuje na sam sat izdavanja (dosad je prognoza kretala nekoliko
+  centimetara pored mjerenja). *Generiraj* gazi staro izdanje istog sata, kao
+  i čvorovi koji izdanje primaju razmjenom.
+- **Ostali ispravci.** Stadij vodotoka u izvješću sektora je najviši stadij
+  njegovih dionica, bez obzira na redoslijed izvješća; temperatura i protok
+  NaN se ne primaju; kraj dana je ispravan i na dan pomaka sata (vodostaji na
+  listu dnevnika COP-a i listu vodočuvara); ovjera akta s neispravnom letvom
+  više ne ruši program.
+- **Linux.** Upute i instalacijska skripta s provjerom potpisa izdanja
+  (docs/linux.md); od ovog izdanja uz izdanje ide i jedinica systemd.
+  SECURITY.md: prijava ranjivosti i model povjerenja.
+- **Nadogradnja.** Sve čvorove nadograditi na 0.0.34: stariji program ne zna
+  za poništen akt pa bi ga i dalje brojao u stanje obrane.
+- **Razvoj: sređivanje koda** (docs/STABILIZACIJA.md). Pokrivenost testovima
+  52,5 → oko 58 %, kritičnog koda 52,5 → oko 61 %, prosječni CRAP 42,5 → oko
+  26; `main` rastavljen na korake pokretanja s testom životnog ciklusa čvora.
+  Oko 66 sumnjivih ponašanja zapisano je i zaključano testovima; ispravci iz
+  ovog izdanja među njima su. Vrata kvalitete znaju za premještaje (funkcija
+  izdvojena iz postojeće nasljeđuje njezino stanje) i stabilniji su na
+  testovima koji su ovisili o sreći.
+
 ## 0.0.33-alfa — 4. 10. 2026.
 
 **Ovlašteni primatelj, primanje na daljinu i članstvo koje čvor sam pokaže.

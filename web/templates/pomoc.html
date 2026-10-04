@@ -349,15 +349,23 @@
     <h3 id="dionica-obrana">Proglašavanje obrane</h3>
     <p>Obranu proglašava i prekida <strong>čovjek</strong>, aktom. Na stranici očitanja
       mjerodavne letve gumb <em>Proglasi / prekini</em> otvara rješenje ili obavijest o stupnju
-      obrane (vidi <a href="#akti">Rješenja i obavijesti</a>). Kad se akt ovjeri, program na
-      dionicama iz akta otvori, podigne ili zatvori epizodu obrane. Sam obranu ne proglašava.
-      Javlja kad vodostaj na mjerodavnoj letvi prijeđe prag i to zabilježi uz epizodu, pa se
+      obrane (vidi <a href="#akti">Rješenja i obavijesti</a>). Stanje obrane dionice računa se iz
+      ovjerenih akata, a akt stupa na snagu kad u njemu piše. Sam program obranu ne proglašava.</p>
+    <p>Stadiji se <strong>slažu</strong>: pripremno stanje, redovna i izvanredna obrana i
+      izvanredno stanje proglašavaju se prema gore, a ukidaju obrnutim redom. Kad se ukine
+      redovna obrana, i dalje vrijedi pripremno stanje dok se i ono ne ukine. Veći stadij smije se
+      proglasiti odmah; kad se ukine, a uvjeti za niži postoje, niži se proglašava novim aktom.
+      Ukida se samo najviši stadij koji traje, a niži se proglašava tek kad viši završi: akt koji
+      bi to prekršio ne ovjerava se, a poruka kaže što tada traje. Kartica dionice pokazuje
+      stadij koji vrijedi, niže u pozadini i akte koji tek stupaju na snagu.</p>
+    <p>Program bilježi i kad vodostaj na mjerodavnoj letvi prijeđe prag.
+      To zabilježi uz razdoblje obrane, pa se
       poslije vidi je li obrana proglašena prije ili poslije prijelaza i koliko sati prije.</p>
     <p>To je namjerno: obrana se redovito proglašava ispred vode, po prognozi ili po stanju
       nasipa. Na Batini je razlika sati, na Belišću zna biti tjedana — i to je podatak, ne
       greška.</p>
-    <p>Epizoda nosi tko je proglasio, kada, na kojem stupnju, po kojoj osnovi i tko je prekinuo.
-      Kartica dionice pokazuje obranu koja traje i broj zabilježenih. Cijela povijest obrana
+    <p>Razdoblje obrane izvodi se iz akata: tko je proglasio, kada, najviši stadij, po kojoj osnovi
+      i tko je prekinuo. Kartica dionice pokazuje obranu koja traje i broj zabilježenih. Cijela povijest obrana
       vodi se na historijatu mjerodavne letve, pod <em>Obrane vođene po ovoj letvi</em>.</p>
 
     <h3 id="dionica-ljudi">Tko je zadužen</h3>
@@ -991,6 +999,11 @@
       <li><strong>Ovjera u goCOP-u</strong> potpisuje akt ključem čvora. Akt dobiva broj i kod
         ovjere, a izvornik postaje PDF sa žigom centra i skenom potpisa osobe koja ovjerava, ako
         ga je spremila na profilu. Program poslije provjerava da sadržaj nije mijenjan od ovjere.</li>
+      <li><strong>Poništenje (storno)</strong> je za akt koji uopće nije trebao biti izdan;
+        ispravak ide novim aktom. Poništava onaj tko je akt pripremio ili tko ga smije ovjeriti,
+        uz razlog, gumbom <em>Poništi akt (storno)</em> na stranici akta. Poništava se najkasniji
+        akt dionice. Poništen akt ostaje u popisu, označen, a ne ulazi u stanje obrane;
+        poništenje se potpisuje ključem čvora i šalje ostalim čvorovima.</li>
       <li><strong>Vlastoručni potpis i žig na papiru</strong> koriste se kad treba i papir: nacrt
         se ispiše, potpiše i ovjeri žigom, a sken se učita kao izvornik. Potpis na skenu program
         ne može provjeriti. Sken potpisa na profilu ostaje šifriran na tom čvoru; žig centra
