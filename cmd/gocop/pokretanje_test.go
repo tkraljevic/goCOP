@@ -13,6 +13,7 @@ import (
 	"gocop/internal/config"
 	"gocop/internal/db"
 	"gocop/internal/peers"
+	"gocop/internal/sadrzaj"
 )
 
 // Bez datoteke postavki uz bazu se jednom zapiše primjer sa zadanim
@@ -104,6 +105,14 @@ func TestImeCvoraUpisanoUPostavke(t *testing.T) {
 	}
 }
 
+// zatvoriSpremiste zatvori spremište sadržaja na kraju testa
+func zatvoriSpremiste(t *testing.T, sp *sadrzaj.Spremiste) {
+	t.Helper()
+	if err := sp.Zatvori(); err != nil {
+		t.Error(err)
+	}
+}
+
 // Baza se otvara sa shemom, spremištem sadržaja i početnim podacima; ono što
 // se ne da otvoriti vraća grešku s istom porukom kao prije.
 func TestOtvaranjeBaze(t *testing.T) {
@@ -114,7 +123,7 @@ func TestOtvaranjeBaze(t *testing.T) {
 			t.Fatal(err)
 		}
 		defer baza.Close()
-		defer sp.Zatvori()
+		defer zatvoriSpremiste(t, sp)
 		var n int
 		if err := baza.QueryRow(`SELECT count(*) FROM users`).Scan(&n); err != nil || n == 0 {
 			t.Errorf("početni podaci: %d %v", n, err)
@@ -174,7 +183,7 @@ func TestOtvaranjeBaze(t *testing.T) {
 			defer baza.Close()
 		}
 		if sp != nil {
-			defer sp.Zatvori()
+			defer zatvoriSpremiste(t, sp)
 		}
 		// baza i spremište ostaju otvoreni: pozivatelj ih zatvara kao i inače
 		if err == nil || baza == nil || sp == nil || !strings.HasPrefix(err.Error(), "Greška pri unosu početnih podataka") {
