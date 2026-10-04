@@ -375,28 +375,25 @@ func TestZakljucenListSeNeMijenja(t *testing.T) {
 	}
 }
 
-// Predaja traži opis rada. Odbijena predaja ne sprema ništa: ni nov list,
-// ni izmjene postojećeg nacrta.
+// Predaja traži opis rada. Odbijena predaja ne predaje list, ali upisano ne
+// gubi: sprema ga kao nacrt.
 func TestPredajaTraziOpis(t *testing.T) {
 	o := novaOkolinaVodocuvara(t)
 	ctx := context.Background()
 	u := vdVodocuvar()
 	dan := vdDan(time.March, 10)
 
-	_, err := o.vs.Spremi(ctx, u, dan, vdUnos("   "), true)
-	vdGreska(t, err, "prije predaje upišite opis radnih aktivnosti")
-	if l := o.vdListIzBaze(t, u, dan); l != nil {
-		t.Fatalf("odbijena predaja spremila je list %+v", l)
+	_, err := o.vs.Spremi(ctx, u, dan, UnosLista{Od: "07:00", Do: "15:00", Zapazanja: "nacrt"}, true)
+	vdGreska(t, err, "prije predaje upišite opis radnih aktivnosti; upisano je spremljeno kao nacrt")
+	if l := o.vdListIzBaze(t, u, dan); l == nil || l.Predan() || l.Zapazanja != "nacrt" || l.Broj != 1 {
+		t.Fatalf("odbijena predaja nije spremila nacrt: %+v", l)
 	}
 
-	if _, err := o.vs.Spremi(ctx, u, dan, UnosLista{Od: "07:00", Do: "15:00", Zapazanja: "nacrt"}, false); err != nil {
-		t.Fatal(err)
-	}
 	_, err = o.vs.Spremi(ctx, u, dan, UnosLista{Od: "08:00", Do: "16:00", Zapazanja: "izmjena"}, true)
 	vdGreska(t, err, "opis radnih aktivnosti")
 	l := o.vdListIzBaze(t, u, dan)
-	if l.Predan() || l.Zapazanja != "nacrt" || l.Od != "07:00" {
-		t.Errorf("odbijena predaja promijenila je nacrt: %+v", l)
+	if l.Predan() || l.Zapazanja != "izmjena" || l.Od != "08:00" {
+		t.Errorf("odbijena predaja izgubila je upisano: %+v", l)
 	}
 	// nacrt bez opisa smije se spremiti
 	if l, err := o.vs.Spremi(ctx, u, dan, vdUnos(""), false); err != nil || l.Predan() {
@@ -524,8 +521,11 @@ func TestPredajaTraziObrazlozenjeNeobavljenogZadatka(t *testing.T) {
 	unos.Zadaci = map[string]UnosZadatka{z.ID: {Status: models.ZadatakOtvoren, Obavljeno: " \t "}}
 	_, err = o.vs.Spremi(ctx, u, dan, unos, true)
 	vdGreska(t, err, "nije obavljen")
-	if l := o.vdListIzBaze(t, u, dan); l != nil {
-		t.Fatalf("odbijena predaja spremila je list")
+	if l := o.vdListIzBaze(t, u, dan); l == nil || l.Predan() || l.Opis != "obilazak" {
+		t.Fatalf("odbijena predaja nije spremila nacrt: %+v", l)
+	}
+	if z := o.vdZadatakIzBaze(t, z.ID); !z.Otvoren() || z.ListID != "" {
+		t.Errorf("odbijena predaja zaključila je zadatak: %+v", z)
 	}
 	unos.Zadaci[z.ID] = UnosZadatka{Status: models.ZadatakOtvoren, Obavljeno: "nije bilo vremena"}
 	l, err := o.vs.Spremi(ctx, u, dan, unos, true)

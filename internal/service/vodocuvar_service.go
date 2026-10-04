@@ -259,6 +259,20 @@ type UnosZadatka struct {
 }
 
 // Spremi upisuje list vodočuvara; predan list više se ne mijenja
+// provjeriPredaju: predaja traži opis rada, a neobavljeni zadatak ostaje
+// upisan na listu s obrazloženjem
+func provjeriPredaju(l *models.VodocuvarskiList) error {
+	if l.Opis == "" {
+		return fmt.Errorf("prije predaje upišite opis radnih aktivnosti")
+	}
+	for _, z := range l.Zadaci {
+		if z.Status == models.ZadatakOtvoren && strings.TrimSpace(z.Obavljeno) == "" {
+			return fmt.Errorf("zadatak „%s” nije obavljen: prije predaje obrazložite zašto (prenosi se na sljedeći list)", z.Tekst)
+		}
+	}
+	return nil
+}
+
 func (s *VodocuvarService) Spremi(ctx context.Context, u *models.User, dan time.Time, unos UnosLista, predaj bool) (*models.VodocuvarskiList, error) {
 	l, err := s.Pripremi(ctx, u, dan)
 	if err != nil {
@@ -306,14 +320,12 @@ func (s *VodocuvarService) Spremi(ctx context.Context, u *models.User, dan time.
 		}
 	}
 	if predaj {
-		if l.Opis == "" {
-			return nil, fmt.Errorf("prije predaje upišite opis radnih aktivnosti")
-		}
-		// neobavljeni zadatak ostaje upisan na listu, ali s obrazloženjem
-		for _, z := range l.Zadaci {
-			if z.Status == models.ZadatakOtvoren && strings.TrimSpace(z.Obavljeno) == "" {
-				return nil, fmt.Errorf("zadatak „%s” nije obavljen: prije predaje obrazložite zašto (prenosi se na sljedeći list)", z.Tekst)
+		if err := provjeriPredaju(l); err != nil {
+			// predaja ne prolazi, ali upisano se ne gubi: ostaje kao nacrt
+			if serr := s.repo.Save(ctx, l); serr != nil {
+				return nil, serr
 			}
+			return nil, fmt.Errorf("%w; upisano je spremljeno kao nacrt", err)
 		}
 		l.Ocitanja = s.ocitanja(ctx, u.ID.String(), dan)
 		kad := time.Now()
