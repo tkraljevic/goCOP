@@ -149,6 +149,13 @@ type VodotokUPregledu struct {
 	Vodostaji  string       `json:"vodostaji"`
 }
 
+// PrimaStadij kaže preuzima li vodotok stadij (i tendenciju) dionice: vodotok
+// nosi najviši stadij svojih dionica, a tendencija dolazi uz taj stadij i ne
+// smije ga sniziti
+func (v *VodotokUPregledu) PrimaStadij(stadij DefensePhase) bool {
+	return stadij.Severity() > v.Stadij.Severity() || stadij.Severity() == v.Stadij.Severity() && v.Tendencija == ""
+}
+
 // ZapisUIzvjescu je zapis iz dnevnika COP-a preuzet u izvješće
 type ZapisUIzvjescu struct {
 	ID       string `json:"id"`
@@ -161,6 +168,10 @@ type ZapisUIzvjescu struct {
 
 // Predano javlja je li izvješće predano Glavnom centru
 func (i SektorskoIzvjesce) Predano() bool { return i.PredanoAt != nil }
+
+// IzSektora kaže je li izvješće pronađeno i pripada li zadanom sektoru:
+// izvješće se zadanim ID-om ne smije prepisati u drugom sektoru
+func (i *SektorskoIzvjesce) IzSektora(sektor string) bool { return i != nil && i.Sektor == sektor }
 
 // DanKey je dan u obliku 2006-01-02
 func (i SektorskoIzvjesce) DanKey() string { return i.Dan.In(Zagreb).Format("2006-01-02") }

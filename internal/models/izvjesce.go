@@ -146,6 +146,10 @@ type Evakuacija struct {
 // Predano javlja je li izvješće predano u podcentar
 func (i DnevnoIzvjesce) Predano() bool { return i.PredanoAt != nil }
 
+// IzDionice kaže je li izvješće pronađeno i pripada li zadanoj dionici:
+// izvješće se zadanim ID-om ne smije prepisati u drugoj dionici
+func (i *DnevnoIzvjesce) IzDionice(sifra string) bool { return i != nil && i.SectionCode == sifra }
+
 // DanKey je dan u obliku 2006-01-02
 func (i DnevnoIzvjesce) DanKey() string { return i.Dan.In(Zagreb).Format("2006-01-02") }
 

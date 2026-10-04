@@ -127,9 +127,7 @@ func (s *IzvjescaService) PregledSektora(sva []models.DnevnoIzvjesce, ukljuci ma
 				redVoda = append(redVoda, voda)
 			}
 			v.Dionice = append(v.Dionice, iz.SectionCode)
-			// vodotok nosi najviši stadij svojih dionica; tendencija dolazi
-			// uz taj stadij i ne smije ga sniziti
-			if iz.Stadij.Severity() > v.Stadij.Severity() || (iz.Stadij.Severity() == v.Stadij.Severity() && v.Tendencija == "") {
+			if v.PrimaStadij(iz.Stadij) {
 				v.Stadij, v.Tendencija = iz.Stadij, sad.Tendencija
 			}
 			if t := vodostajiTekst(sad.Vodostaji); t != "" && !strings.Contains(v.Vodostaji, t) {
@@ -404,7 +402,7 @@ func (s *IzvjescaService) SpremiSektorsko(ctx context.Context, u *models.User, p
 			return err
 		}
 		// zadani ID mora biti izvješće istog sektora
-		if cur == nil || cur.Sektor != iz.Sektor {
+		if !cur.IzSektora(iz.Sektor) {
 			return errors.New("izvješće nije pronađeno")
 		}
 		iz.CreatedAt, iz.IzradioID, iz.Izradio, iz.PredanoAt, iz.JournalID = cur.CreatedAt, cur.IzradioID, cur.Izradio, cur.PredanoAt, cur.JournalID
