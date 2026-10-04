@@ -97,12 +97,19 @@ func TestProvjeraPrijavePrijeRukovatelja(t *testing.T) {
 		if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/login" || z.pozvan {
 			t.Errorf("isključen račun: %d → %q", w.Code, w.Header().Get("Location"))
 		}
-		// sesija isključenog računa ostaje u bazi, a kolačić se ne briše
-		if s, err := o.sessions.GetSession(nova.ID); err != nil || s == nil {
-			t.Errorf("sesija isključenog računa danas ostaje: %v %v", s, err)
+		// sesija isključenog računa briše se, kao pri odjavi, i kolačić s njom
+		if s, err := o.sessions.GetSession(nova.ID); err != nil || s != nil {
+			t.Errorf("sesija isključenog računa ostala je: %v %v", s, err)
 		}
-		if len(w.Result().Cookies()) != 0 {
-			t.Errorf("odgovor briše kolačić: %v", w.Result().Cookies())
+		if k := w.Result().Cookies(); len(k) != 1 || k[0].Name != imeKolacicaSesije || k[0].MaxAge >= 0 {
+			t.Errorf("kolačić sesije nije obrisan: %v", k)
+		}
+		// ponovno uključenje računa ne vraća staru prijavu
+		if _, err := o.baza.Exec(`UPDATE users SET is_active = 1 WHERE id = ?`, pperic.ID.String()); err != nil {
+			t.Fatal(err)
+		}
+		if w := mwZahtjev(mwPosluzitelj(o, &mwZapis{}), http.MethodGet, "/dashboard", nova.ID.String()); w.Code != http.StatusSeeOther {
+			t.Errorf("stara sesija vrijedi nakon ponovnog uključenja: %d", w.Code)
 		}
 	})
 }

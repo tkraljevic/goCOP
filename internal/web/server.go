@@ -1545,6 +1545,7 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 
 		view, err := s.authService.AuthenticateSessionView(sessionID)
 		if err != nil || view.User == nil {
+			obrisiNevaljanuSesiju(w, r, err)
 			http.Redirect(w, r, "/login", http.StatusSeeOther)
 			return
 		}
