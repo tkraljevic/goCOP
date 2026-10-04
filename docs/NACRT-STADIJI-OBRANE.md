@@ -3,16 +3,24 @@
 Nacrt za pregled prije pisanja koda. Polazi od odluka vlasnika od 4. 10. 2026.
 (`docs/STABILIZACIJA.md`, „Odluke vlasnika”) i nalaza 11–14 i 20 iz faze 1.
 
-## Pravila (odluke vlasnika)
+## Pravila (odluke vlasnika, 4. 10. 2026.)
 
 1. Četiri stadija (pripremno stanje, redovna obrana, izvanredna obrana,
-   izvanredno stanje) proglašavaju se i ukidaju **postupno i neovisno**.
-   Kad vrijedi pripremno pa se proglasi redovna i kasnije ukine, pripremno
-   i dalje vrijedi dok se i ono ne ukine.
-2. Veći stadij smije se proglasiti **odmah**, bez prethodnih.
-3. Akt stupa na snagu **prema vremenu koje u njemu piše** (`Vrijedi`), i kad
+   izvanredno stanje) proglašavaju se **prema gore**, kad postoje uvjeti, a
+   ukidaju **obrnutim redom**: viši stadij ide preko nižeg, a niži u pozadini
+   i dalje vrijedi. Kad se ukine izvanredno stanje, vrijedi izvanredna
+   obrana; kad se ukine ona, redovna; pa pripremno stanje.
+2. Veći stadij smije se proglasiti **odmah**, bez prethodnih. Kad se on
+   ukine, a uvjeti za niži postoje, niži se proglašava **novim aktom**
+   (zakašnjelo pripremno stanje) i poslije ukida kao svaki drugi. Niži
+   stadij koji nije bio proglašen ne nastaje sam.
+3. **Ne prekida se stadij koji ne traje**, i **ne ukida se niži dok viši
+   traje** — ukida se samo najviši aktivni stadij.
+4. Akt stupa na snagu **prema vremenu koje u njemu piše** (`Vrijedi`), i kad
    je ovjeren ranije.
-4. Stanje obrane mijenja **samo ovjeren akt** (izravne rute uklonjene, PR #16).
+5. Stanje obrane mijenja **samo ovjeren akt** (izravne rute uklonjene, PR #16).
+6. Ovjeren akt može se **poništiti (storno)**: kad je pogreška to što je akt
+   uopće izdan. Kad akt treba ispraviti, ispravlja ga novi akt.
 
 ## Kako je danas
 
@@ -34,17 +42,19 @@ Nacrt za pregled prije pisanja koda. Polazi od odluka vlasnika od 4. 10. 2026.
 svaki čvor iz istih akata izračuna isto stanje — bez rasporeda i bez posebnog
 zapisa o stanju.
 
-Stanje dionice u trenutku *t*:
+Stanje dionice u trenutku *t* slaže se iz ovjerenih, neponištenih akata s
+`Vrijedi ≤ t`, redom po `Vrijedi` (u istom trenutku prekid prije
+proglašenja):
 
-- stadij **S je aktivan** ako postoji ovjeren akt o uspostavi S za tu
-  dionicu s `Vrijedi ≤ t`, a poslije njega nema ovjerenog akta o prekidu S s
-  `Vrijedi ≤ t`;
+- **uspostava S** dodaje stadij S među aktivne (ako S već traje, akt se ne
+  može ovjeriti);
+- **prekid S** miče S — smije samo kad je S **najviši** aktivni stadij;
 - **stanje obrane** je najviši aktivni stadij; bez aktivnih stadija obrane
   nema;
 - akt s `Vrijedi > t` još ne vrijedi — prikazuje se kao „stupa na snagu
   2. 11. u 20:00”.
 
-Primjer (dionica P.1.1):
+Primjer (dionica P.1.1), postupno:
 
 | Vrijedi | Akt | Aktivni stadiji | Stanje |
 |---|---|---|---|
@@ -53,8 +63,27 @@ Primjer (dionica P.1.1):
 | 4. 11. 09:00 | prekid redovne | pripremno | pripremno |
 | 5. 11. 07:00 | prekid pripremnog | — | nema obrane |
 
-I bez prethodnih: uspostava izvanredne 3. 11. 02:00 → stanje izvanredna;
-prekid izvanredne → nema obrane.
+Odmah redovna, pa zakašnjelo pripremno:
+
+| Vrijedi | Akt | Aktivni stadiji | Stanje |
+|---|---|---|---|
+| 3. 11. 02:00 | uspostava redovne | redovna | redovna |
+| 6. 11. 10:00 | prekid redovne | — | nema obrane |
+| 6. 11. 10:00 | uspostava pripremnog | pripremno | pripremno |
+| 8. 11. 07:00 | prekid pripremnog | — | nema obrane |
+
+**Ovjera provjerava slijed.** Akt se ne ovjerava kad bi stanje u trenutku
+njegova `Vrijedi` (uz sve ranije ovjerene akte) bilo nemoguće: prekid stadija
+koji ne traje, prekid nižeg dok viši traje, uspostava stadija koji već traje.
+Poruka kaže koji stadij tada traje. Ista provjera vrijedi i za ovjeru skenom.
+
+**Storno.** Ovjeren akt poništava onaj tko ga smije ovjeriti, uz obrazloženje;
+poništenje se bilježi (tko, kada, zašto), potpisuje ključem čvora i razmjenjuje
+kao i akt. Poništen akt ostaje u popisu i ispisu, označen, ali ne ulazi u
+stanje. Poništava se samo akt na kojem ne stoji kasniji akt iste dionice (npr.
+uspostava redovne nakon koje je već ovjeren njezin prekid): najprije se
+poništava kasniji, pa raniji — inače bi kasniji akt prekidao stadij koji nije
+proglašen.
 
 **Jedna čista funkcija** računa stanje:
 `StanjeObrane(akti, dionica, t) → aktivni stadiji, najviši, od kada`.
@@ -75,28 +104,31 @@ istim preduvjetima.
 
 ## Koraci (svaki zaseban PR)
 
-1. `StanjeObrane` kao čista funkcija s tabličnim testom (sva četiri stadija,
-   preskakanje, prekid višeg i nižeg, akt unaprijed, dva akta u istom
-   trenutku). Ništa se još ne mijenja.
+1. `StanjeObrane` i provjera slijeda kao čiste funkcije s tabličnim testom
+   (postupno gore i dolje, odmah viši stadij, zakašnjelo niže, nemoguć
+   prekid i uspostava, akt unaprijed, isti trenutak, poništen akt). Ništa se
+   još ne mijenja.
 2. Prikazi (kartica dionice i letve, zid, izvješća) čitaju stanje iz
    akata. Uz to test koji na istim podacima uspoređuje staro i novo.
-3. Ovjera više ne mijenja epizodu izravno; epizode se izvode iz akata. Ovjera
-   skenom ide istim putem.
-4. Čišćenje: `Raise` i `End` ostaju samo za obrane računate iz očitanja,
+3. Ovjera (i skenom) provjerava slijed i više ne mijenja epizodu izravno;
+   epizode se izvode iz akata.
+4. Storno: status poništenog akta, tko/kada/zašto, potpis i razmjena,
+   oznaka u popisu i ispisu.
+5. Čišćenje: `Raise` i `End` ostaju samo za obrane računate iz očitanja,
    ako ih još treba.
 
 Podatke ne treba seliti: na čvoru COP Osijek (laptop) postoje dvije ručno
 upisane obrane, obje zatvorene, i nijedan ovjeren akt.
 
-## Pitanja za vlasnika
+## Odgovori vlasnika (4. 10. 2026.)
 
-1. **Prekid stadija koji nije aktivan** (npr. prekid redovne, a redovna nije
-   proglašena): odbiti ovjeru ili ovjeriti uz upozorenje?
-2. **Ukidanje nižeg dok viši traje** (npr. ukine se pripremno dok traje
-   redovna): je li to u praksi moguće? Ako jest, redovna i dalje traje, a kad
-   se ukine, obrane više nema.
-3. **Izvanredno stanje** koje u hitnom slučaju proglašava rukovoditelj
-   područja: vrijedi li ista logika slaganja kao za ostale stadije?
-4. **Ispravak pogrešnog akta**: program danas nema poništenje (storno)
-   ovjerenog akta — akt je nacrt ili ovjeren. Treba li ga? Ako da, poništen
-   akt ne ulazi u stanje, a pogrešku ispravlja novi akt.
+1. Prekid stadija koji ne traje nije moguć — akt se ne ovjerava.
+2. Niži stadij ne ukida se dok viši traje — ukida se samo najviši.
+3. Ista logika slaganja vrijedi za sva četiri stadija, i za izvanredno
+   stanje koje u hitnom slučaju proglašava rukovoditelj područja.
+4. Storno treba: pogrešku ispravlja novi akt, a kad je pogreška to što je akt
+   uopće izdan, akt se poništava.
+
+Pretpostavka za potvrdu: niži stadij smije se proglasiti i dok viši traje
+(„u pozadini”), da poslije prekida višeg vrijedi bez novog akta. Ako se to u
+praksi ne radi, ovjera ga može odbiti kao i ostale nemoguće slijedove.
