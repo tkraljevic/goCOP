@@ -111,3 +111,54 @@ func TestOvjeraAktaBezLetve(t *testing.T) {
 		}
 	}
 }
+
+func TestProvjeriVrijemePrekida(t *testing.T) {
+	sad := time.Date(2026, 10, 25, 12, 0, 0, 0, models.Zagreb)
+	pocetak := sad.Add(-2 * time.Hour)
+	for _, k := range []struct {
+		ime    string
+		at     time.Time
+		greska string
+	}{
+		{"sada", sad, ""},
+		{"točno na proglašenju", pocetak, ""},
+		{"točno sat unaprijed", sad.Add(time.Hour), ""},
+		{"sat i sekunda unaprijed", sad.Add(time.Hour + time.Second), "unaprijed"},
+		{"sutra", sad.AddDate(0, 0, 1), "unaprijed"},
+		{"prije proglašenja", pocetak.Add(-time.Second), "prije nego što je proglašena"},
+	} {
+		err := provjeriVrijemePrekida(k.at, pocetak, sad)
+		if (k.greska == "" && err != nil) || (k.greska != "" && (err == nil || !strings.Contains(err.Error(), k.greska))) {
+			t.Errorf("%s: %v", k.ime, err)
+		}
+	}
+}
+
+func TestLetvaAkta(t *testing.T) {
+	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "letva.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { baza.Close() })
+	if err := db.InitSchema(baza); err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	stanice := repository.NewStationRepository(baza, ledger.New(baza, "test"))
+	letva := &models.Station{ID: uuid.New(), Code: "primjerovo", Name: "Primjerovo", Watercourse: "Primjerica"}
+	if err := stanice.CreateStation(ctx, letva); err != nil {
+		t.Fatal(err)
+	}
+	svc := &AktService{stations: stanice}
+	if st := svc.letvaAkta(ctx, &models.Akt{StationID: letva.ID.String(), StationName: "Staro ime"}); st.ID != letva.ID || st.Watercourse != "Primjerica" {
+		t.Errorf("letva iz registra: %+v", st)
+	}
+	for _, id := range []string{"", "nije-uuid", uuid.NewString()} {
+		if st := svc.letvaAkta(ctx, &models.Akt{StationID: id, StationName: "Primjerovo"}); st.ID != uuid.Nil || st.Name != "Primjerovo" {
+			t.Errorf("letva %q: %+v", id, st)
+		}
+	}
+	if st := (&AktService{}).letvaAkta(ctx, &models.Akt{StationID: letva.ID.String(), StationName: "Primjerovo"}); st.Name != "Primjerovo" {
+		t.Errorf("bez registra letava: %+v", st)
+	}
+}
