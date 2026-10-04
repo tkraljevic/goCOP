@@ -22,10 +22,10 @@ Rad je prekinut zbog budžeta. Ova datoteka je za agenta koji nastavlja. Uz nju 
 | `stabilizacija-citanja` (PR #6) | ReadingService | testovi, opis i „Sumnjivo ponašanje” gotovi; popravak NaN-a u zasebnom commitu |
 | `stabilizacija-dionice` (PR #7) | SectionService.SaveSection | testovi, opis i „Sumnjivo ponašanje” gotovi |
 | `stabilizacija-dnevnici` (PR #8) | JournalService (Obracun, SpremiDezurstvo) | testovi, opis i „Sumnjivo ponašanje” gotovi; popravak kraja dana u zasebnom commitu |
-| `stabilizacija-izvjesca` (PR #9) | IzvjescaService (Spremi, SpremiSektorsko) | testovi, opis i „Sumnjivo ponašanje” gotovi |
-| `stabilizacija-korisnici` (PR #10) | UserService (CreateUser, UpdateUser) | testovi, opis i „Sumnjivo ponašanje” gotovi |
+| `stabilizacija-izvjesca` (PR #9) | IzvjescaService (Spremi, SpremiSektorsko) | testovi, opis i „Sumnjivo ponašanje” gotovi; popravak prepisivanja tuđeg izvješća u zasebnom commitu |
+| `stabilizacija-korisnici` (PR #10) | UserService (CreateUser, UpdateUser) | testovi, opis i „Sumnjivo ponašanje” gotovi; popravak skidanja zastavice u zasebnom commitu |
 | `stabilizacija-vodocuvar` (PR #5) | VodocuvarService.Spremi | testovi i jedan popravak gotovi; opis PR-a gotov |
-| — | MtsService.Provedi | nije započeto (master: CC 45, coverage 81,5 %, CRAP 57,9) |
+| `stabilizacija-mts` (PR #11) | MtsService.Provedi | testovi gotovi (81,5 % → 95,2 %), opis u `PREDAJA.md` grane |
 | — | AktService (primatelji, zakljuciOvjeru) | nije započeto (master: `primatelji` CC 52, 0 %, CRAP 2756; `zakljuciOvjeru` CC 19, 0 %, CRAP 380; obje kritične) |
 | — | faza 3 | nije započeto; popis u `PREDAJA-faza3.md` |
 
