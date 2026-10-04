@@ -96,48 +96,109 @@ func cekajZatvaranjeUlaza(ulaz io.Reader, stop chan<- os.Signal) {
 	}
 }
 
-func main() {
+// zastavice su zastavice naredbenog retka; zadane kaže koje su doista upisane
+// (za -podaci i -pakete zadano nije prazno, pa se samo tako zna)
+type zastavice struct {
+	configPath         string
+	addr               string
+	db                 string
+	arhiva             string
+	skenovi            string
+	podaci             string
+	paketi             string
+	node               string
+	name               string
+	syncPort           int
+	pairPort           int
+	discoveryPort      int
+	autoSync           string
+	bp16Objekti        bool
+	importBP16         bool
+	importBP16Journals bool
+	importBP16Obilasci bool
+	importBP16Prijave  bool
+	bp16Dir            string
+	directusEnv        string
+	csvFile            string
+	csvHour            int
+	csvOrigin          string
+	csvSkip            string
+	csvLinks           string
+	csvQuality         string
+	csvDerived         string
+	csvMethod          string
+	csvWrite           bool
+	contractFile       string
+	contractLinks      string
+	contractAllItems   bool
+	ponistiLozinku     string
+	aktivirajRacun     bool
+	ispisiIzdanje      bool
+	podPostavom        bool
+	pripremi           bool
+	zadane             map[string]bool
+}
+
+// procitajZastavice čita zastavice naredbenog retka (bez imena programa)
+func procitajZastavice(args []string) (zastavice, error) {
+	var z zastavice
+	fs := flag.NewFlagSet("gocop", flag.ContinueOnError)
 	// Postavke: zastavica > gocop.toml > zadano. Zastavice bez vrijednosti
 	// znače "nije zadano", pa se tek nakon čitanja datoteke zna što vrijedi.
-	configPath := flag.String("config", "", "Putanja do gocop.toml (zadano: uz bazu ili uz program)")
-	addrFlag := flag.String("addr", "", "Adresa i port web sučelja (zadano :80; ako nije dostupan, sam prelazi na :8080)")
-	dbFlag := flag.String("db", "", "Putanja do SQLite baze (zadano data/gocop.db)")
-	arhivaFlag := flag.String("arhiva", "", "Putanja do arhive vodostaja (zadano vodostaji.db uz bazu); može na drugi disk")
-	skenoviFlag := flag.String("skenovi", "", "Mapa sa skenovima prijava (zadano skenovi uz bazu)")
-	podaciFlag := flag.String("podaci", "vodostaji", "Stablo s izvornim datotekama arhive; prazno na čvoru koji arhivu samo prima")
-	paketiFlag := flag.String("pakete", "pakete", "Mapa u koju se izdaju .cop paketi i u kojoj stoji katalog; prazno isključuje izdavanje")
-	nodeFlag := flag.String("node", "", "Identifikator ovog čvora za sinkronizaciju")
-	nameFlag := flag.String("name", "", "Naziv ovog čvora za druge čvorove (zadano: ime računala)")
-	syncPortFlag := flag.Int("sync-port", -1, "Port razmjene s drugim čvorovima (0 isključuje)")
-	pairPortFlag := flag.Int("pair-port", -1, "Port uparivanja")
-	discoveryPortFlag := flag.Int("discovery-port", -1, "UDP port pronalaženja na lokalnoj mreži (0 isključuje)")
-	autoSyncFlag := flag.String("auto-sync", "", "Razmak automatske sinkronizacije, npr. 5m (0 isključuje)")
-	bp16Objekti := flag.Bool("bp16-objekti", false, "Uvoz BP16: stvori crpne stanice i ustave koje registar nema i veži ih na letve istog imena")
-	importBP16 := flag.Bool("import-bp16", false, "Uvezi očitanja vodostaja iz Directus evidencije VGI Baranja i završi")
-	importBP16Journals := flag.Bool("import-bp16-dnevnici", false, "Uvezi evidencije radova A.02 i A.03 iz Directusa kao rekonstruirane dnevnike (bez -upisi samo izvješće)")
-	importBP16Obilasci := flag.Bool("import-bp16-obilasci", false, "Uvezi obilaske terena iz Directusa kao zadatke vodočuvara i rekonstruirane dnevne listove (bez -upisi samo izvješće)")
-	importBP16Prijave := flag.Bool("import-bp16-prijave", false, "Uvezi obavijesti s terena (izvješća, prijave, obavijesti, zahtjevi vodočuvara) iz Directusa kao rekonstruirane prijave s terena (bez -upisi samo izvješće)")
-	bp16Dir := flag.String("bp16-dir", "", "Uvoz iz ranije skinutih JSON datoteka umjesto iz Directusa")
-	directusEnv := flag.String("directus-env", "", "Datoteka s DIRECTUS_URL i DIRECTUS_TOKEN (zadano ~/.config/gocop/directus.env)")
-	csvFile := flag.String("tablica", "", "Tablica dnevnih vodostaja (CSV): stupci su postaje, redci datumi")
-	csvHour := flag.Int("tablica-sat", 7, "Sat jutarnjeg očitanja u tablici")
-	csvOrigin := flag.String("tablica-izvor", "", "Odakle tablica potječe, npr. \"COP Osijek — dnevna tablica\"")
-	csvSkip := flag.String("tablica-preskoci", "", "Stupci koje ne uvozimo, odvojeni zarezom (npr. protoci)")
-	csvLinks := flag.String("tablica-veze", "", "Ručno vezivanje stupaca na letve: \"stupac=sifra,stupac=sifra\"")
-	csvQuality := flag.String("tablica-kvaliteta", "", "Podrijetlo vrijednosti: prazno = izmjereno, REKONSTRUIRANO za preračun iz druge postaje")
-	csvDerived := flag.String("tablica-izvedeno-iz", "", "Postaja iz koje je preračunato, npr. \"postaja Bezdan\"")
-	csvMethod := flag.String("tablica-nacin", "", "Kako je preračunato: formula, korekcija, razdoblje valjanosti")
-	csvWrite := flag.Bool("upisi", false, "Bez ove zastavice uvoz samo izvještava, ništa ne upisuje")
-	contractFile := flag.String("ugovor", "", "Ugovor o održavanju A.02 (xlsx iz dodatka Hrvatskih voda): uvozi popis lokacija i stavke radova")
-	contractLinks := flag.String("ugovor-veze", "", "Ručno vezivanje lokacija na registar: \"naziv iz popisa=sifra,naziv=sifra\"")
-	contractAllItems := flag.Bool("ugovor-sve-stavke", false, "Uz stavke koje ugovor koristi upisati i cijeli ponudbeni troškovnik (opisi i jedinice, bez cijena)")
-	ponistiLozinku := flag.String("ponisti-lozinku", "", "Oporavak s konzole čvora: računu s tim korisničkim imenom postavi privremenu lozinku, ispiše je i završi (uz -config i -db kao pri pokretanju)")
-	aktivirajRacun := flag.Bool("aktiviraj", false, "Uz -ponisti-lozinku: isključen račun i uključi")
-	ispisiIzdanje := flag.Bool("version", false, "Ispiši izdanje (\"goCOP 0.0.x-alfa\") i završi")
-	podPostavom := flag.Bool("upravitelj", false, "Čvor pod Postavom: uredno se gasi kad mu se zatvori standardni ulaz")
-	pripremi := flag.Bool("pripremi", false, "Zapiši gocop.toml uz bazu s imenom čvora (-node) prije prvog pokretanja i završi; postojeće ime se ne mijenja")
-	flag.Parse()
-	if *ispisiIzdanje {
+	fs.StringVar(&z.configPath, "config", "", "Putanja do gocop.toml (zadano: uz bazu ili uz program)")
+	fs.StringVar(&z.addr, "addr", "", "Adresa i port web sučelja (zadano :80; ako nije dostupan, sam prelazi na :8080)")
+	fs.StringVar(&z.db, "db", "", "Putanja do SQLite baze (zadano data/gocop.db)")
+	fs.StringVar(&z.arhiva, "arhiva", "", "Putanja do arhive vodostaja (zadano vodostaji.db uz bazu); može na drugi disk")
+	fs.StringVar(&z.skenovi, "skenovi", "", "Mapa sa skenovima prijava (zadano skenovi uz bazu)")
+	fs.StringVar(&z.podaci, "podaci", "vodostaji", "Stablo s izvornim datotekama arhive; prazno na čvoru koji arhivu samo prima")
+	fs.StringVar(&z.paketi, "pakete", "pakete", "Mapa u koju se izdaju .cop paketi i u kojoj stoji katalog; prazno isključuje izdavanje")
+	fs.StringVar(&z.node, "node", "", "Identifikator ovog čvora za sinkronizaciju")
+	fs.StringVar(&z.name, "name", "", "Naziv ovog čvora za druge čvorove (zadano: ime računala)")
+	fs.IntVar(&z.syncPort, "sync-port", -1, "Port razmjene s drugim čvorovima (0 isključuje)")
+	fs.IntVar(&z.pairPort, "pair-port", -1, "Port uparivanja")
+	fs.IntVar(&z.discoveryPort, "discovery-port", -1, "UDP port pronalaženja na lokalnoj mreži (0 isključuje)")
+	fs.StringVar(&z.autoSync, "auto-sync", "", "Razmak automatske sinkronizacije, npr. 5m (0 isključuje)")
+	fs.BoolVar(&z.bp16Objekti, "bp16-objekti", false, "Uvoz BP16: stvori crpne stanice i ustave koje registar nema i veži ih na letve istog imena")
+	fs.BoolVar(&z.importBP16, "import-bp16", false, "Uvezi očitanja vodostaja iz Directus evidencije VGI Baranja i završi")
+	fs.BoolVar(&z.importBP16Journals, "import-bp16-dnevnici", false, "Uvezi evidencije radova A.02 i A.03 iz Directusa kao rekonstruirane dnevnike (bez -upisi samo izvješće)")
+	fs.BoolVar(&z.importBP16Obilasci, "import-bp16-obilasci", false, "Uvezi obilaske terena iz Directusa kao zadatke vodočuvara i rekonstruirane dnevne listove (bez -upisi samo izvješće)")
+	fs.BoolVar(&z.importBP16Prijave, "import-bp16-prijave", false, "Uvezi obavijesti s terena (izvješća, prijave, obavijesti, zahtjevi vodočuvara) iz Directusa kao rekonstruirane prijave s terena (bez -upisi samo izvješće)")
+	fs.StringVar(&z.bp16Dir, "bp16-dir", "", "Uvoz iz ranije skinutih JSON datoteka umjesto iz Directusa")
+	fs.StringVar(&z.directusEnv, "directus-env", "", "Datoteka s DIRECTUS_URL i DIRECTUS_TOKEN (zadano ~/.config/gocop/directus.env)")
+	fs.StringVar(&z.csvFile, "tablica", "", "Tablica dnevnih vodostaja (CSV): stupci su postaje, redci datumi")
+	fs.IntVar(&z.csvHour, "tablica-sat", 7, "Sat jutarnjeg očitanja u tablici")
+	fs.StringVar(&z.csvOrigin, "tablica-izvor", "", "Odakle tablica potječe, npr. \"COP Osijek — dnevna tablica\"")
+	fs.StringVar(&z.csvSkip, "tablica-preskoci", "", "Stupci koje ne uvozimo, odvojeni zarezom (npr. protoci)")
+	fs.StringVar(&z.csvLinks, "tablica-veze", "", "Ručno vezivanje stupaca na letve: \"stupac=sifra,stupac=sifra\"")
+	fs.StringVar(&z.csvQuality, "tablica-kvaliteta", "", "Podrijetlo vrijednosti: prazno = izmjereno, REKONSTRUIRANO za preračun iz druge postaje")
+	fs.StringVar(&z.csvDerived, "tablica-izvedeno-iz", "", "Postaja iz koje je preračunato, npr. \"postaja Bezdan\"")
+	fs.StringVar(&z.csvMethod, "tablica-nacin", "", "Kako je preračunato: formula, korekcija, razdoblje valjanosti")
+	fs.BoolVar(&z.csvWrite, "upisi", false, "Bez ove zastavice uvoz samo izvještava, ništa ne upisuje")
+	fs.StringVar(&z.contractFile, "ugovor", "", "Ugovor o održavanju A.02 (xlsx iz dodatka Hrvatskih voda): uvozi popis lokacija i stavke radova")
+	fs.StringVar(&z.contractLinks, "ugovor-veze", "", "Ručno vezivanje lokacija na registar: \"naziv iz popisa=sifra,naziv=sifra\"")
+	fs.BoolVar(&z.contractAllItems, "ugovor-sve-stavke", false, "Uz stavke koje ugovor koristi upisati i cijeli ponudbeni troškovnik (opisi i jedinice, bez cijena)")
+	fs.StringVar(&z.ponistiLozinku, "ponisti-lozinku", "", "Oporavak s konzole čvora: računu s tim korisničkim imenom postavi privremenu lozinku, ispiše je i završi (uz -config i -db kao pri pokretanju)")
+	fs.BoolVar(&z.aktivirajRacun, "aktiviraj", false, "Uz -ponisti-lozinku: isključen račun i uključi")
+	fs.BoolVar(&z.ispisiIzdanje, "version", false, "Ispiši izdanje (\"goCOP 0.0.x-alfa\") i završi")
+	fs.BoolVar(&z.podPostavom, "upravitelj", false, "Čvor pod Postavom: uredno se gasi kad mu se zatvori standardni ulaz")
+	fs.BoolVar(&z.pripremi, "pripremi", false, "Zapiši gocop.toml uz bazu s imenom čvora (-node) prije prvog pokretanja i završi; postojeće ime se ne mijenja")
+	if err := fs.Parse(args); err != nil {
+		return z, err
+	}
+	z.zadane = map[string]bool{}
+	fs.Visit(func(f *flag.Flag) { z.zadane[f.Name] = true })
+	return z, nil
+}
+
+func main() {
+	z, err := procitajZastavice(os.Args[1:])
+	if errors.Is(err, flag.ErrHelp) {
+		os.Exit(0)
+	}
+	if err != nil {
+		os.Exit(2)
+	}
+	if z.ispisiIzdanje {
 		// Ugovor s Postavom (docs/plan-instalacija.md §3.1a): Postava ovim
 		// provjerava preuzetu datoteku prije zamjene, pa redak ostaje točno
 		// ovakav i ništa se prije njega ne ispisuje.
@@ -148,58 +209,57 @@ func main() {
 	web.SetVerzijaPrograma(punaVerzija())
 
 	// baza se mora znati prije datoteke, jer datoteka živi uz bazu
-	dbForConfig := *dbFlag
+	dbForConfig := z.db
 	if dbForConfig == "" {
 		dbForConfig = config.Default().DB
 	}
-	cfg, cfgFrom, err := config.Load(config.Candidates(*configPath, dbForConfig))
+	cfg, cfgFrom, err := config.Load(config.Candidates(z.configPath, dbForConfig))
 	if err != nil {
 		log.Fatalf("Postavke: %v", err)
 	}
-	if *addrFlag != "" {
-		cfg.Addr = *addrFlag
+	if z.addr != "" {
+		cfg.Addr = z.addr
 	}
-	if *dbFlag != "" {
-		cfg.DB = *dbFlag
+	if z.db != "" {
+		cfg.DB = z.db
 	}
 	if cfg.ZamijeniZatvoreneIzvore() {
 		log.Printf("Karta: Wikimedia više ne daje pločice drugim stranicama; koristi se OpenStreetMap (u %s promijenite [karta] plocice)", cfgFrom)
 	}
 	imeIzDatoteke := cfg.Node.ID
-	if *nodeFlag != "" {
-		cfg.Node.ID = *nodeFlag
+	if z.node != "" {
+		cfg.Node.ID = z.node
 	}
-	if *nameFlag != "" {
-		cfg.Node.Name = *nameFlag
+	if z.name != "" {
+		cfg.Node.Name = z.name
 	}
-	if *syncPortFlag >= 0 {
-		cfg.Sync.ExchangePort = *syncPortFlag
+	if z.syncPort >= 0 {
+		cfg.Sync.ExchangePort = z.syncPort
 	}
-	if *pairPortFlag >= 0 {
-		cfg.Sync.PairPort = *pairPortFlag
+	if z.pairPort >= 0 {
+		cfg.Sync.PairPort = z.pairPort
 	}
-	if *discoveryPortFlag >= 0 {
-		cfg.Sync.DiscoveryPort = *discoveryPortFlag
+	if z.discoveryPort >= 0 {
+		cfg.Sync.DiscoveryPort = z.discoveryPort
 	}
-	if *autoSyncFlag != "" {
-		cfg.Sync.AutoSync = *autoSyncFlag
+	if z.autoSync != "" {
+		cfg.Sync.AutoSync = z.autoSync
 	}
 	// Putanje: zastavica ima prednost, pa datoteka postavki, pa zadano. Za
 	// -podaci i -pakete zadano nije prazno, pa se gleda je li zastavica
 	// doista zadana.
-	zadane := map[string]bool{}
-	flag.Visit(func(f *flag.Flag) { zadane[f.Name] = true })
-	if *arhivaFlag != "" {
-		cfg.Arhiva = *arhivaFlag
+	zadane := z.zadane
+	if z.arhiva != "" {
+		cfg.Arhiva = z.arhiva
 	}
-	if *skenoviFlag != "" {
-		cfg.Skenovi = *skenoviFlag
+	if z.skenovi != "" {
+		cfg.Skenovi = z.skenovi
 	}
 	if !zadane["podaci"] && cfg.Podaci != "" {
-		*podaciFlag = cfg.Podaci
+		z.podaci = cfg.Podaci
 	}
 	if !zadane["pakete"] && cfg.Pakete != "" {
-		*paketiFlag = cfg.Pakete
+		z.paketi = cfg.Pakete
 	}
 
 	// Ime čvora: upisano u gocop.toml, zadano zastavicom -node, ili ga svjež
@@ -222,16 +282,16 @@ func main() {
 
 	// -pripremi: Postava prije prvog pokretanja upiše ime čvora iz
 	// instalacijskog programa. Postojeće ime se ne mijenja.
-	if *pripremi {
+	if z.pripremi {
 		os.Exit(pripremiPostavke(cfg, cfgFrom, imeIzDatoteke, os.Stdout))
 	}
 
 	// Oporavak lozinke s konzole: samo baza, bez poslužitelja i razmjene;
 	// postavke se ne zapisuju, jer ovo nije pokretanje čvora
 	if zadane["ponisti-lozinku"] {
-		os.Exit(ponistiLozinkuSKonzole(cfg.DB, cfg.Node.ID, *ponistiLozinku, *aktivirajRacun, os.Stdout))
+		os.Exit(ponistiLozinkuSKonzole(cfg.DB, cfg.Node.ID, z.ponistiLozinku, z.aktivirajRacun, os.Stdout))
 	}
-	if *aktivirajRacun {
+	if z.aktivirajRacun {
 		log.Fatalf("-aktiviraj vrijedi samo uz -ponisti-lozinku")
 	}
 
@@ -262,7 +322,7 @@ func main() {
 		log.Printf("Postavke: čitane iz %s", cfgFrom)
 		// ime koje datoteka nije imala (izabrano sada ili zadano zastavicom)
 		// mora preživjeti ponovno pokretanje bez zastavice
-		if imeIzDatoteke == "" && (noviIme || *nodeFlag != "") {
+		if imeIzDatoteke == "" && (noviIme || z.node != "") {
 			if err := config.UpisiIme(cfgFrom, cfg.Node.ID); err != nil {
 				log.Printf("Postavke: ime čvora nije upisano u %s: %v", cfgFrom, err)
 			}
@@ -446,11 +506,11 @@ func main() {
 
 	// Uvoz tablice vodostaja. Bez -upisi je samo izvješće: koje su postaje
 	// prepoznate, koliko bi zapisa bilo novo i gdje se izvori ne slažu.
-	if *csvFile != "" {
+	if z.csvFile != "" {
 		rep, err := csvlevels.Run(context.Background(), csvlevels.Options{
-			Path: *csvFile, Hour: *csvHour, Origin: *csvOrigin, DryRun: !*csvWrite, Log: log.Printf,
-			Skip: splitList(*csvSkip), Aliases: splitPairs(*csvLinks),
-			Quality: strings.ToUpper(strings.TrimSpace(*csvQuality)), Derived: *csvDerived, Method: *csvMethod,
+			Path: z.csvFile, Hour: z.csvHour, Origin: z.csvOrigin, DryRun: !z.csvWrite, Log: log.Printf,
+			Skip: splitList(z.csvSkip), Aliases: splitPairs(z.csvLinks),
+			Quality: strings.ToUpper(strings.TrimSpace(z.csvQuality)), Derived: z.csvDerived, Method: z.csvMethod,
 			Deps: csvlevels.Deps{Readings: readingRepo, Stations: stationRepo, Structures: structureRepo},
 		})
 		if err != nil {
@@ -482,13 +542,13 @@ func main() {
 
 	// Uvoz ugovora o održavanju: popis lokacija s kategorijom i stavke radova.
 	// Bez -upisi samo izvješće: što je prepoznato, što bi bilo novo, gdje treba ruka.
-	if *contractFile != "" {
+	if z.contractFile != "" {
 		areas, err := userService.ListAreas("")
 		if err != nil {
 			log.Fatalf("Ugovor: %v", err)
 		}
 		rep, err := ugovor.Run(context.Background(), ugovor.Options{
-			Path: *contractFile, DryRun: !*csvWrite, Aliases: splitPairs(*contractLinks), AllItems: *contractAllItems, Log: log.Printf,
+			Path: z.contractFile, DryRun: !z.csvWrite, Aliases: splitPairs(z.contractLinks), AllItems: z.contractAllItems, Log: log.Printf,
 			Deps: ugovor.Deps{
 				Waters: watercourseRepo, Structures: structureRepo,
 				Maintenance: maintenanceRepo, Areas: areas,
@@ -522,12 +582,12 @@ func main() {
 	}
 
 	// Uvoz iz Directusa je zaseban način rada: uveze i završi
-	if *importBP16 || *importBP16Journals || *importBP16Prijave || *importBP16Obilasci {
+	if z.importBP16 || z.importBP16Journals || z.importBP16Prijave || z.importBP16Obilasci {
 		var src bp16.Source
-		if *bp16Dir != "" {
-			src = bp16.DirSource{Dir: *bp16Dir}
+		if z.bp16Dir != "" {
+			src = bp16.DirSource{Dir: z.bp16Dir}
 		} else {
-			envPath := *directusEnv
+			envPath := z.directusEnv
 			if envPath == "" {
 				home, _ := os.UserHomeDir()
 				envPath = filepath.Join(home, ".config", "gocop", "directus.env")
@@ -538,7 +598,7 @@ func main() {
 			}
 			src = httpSrc
 		}
-		if *importBP16Prijave {
+		if z.importBP16Prijave {
 			httpSrc, _ := src.(bp16.HTTPSource)
 			korisnici := map[string]bp16.KorisnikUvoza{}
 			if svi, err := userRepo.ListUsers("", 0, "", "", ""); err == nil {
@@ -554,7 +614,7 @@ func main() {
 			rep, err := bp16.RunPrijave(context.Background(), src, bp16.PrijaveDeps{
 				Prijave: repository.NewPrijavaRepository(database, recorder), Korisnici: korisnici,
 				Podrucja: map[string]int{"KARAŠICA SEKTOR": 16, "DRAVSKI SEKTOR": 34, "DUNAVSKI SEKTOR - SJEVER": 34, "DUNAVSKI SEKTOR - JUG": 34},
-				Sektor:   "B", Cvor: node.ID, Datoteka: datoteka, DryRun: !*csvWrite, Log: log.Printf,
+				Sektor:   "B", Cvor: node.ID, Datoteka: datoteka, DryRun: !z.csvWrite, Log: log.Printf,
 				// uvezene prijave: PDF iz podataka nosi slike, pa se izvorne ne čuvaju;
 				// skenovi potpisanih ispisa ostaju u staroj evidenciji
 				SlikeOdmah: true,
@@ -589,7 +649,7 @@ func main() {
 			}
 			return
 		}
-		if *importBP16Obilasci {
+		if z.importBP16Obilasci {
 			httpSrc, _ := src.(bp16.HTTPSource)
 			korisnici := map[string]bp16.KorisnikUvoza{}
 			if svi, err := userRepo.ListUsers("", 0, "", "", ""); err == nil {
@@ -636,7 +696,7 @@ func main() {
 			rep, err := bp16.RunObilasci(context.Background(), src, bp16.ObilasciDeps{
 				Vodocuvar: repository.NewVodocuvarRepository(database, recorder),
 				Korisnici: korisnici, Sektor: "B", Cvor: node.ID, Datoteka: datoteka,
-				SamoArhivirane: true, Meteo: meteo, DryRun: !*csvWrite, Log: log.Printf,
+				SamoArhivirane: true, Meteo: meteo, DryRun: !z.csvWrite, Log: log.Printf,
 			})
 			if err != nil {
 				log.Fatalf("Uvoz obilazaka nije uspio: %v (do greške %s)", err, rep.Summary())
@@ -650,14 +710,14 @@ func main() {
 			}
 			return
 		}
-		if *importBP16Journals {
+		if z.importBP16Journals {
 			areas, err := userService.ListAreas("")
 			if err != nil {
 				log.Fatalf("Uvoz dnevnika: %v", err)
 			}
 			rep, err := bp16.RunJournals(context.Background(), src, bp16.JournalDeps{
 				Journals: journalRepo, Maintenance: maintenanceRepo, Waters: watercourseRepo, Structures: structureRepo,
-				Areas: areas, AreaID: 16, DryRun: !*csvWrite, Log: log.Printf,
+				Areas: areas, AreaID: 16, DryRun: !z.csvWrite, Log: log.Printf,
 			})
 			if err != nil {
 				log.Fatalf("Uvoz dnevnika nije uspio: %v (do greške %s)", err, rep.Summary())
@@ -679,7 +739,7 @@ func main() {
 		}
 		rep, err := bp16.Run(context.Background(), src, bp16.Deps{
 			Readings: readingRepo, Stations: stationRepo, Structures: structureRepo, Log: log.Printf,
-			DryRun: !*csvWrite, StvoriObjekte: *bp16Objekti,
+			DryRun: !z.csvWrite, StvoriObjekte: z.bp16Objekti,
 		})
 		if err != nil {
 			log.Fatalf("Uvoz BP16 nije uspio: %v (do greške %s)", err, rep.Summary())
@@ -788,7 +848,7 @@ func main() {
 		server.SetPosrednici(posrednici)
 	}
 	server.SetJavnaAdresa(cfg.JavnaAdresa)
-	server.SetPodPostavom(*podPostavom)
+	server.SetPodPostavom(z.podPostavom)
 	skenovi := cfg.Skenovi
 	if skenovi == "" {
 		skenovi = filepath.Join(filepath.Dir(*dbPath), "skenovi")
@@ -809,8 +869,8 @@ func main() {
 	if arhivaPut == "" {
 		arhivaPut = filepath.Join(filepath.Dir(*dbPath), "vodostaji.db")
 	}
-	server.SetPodaciDir(*podaciFlag)
-	server.SetPaketiDir(*paketiFlag)
+	server.SetPodaciDir(z.podaci)
+	server.SetPaketiDir(z.paketi)
 	if arhiva, err := repository.OpenArhiva(arhivaPut); err != nil {
 		log.Printf("Arhiva vodostaja %s: %v", arhivaPut, err)
 	} else if arhiva == nil {
@@ -827,7 +887,7 @@ func main() {
 	// povremeno sam nazove poznate čvorove
 	syncCtx, stopSync := context.WithCancel(context.Background())
 	defer stopSync()
-	razmjenaArh = novaRazmjenaArhive(database, recorder, spremiste, server, peersService, arhivaPut, *paketiFlag)
+	razmjenaArh = novaRazmjenaArhive(database, recorder, spremiste, server, peersService, arhivaPut, z.paketi)
 	go razmjenaArh.vrti(syncCtx)
 	var pbRazmjena *sql.DB // baza prognoza, za pločicu razmjene; postavlja se niže
 	server.SetRazmjena(func(ctx context.Context) web.RazmjenaStanje {
@@ -1055,15 +1115,15 @@ func main() {
 				// Jednom dnevno, nakon ponoći, završeni dani idu u arhivu:
 				// zadnja četiri dana, da krug koji je ispao ne ostavi rupu.
 				sada := time.Now()
-				if dan := sada.In(kisomjeri.Zagreb).Format("2006-01-02"); dan != kisUlozeno && *podaciFlag != "" && !imaStablo(*podaciFlag) {
+				if dan := sada.In(kisomjeri.Zagreb).Format("2006-01-02"); dan != kisUlozeno && z.podaci != "" && !imaStablo(z.podaci) {
 					// Gradnja letvu slaže iz stabla, pa bi čvoru koji je arhivu
 					// dobio paketima povijest kišomjera svela na zadnje dane.
-					javniUvoznik.Redak("stvarni kišomjeri: na ovom čvoru nema stabla izvornih datoteka (%s), pa se ne ulažu u arhivu", *podaciFlag)
+					javniUvoznik.Redak("stvarni kišomjeri: na ovom čvoru nema stabla izvornih datoteka (%s), pa se ne ulažu u arhivu", z.podaci)
 					kisUlozeno = dan
 				}
-				if dan := sada.In(kisomjeri.Zagreb).Format("2006-01-02"); dan != kisUlozeno && *podaciFlag != "" {
+				if dan := sada.In(kisomjeri.Zagreb).Format("2006-01-02"); dan != kisUlozeno && z.podaci != "" {
 					if postaje, err := kisUvoznik.Postaje(); err == nil {
-						letve, err := kisomjeri.Ulozi(*podaciFlag, kisUvoznik.Spremiste, postaje, sada.Add(-96*time.Hour), sada)
+						letve, err := kisomjeri.Ulozi(z.podaci, kisUvoznik.Spremiste, postaje, sada.Add(-96*time.Hour), sada)
 						if err != nil {
 							log.Printf("stvarni kišomjeri, ulaganje: %v", err)
 						}
@@ -1225,7 +1285,7 @@ func main() {
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 	server.JaviPostavljanje(*addr)
-	if *podPostavom {
+	if z.podPostavom {
 		// Windows nema SIGTERM, pa Postava čvor gasi zatvaranjem cijevi na
 		// standardnom ulazu. Zatvori se i kad Postava padne, pa čvor ne
 		// ostane siroče.
@@ -1256,7 +1316,6 @@ func main() {
 	fmt.Println("goCOP poslužitelj ugašen.")
 }
 
-// supportContact prenosi kontakt iz postavki čvora na stranicu prijave
 // opisMreze je redak dnevnika pri pokretanju: u kojoj je mreži čvor i smije
 // li primati članove
 func opisMreze(net *peers.Network) string {
@@ -1271,6 +1330,7 @@ func opisMreze(net *peers.Network) string {
 	return fmt.Sprintf("Mreža %q — član", net.Name)
 }
 
+// supportContact prenosi kontakt iz postavki čvora na stranicu prijave
 func supportContact(cfg config.Config) web.SupportContact {
 	return web.SupportContact{
 		Center: cfg.Support.Center, CenterPhone: cfg.Support.CenterPhone, CenterLink: web.TelLink(cfg.Support.CenterPhone),
