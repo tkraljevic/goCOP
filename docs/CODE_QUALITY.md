@@ -141,6 +141,11 @@ Za postojeći dug dopušten je **samo zatečeni opseg**:
 - CC ne smije prijeći `max(stari CC, cilj)`; CRAP ne smije prijeći
   `max(cilj, stari CRAP + 0,5)`. Prate se pojedine funkcije, tako da mnogo novih
   jednostavnih funkcija ne može sakriti pogoršanje jedne velike.
+- Nepromijenjena funkcija (isti broj tokena, naredbi i CC kao u baselineu)
+  ne uspoređuje se po coverageu ni CRAP-u: razlika tada dolazi od testova koji
+  ovise o vremenu, a ne od promjene. Ukupni i kritični coverage i dalje se
+  uspoređuju, a nestabilan test treba popraviti (npr. test koji grane pogađa
+  namjerno, a ne slučajno).
 - Exact udio ne smije narasti za više od **0,1 postotni bod**.
 - Novi/dodatni lint nalaz blokira i kada je riječ o linteru kategorije warning;
   ključ je linter + datoteka + poruka, s brojem pojavljivanja, bez broja retka.

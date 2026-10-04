@@ -165,11 +165,30 @@ func TestChangedFunctionCoverageCannotHideBehindAggregate(t *testing.T) {
 	c := testConfig()
 	base := cleanReport()
 	r := cleanReport()
-	base.Functions = []function{{ID: "f", Coverage: cov(10, 10), Complexity: 1, CRAP: number(1)}}
-	r.Functions = []function{{ID: "f", Coverage: cov(10, 9), Complexity: 1, CRAP: number(1.001)}}
+	base.Functions = []function{{ID: "f", Coverage: cov(10, 10), Complexity: 1, CRAP: number(1), Tokens: 40}}
+	r.Functions = []function{{ID: "f", Coverage: cov(10, 9), Complexity: 1, CRAP: number(1.001), Tokens: 44}}
 	evaluate(&r, &base, c, false)
 	if len(r.Failures) != 1 || !strings.Contains(r.Failures[0], "coverage:f") {
 		t.Fatal(r.Failures)
+	}
+}
+
+// Nepromijenjena funkcija čiji coverage pleše zbog testova ovisnih o
+// vremenu nije regresija; ukupni coverage se i dalje uspoređuje
+func TestUnchangedFunctionCoverageNoiseIsNotRegression(t *testing.T) {
+	c := testConfig()
+	base := cleanReport()
+	base.Functions = []function{{ID: "f", Coverage: cov(17, 14), Complexity: 5, CRAP: number(5.2), Tokens: 120}}
+	r := cleanReport()
+	r.Functions = []function{{ID: "f", Coverage: cov(17, 13), Complexity: 5, CRAP: number(5.5), Tokens: 120}}
+	evaluate(&r, &base, c, false)
+	if len(r.Failures) != 0 {
+		t.Fatalf("šum coveragea nepromijenjene funkcije: %v", r.Failures)
+	}
+	r.Coverage = cov(100, 60)
+	evaluate(&r, &base, c, false)
+	if len(r.Failures) == 0 {
+		t.Fatal("pad ukupnog coveragea mora i dalje biti regresija")
 	}
 }
 
@@ -385,5 +404,18 @@ func TestExceptionsDoNotChangePolicyHash(t *testing.T) {
 	}
 	if string(a) == string(c) {
 		t.Fatal("promjena praga mora promijeniti pravila mjerenja")
+	}
+}
+
+func TestSazetakPadaPokazujeStoJePalo(t *testing.T) {
+	log := []byte("ok  \tgocop/a\t1s\n--- FAIL: TestNesto (0.01s)\n    x_test.go:12: krivo\nFAIL\tgocop/b\t2s\npanic: test timed out after 30m0s\nok  \tgocop/c\t1s\n")
+	got := sazetakPada(log)
+	for _, ima := range []string{"--- FAIL: TestNesto", "FAIL\tgocop/b", "test timed out"} {
+		if !strings.Contains(got, ima) {
+			t.Errorf("sažetak nema %q:\n%s", ima, got)
+		}
+	}
+	if strings.Contains(got, "gocop/a") || sazetakPada([]byte("ok  \tgocop/a\t1s\n")) != "" {
+		t.Errorf("sažetak sadrži uspješne pakete:\n%s", got)
 	}
 }

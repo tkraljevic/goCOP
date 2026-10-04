@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 type testEvidence struct{ Source, Platform, GoVersion, ProfileHash, LogHash string }
@@ -44,11 +45,14 @@ func runTests(o options, r *report) error {
 	if err != nil {
 		return err
 	}
-	if err := logged(o.root, filepath.Join(o.out, "tests.log"), "go", append([]string{"test", "-race", "-covermode=atomic", "-coverprofile=" + profile, "-count=1", "-timeout=10m"}, paketi...)...); err != nil {
+	if err := logged(o.root, filepath.Join(o.out, "tests.log"), "go", append([]string{"test", "-race", "-covermode=atomic", "-coverprofile=" + profile, "-count=1", "-timeout=" + rokPaketa}, paketi...)...); err != nil {
 		r.Tests = "FAIL"
 		log, readErr := os.ReadFile(filepath.Join(o.out, "tests.log"))
 		if readErr == nil && bytes.Contains(log, []byte("DATA RACE")) {
 			r.Race = "FAIL"
+		}
+		if readErr == nil {
+			fmt.Print(sazetakPada(log))
 		}
 		return err
 	}
@@ -65,4 +69,32 @@ func runTests(o options, r *report) error {
 		return err
 	}
 	return writeJSON(receipt, e)
+}
+
+// rokPaketa je rok jednog testnog paketa. Race i atomski coverage zajedno
+// usporavaju testove nekoliko puta; najveći paket (internal/web) lokalno
+// traje oko 3,5 minute, a na sporijem stroju CI-ja i uz ostale pakete
+// usporedo prelazio je 10 minuta.
+const rokPaketa = "30m"
+
+// sazetakPada su retci zapisa testova koji kažu što je palo (test, panika,
+// istek roka, utrka), da se vide u ispisu i kad zapis nije priložen
+func sazetakPada(log []byte) string {
+	var b strings.Builder
+	n := 0
+	for _, redak := range strings.Split(string(log), "\n") {
+		t := strings.TrimSpace(redak)
+		if strings.HasPrefix(t, "--- FAIL") || strings.HasPrefix(t, "FAIL") || strings.HasPrefix(t, "panic:") ||
+			strings.Contains(t, "test timed out") || strings.Contains(t, "WARNING: DATA RACE") || strings.HasPrefix(t, "Error Trace") {
+			if n == 0 {
+				b.WriteString("Testovi su pali:\n")
+			}
+			b.WriteString("  " + t + "\n")
+			if n++; n == 40 {
+				b.WriteString("  …\n")
+				break
+			}
+		}
+	}
+	return b.String()
 }

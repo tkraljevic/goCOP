@@ -112,6 +112,12 @@ func compareFunctions(r, base *report, c config) {
 	}
 	for _, f := range r.Functions {
 		prev, exists := old[f.ID]
+		// Nepromijenjena funkcija (isti broj tokena, naredbi i CC): razlika u
+		// njezinom coverageu i CRAP-u dolazi od testova koji ovise o vremenu,
+		// ne od promjene, pa se po njima ne uspoređuje. Ukupni i kritični
+		// coverage i dalje se uspoređuju.
+		nepromijenjena := exists && f.Tokens == prev.Tokens && f.Complexity == prev.Complexity &&
+			f.Coverage.Statements == prev.Coverage.Statements
 		ccLimit, crapLimit, coverageTarget := c.ComplexityLimit, c.CRAPLimit, c.CoverageTarget
 		if f.Critical {
 			ccLimit, crapLimit, coverageTarget = c.CriticalComplexityLimit, c.CriticalCRAPLimit, c.CriticalCoverageTarget
@@ -125,10 +131,10 @@ func compareFunctions(r, base *report, c config) {
 		if f.Complexity > ccLimit {
 			checkRegression("complexity:"+f.ID, fmt.Sprintf("CC %d > %d", f.Complexity, ccLimit), c, r)
 		}
-		if f.CRAP != nil && *f.CRAP > crapLimit+1e-9 {
+		if f.CRAP != nil && *f.CRAP > crapLimit+1e-9 && !nepromijenjena {
 			checkRegression("crap:"+f.ID, fmt.Sprintf("CRAP %.2f > %.2f", *f.CRAP, crapLimit), c, r)
 		}
-		if exists && f.Coverage.Percent != nil && prev.Coverage.Percent != nil {
+		if exists && !nepromijenjena && f.Coverage.Percent != nil && prev.Coverage.Percent != nil {
 			compareCoverage("coverage:"+f.ID, f.Coverage, prev.Coverage, c, r)
 		} else if !exists && f.Coverage.Percent != nil && *f.Coverage.Percent+c.CoverageDrop < coverageTarget {
 			checkRegression("coverage:"+f.ID, fmt.Sprintf("nova funkcija %.2f%% < %.2f%%", *f.Coverage.Percent, coverageTarget), c, r)
