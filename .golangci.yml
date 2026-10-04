@@ -1,0 +1,68 @@
+version: "2"
+run:
+  timeout: 10m
+  tests: true
+  relative-path-mode: wd
+linters:
+  default: none
+  enable:
+    - govet
+    - staticcheck
+    - errcheck
+    - ineffassign
+    - unused
+    - revive
+    - gocyclo
+    - gocognit
+    - dupl
+    - maintidx
+    - nestif
+  settings:
+    errcheck:
+      # Samo čišćenje čija greška nema što reći: Rollback nakon Commita
+      # (ErrTxDone), Rows.Close (greške iteracije javlja rows.Err), zatvaranje
+      # mrežne veze i učitane datoteke iz obrasca. Upisi, Commit, Flush i
+      # zatvaranje zapisane datoteke i dalje se provjeravaju.
+      exclude-functions:
+        - (*database/sql.Tx).Rollback
+        - (*database/sql.Rows).Close
+        - (*database/sql.Stmt).Close
+        - (net.Conn).Close
+        - (*crypto/tls.Conn).Close
+        - (net.Listener).Close
+        - (mime/multipart.File).Close
+    staticcheck:
+      checks: ["SA*"]
+    gocyclo:
+      min-complexity: 16
+    gocognit:
+      min-complexity: 30
+    dupl:
+      threshold: 150
+    maintidx:
+      under: 20
+    nestif:
+      min-complexity: 5
+    revive:
+      enable-default-rules: false
+      rules:
+        - name: atomic
+        - name: context-keys-type
+        - name: errorf
+        - name: identical-branches
+        - name: unreachable-code
+  exclusions:
+    # Bez prešutnih isključenja: osim čišćenja iz errcheck gore, u testovima
+    # se ne provjerava samo zatvaranje (Close) na kraju testa.
+    presets: []
+    generated: strict
+    rules:
+      - path: _test\.go$
+        linters: [gocyclo, gocognit, dupl, maintidx, nestif]
+      - path: _test\.go$
+        linters: [errcheck]
+        text: "\\.Close` is not checked"
+issues:
+  uniq-by-line: false
+  max-issues-per-linter: 0
+  max-same-issues: 0

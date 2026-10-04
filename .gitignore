@@ -59,3 +59,6 @@ bin/
 build/gocop.ico
 build/licenca.txt
 dist/
+
+# Ponovljivi izvještaji kontrole kvalitete (prihvaćeni baseline je u quality/).
+/.quality/
