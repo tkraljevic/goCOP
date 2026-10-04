@@ -138,6 +138,7 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 	mux.HandleFunc("GET /akti/{id}", h.ShowAkt)
 	mux.HandleFunc("GET /akti/{id}/akt.pdf", h.IzvoziPDF)
 	mux.HandleFunc("POST /akti/{id}/ovjeri", h.HandleOvjeri)
+	mux.HandleFunc("POST /akti/{id}/storno", h.HandleStorno)
 	mux.HandleFunc("POST /akti/{id}/obrisi", h.HandleObrisi)
 
 	zovi := func(metoda, putanja string, forma url.Values) *httptest.ResponseRecorder {
@@ -393,6 +394,23 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 	}
 	if d, _ := akti.Get(ctx, id4); d == nil || d.Broj != 2 {
 		t.Errorf("drugi ovjereni akt u godini bi trebao imati broj 2: %+v", d)
+	}
+	mora(zovi(http.MethodGet, "/akti/"+id4, nil), "ovjeren prekid", "Poništi akt (storno)")
+
+	// storno prekida: obrana opet traje, akt ostaje u popisu označen
+	if w := zovi(http.MethodPost, "/akti/"+id4+"/storno", url.Values{"razlog": {"prekid je ovjeren prerano"}}); !strings.Contains(w.Header().Get("Location"), "success=") {
+		t.Fatalf("storno kroz rutu: %s", w.Header().Get("Location"))
+	}
+	mora(zovi(http.MethodGet, "/akti/"+id4, nil), "poništen akt", "poništen", "Akt je poništen (storno):", "prekid je ovjeren prerano")
+	mora(zovi(http.MethodGet, "/akti", nil), "popis s poništenim", "poništen")
+	if e, _ := episodes.Open(ctx, "B.34.1"); e == nil || e.Phase != models.PhaseEmergency {
+		t.Errorf("nakon poništenja prekida izvanredna obrana opet traje: %+v", e)
+	}
+	if w := zovi(http.MethodPost, "/akti/"+id4+"/storno", url.Values{"razlog": {"opet"}}); !strings.Contains(w.Header().Get("Location"), "error=") {
+		t.Errorf("ponovni storno kroz rutu: %s", w.Header().Get("Location"))
+	}
+	if w := zovi(http.MethodPost, "/akti/nema-ga/storno", url.Values{"razlog": {"razlog"}}); w.Code != http.StatusNotFound {
+		t.Errorf("storno nepostojećeg akta: %d", w.Code)
 	}
 }
 

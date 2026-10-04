@@ -197,6 +197,23 @@ func (r *EpisodeRepository) SaveEpisode(ctx context.Context, e *models.DefenseEp
 	return tx.Commit()
 }
 
+// DeleteEpisode briše jednu epizodu (npr. razdoblje obrane izvedeno iz akta
+// koji je poništen) i to bilježi u knjigu, pa nestaje i na ostalim čvorovima
+func (r *EpisodeRepository) DeleteEpisode(ctx context.Context, e *models.DefenseEpisode) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `DELETE FROM defense_episodes WHERE id = ?`, e.ID.String()); err != nil {
+		return fmt.Errorf("brisanje epizode obrane: %w", err)
+	}
+	if _, err := r.rec.Archive(ctx, tx, EntityEpisodes, e.ID.String(), e); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 // DeleteEpisodesFrom briše epizode dionice utvrđene računom, da se mogu
 // preračunati iz novog niza očitanja. Epizode koje je upisao operater ostaju.
 func (r *EpisodeRepository) DeleteEpisodesFrom(ctx context.Context, sectionCode, origin string) (int, error) {

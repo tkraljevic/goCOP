@@ -718,12 +718,12 @@ func (s *AktService) spremanZaOvjeruSkenom(ctx context.Context, a *models.Akt) e
 	return s.provjeriPrijeOvjere(ctx, a)
 }
 
-// uskladiEpizode drži epizodu obrane (povijest razdoblja obrane) uz stanje iz
-// ovjerenih akata u trenutku kad akt stupa na snagu. Ovjeren akt ovlašćuje
-// promjenu na svojim dionicama, bez obzira na to piše li onaj tko ga vraća u
-// program baš na njima (voditelj COP-a i rukovoditelj područja pišu na razini
-// sektora i područja, a epizoda se vodi po dionici).
-func (s *AktService) uskladiEpizode(ctx context.Context, u *models.User, a *models.Akt) []string {
+// uskladiEpizode izvodi povijest obrane (epizode) dionica akta iz ovjerenih,
+// neponištenih akata sektora: razdoblje po razdoblje, sa stalnim
+// identitetom, pa svaki čvor iz istih akata dobije iste zapise, a poništen
+// akt nestane i iz povijesti. Akt koji stupa na snagu kasnije ulazi u
+// povijest kad se ona idući put izvodi (stanje ga pokazuje u svoje vrijeme).
+func (s *AktService) uskladiEpizode(ctx context.Context, a *models.Akt) []string {
 	if s.episodes == nil {
 		return nil
 	}
@@ -731,43 +731,110 @@ func (s *AktService) uskladiEpizode(ctx context.Context, u *models.User, a *mode
 	if err != nil {
 		return []string{"povijest obrane nije usklađena: " + err.Error()}
 	}
-	poAktu := &models.UserPermissions{User: *u, AllowedSections: map[string]bool{}}
-	for _, d := range a.Dionice {
-		poAktu.AllowedSections[d.Code] = true
-	}
-	st := s.letvaAkta(ctx, a)
 	var upozorenja []string
 	for _, d := range a.Dionice {
-		if err := s.uskladiEpizodu(ctx, poAktu, u, d.Code, *st, a, ovjereni); err != nil {
+		if err := s.episodes.UskladiIzAkata(ctx, d.Code, epizodeIzAkata(ovjereni, d.Code, time.Now()), moguceEpizode(ovjereni, d.Code)); err != nil {
 			upozorenja = append(upozorenja, d.Code+": "+err.Error())
 		}
 	}
 	return upozorenja
 }
 
-// uskladiEpizodu: obrana počinje — epizoda se otvara; stadij raste — podiže
-// se; ništa više ne traje — zatvara se (i kad se ukine viši stadij bez
-// nižeg ispod). Akt koji stupa na snagu kasnije epizodu sada ne mijenja:
-// stanje iz akata ga pokazuje u svoje vrijeme.
-func (s *AktService) uskladiEpizodu(ctx context.Context, poAktu *models.UserPermissions, u *models.User, dionica string, st models.Station, a *models.Akt, ovjereni []models.Akt) error {
-	if a.Vrijedi.After(time.Now().Add(time.Hour)) {
-		return nil
+// epizodeIzAkata su razdoblja obrane dionice do trenutka t kao epizode: tko
+// je proglasio i prekinuo, po čemu, i akti razdoblja u bilješci
+func epizodeIzAkata(akti []models.Akt, dionica string, t time.Time) []models.DefenseEpisode {
+	var out []models.DefenseEpisode
+	for _, r := range models.RazdobljaObrane(akti, dionica, t) {
+		prvi := r.Akti[0]
+		e := models.DefenseEpisode{ID: models.IDEpizodeIzAkta(dionica, prvi.ID), SectionCode: dionica, StationID: prvi.StationID,
+			StartedAt: r.Od, EndedAt: r.Do, Phase: r.Najvisi, DeclaredBy: prvi.OvjerioID, Basis: osnovaEpizode(&prvi), Origin: models.EpisodeFromOperator}
+		var biljeske []string
+		for _, x := range r.Akti {
+			biljeske = append(biljeske, x.Naslov()+" "+x.Oznaka())
+		}
+		e.Note = strings.Join(biljeske, "\n")
+		if r.Do != nil {
+			e.EndedBy = r.Akti[len(r.Akti)-1].OvjerioID
+		}
+		out = append(out, e)
 	}
-	stanje, _ := models.StanjeDionice(ovjereni, dionica, a.Vrijedi)
-	otvorena, err := s.episodes.Open(ctx, dionica)
+	return out
+}
+
+// moguceEpizode su identiteti epizoda koje su akti dionice mogli otvoriti:
+// svaka ovjerena uspostava, i poništena
+func moguceEpizode(akti []models.Akt, dionica string) []uuid.UUID {
+	var out []uuid.UUID
+	for _, a := range akti {
+		if a.Radnja != models.AktUspostava {
+			continue
+		}
+		for _, d := range a.Dionice {
+			if d.Code == dionica {
+				out = append(out, models.IDEpizodeIzAkta(dionica, a.ID))
+			}
+		}
+	}
+	return out
+}
+
+// SmijePonistiti: ovjeren, neponišten akt poništava onaj tko ga je pripremio
+// (bez obzira na potpisnika) i svatko tko ga smije ovjeriti
+func (s *AktService) SmijePonistiti(perms *models.UserPermissions, u *models.User, a *models.Akt) bool {
+	if a == nil || u == nil || !a.Ovjeren() || a.Storniran() {
+		return false
+	}
+	return a.IzradioID == u.ID.String() || s.SmijeOvjeriti(perms, a)
+}
+
+// Storniraj poništava ovjeren akt kad je pogreška to što je uopće izdan
+// (ispravak ide novim aktom). Akt ostaje u popisu, označen; ne ulazi u stanje
+// obrane, a povijest obrane se iznova izvodi. Poništava se najkasniji akt
+// dionice; poništenje se potpisuje ključem čvora i razmjenjuje s aktom.
+func (s *AktService) Storniraj(ctx context.Context, perms *models.UserPermissions, u *models.User, id, razlog string) (*models.Akt, []string, error) {
+	a, err := s.repo.GetAkt(ctx, id)
+	if err != nil {
+		return nil, nil, err
+	}
+	if err := s.provjeriStorno(ctx, perms, u, a, razlog); err != nil {
+		return nil, nil, err
+	}
+	a.Storno = &models.StornoAkta{PonistioID: u.ID.String(), Ponistio: u.FullName, PonistenoAt: time.Now().UTC().Truncate(time.Second),
+		Razlog: strings.TrimSpace(razlog), Cvor: s.cvor}
+	if len(s.kljuc) == ed25519.PrivateKeySize {
+		a.Storno.KljucCvora = razmjena.PublicKeyString(s.kljuc.Public().(ed25519.PublicKey))
+		a.Storno.Potpis = base64.StdEncoding.EncodeToString(ed25519.Sign(s.kljuc, a.PorukaStorna()))
+	}
+	if err := s.repo.SaveAkt(ctx, a); err != nil {
+		return nil, nil, err
+	}
+	return a, s.uskladiEpizode(ctx, a), nil
+}
+
+// provjeriStorno: akt postoji, ovjeren je i nije poništen, smije ga
+// poništiti, razlog je upisan i nijedan kasniji akt na njegovim dionicama ne
+// stoji na njemu
+func (s *AktService) provjeriStorno(ctx context.Context, perms *models.UserPermissions, u *models.User, a *models.Akt, razlog string) error {
+	switch {
+	case a == nil:
+		return fmt.Errorf("akt ne postoji")
+	case !a.Ovjeren():
+		return fmt.Errorf("poništava se samo ovjeren akt; nacrt se briše")
+	case a.Storniran():
+		return fmt.Errorf("akt %s je već poništen", a.Oznaka())
+	case !s.SmijePonistiti(perms, u, a):
+		return fmt.Errorf("%w: akt poništava onaj tko ga je pripremio ili tko ga smije ovjeriti", ErrUnauthorized)
+	case strings.TrimSpace(razlog) == "":
+		return fmt.Errorf("upišite zašto se akt poništava")
+	}
+	ovjereni, err := s.repo.ListAkti(ctx, repository.FiltarAkata{Sektor: a.Sektor, Status: models.AktOvjeren})
 	if err != nil {
 		return err
 	}
-	biljeska := a.Naslov() + " " + a.Oznaka()
-	switch {
-	case stanje.Traje() && otvorena == nil:
-		_, err = s.episodes.Declare(ctx, poAktu, u.ID.String(), dionica, st, a.Vrijedi, stanje.Najvisi(), osnovaEpizode(a), biljeska)
-	case stanje.Traje() && stanje.Najvisi().Severity() > otvorena.Phase.Severity():
-		err = s.episodes.Raise(ctx, poAktu, dionica, stanje.Najvisi(), biljeska)
-	case !stanje.Traje() && otvorena != nil:
-		err = s.episodes.End(ctx, poAktu, u.ID.String(), dionica, a.Vrijedi, biljeska)
+	if k, d, ima := models.KasnijiAkt(ovjereni, *a); ima {
+		return fmt.Errorf("na dionici %s poslije njega vrijedi %s %s: najprije se poništava kasniji akt", d, strings.ToLower(k.Naslov()), k.Oznaka())
 	}
-	return err
+	return nil
 }
 
 // zakljuciOvjeru dovršava ovjeru: broj, tko i kad, kod, potpis ključem
@@ -800,7 +867,7 @@ func (s *AktService) zakljuciOvjeru(ctx context.Context, potpisnikPerms *models.
 		return nil, nil, err
 	}
 
-	upozorenja := s.uskladiEpizode(ctx, u, a)
+	upozorenja := s.uskladiEpizode(ctx, a)
 	// ovjeren akt ide u dnevnike: COP-a, vodočuvara i održavanja
 	if s.objavi != nil {
 		var j *models.Journal

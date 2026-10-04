@@ -78,6 +78,7 @@ type AktiPageData struct {
 	SmijeOvjeriti       bool
 	SmijeObrisati       bool
 	SmijeObrisatiTrajno bool   // ovjeren akt, uz uključenu opciju
+	SmijePonistiti      bool   // ovjeren akt: autor ili tko ga smije ovjeriti
 	Potpis              string // stanje elektroničkog potpisa: VRIJEDI, NE_VRIJEDI, NEMA
 	SmijePripremiti     bool
 	MoguPotpisati       []models.User // za izbor potpisnika uz sken
@@ -309,6 +310,7 @@ func (h *AktiHandler) ShowAkt(w http.ResponseWriter, r *http.Request) {
 	data.SmijeOvjeriti = !a.Ovjeren() && s.SmijeOvjeriti(perms, a)
 	data.SmijeObrisati = !a.Ovjeren() && u != nil && (a.IzradioID == u.ID.String() || s.SmijeOvjeriti(perms, a))
 	data.SmijeObrisatiTrajno = s.SmijeObrisatiTrajno(r.Context(), perms, a)
+	data.SmijePonistiti = s.SmijePonistiti(perms, u, a)
 	for i := range data.Sektori {
 		if data.Sektori[i].ID == a.Sektor {
 			data.Sektor = &data.Sektori[i]
@@ -366,6 +368,26 @@ func (h *AktiHandler) ShowSpranca(w http.ResponseWriter, r *http.Request) {
 	if err := h.tmplSpranca.ExecuteTemplate(w, "spranca.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// HandleStorno poništava ovjeren akt (storno), uz razlog: akt ostaje u
+// popisu, označen, a stanje i povijest obrane računaju se bez njega
+func (h *AktiHandler) HandleStorno(w http.ResponseWriter, r *http.Request) {
+	u, perms, _ := h.base(r)
+	s, a := h.ucitaj(w, r)
+	if a == nil {
+		return
+	}
+	a, upozorenja, err := s.Storniraj(r.Context(), perms, u, a.ID, r.FormValue("razlog"))
+	if err != nil {
+		redirectWith(w, r, "/akti/"+r.PathValue("id"), "error", err.Error())
+		return
+	}
+	poruka := "Akt " + a.Oznaka() + " je poništen."
+	if len(upozorenja) > 0 {
+		poruka += " Povijest obrane: " + strings.Join(upozorenja, "; ")
+	}
+	redirectWith(w, r, "/akti/"+a.ID, "success", poruka)
 }
 
 // HandleSpranca sprema šprancu sektora; "zadano" vraća zadani tekst

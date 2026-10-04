@@ -192,3 +192,56 @@ func TestStanjeIzAkataIStanjaDionica(t *testing.T) {
 		t.Errorf("stanja dionica: %+v", sva)
 	}
 }
+
+// Poništen akt ne ulazi u stanje; poništava se najkasniji akt dionice
+func TestStornoIKasnijiAkt(t *testing.T) {
+	a1, a2, a3 := akt("g1", AktUspostava, PhasePrep, 1, 8), akt("g2", AktUspostava, PhaseRegular, 2, 8), akt("g3", AktPrekid, PhaseRegular, 3, 8)
+	ponisten := a2
+	ponisten.Storno = &StornoAkta{Razlog: "pogrešan stadij"}
+	if s, g := StanjeDionice([]Akt{a1, ponisten}, "P.1.1", kad(4, 0)); s.Najvisi() != PhasePrep || len(g) != 0 {
+		t.Errorf("poništen akt u stanju: %+v %v", s, g)
+	}
+	akti := []Akt{a3, a1, a2}
+	if k, d, ima := KasnijiAkt(akti, a2); !ima || k.ID != "g3" || d != "P.1.1" {
+		t.Errorf("kasniji od g2: %v %s %v", k.ID, d, ima)
+	}
+	if _, _, ima := KasnijiAkt(akti, a3); ima {
+		t.Error("g3 je najkasniji")
+	}
+	if !ponisten.Storniran() || a2.Storniran() || len(a2.PorukaStorna()) != 0 || !strings.HasPrefix(string(ponisten.PorukaStorna()), "goCOP-storno-v1|g2|") {
+		t.Errorf("storno: %q", ponisten.PorukaStorna())
+	}
+}
+
+// Razdoblja obrane: postupno gore i dolje je jedno razdoblje s najvišim
+// stadijem; odmah redovna pa zakašnjelo pripremno su dva; nemoguć akt se
+// preskače; razdoblje koje traje nema kraja
+func TestRazdobljaObrane(t *testing.T) {
+	akti := []Akt{
+		akt("h1", AktUspostava, PhasePrep, 1, 8), akt("h2", AktUspostava, PhaseRegular, 2, 8),
+		akt("h3", AktPrekid, PhaseRegular, 3, 8), akt("h9", AktPrekid, PhaseState, 3, 9),
+		akt("h4", AktPrekid, PhasePrep, 4, 8),
+		akt("h5", AktUspostava, PhaseRegular, 6, 8), akt("h6", AktPrekid, PhaseRegular, 7, 8),
+		akt("h7", AktUspostava, PhasePrep, 7, 8),
+	}
+	r := RazdobljaObrane(akti, "P.1.1", kad(9, 0))
+	if len(r) != 3 {
+		t.Fatalf("razdoblja: %+v", r)
+	}
+	if !r[0].Od.Equal(kad(1, 8)) || r[0].Do == nil || !r[0].Do.Equal(kad(4, 8)) || r[0].Najvisi != PhaseRegular || len(r[0].Akti) != 4 || r[0].Akti[0].ID != "h1" {
+		t.Errorf("prvo: %+v", r[0])
+	}
+	if r[1].Najvisi != PhaseRegular || r[1].Do == nil || !r[1].Do.Equal(kad(7, 8)) || r[1].Akti[1].ID != "h6" {
+		t.Errorf("drugo: %+v", r[1])
+	}
+	if r[2].Do != nil || r[2].Najvisi != PhasePrep || r[2].Akti[0].ID != "h7" {
+		t.Errorf("treće (traje): %+v", r[2])
+	}
+	if len(RazdobljaObrane(akti, "P.1.1", kad(1, 7))) != 0 {
+		t.Error("prije prvog akta nema razdoblja")
+	}
+	prvi, opet, druga := IDEpizodeIzAkta("P.1.1", "h1"), IDEpizodeIzAkta("P.1.1", "h1"), IDEpizodeIzAkta("P.1.2", "h1")
+	if prvi != opet || prvi == druga {
+		t.Error("identitet epizode iz akta")
+	}
+}

@@ -10,7 +10,7 @@
   <div>
     <h1 class="page-title">{{icon "file-text"}} {{$a.Vrsta}} o {{$a.RadnjaLabel}} {{$a.Predmet}}</h1>
     <p class="page-desc">{{$a.StationName}} · BP {{$a.AreaID}}{{with .Podrucje}} {{.Name}}{{end}} · {{term "sektor"}} {{$a.Sektor}} ·
-      {{if $a.Ovjeren}}<span class="badge badge-area-admin">{{icon "check"}} ovjeren {{$a.Oznaka}}</span>{{else}}<span class="badge badge-pending">nacrt</span>{{end}}</p>
+      {{if $a.Ovjeren}}<span class="badge badge-area-admin">{{icon "check"}} ovjeren {{$a.Oznaka}}</span>{{else}}<span class="badge badge-pending">nacrt</span>{{end}}{{if $a.Storniran}} <span class="badge badge-danger">poništen</span>{{end}}</p>
   </div>
   <div class="page-actions">
     <a href="/akti/{{$a.ID}}/akt.pdf" class="btn btn-secondary" target="_blank">{{icon "printer"}} PDF</a>
@@ -191,6 +191,22 @@
 </details>
 {{end}}
 
+{{with $a.Storno}}
+<div class="akt-potpis-stanje ne-vrijedi">
+  {{icon "triangle-alert"}} <strong>Akt je poništen (storno):</strong> {{.Razlog}} Poništio {{.Ponistio}}, {{formatDate (localTime .PonistenoAt)}}. Poništen akt ne ulazi u stanje obrane; ako treba, ispravlja ga novi akt.
+</div>
+{{end}}
+{{if .SmijePonistiti}}
+<details class="akt-potpis-stanje">
+  <summary>{{icon "x"}} Poništi akt (storno)</summary>
+  <form method="POST" action="/akti/{{$a.ID}}/storno" class="mt-2" onsubmit="return confirm('Poništiti akt {{$a.Oznaka}}? Akt ostaje u popisu, označen kao poništen, i ne ulazi u stanje obrane. Ovo je za akt koji uopće nije trebao biti izdan; ispravak ide novim aktom.');">
+    <p class="form-help mt-0">Poništava se akt koji uopće nije trebao biti izdan; ispravak ide novim aktom. Poništava se najkasniji akt dionice; poništenje se potpisuje ključem čvora i šalje s aktom ostalim čvorovima.</p>
+    <label for="razlog" class="form-label">Zašto se akt poništava</label>
+    <textarea id="razlog" name="razlog" class="form-control" rows="2" required></textarea>
+    <button type="submit" class="btn btn-secondary btn-opasno mt-2">{{icon "x"}} Poništi akt</button>
+  </form>
+</details>
+{{end}}
 {{with $a.Rucno}}
 <div class="akt-potpis-stanje vrijedi">
   {{icon "check"}} <strong>Potpisan vlastoručno i ovjeren žigom:</strong> {{.Potpisnik}}. Izvornik je sken ispisa; učitao ga je {{.Ucitao}}, {{formatDate (localTime .UcitanoAt)}}.

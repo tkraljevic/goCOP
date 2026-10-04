@@ -49,7 +49,7 @@
       <td>{{.AreaID}}</td>
       <td class="mono">{{join .Sifre ", "}}</td>
       <td class="mono">{{formatDate (localTime .Vrijedi)}}</td>
-      <td>{{if .Ovjeren}}<span class="badge badge-area-admin">{{icon "check"}} {{.Ovjerio}}</span>{{else}}<span class="badge badge-pending">nacrt</span>{{end}}</td>
+      <td>{{if .Storniran}}<span class="badge badge-danger">poništen</span>{{else if .Ovjeren}}<span class="badge badge-area-admin">{{icon "check"}} {{.Ovjerio}}</span>{{else}}<span class="badge badge-pending">nacrt</span>{{end}}</td>
       <td><a href="/akti/{{.ID}}/akt.pdf" class="btn btn-sm btn-secondary" title="PDF">{{icon "printer"}}</a></td>
     </tr>
     {{end}}
