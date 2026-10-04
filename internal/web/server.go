@@ -1083,9 +1083,8 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /api/sections/prijedlog-veze", s.authMiddleware(http.HandlerFunc(sectionsH.HandlePrijedlogVezeAPI)))
 	s.mux.Handle("POST /sections/create", s.authMiddleware(http.HandlerFunc(sectionsH.HandleCreateSection)))
 	s.mux.Handle("POST /sections/update", s.authMiddleware(http.HandlerFunc(sectionsH.HandleUpdateSection)))
-	s.mux.Handle("POST /sections/{code}/obrana/proglasi", s.authMiddleware(http.HandlerFunc(sectionsH.HandleDeclareDefense)))
-	s.mux.Handle("POST /sections/{code}/obrana/podigni", s.authMiddleware(http.HandlerFunc(sectionsH.HandleRaiseDefense)))
-	s.mux.Handle("POST /sections/{code}/obrana/prekini", s.authMiddleware(http.HandlerFunc(sectionsH.HandleEndDefense)))
+	// Stanje obrane na dionici mijenja samo ovjeren akt (Akti); izravnih ruta
+	// za proglašenje, podizanje i prekid nema
 
 	// Teritorijalne jedinice (županije, gradovi, općine, naselja)
 	s.mux.Handle("GET /territories", s.authMiddleware(http.HandlerFunc(territoriesH.ShowTerritories)))
