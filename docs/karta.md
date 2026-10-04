@@ -32,7 +32,12 @@ dnevniku; postavke ga mogu zadržati, ali ga je bolje ispraviti.
 
 OpenStreetMapov poslužitelj pločica ima pravila korištenja: zasluga na
 karti, predstavljanje programa (poslužitelj pri slaganju PDF-a šalje svoj
-User-Agent) i bez masovnog preuzimanja. Za pilot i laganu upotrebu je
+User-Agent), adresa stranice uz zahtjev preglednika i bez masovnog
+preuzimanja. Zahtjev bez adrese stranice dobije pločicu „Access blocked”
+(osm.wiki/Blocked). Stranice goCOP-a imaju `Referrer-Policy: same-origin`,
+pa karte pločicama izričito daju `strict-origin-when-cross-origin`
+(`web/static/js/app.js`): poslužitelj pločica vidi samo ishodište, npr.
+`https://cop-osijek.com`, bez putanje i upita. Za pilot i laganu upotrebu je
 dovoljan. Za širu upotrebu (stotine računala) bolji su službene podloge
 Državne geodetske uprave ili vlastiti poslužitelj pločica u mreži Hrvatskih
 voda, upisan ovdje.

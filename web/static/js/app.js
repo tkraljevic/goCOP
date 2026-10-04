@@ -1,3 +1,10 @@
+// OpenStreetMapovi poslužitelji pločica odbijaju zahtjev preglednika koji ne
+// kaže s koje stranice dolazi (osm.wiki/Blocked), a stranice goCOP-a imaju
+// Referrer-Policy: same-origin, pa preglednik adresu prema van ne šalje.
+// Pločice zato šalju samo ishodište (npr. https://cop-osijek.com), bez putanje
+// i upita; ostali zahtjevi stranice i dalje ne odaju ništa.
+var UPUCIVAC_PLOCICA = 'strict-origin-when-cross-origin';
+
 function escapeHtml(text) {
   return String(text == null ? '' : text).replace(/[&<>"']/g, function (c) {
     return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
@@ -786,7 +793,7 @@ function dodajKontroleKarte(karta, platno, opcije) {
       var najvise = parseInt(okvir.dataset.najviseZ, 10) || 17;
       var karta = L.map(platno, { scrollWheelZoom: true }).setView([lat, lon], 14);
       dodajKontroleKarte(karta, platno);
-      var sloj = L.tileLayer(okvir.dataset.plocice, {
+      var sloj = L.tileLayer(okvir.dataset.plocice, { referrerPolicy: UPUCIVAC_PLOCICA,
         maxZoom: najvise,
         attribution: okvir.dataset.zasluge || ''
       });
@@ -844,7 +851,7 @@ function dodajKontroleKarte(karta, platno, opcije) {
       var najvise = parseInt(okvir.dataset.najviseZ, 10) || 17;
       var karta = L.map(platno, { scrollWheelZoom: true });
       dodajKontroleKarte(karta, platno);
-      var sloj = L.tileLayer(okvir.dataset.plocice, {
+      var sloj = L.tileLayer(okvir.dataset.plocice, { referrerPolicy: UPUCIVAC_PLOCICA,
         maxZoom: najvise,
         attribution: okvir.dataset.zasluge || ''
       });
@@ -1207,7 +1214,7 @@ function dodajKontroleKarte(karta, platno, opcije) {
       var najvise = parseInt(okvir.dataset.najviseZ, 10) || 17;
       var karta = L.map(platno, { scrollWheelZoom: true });
       dodajKontroleKarte(karta, platno);
-      var sloj = L.tileLayer(okvir.dataset.plocice, {
+      var sloj = L.tileLayer(okvir.dataset.plocice, { referrerPolicy: UPUCIVAC_PLOCICA,
         maxZoom: najvise,
         attribution: okvir.dataset.zasluge || ''
       });
@@ -1312,7 +1319,7 @@ function dodajKontroleKarte(karta, platno, opcije) {
       dodajKontroleKarte(karta, platno, { lokacija: false });
       if (okvir.dataset.plocice) {
         var promasaja = 0;
-        var sloj = L.tileLayer(okvir.dataset.plocice, { maxZoom: parseInt(okvir.dataset.najviseZ, 10) || 17, attribution: okvir.dataset.zasluge || '' });
+        var sloj = L.tileLayer(okvir.dataset.plocice, { referrerPolicy: UPUCIVAC_PLOCICA, maxZoom: parseInt(okvir.dataset.najviseZ, 10) || 17, attribution: okvir.dataset.zasluge || '' });
         sloj.on('tileerror', function () {
           if (++promasaja < 3) return;
           var poruka = okvir.querySelector('.karta-bez-mreze');
@@ -1784,7 +1791,7 @@ function dodajKontroleKarte(karta, platno, opcije) {
       var karta = L.map(platno, { scrollWheelZoom: true });
       dodajKontroleKarte(karta, platno);
       var promasaja = 0;
-      var sloj = L.tileLayer(okvir.dataset.plocice, { maxZoom: parseInt(okvir.dataset.najviseZ, 10) || 17, attribution: okvir.dataset.zasluge || '' });
+      var sloj = L.tileLayer(okvir.dataset.plocice, { referrerPolicy: UPUCIVAC_PLOCICA, maxZoom: parseInt(okvir.dataset.najviseZ, 10) || 17, attribution: okvir.dataset.zasluge || '' });
       sloj.on('tileerror', function () {
         if (++promasaja < 3) return;
         var poruka = okvir.querySelector('.karta-bez-mreze');
@@ -1990,7 +1997,7 @@ function dodajKontroleKarte(karta, platno, opcije) {
       var fsSekcija = okvir.closest('.karta-teritorij-sekcija') || okvir;
       dodajKontroleKarte(karta, platno, { fullscreenTarget: fsSekcija });
       var plociceUrl = okvir.dataset.plocice || 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-      var sloj = L.tileLayer(plociceUrl, {
+      var sloj = L.tileLayer(plociceUrl, { referrerPolicy: UPUCIVAC_PLOCICA,
         maxZoom: najvise,
         attribution: okvir.dataset.zasluge || '© OpenStreetMap suradnici'
       });
