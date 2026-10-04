@@ -18,18 +18,18 @@ Rad je prekinut zbog budžeta. Ova datoteka je za agenta koji nastavlja. Uz nju 
 
 | Grana | Područje | Stanje |
 |---|---|---|
-| `stabilizacija-plan` | faza 1: testovi koji zaključavaju ponašanje, `docs/STABILIZACIJA.md` | testovi gotovi; tablica metrika u `docs/STABILIZACIJA.md` (`<!-- METRIKE -->`) i u `PREDAJA-opis-PR.md` (`__TABLICA__`) nije upisana; PR nije otvoren |
-| `stabilizacija-citanja` | ReadingService | testovi gotovi; opis i „Sumnjivo ponašanje” treba dovršiti |
-| `stabilizacija-dionice` | SectionService.SaveSection | isto |
-| `stabilizacija-dnevnici` | JournalService (Obracun, SpremiDezurstvo) | isto |
-| `stabilizacija-izvjesca` | IzvjescaService (Spremi, SpremiSektorsko) | isto |
-| `stabilizacija-korisnici` | UserService (CreateUser, UpdateUser) | isto |
-| `stabilizacija-vodocuvar` | VodocuvarService.Spremi | testovi i jedan popravak gotovi; opis PR-a gotov |
+| `stabilizacija-plan` (PR #4) | faza 1: testovi koji zaključavaju ponašanje, `docs/STABILIZACIJA.md` | testovi gotovi; tablica metrika u `docs/STABILIZACIJA.md` (`<!-- METRIKE -->`) i u `PREDAJA-opis-PR.md` (`__TABLICA__`) nije upisana; PR nije otvoren |
+| `stabilizacija-citanja` (PR #6) | ReadingService | testovi, opis i „Sumnjivo ponašanje” gotovi; popravak NaN-a u zasebnom commitu |
+| `stabilizacija-dionice` (PR #7) | SectionService.SaveSection | testovi, opis i „Sumnjivo ponašanje” gotovi |
+| `stabilizacija-dnevnici` (PR #8) | JournalService (Obracun, SpremiDezurstvo) | testovi, opis i „Sumnjivo ponašanje” gotovi; popravak kraja dana u zasebnom commitu |
+| `stabilizacija-izvjesca` (PR #9) | IzvjescaService (Spremi, SpremiSektorsko) | testovi, opis i „Sumnjivo ponašanje” gotovi |
+| `stabilizacija-korisnici` (PR #10) | UserService (CreateUser, UpdateUser) | testovi, opis i „Sumnjivo ponašanje” gotovi |
+| `stabilizacija-vodocuvar` (PR #5) | VodocuvarService.Spremi | testovi i jedan popravak gotovi; opis PR-a gotov |
 | — | MtsService.Provedi | nije započeto (master: CC 45, coverage 81,5 %, CRAP 57,9) |
 | — | AktService (primatelji, zakljuciOvjeru) | nije započeto (master: `primatelji` CC 52, 0 %, CRAP 2756; `zakljuciOvjeru` CC 19, 0 %, CRAP 380; obje kritične) |
 | — | faza 3 | nije započeto; popis u `PREDAJA-faza3.md` |
 
-Na nijednoj grani `make quality` još nije izmjeren. Prije svakog PR-a treba ga pokrenuti prema baselineu.
+Opis svake grane faze 2 je u njezinu `PREDAJA.md`: kad `make quality` prođe, sadržaj ide u opis PR-a, a datoteka se briše. Na nijednoj grani `make quality` još nije izmjeren. Prije svakog PR-a treba ga pokrenuti prema baselineu.
 
 ## Mjerenje na Linuxu (kao CI)
 CI ponovno mjeri baseline commit `f5adb84` trenutnim alatom pa uspoređuje. Lokalno:
