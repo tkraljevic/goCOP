@@ -1,0 +1,35 @@
+[
+  {
+    "username": "pperic",
+    "full_name": "Pero Perić",
+    "title": "Rukovoditelj obrane od poplava sektora P",
+    "org_type": "HRVATSKE_VODE",
+    "org_name": "VGO za Primjerski sliv, Primjerovo",
+    "phone": "000 000 010",
+    "mobile_phone": "000 000 011",
+    "short_phone": "",
+    "short_mobile": "",
+    "email": "pperic@example.com",
+    "is_global_admin": false,
+    "duties": [
+      {
+        "title": "Rukovoditelj sektora P",
+        "role": "SECTOR_LEADER",
+        "scope_type": "SECTOR",
+        "sector_id": "P",
+        "area_id": null,
+        "section_codes": "",
+        "is_primary": true
+      },
+      {
+        "title": "Rukovoditelj dionice P.1.1",
+        "role": "SECTION_LEADER",
+        "scope_type": "SECTION",
+        "sector_id": "P",
+        "area_id": 1,
+        "section_codes": "P.1.1",
+        "is_primary": false
+      }
+    ]
+  }
+]

@@ -1,0 +1,21 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "rijeka Primjerica",
+        "stacionaza_napomena": "Izmišljeni tok, samo za primjer oblika datoteke."
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [16.0000, 45.5000],
+          [16.0150, 45.5040],
+          [16.0310, 45.5025],
+          [16.0480, 45.5090]
+        ]
+      }
+    }
+  ]
+}

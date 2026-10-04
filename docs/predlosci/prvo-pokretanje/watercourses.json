@@ -1,0 +1,34 @@
+[
+  {
+    "official_name": "rijeka Primjerica",
+    "name": "Primjerica",
+    "kind": "rijeka",
+    "category": "DRUGE VEĆE VODE I KANALI",
+    "subcategory": "",
+    "wiki_slug": "",
+    "origin": "izmišljeni primjer",
+    "length_km": 42.5,
+    "basin_km2": 310,
+    "avg_flow_m3s": 4.2,
+    "source": "Primjerska gora",
+    "mouth": "rijeka Oglednica kod Primjerova",
+    "flows_into": "Oglednica",
+    "notes": ""
+  },
+  {
+    "official_name": "kanal Probni",
+    "name": "Probni",
+    "kind": "kanal",
+    "category": "",
+    "subcategory": "",
+    "wiki_slug": "",
+    "origin": "izmišljeni primjer",
+    "length_km": 6.1,
+    "basin_km2": null,
+    "avg_flow_m3s": null,
+    "source": "",
+    "mouth": "rijeka Primjerica",
+    "flows_into": "Primjerica",
+    "notes": ""
+  }
+]
