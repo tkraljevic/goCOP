@@ -573,7 +573,7 @@ func otvoriBazu(dbPath string) (*sql.DB, *sadrzaj.Spremiste, error) {
 
 	// 2. Inicijalizacija sheme
 	if err := db.InitSchema(database); err != nil {
-		database.Close()
+		_ = database.Close() // vraća se greška otvaranja, ne zatvaranja
 		return nil, nil, fmt.Errorf("Kritična greška pri inicijalizaciji sheme: %w", err)
 	}
 
@@ -581,7 +581,7 @@ func otvoriBazu(dbPath string) (*sql.DB, *sadrzaj.Spremiste, error) {
 	// uz glavnu bazu, da glavna raste s brojem zapisa a ne s megabajtima
 	spremiste, err := sadrzaj.Otvori(filepath.Join(filepath.Dir(dbPath), "sadrzaj.db"))
 	if err != nil {
-		database.Close()
+		_ = database.Close() // vraća se greška otvaranja, ne zatvaranja
 		return nil, nil, fmt.Errorf("Kritična greška pri otvaranju spremišta sadržaja: %w", err)
 	}
 	repository.SetSpremiste(spremiste)
