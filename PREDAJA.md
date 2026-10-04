@@ -18,17 +18,17 @@ Rad je prekinut. Ova datoteka nije dio promjene: služi agentu koji preuzima gra
 ### Testovi (`internal/service/dezurstva_obracun_test.go`)
 | Test | Što tvrdi |
 |---|---|
-| `TestDezurstvoUpisSebe` | (dopuniti) |
-| `TestDezurstvoGranice` | (dopuniti) |
-| `TestDezurstvoPotvrdaIIzmjena` | (dopuniti) |
-| `TestDezurstvoMicanje` | (dopuniti) |
-| `TestObracunDezurstava` | (dopuniti) |
-| `TestObracunJedneOsobe` | (dopuniti) |
-| `TestPreuzimanjeIPredajaDezurstva` | (dopuniti) |
-| `TestPreuzimanjeDezurstvaOdbijeno` | (dopuniti) |
-| `TestPredajaDugogDezurstvaBezGranice` | (dopuniti) |
-| `TestPredajaPrijePocetka` | (dopuniti) |
-| `TestPredajaBezZapisaDnevnika` | (dopuniti) |
+| `TestDezurstvoUpisSebe` | Vlastiti upis čeka potvrdu, mjesto dolazi iz opisa, a ime i napomena se obrezuju. Za drugoga se ne upisuje ni kad netko radi u sektoru. Dionica drugog sektora nije rad u sektoru centra, a dionica s prefiksom sektora jest (bilježi zatečeno: i šifra „P.” prolazi). Pisanje u području sektora dopušta upis sebe. |
+| `TestDezurstvoGranice` | Odbijaju se: dežurstvo bez dnevnika i uz dnevnik bez centra, kraj jednak početku, trajanje dulje od 36 h (točno 36 h prolazi), kraj preko dana nakon zaključenja dnevnika, područje izvan sektora i opis izvan popisa. Područje 0 znači cijeli sektor. Bez prijave se ne upisuje. |
+| `TestDezurstvoPotvrdaIIzmjena` | Upis uprave odmah je potvrđen. Pero mijenja svoje potvrđeno, ono se vraća na čekanje, a autor upisa ostaje uprava. Potvrđuje samo uprava, druga potvrda ne mijenja ništa, a nepostojeće se ne potvrđuje. Tuđi upis se ne preuzima ni vlastitim imenom. Izmjena nepostojećeg i dežurstva drugog dnevnika se odbija. |
+| `TestDezurstvoMicanje` | Pero ne miče svoje potvrđeno, a nepotvrđeno miče. Drugo micanje istog i micanje bez prijave se odbijaju. |
+| `TestObracunDezurstava` | Obračun po IORS2026 sa zaokruživanjem na 0,5: ured u radno vrijeme 0, teren 8 h → 1,5, noć 8 h → 15, a nedjelja odrezana na razdoblje (10 h) → 22. Nepotvrđeno ide u „čeka potvrdu” (2 h), a izvan razdoblja se ne broji. Grupe idu po područjima, cijeli sektor zadnji. Mjesto koje nije teren računa se kao ured. Prazno razdoblje daje prazan obračun, a bez tablice greška. |
+| `TestObracunJedneOsobe` | Noćni razmak dijeli se na ponoći (20–24 pa 0–8) i na DRD, NRD i RRV sate. Obračunski sati: teren 6 / 16,5 / 0, nepotvrđeno odvojeno, a dežurstvo drugoga se ne vidi. Razdoblje reže noć na utorak. |
+| `TestPreuzimanjeIPredajaDezurstva` | Preuzimanje upisuje dežurnog i zapis, a drugo preuzimanje se odbija. Predaju radi samo dežurni ili uprava, i ona upisuje nepotvrđen razmak i zapis. Predaja bez dežurnog se odbija. Preuzimanje od drugoga zaključuje njegov razmak („nije predano”), nepotvrđen. Predaja uprave potvrđena je odmah. |
+| `TestPreuzimanjeDezurstvaOdbijeno` | Preuzimanje se odbija bez prijave, bez dnevnika, uz zaključen dnevnik i kad osoba ne radi u sektoru. Predaja bez prijave se odbija. |
+| `TestPredajaDugogDezurstvaBezGranice` | Bilježi zatečeno: dežurstvo zaboravljeno tri dana predaja upiše kao jedan razmak od 72 h, iako ručni upis ne prima dulje od 36 h. Provjeren je i `satiTekst`. |
+| `TestPredajaPrijePocetka` | Kad je početak dežurstva iza sadašnjeg trenutka (razlika satova među čvorovima), razmak se upiše kao minuta od početka. |
+| `TestPredajaBezZapisaDnevnika` | Bilježi zatečeno: bez tablice zapisa predaja javi grešku, a razmak je već u planu. Svaki neuspjeli pokušaj preuzimanja ostavi još jedan dvojnik razmaka. |
 
 ### Prije i poslije (paket service)
 CC i „prije” su iz mjerenja mastera 713d9df alatom `dev/quality` (Linux, go1.27.1). „Poslije” je coverage paketa `service` s grane (`go test -covermode=atomic`), a CRAP je izračunat istom formulom: CC² · (1 − cov)³ + CC. Navedene su samo funkcije kojima se coverage promijenio. `drugi_korak.go` je izostavljen jer mu coverage varira od pokretanja do pokretanja (vidi `PREDAJA.md` na `stabilizacija-plan`). Prije PR-a treba zamijeniti tablicom iz `make quality`.
@@ -53,7 +53,10 @@ CC i „prije” su iz mjerenja mastera 713d9df alatom `dev/quality` (Linux, go1
 | `internal/service/dezurstva_service.go:490` · `(*JournalService).zakljuciDezurstvo` | 5 | 0.0 % | 92.3 % | 30.0 | 5.0 |  |
 | `internal/service/dezurstva_service.go:517` · `satiTekst` | 1 | 0.0 % | 100.0 % | 2.0 | 1.0 |  |
 
-### Sumnjivo ponašanje (tragovi, za provjeru)
-1. Dežurstvo zaboravljeno tri dana predaja upiše kao jedan razmak od 72 sata, iako ručni upis ne prima dulje od 36 sati (`TestPredajaDugogDezurstvaBezGranice`).
-2. Najmanje trajanje od 1 minute pri predaji vrijedi samo kad je kraj ≤ početak. Trenutna predaja zato daje razmak od oko 1 ms.
-3. `internal/service/journal_service.go:216` računa kraj dana kao početak + 24 sata. Na dan pomicanja sata to nije ponoć. Ista greška u vodočuvarskom dnevniku popravljena je na grani `stabilizacija-vodocuvar`.
+### Sumnjivo ponašanje
+1. **`internal/service/dezurstva_service.go:486–504`: predaja nije jedna transakcija.** Razmak se upiše u plan (`SaveDezurstvo`, redak 500), a tek onda zapis u dnevnik (504). Ako zapis ne uspije, predaja javi grešku, a razmak ostane. Kod preuzimanja od drugoga svaki neuspjeli pokušaj ostavi još jedan dvojnik razmaka (`TestPredajaBezZapisaDnevnika`), pa obračun može dvaput platiti iste sate. *Treba:* razmak, zapis i dežurnog u dnevniku upisati u jednoj transakciji.
+2. **`internal/service/dezurstva_service.go:490–496`: predaja ne poštuje granicu od 36 sati.** Ručni upis odbija razmak dulji od 36 h, a predaja zaboravljenog dežurstva upiše 72 h kao jedan razmak (`TestPredajaDugogDezurstvaBezGranice`). *Treba:* razmak preko granice podijeliti ili označiti za pregled uprave.
+3. **`internal/service/dezurstva_service.go:494–495`: minuta vrijedi samo kad kraj nije poslije početka.** Predaja odmah nakon preuzimanja daje razmak od djelića sekunde (`TestPreuzimanjeIPredajaDezurstva`). Manja stvar, ali takav razmak ulazi u plan i čeka potvrdu.
+4. **`internal/service/dezurstva_service.go:39`: rad u sektoru prepoznaje se po prefiksu šifre dionice.** Svaka dodijeljena šifra koja počinje s „P.” daje rad u sektoru P, i ona bez ostatka (`TestDezurstvoUpisSebe`). *Treba:* provjeriti dionicu u registru ili barem puni oblik šifre.
+5. **Obračun (`dezurstva_service.go:391`): mjesto koje nije teren obračunava se kao ured, i kad nije ni ured** (`TestObracunDezurstava`). Pitanje: treba li nepoznato mjesto odbiti pri upisu?
+6. **`internal/service/journal_service.go:216`: kraj dana je početak + 24 sata.** Na dan pomicanja sata to nije ponoć (vodostaji na listu dnevnika COP-a). Ista greška u vodočuvarskom dnevniku popravljena je u PR-u #5 (`AddDate(0, 0, 1)`). Ovim testovima nije pokriveno.
