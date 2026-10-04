@@ -38,6 +38,36 @@ func (s StanjeObrane) Najvisi() DefensePhase {
 	return s.Aktivni[len(s.Aktivni)-1].Stupanj
 }
 
+// Vrh je stadij koji vrijedi, s početkom i aktom; prazan kad obrane nema
+func (s StanjeObrane) Vrh() AktivniStadij {
+	if !s.Traje() {
+		return AktivniStadij{}
+	}
+	return s.Aktivni[len(s.Aktivni)-1]
+}
+
+// Pozadina su niži stadiji koji traju ispod najvišeg, od višeg prema nižem:
+// kad se viši ukine, vrijedi sljedeći
+func (s StanjeObrane) Pozadina() []AktivniStadij {
+	var out []AktivniStadij
+	for i := len(s.Aktivni) - 2; i >= 0; i-- {
+		out = append(out, s.Aktivni[i])
+	}
+	return out
+}
+
+// NajavljeniAkti su ovjereni akti dionice koji u trenutku t još nisu stupili
+// na snagu, redom kojim će stupiti
+func NajavljeniAkti(akti []Akt, dionica string, t time.Time) []Akt {
+	var out []Akt
+	for _, a := range redomAkata(akti, dionica) {
+		if a.Vrijedi.After(t) {
+			out = append(out, a)
+		}
+	}
+	return out
+}
+
 // GreskaSlijeda: akt koji se ne slaže sa stadijima koji na dionici tada traju
 type GreskaSlijeda struct {
 	AktID, Dionica string

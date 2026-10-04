@@ -663,6 +663,7 @@ func (s *Server) setupRoutes() {
 	sectionsH := NewSectionsHandler(s.sectionService, s.userService, s.templates["sections.html"])
 	sectionsH.SetPageTemplates(s.templates["section_detail.html"], s.templates["section_form.html"], s.stationService, s.territoryService)
 	sectionsH.episodeService = s.episodeService
+	sectionsH.stanjeObrane = s.stanjeObraneDionice
 	territoriesH := NewTerritoriesHandler(s.territoryService, s.templates["territories.html"])
 	territoriesH.SetPageTemplates(s.templates["county_form.html"], s.templates["municipality_form.html"], s.templates["municipality_detail.html"])
 	territoriesH.SetCountyTemplate(s.templates["county_detail.html"])
@@ -1710,6 +1711,15 @@ func (s *Server) SetKisomjeri(k *service.KisomjerService) { s.kisomjeri = k }
 
 // SetAkti daje poslužitelju servis akata
 func (s *Server) SetAkti(a *service.AktService) { s.akti = a }
+
+// stanjeObraneDionice je sadašnje stanje obrane dionice iz ovjerenih akata;
+// servis akata stiže poslije sastavljanja ruta, pa se čita tek pri zahtjevu
+func (s *Server) stanjeObraneDionice(ctx context.Context, sektor, dionica string) (models.StanjeObrane, []models.Akt, error) {
+	if s.akti == nil {
+		return models.StanjeObrane{}, nil, nil
+	}
+	return s.akti.StanjeObrane(ctx, sektor, dionica, time.Now())
+}
 
 // SetSkenovi daje poslužitelju mapu sa skenovima prijava iz uvoza
 func (s *Server) SetSkenovi(dir string) { s.skenoviDir = dir }
