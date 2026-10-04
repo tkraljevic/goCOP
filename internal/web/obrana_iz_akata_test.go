@@ -94,3 +94,33 @@ func TestStanjeObraneDionicePosluzitelja(t *testing.T) {
 		t.Errorf("iz akata: %+v %v", st, err)
 	}
 }
+
+// Knjiga dionice: obrana iz akata s nižim u pozadini; prekinuta aktom ne
+// pokazuje zatečenu epizodu; bez akata vrijedi epizoda
+func TestObranaUKnjiziDionice(t *testing.T) {
+	od := time.Date(2026, 11, 2, 14, 0, 0, 0, models.Zagreb)
+	epizoda := &models.DefenseEpisode{Phase: models.PhaseRegular, StartedAt: od, DeclaredByName: "Pero Perić", Basis: models.BasisOrder}
+	d := SectionPageData{StanjeObrane: models.StanjeObrane{IzAkata: true, Aktivni: []models.AktivniStadij{
+		{Stupanj: models.PhasePrep, Od: od.Add(-30 * time.Hour)}, {Stupanj: models.PhaseRegular, Od: od}}}}
+	if got := obranaUKnjizi(d); !strings.Contains(got, "Redovna obrana, na snazi od 02.11.2026. 14:00") || !strings.Contains(got, "u pozadini pripremno stanje od 01.11.2026. 08:00") {
+		t.Errorf("iz akata: %q", got)
+	}
+	d = SectionPageData{OpenEpisode: epizoda, StanjeObrane: models.StanjeObrane{IzAkata: true}}
+	if got := obranaUKnjizi(d); got != "nije proglašena" {
+		t.Errorf("prekinuta aktom: %q", got)
+	}
+	d.StanjeObrane.IzAkata = false
+	if got := obranaUKnjizi(d); !strings.Contains(got, "Redovna obrana") || !strings.Contains(got, "proglasio Pero Perić") || !strings.Contains(got, "osnova: ") {
+		t.Errorf("bez akata, epizoda: %q", got)
+	}
+	if got := obranaUKnjizi(SectionPageData{}); got != "nije proglašena" {
+		t.Errorf("bez ičega: %q", got)
+	}
+	// kartica: dionica s aktima ne pokazuje zatečenu epizodu
+	html := iscrtaj(t, "section_detail.html", SectionPageData{
+		CurrentUser: &models.User{FullName: "Pero Perić"}, Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Section: models.Section{Code: "P.1.1", AreaID: 1, SectorID: "P"}, OpenEpisode: epizoda, StanjeObrane: models.StanjeObrane{IzAkata: true}})
+	if strings.Contains(html, "na snazi od") {
+		t.Error("kartica pokazuje epizodu koju su akti prekinuli")
+	}
+}

@@ -902,6 +902,8 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	server.SetMts(mtsService)
 	server.SetKisomjeri(service.NewKisomjerService(repository.NewKisomjerRepository(database, recorder)))
 	aktService := service.NewAktService(repository.NewAktiRepository(database, recorder), stationRepo, sectionRepo, territoryRepo, readingRepo, userService, episodeService, node.ID)
+	// stanje obrane računa se iz ovjerenih akata (docs/NACRT-STADIJI-OBRANE.md)
+	izvjescaService.SetStanjeObrane(aktService.StanjeObrane)
 	models.SetTema(aktService.Tema(context.Background()))
 	aktService.SetKljuc(node.PrivateKey())
 	// lozinke sandučića spremljene prije otiska lozinke računa dobiju ga
@@ -959,7 +961,9 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	} else {
 		server.SetPotpis(potpisService)
 	}
-	server.SetZid(service.NewZidService(recorder, journalRepo, sectionRepo, mtsRepo, userRepo, stationRepo, episodeRepo))
+	zid := service.NewZidService(recorder, journalRepo, sectionRepo, mtsRepo, userRepo, stationRepo, episodeRepo)
+	zid.SetStanjaSektora(aktService.StanjaSektora)
+	server.SetZid(zid)
 	server.SetKarta(cfg.Karta.Plocice, cfg.Karta.Zasluge, cfg.Karta.NajviseZ)
 	if len(cfg.Web.PouzdaniPosrednici) > 0 || cfg.Web.ZaglavljeKlijenta != "" { // prazan popis = zadane mreže
 		posrednici, err := web.NoviPosrednici(cfg.Web.PouzdaniPosrednici, cfg.Web.ZaglavljeKlijenta)

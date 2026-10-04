@@ -24,6 +24,9 @@ type AktivniStadij struct {
 // traju, od najnižeg prema najvišem
 type StanjeObrane struct {
 	Aktivni []AktivniStadij
+	// IzAkata: dionica ima ovjerenih akata, pa stanje odlučuju akti (i kad
+	// obrana ne traje); bez akata vrijedi zatečena epizoda
+	IzAkata bool
 }
 
 // Traje javlja traje li ijedan stadij obrane
@@ -160,7 +163,9 @@ func redomAkata(akti []Akt, dionica string) []Akt {
 func StanjeDionice(akti []Akt, dionica string, t time.Time) (StanjeObrane, []GreskaSlijeda) {
 	var s StanjeObrane
 	var greske []GreskaSlijeda
-	for _, a := range redomAkata(akti, dionica) {
+	redom := redomAkata(akti, dionica)
+	s.IzAkata = len(redom) > 0
+	for _, a := range redom {
 		if a.Vrijedi.After(t) {
 			break
 		}
@@ -169,6 +174,19 @@ func StanjeDionice(akti []Akt, dionica string, t time.Time) (StanjeObrane, []Gre
 		}
 	}
 	return s, greske
+}
+
+// StanjaDionica su stanja u trenutku t svih dionica s ovjerenim aktima
+func StanjaDionica(akti []Akt, t time.Time) map[string]StanjeObrane {
+	out := map[string]StanjeObrane{}
+	for _, a := range akti {
+		for _, d := range a.Dionice {
+			if _, ima := out[d.Code]; !ima && a.ulaziUStanje(d.Code) {
+				out[d.Code], _ = StanjeDionice(akti, d.Code, t)
+			}
+		}
+	}
+	return out
 }
 
 // ProvjeriSlijed javlja smije li se akt ovjeriti uz već ovjerene: na svakoj
