@@ -219,7 +219,9 @@ func (k *satniKrug) izracunajIIzdaj(ctx context.Context) {
 		return
 	}
 	javniUvoznik.Korak("zapis prognoze", 98)
-	if err := osvjezivac.Zapisi(ishod); err != nil {
+	// Zapisuje isti račun kojim je izračunato: „Generiraj” tako gazi staro
+	// izdanje istog sata cijelo, kao i na čvorovima koji ga primaju razmjenom.
+	if err := racun.Zapisi(ishod); err != nil {
 		log.Printf("prognoza: zapis: %v", err)
 		javniUvoznik.Redak("prognoza: zapis: %v", err)
 		return
