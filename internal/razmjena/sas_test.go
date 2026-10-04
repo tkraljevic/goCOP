@@ -24,6 +24,18 @@ func slobodanPort(t *testing.T) int {
 	return ln.Addr().(*net.TCPAddr).Port
 }
 
+// Nazivanje porta na kojem nitko ne sluša vraća grešku spajanja. Testovi
+// uparivanja tu granu dosegnu samo kad nazovu prije slušalice, pa je
+// pokrivenost bez ovog testa ovisila o sreći.
+func TestNazivanjeBezSlusalice(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	adresa := fmt.Sprintf("127.0.0.1:%d", slobodanPort(t))
+	if res, err := Dial(ctx, kljuc(t), Identity{Protocol: "app", DeviceID: "B"}, adresa); err == nil || res != nil {
+		t.Fatalf("nazivanje bez slušalice: %v, %v", res, err)
+	}
+}
+
 // Stariji program dogovara kod bez obveze unaprijed; takav se kod može
 // namjestiti, pa se s njim ne uparuje
 func TestUparivanjeOdbijaStarijiDogovorKoda(t *testing.T) {
