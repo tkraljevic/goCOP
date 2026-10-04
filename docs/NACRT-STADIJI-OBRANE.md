@@ -46,8 +46,8 @@ Stanje dionice u trenutku *t* slaže se iz ovjerenih, neponištenih akata s
 `Vrijedi ≤ t`, redom po `Vrijedi` (u istom trenutku prekid prije
 proglašenja):
 
-- **uspostava S** dodaje stadij S među aktivne (ako S već traje, akt se ne
-  može ovjeriti);
+- **uspostava S** dodaje stadij S među aktivne — smije samo kad S ne traje i
+  kad ne traje viši stadij (niži se proglašava tek kad viši završi);
 - **prekid S** miče S — smije samo kad je S **najviši** aktivni stadij;
 - **stanje obrane** je najviši aktivni stadij; bez aktivnih stadija obrane
   nema;
@@ -74,7 +74,8 @@ Odmah redovna, pa zakašnjelo pripremno:
 
 **Ovjera provjerava slijed.** Akt se ne ovjerava kad bi stanje u trenutku
 njegova `Vrijedi` (uz sve ranije ovjerene akte) bilo nemoguće: prekid stadija
-koji ne traje, prekid nižeg dok viši traje, uspostava stadija koji već traje.
+koji ne traje, prekid nižeg dok viši traje, uspostava stadija koji već traje,
+uspostava nižeg dok viši traje.
 Poruka kaže koji stadij tada traje. Ista provjera vrijedi i za ovjeru skenom.
 
 **Storno.** Ovjeren akt poništava onaj tko ga smije ovjeriti, uz obrazloženje;
@@ -129,6 +130,5 @@ upisane obrane, obje zatvorene, i nijedan ovjeren akt.
 4. Storno treba: pogrešku ispravlja novi akt, a kad je pogreška to što je akt
    uopće izdan, akt se poništava.
 
-Pretpostavka za potvrdu: niži stadij smije se proglasiti i dok viši traje
-(„u pozadini”), da poslije prekida višeg vrijedi bez novog akta. Ako se to u
-praksi ne radi, ovjera ga može odbiti kao i ostale nemoguće slijedove.
+5. Niži stadij ne proglašava se dok viši traje („u pozadini”): proglašava se
+   čim viši završi (u istom trenutku: prekid višeg, pa uspostava nižeg).
