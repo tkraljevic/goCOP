@@ -68,3 +68,23 @@ func TestStanjeObraneIzAkataPremaEpizodi(t *testing.T) {
 		t.Errorf("bez tablice akata: %v", err)
 	}
 }
+
+// Stanja sektora: sve dionice s ovjerenim aktima, i greška kad se akti ne
+// daju pročitati
+func TestStanjaSektoraIzAkata(t *testing.T) {
+	o := novaOkolinaAkta(t)
+	ctx := context.Background()
+	sat := time.Now().Add(-time.Hour).Truncate(time.Minute)
+	o.ovjeri(t, models.AktUspostava, models.PhasePrep, sat)
+	o.ovjeri(t, models.AktUspostava, models.PhaseRegular, sat.Add(10*time.Minute))
+	stanja, err := o.akti.StanjaSektora(ctx, "P", time.Now())
+	if err != nil || len(stanja) != 2 || stanja["P.1.1"].Najvisi() != models.PhaseRegular || stanja["P.1.2"].Najvisi() != models.PhaseRegular {
+		t.Fatalf("stanja sektora: %+v %v", stanja, err)
+	}
+	if _, err := o.baza.Exec(`ALTER TABLE akti RENAME TO nema_akata`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := o.akti.StanjaSektora(ctx, "P", time.Now()); err == nil {
+		t.Error("bez tablice akata")
+	}
+}

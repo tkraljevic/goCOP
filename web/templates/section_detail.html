@@ -196,7 +196,7 @@
     {{end}}
     {{end}}
   </div>
-  {{else if .OpenEpisode}}
+  {{else if and .OpenEpisode (not .StanjeObrane.IzAkata)}}
   <div class="table-card" style="padding:1rem 1.25rem; margin-bottom:1rem; border-left:4px solid var(--danger);">
     <div style="display:flex; flex-wrap:wrap; align-items:center; gap:0.75rem 1.25rem;">
       <span class="threshold-pill {{if eq .OpenEpisode.Phase "IZVANREDNO_STANJE"}}crit{{else if eq .OpenEpisode.Phase "IZVANREDNA"}}emerg{{else if eq .OpenEpisode.Phase "REDOVNA"}}regular{{else}}prep{{end}}">{{.OpenEpisode.Phase.Label}}</span>

@@ -682,6 +682,16 @@ func (s *AktService) StanjeObrane(ctx context.Context, sektor, dionica string, t
 	return stanje, models.NajavljeniAkti(akti, dionica, t), nil
 }
 
+// StanjaSektora su stanja obrane u trenutku t svih dionica sektora koje
+// imaju ovjerenih akata
+func (s *AktService) StanjaSektora(ctx context.Context, sektor string, t time.Time) (map[string]models.StanjeObrane, error) {
+	akti, err := s.repo.ListAkti(ctx, repository.FiltarAkata{Sektor: sektor, Status: models.AktOvjeren})
+	if err != nil {
+		return nil, err
+	}
+	return models.StanjaDionica(akti, t), nil
+}
+
 // zakljuciOvjeru dovršava ovjeru: broj, tko i kad, kod, potpis ključem
 // čvora, spremanje i usklađivanje obrane na dionicama. potpisnikPerms su
 // ovlasti onoga tko akt ovjerava (za "u.z." i potpisnika). Stanje obrane na

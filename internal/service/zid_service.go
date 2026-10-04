@@ -105,6 +105,14 @@ type ZidService struct {
 	users    *repository.UserRepository
 	stations *repository.StationRepository
 	episodes *repository.EpisodeRepository
+	// stanjaSektora su stanja obrane dionica sektora iz ovjerenih akata; nil
+	// dok se ne postavi (tada vrijede epizode)
+	stanjaSektora func(ctx context.Context, sektor string, t time.Time) (map[string]models.StanjeObrane, error)
+}
+
+// SetStanjaSektora postavlja stanja obrane iz ovjerenih akata (AktService)
+func (s *ZidService) SetStanjaSektora(f func(ctx context.Context, sektor string, t time.Time) (map[string]models.StanjeObrane, error)) {
+	s.stanjaSektora = f
 }
 
 func NewZidService(rec *ledger.Recorder, journals *repository.JournalRepository, sections *repository.SectionRepository,
@@ -663,6 +671,38 @@ func absF(v float64) float64 {
 	return v
 }
 
+// obranaSektora: koliko je dionica sektora sada u obrani i najviši stadij
+// koji vrijedi — iz ovjerenih akata, a za dionice bez akata iz zatečenih
+// epizoda
+func (s *ZidService) obranaSektora(ctx context.Context, sektor string) (int, models.DefensePhase) {
+	stanja := map[string]models.StanjeObrane{}
+	if s.stanjaSektora != nil {
+		if st, err := s.stanjaSektora(ctx, sektor, time.Now()); err == nil {
+			stanja = st
+		}
+	}
+	if s.episodes != nil {
+		if ep, err := s.episodes.OpenEpisodesInSector(ctx, sektor); err == nil {
+			for _, e := range ep {
+				if _, izAkata := stanja[e.SectionCode]; !izAkata {
+					stanja[e.SectionCode] = models.StanjeObrane{Aktivni: []models.AktivniStadij{{Stupanj: e.Phase}}}
+				}
+			}
+		}
+	}
+	broj, stadij := 0, models.PhaseNormal
+	for _, st := range stanja {
+		if !st.Traje() {
+			continue
+		}
+		broj++
+		if st.Najvisi().Severity() > stadij.Severity() {
+			stadij = st.Najvisi()
+		}
+	}
+	return broj, stadij
+}
+
 // StanjeObrane je traka stanja na naslovnoj: po sektoru koji osoba vidi
 type StanjeObrane struct {
 	Sektor        string
@@ -700,16 +740,7 @@ func (s *ZidService) Stanje(ctx context.Context, perms *models.UserPermissions, 
 				}
 			}
 		}
-		if s.episodes != nil {
-			if ep, err := s.episodes.OpenEpisodesInSector(ctx, sk.ID); err == nil {
-				st.DionicaUObr = len(ep)
-				for _, e := range ep {
-					if e.Phase.Severity() > st.Stadij.Severity() {
-						st.Stadij = e.Phase
-					}
-				}
-			}
-		}
+		st.DionicaUObr, st.Stadij = s.obranaSektora(ctx, sk.ID)
 		if izvjesca != nil {
 			if sve, err := izvjesca.IzvjescaDana(ctx, sk.ID, danas); err == nil {
 				for _, iz := range sve {

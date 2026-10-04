@@ -26,6 +26,14 @@ type IzvjescaService struct {
 	episodes  *repository.EpisodeRepository
 	journals  *repository.JournalRepository
 	sektorska *repository.SektorskaIzvjescaRepository // sektorska izvješća; nil dok se ne postavi
+	// stanjeObrane je stanje obrane dionice iz ovjerenih akata; nil dok se
+	// ne postavi (tada vrijedi epizoda)
+	stanjeObrane func(ctx context.Context, sektor, dionica string, t time.Time) (models.StanjeObrane, []models.Akt, error)
+}
+
+// SetStanjeObrane postavlja stanje obrane iz ovjerenih akata (AktService)
+func (s *IzvjescaService) SetStanjeObrane(f func(ctx context.Context, sektor, dionica string, t time.Time) (models.StanjeObrane, []models.Akt, error)) {
+	s.stanjeObrane = f
 }
 
 func NewIzvjescaService(repo *repository.IzvjescaRepository, sections *repository.SectionRepository, stations *repository.StationRepository,
@@ -66,6 +74,22 @@ func (s *IzvjescaService) Dionica(code string) (*models.Section, error) {
 	return s.sections.GetSectionByCode(code)
 }
 
+// stadijDionice je stadij obrane koji sada vrijedi na dionici: iz ovjerenih
+// akata, a za dionicu bez akata iz zatečene epizode
+func (s *IzvjescaService) stadijDionice(ctx context.Context, sec *models.Section) models.DefensePhase {
+	if s.stanjeObrane != nil {
+		if st, _, err := s.stanjeObrane(ctx, sec.SectorID, sec.Code, time.Now()); err == nil && st.IzAkata {
+			return st.Najvisi()
+		}
+	}
+	if s.episodes != nil {
+		if e, err := s.episodes.OpenEpisode(ctx, sec.Code); err == nil && e != nil {
+			return e.Phase
+		}
+	}
+	return models.PhaseNormal
+}
+
 // Predlozak slaže novo izvješće dionice za dan, popunjeno iz onoga što
 // program zna. Kad izvješće za taj dan već postoji, vraća njega.
 func (s *IzvjescaService) Predlozak(ctx context.Context, sec *models.Section, dan time.Time) (*models.DnevnoIzvjesce, error) {
@@ -78,11 +102,7 @@ func (s *IzvjescaService) Predlozak(ctx context.Context, sec *models.Section, da
 	iz := &models.DnevnoIzvjesce{SectionCode: sec.Code, Dan: dan, Stadij: models.PhaseNormal}
 	iz.Sadrzaj.Vodotok = vodotokDionice(sec)
 	// stadij: proglašena obrana na dionici
-	if s.episodes != nil {
-		if e, err := s.episodes.OpenEpisode(ctx, sec.Code); err == nil && e != nil {
-			iz.Stadij = e.Phase
-		}
-	}
+	iz.Stadij = s.stadijDionice(ctx, sec)
 	// obrana: otvoren dnevnik COP-a sektora
 	if s.journals != nil {
 		if dnevnici, err := s.journals.ListCOPJournals(ctx, sec.SectorID); err == nil {

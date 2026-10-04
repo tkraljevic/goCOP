@@ -174,3 +174,21 @@ func TestVrhPozadinaINajavljeni(t *testing.T) {
 		t.Errorf("najavljeni: %+v", n)
 	}
 }
+
+// Stanje zna je li dionica imala akata: tada odlučuju akti i kad obrana ne
+// traje; stanja sektora su sve dionice s ovjerenim aktima
+func TestStanjeIzAkataIStanjaDionica(t *testing.T) {
+	druga := akt("f3", AktUspostava, PhaseRegular, 1, 8)
+	druga.Dionice = []AktDionica{{Code: "P.1.2"}, {Code: "P.1.1"}}
+	akti := []Akt{akt("f1", AktUspostava, PhasePrep, 1, 6), akt("f2", AktPrekid, PhasePrep, 1, 7), druga}
+	if s, _ := StanjeDionice(akti[:2], "P.1.1", kad(2, 0)); s.Traje() || !s.IzAkata {
+		t.Errorf("prekinuta obrana iz akata: %+v", s)
+	}
+	if s, _ := StanjeDionice(akti, "P.9.9", kad(2, 0)); s.IzAkata {
+		t.Error("dionica bez akata")
+	}
+	sva := StanjaDionica(akti, kad(2, 0))
+	if len(sva) != 2 || sva["P.1.2"].Najvisi() != PhaseRegular || sva["P.1.1"].Najvisi() != PhaseRegular || !sva["P.1.1"].IzAkata {
+		t.Errorf("stanja dionica: %+v", sva)
+	}
+}
