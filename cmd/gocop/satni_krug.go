@@ -22,6 +22,13 @@ import (
 	"gocop/internal/web"
 )
 
+// Dohvati stranih prognoza; testovi ih zamjenjuju, jer pravi idu na internet
+var (
+	dohvatiMadjarsku  = prognoza.Dohvati
+	dohvatiAustrijsku = prognoza.DohvatiNOEL
+	dohvatiSrpsku     = prognoza.DohvatiHidmet
+)
+
 // satniKrug drži ono o čemu krug ovisi i dan zadnjeg ulaganja kišomjera
 type satniKrug struct {
 	uvoznik     *javnivodostaji.Uvoznik
@@ -56,7 +63,7 @@ func (k *satniKrug) vrti(ctx context.Context) {
 	// usporedbu i kao ulaz tamo gdje nam lanac nema ništa uzvodno.
 	hu, otkazi := context.WithTimeout(ctx, time.Minute)
 	javniUvoznik.Korak("mađarska prognoza (hydroinfo.hu)", 91)
-	if letve, err := prognoza.Dohvati(hu, nil); err != nil {
+	if letve, err := dohvatiMadjarsku(hu, nil); err != nil {
 		log.Printf("%s: %v", prognoza.Podrijetlo, err)
 		javniUvoznik.Redak("%s: %v", prognoza.Podrijetlo, err)
 	} else if n, err := prognoza.SpremiTude(pb, prognoza.Podrijetlo, letve, prognoza.Sifra); err != nil {
@@ -71,7 +78,7 @@ func (k *satniKrug) vrti(ctx context.Context) {
 	// Austrijska prognoza (Donja Austrija) daje vrhu Dunava,
 	// Wildungsmaueru, 48 sati unaprijed; izlazi više puta dnevno.
 	javniUvoznik.Korak("austrijska prognoza (noel.gv.at)", 92)
-	if letve, err := prognoza.DohvatiNOEL(hu, nil); err != nil {
+	if letve, err := dohvatiAustrijsku(hu, nil); err != nil {
 		log.Printf("%s: %v", prognoza.PodrijetloNOEL, err)
 		javniUvoznik.Redak("%s: %v", prognoza.PodrijetloNOEL, err)
 	} else if n, err := prognoza.SpremiTude(pb, prognoza.PodrijetloNOEL, letve, prognoza.SifraNOEL); err != nil {
@@ -85,7 +92,7 @@ func (k *satniKrug) vrti(ctx context.Context) {
 	}
 	// Srpska prognoza izlazi u 12 h; uz naše letve stoji drugom bojom.
 	javniUvoznik.Korak("srpska prognoza (hidmet.gov.rs)", 94)
-	if letve, err := prognoza.DohvatiHidmet(hu, nil); err != nil {
+	if letve, err := dohvatiSrpsku(hu, nil); err != nil {
 		log.Printf("%s: %v", prognoza.PodrijetloHidmet, err)
 		javniUvoznik.Redak("%s: %v", prognoza.PodrijetloHidmet, err)
 	} else if n, err := prognoza.SpremiTude(pb, prognoza.PodrijetloHidmet, letve, prognoza.SifraSrpske); err != nil {
