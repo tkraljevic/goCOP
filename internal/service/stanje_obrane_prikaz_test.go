@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -100,5 +101,48 @@ func TestObranaSektoraNaZidu(t *testing.T) {
 	}
 	if broj, stadij := (&ZidService{}).obranaSektora(context.Background(), "P"); broj != 0 || stadij != models.PhaseNormal {
 		t.Errorf("bez ičega: %d %s", broj, stadij)
+	}
+}
+
+// Ovjera kad se akti ili epizode ne daju pročitati: provjera prije ovjere
+// vraća grešku, a usklađivanje povijesti obrane javlja upozorenje i ne
+// ruši ovjeru
+func TestOvjeraKadSeAktiIliEpizodeNeDajuProcitati(t *testing.T) {
+	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "ovjera.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { baza.Close() })
+	if err := db.InitSchema(baza); err != nil {
+		t.Fatal(err)
+	}
+	rec := ledger.New(baza, "test")
+	s := &AktService{repo: repository.NewAktiRepository(baza, rec)}
+	ctx := context.Background()
+	u := &models.User{ID: uuid.New(), FullName: "Pero Perić"}
+	a := &models.Akt{ID: "a1", Sektor: "P", Radnja: models.AktUspostava, Stupanj: models.PhasePrep, Status: models.AktOvjeren,
+		Vrijedi: time.Now().Add(-time.Hour), Dionice: []models.AktDionica{{Code: "P.1.1"}}}
+
+	// bez servisa epizoda nema što usklađivati
+	if upozorenja := s.uskladiEpizode(ctx, u, a); upozorenja != nil {
+		t.Errorf("bez epizoda: %v", upozorenja)
+	}
+	// epizode se ne daju pročitati: upozorenje po dionici
+	s.episodes = NewEpisodeService(repository.NewEpisodeRepository(baza, rec), nil, nil)
+	if _, err := baza.Exec(`ALTER TABLE defense_episodes RENAME TO nema_epizoda`); err != nil {
+		t.Fatal(err)
+	}
+	if upozorenja := s.uskladiEpizode(ctx, u, a); len(upozorenja) != 1 || !strings.HasPrefix(upozorenja[0], "P.1.1: ") {
+		t.Errorf("epizode se ne daju pročitati: %v", upozorenja)
+	}
+	// akti se ne daju pročitati
+	if _, err := baza.Exec(`ALTER TABLE akti RENAME TO nema_akata`); err != nil {
+		t.Fatal(err)
+	}
+	if upozorenja := s.uskladiEpizode(ctx, u, a); len(upozorenja) != 1 || !strings.Contains(upozorenja[0], "povijest obrane nije usklađena") {
+		t.Errorf("akti se ne daju pročitati, usklađivanje: %v", upozorenja)
+	}
+	if err := s.provjeriPrijeOvjere(ctx, a); err == nil {
+		t.Error("akti se ne daju pročitati, provjera prije ovjere prošla")
 	}
 }

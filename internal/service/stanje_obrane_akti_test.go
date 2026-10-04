@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"gocop/internal/models"
+	"gocop/internal/service"
 )
 
 // Staro i novo na istim aktima: ovjera danas mijenja epizodu (staro), a
@@ -86,5 +87,56 @@ func TestStanjaSektoraIzAkata(t *testing.T) {
 	}
 	if _, err := o.akti.StanjaSektora(ctx, "P", time.Now()); err == nil {
 		t.Error("bez tablice akata")
+	}
+}
+
+// Ovjera skenom potpisanog akta ide istim putem kao izravna: isti slijed
+// stadija i ista aktivna obrana u sektoru; nemoguć akt odbija se prije nego
+// što se sken spremi
+func TestOvjeraSkenomIstiPreduvjeti(t *testing.T) {
+	o := novaOkolinaAkta(t)
+	ctx := context.Background()
+	sat := time.Now().Add(-time.Hour).Truncate(time.Minute)
+	sken := []byte("%PDF-1.4 potpisani akt")
+	nacrt := func(radnja string, stupanj models.DefensePhase, vrijedi time.Time) *models.Akt {
+		t.Helper()
+		a, err := o.akti.Pripremi(ctx, o.ovlasti, o.rukovod, service.ZahtjevAkta{StationID: o.letva.ID.String(), Radnja: radnja, Stupanj: stupanj, Vrijedi: vrijedi})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := o.akti.Spremi(ctx, o.ovlasti, a); err != nil {
+			t.Fatal(err)
+		}
+		return a
+	}
+
+	// prekid redovne koja ne traje: odbijen, sken nije spremljen
+	prekid := nacrt(models.AktPrekid, models.PhaseRegular, sat)
+	if _, _, err := o.akti.UcitajSkenirani(ctx, o.ovlasti, o.rukovod, prekid.ID, sken, o.rukovod.ID.String()); err == nil || !strings.Contains(err.Error(), "Redovna obrana ne traje") {
+		t.Errorf("sken nemogućeg akta: %v", err)
+	}
+	if pdf, _ := o.akti.Izvornik(ctx, prekid.ID); len(pdf) != 0 {
+		t.Error("sken odbijenog akta je spremljen")
+	}
+
+	// bez otvorenog dnevnika COP-a (preventivna obrana) sken se ne ovjerava,
+	// kao ni izravno
+	uspostava := nacrt(models.AktUspostava, models.PhasePrep, sat)
+	o.akti.SetObrana(func(context.Context, string) *models.Journal { return nil }, nil)
+	if _, _, err := o.akti.UcitajSkenirani(ctx, o.ovlasti, o.rukovod, uspostava.ID, sken, o.rukovod.ID.String()); err == nil || !strings.Contains(err.Error(), "preventivnoj obrani") {
+		t.Errorf("sken u preventivnoj obrani: %v", err)
+	}
+	o.akti.SetObrana(nil, nil)
+
+	// ispravan akt: ovjeren skenom, epizoda otvorena, ponovni sken odbijen
+	a, upozorenja, err := o.akti.UcitajSkenirani(ctx, o.ovlasti, o.rukovod, uspostava.ID, sken, o.rukovod.ID.String())
+	if err != nil || !a.Ovjeren() || a.Rucno == nil || len(upozorenja) != 0 {
+		t.Fatalf("ovjera skenom: %+v %v %v", a, upozorenja, err)
+	}
+	if got := o.stanje(t); got["P.1.1"] != models.PhasePrep {
+		t.Errorf("epizoda nakon ovjere skenom: %v", got)
+	}
+	if _, _, err := o.akti.UcitajSkenirani(ctx, o.ovlasti, o.rukovod, uspostava.ID, sken, o.rukovod.ID.String()); err == nil || !strings.Contains(err.Error(), "već ovjeren") {
+		t.Errorf("ponovni sken: %v", err)
 	}
 }
