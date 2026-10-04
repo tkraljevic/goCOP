@@ -4,7 +4,7 @@ Rad je prekinut. Ova datoteka nije dio promjene: služi agentu koji preuzima gra
 
 ## Stanje grane `stabilizacija-dnevnici`
 - Commit s testovima je gotov i poslan. `go test ./internal/service/` prolazi, a `golangci-lint run --new-from-rev=origin/master` ne daje novih nalaza.
-- Produkcijski kod nije mijenjan.
+- Produkcijski kod mijenjan je samo u zasebnom commitu s popravkom kraja dana (točka 6 pod „Sumnjivo ponašanje”).
 - **Nije napravljeno:** `make quality` za granu prema baselineu (Linux, kao CI). Nacrt PR-a nije otvoren.
 - **„Sumnjivo ponašanje” nije dovršeno.** Ispod su tragovi zabilježeni tijekom rada. Prije PR-a treba ih provjeriti u kodu i dopuniti (`datoteka:redak`, što se događa, kako treba), a tablicu testova dopuniti opisom što svaki test tvrdi.
 
@@ -59,4 +59,4 @@ CC i „prije” su iz mjerenja mastera 713d9df alatom `dev/quality` (Linux, go1
 3. **`internal/service/dezurstva_service.go:494–495`: minuta vrijedi samo kad kraj nije poslije početka.** Predaja odmah nakon preuzimanja daje razmak od djelića sekunde (`TestPreuzimanjeIPredajaDezurstva`). Manja stvar, ali takav razmak ulazi u plan i čeka potvrdu.
 4. **`internal/service/dezurstva_service.go:39`: rad u sektoru prepoznaje se po prefiksu šifre dionice.** Svaka dodijeljena šifra koja počinje s „P.” daje rad u sektoru P, i ona bez ostatka (`TestDezurstvoUpisSebe`). *Treba:* provjeriti dionicu u registru ili barem puni oblik šifre.
 5. **Obračun (`dezurstva_service.go:391`): mjesto koje nije teren obračunava se kao ured, i kad nije ni ured** (`TestObracunDezurstava`). Pitanje: treba li nepoznato mjesto odbiti pri upisu?
-6. **`internal/service/journal_service.go:216`: kraj dana je početak + 24 sata.** Na dan pomicanja sata to nije ponoć (vodostaji na listu dnevnika COP-a). Ista greška u vodočuvarskom dnevniku popravljena je u PR-u #5 (`AddDate(0, 0, 1)`). Ovim testovima nije pokriveno.
+6. **`internal/service/journal_service.go:216`: kraj dana je početak + 24 sata.** Na dan pomicanja sata to nije ponoć, pa su vodostaji na listu dnevnika COP-a padali na krivi dan. **Popravljeno** u zasebnom commitu (`AddDate(0, 0, 1)`) s testom `TestVodostajiListaKadSeSatPomice` u `internal/service/dnevnik_vodostaji_test.go`, kao i u PR-u #5.
