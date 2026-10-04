@@ -255,6 +255,8 @@ func ProvjeriUnatrag(arhiva, baza *sql.DB, o OpcijeProvjere) (int, error) {
 // prestaje imati izmjeren ulaz za jednu kariku i prelazi na prognoziran, pa
 // pogreška naraste stubom. Stuba vrijedi za prosjek mnogih izdanja, ali jedan
 // niz ne smije po njoj skakati: rijeka ne zna da je nama ponestalo mjerenja.
+// Sat izdavanja (doseg 0) je mjerenje, a ne prognoza: ne gladi se i ne ulazi
+// u prosjek susjednih dosega, inače bi prognoza krenula pored izmjerenog.
 func zagladiPromasaje(p []Promasaj, sirina int) []Promasaj {
 	if sirina <= 0 {
 		return p
@@ -268,9 +270,13 @@ func zagladiPromasaje(p []Promasaj, sirina int) []Promasaj {
 	}
 	out := make([]Promasaj, 0, len(p))
 	for _, x := range p {
+		if x.DosegH == 0 {
+			out = append(out, x)
+			continue
+		}
 		var zbirP, zbirR float64
 		n := 0
-		for d := x.DosegH - sirina; d <= x.DosegH+sirina; d++ {
+		for d := max(1, x.DosegH-sirina); d <= x.DosegH+sirina; d++ {
 			s, ima := po[x.Letva][d]
 			if !ima {
 				continue
