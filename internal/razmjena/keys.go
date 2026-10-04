@@ -22,6 +22,7 @@
 package razmjena
 
 import (
+	"bytes"
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/sha256"
@@ -33,8 +34,11 @@ import (
 	"encoding/pem"
 	"fmt"
 	"math/big"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync"
 	"time"
 )
 
@@ -142,12 +146,18 @@ func ParsePublicKey(s string) (ed25519.PublicKey, error) {
 // demands. The certificate carries no trust of its own — trust is the
 // PUBLIC KEY, pinned at pairing and checked on every connection — so its
 // lifetime and subject are ceremony.
-func selfSignedCert(priv ed25519.PrivateKey, protocol string) (tls.Certificate, error) {
+func selfSignedCert(priv ed25519.PrivateKey, protocol string, vjerodajnice ...[]byte) (tls.Certificate, error) {
 	tmpl := &x509.Certificate{
 		SerialNumber: big.NewInt(time.Now().UnixNano()),
 		Subject:      pkix.Name{CommonName: protocol + "-sync"},
 		NotBefore:    time.Now().Add(-time.Hour),
 		NotAfter:     time.Now().Add(10 * 365 * 24 * time.Hour),
+	}
+	if len(vjerodajnice) > 0 && len(vjerodajnice[0]) > 0 {
+		// Potvrda članstva (i ovlast primatelja) putuje u certifikatu kao
+		// URI u SAN-u: druga strana je provjeri ključem mreže i bez
+		// prethodnog uparivanja. Stariji programi čitaju samo javni ključ.
+		tmpl.URIs = []*url.URL{{Scheme: "urn", Opaque: prefiksVjerodajnica + base64.RawURLEncoding.EncodeToString(vjerodajnice[0])}}
 	}
 	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, priv.Public(), priv)
 	if err != nil {
@@ -173,18 +183,59 @@ func peerPublicKey(rawCerts [][]byte) (ed25519.PublicKey, error) {
 	return pub, nil
 }
 
+// prefiksVjerodajnica označava URI s vjerodajnicama čvora u certifikatu
+const prefiksVjerodajnica = "gocop:vjerodajnice:"
+
+// najveceVjerodajnice ograničava što se čita iz tuđeg certifikata
+const najveceVjerodajnice = 16 << 10
+
+// peerVjerodajnice vadi vjerodajnice (JSON) iz certifikata druge strane;
+// prazno kad ih nema
+func peerVjerodajnice(rawCerts [][]byte) []byte {
+	if len(rawCerts) == 0 {
+		return nil
+	}
+	cert, err := x509.ParseCertificate(rawCerts[0])
+	if err != nil {
+		return nil
+	}
+	for _, u := range cert.URIs {
+		if u.Scheme != "urn" || !strings.HasPrefix(u.Opaque, prefiksVjerodajnica) {
+			continue
+		}
+		kod := strings.TrimPrefix(u.Opaque, prefiksVjerodajnica)
+		if len(kod) > najveceVjerodajnice*4/3+4 {
+			return nil
+		}
+		b, err := base64.RawURLEncoding.DecodeString(kod)
+		if err != nil {
+			return nil
+		}
+		return b
+	}
+	return nil
+}
+
 // SASCode derives the six digits both people compare during pairing —
 // the same on both screens if and only if both ends of the TLS connection
-// hold the keys they claim. Order-independent, so neither side has to
-// know which of the two it is. The protocol name salts the code, so a
-// device of one application never shows a matching code to a device of
-// another.
-func SASCode(protocol string, a, b ed25519.PublicKey) string {
+// hold the keys they claim. The keys are order-independent, so neither
+// side has to know which of the two it is; the two random numbers from
+// dogovoriKod (the dialler's, then the listener's) make the code
+// impossible to steer by searching for a key. The protocol name salts the
+// code, so a device of one application never shows a matching code to a
+// device of another.
+func SASCode(protocol string, a, b ed25519.PublicKey, brojPozivatelja, brojSlusalice []byte) string {
 	x, y := a, b
 	if string(x) > string(y) {
 		x, y = y, x
 	}
-	sum := sha256.Sum256(append(append([]byte(protocol+"-pair-v1|"), x...), y...))
+	h := sha256.New()
+	h.Write([]byte(protocol + "-pair-v2|"))
+	h.Write(x)
+	h.Write(y)
+	h.Write(brojPozivatelja)
+	h.Write(brojSlusalice)
+	sum := h.Sum(nil)
 	n := binary.BigEndian.Uint32(sum[:4]) % 1_000_000
 	return fmt.Sprintf("%06d", n)
 }
@@ -203,6 +254,37 @@ func tlsConfig(priv ed25519.PrivateKey, protocol string) (*tls.Config, error) {
 		ClientAuth:         tls.RequireAnyClientCert,
 		MinVersion:         tls.VersionTLS13,
 	}, nil
+}
+
+// tlsConfigS je tlsConfig s vjerodajnicama: certifikat se slaže pri svakom
+// rukovanju s trenutnim vjerodajnicama čvora (članstvo se mijenja dok čvor
+// radi), uz pamćenje zadnjeg da se ne potpisuje bez potrebe
+func tlsConfigS(priv ed25519.PrivateKey, protocol string, vj func() []byte) (*tls.Config, error) {
+	cfg, err := tlsConfig(priv, protocol)
+	if err != nil || vj == nil {
+		return cfg, err
+	}
+	var mu sync.Mutex
+	var zadnje []byte
+	var zadnji *tls.Certificate
+	trenutni := func() (*tls.Certificate, error) {
+		v := vj()
+		mu.Lock()
+		defer mu.Unlock()
+		if zadnji != nil && bytes.Equal(v, zadnje) {
+			return zadnji, nil
+		}
+		c, err := selfSignedCert(priv, protocol, v)
+		if err != nil {
+			return nil, err
+		}
+		zadnje, zadnji = v, &c
+		return zadnji, nil
+	}
+	cfg.Certificates = nil
+	cfg.GetCertificate = func(*tls.ClientHelloInfo) (*tls.Certificate, error) { return trenutni() }
+	cfg.GetClientCertificate = func(*tls.CertificateRequestInfo) (*tls.Certificate, error) { return trenutni() }
+	return cfg, nil
 }
 
 func rawPeerCerts(conn *tls.Conn) [][]byte {

@@ -655,14 +655,15 @@ func (s *AktService) Ovjeri(ctx context.Context, perms *models.UserPermissions, 
 	if _, err := s.trebaAktivnu(ctx, a); err != nil {
 		return nil, nil, err
 	}
-	return s.zakljuciOvjeru(ctx, perms, perms, u, a, time.Now())
+	return s.zakljuciOvjeru(ctx, perms, u, a, time.Now())
 }
 
 // zakljuciOvjeru dovršava ovjeru: broj, tko i kad, kod, potpis ključem
 // čvora, spremanje i usklađivanje obrane na dionicama. potpisnikPerms su
-// ovlasti onoga tko akt ovjerava (za "u.z." i potpisnika), a perms onoga tko
-// radnju izvodi u programu (za epizode obrane).
-func (s *AktService) zakljuciOvjeru(ctx context.Context, perms, potpisnikPerms *models.UserPermissions, u *models.User, a *models.Akt, sad time.Time) (*models.Akt, []string, error) {
+// ovlasti onoga tko akt ovjerava (za "u.z." i potpisnika). Stanje obrane na
+// dionicama mijenja se ovlašću samog akta, ne ovlastima onoga tko radnju
+// izvodi u programu.
+func (s *AktService) zakljuciOvjeru(ctx context.Context, potpisnikPerms *models.UserPermissions, u *models.User, a *models.Akt, sad time.Time) (*models.Akt, []string, error) {
 	var err error
 	a.Godina = a.Vrijedi.In(models.Zagreb).Year()
 	if a.Broj, err = s.repo.SljedeciBroj(ctx, a.Sektor, a.Godina); err != nil {
@@ -697,7 +698,6 @@ func (s *AktService) zakljuciOvjeru(ctx context.Context, perms, potpisnikPerms *
 		for _, d := range a.Dionice {
 			poAktu.AllowedSections[d.Code] = true
 		}
-		perms = poAktu
 		st, _ := s.stations.GetStationByID(ctx, uuid.MustParse(a.StationID))
 		if st == nil {
 			st = &models.Station{Name: a.StationName}
@@ -708,14 +708,14 @@ func (s *AktService) zakljuciOvjeru(ctx context.Context, perms, potpisnikPerms *
 			if a.Radnja == models.AktUspostava {
 				otvorena, _ := s.episodes.Open(ctx, d.Code)
 				if otvorena == nil {
-					_, err = s.episodes.Declare(ctx, perms, u.ID.String(), d.Code, *st, a.Vrijedi, a.Stupanj, osnovaEpizode(a), biljeska)
+					_, err = s.episodes.Declare(ctx, poAktu, u.ID.String(), d.Code, *st, a.Vrijedi, a.Stupanj, osnovaEpizode(a), biljeska)
 				} else if a.Stupanj.Severity() > otvorena.Phase.Severity() {
-					err = s.episodes.Raise(ctx, perms, d.Code, a.Stupanj, biljeska)
+					err = s.episodes.Raise(ctx, poAktu, d.Code, a.Stupanj, biljeska)
 				}
 			} else if a.Stupanj == models.PhasePrep {
-				err = s.episodes.End(ctx, perms, u.ID.String(), d.Code, a.Vrijedi, biljeska)
+				err = s.episodes.End(ctx, poAktu, u.ID.String(), d.Code, a.Vrijedi, biljeska)
 			} else if otvorena, _ := s.episodes.Open(ctx, d.Code); otvorena != nil {
-				err = s.episodes.Raise(ctx, perms, d.Code, otvorena.Phase, biljeska)
+				err = s.episodes.Raise(ctx, poAktu, d.Code, otvorena.Phase, biljeska)
 			}
 			if err != nil {
 				upozorenja = append(upozorenja, d.Code+": "+err.Error())
@@ -862,7 +862,7 @@ func (s *AktService) UcitajSkenirani(ctx context.Context, perms *models.UserPerm
 	if err := s.repo.SaveIzvornik(ctx, &repository.Izvornik{AktID: a.ID, PDF: pdf, Sazetak: a.Rucno.Sazetak}); err != nil {
 		return nil, nil, err
 	}
-	return s.zakljuciOvjeru(ctx, perms, potpisnikPerms, potpisnik, a, time.Now())
+	return s.zakljuciOvjeru(ctx, potpisnikPerms, potpisnik, a, time.Now())
 }
 
 // kljucImena svodi ime na usporedivi oblik: mala slova, bez dijakritike,

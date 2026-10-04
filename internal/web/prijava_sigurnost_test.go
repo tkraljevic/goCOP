@@ -90,6 +90,13 @@ func izravno(r *http.Request) *http.Request {
 	return r
 }
 
+// javnoIzravno je zahtjev s javne adrese bez posrednika, npr. kroz port
+// proslijeđen na čvor
+func javnoIzravno(r *http.Request) *http.Request {
+	r.RemoteAddr = "203.0.113.9:40000"
+	return r
+}
+
 func krozTunel(klijent string) func(*http.Request) *http.Request {
 	return func(r *http.Request) *http.Request {
 		r.RemoteAddr = "127.0.0.1:5555"
@@ -166,6 +173,11 @@ func TestZadanaLozinkaKrozTunelSeOdbija(t *testing.T) {
 		t.Errorf("privremena lozinka kroz tunel mora proći na promjenu lozinke: %d %q", w.Code, w.Header().Get("Location"))
 	}
 
+	w = o.prijava(javnoIzravno, "admin", db.ZadanaLozinka)
+	if w.Code != http.StatusForbidden || kolacicSesije(w) != nil {
+		t.Errorf("zadana lozinka s javne adrese bez posrednika: %d, kolačić %v", w.Code, kolacicSesije(w))
+	}
+
 	w = o.prijava(izravno, "admin", db.ZadanaLozinka)
 	if w.Code != http.StatusSeeOther || kolacicSesije(w) == nil || !strings.HasPrefix(w.Header().Get("Location"), "/profile?force=1") {
 		t.Errorf("zadana lozinka iz lokalne mreže mora proći: %d %q", w.Code, w.Body.String())
@@ -238,6 +250,9 @@ func TestPrijavaNudiUparivanjeSamoLokalno(t *testing.T) {
 	}
 	if b := get(krozTunel("198.51.100.7")); !strings.Contains(b, "svjez=false") {
 		t.Errorf("kroz tunel: %q", b)
+	}
+	if b := get(javnoIzravno); !strings.Contains(b, "svjez=false") {
+		t.Errorf("s javne adrese: %q", b)
 	}
 }
 
@@ -362,6 +377,9 @@ func TestUparivanjeSamoAdministratoruIliLokalnoSvjezem(t *testing.T) {
 	}
 	if code, ov := o.zahtjev(tunel, nil, api); code != http.StatusForbidden || ov != nil {
 		t.Errorf("svjež čvor kroz tunel bez prijave mora biti odbijen: %d", code)
+	}
+	if code, ov := o.zahtjev(javnoIzravno, nil, api); code != http.StatusForbidden || ov != nil {
+		t.Errorf("svjež čvor s javne adrese bez prijave mora biti odbijen: %d", code)
 	}
 	if code, _ := o.zahtjev(tunel, nil, "/uparivanje"); code != http.StatusSeeOther {
 		t.Errorf("stranica kroz tunel bez prijave vodi na prijavu: %d", code)

@@ -46,7 +46,7 @@ import (
 
 // verzijaPrograma je izdanje goCOP-a. Alfa traje dok se ne zaokruže
 // funkcionalnosti koje program treba imati; mijenja se pri izdavanju.
-const verzijaPrograma = "0.0.31-alfa"
+const verzijaPrograma = "0.0.32-alfa"
 
 // version se može zadati pri prevođenju (-ldflags "-X main.version=…");
 // prazno znači verzijaPrograma, s oznakom commita iz kojega je prevedeno.
@@ -81,7 +81,7 @@ func punaVerzija() string {
 	return v
 }
 
-// redakIzdanja je ono što ispiše -version: "goCOP 0.0.31-alfa", bez oznake
+// redakIzdanja je ono što ispiše -version: "goCOP 0.0.32-alfa", bez oznake
 // commita, jer ga Postava uspoređuje s oznakom izdanja
 func redakIzdanja() string { return "goCOP " + verzijaPrograma }
 
@@ -1219,15 +1219,7 @@ func main() {
 	go javniUvoznik.Pokreni(syncCtx)
 	log.Printf("Čvor %s (ključ %.12s…) — razmjena :%d, uparivanje :%d, pronalaženje :%d",
 		node.ID, node.PublicKey(), *syncPort, *pairPort, *discoveryPort)
-	if net := peersService.NetworkInfo(); net != nil {
-		if net.CanAdmit {
-			log.Printf("Mreža %q — ovaj čvor drži ključ mreže i može primati članove", net.Name)
-		} else {
-			log.Printf("Mreža %q — član", net.Name)
-		}
-	} else {
-		log.Printf("Čvor još nije ni u jednoj mreži — osnujte je u Postavkama ili neka vas primi nositelj ključa mreže")
-	}
+	log.Print(opisMreze(peersService.NetworkInfo()))
 
 	// Graceful shutdown
 	stop := make(chan os.Signal, 1)
@@ -1265,6 +1257,20 @@ func main() {
 }
 
 // supportContact prenosi kontakt iz postavki čvora na stranicu prijave
+// opisMreze je redak dnevnika pri pokretanju: u kojoj je mreži čvor i smije
+// li primati članove
+func opisMreze(net *peers.Network) string {
+	switch {
+	case net == nil:
+		return "Čvor još nije ni u jednoj mreži — osnujte je u Postavkama ili neka vas primi nositelj ključa mreže ili ovlašteni primatelj"
+	case net.DrziKljuc:
+		return fmt.Sprintf("Mreža %q — ovaj čvor drži ključ mreže i može primati članove", net.Name)
+	case net.CanAdmit:
+		return fmt.Sprintf("Mreža %q — ovlašteni primatelj: ovaj čvor može primati članove", net.Name)
+	}
+	return fmt.Sprintf("Mreža %q — član", net.Name)
+}
+
 func supportContact(cfg config.Config) web.SupportContact {
 	return web.SupportContact{
 		Center: cfg.Support.Center, CenterPhone: cfg.Support.CenterPhone, CenterLink: web.TelLink(cfg.Support.CenterPhone),

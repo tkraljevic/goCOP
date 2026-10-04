@@ -917,6 +917,9 @@ func (s *Server) setupRoutes() {
 		kod: noviKodPostavljanja()}
 	s.mux.HandleFunc("GET /postavljanje", s.postavljanje.Prikazi)
 	s.mux.HandleFunc("POST /postavljanje", s.postavljanje.Osnuj)
+	s.mux.HandleFunc("GET /postavljanje/zahtjev", s.postavljanje.Zahtjev)
+	s.mux.HandleFunc("POST /postavljanje/zahtjev", s.postavljanje.NoviZahtjev)
+	s.mux.HandleFunc("POST /postavljanje/potvrda", s.postavljanje.Potvrda)
 	s.mux.Handle("GET /uparivanje", pairH.Gate(http.HandlerFunc(pairH.ShowWizard)))
 	s.mux.Handle("GET /api/uparivanje/status", pairH.Gate(http.HandlerFunc(pairH.HandleStatus)))
 	s.mux.Handle("POST /api/uparivanje/listen", pairH.Gate(http.HandlerFunc(pairH.HandleListen)))
@@ -1465,6 +1468,10 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /api/network/create", s.authMiddleware(http.HandlerFunc(settingsH.HandleCreateNetwork)))
 	s.mux.Handle("GET /api/network/members", s.authMiddleware(http.HandlerFunc(settingsH.HandleMembers)))
 	s.mux.Handle("POST /api/network/members/{node}/revoke", s.authMiddleware(http.HandlerFunc(settingsH.HandleRevokeMember)))
+	s.mux.Handle("POST /api/network/members/{node}/ovlast", s.authMiddleware(http.HandlerFunc(settingsH.HandleIzdajOvlast)))
+	s.mux.Handle("POST /api/network/members/{node}/ovlast/opozovi", s.authMiddleware(http.HandlerFunc(settingsH.HandleOpozoviOvlast)))
+	s.mux.Handle("POST /api/network/zahtjev/procitaj", s.authMiddleware(http.HandlerFunc(settingsH.HandleProcitajZahtjev)))
+	s.mux.Handle("POST /api/network/zahtjev/primi", s.authMiddleware(http.HandlerFunc(settingsH.HandlePrimiZahtjev)))
 
 	// Mjerodavni vodomjeri dionice
 	s.mux.Handle("GET /api/sections/{code}/stations", s.authMiddleware(http.HandlerFunc(stationsH.HandleGetSectionStationsAPI)))

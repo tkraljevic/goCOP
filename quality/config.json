@@ -1,0 +1,63 @@
+{
+  "schema": 1,
+  "coverage_target": 85,
+  "critical_coverage_target": 95,
+  "complexity_limit": 15,
+  "critical_complexity_limit": 10,
+  "crap_limit": 30,
+  "critical_crap_limit": 10,
+  "coverage_drop_pp": 0.1,
+  "crap_increase": 0.5,
+  "duplication_increase_pp": 0.1,
+  "exact_min_tokens": 100,
+  "fuzzy_min_tokens": 80,
+  "fuzzy_similarity": 0.85,
+  "critical": [
+    "^internal/(arhiva|peers|razmjena|importer|uvoz|prognoza|hidro|hidrologija)/",
+    "^internal/web/(middleware|auth|handlers_auth|handlers_readings|uvoz_)[^/]*\\.go::",
+    "^internal/repository/(apply|reading|user|prag|station)[^/]*\\.go::",
+    "^internal/service/(auth_service|user_rules|drugi_korak|reading_service|station_service|episode_service|akt_service)\\.go::",
+    "^internal/models/(user|roles|valovi)\\.go::",
+    "^internal/web/server\\.go::.*authMiddleware$",
+    "^internal/web/handlers_(drugi_korak|uvoz_[^/]+)\\.go::",
+    "^internal/(models|service)/.*::.*(Defense|Defence|Threshold|Prag|Razina|Stupanj|Authorize|Dozvol|Pravo|Validate|Validir)"
+  ],
+  "exceptions": [
+    {
+      "key": "lint:staticcheck:internal/poslovi/poslovi_test.go:SA5000: assignment to nil map",
+      "reason": "TestPanikaUPosluNeRusiProgram namjerno izaziva paniku upisom u nil mapu kako bi provjerio oporavak pozadinskog posla; pregledano 2026-10-04.",
+      "owner": "održavatelj goCOP-a",
+      "expires": "2027-01-04"
+    },
+    {
+      "key": "lint:staticcheck:internal/posta/svjeza_veza_test.go:SA4000: identical expressions on the left and right side of the '==' operator",
+      "reason": "TestProvjeraLozinkeNovomVezom uspoređuje dva poziva tvorničke metode: uz SvjezaVeza=true svaki poziv mora vratiti drugi HTTP klijent. Izrazi jesu tekstualno isti, ali namjerno ne smiju imati istu vrijednost.",
+      "owner": "održavatelj goCOP-a",
+      "expires": "2027-01-04"
+    },
+    {
+      "key": "complexity:internal/repository/apply.go::applyOne",
+      "reason": "0.0.32 dodaje sinkronizirane entitete ovlasti i opozivi te stupac primatelj članstva; svaki novi entitet povećava switch u applyOne i removeFromSurface. Prva stavka stabilizacije je razdvajanje primjene po entitetima (jedno mjesto po entitetu), nakon čega iznimka otpada; pregledano 2026-10-04.",
+      "owner": "održavatelj goCOP-a",
+      "expires": "2026-11-15"
+    },
+    {
+      "key": "crap:internal/repository/apply.go::applyOne",
+      "reason": "0.0.32 dodaje sinkronizirane entitete ovlasti i opozivi te stupac primatelj članstva; svaki novi entitet povećava switch u applyOne i removeFromSurface. Prva stavka stabilizacije je razdvajanje primjene po entitetima (jedno mjesto po entitetu), nakon čega iznimka otpada; pregledano 2026-10-04.",
+      "owner": "održavatelj goCOP-a",
+      "expires": "2026-11-15"
+    },
+    {
+      "key": "complexity:internal/repository/apply.go::removeFromSurface",
+      "reason": "0.0.32 dodaje sinkronizirane entitete ovlasti i opozivi te stupac primatelj članstva; svaki novi entitet povećava switch u applyOne i removeFromSurface. Prva stavka stabilizacije je razdvajanje primjene po entitetima (jedno mjesto po entitetu), nakon čega iznimka otpada; pregledano 2026-10-04.",
+      "owner": "održavatelj goCOP-a",
+      "expires": "2026-11-15"
+    },
+    {
+      "key": "crap:internal/repository/apply.go::removeFromSurface",
+      "reason": "0.0.32 dodaje sinkronizirane entitete ovlasti i opozivi te stupac primatelj članstva; svaki novi entitet povećava switch u applyOne i removeFromSurface. Prva stavka stabilizacije je razdvajanje primjene po entitetima (jedno mjesto po entitetu), nakon čega iznimka otpada; pregledano 2026-10-04.",
+      "owner": "održavatelj goCOP-a",
+      "expires": "2026-11-15"
+    }
+  ]
+}

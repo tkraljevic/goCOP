@@ -409,11 +409,19 @@ func (s *Service) provjeriImeDrugog(ctx context.Context, id string, kljuc ed2551
 	}
 	k := razmjena.PublicKeyString(kljuc)
 	poruka := fmt.Errorf("ime %s već ima drugo računalo u mreži; izaberite drugo ime, a ako je to isto računalo s novim ključem, najprije ga zaboravite i opozovite mu članstvo", id)
-	if p, err := s.GetPeer(ctx, id); err == nil && p != nil && p.PublicKey != k {
+	// greška čitanja nije "nema sukoba": tada se ime ne prihvaća
+	p, err := s.GetPeer(ctx, id)
+	if err != nil {
+		return fmt.Errorf("ime %s se ne može provjeriti: %w", id, err)
+	}
+	if p != nil && p.PublicKey != k {
 		return poruka
 	}
 	var clan string
-	err := s.db.QueryRowContext(ctx, `SELECT public_key FROM memberships WHERE node_id = ?`, id).Scan(&clan)
+	err = s.db.QueryRowContext(ctx, `SELECT public_key FROM memberships WHERE node_id = ?`, id).Scan(&clan)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("ime %s se ne može provjeriti: %w", id, err)
+	}
 	if err == nil && clan != k {
 		return poruka
 	}
@@ -703,11 +711,11 @@ func (s *Service) Serve(ctx context.Context) error {
 	// njegova rukovanja ne smiju zauzeti mjesta porta u lokalnoj mreži
 	port := razmjena.NovaOgrada()
 	go func() {
-		if err := razmjena.ServeExchangeOn(ctx, s.node.key, Protocol, s.tunel, s.trusted, primi, razmjena.NovaOgradaTunela(port)); err != nil && ctx.Err() == nil {
+		if err := razmjena.ServeExchangeOn(ctx, s.node.key, Protocol, s.vjerodajnice, s.tunel, s.trusted, primi, razmjena.NovaOgradaTunela(port)); err != nil && ctx.Err() == nil {
 			log.Printf("razmjena kroz tunel: %v", err)
 		}
 	}()
-	return razmjena.ServeExchange(ctx, s.node.key, Protocol, s.ports.Exchange, s.trusted, primi, port)
+	return razmjena.ServeExchange(ctx, s.node.key, Protocol, s.vjerodajnice, s.ports.Exchange, s.trusted, primi, port)
 }
 
 // TunelHandler je razmjena kroz tunel za web sučelje (razmjena.PutTunela):
@@ -735,8 +743,8 @@ func (s *Service) SyncWith(ctx context.Context, nodeID string) (applied, sent in
 	if err != nil {
 		return 0, 0, err
 	}
-	if !s.trusted(expect) {
-		return 0, 0, fmt.Errorf("čvor %s nije član naše mreže — razmjena nije dopuštena dok ga nositelj mrežnog ključa ne primi", nodeID)
+	if !s.trusted(expect, nil) {
+		return 0, 0, fmt.Errorf("čvor %s nije član naše mreže — razmjena nije dopuštena dok ga nositelj mrežnog ključa ili ovlašteni primatelj ne primi", nodeID)
 	}
 
 	addresses := peer.Addresses
@@ -759,10 +767,10 @@ func (s *Service) SyncWith(ctx context.Context, nodeID string) (applied, sent in
 		var err error
 		dialCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
 		if razmjena.JeAdresaTunela(host) {
-			conn, err = razmjena.DialTunel(dialCtx, s.node.key, Protocol, host, expect)
+			conn, err = razmjena.DialTunel(dialCtx, s.node.key, Protocol, s.vjerodajnice, host, expect)
 		} else {
 			// adresa bez porta je stari zapis ili ručni unos — vrijedi zadani port
-			conn, err = razmjena.DialExchange(dialCtx, s.node.key, Protocol, withPort(host, fmt.Sprint(DefaultExchangePort)), expect)
+			conn, err = razmjena.DialExchange(dialCtx, s.node.key, Protocol, s.vjerodajnice, withPort(host, fmt.Sprint(DefaultExchangePort)), expect)
 		}
 		cancel()
 		if err != nil {

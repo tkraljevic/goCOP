@@ -422,7 +422,7 @@ func (s *Service) UveziCop(ctx context.Context, put string) (CopIzvjestaj, error
 		return rep, err
 	}
 	rep.PotpisValjan = true
-	rep.IzdavacClan = s.trusted(javni)
+	rep.IzdavacClan = s.trusted(javni, nil)
 	if !rep.IzdavacClan {
 		if s.NetworkInfo() != nil {
 			return rep, fmt.Errorf("paket je potpisao čvor %s koji nije član naše mreže", m.Izdao)

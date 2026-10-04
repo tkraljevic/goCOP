@@ -40,7 +40,7 @@ func TestPorukaVecaOdOgradeSeOdbija(t *testing.T) {
 	ctx, otkazi := context.WithTimeout(context.Background(), 10*time.Second)
 	defer otkazi()
 	greske := make(chan error, 3)
-	adresa := slusalica(t, ctx, posluzitelj, novaOgrada(4, 4, time.Second), func(ed25519.PublicKey) bool { return true }, func(c *Conn) {
+	adresa := slusalica(t, ctx, posluzitelj, novaOgrada(4, 4, time.Second), func(ed25519.PublicKey, []byte) bool { return true }, func(c *Conn) {
 		defer c.Close()
 		c.najvise = 4 << 10
 		for i := 0; i < 3; i++ {
@@ -51,7 +51,7 @@ func TestPorukaVecaOdOgradeSeOdbija(t *testing.T) {
 			}
 		}
 	})
-	c, err := DialExchange(ctx, klijent, "testproto", adresa, posluzitelj.Public().(ed25519.PublicKey))
+	c, err := DialExchange(ctx, klijent, "testproto", nil, adresa, posluzitelj.Public().(ed25519.PublicKey))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,7 +84,7 @@ func TestZauzetCvorOdbijaRazmjenuSRazlogom(t *testing.T) {
 	defer otkazi()
 	pusti := make(chan struct{})
 	usao := make(chan struct{}, 4)
-	adresa := slusalica(t, ctx, posluzitelj, novaOgrada(4, 1, time.Second), func(ed25519.PublicKey) bool { return true }, func(c *Conn) {
+	adresa := slusalica(t, ctx, posluzitelj, novaOgrada(4, 1, time.Second), func(ed25519.PublicKey, []byte) bool { return true }, func(c *Conn) {
 		defer c.Close()
 		if _, err := c.Receive(); err != nil {
 			return
@@ -97,7 +97,7 @@ func TestZauzetCvorOdbijaRazmjenuSRazlogom(t *testing.T) {
 	javni := posluzitelj.Public().(ed25519.PublicKey)
 	granica, _ := NewEnvelope("frontier", map[string]string{"a": "1"})
 
-	prvi, err := DialExchange(ctx, klijent, "testproto", adresa, javni)
+	prvi, err := DialExchange(ctx, klijent, "testproto", nil, adresa, javni)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,7 +105,7 @@ func TestZauzetCvorOdbijaRazmjenuSRazlogom(t *testing.T) {
 	prvi.Send(granica)
 	<-usao
 
-	drugi, err := DialExchange(ctx, klijent, "testproto", adresa, javni)
+	drugi, err := DialExchange(ctx, klijent, "testproto", nil, adresa, javni)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,7 +123,7 @@ func TestZauzetCvorOdbijaRazmjenuSRazlogom(t *testing.T) {
 	if e, err := prvi.Receive(); err != nil || e.Kind != "frontier" {
 		t.Fatalf("prva razmjena: %+v %v", e, err)
 	}
-	treci, err := DialExchange(ctx, klijent, "testproto", adresa, javni)
+	treci, err := DialExchange(ctx, klijent, "testproto", nil, adresa, javni)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -140,7 +140,7 @@ func TestRukovanjeImaRokIOgraduMjesta(t *testing.T) {
 	posluzitelj, klijent := newKey(t), newKey(t)
 	ctx, otkazi := context.WithTimeout(context.Background(), 10*time.Second)
 	defer otkazi()
-	adresa := slusalica(t, ctx, posluzitelj, novaOgrada(1, 4, 300*time.Millisecond), func(ed25519.PublicKey) bool { return true }, func(c *Conn) {
+	adresa := slusalica(t, ctx, posluzitelj, novaOgrada(1, 4, 300*time.Millisecond), func(ed25519.PublicKey, []byte) bool { return true }, func(c *Conn) {
 		defer c.Close()
 		if _, err := c.Receive(); err != nil {
 			return
@@ -157,7 +157,7 @@ func TestRukovanjeImaRokIOgraduMjesta(t *testing.T) {
 	// poznati čvor čeka da šutljivi istekne pa prolazi
 	gotov := make(chan error, 1)
 	go func() {
-		c, err := DialExchange(ctx, klijent, "testproto", adresa, posluzitelj.Public().(ed25519.PublicKey))
+		c, err := DialExchange(ctx, klijent, "testproto", nil, adresa, posluzitelj.Public().(ed25519.PublicKey))
 		if err != nil {
 			gotov <- err
 			return
@@ -221,7 +221,13 @@ func TestUparivanjeOgradjujePorukeDrugeStrane(t *testing.T) {
 				if slucaj.velikiHelo {
 					ime = strings.Repeat("x", 200<<10)
 				}
-				json.NewEncoder(c).Encode(Hello{Protocol: "testproto", DeviceID: "lazni", Name: ime})
+				enc := json.NewEncoder(c)
+				_ = enc.Encode(Hello{Protocol: "testproto", DeviceID: "lazni", Name: ime, SAS: sasInacica})
+				// dogovor koda kao poštena slušalica: obveza, moj broj, otkriveni broj
+				var obveza, otkriven sasPoruka
+				_ = dec.Decode(&obveza)
+				_ = enc.Encode(sasPoruka{Broj: make([]byte, velicinaBroja)})
+				_ = dec.Decode(&otkriven)
 				var p Confirm
 				_ = dec.Decode(&p)
 				veliki, _ := json.Marshal(strings.Repeat("y", 2<<20))

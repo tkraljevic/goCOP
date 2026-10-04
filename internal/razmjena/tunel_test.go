@@ -31,7 +31,7 @@ func TestRazmjenaKrozTunel(t *testing.T) {
 	ctx, otkazi := context.WithTimeout(context.Background(), 20*time.Second)
 	defer otkazi()
 	adresaDruge := make(chan string, 1)
-	go ServeExchangeOn(ctx, kljucB, "gocop-test", tunel, func(k ed25519.PublicKey) bool { return k.Equal(javniA) }, func(c *Conn) {
+	go ServeExchangeOn(ctx, kljucB, "gocop-test", nil, tunel, func(k ed25519.PublicKey, _ []byte) bool { return k.Equal(javniA) }, func(c *Conn) {
 		defer c.Close()
 		// bilješka o razmjeni čita adresu druge strane; WebSocket na strani
 		// poslužitelja je nema, a prazan URL je srušio čvor (0.0.12-alfa)
@@ -45,7 +45,7 @@ func TestRazmjenaKrozTunel(t *testing.T) {
 	})
 
 	adresa := srv.URL
-	c, err := DialTunel(ctx, kljucA, "gocop-test", adresa, javniB)
+	c, err := DialTunel(ctx, kljucA, "gocop-test", nil, adresa, javniB)
 	if err != nil {
 		t.Fatalf("spajanje kroz tunel: %v", err)
 	}
@@ -64,7 +64,7 @@ func TestRazmjenaKrozTunel(t *testing.T) {
 	c.Close()
 
 	// čvor kojeg druga strana ne poznaje ne dobiva ni bajt razmjene
-	if c, err := DialTunel(ctx, stranac, "gocop-test", adresa, javniB); err == nil {
+	if c, err := DialTunel(ctx, stranac, "gocop-test", nil, adresa, javniB); err == nil {
 		pitanje, _ := NewEnvelope("frontier", nil)
 		c.Send(pitanje)
 		if _, err := c.Receive(); err == nil {
@@ -73,7 +73,7 @@ func TestRazmjenaKrozTunel(t *testing.T) {
 		c.Close()
 	}
 	// pozivatelj koji očekuje drugi ključ odbija vezu
-	if _, err := DialTunel(ctx, kljucA, "gocop-test", adresa, stranac.Public().(ed25519.PublicKey)); err == nil {
+	if _, err := DialTunel(ctx, kljucA, "gocop-test", nil, adresa, stranac.Public().(ed25519.PublicKey)); err == nil {
 		t.Error("kriv ključ druge strane nije odbijen")
 	}
 }

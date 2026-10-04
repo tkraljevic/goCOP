@@ -88,7 +88,7 @@
     <dl class="kv">
       <dt>Naziv</dt><dd><b>{{.Network.Name}}</b></dd>
       <dt>Ključ mreže</dt><dd class="mono text-xs">{{.Network.PublicKey}}</dd>
-      <dt>Ovaj čvor</dt><dd>{{if .Network.CanAdmit}}<span class="badge badge-active">drži ključ mreže — može primati članove</span>{{else}}član{{end}} · od {{formatDate .Network.JoinedAt}}</dd>
+      <dt>Ovaj čvor</dt><dd>{{if .Network.DrziKljuc}}<span class="badge badge-active">drži ključ mreže — može primati članove</span>{{else if .Network.Ovlast}}<span class="badge badge-active">ovlašteni primatelj — može primati članove</span> do {{formatDate .Network.Ovlast.ExpiresAt}}{{else}}član{{end}} · od {{formatDate .Network.JoinedAt}}</dd>
     </dl>
     <div class="mt-3">
       {{range .Members}}
@@ -96,17 +96,44 @@
         <div class="peer-head">
           <span class="peer-name">{{.DeviceID}}{{if .IsSelf}} <span class="muted">(ovaj čvor)</span>{{end}}
             {{if .Valid}}<span class="badge badge-active">član</span>{{else}}<span class="badge badge-inactive" title="{{.Problem}}">nevažeće</span>{{end}}</span>
-          <span class="peer-meta">primio {{.IssuedBy}} · vrijedi do {{formatDate .ExpiresAt}}</span>
+          <span class="peer-meta">primio {{.IssuedBy}}{{if .Primatelj}} (ovlašteni primatelj){{end}} · vrijedi do {{formatDate .ExpiresAt}}</span>
         </div>
+        {{with .OvlastZaPrimanje}}<div class="peer-meta">{{if .Valid}}<span class="badge badge-active">ovlašteni primatelj</span> do {{formatDate .ExpiresAt}}{{else}}<span class="badge badge-inactive" title="{{.Problem}}">ovlast za primanje ne vrijedi</span>{{end}}</div>{{end}}
         {{if and $.Permissions.IsGlobalAdmin (not .IsSelf)}}
-        <div class="actions"><button type="button" class="btn btn-sm btn-link" onclick="revokeMember('{{.DeviceID}}')">Opozovi članstvo</button></div>
+        <div class="actions">
+          {{if and $.Network.DrziKljuc .Valid}}{{if and .OvlastZaPrimanje .OvlastZaPrimanje.Valid}}<button type="button" class="btn btn-sm btn-secondary" onclick="opozoviOvlast('{{.DeviceID}}')">Oduzmi ovlast za primanje</button>{{else}}<button type="button" class="btn btn-sm btn-secondary" onclick="izdajOvlast('{{.DeviceID}}')">Daj ovlast za primanje</button>{{end}}{{end}}
+          <button type="button" class="btn btn-sm btn-link" onclick="revokeMember('{{.DeviceID}}')">Opozovi članstvo</button>
+        </div>
         {{end}}
       </div>
       {{end}}
     </div>
+    {{if and .Network.CanAdmit .Permissions.IsGlobalAdmin}}
+    <div class="mt-4" id="daljina-box">
+      <h3>Primanje na daljinu</h3>
+      <p class="desc">Za računalo koje nije u istoj lokalnoj mreži (npr. laptop kod kuće): na njemu se pod <b>Postavljanje → Postojeća mreža</b> napravi <b>zahtjev</b> i pošalje vam (npr. e-poštom), a <b>kod za primanje</b> s njegova ekrana čovjek vam pročita telefonom. Ovdje učitajte zahtjev i upišite kod; vraćenu <b>potvrdu</b> ono učita kod sebe.</p>
+      <div class="actions">
+        <input type="file" id="zahtjev-datoteka" accept=".json,application/json" class="form-control" style="max-width:320px;">
+        <button type="button" class="btn btn-secondary" onclick="procitajZahtjev()">Učitaj zahtjev</button>
+      </div>
+      <div id="zahtjev-pregled" style="display:none;" class="mt-2">
+        <p class="mb-2">Računalo <b id="zahtjev-cvor" class="mono"></b> <span id="zahtjev-naziv" class="muted"></span> traži primanje u mrežu.</p>
+        <div class="form-group mb-2">
+          <label class="form-label" for="zahtjev-kod">Kod za primanje (pročita vam ga telefonom čovjek s tog računala)</label>
+          <input type="text" id="zahtjev-kod" class="form-control mono" placeholder="npr. 7KQ4-M2XD" autocomplete="off" style="max-width:220px;">
+        </div>
+        {{if .Network.DrziKljuc}}<label style="display:flex; gap:.5rem; align-items:flex-start;" class="mb-2"><input type="checkbox" id="zahtjev-ovlast" style="margin-top:.3rem;"> <span>Daj mu i <b>ovlast za primanje</b> (npr. uredski poslužitelj koji prima uredska računala)</span></label>{{end}}
+        <div class="actions">
+          <button type="button" class="btn btn-primary" onclick="primiZahtjev()">Primi i preuzmi potvrdu</button>
+          <button type="button" class="btn btn-secondary" onclick="odustaniZahtjev()">Odustani</button>
+        </div>
+      </div>
+      <p id="zahtjev-status" class="muted mt-2"></p>
+    </div>
+    {{end}}
     {{else}}
     <p class="desc">Ovaj čvor još nije ni u jednoj mreži. Bez mreže nema razmjene: nitko mu ne vjeruje i on ne vjeruje nikome.</p>
-    <p class="desc">Dva puta unutra: <b>osnovati mrežu</b> (ovaj čvor dobiva ključ mreže i prima ostale) ili <b>biti primljen</b> — upariti se s čvorom koji drži ključ mreže; članstvo stiže s uparivanjem.</p>
+    <p class="desc">Dva puta unutra: <b>osnovati mrežu</b> (ovaj čvor dobiva ključ mreže i prima ostale) ili <b>biti primljen</b> — upariti se s čvorom koji drži ključ mreže ili ovlast za primanje (članstvo stiže s uparivanjem), ili na daljinu, zahtjevom i potvrdom pod Postavljanje.</p>
     {{if .Permissions.IsGlobalAdmin}}
     <div class="actions">
       <input type="text" id="network-name" class="form-control" placeholder="naziv mreže, npr. Hrvatske vode" style="max-width:300px;">
@@ -232,9 +259,69 @@ async function createNetwork() {
   try { await api('/api/network/create', {name}); location.reload(); } catch (e) { alert(e.message); }
 }
 
+// pogodjeniPoruka: čvorovi čije članstvo pada s opozivom ovlasti njihova primatelja
+const pogodjeniPoruka = p => (p && p.length) ? '\n\nNjihova članstva više ne vrijede (primio ih je taj primatelj): ' + p.join(', ') +
+  '.\nAko trebaju ostati u mreži, primite ih ponovno.' : '';
+
 async function revokeMember(node) {
-  if (!confirm('Opozvati članstvo čvora "' + node + '"? Od tada mu nitko u mreži ne odgovara na razmjenu. Potvrda ostaje u povijesti.')) return;
-  try { await api('/api/network/members/' + encodeURIComponent(node) + '/revoke', {}); location.reload(); } catch (e) { alert(e.message); }
+  if (!confirm('Opozvati članstvo čvora "' + node + '"? Od tada mu nitko u mreži ne odgovara na razmjenu. Potvrda ostaje u povijesti.\n\nAko je ovlašteni primatelj, oduzima mu se i ovlast, a time i članstva svih koje je primio.')) return;
+  try {
+    const r = await api('/api/network/members/' + encodeURIComponent(node) + '/revoke', {});
+    if (r.pogodjeni && r.pogodjeni.length) alert('Članstvo opozvano.' + pogodjeniPoruka(r.pogodjeni));
+    location.reload();
+  } catch (e) { alert(e.message); }
+}
+
+async function izdajOvlast(node) {
+  if (!confirm('Dati čvoru "' + node + '" ovlast za primanje? Moći će primati računala u mrežu bez ključa mreže. Ovlast se može oduzeti; tada prestaju vrijediti i članstva svih koje je primio.')) return;
+  try { await api('/api/network/members/' + encodeURIComponent(node) + '/ovlast', {}); location.reload(); } catch (e) { alert(e.message); }
+}
+
+async function opozoviOvlast(node) {
+  if (!confirm('Oduzeti čvoru "' + node + '" ovlast za primanje? Članstva SVIH računala koja je primio prestaju vrijediti.')) return;
+  try {
+    const r = await api('/api/network/members/' + encodeURIComponent(node) + '/ovlast/opozovi', {});
+    alert('Ovlast oduzeta.' + pogodjeniPoruka(r.pogodjeni));
+    location.reload();
+  } catch (e) { alert(e.message); }
+}
+
+let zahtjevTekst = '';
+async function procitajZahtjev() {
+  const ulaz = document.getElementById('zahtjev-datoteka');
+  const status = document.getElementById('zahtjev-status');
+  if (!ulaz.files.length) { status.textContent = 'Izaberite datoteku zahtjeva.'; return; }
+  try {
+    zahtjevTekst = await ulaz.files[0].text();
+    const r = await api('/api/network/zahtjev/procitaj', {zahtjev: zahtjevTekst});
+    document.getElementById('zahtjev-cvor').textContent = r.cvor;
+    document.getElementById('zahtjev-naziv').textContent = r.naziv ? '(' + r.naziv + ')' : '';
+    document.getElementById('zahtjev-kod').value = '';
+    document.getElementById('zahtjev-pregled').style.display = 'block';
+    document.getElementById('zahtjev-kod').focus();
+    status.textContent = '';
+  } catch (e) { zahtjevTekst = ''; status.innerHTML = '<span class="err">' + escPronadjeno(e.message) + '</span>'; }
+}
+
+function odustaniZahtjev() {
+  zahtjevTekst = '';
+  document.getElementById('zahtjev-pregled').style.display = 'none';
+  document.getElementById('zahtjev-datoteka').value = '';
+}
+
+async function primiZahtjev() {
+  const status = document.getElementById('zahtjev-status');
+  const ovlast = document.getElementById('zahtjev-ovlast');
+  try {
+    const kod = document.getElementById('zahtjev-kod').value;
+    const r = await api('/api/network/zahtjev/primi', {zahtjev: zahtjevTekst, kod: kod, ovlast: !!(ovlast && ovlast.checked)});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([r.potvrda], {type: 'application/json'}));
+    a.download = r.datoteka;
+    document.body.appendChild(a); a.click(); a.remove();
+    odustaniZahtjev();
+    status.innerHTML = 'Primljeno. Potvrda <b>' + escPronadjeno(r.datoteka) + '</b> je preuzeta — pošaljite je natrag; ono je učita pod Postavljanje.';
+  } catch (e) { status.innerHTML = '<span class="err">' + escPronadjeno(e.message) + '</span>'; }
 }
 
 let pronadjeni = [];

@@ -57,7 +57,11 @@ func (n NetworkKey) CanSign() bool { return n.private != nil }
 // half is held.
 func (n NetworkKey) Private() ed25519.PrivateKey { return n.private }
 
-// Membership is a device's admission to a network, signed by the network key.
+// Membership is a device's admission to a network. It is signed either by
+// the network key itself, or by an authorised admitter (ovlašteni
+// primatelj): a member the network key has authorised to admit others,
+// whose Ovlast travels inside the membership so any member can check the
+// chain network key → ovlast → membership without asking anyone.
 type Membership struct {
 	Network   string    `json:"network"`   // base64 public key of the network
 	DeviceID  string    `json:"deviceId"`  // the member
@@ -66,11 +70,30 @@ type Membership struct {
 	IssuedAt  time.Time `json:"issuedAt"`
 	ExpiresAt time.Time `json:"expiresAt"`
 	Signature string    `json:"signature"` // base64, over signedBytes()
+	// Primatelj je ovlast čvora koji je potpisao ovo članstvo svojim ključem;
+	// prazno kad ga je potpisao ključ mreže (sva članstva do 0.0.32)
+	Primatelj *Ovlast `json:"primatelj,omitempty"`
 }
 
 // signedBytes is the canonical form the signature covers. Field order and
 // encoding are fixed here; changing them invalidates every certificate.
+// v1 is a membership signed by the network key; v2 one signed by an
+// admitter, bound to that admitter's ovlast (its signature), so the ovlast
+// cannot be swapped for another one.
 func (m Membership) signedBytes() []byte {
+	if m.Primatelj != nil {
+		b, _ := json.Marshal(struct {
+			V         int    `json:"v"`
+			Network   string `json:"network"`
+			DeviceID  string `json:"deviceId"`
+			DeviceKey string `json:"deviceKey"`
+			IssuedBy  string `json:"issuedBy"`
+			IssuedAt  int64  `json:"issuedAt"`
+			ExpiresAt int64  `json:"expiresAt"`
+			Ovlast    string `json:"ovlast"`
+		}{2, m.Network, m.DeviceID, m.DeviceKey, m.IssuedBy, m.IssuedAt.Unix(), m.ExpiresAt.Unix(), m.Primatelj.Signature})
+		return b
+	}
 	b, _ := json.Marshal(struct {
 		V         int    `json:"v"`
 		Network   string `json:"network"`
@@ -81,6 +104,95 @@ func (m Membership) signedBytes() []byte {
 		ExpiresAt int64  `json:"expiresAt"`
 	}{1, m.Network, m.DeviceID, m.DeviceKey, m.IssuedBy, m.IssuedAt.Unix(), m.ExpiresAt.Unix()})
 	return b
+}
+
+// Ovlast je dopuštenje ključa mreže jednom članu da prima druge u mrežu
+// (ovlašteni primatelj): npr. uredski poslužitelj prima uredska računala, a
+// ključ mreže ostaje kod nositelja. Vrijedi do isteka ili opoziva; opoziv
+// poništava i sva članstva koja je primatelj potpisao.
+type Ovlast struct {
+	Network   string    `json:"network"`
+	DeviceID  string    `json:"deviceId"`
+	DeviceKey string    `json:"deviceKey"`
+	IssuedBy  string    `json:"issuedBy"`
+	IssuedAt  time.Time `json:"issuedAt"`
+	ExpiresAt time.Time `json:"expiresAt"`
+	Signature string    `json:"signature"` // ključ mreže, nad signedBytes()
+}
+
+// UTC je ista ovlast s vremenima u UTC-u, za pohranu u istom obliku na
+// svim čvorovima (potpis pokriva sekunde, ne zonu)
+func (o Ovlast) UTC() Ovlast {
+	o.IssuedAt, o.ExpiresAt = o.IssuedAt.UTC(), o.ExpiresAt.UTC()
+	return o
+}
+
+func (o Ovlast) signedBytes() []byte {
+	b, _ := json.Marshal(struct {
+		V         string `json:"v"`
+		Network   string `json:"network"`
+		DeviceID  string `json:"deviceId"`
+		DeviceKey string `json:"deviceKey"`
+		IssuedBy  string `json:"issuedBy"`
+		IssuedAt  int64  `json:"issuedAt"`
+		ExpiresAt int64  `json:"expiresAt"`
+	}{"ovlast/1", o.Network, o.DeviceID, o.DeviceKey, o.IssuedBy, o.IssuedAt.Unix(), o.ExpiresAt.Unix()})
+	return b
+}
+
+// Ovlasti potpisuje članu dopuštenje da prima druge, na zadano vrijeme
+func (n NetworkKey) Ovlasti(deviceID string, deviceKey ed25519.PublicKey, issuedBy string, validFor time.Duration) (Ovlast, error) {
+	if !n.CanSign() {
+		return Ovlast{}, errors.New("samo nositelj ključa mreže daje ovlast za primanje")
+	}
+	now := time.Now().UTC().Truncate(time.Second)
+	o := Ovlast{
+		Network: PublicKeyString(n.Public), DeviceID: deviceID, DeviceKey: PublicKeyString(deviceKey),
+		IssuedBy: issuedBy, IssuedAt: now, ExpiresAt: now.Add(validFor),
+	}
+	o.Signature = base64.StdEncoding.EncodeToString(ed25519.Sign(n.private, o.signedBytes()))
+	return o, nil
+}
+
+// ErrOvlast: ovlast primatelja ne vrijedi
+var ErrOvlast = errors.New("ovlast primatelja ne vrijedi")
+
+// Verify provjerava da je ovlast potpisao ključ mreže i da vrijedi u trenutku at
+func (o Ovlast) Verify(networkPub ed25519.PublicKey, at time.Time) error {
+	if o.Network != PublicKeyString(networkPub) {
+		return fmt.Errorf("%w: druga mreža", ErrOvlast)
+	}
+	sig, err := base64.StdEncoding.DecodeString(o.Signature)
+	if err != nil || !ed25519.Verify(networkPub, o.signedBytes(), sig) {
+		return fmt.Errorf("%w: potpis", ErrOvlast)
+	}
+	if at.Before(o.IssuedAt) || (!o.ExpiresAt.IsZero() && at.After(o.ExpiresAt)) {
+		return fmt.Errorf("%w: ne vrijedi %s", ErrOvlast, at.Format(time.RFC3339))
+	}
+	return nil
+}
+
+// AdmitAs prima uređaj ključem ovlaštenog primatelja (priv) uz njegovu
+// ovlast. Članstvo ne smije vrijediti dulje od ovlasti.
+func AdmitAs(priv ed25519.PrivateKey, o Ovlast, deviceID string, deviceKey ed25519.PublicKey, validFor time.Duration) (Membership, error) {
+	if PublicKeyString(priv.Public().(ed25519.PublicKey)) != o.DeviceKey {
+		return Membership{}, errors.New("ovlast nije izdana ovom čvoru")
+	}
+	now := time.Now().UTC().Truncate(time.Second)
+	if now.Before(o.IssuedAt) || (!o.ExpiresAt.IsZero() && now.After(o.ExpiresAt)) {
+		return Membership{}, errors.New("ovlast za primanje je istekla")
+	}
+	exp := now.Add(validFor)
+	if !o.ExpiresAt.IsZero() && exp.After(o.ExpiresAt) {
+		exp = o.ExpiresAt
+	}
+	oo := o
+	m := Membership{
+		Network: o.Network, DeviceID: deviceID, DeviceKey: PublicKeyString(deviceKey),
+		IssuedBy: o.DeviceID, IssuedAt: now, ExpiresAt: exp, Primatelj: &oo,
+	}
+	m.Signature = base64.StdEncoding.EncodeToString(ed25519.Sign(priv, m.signedBytes()))
+	return m, nil
 }
 
 // Admit signs a device into the network for the given validity.
@@ -118,12 +230,38 @@ func (m Membership) Verify(networkPub ed25519.PublicKey, deviceKey ed25519.Publi
 	if m.DeviceKey != PublicKeyString(deviceKey) {
 		return ErrKeyMismatch
 	}
+	signer, err := m.potpisnik(networkPub)
+	if err != nil {
+		return err
+	}
 	sig, err := base64.StdEncoding.DecodeString(m.Signature)
-	if err != nil || !ed25519.Verify(networkPub, m.signedBytes(), sig) {
+	if err != nil || !ed25519.Verify(signer, m.signedBytes(), sig) {
 		return ErrBadSignature
 	}
 	if !m.ExpiresAt.IsZero() && now.After(m.ExpiresAt) {
 		return fmt.Errorf("%w: %s", ErrExpired, m.ExpiresAt.Format(time.RFC3339))
 	}
 	return nil
+}
+
+// potpisnik je ključ koji je smio potpisati ovo članstvo: ključ mreže, ili
+// ovlašteni primatelj kad članstvo nosi njegovu ovlast. Lanac: ključ mreže
+// → ovlast primatelja → članstvo; ovlast mora vrijediti kad je članstvo
+// izdano, a potpisnik mora biti baš taj primatelj.
+func (m Membership) potpisnik(networkPub ed25519.PublicKey) (ed25519.PublicKey, error) {
+	o := m.Primatelj
+	if o == nil {
+		return networkPub, nil
+	}
+	if err := o.Verify(networkPub, m.IssuedAt); err != nil {
+		return nil, err
+	}
+	if o.DeviceID != m.IssuedBy {
+		return nil, fmt.Errorf("%w: izdao ga je %s, a ovlast glasi na %s", ErrBadSignature, m.IssuedBy, o.DeviceID)
+	}
+	kljuc, err := ParsePublicKey(o.DeviceKey)
+	if err != nil {
+		return nil, ErrBadSignature
+	}
+	return kljuc, nil
 }

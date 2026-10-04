@@ -83,7 +83,7 @@ func (h *AuthHandler) isFresh() bool { return h.fresh != nil && h.fresh() }
 // prijave: samo svjež čvor i samo izravnom klijentu, jer kroz tunel
 // uparivanja bez prijave nema (handlers_pairing.go)
 func (h *AuthHandler) svjezLokalno(r *http.Request) bool {
-	return !klijentIz(r).KrozPosrednika && h.isFresh()
+	return klijentIz(r).IzLokalneMreze() && h.isFresh()
 }
 
 // prikaziPrijavu iscrtava stranicu prijave s porukom
@@ -185,8 +185,9 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 
 	// Zadana lozinka piše u dokumentaciji: tko je zna, preuzeo bi svjež čvor
 	// izvana prije vlasnika. Prva prijava njome zato ide samo iz lokalne
-	// mreže; privremena lozinka koju je dao administrator vrijedi i izvana.
-	if klijent.KrozPosrednika && user.MustChangePassword && password == db.ZadanaLozinka {
+	// mreže (ne kroz tunel ni s javne adrese, npr. kroz proslijeđen port);
+	// privremena lozinka koju je dao administrator vrijedi i izvana.
+	if !klijent.IzLokalneMreze() && user.MustChangePassword && password == db.ZadanaLozinka {
 		h.prikaziPrijavu(w, r, http.StatusForbidden, porukaZadaneLozinke)
 		return
 	}

@@ -1,4 +1,5 @@
-# Provjera koda na svako slanje i jednom tjedno: go vet, testovi i
+# Provjera koda na svako slanje i jednom tjedno: quality gate (uključuje vet,
+# testove, race, coverage, statiku i regresije) te
 # govulncheck (poznate ranjivosti u Go-u i ovisnostima koje kod stvarno
 # poziva). Tjedna provjera hvata ranjivosti objavljene nakon izdanja.
 name: Provjera
@@ -18,14 +19,59 @@ permissions:
 jobs:
   testovi:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-go@v5
         with:
           go-version: "1.27.x"
           check-latest: true
-      - run: go vet ./...
-      - run: go test ./...
+      - run: make quality-tools quality-test
+      - name: Identitet alata
+        id: quality-env
+        run: echo "go=$(go env GOVERSION)" >> "$GITHUB_OUTPUT"
+      # Prvi prolaz ponovno mjeri ISTI prihvaćeni commit na platformi CI-a.
+      # Ne uspoređujemo Linux s macOS baselineom niti novi kod sa samim sobom.
+      - uses: actions/cache@v4
+        id: quality-base
+        with:
+          path: ${{ runner.temp }}/gocop-quality-baseline.json
+          key: quality-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.quality-env.outputs.go }}-${{ hashFiles('quality/baseline.json', 'quality/config.json', '.golangci.yml', 'dev/quality/**') }}
+      - name: Baseline iste platforme
+        if: steps.quality-base.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          baseline_ref=$(jq -er '.commit' quality/baseline.json)
+          git cat-file -e "$baseline_ref^{commit}"
+          git clone --shared --no-checkout "$GITHUB_WORKSPACE" "$RUNNER_TEMP/gocop-quality-source"
+          git -C "$RUNNER_TEMP/gocop-quality-source" checkout --detach "$baseline_ref"
+          cd dev/quality
+          go run . -root "$RUNNER_TEMP/gocop-quality-source" \
+            -out "$RUNNER_TEMP/gocop-quality-baseline-output" \
+            -baseline "$RUNNER_TEMP/gocop-quality-baseline.json" -record-baseline
+      - name: Code Health & Quality Gate
+        run: make quality QUALITY_BASELINE="$RUNNER_TEMP/gocop-quality-baseline.json"
+      - name: Izvještaji (i kada provjera padne)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: code-health-${{ runner.os }}-${{ runner.arch }}
+          include-hidden-files: true
+          retention-days: 30
+          path: |
+            .quality/code-health.json
+            .quality/code-health.md
+            .quality/coverage.out
+            .quality/coverage-functions.txt
+            .quality/coverage.html
+            .quality/tests.log
+            .quality/lint.json
+            .quality/lint.log
+            ${{ runner.temp }}/gocop-quality-baseline.json
+            ${{ runner.temp }}/gocop-quality-baseline-output/code-health.md
 
   ranjivosti:
     runs-on: ubuntu-latest

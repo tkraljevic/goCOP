@@ -16,6 +16,7 @@ import (
 	"gocop/internal/ledger"
 	"gocop/internal/models"
 	"gocop/internal/obracun"
+	"gocop/internal/razmjena"
 	"gocop/internal/sadrzaj"
 )
 
@@ -108,7 +109,7 @@ func PoznatiEntiteti() []string {
 		EntityPotpisniKljucevi, EntityPotpisniIzdavatelji,
 		EntityPrijave, EntityPrijaveIzvornici,
 		// zapisuje ih sloj razmjene (peers), a površinu osvježava applyOne
-		"peers", "memberships",
+		"peers", "memberships", "ovlasti", "opozivi",
 	}
 }
 
@@ -912,6 +913,43 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 
 	case "memberships":
 		var m struct {
+			Network   string           `json:"network"`
+			DeviceID  string           `json:"deviceId"`
+			DeviceKey string           `json:"deviceKey"`
+			IssuedBy  string           `json:"issuedBy"`
+			IssuedAt  time.Time        `json:"issuedAt"`
+			ExpiresAt time.Time        `json:"expiresAt"`
+			Signature string           `json:"signature"`
+			Primatelj *razmjena.Ovlast `json:"primatelj"`
+		}
+		if err := json.Unmarshal(v.Payload, &m); err != nil {
+			return err
+		}
+		// ovlast potpisnika u istom obliku kao kod izvora (peers), ma u
+		// kojoj zoni i kojim redom polja stigla
+		primatelj := ""
+		if m.Primatelj != nil {
+			b, err := json.Marshal(m.Primatelj.UTC())
+			if err != nil {
+				return err
+			}
+			primatelj = string(b)
+		}
+		// Potpis se ne provjerava ovdje nego na vratima razmjene — ovdje se
+		// samo pamti što je stiglo; tuđa ili kriva potvrda nikad ne prolazi
+		// provjeru i ne šteti time što postoji u tablici.
+		_, err := tx.ExecContext(ctx, `
+			INSERT INTO memberships (node_id, public_key, network, issued_by, issued_at, expires_at, signature, created_at, primatelj)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+			ON CONFLICT(node_id) DO UPDATE SET
+				public_key = excluded.public_key, network = excluded.network, issued_by = excluded.issued_by,
+				issued_at = excluded.issued_at, expires_at = excluded.expires_at, signature = excluded.signature,
+				primatelj = excluded.primatelj
+		`, m.DeviceID, m.DeviceKey, m.Network, m.IssuedBy, m.IssuedAt.UTC(), m.ExpiresAt.UTC(), m.Signature, v.CreatedAt.UTC(), primatelj)
+		return err
+
+	case "ovlasti":
+		var o struct {
 			Network   string    `json:"network"`
 			DeviceID  string    `json:"deviceId"`
 			DeviceKey string    `json:"deviceKey"`
@@ -920,19 +958,37 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 			ExpiresAt time.Time `json:"expiresAt"`
 			Signature string    `json:"signature"`
 		}
-		if err := json.Unmarshal(v.Payload, &m); err != nil {
+		if err := json.Unmarshal(v.Payload, &o); err != nil {
 			return err
 		}
-		// Potpis se ne provjerava ovdje nego na vratima razmjene — ovdje se
-		// samo pamti što je stiglo; tuđa ili kriva potvrda nikad ne prolazi
-		// provjeru i ne šteti time što postoji u tablici.
+		// kao članstva: potpis se provjerava pri upotrebi, ne ovdje
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO memberships (node_id, public_key, network, issued_by, issued_at, expires_at, signature, created_at)
+			INSERT INTO ovlasti (node_id, public_key, network, issued_by, issued_at, expires_at, signature, created_at)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT(node_id) DO UPDATE SET
 				public_key = excluded.public_key, network = excluded.network, issued_by = excluded.issued_by,
 				issued_at = excluded.issued_at, expires_at = excluded.expires_at, signature = excluded.signature
-		`, m.DeviceID, m.DeviceKey, m.Network, m.IssuedBy, m.IssuedAt.UTC(), m.ExpiresAt.UTC(), m.Signature, v.CreatedAt.UTC())
+		`, o.DeviceID, o.DeviceKey, o.Network, o.IssuedBy, o.IssuedAt.UTC(), o.ExpiresAt.UTC(), o.Signature, v.CreatedAt.UTC())
+		return err
+
+	case "opozivi":
+		var op struct {
+			ID         string    `json:"id"`
+			Vrsta      string    `json:"vrsta"`
+			NodeID     string    `json:"nodeId"`
+			PublicKey  string    `json:"publicKey"`
+			IssuedAt   time.Time `json:"issuedAt"`
+			OpozvanoAt time.Time `json:"opozvanoAt"`
+			Opozvao    string    `json:"opozvao"`
+		}
+		if err := json.Unmarshal(v.Payload, &op); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, `
+			INSERT INTO opozivi (id, vrsta, node_id, public_key, issued_at, opozvano_at, opozvao)
+			VALUES (?, ?, ?, ?, ?, ?, ?)
+			ON CONFLICT(id) DO NOTHING
+		`, op.ID, op.Vrsta, op.NodeID, op.PublicKey, op.IssuedAt.UTC(), op.OpozvanoAt.UTC(), op.Opozvao)
 		return err
 
 	case "peers":
@@ -1118,6 +1174,12 @@ func removeFromSurface(ctx context.Context, tx *sql.Tx, v ledger.Version) error 
 		stmt = `DELETE FROM peers WHERE node_id = ?`
 	case "memberships":
 		stmt = `DELETE FROM memberships WHERE node_id = ?`
+	case "ovlasti":
+		stmt = `DELETE FROM ovlasti WHERE node_id = ?`
+	case "opozivi":
+		// opoziv se ne arhivira iz programa; arhivirana verzija (ispravak
+		// pogrešnog opoziva) vraća potvrdi valjanost kao i površina knjige
+		stmt = `DELETE FROM opozivi WHERE id = ?`
 	default:
 		return nil
 	}

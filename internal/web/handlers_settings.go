@@ -201,14 +201,103 @@ func (h *SettingsHandler) HandleRevokeMember(w http.ResponseWriter, r *http.Requ
 		http.Error(w, err.Error(), http.StatusForbidden)
 		return
 	}
-	if err := h.peers.RevokeMembership(r.Context(), r.PathValue("node")); err != nil {
+	pogodjeni, err := h.peers.RevokeMembership(r.Context(), r.PathValue("node"))
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	writeJSON(w, map[string]any{"success": true})
+	writeJSON(w, map[string]any{"success": true, "pogodjeni": pogodjeni})
 }
 
 // --- pronalaženje i sinkronizacija ---
+
+// HandleIzdajOvlast daje članu ovlast da prima druge (samo nositelj ključa mreže)
+func (h *SettingsHandler) HandleIzdajOvlast(w http.ResponseWriter, r *http.Request) {
+	if err := requireAdmin(r); err != nil {
+		http.Error(w, err.Error(), http.StatusForbidden)
+		return
+	}
+	o, err := h.peers.IzdajOvlast(r.Context(), r.PathValue("node"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, map[string]any{"success": true, "ovlast": o})
+}
+
+// HandleOpozoviOvlast oduzima ovlast za primanje; vraća čvorove koje je
+// primatelj primio (njihova članstva time ne vrijede)
+func (h *SettingsHandler) HandleOpozoviOvlast(w http.ResponseWriter, r *http.Request) {
+	if err := requireAdmin(r); err != nil {
+		http.Error(w, err.Error(), http.StatusForbidden)
+		return
+	}
+	pogodjeni, err := h.peers.OpozoviOvlast(r.Context(), r.PathValue("node"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, map[string]any{"success": true, "pogodjeni": pogodjeni})
+}
+
+// najveciZahtjevPrimanja ograđuje tijelo zahtjeva s datotekom zahtjeva
+const najveciZahtjevPrimanja = 256 << 10
+
+// HandleProcitajZahtjev provjerava oblik i potpis zahtjeva novog računala i
+// vraća tko traži primanje; ništa ne upisuje
+func (h *SettingsHandler) HandleProcitajZahtjev(w http.ResponseWriter, r *http.Request) {
+	if err := requireAdmin(r); err != nil {
+		http.Error(w, err.Error(), http.StatusForbidden)
+		return
+	}
+	var req struct {
+		Zahtjev string `json:"zahtjev"`
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, najveciZahtjevPrimanja)
+	if err := decodeBody(r, &req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	z, err := peers.ProcitajZahtjev([]byte(req.Zahtjev))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, map[string]any{"success": true, "cvor": z.Cvor, "naziv": z.Naziv, "izdanje": z.Izdanje,
+		"vrijeme": z.Vrijeme})
+}
+
+// HandlePrimiZahtjev prima računalo iz zahtjeva kad kod za primanje (koji je
+// čovjek s tog računala pročitao telefonom) odgovara zahtjevu, i vraća
+// potvrdu za datoteku; uz ovlast samo kod nositelja ključa mreže
+func (h *SettingsHandler) HandlePrimiZahtjev(w http.ResponseWriter, r *http.Request) {
+	if err := requireAdmin(r); err != nil {
+		http.Error(w, err.Error(), http.StatusForbidden)
+		return
+	}
+	var req struct {
+		Zahtjev string `json:"zahtjev"`
+		Kod     string `json:"kod"`
+		Ovlast  bool   `json:"ovlast"`
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, najveciZahtjevPrimanja)
+	if err := decodeBody(r, &req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	z, err := peers.ProcitajZahtjev([]byte(req.Zahtjev))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	potvrda, err := h.peers.PrimiZahtjev(r.Context(), []byte(req.Zahtjev), req.Kod, req.Ovlast)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, map[string]any{"success": true, "potvrda": string(potvrda),
+		"datoteka": "gocop-potvrda-" + z.Cvor + ".json"})
+}
 
 func (h *SettingsHandler) HandleDiscover(w http.ResponseWriter, r *http.Request) {
 	found, err := h.peers.Discover(r.Context(), 1500*time.Millisecond)

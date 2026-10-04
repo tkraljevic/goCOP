@@ -26,6 +26,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"gocop/internal/service"
 )
 
 // Klijent je ono što poslužitelj zna o porijeklu zahtjeva
@@ -34,6 +36,14 @@ type Klijent struct {
 	Posrednik      netip.Addr // TCP druga strana (posrednik ili sam klijent)
 	KrozPosrednika bool       // zahtjev nosi zaglavlje posrednika: došao je izvana (tunel)
 	HTTPS          bool       // izvorni zahtjev bio je HTTPS (ovdje ili kod pouzdanog posrednika)
+}
+
+// IzLokalneMreze: izravan zahtjev (bez posrednika) s ovog računala ili s
+// privatne adrese, kao za PIN (service.IzvanaAdresa). Javna adresa nije
+// lokalna ni kad do čvora dođe izravno, npr. kroz proslijeđen port, pa joj
+// ne vrijede početna lozinka ni uparivanje i postavljanje svježeg čvora.
+func (k Klijent) IzLokalneMreze() bool {
+	return !service.IzvanaAdresa(k.KrozPosrednika, k.Posrednik)
 }
 
 // String je adresa klijenta za ograničenje pokušaja i zapis sesije

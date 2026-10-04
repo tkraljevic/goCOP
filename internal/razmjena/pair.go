@@ -1,8 +1,11 @@
 package razmjena
 
 import (
+	"bytes"
 	"context"
 	"crypto/ed25519"
+	"crypto/rand"
+	"crypto/sha256"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
@@ -40,14 +43,20 @@ type Hello struct {
 	Name     string            `json:"name"`
 	Version  string            `json:"version"`
 	Meta     map[string]string `json:"meta,omitempty"`
+	// SAS je inačica dogovora koda; 2 = s obvezom unaprijed (dogovoriKod).
+	// Stariji program je ne šalje i s njim se ne uparuje.
+	SAS int `json:"sas,omitempty"`
 }
+
+// sasInacica je dogovor koda koji ovaj program traži od druge strane
+const sasInacica = 2
 
 func (id Identity) hello() Hello {
 	name := id.Name
 	if name == "" {
 		name = hostname()
 	}
-	return Hello{Protocol: id.Protocol, DeviceID: id.DeviceID, Name: name, Version: id.Version, Meta: id.Meta}
+	return Hello{Protocol: id.Protocol, DeviceID: id.DeviceID, Name: name, Version: id.Version, Meta: id.Meta, SAS: sasInacica}
 }
 
 // PairResult is what a completed (but not yet confirmed) handshake knows:
@@ -58,6 +67,10 @@ type PairResult struct {
 	PeerKey ed25519.PublicKey
 	SAS     string
 	conn    *tls.Conn
+	// dec i citac čitaju cijeli razgovor: dekoder zna u međuspremnik
+	// uzeti i sljedeću poruku druge strane, pa se ne smije zamijeniti novim
+	dec   *json.Decoder
+	citac *ograniceniCitac
 }
 
 // PeerHost is the other machine's address without a port, or "" when it
@@ -107,6 +120,13 @@ var ErrNotAPeer = errors.New("the connection did not complete a TLS handshake")
 // human is ever asked to compare codes.
 var ErrWrongProtocol = errors.New("the peer speaks a different protocol")
 
+// ErrStaroUparivanje: druga strana dogovara kod bez obveze unaprijed (stariji
+// program); takav kod napadač u sredini može namjestiti, pa se ne uparuje
+var ErrStaroUparivanje = errors.New("druga strana ima stariji program koji uparuje bez zaštite koda — nadogradite ga, pa uparite ponovno")
+
+// ErrObveza: druga strana je otkrila broj koji ne odgovara njezinoj obvezi
+var ErrObveza = errors.New("druga strana nije poštovala obvezu pri dogovoru koda — uparivanje prekinuto")
+
 // Listen waits for exactly one pairing attempt and returns it for the
 // person to judge. The caller shows result.SAS, asks the human, then
 // calls result.Finish with the answer.
@@ -143,7 +163,7 @@ func Listen(ctx context.Context, priv ed25519.PrivateKey, id Identity, port int)
 			if a.err != nil {
 				return nil, a.err
 			}
-			res, err := completeHandshake(a.conn.(*tls.Conn), priv, id)
+			res, err := completeHandshake(a.conn.(*tls.Conn), priv, id, false)
 			if errors.Is(err, ErrNotAPeer) {
 				continue
 			}
@@ -163,10 +183,12 @@ func Dial(ctx context.Context, priv ed25519.PrivateKey, id Identity, addr string
 	if err != nil {
 		return nil, err
 	}
-	return completeHandshake(conn.(*tls.Conn), priv, id)
+	return completeHandshake(conn.(*tls.Conn), priv, id, true)
 }
 
-func completeHandshake(conn *tls.Conn, priv ed25519.PrivateKey, id Identity) (*PairResult, error) {
+// completeHandshake: pozivatelj je strana koja je nazvala (Dial); ona se u
+// dogovoru koda obvezuje prva
+func completeHandshake(conn *tls.Conn, priv ed25519.PrivateKey, id Identity, pozivatelj bool) (*PairResult, error) {
 	deadline := time.Now().Add(30 * time.Second)
 	_ = conn.SetDeadline(deadline)
 	if err := conn.HandshakeContext(context.Background()); err != nil {
@@ -179,41 +201,148 @@ func completeHandshake(conn *tls.Conn, priv ed25519.PrivateKey, id Identity) (*P
 		return nil, err
 	}
 	enc := json.NewEncoder(conn)
-	if err := enc.Encode(id.hello()); err != nil {
+	citac := &ograniceniCitac{r: conn}
+	dec := json.NewDecoder(citac)
+	peer, err := razmijeniHello(enc, dec, citac, id)
+	if err != nil {
 		conn.Close()
 		return nil, err
 	}
+	nP, nS, err := dogovoriKod(enc, dec, citac, id.Protocol, pozivatelj)
+	if err != nil {
+		conn.Close()
+		return nil, err
+	}
+	_ = conn.SetDeadline(time.Time{})
+	return &PairResult{
+		Peer:    peer,
+		PeerKey: peerKey,
+		SAS:     SASCode(id.Protocol, priv.Public().(ed25519.PublicKey), peerKey, nP, nS),
+		conn:    conn,
+		dec:     dec,
+		citac:   citac,
+	}, nil
+}
+
+// razmijeniHello pošalje Hello ovog uređaja i pročita Hello druge strane:
+// istog protokola i s dogovorom koda koji ovaj program traži
+func razmijeniHello(enc *json.Encoder, dec *json.Decoder, citac *ograniceniCitac, id Identity) (Hello, error) {
+	var peer Hello
+	if err := enc.Encode(id.hello()); err != nil {
+		return peer, err
+	}
 	// Hello se čita prije ikakvog povjerenja (i Dial ga čita od slušalice
 	// koju je zadao korisnik), pa je ograđen: pravi je manji od kilobajta.
-	var peer Hello
-	citac := &ograniceniCitac{r: conn}
 	citac.postavi(najveciHello)
-	if err := json.NewDecoder(citac).Decode(&peer); err != nil {
-		conn.Close()
-		if errors.Is(err, ErrPorukaPrevelika) {
-			return nil, fmt.Errorf("reading the peer's hello: %w", err)
-		}
+	if err := dec.Decode(&peer); err != nil {
 		// EOF here means the connection was accepted and then closed
 		// without a word, which in practice means one thing: the other
 		// machine is not waiting to pair. Saying "reading the peer's
 		// hello: EOF" leaves somebody reading a protocol detail and
 		// guessing at the remedy, when the remedy is a sentence.
 		if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
-			return nil, fmt.Errorf("that machine answered but is not waiting to pair — start pairing there first, then dial it from here while it waits")
+			return peer, fmt.Errorf("that machine answered but is not waiting to pair — start pairing there first, then dial it from here while it waits")
 		}
-		return nil, fmt.Errorf("reading the peer's hello: %w", err)
+		return peer, fmt.Errorf("reading the peer's hello: %w", err)
 	}
 	if peer.Protocol != id.Protocol {
-		conn.Close()
-		return nil, fmt.Errorf("%w: it says %q, this device speaks %q", ErrWrongProtocol, peer.Protocol, id.Protocol)
+		return peer, fmt.Errorf("%w: it says %q, this device speaks %q", ErrWrongProtocol, peer.Protocol, id.Protocol)
 	}
-	_ = conn.SetDeadline(time.Time{})
-	return &PairResult{
-		Peer:    peer,
-		PeerKey: peerKey,
-		SAS:     SASCode(id.Protocol, priv.Public().(ed25519.PublicKey), peerKey),
-		conn:    conn,
-	}, nil
+	if peer.SAS < sasInacica {
+		return peer, ErrStaroUparivanje
+	}
+	return peer, nil
+}
+
+// sasPoruka je korak dogovora koda: obveza (sažetak broja) ili sam broj
+type sasPoruka struct {
+	Obveza []byte `json:"obveza,omitempty"`
+	Broj   []byte `json:"broj,omitempty"`
+}
+
+const (
+	velicinaBroja    = 32
+	najvecaSASPoruka = 4 << 10
+)
+
+func obvezaZa(protocol string, broj []byte) []byte {
+	h := sha256.Sum256(append([]byte(protocol+"-pair-commit-v2|"), broj...))
+	return h[:]
+}
+
+// dogovoriKod daje dva nasumična broja iz kojih se, uz oba ključa, računa
+// kod uparivanja. Pozivatelj se obveže na svoj broj (pošalje sažetak),
+// slušalica pošalje svoj, tek onda pozivatelj otkrije svoj, a slušalica
+// provjeri obvezu. Napadač u sredini zato ne može tražiti ključ koji daje
+// isti kod na oba ekrana: na svakoj strani jedan od brojeva stiže od poštene
+// strane tek nakon što se on sam obvezao, pa mu je kod slučajan (1 : 1 000 000).
+// Vraća broj pozivatelja i broj slušalice.
+func dogovoriKod(enc *json.Encoder, dec *json.Decoder, citac *ograniceniCitac, protocol string, pozivatelj bool) (nP, nS []byte, err error) {
+	moj := make([]byte, velicinaBroja)
+	_, _ = rand.Read(moj) // od Go 1.24 ne vraća grešku
+	s := sasRazgovor{enc: enc, dec: dec, citac: citac, protocol: protocol}
+	if pozivatelj {
+		tudji, err := s.kaoPozivatelj(moj)
+		return moj, tudji, err
+	}
+	tudji, err := s.kaoSlusalica(moj)
+	return tudji, moj, err
+}
+
+// sasRazgovor su poruke dogovora koda na jednoj vezi
+type sasRazgovor struct {
+	enc      *json.Encoder
+	dec      *json.Decoder
+	citac    *ograniceniCitac
+	protocol string
+}
+
+func (s sasRazgovor) procitaj() (sasPoruka, error) {
+	var m sasPoruka
+	s.citac.postavi(najvecaSASPoruka)
+	if err := s.dec.Decode(&m); err != nil {
+		return m, fmt.Errorf("dogovor koda uparivanja: %w", err)
+	}
+	return m, nil
+}
+
+// kaoPozivatelj: obveza na moj broj, broj slušalice, otkrivanje mog broja.
+// Vraća broj slušalice.
+func (s sasRazgovor) kaoPozivatelj(moj []byte) ([]byte, error) {
+	if err := s.enc.Encode(sasPoruka{Obveza: obvezaZa(s.protocol, moj)}); err != nil {
+		return nil, err
+	}
+	m, err := s.procitaj()
+	if err != nil {
+		return nil, err
+	}
+	if len(m.Broj) != velicinaBroja {
+		return nil, ErrObveza
+	}
+	return m.Broj, s.enc.Encode(sasPoruka{Broj: moj})
+}
+
+// kaoSlusalica: obveza pozivatelja, moj broj, otkriveni broj pozivatelja
+// koji mora odgovarati obvezi. Vraća broj pozivatelja.
+func (s sasRazgovor) kaoSlusalica(moj []byte) ([]byte, error) {
+	obveza, err := s.procitaj()
+	if err != nil {
+		return nil, err
+	}
+	if len(obveza.Obveza) != sha256.Size {
+		return nil, ErrObveza
+	}
+	if err := s.enc.Encode(sasPoruka{Broj: moj}); err != nil {
+		return nil, err
+	}
+	otkriven, err := s.procitaj()
+	if err != nil {
+		return nil, err
+	}
+	if len(otkriven.Broj) != velicinaBroja || !bytes.Equal(obvezaZa(s.protocol, otkriven.Broj), obveza.Obveza) {
+		return nil, ErrObveza
+	}
+	return otkriven.Broj, nil
 }
 
 // Finish sends this person's verdict — with an optional payload for the
@@ -238,9 +367,8 @@ func (r *PairResult) Finish(approved bool, payload any) (bool, json.RawMessage, 
 	}
 	// potvrda nosi samo potvrdnicu članstva i ključ mreže
 	var theirs Confirm
-	citac := &ograniceniCitac{r: r.conn}
-	citac.postavi(najvecaPotvrda)
-	if err := json.NewDecoder(citac).Decode(&theirs); err != nil {
+	r.citac.postavi(najvecaPotvrda)
+	if err := r.dec.Decode(&theirs); err != nil {
 		return false, nil, fmt.Errorf("the peer went away before confirming: %w", err)
 	}
 	if !approved || !theirs.Approved {

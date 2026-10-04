@@ -1,7 +1,11 @@
 package web
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
 	"html/template"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -38,11 +42,14 @@ func novaOkolinaPostavljanja(t *testing.T) *okolinaPostavljanja {
 		svi, err := o.repo.ListUsers("", 0, "", "", "")
 		return err == nil && len(svi) <= 1
 	}
-	tmpl := template.Must(template.New("postavljanje.html").Parse(`{{if .Dopusteno}}dopusteno{{else}}zakljucano{{end}}|{{.Error}}|{{.Cvor}}`))
+	tmpl := template.Must(template.New("postavljanje.html").Parse(`{{if .Dopusteno}}dopusteno{{else}}zakljucano{{end}}|{{.Error}}|{{.Cvor}}|kod-primanja={{.KodPrimanja}}|u-mrezi={{.UMrezi}}`))
 	h := &PostavljanjeHandler{users: service.NewUserService(o.repo, o.auth, service.NewSSEBroker()), auth: o.auth,
 		peers: mreza, tmpl: tmpl, svjez: svjez, kod: "7KQ4-M2XD"}
 	o.mux.HandleFunc("GET /postavljanje", h.Prikazi)
 	o.mux.HandleFunc("POST /postavljanje", h.Osnuj)
+	o.mux.HandleFunc("GET /postavljanje/zahtjev", h.Zahtjev)
+	o.mux.HandleFunc("POST /postavljanje/zahtjev", h.NoviZahtjev)
+	o.mux.HandleFunc("POST /postavljanje/potvrda", h.Potvrda)
 	return &okolinaPostavljanja{okolinaPrijave: o, h: h, mreza: mreza}
 }
 
@@ -94,6 +101,12 @@ func TestPostavljanjeSamoVlasnik(t *testing.T) {
 	}
 	if w := o.get(krozTunel("198.51.100.7"), "?kod=7KQ4-M2XD"); w.Code != http.StatusSeeOther {
 		t.Errorf("kroz tunel s kodom: %d", w.Code)
+	}
+	if w := o.get(javnoIzravno, "?kod=7KQ4-M2XD"); w.Code != http.StatusSeeOther {
+		t.Errorf("s javne adrese s kodom: %d", w.Code)
+	}
+	if w := o.post(javnoIzravno, obrazac("kod", "7KQ4-M2XD")); w.Code != http.StatusSeeOther || kolacicSesije(w) != nil {
+		t.Errorf("POST s javne adrese s kodom: %d", w.Code)
 	}
 	if w := o.post(izravno, obrazac()); w.Code != http.StatusForbidden {
 		t.Errorf("POST iz mreže bez koda: %d", w.Code)
@@ -186,5 +199,149 @@ func TestPocetnaLozinkaPodPostavomSamoLokalno(t *testing.T) {
 	ponovnaLozinka = newLoginLimiter()
 	if w := o.prijava(izravno, "admin", db.ZadanaLozinka); kolacicSesije(w) == nil {
 		t.Errorf("bez Postave iz lokalne mreže: %d %q", w.Code, w.Body.String())
+	}
+}
+
+// primateljNaDaljinu je čvor ureda s ključem mreže, u svojoj bazi
+func primateljNaDaljinu(t *testing.T) *peers.Service {
+	t.Helper()
+	dbPath := filepath.Join(t.TempDir(), "ured.db")
+	baza, err := db.OpenDB(dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { baza.Close() })
+	if err := db.InitSchema(baza); err != nil {
+		t.Fatal(err)
+	}
+	cvor, err := peers.LoadNode(dbPath, "cop-osijek", "Ured", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ured, err := peers.NewService(baza, ledger.New(baza, "cop-osijek"), cvor, peers.Ports{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ured.CreateNetwork(context.Background(), "Hrvatske vode"); err != nil {
+		t.Fatal(err)
+	}
+	return ured
+}
+
+func (o *okolinaPostavljanja) postPotvrdu(porijeklo func(*http.Request) *http.Request, datoteka []byte, polja url.Values) *httptest.ResponseRecorder {
+	var r *http.Request
+	if datoteka != nil {
+		var tijelo bytes.Buffer
+		mw := multipart.NewWriter(&tijelo)
+		for k, v := range polja {
+			_ = mw.WriteField(k, v[0])
+		}
+		fw, _ := mw.CreateFormFile("datoteka", "gocop-potvrda.json")
+		_, _ = fw.Write(datoteka)
+		_ = mw.Close()
+		r = httptest.NewRequest(http.MethodPost, "/postavljanje/potvrda", &tijelo)
+		r.Header.Set("Content-Type", mw.FormDataContentType())
+	} else {
+		r = httptest.NewRequest(http.MethodPost, "/postavljanje/potvrda", strings.NewReader(polja.Encode()))
+		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	}
+	w := httptest.NewRecorder()
+	o.srv.ServeHTTP(w, porijeklo(r))
+	return w
+}
+
+// Postojeća mreža na daljinu: zahtjev i potvrdu smije samo vlasnik, a
+// potvrda se prihvaća samo ako odgovara kodu za primanje ovog računala
+func TestPostavljanjeNaDaljinu(t *testing.T) {
+	o := novaOkolinaPostavljanja(t)
+	ured := primateljNaDaljinu(t)
+
+	noviZahtjev := func(porijeklo func(*http.Request) *http.Request, v url.Values) *httptest.ResponseRecorder {
+		r := httptest.NewRequest(http.MethodPost, "/postavljanje/zahtjev", strings.NewReader(v.Encode()))
+		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		w := httptest.NewRecorder()
+		o.srv.ServeHTTP(w, porijeklo(r))
+		return w
+	}
+	datoteka := func(porijeklo func(*http.Request) *http.Request, upit string) *httptest.ResponseRecorder {
+		w := httptest.NewRecorder()
+		o.srv.ServeHTTP(w, porijeklo(httptest.NewRequest(http.MethodGet, "/postavljanje/zahtjev"+upit, nil)))
+		return w
+	}
+	if w := noviZahtjev(izravno, url.Values{}); w.Code != http.StatusForbidden {
+		t.Errorf("zahtjev iz mreže bez koda: %d", w.Code)
+	}
+	if w := noviZahtjev(javnoIzravno, url.Values{"kod": {"7KQ4-M2XD"}}); w.Code != http.StatusSeeOther {
+		t.Errorf("zahtjev s javne adrese: %d", w.Code)
+	}
+	if w := noviZahtjev(krozTunel("198.51.100.7"), url.Values{"kod": {"7KQ4-M2XD"}}); w.Code != http.StatusSeeOther {
+		t.Errorf("zahtjev kroz tunel: %d", w.Code)
+	}
+	if _, _, ok := o.mreza.ZahtjevNaCekanju(); ok {
+		t.Fatal("odbijen zahtjev je napravljen")
+	}
+	// datoteke još nema: natrag na stranicu (uz kod iz dnevnika, ako je dan)
+	if w := datoteka(lokalno, ""); w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/postavljanje?put=postojeca" {
+		t.Errorf("datoteka prije zahtjeva: %d %q", w.Code, w.Header().Get("Location"))
+	}
+	if w := datoteka(izravno, "?kod=7KQ4-M2XD"); w.Code != http.StatusSeeOther || !strings.HasSuffix(w.Header().Get("Location"), "&kod=7KQ4-M2XD") {
+		t.Errorf("datoteka prije zahtjeva, s kodom: %d %q", w.Code, w.Header().Get("Location"))
+	}
+	if w := datoteka(krozTunel("198.51.100.7"), "?kod=7KQ4-M2XD"); w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/login" {
+		t.Errorf("datoteka kroz tunel: %d %q", w.Code, w.Header().Get("Location"))
+	}
+	if w := o.postPotvrdu(lokalno, nil, url.Values{}); w.Code != http.StatusUnprocessableEntity {
+		t.Errorf("potvrda bez datoteke: %d", w.Code)
+	}
+	if w := o.postPotvrdu(krozTunel("198.51.100.7"), nil, url.Values{"kod": {"7KQ4-M2XD"}}); w.Code != http.StatusSeeOther {
+		t.Errorf("potvrda kroz tunel: %d", w.Code)
+	}
+	w := noviZahtjev(lokalno, url.Values{})
+	_, kod, ok := o.mreza.ZahtjevNaCekanju()
+	if w.Code != http.StatusSeeOther || !ok {
+		t.Fatalf("zahtjev s ovog računala: %d %q", w.Code, w.Body.String())
+	}
+	if w := o.get(lokalno, "?put=postojeca"); !strings.Contains(w.Body.String(), "kod-primanja="+kod+"|") {
+		t.Fatalf("stranica ne pokazuje kod zahtjeva: %q", w.Body.String())
+	}
+	if w := datoteka(izravno, ""); w.Code != http.StatusForbidden {
+		t.Errorf("datoteka zahtjeva iz mreže bez koda: %d", w.Code)
+	}
+	w = datoteka(lokalno, "")
+	if w.Code != http.StatusOK || !strings.Contains(w.Header().Get("Content-Disposition"), "gocop-zahtjev-pperic-thinkpad.json") {
+		t.Fatalf("datoteka zahtjeva: %d %v", w.Code, w.Header())
+	}
+	zahtjev := w.Body.Bytes()
+
+	potvrda, err := ured.PrimiZahtjev(context.Background(), zahtjev, kod, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// tuđi ne smije učitati potvrdu
+	if w := o.postPotvrdu(izravno, potvrda, url.Values{}); w.Code != http.StatusForbidden || o.mreza.NetworkInfo() != nil {
+		t.Errorf("potvrda iz mreže bez koda: %d", w.Code)
+	}
+	// podmetnuta potvrda ne odgovara kodu
+	var p map[string]any
+	_ = json.Unmarshal(potvrda, &p)
+	p["mreza"] = "Lažna mreža"
+	losa, _ := json.Marshal(p)
+	if w := o.postPotvrdu(lokalno, losa, url.Values{}); w.Code != http.StatusUnprocessableEntity || o.mreza.NetworkInfo() != nil {
+		t.Errorf("podmetnuta potvrda: %d %q", w.Code, w.Body.String())
+	}
+
+	w = o.postPotvrdu(lokalno, potvrda, url.Values{})
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "u-mrezi=Hrvatske vode") {
+		t.Fatalf("potvrda: %d %q", w.Code, w.Body.String())
+	}
+	if n := o.mreza.NetworkInfo(); n == nil || n.Name != "Hrvatske vode" {
+		t.Fatalf("mreža nakon potvrde: %+v", n)
+	}
+	if w := o.get(lokalno, ""); !strings.Contains(w.Body.String(), "u-mrezi=Hrvatske vode") || strings.Contains(w.Body.String(), "kod-primanja="+kod) {
+		t.Errorf("stranica nakon primanja: %q", w.Body.String())
+	}
+	if w := noviZahtjev(lokalno, url.Values{}); w.Code != http.StatusConflict {
+		t.Errorf("zahtjev čvora koji je već u mreži: %d", w.Code)
 	}
 }

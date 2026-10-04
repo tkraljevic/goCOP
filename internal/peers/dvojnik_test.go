@@ -103,7 +103,7 @@ func TestDvojnikImenaSeOdbija(t *testing.T) {
 	}
 
 	// zaboravljen i opozvan B: novo računalo tog imena smije ući
-	if err := a.svc.RevokeMembership(ctx, "pperic-thinkpad"); err != nil {
+	if _, err := a.svc.RevokeMembership(ctx, "pperic-thinkpad"); err != nil {
 		t.Fatal(err)
 	}
 	if err := a.svc.ForgetPeer(ctx, "pperic-thinkpad"); err != nil {

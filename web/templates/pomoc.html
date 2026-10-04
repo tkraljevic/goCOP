@@ -1182,7 +1182,13 @@
         čvora (<em>Preuzima vodostaje s izvora</em>, <em>Izdaje prognozu</em>) i upisuje adrese
         domenskih čvorova. Naziv se upisuje u <code>gocop.toml</code> i nakon ponovnog pokretanja
         sam stiže drugim čvorovima. Uparivanje i primanje novog računala u mrežu pokreće
-        i potvrđuje globalni administrator. Svjež čvor bez računa nudi čarobnjak samo iz
+        i potvrđuje globalni administrator; prima čvor koji drži ključ mreže ili član kojem je
+        nositelj ključa dao <em>ovlast za primanje</em>. Oduzeta ovlast poništava članstva svih
+        računala koja je taj primatelj primio, a ekran ih nabroji. Pod <em>Primanje na daljinu</em>
+        učitava se zahtjev računala izvan lokalne mreže i upisuje <em>kod za primanje</em> koji
+        čovjek s tog računala pročita telefonom; potvrda se preuzme i pošalje mu natrag.
+        Podmetnut zahtjev ili potvrda ne odgovaraju kodu i odbijaju se. Primljeno računalo sinkronizira se sa svim članovima bez
+        uparivanja sa svakim: pri spajanju pokaže svoju potvrdu članstva. Svjež čvor bez računa nudi čarobnjak samo iz
         lokalne mreže, ne kroz javni tunel. Ime čvora u mreži (<code>[node] id</code>) zadaje se
         prije prvog pokretanja i ne mijenja se; uparivanje odbija računalo s imenom koje u mreži
         već ima drugo računalo.</li>
@@ -1190,8 +1196,10 @@
         svježeg čvora poveznica <em>Postavite ga</em>: <em>nova mreža</em> samo za prvo računalo
         (vlasnik napravi svoj račun globalnog administratora, a čvor osnuje mrežu; nova mreža se
         kasnije ne može spojiti s drugima) ili <em>postojeća mreža</em> za svako sljedeće računalo
-        (uparivanje s računalom koje je već u mreži). Stranica radi samo s tog računala ili uz
-        jednokratni kod iz dnevnika čvora, nikad kroz tunel.</li>
+        (uparivanje s računalom koje je već u mreži, ili na daljinu: napraviti zahtjev, poslati
+        datoteku primatelju, a kod za primanje mu pročitati telefonom, pa učitati vraćenu
+        potvrdu). Stranica radi samo s tog računala ili uz jednokratni kod iz dnevnika čvora
+        (s privatne adrese), nikad kroz tunel ni s javne adrese.</li>
       <li id="sync"><strong>Sinkronizacija</strong> — što se upravo vidi na lokalnoj mreži i
         kad je posljednji put razmijenjeno. Razmjena ide izravno, u lokalnoj mreži ili na stalnu
         adresu domenskog čvora (port razmjene), ili kroz HTTPS/WebSocket tunel; identitet se u

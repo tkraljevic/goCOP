@@ -4,6 +4,61 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.32-alfa — 4. 10. 2026.
+
+**Ovlašteni primatelj, primanje na daljinu i članstvo koje čvor sam pokaže.
+Sve čvorove treba nadograditi.**
+
+- **Članstvo u certifikatu.** Čvor pri svakom spajanju pokaže svoju potvrdu
+  članstva (i ovlast za primanje, ako je ima). Drugi član je provjeri ključem
+  mreže, pa novo računalo ne treba uparivati sa svakim čvorom: dovoljno je da
+  ga primi jedan, a s ostalima se sinkronizira odmah, i prije nego što im
+  njegova potvrda stigne razmjenom. Stariji programi taj dio certifikata
+  preskaču.
+- **Ovlašteni primatelj.** Nositelj ključa mreže može članu dati ovlast da
+  prima druge (Administracija → Čvor, mreža i sinkronizacija → *Daj ovlast za
+  primanje*), npr. uredskom poslužitelju, a ključ mreže ostaje kod nositelja.
+  Članstvo koje primatelj izda nosi njegovu ovlast, pa ga svaki član provjeri
+  sam. Ovlast vrijedi dvije godine, a članstvo koje primatelj izda najviše
+  dok vrijedi njegova ovlast. Ovlast daje samo nositelj ključa mreže.
+- **Opoziv vrijedi i za potvrdu koju čvor pokaže sam.** Opoziv članstva ili
+  ovlasti zapisuje se u knjigu i putuje svim čvorovima; opozvana potvrda ne
+  vrijedi ni kad je čvor pokaže pri spajanju. Oduzeta ovlast poništava
+  članstva svih računala koja je primatelj primio, a ekran ih nabroji da ih
+  se po potrebi primi ponovno. Opoziv članstva ovlaštenog primatelja oduzima
+  mu i ovlast.
+- **Primanje na daljinu.** Kad novo računalo i ured nisu u istoj lokalnoj
+  mreži: na novom računalu *Postavljanje → Postojeća mreža → Napravi
+  zahtjev*. Ono pokaže **kod za primanje** (8 znakova, npr. `7KQ4-M2XD`);
+  datoteka zahtjeva ide primatelju e-poštom, a kod mu čovjek pročita
+  telefonom. Primatelj učita zahtjev pod *Primanje na daljinu*, upiše kod i
+  preuzme potvrdu, a novo računalo je učita na *Postavljanju*. Zahtjev i
+  potvrda nose dokaz ključem izvedenim iz koda (scrypt), pa se podmetnuta
+  datoteka odbija na obje strane, a kod se iz presretnute datoteke ne može
+  pogoditi. Potvrda nosi i čvorove s adresom, pa sinkronizacija kreće odmah,
+  a kad stignu djelatnici, stranica sama vodi na prijavu.
+- **Kod uparivanja s obvezom unaprijed.** Strana koja zove obveže se na
+  nasumičan broj prije nego što vidi broj druge strane, a kod ovisi o oba
+  broja i oba ključa. Dosad je napadač u sredini mogao za nekoliko sekundi
+  naći ključ koji daje isti kod na oba ekrana; sada je kod za njega slučajan
+  (1 : 1 000 000). Uparivanje sa starijim programom se odbija.
+- **Početna lozinka i svjež čvor samo iz lokalne mreže.** Početna lozinka
+  računa `admin`, uparivanje svježeg čvora bez prijave i stranica
+  *Postavljanje* vrijede samo s ovog računala ili s privatne adrese, kao za
+  PIN. Dosad ih je odbijao samo zahtjev kroz tunel, pa je svjež čvor
+  izravno izložen internetu (npr. kroz proslijeđen port) mogao preuzeti
+  svatko tko zna početnu lozinku.
+- **Nadogradnja.** Sve čvorove nadograditi na 0.0.32: stariji program
+  ne prepoznaje članstvo koje je izdao ovlašteni primatelj i ne uparuje se s
+  novim.
+- **Razvoj: provjera kvalitete koda** (`make quality`, docs/CODE_QUALITY.md).
+  Mjeri testove, race, coverage, složenost, CRAP, duplikacije i lint, a novi kod
+  uspoređuje s izmjerenim početnim stanjem: zatečeni dug ne ruši provjeru, ali
+  pogoršanje da. Kod iz ovog izdanja je prošao, uz vremenski ograničenu iznimku
+  za rast primjene sinkroniziranih zapisa (`applyOne`), koja je prva stavka
+  sređivanja. Uz to su riješena tri statička nalaza iz 0.0.31, bez promjene
+  ponašanja.
+
 ## 0.0.31-alfa — 4. 10. 2026.
 
 **Karte s OpenStreetMapa stvarno rade.**

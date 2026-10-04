@@ -1246,8 +1246,10 @@ func slucajeviRazmjene() []slucajRazmjene {
 				tx, err := a.db.Begin()
 				nuzno(t, err)
 				defer tx.Rollback()
-				_, err = tx.Exec(`INSERT INTO memberships (node_id, public_key, network, issued_by, issued_at, expires_at, signature, created_at)
-					VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, m.DeviceID, m.DeviceKey, m.Network, m.IssuedBy, m.IssuedAt.UTC(), m.ExpiresAt.UTC(), m.Signature, time.Now().UTC())
+				primatelj, err := json.Marshal(m.Primatelj.UTC())
+				nuzno(t, err)
+				_, err = tx.Exec(`INSERT INTO memberships (node_id, public_key, network, issued_by, issued_at, expires_at, signature, created_at, primatelj)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, m.DeviceID, m.DeviceKey, m.Network, m.IssuedBy, m.IssuedAt.UTC(), m.ExpiresAt.UTC(), m.Signature, time.Now().UTC(), string(primatelj))
 				nuzno(t, err)
 				_, err = a.rec.Record(ctxRaz, tx, peers.EntityMemberships, m.DeviceID, m)
 				nuzno(t, err)
@@ -1258,6 +1260,49 @@ func slucajeviRazmjene() []slucajRazmjene {
 				return servisCvorova(t, n).ListMembers(ctxRaz)
 			},
 			preskoci: map[string]string{"created_at": vrijemeVerzije},
+		},
+		{
+			entitet: peers.EntityOvlasti, tablica: "ovlasti", kljuc: "node_id",
+			napravi: func(t *testing.T, a *cvor) {
+				// ovlast upisuje samo nositelj ključa mreže (IzdajOvlast, uz
+				// potpis); ovdje isti upis površine i ista verzija
+				var o razmjena.Ovlast
+				puni(&o)
+				tx, err := a.db.Begin()
+				nuzno(t, err)
+				defer tx.Rollback()
+				_, err = tx.Exec(`INSERT INTO ovlasti (node_id, public_key, network, issued_by, issued_at, expires_at, signature, created_at)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, o.DeviceID, o.DeviceKey, o.Network, o.IssuedBy, o.IssuedAt.UTC(), o.ExpiresAt.UTC(), o.Signature, time.Now().UTC())
+				nuzno(t, err)
+				_, err = a.rec.Record(ctxRaz, tx, peers.EntityOvlasti, o.DeviceID, o)
+				nuzno(t, err)
+				nuzno(t, tx.Commit())
+			},
+			bezUredjivanja: "ovlast se mijenja samo izdavanjem ili opozivom nositelja ključa mreže",
+			procitaj: func(t *testing.T, n *cvor, _ string, _ []byte) (any, error) {
+				return servisCvorova(t, n).ListOvlasti(ctxRaz)
+			},
+			preskoci: map[string]string{"created_at": vrijemeVerzije},
+		},
+		{
+			entitet: peers.EntityOpozivi, tablica: "opozivi", kljuc: "id",
+			napravi: func(t *testing.T, a *cvor) {
+				var op peers.Opoziv
+				puni(&op)
+				tx, err := a.db.Begin()
+				nuzno(t, err)
+				defer tx.Rollback()
+				_, err = tx.Exec(`INSERT INTO opozivi (id, vrsta, node_id, public_key, issued_at, opozvano_at, opozvao)
+					VALUES (?, ?, ?, ?, ?, ?, ?)`, op.ID, op.Vrsta, op.NodeID, op.PublicKey, op.IssuedAt.UTC(), op.OpozvanoAt.UTC(), op.Opozvao)
+				nuzno(t, err)
+				_, err = a.rec.Record(ctxRaz, tx, peers.EntityOpozivi, op.ID, op)
+				nuzno(t, err)
+				nuzno(t, tx.Commit())
+			},
+			bezUredjivanja: "opoziv je trajan: ne mijenja se i ne briše",
+			procitaj: func(t *testing.T, n *cvor, _ string, _ []byte) (any, error) {
+				return servisCvorova(t, n).ListOpozivi(ctxRaz)
+			},
 		},
 		{
 			entitet: peers.EntityPeers, tablica: "peers", kljuc: "node_id",

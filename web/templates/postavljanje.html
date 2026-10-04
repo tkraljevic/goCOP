@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="{{statika "css/style.css"}}">
   {{with temaCSS}}<link rel="stylesheet" href="{{.}}">{{end}}
 </head>
-<body>
+<body class="stranica-postavljanje">
   <div class="login-wrapper">
     <div class="login-box" style="max-width:34rem;">
       <div class="login-header">
@@ -31,12 +31,25 @@
         </div>
         <button type="submit" class="btn btn-primary w-full">Nastavi</button>
       </form>
+      {{else if .Uvezeno}}
+
+      <div class="alert alert-success">Ovo računalo je primljeno u mrežu <b>{{.Uvezeno.Mreza}}</b>{{if .Uvezeno.Ovlast}}, s ovlašću da i samo prima računala{{end}}.</div>
+      <p>Sinkronizacija je krenula{{with .Uvezeno.Cvorovi}} s {{range $i, $c := .}}{{if $i}}, {{end}}<b>{{$c}}</b>{{end}}{{else}}, ali potvrda nije navela nijedan čvor s adresom: upišite adresu ureda pod Postavke → Poznati čvorovi kad se prijavite{{end}}.
+      Djelatnici, registri i podaci stižu od tamo; kad stignu, ova stranica sama vodi na prijavu, a prijavljujete se svojim računom.</p>
+      <script>setTimeout(function () { location.href = '/postavljanje{{if .Kod}}?kod={{.Kod}}{{end}}'; }, 15000);</script>
+
+      {{else if .UMrezi}}
+
+      <p>Ovo računalo je u mreži <b>{{.UMrezi}}</b>. Čeka se da sinkronizacijom stignu djelatnici; kad stignu, ova stranica sama vodi na prijavu, a prijavljujete se svojim računom.</p>
+      <p class="muted">Ako dugo ništa ne stiže, provjerite je li računalo na internetu i radi li čvor od kojeg je primljeno.</p>
+      <script>setTimeout(function () { location.reload(); }, 15000);</script>
+
       {{else}}
 
       <p class="mb-2">Ovo računalo još nema djelatnika ni mrežu. Izaberite:</p>
       <ul class="mb-4" style="padding-left:1.2rem;">
         <li><b>Nova mreža</b> je za <b>prvo</b> računalo, jednom po mreži (npr. prvi čvor centra). Na njemu napravite svoj administratorski račun, upišete ustroj i djelatnike, a ono prima ostala računala u mrežu.</li>
-        <li><b>Postojeća mreža</b> je za <b>svako sljedeće</b> računalo (laptop djelatnika, uredski PC). Uparite ga s računalom koje je već u mreži; djelatnici, registri i podaci stižu od tamo, a prijavljujete se svojim računom.</li>
+        <li><b>Postojeća mreža</b> je za <b>svako sljedeće</b> računalo (laptop djelatnika, uredski PC). Uparite ga s računalom koje je već u mreži ili ga ono primi na daljinu; djelatnici, registri i podaci stižu od tamo, a prijavljujete se svojim računom.</li>
       </ul>
       <p class="muted mb-4">Ako niste sigurni, izaberite postojeću. Nova mreža je zaseban svijet: ne vidi podatke drugih mreža i kasnije se ne može spojiti s njima.</p>
 
@@ -82,9 +95,38 @@
 
       <details class="card" {{if eq .Put "postojeca"}}open{{end}}>
         <summary class="fw-600" style="cursor:pointer;">Priključit ću se postojećoj mreži</summary>
-        <p class="mt-4">Ovo računalo upari s računalom koje je već u mreži (npr. u uredu). Djelatnici,
-        registri i podaci stižu od tamo, pa se nakon toga prijavljujete svojim računom.</p>
+        <p class="mt-4"><b>U istoj lokalnoj mreži</b> (npr. u uredu): ovo računalo upari s računalom koje je već u mreži.
+        Djelatnici, registri i podaci stižu od tamo, pa se nakon toga prijavljujete svojim računom.</p>
         <a href="/uparivanje" class="btn btn-secondary w-full">Poveži ga s uredom</a>
+
+        <p class="mt-6 mb-2"><b>Na daljinu</b> (npr. laptop kod kuće, a ured na drugom kraju):</p>
+        <ol class="mb-4" style="padding-left:1.2rem;">
+          <li>Napravite <b>zahtjev</b>: ovo računalo pokaže <b>kod za primanje</b>.</li>
+          <li>Datoteku zahtjeva pošaljite nekome tko u mreži prima računala (npr. e-poštom), a kod mu <b>pročitajte telefonom</b> — nikad ga ne pišite u poruku.</li>
+          <li>Kad vam vrati <b>potvrdu</b>, učitajte je ovdje. Kod je provjerava sam: podmetnuta potvrda se ne prihvaća.</li>
+        </ol>
+        {{if .KodPrimanja}}
+        <div class="card mb-4">
+          <p class="mb-2">Kod za primanje ovog računala:</p>
+          <div class="sas">{{.KodPrimanja}}</div>
+          <p class="muted mb-4">Pročitajte ga primatelju telefonom. Vrijedi dok ne učitate potvrdu; novi zahtjev ga poništava.</p>
+          <a href="/postavljanje/zahtjev{{if .Kod}}?kod={{.Kod}}{{end}}" class="btn btn-primary w-full">Preuzmi datoteku zahtjeva</a>
+        </div>
+        {{end}}
+        <form action="/postavljanje/zahtjev" method="POST" class="mb-4">
+          <input type="hidden" name="kod" value="{{.Kod}}">
+          <button type="submit" class="btn btn-secondary w-full">{{if .KodPrimanja}}Napravi novi zahtjev{{else}}Napravi zahtjev{{end}}</button>
+        </form>
+        {{if .KodPrimanja}}
+        <form action="/postavljanje/potvrda" method="POST" enctype="multipart/form-data">
+          <input type="hidden" name="kod" value="{{.Kod}}">
+          <div class="form-group mb-4">
+            <label class="form-label" for="datoteka">Potvrda od primatelja</label>
+            <input type="file" id="datoteka" name="datoteka" class="form-control" accept=".json,application/json" required>
+          </div>
+          <button type="submit" class="btn btn-primary w-full">Učitaj potvrdu i uđi u mrežu</button>
+        </form>
+        {{end}}
       </details>
       {{end}}
     </div>
