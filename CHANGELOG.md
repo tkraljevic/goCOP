@@ -4,6 +4,24 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.30-alfa — 4. 10. 2026.
+
+**Karte ponovno rade; Unraid sam javlja nadogradnju.**
+
+- **Pločice karte s OpenStreetMapa.** Wikimedia je svoje pločice zatvorila
+  za sve osim vlastitih stranica (403), pa karte nisu radile ni na jednom
+  čvoru. Zadani izvor je sada OpenStreetMap (`tile.openstreetmap.org`), s
+  istim podacima i izgledom. Čvor koji u `gocop.toml` ima upisan stari
+  Wikimedijin izvor sam prelazi na OpenStreetMap i to zapiše u dnevnik.
+  Vidi docs/karta.md (pravila korištenja; za stotine računala vlastiti
+  poslužitelj pločica ili podloge DGU-a).
+- **Slika za Unraid bez potvrde podrijetla.** S njom je registar davao OCI
+  indeks, a Unraidova provjera nadogradnje traži klasični Docker manifest,
+  pa nikad nije javljala novo izdanje (trebao je *Force update*). Od ove
+  slike Unraid sam pokaže nadogradnju; za prelazak na nju još jednom
+  *Force update*.
+- Slika nosi Unraidovu ikonu (valovi) i poveznicu *WebUI*.
+
 ## 0.0.29-alfa — 4. 10. 2026.
 
 **Ime čvora, Postavljanje bez javne lozinke i Postava 1.1.0.** Postojeći

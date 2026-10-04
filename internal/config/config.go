@@ -60,7 +60,7 @@ type Config struct {
 	// besplatni poslužitelj; kad se pločice jednom preuzmu za područje
 	// obrane, ovdje se upiše lokalna putanja i karta radi bez interneta.
 	Karta struct {
-		Plocice  string `toml:"plocice" comment:"Predložak URL-a pločica, s {z}/{x}/{y}. Prazno isključuje kartu.\nZadano je Wikimedijin poslužitelj. Za rad bez interneta upišite\nlokalnu putanju, npr. \"/karta/{z}/{x}/{y}.png\"."`
+		Plocice  string `toml:"plocice" comment:"Predložak URL-a pločica, s {z}/{x}/{y}. Prazno isključuje kartu.\nZadano je OpenStreetMap (tile.openstreetmap.org). Za rad bez interneta\nupišite lokalnu putanju, npr. \"/karta/{z}/{x}/{y}.png\"."`
 		Zasluge  string `toml:"zasluge" comment:"Natpis o podrijetlu karte. Obvezan je: pločice se koriste pod\nuvjetima onoga tko ih daje."`
 		NajviseZ int    `toml:"najvise_z" comment:"Najveće približavanje. Više od 17 rijetko treba, a povlači\nmnogo više pločica kad se jednom budu preuzimale."`
 	} `toml:"karta"`
@@ -95,8 +95,8 @@ func Default() Config {
 	c.Sync.DiscoveryPort = 4712
 	c.Sync.AutoSync = "5m"
 	c.Sync.Bootstrap = []string{"cop-osijek.com"}
-	c.Karta.Plocice = "https://maps.wikimedia.org/osm-intl/{z}/{x}/{y}.png"
-	c.Karta.Zasluge = "© OpenStreetMap, pločice Wikimedia"
+	c.Karta.Plocice = ZadaniIzvorPlocica
+	c.Karta.Zasluge = "© OpenStreetMap suradnici"
 	c.Karta.NajviseZ = 17
 	c.Posta.Nacin = "ews"
 	c.Posta.Port = 587
@@ -202,4 +202,25 @@ func UpisiIme(path, ime string) error {
 	}
 	tekst := strings.TrimRight(string(b), "\n") + fmt.Sprintf("\n\n[node]\nid = %q\n", ime)
 	return os.WriteFile(path, []byte(tekst), 0o644)
+}
+
+// ZadaniIzvorPlocica je OpenStreetMapov poslužitelj pločica
+const ZadaniIzvorPlocica = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+
+// stariIzvorPlocica je Wikimedijin poslužitelj, zadan do 0.0.29-alfa. Od
+// listopada 2026. pločice daje samo Wikimedijinim stranicama (403), a
+// postavke ga često imaju upisanog izričito (primjer pri prvom pokretanju).
+const stariIzvorPlocica = "https://maps.wikimedia.org/osm-intl/{z}/{x}/{y}.png"
+
+// ZamijeniZatvoreneIzvore mijenja Wikimedijine pločice, koje više ne rade,
+// OpenStreetMapovima; vraća je li zamijenio. Drugi izvor ostaje kakav jest.
+func (c *Config) ZamijeniZatvoreneIzvore() bool {
+	if strings.TrimSpace(c.Karta.Plocice) != stariIzvorPlocica {
+		return false
+	}
+	c.Karta.Plocice = ZadaniIzvorPlocica
+	if strings.Contains(c.Karta.Zasluge, "Wikimedia") || c.Karta.Zasluge == "" {
+		c.Karta.Zasluge = "© OpenStreetMap suradnici"
+	}
+	return true
 }

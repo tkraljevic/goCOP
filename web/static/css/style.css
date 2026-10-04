@@ -3407,7 +3407,7 @@ textarea {
 /* isolate: slojevi karte (z-index do 1000) ostaju unutar karte, pa ne prekrivaju ljepljivu navigaciju */
 .leaflet-container { background: var(--karta-podloga); font: inherit; isolation: isolate; }
 
-/* Podloga karte prati temu. Pločice su jedne (Wikimedia ili preuzete za
+/* Podloga karte prati temu. Pločice su jedne (OpenStreetMap ili preuzete za
    rad bez interneta) i nemaju tamnu inačicu, pa ih tamna tema obrne
    filtrom: kopno potamni, voda ostane plava, a kroz malo prozirne pločice
    probija plavosiva podloga, pa kopno dobije ton aplikacije umjesto

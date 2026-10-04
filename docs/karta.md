@@ -19,10 +19,23 @@ Postavlja se u `gocop.toml`:
 
 ```toml
 [karta]
-plocice = 'https://maps.wikimedia.org/osm-intl/{z}/{x}/{y}.png'
-zasluge = '© OpenStreetMap, pločice Wikimedia'
+plocice = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
+zasluge = '© OpenStreetMap suradnici'
 najvise_z = 17
 ```
+
+Do 0.0.29-alfa zadane su bile Wikimedijine pločice
+(`maps.wikimedia.org/osm-intl`). Od listopada 2026. Wikimedia ih daje samo
+svojim stranicama i svima ostalima odgovara s 403, pa karte nisu radile.
+Program od 0.0.30 taj upis sam zamjenjuje OpenStreetMapovim i to javi u
+dnevniku; postavke ga mogu zadržati, ali ga je bolje ispraviti.
+
+OpenStreetMapov poslužitelj pločica ima pravila korištenja: zasluga na
+karti, predstavljanje programa (poslužitelj pri slaganju PDF-a šalje svoj
+User-Agent) i bez masovnog preuzimanja. Za pilot i laganu upotrebu je
+dovoljan. Za širu upotrebu (stotine računala) bolji su službene podloge
+Državne geodetske uprave ili vlastiti poslužitelj pločica u mreži Hrvatskih
+voda, upisan ovdje.
 
 Prazan `plocice` isključuje kartu. To nije kvar nego izbor: čvor bez interneta
 i bez preuzetih pločica nema što nacrtati, a prazan sivi okvir gori je od

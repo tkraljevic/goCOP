@@ -52,6 +52,11 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: ${{ steps.oznake.outputs.oznake }}
+          # Obična slika, bez potvrde podrijetla i popisa sastojaka: s njima
+          # registar daje OCI indeks, a Unraidova provjera nadogradnje traži
+          # klasični Docker manifest (dobije 404), pa nikad ne javi novo izdanje
+          provenance: false
+          sbom: false
           build-args: VERSION=${{ steps.oznake.outputs.verzija }}
           labels: |
             org.opencontainers.image.source=https://github.com/tkraljevic/goCOP

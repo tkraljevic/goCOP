@@ -138,3 +138,20 @@ func TestUpisiIme(t *testing.T) {
 		}
 	}
 }
+
+// Wikimedijine pločice od listopada 2026. vraćaju 403; postavke koje ih
+// imaju upisane prelaze na OpenStreetMap, a drugi izvor ostaje
+func TestZatvoreniIzvorPlocica(t *testing.T) {
+	c := Default()
+	if c.Karta.Plocice != ZadaniIzvorPlocica || c.ZamijeniZatvoreneIzvore() {
+		t.Fatalf("zadano: %q", c.Karta.Plocice)
+	}
+	c.Karta.Plocice, c.Karta.Zasluge = stariIzvorPlocica, "© OpenStreetMap, pločice Wikimedia"
+	if !c.ZamijeniZatvoreneIzvore() || c.Karta.Plocice != ZadaniIzvorPlocica || strings.Contains(c.Karta.Zasluge, "Wikimedia") {
+		t.Errorf("Wikimedia nije zamijenjena: %+v", c.Karta)
+	}
+	c.Karta.Plocice, c.Karta.Zasluge = "/karta/{z}/{x}/{y}.png", "lokalne pločice"
+	if c.ZamijeniZatvoreneIzvore() || c.Karta.Plocice != "/karta/{z}/{x}/{y}.png" {
+		t.Errorf("lokalni izvor promijenjen: %+v", c.Karta)
+	}
+}
