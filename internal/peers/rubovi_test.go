@@ -391,9 +391,24 @@ func TestPopisOvlastiOcjenjuje(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// opozvana ovlast u popisu (zapis opoziva stigao, ovlast još nije arhivirana)
-	if _, err := a.db.Exec(`INSERT INTO opozivi (id, vrsta, node_id, public_key, issued_at, opozvano_at, opozvao) VALUES ('x', ?, ?, ?, ?, ?, 'test')`,
+	// opoziv koji je u knjigu upisao član s izmijenjenim programom: bez
+	// potpisa, i s potpisom tuđeg ključa, ne opoziva ništa
+	if _, err := a.db.Exec(`INSERT INTO opozivi (id, vrsta, node_id, public_key, issued_at, opozvano_at, opozvao) VALUES ('lazan', ?, ?, ?, ?, ?, 'uljez')`,
 		OpozivOvlasti, o.DeviceID, o.DeviceKey, o.IssuedAt.UTC(), time.Now().UTC()); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.uTransakciji(ctxRub, func(tx *sql.Tx) error {
+		return a.zapisiOpoziv(ctxRub, tx, b.node.key, OpozivOvlasti, o.DeviceID, o.DeviceKey, o.IssuedAt)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if svi, _ := a.ListOvlasti(ctxRub); len(svi) != 1 || !svi[0].Valid {
+		t.Fatalf("krivotvoren opoziv je opozvao ovlast: %+v", svi)
+	}
+	// opoziv ključem mreže (zapis opoziva stigao, ovlast još nije arhivirana)
+	if err := a.uTransakciji(ctxRub, func(tx *sql.Tx) error {
+		return a.zapisiOpoziv(ctxRub, tx, a.network.Private(), OpozivOvlasti, o.DeviceID, o.DeviceKey, o.IssuedAt)
+	}); err != nil {
 		t.Fatal(err)
 	}
 	svi, err := a.ListOvlasti(ctxRub)

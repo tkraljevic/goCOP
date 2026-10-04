@@ -5,7 +5,7 @@ i drugim vodoprivrednim organizacijama. Povezuje teren, vodostaje, prognoze,
 dnevnike, službene dokumente, registre, ljude i sredstva. Računala rade s
 lokalnim podacima i usklađuju se kada je mreža dostupna.
 
-> **0.0.32-alfa — 4. 10. 2026.** Za razvoj i testiranje, ne za operativnu
+> **0.0.33-alfa — 4. 10. 2026.** Za razvoj i testiranje, ne za operativnu
 > upotrebu. Prognoze su pomoć stručnoj procjeni, ne zamjena za službene
 > prognoze i odluke odgovornih osoba. [Popis izmjena](CHANGELOG.md).
 
@@ -34,7 +34,7 @@ naredbe su pod „Dokumentacija i razvoj”), a postoji i spremnik. Pokrenuti
 obvezno promijeniti zadanu lozinku. Novi čvor povezati s postojećom mrežom
 čarobnjakom na prijavi; prvi čvor zahtijeva osnivanje mreže i punjenje registara.
 
-Za Linux amd64 dostupan je spremnik `ghcr.io/tkraljevic/gocop:0.0.32-alfa`;
+Za Linux amd64 dostupan je spremnik `ghcr.io/tkraljevic/gocop:0.0.33-alfa`;
 web u njemu sluša na 8080. Trajno montirati `/data` i `/arhiva`; SQLite mora
 biti na lokalnom disku. Postavljanje, portovi, uparivanje, uloge i sigurnosne
 kopije opisani su u [uputama administratoru](docs/INSTALACIJA.md).
@@ -50,7 +50,7 @@ Javni čvor treba HTTPS, ograničen pristup izvornom poslužitelju i isključen
 cache aplikacijskih odgovora na posredniku. Od **0.0.25-alfa** ugrađeni su CSRF
 zaštita, `Secure` kolačići iza HTTPS-a, podesivi pouzdani posrednici i ograničenja
 HTTP zahtjeva i razmjene. Uparivanje odobrava administrator; zadana lozinka
-ne vrijedi izvana. Od **0.0.32-alfa** čvor pri spajanju pokaže potvrdu
+ne vrijedi izvana. Od **0.0.33-alfa** čvor pri spajanju pokaže potvrdu
 članstva, nositelj ključa mreže može članu dati ovlast za primanje, a računalo
 se prima i na daljinu (zahtjev i potvrda vezani tajnim kodom pročitanim
 telefonom); opozvana potvrda ne vrijedi ni kad je čvor pokaže sam. Kod

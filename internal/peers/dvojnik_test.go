@@ -121,3 +121,35 @@ func TestDvojnikImenaSeOdbija(t *testing.T) {
 		t.Error("SavePeer je prepisao ključ poznatog čvora")
 	}
 }
+
+// Nazivanje radi uparivanja: dok jedno čeka odluku, drugo se odbija; adresa
+// bez porta dobiva port uparivanja; čvor koji ne sluša javlja grešku
+func TestNazivanjeRadiUparivanja(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	a := startCvor(t, ctx, "cop-osijek")
+	b := startCvor(t, ctx, "pperic-thinkpad")
+
+	if err := b.svc.DialPair(ctx, "127.0.0.1"); err == nil {
+		t.Error("nazivanje adrese na kojoj nitko ne sluša (port uparivanja) je prošlo")
+	}
+	if err := b.svc.DialPair(ctx, fmt.Sprintf("127.0.0.1:%d", freePort(t))); err == nil {
+		t.Error("nazivanje zatvorenog porta je prošlo")
+	}
+	if err := a.svc.StartListening(); err != nil {
+		t.Fatal(err)
+	}
+	var err error
+	for i := 0; i < 50; i++ {
+		if err = b.svc.DialPair(ctx, fmt.Sprintf("127.0.0.1:%d", a.svc.Ports().Pair)); err == nil {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := b.svc.DialPair(ctx, fmt.Sprintf("127.0.0.1:%d", a.svc.Ports().Pair)); err == nil || !strings.Contains(err.Error(), "već čeka") {
+		t.Errorf("drugo nazivanje dok prvo čeka odluku: %v", err)
+	}
+}

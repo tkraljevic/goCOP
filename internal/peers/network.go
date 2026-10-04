@@ -289,27 +289,51 @@ func (s *Service) RevokeMembership(ctx context.Context, nodeID string) ([]string
 	if err != nil {
 		return nil, err
 	}
+	priv, err := s.potpisnikOpozivaClanstva(*m, o)
+	if err != nil {
+		return nil, err
+	}
 	var pogodjeni []string
 	err = s.uTransakciji(ctx, func(tx *sql.Tx) error {
-		if err := s.opozoviClanstvoTx(ctx, tx, *m); err != nil || o == nil {
+		if err := s.opozoviClanstvoTx(ctx, tx, *m, priv); err != nil || o == nil {
 			return err
 		}
-		pogodjeni, err = s.opozoviOvlastTx(ctx, tx, *o)
+		pogodjeni, err = s.opozoviOvlastTx(ctx, tx, *o, priv)
 		return err
 	})
 	return pogodjeni, err
 }
 
+// potpisnikOpozivaClanstva je ključ kojim ovaj čvor smije opozvati
+// članstvo: ključ mreže, ili ključ ovog čvora kad je on primatelj koji je
+// to članstvo izdao. Član s ovlašću za primanje opoziva samo ključ mreže,
+// jer mu se opoziva i ovlast.
+func (s *Service) potpisnikOpozivaClanstva(m razmjena.Membership, o *razmjena.Ovlast) (ed25519.PrivateKey, error) {
+	s.mu.Lock()
+	network := s.network
+	s.mu.Unlock()
+	switch {
+	case network != nil && network.CanSign():
+		return network.Private(), nil
+	case o != nil:
+		return nil, fmt.Errorf("čvor %s ima ovlast za primanje: opozvati ga može samo čvor koji drži ključ mreže", m.DeviceID)
+	case m.Primatelj != nil && m.Primatelj.DeviceKey == s.node.PublicKey():
+		return s.node.key, nil
+	}
+	return nil, fmt.Errorf("članstvo čvora %s opoziva nositelj ključa mreže ili primatelj koji ga je izdao", m.DeviceID)
+}
+
 // opozoviClanstvoTx briše članstvo s površine, arhivira ga u knjizi i
-// zapisuje opoziv (koji vrijedi i za potvrdu koju čvor pokaže sam)
-func (s *Service) opozoviClanstvoTx(ctx context.Context, tx *sql.Tx, m razmjena.Membership) error {
+// zapisuje opoziv potpisan ključem priv (vrijedi i za potvrdu koju čvor
+// pokaže sam)
+func (s *Service) opozoviClanstvoTx(ctx context.Context, tx *sql.Tx, m razmjena.Membership, priv ed25519.PrivateKey) error {
 	if _, err := tx.ExecContext(ctx, `DELETE FROM memberships WHERE node_id = ?`, m.DeviceID); err != nil {
 		return err
 	}
 	if _, err := s.rec.Archive(ctx, tx, EntityMemberships, m.DeviceID, m); err != nil {
 		return err
 	}
-	return s.zapisiOpoziv(ctx, tx, OpozivClanstva, m.DeviceID, m.DeviceKey, m.IssuedAt)
+	return s.zapisiOpoziv(ctx, tx, priv, OpozivClanstva, m.DeviceID, m.DeviceKey, m.IssuedAt)
 }
 
 // Member je član za prikaz

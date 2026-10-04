@@ -267,6 +267,9 @@ type slucajRazmjene struct {
 	// verzija na B. Nil kad entitet nema put izmjene, uz razlog.
 	uredi          func(t *testing.T, b *cvor, id string, payload []byte)
 	bezUredjivanja string
+	// bezArhiviranja je razlog zbog kojeg arhivirana verzija namjerno ne
+	// miče zapis s površine; prazno znači da ga mora maknuti
+	bezArhiviranja string
 
 	// procitaj čita zapis na čvoru stvarnim čitačem repozitorija, onim koji
 	// koristi program; payload je zadnja verzija na tom čvoru. Vraća
@@ -1292,14 +1295,15 @@ func slucajeviRazmjene() []slucajRazmjene {
 				tx, err := a.db.Begin()
 				nuzno(t, err)
 				defer tx.Rollback()
-				_, err = tx.Exec(`INSERT INTO opozivi (id, vrsta, node_id, public_key, issued_at, opozvano_at, opozvao)
-					VALUES (?, ?, ?, ?, ?, ?, ?)`, op.ID, op.Vrsta, op.NodeID, op.PublicKey, op.IssuedAt.UTC(), op.OpozvanoAt.UTC(), op.Opozvao)
+				_, err = tx.Exec(`INSERT INTO opozivi (id, vrsta, node_id, public_key, issued_at, opozvano_at, opozvao, potpisnik, potpis)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, op.ID, op.Vrsta, op.NodeID, op.PublicKey, op.IssuedAt.UTC(), op.OpozvanoAt.UTC(), op.Opozvao, op.Potpisnik, op.Potpis)
 				nuzno(t, err)
 				_, err = a.rec.Record(ctxRaz, tx, peers.EntityOpozivi, op.ID, op)
 				nuzno(t, err)
 				nuzno(t, tx.Commit())
 			},
 			bezUredjivanja: "opoziv je trajan: ne mijenja se i ne briše",
+			bezArhiviranja: "opoziv se ne poništava: arhiviranu verziju mogao bi poslati i član s izmijenjenim programom; ponovno primanje izdaje novo, kasnije članstvo",
 			procitaj: func(t *testing.T, n *cvor, _ string, _ []byte) (any, error) {
 				return servisCvorova(t, n).ListOpozivi(ctxRaz)
 			},
@@ -1517,6 +1521,13 @@ func provjeriRazmjenu(t *testing.T, s slucajRazmjene) {
 		primi(t, b, []ledger.Version{v})
 		var n int
 		nuzno(t, b.db.QueryRow(`SELECT count(*) FROM `+s.tablica+` WHERE `+s.kljuc+` = ?`, arg).Scan(&n))
+		if s.bezArhiviranja != "" {
+			// namjerno ostaje na površini
+			if n != 1 {
+				t.Errorf("arhivirana verzija je maknula zapis %s, a ne smije: %s", id, s.bezArhiviranja)
+			}
+			return
+		}
 		if n != 0 {
 			prijaviIliPreskoci(t, s.entitet+"/arhiviranje", "arhivirana verzija nije maknula zapis %s s površine primatelja", id)
 			return

@@ -383,3 +383,42 @@ func TestPotvrdaSNezapisivimDarom(t *testing.T) {
 		t.Error("druga strana je uparena bez potvrde")
 	}
 }
+
+// Primatelj sam upisuje trenutak izdavanja i rok: istekla ovlast ne smije
+// izdavati članstva s datumom unatrag ni s rokom duljim od ovlasti
+func TestClanstvoNeTrajeDuljeOdOvlasti(t *testing.T) {
+	mreza, _ := NewNetwork("Probna")
+	ured := kljuc(t)
+	o, err := mreza.Ovlasti("ured", ured.Public().(ed25519.PublicKey), "cop", 48*time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	novi := kljuc(t).Public().(ed25519.PublicKey)
+	potpisano := func(izdano, istek time.Time) Membership {
+		m := Membership{Network: o.Network, DeviceID: "pperic-thinkpad", DeviceKey: PublicKeyString(novi), IssuedBy: "ured",
+			IssuedAt: izdano.UTC().Truncate(time.Second), ExpiresAt: istek.UTC().Truncate(time.Second), Primatelj: &o}
+		m.Signature = base64.StdEncoding.EncodeToString(ed25519.Sign(ured, m.signedBytes()))
+		return m
+	}
+	sad := o.IssuedAt.Add(time.Hour)
+	unatrag := potpisano(o.IssuedAt.Add(time.Minute), o.ExpiresAt.Add(365*24*time.Hour))
+	for ime, s := range map[string]struct {
+		m   Membership
+		sad time.Time
+	}{
+		"dulje od ovlasti, nakon isteka ovlasti": {unatrag, o.ExpiresAt.Add(24 * time.Hour)},
+		"dulje od ovlasti, dok ovlast vrijedi":   {unatrag, sad},
+		"bez roka":                               {potpisano(o.IssuedAt.Add(time.Minute), time.Time{}), sad},
+		"izdano u budućnosti":                    {potpisano(sad.Add(2*time.Hour), o.ExpiresAt), sad},
+	} {
+		if err := s.m.Verify(mreza.Public, novi, s.sad); !errors.Is(err, ErrOvlast) {
+			t.Errorf("%s: %v", ime, err)
+		}
+	}
+	if err := potpisano(sad.Add(30*time.Minute), o.ExpiresAt).Verify(mreza.Public, novi, sad); err != nil {
+		t.Errorf("unutar tolerancije satova: %v", err)
+	}
+	if err := potpisano(o.IssuedAt.Add(time.Minute), o.ExpiresAt).Verify(mreza.Public, novi, sad); err != nil {
+		t.Errorf("članstvo do isteka ovlasti: %v", err)
+	}
+}

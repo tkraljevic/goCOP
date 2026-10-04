@@ -980,15 +980,19 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 			IssuedAt   time.Time `json:"issuedAt"`
 			OpozvanoAt time.Time `json:"opozvanoAt"`
 			Opozvao    string    `json:"opozvao"`
+			Potpisnik  string    `json:"potpisnik"`
+			Potpis     string    `json:"potpis"`
 		}
 		if err := json.Unmarshal(v.Payload, &op); err != nil {
 			return err
 		}
+		// potpis se provjerava pri upotrebi (peers.opozvano): nepotpisan ili
+		// tuđe potpisan opoziv stoji u tablici, ali ništa ne opoziva
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO opozivi (id, vrsta, node_id, public_key, issued_at, opozvano_at, opozvao)
-			VALUES (?, ?, ?, ?, ?, ?, ?)
+			INSERT INTO opozivi (id, vrsta, node_id, public_key, issued_at, opozvano_at, opozvao, potpisnik, potpis)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT(id) DO NOTHING
-		`, op.ID, op.Vrsta, op.NodeID, op.PublicKey, op.IssuedAt.UTC(), op.OpozvanoAt.UTC(), op.Opozvao)
+		`, op.ID, op.Vrsta, op.NodeID, op.PublicKey, op.IssuedAt.UTC(), op.OpozvanoAt.UTC(), op.Opozvao, op.Potpisnik, op.Potpis)
 		return err
 
 	case "peers":
@@ -1177,9 +1181,10 @@ func removeFromSurface(ctx context.Context, tx *sql.Tx, v ledger.Version) error 
 	case "ovlasti":
 		stmt = `DELETE FROM ovlasti WHERE node_id = ?`
 	case "opozivi":
-		// opoziv se ne arhivira iz programa; arhivirana verzija (ispravak
-		// pogrešnog opoziva) vraća potvrdi valjanost kao i površina knjige
-		stmt = `DELETE FROM opozivi WHERE id = ?`
+		// opoziv se ne poništava: arhivirana verzija (koju bi mogao poslati i
+		// član s izmijenjenim programom) ga ne briše; ponovno primanje izdaje
+		// novo, kasnije članstvo
+		return nil
 	default:
 		return nil
 	}
