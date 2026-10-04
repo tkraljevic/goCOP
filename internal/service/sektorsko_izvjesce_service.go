@@ -127,7 +127,9 @@ func (s *IzvjescaService) PregledSektora(sva []models.DnevnoIzvjesce, ukljuci ma
 				redVoda = append(redVoda, voda)
 			}
 			v.Dionice = append(v.Dionice, iz.SectionCode)
-			if iz.Stadij.Severity() > v.Stadij.Severity() || v.Tendencija == "" {
+			// vodotok nosi najviši stadij svojih dionica; tendencija dolazi
+			// uz taj stadij i ne smije ga sniziti
+			if iz.Stadij.Severity() > v.Stadij.Severity() || (iz.Stadij.Severity() == v.Stadij.Severity() && v.Tendencija == "") {
 				v.Stadij, v.Tendencija = iz.Stadij, sad.Tendencija
 			}
 			if t := vodostajiTekst(sad.Vodostaji); t != "" && !strings.Contains(v.Vodostaji, t) {
