@@ -244,17 +244,29 @@ gocop -db /var/lib/gocop/gocop.db -tablica tablica-dnevnih-vodostaja.csv \
 
 ## Održavanje: ugovor-a02.xlsx
 
-Radna knjiga ugovora o održavanju (program A.02), u obliku koji pravi Excel
-dodatak Hrvatskih voda. Predložak sadrži samo ono što uvoz čita. Uvozi se na
-stranici **Održavanje**, za odabrano branjeno područje, ili naredbom
-`gocop -ugovor datoteka.xlsx` (bez `-upisi` samo izvješće). Uvozi se popis
-lokacija s razvrstavanjem i stavke radova bez cijena.
+Radna knjiga ugovora o održavanju (program A.02), u obliku koji uvoz čita.
+Uvozi se na stranici **Održavanje**, za odabrano branjeno područje, ili
+naredbom `gocop -ugovor datoteka.xlsx` (bez `-upisi` samo izvješće). Uvozi se
+popis lokacija s razvrstavanjem i stavke radova bez cijena.
+
+**Predložak je izmišljen. Nije ugovor ni troškovnik Hrvatskih voda.** Vode,
+područje, pozicije, iznosi te oznake i opisi stavki (`PR-1` do `PR-3`) ne
+potječu iz stvarnog ugovora. Od oblika radne knjige zadržano je samo ono što
+uvoz traži doslovno:
+
+- imena listova;
+- oznake redaka u stupcu A;
+- oblik pozicije `A.02.01.NN.`;
+- zaglavlja reda vode;
+- redni broj vrste.
+
+Test provjerava da stavke ostanu označene kao primjer.
 
 | List | Što uvoz čita |
 |---|---|
-| `PPI_POSTAVKE` | B1: broj branjenog područja; B2: naziv |
+| `PPI_POSTAVKE` | B1: broj branjenog područja; B2: naziv. U predlošku je u B3 napomena da je izmišljen |
 | `TROŠKOVNIK` | stupac A je oznaka retka: `#P` pozicija (I: pozicija plana `A.02.01.NN.…`, K: redni broj), `#V` voda, `#O` vrsta objekta, `#L` lokacija, `#Z` županija, `#N` vrijednost (sve u stupcu I), `#S` stavka (H: opis, I: oznaka, J: jedinica), `#E` kraj bloka |
-| `LOKACIJE_BP_NN` | A: zaglavlje reda vode (`VODE I. REDA - …`, `VODE II. REDA`); B: vrsta (`1. Vodotoci`, `2. …`, `3. Bujični tokovi`, `4. Osnovne melioracijske građevine…`); C: redni broj `1.1.`; D: naziv vode ili nasipa |
+| `LOKACIJE_BP_NN` | A: zaglavlje reda vode, počinje s `VODE ` i sadrži `I. REDA` ili `II. REDA` (uz `MEĐUDRŽAVNE` ili `OSTALE` za skupinu); B: vrsta, a odlučuje redni broj na početku (`1.` vodotoci, `2.` akumulacije, retencije i jezera, `3.` bujice, `4.` melioracijska odvodnja); C: redni broj `1.1.`; D: naziv vode ili nasipa |
 | `PREVENTIVNA` | ponudbeni troškovnik: A redni broj, B oznaka, C opis, D jedinica |
 
 - Broj područja iz radne knjige mora odgovarati području za koje se uvozi.

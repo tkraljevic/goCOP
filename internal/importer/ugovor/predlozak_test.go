@@ -3,13 +3,36 @@ package ugovor
 import (
 	"context"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"gocop/internal/db"
+	"gocop/internal/importer/xlsx"
 	"gocop/internal/ledger"
 	"gocop/internal/models"
 	"gocop/internal/repository"
 )
+
+// Predložak ugovora mora ostati izmišljen: stavke nose oznake primjera, a
+// radna knjiga napomenu da nije ugovor ni troškovnik Hrvatskih voda.
+func TestPredlozakUgovoraJeIzmisljen(t *testing.T) {
+	wb, err := xlsx.Open(filepath.Join("..", "..", "..", "docs", "predlosci", "odrzavanje", "ugovor-a02.xlsx"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := Parse(wb)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, it := range append(c.Items, c.Catalogue...) {
+		if !strings.HasPrefix(it.Number, "PR-") || !strings.Contains(it.Description, "izmišljeno") {
+			t.Errorf("stavka %q %q nije označena kao izmišljeni primjer", it.Number, it.Description)
+		}
+	}
+	if napomena := wb.Sheet("PPI_POSTAVKE").Cell(2, 1); !strings.Contains(napomena, "Izmišljeni primjer") {
+		t.Errorf("PPI_POSTAVKE nema napomenu da je radna knjiga izmišljena: %q", napomena)
+	}
+}
 
 // Predložak ugovora u docs/predlosci/odrzavanje čita se na bazi napunjenoj iz
 // predložaka prvog pokretanja: obje lokacije moraju pasti na vode iz registra.
