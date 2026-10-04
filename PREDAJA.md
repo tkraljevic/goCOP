@@ -32,6 +32,15 @@ Rad je prekinut zbog budžeta. Ova datoteka je za agenta koji nastavlja. Uz nju 
 
 Opis svake grane faze 2 je u njezinu `PREDAJA.md`: kad `make quality` prođe, sadržaj ide u opis PR-a, a datoteka se briše. Na nijednoj grani `make quality` još nije izmjeren. Prije svakog PR-a treba ga pokrenuti prema baselineu.
 
+## Upute glavne lokalne sesije (4. 10. 2026.)
+- **Granu `stabilizacija-izvjesca` (PR #9) preuzela je glavna lokalna sesija.** Ne dirati je i ne pushati na nju. Provjera c3af091 pala je na vratima jer je CC narastao: `Spremi` i `SpremiSektorsko` 21 → 22, a `PregledSektora` bi pao s 18 → 19.
+- **Popravak ne smije povećati CC postojeće funkcije.** Ako dodaje uvjet, taj uvjet ide u malu pomoćnu funkciju s vlastitim testom. Ne uvodi se iznimka.
+- Tako je napravljeno i u PR-u #13: `provjeriVrijemePrekida` i `letvaAkta`. `End` ostaje na CC 8, a `zakljuciOvjeru` pada s 19 na 18.
+- Ostali popravci CC ne povećavaju:
+  - #5 i #8: `AddDate`, bez novog uvjeta;
+  - #6: isti broj operatora;
+  - #10: jedan `&&` manje.
+
 ## Mjerenje na Linuxu (kao CI)
 CI ponovno mjeri baseline commit `f5adb84` trenutnim alatom pa uspoređuje. Lokalno:
 
