@@ -157,7 +157,11 @@ Za postojeći dug dopušten je **samo zatečeni opseg**:
   Istekla iznimka i dalje ruši provjeru.
 - Fuzzy je samo izvještaj/upozorenje, nikada hard gate.
 
-Prosjeci i maksimumi ostaju u JSON-u za kasnije trendove. Nema automatskog
+Prosjeci i maksimumi ostaju u JSON-u za kasnije trendove. Uz prosjek CRAP-a
+izvještaj daje medijan, P90, P95 i broj funkcija po razredima (≤ 10, 10–30,
+30–100, > 100): prosjek podigne i jedna golema funkcija, a medijan i percentili
+pokazuju je li loš cijeli kod ili rep netestiranih funkcija. To je samo
+izvještaj, ne prag. Nema automatskog
 refaktoriranja ni automatskog ažuriranja baselinea nakon crvene provjere.
 Mali/nedeterministični testovi mogu uzrokovati promjenu coveragea: prvo ponoviti
 iste izvore i popraviti nestabilan test, ne proizvoljno sniziti cilj.
