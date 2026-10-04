@@ -461,8 +461,9 @@ func (s *UserService) UpdateUser(actor *models.UserPermissions, req UpdateUserRe
 	target.Username = strings.TrimSpace(req.Username)
 	target.FullName = strings.TrimSpace(req.FullName)
 	target.Title = req.Title
-	if req.IsGlobalAdmin && !target.IsGlobalAdmin && !stalnaUpravaOrganizacije(actor) {
-		return nil, fmt.Errorf("%w: globalnog administratora postavlja samo stalna uprava organizacije", ErrUnauthorized)
+	// zastavicu daje i skida samo stalna uprava organizacije
+	if req.IsGlobalAdmin != target.IsGlobalAdmin && !stalnaUpravaOrganizacije(actor) {
+		return nil, fmt.Errorf("%w: globalnog administratora postavlja i skida samo stalna uprava organizacije", ErrUnauthorized)
 	}
 	target.IsGlobalAdmin = req.IsGlobalAdmin
 	target.OrgType = req.OrgType
