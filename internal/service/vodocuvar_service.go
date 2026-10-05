@@ -344,39 +344,59 @@ func (s *VodocuvarService) Spremi(ctx context.Context, u *models.User, dan time.
 		}
 	}
 	if predaj {
-		if err := provjeriPredaju(l); err != nil {
-			// predaja ne prolazi, ali upisano se ne gubi: ostaje kao nacrt
-			if serr := s.repo.Save(ctx, l); serr != nil {
-				return nil, serr
-			}
-			return nil, fmt.Errorf("%w; upisano je spremljeno kao nacrt", err)
-		}
-		l.Ocitanja = s.ocitanja(ctx, u.ID.String(), dan)
-		kad := time.Now()
-		l.PredanoAt = &kad
+		return s.predaj(ctx, l, dan)
 	}
 	if err := s.repo.Save(ctx, l); err != nil {
 		return nil, err
 	}
-	// zaključeni zadaci zaključuju se i u evidenciji zadataka, tek pri predaji;
-	// otvoreni ostaju otvoreni i sami se prenose na sljedeći list
-	if predaj {
-		for _, z := range l.Zadaci {
-			if z.Status == models.ZadatakOtvoren {
-				continue
-			}
-			zad, err := s.repo.GetZadatak(ctx, z.ID)
-			if err != nil || zad == nil || !zad.Otvoren() {
-				continue
-			}
-			kad := time.Now()
-			zad.Status, zad.Obavljeno, zad.ObavljenoAt, zad.ListID = z.Status, z.Obavljeno, &kad, l.ID
-			if err := s.repo.SaveZadatak(ctx, zad); err != nil {
-				return nil, err
-			}
+	return l, nil
+}
+
+// predaj potpisuje (predaje) list. Zadaci zaključeni na listu zaključuju se
+// i u evidenciji zadataka, tek pri predaji i u istoj transakciji s listom:
+// ako zaključivanje ne uspije, ni list nije predan. Otvoreni ostaju otvoreni
+// i sami se prenose na sljedeći list.
+func (s *VodocuvarService) predaj(ctx context.Context, l *models.VodocuvarskiList, dan time.Time) (*models.VodocuvarskiList, error) {
+	if err := provjeriPredaju(l); err != nil {
+		// predaja ne prolazi, ali upisano se ne gubi: ostaje kao nacrt
+		if serr := s.repo.Save(ctx, l); serr != nil {
+			return nil, serr
 		}
+		return nil, fmt.Errorf("%w; upisano je spremljeno kao nacrt", err)
+	}
+	zadaci, err := s.zadaciZaZakljuciti(ctx, l)
+	if err != nil {
+		return nil, err
+	}
+	l.Ocitanja = s.ocitanja(ctx, l.UserID, dan)
+	kad := time.Now()
+	l.PredanoAt = &kad
+	if err := s.repo.Predaj(ctx, l, zadaci); err != nil {
+		return nil, err
 	}
 	return l, nil
+}
+
+// zadaciZaZakljuciti vraća zadatke iz evidencije koje predaja lista
+// zaključuje, sa stanjem s lista
+func (s *VodocuvarService) zadaciZaZakljuciti(ctx context.Context, l *models.VodocuvarskiList) ([]*models.Zadatak, error) {
+	var out []*models.Zadatak
+	for _, z := range l.Zadaci {
+		if z.Status == models.ZadatakOtvoren {
+			continue
+		}
+		zad, err := s.repo.GetZadatak(ctx, z.ID)
+		if err != nil {
+			return nil, err
+		}
+		if zad == nil || !zad.Otvoren() {
+			continue
+		}
+		kad := time.Now()
+		zad.Status, zad.Obavljeno, zad.ObavljenoAt = z.Status, z.Obavljeno, &kad
+		out = append(out, zad)
+	}
+	return out, nil
 }
 
 // zaVodocuvara slaže probni list po terenskom zaduženju osobe, za provjeru prava
