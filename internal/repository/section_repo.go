@@ -144,6 +144,20 @@ func (r *SectionRepository) decorate(sec *models.Section) {
 	}
 }
 
+// SektorPodrucja vraća sektor branjenog područja; nepostojeće područje javlja
+// kao grešku
+func (r *SectionRepository) SektorPodrucja(ctx context.Context, areaID int) (string, error) {
+	var sektor string
+	err := r.db.QueryRowContext(ctx, `SELECT sector_id FROM areas WHERE id = ?`, areaID).Scan(&sektor)
+	if err == sql.ErrNoRows {
+		return "", fmt.Errorf("branjeno područje %d ne postoji", areaID)
+	}
+	if err != nil {
+		return "", fmt.Errorf("greška pri čitanju područja %d: %w", areaID, err)
+	}
+	return sektor, nil
+}
+
 // SaveSection upisuje novu ili izmijenjenu dionicu s poddionicama, obnavlja
 // kazala i bilježi verziju. Sektor slijedi iz područja.
 func (r *SectionRepository) SaveSection(ctx context.Context, s *models.Section) error {

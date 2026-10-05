@@ -114,9 +114,8 @@ func (s *SectionService) SaveSection(ctx context.Context, perms *models.UserPerm
 		if existing != nil {
 			return fmt.Errorf("dionica sa šifrom '%s' već postoji", sec.Code)
 		}
-		// sektor nosi prvi dio šifre; područje ga mora potvrditi pri upisu
-		if sec.SectorID == "" {
-			sec.SectorID = strings.ToUpper(sec.Code[:strings.Index(sec.Code, ".")])
+		if err := s.sifraUPodrucju(ctx, sec); err != nil {
+			return err
 		}
 		if !s.CanCreateSectionInArea(perms, sec.SectorID, sec.AreaID) {
 			return ErrUnauthorized
@@ -155,6 +154,30 @@ func (s *SectionService) SaveSection(ctx context.Context, perms *models.UserPerm
 	} else {
 		s.sse.Broadcast("section_updated", fmt.Sprintf("Ažurirana dionica: %s", sec.Code), sec.Code)
 	}
+	return nil
+}
+
+// sifraUPodrucju provjerava da šifra nove dionice nosi njezin sektor i
+// područje: B.15.5 ide u područje 15 sektora B. Pravo se priznaje po
+// području, pa bi šifra tuđeg sektora ili područja upisala dionicu ondje
+// gdje onaj tko piše nema ništa. Zadani sektor mora biti isti.
+func (s *SectionService) sifraUPodrucju(ctx context.Context, sec *models.Section) error {
+	dijelovi := strings.Split(sec.Code, ".")
+	sektor, podrucje := dijelovi[0], dijelovi[1]
+	if podrucje != strconv.Itoa(sec.AreaID) {
+		return fmt.Errorf("šifra %s nosi branjeno područje %s, a dionica se upisuje u područje %d", sec.Code, podrucje, sec.AreaID)
+	}
+	if zadani := strings.ToUpper(strings.TrimSpace(sec.SectorID)); zadani != "" && zadani != sektor {
+		return fmt.Errorf("šifra %s nosi sektor %s, a zadan je sektor %s", sec.Code, sektor, zadani)
+	}
+	sektorPodrucja, err := s.sectionRepo.SektorPodrucja(ctx, sec.AreaID)
+	if err != nil {
+		return err
+	}
+	if sektorPodrucja != sektor {
+		return fmt.Errorf("branjeno područje %d pripada sektoru %s, a šifra %s sektoru %s", sec.AreaID, sektorPodrucja, sec.Code, sektor)
+	}
+	sec.SectorID = sektor
 	return nil
 }
 
