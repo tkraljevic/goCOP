@@ -284,15 +284,23 @@ func (u *User) VidiVodocuvarskiDnevnik() bool {
 	if u.IsGlobalAdmin {
 		return true
 	}
+	sad := time.Now()
 	for _, d := range u.Duties {
-		if !d.IsActive {
-			continue
-		}
-		if d.Role == RoleWaterGuard || (!d.Role.IsField() && d.Role != RoleWarehouseKeeper) {
+		if d.vrijedi(sad) && d.Role.citaVodocuvarskiDnevnik() {
 			return true
 		}
 	}
 	return false
+}
+
+// citaVodocuvarskiDnevnik: vodočuvar, rukovoditelj ili zamjenik dionice i
+// svaka uloga uprave (s ovlaštenicima za praćenje ugovora)
+func (r Role) citaVodocuvarskiDnevnik() bool {
+	switch r {
+	case RoleWaterGuard, RoleSectionLeader, RoleSectionDeputy:
+		return true
+	}
+	return r.RazinaUprave() > 0
 }
 
 // PrimaryRole je uloga koja se pokazuje uz ime: primarna dužnost, jer je
