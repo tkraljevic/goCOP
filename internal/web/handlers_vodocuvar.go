@@ -370,7 +370,7 @@ func (h *VodocuvarHandler) HandleSpremi(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 	}
-	l, err := s.Spremi(r.Context(), u, dan, unos, predaj)
+	l, napomena, err := s.SpremiSPorukom(r.Context(), u, dan, unos, predaj)
 	if err != nil {
 		redirectWith(w, r, "/vodocuvar/dan?datum="+dan.Format("2006-01-02"), "error", err.Error())
 		return
@@ -384,7 +384,8 @@ func (h *VodocuvarHandler) HandleSpremi(w http.ResponseWriter, r *http.Request) 
 		if potpisnik != nil {
 			poruka = "List " + strconv.Itoa(l.Broj) + " je elektronički potpisan vašim ključem i predan; čeka ovjeru rukovoditelja."
 		}
-		redirectWith(w, r, "/vodocuvar/"+l.ID, "success", poruka)
+		// zadatak koji je već zaključio drugi list javlja se uz predaju
+		redirectWith(w, r, "/vodocuvar/"+l.ID, "success", strings.TrimSpace(poruka+" "+napomena))
 		return
 	}
 	redirectWith(w, r, "/vodocuvar/"+l.ID, "success", "List je spremljen; predajte ga kad je dan gotov.")

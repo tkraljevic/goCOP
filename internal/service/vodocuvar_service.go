@@ -305,25 +305,33 @@ func provjeriPredaju(l *models.VodocuvarskiList) error {
 }
 
 func (s *VodocuvarService) Spremi(ctx context.Context, u *models.User, dan time.Time, unos UnosLista, predaj bool) (*models.VodocuvarskiList, error) {
+	l, _, err := s.SpremiSPorukom(ctx, u, dan, unos, predaj)
+	return l, err
+}
+
+// SpremiSPorukom je Spremi koji uz list vraća i napomenu za poruku
+// vodočuvaru: pri predaji javlja zadatke koje je u evidenciji već zaključio
+// drugi list
+func (s *VodocuvarService) SpremiSPorukom(ctx context.Context, u *models.User, dan time.Time, unos UnosLista, predaj bool) (*models.VodocuvarskiList, string, error) {
 	l, err := s.Pripremi(ctx, u, dan)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	if l.Rekonstrukcija {
-		return nil, fmt.Errorf("list od %s prenesen je iz ranije evidencije i ne mijenja se", l.Datum.In(models.Zagreb).Format("02.01.2006."))
+		return nil, "", fmt.Errorf("list od %s prenesen je iz ranije evidencije i ne mijenja se", l.Datum.In(models.Zagreb).Format("02.01.2006."))
 	}
 	if l.Predan() {
-		return nil, fmt.Errorf("list od %s je predan i više se ne mijenja", l.Datum.In(models.Zagreb).Format("02.01.2006."))
+		return nil, "", fmt.Errorf("list od %s je predan i više se ne mijenja", l.Datum.In(models.Zagreb).Format("02.01.2006."))
 	}
 	if dan.In(models.Zagreb).Year() < time.Now().In(models.Zagreb).Year() {
-		return nil, fmt.Errorf("knjiga za %d. je arhivirana istekom godine i u nju se više ne upisuje", dan.In(models.Zagreb).Year())
+		return nil, "", fmt.Errorf("knjiga za %d. je arhivirana istekom godine i u nju se više ne upisuje", dan.In(models.Zagreb).Year())
 	}
 	// radno vrijeme se sprema kao SS:MM, i kad je upisano „7:00”
 	var sati [2]string
 	for i, v := range []string{unos.Od, unos.Do} {
 		t, err := time.Parse("15:04", strings.TrimSpace(v))
 		if err != nil {
-			return nil, fmt.Errorf("radno vrijeme upišite kao sate i minute, npr. 08:00")
+			return nil, "", fmt.Errorf("radno vrijeme upišite kao sate i minute, npr. 08:00")
 		}
 		sati[i] = t.Format("15:04")
 	}
@@ -331,72 +339,93 @@ func (s *VodocuvarService) Spremi(ctx context.Context, u *models.User, dan time.
 	l.Prilike, l.Naredbe, l.Opis, l.Zapazanja = strings.TrimSpace(unos.Prilike), strings.TrimSpace(unos.Naredbe), strings.TrimSpace(unos.Opis), strings.TrimSpace(unos.Zapazanja)
 	// zadaci: stanje s obrasca
 	if l.Zadaci, err = s.zadaciNaListu(ctx, u.ID.String(), dan, l.Zadaci); err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	if err := oznaciZadatke(l.Zadaci, unos.Zadaci); err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	// svaki list nosi redni broj od prvog spremanja, kao stranica u knjizi
 	if l.Broj == 0 {
 		l.Broj, err = s.repo.SljedeciBroj(ctx, u.ID.String(), dan.In(models.Zagreb).Year())
 		if err != nil {
-			return nil, err
+			return nil, "", err
 		}
 	}
 	if predaj {
 		return s.predaj(ctx, l, dan)
 	}
 	if err := s.repo.Save(ctx, l); err != nil {
-		return nil, err
+		return nil, "", err
 	}
-	return l, nil
+	return l, "", nil
 }
 
 // predaj potpisuje (predaje) list. Zadaci zaključeni na listu zaključuju se
 // i u evidenciji zadataka, tek pri predaji i u istoj transakciji s listom:
 // ako zaključivanje ne uspije, ni list nije predan. Otvoreni ostaju otvoreni
-// i sami se prenose na sljedeći list.
-func (s *VodocuvarService) predaj(ctx context.Context, l *models.VodocuvarskiList, dan time.Time) (*models.VodocuvarskiList, error) {
+// i sami se prenose na sljedeći list. Napomena javlja zadatke koje je već
+// zaključio drugi list.
+func (s *VodocuvarService) predaj(ctx context.Context, l *models.VodocuvarskiList, dan time.Time) (*models.VodocuvarskiList, string, error) {
 	if err := provjeriPredaju(l); err != nil {
 		// predaja ne prolazi, ali upisano se ne gubi: ostaje kao nacrt
 		if serr := s.repo.Save(ctx, l); serr != nil {
-			return nil, serr
+			return nil, "", serr
 		}
-		return nil, fmt.Errorf("%w; upisano je spremljeno kao nacrt", err)
+		return nil, "", fmt.Errorf("%w; upisano je spremljeno kao nacrt", err)
 	}
-	zadaci, err := s.zadaciZaZakljuciti(ctx, l)
+	zadaci, napomene, err := s.zadaciZaZakljuciti(ctx, l)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	l.Ocitanja = s.ocitanja(ctx, l.UserID, dan)
 	kad := time.Now()
 	l.PredanoAt = &kad
 	if err := s.repo.Predaj(ctx, l, zadaci); err != nil {
-		return nil, err
+		return nil, "", err
 	}
-	return l, nil
+	return l, strings.Join(napomene, " "), nil
 }
 
 // zadaciZaZakljuciti vraća zadatke iz evidencije koje predaja lista
-// zaključuje, sa stanjem s lista
-func (s *VodocuvarService) zadaciZaZakljuciti(ctx context.Context, l *models.VodocuvarskiList) ([]*models.Zadatak, error) {
+// zaključuje, sa stanjem s lista. Zadatak koji je u evidenciji već zaključio
+// drugi list ne zaključuje se ponovno: na ovaj list upisuje se stanje iz
+// evidencije s napomenom gdje je zaključen, da list i evidencija ne kažu
+// različito, a napomena ide u poruku.
+func (s *VodocuvarService) zadaciZaZakljuciti(ctx context.Context, l *models.VodocuvarskiList) ([]*models.Zadatak, []string, error) {
 	var out []*models.Zadatak
-	for _, z := range l.Zadaci {
+	var napomene []string
+	for i := range l.Zadaci {
+		z := &l.Zadaci[i]
 		if z.Status == models.ZadatakOtvoren {
 			continue
 		}
 		zad, err := s.repo.GetZadatak(ctx, z.ID)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		if zad == nil || !zad.Otvoren() {
-			continue
+		switch {
+		case zad == nil:
+		case !zad.Otvoren():
+			gdje := s.gdjeJeZakljucen(ctx, zad)
+			z.Status, z.Obavljeno = zad.Status, strings.TrimSpace(zad.Obavljeno+" (zaključeno "+gdje+")")
+			napomene = append(napomene, fmt.Sprintf("Zadatak „%s” već je zaključen %s; na ovaj list upisano je stanje iz evidencije.", z.Tekst, gdje))
+		default:
+			kad := time.Now()
+			zad.Status, zad.Obavljeno, zad.ObavljenoAt = z.Status, z.Obavljeno, &kad
+			out = append(out, zad)
 		}
-		kad := time.Now()
-		zad.Status, zad.Obavljeno, zad.ObavljenoAt = z.Status, z.Obavljeno, &kad
-		out = append(out, zad)
 	}
-	return out, nil
+	return out, napomene, nil
+}
+
+// gdjeJeZakljucen opisuje list kojim je zadatak zaključen u evidenciji
+func (s *VodocuvarService) gdjeJeZakljucen(ctx context.Context, zad *models.Zadatak) string {
+	if zad.ListID != "" {
+		if dl, err := s.repo.Get(ctx, zad.ListID); err == nil && dl != nil {
+			return fmt.Sprintf("listom br. %d od %s", dl.Broj, dl.Datum.In(models.Zagreb).Format("02.01.2006."))
+		}
+	}
+	return "u evidenciji zadataka"
 }
 
 // zaVodocuvara slaže probni list po terenskom zaduženju osobe, za provjeru prava
