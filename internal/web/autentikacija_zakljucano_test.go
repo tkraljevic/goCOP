@@ -1,8 +1,12 @@
 package web
 
 import (
+	"bytes"
+	"log"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -14,9 +18,9 @@ import (
 )
 
 // Zaključava ponašanje authMiddleware kroz pravu provjeru sesije: što se
-// događa bez kolačića, s isteklom sesijom, s isključenim računom, s
-// obveznom promjenom lozinke i dok administrator gleda tuđim očima, te što
-// rukovatelj dobiva u kontekstu.
+// događa bez kolačića, s isteklom sesijom, s isključenim računom, pri
+// grešci baze, s obveznom promjenom lozinke i dok administrator gleda tuđim
+// očima, te što rukovatelj dobiva u kontekstu.
 
 type mwZapis struct {
 	pozvan            bool
@@ -112,6 +116,47 @@ func TestProvjeraPrijavePrijeRukovatelja(t *testing.T) {
 			t.Errorf("stara sesija vrijedi nakon ponovnog uključenja: %d", w.Code)
 		}
 	})
+}
+
+// Greška baze pri provjeri sesije nije odjava: zahtjev dobiva 500 i zapis u
+// dnevniku, a kolačić i sesija ostaju, pa prijava radi čim baza proradi.
+// Dosad je svaka greška vodila na /login, pa je kvar baze izgledao kao
+// odjava svih korisnika.
+func TestGreskaBazePriProvjeriSesije(t *testing.T) {
+	o := novaOkolinaPrijave(t)
+	o.osoba("pperic", "perina-lozinka", "pperic@example.com", false)
+	sesija, _, err := o.auth.Login("pperic", "perina-lozinka", "192.168.1.50", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var dnevnik bytes.Buffer
+	log.SetOutput(&dnevnik)
+	t.Cleanup(func() { log.SetOutput(os.Stderr) })
+	if _, err := o.baza.Exec(`ALTER TABLE sessions RENAME TO sessions_kvar`); err != nil {
+		t.Fatal(err)
+	}
+	z := &mwZapis{}
+	w := mwZahtjev(mwPosluzitelj(o, z), http.MethodGet, "/dashboard", sesija.ID.String())
+	if w.Code != http.StatusInternalServerError || w.Header().Get("Location") != "" || z.pozvan {
+		t.Errorf("greška baze: %d → %q (rukovatelj pozvan: %v)", w.Code, w.Header().Get("Location"), z.pozvan)
+	}
+	if k := w.Result().Cookies(); len(k) != 0 {
+		t.Errorf("kolačić sesije diran pri grešci baze: %v", k)
+	}
+	if !strings.Contains(dnevnik.String(), "provjera sesije") || !strings.Contains(dnevnik.String(), "sessions") {
+		t.Errorf("greška baze nije zapisana u dnevnik: %q", dnevnik.String())
+	}
+	if strings.Contains(dnevnik.String(), sesija.ID.String()) {
+		t.Errorf("token sesije u dnevniku: %q", dnevnik.String())
+	}
+	// baza proradi: ista sesija vrijedi
+	if _, err := o.baza.Exec(`ALTER TABLE sessions_kvar RENAME TO sessions`); err != nil {
+		t.Fatal(err)
+	}
+	z = &mwZapis{}
+	if w := mwZahtjev(mwPosluzitelj(o, z), http.MethodGet, "/dashboard", sesija.ID.String()); !z.pozvan || w.Code != http.StatusNoContent {
+		t.Errorf("sesija nakon kvara baze: %d → %q", w.Code, w.Header().Get("Location"))
+	}
 }
 
 func TestObveznaPromjenaLozinke(t *testing.T) {

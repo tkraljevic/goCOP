@@ -128,11 +128,18 @@ func postaviRacunalo(w http.ResponseWriter, r *http.Request, token string) {
 	})
 }
 
+// sesijaNevaljana javlja je li greška provjere sesije očekivana: sesija je
+// istekla ili nepoznata, ili je račun isključen. Sve drugo (npr. greška baze)
+// je kvar, a ne odjava.
+func sesijaNevaljana(err error) bool {
+	return errors.Is(err, service.ErrSessionExpired) || errors.Is(err, service.ErrAccountInactive)
+}
+
 // obrisiNevaljanuSesiju briše kolačić sesije koja više ne vrijedi (istekla,
 // nepoznata ili račun isključen). Kod greške baze kolačić ostaje: sesija možda
 // vrijedi, a prijava se ne gubi zbog prolaznog kvara.
 func obrisiNevaljanuSesiju(w http.ResponseWriter, r *http.Request, err error) {
-	if errors.Is(err, service.ErrSessionExpired) || errors.Is(err, service.ErrAccountInactive) {
+	if sesijaNevaljana(err) {
 		obrisiSesiju(w, r)
 	}
 }
