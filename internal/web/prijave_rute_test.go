@@ -90,6 +90,10 @@ func TestPrijaveSTerenaKrozRute(t *testing.T) {
 	if err := userRepo.CreateUser(strojar, &models.Duty{Title: "Strojar", Role: models.RoleMachinist, ScopeType: models.ScopeSection, SectorID: &b, AreaID: &bp, SectionCodes: "B.34.1", IsPrimary: true}); err != nil {
 		t.Fatal(err)
 	}
+	operater := &models.User{ID: uuid.New(), Username: "pperic", FullName: "Pero Perić", IsActive: true}
+	if err := userRepo.CreateUser(operater, &models.Duty{Title: "Dežurni operater", Role: models.RoleOperator, ScopeType: models.ScopeSector, SectorID: &b, IsPrimary: true}); err != nil {
+		t.Fatal(err)
+	}
 	orgRepo := repository.NewOrgRepository(baza, rec)
 	vod := service.NewVodocuvarService(repository.NewVodocuvarRepository(baza, rec), users, "cop-osijek")
 	vod.SetOrg(orgRepo)
@@ -261,6 +265,15 @@ func TestPrijaveSTerenaKrozRute(t *testing.T) {
 	}
 	if s := get(kunac, "/prijave/"+id).Body.String(); !strings.Contains(s, "Pregledano, riješeno") || !strings.Contains(s, "elektronički potpisao") {
 		t.Error("stranica objavljene prijave za rukovoditelja")
+	}
+	// prijave idu s dnevnikom: dežurni operater sektora ne vidi dnevnik pa ni
+	// objavljene prijave, ni popis ni pojedinačnu. Zaključano dok se ne
+	// odluči trebaju li operateru prijave s terena i bez dnevnika.
+	if w := get(operater, "/prijave"); w.Code != http.StatusForbidden {
+		t.Errorf("operater na popisu prijava: %d", w.Code)
+	}
+	if w := get(operater, "/prijave/"+id); w.Code != http.StatusNotFound {
+		t.Errorf("operater na objavljenoj prijavi: %d", w.Code)
 	}
 	if l := loc(forma(seit, http.MethodPost, "/prijave/"+id+"/radnja", url.Values{"radnja": {"rijesi"}})); !strings.Contains(l, "error") {
 		t.Error("vodočuvar riješio")
