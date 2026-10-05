@@ -289,7 +289,7 @@ func uveziTablicu(z zastavice, deps csvlevels.Deps) {
 		log.Printf("  NIJE PREPOZNATO: %q — nema takve letve u registru", u)
 	}
 	for _, a := range rep.Ambiguous {
-		log.Printf("  DVOZNAČNO: %q — više letvi nosi taj naziv", a)
+		log.Printf("  DVOZNAČNO: %q — nije uvezeno (više letvi nosi taj naziv ili letvu već puni drugi stupac)", a)
 	}
 	for _, d := range rep.Differs {
 		log.Printf("  RAZLIKA: %s %s — u bazi %d cm (%s%s), u tablici %d cm",

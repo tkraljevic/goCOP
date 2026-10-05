@@ -171,41 +171,42 @@ func TestUvozTabliceDvaStupcaNaIstuLetvu(t *testing.T) {
 		"02.09.2026.;121;130",
 	})
 	ctx := context.Background()
-	// Oba stupca padaju na istu letvu. Probni prolaz broji svaki stupac kao
-	// novo očitanje, a upis na isti dan i letvu daje isti identifikator, pa
-	// drugi tiho otpadne.
+	// Oba stupca padaju na istu letvu. Vrijedi prvi; drugi se javlja kao
+	// dvoznačan i ne uvozi, pa probni prolaz najavi točno ono što upis upiše.
 	probni, err := Run(ctx, Options{Path: put, DryRun: true, Deps: o.deps})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(probni.Matched) != 2 || probni.Inserted != 4 || probni.Conflicts != 0 {
-		t.Fatalf("probni prolaz: stupaca %d, novih %d, razlika %d", len(probni.Matched), probni.Inserted, probni.Conflicts)
+	if len(probni.Matched) != 1 || probni.Matched[0].Header != "Primjerica - Primjerovo" || probni.Inserted != 2 || probni.Conflicts != 0 {
+		t.Fatalf("probni prolaz: stupci %+v, novih %d, razlika %d", probni.Matched, probni.Inserted, probni.Conflicts)
+	}
+	if len(probni.Ambiguous) != 1 || !strings.HasPrefix(probni.Ambiguous[0], "Primjerovo (DHMZ)") ||
+		!strings.Contains(probni.Ambiguous[0], "Primjerica - Primjerovo") {
+		t.Errorf("dvoznačni: %v", probni.Ambiguous)
 	}
 	upis, err := Run(ctx, Options{Path: put, Deps: o.deps})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if upis.Inserted != 2 {
+	if upis.Inserted != probni.Inserted {
 		t.Errorf("upisano %d, a probni prolaz je najavio %d", upis.Inserted, probni.Inserted)
 	}
 	zapisano := o.ocitanja(t, o.primjerovo.ID.String())
 	if len(zapisano) != 2 {
 		t.Fatalf("u bazi %d očitanja", len(zapisano))
 	}
-	// Koja od dvije vrijednosti drugog dana ostane ovisi o redoslijedu
-	// stupaca u mapi, dakle nije određeno.
+	// drugog dana ostaje vrijednost iz prvog stupca, bez obzira na redoslijed mape
 	for _, rd := range zapisano {
-		if rd.LocalTime().Day() == 2 && *rd.LevelCm != 121 && *rd.LevelCm != 130 {
+		if rd.LocalTime().Day() == 2 && *rd.LevelCm != 121 {
 			t.Errorf("drugi dan: %d", *rd.LevelCm)
 		}
 	}
-	// ponovni probni prolaz vidi oba stupca kao već zapisana, i razliku na
-	// drugom danu u stupcu koji nije upisan
+	// ponovni probni prolaz vidi oba dana prvog stupca kao već zapisana
 	ponovo, err := Run(ctx, Options{Path: put, DryRun: true, Deps: o.deps})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if ponovo.Inserted != 0 || ponovo.Skipped != 4 || ponovo.Conflicts != 1 {
+	if ponovo.Inserted != 0 || ponovo.Skipped != 2 || ponovo.Conflicts != 0 {
 		t.Errorf("ponovni prolaz: novih %d, zapisanih %d, razlika %d", ponovo.Inserted, ponovo.Skipped, ponovo.Conflicts)
 	}
 }
