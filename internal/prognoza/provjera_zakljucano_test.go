@@ -346,15 +346,18 @@ func TestPromasajiPoLetviIVelicini(t *testing.T) {
 }
 
 // Živa prognoza i provjera s Ispravi primjenjuju promašaj veličine u kojoj
-// letva računa; zapis druge veličine iste letve ne dira je.
+// letva računa; zapis druge veličine iste letve ne dira je. Vodostaj ima
+// zapis samo do 6 h, protok do 12 h: da se veličina ne gleda, 12 h bi
+// ispravio promašaj u protoku, bez obzira na to koji se zapis čita zadnji.
 func TestPromasajiSePrimjenjujuPoVelicini(t *testing.T) {
 	bezIspravka(t)
 	baza := probnaBazaPrognoza(t)
 	var upis []Promasaj
 	for d := 1; d <= 12; d++ {
-		upis = append(upis,
-			Promasaj{Letva: "donja", Velicina: "vodostaj", DosegH: d, Pomak: -5, Rasap: 2, Slucaja: 100},
-			Promasaj{Letva: "donja", Velicina: "protok", DosegH: d, Pomak: 50, Rasap: 40, Slucaja: 100})
+		if d <= 6 {
+			upis = append(upis, Promasaj{Letva: "donja", Velicina: "vodostaj", DosegH: d, Pomak: -5, Rasap: 2, Slucaja: 100})
+		}
+		upis = append(upis, Promasaj{Letva: "donja", Velicina: "protok", DosegH: d, Pomak: 50, Rasap: 40, Slucaja: 100})
 	}
 	if err := SpremiPromasaje(baza, upis, "proba"); err != nil {
 		t.Fatal(err)
@@ -366,8 +369,12 @@ func TestPromasajiSePrimjenjujuPoVelicini(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if d := naDosegu(ishod, "donja", 12); d == nil || d.Vrijednost != stalnaDonja || d.Raspon() != 2 {
-		t.Errorf("12 h unaprijed: %+v, očekivano %v ± 2", d, stalnaDonja)
+	if d := naDosegu(ishod, "donja", 6); d == nil || d.Vrijednost != stalnaDonja || d.Raspon() != 2 {
+		t.Errorf("6 h unaprijed: %+v, očekivano %v ± 2", d, stalnaDonja)
+	}
+	// bez zapisa u vodostaju račun ostaje svoj, s rasponom pojasa
+	if d := naDosegu(ishod, "donja", 12); d == nil || d.Vrijednost != stalnaGornja || d.Raspon() != 3 {
+		t.Errorf("12 h unaprijed: %+v, očekivano %v ± 3", d, stalnaGornja)
 	}
 
 	var dnevnik, tablica bytes.Buffer
@@ -382,9 +389,10 @@ func TestPromasajiSePrimjenjujuPoVelicini(t *testing.T) {
 	if err != nil || len(redovi) != 3 {
 		t.Fatalf("CSV: %v, %v", redovi, err)
 	}
+	ocekivano := map[string][3]string{"6": {"105", "103", "107"}, "12": {"100", "97", "103"}}
 	for _, red := range redovi[1:] {
-		if red[5] != "105" || red[6] != "103" || red[7] != "107" {
-			t.Errorf("provjera s ispravkom: %v", red)
+		if o := ocekivano[red[4]]; red[5] != o[0] || red[6] != o[1] || red[7] != o[2] {
+			t.Errorf("provjera s ispravkom na %s h: %v, očekivano %v", red[4], red, o)
 		}
 	}
 }
