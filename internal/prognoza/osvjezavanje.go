@@ -205,18 +205,12 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 	}
 	// Letva s tuđom prognozom ispred računa: dok je prognoza svježa, račun
 	// joj se skida i ona postaje vrh, pa je dolje dobije kao budućnost.
-	sadaSat := time.Now().UTC().Unix() / 3600
-	for letva, izvor := range TudaIspredRacuna {
-		if len(pojasi[letva]) == 0 {
-			continue
-		}
-		if _, ima, err := TudaPrognoza(o.Baza, izvor, letva, sadaSat-48, sadaSat+6); err == nil && ima {
-			ulazi := imenaUlaza(pojasi[letva])
-			delete(pojasi, letva)
-			delete(izbor, letva)
-			izbor["vrh:"+letva] = Izbor{Inacica: 2, Opis: fmt.Sprintf("dok je svježa, vodi je tuđa prognoza (%s), "+
-				"jer je na valovima bolja od našeg lanca; bez nje računa se iz: %s", izvor, ulazi)}
-		}
+	for letva, izvor := range o.tudeIspredRacuna(pojasi, nizovi) {
+		ulazi := imenaUlaza(pojasi[letva])
+		delete(pojasi, letva)
+		delete(izbor, letva)
+		izbor["vrh:"+letva] = Izbor{Inacica: 2, Opis: fmt.Sprintf("dok je svježa, vodi je tuđa prognoza (%s), "+
+			"jer je na valovima bolja od našeg lanca; bez nje računa se iz: %s", izvor, ulazi)}
 	}
 	_, vrhovi := TrebaniIzvori(pojasi)
 	// Vrh lanca se vodi u jednoj veličini, ali letva ima obje. Donja Dubrava
@@ -289,7 +283,7 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 		if _, ima := nasi[iz]; ima {
 			continue
 		}
-		if n, ima, err := TudaPrognoza(o.Baza, izvor, letva, sada-48, sada+6); err == nil && ima {
+		if n, ima := o.tudaSvjeza(izvor, letva, sada); ima {
 			r.PostaviBuducnostVrha(iz, n)
 			ishod.TudiVrhovi = append(ishod.TudiVrhovi, letva)
 		}
@@ -399,6 +393,54 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 		}
 	}
 	return ishod, nil
+}
+
+// tudeIspredRacuna bira letve iz TudaIspredRacuna kojima tuđa prognoza vodi
+// umjesto računa (letva → izvor): one kojima je svježa u satu izdavanja, istom
+// satu po kojem im se poslije uzima budućnost. Po satu na zidu letva je pri
+// izdanju koje kasni ostajala bez računa, a tuđa joj budućnost nije bila
+// postavljena. Bez računa letva postaje vrh, a vrhovi određuju sat izdavanja,
+// pa se skup sužava dok se ne ustali; letva kojoj tuđa u tom satu nije svježa
+// zadržava račun. Bez sata izdavanja svježinu nije moguće reći, pa račun
+// ostaje svima.
+func (o *Osvjezivac) tudeIspredRacuna(pojasi map[string][]Pojas, nizovi map[Izvor]Niz) map[string]string {
+	skinute := map[string]string{}
+	for letva, izvor := range TudaIspredRacuna {
+		if len(pojasi[letva]) > 0 {
+			skinute[letva] = izvor
+		}
+	}
+	for len(skinute) > 0 {
+		bez := map[string][]Pojas{}
+		for letva, ps := range pojasi {
+			if _, skinuta := skinute[letva]; !skinuta {
+				bez[letva] = ps
+			}
+		}
+		_, vrhovi := TrebaniIzvori(bez)
+		sada, ok := ZadnjiZajednicki(nizovi, vrhovi)
+		if !ok {
+			return nil
+		}
+		ustaljeno := true
+		for letva, izvor := range skinute {
+			if _, ima := o.tudaSvjeza(izvor, letva, sada); !ima {
+				delete(skinute, letva)
+				ustaljeno = false
+			}
+		}
+		if ustaljeno {
+			break
+		}
+	}
+	return skinute
+}
+
+// tudaSvjeza vraća tuđu prognozu letve kad je svježa u satu izdavanja sada:
+// izdana najviše dva dana prije njega i najviše šest sati poslije.
+func (o *Osvjezivac) tudaSvjeza(izvor, letva string, sada int64) (Niz, bool) {
+	n, ima, err := TudaPrognoza(o.Baza, izvor, letva, sada-48, sada+6)
+	return n, err == nil && ima
 }
 
 // dnevniModeli drži naučene dnevne modele. Uče se iz arhive jednom dnevno:
