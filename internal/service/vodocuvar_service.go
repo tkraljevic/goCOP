@@ -287,12 +287,16 @@ func (s *VodocuvarService) Spremi(ctx context.Context, u *models.User, dan time.
 	if dan.In(models.Zagreb).Year() < time.Now().In(models.Zagreb).Year() {
 		return nil, fmt.Errorf("knjiga za %d. je arhivirana istekom godine i u nju se više ne upisuje", dan.In(models.Zagreb).Year())
 	}
-	for _, v := range []string{unos.Od, unos.Do} {
-		if _, err := time.Parse("15:04", strings.TrimSpace(v)); err != nil {
+	// radno vrijeme se sprema kao SS:MM, i kad je upisano „7:00”
+	var sati [2]string
+	for i, v := range []string{unos.Od, unos.Do} {
+		t, err := time.Parse("15:04", strings.TrimSpace(v))
+		if err != nil {
 			return nil, fmt.Errorf("radno vrijeme upišite kao sate i minute, npr. 08:00")
 		}
+		sati[i] = t.Format("15:04")
 	}
-	l.Od, l.Do = strings.TrimSpace(unos.Od), strings.TrimSpace(unos.Do)
+	l.Od, l.Do = sati[0], sati[1]
 	l.Prilike, l.Naredbe, l.Opis, l.Zapazanja = strings.TrimSpace(unos.Prilike), strings.TrimSpace(unos.Naredbe), strings.TrimSpace(unos.Opis), strings.TrimSpace(unos.Zapazanja)
 	// zadaci: stanje s obrasca
 	l.Zadaci = s.zadaciNaListu(ctx, u.ID.String(), dan, l.Zadaci)
