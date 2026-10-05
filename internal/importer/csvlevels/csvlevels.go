@@ -78,8 +78,11 @@ type Report struct {
 	Differs   []Difference
 	BadDates  int
 	BadValues int
-	From, To  time.Time
-	DryRun    bool
+	// IzvanRaspona su čitljivi brojevi izvan raspona ručnog upisa (npr.
+	// tablica s apsolutnim kotama u cm); ne uvoze se, ali nisu nečitljivi
+	IzvanRaspona int
+	From, To     time.Time
+	DryRun       bool
 }
 
 // Difference je isto jutro na istoj letvi s drukčijom vrijednošću u drugom
@@ -169,9 +172,7 @@ func Run(ctx context.Context, o Options) (Report, error) {
 			}
 			cm, status := parseLevel(row[i])
 			if status != levelOK {
-				if status == levelBad {
-					rep.BadValues++
-				}
+				rep.prebrojiPreskocenu(status)
 				continue
 			}
 			col.Values++
@@ -601,10 +602,21 @@ func parseDate(s string) (time.Time, bool) {
 type levelStatus int
 
 const (
-	levelOK    levelStatus = iota
-	levelBlank             // prazna ćelija ili oznaka da tog jutra nije očitano
-	levelBad               // nešto piše, ali se ne da pročitati
+	levelOK           levelStatus = iota
+	levelBlank                    // prazna ćelija ili oznaka da tog jutra nije očitano
+	levelBad                      // nešto piše, ali se ne da pročitati
+	levelIzvanRaspona             // čitljiv broj izvan raspona ručnog upisa
 )
+
+// prebrojiPreskocenu broji ćeliju koja se ne uvozi; prazna nije greška
+func (r *Report) prebrojiPreskocenu(status levelStatus) {
+	switch status {
+	case levelBad:
+		r.BadValues++
+	case levelIzvanRaspona:
+		r.IzvanRaspona++
+	}
+}
 
 // parseLevel čita vodostaj u centimetrima. Prazna ćelija i crtica nisu nula
 // nego izostanak očitanja, i to nije greška u tablici.
@@ -643,7 +655,7 @@ func parseLevel(s string) (int, levelStatus) {
 	// upisa (ReadingService.validate): što obrazac odbije, ne ulazi ni uvozom.
 	cm := math.Round(f)
 	if cm < najnizaRazinaCm || cm > najvisaRazinaCm {
-		return 0, levelBad
+		return 0, levelIzvanRaspona
 	}
 	return int(cm), levelOK
 }
@@ -678,6 +690,10 @@ func (r Report) Summary() string {
 	}
 	if r.BadValues > 0 {
 		fmt.Fprintf(&sb, ", nečitljivih vrijednosti %d", r.BadValues)
+	}
+	if r.IzvanRaspona > 0 {
+		fmt.Fprintf(&sb, ", izvan raspona %s..%d cm: %d",
+			strings.Replace(strconv.Itoa(najnizaRazinaCm), "-", "−", 1), najvisaRazinaCm, r.IzvanRaspona)
 	}
 	return sb.String()
 }
