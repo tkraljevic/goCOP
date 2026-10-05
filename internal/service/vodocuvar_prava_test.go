@@ -64,9 +64,10 @@ var vrijemeProbe = time.Now()
 
 // Prijave s terena idu s dnevnikom: tko ne vidi dnevnik vodočuvara, ne vidi
 // ni njegove objavljene prijave. Dežurni operater sektora i poslovođa
-// izvođača na području zato ne vide ni jedno ni drugo, iako bi list smjeli
-// parafirati. Zaključano dok se ne odluči trebaju li njima prijave s terena i
-// bez dnevnika.
+// izvođača na području vide oboje, kao prije prvog kruga, dok im dužnost
+// vrijedi; s isteklom ne vide ništa. Pravilo za operatera i poslovođu je
+// otvoreno pitanje: dok se ne odluči, ostaje kako je bilo. Gost i
+// preglednik s dužnošću na području ne vide ni dnevnik ni prijave.
 func TestPrijaveIduSDnevnikom(t *testing.T) {
 	podrucje := 1
 	sektor := "P"
@@ -80,14 +81,19 @@ func TestPrijaveIduSDnevnikom(t *testing.T) {
 		d.IsActive, d.SectorID = true, &sektor
 		return models.NewUserPermissions(models.User{ID: uuid.New(), FullName: "Pero Perić", Duties: []models.Duty{d}})
 	}
+	jucer := time.Now().Add(-time.Hour)
 	slucajevi := []struct {
 		naziv string
 		perms *models.UserPermissions
 		vidi  bool
 	}{
 		{"rukovoditelj područja", osoba(models.Duty{Role: models.RoleAreaLeader, ScopeType: models.ScopeArea, AreaID: &podrucje}), true},
-		{"operater sektora", osoba(models.Duty{Role: models.RoleOperator, ScopeType: models.ScopeSector}), false},
-		{"poslovođa izvođača", osoba(models.Duty{Role: models.RoleServiceLeaderForeman, ScopeType: models.ScopeArea, AreaID: &podrucje}), false},
+		{"operater sektora", osoba(models.Duty{Role: models.RoleOperator, ScopeType: models.ScopeSector}), true},
+		{"poslovođa izvođača", osoba(models.Duty{Role: models.RoleServiceLeaderForeman, ScopeType: models.ScopeArea, AreaID: &podrucje}), true},
+		{"istekli operater sektora", osoba(models.Duty{Role: models.RoleOperator, ScopeType: models.ScopeSector, ExpiresAt: &jucer}), false},
+		{"istekli poslovođa izvođača", osoba(models.Duty{Role: models.RoleServiceLeaderForeman, ScopeType: models.ScopeArea, AreaID: &podrucje, ExpiresAt: &jucer}), false},
+		{"gost na području", osoba(models.Duty{Role: models.RoleGuest, ScopeType: models.ScopeArea, AreaID: &podrucje}), false},
+		{"preglednik na području", osoba(models.Duty{Role: models.RoleViewer, ScopeType: models.ScopeArea, AreaID: &podrucje}), false},
 	}
 	for _, s := range slucajevi {
 		if got := vod.SmijeVidjeti(s.perms, list); got != s.vidi {
