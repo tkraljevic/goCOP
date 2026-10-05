@@ -104,3 +104,45 @@ func TestPrijaveIduSDnevnikom(t *testing.T) {
 		}
 	}
 }
+
+// Tko ne smije čitati dnevnik, ne smije ga ni parafirati, upisivati u njega
+// ni zadavati zadatke vodočuvaru: gost i preglednik s dužnošću na području,
+// ni osoba čija je dužnost istekla. Rukovoditelj područja, dežurni operater
+// sektora i poslovođa izvođača (njih dvojica dok se ne odluči) smiju.
+func TestParafiraSamoTkoVidiDnevnik(t *testing.T) {
+	podrucje := 1
+	sektor := "P"
+	vodocuvarID := uuid.New()
+	list := &models.VodocuvarskiList{UserID: vodocuvarID.String(), Sektor: sektor, AreaID: podrucje}
+	vod := &VodocuvarService{}
+	jucer := time.Now().Add(-time.Hour)
+
+	osoba := func(d models.Duty) *models.UserPermissions {
+		d.IsActive, d.SectorID = true, &sektor
+		return models.NewUserPermissions(models.User{ID: uuid.New(), Username: "pperic", FullName: "Pero Perić", Duties: []models.Duty{d}})
+	}
+	slucajevi := []struct {
+		naziv    string
+		perms    *models.UserPermissions
+		parafira bool
+	}{
+		{"rukovoditelj područja", osoba(models.Duty{Role: models.RoleAreaLeader, ScopeType: models.ScopeArea, AreaID: &podrucje}), true},
+		{"operater sektora", osoba(models.Duty{Role: models.RoleOperator, ScopeType: models.ScopeSector}), true},
+		{"poslovođa izvođača", osoba(models.Duty{Role: models.RoleServiceLeaderForeman, ScopeType: models.ScopeArea, AreaID: &podrucje}), true},
+		{"gost na području", osoba(models.Duty{Role: models.RoleGuest, ScopeType: models.ScopeArea, AreaID: &podrucje}), false},
+		{"preglednik na području", osoba(models.Duty{Role: models.RoleViewer, ScopeType: models.ScopeArea, AreaID: &podrucje}), false},
+		{"preglednik sektora", osoba(models.Duty{Role: models.RoleViewer, ScopeType: models.ScopeSector}), false},
+		{"nepoznata uloga na području", osoba(models.Duty{Role: models.Role("NEPOZNATA"), ScopeType: models.ScopeArea, AreaID: &podrucje}), false},
+		{"istekli ovlaštenik na području", osoba(models.Duty{Role: models.RoleContractOfficerA3, ScopeType: models.ScopeArea, AreaID: &podrucje, ExpiresAt: &jucer}), false},
+		{"istekli poslovođa izvođača", osoba(models.Duty{Role: models.RoleServiceLeaderForeman, ScopeType: models.ScopeArea, AreaID: &podrucje, ExpiresAt: &jucer}), false},
+	}
+	for _, s := range slucajevi {
+		if got := vod.SmijeParafirati(s.perms, list); got != s.parafira {
+			t.Errorf("%s: parafira %v, očekivano %v", s.naziv, got, s.parafira)
+		}
+		// tko parafira, taj i čita; tko ne čita, ne parafira
+		if got := vod.SmijeVidjeti(s.perms, list); got != s.parafira {
+			t.Errorf("%s: vidi %v, očekivano %v", s.naziv, got, s.parafira)
+		}
+	}
+}

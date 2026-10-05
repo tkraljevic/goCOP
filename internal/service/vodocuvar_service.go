@@ -101,9 +101,10 @@ func (s *VodocuvarService) SmijeOvjeriti(perms *models.UserPermissions, l *model
 
 // SmijeParafirati javlja smije li osoba parafirati list: svaki rukovoditelj
 // ili ovlaštenik čije je zaduženje vezano uz to područje ili sektor, osim
-// samog vodočuvara i terenskih uloga
+// samog vodočuvara i terenskih uloga. Tko ne smije čitati dnevnik (gost,
+// preglednik, istekla dužnost), ne parafira, ne upisuje i ne zadaje zadatke.
 func (s *VodocuvarService) SmijeParafirati(perms *models.UserPermissions, l *models.VodocuvarskiList) bool {
-	if perms == nil || l == nil || perms.User.ID.String() == l.UserID {
+	if perms == nil || l == nil || perms.User.ID.String() == l.UserID || !perms.User.VidiVodocuvarskiDnevnik() {
 		return false
 	}
 	if s.SmijeOvjeriti(perms, l) {

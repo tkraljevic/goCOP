@@ -417,6 +417,9 @@ func (h *VodocuvarHandler) HandleRadnja(w http.ResponseWriter, r *http.Request) 
 			poruka = "List je ovjeren i elektronički potpisan vašim ključem."
 		}
 	case "parafiraj":
+		if !h.pristup(w, u) {
+			return
+		}
 		_, err = s.Parafiraj(r.Context(), perms, u, id)
 		poruka = "List je parafiran."
 	case "obrisi":
@@ -437,7 +440,7 @@ func (h *VodocuvarHandler) HandleRadnja(w http.ResponseWriter, r *http.Request) 
 func (h *VodocuvarHandler) HandleUpis(w http.ResponseWriter, r *http.Request) {
 	u, perms, _ := h.base(r)
 	s := h.service(w)
-	if s == nil || u == nil {
+	if s == nil || u == nil || !h.pristup(w, u) {
 		return
 	}
 	natrag := povratnaPutanja(r.FormValue("natrag"), "/vodocuvar")
@@ -453,7 +456,7 @@ func (h *VodocuvarHandler) HandleUpis(w http.ResponseWriter, r *http.Request) {
 func (h *VodocuvarHandler) HandleZadatak(w http.ResponseWriter, r *http.Request) {
 	u, perms, _ := h.base(r)
 	s := h.service(w)
-	if s == nil || u == nil {
+	if s == nil || u == nil || !h.pristup(w, u) {
 		return
 	}
 	natrag := povratnaPutanja(r.FormValue("natrag"), "/vodocuvar")
