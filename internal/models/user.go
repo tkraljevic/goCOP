@@ -447,20 +447,7 @@ func NewUserPermissions(u User) *UserPermissions {
 			continue
 		}
 
-		// Uprava: organizacije, sektora (razina 2) i područja (razina 3)
-		switch d.Role.RazinaUprave() {
-		case 1:
-			p.IsGlobalAdmin = true
-		case 2:
-			// uprava praznog sektora ili područja 0 nije uprava ničega
-			if d.SectorID != nil && *d.SectorID != "" {
-				p.AdminSectors[*d.SectorID] = true
-			}
-		case 3:
-			if d.AreaID != nil && *d.AreaID > 0 {
-				p.AdminAreas[*d.AreaID] = true
-			}
-		}
+		p.upisiUpravu(d)
 
 		// Prava upisa prema dosegu; doseg sam po sebi ne daje upravu, a
 		// gost i preglednik ne pišu ni u svom dosegu
@@ -509,6 +496,24 @@ func NewUserPermissions(u User) *UserPermissions {
 	}
 
 	return p
+}
+
+// upisiUpravu upisuje upravu koju dužnost daje: organizacije, sektora
+// (razina 2) i područja (razina 3). Uprava praznog sektora ili područja 0
+// nije uprava ničega.
+func (p *UserPermissions) upisiUpravu(d Duty) {
+	switch d.Role.RazinaUprave() {
+	case 1:
+		p.IsGlobalAdmin = true
+	case 2:
+		if d.SectorID != nil && *d.SectorID != "" {
+			p.AdminSectors[*d.SectorID] = true
+		}
+	case 3:
+		if d.AreaID != nil && *d.AreaID > 0 {
+			p.AdminAreas[*d.AreaID] = true
+		}
+	}
 }
 
 // Doseg je prostorni doseg dužnosti: upisani, a kad ga nema, onaj koji

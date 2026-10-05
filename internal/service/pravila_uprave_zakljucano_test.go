@@ -101,6 +101,10 @@ func TestRokMjesoviteUprave(t *testing.T) {
 	if r, izvor := rokUprave(p, models.RoleSectorDeputy, strp("B"), intp(16), sectorsOf); izvor == nil || izvor.ID != sektor.ID || r == nil {
 		t.Errorf("uloga sektora: %v (%v)", r, izvor)
 	}
+	// uprava koja ne pokriva cilj ne daje ni rok
+	if r, izvor := rokUprave(p, models.RoleAreaDeputy, strp("D"), intp(10), sectorsOf); r != nil || izvor != nil {
+		t.Errorf("izvan dosega nema uprave: %v (%v)", r, izvor)
+	}
 	if razineUprave(nil) != nil || len(razineUprave(permsWith(models.Duty{Role: models.RoleWaterGuard, AreaID: intp(16)}))) != 0 {
 		t.Error("bez uprave nema razina")
 	}

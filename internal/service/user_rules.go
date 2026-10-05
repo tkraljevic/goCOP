@@ -105,9 +105,20 @@ func ciljniSektor(sectorID *string, areaID *int, sectors areaSector) string {
 // sektora ili područja svaka na toj razini
 func upravljaCiljem(d *models.Duty, role models.Role, ciljSektor string, areaID *int, sad time.Time) bool {
 	rank := d.Role.RazinaUprave()
-	if !d.IsActive || rank == 0 || rank > role.Rank() || (d.ExpiresAt != nil && d.ExpiresAt.Before(sad)) {
+	if rank == 0 || rank > role.Rank() || !vrijediDuznost(*d, sad) {
 		return false
 	}
+	return pokrivaCilj(d, rank, ciljSektor, areaID)
+}
+
+// vrijediDuznost: dužnost je aktivna i nije istekla
+func vrijediDuznost(d models.Duty, sad time.Time) bool {
+	return d.IsActive && (d.ExpiresAt == nil || !d.ExpiresAt.Before(sad))
+}
+
+// pokrivaCilj: upravna dužnost te razine pokriva sektor ili područje
+// dosega; bez zadanog sektora ili područja svaka
+func pokrivaCilj(d *models.Duty, rank int, ciljSektor string, areaID *int) bool {
 	switch rank {
 	case 2:
 		return d.SectorID != nil && (ciljSektor == "" || *d.SectorID == ciljSektor)
