@@ -335,12 +335,14 @@ func TestOdabirKandidataBezNazivaPodrucja(t *testing.T) {
 	if c, ok := ix.pick(opcije); !ok || c.code != "a" {
 		t.Errorf("s nazivom područja: %+v %v", c, ok)
 	}
-	// Područje bez naziva i bez naziva ispostave sruši odabir čim neki
-	// kandidat ima pojašnjenje.
-	defer func() {
-		if recover() == nil {
-			t.Error("odabir bez naziva područja danas pada; ako više ne pada, ažuriraj test")
-		}
-	}()
-	(&index{area: models.Area{ID: 1}}).pick(opcije)
+	// Područje bez naziva i bez naziva ispostave: prazan naziv ne pogađa
+	// nijedno pojašnjenje, pa odabir ostaje dvoznačan umjesto da padne.
+	if c, ok := (&index{area: models.Area{ID: 1}}).pick(opcije); ok {
+		t.Errorf("bez naziva područja: %+v", c)
+	}
+	// ... a voda iz Odluke i dalje odlučuje
+	sOdlukom := []candidate{{code: "a", qualifier: "Primjerica"}, {code: "b", decree: true}}
+	if c, ok := (&index{area: models.Area{ID: 1}}).pick(sOdlukom); !ok || c.code != "b" {
+		t.Errorf("bez naziva područja, s Odlukom: %+v %v", c, ok)
+	}
 }

@@ -377,17 +377,28 @@ func (ix *index) pick(opts []candidate) (candidate, bool) {
 	case 1:
 		return opts[0], true
 	}
-	areaText := strings.ToLower(hydro.FoldDiacritics(ix.area.Name + " " + ix.area.VgiName))
-	if one, ok := onlyOne(opts, func(c candidate) bool {
-		q := strings.ToLower(hydro.FoldDiacritics(c.qualifier))
-		return q != "" && (strings.Contains(areaText, q) || strings.Contains(q, strings.Fields(areaText)[len(strings.Fields(areaText))-1]))
-	}); ok {
+	if one, ok := onlyOne(opts, qualifierMatch(ix.area)); ok {
 		return one, true
 	}
 	if one, ok := onlyOne(opts, func(c candidate) bool { return c.decree }); ok {
 		return one, true
 	}
 	return candidate{}, false
+}
+
+// qualifierMatch pita odgovara li pojašnjenje kandidata području: pojašnjenje
+// je u nazivu područja ili ispostave, ili sadrži zadnju riječ tog naziva.
+// Područje bez ikakvog naziva ne pogađa ništa.
+func qualifierMatch(area models.Area) func(candidate) bool {
+	areaText := strings.ToLower(hydro.FoldDiacritics(area.Name + " " + area.VgiName))
+	words := strings.Fields(areaText)
+	return func(c candidate) bool {
+		q := strings.ToLower(hydro.FoldDiacritics(c.qualifier))
+		if q == "" || len(words) == 0 {
+			return false
+		}
+		return strings.Contains(areaText, q) || strings.Contains(q, words[len(words)-1])
+	}
 }
 
 func onlyOne(opts []candidate, match func(candidate) bool) (candidate, bool) {
