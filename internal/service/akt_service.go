@@ -722,8 +722,9 @@ func (s *AktService) spremanZaOvjeruSkenom(ctx context.Context, a *models.Akt) e
 // neponištenih akata sektora: razdoblje po razdoblje, sa stalnim
 // identitetom, pa svaki čvor iz istih akata dobije iste zapise, a poništen
 // akt nestane i iz povijesti. Akt koji stupa na snagu kasnije ulazi u
-// povijest kad se ona idući put izvodi (stanje ga pokazuje u svoje vrijeme).
-// Uz povijest se preračunava i istek privremenih imenovanja.
+// povijest kad stupi na snagu (UskladiStupileNaSnagu, u krugu čvora); stanje
+// ga pokazuje u svoje vrijeme i bez toga. Uz povijest se preračunava i istek
+// privremenih imenovanja.
 func (s *AktService) uskladiEpizode(ctx context.Context, a *models.Akt) []string {
 	if s.episodes == nil {
 		return nil

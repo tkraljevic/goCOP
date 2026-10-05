@@ -99,8 +99,12 @@ Sve su u `internal/models/stanje_obrane.go`, bez pristupa bazi. Koriste ih:
 kad skup aktivnih stadija postane neprazan, završava kad se isprazni, a
 `Phase` je najviši dosegnuti stadij. `AktService.uskladiEpizode` nakon
 ovjere ili storna usklađuje izvedenu povijest sa stalnim identifikatorima.
-Trenutačno stanje računa se pri čitanju; spremljena povijest za budući akt
-osvježava se pri idućem izvođenju povijesti. Ako nema mjerodavnih akata,
+Trenutačno stanje računa se pri čitanju; povijest dionica akta s kasnijim
+početkom izvodi se kad akt stupi na snagu (`AktService.UskladiStupileNaSnagu`,
+krug čvora svakih deset minuta, pri pokretanju dan unatrag), bez nove ovjere
+ili storna u sektoru. Izvođenje ima stalne identitete, a nepromijenjenu
+epizodu ne upisuje ponovo, pa čvorovi koji iz istih akata izvedu isto ne
+dodaju nove verzije. Ako nema mjerodavnih akata,
 prikazi zadržavaju potporu zatečenim epizodama.
 
 **Oba puta ovjere** (`Ovjeri` i `UcitajSkenirani`) provjeravaju aktivnu
