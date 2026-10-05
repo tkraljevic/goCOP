@@ -38,6 +38,10 @@ type VodocuvarService struct {
 	// koji nije predaja (nacrt, upis rukovoditelja); testovi njime predaju
 	// list u međuvremenu, kao druga kartica
 	prijeSpremanja func(ctx context.Context)
+	// prijeBrisanja se, kad je zadan, poziva između čitanja lista i
+	// brisanja; testovi njime predaju ili brišu list u međuvremenu, kao
+	// druga kartica
+	prijeBrisanja func(ctx context.Context)
 }
 
 // SetRadnoVrijeme daje servisu izvor redovnog radnog vremena
@@ -612,7 +616,9 @@ func (s *VodocuvarService) Parafiraj(ctx context.Context, perms *models.UserPerm
 	return l, s.repo.Save(ctx, l)
 }
 
-// Obrisi briše nepredan list vodočuvara
+// Obrisi briše nepredan list vodočuvara. Nacrt koji je druga kartica
+// predala nakon što je ovdje pročitan ne briše se: repozitorij javlja
+// ErrListPredanNijeObrisan.
 func (s *VodocuvarService) Obrisi(ctx context.Context, u *models.User, id string) error {
 	l, err := s.repo.Get(ctx, id)
 	if err != nil || l == nil {
@@ -621,7 +627,9 @@ func (s *VodocuvarService) Obrisi(ctx context.Context, u *models.User, id string
 	if l.UserID != u.ID.String() || l.Zakljucen() {
 		return ErrUnauthorized
 	}
-	_ = s.repo.DeleteIzvornik(ctx, id)
+	if s.prijeBrisanja != nil {
+		s.prijeBrisanja(ctx)
+	}
 	return s.repo.Delete(ctx, id)
 }
 

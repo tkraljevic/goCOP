@@ -251,3 +251,132 @@ func (o *okolinaVodocuvara) provjeriPredanuDruguKarticu(t *testing.T, u *models.
 	}
 	return uBazi
 }
+
+// verzijeBrisanja broji verzije lista i njegova izvornika u knjizi; uz
+// arhivirane još i kanal zadnje arhivirane verzije izvornika
+func (o *okolinaVodocuvara) verzijeBrisanja(t *testing.T, listID string) (lista, izvornika, arhivirano int, kanalIzvornika string) {
+	t.Helper()
+	if err := o.baza.QueryRow(`SELECT
+		COUNT(*) FILTER (WHERE entity = ?),
+		COUNT(*) FILTER (WHERE entity = ?),
+		COUNT(*) FILTER (WHERE archived = 1),
+		COALESCE(MAX(CASE WHEN entity = ? AND archived = 1 THEN channel END), '')
+		FROM record_versions WHERE entity_id = ?`,
+		repository.EntityVodocuvarski, repository.EntityVodocuvarskiIzvornici, repository.EntityVodocuvarskiIzvornici, listID).
+		Scan(&lista, &izvornika, &arhivirano, &kanalIzvornika); err != nil {
+		t.Fatal(err)
+	}
+	return
+}
+
+// Vodočuvar briše nacrt u jednoj kartici, a u drugoj ga preda (i potpiše
+// izvornik) nakon što je brisanje pročitalo list nepredan, a prije brisanja.
+// Brisanje se odbija i ništa se ne briše: predan list i njegov potpisani
+// izvornik ostaju, a u knjizi nema arhivirane verzije koja bi brisanje
+// odnijela drugim čvorovima.
+func TestBrisanjeNeBriseListPredanUMedjuvremenu(t *testing.T) {
+	o := novaOkolinaVodocuvara(t)
+	ctx := context.Background()
+	u := vdVodocuvar()
+	dan := vdDan(time.March, 10)
+	nacrt, err := o.vs.Spremi(ctx, u, dan, vdUnos("nacrt"), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var druga *models.VodocuvarskiList
+	var lista, izvornika int
+	o.vs.prijeBrisanja = func(ctx context.Context) {
+		if druga, err = o.vs.Spremi(ctx, u, dan, vdUnos("obilazak iz druge kartice"), true); err != nil {
+			t.Fatal(err)
+		}
+		if err := o.vs.SpremiIzvornik(ctx, druga.ID, []byte("%PDF-1.4 potpisan list")); err != nil {
+			t.Fatal(err)
+		}
+		lista, izvornika, _, _ = o.verzijeBrisanja(t, druga.ID)
+	}
+
+	err = o.vs.Obrisi(ctx, u, nacrt.ID)
+	vdGreska(t, err, "list od "+dan.Format("02.01.2006.")+" je u međuvremenu predan i nije obrisan")
+	if !errors.Is(err, repository.ErrListPredanNijeObrisan) {
+		t.Errorf("greška nije ErrListPredanNijeObrisan: %v", err)
+	}
+	if druga == nil || druga.ID != nacrt.ID {
+		t.Fatalf("druga kartica nije predala isti list: %+v", druga)
+	}
+	if uBazi := o.vdListIzBaze(t, u, dan); uBazi == nil || uBazi.ID != nacrt.ID || !uBazi.Predan() || uBazi.Opis != "obilazak iz druge kartice" {
+		t.Fatalf("predan list obrisan ili prepisan: %+v", uBazi)
+	}
+	if iz, err := o.repo.GetIzvornik(ctx, nacrt.ID); err != nil || iz == nil {
+		t.Errorf("izvornik predanog lista obrisan: %v %v", iz, err)
+	}
+	if l, iz, arh, _ := o.verzijeBrisanja(t, nacrt.ID); l != lista || iz != izvornika || arh != 0 {
+		t.Errorf("odbijeno brisanje upisalo je verzije u knjigu: lista %d → %d, izvornika %d → %d, arhiviranih %d", lista, l, izvornika, iz, arh)
+	}
+}
+
+// Nacrt se briše zajedno sa svojim izvornikom, u jednoj transakciji: obje
+// verzije u knjizi arhivirane su, izvornik u kanalu lista (područje i
+// godina), iako lista više nema da se kanal pročita iz tablice.
+func TestObrisiNacrtSIzvornikom(t *testing.T) {
+	o := novaOkolinaVodocuvara(t)
+	ctx := context.Background()
+	u := vdVodocuvar()
+	dan := vdDan(time.March, 10)
+	nacrt, err := o.vs.Spremi(ctx, u, dan, vdUnos("nacrt"), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := o.vs.SpremiIzvornik(ctx, nacrt.ID, []byte("%PDF-1.4 zaostali izvornik")); err != nil {
+		t.Fatal(err)
+	}
+	if err := o.vs.Obrisi(ctx, u, nacrt.ID); err != nil {
+		t.Fatal(err)
+	}
+	if l := o.vdListIzBaze(t, u, dan); l != nil {
+		t.Errorf("nacrt nije obrisan: %+v", l)
+	}
+	if iz, err := o.repo.GetIzvornik(ctx, nacrt.ID); err != nil || iz != nil {
+		t.Errorf("izvornik nije obrisan: %v %v", iz, err)
+	}
+	_, _, arh, kanal := o.verzijeBrisanja(t, nacrt.ID)
+	if arh != 2 {
+		t.Errorf("arhiviranih verzija: %d, očekivane dvije (list i izvornik)", arh)
+	}
+	if want := ledger.ChannelFor(ledger.ChannelVodocuvar, nacrt.AreaID, 2026); kanal != want {
+		t.Errorf("kanal arhiviranog izvornika: %q, očekivan %q", kanal, want)
+	}
+}
+
+// Isti nacrt briše se istodobno iz dvije kartice: druga ga obriše nakon
+// što je prva pročitala list, a prije njezina brisanja. Prvo brisanje nema
+// što obrisati i ne javlja grešku, a u knjizi je brisanje upisano samo
+// jednom.
+func TestIstodobnoBrisanjeIstogNacrta(t *testing.T) {
+	o := novaOkolinaVodocuvara(t)
+	ctx := context.Background()
+	u := vdVodocuvar()
+	dan := vdDan(time.March, 10)
+	nacrt, err := o.vs.Spremi(ctx, u, dan, vdUnos("nacrt"), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pozvano := 0
+	o.vs.prijeBrisanja = func(ctx context.Context) {
+		pozvano++
+		if pozvano > 1 {
+			return
+		}
+		if err := o.vs.Obrisi(ctx, u, nacrt.ID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := o.vs.Obrisi(ctx, u, nacrt.ID); err != nil {
+		t.Fatalf("brisanje već obrisanog nacrta: %v", err)
+	}
+	if l := o.vdListIzBaze(t, u, dan); l != nil {
+		t.Errorf("nacrt nije obrisan: %+v", l)
+	}
+	if _, _, arh, _ := o.verzijeBrisanja(t, nacrt.ID); arh != 1 {
+		t.Errorf("arhiviranih verzija: %d, očekivana jedna", arh)
+	}
+}
