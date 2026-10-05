@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -406,7 +407,23 @@ func parseDBTime(s string) (time.Time, bool) {
 // GaugeHabit je koliko je puta i u koje doba dana osoba očitavala jednu letvu
 type GaugeHabit struct {
 	Count    int
-	UsualMin int // prosječna minuta u danu (hrvatsko vrijeme)
+	UsualMin int // uobičajena minuta u danu, kružna sredina (hrvatsko vrijeme)
+}
+
+const minutaUDanu = 24 * 60
+
+// kruznaSredina vraća uobičajenu minutu u danu kao kružnu sredinu: minute
+// su kutovi na satu od 24 h, pa 23:50 i 0:10 daju ponoć, a ne podne kao
+// obična sredina
+func kruznaSredina(minute []int) int {
+	var x, y float64
+	for _, m := range minute {
+		kut := float64(m) / minutaUDanu * 2 * math.Pi
+		x += math.Cos(kut)
+		y += math.Sin(kut)
+	}
+	m := int(math.Round(math.Atan2(y, x) / (2 * math.Pi) * minutaUDanu))
+	return (m%minutaUDanu + minutaUDanu) % minutaUDanu
 }
 
 // HabitsFor vraća letve koje je osoba očitavala od zadanog trenutka: ili je
@@ -421,7 +438,7 @@ func (r *ReadingRepository) HabitsFor(ctx context.Context, userID, observer stri
 		return nil, err
 	}
 	defer rows.Close()
-	sum := map[string]int{}
+	minute := map[string][]int{}
 	out := map[string]GaugeHabit{}
 	for rows.Next() {
 		var st, obj string
@@ -433,11 +450,11 @@ func (r *ReadingRepository) HabitsFor(ctx context.Context, userID, observer stri
 		lt := at.In(models.Zagreb)
 		h := out[key]
 		h.Count++
-		sum[key] += lt.Hour()*60 + lt.Minute()
+		minute[key] = append(minute[key], lt.Hour()*60+lt.Minute())
 		out[key] = h
 	}
 	for key, h := range out {
-		h.UsualMin = sum[key] / h.Count
+		h.UsualMin = kruznaSredina(minute[key])
 		out[key] = h
 	}
 	return out, rows.Err()
