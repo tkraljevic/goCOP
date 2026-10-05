@@ -175,14 +175,26 @@ func (s *ReadingService) validate(rd *models.Reading) error {
 	default:
 		return fmt.Errorf("nepoznat način očitanja")
 	}
+	if err := provjeriStanjeObjekta(rd); err != nil {
+		return err
+	}
+	rd.Note = strings.TrimSpace(rd.Note)
+	rd.Observer = strings.TrimSpace(rd.Observer)
+	return nil
+}
+
+// provjeriStanjeObjekta: stanje crpne stanice i položaj zapornice postoje
+// samo na objektu, a ne na letvi postaje
+func provjeriStanjeObjekta(rd *models.Reading) error {
+	if rd.StructureID == "" && (rd.StructureState != "" || rd.Gate != "") {
+		return fmt.Errorf("stanje objekta i položaj zapornice upisuju se samo na objektu")
+	}
 	if rd.StructureState != "" && models.StructureStateLabel(rd.StructureState) == "" {
 		return fmt.Errorf("nepoznato stanje crpne stanice")
 	}
 	if rd.Gate != "" && models.GateLabel(rd.Gate) == "" {
 		return fmt.Errorf("nepoznat položaj zapornice")
 	}
-	rd.Note = strings.TrimSpace(rd.Note)
-	rd.Observer = strings.TrimSpace(rd.Observer)
 	return nil
 }
 

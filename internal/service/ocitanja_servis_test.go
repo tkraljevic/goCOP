@@ -195,8 +195,16 @@ func TestProvjeraOcitanja(t *testing.T) {
 		{"automatski", func(r *models.Reading) { r.Source = models.ReadingSourceAutomatic }, ""},
 		{"uvoz", func(r *models.Reading) { r.Source = models.ReadingSourceImport }, ""},
 		{"nepoznat način", func(r *models.Reading) { r.Source = "TELEPATIJA" }, "nepoznat način"},
-		{"nepoznato stanje", func(r *models.Reading) { r.StructureState = "PLESE" }, "stanje crpne stanice"},
-		{"nepoznata zapornica", func(r *models.Reading) { r.Gate = "NAPOLA" }, "zapornice"},
+		{"nepoznato stanje", func(r *models.Reading) {
+			r.StationID, r.StructureID, r.StructureState = "", o.csProbni.ID.String(), "PLESE"
+		}, "stanje crpne stanice"},
+		{"nepoznata zapornica", func(r *models.Reading) {
+			r.StationID, r.StructureID, r.Gate = "", o.ustava.ID.String(), "NAPOLA"
+		}, "zapornice"},
+		// stanje objekta i zapornica primaju se samo uz objekt
+		{"stanje na postaji", func(r *models.Reading) { r.StructureState = models.StructureStateIdle }, "samo na objektu"},
+		{"zapornica na postaji", func(r *models.Reading) { r.Gate = models.GateOpen }, "samo na objektu"},
+		{"samo zapornica na postaji", func(r *models.Reading) { r.LevelCm, r.Gate = nil, models.GateClosed }, "samo na objektu"},
 	}
 	for _, s := range slucajevi {
 		err := o.rs.validate(osnovno(s.izmj))
@@ -217,9 +225,9 @@ func TestProvjeraOcitanja(t *testing.T) {
 	if rd.Source != models.ReadingSourceManual || rd.Note != "mutna voda" || rd.Observer != "Pero Perić" {
 		t.Errorf("nakon provjere: način %q, napomena %q, očitao %q", rd.Source, rd.Note, rd.Observer)
 	}
-	// stanje objekta ne provjerava je li očitanje uopće s objekta
+	// upis na postaju sa stanjem objekta odbija se i kroz Create
 	rd = osnovno(func(r *models.Reading) { r.StructureState, r.Gate = models.StructureStateIdle, models.GateOpen })
-	if err := o.rs.validate(rd); err != nil {
+	if err := o.rs.Create(context.Background(), o.adminOvl, rd); err == nil || !strings.Contains(err.Error(), "samo na objektu") {
 		t.Errorf("stanje i zapornica na postaji: %v", err)
 	}
 }
