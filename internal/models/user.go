@@ -287,11 +287,20 @@ func (u *User) VidiVodocuvarskiDnevnik() bool {
 	}
 	sad := time.Now()
 	for _, d := range u.Duties {
-		if d.vrijedi(sad) && d.Role.citaVodocuvarskiDnevnik() {
+		if d.CitaVodocuvarskiDnevnik(sad) {
 			return true
 		}
 	}
 	return false
+}
+
+// CitaVodocuvarskiDnevnik javlja otvara li ova dužnost vodočuvarske dnevnike
+// u trenutku sad: aktivna je, neistekla, a uloga čita dnevnik. Pravo nad
+// pojedinim listom gleda se po dužnosti, jer valjana dužnost na drugom
+// području ne smije otvoriti dnevnik onoga na kojem je osoba gost ili joj
+// je dužnost istekla.
+func (d Duty) CitaVodocuvarskiDnevnik(sad time.Time) bool {
+	return d.vrijedi(sad) && d.Role.citaVodocuvarskiDnevnik()
 }
 
 // citaVodocuvarskiDnevnik: vodočuvar, rukovoditelj ili zamjenik dionice,

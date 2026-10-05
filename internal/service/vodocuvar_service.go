@@ -79,8 +79,9 @@ func (s *VodocuvarService) SmijeOvjeriti(perms *models.UserPermissions, l *model
 	if perms.IsGlobalAdmin {
 		return true
 	}
+	sad := time.Now()
 	for _, d := range perms.User.Duties {
-		if !d.IsActive {
+		if !d.CitaVodocuvarskiDnevnik(sad) {
 			continue
 		}
 		switch d.Role {
@@ -103,6 +104,8 @@ func (s *VodocuvarService) SmijeOvjeriti(perms *models.UserPermissions, l *model
 // ili ovlaštenik čije je zaduženje vezano uz to područje ili sektor, osim
 // samog vodočuvara i terenskih uloga. Tko ne smije čitati dnevnik (gost,
 // preglednik, istekla dužnost), ne parafira, ne upisuje i ne zadaje zadatke.
+// Pravo se gleda po dužnosti: valjana dužnost na drugom području ne otvara
+// list područja na kojem je osoba gost ili joj je dužnost istekla.
 func (s *VodocuvarService) SmijeParafirati(perms *models.UserPermissions, l *models.VodocuvarskiList) bool {
 	if perms == nil || l == nil || perms.User.ID.String() == l.UserID || !perms.User.VidiVodocuvarskiDnevnik() {
 		return false
@@ -110,8 +113,9 @@ func (s *VodocuvarService) SmijeParafirati(perms *models.UserPermissions, l *mod
 	if s.SmijeOvjeriti(perms, l) {
 		return true
 	}
+	sad := time.Now()
 	for _, d := range perms.User.Duties {
-		if !d.IsActive || d.Role.IsField() {
+		if !d.CitaVodocuvarskiDnevnik(sad) || d.Role.IsField() {
 			continue
 		}
 		if d.AreaID != nil && *d.AreaID == l.AreaID {

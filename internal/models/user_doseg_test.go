@@ -51,3 +51,31 @@ func TestPravoPisanjaPoDosegu(t *testing.T) {
 		t.Error("istekla dužnost daje pravo pisanja ili sektor rada")
 	}
 }
+
+// Dnevnik otvara pojedina dužnost, ne osoba: aktivna, neistekla, s ulogom
+// koja čita dnevnik. Istekla ili neaktivna dužnost i uloga koja ne čita
+// (gost, preglednik, skladištar) ne otvaraju ga ni kad osoba ima drugu
+// valjanu dužnost.
+func TestDuznostCitaVodocuvarskiDnevnik(t *testing.T) {
+	sad := time.Now()
+	jucer := sad.Add(-time.Hour)
+	sutra := sad.Add(time.Hour)
+	slucajevi := []struct {
+		ime  string
+		d    Duty
+		cita bool
+	}{
+		{"rukovoditelj područja", Duty{IsActive: true, Role: RoleAreaLeader}, true},
+		{"vodočuvar s budućim istekom", Duty{IsActive: true, Role: RoleWaterGuard, ExpiresAt: &sutra}, true},
+		{"istekli rukovoditelj područja", Duty{IsActive: true, Role: RoleAreaLeader, ExpiresAt: &jucer}, false},
+		{"neaktivni rukovoditelj područja", Duty{Role: RoleAreaLeader}, false},
+		{"gost", Duty{IsActive: true, Role: RoleGuest}, false},
+		{"preglednik", Duty{IsActive: true, Role: RoleViewer}, false},
+		{"skladištar", Duty{IsActive: true, Role: RoleWarehouseKeeper}, false},
+	}
+	for _, s := range slucajevi {
+		if got := s.d.CitaVodocuvarskiDnevnik(sad); got != s.cita {
+			t.Errorf("%s: CitaVodocuvarskiDnevnik = %v, očekivano %v", s.ime, got, s.cita)
+		}
+	}
+}
