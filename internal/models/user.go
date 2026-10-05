@@ -223,17 +223,29 @@ func (s AccountState) BadgeClass() string {
 	}
 }
 
-// PrimaryDuty vraća primarnu funkciju korisnika
+// vrijedi javlja je li dužnost aktivna i neistekla u trenutku sad
+func (d Duty) vrijedi(sad time.Time) bool {
+	return d.IsActive && (d.ExpiresAt == nil || !d.ExpiresAt.Before(sad))
+}
+
+// PrimaryDuty vraća primarnu funkciju korisnika: aktivnu, neisteklu
+// primarnu, a kad je nema, prvu aktivnu i neisteklu
 func (u *User) PrimaryDuty() *Duty {
+	sad := time.Now()
+	var prva *Duty
 	for i := range u.Duties {
-		if u.Duties[i].IsPrimary && u.Duties[i].IsActive {
-			return &u.Duties[i]
+		d := &u.Duties[i]
+		if !d.vrijedi(sad) {
+			continue
+		}
+		if d.IsPrimary {
+			return d
+		}
+		if prva == nil {
+			prva = d
 		}
 	}
-	if len(u.Duties) > 0 && u.Duties[0].IsActive {
-		return &u.Duties[0]
-	}
-	return nil
+	return prva
 }
 
 // IsField javlja je li uloga terenska: ti ljudi očitavaju letve i vode
@@ -260,9 +272,11 @@ func (u *User) IsFieldUser() bool {
 }
 
 // VidiVodocuvarskiDnevnik javlja smije li korisnik uopće u vodočuvarske
-// dnevnike: vodočuvar u svoj, rukovoditelji, ovlaštenici i uprava u tuđe.
-// Strojari, rukovatelji, terenski radnici i skladištari nemaju što ondje
-// tražiti; oni će imati svoje dnevnike.
+// dnevnike: vodočuvar u svoj, rukovoditelji, ovlaštenici i uprava u tuđe,
+// sve s aktivnom i neisteklom dužnošću. Strojari, rukovatelji, terenski
+// radnici i skladištari nemaju što ondje tražiti; oni će imati svoje
+// dnevnike. Ne vide ih ni operater, poslovođa izvođača, gost, preglednik i
+// nepoznata uloga.
 func (u *User) VidiVodocuvarskiDnevnik() bool {
 	if u == nil {
 		return false
