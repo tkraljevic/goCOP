@@ -43,8 +43,8 @@ type areaSector func(areaID int) string
 // takva dužnost stalna (i za stalnog globalnog administratora): izvor je tada
 // nil. Inače je privremena: izvor je dužnost koja traje najdulje, a rok njezin
 // istek, nil dok se ne zna (privremeno imenovanje traje dok traje obrana).
-// Kad nijedna dužnost ne upravlja dosegom, izvor je nil (vidi test uprave
-// područja bez cilja).
+// Kad cilj nije zadan, gledaju se sve upravne dužnosti na toj razini:
+// uprava je privremena samo kad su sve privremene.
 func rokUprave(p *models.UserPermissions, sectorID *string, areaID *int, sectors areaSector) (*time.Time, *models.Duty) {
 	rank := actorRank(p)
 	if rank == 1 && p.User.IsGlobalAdmin {
@@ -87,16 +87,17 @@ func ciljniSektor(sectorID *string, areaID *int, sectors areaSector) string {
 }
 
 // upravljaCiljem: aktivna, neistekla dužnost na razini s koje actor
-// upravlja, za sektor ili područje dosega
+// upravlja, za sektor ili područje dosega; bez zadanog sektora ili
+// područja svaka na toj razini
 func upravljaCiljem(d *models.Duty, rank int, ciljSektor string, areaID *int, sad time.Time) bool {
 	if !d.IsActive || d.Role.RazinaUprave() != rank || (d.ExpiresAt != nil && d.ExpiresAt.Before(sad)) {
 		return false
 	}
 	switch rank {
 	case 2:
-		return d.SectorID != nil && *d.SectorID == ciljSektor
+		return d.SectorID != nil && (ciljSektor == "" || *d.SectorID == ciljSektor)
 	case 3:
-		return d.AreaID != nil && areaID != nil && *d.AreaID == *areaID
+		return d.AreaID != nil && (areaID == nil || *d.AreaID == *areaID)
 	}
 	return true
 }
