@@ -153,9 +153,15 @@ func TestBrojeviITekstIzEvidencije(t *testing.T) {
 		t.Errorf("„Temperatura” velikim slovom danas se ne čita: %v", *drugi.Temperature)
 	}
 
-	// Sređivanje teksta gubi i nove retke, iako ih pokušava sačuvati.
-	if got := sredi("  prvi\tred \n\n drugi   red  "); got != "prvi red drugi red" {
-		t.Errorf("sredi: %q", got)
+	// Sređivanje teksta sažme razmake unutar retka, a retke čuva.
+	for ulaz, ocek := range map[string]string{
+		"  prvi\tred \n\n drugi   red  ": "prvi red\n\ndrugi red",
+		"\r\n jedan \r\ndva\r\n":         "jedan\ndva",
+		" \t ":                           "",
+	} {
+		if got := sredi(ulaz); got != ocek {
+			t.Errorf("sredi(%q) = %q, očekivano %q", ulaz, got, ocek)
+		}
 	}
 	if geometrija(json.RawMessage(`null`)) != "" || geometrija(json.RawMessage(`{"coordinates":[1,2]}`)) != "" {
 		t.Error("geometrija bez vrste nije geometrija")
