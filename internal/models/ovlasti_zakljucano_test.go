@@ -368,13 +368,17 @@ func TestTerenIVodocuvarskiDnevnik(t *testing.T) {
 		{"rukovoditelj dionice", &User{Duties: []Duty{aktivna(Duty{Role: RoleSectionDeputy})}}, false, true},
 		{"ovlaštenik A3", &User{Duties: []Duty{aktivna(Duty{Role: RoleContractOfficerA3})}}, false, true},
 		{"uprava sektora", &User{Duties: []Duty{aktivna(Duty{Role: RoleCopLeader})}}, false, true},
-		// dnevnik ne vide uloge koje nisu vodočuvar, rukovoditelj, ovlaštenik
-		// ni uprava: gost, preglednik, operater, poslovođa i nepoznata uloga
+		// dnevnik ne vide gost, preglednik ni nepoznata uloga
 		{"gost", &User{Duties: []Duty{aktivna(Duty{Role: RoleGuest})}}, false, false},
 		{"preglednik", &User{Duties: []Duty{aktivna(Duty{Role: RoleViewer})}}, false, false},
-		{"operater", &User{Duties: []Duty{aktivna(Duty{Role: RoleOperator})}}, false, false},
-		{"poslovođa", &User{Duties: []Duty{aktivna(Duty{Role: RoleServiceLeaderForeman})}}, false, false},
 		{"nepoznata uloga", &User{Duties: []Duty{aktivna(Duty{Role: Role("NEPOZNATA")})}}, false, false},
+		// dežurni operater i poslovođa izvođača vide dnevnik kao prije prvog
+		// kruga, uz aktivnu i neisteklu dužnost. Pravilo za njih je otvoreno
+		// pitanje: dok se ne odluči, ostaje kako je bilo.
+		{"operater", &User{Duties: []Duty{aktivna(Duty{Role: RoleOperator})}}, false, true},
+		{"poslovođa", &User{Duties: []Duty{aktivna(Duty{Role: RoleServiceLeaderForeman})}}, false, true},
+		{"istekli operater", &User{Duties: []Duty{aktivna(Duty{Role: RoleOperator, ExpiresAt: &jucer})}}, false, false},
+		{"istekli poslovođa", &User{Duties: []Duty{aktivna(Duty{Role: RoleServiceLeaderForeman, ExpiresAt: &jucer})}}, false, false},
 		{"neaktivna dužnost", &User{Duties: []Duty{{Role: RoleWaterGuard}}}, false, false},
 		// istekla dužnost ne otvara dnevnik; IsFieldUser rok ne gleda
 		{"istekla dužnost", &User{Duties: []Duty{aktivna(Duty{Role: RoleWaterGuard, ExpiresAt: &jucer})}}, true, false},

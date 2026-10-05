@@ -266,13 +266,14 @@ func TestPrijaveSTerenaKrozRute(t *testing.T) {
 	if s := get(kunac, "/prijave/"+id).Body.String(); !strings.Contains(s, "Pregledano, riješeno") || !strings.Contains(s, "elektronički potpisao") {
 		t.Error("stranica objavljene prijave za rukovoditelja")
 	}
-	// prijave idu s dnevnikom: dežurni operater sektora ne vidi dnevnik pa ni
-	// objavljene prijave, ni popis ni pojedinačnu. Zaključano dok se ne
-	// odluči trebaju li operateru prijave s terena i bez dnevnika.
-	if w := get(operater, "/prijave"); w.Code != http.StatusForbidden {
+	// prijave idu s dnevnikom: dežurni operater sektora vidi dnevnik pa i
+	// objavljene prijave, na popisu i pojedinačno, kao prije prvog kruga.
+	// Pravilo za operatera je otvoreno pitanje: dok se ne odluči, ostaje
+	// kako je bilo.
+	if w := get(operater, "/prijave"); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "B-T-1") {
 		t.Errorf("operater na popisu prijava: %d", w.Code)
 	}
-	if w := get(operater, "/prijave/"+id); w.Code != http.StatusNotFound {
+	if w := get(operater, "/prijave/"+id); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "Oštećena rampa") {
 		t.Errorf("operater na objavljenoj prijavi: %d", w.Code)
 	}
 	if l := loc(forma(seit, http.MethodPost, "/prijave/"+id+"/radnja", url.Values{"radnja": {"rijesi"}})); !strings.Contains(l, "error") {

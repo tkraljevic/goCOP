@@ -275,8 +275,9 @@ func (u *User) IsFieldUser() bool {
 // dnevnike: vodočuvar u svoj, rukovoditelji, ovlaštenici i uprava u tuđe,
 // sve s aktivnom i neisteklom dužnošću. Strojari, rukovatelji, terenski
 // radnici i skladištari nemaju što ondje tražiti; oni će imati svoje
-// dnevnike. Ne vide ih ni operater, poslovođa izvođača, gost, preglednik i
-// nepoznata uloga.
+// dnevnike. Ne vide ih ni gost, preglednik i nepoznata uloga. Dežurni
+// operater i poslovođa izvođača vide ih kao prije (u svom dosegu, uz
+// neisteklu dužnost) dok se ne odluči treba li im dnevnik.
 func (u *User) VidiVodocuvarskiDnevnik() bool {
 	if u == nil {
 		return false
@@ -293,11 +294,12 @@ func (u *User) VidiVodocuvarskiDnevnik() bool {
 	return false
 }
 
-// citaVodocuvarskiDnevnik: vodočuvar, rukovoditelj ili zamjenik dionice i
-// svaka uloga uprave (s ovlaštenicima za praćenje ugovora)
+// citaVodocuvarskiDnevnik: vodočuvar, rukovoditelj ili zamjenik dionice,
+// svaka uloga uprave (s ovlaštenicima za praćenje ugovora), te dežurni
+// operater i poslovođa izvođača, čije je pravilo još otvoreno pitanje
 func (r Role) citaVodocuvarskiDnevnik() bool {
 	switch r {
-	case RoleWaterGuard, RoleSectionLeader, RoleSectionDeputy:
+	case RoleWaterGuard, RoleSectionLeader, RoleSectionDeputy, RoleOperator, RoleServiceLeaderForeman:
 		return true
 	}
 	return r.RazinaUprave() > 0
