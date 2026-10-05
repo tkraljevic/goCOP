@@ -802,6 +802,13 @@ func (s *AktService) uskladiEpizode(ctx context.Context, a *models.Akt) []string
 	if s.episodes == nil {
 		return nil
 	}
+	// kraj obrane mijenja i istek privremenih imenovanja
+	return append(s.uskladiPovijest(ctx, a), s.uskladiPrivremene()...)
+}
+
+// uskladiPovijest je povijest obrane dionica akta (uskladiEpizode) bez
+// privremenih imenovanja: upozorenja su samo ona vezana uz akt
+func (s *AktService) uskladiPovijest(ctx context.Context, a *models.Akt) []string {
 	b := s.bravaPovijesti(a.Sektor)
 	b.Lock()
 	defer b.Unlock()
@@ -815,8 +822,7 @@ func (s *AktService) uskladiEpizode(ctx context.Context, a *models.Akt) []string
 			upozorenja = append(upozorenja, d.Code+": "+err.Error())
 		}
 	}
-	// kraj obrane mijenja i istek privremenih imenovanja
-	return append(upozorenja, s.uskladiPrivremene()...)
+	return upozorenja
 }
 
 // epizodeIzAkata su razdoblja obrane dionice do trenutka t kao epizode: tko

@@ -39,7 +39,7 @@ func TestPovijestObraneZaAktKojiJeStupioNaSnagu(t *testing.T) {
 	sad := time.Now().UTC().Truncate(time.Second)
 
 	// bez servisa epizoda nema što izvoditi
-	if u := (&AktService{repo: repo}).UskladiStupileNaSnagu(ctx, sad.Add(-time.Hour), sad); u != nil {
+	if u, p := (&AktService{repo: repo}).UskladiStupileNaSnagu(ctx, sad.Add(-time.Hour), sad); u != nil || p != nil {
 		t.Errorf("bez epizoda: %v", u)
 	}
 	s := &AktService{repo: repo, episodes: NewEpisodeService(epizode, nil, nil)}
@@ -72,14 +72,14 @@ func TestPovijestObraneZaAktKojiJeStupioNaSnagu(t *testing.T) {
 	}
 
 	// razdoblje u kojem prestanak nije stupio na snagu ne mijenja ništa
-	if u := s.UskladiStupileNaSnagu(ctx, sad.Add(-10*time.Minute), sad); len(u) != 0 {
+	if u, _ := s.UskladiStupileNaSnagu(ctx, sad.Add(-10*time.Minute), sad); len(u) != 0 {
 		t.Fatal(u)
 	}
 	if e, _ := epizode.OpenEpisode(ctx, "P.1.1"); e == nil {
 		t.Error("prestanak izvan razdoblja je zatvorio obranu")
 	}
 
-	if u := s.UskladiStupileNaSnagu(ctx, sad.Add(-time.Hour), sad); len(u) != 0 {
+	if u, _ := s.UskladiStupileNaSnagu(ctx, sad.Add(-time.Hour), sad); len(u) != 0 {
 		t.Fatal(u)
 	}
 	sve, err := epizode.ListEpisodes(ctx, "P.1.1")
@@ -95,7 +95,7 @@ func TestPovijestObraneZaAktKojiJeStupioNaSnagu(t *testing.T) {
 	verzije, _ := rec.History(ctx, repository.EntityEpisodes, id)
 
 	// isto izvođenje još jednom (krug, drugi čvor): bez nove verzije
-	if u := s.UskladiStupileNaSnagu(ctx, sad.Add(-time.Hour), sad); len(u) != 0 {
+	if u, _ := s.UskladiStupileNaSnagu(ctx, sad.Add(-time.Hour), sad); len(u) != 0 {
 		t.Fatal(u)
 	}
 	if opet, _ := rec.History(ctx, repository.EntityEpisodes, id); len(opet) != len(verzije) || len(verzije) != 2 {
@@ -106,7 +106,7 @@ func TestPovijestObraneZaAktKojiJeStupioNaSnagu(t *testing.T) {
 	if _, err := baza.Exec(`ALTER TABLE akti RENAME TO nema_akata`); err != nil {
 		t.Fatal(err)
 	}
-	if u := s.UskladiStupileNaSnagu(ctx, sad.Add(-time.Hour), sad); len(u) != 1 || !strings.Contains(u[0], "povijest obrane nije usklađena") {
+	if u, _ := s.UskladiStupileNaSnagu(ctx, sad.Add(-time.Hour), sad); len(u) != 1 || !strings.Contains(u[0], "povijest obrane nije usklađena") {
 		t.Errorf("akti se ne daju pročitati: %v", u)
 	}
 }
