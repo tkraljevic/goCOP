@@ -45,8 +45,9 @@ func novaOkolinaCitanja(t *testing.T) *okolinaCitanja {
 	}
 	for _, q := range []string{
 		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('P', 'Sektor P', 'VGO Primjerovo', 'COP Primjerovo'), ('Q', 'Sektor Q', 'VGO Drugdje', 'COP Drugdje')`,
-		`INSERT INTO areas (id, sector_id, name, vgi_name, subcenter) VALUES (1, 'P', 'Mali sliv Primjerica', 'VGI Primjerica', ''),
-			(2, 'P', 'Mali sliv Probni', 'VGI Probni', ''), (3, 'Q', 'Mali sliv Drugdje', 'VGI Drugdje', '')`,
+		// bez podcentra: stupac ostaje NULL, a popis područja ga čita kao prazan
+		`INSERT INTO areas (id, sector_id, name, vgi_name) VALUES (1, 'P', 'Mali sliv Primjerica', 'VGI Primjerica'),
+			(2, 'P', 'Mali sliv Probni', 'VGI Probni'), (3, 'Q', 'Mali sliv Drugdje', 'VGI Drugdje')`,
 		`INSERT INTO sections (code, area_id, sector_id, description, created_at, updated_at) VALUES
 			('P.1.1', 1, 'P', 'rijeka Primjerica', '2026-01-01', '2026-01-01'),
 			('P.1.2', 1, 'P', 'kanal Probni', '2026-01-01', '2026-01-01'),

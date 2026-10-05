@@ -881,7 +881,8 @@ func (r *UserRepository) ListSectors() ([]models.Sector, error) {
 
 // ListAreas vraća branjena područja
 func (r *UserRepository) ListAreas(sectorID string) ([]models.Area, error) {
-	query := "SELECT id, sector_id, name, vgi_name, subcenter, COALESCE(contractor_name, ''), COALESCE(vgi_phone, '') FROM areas"
+	// subcenter i contractor_name smiju biti NULL
+	query := "SELECT id, sector_id, name, vgi_name, COALESCE(subcenter, ''), COALESCE(contractor_name, ''), COALESCE(vgi_phone, '') FROM areas"
 	var args []any
 	if sectorID != "" {
 		query += " WHERE sector_id = ?"
