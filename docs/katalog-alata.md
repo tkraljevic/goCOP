@@ -1,10 +1,26 @@
 # Katalog alata
 
-Stanje 3. 10. 2026.; razdvajanje aplikacije i alata provedeno je 26. 9. (vidi
-[plan](plan-razdvajanje-aplikacije-i-alata.md)). Repozitorij nosi samo
-aplikaciju: `cmd/gocop`, `internal` i `web`. Sve ostalo stoji lokalno u
-`tools/` i ne ulazi u repozitorij (`.gitignore`). Raspoređenih poslova na
-računalu nema, pa alate pokreće samo čovjek.
+Podjela repozitorija pregledana 5. 10. 2026.; popis lokalnih alata ispod
+ostaje inventar od 3. 10. Razdvajanje je provedeno 26. 9. (vidi
+[plan](plan-razdvajanje-aplikacije-i-alata.md)). Uz aplikaciju (`cmd/gocop`,
+`internal`, `web`), Git nosi Postavu (`cmd/gocop-postava`), instalaciju i
+resurse (`build/`) te razvojne provjere (`dev/quality`, `quality/`, Makefile,
+CI). Lokalni administratorski, migracijski i analitički alati u `tools/`
+izuzeti su iz Gita. Automatski operativni poslovi izvode se u aplikaciji.
+
+## Razvoj i distribucija u repozitoriju
+
+| Dio | Namjena |
+|---|---|
+| `cmd/gocop-postava`, `internal/postava` | Zasebni upravitelj instalacije, pokretanja i nadogradnje; vlastita izdanja |
+| `build/resursi`, `build/postava.iss` | Resursi i instalacijski program za Windows |
+| `build/linux` | Instalacijska skripta s provjerom potpisa i usluga systemd |
+| `dev/quality`, `quality/`, `.golangci.yml`, `Makefile` | `make quality`, testovi/race, coverage, CC/CRAP, duplikacije i usporedba s baselineom |
+| `.github/workflows` | Provjere, nacrti izdanja, Postava i Docker slika |
+
+Mjerni alat ima zaseban Go modul i ne ulazi u izvršnu datoteku čvora.
+Postupak je u [CODE_QUALITY.md](CODE_QUALITY.md); za Linux vidi
+[linux.md](linux.md).
 
 ## Što radi aplikacija
 

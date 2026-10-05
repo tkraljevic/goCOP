@@ -1,13 +1,18 @@
 # Plan razdvajanja aplikacije i pomoćnih alata
 
-Datum: 26. 9. 2026., dopunjeno 2. 10. 2026. Status: razdvajanje provedeno
+Datum: 26. 9. 2026., dopunjeno 5. 10. 2026. Status: razdvajanje provedeno
 (korak 3 i glavnina koraka 4); otvorene su preostale stavke koraka 1, 2, 4 i
-5, provjere iz koraka 6 i završni kriterij. Repozitorij nosi samo aplikaciju
-(`cmd/gocop`, `internal`, `web`); alati su lokalno u `tools/`, izvan Gita.
+5, provjere iz koraka 6 i završni kriterij. Repozitorij nosi aplikaciju,
+Postavu, instalacijske resurse i razvojne provjere; lokalni pomoćni alati
+ostaju u `tools/`, izvan Gita.
 Stanje i namjena svakog alata u [katalogu alata](katalog-alata.md).
 
 ## Dnevnik provedbe
 
+- 5. 10., usklađenje s 0.0.34-alfa: uz čvor u repozitoriju su Postava,
+  `build/linux` i mjerni sustav `dev/quality`. To su dijelovi distribucije
+  i razvoja proizvoda, a ne povratak jednokratnih lokalnih alata u glavni
+  program. Uvoz i operativne automatizacije ostaju u aplikaciji.
 - 2. 10., stanje nakon razdvajanja (Git i lokalni `tools/`):
   - Docker kontekst (26. 9.): u izgradnju ide samo izvorni kod.
     `.dockerignore` izuzima `data/`, `vodostaji/`, `pakete/`, `ocitanja/`,
@@ -145,7 +150,7 @@ razvrstani po namjeni, ne po programskom jeziku.
 Ovim planom ne odobrava se brisanje starih podataka, prebacivanje privatnih
 uvoznika u javni Git, promjena baza, restart ni prekid aktivnih uvoza.
 
-## Zatečeno stanje
+## Zatečeno stanje 26. 9. 2026. (prije razdvajanja)
 
 - `cmd/gocop` pokreće aplikaciju; Docker gradi i isporučuje samo taj program.
 - `internal` sadrži logiku aplikacije i dijeljene biblioteke; `web` sučelje.
@@ -159,13 +164,21 @@ uvoznika u javni Git, promjena baza, restart ni prekid aktivnih uvoza.
 
 ## Ciljno stablo projekta
 
-Ovo je dogovoreni cilj, ne tvrdnja da su datoteke već premještene.
+Dogovorena podjela dopunjena je distribuiranim upraviteljem i razvojnim
+provjerama iz 0.0.28–0.0.34. Mape `tools/`, `bin/` i podatkovne mape su
+lokalne; njihova prisutnost nije uvjet za pokretanje svježe kopije projekta.
 
 ```text
 goCOP/
-├── cmd/gocop/           # jedini glavni ulaz aplikacije
+├── cmd/gocop/            # glavni ulaz čvora
+├── cmd/gocop-postava/    # zasebni upravitelj instalacije i nadogradnje
 ├── internal/            # logika aplikacije, uvoz/izvoz i zajednički servisi
 ├── web/                 # ugrađeno sučelje i statički resursi
+├── build/               # instalacija Linuxa i Windowsa te resursi izdanja
+├── dev/quality/         # zaseban Go modul za provjeru kvalitete
+├── quality/             # konfiguracija i prihvaćeni baseline u Gitu
+├── .github/workflows/   # CI i izgradnja izdanja
+├── .quality/            # lokalni izvještaji provjere, izvan Gita
 ├── tools/               # neobvezni pomoćni postupci, prema namjeni
 │   ├── admin/           # samostalni servisni omotači
 │   ├── migrations/      # jednokratni prijenosi izvan aplikacijskog tijeka
@@ -180,10 +193,12 @@ goCOP/
 └── pakete/              # lokalni .cop paketi, izvan Gita
 ```
 
-Go moduli, Dockerfile, licence i kratki README ostaju u korijenu.
+Glavni Go modul, Dockerfile, Makefile, licence i kratki README ostaju u korijenu.
 Testovi i mali sigurni testni uzorci ostaju uz pripadajuće pakete; `tools/testdata`
 nije skladište stvarnih osobnih podataka. Podaci potrebni za `go:embed`
-ostaju uz pakete aplikacije. Ne uvoditi zaseban Go modul za alate bez potrebe.
+ostaju uz pakete aplikacije. `dev/quality` i `build/resursi` imaju zasebne
+module kako razvojne ovisnosti ne bi ulazile u čvor; ne uvoditi dodatne
+module za lokalne alate bez potrebe.
 
 ## Predložena podjela
 

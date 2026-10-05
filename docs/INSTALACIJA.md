@@ -1,6 +1,6 @@
 # Postavljanje i održavanje goCOP čvora
 
-Administratorske upute, usklađene s 0.0.34-alfa (4. 10. 2026.).
+Administratorske upute, pregledane 5. 10. 2026. prema 0.0.34-alfa.
 Kratki pregled projekta: [README](../README.md). Korisnički postupci su u Pomoći aplikacije.
 
 Operativni program za obranu od poplava Hrvatskih voda: povezuje organizaciju,
@@ -24,6 +24,8 @@ prva računala. Kaže što program radi na računalu i mreži, što ne radi, i
 - **Operativa obrane:** teren i očitanja, pragovi i akti o stupnjevima obrane,
   dnevnik COP-a, dežurstva i obračun IORS, vodočuvarska knjiga, prijave s
   terena, dnevna izvješća dionica i sektora te dnevnici usluga A.02 i A.03.
+  Stanje dionice proizlazi iz ovjerenih akata i njihova vremena stupanja na
+  snagu; storno čuva trag poništenja i isključuje akt iz izračuna stanja.
 - **Registri i resursi:** ustroj organizacije, dionice i poddionice, vodomjerne
   postaje, vodotoci, objekti, teritorijalne jedinice, djelatnici i zaduženja,
   izvođači, održavanje, međuslivovi i meteorološke točke te materijalno-tehnička
@@ -286,10 +288,13 @@ Portovi se mijenjaju u `gocop.toml`.
   ključ. Razina uprave je razina s koje uloga upravlja računima: zamjenik
   glavnog rukovoditelja za sektor upravlja sektorom, a zamjenik rukovoditelja
   sektora za branjeno područje područjem. Privremena uprava (dužnost s rokom)
-  dužnost koja daje upravu na njezinoj razini dodjeljuje najdulje do isteka
+  dužnost koja daje upravu na njezinoj ili nižoj razini dodjeljuje najdulje do isteka
   vlastite uprave nad tim sektorom ili područjem; tuđu postojeću dužnost
-  izmjenom ne skraćuje. Zastavicu globalnog administratora postavlja samo
-  stalna uprava organizacije. Lozinku koju
+  izmjenom ne skraćuje. Terenske dužnosti ostaju kako su dodijeljene.
+  Zastavicu globalnog administratora dodjeljuje i uklanja samo
+  stalna uprava organizacije. Nepoznata uloga ne daje pravo pisanja i ne može
+  se dodijeliti. Isključenom računu poništava se lokalna sesija pri sljedećem
+  zahtjevu; ponovno uključenje računa ne vraća tu prijavu. Lozinku koju
   administrator upiše u obrascu djelatnika osoba pri prvoj prijavi mora
   zamijeniti, kao i poništenu. Adresa e-pošte koju već ima drugi aktivni
   račun ne upisuje se nikome, ni globalnom administratoru (velika slova i
@@ -325,8 +330,10 @@ Portovi se mijenjaju u `gocop.toml`.
    globalni administrator. Od 0.0.26-alfa prijava izvana traži PIN poslan na
    službenu e-poštu (prekidač zadano isključen, vidi
    [poglavlje 3](#3-podaci-i-sigurnost)). Otvoreno: potpisane uloge izdavanja
-   (svaki član mreže zasad smije objaviti prognozu i arhivu) i opoziv
-   izgubljenog računala uživo. Rezervni i privremeni kodovi vrijede samo na
+   (svaki član mreže zasad smije objaviti prognozu i arhivu) i trenutačna
+   dostava opoziva izgubljenog računala. Potpisani opoziv članstva i ovlasti
+   za primanje radi od 0.0.33, ali vrijedi na drugom čvoru tek kad mu stigne
+   razmjenom. Rezervni i privremeni kodovi vrijede samo na
    čvoru na kojem su nastali, što je dovoljno dok je javni čvor jedan. Čvor
    dostupan kroz tunel treba držati na zadnjem izdanju. Zadani popis
    posrednika još uključuje privatne mreže: prije javnog postavljanja suziti
@@ -652,6 +659,15 @@ Obje mape moraju biti trajno montirane izvan spremnika. SQLite držati na
 lokalnom disku; na Unraidu koristiti izravnu putanju diska/poola, ne `/mnt/user/`
 ni mrežni disk. Ne brisati volumene pri zamjeni slike.
 
+Na Unraidu uskladiti i pravila premještanja dijeljene mape (*mover*): ako
+spremnik koristi izravnu putanju poola, mover ne smije odnijeti njezine
+datoteke na drugi disk dok spremnik i dalje gleda staru putanju. Prije i
+nakon nadogradnje provjeriti da montirani `/data` sadrži postojeće
+`gocop.toml`, `node-key` i bazu; osnivač mreže čuva i `network-key`. Ako se
+postojeći čvor iznenada prikaže kao nov ili s drugim ključem, zaustaviti ga
+i provjeriti montaže te vratiti originalni identitet iz kopije. Ponovnim
+osnivanjem mreže ne obnavlja se stari čvor.
+
 U **Administracija → Čvor, mreža i sinkronizacija → Uloge ovog čvora**
 odabrati preuzima li čvor vodostaje i izdaje li prognozu. Uobičajeno to radi
 stalni čvor, a laptop prima podatke. Novom čvoru te se uloge moraju izričito
@@ -679,6 +695,12 @@ i zaduženja, a novija ih ne diraju, pa bi isti zapis na dva čvora dobio
 različit identifikator. Na kojem izdanju radi koji čvor, pokazuju pločica
 „Razmjena s čvorovima” i stranica Sinkronizacija (od 0.0.24-alfa; čvor koji
 izdanje ne javlja radi na starijem).
+
+Za prelazak na 0.0.34-alfa odmah nadograditi sve članove mreže: stariji čvor
+ne razumije poništenje akta i uključio bi ga u stanje obrane. Dok se izdanja
+ne usklade, ne provoditi ovjere ni storno. Od 0.0.33 promijenjeno je i
+uparivanje te podrška članstvima ovlaštenih primatelja; stariji se čvorovi
+ne mogu uparivati novim postupkom.
 
 Na javnom posredniku isključiti cache za aplikacijske odgovore i nakon
 promjene očistiti stare kopije. Program zadano šalje `private, no-store`
@@ -729,8 +751,8 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 Verzija stoji u kodu (`verzijaPrograma` u `cmd/gocop/main.go`) i mijenja se pri
 izdavanju; program je ispisuje u podnožju stranice i u dnevniku, s kratkom
 oznakom commita iz kojega je preveden (i zvjezdicom kad stablo ima nespremljenih
-izmjena). Izdanje u gitu nosi oznaku oblika `v0.0.33-alfa`; iz svake takve
-oznake GitHub gradi Docker sliku `ghcr.io/tkraljevic/gocop:0.0.33-alfa` i `:latest`.
+izmjena). Izdanje u gitu nosi oznaku oblika `v0.0.34-alfa`; iz svake takve
+oznake GitHub gradi Docker sliku `ghcr.io/tkraljevic/gocop:0.0.34-alfa` i `:latest`.
 
 ## 9. Za razvoj
 
@@ -742,10 +764,22 @@ potvrda za novu verziju.
 ```bash
 go build -o bin/gocop ./cmd/gocop
 go test ./...
+go vet ./...
 ```
 
-Repozitorij nosi samo aplikaciju: `cmd/gocop` je jedini ulaz, logika je u
-`internal`, sučelje u `web`. Uvoz u arhivu iz svih podržanih izvora, arhiviranje,
+Za provjeru kvalitete prije predaje promjene koristiti `make quality`;
+alati, mjerenje i usporedba s baselineom opisani su u
+[CODE_QUALITY.md](CODE_QUALITY.md). `dev/quality` je zaseban Go modul:
+`go test ./...` glavnog modula ga ne provjerava, a `make quality` ga uključuje.
+Povijesna mjerenja i redoslijed sređivanja su u
+[planu stabilizacije](STABILIZACIJA.md), ne zamjenjuju provjeru novog commita.
+
+Repozitorij nosi aplikaciju (`cmd/gocop`, `internal`, `web`), upravitelj
+instalacije **Postava** (`cmd/gocop-postava`, `internal/postava`), resurse i
+instalaciju u `build/` te razvojnu infrastrukturu `dev/quality`, `quality/`,
+`Makefile` i CI. Postava je zaseban program, a razvojni alati nisu potrebni
+za redovan rad instaliranog čvora.
+Uvoz u arhivu iz svih podržanih izvora, arhiviranje,
 izdavanje paketa i priprema modela prognoze rade iz same aplikacije. Pomoćni
 alati (administracija poslužitelja, jednokratne migracije, dijagnostika,
 analize, priprema geometrije) stoje lokalno u `tools/` i ne ulaze u

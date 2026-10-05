@@ -9,7 +9,19 @@ Ovaj dokument bira funkcije koje je najopasnije mijenjati i za svaku kaže:
 
 Ne predlaže veliko prepisivanje. Svaka promjena ide tek kad je ponašanje zaključano testom.
 
-Stanje je mastera 0.0.33-alfa (`713d9df`). Testovi koji se spominju kao „iz grane `stabilizacija-plan`” su datoteke `*_zakljucano_test.go`, dodane uz ovaj dokument.
+Polazišna analiza je snimka mastera 0.0.33-alfa (`713d9df`), ne trenutačan
+popis otvorenih grešaka. Testovi koji se spominju kao „iz grane
+`stabilizacija-plan`” su datoteke `*_zakljucano_test.go`, dodane uz ovaj dokument.
+
+**Stanje 5. 10. 2026., prema izdanju 0.0.34-alfa (`3194e39`):** uvedeno je
+[stanje obrane iz akata i storno](NACRT-STADIJI-OBRANE.md), izravne rute obrane
+su uklonjene, a prognoza u satu izdavanja zadržava mjerenje. Ispravljeni su
+i upisi izvješća izvan dosega, delegiranje privremene uprave na niže razine,
+prava nepoznatih uloga, odjava isključenog računa, ponovljena predaja
+dežurstva i gubitak nacrta nakon odbijene predaje lista. `main` je rastavljen
+na korake pokretanja. Detalji su u [popisu izmjena](../CHANGELOG.md#0034-alfa--4-10-2026).
+Brojke i nalazi niže ostaju povijesni dokaz polazišta; novo mjerenje daje
+`make quality` na konkretnom commitu.
 
 ## Kako je izabrano
 
@@ -711,10 +723,10 @@ Najveća složenost i najveći churn u repozitoriju (19 commitova).
 
 ## Odluke vlasnika (4. 10. 2026.)
 
-- **Stadiji obrane se slažu.** Pripremno stanje, redovna i izvanredna obrana te izvanredno stanje proglašavaju se i ukidaju postupno i neovisno: kad vrijedi pripremno stanje pa se proglasi redovna obrana i kasnije ukine, pripremno i dalje vrijedi dok se i ono ne ukine. Veći stadij smije se proglasiti odmah, bez prethodnih, kad se zna da dolazi velika opasnost. Stanje obrane dionice je najviši stadij koji je proglašen, a nije ukinut. (Stavke 11 i 13 sumnjivog ponašanja; danas epizoda pamti samo najviši dosegnuti stupanj, pa prekid višeg stupnja ne radi ništa.)
+- **Stadiji obrane se slažu.** Pripremno stanje, redovna i izvanredna obrana te izvanredno stanje proglašavaju se prema gore i ukidaju obrnutim redom: kad vrijedi pripremno stanje pa se proglasi redovna obrana i kasnije ukine, pripremno i dalje vrijedi dok se i ono ne ukine. Veći stadij smije se proglasiti odmah, bez prethodnih, kad se zna da dolazi velika opasnost. Stanje obrane dionice je najviši stadij koji je proglašen, a nije ukinut. (Stavke 11 i 13 sumnjivog ponašanja, riješene u 0.0.34 izračunom iz akata.)
 - **Akt stupa na snagu prema vremenu koje u njemu piše**, i kad je ovjeren ranije (stavka 12). Do tada stanje obrane ostaje kakvo jest.
 - **Uvoz iz stare evidencije (BP16)** ostaje dok se ne pregleda, predviđen za brisanje (pod 13).
-- Otvoreno: izravne rute obrane (`POST /sections/{code}/obrana/*`) i ispravak promašaja u satu izdavanja (stavka 22) — prijedlozi su ukloniti rute i doseg 0 ne ispravljati.
+- **Riješeno u 0.0.34:** izravne rute obrane (`POST /sections/{code}/obrana/*`) uklonjene su; doseg 0 više se ne ispravlja promašajima niti ulazi u glačanje susjednih dosega.
 
 ## Nestabilno mjerenje
 
