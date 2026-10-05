@@ -198,35 +198,53 @@ func provjeriStanjeObjekta(rd *models.Reading) error {
 	return nil
 }
 
-// Create upisuje ručno očitanje u ime prijavljenog korisnika
+// pravoNaObjekt javlja grešku ako osoba ne smije upisivati na objekt
+func (s *ReadingService) pravoNaObjekt(ctx context.Context, perms *models.UserPermissions, structureID string) error {
+	id, err := uuid.Parse(structureID)
+	if err != nil {
+		return fmt.Errorf("neispravan objekt")
+	}
+	st, err := s.structureRepo.GetStructure(ctx, id)
+	if err != nil || st == nil {
+		return fmt.Errorf("objekt ne postoji")
+	}
+	if !s.CanRecordStructure(perms, st) {
+		return fmt.Errorf("nemate pravo upisivati očitanja na %s", st.Name)
+	}
+	return nil
+}
+
+// pravoNaPostaju javlja grešku ako osoba ne smije upisivati na letvu postaje
+func (s *ReadingService) pravoNaPostaju(ctx context.Context, perms *models.UserPermissions, stationID string) error {
+	id, err := uuid.Parse(stationID)
+	if err != nil {
+		return fmt.Errorf("neispravna postaja")
+	}
+	st, err := s.stationRepo.GetStationByID(ctx, id)
+	if err != nil || st == nil {
+		return fmt.Errorf("postaja ne postoji")
+	}
+	if !s.CanRecordStation(perms, st) {
+		return fmt.Errorf("nemate pravo upisivati očitanja na %s", st.Name)
+	}
+	return nil
+}
+
+// Create upisuje ručno očitanje u ime prijavljenog korisnika. Pravo se
+// provjerava prije unosa, kao kod izmjene: tko nema pravo, ne dozna pravila
+// unosa.
 func (s *ReadingService) Create(ctx context.Context, perms *models.UserPermissions, rd *models.Reading) error {
-	if err := s.validate(rd); err != nil {
+	var err error
+	if rd.StructureID != "" {
+		err = s.pravoNaObjekt(ctx, perms, rd.StructureID)
+	} else {
+		err = s.pravoNaPostaju(ctx, perms, rd.StationID)
+	}
+	if err != nil {
 		return err
 	}
-	if rd.StructureID != "" {
-		id, err := uuid.Parse(rd.StructureID)
-		if err != nil {
-			return fmt.Errorf("neispravan objekt")
-		}
-		st, err := s.structureRepo.GetStructure(ctx, id)
-		if err != nil || st == nil {
-			return fmt.Errorf("objekt ne postoji")
-		}
-		if !s.CanRecordStructure(perms, st) {
-			return fmt.Errorf("nemate pravo upisivati očitanja na %s", st.Name)
-		}
-	} else {
-		id, err := uuid.Parse(rd.StationID)
-		if err != nil {
-			return fmt.Errorf("neispravna postaja")
-		}
-		st, err := s.stationRepo.GetStationByID(ctx, id)
-		if err != nil || st == nil {
-			return fmt.Errorf("postaja ne postoji")
-		}
-		if !s.CanRecordStation(perms, st) {
-			return fmt.Errorf("nemate pravo upisivati očitanja na %s", st.Name)
-		}
+	if err := s.validate(rd); err != nil {
+		return err
 	}
 	if rd.Origin == "" {
 		rd.Origin = models.ReadingOriginGoCOP
