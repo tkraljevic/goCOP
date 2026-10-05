@@ -254,7 +254,7 @@ func naDionici(a Akt, dionica string) Akt {
 
 // Privremeno imenovanje vrijedi dok na dionicama traje redovna ili izvanredna
 // obrana ili izvanredno stanje; pripremno stanje ga ne drži
-func TestKrajRedovneObrane(t *testing.T) {
+func TestPrestanakRedovneObrane(t *testing.T) {
 	postupno := []Akt{
 		akt("a1", AktUspostava, PhasePrep, 1, 8),
 		akt("a2", AktUspostava, PhaseRegular, 2, 14),
@@ -263,49 +263,51 @@ func TestKrajRedovneObrane(t *testing.T) {
 		akt("a5", AktPrekid, PhaseRegular, 4, 9),
 		akt("a6", AktPrekid, PhasePrep, 5, 7),
 	}
-	jeKraj := func(got *time.Time, want time.Time) bool { return got != nil && got.Equal(want) }
+	jeKraj := func(got *PrestanakObrane, want time.Time, aktom string) bool {
+		return got != nil && got.Kad.Equal(want) && got.Akt.ID == aktom
+	}
 	// imenovan prije proglašenja, u pripremnom stanju, u redovnoj i u izvanrednoj:
 	// vrijedi do prekida redovne (pad s izvanredne na redovnu ga ne prekida)
 	for _, od := range []time.Time{kad(1, 0), kad(1, 12), kad(2, 15), kad(3, 12)} {
-		if k := KrajRedovneObrane(postupno, []string{"P.1.1"}, od); !jeKraj(k, kad(4, 9)) {
+		if k := PrestanakRedovneObrane(postupno, []string{"P.1.1"}, od); !jeKraj(k, kad(4, 9), "a5") {
 			t.Errorf("od %s: %v", od.Format("2.1. 15:04"), k)
 		}
 	}
 	// imenovan poslije redovne (u pripremnom ili poslije svega): nema kraja
 	for _, od := range []time.Time{kad(4, 9), kad(4, 12), kad(6, 0)} {
-		if k := KrajRedovneObrane(postupno, []string{"P.1.1"}, od); k != nil {
+		if k := PrestanakRedovneObrane(postupno, []string{"P.1.1"}, od); k != nil {
 			t.Errorf("od %s: %v", od.Format("2.1. 15:04"), k)
 		}
 	}
 	// redovna još traje: nema kraja
-	if k := KrajRedovneObrane(postupno[:3], []string{"P.1.1"}, kad(2, 15)); k != nil {
+	if k := PrestanakRedovneObrane(postupno[:3], []string{"P.1.1"}, kad(2, 15)); k != nil {
 		t.Errorf("traje: %v", k)
 	}
 	// izvanredno stanje odmah, bez nižih stadija, drži do svog prekida
 	odmah := []Akt{akt("s1", AktUspostava, PhaseState, 1, 8), akt("s2", AktPrekid, PhaseState, 3, 8)}
-	if k := KrajRedovneObrane(odmah, []string{"P.1.1"}, kad(1, 0)); !jeKraj(k, kad(3, 8)) {
+	if k := PrestanakRedovneObrane(odmah, []string{"P.1.1"}, kad(1, 0)); !jeKraj(k, kad(3, 8), "s2") {
 		t.Errorf("izvanredno stanje: %v", k)
 	}
 	// poništen prekid: redovna traje dalje
 	ponisten := append([]Akt(nil), postupno[:5]...)
 	ponisten[4].Storno = &StornoAkta{Razlog: "pogreška"}
-	if k := KrajRedovneObrane(ponisten, []string{"P.1.1"}, kad(2, 15)); k != nil {
+	if k := PrestanakRedovneObrane(ponisten, []string{"P.1.1"}, kad(2, 15)); k != nil {
 		t.Errorf("poništen prekid: %v", k)
 	}
 	// prekid koji stupa na snagu kasnije daje kraj u budućnosti
 	kasnije := []Akt{akt("k1", AktUspostava, PhaseRegular, 1, 8), akt("k2", AktPrekid, PhaseRegular, 20, 8)}
-	if k := KrajRedovneObrane(kasnije, []string{"P.1.1"}, kad(2, 0)); !jeKraj(k, kad(20, 8)) {
+	if k := PrestanakRedovneObrane(kasnije, []string{"P.1.1"}, kad(2, 0)); !jeKraj(k, kad(20, 8), "k2") {
 		t.Errorf("kasnije: %v", k)
 	}
 	// nijedan akt ili tuđa dionica: nema kraja
-	if k := KrajRedovneObrane(postupno, []string{"P.9.9"}, kad(1, 0)); k != nil {
+	if k := PrestanakRedovneObrane(postupno, []string{"P.9.9"}, kad(1, 0)); k != nil {
 		t.Errorf("tuđa dionica: %v", k)
 	}
 }
 
 // Više dionica (ili cijelo branjeno područje): imenovanje vrijedi dok obrana
 // traje na ijednoj; razdoblja koja se preklapaju ili dodiruju spajaju se
-func TestKrajRedovneObraneViseDionica(t *testing.T) {
+func TestPrestanakRedovneObraneViseDionica(t *testing.T) {
 	akti := []Akt{
 		naDionici(akt("b1", AktUspostava, PhaseRegular, 1, 8), "P.1.1"),
 		naDionici(akt("b2", AktUspostava, PhaseRegular, 3, 8), "P.1.2"),
@@ -323,15 +325,16 @@ func TestKrajRedovneObraneViseDionica(t *testing.T) {
 		dionice []string
 		od      time.Time
 		kraj    time.Time
+		aktom   string // akt koji je obranu ukinuo posljednji
 	}{
-		{sve, kad(1, 0), kad(7, 8)},
-		{sve, kad(5, 0), kad(7, 8)},
-		{[]string{"P.1.1", "P.1.2"}, kad(2, 0), kad(6, 8)},
-		{[]string{"P.1.1"}, kad(2, 0), kad(4, 8)},
-		{sve, kad(8, 0), kad(12, 8)},
+		{sve, kad(1, 0), kad(7, 8), "b6"},
+		{sve, kad(5, 0), kad(7, 8), "b6"},
+		{[]string{"P.1.1", "P.1.2"}, kad(2, 0), kad(6, 8), "b4"},
+		{[]string{"P.1.1"}, kad(2, 0), kad(4, 8), "b3"},
+		{sve, kad(8, 0), kad(12, 8), "b8"},
 	} {
-		if k := KrajRedovneObrane(akti, tc.dionice, tc.od); k == nil || !k.Equal(tc.kraj) {
-			t.Errorf("%v od %s: %v, treba %s", tc.dionice, tc.od.Format("2.1."), k, tc.kraj.Format("2.1. 15:04"))
+		if k := PrestanakRedovneObrane(akti, tc.dionice, tc.od); k == nil || !k.Kad.Equal(tc.kraj) || k.Akt.ID != tc.aktom {
+			t.Errorf("%v od %s: %+v, treba %s aktom %s", tc.dionice, tc.od.Format("2.1."), k, tc.kraj.Format("2.1. 15:04"), tc.aktom)
 		}
 	}
 	// razdoblje koje traje (bez prekida) proguta kasnija na drugim dionicama
@@ -340,7 +343,7 @@ func TestKrajRedovneObraneViseDionica(t *testing.T) {
 		naDionici(akt("c2", AktUspostava, PhaseRegular, 2, 8), "P.1.2"),
 		naDionici(akt("c3", AktPrekid, PhaseRegular, 3, 8), "P.1.2"),
 	}
-	if k := KrajRedovneObrane(otvoreno, []string{"P.1.1", "P.1.2"}, kad(1, 0)); k != nil {
+	if k := PrestanakRedovneObrane(otvoreno, []string{"P.1.1", "P.1.2"}, kad(1, 0)); k != nil {
 		t.Errorf("otvoreno: %v", k)
 	}
 	// kasnije razdoblje koje traje produži raniji kraj
@@ -349,7 +352,7 @@ func TestKrajRedovneObraneViseDionica(t *testing.T) {
 		naDionici(akt("d2", AktUspostava, PhaseRegular, 2, 8), "P.1.2"),
 		naDionici(akt("d3", AktPrekid, PhaseRegular, 3, 8), "P.1.1"),
 	}
-	if k := KrajRedovneObrane(produzeno, []string{"P.1.1", "P.1.2"}, kad(1, 0)); k != nil {
+	if k := PrestanakRedovneObrane(produzeno, []string{"P.1.1", "P.1.2"}, kad(1, 0)); k != nil {
 		t.Errorf("produženo: %v", k)
 	}
 }

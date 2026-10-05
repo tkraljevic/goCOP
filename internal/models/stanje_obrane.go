@@ -281,8 +281,17 @@ func RazdobljaObrane(akti []Akt, dionica string, t time.Time) []RazdobljeObrane 
 // razdobljeRedovne je razdoblje u kojem na dionici traje redovna obrana ili
 // viši stadij (izvanredna obrana, izvanredno stanje); Do je nil dok traje
 type razdobljeRedovne struct {
-	Od time.Time
-	Do *time.Time
+	Od    time.Time
+	Do    *time.Time
+	DoAkt *Akt // akt kojim je razdoblje završilo
+}
+
+// PrestanakObrane je trenutak kad prestanu redovna i izvanredna obrana i
+// izvanredno stanje, i ovjereni akt koji ih je ukinuo (kod više dionica onaj
+// koji ih je ukinuo posljednji)
+type PrestanakObrane struct {
+	Kad time.Time
+	Akt Akt
 }
 
 // razdobljaRedovne su razdoblja dionice s redovnom obranom ili višim
@@ -301,8 +310,8 @@ func razdobljaRedovne(akti []Akt, dionica string) []razdobljeRedovne {
 		case !prije && poslije:
 			out = append(out, razdobljeRedovne{Od: a.Vrijedi})
 		case prije && !poslije:
-			kraj := a.Vrijedi
-			out[len(out)-1].Do = &kraj
+			kraj, akt := a.Vrijedi, a
+			out[len(out)-1].Do, out[len(out)-1].DoAkt = &kraj, &akt
 		}
 	}
 	return out
@@ -315,7 +324,7 @@ func spojiRazdoblja(sva []razdobljeRedovne) []razdobljeRedovne {
 	for _, r := range sva {
 		if n := len(out); n > 0 && (out[n-1].Do == nil || !r.Od.After(*out[n-1].Do)) {
 			if out[n-1].Do != nil && (r.Do == nil || r.Do.After(*out[n-1].Do)) {
-				out[n-1].Do = r.Do
+				out[n-1].Do, out[n-1].DoAkt = r.Do, r.DoAkt
 			}
 			continue
 		}
@@ -324,14 +333,15 @@ func spojiRazdoblja(sva []razdobljeRedovne) []razdobljeRedovne {
 	return out
 }
 
-// KrajRedovneObrane je trenutak kad na dionicama, zajedno, prestanu redovna i
-// izvanredna obrana i izvanredno stanje: kraj prvog razdoblja koje u
-// trenutku od traje ili poslije počne. Privremeno imenovanje vrijedi do tada
-// (rješenje „prestaje važiti prestankom mjera izvanredne i redovne obrane na
-// dionici”), pa i kad je dano prije nego što je obrana proglašena. nil kad
-// razdoblje još traje ili ga nema: imenovanje tada vrijedi dalje. Akt koji
-// prekida obranu, a stupa na snagu kasnije, daje kraj u budućnosti.
-func KrajRedovneObrane(akti []Akt, dionice []string, od time.Time) *time.Time {
+// PrestanakRedovneObrane je trenutak kad na dionicama, zajedno, prestanu
+// redovna i izvanredna obrana i izvanredno stanje, s aktom koji ih je ukinuo:
+// kraj prvog razdoblja koje u trenutku od traje ili poslije počne. Kraj
+// određuje samo ovjereni akt o prestanku obrane; privremeno imenovanje ga
+// prati (rješenje „prestaje važiti prestankom mjera izvanredne i redovne
+// obrane na dionici”), pa i kad je dano prije nego što je obrana proglašena.
+// nil kad razdoblje još traje ili ga nema: imenovanje tada vrijedi dalje. Akt
+// koji prekida obranu, a stupa na snagu kasnije, daje kraj u budućnosti.
+func PrestanakRedovneObrane(akti []Akt, dionice []string, od time.Time) *PrestanakObrane {
 	var sva []razdobljeRedovne
 	for _, d := range dionice {
 		sva = append(sva, razdobljaRedovne(akti, d)...)
@@ -342,8 +352,7 @@ func KrajRedovneObrane(akti []Akt, dionice []string, od time.Time) *time.Time {
 			return nil
 		}
 		if r.Do.After(od) {
-			kraj := *r.Do
-			return &kraj
+			return &PrestanakObrane{Kad: *r.Do, Akt: *r.DoAkt}
 		}
 	}
 	return nil

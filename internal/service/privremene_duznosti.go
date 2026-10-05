@@ -49,13 +49,47 @@ func (s *UserService) istekDuznosti(d *models.Duty, sad time.Time) {
 		return
 	}
 	istek := d.Rok
-	if d.IsticeSObranom && s.krajObrane != nil {
-		istek = raniji(istek, s.krajObrane(*d))
+	if p := s.prestanakObraneZa(*d); p != nil {
+		istek = raniji(istek, &p.Kad)
 	}
 	if d.OvisiO != nil {
 		istek = raniji(istek, s.istekIzvora(*d.OvisiO, d.ExpiresAt, sad))
 	}
 	d.ExpiresAt = istek
+}
+
+// prestanakObraneZa je prestanak obrane za dužnost koja ističe s obranom
+func (s *UserService) prestanakObraneZa(d models.Duty) *models.PrestanakObrane {
+	if !d.IsticeSObranom || s.prestanakObrane == nil {
+		return nil
+	}
+	return s.prestanakObrane(d)
+}
+
+// IzvoriIsteka kaže, za privremene dužnosti kojima istek nije zadani dan,
+// odakle im je istek: prestanak obrane prema ovjerenom aktu (s njegovom
+// oznakom) ili istek privremene uprave iz koje su dodijeljene. Za profil.
+func (s *UserService) IzvoriIsteka(duznosti []models.Duty) map[uuid.UUID]string {
+	out := map[uuid.UUID]string{}
+	for _, d := range duznosti {
+		if izvor := s.izvorIsteka(d); izvor != "" {
+			out[d.ID] = izvor
+		}
+	}
+	return out
+}
+
+func (s *UserService) izvorIsteka(d models.Duty) string {
+	if !d.IsTemporary || d.ExpiresAt == nil || istiKraj(d.ExpiresAt, d.Rok) {
+		return ""
+	}
+	if p := s.prestanakObraneZa(d); p != nil && p.Kad.Equal(*d.ExpiresAt) {
+		return "prestanak obrane, akt " + p.Akt.Oznaka()
+	}
+	if d.OvisiO != nil {
+		return "istek privremene uprave koja ju je dodijelila"
+	}
+	return ""
 }
 
 // istekIzvora je istek dužnosti iz koje je privremena dodijeljena. Opozvana

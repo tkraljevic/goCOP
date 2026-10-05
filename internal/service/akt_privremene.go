@@ -14,11 +14,12 @@ import (
 	"gocop/internal/repository"
 )
 
-// KrajObraneDuznosti je kraj redovne i izvanredne obrane na dosegu dužnosti
-// (models.KrajRedovneObrane) od trenutka dodjele. nil dok obrana traje, kad je
-// nema ili kad se doseg ili akti ne daju pročitati: imenovanje tada vrijedi
-// dalje, do zadanog datuma ili opoziva.
-func (s *AktService) KrajObraneDuznosti(d models.Duty) *time.Time {
+// PrestanakObraneDuznosti je prestanak redovne i izvanredne obrane na dosegu
+// dužnosti od trenutka dodjele, s aktom koji ju je ukinuo
+// (models.PrestanakRedovneObrane). Kraj određuje akt; imenovanje ga samo
+// prati. nil dok obrana traje, kad je nema ili kad se doseg ili akti ne daju
+// pročitati: imenovanje tada vrijedi dalje, do zadanog dana ili opoziva.
+func (s *AktService) PrestanakObraneDuznosti(d models.Duty) *models.PrestanakObrane {
 	dionice, err := s.dioniceDosega(d)
 	if err != nil || len(dionice) == 0 {
 		return nil
@@ -36,7 +37,7 @@ func (s *AktService) KrajObraneDuznosti(d models.Duty) *time.Time {
 	if od.IsZero() {
 		od = time.Now()
 	}
-	return models.KrajRedovneObrane(akti, dionice, od)
+	return models.PrestanakRedovneObrane(akti, dionice, od)
 }
 
 // dioniceDosega su dionice na kojima dužnost vrijedi: upisane dionice, inače

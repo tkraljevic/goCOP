@@ -54,7 +54,7 @@ func TestPrivremeneGreskeBaze(t *testing.T) {
 	}
 	podrucje := 1
 	for _, d := range []models.Duty{{AreaID: &podrucje, IsticeSObranom: true}, {SectionCodes: "P.1.1", IsticeSObranom: true}} {
-		if k := akti.KrajObraneDuznosti(d); k != nil {
+		if k := akti.PrestanakObraneDuznosti(d); k != nil {
 			t.Errorf("kraj obrane bez baze (%+v): %v", d, k)
 		}
 	}
