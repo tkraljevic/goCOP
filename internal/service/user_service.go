@@ -387,6 +387,19 @@ func (s *UserService) provjeriVlastituAdresu(target *models.User, req UpdateUser
 	return nil
 }
 
+// zabranjenoNaSebi odbija izmjenu vlastitog računa koja mijenja korisničko
+// ime ili uključenost računa: to osobi mijenja uprava. Nepromijenjene
+// vrijednosti iz obrasca ne smetaju.
+func zabranjenoNaSebi(target *models.User, req UpdateUserRequest) error {
+	if strings.TrimSpace(req.Username) != target.Username {
+		return fmt.Errorf("%w: svoje korisničko ime ne mijenjate sami, nego uprava", ErrUnauthorized)
+	}
+	if req.IsActive != target.IsActive {
+		return fmt.Errorf("%w: svoj račun ne uključujete ni isključujete sami", ErrUnauthorized)
+	}
+	return nil
+}
+
 // UpdateUser ažurira matične podatke korisnika. Vlastitu adresu e-pošte
 // osoba mijenja samo uz pravila provjeriVlastituAdresu (kriva ili prazna
 // trenutna lozinka: errors.Is ErrKrivaLozinka), a stara adresa dobije
@@ -398,7 +411,10 @@ func (s *UserService) provjeriVlastituAdresu(target *models.User, req UpdateUser
 // na ovom čvoru, briše spremljenu lozinku sandučića i, kao poništenje,
 // traži zamjenu pri prvoj prijavi. Adresu koju već ima drugi aktivni račun
 // ne upisuje nitko (ni pri uključenju računa), a novo korisničko ime ne
-// smije biti tuđe ni drugim slovima.
+// smije biti tuđe ni drugim slovima. Izmjena koju actor ne smije
+// (zastavica globalnog administratora bez stalne uprave organizacije, na
+// vlastitom računu korisničko ime i uključenost) odbija se porukom, a ne
+// zanemaruje.
 func (s *UserService) UpdateUser(actor *models.UserPermissions, req UpdateUserRequest) (*models.User, error) {
 	target, err := s.userRepo.GetUserByID(req.ID)
 	if err != nil {
@@ -438,12 +454,14 @@ func (s *UserService) UpdateUser(actor *models.UserPermissions, req UpdateUserRe
 					return nil, err
 				}
 			}
-			req.IsGlobalAdmin = target.IsGlobalAdmin
+			// zastavicu ne mijenja: odbija je provjera stalne uprave niže
 		} else {
-			// Korisnik uređuje SAM SVOJ profil (može mijenjati ime, titulu, telefone, email, lozinku)
-			req.IsGlobalAdmin = target.IsGlobalAdmin
-			req.IsActive = target.IsActive
-			req.Username = target.Username // korisnik ne može mijenjati svoje korisničko ime
+			// Korisnik uređuje SAM SVOJ profil (može mijenjati ime, titulu,
+			// telefone, email, lozinku); korisničko ime, uključenost računa
+			// i zastavicu ne mijenja, a zahtjev koji ih mijenja odbija se
+			if err := zabranjenoNaSebi(target, req); err != nil {
+				return nil, err
+			}
 			if req.OrgType == "" {
 				req.OrgType = target.OrgType
 			}

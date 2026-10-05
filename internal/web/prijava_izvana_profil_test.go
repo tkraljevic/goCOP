@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"crypto/tls"
+	"database/sql"
 	"html/template"
 	"io/fs"
 	"net/http"
@@ -53,6 +54,7 @@ func (l *lazniPostar) Imenik(context.Context, posta.Postavke, posta.Racun, strin
 
 type okolinaIzvana struct {
 	t      *testing.T
+	baza   *sql.DB
 	repo   *repository.UserRepository
 	auth   *service.AuthService
 	users  *service.UserService
@@ -117,7 +119,7 @@ func novaOkolinaIzvana(t *testing.T) *okolinaIzvana {
 	mux.HandleFunc("POST /administracija/posta/pin/sklopka", aktiH.HandlePINSklopka)
 	ponovnaLozinka = newLoginLimiter()
 	t.Cleanup(func() { ponovnaLozinka = newLoginLimiter() })
-	return &okolinaIzvana{t: t, repo: repo, auth: auth, users: users, dk: dk, postar: postar, usersH: usersH, aktiH: aktiH, mux: mux}
+	return &okolinaIzvana{t: t, baza: baza, repo: repo, auth: auth, users: users, dk: dk, postar: postar, usersH: usersH, aktiH: aktiH, mux: mux}
 }
 
 func (o *okolinaIzvana) racun(ime, lozinka, email string, admin bool) *models.User {
