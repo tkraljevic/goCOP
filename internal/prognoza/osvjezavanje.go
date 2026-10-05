@@ -411,29 +411,40 @@ func (o *Osvjezivac) tudeIspredRacuna(pojasi map[string][]Pojas, nizovi map[Izvo
 		}
 	}
 	for len(skinute) > 0 {
-		bez := map[string][]Pojas{}
-		for letva, ps := range pojasi {
-			if _, skinuta := skinute[letva]; !skinuta {
-				bez[letva] = ps
-			}
-		}
-		_, vrhovi := TrebaniIzvori(bez)
-		sada, ok := ZadnjiZajednicki(nizovi, vrhovi)
+		sada, ok := ZadnjiZajednicki(nizovi, vrhoviBez(pojasi, skinute))
 		if !ok {
 			return nil
 		}
-		ustaljeno := true
-		for letva, izvor := range skinute {
-			if _, ima := o.tudaSvjeza(izvor, letva, sada); !ima {
-				delete(skinute, letva)
-				ustaljeno = false
-			}
-		}
-		if ustaljeno {
+		if !o.zadrziSvjeze(skinute, sada) {
 			break
 		}
 	}
 	return skinute
+}
+
+// vrhoviBez su vrhovi lanca kad letvama iz skinute nema računa.
+func vrhoviBez(pojasi map[string][]Pojas, skinute map[string]string) map[Izvor]bool {
+	bez := map[string][]Pojas{}
+	for letva, ps := range pojasi {
+		if _, skinuta := skinute[letva]; !skinuta {
+			bez[letva] = ps
+		}
+	}
+	_, vrhovi := TrebaniIzvori(bez)
+	return vrhovi
+}
+
+// zadrziSvjeze izbacuje iz skinute letve kojima tuđa prognoza nije svježa u
+// satu sada i javlja je li ijednu izbacila.
+func (o *Osvjezivac) zadrziSvjeze(skinute map[string]string, sada int64) bool {
+	izbacena := false
+	for letva, izvor := range skinute {
+		if _, ima := o.tudaSvjeza(izvor, letva, sada); !ima {
+			delete(skinute, letva)
+			izbacena = true
+		}
+	}
+	return izbacena
 }
 
 // tudaSvjeza vraća tuđu prognozu letve kad je svježa u satu izdavanja sada:

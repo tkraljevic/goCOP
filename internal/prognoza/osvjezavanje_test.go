@@ -398,3 +398,18 @@ func TestTudaIspredRacunaSvjezaPoSatuIzdavanja(t *testing.T) {
 		t.Errorf("srednja se ne smije računati dok je vrh, a ima %d izdanih", n)
 	}
 }
+
+// Bez sata izdavanja (vrh lanca bez ijednog očitanja) svježinu tuđe prognoze
+// nije moguće reći, pa letva zadržava račun.
+func TestTudaIspredRacunaBezSataIzdavanja(t *testing.T) {
+	zadnji := time.Now().UTC().Truncate(time.Hour)
+	o := lanacSaSrednjom(t, zadnji)
+	upisiTuduSrednje(t, o.Baza, zadnji.Unix()/3600)
+	pojasi, err := SviPojasi(o.Baza)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if skinute := o.tudeIspredRacuna(pojasi, map[Izvor]Niz{}); len(skinute) != 0 {
+		t.Errorf("bez očitanja skinut je račun: %v", skinute)
+	}
+}
