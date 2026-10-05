@@ -346,7 +346,11 @@ func (h *SectionsHandler) ShowSectionForm(w http.ResponseWriter, r *http.Request
 			for _, a := range mustAreas(h) {
 				if a.ID == data.Section.AreaID {
 					data.Section.SectorID = a.SectorID
-					data.PredlozenaSifra = h.sectionService.SljedecaSifra(a.SectorID, a.ID)
+					sifra, err := h.sectionService.SljedecaSifra(a.SectorID, a.ID)
+					if err != nil {
+						data.ErrorMessage = "Šifra sljedeće dionice ne može se predložiti: " + err.Error()
+					}
+					data.PredlozenaSifra = sifra
 					break
 				}
 			}
