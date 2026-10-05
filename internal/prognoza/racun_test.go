@@ -31,7 +31,7 @@ func ravanNiz(od, do int64, pocetak, korak float64) Niz {
 // prigušenje prozorom doseg prepolovilo. Dokle pretpostavka vrijedi ne
 // postavlja se ovdje nego se mjeri provjerom.
 func TestVrhLancaSeDrziZadnjeVrijednosti(t *testing.T) {
-	PoluvijekIspravka = 0
+	postavi(t, &PoluvijekIspravka, 0)
 	sada := int64(1000)
 	gornja := Izvor{Letva: "gornja", Velicina: "vodostaj"}
 	nizovi := map[Izvor]Niz{gornja: ravanNiz(900, sada, 100, 1)}
@@ -63,7 +63,7 @@ func TestVrhLancaSeDrziZadnjeVrijednosti(t *testing.T) {
 // Raspon mora rasti kroz lanac: rasap dionice i promašaj onoga što u nju ulazi
 // nisu isti promašaj, pa se zbrajaju kvadratno.
 func TestRasponNosiNagib(t *testing.T) {
-	PoluvijekIspravka = 0
+	postavi(t, &PoluvijekIspravka, 0)
 	sada := int64(1000)
 	nizovi := map[Izvor]Niz{
 		{Letva: "gornja", Velicina: "vodostaj"}: ravanNiz(900, sada, 100, 0),
@@ -91,9 +91,8 @@ func TestRasponNosiNagib(t *testing.T) {
 // Model koji je u trenutku izdavanja bio prenizak bit će prenizak i poslije,
 // pa se ta razlika nosi naprijed — sve slabije.
 func TestIspravakNosiRazlikuPremaMjerenju(t *testing.T) {
-	PoluvijekIspravka = 24
-	StalniIspravakSati = 0 // staro pravilo: sav ispravak blijedi
-	defer func() { PoluvijekIspravka, StalniIspravakSati = 48, 72 }()
+	postavi(t, &PoluvijekIspravka, 24)
+	postavi(t, &StalniIspravakSati, 0) // staro pravilo: sav ispravak blijedi
 	sada := int64(1000)
 	nizovi := map[Izvor]Niz{
 		{Letva: "gornja", Velicina: "vodostaj"}: ravanNiz(900, sada, 100, 0),
@@ -118,8 +117,7 @@ func TestIspravakNosiRazlikuPremaMjerenju(t *testing.T) {
 // letva koja danima stoji 30 cm iznad modela stajat će i dalje ondje — da
 // ispravak blijedi, prognoza bi od mirne vode napravila val od 30 cm.
 func TestStalniIspravakNeBlijedi(t *testing.T) {
-	PoluvijekIspravka = 24
-	defer func() { PoluvijekIspravka = 48 }()
+	postavi(t, &PoluvijekIspravka, 24)
 	sada := int64(1000)
 	gornja := Izvor{Letva: "gornja", Velicina: "vodostaj"}
 	donja := Izvor{Letva: "donja", Velicina: "vodostaj"}
@@ -164,7 +162,7 @@ func TestPrevelikaRupaSeNePremoscuje(t *testing.T) {
 // se uzme zadnje od njih, čita se iz budućnosti. Aljmašu je tako ispao pomak od
 // 287 cm, a izgledalo je kao da produžetak uzvodne letve ne valja.
 func TestVrhLancaNeCitaIzBuducnosti(t *testing.T) {
-	PoluvijekIspravka = 0
+	postavi(t, &PoluvijekIspravka, 0)
 	sada := int64(1000)
 	gornja := Izvor{Letva: "gornja", Velicina: "vodostaj"}
 	// Niz ide i daleko poslije sata izdavanja, i ondje je posve drugačiji.
@@ -187,7 +185,7 @@ func TestVrhLancaNeCitaIzBuducnosti(t *testing.T) {
 // njezinih uzvodnih i nastavi dalje. Zato gusti lanac nije samo doseg nego i
 // zaliha — kad jedna letva stane, susjedna je pokriva.
 func TestLetvaBezMjerenjaNeZaustavljaLanac(t *testing.T) {
-	PoluvijekIspravka = 0
+	postavi(t, &PoluvijekIspravka, 0)
 	sada := int64(1000)
 	gornja := Izvor{Letva: "gornja", Velicina: "vodostaj"}
 	srednja := Izvor{Letva: "srednja", Velicina: "vodostaj"}
@@ -234,7 +232,7 @@ func TestLetvaBezMjerenjaNeZaustavljaLanac(t *testing.T) {
 // za sat najsvježijeg vrha, a vrhu koji kasni drži se zadnja vrijednost. Vrh
 // koji kasni više od toga i dalje određuje sat izdanja.
 func TestVrhKojiKasniNeVuceIzdanje(t *testing.T) {
-	PoluvijekIspravka = 0
+	postavi(t, &PoluvijekIspravka, 0)
 	gornja := Izvor{Letva: "gornja", Velicina: "vodostaj"}
 	druga := Izvor{Letva: "druga", Velicina: "vodostaj"}
 	vrhovi := map[Izvor]bool{gornja: true, druga: true}
@@ -262,7 +260,7 @@ func TestVrhKojiKasniNeVuceIzdanje(t *testing.T) {
 // Vrh s tuđom prognozom ne stoji na zadnjem mjerenju: zadnjem mjerenju dodaje
 // se hod tuđe prognoze od sata izdavanja, a njezina razina ne smeta.
 func TestVrhSlijediTuduPrognozu(t *testing.T) {
-	PoluvijekIspravka = 0
+	postavi(t, &PoluvijekIspravka, 0)
 	sada := int64(1000)
 	gornja := Izvor{Letva: "gornja", Velicina: "vodostaj"}
 	nizovi := map[Izvor]Niz{gornja: ravanNiz(900, sada, 100, 0)} // stoji na 100
@@ -289,8 +287,7 @@ func TestVrhSlijediTuduPrognozu(t *testing.T) {
 // Letva u lancu koja kasni sat za satom izdavanja ispravlja se od svog zadnjeg
 // mjerenja. Bez toga bi u satu izdavanja ostao goli model.
 func TestIspravakOdZadnjegMjerenjaKadLetvaKasni(t *testing.T) {
-	PoluvijekIspravka = 48
-	defer func() { PoluvijekIspravka = 48 }()
+	postavi(t, &PoluvijekIspravka, 48)
 	sada := int64(1000)
 	gornja := Izvor{Letva: "gornja", Velicina: "vodostaj"}
 	donja := Izvor{Letva: "donja", Velicina: "vodostaj"}
@@ -352,8 +349,7 @@ func TestNepovezanPojasNeDajePrognozu(t *testing.T) {
 // Kad letva raste, dolazi val: stalni dio se ne nosi, nego sav ispravak
 // blijedi, jer pogreška od prije vala u valu više ne vrijedi.
 func TestStalniIspravakNeUValu(t *testing.T) {
-	PoluvijekIspravka = 24
-	defer func() { PoluvijekIspravka = 48 }()
+	postavi(t, &PoluvijekIspravka, 24)
 	sada := int64(1000)
 	m := map[int64]float64{}
 	g := map[int64]float64{}
