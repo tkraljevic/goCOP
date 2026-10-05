@@ -1026,25 +1026,28 @@ func SpremiPromasaje(db *sql.DB, promasaji []Promasaj, kad string) error {
 	return tx.Commit()
 }
 
-// Promasaji čita izmjerene promašaje: letva → doseg u satima → promašaj.
-func Promasaji(db *sql.DB) (map[string]map[int]Promasaj, error) {
+// Promasaji čita izmjerene promašaje: letva i veličina → doseg u satima →
+// promašaj. Veličina je dio ključa kao i u tablici: promašaj u kubicima ne
+// smije ispraviti prognozu u centimetrima.
+func Promasaji(db *sql.DB) (map[Izvor]map[int]Promasaj, error) {
 	r, err := db.Query(`SELECT letva, velicina, doseg_h, pomak, rasap, postojanost, slucaja
-		FROM promasaji ORDER BY letva, doseg_h`)
+		FROM promasaji ORDER BY letva, velicina, doseg_h`)
 	if err != nil {
 		return nil, err
 	}
 	defer r.Close()
-	out := map[string]map[int]Promasaj{}
+	out := map[Izvor]map[int]Promasaj{}
 	for r.Next() {
 		var p Promasaj
 		if err := r.Scan(&p.Letva, &p.Velicina, &p.DosegH, &p.Pomak, &p.Rasap,
 			&p.Postojanost, &p.Slucaja); err != nil {
 			return nil, err
 		}
-		if out[p.Letva] == nil {
-			out[p.Letva] = map[int]Promasaj{}
+		iz := Izvor{Letva: p.Letva, Velicina: p.Velicina}
+		if out[iz] == nil {
+			out[iz] = map[int]Promasaj{}
 		}
-		out[p.Letva][p.DosegH] = p
+		out[iz][p.DosegH] = p
 	}
 	return out, r.Err()
 }

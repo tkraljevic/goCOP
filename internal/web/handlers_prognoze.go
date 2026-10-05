@@ -807,7 +807,7 @@ func (c *CitacPrognoza) Pregled() (time.Time, []PregledLetve, error) {
 			// Je li prognoza bolja od postojanosti mjereno je u veličini u
 			// kojoj model radi; krivulja to ne mijenja, samo preslikava.
 			bolja := true
-			if pr, ima := promasaji[letva][d]; ima {
+			if pr, ima := promasaji[prognoza.Izvor{Letva: letva, Velicina: p.Racuna}][d]; ima {
 				bolja = pr.BoljaOdPostojanosti()
 			}
 			if d > 0 {
