@@ -17,18 +17,25 @@ od [pravila uprave](INSTALACIJA.md#3-podaci-i-sigurnost) i
    **zamjenik ili zamjenica**, dionice ili branjenog područja.
 4. Imenovanje vrijedi **dok na njegovim dionicama, odnosno u branjenom
    području, traje redovna ili izvanredna obrana** (i izvanredno stanje).
-   Može imati i zadan datum; prestaje ono što dođe prvo.
+   Može imati i zadan dan, zaključno s kojim vrijedi; prestaje ono što dođe
+   prvo.
 5. **Ovlasti koje privremeni rukovoditelj dodijeli** (dužnosti uprave)
    istječu zajedno s njegovom dužnošću. To piše i u rješenju.
+6. **Datum se piše zaključno:** „vrijedi do 15. 10.” čita se različito, pa
+   se piše „zaključno s 14. 10.”, odnosno „prestaje 15. 10.”. Dužnost tada
+   prestaje 15. 10. u 0 h po našem vremenu.
 
 ## Kako radi u programu
 
 - **Obrazac zaduženja:** kvačica *Privremena ispomoć (privremeno
   imenovanje)*, ispod nje *Ističe prestankom redovne i izvanredne obrane* (za
-  novo imenovanje uključeno), razlog i neobavezni *Vrijedi do*. Profil
-  djelatnika pokazuje *Privremeno* i dokle vrijedi: datum, „dok traje redovna
-  ili izvanredna obrana” ili „do opoziva”.
-- **Zapis dužnosti:** `Rok` je zadani datum, `IsticeSObranom` veže imenovanje
+  novo imenovanje uključeno), razlog i neobavezni *Vrijedi zaključno s*
+  (zadnji dan važenja). Profil djelatnika pokazuje *Privremeno* i dokle
+  vrijedi: „zaključno s 14. 10. 2026. (prestaje 15. 10. u 0 h)”, „prestaje
+  20. 10. 2026. u 10:00” kad prestaje s krajem obrane, „dok traje redovna ili
+  izvanredna obrana” ili „do opoziva”.
+- **Zapis dužnosti:** `Rok` je trenutak prestanka iz zadanog dana (idući
+  dan u 0 h po našem vremenu), `IsticeSObranom` veže imenovanje
   za obranu, a `OvisiO` je dužnost privremene uprave iz koje je dužnost
   dodijeljena. Stvarni istek ostaje u `ExpiresAt`, najraniji od zadanog
   datuma, kraja obrane i isteka dužnosti iz koje je dodijeljena. Ostatak
@@ -71,7 +78,8 @@ Prema rješenjima Sektora B (BP 34, lipanj 2024.):
 - **Članak 3.** Imenovani obavlja sve poslove predviđene Državnim planom
   obrane od poplava i planom obrane dionice;
 - **Članak 4.** Rješenje prestaje važiti prestankom mjera izvanredne i
-  redovne obrane na dionici (u području), a najkasnije [datum], ako je zadan;
+  redovne obrane na dionici (u području), a najkasnije zaključno s [datum],
+  ako je zadan;
 - **novi članak:** ovlasti koje imenovani dodijeli u programu goCOP u okviru
   uprave dionice, odnosno branjenog područja, prestaju zajedno s ovim
   imenovanjem (tekst još treba uskladiti);
@@ -82,9 +90,6 @@ istek s obranom), storno je opoziva, a broj akta stoji uz dužnost.
 
 ## Otvoreno
 
-1. *Vrijedi do* sprema se kao ponoć UTC na početku tog dana, pa dužnost s
-   datumom 15. 10. istječe 15. 10. u 2 h. Tako je bilo i dosad za sve dužnosti
-   s rokom. Treba li „do 15. 10.” uključivati cijeli taj dan?
-2. Čvor starijeg izdanja ne zna za zadani datum ni istek s obranom. Ako on
+1. Čvor starijeg izdanja ne zna za zadani datum ni istek s obranom. Ako on
    izmijeni takvu dužnost, noviji čvor istek preračuna iz zapisanih polja.
    Privremena imenovanja uređivati na 0.0.35 ili novijem.

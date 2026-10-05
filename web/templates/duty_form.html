@@ -78,8 +78,9 @@
         <input type="text" id="reason" name="reason" class="form-control" value="{{if .Duty}}{{.Duty.Reason}}{{end}}" placeholder="npr. nedostaje osoblja za redovnu obranu na dionicama B.34.2 i B.34.3">
       </div>
       <div class="form-group">
-        <label class="form-label" for="expires_at">Vrijedi do (neobavezno)</label>
+        <label class="form-label" for="expires_at">Vrijedi zaključno s (neobavezno)</label>
         <input type="date" id="expires_at" name="expires_at" class="form-control" value="{{.DutyExpires}}">
+        <div class="form-help">Zadnji dan na koji vrijedi: zaključno s 14. 10. znači da prestaje 15. 10. u 0 h.</div>
       </div>
     </div>
   </div>

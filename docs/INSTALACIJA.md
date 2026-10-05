@@ -291,7 +291,7 @@ Portovi se mijenjaju u `gocop.toml`.
   ne izmijeni ili opozove, osim privremenog imenovanja (privremena ispomoć kad
   za obranu nedostaje ljudi): ono vrijedi dok na njegovim dionicama, odnosno u
   branjenom području, traje redovna ili izvanredna obrana prema ovjerenim
-  aktima, ili do zadanog datuma ako je raniji. Privremena uprava (privremeno
+  aktima, ili zaključno sa zadanim danom ako je on raniji. Privremena uprava (privremeno
   imenovanje ili dužnost s rokom) dužnost koja daje upravu na njezinoj ili
   nižoj razini dodjeljuje kao privremenu, koja ističe zajedno s njezinom (i
   kad je opozvana); zadani rok ne smije biti dulji od njezina, a tuđu

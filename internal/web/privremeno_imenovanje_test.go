@@ -23,8 +23,9 @@ import (
 )
 
 // Privremeno imenovanje kroz obrazac: kvačica „ističe s obranom” stiže do
-// dužnosti, profil kaže dokle vrijedi, a obrazac izmjene nudi zadani datum,
-// ne raniji stvarni istek (kraj obrane)
+// dužnosti, „Vrijedi zaključno s 31. 12.” prestaje 1. 1. u 0 h po našem
+// vremenu, profil kaže kad prestaje, a obrazac izmjene nudi zadani dan, ne
+// raniji stvarni istek (kraj obrane)
 func TestPrivremenoImenovanjeKrozObrazac(t *testing.T) {
 	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "imenovanje.db"))
 	if err != nil {
@@ -102,7 +103,7 @@ func TestPrivremenoImenovanjeKrozObrazac(t *testing.T) {
 
 	// novi obrazac: privremeno imenovanje, kvačica obrane unaprijed uključena
 	mora(zovi(http.MethodGet, "/users/"+osoba.ID.String()+"/duties/new", nil), "novi obrazac",
-		"Privremena ispomoć (privremeno imenovanje)", `name="istece_s_obranom" value="1" checked`, "Vrijedi do (neobavezno)")
+		"Privremena ispomoć (privremeno imenovanje)", `name="istece_s_obranom" value="1" checked`, "Vrijedi zaključno s (neobavezno)")
 
 	w := zovi(http.MethodPost, "/users/duty/add", url.Values{"user_id": {osoba.ID.String()}, "role": {string(models.RoleSectionLeader)},
 		"sector_id": {"B"}, "area_id": {"34"}, "section_codes": {"B.34.2"}, "is_temporary": {"1"}, "istece_s_obranom": {"1"},
@@ -115,12 +116,13 @@ func TestPrivremenoImenovanjeKrozObrazac(t *testing.T) {
 		t.Fatalf("zaduženja: %+v", u.Duties)
 	}
 	d := u.Duties[0]
-	if !d.IsTemporary || !d.IsticeSObranom || d.Rok == nil || d.Rok.Format("2006-01-02") != "2026-12-31" || d.ExpiresAt == nil || !d.ExpiresAt.Equal(krajObrane) {
+	prestanak := time.Date(2026, 12, 31, 23, 0, 0, 0, time.UTC) // 1. 1. 2027. u 0 h u Zagrebu
+	if !d.IsTemporary || !d.IsticeSObranom || d.Rok == nil || !d.Rok.Equal(prestanak) || d.ExpiresAt == nil || !d.ExpiresAt.Equal(krajObrane) {
 		t.Fatalf("imenovanje: privremena %v, s obranom %v, rok %v, istek %v", d.IsTemporary, d.IsticeSObranom, d.Rok, d.ExpiresAt)
 	}
 
-	// profil: vrijedi do kraja obrane (raniji od datuma)
-	mora(zovi(http.MethodGet, "/users/"+osoba.ID.String(), nil), "profil", "Privremeno · Rukovoditelj dionice", "do 20.10.2026")
+	// profil: prestaje s krajem obrane (raniji od datuma), u satu po našem vremenu
+	mora(zovi(http.MethodGet, "/users/"+osoba.ID.String(), nil), "profil", "Privremeno · Rukovoditelj dionice", "prestaje 20. 10. 2026. u 10:00")
 
 	// obrazac izmjene nudi zadani datum, a kvačica ostaje
 	mora(zovi(http.MethodGet, "/users/duties/"+d.ID.String()+"/edit", nil), "obrazac izmjene",

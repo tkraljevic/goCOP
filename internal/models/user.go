@@ -100,7 +100,8 @@ type Duty struct {
 	// koje je dodijeljena (OvisiO)
 	ExpiresAt *time.Time `json:"expires_at,omitempty"`
 	IsActive  bool       `json:"is_active"`
-	// Rok je datum koji je privremenoj dužnosti zadan pri dodjeli („Vrijedi do”)
+	// Rok je zadani prestanak privremene dužnosti: obrazac „Vrijedi zaključno
+	// s” 14. 10. daje 15. 10. u 0 h po hrvatskom vremenu (PrestanakNakonDana)
 	Rok *time.Time `json:"rok,omitempty"`
 	// IsticeSObranom: privremeno imenovanje vrijedi dok na njegovim dionicama,
 	// odnosno u branjenom području, traje redovna ili izvanredna obrana ili
@@ -111,9 +112,9 @@ type Duty struct {
 	OvisiO *uuid.UUID `json:"ovisi_o,omitempty"`
 }
 
-// ZadaniRok je datum zadan pri dodjeli („Vrijedi do”): stvarni istek može biti
-// raniji (kraj obrane, istek dužnosti iz koje je dodijeljena), a zapisi iz
-// vremena prije zadanog datuma imaju ga samo u isteku
+// ZadaniRok je prestanak zadan pri dodjeli („Vrijedi zaključno s”): stvarni
+// istek može biti raniji (kraj obrane, istek dužnosti iz koje je
+// dodijeljena), a zapisi iz vremena prije zadanog roka imaju ga samo u isteku
 func (d Duty) ZadaniRok() *time.Time {
 	if d.Rok != nil || d.IsticeSObranom || d.OvisiO != nil {
 		return d.Rok

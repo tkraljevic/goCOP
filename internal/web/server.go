@@ -350,6 +350,8 @@ func templateFuncs() template.FuncMap {
 			}
 			return t.Format("02.01.2006 15:04")
 		},
+		"istekDuznosti":  istekDuznosti,
+		"istekPrijasnje": istekPrijasnje,
 		"formatDateShort": func(t *time.Time) string {
 			if t == nil || t.IsZero() {
 				return "Trajno"

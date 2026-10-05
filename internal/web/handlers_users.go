@@ -346,12 +346,6 @@ func dutyRequestFromForm(r *http.Request, userID uuid.UUID) service.AddDutyReque
 	if v, _ := strconv.Atoi(r.FormValue("area_id")); v > 0 {
 		areaPtr = &v
 	}
-	var expiresPtr *time.Time
-	if expStr := r.FormValue("expires_at"); expStr != "" {
-		if t, err := time.Parse("2006-01-02", expStr); err == nil {
-			expiresPtr = &t
-		}
-	}
 	return service.AddDutyRequest{
 		UserID:       userID,
 		Title:        strings.TrimSpace(r.FormValue("title")),
@@ -362,7 +356,7 @@ func dutyRequestFromForm(r *http.Request, userID uuid.UUID) service.AddDutyReque
 		IsPrimary:    r.FormValue("is_primary") == "1" || r.FormValue("is_primary") == "on",
 		IsTemporary:  r.FormValue("is_temporary") == "1" || r.FormValue("is_temporary") == "on",
 		Reason:       strings.TrimSpace(r.FormValue("reason")),
-		ExpiresAt:    expiresPtr,
+		ExpiresAt:    rokIzObrasca(r), // „Vrijedi zaključno s”: prestaje idući dan u 0 h
 		// istek s obranom ima smisla samo uz privremenu; servis ga za stalnu briše
 		IsticeSObranom: r.FormValue("istece_s_obranom") == "1" || r.FormValue("istece_s_obranom") == "on",
 	}
