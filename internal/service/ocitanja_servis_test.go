@@ -614,8 +614,9 @@ func TestTerenskiPogledVrijemeOkoPonoci(t *testing.T) {
 	u := func(sat, minuta int) time.Time {
 		return time.Date(d.Year(), d.Month(), d.Day(), sat, minuta, 0, 0, models.Zagreb)
 	}
-	// Primjerovo uvijek oko ponoći (23:50 i 0:10), CS Probni u 6:00. Prosjek
-	// minuta stavlja ponoćnu letvu na podne, pa ona ide iza jutarnje.
+	// Primjerovo uvijek oko ponoći (23:50 i 0:10), CS Probni u 6:00. Kružna
+	// sredina stavlja ponoćnu letvu na ponoć (a ne na podne, kao obična
+	// sredina minuta), pa ona ide prije jutarnje.
 	o.upisi(t, models.Reading{StationID: o.primjerovo.ID.String(), MeasuredAt: u(23, 50), LevelCm: cmP(1), UserID: pp.ID.String()})
 	o.upisi(t, models.Reading{StationID: o.primjerovo.ID.String(), MeasuredAt: u(0, 10), LevelCm: cmP(1), UserID: pp.ID.String()})
 	o.upisi(t, models.Reading{StructureID: o.csProbni.ID.String(), MeasuredAt: u(6, 0), LevelCm: cmP(1), UserID: pp.ID.String()})
@@ -623,7 +624,7 @@ func TestTerenskiPogledVrijemeOkoPonoci(t *testing.T) {
 	if err != nil || len(fo.Mine) != 2 {
 		t.Fatalf("%+v %v", fo, err)
 	}
-	if fo.Mine[0].Name != "CS Probni" || fo.Mine[1].UsualTime() != "12:00" {
+	if fo.Mine[0].Name != "Primjerovo" || fo.Mine[0].UsualTime() != "00:00" || fo.Mine[1].UsualTime() != "06:00" {
 		t.Errorf("poredak %s (%s), %s (%s)", fo.Mine[0].Name, fo.Mine[0].UsualTime(), fo.Mine[1].Name, fo.Mine[1].UsualTime())
 	}
 }

@@ -61,3 +61,32 @@ func TestNavikeVezaneUzKorisnika(t *testing.T) {
 		t.Error("očitanje imenjaka s drugim računom ušlo je u navike")
 	}
 }
+
+// Uobičajeno vrijeme je kružna sredina: letva očitavana oko ponoći dobiva
+// ponoć, a ne podne kao obična sredina minuta
+func TestNavikeVrijemeOkoPonoci(t *testing.T) {
+	repo, upisi := noveNavike(t)
+	pero := uuid.NewString()
+	d := time.Now().In(models.Zagreb).AddDate(0, 0, -3)
+	u := func(dan, sat, minuta int) time.Time {
+		return time.Date(d.Year(), d.Month(), d.Day()+dan, sat, minuta, 0, 0, models.Zagreb)
+	}
+	upisi("ponoc", pero, "", u(0, 23, 50))
+	upisi("ponoc", pero, "", u(1, 0, 10))
+	upisi("kasno", pero, "", u(0, 23, 40))
+	upisi("kasno", pero, "", u(1, 0, 0))
+	upisi("jutro", pero, "", u(0, 6, 0))
+	upisi("jutro", pero, "", u(1, 8, 0))
+	navike, err := repo.HabitsFor(context.Background(), pero, "", time.Now().AddDate(0, 0, -90))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for letva, minuta := range map[string]int{"ponoc": 0, "kasno": 23*60 + 50, "jutro": 7 * 60} {
+		if h := navike["station:"+letva]; h.Count != 2 || h.UsualMin != minuta {
+			t.Errorf("%s: %+v, očekivana minuta %d", letva, h, minuta)
+		}
+	}
+	if kruznaSredina([]int{1439}) != 1439 || kruznaSredina([]int{0}) != 0 {
+		t.Error("jedno vrijeme je samo sebi sredina")
+	}
+}
