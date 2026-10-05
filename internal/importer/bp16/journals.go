@@ -240,6 +240,20 @@ func placeholder(name string) bool {
 	return n == "upis" || n == "naziv kanala" || n == ""
 }
 
+// withDate izbacuje zapise bez datuma (kraće od punog datuma), jer ne
+// pripadaju nijednom listu, i broji ih
+func withDate(rows []evRow, noDate *int) []evRow {
+	out := rows[:0]
+	for _, r := range rows {
+		if len(r.Datum) < len("2006-01-02") {
+			*noDate++
+			continue
+		}
+		out = append(out, r)
+	}
+	return out
+}
+
 // RunJournals uvozi evidencije radova u dnevnike; bez DryRun piše
 func RunJournals(ctx context.Context, src Source, deps JournalDeps) (JournalReport, error) {
 	rep := JournalReport{DryRun: deps.DryRun, PerYear: map[string]int{}}
@@ -418,6 +432,7 @@ func RunJournals(ctx context.Context, src Source, deps JournalDeps) (JournalRepo
 			}
 		}
 		rep.Records += len(rows)
+		rows = withDate(rows, &rep.NoDate)
 		sort.Slice(rows, func(i, j int) bool {
 			if rows[i].Datum != rows[j].Datum {
 				return rows[i].Datum < rows[j].Datum
@@ -429,10 +444,6 @@ func RunJournals(ctx context.Context, src Source, deps JournalDeps) (JournalRepo
 		byYear := map[string][]evRow{}
 		var years []string
 		for _, r := range rows {
-			if len(r.Datum) < len("2006-01-02") {
-				rep.NoDate++ // zapis bez datuma ne pripada nijednom listu
-				continue
-			}
 			y := r.Datum[:4]
 			if _, ok := byYear[y]; !ok {
 				years = append(years, y)
