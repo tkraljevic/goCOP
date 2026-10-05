@@ -353,6 +353,8 @@ func (r *SectionRepository) GetSectionPersonnel(code string, areaID int, sectorI
 		FROM duties d
 		JOIN users u ON d.user_id = u.id
 		WHERE d.is_active = 1
+		  -- istekla dužnost ne daje osobu dionice, kao ni ovlasti (GetDutiesForUser)
+		  AND (d.expires_at IS NULL OR d.expires_at > CURRENT_TIMESTAMP)
 		  AND (
 		      -- Šifra se traži kao cijela stavka popisa, ne kao dio teksta:
 		      -- "B.34.1" je inače nalazio i B.34.10 i B.34.12, pa je kartica
