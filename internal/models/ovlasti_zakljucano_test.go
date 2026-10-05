@@ -397,10 +397,21 @@ func TestPrimarnaDuznostIUloga(t *testing.T) {
 	if d := u.PrimaryDuty(); d == nil || d.Role != RoleSectionLeader {
 		t.Errorf("bez primarne mora vratiti prvu aktivnu: %+v", d)
 	}
-	// prva neaktivna, druga aktivna: nema primarne dužnosti
-	u = &User{Duties: []Duty{{Role: RoleSectionLeader}, aktivna(Duty{Role: RoleAreaLeader})}}
+	// prva neaktivna ili istekla: vrijedi prva aktivna i neistekla
+	jucer := time.Now().Add(-time.Hour)
+	u = &User{Duties: []Duty{{Role: RoleSectionLeader}, aktivna(Duty{Role: RoleWaterGuard, ExpiresAt: &jucer}), aktivna(Duty{Role: RoleAreaLeader})}}
+	if d := u.PrimaryDuty(); d == nil || d.Role != RoleAreaLeader || u.PrimaryRole() != RoleAreaLeader {
+		t.Errorf("kad prva dužnost ne vrijedi, primarna je prva koja vrijedi: %+v", d)
+	}
+	// istekla primarna ne vrijedi
+	u = &User{Duties: []Duty{aktivna(Duty{Role: RoleSectionLeader}), aktivna(Duty{Role: RoleAreaLeader, IsPrimary: true, ExpiresAt: &jucer})}}
+	if d := u.PrimaryDuty(); d == nil || d.Role != RoleSectionLeader {
+		t.Errorf("istekla primarna dužnost: %+v", d)
+	}
+	// nijedna ne vrijedi: nema primarne dužnosti
+	u = &User{Duties: []Duty{{Role: RoleSectionLeader}, aktivna(Duty{Role: RoleAreaLeader, ExpiresAt: &jucer})}}
 	if d := u.PrimaryDuty(); d != nil {
-		t.Errorf("kad je prva dužnost neaktivna, danas nema primarne: %+v", d)
+		t.Errorf("bez valjane dužnosti nema primarne: %+v", d)
 	}
 	if u.PrimaryRole() != RoleViewer {
 		t.Errorf("bez primarne dužnosti uloga je preglednik, a ne %s", u.PrimaryRole())
