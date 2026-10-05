@@ -111,7 +111,10 @@ func (s *Spremiste) Upisi(ctx context.Context, m []Mjerenje) (int, error) {
 			return 0, err
 		}
 	}
-	return len(m), tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	return len(m), nil
 }
 
 // Od vraća mjerenja jednog kišomjera od zadanog trenutka, po vremenu.
@@ -172,6 +175,7 @@ func (u *Uvoznik) Preuzmi(ctx context.Context) (int, error) {
 		n, err := u.Spremiste.Upisi(ctx, m)
 		if err != nil {
 			greske = append(greske, fmt.Errorf("%s: upis: %w", izvor, err))
+			continue
 		}
 		ukupno += n
 	}
