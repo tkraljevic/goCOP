@@ -215,11 +215,22 @@ func TestRokPrivremeneUprave(t *testing.T) {
 		t.Errorf("stalna uprava ima rok %v (%v)", r, izvor)
 	}
 
-	// Uprava područja bez cilja područja ne nađe dužnost i vrati nil, što
-	// znači „stalna”, iako je jedina uprava privremena.
+	// Bez cilja gledaju se sve upravne dužnosti na toj razini: jedina
+	// uprava područja je privremena, pa je i uprava privremena...
 	podrucje := permsWith(models.Duty{Role: models.RoleAreaLeader, SectorID: strp("B"), AreaID: intp(16), ExpiresAt: &sutra})
-	if r, izvor := rokUprave(podrucje, nil, nil, sectorsOf); r != nil || izvor != nil {
-		t.Errorf("bez područja danas nema roka, a dobiveno %v (%v)", r, izvor)
+	if r, izvor := rokUprave(podrucje, nil, nil, sectorsOf); r == nil || !r.Equal(sutra) || izvor == nil {
+		t.Errorf("uprava područja bez cilja: %v (%v), očekivano %v", r, izvor, sutra)
+	}
+	if r, izvor := rokUprave(p, nil, nil, sectorsOf); r == nil || !r.Equal(prekosutra) || izvor == nil {
+		t.Errorf("uprava sektora bez cilja: %v (%v), očekivano %v", r, izvor, prekosutra)
+	}
+	// ...a uz ijednu stalnu na toj razini je stalna
+	dvije := permsWith(
+		models.Duty{Role: models.RoleAreaLeader, SectorID: strp("B"), AreaID: intp(16), ExpiresAt: &sutra},
+		models.Duty{Role: models.RoleAreaDeputy, SectorID: strp("B"), AreaID: intp(17)},
+	)
+	if r, izvor := rokUprave(dvije, nil, nil, sectorsOf); r != nil || izvor != nil {
+		t.Errorf("uz stalnu upravu područja bez cilja: %v (%v)", r, izvor)
 	}
 
 	// ograniciRok: traženi kraći rok ostaje, dulji se skraćuje na rok uprave
