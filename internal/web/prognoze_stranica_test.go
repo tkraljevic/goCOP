@@ -50,8 +50,9 @@ func bazaPrognoza(t *testing.T, izdano int64) string {
 	promasaji := []prognoza.Promasaj{
 		{Letva: "belisce", Velicina: "vodostaj", DosegH: 24, Rasap: 8, Postojanost: 23, Slucaja: 2000},
 		{Letva: "belisce", Velicina: "vodostaj", DosegH: 48, Rasap: 40, Postojanost: 38, Slucaja: 2000},
-		// promašaj u protoku iste letve: model računa vodostaj, pa se ne gleda
-		{Letva: "belisce", Velicina: "protok", DosegH: 48, Rasap: 10, Postojanost: 90, Slucaja: 2000},
+		// Promašaj u protoku iste letve: model računa vodostaj, pa se ne gleda.
+		// Stoji na 6 h, gdje vodostaj zapisa nema, pa bi ga inače i pročitao.
+		{Letva: "belisce", Velicina: "protok", DosegH: 6, Rasap: 40, Postojanost: 10, Slucaja: 2000},
 	}
 	if err := prognoza.SpremiPromasaje(db, promasaji, "proba"); err != nil {
 		t.Fatal(err)
