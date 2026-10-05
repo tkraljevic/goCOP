@@ -507,16 +507,7 @@ func Run(ctx context.Context, src Source, deps Deps) (Report, error) {
 
 	var batch []models.Reading
 	flush := func() error {
-		if len(batch) == 0 {
-			return nil
-		}
-		if deps.DryRun {
-			rep.Inserted += len(batch)
-			batch = batch[:0]
-			return nil
-		}
-		n, err := deps.Readings.ImportBatch(ctx, batch)
-		rep.Inserted += n
+		err := upisiSeriju(ctx, deps, batch, &rep)
 		batch = batch[:0]
 		return err
 	}
@@ -625,6 +616,25 @@ func Run(ctx context.Context, src Source, deps Deps) (Report, error) {
 		return rep, err
 	}
 	return rep, nil
+}
+
+// upisiSeriju upisuje seriju očitanja i pribraja upisana izvješću. Serija je
+// jedna transakcija: pala je poništena cijela, pa se broji tek nakon
+// uspjelog upisa.
+func upisiSeriju(ctx context.Context, deps Deps, batch []models.Reading, rep *Report) error {
+	if len(batch) == 0 {
+		return nil
+	}
+	if deps.DryRun {
+		rep.Inserted += len(batch)
+		return nil
+	}
+	n, err := deps.Readings.ImportBatch(ctx, batch)
+	if err != nil {
+		return err
+	}
+	rep.Inserted += n
+	return nil
 }
 
 func fetchInto(ctx context.Context, src Source, collection string, dst any) error {
