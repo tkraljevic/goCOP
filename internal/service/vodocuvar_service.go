@@ -30,6 +30,10 @@ type VodocuvarService struct {
 	// radnoVrijeme daje redovno radno vrijeme organizacije (postavka
 	// obračuna, zadano 07:30–15:30) za novi list
 	radnoVrijeme func(ctx context.Context) (od, do string)
+	// prijeUpisaPredaje se, kad je zadan, poziva između čitanja evidencije
+	// zadataka i upisa predaje; testovi njime predaju drugi list u
+	// međuvremenu, kao druga kartica
+	prijeUpisaPredaje func(ctx context.Context)
 }
 
 // SetRadnoVrijeme daje servisu izvor redovnog radnog vremena
@@ -378,17 +382,30 @@ func (s *VodocuvarService) predaj(ctx context.Context, l *models.VodocuvarskiLis
 		}
 		return nil, "", fmt.Errorf("%w; upisano je spremljeno kao nacrt", err)
 	}
-	zadaci, napomene, err := s.zadaciZaZakljuciti(ctx, l)
-	if err != nil {
-		return nil, "", err
-	}
 	l.Ocitanja = s.ocitanja(ctx, l.UserID, dan)
 	kad := time.Now()
 	l.PredanoAt = &kad
-	if err := s.repo.Predaj(ctx, l, zadaci); err != nil {
-		return nil, "", err
+	// Zadatak koji drugi list zaključi između čitanja evidencije i upisa
+	// (istodobna predaja) repozitorij ne zaključuje ponovno nego odbija
+	// predaju; evidencija se tada čita ponovno i zadatak se na ovaj list
+	// upisuje kao već zaključen. Svako ponavljanje je jedan zadatak manje.
+	for pokusaj := 0; ; pokusaj++ {
+		zadaci, napomene, err := s.zadaciZaZakljuciti(ctx, l)
+		if err != nil {
+			return nil, "", err
+		}
+		if s.prijeUpisaPredaje != nil {
+			s.prijeUpisaPredaje(ctx)
+		}
+		err = s.repo.Predaj(ctx, l, zadaci)
+		if errors.Is(err, repository.ErrZadatakZakljucen) && pokusaj < len(l.Zadaci) {
+			continue
+		}
+		if err != nil {
+			return nil, "", err
+		}
+		return l, strings.Join(napomene, " "), nil
 	}
-	return l, strings.Join(napomene, " "), nil
 }
 
 // zadaciZaZakljuciti vraća zadatke iz evidencije koje predaja lista

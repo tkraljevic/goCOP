@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -141,25 +142,51 @@ func (r *VodocuvarRepository) upisiList(ctx context.Context, tx *sql.Tx, l *mode
 	return err
 }
 
+// ErrZadatakZakljucen: zadatak koji predaja lista zaključuje u međuvremenu
+// je zaključio drugi list (istodobna predaja); predaja se ne upisuje
+var ErrZadatakZakljucen = errors.New("zadatak je u međuvremenu zaključen drugim listom")
+
 // Predaj upisuje predan list i zadatke koje on zaključuje u jednoj
 // transakciji: ili je list predan i zadaci zaključeni u evidenciji (i u
 // knjizi verzija), ili se ne mijenja ništa. Zadaci dobivaju oznaku lista.
+// Zadatak se zaključuje samo ako je u evidenciji još otvoren; inače se
+// predaja odbija s ErrZadatakZakljucen, a evidencija ostaje kako ju je
+// zaključio drugi list.
 func (r *VodocuvarRepository) Predaj(ctx context.Context, l *models.VodocuvarskiList, zadaci []*models.Zadatak) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
+	// upis lista prvi drži bazu za upis, pa stanje zadataka pročitano
+	// nakon njega nitko više ne mijenja do kraja transakcije
 	if err := r.upisiList(ctx, tx, l); err != nil {
 		return err
 	}
 	for _, z := range zadaci {
+		if err := zadatakJosOtvoren(ctx, tx, z.ID); err != nil {
+			return err
+		}
 		z.ListID = l.ID
 		if err := r.upisiZadatak(ctx, tx, z); err != nil {
 			return err
 		}
 	}
 	return tx.Commit()
+}
+
+// zadatakJosOtvoren unutar transakcije provjerava je li zadatak u
+// evidenciji još otvoren; zadatak kojeg nema (prazno stanje) ne smeta
+func zadatakJosOtvoren(ctx context.Context, tx *sql.Tx, id string) error {
+	var status string
+	err := tx.QueryRowContext(ctx, `SELECT status FROM vodocuvarski_zadaci WHERE id = ?`, id).Scan(&status)
+	if err != nil && err != sql.ErrNoRows {
+		return fmt.Errorf("stanje zadatka: %w", err)
+	}
+	if !(models.Zadatak{Status: status}).Otvoren() {
+		return fmt.Errorf("%w (%s)", ErrZadatakZakljucen, id)
+	}
+	return nil
 }
 
 // Get čita list; nil kad ga nema
