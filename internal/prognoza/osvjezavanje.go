@@ -612,10 +612,12 @@ func (o *Osvjezivac) vrhoviIzDnevnog(ctx context.Context, sada int64, od time.Ti
 				}
 				tocke[x.Ciljni-12] = v
 			}
+			// Model koji ne da barem dvije točke (npr. pretvorba u protok
+			// ispadne iz krivulje) ne zatvara put rezervi.
 			if len(tocke) >= 2 {
 				out[Izvor{Letva: c.Letva, Velicina: vel}] = NizIzTocaka(tocke)
+				break
 			}
-			break
 		}
 	}
 	return out
