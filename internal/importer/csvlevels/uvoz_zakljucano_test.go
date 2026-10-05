@@ -237,10 +237,12 @@ func TestUvozTabliceRazlikePremaZatecenom(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// prazan datum se ne broji kao nečitljiv; „NaN”, „1e3” i brojevi izvan
-	// raspona koji pušta ručni upis nisu vodostaj
-	if rep.Rows != 7 || rep.BadDates != 1 || rep.BadValues != 5 {
-		t.Errorf("redaka %d, nečitljivih datuma %d, vrijednosti %d", rep.Rows, rep.BadDates, rep.BadValues)
+	// prazan datum se ne broji kao nečitljiv; „NaN” i „1e3” nisu vodostaj, a
+	// brojevi izvan raspona koji pušta ručni upis jesu čitljivi, pa se broje
+	// zasebno (npr. tablica s apsolutnim kotama u cm)
+	if rep.Rows != 7 || rep.BadDates != 1 || rep.BadValues != 3 || rep.IzvanRaspona != 2 {
+		t.Errorf("redaka %d, nečitljivih datuma %d, vrijednosti %d, izvan raspona %d",
+			rep.Rows, rep.BadDates, rep.BadValues, rep.IzvanRaspona)
 	}
 	if rep.Inserted != 1 || rep.Skipped != 1 || rep.Conflicts != 1 || len(rep.Differs) != 1 {
 		t.Fatalf("novih %d, zapisanih %d, razlika %d (%v)", rep.Inserted, rep.Skipped, rep.Conflicts, rep.Differs)
@@ -249,14 +251,21 @@ func TestUvozTabliceRazlikePremaZatecenom(t *testing.T) {
 	if r.Gauge != "Primjerovo" || r.Have != 140 || r.New != 120 || r.HaveAt.Format("15:04") != "08:15" {
 		t.Errorf("razlika: %+v", r)
 	}
-	if !strings.HasPrefix(rep.Summary(), "PROBNI PROLAZ") || !strings.Contains(rep.Summary(), "nečitljivih datuma 1") {
+	if !strings.HasPrefix(rep.Summary(), "PROBNI PROLAZ") || !strings.Contains(rep.Summary(), "nečitljivih datuma 1") ||
+		!strings.Contains(rep.Summary(), "nečitljivih vrijednosti 3") ||
+		!strings.Contains(rep.Summary(), "izvan raspona −500..3000 cm: 2") {
 		t.Errorf("sažetak: %s", rep.Summary())
 	}
-	// samo konačni brojevi bez eksponenta, u rasponu ručnog upisa
-	for _, c := range []string{"1e3", "1E3", "NaN", "nan", "Inf", "-Inf", "+inf", "0x1p3", "1_000", "12-3", "--5",
-		"99999999999999999999", "-99999999999999999999", "3001", "-501", "3.000,6", "-500,6"} {
+	// samo konačni brojevi bez eksponenta
+	for _, c := range []string{"1e3", "1E3", "NaN", "nan", "Inf", "-Inf", "+inf", "0x1p3", "1_000", "12-3", "--5"} {
 		if lvl, st := parseLevel(c); st != levelBad {
 			t.Errorf("%q → %d, %v", c, lvl, st)
+		}
+	}
+	// čitljiv broj izvan raspona ručnog upisa nije nečitljiv, ali se ne uvozi
+	for _, c := range []string{"99999999999999999999", "-99999999999999999999", "3001", "-501", "3.000,6", "-500,6"} {
+		if lvl, st := parseLevel(c); st != levelIzvanRaspona {
+			t.Errorf("%q → %d, %v; očekivano izvan raspona", c, lvl, st)
 		}
 	}
 	// rubovi raspona su još vodostaj
