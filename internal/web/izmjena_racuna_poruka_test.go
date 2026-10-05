@@ -12,7 +12,8 @@ import (
 )
 
 // Obrazac vlastitog računa (uprava sektora uređuje sebe) šalje zatečeno
-// korisničko ime i uključenost, pa spremanje bez promjene prolazi; zahtjev
+// korisničko ime (polje je samo za čitanje) i uključenost, pa spremanje bez
+// promjene prolazi; zahtjev
 // koji ih ili zastavicu globalnog administratora mijenja odbija se, a
 // poruka stiže korisniku.
 func TestIzmjenaVlastitogRacunaPorukaUObrascu(t *testing.T) {
@@ -40,6 +41,21 @@ func TestIzmjenaVlastitogRacunaPorukaUObrascu(t *testing.T) {
 	if !strings.Contains(tijelo, `name="username" class="form-control" required value="ana"`) ||
 		!strings.Contains(tijelo, `<input type="hidden" name="is_active" value="1">`) || strings.Contains(tijelo, `name="is_global_admin"`) {
 		t.Fatal("obrazac vlastitog računa mora poslati zatečeno ime i uključenost, bez zastavice")
+	}
+	// svoje korisničko ime osoba ne mijenja: polje je samo za čitanje (ne
+	// isključeno, da se vrijednost i dalje pošalje), s kratkim objašnjenjem
+	if !strings.Contains(tijelo, `value="ana" placeholder="npr. jhorvat" autocapitalize="none" readonly`) ||
+		!strings.Contains(tijelo, "Korisničko ime mijenja uprava") || strings.Contains(tijelo, `name="username" class="form-control" required value="ana" placeholder="npr. jhorvat" autocapitalize="none" disabled`) {
+		t.Fatal("na vlastitom obrascu korisničko ime mora biti samo za čitanje, s objašnjenjem")
+	}
+	// tuđi račun u svom dosegu uprava i dalje preimenuje: polje je obično
+	pero := &models.User{Username: "pperic", FullName: "Pero Perić", Email: "pperic@voda.hr", IsActive: true, OrgType: models.OrgHrvatskeVode}
+	if err := o.repo.CreateUser(pero, &models.Duty{Role: models.RoleOperator, ScopeType: models.ScopeSector, SectorID: &sektor, IsActive: true}); err != nil {
+		t.Fatal(err)
+	}
+	if w := posaljiKaoUprava(o, ana, http.MethodGet, "/users/"+pero.ID.String()+"/edit", nil); w.Code != http.StatusOK ||
+		!strings.Contains(w.Body.String(), `value="pperic" placeholder="npr. jhorvat" autocapitalize="none">`) {
+		t.Fatalf("obrazac tuđeg računa: %d, korisničko ime mora ostati promjenjivo", w.Code)
 	}
 
 	obrazac := func() url.Values {

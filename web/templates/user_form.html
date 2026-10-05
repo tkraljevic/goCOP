@@ -22,7 +22,9 @@
   <div class="form-row">
     <div class="form-group">
       <label class="form-label" for="username">Korisničko ime *</label>
-      <input type="text" id="username" name="username" class="form-control" required value="{{.User.Username}}" placeholder="npr. jhorvat" autocapitalize="none">
+      {{- /* svoje korisničko ime osoba ne mijenja: readonly, ne disabled, da se vrijednost i dalje pošalje */}}
+      <input type="text" id="username" name="username" class="form-control" required value="{{.User.Username}}" placeholder="npr. jhorvat" autocapitalize="none"{{if and .IsEdit .IsSelf (not .Permissions.IsGlobalAdmin)}} readonly aria-describedby="username-pomoc"{{end}}>
+      {{if and .IsEdit .IsSelf (not .Permissions.IsGlobalAdmin)}}<div class="form-help" id="username-pomoc">Korisničko ime mijenja uprava, ne vi sami.</div>{{end}}
     </div>
     {{if and .IsEdit .IsSelf}}
     <div class="form-group">
