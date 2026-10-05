@@ -270,8 +270,14 @@ func TestUpisOcitanjaIPrava(t *testing.T) {
 	odbijeno("nepoznata letva", ovl, &models.Reading{StationID: uuid.NewString(), MeasuredAt: sad, LevelCm: cmP(1)}, "postaja ne postoji")
 	odbijeno("neispravan objekt", ovl, &models.Reading{StructureID: "nije-uuid", MeasuredAt: sad, LevelCm: cmP(1)}, "neispravan objekt")
 	odbijeno("nepoznat objekt", ovl, &models.Reading{StructureID: uuid.NewString(), MeasuredAt: sad, LevelCm: cmP(1)}, "objekt ne postoji")
-	// provjera unosa ide prije provjere prava: gost dobije grešku unosa
-	odbijeno("gost s neispravnim unosom", gost, &models.Reading{StationID: o.probno.ID.String(), MeasuredAt: sad}, "bar napomenu")
+	// provjera prava ide prije provjere unosa, kao kod izmjene: gost ne
+	// dozna pravila unosa
+	odbijeno("gost s neispravnim unosom", gost, &models.Reading{StationID: o.probno.ID.String(), MeasuredAt: sad}, "nemate pravo")
+	odbijeno("gost s neispravnim unosom na objektu", gost, &models.Reading{StructureID: o.csProbni.ID.String(), MeasuredAt: sad}, "nemate pravo")
+	// tko ima pravo, dobije grešku unosa
+	odbijeno("neispravan unos", ovl, &models.Reading{StationID: o.primjerovo.ID.String(), MeasuredAt: sad}, "bar napomenu")
+	odbijeno("i letva i objekt", ovl, &models.Reading{StationID: o.primjerovo.ID.String(), StructureID: o.csProbni.ID.String(),
+		MeasuredAt: sad, LevelCm: cmP(1)}, "ili postaji ili objektu")
 
 	// Letva bez dionica prima očitanje od svakoga tko igdje piše, i s
 	// dužnošću u drugom sektoru.
@@ -365,9 +371,12 @@ func TestIzmjenaIBrisanjeOcitanja(t *testing.T) {
 	if err := o.rs.Update(ctx, drugi, &models.Reading{ID: rd.ID, MeasuredAt: sad, LevelCm: cmP(1)}); err == nil || !strings.Contains(err.Error(), "nemate pravo mijenjati") {
 		t.Errorf("tuđa izmjena: %v", err)
 	}
-	// provjera unosa ide nakon provjere prava
+	// provjera unosa ide nakon provjere prava, kao kod upisa
 	if err := o.rs.Update(ctx, autorOvl, &models.Reading{ID: rd.ID, MeasuredAt: sad}); err == nil || !strings.Contains(err.Error(), "bar napomenu") {
 		t.Errorf("neispravna izmjena: %v", err)
+	}
+	if err := o.rs.Update(ctx, drugi, &models.Reading{ID: rd.ID, MeasuredAt: sad}); err == nil || !strings.Contains(err.Error(), "nemate pravo mijenjati") {
+		t.Errorf("tuđa neispravna izmjena: %v", err)
 	}
 	if err := o.rs.Update(ctx, ovl, &models.Reading{ID: uuid.New(), MeasuredAt: sad, LevelCm: cmP(1)}); err == nil || !strings.Contains(err.Error(), "ne postoji") {
 		t.Errorf("izmjena nepostojećeg: %v", err)
