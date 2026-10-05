@@ -321,7 +321,8 @@ func (r *ReadingRepository) ExistingIDs(ctx context.Context, origin string) (map
 }
 
 // ImportBatch upisuje niz očitanja u jednoj transakciji, svako s verzijom.
-// Postojeći identifikatori se preskaču (identitet uvoza je stabilan).
+// Postojeći identifikatori se preskaču (identitet uvoza je stabilan). Pri
+// grešci je cijela serija poništena, pa vraća 0, a ne broj obrađenih do greške.
 func (r *ReadingRepository) ImportBatch(ctx context.Context, readings []models.Reading) (int, error) {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -338,7 +339,7 @@ func (r *ReadingRepository) ImportBatch(ctx context.Context, readings []models.R
 	for i := range readings {
 		rd := &readings[i]
 		if rd.ID == uuid.Nil {
-			return inserted, fmt.Errorf("očitanje bez identifikatora")
+			return 0, fmt.Errorf("očitanje bez identifikatora")
 		}
 		if rd.CreatedAt.IsZero() {
 			rd.CreatedAt = time.Now().UTC()
@@ -348,17 +349,17 @@ func (r *ReadingRepository) ImportBatch(ctx context.Context, readings []models.R
 		}
 		res, err := stmt.ExecContext(ctx, readingArgs(rd)...)
 		if err != nil {
-			return inserted, fmt.Errorf("greška pri uvozu očitanja %s: %w", rd.SourceRef, err)
+			return 0, fmt.Errorf("greška pri uvozu očitanja %s: %w", rd.SourceRef, err)
 		}
 		if n, _ := res.RowsAffected(); n == 0 {
 			continue
 		}
 		channel := readingChannel(ctx, tx, rd)
 		if _, err := tx.ExecContext(ctx, `UPDATE readings SET channel = ? WHERE id = ?`, channel, rd.ID.String()); err != nil {
-			return inserted, err
+			return 0, err
 		}
 		if _, err := r.rec.RecordIn(ctx, tx, channel, EntityReadings, rd.ID.String(), rd); err != nil {
-			return inserted, err
+			return 0, err
 		}
 		inserted++
 	}
