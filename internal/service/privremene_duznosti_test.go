@@ -27,7 +27,7 @@ func okolinaImenovanja(t *testing.T) *okolinaAkta {
 	if _, err := o.baza.Exec(`UPDATE areas SET subcenter = '' WHERE subcenter IS NULL`); err != nil {
 		t.Fatal(err)
 	}
-	o.users.SetKrajObrane(o.akti.KrajObraneDuznosti)
+	o.users.SetPrestanakObrane(o.akti.PrestanakObraneDuznosti)
 	return o
 }
 
@@ -87,6 +87,10 @@ func TestPrivremenoImenovanjeIsticeSObranom(t *testing.T) {
 	if d = o.duznostOsobe(t, o.vodocuv.ID, models.RoleSectionLeader); !istiTrenutak(d.ExpiresAt, kraj) {
 		t.Fatalf("istek nakon ovjerenog prekida: %v, a prekid vrijedi %v", d.ExpiresAt, kraj)
 	}
+	// profil kaže odakle je kraj: iz akta o prestanku obrane, ne iz imenovanja
+	if izvor := o.users.IzvoriIsteka([]models.Duty{*d})[d.ID]; izvor != "prestanak obrane, akt "+prekid.Oznaka() {
+		t.Errorf("izvor isteka: %q", izvor)
+	}
 
 	if _, _, err := o.akti.Storniraj(ctx, o.ovlasti, o.rukovod, prekid.ID, "pogrešan sat"); err != nil {
 		t.Fatal(err)
@@ -105,12 +109,19 @@ func TestPrivremenoImenovanjeIsticeSObranom(t *testing.T) {
 	if d = o.duznostOsobe(t, o.vodocuv.ID, models.RoleSectionLeader); !istiTrenutak(d.ExpiresAt, rok) || !istiTrenutak(d.Rok, rok) {
 		t.Errorf("raniji zadani datum: istek %v, rok %v", d.ExpiresAt, d.Rok)
 	}
+	// zadani dan sam kaže kad prestaje: izvor se ne dopisuje
+	if izvori := o.users.IzvoriIsteka([]models.Duty{*d}); len(izvori) != 0 {
+		t.Errorf("izvor uz zadani dan: %v", izvori)
+	}
 }
 
 // Stalna dužnost nema ni datum ni istek s obranom, ni kad ih obrazac pošalje
 func TestStalnaDuznostBezIsteka(t *testing.T) {
 	o := okolinaImenovanja(t)
-	o.users.SetKrajObrane(func(models.Duty) *time.Time { t.Error("stalnoj dužnosti ne traži se kraj obrane"); return nil })
+	o.users.SetPrestanakObrane(func(models.Duty) *models.PrestanakObrane {
+		t.Error("stalnoj dužnosti ne traži se kraj obrane")
+		return nil
+	})
 	sutra := time.Now().Add(24 * time.Hour)
 	if err := o.users.AddDuty(o.upravaOrganizacije(), service.AddDutyRequest{UserID: o.vodocuv.ID, Role: models.RoleSectionDeputy,
 		SectionCodes: "P.1.2", ExpiresAt: &sutra, IsticeSObranom: true, Reason: "zaostalo iz obrasca"}); err != nil {
@@ -167,6 +178,8 @@ func TestDuznostPrivremeneUpraveIsticeSNjom(t *testing.T) {
 	}
 	if d := o.duznostOsobe(t, zamjenik.ID, models.RoleAreaDeputy); !istiTrenutak(d.ExpiresAt, kraj) {
 		t.Errorf("dodijeljeno nakon prekida: %v", d.ExpiresAt)
+	} else if izvor := o.users.IzvoriIsteka([]models.Duty{*d})[d.ID]; izvor != "istek privremene uprave koja ju je dodijelila" {
+		t.Errorf("izvor isteka dodijeljenog: %q", izvor)
 	}
 
 	// opoziv imenovanja prekida i dodijeljeno, odmah
@@ -189,8 +202,9 @@ func TestDuznostPrivremeneUpraveIsticeSNjom(t *testing.T) {
 }
 
 // Imenovanje za branjeno područje ili sektor (bez upisanih dionica) gleda
-// obranu na svim dionicama dosega; dok traje, kraja nema
-func TestKrajObraneDosegaDuznosti(t *testing.T) {
+// obranu na svim dionicama dosega; dok traje, kraja nema; kraj je iz akta o
+// prestanku obrane
+func TestPrestanakObraneDosegaDuznosti(t *testing.T) {
 	o := okolinaImenovanja(t)
 	sektor, podrucje := "P", 1
 	podrucjem := models.Duty{Role: models.RoleAreaLeader, SectorID: &sektor, AreaID: &podrucje, IsTemporary: true, IsticeSObranom: true}
@@ -199,19 +213,19 @@ func TestKrajObraneDosegaDuznosti(t *testing.T) {
 
 	o.ovjeri(t, models.AktUspostava, models.PhaseRegular, time.Now().Add(-time.Hour).Truncate(time.Minute))
 	for _, d := range []models.Duty{podrucjem, sektorom, bezDionica} {
-		if k := o.akti.KrajObraneDuznosti(d); k != nil {
-			t.Errorf("%s: kraj %v dok obrana traje", d.Role, k)
+		if k := o.akti.PrestanakObraneDuznosti(d); k != nil {
+			t.Errorf("%s: kraj %+v dok obrana traje", d.Role, k)
 		}
 	}
 	kraj := time.Now().Add(3 * time.Hour).Truncate(time.Minute)
-	o.ovjeri(t, models.AktPrekid, models.PhaseRegular, kraj)
+	prekid, _ := o.ovjeri(t, models.AktPrekid, models.PhaseRegular, kraj)
 	for _, d := range []models.Duty{podrucjem, sektorom} {
-		if k := o.akti.KrajObraneDuznosti(d); !istiTrenutak(k, kraj) {
-			t.Errorf("%s: kraj %v, a prekid vrijedi %v", d.Role, k, kraj)
+		if k := o.akti.PrestanakObraneDuznosti(d); k == nil || !k.Kad.Equal(kraj) || k.Akt.ID != prekid.ID {
+			t.Errorf("%s: kraj %+v, a prekid %s vrijedi %v", d.Role, k, prekid.Oznaka(), kraj)
 		}
 	}
 	// dionica bez akata: obrana na njoj nije ni počela
-	if k := o.akti.KrajObraneDuznosti(bezDionica); k != nil {
+	if k := o.akti.PrestanakObraneDuznosti(bezDionica); k != nil {
 		t.Errorf("dionica bez akata: %v", k)
 	}
 }

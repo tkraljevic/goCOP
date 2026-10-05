@@ -105,7 +105,7 @@ type Duty struct {
 	Rok *time.Time `json:"rok,omitempty"`
 	// IsticeSObranom: privremeno imenovanje vrijedi dok na njegovim dionicama,
 	// odnosno u branjenom području, traje redovna ili izvanredna obrana ili
-	// izvanredno stanje (models.KrajRedovneObrane)
+	// izvanredno stanje (models.PrestanakRedovneObrane)
 	IsticeSObranom bool `json:"istece_s_obranom,omitempty"`
 	// OvisiO je dužnost privremene uprave iz koje je ova dodijeljena: ističe
 	// zajedno s njom

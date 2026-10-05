@@ -29,15 +29,18 @@ type UserService struct {
 	ukloniKljuc func(ctx context.Context, userID string) error
 	// brisiSanducic briše spremljenu lozinku sandučića e-pošte (SetBrisanjeSanducica)
 	brisiSanducic func(ctx context.Context, userID string) (bool, error)
-	// krajObrane je kraj redovne i izvanredne obrane na dosegu privremenog
-	// imenovanja, iz ovjerenih akata (SetKrajObrane); nil dok traje ili je nema
-	krajObrane func(d models.Duty) *time.Time
+	// prestanakObrane je prestanak redovne i izvanredne obrane na dosegu
+	// privremenog imenovanja, s aktom koji ju je ukinuo, iz ovjerenih akata
+	// (SetPrestanakObrane); nil dok traje ili je nema
+	prestanakObrane func(d models.Duty) *models.PrestanakObrane
 }
 
-// SetKrajObrane povezuje kraj redovne i izvanredne obrane iz akata
-// (AktService.KrajObraneDuznosti): privremeno imenovanje s tim istekom vrijedi
+// SetPrestanakObrane povezuje prestanak redovne i izvanredne obrane iz akata
+// (AktService.PrestanakObraneDuznosti): privremeno imenovanje s tim istekom vrijedi
 // dok na njegovim dionicama, odnosno u branjenom području, obrana traje
-func (s *UserService) SetKrajObrane(f func(d models.Duty) *time.Time) { s.krajObrane = f }
+func (s *UserService) SetPrestanakObrane(f func(d models.Duty) *models.PrestanakObrane) {
+	s.prestanakObrane = f
+}
 
 // SetUklanjanjeKljuca povezuje uklanjanje osobnog potpisnog ključa. Kad
 // lozinku osobe postavi netko drugi (poništenje ili administrator u

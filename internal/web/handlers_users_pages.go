@@ -55,11 +55,12 @@ type UserPageData struct {
 
 	// Zaduženje koje se uređuje; prazno za novo. Pomoćna polja su za
 	// predodabir u obrascu.
-	Duty        *models.Duty
-	DutySector  string
-	DutyArea    int
-	DutyExpires string
-	Prijasnja   []models.PrijasnjeZaduzenje // opozvana i istekla zaduženja, povijest profila
+	Duty         *models.Duty
+	DutySector   string
+	DutyArea     int
+	DutyExpires  string
+	Prijasnja    []models.PrijasnjeZaduzenje // opozvana i istekla zaduženja, povijest profila
+	IzvoriIsteka map[uuid.UUID]string        // odakle je istek privremene dužnosti (prestanak obrane i akt)
 
 	ModuleRows     []ModuleOverrideRow // vidljivost modula za ovaj račun (samo globalni administrator)
 	Planovi        []models.PlanOsobe  // planovi dežurstava u kojima osoba ima sate
@@ -266,6 +267,7 @@ func (h *UsersHandler) showUser(w http.ResponseWriter, r *http.Request, u *model
 	data.PotvrdaAdrese = service.SmijePotvrditiAdresu(data.Permissions, u.ID, data.Viewing)
 	data.CanDelete = deletable(u)
 	data.Prijasnja, _ = h.userService.PastDuties(u.ID)
+	data.IzvoriIsteka = h.userService.IzvoriIsteka(u.Duties)
 	if h.moduleService != nil && data.Permissions != nil && data.Permissions.IsGlobalAdmin && !u.IsGlobalAdmin {
 		data.ModuleRows = h.moduleRows(r, u)
 	}

@@ -905,7 +905,7 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	// stanje obrane računa se iz ovjerenih akata (docs/NACRT-STADIJI-OBRANE.md)
 	izvjescaService.SetStanjeObrane(aktService.StanjeObrane)
 	// privremeno imenovanje ističe s krajem redovne i izvanredne obrane
-	userService.SetKrajObrane(aktService.KrajObraneDuznosti)
+	userService.SetPrestanakObrane(aktService.PrestanakObraneDuznosti)
 	go pratiPrivremeneDuznosti(ctx, userService, 10*time.Minute)
 	models.SetTema(aktService.Tema(context.Background()))
 	aktService.SetKljuc(node.PrivateKey())

@@ -49,7 +49,9 @@ func TestPrivremenoImenovanjeKrozObrazac(t *testing.T) {
 	userRepo := repository.NewUserRepository(baza, rec)
 	users := service.NewUserService(userRepo, service.NewAuthService(userRepo, repository.NewSessionRepository(baza)), service.NewSSEBroker())
 	krajObrane := time.Date(2026, 10, 20, 8, 0, 0, 0, time.UTC)
-	users.SetKrajObrane(func(models.Duty) *time.Time { return &krajObrane })
+	users.SetPrestanakObrane(func(models.Duty) *models.PrestanakObrane {
+		return &models.PrestanakObrane{Kad: krajObrane, Akt: models.Akt{Sektor: "B", Broj: 7, Godina: 2026}}
+	})
 
 	templatesFS, _ := fs.Sub(webassets.Files, "templates")
 	tmpl := func(stranica string) *template.Template {
@@ -122,7 +124,7 @@ func TestPrivremenoImenovanjeKrozObrazac(t *testing.T) {
 	}
 
 	// profil: prestaje s krajem obrane (raniji od datuma), u satu po našem vremenu
-	mora(zovi(http.MethodGet, "/users/"+osoba.ID.String(), nil), "profil", "Privremeno · Rukovoditelj dionice", "prestaje 20. 10. 2026. u 10:00")
+	mora(zovi(http.MethodGet, "/users/"+osoba.ID.String(), nil), "profil", "Privremeno · Rukovoditelj dionice", "prestaje 20. 10. 2026. u 10:00 (prestanak obrane, akt B-7/2026)")
 
 	// obrazac izmjene nudi zadani datum, a kvačica ostaje
 	mora(zovi(http.MethodGet, "/users/duties/"+d.ID.String()+"/edit", nil), "obrazac izmjene",

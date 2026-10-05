@@ -102,7 +102,7 @@
         <td><span class="badge {{if .IsTemporary}}badge-ispomoc{{else}}badge-area-admin{{end}}">{{if .IsTemporary}}{{icon "zap"}} Privremeno · {{roleLabel .Role}}{{else}}{{roleLabel .Role}}{{end}}</span></td>
         <td>{{if eq .ScopeType "ALL"}}cijela organizacija{{else}}{{if .SectorID}}{{term "sektor"}} {{derefString .SectorID}}{{end}}{{if .AreaID}} · BP {{derefInt .AreaID}}{{end}}{{end}}</td>
         <td class="mono">{{if .SectionCodes}}{{.SectionCodes}}{{else if .AreaID}}<span class="text-muted">sve</span>{{end}}</td>
-        <td>{{if .ExpiresAt}}{{istekDuznosti .ExpiresAt}}{{else if .IsticeSObranom}}dok traje redovna ili izvanredna obrana{{else if .IsTemporary}}do opoziva{{else}}<span class="text-muted">stalno</span>{{end}}</td>
+        <td>{{if .ExpiresAt}}{{istekDuznosti .ExpiresAt}}{{with index $.IzvoriIsteka .ID}} ({{.}}){{end}}{{else if .IsticeSObranom}}dok traje redovna ili izvanredna obrana{{else if .IsTemporary}}do opoziva{{else}}<span class="text-muted">stalno</span>{{end}}</td>
         {{if $.CanManage}}
         <td class="radnje">
           <a href="/users/duties/{{.ID}}/edit" class="btn btn-sm btn-secondary" title="Promijeni naziv, ulogu, doseg ili dionice">{{icon "pencil"}} Uredi</a>

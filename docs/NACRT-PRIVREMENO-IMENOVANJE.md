@@ -32,8 +32,9 @@ od [pravila uprave](INSTALACIJA.md#3-podaci-i-sigurnost) i
   novo imenovanje uključeno), razlog i neobavezni *Vrijedi zaključno s*
   (zadnji dan važenja). Profil djelatnika pokazuje *Privremeno* i dokle
   vrijedi: „zaključno s 14. 10. 2026. (prestaje 15. 10. u 0 h)”, „prestaje
-  20. 10. 2026. u 10:00” kad prestaje s krajem obrane, „dok traje redovna ili
-  izvanredna obrana” ili „do opoziva”.
+  20. 10. 2026. u 10:00 (prestanak obrane, akt B-7/2026)” kad prestaje s
+  krajem obrane, „… (istek privremene uprave koja ju je dodijelila)”, „dok
+  traje redovna ili izvanredna obrana” ili „do opoziva”.
 - **Zapis dužnosti:** `Rok` je trenutak prestanka iz zadanog dana (idući
   dan u 0 h po našem vremenu), `IsticeSObranom` veže imenovanje
   za obranu, a `OvisiO` je dužnost privremene uprave iz koje je dužnost
@@ -41,8 +42,11 @@ od [pravila uprave](INSTALACIJA.md#3-podaci-i-sigurnost) i
   datuma, kraja obrane i isteka dužnosti iz koje je dodijeljena. Ostatak
   programa i čvorovi starijeg izdanja gledaju samo `ExpiresAt`. Stalna
   dužnost nema ni istek ni ta polja, i kad ih obrazac pošalje.
-- **Kraj obrane** (`models.KrajRedovneObrane`) čita se iz ovjerenih,
-  neponištenih akata na dionicama dosega: upisanim dionicama, inače svim
+- **Kraj obrane određuje samo ovjereni akt o prestanku obrane**, u trenutku
+  koji u njemu piše. Imenovanje ga prati i ne može ga mijenjati: dio
+  programa za imenovanja akte samo čita. Kraj
+  (`models.PrestanakRedovneObrane`, s aktom koji je obranu ukinuo) čita se iz
+  ovjerenih, neponištenih akata na dionicama dosega: upisanim dionicama, inače svim
   dionicama područja, odnosno sektora. Razdoblja u kojima je najviši stadij
   barem redovna obrana spajaju se preko dionica; imenovanje prestaje na kraju
   prvog razdoblja koje završava nakon dodjele. Pripremno stanje ga ne
