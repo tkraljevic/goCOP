@@ -650,6 +650,9 @@ func TestNeuspjeliUpisLista(t *testing.T) {
 	}
 	_, err := o.vs.Spremi(ctx, u, dan, vdUnos("obilazak"), true)
 	vdGreska(t, err, "upis zabranjen")
+	// i odbijena predaja javlja da se nacrt nije mogao spremiti
+	_, err = o.vs.Spremi(ctx, u, dan, vdUnos(""), true)
+	vdGreska(t, err, "upis zabranjen")
 	if l := o.vdListIzBaze(t, u, dan); l != nil {
 		t.Errorf("list postoji: %+v", l)
 	}
@@ -678,48 +681,68 @@ func TestGreskaCitanjaOtvorenihZadataka(t *testing.T) {
 	vdGreska(t, err, "vodocuvarski_zadaci")
 }
 
-// Predaja nije jedna transakcija: list se spremi kao predan prije nego što
-// se zadaci zaključe u evidenciji. Ako zaključivanje ne uspije, Spremi
-// javlja grešku, a list ostaje predan i zadatak otvoren. Test bilježi
-// zatečeno ponašanje (vidi „Sumnjivo ponašanje” u opisu PR-a).
+// Predaja je jedna cjelina: list se označi predanim u istoj transakciji u
+// kojoj se zadaci zaključe u evidenciji. Ako zaključivanje ne uspije, ni list
+// nije predan (ni u knjizi verzija), pa se predaja smije ponoviti.
 func TestPredajaBezZakljucenogZadatka(t *testing.T) {
 	o := novaOkolinaVodocuvara(t)
 	ctx := context.Background()
 	u := vdVodocuvar()
 	dan := vdDan(time.March, 10)
 	z := o.vdZadatak(t, u, "pregledati ustavu", dan)
+	unos := vdUnos("obilazak")
+	unos.Zadaci = map[string]UnosZadatka{z.ID: {Status: models.ZadatakObavljen, Obavljeno: "pregledana"}}
+	nacrt, err := o.vs.Spremi(ctx, u, dan, unos, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	verzije := func() int {
+		t.Helper()
+		var n int
+		if err := o.baza.QueryRow(`SELECT count(*) FROM record_versions WHERE entity_id = ?`, nacrt.ID).Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+	prije := verzije()
 	if _, err := o.baza.Exec(`CREATE TRIGGER vd_bez_zakljucivanja BEFORE UPDATE ON vodocuvarski_zadaci BEGIN SELECT RAISE(ABORT, 'zadatak zaključan'); END`); err != nil {
 		t.Fatal(err)
 	}
-	unos := vdUnos("obilazak")
-	unos.Zadaci = map[string]UnosZadatka{z.ID: {Status: models.ZadatakObavljen, Obavljeno: "pregledana"}}
-	_, err := o.vs.Spremi(ctx, u, dan, unos, true)
+	unos.Opis = "obilazak i pregled ustave"
+	_, err = o.vs.Spremi(ctx, u, dan, unos, true)
 	vdGreska(t, err, "zadatak zaključan")
 
 	l := o.vdListIzBaze(t, u, dan)
-	if l == nil || !l.Predan() {
-		t.Fatalf("list nakon greške: %+v", l)
+	if l == nil || l.Predan() || l.Opis != "obilazak" {
+		t.Fatalf("list nakon neuspjele predaje: %+v", l)
 	}
-	if nl := vdNaListu(l, z.ID); nl == nil || nl.Status != models.ZadatakObavljen {
-		t.Errorf("zadatak na predanom listu: %+v", l.Zadaci)
+	if n := verzije(); n != prije {
+		t.Errorf("neuspjela predaja upisala je %d verzija lista u knjigu", n-prije)
 	}
 	if ev := o.vdZadatakIzBaze(t, z.ID); !ev.Otvoren() || ev.ListID != "" {
 		t.Errorf("evidencija: %+v", ev)
 	}
-	// ponovni pokušaj više ne ide: list je predan
-	if _, err := o.vs.Spremi(ctx, u, dan, unos, true); err == nil || !strings.Contains(err.Error(), "predan") {
-		t.Errorf("ponovna predaja: %v", err)
-	}
 	if _, err := o.baza.Exec(`DROP TRIGGER vd_bez_zakljucivanja`); err != nil {
 		t.Fatal(err)
 	}
-	// zadatak se zato pojavljuje i na sljedećem listu
+	// ponovljena predaja prolazi i zaključuje zadatak
+	l, err = o.vs.Spremi(ctx, u, dan, unos, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !l.Predan() || l.ID != nacrt.ID || l.Opis != "obilazak i pregled ustave" {
+		t.Errorf("ponovljena predaja: %+v", l)
+	}
+	if ev := o.vdZadatakIzBaze(t, z.ID); ev.Status != models.ZadatakObavljen || ev.ListID != l.ID || ev.Obavljeno != "pregledana" {
+		t.Errorf("evidencija nakon predaje: %+v", ev)
+	}
+	// zaključen zadatak ne prelazi na sljedeći list
 	sutra, err := o.vs.Pripremi(ctx, u, dan.AddDate(0, 0, 1))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if vdNaListu(sutra, z.ID) == nil {
-		t.Errorf("zadatak nije na sljedećem listu: %+v", sutra.Zadaci)
+	if vdNaListu(sutra, z.ID) != nil {
+		t.Errorf("zaključen zadatak na sljedećem listu: %+v", sutra.Zadaci)
 	}
 }
 

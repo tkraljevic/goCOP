@@ -115,22 +115,49 @@ func kanalListaIz(ctx context.Context, db *sql.DB, listID string) string {
 
 // Save upisuje list, s verzijom u knjizi
 func (r *VodocuvarRepository) Save(ctx context.Context, l *models.VodocuvarskiList) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if err := r.upisiList(ctx, tx, l); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// upisiList upisuje list i njegovu verziju u knjizi, unutar transakcije
+func (r *VodocuvarRepository) upisiList(ctx context.Context, tx *sql.Tx, l *models.VodocuvarskiList) error {
 	now := time.Now().UTC()
 	if l.ID == "" {
 		l.ID = uuid.Must(uuid.NewV7()).String()
 		l.CreatedAt = now
 	}
 	l.UpdatedAt = now
+	if _, err := tx.ExecContext(ctx, vodocuvarskiUpsert, vodocuvarskiArgs(l)...); err != nil {
+		return fmt.Errorf("upis lista: %w", err)
+	}
+	_, err := r.rec.RecordIn(ctx, tx, listChannel(l), EntityVodocuvarski, l.ID, l)
+	return err
+}
+
+// Predaj upisuje predan list i zadatke koje on zaključuje u jednoj
+// transakciji: ili je list predan i zadaci zaključeni u evidenciji (i u
+// knjizi verzija), ili se ne mijenja ništa. Zadaci dobivaju oznaku lista.
+func (r *VodocuvarRepository) Predaj(ctx context.Context, l *models.VodocuvarskiList, zadaci []*models.Zadatak) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
-	if _, err := tx.ExecContext(ctx, vodocuvarskiUpsert, vodocuvarskiArgs(l)...); err != nil {
-		return fmt.Errorf("upis lista: %w", err)
-	}
-	if _, err := r.rec.RecordIn(ctx, tx, listChannel(l), EntityVodocuvarski, l.ID, l); err != nil {
+	if err := r.upisiList(ctx, tx, l); err != nil {
 		return err
+	}
+	for _, z := range zadaci {
+		z.ListID = l.ID
+		if err := r.upisiZadatak(ctx, tx, z); err != nil {
+			return err
+		}
 	}
 	return tx.Commit()
 }
@@ -339,6 +366,19 @@ func scanZadatak(sc interface{ Scan(...any) error }) (models.Zadatak, error) {
 
 // SaveZadatak upisuje zadatak, s verzijom u knjizi
 func (r *VodocuvarRepository) SaveZadatak(ctx context.Context, z *models.Zadatak) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if err := r.upisiZadatak(ctx, tx, z); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// upisiZadatak upisuje zadatak i njegovu verziju u knjizi, unutar transakcije
+func (r *VodocuvarRepository) upisiZadatak(ctx context.Context, tx *sql.Tx, z *models.Zadatak) error {
 	if z.ID == "" {
 		z.ID = uuid.Must(uuid.NewV7()).String()
 	}
@@ -346,18 +386,11 @@ func (r *VodocuvarRepository) SaveZadatak(ctx context.Context, z *models.Zadatak
 		z.ZadanoAt = time.Now()
 	}
 	z.UpdatedAt = time.Now().UTC()
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
 	if _, err := tx.ExecContext(ctx, zadatakUpsert, zadatakArgs(z)...); err != nil {
 		return fmt.Errorf("upis zadatka: %w", err)
 	}
-	if _, err := r.rec.RecordIn(ctx, tx, zadatakChannel(z), EntityZadaci, z.ID, z); err != nil {
-		return err
-	}
-	return tx.Commit()
+	_, err := r.rec.RecordIn(ctx, tx, zadatakChannel(z), EntityZadaci, z.ID, z)
+	return err
 }
 
 // ZadatakPoIzvoru nalazi zadatak prenesen iz ranije evidencije po oznaci
