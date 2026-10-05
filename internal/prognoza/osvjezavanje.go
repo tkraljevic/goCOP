@@ -99,18 +99,18 @@ type Osvjezivac struct {
 
 // Ishod je što je jedno osvježavanje dalo.
 type Ishod struct {
-	Sada           int64           // sat za koji je prognoza izdana
-	Vrhovi         map[Izvor]int64 // zadnji izmjereni sat svakog vrha lanca
-	Izdane         []Izdana        // sve izračunate vrijednosti
-	Promasaji      map[string]map[int]Promasaj
-	Preskoceno     bool             // isti sat već je izdan, ništa se nije mijenjalo
-	BezPrognoze    map[string]error // letve koje nisu dale nijedan sat
-	Dnevne         []DnevnaIzdana   // dnevna prognoza za 1.–6. dan
-	TudiVrhovi     []string         // vrhovi kojima je budućnost dala tuđa prognoza
-	OperaterVrhovi []string         // vrhovi kojima je budućnost dao model ispuštanja elektrane
-	NasiVrhovi     []string         // vrhovi kojima je budućnost dao naš dnevni model
-	BezDnevne      map[string]error // letve s dnevnim modelom koje ga nisu dale
-	Izbor          map[string]Izbor // letve koje su računate iz rezerve, i iz koje
+	Sada           int64                      // sat za koji je prognoza izdana
+	Vrhovi         map[Izvor]int64            // zadnji izmjereni sat svakog vrha lanca
+	Izdane         []Izdana                   // sve izračunate vrijednosti
+	Promasaji      map[Izvor]map[int]Promasaj // po letvi i veličini
+	Preskoceno     bool                       // isti sat već je izdan, ništa se nije mijenjalo
+	BezPrognoze    map[string]error           // letve koje nisu dale nijedan sat
+	Dnevne         []DnevnaIzdana             // dnevna prognoza za 1.–6. dan
+	TudiVrhovi     []string                   // vrhovi kojima je budućnost dala tuđa prognoza
+	OperaterVrhovi []string                   // vrhovi kojima je budućnost dao model ispuštanja elektrane
+	NasiVrhovi     []string                   // vrhovi kojima je budućnost dao naš dnevni model
+	BezDnevne      map[string]error           // letve s dnevnim modelom koje ga nisu dale
+	Izbor          map[string]Izbor           // letve koje su računate iz rezerve, i iz koje
 	// Kisa je oborina po međuslivovima koju je dnevni model imao: dan 0 je
 	// 24 sata do izdanja, negativni dani pala kiša, pozitivni prognoza.
 	Kisa map[string]DnevniNiz
@@ -330,13 +330,14 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 		// Promašaji su izmjereni puštanjem prognoze unatrag po arhivi. Ondje
 		// gdje ih ima, oni kažu i koliko treba oduzeti i koliko se smije
 		// obećati — bolje od rasapa namještanja, koji ne zna za ispravak.
-		// Mjereni su za glavni račun; rezervi ostaje rasap namještanja. Sat
-		// izdavanja je mjerenje, pa se ne ispravlja.
+		// Mjereni su za glavni račun, u veličini u kojoj on računa; rezervi
+		// ostaje rasap namještanja. Sat izdavanja je mjerenje, pa se ne ispravlja.
 		for i := range izdane {
 			if izbor[letva].Inacica != 0 {
 				break
 			}
-			p, ima := ispravakNaDosegu(promasaji[letva], izdane[i].Ciljni-sada)
+			iz := Izvor{Letva: letva, Velicina: izdane[i].Velicina}
+			p, ima := ispravakNaDosegu(promasaji[iz], izdane[i].Ciljni-sada)
 			if !ima {
 				continue
 			}

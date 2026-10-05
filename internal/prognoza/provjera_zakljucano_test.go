@@ -97,6 +97,9 @@ func probnaBazaPrognoza(t *testing.T) *sql.DB {
 
 var pocetakProvjere = time.Date(2025, 3, 1, 0, 0, 0, 0, time.UTC)
 
+// donjaVodostaj je ključ promašaja letve s računom u probnoj bazi.
+var donjaVodostaj = Izvor{Letva: "donja", Velicina: "vodostaj"}
+
 // opcijeStalne su pet dana izdanja svaki sat, do 12 sati unaprijed: 121
 // izdanje, dovoljno da se promašaj zapiše (traži barem 100 slučaja).
 func opcijeStalne(dnevnik *bytes.Buffer) OpcijeProvjere {
@@ -162,10 +165,10 @@ func TestProvjeraUnatragNaStalnojVodi(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(zapisani) != 1 || len(zapisani["donja"]) != 13 {
+	if len(zapisani) != 1 || len(zapisani[donjaVodostaj]) != 13 {
 		t.Fatalf("zapisani promašaji: %v", zapisani)
 	}
-	for d, p := range zapisani["donja"] {
+	for d, p := range zapisani[donjaVodostaj] {
 		ocekivano := -5.0
 		if d == 0 {
 			ocekivano = 0 // u satu izdavanja stoji mjerenje
@@ -215,7 +218,7 @@ func TestProvjeraUnatragGlacanjeNeDiraSatIzdavanja(t *testing.T) {
 	// pa doseg 0 ostaje bez pomaka, a već prvi sat unaprijed nosi cijeli
 	// promašaj računa.
 	for doseg, pomak := range map[int]float64{0: 0, 1: -5, 12: -5} {
-		if p := zapisani["donja"][doseg].Pomak; math.Abs(p-pomak) > 1e-9 {
+		if p := zapisani[donjaVodostaj][doseg].Pomak; math.Abs(p-pomak) > 1e-9 {
 			t.Errorf("pomak na dosegu %d: %v, očekivano %v", doseg, p, pomak)
 		}
 	}
@@ -271,15 +274,15 @@ func TestProvjeraUnatragPremaloSlucaja(t *testing.T) {
 		t.Errorf("dnevnik:\n%s", dnevnik.String())
 	}
 	zapisani, _ := Promasaji(baza)
-	if p := zapisani["donja"][5]; p.Pomak != 99 || p.Slucaja != 500 {
+	if p := zapisani[donjaVodostaj][5]; p.Pomak != 99 || p.Slucaja != 500 {
 		t.Errorf("stari promašaj: %+v", p)
 	}
 }
 
-func TestPromasajiPoLetviBezVelicine(t *testing.T) {
+func TestPromasajiPoLetviIVelicini(t *testing.T) {
 	baza := praznaBazaPrognoza(t)
-	// Tablica razlikuje veličinu, a čitanje ne: za istu letvu i doseg ostaje
-	// samo jedan od dva zapisa.
+	// Tablica razlikuje veličinu, pa je razlikuje i čitanje: za istu letvu i
+	// doseg ostaju oba zapisa, svaki pod svojom veličinom.
 	if err := SpremiPromasaje(baza, []Promasaj{
 		{Letva: "donja", Velicina: "vodostaj", DosegH: 6, Pomak: 1, Slucaja: 100},
 		{Letva: "donja", Velicina: "protok", DosegH: 6, Pomak: 2, Slucaja: 100},
@@ -294,11 +297,57 @@ func TestPromasajiPoLetviBezVelicine(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(zapisani["donja"]) != 1 {
+	if len(zapisani) != 2 {
 		t.Fatalf("pročitano: %v", zapisani)
 	}
-	if p := zapisani["donja"][6]; p.Velicina != "vodostaj" && p.Velicina != "protok" {
-		t.Errorf("pročitan je %+v", p)
+	for vel, pomak := range map[string]float64{"vodostaj": 1, "protok": 2} {
+		if p := zapisani[Izvor{Letva: "donja", Velicina: vel}][6]; p.Velicina != vel || p.Pomak != pomak {
+			t.Errorf("%s: pročitan je %+v", vel, p)
+		}
+	}
+}
+
+// Živa prognoza i provjera s Ispravi primjenjuju promašaj veličine u kojoj
+// letva računa; zapis druge veličine iste letve ne dira je.
+func TestPromasajiSePrimjenjujuPoVelicini(t *testing.T) {
+	bezIspravka(t)
+	baza := probnaBazaPrognoza(t)
+	var upis []Promasaj
+	for d := 1; d <= 12; d++ {
+		upis = append(upis,
+			Promasaj{Letva: "donja", Velicina: "vodostaj", DosegH: d, Pomak: -5, Rasap: 2, Slucaja: 100},
+			Promasaj{Letva: "donja", Velicina: "protok", DosegH: d, Pomak: 50, Rasap: 40, Slucaja: 100})
+	}
+	if err := SpremiPromasaje(baza, upis, "proba"); err != nil {
+		t.Fatal(err)
+	}
+
+	zadnji := time.Now().UTC().Truncate(time.Hour)
+	osv := &Osvjezivac{Baza: baza, Ocitanja: stalnaOcitanja(t, 48, zadnji), Najdalje: 12, Model: ModelLanac}
+	ishod, err := osv.Osvjezi(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d := naDosegu(ishod, "donja", 12); d == nil || d.Vrijednost != stalnaDonja || d.Raspon() != 2 {
+		t.Errorf("12 h unaprijed: %+v, očekivano %v ± 2", d, stalnaDonja)
+	}
+
+	var dnevnik, tablica bytes.Buffer
+	o := opcijeStalne(&dnevnik)
+	o.Do, o.Zapisi, o.Ispravi, o.CSV = o.Od, false, true, &tablica
+	if _, err := ProvjeriUnatrag(stalnaArhiva(t, o.Od.Add(-12*time.Hour), o.Do.Add(13*time.Hour)), baza, o); err != nil {
+		t.Fatal(err)
+	}
+	r := csv.NewReader(strings.NewReader(strings.TrimPrefix(tablica.String(), "\ufeff")))
+	r.Comma = ';'
+	redovi, err := r.ReadAll()
+	if err != nil || len(redovi) != 3 {
+		t.Fatalf("CSV: %v, %v", redovi, err)
+	}
+	for _, red := range redovi[1:] {
+		if red[5] != "105" || red[6] != "103" || red[7] != "107" {
+			t.Errorf("provjera s ispravkom: %v", red)
+		}
 	}
 }
 

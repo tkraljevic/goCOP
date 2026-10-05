@@ -611,7 +611,7 @@ func daniDnevnog() (dunav, drava string) {
 // raspon iz izmjerenih promašaja, ulazi dnevnog modela iz paketa prognoza.
 // Redom je kao na pregledu, od uzvodne prema nizvodnoj po vodama.
 func letveMetode(tablice []TablicaPrognoza, postaje map[string]models.Station,
-	pojasi map[string][]prognoza.Pojas, promasaji map[string]map[int]prognoza.Promasaj) []LetvaMetode {
+	pojasi map[string][]prognoza.Pojas, promasaji map[prognoza.Izvor]map[int]prognoza.Promasaj) []LetvaMetode {
 	ime := func(kod string) string {
 		if st, ima := postaje[kod]; ima && st.Name != "" {
 			return st.Name
@@ -648,8 +648,9 @@ func letveMetode(tablice []TablicaPrognoza, postaje map[string]models.Station,
 				}
 				var r []string
 				izmjeren := false
+				izmjereni := promasaji[prognoza.Izvor{Letva: x.Kod, Velicina: l.Racuna}]
 				for _, d := range DoseziRaspona {
-					if p, ima := promasaji[x.Kod][d]; ima {
+					if p, ima := izmjereni[d]; ima {
 						r = append(r, "±"+brojHRf(math.Round(p.Rasap), 0))
 						izmjeren = true
 					} else {

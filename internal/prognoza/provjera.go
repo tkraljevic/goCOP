@@ -68,7 +68,7 @@ func ProvjeriUnatrag(arhiva, baza *sql.DB, o OpcijeProvjere) (int, error) {
 	}
 	// Zapisani promašaji smiju se primijeniti samo na razdoblju na kojem nisu
 	// mjereni; inače se provjerava sam sebe i svaka brojka izlazi bolja.
-	zapisani := map[string]map[int]Promasaj{}
+	zapisani := map[Izvor]map[int]Promasaj{}
 	if o.Ispravi {
 		if zapisani, err = Promasaji(baza); err != nil {
 			return 0, err
@@ -130,7 +130,7 @@ func ProvjeriUnatrag(arhiva, baza *sql.DB, o OpcijeProvjere) (int, error) {
 			iz := Izvor{Letva: letva, Velicina: ps[0].Velicina}
 			sada, imaSad := nizovi[iz].U(t)
 			for _, i := range izdane {
-				if p, ima := zapisani[letva][int(i.Ciljni-t)]; ima {
+				if p, ima := zapisani[iz][int(i.Ciljni-t)]; ima {
 					// Isto što radi živa prognoza: pomak se oduzme, a raspon
 					// je zapisani — pa „u rasponu” mjeri baš njega.
 					i.Vrijednost -= p.Pomak

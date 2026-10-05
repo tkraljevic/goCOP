@@ -52,8 +52,10 @@ func TestLetveMetodeOpisujuUlaze(t *testing.T) {
 			{Letva: "gornja", Velicina: "protok", PomakH: 20, Sirina: 5},
 			{Letva: "pritok", Velicina: "vodostaj", PomakH: 6, Sirina: 1}}},
 	}}
-	promasaji := map[string]map[int]prognoza.Promasaj{"donja": {
-		24: {Rasap: 6.4}, 48: {Rasap: 11.2}}}
+	// Promašaj u protoku iste letve ne smije ući u raspon: računa se vodostaj.
+	promasaji := map[prognoza.Izvor]map[int]prognoza.Promasaj{
+		{Letva: "donja", Velicina: "vodostaj"}: {24: {Rasap: 6.4}, 48: {Rasap: 11.2}},
+		{Letva: "donja", Velicina: "protok"}:   {24: {Rasap: 90}, 48: {Rasap: 140}, 72: {Rasap: 200}}}
 	tablice := []TablicaPrognoza{{Naslov: "Rijeka", Letve: []LetvaPrognoze{
 		{Kod: "gornja", Naziv: "Gornja"}, {Kod: "donja", Naziv: "Donja", Voda: "Rijeka"}}}}
 
