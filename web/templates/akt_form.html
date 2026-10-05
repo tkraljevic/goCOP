@@ -49,10 +49,10 @@
   <div class="form-group" id="prekid-akt">
     <label class="form-label" for="prekida_akt_id">Akt o uspostavi koji se stavlja izvan snage</label>
     <select id="prekida_akt_id" name="prekida_akt_id" class="form-control">
-      <option value="">zadnji ovjereni istog stupnja</option>
+      <option value="">zadnji ovjereni, neprekinuti istog stupnja</option>
       {{range .ZaPrekid}}<option value="{{.ID}}">{{.Oznaka}} · {{.VrstaNaziv}} o uspostavi {{.Predmet}} · {{formatDate (localTime .Vrijedi)}}</option>{{end}}
     </select>
-    <div class="form-help">Samo za prekid. {{if not .ZaPrekid}}Po ovom vodomjeru još nema ovjerenog akta o uspostavi; rečenicu možete upisati u nacrtu.{{end}}</div>
+    <div class="form-help">Samo za prekid. {{if not .ZaPrekid}}Po ovom vodomjeru nema ovjerenog akta o uspostavi koji je još na snazi; rečenicu možete upisati u nacrtu.{{end}}</div>
   </div>
   <div class="form-group">
     <label class="form-label">Dionice</label>

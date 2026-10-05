@@ -14,7 +14,8 @@ import (
 
 // Prekid stavlja izvan snage samo ovjeren, neponišten akt o uspostavi iste
 // letve i stupnja: bez zadanog akta najnoviji koji još nije prekinut, a
-// zadani se odbija kad je poništen, druge letve ili drugog stupnja
+// zadani se odbija kad je poništen, već prekinut, druge letve ili drugog
+// stupnja
 func TestPrekidVezanSamoNaNeponistenuNeprekinutuUspostavu(t *testing.T) {
 	o := novaOkolinaAkta(t)
 	ctx := context.Background()
@@ -70,6 +71,7 @@ func TestPrekidVezanSamoNaNeponistenuNeprekinutuUspostavu(t *testing.T) {
 		id      string
 	}{
 		"poništen":      {models.PhasePrep, u2.ID},
+		"već prekinut":  {models.PhasePrep, u1.ID},
 		"drugi stupanj": {models.PhaseRegular, u3.ID},
 		"druga letva":   {models.PhasePrep, druga.ID},
 		"prekid":        {models.PhasePrep, p1.ID},
