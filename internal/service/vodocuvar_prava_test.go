@@ -61,3 +61,40 @@ func TestPreneseniListJeZakljucen(t *testing.T) {
 }
 
 var vrijemeProbe = time.Now()
+
+// Prijave s terena idu s dnevnikom: tko ne vidi dnevnik vodočuvara, ne vidi
+// ni njegove objavljene prijave. Dežurni operater sektora i poslovođa
+// izvođača na području zato ne vide ni jedno ni drugo, iako bi list smjeli
+// parafirati. Zaključano dok se ne odluči trebaju li njima prijave s terena i
+// bez dnevnika.
+func TestPrijaveIduSDnevnikom(t *testing.T) {
+	podrucje := 1
+	sektor := "P"
+	vodocuvarID := uuid.New()
+	list := &models.VodocuvarskiList{UserID: vodocuvarID.String(), Sektor: sektor, AreaID: podrucje}
+	prijava := &models.PrijavaSTerena{UserID: vodocuvarID.String(), Sektor: sektor, AreaID: podrucje, Status: models.PrijavaObjavljena}
+	vod := &VodocuvarService{}
+	prijave := &PrijavaService{vodocuvar: vod}
+
+	osoba := func(d models.Duty) *models.UserPermissions {
+		d.IsActive, d.SectorID = true, &sektor
+		return models.NewUserPermissions(models.User{ID: uuid.New(), FullName: "Pero Perić", Duties: []models.Duty{d}})
+	}
+	slucajevi := []struct {
+		naziv string
+		perms *models.UserPermissions
+		vidi  bool
+	}{
+		{"rukovoditelj područja", osoba(models.Duty{Role: models.RoleAreaLeader, ScopeType: models.ScopeArea, AreaID: &podrucje}), true},
+		{"operater sektora", osoba(models.Duty{Role: models.RoleOperator, ScopeType: models.ScopeSector}), false},
+		{"poslovođa izvođača", osoba(models.Duty{Role: models.RoleServiceLeaderForeman, ScopeType: models.ScopeArea, AreaID: &podrucje}), false},
+	}
+	for _, s := range slucajevi {
+		if got := vod.SmijeVidjeti(s.perms, list); got != s.vidi {
+			t.Errorf("%s: dnevnik %v, očekivano %v", s.naziv, got, s.vidi)
+		}
+		if got := prijave.SmijeVidjeti(s.perms, prijava); got != s.vidi {
+			t.Errorf("%s: prijava %v, očekivano %v", s.naziv, got, s.vidi)
+		}
+	}
+}
