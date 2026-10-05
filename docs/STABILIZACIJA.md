@@ -23,6 +23,11 @@ na korake pokretanja. Detalji su u [popisu izmjena](../CHANGELOG.md#0034-alfa--4
 Brojke i nalazi niže ostaju povijesni dokaz polazišta; novo mjerenje daje
 `make quality` na konkretnom commitu.
 
+**Stanje 6. 10. 2026.:** zaostaci iz faza 1 i 2 (sumnjiva ponašanja iz
+PR-ova #4–#11 i nalazi iz ovog plana koji su ostali nakon 0.0.34) ispravljeni
+su ili čekaju odluku. Popis je u odjeljku
+[Zaostaci faza 1 i 2](#zaostaci-faza-1-i-2-6-10-2026).
+
 ## Kako je izabrano
 
 Polazište je `.quality/code-health.json` mjerenja mastera na Linuxu (vidi „Brojke” niže), ali brojka nije presudila. Uz složenost (CC), pokrivenost i CRAP gledano je:
@@ -209,7 +214,9 @@ Sama ništa ne piše: zapis radi `Zapisi` (`:719`).
 - Odluke, ne preuređenje:
   - smije li se doseg 0 gladiti i zapisivati (`racun.go:569-571` kaže da u satu izdavanja promašaj mora biti nula);
   - treba li uvjet glavne inačice i ovdje;
-  - smije li spremanje brisati dosege koji više nisu izmjereni.
+  - smije li spremanje brisati dosege koji više nisu izmjereni. *Riješeno
+    6. 10. 2026. (F1-24): nova provjera zamjenjuje sve promašaje letve i
+    veličine, i kad ne zapiše ništa.*
 - **Kozmetički** bi bilo izdvojiti samo ispis.
 
 ## 4. `service.(*AktService).Ovjeri` i `zakljuciOvjeru` — `internal/service/akt_service.go:638` i `:666`
@@ -734,6 +741,102 @@ Coverage nekih funkcija mijenja se od pokretanja do pokretanja bez promjene koda
 
 - `internal/service/drugi_korak.go`: `rezervirajUnos` (88,9 % ↔ 77,8 %), `ProvjeriKod` (74–82 %), `JaviPromjenuAdrese` i `posalji`. Uzrok još nije nađen.
 - `internal/razmjena`: `Dial` i `DialExchange` — grana greške spajanja pogađala se samo kad test nazove prije slušalice. Riješeno testovima nazivanja bez slušalice.
+
+## Zaostaci faza 1 i 2 (6. 10. 2026.)
+
+Stavke su označene prema izvoru: F1-n je stavka n „Sumnjivog ponašanja” iz
+PR-a #4 (faza 1), F2-p.n stavka n iz PR-a #p (faza 2). E, S, R, T i U su
+nalazi iz ovog plana, iz pregleda popravaka i iz njihovih pregleda. Svaka
+ispravka ima test koji bez nje pada, a zaključani testovi
+(`*_zakljucano_test.go`) okrenuti su na ispravno ponašanje.
+
+**Već ispravljeno u 0.0.34:** F1-3, F1-8, F1-10 do F1-13, F1-14, F1-19, F1-20,
+F1-22, F1-25, F2-5.1, F2-5.3, F2-6.1, F2-8.1, F2-8.2, F2-8.6, F2-9.1, F2-9.2,
+F2-9.4, F2-10.1 i F2-10.2.
+
+**Ispravljeno sada:**
+
+| Područje | Stavke | Što je ispravljeno |
+|---|---|---|
+| Ovlasti | F1-1, F1-2, F1-5, F1-6, F1-7, F2-10.3 | doseg uprave je unija svih upravnih dužnosti; uprava praznog sektora ili područja 0 ne broji se; primarna dužnost je prva aktivna i neistekla; `nil` ovlasti ne padaju; rok privremene uprave i bez zadanog cilja; zabranjena promjena vlastitog računa i zastavice odbija se porukom, a ne tiho |
+| Vodočuvarski dnevnik | F1-4, R-1, R-2, R-3 | dnevnik ne vide gost, preglednik, nepoznata uloga ni istekla dužnost; parafa, upis i zadatak samo uz pravo čitanja, po dužnosti (i istek kod ovjere); operater i poslovođa zadržani do odluke; vlastito korisničko ime samo za čitanje |
+| Vodočuvarski list | F2-5.2, F2-5.4, F2-5.6, F2-5.7, F2-5.8, R-7, T-3, T-5, U-1, U-2, U-5 | predaja je jedna cjelina; zadatak zaključen drugim listom bilježi se kako stoji u evidenciji; nepoznato stanje zadatka odbija se; greška čitanja zadataka se javlja; radno vrijeme HH:MM; istodobne predaje ne zaključuju zadatak ni list dvaput; nacrt, upis rukovoditelja i brisanje ne diraju list predan u međuvremenu (brisanje lista i izvornika u jednoj transakciji); isključeni račun ne prima zadatke ni mimo popisa |
+| Obrana i akti | F1-15, F1-16, F1-17, F1-21, E-1, R-4, R-5, S-6, S-8, S-10, T-1, T-2, U-3 | epizoda bez letve se odbija; računata epizoda na kraju niza ostaje otvorena; otvorene obrane sektora s identitetom; istekle dužnosti nisu među primateljima akta; povijest obrane za akt koji stupa na snagu kasnije izvodi krug čvora (pod bravom s ovjerom i stornom, s ponavljanjem greške najviše dan); prekid se veže samo na neponišten, neprekinut akt uspostave, i pri ovjeri nacrta; zadana dionica izvan letve ili registra je greška; obrazac nudi samo letve koje priprema prihvaća |
+| Prognoza | F1-23, F1-24, F1-26, S-1, S-5 | promašaji po veličini; nova provjera zamjenjuje sve promašaje letve; svježina tuđe prognoze po satu izdanja; rezervni dnevni model kad glavni ne da dvije točke; testovi vraćaju globalne postavke |
+| Uvozi | F1-27 do F1-33, R-6, S-21, T-4, T-7, U-4 | dva stupca na istu letvu su dvosmislena; ponoć se može zadati; samo konačni brojevi bez eksponenta i u rasponu −500..3000 cm (izvan raspona broji se zasebno); pad `pick` i gubitak ručne veze lokacije; zapis BP16 bez datuma se preskače; retci teksta ostaju; poništena serija (i pali upis kišomjera) ne broji se kao upisana |
+| Očitanja | F2-6.2, F2-6.4, F2-6.5, F2-6.6, F2-6.8, F2-6.9 | stanje objekta i zapornica samo uz objekt; terenski pregled samo u dopuštenom području; navike po računu, ne po imenu; uobičajeno vrijeme kružnom sredinom; prvo prava, pa unos; popis područja čita prazan podcentar |
+| Dionice, dežurstva, MTS | F2-7.1, F2-7.2, F2-7.3, F2-8.3, F2-8.4, F2-11.2 | šifra dionice mora odgovarati području i sektoru; premještanje izmjenom se odbija; greška čitanja pri prijedlogu šifre se javlja; predaja dežurstva u punim minutama; rad u sektoru po dionici iz registra; objekt MTS-a mora biti u registru |
+| Provjera prijave | S-17 | greška baze nije odjava: zapis u dnevniku i 500 |
+| Dokumenti | F1-P8 | SA4009 više nije blokada u `CODE_QUALITY_BASELINE.md` |
+
+F1-15 i F1-16 ispravljeni su u kodu koji od 0.0.34 nema proizvodnog
+pozivatelja (`EpisodeService.Declare`, `Raise`, `End`, `Rebuild`); vidi
+otvoreno pitanje 14.
+
+**Otvorena pitanja.** Kod nije mijenjan. Uz svako je preporuka.
+
+1. *Operater i poslovođa* (F1-4): smiju li dežurni operater i poslovođa
+   izvođača vidjeti vodočuvarski dnevnik i prijave s terena? Do odluke vide
+   oboje kao prije. Preporuka: operater vidi prijave s terena (prati ih u
+   obrani), dnevnik ne mora; poslovođa ni jedno, osim ako izvođač treba
+   prijave svog područja.
+2. *Pregled tuđim očima isključenog računa* (F1-9). Preporuka: dopušten, ali
+   samo za čitanje i kad je upis tuđim očima uključen.
+3. *Poništenje lozinke operateru* (F1-P5): danas samo razina 1. Preporuka:
+   uprava sektora smije operateru svog sektora (za istu razinu broje se samo
+   dužnosti koje upravljaju).
+4. *Broj akta među čvorovima* (F1-18). Preporuka: dodjela broja u istoj
+   transakciji s upisom i jedinstven ključ (sektor, godina, broj) na čvoru;
+   dvostruki broj s drugog čvora otkriti pri razmjeni i pokazati u popisu.
+5. *List za budući dan* (F2-5.5). Preporuka: nacrt najviše 30 dana unaprijed,
+   predaja tek kad dan počne; isto za upis rukovoditelja.
+6. *Redni broj lista* (F2-5.Q2). Preporuka: ostaje redoslijed upisa; knjiga i
+   ispis slažu po datumu i označe naknadno upisane listove.
+7. *Dva lista za isti dan* (F2-5.Q3). Preporuka: identitet novog lista iz
+   (osoba, dan), poslije jedinstven indeks; postojeće dvojnike prijaviti, ne
+   brisati.
+8. *Letva bez dionica* (F2-6.3). Preporuka: letva dobiva neobavezan „sektor
+   koji je prati”; do tada upis samo uprave.
+9. *Izmjena očitanja nakon gubitka prava* (F2-6.7). Preporuka: autor mijenja
+   još 72 h, ne briše.
+10. *Nepoznato mjesto dežurstva* (F2-8.5). Preporuka: u obračunu zasebno („za
+    provjeru”), ne potvrđuje se dok uprava ne izabere opis.
+11. *Prijenos u skladište drugog sektora* (F2-11.1). Preporuka: ostaje
+    slobodan; kasnije potvrda primitka.
+12. *Predano izvješće sektora* (F2-9.3). Preporuka: izmjena ga vraća u nacrt i
+    traži novu predaju.
+13. *Testovi koji traže `data/` i stvarna imena u testovima* (F1-P7): 54
+    testa CI preskače, a neki testovi nose imena stvarnih djelatnika.
+    Preporuka: service, importeri i peers na izmišljeni testni skup; provjere
+    stvarnih registara u `db` ostaju na `data/`.
+14. *Mrtav kod epizoda*: `Declare`, `Raise`, `End` i `Rebuild` (s
+    `DeleteEpisodesFrom`, koji briše mimo knjige) nemaju pozivatelja.
+    Preporuka: ukloniti.
+15. *Dnevni modeli*: uče se jednom na dan, a neuspjelo učenje ostaje do
+    ponoći. Preporuka: neuspjeh ponoviti nakon sat vremena, ključ po danu u
+    Zagrebu.
+16. *Promašaji na rezervnoj inačici* u provjeri unatrag primjenjuju se, a u
+    živoj prognozi ne. Preporuka: uskladiti s živom prognozom.
+17. *Vrijeme akta bez granica* (moguće 1900. ili 2099.). Preporuka: granica,
+    npr. najviše godinu unatrag i 30 dana unaprijed.
+18. *Vodočuvar jedne dionice priprema akt za sve dionice letve* (namjerno,
+    primjer Vukovara). Preporuka: potvrditi kao pravilo.
+19. *Greške izvora primatelja akta* tiho se preskaču. Preporuka: upozorenje
+    pri pripremi, bez zaustavljanja.
+20. *Prijave s terena na zidu*: grana opisa postoji, ali se nikad ne
+    pokazuju. Preporuka: odlučiti trebaju li na zid.
+21. *Granice vrijednosti za ostale uvoze* (tablica centra, BP16, javni
+    izvori). Preporuka: vrijednosti izvan raspona javnih izvora voditi kao
+    kvar izvora, ne odbacivati tiho.
+
+**Poznato, za kasnije:** uvoz ugovora upisuje prije provjere područja (korak 2
+faze 3); storno koji stigne razmjenom primjenjuje se izvan brave povijesti;
+provjera sesije na stranici prijave i uparivanja guta grešku baze; ponovni
+uvoz ugovora šalje novi trenutak nastanka vode u knjigu; MTS ne provjerava je
+li objekt u zadanom području ni je li ciljno skladište aktivno; sat uvoza
+tablice nema provjeru raspona; dvije istodobne parafe ili parafa i ovjera
+mogu jedna drugoj prepisati upis; `IsFieldUser` ne gleda istek; nestabilno mjerenje pokrivenosti u
+`drugi_korak.go`; dvije zatečeno neformatirane testne datoteke.
 
 ## Faza 3
 
