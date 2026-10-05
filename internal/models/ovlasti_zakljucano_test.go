@@ -227,13 +227,13 @@ func TestPisanjePoDoseguRubniSlucajevi(t *testing.T) {
 }
 
 func TestUpravaBezProvjerePraznihVrijednosti(t *testing.T) {
-	// Pisanje preskače prazan sektor i područje 0, a uprava ih upisuje:
-	// neispravna dužnost daje upravu nad sektorom "" i područjem 0.
+	// Neispravna dužnost (prazan sektor, područje 0) ne daje ni pisanje ni
+	// upravu: uprava sektora "" ili područja 0 ne broji se kao uprava.
 	p := ovlastiZa(
 		aktivna(Duty{Role: RoleSectorLeader, SectorID: sektorOvl("")}),
 		aktivna(Duty{Role: RoleAreaLeader, AreaID: podrucjeOvl(0)}),
 	)
-	if !p.AdminSectors[""] || !p.AdminAreas[0] {
+	if len(p.AdminSectors) != 0 || len(p.AdminAreas) != 0 {
 		t.Errorf("uprava nad praznim sektorom i područjem 0: %v, %v", p.AdminSectors, p.AdminAreas)
 	}
 	if len(p.AllowedSectors) != 0 || len(p.AllowedAreas) != 0 {

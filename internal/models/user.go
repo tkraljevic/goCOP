@@ -430,11 +430,12 @@ func NewUserPermissions(u User) *UserPermissions {
 		case 1:
 			p.IsGlobalAdmin = true
 		case 2:
-			if d.SectorID != nil {
+			// uprava praznog sektora ili područja 0 nije uprava ničega
+			if d.SectorID != nil && *d.SectorID != "" {
 				p.AdminSectors[*d.SectorID] = true
 			}
 		case 3:
-			if d.AreaID != nil {
+			if d.AreaID != nil && *d.AreaID > 0 {
 				p.AdminAreas[*d.AreaID] = true
 			}
 		}
