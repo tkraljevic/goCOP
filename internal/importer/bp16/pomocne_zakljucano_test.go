@@ -16,8 +16,8 @@ import (
 
 // Zaključava pomoćne funkcije uvoza iz stare evidencije Baranje (bez mreže
 // i bez stvarnih datoteka): čitanje pristupnih podataka, preslikavanje stanja
-// i zapornice, vrijeme očitanja, brojeve i tekst iz evidencije te pad uvoza
-// dnevnika na zapisu bez datuma.
+// i zapornice, vrijeme očitanja, brojeve i tekst iz evidencije te uvoz
+// dnevnika sa zapisom bez datuma.
 
 func TestCitanjePristupnihPodataka(t *testing.T) {
 	put := filepath.Join(t.TempDir(), ".env")
@@ -217,12 +217,16 @@ func TestUvozDnevnikaBezDatumaPada(t *testing.T) {
 	if _, err := RunJournals(context.Background(), src, JournalDeps{AreaID: 2, Areas: deps.Areas}); err == nil {
 		t.Error("područje kojeg nema mora javiti grešku")
 	}
-	// Zapis bez datuma (ili kraći od četiri znaka) sruši uvoz umjesto da se
-	// preskoči.
-	defer func() {
-		if recover() == nil {
-			t.Error("uvoz zapisa bez datuma danas pada; ako više ne pada, ažuriraj test")
-		}
-	}()
-	_, _ = RunJournals(context.Background(), src, deps)
+	// Zapis bez datuma (ili kraći od punog datuma) ne pripada nijednom listu:
+	// preskače se i broji u izvješću umjesto da sruši uvoz.
+	rep, err := RunJournals(context.Background(), src, deps)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rep.Records != 2 || rep.NoDate != 1 || rep.Entries != 1 || rep.Journals != 1 {
+		t.Errorf("izvješće: %+v", rep)
+	}
+	if !strings.Contains(rep.Summary(), "1 zapisa bez datuma preskočeno") {
+		t.Errorf("sažetak: %s", rep.Summary())
+	}
 }

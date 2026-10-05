@@ -93,6 +93,7 @@ type JournalReport struct {
 	Supervisor   int
 	NewLocations []string
 	Unmatched    int // upisa bez lokacije (opći upisi)
+	NoDate       int // zapisa bez datuma, preskočenih
 	NoUser       int
 	PerYear      map[string]int
 	DryRun       bool
@@ -101,7 +102,8 @@ type JournalReport struct {
 // Summary sažima izvješće u jedan redak
 func (r JournalReport) Summary() string {
 	return fmt.Sprintf("%d zapisa → %d dnevnika, %d listova, %d upisa (%d nadzora) + %d napomena o rekonstrukciji; %d novih lokacija, %d upisa bez lokacije",
-		r.Records, r.Journals, r.Sheets, r.Entries, r.Supervisor, r.Notes, len(r.NewLocations), r.Unmatched)
+		r.Records, r.Journals, r.Sheets, r.Entries, r.Supervisor, r.Notes, len(r.NewLocations), r.Unmatched) +
+		map[bool]string{true: fmt.Sprintf(", %d zapisa bez datuma preskočeno", r.NoDate)}[r.NoDate > 0]
 }
 
 // ReconstructionNote je tekst prvog upisa na svakom rekonstruiranom listu
@@ -427,6 +429,10 @@ func RunJournals(ctx context.Context, src Source, deps JournalDeps) (JournalRepo
 		byYear := map[string][]evRow{}
 		var years []string
 		for _, r := range rows {
+			if len(r.Datum) < len("2006-01-02") {
+				rep.NoDate++ // zapis bez datuma ne pripada nijednom listu
+				continue
+			}
 			y := r.Datum[:4]
 			if _, ok := byYear[y]; !ok {
 				years = append(years, y)
