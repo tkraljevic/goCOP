@@ -283,7 +283,8 @@ func (s *EpisodeService) Rebuild(ctx context.Context, perms *models.UserPermissi
 }
 
 // izracunaj dijeli niz očitanja na epizode. Izdvojeno iz Rebuild da se pravilo
-// može provjeriti bez baze.
+// može provjeriti bez baze. Zadnja epizoda bez pada ispod praga ostaje
+// otvorena.
 func izracunaj(niz []ocitanje, st models.Station) []models.DefenseEpisode {
 	var out []models.DefenseEpisode
 	var cur *models.DefenseEpisode
@@ -311,7 +312,10 @@ func izracunaj(niz []ocitanje, st models.Station) []models.DefenseEpisode {
 			cur = nil
 		}
 	}
+	// epizoda koja nije pala ispod praga traje: kraj je zadnje očitanje
+	// iznad praga tek kad iza njega dođe pad
 	if cur != nil {
+		cur.EndedAt = nil
 		out = append(out, *cur)
 	}
 	return out

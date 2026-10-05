@@ -303,9 +303,9 @@ func TestRacunataEpizodaNaRubovima(t *testing.T) {
 	if prva.EndedAt == nil || !prva.EndedAt.Equal(dan(2026, 3, 4)) {
 		t.Errorf("prva epizoda završava zadnjim očitanjem iznad praga: %v", prva.EndedAt)
 	}
-	// Epizoda na kraju niza dobije kraj zadnjim očitanjem, pa nije otvorena.
+	// Epizoda na kraju niza nije pala ispod praga, pa ostaje otvorena.
 	druga := ep[1]
-	if druga.EndedAt == nil || druga.IsOpen() || druga.Phase != models.PhaseState {
+	if druga.EndedAt != nil || !druga.IsOpen() || druga.Phase != models.PhaseState {
 		t.Errorf("epizoda na kraju niza: kraj %v, otvorena %v, faza %s", druga.EndedAt, druga.IsOpen(), druga.Phase)
 	}
 }

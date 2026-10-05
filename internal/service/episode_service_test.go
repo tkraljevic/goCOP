@@ -76,8 +76,11 @@ func TestEpizodaNaKrajuNizaOstajeOtvorena(t *testing.T) {
 	if len(epi) != 1 {
 		t.Fatalf("epizoda %d", len(epi))
 	}
-	// zadnje očitanje zatvara epizodu tek kad vodostaj padne; dotad je kraj
-	// zadnji dan iznad praga, a stupanj najviši dosegnuti
+	// epizodu zatvara tek pad ispod praga; dotad nema kraja, a stupanj je
+	// najviši dosegnuti
+	if epi[0].EndedAt != nil || !epi[0].IsOpen() {
+		t.Errorf("epizoda bez pada ispod praga zatvorena: kraj %v", epi[0].EndedAt)
+	}
 	if epi[0].Phase != models.PhaseRegular {
 		t.Errorf("stupanj %q, očekivano redovnu obranu", epi[0].Phase)
 	}
