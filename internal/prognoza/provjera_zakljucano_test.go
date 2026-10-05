@@ -257,10 +257,14 @@ func naDosegu(ishod *Ishod, letva string, d int64) *Izdana {
 func TestProvjeraUnatragPremaloSlucaja(t *testing.T) {
 	bezIspravka(t)
 	baza := probnaBazaPrognoza(t)
-	// Promašaj zapisan ranije za doseg koji nova provjera ne zapiše ostaje:
-	// spremanje samo dopisuje i zamjenjuje iste dosege.
-	stari := Promasaj{Letva: "donja", Velicina: "vodostaj", DosegH: 5, Pomak: 99, Rasap: 1, Slucaja: 500}
-	if err := SpremiPromasaje(baza, []Promasaj{stari}, "ranije"); err != nil {
+	// Nova provjera zamjenjuje sve zatečene promašaje, i u drugoj veličini:
+	// doseg koji sada nema dovoljno slučaja ne smije zadržati stari pomak,
+	// izmjeren drugim računom ili na drugom razdoblju.
+	stari := []Promasaj{
+		{Letva: "donja", Velicina: "vodostaj", DosegH: 5, Pomak: 99, Rasap: 1, Slucaja: 500},
+		{Letva: "donja", Velicina: "protok", DosegH: 5, Pomak: 40, Rasap: 1, Slucaja: 500},
+	}
+	if err := SpremiPromasaje(baza, stari, "ranije"); err != nil {
 		t.Fatal(err)
 	}
 	var dnevnik bytes.Buffer
@@ -273,9 +277,43 @@ func TestProvjeraUnatragPremaloSlucaja(t *testing.T) {
 	if !strings.Contains(dnevnik.String(), "zapisano 0 izmjerenih promašaja") {
 		t.Errorf("dnevnik:\n%s", dnevnik.String())
 	}
-	zapisani, _ := Promasaji(baza)
-	if p := zapisani[donjaVodostaj][5]; p.Pomak != 99 || p.Slucaja != 500 {
-		t.Errorf("stari promašaj: %+v", p)
+	if zapisani, _ := Promasaji(baza); len(zapisani) != 0 {
+		t.Errorf("stari promašaji ostali: %v", zapisani)
+	}
+}
+
+func TestSpremiPromasajeZamjenjujeZateceno(t *testing.T) {
+	baza := praznaBazaPrognoza(t)
+	prvi := []Promasaj{
+		{Letva: "donja", Velicina: "vodostaj", DosegH: 5, Pomak: 99, Slucaja: 500},
+		{Letva: "donja", Velicina: "vodostaj", DosegH: 6, Pomak: 98, Slucaja: 500},
+	}
+	drugi := []Promasaj{{Letva: "donja", Velicina: "vodostaj", DosegH: 6, Pomak: 1, Slucaja: 100}}
+	for _, upis := range [][]Promasaj{prvi, drugi} {
+		if err := SpremiPromasaje(baza, upis, "proba"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	zapisani, err := Promasaji(baza)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(zapisani[donjaVodostaj]) != 1 || zapisani[donjaVodostaj][6].Pomak != 1 {
+		t.Errorf("nakon drugog spremanja: %v", zapisani)
+	}
+
+	// Isti doseg dvaput u jednom upisu je greška i ne briše zatečeno.
+	if err := SpremiPromasaje(baza, append(drugi, drugi...), "proba"); err == nil || !strings.Contains(err.Error(), "na 6 h") {
+		t.Errorf("dvaput isti doseg: %v", err)
+	}
+	if zapisani, _ := Promasaji(baza); zapisani[donjaVodostaj][6].Pomak != 1 {
+		t.Errorf("nakon neuspjelog upisa: %v", zapisani)
+	}
+	if _, err := baza.Exec(`DROP TABLE promasaji`); err != nil {
+		t.Fatal(err)
+	}
+	if err := SpremiPromasaje(baza, drugi, "proba"); err == nil || !strings.Contains(err.Error(), "brisanje") {
+		t.Errorf("bez tablice: %v", err)
 	}
 }
 

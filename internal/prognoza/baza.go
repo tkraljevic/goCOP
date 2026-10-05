@@ -1003,21 +1003,25 @@ func (p Promasaj) BoljaOdPostojanosti() bool {
 	return p.Postojanost > 0 && p.Rasap < p.Postojanost
 }
 
-// SpremiPromasaje zapisuje izmjerene promašaje, zamjenjujući zatečene.
+// SpremiPromasaje zapisuje izmjerene promašaje, zamjenjujući sve zatečene.
+// Provjera unatrag mjeri sve letve s računom odjednom, pa ono što nova
+// provjera nije zapisala (doseg s premalo slučaja, druga veličina, letva bez
+// računa) ne smije ostati iz stare: pomak izmjeren drugim računom ili na
+// drugom razdoblju ispravljao bi prognozu kojoj ne pripada. Isto radi i
+// primatelj modela razmjenom (PrimiModel).
 func SpremiPromasaje(db *sql.DB, promasaji []Promasaj, kad string) error {
 	tx, err := db.Begin()
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
+	if _, err := tx.Exec(`DELETE FROM promasaji`); err != nil {
+		return fmt.Errorf("brisanje zatečenih promašaja: %w", err)
+	}
 	for _, p := range promasaji {
 		if _, err := tx.Exec(`INSERT INTO promasaji
 			(letva, velicina, doseg_h, pomak, rasap, postojanost, slucaja, mjereno)
-			VALUES (?,?,?,?,?,?,?,?)
-			ON CONFLICT(letva, velicina, doseg_h) DO UPDATE SET
-				pomak=excluded.pomak, rasap=excluded.rasap,
-				postojanost=excluded.postojanost, slucaja=excluded.slucaja,
-				mjereno=excluded.mjereno`,
+			VALUES (?,?,?,?,?,?,?,?)`,
 			p.Letva, p.Velicina, p.DosegH, p.Pomak, p.Rasap, p.Postojanost,
 			p.Slucaja, kad); err != nil {
 			return fmt.Errorf("promašaj %s na %d h: %w", p.Letva, p.DosegH, err)
