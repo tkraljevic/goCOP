@@ -443,11 +443,26 @@ func TestZadaciNaListuIPredaja(t *testing.T) {
 		vdGreska(t, err, "uz zadatak „pregledati ustavu” upišite što je napravljeno ili zašto nije")
 	}
 
+	// nepoznato stanje s obrasca odbija se, i stanje iz ranije evidencije
+	// (bez odgovora) koje vodočuvar ne može označiti; list ostaje kakav je bio
+	for _, status := range []string{"NEPOZNATO", models.ZadatakBezOdgovora, ""} {
+		unos := vdUnos("obilazak područja")
+		unos.Zadaci = map[string]UnosZadatka{
+			ustava.ID:  {Status: models.ZadatakObavljen, Obavljeno: "ustava pregledana"},
+			propust.ID: {Status: status, Obavljeno: "nije stiglo"},
+		}
+		_, err := o.vs.Spremi(ctx, u, dan, unos, false)
+		vdGreska(t, err, "nepoznato stanje zadatka „očistiti propust”")
+	}
+	if b := o.vdListIzBaze(t, u, dan); b.Opis != "" || vdNaListu(b, ustava.ID).Status != models.ZadatakOtvoren {
+		t.Errorf("odbijeno stanje promijenilo je list: %+v", b)
+	}
+
 	unos := vdUnos("obilazak područja")
 	unos.Zadaci = map[string]UnosZadatka{
 		ustava.ID:      {Status: models.ZadatakObavljen, Obavljeno: " ustava pregledana "},
 		nasip.ID:       {Status: models.ZadatakOdbacen, Obavljeno: "nasip pod vodom"},
-		propust.ID:     {Status: "NEPOZNATO", Obavljeno: "nije stiglo"},
+		propust.ID:     {Status: models.ZadatakOtvoren, Obavljeno: "nije stiglo"},
 		"nema-zadatka": {Status: models.ZadatakObavljen, Obavljeno: "ne postoji"},
 		kasniji.ID:     {Status: models.ZadatakObavljen, Obavljeno: "unaprijed"},
 	}
@@ -461,9 +476,9 @@ func TestZadaciNaListuIPredaja(t *testing.T) {
 	if z := vdNaListu(l, nasip.ID); z.Status != models.ZadatakOdbacen || z.Obavljeno != "nasip pod vodom" {
 		t.Errorf("odbačen: %+v", z)
 	}
-	// nepoznato stanje znači da zadatak ostaje otvoren, s upisanim razlogom
+	// neobavljen zadatak ostaje otvoren, s upisanim razlogom
 	if z := vdNaListu(l, propust.ID); z.Status != models.ZadatakOtvoren || z.Obavljeno != "nije stiglo" {
-		t.Errorf("nepoznato stanje: %+v", z)
+		t.Errorf("otvoren zadatak: %+v", z)
 	}
 	// zadatak kojeg nema na listu ne dolazi s obrasca
 	if len(l.Zadaci) != 3 || vdNaListu(l, kasniji.ID) != nil {

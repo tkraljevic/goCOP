@@ -258,6 +258,31 @@ type UnosZadatka struct {
 	Obavljeno string
 }
 
+// oznaciZadatke prenosi na zadatke lista stanje s obrasca. Obrazac nudi
+// samo otvoren, obavljen i odbačen; drugo stanje je greška unosa, a ne
+// otvoren zadatak.
+func oznaciZadatke(zadaci []models.ZadatakNaListu, unos map[string]UnosZadatka) error {
+	for i := range zadaci {
+		z := &zadaci[i]
+		un, ok := unos[z.ID]
+		if !ok {
+			continue
+		}
+		obavljeno := strings.TrimSpace(un.Obavljeno)
+		switch un.Status {
+		case models.ZadatakObavljen, models.ZadatakOdbacen:
+			if obavljeno == "" {
+				return fmt.Errorf("uz zadatak „%s” upišite što je napravljeno ili zašto nije", z.Tekst)
+			}
+		case models.ZadatakOtvoren:
+		default:
+			return fmt.Errorf("nepoznato stanje zadatka „%s”: označite je li obavljen, prenosi li se ili ne", z.Tekst)
+		}
+		z.Status, z.Obavljeno = un.Status, obavljeno
+	}
+	return nil
+}
+
 // Spremi upisuje list vodočuvara; predan list više se ne mijenja
 // provjeriPredaju: predaja traži opis rada, a neobavljeni zadatak ostaje
 // upisan na listu s obrazloženjem
@@ -300,21 +325,8 @@ func (s *VodocuvarService) Spremi(ctx context.Context, u *models.User, dan time.
 	l.Prilike, l.Naredbe, l.Opis, l.Zapazanja = strings.TrimSpace(unos.Prilike), strings.TrimSpace(unos.Naredbe), strings.TrimSpace(unos.Opis), strings.TrimSpace(unos.Zapazanja)
 	// zadaci: stanje s obrasca
 	l.Zadaci = s.zadaciNaListu(ctx, u.ID.String(), dan, l.Zadaci)
-	for i := range l.Zadaci {
-		z := &l.Zadaci[i]
-		un, ok := unos.Zadaci[z.ID]
-		if !ok {
-			continue
-		}
-		switch un.Status {
-		case models.ZadatakObavljen, models.ZadatakOdbacen:
-			if strings.TrimSpace(un.Obavljeno) == "" {
-				return nil, fmt.Errorf("uz zadatak „%s” upišite što je napravljeno ili zašto nije", z.Tekst)
-			}
-			z.Status, z.Obavljeno = un.Status, strings.TrimSpace(un.Obavljeno)
-		default:
-			z.Status, z.Obavljeno = models.ZadatakOtvoren, strings.TrimSpace(un.Obavljeno)
-		}
+	if err := oznaciZadatke(l.Zadaci, unos.Zadaci); err != nil {
+		return nil, err
 	}
 	// svaki list nosi redni broj od prvog spremanja, kao stranica u knjizi
 	if l.Broj == 0 {
