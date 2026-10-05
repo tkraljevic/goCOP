@@ -1,11 +1,11 @@
 # Privremeno imenovanje — pravila i nacrt rješenja
 
-Pravila su dogovorena s vlasnikom 5. 10. 2026. Dužnosti u programu provedene
-su za 0.0.35; rješenje o privremenom imenovanju kao akt u programu dolazi
-poslije. Polazi od [pravila uprave](INSTALACIJA.md#3-podaci-i-sigurnost) i
+Odluke su od 5. 10. 2026. Dužnosti u programu provedene su za 0.0.35;
+rješenje o privremenom imenovanju kao akt u programu dolazi poslije. Polazi
+od [pravila uprave](INSTALACIJA.md#3-podaci-i-sigurnost) i
 [stanja obrane iz akata](NACRT-STADIJI-OBRANE.md).
 
-## Pravila (odluke vlasnika, 5. 10. 2026.)
+## Odluke (5. 10. 2026.)
 
 1. Sve dužnosti osim privremenih su **stalne**: vrijede dok ih uprava ne
    izmijeni ili opozove. Mandat se ne ograničava trajanjem: popis ljudi po
@@ -74,7 +74,7 @@ Prema rješenjima Sektora B (BP 34, lipanj 2024.):
   redovne obrane na dionici (u području), a najkasnije [datum], ako je zadan;
 - **novi članak:** ovlasti koje imenovani dodijeli u programu goCOP u okviru
   uprave dionice, odnosno branjenog područja, prestaju zajedno s ovim
-  imenovanjem (tekst uskladiti s vlasnikom);
+  imenovanjem (tekst još treba uskladiti);
 - „O tome obavijest”, potpis rukovoditelja obrane od poplava sektora i žig.
 
 U programu: ovjera rješenja stvara privremenu dužnost (uloga, doseg, datum,
