@@ -299,9 +299,14 @@ func RunObilasci(ctx context.Context, src Source, deps ObilasciDeps) (ObilasciRe
 // vrijemeDana je ono što je stara evidencija imala o danu
 type vrijemeDana struct{ Prilike, Vodostaji string }
 
-// sredi miče višak razmaka i tabulatora iz teksta stare evidencije
+// sredi miče višak razmaka i tabulatora iz teksta stare evidencije; razmaci
+// se sažimlju unutar retka, a retci ostaju
 func sredi(s string) string {
-	return strings.TrimSpace(strings.Join(strings.Fields(strings.ReplaceAll(s, "\n", " \n ")), " "))
+	retci := strings.Split(s, "\n")
+	for i, r := range retci {
+		retci[i] = strings.Join(strings.Fields(r), " ")
+	}
+	return strings.TrimSpace(strings.Join(retci, "\n"))
 }
 
 // sat skraćuje "07:00:00" na "07:00"
