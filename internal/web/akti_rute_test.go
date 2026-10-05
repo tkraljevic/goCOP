@@ -173,7 +173,8 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 
 	mora(zovi(http.MethodGet, "/akti", nil), "prazan popis", "Nema akata", "Novi akt")
 	mora(zovi(http.MethodGet, "/akti/novi", nil), "izbor vodomjera", "Batina", "B.34.1, B.34.2")
-	mora(zovi(http.MethodGet, "/akti/novi?station="+st.ID.String()+"&stupanj=IZVANREDNA", nil), "obrazac", "Akt po vodomjeru Batina", "652 cm", "640 cm", `name="ocitanje_id"`, `name="tendencija"`, `value="B.34.1" checked`, `value="B.34.2" checked`)
+	mora(zovi(http.MethodGet, "/akti/novi?station="+st.ID.String()+"&stupanj=IZVANREDNA", nil), "obrazac", "Akt po vodomjeru Batina", "652 cm", "640 cm", `name="ocitanje_id"`, `name="tendencija"`, `value="B.34.1" checked`, `value="B.34.2" checked`,
+		"zadnji ovjereni, neprekinuti istog stupnja", "nema ovjerenog akta o uspostavi koji je još na snazi")
 	mora(zovi(http.MethodGet, "/akti/spranca?sektor=B", nil), "špranca", "Pravna osnova", "XXIII", "N.N. br. 84/10", "Vrati zadano")
 
 	// špranca: izdanje Glavnog provedbenog plana iz 2025.

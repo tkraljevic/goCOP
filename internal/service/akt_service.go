@@ -1134,31 +1134,27 @@ func (s *AktService) OcitanjaZaAkt(ctx context.Context, stationID string, limit 
 }
 
 // aktKojiSePrekida je ovjereni, neponišteni akt o uspostavi istog stupnja
-// po istom vodomjeru koji prekid stavlja izvan snage: zadani, ili zadnji
-// koji još nije prekinut
+// po istom vodomjeru koji još nije prekinut, a prekid ga stavlja izvan
+// snage: zadani, ili zadnji. Zadani se prihvaća samo ako je među aktima koje
+// nudi obrazac (AktiZaPrekid), pa ni ručno sastavljen ni zastario obrazac ne
+// veže drugi prekid na već prekinutu uspostavu.
 func (s *AktService) aktKojiSePrekida(ctx context.Context, a *models.Akt, id string) (*models.Akt, error) {
-	if id != "" {
-		u, err := s.repo.GetAkt(ctx, id)
-		if err != nil {
-			return nil, err
-		}
-		if !uspostavaZaPrekid(u, a) {
-			return nil, fmt.Errorf("odabrani akt nije ovjereni, neponišteni akt o uspostavi istog stupnja po vodomjeru %s", a.StationName)
-		}
-		return u, nil
-	}
 	kandidati, err := s.AktiZaPrekid(ctx, a.StationID, a.Stupanj)
-	if err != nil || len(kandidati) == 0 {
+	if err != nil {
 		return nil, err
 	}
-	return &kandidati[0], nil
-}
-
-// uspostavaZaPrekid javlja smije li prekid a staviti izvan snage akt u:
-// ovjeren, neponišten akt o uspostavi istog stupnja po istom vodomjeru
-func uspostavaZaPrekid(u, a *models.Akt) bool {
-	return u != nil && u.Ovjeren() && !u.Storniran() && u.Radnja == models.AktUspostava &&
-		u.StationID == a.StationID && u.Stupanj == a.Stupanj
+	if id == "" {
+		if len(kandidati) == 0 {
+			return nil, nil
+		}
+		return &kandidati[0], nil
+	}
+	for i := range kandidati {
+		if kandidati[i].ID == id {
+			return &kandidati[i], nil
+		}
+	}
+	return nil, fmt.Errorf("odabrani akt nije ovjereni, neponišteni, neprekinuti akt o uspostavi istog stupnja po vodomjeru %s", a.StationName)
 }
 
 // najviseZaPrekid: koliko se akata o uspostavi nudi za prekid
