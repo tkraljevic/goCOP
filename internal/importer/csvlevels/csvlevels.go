@@ -35,7 +35,7 @@ import (
 // Options su postavke jednog uvoza
 type Options struct {
 	Path     string            // datoteka
-	Hour     int               // sat očitanja (zadano 7)
+	Hour     *int              // sat očitanja; nezadan je 7, a 0 je ponoć
 	Minute   int               // minuta očitanja
 	Origin   string            // odakle tablica potječe, za trag u zapisu
 	Quality  string            // models.Quality*; prazno je izmjereno
@@ -103,8 +103,9 @@ func (o *Options) logf(format string, args ...any) {
 // Run pročita datoteku i upiše očitanja
 func Run(ctx context.Context, o Options) (Report, error) {
 	rep := Report{DryRun: o.DryRun}
-	if o.Hour == 0 && o.Minute == 0 {
-		o.Hour = 7
+	sat := 7
+	if o.Hour != nil {
+		sat = *o.Hour
 	}
 	if o.Source == "" {
 		o.Source = models.ReadingSourceImport
@@ -155,7 +156,7 @@ func Run(ctx context.Context, o Options) (Report, error) {
 			continue
 		}
 		rep.Rows++
-		at := time.Date(day.Year(), day.Month(), day.Day(), o.Hour, o.Minute, 0, 0, models.Zagreb)
+		at := time.Date(day.Year(), day.Month(), day.Day(), sat, o.Minute, 0, 0, models.Zagreb)
 		if rep.From.IsZero() || at.Before(rep.From) {
 			rep.From = at
 		}

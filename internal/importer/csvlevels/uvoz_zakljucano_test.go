@@ -259,13 +259,16 @@ func TestUvozTabliceRazlikePremaZatecenom(t *testing.T) {
 
 func TestUvozTabliceSatOcitanja(t *testing.T) {
 	ctx := context.Background()
+	sat := func(h int) *int { return &h }
 	for _, s := range []struct {
-		sat, minuta int
-		ocekivano   string
+		sat       *int
+		minuta    int
+		ocekivano string
 	}{
-		{0, 0, "07:00"}, // ponoć se ne da zadati: 0:00 znači zadanih 7:00
-		{0, 30, "00:30"},
-		{6, 0, "06:00"},
+		{nil, 0, "07:00"},    // nezadan sat je zadanih 7:00
+		{sat(0), 0, "00:00"}, // ponoć se može zadati
+		{sat(0), 30, "00:30"},
+		{sat(6), 0, "06:00"},
 	} {
 		o := novaOkolinaTablice(t)
 		// vrijeme u ćeliji datuma se zanemaruje
@@ -275,11 +278,11 @@ func TestUvozTabliceSatOcitanja(t *testing.T) {
 		}
 		zapisano := o.ocitanja(t, o.primjerovo.ID.String())
 		if len(zapisano) != 1 {
-			t.Fatalf("%d:%02d: %d očitanja", s.sat, s.minuta, len(zapisano))
+			t.Fatalf("%s: %d očitanja", s.ocekivano, len(zapisano))
 		}
 		rd := zapisano[0]
 		if got := rd.LocalTime().Format("2006-01-02 15:04"); got != "2026-09-01 "+s.ocekivano {
-			t.Errorf("%d:%02d → %s", s.sat, s.minuta, got)
+			t.Errorf("%s → %s", s.ocekivano, got)
 		}
 		if rd.Source != models.ReadingSourceImport || rd.Origin != "tablica" || rd.SourceRef != "csv:Primjerovo:2026-09-01" {
 			t.Errorf("trag zapisa: izvor %q, podrijetlo %q, oznaka %q", rd.Source, rd.Origin, rd.SourceRef)
