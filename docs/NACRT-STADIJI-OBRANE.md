@@ -2,10 +2,10 @@
 
 Prvotni nacrt od 4. 10. 2026. proveden je u **0.0.34-alfa** (`3194e39`).
 Dokument je usklađen s izvedbom 5. 10. 2026.; naziv datoteke ostaje radi
-postojećih poveznica iz koda i planova. Polazi od odluka vlasnika i nalaza
+postojećih poveznica iz koda i planova. Polazi od odluka i nalaza
 11–14 i 20 u [planu stabilizacije](STABILIZACIJA.md).
 
-## Pravila (odluke vlasnika, 4. 10. 2026.)
+## Pravila (odluke od 4. 10. 2026.)
 
 1. Četiri stadija (pripremno stanje, redovna obrana, izvanredna obrana,
    izvanredno stanje) proglašavaju se **prema gore**, kad postoje uvjeti, a
@@ -125,7 +125,7 @@ Provjere su u `internal/models/stanje_obrane_test.go`,
 **Nadogradnja:** svi čvorovi trebaju najmanje 0.0.34-alfa. Stariji čvor ne
 razumije poništenje pa bi poništen akt i dalje uključio u stanje obrane.
 
-## Odgovori vlasnika (4. 10. 2026.)
+## Odluke o otvorenim pitanjima (4. 10. 2026.)
 
 1. Prekid stadija koji ne traje nije moguć — akt se ne ovjerava.
 2. Niži stadij ne ukida se dok viši traje — ukida se samo najviši.

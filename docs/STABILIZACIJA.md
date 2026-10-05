@@ -721,7 +721,7 @@ Najveća složenost i najveći churn u repozitoriju (19 commitova).
 - `web.crtajUzduzni` (CC 107, 96 %): pokriven crtež. Brojka je signal za održavanje, ne za rizik.
 - `PrognozeHandler.listSazetka`, `SeedInitialData`, `pdfw.Dodaj`, `posta.PokreniProbniEWS`: velik CRAP, ali prikaz, prvo punjenje ili probni alat, bez utjecaja na stanje obrane, ovlasti ili razmjenu.
 
-## Odluke vlasnika (4. 10. 2026.)
+## Odluke (4. 10. 2026.)
 
 - **Stadiji obrane se slažu.** Pripremno stanje, redovna i izvanredna obrana te izvanredno stanje proglašavaju se prema gore i ukidaju obrnutim redom: kad vrijedi pripremno stanje pa se proglasi redovna obrana i kasnije ukine, pripremno i dalje vrijedi dok se i ono ne ukine. Veći stadij smije se proglasiti odmah, bez prethodnih, kad se zna da dolazi velika opasnost. Stanje obrane dionice je najviši stadij koji je proglašen, a nije ukinut. (Stavke 11 i 13 sumnjivog ponašanja, riješene u 0.0.34 izračunom iz akata.)
 - **Akt stupa na snagu prema vremenu koje u njemu piše**, i kad je ovjeren ranije (stavka 12). Do tada stanje obrane ostaje kakvo jest.
