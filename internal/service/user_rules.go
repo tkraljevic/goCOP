@@ -5,6 +5,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+
 	"gocop/internal/models"
 )
 
@@ -36,86 +38,156 @@ func actorRank(p *models.UserPermissions) int {
 // areaSector vraća sektor područja; prazno kad područje nije poznato
 type areaSector func(areaID int) string
 
-// rokUprave je rok privremene uprave nad dosegom dužnosti koja se dodjeljuje
-// (sektor, područje): kraj najdulje actorove dužnosti koja mu daje upravu
-// nad tim dosegom na razini s koje upravlja, kad su sve takve privremene;
-// nil kad je ta uprava stalna (i za stalnog globalnog administratora).
-func rokUprave(p *models.UserPermissions, sectorID *string, areaID *int, sectors areaSector) *time.Time {
+// rokUprave je uprava actora nad dosegom dužnosti koja se dodjeljuje
+// (sektor, područje), na razini s koje upravlja. Stalna je kad je ijedna
+// takva dužnost stalna (i za stalnog globalnog administratora): izvor je tada
+// nil. Inače je privremena: izvor je dužnost koja traje najdulje, a rok njezin
+// istek, nil dok se ne zna (privremeno imenovanje traje dok traje obrana).
+// Kad nijedna dužnost ne upravlja dosegom, izvor je nil (vidi test uprave
+// područja bez cilja).
+func rokUprave(p *models.UserPermissions, sectorID *string, areaID *int, sectors areaSector) (*time.Time, *models.Duty) {
 	rank := actorRank(p)
 	if rank == 1 && p.User.IsGlobalAdmin {
-		return nil
+		return nil, nil
 	}
-	ciljSektor := ""
+	cilj := ciljniSektor(sectorID, areaID, sectors)
+	sad := time.Now()
+	var izvor *models.Duty
+	for i := range p.User.Duties {
+		d := &p.User.Duties[i]
+		if !upravljaCiljem(d, rank, cilj, areaID, sad) {
+			continue
+		}
+		if !privremenaDuznost(*d) {
+			return nil, nil
+		}
+		if izvor == nil || duljeTraje(*d, *izvor) {
+			izvor = d
+		}
+	}
+	if izvor == nil {
+		return nil, nil
+	}
+	return izvor.ExpiresAt, izvor
+}
+
+// ciljniSektor je sektor dosega: sektor područja kad je područje zadano i
+// poznato, inače upisani sektor
+func ciljniSektor(sectorID *string, areaID *int, sectors areaSector) string {
+	cilj := ""
 	if sectorID != nil {
-		ciljSektor = *sectorID
+		cilj = *sectorID
 	}
 	if areaID != nil {
 		if s := sectors(*areaID); s != "" {
-			ciljSektor = s
+			cilj = s
 		}
 	}
-	sad := time.Now()
-	var rok *time.Time
-	for _, d := range p.User.Duties {
-		if !d.IsActive || d.Role.RazinaUprave() != rank || (d.ExpiresAt != nil && d.ExpiresAt.Before(sad)) {
-			continue
-		}
-		switch rank {
-		case 2:
-			if d.SectorID == nil || *d.SectorID != ciljSektor {
-				continue
-			}
-		case 3:
-			if d.AreaID == nil || areaID == nil || *d.AreaID != *areaID {
-				continue
-			}
-		}
-		if d.ExpiresAt == nil {
-			return nil
-		}
-		if rok == nil || d.ExpiresAt.After(*rok) {
-			r := *d.ExpiresAt
-			rok = &r
-		}
+	return cilj
+}
+
+// upravljaCiljem: aktivna, neistekla dužnost na razini s koje actor
+// upravlja, za sektor ili područje dosega
+func upravljaCiljem(d *models.Duty, rank int, ciljSektor string, areaID *int, sad time.Time) bool {
+	if !d.IsActive || d.Role.RazinaUprave() != rank || (d.ExpiresAt != nil && d.ExpiresAt.Before(sad)) {
+		return false
 	}
-	return rok
+	switch rank {
+	case 2:
+		return d.SectorID != nil && *d.SectorID == ciljSektor
+	case 3:
+		return d.AreaID != nil && areaID != nil && *d.AreaID == *areaID
+	}
+	return true
+}
+
+// privremenaDuznost: privremena ispomoć (privremeno imenovanje) ili dužnost
+// s istekom; stalna nema ni jedno ni drugo
+func privremenaDuznost(d models.Duty) bool { return d.IsTemporary || d.ExpiresAt != nil }
+
+// duljeTraje: dužnost a traje dulje od b; dužnost bez poznatog kraja traje
+// dulje od svake s krajem
+func duljeTraje(a, b models.Duty) bool {
+	if b.ExpiresAt == nil {
+		return false
+	}
+	return a.ExpiresAt == nil || a.ExpiresAt.After(*b.ExpiresAt)
+}
+
+// privremenost je ono što dužnost čini privremenom: je li privremena, zadani
+// datum, istek s obranom i dužnost uprave o kojoj ovisi
+type privremenost struct {
+	privremena bool
+	rok        *time.Time
+	sObranom   bool
+	ovisiO     *uuid.UUID
 }
 
 // ograniciRok: dužnost koja daje upravu (na razini actora ili nižoj), a
-// dodjeljuje je privremena uprava, traje najdulje do isteka te uprave nad
-// istim dosegom; inače bi uprava koju je podijelila ostala i poslije isteka.
-// Terenske dužnosti (bez uprave) ostaju kako su dodijeljene. dosad je
-// dužnost prije izmjene (nil pri dodjeli): izmjena iste uloge i dosega smije
-// zadržati ono što je dužnost već imala, pa spremanje tuđe stalne dužnosti
-// nije skraćuje. Vraća je li dužnost privremena i njezin rok.
+// dodjeljuje je privremena uprava, i sama je privremena: ističe najkasnije
+// zajedno s dužnošću iz koje je ta uprava (ovisiO), a zadani rok ne smije biti
+// dulji od njezina. Terenske dužnosti (bez uprave) ostaju kako su tražene.
+// dosad je dužnost prije izmjene (nil pri dodjeli): izmjena iste uloge i
+// dosega ne skraćuje ni ne produljuje ono što je dužnost već imala, pa
+// spremanje tuđe dužnosti ne mijenja njezin vijek. Vraća dopušteno od
+// traženog.
 func ograniciRok(p *models.UserPermissions, role models.Role, sectorID *string, areaID *int, sectionCodes string, sectors areaSector,
-	privremena bool, rok *time.Time, dosad *models.Duty) (bool, *time.Time) {
+	trazeno privremenost, dosad *models.Duty) privremenost {
 	if role.RazinaUprave() == 0 {
-		return privremena, rok
+		return trazeno
 	}
-	r := rokUprave(p, sectorID, areaID, sectors)
-	if r == nil {
-		return privremena, rok
+	r, izvor := rokUprave(p, sectorID, areaID, sectors)
+	if izvor == nil {
+		return trazeno
 	}
-	if dosad != nil && dosad.Role == role && istiNiz(dosad.SectorID, sectorID) && istiBroj(dosad.AreaID, areaID) && dosad.SectionCodes == sectionCodes {
-		if dosad.ExpiresAt == nil {
-			return privremena, rok // stalna ostaje kakva je bila
+	if istaDuznost(dosad, role, sectorID, areaID, sectionCodes) {
+		if !privremenaDuznost(*dosad) {
+			return trazeno // stalna ostaje kakva je bila
 		}
-		if dosad.ExpiresAt.After(*r) {
-			r = dosad.ExpiresAt
-		}
+		// dosadašnja ovisnost i istek s obranom ostaju, a rok najviše do
+		// kasnijeg od uprave i dosadašnjeg
+		return privremenost{privremena: true, rok: raniji(trazeno.rok, kasniji(r, dosad.ZadaniRok())),
+			sObranom: trazeno.sObranom || dosad.IsticeSObranom, ovisiO: dosad.OvisiO}
 	}
-	if rok == nil || rok.After(*r) {
-		rok = r
+	return privremenost{privremena: true, rok: raniji(trazeno.rok, r), sObranom: trazeno.sObranom, ovisiO: &izvor.ID}
+}
+
+// istaDuznost: izmjena zadržava ulogu i doseg dosadašnje dužnosti
+func istaDuznost(dosad *models.Duty, role models.Role, sectorID *string, areaID *int, sectionCodes string) bool {
+	return dosad != nil && dosad.Role == role && istiNiz(dosad.SectorID, sectorID) && istiBroj(dosad.AreaID, areaID) && dosad.SectionCodes == sectionCodes
+}
+
+// kasniji od dva kraja; nil (kraj se ne zna) je kasniji od svakog
+func kasniji(a, b *time.Time) *time.Time {
+	if a == nil || b == nil {
+		return nil
 	}
-	return true, rok
+	if b.After(*a) {
+		return b
+	}
+	return a
+}
+
+// raniji od dva kraja; nil (bez kraja) ne skraćuje drugi
+func raniji(a, b *time.Time) *time.Time {
+	if a == nil {
+		return b
+	}
+	if b == nil || a.Before(*b) {
+		return a
+	}
+	return b
 }
 
 // stalnaUpravaOrganizacije: zastavicu globalnog administratora daje samo
 // stalna uprava organizacije (zastavica ili dužnost razine 1 bez roka);
 // privremena bi se njome učinila trajnom
 func stalnaUpravaOrganizacije(p *models.UserPermissions) bool {
-	return p != nil && p.IsGlobalAdmin && rokUprave(p, nil, nil, nil) == nil
+	if p == nil || !p.IsGlobalAdmin {
+		return false
+	}
+	_, izvor := rokUprave(p, nil, nil, nil)
+	return izvor == nil
 }
 
 func istiNiz(a, b *string) bool { return (a == nil && b == nil) || (a != nil && b != nil && *a == *b) }

@@ -126,6 +126,7 @@
     <a class="kazalo-glava" href="#posta">E-pošta i adresar</a>
     <a class="kazalo-glava" href="#potpisi">Potpisi i izvornici</a>
     <a class="kazalo-glava" href="#users">Djelatnici</a>
+    <a href="#users-privremeno-imenovanje">Privremeno imenovanje</a>
     <a href="#users-kod-prijave">Privremeni kod za prijavu</a>
     <a href="#users-potvrda-adrese">Adresa za PIN izvan domene</a>
     <a class="kazalo-glava" href="#registers">Registri</a>
@@ -1052,8 +1053,9 @@
       kojoj njegovoj dionici. Objekt drugog područja koji stoji i na dionici vodi njegovo
       područje, a novu vezu dionice na objekt ili vodomjer drugog područja upisuje samo tko
       ondje piše. Popisi i zadani izbor sektora i dalje se ravnaju po svim dužnostima osobe.</p>
-    <p>Privremena uprava dužnosti koje daju upravu na istoj ili nižoj razini dodjeljuje najdulje
-      do isteka vlastite ovlasti nad tim dosegom. Terenske dužnosti ostaju kako su dodijeljene.
+    <p>Privremena uprava dužnosti koje daju upravu na istoj ili nižoj razini dodjeljuje kao
+      privremene: ističu zajedno s njezinom ovlasti nad tim dosegom, i kad je opozvana, a zadani
+      datum ne smije biti kasniji od njezina. Terenske dužnosti ostaju kako su dodijeljene.
       Zastavicu globalnog administratora dodjeljuje i uklanja samo stalna uprava organizacije.
       Uloga koju ovo izdanje programa ne poznaje ne daje pravo pisanja i ne može se dodijeliti.
       Isključen račun pri sljedećem zahtjevu gubi sesiju; nakon ponovnog uključenja osoba se
@@ -1069,6 +1071,21 @@
       uključiti upise tuđim očima i simulirani ključ; stvarni administrator ostaje zabilježen, a
       svaki simulirani potpis vidljivo je označen kao bezvrijedan. Te se opcije u operativnom
       radu drže isključenima.</p>
+
+    <h3 id="users-privremeno-imenovanje">Privremeno imenovanje</h3>
+    <p>Dužnosti su stalne: vrijede dok ih uprava ne izmijeni ili opozove. Iznimka je privremeno
+      imenovanje, kad za obranu od poplava nedostaje ljudi: privremeni rukovoditelj ili zamjenik
+      dionice, odnosno branjenog područja. U obrascu zaduženja označite <em>Privremena ispomoć
+      (privremeno imenovanje)</em>. Kao i rješenje o privremenom imenovanju, ono prestaje
+      prestankom redovne i izvanredne obrane (i izvanrednog stanja) na njegovim dionicama,
+      odnosno u branjenom području: u trenutku kad stupi na snagu ovjereni akt kojim obrana
+      ondje prestaje. Pripremno stanje imenovanje ne produljuje. Poništi li se taj akt,
+      imenovanje opet vrijedi. Imenovanje dano prije proglašenja obrane vrijedi dok obrana ne
+      počne i ne prestane. Uz datum <em>Vrijedi do</em> prestaje ono što dođe prvo.</p>
+    <p>Dužnosti uprave koje privremeno imenovani dodijeli ističu zajedno s njegovom, i kad mu je
+      imenovanje opozvano; to treba pisati i u rješenju. Na profilu djelatnika uz takvu dužnost
+      stoji <em>Privremeno</em> i dokle vrijedi. Istek čvor preračunava pri ovjeri i poništenju
+      akta, pri opozivu i svakih deset minuta, jer akti stižu i razmjenom.</p>
 
     <h3 id="users-kod-prijave">Privremeni kod za prijavu</h3>
     <p>Kad se djelatnik prijavljuje izvana, a PIN mu ne stiže ili nema službenu e-poštu,
@@ -1086,9 +1103,9 @@
       uklanja i potpisni ključ; isto vrijedi za rukovoditelja s ispomoći u vašem području. Razina
       uprave je razina s koje uloga upravlja računima: zamjenik glavnog rukovoditelja za sektor
       upravlja sektorom, a zamjenik rukovoditelja sektora za branjeno područje područjem.
-      Privremena uprava (dužnost s rokom) dužnost koja daje upravu na njezinoj razini dodjeljuje
-      najdulje do isteka vlastite uprave nad tim sektorom ili područjem; tuđu postojeću dužnost
-      izmjenom ne skraćuje. Globalnog administratora postavlja samo stalna uprava organizacije.
+      Privremena uprava (privremeno imenovanje ili dužnost s rokom) dužnost koja daje upravu na
+      njezinoj ili nižoj razini dodjeljuje kao privremenu, koja ističe zajedno s njezinom; tuđu
+      postojeću dužnost izmjenom ne skraćuje ni ne produljuje. Globalnog administratora postavlja samo stalna uprava organizacije.
       Poništenje lozinke, promjena lozinke i
       upis nove lozinke na obrascu djelatnika brišu na ovom čvoru njegova zapamćena računala,
       prijave koje čekaju PIN i privremene kodove; rezervni kodovi ostaju. Kod vrijedi samo na

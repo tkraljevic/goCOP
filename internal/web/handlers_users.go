@@ -363,6 +363,8 @@ func dutyRequestFromForm(r *http.Request, userID uuid.UUID) service.AddDutyReque
 		IsTemporary:  r.FormValue("is_temporary") == "1" || r.FormValue("is_temporary") == "on",
 		Reason:       strings.TrimSpace(r.FormValue("reason")),
 		ExpiresAt:    expiresPtr,
+		// istek s obranom ima smisla samo uz privremenu; servis ga za stalnu briše
+		IsticeSObranom: r.FormValue("istece_s_obranom") == "1" || r.FormValue("istece_s_obranom") == "on",
 	}
 }
 

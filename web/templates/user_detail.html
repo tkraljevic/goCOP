@@ -99,10 +99,10 @@
       {{range .User.Duties}}
       <tr>
         <td><strong>{{.Title}}</strong>{{if .IsPrimary}} <span class="reg-chip">primarna</span>{{end}}{{if .Reason}}<div class="form-help">{{.Reason}}</div>{{end}}</td>
-        <td><span class="badge {{if .IsTemporary}}badge-ispomoc{{else}}badge-area-admin{{end}}">{{if .IsTemporary}}{{icon "zap"}} Ispomoć{{else}}{{roleLabel .Role}}{{end}}</span></td>
+        <td><span class="badge {{if .IsTemporary}}badge-ispomoc{{else}}badge-area-admin{{end}}">{{if .IsTemporary}}{{icon "zap"}} Privremeno · {{roleLabel .Role}}{{else}}{{roleLabel .Role}}{{end}}</span></td>
         <td>{{if eq .ScopeType "ALL"}}cijela organizacija{{else}}{{if .SectorID}}{{term "sektor"}} {{derefString .SectorID}}{{end}}{{if .AreaID}} · BP {{derefInt .AreaID}}{{end}}{{end}}</td>
         <td class="mono">{{if .SectionCodes}}{{.SectionCodes}}{{else if .AreaID}}<span class="text-muted">sve</span>{{end}}</td>
-        <td>{{if .ExpiresAt}}do {{formatDateShort .ExpiresAt}}{{else}}<span class="text-muted">stalno</span>{{end}}</td>
+        <td>{{if .ExpiresAt}}do {{formatDateShort .ExpiresAt}}{{else if .IsticeSObranom}}dok traje redovna ili izvanredna obrana{{else if .IsTemporary}}do opoziva{{else}}<span class="text-muted">stalno</span>{{end}}</td>
         {{if $.CanManage}}
         <td class="radnje">
           <a href="/users/duties/{{.ID}}/edit" class="btn btn-sm btn-secondary" title="Promijeni naziv, ulogu, doseg ili dionice">{{icon "pencil"}} Uredi</a>

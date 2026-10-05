@@ -359,8 +359,8 @@ func (h *UsersHandler) ShowDutyEditForm(w http.ResponseWriter, r *http.Request) 
 	if duty.AreaID != nil {
 		data.DutyArea = *duty.AreaID
 	}
-	if duty.ExpiresAt != nil {
-		data.DutyExpires = duty.ExpiresAt.Format("2006-01-02")
+	if rok := duty.ZadaniRok(); rok != nil { // obrazac nudi zadani datum, ne stvarni istek
+		data.DutyExpires = rok.Format("2006-01-02")
 	}
 	data.Sectors, _ = h.userService.ListSectors()
 	data.Areas, _ = h.userService.ListAreas("")

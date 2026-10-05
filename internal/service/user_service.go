@@ -29,7 +29,15 @@ type UserService struct {
 	ukloniKljuc func(ctx context.Context, userID string) error
 	// brisiSanducic briše spremljenu lozinku sandučića e-pošte (SetBrisanjeSanducica)
 	brisiSanducic func(ctx context.Context, userID string) (bool, error)
+	// krajObrane je kraj redovne i izvanredne obrane na dosegu privremenog
+	// imenovanja, iz ovjerenih akata (SetKrajObrane); nil dok traje ili je nema
+	krajObrane func(d models.Duty) *time.Time
 }
+
+// SetKrajObrane povezuje kraj redovne i izvanredne obrane iz akata
+// (AktService.KrajObraneDuznosti): privremeno imenovanje s tim istekom vrijedi
+// dok na njegovim dionicama, odnosno u branjenom području, obrana traje
+func (s *UserService) SetKrajObrane(f func(d models.Duty) *time.Time) { s.krajObrane = f }
 
 // SetUklanjanjeKljuca povezuje uklanjanje osobnog potpisnog ključa. Kad
 // lozinku osobe postavi netko drugi (poništenje ili administrator u
@@ -225,10 +233,8 @@ func (s *UserService) CreateUser(actor *models.UserPermissions, req CreateUserRe
 			IsTemporary:  false,
 			IsActive:     true,
 		}
-		initialDuty.IsTemporary, initialDuty.ExpiresAt = ograniciRok(actor, req.Role, req.SectorID, req.AreaID, req.SectionCodes, sectors, false, nil, nil)
-		if initialDuty.IsTemporary {
-			initialDuty.Reason = "do isteka privremene uprave koja ju je dodijelila"
-		}
+		ograniciRok(actor, req.Role, req.SectorID, req.AreaID, req.SectionCodes, sectors, privremenost{}, nil).upisi(initialDuty)
+		s.istekDuznosti(initialDuty, time.Now())
 	}
 
 	if err := s.userRepo.CreateUser(user, initialDuty); err != nil {
@@ -549,7 +555,12 @@ type AddDutyRequest struct {
 	IsPrimary    bool
 	IsTemporary  bool
 	Reason       string
-	ExpiresAt    *time.Time
+	// ExpiresAt je zadani datum privremene dužnosti („Vrijedi do”), ne
+	// stvarni istek: on se računa (istekDuznosti)
+	ExpiresAt *time.Time
+	// IsticeSObranom: privremeno imenovanje vrijedi dok na dosegu traje
+	// redovna ili izvanredna obrana ili izvanredno stanje
+	IsticeSObranom bool
 }
 
 // AddDuty dodjeljuje korisniku dodatnu funkciju, dionice ili privremenu
@@ -592,12 +603,7 @@ func (s *UserService) AddDuty(actor *models.UserPermissions, req AddDutyRequest)
 		req.Title = req.Role.Label()
 	}
 	// privremena uprava na svojoj razini dodjeljuje najdulje do svog isteka
-	if privremena, rok := ograniciRok(actor, req.Role, req.SectorID, req.AreaID, req.SectionCodes, sectors, req.IsTemporary, req.ExpiresAt, nil); privremena && !req.IsTemporary || rok != req.ExpiresAt {
-		req.IsTemporary, req.ExpiresAt = true, rok
-		if strings.TrimSpace(req.Reason) == "" {
-			req.Reason = "do isteka privremene uprave koja ju je dodijelila"
-		}
-	}
+	dopusteno := ograniciRok(actor, req.Role, req.SectorID, req.AreaID, req.SectionCodes, sectors, trazenaPrivremenost(req), nil)
 
 	dutyID, err := uuid.NewV7()
 	if err != nil {
@@ -615,12 +621,12 @@ func (s *UserService) AddDuty(actor *models.UserPermissions, req AddDutyRequest)
 		AreaID:       req.AreaID,
 		SectionCodes: req.SectionCodes,
 		IsPrimary:    req.IsPrimary,
-		IsTemporary:  req.IsTemporary,
 		Reason:       req.Reason,
 		AssignedBy:   &actorID,
-		ExpiresAt:    req.ExpiresAt,
 		IsActive:     true,
 	}
+	dopusteno.upisi(duty)
+	s.istekDuznosti(duty, time.Now())
 
 	if err := s.userRepo.AddDuty(duty); err != nil {
 		return err
@@ -707,18 +713,11 @@ func (s *UserService) UpdateDuty(actor *models.UserPermissions, dutyID uuid.UUID
 	dosad := *duty
 	duty.Title, duty.Role, duty.ScopeType = req.Title, req.Role, scope
 	duty.SectorID, duty.AreaID, duty.SectionCodes = sectorID, areaID, req.SectionCodes
-	duty.IsPrimary, duty.IsTemporary, duty.Reason, duty.ExpiresAt = req.IsPrimary, req.IsTemporary, req.Reason, req.ExpiresAt
-	if !duty.IsTemporary {
-		duty.Reason, duty.ExpiresAt = "", nil
-	}
+	duty.IsPrimary, duty.Reason = req.IsPrimary, req.Reason
 	// privremena uprava na svojoj razini ne produljuje ni ne trajno ostavlja
 	// dužnost preko svog isteka
-	if privremena, rok := ograniciRok(actor, duty.Role, duty.SectorID, duty.AreaID, duty.SectionCodes, sectors, duty.IsTemporary, duty.ExpiresAt, &dosad); privremena && !duty.IsTemporary || rok != duty.ExpiresAt {
-		duty.IsTemporary, duty.ExpiresAt = true, rok
-		if strings.TrimSpace(duty.Reason) == "" {
-			duty.Reason = "do isteka privremene uprave koja ju je dodijelila"
-		}
-	}
+	ograniciRok(actor, duty.Role, duty.SectorID, duty.AreaID, duty.SectionCodes, sectors, trazenaPrivremenost(req), &dosad).upisi(duty)
+	s.istekDuznosti(duty, time.Now())
 	if err := s.userRepo.UpdateDuty(duty); err != nil {
 		return err
 	}
@@ -756,6 +755,7 @@ func (s *UserService) RevokeDuty(actor *models.UserPermissions, dutyID uuid.UUID
 	if err := s.userRepo.RevokeDuty(dutyID); err != nil {
 		return err
 	}
+	s.uskladiPoOpozivu(dutyID)
 
 	s.sse.Broadcast("duty_revoked", "Opozvana funkcija / ovlast", dutyID.String())
 	return nil

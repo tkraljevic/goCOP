@@ -60,18 +60,27 @@
       <input type="checkbox" name="is_primary" value="1"{{if and .Duty .Duty.IsPrimary}} checked{{end}}> Primarna funkcija (prikazuje se uz ime)
     </label>
     <label class="oznaka-kvacica">
-      <input type="checkbox" name="is_temporary" value="1"{{if and .Duty .Duty.IsTemporary}} checked{{end}} onchange="document.getElementById('temp-fields').hidden = !this.checked"> Privremena ispomoć
+      <input type="checkbox" name="is_temporary" value="1"{{if and .Duty .Duty.IsTemporary}} checked{{end}} onchange="document.getElementById('temp-fields').hidden = !this.checked"> Privremena ispomoć (privremeno imenovanje)
     </label>
+    <div class="form-help">Samo za obranu od poplava, kad nedostaje osoblja: privremeni rukovoditelj ili zamjenik dionice, odnosno branjenog područja. Sve ostale dužnosti su stalne, dok ih uprava ne izmijeni ili opozove.</div>
   </div>
 
-  <div id="temp-fields" class="form-row"{{if not (and .Duty .Duty.IsTemporary)}} hidden{{end}}>
+  <div id="temp-fields"{{if not (and .Duty .Duty.IsTemporary)}} hidden{{end}}>
     <div class="form-group">
-      <label class="form-label" for="reason">Razlog ispomoći</label>
-      <input type="text" id="reason" name="reason" class="form-control" value="{{if .Duty}}{{.Duty.Reason}}{{end}}" placeholder="npr. Hitna ispomoć obrani na Savi">
+      <label class="oznaka-kvacica">
+        <input type="checkbox" name="istece_s_obranom" value="1"{{if or (not .Duty) (not .Duty.IsTemporary) .Duty.IsticeSObranom}} checked{{end}}> Ističe prestankom redovne i izvanredne obrane (i izvanrednog stanja) na dionicama, odnosno u branjenom području
+      </label>
+      <div class="form-help">Kao u rješenju o privremenom imenovanju. Ako je imenovanje dano prije proglašenja obrane, vrijedi dok obrana ne počne i ne prestane. Uz datum ističe ono što dođe prvo. Dužnosti uprave koje privremeno imenovani dodijeli ističu zajedno s njegovom.</div>
     </div>
-    <div class="form-group">
-      <label class="form-label" for="expires_at">Vrijedi do</label>
-      <input type="date" id="expires_at" name="expires_at" class="form-control" value="{{.DutyExpires}}">
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="reason">Razlog</label>
+        <input type="text" id="reason" name="reason" class="form-control" value="{{if .Duty}}{{.Duty.Reason}}{{end}}" placeholder="npr. nedostaje osoblja za redovnu obranu na dionicama B.34.2 i B.34.3">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="expires_at">Vrijedi do (neobavezno)</label>
+        <input type="date" id="expires_at" name="expires_at" class="form-control" value="{{.DutyExpires}}">
+      </div>
     </div>
   </div>
 

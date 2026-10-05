@@ -1558,6 +1558,12 @@ func migrateSchema(database *sql.DB) error {
 		// njime više ne šalje (inače bi pokušaji zaključali račun domene)
 		{"racuni_sustava", "adresa", "TEXT NOT NULL DEFAULT ''"},
 		{"racuni_sustava", "neispravan_od", "DATETIME"},
+		// Privremeno imenovanje: zadani datum, istek s prestankom redovne i
+		// izvanredne obrane i dužnost privremene uprave iz koje je
+		// dodijeljeno; expires_at ostaje stvarni istek
+		{"duties", "rok", "DATETIME"},
+		{"duties", "istece_s_obranom", "INTEGER NOT NULL DEFAULT 0"},
+		{"duties", "ovisi_o", "TEXT NOT NULL DEFAULT ''"},
 		// Zašto PIN prijave na čekanju nije poslan (oznaka), da stranica s
 		// upisom koda i nakon krivog unosa nudi novi PIN kad ima smisla
 		{"prijave_na_cekanju", "razlog", "TEXT NOT NULL DEFAULT ''"},

@@ -94,8 +94,31 @@ type Duty struct {
 	Reason       string     `json:"reason,omitempty"`        // Razlog (kod ispomoći)
 	AssignedBy   *uuid.UUID `json:"assigned_by,omitempty"`
 	CreatedAt    time.Time  `json:"created_at"`
-	ExpiresAt    *time.Time `json:"expires_at,omitempty"`
-	IsActive     bool       `json:"is_active"`
+	// ExpiresAt je stvarni istek, kako ga provjerava svaki dio programa (i
+	// čvor starije inačice): stalna dužnost ga nema, a privremenoj je
+	// najraniji od Rok, kraja obrane (IsticeSObranom) i isteka dužnosti iz
+	// koje je dodijeljena (OvisiO)
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+	IsActive  bool       `json:"is_active"`
+	// Rok je datum koji je privremenoj dužnosti zadan pri dodjeli („Vrijedi do”)
+	Rok *time.Time `json:"rok,omitempty"`
+	// IsticeSObranom: privremeno imenovanje vrijedi dok na njegovim dionicama,
+	// odnosno u branjenom području, traje redovna ili izvanredna obrana ili
+	// izvanredno stanje (models.KrajRedovneObrane)
+	IsticeSObranom bool `json:"istece_s_obranom,omitempty"`
+	// OvisiO je dužnost privremene uprave iz koje je ova dodijeljena: ističe
+	// zajedno s njom
+	OvisiO *uuid.UUID `json:"ovisi_o,omitempty"`
+}
+
+// ZadaniRok je datum zadan pri dodjeli („Vrijedi do”): stvarni istek može biti
+// raniji (kraj obrane, istek dužnosti iz koje je dodijeljena), a zapisi iz
+// vremena prije zadanog datuma imaju ga samo u isteku
+func (d Duty) ZadaniRok() *time.Time {
+	if d.Rok != nil || d.IsticeSObranom || d.OvisiO != nil {
+		return d.Rok
+	}
+	return d.ExpiresAt
 }
 
 // PrijasnjeZaduzenje je opozvano ili isteklo zaduženje kako ostaje u povijesti

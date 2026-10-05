@@ -198,11 +198,11 @@ func TestRokPrivremeneUprave(t *testing.T) {
 		models.Duty{Role: models.RoleSectorDeputy, SectorID: strp("B"), ExpiresAt: &sutra},
 		models.Duty{Role: models.RoleSectorLeader, SectorID: strp("B"), ExpiresAt: &prekosutra},
 	)
-	if r := rokUprave(p, strp("B"), nil, sectorsOf); r == nil || !r.Equal(prekosutra) {
+	if r, _ := rokUprave(p, strp("B"), nil, sectorsOf); r == nil || !r.Equal(prekosutra) {
 		t.Errorf("rok uprave: %v, očekivano %v", r, prekosutra)
 	}
 	// rok se traži za sektor područja, a ne za upisani sektor
-	if r := rokUprave(p, strp("D"), intp(16), sectorsOf); r == nil || !r.Equal(prekosutra) {
+	if r, _ := rokUprave(p, strp("D"), intp(16), sectorsOf); r == nil || !r.Equal(prekosutra) {
 		t.Errorf("rok uprave za područje 16 sektora B: %v", r)
 	}
 
@@ -211,33 +211,122 @@ func TestRokPrivremeneUprave(t *testing.T) {
 		models.Duty{Role: models.RoleSectorLeader, SectorID: strp("B"), ExpiresAt: &jucer},
 		models.Duty{Role: models.RoleSectorDeputy, SectorID: strp("B")},
 	)
-	if r := rokUprave(stalna, strp("B"), nil, sectorsOf); r != nil {
-		t.Errorf("stalna uprava ima rok %v", r)
+	if r, izvor := rokUprave(stalna, strp("B"), nil, sectorsOf); r != nil || izvor != nil {
+		t.Errorf("stalna uprava ima rok %v (%v)", r, izvor)
 	}
 
 	// Uprava područja bez cilja područja ne nađe dužnost i vrati nil, što
 	// znači „stalna”, iako je jedina uprava privremena.
 	podrucje := permsWith(models.Duty{Role: models.RoleAreaLeader, SectorID: strp("B"), AreaID: intp(16), ExpiresAt: &sutra})
-	if r := rokUprave(podrucje, nil, nil, sectorsOf); r != nil {
-		t.Errorf("bez područja danas nema roka, a dobiveno %v", r)
+	if r, izvor := rokUprave(podrucje, nil, nil, sectorsOf); r != nil || izvor != nil {
+		t.Errorf("bez područja danas nema roka, a dobiveno %v (%v)", r, izvor)
 	}
 
 	// ograniciRok: traženi kraći rok ostaje, dulji se skraćuje na rok uprave
 	kratki := sad.Add(time.Hour)
-	if priv, rok := ograniciRok(p, models.RoleSectorDeputy, strp("B"), nil, "", sectorsOf, false, &kratki, nil); !priv || rok == nil || !rok.Equal(kratki) {
-		t.Errorf("kraći rok mora ostati: %v %v", priv, rok)
+	if x := ograniciRok(p, models.RoleSectorDeputy, strp("B"), nil, "", sectorsOf, privremenost{rok: &kratki}, nil); !x.privremena || x.rok == nil || !x.rok.Equal(kratki) {
+		t.Errorf("kraći rok mora ostati: %+v", x)
 	}
 	dugi := sad.Add(30 * 24 * time.Hour)
-	if priv, rok := ograniciRok(p, models.RoleSectorDeputy, strp("B"), nil, "", sectorsOf, false, &dugi, nil); !priv || rok == nil || !rok.Equal(prekosutra) {
-		t.Errorf("dulji rok mora pasti na rok uprave: %v %v", priv, rok)
+	if x := ograniciRok(p, models.RoleSectorDeputy, strp("B"), nil, "", sectorsOf, privremenost{rok: &dugi}, nil); !x.privremena || x.rok == nil || !x.rok.Equal(prekosutra) {
+		t.Errorf("dulji rok mora pasti na rok uprave: %+v", x)
 	}
 	// izmjena iste dužnosti zadržava njezin dulji dosadašnji rok
 	dosad := &models.Duty{Role: models.RoleSectorDeputy, SectorID: strp("B"), ExpiresAt: &dugi}
-	if _, rok := ograniciRok(p, models.RoleSectorDeputy, strp("B"), nil, "", sectorsOf, true, &dugi, dosad); rok == nil || !rok.Equal(dugi) {
-		t.Errorf("dosadašnji dulji rok iste dužnosti mora ostati: %v", rok)
+	if x := ograniciRok(p, models.RoleSectorDeputy, strp("B"), nil, "", sectorsOf, privremenost{privremena: true, rok: &dugi}, dosad); x.rok == nil || !x.rok.Equal(dugi) {
+		t.Errorf("dosadašnji dulji rok iste dužnosti mora ostati: %v", x.rok)
 	}
 	// uloga koja ne upravlja ne skraćuje se
-	if priv, rok := ograniciRok(p, models.RoleWaterGuard, strp("B"), intp(16), "", sectorsOf, false, nil, nil); priv || rok != nil {
-		t.Errorf("vodočuvar ne dobiva rok uprave: %v %v", priv, rok)
+	if x := ograniciRok(p, models.RoleWaterGuard, strp("B"), intp(16), "", sectorsOf, privremenost{}, nil); x != (privremenost{}) {
+		t.Errorf("vodočuvar ne dobiva rok uprave: %+v", x)
+	}
+}
+
+// Privremeno imenovanje bez poznatog kraja (obrana još traje) je privremena
+// uprava: što dodijeli na razini uprave ovisi o njoj i ističe s njom
+func TestPrivremenaUpravaBezKraja(t *testing.T) {
+	sad := time.Now()
+	sutra := sad.Add(24 * time.Hour)
+	imenovanje := models.Duty{ID: uuid.New(), Role: models.RoleAreaLeader, SectorID: strp("B"), AreaID: intp(16),
+		IsTemporary: true, IsticeSObranom: true}
+	p := permsWith(imenovanje)
+	r, izvor := rokUprave(p, strp("B"), intp(16), sectorsOf)
+	if r != nil || izvor == nil || izvor.ID != imenovanje.ID {
+		t.Fatalf("privremena uprava bez kraja: %v %+v", r, izvor)
+	}
+	// dodijeljena uprava područja: privremena, ovisi o imenovanju, zadani rok ostaje
+	x := ograniciRok(p, models.RoleAreaDeputy, strp("B"), intp(16), "", sectorsOf, privremenost{rok: &sutra, sObranom: true}, nil)
+	if !x.privremena || x.rok == nil || !x.rok.Equal(sutra) || !x.sObranom || x.ovisiO == nil || *x.ovisiO != imenovanje.ID {
+		t.Errorf("dodijeljena uprava: %+v", x)
+	}
+	// bez zadanog roka nema ni roka: ističe s imenovanjem
+	if x := ograniciRok(p, models.RoleAreaDeputy, strp("B"), intp(16), "", sectorsOf, privremenost{}, nil); !x.privremena || x.rok != nil || x.ovisiO == nil {
+		t.Errorf("dodijeljena uprava bez roka: %+v", x)
+	}
+	// izmjena dosadašnje stalne dužnosti iste uloge i dosega je ne skraćuje
+	stalna := &models.Duty{Role: models.RoleAreaDeputy, SectorID: strp("B"), AreaID: intp(16)}
+	if x := ograniciRok(p, models.RoleAreaDeputy, strp("B"), intp(16), "", sectorsOf, privremenost{}, stalna); x != (privremenost{}) {
+		t.Errorf("stalna ostaje stalna: %+v", x)
+	}
+	// dosadašnja privremena bez kraja ostaje bez kraja: spremanje je ne veže
+	// za upravu koja je sprema
+	otvorena := &models.Duty{Role: models.RoleAreaDeputy, SectorID: strp("B"), AreaID: intp(16), IsTemporary: true}
+	if x := ograniciRok(p, models.RoleAreaDeputy, strp("B"), intp(16), "", sectorsOf, privremenost{privremena: true}, otvorena); !x.privremena || x.rok != nil || x.ovisiO != nil {
+		t.Errorf("otvorena ostaje otvorena: %+v", x)
+	}
+
+	// od dvije privremene vrijedi ona bez kraja
+	sDatumom := models.Duty{ID: uuid.New(), Role: models.RoleAreaLeader, SectorID: strp("B"), AreaID: intp(16), IsTemporary: true, ExpiresAt: &sutra}
+	if r, izvor := rokUprave(permsWith(sDatumom, imenovanje), strp("B"), intp(16), sectorsOf); r != nil || izvor == nil || izvor.ID != imenovanje.ID {
+		t.Errorf("dulja je ona bez kraja: %v %+v", r, izvor)
+	}
+	if r, izvor := rokUprave(permsWith(imenovanje, sDatumom), strp("B"), intp(16), sectorsOf); r != nil || izvor == nil || izvor.ID != imenovanje.ID {
+		t.Errorf("dulja je ona bez kraja (obrnut red): %v %+v", r, izvor)
+	}
+	// izmjena zadržava dosadašnju ovisnost i istek s obranom (privremena
+	// uprava ga ne skida); zadani rok ne ide preko kasnijeg od kraja uprave i
+	// dosadašnjeg roka, a uprava bez poznatog kraja ga ne ograničava
+	drugi := uuid.New()
+	vezana := &models.Duty{Role: models.RoleAreaDeputy, SectorID: strp("B"), AreaID: intp(16), IsTemporary: true,
+		Rok: &sutra, IsticeSObranom: true, OvisiO: &drugi}
+	prekosutra := sutra.Add(24 * time.Hour)
+	trazeno := privremenost{privremena: true, rok: &prekosutra}
+	x = ograniciRok(permsWith(sDatumom), models.RoleAreaDeputy, strp("B"), intp(16), "", sectorsOf, trazeno, vezana)
+	if !x.privremena || x.rok == nil || !x.rok.Equal(sutra) || !x.sObranom || x.ovisiO == nil || *x.ovisiO != drugi {
+		t.Errorf("izmjena vezane, uprava do sutra: %+v", x)
+	}
+	x = ograniciRok(p, models.RoleAreaDeputy, strp("B"), intp(16), "", sectorsOf, trazeno, vezana)
+	if x.rok == nil || !x.rok.Equal(prekosutra) || !x.sObranom || x.ovisiO == nil || *x.ovisiO != drugi {
+		t.Errorf("izmjena vezane, uprava bez kraja: %+v", x)
+	}
+	// privremeni globalni administrator nije stalna uprava organizacije
+	privremeniAdmin := permsWith(models.Duty{Role: models.RoleNationalLeader, IsTemporary: true})
+	privremeniAdmin.IsGlobalAdmin = true
+	if stalnaUpravaOrganizacije(privremeniAdmin) {
+		t.Errorf("privremena uprava organizacije ne smije biti stalna")
+	}
+	if stalnaUpravaOrganizacije(nil) {
+		t.Errorf("bez ovlasti nema stalne uprave")
+	}
+}
+
+// Kraj od dva roka: nil je „bez kraja”
+func TestRaniji(t *testing.T) {
+	a, b := time.Now(), time.Now().Add(time.Hour)
+	for _, tc := range []struct {
+		x, y, raniji, kasniji *time.Time
+	}{
+		{nil, nil, nil, nil},
+		{&a, nil, &a, nil},
+		{nil, &b, &b, nil},
+		{&a, &b, &a, &b},
+		{&b, &a, &a, &b},
+	} {
+		if r := raniji(tc.x, tc.y); !istiKraj(r, tc.raniji) {
+			t.Errorf("raniji(%v, %v) = %v", tc.x, tc.y, r)
+		}
+		if r := kasniji(tc.x, tc.y); !istiKraj(r, tc.kasniji) {
+			t.Errorf("kasniji(%v, %v) = %v", tc.x, tc.y, r)
+		}
 	}
 }

@@ -287,10 +287,18 @@ Portovi se mijenjaju u `gocop.toml`.
   viša razina ili globalni administrator, jer poništenje uklanja potpisni
   ključ. Razina uprave je razina s koje uloga upravlja računima: zamjenik
   glavnog rukovoditelja za sektor upravlja sektorom, a zamjenik rukovoditelja
-  sektora za branjeno područje područjem. Privremena uprava (dužnost s rokom)
-  dužnost koja daje upravu na njezinoj ili nižoj razini dodjeljuje najdulje do isteka
-  vlastite uprave nad tim sektorom ili područjem; tuđu postojeću dužnost
-  izmjenom ne skraćuje. Terenske dužnosti ostaju kako su dodijeljene.
+  sektora za branjeno područje područjem. Dužnosti su stalne dok ih uprava
+  ne izmijeni ili opozove, osim privremenog imenovanja (privremena ispomoć kad
+  za obranu nedostaje ljudi): ono vrijedi dok na njegovim dionicama, odnosno u
+  branjenom području, traje redovna ili izvanredna obrana prema ovjerenim
+  aktima, ili do zadanog datuma ako je raniji. Privremena uprava (privremeno
+  imenovanje ili dužnost s rokom) dužnost koja daje upravu na njezinoj ili
+  nižoj razini dodjeljuje kao privremenu, koja ističe zajedno s njezinom (i
+  kad je opozvana); zadani rok ne smije biti dulji od njezina, a tuđu
+  postojeću dužnost izmjenom ne skraćuje ni ne produljuje. Terenske dužnosti
+  ostaju kako su dodijeljene. Istek privremenih dužnosti čvor preračunava pri
+  ovjeri i poništenju akta, pri opozivu i svakih deset minuta te ga bilježi u
+  knjigu, pa vrijedi i na čvorovima starijeg izdanja.
   Zastavicu globalnog administratora dodjeljuje i uklanja samo
   stalna uprava organizacije. Nepoznata uloga ne daje pravo pisanja i ne može
   se dodijeliti. Isključenom računu poništava se lokalna sesija pri sljedećem

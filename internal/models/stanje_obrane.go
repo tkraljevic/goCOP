@@ -278,6 +278,77 @@ func RazdobljaObrane(akti []Akt, dionica string, t time.Time) []RazdobljeObrane 
 	return out
 }
 
+// razdobljeRedovne je razdoblje u kojem na dionici traje redovna obrana ili
+// viši stadij (izvanredna obrana, izvanredno stanje); Do je nil dok traje
+type razdobljeRedovne struct {
+	Od time.Time
+	Do *time.Time
+}
+
+// razdobljaRedovne su razdoblja dionice s redovnom obranom ili višim
+// stadijem, iz ovjerenih, neponištenih akata, i onih koji tek stupaju na
+// snagu; akt koji krši slijed preskače se kao i u stanju
+func razdobljaRedovne(akti []Akt, dionica string) []razdobljeRedovne {
+	var s StanjeObrane
+	var out []razdobljeRedovne
+	for _, a := range redomAkata(akti, dionica) {
+		prije := s.Najvisi().Severity() >= PhaseRegular.Severity()
+		if s.primijeni(a) != "" {
+			continue
+		}
+		poslije := s.Najvisi().Severity() >= PhaseRegular.Severity()
+		switch {
+		case !prije && poslije:
+			out = append(out, razdobljeRedovne{Od: a.Vrijedi})
+		case prije && !poslije:
+			kraj := a.Vrijedi
+			out[len(out)-1].Do = &kraj
+		}
+	}
+	return out
+}
+
+// spojiRazdoblja spaja razdoblja (poredana po početku) koja se preklapaju ili
+// dodiruju: na skupu dionica obrana traje dok traje na ijednoj od njih
+func spojiRazdoblja(sva []razdobljeRedovne) []razdobljeRedovne {
+	var out []razdobljeRedovne
+	for _, r := range sva {
+		if n := len(out); n > 0 && (out[n-1].Do == nil || !r.Od.After(*out[n-1].Do)) {
+			if out[n-1].Do != nil && (r.Do == nil || r.Do.After(*out[n-1].Do)) {
+				out[n-1].Do = r.Do
+			}
+			continue
+		}
+		out = append(out, r)
+	}
+	return out
+}
+
+// KrajRedovneObrane je trenutak kad na dionicama, zajedno, prestanu redovna i
+// izvanredna obrana i izvanredno stanje: kraj prvog razdoblja koje u
+// trenutku od traje ili poslije počne. Privremeno imenovanje vrijedi do tada
+// (rješenje „prestaje važiti prestankom mjera izvanredne i redovne obrane na
+// dionici”), pa i kad je dano prije nego što je obrana proglašena. nil kad
+// razdoblje još traje ili ga nema: imenovanje tada vrijedi dalje. Akt koji
+// prekida obranu, a stupa na snagu kasnije, daje kraj u budućnosti.
+func KrajRedovneObrane(akti []Akt, dionice []string, od time.Time) *time.Time {
+	var sva []razdobljeRedovne
+	for _, d := range dionice {
+		sva = append(sva, razdobljaRedovne(akti, d)...)
+	}
+	sort.SliceStable(sva, func(i, j int) bool { return sva[i].Od.Before(sva[j].Od) })
+	for _, r := range spojiRazdoblja(sva) {
+		if r.Do == nil {
+			return nil
+		}
+		if r.Do.After(od) {
+			kraj := *r.Do
+			return &kraj
+		}
+	}
+	return nil
+}
+
 // IDEpizodeIzAkta je stalan identitet epizode koju je otvorio akt: svaki
 // čvor iz istih akata izvede iste zapise povijesti obrane
 func IDEpizodeIzAkta(dionica, aktID string) uuid.UUID {
