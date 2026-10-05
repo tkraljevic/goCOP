@@ -235,11 +235,11 @@ func TestUvozTabliceRazlikePremaZatecenom(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// prazan datum se ne broji kao nečitljiv; „NaN” i „1e3” prolaze kao broj
-	if rep.Rows != 5 || rep.BadDates != 1 || rep.BadValues != 1 {
+	// prazan datum se ne broji kao nečitljiv; „NaN” i „1e3” nisu vodostaj
+	if rep.Rows != 5 || rep.BadDates != 1 || rep.BadValues != 3 {
 		t.Errorf("redaka %d, nečitljivih datuma %d, vrijednosti %d", rep.Rows, rep.BadDates, rep.BadValues)
 	}
-	if rep.Inserted != 3 || rep.Skipped != 1 || rep.Conflicts != 1 || len(rep.Differs) != 1 {
+	if rep.Inserted != 1 || rep.Skipped != 1 || rep.Conflicts != 1 || len(rep.Differs) != 1 {
 		t.Fatalf("novih %d, zapisanih %d, razlika %d (%v)", rep.Inserted, rep.Skipped, rep.Conflicts, rep.Differs)
 	}
 	r := rep.Differs[0]
@@ -249,11 +249,11 @@ func TestUvozTabliceRazlikePremaZatecenom(t *testing.T) {
 	if !strings.HasPrefix(rep.Summary(), "PROBNI PROLAZ") || !strings.Contains(rep.Summary(), "nečitljivih datuma 1") {
 		t.Errorf("sažetak: %s", rep.Summary())
 	}
-	if lvl, st := parseLevel("1e3"); st != levelOK || lvl != 1000 {
-		t.Errorf("1e3 → %d, %v", lvl, st)
-	}
-	if _, st := parseLevel("NaN"); st != levelOK {
-		t.Errorf("NaN se danas čita kao broj, dobiveno %v", st)
+	// samo konačni brojevi bez eksponenta
+	for _, c := range []string{"1e3", "1E3", "NaN", "nan", "Inf", "-Inf", "+inf", "0x1p3", "1_000", "12-3", "--5"} {
+		if lvl, st := parseLevel(c); st != levelBad {
+			t.Errorf("%q → %d, %v", c, lvl, st)
+		}
 	}
 }
 

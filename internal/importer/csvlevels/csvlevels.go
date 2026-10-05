@@ -625,11 +625,22 @@ func parseLevel(s string) (int, levelStatus) {
 		s = strings.ReplaceAll(s, ".", "")
 	}
 	s = strings.ReplaceAll(s, " ", "")
+	if !decimalniBroj(s) {
+		return 0, levelBad
+	}
 	f, err := strconv.ParseFloat(s, 64)
 	if err != nil {
 		return 0, levelBad
 	}
 	return int(math.Round(f)), levelOK
+}
+
+// decimalniBroj pušta samo znamenke, točku i predznak na početku.
+// ParseFloat bi prihvatio i NaN, Inf, eksponent (1e3) i heksadecimalni
+// zapis, a NaN pretvoren u cijeli broj ovisi o platformi.
+func decimalniBroj(s string) bool {
+	s = strings.TrimLeft(s, "+-")
+	return s != "" && strings.Trim(s, "0123456789.") == ""
 }
 
 // Summary je izvješće za dnevnik
