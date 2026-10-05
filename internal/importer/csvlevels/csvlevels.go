@@ -249,20 +249,26 @@ func Run(ctx context.Context, o Options) (Report, error) {
 		rep.Inserted = len(fresh)
 		return rep, nil
 	}
-	for start := 0; start < len(fresh); start += 2000 {
-		end := start + 2000
+	for start := 0; start < len(fresh); start += velicinaSerije {
+		end := start + velicinaSerije
 		if end > len(fresh) {
 			end = len(fresh)
 		}
+		// Serija je jedna transakcija: kad padne, poništena je cijela, pa se
+		// ne broji ništa od nje, što god ImportBatch vratio.
 		n, err := o.Deps.Readings.ImportBatch(ctx, fresh[start:end])
-		rep.Inserted += n
 		if err != nil {
-			return rep, err
+			return rep, fmt.Errorf("upisano %d od %d očitanja, serija od %d. očitanja poništena: %w",
+				rep.Inserted, len(fresh), start+1, err)
 		}
+		rep.Inserted += n
 		o.logf("Uvoz tablice: upisano %d od %d", rep.Inserted, len(fresh))
 	}
 	return rep, nil
 }
+
+// velicinaSerije je broj očitanja upisanih u jednoj transakciji
+var velicinaSerije = 2000
 
 // mapColumns preslikava stupce na letve; prvi stupac je datum. Drugi stupac
 // na već zauzetu letvu dao bi isto očitanje s možda drukčijom vrijednošću,
