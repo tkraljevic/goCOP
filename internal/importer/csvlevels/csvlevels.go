@@ -137,37 +137,7 @@ func Run(ctx context.Context, o Options) (Report, error) {
 		return rep, err
 	}
 
-	// Preslikavanje stupaca na letve; prvi stupac je datum
-	cols := map[int]*Column{}
-	for i := 1; i < len(header); i++ {
-		name := strings.TrimSpace(header[i])
-		if name == "" {
-			continue
-		}
-		if skipped(o.Skip, name) {
-			rep.Skipped2 = append(rep.Skipped2, name)
-			continue
-		}
-		found, ambiguous := gauges.match(name)
-		if found == nil {
-			if code := alias(o.Aliases, name); code != "" {
-				found = gauges.byCode[code]
-				ambiguous = false
-				if found == nil {
-					rep.Unmatched = append(rep.Unmatched, name+" (šifra "+code+" nije u registru)")
-					continue
-				}
-			}
-		}
-		switch {
-		case ambiguous:
-			rep.Ambiguous = append(rep.Ambiguous, name)
-		case found == nil:
-			rep.Unmatched = append(rep.Unmatched, name)
-		default:
-			cols[i] = &Column{Header: name, Name: found.name, Key: found.key}
-		}
-	}
+	cols := mapColumns(header, gauges, o, &rep)
 	if len(cols) == 0 {
 		return rep, fmt.Errorf("%s: nijedan stupac nije prepoznat kao letva iz registra", o.Path)
 	}
@@ -291,6 +261,47 @@ func Run(ctx context.Context, o Options) (Report, error) {
 		o.logf("Uvoz tablice: upisano %d od %d", rep.Inserted, len(fresh))
 	}
 	return rep, nil
+}
+
+// mapColumns preslikava stupce na letve; prvi stupac je datum. Drugi stupac
+// na već zauzetu letvu dao bi isto očitanje s možda drukčijom vrijednošću,
+// pa se javlja kao dvoznačan i ne uvozi; vrijedi prvi stupac.
+func mapColumns(header []string, gauges *gaugeIndex, o Options, rep *Report) map[int]*Column {
+	cols := map[int]*Column{}
+	zauzeto := map[string]string{} // letva → stupac koji ju je prvi zauzeo
+	for i := 1; i < len(header); i++ {
+		name := strings.TrimSpace(header[i])
+		if name == "" {
+			continue
+		}
+		if skipped(o.Skip, name) {
+			rep.Skipped2 = append(rep.Skipped2, name)
+			continue
+		}
+		found, ambiguous := gauges.match(name)
+		if found == nil {
+			if code := alias(o.Aliases, name); code != "" {
+				found = gauges.byCode[code]
+				ambiguous = false
+				if found == nil {
+					rep.Unmatched = append(rep.Unmatched, name+" (šifra "+code+" nije u registru)")
+					continue
+				}
+			}
+		}
+		switch {
+		case ambiguous:
+			rep.Ambiguous = append(rep.Ambiguous, name)
+		case found == nil:
+			rep.Unmatched = append(rep.Unmatched, name)
+		case zauzeto[found.key] != "":
+			rep.Ambiguous = append(rep.Ambiguous, name+" (ista letva kao stupac "+zauzeto[found.key]+")")
+		default:
+			zauzeto[found.key] = name
+			cols[i] = &Column{Header: name, Name: found.name, Key: found.key}
+		}
+	}
+	return cols
 }
 
 // skipped javlja je li stupac na popisu onih koje namjerno ne uvozimo.
