@@ -657,6 +657,9 @@ func Run(ctx context.Context, o Options) (Report, error) {
 		} else {
 			mw.WatercourseCode = m.Code
 		}
+		if err := keepLink(ctx, o.Deps.Maintenance, &mw); err != nil {
+			return rep, err
+		}
 		if err := o.Deps.Maintenance.UpsertWater(ctx, &mw); err != nil {
 			return rep, err
 		}
@@ -678,6 +681,20 @@ func Run(ctx context.Context, o Options) (Report, error) {
 		}
 	}
 	return rep, nil
+}
+
+// keepLink: lokacija koju uvoz ne zna vezati (prijedlog, dvoznačno) zadržava
+// vezu koju joj je netko već dao, pa je ponovni uvoz istog ugovora ne briše
+func keepLink(ctx context.Context, maint *repository.MaintenanceRepository, mw *models.MaintainedWater) error {
+	if mw.WatercourseCode != "" || mw.StructureID != "" {
+		return nil
+	}
+	ex, err := maint.GetWater(ctx, repository.MaintainedWaterID(mw.AreaID, mw.Name))
+	if err != nil || ex == nil {
+		return err
+	}
+	mw.WatercourseCode, mw.StructureID = ex.WatercourseCode, ex.StructureID
+	return nil
 }
 
 func buildIndex(ctx context.Context, d Deps, area models.Area) (*index, error) {
