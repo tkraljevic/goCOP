@@ -481,8 +481,13 @@ func (o *okolinaDezurstava) zapisiDnevnika(t *testing.T) []string {
 func TestPreuzimanjeIPredajaDezurstva(t *testing.T) {
 	o := novaOkolinaDezurstava(t)
 	ctx := context.Background()
-	// Pero preuzme i preda: zapis o preuzimanju i predaji, razmak u planu
-	// nepotvrđen, dnevnik bez dežurnog
+	// dezuraOd pomakne početak dežurstva u prošlost, kao da je preuzeto ranije
+	dezuraOd := func(prije time.Duration) {
+		od := time.Now().In(models.Zagreb).Add(-prije)
+		o.dnevnik.DezurniOd = &od
+	}
+	// Pero preuzme i odmah preda: zapis o preuzimanju i predaji, dnevnik bez
+	// dežurnog, a razmak kraći od minute ne ulazi u plan
 	if err := o.svc.PreuzmiDezurstvo(ctx, o.pperic, o.ovlPero, o.opseg, o.dnevnik); err != nil {
 		t.Fatal(err)
 	}
@@ -502,11 +507,8 @@ func TestPreuzimanjeIPredajaDezurstva(t *testing.T) {
 	if o.dnevnik.NetkoDezura() {
 		t.Error("nakon predaje i dalje netko dežura")
 	}
-	plan, _ := o.svc.Dezurstva(ctx, o.dnevnik.ID)
-	// predaja odmah nakon preuzimanja daje razmak od djelića sekunde (na
-	// minutu se produlji samo kad kraj nije poslije početka)
-	if len(plan) != 1 || plan[0].Potvrdeno() || plan[0].Opis != "Dežurstvo u COP-u" || plan[0].Trajanje() <= 0 || plan[0].Trajanje() >= time.Minute || plan[0].UserID != o.pperic.ID.String() {
-		t.Errorf("plan nakon predaje: %+v", plan)
+	if plan, _ := o.svc.Dezurstva(ctx, o.dnevnik.ID); len(plan) != 0 {
+		t.Errorf("razmak kraći od minute upisan je u plan: %+v", plan)
 	}
 	zapisi := o.zapisiDnevnika(t)
 	if len(zapisi) != 2 || zapisi[0] != "Dežurstvo preuzima Pero Perić." || !strings.HasPrefix(zapisi[1], "Dežurstvo predaje Pero Perić (od ") {
@@ -516,11 +518,28 @@ func TestPreuzimanjeIPredajaDezurstva(t *testing.T) {
 		t.Errorf("predaja bez dežurnog: %v", err)
 	}
 
+	// Pero dežura dva sata i pol minute: razmak u planu ima pune minute i
+	// čeka potvrdu
+	if err := o.svc.PreuzmiDezurstvo(ctx, o.pperic, o.ovlPero, o.opseg, o.dnevnik); err != nil {
+		t.Fatal(err)
+	}
+	dezuraOd(2*time.Hour + 30*time.Second)
+	if err := o.svc.PredajDezurstvo(ctx, o.pperic, o.ovlPero, o.dnevnik); err != nil {
+		t.Fatal(err)
+	}
+	plan, _ := o.svc.Dezurstva(ctx, o.dnevnik.ID)
+	if len(plan) != 1 || plan[0].Potvrdeno() || plan[0].Opis != "Dežurstvo u COP-u" || plan[0].UserID != o.pperic.ID.String() ||
+		plan[0].Od.Second() != 0 || plan[0].Do.Second() != 0 || plan[0].Od.Nanosecond() != 0 || plan[0].Do.Nanosecond() != 0 ||
+		plan[0].Trajanje() < 2*time.Hour || plan[0].Trajanje() > 2*time.Hour+time.Minute || plan[0].Trajanje()%time.Minute != 0 {
+		t.Errorf("plan nakon predaje: %+v", plan)
+	}
+
 	// Pero preuzme, a uprava preuzme od njega: Perin razmak zaključen je
 	// preuzimanjem i čeka potvrdu, i kad je preuzela uprava.
 	if err := o.svc.PreuzmiDezurstvo(ctx, o.pperic, o.ovlPero, o.opseg, o.dnevnik); err != nil {
 		t.Fatal(err)
 	}
+	dezuraOd(time.Hour)
 	if err := o.svc.PreuzmiDezurstvo(ctx, o.uprava, o.ovlUprav, o.opseg, o.dnevnik); err != nil {
 		t.Fatal(err)
 	}
@@ -529,6 +548,7 @@ func TestPreuzimanjeIPredajaDezurstva(t *testing.T) {
 		t.Errorf("zaključeno preuzimanjem: %+v", plan[len(plan)-1])
 	}
 	// uprava preda svoje: potvrđeno odmah
+	dezuraOd(time.Hour)
 	if err := o.svc.PredajDezurstvo(ctx, o.uprava, o.ovlUprav, o.dnevnik); err != nil {
 		t.Fatal(err)
 	}
@@ -592,15 +612,19 @@ func TestPredajaDugogDezurstvaCekaPregled(t *testing.T) {
 func TestPredajaPrijePocetka(t *testing.T) {
 	o := novaOkolinaDezurstava(t)
 	// Početak dežurstva iza sadašnjeg trenutka (npr. razlika satova među
-	// čvorovima): razmak se upiše kao minuta od početka.
+	// čvorovima): razmak nije ni minuta, pa ne ulazi u plan; predaja je
+	// zapisana u dnevniku i dežurstvo je zaključeno.
 	pocetak := time.Now().Add(time.Hour).In(models.Zagreb)
 	o.dnevnik.DezurniID, o.dnevnik.DezurniIme, o.dnevnik.DezurniOd = o.pperic.ID.String(), "Pero Perić", &pocetak
 	if err := o.svc.PredajDezurstvo(context.Background(), o.uprava, o.ovlUprav, o.dnevnik); err != nil {
 		t.Fatal(err)
 	}
 	plan, _ := o.svc.Dezurstva(context.Background(), o.dnevnik.ID)
-	if len(plan) != 1 || plan[0].Trajanje() != time.Minute || !plan[0].Potvrdeno() {
+	if len(plan) != 0 || o.dnevnik.NetkoDezura() {
 		t.Errorf("plan: %+v", plan)
+	}
+	if zapisi := o.zapisiDnevnika(t); len(zapisi) != 1 || !strings.HasPrefix(zapisi[0], "Dežurstvo predaje Pero Perić") {
+		t.Errorf("zapis predaje: %q", zapisi)
 	}
 }
 
@@ -610,6 +634,8 @@ func TestPredajaBezZapisaDnevnika(t *testing.T) {
 	if err := o.svc.PreuzmiDezurstvo(ctx, o.pperic, o.ovlPero, o.opseg, o.dnevnik); err != nil {
 		t.Fatal(err)
 	}
+	prijeSat := time.Now().Add(-time.Hour).In(models.Zagreb)
+	o.dnevnik.DezurniOd = &prijeSat
 	// Bez tablice zapisa predaja javi grešku, a razmak je već u planu
 	// (upis razmaka i zapisa nisu jedna transakcija).
 	if _, err := o.baza.Exec(`ALTER TABLE journal_entries RENAME TO nema_zapisa`); err != nil {

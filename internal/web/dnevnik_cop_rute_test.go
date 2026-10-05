@@ -383,11 +383,26 @@ func TestDnevnikCOPKrozRute(t *testing.T) {
 
 	// Dežurstvo se preuzima i predaje: Ana preuzme, dnevnik kaže tko dežura,
 	// voditelj preuzme bez njezine predaje — njezin razmak ode u plan (čeka
-	// potvrdu), pa preda svoje — potvrđeno odmah, jer je uprava.
+	// potvrdu), pa preda svoje — potvrđeno odmah, jer je uprava. Razmak
+	// kraći od minute ne ide u plan, pa se početak dežurstva pomakne u
+	// prošlost, kao da je preuzeto prije sat vremena.
+	dezuraOdPrijeSat := func() {
+		t.Helper()
+		j, err := journalRepo.GetJournal(context.Background(), dnevnik)
+		if err != nil || j.DezurniOd == nil {
+			t.Fatalf("dnevnik s dežurnim: %+v %v", j, err)
+		}
+		od := j.DezurniOd.Add(-time.Hour)
+		j.DezurniOd = &od
+		if err := journalRepo.SaveJournal(context.Background(), j); err != nil {
+			t.Fatal(err)
+		}
+	}
 	rw = kaoDezurni(http.MethodPost, "/dnevnici/"+dnevnik+"/dezurstvo/preuzmi", url.Values{})
 	if l := rw.Header().Get("Location"); !strings.Contains(l, "success=") {
 		t.Fatalf("preuzimanje: %s", l)
 	}
+	dezuraOdPrijeSat()
 	rw = kaoDezurni(http.MethodGet, "/dnevnici/"+dnevnik, nil)
 	mora(rw, http.StatusOK, "dežura Ana", "Dežura <strong>Ana Anić</strong>", "/dezurstvo/predaj", "Dežurstvo preuzima Ana Anić.")
 	if strings.Contains(rw.Body.String(), "/dezurstvo/preuzmi") {
@@ -401,6 +416,7 @@ func TestDnevnikCOPKrozRute(t *testing.T) {
 	if l := w.Header().Get("Location"); !strings.Contains(l, "success=") {
 		t.Fatalf("voditelj preuzima: %s", l)
 	}
+	dezuraOdPrijeSat()
 	w = zovi(http.MethodGet, "/dnevnici/"+dnevnik, nil)
 	mora(w, http.StatusOK, "dežura voditelj", "Dežura <strong>Voditelj Centra</strong>", "Dežurstvo predaje Ana Anić", "nije predano; zaključeno preuzimanjem")
 	w = zovi(http.MethodPost, "/dnevnici/"+dnevnik+"/dezurstvo/predaj", url.Values{})
@@ -425,9 +441,9 @@ func TestDnevnikCOPKrozRute(t *testing.T) {
 	}
 
 	// Profil: planovi u kojima osoba ima dežurstva, s brojem i satima.
-	// (dva planirana i jedno iz preuzimanja, koje traje koliko je test brz)
+	// (dva planirana i jedno iz preuzimanja, od sat vremena u punim minutama)
 	if planovi, err := journalRepo.PlanoviOsobe(context.Background(), dezurni.ID.String()); err != nil || len(planovi) != 1 ||
-		planovi[0].JournalID != dnevnik || planovi[0].Dezurstava != 3 || planovi[0].Sati < 16*time.Hour || planovi[0].Sati > 16*time.Hour+time.Minute || planovi[0].Centar != "COP Osijek" {
+		planovi[0].JournalID != dnevnik || planovi[0].Dezurstava != 3 || planovi[0].Sati < 17*time.Hour || planovi[0].Sati > 17*time.Hour+time.Minute || planovi[0].Centar != "COP Osijek" {
 		t.Errorf("planovi osobe: %+v, %v", planovi, err)
 	}
 
