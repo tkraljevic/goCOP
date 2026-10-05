@@ -498,8 +498,12 @@ func (d Duty) Doseg() ScopeType {
 	return d.Role.NaturalScope()
 }
 
-// HasWriteAccess provjerava ima li korisnik pravo unosa za zadani sektor, područje ili dionicu
+// HasWriteAccess provjerava ima li korisnik pravo unosa za zadani sektor,
+// područje ili dionicu; bez ovlasti (nil) nema ga
 func (p *UserPermissions) HasWriteAccess(sectorID string, areaID int, sectionCode string) bool {
+	if p == nil {
+		return false
+	}
 	if p.IsGlobalAdmin {
 		return true
 	}
@@ -515,8 +519,12 @@ func (p *UserPermissions) HasWriteAccess(sectorID string, areaID int, sectionCod
 	return false
 }
 
-// CanAdminister provjerava može li korisnik administrirati zadanu prostornu jedinicu
+// CanAdminister provjerava može li korisnik administrirati zadanu prostornu
+// jedinicu; bez ovlasti (nil) ne može
 func (p *UserPermissions) CanAdminister(sectorID string, areaID int) bool {
+	if p == nil {
+		return false
+	}
 	if p.IsGlobalAdmin {
 		return true
 	}

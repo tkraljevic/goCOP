@@ -309,19 +309,9 @@ func TestNilOvlasti(t *testing.T) {
 	if p.RadiUSektoru("B") || p.RadiUPodrucju(16) || p.RadiNaDionicamaU(16) || p.VodiSkladista("B", 16) || p.SektoriRada() != nil {
 		t.Error("nil ovlasti moraju javiti da osoba ništa ne radi")
 	}
-	// HasWriteAccess i CanAdminister nemaju zaštitu od nil
-	for ime, poziv := range map[string]func(){
-		"HasWriteAccess": func() { p.HasWriteAccess("B", 16, "") },
-		"CanAdminister":  func() { p.CanAdminister("B", 16) },
-	} {
-		func() {
-			defer func() {
-				if recover() == nil {
-					t.Errorf("%s nad nil ovlastima više ne paniči; promijenite test", ime)
-				}
-			}()
-			poziv()
-		}()
+	// ni pisanja ni uprave, kao actorRank
+	if p.HasWriteAccess("B", 16, "B.16.1") || p.CanAdminister("B", 16) {
+		t.Error("nil ovlasti ne smiju dati pisanje ni upravu")
 	}
 }
 
