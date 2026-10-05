@@ -82,3 +82,70 @@ func TestPrekidVezanSamoNaNeponistenuNeprekinutuUspostavu(t *testing.T) {
 		}
 	}
 }
+
+// Nacrt prekida vezan je na uspostavu u Pripremi; ako istu uspostavu u
+// međuvremenu prekine drugi ovjereni prekid, nacrt se više ne ovjerava, ni
+// izravno ni skenom, pa ista uspostava nema dva ovjerena prekida. Slijed
+// stadija to sam ne hvata kad je obrana u međuvremenu ponovno uspostavljena:
+// nacrt bi tada prekinuo novu uspostavu, a vezan je na staru.
+func TestOvjeraPrekidaKadJeUspostavaVecPrekinuta(t *testing.T) {
+	o := novaOkolinaAkta(t)
+	ctx := context.Background()
+	sat := time.Now().Add(-6 * time.Hour).Truncate(time.Minute)
+	sken := []byte("%PDF-1.4 potpisani akt")
+	nacrt := func(vrijedi time.Time) *models.Akt {
+		t.Helper()
+		a, err := o.akti.Pripremi(ctx, o.ovlasti, o.rukovod, service.ZahtjevAkta{StationID: o.letva.ID.String(), Radnja: models.AktPrekid,
+			Stupanj: models.PhasePrep, Vrijedi: vrijedi})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := o.akti.Spremi(ctx, o.ovlasti, a); err != nil {
+			t.Fatal(err)
+		}
+		return a
+	}
+
+	u1, _ := o.ovjeri(t, models.AktUspostava, models.PhasePrep, sat)
+	prvi, drugi := nacrt(sat.Add(3*time.Hour)), nacrt(sat.Add(time.Hour))
+	if prvi.PrekidaAktID != u1.ID || drugi.PrekidaAktID != u1.ID {
+		t.Fatalf("nacrti nisu vezani na uspostavu: %q %q", prvi.PrekidaAktID, drugi.PrekidaAktID)
+	}
+	if _, _, err := o.akti.Ovjeri(ctx, o.ovlasti, o.rukovod, drugi.ID); err != nil {
+		t.Fatalf("ovjera drugog prekida: %v", err)
+	}
+	u2, _ := o.ovjeri(t, models.AktUspostava, models.PhasePrep, sat.Add(2*time.Hour))
+
+	if _, _, err := o.akti.Ovjeri(ctx, o.ovlasti, o.rukovod, prvi.ID); err == nil || !strings.Contains(err.Error(), "već prekinut") {
+		t.Errorf("izravna ovjera prekida već prekinute uspostave: %v", err)
+	}
+	if _, _, err := o.akti.UcitajSkenirani(ctx, o.ovlasti, o.rukovod, prvi.ID, sken, o.rukovod.ID.String()); err == nil || !strings.Contains(err.Error(), "već prekinut") {
+		t.Errorf("ovjera skenom prekida već prekinute uspostave: %v", err)
+	}
+	if pdf, _ := o.akti.Izvornik(ctx, prvi.ID); len(pdf) != 0 {
+		t.Error("sken odbijenog prekida je spremljen")
+	}
+	ovjereni, err := repository.NewAktiRepository(o.baza, ledger.New(o.baza, "test")).ListAkti(ctx,
+		repository.FiltarAkata{StationID: o.letva.ID.String(), Status: models.AktOvjeren})
+	if err != nil {
+		t.Fatal(err)
+	}
+	n := 0
+	for _, a := range ovjereni {
+		if a.Radnja == models.AktPrekid && a.PrekidaAktID == u1.ID {
+			n++
+		}
+	}
+	if n != 1 {
+		t.Errorf("uspostava ima %d ovjerenih prekida, a smije jedan", n)
+	}
+
+	// novi prekid veže se na novu uspostavu i ovjerava se
+	novi := nacrt(sat.Add(3 * time.Hour))
+	if novi.PrekidaAktID != u2.ID {
+		t.Fatalf("novi prekid nije vezan na novu uspostavu: %q", novi.PrekidaAktID)
+	}
+	if _, _, err := o.akti.Ovjeri(ctx, o.ovlasti, o.rukovod, novi.ID); err != nil {
+		t.Errorf("ovjera prekida nove uspostave: %v", err)
+	}
+}
