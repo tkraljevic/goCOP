@@ -410,10 +410,12 @@ type GaugeHabit struct {
 }
 
 // HabitsFor vraća letve koje je osoba očitavala od zadanog trenutka: ili je
-// upisala kao korisnik goCOP-a, ili je zapisana kao očitavač (uvezeni zapisi)
+// upisala kao korisnik goCOP-a, ili je zapisana kao očitavač u starom
+// zapisu bez korisnika (uvezeni zapisi). Očitanje s tuđim korisnikom ne
+// ulazi ni kad je očitavač istog imena (imenjak).
 func (r *ReadingRepository) HabitsFor(ctx context.Context, userID, observer string, since time.Time) (map[string]GaugeHabit, error) {
 	rows, err := r.db.QueryContext(ctx, `SELECT station_id, structure_id, measured_at FROM readings
-		WHERE measured_at >= ? AND ((user_id != '' AND user_id = ?) OR (observer != '' AND observer = ?))`,
+		WHERE measured_at >= ? AND ((user_id != '' AND user_id = ?) OR (user_id = '' AND observer != '' AND observer = ?))`,
 		since.UTC(), userID, observer)
 	if err != nil {
 		return nil, err
