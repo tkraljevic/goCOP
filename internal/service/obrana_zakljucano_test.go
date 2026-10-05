@@ -275,8 +275,8 @@ func TestOtvoreneObraneSektoraBezIdentiteta(t *testing.T) {
 	if err != nil || len(otvorene) != 1 {
 		t.Fatalf("otvorene obrane sektora P: %d (%v)", len(otvorene), err)
 	}
-	// Identitet se čita, ali ne upisuje u rezultat.
-	if otvorene[0].ID != uuid.Nil || otvorene[0].SectionCode != "P.1.1" || e.ID == uuid.Nil {
+	// Otvorena obrana sektora nosi svoj identitet, kao i Open.
+	if otvorene[0].ID != e.ID || otvorene[0].SectionCode != "P.1.1" || e.ID == uuid.Nil {
 		t.Errorf("otvorena obrana sektora: ID %s, dionica %s", otvorene[0].ID, otvorene[0].SectionCode)
 	}
 }
