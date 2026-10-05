@@ -35,8 +35,9 @@ func TestRazinaUpraveActora(t *testing.T) {
 	if r := actorRank(permsWith(models.Duty{Role: models.RoleOperator, SectorID: strp("B")})); r != 0 {
 		t.Errorf("operater upravlja s razine %d", r)
 	}
-	// Vrijedi samo najviša razina: uprava sektora D i uprava područja 16
-	// (sektor B) zajedno daju razinu 2, pa područje 16 ispada iz dosega.
+	// Doseg uprave je unija upravnih dužnosti, svaka na svojoj razini:
+	// uprava sektora D i uprava područja 16 (sektor B) upravlja sektorom D
+	// s razine 2, a područjem 16 s razine 3. Najviša razina je 2.
 	mjesovita := permsWith(
 		models.Duty{Role: models.RoleSectorLeader, SectorID: strp("D")},
 		models.Duty{Role: models.RoleAreaLeader, SectorID: strp("B"), AreaID: intp(16)},
@@ -44,9 +45,67 @@ func TestRazinaUpraveActora(t *testing.T) {
 	if r := actorRank(mjesovita); r != 2 {
 		t.Fatalf("mješovita uprava: razina %d, očekivano 2", r)
 	}
-	ocekujOdbijeno(t, mayAssign(mjesovita, models.RoleAreaDeputy, strp("B"), intp(16), sectorsOf), "izvan")
+	if err := mayAssign(mjesovita, models.RoleAreaDeputy, strp("B"), intp(16), sectorsOf); err != nil {
+		t.Errorf("u svom području 16 smije s razine 3: %v", err)
+	}
+	if r, err := razinaDodjele(mjesovita, models.RoleWaterGuard, strp("B"), intp(16), sectorsOf); err != nil || r != 3 {
+		t.Errorf("vodočuvar u području 16 dodjeljuje se s razine 3, a dobiveno %d (%v)", r, err)
+	}
 	if err := mayAssign(mjesovita, models.RoleOperator, strp("D"), nil, sectorsOf); err != nil {
 		t.Errorf("u svom sektoru D smije: %v", err)
+	}
+	// ...ali s razine 3 ne dijeli uloge sektora, a izvan oba dosega ništa;
+	// greška je ona s najviše razine
+	ocekujOdbijeno(t, mayAssign(mjesovita, models.RoleOperator, strp("B"), intp(16), sectorsOf), "izvan")
+	ocekujOdbijeno(t, mayAssign(mjesovita, models.RoleAreaDeputy, strp("B"), intp(18), sectorsOf), "izvan")
+	ocekujOdbijeno(t, mayAssign(mjesovita, models.RoleSectorMainDeputy, strp("D"), nil, sectorsOf), "više razine")
+
+	// račun s dužnostima u oba dosega uređuje; lozinku poništava samo kad
+	// je svaka dužnost niže od razine s koje njome upravlja
+	pperic := &models.User{ID: uuid.New(), Username: "pperic", FullName: "Pero Perić", Duties: []models.Duty{
+		{Role: models.RoleOperator, SectorID: strp("D"), IsActive: true},
+		{Role: models.RoleWaterGuard, SectorID: strp("B"), AreaID: intp(16), IsActive: true},
+	}}
+	if err := mayManage(mjesovita, pperic, sectorsOf); err != nil {
+		t.Errorf("osoba u sektoru D i području 16: %v", err)
+	}
+	ocekujOdbijeno(t, smijePonistiti(mjesovita, pperic, sectorsOf), "vašoj razini")
+	pperic.Duties[0] = models.Duty{Role: models.RoleWaterGuard, SectorID: strp("D"), AreaID: intp(10), IsActive: true}
+	if err := smijePonistiti(mjesovita, pperic, sectorsOf); err != nil {
+		t.Errorf("vodočuvarima u sektoru D i području 16 poništava: %v", err)
+	}
+	// zamjenik rukovoditelja područja 16 je na razini 3, s koje mješovita
+	// uprava upravlja područjem 16: uređuje ga, a lozinku mu ne poništava
+	zamjenik := &models.User{ID: uuid.New(), Duties: []models.Duty{
+		{Role: models.RoleAreaDeputy, SectorID: strp("B"), AreaID: intp(16), IsActive: true}}}
+	if err := mayManage(mjesovita, zamjenik, sectorsOf); err != nil {
+		t.Errorf("zamjenik rukovoditelja područja 16: %v", err)
+	}
+	ocekujOdbijeno(t, smijePonistiti(mjesovita, zamjenik, sectorsOf), "vašoj razini")
+}
+
+// Rok uprave ide po razini s koje se uloga dodjeljuje: privremena uprava
+// sektora uz stalnu upravu područja daje stalnu dužnost u tom području, ali
+// privremenu u ostatku sektora i za uloge sektora
+func TestRokMjesoviteUprave(t *testing.T) {
+	sutra := time.Now().Add(24 * time.Hour)
+	sektor := models.Duty{ID: uuid.New(), Role: models.RoleSectorLeader, SectorID: strp("B"), ExpiresAt: &sutra}
+	p := permsWith(sektor, models.Duty{Role: models.RoleAreaLeader, SectorID: strp("B"), AreaID: intp(16)})
+	if r, izvor := rokUprave(p, models.RoleAreaDeputy, strp("B"), intp(16), sectorsOf); r != nil || izvor != nil {
+		t.Errorf("u području 16 uprava je stalna: %v (%v)", r, izvor)
+	}
+	if r, izvor := rokUprave(p, models.RoleAreaDeputy, strp("B"), intp(18), sectorsOf); izvor == nil || izvor.ID != sektor.ID || r == nil || !r.Equal(sutra) {
+		t.Errorf("u području 18 uprava je privremena uprava sektora: %v (%v)", r, izvor)
+	}
+	// uloga sektora dodjeljuje se s razine 2: uprava područja je ne čini stalnom
+	if r, izvor := rokUprave(p, models.RoleSectorDeputy, strp("B"), intp(16), sectorsOf); izvor == nil || izvor.ID != sektor.ID || r == nil {
+		t.Errorf("uloga sektora: %v (%v)", r, izvor)
+	}
+	if razineUprave(nil) != nil || len(razineUprave(permsWith(models.Duty{Role: models.RoleWaterGuard, AreaID: intp(16)}))) != 0 {
+		t.Error("bez uprave nema razina")
+	}
+	if r := razineUprave(permsWith(models.Duty{Role: models.RoleNationalLeader}, models.Duty{Role: models.RoleAreaLeader, AreaID: intp(16)})); len(r) != 1 || r[0] != 1 {
+		t.Errorf("uprava organizacije upravlja s razine 1: %v", r)
 	}
 }
 
@@ -198,11 +257,11 @@ func TestRokPrivremeneUprave(t *testing.T) {
 		models.Duty{Role: models.RoleSectorDeputy, SectorID: strp("B"), ExpiresAt: &sutra},
 		models.Duty{Role: models.RoleSectorLeader, SectorID: strp("B"), ExpiresAt: &prekosutra},
 	)
-	if r, _ := rokUprave(p, strp("B"), nil, sectorsOf); r == nil || !r.Equal(prekosutra) {
+	if r, _ := rokUprave(p, models.RoleSectorDeputy, strp("B"), nil, sectorsOf); r == nil || !r.Equal(prekosutra) {
 		t.Errorf("rok uprave: %v, očekivano %v", r, prekosutra)
 	}
 	// rok se traži za sektor područja, a ne za upisani sektor
-	if r, _ := rokUprave(p, strp("D"), intp(16), sectorsOf); r == nil || !r.Equal(prekosutra) {
+	if r, _ := rokUprave(p, models.RoleAreaDeputy, strp("D"), intp(16), sectorsOf); r == nil || !r.Equal(prekosutra) {
 		t.Errorf("rok uprave za područje 16 sektora B: %v", r)
 	}
 
@@ -211,17 +270,17 @@ func TestRokPrivremeneUprave(t *testing.T) {
 		models.Duty{Role: models.RoleSectorLeader, SectorID: strp("B"), ExpiresAt: &jucer},
 		models.Duty{Role: models.RoleSectorDeputy, SectorID: strp("B")},
 	)
-	if r, izvor := rokUprave(stalna, strp("B"), nil, sectorsOf); r != nil || izvor != nil {
+	if r, izvor := rokUprave(stalna, models.RoleSectorDeputy, strp("B"), nil, sectorsOf); r != nil || izvor != nil {
 		t.Errorf("stalna uprava ima rok %v (%v)", r, izvor)
 	}
 
 	// Bez cilja gledaju se sve upravne dužnosti na toj razini: jedina
 	// uprava područja je privremena, pa je i uprava privremena...
 	podrucje := permsWith(models.Duty{Role: models.RoleAreaLeader, SectorID: strp("B"), AreaID: intp(16), ExpiresAt: &sutra})
-	if r, izvor := rokUprave(podrucje, nil, nil, sectorsOf); r == nil || !r.Equal(sutra) || izvor == nil {
+	if r, izvor := rokUprave(podrucje, models.RoleAreaDeputy, nil, nil, sectorsOf); r == nil || !r.Equal(sutra) || izvor == nil {
 		t.Errorf("uprava područja bez cilja: %v (%v), očekivano %v", r, izvor, sutra)
 	}
-	if r, izvor := rokUprave(p, nil, nil, sectorsOf); r == nil || !r.Equal(prekosutra) || izvor == nil {
+	if r, izvor := rokUprave(p, models.RoleSectorDeputy, nil, nil, sectorsOf); r == nil || !r.Equal(prekosutra) || izvor == nil {
 		t.Errorf("uprava sektora bez cilja: %v (%v), očekivano %v", r, izvor, prekosutra)
 	}
 	// ...a uz ijednu stalnu na toj razini je stalna
@@ -229,7 +288,7 @@ func TestRokPrivremeneUprave(t *testing.T) {
 		models.Duty{Role: models.RoleAreaLeader, SectorID: strp("B"), AreaID: intp(16), ExpiresAt: &sutra},
 		models.Duty{Role: models.RoleAreaDeputy, SectorID: strp("B"), AreaID: intp(17)},
 	)
-	if r, izvor := rokUprave(dvije, nil, nil, sectorsOf); r != nil || izvor != nil {
+	if r, izvor := rokUprave(dvije, models.RoleAreaDeputy, nil, nil, sectorsOf); r != nil || izvor != nil {
 		t.Errorf("uz stalnu upravu područja bez cilja: %v (%v)", r, izvor)
 	}
 
@@ -261,7 +320,7 @@ func TestPrivremenaUpravaBezKraja(t *testing.T) {
 	imenovanje := models.Duty{ID: uuid.New(), Role: models.RoleAreaLeader, SectorID: strp("B"), AreaID: intp(16),
 		IsTemporary: true, IsticeSObranom: true}
 	p := permsWith(imenovanje)
-	r, izvor := rokUprave(p, strp("B"), intp(16), sectorsOf)
+	r, izvor := rokUprave(p, models.RoleAreaDeputy, strp("B"), intp(16), sectorsOf)
 	if r != nil || izvor == nil || izvor.ID != imenovanje.ID {
 		t.Fatalf("privremena uprava bez kraja: %v %+v", r, izvor)
 	}
@@ -288,10 +347,10 @@ func TestPrivremenaUpravaBezKraja(t *testing.T) {
 
 	// od dvije privremene vrijedi ona bez kraja
 	sDatumom := models.Duty{ID: uuid.New(), Role: models.RoleAreaLeader, SectorID: strp("B"), AreaID: intp(16), IsTemporary: true, ExpiresAt: &sutra}
-	if r, izvor := rokUprave(permsWith(sDatumom, imenovanje), strp("B"), intp(16), sectorsOf); r != nil || izvor == nil || izvor.ID != imenovanje.ID {
+	if r, izvor := rokUprave(permsWith(sDatumom, imenovanje), models.RoleAreaDeputy, strp("B"), intp(16), sectorsOf); r != nil || izvor == nil || izvor.ID != imenovanje.ID {
 		t.Errorf("dulja je ona bez kraja: %v %+v", r, izvor)
 	}
-	if r, izvor := rokUprave(permsWith(imenovanje, sDatumom), strp("B"), intp(16), sectorsOf); r != nil || izvor == nil || izvor.ID != imenovanje.ID {
+	if r, izvor := rokUprave(permsWith(imenovanje, sDatumom), models.RoleAreaDeputy, strp("B"), intp(16), sectorsOf); r != nil || izvor == nil || izvor.ID != imenovanje.ID {
 		t.Errorf("dulja je ona bez kraja (obrnut red): %v %+v", r, izvor)
 	}
 	// izmjena zadržava dosadašnju ovisnost i istek s obranom (privremena

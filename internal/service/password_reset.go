@@ -97,12 +97,16 @@ func smijePonistiti(actor *models.UserPermissions, target *models.User, sektori 
 		return fmt.Errorf("%w; lozinku i kod daje onaj tko smije uređivati cijeli račun (viša razina ili globalni administrator)", err)
 	}
 	// Ljude iste razine uprava uređuje, ali im ne poništava lozinku: s
-	// lozinkom bi preuzela i potpis (poništenje uklanja potpisni ključ)
-	if rank := actorRank(actor); rank > 1 {
-		for _, d := range target.Duties {
-			if d.Role.RazinaZaUpravu() <= rank {
-				return fmt.Errorf("%w: lozinku i kod osobi s dužnošću na vašoj razini uprave ili višoj („%s”) daje viša razina ili globalni administrator", ErrUnauthorized, d.Role.Label())
-			}
+	// lozinkom bi preuzela i potpis (poništenje uklanja potpisni ključ).
+	// Razina je ona s koje actor upravlja tom dužnošću (najviša koja je
+	// pokriva), jer uprava može biti na više razina.
+	if actor.IsGlobalAdmin {
+		return nil
+	}
+	for _, d := range target.Duties {
+		rank, _ := razinaDodjele(actor, d.Role, d.SectorID, d.AreaID, sektori) // mayManage ju je već dopustio
+		if d.Role.RazinaZaUpravu() <= rank {
+			return fmt.Errorf("%w: lozinku i kod osobi s dužnošću na vašoj razini uprave ili višoj („%s”) daje viša razina ili globalni administrator", ErrUnauthorized, d.Role.Label())
 		}
 	}
 	return nil
