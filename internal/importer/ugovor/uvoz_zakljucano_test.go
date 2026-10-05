@@ -280,8 +280,8 @@ func TestUvozUgovoraUparivanje(t *testing.T) {
 		t.Errorf("stavki %d", len(stavke))
 	}
 
-	// Ručna veza dvoznačne lokacije ne preživi ponovni uvoz istog ugovora:
-	// lokacija se upiše iznova, bez veze.
+	// Ručna veza dvoznačne lokacije preživi ponovni uvoz istog ugovora:
+	// uvoz koji nema svoju vezu ne briše zatečenu.
 	dvojnik := upisano["Potok Dvojnik"]
 	dvojnik.WatercourseCode = "potok-dvojnik-a"
 	if err := d.Maintenance.UpsertWater(ctx, &dvojnik); err != nil {
@@ -296,8 +296,11 @@ func TestUvozUgovoraUparivanje(t *testing.T) {
 	}
 	ws, _ = d.Maintenance.ListWaters(ctx, 1)
 	for _, w := range ws {
-		if w.Name == "Potok Dvojnik" && w.WatercourseCode != "" {
-			t.Errorf("ručna veza je danas izgubljena, a ostala je %q", w.WatercourseCode)
+		if w.Name == "Potok Dvojnik" && w.WatercourseCode != "potok-dvojnik-a" {
+			t.Errorf("ručna veza je izgubljena: %q", w.WatercourseCode)
+		}
+		if w.Name == "Kanal Glavni - Spojni za CS Probnu" && w.WatercourseCode != "" {
+			t.Errorf("prijedlog je vezan: %+v", w)
 		}
 	}
 	if len(ws) != 7 {
