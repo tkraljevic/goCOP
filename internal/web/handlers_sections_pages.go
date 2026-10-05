@@ -313,6 +313,17 @@ func mustAreas(h *SectionsHandler) []models.Area {
 	return a
 }
 
+// predloziSifru upisuje u obrazac nove dionice sljedeću šifru područja, a
+// kad se dionice ne daju pročitati poruku umjesto prijedloga
+func (h *SectionsHandler) predloziSifru(data *SectionPageData, sektor string, podrucje int) {
+	sifra, err := h.sectionService.SljedecaSifra(sektor, podrucje)
+	if err != nil {
+		data.ErrorMessage = "Šifra sljedeće dionice ne može se predložiti: " + err.Error()
+		return
+	}
+	data.PredlozenaSifra = sifra
+}
+
 func (h *SectionsHandler) ShowSectionForm(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	data := h.pageData(r)
@@ -346,11 +357,7 @@ func (h *SectionsHandler) ShowSectionForm(w http.ResponseWriter, r *http.Request
 			for _, a := range mustAreas(h) {
 				if a.ID == data.Section.AreaID {
 					data.Section.SectorID = a.SectorID
-					sifra, err := h.sectionService.SljedecaSifra(a.SectorID, a.ID)
-					if err != nil {
-						data.ErrorMessage = "Šifra sljedeće dionice ne može se predložiti: " + err.Error()
-					}
-					data.PredlozenaSifra = sifra
+					h.predloziSifru(&data, a.SectorID, a.ID)
 					break
 				}
 			}
