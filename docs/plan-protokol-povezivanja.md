@@ -1,6 +1,11 @@
 # Protokol povezivanja čvorova (goCOP veza/1)
 
-Prijedlog dizajna, 2. 10. 2026. Ništa od ovoga još nije ugrađeno.
+Prijedlog dizajna od 2. 10. 2026.; status pregledan 5. 10. prema 0.0.34-alfa.
+Transport `veza/1` (STUN, QUIC, sastajalište, posrednik) još nije ugrađen.
+Primanje na daljinu i ovlašteni primatelji već rade od 0.0.33 kroz postojeći
+transport; to nisu provedene faze ovog plana. Prvotno predviđene oznake
+0.0.29–0.0.33 iskorištene su za druga izdanja: faze niže nemaju dodijeljene
+buduće verzije. Aktualna izvedba je u [planu povezivosti](plan-povezivost.md).
 Nastavlja [plan-povezivost.md](plan-povezivost.md), korake 2, 6 i 8 te §9
 (politika releja). Kad se usvoji, korak 8 tablice plana („vlastiti
 transport — možda nikad") treba ažurirati.
@@ -523,13 +528,15 @@ dokumentaciji o zaštiti podataka.
 
 ## 7. Kompatibilnost i uvođenje
 
-**Što se ne mijenja:** `/razmjena/tunel`, TCP 4710, uparivanje (4711), LAN
-otkrivanje (UDP 4712), potvrde članstva (`signedBytes` v1) i razgovor
-razmjene, bajt za bajtom. TLS na TCP-u ne dobiva `NextProtos`.
+**Zahtjev buduće izvedbe:** sačuvati `/razmjena/tunel`, TCP 4710,
+uparivanje na 4711 i LAN otkrivanje na UDP 4712 kao put za čvorove bez
+`veza/1`. Kompatibilnost se provjerava prema aktualnoj izvedbi članstva,
+ovlasti i opoziva iz 0.0.33+, ne prema prvotnom `signedBytes` v1. TLS na
+postojećem TCP putu ne treba dobiti `NextProtos` samo radi novog transporta.
 
-| A \ B | 0.0.27 | novi |
+| A \ B | aktualni čvor bez `veza/1` | novi s `veza/1` |
 |---|---|---|
-| **0.0.27** | kao danas | kao danas (novi B poslužuje stare putove nepromijenjeno) |
+| **bez `veza/1`** | postojeći transport | postojeći transport (novi B poslužuje postojeće putove) |
 | **novi** | kao danas: B nema `veza/1` u zapisu ili nije prijavljen → stari put | probijanje / posrednik |
 
 **Dogovor sposobnosti:** `mogucnosti` u zapisu čvora (ima li smisla
@@ -540,15 +547,16 @@ zajednička); `pozdrav.kanali`.
 **Beacon:** `Meta["quic_port"]` (Meta je već `map[string]string`,
 discovery.go:31 [V]). Stari čvorovi polje zanemaruju.
 
-**Izdanja (okvirno; pravilo plana: stalni čvor prvi, odmah zatim ostali; 0.0.26 i 0.0.27 su izdanja s PIN-om i ovlastima, a 0.0.28 s Postavom, pa protokol počinje od 0.0.29):**
+**Buduće faze, bez dodijeljenih izdanja.** Stalni čvor nadograđuje se prvi,
+odmah zatim ostali; numeraciju izdanja odrediti tek pri izvedbi.
 
-| izdanje | sadržaj | zadano |
+| faza | sadržaj | zadano |
 |---|---|---|
-| **0.0.29** | F0 + F1: prerada `Conn`, `Put`, ispravak `noteSync`; UDP utičnica, STUN, netcheck, blok „Dohvatljivost", gumb „Provjeri vezu". Bez promjene ponašanja razmjene. | utičnica uključena, periodični netcheck uključen samo na Unraidu i laptopu; ostali samo na gumb |
-| **0.0.30** | F2: `/razmjena/signal`, prijava, puls, potpisani poziv/odziv, `mogucnosti` u zapisu čvora | `sastajaliste = true` samo na Unraidu; `probijanje = false` |
-| **0.0.31** | F3: QUIC sesija, kanali, udarci, sinkro, vrata, novi redoslijed u `SyncWith`, LAN QUIC | `probijanje = false`; ručno uključiti na Unraidu, zatim laptopu |
-| **0.0.32** | F4: posrednik, žetoni, proračuni, pravilo sadržaja | `posrednik = true` samo na Unraidu |
-| **0.0.33** | F5: terenska ugađanja | `probijanje = true` zadano, kad pločica dva tjedna nema grešaka |
+| **F0 + F1** | prerada `Conn`, `Put`, ispravak `noteSync`; UDP utičnica, STUN, netcheck, blok „Dohvatljivost", gumb „Provjeri vezu". Bez promjene ponašanja razmjene. | utičnica uključena, periodični netcheck uključen samo na Unraidu i laptopu; ostali samo na gumb |
+| **F2** | `/razmjena/signal`, prijava, puls, potpisani poziv/odziv, `mogucnosti` u zapisu čvora | `sastajaliste = true` samo na Unraidu; `probijanje = false` |
+| **F3** | QUIC sesija, kanali, udarci, sinkro, vrata, novi redoslijed u `SyncWith`, LAN QUIC | `probijanje = false`; ručno uključiti na Unraidu, zatim laptopu |
+| **F4** | posrednik, žetoni, proračuni, pravilo sadržaja | `posrednik = true` samo na Unraidu |
+| **F5** | terenska ugađanja | `probijanje = true` zadano, kad pločica dva tjedna nema grešaka |
 
 Uredski čvorovi dolaze zadnji i tek nakon dogovora s IT-om Hrvatskih voda
 (§10).
@@ -558,7 +566,7 @@ Uredski čvorovi dolaze zadnji i tek nakon dogovora s IT-om Hrvatskih voda
 `net.core.rmem_max`/`wmem_max`. Na kućnom usmjerivaču se **ništa ne
 otvara**.
 
-**Povratak:** `probijanje = false` vraća čvor na ponašanje 0.0.27 bez
+**Povratak:** `probijanje = false` vraća čvor na postojeći transport bez
 tragova u knjizi (polja `mogucnosti` ostaju, ali bez `veza/1`).
 
 **Postavke (`gocop.toml`):**
@@ -679,7 +687,7 @@ medijan vremena do veze, MiB kroz posrednika dnevno.
    i Skype, pa je odlazni UDP gotovo sigurno otvoren; ostaje pitanje vrste
    NAT-a. `tailscale netcheck` (vrsta preslikavanja, UDP)
    i `tailscale ping` / `tailscale status` (izravno ili DERP) iz ureda, uz
-   naš netcheck iz 0.0.29. Odluka:
+   naš netcheck iz buduće faze F1. Odluka:
    - izravno, EIM → probijanje ured ↔ vani vrijedi, redoslijed faza ostaje;
    - DERP ili simetrično → ured ↔ vani ide preko posrednika; F4 dobiva
      važnost, a veliki paketi za ured idu samo LAN-om dok ne bude copB.
@@ -695,7 +703,7 @@ medijan vremena do veze, MiB kroz posrednika dnevno.
    Prije `probijanje = true` na službenim laptopima treba dogovor; do tada
    samo posrednik i LAN.
 4. **Unraid u Dockeru.** Host mreža ili mapiranje 4713/udp; čuva li
-   Dockerov MASQUERADE i kućni usmjerivač EIM — mjeri 0.0.29.
+   Dockerov MASQUERADE i kućni usmjerivač EIM — mjeri se u fazi F1.
 5. **quic-go detalji prije F3:** redoslijed `VerifySourceAddress` →
    `ConnContext` i `AddrVerified` nakon Retryja; ponašanje
    `ReadNonQUICPacket` pod opterećenjem.
@@ -789,8 +797,8 @@ lokalni kandidat; cilj je sam sastajalište → probijeno ili stari tunel za 8 s
 **Usklađenost:**
 - postojeći `razmjena_test.go`, `tunel_test.go` i testovi `peers` prolaze
   nepromijenjeni;
-- binarka 0.0.27 (iz oznake) protiv nove: razmjena tunelom i TCP-om, i
-  očuvanje novih polja zapisa čvora;
+- posljednje izdanje bez `veza/1` protiv novog: razmjena tunelom i TCP-om,
+  članstva ovlaštenih primatelja, opozivi i očuvanje novih polja zapisa čvora;
 - novi klijent protiv sastajališta bez `/razmjena/signal` (404) → stari put;
 - ALPN `gocop-signal/1` prema čvoru bez `NextProtos` → stari put.
 

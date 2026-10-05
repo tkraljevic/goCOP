@@ -169,6 +169,11 @@ brišu i verzije.
 
 ### 6. Umirovljenje čvora  *(nije napravljeno)*
 
+Potpisani opoziv članstva i ovlasti za primanje postoji od 0.0.33-alfa.
+On prekida povjerenje nakon što stigne drugim čvorovima, ali ne provjerava
+koje jedinstvene podatke čvor drži niti uspostavlja mrežni dogovor o zaboravu.
+Umirovljenje opisano ovdje zato ostaje zaseban razvojni zadatak.
+
 Bez ovoga korak 5 nikad ne krene: jedan ugašen prijenosnik zamrzne zaborav
 cijeloj mreži.
 
@@ -255,6 +260,9 @@ postaji, ali od 0.0.7-alfa njezino kazalo putuje knjigom verzija, a paketi
 mrežom prema pretplati. Nisu još dovršeni svi planirani kanali, katalog
 izdanja kanala na mreži (`cop_izdanja` ostaje lokalan), prijenos sadržaja po
 dijelovima ni dohvat na zahtjev.
+
+**Ciljni oblik i preostali razvoj.** Ostatak ovog odjeljka opisuje puni
+model kanala, dohvata i čuvara sadržaja; nije popis svih već dostupnih opcija.
 
 `.cop` nije nova neovisna aplikacijska baza. To je potpisano izdanje jednog
 kanala repozitorija službenih zapisa i njegove zajedničke povijesti, a ne samo

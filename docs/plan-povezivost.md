@@ -1,13 +1,16 @@
 # Povezivost, otpornost i raspačavanje
 
-Stanje izvedbe usklađeno s 0.0.25-alfa (2. 10. 2026.). Arhitekturni ciljevi u
+Stanje izvedbe pregledano 5. 10. 2026. prema 0.0.34-alfa. Arhitekturni ciljevi u
 nastavku nisu tvrdnja da su svi mehanizmi već ugrađeni.
 
-Sigurnosna dopuna 0.0.25: uparivanje i primanje u mrežu odobrava globalni
-administrator; svjež čvor bez računa pristupa čarobnjaku samo lokalno, ne
-kroz tunel. HTTP i razmjena imaju ograničenja veličine, trajanja i broja veza.
-To ne uvodi potpisane ovlasti izdavatelja ni opoziv izgubljenog čvora uživo:
-oni ostaju planirani. Podešavanje posrednika i granice zaštite opisani su u
+Uparivanje i primanje u mrežu odobrava globalni administrator; svjež čvor
+pristupa postavljanju samo lokalno. HTTP i razmjena imaju ograničenja
+veličine, trajanja i broja veza. Od 0.0.33 rade ovlašteni primatelji,
+članstvo pokazano u TLS certifikatu, primanje na daljinu i potpisani opozivi.
+Ovlast za primanje čvorova razlikuje se od planirane ovlasti za izdavanje
+prognoza i arhiva. Opoziv vrijedi na drugom čvoru tek kad mu stigne razmjenom;
+trenutačna dostava opoziva ostaje otvorena. Granice povjerenja su u
+[SECURITY.md](../SECURITY.md), a postavljanje u
 [administratorskim uputama](INSTALACIJA.md#3-podaci-i-sigurnost).
 
 Zapis o tome zašto goCOP ide na mrežu ravnopravnih čvorova, što je krajnji
@@ -87,7 +90,9 @@ Ovo nije početak iz prazna:
 | lokalna SQLite baza na svakom čvoru | radi |
 | knjiga verzija s revizijama | radi (`internal/ledger`) |
 | ključ mreže, potpisana članstva s rokom | radi (`memberships`, ima `expires_at`) |
-| UUID i par ključeva po čvoru | radi |
+| ovlašteni primatelj i primanje na daljinu | radi od 0.0.33: ovlast potpisana ključem mreže; zahtjev i potvrda vezani zasebno dojavljenim kodom |
+| potpisani opoziv članstva i ovlasti | radi od 0.0.33, nakon primitka opoziva razmjenom |
+| jedinstveno ime i par ključeva po čvoru | radi; ime nije izvedeno iz ključa, dvojnici s drugim ključem odbijaju se |
 | šifrirana veza među čvorovima | radi (TLS, `internal/razmjena`) |
 | pronalaženje na LAN-u | radi (UDP broadcast) |
 | otisak niza za provjeru pri preuzimanju | radi (`nizovi.otisak`) |
@@ -105,23 +110,25 @@ Ovo nije početak iz prazna:
 
 ### 1. Identitet i članstvo
 
-Svaki čvor ima `device UUID` i vlastiti par ključeva. Mreža ima ključ mreže,
-iz kojeg se izvode identifikatori i ključevi za potvrdu. Svaki projekt ima
-svoj `project_id`.
+Svaki čvor ima jedinstveno ime (`[node] id`) i vlastiti Ed25519 par ključeva.
+Ime ne dokazuje identitet; vezu dokazuje posjedovanje privatnog ključa.
+Privatni ključ mreže nastaje pri osnivanju i ostaje na osnivaču u
+`network-key` uz bazu. Ne putuje razmjenom.
 
-**Ključ mreže se upotrebljava jednom, pri pristupanju**, i ne ostaje na
-uređaju. Dalje čvor radi svojim parom ključeva i potpisanim članstvom s
-rokom. Ako ključ mreže živi na disku svakog čvora, jedan izgubljen uređaj
-kompromitira sve.
+Nove članove prima nositelj ključa mreže ili **ovlašteni primatelj**. Njegova
+ovlast vrijedi dvije godine, a članstvo koje izda najdulje do isteka te
+ovlasti (uobičajeni rok članstva je godinu dana). Ovlast za primanje ne može
+prenositi dalje. Novo računalo može se primiti i izvan lokalne mreže:
+razmjenjuju se zahtjev i potvrda, a kod se javlja drugim putem. Privatni
+ključ novog čvora pritom ostaje na njemu.
 
-Tracker nikad ne dobiva ključ mreže.
+Čvor pri spajanju pokaže članstvo i ovlast primatelja u TLS certifikatu;
+provjeravaju se potpis, rok i poznati opozivi. Zato ga nije potrebno posebno
+uparivati sa svakim članom. Opoziv članstva ili ovlasti putuje razmjenom,
+potpisan ovlaštenim ključem, i ne može se poništiti arhiviranjem zapisa.
+Oduzimanje ovlasti poništava sva članstva koja je taj primatelj izdao.
 
-Sada: privatni ključ mreže nastaje pri osnivanju mreže i ostaje na tom čvoru,
-u datoteci `network-key` uz bazu. Nije u bazi i ne putuje razmjenom. Nove
-članove prima samo čvor koji ga drži. Čvor uparen s njim dobiva javni ključ
-mreže i potvrdu članstva s rokom od godinu dana. Potvrda se provjerava pri
-svakoj razmjeni. Opoziv članstva („Opozovi članstvo") putuje razmjenom svim
-čvorovima.
+Buduće sastajalište služi pronalaženju i ne treba privatni ključ mreže.
 
 ### 2. Pronalaženje
 
@@ -242,6 +249,11 @@ Za buduće izmjene iz toga slijedi:
 
 Razlozi su opisani u komentarima `internal/ledger/shema.go` i
 `internal/repository/fixups.go`.
+
+Čuvanje nepoznatih polja nije jamstvo da stari program razumije novo
+ponašanje. U 0.0.33 promijenjeno je uparivanje i uvedeni su ovlašteni
+primatelji; u 0.0.34 poništeni akti više ne određuju stanje obrane. Za te
+prijelaze treba nadograditi sve čvorove prije nastavka ovjera i storna.
 
 ### 5. Sukobi i provenijencija — kritični dio
 

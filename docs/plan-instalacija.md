@@ -1,6 +1,6 @@
 # Instalacija goCOP-a: Postava (instalacija, nadogradnja, ikona u traci) i brzo namještanje
 
-Prijedlog, 3. 10. 2026.
+Plan od 3. 10. 2026.; stanje izvedbe pregledano 5. 10. prema 0.0.34-alfa.
 
 **Stanje:** prvi dio izdan u 0.0.28-alfa i Postavi 1.0.0 (3. 10. 2026.): ugovor u
 čvoru (`-version`, `-upravitelj`, `/zdravlje`), Postava (`cmd/gocop-postava`,
@@ -11,8 +11,11 @@ Prijedlog, 3. 10. 2026.
 instalacijskom programu, izbor nove ili postojeće mreže, stranica
 *Postavljanje* (prvi administrator i osnivanje mreže, bez javne lozinke),
 odbijanje dvojnika imena, uklanjanje iz izbornika Start, ikone i ponovnog
-pokretanja instalacijskog programa. Brzo namještanje (§3.2, §3.3), paketi za
-Linux i macOS te SignPath dolaze poslije.
+pokretanja instalacijskog programa. Od 0.0.33 priključenje na daljinu radi
+zahtjevom i potvrdom s kodom; to je zamijenilo prvotni prijedlog prijenosa
+privatnog ključa iz §3.2. Od 0.0.34 postoje potpisana instalacijska skripta
+i jedinica systemd za Linux ([upute](linux.md)). Biblioteka iz §3.3,
+paketi `.deb`/`.rpm`/`.pkg`, macOS aplikacija s ikonom i SignPath ostaju plan.
 
 ## 1. Svrha
 
@@ -162,10 +165,17 @@ izdanje ne prekrši:
 
 Sve ostalo goCOP smije mijenjati bez obzira na Postavu.
 
-### 3.2 Paket za priključenje u mrežu (`.gocop-cvor`)
+### 3.2 Priključenje na daljinu i prethodni prijedlog `.gocop-cvor`
 
-Danas novi čvor ulazi u mrežu samo uparivanjem u lokalnoj mreži, uz
-administratora koji ga prima (0.0.25). Paket za priključenje je
+**Izvedeno u 0.0.33:** novi čvor sam stvara svoj ključ, napravi zahtjev i
+prikaže kod za primanje. Administrator na nositelju ključa mreže ili
+ovlaštenom primatelju učita zahtjev i upiše kod dobiven drugim putem.
+Potvrdu vrati novom čvoru, koji je učita na Postavljanju. Privatni ključ
+novog čvora ne putuje. Postupak i provjere opisani su u
+[administratorskim uputama](INSTALACIJA.md#3-podaci-i-sigurnost).
+
+**Povijesni prijedlog u nastavku nije ugrađen niti je uputa za instalaciju.**
+Polazio je od tadašnjeg uparivanja samo na lokalnoj mreži. Paket za priključenje je
 administratorovo **unaprijed dano primanje**, za čvor koji nije u istoj
 mreži ili da se uparivanje preskoči.
 
@@ -355,7 +365,12 @@ na SignPath (podnosi korisnik), pa uključivanje njihove GitHub akcije u
 `izdanje.yml` i `postava.yml`. Postava radi i prije toga, uz vlastiti ed25519 potpis i
 SmartScreen upozorenje pri prvoj instalaciji.
 
-## 7. Linux i macOS (poslije Windowsa)
+## 7. Linux i macOS
+
+Gotove izvršne datoteke dostupne su od 0.0.28. Linux od 0.0.34 ima i
+`instaliraj.sh` te `gocop.service`, obuhvaćene potpisom izdanja; postupak je
+u [linux.md](linux.md). Tablica ispod opisuje daljnji plan pakiranja i
+integracije sa sustavom, a ne već dostupne pakete.
 
 | | Linux | macOS |
 |---|---|---|
@@ -366,9 +381,8 @@ SmartScreen upozorenje pri prvoj instalaciji.
 | potpis | GPG, besplatno | Developer ID i notarizacija: Apple Developer Program, 99 USD godišnje. Bez toga Gatekeeper blokira prvo otvaranje (desni klik → Otvori) |
 | prioritet | drugi: treba uredskom Ubuntu čvoru, a ne košta ništa | treći: malo korisnika, uz godišnji trošak |
 
-Postojeći Linux poslužitelj (uredski Ubuntu) ne treba čekati paket: systemd
-usluga se može napisati ručno kao danas LaunchAgent na laptopu. Paket je za
-kad bude više takvih računala.
+Linux poslužitelj ne treba čekati `.deb` ili `.rpm`: može koristiti
+postojeću instalacijsku skriptu i priloženu uslugu systemd.
 
 ## 8. Otvorena pitanja
 
@@ -377,11 +391,9 @@ kad bude više takvih računala.
    po korisniku Windowsa.
 3. Uredska računala HV-a: smije li program u `%LOCALAPPDATA%` i `HKCU\Run`
    (AppLocker, politike)? Pitati IT zajedno s §10 plana povezivanja.
-4. Paket za priključenje sadrži privatni ključ čvora koji nastaje na
-   administratorovom računalu. Alternativa bez toga je pozivnica: čvor sam
-   napravi ključ, a potvrdu mu na sastajalištu izda nositelj ključa mreže kad
-   je na vezi. To traži protokol iz 0.0.29 i čekanje na laptop, pa je
-   prijedlog najprije paket, a pozivnica uz 0.0.29.
+4. **Riješeno u 0.0.33:** primanje na daljinu koristi zahtjev i potvrdu,
+   privatni ključ nastaje i ostaje na novom računalu. Sastajalište i budući
+   protokol `veza/1` nisu preduvjet ovog postupka.
 5. Biblioteka na GitHubu ili na čvoru? Kad bude copB.voda.hr, isti katalog
    može služiti i on, bez treće strane. Format i čitanje ostaju isti, mijenja
    se samo poveznica.

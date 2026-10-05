@@ -769,7 +769,9 @@
       međuslivovima, palu i prognoziranu (Open-Meteo). Novi račun pokreće se kada stignu svježa
       očitanja; gumb <em>Generiraj</em> na stranici <em>Postavke prognoze</em> (gumb
       <em>Postavke</em> na stranici Prognoze) odmah ponavlja cijeli krug. Prognozu pritom računa
-      samo čvor koji je izdaje.</p>
+      samo čvor koji je izdaje. Ponovni izračun za isti sat zamjenjuje prethodno izdanje tog
+      sata i kod čvorova koji ga primaju; ne čuva se svaka međuinačica. Prognoza u satu
+      izdavanja kreće od izmjerene vrijednosti, bez naknadnog ispravka promašajima.</p>
     <p>Model se priprema iz arhive. Kad se u arhivi ili u lancu nešto promijeni, globalni administrator
       na stranici <em>Postavke prognoze</em> čvora koji izdaje prognozu pokreće <em>Pripremi
       model</em>: program iznova namjesti veze letvi i modele
@@ -778,8 +780,8 @@
     <p>Stranica <em>O prognozi</em> pokazuje ulazne postaje, jednadžbe i rezultate provjere, a izvoz
       u Excel daje tablični pregled. <code>prognoze.db</code> čuva izvedene rezultate i parametre:
       nije službena knjiga ni <code>.cop</code> kanal. Izdanja i promjene modela prenose se
-      knjigom verzija, ne kopiranjem cijele baze. Sačuvano izdanje pokazuje što je tada izdano;
-      novi izračun iz današnjih ulaza nije zamjena za taj zapis.</p>
+      knjigom verzija, ne kopiranjem cijele baze. Za kasniju usporedbu s mjerenjem koristi se
+      sačuvano izdanje, a ne naknadna rekonstrukcija prognoze iz starih ulaza.</p>
 
     <h3 id="prognoze-ogranicenja">Ograničenja i provjera</h3>
     <p>Najviše vrijedi unutar raspona vodostaja i događaja koje je model već vidio. Nagla promjena
@@ -852,9 +854,13 @@
       poslije postaje osnova obračuna — dežurstvo se ne prepisuje u drugu evidenciju.</p>
     <p>Svatko tko pripada dosegu centra može upisati sebe. Takav upis čeka potvrdu uprave centra
       i tek tada ulazi u obračun. Uprava centra može upisati bilo koju osobu u svom dosegu; njezin
-      unos potvrđen je odmah. Nepotvrđeni vlastiti unos osoba može maknuti, a uprava upravlja
-      cijelim planom. Dežurstvo preko ponoći dobiva datum završetka; razmak dulji od 36 sati
-      upisuje se u više dijelova.</p>
+      unos potvrđen je odmah, osim dežurstva duljeg od 24 sata bez stanke: ono dobiva napomenu
+      i čeka zasebnu provjeru i potvrdu uprave. Nepotvrđeni vlastiti unos osoba može maknuti,
+      a uprava upravlja cijelim planom.</p>
+    <p>Dežurstvo preko ponoći ima datum završetka. U ručnom obrascu plana pojedini razmak može
+      trajati najviše 36 sati; dulji se upisuje u više dijelova. Predaja aktivnog dežurstva
+      iz dnevnika COP-a čuva cijelo stvarno trajanje, i kad je dulje od 36 sati, te za sve
+      dulje od 24 sata traži potvrdu uprave prije obračuna.</p>
     <p><span class="reg-chip">Svoj unos: svatko u dosegu</span>
       <span class="reg-chip">Potvrđuje: uprava centra</span></p>
 
@@ -891,7 +897,9 @@
       rukovoditelja ili ovlaštenika. Zadaci se mogu planirati do 30 dana unaprijed i pregledati
       u kalendaru.</p>
     <p>Vodočuvar list predaje osobnim elektroničkim potpisom, a rukovoditelj branjenog područja
-      ga zatim ovjerava svojim. Potpisani PDF je izvornik; stranica provjerava svaki potpis i
+      ga zatim ovjerava svojim. Ako predaja nije dopuštena zbog nepotpunog opisa ili zadatka,
+      uneseno ostaje spremljeno kao nacrt, a poruka kaže što treba dopuniti.
+      Potpisani PDF je izvornik; stranica provjerava svaki potpis i
       pokazuje pokriva li cijeli dokument. Istekom godine knjiga prelazi u arhivu samo za čitanje
       i ispis cijele knjige. Vodočuvar vidi samo svoju knjigu; tuđe listove vide oni koji ih
       ovjeravaju i parafiraju te uprava. Strojari i skladištari bez vodočuvarske dužnosti
@@ -1044,6 +1052,12 @@
       kojoj njegovoj dionici. Objekt drugog područja koji stoji i na dionici vodi njegovo
       područje, a novu vezu dionice na objekt ili vodomjer drugog područja upisuje samo tko
       ondje piše. Popisi i zadani izbor sektora i dalje se ravnaju po svim dužnostima osobe.</p>
+    <p>Privremena uprava dužnosti koje daju upravu na istoj ili nižoj razini dodjeljuje najdulje
+      do isteka vlastite ovlasti nad tim dosegom. Terenske dužnosti ostaju kako su dodijeljene.
+      Zastavicu globalnog administratora dodjeljuje i uklanja samo stalna uprava organizacije.
+      Uloga koju ovo izdanje programa ne poznaje ne daje pravo pisanja i ne može se dodijeliti.
+      Isključen račun pri sljedećem zahtjevu gubi sesiju; nakon ponovnog uključenja osoba se
+      mora ponovno prijaviti.</p>
     <p>Adresu e-pošte koju već ima drugi aktivni račun program ne upisuje nikome, ni globalnom
       administratoru (velika slova i razmaci se ne razlikuju): ni pri otvaranju računa, ni u
       izmjeni, ni iz adresara tvrtke, a isključen račun s takvom adresom ne uključuje se (osim
@@ -1458,6 +1472,9 @@
       prilagoditi i druge vodoprivredne organizacije. goCOP pomaže urediti podatke, postupke i
       dokazni trag; ne zamjenjuje stručnu prosudbu, službene hidrološke prognoze ni odluke
       odgovornih osoba.</p>
+    <p>Stanje obrane dionice izvodi se iz <a href="#dionica-obrana">ovjerenih akata</a>, prema
+      vremenu njihova stupanja na snagu. Stadiji se proglašavaju prema gore i ukidaju obrnutim
+      redom; poništeni akt ostaje u evidenciji s razlogom, ali ne određuje stanje obrane.</p>
     <h3>Stalni čvor i terenska računala</h3>
     <p>Stalni čvor može preuzimati vodostaje i kišu te izdavati satne i dnevne prognoze.
       Ostala računala mogu primati gotova izdanja, umjesto da svako ponavlja preuzimanje i
@@ -1467,7 +1484,9 @@
       Kad nema veze, dostupni ostaju lokalno spremljeni
       podaci; to ne znači da su očitanja i prognoze još svježi.</p>
     <p>Razmjena radi na lokalnoj mreži i kroz HTTPS/WebSocket tunel, uz ključeve uparenih
-      čvorova. Kazalo arhive putuje među čvorovima, a potpisani <code>.cop</code> paketi
+      čvorova. Nove članove može primati nositelj ključa mreže ili ovlašteni primatelj, i na
+      daljinu zahtjevom, potvrdom i kodom dojavljenim drugim putem.
+      Kazalo arhive putuje među čvorovima, a potpisani <code>.cop</code> paketi
       dohvaćaju se prema pretplati. Na naslovnoj pločica <em>Razmjena s čvorovima</em>
       pokazuje tijek usklađivanja, napredak arhive i tko je izdao posljednju prognozu.</p>
     <h3>Razvojna faza i odgovornost</h3>
@@ -1476,9 +1495,11 @@
       završeno. Ugrađene su zaštita od zahtjeva s tuđih stranica (CSRF), sigurni sesijski
       kolačići iza HTTPS-a, ograničenja prijave i mrežnih zahtjeva te administratorsko
       odobravanje uparivanja, a od 0.0.26-alfa prijava izvana može tražiti PIN (prekidač
-      zadano isključen). Potpisane ovlasti izdavatelja i opoziv izgubljenog čvora uživo
-      ostaju razvojni zadaci. Prije nadogradnje treba izraditi
-      sigurnosnu kopiju. Instalacija i uvjeti
+      zadano isključen). Članstva i ovlasti za primanje drugih čvorova imaju potpisan opoziv
+      koji djeluje na drugom čvoru kad mu stigne razmjenom. Potpisane ovlasti izdavatelja
+      prognoza i arhiva te trenutačna dostava opoziva ostaju razvojni zadaci.
+      Prije nadogradnje treba izraditi sigurnosnu kopiju i uskladiti izdanja svih čvorova:
+      stanje obrane s poništenim aktima zahtijeva 0.0.34-alfa ili novije. Instalacija i uvjeti
       izlaganja čvora mreži opisani su u <code>docs/INSTALACIJA.md</code> uz izvorni kod;
       verzija pokrenutog programa prikazana je u podnožju.</p>
     <p>Nositelj prava na program naveden u repozitoriju su <strong>Hrvatske vode</strong>.

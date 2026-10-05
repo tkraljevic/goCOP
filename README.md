@@ -13,6 +13,8 @@ lokalnim podacima i usklađuju se kada je mreža dostupna.
 
 - Samostalnu Go aplikaciju s ugrađenim web-sučeljem i lokalnim SQLite bazama.
   Repozitorij ne sadrži poslovne baze, imenik ni pristupne podatke.
+- Stanje obrane dionica izvodi se iz ovjerenih akata, prema vremenu stupanja
+  na snagu; poništeni akti ostaju u evidenciji, ali ne određuju stanje.
 - Stalni čvor može preuzimati vodostaje i izdavati prognoze; ostala računala,
   npr. laptopi, obično primaju gotova izdanja. Novi čvor nema nijednu ulogu
   dok mu se ne uključi u Administraciji → Čvor, mreža i sinkronizacija.
@@ -47,21 +49,21 @@ lokalnoj mreži ili na adresi domenskog čvora) ili kroz HTTPS/WebSocket tunel n
 pronalaženje na 4712/UDP ostaje lokalno.
 
 Javni čvor treba HTTPS, ograničen pristup izvornom poslužitelju i isključen
-cache aplikacijskih odgovora na posredniku. Od **0.0.25-alfa** ugrađeni su CSRF
-zaštita, `Secure` kolačići iza HTTPS-a, podesivi pouzdani posrednici i ograničenja
-HTTP zahtjeva i razmjene. Uparivanje odobrava administrator; zadana lozinka
-ne vrijedi izvana. Od **0.0.33-alfa** čvor pri spajanju pokaže potvrdu
-članstva, nositelj ključa mreže može članu dati ovlast za primanje, a računalo
-se prima i na daljinu (zahtjev i potvrda vezani tajnim kodom pročitanim
-telefonom); opozvana potvrda ne vrijedi ni kad je čvor pokaže sam. Kod
-uparivanja dogovara se s obvezom unaprijed, a početna lozinka i svjež čvor
-vrijede samo iz lokalne mreže. Od **0.0.26-alfa** prijava izvana može tražiti PIN poslan
-na službenu e-poštu (prekidač zadano isključen). Popis posrednika treba suziti
-na stvarne adrese posrednika. Otvoreni su potpisane ovlasti izdavatelja i opoziv
-izgubljenog čvora uživo. Izvršna datoteka još nije potpisana; provedene zaštite
-nisu potvrda spremnosti za operativnu upotrebu.
-Prije nadogradnje izraditi sigurnosnu kopiju baza, sadržaja, postavki i
-ključeva; kopiju identiteta ne koristiti kao novi čvor.
+cache aplikacijskih odgovora. Ugrađeni su CSRF zaštita, sigurni sesijski
+kolačići iza HTTPS-a i ograničenja zahtjeva. Pouzdane posrednike treba suziti
+na njihove stvarne adrese; prijava izvana može tražiti PIN e-poštom (zadano
+isključeno). Početno postavljanje i zadana lozinka dostupni su samo lokalno.
+
+Članove prima nositelj ključa mreže ili ovlašteni primatelj, uparivanjem ili
+zahtjevom i potvrdom na daljinu. Članstva, ovlasti za primanje i opozivi su
+potpisani; opoziv vrijedi na drugom čvoru kad mu stigne. Potpisane ovlasti za
+izdavanje prognoza/arhiva i trenutačni opoziv ostaju razvojni zadaci.
+Izvršne datoteke još nemaju potpis operacijskog sustava; potpis izdanja
+provjerava se zasebno. Granice zaštite opisane su u [SECURITY.md](SECURITY.md).
+
+Prije nadogradnje izraditi kopiju baza, sadržaja, postavki i ključeva;
+kopiju identiteta ne koristiti kao novi čvor. Za stanje obrane i storno svi
+čvorovi trebaju **0.0.34-alfa ili novije**; stariji poništen akt još broje.
 
 ## Dokumentacija i razvoj
 
@@ -76,6 +78,8 @@ ključeva; kopiju identiteta ne koristiti kao novi čvor.
 - [Povezivost](docs/plan-povezivost.md) i [arhiva](docs/plan-arhiva-i-zaborav.md)
   — izvedeno stanje i preostali razvojni planovi.
 - [Katalog alata](docs/katalog-alata.md) — pomoćni lokalni alati izvan aplikacije.
+- [Kvaliteta koda](docs/CODE_QUALITY.md) — `make quality`, referentno mjerenje
+  i provjera regresija; [stabilizacija](docs/STABILIZACIJA.md) prati popravke.
 
 Go verzija određena je u `go.mod`; aplikacija ne zahtijeva CGO.
 
