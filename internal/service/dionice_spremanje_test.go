@@ -357,7 +357,15 @@ func TestPravaNaDionicu(t *testing.T) {
 func TestSljedecaSifraDionice(t *testing.T) {
 	o := novaOkolinaDionica(t)
 	ctx := context.Background()
-	if got := o.svc.SljedecaSifra("F", 41); got != "F.41.1" {
+	sljedeca := func(sektor string, podrucje int) string {
+		t.Helper()
+		sifra, err := o.svc.SljedecaSifra(sektor, podrucje)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return sifra
+	}
+	if got := sljedeca("F", 41); got != "F.41.1" {
 		t.Errorf("prazno područje: %s", got)
 	}
 	for _, d := range []*models.Section{dionicaS("F.41.1", 41), dionicaS("F.41.4", 41), dionicaS("F.42.9", 42)} {
@@ -366,18 +374,19 @@ func TestSljedecaSifraDionice(t *testing.T) {
 		}
 	}
 	// samo dionice područja 41 (F.42.9 je u području 42)
-	if got := o.svc.SljedecaSifra("F", 41); got != "F.41.5" {
+	if got := sljedeca("F", 41); got != "F.41.5" {
 		t.Errorf("sljedeća u 41: %s", got)
 	}
-	if o.svc.SljedecaSifra("", 41) != "" || o.svc.SljedecaSifra("F", 0) != "" {
+	if sljedeca("", 41) != "" || sljedeca("F", 0) != "" {
 		t.Error("bez sektora ili područja nema prijedloga")
 	}
-	// bez tablice dionica prijedlog je prvi broj
+	// greška čitanja javlja se: prvi broj bi se predložio i kad takva
+	// dionica možda postoji
 	if _, err := o.baza.Exec(`ALTER TABLE sections RENAME TO nema_sections`); err != nil {
 		t.Fatal(err)
 	}
-	if got := o.svc.SljedecaSifra("F", 41); got != "F.41.1" {
-		t.Errorf("bez dionica: %s", got)
+	if got, err := o.svc.SljedecaSifra("F", 41); err == nil || got != "" {
+		t.Errorf("bez dionica: %q %v", got, err)
 	}
 	if err := o.svc.SaveSection(ctx, globalni, dionicaS("F.41.6", 41), true); err == nil {
 		t.Error("spremanje bez tablice dionica")

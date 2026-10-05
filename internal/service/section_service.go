@@ -285,21 +285,22 @@ func validateParts(sec *models.Section) error {
 // Dionice se upisuju u nizu — sektor B ima 65 dionica u pet područja — pa je
 // tipkanje šifre za svaku od njih posao koji program može obaviti. Prijedlog se
 // smije prepisati: šifra nije uvijek neprekinut niz, a dionica koja je jednom
-// ukinuta ne vraća svoj broj.
-func (s *SectionService) SljedecaSifra(sectorID string, areaID int) string {
+// ukinuta ne vraća svoj broj. Greška čitanja vraća se, a ne prvi broj: takva
+// dionica možda već postoji.
+func (s *SectionService) SljedecaSifra(sectorID string, areaID int) (string, error) {
 	if sectorID == "" || areaID <= 0 {
-		return ""
+		return "", nil
 	}
 	predmetak := sectorID + "." + strconv.Itoa(areaID) + "."
 	dionice, err := s.ListSections(sectorID, areaID, "")
 	if err != nil {
-		return predmetak + "1"
+		return "", err
 	}
 	sifre := make([]string, 0, len(dionice))
 	for _, d := range dionice {
 		sifre = append(sifre, d.Code)
 	}
-	return sljedecaSifra(predmetak, sifre)
+	return sljedecaSifra(predmetak, sifre), nil
 }
 
 // sljedecaSifra je sam račun, odvojen da se može ispitati bez baze.
