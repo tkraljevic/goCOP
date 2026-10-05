@@ -473,6 +473,19 @@ func zaZadatke(v *models.User) *models.VodocuvarskiList {
 	return zaVodocuvara(v)
 }
 
+// primateljZadatka je zaZadatke za zadavanje zadatka: ista provjera kao
+// popis kome se zadaju zadaci, pa ni zahtjev sastavljen mimo popisa ne zadaje
+// zadatak isključenom računu; greška kaže zašto osoba zadatak ne prima
+func primateljZadatka(v *models.User) (*models.VodocuvarskiList, error) {
+	if probni := zaZadatke(v); probni != nil {
+		return probni, nil
+	}
+	if !v.IsActive {
+		return nil, fmt.Errorf("%s ima isključen račun pa ne prima zadatke", v.FullName)
+	}
+	return nil, fmt.Errorf("%s nema terensko zaduženje pa nema ni dnevnik", v.FullName)
+}
+
 // zaVodocuvara slaže probni list po terenskom zaduženju osobe, za provjeru prava
 func zaVodocuvara(v *models.User) *models.VodocuvarskiList {
 	d := terenskaDuznost(v)
@@ -516,9 +529,9 @@ func (s *VodocuvarService) ZadajZadatak(ctx context.Context, perms *models.UserP
 	if err != nil || v == nil {
 		return nil, fmt.Errorf("nepoznat vodočuvar")
 	}
-	probni := zaVodocuvara(v)
-	if probni == nil {
-		return nil, fmt.Errorf("%s nema terensko zaduženje pa nema ni dnevnik", v.FullName)
+	probni, err := primateljZadatka(v)
+	if err != nil {
+		return nil, err
 	}
 	if !s.SmijeParafirati(perms, probni) {
 		return nil, ErrUnauthorized
