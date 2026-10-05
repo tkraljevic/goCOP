@@ -1067,16 +1067,17 @@ func (s *AktService) OcitanjaZaAkt(ctx context.Context, stationID string, limit 
 	return out, nil
 }
 
-// aktKojiSePrekida je ovjereni akt o uspostavi koji prekid stavlja izvan
-// snage: zadani, ili zadnji istog stupnja po istom vodomjeru
+// aktKojiSePrekida je ovjereni, neponišteni akt o uspostavi istog stupnja
+// po istom vodomjeru koji prekid stavlja izvan snage: zadani, ili zadnji
+// koji još nije prekinut
 func (s *AktService) aktKojiSePrekida(ctx context.Context, a *models.Akt, id string) (*models.Akt, error) {
 	if id != "" {
 		u, err := s.repo.GetAkt(ctx, id)
 		if err != nil {
 			return nil, err
 		}
-		if u == nil || !u.Ovjeren() || u.Radnja != models.AktUspostava {
-			return nil, fmt.Errorf("odabrani akt nije ovjereni akt o uspostavi")
+		if !uspostavaZaPrekid(u, a) {
+			return nil, fmt.Errorf("odabrani akt nije ovjereni, neponišteni akt o uspostavi istog stupnja po vodomjeru %s", a.StationName)
 		}
 		return u, nil
 	}
@@ -1087,10 +1088,50 @@ func (s *AktService) aktKojiSePrekida(ctx context.Context, a *models.Akt, id str
 	return &kandidati[0], nil
 }
 
-// AktiZaPrekid su ovjereni akti o uspostavi po vodomjeru, najnoviji prvo;
-// stupanj prazno = svi stupnjevi
+// uspostavaZaPrekid javlja smije li prekid a staviti izvan snage akt u:
+// ovjeren, neponišten akt o uspostavi istog stupnja po istom vodomjeru
+func uspostavaZaPrekid(u, a *models.Akt) bool {
+	return u != nil && u.Ovjeren() && !u.Storniran() && u.Radnja == models.AktUspostava &&
+		u.StationID == a.StationID && u.Stupanj == a.Stupanj
+}
+
+// najviseZaPrekid: koliko se akata o uspostavi nudi za prekid
+const najviseZaPrekid = 20
+
+// AktiZaPrekid su ovjereni, neponišteni akti o uspostavi po vodomjeru koje
+// još nijedan ovjereni, neponišteni prekid ne stavlja izvan snage, najnoviji
+// prvo; stupanj prazno = svi stupnjevi
 func (s *AktService) AktiZaPrekid(ctx context.Context, stationID string, stupanj models.DefensePhase) ([]models.Akt, error) {
-	return s.repo.ListAkti(ctx, repository.FiltarAkata{StationID: stationID, Stupanj: stupanj, Radnja: models.AktUspostava, Status: models.AktOvjeren, Limit: 20})
+	akti, err := s.repo.ListAkti(ctx, repository.FiltarAkata{StationID: stationID, Status: models.AktOvjeren})
+	if err != nil {
+		return nil, err
+	}
+	return neprekinuteUspostave(akti, stupanj, najviseZaPrekid), nil
+}
+
+// neprekinuteUspostave su neponišteni akti o uspostavi stupnja (prazno =
+// svih) među aktima, njih najviše n redom kojim dolaze, koje nijedan
+// neponišteni prekid među njima ne stavlja izvan snage
+func neprekinuteUspostave(akti []models.Akt, stupanj models.DefensePhase, n int) []models.Akt {
+	prekinut := map[string]bool{}
+	for _, p := range akti {
+		if p.Radnja == models.AktPrekid && !p.Storniran() {
+			prekinut[p.PrekidaAktID] = true
+		}
+	}
+	var out []models.Akt
+	for _, u := range akti {
+		if len(out) < n && neponistenaUspostava(u, stupanj) && !prekinut[u.ID] {
+			out = append(out, u)
+		}
+	}
+	return out
+}
+
+// neponistenaUspostava javlja je li akt neponišten akt o uspostavi stupnja
+// (prazno = bilo kojeg)
+func neponistenaUspostava(u models.Akt, stupanj models.DefensePhase) bool {
+	return u.Radnja == models.AktUspostava && !u.Storniran() && (stupanj == "" || u.Stupanj == stupanj)
 }
 
 // ZadnjeOcitanje je zadnje očitanje letve, za obrazac akta
