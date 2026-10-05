@@ -764,10 +764,14 @@ func (s *AktService) StanjaSektora(ctx context.Context, sektor string, t time.Ti
 }
 
 // provjeriPrijeOvjere: isti preduvjeti na oba puta ovjere (izravno i skenom
-// potpisanog akta): aktivna obrana u sektoru i slijed stadija na dionicama
-// akta uz već ovjerene (docs/NACRT-STADIJI-OBRANE.md)
+// potpisanog akta): aktivna obrana u sektoru, prekid vezan na uspostavu koja
+// se još smije prekinuti i slijed stadija na dionicama akta uz već ovjerene
+// (docs/NACRT-STADIJI-OBRANE.md)
 func (s *AktService) provjeriPrijeOvjere(ctx context.Context, a *models.Akt) error {
 	if _, err := s.trebaAktivnu(ctx, a); err != nil {
+		return err
+	}
+	if err := s.uspostavaJosZaPrekid(ctx, a); err != nil {
 		return err
 	}
 	ovjereni, err := s.repo.ListAkti(ctx, repository.FiltarAkata{Sektor: a.Sektor, Status: models.AktOvjeren})
@@ -778,6 +782,27 @@ func (s *AktService) provjeriPrijeOvjere(ctx context.Context, a *models.Akt) err
 		return fmt.Errorf("akt se ne može ovjeriti — %w", err)
 	}
 	return nil
+}
+
+// uspostavaJosZaPrekid: prekid koji stavlja izvan snage akt o uspostavi
+// ovjerava se samo dok je taj akt i dalje među aktima za prekid (ovjeren,
+// neponišten, neprekinut, iste letve i stupnja). Nacrt je vezan na uspostavu
+// u Pripremi; ako je u međuvremenu ovjeren drugi prekid iste uspostave ili
+// je uspostava poništena, ovjera bi dala dva prekida iste uspostave.
+func (s *AktService) uspostavaJosZaPrekid(ctx context.Context, a *models.Akt) error {
+	if a.Radnja != models.AktPrekid || a.PrekidaAktID == "" {
+		return nil
+	}
+	kandidati, err := s.AktiZaPrekid(ctx, a.StationID, a.Stupanj)
+	if err != nil {
+		return err
+	}
+	for _, k := range kandidati {
+		if k.ID == a.PrekidaAktID {
+			return nil
+		}
+	}
+	return fmt.Errorf("akt se ne može ovjeriti — akt o uspostavi koji ovaj prekid stavlja izvan snage više nije ovjeren i neponišten ili je već prekinut; pripremite novi prekid")
 }
 
 // spremanZaOvjeruSkenom: akt još nije ovjeren i prolazi iste preduvjete kao

@@ -34,6 +34,11 @@ func TestAktKojiSePrekidaGreskaCitanja(t *testing.T) {
 	if _, err := s.aktKojiSePrekida(ctx, a, "u1"); err == nil {
 		t.Error("sa zadanim aktom: greška čitanja nije vraćena")
 	}
+	// ni pri ovjeri prekid se ne pušta kad se akti ne daju pročitati
+	a.PrekidaAktID = "u1"
+	if err := s.uspostavaJosZaPrekid(ctx, a); err == nil {
+		t.Error("ovjera prekida: greška čitanja nije vraćena")
+	}
 }
 
 // Ponuda za prekid ima najviše n akata, redom kojim dolaze
