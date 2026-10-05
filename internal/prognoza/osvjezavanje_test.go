@@ -256,12 +256,10 @@ func TestOdaberiInacicePrelaziNaRezervu(t *testing.T) {
 	}
 }
 
-// Tuđa prognoza ispred računa: srednja letva ima svoj račun iz gornje, ali
-// dok je njezina tuđa prognoza svježa, postaje vrh i slijedi nju; donja se
-// računa iz nje. Bez tuđe prognoze srednja se računa kao i dosad.
-func TestTudaIspredRacunaSkidaRacunDokJeSvjeza(t *testing.T) {
-	PoluvijekIspravka = 0
-	zadnji := time.Now().UTC().Truncate(time.Hour)
+// lanacSaSrednjom slaže lanac gornja → srednja → donja s očitanjima do
+// zadnji; srednja ima svoj račun i tuđu prognozu probnog izvora ispred njega.
+func lanacSaSrednjom(t *testing.T, zadnji time.Time) *Osvjezivac {
+	t.Helper()
 	ocitanja := probneOcitanja(t, 48, zadnji)
 	if _, err := ocitanja.Exec(`INSERT INTO stations VALUES ('3','srednja')`); err != nil {
 		t.Fatal(err)
@@ -276,7 +274,7 @@ func TestTudaIspredRacunaSkidaRacunDokJeSvjeza(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer baza.Close()
+	t.Cleanup(func() { baza.Close() })
 	pojasi := []Pojas{
 		{Letva: "srednja", Velicina: "vodostaj", Od: -1000, Do: 1000, Rasap: 3,
 			Ulazi: []Ulaz{{Letva: "gornja", Velicina: "vodostaj", PomakH: 3, Sirina: 1, Nagib: 1}}},
@@ -286,39 +284,57 @@ func TestTudaIspredRacunaSkidaRacunDokJeSvjeza(t *testing.T) {
 	if err := Spremi(baza, pojasi, "proba"); err != nil {
 		t.Fatal(err)
 	}
-	o := &Osvjezivac{Baza: baza, Ocitanja: ocitanja, Najdalje: 12, Model: ModelLanac}
 	staro := TudaIspredRacuna
 	TudaIspredRacuna = map[string]string{"srednja": "probni-izvor"}
-	defer func() { TudaIspredRacuna = staro }()
+	t.Cleanup(func() { TudaIspredRacuna = staro })
+	return &Osvjezivac{Baza: baza, Ocitanja: ocitanja, Najdalje: 12, Model: ModelLanac}
+}
+
+// upisiTuduSrednje upisuje tuđu prognozu srednje izdanu u satu izdano:
+// raste 5 cm na sat, 12 sati unaprijed.
+func upisiTuduSrednje(t *testing.T, baza *sql.DB, izdano int64) {
+	t.Helper()
+	for h := int64(0); h <= 12; h++ {
+		if _, err := baza.Exec(`INSERT INTO tude (izvor, letva, izdano, ciljni, vrijednost) VALUES ('probni-izvor','srednja',?,?,?)`,
+			izdano, izdano+h, 95+5*h); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+// izdanihLetve broji izdane vrijednosti letve i vraća onu 12 h unaprijed.
+func izdanihLetve(ishod *Ishod, letva string) (n int, kraj *Izdana) {
+	for i := range ishod.Izdane {
+		if ishod.Izdane[i].Letva == letva {
+			n++
+			if ishod.Izdane[i].Ciljni == ishod.Sada+12 {
+				kraj = &ishod.Izdane[i]
+			}
+		}
+	}
+	return n, kraj
+}
+
+// Tuđa prognoza ispred računa: srednja letva ima svoj račun iz gornje, ali
+// dok je njezina tuđa prognoza svježa, postaje vrh i slijedi nju; donja se
+// računa iz nje. Bez tuđe prognoze srednja se računa kao i dosad.
+func TestTudaIspredRacunaSkidaRacunDokJeSvjeza(t *testing.T) {
+	PoluvijekIspravka = 0
+	zadnji := time.Now().UTC().Truncate(time.Hour)
+	o := lanacSaSrednjom(t, zadnji)
 
 	// bez tuđe prognoze: srednja se računa
 	ishod, err := o.Osvjezi(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	izdanih := func(ishod *Ishod, letva string) (n int, kraj *Izdana) {
-		for i := range ishod.Izdane {
-			if ishod.Izdane[i].Letva == letva {
-				n++
-				if ishod.Izdane[i].Ciljni == ishod.Sada+12 {
-					kraj = &ishod.Izdane[i]
-				}
-			}
-		}
-		return n, kraj
-	}
+	izdanih := izdanihLetve
 	if n, _ := izdanih(ishod, "srednja"); len(ishod.TudiVrhovi) != 0 || n < 2 {
 		t.Fatalf("bez tuđe prognoze srednja mora imati račun: vrhovi %v, izdanih %d", ishod.TudiVrhovi, n)
 	}
 
 	// svježa tuđa prognoza: srednja raste 5 cm na sat
-	sat := zadnji.Unix() / 3600
-	for h := int64(0); h <= 12; h++ {
-		if _, err := baza.Exec(`INSERT INTO tude (izvor, letva, izdano, ciljni, vrijednost) VALUES ('probni-izvor','srednja',?,?,?)`,
-			sat, sat+h, 95+5*h); err != nil {
-			t.Fatal(err)
-		}
-	}
+	upisiTuduSrednje(t, o.Baza, zadnji.Unix()/3600)
 	ishod, err = o.Osvjezi(context.Background())
 	if err != nil {
 		t.Fatal(err)
@@ -335,5 +351,50 @@ func TestTudaIspredRacunaSkidaRacunDokJeSvjeza(t *testing.T) {
 	_, kraj := izdanih(ishod, "donja")
 	if kraj == nil || kraj.Vrijednost < 95+5*8 {
 		t.Errorf("donja za 12 h mora slijediti porast tuđe prognoze srednje: %+v", kraj)
+	}
+}
+
+// Svježina tuđe prognoze ispred računa mjeri se satom izdavanja, istim po
+// kojem se uzima njezina budućnost. Kad izdanje kasni deset sati, tuđa
+// izdana prije sat vremena za njega nije svježa (izdana je poslije sata
+// izdavanja i šest sati): srednja zadržava račun, a ne ostaje bez računa i
+// bez budućnosti. Tuđa izdana 45 sati prije sata izdavanja svježa je, iako
+// je po satu na zidu starija od dva dana.
+func TestTudaIspredRacunaSvjezaPoSatuIzdavanja(t *testing.T) {
+	PoluvijekIspravka = 0
+	sad := time.Now().UTC().Truncate(time.Hour)
+	zadnji := sad.Add(-10 * time.Hour)
+	o := lanacSaSrednjom(t, zadnji)
+	sada := zadnji.Unix() / 3600
+
+	upisiTuduSrednje(t, o.Baza, sad.Unix()/3600-1)
+	ishod, err := o.Osvjezi(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ishod.Sada != sada {
+		t.Fatalf("sat izdavanja %d, očekivan %d", ishod.Sada, sada)
+	}
+	if n, _ := izdanihLetve(ishod, "srednja"); len(ishod.TudiVrhovi) != 0 || n < 2 {
+		t.Errorf("tuđa izdana poslije sata izdavanja: srednja mora zadržati račun, vrhovi %v, izdanih %d",
+			ishod.TudiVrhovi, n)
+	}
+	if iz, ima := ishod.Izbor["vrh:srednja"]; ima {
+		t.Errorf("srednja ne smije biti vrh: %+v", iz)
+	}
+
+	if _, err := o.Baza.Exec(`DELETE FROM tude`); err != nil {
+		t.Fatal(err)
+	}
+	upisiTuduSrednje(t, o.Baza, sada-45)
+	ishod, err = o.Osvjezi(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ishod.TudiVrhovi) != 1 || ishod.TudiVrhovi[0] != "srednja" {
+		t.Errorf("tuđa svježa u satu izdavanja: srednja mora biti tuđi vrh, vrhovi %v", ishod.TudiVrhovi)
+	}
+	if n, _ := izdanihLetve(ishod, "srednja"); n > 1 {
+		t.Errorf("srednja se ne smije računati dok je vrh, a ima %d izdanih", n)
 	}
 }
