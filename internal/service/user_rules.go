@@ -15,39 +15,53 @@ import (
 // Tko upravlja: razina 1 svime; uprava sektora (razina 2) računima i
 // dužnostima svog sektora, ali ne dijeli uloge razine 1; uprava područja
 // (razina 3) računima i dužnostima svog područja, ne dijeli uloge razina 1
-// i 2. Ispod razine 3 nitko ne upravlja računima. Doseg dužnosti određuje
-// uloga: uloga sektora traži sektor, uloga područja područje, uloga dionice
-// dionice.
+// i 2. Ispod razine 3 nitko ne upravlja računima. Svaka upravna dužnost
+// daje upravu nad svojim dosegom na svojoj razini: uprava sektora D koja je
+// i uprava područja 16 sektora B upravlja sektorom D s razine 2, a
+// područjem 16 s razine 3. Doseg dužnosti određuje uloga: uloga sektora
+// traži sektor, uloga područja područje, uloga dionice dionice.
 
-// actorRank je razina s koje netko upravlja: 1 uprava organizacije, 2
-// sektor, 3 područje, 0 kad ne upravlja ničim
+// actorRank je najviša razina s koje netko upravlja: 1 uprava
+// organizacije, 2 sektor, 3 područje, 0 kad ne upravlja ničim
 func actorRank(p *models.UserPermissions) int {
-	switch {
-	case p == nil:
-		return 0
-	case p.IsGlobalAdmin:
-		return 1
-	case len(p.AdminSectors) > 0:
-		return 2
-	case len(p.AdminAreas) > 0:
-		return 3
+	if razine := razineUprave(p); len(razine) > 0 {
+		return razine[0]
 	}
 	return 0
+}
+
+// razineUprave su sve razine s kojih netko upravlja, od najviše; uprava
+// organizacije upravlja svime, pa niže ne treba
+func razineUprave(p *models.UserPermissions) []int {
+	switch {
+	case p == nil:
+		return nil
+	case p.IsGlobalAdmin:
+		return []int{1}
+	}
+	var razine []int
+	if len(p.AdminSectors) > 0 {
+		razine = append(razine, 2)
+	}
+	if len(p.AdminAreas) > 0 {
+		razine = append(razine, 3)
+	}
+	return razine
 }
 
 // areaSector vraća sektor područja; prazno kad područje nije poznato
 type areaSector func(areaID int) string
 
-// rokUprave je uprava actora nad dosegom dužnosti koja se dodjeljuje
-// (sektor, područje), na razini s koje upravlja. Stalna je kad je ijedna
+// rokUprave je uprava actora nad dosegom dužnosti s ulogom role koja se
+// dodjeljuje (sektor, područje), sa svake razine s koje je smije
+// dodijeliti (vidi mayAssign). Stalna je kad je ijedna
 // takva dužnost stalna (i za stalnog globalnog administratora): izvor je tada
 // nil. Inače je privremena: izvor je dužnost koja traje najdulje, a rok njezin
 // istek, nil dok se ne zna (privremeno imenovanje traje dok traje obrana).
 // Kad cilj nije zadan, gledaju se sve upravne dužnosti na toj razini:
 // uprava je privremena samo kad su sve privremene.
-func rokUprave(p *models.UserPermissions, sectorID *string, areaID *int, sectors areaSector) (*time.Time, *models.Duty) {
-	rank := actorRank(p)
-	if rank == 1 && p.User.IsGlobalAdmin {
+func rokUprave(p *models.UserPermissions, role models.Role, sectorID *string, areaID *int, sectors areaSector) (*time.Time, *models.Duty) {
+	if p.User.IsGlobalAdmin {
 		return nil, nil
 	}
 	cilj := ciljniSektor(sectorID, areaID, sectors)
@@ -55,7 +69,7 @@ func rokUprave(p *models.UserPermissions, sectorID *string, areaID *int, sectors
 	var izvor *models.Duty
 	for i := range p.User.Duties {
 		d := &p.User.Duties[i]
-		if !upravljaCiljem(d, rank, cilj, areaID, sad) {
+		if !upravljaCiljem(d, role, cilj, areaID, sad) {
 			continue
 		}
 		if !privremenaDuznost(*d) {
@@ -86,11 +100,12 @@ func ciljniSektor(sectorID *string, areaID *int, sectors areaSector) string {
 	return cilj
 }
 
-// upravljaCiljem: aktivna, neistekla dužnost na razini s koje actor
-// upravlja, za sektor ili područje dosega; bez zadanog sektora ili
-// područja svaka na toj razini
-func upravljaCiljem(d *models.Duty, rank int, ciljSektor string, areaID *int, sad time.Time) bool {
-	if !d.IsActive || d.Role.RazinaUprave() != rank || (d.ExpiresAt != nil && d.ExpiresAt.Before(sad)) {
+// upravljaCiljem: aktivna, neistekla upravna dužnost s čije se razine
+// uloga role dodjeljuje, za sektor ili područje dosega; bez zadanog
+// sektora ili područja svaka na toj razini
+func upravljaCiljem(d *models.Duty, role models.Role, ciljSektor string, areaID *int, sad time.Time) bool {
+	rank := d.Role.RazinaUprave()
+	if !d.IsActive || rank == 0 || rank > role.Rank() || (d.ExpiresAt != nil && d.ExpiresAt.Before(sad)) {
 		return false
 	}
 	switch rank {
@@ -137,7 +152,7 @@ func ograniciRok(p *models.UserPermissions, role models.Role, sectorID *string, 
 	if role.RazinaUprave() == 0 {
 		return trazeno
 	}
-	r, izvor := rokUprave(p, sectorID, areaID, sectors)
+	r, izvor := rokUprave(p, role, sectorID, areaID, sectors)
 	if izvor == nil {
 		return trazeno
 	}
@@ -187,7 +202,7 @@ func stalnaUpravaOrganizacije(p *models.UserPermissions) bool {
 	if p == nil || !p.IsGlobalAdmin {
 		return false
 	}
-	_, izvor := rokUprave(p, nil, nil, nil)
+	_, izvor := rokUprave(p, models.RoleGlobalAdmin, nil, nil, nil)
 	return izvor == nil
 }
 
@@ -226,16 +241,40 @@ func dutyInScope(p *models.UserPermissions, rank int, sectorID *string, areaID *
 // mayAssign javlja smije li actor dodijeliti ili opozvati dužnost s tom
 // ulogom i dosegom
 func mayAssign(p *models.UserPermissions, role models.Role, sectorID *string, areaID *int, sectors areaSector) error {
-	rank := actorRank(p)
-	if rank == 0 {
-		return ErrUnauthorized
+	_, err := razinaDodjele(p, role, sectorID, areaID, sectors)
+	return err
+}
+
+// razinaDodjele je najviša razina s koje actor smije dodijeliti ili
+// opozvati dužnost s tom ulogom i dosegom. Kad ne smije ni s jedne, greška
+// je ona s najviše razine.
+func razinaDodjele(p *models.UserPermissions, role models.Role, sectorID *string, areaID *int, sectors areaSector) (int, error) {
+	razine := razineUprave(p)
+	if len(razine) == 0 {
+		return 0, ErrUnauthorized
 	}
-	if role == models.RoleGlobalAdmin && rank > 1 {
-		return ErrUnauthorized
+	if role == models.RoleGlobalAdmin && razine[0] > 1 {
+		return 0, ErrUnauthorized
 	}
 	if !role.Poznata() {
-		return fmt.Errorf("%w: nepoznata uloga „%s“", ErrUnauthorized, role)
+		return 0, fmt.Errorf("%w: nepoznata uloga „%s“", ErrUnauthorized, role)
 	}
+	var prva error
+	for _, rank := range razine {
+		err := dodjelaSRazine(p, rank, role, sectorID, areaID, sectors)
+		if err == nil {
+			return rank, nil
+		}
+		if prva == nil {
+			prva = err
+		}
+	}
+	return 0, prva
+}
+
+// dodjelaSRazine javlja smije li actor ulogu dodijeliti s te razine:
+// uloga se dodjeljuje s nje ili niže, a doseg je u upravi te razine
+func dodjelaSRazine(p *models.UserPermissions, rank int, role models.Role, sectorID *string, areaID *int, sectors areaSector) error {
 	if role.Rank() < rank {
 		return fmt.Errorf("%w: uloga „%s“ dodjeljuje se s više razine", ErrUnauthorized, role.Label())
 	}
