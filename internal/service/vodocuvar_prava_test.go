@@ -109,6 +109,10 @@ func TestPrijaveIduSDnevnikom(t *testing.T) {
 // ni zadavati zadatke vodočuvaru: gost i preglednik s dužnošću na području,
 // ni osoba čija je dužnost istekla. Rukovoditelj područja, dežurni operater
 // sektora i poslovođa izvođača (njih dvojica dok se ne odluči) smiju.
+//
+// Pravo se gleda po dužnosti, ne po osobi: valjana dužnost na drugom
+// području ne otvara dnevnik ovoga gostu, pregledniku, skladištaru ni
+// isteklom rukovoditelju ili ovlašteniku na ovom području.
 func TestParafiraSamoTkoVidiDnevnik(t *testing.T) {
 	podrucje := 1
 	sektor := "P"
@@ -117,15 +121,30 @@ func TestParafiraSamoTkoVidiDnevnik(t *testing.T) {
 	vod := &VodocuvarService{}
 	jucer := time.Now().Add(-time.Hour)
 
-	osoba := func(d models.Duty) *models.UserPermissions {
-		d.IsActive, d.SectorID = true, &sektor
-		return models.NewUserPermissions(models.User{ID: uuid.New(), Username: "pperic", FullName: "Pero Perić", Duties: []models.Duty{d}})
+	osoba := func(duznosti ...models.Duty) *models.UserPermissions {
+		for i := range duznosti {
+			duznosti[i].IsActive, duznosti[i].SectorID = true, &sektor
+		}
+		return models.NewUserPermissions(models.User{ID: uuid.New(), Username: "pperic", FullName: "Pero Perić", Duties: duznosti})
 	}
+	drugo := 2
+	rukovoditeljDrugog := models.Duty{Role: models.RoleAreaLeader, ScopeType: models.ScopeArea, AreaID: &drugo}
+	vodocuvarDrugog := models.Duty{Role: models.RoleWaterGuard, ScopeType: models.ScopeArea, AreaID: &drugo}
 	slucajevi := []struct {
 		naziv    string
 		perms    *models.UserPermissions
 		parafira bool
 	}{
+		// dvije dužnosti: valjana na području 2 ne otvara dnevnik područja 1
+		{"rukovoditelj područja 2 i gost na području 1", osoba(rukovoditeljDrugog, models.Duty{Role: models.RoleGuest, ScopeType: models.ScopeArea, AreaID: &podrucje}), false},
+		{"vodočuvar područja 2 i preglednik na području 1", osoba(vodocuvarDrugog, models.Duty{Role: models.RoleViewer, ScopeType: models.ScopeArea, AreaID: &podrucje}), false},
+		{"vodočuvar područja 2 i skladištar na području 1", osoba(vodocuvarDrugog, models.Duty{Role: models.RoleWarehouseKeeper, ScopeType: models.ScopeArea, AreaID: &podrucje}), false},
+		{"vodočuvar područja 2 i nepoznata uloga na području 1", osoba(vodocuvarDrugog, models.Duty{Role: models.Role("NEPOZNATA"), ScopeType: models.ScopeArea, AreaID: &podrucje}), false},
+		{"vodočuvar područja 2 i istekli rukovoditelj područja 1", osoba(vodocuvarDrugog, models.Duty{Role: models.RoleAreaLeader, ScopeType: models.ScopeArea, AreaID: &podrucje, ExpiresAt: &jucer}), false},
+		{"vodočuvar područja 2 i istekli ovlaštenik na području 1", osoba(vodocuvarDrugog, models.Duty{Role: models.RoleContractOfficerA3, ScopeType: models.ScopeArea, AreaID: &podrucje, ExpiresAt: &jucer}), false},
+		{"vodočuvar područja 2 i istekla uprava sektora", osoba(vodocuvarDrugog, models.Duty{Role: models.RoleSectorLeader, ScopeType: models.ScopeSector, ExpiresAt: &jucer}), false},
+		{"vodočuvar područja 2 i rukovoditelj područja 1", osoba(vodocuvarDrugog, models.Duty{Role: models.RoleAreaLeader, ScopeType: models.ScopeArea, AreaID: &podrucje}), true},
+		{"vodočuvar područja 2 i ovlaštenik na području 1", osoba(vodocuvarDrugog, models.Duty{Role: models.RoleContractOfficerA3, ScopeType: models.ScopeArea, AreaID: &podrucje}), true},
 		{"rukovoditelj područja", osoba(models.Duty{Role: models.RoleAreaLeader, ScopeType: models.ScopeArea, AreaID: &podrucje}), true},
 		{"operater sektora", osoba(models.Duty{Role: models.RoleOperator, ScopeType: models.ScopeSector}), true},
 		{"poslovođa izvođača", osoba(models.Duty{Role: models.RoleServiceLeaderForeman, ScopeType: models.ScopeArea, AreaID: &podrucje}), true},
@@ -143,6 +162,37 @@ func TestParafiraSamoTkoVidiDnevnik(t *testing.T) {
 		// tko parafira, taj i čita; tko ne čita, ne parafira
 		if got := vod.SmijeVidjeti(s.perms, list); got != s.parafira {
 			t.Errorf("%s: vidi %v, očekivano %v", s.naziv, got, s.parafira)
+		}
+	}
+}
+
+// Istekla dužnost ne ovjerava: rukovoditelj područja ili uprava sektora čija
+// je dužnost istekla više ne ovjerava list, a s valjanom dužnošću ovjerava.
+func TestIsteklaDuznostNeOvjerava(t *testing.T) {
+	podrucje := 1
+	sektor := "P"
+	list := &models.VodocuvarskiList{UserID: uuid.New().String(), Sektor: sektor, AreaID: podrucje}
+	vod := &VodocuvarService{}
+	jucer := time.Now().Add(-time.Hour)
+
+	osoba := func(d models.Duty) *models.UserPermissions {
+		d.IsActive, d.SectorID = true, &sektor
+		return models.NewUserPermissions(models.User{ID: uuid.New(), Username: "pperic", FullName: "Pero Perić", Duties: []models.Duty{d}})
+	}
+	slucajevi := []struct {
+		naziv    string
+		perms    *models.UserPermissions
+		ovjerava bool
+	}{
+		{"rukovoditelj područja", osoba(models.Duty{Role: models.RoleAreaLeader, ScopeType: models.ScopeArea, AreaID: &podrucje}), true},
+		{"istekli rukovoditelj područja", osoba(models.Duty{Role: models.RoleAreaLeader, ScopeType: models.ScopeArea, AreaID: &podrucje, ExpiresAt: &jucer}), false},
+		{"uprava sektora", osoba(models.Duty{Role: models.RoleSectorLeader, ScopeType: models.ScopeSector}), true},
+		{"istekla uprava sektora", osoba(models.Duty{Role: models.RoleSectorLeader, ScopeType: models.ScopeSector, ExpiresAt: &jucer}), false},
+		{"istekla uprava organizacije", osoba(models.Duty{Role: models.RoleNationalLeader, ScopeType: models.ScopeAll, ExpiresAt: &jucer}), false},
+	}
+	for _, s := range slucajevi {
+		if got := vod.SmijeOvjeriti(s.perms, list); got != s.ovjerava {
+			t.Errorf("%s: ovjerava %v, očekivano %v", s.naziv, got, s.ovjerava)
 		}
 	}
 }
