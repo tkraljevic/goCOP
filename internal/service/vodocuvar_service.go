@@ -167,16 +167,22 @@ func (s *VodocuvarService) pripremiZa(ctx context.Context, u *models.User, dan t
 	}
 	l.Prilike = s.prilike(ctx, l)
 	l.Ocitanja = s.ocitanja(ctx, u.ID.String(), dan)
-	l.Zadaci = s.zadaciNaListu(ctx, u.ID.String(), dan, nil)
+	zadaci, err := s.zadaciNaListu(ctx, u.ID.String(), dan, nil)
+	if err != nil {
+		return nil, err
+	}
+	l.Zadaci = zadaci
 	return l, nil
 }
 
 // zadaciNaListu slaže otvorene zadatke do tog dana kako stoje na listu,
-// zadržavajući stanje koje je vodočuvar već označio na tom listu
-func (s *VodocuvarService) zadaciNaListu(ctx context.Context, userID string, dan time.Time, postojeci []models.ZadatakNaListu) []models.ZadatakNaListu {
+// zadržavajući stanje koje je vodočuvar već označio na tom listu. Kad se
+// otvoreni zadaci ne mogu pročitati, vraća grešku: list samo s ranije
+// upisanim zadacima izostavio bi nove bez traga.
+func (s *VodocuvarService) zadaciNaListu(ctx context.Context, userID string, dan time.Time, postojeci []models.ZadatakNaListu) ([]models.ZadatakNaListu, error) {
 	otvoreni, err := s.repo.OtvoreniZadaci(ctx, userID, dan)
 	if err != nil {
-		return postojeci
+		return nil, fmt.Errorf("otvoreni zadaci: %w", err)
 	}
 	stanje := map[string]models.ZadatakNaListu{}
 	for _, z := range postojeci {
@@ -198,7 +204,7 @@ func (s *VodocuvarService) zadaciNaListu(ctx context.Context, userID string, dan
 			out = append(out, z)
 		}
 	}
-	return out
+	return out, nil
 }
 
 // prilike dohvaća vremenske prilike za područje s Open-Meteo; bez interneta
@@ -324,7 +330,9 @@ func (s *VodocuvarService) Spremi(ctx context.Context, u *models.User, dan time.
 	l.Od, l.Do = sati[0], sati[1]
 	l.Prilike, l.Naredbe, l.Opis, l.Zapazanja = strings.TrimSpace(unos.Prilike), strings.TrimSpace(unos.Naredbe), strings.TrimSpace(unos.Opis), strings.TrimSpace(unos.Zapazanja)
 	// zadaci: stanje s obrasca
-	l.Zadaci = s.zadaciNaListu(ctx, u.ID.String(), dan, l.Zadaci)
+	if l.Zadaci, err = s.zadaciNaListu(ctx, u.ID.String(), dan, l.Zadaci); err != nil {
+		return nil, err
+	}
 	if err := oznaciZadatke(l.Zadaci, unos.Zadaci); err != nil {
 		return nil, err
 	}

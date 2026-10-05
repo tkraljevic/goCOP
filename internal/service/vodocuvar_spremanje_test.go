@@ -655,6 +655,29 @@ func TestNeuspjeliUpisLista(t *testing.T) {
 	}
 }
 
+// Kad se otvoreni zadaci ne mogu pročitati, list se ne sprema samo s ranije
+// upisanim zadacima: Spremi i Pripremi vraćaju grešku.
+func TestGreskaCitanjaOtvorenihZadataka(t *testing.T) {
+	o := novaOkolinaVodocuvara(t)
+	ctx := context.Background()
+	u := vdVodocuvar()
+	dan := vdDan(time.March, 10)
+	o.vdZadatak(t, u, "pregledati ustavu", dan)
+	if _, err := o.vs.Spremi(ctx, u, dan, vdUnos("nacrt"), false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := o.baza.Exec(`ALTER TABLE vodocuvarski_zadaci RENAME TO vodocuvarski_zadaci_skriveni`); err != nil {
+		t.Fatal(err)
+	}
+	_, err := o.vs.Spremi(ctx, u, dan, vdUnos("obilazak"), true)
+	vdGreska(t, err, "vodocuvarski_zadaci")
+	if l := o.vdListIzBaze(t, u, dan); l.Opis != "nacrt" || l.Predan() || len(l.Zadaci) != 1 {
+		t.Errorf("list nakon greške: %+v", l)
+	}
+	_, err = o.vs.Pripremi(ctx, u, dan.AddDate(0, 0, 1))
+	vdGreska(t, err, "vodocuvarski_zadaci")
+}
+
 // Predaja nije jedna transakcija: list se spremi kao predan prije nego što
 // se zadaci zaključe u evidenciji. Ako zaključivanje ne uspije, Spremi
 // javlja grešku, a list ostaje predan i zadatak otvoren. Test bilježi
