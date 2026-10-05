@@ -171,15 +171,10 @@ func (s *AktService) Pripremi(ctx context.Context, perms *models.UserPermissions
 		a.Vrijedi = time.Now().Truncate(time.Minute)
 	}
 
-	dionice, err := s.dioniceAkta(ctx, st, z.Dionice)
-	if err != nil {
+	if err := s.dosegAkta(ctx, a, st, z.Dionice); err != nil {
 		return nil, err
 	}
-	for _, sec := range dionice {
-		a.Dionice = append(a.Dionice, models.AktDionica{Code: sec.Code, Opis: strings.TrimSpace(sec.Description)})
-	}
-	a.Sektor, a.AreaID = dionice[0].SectorID, podrucjeAkta(dionice)
-	if !s.pisePoAktu(perms, a) && !s.SmijeOvjeriti(perms, a) {
+	if !s.smijeSastaviti(perms, a) {
 		return nil, fmt.Errorf("%w: akt za branjeno područje %d sastavlja tko ondje vodi obranu", ErrUnauthorized, a.AreaID)
 	}
 
@@ -229,6 +224,37 @@ func (s *AktService) Pripremi(ctx context.Context, perms *models.UserPermissions
 	sp, _ := s.repo.GetSpranca(ctx, a.Sektor)
 	a.Uvod, a.Zavrsno, a.Poveznice = sp.Uvod(*a), sp.Zavrsno, strings.TrimSpace(sp.Poveznice)
 	return a, nil
+}
+
+// dosegAkta upisuje u akt njegove dionice (dioniceAkta), sektor i područje
+func (s *AktService) dosegAkta(ctx context.Context, a *models.Akt, st *models.Station, zadane []string) error {
+	dionice, err := s.dioniceAkta(ctx, st, zadane)
+	if err != nil {
+		return err
+	}
+	for _, sec := range dionice {
+		a.Dionice = append(a.Dionice, models.AktDionica{Code: sec.Code, Opis: strings.TrimSpace(sec.Description)})
+	}
+	a.Sektor, a.AreaID = dionice[0].SectorID, podrucjeAkta(dionice)
+	return nil
+}
+
+// smijeSastaviti javlja smije li osoba sastaviti akt: piše po njegovu
+// dosegu ili ga smije ovjeriti
+func (s *AktService) smijeSastaviti(perms *models.UserPermissions, a *models.Akt) bool {
+	return s.pisePoAktu(perms, a) || s.SmijeOvjeriti(perms, a)
+}
+
+// SmijeAktZaLetvu javlja bi li Pripremi osobi prihvatio akt stupnja po
+// letvi (bez užeg izbora dionica): dionice letve su u registru, a osoba
+// piše po dosegu akta ili ga smije ovjeriti. Obrazac akta nudi samo takve
+// letve.
+func (s *AktService) SmijeAktZaLetvu(ctx context.Context, perms *models.UserPermissions, st *models.Station, stupanj models.DefensePhase) bool {
+	if perms == nil || st == nil {
+		return false
+	}
+	a := &models.Akt{Stupanj: stupanj}
+	return s.dosegAkta(ctx, a, st, nil) == nil && s.smijeSastaviti(perms, a)
 }
 
 // dioniceAkta su dionice akta iz registra, po šifri: one za koje je

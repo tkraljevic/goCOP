@@ -191,9 +191,10 @@ func (h *AktiHandler) ShowForm(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if data.Station == nil {
+		// nude se letve po kojima bi priprema prihvatila akt (ista provjera)
 		sve, _ := h.stations.ListStations(r.Context(), "", "", "", false)
 		for _, st := range sve {
-			if len(st.SectionCodes) > 0 && (perms == nil || perms.IsGlobalAdmin || smijeLetvu(perms, st)) {
+			if len(st.SectionCodes) > 0 && h.akti().SmijeAktZaLetvu(r.Context(), perms, &st, data.Stupanj) {
 				data.Stanice = append(data.Stanice, st)
 			}
 		}
@@ -222,22 +223,6 @@ func sektorPodrucja(perms *models.UserPermissions, sektor string) bool {
 		}
 	}
 	return false
-}
-
-// smijeLetvu javlja može li osoba sastaviti akt po toj letvi: bar jedna od
-// njezinih dionica je u dosegu
-func smijeLetvu(perms *models.UserPermissions, st models.Station) bool {
-	for _, c := range st.SectionCodes {
-		if perms.HasWriteAccess("", 0, c) || perms.AllowedSections[c] {
-			return true
-		}
-	}
-	for s := range perms.AllowedSectors {
-		if s != "" {
-			return true
-		}
-	}
-	return len(perms.AllowedAreas) > 0 || len(perms.AdminAreas) > 0 || len(perms.AdminSectors) > 0
 }
 
 func (h *AktiHandler) dioniceLetve(ctx context.Context, st *models.Station) []models.Section {
