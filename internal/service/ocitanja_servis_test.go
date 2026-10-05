@@ -518,10 +518,12 @@ func TestTerenskiPogled(t *testing.T) {
 		o.upisi(t, models.Reading{StationID: o.primjerovo.ID.String(), MeasuredAt: prije(i, 7, 0), LevelCm: cmP(200), UserID: pp.ID.String()})
 		o.upisi(t, models.Reading{StructureID: o.csProbni.ID.String(), MeasuredAt: prije(i, 6, 30), LevelCm: cmP(100), UserID: pp.ID.String()})
 	}
-	// Imenjak (drugi račun, isto ime) očitava Probno u području 2; po imenu
-	// to ulazi u navike prvoga.
+	// Imenjak (drugi račun, isto ime) očitava Probno u području 2; to nisu
+	// navike Pere Perića, iako je očitavač istog imena.
 	o.upisi(t, models.Reading{StationID: o.probno.ID.String(), MeasuredAt: prije(2, 8, 0), LevelCm: cmP(90),
 		UserID: imenjak.ID.String(), Observer: "Pero Perić"})
+	// staro uvezeno očitanje bez korisnika, s očitavačem Perom Perićem, jest
+	o.upisi(t, models.Reading{StationID: o.uzvodna.ID.String(), MeasuredAt: prije(10, 9, 0), LevelCm: cmP(12), Observer: "Pero Perić"})
 	// danas je Primjerovo očitao netko drugi
 	o.upisi(t, models.Reading{StationID: o.primjerovo.ID.String(), MeasuredAt: danas, LevelCm: cmP(205), Observer: "dežurni"})
 	// starije od 90 dana se ne broji
@@ -542,8 +544,9 @@ func TestTerenskiPogled(t *testing.T) {
 		}
 		return strings.Join(s, ",")
 	}
-	// moje: po uobičajenom vremenu; i letva drugog područja koju je očitao imenjak
-	if got := imena(fo.Mine); got != "CS Probni,Primjerovo,Probno" {
+	// moje: po uobičajenom vremenu; i letva bez područja iz starog uvoza, ali
+	// ne letva koju je očitao imenjak
+	if got := imena(fo.Mine); got != "CS Probni,Primjerovo,Uzvodna" {
 		t.Errorf("moje letve: %s", got)
 	}
 	// ostale letve područja 1: letve dionica i objekti područja koji primaju očitanja
@@ -573,12 +576,13 @@ func TestTerenskiPogled(t *testing.T) {
 	if got := imena(fo2.Others); got != "Granica" {
 		t.Errorf("ostale letve umjesto područja 2: %s", got)
 	}
-	// uprava sektora P smije birati područje 2, pa ga i dobije
+	// uprava sektora P (i ona se zove Pero Perić) smije birati područje 2,
+	// pa ga i dobije; Probno koje je očitao imenjak nije njezina navika
 	sektor := "P"
 	upravaSektora, upravaOvl := o.pperic(t, "pperic-sektor", &models.Duty{Title: "Rukovoditelj sektora", Role: models.RoleSectorLeader,
 		ScopeType: models.ScopeSector, SectorID: &sektor, IsPrimary: true})
 	if fu, err := o.rs.FieldOverview(ctx, upravaOvl, upravaSektora, 2); err != nil || fu.Area == nil || fu.Area.ID != 2 ||
-		imena(fu.Others) != "Granica,Ustava Probna" {
+		imena(fu.Others) != "Probno,Granica,Ustava Probna" {
 		t.Errorf("uprava sektora, područje 2: %+v %v", fu, err)
 	}
 
