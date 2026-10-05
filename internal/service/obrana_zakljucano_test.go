@@ -150,7 +150,8 @@ func TestProglasenjeObrane(t *testing.T) {
 		t.Error("proglašenje na nepostojećoj dionici mora pasti")
 	}
 
-	// Letva bez identiteta: epizoda dobije nulti UUID, a ne prazan zapis.
+	// Letva bez identiteta ostaje prazna, kao na epizodi iz akta bez
+	// vodomjera, a ne nulti UUID.
 	if err := o.svc.End(ctx, admin, "uprava", "P.1.2", time.Time{}, ""); err != nil {
 		t.Fatal(err)
 	}
@@ -158,8 +159,8 @@ func TestProglasenjeObrane(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if bez.StationID != uuid.Nil.String() {
-		t.Errorf("letva bez identiteta: %q, očekivano nulti UUID", bez.StationID)
+	if bez.StationID != "" {
+		t.Errorf("letva bez identiteta: %q, očekivano prazno", bez.StationID)
 	}
 }
 
