@@ -185,32 +185,43 @@ func TestPravoNaNovuDionicu(t *testing.T) {
 	}
 }
 
-func TestSifraDioniceNeProvjeravaPodrucje(t *testing.T) {
+func TestSifraDioniceProvjeravaPodrucje(t *testing.T) {
 	o := novaOkolinaDionica(t)
 	ctx := context.Background()
-	// Šifra kaže područje 42, a dionica se upiše u područje 41: broj
-	// područja iz šifre se ne provjerava.
-	if err := o.svc.SaveSection(ctx, upravaSektoraF, dionicaS("F.42.7", 41), true); err != nil {
-		t.Fatal(err)
+	// Šifra nosi sektor i područje dionice: B.15.5 ide u područje 15
+	// sektora B. Pravo se priznaje po području, pa bi šifra tuđeg sektora
+	// ili područja upisala dionicu ondje gdje onaj tko piše nema ništa.
+	for _, s := range []struct {
+		ime    string
+		perms  *models.UserPermissions
+		sec    *models.Section
+		sektor string
+		greska string
+	}{
+		{"područje iz šifre nije područje dionice", upravaSektoraF, dionicaS("F.42.7", 41), "", "nosi branjeno područje 42"},
+		{"područje s vodećom nulom", globalni, dionicaS("F.041.1", 41), "", "SEKTOR.PODRUČJE.BROJ"},
+		{"nula ispred broja područja", globalni, dionicaS("F.05.1", 5), "", "nosi branjeno područje 05"},
+		{"sektor iz šifre nije sektor područja", pisePodr42, dionicaS("E.42.1", 42), "", "pripada sektoru F"},
+		{"zadani sektor nije sektor iz šifre", globalni, dionicaS("F.41.9", 41), "E", "nosi sektor F"},
+		{"zadani sektor nije sektor područja", globalni, dionicaS("E.41.9", 41), "E", "pripada sektoru F"},
+	} {
+		s.sec.SectorID = s.sektor
+		err := o.svc.SaveSection(ctx, s.perms, s.sec, true)
+		if err == nil || !strings.Contains(err.Error(), s.greska) {
+			t.Errorf("%s: očekivano „%s”, dobiveno %v", s.ime, s.greska, err)
+		}
 	}
-	if d, _ := o.svc.GetSectionWithDetails("F.42.7"); d == nil || d.AreaID != 41 {
-		t.Errorf("dionica F.42.7: %+v", d)
+	if n, _ := o.svc.ListSections("", 0, ""); len(n) != 0 {
+		t.Errorf("odbijene dionice su upisane: %d", len(n))
 	}
-	// Sektor iz šifre (E) ne mora biti sektor područja (41 je u sektoru F),
-	// a pravo se priznaje po području: tko piše u području 42 upiše dionicu
-	// sektora E.
-	sec := dionicaS("E.42.1", 42)
-	if err := o.svc.SaveSection(ctx, pisePodr42, sec, true); err != nil {
-		t.Fatal(err)
-	}
-	if d, _ := o.svc.GetSectionWithDetails("E.42.1"); d == nil || d.SectorID != "E" || d.AreaID != 42 {
-		t.Errorf("dionica E.42.1: %+v", d)
-	}
-	// zadani sektor pobjeđuje šifru
-	sec = dionicaS("F.41.9", 41)
-	sec.SectorID = "E"
+	// zadani sektor koji se slaže sa šifrom i područjem prolazi, i malim slovom
+	sec := dionicaS("E.43.1", 43)
+	sec.SectorID = " e "
 	if err := o.svc.SaveSection(ctx, globalni, sec, true); err != nil || sec.SectorID != "E" {
 		t.Errorf("zadani sektor: %q %v", sec.SectorID, err)
+	}
+	if d, _ := o.svc.GetSectionWithDetails("E.43.1"); d == nil || d.SectorID != "E" || d.AreaID != 43 {
+		t.Errorf("dionica E.43.1: %+v", d)
 	}
 }
 
@@ -331,12 +342,12 @@ func TestSljedecaSifraDionice(t *testing.T) {
 	if got := o.svc.SljedecaSifra("F", 41); got != "F.41.1" {
 		t.Errorf("prazno područje: %s", got)
 	}
-	for _, c := range []string{"F.41.1", "F.41.4", "F.42.9"} {
-		if err := o.svc.SaveSection(ctx, globalni, dionicaS(c, 41), true); err != nil {
+	for _, d := range []*models.Section{dionicaS("F.41.1", 41), dionicaS("F.41.4", 41), dionicaS("F.42.9", 42)} {
+		if err := o.svc.SaveSection(ctx, globalni, d, true); err != nil {
 			t.Fatal(err)
 		}
 	}
-	// samo dionice područja 41 sa šifrom „F.41.” (F.42.9 je upisana u 41)
+	// samo dionice područja 41 (F.42.9 je u području 42)
 	if got := o.svc.SljedecaSifra("F", 41); got != "F.41.5" {
 		t.Errorf("sljedeća u 41: %s", got)
 	}
