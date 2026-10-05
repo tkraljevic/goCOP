@@ -365,15 +365,20 @@ func TestTerenIVodocuvarskiDnevnik(t *testing.T) {
 		{"strojar", &User{Duties: []Duty{aktivna(Duty{Role: RoleMachinist})}}, true, false},
 		{"skladištar", &User{Duties: []Duty{aktivna(Duty{Role: RoleWarehouseKeeper})}}, false, false},
 		{"rukovoditelj područja", &User{Duties: []Duty{aktivna(Duty{Role: RoleAreaLeader})}}, false, true},
-		// dnevnik vide i uloge koje komentar ne spominje: gost, preglednik,
-		// operater, poslovođa i nepoznata uloga
-		{"gost", &User{Duties: []Duty{aktivna(Duty{Role: RoleGuest})}}, false, true},
-		{"preglednik", &User{Duties: []Duty{aktivna(Duty{Role: RoleViewer})}}, false, true},
-		{"poslovođa", &User{Duties: []Duty{aktivna(Duty{Role: RoleServiceLeaderForeman})}}, false, true},
-		{"nepoznata uloga", &User{Duties: []Duty{aktivna(Duty{Role: Role("NEPOZNATA")})}}, false, true},
+		{"rukovoditelj dionice", &User{Duties: []Duty{aktivna(Duty{Role: RoleSectionDeputy})}}, false, true},
+		{"ovlaštenik A3", &User{Duties: []Duty{aktivna(Duty{Role: RoleContractOfficerA3})}}, false, true},
+		{"uprava sektora", &User{Duties: []Duty{aktivna(Duty{Role: RoleCopLeader})}}, false, true},
+		// dnevnik ne vide uloge koje nisu vodočuvar, rukovoditelj, ovlaštenik
+		// ni uprava: gost, preglednik, operater, poslovođa i nepoznata uloga
+		{"gost", &User{Duties: []Duty{aktivna(Duty{Role: RoleGuest})}}, false, false},
+		{"preglednik", &User{Duties: []Duty{aktivna(Duty{Role: RoleViewer})}}, false, false},
+		{"operater", &User{Duties: []Duty{aktivna(Duty{Role: RoleOperator})}}, false, false},
+		{"poslovođa", &User{Duties: []Duty{aktivna(Duty{Role: RoleServiceLeaderForeman})}}, false, false},
+		{"nepoznata uloga", &User{Duties: []Duty{aktivna(Duty{Role: Role("NEPOZNATA")})}}, false, false},
 		{"neaktivna dužnost", &User{Duties: []Duty{{Role: RoleWaterGuard}}}, false, false},
-		// rok se ne gleda: istekla dužnost i dalje čini osobu terenskom
-		{"istekla dužnost", &User{Duties: []Duty{aktivna(Duty{Role: RoleWaterGuard, ExpiresAt: &jucer})}}, true, true},
+		// istekla dužnost ne otvara dnevnik; IsFieldUser rok ne gleda
+		{"istekla dužnost", &User{Duties: []Duty{aktivna(Duty{Role: RoleWaterGuard, ExpiresAt: &jucer})}}, true, false},
+		{"istekla uprava", &User{Duties: []Duty{aktivna(Duty{Role: RoleAreaLeader, ExpiresAt: &jucer})}}, false, false},
 	}
 	for _, s := range slucajevi {
 		if got := s.u.IsFieldUser(); got != s.teren {
