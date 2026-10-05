@@ -176,9 +176,31 @@ func TestIzmjenaVlastitogRacuna(t *testing.T) {
 	o := novaOkolinaOvlasti(t)
 	pero := o.osoba(t, "pperic", service.AddDutyRequest{Role: models.RoleSectionLeader, SectionCodes: "B.16.1"})
 	ovl := o.ovlasti(t, pero.ID)
+	// sam sebi ne mijenja korisničko ime, uključenost ni zastavicu: zahtjev
+	// koji ih mijenja odbija se porukom, a ne prolazi tiho
+	for _, s := range []struct {
+		ime     string
+		izmjena func(*service.UpdateUserRequest)
+		poruka  string
+	}{
+		{"korisničko ime", func(r *service.UpdateUserRequest) { r.Username = "pero-novi" }, "korisničko ime"},
+		{"uključenost", func(r *service.UpdateUserRequest) { r.IsActive = false }, "isključujete"},
+		{"zastavica", func(r *service.UpdateUserRequest) { r.IsGlobalAdmin = true }, "stalna uprava"},
+	} {
+		req := korIzmjena(pero)
+		req.Phone = "000 000 009"
+		s.izmjena(&req)
+		_, err := o.users.UpdateUser(ovl, req)
+		if !errors.Is(err, service.ErrUnauthorized) || !strings.Contains(err.Error(), s.poruka) {
+			t.Errorf("%s: %v", s.ime, err)
+		}
+	}
+	if x, _ := o.repo.GetUserByID(pero.ID); x.Username != "pperic" || !x.IsActive || x.IsGlobalAdmin || x.Phone == "000 000 009" {
+		t.Errorf("odbijena izmjena je ipak upisana: %+v", x)
+	}
+	// nepromijenjene vrijednosti iz obrasca ne smetaju (i s razmacima uz ime)
 	req := korIzmjena(pero)
-	// sam sebi ne mijenja korisničko ime, uključenost ni zastavicu
-	req.Username, req.IsActive, req.IsGlobalAdmin = "pero-novi", false, true
+	req.Username = " pperic "
 	req.FullName, req.Phone, req.OrgType, req.OrgName = " Pero Perić ", "000 000 001", "", ""
 	u, err := o.users.UpdateUser(ovl, req)
 	if err != nil {
@@ -210,9 +232,16 @@ func TestIzmjenaTudjegRacuna(t *testing.T) {
 		t.Errorf("uprava drugog područja: %v", err)
 	}
 	// Uprava sektora uređuje i mijenja korisničko ime, ali zastavicu ne
-	// daje, nego zadrži zatečenu.
+	// daje: zahtjev koji je traži odbija se porukom, a ništa se ne upisuje
 	req := korIzmjena(pero)
 	req.Username, req.IsGlobalAdmin, req.Title = "pperic-16", true, "dipl. ing."
+	if _, err := o.users.UpdateUser(upravaB, req); !errors.Is(err, service.ErrUnauthorized) || !strings.Contains(err.Error(), "stalna uprava") {
+		t.Errorf("zastavica od uprave sektora: %v", err)
+	}
+	if x, _ := o.repo.GetUserByID(pero.ID); x.Username != "pperic" || x.IsGlobalAdmin {
+		t.Errorf("odbijena izmjena je ipak upisana: %+v", x)
+	}
+	req.IsGlobalAdmin = false
 	u, err := o.users.UpdateUser(upravaB, req)
 	if err != nil {
 		t.Fatal(err)
