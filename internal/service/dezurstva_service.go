@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -38,11 +40,27 @@ func (s *JournalService) MozeSebeUPlan(perms *models.UserPermissions, o models.O
 		return true
 	}
 	for code := range perms.AllowedSections {
-		if strings.HasPrefix(code, j.CentarSektor+".") {
+		if dionicaUSektoru(perms, code, j.CentarSektor) {
 			return true
 		}
 	}
 	return false
+}
+
+var reOstatakSifreDionice = regexp.MustCompile(`^(\d{1,2})\.\d{1,3}$`)
+
+// dionicaUSektoru: šifra je dionica sektora kad ima puni oblik
+// SEKTOR.PODRUČJE.BROJ sa sektorom centra, a osoba po registru ima dužnost na
+// dionicama tog područja (dionice dužnosti provjerava registar, i područje
+// dužnosti iz njega slijedi). Sam prefiks „P.” nije dionica.
+func dionicaUSektoru(perms *models.UserPermissions, sifra, sektor string) bool {
+	ostatak, ok := strings.CutPrefix(sifra, sektor+".")
+	m := reOstatakSifreDionice.FindStringSubmatch(ostatak)
+	if !ok || m == nil {
+		return false
+	}
+	podrucje, _ := strconv.Atoi(m[1])
+	return perms.RadiNaDionicamaU(podrucje)
 }
 
 // BrojDezurstava broji sva dežurstva
