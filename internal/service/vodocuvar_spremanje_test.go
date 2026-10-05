@@ -628,6 +628,61 @@ func TestZadatakZakljucenNaDvaLista(t *testing.T) {
 	}
 }
 
+// Dva lista s istim otvorenim zadatkom predaju se istodobno (dvije
+// kartice): drugi list zaključi zadatak nakon što je predaja prvog već
+// pročitala evidenciju, a prije njezina upisa. Evidencija ostaje kako ju je
+// zaključio drugi list, a na prvi se, kao kod kasnije predaje, upisuje
+// stanje iz evidencije s napomenom.
+func TestIstodobnaPredajaListovaSIstimZadatkom(t *testing.T) {
+	o := novaOkolinaVodocuvara(t)
+	ctx := context.Background()
+	u := vdVodocuvar()
+	prvi, drugi := vdDan(time.March, 10), vdDan(time.March, 11)
+	z := o.vdZadatak(t, u, "pregledati ustavu", prvi)
+
+	unos := vdUnos("obilazak")
+	unos.Zadaci = map[string]UnosZadatka{z.ID: {Status: models.ZadatakObavljen, Obavljeno: "pregledana"}}
+	if _, err := o.vs.Spremi(ctx, u, prvi, unos, false); err != nil {
+		t.Fatal(err)
+	}
+	drugiUnos := vdUnos("obilazak")
+	drugiUnos.Zadaci = map[string]UnosZadatka{z.ID: {Status: models.ZadatakOdbacen, Obavljeno: "ustava srušena"}}
+	var l2 *models.VodocuvarskiList
+	pozvano := 0
+	o.vs.prijeUpisaPredaje = func(ctx context.Context) {
+		pozvano++
+		if pozvano > 1 {
+			return
+		}
+		var err error
+		if l2, _, err = o.vs.SpremiSPorukom(ctx, u, drugi, drugiUnos, true); err != nil {
+			t.Fatal(err)
+		}
+	}
+	l1, napomena, err := o.vs.SpremiSPorukom(ctx, u, prvi, vdUnos("obilazak"), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if l2 == nil {
+		t.Fatal("drugi list nije predan")
+	}
+	gdje := "listom br. 2 od " + drugi.Format("02.01.2006.")
+	if want := "Zadatak „pregledati ustavu” već je zaključen " + gdje + "; na ovaj list upisano je stanje iz evidencije."; napomena != want {
+		t.Errorf("napomena:\n%q\nočekivano\n%q", napomena, want)
+	}
+	for _, l := range []*models.VodocuvarskiList{l1, o.vdListIzBaze(t, u, prvi)} {
+		if nl := vdNaListu(l, z.ID); nl == nil || nl.Status != models.ZadatakOdbacen || nl.Obavljeno != "ustava srušena (zaključeno "+gdje+")" {
+			t.Errorf("zadatak na prvom listu: %+v", l.Zadaci)
+		}
+		if !l.Predan() {
+			t.Errorf("prvi list nije predan: %+v", l)
+		}
+	}
+	if ev := o.vdZadatakIzBaze(t, z.ID); ev.Status != models.ZadatakOdbacen || ev.ListID != l2.ID || ev.Obavljeno != "ustava srušena" {
+		t.Errorf("evidencija: %+v", ev)
+	}
+}
+
 // Vodostaji koje je vodočuvar taj dan upisao ulaze na list pri predaji;
 // nacrt ih ne osvježava.
 func TestOcitanjaNaListuPriPredaji(t *testing.T) {
