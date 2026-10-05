@@ -203,6 +203,12 @@ var ErrListPredan = errors.New("je već predan i više se ne mijenja")
 // lista („list od 10.03.2026. je u međuvremenu predan…”).
 var ErrListPredanUMedjuvremenu = errors.New("je u međuvremenu predan; upisano nije spremljeno")
 
+// ErrListPredanNijeObrisan: nacrt koji se briše u međuvremenu je predan
+// (druga kartica); ni list ni njegov izvornik ne brišu se. Greška kaže i
+// datum lista („list od 10.03.2026. je u međuvremenu predan i nije
+// obrisan”).
+var ErrListPredanNijeObrisan = errors.New("je u međuvremenu predan i nije obrisan")
+
 // ErrZadatakZakljucen: zadatak koji predaja lista zaključuje u međuvremenu
 // je zaključio drugi list (istodobna predaja); predaja se ne upisuje
 var ErrZadatakZakljucen = errors.New("zadatak je u međuvremenu zaključen drugim listom")
@@ -341,10 +347,19 @@ func (r *VodocuvarRepository) NajstarijaGodina(ctx context.Context) int {
 	return g
 }
 
-// Delete briše list (nacrt), sa spomenikom u knjizi
+// Delete briše nacrt i njegov izvornik, ako ga ima, u jednoj transakciji,
+// sa spomenikom u knjizi za oboje. List se briše samo dok nije predan: nacrt
+// koji je druga kartica predala nakon što je pročitan ne briše se, nego se
+// brisanje odbija s ErrListPredanNijeObrisan, bez brisanja i bez verzije u
+// knjizi. Nacrt koji je druga kartica u međuvremenu obrisala nema što
+// obrisati.
 func (r *VodocuvarRepository) Delete(ctx context.Context, id string) error {
 	l, err := r.Get(ctx, id)
 	if err != nil || l == nil {
+		return err
+	}
+	iz, err := r.GetIzvornik(ctx, id)
+	if err != nil {
 		return err
 	}
 	tx, err := r.db.BeginTx(ctx, nil)
@@ -352,13 +367,36 @@ func (r *VodocuvarRepository) Delete(ctx context.Context, id string) error {
 		return err
 	}
 	defer tx.Rollback()
-	if _, err := tx.ExecContext(ctx, `DELETE FROM vodocuvarski_listovi WHERE id = ?`, id); err != nil {
+	// uvjetno brisanje prvo drži bazu za upis, pa list do kraja transakcije
+	// nitko ne preda
+	res, err := tx.ExecContext(ctx, `DELETE FROM vodocuvarski_listovi WHERE id = ? AND predano_at IS NULL`, id)
+	if err != nil {
 		return err
+	}
+	if n, err := res.RowsAffected(); err != nil || n == 0 {
+		return nacrtNijeObrisan(ctx, tx, l, err)
 	}
 	if _, err := r.rec.Archive(ctx, tx, EntityVodocuvarski, id, l); err != nil {
 		return err
 	}
+	if err := r.obrisiIzvornik(ctx, tx, l, iz); err != nil {
+		return err
+	}
 	return tx.Commit()
+}
+
+// nacrtNijeObrisan kaže zašto uvjetno brisanje nacrta nije obrisalo ništa:
+// nacrt koji je u međuvremenu obrisan (druga kartica) nema što obrisati, a
+// list koji je u međuvremenu predan ne briše se
+func nacrtNijeObrisan(ctx context.Context, tx *sql.Tx, l *models.VodocuvarskiList, err error) error {
+	if err != nil {
+		return err
+	}
+	var ima int
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM vodocuvarski_listovi WHERE id = ?`, l.ID).Scan(&ima); err != nil || ima == 0 {
+		return err
+	}
+	return fmt.Errorf("list od %s %w", l.Datum.In(models.Zagreb).Format("02.01.2006."), ErrListPredanNijeObrisan)
 }
 
 // OcitanjeDana je vodostaj koji je vodočuvar očitao tog dana
@@ -659,22 +697,16 @@ func (r *VodocuvarRepository) SaveIzvornik(ctx context.Context, iz *models.Izvor
 	return nil
 }
 
-// DeleteIzvornik briše potpisani PDF lista, ako ga ima
-func (r *VodocuvarRepository) DeleteIzvornik(ctx context.Context, listID string) error {
-	iz, err := r.GetIzvornik(ctx, listID)
-	if err != nil || iz == nil {
+// obrisiIzvornik briše izvornik lista u transakciji brisanja lista, ako ga
+// ima, sa spomenikom u kanalu lista: kanal se ne čita iz tablice, jer lista
+// u njoj više nema
+func (r *VodocuvarRepository) obrisiIzvornik(ctx context.Context, tx *sql.Tx, l *models.VodocuvarskiList, iz *models.IzvornikLista) error {
+	if iz == nil {
+		return nil
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM vodocuvarski_izvornici WHERE list_id = ?`, l.ID); err != nil {
 		return err
 	}
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-	if _, err := tx.ExecContext(ctx, `DELETE FROM vodocuvarski_izvornici WHERE list_id = ?`, listID); err != nil {
-		return err
-	}
-	if _, err := r.rec.ArchiveIn(ctx, tx, kanalListaIz(ctx, r.db, listID), EntityVodocuvarskiIzvornici, listID, iz); err != nil {
-		return err
-	}
-	return tx.Commit()
+	_, err := r.rec.ArchiveIn(ctx, tx, listChannel(l), EntityVodocuvarskiIzvornici, l.ID, iz)
+	return err
 }
