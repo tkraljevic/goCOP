@@ -34,6 +34,10 @@ type VodocuvarService struct {
 	// zadataka i upisa predaje; testovi njime predaju drugi list u
 	// međuvremenu, kao druga kartica
 	prijeUpisaPredaje func(ctx context.Context)
+	// prijeSpremanja se, kad je zadan, poziva između čitanja lista i upisa
+	// koji nije predaja (nacrt, upis rukovoditelja); testovi njime predaju
+	// list u međuvremenu, kao druga kartica
+	prijeSpremanja func(ctx context.Context)
 }
 
 // SetRadnoVrijeme daje servisu izvor redovnog radnog vremena
@@ -363,10 +367,20 @@ func (s *VodocuvarService) SpremiSPorukom(ctx context.Context, u *models.User, d
 	if predaj {
 		return s.predaj(ctx, l, dan)
 	}
-	if err := s.repo.Save(ctx, l); err != nil {
+	if err := s.spremi(ctx, l); err != nil {
 		return nil, "", err
 	}
 	return l, "", nil
+}
+
+// spremi upisuje list bez predaje (nacrt, upis rukovoditelja). Nepredan
+// list repozitorij ne upisuje preko lista koji je u međuvremenu predan
+// (druga kartica), nego javlja ErrListPredanUMedjuvremenu.
+func (s *VodocuvarService) spremi(ctx context.Context, l *models.VodocuvarskiList) error {
+	if s.prijeSpremanja != nil {
+		s.prijeSpremanja(ctx)
+	}
+	return s.repo.Save(ctx, l)
 }
 
 // predaj potpisuje (predaje) list. Zadaci zaključeni na listu zaključuju se
@@ -377,7 +391,7 @@ func (s *VodocuvarService) SpremiSPorukom(ctx context.Context, u *models.User, d
 func (s *VodocuvarService) predaj(ctx context.Context, l *models.VodocuvarskiList, dan time.Time) (*models.VodocuvarskiList, string, error) {
 	if err := provjeriPredaju(l); err != nil {
 		// predaja ne prolazi, ali upisano se ne gubi: ostaje kao nacrt
-		if serr := s.repo.Save(ctx, l); serr != nil {
+		if serr := s.spremi(ctx, l); serr != nil {
 			return nil, "", serr
 		}
 		return nil, "", fmt.Errorf("%w; upisano je spremljeno kao nacrt", err)
@@ -721,7 +735,10 @@ func (s *VodocuvarService) Upisi(ctx context.Context, perms *models.UserPermissi
 		funkcija = d.Title
 	}
 	l.Upisi = append(l.Upisi, models.UpisRukovoditelja{UserID: u.ID.String(), Ime: u.FullName, Funkcija: funkcija, Kad: time.Now(), Tekst: tekst})
-	return l, s.repo.Save(ctx, l)
+	if err := s.spremi(ctx, l); err != nil {
+		return nil, err
+	}
+	return l, nil
 }
 
 // ZadaciLista vraća zadatke zaključene na listu, s obuhvatom obilaska

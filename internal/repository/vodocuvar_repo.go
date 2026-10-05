@@ -34,7 +34,7 @@ const vodocuvarskiNaSukob = `ON CONFLICT(id) DO UPDATE SET user_id = excluded.us
 	potvrdio_id = excluded.potvrdio_id, potvrdio = excluded.potvrdio, potvrdeno_at = excluded.potvrdeno_at, cvor = excluded.cvor, updated_at = excluded.updated_at,
 	rekonstrukcija = excluded.rekonstrukcija, izvor = excluded.izvor, prilozi = excluded.prilozi`
 
-// vodocuvarskiPredaja je upis predaje: list se upisuje samo dok ni on ni
+// vodocuvarskiPredaja je upis predaje i nacrta: list se upisuje samo dok ni on ni
 // drugi list vodočuvara za isti dan nije predan. Uz stupce lista traži još
 // user_id, datum i id lista za provjeru drugih listova dana.
 const vodocuvarskiPredaja = `INSERT INTO vodocuvarski_listovi (` + vodocuvarskiColumns + `)
@@ -126,14 +126,24 @@ func kanalListaIz(ctx context.Context, db *sql.DB, listID string) string {
 	return ledger.ChannelFor(ledger.ChannelVodocuvar, area, g)
 }
 
-// Save upisuje list, s verzijom u knjizi
+// Save upisuje list, s verzijom u knjizi. Nepredan list (nacrt, upis
+// rukovoditelja u nacrt) upisuje se samo dok ni on ni drugi list vodočuvara
+// za isti dan nije predan: list koji je druga kartica predala nakon što je
+// ovaj pročitan ne vraća se u nacrt, nego se upis odbija s
+// ErrListPredanUMedjuvremenu, bez upisa i bez verzije u knjizi. Predan list
+// (ovjera, parafa, upis na predan list) upisuje se kako je pročitan.
 func (r *VodocuvarRepository) Save(ctx context.Context, l *models.VodocuvarskiList) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
-	if err := r.upisiList(ctx, tx, l); err != nil {
+	if l.PredanoAt == nil {
+		err = r.upisiNepredan(ctx, tx, l, ErrListPredanUMedjuvremenu)
+	} else {
+		err = r.upisiList(ctx, tx, l)
+	}
+	if err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -154,12 +164,12 @@ func (r *VodocuvarRepository) upisiList(ctx context.Context, tx *sql.Tx, l *mode
 	return err
 }
 
-// upisiPredaju je upisiList za predaju: list se upisuje samo dok ni on ni
-// drugi list vodočuvara za isti dan nije predan (istodobna predaja iz druge
-// kartice, s istim nacrtom ili bez njega); inače ErrListPredan, bez upisa i
-// bez verzije u knjizi. Provjera je u samom upisu, pa transakcija odmah
-// drži bazu za upis.
-func (r *VodocuvarRepository) upisiPredaju(ctx context.Context, tx *sql.Tx, l *models.VodocuvarskiList) error {
+// upisiNepredan je upisiList za predaju i nacrt: list se upisuje samo dok ni
+// on ni drugi list vodočuvara za isti dan nije predan (predaja iz druge
+// kartice, s istim nacrtom ili bez njega); inače greška odbijeno s datumom
+// lista, bez upisa i bez verzije u knjizi. Provjera je u samom upisu, pa
+// transakcija odmah drži bazu za upis.
+func (r *VodocuvarRepository) upisiNepredan(ctx context.Context, tx *sql.Tx, l *models.VodocuvarskiList, odbijeno error) error {
 	now := time.Now().UTC()
 	if l.ID == "" {
 		l.ID = uuid.Must(uuid.NewV7()).String()
@@ -176,7 +186,7 @@ func (r *VodocuvarRepository) upisiPredaju(ctx context.Context, tx *sql.Tx, l *m
 		return fmt.Errorf("upis lista: %w", err)
 	}
 	if n == 0 {
-		return fmt.Errorf("list od %s %w", l.Datum.In(models.Zagreb).Format("02.01.2006."), ErrListPredan)
+		return fmt.Errorf("list od %s %w", l.Datum.In(models.Zagreb).Format("02.01.2006."), odbijeno)
 	}
 	_, err = r.rec.RecordIn(ctx, tx, listChannel(l), EntityVodocuvarski, l.ID, l)
 	return err
@@ -186,6 +196,12 @@ func (r *VodocuvarRepository) upisiPredaju(ctx context.Context, tx *sql.Tx, l *m
 // kartice); predaja se ne upisuje. Greška kaže i datum lista („list od
 // 10.03.2026. je već predan…”), kao kod predaje predanog lista.
 var ErrListPredan = errors.New("je već predan i više se ne mijenja")
+
+// ErrListPredanUMedjuvremenu: list koji se upisuje bez predaje (nacrt, upis
+// rukovoditelja) u međuvremenu je predan (druga kartica); upisano se ne
+// sprema, da nacrt ne vrati predan list u nepredan. Greška kaže i datum
+// lista („list od 10.03.2026. je u međuvremenu predan…”).
+var ErrListPredanUMedjuvremenu = errors.New("je u međuvremenu predan; upisano nije spremljeno")
 
 // ErrZadatakZakljucen: zadatak koji predaja lista zaključuje u međuvremenu
 // je zaključio drugi list (istodobna predaja); predaja se ne upisuje
@@ -207,7 +223,7 @@ func (r *VodocuvarRepository) Predaj(ctx context.Context, l *models.Vodocuvarski
 	defer tx.Rollback()
 	// upis lista prvi drži bazu za upis, pa stanje lista i zadataka
 	// pročitano nakon njega nitko više ne mijenja do kraja transakcije
-	if err := r.upisiPredaju(ctx, tx, l); err != nil {
+	if err := r.upisiNepredan(ctx, tx, l, ErrListPredan); err != nil {
 		return err
 	}
 	for _, z := range zadaci {
