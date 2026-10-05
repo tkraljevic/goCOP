@@ -450,6 +450,15 @@ func (s *VodocuvarService) gdjeJeZakljucen(ctx context.Context, zad *models.Zada
 	return "u evidenciji zadataka"
 }
 
+// zaZadatke je zaVodocuvara za popis kome se zadaju zadaci: isključen račun
+// (administrator mu je isključio prijavu) zadatke ne prima
+func zaZadatke(v *models.User) *models.VodocuvarskiList {
+	if !v.IsActive {
+		return nil
+	}
+	return zaVodocuvara(v)
+}
+
 // zaVodocuvara slaže probni list po terenskom zaduženju osobe, za provjeru prava
 func zaVodocuvara(v *models.User) *models.VodocuvarskiList {
 	d := terenskaDuznost(v)
@@ -510,15 +519,17 @@ func (s *VodocuvarService) Zadaci(ctx context.Context, vodocuvarID string) []mod
 	return z
 }
 
-// Vodocuvari vraća osobe s terenskim zaduženjem kojima osoba smije zadavati zadatke
+// Vodocuvari vraća osobe s terenskim zaduženjem kojima osoba smije zadavati
+// zadatke. Isključeni računi ne ulaze; vodočuvar koji se još nije prijavio
+// ulazi, zadatak ga čeka.
 func (s *VodocuvarService) Vodocuvari(ctx context.Context, perms *models.UserPermissions) []models.User {
-	svi, err := s.users.ListUsers("", 0, "", "", "active")
+	svi, err := s.users.ListUsers("", 0, "", "", "")
 	if err != nil {
 		return nil
 	}
 	var out []models.User
 	for i := range svi {
-		if probni := zaVodocuvara(&svi[i]); probni != nil && s.SmijeParafirati(perms, probni) {
+		if probni := zaZadatke(&svi[i]); probni != nil && s.SmijeParafirati(perms, probni) {
 			out = append(out, svi[i])
 		}
 	}
