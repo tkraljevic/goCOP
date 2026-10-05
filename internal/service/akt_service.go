@@ -171,41 +171,14 @@ func (s *AktService) Pripremi(ctx context.Context, perms *models.UserPermissions
 		a.Vrijedi = time.Now().Truncate(time.Minute)
 	}
 
-	// dionice za koje je vodomjer mjerodavan, ili uži izbor među njima
-	sifre := st.SectionCodes
-	if len(sifre) == 0 {
-		sifre, _ = s.stations.GetSectionCodesForStation(ctx, st.ID)
+	dionice, err := s.dioniceAkta(ctx, st, z.Dionice)
+	if err != nil {
+		return nil, err
 	}
-	if len(z.Dionice) > 0 {
-		dopustene := map[string]bool{}
-		for _, c := range sifre {
-			dopustene[c] = true
-		}
-		var izbor []string
-		for _, c := range z.Dionice {
-			if dopustene[c] {
-				izbor = append(izbor, c)
-			}
-		}
-		sifre = izbor
-	}
-	if len(sifre) == 0 {
-		return nil, fmt.Errorf("vodomjer %s nije mjerodavan ni za jednu dionicu; poveži ga s dionicama u registru", st.Name)
-	}
-	sort.Strings(sifre)
-	var dionice []models.Section
-	for _, c := range sifre {
-		sec, err := s.sections.GetSectionByCode(c)
-		if err != nil || sec == nil {
-			continue
-		}
+	for _, sec := range dionice {
 		a.Dionice = append(a.Dionice, models.AktDionica{Code: sec.Code, Opis: strings.TrimSpace(sec.Description)})
-		dionice = append(dionice, *sec)
-		if a.Sektor == "" {
-			a.Sektor = sec.SectorID
-		}
 	}
-	a.AreaID = podrucjeAkta(dionice)
+	a.Sektor, a.AreaID = dionice[0].SectorID, podrucjeAkta(dionice)
 	if !s.pisePoAktu(perms, a) && !s.SmijeOvjeriti(perms, a) {
 		return nil, fmt.Errorf("%w: akt za branjeno područje %d sastavlja tko ondje vodi obranu", ErrUnauthorized, a.AreaID)
 	}
@@ -256,6 +229,67 @@ func (s *AktService) Pripremi(ctx context.Context, perms *models.UserPermissions
 	sp, _ := s.repo.GetSpranca(ctx, a.Sektor)
 	a.Uvod, a.Zavrsno, a.Poveznice = sp.Uvod(*a), sp.Zavrsno, strings.TrimSpace(sp.Poveznice)
 	return a, nil
+}
+
+// dioniceAkta su dionice akta iz registra, po šifri: one za koje je
+// vodomjer mjerodavan, ili zadani uži izbor među njima. Zadana dionica koja
+// nije dionica letve ili je nema u registru greška je unosa; dionica letve
+// koje nema u registru, a nije zadana, izostaje. Akt bez ijedne dionice iz
+// registra ne priprema se.
+func (s *AktService) dioniceAkta(ctx context.Context, st *models.Station, zadane []string) ([]models.Section, error) {
+	sifre := st.SectionCodes
+	if len(sifre) == 0 {
+		sifre, _ = s.stations.GetSectionCodesForStation(ctx, st.ID)
+	}
+	if len(sifre) == 0 {
+		return nil, fmt.Errorf("vodomjer %s nije mjerodavan ni za jednu dionicu; poveži ga s dionicama u registru", st.Name)
+	}
+	izbor, err := uziIzborDionica(sifre, zadane, st.Name)
+	if err != nil {
+		return nil, err
+	}
+	out, err := s.dioniceIzRegistra(izbor, len(zadane) > 0)
+	if err != nil {
+		return nil, err
+	}
+	if len(out) == 0 {
+		return nil, fmt.Errorf("nijedne dionice vodomjera %s nema u registru dionica; akt bez dionica se ne priprema", st.Name)
+	}
+	return out, nil
+}
+
+// uziIzborDionica su zadane dionice kad su sve među dionicama letve, a bez
+// zadanih sve dionice letve
+func uziIzborDionica(sifre, zadane []string, letva string) ([]string, error) {
+	if len(zadane) == 0 {
+		return sifre, nil
+	}
+	for _, c := range zadane {
+		if !sadrzi(sifre, c) {
+			return nil, fmt.Errorf("dionica %s nije među dionicama za koje je vodomjer %s mjerodavan", c, letva)
+		}
+	}
+	return zadane, nil
+}
+
+// dioniceIzRegistra čita dionice iz registra, poredane po šifri. Dionica
+// koje nema u registru izostaje, a kad je zadana, greška je unosa.
+func (s *AktService) dioniceIzRegistra(sifre []string, zadane bool) ([]models.Section, error) {
+	sifre = append([]string(nil), sifre...)
+	sort.Strings(sifre)
+	var out []models.Section
+	for _, c := range sifre {
+		sec, err := s.sections.GetSectionByCode(c)
+		switch {
+		case err != nil:
+			return nil, err
+		case sec != nil:
+			out = append(out, *sec)
+		case zadane:
+			return nil, fmt.Errorf("dionice %s nema u registru dionica", c)
+		}
+	}
+	return out, nil
 }
 
 // Spranca vraća šprancu sektora
