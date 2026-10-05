@@ -53,7 +53,7 @@ func probniOsvjezivac(t *testing.T, ocitanja *sql.DB) *Osvjezivac {
 
 // Prvo osvježavanje računa i zapisuje.
 func TestOsvjezavanjeIzdajePrognozu(t *testing.T) {
-	PoluvijekIspravka = 0
+	postavi(t, &PoluvijekIspravka, 0)
 	zadnji := time.Now().UTC().Truncate(time.Hour)
 	o := probniOsvjezivac(t, probneOcitanja(t, 48, zadnji))
 	ishod, err := o.Osvjezi(context.Background())
@@ -80,7 +80,7 @@ func TestOsvjezavanjeIzdajePrognozu(t *testing.T) {
 // Ista očitanja daju istu prognozu, pa se drugi put ne računa ništa: ponovni
 // upis bio bi samo trošak, a poslužitelj to zove svaki sat.
 func TestOsvjezavanjeNePonavljaIstiSat(t *testing.T) {
-	PoluvijekIspravka = 0
+	postavi(t, &PoluvijekIspravka, 0)
 	zadnji := time.Now().UTC().Truncate(time.Hour)
 	o := probniOsvjezivac(t, probneOcitanja(t, 48, zadnji))
 	prvi, err := o.Osvjezi(context.Background())
@@ -108,7 +108,7 @@ func TestOsvjezavanjeNePonavljaIstiSat(t *testing.T) {
 
 // Novo očitanje pomiče sat izdavanja i prognoza se računa iznova.
 func TestNovoOcitanjePomicePrognozu(t *testing.T) {
-	PoluvijekIspravka = 0
+	postavi(t, &PoluvijekIspravka, 0)
 	zadnji := time.Now().UTC().Truncate(time.Hour)
 	ocitanja := probneOcitanja(t, 48, zadnji)
 	o := probniOsvjezivac(t, ocitanja)
@@ -141,7 +141,7 @@ func TestNovoOcitanjePomicePrognozu(t *testing.T) {
 // Bez svježih očitanja račun mora reći zašto ne ide, a ne izdati prognozu iz
 // ničega.
 func TestBezOcitanjaNemaPrognoze(t *testing.T) {
-	PoluvijekIspravka = 0
+	postavi(t, &PoluvijekIspravka, 0)
 	o := probniOsvjezivac(t, probneOcitanja(t, 0, time.Now().UTC()))
 	if _, err := o.Osvjezi(context.Background()); err == nil {
 		t.Error("prognoza izdana bez ijednog očitanja")
@@ -152,7 +152,7 @@ func TestBezOcitanjaNemaPrognoze(t *testing.T) {
 // staro. Izvori objavljuju sa zakašnjenjem, pa se izdaje za zadnji sat koji
 // imaju sve ulazne letve, a dežurni mora vidjeti koliko je to star podatak.
 func TestIshodBrojiLetveIZaostatak(t *testing.T) {
-	PoluvijekIspravka = 0
+	postavi(t, &PoluvijekIspravka, 0)
 	zadnji := time.Now().UTC().Truncate(time.Hour).Add(-3 * time.Hour)
 	o := probniOsvjezivac(t, probneOcitanja(t, 48, zadnji))
 	ishod, err := o.Osvjezi(context.Background())
@@ -173,7 +173,7 @@ func TestIshodBrojiLetveIZaostatak(t *testing.T) {
 // ne vidi do idućeg očitanja. Zastavica je jednom već bila mrtva: naredba ju
 // je imala, Osvjezivac nije, pa je -iznova samo ispisivala praznu tablicu.
 func TestIznovaPreracunavaIstiSat(t *testing.T) {
-	PoluvijekIspravka = 0
+	postavi(t, &PoluvijekIspravka, 0)
 	zadnji := time.Now().UTC().Truncate(time.Hour)
 	o := probniOsvjezivac(t, probneOcitanja(t, 48, zadnji))
 	prvi, err := o.Osvjezi(context.Background())
@@ -319,7 +319,7 @@ func izdanihLetve(ishod *Ishod, letva string) (n int, kraj *Izdana) {
 // dok je njezina tuđa prognoza svježa, postaje vrh i slijedi nju; donja se
 // računa iz nje. Bez tuđe prognoze srednja se računa kao i dosad.
 func TestTudaIspredRacunaSkidaRacunDokJeSvjeza(t *testing.T) {
-	PoluvijekIspravka = 0
+	postavi(t, &PoluvijekIspravka, 0)
 	zadnji := time.Now().UTC().Truncate(time.Hour)
 	o := lanacSaSrednjom(t, zadnji)
 
@@ -361,7 +361,7 @@ func TestTudaIspredRacunaSkidaRacunDokJeSvjeza(t *testing.T) {
 // bez budućnosti. Tuđa izdana 45 sati prije sata izdavanja svježa je, iako
 // je po satu na zidu starija od dva dana.
 func TestTudaIspredRacunaSvjezaPoSatuIzdavanja(t *testing.T) {
-	PoluvijekIspravka = 0
+	postavi(t, &PoluvijekIspravka, 0)
 	sad := time.Now().UTC().Truncate(time.Hour)
 	zadnji := sad.Add(-10 * time.Hour)
 	o := lanacSaSrednjom(t, zadnji)
