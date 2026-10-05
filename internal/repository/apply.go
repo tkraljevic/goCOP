@@ -792,17 +792,20 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		}
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO duties (id, user_id, title, role, scope_type, sector_id, area_id, section_codes,
-				is_primary, is_temporary, reason, assigned_by, created_at, expires_at, is_active)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				is_primary, is_temporary, reason, assigned_by, created_at, expires_at, is_active,
+				rok, istece_s_obranom, ovisi_o)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT(id) DO UPDATE SET
 				user_id = excluded.user_id, title = excluded.title, role = excluded.role,
 				scope_type = excluded.scope_type, sector_id = excluded.sector_id, area_id = excluded.area_id,
 				section_codes = excluded.section_codes, is_primary = excluded.is_primary,
 				is_temporary = excluded.is_temporary, reason = excluded.reason, assigned_by = excluded.assigned_by,
-				expires_at = excluded.expires_at, is_active = excluded.is_active
+				expires_at = excluded.expires_at, is_active = excluded.is_active,
+				rok = excluded.rok, istece_s_obranom = excluded.istece_s_obranom, ovisi_o = excluded.ovisi_o
 		`, d.ID.String(), d.UserID.String(), d.Title, string(d.Role), string(d.ScopeType), d.SectorID, d.AreaID,
 			d.SectionCodes, boolToInt(d.IsPrimary), boolToInt(d.IsTemporary), d.Reason, assignedBy,
-			d.CreatedAt.UTC(), nullTime(d.ExpiresAt), boolToInt(d.IsActive))
+			d.CreatedAt.UTC(), nullTime(d.ExpiresAt), boolToInt(d.IsActive),
+			nullTime(d.Rok), boolToInt(d.IsticeSObranom), ovisiOZapis(d.OvisiO))
 		return err
 
 	case EntitySectors:

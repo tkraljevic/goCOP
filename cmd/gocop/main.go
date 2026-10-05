@@ -904,6 +904,9 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	aktService := service.NewAktService(repository.NewAktiRepository(database, recorder), stationRepo, sectionRepo, territoryRepo, readingRepo, userService, episodeService, node.ID)
 	// stanje obrane računa se iz ovjerenih akata (docs/NACRT-STADIJI-OBRANE.md)
 	izvjescaService.SetStanjeObrane(aktService.StanjeObrane)
+	// privremeno imenovanje ističe s krajem redovne i izvanredne obrane
+	userService.SetKrajObrane(aktService.KrajObraneDuznosti)
+	go pratiPrivremeneDuznosti(ctx, userService, 10*time.Minute)
 	models.SetTema(aktService.Tema(context.Background()))
 	aktService.SetKljuc(node.PrivateKey())
 	// lozinke sandučića spremljene prije otiska lozinke računa dobiju ga

@@ -115,14 +115,17 @@ func getDutyTx(ctx context.Context, q rowQuerier, id string) (models.Duty, error
 	var sectorID, sectionCodes, reason, assignedBy sql.NullString
 	var areaID sql.NullInt64
 	var expiresAt sql.NullTime
-	var isPrimary, isTemp, isActive int
+	var isPrimary, isTemp, isActive, sObranom int
+	var ovisiO string
 
 	err := q.QueryRowContext(ctx, `
 		SELECT id, user_id, title, role, scope_type, sector_id, area_id, section_codes,
-		       is_primary, is_temporary, reason, assigned_by, created_at, expires_at, is_active
+		       is_primary, is_temporary, reason, assigned_by, created_at, expires_at, is_active,
+		       rok, istece_s_obranom, ovisi_o
 		FROM duties WHERE id = ?`, id).Scan(
 		&idStr, &userID, &d.Title, &role, &scope, &sectorID, &areaID, &sectionCodes,
-		&isPrimary, &isTemp, &reason, &assignedBy, &d.CreatedAt, &expiresAt, &isActive)
+		&isPrimary, &isTemp, &reason, &assignedBy, &d.CreatedAt, &expiresAt, &isActive,
+		&d.Rok, &sObranom, &ovisiO)
 	if err != nil {
 		return d, err
 	}
@@ -149,6 +152,7 @@ func getDutyTx(ctx context.Context, q rowQuerier, id string) (models.Duty, error
 		d.ExpiresAt = &t
 	}
 	d.IsPrimary, d.IsTemporary, d.IsActive = isPrimary != 0, isTemp != 0, isActive != 0
+	d.IsticeSObranom, d.OvisiO = sObranom != 0, ovisiOIzZapisa(ovisiO)
 	return d, nil
 }
 
@@ -438,13 +442,15 @@ func (r *UserRepository) CreateUser(u *models.User, initialDuty *models.Duty) er
 		_, err = tx.Exec(`
 			INSERT INTO duties (
 				id, user_id, title, role, scope_type, sector_id, area_id, section_codes,
-				is_primary, is_temporary, reason, assigned_by, created_at, expires_at, is_active
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, 1)
+				is_primary, is_temporary, reason, assigned_by, created_at, expires_at, is_active,
+				rok, istece_s_obranom, ovisi_o
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, 1, ?, ?, ?)
 		`,
 			initialDuty.ID.String(), initialDuty.UserID.String(), initialDuty.Title,
 			string(initialDuty.Role), string(initialDuty.ScopeType), initialDuty.SectorID,
 			initialDuty.AreaID, initialDuty.SectionCodes, initialDuty.IsTemporary, initialDuty.Reason,
 			initialDuty.AssignedBy, initialDuty.CreatedAt, nullTime(initialDuty.ExpiresAt),
+			nullTime(initialDuty.Rok), boolInt(initialDuty.IsticeSObranom), ovisiOZapis(initialDuty.OvisiO),
 		)
 		if err != nil {
 			return fmt.Errorf("greška pri unosu funkcije: %w", err)
@@ -641,12 +647,14 @@ func (r *UserRepository) AddDuty(d *models.Duty) error {
 	_, err = tx.Exec(`
 		INSERT INTO duties (
 			id, user_id, title, role, scope_type, sector_id, area_id, section_codes,
-			is_primary, is_temporary, reason, assigned_by, created_at, expires_at, is_active
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+			is_primary, is_temporary, reason, assigned_by, created_at, expires_at, is_active,
+			rok, istece_s_obranom, ovisi_o
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)
 	`,
 		d.ID.String(), d.UserID.String(), d.Title, string(d.Role), string(d.ScopeType),
 		d.SectorID, d.AreaID, d.SectionCodes, isPrimaryInt, isTempInt,
 		d.Reason, byStr, d.CreatedAt, nullTime(d.ExpiresAt),
+		nullTime(d.Rok), boolInt(d.IsticeSObranom), ovisiOZapis(d.OvisiO),
 	)
 	if err != nil {
 		return fmt.Errorf("greška pri spremanju dužnosti: %w", err)
@@ -683,10 +691,12 @@ func (r *UserRepository) UpdateDuty(d *models.Duty) error {
 	}
 	_, err = tx.Exec(`
 		UPDATE duties SET title = ?, role = ?, scope_type = ?, sector_id = ?, area_id = ?, section_codes = ?,
-		       is_primary = ?, is_temporary = ?, reason = ?, expires_at = ?
+		       is_primary = ?, is_temporary = ?, reason = ?, expires_at = ?,
+		       rok = ?, istece_s_obranom = ?, ovisi_o = ?
 		WHERE id = ?`,
 		d.Title, string(d.Role), string(d.ScopeType), d.SectorID, d.AreaID, d.SectionCodes,
-		boolInt(d.IsPrimary), boolInt(d.IsTemporary), d.Reason, nullTime(d.ExpiresAt), d.ID.String())
+		boolInt(d.IsPrimary), boolInt(d.IsTemporary), d.Reason, nullTime(d.ExpiresAt),
+		nullTime(d.Rok), boolInt(d.IsticeSObranom), ovisiOZapis(d.OvisiO), d.ID.String())
 	if err != nil {
 		return fmt.Errorf("greška pri spremanju dužnosti: %w", err)
 	}
@@ -750,7 +760,8 @@ func (r *UserRepository) GetPastDutiesForUser(userID uuid.UUID) ([]models.Prijas
 func (r *UserRepository) dutiesForUser(userID uuid.UUID, uvjet, redoslijed string) ([]models.Duty, error) {
 	rows, err := r.db.Query(`
 		SELECT id, user_id, title, role, scope_type, sector_id, area_id, section_codes,
-		       is_primary, is_temporary, reason, assigned_by, created_at, expires_at, is_active
+		       is_primary, is_temporary, reason, assigned_by, created_at, expires_at, is_active,
+		       rok, istece_s_obranom, ovisi_o
 		FROM duties
 		WHERE user_id = ? AND `+uvjet+`
 		ORDER BY `+redoslijed, userID.String())
@@ -764,12 +775,14 @@ func (r *UserRepository) dutiesForUser(userID uuid.UUID, uvjet, redoslijed strin
 		var d models.Duty
 		var idStr, userStr, sectorStr, sectionStr, byStr, reasonStr sql.NullString
 		var areaInt sql.NullInt64
-		var isPrimaryInt, isTempInt, isActiveInt int
+		var isPrimaryInt, isTempInt, isActiveInt, sObranomInt int
+		var ovisiO string
 
 		err := rows.Scan(
 			&idStr, &userStr, &d.Title, &d.Role, &d.ScopeType, &sectorStr, &areaInt,
 			&sectionStr, &isPrimaryInt, &isTempInt, &reasonStr, &byStr,
 			&d.CreatedAt, &d.ExpiresAt, &isActiveInt,
+			&d.Rok, &sObranomInt, &ovisiO,
 		)
 		if err != nil {
 			return nil, err
@@ -780,6 +793,7 @@ func (r *UserRepository) dutiesForUser(userID uuid.UUID, uvjet, redoslijed strin
 		d.IsPrimary = isPrimaryInt == 1
 		d.IsTemporary = isTempInt == 1
 		d.IsActive = isActiveInt == 1
+		d.IsticeSObranom, d.OvisiO = sObranomInt == 1, ovisiOIzZapisa(ovisiO)
 		if reasonStr.Valid {
 			d.Reason = reasonStr.String
 		}

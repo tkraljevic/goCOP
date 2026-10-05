@@ -27,6 +27,7 @@ type okolinaAkta struct {
 	baza    *sql.DB
 	akti    *service.AktService
 	epizode *service.EpisodeService
+	users   *service.UserService
 	letva   *models.Station
 	rukovod *models.User
 	ovlasti *models.UserPermissions
@@ -99,7 +100,7 @@ func novaOkolinaAkta(t *testing.T) *okolinaAkta {
 		ScopeType: models.ScopeArea, SectorID: &sektor, AreaID: &podrucje, IsPrimary: true})
 	vod, vodOvl := osoba("pperic-vodocuvar", "Pero Perić", &models.Duty{Title: "Vodočuvar P.1.1", Role: models.RoleWaterGuard,
 		ScopeType: models.ScopeSection, SectorID: &sektor, AreaID: &podrucje, SectionCodes: "P.1.1", IsPrimary: true})
-	return &okolinaAkta{baza: baza, akti: akti, epizode: epizode, letva: st, rukovod: ruk, ovlasti: rukOvl, vodocuv: vod, vodOvl: vodOvl}
+	return &okolinaAkta{baza: baza, akti: akti, epizode: epizode, users: users, letva: st, rukovod: ruk, ovlasti: rukOvl, vodocuv: vod, vodOvl: vodOvl}
 }
 
 // ovjeri priprema, sprema i ovjerava akt rukovoditelja područja
