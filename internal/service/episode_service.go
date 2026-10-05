@@ -67,7 +67,7 @@ func (s *EpisodeService) Declare(ctx context.Context, perms *models.UserPermissi
 	}
 	e := models.DefenseEpisode{
 		SectionCode: sectionCode,
-		StationID:   st.ID.String(),
+		StationID:   idLetve(st),
 		StartedAt:   at,
 		Phase:       phase,
 		DeclaredBy:  userID,
@@ -80,6 +80,15 @@ func (s *EpisodeService) Declare(ctx context.Context, perms *models.UserPermissi
 		return nil, err
 	}
 	return &e, nil
+}
+
+// idLetve je identitet letve epizode; letva bez identiteta ostaje prazna,
+// kao na epizodi iz akta bez vodomjera, a ne nulti UUID
+func idLetve(st models.Station) string {
+	if st.ID == uuid.Nil {
+		return ""
+	}
+	return st.ID.String()
 }
 
 // Raise podiže stupanj obrane na epizodi koja traje. Stupanj se ne spušta —
