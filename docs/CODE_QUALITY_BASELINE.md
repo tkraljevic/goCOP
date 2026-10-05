@@ -6,6 +6,14 @@
 > Coverage, CC, CRAP i duplikacije su isti; upozorenja su pala s 1.709 na
 > 1.008, od toga errcheck s 1.199 na 498.
 
+> **Stanje nakon mjerenja:** tri blokirajuća staticcheck nalaza ovog mjerenja
+> (SA4009 u `akt_service.go`, dva SA4006 u `internal/web`) uklonjena su commitom
+> `4382ef4` (4. 10. 2026.), bez promjene ponašanja. Brojke u nastavku i dalje su
+> zapis mjerenja commita `f5adb84`; `quality/baseline.json` ih čuva kao takve do
+> sljedeće namjerne obnove baselinea, a `make quality` na trenutačnom kodu ta tri
+> nalaza više ne javlja (provjereno 5. 10. 2026. na `1179de8`: statička analiza
+> bez grešaka, status `BASELINE_DEBT`, bez blokada).
+
 Mjeren je čisti commit `f5adb84` (0.0.31-alfa), na macOS/arm64 i Go 1.27.1.
 U radnoj kopiji paralelno nastaju druge izmjene; ovaj izvještaj ih ne verificira.
 Prije mjerenja nije refaktorirana nijedna aplikacijska funkcija.
@@ -23,11 +31,14 @@ Prije mjerenja nije refaktorirana nijedna aplikacijska funkcija.
 
 ## Kako čitati crveni rezultat
 
-Testovi i race **prolaze**. Tri primarna staticcheck nalaza ostaju blokirajuća:
+Testovi i race **prolaze**. Tri primarna staticcheck nalaza bila su u trenutku
+mjerenja blokirajuća; sva tri uklonjena su commitom `4382ef4`:
 
 1. `internal/service/akt_service.go:665` — SA4009, ulazni `perms` prepiše se
    prije prve uporabe. Lokalni kod potom koristi ovlasti izvedene iz ovjerenog
    akta; treba razjasniti potpis metode i testirati taj ugovor, ne naslijepo mijenjati RBAC.
+   *Uklonjeno:* stanje obrane na dionicama i dosad se mijenjalo ovlašću samog
+   akta, pa je neiskorišteni parametar ovlasti izbačen iz `zakljuciOvjeru`.
 2. `internal/web/handlers_sections_popis_izvoz.go:214` — SA4006,
    dodijeljena vrijednost `podrucje` nikada se ne koristi.
 3. `internal/web/prijava_pdf.go:138` — SA4006,
@@ -210,6 +221,8 @@ zapis u HTTP odgovor i zatvaranje resursa).
 
 ## Blokade i regresije
 
+Zapis mjerenja `f5adb84`; sva tri nalaza uklonjena su commitom `4382ef4`.
+
 - lint:staticcheck:internal/service/akt_service.go:SA4009: argument perms is overwritten before first use
 - lint:staticcheck:internal/web/handlers_sections_popis_izvoz.go:SA4006: this value of podrucje is never used
 - lint:staticcheck:internal/web/prijava_pdf.go:SA4006: this value of org is never used
@@ -233,6 +246,7 @@ Sve funkcije i njihova pokrivenost nalaze se u `code-health.json`; izvorni Go iz
 
 1. **Tri statička nalaza iznad**: mali zasebni zahvati i regresijski testovi.
    Cilj je maknuti stvarne blokade bez prepravljanja cijele aplikacije.
+   *Učinjeno u `4382ef4`.*
 2. **Kritični operativni putovi**: `repository.applyOne` (CC 134, coverage
    78,55%, CRAP 311,19), `prognoza.Osvjezi` (63; 73,17%; 139,65), uvoznici i
    ovjere. Prvo testovi odbijanja, rubnih uvjeta, neispravnog unosa i prekida
