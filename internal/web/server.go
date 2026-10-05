@@ -1532,6 +1532,25 @@ func trebaAdmina(next http.Handler) http.Handler {
 	})
 }
 
+// provjeriSesiju vraća prijavu za token sesije, ili nil kad je odgovor već
+// poslan. Sesija koja više ne vrijedi (istekla, nepoznata, račun isključen)
+// vodi na prijavu. Neočekivana greška (npr. baze) nije odjava: zapisuje se u
+// dnevnik i vraća 500, a kolačić ostaje, pa prijava radi čim baza proradi.
+func (s *Server) provjeriSesiju(w http.ResponseWriter, r *http.Request, sessionID uuid.UUID) *service.SessionView {
+	view, err := s.authService.AuthenticateSessionView(sessionID)
+	switch {
+	case err != nil && !sesijaNevaljana(err):
+		log.Printf("provjera sesije (%s %s): %v", r.Method, r.URL.Path, err)
+		http.Error(w, "Prijava se trenutno ne može provjeriti. Pokušajte ponovno za koji trenutak.", http.StatusInternalServerError)
+		return nil
+	case err != nil || view.User == nil:
+		obrisiNevaljanuSesiju(w, r, err)
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return nil
+	}
+	return view
+}
+
 // authMiddleware provjerava sesijski kolačić i postavlja korisnika u context
 func (s *Server) authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1547,10 +1566,8 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		view, err := s.authService.AuthenticateSessionView(sessionID)
-		if err != nil || view.User == nil {
-			obrisiNevaljanuSesiju(w, r, err)
-			http.Redirect(w, r, "/login", http.StatusSeeOther)
+		view := s.provjeriSesiju(w, r, sessionID)
+		if view == nil {
 			return
 		}
 
