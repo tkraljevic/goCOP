@@ -14,6 +14,7 @@ import (
 	_ "image/png"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -46,6 +47,16 @@ type AktService struct {
 	// ovjeren akt u dnevnike. Bez oboje (u testu) pravilo ne vrijedi.
 	aktivna func(ctx context.Context, sektor string) *models.Journal
 	objavi  func(ctx context.Context, u *models.User, a *models.Akt, j *models.Journal) []string
+	// povijest drži po jednu bravu po sektoru (sektor → *sync.Mutex):
+	// izvođenje povijesti obrane, od čitanja akata do upisa epizoda, jedan
+	// je kritični odsječak, pa se ovjera, storno i krug čvora ne preklapaju
+	povijest sync.Map
+}
+
+// bravaPovijesti je brava izvođenja povijesti obrane sektora
+func (s *AktService) bravaPovijesti(sektor string) *sync.Mutex {
+	b, _ := s.povijest.LoadOrStore(sektor, &sync.Mutex{})
+	return b.(*sync.Mutex)
 }
 
 // SetObrana daje servisu pravilo aktivne obrane i objavu akata u dnevnike
@@ -724,11 +735,16 @@ func (s *AktService) spremanZaOvjeruSkenom(ctx context.Context, a *models.Akt) e
 // akt nestane i iz povijesti. Akt koji stupa na snagu kasnije ulazi u
 // povijest kad stupi na snagu (UskladiStupileNaSnagu, u krugu čvora); stanje
 // ga pokazuje u svoje vrijeme i bez toga. Uz povijest se preračunava i istek
-// privremenih imenovanja.
+// privremenih imenovanja. Sektor je za to vrijeme zaključan
+// (bravaPovijesti): krug ne smije upisati epizode iz popisa akata
+// pročitanog prije storna koji je u međuvremenu povijest već uskladio.
 func (s *AktService) uskladiEpizode(ctx context.Context, a *models.Akt) []string {
 	if s.episodes == nil {
 		return nil
 	}
+	b := s.bravaPovijesti(a.Sektor)
+	b.Lock()
+	defer b.Unlock()
 	ovjereni, err := s.repo.ListAkti(ctx, repository.FiltarAkata{Sektor: a.Sektor, Status: models.AktOvjeren})
 	if err != nil {
 		return []string{"povijest obrane nije usklađena: " + err.Error()}
