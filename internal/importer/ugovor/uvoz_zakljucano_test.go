@@ -349,3 +349,17 @@ func TestOdabirKandidataBezNazivaPodrucja(t *testing.T) {
 		t.Errorf("bez naziva područja, s Odlukom: %+v %v", c, ok)
 	}
 }
+
+func TestUpisLokacijeSGreskomBaze(t *testing.T) {
+	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "zatvorena.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	baza.Close()
+	zatvorena := repository.NewMaintenanceRepository(baza, ledger.New(baza, "test"))
+	// nevezana lokacija čita zatečenu, a greška čitanja prekida upis
+	nevezana := models.MaintainedWater{AreaID: 1, Program: models.ProgramA02, Name: "Potok Dvojnik"}
+	if err := upsertKeepingLink(context.Background(), zatvorena, &nevezana); err == nil {
+		t.Error("greška pri čitanju zatečene lokacije mora prekinuti upis")
+	}
+}
