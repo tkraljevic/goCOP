@@ -270,7 +270,7 @@ func odrediImeCvora(cfg *config.Config) (noviIme bool) {
 // prepoznate, koliko bi zapisa bilo novo i gdje se izvori ne slažu.
 func uveziTablicu(z zastavice, deps csvlevels.Deps) {
 	rep, err := csvlevels.Run(context.Background(), csvlevels.Options{
-		Path: z.csvFile, Hour: z.csvHour, Origin: z.csvOrigin, DryRun: !z.csvWrite, Log: log.Printf,
+		Path: z.csvFile, Hour: &z.csvHour, Origin: z.csvOrigin, DryRun: !z.csvWrite, Log: log.Printf,
 		Skip: splitList(z.csvSkip), Aliases: splitPairs(z.csvLinks),
 		Quality: strings.ToUpper(strings.TrimSpace(z.csvQuality)), Derived: z.csvDerived, Method: z.csvMethod,
 		Deps: deps,
