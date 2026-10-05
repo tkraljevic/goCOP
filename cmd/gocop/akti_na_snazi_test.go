@@ -93,8 +93,9 @@ func TestKrugAkataNaSnaziGranicaSamoNakonCistogProlaza(t *testing.T) {
 	if _, err := baza.Exec(`ALTER TABLE akti RENAME TO akti_zauzeto`); err != nil {
 		t.Fatal(err)
 	}
-	if g := prolazAkataNaSnazi(ctx, akti, zadnji, sad); !g.Equal(zadnji) {
-		t.Fatalf("prolaz s greškom pomaknuo je granicu na %v", g)
+	g := prolazAkataNaSnazi(ctx, akti, granicaAkata{zadnji: zadnji}, sad)
+	if !g.zadnji.Equal(zadnji) {
+		t.Fatalf("prolaz s greškom pomaknuo je granicu na %v", g.zadnji)
 	}
 	if _, err := baza.Exec(`ALTER TABLE akti_zauzeto RENAME TO akti`); err != nil {
 		t.Fatal(err)
@@ -102,8 +103,8 @@ func TestKrugAkataNaSnaziGranicaSamoNakonCistogProlaza(t *testing.T) {
 
 	// idući prolaz obuhvati i propušteno razdoblje, pa granicu pomakne
 	poslije := sad.Add(10 * time.Minute)
-	if g := prolazAkataNaSnazi(ctx, akti, zadnji, poslije); !g.Equal(poslije) {
-		t.Fatalf("čist prolaz nije pomaknuo granicu: %v", g)
+	if g = prolazAkataNaSnazi(ctx, akti, g, poslije); !g.zadnji.Equal(poslije) || !g.greskaOd.IsZero() {
+		t.Fatalf("čist prolaz nije pomaknuo granicu: %+v", g)
 	}
 	if e, err := epizode.OpenEpisode(ctx, "P.1.1"); err != nil || e == nil {
 		t.Fatalf("akt koji je stupio na snagu u prolazu s greškom nije u povijesti: %+v (%v)", e, err)
@@ -145,9 +146,9 @@ func uspostavaNaDionici(t *testing.T, repo *repository.AktiRepository, id, dioni
 
 // Trajna greška (ovjeren akt stigao razmjenom s dionicom koje nema u
 // lokalnom registru, pa se njegova epizoda ne da upisati) ne drži granicu
-// kruga zauvijek: granica zaostaje najviše dan, zatim se pomiče uz jedno
-// upozorenje da je dio akata preskočen, a idući prolazi istu grešku više ne
-// ponavljaju
+// kruga zauvijek: prolaz se ponavlja najviše dan od prvog prolaza s greškom,
+// zatim se granica pomiče uz jedno upozorenje da je dio akata preskočen, a
+// idući prolazi istu grešku više ne ponavljaju
 func TestKrugAkataNaSnaziGranicaNeZaostajeViseOdDana(t *testing.T) {
 	repo, akti := bazaKrugaAkata(t, nil)
 	var zapis bytes.Buffer
@@ -160,10 +161,11 @@ func TestKrugAkataNaSnaziGranicaNeZaostajeViseOdDana(t *testing.T) {
 	zadnji := sad.Add(-time.Hour)
 	uspostavaNaDionici(t, repo, "u1", "P.9.9", sad.Add(-30*time.Minute))
 
-	// unutar dana granica čeka, kao kod prolazne greške
+	// unutar dana od prve greške granica čeka, kao kod prolazne greške
+	g := granicaAkata{zadnji: zadnji}
 	for _, kad := range []time.Time{sad, sad.Add(23 * time.Hour)} {
-		if g := prolazAkataNaSnazi(ctx, akti, zadnji, kad); !g.Equal(zadnji) {
-			t.Fatalf("prolaz s greškom u %v pomaknuo je granicu na %v", kad, g)
+		if g = prolazAkataNaSnazi(ctx, akti, g, kad); !g.zadnji.Equal(zadnji) {
+			t.Fatalf("prolaz s greškom u %v pomaknuo je granicu na %v", kad, g.zadnji)
 		}
 	}
 	if !strings.Contains(zapis.String(), "P.9.9") {
@@ -172,9 +174,8 @@ func TestKrugAkataNaSnaziGranicaNeZaostajeViseOdDana(t *testing.T) {
 
 	// nakon dana granica se pomiče i bez čistog prolaza
 	kasnije := sad.Add(25 * time.Hour)
-	g := prolazAkataNaSnazi(ctx, akti, zadnji, kasnije)
-	if kasnije.Sub(g) > 24*time.Hour {
-		t.Fatalf("granica zaostaje %v iza sadašnjeg trenutka", kasnije.Sub(g))
+	if g = prolazAkataNaSnazi(ctx, akti, g, kasnije); !g.zadnji.Equal(kasnije) {
+		t.Fatalf("granica se nakon dana ponavljanja nije pomaknula: %v", g.zadnji)
 	}
 	if n := strings.Count(zapis.String(), "preskače"); n != 1 {
 		t.Fatalf("upozorenje o preskočenim aktima zapisano %d puta:\n%s", n, zapis.String())
@@ -183,8 +184,8 @@ func TestKrugAkataNaSnaziGranicaNeZaostajeViseOdDana(t *testing.T) {
 	// idući prolaz grešku više ne ponavlja
 	zapis.Reset()
 	poslije := kasnije.Add(10 * time.Minute)
-	if g2 := prolazAkataNaSnazi(ctx, akti, g, poslije); !g2.Equal(poslije) {
-		t.Fatalf("prolaz nakon preskakanja nije čist: granica %v", g2)
+	if g2 := prolazAkataNaSnazi(ctx, akti, g, poslije); !g2.zadnji.Equal(poslije) {
+		t.Fatalf("prolaz nakon preskakanja nije čist: granica %v", g2.zadnji)
 	}
 	if zapis.Len() != 0 {
 		t.Errorf("prolaz nakon preskakanja ponavlja upozorenja:\n%s", zapis.String())
@@ -212,10 +213,37 @@ func TestKrugAkataNaSnaziPrivremenaNeZadrzavajuGranicu(t *testing.T) {
 
 	sad := time.Now().UTC().Truncate(time.Second)
 	uspostavaNaDionici(t, repo, "u1", "P.1.1", sad.Add(-30*time.Minute))
-	if g := prolazAkataNaSnazi(context.Background(), akti, sad.Add(-time.Hour), sad); !g.Equal(sad) {
-		t.Fatalf("upozorenje privremenih imenovanja zadržalo je granicu na %v", g)
+	if g := prolazAkataNaSnazi(context.Background(), akti, granicaAkata{zadnji: sad.Add(-time.Hour)}, sad); !g.zadnji.Equal(sad) {
+		t.Fatalf("upozorenje privremenih imenovanja zadržalo je granicu na %v", g.zadnji)
 	}
 	if !strings.Contains(zapis.String(), "privremena imenovanja nisu usklađena") {
 		t.Errorf("upozorenje privremenih imenovanja nije u dnevniku:\n%s", zapis.String())
+	}
+}
+
+// Pri pokretanju granica je dan unatrag (unatragPriPokretanju), pa zaostatak
+// odmah iznosi dan: prolaz s greškom (npr. SQLITE_BUSY uz pokretanje) ipak ne
+// smije preskočiti razdoblje dok je čvor bio ugašen, ni u prvom ni u idućem
+// prolazu, jer se ponavljanje mjeri od prvog prolaza s greškom
+func TestKrugAkataNaSnaziPokretanjeSGreskomNePreskace(t *testing.T) {
+	repo, akti := bazaKrugaAkata(t, nil)
+	var zapis bytes.Buffer
+	stari := log.Writer()
+	log.SetOutput(&zapis)
+	t.Cleanup(func() { log.SetOutput(stari) })
+	ctx := context.Background()
+
+	sad := time.Now().UTC().Truncate(time.Second)
+	zadnji := sad.Add(-unatragPriPokretanju)
+	uspostavaNaDionici(t, repo, "u1", "P.9.9", sad.Add(-12*time.Hour))
+
+	g := granicaAkata{zadnji: zadnji}
+	for _, kad := range []time.Time{sad, sad.Add(10 * time.Minute)} {
+		if g = prolazAkataNaSnazi(ctx, akti, g, kad); !g.zadnji.Equal(zadnji) {
+			t.Fatalf("prolaz s greškom u %v nakon pokretanja pomaknuo je granicu na %v:\n%s", kad, g.zadnji, zapis.String())
+		}
+	}
+	if strings.Contains(zapis.String(), "preskače") {
+		t.Fatalf("razdoblje dok je čvor bio ugašen preskočeno je odmah nakon pokretanja:\n%s", zapis.String())
 	}
 }
