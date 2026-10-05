@@ -228,15 +228,18 @@ func TestRadnoVrijemeNaListu(t *testing.T) {
 	if l.Sati() != 8 {
 		t.Errorf("sati: %v", l.Sati())
 	}
-	// jednoznamenkasti sat prolazi i sprema se kako je upisan
+	// jednoznamenkasti sat prolazi, a sprema se kao i na ostalim listovima: 07:00
 	unos := vdUnos("")
-	unos.Od = "7:00"
+	unos.Od, unos.Do = "7:00", "9:05"
 	l, err = o.vs.Spremi(ctx, u, dan, unos, false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if l.Od != "7:00" {
-		t.Errorf("od: %q", l.Od)
+	if l.Od != "07:00" || l.Do != "09:05" {
+		t.Errorf("radno vrijeme: %q–%q", l.Od, l.Do)
+	}
+	if b := o.vdListIzBaze(t, u, dan); b.Od != "07:00" || b.Do != "09:05" {
+		t.Errorf("spremljeno radno vrijeme: %q–%q", b.Od, b.Do)
 	}
 	// noćni rad: svršetak prije početka znači rad preko ponoći
 	unos = UnosLista{Od: "22:00", Do: "06:00"}
