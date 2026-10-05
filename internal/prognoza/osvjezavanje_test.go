@@ -3,6 +3,7 @@ package prognoza
 import (
 	"context"
 	"database/sql"
+	"math"
 	"path/filepath"
 	"testing"
 	"time"
@@ -411,5 +412,64 @@ func TestTudaIspredRacunaBezSataIzdavanja(t *testing.T) {
 	}
 	if skinute := o.tudeIspredRacuna(pojasi, map[Izvor]Niz{}); len(skinute) != 0 {
 		t.Errorf("bez očitanja skinut je račun: %v", skinute)
+	}
+}
+
+// Vrh lanca u protoku iz dnevnog modela: glavni model koji ne da barem dvije
+// točke (dnevna prognoza mu pada izvan krivulje protoka, pa ostaje samo
+// zadnje mjerenje) ne smije zatvoriti put rezervi. Dosad je prvi model koji
+// je uopće računao prekidao petlju i vrh je ostajao bez budućnosti.
+func TestVrhIzDnevnogUzimaRezervuKadGlavniNeDaDvijeTocke(t *testing.T) {
+	zadnji := time.Now().UTC().Truncate(time.Hour)
+	ocitanja := probneOcitanja(t, 120, zadnji) // gornja: 100 cm u zadnjem satu, sat ranije 101 …
+	arhiva, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "arhiva.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { arhiva.Close() })
+	// Krivulja do 500 cm (s proširenjem do 520): Q = 100·H, H u metrima.
+	if _, err := arhiva.Exec(`
+		CREATE TABLE hq_krivulje (id INTEGER, letva TEXT, vrijedi_od TEXT, vrijedi_do TEXT);
+		CREATE TABLE hq_odsjecci (krivulja INTEGER, od_cm INTEGER, do_cm INTEGER, oblik TEXT,
+			p1 REAL, p2 REAL, p3 REAL, p4 REAL);
+		INSERT INTO hq_krivulje VALUES (1, 'gornja', '2000-01-01', '');
+		INSERT INTO hq_odsjecci VALUES (1, 0, 500, 'polinom', 0, 100, 0, 0);`); err != nil {
+		t.Fatal(err)
+	}
+	cilj := DnevniCilj{Letva: "gornja"}
+	postavi(t, &DnevniCiljevi, []DnevniCilj{cilj})
+	postavi(t, &VrhoviIzDnevnog, map[string]bool{"gornja": true})
+
+	// Glavni model diže vodu za 1000 cm, izvan krivulje; rezerva je drži.
+	glavni, rezerva := &DnevniModel{Cilj: cilj}, &DnevniModel{Cilj: cilj}
+	for k := 1; k <= DnevniDosezi; k++ {
+		for g := range glavni.koef[k] {
+			glavni.koef[k][g] = []float64{1000}
+		}
+	}
+	dnevniModeli.Lock()
+	dan, modeli, greske := dnevniModeli.dan, dnevniModeli.modeli, dnevniModeli.greske
+	dnevniModeli.dan = time.Now().Format("2006-01-02")
+	dnevniModeli.modeli = map[string][]*DnevniModel{"gornja": {glavni, rezerva}}
+	dnevniModeli.greske = map[string]error{}
+	dnevniModeli.Unlock()
+	t.Cleanup(func() {
+		dnevniModeli.Lock()
+		dnevniModeli.dan, dnevniModeli.modeli, dnevniModeli.greske = dan, modeli, greske
+		dnevniModeli.Unlock()
+	})
+
+	o := &Osvjezivac{Ocitanja: ocitanja, Arhiva: arhiva}
+	sada := zadnji.Unix() / 3600
+	vrh := Izvor{Letva: "gornja", Velicina: "protok"}
+	out := o.vrhoviIzDnevnog(context.Background(), sada, zadnji.Add(-10*24*time.Hour), map[Izvor]bool{vrh: true})
+	n, ima := out[vrh]
+	if !ima {
+		t.Fatal("vrh je ostao bez budućnosti: rezerva nije pokušana")
+	}
+	// Srednjak zadnjeg dana je 111,5 cm, pa rezerva prvi dan daje 112 cm → 112 m³/s.
+	v, ima := n.U(sada + 12)
+	if !ima || math.Abs(v-112) > 0.01 {
+		t.Errorf("prvi dan rezerve: %v (ima %v), očekivano 112 m³/s", v, ima)
 	}
 }
