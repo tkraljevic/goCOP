@@ -106,11 +106,35 @@ func TestDezurstvoUpisSebe(t *testing.T) {
 	if err := o.svc.SpremiDezurstvo(ctx, o.pperic, drugiSektor, o.opseg, o.dnevnik, o.peroDezura(dzSat(8, 7, 0), dzSat(8, 15, 0))); err == nil {
 		t.Error("dionica drugog sektora")
 	}
-	// Dionica „P.1.1” dovoljna je jer počinje oznakom sektora; i šifra
-	// „P.” bez ostatka bi prošla.
-	samoPrefiks := &models.UserPermissions{AllowedSections: map[string]bool{"P.": true}}
-	if !o.svc.MozeSebeUPlan(samoPrefiks, o.opseg, o.dnevnik) {
-		t.Error("prefiks sektora")
+	// Dionica u sektoru je šifra punog oblika SEKTOR.PODRUČJE.BROJ, u
+	// području u kojem osoba po registru ima dužnost na dionicama; sam
+	// prefiks sektora nije dionica. Ispituje se na dnevniku COP-a područja 1,
+	// u koji dionice područja 2 ne pišu, a sebe u plan upisuju.
+	samoPodr1 := models.Opseg{Sektor: "P", Podrucje: 1, Podrucja: []int{1}}
+	dionice := func(sifra string, podrucja ...int) *models.UserPermissions {
+		p := &models.UserPermissions{AllowedSections: map[string]bool{sifra: true}, PodrucjaDionica: map[int]bool{}}
+		for _, a := range podrucja {
+			p.PodrucjaDionica[a] = true
+		}
+		return p
+	}
+	for _, s := range []struct {
+		ime   string
+		perms *models.UserPermissions
+		smije bool
+	}{
+		{"dionica drugog područja sektora", dionice("P.2.1", 2), true},
+		{"samo prefiks", dionice("P.", 2), false},
+		{"bez broja dionice", dionice("P.2", 2), false},
+		{"slovo u broju", dionice("P.2.1a", 2), false},
+		{"predznak u području", dionice("P.+2.1", 2), false},
+		{"područje bez dužnosti na dionicama", dionice("P.3.1", 2), false},
+		{"šifra bez područja u registru", dionice("P.2.1"), false},
+		{"dionica drugog sektora", dionice("Q.2.1", 2), false},
+	} {
+		if got := o.svc.MozeSebeUPlan(s.perms, samoPodr1, o.dnevnik); got != s.smije {
+			t.Errorf("%s: %v", s.ime, got)
+		}
 	}
 	if o.svc.MozeSebeUPlan(o.ovlPero, o.opseg, &models.Journal{}) || o.svc.MozeSebeUPlan(nil, o.opseg, o.dnevnik) {
 		t.Error("bez centra ili bez ovlasti")
