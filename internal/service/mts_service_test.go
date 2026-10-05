@@ -400,6 +400,7 @@ func pripremiMts(t *testing.T) (*MtsService, *models.Skladiste, context.Context,
 		t.Fatal(err)
 	}
 	s := NewMtsService(repo, repository.NewSectionRepository(baza, rec), nil)
+	s.SetStructures(repository.NewStructureRepository(baza, rec))
 	ctx := context.Background()
 	u := &models.User{ID: uuid.New(), FullName: "Skladištar Osijek"}
 	uprava := &models.UserPermissions{AdminSectors: map[string]bool{"B": true}, AllowedSectors: map[string]bool{"B": true}}

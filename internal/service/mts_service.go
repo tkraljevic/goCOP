@@ -294,8 +294,9 @@ func (s *MtsService) MjestaNaTerenu(ctx context.Context, journalID, sektor strin
 }
 
 // mjestoTerena dopunjuje mjesto: dionica ili objekt iz registra daju
-// branjeno područje kad nije upisano; bez područja mjesto nije valjano
-func (s *MtsService) mjestoTerena(z Zahvat, sektor string) (models.MjestoTerena, error) {
+// branjeno područje kad nije upisano; bez područja mjesto nije valjano.
+// Dionica i objekt moraju biti u registru, i kad je područje zadano.
+func (s *MtsService) mjestoTerena(ctx context.Context, z Zahvat, sektor string) (models.MjestoTerena, error) {
 	m := models.MjestoTerena{AreaID: z.AreaID, SectionCode: strings.TrimSpace(z.SectionCode), StructureID: strings.TrimSpace(z.StructureID), Mjesto: strings.TrimSpace(z.Mjesto)}
 	if m.SectionCode != "" && s.sections != nil {
 		sec, err := s.sections.GetSectionByCode(m.SectionCode)
@@ -312,18 +313,35 @@ func (s *MtsService) mjestoTerena(z Zahvat, sektor string) (models.MjestoTerena,
 		}
 	}
 	if m.StructureID != "" && s.structures != nil {
-		if id, err := uuid.Parse(m.StructureID); err == nil {
-			if st, err := s.structures.GetStructure(context.Background(), id); err == nil && st != nil {
-				if m.AreaID == 0 {
-					m.AreaID = st.AreaID
-				}
-			}
+		st, err := s.objektTerena(ctx, m.StructureID)
+		if err != nil {
+			return m, err
+		}
+		if m.AreaID == 0 {
+			m.AreaID = st.AreaID
 		}
 	}
 	if m.AreaID == 0 {
 		return m, errors.New("mjesto na terenu traži branjeno područje (a po volji dionicu, objekt ili opis)")
 	}
 	return m, nil
+}
+
+// objektTerena čita objekt mjesta na terenu iz registra; neispravan ili
+// nepostojeći objekt je greška
+func (s *MtsService) objektTerena(ctx context.Context, structureID string) (*models.Structure, error) {
+	id, err := uuid.Parse(structureID)
+	if err != nil {
+		return nil, fmt.Errorf("neispravan objekt „%s”", structureID)
+	}
+	st, err := s.structures.GetStructure(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if st == nil {
+		return nil, fmt.Errorf("objekt %s nije u registru objekata", structureID)
+	}
+	return st, nil
 }
 
 // ---- promet
@@ -402,7 +420,7 @@ func (s *MtsService) Provedi(ctx context.Context, u *models.User, perms *models.
 		naTeren = true
 	}
 	if naTeren {
-		if teren, err = s.mjestoTerena(z, sk.Sektor); err != nil {
+		if teren, err = s.mjestoTerena(ctx, z, sk.Sektor); err != nil {
 			return nil, err
 		}
 	}
