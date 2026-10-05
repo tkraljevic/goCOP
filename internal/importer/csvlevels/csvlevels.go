@@ -632,8 +632,21 @@ func parseLevel(s string) (int, levelStatus) {
 	if err != nil {
 		return 0, levelBad
 	}
-	return int(math.Round(f)), levelOK
+	// Predug niz znamenki ParseFloat prihvati kao 1e20, a takav broj
+	// pretvoren u cijeli ovisi o platformi. Granice su iste kao kod ručnog
+	// upisa (ReadingService.validate): što obrazac odbije, ne ulazi ni uvozom.
+	cm := math.Round(f)
+	if cm < najnizaRazinaCm || cm > najvisaRazinaCm {
+		return 0, levelBad
+	}
+	return int(cm), levelOK
 }
+
+// Razumni raspon vodostaja u centimetrima, isti kao u ReadingService.validate
+const (
+	najnizaRazinaCm = -500
+	najvisaRazinaCm = 3000
+)
 
 // decimalniBroj pušta samo znamenke, točku i predznak na početku.
 // ParseFloat bi prihvatio i NaN, Inf, eksponent (1e3) i heksadecimalni
