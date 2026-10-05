@@ -161,7 +161,9 @@ func provjeriVrijemePrekida(at, pocetak, sad time.Time) error {
 // pa se zatečeno ažurira, a vrhovi i prag iz očitanja ostaju. Izvedena
 // epizoda kojoj razdoblja više nema (npr. akt je poništen) briše se; moguci
 // su identiteti svih epizoda koje su akti dionice ikad mogli otvoriti, pa
-// ručno upisane i računate epizode ostaju netaknute.
+// ručno upisane i računate epizode ostaju netaknute. Epizoda koja je već
+// onakva kakvu akti daju ne upisuje se ponovo, pa izvođenje koje se ponavlja
+// (krug čvora, drugi čvor s istim aktima) ne dodaje verzije u knjigu.
 func (s *EpisodeService) UskladiIzAkata(ctx context.Context, dionica string, zeljene []models.DefenseEpisode, moguci []uuid.UUID) error {
 	zatecene, err := s.repo.ListEpisodes(ctx, dionica)
 	if err != nil {
@@ -173,14 +175,8 @@ func (s *EpisodeService) UskladiIzAkata(ctx context.Context, dionica string, zel
 	}
 	ostaje := map[uuid.UUID]bool{}
 	for i := range zeljene {
-		e := zeljene[i]
-		ostaje[e.ID] = true
-		if z, ima := poID[e.ID]; ima {
-			e.ThresholdAt, e.PeakCm, e.PeakAt, e.CreatedAt = z.ThresholdAt, z.PeakCm, z.PeakAt, z.CreatedAt
-		} else {
-			s.dopuniPragLetve(ctx, &e)
-		}
-		if err := s.repo.SaveEpisode(ctx, &e); err != nil {
+		ostaje[zeljene[i].ID] = true
+		if err := s.upisiIzvedenu(ctx, zeljene[i], poID); err != nil {
 			return err
 		}
 	}
@@ -192,6 +188,43 @@ func (s *EpisodeService) UskladiIzAkata(ctx context.Context, dionica string, zel
 		}
 	}
 	return nil
+}
+
+// upisiIzvedenu upisuje epizodu izvedenu iz akata: zatečenoj ostaju vrhovi i
+// prag iz očitanja, a nova dobiva prag s letve; nepromijenjena se ne upisuje
+func (s *EpisodeService) upisiIzvedenu(ctx context.Context, e models.DefenseEpisode, poID map[uuid.UUID]models.DefenseEpisode) error {
+	if z, ima := poID[e.ID]; ima {
+		if istaIzvedena(z, e) {
+			return nil
+		}
+		e.ThresholdAt, e.PeakCm, e.PeakAt, e.CreatedAt = z.ThresholdAt, z.PeakCm, z.PeakAt, z.CreatedAt
+	} else {
+		s.dopuniPragLetve(ctx, &e)
+	}
+	return s.repo.SaveEpisode(ctx, &e)
+}
+
+// istaIzvedena javlja je li zatečena epizoda jednaka izvedenoj iz akata u
+// svemu što izvođenje određuje (vrhovi i prag iz očitanja se ne gledaju)
+func istaIzvedena(z, e models.DefenseEpisode) bool {
+	return sazetakIzvedene(z) == sazetakIzvedene(e)
+}
+
+// izvedenaEpizoda su polja epizode koja određuju akti; vremena kao trenuci,
+// da zona iz baze ne čini razliku
+type izvedenaEpizoda struct {
+	dionica, letva, stupanj, proglasio, prekinuo, osnova, izvor, biljeska string
+	od, do                                                                int64
+	traje                                                                 bool
+}
+
+func sazetakIzvedene(e models.DefenseEpisode) izvedenaEpizoda {
+	s := izvedenaEpizoda{dionica: e.SectionCode, letva: e.StationID, stupanj: string(e.Phase), proglasio: e.DeclaredBy,
+		prekinuo: e.EndedBy, osnova: e.Basis, izvor: e.Origin, biljeska: e.Note, od: e.StartedAt.UnixNano(), traje: e.EndedAt == nil}
+	if e.EndedAt != nil {
+		s.do = e.EndedAt.UnixNano()
+	}
+	return s
 }
 
 // dopuniPragLetve upisuje kad je vodostaj na letvi epizode prešao prag, kad

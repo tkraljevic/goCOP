@@ -907,6 +907,7 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	// privremeno imenovanje ističe s krajem redovne i izvanredne obrane
 	userService.SetPrestanakObrane(aktService.PrestanakObraneDuznosti)
 	go pratiPrivremeneDuznosti(ctx, userService, 10*time.Minute)
+	go pratiAkteNaSnazi(ctx, aktService, 10*time.Minute)
 	models.SetTema(aktService.Tema(context.Background()))
 	aktService.SetKljuc(node.PrivateKey())
 	// lozinke sandučića spremljene prije otiska lozinke računa dobiju ga
