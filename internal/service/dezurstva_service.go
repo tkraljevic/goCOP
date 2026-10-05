@@ -511,16 +511,18 @@ func (s *JournalService) PredajDezurstvo(ctx context.Context, u *models.User, pe
 // osvježi isti razmak, a ne upiše još jedan.
 func (s *JournalService) zakljuciDezurstvo(ctx context.Context, u *models.User, j *models.Journal, kad time.Time, napomena string, potvrdi bool) error {
 	od := j.DezurniOd.In(models.Zagreb)
-	d := &models.Dezurstvo{ID: idPredaje(j.ID, j.DezurniID, od), JournalID: j.ID, UserID: j.DezurniID, UserName: j.DezurniIme, Od: od, Do: kad,
-		Opis: models.OpisiRada[0].Opis, Mjesto: models.MjestoZaOpis(models.OpisiRada[0].Opis), Napomena: strings.TrimSpace(napomena), CreatedBy: u.ID.String()}
-	if !kad.After(od) {
-		d.Do = od.Add(time.Minute)
-	}
-	if potvrdiOdmah(potvrdi, d) {
-		d.Potvrdio, d.PotvrdenoAt = u.FullName, &kad
-	}
-	if err := s.repo.SaveDezurstvo(ctx, d); err != nil {
-		return err
+	// U plan ide razmak u punim minutama; kraći od minute (predaja odmah
+	// nakon preuzimanja) nije dežurstvo i ostaje samo zapis u dnevniku.
+	if kad.Sub(od) >= time.Minute {
+		d := &models.Dezurstvo{ID: idPredaje(j.ID, j.DezurniID, od), JournalID: j.ID, UserID: j.DezurniID, UserName: j.DezurniIme,
+			Od: od.Truncate(time.Minute), Do: kad.Truncate(time.Minute),
+			Opis: models.OpisiRada[0].Opis, Mjesto: models.MjestoZaOpis(models.OpisiRada[0].Opis), Napomena: strings.TrimSpace(napomena), CreatedBy: u.ID.String()}
+		if potvrdiOdmah(potvrdi, d) {
+			d.Potvrdio, d.PotvrdenoAt = u.FullName, &kad
+		}
+		if err := s.repo.SaveDezurstvo(ctx, d); err != nil {
+			return err
+		}
 	}
 	tekst := "Dežurstvo predaje " + j.DezurniIme + " (od " + od.Format("2.1. 15:04") + ", " + satiTekst(kad.Sub(od)) + " h)" + napomena + "."
 	if err := s.repo.SaveEntry(ctx, &models.JournalEntry{JournalID: j.ID, Date: pocetakDana(kad), Kind: models.EntryKindDuty, HappenedAt: &kad,
