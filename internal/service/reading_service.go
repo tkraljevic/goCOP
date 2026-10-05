@@ -404,40 +404,61 @@ type FieldOverview struct {
 	Total  int
 }
 
+// podrucjaIzbora vraća područja koja osoba smije birati na terenu:
+// administrator sva, ostali svoja područja s dužnosti (i dužnosti na
+// dionicama), a tko vodi sektor sva područja sektora
+func podrucjaIzbora(perms *models.UserPermissions, sva []models.Area) []models.Area {
+	if perms == nil {
+		return nil
+	}
+	if perms.IsGlobalAdmin {
+		return sva
+	}
+	var out []models.Area
+	for _, a := range sva {
+		if perms.RadiUPodrucju(a.ID) || perms.AdminAreas[a.ID] || perms.AdminSectors[a.SectorID] {
+			out = append(out, a)
+		}
+	}
+	return out
+}
+
+// odabranoPodrucje bira područje terenskog pogleda iz izbora: zadano iz
+// upita, inače područje primarne dužnosti. Područje koje nije u izboru
+// zamjenjuje se prvim iz izbora; bez izbora nema područja.
+func odabranoPodrucje(izbor []models.Area, u *models.User, areaID int) *models.Area {
+	if areaID == 0 && u != nil {
+		if pd := u.PrimaryDuty(); pd != nil && pd.AreaID != nil {
+			areaID = *pd.AreaID
+		}
+	}
+	if len(izbor) == 0 {
+		return nil
+	}
+	a := izbor[0]
+	for _, p := range izbor {
+		if p.ID == areaID {
+			a = p
+		}
+	}
+	return &a
+}
+
 // FieldOverview slaže terenski pogled. Područje: zadano iz upita, inače
-// prvo područje s dužnosti osobe. "Moje letve" su one koje je osoba
-// očitavala u zadnjih 90 dana, poredane po uobičajenom vremenu obilaska.
+// područje primarne dužnosti, i to samo iz izbora dopuštenih područja.
+// "Moje letve" su one koje je osoba očitavala u zadnjih 90 dana, poredane
+// po uobičajenom vremenu obilaska.
 func (s *ReadingService) FieldOverview(ctx context.Context, perms *models.UserPermissions, u *models.User, areaID int) (*FieldOverview, error) {
 	fo := &FieldOverview{}
 	allAreas, err := s.userService.ListAreas("")
 	if err != nil {
 		return nil, err
 	}
-	areaByID := map[int]models.Area{}
-	for _, a := range allAreas {
-		areaByID[a.ID] = a
-	}
-	if perms != nil && perms.IsGlobalAdmin {
-		fo.Areas = allAreas
-	} else if perms != nil {
-		// Izbor područja: svoja područja s dužnosti (i dužnosti na
-		// dionicama); tko vodi sektor, sva područja sektora
-		for _, a := range allAreas {
-			if perms.RadiUPodrucju(a.ID) || perms.AdminAreas[a.ID] || perms.AdminSectors[a.SectorID] {
-				fo.Areas = append(fo.Areas, a)
-			}
-		}
-	}
-	if areaID == 0 && u != nil {
-		if pd := u.PrimaryDuty(); pd != nil && pd.AreaID != nil {
-			areaID = *pd.AreaID
-		}
-	}
-	if areaID == 0 && len(fo.Areas) > 0 {
-		areaID = fo.Areas[0].ID
-	}
-	if a, ok := areaByID[areaID]; ok {
-		fo.Area = &a
+	fo.Areas = podrucjaIzbora(perms, allAreas)
+	fo.Area = odabranoPodrucje(fo.Areas, u, areaID)
+	areaID = 0
+	if fo.Area != nil {
+		areaID = fo.Area.ID
 	}
 
 	all, err := s.Overview(ctx)

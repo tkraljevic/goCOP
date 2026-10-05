@@ -564,14 +564,22 @@ func TestTerenskiPogled(t *testing.T) {
 		t.Errorf("obavljeno %d od %d", fo.Done, fo.Total)
 	}
 
-	// Zadano područje se ne provjerava prema izboru: Pero Perić vidi
-	// područje 2, iako ga nema u izboru.
+	// Zadano područje mora biti u izboru: Pero Perić traži područje 2, kojeg
+	// nema u izboru, pa dobije prvo dopušteno (područje 1).
 	fo2, err := o.rs.FieldOverview(ctx, ovl, pp, 2)
-	if err != nil || fo2.Area == nil || fo2.Area.ID != 2 || len(fo2.Areas) != 1 {
+	if err != nil || fo2.Area == nil || fo2.Area.ID != 1 || len(fo2.Areas) != 1 {
 		t.Fatalf("tuđe područje: %+v %v", fo2, err)
 	}
-	if got := imena(fo2.Others); got != "Granica,Ustava Probna" {
-		t.Errorf("ostale letve područja 2: %s", got)
+	if got := imena(fo2.Others); got != "Granica" {
+		t.Errorf("ostale letve umjesto područja 2: %s", got)
+	}
+	// uprava sektora P smije birati područje 2, pa ga i dobije
+	sektor := "P"
+	upravaSektora, upravaOvl := o.pperic(t, "pperic-sektor", &models.Duty{Title: "Rukovoditelj sektora", Role: models.RoleSectorLeader,
+		ScopeType: models.ScopeSector, SectorID: &sektor, IsPrimary: true})
+	if fu, err := o.rs.FieldOverview(ctx, upravaOvl, upravaSektora, 2); err != nil || fu.Area == nil || fu.Area.ID != 2 ||
+		imena(fu.Others) != "Granica,Ustava Probna" {
+		t.Errorf("uprava sektora, područje 2: %+v %v", fu, err)
 	}
 
 	// administrator bira među svim područjima, a bez dužnosti dobije prvo
@@ -580,9 +588,6 @@ func TestTerenskiPogled(t *testing.T) {
 		t.Errorf("administrator: %+v %v", fa, err)
 	}
 	// uprava sektora P bira područja svog sektora
-	sektor := "P"
-	upravaSektora, upravaOvl := o.pperic(t, "pperic-sektor", &models.Duty{Title: "Rukovoditelj sektora", Role: models.RoleSectorLeader,
-		ScopeType: models.ScopeSector, SectorID: &sektor, IsPrimary: true})
 	fs, err := o.rs.FieldOverview(ctx, upravaOvl, upravaSektora, 0)
 	if err != nil || len(fs.Areas) != 2 || fs.Area == nil || fs.Area.ID != 1 {
 		t.Errorf("uprava sektora: izbor %v, područje %v, %v", fs.Areas, fs.Area, err)
@@ -591,6 +596,10 @@ func TestTerenskiPogled(t *testing.T) {
 	fn, err := o.rs.FieldOverview(ctx, nil, nil, 0)
 	if err != nil || fn.Area != nil || len(fn.Areas) != 0 || len(fn.Mine)+len(fn.Others) != 0 {
 		t.Errorf("bez ovlasti: %+v %v", fn, err)
+	}
+	// bez ovlasti ni dužnost ne daje područje
+	if fd, err := o.rs.FieldOverview(ctx, nil, pp, 1); err != nil || fd.Area != nil || len(fd.Others) != 0 {
+		t.Errorf("bez ovlasti, s dužnošću: %+v %v", fd, err)
 	}
 }
 
