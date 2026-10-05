@@ -555,8 +555,9 @@ type AddDutyRequest struct {
 	IsPrimary    bool
 	IsTemporary  bool
 	Reason       string
-	// ExpiresAt je zadani datum privremene dužnosti („Vrijedi do”), ne
-	// stvarni istek: on se računa (istekDuznosti)
+	// ExpiresAt je zadani prestanak privremene dužnosti („Vrijedi zaključno
+	// s”: idući dan u 0 h po hrvatskom vremenu), ne stvarni istek: on se
+	// računa (istekDuznosti)
 	ExpiresAt *time.Time
 	// IsticeSObranom: privremeno imenovanje vrijedi dok na dosegu traje
 	// redovna ili izvanredna obrana ili izvanredno stanje
