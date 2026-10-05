@@ -558,8 +558,10 @@ func TestPredajaTraziObrazlozenjeNeobavljenogZadatka(t *testing.T) {
 	}
 }
 
-// Zadatak zaključen na listu ostaje na tom listu i kad ga je u evidenciji
-// već zaključio drugi list; evidenciju tada ne mijenja.
+// Isti otvoren zadatak može stajati na nacrtima više dana. Evidenciju
+// zaključuje prvi predani list; kad se kasnije preda drugi, na njega se
+// upisuje stanje iz evidencije s napomenom kojim je listom zaključen, a
+// poruka predaje to javlja. List i evidencija tako se ne razilaze.
 func TestZadatakZakljucenNaDvaLista(t *testing.T) {
 	o := novaOkolinaVodocuvara(t)
 	ctx := context.Background()
@@ -576,21 +578,53 @@ func TestZadatakZakljucenNaDvaLista(t *testing.T) {
 	// drugi dan isti zadatak stoji otvoren (evidencija ga još drži otvorenim)
 	// i predajom se odbacuje
 	unos.Zadaci = map[string]UnosZadatka{z.ID: {Status: models.ZadatakOdbacen, Obavljeno: "ustava srušena"}}
-	l2, err := o.vs.Spremi(ctx, u, drugi, unos, true)
+	l2, napomena, err := o.vs.SpremiSPorukom(ctx, u, drugi, unos, true)
 	if err != nil {
 		t.Fatal(err)
 	}
-	// predaja prvog lista: zadatak ostaje na njemu obavljen, a evidencija
-	// ostaje kako ju je zaključio drugi list
-	l1, err := o.vs.Spremi(ctx, u, prvi, vdUnos("obilazak"), true)
+	if napomena != "" {
+		t.Errorf("napomena uz prvo zaključivanje: %q", napomena)
+	}
+	// predaja prvog lista: na njemu se bilježi stanje iz evidencije, a
+	// evidencija ostaje kako ju je zaključio drugi list
+	l1, napomena, err := o.vs.SpremiSPorukom(ctx, u, prvi, vdUnos("obilazak"), true)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if nl := vdNaListu(l1, z.ID); nl == nil || nl.Status != models.ZadatakObavljen || nl.Obavljeno != "pregledana" {
-		t.Errorf("zadatak na prvom listu: %+v", l1.Zadaci)
+	gdje := "listom br. 2 od " + drugi.Format("02.01.2006.")
+	if want := "Zadatak „pregledati ustavu” već je zaključen " + gdje + "; na ovaj list upisano je stanje iz evidencije."; napomena != want {
+		t.Errorf("napomena:\n%q\nočekivano\n%q", napomena, want)
+	}
+	for _, l := range []*models.VodocuvarskiList{l1, o.vdListIzBaze(t, u, prvi)} {
+		if nl := vdNaListu(l, z.ID); nl == nil || nl.Status != models.ZadatakOdbacen || nl.Obavljeno != "ustava srušena (zaključeno "+gdje+")" {
+			t.Errorf("zadatak na prvom listu: %+v", l.Zadaci)
+		}
 	}
 	if ev := o.vdZadatakIzBaze(t, z.ID); ev.Status != models.ZadatakOdbacen || ev.ListID != l2.ID || ev.Obavljeno != "ustava srušena" {
 		t.Errorf("evidencija: %+v", ev)
+	}
+
+	// zadatak zaključen u evidenciji bez lista (npr. prenesen iz ranije
+	// evidencije) bilježi se tako
+	treci := vdDan(time.March, 12)
+	propust := o.vdZadatak(t, u, "očistiti propust", treci)
+	unos.Zadaci = map[string]UnosZadatka{propust.ID: {Status: models.ZadatakObavljen, Obavljeno: "očišćen"}}
+	if _, err := o.vs.Spremi(ctx, u, treci, unos, false); err != nil {
+		t.Fatal(err)
+	}
+	propust.Status, propust.Obavljeno = models.ZadatakBezOdgovora, ""
+	if err := o.repo.SaveZadatak(ctx, propust); err != nil {
+		t.Fatal(err)
+	}
+	l3, napomena, err := o.vs.SpremiSPorukom(ctx, u, treci, vdUnos("obilazak"), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if nl := vdNaListu(l3, propust.ID); nl == nil || nl.Status != models.ZadatakBezOdgovora || nl.Obavljeno != "(zaključeno u evidenciji zadataka)" {
+		t.Errorf("zadatak zaključen bez lista: %+v", l3.Zadaci)
+	}
+	if !strings.Contains(napomena, "„očistiti propust” već je zaključen u evidenciji zadataka") {
+		t.Errorf("napomena: %q", napomena)
 	}
 }
 
