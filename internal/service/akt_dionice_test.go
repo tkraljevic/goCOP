@@ -35,9 +35,11 @@ func TestPripremaAktaZadaneDionice(t *testing.T) {
 		if _, err := c.ExecContext(ctx, `PRAGMA foreign_keys = OFF`); err != nil {
 			t.Fatal(err)
 		}
-		defer c.ExecContext(ctx, `PRAGMA foreign_keys = ON`)
 		if _, err := c.ExecContext(ctx, `INSERT INTO section_stations (id, section_code, station_id, created_at) VALUES (?, ?, ?, ?)`,
 			uuid.NewString(), sifra, st.ID.String(), time.Now()); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := c.ExecContext(ctx, `PRAGMA foreign_keys = ON`); err != nil {
 			t.Fatal(err)
 		}
 	}
