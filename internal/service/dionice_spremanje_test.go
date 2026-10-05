@@ -236,15 +236,33 @@ func TestIzmjenaDionice(t *testing.T) {
 	if err := o.svc.SaveSection(ctx, pisePodr42, dionicaS("F.41.1", 41), false); !errors.Is(err, ErrUnauthorized) {
 		t.Errorf("tuđe područje: %v", err)
 	}
-	// rukovoditelj dionice uređuje svoju, ali ne može je premjestiti u
-	// drugo područje ni sektor: područje i sektor ostaju zatečeni
-	izmjena := dionicaS("F.41.1", 42, models.SectionPart{Description: "rijeka Primjerica, nova stacionaža"})
-	izmjena.SectorID = "E"
+	// rukovoditelj dionice uređuje svoju, ali je ne premješta u drugo
+	// područje ni sektor: takva izmjena se odbija s porukom, ne prolazi tiho
+	for _, s := range []struct {
+		ime      string
+		podrucje int
+		sektor   string
+	}{{"drugo područje", 42, ""}, {"drugi sektor", 41, "E"}, {"oboje", 42, "E"}} {
+		premjestaj := dionicaS("F.41.1", s.podrucje, models.SectionPart{Description: "premještena"})
+		premjestaj.SectorID = s.sektor
+		if err := o.svc.SaveSection(ctx, dionicar411, premjestaj, false); err == nil || !strings.Contains(err.Error(), "ne premješta") {
+			t.Errorf("%s: %v", s.ime, err)
+		}
+	}
+	if d, _ := o.svc.GetSectionWithDetails("F.41.1"); d == nil || d.AreaID != 41 || d.SectorID != "F" || d.Parts[0].Description == "premještena" {
+		t.Errorf("odbijeni premještaj promijenio je dionicu: %+v", d)
+	}
+	// izmjena koja ne dira područje i sektor (obrazac ne šalje sektor) prolazi
+	izmjena := dionicaS("F.41.1", 41, models.SectionPart{Description: "rijeka Primjerica, nova stacionaža"})
 	if err := o.svc.SaveSection(ctx, dionicar411, izmjena, false); err != nil {
 		t.Fatal(err)
 	}
 	if izmjena.AreaID != 41 || izmjena.SectorID != "F" {
-		t.Errorf("izmjena premjestila je dionicu: %d %s", izmjena.AreaID, izmjena.SectorID)
+		t.Errorf("izmjena: %d %s", izmjena.AreaID, izmjena.SectorID)
+	}
+	izmjena.SectorID = "f"
+	if err := o.svc.SaveSection(ctx, dionicar411, izmjena, false); err != nil {
+		t.Errorf("isti sektor malim slovom: %v", err)
 	}
 	d, _ := o.svc.GetSectionWithDetails("F.41.1")
 	if d == nil || d.Parts[0].Description != "rijeka Primjerica, nova stacionaža" {

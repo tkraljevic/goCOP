@@ -120,14 +120,8 @@ func (s *SectionService) SaveSection(ctx context.Context, perms *models.UserPerm
 		if !s.CanCreateSectionInArea(perms, sec.SectorID, sec.AreaID) {
 			return ErrUnauthorized
 		}
-	} else {
-		if existing == nil {
-			return ErrSectionNotFound
-		}
-		if !s.CanEditSection(perms, existing) {
-			return ErrUnauthorized
-		}
-		sec.AreaID, sec.SectorID = existing.AreaID, existing.SectorID
+	} else if err := s.provjeriIzmjenu(perms, sec, existing); err != nil {
+		return err
 	}
 	if err := validateParts(sec); err != nil {
 		return err
@@ -178,6 +172,24 @@ func (s *SectionService) sifraUPodrucju(ctx context.Context, sec *models.Section
 		return fmt.Errorf("branjeno područje %d pripada sektoru %s, a šifra %s sektoru %s", sec.AreaID, sektorPodrucja, sec.Code, sektor)
 	}
 	sec.SectorID = sektor
+	return nil
+}
+
+// provjeriIzmjenu dopušta izmjenu postojeće dionice onome tko je smije
+// urediti. Izmjena dionicu ne premješta: područje i sektor iz zahtjeva moraju
+// biti njezini (sektor se smije izostaviti), inače se odbija s porukom.
+func (s *SectionService) provjeriIzmjenu(perms *models.UserPermissions, sec, existing *models.Section) error {
+	if existing == nil {
+		return ErrSectionNotFound
+	}
+	if !s.CanEditSection(perms, existing) {
+		return ErrUnauthorized
+	}
+	sektor := strings.ToUpper(strings.TrimSpace(sec.SectorID))
+	if sec.AreaID != existing.AreaID || (sektor != "" && sektor != existing.SectorID) {
+		return fmt.Errorf("dionica %s ostaje u području %d sektora %s: izmjena je ne premješta", existing.Code, existing.AreaID, existing.SectorID)
+	}
+	sec.SectorID = existing.SectorID
 	return nil
 }
 
