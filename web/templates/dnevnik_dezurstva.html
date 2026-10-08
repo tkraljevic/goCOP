@@ -39,11 +39,28 @@
       <td class="mono">{{if ne (.Do.Format "2006-01-02") (.Od.Format "2006-01-02")}}{{.Do.Format "2.1."}} {{end}}{{.Do.Format "15:04"}} <span class="reg-card-sub">({{sati .Trajanje}})</span></td>
       <td>{{.UserName}}</td>
       <td>{{if .ZaPodrucje}}{{$id := .PodrucjeID}}{{range $.Areas}}{{if eq .ID $id}}{{.Name}}{{end}}{{end}}{{else}}cijeli {{terml "sektor"}}{{end}}</td>
-      <td>{{.Opis}}{{if .Napomena}}<div class="reg-card-sub">{{.Napomena}}</div>{{end}}</td>
-      <td>{{if eq .Mjesto "TEREN"}}teren{{else}}ured{{end}}</td>
+      <td>{{.Opis}}{{if .Napomena}}<div class="reg-card-sub">{{.Napomena}}</div>{{end}}
+        {{/* Opis rada ispravlja uprava centra na mjestu, bez micanja i
+             ponovnog upisa; mjesto rada slijedi iz opisa. Kad se mjesto ne
+             zna, obrazac je otvoren: bez ispravka nema potvrde. */}}
+        {{if $.UpravaCentra}}{{$opis := .Opis}}
+        <details class="dezurstvo-ispravak"{{if .ZaProvjeru}} open{{end}}>
+          <summary class="btn btn-sm btn-secondary" title="Ispravi opis rada">{{icon "pencil"}} ispravi opis</summary>
+          <form method="POST" action="/dnevnici/{{$.Journal.ID}}/dezurstva/{{.ID}}/opis" class="dezurstvo-ispravak-obrazac">
+            <select name="opis" class="form-control" aria-label="Opis rada" required>
+              {{if .ZaProvjeru}}<option value="" selected disabled>odaberite opis s popisa</option>{{end}}
+              {{range $.OpisiRada}}<option value="{{.Opis}}"{{if eq .Opis $opis}} selected{{end}}>{{.Opis}} ({{if eq .Mjesto "TEREN"}}teren{{else}}ured{{end}})</option>{{end}}
+            </select>
+            <button type="submit" class="btn btn-sm btn-primary">{{icon "check"}} Ispravi</button>
+          </form>
+        </details>{{end}}</td>
+      <td>{{if .ZaProvjeru}}<span class="badge badge-warning">{{.MjestoTekst}}</span>{{else}}{{.MjestoTekst}}{{end}}</td>
       {{/* Svatko upisuje sebe; uprava centra to provjeri i potvrdi. U
-           obračun ulazi samo potvrđeno, pa se vidi što još čeka. */}}
-      <td>{{if .Potvrdeno}}<span class="badge" title="{{.PotvrdenoAt.Format "2.1.2006. 15:04"}}">potvrdio {{.Potvrdio}}</span>
+           obračun ulazi samo potvrđeno, pa se vidi što još čeka. Dežurstvo
+           kojemu se ne zna mjesto rada ne potvrđuje se i nije u obračunu
+           dok uprava ne ispravi opis. */}}
+      <td>{{if .ZaProvjeru}}<span class="badge badge-warning" title="Nije u obračunu dok uprava centra ne izabere opis rada s popisa">za provjeru</span>
+        {{else if .Potvrdeno}}<span class="badge" title="{{.PotvrdenoAt.Format "2.1.2006. 15:04"}}">potvrdio {{.Potvrdio}}</span>
         {{else if $.UpravaCentra}}<form method="POST" action="/dnevnici/{{$.Journal.ID}}/dezurstva/{{.ID}}/potvrdi" class="d-inline"><button type="submit" class="btn btn-sm btn-primary" title="Provjereno, ulazi u obračun">{{icon "check"}} potvrdi</button></form>
         {{else}}<span class="badge badge-pending">čeka potvrdu</span>{{end}}</td>
       <td>{{if or $.UpravaCentra (and (not .Potvrdeno) (eq .UserID $.CurrentUser.ID.String))}}<form method="POST" action="/dnevnici/{{$.Journal.ID}}/dezurstva/{{.ID}}/makni" class="d-inline"

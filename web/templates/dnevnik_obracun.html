@@ -30,6 +30,11 @@
 <div class="alert alert-warning">{{icon "triangle-alert"}} <strong>{{sati .Obracun.CekaPotvrdu}} h</strong> u razdoblju još čeka potvrdu
   uprave centra i nije u obračunu. <a href="/dnevnici/{{.Journal.ID}}/dezurstva">Plan dežurstava</a></div>
 {{end}}
+{{if .Obracun.ZaProvjeru}}
+<div class="alert alert-warning">{{icon "triangle-alert"}} <strong>{{sati .Obracun.ZaProvjeru}} h</strong> u razdoblju ima
+  <strong>zapisa „mjesto nepoznato — za provjeru”</strong>: ne zna se je li rad bio u uredu ili na terenu, pa ti sati nisu u obračunu dok uprava centra
+  u planu ne izabere opis rada s popisa. <a href="/dnevnici/{{.Journal.ID}}/dezurstva">Plan dežurstava</a></div>
+{{end}}
 
 {{if .Obracun.Grupe}}
 {{/* Grupe po "za koga" s međuzbrojem, cijeli sektor na kraju, zbroj sektora

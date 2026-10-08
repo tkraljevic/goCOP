@@ -28,6 +28,7 @@ type Dezurstvo struct {
 
 	// Opis je jedan od OpisiRada; Mjesto se iz njega izvodi pri upisu i
 	// pohranjuje, da obračun ostane isti i ako se popis opisa promijeni.
+	// Zapis kojemu mjesto nije ni ured ni teren obračun čita kroz MjestoRada.
 	Opis     string `json:"opis"`
 	Mjesto   string `json:"mjesto"` // MjestoUred ili MjestoTeren
 	Napomena string `json:"napomena"`
@@ -78,6 +79,38 @@ func MjestoZaOpis(opis string) string {
 	}
 	return ""
 }
+
+// MjestoRada je mjesto rada za obračun: pohranjeno, kad je ured ili teren;
+// inače izvedeno iz opisa, kad je opis s popisa. Prazno kad ni opis nije s
+// popisa (zapis s drugog čvora ili stariji zapis bez mjesta): tada se ne zna
+// je li ured ili teren, pa se ništa ne pretpostavlja.
+func (d Dezurstvo) MjestoRada() string {
+	if d.Mjesto == MjestoUred || d.Mjesto == MjestoTeren {
+		return d.Mjesto
+	}
+	return MjestoZaOpis(d.Opis)
+}
+
+// ZaProvjeru javlja da se mjesto rada ne zna: takvo dežurstvo ne ulazi u
+// obračun i ne potvrđuje se dok uprava centra ne izabere opis s popisa
+func (d Dezurstvo) ZaProvjeru() bool { return d.MjestoRada() == "" }
+
+// OznakaZaProvjeru stoji umjesto mjesta rada kad se mjesto ne zna
+const OznakaZaProvjeru = "mjesto nepoznato — za provjeru"
+
+// NazivMjesta je mjesto rada kako ga plan, obračun i IORS ispisuju
+func NazivMjesta(mjesto string) string {
+	switch mjesto {
+	case MjestoTeren:
+		return "teren"
+	case MjestoUred:
+		return "ured"
+	}
+	return OznakaZaProvjeru
+}
+
+// MjestoTekst je mjesto rada dežurstva za ispis
+func (d Dezurstvo) MjestoTekst() string { return NazivMjesta(d.MjestoRada()) }
 
 // ZaPodrucje javlja je li dežurstvo vezano na jedno branjeno područje
 func (d Dezurstvo) ZaPodrucje() bool { return d.Podrucje != nil && *d.Podrucje > 0 }

@@ -147,7 +147,9 @@ func (s *JournalService) SpremiDezurstvo(ctx context.Context, u *models.User, pe
 	return s.repo.SaveDezurstvo(ctx, d)
 }
 
-// PotvrdiDezurstvo: uprava centra provjerila je upis i potvrđuje ga
+// PotvrdiDezurstvo: uprava centra provjerila je upis i potvrđuje ga.
+// Dežurstvo kojemu se ne zna mjesto rada ne potvrđuje se dok uprava ne
+// ispravi opis: potvrdom bi ušlo u obračun kao ured ili teren nasumce.
 func (s *JournalService) PotvrdiDezurstvo(ctx context.Context, u *models.User, perms *models.UserPermissions, j *models.Journal, id string) error {
 	if u == nil || !s.UpravaCentra(perms, j) {
 		return errors.New("dežurstvo potvrđuje voditelj ili zamjenik centra")
@@ -159,12 +161,53 @@ func (s *JournalService) PotvrdiDezurstvo(ctx context.Context, u *models.User, p
 	if d == nil || d.JournalID != j.ID {
 		return errors.New("dežurstvo nije pronađeno u ovom dnevniku")
 	}
+	if d.ZaProvjeru() {
+		return errors.New("mjesto rada nije poznato: najprije ispravite opis rada izborom s popisa, pa potvrdite")
+	}
 	if d.Potvrdeno() {
 		return nil
 	}
 	now := time.Now().In(models.Zagreb)
 	d.Potvrdio, d.PotvrdenoAt = u.FullName, &now
 	return s.repo.SaveDezurstvo(ctx, d)
+}
+
+// IspraviOpisDezurstva: uprava centra mijenja opis rada postojećeg
+// dežurstva, bez micanja i ponovnog upisa. Opis mora biti s popisa, a
+// mjesto rada izvodi se iz njega. Prijašnji opis, tko je ispravio i kada
+// ostaju u napomeni, a cijela prijašnja inačica u knjizi verzija. Potvrda se
+// povlači: ispravljeno dežurstvo uprava potvrđuje kao i svako drugo.
+func (s *JournalService) IspraviOpisDezurstva(ctx context.Context, u *models.User, perms *models.UserPermissions, j *models.Journal, id, opis string) error {
+	if u == nil || !s.UpravaCentra(perms, j) {
+		return errors.New("opis rada ispravlja voditelj ili zamjenik centra")
+	}
+	mjesto := models.MjestoZaOpis(opis)
+	if mjesto == "" {
+		return errors.New("odaberite opis rada s popisa")
+	}
+	d, err := s.repo.GetDezurstvo(ctx, id)
+	if err != nil {
+		return err
+	}
+	if d == nil || d.JournalID != j.ID {
+		return errors.New("dežurstvo nije pronađeno u ovom dnevniku")
+	}
+	if d.Opis == opis && d.Mjesto == mjesto {
+		return nil
+	}
+	d.Napomena = strings.TrimSpace(d.Napomena + " " + tragIspravkaOpisa(d.Opis, u.FullName, time.Now().In(models.Zagreb)))
+	d.Opis, d.Mjesto = opis, mjesto
+	d.Potvrdio, d.PotvrdenoAt = "", nil
+	return s.repo.SaveDezurstvo(ctx, d)
+}
+
+// tragIspravkaOpisa je bilješka o ispravku opisa rada: tko, kada i što je
+// prije pisalo
+func tragIspravkaOpisa(prije, tko string, kad time.Time) string {
+	if strings.TrimSpace(prije) == "" {
+		prije = "—"
+	}
+	return "[opis ispravio " + tko + " " + kad.Format("2.1.2006. 15:04") + "; prije: „" + prije + "”]"
 }
 
 // MakniDezurstvo miče dežurstvo iz plana; u knjizi verzija ostaje trag.
@@ -194,6 +237,7 @@ type Obracun struct {
 	Stvarni     time.Duration
 	Obracunski  float64
 	CekaPotvrdu time.Duration // sati u razdoblju koji još nisu potvrđeni; izvan zbroja
+	ZaProvjeru  time.Duration // sati dežurstava kojima se ne zna mjesto rada; izvan zbroja
 }
 
 type ObracunGrupa struct {
@@ -223,7 +267,9 @@ type ObracunStavka struct {
 // Obracun zbraja POTVRĐENA dežurstva dnevnika u razdoblju [od, do). Razmak
 // koji viri iz razdoblja uzima se samo onim dijelom koji je unutra, pa se
 // obračun za mjesec ne mijenja time što smjena prelazi u sljedeći. Nazivi
-// daju ime područja po broju; prazan broj je cijeli sektor.
+// daju ime područja po broju; prazan broj je cijeli sektor. Dežurstvo
+// kojemu se ne zna mjesto rada ne ulazi u zbroj ni kad je potvrđeno: broji
+// se kao „za provjeru”, kao nepotvrđeno kao „čeka potvrdu”.
 func (s *JournalService) Obracun(ctx context.Context, j *models.Journal, od, do time.Time, kal obracun.Kalendar, k obracun.Koeficijenti, nazivi map[int]string) (Obracun, error) {
 	var out Obracun
 	dez, err := s.repo.ListDezurstva(ctx, j.ID)
@@ -238,21 +284,11 @@ func (s *JournalService) Obracun(ctx context.Context, j *models.Journal, od, do 
 	sati := map[kljuc]obracun.Sati{}
 	imena := map[string]string{}
 	for _, d := range dez {
-		a, b := d.Od, d.Do
-		if a.Before(od) {
-			a = od
-		}
-		if b.After(do) {
-			b = do
-		}
-		if !b.After(a) {
+		a, b, ok := dioURazdoblju(d, od, do)
+		if !ok || izvanZbroja(d, b.Sub(a), &out.ZaProvjeru, &out.CekaPotvrdu) {
 			continue
 		}
-		if !d.Potvrdeno() {
-			out.CekaPotvrdu += b.Sub(a)
-			continue
-		}
-		kl := kljuc{d.PodrucjeID(), d.UserID, d.Mjesto}
+		kl := kljuc{d.PodrucjeID(), d.UserID, d.MjestoRada()}
 		if sati[kl] == nil {
 			sati[kl] = obracun.Sati{}
 		}
@@ -275,10 +311,8 @@ func (s *JournalService) Obracun(ctx context.Context, j *models.Journal, od, do 
 			g = &ObracunGrupa{Za: za, Podrucje: podrucje}
 			grupe[kl.podrucje] = g
 		}
+		// u zbroju su samo dežurstva s poznatim mjestom: ured ili teren
 		mjesto := obracun.Mjesto(kl.mjesto)
-		if mjesto != obracun.Teren {
-			mjesto = obracun.Ured
-		}
 		r := ObracunRedak{UserID: kl.user, UserName: imena[kl.user], Mjesto: string(mjesto), Stvarni: st.Ukupno()}
 		obr := k.ObracunskiPoRazredu(st, mjesto)
 		for _, razred := range obracun.Razredi {
@@ -319,9 +353,38 @@ func (s *JournalService) Obracun(ctx context.Context, j *models.Journal, od, do 
 	return out, nil
 }
 
+// dioURazdoblju je dio razmaka unutar razdoblja [od, do); ok je false kad
+// unutra nema ničega
+func dioURazdoblju(d models.Dezurstvo, od, do time.Time) (a, b time.Time, ok bool) {
+	a, b = d.Od, d.Do
+	if a.Before(od) {
+		a = od
+	}
+	if b.After(do) {
+		b = do
+	}
+	return a, b, b.After(a)
+}
+
+// izvanZbroja broji sate dežurstva koje ne ulazi u obračun: kad se ne zna
+// mjesto rada, u „za provjeru”, a kad nije potvrđeno, u „čeka potvrdu”.
+// Vraća true kad je dežurstvo izvan zbroja.
+func izvanZbroja(d models.Dezurstvo, sati time.Duration, zaProvjeru, cekaPotvrdu *time.Duration) bool {
+	switch {
+	case d.ZaProvjeru():
+		*zaProvjeru += sati
+	case !d.Potvrdeno():
+		*cekaPotvrdu += sati
+	default:
+		return false
+	}
+	return true
+}
+
 // IORS je izvješće o radnim satima jedne osobe, kako ga obrazac traži: redak
 // po danu i razmaku (dan, od–do, opis, mjesto, sati po razredu), pa obračun
-// po razredu za ured i teren. Nepotvrđeni razmaci se vide, ali nisu u zbroju.
+// po razredu za ured i teren. Nepotvrđeni razmaci i razmaci kojima se ne zna
+// mjesto rada se vide, ali nisu u zbroju.
 type IORS struct {
 	UserID, UserName string
 	Od, Do           time.Time
@@ -334,19 +397,43 @@ type IORS struct {
 	Stvarni          time.Duration
 	Obracunski       float64
 	CekaPotvrdu      time.Duration
+	ZaProvjeru       time.Duration // mjesto rada nepoznato; vidi se, nije u zbroju
 }
 
 // IORSRedak je jedan dan jednog razmaka; razmak preko ponoći daje dva retka,
 // jer svaki dan nosi svoju vrstu
 type IORSRedak struct {
-	Dan       time.Time
-	Od, Do    time.Time
-	Opis      string
-	Mjesto    string
-	Za        string
-	Sati      obracun.Sati
-	Ukupno    time.Duration
-	Potvrdeno bool
+	Dan        time.Time
+	Od, Do     time.Time
+	Opis       string
+	Mjesto     string // ured ili teren; prazno kad se ne zna
+	Za         string
+	Sati       obracun.Sati
+	Ukupno     time.Duration
+	Potvrdeno  bool
+	ZaProvjeru bool // mjesto rada nepoznato: izvan zbroja dok uprava centra ne ispravi opis
+}
+
+// UObracunu javlja ulazi li redak u zbroj: potvrđen i s poznatim mjestom
+func (r IORSRedak) UObracunu() bool { return r.Potvrdeno && !r.ZaProvjeru }
+
+// MjestoTekst je mjesto rada retka za ispis
+func (r IORSRedak) MjestoTekst() string { return models.NazivMjesta(r.Mjesto) }
+
+// dodaj upisuje redak i njegove sate: potvrđeni s poznatim mjestom idu u
+// ured ili teren, ostali se broje posebno — vide se, a nisu u zbroju
+func (o *IORS) dodaj(r IORSRedak) {
+	o.Redovi = append(o.Redovi, r)
+	switch {
+	case r.ZaProvjeru:
+		o.ZaProvjeru += r.Ukupno
+	case !r.Potvrdeno:
+		o.CekaPotvrdu += r.Ukupno
+	case r.Mjesto == models.MjestoTeren:
+		o.Teren.Dodaj(r.Sati)
+	default:
+		o.Ured.Dodaj(r.Sati)
+	}
 }
 
 // Sat vraća sate razreda u retku, za tablicu
@@ -380,14 +467,8 @@ func (s *JournalService) ObracunOsobe(ctx context.Context, j *models.Journal, us
 			continue
 		}
 		out.UserName = d.UserName
-		a, b := d.Od, d.Do
-		if a.Before(od) {
-			a = od
-		}
-		if b.After(do) {
-			b = do
-		}
-		if !b.After(a) {
+		a, b, ok := dioURazdoblju(d, od, do)
+		if !ok {
 			continue
 		}
 		za := "cijeli " + models.Terms().Lower("sektor") + " " + j.CentarSektor
@@ -404,18 +485,8 @@ func (s *JournalService) ObracunOsobe(ctx context.Context, j *models.Journal, us
 				kraj = ponoc
 			}
 			sati := obracun.Razvrstaj(pocetak, kraj, kal)
-			r := IORSRedak{Dan: time.Date(pocetak.Year(), pocetak.Month(), pocetak.Day(), 0, 0, 0, 0, models.Zagreb),
-				Od: pocetak, Do: kraj, Opis: d.Opis, Mjesto: d.Mjesto, Za: za, Sati: sati, Ukupno: sati.Ukupno(), Potvrdeno: d.Potvrdeno()}
-			out.Redovi = append(out.Redovi, r)
-			if d.Potvrdeno() {
-				if d.Mjesto == models.MjestoTeren {
-					out.Teren.Dodaj(sati)
-				} else {
-					out.Ured.Dodaj(sati)
-				}
-			} else {
-				out.CekaPotvrdu += r.Ukupno
-			}
+			out.dodaj(IORSRedak{Dan: time.Date(pocetak.Year(), pocetak.Month(), pocetak.Day(), 0, 0, 0, 0, models.Zagreb),
+				Od: pocetak, Do: kraj, Opis: d.Opis, Mjesto: d.MjestoRada(), Za: za, Sati: sati, Ukupno: sati.Ukupno(), Potvrdeno: d.Potvrdeno(), ZaProvjeru: d.ZaProvjeru()})
 			pocetak = ponoc
 		}
 	}
