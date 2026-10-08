@@ -8,7 +8,7 @@
 
 <div class="page-header">
   <div>
-    <h1 class="page-title">{{icon "notebook-pen"}} Dnevni list{{if $l.Broj}} {{$l.Broj}}{{end}} · {{$l.Datum.Day}}. {{$l.MjesecGenitiv}} {{$l.Datum.Year}}., {{$l.DanUTjednu}}</h1>
+    <h1 class="page-title">{{icon "notebook-pen"}} Dnevni list{{if $l.Broj}} {{$l.Broj}}{{else if $l.NacrtBezBroja}} · nacrt bez broja{{end}} · {{$l.Datum.Day}}. {{$l.MjesecGenitiv}} {{$l.Datum.Year}}., {{$l.DanUTjednu}}</h1>
     <p class="page-desc">{{$l.Ime}}{{with .Podrucje}} · {{.VgiName}} · BP {{.ID}}{{end}} · <strong>{{$l.Stanje}}</strong>{{with $l.Potvrdio}} · ovjerio {{.}}{{end}}</p>
   </div>
   <div class="page-actions">
@@ -63,9 +63,12 @@
     <div class="form-help">Predajom se list elektronički potpisuje vašim ključem; lozinka ga otključava i ne sprema se.</div>
   </div>
   {{end}}
+  {{$buduci := gt ($l.Datum.Format "2006-01-02") .Danas}}
+  {{if $buduci}}<div class="form-help">Dan ovog lista još nije počeo: list se sprema kao nacrt bez rednog broja, a potpisuje i predaje tek od 00:00 {{$l.Datum.Format "02.01.2006."}}. Broj dobiva prvim spremanjem toga dana.</div>{{end}}
   <div class="form-actions d-flex gap-2 flex-wrap">
     <button type="submit" class="btn btn-secondary" name="radnja" value="spremi">{{icon "check"}} Spremi</button>
-    <button type="submit" class="btn btn-primary" name="radnja" value="predaj" onclick="return confirm('Potpisati i predati list? Nakon predaje se više ne mijenja.')">{{icon "pencil"}} Potpiši i predaj</button>
+    {{if $buduci}}<button type="button" class="btn btn-primary" disabled title="predaja od 00:00 {{$l.Datum.Format "02.01.2006."}}">{{icon "pencil"}} Potpiši i predaj</button>
+    {{else}}<button type="submit" class="btn btn-primary" name="radnja" value="predaj" onclick="return confirm('Potpisati i predati list? Nakon predaje se više ne mijenja.')">{{icon "pencil"}} Potpiši i predaj</button>{{end}}
     {{if $l.ID}}<button type="submit" formaction="/vodocuvar/{{$l.ID}}/radnja" name="radnja" value="obrisi" class="btn btn-secondary btn-opasno" onclick="return confirm('Obrisati ovaj nepredani list?')">{{icon "trash"}} Obriši</button>{{end}}
   </div>
 </form>

@@ -45,7 +45,7 @@
     <ul class="posta-kartice mt-2">
     {{range .Listovi}}
       <li class="posta-kartica"><a class="posta-kartica-tijelo" href="/vodocuvar/{{.ID}}">
-        <div class="posta-kartica-red"><span class="posta-od">{{if .Broj}}List {{.Broj}}{{else if .Rekonstrukcija}}Preneseno{{else}}(nepredan){{end}} · {{.DanUTjednu}}</span><span class="posta-kad">{{.Datum.Format "02.01.2006."}}{{if not .Rekonstrukcija}} · {{.Od}}–{{.Do}} · {{.SatiTekst}} h{{end}}</span></div>
+        <div class="posta-kartica-red"><span class="posta-od">{{if .Broj}}List {{.Broj}}{{else if .Rekonstrukcija}}Preneseno{{else}}Nacrt bez broja{{end}} · {{.DanUTjednu}}</span><span class="posta-kad">{{.Datum.Format "02.01.2006."}}{{if not .Rekonstrukcija}} · {{.Od}}–{{.Do}} · {{.SatiTekst}} h{{end}}</span></div>
         <div class="posta-predmet">{{if .Opis}}{{.Opis}}{{else if .Zadaci}}{{range $i, $z := .Zadaci}}{{if $i}}; {{end}}{{$z.Tekst}}{{end}}{{else}}(bez opisa){{end}}</div>
         <div class="posta-pregled">{{if .Rekonstrukcija}}ovjereno prijenosom · iz ranije evidencije, bez potpisa vodočuvara{{else}}{{.Stanje}}{{with .Potvrdio}} · ovjerio {{.}}{{end}}{{if .Parafe}} · parafa: {{range $i, $p := .Parafe}}{{if $i}}, {{end}}{{$p.Ime}}{{end}}{{end}}{{end}}</div>
       </a></li>
@@ -84,7 +84,7 @@
     {{if not .Listovi}}<p class="form-help">Još nema listova: list nastaje kad vodočuvar na Terenu otvori „Današnji list”, ili kad vi upišete bilješku.</p>{{end}}
     <form method="POST" action="/vodocuvar/upis" class="posta-trazi" style="margin:0.4rem 0; align-items:center;">
       <input type="hidden" name="vodocuvar" value="{{.UserID}}">
-      <input type="date" class="form-control max-w-11" name="datum" value="{{$.Danas}}" title="dan lista">
+      <input type="date" class="form-control max-w-11" name="datum" value="{{$.Danas}}" max="{{$.NajdaljeDan}}" title="dan lista; unaprijed najviše 30 dana">
       <input class="form-control" name="tekst" required placeholder="upis u dnevnik: naredba, napomena, nalaz obilaska" style="min-width:16rem; flex:1;">
       <button type="submit" class="btn btn-secondary btn-sm">{{icon "pencil"}} Upiši</button>
     </form>
@@ -94,7 +94,7 @@
       <ul class="posta-kartice mt-2">
       {{range .Listovi}}
         <li class="posta-kartica {{if and .Predan (not .Potvrden)}}neprocitano{{end}}"><a class="posta-kartica-tijelo" href="/vodocuvar/{{.ID}}">
-          <div class="posta-kartica-red"><span class="posta-od">{{if .Broj}}List {{.Broj}}{{else if .Rekonstrukcija}}Preneseno{{else}}List —{{end}} · {{.DanUTjednu}}</span><span class="posta-kad">{{.Datum.Format "02.01.2006."}}{{if not .Rekonstrukcija}} · {{.SatiTekst}} h{{end}}</span></div>
+          <div class="posta-kartica-red"><span class="posta-od">{{if .Broj}}List {{.Broj}}{{else if .Rekonstrukcija}}Preneseno{{else}}Nacrt bez broja{{end}} · {{.DanUTjednu}}</span><span class="posta-kad">{{.Datum.Format "02.01.2006."}}{{if not .Rekonstrukcija}} · {{.SatiTekst}} h{{end}}</span></div>
           <div class="posta-predmet">{{if .Opis}}{{.Opis}}{{else if .Zadaci}}{{range $i, $z := .Zadaci}}{{if $i}}; {{end}}{{$z.Tekst}}{{end}}{{else}}(bez opisa){{end}}</div>
           <div class="posta-pregled">{{if .Rekonstrukcija}}ovjereno prijenosom · iz ranije evidencije, bez potpisa vodočuvara{{else}}{{.Stanje}}{{with .Potvrdio}} · ovjerio {{.}}{{end}}{{end}}</div>
         </a></li>

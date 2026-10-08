@@ -275,15 +275,14 @@ func (s *PrijavaService) Objavi(ctx context.Context, u *models.User, id string, 
 	if Arhivirana(dan.Year()) {
 		return nil, "", fmt.Errorf("knjiga za %d. je arhivirana", dan.Year())
 	}
-	// list dana: postojeći ili novi, s brojem
+	// list dana: postojeći ili novi, s brojem; list za dan koji još nije
+	// počeo ostaje nacrt bez broja
 	l, err := s.vodocuvar.pripremiZa(ctx, cijeli, dan)
 	if err != nil {
 		return nil, "", err
 	}
-	if l.Broj == 0 {
-		if l.Broj, err = s.vodocuvar.repo.SljedeciBroj(ctx, cijeli.ID.String(), dan.Year()); err != nil {
-			return nil, "", err
-		}
+	if err := s.vodocuvar.dodijeliBroj(ctx, l); err != nil {
+		return nil, "", err
 	}
 	sad := time.Now()
 	p.Godina = dan.Year()

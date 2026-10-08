@@ -52,6 +52,7 @@ func novaOkolinaVodocuvara(t *testing.T) *okolinaVodocuvara {
 	rec := ledger.New(baza, "test")
 	o := &okolinaVodocuvara{baza: baza, repo: repository.NewVodocuvarRepository(baza, rec), readings: repository.NewReadingRepository(baza, rec)}
 	o.vs = NewVodocuvarService(o.repo, nil, "cvor-probni")
+	o.vs.sad = vdSat
 	// bez registra organizacije i klijenta prilike ostaju prazne, bez mreže
 	o.vs.SetWeather(nil)
 	o.letva = &models.Station{ID: uuid.New(), Code: "primjerovo", Name: "Primjerovo"}
@@ -78,11 +79,15 @@ func vdVodocuvar() *models.User {
 	return vdPperic(vdDuznost(models.RoleWaterGuard, 1, true))
 }
 
-// vdDan je dan u tekućoj godini; dnevnik budući dan ne odbija, pa testovi
-// ne ovise o tome koji je danas dan
+// vdDan je dan u tekućoj godini. Sat servisa u testovima stoji na kraju
+// godine (vdSat), pa je svaki takav dan već počeo i testovi ne ovise o tome
+// koji je danas dan.
 func vdDan(mjesec time.Month, dan int) time.Time {
 	return time.Date(time.Now().In(models.Zagreb).Year(), mjesec, dan, 0, 0, 0, 0, models.Zagreb)
 }
+
+// vdSat je sat servisa u testovima: podne 31. prosinca tekuće godine
+func vdSat() time.Time { return vdDan(time.December, 31).Add(12 * time.Hour) }
 
 func vdUnos(opis string) UnosLista {
 	return UnosLista{Od: "07:00", Do: "15:00", Opis: opis}
@@ -319,8 +324,10 @@ func TestRedniBrojLista(t *testing.T) {
 	if l, err := o.vs.Spremi(ctx, drugi, vdDan(time.March, 10), vdUnos(""), false); err != nil || l.Broj != 1 {
 		t.Errorf("knjiga drugog vodočuvara: %v %v", l, err)
 	}
-	// iduće godine knjiga počinje ispočetka
+	// iduće godine knjiga počinje ispočetka; list se sprema kad je taj dan
+	// došao, jer se unaprijed priprema najviše 30 dana
 	iduce := vdDan(time.March, 10).AddDate(1, 0, 0)
+	o.vs.sad = func() time.Time { return iduce.Add(12 * time.Hour) }
 	if l := spremi(iduce); l.Broj != 1 {
 		t.Errorf("iduća godina: broj %d", l.Broj)
 	}

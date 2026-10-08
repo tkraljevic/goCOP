@@ -161,11 +161,11 @@ func PDFVodocuvarskaKnjiga(listovi []models.VodocuvarskiList, ime string, godina
 		d.TekstSredina(d.W/2, d.Y, 9, false, prvi.Datum.In(models.Zagreb).Format("02.01.2006.")+" – "+zadnji.Datum.In(models.Zagreb).Format("02.01.2006."))
 	}
 	d.TekstBoja(d.Lijevo, d.H-d.Dolje, 6.5, false, "Knjiga je zaključena istekom godine i čuva se u goCOP-u; ispis iz programa, listovi nose potpise kako su dani u programu.", sivaTekst)
-	// listovi od najstarijeg, po broju
+	// listovi od najstarijeg, po broju; nacrti bez broja na kraju
 	poredani := append([]models.VodocuvarskiList{}, listovi...)
 	for i := 0; i < len(poredani); i++ {
 		for j := i + 1; j < len(poredani); j++ {
-			if poredani[j].Broj < poredani[i].Broj || (poredani[j].Broj == poredani[i].Broj && poredani[j].Datum.Before(poredani[i].Datum)) {
+			if prijeUKnjizi(poredani[j], poredani[i]) {
 				poredani[i], poredani[j] = poredani[j], poredani[i]
 			}
 		}
@@ -179,6 +179,17 @@ func PDFVodocuvarskaKnjiga(listovi []models.VodocuvarskiList, ime string, godina
 		nacrtajPriloge(d, &poredani[i], pr)
 	}
 	return d.Bajtovi()
+}
+
+// prijeUKnjizi javlja ide li list a u ispisu knjige prije lista b: po
+// rednom broju (preneseni listovi bez broja prvi, kao i dosad), a od istog
+// broja raniji dan. Nacrt bez broja, za dan koji pri spremanju još nije
+// počeo, nije stranica knjige pa ide na kraj, po danu.
+func prijeUKnjizi(a, b models.VodocuvarskiList) bool {
+	if a.NacrtBezBroja() != b.NacrtBezBroja() {
+		return b.NacrtBezBroja()
+	}
+	return a.Broj < b.Broj || (a.Broj == b.Broj && a.Datum.Before(b.Datum))
 }
 
 // nacrtajList crta jedan dnevni list na tekuću stranicu

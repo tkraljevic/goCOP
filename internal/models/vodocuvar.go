@@ -152,6 +152,13 @@ func (l VodocuvarskiList) Stanje() string {
 	return "u pisanju"
 }
 
+// NacrtBezBroja javlja da je list spremljen, a još nema redni broj: nacrt
+// za dan koji tada nije počeo. Broj dobiva prvim spremanjem ili predajom
+// kad njegov dan počne; prenesen list nema broja i nije nacrt.
+func (l VodocuvarskiList) NacrtBezBroja() bool {
+	return l.ID != "" && l.Broj == 0 && !l.Rekonstrukcija
+}
+
 // Zakljucen javlja da se list više ne mijenja: predan je, ili je prenesen iz
 // ranije evidencije. Prenesen list nitko neće potpisati ni ovjeriti — nije
 // nastao u programu — pa ga sustav zatvara takvog kakav je došao i ne drži

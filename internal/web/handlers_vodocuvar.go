@@ -128,7 +128,8 @@ type VodocuvarPageData struct {
 	MojiMjeseci []MjesecKnjige // vlastiti listovi po mjesecima
 	SamoMoj     bool           // vodočuvar bez tuđih knjiga: zaslon bez filtara
 	Danas       string
-	Arhivirana  bool // odabrana godina je zaključena
+	NajdaljeDan string // zadnji dan za koji se list priprema unaprijed (30 dana)
+	Arhivirana  bool   // odabrana godina je zaključena
 
 	Vodocuvari      []models.User    // kojima osoba smije zadavati zadatke
 	ZadaciOsobe     []models.Zadatak // zadaci vodočuvara čiji je list otvoren
@@ -148,7 +149,8 @@ func (h *VodocuvarHandler) base(r *http.Request) (*models.User, *models.UserPerm
 	perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
 	q := r.URL.Query()
 	d := VodocuvarPageData{CurrentUser: u, Permissions: perms, ActiveNav: "journals", ViewAsBanner: viewBanner(r),
-		SuccessMessage: q.Get("success"), ErrorMessage: q.Get("error"), Danas: time.Now().In(models.Zagreb).Format("2006-01-02")}
+		SuccessMessage: q.Get("success"), ErrorMessage: q.Get("error"), Danas: time.Now().In(models.Zagreb).Format("2006-01-02"),
+		NajdaljeDan: time.Now().In(models.Zagreb).AddDate(0, 0, models.NajdaljePlaniranje).Format("2006-01-02")}
 	if u != nil {
 		if cijeli, err := h.users.GetUserByID(u.ID); err == nil && cijeli != nil {
 			d.VodiDnevnik = service.VodiDnevnik(cijeli)
@@ -449,7 +451,16 @@ func (h *VodocuvarHandler) HandleUpis(w http.ResponseWriter, r *http.Request) {
 		redirectWith(w, r, natrag, "error", err.Error())
 		return
 	}
-	redirectWith(w, r, "/vodocuvar/"+l.ID, "success", "Upis je u dnevniku, na listu "+strconv.Itoa(l.Broj)+" od "+l.Datum.Format("02.01.2006.")+", s vašim imenom i vremenom.")
+	redirectWith(w, r, "/vodocuvar/"+l.ID, "success", "Upis je u dnevniku, "+naListu(l)+", s vašim imenom i vremenom.")
+}
+
+// naListu kaže na koji je list upisano: s brojem, ili na nacrt za dan koji
+// još nije počeo, koji broj dobiva kad taj dan počne
+func naListu(l *models.VodocuvarskiList) string {
+	if l.Broj == 0 {
+		return "na nacrtu lista bez broja od " + l.Datum.Format("02.01.2006.") + " (broj dobiva kad taj dan počne)"
+	}
+	return "na listu " + strconv.Itoa(l.Broj) + " od " + l.Datum.Format("02.01.2006.")
 }
 
 // HandleZadatak zadaje zadatak vodočuvaru

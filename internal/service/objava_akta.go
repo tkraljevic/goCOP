@@ -199,11 +199,10 @@ func (s *VodocuvarService) UpisiIzAkta(ctx context.Context, a *models.Akt, dan t
 			upozorenja = append(upozorenja, v.FullName+": "+err.Error())
 			continue
 		}
-		if l.Broj == 0 {
-			if l.Broj, err = s.repo.SljedeciBroj(ctx, v.ID.String(), dan.Year()); err != nil {
-				upozorenja = append(upozorenja, v.FullName+": "+err.Error())
-				continue
-			}
+		// list za dan koji još nije počeo ostaje nacrt bez broja
+		if err := s.dodijeliBroj(ctx, l); err != nil {
+			upozorenja = append(upozorenja, v.FullName+": "+err.Error())
+			continue
 		}
 		l.Upisi = append(l.Upisi, models.UpisRukovoditelja{UserID: a.OvjerioID, Ime: a.Ovjerio, Funkcija: "akt " + a.Oznaka(), Kad: time.Now(), Tekst: "Obrana od poplava: " + tekst})
 		if err := s.repo.Save(ctx, l); err != nil {
