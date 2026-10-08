@@ -190,10 +190,24 @@ func (h *IzvjescaHandler) HandleSektorskoSpremi(w http.ResponseWriter, r *http.R
 			redirectWith(w, r, "/sektorsko-izvjesce/"+iz.ID+"/uredi", "error", "Spremljeno kao nacrt; "+err.Error())
 			return
 		}
-		redirectWith(w, r, "/sektorsko-izvjesce/"+iz.ID, "success", "Izvješće sektora je predano Glavnom centru.")
+		redirectWith(w, r, "/sektorsko-izvjesce/"+iz.ID, "success", porukaSpremanjaSektorskog(iz, true))
 		return
 	}
-	redirectWith(w, r, "/sektorsko-izvjesce/"+iz.ID, "success", "Izvješće sektora je spremljeno kao nacrt.")
+	redirectWith(w, r, "/sektorsko-izvjesce/"+iz.ID, "success", porukaSpremanjaSektorskog(iz, false))
+}
+
+// porukaSpremanjaSektorskog kaže što je spremanje napravilo. Izmjena
+// izvješća koje je već bilo predano vraća ga u nacrt, pa se predaje ponovno.
+func porukaSpremanjaSektorskog(iz *models.SektorskoIzvjesce, predano bool) string {
+	switch {
+	case predano && iz.BiloPredano():
+		return "Izvješće sektora je ponovno predano Glavnom centru."
+	case predano:
+		return "Izvješće sektora je predano Glavnom centru."
+	case iz.BiloPredano():
+		return "Izmjena je spremljena; izvješće je sada nacrt i treba ga ponovo predati Glavnom centru."
+	}
+	return "Izvješće sektora je spremljeno kao nacrt."
 }
 
 // HandleSektorskoPredaj označava izvješće predanim
@@ -205,6 +219,17 @@ func (h *IzvjescaHandler) HandleSektorskoPredaj(w http.ResponseWriter, r *http.R
 		return
 	}
 	redirectWith(w, r, "/sektorsko-izvjesce/"+id, "success", "Izvješće sektora je predano Glavnom centru.")
+}
+
+// HandleSektorskoPovuci vraća predano izvješće u nacrt
+func (h *IzvjescaHandler) HandleSektorskoPovuci(w http.ResponseWriter, r *http.Request) {
+	data := h.pageData(r)
+	id := r.PathValue("id")
+	if err := h.svc().PovuciPredajuSektorskog(r.Context(), data.CurrentUser, data.Permissions, id); err != nil {
+		redirectWith(w, r, "/sektorsko-izvjesce/"+id, "error", err.Error())
+		return
+	}
+	redirectWith(w, r, "/sektorsko-izvjesce/"+id, "success", "Predaja je povučena; izvješće sektora je nacrt i treba ga ponovo predati Glavnom centru.")
 }
 
 // HandleSektorskoObrisi arhivira izvješće

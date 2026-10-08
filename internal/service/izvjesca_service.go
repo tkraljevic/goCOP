@@ -190,7 +190,10 @@ func vodotokDionice(sec *models.Section) string {
 }
 
 // Spremi upisuje ili mijenja izvješće. Jedno po dionici i danu — drugog za
-// isti dan nema, pa predano mijenja samo tko ga je predao, ili uprava.
+// isti dan nema, pa predano mijenja samo tko ga je izradio, ili uprava.
+// Spremljeno izvješće uvijek je nacrt: izmjena predanog vraća ga u nacrt
+// koji se mora ponovo predati, prvo vrijeme predaje ostaje, a pamti se tko
+// je mijenjao.
 func (s *IzvjescaService) Spremi(ctx context.Context, u *models.User, perms *models.UserPermissions, sec *models.Section, iz *models.DnevnoIzvjesce) error {
 	if u == nil {
 		return errors.New("upis zahtijeva prijavu")
@@ -233,21 +236,23 @@ func (s *IzvjescaService) Spremi(ctx context.Context, u *models.User, perms *mod
 		if cur.Predano() && !perms.CanAdminister(sec.SectorID, sec.AreaID) && cur.IzradioID != u.ID.String() {
 			return errors.New("predano izvješće mijenja tko ga je predao, ili uprava")
 		}
-		iz.CreatedAt, iz.IzradioID, iz.Izradio, iz.PredanoAt = cur.CreatedAt, cur.IzradioID, cur.Izradio, cur.PredanoAt
+		iz.CreatedAt, iz.IzradioID, iz.Izradio, iz.TragPredaje = cur.CreatedAt, cur.IzradioID, cur.Izradio, cur.TragPredaje
+		iz.IzmjenaPoslijePredaje(cur.PredanoAt, u)
 		if iz.IzradioID == "" {
 			iz.IzradioID, iz.Izradio = u.ID.String(), u.FullName
 		}
 	} else {
-		iz.IzradioID, iz.Izradio = u.ID.String(), u.FullName
+		iz.IzradioID, iz.Izradio, iz.TragPredaje = u.ID.String(), u.FullName, models.TragPredaje{}
 	}
 	if iz.Sadrzaj.Vodotok == "" {
 		iz.Sadrzaj.Vodotok = vodotokDionice(sec)
 	}
-	iz.IzradenoAt = time.Now().In(models.Zagreb)
+	iz.IzradenoAt, iz.PredanoAt = time.Now().In(models.Zagreb), nil
 	return s.repo.Save(ctx, iz)
 }
 
-// Predaj označava izvješće predanim u podcentar, s vremenom predaje
+// Predaj označava izvješće predanim u podcentar, s vremenom predaje i
+// imenom onoga tko predaje; nakon izmjene to je ponovna predaja
 func (s *IzvjescaService) Predaj(ctx context.Context, u *models.User, perms *models.UserPermissions, sec *models.Section, id string) error {
 	if u == nil || !s.SmijePisati(perms, sec) {
 		return errors.New("izvješće predaje tko ga smije pisati")
@@ -267,6 +272,7 @@ func (s *IzvjescaService) Predaj(ctx context.Context, u *models.User, perms *mod
 	}
 	sad := time.Now().In(models.Zagreb)
 	iz.PredanoAt = &sad
+	iz.ZabiljeziPredaju(sad, u)
 	return s.repo.Save(ctx, iz)
 }
 

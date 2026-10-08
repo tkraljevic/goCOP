@@ -162,21 +162,46 @@ func TestDnevnoIzvjescePredanoIzmjena(t *testing.T) {
 	if err := o.svc.Spremi(ctx, o.urednik, o.pisePero, o.d111, &izmjena); err == nil || !strings.Contains(err.Error(), "tko ga je predao") {
 		t.Errorf("zamjenik mijenja predano: %v", err)
 	}
-	// Autor mijenja i predano: sadržaj se mijenja, a izvješće ostaje
-	// predano s istim vremenom predaje.
+	// Odluke (8. 10. 2026.), pitanje 12: autor mijenja i predano, ali izmjena
+	// izvješće vraća u nacrt. Prije je ovdje stajalo da izvješće ostaje
+	// predano s istim vremenom predaje; sada prvo vrijeme predaje ostaje
+	// zapisano, uz ime onoga tko je mijenjao, a izvješće se predaje ponovno.
 	izmjena.IzradioID, izmjena.Izradio = "netko", "netko drugi"
 	if err := o.svc.Spremi(ctx, o.pero, o.pisePero, o.d111, &izmjena); err != nil {
 		t.Fatal(err)
 	}
 	poslije, _ := o.svc.Get(ctx, iz.ID)
-	if poslije.Sadrzaj.Pregled != "Procjeđivanje kod Primjerova." || !poslije.Predano() || !poslije.PredanoAt.Equal(*predano.PredanoAt) ||
-		poslije.Izradio != "Pero Perić" || poslije.IzradioID != o.pero.ID.String() {
+	if poslije.Sadrzaj.Pregled != "Procjeđivanje kod Primjerova." || poslije.Predano() || !poslije.PrviPutPredano().Equal(*predano.PredanoAt) ||
+		poslije.Izmijenio != "Pero Perić" || poslije.Izradio != "Pero Perić" || poslije.IzradioID != o.pero.ID.String() {
 		t.Errorf("izmjena predanog: %+v", poslije)
 	}
-	// uprava sektora mijenja predano
+	// ponovna predaja: novo vrijeme predaje, prvo ostaje
+	if err := o.svc.Predaj(ctx, o.pero, o.pisePero, o.d111, iz.ID); err != nil {
+		t.Fatal(err)
+	}
+	ponovo, _ := o.svc.Get(ctx, iz.ID)
+	if !ponovo.Predano() || !ponovo.PonovnoPredano() || ponovo.PredanoAt.Equal(*predano.PredanoAt) || !ponovo.PrviPutPredano().Equal(*predano.PredanoAt) ||
+		ponovo.TkoJePredao() != "Pero Perić" {
+		t.Errorf("ponovna predaja: %+v", ponovo)
+	}
+	// zamjenik ni ponovno predano ne mijenja
+	if err := o.svc.Spremi(ctx, o.urednik, o.pisePero, o.d111, &izmjena); err == nil || !strings.Contains(err.Error(), "tko ga je") {
+		t.Errorf("zamjenik mijenja ponovno predano: %v", err)
+	}
+	// uprava sektora mijenja predano: opet nacrt, izmijenio je onaj iz uprave
 	izmjena.Sadrzaj.Pregled = "Ispravak uprave."
 	if err := o.svc.Spremi(ctx, o.urednik, o.upravaP, o.d111, &izmjena); err != nil {
 		t.Errorf("uprava mijenja predano: %v", err)
+	}
+	if g, _ := o.svc.Get(ctx, iz.ID); g.Predano() || g.Izmijenio != "Pero Perić (zamjenik)" || !g.PrviPutPredano().Equal(*predano.PredanoAt) {
+		t.Errorf("izmjena uprave: %+v", g)
+	}
+	// uprava ga i preda; predao je ona, ne autor
+	if err := o.svc.Predaj(ctx, o.urednik, o.upravaP, o.d111, iz.ID); err != nil {
+		t.Fatal(err)
+	}
+	if g, _ := o.svc.Get(ctx, iz.ID); !g.PonovnoPredano() || g.TkoJePredao() != "Pero Perić (zamjenik)" || g.Izradio != "Pero Perić" {
+		t.Errorf("predaja uprave: %+v", g)
 	}
 
 	// brisanje predanog: zamjenik ne, uprava da
@@ -438,14 +463,26 @@ func TestSektorskoIzvjesceIzmjenaIPredaja(t *testing.T) {
 	if err := o.svc.PredajSektorsko(ctx, o.pero, o.upravaP, iz.ID); err != nil {
 		t.Errorf("druga predaja: %v", err)
 	}
-	// Predano izvješće sektora i dalje se mijenja: tekst se promijeni, a
-	// vrijeme predaje ostane.
-	poslije := &models.SektorskoIzvjesce{ID: iz.ID, Sektor: "P", Dan: danas(), Sadrzaj: models.SektorskiSadrzaj{Hidrometeo: "Ispravljeno poslije predaje."}}
-	if err := o.svc.SpremiSektorsko(ctx, o.pero, o.upravaP, poslije, nil, nil); err != nil {
+	// Odluke (8. 10. 2026.), pitanje 12: predano izvješće sektora i dalje se
+	// mijenja, ali izmjena ga vraća u nacrt. Prije je ovdje stajalo da
+	// vrijeme predaje ostaje; sada prvo vrijeme predaje ostaje zapisano, uz
+	// ime onoga tko je mijenjao, a izvješće se predaje ponovno.
+	poslije := &models.SektorskoIzvjesce{ID: iz.ID, Sektor: "P", Dan: danas(), PredanoAt: predano.PredanoAt,
+		Sadrzaj: models.SektorskiSadrzaj{Hidrometeo: "Ispravljeno poslije predaje."}}
+	if err := o.svc.SpremiSektorsko(ctx, o.urednik, o.upravaP, poslije, nil, nil); err != nil {
 		t.Fatalf("izmjena predanog danas prolazi: %v", err)
 	}
-	if g, _ := o.svc.GetSektorsko(ctx, iz.ID); g.Sadrzaj.Hidrometeo != "Ispravljeno poslije predaje." || !g.PredanoAt.Equal(*predano.PredanoAt) {
+	if g, _ := o.svc.GetSektorsko(ctx, iz.ID); g.Sadrzaj.Hidrometeo != "Ispravljeno poslije predaje." || g.Predano() || !g.PrviPutPredano().Equal(*predano.PredanoAt) ||
+		g.Izmijenio != "Pero Perić (zamjenik)" || g.Izradio != "Pero Perić" {
 		t.Errorf("predano poslije izmjene: %+v", g)
+	}
+	// ponovna predaja: novo vrijeme, prvo ostaje, predao je onaj tko je predao
+	if err := o.svc.PredajSektorsko(ctx, o.urednik, o.upravaP, iz.ID); err != nil {
+		t.Fatal(err)
+	}
+	ponovo, _ := o.svc.GetSektorsko(ctx, iz.ID)
+	if !ponovo.PonovnoPredano() || ponovo.PredanoAt.Equal(*predano.PredanoAt) || !ponovo.PrviPutPredano().Equal(*predano.PredanoAt) || ponovo.TkoJePredao() != "Pero Perić (zamjenik)" {
+		t.Errorf("ponovna predaja: %+v", ponovo)
 	}
 	// Zadani ID mora biti izvješće istog sektora: uprava sektora Q ne
 	// prepiše izvješće sektora P.
@@ -467,8 +504,41 @@ func TestSektorskoIzvjesceIzmjenaIPredaja(t *testing.T) {
 	if err := o.svc.PredajSektorsko(ctx, o.pero, upravaQ, uuid.NewString()); err == nil || !strings.Contains(err.Error(), "nije pronađeno") {
 		t.Errorf("predaja nepostojećeg: %v", err)
 	}
-	if err := o.svc.ObrisiSektorsko(ctx, o.pero, o.upravaP, iz.ID); err != nil {
+	// Odluke (8. 10. 2026.), pitanje 12: izvješće sektora koje je bilo
+	// predano ne briše ni uprava (prije je ovdje brisanje prolazilo), ni kad
+	// je predaja povučena; povlači ga samo uprava sektora.
+	if err := o.svc.ObrisiSektorsko(ctx, o.pero, o.upravaP, iz.ID); err == nil || !strings.Contains(err.Error(), "ne briše se") {
+		t.Fatalf("brisanje predanog: %v", err)
+	}
+	if err := o.svc.PovuciPredajuSektorskog(ctx, o.pero, upravaQ, iz.ID); err == nil || !strings.Contains(err.Error(), "povlači") {
+		t.Errorf("povlačenje bez uprave sektora: %v", err)
+	}
+	if err := o.svc.PovuciPredajuSektorskog(ctx, nil, o.upravaP, iz.ID); err == nil {
+		t.Error("povlačenje bez prijave")
+	}
+	if err := o.svc.PovuciPredajuSektorskog(ctx, o.pero, o.upravaP, uuid.NewString()); err == nil || !strings.Contains(err.Error(), "nije pronađeno") {
+		t.Errorf("povlačenje nepostojećeg: %v", err)
+	}
+	if err := o.svc.PovuciPredajuSektorskog(ctx, o.pero, o.upravaP, iz.ID); err != nil {
 		t.Fatal(err)
+	}
+	povuceno, _ := o.svc.GetSektorsko(ctx, iz.ID)
+	if povuceno.Predano() || !povuceno.PrviPutPredano().Equal(*predano.PredanoAt) || povuceno.Sadrzaj.Hidrometeo != "Ispravljeno poslije predaje." {
+		t.Errorf("povučeno: %+v", povuceno)
+	}
+	if err := o.svc.PovuciPredajuSektorskog(ctx, o.pero, o.upravaP, iz.ID); err == nil || !strings.Contains(err.Error(), "nije predano") {
+		t.Errorf("drugo povlačenje: %v", err)
+	}
+	if err := o.svc.ObrisiSektorsko(ctx, o.pero, o.upravaP, iz.ID); err == nil || !strings.Contains(err.Error(), "ne briše se") {
+		t.Errorf("brisanje povučenog: %v", err)
+	}
+	// nacrt koji nikad nije predan briše se kao i prije
+	nacrt := &models.SektorskoIzvjesce{Sektor: "P", Dan: danas().AddDate(0, 0, -1), Sadrzaj: models.SektorskiSadrzaj{Hidrometeo: "Nacrt."}}
+	if err := o.svc.SpremiSektorsko(ctx, o.pero, o.upravaP, nacrt, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := o.svc.ObrisiSektorsko(ctx, o.pero, o.upravaP, nacrt.ID); err != nil {
+		t.Errorf("brisanje nacrta: %v", err)
 	}
 }
 

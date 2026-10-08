@@ -234,10 +234,24 @@ func (h *IzvjescaHandler) HandleSpremi(w http.ResponseWriter, r *http.Request) {
 			redirectWith(w, r, "/izvjesca/"+iz.ID+"/uredi", "error", "Spremljeno kao nacrt; "+err.Error())
 			return
 		}
-		redirectWith(w, r, "/izvjesca/"+iz.ID, "success", "Izvješće je predano.")
+		redirectWith(w, r, "/izvjesca/"+iz.ID, "success", porukaSpremanjaIzvjesca(iz, true))
 		return
 	}
-	redirectWith(w, r, "/izvjesca/"+iz.ID, "success", "Izvješće je spremljeno kao nacrt.")
+	redirectWith(w, r, "/izvjesca/"+iz.ID, "success", porukaSpremanjaIzvjesca(iz, false))
+}
+
+// porukaSpremanjaIzvjesca kaže što je spremanje napravilo. Izmjena
+// izvješća koje je već bilo predano vraća ga u nacrt, pa se predaje ponovno.
+func porukaSpremanjaIzvjesca(iz *models.DnevnoIzvjesce, predano bool) string {
+	switch {
+	case predano && iz.BiloPredano():
+		return "Izvješće je ponovno predano."
+	case predano:
+		return "Izvješće je predano."
+	case iz.BiloPredano():
+		return "Izmjena je spremljena; izvješće je sada nacrt i treba ga ponovo predati u podcentar."
+	}
+	return "Izvješće je spremljeno kao nacrt."
 }
 
 // SetZaglavlje daje rukovatelju ono što na izvozu stoji o organizaciji

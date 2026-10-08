@@ -1362,6 +1362,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /sektorsko-izvjesce/{id}/uredi", s.authMiddleware(http.HandlerFunc(izvjescaH.ShowSektorskoUredi)))
 	s.mux.Handle("POST /sektorsko-izvjesce/{id}", s.authMiddleware(http.HandlerFunc(izvjescaH.HandleSektorskoSpremi)))
 	s.mux.Handle("POST /sektorsko-izvjesce/{id}/predaj", s.authMiddleware(http.HandlerFunc(izvjescaH.HandleSektorskoPredaj)))
+	s.mux.Handle("POST /sektorsko-izvjesce/{id}/povuci", s.authMiddleware(http.HandlerFunc(izvjescaH.HandleSektorskoPovuci)))
 	s.mux.Handle("POST /sektorsko-izvjesce/{id}/obrisi", s.authMiddleware(http.HandlerFunc(izvjescaH.HandleSektorskoObrisi)))
 	s.mux.Handle("GET /sektorsko-izvjesce/{id}/izvjesce.xlsx", s.authMiddleware(http.HandlerFunc(izvjescaH.IzvoziSektorsko)))
 	izvjescaH.SetZaglavlje(func(sektor string) ZaglavljeIzvoza {

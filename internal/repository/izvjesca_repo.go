@@ -17,11 +17,12 @@ import (
 const EntityDnevnaIzvjesca = "dnevna_izvjesca"
 
 // Izvješće putuje kanalom svog dnevnika COP-a kad ga ima, inače zajedničkim
-const izvjesceUpsert = `INSERT INTO dnevna_izvjesca (id, journal_id, section_code, dan, stadij, sadrzaj, izradio_id, izradio, izradeno_at, predano_at, created_at, updated_at)
-	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+const izvjesceUpsert = `INSERT INTO dnevna_izvjesca (id, journal_id, section_code, dan, stadij, sadrzaj, izradio_id, izradio, izradeno_at, predano_at, created_at, updated_at, trag_predaje)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	ON CONFLICT(id) DO UPDATE SET journal_id = excluded.journal_id, section_code = excluded.section_code, dan = excluded.dan,
 		stadij = excluded.stadij, sadrzaj = excluded.sadrzaj, izradio_id = excluded.izradio_id, izradio = excluded.izradio,
-		izradeno_at = excluded.izradeno_at, predano_at = excluded.predano_at, created_at = excluded.created_at, updated_at = excluded.updated_at`
+		izradeno_at = excluded.izradeno_at, predano_at = excluded.predano_at, created_at = excluded.created_at, updated_at = excluded.updated_at,
+		trag_predaje = excluded.trag_predaje`
 
 func izvjesceArgs(i *models.DnevnoIzvjesce) ([]any, error) {
 	sadrzaj, err := json.Marshal(i.Sadrzaj)
@@ -32,20 +33,24 @@ func izvjesceArgs(i *models.DnevnoIzvjesce) ([]any, error) {
 	if i.PredanoAt != nil {
 		predano = i.PredanoAt.UTC()
 	}
-	return []any{i.ID, i.JournalID, i.SectionCode, i.DanKey(), string(i.Stadij), string(sadrzaj), i.IzradioID, i.Izradio, i.IzradenoAt.UTC(), predano, i.CreatedAt.UTC(), i.UpdatedAt.UTC()}, nil
+	return []any{i.ID, i.JournalID, i.SectionCode, i.DanKey(), string(i.Stadij), string(sadrzaj), i.IzradioID, i.Izradio, i.IzradenoAt.UTC(), predano, i.CreatedAt.UTC(), i.UpdatedAt.UTC(),
+		tragPredaje(i.TragPredaje)}, nil
 }
 
 const izvjesceColumns = `i.id, i.journal_id, i.section_code, i.dan, i.stadij, i.sadrzaj, i.izradio_id, i.izradio, i.izradeno_at, i.predano_at, i.created_at, i.updated_at,
-	COALESCE(s.sector_id, ''), COALESCE(a.name, '')`
+	i.trag_predaje, COALESCE(s.sector_id, ''), COALESCE(a.name, '')`
 const izvjesceFrom = ` FROM dnevna_izvjesca i LEFT JOIN sections s ON s.code = i.section_code LEFT JOIN areas a ON a.id = s.area_id`
 
 func scanIzvjesce(row interface{ Scan(...any) error }) (*models.DnevnoIzvjesce, error) {
 	var i models.DnevnoIzvjesce
-	var dan, stadij, sadrzaj string
+	var dan, stadij, sadrzaj, trag string
 	var predano sql.NullTime
 	if err := row.Scan(&i.ID, &i.JournalID, &i.SectionCode, &dan, &stadij, &sadrzaj, &i.IzradioID, &i.Izradio, &i.IzradenoAt, &predano, &i.CreatedAt, &i.UpdatedAt,
-		&i.Sektor, &i.Podrucje); err != nil {
+		&trag, &i.Sektor, &i.Podrucje); err != nil {
 		return nil, err
+	}
+	if err := citajTragPredaje(trag, &i.TragPredaje); err != nil {
+		return nil, fmt.Errorf("trag predaje izvješća %s: %w", i.ID, err)
 	}
 	i.Dan = parseDay(dan)
 	i.Stadij = models.DefensePhase(stadij)
@@ -61,6 +66,20 @@ func scanIzvjesce(row interface{ Scan(...any) error }) (*models.DnevnoIzvjesce, 
 		i.PredanoAt = &t
 	}
 	return &i, nil
+}
+
+// Trag predaje (prvo vrijeme predaje, tko je predao, tko je mijenjao nakon
+// predaje) stoji u jednom stupcu kao JSON, za izvješća dionica i sektora.
+func tragPredaje(t models.TragPredaje) string {
+	b, _ := json.Marshal(t) // samo nizovi i vremena: Marshal ne javlja grešku
+	return string(b)
+}
+
+func citajTragPredaje(s string, t *models.TragPredaje) error {
+	if s == "" {
+		return nil
+	}
+	return json.Unmarshal([]byte(s), t)
 }
 
 type IzvjescaRepository struct {

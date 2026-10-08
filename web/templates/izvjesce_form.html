@@ -15,7 +15,10 @@
 </div>
 
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
-{{if .Izvjesce.Predano}}<div class="alert alert-warning">{{icon "triangle-alert"}} Izvješće je predano {{.Izvjesce.PredanoAt.Format "2.1.2006. 15:04"}}. Izmjena ostaje zabilježena u knjizi verzija.</div>{{end}}
+{{if .Izvjesce.Predano}}<div class="alert alert-warning">{{icon "triangle-alert"}} Izvješće je {{.Izvjesce.OpisPredaje "u podcentar" "2.1.2006. 15:04"}}.
+  Spremljena izmjena vraća ga u nacrt koji treba ponovo predati, s novim vremenom predaje; prvo vrijeme predaje ostaje zapisano,
+  a uz izvješće piše tko ga je mijenjao.</div>
+{{else if .Izvjesce.BiloPredano}}<div class="alert alert-warning">{{icon "triangle-alert"}} Izvješće je nacrt: {{.Izvjesce.OpisPredaje "u podcentar" "2.1.2006. 15:04"}}.</div>{{end}}
 
 <form class="form-page form-wide izvjesce-obrazac" method="POST" action="{{if .IsEdit}}/izvjesca/{{.Izvjesce.ID}}{{else}}/izvjesca{{end}}">
   {{/* Zaglavlje obrasca: dan, dionica, stadij, vodotok */}}
@@ -152,7 +155,7 @@
 
   <div class="form-actions">
     <button type="submit" class="btn btn-secondary">{{icon "check"}} Spremi nacrt</button>
-    <button type="submit" name="predaj" value="1" class="btn btn-primary">{{icon "arrow-right"}} Spremi i predaj</button>
+    <button type="submit" name="predaj" value="1" class="btn btn-primary">{{icon "arrow-right"}} {{if .Izvjesce.BiloPredano}}Spremi i ponovo predaj{{else}}Spremi i predaj{{end}}</button>
     <span class="reading-meta">Izrađuje {{.CurrentUser.FullName}}; datum i sat izrade upisuju se sami. Predano izvješće ostaje u knjizi verzija.</span>
   </div>
 </form>

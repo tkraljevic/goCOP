@@ -367,6 +367,57 @@ func (c *opisivac) postaja(id string) *models.Station {
 	return st
 }
 
+// dnevnoIzvjesce opisuje inačicu izvješća dionice: početak i predaju.
+// Predaja nakon izmjene je ponovna predaja, pod imenom onoga tko je predao.
+func (c *opisivac) dnevnoIzvjesce(d *Dogadjaj, v ledger.Version, nova bool) bool {
+	var iz models.DnevnoIzvjesce
+	if json.Unmarshal(v.Payload, &iz) != nil || v.Archived {
+		return false
+	}
+	if sec := c.dionica(iz.SectionCode); sec != nil {
+		d.Sektor, d.AreaID = sec.SectorID, sec.AreaID
+	}
+	d.Tko, d.Link = iz.Izradio, "/izvjesca/"+iz.ID
+	switch {
+	case iz.PonovnoPredano():
+		d.Naslov, d.Tko = "Ponovno predano dnevno izvješće dionice", iz.TkoJePredao()
+	case iz.Predano():
+		d.Naslov, d.Tko = "Predano dnevno izvješće dionice", iz.TkoJePredao()
+	case nova:
+		d.Naslov = "Započeto dnevno izvješće dionice"
+	default:
+		return false
+	}
+	d.Tekst = iz.SectionCode + " · " + iz.Dan.Format("2.1.2006.") + " · stadij " + models.StadijKratica(iz.Stadij)
+	if iz.Sadrzaj.Vodotok != "" {
+		d.Tekst += " · " + iz.Sadrzaj.Vodotok
+	}
+	return true
+}
+
+// sektorskoIzvjesce opisuje inačicu izvješća sektora: sastavljanje i
+// predaju Glavnom centru. Predaja nakon izmjene je „ponovno predano
+// GCOP-u”, pod imenom onoga tko je predao.
+func (c *opisivac) sektorskoIzvjesce(d *Dogadjaj, v ledger.Version, nova bool) bool {
+	var iz models.SektorskoIzvjesce
+	if json.Unmarshal(v.Payload, &iz) != nil || v.Archived {
+		return false
+	}
+	d.Sektor, d.Tko, d.Link = iz.Sektor, iz.Izradio, "/sektorsko-izvjesce/"+iz.ID
+	switch {
+	case iz.PonovnoPredano():
+		d.Naslov, d.Vazno, d.Tko = "Izvješće sektora ponovno predano GCOP-u", true, iz.TkoJePredao()
+	case iz.Predano():
+		d.Naslov, d.Vazno, d.Tko = "Izvješće sektora predano GCOP-u", true, iz.TkoJePredao()
+	case nova:
+		d.Naslov = "Sastavljeno izvješće sektora"
+	default:
+		return false
+	}
+	d.Tekst = fmt.Sprintf("%s · %s · %d izvješća dionica", iz.Dan.Format("2.1.2006."), models.StadijKratica(iz.NajvisiStadij()), iz.Sadrzaj.Pregled.Izvjesca)
+	return true
+}
+
 // opisi pretvara verziju u događaj; false kad verzija na zid ne ide
 func (c *opisivac) opisi(v ledger.Version) (Dogadjaj, bool) {
 	d := Dogadjaj{VersionID: v.VersionID, Modul: modulEntiteta(v.Entity), Kad: v.CreatedAt, Cvor: v.NodeID}
@@ -459,42 +510,10 @@ func (c *opisivac) opisi(v ledger.Version) (Dogadjaj, bool) {
 		}
 
 	case repository.EntityDnevnaIzvjesca:
-		var iz models.DnevnoIzvjesce
-		if json.Unmarshal(v.Payload, &iz) != nil || v.Archived {
-			return d, false
-		}
-		if sec := c.dionica(iz.SectionCode); sec != nil {
-			d.Sektor, d.AreaID = sec.SectorID, sec.AreaID
-		}
-		d.Tko, d.Link = iz.Izradio, "/izvjesca/"+iz.ID
-		switch {
-		case iz.Predano():
-			d.Naslov = "Predano dnevno izvješće dionice"
-		case nova:
-			d.Naslov = "Započeto dnevno izvješće dionice"
-		default:
-			return d, false
-		}
-		d.Tekst = iz.SectionCode + " · " + iz.Dan.Format("2.1.2006.") + " · stadij " + models.StadijKratica(iz.Stadij)
-		if iz.Sadrzaj.Vodotok != "" {
-			d.Tekst += " · " + iz.Sadrzaj.Vodotok
-		}
+		return d, c.dnevnoIzvjesce(&d, v, nova)
 
 	case repository.EntitySektorskaIzvjesca:
-		var iz models.SektorskoIzvjesce
-		if json.Unmarshal(v.Payload, &iz) != nil || v.Archived {
-			return d, false
-		}
-		d.Sektor, d.Tko, d.Link = iz.Sektor, iz.Izradio, "/sektorsko-izvjesce/"+iz.ID
-		switch {
-		case iz.Predano():
-			d.Naslov, d.Vazno = "Izvješće sektora predano GCOP-u", true
-		case nova:
-			d.Naslov = "Sastavljeno izvješće sektora"
-		default:
-			return d, false
-		}
-		d.Tekst = fmt.Sprintf("%s · %s · %d izvješća dionica", iz.Dan.Format("2.1.2006."), models.StadijKratica(iz.NajvisiStadij()), iz.Sadrzaj.Pregled.Izvjesca)
+		return d, c.sektorskoIzvjesce(&d, v, nova)
 
 	case repository.EntityEpisodes:
 		var e models.DefenseEpisode

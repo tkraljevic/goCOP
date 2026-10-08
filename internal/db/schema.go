@@ -1580,6 +1580,11 @@ func migrateSchema(database *sql.DB) error {
 		// zapise otprije popunjava (ili briše) AktService.PopuniOtiskeSanducica
 		// pri pokretanju čvora, jer otisak traži ključ čvora
 		{"posta_racuni", "otisak_lozinke", "BLOB"},
+		// Trag predaje dnevnog izvješća dionice i sektora (JSON): prvo
+		// vrijeme predaje, tko je predao i tko je mijenjao nakon predaje.
+		// Izmjena predanog izvješća vraća ga u nacrt, pa se predaje ponovno.
+		{"dnevna_izvjesca", "trag_predaje", "TEXT NOT NULL DEFAULT ''"},
+		{"sektorska_izvjesca", "trag_predaje", "TEXT NOT NULL DEFAULT ''"},
 	}
 
 	// Vrijednosti koje su promijenile ime nakon što su upisane
