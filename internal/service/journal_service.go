@@ -67,6 +67,19 @@ func (s *JournalService) CanWrite(perms *models.UserPermissions, o models.Opseg)
 	return false
 }
 
+// VidiDnevnikUsluge javlja smije li osoba čitati dnevnik koji se vodi po
+// branjenom području (dnevnici usluga A.02 i A.03) u dosegu o. Izvođač
+// (voditelj usluga / poslovođa) vidi samo svoj dnevnik: dnevnike područja u
+// koja po svojoj dužnosti piše, a ne dnevnike drugih firmi na drugim
+// branjenim područjima (Odluke (8. 10. 2026.), pitanje 1). Ostali ih čitaju
+// kao i dosad; bez ovlasti nitko.
+func (s *JournalService) VidiDnevnikUsluge(perms *models.UserPermissions, o models.Opseg) bool {
+	if perms == nil {
+		return false
+	}
+	return !IsContractor(&perms.User) || s.CanWrite(perms, o)
+}
+
 // CanSupervise: nadzor piše nalog i ocjenu i potvrđuje list za nadzor — HV
 // strana s pravom pisanja, ne izvođač
 func (s *JournalService) CanSupervise(u *models.User, perms *models.UserPermissions, o models.Opseg) bool {

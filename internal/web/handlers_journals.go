@@ -211,7 +211,30 @@ func (h *JournalsHandler) loadJournal(w http.ResponseWriter, r *http.Request) (*
 		http.Error(w, "dnevnik pokazuje na nepoznato područje", http.StatusInternalServerError)
 		return nil, nil, false
 	}
+	if !h.journals.VidiDnevnikUsluge(perms, models.OpsegPodrucja(*area)) {
+		http.Error(w, "Izvođač vidi samo dnevnike usluga svog branjenog područja.", http.StatusForbidden)
+		return nil, nil, false
+	}
 	return j, area, true
+}
+
+// vidljivaPodrucja ostavlja područja čije dnevnike usluga osoba smije
+// čitati; odabrano područje koje ne smije zamjenjuje prvo koje smije, a nil
+// je kad takvog nema
+func (h *JournalsHandler) vidljivaPodrucja(perms *models.UserPermissions, area *models.Area, areas []models.Area) (*models.Area, []models.Area) {
+	var out []models.Area
+	for _, a := range areas {
+		if h.journals.VidiDnevnikUsluge(perms, models.OpsegPodrucja(a)) {
+			out = append(out, a)
+		}
+	}
+	if area != nil && h.journals.VidiDnevnikUsluge(perms, models.OpsegPodrucja(*area)) {
+		return area, out
+	}
+	if len(out) > 0 {
+		return &out[0], out
+	}
+	return nil, out
 }
 
 // opseg je doseg dnevnika: po centru za COP, po području za uslugu. Popis
@@ -290,6 +313,8 @@ func (h *JournalsHandler) ShowJournals(w http.ResponseWriter, r *http.Request) {
 
 	want, _ := strconv.Atoi(r.URL.Query().Get("area"))
 	data.Area, data.Areas = h.areaOf(data.Permissions, want)
+	// izvođač vidi samo dnevnike svog branjenog područja
+	data.Area, data.Areas = h.vidljivaPodrucja(data.Permissions, data.Area, data.Areas)
 	h.fillRights(&data)
 	if data.Area != nil {
 		js, err := h.journals.ListJournals(r.Context(), data.Area.ID)
