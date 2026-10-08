@@ -14,9 +14,9 @@ import (
 )
 
 // Velicine kaže u čemu se koja letva vodi — i kao cilj, i kad ulazi drugamo.
-// Ne bira se sama: na gornjoj Dravi korito se ispod lanca hidroelektrana
-// produbljuje, pa vodostaj kroz desetljeća mijenja značenje i Novo Virje iz
-// vodostaja drži r 0,49–0,61 umjesto 0,87–0,97 iz protoka. Na Dunavu je
+// Ne bira se sama: na gornjoj Dravi ispod lanca hidroelektrana vodostaj kroz
+// desetljeća mijenja značenje (pomiče se odnos vodostaja i protoka), pa Novo
+// Virje iz vodostaja drži r 0,49–0,61 umjesto 0,87–0,97 iz protoka. Na Dunavu je
 // obrnuto, ondje je vodostaj bolji. Donji Miholjac i Belišće idu u protoku
 // (HIS-2000 od 29. 9. 2026.): na niskim vodama ljeta 2026. pogreška na 6 h
 // pala je s 11,6 na 4,4 cm (Donji Miholjac) i s 4,2 na 1,7 cm (Belišće).
