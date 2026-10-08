@@ -126,7 +126,7 @@ func TestRucniPotpisISkenKrozRute(t *testing.T) {
 		return mustUnescape(zovi(r).Header().Get("Location"))
 	}
 
-	forma := url.Values{"station_id": {st.ID.String()}, "radnja": {"USPOSTAVA"}, "stupanj": {"PRIPREMNO"}, "vrijedi": {"2026-09-15T09:00"}}
+	forma := url.Values{"station_id": {st.ID.String()}, "radnja": {"USPOSTAVA"}, "stupanj": {"PRIPREMNO"}, "vrijedi": {"2026-09-15T09:00"}, "potvrda_vrijedi": {"1"}}
 	r := httptest.NewRequest(http.MethodPost, "/akti/novi", strings.NewReader(forma.Encode()))
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	id := strings.TrimPrefix(strings.SplitN(zovi(r).Header().Get("Location"), "?", 2)[0], "/akti/")
@@ -260,7 +260,7 @@ func TestRucniPotpisISkenKrozRute(t *testing.T) {
 		t.Error("slika potpisa")
 	}
 	// akt ovjeren u goCOP-u: PDF nosi žig i potpis, ispis za ruku ne
-	forma2 := url.Values{"station_id": {st.ID.String()}, "radnja": {"PREKID"}, "stupanj": {"PRIPREMNO"}, "vrijedi": {"2026-09-16T09:00"}}
+	forma2 := url.Values{"station_id": {st.ID.String()}, "radnja": {"PREKID"}, "stupanj": {"PRIPREMNO"}, "vrijedi": {"2026-09-16T09:00"}, "potvrda_vrijedi": {"1"}}
 	r2 := httptest.NewRequest(http.MethodPost, "/akti/novi", strings.NewReader(forma2.Encode()))
 	r2.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	id2 := strings.TrimPrefix(strings.SplitN(zovi(r2).Header().Get("Location"), "?", 2)[0], "/akti/")

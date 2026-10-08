@@ -1532,6 +1532,9 @@ func migrateSchema(database *sql.DB) error {
 		// rješenje sukoba oznake s aktom drugog čvora (JSON): koji akti, tko,
 		// kada, napomena (Odluke (8. 10. 2026.), pitanje 4)
 		{"akti", "rijesena_oznaka", "TEXT NOT NULL DEFAULT ''"},
+		// izričite potvrde uz akt (JSON): što je program pitao, tko je
+		// potvrdio i kada (Odluke (8. 10. 2026.), pitanje 17)
+		{"akti", "potvrde", "TEXT NOT NULL DEFAULT ''"},
 		{"readings", "temp_note", "TEXT NOT NULL DEFAULT ''"},
 		{"readings", "flow_method", "TEXT NOT NULL DEFAULT ''"},
 		{"readings", "flow_note", "TEXT NOT NULL DEFAULT ''"},

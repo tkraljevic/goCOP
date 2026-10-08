@@ -188,7 +188,7 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 	mora(zovi(http.MethodGet, "/akti/primatelji?sektor=B", nil), "primatelji", "Glavni centar obrane od poplava Zagreb", "Župan osječko-baranjski", "Izvanredno stanje")
 
 	// preventivna obrana: bez otvorenog dnevnika COP-a nacrt se ne sastavlja
-	if l := zovi(http.MethodPost, "/akti/novi", url.Values{"station_id": {st.ID.String()}, "radnja": {"USPOSTAVA"}, "stupanj": {"IZVANREDNA"}, "vrijedi": {"2026-09-15T12:00"}, "dionica": {"B.34.1", "B.34.2"}}).Header().Get("Location"); !strings.Contains(l, "preventivnoj") {
+	if l := zovi(http.MethodPost, "/akti/novi", url.Values{"station_id": {st.ID.String()}, "radnja": {"USPOSTAVA"}, "stupanj": {"IZVANREDNA"}, "vrijedi": {"2026-09-15T12:00"}, "potvrda_vrijedi": {"1"}, "dionica": {"B.34.1", "B.34.2"}}).Header().Get("Location"); !strings.Contains(l, "preventivnoj") {
 		t.Fatalf("nacrt bez dnevnika COP-a: %s", l)
 	}
 	mora(zovi(http.MethodGet, "/akti", nil), "popis u preventivnoj", "preventivna obrana", "nema otvorenog dnevnika COP-a")
@@ -214,15 +214,17 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 	if len(sva) != 2 || *sva[0].LevelCm != 652 {
 		t.Fatalf("očitanja za akt: %+v", sva)
 	}
-	// prvo sastavi po starijem očitanju (640) i tendenciji po izboru, pa obriši
-	w := zovi(http.MethodPost, "/akti/novi", url.Values{"station_id": {st.ID.String()}, "radnja": {"USPOSTAVA"}, "stupanj": {"IZVANREDNA"}, "vrijedi": {"2026-09-15T12:00"}, "ocitanje_id": {sva[1].ID.String()}, "tendencija": {models.TendencijaNagliPorast}})
+	// Dani u rujnu 2026. više su od 24 sata unatrag, pa nacrt nosi potvrdu
+	// „Vrijedi od” (Odluke (8. 10. 2026.), pitanje 17).
+	// Prvo sastavi po starijem očitanju (640) i tendenciji po izboru, pa obriši.
+	w := zovi(http.MethodPost, "/akti/novi", url.Values{"station_id": {st.ID.String()}, "radnja": {"USPOSTAVA"}, "stupanj": {"IZVANREDNA"}, "vrijedi": {"2026-09-15T12:00"}, "potvrda_vrijedi": {"1"}, "ocitanje_id": {sva[1].ID.String()}, "tendencija": {models.TendencijaNagliPorast}})
 	stari := strings.TrimPrefix(strings.SplitN(w.Header().Get("Location"), "?", 2)[0], "/akti/")
 	if a, _ := akti.Get(ctx, stari); a == nil || *a.VodostajCm != 640 || a.Tendencija != models.TendencijaNagliPorast || !strings.Contains(a.Uvod, "od 640 cm u") || !strings.Contains(a.Uvod, "naglog porasta") {
 		t.Fatalf("nacrt po odabranom očitanju: %+v", a)
 	}
 	zovi(http.MethodPost, "/akti/"+stari+"/obrisi", url.Values{})
 
-	w = zovi(http.MethodPost, "/akti/novi", url.Values{"station_id": {st.ID.String()}, "radnja": {"USPOSTAVA"}, "stupanj": {"IZVANREDNA"}, "vrijedi": {"2026-09-15T12:00"}, "dionica": {"B.34.1", "B.34.2"}})
+	w = zovi(http.MethodPost, "/akti/novi", url.Values{"station_id": {st.ID.String()}, "radnja": {"USPOSTAVA"}, "stupanj": {"IZVANREDNA"}, "vrijedi": {"2026-09-15T12:00"}, "potvrda_vrijedi": {"1"}, "dionica": {"B.34.1", "B.34.2"}})
 	if w.Code != http.StatusSeeOther || !strings.Contains(w.Header().Get("Location"), "/akti/") {
 		t.Fatalf("nacrt: %d %s", w.Code, w.Header().Get("Location"))
 	}
@@ -353,7 +355,7 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 	}
 
 	// prekid pripremnog stanja ide obaviješću po članku XXII i gasi obranu
-	w = zovi(http.MethodPost, "/akti/novi", url.Values{"station_id": {st.ID.String()}, "radnja": {"PREKID"}, "stupanj": {"PRIPREMNO"}, "vrijedi": {"2026-09-16T07:00"}})
+	w = zovi(http.MethodPost, "/akti/novi", url.Values{"station_id": {st.ID.String()}, "radnja": {"PREKID"}, "stupanj": {"PRIPREMNO"}, "vrijedi": {"2026-09-16T07:00"}, "potvrda_vrijedi": {"1"}})
 	id2 := strings.TrimPrefix(strings.SplitN(w.Header().Get("Location"), "?", 2)[0], "/akti/")
 	b, _ := akti.Get(ctx, id2)
 	if b == nil || b.Vrsta() != "OBAVIJEST" || b.Clanak() != "XXII" || b.Naslov() != "OBAVIJEST o prekidu pripremnog stanja obrane od poplava" {
@@ -365,7 +367,7 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 	}
 
 	// prekid izvanredne obrane stavlja izvan snage rješenje B-1/2026
-	w = zovi(http.MethodPost, "/akti/novi", url.Values{"station_id": {st.ID.String()}, "radnja": {"PREKID"}, "stupanj": {"IZVANREDNA"}, "vrijedi": {"2026-09-15T20:00"}})
+	w = zovi(http.MethodPost, "/akti/novi", url.Values{"station_id": {st.ID.String()}, "radnja": {"PREKID"}, "stupanj": {"IZVANREDNA"}, "vrijedi": {"2026-09-15T20:00"}, "potvrda_vrijedi": {"1"}})
 	id3 := strings.TrimPrefix(strings.SplitN(w.Header().Get("Location"), "?", 2)[0], "/akti/")
 	c, _ := akti.Get(ctx, id3)
 	if c == nil || c.PrekidaAktID != id || !strings.Contains(c.IzvanSnage, "Stavlja se izvan snage Rješenje o uspostavi izvanredne obrane od poplava oznake B-1/2026 od 15.09.2026. u 12:00 sati") {
@@ -387,7 +389,7 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 		t.Error("odbijen prekid zatvorio je obranu")
 	}
 	// prekid izvanredne obrane zatvara obranu i dobiva broj 2
-	w = zovi(http.MethodPost, "/akti/novi", url.Values{"station_id": {st.ID.String()}, "radnja": {"PREKID"}, "stupanj": {"IZVANREDNA"}, "vrijedi": {"2026-09-15T20:00"}})
+	w = zovi(http.MethodPost, "/akti/novi", url.Values{"station_id": {st.ID.String()}, "radnja": {"PREKID"}, "stupanj": {"IZVANREDNA"}, "vrijedi": {"2026-09-15T20:00"}, "potvrda_vrijedi": {"1"}})
 	id4 := strings.TrimPrefix(strings.SplitN(w.Header().Get("Location"), "?", 2)[0], "/akti/")
 	zovi(http.MethodPost, "/akti/"+id4+"/ovjeri", url.Values{})
 	if e, _ := episodes.Open(ctx, "B.34.1"); e != nil {

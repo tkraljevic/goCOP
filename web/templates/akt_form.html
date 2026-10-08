@@ -29,7 +29,7 @@
   <div class="form-actions"><button type="submit" class="btn btn-primary">Dalje</button></div>
 </form>
 {{else}}
-<form method="POST" action="/akti/novi" class="form-page">
+<form method="POST" action="/akti/novi" class="form-page" id="akt-obrazac">
   <input type="hidden" name="station_id" value="{{.Station.ID}}">
   <div class="form-row">
     <div class="form-group">
@@ -81,6 +81,8 @@
     <div class="form-group">
       <label class="form-label" for="vrijedi">Vrijedi od</label>
       <input type="datetime-local" id="vrijedi" name="vrijedi" class="form-control" value="{{.LocalValue}}" required>
+      <div class="form-help">Ne prije otvaranja Dnevnika COP-a i ne više od 7 dana unaprijed. Više od 24 sata unatrag ili više od 3 dana unaprijed traži potvrdu, koja se bilježi uz akt.</div>
+      {{if .TraziPotvrduVrijedi}}<label class="checkbox-label mt-2"><input type="checkbox" name="potvrda_vrijedi" value="1"> Da, „Vrijedi od” je točno upisan</label>{{end}}
     </div>
     <div class="form-group">
       <label class="form-label" for="prognoza">Po prognozi (umjesto po vodostaju)</label>
@@ -100,6 +102,23 @@
     const osvjezi = () => { blok.hidden = !Array.from(radnje).some((r) => r.checked && r.value === 'PREKID'); };
     radnje.forEach((r) => r.addEventListener('change', osvjezi));
     osvjezi();
+  })();
+  // „Vrijedi od” više od 24 sata unatrag ili 3 dana unaprijed traži potvrdu
+  // (dalje od 7 dana unaprijed odbija program, pa se ne pita)
+  (function () {
+    const obrazac = document.getElementById('akt-obrazac');
+    obrazac.addEventListener('submit', (e) => {
+      const v = new Date(document.getElementById('vrijedi').value);
+      const sat = 3600 * 1000, sad = Date.now();
+      const kv = obrazac.querySelector('input[name="potvrda_vrijedi"]');
+      if (isNaN(v) || (v >= sad - 24 * sat && v <= sad + 72 * sat) || v > sad + 168 * sat || (kv && kv.checked)) return;
+      const dvije = (n) => String(n).padStart(2, '0');
+      const tekst = v.getDate() + '. ' + (v.getMonth() + 1) + '. ' + v.getFullYear() + '. u ' + dvije(v.getHours()) + ':' + dvije(v.getMinutes());
+      if (!confirm('„Vrijedi od” je ' + tekst + ' – jeste li sigurni?')) { e.preventDefault(); return; }
+      const potvrda = document.createElement('input');
+      potvrda.type = 'hidden'; potvrda.name = 'potvrda_vrijedi'; potvrda.value = '1';
+      obrazac.appendChild(potvrda);
+    });
   })();
   </script>
   <div class="form-actions">

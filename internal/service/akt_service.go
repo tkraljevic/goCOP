@@ -136,6 +136,10 @@ type ZahtjevAkta struct {
 	// PrekidaAktID je akt o uspostavi koji prekid stavlja izvan snage;
 	// prazno = zadnji ovjereni akt o uspostavi istog stupnja po vodomjeru
 	PrekidaAktID string
+	// PotvrdaVrijedi: osoba je izričito potvrdila „Vrijedi od” više od 24
+	// sata unatrag ili više od 3 dana unaprijed (Odluke (8. 10. 2026.),
+	// pitanje 17); potvrda se bilježi uz akt
+	PotvrdaVrijedi bool
 }
 
 // Pripremi sastavlja nacrt akta iz vodomjera: dionice, zadnji vodostaj s
@@ -220,6 +224,7 @@ func (s *AktService) Pripremi(ctx context.Context, perms *models.UserPermissions
 		}
 	}
 	a.Potpisnik = s.potpisnik(a)
+	a.Potvrde = potvrdeVrijedi(a, u, z.PotvrdaVrijedi, time.Now())
 	a.Primatelji = s.primatelji(ctx, a)
 	sp, _ := s.repo.GetSpranca(ctx, a.Sektor)
 	a.Uvod, a.Zavrsno, a.Poveznice = sp.Uvod(*a), sp.Zavrsno, strings.TrimSpace(sp.Poveznice)
@@ -686,8 +691,10 @@ func (s *AktService) Spremi(ctx context.Context, perms *models.UserPermissions, 
 		return ErrUnauthorized
 	}
 	if a.ID == "" {
-		// novi nacrt nastaje samo u aktivnoj obrani; postojeći se smije doraditi
-		if _, err := s.trebaAktivnu(ctx, a); err != nil {
+		// novi nacrt nastaje samo u aktivnoj obrani i s „Vrijedi od” u
+		// granicama (Odluke (8. 10. 2026.), pitanje 17); postojeći se smije
+		// doraditi, a njegov „Vrijedi od” se ne mijenja
+		if err := s.provjeriNoviNacrt(ctx, a, time.Now()); err != nil {
 			return err
 		}
 	}

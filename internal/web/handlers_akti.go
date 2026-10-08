@@ -2,8 +2,10 @@ package web
 
 import (
 	"context"
+	"errors"
 	"html/template"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -71,6 +73,9 @@ type AktiPageData struct {
 	LocalValue string
 	Radnja     string
 	Stupanj    models.DefensePhase
+	// TraziPotvrduVrijedi: nacrt je odbijen jer „Vrijedi od” traži izričitu
+	// potvrdu (Odluke (8. 10. 2026.), pitanje 17); obrazac je nudi
+	TraziPotvrduVrijedi bool
 
 	// jedan akt
 	Sektor              *models.Sector
@@ -198,7 +203,7 @@ func (h *AktiHandler) ShowForm(w http.ResponseWriter, r *http.Request) {
 	if data.Stupanj == "" {
 		data.Stupanj = models.PhasePrep
 	}
-	data.LocalValue = time.Now().In(models.Zagreb).Format("2006-01-02T15:04")
+	obrazacVrijedi(q, &data)
 	if id, err := uuid.Parse(q.Get("station")); err == nil {
 		if st, err := h.stations.GetStation(r.Context(), id); err == nil && st != nil {
 			data.Station = st
@@ -225,6 +230,26 @@ func (h *AktiHandler) ShowForm(w http.ResponseWriter, r *http.Request) {
 	if err := h.tmplForm.ExecuteTemplate(w, "akt_form.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// obrazacVrijedi upisuje u obrazac „Vrijedi od”: sada, ili vrijeme upisano
+// prije kad se obrazac vraća s pitanjem za potvrdu
+func obrazacVrijedi(q url.Values, data *AktiPageData) {
+	data.LocalValue = time.Now().In(models.Zagreb).Format("2006-01-02T15:04")
+	if _, err := time.ParseInLocation("2006-01-02T15:04", q.Get("vrijedi"), models.Zagreb); err == nil {
+		data.LocalValue = q.Get("vrijedi")
+	}
+	data.TraziPotvrduVrijedi = q.Get("potvrdi") == "vrijedi"
+}
+
+// natragNaObrazac je povratak na obrazac nakon odbijenog nacrta: kad nacrt
+// traži potvrdu „Vrijedi od”, obrazac zadrži upisano vrijeme i ponudi potvrdu
+func natragNaObrazac(natrag string, r *http.Request, err error) string {
+	var p *service.TrebaPotvrduError
+	if errors.As(err, &p) {
+		return natrag + "&vrijedi=" + url.QueryEscape(r.FormValue("vrijedi")) + "&potvrdi=vrijedi"
+	}
+	return natrag
 }
 
 // ObranaSektora je način rada sektora za stranice akata: otvoren dnevnik
@@ -271,6 +296,7 @@ func (h *AktiHandler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 		StationID: r.FormValue("station_id"), Radnja: r.FormValue("radnja"), Stupanj: models.DefensePhase(r.FormValue("stupanj")),
 		Prognoza: r.FormValue("prognoza"), Napomena: r.FormValue("napomena"), Dionice: r.Form["dionica"],
 		OcitanjeID: r.FormValue("ocitanje_id"), Tendencija: r.FormValue("tendencija"), PrekidaAktID: r.FormValue("prekida_akt_id"),
+		PotvrdaVrijedi: r.FormValue("potvrda_vrijedi") == "1",
 	}
 	if t, err := time.ParseInLocation("2006-01-02T15:04", r.FormValue("vrijedi"), models.Zagreb); err == nil {
 		z.Vrijedi = t
@@ -282,7 +308,7 @@ func (h *AktiHandler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.Spremi(r.Context(), perms, a); err != nil {
-		redirectWith(w, r, natrag, "error", err.Error())
+		redirectWith(w, r, natragNaObrazac(natrag, r, err), "error", err.Error())
 		return
 	}
 	redirectWith(w, r, "/akti/"+a.ID, "success", "Nacrt je sastavljen. Pregledaj ga i ovjeri.")

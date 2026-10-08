@@ -228,6 +228,12 @@
 </div>
 {{end}}
 
+{{with $a.Potvrde}}
+<div class="akt-potpis-stanje" id="potvrde">
+  {{icon "info"}} <strong>Potvrđeno uz akt:</strong>
+  <ul class="mb-0">{{range .}}<li>{{.Tekst}} ({{.Tko}}, {{formatDate (localTime .Kad)}})</li>{{end}}</ul>
+</div>
+{{end}}
 {{if $a.Ovjeren}}
 <div class="akt-potpis-stanje {{if eq .Potpis "VRIJEDI"}}vrijedi{{else if eq .Potpis "NE_VRIJEDI"}}ne-vrijedi{{end}}">
   {{if eq .Potpis "VRIJEDI"}}{{icon "check"}} <strong>Elektronički potpis vrijedi.</strong> Sadržaj akta nije mijenjan od ovjere:

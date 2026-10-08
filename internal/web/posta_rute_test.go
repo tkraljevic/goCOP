@@ -166,7 +166,7 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 		return zovi(httptest.NewRequest(http.MethodGet, "/akti/"+id, nil)).Body.String()
 	}
 
-	id := strings.TrimPrefix(strings.SplitN(post("/akti/novi", url.Values{"station_id": {st.ID.String()}, "radnja": {"USPOSTAVA"}, "stupanj": {"PRIPREMNO"}, "vrijedi": {"2026-09-15T09:00"}}), "?", 2)[0], "/akti/")
+	id := strings.TrimPrefix(strings.SplitN(post("/akti/novi", url.Values{"station_id": {st.ID.String()}, "radnja": {"USPOSTAVA"}, "stupanj": {"PRIPREMNO"}, "vrijedi": {"2026-09-15T09:00"}, "potvrda_vrijedi": {"1"}}), "?", 2)[0], "/akti/")
 	if strings.Contains(stranica(id), "Slanje na znanje") {
 		t.Error("nacrt se ne šalje")
 	}
