@@ -177,6 +177,57 @@ var fixups = []fixup{
 			return changed, nil
 		},
 	},
+	{
+		// Odluke (8. 10. 2026.), pitanje 21: tri letve akumulacija HEP-a
+		// vode kotu vodnog lica u cm n. m., pa dobivaju oznaku „kota u cm
+		// n. m.” i s njom raspon kote umjesto raspona vodostaja. Oznaka
+		// putuje kao nova verzija letve; stariji čvor je čuva kao polje koje
+		// ne poznaje.
+		name: "letve-akumulacija-kota",
+		run:  oznaciLetveAkumulacija,
+	},
+}
+
+// letveAkumulacija su šifre letvi akumulacija HEP-a uz brane na Dravi
+var letveAkumulacija = []string{"gvb-he-varazdin", "gvb-he-cakovec", "gvb-he-dubrava"}
+
+// oznaciLetveAkumulacija upisuje oznaku kote letvama akumulacija koje čvor
+// ima. Letva koje (još) nema preskače se: stići će razmjenom s oznakom od
+// čvora koji ju je upisao.
+func oznaciLetveAkumulacija(ctx context.Context, tx *sql.Tx, rec *ledger.Recorder) (int, error) {
+	changed := 0
+	var preskoceni preskoceniZapisi
+	for _, sifra := range letveAkumulacija {
+		var id string
+		err := tx.QueryRowContext(ctx, `SELECT id FROM stations WHERE code = ?`, sifra).Scan(&id)
+		if errors.Is(err, sql.ErrNoRows) {
+			continue
+		}
+		if err != nil {
+			return changed, err
+		}
+		ok, err := popraviZapis(ctx, tx, rec, EntityStations, id, oznaciKotu)
+		if errors.Is(err, ledger.ErrNovijaShema) {
+			preskoceni.dodaj(err)
+			continue
+		}
+		if err != nil {
+			return changed, err
+		}
+		if ok {
+			changed++
+		}
+	}
+	return changed, preskoceni.greska()
+}
+
+// oznaciKotu upisuje letvi oznaku „kota u cm n. m.”
+func oznaciKotu(m map[string]json.RawMessage) (bool, error) {
+	if string(m["kota_nm"]) == "true" {
+		return false, nil
+	}
+	m["kota_nm"] = json.RawMessage("true")
+	return true, nil
 }
 
 // popraviOsnovuPraga upisuje epizodi utvrđenoj iz očitanja da je počela

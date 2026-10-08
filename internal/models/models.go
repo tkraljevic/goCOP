@@ -166,6 +166,13 @@ type Station struct {
 	TelemetrijaSite string `json:"telemetrija_site,omitempty"`
 	TelemetrijaUvoz bool   `json:"telemetrija_uvoz,omitempty"`
 
+	// KotaNM je oznaka „kota u cm n. m.”: letva ne vodi vodostaj nego kotu
+	// vodnog lica nad morem (razina akumulacije HEP-a uz branu). Očitanje joj
+	// se zato prima u rasponu kote, 5000…40 000 cm, a ne vodostaja,
+	// −500…3000 cm, i to na svim putovima upisa (Odluke (8. 10. 2026.),
+	// pitanje 21).
+	KotaNM bool `json:"kota_nm,omitempty"`
+
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 

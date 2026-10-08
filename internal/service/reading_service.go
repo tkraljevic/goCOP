@@ -43,6 +43,12 @@ func (s *ReadingService) Stats(ctx context.Context) (int, time.Time, time.Time, 
 	return s.repo.Stats(ctx)
 }
 
+// SazetakOdbacenih kaže koliko je vrijednosti letve (GaugeKey) ovaj čvor
+// odbacio jer su izvan raspona i koja je zadnja; nil kad nijedna
+func (s *ReadingService) SazetakOdbacenih(ctx context.Context, letva string) (*models.SazetakOdbacenih, error) {
+	return s.repo.SazetakOdbacenih(ctx, letva)
+}
+
 func hasAnyWriteRight(perms *models.UserPermissions) bool {
 	if perms == nil {
 		return false
@@ -140,33 +146,24 @@ func (s *ReadingService) CanEdit(ctx context.Context, perms *models.UserPermissi
 	return err == nil && s.CanRecordStation(perms, st)
 }
 
-func (s *ReadingService) validate(rd *models.Reading) error {
+// validate provjerava očitanje iz obrasca. Raspon vremena i vrijednosti je
+// zajednički sa svim ostalim putovima upisa (models, Odluke (8. 10. 2026.),
+// pitanje 21); kota kaže da letva vodi kotu u cm n. m. pa ima raspon kote.
+func (s *ReadingService) validate(rd *models.Reading, kota bool) error {
 	if (rd.StationID == "") == (rd.StructureID == "") {
 		return fmt.Errorf("očitanje mora pripadati ili postaji ili objektu")
 	}
 	if rd.MeasuredAt.IsZero() {
 		return fmt.Errorf("vrijeme očitanja je obavezno")
 	}
-	if rd.MeasuredAt.After(time.Now().Add(time.Hour)) {
-		return fmt.Errorf("vrijeme očitanja ne može biti u budućnosti")
+	if o := models.VrijemeIzvanRaspona(rd.MeasuredAt, time.Now()); o != nil {
+		return o
 	}
-	if rd.MeasuredAt.Year() < 1900 {
-		return fmt.Errorf("vrijeme očitanja nije vjerojatno")
-	}
-	if !rd.HasAnyValue() && strings.TrimSpace(rd.Note) == "" && rd.StructureState == "" && rd.Gate == "" {
+	if !rd.ImaSadrzaj() {
 		return fmt.Errorf("upišite vodostaj, temperaturu ili protok, ili bar napomenu zašto nije očitano")
 	}
-	for _, v := range []*int{rd.LevelCm, rd.Level2Cm} {
-		if v != nil && (*v < -500 || *v > 3000) {
-			return fmt.Errorf("vodostaj %d cm je izvan razumnog raspona", *v)
-		}
-	}
-	// uvjet je obrnut da i NaN (koji nije ni manji ni veći) padne
-	if rd.TempC != nil && !(*rd.TempC >= -5 && *rd.TempC <= 45) {
-		return fmt.Errorf("temperatura vode %.1f °C je izvan razumnog raspona", *rd.TempC)
-	}
-	if rd.FlowM3s != nil && !(*rd.FlowM3s >= 0 && *rd.FlowM3s <= 100000) {
-		return fmt.Errorf("protok %.1f m³/s je izvan razumnog raspona", *rd.FlowM3s)
+	if izvan := models.VrijednostiIzvanRaspona(*rd, kota); len(izvan) > 0 {
+		return izvan[0]
 	}
 	switch rd.Source {
 	case models.ReadingSourceManual, models.ReadingSourceAutomatic, models.ReadingSourceImport:
@@ -214,36 +211,53 @@ func (s *ReadingService) pravoNaObjekt(ctx context.Context, perms *models.UserPe
 	return nil
 }
 
-// pravoNaPostaju javlja grešku ako osoba ne smije upisivati na letvu postaje
-func (s *ReadingService) pravoNaPostaju(ctx context.Context, perms *models.UserPermissions, stationID string) error {
+// pravoNaPostaju javlja grešku ako osoba ne smije upisivati na letvu
+// postaje; inače vraća postaju
+func (s *ReadingService) pravoNaPostaju(ctx context.Context, perms *models.UserPermissions, stationID string) (*models.Station, error) {
 	id, err := uuid.Parse(stationID)
 	if err != nil {
-		return fmt.Errorf("neispravna postaja")
+		return nil, fmt.Errorf("neispravna postaja")
 	}
 	st, err := s.stationRepo.GetStationByID(ctx, id)
 	if err != nil || st == nil {
-		return fmt.Errorf("postaja ne postoji")
+		return nil, fmt.Errorf("postaja ne postoji")
 	}
 	if !s.CanRecordStation(perms, st) {
-		return fmt.Errorf("nemate pravo upisivati očitanja na %s", st.Name)
+		return nil, fmt.Errorf("nemate pravo upisivati očitanja na %s", st.Name)
 	}
-	return nil
+	return st, nil
+}
+
+// pravoNaLetvu javlja grešku ako osoba ne smije upisivati na letvu
+// očitanja, i vodi li ta letva kotu u cm n. m. (objekt je ne vodi)
+func (s *ReadingService) pravoNaLetvu(ctx context.Context, perms *models.UserPermissions, rd *models.Reading) (bool, error) {
+	if rd.StructureID != "" {
+		return false, s.pravoNaObjekt(ctx, perms, rd.StructureID)
+	}
+	st, err := s.pravoNaPostaju(ctx, perms, rd.StationID)
+	return st != nil && st.KotaNM, err
+}
+
+// kotaLetve javlja vodi li letva postaje kotu u cm n. m.; objekt i
+// nepoznata postaja vode vodostaj
+func (s *ReadingService) kotaLetve(ctx context.Context, stationID string) bool {
+	id, err := uuid.Parse(stationID)
+	if err != nil {
+		return false
+	}
+	st, err := s.stationRepo.GetStationByID(ctx, id)
+	return err == nil && st != nil && st.KotaNM
 }
 
 // Create upisuje ručno očitanje u ime prijavljenog korisnika. Pravo se
 // provjerava prije unosa, kao kod izmjene: tko nema pravo, ne dozna pravila
 // unosa.
 func (s *ReadingService) Create(ctx context.Context, perms *models.UserPermissions, rd *models.Reading) error {
-	var err error
-	if rd.StructureID != "" {
-		err = s.pravoNaObjekt(ctx, perms, rd.StructureID)
-	} else {
-		err = s.pravoNaPostaju(ctx, perms, rd.StationID)
-	}
+	kota, err := s.pravoNaLetvu(ctx, perms, rd)
 	if err != nil {
 		return err
 	}
-	if err := s.validate(rd); err != nil {
+	if err := s.validate(rd, kota); err != nil {
 		return err
 	}
 	if rd.Origin == "" {
@@ -272,7 +286,7 @@ func (s *ReadingService) Update(ctx context.Context, perms *models.UserPermissio
 	}
 	rd.StationID, rd.StructureID = existing.StationID, existing.StructureID
 	rd.Origin, rd.SourceRef, rd.UserID, rd.CreatedAt = existing.Origin, existing.SourceRef, existing.UserID, existing.CreatedAt
-	if err := s.validate(rd); err != nil {
+	if err := s.validate(rd, s.kotaLetve(ctx, rd.StationID)); err != nil {
 		return err
 	}
 	return s.repo.Update(ctx, rd)
@@ -535,7 +549,7 @@ func (s *ReadingService) UveziZalijepljena(ctx context.Context, perms *models.Us
 		return 0, fmt.Errorf("nemate pravo upisivati očitanja na %s", station.Name)
 	}
 	for i := range ocitanja {
-		if err := s.validate(&ocitanja[i]); err != nil {
+		if err := s.validate(&ocitanja[i], station.KotaNM); err != nil {
 			return 0, fmt.Errorf("%s: %w", ocitanja[i].MeasuredAt.Format("2.1.2006. 15:04"), err)
 		}
 	}

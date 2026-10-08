@@ -405,6 +405,10 @@ type StanjeLetve struct {
 	Greska     string    // prazno kad je prošlo
 	ZadnjeKad  time.Time // najnovije očitanje sa stranice
 	UkupnoNovo int       // od pokretanja programa
+	// Odbaceno je koliko vrijednosti zadnjeg preuzimanja nije upisano jer su
+	// izvan raspona (Odluke (8. 10. 2026.), pitanje 21). Ukupan broj po
+	// letvi stoji u bazi čvora i vidi se na stranici letve.
+	Odbaceno int
 }
 
 // Uvoznik svaki sat preuzme označene letve. Stanje po letvi drži u
@@ -808,10 +812,6 @@ func (u *Uvoznik) Preuzmi(ctx context.Context, st *models.Station) StanjeLetve {
 		s.Greska = "izvor trenutačno nema valjano očitanje"
 		return s
 	}
-	type izRedak struct {
-		r     Redak
-		izvor string
-	}
 	var svi []izRedak
 	for _, r := range redci {
 		svi = append(svi, izRedak{r, izvor.Naziv()})
@@ -836,13 +836,7 @@ func (u *Uvoznik) Preuzmi(ctx context.Context, st *models.Station) StanjeLetve {
 		return s
 	}
 	var nova []models.Reading
-	for _, x := range svi {
-		if postojeca[x.r.Kad.Unix()] {
-			continue
-		}
-		postojeca[x.r.Kad.Unix()] = true
-		nova = append(nova, Ocitanje(st, x.r, x.izvor))
-	}
+	nova, s.Odbaceno = novaOcitanja(st, svi, postojeca, time.Now())
 	if len(nova) == 0 {
 		return s
 	}
@@ -855,6 +849,31 @@ func (u *Uvoznik) Preuzmi(ctx context.Context, st *models.Station) StanjeLetve {
 	s.Novih = n
 	s.UkupnoNovo += n
 	return s
+}
+
+// izRedak je redak s izvora uz naziv izvora s kojeg je stigao
+type izRedak struct {
+	r     Redak
+	izvor string
+}
+
+// novaOcitanja slaže očitanja za trenutke koje letva još nema i broji
+// vrijednosti izvan raspona. Njih upis ne prima (Odluke (8. 10. 2026.),
+// pitanje 21): očitanja idu u Upisi cijela, a ondje ih zajednička provjera
+// raspona očisti i odbačeno zabilježi za stranicu letve.
+func novaOcitanja(st *models.Station, svi []izRedak, postojeca map[int64]bool, sada time.Time) ([]models.Reading, int) {
+	var nova []models.Reading
+	odbaceno := 0
+	for _, x := range svi {
+		if postojeca[x.r.Kad.Unix()] {
+			continue
+		}
+		postojeca[x.r.Kad.Unix()] = true
+		rd := Ocitanje(st, x.r, x.izvor)
+		odbaceno += len(models.IzvanRasponaOcitanja(rd, st.KotaNM, sada))
+		nova = append(nova, rd)
+	}
+	return nova, odbaceno
 }
 
 // isteklo javlja je li upit pao zato što odgovor nije stigao na vrijeme, a
