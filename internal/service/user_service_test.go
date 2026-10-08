@@ -213,7 +213,7 @@ func TestSearchUsers(t *testing.T) {
 		t.Fatalf("Greška pri pretrazi: %v", err)
 	}
 	if len(results) != 2 {
-		t.Fatalf("Pretraga za 'Ivić' morala je pronaći Ivu i Ivu Ivić, pronađeno: %d", len(results))
+		t.Fatalf("Pretraga za 'Ivić' morala je pronaći Ivu Ivića i Ivu Ivić, pronađeno: %d", len(results))
 	}
 	foundIvo := false
 	for _, u := range results {
