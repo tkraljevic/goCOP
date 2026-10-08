@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -15,56 +14,26 @@ import (
 	"gocop/internal/repository"
 )
 
-// Prestanak obrane ne upisuje se unaprijed, kao ni proglašenje: obrana s
-// upisanim krajem više nije otvorena, pa bi prestanak „za sutra” obranu
-// zatvorio odmah. Podaci su izmišljeni: sektor P, dionica P.1.1, letva
-// Primjerovo, a odluke donosi Pero Perić (pperic).
+// Prekid obrane aktom koji vrijedi tek sutra ovjerava se, ali obranu ne
+// zatvara unaprijed: epizoda traje dok prekid ne stupi na snagu, a stanje iz
+// akata pokazuje prekid u njegovo vrijeme. Početno stanje stvara ovjereni akt
+// (Odluke (8. 10. 2026.), pitanje 14: ručnog prekida mimo akta nema).
 func TestPrestanakObraneNeUnaprijed(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "obrana.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
-	for _, q := range []string{
-		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('P', 'Sektor P', 'VGO Primjerovo', 'COP Primjerovo')`,
-		`INSERT INTO areas (id, sector_id, name, vgi_name, subcenter) VALUES (1, 'P', 'Mali sliv Primjerica', 'VGI Primjerica', '')`,
-		`INSERT INTO sections (code, area_id, sector_id, description, created_at, updated_at) VALUES ('P.1.1', 1, 'P', 'rijeka Primjerica', '2026-01-01', '2026-01-01')`,
-	} {
-		if _, err := baza.Exec(q); err != nil {
-			t.Fatal(err)
-		}
-	}
+	o := novaOkolinaObrane(t)
 	ctx := context.Background()
-	rec := ledger.New(baza, "test")
-	stanice := repository.NewStationRepository(baza, rec)
-	epizode := repository.NewEpisodeRepository(baza, rec)
-	svc := NewEpisodeService(epizode, repository.NewReadingRepository(baza, rec), stanice)
-	letva := models.Station{ID: uuid.New(), Code: "primjerovo", Name: "Primjerovo"}
-	if err := stanice.CreateStation(ctx, &letva); err != nil {
-		t.Fatal(err)
-	}
-	pero := &models.UserPermissions{AllowedSections: map[string]bool{"P.1.1": true}}
-	pocetak := time.Now().Add(-2 * time.Hour)
-	if _, err := svc.Declare(ctx, pero, "pperic", "P.1.1", letva, pocetak, models.PhaseRegular, models.BasisOrder, ""); err != nil {
-		t.Fatal(err)
-	}
+	letva := o.letva.ID.String()
+	o.ovjeriAkt(t, letva, models.AktUspostava, models.PhaseRegular, time.Now().Add(-2*time.Hour), "P.1.1")
 
-	sutra := time.Now().Add(24 * time.Hour)
-	if err := svc.End(ctx, pero, "pperic", "P.1.1", sutra, "voda pada"); err == nil || !strings.Contains(err.Error(), "unaprijed") {
-		t.Errorf("prestanak za sutra: %v", err)
+	sutra := time.Now().Add(24 * time.Hour).Truncate(time.Minute)
+	o.ovjeriAkt(t, letva, models.AktPrekid, models.PhaseRegular, sutra, "P.1.1")
+	if e := o.otvorena(t, "P.1.1"); e.EndedAt != nil {
+		t.Errorf("prekid za sutra zatvorio je obranu danas: kraj %v", e.EndedAt)
 	}
-	if e, err := epizode.OpenEpisode(ctx, "P.1.1"); err != nil || e == nil {
-		t.Fatalf("obrana nije otvorena nakon odbijenog prestanka: %v %v", e, err)
+	if st, _, err := o.akti.StanjeObrane(ctx, "P", "P.1.1", time.Now()); err != nil || st.Najvisi() != models.PhaseRegular {
+		t.Errorf("stanje danas: %+v (%v)", st, err)
 	}
-	// do sat unaprijed vrijedi, kao kod proglašenja (razlika satova)
-	if err := svc.End(ctx, pero, "pperic", "P.1.1", time.Now().Add(30*time.Minute), "voda pada"); err != nil {
-		t.Errorf("prestanak pola sata unaprijed: %v", err)
-	}
-	if e, _ := epizode.OpenEpisode(ctx, "P.1.1"); e != nil {
-		t.Errorf("obrana je i dalje otvorena: %+v", e)
+	if st, _, err := o.akti.StanjeObrane(ctx, "P", "P.1.1", sutra); err != nil || st.Traje() {
+		t.Errorf("stanje kad prekid stupi na snagu: %+v (%v)", st, err)
 	}
 }
 
@@ -108,28 +77,6 @@ func TestOvjeraAktaBezLetve(t *testing.T) {
 		}
 		if e, err := epizode.OpenEpisode(ctx, kod); err != nil || e == nil || e.Phase != models.PhaseRegular {
 			t.Errorf("obrana na %s nakon ovjere akta s letvom %q: %+v %v", kod, letva, e, err)
-		}
-	}
-}
-
-func TestProvjeriVrijemePrekida(t *testing.T) {
-	sad := time.Date(2026, 10, 25, 12, 0, 0, 0, models.Zagreb)
-	pocetak := sad.Add(-2 * time.Hour)
-	for _, k := range []struct {
-		ime    string
-		at     time.Time
-		greska string
-	}{
-		{"sada", sad, ""},
-		{"točno na proglašenju", pocetak, ""},
-		{"točno sat unaprijed", sad.Add(time.Hour), ""},
-		{"sat i sekunda unaprijed", sad.Add(time.Hour + time.Second), "unaprijed"},
-		{"sutra", sad.AddDate(0, 0, 1), "unaprijed"},
-		{"prije proglašenja", pocetak.Add(-time.Second), "prije nego što je proglašena"},
-	} {
-		err := provjeriVrijemePrekida(k.at, pocetak, sad)
-		if (k.greska == "" && err != nil) || (k.greska != "" && (err == nil || !strings.Contains(err.Error(), k.greska))) {
-			t.Errorf("%s: %v", k.ime, err)
 		}
 	}
 }

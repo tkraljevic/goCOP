@@ -2,8 +2,8 @@ package service
 
 import (
 	"context"
-	"errors"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -16,17 +16,25 @@ import (
 	"gocop/internal/repository"
 )
 
-// Zaključava današnje proglašenje, podizanje i prekid obrane na dionici
-// (EpisodeService) i izračun epizoda iz niza očitanja, uz rubne i neispravne
-// unose. Gdje je ponašanje upitno, test ga bilježi onakvo kakvo jest.
+// Zaključava kako stanje obrane na dionici nastaje i mijenja se: isključivo
+// iz ovjerenih akata o obrani, uz prag iz očitanja i otvorene obrane
+// sektora. Gdje je ponašanje upitno, test ga bilježi onakvo kakvo jest.
+//
+// Namjerno promijenjeno prema Odlukama (8. 10. 2026.), pitanje 14: ručno
+// proglašenje, podizanje i prekid obrane (EpisodeService.Declare, Raise,
+// End) i računanje epizoda iz vodostaja (Rebuild, izracunaj) obrisani su, pa
+// provjere početno stanje stvaraju ovjerenim aktom, kao u stvarnom radu.
 
 type okolinaObrane struct {
 	svc      *EpisodeService
+	akti     *AktService
 	epizode  *repository.EpisodeRepository
 	ocitanja *repository.ReadingRepository
+	stanice  *repository.StationRepository
 	rec      *ledger.Recorder
 	letva    models.Station
-	dionica  *models.UserPermissions
+	pero     *models.User
+	uprava   *models.UserPermissions
 }
 
 const pperic = "pperic"
@@ -60,10 +68,12 @@ func novaOkolinaObrane(t *testing.T) *okolinaObrane {
 	if err := stanice.CreateStation(context.Background(), &st); err != nil {
 		t.Fatal(err)
 	}
+	svc := NewEpisodeService(epizode, ocitanja, stanice)
+	pero := &models.User{ID: uuid.New(), Username: pperic, FullName: "Pero Perić"}
 	return &okolinaObrane{
-		svc: NewEpisodeService(epizode, ocitanja, stanice), epizode: epizode, ocitanja: ocitanja, rec: rec, letva: st,
-		dionica: &models.UserPermissions{User: models.User{Username: pperic, FullName: "Pero Perić"},
-			AllowedSections: map[string]bool{"P.1.1": true, "P.1.2": true}},
+		svc: svc, akti: NewAktService(repository.NewAktiRepository(baza, rec), stanice, nil, nil, nil, nil, svc, "cvor-probni"),
+		epizode: epizode, ocitanja: ocitanja, stanice: stanice, rec: rec, letva: st,
+		pero: pero, uprava: &models.UserPermissions{IsGlobalAdmin: true, User: *pero},
 	}
 }
 
@@ -76,97 +86,79 @@ func (o *okolinaObrane) ocitanje(t *testing.T, kad time.Time, cm int) {
 	}
 }
 
-func TestObranuNaDioniciProglasavaSamoOnajTkoPiseNaDionici(t *testing.T) {
-	o := novaOkolinaObrane(t)
+// ovjeriAkt sprema i ovjerava akt o obrani po letvi (prazno: bez letve) na
+// zadanim dionicama: jedini put kojim se mijenja stanje obrane
+func (o *okolinaObrane) ovjeriAkt(t *testing.T, letva, radnja string, stupanj models.DefensePhase, vrijedi time.Time, dionice ...string) *models.Akt {
+	t.Helper()
 	ctx := context.Background()
-	podrucje := models.NewUserPermissions(models.User{Duties: []models.Duty{{Role: models.RoleAreaLeader, SectorID: sektorPtr("P"),
-		AreaID: intp(1), IsActive: true}}})
-	sektor := models.NewUserPermissions(models.User{Duties: []models.Duty{{Role: models.RoleSectorLeader, SectorID: sektorPtr("P"), IsActive: true}}})
-	// Pravo se traži na samoj dionici: rukovoditelj područja i sektora, koji
-	// po dionicama inače pišu, ovdje su odbijeni.
-	for ime, p := range map[string]*models.UserPermissions{"bez ovlasti": nil, "rukovoditelj područja": podrucje, "rukovoditelj sektora": sektor} {
-		if _, err := o.svc.Declare(ctx, p, pperic, "P.1.1", o.letva, time.Time{}, models.PhasePrep, models.BasisOrder, ""); !errors.Is(err, ErrUnauthorized) {
-			t.Errorf("%s: proglašenje %v, očekivano ErrUnauthorized", ime, err)
-		}
-		if err := o.svc.Raise(ctx, p, "P.1.1", models.PhaseRegular, ""); !errors.Is(err, ErrUnauthorized) {
-			t.Errorf("%s: podizanje %v", ime, err)
-		}
-		if err := o.svc.End(ctx, p, pperic, "P.1.1", time.Time{}, ""); !errors.Is(err, ErrUnauthorized) {
-			t.Errorf("%s: prekid %v", ime, err)
-		}
+	a := &models.Akt{Sektor: "P", AreaID: 1, Radnja: radnja, Stupanj: stupanj, Vrijedi: vrijedi, StationID: letva, StationName: "Primjerovo"}
+	for _, d := range dionice {
+		a.Dionice = append(a.Dionice, models.AktDionica{Code: d})
 	}
-	admin := &models.UserPermissions{IsGlobalAdmin: true}
-	if _, err := o.svc.Declare(ctx, admin, "uprava", "P.1.2", o.letva, time.Time{}, models.PhasePrep, models.BasisOrder, ""); err != nil {
-		t.Errorf("globalni administrator proglašava na svakoj dionici: %v", err)
+	if err := o.akti.Spremi(ctx, o.uprava, a); err != nil {
+		t.Fatalf("spremanje akta %s %s: %v", radnja, stupanj, err)
+	}
+	ovjeren, upozorenja, err := o.akti.Ovjeri(ctx, o.uprava, o.pero, a.ID)
+	if err != nil || len(upozorenja) != 0 {
+		t.Fatalf("ovjera akta %s %s: %v (upozorenja %v)", radnja, stupanj, err, upozorenja)
+	}
+	return ovjeren
+}
+
+// otvorena vraća obranu koja na dionici traje i pada ako je nema
+func (o *okolinaObrane) otvorena(t *testing.T, dionica string) *models.DefenseEpisode {
+	t.Helper()
+	e, err := o.svc.Open(context.Background(), dionica)
+	if err != nil || e == nil {
+		t.Fatalf("na dionici %s ne traje obrana: %+v (%v)", dionica, e, err)
+	}
+	return e
+}
+
+// Hitnog ručnog proglašenja mimo akta nema, ni u noći izvanredne obrane:
+// servis obrane izvana samo čita, a piše jedino povijest izvedenu iz
+// ovjerenih akata. Novi put do stanja obrane bio bi nova odluka o pravilima
+// obrane i mora svjesno promijeniti ovaj test.
+func TestObranaSeNeMijenjaMimoAkta(t *testing.T) {
+	tip := reflect.TypeOf(&EpisodeService{})
+	var metode []string
+	for i := 0; i < tip.NumMethod(); i++ {
+		metode = append(metode, tip.Method(i).Name)
+	}
+	if want := []string{"ByStation", "List", "Open", "UskladiIzAkata"}; !reflect.DeepEqual(metode, want) {
+		t.Errorf("javne metode servisa obrane: %v, očekivano %v", metode, want)
 	}
 }
 
-func TestProglasenjeObrane(t *testing.T) {
+// Ovjeren akt otvara epizodu na svojoj dionici: početak je vrijeme iz akta,
+// proglasio je onaj tko je akt ovjerio, osnova je prijeđen prag, a u knjigu
+// ide jedna verzija. Akt bez letve daje epizodu bez letve (prazno, a ne
+// nulti UUID) i bez praga.
+func TestObranaIzOvjerenogAkta(t *testing.T) {
 	o := novaOkolinaObrane(t)
 	ctx := context.Background()
+	pocetak := time.Now().Add(-time.Hour).UTC().Truncate(time.Minute)
+	a := o.ovjeriAkt(t, o.letva.ID.String(), models.AktUspostava, models.PhaseRegular, pocetak, "P.1.1")
 
-	for _, faza := range []models.DefensePhase{models.PhaseNormal, models.PhaseUnknown, "", "BILO_STO"} {
-		if _, err := o.svc.Declare(ctx, o.dionica, pperic, "P.1.1", o.letva, time.Time{}, faza, models.BasisOrder, ""); err == nil ||
-			!strings.Contains(err.Error(), "odaberi stupanj obrane") {
-			t.Errorf("faza %q: %v", faza, err)
-		}
-	}
-	if _, err := o.svc.Declare(ctx, o.dionica, pperic, "P.1.1", o.letva, time.Now().Add(61*time.Minute), models.PhasePrep, models.BasisOrder, ""); err == nil ||
-		!strings.Contains(err.Error(), "unaprijed") {
-		t.Errorf("proglašenje više od sat unaprijed: %v", err)
-	}
-
-	// do sat vremena unaprijed se prima; temelj se ne provjerava, napomena se ne reže
-	za50 := time.Now().Add(50 * time.Minute)
-	e, err := o.svc.Declare(ctx, o.dionica, pperic, "P.1.1", o.letva, za50, models.PhaseRegular, "BILO_STO", "  po nalogu  ")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !e.StartedAt.Equal(za50) || e.Origin != models.EpisodeFromOperator || e.DeclaredBy != pperic || e.Basis != "BILO_STO" ||
-		e.Note != "  po nalogu  " || e.StationID != o.letva.ID.String() || e.PeakCm != nil || !e.IsOpen() {
-		t.Errorf("proglašena epizoda: %+v", e)
+	e := o.otvorena(t, "P.1.1")
+	if e.ID != models.IDEpizodeIzAkta("P.1.1", a.ID) || !e.StartedAt.Equal(pocetak) || e.Phase != models.PhaseRegular ||
+		e.Origin != models.EpisodeFromOperator || e.DeclaredBy != o.pero.ID.String() || e.Basis != models.BasisThreshold ||
+		e.StationID != o.letva.ID.String() || e.PeakCm != nil || e.Note != a.Naslov()+" "+a.Oznaka() {
+		t.Errorf("epizoda iz akta: %+v", e)
 	}
 	verzije, err := o.rec.History(ctx, "defense_episodes", e.ID.String())
 	if err != nil || len(verzije) != 1 {
-		t.Errorf("proglašenje mora zapisati jednu verziju u knjigu: %d (%v)", len(verzije), err)
+		t.Errorf("ovjera mora zapisati jednu verziju epizode u knjigu: %d (%v)", len(verzije), err)
 	}
 
-	// druga obrana na istoj dionici dok prva traje ne može
-	if _, err := o.svc.Declare(ctx, o.dionica, pperic, "P.1.1", o.letva, time.Time{}, models.PhaseState, models.BasisOrder, ""); err == nil ||
-		!strings.Contains(err.Error(), "već traje") {
-		t.Errorf("dvostruko proglašenje: %v", err)
-	}
-
-	// prazno vrijeme je sada
-	prije := time.Now()
-	e2, err := o.svc.Declare(ctx, o.dionica, pperic, "P.1.2", o.letva, time.Time{}, models.PhasePrep, models.BasisOrder, "")
-	if err != nil || e2.StartedAt.Before(prije) || e2.StartedAt.After(time.Now()) {
-		t.Errorf("prazno vrijeme proglašenja: %v (%v)", e2, err)
-	}
-
-	// dionica koje nema u registru: zapis pada na stranom ključu
-	admin := &models.UserPermissions{IsGlobalAdmin: true}
-	if _, err := o.svc.Declare(ctx, admin, "uprava", "X.9.9", o.letva, time.Time{}, models.PhasePrep, models.BasisOrder, ""); err == nil {
-		t.Error("proglašenje na nepostojećoj dionici mora pasti")
-	}
-
-	// Letva bez identiteta ostaje prazna, kao na epizodi iz akta bez
-	// vodomjera, a ne nulti UUID.
-	if err := o.svc.End(ctx, admin, "uprava", "P.1.2", time.Time{}, ""); err != nil {
-		t.Fatal(err)
-	}
-	bez, err := o.svc.Declare(ctx, admin, "uprava", "P.1.2", models.Station{}, time.Time{}, models.PhasePrep, models.BasisOrder, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if bez.StationID != "" {
-		t.Errorf("letva bez identiteta: %q, očekivano prazno", bez.StationID)
+	o.ovjeriAkt(t, "", models.AktUspostava, models.PhasePrep, pocetak, "P.1.2")
+	if bez := o.otvorena(t, "P.1.2"); bez.StationID != "" || bez.ThresholdAt != nil {
+		t.Errorf("akt bez letve: letva %q, prag %v", bez.StationID, bez.ThresholdAt)
 	}
 }
 
 func TestPragPrijedenPoOcitanjima(t *testing.T) {
 	o := novaOkolinaObrane(t)
-	ctx := context.Background()
 	sad := time.Now().UTC().Truncate(time.Minute)
 	o.ocitanje(t, sad.Add(-20*24*time.Hour), 900) // izvan prozora od 14 dana
 	o.ocitanje(t, sad.Add(-3*24*time.Hour), 250)
@@ -174,10 +166,8 @@ func TestPragPrijedenPoOcitanjima(t *testing.T) {
 	o.ocitanje(t, prijelaz, 320)
 	o.ocitanje(t, sad.Add(-24*time.Hour), 510)
 
-	e, err := o.svc.Declare(ctx, o.dionica, pperic, "P.1.1", o.letva, sad, models.PhaseRegular, models.BasisThreshold, "")
-	if err != nil {
-		t.Fatal(err)
-	}
+	o.ovjeriAkt(t, o.letva.ID.String(), models.AktUspostava, models.PhaseRegular, sad, "P.1.1")
+	e := o.otvorena(t, "P.1.1")
 	if e.ThresholdAt == nil || !e.ThresholdAt.Equal(prijelaz) {
 		t.Fatalf("prag prijeđen: %v, očekivano %v", e.ThresholdAt, prijelaz)
 	}
@@ -186,64 +176,50 @@ func TestPragPrijedenPoOcitanjima(t *testing.T) {
 	}
 
 	// letva bez pripremnog praga: prelazak se ne traži
-	bez := o.letva
-	bez.Prep = models.Threshold{}
-	e2, err := o.svc.Declare(ctx, o.dionica, pperic, "P.1.2", bez, sad, models.PhaseRegular, models.BasisThreshold, "")
-	if err != nil || e2.ThresholdAt != nil {
-		t.Errorf("bez pripremnog praga: %v (%v)", e2.ThresholdAt, err)
+	bez := models.Station{ID: uuid.New(), Code: "primjerovo-bez-praga", Name: "Primjerovo bez praga"}
+	if err := o.stanice.CreateStation(context.Background(), &bez); err != nil {
+		t.Fatal(err)
+	}
+	o.ovjeriAkt(t, bez.ID.String(), models.AktUspostava, models.PhaseRegular, sad, "P.1.2")
+	if e2 := o.otvorena(t, "P.1.2"); e2.ThresholdAt != nil {
+		t.Errorf("bez pripremnog praga: %v", e2.ThresholdAt)
 	}
 }
 
+// Viši stupanj uspostavlja se novim aktom: epizoda ostaje ista i nosi najviši
+// dosegnuti stupanj, a bilješka nabraja akte razdoblja. Prekid višega dok
+// niži traje ne spušta zabilježeni stupanj i ne zatvara epizodu.
 func TestPodizanjeStupnjaObrane(t *testing.T) {
 	o := novaOkolinaObrane(t)
-	ctx := context.Background()
-	if err := o.svc.Raise(ctx, o.dionica, "P.1.1", models.PhaseRegular, ""); err == nil || !strings.Contains(err.Error(), "ne traje nijedna obrana") {
-		t.Errorf("podizanje bez obrane: %v", err)
+	sat := time.Now().Add(-2 * time.Hour).UTC().Truncate(time.Minute)
+	letva := o.letva.ID.String()
+	prvi := o.ovjeriAkt(t, letva, models.AktUspostava, models.PhaseRegular, sat, "P.1.1")
+	drugi := o.ovjeriAkt(t, letva, models.AktUspostava, models.PhaseState, sat.Add(10*time.Minute), "P.1.1")
+
+	e := o.otvorena(t, "P.1.1")
+	if e.ID != models.IDEpizodeIzAkta("P.1.1", prvi.ID) || e.Phase != models.PhaseState ||
+		e.Note != prvi.Naslov()+" "+prvi.Oznaka()+"\n"+drugi.Naslov()+" "+drugi.Oznaka() {
+		t.Errorf("nakon podizanja: %s, faza %s, napomena %q", e.ID, e.Phase, e.Note)
 	}
-	if _, err := o.svc.Declare(ctx, o.dionica, pperic, "P.1.1", o.letva, time.Time{}, models.PhaseRegular, models.BasisOrder, "početak"); err != nil {
-		t.Fatal(err)
-	}
-	// stupanj se ne spušta i ne ponavlja; nepoznat stupanj je „niži”
-	for _, faza := range []models.DefensePhase{models.PhaseRegular, models.PhasePrep, models.PhaseNormal, "BILO_STO"} {
-		if err := o.svc.Raise(ctx, o.dionica, "P.1.1", faza, ""); err == nil || !strings.Contains(err.Error(), "obrana je već na stupnju") {
-			t.Errorf("podizanje na %q: %v", faza, err)
-		}
-	}
-	if err := o.svc.Raise(ctx, o.dionica, "P.1.1", models.PhaseState, "  voda raste "); err != nil {
-		t.Fatal(err)
-	}
-	e, err := o.svc.Open(ctx, "P.1.1")
-	if err != nil || e == nil {
-		t.Fatal(err)
-	}
-	if e.Phase != models.PhaseState || e.Note != "početak\n  voda raste" {
-		t.Errorf("nakon podizanja: faza %s, napomena %q", e.Phase, e.Note)
+
+	o.ovjeriAkt(t, letva, models.AktPrekid, models.PhaseState, sat.Add(20*time.Minute), "P.1.1")
+	if e := o.otvorena(t, "P.1.1"); e.Phase != models.PhaseState || e.EndedAt != nil {
+		t.Errorf("prekid izvanrednog stanja dok redovna traje: faza %s, kraj %v", e.Phase, e.EndedAt)
 	}
 }
 
+// Prekid najvišeg stadija, kad ništa niže ne traje, zatvara epizodu: kraj je
+// vrijeme iz akta o prekidu, a prekinuo je onaj tko ga je ovjerio. Stupanj i
+// akti razdoblja ostaju zabilježeni.
 func TestPrekidObrane(t *testing.T) {
 	o := novaOkolinaObrane(t)
 	ctx := context.Background()
-	if err := o.svc.End(ctx, o.dionica, pperic, "P.1.1", time.Time{}, ""); err == nil || !strings.Contains(err.Error(), "ne traje nijedna obrana") {
-		t.Errorf("prekid bez obrane: %v", err)
-	}
-	pocetak := time.Now().Add(-2 * time.Hour).UTC().Truncate(time.Second)
-	if _, err := o.svc.Declare(ctx, o.dionica, pperic, "P.1.1", o.letva, pocetak, models.PhaseEmergency, models.BasisOrder, ""); err != nil {
-		t.Fatal(err)
-	}
-	if err := o.svc.End(ctx, o.dionica, pperic, "P.1.1", pocetak.Add(-time.Minute), ""); err == nil || !strings.Contains(err.Error(), "prije nego što je proglašena") {
-		t.Errorf("prekid prije proglašenja: %v", err)
-	}
-	// Prekid se ne upisuje unaprijed (isto ograničenje kao proglašenje); upisan
-	// prekid odmah zatvara obranu.
-	sutra := time.Now().Add(24 * time.Hour).UTC().Truncate(time.Second)
-	if err := o.svc.End(ctx, o.dionica, "pperic-zamjena", "P.1.1", sutra, "voda pada"); err == nil || !strings.Contains(err.Error(), "ne može prekinuti unaprijed") {
-		t.Fatalf("prekid unaprijed: %v", err)
-	}
-	kraj := time.Now().Add(-time.Hour).UTC().Truncate(time.Second)
-	if err := o.svc.End(ctx, o.dionica, "pperic-zamjena", "P.1.1", kraj, "voda pada"); err != nil {
-		t.Fatalf("prekid: %v", err)
-	}
+	pocetak := time.Now().Add(-2 * time.Hour).UTC().Truncate(time.Minute)
+	kraj := time.Now().Add(-time.Hour).UTC().Truncate(time.Minute)
+	letva := o.letva.ID.String()
+	u := o.ovjeriAkt(t, letva, models.AktUspostava, models.PhaseEmergency, pocetak, "P.1.1")
+	p := o.ovjeriAkt(t, letva, models.AktPrekid, models.PhaseEmergency, kraj, "P.1.1")
+
 	if otvorena, err := o.svc.Open(ctx, "P.1.1"); err != nil || otvorena != nil {
 		t.Fatalf("nakon prekida obrana i dalje traje: %+v (%v)", otvorena, err)
 	}
@@ -252,62 +228,22 @@ func TestPrekidObrane(t *testing.T) {
 		t.Fatalf("epizode dionice: %d (%v)", len(sve), err)
 	}
 	e := sve[0]
-	if e.EndedAt == nil || !e.EndedAt.Equal(kraj) || e.EndedBy != "pperic-zamjena" || e.Phase != models.PhaseEmergency || e.Note != "voda pada" {
+	if e.EndedAt == nil || !e.EndedAt.Equal(kraj) || e.EndedBy != o.pero.ID.String() || e.Phase != models.PhaseEmergency ||
+		!strings.Contains(e.Note, u.Oznaka()) || !strings.Contains(e.Note, p.Oznaka()) {
 		t.Errorf("prekinuta epizoda: %+v", e)
-	}
-
-	// prekid u istom trenutku kad je proglašena je dopušten
-	if _, err := o.svc.Declare(ctx, o.dionica, pperic, "P.1.2", o.letva, pocetak, models.PhasePrep, models.BasisOrder, ""); err != nil {
-		t.Fatal(err)
-	}
-	if err := o.svc.End(ctx, o.dionica, pperic, "P.1.2", pocetak, ""); err != nil {
-		t.Errorf("prekid u trenutku proglašenja: %v", err)
 	}
 }
 
 func TestOtvoreneObraneSektoraBezIdentiteta(t *testing.T) {
 	o := novaOkolinaObrane(t)
 	ctx := context.Background()
-	e, err := o.svc.Declare(ctx, o.dionica, pperic, "P.1.1", o.letva, time.Time{}, models.PhasePrep, models.BasisOrder, "")
-	if err != nil {
-		t.Fatal(err)
-	}
+	a := o.ovjeriAkt(t, o.letva.ID.String(), models.AktUspostava, models.PhasePrep, time.Now().Add(-time.Hour), "P.1.1")
 	otvorene, err := o.epizode.OpenEpisodesInSector(ctx, "P")
 	if err != nil || len(otvorene) != 1 {
 		t.Fatalf("otvorene obrane sektora P: %d (%v)", len(otvorene), err)
 	}
 	// Otvorena obrana sektora nosi svoj identitet, kao i Open.
-	if otvorene[0].ID != e.ID || otvorene[0].SectionCode != "P.1.1" || e.ID == uuid.Nil {
+	if otvorene[0].ID != models.IDEpizodeIzAkta("P.1.1", a.ID) || otvorene[0].SectionCode != "P.1.1" {
 		t.Errorf("otvorena obrana sektora: ID %s, dionica %s", otvorene[0].ID, otvorene[0].SectionCode)
 	}
 }
-
-func TestRacunataEpizodaNaRubovima(t *testing.T) {
-	st := letvaBatina()
-	niz := []ocitanje{
-		{dan(2026, 3, 1), 299},
-		{dan(2026, 3, 2), 300}, // točno pripremni prag otvara epizodu
-		{dan(2026, 3, 3), 510},
-		{dan(2026, 3, 4), 510}, // jednaki vrh ne pomiče trenutak vrha
-		{dan(2026, 3, 5), 299},
-		{dan(2026, 3, 6), 820},
-	}
-	ep := izracunaj(niz, st)
-	if len(ep) != 2 {
-		t.Fatalf("epizoda: %d, očekivano 2", len(ep))
-	}
-	prva := ep[0]
-	if !prva.StartedAt.Equal(dan(2026, 3, 2)) || prva.Phase != models.PhaseRegular || *prva.PeakCm != 510 || !prva.PeakAt.Equal(dan(2026, 3, 3)) {
-		t.Errorf("prva epizoda: %+v", prva)
-	}
-	if prva.EndedAt == nil || !prva.EndedAt.Equal(dan(2026, 3, 4)) {
-		t.Errorf("prva epizoda završava zadnjim očitanjem iznad praga: %v", prva.EndedAt)
-	}
-	// Epizoda na kraju niza nije pala ispod praga, pa ostaje otvorena.
-	druga := ep[1]
-	if druga.EndedAt != nil || !druga.IsOpen() || druga.Phase != models.PhaseState {
-		t.Errorf("epizoda na kraju niza: kraj %v, otvorena %v, faza %s", druga.EndedAt, druga.IsOpen(), druga.Phase)
-	}
-}
-
-func sektorPtr(s string) *string { return &s }

@@ -2,9 +2,7 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"sort"
-	"strings"
 	"time"
 
 	"gocop/internal/models"
@@ -13,7 +11,10 @@ import (
 	"github.com/google/uuid"
 )
 
-// EpisodeService vodi epizode obrane od poplava.
+// EpisodeService vodi epizode obrane od poplava. Epizode nastaju i mijenjaju
+// se samo iz ovjerenih akata o obrani (UskladiIzAkata); ručnog proglašenja,
+// podizanja i prekida mimo akta nema, ni u hitnom slučaju (Odluke
+// (8. 10. 2026.), pitanje 14).
 type EpisodeService struct {
 	repo     *repository.EpisodeRepository
 	readings *repository.ReadingRepository
@@ -39,129 +40,12 @@ func (s *EpisodeService) Open(ctx context.Context, sectionCode string) (*models.
 	return s.repo.OpenEpisode(ctx, sectionCode)
 }
 
-// Declare otvara epizodu obrane na dionici. Obranu proglašava čovjek, pa se
-// bilježi tko, kad i po čemu — vodostaj u tom trenutku ne mora biti preko
-// praga, jer se obrana zna proglasiti i po prognozi, uzvodnim vodostajima,
-// ledu ili nalogu.
-func (s *EpisodeService) Declare(ctx context.Context, perms *models.UserPermissions, userID, sectionCode string,
-	st models.Station, at time.Time, phase models.DefensePhase, basis, note string) (*models.DefenseEpisode, error) {
-	if perms == nil || !perms.HasWriteAccess("", 0, sectionCode) {
-		return nil, ErrUnauthorized
-	}
-	if !phase.InForce() {
-		return nil, fmt.Errorf("odaberi stupanj obrane")
-	}
-	if at.IsZero() {
-		at = time.Now()
-	}
-	if at.After(time.Now().Add(time.Hour)) {
-		return nil, fmt.Errorf("obrana se ne može proglasiti unaprijed")
-	}
-	otvorena, err := s.repo.OpenEpisode(ctx, sectionCode)
-	if err != nil {
-		return nil, err
-	}
-	if otvorena != nil {
-		return nil, fmt.Errorf("na dionici %s obrana već traje od %s; podigni stupanj ili je prekini",
-			sectionCode, otvorena.StartedAt.Format("2.1.2006."))
-	}
-	e := models.DefenseEpisode{
-		SectionCode: sectionCode,
-		StationID:   idLetve(st),
-		StartedAt:   at,
-		Phase:       phase,
-		DeclaredBy:  userID,
-		Basis:       basis,
-		Origin:      models.EpisodeFromOperator,
-		Note:        note,
-	}
-	s.dopuniPrag(ctx, &e, st)
-	if err := s.repo.SaveEpisode(ctx, &e); err != nil {
-		return nil, err
-	}
-	return &e, nil
-}
-
-// idLetve je identitet letve epizode; letva bez identiteta ostaje prazna,
-// kao na epizodi iz akta bez vodomjera, a ne nulti UUID
-func idLetve(st models.Station) string {
-	if st.ID == uuid.Nil {
-		return ""
-	}
-	return st.ID.String()
-}
-
-// Raise podiže stupanj obrane na epizodi koja traje. Stupanj se ne spušta —
-// epizoda nosi najviši dosegnuti stupanj, a olakšanje se bilježi prekidom.
-func (s *EpisodeService) Raise(ctx context.Context, perms *models.UserPermissions, sectionCode string,
-	phase models.DefensePhase, note string) error {
-	if perms == nil || !perms.HasWriteAccess("", 0, sectionCode) {
-		return ErrUnauthorized
-	}
-	e, err := s.repo.OpenEpisode(ctx, sectionCode)
-	if err != nil {
-		return err
-	}
-	if e == nil {
-		return fmt.Errorf("na dionici %s ne traje nijedna obrana", sectionCode)
-	}
-	if phase.Severity() <= e.Phase.Severity() {
-		return fmt.Errorf("obrana je već na stupnju %s", e.Phase.Label())
-	}
-	e.Phase = phase
-	if note != "" {
-		e.Note = strings.TrimSpace(e.Note + "\n" + note)
-	}
-	return s.repo.SaveEpisode(ctx, e)
-}
-
-// End prekida obranu na dionici. Prekid je jednako odluka kao i proglašenje,
-// pa se bilježi tko ga je donio.
-func (s *EpisodeService) End(ctx context.Context, perms *models.UserPermissions, userID, sectionCode string,
-	at time.Time, note string) error {
-	if perms == nil || !perms.HasWriteAccess("", 0, sectionCode) {
-		return ErrUnauthorized
-	}
-	e, err := s.repo.OpenEpisode(ctx, sectionCode)
-	if err != nil {
-		return err
-	}
-	if e == nil {
-		return fmt.Errorf("na dionici %s ne traje nijedna obrana", sectionCode)
-	}
-	if at.IsZero() {
-		at = time.Now()
-	}
-	if err := provjeriVrijemePrekida(at, e.StartedAt, time.Now()); err != nil {
-		return err
-	}
-	e.EndedAt = &at
-	e.EndedBy = userID
-	if note != "" {
-		e.Note = strings.TrimSpace(e.Note + "\n" + note)
-	}
-	return s.repo.SaveEpisode(ctx, e)
-}
-
-// provjeriVrijemePrekida: prekid ide između proglašenja i najviše sat
-// unaprijed (razlika satova), kao proglašenje. Upisan kraj zatvara obranu
-// odmah, pa prekid „za sutra” ne smije proći.
-func provjeriVrijemePrekida(at, pocetak, sad time.Time) error {
-	if at.After(sad.Add(time.Hour)) {
-		return fmt.Errorf("obrana se ne može prekinuti unaprijed")
-	}
-	if at.Before(pocetak) {
-		return fmt.Errorf("obrana se ne može prekinuti prije nego što je proglašena")
-	}
-	return nil
-}
-
 // UskladiIzAkata zapisuje povijest obrane dionice izvedenu iz ovjerenih
 // akata: razdoblja dolaze sa stalnim identitetom (models.IDEpizodeIzAkta),
 // pa se zatečeno ažurira, a vrhovi i prag iz očitanja ostaju. Izvedena
 // epizoda kojoj razdoblja više nema (npr. akt je poništen) briše se; moguci
 // su identiteti svih epizoda koje su akti dionice ikad mogli otvoriti, pa
-// ručno upisane i računate epizode ostaju netaknute. Epizoda koja je već
+// ručno upisane i računate epizode iz ranijih izdanja ostaju netaknute. Epizoda koja je već
 // onakva kakvu akti daju ne upisuje se ponovo, pa izvođenje koje se ponavlja
 // (krug čvora, drugi čvor s istim aktima) ne dodaje verzije u knjigu.
 func (s *EpisodeService) UskladiIzAkata(ctx context.Context, dionica string, zeljene []models.DefenseEpisode, moguci []uuid.UUID) error {
@@ -272,84 +156,4 @@ func (s *EpisodeService) dopuniPrag(ctx context.Context, e *models.DefenseEpisod
 type ocitanje struct {
 	at time.Time
 	cm int
-}
-
-// Rebuild iznova računa epizode dionice iz niza očitanja mjerodavne letve.
-// Epizoda počinje kad vodostaj prijeđe pripremno stanje i traje dok se ne
-// vrati ispod njega; nosi najviši dosegnuti stupanj i vrh vala s vremenom.
-//
-// Briše samo epizode utvrđene računom — ono što je operater upisao rukom ostaje,
-// jer je to njegovo očitovanje o obrani, a ne izvod iz brojeva.
-func (s *EpisodeService) Rebuild(ctx context.Context, perms *models.UserPermissions, sectionCode string, st models.Station) (int, error) {
-	if perms == nil || !perms.CanAdminister("", 0) && !perms.IsGlobalAdmin {
-		return 0, ErrUnauthorized
-	}
-	if !st.Prep.IsUsable() {
-		return 0, fmt.Errorf("letva %s nema zapisan prag pripremnog stanja, pa se epizode ne mogu izvesti", st.Name)
-	}
-	sve, err := s.readings.ListForGauges(ctx, []string{st.ID.String()}, nil, time.Time{}, time.Time{})
-	if err != nil {
-		return 0, err
-	}
-	var niz []ocitanje
-	for _, r := range sve {
-		if r.LevelCm != nil {
-			niz = append(niz, ocitanje{r.MeasuredAt, *r.LevelCm})
-		}
-	}
-	sort.Slice(niz, func(i, j int) bool { return niz[i].at.Before(niz[j].at) })
-
-	if _, err := s.repo.DeleteEpisodesFrom(ctx, sectionCode, models.EpisodeFromReadings); err != nil {
-		return 0, err
-	}
-	upisano := 0
-	for _, e := range izracunaj(niz, st) {
-		e.SectionCode = sectionCode
-		e.StationID = st.ID.String()
-		e.Origin = models.EpisodeFromReadings
-		if err := s.repo.SaveEpisode(ctx, &e); err != nil {
-			return upisano, err
-		}
-		upisano++
-	}
-	return upisano, nil
-}
-
-// izracunaj dijeli niz očitanja na epizode. Izdvojeno iz Rebuild da se pravilo
-// može provjeriti bez baze. Zadnja epizoda bez pada ispod praga ostaje
-// otvorena.
-func izracunaj(niz []ocitanje, st models.Station) []models.DefenseEpisode {
-	var out []models.DefenseEpisode
-	var cur *models.DefenseEpisode
-	for _, o := range niz {
-		faza := st.CalculateDefensePhase(o.cm)
-		if faza != models.PhaseNormal && faza != models.PhaseUnknown {
-			if cur == nil {
-				cm, at := o.cm, o.at
-				// Epizoda utvrđena računom počinje upravo prelaskom praga, pa
-				// su početak i prelazak praga isti trenutak.
-				prag := o.at
-				cur = &models.DefenseEpisode{StartedAt: o.at, Phase: faza, PeakCm: &cm, PeakAt: &at,
-					ThresholdAt: &prag, Basis: models.BasisThreshold}
-			} else if o.cm > *cur.PeakCm {
-				cm, at := o.cm, o.at
-				cur.PeakCm, cur.PeakAt = &cm, &at
-				cur.Phase = faza
-			}
-			kraj := o.at
-			cur.EndedAt = &kraj
-			continue
-		}
-		if cur != nil {
-			out = append(out, *cur)
-			cur = nil
-		}
-	}
-	// epizoda koja nije pala ispod praga traje: kraj je zadnje očitanje
-	// iznad praga tek kad iza njega dođe pad
-	if cur != nil {
-		cur.EndedAt = nil
-		out = append(out, *cur)
-	}
-	return out
 }
