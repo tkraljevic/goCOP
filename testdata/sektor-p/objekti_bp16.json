@@ -1,0 +1,30 @@
+[
+  {
+    "code": "P-CS-PROBNI",
+    "name": "CS Probni",
+    "kind": "CRPNA_STANICA",
+    "sector_id": "P",
+    "area_id": 1,
+    "zero_datum": 80.15,
+    "capacity_text": "2 × 0,5 m³/s",
+    "start_cm": 120,
+    "start_text": "uključuje se na +120",
+    "stop_cm": 60,
+    "stop_text": "isključuje se na +60",
+    "origin": "izmišljeni primjer"
+  },
+  {
+    "code": "P-USTAVA-PROBNA",
+    "name": "Ustava Probna",
+    "kind": "USTAVA",
+    "sector_id": "P",
+    "area_id": 1,
+    "zero_datum": null,
+    "capacity_text": "",
+    "start_cm": null,
+    "start_text": "",
+    "stop_cm": null,
+    "stop_text": "",
+    "origin": "izmišljeni primjer"
+  }
+]
