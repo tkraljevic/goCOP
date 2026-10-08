@@ -1529,6 +1529,9 @@ func migrateSchema(database *sql.DB) error {
 		{"akti", "rucno", "TEXT NOT NULL DEFAULT ''"},
 		// poništenje ovjerenog akta (JSON): tko, kada, zašto, potpis
 		{"akti", "storno", "TEXT NOT NULL DEFAULT ''"},
+		// rješenje sukoba oznake s aktom drugog čvora (JSON): koji akti, tko,
+		// kada, napomena (Odluke (8. 10. 2026.), pitanje 4)
+		{"akti", "rijesena_oznaka", "TEXT NOT NULL DEFAULT ''"},
 		{"readings", "temp_note", "TEXT NOT NULL DEFAULT ''"},
 		{"readings", "flow_method", "TEXT NOT NULL DEFAULT ''"},
 		{"readings", "flow_note", "TEXT NOT NULL DEFAULT ''"},

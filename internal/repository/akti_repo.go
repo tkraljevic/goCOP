@@ -35,8 +35,9 @@ func NewAktiRepository(db *sql.DB, rec *ledger.Recorder) *AktiRepository {
 
 const aktUpsert = `INSERT INTO akti (id, sektor, area_id, broj, godina, radnja, stupanj, station_id, station_name, watercourse,
 	vodostaj_cm, vodostaj_kad, tendencija, prognoza, uvod, zavrsno, poveznice, prekida_akt_id, izvan_snage, rucno, storno, dionice, vrijedi, napomena, potpisnik, primatelji,
-	status, izradio_id, izradio, izradeno_at, ovjerio_id, ovjerio, ovjereno_at, ovjera_kod, u_zamjeni, potpis, kljuc_cvora, cvor, created_at, updated_at)
-	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	status, izradio_id, izradio, izradeno_at, ovjerio_id, ovjerio, ovjereno_at, ovjera_kod, u_zamjeni, potpis, kljuc_cvora, cvor, created_at, updated_at,
+	rijesena_oznaka)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	ON CONFLICT(id) DO UPDATE SET sektor = excluded.sektor, area_id = excluded.area_id, broj = excluded.broj, godina = excluded.godina,
 		radnja = excluded.radnja, stupanj = excluded.stupanj, station_id = excluded.station_id, station_name = excluded.station_name,
 		watercourse = excluded.watercourse, vodostaj_cm = excluded.vodostaj_cm, vodostaj_kad = excluded.vodostaj_kad,
@@ -44,11 +45,13 @@ const aktUpsert = `INSERT INTO akti (id, sektor, area_id, broj, godina, radnja, 
 		napomena = excluded.napomena, potpisnik = excluded.potpisnik, primatelji = excluded.primatelji, status = excluded.status,
 		izradio_id = excluded.izradio_id, izradio = excluded.izradio, izradeno_at = excluded.izradeno_at,
 		ovjerio_id = excluded.ovjerio_id, ovjerio = excluded.ovjerio, ovjereno_at = excluded.ovjereno_at,
-		ovjera_kod = excluded.ovjera_kod, u_zamjeni = excluded.u_zamjeni, potpis = excluded.potpis, kljuc_cvora = excluded.kljuc_cvora, cvor = excluded.cvor, created_at = excluded.created_at, updated_at = excluded.updated_at`
+		ovjera_kod = excluded.ovjera_kod, u_zamjeni = excluded.u_zamjeni, potpis = excluded.potpis, kljuc_cvora = excluded.kljuc_cvora, cvor = excluded.cvor, created_at = excluded.created_at, updated_at = excluded.updated_at,
+		rijesena_oznaka = excluded.rijesena_oznaka`
 
 const aktColumns = `id, sektor, area_id, broj, godina, radnja, stupanj, station_id, station_name, watercourse,
 	vodostaj_cm, vodostaj_kad, tendencija, prognoza, uvod, zavrsno, poveznice, prekida_akt_id, izvan_snage, rucno, storno, dionice, vrijedi, napomena, potpisnik, primatelji,
-	status, izradio_id, izradio, izradeno_at, ovjerio_id, ovjerio, ovjereno_at, ovjera_kod, u_zamjeni, potpis, kljuc_cvora, cvor, created_at, updated_at`
+	status, izradio_id, izradio, izradeno_at, ovjerio_id, ovjerio, ovjereno_at, ovjera_kod, u_zamjeni, potpis, kljuc_cvora, cvor, created_at, updated_at,
+	rijesena_oznaka`
 
 func aktArgs(a *models.Akt) []any {
 	dionice, _ := json.Marshal(a.Dionice)
@@ -71,18 +74,37 @@ func aktArgs(a *models.Akt) []any {
 	}
 	return []any{a.ID, a.Sektor, a.AreaID, a.Broj, a.Godina, a.Radnja, string(a.Stupanj), a.StationID, a.StationName, a.Watercourse,
 		a.VodostajCm, vodostajKad, a.Tendencija, a.Prognoza, a.Uvod, a.Zavrsno, a.Poveznice, a.PrekidaAktID, a.IzvanSnage, rucno, storno, string(dionice), a.Vrijedi.UTC(), a.Napomena, a.Potpisnik, string(primatelji),
-		a.Status, a.IzradioID, a.Izradio, a.IzradenoAt.UTC(), a.OvjerioID, a.Ovjerio, ovjerenoAt, a.OvjeraKod, boolInt(a.UZamjeni), a.Potpis, a.KljucCvora, a.Cvor, a.CreatedAt.UTC(), a.UpdatedAt.UTC()}
+		a.Status, a.IzradioID, a.Izradio, a.IzradenoAt.UTC(), a.OvjerioID, a.Ovjerio, ovjerenoAt, a.OvjeraKod, boolInt(a.UZamjeni), a.Potpis, a.KljucCvora, a.Cvor, a.CreatedAt.UTC(), a.UpdatedAt.UTC(),
+		jsonIliPrazno(a.RijesenaOznaka)}
+}
+
+// jsonIliPrazno je vrijednost kao JSON za stupac teksta; prazno kad je nema
+// (nil ili prazan popis), da se stupac ne puni s "null"
+func jsonIliPrazno(v any) string {
+	b, err := json.Marshal(v)
+	if err != nil || string(b) == "null" || string(b) == "[]" {
+		return ""
+	}
+	return string(b)
+}
+
+// citajJSON čita JSON stupca u v; prazan stupac ostavlja v kakav jest
+func citajJSON(s string, v any) {
+	if s != "" {
+		_ = json.Unmarshal([]byte(s), v)
+	}
 }
 
 func scanAkt(sc interface{ Scan(...any) error }) (models.Akt, error) {
 	var a models.Akt
-	var stupanj, dionice, primatelji, rucno, storno string
+	var stupanj, dionice, primatelji, rucno, storno, rijesenaOznaka string
 	var vodostaj sql.NullInt64
 	var vodostajKad, ovjerenoAt sql.NullTime
 	var uZamjeni int
 	err := sc.Scan(&a.ID, &a.Sektor, &a.AreaID, &a.Broj, &a.Godina, &a.Radnja, &stupanj, &a.StationID, &a.StationName, &a.Watercourse,
 		&vodostaj, &vodostajKad, &a.Tendencija, &a.Prognoza, &a.Uvod, &a.Zavrsno, &a.Poveznice, &a.PrekidaAktID, &a.IzvanSnage, &rucno, &storno, &dionice, &a.Vrijedi, &a.Napomena, &a.Potpisnik, &primatelji,
-		&a.Status, &a.IzradioID, &a.Izradio, &a.IzradenoAt, &a.OvjerioID, &a.Ovjerio, &ovjerenoAt, &a.OvjeraKod, &uZamjeni, &a.Potpis, &a.KljucCvora, &a.Cvor, &a.CreatedAt, &a.UpdatedAt)
+		&a.Status, &a.IzradioID, &a.Izradio, &a.IzradenoAt, &a.OvjerioID, &a.Ovjerio, &ovjerenoAt, &a.OvjeraKod, &uZamjeni, &a.Potpis, &a.KljucCvora, &a.Cvor, &a.CreatedAt, &a.UpdatedAt,
+		&rijesenaOznaka)
 	if err != nil {
 		return a, err
 	}
@@ -109,11 +131,34 @@ func scanAkt(sc interface{ Scan(...any) error }) (models.Akt, error) {
 	}
 	_ = json.Unmarshal([]byte(dionice), &a.Dionice)
 	_ = json.Unmarshal([]byte(primatelji), &a.Primatelji)
+	citajJSON(rijesenaOznaka, &a.RijesenaOznaka)
 	return a, nil
 }
 
 // SaveAkt upisuje akt, nov ili izmijenjen, s verzijom u knjizi
 func (r *AktiRepository) SaveAkt(ctx context.Context, a *models.Akt) error {
+	return r.SaveAkti(ctx, a)
+}
+
+// SaveAkti upisuje akte u jednoj transakciji, svaki s verzijom u knjizi:
+// ili su upisani svi, ili nijedan
+func (r *AktiRepository) SaveAkti(ctx context.Context, akti ...*models.Akt) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for _, a := range akti {
+		if err := r.upisiAkt(ctx, tx, a); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+// upisiAkt upisuje akt na površinu i njegovu verziju u knjigu, unutar
+// zadane transakcije; nov akt dobiva identitet
+func (r *AktiRepository) upisiAkt(ctx context.Context, tx *sql.Tx, a *models.Akt) error {
 	now := time.Now().UTC()
 	if a.ID == "" {
 		id, err := uuid.NewV7()
@@ -127,28 +172,66 @@ func (r *AktiRepository) SaveAkt(ctx context.Context, a *models.Akt) error {
 		a.CreatedAt = now
 	}
 	a.UpdatedAt = now
+	if _, err := tx.ExecContext(ctx, aktUpsert, aktArgs(a)...); err != nil {
+		return fmt.Errorf("upis akta: %w", err)
+	}
+	_, err := r.rec.Record(ctx, tx, EntityAkti, a.ID, a)
+	return err
+}
+
+// OvjeriAkt upisuje ovjeren akt i u istom mu koraku dodjeljuje redni broj u
+// godini po sektoru (Odluke (8. 10. 2026.), pitanje 4). Dodjela broja prvi je
+// upis transakcije, pa transakcija od tada drži pravo pisanja u bazu: druga
+// ovjera na ovom čvoru čeka da se ova upiše i dobiva sljedeći broj, a isti
+// broj čvor ne može dati dvaput. Akt mora biti spremljen kao nacrt (broj 0);
+// drugi pokušaj ovjere istog nacrta ne prolazi. dovrsi dovršava akt kad je
+// broj poznat: potpis ključem čvora pokriva i oznaku.
+func (r *AktiRepository) OvjeriAkt(ctx context.Context, a *models.Akt, dovrsi func(*models.Akt)) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
-	if _, err := tx.ExecContext(ctx, aktUpsert, aktArgs(a)...); err != nil {
-		return fmt.Errorf("upis akta: %w", err)
+	res, err := tx.ExecContext(ctx, `UPDATE akti SET broj = (SELECT COALESCE(MAX(broj), 0) + 1 FROM akti WHERE sektor = ? AND godina = ?)
+		WHERE id = ? AND broj = 0`, a.Sektor, a.Godina, a.ID)
+	if err != nil {
+		return fmt.Errorf("dodjela broja akta: %w", err)
 	}
-	if _, err := r.rec.Record(ctx, tx, EntityAkti, a.ID, a); err != nil {
+	if n, _ := res.RowsAffected(); n != 1 {
+		return fmt.Errorf("akt nije nacrt: već je ovjeren ili ga nema")
+	}
+	if err := tx.QueryRowContext(ctx, `SELECT broj FROM akti WHERE id = ?`, a.ID).Scan(&a.Broj); err != nil {
+		return err
+	}
+	if dovrsi != nil {
+		dovrsi(a)
+	}
+	if err := r.upisiAkt(ctx, tx, a); err != nil {
 		return err
 	}
 	return tx.Commit()
 }
 
-// SljedeciBroj daje sljedeći redni broj akta u godini po sektoru
-func (r *AktiRepository) SljedeciBroj(ctx context.Context, sektor string, godina int) (int, error) {
-	var n sql.NullInt64
-	err := r.db.QueryRowContext(ctx, `SELECT MAX(broj) FROM akti WHERE sektor = ? AND godina = ?`, sektor, godina).Scan(&n)
+// AktiIsteOznake su akti s brojem čiju oznaku (sektor, broj, godina) nosi
+// još koji akt: u pravilu akti dvaju čvorova ovjereni bez veze, koje je
+// razmjena spojila (Odluke (8. 10. 2026.), pitanje 4)
+func (r *AktiRepository) AktiIsteOznake(ctx context.Context) ([]models.Akt, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT `+aktColumns+` FROM akti a WHERE a.broj > 0 AND EXISTS (
+		SELECT 1 FROM akti b WHERE b.sektor = a.sektor AND b.godina = a.godina AND b.broj = a.broj AND b.id <> a.id)
+		ORDER BY a.sektor, a.godina, a.broj, a.created_at`)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	return int(n.Int64) + 1, nil
+	defer rows.Close()
+	var out []models.Akt
+	for rows.Next() {
+		a, err := scanAkt(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	return out, rows.Err()
 }
 
 // GetAkt čita jedan akt

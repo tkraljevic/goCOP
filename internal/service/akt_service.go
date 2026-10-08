@@ -953,27 +953,15 @@ func (s *AktService) provjeriStorno(ctx context.Context, perms *models.UserPermi
 // dionicama mijenja se ovlašću samog akta, ne ovlastima onoga tko radnju
 // izvodi u programu.
 func (s *AktService) zakljuciOvjeru(ctx context.Context, potpisnikPerms *models.UserPermissions, u *models.User, a *models.Akt, sad time.Time) (*models.Akt, []string, error) {
-	var err error
 	a.Godina = a.Vrijedi.In(models.Zagreb).Year()
-	if a.Broj, err = s.repo.SljedeciBroj(ctx, a.Sektor, a.Godina); err != nil {
-		return nil, nil, err
-	}
 	a.Status = models.AktOvjeren
 	a.OvjerioID, a.Ovjerio, a.OvjerenoAt, a.Cvor = u.ID.String(), u.FullName, &sad, s.cvor
-	// Izvanredno stanje u hitnom slučaju proglašava rukovoditelj branjenog
-	// područja: tada je potpisnik on, a ne sektor
-	if a.Stupanj == models.PhaseState && !potpisnikPerms.IsGlobalAdmin && !razinaSektora(potpisnikPerms, a) {
-		a.Potpisnik = fmt.Sprintf("Rukovoditelj obrane od poplava za branjeno područje %d", a.AreaID)
-		a.UZamjeni = !models.Akt{Stupanj: models.PhaseRegular, AreaID: a.AreaID, Sektor: a.Sektor}.NositeljFunkcije(u.Duties)
-	} else {
-		a.UZamjeni = !a.NositeljFunkcije(u.Duties)
-	}
+	odrediPotpisnika(potpisnikPerms, u, a)
 	a.OvjeraKod = a.KodOvjere(a.OvjerioID, sad)
-	if len(s.kljuc) == ed25519.PrivateKeySize {
-		a.KljucCvora = razmjena.PublicKeyString(s.kljuc.Public().(ed25519.PublicKey))
-		a.Potpis = base64.StdEncoding.EncodeToString(ed25519.Sign(s.kljuc, a.PorukaPotpisa()))
-	}
-	if err := s.repo.SaveAkt(ctx, a); err != nil {
+	// Broj se dodjeljuje u istom koraku u kojem se akt upisuje, pa ga ovaj
+	// čvor ne može dati dvaput (Odluke (8. 10. 2026.), pitanje 4); potpis
+	// ključem čvora pokriva i oznaku, pa nastaje tek kad je broj poznat.
+	if err := s.repo.OvjeriAkt(ctx, a, s.potpisiKljucemCvora); err != nil {
 		return nil, nil, err
 	}
 
@@ -987,6 +975,28 @@ func (s *AktService) zakljuciOvjeru(ctx context.Context, potpisnikPerms *models.
 		upozorenja = append(upozorenja, s.objavi(ctx, u, a, j)...)
 	}
 	return a, upozorenja, nil
+}
+
+// odrediPotpisnika upisuje potpisnika i "u.z.": izvanredno stanje u hitnom
+// slučaju proglašava rukovoditelj branjenog područja, pa je tada potpisnik
+// on, a ne sektor
+func odrediPotpisnika(potpisnikPerms *models.UserPermissions, u *models.User, a *models.Akt) {
+	if a.Stupanj == models.PhaseState && !potpisnikPerms.IsGlobalAdmin && !razinaSektora(potpisnikPerms, a) {
+		a.Potpisnik = fmt.Sprintf("Rukovoditelj obrane od poplava za branjeno područje %d", a.AreaID)
+		a.UZamjeni = !models.Akt{Stupanj: models.PhaseRegular, AreaID: a.AreaID, Sektor: a.Sektor}.NositeljFunkcije(u.Duties)
+		return
+	}
+	a.UZamjeni = !a.NositeljFunkcije(u.Duties)
+}
+
+// potpisiKljucemCvora potpisuje ovjeren akt ključem čvora; bez ključa akt
+// ostaje bez elektroničkog potpisa
+func (s *AktService) potpisiKljucemCvora(a *models.Akt) {
+	if len(s.kljuc) != ed25519.PrivateKeySize {
+		return
+	}
+	a.KljucCvora = razmjena.PublicKeyString(s.kljuc.Public().(ed25519.PublicKey))
+	a.Potpis = base64.StdEncoding.EncodeToString(ed25519.Sign(s.kljuc, a.PorukaPotpisa()))
 }
 
 // smijePripremiti javlja smije li osoba raditi s nacrtom: tko ga je

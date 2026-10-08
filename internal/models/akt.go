@@ -86,6 +86,12 @@ type Akt struct {
 	// označen, ali ne ulazi u stanje obrane.
 	Storno *StornoAkta `json:"storno,omitempty"`
 
+	// RijesenaOznaka je rješenje sukoba oznake s aktom drugog čvora
+	// (Odluke (8. 10. 2026.), pitanje 4). Ne ulazi u potpisani sadržaj akta,
+	// pa ga potpis i kod ovjere ne pokrivaju, a čvor sa starijim programom
+	// akt i dalje provjerava istim potpisom.
+	RijesenaOznaka *RjesenjeOznake `json:"rijesena_oznaka,omitempty"`
+
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }

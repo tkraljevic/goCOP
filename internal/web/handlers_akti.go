@@ -85,6 +85,12 @@ type AktiPageData struct {
 	Slanje              *SlanjeData   // slanje izvornika primateljima "na znanje"
 	Upozorenja          []string
 
+	// Sukobi oznaka (Odluke (8. 10. 2026.), pitanje 4): u popisu po ID-u
+	// akta, a na stranici akta njegov sukob i smije li ga osoba riješiti
+	Sukobi              map[string]models.SukobOznake
+	Sukob               models.SukobOznake
+	SmijeRijesitiOznaku bool
+
 	// špranca
 	Spranca models.Spranca
 	Zadana  models.Spranca
@@ -151,6 +157,7 @@ func (h *AktiHandler) ShowPopis(w http.ResponseWriter, r *http.Request) {
 		data.ErrorMessage = err.Error()
 	}
 	data.Akti = akti
+	h.sukobiOznaka(r.Context(), s, &data)
 	g := time.Now().In(models.Zagreb).Year()
 	for y := g; y >= g-5; y-- {
 		data.Godine = append(data.Godine, y)
@@ -158,6 +165,22 @@ func (h *AktiHandler) ShowPopis(w http.ResponseWriter, r *http.Request) {
 	if err := h.tmplPopis.ExecuteTemplate(w, "akti.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// sukobiOznaka upisuje u stranicu sukobe oznaka akata; kad se ne daju
+// provjeriti, to piše na stranici
+func (h *AktiHandler) sukobiOznaka(ctx context.Context, s *service.AktService, data *AktiPageData) {
+	sukobi, err := s.SukobiOznaka(ctx)
+	data.Sukobi = sukobi
+	data.ErrorMessage = uzGresku(data.ErrorMessage, "Akti s istom oznakom nisu provjereni", err)
+}
+
+// uzGresku dodaje poruci stranice grešku koja nije spriječila prikaz
+func uzGresku(poruka, sto string, err error) string {
+	if err == nil {
+		return poruka
+	}
+	return strings.TrimSpace(poruka + " " + sto + ": " + err.Error())
 }
 
 // ShowForm je obrazac za novi akt: vodomjer, radnja, stupanj, vrijeme
@@ -296,6 +319,7 @@ func (h *AktiHandler) ShowAkt(w http.ResponseWriter, r *http.Request) {
 	data.SmijeObrisati = !a.Ovjeren() && u != nil && (a.IzradioID == u.ID.String() || s.SmijeOvjeriti(perms, a))
 	data.SmijeObrisatiTrajno = s.SmijeObrisatiTrajno(r.Context(), perms, a)
 	data.SmijePonistiti = s.SmijePonistiti(perms, u, a)
+	h.sukobAkta(r.Context(), s, perms, a, &data)
 	for i := range data.Sektori {
 		if data.Sektori[i].ID == a.Sektor {
 			data.Sektor = &data.Sektori[i]
@@ -311,6 +335,28 @@ func (h *AktiHandler) ShowAkt(w http.ResponseWriter, r *http.Request) {
 	if err := h.tmplAkt.ExecuteTemplate(w, "akt.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// sukobAkta upisuje u stranicu akta sukob njegove oznake i smije li ga
+// osoba označiti riješenim
+func (h *AktiHandler) sukobAkta(ctx context.Context, s *service.AktService, perms *models.UserPermissions, a *models.Akt, data *AktiPageData) {
+	h.sukobiOznaka(ctx, s, data)
+	data.Sukob = data.Sukobi[a.ID]
+	data.SmijeRijesitiOznaku = len(data.Sukob.Drugi) > 0 && service.SmijeRijesitiOznaku(perms, a)
+}
+
+// HandleRijesiOznaku označava sukob oznake akta riješenim, s napomenom
+func (h *AktiHandler) HandleRijesiOznaku(w http.ResponseWriter, r *http.Request) {
+	u, perms, _ := h.base(r)
+	s, a := h.ucitaj(w, r)
+	if a == nil {
+		return
+	}
+	if err := s.RijesiOznaku(r.Context(), perms, u, a.ID, r.FormValue("napomena")); err != nil {
+		redirectWith(w, r, "/akti/"+a.ID, "error", err.Error())
+		return
+	}
+	redirectWith(w, r, "/akti/"+a.ID, "success", "Sukob oznake "+a.Oznaka()+" označen je riješenim; rješenje vide svi čvorovi.")
 }
 
 // HandleTekst sprema ispravljeni tekst nacrta

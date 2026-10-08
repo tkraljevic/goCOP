@@ -10,7 +10,7 @@
   <div>
     <h1 class="page-title">{{icon "file-text"}} {{$a.Vrsta}} o {{$a.RadnjaLabel}} {{$a.Predmet}}</h1>
     <p class="page-desc">{{$a.StationName}} · BP {{$a.AreaID}}{{with .Podrucje}} {{.Name}}{{end}} · {{term "sektor"}} {{$a.Sektor}} ·
-      {{if $a.Ovjeren}}<span class="badge badge-area-admin">{{icon "check"}} ovjeren {{$a.Oznaka}}</span>{{else}}<span class="badge badge-pending">nacrt</span>{{end}}{{if $a.Storniran}} <span class="badge badge-danger">poništen</span>{{end}}</p>
+      {{if $a.Ovjeren}}<span class="badge badge-area-admin">{{icon "check"}} ovjeren {{$a.Oznaka}}</span>{{else}}<span class="badge badge-pending">nacrt</span>{{end}}{{if $a.Storniran}} <span class="badge badge-danger">poništen</span>{{end}}{{if and .Sukob.Drugi (not .Sukob.Rijesen)}} <a href="#oznaka" class="badge badge-danger">ista oznaka kao drugi akt</a>{{end}}</p>
   </div>
   <div class="page-actions">
     <a href="/akti/{{$a.ID}}/akt.pdf" class="btn btn-secondary" target="_blank">{{icon "printer"}} PDF</a>
@@ -191,6 +191,20 @@
 </details>
 {{end}}
 
+{{with .Sukob.Drugi}}
+<div class="akt-potpis-stanje{{if not $.Sukob.Rijesen}} ne-vrijedi{{end}}" id="oznaka">
+  {{icon "triangle-alert"}} <strong>Ista oznaka kao akt {{range $i, $d := .}}{{if $i}}; {{end}}<a href="/akti/{{$d.ID}}">{{$d.StationName}}, {{$d.Vrsta}} o {{$d.RadnjaLabel}} {{$d.Predmet}}</a> (kod {{$d.OvjeraKod}}{{with $d.Cvor}}, čvor {{.}}{{end}}){{end}}.</strong>
+  {{if $.Sukob.Rijesen}}{{with $.Sukob.Rjesenje}}Sukob je riješen: {{.Napomena}} ({{.Rijesio}}, {{formatDate (localTime .Kad)}}).{{end}}
+  {{else}}Oba akta ostaju valjana i potpisana: ovjerena su na dva čvora dok veze nije bilo. Sukob rješava Voditelj Centra obrane od poplava ili zamjenik (npr. dopisom primateljima s ispravkom oznake) i označava ga riješenim.{{end}}
+  {{if and $.SmijeRijesitiOznaku (not $.Sukob.Rijesen)}}
+  <form method="POST" action="/akti/{{$a.ID}}/oznaka" class="mt-2">
+    <label for="napomena-oznake" class="form-label">Kako je sukob riješen</label>
+    <input id="napomena-oznake" name="napomena" class="form-control" required placeholder="npr. primateljima poslan dopis s ispravkom oznake">
+    <button type="submit" class="btn btn-secondary mt-2">{{icon "check"}} Označi riješenim</button>
+  </form>
+  {{end}}
+</div>
+{{end}}
 {{with $a.Storno}}
 <div class="akt-potpis-stanje ne-vrijedi">
   {{icon "triangle-alert"}} <strong>Akt je poništen (storno):</strong> {{.Razlog}} Poništio {{.Ponistio}}, {{formatDate (localTime .PonistenoAt)}}. Poništen akt ne ulazi u stanje obrane; ako treba, ispravlja ga novi akt.
