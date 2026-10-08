@@ -130,6 +130,11 @@ type VodocuvarPageData struct {
 	Danas       string
 	NajdaljeDan string // zadnji dan za koji se list priprema unaprijed (30 dana)
 	Arhivirana  bool   // odabrana godina je zaključena
+	// Dvostruki su dani s više dnevnih listova istog vodočuvara, za
+	// rukovoditelja koji ih ovjerava i administratora; Dvojnici su uz
+	// predan list brojevi drugih predanih listova istog dana
+	Dvostruki []service.DvostrukiDan
+	Dvojnici  map[string][]int
 
 	Vodocuvari      []models.User    // kojima osoba smije zadavati zadatke
 	ZadaciOsobe     []models.Zadatak // zadaci vodočuvara čiji je list otvoren
@@ -142,6 +147,7 @@ type VodocuvarPageData struct {
 	SmijeParafirati bool
 	Parafirao       bool
 	Podrucje        *models.Area
+	DrugiPredani    []models.VodocuvarskiList // drugi predani listovi istog dana: dvostruki list
 }
 
 func (h *VodocuvarHandler) base(r *http.Request) (*models.User, *models.UserPermissions, VodocuvarPageData) {
@@ -269,6 +275,8 @@ func (h *VodocuvarHandler) ShowPopis(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	d.MojiMjeseci = poMjesecima(d.Moji)
+	d.Dvostruki = s.DvostrukiListovi(r.Context(), perms)
+	d.Dvojnici = service.BrojeviDvostrukih(append(append([]models.VodocuvarskiList{}, d.Moji...), d.Tudji...))
 	// Vodočuvar koji ne vidi ničiji tuđi dnevnik i nikome ne zadaje zadatke
 	// dobiva samo svoju knjigu: filtri i tuđe knjige mu ništa ne znače, a
 	// svaki suvišan gumb je razlog manje da program uopće otvori.
@@ -334,6 +342,7 @@ func (h *VodocuvarHandler) prikazi(w http.ResponseWriter, r *http.Request, d Vod
 	}
 	d.SmijeParafirati = s.SmijeParafirati(perms, l) && l.Predan() && !l.Rekonstrukcija
 	d.Parafirao = perms != nil && l.Parafirao(perms.User.ID.String())
+	d.DrugiPredani = s.DrugiPredani(r.Context(), l)
 	if org := h.org(); org != nil && l.AreaID > 0 {
 		d.Podrucje, _ = org.GetArea(r.Context(), l.AreaID)
 	}

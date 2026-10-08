@@ -19,6 +19,7 @@
 
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
+{{with .DrugiPredani}}<div class="alert alert-warning">{{icon "triangle-alert"}} Dvostruki list – vidi i {{range $i, $d := .}}{{if $i}}, {{end}}<a href="/vodocuvar/{{$d.ID}}">list br. {{$d.Broj}}</a>{{end}}. Za isti dan predano je više listova; nijedan se ne briše.</div>{{end}}
 
 {{if and .Moj (not $l.Zakljucen)}}
 <form method="POST" action="/vodocuvar/spremi" class="form-page vodocuvar-obrazac">
