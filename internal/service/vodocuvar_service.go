@@ -42,6 +42,10 @@ type VodocuvarService struct {
 	// brisanja; testovi njime predaju ili brišu list u međuvremenu, kao
 	// druga kartica
 	prijeBrisanja func(ctx context.Context)
+	// stanjeObrane je stanje obrane dionice iz ovjerenih akata (AktService):
+	// rukovoditelj dionice zadaje zadatke samo dok na njegovoj dionici traje
+	// obrana. Bez njega (nil) obrana se ne pretpostavlja.
+	stanjeObrane func(ctx context.Context, sektor, dionica string, t time.Time) (models.StanjeObrane, []models.Akt, error)
 }
 
 // SetRadnoVrijeme daje servisu izvor redovnog radnog vremena
@@ -112,45 +116,31 @@ func (s *VodocuvarService) SmijeOvjeriti(perms *models.UserPermissions, l *model
 	return false
 }
 
-// SmijeParafirati javlja smije li osoba parafirati list: svaki rukovoditelj
-// ili ovlaštenik čije je zaduženje vezano uz to područje ili sektor, osim
-// samog vodočuvara i terenskih uloga. Tko ne smije čitati dnevnik (gost,
-// preglednik, istekla dužnost), ne parafira, ne upisuje i ne zadaje zadatke.
-// Pravo se gleda po dužnosti: valjana dužnost na drugom području ne otvara
-// list područja na kojem je osoba gost ili joj je dužnost istekla.
+// SmijeParafirati javlja smije li osoba parafirati predani list: tko ga
+// ovjerava, uprava i ovlaštenici u dosegu, a rukovoditelj dionice samo list
+// vezan uz njegovu dionicu; dežurni operater ne parafira (knjiga_ovlasti.go).
+// Tko ne smije čitati dnevnik (gost, preglednik, istekla dužnost), ne
+// parafira, ne upisuje i ne zadaje zadatke. Pravo se gleda po dužnosti:
+// valjana dužnost na drugom području ne otvara list područja na kojem je
+// osoba gost ili joj je dužnost istekla.
 func (s *VodocuvarService) SmijeParafirati(perms *models.UserPermissions, l *models.VodocuvarskiList) bool {
-	if perms == nil || l == nil || perms.User.ID.String() == l.UserID || !perms.User.VidiVodocuvarskiDnevnik() {
-		return false
-	}
-	if s.SmijeOvjeriti(perms, l) {
-		return true
-	}
-	sad := time.Now()
-	for _, d := range perms.User.Duties {
-		if !d.CitaVodocuvarskiDnevnik(sad) || d.Role.IsField() {
-			continue
-		}
-		if d.AreaID != nil && *d.AreaID == l.AreaID {
-			return true
-		}
-		if d.AreaID == nil && d.SectorID != nil && *d.SectorID == l.Sektor && d.ScopeType == models.ScopeSector {
-			return true
-		}
-	}
-	return false
+	return s.smijeRadnju(context.Background(), perms, l, nil, radnjaParafa)
+}
+
+// SmijeUpisati javlja smije li osoba upisati bilješku na list vodočuvara
+// (knjiga_ovlasti.go)
+func (s *VodocuvarService) SmijeUpisati(perms *models.UserPermissions, l *models.VodocuvarskiList) bool {
+	return s.smijeRadnju(context.Background(), perms, l, nil, radnjaBiljeska)
 }
 
 // SmijeVidjeti javlja smije li osoba čitati list.
 //
-// Dnevnik je vodočuvarev: čita ga on, oni koji ga ovjeravaju i parafiraju, i
-// administracija. Pravo pisanja na području NE otvara tuđi dnevnik — inače
-// bi svaki vodočuvar vidio dnevnike kolega s istog područja, a za to nema
-// potrebe ni osnove.
+// Dnevnik je vodočuvarev: čita ga on, oni koji ga ovjeravaju i parafiraju,
+// rukovoditelji dionica i dežurni operater u dosegu, i administracija. Pravo
+// pisanja na području NE otvara tuđi dnevnik — inače bi svaki vodočuvar
+// vidio dnevnike kolega s istog područja, a za to nema potrebe ni osnove.
 func (s *VodocuvarService) SmijeVidjeti(perms *models.UserPermissions, l *models.VodocuvarskiList) bool {
-	if perms == nil || l == nil || !perms.User.VidiVodocuvarskiDnevnik() {
-		return false
-	}
-	return perms.User.ID.String() == l.UserID || s.SmijeParafirati(perms, l) || perms.CanAdminister(l.Sektor, l.AreaID)
+	return s.cita(perms, l, nil)
 }
 
 // Pripremi vraća list vodočuvara za dan: postojeći, ili novi popunjen onim
@@ -506,8 +496,9 @@ func zaVodocuvara(v *models.User) *models.VodocuvarskiList {
 	return l
 }
 
-// ZadajZadatak zadaje zadatak vodočuvaru; smije tko smije parafirati ili
-// ovjeriti njegov list (rukovoditelji vezani uz područje i sektor)
+// ZadajZadatak zadaje zadatak vodočuvaru; smije tko ovjerava njegov list,
+// uprava i ovlaštenici u dosegu, a rukovoditelj dionice samo vodočuvaru
+// svoje dionice dok na njoj traje obrana (knjiga_ovlasti.go)
 // za je dan za koji se zadatak planira: danas ili do 30 dana unaprijed; nula = od danas
 func (s *VodocuvarService) ZadajZadatak(ctx context.Context, perms *models.UserPermissions, u *models.User, vodocuvarID, tekst string, za time.Time) (*models.Zadatak, error) {
 	tekst = strings.TrimSpace(tekst)
@@ -537,7 +528,7 @@ func (s *VodocuvarService) ZadajZadatak(ctx context.Context, perms *models.UserP
 	if err != nil {
 		return nil, err
 	}
-	if !s.SmijeParafirati(perms, probni) {
+	if !s.smijeRadnju(ctx, perms, probni, v, radnjaZadatak) {
 		return nil, ErrUnauthorized
 	}
 	z := &models.Zadatak{UserID: v.ID.String(), Sektor: probni.Sektor, AreaID: probni.AreaID, Tekst: tekst, ZadaoID: u.ID.String(), Zadao: u.FullName, ZadanoAt: time.Now(), Za: za, Status: models.ZadatakOtvoren, Cvor: s.cvor}
@@ -554,13 +545,24 @@ func (s *VodocuvarService) Zadaci(ctx context.Context, vodocuvarID string) []mod
 // zadatke. Isključeni računi ne ulaze; vodočuvar koji se još nije prijavio
 // ulazi, zadatak ga čeka.
 func (s *VodocuvarService) Vodocuvari(ctx context.Context, perms *models.UserPermissions) []models.User {
+	return s.vodocuvariZa(ctx, perms, radnjaZadatak)
+}
+
+// VodocuvariZaBiljesku su vodočuvari u čije knjige osoba smije upisati
+// bilješku, kao Vodocuvari; njihova knjiga postoji i kad je još prazna
+func (s *VodocuvarService) VodocuvariZaBiljesku(ctx context.Context, perms *models.UserPermissions) []models.User {
+	return s.vodocuvariZa(ctx, perms, radnjaBiljeska)
+}
+
+// vodocuvariZa su vodočuvari s aktivnim računom za koje osoba smije radnju
+func (s *VodocuvarService) vodocuvariZa(ctx context.Context, perms *models.UserPermissions, r radnjaUKnjizi) []models.User {
 	svi, err := s.users.ListUsers("", 0, "", "", "")
 	if err != nil {
 		return nil
 	}
 	var out []models.User
 	for i := range svi {
-		if probni := zaZadatke(&svi[i]); probni != nil && s.SmijeParafirati(perms, probni) {
+		if probni := zaZadatke(&svi[i]); probni != nil && s.smijeRadnju(ctx, perms, probni, &svi[i], r) {
 			out = append(out, svi[i])
 		}
 	}
@@ -736,7 +738,7 @@ func (s *VodocuvarService) Upisi(ctx context.Context, perms *models.UserPermissi
 	if probni == nil {
 		return nil, fmt.Errorf("%s nema zaduženje vodočuvara pa nema ni dnevnik", v.FullName)
 	}
-	if !s.SmijeParafirati(perms, probni) {
+	if !s.smijeRadnju(ctx, perms, probni, v, radnjaBiljeska) {
 		return nil, ErrUnauthorized
 	}
 	if Arhivirana(dan.In(models.Zagreb).Year()) {

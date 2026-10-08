@@ -52,7 +52,9 @@ func NewPrijavaService(repo *repository.PrijavaRepository, users *UserService, v
 var ErrNijeNacrt = errors.New("objavljena prijava se ne mijenja; ispravak je nova prijava")
 
 // probni je list kojim se prava na prijavu provjeravaju kao na dnevniku
-// vodočuvara: tko vidi i parafira njegov list, vidi i njegove prijave
+// vodočuvara: tko čita njegov list, čita i njegove prijave, osim
+// rukovoditelja dionice, koji čita samo prijave vezane uz svoju dionicu
+// (knjiga_ovlasti.go)
 func probniList(p *models.PrijavaSTerena) *models.VodocuvarskiList {
 	return &models.VodocuvarskiList{UserID: p.UserID, Sektor: p.Sektor, AreaID: p.AreaID}
 }
@@ -71,7 +73,7 @@ func (s *PrijavaService) SmijeVidjeti(perms *models.UserPermissions, p *models.P
 	if p.Status == models.PrijavaNacrt {
 		return false
 	}
-	return s.vodocuvar.SmijeVidjeti(perms, probniList(p))
+	return s.vodocuvar.cita(perms, probniList(p), p)
 }
 
 // SmijeRijesiti javlja smije li osoba označiti objavljenu prijavu riješenom:

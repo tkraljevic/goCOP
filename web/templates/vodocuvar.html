@@ -82,12 +82,14 @@
     <summary><strong>{{.Ime}}</strong> <span class="form-help">BP {{.AreaID}} · listova: {{len .Listovi}}{{if .Preneseni}} (od toga {{.Preneseni}} preneseno){{end}}{{if .Cekaju}} · <span class="badge badge-pending">{{.Cekaju}} čeka ovjeru</span>{{end}}{{if .Zadaci}} · <span class="badge badge-active">{{len .Zadaci}} otvorenih zadataka</span>{{end}}</span> <a href="/vodocuvar/kalendar?vodocuvar={{.UserID}}" class="btn btn-sm btn-secondary" style="margin-left:0.5rem;">{{icon "calendar"}} Kalendar</a> <a href="/vodocuvar/knjiga.pdf?vodocuvar={{.UserID}}&amp;godina={{$.Godina}}" target="_blank" class="btn btn-sm btn-secondary">{{icon "printer"}} Cijela knjiga</a></summary>
     {{if .Zadaci}}<div class="form-help" style="margin:0.4rem 0;">Otvoreni zadaci, pojavit će se na sljedećem listu: <ol class="stavke">{{range .Zadaci}}<li>{{.Tekst}} <span class="form-help">(zadao {{.Zadao}}, {{.ZadanoAt.Format "02.01.2006."}})</span></li>{{end}}</ol></div>{{end}}
     {{if not .Listovi}}<p class="form-help">Još nema listova: list nastaje kad vodočuvar na Terenu otvori „Današnji list”, ili kad vi upišete bilješku.</p>{{end}}
+    {{if .SmijeUpisati}}
     <form method="POST" action="/vodocuvar/upis" class="posta-trazi" style="margin:0.4rem 0; align-items:center;">
       <input type="hidden" name="vodocuvar" value="{{.UserID}}">
       <input type="date" class="form-control max-w-11" name="datum" value="{{$.Danas}}" title="dan lista">
       <input class="form-control" name="tekst" required placeholder="upis u dnevnik: naredba, napomena, nalaz obilaska" style="min-width:16rem; flex:1;">
       <button type="submit" class="btn btn-secondary btn-sm">{{icon "pencil"}} Upiši</button>
     </form>
+    {{end}}
     {{range .Mjeseci}}
     <details class="knjiga-mjesec" {{if .Otvoren}}open{{end}}>
       <summary><strong>{{mjesecHR .Mjesec}}</strong> <span class="form-help">{{len .Listovi}} {{if eq (len .Listovi) 1}}list{{else}}listova{{end}}{{if .Preneseni}} · {{.Preneseni}} preneseno{{end}}{{if .Cekaju}} · <span class="badge badge-pending">{{.Cekaju}} čeka ovjeru</span>{{end}}</span></summary>

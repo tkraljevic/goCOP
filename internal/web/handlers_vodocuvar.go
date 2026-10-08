@@ -96,6 +96,9 @@ type KnjigaVodocuvara struct {
 	// odjednom se gleda jedan mjesec
 	Mjeseci   []MjesecKnjige
 	Preneseni int // listovi iz ranije evidencije, bez potpisa i broja
+	// SmijeUpisati: osoba smije upisati bilješku u ovu knjigu (obrazac
+	// „Upiši” uz knjigu)
+	SmijeUpisati bool
 }
 
 // MjesecKnjige je jedan mjesec knjige, s listovima tog mjeseca
@@ -139,6 +142,7 @@ type VodocuvarPageData struct {
 	Izvornik        potpisiIzvornika // potpisi u potpisanom PDF-u lista
 	SmijeOvjeriti   bool
 	SmijeParafirati bool
+	SmijeUpisati    bool // bilješka na tuđi list
 	Parafirao       bool
 	Podrucje        *models.Area
 }
@@ -160,12 +164,12 @@ func (h *VodocuvarHandler) base(r *http.Request) (*models.User, *models.UserPerm
 }
 
 // pristup zatvara dnevnike onima koji u njih ne gledaju: strojar, rukovatelj,
-// terenski radnik i skladištar dobiju obavijest, ne popis
+// terenski radnik, skladištar i poslovođa izvođača dobiju obavijest, ne popis
 func (h *VodocuvarHandler) pristup(w http.ResponseWriter, u *models.User) bool {
 	if u == nil || u.VidiVodocuvarskiDnevnik() {
 		return true
 	}
-	http.Error(w, "Vodočuvarski dnevnik vode vodočuvari, a čitaju ga rukovoditelji i ovlaštenici područja; strojari, rukovatelji i skladištari imaju svoje dnevnike.", http.StatusForbidden)
+	http.Error(w, "Vodočuvarski dnevnik vode vodočuvari, a čitaju ga rukovoditelji, ovlaštenici, uprava i dežurni operater; strojari, rukovatelji i skladištari imaju svoje dnevnike, a izvođači dnevnike usluga.", http.StatusForbidden)
 	return false
 }
 
@@ -219,7 +223,7 @@ func (h *VodocuvarHandler) ShowPopis(w http.ResponseWriter, r *http.Request) {
 	for _, l := range d.Tudji {
 		k := poOsobi[l.UserID]
 		if k == nil {
-			k = &KnjigaVodocuvara{UserID: l.UserID, Ime: l.Ime, AreaID: l.AreaID}
+			k = &KnjigaVodocuvara{UserID: l.UserID, Ime: l.Ime, AreaID: l.AreaID, SmijeUpisati: s.SmijeUpisati(perms, &l)}
 			poOsobi[l.UserID] = k
 			d.Knjige = append(d.Knjige, *k)
 		}
@@ -238,22 +242,16 @@ func (h *VodocuvarHandler) ShowPopis(w http.ResponseWriter, r *http.Request) {
 		}
 		d.Knjige[i].Mjeseci = poMjesecima(d.Knjige[i].Listovi)
 	}
-	// vodočuvari kojima se zadaje: samo iz odabranog sektora i područja;
-	// svaki ima svoju knjigu i kad je još prazna
-	for _, v := range s.Vodocuvari(r.Context(), perms) {
-		pd := v.PrimaryDuty()
-		if d.Filtar.Sektor != "" && (pd == nil || pd.SectorID == nil || *pd.SectorID != d.Filtar.Sektor) {
-			continue
-		}
-		if d.Filtar.AreaID > 0 && (pd == nil || pd.AreaID == nil || *pd.AreaID != d.Filtar.AreaID) {
-			continue
-		}
-		d.Vodocuvari = append(d.Vodocuvari, v)
+	// vodočuvari kojima se zadaje i oni u čije se knjige upisuje bilješka:
+	// samo iz odabranog sektora i područja; tko prima bilješku ima svoju
+	// knjigu i kad je još prazna
+	d.Vodocuvari = uOdabiru(s.Vodocuvari(r.Context(), perms), d.Filtar)
+	for _, v := range uOdabiru(s.VodocuvariZaBiljesku(r.Context(), perms), d.Filtar) {
 		if v.ID.String() == u.ID.String() || poOsobi[v.ID.String()] != nil {
 			continue
 		}
-		k := KnjigaVodocuvara{UserID: v.ID.String(), Ime: v.FullName}
-		if pd != nil && pd.AreaID != nil {
+		k := KnjigaVodocuvara{UserID: v.ID.String(), Ime: v.FullName, SmijeUpisati: true}
+		if pd := v.PrimaryDuty(); pd != nil && pd.AreaID != nil {
 			k.AreaID = *pd.AreaID
 		}
 		poOsobi[k.UserID] = &k
@@ -274,6 +272,23 @@ func (h *VodocuvarHandler) ShowPopis(w http.ResponseWriter, r *http.Request) {
 	if err := h.tmplPopis.ExecuteTemplate(w, "vodocuvar.html", d); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// uOdabiru ostavlja vodočuvare čije je glavno zaduženje u odabranom sektoru
+// i području; prazan izbor ne miče nikoga
+func uOdabiru(svi []models.User, f repository.FiltarListova) []models.User {
+	var out []models.User
+	for _, v := range svi {
+		pd := v.PrimaryDuty()
+		if f.Sektor != "" && (pd == nil || pd.SectorID == nil || *pd.SectorID != f.Sektor) {
+			continue
+		}
+		if f.AreaID > 0 && (pd == nil || pd.AreaID == nil || *pd.AreaID != f.AreaID) {
+			continue
+		}
+		out = append(out, v)
+	}
+	return out
 }
 
 func danIzObrasca(s string) time.Time {
@@ -331,11 +346,13 @@ func (h *VodocuvarHandler) prikazi(w http.ResponseWriter, r *http.Request, d Vod
 		d.Izvornik = h.provjeriIzvornik(r.Context(), s, perms, l.ID)
 	}
 	d.SmijeParafirati = s.SmijeParafirati(perms, l) && l.Predan() && !l.Rekonstrukcija
+	d.SmijeUpisati = s.SmijeUpisati(perms, l)
 	d.Parafirao = perms != nil && l.Parafirao(perms.User.ID.String())
 	if org := h.org(); org != nil && l.AreaID > 0 {
 		d.Podrucje, _ = org.GetArea(r.Context(), l.AreaID)
 	}
-	if s.SmijeParafirati(perms, l) || moj {
+	// zadaci vodočuvara stoje i na njegovim listovima: vidi ih tko čita knjigu
+	if s.SmijeVidjeti(perms, l) || moj {
 		d.ZadaciOsobe = s.Zadaci(r.Context(), l.UserID)
 	}
 	if err := h.tmplList.ExecuteTemplate(w, "vodocuvar_list.html", d); err != nil {

@@ -922,6 +922,8 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	server.SetDrugiKorak(drugiKorak)
 	vodocuvarService := service.NewVodocuvarService(repository.NewVodocuvarRepository(database, recorder), userService, node.ID)
 	vodocuvarService.SetOrg(orgRepo)
+	// rukovoditelj dionice zadaje zadatke vodočuvaru samo dok traje obrana
+	vodocuvarService.SetStanjeObrane(aktService.StanjeObrane)
 	vodocuvarService.SetRadnoVrijeme(func(ctx context.Context) (string, string) {
 		rv, err := obracunRepo.RadnoVrijeme(ctx)
 		if err != nil {

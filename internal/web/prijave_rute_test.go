@@ -94,6 +94,10 @@ func TestPrijaveSTerenaKrozRute(t *testing.T) {
 	if err := userRepo.CreateUser(operater, &models.Duty{Title: "Dežurni operater", Role: models.RoleOperator, ScopeType: models.ScopeSector, SectorID: &b, IsPrimary: true}); err != nil {
 		t.Fatal(err)
 	}
+	poslovodja := &models.User{ID: uuid.New(), Username: "mmarkic", FullName: "Marko Markić", IsActive: true, OrgType: models.OrgPravnaOsoba}
+	if err := userRepo.CreateUser(poslovodja, &models.Duty{Title: "Poslovođa izvođača", Role: models.RoleServiceLeaderForeman, ScopeType: models.ScopeArea, SectorID: &b, AreaID: &bp, IsPrimary: true}); err != nil {
+		t.Fatal(err)
+	}
 	orgRepo := repository.NewOrgRepository(baza, rec)
 	vod := service.NewVodocuvarService(repository.NewVodocuvarRepository(baza, rec), users, "cop-osijek")
 	vod.SetOrg(orgRepo)
@@ -266,15 +270,21 @@ func TestPrijaveSTerenaKrozRute(t *testing.T) {
 	if s := get(kunac, "/prijave/"+id).Body.String(); !strings.Contains(s, "Pregledano, riješeno") || !strings.Contains(s, "elektronički potpisao") {
 		t.Error("stranica objavljene prijave za rukovoditelja")
 	}
-	// prijave idu s dnevnikom: dežurni operater sektora vidi dnevnik pa i
-	// objavljene prijave, na popisu i pojedinačno, kao prije prvog kruga.
-	// Pravilo za operatera je otvoreno pitanje: dok se ne odluči, ostaje
-	// kako je bilo.
+	// prijave idu s dnevnikom: po Odlukama (8. 10. 2026.), pitanje 1,
+	// dežurni operater sektora vidi dnevnik pa i objavljene prijave, na
+	// popisu i pojedinačno, a voditelj usluga / poslovođa izvođača na istom
+	// području ne vidi ni jedno
 	if w := get(operater, "/prijave"); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "B-T-1") {
 		t.Errorf("operater na popisu prijava: %d", w.Code)
 	}
 	if w := get(operater, "/prijave/"+id); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "Oštećena rampa") {
 		t.Errorf("operater na objavljenoj prijavi: %d", w.Code)
+	}
+	if w := get(poslovodja, "/prijave"); w.Code != http.StatusForbidden || strings.Contains(w.Body.String(), "B-T-1") {
+		t.Errorf("poslovođa na popisu prijava: %d", w.Code)
+	}
+	if w := get(poslovodja, "/prijave/"+id); w.Code == http.StatusOK || strings.Contains(w.Body.String(), "Oštećena rampa") {
+		t.Errorf("poslovođa na objavljenoj prijavi: %d", w.Code)
 	}
 	if l := loc(forma(seit, http.MethodPost, "/prijave/"+id+"/radnja", url.Values{"radnja": {"rijesi"}})); !strings.Contains(l, "error") {
 		t.Error("vodočuvar riješio")

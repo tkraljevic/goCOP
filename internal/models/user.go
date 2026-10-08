@@ -272,12 +272,11 @@ func (u *User) IsFieldUser() bool {
 }
 
 // VidiVodocuvarskiDnevnik javlja smije li korisnik uopće u vodočuvarske
-// dnevnike: vodočuvar u svoj, rukovoditelji, ovlaštenici i uprava u tuđe,
-// sve s aktivnom i neisteklom dužnošću. Strojari, rukovatelji, terenski
-// radnici i skladištari nemaju što ondje tražiti; oni će imati svoje
-// dnevnike. Ne vide ih ni gost, preglednik i nepoznata uloga. Dežurni
-// operater i poslovođa izvođača vide ih kao prije (u svom dosegu, uz
-// neisteklu dužnost) dok se ne odluči treba li im dnevnik.
+// dnevnike: vodočuvar u svoj, rukovoditelji, ovlaštenici, uprava i dežurni
+// operater u tuđe, sve s aktivnom i neisteklom dužnošću. Strojari,
+// rukovatelji, terenski radnici i skladištari nemaju što ondje tražiti; oni
+// će imati svoje dnevnike. Ne vide ih ni gost, preglednik, nepoznata uloga
+// ni voditelj usluga / poslovođa izvođača (Odluke (8. 10. 2026.), pitanje 1).
 func (u *User) VidiVodocuvarskiDnevnik() bool {
 	if u == nil {
 		return false
@@ -303,15 +302,94 @@ func (d Duty) CitaVodocuvarskiDnevnik(sad time.Time) bool {
 	return d.vrijedi(sad) && d.Role.citaVodocuvarskiDnevnik()
 }
 
-// citaVodocuvarskiDnevnik: vodočuvar, rukovoditelj ili zamjenik dionice,
-// svaka uloga uprave (s ovlaštenicima za praćenje ugovora), te dežurni
-// operater i poslovođa izvođača, čije je pravilo još otvoreno pitanje
+// citaVodocuvarskiDnevnik: vodočuvar (svoju knjigu) i svaka uloga koja
+// nešto smije u tuđoj knjizi (OvlastKnjige)
 func (r Role) citaVodocuvarskiDnevnik() bool {
+	return r == RoleWaterGuard || r.OvlastKnjige() != KnjigaNe
+}
+
+// OvlastKnjige je ono što uloga smije u tuđoj knjizi vodočuvara (dnevni
+// listovi i objavljene prijave s terena), u dosegu dužnosti. Ovjera lista i
+// rješavanje prijave nisu ovdje: njih drži rukovoditelj branjenog područja i
+// uprava iznad njega.
+type OvlastKnjige int
+
+// Ovlasti u tuđoj knjizi vodočuvara (Odluke (8. 10. 2026.), pitanje 1)
+const (
+	// KnjigaNe: ne čita (gost, preglednik, terenske uloge, skladištar,
+	// voditelj usluga / poslovođa izvođača, nepoznata uloga)
+	KnjigaNe OvlastKnjige = iota
+	// KnjigaBiljeska: čita listove i prijave i upisuje bilješku, ali ne
+	// parafira i ne zadaje zadatke (dežurni operater u COP-u)
+	KnjigaBiljeska
+	// KnjigaDionica: čita listove; prijave, parafa i bilješka samo uz vezu s
+	// njegovom dionicom, a zadatak uz to samo dok na njoj traje obrana
+	// (rukovoditelj dionice i zamjenik)
+	KnjigaDionica
+	// KnjigaSve: čita, parafira, upisuje bilješku i zadaje zadatke (uprava
+	// razina 1 do 3, s ovlaštenicima za praćenje ugovora i zamjenicima)
+	KnjigaSve
+)
+
+// OvlastKnjige je ovlast uloge u tuđoj knjizi vodočuvara
+func (r Role) OvlastKnjige() OvlastKnjige {
 	switch r {
-	case RoleWaterGuard, RoleSectionLeader, RoleSectionDeputy, RoleOperator, RoleServiceLeaderForeman:
+	case RoleOperator:
+		return KnjigaBiljeska
+	case RoleSectionLeader, RoleSectionDeputy:
+		return KnjigaDionica
+	}
+	if r.RazinaUprave() > 0 {
+		return KnjigaSve
+	}
+	return KnjigaNe
+}
+
+// Dionice su šifre dionica upisane na dužnost, bez praznih
+func (d Duty) Dionice() []string {
+	var out []string
+	for _, k := range strings.Split(d.SectionCodes, ",") {
+		if k = strings.TrimSpace(k); k != "" {
+			out = append(out, k)
+		}
+	}
+	return out
+}
+
+// pokrivaDionicu javlja pokriva li dužnost dionicu: dužnost bez upisanih
+// dionica pokriva cijeli svoj doseg, a s dionicama samo upisane
+func (d Duty) pokrivaDionicu(dionica string) bool {
+	sifre := d.Dionice()
+	if len(sifre) == 0 {
 		return true
 	}
-	return r.RazinaUprave() > 0
+	for _, k := range sifre {
+		if strings.EqualFold(k, dionica) {
+			return true
+		}
+	}
+	return false
+}
+
+// CuvaDionicu javlja čuva li osoba kao vodočuvar dionicu na branjenom
+// području: ima valjano (aktivno i neisteklo) zaduženje vodočuvara na tom
+// području koje dionicu navodi, ili ne navodi nijednu dionicu pa pokriva
+// cijelo područje
+func (u *User) CuvaDionicu(areaID int, dionica string, sad time.Time) bool {
+	if u == nil {
+		return false
+	}
+	for _, d := range u.Duties {
+		if d.Role == RoleWaterGuard && d.vrijedi(sad) && d.naPodrucju(areaID) && d.pokrivaDionicu(dionica) {
+			return true
+		}
+	}
+	return false
+}
+
+// naPodrucju javlja je li dužnost upisana na to branjeno područje
+func (d Duty) naPodrucju(areaID int) bool {
+	return d.AreaID != nil && *d.AreaID == areaID
 }
 
 // PrimaryRole je uloga koja se pokazuje uz ime: primarna dužnost, jer je

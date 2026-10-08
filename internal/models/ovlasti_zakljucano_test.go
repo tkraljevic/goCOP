@@ -372,11 +372,11 @@ func TestTerenIVodocuvarskiDnevnik(t *testing.T) {
 		{"gost", &User{Duties: []Duty{aktivna(Duty{Role: RoleGuest})}}, false, false},
 		{"preglednik", &User{Duties: []Duty{aktivna(Duty{Role: RoleViewer})}}, false, false},
 		{"nepoznata uloga", &User{Duties: []Duty{aktivna(Duty{Role: Role("NEPOZNATA")})}}, false, false},
-		// dežurni operater i poslovođa izvođača vide dnevnik kao prije prvog
-		// kruga, uz aktivnu i neisteklu dužnost. Pravilo za njih je otvoreno
-		// pitanje: dok se ne odluči, ostaje kako je bilo.
+		// Namjerno okrenuto po Odlukama (8. 10. 2026.), pitanje 1: dežurni
+		// operater čita dnevnik (uz aktivnu i neisteklu dužnost), a voditelj
+		// usluga / poslovođa izvođača ne vidi knjigu vodočuvara ni prijave.
 		{"operater", &User{Duties: []Duty{aktivna(Duty{Role: RoleOperator})}}, false, true},
-		{"poslovođa", &User{Duties: []Duty{aktivna(Duty{Role: RoleServiceLeaderForeman})}}, false, true},
+		{"poslovođa", &User{Duties: []Duty{aktivna(Duty{Role: RoleServiceLeaderForeman})}}, false, false},
 		{"istekli operater", &User{Duties: []Duty{aktivna(Duty{Role: RoleOperator, ExpiresAt: &jucer})}}, false, false},
 		{"istekli poslovođa", &User{Duties: []Duty{aktivna(Duty{Role: RoleServiceLeaderForeman, ExpiresAt: &jucer})}}, false, false},
 		{"neaktivna dužnost", &User{Duties: []Duty{{Role: RoleWaterGuard}}}, false, false},

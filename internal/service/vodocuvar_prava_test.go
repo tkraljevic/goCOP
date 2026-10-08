@@ -63,11 +63,11 @@ func TestPreneseniListJeZakljucen(t *testing.T) {
 var vrijemeProbe = time.Now()
 
 // Prijave s terena idu s dnevnikom: tko ne vidi dnevnik vodočuvara, ne vidi
-// ni njegove objavljene prijave. Dežurni operater sektora i poslovođa
-// izvođača na području vide oboje, kao prije prvog kruga, dok im dužnost
-// vrijedi; s isteklom ne vide ništa. Pravilo za operatera i poslovođu je
-// otvoreno pitanje: dok se ne odluči, ostaje kako je bilo. Gost i
-// preglednik s dužnošću na području ne vide ni dnevnik ni prijave.
+// ni njegove objavljene prijave. Po Odlukama (8. 10. 2026.), pitanje 1,
+// dežurni operater sektora vidi oboje dok mu dužnost vrijedi, a voditelj
+// usluga / poslovođa izvođača ni jedno; rukovoditelj dionice vidi listove,
+// a od prijava samo one koje navode njegovu dionicu. Gost i preglednik s
+// dužnošću na području ne vide ni dnevnik ni prijave.
 func TestPrijaveIduSDnevnikom(t *testing.T) {
 	podrucje := 1
 	sektor := "P"
@@ -83,32 +83,34 @@ func TestPrijaveIduSDnevnikom(t *testing.T) {
 	}
 	jucer := time.Now().Add(-time.Hour)
 	slucajevi := []struct {
-		naziv string
-		perms *models.UserPermissions
-		vidi  bool
+		naziv            string
+		perms            *models.UserPermissions
+		dnevnik, prijava bool
 	}{
-		{"rukovoditelj područja", osoba(models.Duty{Role: models.RoleAreaLeader, ScopeType: models.ScopeArea, AreaID: &podrucje}), true},
-		{"operater sektora", osoba(models.Duty{Role: models.RoleOperator, ScopeType: models.ScopeSector}), true},
-		{"poslovođa izvođača", osoba(models.Duty{Role: models.RoleServiceLeaderForeman, ScopeType: models.ScopeArea, AreaID: &podrucje}), true},
-		{"istekli operater sektora", osoba(models.Duty{Role: models.RoleOperator, ScopeType: models.ScopeSector, ExpiresAt: &jucer}), false},
-		{"istekli poslovođa izvođača", osoba(models.Duty{Role: models.RoleServiceLeaderForeman, ScopeType: models.ScopeArea, AreaID: &podrucje, ExpiresAt: &jucer}), false},
-		{"gost na području", osoba(models.Duty{Role: models.RoleGuest, ScopeType: models.ScopeArea, AreaID: &podrucje}), false},
-		{"preglednik na području", osoba(models.Duty{Role: models.RoleViewer, ScopeType: models.ScopeArea, AreaID: &podrucje}), false},
+		{"rukovoditelj područja", osoba(models.Duty{Role: models.RoleAreaLeader, ScopeType: models.ScopeArea, AreaID: &podrucje}), true, true},
+		{"operater sektora", osoba(models.Duty{Role: models.RoleOperator, ScopeType: models.ScopeSector}), true, true},
+		{"poslovođa izvođača", osoba(models.Duty{Role: models.RoleServiceLeaderForeman, ScopeType: models.ScopeArea, AreaID: &podrucje}), false, false},
+		{"rukovoditelj dionice, prijava bez dionice", osoba(models.Duty{Role: models.RoleSectionLeader, ScopeType: models.ScopeSection, AreaID: &podrucje, SectionCodes: "P.1.1"}), true, false},
+		{"istekli operater sektora", osoba(models.Duty{Role: models.RoleOperator, ScopeType: models.ScopeSector, ExpiresAt: &jucer}), false, false},
+		{"istekli poslovođa izvođača", osoba(models.Duty{Role: models.RoleServiceLeaderForeman, ScopeType: models.ScopeArea, AreaID: &podrucje, ExpiresAt: &jucer}), false, false},
+		{"gost na području", osoba(models.Duty{Role: models.RoleGuest, ScopeType: models.ScopeArea, AreaID: &podrucje}), false, false},
+		{"preglednik na području", osoba(models.Duty{Role: models.RoleViewer, ScopeType: models.ScopeArea, AreaID: &podrucje}), false, false},
 	}
 	for _, s := range slucajevi {
-		if got := vod.SmijeVidjeti(s.perms, list); got != s.vidi {
-			t.Errorf("%s: dnevnik %v, očekivano %v", s.naziv, got, s.vidi)
+		if got := vod.SmijeVidjeti(s.perms, list); got != s.dnevnik {
+			t.Errorf("%s: dnevnik %v, očekivano %v", s.naziv, got, s.dnevnik)
 		}
-		if got := prijave.SmijeVidjeti(s.perms, prijava); got != s.vidi {
-			t.Errorf("%s: prijava %v, očekivano %v", s.naziv, got, s.vidi)
+		if got := prijave.SmijeVidjeti(s.perms, prijava); got != s.prijava {
+			t.Errorf("%s: prijava %v, očekivano %v", s.naziv, got, s.prijava)
 		}
 	}
 }
 
 // Tko ne smije čitati dnevnik, ne smije ga ni parafirati, upisivati u njega
 // ni zadavati zadatke vodočuvaru: gost i preglednik s dužnošću na području,
-// ni osoba čija je dužnost istekla. Rukovoditelj područja, dežurni operater
-// sektora i poslovođa izvođača (njih dvojica dok se ne odluči) smiju.
+// ni osoba čija je dužnost istekla. Rukovoditelj područja parafira. Po
+// Odlukama (8. 10. 2026.), pitanje 1, dežurni operater sektora čita, ali ne
+// parafira, a voditelj usluga / poslovođa izvođača ni ne čita.
 //
 // Pravo se gleda po dužnosti, ne po osobi: valjana dužnost na drugom
 // području ne otvara dnevnik ovoga gostu, pregledniku, skladištaru ni
@@ -131,37 +133,37 @@ func TestParafiraSamoTkoVidiDnevnik(t *testing.T) {
 	rukovoditeljDrugog := models.Duty{Role: models.RoleAreaLeader, ScopeType: models.ScopeArea, AreaID: &drugo}
 	vodocuvarDrugog := models.Duty{Role: models.RoleWaterGuard, ScopeType: models.ScopeArea, AreaID: &drugo}
 	slucajevi := []struct {
-		naziv    string
-		perms    *models.UserPermissions
-		parafira bool
+		naziv          string
+		perms          *models.UserPermissions
+		parafira, vidi bool
 	}{
 		// dvije dužnosti: valjana na području 2 ne otvara dnevnik područja 1
-		{"rukovoditelj područja 2 i gost na području 1", osoba(rukovoditeljDrugog, models.Duty{Role: models.RoleGuest, ScopeType: models.ScopeArea, AreaID: &podrucje}), false},
-		{"vodočuvar područja 2 i preglednik na području 1", osoba(vodocuvarDrugog, models.Duty{Role: models.RoleViewer, ScopeType: models.ScopeArea, AreaID: &podrucje}), false},
-		{"vodočuvar područja 2 i skladištar na području 1", osoba(vodocuvarDrugog, models.Duty{Role: models.RoleWarehouseKeeper, ScopeType: models.ScopeArea, AreaID: &podrucje}), false},
-		{"vodočuvar područja 2 i nepoznata uloga na području 1", osoba(vodocuvarDrugog, models.Duty{Role: models.Role("NEPOZNATA"), ScopeType: models.ScopeArea, AreaID: &podrucje}), false},
-		{"vodočuvar područja 2 i istekli rukovoditelj područja 1", osoba(vodocuvarDrugog, models.Duty{Role: models.RoleAreaLeader, ScopeType: models.ScopeArea, AreaID: &podrucje, ExpiresAt: &jucer}), false},
-		{"vodočuvar područja 2 i istekli ovlaštenik na području 1", osoba(vodocuvarDrugog, models.Duty{Role: models.RoleContractOfficerA3, ScopeType: models.ScopeArea, AreaID: &podrucje, ExpiresAt: &jucer}), false},
-		{"vodočuvar područja 2 i istekla uprava sektora", osoba(vodocuvarDrugog, models.Duty{Role: models.RoleSectorLeader, ScopeType: models.ScopeSector, ExpiresAt: &jucer}), false},
-		{"vodočuvar područja 2 i rukovoditelj područja 1", osoba(vodocuvarDrugog, models.Duty{Role: models.RoleAreaLeader, ScopeType: models.ScopeArea, AreaID: &podrucje}), true},
-		{"vodočuvar područja 2 i ovlaštenik na području 1", osoba(vodocuvarDrugog, models.Duty{Role: models.RoleContractOfficerA3, ScopeType: models.ScopeArea, AreaID: &podrucje}), true},
-		{"rukovoditelj područja", osoba(models.Duty{Role: models.RoleAreaLeader, ScopeType: models.ScopeArea, AreaID: &podrucje}), true},
-		{"operater sektora", osoba(models.Duty{Role: models.RoleOperator, ScopeType: models.ScopeSector}), true},
-		{"poslovođa izvođača", osoba(models.Duty{Role: models.RoleServiceLeaderForeman, ScopeType: models.ScopeArea, AreaID: &podrucje}), true},
-		{"gost na području", osoba(models.Duty{Role: models.RoleGuest, ScopeType: models.ScopeArea, AreaID: &podrucje}), false},
-		{"preglednik na području", osoba(models.Duty{Role: models.RoleViewer, ScopeType: models.ScopeArea, AreaID: &podrucje}), false},
-		{"preglednik sektora", osoba(models.Duty{Role: models.RoleViewer, ScopeType: models.ScopeSector}), false},
-		{"nepoznata uloga na području", osoba(models.Duty{Role: models.Role("NEPOZNATA"), ScopeType: models.ScopeArea, AreaID: &podrucje}), false},
-		{"istekli ovlaštenik na području", osoba(models.Duty{Role: models.RoleContractOfficerA3, ScopeType: models.ScopeArea, AreaID: &podrucje, ExpiresAt: &jucer}), false},
-		{"istekli poslovođa izvođača", osoba(models.Duty{Role: models.RoleServiceLeaderForeman, ScopeType: models.ScopeArea, AreaID: &podrucje, ExpiresAt: &jucer}), false},
+		{"rukovoditelj područja 2 i gost na području 1", osoba(rukovoditeljDrugog, models.Duty{Role: models.RoleGuest, ScopeType: models.ScopeArea, AreaID: &podrucje}), false, false},
+		{"vodočuvar područja 2 i preglednik na području 1", osoba(vodocuvarDrugog, models.Duty{Role: models.RoleViewer, ScopeType: models.ScopeArea, AreaID: &podrucje}), false, false},
+		{"vodočuvar područja 2 i skladištar na području 1", osoba(vodocuvarDrugog, models.Duty{Role: models.RoleWarehouseKeeper, ScopeType: models.ScopeArea, AreaID: &podrucje}), false, false},
+		{"vodočuvar područja 2 i nepoznata uloga na području 1", osoba(vodocuvarDrugog, models.Duty{Role: models.Role("NEPOZNATA"), ScopeType: models.ScopeArea, AreaID: &podrucje}), false, false},
+		{"vodočuvar područja 2 i istekli rukovoditelj područja 1", osoba(vodocuvarDrugog, models.Duty{Role: models.RoleAreaLeader, ScopeType: models.ScopeArea, AreaID: &podrucje, ExpiresAt: &jucer}), false, false},
+		{"vodočuvar područja 2 i istekli ovlaštenik na području 1", osoba(vodocuvarDrugog, models.Duty{Role: models.RoleContractOfficerA3, ScopeType: models.ScopeArea, AreaID: &podrucje, ExpiresAt: &jucer}), false, false},
+		{"vodočuvar područja 2 i istekla uprava sektora", osoba(vodocuvarDrugog, models.Duty{Role: models.RoleSectorLeader, ScopeType: models.ScopeSector, ExpiresAt: &jucer}), false, false},
+		{"vodočuvar područja 2 i rukovoditelj područja 1", osoba(vodocuvarDrugog, models.Duty{Role: models.RoleAreaLeader, ScopeType: models.ScopeArea, AreaID: &podrucje}), true, true},
+		{"vodočuvar područja 2 i ovlaštenik na području 1", osoba(vodocuvarDrugog, models.Duty{Role: models.RoleContractOfficerA3, ScopeType: models.ScopeArea, AreaID: &podrucje}), true, true},
+		{"rukovoditelj područja", osoba(models.Duty{Role: models.RoleAreaLeader, ScopeType: models.ScopeArea, AreaID: &podrucje}), true, true},
+		{"operater sektora", osoba(models.Duty{Role: models.RoleOperator, ScopeType: models.ScopeSector}), false, true},
+		{"poslovođa izvođača", osoba(models.Duty{Role: models.RoleServiceLeaderForeman, ScopeType: models.ScopeArea, AreaID: &podrucje}), false, false},
+		{"gost na području", osoba(models.Duty{Role: models.RoleGuest, ScopeType: models.ScopeArea, AreaID: &podrucje}), false, false},
+		{"preglednik na području", osoba(models.Duty{Role: models.RoleViewer, ScopeType: models.ScopeArea, AreaID: &podrucje}), false, false},
+		{"preglednik sektora", osoba(models.Duty{Role: models.RoleViewer, ScopeType: models.ScopeSector}), false, false},
+		{"nepoznata uloga na području", osoba(models.Duty{Role: models.Role("NEPOZNATA"), ScopeType: models.ScopeArea, AreaID: &podrucje}), false, false},
+		{"istekli ovlaštenik na području", osoba(models.Duty{Role: models.RoleContractOfficerA3, ScopeType: models.ScopeArea, AreaID: &podrucje, ExpiresAt: &jucer}), false, false},
+		{"istekli poslovođa izvođača", osoba(models.Duty{Role: models.RoleServiceLeaderForeman, ScopeType: models.ScopeArea, AreaID: &podrucje, ExpiresAt: &jucer}), false, false},
 	}
 	for _, s := range slucajevi {
 		if got := vod.SmijeParafirati(s.perms, list); got != s.parafira {
 			t.Errorf("%s: parafira %v, očekivano %v", s.naziv, got, s.parafira)
 		}
 		// tko parafira, taj i čita; tko ne čita, ne parafira
-		if got := vod.SmijeVidjeti(s.perms, list); got != s.parafira {
-			t.Errorf("%s: vidi %v, očekivano %v", s.naziv, got, s.parafira)
+		if got := vod.SmijeVidjeti(s.perms, list); got != s.vidi {
+			t.Errorf("%s: vidi %v, očekivano %v", s.naziv, got, s.vidi)
 		}
 	}
 }
