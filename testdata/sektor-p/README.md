@@ -20,10 +20,11 @@ prije svakog izdanja naredbom `make provjera-registara`.
 |---|---|---|
 | P — Primjerski sliv | 1 Mali sliv Primjerica | P.1.1, P.1.2 (rijeka Primjerica), P.1.3 (kanal Probni) |
 | P — Primjerski sliv | 2 Mali sliv Oglednica | P.2.1 (rijeka Oglednica) |
-| R — Rubni sliv | 3 Mali sliv Rubnica | R.3.1, R.3.2 (rijeka Rubnica) |
+| E — Rubni sliv | 3 Mali sliv Rubnica | E.3.1, E.3.2 (rijeka Rubnica) |
 
-Sektor R postoji samo zato da provjere ovlasti imaju dionicu izvan sektora P.
-Letve su Primjerovo, CS Probni, Oglednica i Rubno. CS Probni je i crpna
+Sektor E postoji zato da provjere ovlasti imaju dionicu izvan sektora P. Nosi
+slovo iz raspona A–F jer program novu dionicu kroz obrazac prima samo sa
+šifrom takvog sektora; dionice sektora P stižu samo prvim punjenjem. Letve su Primjerovo, CS Probni, Oglednica i Rubno. CS Probni je i crpna
 stanica i njezina letva istog imena. Dva potoka Graničnik razlikuje samo
 pojašnjenje u zagradi.
 
@@ -36,7 +37,7 @@ Početna lozinka svih je `gocop2026`, kao u svakom sjemenu.
 | `pperic` | Pero Perić | Rukovoditelj sektora P |
 | `aanic` | Ana Anić | Dežurna operaterka u COP-u (sektor P) |
 | `iivic` | Ivo Ivić | globalni administrator i Dežurni operater u COP-u |
-| `ivaivic` | Iva Ivić | Rukovoditeljica dionica P.1.1 i P.1.2 i branjenog područja 2 |
+| `ivaivic` | Iva Ivić | Rukovoditeljica dionica P.1.1 i P.1.2 te branjenog područja 3 (sektor E) |
 | `mmarkic` | Marko Markić | Vodočuvar dionice P.1.1 |
 
 Račun `admin` dodaje se sam, kao pri svakom prvom punjenju.

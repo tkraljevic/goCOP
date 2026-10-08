@@ -21,8 +21,8 @@
       "level": 2
     },
     {
-      "id": "R",
-      "name": "Sektor R — Rubni sliv",
+      "id": "E",
+      "name": "Sektor E — Rubni sliv",
       "vgo_name": "VGO za Rubni sliv, Rubno",
       "center_cop": "COP Rubno",
       "address": "Ulica primjera 3, 00002 Rubno",
@@ -50,7 +50,7 @@
     },
     {
       "id": 3,
-      "sector_id": "R",
+      "sector_id": "E",
       "name": "Mali sliv Rubnica",
       "vgi_name": "VGI Rubnica, Rubno",
       "subcenter": "",

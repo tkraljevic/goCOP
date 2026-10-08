@@ -103,11 +103,11 @@
         "is_primary": true
       },
       {
-        "title": "Rukovoditeljica branjenog područja 2",
+        "title": "Rukovoditeljica branjenog područja 3",
         "role": "AREA_LEADER",
         "scope_type": "AREA",
-        "sector_id": "P",
-        "area_id": 2,
+        "sector_id": "E",
+        "area_id": 3,
         "section_codes": "",
         "is_primary": false
       }

@@ -3,5 +3,5 @@
   { "id": "p-1-1-probno-selo", "section_code": "P.1.1", "county_id": 1, "municipality_id": 2, "settlement_id": 2, "created_at": "" },
   { "id": "p-1-2-ogledno", "section_code": "P.1.2", "county_id": 1, "municipality_id": 2, "settlement_id": 3, "created_at": "" },
   { "id": "p-2-1-ogledno", "section_code": "P.2.1", "county_id": 1, "municipality_id": 2, "settlement_id": 3, "created_at": "" },
-  { "id": "r-3-1-rubno", "section_code": "R.3.1", "county_id": 1, "municipality_id": 3, "settlement_id": 4, "created_at": "" }
+  { "id": "e-3-1-rubno", "section_code": "E.3.1", "county_id": 1, "municipality_id": 3, "settlement_id": 4, "created_at": "" }
 ]

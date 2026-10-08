@@ -26,7 +26,7 @@ func TestIzmisljeniSkupSektoraP(t *testing.T) {
 	}
 
 	for tablica, zeli := range map[string]int{
-		"sectors":        3, // DIREKCIJA, P i R
+		"sectors":        3, // DIREKCIJA, P i E
 		"areas":          3,
 		"users":          6, // pet izmišljenih djelatnika i račun admin
 		"sections":       6,

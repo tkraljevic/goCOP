@@ -167,9 +167,9 @@
     "updated_at": ""
   },
   {
-    "code": "R.3.1",
+    "code": "E.3.1",
     "area_id": 3,
-    "sector_id": "R",
+    "sector_id": "E",
     "description": "",
     "description_custom": false,
     "parts": [
@@ -201,9 +201,9 @@
     "updated_at": ""
   },
   {
-    "code": "R.3.2",
+    "code": "E.3.2",
     "area_id": 3,
-    "sector_id": "R",
+    "sector_id": "E",
     "description": "",
     "description_custom": false,
     "parts": [
