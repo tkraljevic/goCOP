@@ -594,6 +594,7 @@ type stationForm struct {
 	JavniURL              string `json:"javni_url"`
 	TelemetrijaUvoz       string `json:"telemetrija_uvoz"`
 	JavniUvoz             string `json:"javni_uvoz"`
+	KotaNM                string `json:"kota_nm"`
 }
 
 func decodeStationForm(r *http.Request) (stationForm, error) {
@@ -650,6 +651,7 @@ func decodeStationForm(r *http.Request) (stationForm, error) {
 	form.JavniURL = r.FormValue("javni_url")
 	form.JavniUvoz = r.FormValue("javni_uvoz")
 	form.TelemetrijaUvoz = r.FormValue("telemetrija_uvoz")
+	form.KotaNM = r.FormValue("kota_nm")
 
 	return form, nil
 }
@@ -705,7 +707,11 @@ func (f stationForm) primijeni(st *models.Station) {
 	st.NeedsReview = f.NeedsReview == "1" || f.NeedsReview == "on" || f.NeedsReview == "true"
 	st.ReviewNote = strings.TrimSpace(f.ReviewNote)
 	st.JavniURL, st.JavniUvoz = f.javnaVeza()
+	st.KotaNM = kvacica(f.KotaNM)
 }
+
+// kvacica čita potvrdni okvir obrasca ili istu vrijednost iz JSON-a
+func kvacica(v string) bool { return v == "1" || v == "on" || v == "true" }
 
 // namjestiTelemetriju uključuje ili gasi čitanje s telemetrije. Račun stoji
 // na čvoru, u Administraciji, pa ga letva ne nosi; ono što letva mora imati

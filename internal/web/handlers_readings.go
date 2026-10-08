@@ -98,7 +98,17 @@ func (h *ReadingsHandler) HandlePreuzmiJavno(w http.ResponseWriter, r *http.Requ
 		redirectWith(w, r, back, "error", "Preuzimanje s javne stranice nije uspjelo: "+s.Greska)
 		return
 	}
-	redirectWith(w, r, back, "success", fmt.Sprintf("Preuzeto %d očitanja s javne stranice, novih %d.", s.Preuzeto, s.Novih))
+	redirectWith(w, r, back, "success", porukaPreuzimanja(s))
+}
+
+// porukaPreuzimanja javlja ishod preuzimanja jedne letve; odbačene
+// vrijednosti izvan raspona spominje samo kad ih ima
+func porukaPreuzimanja(s javnivodostaji.StanjeLetve) string {
+	poruka := fmt.Sprintf("Preuzeto %d očitanja s javne stranice, novih %d", s.Preuzeto, s.Novih)
+	if s.Odbaceno > 0 {
+		poruka += fmt.Sprintf(", odbačeno izvan raspona %d", s.Odbaceno)
+	}
+	return poruka + "."
 }
 
 // SetOcitanjaCSV daje rukovatelju predložak pregleda ispravaka iz CSV-a.
@@ -261,6 +271,10 @@ type ReadingHistoryData struct {
 	JavniIzvor       string // naziv čitača za adresu, prazno kad ga nema
 	JavniUvoz        bool
 	JavniStanje      *javnivodostaji.StanjeLetve
+	// Odbaceno je koliko vrijednosti ove letve ovaj čvor nije upisao jer su
+	// izvan raspona, i koja zadnja: jedino upozorenje da je mjerilo u kvaru
+	// (Odluke (8. 10. 2026.), pitanje 21). Nil kad nijedna.
+	Odbaceno *models.SazetakOdbacenih
 
 	SuccessMessage string
 	ErrorMessage   string
@@ -502,6 +516,7 @@ func (h *ReadingsHandler) ShowHistory(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	data.Odbaceno, _ = h.readingService.SazetakOdbacenih(r.Context(), data.GaugeKey)
 	if station != nil {
 		data.LetvaStranica = "ocitanja"
 		// Razina akumulacije je kota nad morem, a elektrana istjecanje: najniži

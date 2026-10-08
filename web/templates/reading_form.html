@@ -31,7 +31,7 @@
   <div id="kartica-vodostaj" class="kartica" role="tabpanel">
   <div class="form-row">
     <div class="form-group">
-      <label class="form-label" for="level_cm">{{if .IsSluice}}Uzvodni vodostaj (cm){{else}}Vodostaj (cm){{end}}</label>
+      <label class="form-label" for="level_cm">{{if .IsSluice}}Uzvodni vodostaj (cm){{else if and .Station .Station.KotaNM}}Kota vodnog lica (cm n. m.){{else}}Vodostaj (cm){{end}}</label>
       <input type="text" inputmode="numeric" pattern="-?[0-9]*" id="level_cm" name="level_cm" class="form-control level-input"
              value="{{if .Reading.LevelCm}}{{intOf .Reading.LevelCm}}{{end}}" placeholder="0" {{if not .IsEdit}}autofocus{{end}}>
     </div>

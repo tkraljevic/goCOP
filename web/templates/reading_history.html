@@ -10,6 +10,7 @@
     <h1 class="page-title">{{icon "activity"}} {{.GaugeName}}</h1>
     <p class="page-desc">
       {{.GaugeSub}}
+      {{if and .Station .Station.KotaNM}} · <span class="reg-chip" title="Letva vodi kotu vodnog lica nad morem, ne vodostaj; prima vrijednosti od 5000 do 40 000 cm">kota u cm n. m.</span>{{end}}
       {{if .Station}} · <a href="/stations/{{.Station.ID}}">postaja u registru</a>{{end}}
       {{if .Structure}} · <a href="/structures/{{.Structure.ID}}">objekt u registru</a>{{end}}
     </p>
@@ -140,7 +141,14 @@
   <p class="form-help mt-0 mb-3">
     {{if .JavniTelemetrija}}Telemetrija{{else}}Javna stranica{{end}}: <a href="{{.JavniURL}}" target="_blank" rel="noopener">{{if .JavniIzvor}}{{.JavniIzvor}}{{else}}{{.JavniURL}}{{end}}</a>{{if not .JavniIzvor}} <span class="badge badge-inactive">{{icon "triangle-alert"}} nema čitača za tu adresu</span>{{end}}.
     {{if .JavniUvoz}}Satno preuzimanje je uključeno.{{else}}Satno preuzimanje je isključeno.{{end}}
-    {{with .JavniStanje}}{{if .Greska}}<span class="badge badge-inactive">{{icon "triangle-alert"}} zadnje preuzimanje {{satHR .Kad}} nije uspjelo: {{.Greska}}</span>{{else}}Zadnje preuzimanje {{satHR .Kad}}: {{.Preuzeto}} s izvora, novih {{.Novih}}{{if not .ZadnjeKad.IsZero}}, najnovije {{formatDate (localTime .ZadnjeKad)}}{{end}}.{{end}}{{end}}
+    {{with .JavniStanje}}{{if .Greska}}<span class="badge badge-inactive">{{icon "triangle-alert"}} zadnje preuzimanje {{satHR .Kad}} nije uspjelo: {{.Greska}}</span>{{else}}Zadnje preuzimanje {{satHR .Kad}}: {{.Preuzeto}} s izvora, novih {{.Novih}}{{if .Odbaceno}}, odbačeno izvan raspona {{.Odbaceno}}{{end}}{{if not .ZadnjeKad.IsZero}}, najnovije {{formatDate (localTime .ZadnjeKad)}}{{end}}.{{end}}{{end}}
+  </p>
+  {{end}}
+  {{with .Odbaceno}}
+  <p class="form-help mt-0 mb-3" data-odbaceno>
+    <span class="badge badge-inactive">{{icon "triangle-alert"}} {{.Tekst}}{{with .IzvorLabel}} ({{.}}){{end}}</span>
+    Vrijednosti izvan raspona ručnog upisa ne upisuju se ni s javnih stranica, telemetrije ni iz uvoza;
+    ovdje se samo broje, jer je to znak da je mjerilo vjerojatno u kvaru. Broj vodi ovo računalo.
   </p>
   {{end}}
   <form method="GET" action="" id="pogled" class="d-flex gap-2 items-center flex-wrap mb-3">
