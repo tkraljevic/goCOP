@@ -1581,10 +1581,11 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 
 		// Tuđim se očima samo gleda. Zapis pod tuđim imenom ne smije nastati
 		// ni omaškom, pa se zaustavlja ovdje, prije svakog rukovatelja.
-		upisiTudjim := view.Viewing && s.opcije(r.Context()).UpisTudjimOcima
+		// Isključen račun samo se čita i uz uključene upise.
+		upisiTudjim := s.upisiTudjimOcima(r, view)
 		if view.Viewing && !readOnlyRequest(r) {
 			if !upisiTudjim {
-				http.Error(w, "Dok gledaš tuđim očima program samo čita. Vrati se sebi pa ponovi, ili neka uprava uključi „Upisi tuđim očima” u Administraciji › Opcije.", http.StatusForbidden)
+				http.Error(w, porukaSamoCitanje(view), http.StatusForbidden)
 				return
 			}
 			log.Printf("upis tuđim očima: %s piše kao %s (%s %s)", view.RealUser.Username, view.User.Username, r.Method, r.URL.Path)
