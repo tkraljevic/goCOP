@@ -179,16 +179,11 @@ func (s *ZidService) Zadnji(ctx context.Context, perms *models.UserPermissions, 
 			if !ok {
 				continue
 			}
-			if v.Entity == repository.EntityMtsPromet {
-				// redci jednog poteza su jedan događaj
-				var p models.Promet
-				_ = json.Unmarshal(v.Payload, &p)
-				if p.VezaID != "" {
-					if videneVeze[p.VezaID] {
-						continue
-					}
-					videneVeze[p.VezaID] = true
+			if k := kljucPoteza(v); k != "" {
+				if videneVeze[k] {
+					continue
 				}
+				videneVeze[k] = true
 			}
 			if !s.vidi(perms, d, podrucja) {
 				continue
@@ -215,6 +210,22 @@ func (s *ZidService) Zadnji(ctx context.Context, perms *models.UserPermissions, 
 		}
 	}
 	return out, prije, nil
+}
+
+// kljucPoteza: redci jednog poteza sredstava (prijenos, punjenje, izdavanje)
+// su jedan događaj po sektoru. Prijenos u skladište drugog sektora zato je
+// događaj na zidu obaju sektora: izlaz kod onoga koji šalje, obavijest kod
+// onoga koji prima. Prazno za sve što nije par prometa.
+func kljucPoteza(v ledger.Version) string {
+	if v.Entity != repository.EntityMtsPromet {
+		return ""
+	}
+	var p models.Promet
+	_ = json.Unmarshal(v.Payload, &p)
+	if p.VezaID == "" {
+		return ""
+	}
+	return p.VezaID + "|" + p.Sektor
 }
 
 // vidi: administrator sve; ostali svoj sektor i područje; događaj bez
@@ -554,6 +565,7 @@ func (c *opisivac) opisi(v ledger.Version) (Dogadjaj, bool) {
 		if p.VezaID != "" {
 			d.Link = "/sredstva/promet/" + p.VezaID + "/potvrda.xlsx"
 		}
+		d = c.prijenosIzDrugogSektora(p, d)
 
 	case repository.EntityMtsPopisi:
 		var p models.Popis
@@ -662,6 +674,44 @@ func (c *opisivac) opisi(v ledger.Version) (Dogadjaj, bool) {
 		return d, false
 	}
 	return d, true
+}
+
+// prijenosIzDrugogSektora: ulaz prijenosa iz skladišta drugog sektora na
+// zidu ciljnog sektora je istaknuta obavijest „Prijenos iz Sektora X”, s
+// izvornim skladištem. Prijenos ne traži potvrdu ciljnog sektora i stanje
+// raste odmah, pa ciljni sektor tako sazna za upis koji nije tražio
+// (Odluke (8. 10. 2026.), pitanje 11).
+func (c *opisivac) prijenosIzDrugogSektora(p models.Promet, d Dogadjaj) Dogadjaj {
+	if p.Vrsta != models.PrometPrijenos || p.Kolicina <= 0 || p.VezaID == "" {
+		return d
+	}
+	izvor := c.izlazPrijenosa(p.VezaID)
+	if izvor == nil || izvor.Sektor == p.Sektor {
+		return d
+	}
+	d.Naslov, d.Vazno = "Prijenos iz Sektora "+izvor.Sektor, true
+	if sk := c.skladiste(izvor.SkladisteID); sk != nil {
+		d.Tekst += " · iz " + sk.Naziv
+	}
+	return d
+}
+
+// izlazPrijenosa je redak izlaza istog poteza, iz skladišta koje šalje; nil
+// kad ga ovaj čvor nema
+func (c *opisivac) izlazPrijenosa(veza string) *models.Promet {
+	if c.s.mts == nil {
+		return nil
+	}
+	redci, err := c.s.mts.ListPromet(c.ctx, repository.FiltarPrometa{VezaID: veza})
+	if err != nil {
+		return nil
+	}
+	for i := range redci {
+		if redci[i].Kolicina < 0 {
+			return &redci[i]
+		}
+	}
+	return nil
 }
 
 func absF(v float64) float64 {
