@@ -2610,6 +2610,22 @@ func TestKarticaLetvePrikazujeValoveObrane(t *testing.T) {
 	if !strings.Contains(html, "ne iz proglašenih obrana") {
 		t.Error("nema ograde da je riječ o izračunu, a ne o evidenciji")
 	}
+	// Kad bi po vodostaju bio koji stupanj ostaje kao prikaz, a obrana samo
+	// iz ovjerenih akata (Odluke (8. 10. 2026.), pitanje 14): po valu se vidi
+	// najviši stupanj i kada bi svaki stupanj počeo i završio, a tekst ne
+	// upućuje na ručno proglašenje na kartici dionice.
+	v := valovi[0]
+	if v.NajviseDosegnuto() != models.PhaseRegular || !strings.Contains(html, "Najviši stupanj") {
+		t.Errorf("najviši stupanj vala: %s", v.NajviseDosegnuto())
+	}
+	for _, f := range []models.DefensePhase{models.PhasePrep, models.PhaseRegular} {
+		if s := v.StupanjZa(f); s == nil || !strings.Contains(html, s.PoceloHR()+" → "+s.ZavrsiloHR()) {
+			t.Errorf("na kartici nema kada bi %s počelo i završilo", f.Label())
+		}
+	}
+	if strings.Contains(html, "na kartici dionice") || !strings.Contains(html, "ovjerenim aktom") {
+		t.Error("valovi moraju reći da obranu proglašava ovjereni akt, a ne kartica dionice")
+	}
 	iso := regexp.MustCompile(`>[^<]*\b\d{4}-\d{2}-\d{2}\b`)
 	if n := iso.FindAllString(html, -1); len(n) > 0 {
 		t.Errorf("sirovi datum među valovima: %q", n[0])
