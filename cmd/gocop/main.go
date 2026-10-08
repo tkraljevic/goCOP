@@ -966,7 +966,7 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 		server.SetPotpis(potpisService)
 	}
 	zid := service.NewZidService(recorder, journalRepo, sectionRepo, mtsRepo, userRepo, stationRepo, episodeRepo)
-	zid.SetStanjaSektora(aktService.StanjaSektora)
+	postaviZid(zid, aktService, prijavaService)
 	server.SetZid(zid)
 	server.SetKarta(cfg.Karta.Plocice, cfg.Karta.Zasluge, cfg.Karta.NajviseZ)
 	if len(cfg.Web.PouzdaniPosrednici) > 0 || cfg.Web.ZaglavljeKlijenta != "" { // prazan popis = zadane mreže

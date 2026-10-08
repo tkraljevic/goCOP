@@ -1,0 +1,224 @@
+package service
+
+import (
+	"context"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+
+	"gocop/internal/db"
+	"gocop/internal/ledger"
+	"gocop/internal/models"
+	"gocop/internal/repository"
+)
+
+// zidPrijava je čvor s prijavama s terena za provjeru zida: Marko Markić,
+// vodočuvar na BP 34 (Sektor B), piše prijave
+type zidPrijava struct {
+	ctx      context.Context
+	rec      *ledger.Recorder
+	repo     *repository.PrijavaRepository
+	prijave  *PrijavaService
+	zid      *ZidService
+	marko    *models.User
+	journals *repository.JournalRepository
+}
+
+func noviZidPrijava(t *testing.T) *zidPrijava {
+	t.Helper()
+	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "zid.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { baza.Close() })
+	if err := db.InitSchema(baza); err != nil {
+		t.Fatal(err)
+	}
+	for _, q := range []string{
+		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('B', 'Sektor B', 'VGO Osijek', 'COP Osijek')`,
+		`INSERT INTO areas (id, sector_id, name, vgi_name, subcenter) VALUES (34, 'B', 'Drava i Dunav', 'COP', 'Osijek')`,
+	} {
+		if _, err := baza.Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	rec := ledger.New(baza, "test")
+	userRepo := repository.NewUserRepository(baza, rec)
+	users := NewUserService(userRepo, NewAuthService(userRepo, repository.NewSessionRepository(baza)), NewSSEBroker())
+	repo := repository.NewPrijavaRepository(baza, rec)
+	vodocuvar := NewVodocuvarService(repository.NewVodocuvarRepository(baza, rec), users, "test")
+	journals := repository.NewJournalRepository(baza, rec)
+	return &zidPrijava{ctx: context.Background(), rec: rec, repo: repo, prijave: NewPrijavaService(repo, users, vodocuvar, "test"),
+		zid: NewZidService(rec, journals, repository.NewSectionRepository(baza, rec), nil, userRepo, nil, nil), journals: journals,
+		marko: &models.User{ID: uuid.New(), FullName: "Marko Markić"}}
+}
+
+// nova sprema prijavu kako je vodočuvar sastavi i, kad je broj zadan, objavi je
+func (z *zidPrijava) nova(t *testing.T, vrsta, naslov string, broj int) *models.PrijavaSTerena {
+	t.Helper()
+	p := &models.PrijavaSTerena{UserID: z.marko.ID.String(), Ime: z.marko.FullName, Sektor: "B", AreaID: 34, Vrsta: vrsta,
+		Naslov: naslov, Opis: "Zatečeno pri obilasku.", Datum: time.Now().In(models.Zagreb), Status: models.PrijavaNacrt, Vodotok: "Dunav"}
+	z.spremi(t, p)
+	if broj > 0 {
+		sad := time.Now()
+		p.Broj, p.Godina, p.Status, p.ObjavljenoAt = broj, sad.In(models.Zagreb).Year(), models.PrijavaObjavljena, &sad
+		z.spremi(t, p)
+	}
+	return p
+}
+
+func (z *zidPrijava) spremi(t *testing.T, p *models.PrijavaSTerena) {
+	t.Helper()
+	if err := z.repo.Save(z.ctx, p); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// prijaveNaZidu su redci modula prijava koje osoba vidi, kao „naslov|tekst|tko”
+func (z *zidPrijava) prijaveNaZidu(t *testing.T, perms *models.UserPermissions, f FiltarZida) []Dogadjaj {
+	t.Helper()
+	f.Limit = 50
+	dog, _, err := z.zid.Zadnji(z.ctx, perms, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out []Dogadjaj
+	for _, d := range dog {
+		if d.Modul == ModulPrijave {
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
+func naslovi(dog []Dogadjaj) string {
+	var s []string
+	for _, d := range dog {
+		s = append(s, d.Naslov+"|"+d.Tekst+"|"+d.Tko)
+	}
+	return strings.Join(s, "\n")
+}
+
+// Prijave s terena na zidu događanja (Odluke (8. 10. 2026.), pitanje 20):
+// zaseban gumb „Prijave s terena”, sve četiri vrste, „Prijava” istaknuta.
+// Na zid idu objava i rješenje, svaki jednom (urudžba nije novi redak);
+// nacrt nikad, ni autoru; prijava prenesena iz BP16 nikad. Redak vidi samo
+// tko smije čitati tu prijavu, po istom pravilu kao Dokumentacija →
+// Prijave s terena, a ne po pravilu zida: drugi vodočuvar istog područja
+// ne vidi ništa, iako zid sektora vidi.
+func TestZidPrijaveSTerena(t *testing.T) {
+	z := noviZidPrijava(t)
+	if ModulNaziv(ModulPrijave) != "Prijave s terena" || ModulIkona(ModulPrijave) != "map-pin" {
+		t.Errorf("gumb zida: %q, %q", ModulNaziv(ModulPrijave), ModulIkona(ModulPrijave))
+	}
+
+	z.nova(t, models.PrijavaObavijest, "Nacrt koji nije objavljen", 0)
+	z.nova(t, models.PrijavaObavijest, "Otpad u kanalu", 41)
+	pr := z.nova(t, models.PrijavaPrijava, "Procjeđivanje na nasipu", 42)
+	z.nova(t, models.PrijavaIzvjesce, "Stanje rampe", 43)
+	z.nova(t, models.PrijavaZahtjev, "Košnja pokosa", 44)
+	// urudžba, pa rješenje, pa ispravak urudžbe: jedan redak rješenja
+	pr.Klasa = "325-01/26-01/1"
+	z.spremi(t, pr)
+	sad := time.Now()
+	pr.Status, pr.RijesioID, pr.Rijesio, pr.RijesenoAt = models.PrijavaRijesena, uuid.NewString(), "Ivo Ivić", &sad
+	z.spremi(t, pr)
+	pr.Urbroj = "2158-26-1"
+	z.spremi(t, pr)
+	// rekonstrukcija iz ranije evidencije: objavljena i riješena, ali ne na zid
+	staro := time.Date(2024, 6, 5, 11, 0, 0, 0, models.Zagreb)
+	z.spremi(t, &models.PrijavaSTerena{UserID: z.marko.ID.String(), Ime: z.marko.FullName, Sektor: "B", AreaID: 34, Vrsta: models.PrijavaPrijava,
+		Naslov: "Prenesena iz BP16", Opis: "Iz ranije evidencije.", Datum: staro, Broj: 7, Godina: 2024, Status: models.PrijavaRijesena,
+		ObjavljenoAt: &staro, Rekonstrukcija: true, Izvor: "bp16:7"})
+
+	// bez pravila čitanja prijava nitko ne vidi nijednu, ni uprava organizacije
+	ana := &models.UserPermissions{IsGlobalAdmin: true, User: models.User{ID: uuid.New(), FullName: "Ana Anić", IsGlobalAdmin: true}}
+	if dog := z.prijaveNaZidu(t, ana, FiltarZida{}); len(dog) != 0 {
+		t.Fatalf("zid bez pravila čitanja prijava pokazuje:\n%s", naslovi(dog))
+	}
+	z.zid.SetVidiPrijavu(z.prijave.SmijeVidjeti)
+
+	ocekivano := []string{
+		"Riješena prijava s terena|B-T-42/" + godina(sad) + ": Procjeđivanje na nasipu|Ivo Ivić",
+		"Zahtjev s terena B-T-44/" + godina(sad) + "|Košnja pokosa · Dunav|Marko Markić",
+		"Izvješće s terena B-T-43/" + godina(sad) + "|Stanje rampe · Dunav|Marko Markić",
+		"Prijava s terena B-T-42/" + godina(sad) + "|Procjeđivanje na nasipu · Dunav|Marko Markić",
+		"Obavijest s terena B-T-41/" + godina(sad) + "|Otpad u kanalu · Dunav|Marko Markić",
+	}
+	marko := &models.UserPermissions{User: *z.marko, AllowedSectors: map[string]bool{"B": true}, AllowedAreas: map[int]bool{34: true}}
+	podrucje34 := 34
+	ivo := &models.UserPermissions{AdminAreas: map[int]bool{34: true}, User: models.User{ID: uuid.New(), FullName: "Ivo Ivić",
+		Duties: []models.Duty{{Role: models.RoleAreaLeader, ScopeType: models.ScopeArea, AreaID: &podrucje34, IsActive: true}}}}
+	for ime, perms := range map[string]*models.UserPermissions{"uprava organizacije": ana, "autor": marko, "rukovoditelj područja": ivo} {
+		for _, modul := range []string{"", ModulPrijave} {
+			dog := z.prijaveNaZidu(t, perms, FiltarZida{Modul: modul})
+			if got := naslovi(dog); got != strings.Join(ocekivano, "\n") {
+				t.Errorf("%s, modul %q:\n%s\nočekivano:\n%s", ime, modul, got, strings.Join(ocekivano, "\n"))
+				continue
+			}
+			for _, d := range dog {
+				if d.Sektor != "B" || d.AreaID != 34 || !strings.HasPrefix(d.Link, "/prijave/") {
+					t.Errorf("%s: redak %+v", ime, d)
+				}
+				if d.Vazno != strings.HasPrefix(d.Naslov, "Prijava s terena") {
+					t.Errorf("%s: istaknuta smije biti samo vrsta Prijava: %+v", ime, d)
+				}
+			}
+		}
+	}
+
+	// Pero Perić, vodočuvar istog područja: zid sektora vidi, tuđe prijave ne
+	pero := &models.UserPermissions{AllowedSectors: map[string]bool{"B": true}, AllowedAreas: map[int]bool{34: true},
+		User: models.User{ID: uuid.New(), FullName: "Pero Perić",
+			Duties: []models.Duty{{Role: models.RoleWaterGuard, ScopeType: models.ScopeArea, AreaID: &podrucje34, IsActive: true}}}}
+	if dog := z.prijaveNaZidu(t, pero, FiltarZida{}); len(dog) != 0 {
+		t.Errorf("drugi vodočuvar vidi tuđe prijave na zidu:\n%s", naslovi(dog))
+	}
+	if !z.zid.vidi(pero, Dogadjaj{Sektor: "B"}, z.zid.podrucjaPoSektoru()) {
+		t.Error("pravilo zida: vodočuvar područja vidi zid svog sektora")
+	}
+
+	// filtar modula na zidu: samo prijave
+	if dog, _, _ := z.zid.Zadnji(z.ctx, ana, FiltarZida{Modul: ModulPrijave, Limit: 50}); len(dog) != len(ocekivano) {
+		t.Errorf("filtar Prijave s terena: %d redaka, očekivano %d", len(dog), len(ocekivano))
+	}
+}
+
+func godina(t time.Time) string { return t.In(models.Zagreb).Format("2006") }
+
+// Redak objave i redak rješenja određuje povijest prijave: prva verzija
+// koja je objavljena i prva koja je riješena. Kad je starija povijest
+// sažeta, događaj nosi najstarija verzija koja je ostala.
+func TestDogadjajiPrijave(t *testing.T) {
+	v := func(id, payload string, arhivirana bool) ledger.Version {
+		return ledger.Version{VersionID: id, Entity: repository.EntityPrijave, Payload: []byte(payload), Archived: arhivirana}
+	}
+	objavljeno := `"objavljeno_at":"2026-10-08T08:00:00Z"`
+	for _, k := range []struct {
+		ime              string
+		povijest         []ledger.Version // najnovija prva, kao rec.History
+		objava, rjesenje string
+	}{
+		{"nacrt", []ledger.Version{v("1", `{"status":"NACRT"}`, false)}, "", ""},
+		{"objava i urudžba", []ledger.Version{
+			v("3", `{"status":"OBJAVLJENA","klasa":"1",`+objavljeno+`}`, false),
+			v("2", `{"status":"OBJAVLJENA",`+objavljeno+`}`, false),
+			v("1", `{"status":"NACRT"}`, false)}, "2", ""},
+		{"rješenje pa urudžba", []ledger.Version{
+			v("4", `{"status":"RIJESENA","urbroj":"1",`+objavljeno+`}`, false),
+			v("3", `{"status":"RIJESENA",`+objavljeno+`}`, false),
+			v("2", `{"status":"OBJAVLJENA",`+objavljeno+`}`, false)}, "2", "3"},
+		{"sažeta povijest", []ledger.Version{v("9", `{"status":"RIJESENA",`+objavljeno+`}`, false)}, "9", "9"},
+		{"arhivirana i neispravna verzija se preskaču", []ledger.Version{
+			v("3", `{"status":"OBJAVLJENA",`+objavljeno+`}`, true),
+			v("2", `nije json`, false)}, "", ""},
+	} {
+		objava, rjesenje := dogadjajiPrijave(k.povijest)
+		if objava != k.objava || rjesenje != k.rjesenje {
+			t.Errorf("%s: objava %q, rješenje %q; očekivano %q, %q", k.ime, objava, rjesenje, k.objava, k.rjesenje)
+		}
+	}
+}
