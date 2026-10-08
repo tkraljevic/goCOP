@@ -71,7 +71,7 @@ func blok(pos, code, voda, objekt string, stavke ...[3]string) [][]string {
 	}
 	p := col(0, pos)
 	p[10] = code
-	rows := [][]string{p, col(1, voda), col(2, objekt), col(3, "0+000-5+000"), col(4, "XIV OSJEČKO-BARANJSKA"),
+	rows := [][]string{p, col(1, voda), col(2, objekt), col(3, "0+000-5+000"), col(4, "I PRIMJERSKA"),
 		col(5, "4.6. Uklanjanje vegetacije"), col(6, "1000"), {"#X"}, {"#H"}}
 	for i, s := range stavke {
 		r := make([]string, 13)
@@ -84,44 +84,45 @@ func blok(pos, code, voda, objekt string, stavke ...[3]string) [][]string {
 func uzorakUgovora(t *testing.T) string {
 	t.Helper()
 	tros := [][]string{{"#E"}}
-	tros = append(tros, blok("A.02.01.16.01.01.01.", "1.1.", "Potok Karašica", "Vodotok",
+	tros = append(tros, blok("A.02.01.01.01.01.01.", "1.1.", "Potok Graničnik", "Vodotok",
 		[3]string{"225", "Strojna košnja trave na ravnim površinama. Stavka obuhvaća sve.", "ha"},
 		[3]string{"226", "Strojna košnja trave na kosim površinama", "ha"})...)
-	tros = append(tros, blok("A.02.01.16.01.01.02.", "2.1.", "Nasip Puškaš", "Nasip",
+	tros = append(tros, blok("A.02.01.01.01.01.02.", "2.1.", "Nasip Probni", "Nasip",
 		[3]string{"225", "Strojna košnja trave na ravnim površinama. Stavka obuhvaća sve.", "ha"})...)
-	tros = append(tros, blok("A.02.01.16.02.04.", "3.1.", "Kanal K-8", "Kanal",
+	tros = append(tros, blok("A.02.01.01.02.04.", "3.1.", "Kanal K-8", "Kanal",
 		[3]string{"229", "Strojno odstranjivanje šaša i trske", "m2"})...)
 	lok := [][]string{
 		{"POPIS LOKACIJA IZVRŠENJA USLUGA"}, {},
 		{"RED VODE", "VRSTA VODE", "", "NAZIV VODE"},
 		{"VODE I. REDA - Međudržavne vode"},
 		{"", "1. Vodotoci"},
-		{"", "", "1.1.", "Potok Karašica"},
+		{"", "", "1.1.", "Potok Graničnik"},
 		{"", "2. Akumulacije, retencije i jezera"},
-		{"", "", "2.1.", "Nasip Puškaš"},
+		{"", "", "2.1.", "Nasip Probni"},
 		{"VODE I. REDA - Ostale državne vode"},
 		{"", "4. Osnovne meloiracijske građevine za odvodnju"},
-		{"", "", "4.1.", "Kanal Bojana - GDK za CS Podunavlje"},
+		{"", "", "4.1.", "Kanal Probni - GDK za CS Probni"},
 		{"VODE II. REDA"},
 		{"", "3. Bujični tokovi"},
-		{"", "", "3.1.", "Bujica Podolje"},
+		{"", "", "3.1.", "Bujica Probna"},
 		{"", "4. Osnovne meloiracijske građevine za odvodnju"},
 		{"", "", "4.1.", "Kanal K-8"},
 	}
 	return napisiXlsx(t, map[string][][]string{
-		"PPI_POSTAVKE":   {{"BP:", "16"}, {"Naziv:", "Branjeno područje br. 16"}},
-		"TROŠKOVNIK":     tros,
-		"LOKACIJE_BP_16": lok,
+		"PPI_POSTAVKE":  {{"BP:", "1"}, {"Naziv:", "Branjeno područje br. 1"}},
+		"TROŠKOVNIK":    tros,
+		"LOKACIJE_BP_1": lok,
 		"PREVENTIVNA": {{"Redni br.", "Oznaka", "Opis", "Jed."}, {"1", "1", "Iskolčenje osi", "m"},
 			{"2", "225", "Strojna košnja trave na ravnim površinama. Stavka obuhvaća sve.", "ha"}},
-	}, []string{"PPI_POSTAVKE", "TROŠKOVNIK", "LOKACIJE_BP_16", "PREVENTIVNA"})
+	}, []string{"PPI_POSTAVKE", "TROŠKOVNIK", "LOKACIJE_BP_1", "PREVENTIVNA"})
 }
 
+// pripremi puni bazu iz izmišljenog skupa sektora P: područje 1 s vodama
+// Primjerica i kanal Probni te dva potoka Graničnik koja razlikuje samo
+// pojašnjenje u zagradi
 func pripremi(t *testing.T) Deps {
 	t.Helper()
-	if !db.UseRepoData() {
-		t.Skip("data/ s registrima nije dostupan — registri stoje izvan repozitorija")
-	}
+	db.KoristiIzmisljenePodatke(t)
 	database, err := db.OpenDB(filepath.Join(t.TempDir(), "ugovor.db"))
 	if err != nil {
 		t.Fatal(err)
@@ -156,55 +157,56 @@ func TestUvozUgovora(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if rep.Area != 16 || len(rep.Locations) != 5 || rep.Blocks != 3 {
+	if rep.Area != 1 || len(rep.Locations) != 5 || rep.Blocks != 3 {
 		t.Fatalf("područje %d, lokacija %d, blokova %d", rep.Area, len(rep.Locations), rep.Blocks)
 	}
 	status := map[string]Match{}
 	for _, m := range rep.Locations {
 		status[m.Location.Name] = m
 	}
-	if m := status["Potok Karašica"]; m.Status != StatusExisting || m.Code != "potok-karasica-baranja" {
-		t.Errorf("Karašica: %+v", m)
+	// dva potoka Graničnik: bira se onaj čije pojašnjenje odgovara području
+	if m := status["Potok Graničnik"]; m.Status != StatusExisting || m.Code != "potok-granicnik-primjerica" {
+		t.Errorf("Graničnik: %+v", m)
 	}
-	if m := status["Potok Karašica"]; m.Location.Order != models.WaterOrderFirst || m.Location.Group != models.WaterGroupInterstate || m.Location.Kind != models.MaintenanceKindWatercourse {
-		t.Errorf("razvrstavanje Karašice: %+v", m.Location)
+	if m := status["Potok Graničnik"]; m.Location.Order != models.WaterOrderFirst || m.Location.Group != models.WaterGroupInterstate || m.Location.Kind != models.MaintenanceKindWatercourse {
+		t.Errorf("razvrstavanje Graničnika: %+v", m.Location)
 	}
-	if m := status["Nasip Puškaš"]; !m.Structure || m.Status != StatusNew {
+	if m := status["Nasip Probni"]; !m.Structure || m.Status != StatusNew {
 		t.Errorf("nasip: %+v", m)
 	}
-	if m := status["Kanal Bojana - GDK za CS Podunavlje"]; m.Status != StatusSuggested || len(m.Options) == 0 || !strings.Contains(m.Options[0], "kanal-bojana") {
-		t.Errorf("Bojana bi trebala biti prijedlog: %+v", m)
+	if m := status["Kanal Probni - GDK za CS Probni"]; m.Status != StatusSuggested || len(m.Options) == 0 || !strings.Contains(m.Options[0], "kanal-probni") {
+		t.Errorf("kanal Probni bi trebao biti prijedlog: %+v", m)
 	}
 	if m := status["Kanal K-8"]; m.Status != StatusNew || m.Location.Order != models.WaterOrderSecond || m.Location.Kind != models.MaintenanceKindDrainage {
 		t.Errorf("K-8: %+v", m)
 	}
-	if m := status["Bujica Podolje"]; m.Location.Kind != models.MaintenanceKindTorrent {
-		t.Errorf("Podolje: %+v", m)
+	if m := status["Bujica Probna"]; m.Location.Kind != models.MaintenanceKindTorrent {
+		t.Errorf("bujica: %+v", m)
 	}
 	if rep.ItemsTotal != 3 || rep.ItemsNew != 3 {
 		t.Errorf("stavke: %+v", rep)
 	}
 
 	// probni prolaz ne piše
-	if ws, _ := deps.Maintenance.ListWaters(ctx, 16); len(ws) != 0 {
+	if ws, _ := deps.Maintenance.ListWaters(ctx, 1); len(ws) != 0 {
 		t.Fatalf("probni prolaz je upisao %d lokacija", len(ws))
 	}
 
-	// pravi uvoz, s ručnom vezom za Bojanu
-	rep, err = Run(ctx, Options{Path: path, Deps: deps, Aliases: map[string]string{"Kanal Bojana - GDK za CS Podunavlje": "kanal-bojana"}})
+	// pravi uvoz, s ručnom vezom za kanal Probni
+	rep, err = Run(ctx, Options{Path: path, Deps: deps, Aliases: map[string]string{"Kanal Probni - GDK za CS Probni": "kanal-probni"}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if rep.Suggested != 0 || rep.Existing != 2 {
 		t.Errorf("s vezom: %+v", rep)
 	}
-	ws, err := deps.Maintenance.ListWaters(ctx, 16)
+	ws, err := deps.Maintenance.ListWaters(ctx, 1)
 	if err != nil || len(ws) != 5 {
 		t.Fatalf("lokacija u bazi %d (%v)", len(ws), err)
 	}
 	for _, w := range ws {
 		switch w.Name {
-		case "Nasip Puškaš":
+		case "Nasip Probni":
 			if w.StructureID == "" || w.StructureKind != models.StructureKindEmbankment {
 				t.Errorf("nasip nije objekt: %+v", w)
 			}
@@ -216,38 +218,38 @@ func TestUvozUgovora(t *testing.T) {
 			if nw == nil || nw.Origin != models.WatercourseOriginContract || nw.Kind != "kanal" || nw.Name != "K-8" {
 				t.Errorf("nova voda: %+v", nw)
 			}
-			if got := w.PlanPosition(); got != "A.02.01.16.02.04." {
+			if got := w.PlanPosition(); got != "A.02.01.01.02.04." {
 				t.Errorf("pozicija plana %q", got)
 			}
-		case "Kanal Bojana - GDK za CS Podunavlje":
-			if w.WatercourseCode != "kanal-bojana" {
-				t.Errorf("Bojana: %+v", w)
+		case "Kanal Probni - GDK za CS Probni":
+			if w.WatercourseCode != "kanal-probni" {
+				t.Errorf("kanal Probni: %+v", w)
 			}
-		case "Potok Karašica":
-			if got := w.PlanPosition(); got != "A.02.01.16.01.01.01." {
+		case "Potok Graničnik":
+			if got := w.PlanPosition(); got != "A.02.01.01.01.01.01." {
 				t.Errorf("pozicija plana %q", got)
 			}
 		}
 	}
-	items, _ := deps.Maintenance.ListItems(ctx, 16, false)
+	items, _ := deps.Maintenance.ListItems(ctx, 1, false)
 	if len(items) != 3 || items[0].Number != "225" || items[0].Unit != "ha" || items[0].Origin != models.WorkItemOriginContract {
 		t.Errorf("stavke: %+v", items)
 	}
 
 	// ponovni prolaz: ništa novo, ništa dvostruko
-	rep, err = Run(ctx, Options{Path: path, Deps: deps, Aliases: map[string]string{"Kanal Bojana - GDK za CS Podunavlje": "kanal-bojana"}})
+	rep, err = Run(ctx, Options{Path: path, Deps: deps, Aliases: map[string]string{"Kanal Probni - GDK za CS Probni": "kanal-probni"}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if rep.ItemsExisting != 3 || rep.Created != 0 || rep.Existing != 5 {
 		t.Errorf("ponovni prolaz: %+v", rep)
 	}
-	if ws, _ := deps.Maintenance.ListWaters(ctx, 16); len(ws) != 5 {
+	if ws, _ := deps.Maintenance.ListWaters(ctx, 1); len(ws) != 5 {
 		t.Errorf("dvostruke lokacije: %d", len(ws))
 	}
 
 	// cijeli troškovnik na zahtjev
-	rep, err = Run(ctx, Options{Path: path, Deps: deps, AllItems: true, Aliases: map[string]string{"Kanal Bojana - GDK za CS Podunavlje": "kanal-bojana"}})
+	rep, err = Run(ctx, Options{Path: path, Deps: deps, AllItems: true, Aliases: map[string]string{"Kanal Probni - GDK za CS Probni": "kanal-probni"}})
 	if err != nil || rep.ItemsTotal != 4 || rep.ItemsNew != 1 {
 		t.Errorf("sve stavke: %+v %v", rep, err)
 	}

@@ -2,6 +2,7 @@ package bp16
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -25,20 +26,27 @@ func writeJSON(t *testing.T, dir, name string, v any) {
 	}
 }
 
-func TestUvozBP16(t *testing.T) {
-	if !db.UseRepoData() {
-		t.Skip("data/ s registrima nije dostupan — registri stoje izvan repozitorija")
-	}
+// registarBP16 diže bazu s onim što uvoz iz evidencije VGI Baranja traži u
+// registru, bez stvarnih podataka: sektor B i područje 16 (uvoz objekte traži
+// i stvara ondje), izmišljenu crpnu stanicu i ustavu sa šiframa kakve daje
+// sjeme (bp16-…) i letvu batina, na koju uvoz preslikava „Dunav - Batina”.
+func registarBP16(t *testing.T) (*sql.DB, Deps) {
+	t.Helper()
 	database, err := db.OpenDB(filepath.Join(t.TempDir(), "uvoz.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer database.Close()
+	t.Cleanup(func() { database.Close() })
 	if err := db.InitSchema(database); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.SeedInitialData(database); err != nil {
-		t.Fatal(err)
+	for _, q := range []string{
+		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('B', 'Sektor B', 'VGO', 'COP')`,
+		`INSERT INTO areas (id, sector_id, name, vgi_name) VALUES (16, 'B', 'Područje 16', 'VGI')`,
+	} {
+		if _, err := database.Exec(q); err != nil {
+			t.Fatal(err)
+		}
 	}
 	rec := ledger.New(database, "test-node")
 	deps := Deps{
@@ -47,10 +55,30 @@ func TestUvozBP16(t *testing.T) {
 		Structures: repository.NewStructureRepository(database, rec),
 		Log:        t.Logf,
 	}
+	ctx := context.Background()
+	for _, o := range []models.Structure{
+		{Code: "bp16-cs-probni", Name: "CS Probni", Kind: models.StructureKindPumpingStation},
+		{Code: "bp16-ustava-probna", Name: "Ustava Probna", Kind: models.StructureKindSluice},
+	} {
+		o.ID, o.SectorID, o.AreaID, o.Origin = db.StableID("structure", o.Code), "B", 16, models.ReadingOriginBP16
+		if err := deps.Structures.CreateStructure(ctx, &o); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := deps.Stations.CreateStation(ctx, &models.Station{ID: db.StableID("station", "batina"), Code: "batina", Name: "Batina", Watercourse: "Dunav"}); err != nil {
+		t.Fatal(err)
+	}
+	return database, deps
+}
+
+// Odluke (8. 10. 2026.), pitanje 13: uvoz BP16 provjerava se na
+// izmišljenim objektima, pa se ne preskače bez stvarnih registara.
+func TestUvozBP16(t *testing.T) {
+	database, deps := registarBP16(t)
 
 	dir := t.TempDir()
-	writeJSON(t, dir, "crpne_stanice", []map[string]any{{"id": 5, "naziv": "CS Draž", "status": "published"}, {"id": 13, "naziv": "Neka CS 2", "status": "archived"}})
-	writeJSON(t, dir, "ustave", []map[string]any{{"id": 4, "naziv": "Ustava Bilje", "status": "published"}})
+	writeJSON(t, dir, "crpne_stanice", []map[string]any{{"id": 5, "naziv": "CS Probni", "status": "published"}, {"id": 13, "naziv": "Neka CS 2", "status": "archived"}})
+	writeJSON(t, dir, "ustave", []map[string]any{{"id": 4, "naziv": "Ustava Probna", "status": "published"}})
 	writeJSON(t, dir, "vodomjerna_letva", []map[string]any{{"id": 1, "naziv": "Dunav - Batina"}, {"id": 8, "naziv": "Dunav - Mohacs (HU)"}, {"id": 99, "naziv": "Nepoznata letva"}})
 	writeJSON(t, dir, "vodostaji_na_crpnim_stanicama", []map[string]any{
 		{"id": 100, "crpna_stanica": 5, "datum": "2026-09-04", "vrijeme": "07:25:00", "stanje_cs": "pokretanje cs", "vodostaj": 123, "ag_1": 10, "napomena": "Očitao Ivo Ivić.", "date_created": "2026-09-04T05:46:05.000Z"},
@@ -81,13 +109,13 @@ func TestUvozBP16(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	draz, err := deps.Structures.GetByCode(ctx, "bp16-cs-draz")
-	if err != nil || draz == nil {
-		t.Fatalf("CS Draž nije u registru: %v", err)
+	probni, err := deps.Structures.GetByCode(ctx, "bp16-cs-probni")
+	if err != nil || probni == nil {
+		t.Fatalf("CS Probni nije u registru: %v", err)
 	}
-	rs, err := deps.Readings.List(ctx, repository.ReadingFilter{StructureID: draz.ID.String()})
+	rs, err := deps.Readings.List(ctx, repository.ReadingFilter{StructureID: probni.ID.String()})
 	if err != nil || len(rs) != 2 {
-		t.Fatalf("očekivana 2 očitanja na CS Draž, dobiveno %d (%v)", len(rs), err)
+		t.Fatalf("očekivana 2 očitanja na CS Probni, dobiveno %d (%v)", len(rs), err)
 	}
 	first := rs[0]
 	if first.LevelCm == nil || *first.LevelCm != 123 || first.Observer != "Ivo Ivić" || first.Note != "" ||
@@ -105,8 +133,8 @@ func TestUvozBP16(t *testing.T) {
 		t.Errorf("očitanje bez vodostaja mora čuvati napomenu: %+v", rs[1])
 	}
 
-	bilje, _ := deps.Structures.GetByCode(ctx, "bp16-ustava-bilje")
-	us, _ := deps.Readings.List(ctx, repository.ReadingFilter{StructureID: bilje.ID.String()})
+	ustava, _ := deps.Structures.GetByCode(ctx, "bp16-ustava-probna")
+	us, _ := deps.Readings.List(ctx, repository.ReadingFilter{StructureID: ustava.ID.String()})
 	if len(us) != 1 || us[0].Gate != models.GatePartial || us[0].Level2Cm == nil || *us[0].Level2Cm != 7 ||
 		us[0].Observer != "Pero Perić" || us[0].Note != "i radio" {
 		t.Errorf("očitanje ustave krivo preslikano: %+v", us)
@@ -139,13 +167,13 @@ func TestUvozBP16(t *testing.T) {
 func TestSplitNote(t *testing.T) {
 	cases := []struct{ in, observer, note string }{
 		{"Očitao Ivo Ivić.", "Ivo Ivić", ""},
-		{"Očitala Mara Marić", "Mara Marić", ""},
-		{"Očitao i radio Luka Lukić.", "Luka Lukić", "i radio"},
-		{"Radio Josip Josić u noćnoj tarifi.", "", "Radio Josip Josić u noćnoj tarifi."},
+		{"Očitala Iva Ivić", "Iva Ivić", ""},
+		{"Očitao i radio Marko Markić.", "Marko Markić", "i radio"},
+		{"Radio Ivo Ivić u noćnoj tarifi.", "", "Radio Ivo Ivić u noćnoj tarifi."},
 		{"Očitao Pero Perić (kanal je prazan)", "Pero Perić", "kanal je prazan"},
 		{"Očitao Ana Anić. Zapornica otvorena 10 cm", "Ana Anić", "Zapornica otvorena 10 cm"},
-		{"Očitao Karlo Karlić - otvorene obje zapornice 10-ak cm", "Karlo Karlić", "otvorene obje zapornice 10-ak cm"},
-		{"Očitao Kazimir", "Kazimir", ""},
+		{"Očitao Marko Markić - otvorene obje zapornice 10-ak cm", "Marko Markić", "otvorene obje zapornice 10-ak cm"},
+		{"Očitao Marko", "Marko", ""},
 		{"0", "", ""},
 	}
 	for _, c := range cases {
