@@ -105,11 +105,21 @@ func smijePonistiti(actor *models.UserPermissions, target *models.User, sektori 
 	}
 	for _, d := range target.Duties {
 		rank, _ := razinaDodjele(actor, d.Role, d.SectorID, d.AreaID, sektori) // mayManage ju je već dopustio
-		if d.Role.RazinaZaUpravu() <= rank {
+		if upravaNaRaziniIliVisoj(d.Role, rank) {
 			return fmt.Errorf("%w: lozinku i kod osobi s dužnošću na vašoj razini uprave ili višoj („%s”) daje viša razina ili globalni administrator", ErrUnauthorized, d.Role.Label())
 		}
 	}
 	return nil
+}
+
+// upravaNaRaziniIliVisoj javlja daje li uloga upravu na razini rank ili
+// višoj. Broje se samo dužnosti koje daju upravu (Odluke (8. 10. 2026.),
+// pitanje 3): uloga koja ničim ne upravlja, npr. Dežurni operater u COP-u,
+// nije ni na jednoj razini uprave iako je u katalogu na razini 2, pa joj
+// lozinku i kod daje uprava koja njome upravlja.
+func upravaNaRaziniIliVisoj(uloga models.Role, rank int) bool {
+	u := uloga.RazinaUprave()
+	return u > 0 && u <= rank
 }
 
 // ResetPassword daje osobi novu privremenu lozinku i vraća je administratoru

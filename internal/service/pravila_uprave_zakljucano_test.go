@@ -61,13 +61,23 @@ func TestRazinaUpraveActora(t *testing.T) {
 	ocekujOdbijeno(t, mayAssign(mjesovita, models.RoleSectorMainDeputy, strp("D"), nil, sectorsOf), "više razine")
 
 	// račun s dužnostima u oba dosega uređuje; lozinku poništava samo kad
-	// je svaka dužnost niže od razine s koje njome upravlja
+	// nijedna dužnost ne daje upravu na razini s koje njome upravlja ili
+	// višoj. Operater ničim ne upravlja, pa se ne broji (Odluke (8. 10.
+	// 2026.), pitanje 3: dosad je i operater u sektoru D bio „ista razina”).
 	pperic := &models.User{ID: uuid.New(), Username: "pperic", FullName: "Pero Perić", Duties: []models.Duty{
 		{Role: models.RoleOperator, SectorID: strp("D"), IsActive: true},
 		{Role: models.RoleWaterGuard, SectorID: strp("B"), AreaID: intp(16), IsActive: true},
 	}}
 	if err := mayManage(mjesovita, pperic, sectorsOf); err != nil {
 		t.Errorf("osoba u sektoru D i području 16: %v", err)
+	}
+	if err := smijePonistiti(mjesovita, pperic, sectorsOf); err != nil {
+		t.Errorf("operateru u sektoru D i vodočuvaru u području 16 poništava: %v", err)
+	}
+	// zamjenik voditelja COP-a upravlja sektorom D s iste razine 2
+	pperic.Duties[0] = models.Duty{Role: models.RoleCopDeputy, SectorID: strp("D"), IsActive: true}
+	if err := mayManage(mjesovita, pperic, sectorsOf); err != nil {
+		t.Errorf("zamjenik voditelja COP-a u sektoru D: %v", err)
 	}
 	ocekujOdbijeno(t, smijePonistiti(mjesovita, pperic, sectorsOf), "vašoj razini")
 	pperic.Duties[0] = models.Duty{Role: models.RoleWaterGuard, SectorID: strp("D"), AreaID: intp(10), IsActive: true}
@@ -181,14 +191,36 @@ func TestPonistenjeLozinkeOperatoru(t *testing.T) {
 	if err := smijePonistiti(sektorB, vodocuvar, sectorsOf); err != nil {
 		t.Errorf("uprava sektora poništava lozinku vodočuvaru svog sektora: %v", err)
 	}
-	// Operater ničim ne upravlja, ali je na razini 2 kataloga, pa ga uprava
-	// sektora uređuje, a lozinku mu ne smije poništiti.
+	// Operater ničim ne upravlja: za „istu razinu” broje se samo dužnosti
+	// koje daju upravu, pa mu uprava sektora, koja ga uređuje, daje i
+	// lozinku i kod (Odluke (8. 10. 2026.), pitanje 3; dosad nije smjela jer
+	// je operater na razini 2 kataloga).
 	operater := &models.User{ID: uuid.New(), Duties: []models.Duty{
 		{Role: models.RoleOperator, SectorID: strp("B"), IsActive: true}}}
 	if err := mayManage(sektorB, operater, sectorsOf); err != nil {
 		t.Fatalf("uprava sektora uređuje operatera svog sektora: %v", err)
 	}
-	ocekujOdbijeno(t, smijePonistiti(sektorB, operater, sectorsOf), "vašoj razini")
+	if err := smijePonistiti(sektorB, operater, sectorsOf); err != nil {
+		t.Errorf("uprava sektora poništava lozinku operateru svog sektora: %v", err)
+	}
+	// ...i vodočuvaru koji uz to dežura kao operater
+	operater.Duties = append(operater.Duties, models.Duty{Role: models.RoleWaterGuard, SectorID: strp("B"), AreaID: intp(16), IsActive: true})
+	if err := smijePonistiti(sektorB, operater, sectorsOf); err != nil {
+		t.Errorf("vodočuvar s dužnošću operatera: %v", err)
+	}
+	// operater tuđeg sektora i uprava područja ostaju bez prava
+	ocekujOdbijeno(t, smijePonistiti(sektorB, &models.User{ID: uuid.New(), Duties: []models.Duty{
+		{Role: models.RoleOperator, SectorID: strp("D"), IsActive: true}}}, sectorsOf), "")
+	podrucje16 := permsWith(models.Duty{Role: models.RoleAreaLeader, SectorID: strp("B"), AreaID: intp(16)})
+	ocekujOdbijeno(t, smijePonistiti(podrucje16, operater, sectorsOf), "")
+	// uprava iste razine i dalje traži višu razinu
+	for _, uloga := range []models.Role{models.RoleSectorDeputy, models.RoleCopLeader, models.RoleCopDeputy} {
+		ista := &models.User{ID: uuid.New(), Duties: []models.Duty{{Role: uloga, SectorID: strp("B"), IsActive: true}}}
+		if err := mayManage(sektorB, ista, sectorsOf); err != nil {
+			t.Fatalf("%s: uprava sektora ga uređuje: %v", uloga, err)
+		}
+		ocekujOdbijeno(t, smijePonistiti(sektorB, ista, sectorsOf), "vašoj razini")
+	}
 }
 
 func TestDosegIzUlogeRubniSlucajevi(t *testing.T) {
