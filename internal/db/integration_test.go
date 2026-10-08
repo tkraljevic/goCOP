@@ -24,9 +24,8 @@ func freshDatabase(t *testing.T) *sql.DB {
 	if err := InitSchema(database); err != nil {
 		t.Fatalf("shema: %v", err)
 	}
-	if !UseRepoImenik() {
-		t.Skip("imenik.json nije dostupan — osobni podaci djelatnika stoje izvan repozitorija (data/imenik.json)")
-	}
+	// stvarni registri; imenik iz data/ čita se ako postoji, ali ne treba
+	registriIliPreskoci(t)
 	if err := SeedInitialData(database); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
@@ -87,9 +86,6 @@ func TestSeedJeIdempotentan(t *testing.T) {
 
 	if err := InitSchema(database); err != nil {
 		t.Fatalf("druga shema: %v", err)
-	}
-	if !UseRepoImenik() {
-		t.Skip("imenik.json nije dostupan — osobni podaci djelatnika stoje izvan repozitorija (data/imenik.json)")
 	}
 	if err := SeedInitialData(database); err != nil {
 		t.Fatalf("drugi seed: %v", err)

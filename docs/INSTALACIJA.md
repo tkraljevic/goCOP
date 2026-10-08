@@ -730,8 +730,9 @@ na GitHubu označena su kao *pre-release*.
 
 Izdanje:
 
-1. promijeniti `verzijaPrograma`, upisati novo u [CHANGELOG.md](../CHANGELOG.md),
-   commit i oznaka `v0.0.x-alfa`;
+1. na računalu s izvozom registara u `data/` pokrenuti `make provjera-registara`
+   (provjere registara GitHub ne može izvesti), promijeniti `verzijaPrograma`,
+   upisati novo u [CHANGELOG.md](../CHANGELOG.md), commit i oznaka `v0.0.x-alfa`;
 2. GitHub (`.github/workflows/izdanje.yml`) nakon provjere izgradi programe
    za sve sustave, `SHA256SUMS` i **nacrt** izdanja s tekstom iz popisa
    izmjena; oznaka mora odgovarati `verzijaPrograma`;
@@ -813,8 +814,14 @@ Razlozi su u komentarima `internal/ledger/shema.go` i
 
 Kote nule vodomjera vode se u sustavu Trst, a HVRS71 i baltičke kote zasebno
 (vidi [baltičke kote](balticke-kote.md)).
-Testovi koji trebaju stvarne registre i imenik preskaču se kad tih datoteka
-nema u mapi `data/`.
+Testovi djelatnika i ovlasti, uvoza i razmjene među čvorovima rade na
+izmišljenom skupu podataka [`testdata/sektor-p`](../testdata/sektor-p/README.md)
+(sektor P, pet izmišljenih djelatnika), pa se izvode svugdje, i na GitHubu.
+Samo 13 provjera registara u `internal/db` (Batina i Vukovar na Dunavu, kota
+nule iz elaborata, cjelovitost registara) treba stvarne registre: izvoz
+registara iz baze u mapu `data/` u korijenu repozitorija. Bez njega se
+preskaču, uz poruku što treba. Pokreću se prije svakog izdanja naredbom
+`make provjera-registara`, koja bez registara pada umjesto da ih preskoči.
 
 Program razvija Tomislav Kraljević, uz pomoć kolega iz Hrvatskih voda.
 Kao i uređivač koda i drugi razvojni alati, u radu se koriste i alati
