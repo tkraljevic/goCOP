@@ -91,9 +91,9 @@ CREATE TABLE IF NOT EXISTS izbor (
 CREATE TABLE IF NOT EXISTS izdane (
 	letva      TEXT NOT NULL,
 	-- Ista letva stoji u obje veličine: model radi u jednoj, a krivulja daje
-	-- drugu. Gornja Drava se računa u protoku jer joj se korito produbljuje pa
-	-- vodostaj kroz desetljeća mijenja značenje, a dežurni ipak čita
-	-- centimetre. Gdje krivulje nema, stoji samo ona u kojoj se računa.
+	-- drugu. Gornja Drava se računa u protoku jer joj vodostaj kroz desetljeća
+	-- mijenja značenje (pomiče se odnos vodostaja i protoka), a dežurni ipak
+	-- čita centimetre. Gdje krivulje nema, stoji samo ona u kojoj se računa.
 	velicina   TEXT NOT NULL,         -- vodostaj | protok
 	izdano     INTEGER NOT NULL,      -- sat kad je prognoza izdana, UTC
 	ciljni     INTEGER NOT NULL,      -- sat na koji se odnosi, UTC

@@ -103,7 +103,7 @@ func (h *PrognozeHandler) uobicajeno(ctx context.Context, postaje map[string]mod
 
 // MjesecDana je koliko dana unatrag ulazi u nulu profila: medijan vode
 // zadnjeg mjeseca. Na dugogodišnjem medijanu svaka letva na maloj vodi stoji
-// na svojoj stepenici (pragovi, širina korita, snižavanje dna), pa mirna voda
+// na svojoj stepenici (pragovi, širina i oblik korita), pa mirna voda
 // izgleda kao niz valova; prema zadnjem mjesecu mirna voda je ravna crta, a
 // val se vidi kao brijeg.
 const MjesecDana = 30

@@ -226,8 +226,8 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"2020.): Nagybajcs i Komárom 1–4 % bolji, ali Mohács i Batina na 96 h 7–9 % lošiji, pa zasad ne ulazi; " +
 				"treba duži niz. Satni niz Bratislave s DanubeHIS-a se ne može preuzeti."),
 			tekstM("Donji Miholjac i Belišće računaju se od 29. 9. 2026. u protoku (satni protok iz HIS-2000), a " +
-				"Belišće izravno iz Donjeg Miholjca. Dno Drave se spušta, pa je vodostaj pri istom protoku danas " +
-				"niži nego u godinama na kojima je lanac naučen; protok to zaobilazi. Kad Donji Miholjac ne javi, " +
+				"Belišće izravno iz Donjeg Miholjca. Vodostaj pri istom protoku danas je niži nego u godinama na " +
+				"kojima je lanac naučen (odnos vodostaja i protoka se pomaknuo); protok to zaobilazi. Kad Donji Miholjac ne javi, " +
 				"Belišće se računa iz Drávaszabolcsa, čiji se vodostaj usput prevodi u protok — veza je slabija " +
 				"(rasap 19–40 prema 10–27 m³/s), ali je rezerva i dalje bolja od nekadašnjeg lanca u vodostaju. " +
 				"U prosjeku 2023.–2025. Osijek, Aljmaš i Dalj su na 24 h 0,3–0,6 cm lošiji, a na niskoj vodi 2026. " +
@@ -497,8 +497,8 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"kao i jutarnja crta. Prema zadnjem mjesecu mirna voda je ravna crta, a val se vidi kao brijeg koji " +
 				"putuje nizvodno."),
 			tekstM("Zašto ne dugogodišnja uobičajena voda: na maloj vodi svaka letva padne ispod svojeg višegodišnjeg " +
-				"medijana za drukčiji iznos, jer je korito posvuda drukčije — prag drži vodu uzvodno od sebe, usko " +
-				"korito spušta vodostaj više od širokog, a dno se na dijelu Dunava godinama snižava. Razlika Mohovo − " +
+				"medijana za drukčiji iznos, jer je korito posvuda drukčije — prag drži vodu uzvodno od sebe, a usko " +
+				"korito spušta vodostaj više od širokog. Razlika Mohovo − " +
 				"Ilok, na primjer, iznosi oko 80 cm pri srednjoj vodi, a oko 100 cm pri najmanjoj. Prema dugogodišnjem " +
 				"medijanu svaka bi letva stajala na svojoj stepenici i mirna bi voda izgledala kao niz valova."),
 			tekstM("Uobičajena voda zadnjih deset punih godina (sada 2016.–2025.) i dalje je na crtežu, crtkano, kad " +

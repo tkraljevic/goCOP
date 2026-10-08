@@ -38,8 +38,8 @@ visoke vode — točno razlika kota nule (80,64 − 80,45 = 0,19 m), jer su letv
 ## Promjena kote nule Mohácsa 1943.
 
 **1.1.1943. spuštene su kote nule dunavskih letvi od Budimpešte nizvodno**, da
-se u nizovima izbjegnu negativni vodostaji koji su nastali potonućem korita
-nakon stoljetne regulacije. Iznos je dokumentiran:
+se u nizovima izbjegnu negativni vodostaji, koji su se nakon stoljetne
+regulacije sve češće javljali. Iznos je dokumentiran:
 
 > „A nullpont süllyesztése a Budapest–Dunaföldvár szakaszon 100 cm, a lefelé
 > következő Paks állomástól Mohácsig pedig 200 cm volt." (VITUKI 1976)
@@ -60,9 +60,9 @@ pomoglo — isti broj prije i poslije 1943. nije ista voda.
 
 Provjera dokumentiranih iznosa: kad se prije 1943. Budimpešti doda 100 a
 Mohácsu i Baji 200 cm, preostala stepenica pada s +61 na **−17 cm**, i to
-jednako za obje postaje kroz sve razrede vode. Tih −17 cm najvjerojatnije je
-stvarno potonuće korita između dviju epoha — dakle ono zbog čega su kote i
-spuštene — pa se ne ispravlja.
+jednako za obje postaje kroz sve razrede vode. Tih −17 cm dokumentirani pomak
+kote nule ne objašnjava, pa se ne ispravlja: ostaje u nizu kao razlika između
+dviju epoha.
 
 ### Što je time riješeno
 

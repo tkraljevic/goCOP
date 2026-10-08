@@ -182,9 +182,9 @@ func samoPuni(u ulazNiz, sati []int64) []int64 {
 // Izvor je jedna uzvodna letva i veličina u kojoj se uzima.
 //
 // Veličina se zadaje, ne pogađa. Protok je na gornjoj Dravi neusporedivo
-// bolji jer se korito ispod lanca hidroelektrana produbljuje, pa vodostaj kroz
-// desetljeća mijenja značenje: Novo Virje iz vodostaja drži r 0,49–0,61, a iz
-// protoka 0,87–0,97. Na Dunavu je obrnuto — ondje je vodostaj bolji. A Vrbovka,
+// bolji jer ispod lanca hidroelektrana vodostaj kroz desetljeća mijenja
+// značenje (pomiče se odnos vodostaja i protoka): Novo Virje iz vodostaja drži
+// r 0,49–0,61, a iz protoka 0,87–0,97. Na Dunavu je obrnuto — ondje je vodostaj bolji. A Vrbovka,
 // Moslavina i Osijek protok uopće nemaju, pa im izbora ni nema.
 type Izvor struct {
 	Letva    string
