@@ -7,6 +7,8 @@ import (
 	"math"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // VodocuvarskiList je jedan dnevni list vodočuvarskog dnevnika, po uzoru
@@ -60,6 +62,15 @@ type VodocuvarskiList struct {
 	Cvor        string     `json:"cvor,omitempty"`
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
+}
+
+// IDListaVodocuvara je unutarnja oznaka novog dnevnog lista, izvedena iz
+// osobe i dana (UUID v5): svaki čvor koji prvi put spremi list iste osobe
+// za isti dan daje mu istu oznaku, pa razmjena vidi jedan list u dvije
+// verzije, a ne dva lista (Odluke (8. 10. 2026.), pitanje 7). Oznaka se ne
+// smije mijenjati, jer je moraju jednako izvesti svi čvorovi.
+func IDListaVodocuvara(userID string, dan time.Time) string {
+	return uuid.NewSHA1(uuid.NameSpaceURL, []byte("gocop:vodocuvarski_list:"+userID+"|"+dan.In(Zagreb).Format("2006-01-02"))).String()
 }
 
 // PrilogLista je fotografija ili datoteka priložena listu, uz zadatak ili

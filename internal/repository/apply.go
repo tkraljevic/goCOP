@@ -191,7 +191,7 @@ func ApplyVersions(ctx context.Context, db *sql.DB, rec *ledger.Recorder, versio
 			if err != nil {
 				return err
 			}
-			if top.VersionID != v.VersionID {
+			if !primjenjujeSe(top, v) {
 				continue // netko je već zapisao noviju; površina je već njezina
 			}
 			if _, err := tx.ExecContext(ctx, "SAVEPOINT apply_one"); err != nil {
@@ -231,6 +231,14 @@ func ApplyVersions(ctx context.Context, db *sql.DB, rec *ledger.Recorder, versio
 			len(failed), failed[0].v.Entity, failed[0].v.EntityID, failed[0].err)
 	}
 	return nil
+}
+
+// primjenjujeSe javlja ide li primljena verzija na površinu: samo zadnja
+// verzija zapisa, jer je površina slika zadnje verzije. Dnevni list
+// vodočuvara slaže se iz cijele povijesti zapisa (apply_vodocuvarski.go),
+// pa na površinu ide i starija verzija koja je stigla nakon novije.
+func primjenjujeSe(top *ledger.Version, v ledger.Version) bool {
+	return top.VersionID == v.VersionID || v.Entity == EntityVodocuvarski
 }
 
 func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
@@ -522,12 +530,7 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		return err
 
 	case EntityVodocuvarski:
-		var l models.VodocuvarskiList
-		if err := json.Unmarshal(v.Payload, &l); err != nil {
-			return err
-		}
-		_, err := tx.ExecContext(ctx, vodocuvarskiUpsert, vodocuvarskiArgs(&l)...)
-		return err
+		return primijeniListIzPovijesti(ctx, tx, v.EntityID)
 
 	case EntityZigovi:
 		var z models.Zig
@@ -1134,7 +1137,8 @@ func removeFromSurface(ctx context.Context, tx *sql.Tx, v ledger.Version) error 
 	case EntityZigovi:
 		stmt = `DELETE FROM zigovi WHERE sektor = ?`
 	case EntityVodocuvarski:
-		stmt = `DELETE FROM vodocuvarski_listovi WHERE id = ?`
+		// brisanje nacrta ne miče list koji je predan na drugom čvoru
+		return primijeniListIzPovijesti(ctx, tx, v.EntityID)
 	case EntityZadaci:
 		stmt = `DELETE FROM vodocuvarski_zadaci WHERE id = ?`
 	case EntityPrijave:

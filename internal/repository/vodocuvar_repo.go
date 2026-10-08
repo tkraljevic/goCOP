@@ -149,11 +149,12 @@ func (r *VodocuvarRepository) Save(ctx context.Context, l *models.VodocuvarskiLi
 	return tx.Commit()
 }
 
-// upisiList upisuje list i njegovu verziju u knjizi, unutar transakcije
+// upisiList upisuje list i njegovu verziju u knjizi, unutar transakcije.
+// Nov list dobiva oznaku izvedenu iz osobe i dana (models.IDListaVodocuvara).
 func (r *VodocuvarRepository) upisiList(ctx context.Context, tx *sql.Tx, l *models.VodocuvarskiList) error {
 	now := time.Now().UTC()
 	if l.ID == "" {
-		l.ID = uuid.Must(uuid.NewV7()).String()
+		l.ID = models.IDListaVodocuvara(l.UserID, l.Datum)
 		l.CreatedAt = now
 	}
 	l.UpdatedAt = now
@@ -172,7 +173,7 @@ func (r *VodocuvarRepository) upisiList(ctx context.Context, tx *sql.Tx, l *mode
 func (r *VodocuvarRepository) upisiNepredan(ctx context.Context, tx *sql.Tx, l *models.VodocuvarskiList, odbijeno error) error {
 	now := time.Now().UTC()
 	if l.ID == "" {
-		l.ID = uuid.Must(uuid.NewV7()).String()
+		l.ID = models.IDListaVodocuvara(l.UserID, l.Datum)
 		l.CreatedAt = now
 	}
 	l.UpdatedAt = now
@@ -302,6 +303,11 @@ func (r *VodocuvarRepository) List(ctx context.Context, f FiltarListova) ([]mode
 	if f.Limit > 0 {
 		q += fmt.Sprintf(" LIMIT %d", f.Limit)
 	}
+	return r.upitListova(ctx, q, args...)
+}
+
+// upitListova čita listove koje vraća upit
+func (r *VodocuvarRepository) upitListova(ctx context.Context, q string, args ...any) ([]models.VodocuvarskiList, error) {
 	rows, err := r.db.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, err
@@ -318,16 +324,36 @@ func (r *VodocuvarRepository) List(ctx context.Context, f FiltarListova) ([]mode
 	return out, rows.Err()
 }
 
-// ZaDan vraća list vodočuvara za zadani dan; nil kad ga nema
+// redDvojnika slaže listove iste osobe za isti dan: predan prvi, a od dva
+// jednaka stariji (Odluke (8. 10. 2026.), pitanje 7)
+const redDvojnika = `(predano_at IS NULL), created_at, id`
+
+// ListoviDana vraća sve listove vodočuvara za zadani dan: predan prvi, a od
+// dva jednaka stariji. Više od jednog ima samo dvostruki list, nastao na
+// dva čvora prije jedinstvene oznake lista ili na čvoru starijeg programa.
+func (r *VodocuvarRepository) ListoviDana(ctx context.Context, userID string, dan time.Time) ([]models.VodocuvarskiList, error) {
+	return r.upitListova(ctx, `SELECT `+vodocuvarskiColumns+` FROM vodocuvarski_listovi WHERE user_id = ? AND datum = ? ORDER BY `+redDvojnika,
+		userID, dan.In(models.Zagreb).Format("2006-01-02"))
+}
+
+// ZaDan vraća list vodočuvara za zadani dan; nil kad ga nema. Kad za dan
+// postoje dva lista, „Današnji list” i spremanje uzimaju predan, a od dva
+// jednaka stariji.
 func (r *VodocuvarRepository) ZaDan(ctx context.Context, userID string, dan time.Time) (*models.VodocuvarskiList, error) {
-	l, err := scanVodocuvarski(r.db.QueryRowContext(ctx, `SELECT `+vodocuvarskiColumns+` FROM vodocuvarski_listovi WHERE user_id = ? AND datum = ?`, userID, dan.In(models.Zagreb).Format("2006-01-02")))
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
+	listovi, err := r.ListoviDana(ctx, userID, dan)
+	if err != nil || len(listovi) == 0 {
 		return nil, err
 	}
-	return &l, nil
+	return &listovi[0], nil
+}
+
+// Dvojnici vraća listove kojima za isti dan postoji još jedan list iste
+// osobe, po danu (najnoviji prvo) i osobi; unutar dana predan prvi, a od dva
+// jednaka stariji. Dvojnici se samo prijavljuju, ne brišu.
+func (r *VodocuvarRepository) Dvojnici(ctx context.Context) ([]models.VodocuvarskiList, error) {
+	return r.upitListova(ctx, `SELECT `+vodocuvarskiColumns+` FROM vodocuvarski_listovi l
+		WHERE EXISTS (SELECT 1 FROM vodocuvarski_listovi d WHERE d.user_id = l.user_id AND d.datum = l.datum AND d.id <> l.id)
+		ORDER BY datum DESC, user_id, `+redDvojnika)
 }
 
 // SljedeciBroj daje sljedeći redni broj lista vodočuvara u godini
