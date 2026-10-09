@@ -211,3 +211,36 @@ func TestUpozorenjaIzdanjaGreske(t *testing.T) {
 		t.Error("baza bez tablice izdanja bez greške")
 	}
 }
+
+// Izdanje u kojem dnevni model nije računao nema dnevne prognoze; starija
+// se ne uzima. ZadnjeDnevno i dalje vraća zadnju koja postoji.
+func TestDnevneIzdanjaNeUzimaStarije(t *testing.T) {
+	db := otvoriProbnu(t, "p.db")
+	sada := int64(497635)
+	if err := SpremiDnevne(db, []DnevnaIzdana{
+		{Letva: "donja", Izdano: sada - 1, Dan: 0, Ciljni: sada - 1, Vrijednost: 100, Model: ModelDnevni},
+		{Letva: "donja", Izdano: sada - 1, Dan: 1, Ciljni: sada + 23, Vrijednost: 110, Q: 500, QDolje: 450, QGore: 550, ImaQ: true, Model: ModelDnevni},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := SpremiIzdane(db, ishodSUpozorenjima(sada, nil).Izdane); err != nil {
+		t.Fatal(err)
+	}
+	if d, err := DnevneIzdanja(db, sada); err != nil || len(d) != 0 {
+		t.Errorf("izdanje bez dnevne: %v, %v", d, err)
+	}
+	d, err := DnevneIzdanja(db, sada-1)
+	if err != nil || len(d["donja"]) != 2 || !d["donja"][1].ImaQ || d["donja"][1].Q != 500 {
+		t.Errorf("starije izdanje: %+v, %v", d, err)
+	}
+	if izdano, d, err := ZadnjeDnevno(db); err != nil || izdano != sada-1 || len(d["donja"]) != 2 {
+		t.Errorf("ZadnjeDnevno: %d %+v, %v", izdano, d, err)
+	}
+	db.Close()
+	if _, err := DnevneIzdanja(db, sada); err == nil {
+		t.Error("zatvorena baza bez greške")
+	}
+	if _, _, err := ZadnjeDnevno(db); err == nil {
+		t.Error("zatvorena baza bez greške")
+	}
+}

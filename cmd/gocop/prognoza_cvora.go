@@ -139,7 +139,9 @@ func kisaSlivova(osvjezivac *prognoza.Osvjezivac, arhivaRO, pb *sql.DB, peersSer
 		if err != nil {
 			return nil, nil, err
 		}
-		_, dnevne, _ := prognoza.ZadnjeDnevno(pb)
+		// Dnevna istog izdanja kao satna; izdanje bez dnevne nema je.
+		izdano, _, _ := prognoza.ZadnjeIzdanje(pb)
+		dnevne, _ := prognoza.DnevneIzdanja(pb, izdano)
 		return prognoza.StanjeSlivova(oborine, pragovi), dnevne, nil
 	}
 }

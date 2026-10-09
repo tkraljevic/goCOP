@@ -465,7 +465,7 @@ func (h *PrognozeHandler) podaci(r *http.Request, nacinTablice, nacinGrafa strin
 		}
 	}
 	data.Bliski = BliziDosezi
-	_, dnevne, _ := c.Dnevno()
+	dnevne, _ := c.DnevnoZa(izdano)
 	tude := map[string]map[string]map[int64]TudaVrijednost{}
 	for _, t := range tudiIzvori {
 		tude[t.izvor] = c.Tude(t.izvor, izdano)

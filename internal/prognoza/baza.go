@@ -763,11 +763,23 @@ func ZadnjeDnevno(db *sql.DB) (int64, map[string][]DnevnaIzdana, error) {
 	if err := db.QueryRow(`SELECT max(izdano) FROM dnevne`).Scan(&izdano); err != nil || !izdano.Valid {
 		return 0, nil, err
 	}
-	r, err := db.Query(`SELECT letva, izdano, dan, ciljni, vrijednost, dolje, gore,
-		protok, protok_dolje, protok_gore, model
-		FROM dnevne WHERE izdano = ? ORDER BY letva, dan`, izdano.Int64)
+	out, err := DnevneIzdanja(db, izdano.Int64)
 	if err != nil {
 		return 0, nil, err
+	}
+	return izdano.Int64, out, nil
+}
+
+// DnevneIzdanja čita dnevnu prognozu zadanog sata izdanja, složenu po letvi
+// i danu. Izdanje u kojem dnevni model nije računao nema je, i tada se ne
+// uzima starija: njezini dani stajali bi uz satnu prognozu novijeg izdanja
+// kao da su iz istog, a upozorenje izdanja kaže da dnevne nema.
+func DnevneIzdanja(db *sql.DB, izdano int64) (map[string][]DnevnaIzdana, error) {
+	r, err := db.Query(`SELECT letva, izdano, dan, ciljni, vrijednost, dolje, gore,
+		protok, protok_dolje, protok_gore, model
+		FROM dnevne WHERE izdano = ? ORDER BY letva, dan`, izdano)
+	if err != nil {
+		return nil, err
 	}
 	defer r.Close()
 	out := map[string][]DnevnaIzdana{}
@@ -776,14 +788,14 @@ func ZadnjeDnevno(db *sql.DB) (int64, map[string][]DnevnaIzdana, error) {
 		var q, qd, qg sql.NullFloat64
 		if err := r.Scan(&d.Letva, &d.Izdano, &d.Dan, &d.Ciljni, &d.Vrijednost,
 			&d.Dolje, &d.Gore, &q, &qd, &qg, &d.Model); err != nil {
-			return 0, nil, err
+			return nil, err
 		}
 		if q.Valid {
 			d.Q, d.QDolje, d.QGore, d.ImaQ = q.Float64, qd.Float64, qg.Float64, true
 		}
 		out[d.Letva] = append(out[d.Letva], d)
 	}
-	return izdano.Int64, out, r.Err()
+	return out, r.Err()
 }
 
 // bezStranihZnakova svodi mađarska i srpska slova na osnovna, da šifra strane
