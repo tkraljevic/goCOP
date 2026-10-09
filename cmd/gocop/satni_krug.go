@@ -12,6 +12,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sort"
+	"strings"
 	"time"
 
 	"gocop/internal/javnivodostaji"
@@ -234,5 +236,36 @@ func (k *satniKrug) izracunajIIzdaj(ctx context.Context) {
 		time.Unix(ishod.Sada*3600, 0).In(models.Zagreb).Format("2.1. u 15:04"), ishod.Letvi(), len(ishod.Izdane))
 	for letva, zasto := range ishod.BezPrognoze {
 		javniUvoznik.Redak("bez prognoze %s: %v", letva, zasto)
+	}
+	javiUpozorenja(javniUvoznik, ishod)
+}
+
+// javiUpozorenja upisuje u dnevnik kruga dnevne ciljeve koji u izdanju
+// nemaju dnevnu prognozu, s razlogom, i otvorena upozorenja izdanja.
+// Cilj kojem je glavni model pao, a rezerva računala, ovdje se ne javlja:
+// dnevnu ima.
+func javiUpozorenja(uvoznik *javnivodostaji.Uvoznik, ishod *prognoza.Ishod) {
+	ima := map[string]bool{}
+	for _, d := range ishod.Dnevne {
+		ima[d.Letva] = true
+	}
+	var bez []string
+	for letva := range ishod.BezDnevne {
+		if !ima[letva] {
+			bez = append(bez, letva)
+		}
+	}
+	sort.Strings(bez)
+	for _, letva := range bez {
+		zasto := strings.TrimPrefix(ishod.BezDnevne[letva].Error(), letva+": ")
+		log.Printf("prognoza: bez dnevne prognoze %s: %s", letva, zasto)
+		uvoznik.Redak("bez dnevne prognoze %s: %s", letva, zasto)
+	}
+	for _, u := range ishod.Upozorenja {
+		if u.Tezina < prognoza.TezinaUpozorenje {
+			continue
+		}
+		log.Printf("prognoza: upozorenje: %s", u)
+		uvoznik.Redak("upozorenje: %s", u)
 	}
 }
