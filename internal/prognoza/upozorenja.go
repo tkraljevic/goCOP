@@ -3,8 +3,12 @@ package prognoza
 import (
 	"cmp"
 	"errors"
+	"fmt"
 	"slices"
 	"strings"
+	"time"
+
+	"gocop/internal/models"
 )
 
 // Upozorenja uz izdanje: što ne radi i koji su rezultati prognoze zbog toga
@@ -70,6 +74,10 @@ func Upozori(ishod *Ishod, pojasi map[string][]Pojas, nizovi map[Izvor]Niz, vrho
 	ulazi, pokriveno := upozorenjaUlaza(ishod, pojasi, nizovi, ima)
 	u := append([]Upozorenje{}, ulazi...)
 	u = append(u, upozorenjaDnevnog(ishod, pokriveno, ima)...)
+	u = append(u, upozorenjaIzbora(ishod, pojasi, ima)...)
+	u = append(u, upozorenjaVrhova(ishod, vrhovi, pojasi)...)
+	u = append(u, upozorenjaOstalog(ishod)...)
+	u = append(u, upozorenjeKrivulje(ishod.Izdane, ishod.Sada)...)
 	slices.SortStableFunc(u, func(a, b Upozorenje) int {
 		return cmp.Or(cmp.Compare(b.Tezina, a.Tezina), cmp.Compare(a.Vrsta, b.Vrsta),
 			cmp.Compare(a.Letva, b.Letva), cmp.Compare(a.Opis, b.Opis))
@@ -139,6 +147,9 @@ func (s skupUpitnog) dnevne() []string {
 // popis je skup poredan po dosegu satne, a letve kojima je upitna samo
 // dnevna idu na kraj.
 func (s skupUpitnog) popis() []Upitno {
+	if len(s) == 0 {
+		return nil
+	}
 	out := make([]Upitno, 0, len(s))
 	for _, u := range s {
 		out = append(out, *u)
@@ -294,4 +305,202 @@ func sviDnevniCiljevi(letve []string) bool {
 	return !slices.ContainsFunc(letve, func(l string) bool {
 		return !slices.ContainsFunc(DnevniCiljevi, func(c DnevniCilj) bool { return c.Letva == l })
 	})
+}
+
+// upozorenjaIzbora prevodi izbor puta u upozorenja: satni račun iz rezerve
+// ili sa zadržanim mjerenjem (upitno od idućeg sata niz lanac), dnevni model
+// iz rezerve, kraj niza s druge obale i dnevni model bez kiše. Ključevi vrh:
+// i preneseno: su redovan rad i ne javljaju se.
+func upozorenjaIzbora(ishod *Ishod, pojasi map[string][]Pojas, ima map[string]bool) []Upozorenje {
+	var out []Upozorenje
+	for k, iz := range ishod.Izbor {
+		vrsta, letva := vrstaIzbora(k, iz)
+		if vrsta == "" {
+			continue
+		}
+		u := Upozorenje{Vrsta: vrsta, Tezina: TezinaUpozorenje, Letva: letva, Opis: iz.Opis}
+		s := skupUpitnog{}
+		switch vrsta {
+		case VrstaRezerva, VrstaDrzi:
+			s.satna(doseziUpitnog(Nizvodno(pojasi, map[string]int64{letva: ishod.Sada + 1}, ishod.Sada), ishod.Sada))
+		case VrstaDnevnaRezerva:
+			u.Tezina = TezinaNapomena
+			s.dnevna(letva)
+		case VrstaZamjena:
+			u.Tezina = TezinaNapomena
+		case VrstaKisa:
+			s.dnevna(ciljeviSKisom(ima)...)
+		}
+		u.Upitno = s.popis()
+		out = append(out, u)
+	}
+	return out
+}
+
+// vrstaIzbora kaže koje upozorenje daje ključ izbora i na koju se letvu
+// odnosi; prazna vrsta znači da je to redovan rad.
+func vrstaIzbora(kljuc string, iz Izbor) (vrsta, letva string) {
+	if kljuc == "oborina" {
+		if iz.Inacica == 2 {
+			return VrstaKisa, ""
+		}
+		return "", ""
+	}
+	prefiks, letva, slozen := strings.Cut(kljuc, ":")
+	if !slozen {
+		return vrstaSatnog(iz.Inacica), kljuc
+	}
+	switch prefiks {
+	case "dnevni":
+		if iz.Inacica > 0 {
+			return VrstaDnevnaRezerva, letva
+		}
+	case "zamjena":
+		return VrstaZamjena, letva
+	}
+	return "", letva
+}
+
+// vrstaSatnog: inačica iznad nule je rezerva, −1 zadržano mjerenje.
+func vrstaSatnog(inacica int) string {
+	switch {
+	case inacica > 0:
+		return VrstaRezerva
+	case inacica < 0:
+		return VrstaDrzi
+	}
+	return ""
+}
+
+// ciljeviSKisom su ciljevi dnevnog modela s kišom koji u izdanju imaju dane.
+func ciljeviSKisom(ima map[string]bool) []string {
+	var out []string
+	for _, c := range DnevniCiljevi {
+		if len(c.Slivovi) > 0 && ima[c.Letva] {
+			out = append(out, c.Letva)
+		}
+	}
+	return out
+}
+
+// upozorenjaVrhova javljaju vrh lanca koji budućnost inače dobiva iz našeg
+// dnevnog modela ili tuđe prognoze, a u ovom izdanju je nije dobio: za njega
+// se drži zadnje mjerenje, pa je satna niz lanac upitna od idućeg sata.
+func upozorenjaVrhova(ishod *Ishod, vrhovi map[Izvor]bool, pojasi map[string][]Pojas) []Upozorenje {
+	imaju := map[string]bool{}
+	for _, l := range slices.Concat(ishod.NasiVrhovi, ishod.TudiVrhovi, ishod.OperaterVrhovi) {
+		imaju[l] = true
+	}
+	var out []Upozorenje
+	for iz := range vrhovi {
+		odakle := odakleBuducnostVrha(iz.Letva)
+		if odakle == "" || imaju[iz.Letva] {
+			continue
+		}
+		imaju[iz.Letva] = true // vrh u obje veličine javlja se jednom
+		dosezi := doseziUpitnog(Nizvodno(pojasi, map[string]int64{iz.Letva: ishod.Sada + 1}, ishod.Sada), ishod.Sada)
+		delete(dosezi, iz.Letva) // vrh nema svoju prognozu, samo mjerenje
+		s := skupUpitnog{}
+		s.satna(dosezi)
+		out = append(out, Upozorenje{Vrsta: VrstaVrh, Tezina: TezinaUpozorenje, Letva: iz.Letva,
+			Opis: "nema budućnosti vrha (" + odakle + "); drži se zadnje mjerenje", Upitno: s.popis()})
+	}
+	return out
+}
+
+// odakleBuducnostVrha kaže odakle vrh budućnost inače dobiva; prazno kad je
+// nema odakle dobiti i drži se zadnje mjerenje kao redovan rad.
+func odakleBuducnostVrha(letva string) string {
+	var izvori []string
+	if VrhoviIzDnevnog[letva] {
+		izvori = append(izvori, "dnevni model")
+	}
+	if izvor, ima := TudiIzvorVrha(letva); ima {
+		izvori = append(izvori, "tuđa prognoza "+izvor)
+	}
+	return strings.Join(izvori, ", ")
+}
+
+// upozorenjaOstalog su napomene o letvama bez ijednog sata prognoze i o
+// vrhovima koji kasne i drže sat izdavanja.
+func upozorenjaOstalog(ishod *Ishod) []Upozorenje {
+	var out []Upozorenje
+	for letva, err := range ishod.BezPrognoze {
+		out = append(out, Upozorenje{Vrsta: VrstaBezPrognoze, Tezina: TezinaNapomena, Letva: letva,
+			Opis: strings.TrimPrefix(err.Error(), letva+": ")})
+	}
+	for letva, z := range ishod.Ceka {
+		out = append(out, Upozorenje{Vrsta: VrstaCeka, Tezina: TezinaNapomena, Letva: letva, Zadnje: z})
+	}
+	return out
+}
+
+// upozorenjeKrivulje je jedna napomena o vrijednostima izvan krivulje
+// protoka: za svaku letvu i veličinu prvi doseg na kojem je krivulja
+// produljena preko svojeg ruba.
+func upozorenjeKrivulje(izdane []Izdana, sada int64) []Upozorenje {
+	prvi := map[Izvor]int{}
+	for _, x := range izdane {
+		iz := Izvor{Letva: x.Letva, Velicina: x.Velicina}
+		if d, bilo := prvi[iz]; x.Izvan && (!bilo || int(x.Ciljni-sada) < d) {
+			prvi[iz] = int(x.Ciljni - sada)
+		}
+	}
+	if len(prvi) == 0 {
+		return nil
+	}
+	u := Upozorenje{Vrsta: VrstaKrivulja, Tezina: TezinaNapomena, Upitno: make([]Upitno, 0, len(prvi))}
+	for iz, d := range prvi {
+		u.Upitno = append(u.Upitno, Upitno{Letva: iz.Letva, Velicina: iz.Velicina, OdSata: d})
+	}
+	slices.SortFunc(u.Upitno, func(a, b Upitno) int {
+		return cmp.Or(cmp.Compare(a.Letva, b.Letva), cmp.Compare(a.Velicina, b.Velicina))
+	})
+	return []Upozorenje{u}
+}
+
+// String je upozorenje u šiframa, za dnevnik kruga i alate, npr. „ulaz
+// mohacs zadnje 7.10. u 11:00, traje; upitno: mohacs +0 h, batina +1 h,
+// osijek dnevna”.
+func (u Upozorenje) String() string {
+	dijelovi := []string{strings.TrimSpace(u.Vrsta + " " + u.Letva)}
+	if u.Zadnje > 0 {
+		dijelovi = append(dijelovi, "zadnje "+satDnevnika(u.Zadnje)+", "+sljedeceDnevnika(u.Sljedece))
+	}
+	if u.Opis != "" {
+		dijelovi = append(dijelovi, u.Opis)
+	}
+	if len(u.Upitno) > 0 {
+		dijelovi = append(dijelovi, "upitno: "+upitnoDnevnika(u.Upitno))
+	}
+	return strings.Join(dijelovi, "; ")
+}
+
+// satDnevnika je sat od epohe u mjesnom vremenu, kao u KoCeka.
+func satDnevnika(sat int64) string {
+	return time.Unix(sat*3600, 0).In(models.Zagreb).Format("2.1. u 15:04")
+}
+
+// sljedeceDnevnika kaže kad je rupa završila, ili da traje.
+func sljedeceDnevnika(sat int64) string {
+	if sat == 0 {
+		return "traje"
+	}
+	return "sljedeće " + satDnevnika(sat)
+}
+
+// upitnoDnevnika nabraja upitne letve: satna od dosega, dnevna.
+func upitnoDnevnika(upitno []Upitno) string {
+	s := make([]string, 0, len(upitno))
+	for _, x := range upitno {
+		d := strings.TrimSpace(x.Letva + " " + x.Velicina)
+		if x.OdSata >= 0 {
+			d += fmt.Sprintf(" +%d h", x.OdSata)
+		}
+		if x.Dnevno {
+			d += " dnevna"
+		}
+		s = append(s, d)
+	}
+	return strings.Join(s, ", ")
 }

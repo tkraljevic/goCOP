@@ -273,3 +273,149 @@ func TestUlazBezPoznateRupe(t *testing.T) {
 		t.Errorf("upozorenja\n %+v\nželim\n %+v", got, want)
 	}
 }
+
+// Izbor puta daje upozorenja: satna rezerva i zadržano mjerenje otvoreno, s
+// letvama niz lanac od idućeg sata; dnevna rezerva i druga obala kao
+// napomene; dnevni model bez kiše otvoreno. Vrh iz dnevnog modela, tuđa
+// prognoza ispred računa i prenesena prognoza redovan su rad.
+func TestUpozorenjaIzbora(t *testing.T) {
+	sada := int64(500000)
+	postavi(t, &DnevniCiljevi, []DnevniCilj{{Letva: "donja", Slivovi: []string{"Gornji"}}, {Letva: "peta"}})
+	dnevne := []DnevnaIzdana{{Letva: "donja", Dan: 1}, {Letva: "peta", Dan: 1}}
+	bezDonje := lanacUpozorenja()
+	delete(bezDonje, "donja") // drži se zadnje mjerenje: donja za ovo izdanje nema račun
+	for _, tc := range []struct {
+		ime    string
+		izbor  map[string]Izbor
+		pojasi map[string][]Pojas
+		want   []Upozorenje
+	}{
+		{"satna rezerva", map[string]Izbor{"srednja": {Inacica: 2, Opis: "rezerva: druga umjesto gornja"}}, lanacUpozorenja(),
+			[]Upozorenje{{Vrsta: VrstaRezerva, Tezina: TezinaUpozorenje, Letva: "srednja", Opis: "rezerva: druga umjesto gornja",
+				Upitno: []Upitno{{Letva: "srednja", OdSata: 1}, {Letva: "donja", OdSata: 10}, {Letva: "cetvrta", OdSata: 15}}}}},
+		{"drži zadnje mjerenje", map[string]Izbor{"donja": {Inacica: -1, Opis: "bez svježeg ulaza (srednja): drži se zadnje mjerenje"}}, bezDonje,
+			[]Upozorenje{{Vrsta: VrstaDrzi, Tezina: TezinaUpozorenje, Letva: "donja", Opis: "bez svježeg ulaza (srednja): drži se zadnje mjerenje",
+				Upitno: []Upitno{{Letva: "donja", OdSata: 1}, {Letva: "cetvrta", OdSata: 6}}}}},
+		{"dnevna rezerva", map[string]Izbor{"dnevni:donja": {Inacica: 1, Opis: "dnevni model: druga umjesto srednja s oborinom"}}, lanacUpozorenja(),
+			[]Upozorenje{{Vrsta: VrstaDnevnaRezerva, Tezina: TezinaNapomena, Letva: "donja", Opis: "dnevni model: druga umjesto srednja s oborinom",
+				Upitno: []Upitno{{Letva: "donja", OdSata: -1, Dnevno: true}}}}},
+		{"druga obala", map[string]Izbor{"zamjena:gornja": {Opis: "zamjena: mjerenje kasni 2 h"}}, lanacUpozorenja(),
+			[]Upozorenje{{Vrsta: VrstaZamjena, Tezina: TezinaNapomena, Letva: "gornja", Opis: "zamjena: mjerenje kasni 2 h"}}},
+		{"bez kiše", map[string]Izbor{"oborina": {Inacica: 2, Opis: "dnevni model računa bez kiše: oborine nisu uključene"}}, lanacUpozorenja(),
+			[]Upozorenje{{Vrsta: VrstaKisa, Tezina: TezinaUpozorenje, Opis: "dnevni model računa bez kiše: oborine nisu uključene",
+				Upitno: []Upitno{{Letva: "donja", OdSata: -1, Dnevno: true}}}}},
+		{"redovan rad", map[string]Izbor{
+			"oborina":         {Inacica: 1, Opis: "dnevni model računa s kišom"},
+			"vrh:gornja":      {Inacica: 2, Opis: "dok je svježa, vodi je tuđa prognoza"},
+			"preneseno:preko": {Inacica: 1, Opis: "donja|1.0|30|0"},
+			"dnevni:peta":     {Inacica: 0, Opis: "glavni"},
+			"cetvrta":         {Inacica: 0},
+		}, lanacUpozorenja(), []Upozorenje{}},
+	} {
+		t.Run(tc.ime, func(t *testing.T) {
+			ishod := &Ishod{Sada: sada, Dnevne: dnevne, Izbor: tc.izbor}
+			nizovi := nizoviDo(map[string]int64{"gornja": sada, "srednja": sada, "donja": sada})
+			if got := Upozori(ishod, tc.pojasi, nizovi, nil); !reflect.DeepEqual(got, tc.want) {
+				t.Errorf("upozorenja\n %+v\nželim\n %+v", got, tc.want)
+			}
+		})
+	}
+}
+
+// Vrh koji budućnost inače dobiva iz dnevnog modela ili tuđe prognoze, a u
+// izdanju je nije dobio, upozorava: niz lanac drži se njegovo zadnje
+// mjerenje. Kad budućnost ima, ili je nikad ne dobiva, upozorenja nema.
+func TestVrhBezBuducnostiUpozorava(t *testing.T) {
+	sada := int64(500000)
+	postavi(t, &DnevniCiljevi, nil)
+	postavi(t, &VrhoviIzDnevnog, map[string]bool{"gornja": true})
+	postavi(t, &VrhoviSTudomPrognozom, map[string]string{"gornja": "primjer.hr"})
+	nizovi := nizoviDo(map[string]int64{"gornja": sada, "srednja": sada, "donja": sada})
+	vrhovi := map[Izvor]bool{{Letva: "gornja", Velicina: "vodostaj"}: true, {Letva: "gornja", Velicina: "protok"}: true}
+	got := Upozori(&Ishod{Sada: sada}, lanacUpozorenja(), nizovi, vrhovi)
+	want := []Upozorenje{{Vrsta: VrstaVrh, Tezina: TezinaUpozorenje, Letva: "gornja",
+		Opis:   "nema budućnosti vrha (dnevni model, tuđa prognoza primjer.hr); drži se zadnje mjerenje",
+		Upitno: []Upitno{{Letva: "srednja", OdSata: 3}, {Letva: "donja", OdSata: 12}, {Letva: "cetvrta", OdSata: 17}}}}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("upozorenja\n %+v\nželim\n %+v", got, want)
+	}
+	for _, ishod := range []*Ishod{{Sada: sada, NasiVrhovi: []string{"gornja"}}, {Sada: sada, TudiVrhovi: []string{"gornja"}}} {
+		if got := Upozori(ishod, lanacUpozorenja(), nizovi, vrhovi); len(got) != 0 {
+			t.Errorf("vrh ima budućnost, a upozorenje je: %+v", got)
+		}
+	}
+	postavi(t, &VrhoviIzDnevnog, map[string]bool{})
+	postavi(t, &VrhoviSTudomPrognozom, map[string]string{})
+	if got := Upozori(&Ishod{Sada: sada}, lanacUpozorenja(), nizovi, vrhovi); len(got) != 0 {
+		t.Errorf("vrh koji budućnost ne dobiva nigdje, a upozorenje je: %+v", got)
+	}
+}
+
+// Letva bez ijednog sata prognoze je napomena: Ustava Draž je takva svaki
+// sat pri malim vodama, pa bi otvoreno upozorenje bilo stalna buka.
+func TestBezPrognozeJeNapomena(t *testing.T) {
+	postavi(t, &DnevniCiljevi, nil)
+	ishod := &Ishod{Sada: 500000, BezPrognoze: map[string]error{
+		"ustava":  fmt.Errorf("nema ulaza za nijedan sat unaprijed"),
+		"cetvrta": fmt.Errorf("cetvrta: nema namještenih pojasa"),
+	}}
+	want := []Upozorenje{
+		{Vrsta: VrstaBezPrognoze, Tezina: TezinaNapomena, Letva: "cetvrta", Opis: "nema namještenih pojasa"},
+		{Vrsta: VrstaBezPrognoze, Tezina: TezinaNapomena, Letva: "ustava", Opis: "nema ulaza za nijedan sat unaprijed"},
+	}
+	if got := Upozori(ishod, nil, nil, nil); !reflect.DeepEqual(got, want) {
+		t.Errorf("upozorenja\n %+v\nželim\n %+v", got, want)
+	}
+}
+
+// Vrh koji kasni i drži sat izdavanja je napomena sa zadnjim mjerenjem.
+func TestCekaJeNapomena(t *testing.T) {
+	postavi(t, &DnevniCiljevi, nil)
+	sada := int64(500000)
+	want := []Upozorenje{{Vrsta: VrstaCeka, Tezina: TezinaNapomena, Letva: "gornja", Zadnje: sada - 5}}
+	if got := Upozori(&Ishod{Sada: sada, Ceka: map[string]int64{"gornja": sada - 5}}, nil, nil, nil); !reflect.DeepEqual(got, want) {
+		t.Errorf("upozorenja\n %+v\nželim\n %+v", got, want)
+	}
+}
+
+// Vrijednosti izvan krivulje protoka daju jednu napomenu s prvim dosegom za
+// svaku letvu i veličinu.
+func TestKrivuljaPrviDoseg(t *testing.T) {
+	postavi(t, &DnevniCiljevi, nil)
+	sada := int64(500000)
+	izdana := func(letva, velicina string, doseg int64, izvan bool) Izdana {
+		return Izdana{Letva: letva, Velicina: velicina, Izdano: sada, Ciljni: sada + doseg, Izvan: izvan}
+	}
+	ishod := &Ishod{Sada: sada, Izdane: []Izdana{
+		izdana("donja", "protok", 5, false), izdana("donja", "protok", 7, true), izdana("donja", "protok", 3, true),
+		izdana("donja", "vodostaj", 3, false), izdana("srednja", "vodostaj", 0, true), izdana("srednja", "vodostaj", 1, true),
+	}}
+	want := []Upozorenje{{Vrsta: VrstaKrivulja, Tezina: TezinaNapomena, Upitno: []Upitno{
+		{Letva: "donja", Velicina: "protok", OdSata: 3}, {Letva: "srednja", Velicina: "vodostaj", OdSata: 0}}}}
+	if got := Upozori(ishod, nil, nil, nil); !reflect.DeepEqual(got, want) {
+		t.Errorf("upozorenja\n %+v\nželim\n %+v", got, want)
+	}
+}
+
+// Dnevnik kruga ispisuje upozorenje u šiframa, s mjesnim vremenom.
+func TestUpozorenjeString(t *testing.T) {
+	sat := time.Date(2026, 10, 7, 9, 0, 0, 0, time.UTC).Unix() / 3600
+	for _, tc := range []struct {
+		u    Upozorenje
+		want string
+	}{
+		{Upozorenje{Vrsta: VrstaUlaz, Letva: "srednja", Zadnje: sat,
+			Upitno: []Upitno{{Letva: "srednja", OdSata: 0}, {Letva: "donja", OdSata: 1, Dnevno: true}, {Letva: "peta", OdSata: -1, Dnevno: true}}},
+			"ulaz srednja; zadnje 7.10. u 11:00, traje; upitno: srednja +0 h, donja +1 h dnevna, peta dnevna"},
+		{Upozorenje{Vrsta: VrstaUlaz, Letva: "srednja", Zadnje: sat, Sljedece: sat + 22},
+			"ulaz srednja; zadnje 7.10. u 11:00, sljedeće 8.10. u 09:00"},
+		{Upozorenje{Vrsta: VrstaDnevni, Opis: "nema arhive", Upitno: []Upitno{{Letva: "peta", OdSata: -1, Dnevno: true}}},
+			"dnevni; nema arhive; upitno: peta dnevna"},
+		{Upozorenje{Vrsta: VrstaKrivulja, Upitno: []Upitno{{Letva: "donja", Velicina: "protok", OdSata: 3}}},
+			"krivulja; upitno: donja protok +3 h"},
+	} {
+		if got := tc.u.String(); got != tc.want {
+			t.Errorf("%q, želim %q", got, tc.want)
+		}
+	}
+}
