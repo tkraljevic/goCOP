@@ -188,3 +188,34 @@ func TestUpsertOdbacenaNeispravnaVerzija(t *testing.T) {
 		t.Error("neispravan zapis mora javiti grešku")
 	}
 }
+
+// Očitanje izvan raspona koje je preuzeo čvor na 0.0.34 (on raspon ne
+// provjerava) stiže razmjenom i upisuje se: primljene verzije se ne
+// filtriraju. Filtar pri primanju razdvojio bi površine čvorova (isti zapis
+// u knjizi, na površini samo negdje), a novi čvor ne bi upisao ni očitanja
+// izvan raspona upisana prije provjere, koja se po odluci ne diraju (što s
+// njima, još nije odlučeno). Pravilo zato provodi čvor koji preuzima ili
+// uvozi, od 0.0.35; dok preuzima čvor na 0.0.34, takva očitanja stižu.
+func TestPrimljenoOcitanjeIzvanRasponaSeNeFiltrira(t *testing.T) {
+	stari := noviCvorZaRazmjenu(t, "stari")
+	novi := noviCvorZaRazmjenu(t, "novi")
+	ctx := context.Background()
+	pivnica := novaLetva(t, stari, "pivnica-probna", false)
+	stari.posalji(t, novi, "")
+
+	cm := -1102
+	rd := models.Reading{ID: uuid.New(), StationID: pivnica.ID.String(), MeasuredAt: time.Now().Add(-time.Hour).UTC().Truncate(time.Second),
+		LevelCm: &cm, Source: models.ReadingSourceImport, Origin: "hdv.voda.hr", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()}
+	if _, err := stari.rec.Record(ctx, stari.db, EntityReadings, rd.ID.String(), rd); err != nil { // kao 0.0.34: bez provjere
+		t.Fatal(err)
+	}
+	stari.posalji(t, novi, EntityReadings)
+
+	got, err := NewReadingRepository(novi.db, novi.rec).Get(ctx, rd.ID)
+	if err != nil || got == nil || got.LevelCm == nil || *got.LevelCm != cm {
+		t.Fatalf("primljeno očitanje: %+v, %v", got, err)
+	}
+	if n := brojRedaka(t, novi.db, `SELECT COUNT(*) FROM odbacena_ocitanja`); n != 0 {
+		t.Errorf("primljeno očitanje zabilježeno je kao odbačeno: %d", n)
+	}
+}
