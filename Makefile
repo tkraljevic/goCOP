@@ -31,8 +31,9 @@ quality-deep:
 
 # Provjere registara na stvarnim podacima (Batina i Vukovar na Dunavu, kota
 # nule iz elaborata, cjelovitost registara), obavezno prije svakog izdanja.
-# Trebaju izvoz registara iz baze u data/ u korijenu repozitorija; bez njega
-# padaju, ne preskaču se. Ostale provjere rade na izmišljenom skupu
-# testdata/sektor-p i ne trebaju ništa.
+# Trebaju izvorne datoteke registara prvog punjenja (one s kojima je napunjen
+# prvi čvor) u data/ u korijenu repozitorija; izvoz iz baze čvora koji radi
+# ne vrijedi. Bez tih datoteka padaju, ne preskaču se. Ostale provjere rade
+# na izmišljenom skupu testdata/sektor-p i ne trebaju ništa.
 provjera-registara:
 	GOCOP_REGISTRI=obavezno go test -count=1 ./internal/db/

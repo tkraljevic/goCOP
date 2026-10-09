@@ -11,7 +11,8 @@ i bez stvarnih imena. Test ga uključuje pozivom
 `db.KoristiIzmisljenePodatke(t)`.
 
 Provjere registara (Batina i Vukovar na Dunavu, kota nule iz elaborata,
-cjelovitost registara) ostaju na stvarnim registrima u `data/` i pokreću se
+cjelovitost registara) ostaju na stvarnim registrima: izvornim datotekama
+prvog punjenja u `data/`, ne na izvozu iz baze čvora koji radi. Pokreću se
 prije svakog izdanja naredbom `make provjera-registara`.
 
 ## Organizacija
