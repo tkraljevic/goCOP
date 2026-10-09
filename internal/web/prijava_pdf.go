@@ -54,8 +54,6 @@ const (
 
 func stambiljX() float64 { return pdfw.A4W - 56 - stambiljW }
 
-// sadrzajQR je što QR kod nosi: adresu prijave u programu kad je javna
-// adresa postavljena, inače oznaku i kod dokumenta
 // listPrijave je oznaka dnevnog lista na koji je prijava upisana: broj u
 // knjizi, a za dan koji pri objavi još nije počeo nacrt bez broja
 func listPrijave(p *models.PrijavaSTerena) string {
@@ -65,6 +63,8 @@ func listPrijave(p *models.PrijavaSTerena) string {
 	return fmt.Sprintf("%03d/%d", p.ListBroj, p.Godina)
 }
 
+// sadrzajQR je što QR kod nosi: adresu prijave u programu kad je javna
+// adresa postavljena, inače oznaku i kod dokumenta
 func sadrzajQR(p *models.PrijavaSTerena, adresa string) string {
 	// Kontrolni broj ide uz oznaku i kad adresa postoji: QR je u dokumentu
 	// zauvijek, pa mora nositi sve što provjera traži i onda kad provjera na
