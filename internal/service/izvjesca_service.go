@@ -193,7 +193,8 @@ func vodotokDionice(sec *models.Section) string {
 // isti dan nema, pa predano mijenja samo tko ga je izradio, ili uprava.
 // Spremljeno izvješće uvijek je nacrt: izmjena predanog vraća ga u nacrt
 // koji se mora ponovo predati, prvo vrijeme predaje ostaje, a pamti se tko
-// je mijenjao.
+// je mijenjao. Izvješće koje je bilo predano i dok čeka ponovnu predaju
+// mijenja samo tko ga je izradio, ili uprava.
 func (s *IzvjescaService) Spremi(ctx context.Context, u *models.User, perms *models.UserPermissions, sec *models.Section, iz *models.DnevnoIzvjesce) error {
 	if u == nil {
 		return errors.New("upis zahtijeva prijavu")
@@ -233,7 +234,7 @@ func (s *IzvjescaService) Spremi(ctx context.Context, u *models.User, perms *mod
 		if !cur.IzDionice(sec.Code) {
 			return errors.New("izvješće nije pronađeno")
 		}
-		if cur.Predano() && !perms.CanAdminister(sec.SectorID, sec.AreaID) && cur.IzradioID != u.ID.String() {
+		if cur.BiloPredano() && !perms.CanAdminister(sec.SectorID, sec.AreaID) && cur.IzradioID != u.ID.String() {
 			return errors.New("predano izvješće mijenja tko ga je predao, ili uprava")
 		}
 		iz.CreatedAt, iz.IzradioID, iz.Izradio, iz.TragPredaje = cur.CreatedAt, cur.IzradioID, cur.Izradio, cur.TragPredaje
@@ -276,7 +277,9 @@ func (s *IzvjescaService) Predaj(ctx context.Context, u *models.User, perms *mod
 	return s.repo.Save(ctx, iz)
 }
 
-// Obrisi arhivira izvješće; nacrt briše tko ga je pisao, predano samo uprava
+// Obrisi arhivira izvješće; nacrt briše tko ga je pisao, predano samo uprava.
+// Izvješće koje je bilo predano, a izmjenom vraćeno u nacrt, i dalje briše
+// samo uprava: izmjena nije put oko te zaštite.
 func (s *IzvjescaService) Obrisi(ctx context.Context, u *models.User, perms *models.UserPermissions, sec *models.Section, id string) error {
 	if u == nil || !s.SmijePisati(perms, sec) {
 		return errors.New("izvješće briše tko ga smije pisati")
@@ -288,7 +291,7 @@ func (s *IzvjescaService) Obrisi(ctx context.Context, u *models.User, perms *mod
 	if iz == nil || iz.SectionCode != sec.Code {
 		return errors.New("izvješće nije pronađeno")
 	}
-	if iz.Predano() && !perms.CanAdminister(sec.SectorID, sec.AreaID) {
+	if iz.BiloPredano() && !perms.CanAdminister(sec.SectorID, sec.AreaID) {
 		return errors.New("predano izvješće briše uprava područja ili sektora")
 	}
 	return s.repo.Arhiviraj(ctx, iz)

@@ -225,6 +225,59 @@ func TestDnevnoIzvjescePredanoIzmjena(t *testing.T) {
 	}
 }
 
+// Odluke (8. 10. 2026.), pitanje 12: izmjena predanog izvješća dionice vraća
+// ga u nacrt, ali to nije put oko zaštite predanog. Izvješće koje je bilo
+// predano i dalje mijenja samo tko ga je izradio, ili uprava, a briše ga samo
+// uprava područja ili sektora — i dok čeka ponovnu predaju.
+func TestDnevnoIzvjesceVracenoUNacrtOstajeZasticeno(t *testing.T) {
+	o := novaOkolinaIzvjesca(t)
+	ctx := context.Background()
+	iz := punoIzvjesce("P.1.1", danas())
+	if err := o.svc.Spremi(ctx, o.pero, o.pisePero, o.d111, iz); err != nil {
+		t.Fatal(err)
+	}
+	if err := o.svc.Predaj(ctx, o.pero, o.pisePero, o.d111, iz.ID); err != nil {
+		t.Fatal(err)
+	}
+	// Pero ispravi svoje predano izvješće: sada je nacrt koji čeka ponovnu predaju
+	izmjena, _ := o.svc.Get(ctx, iz.ID)
+	izmjena.Sadrzaj.Pregled = "Procjeđivanje kod Primjerova."
+	if err := o.svc.Spremi(ctx, o.pero, o.pisePero, o.d111, izmjena); err != nil {
+		t.Fatal(err)
+	}
+	if g, _ := o.svc.Get(ctx, iz.ID); g.Predano() || !g.BiloPredano() {
+		t.Fatalf("izmjena predanog nije nacrt koji čeka ponovnu predaju: %+v", g)
+	}
+	// zamjenik s pravom na dionici ga ni sada ne mijenja ni ne briše
+	tudja := *izmjena
+	tudja.Sadrzaj.Pregled = "Zamjenik prepisuje."
+	if err := o.svc.Spremi(ctx, o.urednik, o.pisePero, o.d111, &tudja); err == nil || !strings.Contains(err.Error(), "tko ga je") {
+		t.Errorf("zamjenik mijenja izvješće koje čeka ponovnu predaju: %v", err)
+	}
+	if err := o.svc.Obrisi(ctx, o.urednik, o.pisePero, o.d111, iz.ID); err == nil || !strings.Contains(err.Error(), "uprava") {
+		t.Errorf("zamjenik briše izvješće koje čeka ponovnu predaju: %v", err)
+	}
+	// ni autor ga više ne briše sam
+	if err := o.svc.Obrisi(ctx, o.pero, o.pisePero, o.d111, iz.ID); err == nil || !strings.Contains(err.Error(), "uprava") {
+		t.Errorf("autor briše izvješće koje je bilo predano: %v", err)
+	}
+	if g, _ := o.svc.Get(ctx, iz.ID); g == nil || g.Sadrzaj.Pregled != "Procjeđivanje kod Primjerova." {
+		t.Fatalf("izvješće je promijenjeno ili obrisano: %+v", g)
+	}
+	// uprava ga briše kao i predano
+	if err := o.svc.Obrisi(ctx, o.urednik, o.upravaP, o.d111, iz.ID); err != nil {
+		t.Errorf("uprava briše izvješće koje je bilo predano: %v", err)
+	}
+	// nacrt koji nikad nije predan briše i zamjenik, kao i dosad
+	nacrt := punoIzvjesce("P.1.1", danas().AddDate(0, 0, -1))
+	if err := o.svc.Spremi(ctx, o.pero, o.pisePero, o.d111, nacrt); err != nil {
+		t.Fatal(err)
+	}
+	if err := o.svc.Obrisi(ctx, o.urednik, o.pisePero, o.d111, nacrt.ID); err != nil {
+		t.Errorf("zamjenik briše nacrt: %v", err)
+	}
+}
+
 func TestDnevnoIzvjesceTudjimIdentitetom(t *testing.T) {
 	o := novaOkolinaIzvjesca(t)
 	ctx := context.Background()
