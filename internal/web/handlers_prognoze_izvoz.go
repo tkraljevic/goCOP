@@ -20,8 +20,14 @@ import (
 // vrijednost s rasponom, protokom i modelom, te mađarska i srpska prognoza
 // ispod. Vrijednosti su brojevi, da se s njima može računati.
 
-// IzvoziPrognoze šalje zadnje izdanje prognoze kao .xlsx.
+// IzvoziPrognoze šalje zadnje izdanje prognoze kao .xlsx; s danom i satom u
+// adresi (?dan=2026-10-05&sat=7) izdanje koje je tada bilo zadnje.
 func (h *PrognozeHandler) IzvoziPrognoze(w http.ResponseWriter, r *http.Request) {
+	r, err := zahtjevIzdanja(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	// Sažetak piše o najnižem i najvišem zabilježenom vodostaju, pa krajnosti
 	// iz arhive moraju biti izračunate prije nego se podaci slože; stranica ih
 	// računa u pozadini, a izvoz smije pričekati koju sekundu.
@@ -36,6 +42,7 @@ func (h *PrognozeHandler) IzvoziPrognoze(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	z := h.zaglavljeIzvoza(data.CurrentUser)
+	z.Datum = datumIzvoza(r.Context(), data.IzdanoSat)
 	k := &xlsxw.Knjiga{LogoPNG: z.LogoPNG}
 	h.listSazetka(r.Context(), k, z, data)
 	for _, t := range data.Tablice {
@@ -52,7 +59,7 @@ func (h *PrognozeHandler) IzvoziPrognoze(w http.ResponseWriter, r *http.Request)
 	listMetode(k, z, h.metoda(r))
 	// Skriveni list s podacima grafova ide na kraj knjige.
 	sort.SliceStable(k.Listovi, func(i, j int) bool { return !k.Listovi[i].Skriven && k.Listovi[j].Skriven })
-	posaljiXLSX(w, "prognoza_"+time.Now().In(models.Zagreb).Format("2006-01-02_15h")+".xlsx", k)
+	posaljiXLSX(w, "prognoza_"+z.Datum.Format("2006-01-02_15h")+".xlsx", k)
 }
 
 // listPrognoze piše jednu vodu.
@@ -258,7 +265,10 @@ func listPrognoze(k *xlsxw.Knjiga, z ZaglavljeIzvoza, data PrognozePageData, t T
 func (h *PrognozeHandler) zaglavljeIzvoza(u *models.User) ZaglavljeIzvoza {
 	t := models.Terms()
 	sektor := sektorIzdavaca(u)
-	z := ZaglavljeIzvoza{Organizacija: t.OrgName, Sektor: sektor, Datum: time.Now().In(models.Zagreb)}
+	// Potpis stoji i kad registra osoba nema: list bez potpisnika ne da se
+	// složiti.
+	z := ZaglavljeIzvoza{Organizacija: t.OrgName, Sektor: sektor, Datum: time.Now().In(models.Zagreb),
+		Potpisnici: []PotpisnikIzvoza{h.izdavac(u, sektor)}}
 	if t.HasLogo() && t.LogoMime == "image/png" {
 		z.LogoPNG = t.Logo
 	}
@@ -273,7 +283,6 @@ func (h *PrognozeHandler) zaglavljeIzvoza(u *models.User) ZaglavljeIzvoza {
 		}
 	}
 	z.Mjesto = strings.TrimSpace(strings.TrimPrefix(z.Centar, t.CenterShort))
-	z.Potpisnici = []PotpisnikIzvoza{h.izdavac(u, sektor)}
 	return z
 }
 

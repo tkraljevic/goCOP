@@ -288,8 +288,15 @@ func PrimiModel(db *sql.DB, p PaketModela) error {
 // ZadnjiIzdavac kaže koji je čvor izdao zadnje izdanje i je li ono stiglo
 // razmjenom.
 func ZadnjiIzdavac(db *sql.DB) (cvor string, primljeno bool, err error) {
+	return ZadnjiIzdavacDo(db, math.MaxInt64)
+}
+
+// ZadnjiIzdavacDo je isto za zadnje izdanje do sata do (uključivo), za izvoz
+// stare prognoze.
+func ZadnjiIzdavacDo(db *sql.DB, do int64) (cvor string, primljeno bool, err error) {
 	var knjiga string
-	err = db.QueryRow(`SELECT cvor, knjiga FROM izdanja ORDER BY izdano DESC, verzija DESC LIMIT 1`).Scan(&cvor, &knjiga)
+	err = db.QueryRow(`SELECT cvor, knjiga FROM izdanja WHERE izdano <= ?
+		ORDER BY izdano DESC, verzija DESC LIMIT 1`, do).Scan(&cvor, &knjiga)
 	if err == sql.ErrNoRows {
 		return "", false, nil
 	}

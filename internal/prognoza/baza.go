@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"gocop/internal/hydro"
 	"gocop/internal/models"
+	"math"
 	"sort"
 	"strings"
 	"time"
@@ -723,8 +724,14 @@ func SpremiDnevne(db *sql.DB, dnevne []DnevnaIzdana) error {
 
 // ZadnjeDnevno čita najnovije dnevno izdanje, složeno po letvi i danu.
 func ZadnjeDnevno(db *sql.DB) (int64, map[string][]DnevnaIzdana, error) {
+	return ZadnjeDnevnoDo(db, math.MaxInt64)
+}
+
+// ZadnjeDnevnoDo čita zadnje dnevno izdanje do sata do (uključivo), složeno
+// po letvi i danu — kakvo je bilo zadnje u tom satu, za izvoz stare prognoze.
+func ZadnjeDnevnoDo(db *sql.DB, do int64) (int64, map[string][]DnevnaIzdana, error) {
 	var izdano sql.NullInt64
-	if err := db.QueryRow(`SELECT max(izdano) FROM dnevne`).Scan(&izdano); err != nil || !izdano.Valid {
+	if err := db.QueryRow(`SELECT max(izdano) FROM dnevne WHERE izdano <= ?`, do).Scan(&izdano); err != nil || !izdano.Valid {
 		return 0, nil, err
 	}
 	r, err := db.Query(`SELECT letva, izdano, dan, ciljni, vrijednost, dolje, gore,
@@ -893,9 +900,13 @@ func SviPojasi(db *sql.DB) (map[string][]Pojas, error) {
 }
 
 // ZadnjeIzdanje vraća sat najnovijeg izdanja.
-func ZadnjeIzdanje(db *sql.DB) (int64, bool, error) {
+func ZadnjeIzdanje(db *sql.DB) (int64, bool, error) { return ZadnjeIzdanjeDo(db, math.MaxInt64) }
+
+// ZadnjeIzdanjeDo vraća sat zadnjeg izdanja do sata do (uključivo): koje je
+// izdanje bilo zadnje u tom satu, za izvoz stare prognoze.
+func ZadnjeIzdanjeDo(db *sql.DB, do int64) (int64, bool, error) {
 	var sat sql.NullInt64
-	if err := db.QueryRow(`SELECT max(izdano) FROM izdane`).Scan(&sat); err != nil {
+	if err := db.QueryRow(`SELECT max(izdano) FROM izdane WHERE izdano <= ?`, do).Scan(&sat); err != nil {
 		return 0, false, err
 	}
 	return sat.Int64, sat.Valid, nil
