@@ -341,7 +341,7 @@
   {{if .NulaUSlici}}
   <line class="uzd-nula" x1="{{printf "%.1f" .LijevoX}}" x2="{{printf "%.1f" .DesnoX}}"
         y1="{{printf "%.1f" .NulaY}}" y2="{{printf "%.1f" .NulaY}}"/>
-  <text class="uzd-osnaziv" x="{{printf "%.1f" .DesnoX}}" y="{{printf "%.1f" .NulaY}}" dy="-5" text-anchor="end">voda zadnjih 30 dana (medijan)</text>
+  <text class="uzd-osnaziv" x="{{printf "%.1f" .DesnoX}}" y="{{printf "%.1f" .NulaY}}" dy="-5" text-anchor="end">{{.NulaNaziv}} (medijan)</text>
   {{end}}
   {{if .DugiPut}}<path class="uzd-dugi" d="{{.DugiPut}}"/>{{end}}
   {{if .SrednjakPut}}<path class="uzd-srednjak" d="{{.SrednjakPut}}"/>{{end}}

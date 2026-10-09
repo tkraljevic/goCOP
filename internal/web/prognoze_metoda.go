@@ -496,6 +496,14 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"medijana satnih vodostaja mjeseca prije današnjeg jutra (iz arhive i očitanja). Nula stoji cijeli dan, " +
 				"kao i jutarnja crta. Prema zadnjem mjesecu mirna voda je ravna crta, a val se vidi kao brijeg koji " +
 				"putuje nizvodno."),
+			tekstM("Nula se računa iz istih dana na svim letvama jednog toka. Letva čiji niz počinje kasnije inače bi " +
+				"imala nulu samo iz niske vode, a letva s cijelim mjesecom i iz ranijeg vala, pa bi na mirnoj vodi " +
+				"izgledala propalo. Zato natpis nule kaže od kada je, dok zajednički niz još nije mjesec dana. " +
+				"S profila ispada letva čije mjerilo najmanje šest dana stoji unutar centimetra dok se susjedna letva " +
+				"pomakne barem 20 cm (na rekordno niskoj vodi 2026. voda je pala ispod mjerila Sige i Petreša), " +
+				"i letva koja nakon prekida mjerenja duljeg od dva dana nastavi više od 10 cm niže ili više: nula joj se " +
+				"računa samo od prekida, a do 14 dana novih mjerenja ne crta se. Ispod crteža piše koje su letve " +
+				"izostavljene i zašto."),
 			tekstM("Zašto ne dugogodišnja uobičajena voda: na maloj vodi svaka letva padne ispod svojeg višegodišnjeg " +
 				"medijana za drukčiji iznos, jer je korito posvuda drukčije — prag drži vodu uzvodno od sebe, a usko " +
 				"korito spušta vodostaj više od širokog. Razlika Mohovo − " +
